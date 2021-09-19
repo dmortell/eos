@@ -6,15 +6,14 @@ const dev = mode === "development";
 
 module.exports = {
 	mode: "aot",
-	future: { purgeLayersByDefault: true, removeDeprecatedGapUtilities: true, },
+	future: { purgeLayersByDefault: true, removeDeprecatedGapUtilities: true, standardFontWeights: true, defaultLineHeights: true,},
 	purge: {
-		enabled: !dev,		// todo disable purge in dev
+		enabled: !dev,		// disable purge in dev so we can access other css in devtools
 		content: [ "./src/**/*.{html,js,svelte,ts}", ],
 		options: {
+			keyframes: true,
 			defaultExtractor: (content) => [
-				// If this stops working, please open an issue at https://github.com/svelte-add/tailwindcss/issues rather than bothering Tailwind Labs about it
 				...tailwindExtractor(content),
-				// Match Svelte class: directives (https://github.com/tailwindlabs/tailwindcss/discussions/1731)
 				...[...content.matchAll(/(?:class:)*([\w\d-/:%.]+)/gm)].map(([_match, group, ..._rest]) => group),
 			],
 		},

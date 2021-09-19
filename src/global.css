@@ -1,0 +1,48 @@
+.right  { text-align: right; }
+.center { text-align: center; }
+.middle { vertical-align: middle; }
+.bottom { vertical-align: bottom; }
+
+.green  { color: #38a169; }
+.blue   { color: #3182ce; }
+.pink   { color: #ed64a6; }
+.yellow { color: #ecc94b; }
+.grey   { color: #aaaaaa; }
+.olive  { color: #366E4B; }
+/* red: #ff3b30;
+green: #4cd964;
+blue: #2196f3;
+pink: #ff2d55;
+yellow: #ffcc00;
+orange: #ff9500;
+purple: #9c27b0;
+deeppurple: #673ab7;
+lightblue: #5ac8fa;
+teal: #009688;
+olive: #366E4B;	  //   olive: #474;
+lime: #cddc39;
+deeporange: #ff6b22;
+gray: #8e8e93;
+white: #ffffff;
+black: #000000; */
+
+@screen sm {
+	h1 { @apply max-w-none; }
+	p { @apply max-w-none; }
+	main { margin:2em; }
+}
+
+@media print {
+	.noprint { display: none !important; }
+	body { font-size: 12px; }
+	input, textarea, select { border: none; }
+	textarea { resize: none; }
+	/* ::-webkit-input-placeholder { color: transparent; } ::-moz-placeholder { color: transparent; } :-moz-placeholder { color: transparent; } :-ms-input-placeholder { color: transparent; } */
+}
+
+@media (prefers-reduced-motion: no-preference){
+	:focus {
+		outline-offset: 2px; transition: outline-offset .25s ease;
+		@apply ring-offset-2; transition: ring-offset .25s ease;
+	}
+}

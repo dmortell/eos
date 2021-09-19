@@ -3,30 +3,26 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "vite --port 3010",
-	"build": "vite build",
-    "serve": "vite preview",
-
-    "dev2": "concurrently \"vite --port 3010\" \"npm run watch:tailwind\"",
-    "dev3": "concurrently \"rollup -c -w\" \"npm run watch:tailwind\"",
-    "build2": "npm run build:tailwind && vite build",
-
-    "watch:tailwind": "postcss src/tailwind.css -o public/index.css -w",
-    "build:tailwind": "cross-env NODE_ENV=production postcss src/tailwind.css -o public/index.css"
+    "build": "vite build",
+    "serve": "vite preview"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^1.0.0-next.11",
     "autoprefixer": "^9.8.6",
+    "chota": "^0.8.0",
     "concurrently": "^6.2.1",
     "cross-env": "^7.0.3",
     "cssnano": "^5.0.8",
     "postcss-cli": "^7.1.2",
     "postcss-load-config": "^3.1.0",
     "svelte": "^3.37.0",
+    "svelte-chota": "^1.8.6",
     "svelte-preprocess": "^4.9.4",
     "tailwindcss": "npm:@tailwindcss/postcss7-compat@^2.2.14",
     "vite": "^2.5.4"
   },
   "dependencies": {
-    "firebase": "^9.0.2"
+    "firebase": "^9.0.2",
+    "svelte-click-outside": "^1.0.0"
   }
 }

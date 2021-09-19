@@ -3,4 +3,6 @@
 /.vscode/
 /public/cmaps/
 /public/pdfjs/
+/src/unused/
 .DS_Store
+.vercel

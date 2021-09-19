@@ -5,7 +5,7 @@ export default defineConfig({
 	server: {
 		fs: { strict: false, },			// turn off "Unrestricted file system access" warnings
 	},
-	base: '/eire-eos/dist/',
+	// base: '/eire-eos/dist/',
 	// root: './',
 	// publicDir: path.resolve(__dirname, 'public'),
 	// build: {
@@ -16,7 +16,8 @@ export default defineConfig({
 	resolve: {
 		alias: {						// Must also add these paths to compilerOptions in jsconfig.json for VSCode
 			$js: path.resolve('./src/js'),
-			$lib: path.resolve('./src/lib')
+			$lib: path.resolve('./src/lib'),
+			$pages: path.resolve('./src/pages'),
 		}
 	},
 	plugins: [svelte()]

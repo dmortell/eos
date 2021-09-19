@@ -22,6 +22,7 @@
     "baseUrl": ".",
 	"paths":{
 		"$js/*": 	["src/js/*"],
+		"$pages/*":	["src/pages/*"],
 		"$lib/*":	["src/lib/*"]
 	},
     /**
@@ -34,6 +35,6 @@
    * Use global.d.ts instead of compilerOptions.types
    * to avoid limiting type declarations.
    */
-   "exclude": ["node_modules",  "dist"],
+   "exclude": ["node_modules/*",  "dist/*", "src/unused/*"],
    "include": ["src/**/*.d.ts", "src/**/*.js", "src/**/*.svelte"]
 }
