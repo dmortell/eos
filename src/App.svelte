@@ -1,23 +1,16 @@
 <script>
   import logo from './assets/svelte.png'
   import Counter from './lib/Counter.svelte'
+  var name="Robert"
 </script>
 
 <main>
   <img src={logo} alt="Svelte Logo" />
   <h1>Hello world!</h1>
 
-  <Counter />
+  <h1 class="py-8 px-4 border border-red-900 shadow-lg">Hello {name}!</h1>
+  <p>Visit the <a href="https://svelte.dev/tutorial">Svelte tutorial</a> to learn how to build Svelte apps.</p>
 
-  <p>
-    Visit <a href="https://svelte.dev">svelte.dev</a> to learn how to build Svelte
-    apps.
-  </p>
-
-  <p>
-    Check out <a href="https://github.com/sveltejs/kit#readme">SvelteKit</a> for
-    the officially supported framework, also powered by Vite!
-  </p>
 </main>
 
 <style>
@@ -36,7 +29,7 @@
     height: 16rem;
     width: 16rem;
   }
-
+/*
   h1 {
     color: #ff3e00;
     text-transform: uppercase;
@@ -45,7 +38,7 @@
     line-height: 1.1;
     margin: 2rem auto;
     max-width: 14rem;
-  }
+  } */
 
   p {
     max-width: 14rem;

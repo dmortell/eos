@@ -1,4 +1,6 @@
 /node_modules/
 /dist/
 /.vscode/
+/public/cmaps/
+/public/pdfjs/
 .DS_Store

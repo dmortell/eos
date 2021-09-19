@@ -2,6 +2,28 @@
 
 This template should help get you started developing with Svelte in Vite.
 
+
+npm install tailwindcss@npm:@tailwindcss/postcss7-compat postcss@^7 autoprefixer@^9
+npm install tailwindcss@npm:@tailwindcss/postcss7-compat postcss-cli@^7 autoprefixer@^9 concurrently cross-env --save-dev
+<!-- Add cssnano for further compression of css -->
+
+## Initial build size
+
+```
+> npm vite build
+
+vite v2.5.10 building for production...
+✓ 9 modules transformed.
+dist/assets/svelte.d72399d3.png   5.06 KiB
+dist/index.html                   0.49 KiB
+dist/assets/index.36259e27.css    0.87 KiB / brotli: 0.39 KiB
+dist/assets/index.1caec9c3.js     2.14 KiB / brotli: 0.94 KiB
+dist/assets/vendor.76e3af60.js    3.11 KiB / brotli: 1.30 KiB
+PS F:\WebSrv\xampp-5.6\htdocs\eire-eos>
+```
+
+todo: restore "checkJs": true in jsconfig.json
+
 ## Recommended IDE Setup
 
 [VSCode](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode).
