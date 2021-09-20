@@ -24,6 +24,8 @@
 		display: flex;
 		justify-content: space-between;
 		box-sizing: border-box;
+		border-bottom: 1px #d1d1d180 solid;
+		padding: 8px 0;
 	}
 	/* .item-cell {
     display: block;

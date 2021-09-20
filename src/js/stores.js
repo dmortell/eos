@@ -296,6 +296,18 @@ export const work_types = readable([
 	{type:'sick',			name:'Sick'},
 	{type:'other_leave',	name:'Other leave'},
 ])
+export const contracts = readable([
+	{type:'normal', 		name:'Normal Contract'},
+	{type:'type A', 		name:'Contract type A'},
+	{type:'type B', 		name:'Contract type B'},
+	{type:'type C', 		name:'Contract type C'},
+])
+export const roles = readable([
+	{type:'payroll', 	name:'Payroll'},
+	{type:'user', 		name:'Staff'},
+	{type:'admin', 		name:'Admin'},
+	{type:'management',	name:'Management'},
+])
 export const holidays = readable(keyValues('date','name',[
 	{date:"2019-01-01", name:"New Year's Day"},
 	{date:"2019-01-02", name:"EIRE Office Closed"},

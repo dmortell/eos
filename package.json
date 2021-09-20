@@ -22,11 +22,13 @@
     "vite": "^2.5.4"
   },
   "notes": {
-	"firebase": "^9.0.2"
+    "firebase": "upgraded to ^9.0.2",
+    "svelte-preprocess": "delegates the parsing to a sub-processor, like Typescript, PostCSS, Less or Pug"
   },
   "dependencies": {
     "@mdi/js": "^6.1.95",
     "firebase": "^9.0.2",
+    "svelte-asyncable": "^2.0.4",
     "svelte-click-outside": "^1.0.0"
   }
 }

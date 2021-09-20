@@ -1,17 +1,35 @@
-import { bubble, listen } from 'svelte/internal';
+import {bubble, listen, get_current_component} from 'svelte/internal';
+// import { bubble, listen } from 'svelte/internal';
 
-export function getEventsAction(component) {
-	return (node) => {
-		const events = Object.keys(component.$$.callbacks);
-		const listeners = [];
-		events.forEach((event) => listeners.push(listen(node, event, (e) => bubble(component, e))));
-		return {
-			destroy: () => {
-				listeners.forEach((listener) => listener());
-			},
-		};
-	};
+export function isArray(obj) {
+    return Object.prototype.toString.call(obj) === '[object Array]'
 }
+
+export function getEventsAction(comp) {
+    const component = comp ?? get_current_component();
+    return node => {
+      const events = Object.keys(component.$$.callbacks);
+      const listeners = [];
+      events.forEach( event => listeners.push( listen(node, event, e =>  bubble(component, e)) ) );
+      return {
+        destroy: () => {
+            listeners.forEach( listener => listener() );
+        }
+      }
+    };
+}
+// export function getEventsAction(component) {
+// 	return (node) => {
+// 		const events = Object.keys(component.$$.callbacks);
+// 		const listeners = [];
+// 		events.forEach((event) => listeners.push(listen(node, event, (e) => bubble(component, e))));
+// 		return {
+// 			destroy: () => {
+// 				listeners.forEach((listener) => listener());
+// 			},
+// 		};
+// 	};
+// }
 
 function selectOnFocus(node) {		// usage: <input use:selectOnFocus />
 	if (node && typeof node.select === 'function' ) {               // make sure node is defined and has a select() method

@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite'		// see // https://vitejs.dev/config/
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import path from 'path'
+//import preprocess from 'svelte-preprocess';
+
 export default defineConfig({
 	server: {
 		fs: { strict: false, },			// turn off "Unrestricted file system access" warnings
@@ -13,6 +15,7 @@ export default defineConfig({
 	// 	assetsInlineLimit: 0,
 	// 	emptyOutDir: true,
 	// },
+	//rollupDedupe: ['svelte'],
 	resolve: {
 		alias: {						// Must also add these paths to compilerOptions in jsconfig.json for VSCode
 			$js: path.resolve('./src/js'),
@@ -20,5 +23,9 @@ export default defineConfig({
 			$pages: path.resolve('./src/pages'),
 		}
 	},
+	//rollupdedupe: ['svelte'],
+
+	//plugins: [svelte({ preprocess: preprocess() })],						// to parse ts, postcss, less, pug files
+	//plugins: [svelte({ preprocess: preprocess({ postcss: true }) })],		// to parse ts, postcss, less, pug files
 	plugins: [svelte()]
 })

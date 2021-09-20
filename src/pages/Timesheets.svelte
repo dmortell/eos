@@ -6,8 +6,8 @@
 	import UserList from '$lib/UserList.svelte'
 	import UserDetails from '$lib/UserDetails.svelte'
 	import Alert from "$lib/Alert.svelte"
-	import {Nav,Card, Container, Icon, Input,Button} from 'svelte-chota';
-	import {mdiHome, mdiDelete,mdiAccountPlus,mdiSend } from '@mdi/js'
+	import {Nav,Card, Container, Icon, Field, Input,Button} from 'svelte-chota';
+	import {mdiHome,mdiMagnify, mdiDelete,mdiAccountPlus,mdiSend } from '@mdi/js'
 	import {loading, users, session, times, sheets, cleanup, alert} from '$js/stores'
 	export let open = false;
 
@@ -63,6 +63,11 @@
     <!-- <a slot="center" href="/" class="brand">LOGO</a> -->
 </Nav>
 
+<Field gapless>
+    <Input placeholder="Search users"/>
+    <Button icon={mdiMagnify} primary/>
+</Field>
+
 <SidePanel bind:visible={open} left>
 	<h2>Side panel</h2>
 	<p>text goes here</p>
@@ -76,7 +81,9 @@
 		<Button>Edit settings</Button>
 	</ListItem> -->
 
-	Welcome {$session.user.displayName}
+	<h1>
+		Welcome {$session.user.displayName}
+	</h1>
 
 	<UserList on:click={selectUser} />
 	<UserDetails {user}/>
@@ -115,8 +122,11 @@
 	</Block>
 </Page> -->
 
-<style>
 
+<style lang="postcss">
+  h1 {
+    @apply text-5xl font-semibold;
+  }
 
 :global(.nav){
     /* pointer-events: none;

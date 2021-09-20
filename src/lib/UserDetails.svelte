@@ -1,8 +1,11 @@
 <script>
-	// import {onMount, tick} from 'svelte'
-	import {Nav,Card, Container, Details, Icon, Input,Button} from 'svelte-chota';
+	import {onMount, tick} from 'svelte'
+	import { fade } from 'svelte/transition'
 	// import {loading, users, session, times, sheets, cleanup, alert, } from '$js/stores'
-	// // import {loading, users, session, times, sheets, cleanup, alert, dispatch} from '$js/stores'
+	import {mdiHeart,mdiRepeat, mdiReply, mdiPencil, mdiContentSave, mdiCancel, mdiClose} from '@mdi/js'
+	import {Nav,Card, Container, Details, Icon, Input,Button} from 'svelte-chota';
+	import { asyncable } from 'svelte-asyncable';
+	import {users, contracts, roles} from '$js/stores'
 	import {parseEntry, optional, plural, format, calcHours} from "$js/formatter";
 	import ListItem from "$lib/ListItem.svelte"
 	import ListInput from "$lib/ListInput.svelte"
@@ -38,13 +41,19 @@
 
 	const items =[
 		// {name: 'name',	label:'', },
-		{name: 'start',			label:'Start time', },
-		{name: 'finish',		label:'Finish time', },
-		{name: 'breaks',		label:'Breaks (hours)', fmt:'hours'},
-		{name: 'contract',		label:'Contract', },
-		{name: 'role',			label:'Role', },
-		{name: 'carry_over',	label:'Carry over', 	value:5		},
-		{name: 'entitlement',	label:'Entitlement',	value:20 	},
+		{name: 'test',	label:'testing', },
+		{name: 'start',			label:'Start time', 	type:'time',	def:'09:00'},
+		{name: 'finish',		label:'Finish time', 	type:'time',	def:'18:00'},
+		{name: 'breaks',		label:'Breaks (hours)', type:'number',	def:1,		fmt:'hours'},
+		{name: 'start_date',	label:'Start date', 	type:'date'},
+		{name: 'finish_date',	label:'Finish date', 	type:'date'},
+		{name: 'email',			label:'Email', 			type:'email'},		// todo remove this
+		{name: 'tel',			label:'Contact Tel', 	type:'tel'},		// todo remove this
+		{name: 'photoURL',		label:'Photo URL', 		type:'url'},		// todo remove this
+		{name: 'contract',		label:'Contract', 		type:'select',	options: $contracts},
+		{name: 'role',			label:'Role',			type:'select',	options: $roles },
+		{name: 'carry_over',	label:'Carry over', 	},
+		{name: 'entitlement',	label:'Entitlement',	},
 		{name: 'paid_leave',	label:'Paid leave',		 },
 		{name: 'sick_leave',	label:'Sick leave',		 },
 		{name: 'special_leave',	label:'Special leave',	 },
@@ -55,6 +64,180 @@
 	]
 
 	var editing = true
+	var ctr = 0
+	// var doc = null, _doc = null
+	const cons = {}
+
+	$: console.log('details.userlist',$users)
+
+
+
+// {#await $user}
+//   <p>Loading user...</p>
+// {:then user}
+//   <b>{user.firstName}</b>
+// {:catch err}
+//   <mark>User failed.</mark>
+// {/await}
+
+//   import { user } from './store.js';
+
+// const posts = asyncable(
+// 	async ($path, $query) => {
+// 		if ($path.toString() === '/posts') {
+// 			const res = await fetch(`/posts?page=${$query.params.page || 1}`);
+// 			return res.json();
+// 		}
+// 	},
+// 	null,
+// 	[ path, query ]			// an asyncable store may depend on other stores. These values will be available to the getter
+// );
+
+
+// const tags = asyncable(fetchTags, null);		// Read-only asyncable store
+
+// tags.subscribe(async $tags => {
+//   console.log('tags changed', await $tags); // will never triggered
+// });
+
+// // changes won't actually be applied
+// tags.update($tags => {
+//   $tags.push('new tag');
+//   return $tags;
+// });
+
+	const doc = asyncable(
+		async () => {
+			// const res = await fetch('/user/me');
+			// return res.json();
+			const res = await users.collection().doc(user.id);
+			return res;
+		},
+		async ($new, $old) => {
+			var dirty = false
+
+			items.forEach(item=>{
+				const key = item.name
+				if ($old[key]===undefined && ($new[key]===undefined || $new[key]==='')){}
+				else if ($old[key]!==$new[key]){
+					console.log('changed',key, $old[key],$new[key])
+					dirty = true
+				}
+			})
+			if (dirty){
+				console.log('sending to firebase', $old.id, $new)
+				// await users.update($new, $old.id, (res,err)=>console.log('updated',$old,$new,id,res,err))
+			} else console.log('unchanged')
+			// await users.update($new,$old.id,(res,err)=>console.log('updated',$old,$new,id,res,err))
+
+			// const old = $users.find(d=>d.id===user.id)
+
+			// if ($newValue.email !== $prevValue.email) {
+			// 	throw new Error('Email cannot be modified.');
+			// }
+			// await saveUser($newValue);
+
+			// await fetch('/user/me', {
+			// 	method: 'PUT',
+			// 	body: JSON.stringify($newValue)
+			// })
+		}
+	);
+
+
+	async function saveUser(e){
+		console.log('saving')
+		// editing=false
+
+		const userStore = await doc.get();			// a point in time copy of the promise in the store
+		console.log('userstore',userStore)
+
+		// the doc can be updated by field or by using user.set(user);
+		// doc.set(user);
+		doc.update($user => {
+			// $user.visits++;
+			// items.forEach(item=>{
+			// 	const key = item.name
+			// 	if (user[key]!==undefined && user[key]!==old[key]){
+			// 		console.log('updated',key, old[key],user[key])
+			// 	}
+			// })
+			console.log('$user',$user)
+			const data = $user.data()
+			// $user.test = "test1"
+			// $user.breaks++
+			console.log({data})
+			return $user;
+		});
+
+
+		// const old = $users.find(d=>d.id===user.id)
+		// items.forEach(item=>{
+		// 	const key = item.name
+		// 	if (user[key]!==undefined && user[key]!==old[key]){
+		// 		console.log('updated',key, old[key],user[key])
+		// 	}
+		// })
+	}
+
+	//two methods to access the stored promise, subscribe and get
+	// const userStore = await user.get();			// a point in time copy of the promise in the store
+	doc.subscribe(async userStore => {
+		// console.log('details.onmount.firebase.user', await userStore); // will be printed after each side-effect
+		const res = await userStore
+		console.log('details.onmount.firebase.user', res); // will be printed after each side-effect
+	});
+
+	// the doc can be updated by field or by using user.set(user);
+	// user.update($user => {
+	// 	$user.visits++;
+	// 	return $user;
+	// });
+
+
+	onMount(()=>{
+		//cons.users  = users.connect(users.collection().orderBy("email", "asc"), onUsersUpdate)
+		// return ()=>{ cleanup() }
+		// doc = asyncable(async () => {
+		// 	// const res = await fetch('/user/me');
+		// 	// return res.json();
+		// 	const res = await collection().doc(user.id);
+		// 	return res;
+		// },
+		// async ($newValue, $prevValue) => {
+		// 	await fetch('/user/me', {
+		// 		method: 'PUT',
+		// 		body: JSON.stringify($newValue)
+		// 	})
+		// }
+
+		// );
+		// doc.subscribe(async userStore => {
+		// 	console.log('details.onmount.firebase.user', await userStore); // will be printed after each side-effect
+		// });
+		// const userStore = await user.get();			// a point in time copy of the promise in the store
+	})
+
+	async function updateUser() {
+		user.photoURL = null
+		const person = (await (await fetch('https://randomuser.me/api/')).json()).results[0]
+		user.photoURL = person.picture.thumbnail //+ '?ctr=' + ctr++
+		user = user
+		// cell: "0170-2727173"
+		// dob: {date: '1979-04-11T22:51:09.501Z', age: 42}
+		// email: "karl-dieter.preuss@example.com"
+		// gender: "male"
+		// id: {name: '', value: null}
+		// location: {street: {…}, city: 'Kreuztal', state: 'Thüringen', country: 'Germany', postcode: 57206, …}
+		// login: {uuid: '9a4a47f8-3aed-4b34-bb5d-7aa8d1a38cad', username: 'goldensnake513', password: 'private1', salt: 'mM52TppS', md5: 'aea1cdc2536a5c9d4648c24d43b6fa2e', …}
+		// name: {title: 'Mr', first: 'Karl-Dieter', last: 'Preuß'}
+		// nat: "DE"
+		// phone: "0816-2576830"
+		// picture: {large: 'https://randomuser.me/api/portraits/men/50.jpg',
+		// medium: 'https://randomuser.me/api/portraits/med/men/50.jpg',
+		// thumbnail: 'https://randomuser.me/api/portraits/thumb/men/50.jpg'}
+		// console.log(user.photoURL)
+	}
 
 </script>
 
@@ -67,19 +250,65 @@
 </Container>
 <Alert/> -->
 
+<!-- For user details, see https://c0bra.github.io/svelma/bulma/media -->
+
 <!-- <TimeSummary /> -->
 <Container>
 	<Details open>
-		<span slot="summary">
-			<div>{user.displayName}</div>
+		<div slot="summary">
+			{user.displayName}
+		</div>
 
-		</span>
+			<figure class="image is-64x64">
+				{#if user?.photoURL}<img transition:fade class="is-rounded" src={user.photoURL} alt="Avatar" />{/if}
+			  </figure>
+			<button class="button is-primary" on:click={updateUser}>Fetch New Photo</button>
+
+xxx
+
+		{#if user}
+        <nav class="level is-mobile" transition:fade>
+          <div class="level-left">
+            <a href class="level-item" aria-label="reply">
+				<span class="icon is-small2">
+				  <Icon src={mdiReply}/>
+              </span>
+            </a>
+            <a href class="level-item" aria-label="retweet">
+				<span class="icon is-small2">
+					<Icon src={mdiRepeat} class="icon2" />
+              </span>
+            </a>
+            <a href class="level-item" aria-label="like">
+              <span class="icon is-small2">
+				<Icon src={mdiHeart}/>
+              </span>
+            </a>
+          </div>
+        </nav>
+      {/if}
 
 		<a href="mailto:{user.email}">{user.email}</a>
 
+		{#if editing}
+		<Button secondary icon={mdiClose} on:click={e=>editing=false}>Close</Button>
+		<Button primary icon={mdiContentSave} on:click={saveUser}>Save</Button>
+		{:else}
+			<Button primary icon={mdiPencil} on:click={e=>editing=true} outline>Edit</Button>
+		{/if}
+
 		{#each items as item}
 			{#if editing}
-				<ListInput title={item.label} after={format(user[item.name], item.fmt)} />
+				<ListInput label={item.label} name={item.name} value={user[item.name] ?? item.def} type={item.type ?? 'text'} options={item.options}
+				/>
+				<!-- on:blur={console.log}
+				on:input={console.log}
+				on:change={console.log}
+				on:inputClear={console.log} -->
+
+				<!-- on:focus on:blur on:input on:change on:inputClear on:textareaResize on:inputEmpty on:inputNotEmpty
+				on:CalendarChange on:colorPickerChange on:textEditorChange -->
+
 			{:else}
 				{#if user[item.name] !== undefined}
 					<ListItem title={item.label} after={format(user[item.name], item.fmt)} />
