@@ -30,14 +30,14 @@ export function setFormat(fmt, settings, formatter){		// console.log('set format
 setFormat("number", { style: "decimal", zero:'0' });
 setFormat('short',{},val=>{		// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat
 	const d = new Date(val)
-	// return new Intl.DateTimeFormat('default', { weekday:'short', day:'numeric' }).format(d)
 	const wd = new Intl.DateTimeFormat('en', { weekday:'short' }).format(d)
-	const ye = new Intl.DateTimeFormat('en', { year: 'numeric' }).format(d)
-	const mo = new Intl.DateTimeFormat('en', { month: 'short' }).format(d)
 	const da = new Intl.DateTimeFormat('en', { day: 'numeric' }).format(d)
+	return `${da} ${wd}`;
+	// const ye = new Intl.DateTimeFormat('en', { year: 'numeric' }).format(d)
+	// const mo = new Intl.DateTimeFormat('en', { month: 'short' }).format(d)
+	// return new Intl.DateTimeFormat('default', { weekday:'short', day:'numeric' }).format(d)
 	// const da = new Intl.DateTimeFormat('en', { day: '2-digit' }).format(d)
 	// console.log(`${da}-${mo}-${ye}`)
-	return `${da} ${wd}`;
 })
 setFormat('month',{},val=>{		// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat
 	const d = new Date(val)
@@ -45,13 +45,14 @@ setFormat('month',{},val=>{		// https://developer.mozilla.org/en-US/docs/Web/Jav
 	const mo = new Intl.DateTimeFormat('en', { month: 'short' }).format(d)
 	return `${mo} ${ye}`;
 })
-
+setFormat('hours',{},val=>plural(val,'hr'))
+setFormat('days',{},val=>plural(val,'day'))
+setFormat("text", { style: null }, val => val ?? "" );
 // setFormat("price", { style: "decimal", zero:'0' });
 // setFormat("margin", { style: "decimal", zero:'0' });
 // setFormat("decimal_0", { style: "decimal", zero:'0' });
 // setFormat("decimal_dash", { style: "decimal", zero:'-' });
 // setFormat("currency", { style: "currency" });
-// setFormat("text", { style: null }, val=> val===undefined ? "" : val );
 // setFormat("date", {}, val => val===undefined ? "" : val.substring(5,10) );
 
 function formatNumber(val, options){

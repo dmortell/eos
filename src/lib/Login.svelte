@@ -1,28 +1,29 @@
 <script>
-	import {Block, Button, Icon, Navbar, Page, Row, Col} from 'framework7-svelte'
+	// import {Block, Button, Icon, Navbar, Page, Row, Col} from 'framework7-svelte'
+	import {Row, Col, Button} from 'svelte-chota'
 	import {session, alert} from '$js/stores'
 	import Alert from '$lib/Alert.svelte'
 
 	const login = () => {
 		$alert = "logging in"
-		session.signin((result, err)=>{
-			if (err){
-				console.log(err)
-				console.log(err.qa)
-				$alert = "Signin error"
-			}
-		})		// callback, provider='microsoft.com', options={}
-		// session.microsoftSignin()
+		// session.signin((result, err)=>{
+		// 	if (err){
+		// 		console.log(err)
+		// 		console.log(err.qa)
+		// 		$alert = "Signin error"
+		// 	}
+		// })		// callback, provider='microsoft.com', options={}
+		session.microsoftSignin(true)
 	}
 	//https://preview.colorlib.com/theme/bootstrap/login-form-05/
 </script>
-<Page>
+<!-- <Page> -->
 	<div class="container-login100">
 		<div class="wrap-login100">
 			<div class="login100-form-title" style="background-image: url(https://colorlib.com/etc/lf/Login_v15/images/bg-01.jpg);">
 				<span class="login100-form-title-1">Sign In</span>
 			</div>
-			<Block></Block>
+			<!-- <Block></Block> -->
 			<div class="login100-logo">
 				<img src="/logo.gif" alt="Eire Logo"/>
 			</div>
@@ -43,7 +44,7 @@
 	</div>
 
 	<Alert />
-</Page>
+<!-- </Page> -->
 
 <style>
 .container-login100 {
@@ -55,11 +56,15 @@
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    align-items: center;
+    /* align-items: center; */
     background: #ebeeef;
 }
 .wrap-login100 {
     max-width: 670px;
+    /* max-height: 100%; */
+	height: auto;
+	/* margin-top:48px; */
+	margin:48px auto;
     background: #fff;
     border-radius: 10px;
     overflow: hidden;

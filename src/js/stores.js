@@ -1,15 +1,24 @@
 import { writable, readable, derived } from 'svelte/store';
-import { createStore } from 'framework7/lite';
-import firebase from 'firebase'			// todo try Supabase instead of firebase https://supabase.io/database
+// import { createStore } from 'framework7/lite';
+// import firebase from 'firebase'			// todo try Supabase instead of firebase https://supabase.io/database
+// import { initializeApp } from 'firebase/app';
+
+// v9 compat packages are API compatible with v8 code
+import firebase from 'firebase/compat/app';				// todo upgrade from firebase-compat v8 to v9
+import 'firebase/compat/auth';							// see https://firebase.google.com/docs/web/modular-upgrade
+import 'firebase/compat/firestore';
+
+	// import { createEventDispatcher } from 'svelte';
+	// export const dispatch = createEventDispatcher();
 
 export const loading = writable({login:false})
 // export const users = writable([])
 export const alert = writable('')
-export const store = createStore({	// Framework7 store
-	state: {},
-	getters: {},					// use getters for reactivity (see stores-f7.js)
-	actions: {},
-})
+// export const store = createStore({	// Framework7 store
+// 	state: {},
+// 	getters: {},					// use getters for reactivity (see stores-f7.js)
+// 	actions: {},
+// })
 
 // export const writable = (initial_value = 0) => {
 // 	let value = initial_value         // content of the store
@@ -98,6 +107,13 @@ var firebaseConfig = {
 	messagingSenderId: "699730861576",
 };
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+// const firebase = {}
+// const app = initializeApp(firebaseConfig);
+// if (!firebase){
+// 	const app = initializeApp(firebaseConfig);
+// 	firebase.firestore = getFirestore(app);
+// 	// const db = getFirestore(app);
+// }
 
 async function clearCookiesOnServer(csrf){
 	await fetch('/auth/clear_cookies', { method: 'POST', body: JSON.stringify({csrf}), headers: {'Accept':'application/json', 'Content-Type':'application/json'}, })

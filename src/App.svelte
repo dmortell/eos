@@ -1,6 +1,7 @@
 <script>
-
-import Timesheets from "./pages/Timesheets.svelte";
+import {session} from '$js/stores'
+import Timesheets from "./pages/Timesheets.svelte"
+import Login from '$lib/Login.svelte'
 // icons https://www.npmjs.com/package/@mdi/js
 // find them here https://materialdesignicons.com/
 
@@ -12,4 +13,19 @@ import Timesheets from "./pages/Timesheets.svelte";
 
 </script>
 
-<Timesheets/>
+{#if $session.user}
+	<Timesheets/>
+<!-- <Panel right cover resizable>
+	<View url="/panel-right/" />
+</Panel>
+<View main class="safe-areas" url="/" masterDetailBreakpoint={800} /> -->
+{:else if $session.loaded}
+	<Login/>
+<!-- <Login /> -->
+{:else}
+	Loading...
+<!-- <Page>
+	<Navbar title="Timesheets" />
+	<Block>Loading...</Block>
+</Page> -->
+{/if}

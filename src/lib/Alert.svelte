@@ -10,7 +10,7 @@
 		if (!message) visible = false               // hide Alert if message is empty
 		else {
 			visible = true                                              // show alert
-			if (ms > 0) timeout = setTimeout(() => visible = false, ms) // and hide it after ms milliseconds
+			if (ms > 0) timeout = setTimeout(() => {visible=false; $alert=""}, ms) // and hide it after ms milliseconds
 		}
 	}
 	$: onMessageChange($alert, ms)     				 // whenever the alert store or the ms props changes run onMessageChange

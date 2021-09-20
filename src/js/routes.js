@@ -1,7 +1,7 @@
 // import StoriesPage from '../pages/stories.svelte';
 // import StoryPage from '../pages/story.svelte';
 import HomePage from '../pages/Home.svelte';
-import PanelRight from '$lib/PanelRight.svelte';
+import PanelRight from 'src/unused/PanelRight.svelte';
 
 var routes = [
 	{ path: '/', component: HomePage, },
