@@ -1,3 +1,92 @@
+:root {
+	/* Chota Defaults Overrides */
+	--color-primary: #366E4B;
+	/*
+	--color-primary: #14854F;
+	--color-lightGrey: #d2d6dd;
+	--color-grey: #747681;
+	--color-darkGrey: #3f4144;
+	--color-error: #d43939;
+	--color-success: #28bd14;
+	--grid-maxWidth: 120rem;
+	--grid-gutter: 2rem;
+	--font-size: 1.6rem;
+	--font-family: "Helvetica Neue", sans-serif;
+	*/
+
+	/* Chota Utility classes:
+text-primary - Primary text
+text-light - Light text
+text-white - White text
+text-dark - Dark text
+text-grey - Grey text
+text-error - Error text
+text-success - Success text
+bg-primary - primary background
+bg-light - Light background
+bg-dark - Dark background
+bg-grey - Grey background
+bg-error - Error background
+bg-success - Success background
+bd-primary - primary border
+bd-light - Light border
+bd-dark - Dark border
+bd-grey - Grey border
+bd-error - Error border
+bd-success - Success border
+pull-right - floats an element to the right
+pull-left - floats an element to the left
+text-center - center aligns text
+text-left - left aligns text
+text-right - right aligns text
+text-justify - justify aligns text
+text-uppercase - text to uppercase
+text-lowercase - text to lowercase
+text-capitalize - capitalizes text
+is-full-screen - makes the element 100% view height
+is-full-width - make the element 100% width
+is-vertical-align - vertically centers element using flex
+is-horizontal-align - horizontal centers element using flex
+is-center - centers element using flex
+is-right - right aligns element using flex
+is-left - left aligns element using flex
+is-fixed - fixed positioned element
+is-paddingless - removes any padding
+is-marginless - removes any margin
+is-rounded - make the element round
+clearfix - clears the floats
+is-hidden - hides the element completely
+hide-xs - hides the element for screens <600px
+hide-sm - hides the element for screens >=600px and <900px
+hide-md - hides the element for screens >=900px and <1200px
+hide-lg - hides the element for screens >=1200px
+hide-pr - hides the element for printing
+	*/
+
+	/* --color-primary: red; */
+	/* --dark-primary: #1e1e1e;
+	--dark-secondary: #555b6e;
+	--light-primary: #eaeef1;
+	--light-secondary: #f7f7f2;
+	--bg-white: white;
+	--bg-blue: #003649;
+	--accent-red: #f4442e;
+	--accent-orange: #fca311;
+	--svelte-rgb: 255, 62, 0; */
+
+
+	/* #14854f */
+}
+
+body.dark {
+	--bg-color: #000;
+	--bg-secondary-color: #131316;
+	--font-color: #f5f5f5;
+	--color-grey: #ccc;
+	--color-darkGrey: #777;
+  }
+
+
 .right  { text-align: right; }
 .center { text-align: center; }
 .middle { vertical-align: middle; }
@@ -9,6 +98,8 @@
 .yellow { color: #ecc94b; }
 .grey   { color: #aaaaaa; }
 .olive  { color: #366E4B; }
+.primary{ color: green;	}
+
 /* red: #ff3b30;
 green: #4cd964;
 blue: #2196f3;

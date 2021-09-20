@@ -1,6 +1,8 @@
 <script>
-import 'chota';
+
 import Timesheets from "./pages/Timesheets.svelte";
+// icons https://www.npmjs.com/package/@mdi/js
+// find them here https://materialdesignicons.com/
 
 // function setTags({detail} ) {
 //     tag = detail.tag
@@ -8,22 +10,6 @@ import Timesheets from "./pages/Timesheets.svelte";
 //   }
 //   <Tags tags={$misc.tags} on:select={setTags} />
 
-// $: loading = saveState === "saving..."
-//   $: if (loading) {
-//     icon = faSyncAlt
-//   } else if (editing) {
-//     icon = faTimes
-//   } else {
-//     icon = faEdit
-//   }
-
 </script>
 
-  <Timesheets/>
-
-<!--
-<style global style lang="postcss">
-  @tailwind base;
-  @tailwind components;
-  @tailwind utilities;
-</style> -->
+<Timesheets/>
