@@ -123,11 +123,12 @@ async function sendTokenToServer(idToken, csrf){
 }
 
 function createSession() {
-	let updateServer = false 	// POST user token to server?
+	let updateServer = false 	// set to true to POST user token to server
 	const { subscribe, set, update } = writable({user:null, loaded:false, loading:false,  token:''});
 
 	// see https://firebase.google.com/docs/auth/web/manage-users
 	firebase.auth().onAuthStateChanged(users => {				// onAuthStateChanged(callbackSuccess, callbackError);
+		// console.log('onAuthStateChanged',users)
 		const user = users ? users.providerData[0] : null;
 		const csrf = "csrf-FIX-LATER!"
 		if (users) users.getIdToken().then(token=>{				// available user properties https://firebase.google.com/docs/reference/js/firebase.User
@@ -187,24 +188,30 @@ async function saveUser(user){			// called on session user change. Add new users
 	const res = await ref.set({
 		displayName: user.displayName,
 		email: user.email,
-		providerId: user.providerId,
 		uid: user.uid,
-		start:'09:00',
-		finish:'18:00',
-		breaks:1,
-		contract:'employee',
-		role:'user',
+		// providerId: user.providerId,
+		// start:'09:00',
+		// finish:'18:00',
+		// breaks:1,
+		// contract:'employee',
+		// role:'user',
 	}, {merge: true});
 	// Avatar url works only if logged in to outlook.office.com:
 	// https://outlook.office.com/owa/service.svc/s/GetPersonaPhoto?email=david.mortell@eiresystems.com&UA=0&size=HR64x64&sc=1468233338850
 }
 
 
+// For the web, offline persistence is disabled by default.
+// To enable persistence, call the enablePersistence method.
+// Cloud Firestore's cache isn't automatically cleared between sessions.
+// Consequently, if your web app handles sensitive information, make sure to ask the user if they're on a trusted device before enabling persistence.
+// https://firebase.google.com/docs/firestore/manage-data/enable-offline
+
 var unsubs = []
 export function cleanup(){ unsubs.map(unsub => unsub()) }
 
 function connectTable(table){
-	const { subscribe, set } = writable(null);
+	const { subscribe, set, update } = writable(null);
 	function collection(){	return firebase.firestore().collection(table.name) }
 	function snapshot(){
 		const unsub = collection().onSnapshot(data => set(value => data));
@@ -226,15 +233,20 @@ function connectTable(table){
 			unsubs[id] = collection.onSnapshot(snap => { onSnap(snap) }, err => console.error(err));
 			return id
 		},
-		update: (data,id=null,callback=e=>console.log('updated',data,id)) => {
-			if (id) collection().doc(id).update(data).then(callback)
+		update: (data,id=null,callback=e=>console.log('connectTable.updated',data,id)) => {
+			// if (id) collection().doc(id).update(data).then(callback)
+			if (id) collection().doc(id).set(data, {merge:true}).then(callback)
 			else collection().add(data).then(callback)		// 	if (batch)	batch.update(itemId, data)
+			// const cityRef = db.collection('cities').doc('BJ');
+			// const res = await cityRef.set({ capital: true }, { merge: true });
+
+			// update(val => { val.loading=true; return val; })
 		},
 		// edit: (data,id=null,callback=e=>console.log('updated',data,id)) => {
 		// 	if (id) collection().doc(id).update(data).then(callback)
 		// 	else collection().add(data).then(callback)		// 	if (batch)	batch.update(itemId, data)
 		// },
-		delete: (id,callback = e=>console.log('deleted',id)) => {
+		delete: (id,callback = e=>console.log('connectTable.deleted',id)) => {
 			collection().doc(id).delete().then(callback)
 		},
 	};

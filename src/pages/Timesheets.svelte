@@ -1,4 +1,5 @@
 <script>
+	import {onMount, tick} from 'svelte'
 	// import Page from '$lib/Page.svelte'
 	// import Block from '$lib/Block.svelte'
 	import Hamburger from '$lib/Hamburger.svelte'
@@ -16,7 +17,7 @@
 	var days = []
 	var totals											// total hrs, a,b,c,d for this month
 	var popups = {entry:false}							// popup open/closed flags
-	var user = {}										// currently selected user (admins can select other users)
+	var user = $session.user							// currently selected user (admins can select other users)
 	var sheet = {}										// timesheet details for currently selected month
 	var entry={}										// currently editing time entry
 	let findStaff = ''									// searchbar input
@@ -27,28 +28,38 @@
 	var _users = []										// all users (realtime snapshot)
 	var cons = {}										// firebase snapshot connection ids for reconnecting and cleanup
 
-	$: console.log($session)
+	$: console.log('session',$session)
+	// $: {
+	// 	user = _users.find(u => u.email==$session.user.email) ?? {}
+	// 	console.log('user set on session',user.email, user.displayName, user.uid, _users)
+	// }
 
-	// let month = new Date().toISOString().substr(0,7);	//"2021-08"
-	// let cons = {}
-	// let _users = []
+
+onMount(() => {
 	cons.users  = users.connect(users.collection().orderBy("email", "asc"), onUsersUpdate)
+	// connectUser();
+	return ()=>{ cleanup() }
+});
+function onUsersUpdate(snap){
+	_users = snap.docs.filter(q=>{ return q.data().displayName>'' || q.data().handle=='newuser1' })		// todo remove newuser1 after testing
+	.map(d => { return {...d.data(), id:d.id} })
+	//todo id must be unique
 
-	function onUsersUpdate(snap){
-		_users = snap.docs.filter(q=>{ return q.data().displayName>'' || q.data().handle=='newuser1' })		// todo remove newuser1 after testing
-		.map(d => { return {id:d.id, displayName:d.data().name, ...d.data()} })
+	user = _users.find(u => u.email==user.email) ?? {}
+	console.log('user set on snapshot',user.email, user.displayName)
 
-		// todo update staff - test if editing standard times updates the user summary
-		// todo fix deletes
-		// todo add total days
-		// todo adding an entry in a new month doesnt update sheets list
-		user = _users.find(u => u)
-	}
-	function selectUser({detail}){
-		$alert="clicked";
-		console.log('clicked22', detail)
-		user = detail.detail
-	}
+	// todo update staff - test if editing standard times updates the user summary
+	// todo fix deletes
+	// todo add total days
+	// todo adding an entry in a new month doesnt update sheets list
+}
+
+
+function selectUser({detail}){
+	// $alert="clicked";
+	// console.log('clicked22', detail)
+	user = detail.person
+}
 
 </script>
 
@@ -68,7 +79,7 @@
     <Button icon={mdiMagnify} primary/>
 </Field>
 
-<SidePanel bind:visible={open} left>
+<SidePanel bind:visible={open} >
 	<h2>Side panel</h2>
 	<p>text goes here</p>
 </SidePanel>
@@ -85,7 +96,8 @@
 		Welcome {$session.user.displayName}
 	</h1>
 
-	<UserList on:click={selectUser} />
+	<UserList {_users} on:click={selectUser} />
+	<!-- <UserList on:click={selectUser} /> -->
 	<UserDetails {user}/>
 
 </Container>

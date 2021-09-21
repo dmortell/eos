@@ -15,13 +15,9 @@ import Login from '$lib/Login.svelte'
 
 {#if $session.user}
 	<Timesheets/>
-<!-- <Panel right cover resizable>
-	<View url="/panel-right/" />
-</Panel>
-<View main class="safe-areas" url="/" masterDetailBreakpoint={800} /> -->
+<!-- <View main class="safe-areas" url="/" masterDetailBreakpoint={800} /> -->
 {:else if $session.loaded}
 	<Login/>
-<!-- <Login /> -->
 {:else}
 	Loading...
 <!-- <Page>

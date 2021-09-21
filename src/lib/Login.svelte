@@ -29,6 +29,13 @@
 			</div>
 				<div class="login100-form">
 					<p>Single Sign On with your Office 365 work account.</p>
+
+      <!-- seperator -->
+      <div class="flex flex-row justify-center mb-8">
+        <span class="absolute bg-white px-4 text-gray-500">or sign-in with</span>
+        <div class="w-full bg-gray-200 mt-3 h-px"></div>
+      </div>
+	  
 					<Row>
 						<Col width=80>
 							Microsoft Authenticator is required on your smartphone if two-factor authentication is enabled.

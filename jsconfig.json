@@ -1,5 +1,8 @@
 {
   "compilerOptions": {
+	  /*
+	"noEmit": true,
+	added this to prevent 'source-map' not found error */
     "moduleResolution": "node",
     "target": "esnext",
     "module": "esnext",
@@ -22,8 +25,8 @@
     "baseUrl": ".",
 	"paths":{
 		"$js/*": 	["src/js/*"],
-		"$pages/*":	["src/pages/*"],
-		"$lib/*":	["src/lib/*"]
+		"$pages/*":	["./src/pages/*"],
+		"$lib/*":	["./src/lib/*"]
 	},
     /**
      * Typecheck JS in `.svelte` and `.js` files by default.

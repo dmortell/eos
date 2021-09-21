@@ -7,42 +7,27 @@
 	import { asyncable } from 'svelte-asyncable';
 	import {users, contracts, roles} from '$js/stores'
 	import {parseEntry, optional, plural, format, calcHours} from "$js/formatter";
+	import Avatar from "$lib/Avatar.svelte"
 	import ListItem from "$lib/ListItem.svelte"
 	import ListInput from "$lib/ListInput.svelte"
 	// import Alert from "$lib/Alert.svelte"
 	// import { createEventDispatcher } from 'svelte';
 	// export const dispatch = createEventDispatcher();
 	export var user
+	var editing = true
 
-	// // import {work_types} from '$js/stores'
-	// // export let entry, onClose
+	$: console.log('userdetails',user.email, user.displayName)
+	$: fields = copyFields(user)
 
-	// var _users = []										// all users (realtime snapshot)
-	// var cons = {}										// firebase snapshot connection ids for reconnecting and cleanup
-	$: console.log('userdetails',user)
-
-	// onMount(() => {
-	// 	cons.users  = users.connect(users.collection().orderBy("email", "asc"), onUsersUpdate)
-	// 	// connectUser();
-	// 	return ()=>{ cleanup() }
-	// });
-	// function onUsersUpdate(snap){
-	// 	_users = snap.docs.filter(q=>{ return q.data().displayName>'' || q.data().handle=='newuser1' })		// todo remove newuser1 after testing
-	// 	.map(d => { return {id:d.id, displayName:d.data().name, ...d.data()} })
-
-	// 	console.log(_users)
-
-	// 	// todo update staff - test if editing standard times updates the user summary
-	// 	// todo fix deletes
-	// 	// todo add total days
-	// 	// todo adding an entry in a new month doesnt update sheets list
-	// 	// user = _users.find(u => u)
-	// }
+	// todo update staff - test if editing standard times updates the user summary
+	// todo fix deletes
+	// todo add total days
+	// todo adding an entry in a new month doesnt update sheets list
 
 	const items =[
 		// {name: 'name',	label:'', },
 		{name: 'test',	label:'testing', },
-		{name: 'start',			label:'Start time', 	type:'time',	def:'09:00'},
+		{name: 'start',			label:'Start time', 	type:'time',	def:'07:30'},
 		{name: 'finish',		label:'Finish time', 	type:'time',	def:'18:00'},
 		{name: 'breaks',		label:'Breaks (hours)', type:'number',	def:1,		fmt:'hours'},
 		{name: 'start_date',	label:'Start date', 	type:'date'},
@@ -63,210 +48,67 @@
 		{name: 'remaining',		label:'Remaining',		 },
 	]
 
-	var editing = true
-	var ctr = 0
-	// var doc = null, _doc = null
-	const cons = {}
-
-	$: console.log('details.userlist',$users)
-
-
-
-// {#await $user}
-//   <p>Loading user...</p>
-// {:then user}
-//   <b>{user.firstName}</b>
-// {:catch err}
-//   <mark>User failed.</mark>
-// {/await}
-
-//   import { user } from './store.js';
-
-// const posts = asyncable(
-// 	async ($path, $query) => {
-// 		if ($path.toString() === '/posts') {
-// 			const res = await fetch(`/posts?page=${$query.params.page || 1}`);
-// 			return res.json();
-// 		}
-// 	},
-// 	null,
-// 	[ path, query ]			// an asyncable store may depend on other stores. These values will be available to the getter
-// );
-
-
-// const tags = asyncable(fetchTags, null);		// Read-only asyncable store
-
-// tags.subscribe(async $tags => {
-//   console.log('tags changed', await $tags); // will never triggered
-// });
-
-// // changes won't actually be applied
-// tags.update($tags => {
-//   $tags.push('new tag');
-//   return $tags;
-// });
-
-	const doc = asyncable(
-		async () => {
-			// const res = await fetch('/user/me');
-			// return res.json();
-			const res = await users.collection().doc(user.id);
-			return res;
-		},
-		async ($new, $old) => {
-			var dirty = false
-
-			items.forEach(item=>{
-				const key = item.name
-				if ($old[key]===undefined && ($new[key]===undefined || $new[key]==='')){}
-				else if ($old[key]!==$new[key]){
-					console.log('changed',key, $old[key],$new[key])
-					dirty = true
-				}
-			})
-			if (dirty){
-				console.log('sending to firebase', $old.id, $new)
-				// await users.update($new, $old.id, (res,err)=>console.log('updated',$old,$new,id,res,err))
-			} else console.log('unchanged')
-			// await users.update($new,$old.id,(res,err)=>console.log('updated',$old,$new,id,res,err))
-
-			// const old = $users.find(d=>d.id===user.id)
-
-			// if ($newValue.email !== $prevValue.email) {
-			// 	throw new Error('Email cannot be modified.');
-			// }
-			// await saveUser($newValue);
-
-			// await fetch('/user/me', {
-			// 	method: 'PUT',
-			// 	body: JSON.stringify($newValue)
-			// })
-		}
-	);
-
-
-	async function saveUser(e){
-		console.log('saving')
-		// editing=false
-
-		const userStore = await doc.get();			// a point in time copy of the promise in the store
-		console.log('userstore',userStore)
-
-		// the doc can be updated by field or by using user.set(user);
-		// doc.set(user);
-		doc.update($user => {
-			// $user.visits++;
-			// items.forEach(item=>{
-			// 	const key = item.name
-			// 	if (user[key]!==undefined && user[key]!==old[key]){
-			// 		console.log('updated',key, old[key],user[key])
-			// 	}
-			// })
-			console.log('$user',$user)
-			const data = $user.data()
-			// $user.test = "test1"
-			// $user.breaks++
-			console.log({data})
-			return $user;
-		});
-
-
-		// const old = $users.find(d=>d.id===user.id)
-		// items.forEach(item=>{
-		// 	const key = item.name
-		// 	if (user[key]!==undefined && user[key]!==old[key]){
-		// 		console.log('updated',key, old[key],user[key])
-		// 	}
-		// })
+	function copyFields(user){
+		const fields = {}
+		items.forEach(item=>{
+			const name = item.name
+			fields[name] = user[name] ?? item.def ?? ''
+		})
+		return fields
 	}
 
-	//two methods to access the stored promise, subscribe and get
-	// const userStore = await user.get();			// a point in time copy of the promise in the store
-	doc.subscribe(async userStore => {
-		// console.log('details.onmount.firebase.user', await userStore); // will be printed after each side-effect
-		const res = await userStore
-		console.log('details.onmount.firebase.user', res); // will be printed after each side-effect
-	});
+	function onChange({target}){
+		const {name, value} = target
+		console.log(name, value)
+		fields[name] = value
+	}
 
-	// the doc can be updated by field or by using user.set(user);
-	// user.update($user => {
-	// 	$user.visits++;
-	// 	return $user;
-	// });
+	async function saveUser(e){
+		var dirty = false
+		const data = {}
+		editing=false
 
+		items.forEach(item=>{
+			const name = item.name
+			if (user[name]===undefined && fields[name]===''){}
+			else if (user[name]!==fields[name]){
+				console.log('changed',name, user[name], fields[name])
+				data[name] = fields[name]
+				dirty = true
+			}
+		})
+		if (dirty){
+			console.log('sending to firebase', user.id, data)
+			await users.update(data, user.id, (res,err)=>console.log('updated',user,data,res,err))
+		} else console.log('unchanged')
+	}
 
-	onMount(()=>{
-		//cons.users  = users.connect(users.collection().orderBy("email", "asc"), onUsersUpdate)
-		// return ()=>{ cleanup() }
-		// doc = asyncable(async () => {
-		// 	// const res = await fetch('/user/me');
-		// 	// return res.json();
-		// 	const res = await collection().doc(user.id);
-		// 	return res;
-		// },
-		// async ($newValue, $prevValue) => {
-		// 	await fetch('/user/me', {
-		// 		method: 'PUT',
-		// 		body: JSON.stringify($newValue)
-		// 	})
-		// }
-
-		// );
-		// doc.subscribe(async userStore => {
-		// 	console.log('details.onmount.firebase.user', await userStore); // will be printed after each side-effect
-		// });
-		// const userStore = await user.get();			// a point in time copy of the promise in the store
-	})
-
-	async function updateUser() {
+	async function updatePhoto() {
 		user.photoURL = null
 		const person = (await (await fetch('https://randomuser.me/api/')).json()).results[0]
 		user.photoURL = person.picture.thumbnail //+ '?ctr=' + ctr++
 		user = user
-		// cell: "0170-2727173"
-		// dob: {date: '1979-04-11T22:51:09.501Z', age: 42}
-		// email: "karl-dieter.preuss@example.com"
-		// gender: "male"
-		// id: {name: '', value: null}
-		// location: {street: {…}, city: 'Kreuztal', state: 'Thüringen', country: 'Germany', postcode: 57206, …}
-		// login: {uuid: '9a4a47f8-3aed-4b34-bb5d-7aa8d1a38cad', username: 'goldensnake513', password: 'private1', salt: 'mM52TppS', md5: 'aea1cdc2536a5c9d4648c24d43b6fa2e', …}
-		// name: {title: 'Mr', first: 'Karl-Dieter', last: 'Preuß'}
-		// nat: "DE"
-		// phone: "0816-2576830"
-		// picture: {large: 'https://randomuser.me/api/portraits/men/50.jpg',
-		// medium: 'https://randomuser.me/api/portraits/med/men/50.jpg',
-		// thumbnail: 'https://randomuser.me/api/portraits/thumb/men/50.jpg'}
-		// console.log(user.photoURL)
 	}
 
 </script>
 
-<!-- <Container>
-	{#each _users as person (person.uid)}
-	<ListItem link detail={person} on:click={e=>dispatch('click',{detail:person})}>
-		<div > {person.displayName} {person.start}</div>
-	</ListItem>
-	{/each}
-</Container>
-<Alert/> -->
 
 <!-- For user details, see https://c0bra.github.io/svelma/bulma/media -->
 
 <!-- <TimeSummary /> -->
 <Container>
 	<Details open>
-		<div slot="summary">
+		<span slot="summary">
 			{user.displayName}
-		</div>
+		</span>
 
-			<figure class="image is-64x64">
+
+			<!-- <figure class="image is-64x64">
 				{#if user?.photoURL}<img transition:fade class="is-rounded" src={user.photoURL} alt="Avatar" />{/if}
-			  </figure>
-			<button class="button is-primary" on:click={updateUser}>Fetch New Photo</button>
+			  </figure> -->
+			<!-- <button class="button is-primary" on:click={updateUser}>Fetch New Photo</button> -->
 
-xxx
-
-		{#if user}
+		<!-- {#if user}
         <nav class="level is-mobile" transition:fade>
           <div class="level-left">
             <a href class="level-item" aria-label="reply">
@@ -286,24 +128,38 @@ xxx
             </a>
           </div>
         </nav>
-      {/if}
+      {/if} -->
 
-		<a href="mailto:{user.email}">{user.email}</a>
-
+	<div class="flex justify-between mb-2">
+		<div class="p-2 w-24">
+			<Avatar src={user?.photoURL} name={user.displayName} />
+		</div>
+		<div class="flex-auto w-32">
+			<div class="font-bold">{user.displayName}</div>
+			<a href="mailto:{user.email}">{user.email}</a>
+		</div>
 		{#if editing}
-		<Button secondary icon={mdiClose} on:click={e=>editing=false}>Close</Button>
-		<Button primary icon={mdiContentSave} on:click={saveUser}>Save</Button>
+			<div>
+				<Button primary icon={mdiContentSave} on:click={saveUser}>Save</Button>
+				<Button secondary icon={mdiClose} on:click={e=>editing=false}>Close</Button>
+			</div>
 		{:else}
 			<Button primary icon={mdiPencil} on:click={e=>editing=true} outline>Edit</Button>
 		{/if}
+		<!-- <label for="password" class="text-sm text-gray-600 dark:text-gray-400">Password</label> -->
+		<!-- <a href="#!" class="text-sm text-gray-400 focus:outline-none focus:text-indigo-500 hover:text-indigo-500 dark:hover:text-indigo-300">Forgot password?</a> -->
+	  </div>
+
+
+
 
 		{#each items as item}
 			{#if editing}
 				<ListInput label={item.label} name={item.name} value={user[item.name] ?? item.def} type={item.type ?? 'text'} options={item.options}
+				on:change={onChange}
 				/>
 				<!-- on:blur={console.log}
 				on:input={console.log}
-				on:change={console.log}
 				on:inputClear={console.log} -->
 
 				<!-- on:focus on:blur on:input on:change on:inputClear on:textareaResize on:inputEmpty on:inputNotEmpty
