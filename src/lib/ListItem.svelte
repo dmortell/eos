@@ -5,6 +5,7 @@
 	// <div class="item-row" on:click={e=>{return {...e,detail}}}>
 </script>
 
+<!-- <div class="item-row" on:click={e=>console.log('clk')} > -->
 <div class="item-row" on:click >
 	<div class="is-left">
 		<slot name="title">{title}</slot>

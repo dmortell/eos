@@ -6,6 +6,7 @@
 	import SidePanel from '$lib/SidePanel.svelte'
 	import UserList from '$lib/UserList.svelte'
 	import UserDetails from '$lib/UserDetails.svelte'
+	import UserSheets from '$lib/UserSheets.svelte'
 	import Alert from "$lib/Alert.svelte"
 	import {Nav,Card, Container, Icon, Field, Input,Button} from 'svelte-chota';
 	import {mdiHome,mdiMagnify, mdiDelete,mdiAccountPlus,mdiSend } from '@mdi/js'
@@ -91,6 +92,8 @@ function selectUser({detail}){
 
 	<UserList {_users} on:click={selectUser} />
 	<UserDetails {user}/>
+	<UserSheets {user} on:select={e=>console.log(month=e.detail.month)}/>
+	{month}
 
 </Container>
 

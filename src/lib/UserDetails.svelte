@@ -17,7 +17,7 @@
 	export var user
 	var editing = false
 
-	$: console.log('userdetails',user.email, user.displayName)
+	// $: console.log('userdetails',user.email, user.displayName)
 	$: fields = copyFields(user)
 
 	// todo update staff - test if editing standard times updates the user summary
@@ -97,7 +97,7 @@
 
 <!-- <TimeSummary /> -->
 <Container>
-	<Details>
+	<Details class="mb-5">
 		<span slot="summary">
 			{user.displayName}
 		</span>

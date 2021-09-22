@@ -13,7 +13,7 @@
 	</svg>
 </button>
 {:else}
-<a href="#" class="clear text-gray-500 hover:text-gray-700 cursor-pointer mr-4 border-none focus:outline-none" class:open on:click|preventDefault={() => open = !open}>
+<a href="#!" class="clear text-gray-500 hover:text-gray-700 cursor-pointer mr-4 border-none focus:outline-none" class:open on:click|preventDefault={() => open = !open}>
 	<svg width=32 height=24>
 		<line id="top" x1=0 y1=2  x2=32 y2=2/>
 		<line id="middle" x1=0 y1=12 x2=32 y2=12/>
