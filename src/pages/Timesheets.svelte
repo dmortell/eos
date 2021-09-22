@@ -41,7 +41,7 @@ onMount(() => {
 	return ()=>{ cleanup() }
 });
 function onUsersUpdate(snap){
-	_users = snap.docs.filter(q=>{ return q.data().displayName>'' || q.data().handle=='newuser1' })		// todo remove newuser1 after testing
+	_users = snap.docs.filter(q=>{ return q.data().displayName>''})
 	.map(d => { return {...d.data(), id:d.id} })
 	//todo id must be unique
 
@@ -74,10 +74,6 @@ function selectUser({detail}){
     <!-- <a slot="center" href="/" class="brand">LOGO</a> -->
 </Nav>
 
-<Field gapless>
-    <Input placeholder="Search users"/>
-    <Button icon={mdiMagnify} primary/>
-</Field>
 
 <SidePanel bind:visible={open} >
 	<h2>Side panel</h2>
@@ -92,20 +88,15 @@ function selectUser({detail}){
 		<Button>Edit settings</Button>
 	</ListItem> -->
 
-	<h1>
-		Welcome {$session.user.displayName}
-	</h1>
 
 	<UserList {_users} on:click={selectUser} />
-	<!-- <UserList on:click={selectUser} /> -->
 	<UserDetails {user}/>
 
 </Container>
 
 <Alert/>
 
-<!--
-<TimeSheet/> -->
+<!-- <TimeSheet/> -->
 
 
 <!-- <Container>
@@ -119,8 +110,8 @@ function selectUser({detail}){
 
 <!-- <Icon src={mdiAccountPlus} color="green" size="3" /> -->
 
-<!-- <button>stop</button>
-<Button primary icon={mdiAccountPlus}>Add User</Button>
+<!-- <Button primary icon={mdiAccountPlus}>Add User</Button> -->
+<!--
 <Button outline primary iconRight={mdiSend}>Submit</Button> -->
 
 <!-- <Page>
@@ -128,10 +119,6 @@ function selectUser({detail}){
 
 	</Navbar>
 
-	<Block>
-		<h1>Timesheets</h1>
-		<p>the sheets go here</p>
-	</Block>
 </Page> -->
 
 

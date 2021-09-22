@@ -1,10 +1,7 @@
 <script>
-	// import {onMount, tick} from 'svelte'
 	import {Icon} from 'svelte-chota';
 	import {mdiChevronRight } from '@mdi/js'
 	export var link=false, title='', after=''
-	export var detail
-	// console.log(link, $$props)
 	// <div class="item-row" on:click={e=>{return {...e,detail}}}>
 </script>
 
