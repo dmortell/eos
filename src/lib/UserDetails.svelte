@@ -176,16 +176,3 @@
 <!--
 <ListItem accordionItem title={user.displayName} badge={user.notifications?.length}>
 </ListItem> -->
-
-<style>
-	.modal-content {
-		padding: 15px;
-		overflow: auto;
-		height: auto !important;
-		max-height: calc(100vh - 240px) !important;
-	}
-	.modal-header {
-  		padding: 15px;
-  		border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-	}
-</style>

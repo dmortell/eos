@@ -1,5 +1,8 @@
 <script>
-	import { f7, Block, Button, Row, Col, Icon, List, ListItem, ListInput, ListButton } from "framework7-svelte";
+	// import { f7, Block, Button, Row, Col, Icon, List, ListItem, ListInput, ListButton } from "framework7-svelte";
+	import {Nav,Card, Container, Details, Icon, Input,Button, Modal} from 'svelte-chota';
+	import ListItem from "$lib/ListItem.svelte"
+	import ListInput from "$lib/ListInput.svelte"
 	import {work_types} from '$js/stores'
 	export let entry, onClose
 
@@ -29,7 +32,7 @@
 // ])
 </script>
 
-<List>
+<!-- <List> -->
 	<form on:submit|preventDefault={e=>onClose('save')}>
 	<ListInput label="Date"   type="date"   bind:value={entry.date}    />
 	<ListInput label="Start"  type="time"   bind:value={entry.start}   />
@@ -41,12 +44,17 @@
 	<ListInput label="Remarks" type="text"  bind:value={entry.remark} >
 		<div slot="content" style='margin-right:8px;'><Button fill small round raised on:click={e=>entry.remark="WFH"}>WFH</Button></div>
 	</ListInput>
-	<ListItem popupClose>
+	<!-- <ListItem popupClose>
 		{#if entry.id}
 		<Button popupClose={true} type='button' iconF7='trash' color='red' outline on:click={e=>onClose('delete')}  fill>Delete</Button>
 		{/if}
 		&nbsp;
 		<Button popupClose={true} type='submit' on:click={e=>onClose('save')}  fill>Save</Button>
-	</ListItem>
+	</ListItem> -->
+	<!-- <div slot="footer" class="is-right px-10 py-5 border-t-2">
+		<Button secondary icon={mdiClose} on:click={e=>editing=false}>Cancel</Button>
+		<Button primary icon={mdiContentSave} on:click={saveUser}>Save</Button>
+	</div> -->
+
 	</form>
-</List>
+<!-- </List> -->

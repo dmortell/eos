@@ -5,51 +5,29 @@
 	import {mdiHeart,mdiRepeat, mdiReply, mdiPencil, mdiContentSave, mdiCancel, mdiClose} from '@mdi/js'
 	import {Nav,Card, Container, Details, Icon, Input,Button, Modal} from 'svelte-chota';
 	import { asyncable } from 'svelte-asyncable';
-	import {sheets} from '$js/stores'
+	// import {sheets} from '$js/stores'
 	import {parseEntry, optional, plural, format, calcHours} from "$js/formatter";
 	import Avatar from "$lib/Avatar.svelte"
 	import Dialog from "$lib/Dialog.svelte"
 	import ListItem from "$lib/ListItem.svelte"
 	import ListInput from "$lib/ListInput.svelte"
 	// import Alert from "$lib/Alert.svelte"
-	export var user
+	export var user, sheets
 
 	import { createEventDispatcher } from 'svelte';
 	export const dispatch = createEventDispatcher();
 
-	const cons = {}
-	var items = []
-
-	$: connectUser(user)
-
-	function connectUser(user){
-		if (!user) return items = []
-		if (!user.uid){
-			console.log('invalid uid', user);
-			return items = []
-		}
-		cons.sheets = sheets.reconnect(cons.sheets, sheets.collection().where("uid","==",user.uid).orderBy("date", "desc"), onSheetsUpdate )
-	}
-	function onSheetsUpdate(snap){
-		items = snap.docs.filter(d=>{ return true })				// todo filter out completed sheets. Ensure current month is shown
-			.map(d => { return {id:d.id, ...d.data()} })
-		// checkSheetTotals(month, totals)
-		console.log('usersheets',items)
-	}
 	function selectMonth(month){
 		dispatch('select',{month})
 	}
-
 </script>
 
 
 <Container>
 	<Details class="mb-5" open>
-		<span slot="summary">
-			Timesheets for {user?.displayName}
-		</span>
+		<span slot="summary">Timesheets</span>
 
-		{#each items as sheet}
+		{#each sheets as sheet}
 		<!-- <ListItem title={item.date} after={format(user[item.name], item.fmt)} /> -->
 		<ListItem link on:click={e=>selectMonth(sheet.month)}>
 			<div class="grid grid-flow-col auto-cols-max gap-0.5">

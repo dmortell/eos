@@ -129,7 +129,6 @@ export function parseEntry(time, holidays){		// parse a time entry object into s
 	// Rate D	Between 10pm & 5am, Sunday & National Holiday
 
 	return {
-		...time,
 		days:	days,
 		hours:	toHours(end-start-less),
 		total:	toHours(total),
@@ -137,11 +136,12 @@ export function parseEntry(time, holidays){		// parse a time entry object into s
 		b:		toHours(b),
 		c:		toHours(c),
 		d:		toHours(d),
-		breaks:	toInt(time.breaks),
+		breaks:	time.breaks,		// leave null if no entry    toInt(time.breaks),
 		color:	weekday ? (dow=='Sat' ? 'blue' : null) : 'red',
 		type: time.type ?? (holiday && 'public'),
 		holiday,
 		short,					// short day (d dow)
 		// less:	toHours(standard_hours),	// calc in timesheet as it needs user standard hours
+		...time,
 	}
 }

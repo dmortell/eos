@@ -21,7 +21,7 @@
 	// export var input=true	 				// bool - disable to render a custom input
 	// export var inputStyle=undefined			// object
 	// export var wrap=undefined				// bool - wrap in <li>
-	export var type='text', name, placeholder=undefined, value, inputMode=undefined, size=undefined
+	export var type='text', name, placeholder=undefined, value, inputmode=undefined, size=undefined
 	export var pattern=undefined, accept=undefined
 	export var autosave=undefined, disabled=false, max=undefined, min=undefined, step=undefined
 	export var maxlength=undefined, minlength=undefined, multiple=false
@@ -73,7 +73,7 @@
 			{#if type=='select'}
 				<!-- {autofocus}  -->
 				<select id={this_id} value={this_val}
-				{name} {type} {placeholder} {inputMode} {size} {pattern} {accept} {resizable} {autosave}
+				{name} {type} {placeholder} {inputmode} {size} {pattern} {accept} {resizable} {autosave}
 				{disabled} {max} {min} {step} {maxlength} {minlength} {multiple} {readonly} {required} {tabindex}
 				on:focus on:blur on:input on:change on:inputClear on:textareaResize on:inputEmpty on:inputNotEmpty
 				on:CalendarChange on:colorPickerChange on:textEditorChange>
@@ -86,7 +86,7 @@
 			{:else}
 			<!-- {autofocus}  -->
 			<Input id={this_id} value={this_val}
-				{name} {type} {placeholder} {inputMode} {size} {pattern} {accept} {resizable} {autosave}
+				{name} {type} {placeholder} {inputmode} {size} {pattern} {accept} {resizable} {autosave}
 				{disabled} {max} {min} {step} {maxlength} {minlength} {multiple} {readonly} {required} {tabindex}
 				on:focus on:blur on:input on:change on:inputClear on:textareaResize on:inputEmpty on:inputNotEmpty
 				on:CalendarChange on:colorPickerChange on:textEditorChange

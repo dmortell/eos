@@ -180,6 +180,7 @@ export const tables = {
 	sheets:		{name:"timesheets"},
 	times:		{name:"times"},
 	users:		{name:"users"},
+	settings:	{name:"settings"},		// todo edit company settings
 }
 
 async function saveUser(user){			// called on session user change. Add new users to database
@@ -303,7 +304,12 @@ export const sheets = connectTable(tables.sheets)
 	// <div>{key}: {value}</div>
 	// {/each}
 
-
+export const settings = readable({
+	company:'EIRE Systems',
+	address:'Hokkai Shiga Bldg, 2-31-15 Shiba, Minato-ku, Tokyo 105-0014',
+	tel:'+81-3-5484-7935',
+	fax:'+81-3-5484-7934',
+})
 export const work_types = readable([
 	{type:'normal', 		name:'Normal Day'},
 	{type:'weekend',		name:'Weekend'},
@@ -391,7 +397,7 @@ export const holidays = readable(keyValues('date','name',[
 	{date:"2021-11-03", name:"Culture Day"},
 	{date:"2021-11-23", name:"Labour Thanksgiving Day"},
 ]))
-function keyValues(key_name, value_name, list){
+export function keyValues(key_name, value_name, list){	// return an object with {key:value, ...}
 	var result = {}
 	list.map(item => result[item[key_name]] = item[value_name])
 	return result;
