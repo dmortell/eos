@@ -45,22 +45,38 @@ onMount(() => {
 function onUsersUpdate(snap){
 	_users = snap.docs.filter(q=>{ return q.data().displayName>''})
 	.map(d => { return {...d.data(), id:d.id} })
-	//todo id must be unique
 
 	user = _users.find(u => u.email==user.email) ?? {}
 	console.log('user set on snapshot',user.email, user.displayName)
 
+	// todo id must be unique
 	// todo update staff - test if editing standard times updates the user summary
 	// todo fix deletes
 	// todo add total days
 	// todo adding an entry in a new month doesnt update sheets list
 }
-
+function onSheetsUpdate(snap){
+	_sheets = snap.docs.filter(d=>{ return d.uid===user.uid })	// todo filter out completed sheets. Ensure current month is shown
+		.map(d => { return {...d.data(), id:d.id} })
+}
 
 function selectUser({detail}){
-	// $alert="clicked";
-	// console.log('clicked22', detail)
-	user = detail.person
+	if (user !== detail.person){
+		user = detail.person
+		if (user?.uid){
+			cons.sheets = sheets.reconnect(cons.sheets,
+				sheets.collection().where("uid","==",user.uid).orderBy("date", "desc"),
+				onSheetsUpdate
+			)
+		}
+		else {			// todo disconnect sheets
+			_sheets = []
+			console.log('invalid uid', user);
+		}
+	}
+}
+function selectMonth({detail}){
+	month = detail.month
 }
 
 </script>
@@ -94,7 +110,7 @@ function selectUser({detail}){
 	<div class="noprint">
 		<UserList {_users} on:click={selectUser} />
 		<UserDetails {user}/>
-		<UserSheets {user} on:select={e=>console.log(month=e.detail.month)}/>
+		<UserSheets {user} on:select={selectMonth}/>
 	</div>
 	<Timesheet {user} {month} />
 

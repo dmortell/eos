@@ -139,9 +139,16 @@ black: #000000; */
 	main { margin:2em; }
 }
 
+.printonly { display:none !important; }
+
 @media print {
+	.printonly { display:block !important; }
 	.noprint { display: none !important; }
 	body { font-size: 12px; }
+	/* Hide page header and footer when printing */
+	/* body { margin: 1.6cm; } */
+	body { margin-top: 1.6cm; }
+	@page { margin: 0; }
 	input, textarea, select { border: none; }
 	textarea { resize: none; }
 	/* ::-webkit-input-placeholder { color: transparent; } ::-moz-placeholder { color: transparent; } :-moz-placeholder { color: transparent; } :-ms-input-placeholder { color: transparent; } */

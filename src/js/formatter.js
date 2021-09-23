@@ -39,6 +39,12 @@ setFormat('short',{},val=>{		// https://developer.mozilla.org/en-US/docs/Web/Jav
 	// const da = new Intl.DateTimeFormat('en', { day: '2-digit' }).format(d)
 	// console.log(`${da}-${mo}-${ye}`)
 })
+setFormat('longmonth-year',{},val=>{		// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat
+	const d = new Date(val)
+	const ye = new Intl.DateTimeFormat('en', { year: 'numeric' }).format(d)
+	const mo = new Intl.DateTimeFormat('en', { month: 'long' }).format(d)
+	return `${mo} ${ye}`;
+})
 setFormat('month',{},val=>{		// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat
 	const d = new Date(val)
 	const ye = new Intl.DateTimeFormat('en', { year: 'numeric' }).format(d)
@@ -133,7 +139,9 @@ export function parseEntry(time, holidays){		// parse a time entry object into s
 		d:		toHours(d),
 		breaks:	toInt(time.breaks),
 		color:	weekday ? (dow=='Sat' ? 'blue' : null) : 'red',
+		type: time.type ?? (holiday && 'public'),
 		holiday,
 		short,					// short day (d dow)
+		// less:	toHours(standard_hours),	// calc in timesheet as it needs user standard hours
 	}
 }
