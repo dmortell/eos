@@ -7,6 +7,7 @@
 	import UserList from '$lib/UserList.svelte'
 	import UserDetails from '$lib/UserDetails.svelte'
 	import UserSheets from '$lib/UserSheets.svelte'
+	import Timesheet from '$lib/Timesheet.svelte'
 	import Alert from "$lib/Alert.svelte"
 	import {Nav,Card, Container, Icon, Field, Input,Button} from 'svelte-chota';
 	import {mdiHome,mdiMagnify, mdiDelete,mdiAccountPlus,mdiSend } from '@mdi/js'
@@ -65,7 +66,7 @@ function selectUser({detail}){
 </script>
 
 
-<Nav>
+<Nav class="noprint">
 	<div slot="left" class="is-center ml-5">
 		<Icon src={mdiHome} size="1.5" class="is-left"/>
 		Timesheets
@@ -90,10 +91,12 @@ function selectUser({detail}){
 	</ListItem> -->
 
 
-	<UserList {_users} on:click={selectUser} />
-	<UserDetails {user}/>
-	<UserSheets {user} on:select={e=>console.log(month=e.detail.month)}/>
-	{month}
+	<div class="noprint">
+		<UserList {_users} on:click={selectUser} />
+		<UserDetails {user}/>
+		<UserSheets {user} on:select={e=>console.log(month=e.detail.month)}/>
+	</div>
+	<Timesheet {user} {month} />
 
 </Container>
 

@@ -221,6 +221,14 @@ function connectTable(table){
 		subscribe,			// Svelte subscribe(), required for reactivity
 		collection,
 		snapshot,			// usage: cons.times  = times.connect(times.collection().where("uid","==",uid).orderBy("date", "asc"), onTimesUpdate )
+		disconnect: (id) =>{
+			var unsub = unsubs[id];
+			if (unsub){
+				unsub();
+				unsubs[id] = null;
+			}
+			return null;
+		},
 		connect: (collection, onSnap) => {
 			var id = unsubs.length
 			unsubs[id] = collection.onSnapshot(snap => { onSnap(snap) }, err => console.error(err));

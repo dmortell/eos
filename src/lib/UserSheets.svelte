@@ -23,7 +23,11 @@
 	$: connectUser(user)
 
 	function connectUser(user){
-		if (!user) return []
+		if (!user) return items = []
+		if (!user.uid){
+			console.log('invalid uid', user);
+			return items = []
+		}
 		cons.sheets = sheets.reconnect(cons.sheets, sheets.collection().where("uid","==",user.uid).orderBy("date", "desc"), onSheetsUpdate )
 	}
 	function onSheetsUpdate(snap){
@@ -42,7 +46,7 @@
 <Container>
 	<Details class="mb-5" open>
 		<span slot="summary">
-			Timesheets
+			Timesheets for {user?.displayName}
 		</span>
 
 		{#each items as sheet}
