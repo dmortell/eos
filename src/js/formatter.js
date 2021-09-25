@@ -118,10 +118,10 @@ export function parseEntry(time, holidays){		// parse a time entry object into s
 	var d =  !weekday && (t1>0 || t3>0) ? t1+t3 : 0;
 	var days = end-start-less >= 60 ? 1:0;
 
-	var total =  end-start-less
-	if (isNaN(total)) total = 0
-	if (isNaN(b)) console.log({b,weekday,t2,less,required})
-	if (time.date=='2021-09-02') console.log('parseentry', time)
+	// var total =  end-start-less
+	// if (isNaN(total)) total = 0
+	// if (isNaN(b)) console.log({b,weekday,t2,less,required})
+	// if (time.date=='2021-09-02') console.log('parseentry', time)
 	// const customerCity = customer?.city ?? "Unknown city";
 
 	// Rate A	Between 5am & 10pm, Monday to Saturday
@@ -130,9 +130,9 @@ export function parseEntry(time, holidays){		// parse a time entry object into s
 	// Rate D	Between 10pm & 5am, Sunday & National Holiday
 
 	return {
-		days:	days,
-		hours:	toHours(end-start-less),
-		total:	toHours(total),
+		days:	days,							// todo 0.5 for half day, 1 for n hours
+		hours:	toHours(end-start-less),		// hours worked
+		// total:	toHours(total),
 		a:		toHours(a),
 		b:		toHours(b),
 		c:		toHours(c),

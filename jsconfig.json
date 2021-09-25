@@ -1,24 +1,24 @@
 {
-  "compilerOptions": {
-	  "target": "esnext",
-	  "module": "esnext",
-	  "moduleResolution": "node",
-	  "esModuleInterop": true,
-	  "strict": true,
-	  "resolveJsonModule": true,
-	  "skipLibCheck": true,
-	  "baseUrl": ".",
-	  "sourceMap": true,
-    "importsNotUsedAsValues": "error",
-    "isolatedModules": true,
-    "forceConsistentCasingInFileNames": true,
-	"paths":{
-		"$js/*": 	["src/js/*"],
-		"$pages/*":	["./src/pages/*"],
-		"$lib/*":	["./src/lib/*"]
+	"compilerOptions": {
+		"target": "esnext",
+		"module": "esnext",
+		"moduleResolution": "node",
+		"esModuleInterop": true,
+		"strict": true,
+		"resolveJsonModule": true,
+		"skipLibCheck": true,
+		"baseUrl": ".",
+		"sourceMap": true,
+		"importsNotUsedAsValues": "error",
+		"isolatedModules": true,
+		"forceConsistentCasingInFileNames": true,
+		"checkJs": false,
+		"paths": {
+			"$js/*": 	["src/js/*"],
+			"$pages/*":	["./src/pages/*"],
+			"$lib/*":	["./src/lib/*"]
+		}
 	},
-	"checkJs": false
-  },
-   "exclude": [ "**/dist", "**/node_modules" ],
-   "include": ["src/**/*.d.ts", "src/**/*.js", "src/**/*.svelte"]
+	"exclude": [ "**/dist", "**/node_modules" ],
+	"include": ["src/**/*.d.ts", "src/**/*.js", "src/**/*.svelte"]
 }

@@ -4,7 +4,7 @@
 	import {mdiHeart,mdiRepeat, mdiReply, mdiPencil, mdiContentSave, mdiCancel, mdiClose} from '@mdi/js'
 	import {Nav,Card, Container, Details, Icon, Input,Button, Modal} from 'svelte-chota';
 	import { asyncable } from 'svelte-asyncable';
-	import {sheets, times, cleanup, holidays, alert, work_types, keyValues} from '$js/stores'
+	import {sheets, times, cleanup, holidays, alert, work_types, keyValues, monthTotal} from '$js/stores'
 	import {parseEntry, optional, plural, format, calcHours, mins, toInt, toHours} from "$js/formatter";
 	import Avatar from "$lib/Avatar.svelte"
 	import Dialog from "$lib/Dialog.svelte"
@@ -14,76 +14,16 @@
 	import TimesheetHeader from "$lib/TimesheetHeader.svelte"
 	import Row from "$lib/Row.svelte"
 	import Col from "$lib/Col.svelte"
-	export var user, month, days, totals, sheet
+	export var user, month, days, sheet
 
-	// const cons = {}
-	// var _alltimes = [], _times = [], _days = []
-	// var totals = {}
 	let types = keyValues('type','name',$work_types)
 	let editing = false
-	let entry = {}
-
-	// $: connectUser(user,month)
-
-	onMount(()=>{
-		// types = keyValues('type','name',$work_types)
-	})
-/*
-	// function connectUser(user,month){
-	// 	const uid = user?.uid
-	// 	if (uid){
-	// 		cons.times  = times.reconnect(cons.times,
-	// 			times.collection().where("uid","==",uid).orderBy("date", "asc"),
-	// 			onTimesUpdate
-	// 		)
-	// 	}
-	// 	else {
-	// 		console.log('invalid uid', user);
-	// 		cons.times  = times.disconnect(cons.times)
-	// 		return filldays([], false)
-	// 	}
+	let entry = {}, totals={}
+	$: totals = monthTotal($times, month)
+	// $: {
+	// 	totals = monthTotal($times, month)
+	// 	console.log(totals)
 	// }
-	// function onTimesUpdate(snap){
-	// 	_alltimes = snap.docs.filter(q=>{ return true })
-	// 		.map(d => { return {id:d.id, ...d.data()} })
-	// 	filldays(_alltimes)
-	// }
-	// function filldays(times, validate=true){
-	// 	var start = mins(user.start), end = mins(user.finish), less = toInt(user.breaks) * 60
-	// 	var standard = toHours(end-start-less)
-	// 	var keys = ['a','b','c','d','total','days','less']
-	// 	totals = {a:0, b:0, c:0, d:0, total:0, days:0, less:0, month}
-	// 	_times = times.filter(d => d.date.substr(0,7)===month)
-
-	// 	var [y,m] = month.split('-').map(v=>+v)
-	// 	var days = new Date(y, m, 0).getDate()				// number of days in the month
-	// 	var entries = []
-	// 	for (var d=1; d<=days; d++){						// list of days in the month
-	// 		var date = month + '-' + (d+'').padStart(2,'0')
-	// 		var entry = times.find(e => e.date===date) ?? {date}
-	// 		var data = parseEntry(entry, $holidays)
-	// 		data.less = data.days ? Math.max(0,standard - data.total) : 0
-	// 		entries.push(data)
-	// 		keys.map(k => totals[k] += data[k] ?? 0) 		// calculate totals
-	// 	}
-	// 	if (validate) checkSheetTotals(month, totals)		// check if sheet table needs updating
-	// 	_days = entries
-	// }
-	// function checkSheetTotals(month, totals){				// update sheet table if totals changed
-	// 	// if (totals.month!==month || sheet?.month!==month) return;
-	// 	// var keys = ['a','b','c','d','total','days'], update = false
-	// 	// keys.map(k => {
-	// 	// 	if (totals[k]===0 && sheet[k]==undefined){}		// ignore zero entries if undefined
-	// 	// 	else if (totals[k] !== sheet[k]) update=true
-	// 	// })
-	// 	// if (update){
-	// 	// 	var status = sheet.status ?? "pending"
-	// 	// 	// var color = status == "pending" ? 'blue' : 'red';
-	// 	// 	sheets.update({uid:user.uid, month, status, ...totals}, sheet.id, e=>console.log('Updated sheet'))
-	// 	// }
-	// }
-*/
-
 
 function selectEntry(row){
 		// var {date,start,finish,breaks,remark,type} = row
@@ -94,6 +34,8 @@ function selectEntry(row){
 		entry = {...defaults, ...row}			// nullish coalescing to avoid changing 0 to 1 for breaks
 		editing = true
 		console.log('opentimeentry', {defaults, row, entry, user})
+
+		xxy=1
 	}
 	function updateTime(){
 		var {date,start,finish,breaks,remark='',type} = entry

@@ -144,6 +144,7 @@ black: #000000; */
 }
 .button.small {
 	padding: 0.5rem 1rem;
+	/* max-height: 24px; */
 }
 
 

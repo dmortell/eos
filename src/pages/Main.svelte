@@ -11,14 +11,14 @@
 	import Alert from "$lib/Alert.svelte"
 	import {Nav,Card, Container, Icon, Field, Input,Button, Tag} from 'svelte-chota';
 	import {mdiHome,mdiMagnify, mdiDelete,mdiAccountPlus,mdiSend, mdiChevronDown } from '@mdi/js'
-	import {loading, users, session, times, sheets, holidays, cleanup, alert} from '$js/stores'
+	import {loading, users, session, times, sheets, holidays, cleanup, monthTotal, alert} from '$js/stores'
 	import {parseEntry, optional, plural, format, calcHours, mins, toInt, toHours} from "$js/formatter";
 	export let open = false;
 
 	// v0.5.1
 	let month = new Date().toISOString().substr(0,7);	//"2021-08"
 	var days = []
-	var totals = {}										// total hrs, a,b,c,d for this month
+	// var totals = {}										// total hrs, a,b,c,d for this month
 	var popups = {entry:false}							// popup open/closed flags
 	var user = $session.user							// currently selected user (admins can select other users)
 	var sheet = {}										// timesheet details for currently selected month
@@ -47,7 +47,6 @@ function onUsersUpdate(snap){
 			.map(d => { return {...d.data(), id:d.id} })
 	connectUser(user)
 	// console.log('user set on snapshot',user.email, user.displayName)
-	// todo id must be unique
 	// todo update staff - test if editing standard times updates the user summary
 	// todo fix deletes
 	// todo add total days
@@ -101,7 +100,7 @@ function filldays(times, validate=true){
 	var [y,m] = month.split('-').map(v=>+v)
 	var monthdays = new Date(y, m, 0).getDate()			// number of days in the month
 	var keys = ['a','b','c','d','total','days','less']
-	totals = {a:0, b:0, c:0, d:0, total:0, days:0, less:0, month}
+	// totals = {a:0, b:0, c:0, d:0, total:0, days:0, less:0, month}
 
 	days = []
 	for (var d=1; d<=monthdays; d++){					// list of days in the month
@@ -110,29 +109,29 @@ function filldays(times, validate=true){
 		var data = parseEntry(entry, $holidays)
 		data.less = data.days ? Math.max(0,standard - data.total) : 0
 		days.push(data)
-		keys.map(k => totals[k] += data[k] ?? 0) 		// calculate totals
+		// keys.map(k => totals[k] += data[k] ?? 0) 		// calculate totals
 	}
 	// if (validate) checkSheetTotals(month, totals, sheet, user)	// check if sheet table needs updating
-	if (validate){
-		var data = {}		// var data = {uid:user.uid, month}
-		var update = false
-		keys.map(k => {
-			if (totals[k]===0 && sheet[k]==undefined){}		// ignore zero entries if undefined
-			else if (totals[k] !== sheet[k]){
-				data[k] = totals[k]
-				update=true
-			}
-		})
-		if (update){
-			console.log('updating sheet', sheet, data)
-			var defaults = {uid:user.uid, month, status:sheet.status ?? "pending", client:user.client}
-			sheets.update({...defaults, ...data}, sheet.id, (d,id)=>{
-				console.log('Updated  sheet',id,d)
-				sheet = d
-			})
-			// console.log('finally',sheet)
-		}
-	}
+	// if (validate){
+	// 	var data = {}		// var data = {uid:user.uid, month}
+	// 	var update = false
+	// 	keys.map(k => {
+	// 		if (totals[k]===0 && sheet[k]==undefined){}		// ignore zero entries if undefined
+	// 		else if (totals[k] !== sheet[k]){
+	// 			data[k] = totals[k]
+	// 			update=true
+	// 		}
+	// 	})
+	// 	if (update){
+	// 		console.log('updating sheet', sheet, data)
+	// 		var defaults = {uid:user.uid, month, status:sheet.status ?? "pending", client:user.client}
+	// 		sheets.update({...defaults, ...data}, sheet.id, (d,id)=>{
+	// 			console.log('Updated  sheet',id,d)
+	// 			sheet = d
+	// 		})
+	// 		// console.log('finally',sheet)
+	// 	}
+	// }
 }
 // function checkSheetTotals(month, totals, sheet, user){				// todo update sheet table if totals changed
 // 	var keys = ['a','b','c','d','total','days'], update = false
@@ -164,7 +163,6 @@ function filldays(times, validate=true){
     <!-- <a slot="center" href="/" class="brand">LOGO</a> -->
 </Nav>
 
-<p>publish sheet -> readonly</p>
 <SidePanel bind:visible={open} >
 	<Card>
 		<h2>Menu</h2>
@@ -189,9 +187,10 @@ function filldays(times, validate=true){
 	<div class="noprint">
 		<UserList {_users} on:click={selectUser} />
 		<UserDetails {user}/>
-		<UserSheets {user} _sheets={_sheets} on:select={selectMonth}/>
+		<UserSheets _sheets={_sheets} on:select={selectMonth}/>
 	</div>
-	<Timesheet {user} {month} {days} {totals} {sheet} on:select={selectMonth} />
+	<!-- <Timesheet {user} {month} {days} totals={monthTotal($times, sheet.month)} {sheet} on:select={selectMonth} /> -->
+	<Timesheet {user} {month} {days} {sheet} on:select={selectMonth} />
 
 </Container>
 

@@ -1,23 +1,24 @@
 <script>
 	import {onMount, tick} from 'svelte'
 	import { fade } from 'svelte/transition'
-	import {loading, users, session, times, sheets, cleanup, alert, } from '$js/stores'
+	import {loading, users, session, times, sheets, cleanup, alert, monthTotal} from '$js/stores'
 	import {mdiHeart,mdiRepeat, mdiReply, mdiPencil, mdiContentSave, mdiCancel, mdiClose} from '@mdi/js'
 	import {Nav,Card, Container, Details, Icon, Input,Button, Modal} from 'svelte-chota';
 	import { asyncable } from 'svelte-asyncable';
-	// import {sheets} from '$js/stores'
 	import {parseEntry, optional, plural, format, calcHours} from "$js/formatter";
 	import Avatar from "$lib/Avatar.svelte"
 	import Dialog from "$lib/Dialog.svelte"
 	import ListItem from "$lib/ListItem.svelte"
 	import ListInput from "$lib/ListInput.svelte"
-	// import Alert from "$lib/Alert.svelte"
-	export var _sheets
-
-	// todo filter out completed sheets. Ensure current month is shown
-
 	import { createEventDispatcher } from 'svelte';
 	export const dispatch = createEventDispatcher();
+	export var _sheets = []
+
+	var show_all = false
+	$: filtered = _sheets?.filter(i=>show_all || i.status!='approved')
+
+
+	// todo Ensure current month is shown
 
 	function selectMonth(month){
 		dispatch('select',{month})
@@ -37,13 +38,14 @@
 			<div class="relative w-full px-4 max-w-full flex-grow flex-1">
 			  <h3 class="font-semibold text-base text-blueGray-700">Page Visits</h3>
 			</div>
-			<div class="relative w-full px-4 max-w-full flex-grow flex-1 text-right">
-			  <button class="bg-indigo-500 text-white active:bg-indigo-600 text-xs font-bold uppercase px-3 py-1 rounded outline-none focus:outline-none mr-1 mb-1 ease-linear transition-all duration-150" type="button">See all</button>
-			</div>
-		  </div> -->
+		</div> -->
+		<div class="relative w-full px-4 max-w-full flex-grow flex-1 text-right">
+			<!-- <button class="bg-indigo-500 text-white active:bg-indigo-600 text-xs font-bold uppercase px-3 py-1 rounded outline-none focus:outline-none mr-1 mb-1 ease-linear transition-all duration-150" type="button" -->
+			<Button outline class="mr-1 mb-1" on:click={e=>show_all=!show_all}>{show_all ? 'Hide completed':'Show all'}</Button>
+		</div>
 
 
-		{#each _sheets as sheet}
+		{#each filtered as sheet}
 		<!-- <ListItem title={item.date} after={format(user[item.name], item.fmt)} /> -->
 		<ListItem link on:click={e=>selectMonth(sheet.month)}>
 			<!-- <div class="grid grid-flow-col auto-cols-max gap-0.5"> -->
@@ -54,10 +56,11 @@
 
 				<!-- <div class="relative w-full px-4 max-w-full flex-grow flex-1"> -->
 				<div class="w-24 px-4 max-w-full flex-grow flex-1">
-					{optional(sheet.days,'','day')}
+					<!-- {optional(sheet.days,'','day')} -->
+					{optional(monthTotal($times, sheet.month).days,'','day')}
 				</div>
 				<div class="w-24 px-4 max-w-full flex-grow flex-1">
-					{optional(sheet.total,'','hr')}
+					{optional(monthTotal($times, sheet.month).hours,'','hr')}
 				</div>
 				<div class='col2'>
 					<button class="mx-2 px-2 py-1 text-base bg-white text-red-600 border-red-400" on:click={e=>delSheet(sheet)}>Del</button>

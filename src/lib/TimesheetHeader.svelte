@@ -5,14 +5,24 @@
 	import ListInput from "$lib/ListInput.svelte"
 	import {mdiHeart,mdiRepeat, mdiReply, mdiPencil, mdiContentSave, mdiCancel, mdiClose} from '@mdi/js'
 	import {mdiChevronRight, mdiChevronLeft } from '@mdi/js'
-	import {alert, sheets, times, cleanup, holidays, settings, clients} from '$js/stores'
+	import {alert, sheets, times, cleanup, holidays, settings, clients, monthTotal} from '$js/stores'
 	import {parseEntry, optional, plural, format, calcHours} from "$js/formatter";
 	import { createEventDispatcher } from 'svelte';
 	const dispatch = createEventDispatcher();
 	export let user, month, footer=false, totals={}, sheet
+	// export let user, month, footer=false, sheet
 	// todo make header & footer responsive
 
 	let modal_open = false
+	// let totals = {}
+	// $: totals = monthTotal($times, month)
+	// $: console.log(totals)
+	// $: {
+	// 	totals = monthTotal($times, month)
+	// 	console.log(totals)
+	// }
+
+	console.log("FIX client.onselect triggering twice ")
 
 	const statuses = [			// todo make clients realtime firebase
 		{type:'pending',		name:'Draft'},
@@ -38,6 +48,19 @@
 	// 	modal_open=true
 	// 	console.log(modal_open)
 	// }
+	var editClient = false
+	function clientName(code){
+		// console.log('header.clientName', code, sheet)
+		return $clients.find(d=>d.type == code)?.name ?? ''
+	}
+	function selectClient(){
+		console.log('client selected', sheet.client)
+		// todo update client in timesheet table
+		// sheets.update({status}, sheet.id, (data,id)=>{
+		// 	console.log('sheet updated', data,id)
+		// 	$alert = 'Timesheet set to ' + status
+		// })
+	}
 
 
 	function decMonth(){incMonth(0,-1)}
@@ -51,15 +74,6 @@
 		dispatch('select',{month})
 	}
 
-	var editClient = false
-	function toggleClient(){ editClient = !editClient }
-	function clientName(code){
-		console.log('header.clientName', code, sheet)
-		return $clients.find(d=>d.type == code)?.name ?? ''
-	}
-	function selectClient(){
-		console.log('client selected', sheet.client)
-	}
 </script>
 
  <Card>
@@ -67,7 +81,7 @@
 		<div class='flex flex-wrap items-center'>
 			<!-- <div class="w-24 px-4 max-w-full flex-grow flex-1"></div> -->
 			<div class='w-24 max-w-full flex-grow flex-1'>Total work hours:</div>
-			<div class='flex-grow flex-1 '>{totals.total}</div>
+			<div class='flex-grow flex-1 '>{totals.hours}</div>
 			<!-- <Col class='flex-grow flex-1 print right'>Client Reviewed:</Col><Col class='print'>___________</Col> -->
 		</div>
 		<div class='flex flex-wrap items-center'>

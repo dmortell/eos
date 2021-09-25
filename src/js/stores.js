@@ -272,22 +272,6 @@ export const times = connectTable(tables.times)
 export const users = connectTable(tables.users)
 export const sheets = connectTable(tables.sheets)
 
-// export const _times = derived( times, $times => $times.filter(d => d.date.substr(0,7)===month) );
-// $: days = filldays(_times)
-// $: totals = calcTotals(days)
-// $: uid = $session && $session.user ? $session.user.uid : null
-// $: sid = {uid, displayName:$session.user.displayName}
-// $: entry={ ...defaultEntry, uid: uid, }
-
-// export const unused = readable(null, function start(set){
-// 	const unsub = firebase.firestore().collection('times').onSnapshot(data => set(value => data));
-// 	return function stop(){ unsub() };
-// });
-
-
-
-
-
 // function createMapStore(initial) {
 // 	const store = writable(initial);
 // 	const set = (key, value) => store.update(m => Object.assign({}, m, {[key]: value}));
@@ -414,3 +398,38 @@ export function keyValues(key_name, value_name, list){	// return an object with 
 	list.map(item => result[item[key_name]] = item[value_name])
 	return result;
 }
+
+
+
+export function monthTotal(times, month){
+	// var start = mins(user.start), end = mins(user.finish), less = toInt(user.breaks) * 60
+	// var standard = toHours(end-start-less)
+	// var [y,m] = month.split('-').map(v=>+v)
+	// var monthdays = new Date(y, m, 0).getDate()			// number of days in the month
+	const keys = ['a','b','c','d','hours','days','less']
+	const totals = {a:0, b:0, c:0, d:0, hours:0, days:0, less:0, month}
+
+	// for (var d=1; d<=monthdays; d++){					// list of days in the month
+	// 	var date = month + '-' + (d+'').padStart(2,'0')
+	// 	var entry = times.find(e => e.date===date) ?? {date}
+	// 	data.less = data.days ? Math.max(0,standard - data.total) : 0
+	if (times) times.map(entry => {
+		if (entry.date.startsWith(month)){
+			var data = parseEntry(entry, holidays)
+			keys.map(k => totals[k] += data[k] ?? 0) 		// calculate totals
+		}
+	})
+	return totals
+}
+
+// export const _times = derived( times, $times => $times.filter(d => d.date.substr(0,7)===month) );
+// $: days = filldays(_times)
+// $: totals = calcTotals(days)
+// $: uid = $session && $session.user ? $session.user.uid : null
+// $: sid = {uid, displayName:$session.user.displayName}
+// $: entry={ ...defaultEntry, uid: uid, }
+
+// export const unused = readable(null, function start(set){
+// 	const unsub = firebase.firestore().collection('times').onSnapshot(data => set(value => data));
+// 	return function stop(){ unsub() };
+// });

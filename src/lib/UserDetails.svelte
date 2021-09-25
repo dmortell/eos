@@ -141,7 +141,11 @@
 				<div class="font-bold">{user.displayName}</div>
 				<a href="mailto:{user.email}">{user.email}</a>
 			</div>
-			<Button primary icon={mdiPencil} on:click={e=>editing=true} outline>Edit</Button>
+			<!-- <Button outline primary class='small' icon={mdiPencil} on:click={e=>editing=true}><span class="hidden md:inline">Edit</span></Button> -->
+			<Button outline primary  class='small' on:click={e=>editing=true}>
+				<Icon class='inline' src={mdiPencil} size="16px"/>
+				<span class="hidden md:inline">Edit</span>
+			</Button>
 			<!-- <label for="password" class="text-sm text-gray-600 dark:text-gray-400">Password</label> -->
 			<!-- <a href="#!" class="text-sm text-gray-400 focus:outline-none focus:text-indigo-500 hover:text-indigo-500 dark:hover:text-indigo-300">Forgot password?</a> -->
 		</div>
@@ -179,3 +183,7 @@
 <!--
 <ListItem accordionItem title={user.displayName} badge={user.notifications?.length}>
 </ListItem> -->
+
+<style>
+	.small {height:20px;}
+</style>
