@@ -16,7 +16,7 @@ export function format(val, fmt='text'){
 		console.error('MyErr: Undefined format or format.formatter: ', fmt, format)
 	}
 	catch {
-		console.error('invalid',val,fmt)
+		console.error('Error in format():',{val,fmt})
 	}
 	return val
 }
@@ -121,6 +121,7 @@ export function parseEntry(time, holidays){		// parse a time entry object into s
 	var total =  end-start-less
 	if (isNaN(total)) total = 0
 	if (isNaN(b)) console.log({b,weekday,t2,less,required})
+	if (time.date=='2021-09-02') console.log('parseentry', time)
 	// const customerCity = customer?.city ?? "Unknown city";
 
 	// Rate A	Between 5am & 10pm, Monday to Saturday
@@ -136,9 +137,9 @@ export function parseEntry(time, holidays){		// parse a time entry object into s
 		b:		toHours(b),
 		c:		toHours(c),
 		d:		toHours(d),
-		breaks:	time.breaks,		// leave null if no entry    toInt(time.breaks),
+		// breaks:	time.breaks,		// leave null if no entry    toInt(time.breaks),
 		color:	weekday ? (dow=='Sat' ? 'blue' : null) : 'red',
-		type: time.type ?? (holiday && 'public'),
+		type: time.type ?? (holiday ? 'public' : (dow=='Sat' || dow=='Sun' ? 'weekend' : 'normal')),
 		holiday,
 		short,					// short day (d dow)
 		// less:	toHours(standard_hours),	// calc in timesheet as it needs user standard hours

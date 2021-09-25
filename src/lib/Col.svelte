@@ -1,3 +1,3 @@
-<div class="col {$$props.class ??''}">
+<div class="xxxcol flex-grow flex-1 {$$props.class ??''}">
 	<slot></slot>
 </div>

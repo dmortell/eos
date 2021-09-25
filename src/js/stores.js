@@ -242,19 +242,27 @@ function connectTable(table){
 			unsubs[id] = collection.onSnapshot(snap => { onSnap(snap) }, err => console.error(err));
 			return id
 		},
-		update: (data,id=null,callback=e=>console.log('connectTable.updated',data,id)) => {
+		update: async (data,id=null,callback=(data,id)=>console.log('connectTable.updated',data,id)) => {
 			// if (id) collection().doc(id).update(data).then(callback)
-			if (id) collection().doc(id).set(data, {merge:true}).then(callback)
-			else collection().add(data).then(callback)		// 	if (batch)	batch.update(itemId, data)
+			if (id) {
+				console.log('table.update',id)
+				// collection().doc(id).set(data, {merge:true}).then(callback)
+				await collection().doc(id).set(data, {merge:true})	//.then(callback)
+			}
+			else {
+				console.log('table.update.adding')
+				// collection().add(data).then(callback)		// 	if (batch)	batch.update(itemId, data)
+				const res = await collection().add(data)		//.then(callback)		// 	if (batch)	batch.update(itemId, data)
+				data.id = id = res.id
+			}
+			if (callback) callback(data,id)
+			return data
 			// const cityRef = db.collection('cities').doc('BJ');
 			// const res = await cityRef.set({ capital: true }, { merge: true });
+			// console.log('Added document with ID: ', res.id);
 
 			// update(val => { val.loading=true; return val; })
 		},
-		// edit: (data,id=null,callback=e=>console.log('updated',data,id)) => {
-		// 	if (id) collection().doc(id).update(data).then(callback)
-		// 	else collection().add(data).then(callback)		// 	if (batch)	batch.update(itemId, data)
-		// },
 		delete: (id,callback = e=>console.log('connectTable.deleted',id)) => {
 			collection().doc(id).delete().then(callback)
 		},
@@ -310,6 +318,10 @@ export const settings = readable({
 	tel:'+81-3-5484-7935',
 	fax:'+81-3-5484-7934',
 })
+export const clients = readable([			// todo make clients realtime firebase
+	{type:'eire',	 		name:'EIRE Systems'},
+	{type:'client1',		name:'Client 1'},
+])
 export const work_types = readable([
 	{type:'normal', 		name:'Normal Day'},
 	{type:'weekend',		name:'Weekend'},

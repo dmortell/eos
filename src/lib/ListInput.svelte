@@ -13,8 +13,9 @@
 
 	export var title=undefined
 	export var label=title
-	// export var inlineLabel=false, floatingLabel=false, autofocus=false, noStoreData=false
 	export var resizable=undefined
+	export var inlineLabel=false
+	// export var floatingLabel=false, autofocus=false, noStoreData=false
 	// export var validate=false
 	// export var outline=false				// bool - input outline
 	// export var clearButton=false			// bool - add clear button
@@ -26,13 +27,14 @@
 	export var autosave=undefined, disabled=false, max=undefined, min=undefined, step=undefined
 	export var maxlength=undefined, minlength=undefined, multiple=false
 	export var readonly=undefined, required=undefined, tabindex=undefined
-	export var id=undefined							// wrapper id
-	export var inputId=undefined						// wrapper id
+	export var id=undefined						// wrapper id
+	export var inputId=undefined				// wrapper id
 	export var info=undefined, errorMessage=undefined
 	// export var validateOnBlur=false, onValidate=e=>e
 	// export var calendarParams=undefined, colorPickerParams=undefined, textEditorParams=undefined
 	export var gapless=undefined, grouped=undefined
 	export var options = []
+	export var choose = null 		 			// display 'Choose' in select if value is null
 	$: this_id = 'input_id_' + (inputId ?? next_id++)
 	$: this_val = value
 	$: this_label = label ?? title
@@ -44,9 +46,9 @@
 	const state = writable('');
 	let message = false;
 	setContext('field:state',state);
-	$: if(gapless) grouped = true;
-	$: if(typeof error === 'string'){ 		state.set('error'); message = error; }
-	   else if(typeof success === 'string'){state.set('success'); message = success; }
+	$: if (gapless) grouped = true;
+	$: if (typeof error === 'string'){ 		state.set('error'); message = error; }
+	   else if (typeof success==='string'){ state.set('success'); message = success; }
 	   else { 								state.set(''); message = false; }
 
 	// console.log(link, $$props)
@@ -68,24 +70,26 @@
 <div class="item-row" on:click {id}>
 	<!-- <Field label={this_label} for={this_id} error={errorMessage}> -->
 	<div class:nomessage={!message} use:events>
-		{#if this_label}<label for={this_id}>{this_label}</label>{/if}
+		{#if this_label}<label for={this_id} class='flex-start'>{this_label}</label>{/if}
 		<p class:grouped class:gapless>
 			{#if type=='select'}
 				<!-- {autofocus}  -->
-				<select id={this_id} value={this_val}
+				<!-- {multiple} cannot be used with 2-way binding -->
+				<select id={this_id} bind:value={value}
 				{name} {type} {placeholder} {inputmode} {size} {pattern} {accept} {resizable} {autosave}
-				{disabled} {max} {min} {step} {maxlength} {minlength} {multiple} {readonly} {required} {tabindex}
+				{disabled} {max} {min} {step} {maxlength} {minlength} {readonly} {required} {tabindex}
 				on:focus on:blur on:input on:change on:inputClear on:textareaResize on:inputEmpty on:inputNotEmpty
 				on:CalendarChange on:colorPickerChange on:textEditorChange>
-					{#if !value}<option disabled selected>Choose</option>{/if}
+					{#if choose && !value}<option disabled selected>Choose</option>{/if}
 					{#each this_options as option (option.type)}
 					<option value={option.type} selected={option.type==this_val} disabled={option.disabled}>{option.name ?? option.type}</option>
 					{/each}
+					<slot/>
 				</select>
 			<!-- {:else if type=='textarea'} -->
 			{:else}
 			<!-- {autofocus}  -->
-			<Input id={this_id} value={this_val}
+			<Input id={this_id} bind:value={value}
 				{name} {type} {placeholder} {inputmode} {size} {pattern} {accept} {resizable} {autosave}
 				{disabled} {max} {min} {step} {maxlength} {minlength} {multiple} {readonly} {required} {tabindex}
 				on:focus on:blur on:input on:change on:inputClear on:textareaResize on:inputEmpty on:inputNotEmpty
@@ -102,8 +106,8 @@
 
 		{#if message}
 			<p class="message" class:text-error={errorMessage} class:text-success={info}>{message}</p>
-		{:else}
-			<p class="message">&nbsp;</p>
+		<!-- {:else} -->
+			<!-- <p class="message">&nbsp;</p> -->
 		{/if}
 	</div>
 	<!-- </Field> -->
@@ -134,7 +138,12 @@ select {
     transition: all .2s ease;
     display: block;
     width: 100%;
+	min-width: 150px;
+  /* appearance: none; */
+  /* background: url(https://stackoverflow.com/favicon.ico) 96% / 15% no-repeat #EEE; */
 }
+
+
 	.item-row {
 		display: flex;
 		justify-content: space-between;

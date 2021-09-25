@@ -142,6 +142,9 @@ black: #000000; */
 	  padding: 15px;
 	  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 }
+.button.small {
+	padding: 0.5rem 1rem;
+}
 
 
 @screen sm {
@@ -150,10 +153,10 @@ black: #000000; */
 	main { margin:2em; }
 }
 
-.printonly { display:none !important; }
+.print, .printonly { display:none !important; }
 
 @media print {
-	.printonly { display:block !important; }
+	.print, .printonly { display:block !important; }
 	.noprint { display: none !important; }
 	input, textarea, select { border: none; }
 	textarea { resize: none; }

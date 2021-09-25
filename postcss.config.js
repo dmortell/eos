@@ -7,8 +7,8 @@ const dev = mode === "development";
 
 module.exports = {
 	plugins: [
-		tailwindcss,		// or require("tailwindcss")
-		autoprefixer,
+		tailwindcss,		// require("tailwindcss")
+		autoprefixer,		// require('autoprefixer'),
 		!dev && cssnano({ preset: [ "default", { discardComments: { removeAll: true } }, ], }),
 	],
 };

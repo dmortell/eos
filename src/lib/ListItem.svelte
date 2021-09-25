@@ -6,7 +6,17 @@
 </script>
 
 <!-- <div class="item-row" on:click={e=>console.log('clk')} > -->
-<div class="item-row" on:click >
+
+	<!-- <div class="flex flex-wrap items-center">
+		<div class="relative w-full px-4 max-w-full flex-grow flex-1">
+		  <h3 class="font-semibold text-base text-blueGray-700">Page Visits</h3>
+		</div>
+		<div class="relative w-full px-4 max-w-full flex-grow flex-1 text-right">
+		  <button class="bg-indigo-500 text-white active:bg-indigo-600 text-xs font-bold uppercase px-3 py-1 rounded outline-none focus:outline-none mr-1 mb-1 ease-linear transition-all duration-150" type="button">See all</button>
+		</div>
+	  </div> -->
+
+<div class="flex flex-wrap items-center   item-row item-row-narrow" on:click >
 	<div class="is-left">
 		<slot name="title">{title}</slot>
 		<slot></slot>
@@ -24,6 +34,13 @@
 		box-sizing: border-box;
 		border-bottom: 1px #d1d1d180 solid;
 		padding: 8px 0;
+	}
+	.item-row-narrow {
+		/* display: flex;
+		justify-content: space-between;
+		box-sizing: border-box;
+		border-bottom: 1px #d1d1d180 solid; */
+		padding: 2px 0;
 	}
 	/* .item-cell {
     display: block;

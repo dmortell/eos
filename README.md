@@ -7,6 +7,8 @@ npm install tailwindcss@npm:@tailwindcss/postcss7-compat postcss@^7 autoprefixer
 npm install tailwindcss@npm:@tailwindcss/postcss7-compat postcss-cli@^7 autoprefixer@^9 concurrently cross-env --save-dev
 <!-- Add cssnano for further compression of css -->
 
+<!-- Try WindiCSS instead of Tailwind https://github.com/windicss/vite-plugin-windicss -->
+
 ## Initial build size
 
 ```

@@ -14,7 +14,7 @@
 	import TimesheetHeader from "$lib/TimesheetHeader.svelte"
 	import Row from "$lib/Row.svelte"
 	import Col from "$lib/Col.svelte"
-	export var user, month, days, totals
+	export var user, month, days, totals, sheet
 
 	// const cons = {}
 	// var _alltimes = [], _times = [], _days = []
@@ -96,20 +96,22 @@ function selectEntry(row){
 		console.log('opentimeentry', {defaults, row, entry, user})
 	}
 	function updateTime(){
-		// var {date,start,finish,breaks,remark,type} = entry
-		// var data = {date,start,finish,breaks,remark,type, uid:user.uid}
-		// times.update(data, entry.id, item=>console.log('saved',item))
-		// $alert = "entry updated"
+		var {date,start,finish,breaks,remark='',type} = entry
+		var data = {date,start,finish,breaks,remark,type, uid:user.uid}
+		console.log('saving',entry)
+		times.update(data, entry.id, item=>console.log('saved',data))
+		editing = false
+		$alert = "entry updated"
 	}
 	function deleteTime(){
-		// times.collection().doc(entry.id).delete().then(item=>{
-		// 	console.log('deleted',entry,item, $times)
-		// 	$alert = "Entry deleted"
-		// })
+		if (entry.id) times.collection().doc(entry.id).delete().then(item=>{
+			console.log('deleted',entry,item, $times)
+			$alert = "Entry deleted"
+		})
 	}
 	function closePopup(action){
-		// if (action=='save') updateTime()
-		// if (action=='delete') deleteTime()
+		if (action=='save') updateTime()
+		if (action=='delete') deleteTime(editing = false)
 	}
 
 	// function decMonth(){incMonth(-1)}
@@ -125,7 +127,18 @@ function selectEntry(row){
 </script>
 
 <Container>
-	<TimesheetHeader {user} {month} />
+
+
+	<!-- <div class="flex flex-wrap items-center">
+        <div class="relative w-full px-4 max-w-full flex-grow flex-1">
+          <h3 class="font-semibold text-base text-blueGray-700">Page Visits</h3>
+        </div>
+        <div class="relative w-full px-4 max-w-full flex-grow flex-1 text-right">
+          <button class="bg-indigo-500 text-white active:bg-indigo-600 text-xs font-bold uppercase px-3 py-1 rounded outline-none focus:outline-none mr-1 mb-1 ease-linear transition-all duration-150" type="button">See all</button>
+        </div>
+      </div> -->
+
+	<TimesheetHeader {user} {month} {totals} {sheet} on:select />
 	<div class='printonly'>
 		<table class='xborder-collapse xborder xborder-green-600'>
 			<tr class='mainrow'>
@@ -184,7 +197,8 @@ function selectEntry(row){
 		</span>
 		{#each days as time (time.date)}
 		<ListItem link on:click={e=>selectEntry(time)}>
-			<div class="grid grid-flow-col auto-cols-max gap-0.5">
+			<!-- <div class="grid grid-flow-col auto-cols-max gap-0.5"> -->
+			<div class="flex flex-wrap">
 				<div class="col0 short-date text-center {time.color}">
 					{time.short}
 				</div>
@@ -209,7 +223,7 @@ function selectEntry(row){
 		{/each}
 	</Details>
 
-	<TimesheetHeader {user} {month} {totals} footer />
+	<TimesheetHeader {user} {month} {totals} {sheet} footer  />
 
 </Container>
 
@@ -222,26 +236,14 @@ function selectEntry(row){
 		<!-- <TimeEntry entry={entry} onClose={action=>closePopup(action)} /> -->
 
 			<form on:submit|preventDefault={e=>closePopup('save')}>
-				<ListInput label="Date"   type="date"   bind:value={entry.date}    />
-				<ListInput label="Start"  type="time"   bind:value={entry.start}   />
-				<ListInput label="Finish" type="time"   bind:value={entry.finish}  />
-				<ListInput label="Breaks (hours)" type="number" bind:value={entry.breaks} inputmode='numeric' placeholder="Breaks in hours (eg. 1.5hrs)"/>
-				<ListInput label="Type"   type="select" bind:value={entry.type}>
-					{#each $work_types as type}<option value={type.type}>{type.name}</option>{/each}
+				<ListInput name='date'   label="Date"   type="date"   bind:value={entry.date}    />
+				<ListInput name='start'  label="Start"  type="time"   bind:value={entry.start}   />
+				<ListInput name='finish' label="Finish" type="time"   bind:value={entry.finish}  />
+				<ListInput name='breaks' label="Breaks (hours)" type="number" bind:value={entry.breaks} inputmode='numeric'/>
+				<ListInput name='type'   label="Type"   type="select" bind:value={entry.type} options={$work_types} />
+				<ListInput name='remark' label="Remarks" type="text"  bind:value={entry.remark} >
+					<!-- <div slot="content" style='margin-right:8px;'><Button fill small round raised on:click={e=>entry.remark="WFH"}>WFH</Button></div> -->
 				</ListInput>
-				<ListInput label="Remarks" type="text"  bind:value={entry.remark} >
-					<div slot="content" style='margin-right:8px;'><Button fill small round raised on:click={e=>entry.remark="WFH"}>WFH</Button></div>
-				</ListInput>
-				{entry.id}
-				<!-- <ListItem popupClose>
-					&nbsp;
-
-				</ListItem> -->
-				<!-- <div slot="footer" class="is-right px-10 py-5 border-t-2">
-					<Button secondary icon={mdiClose} on:click={e=>editing=false}>Cancel</Button>
-					<Button primary icon={mdiContentSave} on:click={saveUser}>Save</Button>
-				</div> -->
-
 			</form>
 		<!-- {#each items as item}
 			<ListInput label={item.label} name={item.name} value={user[item.name] ?? item.def} type={item.type ?? 'text'} options={item.options}
@@ -251,19 +253,21 @@ function selectEntry(row){
 	</div>
 
 	<div slot="footer" class="is-right px-10 py-5 border-t-2">
-		{#if entry.id}
 		<Button fill error on:click={e=>closePopup('delete')}>Delete</Button>
-		{/if}
 		<Button fill primary type='submit' on:click={e=>closePopup('save')}>Save</Button>
 		<Button secondary icon={mdiClose} on:click={e=>editing=false}>Cancel</Button>
 		<!-- <Button primary icon={mdiContentSave} on:click={saveUser}>Save</Button> -->
+		<!-- <div slot="footer" class="is-right px-10 py-5 border-t-2"> -->
+			<!-- <Button secondary icon={mdiClose} on:click={e=>editing=false}>Cancel</Button> -->
+			<!-- <Button primary icon={mdiContentSave} on:click={saveUser}>Save</Button> -->
+		<!-- </div> -->
 	</div>
 </Dialog>
 
 
 <style>
-	.col0 {width:4em; }
-	.col1 {width:4em; }
+	.col0 {width:3em; margin-right: 8px; }
+	.col1 {width:6em; }
 	.col2 {width:4em; }
 	.col3 {width:4em; }
 	.col4 {width:auto; }

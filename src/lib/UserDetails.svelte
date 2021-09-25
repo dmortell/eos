@@ -2,10 +2,10 @@
 	import {onMount, tick} from 'svelte'
 	import { fade } from 'svelte/transition'
 	// import {loading, users, session, times, sheets, cleanup, alert, } from '$js/stores'
-	import {mdiHeart,mdiRepeat, mdiReply, mdiPencil, mdiContentSave, mdiCancel, mdiClose} from '@mdi/js'
-	import {Nav,Card, Container, Details, Icon, Input,Button, Modal} from 'svelte-chota';
+	import {mdiHeart,mdiRepeat, mdiReply, mdiPencil, mdiContentSave, mdiCancel, mdiChevronDown, mdiClose} from '@mdi/js'
+	import {Nav,Card, Container, Details, Icon, Input,Button, Modal, Tag} from 'svelte-chota';
 	import { asyncable } from 'svelte-asyncable';
-	import {users, contracts, roles} from '$js/stores'
+	import {users, contracts, roles, clients} from '$js/stores'
 	import {parseEntry, optional, plural, format, calcHours} from "$js/formatter";
 	import Avatar from "$lib/Avatar.svelte"
 	import Dialog from "$lib/Dialog.svelte"
@@ -25,6 +25,8 @@
 	// todo add total days
 	// todo adding an entry in a new month doesnt update sheets list
 
+	// todo display client name instead of client type
+
 	const items =[
 		// {name: 'name',	label:'', },
 		{name: 'start',			label:'Start time', 	type:'time',	def:'07:30'},
@@ -35,6 +37,7 @@
 		// {name: 'email',			label:'Email', 			type:'email'},		// todo remove this
 		// {name: 'tel',			label:'Contact Tel', 	type:'tel'},		// todo remove this
 		// {name: 'photoURL',		label:'Photo URL', 		type:'url'},		// todo remove this
+		{name: 'client',		label:'Client',		 	type:'select',	options: $clients},
 		{name: 'contract',		label:'Contract', 		type:'select',	options: $contracts},
 		{name: 'role',			label:'Role',			type:'select',	options: $roles },
 		{name: 'carry_over',	label:'Carry over', 	},
