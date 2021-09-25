@@ -12,7 +12,7 @@
 	import ListInput from "$lib/ListInput.svelte"
 	import { createEventDispatcher } from 'svelte';
 	export const dispatch = createEventDispatcher();
-	export var _sheets = []
+	export var _sheets = [], _times = []
 
 	var show_all = false
 	$: filtered = _sheets?.filter(i=>show_all || i.status!='approved')
@@ -57,10 +57,10 @@
 				<!-- <div class="relative w-full px-4 max-w-full flex-grow flex-1"> -->
 				<div class="w-24 px-4 max-w-full flex-grow flex-1">
 					<!-- {optional(sheet.days,'','day')} -->
-					{optional(monthTotal($times, sheet.month).days,'','day')}
+					{optional(monthTotal(_times, sheet.month).days,'','day')}
 				</div>
 				<div class="w-24 px-4 max-w-full flex-grow flex-1">
-					{optional(monthTotal($times, sheet.month).hours,'','hr')}
+					{optional(monthTotal(_times, sheet.month).hours,'','hr')}
 				</div>
 				<div class='col2'>
 					<button class="mx-2 px-2 py-1 text-base bg-white text-red-600 border-red-400" on:click={e=>delSheet(sheet)}>Del</button>
@@ -85,6 +85,7 @@
 </Container>
 
 <style>
+	.pending { @apply text-yellow-500; }
 	.approved { @apply text-green-500; }
 	.published { @apply text-blue-500; }
 	.col0 {width:4em; margin-right: 8px; }

@@ -18,6 +18,8 @@
 
 	// }
 
+	// todo press Enter to save/submit entry
+
 // 	export const work_types = readable([
 // 	{type:'normal', 		name:'Normal Day'},
 // 	{type:'weekend',		name:'Weekend'},

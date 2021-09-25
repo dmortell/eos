@@ -1,4 +1,5 @@
 import { writable, readable, derived } from 'svelte/store';
+import {parseEntry} from './formatter.js'
 // import { createStore } from 'framework7/lite';
 // import firebase from 'firebase'			// todo try Supabase instead of firebase https://supabase.io/database
 // import { initializeApp } from 'firebase/app';
@@ -330,7 +331,7 @@ export const roles = readable([
 	{type:'admin', 		name:'Admin'},
 	{type:'management',	name:'Management'},
 ])
-export const holidays = readable(keyValues('date','name',[
+export const holidays = readable(keyValues([
 	{date:"2019-01-01", name:"New Year's Day"},
 	{date:"2019-01-02", name:"EIRE Office Closed"},
 	{date:"2019-01-03", name:"EIRE Office Closed"},
@@ -392,8 +393,8 @@ export const holidays = readable(keyValues('date','name',[
 	{date:"2021-09-23", name:"Autumnal Equinox Day"},
 	{date:"2021-11-03", name:"Culture Day"},
 	{date:"2021-11-23", name:"Labour Thanksgiving Day"},
-]))
-export function keyValues(key_name, value_name, list){	// return an object with {key:value, ...}
+],'date','name'))
+export function keyValues(list, key_name='type', value_name='name'){	// return an object with {key:value, ...}
 	var result = {}
 	list.map(item => result[item[key_name]] = item[value_name])
 	return result;
@@ -412,13 +413,16 @@ export function monthTotal(times, month){
 	// for (var d=1; d<=monthdays; d++){					// list of days in the month
 	// 	var date = month + '-' + (d+'').padStart(2,'0')
 	// 	var entry = times.find(e => e.date===date) ?? {date}
-	// 	data.less = data.days ? Math.max(0,standard - data.total) : 0
+	// 	data.less = data.days ? Math.max(0,standard - data.hours) : 0
 	if (times) times.map(entry => {
 		if (entry.date.startsWith(month)){
 			var data = parseEntry(entry, holidays)
 			keys.map(k => totals[k] += data[k] ?? 0) 		// calculate totals
+			console.log('added',month, entry.date, entry)
 		}
+		// else console.log('skipped',month, entry.date)
 	})
+	console.log('stores.monthTotal', times, month, totals)
 	return totals
 }
 

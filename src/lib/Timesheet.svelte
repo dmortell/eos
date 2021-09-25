@@ -1,7 +1,7 @@
 <script>
 	import {onMount, tick} from 'svelte'
 	import { fade } from 'svelte/transition'
-	import {mdiHeart,mdiRepeat, mdiReply, mdiPencil, mdiContentSave, mdiCancel, mdiClose} from '@mdi/js'
+	import {mdiHeart,mdiRepeat, mdiReply, mdiPencil, mdiContentSave, mdiCancel, mdiClose, mdiClipboardTextMultipleOutline as mdiClip} from '@mdi/js'
 	import {Nav,Card, Container, Details, Icon, Input,Button, Modal} from 'svelte-chota';
 	import { asyncable } from 'svelte-asyncable';
 	import {sheets, times, cleanup, holidays, alert, work_types, keyValues, monthTotal} from '$js/stores'
@@ -11,19 +11,32 @@
 	import ListItem from "$lib/ListItem.svelte"
 	import ListInput from "$lib/ListInput.svelte"
 	import TimeEntry from "$lib/TimeEntry.svelte"
+	import Clipboard from "$lib/Clipboard.svelte"
 	import TimesheetHeader from "$lib/TimesheetHeader.svelte"
+	import TimesheetFooter from "$lib/TimesheetFooter.svelte"
 	import Row from "$lib/Row.svelte"
 	import Col from "$lib/Col.svelte"
-	export var user, month, days, sheet
+	export var user, month, days, sheet, _times
 
-	let types = keyValues('type','name',$work_types)
+	let types = keyValues($work_types,'type','name')
 	let editing = false
 	let entry = {}, totals={}
-	$: totals = monthTotal($times, month)
-	// $: {
-	// 	totals = monthTotal($times, month)
-	// 	console.log(totals)
-	// }
+	let copy_string = 'hello there'
+	// $: totals = monthTotal($times, month)
+	$: {
+		totals = monthTotal(_times, month)
+		console.log('timesheet',totals)
+	}
+
+	function copyString(){
+		var str = ''
+		// const types = keyValues($work_types)
+		days.map(d=>{
+			const row = [types[d.type], d.start, d.finish, d.breaks, d.remark]
+			str += row.join("\t") + "\n"			// console.log(row,d)
+		})
+		return str
+	}
 
 function selectEntry(row){
 		// var {date,start,finish,breaks,remark,type} = row
@@ -34,8 +47,6 @@ function selectEntry(row){
 		entry = {...defaults, ...row}			// nullish coalescing to avoid changing 0 to 1 for breaks
 		editing = true
 		console.log('opentimeentry', {defaults, row, entry, user})
-
-		xxy=1
 	}
 	function updateTime(){
 		var {date,start,finish,breaks,remark='',type} = entry
@@ -64,8 +75,6 @@ function selectEntry(row){
 	// 	if (m>12) y++, m=1
 	// 	month = y + '-' + (''+m).padStart(2,'0')
 	// }
-
-
 </script>
 
 <Container>
@@ -119,7 +128,7 @@ function selectEntry(row){
 				<td></td>
 				<td></td>
 				<td></td>
-				<td class='right'>{optional(totals.total,'','')}</td>
+				<td class='right'>{optional(totals.hours,'','')}</td>
 				<td class='right'>{optional(totals.less,'','')}</td>
 				<td class='right'>{optional(totals.a,'','')}</td>
 				<td class='right'>{optional(totals.b,'','')}</td>
@@ -137,6 +146,12 @@ function selectEntry(row){
 		<span slot="summary" class='xnoprint'>
 			Timesheet for {format(month,'longmonth-year')}
 		</span>
+
+		<Clipboard text={()=>copyString()} on:copy={(e,txt)=>{$alert="Timesheet copied to clipboard"; txt = e.detail}} on:fail={e=>console.log('failed to clipboard')} let:copytext>
+			<!-- <button on:click={copytext}><Icon src={mdiClip}/></button> -->
+			<!-- <Icon class="cursor-pointer inline" on:click={copytext} src={mdiClip}/> -->
+		</Clipboard>
+
 		{#each days as time (time.date)}
 		<ListItem link on:click={e=>selectEntry(time)}>
 			<!-- <div class="grid grid-flow-col auto-cols-max gap-0.5"> -->
@@ -165,7 +180,7 @@ function selectEntry(row){
 		{/each}
 	</Details>
 
-	<TimesheetHeader {user} {month} {totals} {sheet} footer  />
+	<TimesheetFooter {totals} />
 
 </Container>
 

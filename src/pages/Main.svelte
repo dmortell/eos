@@ -83,7 +83,7 @@ function onSheetsUpdate(snap){
 function onTimesUpdate(snap){
 	_alltimes = snap.docs.filter(d=>{ return true })
 		.map(d => { return {...d.data(), id:d.id } })
-	// console.log('timesUpdate', _alltimes, snap.docs)
+	console.log('timesUpdate', _alltimes)
 	filldays(_alltimes)
 }
 
@@ -107,7 +107,7 @@ function filldays(times, validate=true){
 		var date = month + '-' + (d+'').padStart(2,'0')
 		var entry = times.find(e => e.date===date) ?? {date}
 		var data = parseEntry(entry, $holidays)
-		data.less = data.days ? Math.max(0,standard - data.total) : 0
+		data.less = data.days ? Math.max(0,standard - data.hours) : 0
 		days.push(data)
 		// keys.map(k => totals[k] += data[k] ?? 0) 		// calculate totals
 	}
@@ -187,10 +187,10 @@ function filldays(times, validate=true){
 	<div class="noprint">
 		<UserList {_users} on:click={selectUser} />
 		<UserDetails {user}/>
-		<UserSheets _sheets={_sheets} on:select={selectMonth}/>
+		<UserSheets _sheets={_sheets} _times={_alltimes} on:select={selectMonth}/>
 	</div>
 	<!-- <Timesheet {user} {month} {days} totals={monthTotal($times, sheet.month)} {sheet} on:select={selectMonth} /> -->
-	<Timesheet {user} {month} {days} {sheet} on:select={selectMonth} />
+	<Timesheet {user} {month} {days} {sheet} _times={_alltimes} on:select={selectMonth} />
 
 </Container>
 

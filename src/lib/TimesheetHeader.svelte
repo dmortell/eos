@@ -9,7 +9,7 @@
 	import {parseEntry, optional, plural, format, calcHours} from "$js/formatter";
 	import { createEventDispatcher } from 'svelte';
 	const dispatch = createEventDispatcher();
-	export let user, month, footer=false, totals={}, sheet
+	export let user, month, totals={}, sheet
 	// export let user, month, footer=false, sheet
 	// todo make header & footer responsive
 
@@ -37,7 +37,8 @@
 	function setStatus(status){
 		// const next = nextStatus(status)
 		// update: async (data,id=null,callback=(data,id)=>console.log('connectTable.updated',data,id)) => {
-		sheets.update({status}, sheet.id, (data,id)=>{
+		const data = {status, month, uid:user.uid}
+		sheets.update(data, sheet.id, (data,id)=>{
 			console.log('sheet updated', data,id)
 			$alert = 'Timesheet set to ' + status
 		})
@@ -77,24 +78,7 @@
 </script>
 
  <Card>
-	{#if footer}
-		<div class='flex flex-wrap items-center'>
-			<!-- <div class="w-24 px-4 max-w-full flex-grow flex-1"></div> -->
-			<div class='w-24 max-w-full flex-grow flex-1'>Total work hours:</div>
-			<div class='flex-grow flex-1 '>{totals.hours}</div>
-			<!-- <Col class='flex-grow flex-1 print right'>Client Reviewed:</Col><Col class='print'>___________</Col> -->
-		</div>
-		<div class='flex flex-wrap items-center'>
-			<!-- <div class="w-24 px-4 max-w-full flex-grow flex-1"></div> -->
-			<div class='w-24 max-w-full flex-grow flex-1'>Total work days:</div>
-			<div class='flex-grow flex-1 '>{totals.days}</div>
-			<!-- <Col class='flex-grow flex-1 print right'>Client Reviewed:</Col><Col class='print'>___________</Col> -->
-		</div>
-		<!-- <Row>
-			<Col>Total work days:</Col><Col class='left'>{totals.days}</Col>
-			<Col class='right print'>Date:</Col><Col class='print'>___________</Col>
-		</Row> -->
-	{:else}
+
 		<Row class='printonly' style={{padding:'4px',borderBottom:'2px solid black'}}>
 			<Col>
 				<img src='./logo.gif' alt='logo'/>
@@ -129,7 +113,7 @@
 			<Row class='noprint flex'>
 				<Col class='inline '>Client:</Col>
 				<Col class='inline left'>
-					<ListInput name='client' bind:value={sheet.client} type='select' options={$clients} on:change={selectClient}/>
+					<ListInput name='client' bind:value={sheet.client} type='select' options={$clients} on:blur={selectClient}/>
 				</Col>
 				<Col class='inline'/>
 			</Row>
@@ -162,11 +146,11 @@
 			<Col/>
 		</Row> -->
 		<!-- <Row><Col>Status:</Col><Col>{timesheet.status} <div class='right'><Button>Submit!</Button></div></Col><Col/></Row> -->
-		<!-- <Row><Col>Total:</Col><Col>{timesheet.total} hrs</Col><Col/></Row> -->
+		<!-- <Row><Col>Total:</Col><Col>{timesheet.hours} hrs</Col><Col/></Row> -->
 		<div class='flex flex-wrap items-center'>
 			<!-- <div class="w-24 px-4 max-w-full flex-grow flex-1"></div> -->
 			<div class='w-52 xxmax-w-full xxflex-grow flex-initial'>Total work hours:</div>
-			<div class='flex-grow flex-1 '>{totals.total}</div>
+			<div class='flex-grow flex-1 '>{totals.hours}</div>
 			<!-- <Col class='flex-grow flex-1 print right'>Client Reviewed:</Col><Col class='print'>___________</Col> -->
 		</div>
 		<div class='flex flex-wrap items-center'>
@@ -202,7 +186,6 @@
 			</Card>
 		</Modal>
 
-	{/if}
 </Card>
 
 <style>
