@@ -10,19 +10,9 @@
 	import { createEventDispatcher } from 'svelte';
 	const dispatch = createEventDispatcher();
 	export let user, month, totals={}, sheet
-	// export let user, month, footer=false, sheet
 	// todo make header & footer responsive
 
 	let modal_open = false
-	// let totals = {}
-	// $: totals = monthTotal($times, month)
-	// $: console.log(totals)
-	// $: {
-	// 	totals = monthTotal($times, month)
-	// 	console.log(totals)
-	// }
-
-	console.log("FIX client.onselect triggering twice ")
 
 	const statuses = [			// todo make clients realtime firebase
 		{type:'pending',		name:'Draft'},
@@ -34,35 +24,25 @@
 		else if (status=='published') 	return {type:'approved', name:'Approve'}
 										return {type:'pending', name:'Revert'}
 	}
+	function updateSheet(data, callback = e=>e){
+		const defaults = {month, uid:user.uid, client:user.client, ...data}
+		sheets.update(defaults, sheet.id, callback)
+	}
 	function setStatus(status){
-		// const next = nextStatus(status)
-		// update: async (data,id=null,callback=(data,id)=>console.log('connectTable.updated',data,id)) => {
-		const data = {status, month, uid:user.uid}
-		sheets.update(data, sheet.id, (data,id)=>{
+		modal_open = false;
+		updateSheet({status}, (data,id)=>{
 			console.log('sheet updated', data,id)
 			$alert = 'Timesheet set to ' + status
 		})
-		modal_open = false;
-
 	}
-	// function openModal(){
-	// 	modal_open=true
-	// 	console.log(modal_open)
-	// }
-	var editClient = false
 	function clientName(code){
-		// console.log('header.clientName', code, sheet)
 		return $clients.find(d=>d.type == code)?.name ?? ''
 	}
 	function selectClient(){
-		console.log('client selected', sheet.client)
-		// todo update client in timesheet table
-		// sheets.update({status}, sheet.id, (data,id)=>{
-		// 	console.log('sheet updated', data,id)
-		// 	$alert = 'Timesheet set to ' + status
-		// })
+		updateSheet({client:sheet.client}, (data,id)=>{
+			console.log('sheet updated', data,id)
+		})
 	}
-
 
 	function decMonth(){incMonth(0,-1)}
 	function incMonth(e,inc = 1){
@@ -74,11 +54,13 @@
 		month = y + '-' + (''+m).padStart(2,'0')
 		dispatch('select',{month})
 	}
-
+	function selectMonth(e){
+		month=e.target.value
+		dispatch('select',{month})
+	}
 </script>
 
  <Card>
-
 		<Row class='printonly' style={{padding:'4px',borderBottom:'2px solid black'}}>
 			<Col>
 				<img src='./logo.gif' alt='logo'/>
@@ -125,12 +107,10 @@
 			<Row class='noprint'>
 				<Col>Month:</Col><Col class='left'>
 				<div class="flex">
-					<!-- <Button onClick={decMonth}><i class="f7-icons">arrow_left</i></Button> -->
-					<!-- <Button onClick={incMonth}><i class="f7-icons">arrow_right</i></Button> -->
 					<Icon src={mdiChevronLeft} class="icon noprint flex-none w-12" on:click={decMonth}/>
 					<!-- <Input type="month" bind:value={month} inputStyle="max-width:180px" /> -->
-					<!-- <Input type="month" bind:value={month} class="noprint" /> -->
-					<div class="flex-none w-52 mx-auto">{format(month,'longmonth-year')}</div>
+					<Input type="month" value={month} on:change={selectMonth} class="noprint" />
+					<div class="print flex-none w-52 mx-auto">{format(month,'longmonth-year')}</div>
 					<Icon src={mdiChevronRight} class="icon noprint flex-none w-12" on:click={incMonth}/>
 				</div>
 				</Col><Col/>

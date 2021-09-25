@@ -418,11 +418,11 @@ export function monthTotal(times, month){
 		if (entry.date.startsWith(month)){
 			var data = parseEntry(entry, holidays)
 			keys.map(k => totals[k] += data[k] ?? 0) 		// calculate totals
-			console.log('added',month, entry.date, entry)
+			// console.log('added',month, entry.date, entry)
 		}
 		// else console.log('skipped',month, entry.date)
 	})
-	console.log('stores.monthTotal', times, month, totals)
+	// console.log('stores.monthTotal', times, month, totals)
 	return totals
 }
 

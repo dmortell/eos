@@ -76,9 +76,12 @@ function onSheetsUpdate(snap){
 	_sheets = snap.docs.filter(d=>{ return true })
 	.map(d => { return {...d.data(), id:d.id} })
 	.sort((a,b)=>a.month > b.month ? -1 : 1)
-	var defaults = {uid:user.uid, month, status:sheet.status ?? "pending", client:user.client}
+	selectSheet()
+}
+function selectSheet(){
+	var defaults = {uid:user.uid, month, status:"pending", client:user.client}
 	sheet = _sheets.find(d => d.month==month) ?? defaults
-	console.log('sheetsUpdate', _sheets, sheet, user.uid, snap)
+	// console.log('sheetsUpdate', sheet )
 }
 function onTimesUpdate(snap){
 	_alltimes = snap.docs.filter(d=>{ return true })
@@ -102,6 +105,7 @@ function filldays(times, validate=true){
 	var keys = ['a','b','c','d','total','days','less']
 	// totals = {a:0, b:0, c:0, d:0, total:0, days:0, less:0, month}
 
+	selectSheet()
 	days = []
 	for (var d=1; d<=monthdays; d++){					// list of days in the month
 		var date = month + '-' + (d+'').padStart(2,'0')
@@ -111,45 +115,7 @@ function filldays(times, validate=true){
 		days.push(data)
 		// keys.map(k => totals[k] += data[k] ?? 0) 		// calculate totals
 	}
-	// if (validate) checkSheetTotals(month, totals, sheet, user)	// check if sheet table needs updating
-	// if (validate){
-	// 	var data = {}		// var data = {uid:user.uid, month}
-	// 	var update = false
-	// 	keys.map(k => {
-	// 		if (totals[k]===0 && sheet[k]==undefined){}		// ignore zero entries if undefined
-	// 		else if (totals[k] !== sheet[k]){
-	// 			data[k] = totals[k]
-	// 			update=true
-	// 		}
-	// 	})
-	// 	if (update){
-	// 		console.log('updating sheet', sheet, data)
-	// 		var defaults = {uid:user.uid, month, status:sheet.status ?? "pending", client:user.client}
-	// 		sheets.update({...defaults, ...data}, sheet.id, (d,id)=>{
-	// 			console.log('Updated  sheet',id,d)
-	// 			sheet = d
-	// 		})
-	// 		// console.log('finally',sheet)
-	// 	}
-	// }
 }
-// function checkSheetTotals(month, totals, sheet, user){				// todo update sheet table if totals changed
-// 	var keys = ['a','b','c','d','total','days'], update = false
-// 	var data = {}		// var data = {uid:user.uid, month}
-// 	keys.map(k => {
-// 		if (totals[k]===0 && sheet[k]==undefined){}		// ignore zero entries if undefined
-// 		else if (totals[k] !== sheet[k]){
-// 			data[k] = totals[k]
-// 			update=true
-// 		}
-// 	})
-// 	if (update){
-// 		// data.status = sheet.status ?? "pending"
-// 		console.log('updating sheet', sheet, data)
-// 		sheets.update({uid:user.uid, month, status:sheet.status ?? "pending", ...data}, sheet.id,
-// 			e=>console.log('Updated sheet'))
-// 	}
-// }
 </script>
 
 
@@ -196,36 +162,8 @@ function filldays(times, validate=true){
 
 <Alert/>
 
-<!-- <TimeSheet/> -->
-
-
-<!-- <Container>
-	<Card class="text-center" style="height:100px; width:100px" title="Hello!!" >
-		<h1 class="primary">Hey!</h1>
-	</Card>
-</Container> -->
-
-<!-- <label for="test">Test</label>
-<input name="test" id="test"/> -->
-
-<!-- <Icon src={mdiAccountPlus} color="green" size="3" /> -->
-
-<!-- <Button primary icon={mdiAccountPlus}>Add User</Button> -->
-<!--
-<Button outline primary iconRight={mdiSend}>Submit</Button> -->
-
-<!-- <Page>
-	<Navbar slot='fixed'>
-
-	</Navbar>
-
-</Page> -->
-
 
 <style lang="postcss">
-  /* h1 {
-    @apply text-5xl font-semibold;
-  } */
 
 :global(.nav){
     /* pointer-events: none;

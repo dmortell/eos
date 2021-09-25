@@ -22,15 +22,10 @@
 	let editing = false
 	let entry = {}, totals={}
 	let copy_string = 'hello there'
-	// $: totals = monthTotal($times, month)
-	$: {
-		totals = monthTotal(_times, month)
-		console.log('timesheet',totals)
-	}
+	$: totals = monthTotal(_times, month)
 
 	function copyString(){
 		var str = ''
-		// const types = keyValues($work_types)
 		days.map(d=>{
 			const row = [types[d.type], d.start, d.finish, d.breaks, d.remark]
 			str += row.join("\t") + "\n"			// console.log(row,d)
@@ -39,9 +34,6 @@
 	}
 
 function selectEntry(row){
-		// var {date,start,finish,breaks,remark,type} = row
-		// var defaults = {date,start,finish,breaks,remark,type, uid:user.uid}
-		// breaks:row.breaks ?? 1,
 		var {uid, start, finish, breaks} = user
 		var defaults = {uid, start, finish, breaks}
 		entry = {...defaults, ...row}			// nullish coalescing to avoid changing 0 to 1 for breaks
@@ -152,6 +144,71 @@ function selectEntry(row){
 			<!-- <Icon class="cursor-pointer inline" on:click={copytext} src={mdiClip}/> -->
 		</Clipboard>
 
+
+		{#each days as time (time.date)}
+		<ListItem link on:click={e=>selectEntry(time)}>
+			<div class="float-left short-date {time.color} mr-4">
+				{time.short}
+			</div>
+			<div class="float-left">
+				<div class="space-x-2 max-w-md md:max-w-lg truncate md:space-x-8 mr-4">
+					<div class='float-left'>
+						{optional(time.start)}{optional(time.finish,'-')}
+					</div>
+					<div class='float-left'>
+						{optional(time.breaks,'-','hr')}
+					</div>
+
+					<div class='float-left'>
+						{optional(time.hours,'','hr')}
+					</div>
+					<div class='float-left'>
+						{optional(time.a,'A','hr')}
+						{optional(time.b,'B','hr')}
+						{optional(time.c,'C','hr')}
+						{optional(time.d,'D','hr')}
+					</div>
+				</div>
+				<div class="md:xxfloat-left w-11/12 md:w-full truncate text-xl text-gray-500">
+					{time.remark || time.holiday || ''}
+				</div>
+			</div>
+
+
+			{#if 0}
+			<div class="grid xxgap-4 xxgap-y-2 grid-cols-12 pr-4">
+				<!-- <div class="md:col-span-3">
+					<label for="address">Address / Street</label>
+				</div> -->
+				<div class="short-date col-span-2 {time.color}">
+					{time.short}
+				</div>
+				<!-- <div class="grid gap-4 gap-y-2 grid-cols-1 md:grid-cols-3"> -->
+				<div class="grid xxgap-4 xxgap-y-2 col-span-9">
+					<div class=''>
+						{optional(time.start)}{optional(time.finish,'-')}
+					</div>
+					<div class=''>
+						{optional(time.breaks,'-','hr')}
+					</div>
+					<!--
+					<div class=''>
+						{optional(time.hours,'','hr')}
+					</div>
+					<div class=''>
+						{optional(time.a,'A','hr')}
+						{optional(time.b,'B','hr')}
+						{optional(time.c,'C','hr')}
+						{optional(time.d,'D','hr')}
+					</div> -->
+					<div class=''>{time.remark || time.holiday || ''}</div>
+				</div>
+			</div>
+			{/if}
+		</ListItem>
+		{/each}
+
+
 		{#each days as time (time.date)}
 		<ListItem link on:click={e=>selectEntry(time)}>
 			<!-- <div class="grid grid-flow-col auto-cols-max gap-0.5"> -->
@@ -231,7 +288,12 @@ function selectEntry(row){
 	.col5 {float:right; padding-left: 2em; }
 	.red { color:red; }
 	.blue { color: blue; }
-	.short-date { font-size:0.8em; border: 1px solid#ddd; border-radius:5px; padding: 4px 8px;}
+	.short-date {
+		width:3.0em; font-size:0.8em; border: 1px solid#ddd; border-radius:5px; padding: 4px 7px;
+		text-align:center;
+		min-height:26px;
+		/* letter-spacing: 0.05em; */
+	}
 	.hidden { display:none;}
 	.greyed { background-color: rgb(218 218 218 / 70%); }
 	.thin { font-size:0.7em; }
