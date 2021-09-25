@@ -1,6 +1,6 @@
 <script>
 import {session} from '$js/stores'
-import Timesheets from "./pages/Timesheets.svelte"
+import Main from "./pages/Main.svelte"
 import Login from '$lib/Login.svelte'
 // icons https://www.npmjs.com/package/@mdi/js
 // find them here https://materialdesignicons.com/
@@ -14,7 +14,7 @@ import Login from '$lib/Login.svelte'
 </script>
 
 {#if $session.user}
-	<Timesheets/>
+	<Main/>
 <!-- <View main class="safe-areas" url="/" masterDetailBreakpoint={800} /> -->
 {:else if $session.loaded}
 	<Login/>

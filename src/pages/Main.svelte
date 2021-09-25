@@ -9,8 +9,8 @@
 	import UserSheets from '$lib/UserSheets.svelte'
 	import Timesheet from '$lib/Timesheet.svelte'
 	import Alert from "$lib/Alert.svelte"
-	import {Nav,Card, Container, Icon, Field, Input,Button} from 'svelte-chota';
-	import {mdiHome,mdiMagnify, mdiDelete,mdiAccountPlus,mdiSend } from '@mdi/js'
+	import {Nav,Card, Container, Icon, Field, Input,Button, Tag} from 'svelte-chota';
+	import {mdiHome,mdiMagnify, mdiDelete,mdiAccountPlus,mdiSend, mdiChevronDown } from '@mdi/js'
 	import {loading, users, session, times, sheets, holidays, cleanup, alert} from '$js/stores'
 	import {parseEntry, optional, plural, format, calcHours, mins, toInt, toHours} from "$js/formatter";
 	export let open = false;
@@ -55,15 +55,14 @@ function onUsersUpdate(snap){
 }
 
 function connectUser(newuser){
-	// console.log('connectUser', newuser);
 	user = _users.find(u => u.email==newuser.email) ?? {}
 	if (user?.uid){
 		cons.sheets = sheets.reconnect(cons.sheets,
-			sheets.collection().where("uid","==",user.uid).orderBy("date", "desc"),
+			sheets.collection().where("uid","==",user.uid),		//.orderBy("month", "desc"),
 			onSheetsUpdate
 		)
 		cons.times  = times.reconnect(cons.times,
-			times.collection().where("uid","==",user.uid).orderBy("date", "asc"),
+			times.collection().where("uid","==",user.uid),		//.orderBy("date", "asc"),
 			onTimesUpdate
 		)
 	}
@@ -71,22 +70,21 @@ function connectUser(newuser){
 		console.error('connectUser.invalid uid', user);
 		_sheets = []
 		_alltimes = []
-		filldays(_alltimes, false)
+		filldays(_alltimes, false)							// dont revalidate sheet totals if no user
 	}
 }
-	// function onSheetsUpdate(snap){
-	// 	items = snap.docs.filter(d=>{ return true })				// todo filter out completed sheets. Ensure current month is shown
-	// 		.map(d => { return {id:d.id, ...d.data()} })
-	// 	// checkSheetTotals(month, totals)
-	// 	console.log('usersheets',items)
-	// }
 function onSheetsUpdate(snap){
-	_sheets = snap.docs.filter(d=>{ return true })					// todo filter out completed sheets. Ensure current month is shown
-		.map(d => { return {...d.data(), id:d.id} })
+	_sheets = snap.docs.filter(d=>{ return true })
+	.map(d => { return {...d.data(), id:d.id} })
+	.sort((a,b)=>a.month > b.month ? -1 : 1)
+	var defaults = {uid:user.uid, month, status:sheet.status ?? "pending", client:user.client}
+	sheet = _sheets.find(d => d.month==month) ?? defaults
+	console.log('sheetsUpdate', _sheets, sheet, user.uid, snap)
 }
 function onTimesUpdate(snap){
-	_alltimes = snap.docs.filter(q=>{ return true })
-		.map(d => { return {id:d.id, ...d.data()} })
+	_alltimes = snap.docs.filter(d=>{ return true })
+		.map(d => { return {...d.data(), id:d.id } })
+	// console.log('timesUpdate', _alltimes, snap.docs)
 	filldays(_alltimes)
 }
 
@@ -100,38 +98,59 @@ function selectUser({detail}){
 function filldays(times, validate=true){
 	var start = mins(user.start), end = mins(user.finish), less = toInt(user.breaks) * 60
 	var standard = toHours(end-start-less)
+	var [y,m] = month.split('-').map(v=>+v)
+	var monthdays = new Date(y, m, 0).getDate()			// number of days in the month
 	var keys = ['a','b','c','d','total','days','less']
 	totals = {a:0, b:0, c:0, d:0, total:0, days:0, less:0, month}
 
-	// _times = times.filter(d => d.date.substr(0,7)===month)
-
-	var [y,m] = month.split('-').map(v=>+v)
-	var monthdays = new Date(y, m, 0).getDate()			// number of days in the month
-	var entries = []
+	days = []
 	for (var d=1; d<=monthdays; d++){					// list of days in the month
 		var date = month + '-' + (d+'').padStart(2,'0')
 		var entry = times.find(e => e.date===date) ?? {date}
 		var data = parseEntry(entry, $holidays)
 		data.less = data.days ? Math.max(0,standard - data.total) : 0
-		entries.push(data)
+		days.push(data)
 		keys.map(k => totals[k] += data[k] ?? 0) 		// calculate totals
 	}
-	// if (validate) checkSheetTotals(month, totals)	// check if sheet table needs updating
-	days = entries
+	// if (validate) checkSheetTotals(month, totals, sheet, user)	// check if sheet table needs updating
+	if (validate){
+		var data = {}		// var data = {uid:user.uid, month}
+		var update = false
+		keys.map(k => {
+			if (totals[k]===0 && sheet[k]==undefined){}		// ignore zero entries if undefined
+			else if (totals[k] !== sheet[k]){
+				data[k] = totals[k]
+				update=true
+			}
+		})
+		if (update){
+			console.log('updating sheet', sheet, data)
+			var defaults = {uid:user.uid, month, status:sheet.status ?? "pending", client:user.client}
+			sheets.update({...defaults, ...data}, sheet.id, (d,id)=>{
+				console.log('Updated  sheet',id,d)
+				sheet = d
+			})
+			// console.log('finally',sheet)
+		}
+	}
 }
-function checkSheetTotals(month, totals){				// todo update sheet table if totals changed
-	// if (totals.month!==month || sheet?.month!==month) return;
-	// var keys = ['a','b','c','d','total','days'], update = false
-	// keys.map(k => {
-	// 	if (totals[k]===0 && sheet[k]==undefined){}		// ignore zero entries if undefined
-	// 	else if (totals[k] !== sheet[k]) update=true
-	// })
-	// if (update){
-	// 	var status = sheet.status ?? "pending"
-	// 	// var color = status == "pending" ? 'blue' : 'red';
-	// 	sheets.update({uid:user.uid, month, status, ...totals}, sheet.id, e=>console.log('Updated sheet'))
-	// }
-}
+// function checkSheetTotals(month, totals, sheet, user){				// todo update sheet table if totals changed
+// 	var keys = ['a','b','c','d','total','days'], update = false
+// 	var data = {}		// var data = {uid:user.uid, month}
+// 	keys.map(k => {
+// 		if (totals[k]===0 && sheet[k]==undefined){}		// ignore zero entries if undefined
+// 		else if (totals[k] !== sheet[k]){
+// 			data[k] = totals[k]
+// 			update=true
+// 		}
+// 	})
+// 	if (update){
+// 		// data.status = sheet.status ?? "pending"
+// 		console.log('updating sheet', sheet, data)
+// 		sheets.update({uid:user.uid, month, status:sheet.status ?? "pending", ...data}, sheet.id,
+// 			e=>console.log('Updated sheet'))
+// 	}
+// }
 </script>
 
 
@@ -145,10 +164,17 @@ function checkSheetTotals(month, totals){				// todo update sheet table if total
     <!-- <a slot="center" href="/" class="brand">LOGO</a> -->
 </Nav>
 
-
+<p>publish sheet -> readonly</p>
 <SidePanel bind:visible={open} >
-	<h2>Side panel</h2>
-	<p>text goes here</p>
+	<Card>
+		<h2>Menu</h2>
+		<Button dropdown="My Profile" autoclose outline iconRight={mdiChevronDown}>
+			<p><a href="#!">Edit</a></p>
+			<p><a href="#!">Alerts</a>&nbsp;<Tag>3</Tag></p>
+			<hr>
+			<p><a href="#!" class="text-error">Logout</a></p>
+		</Button>
+	</Card>
 </SidePanel>
 
 <Container>
@@ -163,9 +189,9 @@ function checkSheetTotals(month, totals){				// todo update sheet table if total
 	<div class="noprint">
 		<UserList {_users} on:click={selectUser} />
 		<UserDetails {user}/>
-		<UserSheets {user} sheets={_sheets} on:select={selectMonth}/>
+		<UserSheets {user} _sheets={_sheets} on:select={selectMonth}/>
 	</div>
-	<Timesheet {user} {month} {days} {totals} />
+	<Timesheet {user} {month} {days} {totals} {sheet} on:select={selectMonth} />
 
 </Container>
 
@@ -198,9 +224,9 @@ function checkSheetTotals(month, totals){				// todo update sheet table if total
 
 
 <style lang="postcss">
-  h1 {
+  /* h1 {
     @apply text-5xl font-semibold;
-  }
+  } */
 
 :global(.nav){
     /* pointer-events: none;
