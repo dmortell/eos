@@ -17,13 +17,11 @@
 	  </div> -->
 
 <div class="flex flex-wrap items-center   item-row item-row-narrow" on:click >
-	<div class="is-left">
-		<slot name="title">{title}</slot>
-		<slot></slot>
-		<slot name="after">{after}</slot>
-	</div>
+	<!-- <div class="left"><slot name="title">{title}</slot></div> -->
+	<!-- <div class="left"><slot name="after"></slot></div> -->
+	<div class="float-left"><slot></slot></div>
 	{#if link}
-	<Icon src={mdiChevronRight} size="1.5" class="is-right"/>
+	<Icon src={mdiChevronRight} size="1.5" class="relative"/>
 	{/if}
 </div>
 

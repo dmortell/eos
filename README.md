@@ -9,6 +9,15 @@ npm install tailwindcss@npm:@tailwindcss/postcss7-compat postcss-cli@^7 autopref
 
 <!-- Try WindiCSS instead of Tailwind https://github.com/windicss/vite-plugin-windicss -->
 
+  // icons https://www.npmjs.com/package/@mdi/js
+  // find icons here https://materialdesignicons.com/
+
+## tsconfig.json showing error
+Seems to be a bug in latest version of vsc? https://github.com/microsoft/vscode/issues/132531
+
+settings.json
+	// "svelte.enable-ts-plugin": true,
+
 ## Initial build size
 
 ```
@@ -23,6 +32,17 @@ dist/assets/index.1caec9c3.js     2.14 KiB / brotli: 0.94 KiB
 dist/assets/vendor.76e3af60.js    3.11 KiB / brotli: 1.30 KiB
 PS F:\WebSrv\xampp-5.6\htdocs\eire-eos>
 ```
+
+## Build size
+Build size with Firebase, Tailwindcss
+
+✓ 93 modules transformed.
+dist/index.html                   1.95 KiB
+dist/manifest.json                0.33 KiB
+dist/assets/vendor.3e03fd40.css   3.05 KiB / brotli: 0.76 KiB
+dist/assets/index.16c2b101.css    43.19 KiB / brotli: 7.91 KiB
+dist/assets/index.f523f608.js     90.75 KiB / brotli: 21.76 KiB
+dist/assets/vendor.798394b4.js    604.52 KiB / brotli: 113.98 KiB
 
 todo: restore "checkJs": true in jsconfig.json
 

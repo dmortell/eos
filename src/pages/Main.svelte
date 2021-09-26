@@ -1,34 +1,26 @@
 <script>
 	import {onMount, tick} from 'svelte'
-	// import Page from '$lib/Page.svelte'
-	// import Block from '$lib/Block.svelte'
-	import Hamburger from '$lib/Hamburger.svelte'
 	import SidePanel from '$lib/SidePanel.svelte'
 	import UserList from '$lib/UserList.svelte'
 	import UserDetails from '$lib/UserDetails.svelte'
 	import UserSheets from '$lib/UserSheets.svelte'
 	import Timesheet from '$lib/Timesheet.svelte'
-	import Alert from "$lib/Alert.svelte"
+	import {Alert, Avatar, ListItem, Hamburger} from '$lib'
 	import {Nav,Card, Container, Icon, Field, Input,Button, Tag} from 'svelte-chota';
 	import {mdiHome,mdiMagnify, mdiDelete,mdiAccountPlus,mdiSend, mdiChevronDown } from '@mdi/js'
 	import {loading, users, session, times, sheets, holidays, cleanup, monthTotal, alert} from '$js/stores'
 	import {parseEntry, optional, plural, format, calcHours, mins, toInt, toHours} from "$js/formatter";
-	export let open = false;
 
 	// v0.5.1
 	let month = new Date().toISOString().substr(0,7);	//"2021-08"
-	var days = []
-	// var totals = {}										// total hrs, a,b,c,d for this month
-	var popups = {entry:false}							// popup open/closed flags
+	var popups = {side:false}							// popup open/closed flags
 	var user = $session.user							// currently selected user (admins can select other users)
 	var sheet = {}										// timesheet details for currently selected month
-	var entry={}										// currently editing time entry
-	let findStaff = ''									// searchbar input
 
 	let _alltimes = []									// realtime snapshot of all of this users time entries
-	var _times = []										// time entries for this month
 	var _sheets = []									// all of the selected users timesheets (realtime snapshot)
 	var _users = []										// all users (realtime snapshot)
+	var days = []
 	var cons = {}										// firebase snapshot connection ids for reconnecting and cleanup
 
 	$: console.log('session',$session)
@@ -46,11 +38,6 @@ function onUsersUpdate(snap){
 	_users = snap.docs.filter(q=>{ return q.data().displayName>''})
 			.map(d => { return {...d.data(), id:d.id} })
 	connectUser(user)
-	// console.log('user set on snapshot',user.email, user.displayName)
-	// todo update staff - test if editing standard times updates the user summary
-	// todo fix deletes
-	// todo add total days
-	// todo adding an entry in a new month doesnt update sheets list
 }
 
 function connectUser(newuser){
@@ -81,7 +68,6 @@ function onSheetsUpdate(snap){
 function selectSheet(){
 	var defaults = {uid:user.uid, month, status:"pending", client:user.client}
 	sheet = _sheets.find(d => d.month==month) ?? defaults
-	// console.log('sheetsUpdate', sheet )
 }
 function onTimesUpdate(snap){
 	_alltimes = snap.docs.filter(d=>{ return true })
@@ -118,18 +104,17 @@ function filldays(times, validate=true){
 }
 </script>
 
-
 <Nav class="noprint">
 	<div slot="left" class="is-center ml-5">
 		<Icon src={mdiHome} size="1.5" class="is-left"/>
 		Timesheets
 	</div>
-	<Hamburger slot="right" tag="a" bind:open={open}/>
+	<Hamburger slot="right" tag="a" bind:open={popups.side}/>
 	<!-- <a slot="left" class="active" href="/"><Icon src={mdiHome} size="1.5" />Link 1</a> -->
     <!-- <a slot="center" href="/" class="brand">LOGO</a> -->
 </Nav>
 
-<SidePanel bind:visible={open} >
+<SidePanel bind:visible={popups.side} >
 	<Card>
 		<h2>Menu</h2>
 		<Button dropdown="My Profile" autoclose outline iconRight={mdiChevronDown}>
@@ -148,7 +133,6 @@ function filldays(times, validate=true){
 		<Button>View timesheets</Button>
 		<Button>Edit settings</Button>
 	</ListItem> -->
-
 
 	<div class="noprint">
 		<UserList {_users} on:click={selectUser} />
