@@ -16,10 +16,11 @@
 		</div>
 	  </div> -->
 
-<div class="flex flex-wrap items-center   item-row item-row-narrow" on:click >
-	<!-- <div class="left"><slot name="title">{title}</slot></div> -->
-	<!-- <div class="left"><slot name="after"></slot></div> -->
+<!-- <div class="flex flex-wrap items-center   item-row item-row-narrow" on:click > -->
+<div class="item-row item-row-narrow" on:click >
+	{#if title}<div class="left"><slot name="title">{title}</slot></div>{/if}
 	<div class="float-left"><slot></slot></div>
+	{#if after}<div class="left"><slot name="after">{after}</slot></div>{/if}
 	{#if link}
 	<Icon src={mdiChevronRight} size="1.5" class="relative"/>
 	{/if}

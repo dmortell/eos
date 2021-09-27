@@ -17,7 +17,7 @@
 	export var user
 	var editing = false
 
-	// $: console.log('userdetails',user.email, user.displayName)
+	// $: console.log('userdetails',user.email, user.displayName, user.start)
 	$: fields = copyFields(user)
 
 	// todo update staff - test if editing standard times updates the user summary
@@ -131,7 +131,7 @@
 			</div>
 		  </div>
 
-		  
+
 			<!-- <figure class="image is-64x64">
 				{#if user?.photoURL}<img transition:fade class="is-rounded" src={user.photoURL} alt="Avatar" />{/if}
 			  </figure> -->
@@ -187,7 +187,7 @@
 <Dialog bind:open={editing} modal=true>
 	<div slot="header" class="is-center modal-header">Edit Staff</div>
 
-    <div class='modal-content'>
+    <div class='modal-content overscroll-contain'>
 		{#each items as item}
 			<ListInput label={item.label} name={item.name} value={user[item.name] ?? item.def} type={item.type ?? 'text'} options={item.options}
 			on:change={onChange}
@@ -205,10 +205,6 @@
 		<Button primary icon={mdiContentSave} on:click={saveUser}>Save</Button>
 	</div>
 </Dialog>
-
-<!--
-<ListItem accordionItem title={user.displayName} badge={user.notifications?.length}>
-</ListItem> -->
 
 <style>
 	.small {height:20px;}

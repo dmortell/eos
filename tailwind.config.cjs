@@ -7,7 +7,7 @@ console.log('tailwind.config.js running in',mode)
 // To remove all unused styles, set mode: 'all' and preserveHtmlElements: false and be very careful to provide the paths to all files that might reference any classes or HTML elements
 
 module.exports = {
-	mode: "aot",
+	mode: "jit",				// mode: "aot",
 	future: { purgeLayersByDefault: true, removeDeprecatedGapUtilities: true, standardFontWeights: true, defaultLineHeights: true,},
 	purge: {
 		enabled: !dev,		// disable purge in dev so we can access other css in devtools

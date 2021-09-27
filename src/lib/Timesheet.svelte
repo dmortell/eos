@@ -58,19 +58,9 @@ function selectEntry(row){
 		if (action=='save') updateTime()
 		if (action=='delete') deleteTime(editing = false)
 	}
-
-	// function decMonth(){incMonth(-1)}
-	// function incMonth(inc = 1){
-	// 	var [y,m] = month.split('-').map(v=>+v)
-	// 	m += inc
-	// 	if (m<1) y--, m=12
-	// 	if (m>12) y++, m=1
-	// 	month = y + '-' + (''+m).padStart(2,'0')
-	// }
 </script>
 
 <Container>
-
 
 	<!-- <div class="flex flex-wrap items-center">
         <div class="relative w-full px-4 max-w-full flex-grow flex-1">
@@ -82,6 +72,7 @@ function selectEntry(row){
       </div> -->
 
 	<TimesheetHeader {user} {month} {totals} {sheet} on:select />
+
 	<div class='printonly'>
 		<table class='xborder-collapse xborder xborder-green-600'>
 			<tr class='mainrow'>
@@ -101,7 +92,7 @@ function selectEntry(row){
 			{#each days as time (time.date)}
 			<tr class={time.color ? 'greyed':''}>
 				<td class="{time.color}">{time.short}</td>
-				<td class="{time.color}">{optional(types[time.type ?? 'normal'])}</td>
+				<td class="left">{optional(types[time.type ?? 'normal'])}</td>
 				<td class='right'>{optional(time.start)}</td>
 				<td class='right'>{optional(time.finish,'')}</td>
 				<td class='right'>{optional(time.breaks,'','')}</td>
@@ -139,10 +130,14 @@ function selectEntry(row){
 			Timesheet for {format(month,'longmonth-year')}
 		</span>
 
-		<Clipboard text={()=>copyString()} on:copy={(e,txt)=>{$alert="Timesheet copied to clipboard"; txt = e.detail}} on:fail={e=>console.log('failed to clipboard')} let:copytext>
-			<!-- <button on:click={copytext}><Icon src={mdiClip}/></button> -->
-			<!-- <Icon class="cursor-pointer inline" on:click={copytext} src={mdiClip}/> -->
-		</Clipboard>
+		<ListItem>
+			<div class='text-right'>
+				<Clipboard text={()=>copyString()} on:copy={(e,txt)=>{$alert="Timesheet copied to clipboard"; txt = e.detail}} on:fail={e=>console.log('failed to clipboard')} let:copytext>
+					<!-- <button on:click={copytext}><Icon src={mdiClip}/></button> -->
+					<!-- <Icon class="cursor-pointer inline" on:click={copytext} src={mdiClip}/> -->
+				</Clipboard>
+			</div>
+		</ListItem>
 
 
 		{#each days as time (time.date)}
@@ -172,66 +167,6 @@ function selectEntry(row){
 				<div class="md:xxfloat-left w-11/12 md:w-full truncate text-xl text-gray-500">
 					{time.remark || time.holiday || ''}
 				</div>
-			</div>
-
-
-			{#if 0}
-			<div class="grid xxgap-4 xxgap-y-2 grid-cols-12 pr-4">
-				<!-- <div class="md:col-span-3">
-					<label for="address">Address / Street</label>
-				</div> -->
-				<div class="short-date col-span-2 {time.color}">
-					{time.short}
-				</div>
-				<!-- <div class="grid gap-4 gap-y-2 grid-cols-1 md:grid-cols-3"> -->
-				<div class="grid xxgap-4 xxgap-y-2 col-span-9">
-					<div class=''>
-						{optional(time.start)}{optional(time.finish,'-')}
-					</div>
-					<div class=''>
-						{optional(time.breaks,'-','hr')}
-					</div>
-					<!--
-					<div class=''>
-						{optional(time.hours,'','hr')}
-					</div>
-					<div class=''>
-						{optional(time.a,'A','hr')}
-						{optional(time.b,'B','hr')}
-						{optional(time.c,'C','hr')}
-						{optional(time.d,'D','hr')}
-					</div> -->
-					<div class=''>{time.remark || time.holiday || ''}</div>
-				</div>
-			</div>
-			{/if}
-		</ListItem>
-		{/each}
-
-
-		{#each days as time (time.date)}
-		<ListItem link on:click={e=>selectEntry(time)}>
-			<!-- <div class="grid grid-flow-col auto-cols-max gap-0.5"> -->
-			<div class="flex flex-wrap">
-				<div class="col0 short-date text-center {time.color}">
-					{time.short}
-				</div>
-				<div class='col1'>
-					{optional(time.start)}{optional(time.finish,'-')}
-				</div>
-				<div class='col2'>
-					{optional(time.breaks,'-','hr')}
-				</div>
-				<div class='col3'>
-					{optional(time.hours,'','hr')}
-				</div>
-				<div class='col4'>
-					{optional(time.a,'A','hr')}
-					{optional(time.b,'B','hr')}
-					{optional(time.c,'C','hr')}
-					{optional(time.d,'D','hr')}
-				</div>
-				<div>{time.remark || time.holiday || ''}</div>
 			</div>
 		</ListItem>
 		{/each}

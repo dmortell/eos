@@ -23,7 +23,38 @@
 	var days = []
 	var cons = {}										// firebase snapshot connection ids for reconnecting and cleanup
 
-	$: console.log('session',$session)
+	// $: console.log('session',$session)
+	// add/edit leave requests
+	// expenses
+	// fix header formatting
+	// todo faster time entry
+	// todo fix labels in user details & forms
+	// checkin/out & breaks
+	// link with calendar? scheduled tasks https://clockify.me/timesheet-app
+	// copy/paste FROM Excel
+	// secure firebase rules
+	// todo slide thru dates/months
+	// todo push to Vercel/github
+	// todo checkbox select rows to set standard times to
+	// todo export to Excel/PDF or Mail
+	// todo send notifications when sheets published or approved
+	// todo fix total time when working past midnight
+	// test entering breaks of 30mins or 15mins
+	// only auth users can view/edit other user sheets, and approve sheets
+	// users cannot edit/see all their settings
+	// add comp days & vactions remaining calculations
+	// do we need separate sheets per project? allow multiple enties per day?
+	//   assign multiple projects to each user
+	// disable editing published sheets
+	// validate breaks (<0 not allowed) and other entries, start/finish required
+	// todo add/edit clients, holidays, roles
+	// todo add/edit contract types and overtime rules
+	// add/edit company name/address (make it selectable per user)
+	// login with O365, Facebook, github, google, linkedin (widgets.php)
+	// fallback date/time pickers if no native (times.php notes)
+	// track who updated table entries
+	// add/edit/import staff
+	// edit roles and access (role.php)
 
 
 onMount(() => {
@@ -72,7 +103,6 @@ function selectSheet(){
 function onTimesUpdate(snap){
 	_alltimes = snap.docs.filter(d=>{ return true })
 		.map(d => { return {...d.data(), id:d.id } })
-	console.log('timesUpdate', _alltimes)
 	filldays(_alltimes)
 }
 
@@ -89,7 +119,6 @@ function filldays(times, validate=true){
 	var [y,m] = month.split('-').map(v=>+v)
 	var monthdays = new Date(y, m, 0).getDate()			// number of days in the month
 	var keys = ['a','b','c','d','total','days','less']
-	// totals = {a:0, b:0, c:0, d:0, total:0, days:0, less:0, month}
 
 	selectSheet()
 	days = []
@@ -99,7 +128,6 @@ function filldays(times, validate=true){
 		var data = parseEntry(entry, $holidays)
 		data.less = data.days ? Math.max(0,standard - data.hours) : 0
 		days.push(data)
-		// keys.map(k => totals[k] += data[k] ?? 0) 		// calculate totals
 	}
 }
 </script>
