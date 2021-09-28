@@ -71,7 +71,7 @@
 	<!-- <Field label={this_label} for={this_id} error={errorMessage}> -->
 	<div class:nomessage={!message} use:events>
 		{#if this_label}<label for={this_id} class='flex-start'>{this_label}</label>{/if}
-		<p class:grouped class:gapless>
+		<div class:grouped class:gapless>
 			{#if type=='select'}
 				<!-- {autofocus}  -->
 				<!-- {multiple} cannot be used with 2-way binding -->
@@ -86,7 +86,6 @@
 					{/each}
 					<slot/>
 				</select>
-			<!-- {:else if type=='textarea'} -->
 			{:else}
 			<!-- {autofocus}  -->
 			<Input id={this_id} bind:value={value}
@@ -102,12 +101,12 @@
 				<div class="error">{errorMessage}</div>
 			{/if} -->
 			{/if}
-		</p>
+		</div>
 
 		{#if message}
-			<p class="message" class:text-error={errorMessage} class:text-success={info}>{message}</p>
+			<!-- <p class="message2" class:text-error={errorMessage} class:text-success={info}>{message} xx</p> -->
 		<!-- {:else} -->
-			<!-- <p class="message">&nbsp;</p> -->
+			<!-- <p class="message3">&nbsp;</p> -->
 		{/if}
 	</div>
 	<!-- </Field> -->

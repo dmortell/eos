@@ -78,7 +78,7 @@ hide-pr - hides the element for printing
 	/* #14854f */
 }
 
-body.dark {
+body.dark {	/* https://jenil.github.io/chota/#customizing */
 	--bg-color: #000;
 	--bg-secondary-color: #131316;
 	--font-color: #f5f5f5;
@@ -86,6 +86,7 @@ body.dark {
 	--color-darkGrey: #777;
   }
 
+svg {display: inline-block; }
 
 .right  { text-align: right; }
 .center { text-align: center; }
@@ -146,6 +147,8 @@ black: #000000; */
 	padding: 0.5rem 1rem;
 	/* max-height: 24px; */
 }
+
+.nomessage > .message {display:none; }
 
 
 @screen sm {

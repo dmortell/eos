@@ -10,18 +10,14 @@
 	export let totals={}
 </script>
 
- <Card>
+ <Card class='print'>
 		<div class='flex flex-wrap items-center'>
-			<!-- <div class="w-24 px-4 max-w-full flex-grow flex-1"></div> -->
 			<div class='w-24 max-w-full flex-grow flex-1'>Total work hours:</div>
 			<div class='flex-grow flex-1 '>{totals.hours}</div>
-			<!-- <Col class='flex-grow flex-1 print right'>Client Reviewed:</Col><Col class='print'>___________</Col> -->
 		</div>
 		<div class='flex flex-wrap items-center'>
-			<!-- <div class="w-24 px-4 max-w-full flex-grow flex-1"></div> -->
 			<div class='w-24 max-w-full flex-grow flex-1'>Total work days:</div>
 			<div class='flex-grow flex-1 '>{totals.days}</div>
-			<!-- <Col class='flex-grow flex-1 print right'>Client Reviewed:</Col><Col class='print'>___________</Col> -->
 		</div>
 		<!-- <Row>
 			<Col>Total work days:</Col><Col class='left'>{totals.days}</Col>

@@ -98,56 +98,32 @@
 
 
 		<div class="noprint">
-			<!-- <Icon src={mdiPencil} class="icon noprint" on:click={toggleClient} /> -->
-			<Row>
-				<Col class='inline '>Client:</Col>
-				<Col class='inline left'>
-					<ListInput name='client' bind:value={sheet.client} type='select' options={$clients} on:blur={selectClient}/>
-				</Col>
-				<Col/>
-			</Row>
-			<Row class="items-center">
-				<Col>Month:</Col>
-				<!-- <Col>
-					<div class="flex items-center">
-						<Icon src={mdiChevronLeft} class="icon flex-none w-12" on:click={decMonth}/>
-						<Input type="month" value={month} on:change={selectMonth} />
-						<Icon src={mdiChevronRight} class="icon flex-none w-12" on:click={incMonth}/>
-					</div>
-				</Col> -->
-				<Col>
-					<Field gapless>
-						<Button outline icon={mdiChevronLeft} on:click={decMonth}/>
-						<Input type="month" value={month} on:change={selectMonth} />
-						<Button outline icon={mdiChevronRight} on:click={incMonth}/>
-					</Field>
-				</Col>
-				<Col></Col>
-			</Row>
-			<Row> <span >Name:</span>				<p>{user.displayName}</p>	</Row>
-			<Row> <Col>Name:</Col>				<Col>{user.displayName}</Col>	<Col/></Row>
-			<!-- <Row> <Col>Total work hours:</Col>	<Col>{totals.hours}</Col> 	<Col/></Row> -->
-			<!-- <Row> <Col>Total work days:</Col>	<Col>{totals.days}</Col> 	<Col/></Row> -->
-			<div class='flex flex-wrap items-center'>
-				<div class='w-24 max-w-full flex-grow flex-1'>Total work hours:</div>
-				<div class='flex-grow flex-1 '>{totals.hours}</div>
-			</div>
-			<div class='flex flex-wrap items-center'>
-				<div class='w-24 max-w-full flex-grow flex-1'>Total work days:</div>
-				<div class='flex-grow flex-1 '>{totals.days}</div>
-			</div>
+			<Field gapless class='md:ml-28 max-w-md'>
+				<Button outline icon={mdiChevronLeft} on:click={decMonth}/>
+				<Input type="month" value={month} on:change={selectMonth} />
+				<Button outline icon={mdiChevronRight} on:click={incMonth}/>
+			</Field>
 
-			<Row>
-				<Col>Status:</Col>
-				<Col>{sheet.status}</Col>
-				<Col><Button outline class='small' on:click={e=>modal_open=true}>{nextStatus(sheet.status).name}</Button></Col>
-			</Row>
+			<dl class="items-center"><dt>Client:</dt>
+				<dd>
+					<Field gapless class='client'>
+						<ListInput name='client' bind:value={sheet.client} type='select' options={$clients} on:blur={selectClient}/>
+						<Button outline icon={mdiPencil} on:click={incMonth}/>
+					</Field>
+				</dd>
+			</dl>
+			<p>Change client to autoselect</p>
+			<dl><dt>Name:</dt>							<dd>{user.displayName}</dd>	</dl>
+			<dl><dt>Work days:</dt>		<dd>{totals.days}</dd>	</dl>
+			<dl><dt>Work hours:</dt>	<dd>{totals.hours}</dd>	</dl>
+			<dl><dt>Status:</dt>						<dd>{sheet.status} <Button outline primary class='small ml-8' on:click={e=>modal_open=true}>{nextStatus(sheet.status).name}</Button></dd>	</dl>
 		</div>
 
+		<!-- Popup -->
 		<Modal bind:open={modal_open}>
 			<Card>
 				<h4 slot="header">Update Timesheet Status</h4>
-				<p class='notify'>Are you sure you want to {nextStatus(sheet.status).name} this timesheet?</p>
+				<p class='my-16'>Are you sure you want to {nextStatus(sheet.status).name} this timesheet?</p>
 				<div slot="footer" class="is-right">
 					<Button clear on:click={e=>modal_open=false}>Cancel</Button>
 					<Button primary on:click={e=>setStatus(nextStatus(sheet.status).type)}>Confirm</Button>
@@ -158,5 +134,8 @@
 </Card>
 
 <style>
-	.notify { padding: 2em 0;}
+	dl { width:100%; margin: 6px 0; align-items: center; }
+	dt { width: 7em;  display: inline-block; }
+	dd { width: auto; display: inline-block;}
+	.client { max-width: 18rem; }
 </style>

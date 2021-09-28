@@ -246,13 +246,10 @@ function connectTable(table){
 		update: async (data,id=null,callback=(data,id)=>console.log('connectTable.updated',data,id)) => {
 			// if (id) collection().doc(id).update(data).then(callback)
 			if (id) {
-				console.log('table.update',id)
-				// collection().doc(id).set(data, {merge:true}).then(callback)
 				await collection().doc(id).set(data, {merge:true})	//.then(callback)
 			}
 			else {
 				console.log('table.update.adding')
-				// collection().add(data).then(callback)		// 	if (batch)	batch.update(itemId, data)
 				const res = await collection().add(data)		//.then(callback)		// 	if (batch)	batch.update(itemId, data)
 				data.id = id = res.id
 			}

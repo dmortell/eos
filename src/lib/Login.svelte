@@ -1,10 +1,15 @@
 <script>
-	// import {Block, Button, Icon, Navbar, Page, Row, Col} from 'framework7-svelte'
+	import {onMount} from 'svelte'
 	import {Row, Col, Button} from 'svelte-chota'
 	import {session, alert} from '$js/stores'
 	import Alert from '$lib/Alert.svelte'
 
-	const login = () => {
+	onMount(() => {
+		document.getElementById("app-loading").remove();
+		return ()=>{ }
+	})
+
+const login = () => {
 		$alert = "logging in"
 		// session.signin((result, err)=>{
 		// 	if (err){
@@ -35,7 +40,7 @@
         <span class="absolute bg-white px-4 text-gray-500">or sign-in with</span>
         <div class="w-full bg-gray-200 mt-3 h-px"></div>
       </div>
-	  
+
 					<Row>
 						<Col width=80>
 							Microsoft Authenticator is required on your smartphone if two-factor authentication is enabled.

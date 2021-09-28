@@ -7,6 +7,7 @@
 	import Timesheet from '$lib/Timesheet.svelte'
 	import {Alert, Avatar, ListItem, Hamburger} from '$lib'
 	import {Nav,Card, Container, Icon, Field, Input,Button, Tag} from 'svelte-chota';
+	import {Tabs, Tab} from 'svelte-chota';
 	import {mdiHome,mdiMagnify, mdiDelete,mdiAccountPlus,mdiSend, mdiChevronDown } from '@mdi/js'
 	import {loading, users, session, times, sheets, holidays, cleanup, monthTotal, alert} from '$js/stores'
 	import {parseEntry, optional, plural, format, calcHours, mins, toInt, toHours} from "$js/formatter";
@@ -16,6 +17,7 @@
 	var popups = {side:false}							// popup open/closed flags
 	var user = $session.user							// currently selected user (admins can select other users)
 	var sheet = {}										// timesheet details for currently selected month
+	var active_tab = 0
 
 	let _alltimes = []									// realtime snapshot of all of this users time entries
 	var _sheets = []									// all of the selected users timesheets (realtime snapshot)
@@ -58,6 +60,7 @@
 
 
 onMount(() => {
+	document.getElementById("app-loading").remove();
 	cons.users  = users.reconnect(cons.users,			// only required by editors
 		users.collection().orderBy("email", "asc"),		// todo where('uid','==',user.uid)  if role!=editor
 		onUsersUpdate
@@ -137,6 +140,16 @@ function filldays(times, validate=true){
 		<Icon src={mdiHome} size="1.5" class="is-left"/>
 		Timesheets
 	</div>
+
+	<div slot="center" class="hidden md:inline-block"> <!-- or left, or right -->
+    <Tabs bind:active={active_tab}>
+        <Tab>Timesheets</Tab>
+        <Tab>Expenses</Tab>
+        <Tab>Vacations</Tab>
+        <Tab>Quotations</Tab>
+     </Tabs>
+	</div>
+
 	<Hamburger slot="right" tag="a" bind:open={popups.side}/>
 	<!-- <a slot="left" class="active" href="/"><Icon src={mdiHome} size="1.5" />Link 1</a> -->
     <!-- <a slot="center" href="/" class="brand">LOGO</a> -->
@@ -165,6 +178,7 @@ function filldays(times, validate=true){
 	<div class="noprint">
 		<UserList {_users} on:click={selectUser} />
 		<UserDetails {user}/>
+		Vacations
 		<UserSheets _sheets={_sheets} _times={_alltimes} on:select={selectMonth}/>
 	</div>
 	<!-- <Timesheet {user} {month} {days} totals={monthTotal($times, sheet.month)} {sheet} on:select={selectMonth} /> -->

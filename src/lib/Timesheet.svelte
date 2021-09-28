@@ -1,7 +1,7 @@
 <script>
 	import {onMount, tick} from 'svelte'
 	import { fade } from 'svelte/transition'
-	import {mdiHeart,mdiRepeat, mdiReply, mdiPencil, mdiContentSave, mdiCancel, mdiClose, mdiClipboardTextMultipleOutline as mdiClip} from '@mdi/js'
+	import {mdiFilePdfBox, mdiEmail, mdiMicrosoftExcel,mdiReply, mdiPencil, mdiContentSave, mdiCancel, mdiClose, mdiClipboardTextMultipleOutline as mdiClip} from '@mdi/js'
 	import {Nav,Card, Container, Details, Icon, Input,Button, Modal} from 'svelte-chota';
 	import { asyncable } from 'svelte-asyncable';
 	import {sheets, times, cleanup, holidays, alert, work_types, keyValues, monthTotal} from '$js/stores'
@@ -121,7 +121,7 @@ function selectEntry(row){
 			</tr>
 
 		</table>
-	</div>
+	</div> 	<!-- print only -->
 
 
 
@@ -131,11 +131,17 @@ function selectEntry(row){
 		</span>
 
 		<ListItem>
-			<div class='text-right'>
-				<Clipboard text={()=>copyString()} on:copy={(e,txt)=>{$alert="Timesheet copied to clipboard"; txt = e.detail}} on:fail={e=>console.log('failed to clipboard')} let:copytext>
+			<div class="is-right px-10 py-5 border-t-2">
+					<Button outline><Icon src={mdiFilePdfBox} size=1.5 /> PDF</Button>
+					<Button outline><Icon src={mdiMicrosoftExcel} size=1.5 />Excel</Button>
+					<Button outline><Icon src={mdiEmail} size=1.5 />Email</Button>
+					<Button outline>
+						<Clipboard text={()=>copyString()} on:copy={(e,txt)=>{$alert="Timesheet copied to clipboard"; txt = e.detail}} on:fail={e=>console.log('failed to clipboard')} let:copytext>
+						</Clipboard>
+						Copy
+					</Button>
 					<!-- <button on:click={copytext}><Icon src={mdiClip}/></button> -->
 					<!-- <Icon class="cursor-pointer inline" on:click={copytext} src={mdiClip}/> -->
-				</Clipboard>
 			</div>
 		</ListItem>
 
@@ -205,11 +211,6 @@ function selectEntry(row){
 		<Button fill error on:click={e=>closePopup('delete')}>Delete</Button>
 		<Button fill primary type='submit' on:click={e=>closePopup('save')}>Save</Button>
 		<Button secondary icon={mdiClose} on:click={e=>editing=false}>Cancel</Button>
-		<!-- <Button primary icon={mdiContentSave} on:click={saveUser}>Save</Button> -->
-		<!-- <div slot="footer" class="is-right px-10 py-5 border-t-2"> -->
-			<!-- <Button secondary icon={mdiClose} on:click={e=>editing=false}>Cancel</Button> -->
-			<!-- <Button primary icon={mdiContentSave} on:click={saveUser}>Save</Button> -->
-		<!-- </div> -->
 	</div>
 </Dialog>
 
@@ -227,7 +228,6 @@ function selectEntry(row){
 		width:3.0em; font-size:0.8em; border: 1px solid#ddd; border-radius:5px; padding: 4px 7px;
 		text-align:center;
 		min-height:26px;
-		/* letter-spacing: 0.05em; */
 	}
 	.hidden { display:none;}
 	.greyed { background-color: rgb(218 218 218 / 70%); }
