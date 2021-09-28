@@ -22,7 +22,7 @@
 	<div class="float-left"><slot></slot></div>
 	{#if after}<div class="left"><slot name="after">{after}</slot></div>{/if}
 	{#if link}
-	<Icon src={mdiChevronRight} size="1.5" class="relative"/>
+	<Icon src={mdiChevronRight} size="1.5" class="relative text-gray-400"/>
 	{/if}
 </div>
 

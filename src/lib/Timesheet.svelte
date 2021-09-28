@@ -130,20 +130,17 @@ function selectEntry(row){
 			Timesheet for {format(month,'longmonth-year')}
 		</span>
 
-		<ListItem>
-			<div class="is-right px-10 py-5 border-t-2">
-					<Button outline><Icon src={mdiFilePdfBox} size=1.5 /> PDF</Button>
-					<Button outline><Icon src={mdiMicrosoftExcel} size=1.5 />Excel</Button>
-					<Button outline><Icon src={mdiEmail} size=1.5 />Email</Button>
-					<Button outline>
+			<div class="flex py-5">
+					<Button outline class='small'><Icon src={mdiFilePdfBox} size=1.5 /> PDF</Button>
+					<Button outline class='small'><Icon src={mdiMicrosoftExcel} size=1.5 />Excel</Button>
+					<Button outline class='small'><Icon src={mdiEmail} size=1.5 />Email</Button>
+					<Button outline class='small'>
 						<Clipboard text={()=>copyString()} on:copy={(e,txt)=>{$alert="Timesheet copied to clipboard"; txt = e.detail}} on:fail={e=>console.log('failed to clipboard')} let:copytext>
 						</Clipboard>
 						Copy
 					</Button>
-					<!-- <button on:click={copytext}><Icon src={mdiClip}/></button> -->
 					<!-- <Icon class="cursor-pointer inline" on:click={copytext} src={mdiClip}/> -->
 			</div>
-		</ListItem>
 
 
 		{#each days as time (time.date)}

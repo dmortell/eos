@@ -1,17 +1,3 @@
-<svelte:window on:keydown={onKeydown} />
-<svelte:body on:touchstart={onTouchStart} on:touchend={onTouchEnd} />
-
-{#if visible}
-	<div class="overlay" transition:fade={{ duration: 300 }} on:click={hide} />
-{/if}
-<aside class="side-panel" class:left={!right} class:right class:visible tabindex="-1"
-	bind:this={elm}
-	on:transitionend={transitionEnd}
-	use:events
->
-	<slot />
-</aside>
-
 <script context="module">
 	let oneVisible = false;
 </script>
@@ -22,13 +8,21 @@
 	import { tick, onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { current_component } from 'svelte/internal';
+	import {Card, Container} from 'svelte-chota';
+	import {ListItem} from '$lib';
 	import { getEventsAction, enableScroll, trapTabKey } from '$js/utils';
 
 	export let right = false;
 	export let visible = false;
+	export let active_tab = 0
 	export let disableScroll = false;
 
 	const events = getEventsAction(current_component);
+
+	function setTab(tab){
+		active_tab = tab;
+		hide()
+	}
 
 	const swipeArea = 20;
 	const swipeMin = 50;
@@ -81,6 +75,27 @@
 		if (visible) trapTabKey(e, elm);
 	}
 </script>
+
+<svelte:window on:keydown={onKeydown} />
+<svelte:body on:touchstart={onTouchStart} on:touchend={onTouchEnd} />
+
+{#if visible}
+	<div class="overlay" transition:fade={{ duration: 300 }} on:click={hide} />
+{/if}
+<aside class="side-panel" class:left={!right} class:right class:visible tabindex="-1"
+	bind:this={elm}
+	on:transitionend={transitionEnd}
+	use:events
+>
+	<slot />
+	<Container>
+		<Card>
+			<ListItem link on:click={e=>setTab('timesheets')}>Timesheets</ListItem>
+			<ListItem link on:click={e=>setTab('expenses')}>Expenses</ListItem>
+			<ListItem link on:click={e=>setTab('vacations')}>Vacations</ListItem>
+		</Card>
+	</Container>
+</aside>
 
 <style>
 	.side-panel {

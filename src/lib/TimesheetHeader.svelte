@@ -11,19 +11,18 @@
 	import { createEventDispatcher } from 'svelte';
 	const dispatch = createEventDispatcher();
 	export let user, month, totals={}, sheet
-	// todo make header & footer responsive
 
 	let modal_open = false
 
 	const statuses = [			// todo make clients realtime firebase
 		{type:'pending',		name:'Draft'},
-		{type:'published',		name:'Submitted'},
+		{type:'published',	name:'Submitted'},
 		{type:'approved',		name:'Approved'},
 	]
 	function nextStatus(status){
-		if (status=='pending') 			return {type:'published', name:'Publish'}
-		else if (status=='published') 	return {type:'approved', name:'Approve'}
-										return {type:'pending', name:'Revert'}
+		if (status=='pending') 		return {type:'published', name:'Publish'}
+		if (status=='published')	return {type:'approved', name:'Approve'}
+		return {type:'pending', name:'Revert'}
 	}
 	function updateSheet(data, callback = e=>e){
 		const defaults = {month, uid:user.uid, client:user.client, ...data}
@@ -40,9 +39,7 @@
 		return $clients.find(d=>d.type == code)?.name ?? ''
 	}
 	function selectClient(){
-		updateSheet({client:sheet.client}, (data,id)=>{
-			console.log('sheet updated', data,id)
-		})
+		updateSheet({client:sheet.client}, (data,id)=>{ $alert='Client updated'})
 	}
 
 	function decMonth(){incMonth(0,-1)}
@@ -51,7 +48,6 @@
 		m += inc
 		if (m<1) y--, m=12
 		if (m>12) y++, m=1
-		console.log(y,m)
 		month = y + '-' + (''+m).padStart(2,'0')
 		dispatch('select',{month})
 	}
@@ -106,10 +102,12 @@
 
 			<dl class="items-center"><dt>Client:</dt>
 				<dd>
-					<Field gapless class='client'>
-						<ListInput name='client' bind:value={sheet.client} type='select' options={$clients} on:blur={selectClient}/>
-						<Button outline icon={mdiPencil} on:click={incMonth}/>
-					</Field>
+					<div class='client'>
+						<Field gapless>
+							<ListInput name='client' bind:value={sheet.client} type='select' options={$clients} on:blur={selectClient}/>
+							<Button outline icon={mdiPencil} on:click={incMonth}/>
+						</Field>
+					</div>
 				</dd>
 			</dl>
 			<p>Change client to autoselect</p>

@@ -5,6 +5,7 @@
 	import UserDetails from '$lib/UserDetails.svelte'
 	import UserSheets from '$lib/UserSheets.svelte'
 	import Timesheet from '$lib/Timesheet.svelte'
+	import Holidays from './Holidays.svelte'
 	import {Alert, Avatar, ListItem, Hamburger} from '$lib'
 	import {Nav,Card, Container, Icon, Field, Input,Button, Tag} from 'svelte-chota';
 	import {Tabs, Tab} from 'svelte-chota';
@@ -17,7 +18,7 @@
 	var popups = {side:false}							// popup open/closed flags
 	var user = $session.user							// currently selected user (admins can select other users)
 	var sheet = {}										// timesheet details for currently selected month
-	var active_tab = 0
+	var active_tab = 'timesheets'
 
 	let _alltimes = []									// realtime snapshot of all of this users time entries
 	var _sheets = []									// all of the selected users timesheets (realtime snapshot)
@@ -25,10 +26,10 @@
 	var days = []
 	var cons = {}										// firebase snapshot connection ids for reconnecting and cleanup
 
-	// $: console.log('session',$session)
 	// add/edit leave requests
 	// expenses
 	// fix header formatting
+	// improve edit staff details form
 	// todo faster time entry
 	// todo fix labels in user details & forms
 	// checkin/out & breaks
@@ -60,7 +61,8 @@
 
 
 onMount(() => {
-	document.getElementById("app-loading").remove();
+	const el = document.getElementById("app-loading")
+	if (el) el.remove();
 	cons.users  = users.reconnect(cons.users,			// only required by editors
 		users.collection().orderBy("email", "asc"),		// todo where('uid','==',user.uid)  if role!=editor
 		onUsersUpdate
@@ -133,20 +135,23 @@ function filldays(times, validate=true){
 		days.push(data)
 	}
 }
+
+function capitalize(str){ return str.charAt(0).toUpperCase() + str.slice(1) }
+
 </script>
 
 <Nav class="noprint">
 	<div slot="left" class="is-center ml-5">
 		<Icon src={mdiHome} size="1.5" class="is-left"/>
-		Timesheets
+		{capitalize(active_tab)}
 	</div>
 
 	<div slot="center" class="hidden md:inline-block"> <!-- or left, or right -->
     <Tabs bind:active={active_tab}>
-        <Tab>Timesheets</Tab>
-        <Tab>Expenses</Tab>
-        <Tab>Vacations</Tab>
-        <Tab>Quotations</Tab>
+        <Tab tabid='timesheets'>Timesheets</Tab>
+        <Tab tabid='expenses'>Expenses</Tab>
+        <Tab tabid='vacations'>Vacations</Tab>
+        <!-- <Tab>Quotations</Tab> -->
      </Tabs>
 	</div>
 
@@ -155,18 +160,7 @@ function filldays(times, validate=true){
     <!-- <a slot="center" href="/" class="brand">LOGO</a> -->
 </Nav>
 
-<SidePanel bind:visible={popups.side} >
-	<Card>
-		<h2>Menu</h2>
-		<Button dropdown="My Profile" autoclose outline iconRight={mdiChevronDown}>
-			<p><a href="#!">Edit</a></p>
-			<p><a href="#!">Alerts</a>&nbsp;<Tag>3</Tag></p>
-			<hr>
-			<p><a href="#!" class="text-error">Logout</a></p>
-		</Button>
-	</Card>
-</SidePanel>
-
+{#if active_tab=='timesheets'}
 <Container>
 	<!-- <ListItem>
 		<Button>Enter daily times</Button>
@@ -178,13 +172,31 @@ function filldays(times, validate=true){
 	<div class="noprint">
 		<UserList {_users} on:click={selectUser} />
 		<UserDetails {user}/>
-		Vacations
 		<UserSheets _sheets={_sheets} _times={_alltimes} on:select={selectMonth}/>
 	</div>
 	<!-- <Timesheet {user} {month} {days} totals={monthTotal($times, sheet.month)} {sheet} on:select={selectMonth} /> -->
 	<Timesheet {user} {month} {days} {sheet} _times={_alltimes} on:select={selectMonth} />
-
 </Container>
+{:else if active_tab=='expenses'}
+<Container>Expenses</Container>
+{:else if active_tab=='vacations'}
+	<Holidays/>
+{:else}
+<Container>Quotations</Container>
+{/if}
+
+<!-- Menu -->
+<SidePanel bind:visible={popups.side} bind:active_tab={active_tab}>
+	<Card>
+		<h2>Menu</h2>
+		<Button dropdown="My Profile" autoclose outline iconRight={mdiChevronDown}>
+			<p><a href="#!">Edit</a></p>
+			<p><a href="#!">Alerts</a>&nbsp;<Tag>3</Tag></p>
+			<hr>
+			<p><a href="#!" class="text-error">Logout</a></p>
+		</Button>
+	</Card>
+</SidePanel>
 
 <Alert/>
 

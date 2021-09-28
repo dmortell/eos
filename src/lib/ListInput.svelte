@@ -71,7 +71,7 @@
 	<!-- <Field label={this_label} for={this_id} error={errorMessage}> -->
 	<div class:nomessage={!message} use:events>
 		{#if this_label}<label for={this_id} class='flex-start'>{this_label}</label>{/if}
-		<div class:grouped class:gapless>
+		<div class:grouped class:gapless class='xxxouter'>
 			{#if type=='select'}
 				<!-- {autofocus}  -->
 				<!-- {multiple} cannot be used with 2-way binding -->
@@ -125,6 +125,7 @@
 p{ margin:0px; padding:0px; }
 .message{ font-size: smaller; }
 .grouped:not(.gapless){ overflow-x: auto; }
+.outer { min-width:20em; }
 
 /* input:not([type=checkbox]):not([type=radio]):not([type=submit]):not([type=color]):not([type=button]):not([type=reset]), select, textarea, textarea[type=text] { */
 select {
