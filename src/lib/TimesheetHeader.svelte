@@ -1,18 +1,17 @@
 <script>
-	import {Nav,Card, Container, Icon, Field, Input,Button, Modal} from 'svelte-chota';
+	import {Card, Icon, Field, Input,Button, Modal} from 'svelte-chota';
 	import {Row,Col} from 'svelte-chota';
-	// import Row from "$lib/Row.svelte"
-	// import Col from "$lib/Col.svelte"
 	import ListInput from "$lib/ListInput.svelte"
-	import {mdiHeart,mdiRepeat, mdiReply, mdiPencil, mdiContentSave, mdiCancel, mdiClose} from '@mdi/js'
+	import {mdiPencil} from '@mdi/js'
 	import {mdiChevronRight, mdiChevronLeft } from '@mdi/js'
-	import {alert, sheets, times, cleanup, holidays, settings, clients, monthTotal} from '$js/stores'
-	import {parseEntry, optional, plural, format, calcHours} from "$js/formatter";
-	import { createEventDispatcher } from 'svelte';
+	import {alert, sheets, settings, clients} from '$js/stores'
+	import {optional, format} from "$js/formatter";
+	import {createEventDispatcher } from 'svelte';
 	const dispatch = createEventDispatcher();
 	export let user, month, totals={}, sheet
 
 	let modal_open = false
+	$: client = sheet.client ?? 'eire'
 
 	const statuses = [			// todo make clients realtime firebase
 		{type:'pending',		name:'Draft'},
@@ -30,17 +29,10 @@
 	}
 	function setStatus(status){
 		modal_open = false;
-		updateSheet({status}, (data,id)=>{
-			console.log('sheet updated', data,id)
-			$alert = 'Timesheet set to ' + status
-		})
+		updateSheet({status}, (data,id)=>{ $alert = 'Timesheet set to ' + status })
 	}
-	function clientName(code){
-		return $clients.find(d=>d.type == code)?.name ?? ''
-	}
-	function selectClient(){
-		updateSheet({client:sheet.client}, (data,id)=>{ $alert='Client updated'})
-	}
+	function clientName(code){ return $clients.find(d=>d.type == code)?.name ?? '' }
+	function selectClient(){ updateSheet({client}, (data,id)=>{ $alert='Client updated'}) }
 
 	function decMonth(){incMonth(0,-1)}
 	function incMonth(e,inc = 1){
@@ -104,7 +96,7 @@
 				<dd>
 					<div class='client'>
 						<Field gapless>
-							<ListInput name='client' bind:value={sheet.client} type='select' options={$clients} on:blur={selectClient}/>
+							<ListInput name='client' bind:value={client} type='select' options={$clients} on:blur={selectClient}/>
 							<Button outline icon={mdiPencil} on:click={incMonth}/>
 						</Field>
 					</div>

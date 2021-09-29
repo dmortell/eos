@@ -180,6 +180,7 @@ export const tables = {
 	notes:		{name:"notes"},			// notes that can be added to your quote
 	sheets:		{name:"timesheets"},
 	times:		{name:"times"},
+	leave:		{name:'leave'},
 	users:		{name:"users"},
 	settings:	{name:"settings"},		// todo edit company settings
 }
@@ -268,6 +269,7 @@ function connectTable(table){
 }
 export const times = connectTable(tables.times)
 export const users = connectTable(tables.users)
+export const leave = connectTable(tables.leave)
 export const sheets = connectTable(tables.sheets)
 
 // function createMapStore(initial) {

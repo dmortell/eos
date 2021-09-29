@@ -24,7 +24,7 @@
 	let copy_string = 'hello there'
 	$: totals = monthTotal(_times, month)
 
-	function copyString(){
+	function copyString(){		// convert timesheet to string for copying to clipboard
 		var str = ''
 		days.map(d=>{
 			const row = [types[d.type], d.start, d.finish, d.breaks, d.remark]

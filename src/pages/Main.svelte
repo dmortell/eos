@@ -5,33 +5,32 @@
 	import UserDetails from '$lib/UserDetails.svelte'
 	import UserSheets from '$lib/UserSheets.svelte'
 	import Timesheet from '$lib/Timesheet.svelte'
-	import Holidays from './Holidays.svelte'
+	import Leave from './Leave.svelte'
 	import {Alert, Avatar, ListItem, Hamburger} from '$lib'
 	import {Nav,Card, Container, Icon, Field, Input,Button, Tag} from 'svelte-chota';
 	import {Tabs, Tab} from 'svelte-chota';
 	import {mdiHome,mdiMagnify, mdiDelete,mdiAccountPlus,mdiSend, mdiChevronDown } from '@mdi/js'
-	import {loading, users, session, times, sheets, holidays, cleanup, monthTotal, alert} from '$js/stores'
-	import {parseEntry, optional, plural, format, calcHours, mins, toInt, toHours} from "$js/formatter";
+	import {loading, users, session, times, sheets, leave, holidays, cleanup, monthTotal, alert} from '$js/stores'
+	import {parseEntry, capitalize, optional, plural, format, calcHours, mins, toInt, toHours} from "$js/formatter";
 
 	// v0.5.1
 	let month = new Date().toISOString().substr(0,7);	//"2021-08"
 	var popups = {side:false}							// popup open/closed flags
 	var user = $session.user							// currently selected user (admins can select other users)
 	var sheet = {}										// timesheet details for currently selected month
-	var active_tab = 'timesheets'
+	var active_tab = 'vacations'
 
 	let _alltimes = []									// realtime snapshot of all of this users time entries
 	var _sheets = []									// all of the selected users timesheets (realtime snapshot)
 	var _users = []										// all users (realtime snapshot)
+	var _leave = []										// user leave/holidays (realtime snapshot)
 	var days = []
 	var cons = {}										// firebase snapshot connection ids for reconnecting and cleanup
 
 	// add/edit leave requests
 	// expenses
-	// fix header formatting
 	// improve edit staff details form
 	// todo faster time entry
-	// todo fix labels in user details & forms
 	// checkin/out & breaks
 	// link with calendar? scheduled tasks https://clockify.me/timesheet-app
 	// copy/paste FROM Excel
@@ -40,7 +39,7 @@
 	// todo push to Vercel/github
 	// todo checkbox select rows to set standard times to
 	// todo export to Excel/PDF or Mail
-	// todo send notifications when sheets published or approved
+	// todo send notifications when sheets are published or approved
 	// todo fix total time when working past midnight
 	// test entering breaks of 30mins or 15mins
 	// only auth users can view/edit other user sheets, and approve sheets
@@ -86,6 +85,12 @@ function connectUser(newuser){
 		cons.times  = times.reconnect(cons.times,
 			times.collection().where("uid","==",user.uid),		//.orderBy("date", "asc"),
 			onTimesUpdate
+		)
+		cons.leave  = leave.reconnect(cons.leave,
+			leave.collection().where("uid","==",user.uid),		//.orderBy("date", "asc"),
+			snap => {
+				_leave = snap.docs.filter(d=>{ return true }).map(d => { return {...d.data(), id:d.id} })
+			}
 		)
 	}
 	else {			// todo disconnect sheets&times to avoid uid errors
@@ -136,8 +141,6 @@ function filldays(times, validate=true){
 	}
 }
 
-function capitalize(str){ return str.charAt(0).toUpperCase() + str.slice(1) }
-
 </script>
 
 <Nav class="noprint">
@@ -174,13 +177,12 @@ function capitalize(str){ return str.charAt(0).toUpperCase() + str.slice(1) }
 		<UserDetails {user}/>
 		<UserSheets _sheets={_sheets} _times={_alltimes} on:select={selectMonth}/>
 	</div>
-	<!-- <Timesheet {user} {month} {days} totals={monthTotal($times, sheet.month)} {sheet} on:select={selectMonth} /> -->
 	<Timesheet {user} {month} {days} {sheet} _times={_alltimes} on:select={selectMonth} />
 </Container>
 {:else if active_tab=='expenses'}
 <Container>Expenses</Container>
 {:else if active_tab=='vacations'}
-	<Holidays/>
+	<Leave {user} leave={_leave}/>
 {:else}
 <Container>Quotations</Container>
 {/if}

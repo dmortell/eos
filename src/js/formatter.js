@@ -69,7 +69,7 @@ function formatNumber(val, options){
 	return formatter.format(+number);
 }
 
-
+export function capitalize(str){ return str.charAt(0).toUpperCase() + str.slice(1) }
 export function round(v){ return Math.round(v*100 + 0.49) / 100; }
 export function toInt(num){ return num ? +num : 0; }
 export function toHours(mins){ return round(mins/60); }
