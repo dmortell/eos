@@ -4,9 +4,7 @@
 	export var link=false, title='', after='', narrow=null
 </script>
 
-
-
-<div class="list-item" class:narrow class:link on:click >
+<div class="list-item {$$props.class ??''}" class:narrow class:link on:click >
 	{#if title}<div class="left"><slot name="title">{title}</slot></div>{/if}
 	<div class='listitem-left'><slot name='left'></slot></div>
 	<div class='listitem-center'>
@@ -35,7 +33,7 @@
     justify-content: flex-start;
     align-items: center;
     margin: 0 0 -1px 0;
-    color: #1f1f21;
+    /* color: #1f1f21; */
     transition: background-color .2s linear;
 
     /* -webkit-box-orient: horizontal;

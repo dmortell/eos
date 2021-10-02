@@ -30,7 +30,7 @@
 
 
 <Container>
-	<Details open>
+	<Details >
 		<span slot="summary">Timesheets</span>
 
 		<div class="text-right">

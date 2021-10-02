@@ -11,6 +11,13 @@
 // Click outside the window
 //Modals and mobile devices usually don’t play well together.  device keyboard
 // https://uxplanet.org/best-practices-for-modals-overlays-dialog-windows-c00c66cddd8c
+
+// todo
+// {#if $$slots.left}
+// 	<div class="nav-left">
+// 		<slot name="left"></slot>
+// 	</div>
+// {/if}
 </script>
 
 {#if open}

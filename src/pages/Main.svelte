@@ -22,6 +22,7 @@
 	var user = $session.user							// currently selected user (admins can select other users)
 	var sheet = {}										// timesheet details for currently selected month
 	var active_tab = 'timesheets'
+	var dark = true
 
 	let _alltimes = []									// realtime snapshot of all of this users time entries
 	var _sheets = []									// all of the selected users timesheets (realtime snapshot)
@@ -29,6 +30,18 @@
 	var _leave = []										// user leave/holidays (realtime snapshot)
 	var days = []
 	var cons = {}										// firebase snapshot connection ids for reconnecting and cleanup
+
+	$: {
+		if (dark) document.body.classList.add('dark');
+		else document.body.classList.remove('dark');
+		// dark = dark
+		console.log('toggled', dark)
+	}
+	function setTheme(e){
+		if (dark) document.body.classList.add('dark');
+		else document.body.classList.remove('dark');
+		console.log('settheme', dark)
+	}
 
 	// add/edit leave requests
 	// expenses
@@ -189,6 +202,9 @@ function filldays(times, validate=true){
 	</ListItem> -->
 
 	<div class="noprint">
+
+		<label for="checkbox1"><input id="checkbox1" name="checkbox" type="checkbox" bind:checked={dark} on:change={setTheme}> Dark mode</label>
+
 		<UserList {_users} on:click={selectUser} />
 		<UserDetails {user}/>
 		<UserSheets _sheets={_sheets} _times={_alltimes} on:select={selectMonth}/>
@@ -230,14 +246,7 @@ function filldays(times, validate=true){
 
 <style lang="postcss">
 
-:global(.nav){
-    /* pointer-events: none;
-    z-index: 0; */
-    /* transition-property: transform; */
-	background-color: #f7f7f8;
-	box-shadow: 0 2px 4px 0 rgba(0,0,0,.2);
-	margin: 0 0 8px 0;
+.unused {
+	color:#6ac68c;
 }
-
-.ml-5 { margin-left: 1.25rem; }
 </style>

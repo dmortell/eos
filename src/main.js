@@ -1,4 +1,4 @@
-import "./tailwind.css"
+// import "./tailwind.css"
 import 'chota';
 import "./global.css"
 import App from './App.svelte'

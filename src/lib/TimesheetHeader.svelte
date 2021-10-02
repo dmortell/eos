@@ -92,7 +92,7 @@
 				<Input type="month" value={month} on:change={selectMonth} />
 				<Button outline icon={mdiChevronRight} on:click={incMonth}/>
 			</Field>
-
+<!--
 			<dl class="items-center"><dt>Client:</dt>
 				<dd>
 					<div class='client'>
@@ -102,20 +102,22 @@
 						</Field>
 					</div>
 				</dd>
-			</dl>
+			</dl> -->
 
 
-			<p>Change client to autoselect</p>
-			<dl class="items-center"><dt>Client:</dt>
-				<dd>
-					<div class='client'>
-						<Select items={$clients} optionIdentifier='type' labelIdentifier='name'/>
+			<dl class="items-center"><dt class='client-label'>Client:</dt>
+				<dd class='client'>
+					<!-- <div class='client'> -->
+						<Select items={$clients} optionIdentifier='type' labelIdentifier='name' />
 						<!-- <Select {optionIdentifier} {labelIdentifier} {items} /> -->
 						<!-- <Field gapless>
 							<ListInput name='client' bind:value={client} type='select' options={$clients} on:blur={selectClient}/>
 							<Button outline icon={mdiPencil} on:click={incMonth}/>
 						</Field> -->
-					</div>
+						<!-- <select>
+							<option>item 1 is a long item</option>
+						</select> -->
+					<!-- </div> -->
 				</dd>
 			</dl>
 
@@ -142,10 +144,54 @@
 
 </Card>
 
+<!--
+.selectContainer.s-hVM-kgueVcUB input.s-hVM-kgueVcUB {
+	cursor: default;
+	border: none;
+	color: var(--inputColor, #3f4f5f);
+	height: var(--height, 42px);
+	line-height: var(--height, 42px);
+	padding: var(--inputPadding, var(--padding, var(--internalPadding)));
+	width: 100%;
+	background: transparent;
+	font-size: var(--inputFontSize, 14px);
+	letter-spacing: var(--inputLetterSpacing, -0.08px);
+	position: absolute;
+	left: var(--inputLeft, 0);
+	margin: var(--inputMargin, 0);
+}
+
+.clearSelect.s-hVM-kgueVcUB.s-hVM-kgueVcUB {
+    position: absolute;
+    right: var(--clearSelectRight, 10px);
+    top: var(--clearSelectTop, 11px);
+    bottom: var(--clearSelectBottom, 11px);
+    width: var(--clearSelectWidth, 20px);
+    color: var(--clearSelectColor, #c5cacf);
+    flex: none !important;
+}
+
+
+.selectContainer.s-hVM-kgueVcUB.s-hVM-kgueVcUB {
+    --internalPadding: 0 16px;
+    border: var(--border, 1px solid #d8dbdf);
+    border-radius: var(--borderRadius, 3px);
+    box-sizing: border-box;
+    height: var(--height, 42px);
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: var(--padding, var(--internalPadding));
+    background: var(--background, #fff);
+    margin: var(--margin, 0);
+}
+-->
+
 <style>
 	dl { width:100%; margin: 6px 0; align-items: center; }
 	dt { width: 7em;  display: inline-block; }
 	dd { width: auto; display: inline-block;}
-	.client { max-width: 18rem; }
+	.client { min-width: 10em; }
+	/* .client-label { display:flex; } */
 	.printonly .row .col { margin-bottom: 4px; }
 </style>

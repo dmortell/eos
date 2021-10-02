@@ -116,51 +116,51 @@ function selectEntry(row){
 	</div> 	<!-- print only -->
 
 
-	<Details class="mb-5 noprint" open>
+	<Details class="noprint" open>
 		<span slot="summary">
 			Timesheet for {format(month,'longmonth-year')}
 		</span>
 
-			<div class="flex py-5">
-					<Button outline class='small'><Icon src={mdiFilePdfBox} size=1.5 /> PDF</Button>
-					<Button outline class='small'><Icon src={mdiMicrosoftExcel} size=1.5 />Excel</Button>
-					<Button outline class='small'><Icon src={mdiEmail} size=1.5 />Email</Button>
-					<Button outline class='small'>
-						<Clipboard text={()=>copyString()} on:copy={(e,txt)=>{$alert="Timesheet copied to clipboard"; txt = e.detail}} on:fail={e=>console.log('failed to clipboard')} let:copytext>
-						</Clipboard>
-						Copy
-					</Button>
-					<!-- <Icon class="cursor-pointer inline" on:click={copytext} src={mdiClip}/> -->
-			</div>
+		<ListItem class='compact'>
+			<Button outline class='smallbtn'><Icon src={mdiFilePdfBox} size=1.5 /> PDF</Button>
+			<Button outline class='smallbtn'><Icon src={mdiMicrosoftExcel} size=1.5 />Excel</Button>
+			<Button outline class='smallbtn'><Icon src={mdiEmail} size=1.5 />Email</Button>
+			<Button outline class='smallbtn'>
+				<Clipboard text={()=>copyString()} on:copy={(e,txt)=>{$alert="Timesheet copied to clipboard"; txt = e.detail}} on:fail={e=>console.log('failed to clipboard')} let:copytext>
+				</Clipboard>
+				Copy
+			</Button>
+			<!-- <Icon class="cursor-pointer inline" on:click={copytext} src={mdiClip}/> -->
+		</ListItem>
+		<div class="text-secondary"> test text x</div>
 
 
 		{#each days as time (time.date)}
 		<ListItem link narrow on:click={e=>selectEntry(time)}>
 			<div slot='left' class="short-date {time.color}">{time.short}</div>
-			<div class="float-left">
-				<div class="space-x-2 max-w-md md:max-w-lg truncate md:space-x-8 mr-4">
-					<div class='float-left'>
+			<div class="left">
+				<!-- <div class="space-x-2 max-w-md md:max-w-lg truncate md:space-x-8 mr-4"> -->
+				<div class="">
+					<div class='col1'>
 						{optional(time.start)}{optional(time.finish,'-')}
 					</div>
-					<div class='float-left'>
+					<div class='col2 hide-xs'>
 						{optional(time.breaks,'-','hr')}
 					</div>
 
-					<div class='float-left'>
+					<div class='col3'>
 						{optional(time.hours,'','hr')}
 					</div>
-					<div class='float-left'>
+					<div class='col4'>
 						{optional(time.a,'A','hr')}
 						{optional(time.b,'B','hr')}
 						{optional(time.c,'C','hr')}
 						{optional(time.d,'D','hr')}
 					</div>
 				</div>
-				<!-- <div class="md:xxfloat-left w-11/12 md:w-full truncate text-xl text-gray-500">
-					{time.remark || time.holiday || ''}
-				</div> -->
 			</div>
-			<div slot='footer' class="w-11/12 md:w-full truncate text-xl">
+			<!-- <div slot='footer' class="w-11/12 md:w-full truncate text-xl"> -->
+			<div slot='footer' class="">
 				{time.remark || time.holiday || ''}
 			</div>
 	</ListItem>
@@ -174,13 +174,10 @@ function selectEntry(row){
 
 
 <Dialog bind:open={editing} on:submit={e=>closePopup('save')}>
-	<div slot="header" class="is-center modal-header">Time Entry</div>
-	<!-- <form on:submit={e=>closePopup('save')}> -->
+	<div slot="header" class="modal-header">Time Entry</div>
 
     <div class='modal-content'>
-		<!-- <TimeEntry entry={entry} onClose={action=>closePopup(action)} /> -->
 
-			<!-- <form on:submit|preventDefault={e=>closePopup('save')}> -->
 				<ListInput name='date'   label="Date"   type="date"   bind:value={entry.date}    />
 				<ListInput name='start'  label="Start"  type="time"   bind:value={entry.start}   />
 				<ListInput name='finish' label="Finish" type="time"   bind:value={entry.finish}  />
@@ -190,38 +187,59 @@ function selectEntry(row){
 					<!-- <div slot="content" style='margin-right:8px;'><Button fill small round raised on:click={e=>entry.remark="WFH"}>WFH</Button></div> -->
 				</ListInput>
 				<!-- {#each items as item}
-					<ListInput label={item.label} name={item.name} value={user[item.name] ?? item.def} type={item.type ?? 'text'} options={item.options}
-			on:change={onChange}
-			/>
+					<ListInput label={item.label} name={item.name} value={user[item.name] ?? item.def} type={item.type ?? 'text'} options={item.options} on:change={onChange} />
 			{/each} -->
 		</div>
 
-		<div slot="footer" class="is-right px-10 py-5 border-t-2">
-			<Button fill error on:click={e=>closePopup('delete')}>Delete</Button>
-			<Button fill primary submit on:click={e=>closePopup('save')}>Save</Button>
+		<div slot="footer" class="modal-footer">
+			<Button error on:click={e=>closePopup('delete')}>Delete</Button>
+			<Button primary submit on:click={e=>closePopup('save')}>Save</Button>
 			<Button secondary icon={mdiClose} on:click={e=>editing=false}>Cancel</Button>
 		</div>
-	<!-- </form> -->
 </Dialog>
+
+
+<!-- <Dialog bind:open={editing} modal>
+	<div slot="header" class="is-center modal-header">Edit Staff</div>
+
+  <div class='modal-content overscroll-contain'>
+		{#each items as item}
+			<ListInput label={item.label} name={item.name} value={user[item.name] ?? item.def} type={item.type ?? 'text'} options={item.options}
+			on:change={onChange}
+			/>
+		{/each}
+	</div>
+
+	<div slot="footer" class="is-center modal-footer">
+		<Button secondary icon={mdiClose} on:click={e=>editing=false}>Cancel</Button>
+		<Button primary icon={mdiContentSave} on:click={saveUser}>Save</Button>
+	</div>
+</Dialog> -->
 
 
 <style>
 
 	table { font-size:8px;}
 
-	.col0 {width:3em; margin-right: 8px; }
-	.col1 {width:6em; }
+	/* .col0 {width:3em; margin-right: 8px; } */
+
+	/* .col0 {width:4em; margin-right: 8px; } */
+	.col1 {width:5.5em; float: left;}
+	.col2 {width:3.5em; float: left;}
+	.col3 {width:3em; float: left;}
+	.col4 {width:3em; float: left; margin-right: 8px; }
+
+	/* .col1 {width:6em; }
 	.col2 {width:4em; }
-	.col3 {width:4em; }
 	.col4 {width:auto; }
-	.col5 {float:right; padding-left: 2em; }
+	.col5 {float:right; padding-left: 2em; } */
 	.red { color:red; }
 	.blue { color: blue; }
 	.short-date {
 		width:3.0em; font-size:0.8em; border: 1px solid#ddd; border-radius:5px; padding: 4px 7px;
 		text-align:center;
-		/* min-height:26px; */
 		line-height: 1.5rem;
+		/* background-color: var(--color-lightGrey) */
 	}
 	.hidden { display:none;}
 	.greyed { background-color: rgb(218 218 218 / 70%); }

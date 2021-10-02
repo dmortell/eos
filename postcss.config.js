@@ -1,4 +1,4 @@
-const tailwindcss = require("tailwindcss");
+// const tailwindcss = require("tailwindcss");
 const autoprefixer = require("autoprefixer");
 const cssnano = require("cssnano");				// CSS compressor PostCSS plugin
 const mode = process.env.NODE_ENV;
@@ -6,7 +6,7 @@ const dev = mode === "development";
 
 module.exports = {
 	plugins: [
-		tailwindcss,
+		// tailwindcss,
 		autoprefixer,
 		!dev && cssnano({ preset: [ "default"], }),
 	],

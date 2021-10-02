@@ -6,10 +6,11 @@ Work in progress.
 # Installation
 
 `pnpm` is recommended instead of `npm` as it saves a lot of disk space used by duplicate node_modules if you are working on muiltiple projects.
-On MacOs use `sudo pnpm` instead of `npm`
+On MacOs use `sudo pnpm` instead of `npm`.
+
 If you prefer typescript, install vite with the `--template svelte-ts` option.
-Icons are from https://www.npmjs.com/package/@mdi/js
-Find icons here https://materialdesignicons.com/
+
+Icons are from https://www.npmjs.com/package/@mdi/js. Find icons here https://materialdesignicons.com/
 
 ```
 pnpm init vite@latest <project_folder> --template svelte
@@ -23,14 +24,19 @@ pnpm run dev
 Add `paths` to jsconfig.json and `resolve.alias` to vite.config.js to allow resolving aliases in imports.
 
 
-## jsconfig.json showing error
-You can ignore the source-map not found errors in `jsconfig.json`, but if you find the errors annoying then the following link may help https://github.com/DefinitelyTyped/DefinitelyTyped/issues/23649
+## jsconfig.json error
+You can ignore the source-map not found errors in `jsconfig.json`, but if you find the errors annoying then the following link suggests installing source-map types 0.5.2 https://github.com/DefinitelyTyped/DefinitelyTyped/issues/23649
+
 `npm install @types/source-map@0.5.2`
 
-Seems to be a bug in latest version of vsc? https://github.com/microsoft/vscode/issues/132531
+<!-- Seems to be a bug in latest version of vsc? https://github.com/microsoft/vscode/issues/132531
 
 settings.json
-	// "svelte.enable-ts-plugin": true,
+	// "svelte.enable-ts-plugin": true, -->
+
+## Build error
+If you get a PostCSS 8 error when you build your project with Tailwind, you may need to either update your PostCSS to v8 (which may break other dependencies) or use tailwind/postcss7-compat as described here https://tailwindcss.com/docs/installation#post-css-7-compatibility-build
+
 
 ## Initial build size
 
