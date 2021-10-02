@@ -1,10 +1,13 @@
 <script>
 	import {onMount, tick} from 'svelte'
+	import { slide } from 'svelte/transition';
+
 	import SidePanel from '$lib/SidePanel.svelte'
 	import UserList from '$lib/UserList.svelte'
 	import UserDetails from '$lib/UserDetails.svelte'
 	import UserSheets from '$lib/UserSheets.svelte'
 	import Timesheet from '$lib/Timesheet.svelte'
+	import Expenses from './Expenses.svelte'
 	import Leave from './Leave.svelte'
 	import {Alert, Avatar, ListItem, Hamburger} from '$lib'
 	import {Nav,Card, Container, Icon, Field, Input,Button, Tag} from 'svelte-chota';
@@ -59,6 +62,14 @@
 	// edit roles and access (role.php)
 
 
+	// todo add routing to other tabs
+  // let current = Home;  // set default component
+  // page('/', () => (current = Home));  // Map routes to page. If a route is hit the current reference is set to the route's component
+  // page('/about', () => (current = About));
+  // page('/profile', () => (current = Profile));
+  // page.start();			  // activate router
+
+
 onMount(() => {
 	const el = document.getElementById("app-loading")
 	if (el) el.remove();
@@ -68,6 +79,11 @@ onMount(() => {
 	)
 	return ()=>{ cleanup() }		// todo redo cleanup
 })
+
+function setTab(tab){
+		active_tab = tab;
+		popups.side = false
+	}
 
 function onUsersUpdate(snap){
 	_users = snap.docs.filter(q=>{ return q.data().displayName>''})
@@ -180,24 +196,33 @@ function filldays(times, validate=true){
 	<Timesheet {user} {month} {days} {sheet} _times={_alltimes} on:select={selectMonth} />
 </Container>
 {:else if active_tab=='expenses'}
-<Container>Expenses</Container>
+	<Expenses />
 {:else if active_tab=='vacations'}
-	<Leave {user} leave={_leave}/>
+	<div transition:slide|local>
+		<Leave {user} _leave={_leave} times={_alltimes} />
+	</div>
 {:else}
 <Container>Quotations</Container>
 {/if}
 
 <!-- Menu -->
 <SidePanel bind:visible={popups.side} bind:active_tab={active_tab}>
-	<Card>
-		<h2>Menu</h2>
+	<!--
 		<Button dropdown="My Profile" autoclose outline iconRight={mdiChevronDown}>
 			<p><a href="#!">Edit</a></p>
 			<p><a href="#!">Alerts</a>&nbsp;<Tag>3</Tag></p>
 			<hr>
 			<p><a href="#!" class="text-error">Logout</a></p>
 		</Button>
-	</Card>
+	 -->
+
+	<Container>
+			<ListItem link on:click={e=>setTab('timesheets')}>Timesheets</ListItem>
+			<ListItem link on:click={e=>setTab('expenses')}>Expenses</ListItem>
+			<ListItem link on:click={e=>setTab('vacations')}>Vacations</ListItem>
+			<ListItem link on:click={e=>session.signout()}>Logout</ListItem>
+	</Container>
+
 </SidePanel>
 
 <Alert/>

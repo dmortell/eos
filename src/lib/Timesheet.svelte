@@ -144,7 +144,7 @@ function selectEntry(row){
 
 
 		{#each days as time (time.date)}
-		<ListItem link on:click={e=>selectEntry(time)}>
+		<ListItem link narrow on:click={e=>selectEntry(time)}>
 			<div class="float-left short-date {time.color} mr-4">
 				{time.short}
 			</div>

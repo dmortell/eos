@@ -12,7 +12,7 @@
 		"importsNotUsedAsValues": "error",
 		"isolatedModules": true,
 		"forceConsistentCasingInFileNames": true,
-		"checkJs": false,
+		"checkJs": true,
 		"paths": {
 			"$js/*": 	["src/js/*"],
 			"$pages/*":	["./src/pages/*"],

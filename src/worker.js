@@ -1,5 +1,8 @@
 // Version: 1
 
+// alternate https://github.com/open-nomie/nomie5/blob/v5-develop/public/service-worker.js
+// https://github.com/matyunya/smelte/blob/master/src/service-worker.js
+
 // 1. Save the files to the user's device
 // The "install" event is called when the ServiceWorker starts up.
 // All ServiceWorker code must be inside events.
@@ -16,12 +19,9 @@ self.addEventListener('install', function(e) {
 		  root+'/index.php',
 		  root+'/manifest.json',
 		  //'https://unpkg.com/onsenui/css/onsenui.min.css',
-		  'https://unpkg.com/onsenui/css/onsenui-core.min.css',
-		  'https://unpkg.com/onsenui/css/onsen-css-components.min.css',
-		  'https://unpkg.com/onsenui/js/onsenui.min.js',
-			//'https://unpkg.com/onsenui@2.10.10/css/onsenui-core.min.css',
-			//'https://unpkg.com/onsenui@2.10.10/css/onsen-css-components.min.css',
-			//'https://unpkg.com/onsenui@2.10.10/js/onsenui.min.js',
+		  // 'https://unpkg.com/onsenui/css/onsenui-core.min.css',
+		  // 'https://unpkg.com/onsenui/css/onsen-css-components.min.css',
+		  // 'https://unpkg.com/onsenui/js/onsenui.min.js',
 		]);
 	  })
 	);

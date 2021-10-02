@@ -210,6 +210,8 @@ async function saveUser(user){			// called on session user change. Add new users
 // Consequently, if your web app handles sensitive information, make sure to ask the user if they're on a trusted device before enabling persistence.
 // https://firebase.google.com/docs/firestore/manage-data/enable-offline
 
+// todo switch snapshot tables to https://github.com/Evertt/flipside/tree/master/src/store
+
 var unsubs = []
 export function cleanup(){ unsubs.map(unsub => unsub()) }
 
@@ -248,6 +250,7 @@ function connectTable(table){
 			// if (id) collection().doc(id).update(data).then(callback)
 			if (id) {
 				await collection().doc(id).set(data, {merge:true})	//.then(callback)
+				// db.collection('todos').doc(id).update({ complete: newStatus });
 			}
 			else {
 				console.log('table.update.adding')
@@ -329,6 +332,12 @@ export const roles = readable([
 	{type:'user', 		name:'Staff'},
 	{type:'admin', 		name:'Admin'},
 	{type:'management',	name:'Management'},
+])
+export const leave_types = readable([
+	{type:'paid_leave',		name:"Paid leave"},
+	{type:'sick_leave',		name:"Sick leave"},
+	{type:'special_leave',	name:"Special leave"},
+	{type:'unpaid_leave',	name:"Unpaid leave"},
 ])
 export const holidays = readable(keyValues([
 	{date:"2019-01-01", name:"New Year's Day"},

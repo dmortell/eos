@@ -8,22 +8,13 @@
 	import { tick, onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { current_component } from 'svelte/internal';
-	import {Card, Container} from 'svelte-chota';
-	import {ListItem} from '$lib';
 	import { getEventsAction, enableScroll, trapTabKey } from '$js/utils';
 
 	export let right = false;
 	export let visible = false;
-	export let active_tab = 0
 	export let disableScroll = false;
 
 	const events = getEventsAction(current_component);
-
-	function setTab(tab){
-		active_tab = tab;
-		hide()
-	}
-
 	const swipeArea = 20;
 	const swipeMin = 50;
 	let touchStart = { x: null, y: null };
@@ -77,7 +68,7 @@
 </script>
 
 <svelte:window on:keydown={onKeydown} />
-<svelte:body on:touchstart={onTouchStart} on:touchend={onTouchEnd} />
+<svelte:body   on:touchstart={onTouchStart} on:touchend={onTouchEnd} />
 
 {#if visible}
 	<div class="overlay" transition:fade={{ duration: 300 }} on:click={hide} />
@@ -88,58 +79,29 @@
 	use:events
 >
 	<slot />
-	<Container>
-		<Card>
-			<ListItem link on:click={e=>setTab('timesheets')}>Timesheets</ListItem>
-			<ListItem link on:click={e=>setTab('expenses')}>Expenses</ListItem>
-			<ListItem link on:click={e=>setTab('vacations')}>Vacations</ListItem>
-		</Card>
-	</Container>
 </aside>
 
 <style>
 	.side-panel {
 		background: #fbfbfb;
-		/* postcss-custom-properties: ignore next */
 		background: var(--bg-color, #fbfbfb);
 		position: fixed;
 		visibility: hidden;
-		width: 256px;
-		top: 0;
-		height: 100%;
+		top: 0; width: 256px; height: 100%; z-index: 40;
 		box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
-		z-index: 40;
-		overflow-x: hidden;
-		overflow-y: auto;
+		overflow-x: hidden; overflow-y: auto;
 		transform-style: preserve-3d;
 		will-change: transform, visibility;
 		transition-duration: 0.2s;
 		transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 		transition-property: transform, visibility;
 	}
-	.side-panel:focus {
-		outline: none;
-	}
-	.side-panel::-moz-focus-inner {
-		border: 0;
-	}
-	.side-panel:-moz-focusring {
-		outline: none;
-	}
-	.left {
-		left: 0;
-		transform: translateX(-256px);
-	}
-	.right {
-		left: auto;
-		right: 0;
-		transform: translateX(256px);
-	}
-	.visible {
-		visibility: visible;
-		transform: translateX(0);
-	}
-
+	.side-panel:focus { outline: none; }
+	.side-panel::-moz-focus-inner { border: 0; }
+	.side-panel:-moz-focusring { outline: none; }
+	.left { left: 0; transform: translateX(-256px); }
+	.right { left: auto; right: 0; transform: translateX(256px); }
+	.visible { visibility: visible; transform: translateX(0); }
 	.overlay {
 		background-color: rgba(0, 0, 0, 0.5);
 		cursor: pointer;
