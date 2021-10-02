@@ -10,13 +10,15 @@
 	import Dialog from "$lib/Dialog.svelte"
 	import ListItem from "$lib/ListItem.svelte"
 	import ListInput from "$lib/ListInput.svelte"
-	import TimeEntry from "$lib/TimeEntry.svelte"
+	// import TimeEntry from "$lib/TimeEntry.svelte"
 	import Clipboard from "$lib/Clipboard.svelte"
 	import TimesheetHeader from "$lib/TimesheetHeader.svelte"
 	import TimesheetFooter from "$lib/TimesheetFooter.svelte"
 	import Row from "$lib/Row.svelte"
 	import Col from "$lib/Col.svelte"
 	export var user, month, days, sheet, _times
+
+	// todo in timeentry remove weekend, holiday & normal types from combo
 
 	let types = keyValues($work_types,'type','name')
 	let editing = false
@@ -62,19 +64,10 @@ function selectEntry(row){
 
 <Container>
 
-	<!-- <div class="flex flex-wrap items-center">
-        <div class="relative w-full px-4 max-w-full flex-grow flex-1">
-          <h3 class="font-semibold text-base text-blueGray-700">Page Visits</h3>
-        </div>
-        <div class="relative w-full px-4 max-w-full flex-grow flex-1 text-right">
-          <button class="bg-indigo-500 text-white active:bg-indigo-600 text-xs font-bold uppercase px-3 py-1 rounded outline-none focus:outline-none mr-1 mb-1 ease-linear transition-all duration-150" type="button">See all</button>
-        </div>
-      </div> -->
-
 	<TimesheetHeader {user} {month} {totals} {sheet} on:select />
 
 	<div class='printonly'>
-		<table class='xborder-collapse xborder xborder-green-600'>
+		<table>
 			<tr class='mainrow'>
 				<th>Date</th>
 				<th>Type</th>
@@ -106,8 +99,7 @@ function selectEntry(row){
 			</tr>
 			{/each}
 			<tr class='mainrow'>
-				<td><b>Total:</b></td>
-				<td></td>
+				<td colspan=2><b>Total:</b></td>
 				<td></td>
 				<td></td>
 				<td></td>
@@ -124,9 +116,8 @@ function selectEntry(row){
 	</div> 	<!-- print only -->
 
 
-
 	<Details class="mb-5 noprint" open>
-		<span slot="summary" class='xnoprint'>
+		<span slot="summary">
 			Timesheet for {format(month,'longmonth-year')}
 		</span>
 
@@ -145,9 +136,7 @@ function selectEntry(row){
 
 		{#each days as time (time.date)}
 		<ListItem link narrow on:click={e=>selectEntry(time)}>
-			<div class="float-left short-date {time.color} mr-4">
-				{time.short}
-			</div>
+			<div slot='left' class="short-date {time.color}">{time.short}</div>
 			<div class="float-left">
 				<div class="space-x-2 max-w-md md:max-w-lg truncate md:space-x-8 mr-4">
 					<div class='float-left'>
@@ -167,11 +156,14 @@ function selectEntry(row){
 						{optional(time.d,'D','hr')}
 					</div>
 				</div>
-				<div class="md:xxfloat-left w-11/12 md:w-full truncate text-xl text-gray-500">
+				<!-- <div class="md:xxfloat-left w-11/12 md:w-full truncate text-xl text-gray-500">
 					{time.remark || time.holiday || ''}
-				</div>
+				</div> -->
 			</div>
-		</ListItem>
+			<div slot='footer' class="w-11/12 md:w-full truncate text-xl">
+				{time.remark || time.holiday || ''}
+			</div>
+	</ListItem>
 		{/each}
 	</Details>
 
@@ -181,38 +173,42 @@ function selectEntry(row){
 
 
 
-<Dialog bind:open={editing} >
+<Dialog bind:open={editing} on:submit={e=>closePopup('save')}>
 	<div slot="header" class="is-center modal-header">Time Entry</div>
+	<!-- <form on:submit={e=>closePopup('save')}> -->
 
     <div class='modal-content'>
 		<!-- <TimeEntry entry={entry} onClose={action=>closePopup(action)} /> -->
 
-			<form on:submit|preventDefault={e=>closePopup('save')}>
+			<!-- <form on:submit|preventDefault={e=>closePopup('save')}> -->
 				<ListInput name='date'   label="Date"   type="date"   bind:value={entry.date}    />
 				<ListInput name='start'  label="Start"  type="time"   bind:value={entry.start}   />
 				<ListInput name='finish' label="Finish" type="time"   bind:value={entry.finish}  />
 				<ListInput name='breaks' label="Breaks (hours)" type="number" bind:value={entry.breaks} inputmode='numeric'/>
 				<ListInput name='type'   label="Type"   type="select" bind:value={entry.type} options={$work_types} />
-				<ListInput name='remark' label="Remarks" type="text"  bind:value={entry.remark} >
+				<ListInput name='remark' label="Remarks" type="text"  bind:value={entry.remark} size=40 >
 					<!-- <div slot="content" style='margin-right:8px;'><Button fill small round raised on:click={e=>entry.remark="WFH"}>WFH</Button></div> -->
 				</ListInput>
-			</form>
-		<!-- {#each items as item}
-			<ListInput label={item.label} name={item.name} value={user[item.name] ?? item.def} type={item.type ?? 'text'} options={item.options}
+				<!-- {#each items as item}
+					<ListInput label={item.label} name={item.name} value={user[item.name] ?? item.def} type={item.type ?? 'text'} options={item.options}
 			on:change={onChange}
 			/>
-		{/each} -->
-	</div>
+			{/each} -->
+		</div>
 
-	<div slot="footer" class="is-right px-10 py-5 border-t-2">
-		<Button fill error on:click={e=>closePopup('delete')}>Delete</Button>
-		<Button fill primary type='submit' on:click={e=>closePopup('save')}>Save</Button>
-		<Button secondary icon={mdiClose} on:click={e=>editing=false}>Cancel</Button>
-	</div>
+		<div slot="footer" class="is-right px-10 py-5 border-t-2">
+			<Button fill error on:click={e=>closePopup('delete')}>Delete</Button>
+			<Button fill primary submit on:click={e=>closePopup('save')}>Save</Button>
+			<Button secondary icon={mdiClose} on:click={e=>editing=false}>Cancel</Button>
+		</div>
+	<!-- </form> -->
 </Dialog>
 
 
 <style>
+
+	table { font-size:8px;}
+
 	.col0 {width:3em; margin-right: 8px; }
 	.col1 {width:6em; }
 	.col2 {width:4em; }
@@ -224,7 +220,8 @@ function selectEntry(row){
 	.short-date {
 		width:3.0em; font-size:0.8em; border: 1px solid#ddd; border-radius:5px; padding: 4px 7px;
 		text-align:center;
-		min-height:26px;
+		/* min-height:26px; */
+		line-height: 1.5rem;
 	}
 	.hidden { display:none;}
 	.greyed { background-color: rgb(218 218 218 / 70%); }

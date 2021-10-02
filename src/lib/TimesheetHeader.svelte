@@ -1,6 +1,7 @@
 <script>
 	import {Card, Icon, Field, Input,Button, Modal} from 'svelte-chota';
 	import {Row,Col} from 'svelte-chota';
+	import Select from 'svelte-select';
 	import ListInput from "$lib/ListInput.svelte"
 	import {mdiPencil} from '@mdi/js'
 	import {mdiChevronRight, mdiChevronLeft } from '@mdi/js'
@@ -66,16 +67,16 @@
 				<Col/>
 			</Row>
 			<hr/>
-			<h4 class='printonly'>TIME SHEET</h4>
-			<Row class='flex'>
-				<Col class='inline-block'>Client:</Col>
-				<Col class='left inline-block'>{clientName(sheet.client ?? user.client)}</Col>
-				<Col class='inline'/>
+			<h4>TIME SHEET</h4>
+			<Row>
+				<Col>Client:</Col>
+				<Col>{clientName(sheet.client ?? user.client)}</Col>
+				<Col/>
 			</Row>
-			<Row class='flex'>
-				<Col class='inline'>Month:</Col>
-				<Col class='inline'>{format(month,'longmonth-year')}</Col>
-				<Col class='inline'/>
+			<Row>
+				<Col>Month:</Col>
+				<Col>{format(month,'longmonth-year')}</Col>
+				<Col/>
 			</Row>
 			<Row>
 				<Col>Name:</Col>
@@ -102,7 +103,22 @@
 					</div>
 				</dd>
 			</dl>
+
+
 			<p>Change client to autoselect</p>
+			<dl class="items-center"><dt>Client:</dt>
+				<dd>
+					<div class='client'>
+						<Select items={$clients} optionIdentifier='type' labelIdentifier='name'/>
+						<!-- <Select {optionIdentifier} {labelIdentifier} {items} /> -->
+						<!-- <Field gapless>
+							<ListInput name='client' bind:value={client} type='select' options={$clients} on:blur={selectClient}/>
+							<Button outline icon={mdiPencil} on:click={incMonth}/>
+						</Field> -->
+					</div>
+				</dd>
+			</dl>
+
 			<dl><dt>Name:</dt>							<dd>{user.displayName}</dd>	</dl>
 			<dl><dt>Work days:</dt>		<dd>{totals.days}</dd>	</dl>
 			<dl><dt>Work hours:</dt>	<dd>{totals.hours}</dd>	</dl>
@@ -113,7 +129,10 @@
 		<Modal bind:open={modal_open}>
 			<Card>
 				<h4 slot="header">Update Timesheet Status</h4>
-				<p class='my-16'>Are you sure you want to {nextStatus(sheet.status).name} this timesheet?</p>
+				<!-- <p></p> -->
+				<br/>
+				<p >Are you sure you want to {nextStatus(sheet.status).name} this timesheet?</p>
+				<br/>
 				<div slot="footer" class="is-right">
 					<Button clear on:click={e=>modal_open=false}>Cancel</Button>
 					<Button primary on:click={e=>setStatus(nextStatus(sheet.status).type)}>Confirm</Button>
@@ -128,4 +147,5 @@
 	dt { width: 7em;  display: inline-block; }
 	dd { width: auto; display: inline-block;}
 	.client { max-width: 18rem; }
+	.printonly .row .col { margin-bottom: 4px; }
 </style>

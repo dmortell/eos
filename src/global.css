@@ -130,6 +130,17 @@ black: #000000; */
     width: 100%;
 } */
 
+.smallbtn {
+		font-size: 1.2rem;
+    line-height: 1.5rem;
+		padding: 0.5rem 1rem;
+		background-color: transparent;
+	}
+	.button.small {
+	padding: 0.5rem 1rem;
+	/* max-height: 24px; */
+}
+
 .icon {
 	display: inline-block;
 }
@@ -138,24 +149,29 @@ black: #000000; */
 	overflow: auto;
 	height: auto !important;
 	max-height: calc(100vh - 240px) !important;
+	overscroll-behavior: contain;
 }
 .modal-header {
 	  padding: 15px;
 	  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 }
-.button.small {
-	padding: 0.5rem 1rem;
-	/* max-height: 24px; */
+.modal-footer {
+	/* px-10 py-5 border-t-2 */
+	padding: 15px 15px;
+	border-top: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .nomessage > .message {display:none; }
 
+/* .hidden { display: none; } */
 
 @screen sm {
 	h1 { @apply max-w-none; }
 	p { @apply max-w-none; }
 	main { margin:2em; }
 }
+
+/* To test print rendering in Chrome: vertical dots > more tools > rendering  then set Emulate CSS media to print */
 
 .print, .printonly { display:none !important; }
 

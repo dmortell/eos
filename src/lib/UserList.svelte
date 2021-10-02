@@ -12,18 +12,19 @@
 </script>
 
 <Container>
-	<Details class="mb-5">
+	<Details >
 		<span slot="summary">
 			Users
 		</span>
-		<Field gapless  class="mt-5">
+		<Field gapless>
 			<Input placeholder="Search users" bind:value={find}/>
 			<Button icon={mdiMagnify} />
 		</Field>
 
 		{#each _users.filter(u=>find=='' || (find>'' && u.displayName.search(new RegExp(find, "i"))>-1)) as person (person.id)}
 		<ListItem link on:click={e=>dispatch('click',{person})}>
-			<div > {person.displayName} {person.start}</div>
+			<div>{person.displayName}</div>
+			<div slot='right'>{person.role ?? ''}</div>
 		</ListItem>
 		{/each}
 	</Details>

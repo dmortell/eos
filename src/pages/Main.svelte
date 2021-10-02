@@ -21,7 +21,7 @@
 	var popups = {side:false}							// popup open/closed flags
 	var user = $session.user							// currently selected user (admins can select other users)
 	var sheet = {}										// timesheet details for currently selected month
-	var active_tab = 'vacations'
+	var active_tab = 'timesheets'
 
 	let _alltimes = []									// realtime snapshot of all of this users time entries
 	var _sheets = []									// all of the selected users timesheets (realtime snapshot)
@@ -156,7 +156,6 @@ function filldays(times, validate=true){
 		days.push(data)
 	}
 }
-
 </script>
 
 <Nav class="noprint">
@@ -165,7 +164,8 @@ function filldays(times, validate=true){
 		{capitalize(active_tab)}
 	</div>
 
-	<div slot="center" class="hidden md:inline-block"> <!-- or left, or right -->
+	<!-- <div slot="center" class="hidden md:inline-block">  -->
+	<div slot="center" class="hide-xs">
     <Tabs bind:active={active_tab}>
         <Tab tabid='timesheets'>Timesheets</Tab>
         <Tab tabid='expenses'>Expenses</Tab>
@@ -174,7 +174,7 @@ function filldays(times, validate=true){
      </Tabs>
 	</div>
 
-	<Hamburger slot="right" tag="a" bind:open={popups.side}/>
+	<Hamburger slot="right" bind:open={popups.side}/>
 	<!-- <a slot="left" class="active" href="/"><Icon src={mdiHome} size="1.5" />Link 1</a> -->
     <!-- <a slot="center" href="/" class="brand">LOGO</a> -->
 </Nav>
@@ -238,4 +238,6 @@ function filldays(times, validate=true){
 	box-shadow: 0 2px 4px 0 rgba(0,0,0,.2);
 	margin: 0 0 8px 0;
 }
+
+.ml-5 { margin-left: 1.25rem; }
 </style>
