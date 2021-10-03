@@ -21,7 +21,7 @@
 </div>
 
 <style>
-	.input {
+	/* .input {
 			transition: border 0.2s ease-in-out;
 			min-width: 280px
 	}
@@ -39,5 +39,5 @@
 			transition: all 0.2s ease-out;
 			top: 0.4rem;
 			left: 0;
-	}
+	} */
 </style>

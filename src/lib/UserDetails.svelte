@@ -131,5 +131,5 @@
 </Dialog>
 
 <style>
-	.small {height:20px;}
+	/* .small {height:20px;} */
 </style>

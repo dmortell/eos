@@ -122,10 +122,7 @@
 </div>
 
 <style>
-p{ margin:0px; padding:0px; }
-.message{ font-size: smaller; }
 .grouped:not(.gapless){ overflow-x: auto; }
-.outer { min-width:20em; }
 
 /* input:not([type=checkbox]):not([type=radio]):not([type=submit]):not([type=color]):not([type=button]):not([type=reset]), select, textarea, textarea[type=text] { */
 select {

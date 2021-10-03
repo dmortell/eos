@@ -25,14 +25,14 @@ export default defineConfig({
 		// target: ['es2019', 'chrome61', 'edge18', 'firefox60', 'safari16'], // default esbuild config with edge18 instead of edge16
 		// manifest: true,								// generate manifest.json with map of non-hashed asset filenames to hashed versions
 		// minify: true,									// default is 'terser' which is slower but smaller. 'esbuild' is faster but larger
-		brotliSize: false,								// default true. enables brotli compressed size reporting
-		chunkSizeWarningLimit: 1000, // warning limit for compressing large files (default is 500) by slowing the build. Please consider that Brotli reduces bundles size by 80%!
+		// brotliSize: false,								// default true. enables brotli compressed size reporting
+		// chunkSizeWarningLimit: 1000, // warning limit for compressing large files (default is 500) by slowing the build. Please consider that Brotli reduces bundles size by 80%!
     // sourcemap: true,							// generate prod sourcemaps
 		// outDir: resolve(__dirname, 'dist'),
 		// assetsInlineLimit: 0,
 		// emptyOutDir: true,
 	},
-	rollupDedupe: ['svelte'],
+	// rollupDedupe: ['svelte'],
 	resolve: {
 		alias: {								// Must also add these paths to compilerOptions in jsconfig.json for VSCode
 			$js: resolve('./src/js'),			// resolve(__dirname, './src/js'),
@@ -40,5 +40,6 @@ export default defineConfig({
 			$pages: resolve('./src/pages'),
 		}
 	},
-	plugins: [svelte({ preprocess: preprocess({ postcss: true }) })],		// to parse ts, postcss, less, pug files
+	plugins: [svelte()]				//   plugins: [svelte({ preprocess: preprocess() })],
+	// plugins: [svelte({ preprocess: preprocess({ postcss: false }) })],		// to parse ts, postcss, less, pug files
 })

@@ -160,6 +160,18 @@ https://eos-gamma.vercel.app/ -->
 
 You could also consider deploying to https://surge.sh/ as an alternative to Vercel
 
+## URLs to assets
+
+Local assets are normally referenced as relative to the index.html. 
+Put images and other assets in your project `/public` folder.
+The css for components styles will be generated in the dist/assets folder.
+
+`background: url(/logo.png) transparent 5px 50% no-repeat;`
+
+Use a relative URL in index.html, or else set a base URL in vite.config.js and jsconfig.json
+`<link rel="icon" href="./favicon.ico">`
+
+
 ## Technical considerations
 
 **Why use this over SvelteKit?**

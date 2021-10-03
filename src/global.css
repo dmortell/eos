@@ -2,6 +2,8 @@
 	/* Chota Defaults Overrides */
 	--color-primary: #366E4B;
 
+	--color-secondary: #999;
+
 	/* svelte-select */
 	--border: none;
 	--internalPadding: 0 0px;
@@ -18,6 +20,8 @@
 		--itemHoverBG: #000;
 		--listBackground: #18191A;
 		--listBorder: 1px solid #777;
+
+		--color-secondary: #999;
 
 		/* chota */
 		--color-primary: #6ac68c;		/* light green */

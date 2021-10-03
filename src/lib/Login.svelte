@@ -83,7 +83,7 @@ const login = () => {
 		box-shadow: 2px 2px 2px grey; height: 44px;
 	}
 	#mso365-login .o365icon {
-		background: url(./o365.png) transparent 5px 50% no-repeat;
+		background: url(/o365.png) transparent 5px 50% no-repeat;
 		display: inline-block; vertical-align: middle;
 		width: 42px; height: 42px; margin: 0 0px 0 16px;
 	}

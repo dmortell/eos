@@ -5,6 +5,9 @@
 		},
 		{
 			"path": "..\\eire-f7g"
+		},
+		{
+			"path": "../eire-f7g/eire-f7g"
 		}
 	],
 	"settings": {}

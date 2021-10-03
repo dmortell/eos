@@ -132,7 +132,19 @@ function selectEntry(row){
 			</Button>
 			<!-- <Icon class="cursor-pointer inline" on:click={copytext} src={mdiClip}/> -->
 		</ListItem>
-		<div class="text-secondary"> test text x</div>
+
+
+		<div class="text-secondary"> fix dialog colors</div>
+
+		<fieldset>
+			<legend>Input fields</legend>
+			<p class="grouped">
+				<input type="text" name="input__text7" id="input__text7" placeholder="Username">
+				<input type="text" name="input__text8" id="input__text8" placeholder="Password">
+				<button class="button primary">Submit</button>
+			</p>
+		</fieldset>
+
 
 
 		{#each days as time (time.date)}
@@ -224,7 +236,7 @@ function selectEntry(row){
 	/* .col0 {width:3em; margin-right: 8px; } */
 
 	/* .col0 {width:4em; margin-right: 8px; } */
-	.col1 {width:5.5em; float: left;}
+	.col1 {width:6em; float: left;}
 	.col2 {width:3.5em; float: left;}
 	.col3 {width:3em; float: left;}
 	.col4 {width:3em; float: left; margin-right: 8px; }
@@ -244,9 +256,7 @@ function selectEntry(row){
 	.hidden { display:none;}
 	.greyed { background-color: rgb(218 218 218 / 70%); }
 	.thin { font-size:0.7em; }
-	th, td {border: 0.5px black solid;
-		padding:4px;
-	}
+	th, td {border: 0.5px black solid; padding:4px; }
 	.mainrow {
 		border-top: 2px black solid;
 		border-bottom: 2px black solid;

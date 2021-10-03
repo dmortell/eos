@@ -1,10 +1,10 @@
 /node_modules/
 /dist/
 /.vscode/
+.history/
 /public/cmaps/
 /public/pdfjs/
 /src/unused/
 .DS_Store
 .vercel
-
-.vercel
+*.code-workspace

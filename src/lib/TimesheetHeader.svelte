@@ -193,5 +193,5 @@
 	dd { width: auto; display: inline-block;}
 	.client { min-width: 10em; }
 	/* .client-label { display:flex; } */
-	.printonly .row .col { margin-bottom: 4px; }
+	/* .printonly .row .col { margin-bottom: 4px; } */
 </style>

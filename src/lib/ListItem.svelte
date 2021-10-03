@@ -2,6 +2,13 @@
 	import {Icon} from 'svelte-chota';
 	import {mdiChevronRight } from '@mdi/js'
 	export var link=false, title='', after='', narrow=null
+
+// todo
+// {#if $$slots.left}
+// 	<div class="nav-left">
+// 		<slot name="left"></slot>
+// 	</div>
+// {/if}
 </script>
 
 <div class="list-item {$$props.class ??''}" class:narrow class:link on:click >
@@ -135,7 +142,7 @@
     /* color: var(--f7-list-item-footer-text-color); */
     /* font-size: var(--f7-list-item-footer-font-size); */
     /* line-height: var(--f7-list-item-footer-line-height); */
-    color: rgba(0,0,0,0.5);
+    color: var(--color-secondary);
     font-size: 0.9em;
     font-weight: var(--f7-list-item-footer-font-weight);
     line-height: 1.2;

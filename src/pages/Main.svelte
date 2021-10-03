@@ -242,11 +242,3 @@ function filldays(times, validate=true){
 </SidePanel>
 
 <Alert/>
-
-
-<style lang="postcss">
-
-.unused {
-	color:#6ac68c;
-}
-</style>
