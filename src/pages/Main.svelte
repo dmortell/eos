@@ -13,7 +13,7 @@
 	import {Nav,Card, Container, Icon, Field, Input,Button, Tag} from 'svelte-chota';
 	import {Tabs, Tab} from 'svelte-chota';
 	import {mdiHome,mdiMagnify, mdiDelete,mdiAccountPlus,mdiSend, mdiChevronDown } from '@mdi/js'
-	import {loading, users, session, times, sheets, leave, holidays, cleanup, monthTotal, alert} from '$js/stores'
+	import {loading, users, session, times, sheets, leave, holidays, cleanup, monthTotal, alert, sendVerificationLink, setUserRole} from '$js/stores'
 	import {parseEntry, capitalize, optional, plural, format, calcHours, mins, toInt, toHours} from "$js/formatter";
 
 	// v0.5.1
@@ -93,6 +93,20 @@ onMount(() => {
 	return ()=>{ cleanup() }		// todo redo cleanup
 })
 
+// todo save theme locally
+	// const btn = document.querySelector(".btn-toggle");
+	// const currentTheme = localStorage.getItem("theme");
+	// if (currentTheme == "dark") {
+	// 	document.body.classList.add("dark-theme");
+	// }
+	// btn.addEventListener("click", function() {
+	// 	document.body.classList.toggle("dark-theme");
+	// 	let theme = "light";
+	// 	if (document.body.classList.contains("dark-theme")) theme = "dark";
+	// 	localStorage.setItem("theme", theme);
+	// });
+
+
 function setTab(tab){
 		active_tab = tab;
 		popups.side = false
@@ -169,6 +183,58 @@ function filldays(times, validate=true){
 		days.push(data)
 	}
 }
+
+	async function onCreate(user, role){										// Check if user meets role criteria.
+		// if (user.email && user.email.endsWith('@eiresystems.com') && $session.emailVerified){		// todo check emailverified
+		if (user.email && user.email.endsWith('@eiresystems.com')){
+			setUserRole(user, role)
+			// const customClaims = { role };
+			// try {
+			// 	await admin.auth().setCustomUserClaims(user.uid, customClaims);
+			// 	const metadataRef = admin.database().ref('metadata/' + user.uid);		// Update real-time database to notify client to force refresh.
+			// 	await  metadataRef.set({refreshTime: new Date().getTime()});				// Set the refresh time to the current UTC timestamp.
+			// } catch (error) { console.log(error); }
+		}
+		else console.log('unauthorised user', user.email, user.emailVerified, user)
+	}
+
+	function setRole(role){
+		onCreate($session.user, 'admin');
+	}
+	function verifyEmail(){
+		const email = $session.user.email
+		const actionCodeSettings = {
+			// URL you want to redirect back to. The domain (www.example.com) for this
+			// URL must be in the authorized domains list in the Firebase Console.
+			// url: 'https://www.example.com/finishSignUp?cartId=1234',
+			// url: 'http://localhost',											// http://localhost:3000/
+			url: 'http://eire-eos.vercel.app/?email=' + email,											// http://localhost:3000/
+			handleCodeInApp: true,								// This must be true.
+			iOS: {
+				bundleId: 'com.example.ios'					// app to use when sign-in link is opened on devices
+			},
+			android: {
+				packageName: 'com.example.android',
+				installApp: true,
+				minimumVersion: '12'
+			},
+			// dynamicLinkDomain: 'example.page.link'
+			// dynamicLinkDomain: 'http://localhost'
+			// dynamicLinkDomain: 'http://eire-eos.vercel.app'		// enable dynamic links, see https://firebase.google.com/docs/dynamic-links
+			// dynamicLinkDomain: 'eire-eos.vercel.app'		// enable dynamic links, see https://firebase.google.com/docs/auth/web/passing-state-in-email-actions#passing_statecontinue_url_in_email_actions
+			dynamicLinkDomain: 'sunny-jetty-180208.web.app'		// enable dynamic links, see https://firebase.google.com/docs/auth/web/passing-state-in-email-actions#passing_statecontinue_url_in_email_actions
+		};
+
+		console.log("Verifying", email)
+
+		// firebase.auth().currentUser.sendEmailVerification(actionCodeSettings).then(()=>{})
+
+		sendVerificationLink(email, actionCodeSettings, err=>{
+			if (err) $alert = "Cannot verify email: " + err.message
+			else $alert = "Check your mail for verification link"
+		})
+	}
+
 </script>
 
 <Nav class="noprint">
@@ -204,6 +270,17 @@ function filldays(times, validate=true){
 	<div class="noprint">
 
 		<label for="checkbox1"><input id="checkbox1" name="checkbox" type="checkbox" bind:checked={dark} on:change={setTheme}> Dark mode</label>
+
+		<ListItem>
+		<Button on:click={e=>setRole('admin')}>Admin</Button>
+		<Button on:click={e=>setRole('user')}>User</Button>
+		{#if $session.emailVerified}
+			<p>Email verified</p>
+		{:else}
+			<Button on:click={e=>verifyEmail()}>Verify mail</Button>
+		{/if}
+		</ListItem>
+
 
 		<UserList {_users} on:click={selectUser} />
 		<UserDetails {user}/>

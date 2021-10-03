@@ -203,10 +203,11 @@ function selectEntry(row){
 			{/each} -->
 		</div>
 
-		<div slot="footer" class="modal-footer">
+		<div slot="footer" class="is-center modal-footer">
 			<Button error on:click={e=>closePopup('delete')}>Delete</Button>
 			<Button primary submit on:click={e=>closePopup('save')}>Save</Button>
-			<Button secondary icon={mdiClose} on:click={e=>editing=false}>Cancel</Button>
+			<Button secondary on:click={e=>editing=false}>Cancel</Button>
+			<!-- <Button secondary icon={mdiClose} on:click={e=>editing=false}>Cancel</Button> -->
 		</div>
 </Dialog>
 
@@ -246,7 +247,7 @@ function selectEntry(row){
 	.col4 {width:auto; }
 	.col5 {float:right; padding-left: 2em; } */
 	.red { color:red; }
-	.blue { color: blue; }
+	.blue { color: var(--day-blue); }
 	.short-date {
 		width:3.0em; font-size:0.8em; border: 1px solid#ddd; border-radius:5px; padding: 4px 7px;
 		text-align:center;

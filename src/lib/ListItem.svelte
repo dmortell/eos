@@ -3,6 +3,8 @@
 	import {mdiChevronRight } from '@mdi/js'
 	export var link=false, title='', after='', narrow=null
 
+	// todo cleanup styles
+
 // todo
 // {#if $$slots.left}
 // 	<div class="nav-left">
@@ -117,19 +119,19 @@
 .listitem-title {
 	margin-right:4px;
 }
-.item-title {
-    /* min-width: 0;
+/* .item-title {
+    min-width: 0;
     flex-shrink: 1;
     position: relative;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 100%; */
-    /* white-space: var(--f7-list-item-title-white-space);
+    max-width: 100%;
+    white-space: var(--f7-list-item-title-white-space);
     font-size: var(--f7-list-item-title-font-size);
     font-weight: var(--f7-list-item-title-font-weight);
     color: var(--f7-list-item-title-text-color);
-    line-height: var(--f7-list-item-title-line-height); */
-}
+    line-height: var(--f7-list-item-title-line-height);
+} */
 .row {
     display: flex;
     justify-content: space-between;

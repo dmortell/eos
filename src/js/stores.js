@@ -9,6 +9,12 @@ import firebase from 'firebase/compat/app';				// todo upgrade from firebase-com
 import 'firebase/compat/auth';							// see https://firebase.google.com/docs/web/modular-upgrade
 import 'firebase/compat/firestore';
 
+// todo upgrade firebase compat to v9
+// import { initializeApp } from "firebase/app";
+// import { getFirestore } from "firebase/firestore";
+import { getAuth, sendSignInLinkToEmail } from "firebase/auth";
+
+
 	// import { createEventDispatcher } from 'svelte';
 	// export const dispatch = createEventDispatcher();
 
@@ -123,9 +129,39 @@ async function sendTokenToServer(idToken, csrf){
 	await fetch('/auth/session', {method:'POST', body:JSON.stringify({idToken, csrf}), headers:{'Accept':'application/json', 'Content-Type':'application/json' } })
 }
 
+export async function setUserRole(user, role){
+	const customClaims = { role };
+	// const admin = firebase
+	const auth = getAuth();
+	try {
+		await auth.setCustomUserClaims(user.uid, customClaims);
+		// const metadataRef = firebase.database().ref('metadata/' + user.uid);		// Update real-time database to notify client to force refresh.
+		// await  metadataRef.set({refreshTime: new Date().getTime()});				// Set the refresh time to the current UTC timestamp.
+	} catch (error) { console.log(error); }
+
+}
+export function sendVerificationLink(email, actionCodeSettings, callback){
+	const auth = getAuth();
+	sendSignInLinkToEmail(auth, email, actionCodeSettings)
+		.then(() => {
+			// The link was successfully sent. Inform the user.
+			// Save the email locally so you don't need to ask the user for it again
+			// if they open the link on the same device.
+			// window.localStorage.setItem('emailForSignIn', email);
+			console.log('verification.link sent')
+			if (callback) callback(null)
+		})
+		.catch((error) => {
+			const errorCode = error.code;
+			const errorMessage = error.message;
+			console.error('verification.link error:', error)
+			if (callback) callback(error)
+		});
+}
+
 function createSession() {
 	let updateServer = false 	// set to true to POST user token to server
-	const { subscribe, set, update } = writable({user:null, loaded:false, loading:false,  token:''});
+	const { subscribe, set, update } = writable({user:null, loaded:false, loading:false,  token:'', emailVerified:false});
 
 	// see https://firebase.google.com/docs/auth/web/manage-users
 	firebase.auth().onAuthStateChanged(users => {				// onAuthStateChanged(callbackSuccess, callbackError);
@@ -133,15 +169,43 @@ function createSession() {
 		const user = users ? users.providerData[0] : null;
 		const csrf = "csrf-FIX-LATER!"
 		if (users) users.getIdToken().then(token=>{				// available user properties https://firebase.google.com/docs/reference/js/firebase.User
-			set({loaded:true, loading:false, user, token});		// const {displayName, email, emailVerified, phoneNumber, photoURL} = user
+
+			const emailVerified = users.emailVerified
+			const claims = users.customClaims;    // Add incremental custom claim without overwriting existing claims.
+    	// if (currentCustomClaims['admin']) {
+      // 	currentCustomClaims['accessLevel'] = 10;
+      // 	return admin.auth().setCustomUserClaims(user.uid, currentCustomClaims);
+    	// }
+			console.log('auth.changed ', token, claims, users)
+			set({loaded:true, loading:false, user, token, emailVerified});		// const {displayName, email, emailVerified, phoneNumber, photoURL} = user
 			if (updateServer) sendTokenToServer(token, csrf)	// inform backend that user logged in
-			saveUser(user);
+			saveUser(user);																		// create a user record for application settings
 		})
 		else {
 			set({loaded:true, loading:false, user, token:''});
 			if (updateServer) clearCookiesOnServer(csrf);		// if (user.providerData[0].providerId=='microsoft.com'){}
 		}
 	});
+
+	// async function onCreate(user){										// Check if user meets role criteria.
+	// 	if (user.email && user.email.endsWith('@admin.example.com') && user.emailVerified){
+	// 		const customClaims = { role: 'admin' };
+	// 		try {
+	// 			await admin.auth().setCustomUserClaims(user.uid, customClaims);
+	// 			const metadataRef = admin.database().ref('metadata/' + user.uid);		// Update real-time database to notify client to force refresh.
+	// 			await  metadataRef.set({refreshTime: new Date().getTime()});				// Set the refresh time to the current UTC timestamp.
+	// 		} catch (error) { console.log(error); }
+	// 	}
+	// }
+
+	// admin.auth().getUserByEmail('user@admin.example.com').then((user) => {
+	// 	const currentCustomClaims = user.customClaims;    // Add incremental custom claim without overwriting existing claims.
+  //   if (currentCustomClaims['admin']) {
+  //     currentCustomClaims['accessLevel'] = 10;
+  //     return admin.auth().setCustomUserClaims(user.uid, currentCustomClaims);
+  //   }
+  // })
+  // .catch((error) => { console.log(error); });
 
 	const error = (err,callback) => {
 		console.log('Signin error', err)

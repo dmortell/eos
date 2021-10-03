@@ -14,7 +14,8 @@
 	export var title=undefined
 	export var label=title
 	export var resizable=undefined
-	export var inlineLabel=false
+	// export var info=undefined, errorMessage=undefined
+	// export var inlineLabel=false
 	// export var floatingLabel=false, autofocus=false, noStoreData=false
 	// export var validate=false
 	// export var outline=false				// bool - input outline
@@ -29,7 +30,6 @@
 	export var readonly=undefined, required=undefined, tabindex=undefined
 	export var id=undefined						// wrapper id
 	export var inputId=undefined				// wrapper id
-	export var info=undefined, errorMessage=undefined
 	// export var validateOnBlur=false, onValidate=e=>e
 	// export var calendarParams=undefined, colorPickerParams=undefined, textEditorParams=undefined
 	export var gapless=undefined, grouped=undefined
@@ -130,6 +130,8 @@ select {
     padding: .8rem 1rem;
     border-radius: 4px;
     border: 1px solid var(--color-lightGrey);
+		background-color: var(--bg-secondary-color);
+		color: var(--font-color);
     font-size: 1em;
     -webkit-transition: all .2s ease;
     transition: all .2s ease;

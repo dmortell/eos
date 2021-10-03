@@ -1,8 +1,11 @@
 :root {
+	color-scheme: light dark; /* both supported */
+
 	/* Chota Defaults Overrides */
 	--color-primary: #366E4B;
 
 	--color-secondary: #999;
+	--day-blue: #00f;
 
 	/* svelte-select */
 	--border: none;
@@ -11,7 +14,11 @@
 }
 
 @media screen {
+	body { font-weight: 400;}
 	body.dark {	/* https://jenil.github.io/chota/#customizing */
+
+		font-weight: 350;
+
 		/* svelte-select */
 		--background: transparent;
 		--border: none;
@@ -22,6 +29,7 @@
 		--listBorder: 1px solid #777;
 
 		--color-secondary: #999;
+		--day-blue: #577af9;
 
 		/* chota */
 		--color-primary: #6ac68c;		/* light green */
@@ -31,8 +39,8 @@
 		/* --bg-secondary-color: #131316; */
 		/* --font-color: #f5f5f5; */
 		--font-color: #E4E6EB;
-		--color-grey: #ccc;
-		--color-darkGrey: #777;
+		--color-grey: #444455;
+		--color-darkGrey: #888;
 		/* Default colors
 		--bg-color: #ffffff;
 		--bg-secondary-color: #f3f3f6;
@@ -48,11 +56,97 @@
 		--font-color: #333333;
 		--font-family-sans: sans-serif;
 		--font-family-mono: monaco, "Consolas", "Lucida Console", monospace; */
+
+		/* blue & orange color scheme */
+		/*
+		html {
+			--hue: 210;
+			--accent-hue: 25;
+			--text-color-normal: hsl(var(--hue), 10%, 62%);
+			--text-color-light: hsl(var(--hue), 15%, 35%);
+			--text-color-richer: hsl(var(--hue), 50%, 72%);
+			--text-color-highlight: hsl(var(--accent-hue), 70%, 45%);
+			--link-color: hsl(var(--hue), 90%, 70%);
+			--accent-color: hsl(var(--accent-hue), 100%, 70%);
+			--error-color: rgb(240, 50, 50);
+			--button-background: hsl(var(--hue), 63%, 43%);
+			--button-text-color: black;
+			--background: hsl(var(--hue), 20%, 12%);
+		}
+		html[data-theme='dark'] {
+			--text-color-normal: hsl(var(--hue), 10%, 62%);
+		}
+		html[data-theme='high-contrast'] {
+			--text-color-normal: white;
+			--text-color-light: white;
+			--text-color-richer: white;
+			--text-color-highlight: white;
+			--link-color: white;
+			--bright-color: white;
+			--error-color: white;
+			--button-background: white;
+			--button-text-color: black;
+			--background: black;
+			--popup-background: black;
+		}
+
+		html.color-theme-in-transition,
+		html.color-theme-in-transition *,
+		html.color-theme-in-transition *:before,
+		html.color-theme-in-transition *:after {
+			transition: all 750ms !important;
+			transition-delay: 0 !important;
+		}
+		document.documentElement.classList.add('color-theme-in-transition')
+		document.documentElement.setAttribute('data-theme', theme)
+		window.setTimeout(function() {
+			document.documentElement.classList.remove('color-theme-in-transition')
+		}, 1000)
+
+		for images/graphs
+		img {
+			mix-blend-mode: multiply;
+		}
+		html[data-theme='dark'] img {
+			filter: invert(100%) hue-rotate(180deg);
+			mix-blend-mode: screen;
+		}
+
+		for svg icons, use mask instead of background: https://mwichary.medium.com/dark-theme-in-a-day-3518dde2955a
+		mask-image: url(./icon-refresh-white.svg);
+		mask-repeat: no-repeat;
+		mask-position: center;
+		background: blue;
+		*/
+
+		/* SVG icon */
+		body.dark-theme svg.icon path {
+			fill: #efefef;
+		}
+		/* Font icon (using Font Awesome as an example) */
+		body.dark-theme .fa {
+			color: #efefef;
+		}
+	}
+
+	body.dark  ::placeholder { /* Chrome, Firefox, Opera, Safari 10.1+ */
+		color: var(--color-darkGrey);
+		opacity: 1; /* Firefox */
 	}
 }
 
+@media (prefers-color-scheme: dark) {
+  img {
+    opacity: .75;
+    transition: opacity .5s ease-in-out;
+  }
+  img:hover {
+    opacity: 1;
+  }
+}
+
 svg {display: inline-block; }
-input, textarea { background: transparent; color: var(--color-grey); }
+input, textarea { background: transparent; color: var(--font-color); }
 
 .float-left  { float: left; }
 .right  { text-align: right; }

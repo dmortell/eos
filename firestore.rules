@@ -25,6 +25,14 @@ service cloud.firestore {
   function userIsAdmin() {
     return request.auth.token.role == 'admin'
   }
+	// https://firebase.google.com/docs/firestore/solutions/role-based-access?authuser=0
+	// roles: { alice: "owner", bob: "reader", david: "writer", jane: "commenter" }
+	// function getRole(rsc) { return rsc.data.roles[request.auth.uid]; }	// get user role from roles map in document rsc
+	// function isOneOfRoles(rsc, array) { return isSignedIn() && (getRole(rsc) in array); }
+
+	// admin.auth().setCustomUserClaims(uid, {role:'admin'}).then(() => {});		// set role (delete by passing null)
+	// admin.auth().verifyIdToken(idToken).then((claims) => { if (claims.role=='admin'){} });		// verify role
+	// admin.auth().getUser(uid).then((userRecord) => { console.log(userRecord.customClaims['role']); });		// lookup user
 
   function userBelongsToCompany() {
     return request.auth.token.companyId == resource.data.companyId

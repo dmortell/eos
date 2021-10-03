@@ -40,6 +40,7 @@ export default defineConfig({
 			$pages: resolve('./src/pages'),
 		}
 	},
-	plugins: [svelte()]				//   plugins: [svelte({ preprocess: preprocess() })],
+	plugins: [svelte()]
+	  // plugins: [svelte({ preprocess: preprocess() })],
 	// plugins: [svelte({ preprocess: preprocess({ postcss: false }) })],		// to parse ts, postcss, less, pug files
 })

@@ -45,12 +45,10 @@ If you get a PostCSS 8 error when you build your project with Tailwind, you may 
 
 vite v2.5.10 building for production...
 ✓ 9 modules transformed.
-dist/assets/svelte.d72399d3.png   5.06 KiB
 dist/index.html                   0.49 KiB
 dist/assets/index.36259e27.css    0.87 KiB / brotli: 0.39 KiB
 dist/assets/index.1caec9c3.js     2.14 KiB / brotli: 0.94 KiB
 dist/assets/vendor.76e3af60.js    3.11 KiB / brotli: 1.30 KiB
-PS F:\WebSrv\xampp-5.6\htdocs\eire-eos>
 ```
 
 ## Build size
@@ -64,7 +62,18 @@ dist/assets/index.16c2b101.css    43.19 KiB / brotli: 7.91 KiB
 dist/assets/index.f523f608.js     90.75 KiB / brotli: 21.76 KiB
 dist/assets/vendor.798394b4.js    604.52 KiB / brotli: 113.98 KiB
 ```
-✓ 97 modules transformed.
+
+After removing tailwind
+```
+✓ 110 modules transformed.
+dist/index.html                   1.64 KiB
+dist/assets/vendor.c38dee97.css   11.15 KiB / gzip: 2.66 KiB
+dist/assets/index.bd062de8.css    28.60 KiB / gzip: 6.07 KiB
+dist/assets/index.7ecb0b0d.js     106.91 KiB / gzip: 31.89 KiB
+dist/assets/vendor.23c8b66c.js    645.55 KiB / gzip: 153.80 KiB
+```
+
+Next try reducing Firebase size
 
 ## Recommended IDE Setup
 
@@ -102,6 +111,28 @@ Note: If it is the first time the local git account is trying to connect to GitH
 Setup a Firebase Firestore database.
 Click the Project Overview cogwheel and select Project Settings.
 Add an App, then copy the `const firebaseConfig = { };` settings to stores.js
+
+## Set up firebase hosting
+
+To enable email verifications you will need Dynamic Links which is a service of firebase hosting.
+
+```
+npm install -g firebase-tools
+```
+
+Open a terminal window and navigate to or create a root directory for your web app
+```
+firebase login
+firebase init
+```
+
+When you are ready to deploy your web app
+
+```
+firebase deploy
+```
+
+After deploying, view your app at `sunny-jetty-180208.web.app`
 
 # Secure Firebase
 
@@ -162,7 +193,7 @@ You could also consider deploying to https://surge.sh/ as an alternative to Verc
 
 ## URLs to assets
 
-Local assets are normally referenced as relative to the index.html. 
+Local assets are normally referenced as relative to the index.html.
 Put images and other assets in your project `/public` folder.
 The css for components styles will be generated in the dist/assets folder.
 
