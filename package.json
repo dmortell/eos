@@ -1,6 +1,7 @@
 {
   "name": "eire-eos",
-  "version": "0.0.1",
+  "version": "0.1.0",
+	"license": "BSD-1-Clause",
   "scripts": {
     "dev": "vite --port 3000",
     "build": "vite build",

@@ -119,15 +119,11 @@
 		background: blue;
 		*/
 
-		/* SVG icon */
-		body.dark-theme svg.icon path {
-			fill: #efefef;
-		}
-		/* Font icon (using Font Awesome as an example) */
-		body.dark-theme .fa {
-			color: #efefef;
-		}
 	}
+
+	/* SVG icon */
+	body.dark svg.icon path { fill: #efefef; }
+	/* body.dark .fa { color: #efefef; } */
 
 	body.dark  ::placeholder { /* Chrome, Firefox, Opera, Safari 10.1+ */
 		color: var(--color-darkGrey);

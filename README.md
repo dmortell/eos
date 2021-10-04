@@ -82,8 +82,6 @@ dist/assets/index.ecac7345.js     108.92 KiB / gzip: 32.46 KiB
 dist/assets/vendor.7659bf97.js    438.91 KiB / gzip: 110.26 KiB
 ```
 
-Next try reducing Firebase size
-
 ## Recommended IDE Setup
 
 [VSCode](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode).
@@ -114,6 +112,9 @@ git push -u origin main                        // pushes the commit-ed changes i
 Note: If it is the first time the local git account is trying to connect to GitHub, you may be required to enter credentials to GitHub in a separate window.
 
 6) You can see the success message in the Terminal. You can also verify by refreshing the GitHub repo online.
+
+Note that if you want to test Vercel serverless api functions locally, install Vercel cli with `npm i -g vercel`, then you can run `vercel dev` for a local server.
+(You may need to install yarn `npm install --global yarn`)
 
 # Configure Firebase
 
