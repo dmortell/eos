@@ -13,7 +13,7 @@
 	import {Nav,Card, Container, Icon, Field, Input,Button, Tag} from 'svelte-chota';
 	import {Tabs, Tab} from 'svelte-chota';
 	import {mdiHome,mdiMagnify, mdiDelete,mdiAccountPlus,mdiSend, mdiChevronDown } from '@mdi/js'
-	import {loading, users, session, times, sheets, leave, holidays, cleanup, monthTotal, alert, sendVerificationLink, setUserRole} from '$js/stores'
+	import {loading, users, session, times, sheets, leave, holidays, cleanup, monthTotal, alert, sendVerificationLink} from '$js/stores'
 	import {parseEntry, capitalize, optional, plural, format, calcHours, mins, toInt, toHours} from "$js/formatter";
 
 	// v0.5.1
@@ -24,23 +24,24 @@
 	var active_tab = 'timesheets'
 	var dark = true
 
+	// So is Mallow one step above Charleville or an open sore?
+
 	let _alltimes = []									// realtime snapshot of all of this users time entries
 	var _sheets = []									// all of the selected users timesheets (realtime snapshot)
 	var _users = []										// all users (realtime snapshot)
 	var _leave = []										// user leave/holidays (realtime snapshot)
 	var days = []
-	var cons = {}										// firebase snapshot connection ids for reconnecting and cleanup
+	// var cons = {}										// firebase snapshot connection ids for reconnecting and cleanup
 
 	$: {
 		if (dark) document.body.classList.add('dark');
 		else document.body.classList.remove('dark');
-		// dark = dark
 		console.log('toggled', dark)
 	}
 	function setTheme(e){
-		if (dark) document.body.classList.add('dark');
-		else document.body.classList.remove('dark');
-		console.log('settheme', dark)
+		// if (dark) document.body.classList.add('dark');
+		// else document.body.classList.remove('dark');
+		// console.log('settheme', dark)
 	}
 
 	// add/edit leave requests
@@ -82,18 +83,7 @@
   // page('/profile', () => (current = Profile));
   // page.start();			  // activate router
 
-
-onMount(() => {
-	const el = document.getElementById("app-loading")
-	if (el) el.remove();
-	cons.users  = users.reconnect(cons.users,			// only required by editors
-		users.collection().orderBy("email", "asc"),		// todo where('uid','==',user.uid)  if role!=editor
-		onUsersUpdate
-	)
-	return ()=>{ cleanup() }		// todo redo cleanup
-})
-
-// todo save theme locally
+	// todo save theme locally
 	// const btn = document.querySelector(".btn-toggle");
 	// const currentTheme = localStorage.getItem("theme");
 	// if (currentTheme == "dark") {
@@ -107,34 +97,39 @@ onMount(() => {
 	// });
 
 
-function setTab(tab){
-		active_tab = tab;
-		popups.side = false
-	}
+function setTab(tab){ active_tab = tab; popups.side = false }
+
+onMount(() => {
+	document.getElementById("app-loading")?.remove();
+	users.reconnect(onUsersUpdate);			// only required by editors
+	return ()=>{ cleanup() }						// disconnect realtime snapshots
+})
 
 function onUsersUpdate(snap){
-	_users = snap.docs.filter(q=>{ return q.data().displayName>''})
-			.map(d => { return {...d.data(), id:d.id} })
+	_users = snap.docs.filter(q=>q.data().displayName>'').map(d => { return {...d.data(), id:d.id} })
 	connectUser(user)
 }
+function onLeaveUpdate(snap){
+	_leave = snap.docs.map(d => { return {...d.data(), id:d.id} })
+}
+function onSheetsUpdate(snap){
+	_sheets = snap.docs.map(d => { return {...d.data(), id:d.id} }).sort((a,b)=>a.month > b.month ? -1 : 1)
+	selectSheet(month)
+}
+function onTimesUpdate(snap){
+	_alltimes = snap.docs.filter(d=>{ return true }).map(d => { return {...d.data(), id:d.id } })
+	filldays(_alltimes)
+}
 
+function selectUser({detail}){
+	connectUser(detail.person)
+}
 function connectUser(newuser){
 	user = _users.find(u => u.email==newuser.email) ?? {}
 	if (user?.uid){
-		cons.sheets = sheets.reconnect(cons.sheets,
-			sheets.collection().where("uid","==",user.uid),		//.orderBy("month", "desc"),
-			onSheetsUpdate
-		)
-		cons.times  = times.reconnect(cons.times,
-			times.collection().where("uid","==",user.uid),		//.orderBy("date", "asc"),
-			onTimesUpdate
-		)
-		cons.leave  = leave.reconnect(cons.leave,
-			leave.collection().where("uid","==",user.uid),		//.orderBy("date", "asc"),
-			snap => {
-				_leave = snap.docs.filter(d=>{ return true }).map(d => { return {...d.data(), id:d.id} })
-			}
-		)
+		sheets.reconnect(onSheetsUpdate, user.uid);
+		times.reconnect(onTimesUpdate,   user.uid);
+		leave.reconnect(onLeaveUpdate,   user.uid);
 	}
 	else {			// todo disconnect sheets&times to avoid uid errors
 		console.error('connectUser.invalid uid', user);
@@ -143,28 +138,15 @@ function connectUser(newuser){
 		filldays(_alltimes, false)							// dont revalidate sheet totals if no user
 	}
 }
-function onSheetsUpdate(snap){
-	_sheets = snap.docs.filter(d=>{ return true })
-	.map(d => { return {...d.data(), id:d.id} })
-	.sort((a,b)=>a.month > b.month ? -1 : 1)
-	selectSheet()
-}
-function selectSheet(){
+
+function selectSheet(month){
 	var defaults = {uid:user.uid, month, status:"pending", client:user.client}
 	sheet = _sheets.find(d => d.month==month) ?? defaults
-}
-function onTimesUpdate(snap){
-	_alltimes = snap.docs.filter(d=>{ return true })
-		.map(d => { return {...d.data(), id:d.id } })
-	filldays(_alltimes)
 }
 
 function selectMonth({detail}){
 	month = detail.month
 	filldays(_alltimes)
-}
-function selectUser({detail}){
-	connectUser(detail.person)
 }
 function filldays(times, validate=true){
 	var start = mins(user.start), end = mins(user.finish), less = toInt(user.breaks) * 60
@@ -173,7 +155,7 @@ function filldays(times, validate=true){
 	var monthdays = new Date(y, m, 0).getDate()			// number of days in the month
 	var keys = ['a','b','c','d','total','days','less']
 
-	selectSheet()
+	selectSheet(month)
 	days = []
 	for (var d=1; d<=monthdays; d++){					// list of days in the month
 		var date = month + '-' + (d+'').padStart(2,'0')
@@ -202,34 +184,7 @@ function filldays(times, validate=true){
 		onCreate($session.user, 'admin');
 	}
 	function verifyEmail(){
-		const email = $session.user.email
-		const actionCodeSettings = {
-			// URL you want to redirect back to. The domain (www.example.com) for this
-			// URL must be in the authorized domains list in the Firebase Console.
-			// url: 'https://www.example.com/finishSignUp?cartId=1234',
-			// url: 'http://localhost',											// http://localhost:3000/
-			url: 'http://eire-eos.vercel.app/?email=' + email,											// http://localhost:3000/
-			handleCodeInApp: true,								// This must be true.
-			iOS: {
-				bundleId: 'com.example.ios'					// app to use when sign-in link is opened on devices
-			},
-			android: {
-				packageName: 'com.example.android',
-				installApp: true,
-				minimumVersion: '12'
-			},
-			// dynamicLinkDomain: 'example.page.link'
-			// dynamicLinkDomain: 'http://localhost'
-			// dynamicLinkDomain: 'http://eire-eos.vercel.app'		// enable dynamic links, see https://firebase.google.com/docs/dynamic-links
-			// dynamicLinkDomain: 'eire-eos.vercel.app'		// enable dynamic links, see https://firebase.google.com/docs/auth/web/passing-state-in-email-actions#passing_statecontinue_url_in_email_actions
-			dynamicLinkDomain: 'sunny-jetty-180208.web.app'		// enable dynamic links, see https://firebase.google.com/docs/auth/web/passing-state-in-email-actions#passing_statecontinue_url_in_email_actions
-		};
-
-		console.log("Verifying", email)
-
-		// firebase.auth().currentUser.sendEmailVerification(actionCodeSettings).then(()=>{})
-
-		sendVerificationLink(email, actionCodeSettings, err=>{
+		sendVerificationLink(err=>{
 			if (err) $alert = "Cannot verify email: " + err.message
 			else $alert = "Check your mail for verification link"
 		})

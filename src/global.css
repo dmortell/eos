@@ -15,8 +15,8 @@
 
 @media screen {
 	body { font-weight: 400;}
-	body.dark {	/* https://jenil.github.io/chota/#customizing */
 
+	body.dark {	/* https://jenil.github.io/chota/#customizing */
 		font-weight: 350;
 
 		/* svelte-select */

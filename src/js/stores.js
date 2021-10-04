@@ -1,170 +1,51 @@
 import { writable, readable, derived } from 'svelte/store';
 import {parseEntry} from './formatter.js'
-// import { createStore } from 'framework7/lite';
-// import firebase from 'firebase'			// todo try Supabase instead of firebase https://supabase.io/database
-// import { initializeApp } from 'firebase/app';
-
-// v9 compat packages are API compatible with v8 code
-import firebase from 'firebase/compat/app';				// todo upgrade from firebase-compat v8 to v9
-import 'firebase/compat/auth';							// see https://firebase.google.com/docs/web/modular-upgrade
-import 'firebase/compat/firestore';
-
-// todo upgrade firebase compat to v9
-// import { initializeApp } from "firebase/app";
-// import { getFirestore } from "firebase/firestore";
-import { getAuth, sendSignInLinkToEmail } from "firebase/auth";
-
-
-	// import { createEventDispatcher } from 'svelte';
-	// export const dispatch = createEventDispatcher();
+import { initializeApp } from "firebase/app";
+import { getFirestore, collection, addDoc, setDoc, doc, query, where, onSnapshot } from "firebase/firestore";
+import { getAuth, onAuthStateChanged, OAuthProvider, signInWithRedirect, signInWithPopup, signOut, sendEmailVerification, sendSignInLinkToEmail } from "firebase/auth";
 
 export const loading = writable({login:false})
-// export const users = writable([])
 export const alert = writable('')
-// export const store = createStore({	// Framework7 store
-// 	state: {},
-// 	getters: {},					// use getters for reactivity (see stores-f7.js)
-// 	actions: {},
-// })
 
-// export const writable = (initial_value = 0) => {
-// 	let value = initial_value         // content of the store
-// 	let subs = []                     // subscriber's handlers
-// 	const subscribe = (handler) => {
-// 	  subs = [...subs, handler]                                 // add handler to the array of subscribers
-// 	  handler(value)                                            // call handler with current value
-// 	  return () => subs = subs.filter(sub => sub !== handler)   // return unsubscribe function
-// 	}
-// 	const set = (new_value) => {
-// 	  if (value === new_value) return         // same value, exit
-// 	  value = new_value                       // update value
-// 	  subs.forEach(sub => sub(value))         // update subscribers
-// 	}
-// 	const update = (update_fn) => set(update_fn(value))   // update function
-// 	return { subscribe, set, update }       // store contract
-// }
-
-// export const localStore = (key, initial) => {                 // receives the key of the local storage and an initial value
-// 	const toString = (value) => JSON.stringify(value, null, 2)  // helper function
-// 	const toObj = JSON.parse                                    // helper function
-// 	if (localStorage.getItem(key) === null) {                   // item not present in local storage
-// 	  localStorage.setItem(key, toString(initial))              // initialize local storage with initial value
-// 	}
-// 	const saved = toObj(localStorage.getItem(key))              // convert to object
-// 	const { subscribe, set, update } = writable(saved)          // create the underlying writable store
-// 	return {
-// 	  subscribe,
-// 	  update,
-// 	  set: (value) => {
-// 		localStorage.setItem(key, toString(value))              // save also to local storage as a string
-// 		return set(value)
-// 	  },
-// 	}
-// }
-// const initialTodos = [ { id: 1, name: 'Visit MDN web docs', completed: true }, ]
-// export const todos = localStore('mdn-svelte-todo', initialTodos)
-
+export const tables = {
+	quotes:		{name:"quotes", key:'pos'},
+	details:	{name:"details"},		// quote details that can be added to your quote
+	notes:		{name:"notes"},			// notes that can be added to your quote
+	sheets:		{name:"timesheets"},
+	times:		{name:"times"},
+	leave:		{name:'leave'},
+	users:		{name:"users"},
+	settings:	{name:"settings"},		// todo edit company settings
+}
 
 // see https://stackoverflow.com/questions/30833844/get-holidays-list-of-a-country-from-google-calendar-api
 // Create an API app in google developer account .https://console.developers.google.com
 // From the "Credentials" tab you can create an API key, you get something like this "AIzaSyBcOT_DpEQysiwFmmmZXupKpnrOdJYAhhM"
 // Then you can access holiday calender using this url
 // https://www.googleapis.com/calendar/v3/calendars/en.uk%23holiday%40group.v.calendar.google.com/events?key=yourAPIKey
-// https://english.api.rakuten.net/collection/best-apis
-
 // export const public_holidays = getHolidays();
 
-// export async function getHolidays(){
-// 	const key = "e6fcfcf21a054f33a40faa4e033dec64"	// under the free plan you can only query the current year
-// 	const loc = "JP"								// https://app.abstractapi.com/api/holidays/tester
-// 	const year = 2020
-// 	// const url = "https://holidays.abstractapi.com/v1/?api_key={key}faa4e033dec64&country={loc}&year=2020&month=12&day=25"`
-// 	const url = `https://holidays.abstractapi.com/v1/?api_key={key}faa4e033dec64&country={loc}&year={year}`
-// 	fetch(url, {method: 'GET'})
-// 	.then(response => response.json())
-// 	.then(data=>{
-// 		console.log(data)
-// 		const holidays = data.map(d => { return { name: d.name, date: d.date_year+'-'+d.date_month+'-'+d.date_day} })
-// 	})
-// }
-// [
-//     {
-//         "name": "January 2 Bank Holiday",
-//         "name_local": "",
-//         "language": "",
-//         "description": "",
-//         "country": "JP",
-//         "location": "Japan",
-//         "type": "Local holiday",
-//         "date": "01/02/2020",
-//         "date_year": "2020",
-//         "date_month": "01",
-//         "date_day": "02",
-//         "week_day": "Thursday"
-//     },
-// ]
+var o365Config = {tenant: '563253df-6fa2-48c2-b88d-bbe531475a4b'}		// todo use this
 
 var firebaseConfig = {
-	apiKey: 		"AIzaSyCfoM8CLFAWuMDveWMeCJ8k3cYb-4ah_xA",
-	authDomain: 	"sunny-jetty-180208.firebaseapp.com",
-	projectId: 		"sunny-jetty-180208",
-	databaseURL:	"https://sunny-jetty-180208.firebaseio.com",
+	apiKey: 				"AIzaSyCfoM8CLFAWuMDveWMeCJ8k3cYb-4ah_xA",
+	authDomain: 		"sunny-jetty-180208.firebaseapp.com",
+	projectId: 			"sunny-jetty-180208",
+	databaseURL:		"https://sunny-jetty-180208.firebaseio.com",
 	storageBucket: 	"sunny-jetty-180208.appspot.com",
-	appId: 			"1:699730861576:web:73bfa0ed599a7011",
+	appId: 					"1:699730861576:web:73bfa0ed599a7011",
 	messagingSenderId: "699730861576",
 };
-if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-// const firebase = {}
-// const app = initializeApp(firebaseConfig);
-// if (!firebase){
-// 	const app = initializeApp(firebaseConfig);
-// 	firebase.firestore = getFirestore(app);
-// 	// const db = getFirestore(app);
-// }
-
-async function clearCookiesOnServer(csrf){
-	await fetch('/auth/clear_cookies', { method: 'POST', body: JSON.stringify({csrf}), headers: {'Accept':'application/json', 'Content-Type':'application/json'}, })
-}
-async function sendTokenToServer(idToken, csrf){
-	await fetch('/auth/session', {method:'POST', body:JSON.stringify({idToken, csrf}), headers:{'Accept':'application/json', 'Content-Type':'application/json' } })
-}
-
-export async function setUserRole(user, role){
-	const customClaims = { role };
-	// const admin = firebase
-	const auth = getAuth();
-	try {
-		await auth.setCustomUserClaims(user.uid, customClaims);
-		// const metadataRef = firebase.database().ref('metadata/' + user.uid);		// Update real-time database to notify client to force refresh.
-		// await  metadataRef.set({refreshTime: new Date().getTime()});				// Set the refresh time to the current UTC timestamp.
-	} catch (error) { console.log(error); }
-
-}
-export function sendVerificationLink(email, actionCodeSettings, callback){
-	const auth = getAuth();
-	sendSignInLinkToEmail(auth, email, actionCodeSettings)
-		.then(() => {
-			// The link was successfully sent. Inform the user.
-			// Save the email locally so you don't need to ask the user for it again
-			// if they open the link on the same device.
-			// window.localStorage.setItem('emailForSignIn', email);
-			console.log('verification.link sent')
-			if (callback) callback(null)
-		})
-		.catch((error) => {
-			const errorCode = error.code;
-			const errorMessage = error.message;
-			console.error('verification.link error:', error)
-			if (callback) callback(error)
-		});
-}
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore();
 
 function createSession() {
 	let updateServer = false 	// set to true to POST user token to server
 	const { subscribe, set, update } = writable({user:null, loaded:false, loading:false,  token:'', emailVerified:false});
+	const auth = getAuth();
 
 	// see https://firebase.google.com/docs/auth/web/manage-users
-	firebase.auth().onAuthStateChanged(users => {				// onAuthStateChanged(callbackSuccess, callbackError);
+	onAuthStateChanged(auth, users => {				// onAuthStateChanged(callbackSuccess, callbackError);
 		// console.log('onAuthStateChanged',users)
 		const user = users ? users.providerData[0] : null;
 		const csrf = "csrf-FIX-LATER!"
@@ -176,17 +57,77 @@ function createSession() {
       // 	currentCustomClaims['accessLevel'] = 10;
       // 	return admin.auth().setCustomUserClaims(user.uid, currentCustomClaims);
     	// }
-			console.log('auth.changed ', token, claims, users)
+			console.log('auth.changed ', claims, users)
 			set({loaded:true, loading:false, user, token, emailVerified});		// const {displayName, email, emailVerified, phoneNumber, photoURL} = user
-			if (updateServer) sendTokenToServer(token, csrf)	// inform backend that user logged in
 			saveUser(user);																		// create a user record for application settings
 		})
 		else {
 			set({loaded:true, loading:false, user, token:''});
-			if (updateServer) clearCookiesOnServer(csrf);		// if (user.providerData[0].providerId=='microsoft.com'){}
 		}
 	});
 
+
+	// https://firebase.google.com/docs/auth/web/microsoft-oauth
+	const signout =	e => { signOut(auth) }
+	const signin = (callback, provider='microsoft.com', options={tenant: '563253df-6fa2-48c2-b88d-bbe531475a4b'}) => {
+		update(val => { val.loading=true; return val; })
+		let oauth = new OAuthProvider(provider);
+		oauth.setCustomParameters(options);		// oauth.addScope('profile');
+		signInWithRedirect(auth, oauth)
+		.then(result => callback(result, null))
+		.catch(err => error(err, callback));	// get email/creds from err: https://firebase.google.com/docs/reference/js/v8/firebase.auth.Auth#getredirectresult
+	}
+
+	const microsoftSignin = (redirect) => {			// redirect: bool to redirect or popup the provider login page
+		signin(loginResult, 'microsoft.com', {tenant: '563253df-6fa2-48c2-b88d-bbe531475a4b', redirect})
+	}
+	function loginResult(result){ console.info('User signin result', result) }
+	function error(err,callback){
+		console.log('Signin error', err)
+		callback?.(null, err);				// if (callback) callback(null, err)		// optional chaining
+	}
+
+	async function setUserRole(user, role){
+		// const customClaims = { role };
+		// try {
+		// 	await setCustomUserClaims(user.uid, customClaims);
+		// } catch (error) { console.log(error); }
+	}
+
+	return { subscribe, signin, signout, microsoftSignin, setUserRole};
+}
+export const session = createSession();
+
+
+export function sendVerificationLink(callback){
+	const actionCodeSettings = {
+		// URL you want to redirect back to. The domain must be in the authorized domains list in the Firebase Console.
+		// url: 'https://www.example.com/finishSignUp?cartId=1234',
+		url: 'http://localhost:3000',											// http://localhost:3000/
+		// url: 'http://eire-eos.vercel.app/?email=' + email,											// http://localhost:3000/
+		handleCodeInApp: true,								// This must be true.
+		iOS: { bundleId: 'com.example.ios' },
+		android: { packageName: 'com.example.android', installApp: true, minimumVersion: '12' },
+		// dynamicLinkDomain: 'example.page.link'
+		// dynamicLinkDomain: 'http://localhost'
+		// dynamicLinkDomain: 'http://eire-eos.vercel.app'		// enable dynamic links, see https://firebase.google.com/docs/dynamic-links
+		dynamicLinkDomain: 'eire-eos.vercel.app'		// enable dynamic links, see https://firebase.google.com/docs/auth/web/passing-state-in-email-actions#passing_statecontinue_url_in_email_actions
+		// dynamicLinkDomain: 'sunny-jetty-180208.web.app'		// enable dynamic links, see https://firebase.google.com/docs/auth/web/passing-state-in-email-actions#passing_statecontinue_url_in_email_actions
+	};
+
+	const auth = getAuth();
+	sendEmailVerification(auth.currentUser, actionCodeSettings)
+		.then(()=>{
+			console.log('verification.link sent')
+			if (callback) callback(null)
+		})
+		.catch(error=>{
+			console.error('verification.link error:', error);		// error.code, error.message
+			if (callback) callback(error)
+		})
+		// when the user enters the code:
+		// await applyActionCode(auth, code);
+}
 	// async function onCreate(user){										// Check if user meets role criteria.
 	// 	if (user.email && user.email.endsWith('@admin.example.com') && user.emailVerified){
 	// 		const customClaims = { role: 'admin' };
@@ -207,52 +148,64 @@ function createSession() {
   // })
   // .catch((error) => { console.log(error); });
 
-	const error = (err,callback) => {
-		console.log('Signin error', err)
-		callback?.(null, err);				// if (callback) callback(null, err)		// optional chaining
-	}
 
-	const signout =	e => {firebase.auth().signOut()}
-	const signin = (callback, provider='microsoft.com', options={}) => {
-		update(val => { val.loading=true; return val; })
-		firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(() => {
-			let oauth = new firebase.auth.OAuthProvider(provider);
-			oauth.setCustomParameters(options);		// oauth.addScope('profile');
-			if (options.redirect){
-				firebase.auth().signInWithRedirect(oauth).then(result => callback(result, null))
-				.catch(err => error(err, callback));	// get email/creds from err: https://firebase.google.com/docs/reference/js/v8/firebase.auth.Auth#getredirectresult
+
+
+// For the web, offline persistence is disabled by default.
+// https://firebase.google.com/docs/firestore/manage-data/enable-offline
+// todo switch snapshot tables to https://github.com/Evertt/flipside/tree/master/src/store
+
+var unsubs = []
+export function cleanup(){ unsubs.map(unsub => unsub()) }
+
+function connectTable(table){
+	const { subscribe, set, update } = writable(null);
+	function snapshot(){
+		const unsub = onSnapshot(collection(db, table.name), data => set(value => data));
+		return unsub;
+	}
+	return {
+		subscribe,			// Svelte subscribe(), required for reactivity
+		snapshot,			// usage: cons.times  = times.connect(times.collection().where("uid","==",uid).orderBy("date", "asc"), onTimesUpdate )
+		disconnect: (id) =>{
+			var unsub = unsubs[id];
+			if (unsub) unsub();
+			return unsubs[id] = null;
+		},
+		reconnect: (onUpdate, uid=null) => {
+			const id = table.name, unsub = unsubs[id];
+			if (unsub) unsub();
+			const ref = collection(db, table.name)
+			const q = uid ? query(ref, where("uid", "==", uid)) : ref
+			unsubs[id] = onSnapshot(q, snap => { onUpdate(snap) }, err => console.error(err));
+			return id
+		},
+		update: async (data,id=null,callback=(data,id)=>console.log('connectTable.updated',data,id)) => {
+			if (id) {
+				await setDoc(doc(db, table.name, id), data, {merge:true})
+				// await updateDoc(doc(db, table.name, id), { "age": 13, "favorites.color": "Red" });
 			}
 			else {
-				firebase.auth().signInWithPopup(oauth).then(result => callback(result, null))
-				.catch(err => error(err, callback));
+				console.log('table.update.adding')
+				const ref = await addDoc(collection(db, table.name), data, {merge:true})
+				data.id = id = ref.id
 			}
-		})
-		.catch(err => error(err, callback));
-	}
-	function loginResult(result){ console.info('User signin result', result) }
-	const microsoftSignin = (redirect) => {			// redirect: bool to redirect or popup the provider login page
-		signin(loginResult, 'microsoft.com', {tenant: '563253df-6fa2-48c2-b88d-bbe531475a4b', redirect})
-	}
-
-	return { subscribe, signin, signout, microsoftSignin, };
+			if (callback) callback(data,id)
+			return data
+		},
+		delete: (id,callback = e=>console.log('connectTable.deleted',id)) => {
+			doc(db, table.name, id).delete().then(callback)
+		},
+	};
 }
-export const session = createSession();
+export const times = connectTable(tables.times)
+export const users = connectTable(tables.users)
+export const leave = connectTable(tables.leave)
+export const sheets = connectTable(tables.sheets)
 
-export const tables = {
-	quotes:		{name:"quotes", key:'pos'},
-	details:	{name:"details"},		// quote details that can be added to your quote
-	notes:		{name:"notes"},			// notes that can be added to your quote
-	sheets:		{name:"timesheets"},
-	times:		{name:"times"},
-	leave:		{name:'leave'},
-	users:		{name:"users"},
-	settings:	{name:"settings"},		// todo edit company settings
-}
 
 async function saveUser(user){			// called on session user change. Add new users to database
-	function collection(){	return firebase.firestore().collection(tables.users.name) }
-	const ref = collection().doc(user.email);	// console.log({ref})
-	const res = await ref.set({
+	const data = {
 		displayName: user.displayName,
 		email: user.email,
 		uid: user.uid,
@@ -262,108 +215,12 @@ async function saveUser(user){			// called on session user change. Add new users
 		// breaks:1,
 		// contract:'employee',
 		// role:'user',
-	}, {merge: true});
-	// Avatar url works only if logged in to outlook.office.com:
-	// https://outlook.office.com/owa/service.svc/s/GetPersonaPhoto?email=david.mortell@eiresystems.com&UA=0&size=HR64x64&sc=1468233338850
-}
-
-
-// For the web, offline persistence is disabled by default.
-// To enable persistence, call the enablePersistence method.
-// Cloud Firestore's cache isn't automatically cleared between sessions.
-// Consequently, if your web app handles sensitive information, make sure to ask the user if they're on a trusted device before enabling persistence.
-// https://firebase.google.com/docs/firestore/manage-data/enable-offline
-
-// todo switch snapshot tables to https://github.com/Evertt/flipside/tree/master/src/store
-
-var unsubs = []
-export function cleanup(){ unsubs.map(unsub => unsub()) }
-
-function connectTable(table){
-	const { subscribe, set, update } = writable(null);
-	function collection(){	return firebase.firestore().collection(table.name) }
-	function snapshot(){
-		const unsub = collection().onSnapshot(data => set(value => data));
-		return unsub;
 	}
-	return {
-		subscribe,			// Svelte subscribe(), required for reactivity
-		collection,
-		snapshot,			// usage: cons.times  = times.connect(times.collection().where("uid","==",uid).orderBy("date", "asc"), onTimesUpdate )
-		disconnect: (id) =>{
-			var unsub = unsubs[id];
-			if (unsub){
-				unsub();
-				unsubs[id] = null;
-			}
-			return null;
-		},
-		connect: (collection, onSnap) => {
-			var id = unsubs.length
-			unsubs[id] = collection.onSnapshot(snap => { onSnap(snap) }, err => console.error(err));
-			return id;
-		},
-		reconnect: (id, collection, onSnap) => {
-			var unsub = unsubs[id];
-			if (unsub) unsub();
-			else id = unsubs.length		// var unsub3  = sheets.collection()	// .where("uid","==",uid).orderBy("date", "desc")
-			unsubs[id] = collection.onSnapshot(snap => { onSnap(snap) }, err => console.error(err));
-			return id
-		},
-		update: async (data,id=null,callback=(data,id)=>console.log('connectTable.updated',data,id)) => {
-			// if (id) collection().doc(id).update(data).then(callback)
-			if (id) {
-				await collection().doc(id).set(data, {merge:true})	//.then(callback)
-				// db.collection('todos').doc(id).update({ complete: newStatus });
-			}
-			else {
-				console.log('table.update.adding')
-				const res = await collection().add(data)		//.then(callback)		// 	if (batch)	batch.update(itemId, data)
-				data.id = id = res.id
-			}
-			if (callback) callback(data,id)
-			return data
-			// const cityRef = db.collection('cities').doc('BJ');
-			// const res = await cityRef.set({ capital: true }, { merge: true });
-			// console.log('Added document with ID: ', res.id);
-
-			// update(val => { val.loading=true; return val; })
-		},
-		delete: (id,callback = e=>console.log('connectTable.deleted',id)) => {
-			collection().doc(id).delete().then(callback)
-		},
-	};
+	users.update(data, user.email)
 }
-export const times = connectTable(tables.times)
-export const users = connectTable(tables.users)
-export const leave = connectTable(tables.leave)
-export const sheets = connectTable(tables.sheets)
 
-// function createMapStore(initial) {
-// 	const store = writable(initial);
-// 	const set = (key, value) => store.update(m => Object.assign({}, m, {[key]: value}));
-// 	const results = derived(store, s => ({
-// 		keys: Object.keys(s),
-// 		values: Object.values(s),
-// 		entries: Object.entries(s),
-// 		set(k, v) {
-// 			store.update(s => Object.assign({}, s, {[k]: v}))
-// 		},
-// 		remove(k) {
-// 			store.update(s => {
-// 				delete s[k];
-// 				return s;
-// 			});
-// 		}
-// 	}));
-// 	return { subscribe: results.subscribe, set: store.set, }
-// }
-// const store = createMapStore({ a: 1, b: 2, c: 3, });
-	// {#each $store.entries as [key, value]}
-	// <div>{key}: {value}</div>
-	// {/each}
 
-export const settings = readable({
+export const settings = readable({		// todo make this editable
 	company:'EIRE Systems',
 	address:'Hokkai Shiga Bldg, 2-31-15 Shiba, Minato-ku, Tokyo 105-0014',
 	tel:'+81-3-5484-7935',
@@ -473,39 +330,14 @@ export function keyValues(list, key_name='type', value_name='name'){	// return a
 }
 
 
-
 export function monthTotal(times, month){
-	// var start = mins(user.start), end = mins(user.finish), less = toInt(user.breaks) * 60
-	// var standard = toHours(end-start-less)
-	// var [y,m] = month.split('-').map(v=>+v)
-	// var monthdays = new Date(y, m, 0).getDate()			// number of days in the month
 	const keys = ['a','b','c','d','hours','days','less']
 	const totals = {a:0, b:0, c:0, d:0, hours:0, days:0, less:0, month}
-
-	// for (var d=1; d<=monthdays; d++){					// list of days in the month
-	// 	var date = month + '-' + (d+'').padStart(2,'0')
-	// 	var entry = times.find(e => e.date===date) ?? {date}
-	// 	data.less = data.days ? Math.max(0,standard - data.hours) : 0
 	if (times) times.map(entry => {
 		if (entry.date.startsWith(month)){
 			var data = parseEntry(entry, holidays)
 			keys.map(k => totals[k] += data[k] ?? 0) 		// calculate totals
-			// console.log('added',month, entry.date, entry)
 		}
-		// else console.log('skipped',month, entry.date)
 	})
-	// console.log('stores.monthTotal', times, month, totals)
 	return totals
 }
-
-// export const _times = derived( times, $times => $times.filter(d => d.date.substr(0,7)===month) );
-// $: days = filldays(_times)
-// $: totals = calcTotals(days)
-// $: uid = $session && $session.user ? $session.user.uid : null
-// $: sid = {uid, displayName:$session.user.displayName}
-// $: entry={ ...defaultEntry, uid: uid, }
-
-// export const unused = readable(null, function start(set){
-// 	const unsub = firebase.firestore().collection('times').onSnapshot(data => set(value => data));
-// 	return function stop(){ unsub() };
-// });

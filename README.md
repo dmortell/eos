@@ -73,6 +73,15 @@ dist/assets/index.7ecb0b0d.js     106.91 KiB / gzip: 31.89 KiB
 dist/assets/vendor.23c8b66c.js    645.55 KiB / gzip: 153.80 KiB
 ```
 
+After upgrading Firebase v8 to v9
+```
+dist/index.html                   1.69 KiB
+dist/assets/vendor.c38dee97.css   11.15 KiB / gzip: 2.66 KiB
+dist/assets/index.c727a440.css    29.17 KiB / gzip: 6.21 KiB
+dist/assets/index.ecac7345.js     108.92 KiB / gzip: 32.46 KiB
+dist/assets/vendor.7659bf97.js    438.91 KiB / gzip: 110.26 KiB
+```
+
 Next try reducing Firebase size
 
 ## Recommended IDE Setup
@@ -122,9 +131,17 @@ npm install -g firebase-tools
 
 Open a terminal window and navigate to or create a root directory for your web app
 ```
+%AppData%\npm\firebase --version
 firebase login
 firebase init
 ```
+
+If you get a 'firebase' is not recognized error, add the path to NPM to your environment variables as follows:
+1. Hit Windows key and type 'env' to open System properties
+2. Click Environment Variables
+3. Edit the Path variable to make sure `%AppData%\npm` is in the list
+4. Close the System Properties windows and open a new command prompt or terminal then type `path` to check the path, and `firebase --version` to check firebase runs
+
 
 When you are ready to deploy your web app
 
@@ -147,7 +164,7 @@ firebase init firestore
 firebase deploy --only firestore:rules
 ```
 
-# Microsoft Azure
+# Single Sign-on with Microsoft Azure
 
 https://azure.microsoft.com/en-us/ click Azure Portal in your profile avatar.
 https://portal.azure.com/ select Azure Active Directory from the top-left hamburger.
@@ -188,6 +205,8 @@ After making a local git commit, click the refresh at bottom-left of VSC to push
 To enable sign-in to your Vercel app, in Firebase > Authentication > Sign-in Method, add the Vercel domain `your-app.vercel.app` to Authorised Domains
 <!-- // This domain (eos-gamma.vercel.app) is not authorized to run this operation. Add it to the OAuth redirect domains list in the Firebase console -> Auth section -> Sign in method tab.
 https://eos-gamma.vercel.app/ -->
+
+In Vercel > Git connect project to your git repository
 
 You could also consider deploying to https://surge.sh/ as an alternative to Vercel
 
