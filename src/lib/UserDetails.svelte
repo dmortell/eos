@@ -25,13 +25,13 @@
 	// user details, see https://c0bra.github.io/svelma/bulma/media
 
 	const items =[
-		{name: 'start',			label:'Standard start time', 	type:'time',	def:'07:30'},
+		{name: 'start',			label:'Standard start time', 	type:'time',	def:'09:00'},
 		{name: 'finish',		label:'Standard finish time', 	type:'time',	def:'18:00'},
 		{name: 'breaks',		label:'Standard breaks (hours)', type:'number',	def:1,		fmt:'hours'},
 		// {name: 'start_date',	label:'Employment start date', 	type:'date',	hint:'Employment start date'},
 		// {name: 'finish_date',	label:'Employment finish date', 	type:'date'},
 		// {name: 'email',			label:'Email', 			type:'email'},		// todo remove this
-		// {name: 'tel',			label:'Contact Tel', 	type:'tel'},		// todo remove this
+		// {name: 'tel',			label:'Contact Tel', 	type:'tel'},			// todo remove this
 		// {name: 'photoURL',		label:'Photo URL', 		type:'url'},		// todo remove this
 		{name: 'client',			label:'Current client',	 	type:'select',	options: $clients},
 		{name: 'contract',		label:'Contract', 				type:'select',	options: $contracts},

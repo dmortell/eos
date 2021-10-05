@@ -16,7 +16,7 @@
 	import {loading, users, session, times, sheets, leave, holidays, cleanup, monthTotal, alert, sendVerificationLink} from '$js/stores'
 	import {parseEntry, capitalize, optional, plural, format, calcHours, mins, toInt, toHours} from "$js/formatter";
 
-	// v0.5.1
+	// v0.7
 	let month = new Date().toISOString().substr(0,7);	//"2021-08"
 	var popups = {side:false}							// popup open/closed flags
 	var user = $session.user							// currently selected user (admins can select other users)
@@ -29,15 +29,11 @@
 	var _users = []											// all users (realtime snapshot)
 	var _leave = []											// user leave/holidays (realtime snapshot)
 	var days = []
-	// var cons = {}										// firebase snapshot connection ids for reconnecting and cleanup
+	var timeouts = {}
 
 	$: {
 		if (dark) document.body.classList.add('dark');
 		else document.body.classList.remove('dark');
-		// if (user.email===$session.user.email && user.role !== $session.user.claims?.role){		// force client to update token if their role is changed by someone else
-		// 	console.log('Main update token')
-		// 	session.updateToken($session.user);			// refreshes token
-		// }
 	}
 	function setTheme(e){
 		// if (dark) document.body.classList.add('dark');
@@ -53,11 +49,11 @@
 	// checkin/out & breaks
 	// link with calendar? scheduled tasks https://clockify.me/timesheet-app
 	// copy/paste FROM Excel
+	// todo export to Excel/PDF or Mail
 	// secure firebase rules
 	// todo slide thru dates/months
-	// todo push to Vercel/github
+	// done: push to Vercel/github
 	// todo checkbox select rows to set standard times to
-	// todo export to Excel/PDF or Mail
 	// todo send notifications when sheets are published or approved
 	// todo fix total time when working past midnight
 	// test entering breaks of 30mins or 15mins
@@ -134,13 +130,14 @@ async function connectUser(newuser){
 		sheets.reconnect(onSheetsUpdate, user.uid);
 		times.reconnect(onTimesUpdate,   user.uid);
 		leave.reconnect(onLeaveUpdate,   user.uid);
-		// if (user.role !== $session.claims?.role){		// todo check email matches session
-		// 	const token = await session.refreshToken($session.user)
-		// 	console.log('connectUser.refreshedToken', token)
-		// 	role =token.claims?.role
-		// 	changed++;
-		// }
-		// keys.map(key=> changed += $session.user[key] !== user[key] )
+		if (user.email ===$session.user.email && user.role !== $session.claims.role){		// if sessions role is changed in databse
+			if (timeouts.refresh) clearTimeout(timeouts.refresh)
+			timeouts.refresh = setTimeout(async ()=>{					// it takes a second or two to update firebase claims
+				await session.refreshToken($session.user)				// so refresh the session claims after 5 seconds
+				timeouts.refresh = null
+				// console.log('connectUser role changed', $session.claims)
+			}, 5000);
+		}
 	}
 	else {				// user not found in database
 		console.error('connectUser.invalid uid', user);
@@ -191,7 +188,7 @@ function filldays(times, validate=true){
 		if ($session.user.email.endsWith('@eiresystems.com')){
 			try {
 				await session.setUserRole(user, role)						// set firebase claims role
-				await users.update({role}, user.email, (res,err)=>console.log('main.setRole',user,role,res,err))		// Update real-time database to notify client to force refresh.
+				await users.update({role}, user.email)		// Update real-time database to notify client to force refresh.
 			} catch(err){ console.error('main.setRole',err)}
 		}
 		else console.log('main.setRole user unauthorised')

@@ -27,7 +27,7 @@ export const tables = {
 // https://www.googleapis.com/calendar/v3/calendars/en.uk%23holiday%40group.v.calendar.google.com/events?key=yourAPIKey
 // export const public_holidays = getHolidays();
 
-var o365Config = {tenant: '563253df-6fa2-48c2-b88d-bbe531475a4b'}		// enter your Microsoft tenant details here
+const o365Config = {tenant: '563253df-6fa2-48c2-b88d-bbe531475a4b'}		// enter your Microsoft tenant details here
 
 const firebaseConfig = {
   apiKey: "AIzaSyDMXcAnx1UnFTp644sfHdeDlYf4o9T3Dlk",
@@ -40,7 +40,6 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore();
 const functions = getFunctions(firebaseApp, 'asia-northeast1');			// v9
-// const functions = firebase.app().functions('asia-northeast1');		// v8
 
 function createSession() {
 	let updateServer = false 	// set to true to POST user token to server
@@ -50,62 +49,28 @@ function createSession() {
 	// see https://firebase.google.com/docs/auth/web/manage-users
 	// or https://github.com/firebase/quickstart-js/blob/master/auth/google-credentials.html#L68-L69
 	onAuthStateChanged(auth, user => {				// onAuthStateChanged(callbackSuccess, callbackError);
-		// console.log('onAuthStateChanged',user)
-		// const user = users ? users.providerData[0] : null;
 		const provider = user?.providerData[0]
 		const csrf = "csrf-FIX-LATER!"
 		if (user){
-			// user.getIdToken().then(token=>{				// available user properties https://firebase.google.com/docs/reference/js/firebase.User
-
-			// 	// const emailVerified = users.emailVerified
-			// 	var claims = user.customClaims ?? {};    // Add incremental custom claim without overwriting existing claims.
-			// 	var role = 'none'
-
-			// 	const newclaims = user.reloadUserInfo?.customAttributes
-			// 	var tok = getIdTokenResult(user, true).then(t => console.log(tok=t))
-
-			// 	// auth() .verifyIdToken(idToken) .then((decodedToken) => { const uid = decodedToken.uid; })		// https://firebase.google.com/docs/auth/admin/verify-id-tokens#web
-
-			// 	console.log('auth.changed ', claims, newclaims, user)
-			// 	set({loaded:true, loading:false, user, provider, claims});		// const {displayName, email, emailVerified, phoneNumber, photoURL} = user
-			// 	// saveUser(user);																		// create a user record for application settings
-			// })
-
+			// auth() .verifyIdToken(idToken) .then((decodedToken) => { const uid = decodedToken.uid; })		// https://firebase.google.com/docs/auth/admin/verify-id-tokens#web
 			getIdTokenResult(user).then(token => {
 				const claims = token.claims
-				console.log('getTokenResult',claims)
+				console.log('getTokenResult',user, claims)
 				set({loaded:true, loading:false, user, provider, claims});		// const {displayName, email, emailVerified, phoneNumber, photoURL} = user
 			})
-
-			// user.getIdToken().then(token=>{				// available user properties https://firebase.google.com/docs/reference/js/firebase.User
-			// // 	// auth() .verifyIdToken(idToken) .then((decodedToken) => { const uid = decodedToken.uid; })		// https://firebase.google.com/docs/auth/admin/verify-id-tokens#web
-			// 	console.log('getIdToken',user,token)
-			// })
-
-
-			// user.getIdToken().then(token=>{				// available user properties https://firebase.google.com/docs/reference/js/firebase.User
-			// 	var claims = user.customClaims ?? {};    // Add incremental custom claim without overwriting existing claims.
-			// 	var role = 'none'
-			// 	const newclaims = user.reloadUserInfo?.customAttributes
-			// 	var tok = getIdTokenResult(user, true).then(t => console.log(tok=t))
-
-			// 	// auth() .verifyIdToken(idToken) .then((decodedToken) => { const uid = decodedToken.uid; })		// https://firebase.google.com/docs/auth/admin/verify-id-tokens#web
-
-			// 	console.log('auth.changed ', claims, newclaims, user)
-			// 	set({loaded:true, loading:false, user, provider, claims});		// const {displayName, email, emailVerified, phoneNumber, photoURL} = user
-			// 	// saveUser(user);																		// create a user record for application settings
-			// })
 		}
 		else {
 				set({loaded:true, loading:false, user, provider, claims:{}});
 		}
 	});
 
-	// todo try onTokenChanged() [not available in auth]
-	// onTokenChanged(auth, token =>{
-	// 	console.log('ontokenchanged', token)
-	// })
-
+	async function refreshToken(user){					// fetch a new token and update the session claims
+		const token = await getIdTokenResult(user, true)
+		const claims = token.claims ?? {}
+		// console.log('refreshToken.claims',claims)
+		update(current => { return {...current, claims} })			// todo merge with onStateChanged
+		return token
+	}
 
 	// https://firebase.google.com/docs/auth/web/microsoft-oauth
 	const signout =	e => { signOut(auth) }
@@ -128,29 +93,8 @@ function createSession() {
 	}
 
 	async function setUserRole(user, role){			// called when an admin changes a users role. updates firebase claims and
-		const customClaims = { role };
-		try {
-			const setRole = httpsCallable(functions, 'setRole');		// prepare to call Firebase function defined in /functions/index.js
-			setRole({ email: user.email, role: role })
-				.then((result) => {
-					const data = result.data;
-					// const sanitizedMessage = data.text;
-					console.log('role change result', result)						// todo signal to the client of the updated user that the role has been modified and force it to refresh the token
-					// update(current => { return {...current, role:result} })		// no good, this updates current session instead of the update user
-				});
-			// await setCustomUserClaims(user.uid, customClaims);
-		} catch (error) { console.log(error); }		// error.code .message .details
-	}
-
-	async function refreshToken(user){		// await user.getIdToken(true)
-		const token = await getIdTokenResult(user, true)
-		console.log('update.token ',token)
-		return token
-
-		// getIdTokenResult(user, true).then(token => {
-		// 	console.log('update.token',token)
-		// 	return token
-		// })
+		const setRole = httpsCallable(functions, 'setRole');		// prepare to call Firebase function defined in /functions/index.js
+		setRole({ email: user.email, role: role })		//.catch(err=>console.error(err))		// error.code .message .details
 	}
 
 	return { subscribe, signin, signout, microsoftSignin, setUserRole, refreshToken};
