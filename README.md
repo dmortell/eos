@@ -29,6 +29,8 @@ You can ignore the source-map not found errors in `jsconfig.json`, but if you fi
 
 `npm install @types/source-map@0.5.2`
 
+Disabling typescript validation in VSC did not work: File > Preferences > Settings, type "typescript validate"
+
 <!-- Seems to be a bug in latest version of vsc? https://github.com/microsoft/vscode/issues/132531
 
 settings.json
@@ -38,27 +40,13 @@ settings.json
 If you get a PostCSS 8 error when you build your project with Tailwind, you may need to either update your PostCSS to v8 (which may break other dependencies) or use tailwind/postcss7-compat as described here https://tailwindcss.com/docs/installation#post-css-7-compatibility-build
 
 
-## Initial build size
-
-```
-> npm vite build
-
-vite v2.5.10 building for production...
-✓ 9 modules transformed.
-dist/index.html                   0.49 KiB
-dist/assets/index.36259e27.css    0.87 KiB / brotli: 0.39 KiB
-dist/assets/index.1caec9c3.js     2.14 KiB / brotli: 0.94 KiB
-dist/assets/vendor.76e3af60.js    3.11 KiB / brotli: 1.30 KiB
-```
-
 ## Build size
 Build size with Firebase and Tailwindcss
 ```
 ✓ 93 modules transformed.
 dist/index.html                   1.95 KiB
-dist/manifest.json                0.33 KiB
-dist/assets/vendor.3e03fd40.css   3.05 KiB / brotli: 0.76 KiB
 dist/assets/index.16c2b101.css    43.19 KiB / brotli: 7.91 KiB
+dist/assets/vendor.3e03fd40.css   3.05 KiB / brotli: 0.76 KiB
 dist/assets/index.f523f608.js     90.75 KiB / brotli: 21.76 KiB
 dist/assets/vendor.798394b4.js    604.52 KiB / brotli: 113.98 KiB
 ```
@@ -67,19 +55,20 @@ After removing tailwind
 ```
 ✓ 110 modules transformed.
 dist/index.html                   1.64 KiB
-dist/assets/vendor.c38dee97.css   11.15 KiB / gzip: 2.66 KiB
 dist/assets/index.bd062de8.css    28.60 KiB / gzip: 6.07 KiB
+dist/assets/vendor.c38dee97.css   11.15 KiB / gzip: 2.66 KiB
 dist/assets/index.7ecb0b0d.js     106.91 KiB / gzip: 31.89 KiB
 dist/assets/vendor.23c8b66c.js    645.55 KiB / gzip: 153.80 KiB
 ```
 
 After upgrading Firebase v8 to v9
 ```
+✓ 109 modules transformed.
 dist/index.html                   1.69 KiB
+dist/assets/index.778d180e.css    29.13 KiB / gzip: 6.19 KiB
 dist/assets/vendor.c38dee97.css   11.15 KiB / gzip: 2.66 KiB
-dist/assets/index.c727a440.css    29.17 KiB / gzip: 6.21 KiB
-dist/assets/index.ecac7345.js     108.92 KiB / gzip: 32.46 KiB
-dist/assets/vendor.7659bf97.js    438.91 KiB / gzip: 110.26 KiB
+dist/assets/index.ccd7f850.js     109.55 KiB / gzip: 32.74 KiB
+dist/assets/vendor.ab0cdd9d.js    448.37 KiB / gzip: 112.30 KiB
 ```
 
 ## Recommended IDE Setup
@@ -113,44 +102,83 @@ Note: If it is the first time the local git account is trying to connect to GitH
 
 6) You can see the success message in the Terminal. You can also verify by refreshing the GitHub repo online.
 
-Note that if you want to test Vercel serverless api functions locally, install Vercel cli with `npm i -g vercel`, then you can run `vercel dev` for a local server.
-(You may need to install yarn `npm install --global yarn`)
-
 # Configure Firebase
 
-Setup a Firebase Firestore database.
+Setup a Firebase Firestore database in https://console.firebase.google.com/ .
+Select `Firestore Native mode` for realtime updates when data is changed.
 Click the Project Overview cogwheel and select Project Settings.
-Add an App, then copy the `const firebaseConfig = { };` settings to stores.js
+If you dont already have an App, click `Add App`. Copy the `const firebaseConfig = { };` settings to stores.js
 
 ## Set up firebase hosting
 
-To enable email verifications you will need Dynamic Links which is a service of firebase hosting.
+To enable email verification you will need Dynamic Links which is a service of firebase hosting.
 
 ```
 npm install -g firebase-tools
 ```
 
-Open a terminal window and navigate to or create a root directory for your web app
+Open a terminal window and navigate to the root directory for your web app
 ```
 %AppData%\npm\firebase --version
 firebase login
 firebase init
 ```
 
-If you get a 'firebase' is not recognized error, add the path to NPM to your environment variables as follows:
+If you get a 'firebase' is not recognized error and you are using Windows, use `%AppData%\npm\firebase` for each command, or preferably add the path to NPM to your environment variables as follows:
 1. Hit Windows key and type 'env' to open System properties
 2. Click Environment Variables
 3. Edit the Path variable to make sure `%AppData%\npm` is in the list
-4. Close the System Properties windows and open a new command prompt or terminal then type `path` to check the path, and `firebase --version` to check firebase runs
+4. Close the System Properties windows and open a new command prompt or terminal then type `path` to check the path, and `firebase --version` to check that firebase runs
 
+If you get authentication errors during the init process, try `firebase logout` and login again.
 
-When you are ready to deploy your web app
+If you have multiple projects in Firebase, you can select which one to use by default for deployements
+```
+firebase projects:list
+firebase use chaos-a6d03
+```
 
+When you are ready to deploy your web app:
 ```
 firebase deploy
 ```
 
-After deploying, view your app at `sunny-jetty-180208.web.app`
+After deploying, view your app at https://chaos-a6d03.web.app/
+
+
+## Set up Firebase Functions
+
+Note that Firebase Functions are not available in the free plan. You will need to upgrade the plan for each project to Blaze pay-as-you-go using a credit card or Paypal. Set a budget alert to get notifications at 50%, 90% and 100% of your monthly budget. See pricing details at https://cloud.google.com/firestore/pricing
+
+```
+firebase init functions
+```
+This will create `.firebaserc` and `firebase.json` files and a `functions` directory in your project root.
+
+Write your server side functions in /functions/index.js and deploy them to Firebase with `firebase deploy --only functions`.
+
+By default, functions run in the `us-central1` region. You can change the region for each function in functions/index.js. You can specify multiple regions by separating them with a comma.
+```
+exports.setRole = functions.region('asia-northeast1').https.onCall((data, context) => {
+	...
+}
+```
+
+```
+https://us-central1-chaos-a6d03.cloudfunctions.net/setRole
+https://asia-northeast1-chaos-a6d03.cloudfunctions.net/setRole
+```
+
+Your application can specify a region, and must do so if the function runs in any region other than us-central1.
+```
+var functions = firebase.app().functions('asia-northeast1');
+```
+
+If your code has more than 5 functions, then the docs recommend deploying only the updated functions (https://firebase.google.com/docs/functions/manage-functions)
+```
+firebase deploy --only functions:addMessage,functions:makeUppercase
+firebase functions:delete objectChanged			# to delete a function
+```
 
 # Secure Firebase
 
@@ -165,13 +193,16 @@ firebase init firestore
 firebase deploy --only firestore:rules
 ```
 
+For Firebase updates see https://firebase.google.com/support/release-notes/js
+
+
 # Single Sign-on with Microsoft Azure
 
 https://azure.microsoft.com/en-us/ click Azure Portal in your profile avatar.
 https://portal.azure.com/ select Azure Active Directory from the top-left hamburger.
 Set your tenant Id in the microsoftSignin() function in stores.js
 Find App Registrations and create an app or select your existing app
-In Manage > Authentication, click Redirect URLs and add an URI to your app URL when for Azure to redirect to after authentication eg `https://your-app.firebaseapp.com/__/auth/handler` then click Save.
+In Manage > Authentication, click Redirect URLs and add an URI to your app URL for Azure to redirect to after authentication eg `https://your-app.firebaseapp.com/__/auth/handler` then click Save.
 (Get the redirect URL from Firebase > Authentication > Microsoft)
 
 <!-- https://your-app.vercel.app/ -->
@@ -209,7 +240,25 @@ https://eos-gamma.vercel.app/ -->
 
 In Vercel > Git connect project to your git repository
 
+Note that if you want to test Vercel serverless api functions locally, install Vercel cli with `npm i -g vercel`, then you can run `vercel dev` for a local server instead of `npm run dev`.
+(You may need to install yarn `npm install --global yarn`)
+
+https://vercel.com/dashboard
+
 You could also consider deploying to https://surge.sh/ as an alternative to Vercel
+
+
+{
+	"resource": "/f:/WebSrv/xampp-5.6/htdocs/eire-eos/jsconfig.json",
+	"owner": "typescript",
+	"severity": 8,
+	"message": "File 'f:/WebSrv/xampp-5.6/htdocs/eire-eos/node_modules/source-map-js/source-map' not found.\n  The file is in the program because:\n    Root file specified for compilation",
+	"source": "ts",
+	"startLineNumber": 1,
+	"startColumn": 1,
+	"endLineNumber": 1,
+	"endColumn": 2
+}
 
 ## URLs to assets
 

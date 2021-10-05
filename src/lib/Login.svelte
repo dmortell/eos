@@ -34,7 +34,7 @@ const login = () => {
 				<p>
 					<img src="./authenticator.webp" class='lock' width=32 height=32 alt="Microsoft Authenticator"  />
 					Microsoft Authenticator is required on your smartphone if two-factor authentication is enabled.</p>
-				<a on:click={login} disabled={$session.loading} href="#login" id="mso365-login"><span class="o365icon"/> <span class="buttonText">Sign in with Office 365</span></a>
+				<a on:click|preventDefault={login} disabled={$session.loading} href="#!" id="mso365-login"><span class="o365icon"/> <span class="buttonText">Sign in with Office 365</span></a>
 			</div>
 		</div>
 	</div>

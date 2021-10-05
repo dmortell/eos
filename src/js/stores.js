@@ -1,8 +1,10 @@
 import { writable, readable, derived } from 'svelte/store';
 import {parseEntry} from './formatter.js'
 import { initializeApp } from "firebase/app";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import { getFirestore, collection, addDoc, setDoc, doc, query, where, onSnapshot } from "firebase/firestore";
-import { getAuth, onAuthStateChanged, OAuthProvider, signInWithRedirect, signInWithPopup, signOut, sendEmailVerification, sendSignInLinkToEmail } from "firebase/auth";
+import { getAuth, onAuthStateChanged, OAuthProvider, signInWithRedirect, signInWithPopup, signOut,
+	sendEmailVerification, sendSignInLinkToEmail, getIdTokenResult,  } from "firebase/auth";
 
 export const loading = writable({login:false})
 export const alert = writable('')
@@ -25,51 +27,89 @@ export const tables = {
 // https://www.googleapis.com/calendar/v3/calendars/en.uk%23holiday%40group.v.calendar.google.com/events?key=yourAPIKey
 // export const public_holidays = getHolidays();
 
-var o365Config = {tenant: '563253df-6fa2-48c2-b88d-bbe531475a4b'}		// todo use this
+var o365Config = {tenant: '563253df-6fa2-48c2-b88d-bbe531475a4b'}		// enter your Microsoft tenant details here
 
-var firebaseConfig = {
-	apiKey: 				"AIzaSyCfoM8CLFAWuMDveWMeCJ8k3cYb-4ah_xA",
-	authDomain: 		"sunny-jetty-180208.firebaseapp.com",
-	projectId: 			"sunny-jetty-180208",
-	databaseURL:		"https://sunny-jetty-180208.firebaseio.com",
-	storageBucket: 	"sunny-jetty-180208.appspot.com",
-	appId: 					"1:699730861576:web:73bfa0ed599a7011",
-	messagingSenderId: "699730861576",
+const firebaseConfig = {
+  apiKey: "AIzaSyDMXcAnx1UnFTp644sfHdeDlYf4o9T3Dlk",
+  authDomain: "chaos-a6d03.firebaseapp.com",
+  projectId: "chaos-a6d03",
+  storageBucket: "chaos-a6d03.appspot.com",
+  messagingSenderId: "513657878142",
+  appId: "1:513657878142:web:caf69d51c2dc6424244a2f"
 };
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore();
+const functions = getFunctions(firebaseApp, 'asia-northeast1');			// v9
+// const functions = firebase.app().functions('asia-northeast1');		// v8
 
 function createSession() {
 	let updateServer = false 	// set to true to POST user token to server
-	const { subscribe, set, update } = writable({user:null, loaded:false, loading:false,  token:'', emailVerified:false});
+	const { subscribe, set, update } = writable({user:null, loaded:false, loading:false,  token:''});
 	const auth = getAuth();
 
 	// see https://firebase.google.com/docs/auth/web/manage-users
-	onAuthStateChanged(auth, users => {				// onAuthStateChanged(callbackSuccess, callbackError);
-		// console.log('onAuthStateChanged',users)
-		const user = users ? users.providerData[0] : null;
+	// or https://github.com/firebase/quickstart-js/blob/master/auth/google-credentials.html#L68-L69
+	onAuthStateChanged(auth, user => {				// onAuthStateChanged(callbackSuccess, callbackError);
+		// console.log('onAuthStateChanged',user)
+		// const user = users ? users.providerData[0] : null;
+		const provider = user?.providerData[0]
 		const csrf = "csrf-FIX-LATER!"
-		if (users) users.getIdToken().then(token=>{				// available user properties https://firebase.google.com/docs/reference/js/firebase.User
+		if (user){
+			// user.getIdToken().then(token=>{				// available user properties https://firebase.google.com/docs/reference/js/firebase.User
 
-			const emailVerified = users.emailVerified
-			const claims = users.customClaims;    // Add incremental custom claim without overwriting existing claims.
-    	// if (currentCustomClaims['admin']) {
-      // 	currentCustomClaims['accessLevel'] = 10;
-      // 	return admin.auth().setCustomUserClaims(user.uid, currentCustomClaims);
-    	// }
-			console.log('auth.changed ', claims, users)
-			set({loaded:true, loading:false, user, token, emailVerified});		// const {displayName, email, emailVerified, phoneNumber, photoURL} = user
-			saveUser(user);																		// create a user record for application settings
-		})
+			// 	// const emailVerified = users.emailVerified
+			// 	var claims = user.customClaims ?? {};    // Add incremental custom claim without overwriting existing claims.
+			// 	var role = 'none'
+
+			// 	const newclaims = user.reloadUserInfo?.customAttributes
+			// 	var tok = getIdTokenResult(user, true).then(t => console.log(tok=t))
+
+			// 	// auth() .verifyIdToken(idToken) .then((decodedToken) => { const uid = decodedToken.uid; })		// https://firebase.google.com/docs/auth/admin/verify-id-tokens#web
+
+			// 	console.log('auth.changed ', claims, newclaims, user)
+			// 	set({loaded:true, loading:false, user, provider, claims});		// const {displayName, email, emailVerified, phoneNumber, photoURL} = user
+			// 	// saveUser(user);																		// create a user record for application settings
+			// })
+
+			getIdTokenResult(user).then(token => {
+				const claims = token.claims
+				console.log('getTokenResult',claims)
+				set({loaded:true, loading:false, user, provider, claims});		// const {displayName, email, emailVerified, phoneNumber, photoURL} = user
+			})
+
+			// user.getIdToken().then(token=>{				// available user properties https://firebase.google.com/docs/reference/js/firebase.User
+			// // 	// auth() .verifyIdToken(idToken) .then((decodedToken) => { const uid = decodedToken.uid; })		// https://firebase.google.com/docs/auth/admin/verify-id-tokens#web
+			// 	console.log('getIdToken',user,token)
+			// })
+
+
+			// user.getIdToken().then(token=>{				// available user properties https://firebase.google.com/docs/reference/js/firebase.User
+			// 	var claims = user.customClaims ?? {};    // Add incremental custom claim without overwriting existing claims.
+			// 	var role = 'none'
+			// 	const newclaims = user.reloadUserInfo?.customAttributes
+			// 	var tok = getIdTokenResult(user, true).then(t => console.log(tok=t))
+
+			// 	// auth() .verifyIdToken(idToken) .then((decodedToken) => { const uid = decodedToken.uid; })		// https://firebase.google.com/docs/auth/admin/verify-id-tokens#web
+
+			// 	console.log('auth.changed ', claims, newclaims, user)
+			// 	set({loaded:true, loading:false, user, provider, claims});		// const {displayName, email, emailVerified, phoneNumber, photoURL} = user
+			// 	// saveUser(user);																		// create a user record for application settings
+			// })
+		}
 		else {
-			set({loaded:true, loading:false, user, token:''});
+				set({loaded:true, loading:false, user, provider, claims:{}});
 		}
 	});
+
+	// todo try onTokenChanged() [not available in auth]
+	// onTokenChanged(auth, token =>{
+	// 	console.log('ontokenchanged', token)
+	// })
 
 
 	// https://firebase.google.com/docs/auth/web/microsoft-oauth
 	const signout =	e => { signOut(auth) }
-	const signin = (callback, provider='microsoft.com', options={tenant: '563253df-6fa2-48c2-b88d-bbe531475a4b'}) => {
+	const signin = (callback, provider='microsoft.com', options=o365Config ) => {
 		update(val => { val.loading=true; return val; })
 		let oauth = new OAuthProvider(provider);
 		oauth.setCustomParameters(options);		// oauth.addScope('profile');
@@ -87,14 +127,33 @@ function createSession() {
 		callback?.(null, err);				// if (callback) callback(null, err)		// optional chaining
 	}
 
-	async function setUserRole(user, role){
-		// const customClaims = { role };
-		// try {
-		// 	await setCustomUserClaims(user.uid, customClaims);
-		// } catch (error) { console.log(error); }
+	async function setUserRole(user, role){			// called when an admin changes a users role. updates firebase claims and
+		const customClaims = { role };
+		try {
+			const setRole = httpsCallable(functions, 'setRole');		// prepare to call Firebase function defined in /functions/index.js
+			setRole({ email: user.email, role: role })
+				.then((result) => {
+					const data = result.data;
+					// const sanitizedMessage = data.text;
+					console.log('role change result', result)						// todo signal to the client of the updated user that the role has been modified and force it to refresh the token
+					// update(current => { return {...current, role:result} })		// no good, this updates current session instead of the update user
+				});
+			// await setCustomUserClaims(user.uid, customClaims);
+		} catch (error) { console.log(error); }		// error.code .message .details
 	}
 
-	return { subscribe, signin, signout, microsoftSignin, setUserRole};
+	async function refreshToken(user){		// await user.getIdToken(true)
+		const token = await getIdTokenResult(user, true)
+		console.log('update.token ',token)
+		return token
+
+		// getIdTokenResult(user, true).then(token => {
+		// 	console.log('update.token',token)
+		// 	return token
+		// })
+	}
+
+	return { subscribe, signin, signout, microsoftSignin, setUserRole, refreshToken};
 }
 export const session = createSession();
 
@@ -111,8 +170,8 @@ export function sendVerificationLink(callback){
 		// dynamicLinkDomain: 'example.page.link'
 		// dynamicLinkDomain: 'http://localhost'
 		// dynamicLinkDomain: 'http://eire-eos.vercel.app'		// enable dynamic links, see https://firebase.google.com/docs/dynamic-links
-		dynamicLinkDomain: 'eire-eos.vercel.app'		// enable dynamic links, see https://firebase.google.com/docs/auth/web/passing-state-in-email-actions#passing_statecontinue_url_in_email_actions
-		// dynamicLinkDomain: 'sunny-jetty-180208.web.app'		// enable dynamic links, see https://firebase.google.com/docs/auth/web/passing-state-in-email-actions#passing_statecontinue_url_in_email_actions
+		// dynamicLinkDomain: 'eire-eos.vercel.app'		// enable dynamic links, see https://firebase.google.com/docs/auth/web/passing-state-in-email-actions#passing_statecontinue_url_in_email_actions
+		dynamicLinkDomain: 'sunny-jetty-180208.web.app'		// enable dynamic links, see https://firebase.google.com/docs/auth/web/passing-state-in-email-actions#passing_statecontinue_url_in_email_actions
 	};
 
 	const auth = getAuth();
@@ -204,19 +263,27 @@ export const leave = connectTable(tables.leave)
 export const sheets = connectTable(tables.sheets)
 
 
-async function saveUser(user){			// called on session user change. Add new users to database
-	const data = {
-		displayName: user.displayName,
-		email: user.email,
-		uid: user.uid,
-		// providerId: user.providerId,
+async function saveUser(userdata){			// called on session user change. Add new users to database
+	var keys = ['displayName', 'email', 'uid'], changed = 0
+	const data = {}
+	keys.map(key=> {
+		if (userdata[key] != user[key]){
+			data[key] = userdata[key];
+			changed++;
+		}
+	})
+	const data2 = {
+		displayName: userdata.displayName,
+		email: userdata.email,
+		uid: userdata.uid,
+		// providerId: userdata.providerId,
 		// start:'09:00',
 		// finish:'18:00',
 		// breaks:1,
 		// contract:'employee',
-		// role:'user',
+		// role:'userdata',
 	}
-	users.update(data, user.email)
+	if (changed) await users.update(data, userdata.email)
 }
 
 

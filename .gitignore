@@ -7,4 +7,5 @@
 /src/unused/
 .DS_Store
 .vercel
+.firebase
 *.code-workspace

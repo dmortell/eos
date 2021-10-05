@@ -1,11 +1,10 @@
 <script>
 	import {onMount, tick} from 'svelte'
 	import { fade } from 'svelte/transition'
-	// import {loading, users, session, times, sheets, cleanup, alert, } from '$js/stores'
 	import {mdiHeart,mdiRepeat, mdiReply, mdiPencil, mdiContentSave, mdiCancel, mdiChevronDown, mdiClose} from '@mdi/js'
 	import {Nav,Card, Container, Details, Icon, Input,Button, Modal, Tag} from 'svelte-chota';
 	import { asyncable } from 'svelte-asyncable';
-	import {users, contracts, roles, clients} from '$js/stores'
+	import {session, users, contracts, roles, clients} from '$js/stores'
 	import {parseEntry, optional, plural, format, calcHours} from "$js/formatter";
 	import Avatar from "$lib/Avatar.svelte"
 	import Dialog from "$lib/Dialog.svelte"
@@ -91,7 +90,7 @@
 		<ListItem>
 			<Avatar slot='left' src={user?.photoURL} name={user.displayName} />
 			{user.displayName}
-			<a slot='footer' href="mailto:{user.email}">{user.email}</a>
+			<a slot='footer' href="mailto:{user.email}">{user.email}</a>  ({$session.user.emailVerified ? 'verified':'unverified'})
 			<button slot='right' class="smallbtn bd-error" on:click={e=>editing=true}>Edit</button>
 		</ListItem>
 

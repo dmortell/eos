@@ -20,28 +20,30 @@
 	let month = new Date().toISOString().substr(0,7);	//"2021-08"
 	var popups = {side:false}							// popup open/closed flags
 	var user = $session.user							// currently selected user (admins can select other users)
-	var sheet = {}										// timesheet details for currently selected month
+	var sheet = {}												// timesheet details for currently selected month
 	var active_tab = 'timesheets'
-	var dark = true
-
-	// So is Mallow one step above Charleville or an open sore?
+	var dark = false
 
 	let _alltimes = []									// realtime snapshot of all of this users time entries
-	var _sheets = []									// all of the selected users timesheets (realtime snapshot)
-	var _users = []										// all users (realtime snapshot)
-	var _leave = []										// user leave/holidays (realtime snapshot)
+	var _sheets = []										// all of the selected users timesheets (realtime snapshot)
+	var _users = []											// all users (realtime snapshot)
+	var _leave = []											// user leave/holidays (realtime snapshot)
 	var days = []
 	// var cons = {}										// firebase snapshot connection ids for reconnecting and cleanup
 
 	$: {
 		if (dark) document.body.classList.add('dark');
 		else document.body.classList.remove('dark');
-		console.log('toggled', dark)
+		// if (user.email===$session.user.email && user.role !== $session.user.claims?.role){		// force client to update token if their role is changed by someone else
+		// 	console.log('Main update token')
+		// 	session.updateToken($session.user);			// refreshes token
+		// }
 	}
 	function setTheme(e){
 		// if (dark) document.body.classList.add('dark');
 		// else document.body.classList.remove('dark');
 		// console.log('settheme', dark)
+		// session.updateToken($session.user);
 	}
 
 	// add/edit leave requests
@@ -124,20 +126,38 @@ function onTimesUpdate(snap){
 function selectUser({detail}){
 	connectUser(detail.person)
 }
-function connectUser(newuser){
+async function connectUser(newuser){
+	var keys = ['displayName', 'email', 'uid', 'emailVerified'], changed = 0
+	var role = newuser.role
 	user = _users.find(u => u.email==newuser.email) ?? {}
 	if (user?.uid){
 		sheets.reconnect(onSheetsUpdate, user.uid);
 		times.reconnect(onTimesUpdate,   user.uid);
 		leave.reconnect(onLeaveUpdate,   user.uid);
+		// if (user.role !== $session.claims?.role){		// todo check email matches session
+		// 	const token = await session.refreshToken($session.user)
+		// 	console.log('connectUser.refreshedToken', token)
+		// 	role =token.claims?.role
+		// 	changed++;
+		// }
+		// keys.map(key=> changed += $session.user[key] !== user[key] )
 	}
-	else {			// todo disconnect sheets&times to avoid uid errors
+	else {				// user not found in database
 		console.error('connectUser.invalid uid', user);
-		_sheets = []
+		changed = 1
+		_sheets = []														// todo disconnect sheets&times to avoid uid errors
 		_alltimes = []
 		filldays(_alltimes, false)							// dont revalidate sheet totals if no user
 	}
+	// todo if claims.role is different in database, then refresh the token first as it might have been updated by someone else
+	if (newuser.email === $session.user.email && changed){		// update user in database with user session
+		const {email, displayName, uid, emailVerified} = $session.user
+		console.log('connect.user adding', {email, displayName, uid, emailVerified, role})
+		await users.update({email, displayName, uid, emailVerified, role}, newuser.email)
+		console.log('connect.user added', newuser)
+	}
 }
+
 
 function selectSheet(month){
 	var defaults = {uid:user.uid, month, status:"pending", client:user.client}
@@ -166,23 +186,20 @@ function filldays(times, validate=true){
 	}
 }
 
-	async function onCreate(user, role){										// Check if user meets role criteria.
-		// if (user.email && user.email.endsWith('@eiresystems.com') && $session.emailVerified){		// todo check emailverified
-		if (user.email && user.email.endsWith('@eiresystems.com')){
-			setUserRole(user, role)
-			// const customClaims = { role };
-			// try {
-			// 	await admin.auth().setCustomUserClaims(user.uid, customClaims);
-			// 	const metadataRef = admin.database().ref('metadata/' + user.uid);		// Update real-time database to notify client to force refresh.
-			// 	await  metadataRef.set({refreshTime: new Date().getTime()});				// Set the refresh time to the current UTC timestamp.
-			// } catch (error) { console.log(error); }
+	async function setRole(user, role){										// Check if user meets role criteria.
+		// if (user.email && user.email.endsWith('@eiresystems.com') && $session.emailVerified){		// todo check emailverified && role==admin
+		if ($session.user.email.endsWith('@eiresystems.com')){
+			try {
+				await session.setUserRole(user, role)						// set firebase claims role
+				await users.update({role}, user.email, (res,err)=>console.log('main.setRole',user,role,res,err))		// Update real-time database to notify client to force refresh.
+			} catch(err){ console.error('main.setRole',err)}
 		}
-		else console.log('unauthorised user', user.email, user.emailVerified, user)
+		else console.log('main.setRole user unauthorised')
+	}
+	function testRole(role){
+		setRole($session.user, role);
 	}
 
-	function setRole(role){
-		onCreate($session.user, 'admin');
-	}
 	function verifyEmail(){
 		sendVerificationLink(err=>{
 			if (err) $alert = "Cannot verify email: " + err.message
@@ -227,8 +244,13 @@ function filldays(times, validate=true){
 		<label for="checkbox1"><input id="checkbox1" name="checkbox" type="checkbox" bind:checked={dark} on:change={setTheme}> Dark mode</label>
 
 		<ListItem>
-		<Button on:click={e=>setRole('admin')}>Admin</Button>
-		<Button on:click={e=>setRole('user')}>User</Button>
+		<!-- <Button on:click={e=>testApi()}>API</Button> -->
+		<Button on:click={e=>testRole('admin')}>Admin</Button>
+		<Button on:click={e=>testRole('user')}>User</Button>
+
+		<p>User: {user.email} {user.role}</p>
+		<p>Session: {$session.claims.role}</p>
+
 		{#if $session.emailVerified}
 			<p>Email verified</p>
 		{:else}
@@ -254,7 +276,7 @@ function filldays(times, validate=true){
 {/if}
 
 <!-- Menu -->
-<SidePanel bind:visible={popups.side} bind:active_tab={active_tab}>
+<SidePanel bind:visible={popups.side}>
 	<!--
 		<Button dropdown="My Profile" autoclose outline iconRight={mdiChevronDown}>
 			<p><a href="#!">Edit</a></p>

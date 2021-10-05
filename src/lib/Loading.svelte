@@ -5,4 +5,6 @@
 		if (el) el.innerHTML = ('Please wait...');
 		return ()=>{ }
 	})
+
+	// todo try https://ihatetomatoes.net/create-custom-preloading-screen/
 </script>
