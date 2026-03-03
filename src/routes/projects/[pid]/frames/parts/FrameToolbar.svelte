@@ -171,7 +171,7 @@
 				onclick={() => addFrame(room)}
 			>
 				<span class="w-1.5 h-1.5 rounded-full {colors.dot}"></span>
-				+ {room}
+				+ Frame {room}
 			</button>
 		{/each}
 	</div>

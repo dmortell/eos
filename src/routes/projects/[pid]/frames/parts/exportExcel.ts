@@ -119,20 +119,34 @@ export async function exportToExcel(racks: RackData[], zones: ZoneConfig[], grou
 					ws.getRow(row).height = 14
 					row++
 				} else if (slot && slot.ru === ru) {
-					// Slot row
-					ws.getCell(row, 1).value = ru
-					ws.getCell(row, 1).font = { size: 8 }
-					ws.getCell(row, 1).alignment = { horizontal: 'center' }
-					ws.mergeCells(row, 2, row, 26)
-					const cell = ws.getCell(row, 2)
-					cell.value = `${slot.type.replace(/-/g, ' ').toUpperCase()}${slot.label ? ': ' + slot.label : ''}`
-					cell.font = { size: 8, italic: true, color: { argb: 'FF888888' } }
-					cell.fill = {
+					// Slot rows — one per RU, top-down
+					const slotStartRow = row
+					const slotFill: ExcelJS.Fill = {
 						type: 'pattern', pattern: 'solid',
 						fgColor: { argb: slot.type === 'device' ? 'FFE8EAF6' : 'FFF5F5F5' }
 					}
-					ws.getRow(row).height = slot.height * 12
-					row++
+					for (let h = slot.height - 1; h >= 0; h--) {
+						ws.getCell(row, 1).value = slot.ru + h
+						ws.getCell(row, 1).font = { size: 7 }
+						ws.getCell(row, 1).alignment = { horizontal: 'center' }
+						ws.getRow(row).height = 12
+						// Fill columns 2-26 for consistent background
+						for (let c = 2; c <= 26; c++) {
+							ws.getCell(row, c).fill = slotFill
+						}
+						row++
+					}
+					// Merge columns 2-26 across all slot rows for the label
+					if (slot.height > 1) {
+						ws.mergeCells(slotStartRow, 2, slotStartRow + slot.height - 1, 26)
+					} else {
+						ws.mergeCells(slotStartRow, 2, slotStartRow, 26)
+					}
+					const cell = ws.getCell(slotStartRow, 2)
+					cell.value = `${slot.type.replace(/-/g, ' ').toUpperCase()}${slot.label ? ': ' + slot.label : ''}`
+					cell.font = { size: 8, italic: true, color: { argb: 'FF888888' } }
+					cell.alignment = { vertical: 'middle' }
+					cell.fill = slotFill
 				} else if (!slotRUs.has(ru)) {
 					// Empty RU
 					ws.getCell(row, 1).value = ru

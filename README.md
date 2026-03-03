@@ -309,3 +309,5 @@ Phase 4: Advanced Features
   - Edit button (pencil icon) on each slot — clicking it populates the form with the slot's values inline, replacing that slot row. The button label changes to "Save" and the "+ Add slot" becomes "Cancel"
   - Add form appears at the bottom of the list (for new slots) or inline (when editing an existing slot)
   - Removed cable-mgmt-2u, kept just cable-mgmt since height is user-specified
+
+  ● Now multi-U slots in the Excel export render one row per RU (each showing its RU number in column A, top-down), with the type/label merged across all rows in columns B-Z.

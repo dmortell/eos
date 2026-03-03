@@ -46,7 +46,7 @@
 	let frames = $state<FrameConfig[]>(data?.frames ?? [])
 	let rooms = $state<{ roomNumber: string; roomName: string }[]>(data?.rooms ?? [])
 	let customLocationTypes = $state<string[]>(data?.customLocationTypes ?? [])
-	let excelGroupByRoom = $state<boolean>(data?.excelGroupByRoom ?? false)
+	let excelGroupByRoom = $state<boolean>(data?.excelGroupByRoom ?? true)
 	let selectedLocation = $state<string | null>(null)
 	let selectedFrameId = $state<string | null>(frames[0]?.id ?? null)
 	let saveStatus = $state<'saved' | 'saving' | 'unsaved'>('saved')
