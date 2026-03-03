@@ -210,3 +210,21 @@ Phase 4: Advanced Features
   Type Widening for 1-4 Server Rooms
 
   - Updated serverRoomCount from 1 | 2 to number, serverRoom from 'A' | 'B' to string, and serverRoomAssignment from ('A' | 'B')[] to string[] across all types to support the user's expansion to 4 server rooms.
+
+
+  Here's a summary of what was completed:
+  Done:
+  1. Memory note written — Saved onclick|stopPropagation Svelte 5 gotcha and other project patterns to MEMORY.md
+  2. excelGroupByRoom wired up in Frames.svelte — added to state (initialized from Firestore data), included in auto-save payload, passed to SettingsDialog
+  3. updateSettings handler updated to accept and store excelGroupByRoom
+  4. exportToExcel updated to support groupByRoom mode — when enabled, frames sharing the same server room are merged into a single Excel tab (e.g., "Room A") with spacing between frames
+  5. Slots Firestore save verified — the frames array (which includes slots) is tracked by the $effect via JSON.stringify and included in the save payload. The save should work correctly.
+  6. Type check passed — no errors in frames code (all 11 errors are pre-existing in unrelated files)
+
+● Good, the zone data retention is done. Now let me fix the Firebase error — the issue is that FrameSlot.label is undefined when not set, and Firestore doesn't accept undefined values. Let me check where slots are created:
+● There it is — label: slotLabel || undefined. Firestore can't store undefined. I need to either omit the field or use an empty string.
+
+  Here's what was fixed:
+  1. ConfigPanel height/spacing — Switched to a compact 4-column grid layout (grid-cols-4). All inputs, selects, and buttons are now a consistent h-7. Server rooms moved to a horizontal row with inline label. Overall vertical space reduced.
+  2. Zone data retention — Added a zoneDataMap (keyed by "{floor}-{zone}") that stashes locations and frames when you switch floor or zone. When you switch back, your previous data is restored. The map is persisted to Firestore.
+  3. Firestore undefined error — Slots with empty labels were saving label: undefined, which Firestore rejects. Fixed slot creation to omit the label field when empty, and added a stripUndefined() sanitizer on all save payloads as a safety net.

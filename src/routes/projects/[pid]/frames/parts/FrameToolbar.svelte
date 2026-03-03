@@ -3,10 +3,10 @@
 	import type { FrameConfig, FrameSlot, SlotType } from './types'
 	import { defaultFrameConfig } from './types'
 
-	let { frames, selectedFrameId, zone, onupdate, onselect }: {
+	let { frames, selectedFrameId, serverRoomCount, onupdate, onselect }: {
 		frames: FrameConfig[]
 		selectedFrameId: string | null
-		zone: { serverRoomCount: number }
+		serverRoomCount: number
 		onupdate: (frames: FrameConfig[]) => void
 		onselect: (id: string) => void
 	} = $props()
@@ -45,7 +45,7 @@
 		const frame = frames.find(f => f.id === frameId)
 		if (!frame) return
 		const h = slotType === 'cable-mgmt-2u' ? 2 : Math.max(1, Math.min(10, slotHeight))
-		const slot: FrameSlot = { ru: slotRU, type: slotType, height: h, label: slotLabel || undefined }
+		const slot: FrameSlot = { ru: slotRU, type: slotType, height: h, ...(slotLabel ? { label: slotLabel } : {}) }
 		updateFrame(frameId, { slots: [...frame.slots, slot] })
 		addingSlot = null
 		slotLabel = ''
@@ -134,7 +134,7 @@
 
 		<!-- Spacer + add frame buttons pushed right -->
 		<div class="flex-1"></div>
-		{#each ['A', 'B', 'C', 'D'].slice(0, zone.serverRoomCount) as room}
+		{#each ['A', 'B', 'C', 'D'].slice(0, serverRoomCount) as room}
 			{@const colors = roomColor(room)}
 			<button
 				class="text-[10px] h-6 px-2 rounded border border-gray-200 text-gray-400 hover:text-gray-600 hover:border-gray-300 transition-colors flex items-center gap-1"

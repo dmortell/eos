@@ -72,9 +72,9 @@ function availablePanelRUs(frame: FrameConfig): number {
 
 /** Generate rack data, distributing labels across frames of the same server room.
  *  If no frames are provided, auto-generates one per server room. */
-export function generateRacks(labels: PortLabel[], zone: ZoneConfig, frames?: FrameConfig[]): RackData[] {
+export function generateRacks(labels: PortLabel[], serverRoomCount: number, frames?: FrameConfig[]): RackData[] {
 	const ROOM_LETTERS = ['A', 'B', 'C', 'D'] as const
-	const rooms = ROOM_LETTERS.slice(0, Math.min(zone.serverRoomCount, 4)) as ('A' | 'B')[]
+	const rooms = ROOM_LETTERS.slice(0, Math.min(serverRoomCount, 4)) as ('A' | 'B')[]
 
 	const activeFrames = frames && frames.length > 0
 		? frames
