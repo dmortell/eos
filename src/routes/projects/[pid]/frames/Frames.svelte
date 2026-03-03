@@ -9,6 +9,7 @@
 	import FrameToolbar from './parts/FrameToolbar.svelte'
 	import FrameDrawing from './parts/FrameDrawing.svelte'
 	import SettingsDialog from './parts/SettingsDialog.svelte'
+    import Titlebar from '$lib/Titlebar.svelte';
 
 	let { data = null, onsave }: {
 		data?: any
@@ -213,6 +214,9 @@
 	}
 </script>
 
+<div class="h-screen flex flex-col overflow-hidden">
+<Titlebar title="Patch Frames" />
+
 <SettingsDialog
 	open={settingsOpen}
 	customTypes={customLocationTypes}
@@ -223,14 +227,14 @@
 />
 
 {#if viewMode === 'sidebar'}
-	<div class="flex h-screen bg-white">
+	<div class="flex flex-1 min-h-0 bg-white">
 		<div class="w-[360px] shrink-0 border-r border-gray-200 flex flex-col overflow-hidden">
 			<div class="p-3 space-y-3 overflow-y-auto flex-1" bind:this={locationListEl}>
 				<ConfigPanel
 					{floor}
 					{serverRoomCount}
 					{activeZone}
-	
+
 					locations={activeLocations}
 					onfloor={setFloor}
 					onserverrooms={setServerRooms}
@@ -262,14 +266,14 @@
 		</div>
 	</div>
 {:else}
-	<div class="h-screen bg-white overflow-auto">
+	<div class="flex-1 min-h-0 bg-white overflow-auto">
 		<div class="max-w-6xl mx-auto p-4 space-y-4">
 			<div class="space-y-3" bind:this={locationListEl}>
 				<ConfigPanel
 					{floor}
 					{serverRoomCount}
 					{activeZone}
-	
+
 					locations={activeLocations}
 					onfloor={setFloor}
 					onserverrooms={setServerRooms}
@@ -303,6 +307,7 @@
 		</div>
 	</div>
 {/if}
+</div>
 
 {#snippet toolbar()}
 	<div class="mb-3 flex items-center justify-between text-sm flex-wrap gap-2">
