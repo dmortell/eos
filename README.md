@@ -299,3 +299,13 @@ Phase 4: Advanced Features
   - Row 1: Floor input + Server Rooms buttons
   - Row 2: Zone select + Locations input + Generate button
   - Switching zone just changes which zone's locations you're editing — other zones' data is preserved and all zones' ports remain in the frames
+
+  Two fixes done:
+  1. Checkbox moved — "All zones" checkbox now sits to the right of the location count in the LocationList header row (using a slot).
+  2. Selection highlight bug fixed — Selection keys are now "zone-locNum" strings (e.g., "C-3") instead of just the location number. Clicking port C.003 in the frame only highlights that specific zone C location, not D.003 or E.003. The PortLabel type now includes a zone
+  field, and the selection key flows through PortCell, PanelStrip, LocationList, and LocationRow.
+
+  - Column titles (RU, H, Type/Label) now show permanently whenever there are slots or the add form is open, not just when adding
+  - Edit button (pencil icon) on each slot — clicking it populates the form with the slot's values inline, replacing that slot row. The button label changes to "Save" and the "+ Add slot" becomes "Cancel"
+  - Add form appears at the bottom of the list (for new slots) or inline (when editing an existing slot)
+  - Removed cable-mgmt-2u, kept just cable-mgmt since height is user-specified

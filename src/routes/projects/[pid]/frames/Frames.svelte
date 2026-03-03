@@ -47,7 +47,7 @@
 	let rooms = $state<{ roomNumber: string; roomName: string }[]>(data?.rooms ?? [])
 	let customLocationTypes = $state<string[]>(data?.customLocationTypes ?? [])
 	let excelGroupByRoom = $state<boolean>(data?.excelGroupByRoom ?? false)
-	let selectedLocation = $state<number | null>(null)
+	let selectedLocation = $state<string | null>(null)
 	let selectedFrameId = $state<string | null>(frames[0]?.id ?? null)
 	let saveStatus = $state<'saved' | 'saving' | 'unsaved'>('saved')
 	let viewMode = $state<'sidebar' | 'stacked'>('sidebar')
@@ -83,6 +83,11 @@
 
 	/** The locations to display in the list */
 	let displayedLocations = $derived(showAllZones ? allLocationsFlat.locations : activeLocations)
+
+	function zoneForLoc(index: number): string {
+		if (showAllZones) return allLocationsFlat.index[index]?.zone ?? activeZone
+		return activeZone
+	}
 
 	/** Build ZoneConfig objects for each zone and generate combined labels */
 	let allLabels = $derived<PortLabel[]>(
@@ -168,13 +173,13 @@
 		}
 	}
 
-	function selectLocation(locNum: number) {
-		selectedLocation = selectedLocation === locNum ? null : locNum
+	function selectLocation(key: string) {
+		selectedLocation = selectedLocation === key ? null : key
 		if (selectedLocation !== null) scrollToLocation(selectedLocation)
 	}
 
-	function selectLocationFromFrame(locNum: number) {
-		selectedLocation = selectedLocation === locNum ? null : locNum
+	function selectLocationFromFrame(key: string) {
+		selectedLocation = selectedLocation === key ? null : key
 		if (selectedLocation !== null) scrollToLocationInList(selectedLocation)
 	}
 
@@ -185,15 +190,15 @@
 		}
 	}
 
-	function scrollToLocation(locNum: number) {
+	function scrollToLocation(key: string) {
 		if (!frameDrawingEl) return
-		const portEl = frameDrawingEl.querySelector(`[data-loc="${locNum}"]`)
+		const portEl = frameDrawingEl.querySelector(`[data-loc="${key}"]`)
 		portEl?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 	}
 
-	function scrollToLocationInList(locNum: number) {
+	function scrollToLocationInList(key: string) {
 		if (!locationListEl) return
-		const rowEl = locationListEl.querySelector(`[data-loc-row="${locNum}"]`)
+		const rowEl = locationListEl.querySelector(`[data-loc-row="${key}"]`)
 		rowEl?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 	}
 
@@ -232,20 +237,22 @@
 					onzone={setActiveZone}
 					ongenerate={generateLocations}
 				/>
-				{#if zoneLetters.length > 1}
-					<label class="flex items-center gap-1.5 text-[10px] text-gray-500 cursor-pointer select-none">
-						<input type="checkbox" bind:checked={showAllZones} class="w-3 h-3 rounded" />
-						Show all zones
-					</label>
-				{/if}
 				<LocationList
 					locations={displayedLocations}
 					hasTwoRooms={serverRoomCount >= 2}
 					customTypes={customLocationTypes}
 					{selectedLocation}
+					{zoneForLoc}
 					onupdate={updateLocation}
 					onselect={selectLocation}
-				/>
+				>
+					{#if zoneLetters.length > 1}
+						<label class="flex items-center gap-1.5 text-[10px] text-gray-500 cursor-pointer select-none">
+							<input type="checkbox" bind:checked={showAllZones} class="w-3 h-3 rounded" />
+							All zones
+						</label>
+					{/if}
+				</LocationList>
 			</div>
 		</div>
 
@@ -269,20 +276,22 @@
 					onzone={setActiveZone}
 					ongenerate={generateLocations}
 				/>
-				{#if zoneLetters.length > 1}
-					<label class="flex items-center gap-1.5 text-[10px] text-gray-500 cursor-pointer select-none">
-						<input type="checkbox" bind:checked={showAllZones} class="w-3 h-3 rounded" />
-						Show all zones
-					</label>
-				{/if}
 				<LocationList
 					locations={displayedLocations}
 					hasTwoRooms={serverRoomCount >= 2}
 					customTypes={customLocationTypes}
 					{selectedLocation}
+					{zoneForLoc}
 					onupdate={updateLocation}
 					onselect={selectLocation}
-				/>
+				>
+					{#if zoneLetters.length > 1}
+						<label class="flex items-center gap-1.5 text-[10px] text-gray-500 cursor-pointer select-none">
+							<input type="checkbox" bind:checked={showAllZones} class="w-3 h-3 rounded" />
+							All zones
+						</label>
+					{/if}
+				</LocationList>
 			</div>
 
 			<hr class="border-gray-200" />

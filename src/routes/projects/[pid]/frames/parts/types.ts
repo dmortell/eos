@@ -50,7 +50,7 @@ export interface ZoneConfig {
 
 // ── Frame config ──
 
-export type SlotType = 'patch-panel' | 'blanking' | 'cable-mgmt-1u' | 'cable-mgmt-2u' | 'device'
+export type SlotType = 'patch-panel' | 'blanking' | 'cable-mgmt' | 'device'
 
 export interface FrameSlot {
 	ru: number
@@ -73,6 +73,7 @@ export interface FrameConfig {
 
 export interface PortLabel {
 	label: string // FF.Z.NNN-SPP or FF.Z.NNN-SPP-H
+	zone: string // zone letter
 	serverRoom: string
 	locationNumber: number
 	portNumber: number

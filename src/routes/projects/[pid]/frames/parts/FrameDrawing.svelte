@@ -5,8 +5,8 @@
 	let { racks, selectedFrameId, selectedLocation, onselect }: {
 		racks: RackData[]
 		selectedFrameId?: string | null
-		selectedLocation?: number | null
-		onselect?: (loc: number) => void
+		selectedLocation?: string | null
+		onselect?: (key: string) => void
 	} = $props()
 
 	/** Show only the selected frame, or all if none selected */
@@ -91,9 +91,11 @@
 							<!-- Slot: blanking, cable mgmt, device -->
 							<div class="border-b border-gray-200 last:border-b-0">
 								<div class="flex items-stretch" style:height="{item.slot.height * 1.25}rem">
-									<div class="w-8 bg-gray-100 flex items-center justify-center border-r border-gray-200 shrink-0">
-										<span class="font-mono text-[9px] text-gray-400">{item.slot.ru}</span>
-									</div>
+									<div class="w-8 bg-gray-100 flex flex-col items-center justify-between py-px border-r border-gray-200 shrink-0">
+									{#each Array(item.slot.height) as _, h}
+										<span class="font-mono text-[7px] text-gray-400">{item.slot.ru + item.slot.height - 1 - h}</span>
+									{/each}
+								</div>
 									<div class="flex-1 flex items-center px-2 {
 										item.slot.type === 'blanking' ? 'bg-gray-200/50' :
 										item.slot.type === 'device' ? 'bg-indigo-50' :

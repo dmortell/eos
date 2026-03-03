@@ -14,6 +14,7 @@
 	let editingFrame = $state<string | null>(null)
 	let confirmingDelete = $state<string | null>(null)
 	let addingSlot = $state<string | null>(null)
+	let editingSlotIndex = $state<number | null>(null)
 	let slotRU = $state(1)
 	let slotType = $state<SlotType>('blanking')
 	let slotLabel = $state('')
@@ -44,10 +45,38 @@
 	function addSlot(frameId: string) {
 		const frame = frames.find(f => f.id === frameId)
 		if (!frame) return
-		const h = slotType === 'cable-mgmt-2u' ? 2 : Math.max(1, Math.min(10, slotHeight))
+		const h = Math.max(1, Math.min(10, slotHeight))
 		const slot: FrameSlot = { ru: slotRU, type: slotType, height: h, ...(slotLabel ? { label: slotLabel } : {}) }
-		updateFrame(frameId, { slots: [...frame.slots, slot] })
+
+		if (editingSlotIndex !== null) {
+			// Replace existing slot
+			const slots = [...frame.slots]
+			slots[editingSlotIndex] = slot
+			updateFrame(frameId, { slots })
+			editingSlotIndex = null
+		} else {
+			updateFrame(frameId, { slots: [...frame.slots, slot] })
+		}
 		addingSlot = null
+		slotLabel = ''
+		slotHeight = 1
+	}
+
+	function editSlot(frameId: string, index: number) {
+		const frame = frames.find(f => f.id === frameId)
+		if (!frame) return
+		const slot = frame.slots[index]
+		slotRU = slot.ru
+		slotType = slot.type
+		slotHeight = slot.height
+		slotLabel = slot.label ?? ''
+		editingSlotIndex = index
+		addingSlot = frameId
+	}
+
+	function cancelSlotEdit() {
+		addingSlot = null
+		editingSlotIndex = null
 		slotLabel = ''
 		slotHeight = 1
 	}
@@ -56,6 +85,7 @@
 		const frame = frames.find(f => f.id === frameId)
 		if (!frame) return
 		updateFrame(frameId, { slots: frame.slots.filter((_, i) => i !== index) })
+		if (editingSlotIndex === index) cancelSlotEdit()
 	}
 
 	const ROOM_COLORS: Record<string, { bg: string; border: string; dot: string }> = {
@@ -192,55 +222,63 @@
 			<div class="space-y-1">
 				<div class="flex items-center justify-between">
 					<span class="text-[10px] text-gray-400 uppercase tracking-wider">Slots</span>
-					<button
-						class="text-[10px] text-blue-500 hover:underline"
-						onclick={() => addingSlot = addingSlot ? null : selectedFrame!.id}
-					>+ Add slot</button>
+					{#if addingSlot}
+						<button class="text-[10px] text-gray-400 hover:underline" onclick={cancelSlotEdit}>Cancel</button>
+					{:else}
+						<button
+							class="text-[10px] text-blue-500 hover:underline"
+							onclick={() => { editingSlotIndex = null; addingSlot = selectedFrame!.id }}
+						>+ Add slot</button>
+					{/if}
 				</div>
 
-				{#if addingSlot === selectedFrame.id}
-					<div class="flex items-center gap-1 bg-white p-1 rounded border border-gray-200">
-						<input
-							type="number" min="1" max={selectedFrame.totalRU}
-							bind:value={slotRU}
-							placeholder="RU"
-							title="Starting RU"
-							class="w-10 h-5 px-1 text-[10px] font-mono border border-gray-200 rounded text-center"
-						/>
-						<select
-							bind:value={slotType}
-							class="h-5 text-[10px] border border-gray-200 rounded px-0.5"
-						>
-							<option value="blanking">Blanking</option>
-							<option value="cable-mgmt-1u">Cable Mgmt 1U</option>
-							<option value="cable-mgmt-2u">Cable Mgmt 2U</option>
-							<option value="device">Device</option>
-						</select>
-						<input
-							type="number" min="1" max="10"
-							bind:value={slotHeight}
-							title="Height in RU"
-							class="w-10 h-5 px-1 text-[10px] font-mono border border-gray-200 rounded text-center"
-						/>
-						<span class="text-[9px] text-gray-400">U</span>
-						<input
-							type="text"
-							bind:value={slotLabel}
-							placeholder="Label"
-							class="flex-1 h-5 px-1 text-[10px] border border-gray-200 rounded"
-						/>
-						<button class="text-[10px] text-blue-500 px-1 hover:underline" onclick={() => addSlot(selectedFrame!.id)}>Add</button>
+				{#if selectedFrame.slots.length > 0 || addingSlot === selectedFrame.id}
+					<div class="flex items-center gap-1 text-[9px] text-gray-400 uppercase tracking-wider px-1">
+						<span class="w-8" title="Bottom RU position">RU</span>
+						<span class="w-6" title="Height in rack units">H</span>
+						<span class="flex-1">Type / Label</span>
 					</div>
 				{/if}
 
 				{#each selectedFrame.slots as slot, i}
-					<div class="flex items-center gap-1 text-[10px] text-gray-500 font-mono bg-white px-1 py-0.5 rounded border border-gray-100">
-						<span class="w-8">RU {slot.ru}</span>
-						<span class="w-6">{slot.height}U</span>
-						<span class="flex-1 capitalize">{slot.type.replace(/-/g, ' ')}{slot.label ? `: ${slot.label}` : ''}</span>
-						<button class="text-red-400 hover:text-red-600" onclick={() => removeSlot(selectedFrame!.id, i)}>x</button>
-					</div>
+					{#if editingSlotIndex === i && addingSlot === selectedFrame.id}
+						<div class="flex items-center gap-1 bg-blue-50 p-1 rounded border border-blue-200">
+							<input type="number" min="1" max={selectedFrame.totalRU} bind:value={slotRU} class="w-10 h-5 px-1 text-[10px] font-mono border border-gray-200 rounded text-center" />
+							<select bind:value={slotType} class="h-5 text-[10px] border border-gray-200 rounded px-0.5">
+								<option value="blanking">Blanking</option>
+								<option value="cable-mgmt">Cable Mgmt</option>
+								<option value="device">Device</option>
+							</select>
+							<input type="number" min="1" max="10" bind:value={slotHeight} class="w-10 h-5 px-1 text-[10px] font-mono border border-gray-200 rounded text-center" />
+							<span class="text-[9px] text-gray-400">U</span>
+							<input type="text" bind:value={slotLabel} placeholder="Label" class="flex-1 h-5 px-1 text-[10px] border border-gray-200 rounded" />
+							<button class="text-[10px] text-blue-500 px-1 hover:underline" onclick={() => addSlot(selectedFrame!.id)}>Save</button>
+						</div>
+					{:else}
+						<div class="flex items-center gap-1 text-[10px] text-gray-500 font-mono bg-white px-1 py-0.5 rounded border border-gray-100">
+							<span class="w-8">RU {slot.ru}</span>
+							<span class="w-6">{slot.height}U</span>
+							<span class="flex-1 capitalize">{slot.type.replace(/-/g, ' ')}{slot.label ? `: ${slot.label}` : ''}</span>
+							<button class="text-blue-400 hover:text-blue-600" onclick={() => editSlot(selectedFrame!.id, i)} title="Edit slot">&#9998;</button>
+							<button class="text-red-400 hover:text-red-600" onclick={() => removeSlot(selectedFrame!.id, i)} title="Remove slot">&times;</button>
+						</div>
+					{/if}
 				{/each}
+
+				{#if addingSlot === selectedFrame.id && editingSlotIndex === null}
+					<div class="flex items-center gap-1 bg-white p-1 rounded border border-gray-200">
+						<input type="number" min="1" max={selectedFrame.totalRU} bind:value={slotRU} class="w-10 h-5 px-1 text-[10px] font-mono border border-gray-200 rounded text-center" />
+						<select bind:value={slotType} class="h-5 text-[10px] border border-gray-200 rounded px-0.5">
+							<option value="blanking">Blanking</option>
+							<option value="cable-mgmt">Cable Mgmt</option>
+							<option value="device">Device</option>
+						</select>
+						<input type="number" min="1" max="10" bind:value={slotHeight} class="w-10 h-5 px-1 text-[10px] font-mono border border-gray-200 rounded text-center" />
+						<span class="text-[9px] text-gray-400">U</span>
+						<input type="text" bind:value={slotLabel} placeholder="Label" class="flex-1 h-5 px-1 text-[10px] border border-gray-200 rounded" />
+						<button class="text-[10px] text-blue-500 px-1 hover:underline" onclick={() => addSlot(selectedFrame!.id)}>Add</button>
+					</div>
+				{/if}
 			</div>
 		</div>
 	{/if}

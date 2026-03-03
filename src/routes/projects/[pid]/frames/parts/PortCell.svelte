@@ -5,8 +5,10 @@
 	let { port, selected = false, onselect }: {
 		port: PortLabel | null
 		selected?: boolean
-		onselect?: (loc: number) => void
+		onselect?: (key: string) => void
 	} = $props()
+
+	let locKey = $derived(port ? `${port.zone}-${port.locationNumber}` : '')
 
 	let colorClass = $derived(
 		port
@@ -30,8 +32,8 @@
 		class:ring-2={selected}
 		class:ring-yellow-400={selected}
 		title={port.label}
-		data-loc={port.locationNumber}
-		onclick={() => onselect?.(port!.locationNumber)}
+		data-loc={locKey}
+		onclick={() => onselect?.(locKey)}
 	>
 		<span class="font-mono text-[9px] leading-none select-all whitespace-nowrap overflow-hidden">
 			{shortLabel}

@@ -4,8 +4,8 @@
 
 	let { panel, selectedLocation, onselect }: {
 		panel: PanelData
-		selectedLocation?: number | null
-		onselect?: (loc: number) => void
+		selectedLocation?: string | null
+		onselect?: (key: string) => void
 	} = $props()
 </script>
 
@@ -23,7 +23,7 @@
 				<span class="font-mono text-[7px] text-gray-400 w-3 shrink-0">T</span>
 				<div class="grid grid-cols-24 gap-px flex-1">
 					{#each panel.topRow as port, i (i)}
-						<PortCell {port} selected={port?.locationNumber === selectedLocation} {onselect} />
+						<PortCell {port} selected={port ? `${port.zone}-${port.locationNumber}` === selectedLocation : false} {onselect} />
 					{/each}
 				</div>
 			</div>
@@ -32,7 +32,7 @@
 				<span class="font-mono text-[7px] text-gray-400 w-3 shrink-0">B</span>
 				<div class="grid grid-cols-24 gap-px flex-1">
 					{#each panel.bottomRow as port, i (i)}
-						<PortCell {port} selected={port?.locationNumber === selectedLocation} {onselect} />
+						<PortCell {port} selected={port ? `${port.zone}-${port.locationNumber}` === selectedLocation : false} {onselect} />
 					{/each}
 				</div>
 			</div>

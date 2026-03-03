@@ -3,13 +3,14 @@
 	import type { LocationConfig, LocType } from './types'
 	import { DEFAULT_LOC_TYPES, LOC_TYPE_LABELS } from './types'
 
-	let { location, hasTwoRooms = false, selected = false, customTypes = [], onupdate, onselect }: {
+	let { location, hasTwoRooms = false, selected = false, customTypes = [], locKey = '', onupdate, onselect }: {
 		location: LocationConfig
 		hasTwoRooms?: boolean
 		selected?: boolean
 		customTypes?: string[]
+		locKey?: string
 		onupdate: (loc: LocationConfig) => void
-		onselect?: (locNum: number) => void
+		onselect?: () => void
 	} = $props()
 
 	let allTypes = $derived([...DEFAULT_LOC_TYPES, ...customTypes])
@@ -68,11 +69,11 @@
 	class:bg-gray-50={!selected}
 	class:border-gray-200={!selected}
 	class:hover:bg-gray-100={!selected}
-	data-loc-row={location.locationNumber}
-	onclick={() => onselect?.(location.locationNumber)}
+	data-loc-row={locKey}
+	onclick={() => onselect?.()}
 	role="button"
 	tabindex="0"
-	onkeydown={e => e.key === 'Enter' && onselect?.(location.locationNumber)}
+	onkeydown={e => e.key === 'Enter' && onselect?.()}
 >
 	<!-- Top line: loc number, ports, room, high-level, type buttons -->
 	<div class="flex items-center gap-1.5 flex-wrap">

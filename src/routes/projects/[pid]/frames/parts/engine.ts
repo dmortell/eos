@@ -21,6 +21,7 @@ export function generatePortLabels(zone: ZoneConfig): PortLabel[] {
 
 			labels.push({
 				label: `${ff}.${z}.${nnn}-${s}${pp}${suffix}`,
+				zone: z,
 				serverRoom: s,
 				locationNumber: loc.locationNumber,
 				portNumber: p + 1,
