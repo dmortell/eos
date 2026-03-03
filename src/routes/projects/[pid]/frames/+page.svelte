@@ -17,6 +17,12 @@
 		});
 		return () => { unsub?.(); };
 	});
+
+	function save(/** @type {any} */ payload) {
+		const pid = page.params.pid;
+		if (!pid) return;
+		db.save('frames', { id: pid, ...payload });
+	}
 </script>
 
 {#if loading}
@@ -24,5 +30,5 @@
 		<Spinner>Loading frames...</Spinner>
 	</div>
 {:else}
-	<Frames data={frameData} />
+	<Frames data={frameData} onsave={save} />
 {/if}

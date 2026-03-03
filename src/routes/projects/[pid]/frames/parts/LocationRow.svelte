@@ -23,6 +23,14 @@
 		onupdate({ ...location, locationType: t })
 	}
 
+	function setRoomNumber(val: string) {
+		onupdate({ ...location, roomNumber: val || undefined })
+	}
+
+	function toggleHighLevel() {
+		onupdate({ ...location, isHighLevel: !location.isHighLevel })
+	}
+
 	function toggleRoom(portIdx: number) {
 		const assignments = [...location.serverRoomAssignment]
 		assignments[portIdx] = assignments[portIdx] === 'A' ? 'B' : 'A'
@@ -64,8 +72,8 @@
 >
 	<!-- Top line: loc number, port count, type buttons -->
 	<div class="flex items-center gap-2 flex-wrap">
-		<span class="font-mono text-xs text-blue-600 font-semibold w-14 shrink-0">
-			{String(location.locationNumber).padStart(3, '0')}
+		<span class="font-mono text-xs font-semibold w-14 shrink-0 {location.isHighLevel ? 'text-amber-600' : 'text-blue-600'}">
+			{String(location.locationNumber).padStart(3, '0')}{#if location.isHighLevel}<span class="text-[8px]">H</span>{/if}
 		</span>
 
 		<label class="text-[10px] text-gray-400">Ports:</label>
@@ -94,6 +102,29 @@
 				>{t}</button>
 			{/each}
 		</div>
+	</div>
+
+	<!-- Room number + high-level toggle -->
+	<div class="flex items-center gap-2">
+		<label class="text-[10px] text-gray-400">Room:</label>
+		<input
+			type="text"
+			maxlength="4"
+			placeholder="----"
+			value={location.roomNumber ?? ''}
+			onclick={e => e.stopPropagation()}
+			onchange={e => setRoomNumber(e.currentTarget.value)}
+			class="w-14 h-5 px-1 text-[10px] font-mono bg-white border border-gray-200 rounded text-center focus:outline-none focus:ring-1 focus:ring-blue-400"
+		/>
+		<label class="flex items-center gap-1 ml-auto cursor-pointer" onclick={e => e.stopPropagation()}>
+			<input
+				type="checkbox"
+				checked={location.isHighLevel ?? false}
+				onchange={toggleHighLevel}
+				class="w-3 h-3 rounded"
+			/>
+			<span class="text-[9px] text-gray-500">High-level</span>
+		</label>
 	</div>
 
 	<!-- Server room assignments (only when 2 rooms) -->

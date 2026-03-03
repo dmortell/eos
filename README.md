@@ -77,6 +77,7 @@ Patch frame data is stored in Firestore at `frames/{pid}` (where pid is the proj
 #### Future Features
 
 - Outlet ports defined as Copper or Fiber, with copper/fiber panel locations specified per frame
+- Allow selecting a group of outlets using shift-click & ctrl-click for editing simultaneously
 
 ## Developing
 

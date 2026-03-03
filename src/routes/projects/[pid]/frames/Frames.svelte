@@ -1,20 +1,51 @@
 <script lang="ts">
-	import type { ZoneConfig, LocationConfig, RackData } from './parts/types'
+	import type { ZoneConfig, LocationConfig, FrameConfig, RackData } from './parts/types'
 	import { defaultZoneConfig } from './parts/types'
 	import { generatePortLabels, generateRacks } from './parts/engine'
 	import ConfigPanel from './parts/ConfigPanel.svelte'
 	import LocationList from './parts/LocationList.svelte'
 	import FrameDrawing from './parts/FrameDrawing.svelte'
 
-	let { data = null }: { data?: any } = $props()
+	let { data = null, onsave }: {
+		data?: any
+		onsave?: (payload: any) => void
+	} = $props()
 
 	// ── State ──
 	let zone = $state<ZoneConfig>(data?.zone ?? defaultZoneConfig())
+	let frames = $state<FrameConfig[]>(data?.frames ?? [])
+	let rooms = $state<{ roomNumber: string; roomName: string }[]>(data?.rooms ?? [])
+	let customLocationTypes = $state<string[]>(data?.customLocationTypes ?? [])
 	let selectedLocation = $state<number | null>(null)
+	let saveStatus = $state<'saved' | 'saving' | 'unsaved'>('saved')
 
 	// ── Derived: recompute labels and racks whenever zone changes ──
 	let labels = $derived(generatePortLabels(zone))
-	let racks = $derived<RackData[]>(generateRacks(labels, zone))
+	let racks = $derived<RackData[]>(generateRacks(labels, zone, frames.length > 0 ? frames : undefined))
+
+	// ── Debounced auto-save ──
+	let saveTimer: ReturnType<typeof setTimeout> | null = null
+	let initialized = false
+
+	$effect(() => {
+		// Access reactive state to track changes
+		const _ = JSON.stringify({ zone, frames, rooms, customLocationTypes })
+
+		if (!initialized) {
+			initialized = true
+			return
+		}
+
+		saveStatus = 'unsaved'
+		if (saveTimer) clearTimeout(saveTimer)
+		saveTimer = setTimeout(() => {
+			if (onsave) {
+				saveStatus = 'saving'
+				onsave({ zone, frames, rooms, customLocationTypes })
+				saveStatus = 'saved'
+			}
+		}, 500)
+	})
 
 	// ── Handlers ──
 	function updateZone(updated: ZoneConfig) {
@@ -51,13 +82,20 @@
 	<div class="flex-1 overflow-auto p-4 bg-gray-50/50">
 		<!-- Summary bar -->
 		{#if zone.locations.length > 0}
-			<div class="mb-4 flex items-center gap-3 text-sm">
-				<span class="font-mono text-blue-600 font-semibold">
-					Floor {String(zone.floor).padStart(2, '0')} &middot; Zone {zone.zone}
-				</span>
-				<span class="text-gray-400">
-					{zone.locations.length} locations &middot; {labels.length} ports
-				</span>
+			<div class="mb-4 flex items-center justify-between text-sm">
+				<div class="flex items-center gap-3">
+					<span class="font-mono text-blue-600 font-semibold">
+						Floor {String(zone.floor).padStart(2, '0')} &middot; Zone {zone.zone}
+					</span>
+					<span class="text-gray-400">
+						{zone.locations.length} locations &middot; {labels.length} ports
+					</span>
+				</div>
+				{#if onsave}
+					<span class="text-[10px] font-mono {saveStatus === 'saved' ? 'text-green-500' : saveStatus === 'saving' ? 'text-amber-500' : 'text-gray-400'}">
+						{saveStatus === 'saved' ? 'Saved' : saveStatus === 'saving' ? 'Saving...' : 'Unsaved'}
+					</span>
+				{/if}
 			</div>
 		{/if}
 
