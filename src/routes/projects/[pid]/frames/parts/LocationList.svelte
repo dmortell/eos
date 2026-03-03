@@ -32,7 +32,7 @@
 			<slot />
 		</div>
 
-		<div class="space-y-1 overflow-y-auto max-h-[calc(100vh-280px)] pr-1">
+		<div class="space-y-1 pr-1">
 			{#each locations as loc, i (locKey(i, loc))}
 				{@const key = locKey(i, loc)}
 				<LocationRow

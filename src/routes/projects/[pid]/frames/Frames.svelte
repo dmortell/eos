@@ -223,7 +223,7 @@
 />
 
 {#if viewMode === 'sidebar'}
-	<div class="flex h-[calc(100vh-38px)] bg-white">
+	<div class="flex h-screen bg-white">
 		<div class="w-[360px] shrink-0 border-r border-gray-200 flex flex-col overflow-hidden">
 			<div class="p-3 space-y-3 overflow-y-auto flex-1" bind:this={locationListEl}>
 				<ConfigPanel
@@ -262,7 +262,7 @@
 		</div>
 	</div>
 {:else}
-	<div class="h-[calc(100vh-38px)] bg-white overflow-auto">
+	<div class="h-screen bg-white overflow-auto">
 		<div class="max-w-6xl mx-auto p-4 space-y-4">
 			<div class="space-y-3" bind:this={locationListEl}>
 				<ConfigPanel
