@@ -228,3 +228,74 @@ Phase 4: Advanced Features
   1. ConfigPanel height/spacing — Switched to a compact 4-column grid layout (grid-cols-4). All inputs, selects, and buttons are now a consistent h-7. Server rooms moved to a horizontal row with inline label. Overall vertical space reduced.
   2. Zone data retention — Added a zoneDataMap (keyed by "{floor}-{zone}") that stashes locations and frames when you switch floor or zone. When you switch back, your previous data is restored. The map is persisted to Firestore.
   3. Firestore undefined error — Slots with empty labels were saving label: undefined, which Firestore rejects. Fixed slot creation to omit the label field when empty, and added a stripUndefined() sanitizer on all save payloads as a safety net.
+
+
+● Everything looks good. Here's what changed:
+
+  Multi-zone architecture:
+  - zone (single) replaced with zones[] array + activeZoneIndex                                                                                                                                                                                                                     - Zone tabs above ConfigPanel let you switch between zones, add new ones (+ Zone), or remove the active one
+  - Each zone keeps its own floor, zone letter, server room count, and locations independently
+  - All zones' port labels are combined into allLabels and distributed across the shared frames
+  - maxServerRooms is derived from the max across all zones for the frame "add room" buttons
+  - Backward compatible: migrates old single-zone data.zone to [data.zone]
+  - Firestore now saves zones array instead of single zone
+
+  ConfigPanel height fix:
+  - Switched to 4-column grid (grid-cols-4) with all elements at h-7
+  - Generate button uses native <button> with matching h-7 instead of the unsized <Button> component
+  - Server rooms row is now a compact horizontal line with inline label
+  - Overall vertical space reduced
+
+  Other fixes from earlier:
+  - Firestore undefined error fixed (slot labels, stripUndefined sanitizer)
+  - generateRacks and FrameToolbar now take serverRoomCount: number instead of a full zone object
+  - exportToExcel takes zones[] array, builds combined filename
+
+
+● You're right, I overcomplicated this. The model should be:
+
+  - One floor, one set of frames/server rooms — those are shared
+  - Multiple zones each with their own locations, all feeding into the same frames
+  - Switching zone in the config panel just switches which zone's locations you're editing
+  - The floor and server room count are global, not per-zone
+
+  Let me simplify. Instead of ZoneConfig holding everything, I'll separate the global settings (floor, serverRoomCount) from the per-zone location lists.
+
+● OK so generatePortLabels takes a ZoneConfig with floor, zone letter, and locations. The engine is already fine — it uses zone.floor and zone.zone to build labels. I just need the data model in Frames.svelte to be:
+
+  - Global: floor, serverRoomCount
+  - Per-zone: zone letter + locations[]
+  - When switching zone, just change which zone's locations are shown in the sidebar
+  - Labels are generated from ALL zones combined (each zone knows the shared floor)
+
+  Let me rewrite Frames.svelte to this simpler model, keeping ZoneConfig as-is for the engine (each zone passed to generatePortLabels will have the shared floor + its own zone letter and locations).
+
+● OK here's my plan. I'll restructure ConfigPanel so:
+  - Floor and Server Rooms are global (passed separately, callbacks go to parent)
+  - Zone selector switches which zone's locations are being edited — this is a tab row, not a dropdown
+  - Locations count + Generate applies to the active zone
+  And in Frames.svelte:
+  - Store floor, serverRoomCount as top-level state
+  - Store zoneLocations: Record<string, LocationConfig[]> — keyed by zone letter
+  - Store activeZoneLetter
+  - Build ZoneConfig objects on the fly for the engine from floor + zone letter + locations
+  - Generate labels from all zones that have locations
+
+
+  Here's what changed:
+  Data model — Floor and server room count are now global (shared across all zones). Per-zone data is just a zoneLocations: Record<string, LocationConfig[]> map keyed by zone letter.
+
+  - Switching zone in the config panel just swaps which zone's location list you're editing in the sidebar
+  - All zones' ports are combined into the frames — changing zone doesn't touch other zones' data
+  - Generate only affects the active zone's locations
+  - The frame drawing always shows ports from all zones together
+
+  ConfigPanel — Now takes flat props (floor, serverRoomCount, activeZone, zoneLetters, locations) with individual callbacks instead of a single ZoneConfig object. Zone selector is a row of tab buttons.
+
+  Migration — Handles old single-zone (data.zone) and the intermediate multi-zone array (data.zones) formats, converting to the new flat zoneLocations map.
+
+● Clean. Fixed:
+  - Zone is a select box again (A-Z dropdown)
+  - Row 1: Floor input + Server Rooms buttons
+  - Row 2: Zone select + Locations input + Generate button
+  - Switching zone just changes which zone's locations you're editing — other zones' data is preserved and all zones' ports remain in the frames

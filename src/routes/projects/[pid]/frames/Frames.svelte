@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Button, Icon } from '$lib'
 	import type { ZoneConfig, LocationConfig, FrameConfig, RackData, PortLabel } from './parts/types'
-	import { defaultZoneConfig, defaultFrameConfig } from './parts/types'
+	import { defaultFrameConfig } from './parts/types'
 	import { generatePortLabels, generateRacks } from './parts/engine'
 	import { exportToExcel } from './parts/exportExcel'
 	import ConfigPanel from './parts/ConfigPanel.svelte'
@@ -15,12 +15,34 @@
 		onsave?: (payload: any) => void
 	} = $props()
 
-	// ── State ──
-	// Migrate from single-zone to multi-zone format
-	let zones = $state<ZoneConfig[]>(
-		data?.zones ?? (data?.zone ? [data.zone] : [defaultZoneConfig()])
-	)
-	let activeZoneIndex = $state(0)
+	// ── Migrate from old single-zone format ──
+	function migrateData(d: any): { floor: number; serverRoomCount: number; zoneLocations: Record<string, LocationConfig[]> } {
+		if (d?.zoneLocations) {
+			return { floor: d.floor ?? 1, serverRoomCount: d.serverRoomCount ?? 1, zoneLocations: d.zoneLocations }
+		}
+		// Old format: single zone object or zones array
+		const zone = d?.zones?.[0] ?? d?.zone
+		if (zone) {
+			return {
+				floor: zone.floor ?? 1,
+				serverRoomCount: zone.serverRoomCount ?? 1,
+				zoneLocations: { [zone.zone ?? 'A']: zone.locations ?? [] }
+			}
+		}
+		return { floor: 1, serverRoomCount: 1, zoneLocations: {} }
+	}
+
+	const migrated = migrateData(data)
+
+	// ── State: global settings ──
+	let floor = $state(migrated.floor)
+	let serverRoomCount = $state(migrated.serverRoomCount)
+
+	// ── State: per-zone locations keyed by zone letter ──
+	let zoneLocations = $state<Record<string, LocationConfig[]>>(migrated.zoneLocations)
+	let activeZone = $state<string>(Object.keys(migrated.zoneLocations)[0] ?? 'A')
+
+	// ── State: frames & settings (shared across all zones) ──
 	let frames = $state<FrameConfig[]>(data?.frames ?? [])
 	let rooms = $state<{ roomNumber: string; roomName: string }[]>(data?.rooms ?? [])
 	let customLocationTypes = $state<string[]>(data?.customLocationTypes ?? [])
@@ -30,16 +52,49 @@
 	let saveStatus = $state<'saved' | 'saving' | 'unsaved'>('saved')
 	let viewMode = $state<'sidebar' | 'stacked'>('sidebar')
 	let settingsOpen = $state(false)
+	let showAllZones = $state(false)
 
 	// ── Refs for scroll sync ──
 	let locationListEl: HTMLDivElement | undefined = $state()
 	let frameDrawingEl: HTMLDivElement | undefined = $state()
 
 	// ── Derived ──
-	let activeZone = $derived(zones[activeZoneIndex] ?? zones[0])
-	let allLabels = $derived<PortLabel[]>(zones.flatMap(z => generatePortLabels(z)))
-	let maxServerRooms = $derived(Math.max(...zones.map(z => z.serverRoomCount), 1))
-	let racks = $derived<RackData[]>(generateRacks(allLabels, maxServerRooms, frames.length > 0 ? frames : undefined))
+	/** Zone letters that have locations */
+	let zoneLetters = $derived<string[]>(
+		Object.keys(zoneLocations).filter(k => zoneLocations[k].length > 0).sort()
+	)
+
+	/** Active zone's locations */
+	let activeLocations = $derived<LocationConfig[]>(zoneLocations[activeZone] ?? [])
+
+	/** All locations across all zones, with a lookup to route updates back */
+	type IndexedLoc = { zone: string; indexInZone: number }
+	let allLocationsFlat = $derived<{ locations: LocationConfig[]; index: IndexedLoc[] }>((() => {
+		const locations: LocationConfig[] = []
+		const index: IndexedLoc[] = []
+		for (const z of zoneLetters) {
+			for (let i = 0; i < zoneLocations[z].length; i++) {
+				locations.push(zoneLocations[z][i])
+				index.push({ zone: z, indexInZone: i })
+			}
+		}
+		return { locations, index }
+	})())
+
+	/** The locations to display in the list */
+	let displayedLocations = $derived(showAllZones ? allLocationsFlat.locations : activeLocations)
+
+	/** Build ZoneConfig objects for each zone and generate combined labels */
+	let allLabels = $derived<PortLabel[]>(
+		zoneLetters.flatMap(z => generatePortLabels({ floor, zone: z, serverRoomCount, locations: zoneLocations[z] }))
+	)
+
+	/** Build ZoneConfig array for export */
+	let allZoneConfigs = $derived<ZoneConfig[]>(
+		zoneLetters.map(z => ({ floor, zone: z, serverRoomCount, locations: zoneLocations[z] }))
+	)
+
+	let racks = $derived<RackData[]>(generateRacks(allLabels, serverRoomCount, frames.length > 0 ? frames : undefined))
 
 	// ── Debounced auto-save ──
 	let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -59,7 +114,7 @@
 	}
 
 	$effect(() => {
-		const _ = JSON.stringify({ zones, frames, rooms, customLocationTypes, excelGroupByRoom })
+		const _ = JSON.stringify({ floor, serverRoomCount, zoneLocations, frames, rooms, customLocationTypes, excelGroupByRoom })
 
 		if (!initialized) {
 			initialized = true
@@ -71,34 +126,46 @@
 		saveTimer = setTimeout(() => {
 			if (onsave) {
 				saveStatus = 'saving'
-				onsave(stripUndefined({ zones, frames, rooms, customLocationTypes, excelGroupByRoom }))
+				onsave(stripUndefined({ floor, serverRoomCount, zoneLocations, frames, rooms, customLocationTypes, excelGroupByRoom }))
 				saveStatus = 'saved'
 			}
 		}, 500)
 	})
 
 	// ── Handlers ──
-	function updateZone(updated: ZoneConfig) {
-		zones = zones.map((z, i) => i === activeZoneIndex ? updated : z)
+	function setFloor(val: number) { floor = val }
+	function setServerRooms(count: number) { serverRoomCount = count }
+
+	function setActiveZone(zone: string) {
+		activeZone = zone
+		selectedLocation = null
 	}
 
-	function addZone() {
-		const z = defaultZoneConfig()
-		z.zone = String.fromCharCode(65 + zones.length) // next letter
-		zones = [...zones, z]
-		activeZoneIndex = zones.length - 1
-	}
-
-	function removeZone(index: number) {
-		if (zones.length <= 1) return
-		zones = zones.filter((_, i) => i !== index)
-		if (activeZoneIndex >= zones.length) activeZoneIndex = zones.length - 1
+	function generateLocations(count: number) {
+		const existing = zoneLocations[activeZone] ?? []
+		const locs = Array.from({ length: count }, (_, i) => {
+			if (i < existing.length) return existing[i]
+			return {
+				locationNumber: i + 1,
+				portCount: 2,
+				serverRoomAssignment: ['A', 'A'],
+				locationType: 'desk' as const,
+			}
+		})
+		zoneLocations = { ...zoneLocations, [activeZone]: locs }
 	}
 
 	function updateLocation(index: number, loc: LocationConfig) {
-		const locs = [...activeZone.locations]
-		locs[index] = loc
-		updateZone({ ...activeZone, locations: locs })
+		if (showAllZones) {
+			const { zone, indexInZone } = allLocationsFlat.index[index]
+			const locs = [...(zoneLocations[zone] ?? [])]
+			locs[indexInZone] = loc
+			zoneLocations = { ...zoneLocations, [zone]: locs }
+		} else {
+			const locs = [...activeLocations]
+			locs[index] = loc
+			zoneLocations = { ...zoneLocations, [activeZone]: locs }
+		}
 	}
 
 	function selectLocation(locNum: number) {
@@ -118,14 +185,12 @@
 		}
 	}
 
-	/** Scroll the frame drawing to show the selected location's ports */
 	function scrollToLocation(locNum: number) {
 		if (!frameDrawingEl) return
 		const portEl = frameDrawingEl.querySelector(`[data-loc="${locNum}"]`)
 		portEl?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 	}
 
-	/** Scroll the location list to show the selected location */
 	function scrollToLocationInList(locNum: number) {
 		if (!locationListEl) return
 		const rowEl = locationListEl.querySelector(`[data-loc-row="${locNum}"]`)
@@ -133,7 +198,7 @@
 	}
 
 	function handleExport() {
-		exportToExcel(racks, zones, excelGroupByRoom)
+		exportToExcel(racks, allZoneConfigs, excelGroupByRoom)
 	}
 
 	function updateSettings(data: { customTypes: string[]; rooms: { roomNumber: string; roomName: string }[]; excelGroupByRoom: boolean }) {
@@ -153,16 +218,29 @@
 />
 
 {#if viewMode === 'sidebar'}
-	<!-- Sidebar layout -->
 	<div class="flex h-[calc(100vh-38px)] bg-white">
-		<!-- Sidebar -->
 		<div class="w-[360px] shrink-0 border-r border-gray-200 flex flex-col overflow-hidden">
 			<div class="p-3 space-y-3 overflow-y-auto flex-1" bind:this={locationListEl}>
-				{@render zoneTabs()}
-				<ConfigPanel zone={activeZone} onupdate={updateZone} />
+				<ConfigPanel
+					{floor}
+					{serverRoomCount}
+					{activeZone}
+	
+					locations={activeLocations}
+					onfloor={setFloor}
+					onserverrooms={setServerRooms}
+					onzone={setActiveZone}
+					ongenerate={generateLocations}
+				/>
+				{#if zoneLetters.length > 1}
+					<label class="flex items-center gap-1.5 text-[10px] text-gray-500 cursor-pointer select-none">
+						<input type="checkbox" bind:checked={showAllZones} class="w-3 h-3 rounded" />
+						Show all zones
+					</label>
+				{/if}
 				<LocationList
-					locations={activeZone.locations}
-					hasTwoRooms={activeZone.serverRoomCount >= 2}
+					locations={displayedLocations}
+					hasTwoRooms={serverRoomCount >= 2}
 					customTypes={customLocationTypes}
 					{selectedLocation}
 					onupdate={updateLocation}
@@ -171,23 +249,35 @@
 			</div>
 		</div>
 
-		<!-- Main content -->
 		<div class="flex-1 overflow-auto p-4 bg-gray-50/50" bind:this={frameDrawingEl}>
 			{@render toolbar()}
 			{@render frameContent()}
 		</div>
 	</div>
 {:else}
-	<!-- Stacked layout -->
 	<div class="h-[calc(100vh-38px)] bg-white overflow-auto">
 		<div class="max-w-6xl mx-auto p-4 space-y-4">
-			<!-- Config + locations -->
 			<div class="space-y-3" bind:this={locationListEl}>
-				{@render zoneTabs()}
-				<ConfigPanel zone={activeZone} onupdate={updateZone} />
+				<ConfigPanel
+					{floor}
+					{serverRoomCount}
+					{activeZone}
+	
+					locations={activeLocations}
+					onfloor={setFloor}
+					onserverrooms={setServerRooms}
+					onzone={setActiveZone}
+					ongenerate={generateLocations}
+				/>
+				{#if zoneLetters.length > 1}
+					<label class="flex items-center gap-1.5 text-[10px] text-gray-500 cursor-pointer select-none">
+						<input type="checkbox" bind:checked={showAllZones} class="w-3 h-3 rounded" />
+						Show all zones
+					</label>
+				{/if}
 				<LocationList
-					locations={activeZone.locations}
-					hasTwoRooms={activeZone.serverRoomCount >= 2}
+					locations={displayedLocations}
+					hasTwoRooms={serverRoomCount >= 2}
 					customTypes={customLocationTypes}
 					{selectedLocation}
 					onupdate={updateLocation}
@@ -197,7 +287,6 @@
 
 			<hr class="border-gray-200" />
 
-			<!-- Frame drawing -->
 			<div bind:this={frameDrawingEl}>
 				{@render toolbar()}
 				{@render frameContent()}
@@ -206,44 +295,15 @@
 	</div>
 {/if}
 
-{#snippet zoneTabs()}
-	<div class="flex items-center gap-1">
-		{#each zones as z, i}
-			<button
-				class="px-2 py-0.5 text-xs font-mono rounded border transition-colors
-					{i === activeZoneIndex
-						? 'bg-blue-50 border-blue-300 text-blue-700 font-semibold'
-						: 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}"
-				onclick={() => activeZoneIndex = i}
-			>
-				F{String(z.floor).padStart(2, '0')}-{z.zone}
-				<span class="text-[9px] text-gray-400 ml-0.5">{z.locations.length}</span>
-			</button>
-		{/each}
-		<button
-			class="px-1.5 py-0.5 text-[10px] rounded border border-dashed border-gray-300 text-gray-400 hover:text-gray-600 hover:border-gray-400 transition-colors"
-			onclick={addZone}
-		>+ Zone</button>
-		{#if zones.length > 1}
-			<button
-				class="px-1.5 py-0.5 text-[10px] rounded text-red-400 hover:text-red-600 transition-colors"
-				onclick={() => removeZone(activeZoneIndex)}
-				title="Remove active zone"
-			>&times;</button>
-		{/if}
-	</div>
-{/snippet}
-
 {#snippet toolbar()}
-	<!-- Summary + toolbar -->
 	<div class="mb-3 flex items-center justify-between text-sm flex-wrap gap-2">
 		<div class="flex items-center gap-3">
 			{#if allLabels.length > 0}
 				<span class="font-mono text-blue-600 font-semibold">
-					{zones.map(z => `F${String(z.floor).padStart(2, '0')}-${z.zone}`).join(' / ')}
+					Floor {String(floor).padStart(2, '0')} &middot; {zoneLetters.length > 1 ? `Zones ${zoneLetters.join(', ')}` : `Zone ${zoneLetters[0] ?? activeZone}`}
 				</span>
 				<span class="text-gray-400">
-					{zones.reduce((n, z) => n + z.locations.length, 0)} locations &middot; {allLabels.length} ports
+					{allLabels.length} ports
 				</span>
 			{/if}
 		</div>
@@ -269,12 +329,11 @@
 		</div>
 	</div>
 
-	<!-- Frame toolbar -->
 	<div class="mb-4">
 		<FrameToolbar
 			{frames}
 			{selectedFrameId}
-			serverRoomCount={maxServerRooms}
+			{serverRoomCount}
 			onupdate={updateFrames}
 			onselect={id => selectedFrameId = id}
 		/>
