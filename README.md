@@ -105,6 +105,20 @@ pnpm dlx sv@0.12.4 create --template minimal --types ts --add vitest="usages:uni
 ```
 
 
+*	Name convention for Low level cabling solution
+o	10.Z.YY-AXX/BXX
+- 	A = Hub room 01
+- 	B = Hub room 02
+- 	XX = Data Port Number
+
+*	Name convention for High level cabling solution (for WAP, Ceiling TV, etc.)
+o	10.Z.YY-AXX/BXX-H
+- 	A = Hub room 01
+- 	B = Hub room 02
+- 	XX = Data Port Number
+- 	H = High Level
+
+
 
 ● All tasks complete. Here's a summary of everything created:
 
@@ -178,3 +192,21 @@ pnpm dlx sv@0.12.4 create --template minimal --types ts --add vitest="usages:uni
     - RU numbering starts at 1 from bottom (highest RU at top of visual)
   - Frames.svelte: Integrated FrameToolbar, added selectedFrameId state, updateFrames handler with auto-reselection on removal
 
+
+● Here's a summary of everything done:
+
+  Bug Fixes
+  - Duplicate ports across frames: Engine now distributes labels across frames of the same server room by capacity instead of duplicating. First frame fills up, overflow goes to the next.
+  - Panels from top: Panels now assigned from panelEndRU downward (top of frame first), skipping RUs occupied by slots.
+
+Phase 4: Advanced Features
+
+  - Excel export (exportExcel.ts): Full workbook with one sheet per frame, port labels in 24-column grid with color-coded cells (blue=room A, purple=room B), slot rows, and empty RU rows. Downloads as PatchFrame_F01_ZA.xlsx.
+  - View toggle: Sidebar layout (default) or stacked vertical layout via toggle buttons in toolbar.
+  - Scroll sync: Clicking a port in the frame drawing scrolls to that location in the sidebar list (and vice versa) using data-loc / data-loc-row attributes.
+  - Settings dialog (SettingsDialog.svelte): Add/remove custom location types beyond defaults, manage room directory (room number + name pairs).
+  - Icon additions: Added settings (Settings) and rows (Rows3) to the Icon component.
+
+  Type Widening for 1-4 Server Rooms
+
+  - Updated serverRoomCount from 1 | 2 to number, serverRoom from 'A' | 'B' to string, and serverRoomAssignment from ('A' | 'B')[] to string[] across all types to support the user's expansion to 4 server rooms.

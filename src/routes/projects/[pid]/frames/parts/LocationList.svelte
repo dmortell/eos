@@ -2,10 +2,11 @@
 	import type { LocationConfig } from './types'
 	import LocationRow from './LocationRow.svelte'
 
-	let { locations, hasTwoRooms = false, selectedLocation, onupdate, onselect }: {
+	let { locations, hasTwoRooms = false, selectedLocation, customTypes = [], onupdate, onselect }: {
 		locations: LocationConfig[]
 		hasTwoRooms?: boolean
 		selectedLocation?: number | null
+		customTypes?: string[]
 		onupdate: (index: number, loc: LocationConfig) => void
 		onselect?: (locNum: number) => void
 	} = $props()
@@ -28,6 +29,7 @@
 				<LocationRow
 					location={loc}
 					{hasTwoRooms}
+					{customTypes}
 					selected={loc.locationNumber === selectedLocation}
 					onupdate={updated => onupdate(i, updated)}
 					{onselect}

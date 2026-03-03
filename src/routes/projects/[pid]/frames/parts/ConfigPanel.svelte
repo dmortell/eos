@@ -21,7 +21,7 @@
 		onupdate({ ...zone, zone: val })
 	}
 
-	function setServerRooms(count: 1 | 2) {
+	function setServerRooms(count: number) {
 		onupdate({ ...zone, serverRoomCount: count })
 	}
 
@@ -45,7 +45,7 @@
 <div class="space-y-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
 	<h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Zone Configuration</h3>
 
-	<div class="grid grid-cols-2 gap-2">
+	<div class="grid grid-cols-3 gap-2">
 		<!-- Floor -->
 		<div class="space-y-1">
 			<label class="text-[10px] text-gray-500 uppercase tracking-wider">Floor</label>
@@ -70,23 +70,17 @@
 				{/each}
 			</select>
 		</div>
-	</div>
-
-	<!-- Server rooms -->
-	<div class="space-y-1">
-		<label class="text-[10px] text-gray-500 uppercase tracking-wider">Server Rooms</label>
-		<div class="flex">
-			<Button
-				group
-				active={zone.serverRoomCount === 1}
-				onclick={() => setServerRooms(1)}
-			>1 (A)</Button>
-			<Button
-				group
-				active={zone.serverRoomCount === 2}
-				onclick={() => setServerRooms(2)}
-			>2 (A/B)</Button>
+		<!-- Server rooms -->
+		<div class="space-y-1">
+			<label class="text-[10px] text-gray-500 uppercase tracking-wider">Server Rooms</label>
+			<div class="flex">
+				<Button group active={zone.serverRoomCount === 1} onclick={() => setServerRooms(1)} >1</Button>
+				<Button group active={zone.serverRoomCount === 2} onclick={() => setServerRooms(2)} >2</Button>
+				<Button group active={zone.serverRoomCount === 3} onclick={() => setServerRooms(3)} >3</Button>
+				<Button group active={zone.serverRoomCount === 4} onclick={() => setServerRooms(4)} >4</Button>
+			</div>
 		</div>
+
 	</div>
 
 	<!-- Location count + generate -->

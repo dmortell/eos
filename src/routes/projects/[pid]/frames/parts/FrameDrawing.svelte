@@ -2,11 +2,19 @@
 	import type { RackData, PanelData, FrameSlot } from './types'
 	import PanelStrip from './PanelStrip.svelte'
 
-	let { racks, selectedLocation, onselect }: {
+	let { racks, selectedFrameId, selectedLocation, onselect }: {
 		racks: RackData[]
+		selectedFrameId?: string | null
 		selectedLocation?: number | null
 		onselect?: (loc: number) => void
 	} = $props()
+
+	/** Show only the selected frame, or all if none selected */
+	let visibleRacks = $derived(
+		selectedFrameId
+			? racks.filter(r => r.frame.id === selectedFrameId)
+			: racks
+	)
 
 	type RUItem = { type: 'panel'; panel: PanelData } | { type: 'slot'; slot: FrameSlot } | { type: 'empty'; ru: number }
 
@@ -22,8 +30,8 @@
 		}
 		for (const slot of rack.frame.slots) {
 			occupied.set(slot.ru, { type: 'slot', slot })
-			if (slot.height === 2 && slot.ru + 1 <= totalRU) {
-				occupied.set(slot.ru + 1, { type: 'slot', slot }) // 2U spans two RUs
+			for (let h = 1; h < slot.height; h++) {
+				if (slot.ru + h <= totalRU) occupied.set(slot.ru + h, { type: 'slot', slot })
 			}
 		}
 
@@ -31,8 +39,8 @@
 		for (let ru = totalRU; ru >= 1; ru--) {
 			const item = occupied.get(ru)
 			if (item) {
-				// Skip second RU of a 2U slot (already rendered)
-				if (item.type === 'slot' && item.slot.height === 2 && ru === item.slot.ru + 1) continue
+				// Skip extra RUs of a multi-U slot (only render at base RU)
+				if (item.type === 'slot' && ru !== item.slot.ru) continue
 				items.push(item)
 			} else {
 				items.push({ type: 'empty', ru })
@@ -43,13 +51,13 @@
 	}
 </script>
 
-{#if racks.length === 0}
+{#if visibleRacks.length === 0 && racks.length === 0}
 	<div class="flex items-center justify-center h-64 text-gray-400 text-sm">
 		Configure a zone and generate locations to see the patch frame
 	</div>
 {:else}
 	<div class="space-y-6">
-		{#each racks as rack (rack.frame.id)}
+		{#each visibleRacks as rack (rack.frame.id)}
 			{@const ruMap = buildRUMap(rack)}
 			<div class="space-y-2">
 				<!-- Frame header -->
@@ -82,7 +90,7 @@
 						{:else if item.type === 'slot'}
 							<!-- Slot: blanking, cable mgmt, device -->
 							<div class="border-b border-gray-200 last:border-b-0">
-								<div class="flex items-stretch" style:height={item.slot.height === 2 ? '2.5rem' : '1.25rem'}>
+								<div class="flex items-stretch" style:height="{item.slot.height * 1.25}rem">
 									<div class="w-8 bg-gray-100 flex items-center justify-center border-r border-gray-200 shrink-0">
 										<span class="font-mono text-[9px] text-gray-400">{item.slot.ru}</span>
 									</div>

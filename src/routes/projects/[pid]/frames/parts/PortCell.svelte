@@ -30,6 +30,7 @@
 		class:ring-2={selected}
 		class:ring-yellow-400={selected}
 		title={port.label}
+		data-loc={port.locationNumber}
 		onclick={() => onselect?.(port!.locationNumber)}
 	>
 		<span class="font-mono text-[9px] leading-none select-all whitespace-nowrap overflow-hidden">

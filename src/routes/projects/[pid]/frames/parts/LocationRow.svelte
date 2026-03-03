@@ -3,13 +3,16 @@
 	import type { LocationConfig, LocType } from './types'
 	import { DEFAULT_LOC_TYPES, LOC_TYPE_LABELS } from './types'
 
-	let { location, hasTwoRooms = false, selected = false, onupdate, onselect }: {
+	let { location, hasTwoRooms = false, selected = false, customTypes = [], onupdate, onselect }: {
 		location: LocationConfig
 		hasTwoRooms?: boolean
 		selected?: boolean
+		customTypes?: string[]
 		onupdate: (loc: LocationConfig) => void
 		onselect?: (locNum: number) => void
 	} = $props()
+
+	let allTypes = $derived([...DEFAULT_LOC_TYPES, ...customTypes])
 
 	function setPortCount(val: string) {
 		const count = Math.max(1, Math.min(99, parseInt(val) || 2))
@@ -65,6 +68,7 @@
 	class:bg-gray-50={!selected}
 	class:border-gray-200={!selected}
 	class:hover:bg-gray-100={!selected}
+	data-loc-row={location.locationNumber}
 	onclick={() => onselect?.(location.locationNumber)}
 	role="button"
 	tabindex="0"
@@ -108,7 +112,7 @@
 
 		<!-- Type quick-select -->
 		<div class="flex ml-auto">
-			{#each DEFAULT_LOC_TYPES as t}
+			{#each allTypes as t}
 				<button
 					class="text-[9px] px-1 py-0.5 border -ml-px first:ml-0 first:rounded-l last:rounded-r transition-colors"
 					class:bg-blue-100={location.locationType === t}

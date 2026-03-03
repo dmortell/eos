@@ -1,9 +1,10 @@
 // ── Location types (extensible via settings) ──
 
-export const DEFAULT_LOC_TYPES = ['desk', 'AP', 'PR', 'RS', 'FR', 'WC', 'TV', 'LK'] as const
+export const DEFAULT_LOC_TYPES = ['N/A', 'desk', 'AP', 'PR', 'RS', 'FR', 'WC', 'TV', 'LK'] as const
 export type LocType = (typeof DEFAULT_LOC_TYPES)[number] | (string & {})
 
 export const LOC_TYPE_LABELS: Record<string, string> = {
+	'N/A': 'Not allocated',
 	desk: 'Desk',
 	AP: 'AP',
 	PR: 'Printer',
@@ -16,6 +17,7 @@ export const LOC_TYPE_LABELS: Record<string, string> = {
 
 /** Color classes per location type (bg/text for port cells) */
 export const LOC_TYPE_COLORS: Record<string, string> = {
+	'N/A': 'bg-gray-300/20 border-gray-300/40 text-gray-400',
 	desk: 'bg-blue-500/15 border-blue-500/40 text-blue-600',
 	AP: 'bg-green-500/15 border-green-500/40 text-green-600',
 	PR: 'bg-orange-500/15 border-orange-500/40 text-orange-600',
@@ -31,7 +33,7 @@ export const LOC_TYPE_COLORS: Record<string, string> = {
 export interface LocationConfig {
 	locationNumber: number
 	portCount: number // 1–99
-	serverRoomAssignment: ('A' | 'B')[] // per-port
+	serverRoomAssignment: string[] // per-port: 'A', 'B', 'C', 'D'
 	locationType: LocType
 	roomNumber?: string // optional 4-digit room ref
 	isHighLevel?: boolean // ceiling port → appends "-H"
@@ -42,7 +44,7 @@ export interface LocationConfig {
 export interface ZoneConfig {
 	floor: number // 1–20
 	zone: string // A–Z
-	serverRoomCount: 1 | 2
+	serverRoomCount: number // 1–4
 	locations: LocationConfig[]
 }
 
@@ -54,13 +56,13 @@ export interface FrameSlot {
 	ru: number
 	type: SlotType
 	label?: string
-	height: 1 | 2
+	height: number // RU height (1-10)
 }
 
 export interface FrameConfig {
 	id: string
 	name: string // e.g. "Frame A1"
-	serverRoom: 'A' | 'B'
+	serverRoom: string // A, B, C, D
 	totalRU: number // default 45
 	panelStartRU: number
 	panelEndRU: number
@@ -71,7 +73,7 @@ export interface FrameConfig {
 
 export interface PortLabel {
 	label: string // FF.Z.NNN-SPP or FF.Z.NNN-SPP-H
-	serverRoom: 'A' | 'B'
+	serverRoom: string
 	locationNumber: number
 	portNumber: number
 	locationType: LocType
@@ -102,7 +104,7 @@ export function defaultZoneConfig(): ZoneConfig {
 	}
 }
 
-export function defaultFrameConfig(serverRoom: 'A' | 'B' = 'A', index = 1): FrameConfig {
+export function defaultFrameConfig(serverRoom: string = 'A', index = 1): FrameConfig {
 	return {
 		id: `frame-${serverRoom}${index}`,
 		name: `Frame ${serverRoom}${index}`,
@@ -114,7 +116,7 @@ export function defaultFrameConfig(serverRoom: 'A' | 'B' = 'A', index = 1): Fram
 	}
 }
 
-export function defaultLocations(count: number, serverRoomCount: 1 | 2): LocationConfig[] {
+export function defaultLocations(count: number, serverRoomCount: number): LocationConfig[] {
 	return Array.from({ length: count }, (_, i) => ({
 		locationNumber: i + 1,
 		portCount: 2,
