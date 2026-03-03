@@ -103,3 +103,78 @@ To recreate this project from scratch with the same configuration:
 ```sh
 pnpm dlx sv@0.12.4 create --template minimal --types ts --add vitest="usages:unit,component" tailwindcss="plugins:none" sveltekit-adapter="adapter:vercel" devtools-json --install pnpm .
 ```
+
+
+
+● All tasks complete. Here's a summary of everything created:
+
+  Files Created/Updated
+  ┌──────────────────────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │               File               │                                                  Description                                                  │
+  ├──────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────┤                                                                                                                              │ implementation.md                │ Detailed implementation plan with architecture, types, components, 4 phases, and now Phase 2 Firestore schema │                                                                                                                              ├──────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────┤                                                                                                                              │ README.md                        │ Reorganized with tech stack section, structured tool spec with tables                                         │                                                                                                                              ├──────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ frames/+page.svelte              │ Route entry - subscribes to Firestore, passes data to Frames                                                  │
+  ├──────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ frames/Frames.svelte             │ Main orchestrator - sidebar (360px) + frame drawing area, reactive data flow                                  │
+  ├──────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ frames/parts/types.ts            │ All TypeScript interfaces, default factories, loc type colors/labels                                          │
+  ├──────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ frames/parts/engine.ts           │ Pure functions: generatePortLabels(), generateRacks(), validateConfig()                                       │
+  ├──────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ frames/parts/ConfigPanel.svelte  │ Zone config form: floor, zone, server rooms, location count                                                   │
+  ├──────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ frames/parts/LocationList.svelte │ Scrollable location list container                                                                            │
+  ├──────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ frames/parts/LocationRow.svelte  │ Per-location editor: port count, type buttons, room assignment toggles                                        │
+  ├──────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ frames/parts/FrameDrawing.svelte │ Rack visualization with panels, RU numbers, empty RU indicator                                                │
+  ├──────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ frames/parts/PanelStrip.svelte   │ Single 1RU panel: 2 rows x 24 port cells                                                                      │
+  ├──────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ frames/parts/PortCell.svelte     │ Individual port with color coding by type, selection highlighting                                             │
+  └──────────────────────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  Firestore Schema (Phase 2)
+
+  Single document at frames/{pid} containing:
+  - zone - floor, zone letter, server room count, locations array
+  - frames - array of frame configs with RU settings and slots
+  - rooms - room number directory
+  - customLocationTypes - user-defined types beyond defaults
+  - Debounced auto-save (500ms), merge writes, real-time sync
+
+
+  ● Phase 2 is complete. Here's what was added:
+
+  Firestore Persistence
+  - +page.svelte: Subscribes to frames/{pid} and passes a save() function that calls db.save('frames', { id: pid, ...payload })
+  - Frames.svelte: Added onsave callback prop, debounced auto-save via $effect() (500ms delay), and a save status indicator (Saved/Saving.../Unsaved) in the summary bar. Skips the initial render to avoid a save-on-load. Persists zone, frames, rooms, and customLocationTypes.
+  High-Level Port Support
+
+  - LocationRow.svelte: Added "High-level" checkbox that toggles isHighLevel on the location. Location number displays with amber color and "H" suffix when high-level.
+  - PanelStrip.svelte: High-level panels get an amber-tinted RU rail with "HL" label to visually distinguish them from floor panels.
+  - engine.ts: Already handles -H suffix generation and separates floor/high-level panels (implemented in Phase 1).
+
+  Room Number Input
+
+  - LocationRow.svelte: Added a 4-character room number input field between the type buttons and server room assignments. Stored as optional roomNumber on each location.
+
+
+● All done. Here's a summary of everything in this round:
+
+  Bug Fixes
+  - Generate preserves locations: When changing location count and clicking Generate, existing locations keep their port counts, types, room assignments, etc. Only new locations get defaults.
+  - Compact LocationRow: Room number and high-level checkbox moved to the same row as port count (single line: 001 [2] [room] [HL] [desk|AP|PR|...])
+  - Readable port labels: Font bumped from text-[7px] to text-[9px], height from h-6 to h-7, and floor prefix (FF.) removed from display (still in tooltip)
+
+  Phase 3: Frame Customization
+
+  - FrameToolbar.svelte (new): Frame tab selector, add/remove frames per server room, expandable settings panel per frame with:
+    - Frame name, total RU, panel start/end RU range
+    - Slot manager: add blanking panels, 1U/2U cable management, and devices at specific RU positions
+  - FrameDrawing.svelte (rewritten): Now renders a full RU map top-to-bottom showing:
+    - Patch panels at their assigned RU positions
+    - Blanking panels (gray), cable management (yellow), devices (indigo) at their configured slots
+    - Empty RU rows with faded numbers for unoccupied positions
+    - RU numbering starts at 1 from bottom (highest RU at top of visual)
+  - Frames.svelte: Integrated FrameToolbar, added selectedFrameId state, updateFrames handler with auto-reselection on removal
+

@@ -70,26 +70,47 @@
 	tabindex="0"
 	onkeydown={e => e.key === 'Enter' && onselect?.(location.locationNumber)}
 >
-	<!-- Top line: loc number, port count, type buttons -->
-	<div class="flex items-center gap-2 flex-wrap">
-		<span class="font-mono text-xs font-semibold w-14 shrink-0 {location.isHighLevel ? 'text-amber-600' : 'text-blue-600'}">
+	<!-- Top line: loc number, ports, room, high-level, type buttons -->
+	<div class="flex items-center gap-1.5 flex-wrap">
+		<span class="font-mono text-xs font-semibold shrink-0 {location.isHighLevel ? 'text-amber-600' : 'text-blue-600'}">
 			{String(location.locationNumber).padStart(3, '0')}{#if location.isHighLevel}<span class="text-[8px]">H</span>{/if}
 		</span>
 
-		<label class="text-[10px] text-gray-400">Ports:</label>
 		<input
 			type="number" min="1" max="99"
 			value={location.portCount}
 			onclick={e => e.stopPropagation()}
 			onchange={e => setPortCount(e.currentTarget.value)}
-			class="w-14 h-6 px-1 text-xs font-mono bg-white border border-gray-200 rounded text-center focus:outline-none focus:ring-1 focus:ring-blue-400"
+			class="w-11 h-5 px-1 text-[10px] font-mono bg-white border border-gray-200 rounded text-center focus:outline-none focus:ring-1 focus:ring-blue-400"
+			title="Port count"
 		/>
+
+		<input
+			type="text"
+			maxlength="4"
+			placeholder="room"
+			value={location.roomNumber ?? ''}
+			onclick={e => e.stopPropagation()}
+			onchange={e => setRoomNumber(e.currentTarget.value)}
+			class="w-11 h-5 px-1 text-[10px] font-mono bg-white border border-gray-200 rounded text-center focus:outline-none focus:ring-1 focus:ring-blue-400"
+			title="Room number"
+		/>
+
+		<label class="flex items-center gap-0.5 cursor-pointer shrink-0" onclick={e => e.stopPropagation()} title="High-level (ceiling) port">
+			<input
+				type="checkbox"
+				checked={location.isHighLevel ?? false}
+				onchange={toggleHighLevel}
+				class="w-3 h-3 rounded"
+			/>
+			<span class="text-[9px] text-gray-400">HL</span>
+		</label>
 
 		<!-- Type quick-select -->
 		<div class="flex ml-auto">
 			{#each DEFAULT_LOC_TYPES as t}
 				<button
-					class="text-[9px] px-1.5 py-0.5 border -ml-px first:ml-0 first:rounded-l last:rounded-r transition-colors"
+					class="text-[9px] px-1 py-0.5 border -ml-px first:ml-0 first:rounded-l last:rounded-r transition-colors"
 					class:bg-blue-100={location.locationType === t}
 					class:border-blue-300={location.locationType === t}
 					class:text-blue-700={location.locationType === t}
@@ -102,29 +123,6 @@
 				>{t}</button>
 			{/each}
 		</div>
-	</div>
-
-	<!-- Room number + high-level toggle -->
-	<div class="flex items-center gap-2">
-		<label class="text-[10px] text-gray-400">Room:</label>
-		<input
-			type="text"
-			maxlength="4"
-			placeholder="----"
-			value={location.roomNumber ?? ''}
-			onclick={e => e.stopPropagation()}
-			onchange={e => setRoomNumber(e.currentTarget.value)}
-			class="w-14 h-5 px-1 text-[10px] font-mono bg-white border border-gray-200 rounded text-center focus:outline-none focus:ring-1 focus:ring-blue-400"
-		/>
-		<label class="flex items-center gap-1 ml-auto cursor-pointer" onclick={e => e.stopPropagation()}>
-			<input
-				type="checkbox"
-				checked={location.isHighLevel ?? false}
-				onchange={toggleHighLevel}
-				class="w-3 h-3 rounded"
-			/>
-			<span class="text-[9px] text-gray-500">High-level</span>
-		</label>
 	</div>
 
 	<!-- Server room assignments (only when 2 rooms) -->

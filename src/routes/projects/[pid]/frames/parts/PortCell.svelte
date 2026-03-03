@@ -17,20 +17,25 @@
 	let roomClass = $derived(
 		port?.serverRoom === 'B' ? 'ring-1 ring-purple-400/50' : ''
 	)
+
+	/** Display label without floor prefix: Z.NNN-SPP(-H) */
+	let shortLabel = $derived(
+		port ? port.label.replace(/^\d{2}\./, '') : ''
+	)
 </script>
 
 {#if port}
 	<button
-		class="w-full h-6 rounded-sm border flex items-center justify-center cursor-pointer transition-colors {colorClass} {roomClass}"
+		class="w-full h-7 rounded-sm border flex items-center justify-center cursor-pointer transition-colors {colorClass} {roomClass}"
 		class:ring-2={selected}
 		class:ring-yellow-400={selected}
 		title={port.label}
 		onclick={() => onselect?.(port!.locationNumber)}
 	>
-		<span class="font-mono text-[7px] leading-none select-all whitespace-nowrap overflow-hidden">
-			{port.label}
+		<span class="font-mono text-[9px] leading-none select-all whitespace-nowrap overflow-hidden">
+			{shortLabel}
 		</span>
 	</button>
 {:else}
-	<div class="w-full h-6 bg-gray-100 rounded-sm border border-gray-200/50"></div>
+	<div class="w-full h-7 bg-gray-100 rounded-sm border border-gray-200/50"></div>
 {/if}

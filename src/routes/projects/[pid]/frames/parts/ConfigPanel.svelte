@@ -26,7 +26,18 @@
 	}
 
 	function generate() {
-		const locs = defaultLocations(locationCount, zone.serverRoomCount)
+		const existing = zone.locations
+		const locs = Array.from({ length: locationCount }, (_, i) => {
+			// Keep existing location config if it exists at this index
+			if (i < existing.length) return existing[i]
+			// Otherwise create a new default location
+			return {
+				locationNumber: i + 1,
+				portCount: 2,
+				serverRoomAssignment: ['A' as const, 'A' as const],
+				locationType: 'desk' as const,
+			}
+		})
 		onupdate({ ...zone, locations: locs })
 	}
 </script>
