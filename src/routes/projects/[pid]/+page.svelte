@@ -17,29 +17,29 @@
 
 <Titlebar title={project.name} height={30}/>
 
-<div class="p-4 bg-white dark:bg-black">
+<div class="p-4 bg-white dark:bg-black space-y-1">
 	<div class="font-semibold">{project.name}</div>
 	<div class="text-muted-foreground">{project.description}</div>
 	<hr/>
-	<div>
-		<a href="{path}/docs">Proposals</a>,
-		BOM, Quotes, Invoices, RFPs </div>
+	<!-- <a href="{path}/docs">Proposals</a> -->
+	<!-- <a href="{path}/docs">Proposals</a>, -->
+	<!-- <div>BOM, Quotes, Invoices, RFPs </div>
 	<div>Drawings - Models, Floorplans, Elevations, Cable Routes, Patching, PDFs</div>
 	<div>Documents, Schedules, Tasks, Minutes</div>
 	<div>Settings</div>
 	<i class="tabler-heart-outline"></i>
 	<i class="tabler-star-outline"></i>
 	<i class="bootstrap-folder"></i>
-	<i class="flag-ie"></i>
+	<i class="flag-ie"></i> -->
 </div>
 
-<p>Currently at {page.url.pathname}</p>
+<!-- <p>Currently at {page.url.pathname}</p> -->
 
-{#if page.error}
+<!-- {#if page.error}
 	<span class="red">Problem detected</span>
 {:else}
 	<span class="small">All systems operational</span>
-{/if}
+{/if} -->
 
 <style>
 	a { color:blue; }
