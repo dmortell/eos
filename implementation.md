@@ -271,3 +271,128 @@ Pure functions, no side effects. Adapted from `sample/lib/patchConfig.ts` with e
 - **Svelte 5 runes only**: `$state()`, `$derived()`, `$effect()`, `$props()`, `$bindable()`. No stores, no `$:` reactivity.
 - **Existing UI components**: Use `$lib` Button, Input, Icon, Dialog, Row where possible. Only build domain-specific components in `parts/`.
 - **Color coding**: Location types get distinct colors for visual scanning. Server room A/B get distinct colors (blue/purple as in sample).
+
+---
+
+## Phase 2: Firestore Schema
+
+### Document Path
+
+```
+frames/{pid}
+```
+
+One document per project. The document ID equals the project ID (`pid`). This keeps the real-time subscription simple: `db.subscribeOne('frames', pid, callback)`.
+
+### Document Structure
+
+```ts
+// Firestore document: frames/{pid}
+{
+  id: string,              // = pid (project ID)
+
+  // ── Zone configuration ──
+  zone: {
+    floor: number,         // 1–20
+    zone: string,          // "A"–"Z"
+    serverRoomCount: 1 | 2,
+    locations: [
+      {
+        locationNumber: number,     // 1–999
+        portCount: number,          // 1–99
+        serverRoomAssignment: string[],  // ["A","A","B","B"] per port
+        locationType: string,       // "desk", "AP", etc.
+        roomNumber?: string,        // optional "1234"
+        isHighLevel?: boolean       // ceiling ports
+      }
+      // ... one entry per location
+    ]
+  },
+
+  // ── Frame definitions ──
+  frames: [
+    {
+      id: string,           // "frame-A1"
+      name: string,         // "Frame A1"
+      serverRoom: string,   // "A" or "B"
+      totalRU: number,      // 45
+      panelStartRU: number, // 1
+      panelEndRU: number,   // 45
+      slots: [
+        { ru: number, type: string, label?: string, height: number }
+        // blanking panels, cable management, devices
+      ]
+    }
+    // ... one entry per physical frame
+  ],
+
+  // ── Room directory ──
+  rooms: [
+    { roomNumber: string, roomName: string }
+    // e.g. { roomNumber: "1234", roomName: "Meeting Room Alpha" }
+  ],
+
+  // ── Custom location types ──
+  customLocationTypes: string[],  // types beyond the defaults
+  // e.g. ["CAM", "SEN", "DIS"]
+
+  // ── Metadata ──
+  updatedAt: Timestamp,    // server timestamp, auto-set on save
+  updatedBy?: string       // user UID who last saved
+}
+```
+
+### Size Estimate
+
+A typical project with 200 locations, 2 ports each, 2 frames:
+- `zone.locations`: ~200 entries x ~80 bytes = ~16 KB
+- `frames`: 2 entries x ~200 bytes = ~0.4 KB
+- `rooms`: ~50 entries x ~60 bytes = ~3 KB
+- **Total: ~20 KB** (well within Firestore's 1 MB document limit)
+
+Even a large project with 999 locations at 4 ports each stays under 100 KB. The single-document approach is safe.
+
+### Save Strategy
+
+```
+User edits config/location/frame
+  → $state mutation in Frames.svelte
+  → $effect() detects change
+  → Debounce 500ms (clearTimeout/setTimeout)
+  → db.save('frames', { id: pid, zone, frames, rooms, customLocationTypes })
+  → Firestore merges (merge: true), sets updatedAt via serverTimestamp
+```
+
+Key behaviors:
+- **Debounced**: 500ms delay after last edit before saving (avoids saving on every keystroke)
+- **Merge**: Uses `{ merge: true }` so partial updates don't wipe unset fields
+- **Optimistic**: UI updates immediately via local state; Firestore write is fire-and-forget
+- **Real-time**: `subscribeOne` in +page.svelte means other clients see changes in real time
+- **Initial load**: If no document exists yet, Frames.svelte uses `defaultZoneConfig()` and creates the doc on first save
+
+### Load Strategy
+
+```
++page.svelte
+  → db.subscribeOne('frames', pid, data => frameData = data)
+  → Frames.svelte receives data prop
+  → On mount: initializes $state from data.zone, data.frames, etc.
+  → Falls back to defaults if fields are missing (defensive)
+```
+
+### Migration Path
+
+If the document grows beyond 500 KB (unlikely but possible with very large projects):
+- Split `zone.locations` into a subcollection `frames/{pid}/locations/{locId}`
+- Or split by zone into `frames/{pid}/zones/{zoneId}`
+- The engine functions already accept a `ZoneConfig` object, so the component layer would just need to assemble it from multiple docs
+
+### Firestore Rules (recommended)
+
+```
+match /frames/{pid} {
+  allow read, write: if request.auth != null;
+}
+```
+
+This matches the existing pattern where Firebase auth restricts access to valid email domains.

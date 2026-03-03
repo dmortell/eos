@@ -21,7 +21,7 @@
 	<div class="font-semibold">{project.name}</div>
 	<div class="text-muted-foreground">{project.description}</div>
 	<hr/>
-	<!-- <a href="{path}/docs">Proposals</a> -->
+	<a href="{path}/frames">Patch Frames</a>
 	<!-- <a href="{path}/docs">Proposals</a>, -->
 	<!-- <div>BOM, Quotes, Invoices, RFPs </div>
 	<div>Drawings - Models, Floorplans, Elevations, Cable Routes, Patching, PDFs</div>

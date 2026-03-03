@@ -1,0 +1,124 @@
+// ── Location types (extensible via settings) ──
+
+export const DEFAULT_LOC_TYPES = ['desk', 'AP', 'PR', 'RS', 'FR', 'WC', 'TV', 'LK'] as const
+export type LocType = (typeof DEFAULT_LOC_TYPES)[number] | (string & {})
+
+export const LOC_TYPE_LABELS: Record<string, string> = {
+	desk: 'Desk',
+	AP: 'AP',
+	PR: 'Printer',
+	RS: 'Room Sched',
+	FR: 'Facial Rec',
+	WC: 'World Clock',
+	TV: 'TV',
+	LK: 'Lockers',
+}
+
+/** Color classes per location type (bg/text for port cells) */
+export const LOC_TYPE_COLORS: Record<string, string> = {
+	desk: 'bg-blue-500/15 border-blue-500/40 text-blue-600',
+	AP: 'bg-green-500/15 border-green-500/40 text-green-600',
+	PR: 'bg-orange-500/15 border-orange-500/40 text-orange-600',
+	RS: 'bg-purple-500/15 border-purple-500/40 text-purple-600',
+	FR: 'bg-red-500/15 border-red-500/40 text-red-600',
+	WC: 'bg-cyan-500/15 border-cyan-500/40 text-cyan-600',
+	TV: 'bg-pink-500/15 border-pink-500/40 text-pink-600',
+	LK: 'bg-amber-500/15 border-amber-500/40 text-amber-600',
+}
+
+// ── Location config ──
+
+export interface LocationConfig {
+	locationNumber: number
+	portCount: number // 1–99
+	serverRoomAssignment: ('A' | 'B')[] // per-port
+	locationType: LocType
+	roomNumber?: string // optional 4-digit room ref
+	isHighLevel?: boolean // ceiling port → appends "-H"
+}
+
+// ── Zone config ──
+
+export interface ZoneConfig {
+	floor: number // 1–20
+	zone: string // A–Z
+	serverRoomCount: 1 | 2
+	locations: LocationConfig[]
+}
+
+// ── Frame config ──
+
+export type SlotType = 'patch-panel' | 'blanking' | 'cable-mgmt-1u' | 'cable-mgmt-2u' | 'device'
+
+export interface FrameSlot {
+	ru: number
+	type: SlotType
+	label?: string
+	height: 1 | 2
+}
+
+export interface FrameConfig {
+	id: string
+	name: string // e.g. "Frame A1"
+	serverRoom: 'A' | 'B'
+	totalRU: number // default 45
+	panelStartRU: number
+	panelEndRU: number
+	slots: FrameSlot[]
+}
+
+// ── Generated output ──
+
+export interface PortLabel {
+	label: string // FF.Z.NNN-SPP or FF.Z.NNN-SPP-H
+	serverRoom: 'A' | 'B'
+	locationNumber: number
+	portNumber: number
+	locationType: LocType
+	isHighLevel: boolean
+}
+
+export interface PanelData {
+	panelNumber: number
+	ru: number
+	topRow: (PortLabel | null)[] // 24 slots
+	bottomRow: (PortLabel | null)[] // 24 slots
+	isHighLevel: boolean
+}
+
+export interface RackData {
+	frame: FrameConfig
+	panels: PanelData[]
+}
+
+// ── Defaults ──
+
+export function defaultZoneConfig(): ZoneConfig {
+	return {
+		floor: 1,
+		zone: 'A',
+		serverRoomCount: 1,
+		locations: [],
+	}
+}
+
+export function defaultFrameConfig(serverRoom: 'A' | 'B' = 'A', index = 1): FrameConfig {
+	return {
+		id: `frame-${serverRoom}${index}`,
+		name: `Frame ${serverRoom}${index}`,
+		serverRoom,
+		totalRU: 45,
+		panelStartRU: 1,
+		panelEndRU: 45,
+		slots: [],
+	}
+}
+
+export function defaultLocations(count: number, serverRoomCount: 1 | 2): LocationConfig[] {
+	return Array.from({ length: count }, (_, i) => ({
+		locationNumber: i + 1,
+		portCount: 2,
+		serverRoomAssignment: Array.from({ length: 2 }, () => 'A' as const),
+		locationType: 'desk' as LocType,
+	}))
+}
