@@ -1,7 +1,7 @@
 import { getApp, getApps, initializeApp } from "firebase/app";
 import { nanoid } from "nanoid";
 import {
-    getFirestore, collection, doc, getDocs, deleteDoc, query,
+    getFirestore, collection, doc, getDoc, getDocs, deleteDoc, query,
     serverTimestamp, onSnapshot, setDoc, writeBatch,
     type Query, type DocumentData, type Firestore as FirestoreType, type QuerySnapshot
 } from 'firebase/firestore';
@@ -62,6 +62,10 @@ export class Firestore {
             const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             callback?.(data)
         });
+    }
+    async getOne(path: string, id: string): Promise<DocWithId | null> {
+        const snap = await getDoc(doc(firestore, path, id));
+        return snap.exists() ? { id: snap.id, ...snap.data() } as DocWithId : null;
     }
     subscribeOne(table: string, id: string, callback: (data: DocWithId) => void): () => void {
         return onSnapshot(doc(firestore, table, id), snap => { callback?.({ ...snap.data(), id }) });

@@ -12,32 +12,32 @@
 	import Titlebar from '$lib/Titlebar.svelte'
 	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
 
-	let { data = null, onsave }: {
+	let { data = null, floor, onsave, onfloorchange }: {
 		data?: any
+		floor: number
 		onsave?: (payload: any) => void
+		onfloorchange?: (floor: number) => void
 	} = $props()
 
 	// ── Migrate from old single-zone format ──
-	function migrateData(d: any): { floor: number; serverRoomCount: number; zoneLocations: Record<string, LocationConfig[]> } {
+	function migrateData(d: any): { serverRoomCount: number; zoneLocations: Record<string, LocationConfig[]> } {
 		if (d?.zoneLocations) {
-			return { floor: d.floor ?? 1, serverRoomCount: d.serverRoomCount ?? 1, zoneLocations: d.zoneLocations }
+			return { serverRoomCount: d.serverRoomCount ?? 1, zoneLocations: d.zoneLocations }
 		}
 		// Old format: single zone object or zones array
 		const zone = d?.zones?.[0] ?? d?.zone
 		if (zone) {
 			return {
-				floor: zone.floor ?? 1,
 				serverRoomCount: zone.serverRoomCount ?? 1,
 				zoneLocations: { [zone.zone ?? 'A']: zone.locations ?? [] }
 			}
 		}
-		return { floor: 1, serverRoomCount: 1, zoneLocations: {} }
+		return { serverRoomCount: 1, zoneLocations: {} }
 	}
 
 	const migrated = migrateData(data)
 
 	// ── State: global settings ──
-	let floor = $state(migrated.floor)
 	let serverRoomCount = $state(migrated.serverRoomCount)
 
 	// ── State: per-zone locations keyed by zone letter ──
@@ -122,7 +122,7 @@
 	}
 
 	$effect(() => {
-		const _ = JSON.stringify({ floor, serverRoomCount, zoneLocations, frames, rooms, customLocationTypes, excelGroupByRoom })
+		const _ = JSON.stringify({ serverRoomCount, zoneLocations, frames, rooms, customLocationTypes, excelGroupByRoom })
 
 		if (!initialized) {
 			initialized = true
@@ -141,7 +141,7 @@
 	})
 
 	// ── Handlers ──
-	function setFloor(val: number) { floor = val }
+	function setFloor(val: number) { onfloorchange?.(val) }
 	function setServerRooms(count: number) { serverRoomCount = count }
 
 	function setActiveZone(zone: string) {
