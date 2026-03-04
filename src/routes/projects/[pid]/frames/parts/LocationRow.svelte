@@ -10,7 +10,7 @@
 		customTypes?: string[]
 		locKey?: string
 		onupdate: (loc: LocationConfig) => void
-		onselect?: () => void
+		onselect?: (e: MouseEvent | KeyboardEvent) => void
 	} = $props()
 
 	let allTypes = $derived([...DEFAULT_LOC_TYPES, ...customTypes])
@@ -70,10 +70,10 @@
 	class:border-gray-200={!selected}
 	class:hover:bg-gray-100={!selected}
 	data-loc-row={locKey}
-	onclick={() => onselect?.()}
+	onclick={e => onselect?.(e)}
 	role="button"
 	tabindex="0"
-	onkeydown={e => e.key === 'Enter' && onselect?.()}
+	onkeydown={e => e.key === 'Enter' && onselect?.(e)}
 >
 	<!-- Top line: loc number, ports, room, high-level, type buttons -->
 	<div class="flex items-center gap-1.5 flex-wrap">

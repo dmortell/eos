@@ -396,3 +396,92 @@ match /frames/{pid} {
 ```
 
 This matches the existing pattern where Firebase auth restricts access to valid email domains.
+
+## Architecture change
+
+Currently all patch frame data (zones, locations, frames, settings) is stored in a single Firestore doc at frames/{pid} with a single
+     floor value. When the user changes the floor number, the same locations/frames are shown — there's no per-floor separation. The user
+     needs each floor to have its own independent zone locations, server room count, and frame configurations.
+
+     Data Model Change
+
+     Old: Single doc at frames/{pid} containing everything
+     New: Per-floor docs at frames/{pid}_F{floor} (e.g., frames/111-222_F01, frames/111-222_F02)
+
+     Each floor doc contains:
+     {
+       floor: number,
+       serverRoomCount: number,
+       zoneLocations: Record<string, LocationConfig[]>,
+       frames: FrameConfig[],
+       rooms: [...],
+       customLocationTypes: [...],
+       excelGroupByRoom: boolean
+     }
+
+     Settings like rooms, customLocationTypes, excelGroupByRoom remain per-floor since they're stored in the same doc.
+
+     Files to Modify
+
+     1. src/routes/projects/[pid]/frames/+page.svelte
+
+     - Change subscribeOne('frames', pid, ...) to use floor-keyed doc ID: frames/{pid}_F{floor}
+     - Add activeFloor state (default 1)
+     - Re-subscribe when floor changes: unsubscribe old, subscribe to new floor doc
+     - Pass activeFloor and onfloorchange callback to Frames
+     - The save function uses the floor-keyed doc ID
+
+     2. src/routes/projects/[pid]/frames/Frames.svelte
+
+     - Accept new props: activeFloor: number, onfloorchange: (floor: number) => void
+     - Remove floor from internal state — it comes from the parent via activeFloor
+     - When ConfigPanel changes floor, call onfloorchange(newFloor) which triggers parent to re-subscribe
+     - The component re-renders with new data prop when the parent re-subscribes
+     - Remove floor from the auto-save payload (it's part of the doc ID now, but still save it in the doc for reference)
+     - Data migration: handle loading from old single-doc format on first load
+
+     3. src/routes/projects/[pid]/frames/parts/ConfigPanel.svelte
+
+     - No structural changes needed — onfloor callback already exists and will be wired to trigger floor switch
+
+     4. Migration strategy
+
+     - On first load, check if old frames/{pid} doc exists with data
+     - If it does, copy its data to frames/{pid}_F{floor} (using the floor value in the doc)
+     - This is a one-time migration handled in +page.svelte
+
+     Implementation Steps
+
+     1. Update +page.svelte: Add activeFloor state, change Firestore subscription to use {pid}_F{floor} doc ID, re-subscribe on floor
+     change
+     2. Update Frames.svelte: Accept activeFloor prop, wire onfloor to trigger parent's floor change instead of local state update, keep
+     saving all other fields normally
+     3. Add migration: In +page.svelte, check for old doc format and migrate on first load
+
+     Verification
+
+     - Change floor → should see empty/different data for new floor
+     - Add locations on floor 1, switch to floor 2, add different locations → switch back to floor 1, data should be preserved
+     - Reload page → data persists per floor
+     - Excel export should still work with current floor's data
+
+
+● Good. The ConfigPanel snippet already passes {floor} and onfloor={setFloor} — and now floor comes from the prop, and setFloor triggers the
+  parent to re-subscribe via onfloorchange.
+
+  The {#key activeFloor} in +page.svelte ensures the entire Frames component is destroyed and recreated when the floor changes, so all internal   state gets re-initialized from the new floor's data.
+
+  Here's what changed:
+
+  src/lib/db.svelte.ts — Added getOne(path, id) method for one-time document reads (used by migration).
+
+  src/routes/projects/[pid]/frames/+page.svelte
+  - Manages activeFloor state and subscribes to frames/{pid}_F{floor} (e.g., frames/111-222_F01)
+  - Re-subscribes when floor changes, passes new data to Frames
+  - {#key activeFloor} destroys/recreates Frames to reinitialize state from new doc
+  - One-time migration copies old frames/{pid} doc to the new per-floor format
+
+  src/routes/projects/[pid]/frames/Frames.svelte 
+  - floor is now a prop (from parent), not internal state
+  - setFloor calls onfloorchange to trigger parent re-subscription
+  - Auto-save writes to the current floor's doc via parent's onsave

@@ -2,9 +2,9 @@
 	import type { PanelData } from './types'
 	import PortCell from './PortCell.svelte'
 
-	let { panel, selectedLocation, onselect }: {
+	let { panel, selectedLocations, onselect }: {
 		panel: PanelData
-		selectedLocation?: string | null
+		selectedLocations?: Set<string>
 		onselect?: (key: string) => void
 	} = $props()
 </script>
@@ -20,12 +20,12 @@
 		<div class="flex-1 p-0.5 space-y-px">
 			<div class="grid grid-cols-24 gap-px">
 				{#each panel.topRow as port, i (i)}
-					<PortCell {port} selected={port ? `${port.zone}-${port.locationNumber}` === selectedLocation : false} {onselect} />
+					<PortCell {port} selected={port ? (selectedLocations?.has(`${port.zone}-${port.locationNumber}`) ?? false) : false} {onselect} />
 				{/each}
 			</div>
 			<div class="grid grid-cols-24 gap-px">
 				{#each panel.bottomRow as port, i (i)}
-					<PortCell {port} selected={port ? `${port.zone}-${port.locationNumber}` === selectedLocation : false} {onselect} />
+					<PortCell {port} selected={port ? (selectedLocations?.has(`${port.zone}-${port.locationNumber}`) ?? false) : false} {onselect} />
 				{/each}
 			</div>
 		</div>

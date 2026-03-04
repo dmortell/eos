@@ -2,10 +2,10 @@
 	import type { RackData, PanelData, FrameSlot } from './types'
 	import PanelStrip from './PanelStrip.svelte'
 
-	let { racks, selectedFrameId, selectedLocation, onselect }: {
+	let { racks, selectedFrameId, selectedLocations, onselect }: {
 		racks: RackData[]
 		selectedFrameId?: string | null
-		selectedLocation?: string | null
+		selectedLocations?: Set<string>
 		onselect?: (key: string) => void
 	} = $props()
 
@@ -85,7 +85,7 @@
 
 					{#each ruMap as item}
 						{#if item.type === 'panel'}
-							<PanelStrip panel={item.panel} {selectedLocation} {onselect} />
+							<PanelStrip panel={item.panel} {selectedLocations} {onselect} />
 						{:else if item.type === 'slot'}
 							<!-- Slot: blanking, cable mgmt, device -->
 							<div class="border-b border-gray-200 last:border-b-0">

@@ -43,6 +43,7 @@ The port allocator tool generates a visual representation of data patch frames s
 - Each location can be assigned a type via quick-select grouped buttons: desk, AP, PR (printer), RS (room scheduler), FR (facial recognition), WC (world-clock), TV, LK (lockers), etc. Additional types can be added in settings.
 - Location numbers can be assigned a 4-digit room number for floorplan reference. A room number editor allows assigning room names.
 - Most floors have one server room, but some have two (A and B). Ports from a single outlet box can be split across server rooms (e.g., 4 ports: 2 to room A, 2 to room B) with bulk assignment actions (Split 50/50, All A, All B).
+- Select a group of outlets using shift-click or ctrl-click for editing simultaneously
 
 #### Frame Layout
 
@@ -77,7 +78,6 @@ Patch frame data is stored in Firestore at `frames/{pid}` (where pid is the proj
 #### Future Features
 
 - Outlet ports defined as Copper or Fiber, with copper/fiber panel locations specified per frame
-- Allow selecting a group of outlets using shift-click & ctrl-click for editing simultaneously
 
 ## Developing
 

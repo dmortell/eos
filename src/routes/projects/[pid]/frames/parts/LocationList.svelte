@@ -2,15 +2,15 @@
 	import type { LocationConfig } from './types'
 	import LocationRow from './LocationRow.svelte'
 
-	let { locations, hasTwoRooms = false, selectedLocation, customTypes = [], zoneForLoc, onupdate, onselect }: {
+	let { locations, hasTwoRooms = false, selectedLocations, customTypes = [], zoneForLoc, onupdate, onselect }: {
 		locations: LocationConfig[]
 		hasTwoRooms?: boolean
-		selectedLocation?: string | null
+		selectedLocations?: Set<string>
 		customTypes?: string[]
 		/** Returns the zone letter for a given index — used for selection keys */
 		zoneForLoc?: (index: number) => string
 		onupdate: (index: number, loc: LocationConfig) => void
-		onselect?: (key: string) => void
+		onselect?: (key: string, e: MouseEvent | KeyboardEvent) => void
 	} = $props()
 
 	function locKey(index: number, loc: LocationConfig): string {
@@ -28,21 +28,24 @@
 		<div class="flex items-center justify-between px-1">
 			<span class="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">
 				{locations.length} location{locations.length !== 1 ? 's' : ''}
+				{#if selectedLocations && selectedLocations.size > 1}
+					<span class="text-blue-500 ml-1">({selectedLocations.size} selected)</span>
+				{/if}
 			</span>
 			<slot />
 		</div>
 
-		<div class="space-y-1 pr-1">
+		<div class="space-y-1 pr-1 select-none">
 			{#each locations as loc, i (locKey(i, loc))}
 				{@const key = locKey(i, loc)}
 				<LocationRow
 					location={loc}
 					{hasTwoRooms}
 					{customTypes}
-					selected={key === selectedLocation}
+					selected={selectedLocations?.has(key) ?? false}
 					locKey={key}
 					onupdate={updated => onupdate(i, updated)}
-					onselect={() => onselect?.(key)}
+					onselect={e => onselect?.(key, e)}
 				/>
 			{/each}
 		</div>

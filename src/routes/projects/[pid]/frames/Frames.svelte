@@ -49,7 +49,8 @@
 	let rooms = $state<{ roomNumber: string; roomName: string }[]>(data?.rooms ?? [])
 	let customLocationTypes = $state<string[]>(data?.customLocationTypes ?? [])
 	let excelGroupByRoom = $state<boolean>(data?.excelGroupByRoom ?? true)
-	let selectedLocation = $state<string | null>(null)
+	let selectedLocations = $state<Set<string>>(new Set())
+	let lastSelectedKey = $state<string | null>(null)
 	let selectedFrameId = $state<string | null>(frames[0]?.id ?? null)
 	let saveStatus = $state<'saved' | 'saving' | 'unsaved'>('saved')
 	let viewMode = $state<'sidebar' | 'stacked'>('sidebar')
@@ -146,7 +147,8 @@
 
 	function setActiveZone(zone: string) {
 		activeZone = zone
-		selectedLocation = null
+		selectedLocations = new Set()
+		lastSelectedKey = null
 	}
 
 	function generateLocations(count: number) {
@@ -164,26 +166,116 @@
 	}
 
 	function updateLocation(index: number, loc: LocationConfig) {
-		if (showAllZones) {
-			const { zone, indexInZone } = allLocationsFlat.index[index]
-			const locs = [...(zoneLocations[zone] ?? [])]
-			locs[indexInZone] = loc
-			zoneLocations = { ...zoneLocations, [zone]: locs }
+		const srcList = showAllZones ? allLocationsFlat.locations : activeLocations
+		const original = srcList[index]
+		if (!original) return
+
+		// Determine what fields changed
+		const changedFields: Partial<LocationConfig> = {}
+		if (loc.portCount !== original.portCount) changedFields.portCount = loc.portCount
+		if (loc.locationType !== original.locationType) changedFields.locationType = loc.locationType
+		if (loc.isHighLevel !== original.isHighLevel) changedFields.isHighLevel = loc.isHighLevel
+		if (loc.roomNumber !== original.roomNumber) changedFields.roomNumber = loc.roomNumber
+		if (JSON.stringify(loc.serverRoomAssignment) !== JSON.stringify(original.serverRoomAssignment)) {
+			changedFields.serverRoomAssignment = loc.serverRoomAssignment
+		}
+
+		// If multiple selected and this loc is in the selection, apply changes to all selected
+		const editedKey = showAllZones
+			? `${allLocationsFlat.index[index].zone}-${original.locationNumber}`
+			: `${activeZone}-${original.locationNumber}`
+		const applyToAll = selectedLocations.size > 1 && selectedLocations.has(editedKey) && Object.keys(changedFields).length > 0
+
+		if (applyToAll) {
+			let updated = { ...zoneLocations }
+			const locs = showAllZones ? allLocationsFlat.locations : activeLocations
+			for (let i = 0; i < locs.length; i++) {
+				const z = showAllZones ? allLocationsFlat.index[i].zone : activeZone
+				const key = `${z}-${locs[i].locationNumber}`
+				if (!selectedLocations.has(key)) continue
+
+				const updatedLoc = { ...locs[i], ...changedFields }
+				// Sync serverRoomAssignment length with portCount
+				if ('portCount' in changedFields) {
+					updatedLoc.serverRoomAssignment = Array.from({ length: changedFields.portCount! }, (_, j) =>
+						locs[i].serverRoomAssignment[j] || 'A'
+					)
+				}
+				if (showAllZones) {
+					const { zone, indexInZone } = allLocationsFlat.index[i]
+					const zoneLocs = [...(updated[zone] ?? [])]
+					zoneLocs[indexInZone] = updatedLoc
+					updated = { ...updated, [zone]: zoneLocs }
+				} else {
+					const zoneLocs = [...(updated[activeZone] ?? [])]
+					zoneLocs[i] = updatedLoc
+					updated = { ...updated, [activeZone]: zoneLocs }
+				}
+			}
+			zoneLocations = updated
 		} else {
-			const locs = [...activeLocations]
-			locs[index] = loc
-			zoneLocations = { ...zoneLocations, [activeZone]: locs }
+			// Single update
+			if (showAllZones) {
+				const { zone, indexInZone } = allLocationsFlat.index[index]
+				const locs = [...(zoneLocations[zone] ?? [])]
+				locs[indexInZone] = loc
+				zoneLocations = { ...zoneLocations, [zone]: locs }
+			} else {
+				const locs = [...activeLocations]
+				locs[index] = loc
+				zoneLocations = { ...zoneLocations, [activeZone]: locs }
+			}
 		}
 	}
 
-	function selectLocation(key: string) {
-		selectedLocation = selectedLocation === key ? null : key
-		if (selectedLocation !== null) scrollToLocation(selectedLocation)
+	/** All displayed location keys in order (for shift-range selection) */
+	let displayedKeys = $derived<string[]>(
+		displayedLocations.map((loc, i) => {
+			const z = showAllZones ? allLocationsFlat.index[i]?.zone ?? activeZone : activeZone
+			return `${z}-${loc.locationNumber}`
+		})
+	)
+
+	function selectLocation(key: string, e: MouseEvent | KeyboardEvent) {
+		if (e.shiftKey && lastSelectedKey) {
+			// Range select from lastSelectedKey to key
+			const startIdx = displayedKeys.indexOf(lastSelectedKey)
+			const endIdx = displayedKeys.indexOf(key)
+			if (startIdx >= 0 && endIdx >= 0) {
+				const from = Math.min(startIdx, endIdx)
+				const to = Math.max(startIdx, endIdx)
+				const rangeKeys = displayedKeys.slice(from, to + 1)
+				selectedLocations = new Set([...selectedLocations, ...rangeKeys])
+			}
+		} else if (e.ctrlKey || e.metaKey) {
+			// Toggle individual
+			const next = new Set(selectedLocations)
+			if (next.has(key)) next.delete(key)
+			else next.add(key)
+			selectedLocations = next
+			lastSelectedKey = key
+		} else {
+			// Plain click: toggle single
+			if (selectedLocations.size === 1 && selectedLocations.has(key)) {
+				selectedLocations = new Set()
+				lastSelectedKey = null
+			} else {
+				selectedLocations = new Set([key])
+				lastSelectedKey = key
+			}
+			scrollToLocation(key)
+		}
 	}
 
 	function selectLocationFromFrame(key: string) {
-		selectedLocation = selectedLocation === key ? null : key
-		if (selectedLocation !== null) scrollToLocationInList(selectedLocation)
+		if (selectedLocations.size === 1 && selectedLocations.has(key)) {
+			selectedLocations = new Set()
+			lastSelectedKey = null
+		} else {
+			selectedLocations = new Set([key])
+			lastSelectedKey = key
+			scrollToLocationInList(key)
+		}
 	}
 
 	function updateFrames(updated: FrameConfig[]) {
@@ -280,7 +372,7 @@
 		locations={displayedLocations}
 		hasTwoRooms={serverRoomCount >= 2}
 		customTypes={customLocationTypes}
-		{selectedLocation}
+		{selectedLocations}
 		{zoneForLoc}
 		onupdate={updateLocation}
 		onselect={selectLocation}
@@ -340,5 +432,5 @@
 {/snippet}
 
 {#snippet frameContent()}
-	<FrameDrawing {racks} {selectedFrameId} {selectedLocation} onselect={selectLocationFromFrame} />
+	<FrameDrawing {racks} {selectedFrameId} {selectedLocations} onselect={selectLocationFromFrame} />
 {/snippet}
