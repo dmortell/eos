@@ -9,7 +9,7 @@
 	import FrameToolbar from './parts/FrameToolbar.svelte'
 	import FrameDrawing from './parts/FrameDrawing.svelte'
 	import SettingsDialog from './parts/SettingsDialog.svelte'
-    import Titlebar from '$lib/Titlebar.svelte';
+	import Titlebar from '$lib/Titlebar.svelte';
 
 	let { data = null, onsave }: {
 		data?: any
@@ -69,6 +69,7 @@
 	let activeLocations = $derived<LocationConfig[]>(zoneLocations[activeZone] ?? [])
 
 	/** All locations across all zones, with a lookup to route updates back */
+	// TODO is this a correct use of $derived() for reactivity? Or should it be changed to $derived.by(()=>{})
 	type IndexedLoc = { zone: string; indexInZone: number }
 	let allLocationsFlat = $derived<{ locations: LocationConfig[]; index: IndexedLoc[] }>((() => {
 		const locations: LocationConfig[] = []
