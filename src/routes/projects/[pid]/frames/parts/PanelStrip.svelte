@@ -18,23 +18,15 @@
 		</div>
 
 		<div class="flex-1 p-0.5 space-y-px">
-			<!-- Top row -->
-			<div class="flex items-center gap-px">
-				<span class="font-mono text-[7px] text-gray-400 w-3 shrink-0">T</span>
-				<div class="grid grid-cols-24 gap-px flex-1">
-					{#each panel.topRow as port, i (i)}
-						<PortCell {port} selected={port ? `${port.zone}-${port.locationNumber}` === selectedLocation : false} {onselect} />
-					{/each}
-				</div>
+			<div class="grid grid-cols-24 gap-px">
+				{#each panel.topRow as port, i (i)}
+					<PortCell {port} selected={port ? `${port.zone}-${port.locationNumber}` === selectedLocation : false} {onselect} />
+				{/each}
 			</div>
-			<!-- Bottom row -->
-			<div class="flex items-center gap-px">
-				<span class="font-mono text-[7px] text-gray-400 w-3 shrink-0">B</span>
-				<div class="grid grid-cols-24 gap-px flex-1">
-					{#each panel.bottomRow as port, i (i)}
-						<PortCell {port} selected={port ? `${port.zone}-${port.locationNumber}` === selectedLocation : false} {onselect} />
-					{/each}
-				</div>
+			<div class="grid grid-cols-24 gap-px">
+				{#each panel.bottomRow as port, i (i)}
+					<PortCell {port} selected={port ? `${port.zone}-${port.locationNumber}` === selectedLocation : false} {onselect} />
+				{/each}
 			</div>
 		</div>
 	</div>

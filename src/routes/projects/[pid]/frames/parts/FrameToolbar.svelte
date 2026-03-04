@@ -136,7 +136,7 @@
 					{frame.name}
 					{#if isSelected}
 						<!-- Inline settings/delete on hover, visible when selected -->
-						<span class="inline-flex items-center gap-0.5 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
+						<span class="inline-flex items-center gap-0.5 ml-1 opacity-80 group-hover:opacity-100 transition-opacity">
 							<button
 								class="text-gray-400 hover:text-gray-600 p-0.5"
 								onclick={e => { e.stopPropagation(); editingFrame = editingFrame === frame.id ? null : frame.id }}
@@ -166,7 +166,7 @@
 		<div class="flex-1"></div>
 		{#each ['A', 'B', 'C', 'D'].slice(0, serverRoomCount) as room}
 			{@const colors = roomColor(room)}
-			<button
+			<button title="Add frame in room {room}"
 				class="text-[10px] h-6 px-2 rounded border border-gray-200 text-gray-400 hover:text-gray-600 hover:border-gray-300 transition-colors flex items-center gap-1"
 				onclick={() => addFrame(room)}
 			>

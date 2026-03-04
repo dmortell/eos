@@ -325,9 +325,9 @@
 
 		<div class="flex items-center gap-1">
 			{#if allLabels.length > 0}
-				<Button onclick={handleExport} icon="download" class="text-[10px] h-6">Excel</Button>
+				<Button onclick={handleExport} icon="download" class="text-[10px] h-6" title="Save as Excel">Excel</Button>
 			{/if}
-			<Button onclick={() => settingsOpen = true} icon="settings" class="text-[10px] h-6">Settings</Button>
+			<Button onclick={() => settingsOpen = true} icon="settings" class="text-[10px] h-6" title="Settings">Settings</Button>
 			<div class="flex">
 				<Button group active={viewMode === 'sidebar'} onclick={() => viewMode = 'sidebar'}>
 					<Icon name="sidebar" />

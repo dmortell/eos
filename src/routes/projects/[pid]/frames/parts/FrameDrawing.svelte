@@ -76,7 +76,6 @@
 					<!-- Column header -->
 					<div class="flex items-center px-0.5 py-0.5 bg-gray-50 border-b border-gray-200">
 						<span class="font-mono text-[7px] text-gray-400 w-8 text-center shrink-0">RU</span>
-						<span class="w-3 shrink-0"></span>
 						<div class="grid grid-cols-24 gap-px flex-1">
 							{#each Array(24) as _, i}
 								<span class="font-mono text-[6px] text-gray-400 text-center">{i + 1}</span>
