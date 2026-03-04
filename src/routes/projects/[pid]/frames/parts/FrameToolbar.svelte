@@ -179,7 +179,7 @@
 	<!-- Expandable frame settings (below tabs) -->
 	{#if selectedFrame && editingFrame === selectedFrame.id}
 		<div class="p-2 bg-gray-50 rounded border border-gray-200 space-y-2 text-xs">
-			<div class="grid grid-cols-3 gap-2">
+			<div class="grid grid-cols-4 gap-2">
 				<div>
 					<label class="text-[10px] text-gray-400">Name</label>
 					<input
@@ -199,7 +199,7 @@
 					/>
 				</div>
 				<div>
-					<label class="text-[10px] text-gray-400">Panel RU range</label>
+					<label class="text-[10px] text-gray-400">Floor panel RU</label>
 					<div class="flex items-center gap-1">
 						<input
 							type="number" min="1"
@@ -212,6 +212,24 @@
 							type="number" min="1"
 							value={selectedFrame.panelEndRU}
 							onchange={e => updateFrame(selectedFrame!.id, { panelEndRU: parseInt(e.currentTarget.value) || 45 })}
+							class="w-12 h-6 px-1 text-xs font-mono bg-white border border-gray-200 rounded text-center"
+						/>
+					</div>
+				</div>
+				<div>
+					<label class="text-[10px] text-gray-400">HL panel RU</label>
+					<div class="flex items-center gap-1">
+						<input
+							type="number" min="1"
+							value={selectedFrame.hlPanelStartRU ?? selectedFrame.panelStartRU}
+							onchange={e => updateFrame(selectedFrame!.id, { hlPanelStartRU: parseInt(e.currentTarget.value) || 1 })}
+							class="w-12 h-6 px-1 text-xs font-mono bg-white border border-gray-200 rounded text-center"
+						/>
+						<span class="text-gray-400">–</span>
+						<input
+							type="number" min="1"
+							value={selectedFrame.hlPanelEndRU ?? selectedFrame.panelEndRU}
+							onchange={e => updateFrame(selectedFrame!.id, { hlPanelEndRU: parseInt(e.currentTarget.value) || 45 })}
 							class="w-12 h-6 px-1 text-xs font-mono bg-white border border-gray-200 rounded text-center"
 						/>
 					</div>

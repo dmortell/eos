@@ -14,7 +14,7 @@
 		"test": "npm run test:unit -- --run"
 	},
 	"devDependencies": {
-		"@lucide/svelte": "^0.576.0",
+		"@lucide/svelte": "^0.561.0",
 		"@sveltejs/adapter-vercel": "^6.3.1",
 		"@sveltejs/kit": "^2.50.2",
 		"@sveltejs/vite-plugin-svelte": "^6.2.4",
@@ -23,6 +23,7 @@
 		"clsx": "^2.1.1",
 		"firebase": "^12.10.0",
 		"nanoid": "^5.1.6",
+		"paneforge": "^1.0.2",
 		"playwright": "^1.58.2",
 		"svelte": "^5.51.0",
 		"svelte-check": "^4.4.2",

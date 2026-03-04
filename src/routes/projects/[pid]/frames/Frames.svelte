@@ -9,7 +9,8 @@
 	import FrameToolbar from './parts/FrameToolbar.svelte'
 	import FrameDrawing from './parts/FrameDrawing.svelte'
 	import SettingsDialog from './parts/SettingsDialog.svelte'
-	import Titlebar from '$lib/Titlebar.svelte';
+	import Titlebar from '$lib/Titlebar.svelte'
+	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
 
 	let { data = null, onsave }: {
 		data?: any
@@ -228,87 +229,70 @@
 />
 
 {#if viewMode === 'sidebar'}
-	<div class="flex flex-1 min-h-0 bg-white">
-		<div class="w-[360px] shrink-0 border-r border-gray-200 flex flex-col overflow-hidden">
-			<div class="p-3 space-y-3 overflow-y-auto flex-1" bind:this={locationListEl}>
-				<ConfigPanel
-					{floor}
-					{serverRoomCount}
-					{activeZone}
-
-					locations={activeLocations}
-					onfloor={setFloor}
-					onserverrooms={setServerRooms}
-					onzone={setActiveZone}
-					ongenerate={generateLocations}
-				/>
-				<LocationList
-					locations={displayedLocations}
-					hasTwoRooms={serverRoomCount >= 2}
-					customTypes={customLocationTypes}
-					{selectedLocation}
-					{zoneForLoc}
-					onupdate={updateLocation}
-					onselect={selectLocation}
-				>
-					{#if zoneLetters.length > 1}
-						<label class="flex items-center gap-1.5 text-[10px] text-gray-500 cursor-pointer select-none">
-							<input type="checkbox" bind:checked={showAllZones} class="w-3 h-3 rounded" />
-							All zones
-						</label>
-					{/if}
-				</LocationList>
+	<PaneGroup direction="horizontal" class="flex-1 min-h-0 bg-white">
+		<Pane defaultSize={25} minSize={15} maxSize={50}>
+			<div class="h-full flex flex-col overflow-hidden">
+				<div class="p-3 space-y-3 overflow-y-auto flex-1" bind:this={locationListEl}>
+					{@render configAndLocations()}
+				</div>
 			</div>
-		</div>
-
-		<div class="flex-1 overflow-auto p-4 bg-gray-50/50" bind:this={frameDrawingEl}>
-			{@render toolbar()}
-			{@render frameContent()}
-		</div>
-	</div>
-{:else}
-	<div class="flex-1 min-h-0 bg-white overflow-auto">
-		<div class="max-w-6xl mx-auto p-4 space-y-4">
-			<div class="space-y-3" bind:this={locationListEl}>
-				<ConfigPanel
-					{floor}
-					{serverRoomCount}
-					{activeZone}
-
-					locations={activeLocations}
-					onfloor={setFloor}
-					onserverrooms={setServerRooms}
-					onzone={setActiveZone}
-					ongenerate={generateLocations}
-				/>
-				<LocationList
-					locations={displayedLocations}
-					hasTwoRooms={serverRoomCount >= 2}
-					customTypes={customLocationTypes}
-					{selectedLocation}
-					{zoneForLoc}
-					onupdate={updateLocation}
-					onselect={selectLocation}
-				>
-					{#if zoneLetters.length > 1}
-						<label class="flex items-center gap-1.5 text-[10px] text-gray-500 cursor-pointer select-none">
-							<input type="checkbox" bind:checked={showAllZones} class="w-3 h-3 rounded" />
-							All zones
-						</label>
-					{/if}
-				</LocationList>
-			</div>
-
-			<hr class="border-gray-200" />
-
-			<div bind:this={frameDrawingEl}>
+		</Pane>
+		<Handle withHandle />
+		<Pane defaultSize={75}>
+			<div class="h-full overflow-auto p-4 bg-gray-50/50" bind:this={frameDrawingEl}>
 				{@render toolbar()}
 				{@render frameContent()}
 			</div>
-		</div>
-	</div>
+		</Pane>
+	</PaneGroup>
+{:else}
+	<PaneGroup direction="vertical" class="flex-1 min-h-0 bg-white">
+		<Pane defaultSize={40} minSize={15}>
+			<div class="h-full overflow-auto p-3" bind:this={locationListEl}>
+				<div class="max-w-6xl mx-auto space-y-3">
+					{@render configAndLocations()}
+				</div>
+			</div>
+		</Pane>
+		<Handle withHandle />
+		<Pane defaultSize={60} minSize={20}>
+			<div class="h-full overflow-auto p-4 bg-gray-50/50" bind:this={frameDrawingEl}>
+				{@render toolbar()}
+				{@render frameContent()}
+			</div>
+		</Pane>
+	</PaneGroup>
 {/if}
 </div>
+
+{#snippet configAndLocations()}
+	<ConfigPanel
+		{floor}
+		{serverRoomCount}
+		{activeZone}
+		locations={activeLocations}
+		onfloor={setFloor}
+		onserverrooms={setServerRooms}
+		onzone={setActiveZone}
+		ongenerate={generateLocations}
+	/>
+	<LocationList
+		locations={displayedLocations}
+		hasTwoRooms={serverRoomCount >= 2}
+		customTypes={customLocationTypes}
+		{selectedLocation}
+		{zoneForLoc}
+		onupdate={updateLocation}
+		onselect={selectLocation}
+	>
+		{#if zoneLetters.length > 1}
+			<label class="flex items-center gap-1.5 text-[10px] text-gray-500 cursor-pointer select-none">
+				<input type="checkbox" bind:checked={showAllZones} class="w-3 h-3 rounded" />
+				All zones
+			</label>
+		{/if}
+	</LocationList>
+{/snippet}
 
 {#snippet toolbar()}
 	<div class="mb-3 flex items-center justify-between text-sm flex-wrap gap-2">

@@ -58,14 +58,16 @@ function buildPanels(labels: PortLabel[], isHighLevel: boolean, startingPanel: n
 	return panels
 }
 
-/** How many patch panel RUs fit in a frame (accounting for slots) */
-function availablePanelRUs(frame: FrameConfig): number {
+/** How many patch panel RUs fit in a frame (accounting for slots) within a given RU range */
+function availablePanelRUs(frame: FrameConfig, startRU?: number, endRU?: number): number {
 	const slotRUs = new Set<number>()
 	for (const slot of frame.slots) {
 		for (let h = 0; h < slot.height; h++) slotRUs.add(slot.ru + h)
 	}
+	const s = startRU ?? frame.panelStartRU
+	const e = endRU ?? frame.panelEndRU
 	let count = 0
-	for (let ru = frame.panelStartRU; ru <= frame.panelEndRU; ru++) {
+	for (let ru = s; ru <= e; ru++) {
 		if (!slotRUs.has(ru)) count++
 	}
 	return count
@@ -98,10 +100,10 @@ export function generateRacks(labels: PortLabel[], serverRoomCount: number, fram
 		const floorLabels = roomLabels.filter(l => !l.isHighLevel)
 		const highLabels = roomLabels.filter(l => l.isHighLevel)
 
-		// Distribute floor labels across frames by panel capacity
+		// Distribute floor labels across frames by panel capacity (using floor-level range)
 		let floorOffset = 0
 		for (const frame of roomFrames) {
-			const capacity = availablePanelRUs(frame) * 48
+			const capacity = availablePanelRUs(frame, frame.panelStartRU, frame.panelEndRU) * 48
 			const chunk = floorLabels.slice(floorOffset, floorOffset + capacity)
 			floorOffset += chunk.length
 
@@ -115,12 +117,12 @@ export function generateRacks(labels: PortLabel[], serverRoomCount: number, fram
 			last.floor = [...last.floor, ...floorLabels.slice(floorOffset)]
 		}
 
-		// Distribute high-level labels similarly
+		// Distribute high-level labels using HL range (falls back to floor range if not set)
 		let highOffset = 0
 		for (const frame of roomFrames) {
-			const floorPanelsUsed = Math.ceil((labelsByFrame.get(frame.id)?.floor.length ?? 0) / 48)
-			const remainingRUs = availablePanelRUs(frame) - floorPanelsUsed
-			const capacity = Math.max(0, remainingRUs) * 48
+			const hlStart = frame.hlPanelStartRU ?? frame.panelStartRU
+			const hlEnd = frame.hlPanelEndRU ?? frame.panelEndRU
+			const capacity = availablePanelRUs(frame, hlStart, hlEnd) * 48
 			const chunk = highLabels.slice(highOffset, highOffset + capacity)
 			highOffset += chunk.length
 
@@ -138,25 +140,34 @@ export function generateRacks(labels: PortLabel[], serverRoomCount: number, fram
 		const frameLbls = labelsByFrame.get(frame.id) ?? { floor: [], high: [] }
 		const floorPanels = buildPanels(frameLbls.floor, false, 1)
 		const highPanels = buildPanels(frameLbls.high, true, floorPanels.length + 1)
-		const allPanels = [...floorPanels, ...highPanels]
 
-		// Assign RU positions top-down: first panel at panelEndRU, going down
-		// Skip RUs occupied by slots
+		// Determine slot-occupied RUs
 		const slotRUs = new Set<number>()
 		for (const slot of frame.slots) {
 			for (let h = 0; h < slot.height; h++) slotRUs.add(slot.ru + h)
 		}
 
-		const availableRUs: number[] = []
+		// Assign floor-level panels within floor range (top-down)
+		const floorAvail: number[] = []
 		for (let ru = frame.panelEndRU; ru >= frame.panelStartRU; ru--) {
-			if (!slotRUs.has(ru)) availableRUs.push(ru)
+			if (!slotRUs.has(ru)) floorAvail.push(ru)
 		}
-
-		allPanels.forEach((panel, i) => {
-			panel.ru = availableRUs[i] ?? frame.panelEndRU - i
+		floorPanels.forEach((panel, i) => {
+			panel.ru = floorAvail[i] ?? frame.panelEndRU - i
 		})
 
-		return { frame, panels: allPanels }
+		// Assign high-level panels within HL range (top-down)
+		const hlStart = frame.hlPanelStartRU ?? frame.panelStartRU
+		const hlEnd = frame.hlPanelEndRU ?? frame.panelEndRU
+		const hlAvail: number[] = []
+		for (let ru = hlEnd; ru >= hlStart; ru--) {
+			if (!slotRUs.has(ru)) hlAvail.push(ru)
+		}
+		highPanels.forEach((panel, i) => {
+			panel.ru = hlAvail[i] ?? hlEnd - i
+		})
+
+		return { frame, panels: [...floorPanels, ...highPanels] }
 	})
 }
 

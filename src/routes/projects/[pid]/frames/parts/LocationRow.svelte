@@ -63,7 +63,7 @@
 </script>
 
 <div
-	class="rounded-md p-2 space-y-1.5 transition-colors cursor-pointer border"
+	class="rounded-md p-2 space-y-1.5 transition-colors cursor-pointer border overflow-hidden"
 	class:bg-blue-50={selected}
 	class:border-blue-300={selected}
 	class:bg-gray-50={!selected}

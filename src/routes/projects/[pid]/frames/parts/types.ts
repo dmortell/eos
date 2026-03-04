@@ -66,6 +66,8 @@ export interface FrameConfig {
 	totalRU: number // default 45
 	panelStartRU: number
 	panelEndRU: number
+	hlPanelStartRU?: number // high-level panel range (optional, defaults to panelStartRU)
+	hlPanelEndRU?: number   // high-level panel range (optional, defaults to panelEndRU)
 	slots: FrameSlot[]
 }
 
