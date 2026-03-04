@@ -12,7 +12,7 @@ import {
 	PanelsTopLeft,
 	Plus, PanelRight, Pen, Power, Printer,
 	RotateCcw, RotateCw, Rotate3d, Redo, RectangleHorizontal, RectangleVertical, RouteOff, Route, Ruler,
-	Square, Slash, Search, Server, Sun,
+	ScrollText, Square, Slash, Search, Server, Sun,
 	Trash2, Triangle, Type, TextAlignStart, TextAlignCenter, TextAlignEnd, TriangleAlert,
 	Scaling, Settings, Star, Undo, Rows3, Waypoints, X,
 } from '@lucide/svelte';
@@ -36,7 +36,7 @@ let lucide: Record<string, any> = {
 	rect: RectangleHorizontal, rectVertical: RectangleVertical,
 	redo: Redo, rotate3d: Rotate3d, rotateLeft: RotateCcw, rotateRight: RotateCw,
 	route: Route, routeOff: RouteOff, ruler: Ruler, scale: Scaling, search: Search,
-	rows: Rows3, select: MousePointer2, settings: Settings, sidebar: PanelRight, server: Server,
+	rows: Rows3, scrollText: ScrollText, select: MousePointer2, settings: Settings, sidebar: PanelRight, server: Server,
 	spinner: LoaderCircle, square: Square, star: Star, start: TextAlignStart,
 	sun: Sun, text: Type, trash: Trash2, upload: FileUp, undo: Undo,
 	polygon: Triangle, warning: TriangleAlert, waypoints: Waypoints,

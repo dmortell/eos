@@ -1,9 +1,13 @@
 <script>
 	import { page } from '$app/state';
-	import { Firestore, Spinner } from '$lib';
+	import { getContext } from 'svelte';
+	import { Firestore, Spinner, Session } from '$lib';
+	import { writeLog } from '$lib/logger';
 	import Frames from './Frames.svelte';
 
 	let db = new Firestore();
+	/** @type {Session} */
+	let session = getContext('session');
 	let frameData = $state(/** @type {any} */ (null));
 	let loading = $state(true);
 	let activeFloor = $state(1);
@@ -27,7 +31,6 @@
 			frameData = data;
 			loading = false;
 
-			// One-time migration: check old single-doc format on first load
 			if (!hasMigrated) {
 				hasMigrated = true;
 				migrateOldDoc(pid);
@@ -44,7 +47,6 @@
 			if (oldData && (oldData.zoneLocations || oldData.zone || oldData.zones)) {
 				const oldFloor = /** @type {number} */ (oldData.floor ?? 1);
 				const newId = `${pid}_F${String(oldFloor).padStart(2, '0')}`;
-				// Only migrate if the floor doc is empty
 				const existing = await db.getOne('frames', newId);
 				if (!existing || (!existing.zoneLocations && !existing.frames)) {
 					const { id: _, ...payload } = oldData;
@@ -64,10 +66,17 @@
 		activeFloor = newFloor;
 	}
 
-	function save(/** @type {any} */ payload) {
+	/** @param {any} payload @param {import('$lib/logger').ChangeDetail[]} changes */
+	function save(payload, changes) {
 		const pid = page.params.pid;
 		if (!pid) return;
 		db.save('frames', { id: docId(), ...payload, floor: activeFloor });
+
+		// Log changes
+		if (changes?.length) {
+			const uid = session?.user?.uid ?? 'unknown';
+			writeLog(pid, 'frames', uid, changes, { floor: activeFloor });
+		}
 	}
 </script>
 
@@ -77,6 +86,6 @@
 	</div>
 {:else}
 	{#key activeFloor}
-		<Frames data={frameData} floor={activeFloor} onsave={save} onfloorchange={changeFloor} />
+		<Frames data={frameData} floor={activeFloor} projectId={page.params.pid} onsave={save} onfloorchange={changeFloor} />
 	{/key}
 {/if}

@@ -9,13 +9,17 @@
 	import FrameToolbar from './parts/FrameToolbar.svelte'
 	import FrameDrawing from './parts/FrameDrawing.svelte'
 	import SettingsDialog from './parts/SettingsDialog.svelte'
+	import LogsDialog from './parts/LogsDialog.svelte'
 	import Titlebar from '$lib/Titlebar.svelte'
 	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
 
-	let { data = null, floor, onsave, onfloorchange }: {
+	import type { ChangeDetail } from '$lib/logger'
+
+	let { data = null, floor, projectId = '', onsave, onfloorchange }: {
 		data?: any
 		floor: number
-		onsave?: (payload: any) => void
+		projectId?: string
+		onsave?: (payload: any, changes: ChangeDetail[]) => void
 		onfloorchange?: (floor: number) => void
 	} = $props()
 
@@ -55,6 +59,7 @@
 	let saveStatus = $state<'saved' | 'saving' | 'unsaved'>('saved')
 	let viewMode = $state<'sidebar' | 'stacked'>('sidebar')
 	let settingsOpen = $state(false)
+	let logsOpen = $state(false)
 	let showAllZones = $state(false)
 
 	// ── Refs for scroll sync ──
@@ -105,9 +110,11 @@
 
 	let racks = $derived<RackData[]>(generateRacks(allLabels, serverRoomCount, frames.length > 0 ? frames : undefined))
 
-	// ── Debounced auto-save ──
+	// ── Debounced auto-save with change tracking ──
 	let saveTimer: ReturnType<typeof setTimeout> | null = null
 	let initialized = false
+	let pendingChanges: ChangeDetail[] = []
+	let prevSnapshot: string = ''
 
 	/** Strip undefined values recursively (Firestore rejects them) */
 	function stripUndefined(obj: any): any {
@@ -122,20 +129,109 @@
 		return obj
 	}
 
+	/** Compute human-readable change details by diffing previous vs current state */
+	function computeChanges(prev: any, next: any): ChangeDetail[] {
+		if (!prev) return []
+		const changes: ChangeDetail[] = []
+
+		if (prev.serverRoomCount !== next.serverRoomCount) {
+			changes.push({ action: 'update', field: 'serverRoomCount', from: prev.serverRoomCount, to: next.serverRoomCount })
+		}
+
+		// Zone location changes
+		const allZones = new Set([...Object.keys(prev.zoneLocations ?? {}), ...Object.keys(next.zoneLocations ?? {})])
+		for (const z of allZones) {
+			const prevLocs: LocationConfig[] = prev.zoneLocations?.[z] ?? []
+			const nextLocs: LocationConfig[] = next.zoneLocations?.[z] ?? []
+
+			if (prevLocs.length !== nextLocs.length) {
+				changes.push({ action: prevLocs.length < nextLocs.length ? 'add' : 'remove', field: 'locations', zone: z, from: prevLocs.length, to: nextLocs.length })
+			}
+
+			const minLen = Math.min(prevLocs.length, nextLocs.length)
+			for (let i = 0; i < minLen; i++) {
+				const p = prevLocs[i], n = nextLocs[i]
+				if (JSON.stringify(p) === JSON.stringify(n)) continue
+
+				const locDetail: string[] = []
+				if (p.portCount !== n.portCount) locDetail.push(`ports: ${p.portCount}→${n.portCount}`)
+				if (p.locationType !== n.locationType) locDetail.push(`type: ${p.locationType}→${n.locationType}`)
+				if (p.isHighLevel !== n.isHighLevel) locDetail.push(`HL: ${!!p.isHighLevel}→${!!n.isHighLevel}`)
+				if (p.roomNumber !== n.roomNumber) locDetail.push(`room: ${p.roomNumber ?? ''}→${n.roomNumber ?? ''}`)
+				if (JSON.stringify(p.serverRoomAssignment) !== JSON.stringify(n.serverRoomAssignment)) locDetail.push('roomAssignment changed')
+
+				if (locDetail.length > 0) {
+					changes.push({ action: 'update', field: 'location', zone: z, details: `${z}.${String(n.locationNumber).padStart(3, '0')}: ${locDetail.join(', ')}` })
+				}
+			}
+		}
+
+		// Frame config changes
+		if (JSON.stringify(prev.frames) !== JSON.stringify(next.frames)) {
+			const prevFrames: FrameConfig[] = prev.frames ?? []
+			const nextFrames: FrameConfig[] = next.frames ?? []
+
+			if (prevFrames.length < nextFrames.length) {
+				const added = nextFrames.filter(f => !prevFrames.find(p => p.id === f.id))
+				for (const f of added) changes.push({ action: 'add', field: 'frame', details: f.name })
+			} else if (prevFrames.length > nextFrames.length) {
+				const removed = prevFrames.filter(f => !nextFrames.find(n => n.id === f.id))
+				for (const f of removed) changes.push({ action: 'remove', field: 'frame', details: f.name })
+			}
+
+			for (const nf of nextFrames) {
+				const pf = prevFrames.find(f => f.id === nf.id)
+				if (pf && JSON.stringify(pf) !== JSON.stringify(nf)) {
+					const details: string[] = []
+					if (pf.name !== nf.name) details.push(`name: ${pf.name}→${nf.name}`)
+					if (pf.totalRU !== nf.totalRU) details.push(`totalRU: ${pf.totalRU}→${nf.totalRU}`)
+					if (pf.panelStartRU !== nf.panelStartRU || pf.panelEndRU !== nf.panelEndRU) details.push(`panelRange: ${pf.panelStartRU}-${pf.panelEndRU}→${nf.panelStartRU}-${nf.panelEndRU}`)
+					if (pf.hlPanelStartRU !== nf.hlPanelStartRU || pf.hlPanelEndRU !== nf.hlPanelEndRU) details.push(`hlRange changed`)
+					if (JSON.stringify(pf.slots) !== JSON.stringify(nf.slots)) details.push(`slots: ${pf.slots.length}→${nf.slots.length}`)
+					if (details.length) changes.push({ action: 'update', field: 'frame', details: `${nf.name}: ${details.join(', ')}` })
+				}
+			}
+		}
+
+		if (JSON.stringify(prev.rooms) !== JSON.stringify(next.rooms)) {
+			changes.push({ action: 'update', field: 'rooms', from: (prev.rooms ?? []).length, to: (next.rooms ?? []).length })
+		}
+		if (JSON.stringify(prev.customLocationTypes) !== JSON.stringify(next.customLocationTypes)) {
+			changes.push({ action: 'update', field: 'customLocationTypes' })
+		}
+		if (prev.excelGroupByRoom !== next.excelGroupByRoom) {
+			changes.push({ action: 'update', field: 'excelGroupByRoom', to: next.excelGroupByRoom })
+		}
+
+		return changes
+	}
+
 	$effect(() => {
-		const _ = JSON.stringify({ serverRoomCount, zoneLocations, frames, rooms, customLocationTypes, excelGroupByRoom })
+		const current = { serverRoomCount, zoneLocations, frames, rooms, customLocationTypes, excelGroupByRoom }
+		const snapshot = JSON.stringify(current)
 
 		if (!initialized) {
 			initialized = true
+			prevSnapshot = snapshot
 			return
 		}
+
+		// Compute changes from previous state
+		if (prevSnapshot) {
+			const prev = JSON.parse(prevSnapshot)
+			const changes = computeChanges(prev, current)
+			if (changes.length) pendingChanges.push(...changes)
+		}
+		prevSnapshot = snapshot
 
 		saveStatus = 'unsaved'
 		if (saveTimer) clearTimeout(saveTimer)
 		saveTimer = setTimeout(() => {
 			if (onsave) {
 				saveStatus = 'saving'
-				onsave(stripUndefined({ floor, serverRoomCount, zoneLocations, frames, rooms, customLocationTypes, excelGroupByRoom }))
+				const changesToLog = [...pendingChanges]
+				pendingChanges = []
+				onsave(stripUndefined({ floor, serverRoomCount, zoneLocations, frames, rooms, customLocationTypes, excelGroupByRoom }), changesToLog)
 				saveStatus = 'saved'
 			}
 		}, 500)
@@ -319,6 +415,7 @@
 	onclose={() => settingsOpen = false}
 	onupdate={updateSettings}
 />
+<LogsDialog open={logsOpen} {projectId} onclose={() => logsOpen = false} />
 
 {#if viewMode === 'sidebar'}
 	<PaneGroup direction="horizontal" class="flex-1 min-h-0 bg-white">
@@ -403,6 +500,7 @@
 			{#if allLabels.length > 0}
 				<Button onclick={handleExport} icon="download" class="text-[10px] h-6" title="Save as Excel">Excel</Button>
 			{/if}
+			<Button onclick={() => logsOpen = true} icon="scrollText" class="text-[10px] h-6" title="Change log">Logs</Button>
 			<Button onclick={() => settingsOpen = true} icon="settings" class="text-[10px] h-6" title="Settings">Settings</Button>
 			<div class="flex">
 				<Button group active={viewMode === 'sidebar'} onclick={() => viewMode = 'sidebar'}>
