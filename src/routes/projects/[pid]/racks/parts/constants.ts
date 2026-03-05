@@ -29,12 +29,14 @@ export const DEVICE_CONFIGS: Record<string, { heightU: number; portCount: number
 }
 
 export const DEFAULT_PALETTE: DeviceTemplate[] = [
-	{ id: 'pp24', label: '24-Port Patch Panel', description: '1U - Cat6/6a', type: 'panel', heightU: 1, portCount: 24, portType: 'RJ45', icon: 'hgrip' },
-	{ id: 'pp48', label: '48-Port Patch Panel', description: '2U - High Density', type: 'panel', heightU: 2, portCount: 48, portType: 'RJ45', icon: 'hgrip' },
-	{ id: 'fiber', label: 'Fiber Enclosure', description: '1U - LC/SC', type: 'panel', heightU: 1, portCount: 24, portType: 'LC', icon: 'rect' },
+	{ id: 'pp24', label: '24-Port Patch Panel 1u', description: '1U - Cat6/6a', type: 'panel', heightU: 1, portCount: 24, portType: 'RJ45', icon: 'hgrip' },
+	{ id: 'pp48', label: '48-Port Patch Panel 1u', description: '1U - High Density', type: 'panel', heightU: 1, portCount: 48, portType: 'RJ45', icon: 'hgrip' },
+	{ id: 'fiber', label: 'Fiber Enclosure 1u', description: '1U - LC/SC', type: 'panel', heightU: 1, portCount: 24, portType: 'LC', icon: 'rect' },
 	{ id: 'sw48', label: 'Network Switch 48p', description: '1U - Managed', type: 'switch', heightU: 1, portCount: 48, portType: 'RJ45', icon: 'server' },
 	{ id: 'sw24', label: 'Network Switch 24p', description: '1U - Managed', type: 'switch', heightU: 1, portCount: 24, portType: 'RJ45', icon: 'server' },
-	{ id: 'cm', label: 'Horizontal Manager', description: '1U - Finger Duct', type: 'manager', heightU: 1, portCount: 0, portType: null, icon: 'box' },
+	{ id: 'sw2u', label: 'Network Switch 2u', description: '2U - Managed', type: 'switch', heightU: 2, portCount: 48, portType: 'RJ45', icon: 'server' },
+	{ id: 'cm', label: 'Horizontal Manager 1u', description: '1U - Finger Duct', type: 'manager', heightU: 1, portCount: 0, portType: null, icon: 'box' },
+	{ id: 'cm2', label: 'Horizontal Manager 2u', description: '2U - Finger Duct', type: 'manager', heightU: 2, portCount: 0, portType: null, icon: 'box' },
 	{ id: 'srv2u', label: 'Server (2U)', description: '4 Port Generic', type: 'server', heightU: 2, portCount: 4, portType: 'RJ45', icon: 'server' },
 	{ id: 'srv1u', label: 'Server (1U)', description: '2 Port Generic', type: 'server', heightU: 1, portCount: 2, portType: 'RJ45', icon: 'server' },
 ]

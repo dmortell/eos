@@ -9,6 +9,8 @@
 	/** @type {Session} */
 	let session = getContext('session');
 	let rackData = $state(/** @type {any} */ (null));
+	/** @type {import('./parts/types').DeviceTemplate[]} */
+	let library = $state([]);
 	let loading = $state(true);
 	let activeFloor = $state(1);
 	let activeRoom = $state('A');
@@ -36,6 +38,18 @@
 		return () => { unsub?.(); };
 	});
 
+	// Subscribe to project-level device library (shared across all floors/rooms)
+	$effect(() => {
+		const pid = page.params.pid;
+		if (!pid) return;
+
+		const unsub = db.subscribeOne('racks', `${pid}_library`, data => {
+			library = data?.templates ?? [];
+		});
+
+		return () => { unsub?.(); };
+	});
+
 	function changeFloor(/** @type {number} */ newFloor) {
 		if (newFloor === activeFloor) return;
 		activeFloor = newFloor;
@@ -57,6 +71,13 @@
 			writeLog(pid, 'racks', uid, changes, { floor: activeFloor, room: activeRoom });
 		}
 	}
+
+	/** @param {import('./parts/types').DeviceTemplate[]} templates */
+	function saveLibrary(templates) {
+		const pid = page.params.pid;
+		if (!pid) return;
+		db.save('racks', { id: `${pid}_library`, templates });
+	}
 </script>
 
 {#if loading}
@@ -65,7 +86,7 @@
 	</div>
 {:else}
 	{#key `${activeFloor}-${activeRoom}`}
-		<Racks data={rackData} floor={activeFloor} room={activeRoom} projectId={page.params.pid}
-			onsave={save} onfloorchange={changeFloor} onroomchange={changeRoom} />
+		<Racks data={rackData} {library} floor={activeFloor} room={activeRoom} projectId={page.params.pid}
+			onsave={save} onlibrarychange={saveLibrary} onfloorchange={changeFloor} onroomchange={changeRoom} />
 	{/key}
 {/if}

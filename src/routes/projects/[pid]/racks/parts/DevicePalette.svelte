@@ -13,7 +13,7 @@
 	let query = $state('')
 	let builderOpen = $state(false)
 	let custom = $state({
-		label: 'Custom Device',
+		label: '',
 		type: 'other' as const,
 		heightU: 1,
 		portCount: 0,
@@ -81,7 +81,7 @@
 					<input class="w-full h-6 px-1 border border-gray-300 rounded text-xs" bind:value={custom.maker} />
 				</label>
 				<div class="flex items-end">
-					<button class="w-full h-6 bg-blue-600 text-white text-xs rounded hover:bg-blue-500 transition-colors"
+					<button class="flex justify-center items-center gap-1 w-full h-6 bg-blue-600 text-white text-xs rounded hover:bg-blue-500 transition-colors"
 						onclick={addCustom}>
 						<Icon name="plus" size={12} /> Save
 					</button>
@@ -106,8 +106,8 @@
 			>
 				<Icon name={template.icon} size={14} class="text-gray-500 shrink-0" />
 				<div class="min-w-0">
-					<div class="font-medium text-gray-700 truncate">{template.label}</div>
-					<div class="text-[10px] text-gray-400 truncate">{template.description}</div>
+					<div class="font-medium text-gray-700 truncate" title={template.description}>{template.label}</div>
+					<!-- <div class="text-[10px] text-gray-400 truncate">{template.description}</div> -->
 				</div>
 			</button>
 		{/each}

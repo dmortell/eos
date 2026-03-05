@@ -15,12 +15,14 @@
 	import DeviceView from './parts/DeviceView.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
 
-	let { data = null, floor, room, projectId = '', onsave, onfloorchange, onroomchange }: {
+	let { data = null, library = [], floor, room, projectId = '', onsave, onlibrarychange, onfloorchange, onroomchange }: {
 		data?: any
+		library?: DeviceTemplate[]
 		floor: number
 		room: string
 		projectId?: string
 		onsave?: (payload: any, changes: ChangeDetail[]) => void
+		onlibrarychange?: (templates: DeviceTemplate[]) => void
 		onfloorchange?: (floor: number) => void
 		onroomchange?: (room: string) => void
 	} = $props()
@@ -29,7 +31,6 @@
 	let rows = $state<RackRow[]>(data?.rows ?? [{ id: 'default', label: 'Row A' }])
 	let racks = $state<RackConfig[]>((data?.racks ?? []).map((r: any) => ({ ...r, heightMm: rackHeightMm(r.heightU ?? 42) })))
 	let devices = $state<DeviceConfig[]>(data?.devices ?? [])
-	let library = $state<DeviceTemplate[]>(data?.library ?? [])
 	let settings = $state<RackSettings>(data?.settings ?? { ...DEFAULT_SETTINGS })
 	let activeRowId = $state<string>(rows[0]?.id ?? 'default')
 	let selectedIds = new SvelteSet<string>()
@@ -39,7 +40,7 @@
 	let innerWidth = $state(1200)
 	let innerHeight = $state(800)
 	let canvasWidth = $derived(innerWidth - 280)
-	let canvasHeight = $derived(innerHeight - 62) // titlebar + status
+	let canvasHeight = $derived(innerHeight - 95) // titlebar(30) + toolbar(32) + status(28) + borders(5)
 
 	// Max height for canvas bottom reference
 	let maxRackHeight = $derived(
@@ -111,7 +112,6 @@
 			rows,
 			racks: racks.map(({ _x, _z, ...r }: any) => r),
 			devices,
-			library,
 			settings,
 		})
 		onsave?.(payload, pendingChanges)
@@ -214,7 +214,36 @@
 	let canvasEl: HTMLDivElement | undefined = $state()
 	let draggingTemplate = $state<DeviceTemplate | null>(null)
 	let ghostPos = $state({ x: 0, y: 0 })
+	let dropGhost = $state<{ left: number; top: number; width: number; height: number } | null>(null)
 	let paletteDragMoved = false
+
+	/** Convert screen mouse position to canvas-local coords, then find rack + RU */
+	function hitTestRack(clientX: number, clientY: number, heightU: number) {
+		if (!canvasEl) return null
+		const rect = canvasEl.getBoundingClientRect()
+		const cx = (clientX - rect.left - view.x) / view.zoom
+		const cy = (clientY - rect.top - view.y) / view.zoom
+		for (const rack of activeRacks) {
+			const rr = screenRect(rack)
+			if (cx >= rr.left && cx <= rr.left + rr.width && cy >= rr.top && cy <= rr.top + rr.height) {
+				const ruFromBottom = (rr.top + rr.height - cy) / SCALE / RU_HEIGHT_MM
+				const snappedRU = Math.max(1, Math.min(rack.heightU - heightU + 1, Math.round(ruFromBottom)))
+				// Compute ghost rect in canvas coords
+				const innerLeft = rr.left + ((rack.widthMm - RACK_19IN_MM) / 2) * SCALE
+				const ruBottom = rr.top + rr.height - snappedRU * RU_HEIGHT_MM * SCALE
+				return {
+					rack, snappedRU,
+					ghost: {
+						left: innerLeft,
+						top: ruBottom - heightU * RU_HEIGHT_MM * SCALE,
+						width: RACK_19IN_MM * SCALE,
+						height: heightU * RU_HEIGHT_MM * SCALE,
+					}
+				}
+			}
+		}
+		return null
+	}
 
 	function onPaletteDragStart(e: MouseEvent, template: DeviceTemplate) {
 		if (e.button !== 0) return
@@ -229,34 +258,24 @@
 	function onPaletteDragMove(e: MouseEvent) {
 		paletteDragMoved = true
 		ghostPos = { x: e.clientX, y: e.clientY }
+		// Update drop ghost
+		if (draggingTemplate) {
+			const hit = hitTestRack(e.clientX, e.clientY, draggingTemplate.heightU)
+			dropGhost = hit?.ghost ?? null
+		}
 	}
 
 	function onPaletteDragEnd(e: MouseEvent) {
 		document.removeEventListener('mousemove', onPaletteDragMove)
 		document.removeEventListener('mouseup', onPaletteDragEnd)
+		dropGhost = null
 
 		if (!paletteDragMoved || !draggingTemplate || !canvasEl) { draggingTemplate = null; return }
 
-		// Convert screen coords to canvas-local coords
-		const rect = canvasEl.getBoundingClientRect()
-		const canvasX = (e.clientX - rect.left - view.x) / view.zoom
-		const canvasY = (e.clientY - rect.top - view.y) / view.zoom
-
-		// Find which rack was hit
-		for (const rack of activeRacks) {
-			const rr = screenRect(rack)
-			if (canvasX >= rr.left && canvasX <= rr.left + rr.width &&
-				canvasY >= rr.top && canvasY <= rr.top + rr.height) {
-				// Compute RU from drop position
-				const ruFromBottom = (rr.top + rr.height - canvasY) / SCALE / RU_HEIGHT_MM
-				const snappedRU = Math.max(1, Math.min(rack.heightU - draggingTemplate.heightU + 1, Math.round(ruFromBottom)))
-				placeDevice(draggingTemplate, rack, snappedRU)
-				draggingTemplate = null
-				return
-			}
+		const hit = hitTestRack(e.clientX, e.clientY, draggingTemplate.heightU)
+		if (hit) {
+			placeDevice(draggingTemplate, hit.rack, hit.snappedRU)
 		}
-
-		// Dropped outside any rack — ignore
 		draggingTemplate = null
 	}
 
@@ -272,9 +291,10 @@
 		logChange('update', 'device', deviceId)
 	}
 
-	// ── Custom device library ──
+	// ── Custom device library (project-level) ──
 	function addCustomTemplate(template: DeviceTemplate) {
-		library = [...library, template]
+		const updated = [...library, template]
+		onlibrarychange?.(updated)
 		logChange('add', 'library', template.label)
 	}
 
@@ -325,13 +345,34 @@
 		}
 	}
 
+	function onDeviceDrag(rect: any, _mouse: any, item: any) {
+		// Show ghost at snap position while dragging existing device
+		const midX = rect.left + rect.width / 2
+		for (const rack of activeRacks) {
+			const rr = screenRect(rack)
+			if (midX >= rr.left && midX <= rr.left + rr.width) {
+				const ruFromBottom = (rr.top + rr.height - rect.top - rect.height) / SCALE / RU_HEIGHT_MM
+				const snappedRU = Math.max(1, Math.min(rack.heightU - item.heightU + 1, Math.round(ruFromBottom)))
+				const innerLeft = rr.left + ((rack.widthMm - RACK_19IN_MM) / 2) * SCALE
+				const ruBottom = rr.top + rr.height - snappedRU * RU_HEIGHT_MM * SCALE
+				dropGhost = {
+					left: innerLeft,
+					top: ruBottom - item.heightU * RU_HEIGHT_MM * SCALE,
+					width: RACK_19IN_MM * SCALE,
+					height: item.heightU * RU_HEIGHT_MM * SCALE,
+				}
+				return
+			}
+		}
+		dropGhost = null
+	}
+
 	function onDeviceDragged(rect: any, device: DeviceConfig) {
-		// Find which rack the device was dropped into
+		dropGhost = null
 		for (const rack of activeRacks) {
 			const rr = screenRect(rack)
 			const midX = rect.left + rect.width / 2
 			if (midX >= rr.left && midX <= rr.left + rr.width) {
-				// Calculate RU position from drop position
 				const ruFromBottom = (rr.top + rr.height - rect.top - rect.height) / SCALE / RU_HEIGHT_MM
 				const snappedRU = Math.max(1, Math.min(rack.heightU - device.heightU + 1, Math.round(ruFromBottom)))
 				updateDevice(device.id, { rackId: rack.id, positionU: snappedRU })
@@ -450,6 +491,7 @@
 						<Draggable {view} shape={deviceScreenRect(device)} item={device}
 							selected={selectedIds.has(device.id)}
 							onClick={e => { selectedIds.clear(); selectedIds.add(device.id) }}
+							onDrag={onDeviceDrag}
 							onDragged={(rect) => onDeviceDragged(rect, device)}>
 							<DeviceView {device} {view} ondelete={() => deleteDevice(device.id)} />
 						</Draggable>
