@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs'
+import { formatFloor } from './engine'
 import type { RackData, ZoneConfig, LocType } from './types'
 
 /** Excel fill colors per location type — matches the HTML drawing palette */
@@ -20,10 +21,10 @@ const RACK_GAP = 1   // gap column between racks
 const ROWS_PER_RU = 2 // every RU uses 2 Excel rows
 
 /** Export patch frame data to an Excel workbook and trigger download */
-export async function exportToExcel(racks: RackData[], zones: ZoneConfig[], groupByRoom = false) {
+export async function exportToExcel(racks: RackData[], zones: ZoneConfig[], groupByRoom = false, floorFormat = 'L01') {
 	const wb = new ExcelJS.Workbook()
 	const floor = zones[0]?.floor ?? 1
-	const floorStr = `F${String(floor).padStart(2, '0')}`
+	const floorStr = formatFloor(floor, floorFormat)
 
 	// Group racks by server room if requested, otherwise one sheet per frame
 	const rackGroups: { sheetName: string; racks: RackData[] }[] = []

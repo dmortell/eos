@@ -1,10 +1,18 @@
 import type { ZoneConfig, PortLabel, PanelData, RackData, FrameConfig } from './types'
 import { defaultFrameConfig } from './types'
 
+/** Format a floor number according to the floorFormat setting */
+export function formatFloor(fl: number, fmt: string = 'L01'): string {
+	const n = String(fl).padStart(2, '0')
+	if (fmt === '01F') return `${n}F`
+	if (fmt === '01') return n
+	return `L${n}`
+}
+
 /** Generate port labels for all locations in a zone */
-export function generatePortLabels(zone: ZoneConfig): PortLabel[] {
+export function generatePortLabels(zone: ZoneConfig, floorFormat: string = 'L01'): PortLabel[] {
 	const labels: PortLabel[] = []
-	const ff = String(zone.floor).padStart(2, '0')
+	const ff = formatFloor(zone.floor, floorFormat)
 	const z = zone.zone
 
 	for (const loc of zone.locations) {

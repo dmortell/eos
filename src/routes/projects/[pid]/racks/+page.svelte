@@ -14,6 +14,7 @@
 	let loading = $state(true);
 	let activeFloor = $state(1);
 	let activeRoom = $state('A');
+	let floorFormat = $state('L01');
 
 	/** Firestore doc ID for a given floor + room */
 	function docId(floor = activeFloor, room = activeRoom) {
@@ -33,6 +34,20 @@
 		const unsub = db.subscribeOne('racks', id, data => {
 			rackData = data;
 			loading = false;
+		});
+
+		return () => { unsub?.(); };
+	});
+
+	// Subscribe to the frames doc for the active floor to read floorFormat
+	$effect(() => {
+		const pid = page.params.pid;
+		const fl = activeFloor;
+		if (!pid) return;
+
+		const frameDocId = `${pid}_F${String(fl).padStart(2, '0')}`;
+		const unsub = db.subscribeOne('frames', frameDocId, data => {
+			if (data?.floorFormat) floorFormat = data.floorFormat;
 		});
 
 		return () => { unsub?.(); };
@@ -86,7 +101,7 @@
 	</div>
 {:else}
 	{#key `${activeFloor}-${activeRoom}`}
-		<Racks data={rackData} {library} floor={activeFloor} room={activeRoom} projectId={page.params.pid}
+		<Racks data={rackData} {library} floor={activeFloor} room={activeRoom} projectId={page.params.pid} {floorFormat}
 			onsave={save} onlibrarychange={saveLibrary} onfloorchange={changeFloor} onroomchange={changeRoom} />
 	{/key}
 {/if}

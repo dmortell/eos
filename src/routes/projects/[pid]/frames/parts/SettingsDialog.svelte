@@ -2,28 +2,35 @@
 	import { Button } from '$lib'
 	import { DEFAULT_LOC_TYPES } from './types'
 
-	let { open = false, customTypes, rooms, excelGroupByRoom = false, onclose, onupdate }: {
+	let { open = false, customTypes, rooms, excelGroupByRoom = false, floorFormat = 'L01', onclose, onupdate }: {
 		open: boolean
 		customTypes: string[]
 		rooms: { roomNumber: string; roomName: string }[]
 		excelGroupByRoom?: boolean
+		floorFormat?: string
 		onclose: () => void
-		onupdate: (data: { customTypes: string[]; rooms: { roomNumber: string; roomName: string }[]; excelGroupByRoom: boolean }) => void
+		onupdate: (data: { customTypes: string[]; rooms: { roomNumber: string; roomName: string }[]; excelGroupByRoom: boolean; floorFormat: string }) => void
 	} = $props()
 
 	let newType = $state('')
 	let newRoomNumber = $state('')
 	let newRoomName = $state('')
 
+	function emit() {
+		onupdate({ customTypes, rooms, excelGroupByRoom, floorFormat })
+	}
+
 	function addType() {
 		const t = newType.trim().toUpperCase()
 		if (!t || customTypes.includes(t) || (DEFAULT_LOC_TYPES as readonly string[]).includes(t)) return
-		onupdate({ customTypes: [...customTypes, t], rooms, excelGroupByRoom })
+		customTypes = [...customTypes, t]
 		newType = ''
+		emit()
 	}
 
 	function removeType(t: string) {
-		onupdate({ customTypes: customTypes.filter(x => x !== t), rooms, excelGroupByRoom })
+		customTypes = customTypes.filter(x => x !== t)
+		emit()
 	}
 
 	function addRoom() {
@@ -31,17 +38,15 @@
 		const name = newRoomName.trim()
 		if (!num) return
 		if (rooms.find(r => r.roomNumber === num)) return
-		onupdate({ customTypes, rooms: [...rooms, { roomNumber: num, roomName: name }], excelGroupByRoom })
+		rooms = [...rooms, { roomNumber: num, roomName: name }]
 		newRoomNumber = ''
 		newRoomName = ''
+		emit()
 	}
 
 	function removeRoom(num: string) {
-		onupdate({ customTypes, rooms: rooms.filter(r => r.roomNumber !== num), excelGroupByRoom })
-	}
-
-	function setExcelGrouping(val: boolean) {
-		onupdate({ customTypes, rooms, excelGroupByRoom: val })
+		rooms = rooms.filter(r => r.roomNumber !== num)
+		emit()
 	}
 </script>
 
@@ -120,6 +125,24 @@
 					</div>
 				</div>
 
+				<!-- Floor/Level Format -->
+				<div class="space-y-2">
+					<h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Floor / Level Format</h3>
+					<p class="text-[10px] text-gray-400">How floor numbers appear in labels, tabs, and exports</p>
+					<div class="flex gap-1">
+						{#each [{ value: 'L01', label: 'L01', example: 'L01, L02' }, { value: '01F', label: '01F', example: '01F, 02F' }, { value: '01', label: '01', example: '01, 02' }] as opt}
+							<button
+								class="flex-1 h-8 rounded border text-xs font-mono transition-colors
+									{floorFormat === opt.value ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}"
+								onclick={() => { floorFormat = opt.value; emit() }}
+							>
+								<div>{opt.label}</div>
+							</button>
+						{/each}
+					</div>
+					<p class="text-[10px] text-gray-400">Preview: {floorFormat === '01F' ? '01F, 02F, 03F' : floorFormat === '01' ? '01, 02, 03' : 'L01, L02, L03'}</p>
+				</div>
+
 				<!-- Excel Export -->
 				<div class="space-y-2">
 					<h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Excel Export</h3>
@@ -127,7 +150,7 @@
 						<input
 							type="checkbox"
 							checked={excelGroupByRoom}
-							onchange={() => setExcelGrouping(!excelGroupByRoom)}
+							onchange={() => { excelGroupByRoom = !excelGroupByRoom; emit() }}
 							class="w-4 h-4 rounded"
 						/>
 						<span class="text-xs text-gray-600">Group all frames of same server room into one tab</span>

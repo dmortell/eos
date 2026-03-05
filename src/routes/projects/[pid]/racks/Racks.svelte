@@ -15,12 +15,13 @@
 	import DeviceView from './parts/DeviceView.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
 
-	let { data = null, library = [], floor, room, projectId = '', onsave, onlibrarychange, onfloorchange, onroomchange }: {
+	let { data = null, library = [], floor, room, projectId = '', floorFormat = 'L01', onsave, onlibrarychange, onfloorchange, onroomchange }: {
 		data?: any
 		library?: DeviceTemplate[]
 		floor: number
 		room: string
 		projectId?: string
+		floorFormat?: string
 		onsave?: (payload: any, changes: ChangeDetail[]) => void
 		onlibrarychange?: (templates: DeviceTemplate[]) => void
 		onfloorchange?: (floor: number) => void
@@ -552,7 +553,7 @@
 					class="px-3 text-[11px] font-mono font-medium border-r border-gray-200 transition-colors
 						{floor === fl ? 'bg-white text-blue-600 border-t-2 border-t-blue-500' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 border-t-2 border-t-transparent'}"
 					onclick={() => onfloorchange?.(fl)}
-				>F{String(fl).padStart(2, '0')}</button>
+				>{floorFormat === '01F' ? `${String(fl).padStart(2, '0')}F` : floorFormat === '01' ? String(fl).padStart(2, '0') : `L${String(fl).padStart(2, '0')}`}</button>
 			{/each}
 			<button
 				class="px-2 text-gray-300 hover:text-gray-500 transition-colors"

@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { Firestore } from '$lib'
 	import { fetchLogs, formatChange, type LogEntry } from '$lib/logger'
+	import { formatFloor } from './engine'
 
-	let { open = false, projectId, onclose }: {
+	let { open = false, projectId, floorFormat = 'L01', onclose }: {
 		open: boolean
 		projectId: string
+		floorFormat?: string
 		onclose: () => void
 	} = $props()
 
@@ -82,7 +84,7 @@
 								<div class="flex items-baseline gap-2">
 									<span class="text-gray-400 shrink-0">{formatTimestamp(log.timestamp)}</span>
 									{#if log.floor}
-										<span class="text-blue-500 shrink-0">F{String(log.floor).padStart(2, '0')}</span>
+										<span class="text-blue-500 shrink-0">{formatFloor(log.floor, floorFormat)}</span>
 									{/if}
 									<span class="text-purple-400 shrink-0" title={log.uid}>{displayName(log.uid)}</span>
 								</div>

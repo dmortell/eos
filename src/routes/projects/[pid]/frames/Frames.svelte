@@ -91,6 +91,7 @@
 	let rooms = $state<{ roomNumber: string; roomName: string }[]>(data?.rooms ?? [])
 	let customLocationTypes = $state<string[]>(data?.customLocationTypes ?? [])
 	let excelGroupByRoom = $state<boolean>(data?.excelGroupByRoom ?? true)
+	let floorFormat = $state<string>(data?.floorFormat ?? 'L01')
 	let selectedLocations = $state<Set<string>>(new Set())
 	let lastSelectedKey = $state<string | null>(null)
 	let selectedFrameId = $state<string | null>(null)
@@ -144,7 +145,7 @@
 
 	/** Build ZoneConfig objects for each zone and generate combined labels */
 	let allLabels = $derived<PortLabel[]>(
-		zoneLetters.flatMap(z => generatePortLabels({ floor, zone: z, serverRoomCount, locations: zoneLocations[z] }))
+		zoneLetters.flatMap(z => generatePortLabels({ floor, zone: z, serverRoomCount, locations: zoneLocations[z] }, floorFormat))
 	)
 
 	/** Build ZoneConfig array for export */
@@ -226,7 +227,7 @@
 	}
 
 	$effect(() => {
-		const current = { serverRoomCount, zoneLocations, rooms, customLocationTypes, excelGroupByRoom }
+		const current = { serverRoomCount, zoneLocations, rooms, customLocationTypes, excelGroupByRoom, floorFormat }
 		const snapshot = JSON.stringify(current)
 
 		if (!initialized) {
@@ -250,7 +251,7 @@
 				saveStatus = 'saving'
 				const changesToLog = [...pendingChanges]
 				pendingChanges = []
-				onsave(stripUndefined({ floor, serverRoomCount, zoneLocations, rooms, customLocationTypes, excelGroupByRoom }), changesToLog)
+				onsave(stripUndefined({ floor, serverRoomCount, zoneLocations, rooms, customLocationTypes, excelGroupByRoom, floorFormat }), changesToLog)
 				saveStatus = 'saved'
 			}
 		}, 500)
@@ -406,13 +407,22 @@
 	}
 
 	function handleExport() {
-		exportToExcel(racks, allZoneConfigs, excelGroupByRoom)
+		exportToExcel(racks, allZoneConfigs, excelGroupByRoom, floorFormat)
 	}
 
-	function updateSettings(data: { customTypes: string[]; rooms: { roomNumber: string; roomName: string }[]; excelGroupByRoom: boolean }) {
+	function updateSettings(data: { customTypes: string[]; rooms: { roomNumber: string; roomName: string }[]; excelGroupByRoom: boolean; floorFormat: string }) {
 		customLocationTypes = data.customTypes
 		rooms = data.rooms
 		excelGroupByRoom = data.excelGroupByRoom
+		floorFormat = data.floorFormat
+	}
+
+	/** Format a floor number according to the floorFormat setting */
+	function fmtFloor(fl: number): string {
+		const n = String(fl).padStart(2, '0')
+		if (floorFormat === '01F') return `${n}F`
+		if (floorFormat === '01') return n
+		return `L${n}` // default 'L01'
 	}
 </script>
 
@@ -424,10 +434,11 @@
 	customTypes={customLocationTypes}
 	{rooms}
 	{excelGroupByRoom}
+	{floorFormat}
 	onclose={() => settingsOpen = false}
 	onupdate={updateSettings}
 />
-<LogsDialog open={logsOpen} {projectId} onclose={() => logsOpen = false} />
+<LogsDialog open={logsOpen} {projectId} {floorFormat} onclose={() => logsOpen = false} />
 
 {#if viewMode === 'sidebar'}
 	<PaneGroup direction="horizontal" class="flex-1 min-h-0 bg-white">
@@ -500,7 +511,7 @@
 		<div class="flex items-center gap-3">
 			{#if allLabels.length > 0}
 				<span class="font-mono text-blue-600 font-semibold">
-					Floor {String(floor).padStart(2, '0')} &middot; {zoneLetters.length > 1 ? `Zones ${zoneLetters.join(', ')}` : `Zone ${zoneLetters[0] ?? activeZone}`}
+					{fmtFloor(floor)} &middot; {zoneLetters.length > 1 ? `Zones ${zoneLetters.join(', ')}` : `Zone ${zoneLetters[0] ?? activeZone}`}
 				</span>
 				<span class="text-gray-400">
 					{allLabels.length} ports

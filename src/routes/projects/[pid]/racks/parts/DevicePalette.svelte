@@ -51,7 +51,7 @@
 	<div class="space-y-1">
 		<button class="flex items-center justify-between w-full text-[10px] font-semibold text-gray-500 uppercase tracking-wider"
 			onclick={() => builderOpen = !builderOpen}>
-			<span class="flex items-center gap-1"><Icon name="box" size={11} /> Device Builder</span>
+			<span class="flex items-center gap-1"><Icon name="box" size={11} /> Custom Device Builder</span>
 			<Icon name={builderOpen ? 'chevronUp' : 'chevronDown'} size={12} />
 		</button>
 
