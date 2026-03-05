@@ -15,19 +15,21 @@
 	import DeviceView from './parts/DeviceView.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
 
-	let { data = null, library = [], floor, room, floors = [1], projectId = '', floorFormat = 'L01', onsave, onlibrarychange, onfloorchange, onroomchange, onaddfloor, ondeletefloor }: {
+	import FloorManagerDialog, { type FloorConfig } from '$lib/components/FloorManagerDialog.svelte'
+
+	let { data = null, library = [], floor, room, floors = [], projectId = '', floorFormat = 'L01', onsave, onlibrarychange, onfloorchange, onroomchange, onupdatefloors, ondeletefloor }: {
 		data?: any
 		library?: DeviceTemplate[]
 		floor: number
 		room: string
-		floors?: number[]
+		floors?: FloorConfig[]
 		projectId?: string
 		floorFormat?: string
 		onsave?: (payload: any, changes: ChangeDetail[]) => void
 		onlibrarychange?: (templates: DeviceTemplate[]) => void
 		onfloorchange?: (floor: number) => void
 		onroomchange?: (room: string) => void
-		onaddfloor?: () => void
+		onupdatefloors?: (floors: FloorConfig[]) => void
 		ondeletefloor?: (floor: number) => void
 	} = $props()
 
@@ -38,7 +40,7 @@
 	let settings = $state<RackSettings>(data?.settings ?? { ...DEFAULT_SETTINGS })
 	let activeRowId = $state<string>(rows[0]?.id ?? 'default')
 	let selectedIds = new SvelteSet<string>()
-	let deleteFloorConfirm = $state<number | null>(null)
+	let floorManagerOpen = $state(false)
 	let saveStatus = $state<'saved' | 'saving' | 'unsaved'>('saved')
 
 	// Window dimensions
@@ -463,7 +465,7 @@
 		<!-- Server Room pills -->
 		<span class="text-[10px] text-gray-400 uppercase tracking-wider">Room</span>
 		<div class="flex gap-0.5">
-			{#each ['A', 'B', 'C', 'D'] as r}
+			{#each ['A', 'B', 'C', 'D'].slice(0, floors.find(f => f.number === floor)?.serverRoomCount ?? 4) as r}
 				<button
 					class="h-6 w-7 rounded text-[11px] font-semibold transition-colors
 						{room === r ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
@@ -560,29 +562,17 @@
 	<div class="h-7 flex items-stretch border-t border-gray-200 bg-gray-50 shrink-0">
 		<!-- Floor tabs (left) -->
 		<div class="flex items-stretch gap-0 overflow-x-auto">
-			{#each floors as fl}
+			{#each floors as fl (fl.number)}
 				<button
-					class="group relative px-3 text-[11px] font-mono font-medium border-r border-gray-200 transition-colors
-						{floor === fl ? 'bg-white text-blue-600 border-t-2 border-t-blue-500' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 border-t-2 border-t-transparent'}"
-					onclick={() => onfloorchange?.(fl)}
-					oncontextmenu={e => { e.preventDefault(); deleteFloorConfirm = fl }}
-				>
-					{fmtFloor(fl)}
-					{#if floors.length > 1}
-						<span
-							class="absolute -top-0.5 -right-0.5 hidden group-hover:flex w-3.5 h-3.5 items-center justify-center rounded-full bg-red-500 text-white text-[8px] leading-none cursor-pointer z-10"
-							role="button"
-							tabindex="-1"
-							onclick={e => { e.stopPropagation(); deleteFloorConfirm = fl }}
-							onkeydown={e => { if (e.key === 'Enter') { e.stopPropagation(); deleteFloorConfirm = fl } }}
-						>&times;</span>
-					{/if}
-				</button>
+					class="px-3 text-[11px] font-mono font-medium border-r border-gray-200 transition-colors
+						{floor === fl.number ? 'bg-white text-blue-600 border-t-2 border-t-blue-500' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 border-t-2 border-t-transparent'}"
+					onclick={() => onfloorchange?.(fl.number)}
+				>{fmtFloor(fl.number)}</button>
 			{/each}
 			<button
 				class="px-2 text-gray-300 hover:text-gray-500 transition-colors"
-				title="Add floor"
-				onclick={() => onaddfloor?.()}
+				title="Manage floors"
+				onclick={() => floorManagerOpen = true}
 			><Icon name="plus" size={12} /></button>
 		</div>
 
@@ -603,23 +593,11 @@
 	</div>
 {/if}
 
-<!-- Delete floor confirmation dialog -->
-{#if deleteFloorConfirm !== null}
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center" onclick={() => deleteFloorConfirm = null} onkeydown={e => e.key === 'Escape' && (deleteFloorConfirm = null)}>
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<!-- svelte-ignore a11y_click_events_have_key_events -->
-		<div class="bg-white rounded-lg shadow-xl border border-gray-200 w-[380px] p-5" onclick={e => e.stopPropagation()}>
-			<h3 class="text-sm font-semibold text-gray-800 mb-2">Delete {fmtFloor(deleteFloorConfirm)}?</h3>
-			<p class="text-xs text-gray-500 mb-4">
-				This will permanently delete all frame data, rack layouts, and device configurations for this floor across all server rooms.
-				<strong class="text-red-600">This cannot be undone.</strong>
-			</p>
-			<div class="flex justify-end gap-2">
-				<Button onclick={() => deleteFloorConfirm = null}>Cancel</Button>
-				<Button onclick={() => { const fl = deleteFloorConfirm; deleteFloorConfirm = null; if (fl !== null) ondeletefloor?.(fl) }}
-					class="bg-red-600 text-white hover:bg-red-700">Delete</Button>
-			</div>
-		</div>
-	</div>
-{/if}
+<FloorManagerDialog
+	open={floorManagerOpen}
+	{floors}
+	{floorFormat}
+	onclose={() => floorManagerOpen = false}
+	onupdate={updated => onupdatefloors?.(updated)}
+	ondelete={fl => ondeletefloor?.(fl)}
+/>

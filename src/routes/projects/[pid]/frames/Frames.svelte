@@ -9,20 +9,21 @@
 	import FrameDrawing from './parts/FrameDrawing.svelte'
 	import SettingsDialog from './parts/SettingsDialog.svelte'
 	import LogsDialog from './parts/LogsDialog.svelte'
+	import FloorManagerDialog, { type FloorConfig } from '$lib/components/FloorManagerDialog.svelte'
 	import Titlebar from '$lib/Titlebar.svelte'
 	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
 
 	import type { ChangeDetail } from '$lib/logger'
 
-	let { data = null, racksData = {}, floor, floors = [1], projectId = '', onsave, onfloorchange, onaddfloor, ondeletefloor }: {
+	let { data = null, racksData = {}, floor, floors = [], projectId = '', onsave, onfloorchange, onupdatefloors, ondeletefloor }: {
 		data?: any
 		racksData?: Record<string, any>
 		floor: number
-		floors?: number[]
+		floors?: FloorConfig[]
 		projectId?: string
 		onsave?: (payload: any, changes: ChangeDetail[]) => void
 		onfloorchange?: (floor: number) => void
-		onaddfloor?: () => void
+		onupdatefloors?: (floors: FloorConfig[]) => void
 		ondeletefloor?: (floor: number) => void
 	} = $props()
 
@@ -91,7 +92,8 @@
 	}
 
 	// ── State: global settings ──
-	let serverRoomCount = $state(migrated.serverRoomCount)
+	// serverRoomCount is derived from project-level floors config, with fallback to migrated data
+	let serverRoomCount = $derived(floors.find(f => f.number === floor)?.serverRoomCount ?? migrated.serverRoomCount)
 
 	// ── State: per-zone locations keyed by zone letter ──
 	let zoneLocations = $state<Record<string, LocationConfig[]>>(migrated.zoneLocations)
@@ -118,7 +120,7 @@
 	let settingsOpen = $state(false)
 	let logsOpen = $state(false)
 	let showAllZones = $state(false)
-	let deleteFloorConfirm = $state<number | null>(null)
+	let floorManagerOpen = $state(false)
 
 	// ── Refs for scroll sync ──
 	let locationListEl: HTMLDivElement | undefined = $state()
@@ -192,10 +194,6 @@
 		if (!prev) return []
 		const changes: ChangeDetail[] = []
 
-		if (prev.serverRoomCount !== next.serverRoomCount) {
-			changes.push({ action: 'update', field: 'serverRoomCount', from: prev.serverRoomCount, to: next.serverRoomCount })
-		}
-
 		// Zone location changes
 		const allZones = new Set([...Object.keys(prev.zoneLocations ?? {}), ...Object.keys(next.zoneLocations ?? {})])
 		for (const z of allZones) {
@@ -240,7 +238,7 @@
 	}
 
 	$effect(() => {
-		const current = { serverRoomCount, zoneLocations, rooms, customLocationTypes, excelGroupByRoom, floorFormat }
+		const current = { zoneLocations, rooms, customLocationTypes, excelGroupByRoom, floorFormat }
 		const snapshot = JSON.stringify(current)
 
 		if (!initialized) {
@@ -264,14 +262,17 @@
 				saveStatus = 'saving'
 				const changesToLog = [...pendingChanges]
 				pendingChanges = []
-				onsave(stripUndefined({ floor, serverRoomCount, zoneLocations, rooms, customLocationTypes, excelGroupByRoom, floorFormat }), changesToLog)
+				onsave(stripUndefined({ floor, zoneLocations, rooms, customLocationTypes, excelGroupByRoom, floorFormat }), changesToLog)
 				saveStatus = 'saved'
 			}
 		}, 500)
 	})
 
 	// ── Handlers ──
-	function setServerRooms(count: number) { serverRoomCount = count }
+	function setServerRooms(count: number) {
+		const updated = floors.map(f => f.number === floor ? { ...f, serverRoomCount: count } : f)
+		onupdatefloors?.(updated)
+	}
 
 	function setActiveZone(zone: string) {
 		activeZone = zone
@@ -491,29 +492,17 @@
 <!-- Status bar with floor tabs -->
 <div class="h-7 flex items-stretch border-t border-gray-200 bg-gray-50 shrink-0">
 	<div class="flex items-stretch gap-0 overflow-x-auto">
-		{#each floors as fl}
+		{#each floors as fl (fl.number)}
 			<button
-				class="group relative px-3 text-[11px] font-mono font-medium border-r border-gray-200 transition-colors
-					{floor === fl ? 'bg-white text-blue-600 border-t-2 border-t-blue-500' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 border-t-2 border-t-transparent'}"
-				onclick={() => onfloorchange?.(fl)}
-				oncontextmenu={e => { e.preventDefault(); deleteFloorConfirm = fl }}
-			>
-				{fmtFloor(fl)}
-				{#if floors.length > 1}
-					<span
-						class="absolute -top-0.5 -right-0.5 hidden group-hover:flex w-3.5 h-3.5 items-center justify-center rounded-full bg-red-500 text-white text-[8px] leading-none cursor-pointer z-10"
-						role="button"
-						tabindex="-1"
-						onclick={e => { e.stopPropagation(); deleteFloorConfirm = fl }}
-						onkeydown={e => { if (e.key === 'Enter') { e.stopPropagation(); deleteFloorConfirm = fl } }}
-					>&times;</span>
-				{/if}
-			</button>
+				class="px-3 text-[11px] font-mono font-medium border-r border-gray-200 transition-colors
+					{floor === fl.number ? 'bg-white text-blue-600 border-t-2 border-t-blue-500' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 border-t-2 border-t-transparent'}"
+				onclick={() => onfloorchange?.(fl.number)}
+			>{fmtFloor(fl.number)}</button>
 		{/each}
 		<button
 			class="px-2 text-gray-300 hover:text-gray-500 transition-colors"
-			title="Add floor"
-			onclick={() => onaddfloor?.()}
+			title="Manage floors"
+			onclick={() => floorManagerOpen = true}
 		><Icon name="plus" size={12} /></button>
 	</div>
 	<div class="flex-1"></div>
@@ -522,26 +511,14 @@
 	</div>
 </div>
 
-<!-- Delete floor confirmation dialog -->
-{#if deleteFloorConfirm !== null}
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center" onclick={() => deleteFloorConfirm = null} onkeydown={e => e.key === 'Escape' && (deleteFloorConfirm = null)}>
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<!-- svelte-ignore a11y_click_events_have_key_events -->
-		<div class="bg-white rounded-lg shadow-xl border border-gray-200 w-[380px] p-5" onclick={e => e.stopPropagation()}>
-			<h3 class="text-sm font-semibold text-gray-800 mb-2">Delete {fmtFloor(deleteFloorConfirm)}?</h3>
-			<p class="text-xs text-gray-500 mb-4">
-				This will permanently delete all frame data, rack layouts, and device configurations for this floor across all server rooms.
-				<strong class="text-red-600">This cannot be undone.</strong>
-			</p>
-			<div class="flex justify-end gap-2">
-				<Button onclick={() => deleteFloorConfirm = null}>Cancel</Button>
-				<Button onclick={() => { const fl = deleteFloorConfirm; deleteFloorConfirm = null; if (fl !== null) ondeletefloor?.(fl) }}
-					class="bg-red-600 text-white hover:bg-red-700">Delete</Button>
-			</div>
-		</div>
-	</div>
-{/if}
+<FloorManagerDialog
+	open={floorManagerOpen}
+	{floors}
+	{floorFormat}
+	onclose={() => floorManagerOpen = false}
+	onupdate={updated => onupdatefloors?.(updated)}
+	ondelete={fl => ondeletefloor?.(fl)}
+/>
 </div>
 
 {#snippet configAndLocations()}

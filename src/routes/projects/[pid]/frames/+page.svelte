@@ -11,18 +11,27 @@
 	let frameData = $state(/** @type {any} */ (null));
 	/** @type {Record<string, any>} */
 	let racksData = $state({});
-	/** @type {number[]} */
-	let floors = $state([1]);
+	/** @type {import('$lib/components/FloorManagerDialog.svelte').FloorConfig[]} */
+	let floors = $state([{ number: 1, serverRoomCount: 1 }]);
 	let loading = $state(true);
 	let activeFloor = $state(1);
 	let hasMigrated = false;
+
+	/** Migrate old floors format: number[] → FloorConfig[] */
+	function migrateFloors(/** @type {any[]} */ raw) {
+		if (!raw?.length) return [{ number: 1, serverRoomCount: 1 }];
+		// Already FloorConfig[] format
+		if (typeof raw[0] === 'object' && 'number' in raw[0]) return raw;
+		// Old number[] format
+		return raw.map(n => ({ number: n, serverRoomCount: 1 }));
+	}
 
 	// Subscribe to project doc for shared floors list
 	$effect(() => {
 		const pid = page.params.pid;
 		if (!pid) return;
 		const unsub = db.subscribeOne('projects', pid, data => {
-			if (data?.floors?.length) floors = data.floors;
+			if (data?.floors?.length) floors = migrateFloors(data.floors);
 		});
 		return () => { unsub?.(); };
 	});
@@ -98,12 +107,16 @@
 		activeFloor = newFloor;
 	}
 
-	function addFloor() {
-		const next = floors.length > 0 ? Math.max(...floors) + 1 : 1;
-		floors = [...floors, next].sort((a, b) => a - b);
-		activeFloor = next;
+	/** @param {import('$lib/components/FloorManagerDialog.svelte').FloorConfig[]} updated */
+	function updateFloors(updated) {
 		const pid = page.params.pid;
-		if (pid) db.save('projects', { id: pid, floors });
+		if (!pid) return;
+		floors = updated;
+		db.save('projects', { id: pid, floors: updated });
+		// If active floor was removed, switch to first available
+		if (!updated.find(f => f.number === activeFloor) && updated.length > 0) {
+			activeFloor = updated[0].number;
+		}
 	}
 
 	/** @param {number} fl */
@@ -121,13 +134,13 @@
 		}
 
 		// Update floors list
-		floors = floors.filter(f => f !== fl);
-		if (floors.length === 0) floors = [1];
+		const updated = floors.filter(f => f.number !== fl);
+		floors = updated.length > 0 ? updated : [{ number: 1, serverRoomCount: 1 }];
 		db.save('projects', { id: pid, floors });
 
 		// Switch to another floor if we deleted the active one
 		if (activeFloor === fl) {
-			activeFloor = floors[0];
+			activeFloor = floors[0].number;
 		}
 	}
 
@@ -138,8 +151,8 @@
 		db.save('frames', { id: docId(), ...payload, floor: activeFloor });
 
 		// Ensure current floor is in the project floors list
-		if (!floors.includes(activeFloor)) {
-			floors = [...floors, activeFloor].sort((a, b) => a - b);
+		if (!floors.find(f => f.number === activeFloor)) {
+			floors = [...floors, { number: activeFloor, serverRoomCount: 1 }].sort((a, b) => a.number - b.number);
 			db.save('projects', { id: pid, floors });
 		}
 
@@ -158,6 +171,6 @@
 {:else}
 	{#key activeFloor}
 		<Frames data={frameData} {racksData} floor={activeFloor} {floors} projectId={page.params.pid}
-			onsave={save} onfloorchange={changeFloor} onaddfloor={addFloor} ondeletefloor={deleteFloor} />
+			onsave={save} onfloorchange={changeFloor} onupdatefloors={updateFloors} ondeletefloor={deleteFloor} />
 	{/key}
 {/if}

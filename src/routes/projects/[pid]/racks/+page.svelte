@@ -11,12 +11,19 @@
 	let rackData = $state(/** @type {any} */ (null));
 	/** @type {import('./parts/types').DeviceTemplate[]} */
 	let library = $state([]);
-	/** @type {number[]} */
-	let floors = $state([1]);
+	/** @type {import('$lib/components/FloorManagerDialog.svelte').FloorConfig[]} */
+	let floors = $state([{ number: 1, serverRoomCount: 1 }]);
 	let loading = $state(true);
 	let activeFloor = $state(1);
 	let activeRoom = $state('A');
 	let floorFormat = $state('L01');
+
+	/** Migrate old floors format: number[] → FloorConfig[] */
+	function migrateFloors(/** @type {any[]} */ raw) {
+		if (!raw?.length) return [{ number: 1, serverRoomCount: 1 }];
+		if (typeof raw[0] === 'object' && 'number' in raw[0]) return raw;
+		return raw.map(n => ({ number: n, serverRoomCount: 1 }));
+	}
 
 	/** Firestore doc ID for a given floor + room */
 	function docId(floor = activeFloor, room = activeRoom) {
@@ -28,7 +35,7 @@
 		const pid = page.params.pid;
 		if (!pid) return;
 		const unsub = db.subscribeOne('projects', pid, data => {
-			if (data?.floors?.length) floors = data.floors;
+			if (data?.floors?.length) floors = migrateFloors(data.floors);
 		});
 		return () => { unsub?.(); };
 	});
@@ -87,12 +94,15 @@
 		activeRoom = newRoom;
 	}
 
-	function addFloor() {
-		const next = floors.length > 0 ? Math.max(...floors) + 1 : 1;
-		floors = [...floors, next].sort((a, b) => a - b);
-		activeFloor = next;
+	/** @param {import('$lib/components/FloorManagerDialog.svelte').FloorConfig[]} updated */
+	function updateFloors(updated) {
 		const pid = page.params.pid;
-		if (pid) db.save('projects', { id: pid, floors });
+		if (!pid) return;
+		floors = updated;
+		db.save('projects', { id: pid, floors: updated });
+		if (!updated.find(f => f.number === activeFloor) && updated.length > 0) {
+			activeFloor = updated[0].number;
+		}
 	}
 
 	/** @param {number} fl */
@@ -101,22 +111,17 @@
 		if (!pid) return;
 
 		const floorStr = String(fl).padStart(2, '0');
-
-		// Delete frames doc for this floor
 		try { await db.delete('frames', `${pid}_F${floorStr}`); } catch {}
-
-		// Delete racks docs for this floor (all rooms A-D)
 		for (const rm of ['A', 'B', 'C', 'D']) {
 			try { await db.delete('racks', `${pid}_F${floorStr}_R${rm}`); } catch {}
 		}
 
-		// Update floors list
-		floors = floors.filter(f => f !== fl);
-		if (floors.length === 0) floors = [1];
+		const updated = floors.filter(f => f.number !== fl);
+		floors = updated.length > 0 ? updated : [{ number: 1, serverRoomCount: 1 }];
 		db.save('projects', { id: pid, floors });
 
 		if (activeFloor === fl) {
-			activeFloor = floors[0];
+			activeFloor = floors[0].number;
 		}
 	}
 
@@ -127,8 +132,8 @@
 		db.save('racks', { id: docId(), ...payload, floor: activeFloor, room: activeRoom });
 
 		// Ensure current floor is in the project floors list
-		if (!floors.includes(activeFloor)) {
-			floors = [...floors, activeFloor].sort((a, b) => a - b);
+		if (!floors.find(f => f.number === activeFloor)) {
+			floors = [...floors, { number: activeFloor, serverRoomCount: 1 }].sort((a, b) => a.number - b.number);
 			db.save('projects', { id: pid, floors });
 		}
 
@@ -154,6 +159,6 @@
 	{#key `${activeFloor}-${activeRoom}`}
 		<Racks data={rackData} {library} floor={activeFloor} room={activeRoom} {floors} projectId={page.params.pid} {floorFormat}
 			onsave={save} onlibrarychange={saveLibrary} onfloorchange={changeFloor} onroomchange={changeRoom}
-			onaddfloor={addFloor} ondeletefloor={deleteFloor} />
+			onupdatefloors={updateFloors} ondeletefloor={deleteFloor} />
 	{/key}
 {/if}
