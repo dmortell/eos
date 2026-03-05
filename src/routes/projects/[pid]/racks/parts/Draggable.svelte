@@ -90,6 +90,8 @@
 	</div>
 {/if}
 
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <!-- Dragged element -->
 <div
 	class="drag"
@@ -99,6 +101,7 @@
 	class:copying={dragging && ctrlHeld}
 	onmousedown={onMouseDown}
 	ontouchstart={onMouseDown}
+	onclick={e => e.stopPropagation()}
 	style:left={rect.left + 'px'}
 	style:top={rect.top - 1 + 'px'}
 	style:width={rect.width + 'px'}

@@ -2,10 +2,11 @@
 	import type { RackConfig, ViewState } from './types'
 	import { RU_HEIGHT_MM, RACK_19IN_MM } from './constants'
 
-	let { rack, view, selected = false }: {
+	let { rack, view, selected = false, overlaps = new Set() }: {
 		rack: RackConfig & { _x: number; _z: number }
 		view: ViewState
 		selected?: boolean
+		overlaps?: Set<number>
 	} = $props()
 
 	let scale = $derived(view.scale)
@@ -51,9 +52,22 @@
 		<line x1={cx + inner} y1={yBottom} x2={cx + inner + railWidth - 1} y2={yBottom} stroke="#ddd" stroke-width={1} />
 
 		<!-- RU numbers -->
-		<text x={cx - inner - 22} y={yBottom - 4} fill="#999" font-size={Math.max(8, 28 * scale)}
-			font-family="monospace" text-anchor="middle" class="pointer-events-none select-none">{u}</text>
-		<text x={cx + inner + 22} y={yBottom - 4} fill="#999" font-size={Math.max(8, 28 * scale)}
-			font-family="monospace" text-anchor="middle" class="pointer-events-none select-none">{u}</text>
+		<text x={cx - inner - 22} y={yBottom - 4} fill={overlaps.has(u) ? '#dc2626' : '#999'} font-size={Math.max(8, 28 * scale)}
+			font-family="monospace" text-anchor="middle" class="pointer-events-none select-none"
+			font-weight={overlaps.has(u) ? 'bold' : 'normal'}>{u}</text>
+		<text x={cx + inner + 22} y={yBottom - 4} fill={overlaps.has(u) ? '#dc2626' : '#999'} font-size={Math.max(8, 28 * scale)}
+			font-family="monospace" text-anchor="middle" class="pointer-events-none select-none"
+			font-weight={overlaps.has(u) ? 'bold' : 'normal'}>{u}</text>
+
+		<!-- Overlap warning -->
+		{#if overlaps.has(u)}
+			<g>
+				<title>Overlap: multiple devices at U{u}</title>
+				<rect x={cx + inner + 1} y={yBottom - RU_HEIGHT_MM * scale} width={railWidth - 2} height={RU_HEIGHT_MM * scale}
+					fill="#fef2f2" fill-opacity={0.7} />
+				<text x={cx + inner + railWidth - 2} y={yBottom - 3} fill="#dc2626" font-size={Math.max(7, 22 * scale)}
+					font-family="sans-serif" text-anchor="end" font-weight="bold">!</text>
+			</g>
+		{/if}
 	{/each}
 </svg>

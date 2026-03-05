@@ -110,6 +110,28 @@
 		devices.find(d => selectedIds.has(d.id)) ?? null
 	)
 
+	/** Per-rack set of RU positions occupied by more than one device */
+	let rackOverlaps = $derived.by(() => {
+		const map = new Map<string, Set<number>>()
+		// Count how many devices occupy each RU in each rack
+		const ruCounts = new Map<string, Map<number, number>>()
+		for (const d of devices) {
+			if (!ruCounts.has(d.rackId)) ruCounts.set(d.rackId, new Map())
+			const counts = ruCounts.get(d.rackId)!
+			for (let u = d.positionU; u < d.positionU + d.heightU; u++) {
+				counts.set(u, (counts.get(u) ?? 0) + 1)
+			}
+		}
+		for (const [rackId, counts] of ruCounts) {
+			const overlapping = new Set<number>()
+			for (const [u, count] of counts) {
+				if (count > 1) overlapping.add(u)
+			}
+			if (overlapping.size > 0) map.set(rackId, overlapping)
+		}
+		return map
+	})
+
 	// ── Auto-save ──
 	let saveTimer: ReturnType<typeof setTimeout> | null = null
 	let pendingChanges: ChangeDetail[] = []
@@ -528,7 +550,7 @@
 
 					<!-- Rack frames -->
 					{#each activeRacks as rack (rack.id)}
-						<RackFrame {rack} {view} selected={selectedIds.has(rack.id)} />
+						<RackFrame {rack} {view} selected={selectedIds.has(rack.id)} overlaps={rackOverlaps.get(rack.id)} />
 					{/each}
 
 					<!-- Devices -->
