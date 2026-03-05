@@ -170,6 +170,12 @@
 		return `L${n}`
 	}
 
+	/** Get display name for a room (custom name or default "Room X") */
+	function roomLabel(rm: string): string {
+		const floorCfg = floors.find(f => f.number === floor)
+		return floorCfg?.roomNames?.[rm] || `Room ${rm}`
+	}
+
 	/** Strip undefined values recursively (Firestore rejects them) */
 	function strip(obj: any): any {
 		if (Array.isArray(obj)) return obj.map(strip)
@@ -631,7 +637,7 @@
 						style:left={20 + roomLeft * SCALE + 'px'}
 						style:top={(view.bottom - settings.ceilingLevel - 180) * SCALE + 'px'}
 						style:font-size="24px">
-						<span class="font-semibold text-gray-700">{fmtFloor(floor)} — Room {room}</span>
+						<span class="font-semibold text-gray-700">{fmtFloor(floor)} — {roomLabel(room)}</span>
 					</div>
 
 					<!-- Slab (static, extends to outer wall edges) -->
@@ -761,7 +767,7 @@
 		<div class="flex-1"></div>
 		<div class="flex items-center gap-4 px-3 text-[10px] text-gray-400">
 			{#if innerWidth > 1200}
-				<span class="text-gray-300">Ctrl+Scroll to zoom · Middle-drag to pan</span>
+				<span class="text-gray-300">Ctrl+Scroll to zoom · Right-drag to pan</span>
 			{/if}
 			<span>{activeRacks.length} rack{activeRacks.length !== 1 ? 's' : ''} · {devices.length} device{devices.length !== 1 ? 's' : ''}</span>
 			<span>Zoom: {Math.round(view.zoom * 100)}%</span>

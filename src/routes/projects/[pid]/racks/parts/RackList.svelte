@@ -43,7 +43,7 @@
 		</span>
 		<div class="flex gap-1">
 			{#if rows.length === 0 || activeRowId}
-				<button class="p-0.5 rounded bg-gray-100 hover:bg-gray-200 transition-colors" title="Add row"
+				<button class="p-0.5 rounded bg-gray-100 hover:bg-gray-200 transition-colors" title="Add a row of racks"
 					onclick={onaddrow}>
 					<Icon name="rows" size={12} />
 				</button>
