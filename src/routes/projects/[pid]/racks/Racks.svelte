@@ -132,12 +132,32 @@
 		return map
 	})
 
+	// ── Sync from remote (realtime Firestore updates) ──
+	let syncPaused = $state(false)
+	let syncTimer: ReturnType<typeof setTimeout> | null = null
+
+	function pauseSync() {
+		syncPaused = true
+		if (syncTimer) clearTimeout(syncTimer)
+		syncTimer = setTimeout(() => { syncPaused = false }, 1500)
+	}
+
+	$effect(() => {
+		const d = data
+		if (syncPaused || saveStatus !== 'saved' || !d) return
+		if (d.rows) rows = d.rows
+		if (d.racks) racks = d.racks.map((r: any) => ({ ...r, heightMm: rackHeightMm(r.heightU ?? 42) }))
+		if (d.devices) devices = d.devices
+		if (d.settings) settings = { ...DEFAULT_SETTINGS, ...d.settings }
+	})
+
 	// ── Auto-save ──
 	let saveTimer: ReturnType<typeof setTimeout> | null = null
 	let pendingChanges: ChangeDetail[] = []
 
 	function scheduleSave() {
 		saveStatus = 'unsaved'
+		syncPaused = true // pause remote sync while editing
 		if (saveTimer) clearTimeout(saveTimer)
 		saveTimer = setTimeout(doSave, 500)
 	}
@@ -173,6 +193,7 @@
 		})
 		onsave?.(payload, pendingChanges)
 		pendingChanges = []
+		pauseSync()
 		saveStatus = 'saved'
 	}
 
