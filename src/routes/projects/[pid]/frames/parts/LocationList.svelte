@@ -34,6 +34,11 @@
 			</span>
 			<slot />
 		</div>
+		<div class="flex items-center justify-between px-1">
+			<span class="text-[10px] text-gray-400 ">
+				Select multiple items with shift-click/ctrl-click
+			</span>
+		</div>
 
 		<div class="space-y-1 pr-1 select-none">
 			{#each locations as loc, i (locKey(i, loc))}

@@ -68,7 +68,10 @@
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<div class="bg-white rounded-lg shadow-xl border border-gray-200 w-[500px] max-h-[80vh] flex flex-col" onclick={e => e.stopPropagation()}>
 			<div class="flex items-center justify-between p-4 border-b border-gray-200">
-				<h2 class="font-semibold text-sm">Floor Manager</h2>
+				<div>
+					<h2 class="font-semibold text-sm">Floor Manager</h2>
+					<p class="text-xs text-gray-500">Select the number of server rooms on each floor</p>
+				</div>
 				<button class="text-gray-400 hover:text-gray-600 text-lg" onclick={onclose}>&times;</button>
 			</div>
 
@@ -145,7 +148,7 @@
 								{/each}
 							</div>
 						</div>
-						<Button onclick={addFloor}>Add Floor</Button>
+						<Button variant="primary" onclick={addFloor}>Add Floor</Button>
 					</div>
 					{#if error}
 						<p class="text-[10px] text-red-500 mt-1">{error}</p>
