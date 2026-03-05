@@ -6,7 +6,7 @@
 		racks: RackConfig[]
 		rows: RackRow[]
 		activeRowId: string
-		onadd?: () => void
+		onadd?: (form: { label: string; heightU: number; heightMm: number; widthMm: number; depthMm: number; type: string; serverRoom: string; maker: string; model: string }) => void
 		onselect?: (rackId: string) => void
 		ondelete?: (rackId: string) => void
 		onaddrow?: () => void
@@ -20,6 +20,7 @@
 		widthMm: 700,
 		depthMm: 800,
 		type: '4-post' as const,
+		serverRoom: 'A',
 		maker: '',
 		model: '',
 	})
@@ -69,15 +70,20 @@
 			<label class="text-[10px] text-gray-500">Width (mm)
 				<input type="number" class="w-full h-6 px-1 border border-gray-300 rounded text-xs" bind:value={form.widthMm} />
 			</label>
+			<label class="text-[10px] text-gray-500">Server Room
+				<select class="w-full h-6 px-1 border border-gray-300 rounded text-xs" bind:value={form.serverRoom}>
+					<option value="A">A</option>
+					<option value="B">B</option>
+					<option value="C">C</option>
+					<option value="D">D</option>
+				</select>
+			</label>
 			<label class="text-[10px] text-gray-500">Maker
 				<input class="w-full h-6 px-1 border border-gray-300 rounded text-xs" bind:value={form.maker} />
 			</label>
-			<label class="text-[10px] text-gray-500">Model
-				<input class="w-full h-6 px-1 border border-gray-300 rounded text-xs" bind:value={form.model} />
-			</label>
 			<div class="col-span-2">
 				<button class="w-full h-7 bg-blue-600 text-white text-xs rounded hover:bg-blue-500 flex items-center justify-center gap-1 transition-colors"
-					onclick={onadd}>
+					onclick={() => onadd?.(form)}>
 					<Icon name="plus" size={12} /> Add Rack
 				</button>
 			</div>

@@ -21,12 +21,17 @@
 				{@render NumberField('positionU', selectedDevice.positionU, v => onupdatedevice?.(selectedDevice!.id, { positionU: v }))}
 				{@render NumberField('heightU', selectedDevice.heightU, v => onupdatedevice?.(selectedDevice!.id, { heightU: v }))}
 				{@render NumberField('portCount', selectedDevice.portCount, v => onupdatedevice?.(selectedDevice!.id, { portCount: v }))}
+				{#if selectedDevice.type === 'panel'}
+					{@render SelectField('patchLevel', selectedDevice.patchLevel ?? 'floor', [['floor', 'Floor'], ['high', 'High-level']], v => onupdatedevice?.(selectedDevice!.id, { patchLevel: v }))}
+					{@render SelectField('serverRoom', selectedDevice.serverRoom ?? 'A', [['A', 'A'], ['B', 'B'], ['C', 'C'], ['D', 'D']], v => onupdatedevice?.(selectedDevice!.id, { serverRoom: v }))}
+				{/if}
 				{@render Field('maker', selectedDevice.maker ?? '', v => onupdatedevice?.(selectedDevice!.id, { maker: v }))}
 				{@render Field('model', selectedDevice.model ?? '', v => onupdatedevice?.(selectedDevice!.id, { model: v }))}
 			</div>
 		{:else if selectedRack}
 			<div class="space-y-1 text-xs">
 				{@render Field('label', selectedRack.label, v => onupdaterack?.(selectedRack!.id, { label: v }))}
+				{@render SelectField('serverRoom', selectedRack.serverRoom ?? '', [['', '—'], ['A', 'A'], ['B', 'B'], ['C', 'C'], ['D', 'D']], v => onupdaterack?.(selectedRack!.id, { serverRoom: v || undefined }))}
 				{@render NumberField('heightU', selectedRack.heightU, v => onupdaterack?.(selectedRack!.id, { heightU: v }))}
 				{@render Field('type', selectedRack.type)}
 				{@render NumberField('widthMm', selectedRack.widthMm, v => onupdaterack?.(selectedRack!.id, { widthMm: v }))}
@@ -47,6 +52,18 @@
 		{:else}
 			<span class="text-gray-700">{value}</span>
 		{/if}
+	</label>
+{/snippet}
+
+{#snippet SelectField(key: string, value: string, options: [string, string][], onchange?: (v: string) => void)}
+	<label class="flex gap-2 items-center">
+		<span class="w-16 text-gray-500 text-[10px] shrink-0">{key}</span>
+		<select class="flex-1 h-6 px-1 border-b border-gray-300 text-xs" {value}
+			onchange={e => onchange?.(e.currentTarget.value)}>
+			{#each options as [val, label]}
+				<option value={val} selected={val === value}>{label}</option>
+			{/each}
+		</select>
 	</label>
 {/snippet}
 

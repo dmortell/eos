@@ -14,8 +14,9 @@
 
 	import type { ChangeDetail } from '$lib/logger'
 
-	let { data = null, floor, projectId = '', onsave, onfloorchange }: {
+	let { data = null, racksData = {}, floor, projectId = '', onsave, onfloorchange }: {
 		data?: any
+		racksData?: Record<string, any>
 		floor: number
 		projectId?: string
 		onsave?: (payload: any, changes: ChangeDetail[]) => void
@@ -40,6 +41,41 @@
 
 	const migrated = migrateData(data)
 
+	/** Derive FrameConfig[] from Racks tool data. Falls back to legacy frames if no racks data. */
+	function deriveFramesFromRacks(rData: Record<string, any>, legacyFrames?: FrameConfig[]): FrameConfig[] {
+		const derived: FrameConfig[] = []
+		for (const [rm, doc] of Object.entries(rData)) {
+			if (!doc?.racks) continue
+			for (const rack of doc.racks as any[]) {
+				if (!rack.serverRoom) continue
+				const rackDevices = ((doc.devices ?? []) as any[]).filter((d: any) => d.rackId === rack.id)
+				// Non-panel devices occupy RU space (treated as slots)
+				const slotRUs = new Set<number>()
+				for (const dev of rackDevices) {
+					if (dev.type !== 'panel') {
+						for (let u = dev.positionU; u < dev.positionU + dev.heightU; u++) slotRUs.add(u)
+					}
+				}
+				const floorPanels = rackDevices.filter((d: any) => d.type === 'panel' && d.patchLevel !== 'high')
+				const highPanels = rackDevices.filter((d: any) => d.type === 'panel' && d.patchLevel === 'high')
+
+				derived.push({
+					id: rack.id,
+					name: rack.label,
+					serverRoom: rack.serverRoom,
+					totalRU: rack.heightU ?? 42,
+					panelStartRU: floorPanels.length ? Math.min(...floorPanels.map((d: any) => d.positionU)) : 1,
+					panelEndRU: floorPanels.length ? Math.max(...floorPanels.map((d: any) => d.positionU + d.heightU - 1)) : rack.heightU ?? 42,
+					hlPanelStartRU: highPanels.length ? Math.min(...highPanels.map((d: any) => d.positionU)) : undefined,
+					hlPanelEndRU: highPanels.length ? Math.max(...highPanels.map((d: any) => d.positionU + d.heightU - 1)) : undefined,
+					slots: [...slotRUs].map(ru => ({ ru, type: 'device' as const, height: 1 })),
+				})
+			}
+		}
+		// Fall back to legacy frames if no racks data produced any frames
+		return derived.length > 0 ? derived : (legacyFrames ?? [])
+	}
+
 	// ── State: global settings ──
 	let serverRoomCount = $state(migrated.serverRoomCount)
 
@@ -47,14 +83,21 @@
 	let zoneLocations = $state<Record<string, LocationConfig[]>>(migrated.zoneLocations)
 	let activeZone = $state<string>(Object.keys(migrated.zoneLocations)[0] ?? 'A')
 
-	// ── State: frames & settings (shared across all zones) ──
-	let frames = $state<FrameConfig[]>(data?.frames ?? [])
+	// ── Frames derived from Racks tool data (read-only) ──
+	// Falls back to legacy data.frames if no racks data exists yet
+	let frames = $derived<FrameConfig[]>(deriveFramesFromRacks(racksData, data?.frames))
 	let rooms = $state<{ roomNumber: string; roomName: string }[]>(data?.rooms ?? [])
 	let customLocationTypes = $state<string[]>(data?.customLocationTypes ?? [])
 	let excelGroupByRoom = $state<boolean>(data?.excelGroupByRoom ?? true)
 	let selectedLocations = $state<Set<string>>(new Set())
 	let lastSelectedKey = $state<string | null>(null)
-	let selectedFrameId = $state<string | null>(frames[0]?.id ?? null)
+	let selectedFrameId = $state<string | null>(null)
+	// Keep selectedFrameId in sync with available frames
+	$effect(() => {
+		if (frames.length > 0 && (!selectedFrameId || !frames.find(f => f.id === selectedFrameId))) {
+			selectedFrameId = frames[0].id
+		}
+	})
 	let saveStatus = $state<'saved' | 'saving' | 'unsaved'>('saved')
 	let viewMode = $state<'sidebar' | 'stacked'>('sidebar')
 	let settingsOpen = $state(false)
@@ -165,32 +208,7 @@
 			}
 		}
 
-		// Frame config changes
-		if (JSON.stringify(prev.frames) !== JSON.stringify(next.frames)) {
-			const prevFrames: FrameConfig[] = prev.frames ?? []
-			const nextFrames: FrameConfig[] = next.frames ?? []
-
-			if (prevFrames.length < nextFrames.length) {
-				const added = nextFrames.filter(f => !prevFrames.find(p => p.id === f.id))
-				for (const f of added) changes.push({ action: 'add', field: 'frame', details: f.name })
-			} else if (prevFrames.length > nextFrames.length) {
-				const removed = prevFrames.filter(f => !nextFrames.find(n => n.id === f.id))
-				for (const f of removed) changes.push({ action: 'remove', field: 'frame', details: f.name })
-			}
-
-			for (const nf of nextFrames) {
-				const pf = prevFrames.find(f => f.id === nf.id)
-				if (pf && JSON.stringify(pf) !== JSON.stringify(nf)) {
-					const details: string[] = []
-					if (pf.name !== nf.name) details.push(`name: ${pf.name}→${nf.name}`)
-					if (pf.totalRU !== nf.totalRU) details.push(`totalRU: ${pf.totalRU}→${nf.totalRU}`)
-					if (pf.panelStartRU !== nf.panelStartRU || pf.panelEndRU !== nf.panelEndRU) details.push(`panelRange: ${pf.panelStartRU}-${pf.panelEndRU}→${nf.panelStartRU}-${nf.panelEndRU}`)
-					if (pf.hlPanelStartRU !== nf.hlPanelStartRU || pf.hlPanelEndRU !== nf.hlPanelEndRU) details.push(`hlRange changed`)
-					if (JSON.stringify(pf.slots) !== JSON.stringify(nf.slots)) details.push(`slots: ${pf.slots.length}→${nf.slots.length}`)
-					if (details.length) changes.push({ action: 'update', field: 'frame', details: `${nf.name}: ${details.join(', ')}` })
-				}
-			}
-		}
+		// Frame config changes removed — frames are now derived from Racks tool data
 
 		if (JSON.stringify(prev.rooms) !== JSON.stringify(next.rooms)) {
 			changes.push({ action: 'update', field: 'rooms', from: (prev.rooms ?? []).length, to: (next.rooms ?? []).length })
@@ -206,7 +224,7 @@
 	}
 
 	$effect(() => {
-		const current = { serverRoomCount, zoneLocations, frames, rooms, customLocationTypes, excelGroupByRoom }
+		const current = { serverRoomCount, zoneLocations, rooms, customLocationTypes, excelGroupByRoom }
 		const snapshot = JSON.stringify(current)
 
 		if (!initialized) {
@@ -230,7 +248,7 @@
 				saveStatus = 'saving'
 				const changesToLog = [...pendingChanges]
 				pendingChanges = []
-				onsave(stripUndefined({ floor, serverRoomCount, zoneLocations, frames, rooms, customLocationTypes, excelGroupByRoom }), changesToLog)
+				onsave(stripUndefined({ floor, serverRoomCount, zoneLocations, rooms, customLocationTypes, excelGroupByRoom }), changesToLog)
 				saveStatus = 'saved'
 			}
 		}, 500)
@@ -370,13 +388,6 @@
 			selectedLocations = new Set([key])
 			lastSelectedKey = key
 			scrollToLocationInList(key)
-		}
-	}
-
-	function updateFrames(updated: FrameConfig[]) {
-		frames = updated
-		if (!updated.find(f => f.id === selectedFrameId)) {
-			selectedFrameId = updated[0]?.id ?? null
 		}
 	}
 
@@ -522,7 +533,6 @@
 			{frames}
 			{selectedFrameId}
 			{serverRoomCount}
-			onupdate={updateFrames}
 			onselect={id => selectedFrameId = id}
 		/>
 	</div>

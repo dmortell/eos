@@ -4,6 +4,12 @@ export const SCALE = 0.5
 export const RU_HEIGHT_MM = 45 // 44.45mm actual, rounded for pixel snap
 export const RACK_GAP_PX = 80
 export const RACK_19IN_MM = 480 // 19" internal width
+export const RACK_FRAME_MARGIN_MM = 80 // top + bottom frame rails beyond RU space
+
+/** Compute rack height in mm from RU count */
+export function rackHeightMm(heightU: number) {
+	return heightU * RU_HEIGHT_MM + RACK_FRAME_MARGIN_MM
+}
 
 export const DEFAULT_SETTINGS: RackSettings = {
 	slabLevel: 0,

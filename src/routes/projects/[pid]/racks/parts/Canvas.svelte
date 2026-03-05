@@ -23,7 +23,8 @@
 
 	function onwheel(e: WheelEvent) {
 		view.panning = true
-		if (e.ctrlKey || e.altKey || e.metaKey) doZoom(e)
+		console.log(e)
+		if (e.ctrlKey || e.altKey || e.metaKey || e.buttons==2) doZoom(e)
 		else if (e.shiftKey || e.deltaX) pan((e.deltaY || e.deltaX) > 0 ? -110 : 110, 0)
 		else pan(0, e.deltaY > 0 ? -110 : 110)
 	}

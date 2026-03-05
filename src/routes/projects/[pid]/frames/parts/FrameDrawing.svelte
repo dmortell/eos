@@ -16,7 +16,10 @@
 			: racks
 	)
 
-	type RUItem = { type: 'panel'; panel: PanelData } | { type: 'slot'; slot: FrameSlot } | { type: 'empty'; ru: number }
+	type RUItem =
+		| { type: 'panel'; panel: PanelData }
+		| { type: 'slot'; slot: FrameSlot }
+		| { type: 'empty'; ru: number }
 
 	/** Build a full RU map for a rack, bottom-up (RU 1 = bottom) */
 	function buildRUMap(rack: RackData): RUItem[] {
@@ -49,6 +52,22 @@
 
 		return items
 	}
+
+	const DEVICE_COLORS: Record<string, { bg: string; text: string }> = {
+		switch: { bg: 'bg-green-50', text: 'text-green-700' },
+		router: { bg: 'bg-blue-50', text: 'text-blue-700' },
+		server: { bg: 'bg-indigo-50', text: 'text-indigo-700' },
+		ups: { bg: 'bg-amber-50', text: 'text-amber-700' },
+		pdu: { bg: 'bg-orange-50', text: 'text-orange-700' },
+		shelf: { bg: 'bg-gray-100', text: 'text-gray-600' },
+		'cable-mgmt': { bg: 'bg-yellow-50', text: 'text-yellow-700' },
+		blanking: { bg: 'bg-gray-200/50', text: 'text-gray-400' },
+		device: { bg: 'bg-indigo-50', text: 'text-indigo-600' },
+	}
+
+	function deviceColor(type: string) {
+		return DEVICE_COLORS[type] ?? DEVICE_COLORS['device']
+	}
 </script>
 
 {#if visibleRacks.length === 0 && racks.length === 0}
@@ -62,7 +81,7 @@
 			<div class="space-y-2">
 				<!-- Frame header -->
 				<div class="flex items-center gap-3">
-					<div class="w-3 h-3 rounded-full {rack.frame.serverRoom === 'A' ? 'bg-blue-500' : 'bg-purple-500'}"></div>
+					<div class="w-3 h-3 rounded-full {rack.frame.serverRoom === 'A' ? 'bg-blue-500' : rack.frame.serverRoom === 'B' ? 'bg-purple-500' : rack.frame.serverRoom === 'C' ? 'bg-teal-500' : 'bg-rose-500'}"></div>
 					<h3 class="font-semibold text-sm uppercase tracking-wider text-gray-700">
 						{rack.frame.name}
 					</h3>
@@ -87,7 +106,8 @@
 						{#if item.type === 'panel'}
 							<PanelStrip panel={item.panel} {selectedLocations} {onselect} />
 						{:else if item.type === 'slot'}
-							<!-- Slot: blanking, cable mgmt, device -->
+							{@const colors = deviceColor(item.slot.type)}
+							<!-- Slot: device, blanking, cable mgmt -->
 							<div class="border-b border-gray-200 last:border-b-0">
 								<div class="flex items-stretch" style:height="{item.slot.height * 1.25}rem">
 									<div class="w-8 bg-gray-100 flex flex-col items-center justify-between py-px border-r border-gray-200 shrink-0">
@@ -95,12 +115,8 @@
 										<span class="font-mono text-[7px] text-gray-400">{item.slot.ru + item.slot.height - 1 - h}</span>
 									{/each}
 								</div>
-									<div class="flex-1 flex items-center px-2 {
-										item.slot.type === 'blanking' ? 'bg-gray-200/50' :
-										item.slot.type === 'device' ? 'bg-indigo-50' :
-										'bg-yellow-50'
-									}">
-										<span class="font-mono text-[9px] text-gray-400 capitalize">
+									<div class="flex-1 flex items-center px-2 {colors.bg}">
+										<span class="font-mono text-[9px] {colors.text} capitalize">
 											{item.slot.type.replace(/-/g, ' ')}{item.slot.label ? `: ${item.slot.label}` : ''}
 										</span>
 									</div>

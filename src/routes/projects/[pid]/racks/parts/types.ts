@@ -17,6 +17,7 @@ export interface RackConfig {
 	widthMm: number // 600, 800
 	depthMm: number // 1000, 1200
 	type: RackType
+	serverRoom?: string // 'A', 'B', 'C', 'D' — which server room this rack is in
 	maker?: string
 	model?: string
 }
@@ -33,6 +34,9 @@ export interface DeviceConfig {
 	maker?: string
 	model?: string
 	color?: string
+	// Patch panel fields (only relevant when type === 'panel')
+	patchLevel?: 'floor' | 'high' // floor-level or high-level (ceiling) ports
+	serverRoom?: string // 'A', 'B', 'C', 'D' — which server room this panel serves
 }
 
 export interface DeviceTemplate {

@@ -93,7 +93,7 @@
 	<div><Search bind:value={query} /></div>
 
 	<!-- Palette -->
-	<div class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+	<div class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1 flex gap-1">
 		<Icon name="layers" size={11} /> Drag to Rack
 	</div>
 	<div class="space-y-0.5">

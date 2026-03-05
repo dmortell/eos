@@ -5,7 +5,7 @@
 	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
 	import type { ChangeDetail } from '$lib/logger'
 	import type { RackConfig, DeviceConfig, DeviceTemplate, RackRow, RackSettings, ViewState } from './parts/types'
-	import { DEFAULT_SETTINGS, SCALE, RU_HEIGHT_MM, RACK_GAP_PX, RACK_19IN_MM } from './parts/constants'
+	import { DEFAULT_SETTINGS, SCALE, RU_HEIGHT_MM, RACK_GAP_PX, RACK_19IN_MM, rackHeightMm } from './parts/constants'
 	import ConfigPanel from './parts/ConfigPanel.svelte'
 	import RackList from './parts/RackList.svelte'
 	import DevicePalette from './parts/DevicePalette.svelte'
@@ -28,7 +28,7 @@
 
 	// ── State ──
 	let rows = $state<RackRow[]>(data?.rows ?? [{ id: 'default', label: 'Row A' }])
-	let racks = $state<RackConfig[]>(data?.racks ?? [])
+	let racks = $state<RackConfig[]>((data?.racks ?? []).map((r: any) => ({ ...r, heightMm: rackHeightMm(r.heightU ?? 42) })))
 	let devices = $state<DeviceConfig[]>(data?.devices ?? [])
 	let library = $state<DeviceTemplate[]>(data?.library ?? [])
 	let settings = $state<RackSettings>(data?.settings ?? { ...DEFAULT_SETTINGS })
@@ -113,14 +113,21 @@
 	}
 
 	// ── Rack CRUD ──
-	function addRack() {
+	function addRack(form?: any) {
 		const id = `rack-${Date.now()}`
 		const order = racks.filter(r => r.rowId === activeRowId).length
-		const label = `R${String(order + 1).padStart(2, '0')}`
+		const label = form?.label || `R${String(order + 1).padStart(2, '0')}`
+		const hu = form?.heightU ?? 42
 		const newRack: RackConfig = {
 			id, label, rowId: activeRowId, order,
-			heightU: 42, heightMm: 2000, widthMm: 700, depthMm: 800,
-			type: '4-post',
+			heightU: hu,
+			heightMm: rackHeightMm(hu),
+			widthMm: form?.widthMm ?? 700,
+			depthMm: form?.depthMm ?? 800,
+			type: form?.type ?? '4-post',
+			serverRoom: form?.serverRoom ?? room,
+			maker: form?.maker,
+			model: form?.model,
 		}
 		racks = [...racks, newRack]
 		logChange('add', 'rack', label)
@@ -136,6 +143,7 @@
 	}
 
 	function updateRack(rackId: string, updates: Partial<RackConfig>) {
+		if (updates.heightU != null) updates.heightMm = rackHeightMm(updates.heightU)
 		racks = racks.map(r => r.id === rackId ? { ...r, ...updates } : r)
 		logChange('update', 'rack', rackId)
 	}
@@ -171,6 +179,11 @@
 			portCount: template.portCount,
 			portType: template.portType,
 			maker: template.maker,
+			// Default panel metadata from parent rack
+			...(template.type === 'panel' ? {
+				patchLevel: 'floor' as const,
+				serverRoom: targetRack.serverRoom ?? room,
+			} : {}),
 		}
 		devices = [...devices, newDevice]
 		selectedIds.clear()

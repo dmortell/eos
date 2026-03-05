@@ -9,6 +9,8 @@
 	/** @type {Session} */
 	let session = getContext('session');
 	let frameData = $state(/** @type {any} */ (null));
+	/** @type {Record<string, any>} */
+	let racksData = $state({});
 	let loading = $state(true);
 	let activeFloor = $state(1);
 	let hasMigrated = false;
@@ -38,6 +40,24 @@
 		});
 
 		return () => { unsub?.(); };
+	});
+
+	// Subscribe to racks docs for each server room (A–D) on the active floor
+	$effect(() => {
+		const pid = page.params.pid;
+		const fl = activeFloor;
+		if (!pid) return;
+
+		const floorStr = String(fl).padStart(2, '0');
+		const rooms = ['A', 'B', 'C', 'D'];
+		const unsubs = rooms.map(rm => {
+			const rackDocId = `${pid}_F${floorStr}_R${rm}`;
+			return db.subscribeOne('racks', rackDocId, data => {
+				racksData = { ...racksData, [rm]: data };
+			});
+		});
+
+		return () => { unsubs.forEach(u => u?.()); };
 	});
 
 	/** Migrate data from old `frames/{pid}` doc to new per-floor doc if it exists */
@@ -86,6 +106,6 @@
 	</div>
 {:else}
 	{#key activeFloor}
-		<Frames data={frameData} floor={activeFloor} projectId={page.params.pid} onsave={save} onfloorchange={changeFloor} />
+		<Frames data={frameData} {racksData} floor={activeFloor} projectId={page.params.pid} onsave={save} onfloorchange={changeFloor} />
 	{/key}
 {/if}
