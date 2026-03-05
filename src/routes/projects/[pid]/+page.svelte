@@ -21,7 +21,11 @@
 	<div class="font-semibold">{project.name}</div>
 	<div class="text-muted-foreground">{project.description}</div>
 	<hr/>
-	<a href="{path}/frames">Patch Frames</a>
+	<b>Tools</b>
+	<ul class="text-sm">
+	<li><a href="{path}/frames">Patch Frames</a> - allocate outlet ports to patch frames</li>
+	<li><a href="{path}/frames">Patch Frames</a></li>
+	</ul>
 	<!-- <a href="{path}/docs">Proposals</a>, -->
 	<!-- <div>BOM, Quotes, Invoices, RFPs </div>
 	<div>Drawings - Models, Floorplans, Elevations, Cable Routes, Patching, PDFs</div>

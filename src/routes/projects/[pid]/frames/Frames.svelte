@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { Button, Icon } from '$lib'
 	import type { ZoneConfig, LocationConfig, FrameConfig, RackData, PortLabel } from './parts/types'
-	import { defaultFrameConfig } from './parts/types'
 	import { generatePortLabels, generateRacks } from './parts/engine'
 	import { exportToExcel } from './parts/exportExcel'
 	import ConfigPanel from './parts/ConfigPanel.svelte'
