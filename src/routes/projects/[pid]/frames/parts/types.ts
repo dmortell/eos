@@ -50,7 +50,7 @@ export interface ZoneConfig {
 
 // ── Frame config ──
 
-export type SlotType = 'patch-panel' | 'blanking' | 'cable-mgmt' | 'device'
+export type SlotType = 'patch-panel' | 'blanking' | 'cable-mgmt' | 'device' | 'enclosure' | 'panel' | 'switch' | 'server' | 'manager' | 'shelf' | 'pdu' | 'other'
 
 export interface FrameSlot {
 	ru: number

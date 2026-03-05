@@ -49,13 +49,15 @@
 			for (const rack of doc.racks as any[]) {
 				if (!rack.serverRoom) continue
 				const rackDevices = ((doc.devices ?? []) as any[]).filter((d: any) => d.rackId === rack.id)
-				// Non-panel devices occupy RU space (treated as slots)
-				const slotRUs = new Set<number>()
+				// Non-copper-panel devices occupy RU space (treated as slots)
+				// Only type 'panel' is copper patch panel; 'enclosure' is fiber (no copper ports)
+				const slots: import('./parts/types').FrameSlot[] = []
 				for (const dev of rackDevices) {
 					if (dev.type !== 'panel') {
-						for (let u = dev.positionU; u < dev.positionU + dev.heightU; u++) slotRUs.add(u)
+						slots.push({ ru: dev.positionU, type: dev.type, height: dev.heightU, label: dev.label })
 					}
 				}
+				// Only copper patch panels ('panel') get ports assigned by the engine
 				const floorPanels = rackDevices.filter((d: any) => d.type === 'panel' && d.patchLevel !== 'high')
 				const highPanels = rackDevices.filter((d: any) => d.type === 'panel' && d.patchLevel === 'high')
 
@@ -68,7 +70,7 @@
 					panelEndRU: floorPanels.length ? Math.max(...floorPanels.map((d: any) => d.positionU + d.heightU - 1)) : rack.heightU ?? 42,
 					hlPanelStartRU: highPanels.length ? Math.min(...highPanels.map((d: any) => d.positionU)) : undefined,
 					hlPanelEndRU: highPanels.length ? Math.max(...highPanels.map((d: any) => d.positionU + d.heightU - 1)) : undefined,
-					slots: [...slotRUs].map(ru => ({ ru, type: 'device' as const, height: 1 })),
+					slots,
 				})
 			}
 		}

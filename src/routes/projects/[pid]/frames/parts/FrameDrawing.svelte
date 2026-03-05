@@ -57,16 +57,37 @@
 		switch: { bg: 'bg-green-50', text: 'text-green-700' },
 		router: { bg: 'bg-blue-50', text: 'text-blue-700' },
 		server: { bg: 'bg-indigo-50', text: 'text-indigo-700' },
+		enclosure: { bg: 'bg-sky-50', text: 'text-sky-700' },
 		ups: { bg: 'bg-amber-50', text: 'text-amber-700' },
 		pdu: { bg: 'bg-orange-50', text: 'text-orange-700' },
 		shelf: { bg: 'bg-gray-100', text: 'text-gray-600' },
+		manager: { bg: 'bg-yellow-50', text: 'text-yellow-700' },
 		'cable-mgmt': { bg: 'bg-yellow-50', text: 'text-yellow-700' },
 		blanking: { bg: 'bg-gray-200/50', text: 'text-gray-400' },
+		other: { bg: 'bg-gray-100', text: 'text-gray-500' },
 		device: { bg: 'bg-indigo-50', text: 'text-indigo-600' },
+	}
+
+	const DEVICE_TYPE_LABELS: Record<string, string> = {
+		switch: 'Switch',
+		server: 'Server',
+		manager: 'Cable Manager',
+		enclosure: 'Fiber Enclosure',
+		shelf: 'Shelf',
+		pdu: 'PDU',
+		'cable-mgmt': 'Cable Mgmt',
+		blanking: 'Blanking',
+		other: 'Device',
+		device: 'Device',
 	}
 
 	function deviceColor(type: string) {
 		return DEVICE_COLORS[type] ?? DEVICE_COLORS['device']
+	}
+
+	function deviceLabel(slot: FrameSlot) {
+		const typeName = DEVICE_TYPE_LABELS[slot.type] ?? slot.type
+		return slot.label ? `${typeName}: ${slot.label}` : typeName
 	}
 </script>
 
@@ -116,8 +137,8 @@
 									{/each}
 								</div>
 									<div class="flex-1 flex items-center px-2 {colors.bg}">
-										<span class="font-mono text-[9px] {colors.text} capitalize">
-											{item.slot.type.replace(/-/g, ' ')}{item.slot.label ? `: ${item.slot.label}` : ''}
+										<span class="font-mono text-[9px] {colors.text}">
+											{deviceLabel(item.slot)}
 										</span>
 									</div>
 								</div>

@@ -1,4 +1,4 @@
-export type DeviceType = 'panel' | 'switch' | 'server' | 'manager' | 'shelf' | 'pdu' | 'other'
+export type DeviceType = 'panel' | 'enclosure' | 'switch' | 'server' | 'manager' | 'shelf' | 'pdu' | 'other'
 export type RackType = '2-post' | '4-post' | 'cabinet'
 export type PortType = 'RJ45' | 'LC' | 'SC' | 'SFP' | null
 

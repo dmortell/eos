@@ -31,7 +31,7 @@ export const DEVICE_CONFIGS: Record<string, { heightU: number; portCount: number
 export const DEFAULT_PALETTE: DeviceTemplate[] = [
 	{ id: 'pp24', label: '24-Port Patch Panel 1u', description: '1U - Cat6/6a', type: 'panel', heightU: 1, portCount: 24, portType: 'RJ45', icon: 'hgrip' },
 	{ id: 'pp48', label: '48-Port Patch Panel 1u', description: '1U - High Density', type: 'panel', heightU: 1, portCount: 48, portType: 'RJ45', icon: 'hgrip' },
-	{ id: 'fiber', label: 'Fiber Enclosure 1u', description: '1U - LC/SC', type: 'panel', heightU: 1, portCount: 24, portType: 'LC', icon: 'rect' },
+	{ id: 'fiber', label: 'Fiber Enclosure 1u', description: '1U - LC/SC', type: 'enclosure', heightU: 1, portCount: 24, portType: 'LC', icon: 'rect' },
 	{ id: 'sw48', label: 'Network Switch 48p', description: '1U - Managed', type: 'switch', heightU: 1, portCount: 48, portType: 'RJ45', icon: 'server' },
 	{ id: 'sw24', label: 'Network Switch 24p', description: '1U - Managed', type: 'switch', heightU: 1, portCount: 24, portType: 'RJ45', icon: 'server' },
 	{ id: 'sw2u', label: 'Network Switch 2u', description: '2U - Managed', type: 'switch', heightU: 2, portCount: 48, portType: 'RJ45', icon: 'server' },
@@ -45,6 +45,7 @@ export const DEVICE_TYPE_COLORS: Record<DeviceType, string> = {
 	panel: '#3b82f6',   // blue
 	switch: '#22c55e',  // green
 	server: '#64748b',  // slate
+	enclosure: '#0ea5e9', // sky
 	manager: '#a855f7', // purple
 	shelf: '#f97316',   // orange
 	pdu: '#ef4444',     // red

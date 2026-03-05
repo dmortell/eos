@@ -47,9 +47,19 @@
 		racks.length ? Math.max(...racks.map(r => r.heightMm)) : 2000
 	)
 
-	// View state
+	// View state — restore pan/zoom from localStorage
+	const viewKey = `racks-view-${projectId}-F${floor}-R${room}`
+	function loadView(): { x: number; y: number; zoom: number } {
+		try {
+			const saved = localStorage.getItem(viewKey)
+			if (saved) return JSON.parse(saved)
+		} catch {}
+		return { x: 60, y: 0, zoom: 0.3 }
+	}
+	const savedView = loadView()
+
 	let view = $state<ViewState>({
-		x: 60, y: 0, zoom: 0.3, scale: SCALE,
+		x: savedView.x, y: savedView.y, zoom: savedView.zoom, scale: SCALE,
 		grid: 100 * SCALE, width: 3000, height: 3000,
 		showGrid: true, panning: false, dragging: false,
 		button: 0, bottom: Math.max(settings.ceilingLevel + 500, maxRackHeight + 500),
@@ -58,6 +68,16 @@
 	// Keep bottom in sync
 	$effect(() => {
 		view.bottom = Math.max(settings.ceilingLevel + 500, maxRackHeight + 500)
+	})
+
+	// Persist pan/zoom to localStorage (debounced)
+	let viewSaveTimer: ReturnType<typeof setTimeout> | null = null
+	$effect(() => {
+		const { x, y, zoom } = view
+		if (viewSaveTimer) clearTimeout(viewSaveTimer)
+		viewSaveTimer = setTimeout(() => {
+			try { localStorage.setItem(viewKey, JSON.stringify({ x, y, zoom })) } catch {}
+		}, 300)
 	})
 
 	// Racks in active row, with computed positions
@@ -367,7 +387,7 @@
 		dropGhost = null
 	}
 
-	function onDeviceDragged(rect: any, device: DeviceConfig) {
+	function onDeviceDragged(rect: any, device: DeviceConfig, copy?: boolean) {
 		dropGhost = null
 		for (const rack of activeRacks) {
 			const rr = screenRect(rack)
@@ -375,7 +395,17 @@
 			if (midX >= rr.left && midX <= rr.left + rr.width) {
 				const ruFromBottom = (rr.top + rr.height - rect.top - rect.height) / SCALE / RU_HEIGHT_MM
 				const snappedRU = Math.max(1, Math.min(rack.heightU - device.heightU + 1, Math.round(ruFromBottom)))
-				updateDevice(device.id, { rackId: rack.id, positionU: snappedRU })
+				if (copy) {
+					// Ctrl+drag: duplicate the device at the new position
+					const id = `dev-${Date.now()}`
+					const { id: _, ...rest } = device
+					devices = [...devices, { ...rest, id, rackId: rack.id, positionU: snappedRU }]
+					selectedIds.clear()
+					selectedIds.add(id)
+					logChange('copy', 'device', `${device.label} to ${rack.label} RU${snappedRU}`)
+				} else {
+					updateDevice(device.id, { rackId: rack.id, positionU: snappedRU })
+				}
 				return
 			}
 		}
@@ -492,7 +522,7 @@
 							selected={selectedIds.has(device.id)}
 							onClick={e => { selectedIds.clear(); selectedIds.add(device.id) }}
 							onDrag={onDeviceDrag}
-							onDragged={(rect) => onDeviceDragged(rect, device)}>
+							onDragged={(rect, _item, copy) => onDeviceDragged(rect, device, copy)}>
 							<DeviceView {device} {view} ondelete={() => deleteDevice(device.id)} />
 						</Draggable>
 					{/each}
