@@ -14,13 +14,16 @@
 
 	import type { ChangeDetail } from '$lib/logger'
 
-	let { data = null, racksData = {}, floor, projectId = '', onsave, onfloorchange }: {
+	let { data = null, racksData = {}, floor, floors = [1], projectId = '', onsave, onfloorchange, onaddfloor, ondeletefloor }: {
 		data?: any
 		racksData?: Record<string, any>
 		floor: number
+		floors?: number[]
 		projectId?: string
 		onsave?: (payload: any, changes: ChangeDetail[]) => void
 		onfloorchange?: (floor: number) => void
+		onaddfloor?: () => void
+		ondeletefloor?: (floor: number) => void
 	} = $props()
 
 	// ── Migrate from old single-zone format ──
@@ -49,8 +52,8 @@
 			for (const rack of doc.racks as any[]) {
 				if (!rack.serverRoom) continue
 				const rackDevices = ((doc.devices ?? []) as any[]).filter((d: any) => d.rackId === rack.id)
-				// Non-copper-panel devices occupy RU space (treated as slots)
-				// Only type 'panel' is copper patch panel; 'enclosure' is fiber (no copper ports)
+				// All non-copper-panel devices are slots (occupy RU space, no copper ports)
+				// This includes enclosures (fiber), switches, servers, managers, etc.
 				const slots: import('./parts/types').FrameSlot[] = []
 				for (const dev of rackDevices) {
 					if (dev.type !== 'panel') {
@@ -58,8 +61,16 @@
 					}
 				}
 				// Only copper patch panels ('panel') get ports assigned by the engine
-				const floorPanels = rackDevices.filter((d: any) => d.type === 'panel' && d.patchLevel !== 'high')
-				const highPanels = rackDevices.filter((d: any) => d.type === 'panel' && d.patchLevel === 'high')
+				const copperPanels = rackDevices.filter((d: any) => d.type === 'panel')
+				const floorPanels = copperPanels.filter((d: any) => d.patchLevel !== 'high')
+				const highPanels = copperPanels.filter((d: any) => d.patchLevel === 'high')
+
+				// Build panelDevices with actual RU positions and port counts
+				const panelDevices: import('./parts/types').PanelDevice[] = copperPanels.map((d: any) => ({
+					ru: d.positionU as number,
+					portCount: (d.portCount as number) || 48,
+					isHighLevel: d.patchLevel === 'high',
+				}))
 
 				derived.push({
 					id: rack.id,
@@ -71,6 +82,7 @@
 					hlPanelStartRU: highPanels.length ? Math.min(...highPanels.map((d: any) => d.positionU)) : undefined,
 					hlPanelEndRU: highPanels.length ? Math.max(...highPanels.map((d: any) => d.positionU + d.heightU - 1)) : undefined,
 					slots,
+					panelDevices,
 				})
 			}
 		}
@@ -106,6 +118,7 @@
 	let settingsOpen = $state(false)
 	let logsOpen = $state(false)
 	let showAllZones = $state(false)
+	let deleteFloorConfirm = $state<number | null>(null)
 
 	// ── Refs for scroll sync ──
 	let locationListEl: HTMLDivElement | undefined = $state()
@@ -258,7 +271,6 @@
 	})
 
 	// ── Handlers ──
-	function setFloor(val: number) { onfloorchange?.(val) }
 	function setServerRooms(count: number) { serverRoomCount = count }
 
 	function setActiveZone(zone: string) {
@@ -475,15 +487,70 @@
 		</Pane>
 	</PaneGroup>
 {/if}
+
+<!-- Status bar with floor tabs -->
+<div class="h-7 flex items-stretch border-t border-gray-200 bg-gray-50 shrink-0">
+	<div class="flex items-stretch gap-0 overflow-x-auto">
+		{#each floors as fl}
+			<button
+				class="group relative px-3 text-[11px] font-mono font-medium border-r border-gray-200 transition-colors
+					{floor === fl ? 'bg-white text-blue-600 border-t-2 border-t-blue-500' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 border-t-2 border-t-transparent'}"
+				onclick={() => onfloorchange?.(fl)}
+				oncontextmenu={e => { e.preventDefault(); deleteFloorConfirm = fl }}
+			>
+				{fmtFloor(fl)}
+				{#if floors.length > 1}
+					<span
+						class="absolute -top-0.5 -right-0.5 hidden group-hover:flex w-3.5 h-3.5 items-center justify-center rounded-full bg-red-500 text-white text-[8px] leading-none cursor-pointer z-10"
+						role="button"
+						tabindex="-1"
+						onclick={e => { e.stopPropagation(); deleteFloorConfirm = fl }}
+						onkeydown={e => { if (e.key === 'Enter') { e.stopPropagation(); deleteFloorConfirm = fl } }}
+					>&times;</span>
+				{/if}
+			</button>
+		{/each}
+		<button
+			class="px-2 text-gray-300 hover:text-gray-500 transition-colors"
+			title="Add floor"
+			onclick={() => onaddfloor?.()}
+		><Icon name="plus" size={12} /></button>
+	</div>
+	<div class="flex-1"></div>
+	<div class="flex items-center gap-3 px-3 text-[10px] text-gray-400">
+		<span>{allLabels.length} ports &middot; {racks.length} frame{racks.length !== 1 ? 's' : ''}</span>
+	</div>
+</div>
+
+<!-- Delete floor confirmation dialog -->
+{#if deleteFloorConfirm !== null}
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center" onclick={() => deleteFloorConfirm = null} onkeydown={e => e.key === 'Escape' && (deleteFloorConfirm = null)}>
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<div class="bg-white rounded-lg shadow-xl border border-gray-200 w-[380px] p-5" onclick={e => e.stopPropagation()}>
+			<h3 class="text-sm font-semibold text-gray-800 mb-2">Delete {fmtFloor(deleteFloorConfirm)}?</h3>
+			<p class="text-xs text-gray-500 mb-4">
+				This will permanently delete all frame data, rack layouts, and device configurations for this floor across all server rooms.
+				<strong class="text-red-600">This cannot be undone.</strong>
+			</p>
+			<div class="flex justify-end gap-2">
+				<Button onclick={() => deleteFloorConfirm = null}>Cancel</Button>
+				<Button onclick={() => { const fl = deleteFloorConfirm; deleteFloorConfirm = null; if (fl !== null) ondeletefloor?.(fl) }}
+					class="bg-red-600 text-white hover:bg-red-700">Delete</Button>
+			</div>
+		</div>
+	</div>
+{/if}
 </div>
 
 {#snippet configAndLocations()}
 	<ConfigPanel
 		{floor}
+		floorLabel={fmtFloor(floor)}
 		{serverRoomCount}
 		{activeZone}
 		locations={activeLocations}
-		onfloor={setFloor}
 		onserverrooms={setServerRooms}
 		onzone={setActiveZone}
 		ongenerate={generateLocations}

@@ -1,4 +1,4 @@
-import type { ZoneConfig, PortLabel, PanelData, RackData, FrameConfig } from './types'
+import type { ZoneConfig, PortLabel, PanelData, PanelDevice, RackData, FrameConfig } from './types'
 import { defaultFrameConfig } from './types'
 
 /** Format a floor number according to the floorFormat setting */
@@ -42,8 +42,50 @@ export function generatePortLabels(zone: ZoneConfig, floorFormat: string = 'L01'
 	return labels
 }
 
-/** Lay out labels into 48-port panels (2 rows of 24) */
-function buildPanels(labels: PortLabel[], isHighLevel: boolean, startingPanel: number): PanelData[] {
+/** Build a single PanelData for a panel device, filling it with labels from the offset */
+function buildOnePanel(
+	labels: PortLabel[], offset: number,
+	device: PanelDevice, panelNumber: number
+): PanelData {
+	const pc = device.portCount
+	const chunk = labels.slice(offset, offset + pc)
+
+	if (pc <= 24) {
+		// 24-port panel: single row of up to 24
+		const topRow: (PortLabel | null)[] = Array.from({ length: pc }, (_, j) => chunk[j] ?? null)
+		return { panelNumber, ru: device.ru, topRow, bottomRow: [], isHighLevel: device.isHighLevel, portCount: pc }
+	} else {
+		// 48-port panel: two rows of 24
+		const topRow: (PortLabel | null)[] = Array.from({ length: 24 }, (_, j) => chunk[j] ?? null)
+		const bottomRow: (PortLabel | null)[] = Array.from({ length: 24 }, (_, j) => chunk[j + 24] ?? null)
+		return { panelNumber, ru: device.ru, topRow, bottomRow, isHighLevel: device.isHighLevel, portCount: pc }
+	}
+}
+
+/** Build panels for a list of panel devices, distributing labels across them.
+ *  Each panel is placed at its actual RU with its actual port count. */
+function buildPanelsForDevices(
+	labels: PortLabel[],
+	devices: PanelDevice[],
+	startingPanel: number
+): PanelData[] {
+	if (devices.length === 0) return []
+
+	// Sort devices by RU descending (top-down in rack)
+	const sorted = [...devices].sort((a, b) => b.ru - a.ru)
+	const panels: PanelData[] = []
+	let offset = 0
+
+	for (let i = 0; i < sorted.length; i++) {
+		panels.push(buildOnePanel(labels, offset, sorted[i], startingPanel + i))
+		offset += sorted[i].portCount
+	}
+
+	return panels
+}
+
+/** Lay out labels into 48-port panels (legacy fallback when no panelDevices) */
+function buildPanelsLegacy(labels: PortLabel[], isHighLevel: boolean, startingPanel: number): PanelData[] {
 	if (labels.length === 0) return []
 
 	const panelCount = Math.ceil(labels.length / 48)
@@ -60,6 +102,7 @@ function buildPanels(labels: PortLabel[], isHighLevel: boolean, startingPanel: n
 			topRow,
 			bottomRow,
 			isHighLevel,
+			portCount: 48,
 		})
 	}
 
@@ -79,6 +122,22 @@ function availablePanelRUs(frame: FrameConfig, startRU?: number, endRU?: number)
 		if (!slotRUs.has(ru)) count++
 	}
 	return count
+}
+
+/** Compute total port capacity for a frame's panel devices of a given level */
+function panelCapacity(frame: FrameConfig, isHighLevel: boolean): number {
+	if (frame.panelDevices?.length) {
+		return frame.panelDevices
+			.filter(d => d.isHighLevel === isHighLevel)
+			.reduce((sum, d) => sum + d.portCount, 0)
+	}
+	// Legacy: estimate from available RUs * 48
+	if (isHighLevel) {
+		const hlStart = frame.hlPanelStartRU ?? frame.panelStartRU
+		const hlEnd = frame.hlPanelEndRU ?? frame.panelEndRU
+		return availablePanelRUs(frame, hlStart, hlEnd) * 48
+	}
+	return availablePanelRUs(frame, frame.panelStartRU, frame.panelEndRU) * 48
 }
 
 /** Generate rack data, distributing labels across frames of the same server room.
@@ -108,10 +167,10 @@ export function generateRacks(labels: PortLabel[], serverRoomCount: number, fram
 		const floorLabels = roomLabels.filter(l => !l.isHighLevel)
 		const highLabels = roomLabels.filter(l => l.isHighLevel)
 
-		// Distribute floor labels across frames by panel capacity (using floor-level range)
+		// Distribute floor labels across frames by actual panel capacity
 		let floorOffset = 0
 		for (const frame of roomFrames) {
-			const capacity = availablePanelRUs(frame, frame.panelStartRU, frame.panelEndRU) * 48
+			const capacity = panelCapacity(frame, false)
 			const chunk = floorLabels.slice(floorOffset, floorOffset + capacity)
 			floorOffset += chunk.length
 
@@ -125,12 +184,10 @@ export function generateRacks(labels: PortLabel[], serverRoomCount: number, fram
 			last.floor = [...last.floor, ...floorLabels.slice(floorOffset)]
 		}
 
-		// Distribute high-level labels using HL range (falls back to floor range if not set)
+		// Distribute high-level labels
 		let highOffset = 0
 		for (const frame of roomFrames) {
-			const hlStart = frame.hlPanelStartRU ?? frame.panelStartRU
-			const hlEnd = frame.hlPanelEndRU ?? frame.panelEndRU
-			const capacity = availablePanelRUs(frame, hlStart, hlEnd) * 48
+			const capacity = panelCapacity(frame, true)
 			const chunk = highLabels.slice(highOffset, highOffset + capacity)
 			highOffset += chunk.length
 
@@ -146,34 +203,48 @@ export function generateRacks(labels: PortLabel[], serverRoomCount: number, fram
 	// Build rack data for each frame
 	return activeFrames.map(frame => {
 		const frameLbls = labelsByFrame.get(frame.id) ?? { floor: [], high: [] }
-		const floorPanels = buildPanels(frameLbls.floor, false, 1)
-		const highPanels = buildPanels(frameLbls.high, true, floorPanels.length + 1)
+		const hasPanelDevices = frame.panelDevices && frame.panelDevices.length > 0
 
-		// Determine slot-occupied RUs
-		const slotRUs = new Set<number>()
-		for (const slot of frame.slots) {
-			for (let h = 0; h < slot.height; h++) slotRUs.add(slot.ru + h)
-		}
+		let floorPanels: PanelData[]
+		let highPanels: PanelData[]
 
-		// Assign floor-level panels within floor range (top-down)
-		const floorAvail: number[] = []
-		for (let ru = frame.panelEndRU; ru >= frame.panelStartRU; ru--) {
-			if (!slotRUs.has(ru)) floorAvail.push(ru)
-		}
-		floorPanels.forEach((panel, i) => {
-			panel.ru = floorAvail[i] ?? frame.panelEndRU - i
-		})
+		if (hasPanelDevices) {
+			// Use actual panel device positions and port counts
+			const floorDevices = frame.panelDevices!.filter(d => !d.isHighLevel)
+			const highDevices = frame.panelDevices!.filter(d => d.isHighLevel)
+			floorPanels = buildPanelsForDevices(frameLbls.floor, floorDevices, 1)
+			highPanels = buildPanelsForDevices(frameLbls.high, highDevices, floorPanels.length + 1)
+		} else {
+			// Legacy path: auto-generate 48-port panels and place in available RUs
+			floorPanels = buildPanelsLegacy(frameLbls.floor, false, 1)
+			highPanels = buildPanelsLegacy(frameLbls.high, true, floorPanels.length + 1)
 
-		// Assign high-level panels within HL range (top-down)
-		const hlStart = frame.hlPanelStartRU ?? frame.panelStartRU
-		const hlEnd = frame.hlPanelEndRU ?? frame.panelEndRU
-		const hlAvail: number[] = []
-		for (let ru = hlEnd; ru >= hlStart; ru--) {
-			if (!slotRUs.has(ru)) hlAvail.push(ru)
+			// Determine slot-occupied RUs
+			const slotRUs = new Set<number>()
+			for (const slot of frame.slots) {
+				for (let h = 0; h < slot.height; h++) slotRUs.add(slot.ru + h)
+			}
+
+			// Assign floor-level panels within floor range (top-down)
+			const floorAvail: number[] = []
+			for (let ru = frame.panelEndRU; ru >= frame.panelStartRU; ru--) {
+				if (!slotRUs.has(ru)) floorAvail.push(ru)
+			}
+			floorPanels.forEach((panel, i) => {
+				panel.ru = floorAvail[i] ?? frame.panelEndRU - i
+			})
+
+			// Assign high-level panels within HL range (top-down)
+			const hlStart = frame.hlPanelStartRU ?? frame.panelStartRU
+			const hlEnd = frame.hlPanelEndRU ?? frame.panelEndRU
+			const hlAvail: number[] = []
+			for (let ru = hlEnd; ru >= hlStart; ru--) {
+				if (!slotRUs.has(ru)) hlAvail.push(ru)
+			}
+			highPanels.forEach((panel, i) => {
+				panel.ru = hlAvail[i] ?? hlEnd - i
+			})
 		}
-		highPanels.forEach((panel, i) => {
-			panel.ru = hlAvail[i] ?? hlEnd - i
-		})
 
 		return { frame, panels: [...floorPanels, ...highPanels] }
 	})

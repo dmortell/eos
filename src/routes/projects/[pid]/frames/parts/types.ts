@@ -59,6 +59,13 @@ export interface FrameSlot {
 	height: number // RU height (1-10)
 }
 
+/** Describes a physical patch panel device in the rack */
+export interface PanelDevice {
+	ru: number        // RU position in rack (1-based from bottom)
+	portCount: number // 24 or 48
+	isHighLevel: boolean
+}
+
 export interface FrameConfig {
 	id: string
 	name: string // e.g. "Frame A1"
@@ -69,6 +76,7 @@ export interface FrameConfig {
 	hlPanelStartRU?: number // high-level panel range (optional, defaults to panelStartRU)
 	hlPanelEndRU?: number   // high-level panel range (optional, defaults to panelEndRU)
 	slots: FrameSlot[]
+	panelDevices?: PanelDevice[] // actual panel devices with positions + port counts
 }
 
 // ── Generated output ──
@@ -86,9 +94,10 @@ export interface PortLabel {
 export interface PanelData {
 	panelNumber: number
 	ru: number
-	topRow: (PortLabel | null)[] // 24 slots
-	bottomRow: (PortLabel | null)[] // 24 slots
+	topRow: (PortLabel | null)[] // up to 24 slots
+	bottomRow: (PortLabel | null)[] // up to 24 slots (empty for 24-port panels)
 	isHighLevel: boolean
+	portCount: number // 24 or 48 — total ports on this physical panel
 }
 
 export interface RackData {

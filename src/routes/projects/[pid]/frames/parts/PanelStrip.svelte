@@ -23,11 +23,13 @@
 					<PortCell {port} selected={port ? (selectedLocations?.has(`${port.zone}-${port.locationNumber}`) ?? false) : false} {onselect} />
 				{/each}
 			</div>
-			<div class="grid grid-cols-24 gap-px">
-				{#each panel.bottomRow as port, i (i)}
-					<PortCell {port} selected={port ? (selectedLocations?.has(`${port.zone}-${port.locationNumber}`) ?? false) : false} {onselect} />
-				{/each}
-			</div>
+			{#if panel.bottomRow.length > 0}
+				<div class="grid grid-cols-24 gap-px">
+					{#each panel.bottomRow as port, i (i)}
+						<PortCell {port} selected={port ? (selectedLocations?.has(`${port.zone}-${port.locationNumber}`) ?? false) : false} {onselect} />
+					{/each}
+				</div>
+			{/if}
 		</div>
 	</div>
 </div>

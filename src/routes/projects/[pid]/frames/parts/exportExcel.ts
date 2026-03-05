@@ -149,7 +149,7 @@ function writeRack(ws: ExcelJS.Worksheet, rack: RackData, startRow: number, colO
 			ws.getCell(row, c1).value = ru
 			ws.getCell(row, c1).font = { bold: true, size: 8 }
 			ws.getCell(row, c1).alignment = { horizontal: 'center' }
-			for (let col = 0; col < 24; col++) {
+			for (let col = 0; col < panel.topRow.length; col++) {
 				const port = panel.topRow[col]
 				if (port) {
 					writePortCell(ws.getCell(row, cPort1 + col), port)
@@ -158,15 +158,17 @@ function writeRack(ws: ExcelJS.Worksheet, rack: RackData, startRow: number, colO
 			ws.getRow(row).height = 14
 			row++
 
-			// Panel: bottom row
-			for (let col = 0; col < 24; col++) {
-				const port = panel.bottomRow[col]
-				if (port) {
-					writePortCell(ws.getCell(row, cPort1 + col), port)
+			// Panel: bottom row (only for 48-port panels)
+			if (panel.bottomRow.length > 0) {
+				for (let col = 0; col < panel.bottomRow.length; col++) {
+					const port = panel.bottomRow[col]
+					if (port) {
+						writePortCell(ws.getCell(row, cPort1 + col), port)
+					}
 				}
+				ws.getRow(row).height = 14
+				row++
 			}
-			ws.getRow(row).height = 14
-			row++
 			applyBlockBorder(ws, blockStart, row - 1, c1, cEnd)
 		} else if (slot && slot.ru === ru) {
 			// Slot: 2 rows per RU of slot height

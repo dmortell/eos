@@ -1,12 +1,12 @@
 <script lang="ts">
 	import type { LocationConfig } from './types'
 
-	let { floor, serverRoomCount, activeZone, locations, onfloor, onserverrooms, onzone, ongenerate }: {
+	let { floor, serverRoomCount, activeZone, locations, floorLabel = '', onserverrooms, onzone, ongenerate }: {
 		floor: number
 		serverRoomCount: number
 		activeZone: string
 		locations: LocationConfig[]
-		onfloor: (floor: number) => void
+		floorLabel?: string
 		onserverrooms: (count: number) => void
 		onzone: (zone: string) => void
 		ongenerate: (count: number) => void
@@ -27,12 +27,9 @@
 	<div class="grid grid-cols-2 gap-1.5 items-end">
 		<div>
 			<label class="text-[10px] text-gray-500 uppercase tracking-wider">Floor</label>
-			<input
-				type="number" min="1" max="20"
-				value={floor}
-				onchange={e => onfloor(Math.max(1, Math.min(20, parseInt(e.currentTarget.value) || 1)))}
-				class="w-full h-7 px-2 text-xs font-mono bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
-			/>
+			<div class="h-7 px-2 text-xs font-mono bg-gray-100 border border-gray-200 rounded flex items-center text-gray-600">
+				{floorLabel || floor}
+			</div>
 		</div>
 		<div>
 			<label class="text-[10px] text-gray-500 uppercase tracking-wider">Server Rooms</label>

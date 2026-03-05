@@ -11,9 +11,21 @@
 	let frameData = $state(/** @type {any} */ (null));
 	/** @type {Record<string, any>} */
 	let racksData = $state({});
+	/** @type {number[]} */
+	let floors = $state([1]);
 	let loading = $state(true);
 	let activeFloor = $state(1);
 	let hasMigrated = false;
+
+	// Subscribe to project doc for shared floors list
+	$effect(() => {
+		const pid = page.params.pid;
+		if (!pid) return;
+		const unsub = db.subscribeOne('projects', pid, data => {
+			if (data?.floors?.length) floors = data.floors;
+		});
+		return () => { unsub?.(); };
+	});
 
 	/** Firestore doc ID for a given floor */
 	function docId(floor = activeFloor) {
@@ -86,11 +98,50 @@
 		activeFloor = newFloor;
 	}
 
+	function addFloor() {
+		const next = floors.length > 0 ? Math.max(...floors) + 1 : 1;
+		floors = [...floors, next].sort((a, b) => a - b);
+		activeFloor = next;
+		const pid = page.params.pid;
+		if (pid) db.save('projects', { id: pid, floors });
+	}
+
+	/** @param {number} fl */
+	async function deleteFloor(fl) {
+		const pid = page.params.pid;
+		if (!pid) return;
+
+		// Delete frames doc for this floor
+		const floorStr = String(fl).padStart(2, '0');
+		try { await db.delete('frames', `${pid}_F${floorStr}`); } catch {}
+
+		// Delete racks docs for this floor (all rooms A-D)
+		for (const rm of ['A', 'B', 'C', 'D']) {
+			try { await db.delete('racks', `${pid}_F${floorStr}_R${rm}`); } catch {}
+		}
+
+		// Update floors list
+		floors = floors.filter(f => f !== fl);
+		if (floors.length === 0) floors = [1];
+		db.save('projects', { id: pid, floors });
+
+		// Switch to another floor if we deleted the active one
+		if (activeFloor === fl) {
+			activeFloor = floors[0];
+		}
+	}
+
 	/** @param {any} payload @param {import('$lib/logger').ChangeDetail[]} changes */
 	function save(payload, changes) {
 		const pid = page.params.pid;
 		if (!pid) return;
 		db.save('frames', { id: docId(), ...payload, floor: activeFloor });
+
+		// Ensure current floor is in the project floors list
+		if (!floors.includes(activeFloor)) {
+			floors = [...floors, activeFloor].sort((a, b) => a - b);
+			db.save('projects', { id: pid, floors });
+		}
 
 		// Log changes
 		if (changes?.length) {
@@ -106,6 +157,7 @@
 	</div>
 {:else}
 	{#key activeFloor}
-		<Frames data={frameData} {racksData} floor={activeFloor} projectId={page.params.pid} onsave={save} onfloorchange={changeFloor} />
+		<Frames data={frameData} {racksData} floor={activeFloor} {floors} projectId={page.params.pid}
+			onsave={save} onfloorchange={changeFloor} onaddfloor={addFloor} ondeletefloor={deleteFloor} />
 	{/key}
 {/if}

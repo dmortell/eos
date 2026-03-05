@@ -15,17 +15,20 @@
 	import DeviceView from './parts/DeviceView.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
 
-	let { data = null, library = [], floor, room, projectId = '', floorFormat = 'L01', onsave, onlibrarychange, onfloorchange, onroomchange }: {
+	let { data = null, library = [], floor, room, floors = [1], projectId = '', floorFormat = 'L01', onsave, onlibrarychange, onfloorchange, onroomchange, onaddfloor, ondeletefloor }: {
 		data?: any
 		library?: DeviceTemplate[]
 		floor: number
 		room: string
+		floors?: number[]
 		projectId?: string
 		floorFormat?: string
 		onsave?: (payload: any, changes: ChangeDetail[]) => void
 		onlibrarychange?: (templates: DeviceTemplate[]) => void
 		onfloorchange?: (floor: number) => void
 		onroomchange?: (room: string) => void
+		onaddfloor?: () => void
+		ondeletefloor?: (floor: number) => void
 	} = $props()
 
 	// ── State ──
@@ -35,6 +38,7 @@
 	let settings = $state<RackSettings>(data?.settings ?? { ...DEFAULT_SETTINGS })
 	let activeRowId = $state<string>(rows[0]?.id ?? 'default')
 	let selectedIds = new SvelteSet<string>()
+	let deleteFloorConfirm = $state<number | null>(null)
 	let saveStatus = $state<'saved' | 'saving' | 'unsaved'>('saved')
 
 	// Window dimensions
@@ -112,6 +116,14 @@
 		saveStatus = 'unsaved'
 		if (saveTimer) clearTimeout(saveTimer)
 		saveTimer = setTimeout(doSave, 500)
+	}
+
+	/** Format floor number using floorFormat setting */
+	function fmtFloor(fl: number): string {
+		const n = String(fl).padStart(2, '0')
+		if (floorFormat === '01F') return `${n}F`
+		if (floorFormat === '01') return n
+		return `L${n}`
 	}
 
 	/** Strip undefined values recursively (Firestore rejects them) */
@@ -548,17 +560,29 @@
 	<div class="h-7 flex items-stretch border-t border-gray-200 bg-gray-50 shrink-0">
 		<!-- Floor tabs (left) -->
 		<div class="flex items-stretch gap-0 overflow-x-auto">
-			{#each Array.from({ length: Math.max(floor, 3) }, (_, i) => i + 1) as fl}
+			{#each floors as fl}
 				<button
-					class="px-3 text-[11px] font-mono font-medium border-r border-gray-200 transition-colors
+					class="group relative px-3 text-[11px] font-mono font-medium border-r border-gray-200 transition-colors
 						{floor === fl ? 'bg-white text-blue-600 border-t-2 border-t-blue-500' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 border-t-2 border-t-transparent'}"
 					onclick={() => onfloorchange?.(fl)}
-				>{floorFormat === '01F' ? `${String(fl).padStart(2, '0')}F` : floorFormat === '01' ? String(fl).padStart(2, '0') : `L${String(fl).padStart(2, '0')}`}</button>
+					oncontextmenu={e => { e.preventDefault(); deleteFloorConfirm = fl }}
+				>
+					{fmtFloor(fl)}
+					{#if floors.length > 1}
+						<span
+							class="absolute -top-0.5 -right-0.5 hidden group-hover:flex w-3.5 h-3.5 items-center justify-center rounded-full bg-red-500 text-white text-[8px] leading-none cursor-pointer z-10"
+							role="button"
+							tabindex="-1"
+							onclick={e => { e.stopPropagation(); deleteFloorConfirm = fl }}
+							onkeydown={e => { if (e.key === 'Enter') { e.stopPropagation(); deleteFloorConfirm = fl } }}
+						>&times;</span>
+					{/if}
+				</button>
 			{/each}
 			<button
 				class="px-2 text-gray-300 hover:text-gray-500 transition-colors"
 				title="Add floor"
-				onclick={() => onfloorchange?.(floor + 1)}
+				onclick={() => onaddfloor?.()}
 			><Icon name="plus" size={12} /></button>
 		</div>
 
@@ -576,5 +600,26 @@
 	<div class="fixed pointer-events-none z-50 px-2 py-1 bg-blue-100 border border-blue-400 rounded text-xs font-medium text-blue-800 shadow-lg opacity-80"
 		style:left={ghostPos.x + 12 + 'px'} style:top={ghostPos.y - 10 + 'px'}>
 		{draggingTemplate.label} ({draggingTemplate.heightU}U)
+	</div>
+{/if}
+
+<!-- Delete floor confirmation dialog -->
+{#if deleteFloorConfirm !== null}
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center" onclick={() => deleteFloorConfirm = null} onkeydown={e => e.key === 'Escape' && (deleteFloorConfirm = null)}>
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<div class="bg-white rounded-lg shadow-xl border border-gray-200 w-[380px] p-5" onclick={e => e.stopPropagation()}>
+			<h3 class="text-sm font-semibold text-gray-800 mb-2">Delete {fmtFloor(deleteFloorConfirm)}?</h3>
+			<p class="text-xs text-gray-500 mb-4">
+				This will permanently delete all frame data, rack layouts, and device configurations for this floor across all server rooms.
+				<strong class="text-red-600">This cannot be undone.</strong>
+			</p>
+			<div class="flex justify-end gap-2">
+				<Button onclick={() => deleteFloorConfirm = null}>Cancel</Button>
+				<Button onclick={() => { const fl = deleteFloorConfirm; deleteFloorConfirm = null; if (fl !== null) ondeletefloor?.(fl) }}
+					class="bg-red-600 text-white hover:bg-red-700">Delete</Button>
+			</div>
+		</div>
 	</div>
 {/if}
