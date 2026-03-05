@@ -1,0 +1,63 @@
+<script lang="ts">
+	import { Window } from '$lib'
+	import type { RackConfig, DeviceConfig } from './types'
+
+	let { selectedRack = null, selectedDevice = null, onupdaterack, onupdatedevice }: {
+		selectedRack?: (RackConfig & Record<string, any>) | null
+		selectedDevice?: DeviceConfig | null
+		onupdaterack?: (id: string, updates: Record<string, any>) => void
+		onupdatedevice?: (id: string, updates: Record<string, any>) => void
+	} = $props()
+
+	let hasSelection = $derived(!!selectedRack || !!selectedDevice)
+</script>
+
+{#if hasSelection}
+	<Window title="Properties" open={true} top={70} right={20} class="w-56 p-2">
+		{#if selectedDevice}
+			<div class="space-y-1 text-xs">
+				{@render Field('label', selectedDevice.label, v => onupdatedevice?.(selectedDevice!.id, { label: v }))}
+				{@render Field('type', selectedDevice.type)}
+				{@render NumberField('positionU', selectedDevice.positionU, v => onupdatedevice?.(selectedDevice!.id, { positionU: v }))}
+				{@render NumberField('heightU', selectedDevice.heightU, v => onupdatedevice?.(selectedDevice!.id, { heightU: v }))}
+				{@render NumberField('portCount', selectedDevice.portCount, v => onupdatedevice?.(selectedDevice!.id, { portCount: v }))}
+				{@render Field('maker', selectedDevice.maker ?? '', v => onupdatedevice?.(selectedDevice!.id, { maker: v }))}
+				{@render Field('model', selectedDevice.model ?? '', v => onupdatedevice?.(selectedDevice!.id, { model: v }))}
+			</div>
+		{:else if selectedRack}
+			<div class="space-y-1 text-xs">
+				{@render Field('label', selectedRack.label, v => onupdaterack?.(selectedRack!.id, { label: v }))}
+				{@render NumberField('heightU', selectedRack.heightU, v => onupdaterack?.(selectedRack!.id, { heightU: v }))}
+				{@render Field('type', selectedRack.type)}
+				{@render NumberField('widthMm', selectedRack.widthMm, v => onupdaterack?.(selectedRack!.id, { widthMm: v }))}
+				{@render NumberField('depthMm', selectedRack.depthMm, v => onupdaterack?.(selectedRack!.id, { depthMm: v }))}
+				{@render Field('maker', selectedRack.maker ?? '', v => onupdaterack?.(selectedRack!.id, { maker: v }))}
+				{@render Field('model', selectedRack.model ?? '', v => onupdaterack?.(selectedRack!.id, { model: v }))}
+			</div>
+		{/if}
+	</Window>
+{/if}
+
+{#snippet Field(key: string, value: string, onchange?: (v: string) => void)}
+	<label class="flex gap-2 items-center">
+		<span class="w-16 text-gray-500 text-[10px] shrink-0">{key}</span>
+		{#if onchange}
+			<input {value} class="flex-1 h-6 px-1 border-b border-gray-300 text-xs"
+				onchange={e => onchange(e.currentTarget.value)} />
+		{:else}
+			<span class="text-gray-700">{value}</span>
+		{/if}
+	</label>
+{/snippet}
+
+{#snippet NumberField(key: string, value: number, onchange?: (v: number) => void)}
+	<label class="flex gap-2 items-center">
+		<span class="w-16 text-gray-500 text-[10px] shrink-0">{key}</span>
+		{#if onchange}
+			<input type="number" {value} class="flex-1 h-6 px-1 border-b border-gray-300 text-xs"
+				onchange={e => onchange(parseInt(e.currentTarget.value) || 0)} />
+		{:else}
+			<span class="text-gray-700">{value}</span>
+		{/if}
+	</label>
+{/snippet}

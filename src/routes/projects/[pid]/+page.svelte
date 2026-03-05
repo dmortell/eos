@@ -24,7 +24,7 @@
 	<b>Tools</b>
 	<ul class="text-sm">
 	<li><a href="{path}/frames">Patch Frames</a> - allocate outlet ports to patch frames</li>
-	<li><a href="{path}/frames">Patch Frames</a></li>
+	<li><a href="{path}/racks">Racks</a> - manage racks and devices</li>
 	</ul>
 	<!-- <a href="{path}/docs">Proposals</a>, -->
 	<!-- <div>BOM, Quotes, Invoices, RFPs </div>
