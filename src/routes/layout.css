@@ -119,3 +119,9 @@
     @apply bg-background text-foreground;
   }
 }
+
+@media print {
+  [data-slot="resizable-handle"] {
+    display: none !important;
+  }
+}

@@ -57,6 +57,8 @@ export interface RackSettings {
 	slabLevel: number // mm, default 0
 	floorLevel: number // mm, default 150
 	ceilingLevel: number // mm, default 2600
+	leftWallX: number // mm, default -300
+	rightWallX: number // mm, default 6000
 	showGrid: boolean
 }
 

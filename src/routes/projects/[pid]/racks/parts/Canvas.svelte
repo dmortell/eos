@@ -141,4 +141,10 @@
 		position: relative;
 		background-image: linear-gradient(to right, #eee 1px, transparent 1px), linear-gradient(to bottom, #eee 1px, transparent 1px);
 	}
+	@media print {
+		.panzoom {
+			background-image: none !important;
+			overflow: visible;
+		}
+	}
 </style>

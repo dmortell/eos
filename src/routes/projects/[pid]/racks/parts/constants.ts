@@ -15,6 +15,8 @@ export const DEFAULT_SETTINGS: RackSettings = {
 	slabLevel: 0,
 	floorLevel: 150,
 	ceilingLevel: 2600,
+	leftWallX: -300,
+	rightWallX: 6000,
 	showGrid: true,
 }
 

@@ -18,6 +18,6 @@
 <div class="absolute border border-gray-300 bg-gray-100/30 pointer-events-none {cls}"
 	style:left={left + 'px'} style:top={top + 'px'} style:width={width + 'px'} style:height={height + 'px'}>
 	{#if label}
-		<span class="absolute -top-4 left-1 text-[10px] text-gray-400 whitespace-nowrap select-none">{label}</span>
+		<span class="absolute -top-4 left-8 text-[11px] text-gray-400 whitespace-nowrap select-none">{label}</span>
 	{/if}
 </div>

@@ -37,7 +37,7 @@
 	let rows = $state<RackRow[]>(data?.rows ?? [{ id: 'default', label: 'Row A' }])
 	let racks = $state<RackConfig[]>((data?.racks ?? []).map((r: any) => ({ ...r, heightMm: rackHeightMm(r.heightU ?? 42) })))
 	let devices = $state<DeviceConfig[]>(data?.devices ?? [])
-	let settings = $state<RackSettings>(data?.settings ?? { ...DEFAULT_SETTINGS })
+	let settings = $state<RackSettings>({ ...DEFAULT_SETTINGS, ...(data?.settings ?? {}) })
 	let activeRowId = $state<string>(rows[0]?.id ?? 'default')
 	let selectedIds = new SvelteSet<string>()
 	let floorManagerOpen = $state(false)
@@ -215,7 +215,7 @@
 			widthMm: form?.widthMm ?? 700,
 			depthMm: form?.depthMm ?? 800,
 			type: form?.type ?? '4-post',
-			serverRoom: form?.serverRoom ?? room,
+			serverRoom: room,
 			maker: form?.maker,
 			model: form?.model,
 		}
@@ -474,6 +474,45 @@
 			selectedIds.clear()
 		}
 	}
+
+	// ── Draggable reference lines (floor, ceiling, walls) ──
+	let editingLine = $state<string | null>(null)
+	let lineDragField: 'floorLevel' | 'ceilingLevel' | 'leftWallX' | 'rightWallX' | null = null
+	let lineDragStartVal = 0
+	let lineDragStartMouse = 0
+
+	function startLineDrag(e: MouseEvent, field: typeof lineDragField) {
+		if (e.button !== 0) return
+		e.preventDefault()
+		e.stopPropagation()
+		lineDragField = field
+		lineDragStartVal = settings[field!]
+		const isHorizontal = field === 'leftWallX' || field === 'rightWallX'
+		lineDragStartMouse = isHorizontal ? e.clientX : e.clientY
+		document.body.style.userSelect = 'none'
+		document.addEventListener('mousemove', onLineDragMove)
+		document.addEventListener('mouseup', onLineDragEnd)
+	}
+
+	function onLineDragMove(e: MouseEvent) {
+		if (!lineDragField) return
+		const isHorizontal = lineDragField === 'leftWallX' || lineDragField === 'rightWallX'
+		if (isHorizontal) {
+			const dx = e.clientX - lineDragStartMouse
+			settings[lineDragField] = Math.round(lineDragStartVal + dx / (view.zoom * SCALE))
+		} else {
+			const dy = e.clientY - lineDragStartMouse
+			settings[lineDragField] = Math.round(lineDragStartVal - dy / (view.zoom * SCALE))
+		}
+	}
+
+	function onLineDragEnd() {
+		document.body.style.userSelect = ''
+		document.removeEventListener('mousemove', onLineDragMove)
+		document.removeEventListener('mouseup', onLineDragEnd)
+		if (lineDragField) logChange('update', 'settings', lineDragField)
+		lineDragField = null
+	}
 </script>
 
 <svelte:window bind:innerHeight bind:innerWidth />
@@ -481,7 +520,7 @@
 <!-- Row delete confirmation -->
 {#if confirmingDeleteRow}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center" onclick={() => confirmingDeleteRow = null}>
+	<div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center print:hidden" onclick={() => confirmingDeleteRow = null}>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<div class="bg-white rounded-lg shadow-xl border border-gray-200 p-4 w-72" onclick={e => e.stopPropagation()}>
@@ -503,8 +542,27 @@
 		</div>
 	</Titlebar>
 
-	<!-- Toolbar: Room + Row selection -->
-	<div class="h-8 px-3 flex items-center gap-3 border-b border-gray-200 bg-white shrink-0 text-xs">
+	<!-- Toolbar: Floor + Room + Row selection -->
+	<div class="h-8 px-3 flex items-center gap-3 border-b border-gray-200 bg-white shrink-0 text-xs print:hidden">
+		<!-- Floor -->
+		<span class="text-[10px] text-gray-400 uppercase tracking-wider">Floor</span>
+		<div class="flex gap-0.5 items-center">
+			{#each floors as fl (fl.number)}
+				<button
+					class="h-6 px-2 rounded text-[11px] font-mono font-medium transition-colors
+						{floor === fl.number ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
+					onclick={() => onfloorchange?.(fl.number)}
+				>{fmtFloor(fl.number)}</button>
+			{/each}
+			<button
+				class="h-6 w-6 rounded bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 flex items-center justify-center transition-colors"
+				title="Manage floors"
+				onclick={() => floorManagerOpen = true}
+			><Icon name="plus" size={12} /></button>
+		</div>
+
+		<div class="w-px h-4 bg-gray-200"></div>
+
 		<!-- Server Room pills -->
 		<span class="text-[10px] text-gray-400 uppercase tracking-wider">Room</span>
 		<div class="flex gap-0.5">
@@ -548,7 +606,7 @@
 	<PaneGroup direction="horizontal" class="flex-1 min-h-0">
 		<!-- Sidebar -->
 		<Pane defaultSize={20} minSize={15} maxSize={35}>
-			<div class="h-full overflow-y-auto border-r border-gray-200">
+			<div class="h-full overflow-y-auto border-r border-gray-200 print:hidden">
 				<RackList {racks} {rows} {activeRowId}
 					onadd={addRack} onselect={selectRack} ondelete={deleteRack} onaddrow={addRow} />
 
@@ -564,10 +622,90 @@
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div class="h-full" onclick={onCanvasClick} bind:this={canvasEl}>
 				<Canvas bind:view width={canvasWidth} height={canvasHeight}>
-					<!-- Reference lines -->
-					<Rect item={{ x: -300, z: settings.slabLevel - 200, width: 30000, height: 200 }} label="Slab FL+{settings.slabLevel}" {view} />
-					<Rect item={{ x: -300, z: settings.floorLevel - 20, width: 30000, height: 20 }} label="Floor FL+{settings.floorLevel}" {view} />
-					<Rect item={{ x: -300, z: settings.ceilingLevel, width: 30000, height: 20 }} label="Ceiling FL+{settings.ceilingLevel}" {view} />
+					{@const wallW = 50}
+					{@const roomW = settings.rightWallX - settings.leftWallX}
+					{@const roomLeft = settings.leftWallX}
+
+					<!-- Floor + Room label -->
+					<div class="absolute pointer-events-none select-none"
+						style:left={20 + roomLeft * SCALE + 'px'}
+						style:top={(view.bottom - settings.ceilingLevel - 180) * SCALE + 'px'}
+						style:font-size="24px">
+						<span class="font-semibold text-gray-700">{fmtFloor(floor)} — Room {room}</span>
+					</div>
+
+					<!-- Slab (static, extends to outer wall edges) -->
+					<Rect item={{ x: roomLeft - wallW, z: settings.slabLevel - 200, width: roomW + wallW * 2, height: 200 }} label="Slab FL+{settings.slabLevel}" {view} />
+
+					<!-- Floor line (draggable, between walls) -->
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div class="absolute cursor-ns-resize group/fl select-none"
+						style:left={roomLeft * SCALE + 'px'}
+						style:top={(view.bottom - settings.floorLevel) * SCALE + 'px'}
+						style:width={roomW * SCALE + 'px'}
+						style:height={20 * SCALE + 'px'}
+						onmousedown={e => startLineDrag(e, 'floorLevel')}>
+						<div class="w-full h-full border border-slate-400/60 bg-slate-100/30 group-hover/fl:bg-slate-200/40 transition-colors"></div>
+						{#if editingLine === 'floorLevel'}
+							<!-- svelte-ignore a11y_autofocus -->
+							<input type="number" class="absolute -top-5 left-1 w-20 h-5 px-1 text-[10px] bg-white border border-slate-400 rounded z-20"
+								value={settings.floorLevel}
+								autofocus
+								onchange={e => { settings.floorLevel = parseInt(e.currentTarget.value) || 0; editingLine = null; logChange('update', 'settings', 'floorLevel') }}
+								onkeydown={e => e.key === 'Escape' && (editingLine = null)}
+								onblur={() => editingLine = null} />
+						{:else}
+							<span class="absolute -top-4 left-1 text-[10px] text-slate-500 whitespace-nowrap cursor-pointer"
+								onclick={e => { e.stopPropagation(); editingLine = 'floorLevel' }}>Floor FL+{settings.floorLevel}</span>
+						{/if}
+					</div>
+
+					<!-- Ceiling line (draggable, between walls) -->
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div class="absolute cursor-ns-resize group/cl select-none"
+						style:left={roomLeft * SCALE + 'px'}
+						style:top={(view.bottom - settings.ceilingLevel - 20) * SCALE + 'px'}
+						style:width={roomW * SCALE + 'px'}
+						style:height={20 * SCALE + 'px'}
+						onmousedown={e => startLineDrag(e, 'ceilingLevel')}>
+						<div class="w-full h-full border border-slate-400/60 bg-slate-100/30 group-hover/cl:bg-slate-200/40 transition-colors"></div>
+						{#if editingLine === 'ceilingLevel'}
+							<!-- svelte-ignore a11y_autofocus -->
+							<input type="number" class="absolute -top-5 left-1 w-20 h-5 px-1 text-[10px] bg-white border border-slate-400 rounded z-20"
+								value={settings.ceilingLevel}
+								autofocus
+								onchange={e => { settings.ceilingLevel = parseInt(e.currentTarget.value) || 0; editingLine = null; logChange('update', 'settings', 'ceilingLevel') }}
+								onkeydown={e => e.key === 'Escape' && (editingLine = null)}
+								onblur={() => editingLine = null} />
+						{:else}
+							<span class="absolute -top-4 left-1 text-[10px] text-slate-500 whitespace-nowrap cursor-pointer"
+								onclick={e => { e.stopPropagation(); editingLine = 'ceilingLevel' }}>Ceiling FL+{settings.ceilingLevel}</span>
+						{/if}
+					</div>
+
+					<!-- Left wall (draggable, 50mm thick, from slab top to above ceiling) -->
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div class="absolute cursor-ew-resize group/lw select-none"
+						style:left={(settings.leftWallX - wallW) * SCALE + 'px'}
+						style:top={(view.bottom - settings.ceilingLevel - 200) * SCALE + 'px'}
+						style:width={wallW * SCALE + 'px'}
+						style:height={(settings.ceilingLevel - settings.slabLevel + 200) * SCALE + 'px'}
+						onmousedown={e => startLineDrag(e, 'leftWallX')}>
+						<div class="w-full h-full bg-gray-300/60 group-hover/lw:bg-gray-400/70 transition-colors border border-gray-400/40"></div>
+						<span class="absolute -top-4 left-1/2 -translate-x-1/2 text-[10px] text-gray-500 whitespace-nowrap">Wall</span>
+					</div>
+
+					<!-- Right wall (draggable, 50mm thick, from slab top to above ceiling) -->
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div class="absolute cursor-ew-resize group/rw select-none"
+						style:left={settings.rightWallX * SCALE + 'px'}
+						style:top={(view.bottom - settings.ceilingLevel - 200) * SCALE + 'px'}
+						style:width={wallW * SCALE + 'px'}
+						style:height={(settings.ceilingLevel - settings.slabLevel + 200) * SCALE + 'px'}
+						onmousedown={e => startLineDrag(e, 'rightWallX')}>
+						<div class="w-full h-full bg-gray-300/60 group-hover/rw:bg-gray-400/70 transition-colors border border-gray-400/40"></div>
+						<span class="absolute -top-4 left-1/2 -translate-x-1/2 text-[10px] text-gray-500 whitespace-nowrap">Wall</span>
+					</div>
 
 					<!-- Rack frames -->
 					{#each activeRacks as rack (rack.id)}
@@ -602,7 +740,7 @@
 		onupdaterack={updateRack} onupdatedevice={updateDevice} />
 
 	<!-- Status bar with floor tabs -->
-	<div class="h-7 flex items-stretch border-t border-gray-200 bg-gray-50 shrink-0">
+	<div class="h-7 flex items-stretch border-t border-gray-200 bg-gray-50 shrink-0 print:hidden">
 		<!-- Floor tabs (left) -->
 		<div class="flex items-stretch gap-0 overflow-x-auto">
 			{#each floors as fl (fl.number)}
@@ -622,6 +760,9 @@
 		<!-- Spacer + stats (right) -->
 		<div class="flex-1"></div>
 		<div class="flex items-center gap-4 px-3 text-[10px] text-gray-400">
+			{#if innerWidth > 1200}
+				<span class="text-gray-300">Ctrl+Scroll to zoom · Middle-drag to pan</span>
+			{/if}
 			<span>{activeRacks.length} rack{activeRacks.length !== 1 ? 's' : ''} · {devices.length} device{devices.length !== 1 ? 's' : ''}</span>
 			<span>Zoom: {Math.round(view.zoom * 100)}%</span>
 		</div>
@@ -630,7 +771,7 @@
 
 <!-- Drag ghost (follows cursor) -->
 {#if draggingTemplate}
-	<div class="fixed pointer-events-none z-50 px-2 py-1 bg-blue-100 border border-blue-400 rounded text-xs font-medium text-blue-800 shadow-lg opacity-80"
+	<div class="fixed pointer-events-none z-50 px-2 py-1 bg-blue-100 border border-blue-400 rounded text-xs font-medium text-blue-800 shadow-lg opacity-80 print:hidden"
 		style:left={ghostPos.x + 12 + 'px'} style:top={ghostPos.y - 10 + 'px'}>
 		{draggingTemplate.label} ({draggingTemplate.heightU}U)
 	</div>

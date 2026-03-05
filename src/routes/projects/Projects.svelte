@@ -25,7 +25,7 @@
 
 <div class="p-8">
 	{#each projects as project, idx}
-		<div class="flex text-sm">
+		<div class="flex text-sm mb-2">
 			<div class="w-4">{idx+1}</div>
 			<div>
 				<a href='/projects/{project.id}' class="text-blue-600 hover:text-blue-400">{project.name}</a>
