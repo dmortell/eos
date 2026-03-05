@@ -30,7 +30,7 @@
 	</div>
 
 	<!-- Port indicators -->
-	{#if device.portCount > 0}
+	{#if 0 && device.portCount > 0}
 		<div class="absolute right-1 top-0 bottom-0 flex items-center">
 			{#each Array.from({ length: Math.min(device.portCount, 24) }) as _, idx}
 				<div class="w-1.5 h-1.5 rounded-full border border-gray-400 bg-gray-200 mx-px"

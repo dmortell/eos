@@ -6,7 +6,6 @@
 	import type { ChangeDetail } from '$lib/logger'
 	import type { RackConfig, DeviceConfig, DeviceTemplate, RackRow, RackSettings, ViewState } from './parts/types'
 	import { DEFAULT_SETTINGS, SCALE, RU_HEIGHT_MM, RACK_GAP_PX, RACK_19IN_MM, rackHeightMm } from './parts/constants'
-	import ConfigPanel from './parts/ConfigPanel.svelte'
 	import RackList from './parts/RackList.svelte'
 	import DevicePalette from './parts/DevicePalette.svelte'
 	import Canvas from './parts/Canvas.svelte'
@@ -49,7 +48,7 @@
 
 	// View state
 	let view = $state<ViewState>({
-		x: 60, y: 0, zoom: 0.5, scale: SCALE,
+		x: 60, y: 0, zoom: 0.3, scale: SCALE,
 		grid: 100 * SCALE, width: 3000, height: 3000,
 		showGrid: true, panning: false, dragging: false,
 		button: 0, bottom: Math.max(settings.ceilingLevel + 500, maxRackHeight + 500),
@@ -93,15 +92,28 @@
 		saveTimer = setTimeout(doSave, 500)
 	}
 
+	/** Strip undefined values recursively (Firestore rejects them) */
+	function strip(obj: any): any {
+		if (Array.isArray(obj)) return obj.map(strip)
+		if (obj && typeof obj === 'object') {
+			const out: any = {}
+			for (const [k, v] of Object.entries(obj)) {
+				if (v !== undefined) out[k] = strip(v)
+			}
+			return out
+		}
+		return obj
+	}
+
 	function doSave() {
 		saveStatus = 'saving'
-		const payload = {
+		const payload = strip({
 			rows,
 			racks: racks.map(({ _x, _z, ...r }: any) => r),
 			devices,
 			library,
 			settings,
-		}
+		})
 		onsave?.(payload, pendingChanges)
 		pendingChanges = []
 		saveStatus = 'saved'
@@ -154,19 +166,19 @@
 	}
 
 	// ── Device CRUD ──
-	function addDevice(template: DeviceTemplate) {
-		// Find first rack to place into
-		const targetRack = activeRacks[0]
-		if (!targetRack) return
 
-		// Find first available RU position
-		const rackDevices = devices.filter(d => d.rackId === targetRack.id)
-		const occupied = new Set<number>()
-		for (const d of rackDevices) {
-			for (let u = d.positionU; u < d.positionU + d.heightU; u++) occupied.add(u)
+	/** Place a device into a rack at first free RU slot from bottom */
+	function placeDevice(template: DeviceTemplate, targetRack: typeof activeRacks[number], positionU?: number) {
+		// Find first available RU position if not specified
+		if (positionU == null) {
+			const rackDevices = devices.filter(d => d.rackId === targetRack.id)
+			const occupied = new Set<number>()
+			for (const d of rackDevices) {
+				for (let u = d.positionU; u < d.positionU + d.heightU; u++) occupied.add(u)
+			}
+			positionU = 1
+			while (occupied.has(positionU)) positionU++
 		}
-		let positionU = 1
-		while (occupied.has(positionU)) positionU++
 
 		const id = `dev-${Date.now()}`
 		const newDevice: DeviceConfig = {
@@ -189,6 +201,63 @@
 		selectedIds.clear()
 		selectedIds.add(id)
 		logChange('add', 'device', `${template.label} in ${targetRack.label}`)
+	}
+
+	/** Click-to-add: place in selected rack or first rack */
+	function addDevice(template: DeviceTemplate) {
+		const targetRack = activeRacks.find(r => selectedIds.has(r.id)) ?? activeRacks[0]
+		if (!targetRack) return
+		placeDevice(template, targetRack)
+	}
+
+	// ── Palette drag-to-canvas ──
+	let canvasEl: HTMLDivElement | undefined = $state()
+	let draggingTemplate = $state<DeviceTemplate | null>(null)
+	let ghostPos = $state({ x: 0, y: 0 })
+	let paletteDragMoved = false
+
+	function onPaletteDragStart(e: MouseEvent, template: DeviceTemplate) {
+		if (e.button !== 0) return
+		e.preventDefault()
+		draggingTemplate = template
+		ghostPos = { x: e.clientX, y: e.clientY }
+		paletteDragMoved = false
+		document.addEventListener('mousemove', onPaletteDragMove)
+		document.addEventListener('mouseup', onPaletteDragEnd)
+	}
+
+	function onPaletteDragMove(e: MouseEvent) {
+		paletteDragMoved = true
+		ghostPos = { x: e.clientX, y: e.clientY }
+	}
+
+	function onPaletteDragEnd(e: MouseEvent) {
+		document.removeEventListener('mousemove', onPaletteDragMove)
+		document.removeEventListener('mouseup', onPaletteDragEnd)
+
+		if (!paletteDragMoved || !draggingTemplate || !canvasEl) { draggingTemplate = null; return }
+
+		// Convert screen coords to canvas-local coords
+		const rect = canvasEl.getBoundingClientRect()
+		const canvasX = (e.clientX - rect.left - view.x) / view.zoom
+		const canvasY = (e.clientY - rect.top - view.y) / view.zoom
+
+		// Find which rack was hit
+		for (const rack of activeRacks) {
+			const rr = screenRect(rack)
+			if (canvasX >= rr.left && canvasX <= rr.left + rr.width &&
+				canvasY >= rr.top && canvasY <= rr.top + rr.height) {
+				// Compute RU from drop position
+				const ruFromBottom = (rr.top + rr.height - canvasY) / SCALE / RU_HEIGHT_MM
+				const snappedRU = Math.max(1, Math.min(rack.heightU - draggingTemplate.heightU + 1, Math.round(ruFromBottom)))
+				placeDevice(draggingTemplate, rack, snappedRU)
+				draggingTemplate = null
+				return
+			}
+		}
+
+		// Dropped outside any rack — ignore
+		draggingTemplate = null
 	}
 
 	function deleteDevice(deviceId: string) {
@@ -216,6 +285,20 @@
 		rows = [...rows, { id, label }]
 		activeRowId = id
 		logChange('add', 'row', label)
+	}
+
+	let confirmingDeleteRow = $state<string | null>(null)
+
+	function deleteRow(rowId: string) {
+		const row = rows.find(r => r.id === rowId)
+		if (!row) return
+		const rackIds = new Set(racks.filter(r => r.rowId === rowId).map(r => r.id))
+		devices = devices.filter(d => !rackIds.has(d.rackId))
+		racks = racks.filter(r => r.rowId !== rowId)
+		rows = rows.filter(r => r.id !== rowId)
+		if (activeRowId === rowId) activeRowId = rows[0]?.id ?? ''
+		confirmingDeleteRow = null
+		logChange('remove', 'row', row.label)
 	}
 
 	// ── Canvas helpers ──
@@ -266,8 +349,24 @@
 
 <svelte:window bind:innerHeight bind:innerWidth />
 
+<!-- Row delete confirmation -->
+{#if confirmingDeleteRow}
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center" onclick={() => confirmingDeleteRow = null}>
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<div class="bg-white rounded-lg shadow-xl border border-gray-200 p-4 w-72" onclick={e => e.stopPropagation()}>
+			<p class="text-sm text-gray-700 mb-3">Delete <strong>{rows.find(r => r.id === confirmingDeleteRow)?.label}</strong>? All racks and devices in this row will be removed.</p>
+			<div class="flex gap-2 justify-end">
+				<button class="px-3 py-1.5 text-xs rounded border border-gray-200 hover:bg-gray-50" onclick={() => confirmingDeleteRow = null}>Cancel</button>
+				<button class="px-3 py-1.5 text-xs rounded bg-red-600 text-white hover:bg-red-500" onclick={() => deleteRow(confirmingDeleteRow!)}>Delete</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
 <main class="h-dvh w-full overflow-hidden flex flex-col">
-	<Titlebar title="Rack Elevations — F{String(floor).padStart(2, '0')} Room {room}">
+	<Titlebar title="Rack Elevations">
 		<div class="flex items-center gap-2 text-xs">
 			<span class="text-gray-400">
 				{#if saveStatus === 'saved'}Saved{:else if saveStatus === 'saving'}Saving...{:else}Unsaved{/if}
@@ -275,18 +374,56 @@
 		</div>
 	</Titlebar>
 
+	<!-- Toolbar: Room + Row selection -->
+	<div class="h-8 px-3 flex items-center gap-3 border-b border-gray-200 bg-white shrink-0 text-xs">
+		<!-- Server Room pills -->
+		<span class="text-[10px] text-gray-400 uppercase tracking-wider">Room</span>
+		<div class="flex gap-0.5">
+			{#each ['A', 'B', 'C', 'D'] as r}
+				<button
+					class="h-6 w-7 rounded text-[11px] font-semibold transition-colors
+						{room === r ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
+					onclick={() => onroomchange?.(r)}
+				>{r}</button>
+			{/each}
+		</div>
+
+		<div class="w-px h-4 bg-gray-200"></div>
+
+		<!-- Row pills -->
+		<span class="text-[10px] text-gray-400 uppercase tracking-wider">Row</span>
+		<div class="flex gap-0.5">
+			{#each rows as row}
+				<div class="relative group">
+					<button
+						class="h-6 px-2 rounded text-[11px] font-medium transition-colors
+							{activeRowId === row.id ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
+						onclick={() => activeRowId = row.id}
+					>{row.label}</button>
+					{#if rows.length > 1}
+						<button
+							class="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-500 text-white text-[7px] leading-none flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+							onclick={e => { e.stopPropagation(); confirmingDeleteRow = row.id }}
+						>&times;</button>
+					{/if}
+				</div>
+			{/each}
+			<button
+				class="h-6 w-6 rounded bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 flex items-center justify-center transition-colors"
+				title="Add row"
+				onclick={addRow}
+			><Icon name="plus" size={12} /></button>
+		</div>
+	</div>
+
 	<PaneGroup direction="horizontal" class="flex-1 min-h-0">
 		<!-- Sidebar -->
 		<Pane defaultSize={20} minSize={15} maxSize={35}>
 			<div class="h-full overflow-y-auto border-r border-gray-200">
-				<ConfigPanel {floor} {room} {rows} {activeRowId}
-					onfloor={onfloorchange} onroom={onroomchange}
-					onrow={id => activeRowId = id} />
-
 				<RackList {racks} {rows} {activeRowId}
 					onadd={addRack} onselect={selectRack} ondelete={deleteRack} onaddrow={addRow} />
 
-				<DevicePalette {library} onadd={addDevice} oncustomadd={addCustomTemplate} />
+				<DevicePalette {library} onadd={addDevice} ondragstart={onPaletteDragStart} oncustomadd={addCustomTemplate} />
 			</div>
 		</Pane>
 
@@ -296,7 +433,7 @@
 		<Pane defaultSize={80}>
 			<!-- svelte-ignore a11y_click_events_have_key_events -->
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<div class="h-full" onclick={onCanvasClick}>
+			<div class="h-full" onclick={onCanvasClick} bind:this={canvasEl}>
 				<Canvas bind:view width={canvasWidth} height={canvasHeight}>
 					<!-- Reference lines -->
 					<Rect item={{ x: -300, z: settings.slabLevel - 200, width: 30000, height: 200 }} label="Slab FL+{settings.slabLevel}" {view} />
@@ -317,6 +454,14 @@
 							<DeviceView {device} {view} ondelete={() => deleteDevice(device.id)} />
 						</Draggable>
 					{/each}
+
+					<!-- Drop ghost for palette drag -->
+					{#if dropGhost}
+						<div class="absolute bg-blue-200/50 border-2 border-blue-400 border-dashed rounded-sm pointer-events-none"
+							style:left={dropGhost.left + 'px'} style:top={dropGhost.top + 'px'}
+							style:width={dropGhost.width + 'px'} style:height={dropGhost.height + 'px'}>
+						</div>
+					{/if}
 				</Canvas>
 			</div>
 		</Pane>
@@ -326,9 +471,37 @@
 	<PropertiesPanel {selectedRack} {selectedDevice}
 		onupdaterack={updateRack} onupdatedevice={updateDevice} />
 
-	<!-- Status bar -->
-	<div class="h-6 px-3 flex items-center justify-between text-[10px] text-gray-400 border-t border-gray-200 bg-gray-50 shrink-0">
-		<span>{activeRacks.length} rack{activeRacks.length !== 1 ? 's' : ''} · {devices.length} device{devices.length !== 1 ? 's' : ''}</span>
-		<span>Zoom: {Math.round(view.zoom * 100)}%</span>
+	<!-- Status bar with floor tabs -->
+	<div class="h-7 flex items-stretch border-t border-gray-200 bg-gray-50 shrink-0">
+		<!-- Floor tabs (left) -->
+		<div class="flex items-stretch gap-0 overflow-x-auto">
+			{#each Array.from({ length: Math.max(floor, 3) }, (_, i) => i + 1) as fl}
+				<button
+					class="px-3 text-[11px] font-mono font-medium border-r border-gray-200 transition-colors
+						{floor === fl ? 'bg-white text-blue-600 border-t-2 border-t-blue-500' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 border-t-2 border-t-transparent'}"
+					onclick={() => onfloorchange?.(fl)}
+				>F{String(fl).padStart(2, '0')}</button>
+			{/each}
+			<button
+				class="px-2 text-gray-300 hover:text-gray-500 transition-colors"
+				title="Add floor"
+				onclick={() => onfloorchange?.(floor + 1)}
+			><Icon name="plus" size={12} /></button>
+		</div>
+
+		<!-- Spacer + stats (right) -->
+		<div class="flex-1"></div>
+		<div class="flex items-center gap-4 px-3 text-[10px] text-gray-400">
+			<span>{activeRacks.length} rack{activeRacks.length !== 1 ? 's' : ''} · {devices.length} device{devices.length !== 1 ? 's' : ''}</span>
+			<span>Zoom: {Math.round(view.zoom * 100)}%</span>
+		</div>
 	</div>
 </main>
+
+<!-- Drag ghost (follows cursor) -->
+{#if draggingTemplate}
+	<div class="fixed pointer-events-none z-50 px-2 py-1 bg-blue-100 border border-blue-400 rounded text-xs font-medium text-blue-800 shadow-lg opacity-80"
+		style:left={ghostPos.x + 12 + 'px'} style:top={ghostPos.y - 10 + 'px'}>
+		{draggingTemplate.label} ({draggingTemplate.heightU}U)
+	</div>
+{/if}

@@ -3,9 +3,10 @@
 	import { DEFAULT_PALETTE } from './constants'
 	import type { DeviceTemplate } from './types'
 
-	let { library = [], onadd, oncustomadd }: {
+	let { library = [], onadd, ondragstart, oncustomadd }: {
 		library?: DeviceTemplate[]
 		onadd?: (template: DeviceTemplate) => void
+		ondragstart?: (e: MouseEvent, template: DeviceTemplate) => void
 		oncustomadd?: (template: DeviceTemplate) => void
 	} = $props()
 
@@ -99,7 +100,8 @@
 	<div class="space-y-0.5">
 		{#each filtered as template (template.id)}
 			<button
-				class="flex items-center gap-2 w-full p-1.5 bg-gray-50 border border-gray-200 rounded text-left text-xs hover:bg-gray-100 active:bg-gray-200 cursor-grab active:cursor-grabbing transition-colors"
+				class="flex items-center gap-2 w-full p-1.5 bg-gray-50 border border-gray-200 rounded text-left text-xs hover:bg-gray-100 active:bg-gray-200 cursor-grab active:cursor-grabbing transition-colors select-none"
+				onmousedown={e => ondragstart?.(e, template)}
 				onclick={() => onadd?.(template)}
 			>
 				<Icon name={template.icon} size={14} class="text-gray-500 shrink-0" />
