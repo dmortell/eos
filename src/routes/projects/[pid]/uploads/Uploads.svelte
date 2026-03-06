@@ -2,6 +2,7 @@
 	import { Titlebar, Firestore } from '$lib'
 	import { Icon } from '$lib'
 	import { createUploadThing } from './upload-sample/uploader'
+	import { goto } from '$app/navigation'
 
 	interface FileDoc {
 		id: string
@@ -138,6 +139,10 @@
 		return { hasOrigin: !!p?.origin, hasScale: !!(p?.scale?.scale), pageCount: pages.length }
 	}
 
+	function openFile(file: FileDoc) {
+		goto(`/projects/${projectId}/uploads/${encodeURIComponent(file.id)}`)
+	}
+
 	function doDelete(file: FileDoc) {
 		confirmingDelete = null
 		ondelete?.(file.id, file.key)
@@ -219,11 +224,12 @@
 							<Icon name="fileText" class="h-3.5 w-3.5 text-gray-400 shrink-0" />
 							<div class="min-w-0">
 								{#if file.url}
-									<a href={file.url} target="_blank" rel="noopener"
-										class="text-xs text-gray-700 hover:text-blue-600 truncate block"
-										title={file.name ?? file.id}>
+									<button
+										class="text-xs text-gray-700 hover:text-blue-600 truncate block text-left cursor-pointer"
+										title={file.name ?? file.id}
+										onclick={() => openFile(file)}>
 										{file.name ?? file.id}
-									</a>
+									</button>
 								{:else}
 									<span class="text-xs text-gray-700 truncate block">{file.name ?? file.id}</span>
 								{/if}
