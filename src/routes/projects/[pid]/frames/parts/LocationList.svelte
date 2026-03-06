@@ -2,7 +2,9 @@
 	import type { LocationConfig } from './types'
 	import LocationRow from './LocationRow.svelte'
 
-	let { locations, hasTwoRooms = false, selectedLocations, customTypes = [], zoneForLoc, onupdate, onselect }: {
+	import type { Snippet } from 'svelte'
+
+	let { locations, hasTwoRooms = false, selectedLocations, customTypes = [], zoneForLoc, onupdate, onselect, children }: {
 		locations: LocationConfig[]
 		hasTwoRooms?: boolean
 		selectedLocations?: Set<string>
@@ -11,6 +13,7 @@
 		zoneForLoc?: (index: number) => string
 		onupdate: (index: number, loc: LocationConfig) => void
 		onselect?: (key: string, e: MouseEvent | KeyboardEvent) => void
+		children?: Snippet
 	} = $props()
 
 	function locKey(index: number, loc: LocationConfig): string {
@@ -32,7 +35,7 @@
 					<span class="text-blue-500 ml-1">({selectedLocations.size} selected)</span>
 				{/if}
 			</span>
-			<slot />
+			{@render children?.()}
 		</div>
 		<div class="flex items-center justify-between px-1">
 			<span class="text-[10px] text-gray-400 ">

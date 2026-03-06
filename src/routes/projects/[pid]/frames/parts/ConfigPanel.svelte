@@ -12,27 +12,26 @@
 		ongenerate: (count: number) => void
 	} = $props()
 
+	const zones = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 	let locationCount = $state(locations.length || 10)
 
-	const zones = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
-
 	// Sync locationCount when switching zones
-	$effect(() => {
-		if (locations.length > 0) locationCount = locations.length
-	})
+	$effect(() => { if (locations.length > 0) locationCount = locations.length })
 </script>
 
 <div class="space-y-1.5 p-2.5 bg-gray-50 rounded-lg border border-gray-200">
 	<!-- Row 1: Floor + Server Rooms -->
 	<div class="grid grid-cols-2 gap-1.5 items-end">
 		<div>
-			<label class="text-[10px] text-gray-500 uppercase tracking-wider">Floor</label>
+			<!-- svelte-ignore a11y_label_has_associated_control -->
+			<label class="text-[10px] text-gray-500 uppercase tracking-wider">Floor
 			<div class="h-7 px-2 text-xs font-mono bg-gray-100 border border-gray-200 rounded flex items-center text-gray-600">
 				{floorLabel || floor}
 			</div>
+			</label>
 		</div>
 		<div>
-			<label class="text-[10px] text-gray-500 uppercase tracking-wider">Server Rooms</label>
+			<label class="text-[10px] text-gray-500 uppercase tracking-wider">Server Rooms
 			<div class="flex">
 				{#each [1, 2, 3, 4] as n}
 					<button
@@ -42,29 +41,27 @@
 					>{n}</button>
 				{/each}
 			</div>
+			</label>
 		</div>
 	</div>
 
 	<!-- Row 2: Zone select + Locations + Generate -->
 	<div class="grid grid-cols-[1fr_2fr] gap-1.5 items-end">
 		<div>
-			<label class="text-[10px] text-gray-500 uppercase tracking-wider">Zone</label>
-			<select
-				value={activeZone}
-				onchange={e => onzone(e.currentTarget.value)}
+			<label class="text-[10px] text-gray-500 uppercase tracking-wider">Zone
+			<select value={activeZone} onchange={e => onzone(e.currentTarget.value)}
 				class="w-full h-7 px-1 text-xs font-mono bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
 			>
 				{#each zones as z}
 					<option value={z}>{z}</option>
 				{/each}
 			</select>
+			</label>
 		</div>
 		<div>
-			<label class="text-[10px] text-gray-500 uppercase tracking-wider">Locations</label>
+			<label class="text-[10px] text-gray-500 uppercase tracking-wider">Locations
 			<div class="flex gap-1">
-				<input
-					type="number" min="1" max="999"
-					bind:value={locationCount}
+				<input bind:value={locationCount} type="number" min="1" max="999"
 					class="flex-1 h-7 px-2 text-xs font-mono bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
 				/>
 				<button
@@ -72,6 +69,7 @@
 					onclick={() => ongenerate(locationCount)}
 				>Generate</button>
 			</div>
+			</label>
 		</div>
 	</div>
 </div>

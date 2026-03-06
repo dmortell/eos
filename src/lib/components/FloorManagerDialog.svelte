@@ -32,6 +32,12 @@
 	})
 
 	function fmtFloor(fl: number): string {
+		if (fl < 0) {
+			const n = String(Math.abs(fl)).padStart(2, '0')
+			if (floorFormat === '01F') return `B${Math.abs(fl)}F`
+			if (floorFormat === '01') return `B${n}`
+			return `B${n}`
+		}
 		const n = String(fl).padStart(2, '0')
 		if (floorFormat === '01F') return `${n}F`
 		if (floorFormat === '01') return n
@@ -39,7 +45,7 @@
 	}
 
 	function addFloor() {
-		const num = Math.max(1, Math.min(99, Math.round(newFloorNumber) || 1))
+		const num = Math.max(-9, Math.min(200, Math.round(newFloorNumber) || 1))
 		if (floors.find(f => f.number === num)) {
 			error = `Floor ${fmtFloor(num)} already exists`
 			return
@@ -81,27 +87,24 @@
 	<div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center" onclick={onclose} onkeydown={e => e.key === 'Escape' && onclose()}>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
-		<div class="bg-white rounded-lg shadow-xl border border-gray-200 w-[500px] max-h-[80vh] flex flex-col" onclick={e => e.stopPropagation()}>
+		<div class="bg-white rounded-lg shadow-xl border border-gray-200 w-125 max-h-[80vh] flex flex-col" onclick={e => e.stopPropagation()}>
 			<div class="p-4 border-b border-gray-200 space-y-3">
 				<div class="flex items-center justify-between">
 					<div>
 						<h2 class="font-semibold text-sm">Floor Manager</h2>
-						<p class="text-xs text-gray-500">Select the number of server rooms on each floor and edit room names</p>
+						<p class="text-xs text-gray-500">Manage floors, server rooms and room names. Use negative numbers for basements (e.g. -1 = B01).</p>
 					</div>
 					<button class="text-gray-400 hover:text-gray-600 text-lg" onclick={onclose}>&times;</button>
 				</div>
 
 				<!-- Add floor form -->
 				<div class="flex items-end gap-2">
-					<div>
-						<label class="text-[10px] text-gray-500 uppercase tracking-wider">Floor #</label>
-						<input
-							type="number" min="1" max="99"
-							bind:value={newFloorNumber}
+					<label class="text-[10px] text-gray-500 uppercase tracking-wider">Floor #
+						<input bind:value={newFloorNumber} type="number" min="-9" max="200"
 							class="w-16 h-7 px-2 text-xs font-mono bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
 							onkeydown={e => e.key === 'Enter' && addFloor()}
 						/>
-					</div>
+					</label>
 					<button class="h-7 px-3 text-[11px] bg-blue-600 text-white rounded hover:bg-blue-500 transition-colors" onclick={addFloor}>Add</button>
 				</div>
 				{#if error}

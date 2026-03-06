@@ -101,6 +101,8 @@
 			title="Room number"
 		/>
 
+		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<label class="flex items-center gap-0.5 cursor-pointer shrink-0" onclick={e => e.stopPropagation()} title="High-level (ceiling) port">
 			<input
 				type="checkbox"

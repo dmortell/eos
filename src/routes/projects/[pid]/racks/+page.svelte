@@ -17,6 +17,7 @@
 	let activeFloor = $state(1);
 	let activeRoom = $state('A');
 	let floorFormat = $state('L01');
+	let projectName = $state('');
 
 	/** Migrate old floors format: number[] → FloorConfig[] */
 	function migrateFloors(/** @type {any[]} */ raw) {
@@ -35,6 +36,7 @@
 		const pid = page.params.pid;
 		if (!pid) return;
 		const unsub = db.subscribeOne('projects', pid, data => {
+			if (data?.name) projectName = data.name;
 			if (data?.floors?.length) floors = migrateFloors(data.floors);
 		});
 		return () => { unsub?.(); };
@@ -87,6 +89,11 @@
 	function changeFloor(/** @type {number} */ newFloor) {
 		if (newFloor === activeFloor) return;
 		activeFloor = newFloor;
+		// Clamp room to what exists on this floor
+		const floorCfg = floors.find(f => f.number === newFloor);
+		const maxRooms = floorCfg?.serverRoomCount ?? 1;
+		const available = ['A', 'B', 'C', 'D'].slice(0, maxRooms);
+		if (!available.includes(activeRoom)) activeRoom = available[0];
 	}
 
 	function changeRoom(/** @type {string} */ newRoom) {
@@ -157,7 +164,7 @@
 	</div>
 {:else}
 	{#key `${activeFloor}-${activeRoom}`}
-		<Racks data={rackData} {library} floor={activeFloor} room={activeRoom} {floors} projectId={page.params.pid} {floorFormat}
+		<Racks data={rackData} {library} floor={activeFloor} room={activeRoom} {floors} projectId={page.params.pid} {floorFormat} {projectName}
 			onsave={save} onlibrarychange={saveLibrary} onfloorchange={changeFloor} onroomchange={changeRoom}
 			onupdatefloors={updateFloors} ondeletefloor={deleteFloor} />
 	{/key}

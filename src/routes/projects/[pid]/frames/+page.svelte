@@ -15,6 +15,7 @@
 	let floors = $state([{ number: 1, serverRoomCount: 1 }]);
 	let loading = $state(true);
 	let activeFloor = $state(1);
+	let projectName = $state('');
 	let hasMigrated = false;
 
 	/** Migrate old floors format: number[] → FloorConfig[] */
@@ -31,6 +32,7 @@
 		const pid = page.params.pid;
 		if (!pid) return;
 		const unsub = db.subscribeOne('projects', pid, data => {
+			if (data?.name) projectName = data.name;
 			if (data?.floors?.length) floors = migrateFloors(data.floors);
 		});
 		return () => { unsub?.(); };
@@ -170,7 +172,7 @@
 	</div>
 {:else}
 	{#key activeFloor}
-		<Frames data={frameData} {racksData} floor={activeFloor} {floors} projectId={page.params.pid}
+		<Frames data={frameData} {racksData} floor={activeFloor} {floors} projectId={page.params.pid} {projectName}
 			onsave={save} onfloorchange={changeFloor} onupdatefloors={updateFloors} ondeletefloor={deleteFloor} />
 	{/key}
 {/if}

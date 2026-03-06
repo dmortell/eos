@@ -15,12 +15,13 @@
 
 	import type { ChangeDetail } from '$lib/logger'
 
-	let { data = null, racksData = {}, floor, floors = [], projectId = '', onsave, onfloorchange, onupdatefloors, ondeletefloor }: {
+	let { data = null, racksData = {}, floor, floors = [], projectId = '', projectName = '', onsave, onfloorchange, onupdatefloors, ondeletefloor }: {
 		data?: any
 		racksData?: Record<string, any>
 		floor: number
 		floors?: FloorConfig[]
 		projectId?: string
+		projectName?: string
 		onsave?: (payload: any, changes: ChangeDetail[]) => void
 		onfloorchange?: (floor: number) => void
 		onupdatefloors?: (floors: FloorConfig[]) => void
@@ -432,6 +433,12 @@
 
 	/** Format a floor number according to the floorFormat setting */
 	function fmtFloor(fl: number): string {
+		if (fl < 0) {
+			const n = String(Math.abs(fl)).padStart(2, '0')
+			if (floorFormat === '01F') return `B${Math.abs(fl)}F`
+			if (floorFormat === '01') return `B${n}`
+			return `B${n}`
+		}
 		const n = String(fl).padStart(2, '0')
 		if (floorFormat === '01F') return `${n}F`
 		if (floorFormat === '01') return n
@@ -440,7 +447,7 @@
 </script>
 
 <div class="h-screen flex flex-col overflow-hidden">
-<Titlebar title="Patch Frames" />
+<Titlebar title={projectName ? `${projectName} — Patch Frames` : 'Patch Frames'} />
 
 <SettingsDialog
 	open={settingsOpen}
@@ -541,12 +548,10 @@
 		onupdate={updateLocation}
 		onselect={selectLocation}
 	>
-		{#if zoneLetters.length > 1}
 			<label class="flex items-center gap-1.5 text-[10px] text-gray-500 cursor-pointer select-none">
 				<input type="checkbox" bind:checked={showAllZones} class="w-3 h-3 rounded" />
 				All zones
 			</label>
-		{/if}
 	</LocationList>
 {/snippet}
 

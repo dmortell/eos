@@ -1,7 +1,7 @@
 import { getApp, getApps, initializeApp } from "firebase/app";
 import { nanoid } from "nanoid";
 import {
-    getFirestore, collection, doc, getDoc, getDocs, deleteDoc, query,
+    getFirestore, collection, doc, getDoc, getDocs, deleteDoc, query, where,
     serverTimestamp, onSnapshot, setDoc, writeBatch,
     type Query, type DocumentData, type Firestore as FirestoreType, type QuerySnapshot
 } from 'firebase/firestore';
@@ -55,6 +55,13 @@ export class Firestore {
         const q = query(collection(firestore, path));
         const snap = await getDocs(q)
         return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    }
+    subscribeWhere(path: string, field: string, value: unknown, callback: (data: DocWithId[]) => void): () => void {
+        const q = query(collection(firestore, path), where(field, '==', value));
+        return onSnapshot(q, (snap) => {
+            const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            callback?.(data)
+        });
     }
     subscribeMany(path: string, callback: (data: DocWithId[]) => void): () => void {
         const q = query(collection(firestore, path));

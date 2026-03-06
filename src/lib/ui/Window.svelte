@@ -15,8 +15,8 @@
 	let contextPos = $state({ x: 0, y: 0 })
 
 	// Load saved state from localStorage
-	const storageKey = title ? `cad-window-${title.toLowerCase().replace(/\s+/g, '-')}` : ''
-	const saved = storageKey ? loadState() : null
+	const storageKey = $derived(title ? `cad-window-${title.toLowerCase().replace(/\s+/g, '-')}` : '')
+	const saved = $derived(storageKey ? loadState() : null)
 
 	// svelte-ignore state_referenced_locally
 	let right = $state<number | null>(saved?.right ?? (initRight != null ? +initRight : null))
@@ -99,11 +99,11 @@
 	}
 </script>
 
-<div class="gui print:hidden" class:open style={posStyle}
-	onpointerdown={(e) => e.stopPropagation()}>
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="gui print:hidden" class:open style={posStyle} onpointerdown={(e) => e.stopPropagation()}>
 	{#if title}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div use:draggable={{onMove, cursor:'move'}} class="flex items-center gap-2 px-2 py-1 select-none border-b-1"
+		<div use:draggable={{onMove, cursor:'move'}} class="flex items-center gap-2 px-2 py-1 select-none border-b"
 			oncontextmenu={handleContextMenu}>
 			<Icon name=grip />
 			<div class='flex flex-1 items-center gap-2'>
@@ -134,6 +134,7 @@
 
 {#if contextOpen && ondock}
 	<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<div class="dock-context" onclick={() => contextOpen = false}>
 		<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 		<div class="dock-context-menu" style="left:{contextPos.x}px; top:{contextPos.y}px;"

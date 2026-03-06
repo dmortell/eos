@@ -17,13 +17,14 @@
 
 	import FloorManagerDialog, { type FloorConfig } from '$lib/components/FloorManagerDialog.svelte'
 
-	let { data = null, library = [], floor, room, floors = [], projectId = '', floorFormat = 'L01', onsave, onlibrarychange, onfloorchange, onroomchange, onupdatefloors, ondeletefloor }: {
+	let { data = null, library = [], floor, room, floors = [], projectId = '', projectName = '', floorFormat = 'L01', onsave, onlibrarychange, onfloorchange, onroomchange, onupdatefloors, ondeletefloor }: {
 		data?: any
 		library?: DeviceTemplate[]
 		floor: number
 		room: string
 		floors?: FloorConfig[]
 		projectId?: string
+		projectName?: string
 		floorFormat?: string
 		onsave?: (payload: any, changes: ChangeDetail[]) => void
 		onlibrarychange?: (templates: DeviceTemplate[]) => void
@@ -164,6 +165,12 @@
 
 	/** Format floor number using floorFormat setting */
 	function fmtFloor(fl: number): string {
+		if (fl < 0) {
+			const n = String(Math.abs(fl)).padStart(2, '0')
+			if (floorFormat === '01F') return `B${Math.abs(fl)}F`
+			if (floorFormat === '01') return `B${n}`
+			return `B${n}`
+		}
 		const n = String(fl).padStart(2, '0')
 		if (floorFormat === '01F') return `${n}F`
 		if (floorFormat === '01') return n
@@ -526,9 +533,8 @@
 <!-- Row delete confirmation -->
 {#if confirmingDeleteRow}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center print:hidden" onclick={() => confirmingDeleteRow = null}>
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<div class="bg-white rounded-lg shadow-xl border border-gray-200 p-4 w-72" onclick={e => e.stopPropagation()}>
 			<p class="text-sm text-gray-700 mb-3">Delete <strong>{rows.find(r => r.id === confirmingDeleteRow)?.label}</strong>? All racks and devices in this row will be removed.</p>
 			<div class="flex gap-2 justify-end">
@@ -540,7 +546,7 @@
 {/if}
 
 <main class="h-dvh w-full overflow-hidden flex flex-col">
-	<Titlebar title="Rack Elevations">
+	<Titlebar title={projectName ? `${projectName} — Rack Elevations` : 'Rack Elevations'}>
 		<div class="flex items-center gap-2 text-xs">
 			<span class="text-gray-400">
 				{#if saveStatus === 'saved'}Saved{:else if saveStatus === 'saving'}Saving...{:else}Unsaved{/if}

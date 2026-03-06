@@ -30,6 +30,7 @@
 			const missing = uids.filter(u => !userNames[u])
 			const resolved = await Promise.all(missing.map(async uid => {
 				const user = await db.getOne('users', uid)
+				console.log('username for', uid, 'is', user?.displayName)
 				return { uid, name: (user?.displayName as string) ?? null }
 			}))
 			const names = { ...userNames }
@@ -61,7 +62,7 @@
 	<div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center" onclick={onclose} onkeydown={e => e.key === 'Escape' && onclose()}>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
-		<div class="bg-white rounded-lg shadow-xl border border-gray-200 w-[640px] max-h-[80vh] flex flex-col" onclick={e => e.stopPropagation()}>
+		<div class="bg-white rounded-lg shadow-xl border border-gray-200 w-160 max-h-[80vh] flex flex-col" onclick={e => e.stopPropagation()}>
 			<div class="flex items-center justify-between p-3 border-b border-gray-200">
 				<h3 class="text-sm font-semibold text-gray-700">Change Log</h3>
 				<div class="flex items-center gap-2">

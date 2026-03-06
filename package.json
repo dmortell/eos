@@ -40,6 +40,8 @@
 		"vitest-browser-svelte": "^2.0.2"
 	},
 	"dependencies": {
-		"exceljs": "^4.4.0"
+		"@uploadthing/svelte": "^7.3.3",
+		"exceljs": "^4.4.0",
+		"uploadthing": "^7.7.4"
 	}
 }

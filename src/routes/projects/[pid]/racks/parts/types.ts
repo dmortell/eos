@@ -86,3 +86,14 @@ export interface ViewState {
 	button: number
 	bottom: number
 }
+
+export interface Project {
+	id: string
+	name: string
+	description: string
+	ownerId?: string
+	createdAt?: number
+	updatedAt?: number
+	// pdfFiles?: string[] // array of PDF file URLs associated with the project
+	// settings:{}
+}
