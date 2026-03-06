@@ -1,19 +1,23 @@
 <script lang="ts">
 	import { tick } from 'svelte'
 	import { onMount, onDestroy } from 'svelte'
-	import { Icon } from '$lib'
+	import { Icon, Firestore } from '$lib'
 	import { PdfState } from './pdf-viewer-sample/assets/PdfState.svelte'
+	import DimensionLine from './DimensionLine.svelte'
+	import { dragDimension, isHorizontal } from './DimensionLine.ts'
 
-	let { url, name, onclose }: {
+	let { url, name, fileDoc, onclose }: {
 		url: string
 		name: string
+		fileDoc: any
 		onclose: () => void
 	} = $props()
+
+	let db = new Firestore()
 
 	let containerEl: HTMLDivElement
 	let canvasEl: HTMLCanvasElement
 	let pdf: PdfState | null = null
-	let mounted = true
 
 	let loading = $state(true)
 	let error = $state('')
@@ -26,7 +30,7 @@
 	let zoom = $state(1)
 	let panning = $state(false)
 
-	// Page dimensions at scale=1 (PDF points)
+	// Page dimensions at RENDER_SCALE (for SVG overlay sizing)
 	let pageW = $state(0)
 	let pageH = $state(0)
 
@@ -34,8 +38,38 @@
 	let cw = $state(800)
 	let ch = $state(600)
 
-	// Fixed render scale — renders once at high quality, CSS zoom handles the rest
 	const RENDER_SCALE = 2
+
+	// ── Tool state ──
+	type Tool = null | 'origin' | 'scale' | 'crop'
+	let activeTool = $state<Tool>(null)
+
+	// Origin
+	let origin = $state({ x: 50, y: 50 })
+
+	// Scale / dimension line
+	let dimLine = $state<any>({ x1: 100, y1: 100, x2: 300, y2: 100, offset: 30, units: 'mm', distance: 1000, scale: 1 })
+	let dimHandle = 0
+
+	// Crop
+	let cropRect = $state({ x: 0, y: 0, width: 100, height: 100 })
+	let cropHandle = 0
+	let cropStart = { x: 0, y: 0, width: 0, height: 0, mx: 0, my: 0 }
+
+	// Crop resize handles: mask values for edges (1=R, 2=B, 4=L, 8=T) and corners
+	const cropHandles = [
+		{ mask: 1,  cursor: 'ew-resize' },   // right edge
+		{ mask: 2,  cursor: 'ns-resize' },   // bottom edge
+		{ mask: 4,  cursor: 'ew-resize' },   // left edge
+		{ mask: 8,  cursor: 'ns-resize' },   // top edge
+		{ mask: 3,  cursor: 'nwse-resize' }, // bottom-right
+		{ mask: 6,  cursor: 'nesw-resize' }, // bottom-left
+		{ mask: 9,  cursor: 'nesw-resize' }, // top-right
+		{ mask: 12, cursor: 'nwse-resize' }, // top-left
+	]
+
+	// Track if tool data has been modified since last save
+	let dirty = $state(false)
 
 	onMount(async () => {
 		try {
@@ -45,6 +79,7 @@
 			const dims = await pdf.getPageDimensions(1)
 			pageW = dims.width
 			pageH = dims.height
+			loadPageData(1)
 			fitToView()
 			loading = false
 			await tick()
@@ -57,10 +92,62 @@
 	})
 
 	onDestroy(() => {
-		mounted = false
 		containerEl?.removeEventListener('wheel', onWheel)
 		pdf?.destroy()
 	})
+
+	// ── Page data (origin, scale, crop) stored in fileDoc.pages[pageNum] ──
+
+	function loadPageData(page: number) {
+		const pages = fileDoc?.pages ?? {}
+		const p = pages[page] ?? {}
+		if (p.origin) origin = { ...p.origin }
+		if (p.scale) dimLine = { ...dimLine, ...p.scale }
+		if (p.crop) cropRect = { ...p.crop }
+		else cropRect = { x: 0, y: 0, width: pageW, height: pageH }
+		dirty = false
+	}
+
+	function savePageProp(prop: string, value: any) {
+		if (!fileDoc?.id) return
+		const pages = fileDoc.pages ?? {}
+		pages[pageNum] = pages[pageNum] ?? {}
+		pages[pageNum][prop] = value
+		fileDoc.pages = pages
+		db.save('files', { id: fileDoc.id, pages })
+		dirty = false
+	}
+
+	function saveOrigin() {
+		savePageProp('origin', { x: Math.round(origin.x), y: Math.round(origin.y) })
+	}
+
+	function saveScale() {
+		if (!dimLine.distance) return
+		const abs = Math.abs
+		const pixelDist = isHorizontal(dimLine)
+			? abs(dimLine.x2 - dimLine.x1)
+			: abs(dimLine.y2 - dimLine.y1)
+		if (pixelDist < 1) return
+		dimLine.scale = Math.round(dimLine.distance / pixelDist * 1000) / 1000
+		savePageProp('scale', { ...dimLine })
+	}
+
+	function saveCrop() {
+		savePageProp('crop', {
+			x: Math.round(cropRect.x),
+			y: Math.round(cropRect.y),
+			width: Math.round(cropRect.width),
+			height: Math.round(cropRect.height),
+		})
+	}
+
+	function setTool(tool: Tool) {
+		activeTool = activeTool === tool ? null : tool
+		dirty = false
+	}
+
+	// ── Fit / navigate ──
 
 	function fitToView() {
 		if (!pageW || !pageH) return
@@ -79,11 +166,22 @@
 		const dims = await pdf.getPageDimensions(n)
 		pageW = dims.width
 		pageH = dims.height
+		loadPageData(n)
 		fitToView()
 		await pdf.render({ canvas: canvasEl, page: n, scale: RENDER_SCALE })
 	}
 
-	// ── Pan/Zoom handlers ──
+	// ── Get mouse position in PDF-page coordinates (accounting for pan/zoom) ──
+
+	function getPagePos(e: MouseEvent) {
+		const rect = containerEl.getBoundingClientRect()
+		return {
+			x: (e.clientX - rect.left - vx) / zoom,
+			y: (e.clientY - rect.top - vy) / zoom,
+		}
+	}
+
+	// ── Wheel ──
 
 	function onWheel(e: WheelEvent) {
 		e.preventDefault()
@@ -108,25 +206,127 @@
 		zoom = newZoom
 	}
 
+	// ── Mouse handling ──
+
 	function onMouseDown(e: MouseEvent) {
-		if (e.button === 0 || e.button === 1 || e.button === 2) {
-			e.preventDefault()
+		e.preventDefault()
+
+		const isPan = e.button === 1 || e.button === 2
+		if (isPan) {
 			panning = true
-			document.addEventListener('mousemove', onMouseMove)
-			document.addEventListener('mouseup', onMouseUp)
+			document.addEventListener('mousemove', onPanMove)
+			document.addEventListener('mouseup', onPanUp)
+			return
 		}
+
+		// Left click with a tool active
+		if (activeTool && e.button === 0) {
+			const pos = getPagePos(e)
+
+			if (activeTool === 'origin') {
+				origin = { x: pos.x, y: pos.y }
+				dirty = true
+				return
+			}
+
+			if (activeTool === 'scale') {
+				dimHandle = +((e.target as HTMLElement)?.dataset?.id ?? 0)
+				const userDist = dimLine.distance // preserve user-entered distance
+				dimLine.sx = pos.x  // set start pos for handle 8 (move whole line)
+				dimLine.sy = pos.y
+				document.addEventListener('mousemove', onScaleMove)
+				document.addEventListener('mouseup', onScaleUp)
+				if (!dimHandle) {
+					// Start new line from click point
+					dimLine.x1 = pos.x
+					dimLine.y1 = pos.y
+					dimLine.x2 = pos.x
+					dimLine.y2 = pos.y
+					dimHandle = 2 // drag end-point
+				}
+				dimLine.distance = userDist
+				dirty = true
+				return
+			}
+
+			if (activeTool === 'crop') {
+				cropHandle = +((e.target as HTMLElement)?.dataset?.id ?? 0)
+				const p = getPagePos(e)
+				cropStart = { ...cropRect, mx: p.x, my: p.y }
+				if (!cropHandle) {
+					// Start new crop from click
+					cropRect = { x: p.x, y: p.y, width: 0, height: 0 }
+					cropHandle = 3 // drag bottom-right
+					cropStart = { x: p.x, y: p.y, width: 0, height: 0, mx: p.x, my: p.y }
+				}
+				document.addEventListener('mousemove', onCropMove)
+				document.addEventListener('mouseup', onCropUp)
+				dirty = true
+				return
+			}
+		}
+
+		// Default: pan
+		panning = true
+		document.addEventListener('mousemove', onPanMove)
+		document.addEventListener('mouseup', onPanUp)
 	}
 
-	function onMouseMove(e: MouseEvent) {
-		if (!panning) return
+	function onPanMove(e: MouseEvent) {
 		vx += e.movementX
 		vy += e.movementY
 	}
 
-	function onMouseUp() {
+	function onPanUp() {
 		panning = false
-		document.removeEventListener('mousemove', onMouseMove)
-		document.removeEventListener('mouseup', onMouseUp)
+		document.removeEventListener('mousemove', onPanMove)
+		document.removeEventListener('mouseup', onPanUp)
+	}
+
+	// Scale drag
+	function onScaleMove(e: MouseEvent) {
+		const pos = getPagePos(e)
+		const userDist = dimLine.distance // preserve user-entered distance
+		dragDimension(dimLine, dimHandle, pos)
+		dimLine.distance = userDist
+		dimLine = dimLine // trigger reactivity
+	}
+
+	function onScaleUp() {
+		dimHandle = 0
+		document.removeEventListener('mousemove', onScaleMove)
+		document.removeEventListener('mouseup', onScaleUp)
+	}
+
+	// Crop drag
+	function onCropMove(e: MouseEvent) {
+		const pos = getPagePos(e)
+		const dx = pos.x - cropStart.mx
+		const dy = pos.y - cropStart.my
+		let { x, y, width: w, height: h } = cropStart
+
+		if (cropHandle & 1) w += dx  // right
+		if (cropHandle & 2) h += dy  // bottom
+		if (cropHandle & 4) { x += dx; w -= dx }  // left
+		if (cropHandle & 8) { y += dy; h -= dy }  // top
+
+		// Normalize negative dimensions
+		if (w < 0) { x += w; w = -w }
+		if (h < 0) { y += h; h = -h }
+
+		// Clamp to page bounds
+		if (x < 0) { w += x; x = 0 }
+		if (y < 0) { h += y; y = 0 }
+		if (x + w > pageW) w = pageW - x
+		if (y + h > pageH) h = pageH - y
+
+		cropRect = { x, y, width: w, height: h }
+	}
+
+	function onCropUp() {
+		cropHandle = 0
+		document.removeEventListener('mousemove', onCropMove)
+		document.removeEventListener('mouseup', onCropUp)
 	}
 
 	// Touch support
@@ -172,7 +372,7 @@
 	}
 
 	function onTouchEnd(e: TouchEvent) {
-		if (e.touches.length < 2) { pinchLastDist = null }
+		if (e.touches.length < 2) pinchLastDist = null
 		if (e.touches.length === 0) { panning = false; lastPanMid = null }
 	}
 
@@ -195,7 +395,10 @@
 	}
 
 	function onKeyDown(e: KeyboardEvent) {
-		if (e.key === 'Escape') onclose()
+		if (e.key === 'Escape') {
+			if (activeTool) { activeTool = null; dirty = false }
+			else onclose()
+		}
 		else if (e.key === 'ArrowLeft' || e.key === 'PageUp') goToPage(pageNum - 1)
 		else if (e.key === 'ArrowRight' || e.key === 'PageDown') goToPage(pageNum + 1)
 		else if (e.key === 'Home') goToPage(1)
@@ -203,6 +406,23 @@
 		else if (e.key === '+' || e.key === '=') zoomIn()
 		else if (e.key === '-') zoomOut()
 		else if (e.key === '0') fitToView()
+	}
+
+	// ── Status helpers ──
+
+	function hasOrigin(): boolean {
+		const p = (fileDoc?.pages ?? {})[pageNum]
+		return !!p?.origin
+	}
+
+	function hasScale(): boolean {
+		const p = (fileDoc?.pages ?? {})[pageNum]
+		return !!(p?.scale?.scale)
+	}
+
+	function hasCrop(): boolean {
+		const p = (fileDoc?.pages ?? {})[pageNum]
+		return !!p?.crop
 	}
 </script>
 
@@ -216,7 +436,64 @@
 			<Icon name="chevronLeft" size={16} />
 		</button>
 
-		<span class="text-xs text-gray-300 truncate max-w-80" title={name}>{name}</span>
+		<span class="text-xs text-gray-300 truncate max-w-60" title={name}>{name}</span>
+
+		<div class="w-px h-4 bg-gray-700 mx-1"></div>
+
+		<!-- Tool buttons -->
+		<button
+			class="flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors {activeTool === 'origin' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}"
+			onclick={() => setTool('origin')}
+			title="Set origin point">
+			<Icon name="crosshair" size={13} />
+			Origin
+			{#if hasOrigin() && activeTool !== 'origin'}<span class="w-1.5 h-1.5 rounded-full bg-green-400"></span>{/if}
+		</button>
+
+		<button
+			class="flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors {activeTool === 'scale' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}"
+			onclick={() => setTool('scale')}
+			title="Set scale with dimension line">
+			<Icon name="ruler" size={13} />
+			Scale
+			{#if hasScale() && activeTool !== 'scale'}<span class="w-1.5 h-1.5 rounded-full bg-green-400"></span>{/if}
+		</button>
+
+		<button
+			class="flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors {activeTool === 'crop' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}"
+			onclick={() => setTool('crop')}
+			title="Crop drawing area">
+			<Icon name="crop" size={13} />
+			Crop
+			{#if hasCrop() && activeTool !== 'crop'}<span class="w-1.5 h-1.5 rounded-full bg-green-400"></span>{/if}
+		</button>
+
+		<!-- Tool-specific controls -->
+		{#if activeTool === 'origin'}
+			<div class="w-px h-4 bg-gray-700 mx-1"></div>
+			<span class="text-xs text-gray-400">Click to place origin</span>
+			<span class="text-xs text-gray-500 tabular-nums">{Math.round(origin.x)}, {Math.round(origin.y)}</span>
+			<button class="px-2 py-0.5 text-xs rounded {dirty ? 'bg-green-600 hover:bg-green-500 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}"
+				onclick={saveOrigin}>Save</button>
+		{:else if activeTool === 'scale'}
+			<div class="w-px h-4 bg-gray-700 mx-1"></div>
+			<span class="text-xs text-gray-400">Drag endpoints on drawing</span>
+			<span class="text-xs text-gray-500">Distance:</span>
+			<input type="number" bind:value={dimLine.distance}
+				class="w-20 h-6 px-2 text-xs text-right text-white bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-400"
+				oninput={() => dirty = true} />
+			<span class="text-xs text-gray-500">mm</span>
+			<button class="px-2 py-0.5 text-xs rounded {dirty ? 'bg-green-600 hover:bg-green-500 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}"
+				onclick={saveScale}>Save</button>
+		{:else if activeTool === 'crop'}
+			<div class="w-px h-4 bg-gray-700 mx-1"></div>
+			<span class="text-xs text-gray-400">Drag to crop</span>
+			<span class="text-xs text-gray-500 tabular-nums">{Math.round(cropRect.width)} x {Math.round(cropRect.height)}</span>
+			<button class="px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-400 hover:bg-gray-600"
+				onclick={() => { cropRect = { x: 0, y: 0, width: pageW, height: pageH }; dirty = true }}>Reset</button>
+			<button class="px-2 py-0.5 text-xs rounded {dirty ? 'bg-green-600 hover:bg-green-500 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}"
+				onclick={saveCrop}>Save</button>
+		{/if}
 
 		<div class="flex-1"></div>
 
@@ -235,7 +512,7 @@
 		{/if}
 
 		<!-- Zoom controls -->
-		<button class="text-gray-400 hover:text-white px-1.5 py-0.5 rounded hover:bg-gray-700 text-sm font-bold leading-none" onclick={zoomOut} title="Zoom out (-)">−</button>
+		<button class="text-gray-400 hover:text-white px-1.5 py-0.5 rounded hover:bg-gray-700 text-sm font-bold leading-none" onclick={zoomOut} title="Zoom out (-)">&#x2212;</button>
 		<span class="text-xs text-gray-400 tabular-nums min-w-10 text-center">{Math.round(zoom * 100)}%</span>
 		<button class="text-gray-400 hover:text-white px-1.5 py-0.5 rounded hover:bg-gray-700 text-sm font-bold leading-none" onclick={zoomIn} title="Zoom in (+)">+</button>
 		<button class="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-gray-700" onclick={fitToView} title="Fit to view (0)">
@@ -257,13 +534,75 @@
 	{:else}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div bind:this={containerEl}
-			class="flex-1 overflow-hidden cursor-grab active:cursor-grabbing"
+			class="flex-1 overflow-hidden {activeTool ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}"
 			onmousedown={onMouseDown}
 			ontouchstart={onTouchStart}
 			ontouchmove={onTouchMove}
 			ontouchend={onTouchEnd}>
-			<div style:transform="translate({vx}px, {vy}px) scale({zoom})" style:transform-origin="0 0">
+			<div style:transform="translate({vx}px, {vy}px) scale({zoom})" style:transform-origin="0 0" class="relative">
 				<canvas bind:this={canvasEl} class="shadow-2xl"></canvas>
+
+				<!-- SVG overlay for tools (same size as PDF page at scale=1) -->
+				<svg class="absolute top-0 left-0 pointer-events-none" width={pageW} height={pageH}>
+
+					<!-- Origin crosshair (always visible when origin has been set, or tool is active) -->
+					{#if activeTool === 'origin' || hasOrigin()}
+						<g class="origin" style:--o-color={activeTool === 'origin' ? '#ef4444' : '#3b82f6'}>
+							<circle cx={origin.x} cy={origin.y} r={20 / zoom} fill="none" stroke={activeTool === 'origin' ? '#ef4444' : '#3b82f6'} stroke-width={2 / zoom} />
+							<line x1={origin.x - 30 / zoom} y1={origin.y} x2={origin.x + 30 / zoom} y2={origin.y}
+								stroke={activeTool === 'origin' ? '#ef4444' : '#3b82f6'} stroke-width={1 / zoom} />
+							<line x1={origin.x} y1={origin.y - 30 / zoom} x2={origin.x} y2={origin.y + 30 / zoom}
+								stroke={activeTool === 'origin' ? '#ef4444' : '#3b82f6'} stroke-width={1 / zoom} />
+						</g>
+					{/if}
+
+					<!-- Dimension line (visible when scale tool active or scale saved) -->
+					{#if activeTool === 'scale' || hasScale()}
+						<g class="pointer-events-auto">
+							<DimensionLine size={dimLine} selected={activeTool === 'scale'} stroke={activeTool === 'scale' ? '#ef4444' : '#3b82f6'} />
+						</g>
+					{/if}
+
+					<!-- Crop rectangle -->
+					{#if activeTool === 'crop'}
+						<g class="pointer-events-auto">
+							<!-- Dimmed area outside crop -->
+							<path d="M0,0 H{pageW} V{pageH} H0 Z M{cropRect.x},{cropRect.y} V{cropRect.y + cropRect.height} H{cropRect.x + cropRect.width} V{cropRect.y} Z"
+								fill="rgba(0,0,0,0.4)" fill-rule="evenodd" />
+
+							<!-- Crop border -->
+							<rect x={cropRect.x} y={cropRect.y} width={cropRect.width} height={cropRect.height}
+								fill="none" stroke="#ef4444" stroke-width={2 / zoom} stroke-dasharray="{6 / zoom} {4 / zoom}" />
+
+							<!-- Resize handles: edges (invisible wide hit areas) -->
+							<rect data-id="1" x={cropRect.x + cropRect.width - 4 / zoom} y={cropRect.y} width={8 / zoom} height={cropRect.height}
+								fill="transparent" cursor="ew-resize" />
+							<rect data-id="2" x={cropRect.x} y={cropRect.y + cropRect.height - 4 / zoom} width={cropRect.width} height={8 / zoom}
+								fill="transparent" cursor="ns-resize" />
+							<rect data-id="4" x={cropRect.x - 4 / zoom} y={cropRect.y} width={8 / zoom} height={cropRect.height}
+								fill="transparent" cursor="ew-resize" />
+							<rect data-id="8" x={cropRect.x} y={cropRect.y - 4 / zoom} width={cropRect.width} height={8 / zoom}
+								fill="transparent" cursor="ns-resize" />
+
+							<!-- Corner handles (visible squares) -->
+							<rect data-id="12" x={cropRect.x - 6 / zoom} y={cropRect.y - 6 / zoom} width={12 / zoom} height={12 / zoom}
+								fill="white" stroke="#ef4444" stroke-width={1 / zoom} cursor="nwse-resize" />
+							<rect data-id="9" x={cropRect.x + cropRect.width - 6 / zoom} y={cropRect.y - 6 / zoom} width={12 / zoom} height={12 / zoom}
+								fill="white" stroke="#ef4444" stroke-width={1 / zoom} cursor="nesw-resize" />
+							<rect data-id="6" x={cropRect.x - 6 / zoom} y={cropRect.y + cropRect.height - 6 / zoom} width={12 / zoom} height={12 / zoom}
+								fill="white" stroke="#ef4444" stroke-width={1 / zoom} cursor="nesw-resize" />
+							<rect data-id="3" x={cropRect.x + cropRect.width - 6 / zoom} y={cropRect.y + cropRect.height - 6 / zoom} width={12 / zoom} height={12 / zoom}
+								fill="white" stroke="#ef4444" stroke-width={1 / zoom} cursor="nwse-resize" />
+						</g>
+					{:else if hasCrop()}
+						<!-- Show saved crop outline faintly when not in crop tool -->
+						{@const c = (fileDoc?.pages ?? {})[pageNum]?.crop}
+						{#if c}
+							<rect x={c.x} y={c.y} width={c.width} height={c.height}
+								fill="none" stroke="#3b82f6" stroke-width={1 / zoom} stroke-dasharray="{4 / zoom} {3 / zoom}" opacity="0.5" />
+						{/if}
+					{/if}
+				</svg>
 			</div>
 		</div>
 	{/if}

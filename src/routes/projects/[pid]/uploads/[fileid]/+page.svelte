@@ -42,5 +42,5 @@
 		</div>
 	</div>
 {:else}
-	<PdfViewer url={fileDoc.url} name={fileDoc.name ?? fileDoc.id} onclose={goBack} />
+	<PdfViewer url={fileDoc.url} name={fileDoc.name ?? fileDoc.id} {fileDoc} onclose={goBack} />
 {/if}

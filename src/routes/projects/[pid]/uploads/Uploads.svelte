@@ -12,7 +12,7 @@
 		size?: number
 		uploadedAt?: any
 		updatedAt?: any
-		pages?: PageInfo[]
+		pages?: Record<number, PageInfo>
 		[key: string]: unknown
 	}
 
@@ -20,7 +20,6 @@
 		crop?: { x: number; y: number; width: number; height: number }
 		origin?: { x: number; y: number }
 		scale?: { distance: number; scale: number; units: string; x1: number; y1: number; x2: number; y2: number; offset: number }
-		[key: string]: unknown
 	}
 
 	let { files = [], projectName = '', projectId = '', ondelete }: {
@@ -131,12 +130,11 @@
 		} catch { return '—' }
 	}
 
-	function fileStatus(file: FileDoc): { hasOrigin: boolean; hasScale: boolean; pageCount: number } {
-		const pages = file.pages ?? []
-		if (!pages.length) return { hasOrigin: false, hasScale: false, pageCount: 0 }
-		// Check first page for origin/scale (primary page setup)
-		const p = pages[0]
-		return { hasOrigin: !!p?.origin, hasScale: !!(p?.scale?.scale), pageCount: pages.length }
+	function fileStatus(file: FileDoc): { hasOrigin: boolean; hasScale: boolean } {
+		const pages = file.pages ?? {}
+		// Check page 1 for origin/scale (primary page setup)
+		const p = pages[1] ?? pages[0]
+		return { hasOrigin: !!p?.origin, hasScale: !!(p?.scale?.scale) }
 	}
 
 	function openFile(file: FileDoc) {
