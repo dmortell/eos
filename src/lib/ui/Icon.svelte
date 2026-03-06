@@ -1,7 +1,7 @@
 <script lang="ts">
 import {
 	AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart,
-	Box, Cable, Check,
+	Box, Cable, Check, Crosshair, Crop,
 	ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Copy, Circle,
 	Ellipsis, EllipsisVertical, ExternalLink, Expand, Eye, EyeOff,
 	FileDown, FileText, FileUp, FileImage, Folder, FolderOpen,
@@ -24,7 +24,7 @@ let lucide: Record<string, any> = {
 	box: Box, cable: Cable, check: Check, close: X,
 	chevronRight: ChevronRight, chevronLeft: ChevronLeft,
 	chevronDown: ChevronDown, chevronUp: ChevronUp,
-	copy: Copy, download: FileDown, edit: Pen, end: TextAlignEnd,
+	copy: Copy, crop: Crop, crosshair: Crosshair, download: FileDown, edit: Pen, end: TextAlignEnd,
 	ellipse: Circle, ellipsis: Ellipsis, ellipsisVertical: EllipsisVertical,
 	expand: Expand, eye: Eye, eyeSlash: EyeOff, fileImage: FileImage, fileText: FileText,
 	folder: Folder, folderOpen: FolderOpen,

@@ -49,3 +49,23 @@ Here's a summary of what was created:
     - "No scale" (amber badge) — origin set but scale missing
     - "Ready" (green check) — both origin and scale configured
   3. Delete button — Already made permanently visible in previous edit.
+
+
+Create a standalone PDF viewer that:
+
+1. Uses PdfState directly to render pages to a canvas
+2. Reuses the same pan/zoom pattern from Canvas.svelte
+  3. Has a toolbar with page navigation, zoom controls, and close button
+  4. Opens as a full-screen overlay when a filename is clicked
+
+  - tick() instead of requestAnimationFrame for waiting on DOM updates
+  - Renders to object URL images instead of directly to a canvas — the <img> element stays stable while CSS transform handles smooth pan/zoom without any re-rendering
+  - Quantized scale levels (0.5, 1, 2, 3, 4, 6, 8) — only re-renders when zoom crosses a threshold, not on every scroll tick
+  - Cache with Map<key, objectUrl> keyed by url|page|scale — revisiting a scale level is instant, no re-render needed. 256MB eviction limit.
+  - Debounced re-render (200ms) — when the quantized scale changes, waits for zooming to settle before rendering at the new quality level
+  - will-change-transform on the transform div for GPU-accelerated compositing
+  - No flicker — the old image stays displayed at the current quality while the new one renders in the background, then swaps in
+
+
+● The PdfViewer has been rewritten to the simple canvas approach based on import-sample/Viewer.svelte. It renders the PDF once at RENDER_SCALE = 2 and uses CSS transform: translate() scale() for all pan/zoom — no re-rendering on zoom, so no flickering
+  or blurriness.
