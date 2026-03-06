@@ -26,8 +26,12 @@
 		return () => { unsub?.(); };
 	});
 
-	/** @param {string} fileId */
-	async function deleteFile(fileId) {
+	/** @param {string} fileId @param {string} [utKey] */
+	async function deleteFile(fileId, utKey) {
+		if (utKey) {
+			try { await fetch('/api/uploadthing/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: utKey }) }) }
+			catch (e) { console.error('UploadThing delete failed:', e) }
+		}
 		await db.delete('files', fileId);
 	}
 </script>

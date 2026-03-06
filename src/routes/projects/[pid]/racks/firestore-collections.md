@@ -1,9 +1,9 @@
 ## Firestore Collections
 
-* files: List of PDF and image file assets that have been uploaded to the app.
-The doc id is the filename.
+* files: List of PDF and image file assets that have been uploaded to the app. The doc id is the filename.
   - pages: contains an array of details for PDF pages (1-based, to match pdf page numbers)
     - updatedAt
+    - uploadedAt
     - crop
       - height, width, x, y: user specified area to crop useful part of the page
       origin: user specified origin of the page. Ideally a fixed location, easily identified on floorplans eg a corner of the building core walls or a pillar, that will be used to align future versions of the floorplan imported to replace previous version on the drawing
@@ -13,12 +13,12 @@ The doc id is the filename.
         - scale: calculated scale, based on drawing pixels between the endpoints and the real-world distance
         - x1,y1,x2,y2: positions of the endpoints in drawing units for the dimension line
         units: units of the real-world distance, usually 'mm'
-
-  - key?: UploadThing key
-  - name?: filename
-  - size: size in bytes
-  - uploadedAt
-  - url: url for accessing file from UploadThing
+    - projectId?: string
+    - key?: UploadThing key
+    - name?: filename
+    - description?: string
+    - size: size in bytes
+    - url: url for accessing file from UploadThing
 
   * frames
     see frames tool documentation

@@ -26,7 +26,7 @@
 		files: FileDoc[]
 		projectName?: string
 		projectId?: string
-		ondelete?: (fileId: string) => void
+		ondelete?: (fileId: string, utKey?: string) => void
 	} = $props()
 
 	let db = new Firestore()
@@ -130,19 +130,17 @@
 		} catch { return '—' }
 	}
 
-	function pageSetupStatus(file: FileDoc): { complete: number; total: number; ready: boolean } {
+	function fileStatus(file: FileDoc): { hasOrigin: boolean; hasScale: boolean; pageCount: number } {
 		const pages = file.pages ?? []
-		if (!pages.length) return { complete: 0, total: 0, ready: false }
-		let complete = 0
-		for (const p of pages) {
-			if (p.origin && p.scale?.scale) complete++
-		}
-		return { complete, total: pages.length, ready: complete === pages.length }
+		if (!pages.length) return { hasOrigin: false, hasScale: false, pageCount: 0 }
+		// Check first page for origin/scale (primary page setup)
+		const p = pages[0]
+		return { hasOrigin: !!p?.origin, hasScale: !!(p?.scale?.scale), pageCount: pages.length }
 	}
 
-	function doDelete(id: string) {
+	function doDelete(file: FileDoc) {
 		confirmingDelete = null
-		ondelete?.(id)
+		ondelete?.(file.id, file.key)
 	}
 </script>
 
@@ -205,17 +203,17 @@
 		{:else}
 			<div class="space-y-0.5">
 				<!-- Header -->
-				<div class="grid grid-cols-[1fr_80px_100px_120px_32px] gap-2 px-3 py-1 text-[10px] text-gray-400 uppercase tracking-wider font-medium">
+				<div class="grid grid-cols-[1fr_70px_120px_100px_32px] gap-2 px-3 py-1 text-[10px] text-gray-400 uppercase tracking-wider font-medium">
 					<span>Name</span>
 					<span>Size</span>
-					<span>Pages</span>
+					<span>Status</span>
 					<span>Uploaded</span>
 					<span></span>
 				</div>
 
 				{#each filtered as file (file.id)}
-					{@const status = pageSetupStatus(file)}
-					<div class="grid grid-cols-[1fr_80px_100px_120px_32px] gap-2 items-center px-3 py-1 rounded bg-white border border-gray-100 hover:border-gray-200 transition-colors">
+					{@const status = fileStatus(file)}
+					<div class="grid grid-cols-[1fr_70px_120px_100px_32px] gap-2 items-center px-3 py-1 rounded bg-white border border-gray-100 hover:border-gray-200 transition-colors">
 						<!-- Name -->
 						<div class="flex items-center gap-2 min-w-0">
 							<Icon name="fileText" class="h-3.5 w-3.5 text-gray-400 shrink-0" />
@@ -235,18 +233,15 @@
 						<!-- Size -->
 						<span class="text-[11px] text-gray-500 tabular-nums">{formatSize(file.size)}</span>
 
-						<!-- Pages / Setup status -->
-						<div class="flex items-center gap-1.5">
-							{#if status.total === 0}
-								<span class="text-[11px] text-gray-400">—</span>
-							{:else if status.ready}
-								<Icon name="check" class="h-3 w-3 text-green-500" />
-								<span class="text-[11px] text-green-600">{status.total} pg</span>
+						<!-- Origin / Scale status -->
+						<div class="flex items-center gap-2">
+							{#if !status.hasOrigin}
+								<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200" title="Origin not set">No origin</span>
+							{:else if !status.hasScale}
+								<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200" title="Scale not set">No scale</span>
 							{:else}
-								<Icon name="warning" class="h-3 w-3 text-amber-500" />
-								<span class="text-[11px] text-amber-600" title="Setup incomplete: {status.complete}/{status.total} pages configured">
-									{status.complete}/{status.total} pg
-								</span>
+								<Icon name="check" class="h-3 w-3 text-green-500" />
+								<span class="text-[10px] text-green-600">Ready</span>
 							{/if}
 						</div>
 
@@ -257,7 +252,7 @@
 						<div class="flex justify-end">
 							{#if confirmingDelete === file.id}
 								<div class="flex items-center gap-1">
-									<button class="px-1.5 py-0.5 bg-red-600 text-white rounded text-[10px] hover:bg-red-700" onclick={() => doDelete(file.id)}>Yes</button>
+									<button class="px-1.5 py-0.5 bg-red-600 text-white rounded text-[10px] hover:bg-red-700" onclick={() => doDelete(file)}>Yes</button>
 									<button class="px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded text-[10px] hover:bg-gray-300" onclick={() => confirmingDelete = null}>No</button>
 								</div>
 							{:else}
