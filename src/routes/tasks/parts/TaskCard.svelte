@@ -34,6 +34,9 @@
 	function cardDragStart() {
 		ondragstart?.(task);
 	}
+
+	const assigneeLabel = $derived(task.assignedToName?.trim() || 'Unassigned');
+	const isUnassigned = $derived(!task.assignedToName?.trim());
 </script>
 
 <div
@@ -76,7 +79,7 @@
 		{/if}
 	</div>
 
-	{#if task.assignedToName}
-		<div class="mt-0.5 text-xs text-gray-500 truncate">{task.assignedToName}</div>
-	{/if}
+	<div class={`mt-0.5 inline-flex items-center rounded px-1.5 py-0.5 text-xs truncate ${isUnassigned ? 'bg-amber-100 text-amber-800 font-medium border border-amber-200' : 'text-gray-500'}`}>
+		{assigneeLabel}
+	</div>
 </div>

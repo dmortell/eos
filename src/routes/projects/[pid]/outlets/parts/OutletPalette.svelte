@@ -269,10 +269,10 @@
 				<div class="flex gap-0.5">
 					<button class="h-5 px-2 rounded text-[10px] font-medium transition-colors
 						{stickyDefaults.level === 'low' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
-						onclick={() => ondefaultschange({ level: 'low' })}>Low</button>
+						onclick={() => ondefaultschange({ level: 'low' as const })}>Low</button>
 					<button class="h-5 px-2 rounded text-[10px] font-medium transition-colors
 						{stickyDefaults.level === 'high' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
-						onclick={() => ondefaultschange({ level: 'high' })}>High</button>
+						onclick={() => ondefaultschange({ level: 'high' as const })}>High</button>
 				</div>
 			</label>
 

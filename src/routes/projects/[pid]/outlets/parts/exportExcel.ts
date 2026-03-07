@@ -17,8 +17,8 @@ export async function exportOutletsToExcel(outlets: OutletConfig[], projectName:
 		margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 },
 	}
 
-	const headers = ['#', 'Label', 'Zone', 'Room', 'Usage', 'Ports', 'Cable', 'Mount', 'Level', 'Port Labels']
-	const colWidths = [5, 12, 6, 10, 12, 6, 10, 10, 6, 40]
+	const headers = ['#', 'Label', 'Ports', 'Mount', 'Cable', 'Level', 'Usage', 'X', 'Y', 'Zone', 'Room', 'Port Labels']
+	const colWidths = [5, 12, 6, 10, 10, 6, 12, 8, 8, 6, 10, 40]
 
 	// Title row
 	ws.mergeCells(1, 1, 1, headers.length)
@@ -51,19 +51,21 @@ export async function exportOutletsToExcel(outlets: OutletConfig[], projectName:
 
 		ws.getCell(row, 1).value = i + 1
 		ws.getCell(row, 2).value = o.label ?? ''
-		ws.getCell(row, 3).value = o.roomNumber?.replace(/^.*\./, '') ?? ''
-		ws.getCell(row, 4).value = o.roomNumber ?? ''
-		ws.getCell(row, 5).value = usageLabel
-		ws.getCell(row, 6).value = o.portCount
-		ws.getCell(row, 7).value = cableLabel
-		ws.getCell(row, 8).value = mountLabel
-		ws.getCell(row, 9).value = o.level === 'high' ? 'H' : 'L'
-		ws.getCell(row, 10).value = o.portLabels?.join(', ') ?? ''
+		ws.getCell(row, 3).value = o.portCount
+		ws.getCell(row, 4).value = mountLabel
+		ws.getCell(row, 5).value = cableLabel
+		ws.getCell(row, 6).value = o.level === 'high' ? 'H' : 'L'
+		ws.getCell(row, 7).value = usageLabel
+		ws.getCell(row, 8).value = Math.round(o.position.x)
+		ws.getCell(row, 9).value = Math.round(o.position.y)
+		ws.getCell(row, 10).value = o.roomNumber?.replace(/^.*\./, '') ?? ''
+		ws.getCell(row, 11).value = o.roomNumber ?? ''
+		ws.getCell(row, 12).value = o.portLabels?.join(', ') ?? ''
 
-		// Usage color dot
+		// Usage color
 		const uc = USAGE_COLORS[o.usage]
 		if (uc) {
-			ws.getCell(row, 5).font = { size: 9, color: { argb: 'FF' + uc.stroke.slice(1) } }
+			ws.getCell(row, 7).font = { size: 9, color: { argb: 'FF' + uc.stroke.slice(1) } }
 		}
 
 		// Alternating row fill
@@ -77,7 +79,7 @@ export async function exportOutletsToExcel(outlets: OutletConfig[], projectName:
 		for (let c = 1; c <= headers.length; c++) {
 			const cell = ws.getCell(row, c)
 			if (!cell.font?.color) cell.font = { size: 9 }
-			cell.alignment = { horizontal: c === 10 ? 'left' : 'center' }
+			cell.alignment = { horizontal: c === 12 ? 'left' : 'center' }
 		}
 	}
 

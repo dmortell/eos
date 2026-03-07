@@ -37,8 +37,8 @@ export const MOUNT_SHORT: Record<MountType, string> = {
 	wall: 'W',
 	floor: 'F',
 	box: 'B',
-	panel: 'P',
-	ceiling: 'C',
+	// panel: 'P',
+	// ceiling: 'C',
 }
 
 /** Default values for new outlets */

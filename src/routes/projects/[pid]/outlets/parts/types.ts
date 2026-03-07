@@ -39,6 +39,14 @@ export interface RouteConfig {
 	length: number               // mm
 }
 
+/** A rack placed on the floorplan */
+export interface RackPlacement {
+	rackId: string               // references RackConfig.id from racks collection
+	room: string                 // server room letter ('A', 'B', etc.)
+	position: Point              // mm from origin
+	rotation: number             // degrees (0, 90, 180, 270)
+}
+
 /** Calibration data from files/{id}.pages[pageNum] */
 export interface PageCalibration {
 	origin: { x: number; y: number }  // PDF-pixel coords
@@ -47,12 +55,14 @@ export interface PageCalibration {
 }
 
 export type ToolMode = 'select' | 'outlet'
+export type SidebarTab = 'outlets' | 'racks'
 
 export interface OutletsData {
 	floor: number
 	outlets: OutletConfig[]
 	trunks?: TrunkConfig[]
 	routes?: RouteConfig[]
+	rackPlacements?: RackPlacement[]
 	selectedFileId?: string
 	selectedPage?: number
 	activeZone?: string

@@ -10,6 +10,8 @@
 	/** @type {import('$lib/components/FloorManagerDialog.svelte').FloorConfig[]} */
 	let floors = $state([{ number: 1, serverRoomCount: 1 }]);
 	let frameData = $state(/** @type {any} */ (null));
+	/** @type {Record<string, any>} */
+	let racksData = $state({});
 	let loading = $state(true);
 	let activeFloor = $state(1);
 	let projectName = $state('');
@@ -63,6 +65,22 @@
 			frameData = data;
 		});
 		return () => { unsub?.(); };
+	});
+
+	// Subscribe to racks docs for all rooms on active floor (read-only, for rack placement)
+	$effect(() => {
+		const pid = page.params.pid;
+		const fl = activeFloor;
+		if (!pid) return;
+		const floorStr = String(fl).padStart(2, '0');
+		const rooms = ['A', 'B', 'C', 'D'];
+		const unsubs = rooms.map(rm => {
+			const rackDocId = `${pid}_F${floorStr}_R${rm}`;
+			return db.subscribeOne('racks', rackDocId, data => {
+				racksData = { ...racksData, [rm]: data };
+			});
+		});
+		return () => { unsubs.forEach(u => u?.()); };
 	});
 
 	function changeFloor(/** @type {number} */ newFloor) {
