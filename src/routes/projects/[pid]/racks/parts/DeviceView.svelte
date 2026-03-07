@@ -3,10 +3,10 @@
 	import type { DeviceConfig, ViewState } from './types'
 	import { DEVICE_TYPE_COLORS } from './constants'
 
-	let { device, view, showPorts=0, ondelete }: {
+	let { device, view, showPorts=false, ondelete }: {
 		device: DeviceConfig
 		view: ViewState
-		showPorts: boolean
+		showPorts?: boolean
 		ondelete?: () => void
 	} = $props()
 

@@ -1,9 +1,5 @@
 <script lang="ts">
-  import { nextId } from "$lib/extras";
-	let { value=$bindable(), ref=$bindable(), id=nextId(), children, data = [],
-		maxSuggestions = 5, onSelect,
-		...props
-	} = $props()
+	let { value=$bindable(), ref=$bindable(), id, children, data = [], maxSuggestions = 5, onSelect, ...props } = $props()
 	let isFocused = $state(false);
   let filteredSuggestions = $state<string[]>([]);
   let selectedIndex = $state(-1);

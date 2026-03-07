@@ -4,7 +4,9 @@
       "Bash(npx svelte-check:*)",
       "Bash(find:*)",
       "Bash(npx vite:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(git add:*)"
     ]
   }
 }

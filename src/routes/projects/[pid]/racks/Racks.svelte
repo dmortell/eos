@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { SvelteSet } from 'svelte/reactivity'
-	import { Button, Icon } from '$lib'
-	import Titlebar from '$lib/Titlebar.svelte'
+	import { Button, Icon, Titlebar } from '$lib'
 	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
 	import type { ChangeDetail } from '$lib/logger'
 	import type { RackConfig, DeviceConfig, DeviceTemplate, RackRow, RackSettings, ViewState } from './parts/types'

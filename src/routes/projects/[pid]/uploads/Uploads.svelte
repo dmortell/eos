@@ -204,7 +204,9 @@
 	<div class="flex items-center gap-3 px-4 py-2 bg-white border-b border-gray-200">
 		<div class="flex items-center gap-2 flex-1">
 			<Icon name="fileText" class="h-4 w-4 text-gray-400" />
-			<span class="text-xs text-gray-500 font-medium">{filtered.length} file{filtered.length !== 1 ? 's' : ''} ({formatSize(totalSize)})</span>
+			<div class="text-xs text-gray-500 font-medium">{filtered.length} file{filtered.length !== 1 ? 's' : ''} ({formatSize(totalSize)})</div>
+			<div class="text-xs text-gray-400 ml-4">Drag PDF floorplans here, or click Upload</div>
+
 		</div>
 		{#if files.length > 5}
 			<input type="text" bind:value={search} placeholder="Filter files..."
@@ -244,7 +246,6 @@
 			<div class="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
 				<Icon name="upload" class="h-10 w-10 text-gray-300" />
 				<p class="text-sm">No files uploaded yet</p>
-				<p class="text-xs text-gray-400">Drop PDF floorplans here, or click Upload</p>
 			</div>
 		{:else if filtered.length === 0}
 			<p class="text-xs text-gray-400 text-center py-8">No files match "{search}"</p>
