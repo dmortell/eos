@@ -427,17 +427,18 @@
 	}
 
 	function onKeyDown(e: KeyboardEvent) {
+		const tag = (e.target as HTMLElement).tagName
+		if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return
 		if (e.key === 'Escape') {
 			if (activeTool) { activeTool = null; dirty = false }
 			else onclose()
 		}
 		else if (e.key === 'ArrowLeft' || e.key === 'PageUp') goToPage(pageNum - 1)
 		else if (e.key === 'ArrowRight' || e.key === 'PageDown') goToPage(pageNum + 1)
-		else if (e.key === 'Home') goToPage(1)
+		else if (e.key === 'Home') fitToView()
 		else if (e.key === 'End') goToPage(totalPages)
 		else if (e.key === '+' || e.key === '=') zoomIn()
 		else if (e.key === '-') zoomOut()
-		else if (e.key === '0') fitToView()
 	}
 
 	// ── Status helpers ──
@@ -550,7 +551,7 @@
 		<button class="text-gray-400 hover:text-white px-1.5 py-0.5 rounded hover:bg-gray-700 text-sm font-bold leading-none" onclick={zoomOut} title="Zoom out (-)">&#x2212;</button>
 		<span class="text-xs text-gray-400 tabular-nums min-w-10 text-center">{Math.round(zoom * 100)}%</span>
 		<button class="text-gray-400 hover:text-white px-1.5 py-0.5 rounded hover:bg-gray-700 text-sm font-bold leading-none" onclick={zoomIn} title="Zoom in (+)">+</button>
-		<button class="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-gray-700" onclick={fitToView} title="Fit to view (0)">
+		<button class="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-gray-700" onclick={fitToView} title="Fit to view (Home)">
 			Fit
 		</button>
 

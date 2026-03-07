@@ -116,6 +116,22 @@
 		if (!pid) return;
 		db.save('outlets', { id: docId(), ...payload, floor: activeFloor });
 	}
+
+	/** Update a rack config in the racks collection
+	 * @param {string} room
+	 * @param {string} rackId
+	 * @param {Record<string, any>} updates
+	 */
+	function saveRack(room, rackId, updates) {
+		const pid = page.params.pid;
+		if (!pid) return;
+		const floorStr = String(activeFloor).padStart(2, '0');
+		const rackDocId = `${pid}_F${floorStr}_R${room}`;
+		const doc = racksData[room];
+		if (!doc?.racks) return;
+		const updatedRacks = doc.racks.map(/** @param {any} r */ r => r.id === rackId ? { ...r, ...updates } : r);
+		db.save('racks', { id: rackDocId, racks: updatedRacks });
+	}
 </script>
 
 {#if loading}
@@ -129,10 +145,12 @@
 			{files}
 			{floors}
 			{frameData}
+			{racksData}
 			floor={activeFloor}
 			projectId={page.params.pid}
 			{projectName}
 			onsave={save}
+			onsaverack={saveRack}
 			onfloorchange={changeFloor}
 			onupdatefloors={updateFloors}
 			ondeletefloor={deleteFloor}

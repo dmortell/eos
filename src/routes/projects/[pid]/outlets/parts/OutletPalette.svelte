@@ -343,6 +343,7 @@
 							<span class="text-[10px] px-0.5 rounded" style:color={cColors.color}>{cColors.short}</span>
 							<span class="text-[10px] text-gray-500">{MOUNT_SHORT[outlet.mountType]}</span>
 							<span class="text-[10px] {outlet.level === 'high' ? 'bg-red-100 text-amber-800 font-semibold' : 'text-green-800 bg-green-100'}">{outlet.level === 'high' ? 'HL' : 'LL'}</span>
+							<span class="text-[10px] text-gray-500">{outlet.usage}</span>
 						</span>
 					</button>
 				{/each}

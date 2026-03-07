@@ -2,10 +2,14 @@
 	import { onMount, onDestroy, tick } from 'svelte'
 	import { Icon } from '$lib'
 	import { PdfState } from '../../uploads/parts/PdfState.svelte.ts'
-	import type { OutletConfig, PageCalibration, Point, ToolMode } from './types'
+	import type { OutletConfig, PageCalibration, Point, ToolMode, RackPlacement, SidebarTab } from './types'
+	import type { RackConfig } from '../../racks/parts/types'
 	import { OUTLET_RADIUS_MM, USAGE_COLORS } from './constants'
 
-	let { file, page = 1, viewKey = '', calibration, outlets, selectedIds, activeTool, toPx, toMm, onadd, onselect, onclear, onmove, onmoveend, ondelete }: {
+	let { file, page = 1, viewKey = '', calibration, outlets, selectedIds, activeTool, sidebarTab = 'outlets',
+		rackPlacements = [], rackConfigs = [], selectedRackIds = new Set(),
+		toPx, toMm, onadd, onselect, onclear, onmove, onmoveend, ondelete,
+		onselectrack, onmoveracks, onmoveracksend, onplacerack, onremoveracks, onrotateracks }: {
 		file: any
 		page: number
 		viewKey?: string
@@ -13,6 +17,10 @@
 		outlets: OutletConfig[]
 		selectedIds: Set<string>
 		activeTool: ToolMode
+		sidebarTab?: SidebarTab
+		rackPlacements?: RackPlacement[]
+		rackConfigs?: (RackConfig & { room: string })[]
+		selectedRackIds?: Set<string>
 		toPx: (mm: Point) => Point
 		toMm: (px: Point) => Point
 		onadd: (pagePosPixels: Point) => void
@@ -21,6 +29,12 @@
 		onmove: (ids: Set<string>, dxMm: number, dyMm: number) => void
 		onmoveend: (ids: Set<string>) => void
 		ondelete: () => void
+		onselectrack?: (rackId: string, multi: boolean) => void
+		onmoveracks?: (ids: Set<string>, dxMm: number, dyMm: number) => void
+		onmoveracksend?: (ids: Set<string>) => void
+		onplacerack?: (rackId: string, room: string, position: Point) => void
+		onremoveracks?: () => void
+		onrotateracks?: () => void
 	} = $props()
 
 	let containerEl: HTMLDivElement
@@ -59,7 +73,6 @@
 	// Persist view changes (debounced)
 	let viewSaveTimer: ReturnType<typeof setTimeout> | null = null
 	$effect(() => {
-		// Touch reactive deps
 		void vx; void vy; void zoom; void grayscale
 		if (!viewRestored) return
 		if (viewSaveTimer) clearTimeout(viewSaveTimer)
@@ -81,14 +94,22 @@
 	let dragMoved = false
 	let dragStart: { x: number; y: number; outletPositions: Map<string, Point> } | null = null
 
+	// Rack drag state
+	let draggingRack = $state(false)
+	let rackDragMoved = false
+	let rackDragStart: { x: number; y: number } | null = null
+
 	// Drag-select
 	let dragSelecting = $state(false)
 	let dragSelectRect = $state<{ x1: number; y1: number; x2: number; y2: number } | null>(null)
 
+	// Drop target state for drag-from-list
+	let dropTarget = $state(false)
+
 	// Track current file URL to detect changes
 	let currentUrl = ''
 
-	// Attach wheel listener when container becomes available (may be conditional)
+	// Attach wheel listener when container becomes available
 	let prevContainer: HTMLDivElement | null = null
 	$effect(() => {
 		if (containerEl && containerEl !== prevContainer) {
@@ -165,6 +186,41 @@
 	/** Crop rect in PDF pixels, or full page if no crop */
 	let crop = $derived(calibration?.crop ?? { x: 0, y: 0, width: pageW, height: pageH })
 
+	// ── Rack helpers ──
+
+	function getRackConfig(rackId: string): (RackConfig & { room: string }) | undefined {
+		return rackConfigs.find(r => r.id === rackId)
+	}
+
+	/** Get rack rendering data in PDF pixels. Position is the anchor (top-left before rotation). */
+	function rackPxRect(placement: RackPlacement) {
+		const cfg = getRackConfig(placement.rackId)
+		if (!cfg || !calibration) return null
+		const pos = toPx(placement.position)
+		const w = cfg.widthMm / calibration.scaleFactor
+		const h = cfg.depthMm / calibration.scaleFactor
+		return { x: pos.x, y: pos.y, w, h, cfg, rotation: placement.rotation }
+	}
+
+	/** Hit-test a point against placed racks (rotation-aware). Returns rackId or null. */
+	function hitTestRack(pos: Point): string | null {
+		for (let i = rackPlacements.length - 1; i >= 0; i--) {
+			const p = rackPlacements[i]
+			const rect = rackPxRect(p)
+			if (!rect) continue
+			// Transform test point into rack-local coords (undo rotation around anchor)
+			const cx = rect.x + rect.w / 2
+			const cy = rect.y + rect.h / 2
+			const rad = -rect.rotation * Math.PI / 180
+			const cos = Math.cos(rad), sin = Math.sin(rad)
+			const dx = pos.x - cx, dy = pos.y - cy
+			const lx = dx * cos - dy * sin + rect.w / 2
+			const ly = dx * sin + dy * cos + rect.h / 2
+			if (lx >= 0 && lx <= rect.w && ly >= 0 && ly <= rect.h) return p.rackId
+		}
+		return null
+	}
+
 	// ── View controls ──
 
 	function fitToView() {
@@ -236,12 +292,31 @@
 		const pos = getPagePos(e)
 
 		// Outlet tool: place outlet
-		if (activeTool === 'outlet' && calibration) {
+		if (activeTool === 'outlet' && calibration && sidebarTab === 'outlets') {
 			onadd(pos)
 			return
 		}
 
-		// Select tool: check if clicking an outlet
+		// Select tool: check racks first (if in rack mode or always)
+		const hitRackId = hitTestRack(pos)
+		if (hitRackId && onselectrack) {
+			const alreadySelected = selectedRackIds.has(hitRackId)
+			if (e.ctrlKey || e.metaKey) {
+				onselectrack(hitRackId, true)
+			} else if (!alreadySelected) {
+				onselectrack(hitRackId, false)
+			}
+
+			// Start rack drag
+			draggingRack = true
+			rackDragMoved = false
+			rackDragStart = { x: pos.x, y: pos.y }
+			document.addEventListener('mousemove', onRackDragMove)
+			document.addEventListener('mouseup', onRackDragUp)
+			return
+		}
+
+		// Check if clicking an outlet
 		const hitId = hitTest(pos)
 		if (hitId) {
 			const alreadySelected = selectedIds.has(hitId)
@@ -250,7 +325,6 @@
 			} else if (!alreadySelected) {
 				onselect(hitId, false)
 			}
-			// If already selected in a multi-selection, keep it for dragging
 
 			// Start drag
 			dragging = true
@@ -266,7 +340,7 @@
 			return
 		}
 
-		// Click on empty space: start drag-select or pan
+		// Click on empty space: start drag-select or clear
 		if (!(e.ctrlKey || e.metaKey)) onclear()
 
 		dragSelecting = true
@@ -276,8 +350,7 @@
 	}
 
 	function hitTest(pos: Point): string | null {
-		// Test outlets in reverse order (topmost first)
-		const r = radiusPx * 1.5 // generous hit area
+		const r = radiusPx * 1.5
 		for (let i = outlets.length - 1; i >= 0; i--) {
 			const o = outlets[i]
 			const px = outletPx(o)
@@ -328,6 +401,31 @@
 		document.removeEventListener('mouseup', onDragUp)
 	}
 
+	// Rack drag on canvas
+	function onRackDragMove(e: MouseEvent) {
+		if (!rackDragStart || !calibration || !onmoveracks) return
+		const pos = getPagePos(e)
+		const dxPx = pos.x - rackDragStart.x
+		const dyPx = pos.y - rackDragStart.y
+		const dxMm = dxPx * calibration.scaleFactor
+		const dyMm = dyPx * calibration.scaleFactor
+
+		rackDragMoved = true
+		onmoveracks(selectedRackIds, dxMm, dyMm)
+		rackDragStart = { x: pos.x, y: pos.y }
+	}
+
+	function onRackDragUp() {
+		if (rackDragMoved && onmoveracksend) {
+			onmoveracksend(selectedRackIds)
+		}
+		draggingRack = false
+		rackDragStart = null
+		rackDragMoved = false
+		document.removeEventListener('mousemove', onRackDragMove)
+		document.removeEventListener('mouseup', onRackDragUp)
+	}
+
 	// Drag-select
 	function onDragSelectMove(e: MouseEvent) {
 		if (!dragSelectRect) return
@@ -342,17 +440,30 @@
 			const y1 = Math.min(dragSelectRect.y1, dragSelectRect.y2)
 			const y2 = Math.max(dragSelectRect.y1, dragSelectRect.y2)
 
-			// Only select if dragged a meaningful distance
 			if (x2 - x1 > 3 && y2 - y1 > 3) {
-				const hits: string[] = []
+				// Select outlets in rect
+				const outletHits: string[] = []
 				for (const o of outlets) {
 					const px = outletPx(o)
 					if (px.x >= x1 && px.x <= x2 && px.y >= y1 && px.y <= y2) {
-						hits.push(o.id)
+						outletHits.push(o.id)
 					}
 				}
-				if (hits.length > 0) {
-					for (const id of hits) onselect(id, true)
+				if (outletHits.length > 0) {
+					for (const id of outletHits) onselect(id, true)
+				}
+
+				// Select racks in rect
+				if (onselectrack) {
+					for (const p of rackPlacements) {
+						const rect = rackPxRect(p)
+						if (!rect) continue
+						const cx = rect.x + rect.w / 2
+						const cy = rect.y + rect.h / 2
+						if (cx >= x1 && cx <= x2 && cy >= y1 && cy <= y2) {
+							onselectrack(p.rackId, true)
+						}
+					}
 				}
 			}
 		}
@@ -360,6 +471,39 @@
 		dragSelectRect = null
 		document.removeEventListener('mousemove', onDragSelectMove)
 		document.removeEventListener('mouseup', onDragSelectUp)
+	}
+
+	// ── Drag-and-drop from sidebar list ──
+	function onDrop(e: DragEvent) {
+		e.preventDefault()
+		dropTarget = false
+		if (!calibration || !onplacerack) return
+
+		const data = e.dataTransfer?.getData('text/plain')
+		if (!data) return
+
+		const rackIds = data.split(',')
+		const pos = getPagePos(e as unknown as MouseEvent)
+		const mm = toMm(pos)
+
+		// Place each rack, offset horizontally
+		for (let i = 0; i < rackIds.length; i++) {
+			const rackId = rackIds[i]
+			const cfg = getRackConfig(rackId)
+			if (!cfg) continue
+			const offset = i * ((cfg.widthMm ?? 600) + 200)
+			onplacerack(rackId, cfg.room, { x: mm.x + offset, y: mm.y })
+		}
+	}
+
+	function onDragOver(e: DragEvent) {
+		e.preventDefault()
+		dropTarget = true
+		e.dataTransfer!.dropEffect = 'copy'
+	}
+
+	function onDragLeave() {
+		dropTarget = false
 	}
 
 	// Touch support
@@ -410,9 +554,16 @@
 	}
 
 	function onCanvasKeyDown(e: KeyboardEvent) {
+		const tag = (e.target as HTMLElement).tagName
+		if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return
 		if (e.key === '+' || e.key === '=') zoomIn()
 		else if (e.key === '-') zoomOut()
-		else if (e.key === '0') fitToView()
+		else if (e.key === 'Home') fitToView()
+	}
+
+	/** Room colors for rack outlines */
+	const ROOM_COLORS: Record<string, string> = {
+		A: '#3b82f6', B: '#10b981', C: '#f59e0b', D: '#ef4444',
 	}
 </script>
 
@@ -436,14 +587,16 @@
 			title="Select (Esc)">
 			<Icon name="select" size={13} />
 		</button>
-		<button
-			class="flex items-center gap-1 px-2 py-1 rounded transition-colors
-				{activeTool === 'outlet' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:bg-gray-100'}"
-			onclick={() => activeTool = 'outlet'}
-			title="Place outlet (O)">
-			<Icon name="ellipse" size={13} />
-			Outlet
-		</button>
+		{#if sidebarTab === 'outlets'}
+			<button
+				class="flex items-center gap-1 px-2 py-1 rounded transition-colors
+					{activeTool === 'outlet' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:bg-gray-100'}"
+				onclick={() => activeTool = 'outlet'}
+				title="Place outlet (O)">
+				<Icon name="ellipse" size={13} />
+				Outlet
+			</button>
+		{/if}
 
 		{#if !calibration}
 			<span class="text-amber-600 text-[10px] ml-2">Page not calibrated — set origin and scale in uploads</span>
@@ -451,11 +604,25 @@
 
 		<div class="flex-1"></div>
 
+		<!-- Rack actions in toolbar -->
+		{#if selectedRackIds.size > 0}
+			<button class="flex items-center gap-1 text-gray-500 hover:text-blue-600 px-2 py-1 rounded hover:bg-blue-50 text-[11px]"
+				onclick={() => onrotateracks?.()} title="Rotate 90° (R)">
+				<Icon name="rotateRight" size={12} /> Rotate
+			</button>
+			<button class="flex items-center gap-1 text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 text-[11px] whitespace-nowrap"
+				onclick={() => onremoveracks?.()} title="Remove from floorplan (Del)">
+				<Icon name="trash" size={12} />
+				{selectedRackIds.size}
+			</button>
+			<div class="w-px h-4 bg-gray-200"></div>
+		{/if}
+
 		<!-- Zoom -->
 		<button class="text-gray-400 hover:text-gray-600 px-1.5 py-0.5 rounded hover:bg-gray-100 text-sm font-bold leading-none" onclick={zoomOut} title="Zoom out (-)">&#x2212;</button>
 		<span class="text-[10px] text-gray-400 tabular-nums min-w-10 text-center">{Math.round(zoom * 100)}%</span>
 		<button class="text-gray-400 hover:text-gray-600 px-1.5 py-0.5 rounded hover:bg-gray-100 text-sm font-bold leading-none" onclick={zoomIn} title="Zoom in (+)">+</button>
-		<button class="text-[10px] text-gray-400 hover:text-gray-600 px-2 py-1 rounded hover:bg-gray-100" onclick={fitToView} title="Fit to view (0)">Fit</button>
+		<button class="text-[10px] text-gray-400 hover:text-gray-600 px-2 py-1 rounded hover:bg-gray-100" onclick={fitToView} title="Fit to view (Home)">Fit</button>
 
 		<div class="w-px h-4 bg-gray-200"></div>
 		<button
@@ -478,12 +645,16 @@
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div bind:this={containerEl}
 		class="flex-1 overflow-hidden bg-gray-100 print:overflow-visible print:bg-white
-			{activeTool === 'outlet' && calibration ? 'cursor-crosshair' : panning ? 'cursor-grabbing' : 'cursor-default'}"
+			{activeTool === 'outlet' && calibration && sidebarTab === 'outlets' ? 'cursor-crosshair' : panning ? 'cursor-grabbing' : 'cursor-default'}
+			{dropTarget ? 'ring-2 ring-inset ring-blue-400 bg-blue-50/20' : ''}"
 		onmousedown={onMouseDown}
 		oncontextmenu={e => e.preventDefault()}
 		ontouchstart={onTouchStart}
 		ontouchmove={onTouchMove}
-		ontouchend={onTouchEnd}>
+		ontouchend={onTouchEnd}
+		ondrop={onDrop}
+		ondragover={onDragOver}
+		ondragleave={onDragLeave}>
 
 		<div style:transform="translate({vx}px, {vy}px) scale({zoom})" style:transform-origin="0 0" class="relative">
 			<!-- PDF canvas with optional crop -->
@@ -500,6 +671,51 @@
 
 			<!-- SVG overlay -->
 			<svg class="absolute top-0 left-0 pointer-events-none" width={pageW} height={pageH} style:overflow="visible">
+				<!-- Placed racks -->
+				{#each rackPlacements as placement (placement.rackId)}
+					{@const rect = rackPxRect(placement)}
+					{#if rect}
+						{@const selected = selectedRackIds.has(placement.rackId)}
+						{@const color = ROOM_COLORS[placement.room] ?? '#6b7280'}
+						{@const cx = rect.x + rect.w / 2}
+						{@const cy = rect.y + rect.h / 2}
+						<g class="pointer-events-auto" style:cursor="pointer"
+							transform="rotate({rect.rotation} {cx} {cy})">
+							<!-- Hit area (invisible, larger for easy clicking) -->
+							<rect x={rect.x} y={rect.y} width={rect.w} height={rect.h}
+								fill="transparent"
+								onmousedown={e => { if (e.button === 0) { e.stopPropagation(); onMouseDown(e) }}} />
+
+							<!-- Selection highlight -->
+							{#if selected}
+								<rect x={rect.x - 3 / zoom} y={rect.y - 3 / zoom}
+									width={rect.w + 6 / zoom} height={rect.h + 6 / zoom}
+									fill="none" stroke="#06b6d4" stroke-width={2 / zoom} rx={2 / zoom} />
+							{/if}
+
+							<!-- Rack body -->
+							<rect x={rect.x} y={rect.y} width={rect.w} height={rect.h}
+								fill="{color}10" stroke={color} stroke-width={1.5 / zoom} rx={1 / zoom} opacity="0.8" />
+
+							<!-- Front indicator (thick line on top edge = front before rotation) -->
+							<line x1={rect.x} y1={rect.y} x2={rect.x + rect.w} y2={rect.y}
+								stroke={color} stroke-width={8 / zoom} opacity="0.9" />
+
+							<!-- Label -->
+							<text x={cx} y={cy + 4 / zoom}
+								text-anchor="middle" font-size={Math.max(10 / zoom, rect.w * 0.15)}
+								fill={'#666666'} font-weight="bold"
+								class="select-none pointer-events-none">{rect.cfg.label}</text>
+
+							<!-- Dimensions label below -->
+							<text x={cx} y={cy + 16 / zoom}
+								text-anchor="middle" font-size={Math.max(9 / zoom, rect.w * 0.08)}
+								fill="#6b7280" opacity="0.8"
+								class="select-none pointer-events-none">{rect.cfg.heightU}U</text>
+						</g>
+					{/if}
+				{/each}
+
 				<!-- Outlets -->
 				{#each outlets as outlet (outlet.id)}
 					{@const px = outletPx(outlet)}

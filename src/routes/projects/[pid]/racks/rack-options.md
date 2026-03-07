@@ -35,3 +35,56 @@ in the outlets tool I want to be able to place the racks on the floorplan. list 
 
   Option D is worth considering if precise rack placement isn't important and you just want to mark where rooms are
   on the plan.
+
+
+
+
+Here's a summary of what was implemented:
+
+  Rack placement on floorplans in the outlets tool:
+
+  1. types.ts — Added RackPlacement (rackId, room, position, rotation), SidebarTab type, and rackPlacements to
+  OutletsData
+  2. +page.svelte — Subscribes to rack docs for all rooms (A–D) on the active floor, passes racksData to Outlets
+  3. Outlets.svelte —
+    - Sidebar tabs (Outlets / Racks) to switch between modes
+    - Builds flat allRackConfigs from all rooms' rack data
+    - Full rack placement CRUD: placeRack, placeRacks, removeRackPlacements, moveRacks, rotateSelectedRacks — all with undo/redo
+    - Separate selectedRackIds state (cleared when selecting outlets and vice versa)
+    - R key rotates selected racks, Delete removes them
+    - Rack placements included in auto-save snapshot
+  4. RackPalette.svelte (new) —
+    - Lists racks grouped by server room with placed/pending status (green dot = placed, gray = pending)
+    - Drag unplaced racks from list onto the floorplan
+    - Click placed racks in list to select them on the drawing
+    - Rotate/Remove toolbar buttons when racks are selected
+    - Properties panel showing size, type, maker, model, rotation, position for selected racks
+  5. OutletCanvas.svelte —
+    - Renders placed racks as colored rectangles (color per room: A=blue, B=green, C=amber, D=red) with label and
+  height
+    - Front-side indicator: thick colored line on the front edge, rotates with the rack
+    - Click to select, Ctrl+click for multi-select, drag-select rectangle includes racks
+    - Drag placed racks to reposition them
+    - Drop zone for drag-from-list (visual highlight on drag-over)
+    - Rack hit-testing (racks checked before outlets in click handler)
+
+
+  - Floating Window component appears over the canvas when one or more racks are selected on the floorplan
+  - Positioned at top-right (right=16, top=48), draggable, collapsible, with localStorage persistence
+  - Editable fields: Label (single-select only), Height (U), Width (mm), Depth (mm), Type (dropdown), Maker, Model
+  - Read-only display: Rotation (with +90° button), Position (single-select)
+  - Remove button at the bottom
+  - Multi-select shows shared values or "— mixed —" placeholders
+  - Changes save back to the racks Firestore collection via onsaverack → saveRack() in +page.svelte
+
+
+  I'll replace the rack SVG rendering to use transform="rotate()" around the center, with the front line always
+  on the top edge (before rotation)
+
+  - Rotation input: Number field (0–345, step 15°) in the floating properties panel, plus the existing +90° button
+  - setSelectedRacksRotation(): New function to set an exact rotation angle with undo/redo and sticky rotation
+  memory
+  - sharedRotation: Derived state showing shared rotation across multi-selected racks
+  - SVG rendering: Now uses transform="rotate(angle cx cy)" on the rack <g> group, so any angle works. Front
+  indicator is always the top edge before rotation.
+  - Hit testing: Rotation-aware — transforms the test point into rack-local coordinates before bounds checking  
