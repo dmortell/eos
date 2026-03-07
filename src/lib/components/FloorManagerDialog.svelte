@@ -3,6 +3,7 @@
 		number: number
 		serverRoomCount: number
 		roomNames?: Record<string, string> // e.g. { A: 'HR11-1', B: 'SER11' }
+		label?: string // custom display label, e.g. "Penthouse"
 	}
 
 	let { open = false, floors, floorFormat = 'L01', onclose, onupdate, ondelete }: {
@@ -18,6 +19,7 @@
 	let newRoomCount = $state(1)
 	let confirmingDelete = $state<number | null>(null)
 	let editingRoomNames = $state<number | null>(null)
+	let editingLabel = $state<number | null>(null)
 	let error = $state('')
 
 	// Reset form when dialog opens
@@ -27,6 +29,7 @@
 			newFloorNumber = maxFloor + 1
 			newRoomCount = 1
 			confirmingDelete = null
+			editingLabel = null
 			error = ''
 		}
 	})
@@ -45,7 +48,7 @@
 	}
 
 	function addFloor() {
-		const num = Math.max(-9, Math.min(200, Math.round(newFloorNumber) || 1))
+		const num = Math.max(-9, Math.min(9999, Math.round(newFloorNumber) || 1))
 		if (floors.find(f => f.number === num)) {
 			error = `Floor ${fmtFloor(num)} already exists`
 			return
@@ -71,6 +74,12 @@
 			return { ...f, roomNames: Object.keys(roomNames).length > 0 ? roomNames : undefined }
 		})
 		onupdate(updated)
+	}
+
+	function updateFloorLabel(floorNumber: number, label: string) {
+		const updated = floors.map(f => f.number === floorNumber ? { ...f, label: label || undefined } : f)
+		onupdate(updated)
+		editingLabel = null
 	}
 
 	function getRoomLabel(fl: FloorConfig, room: string): string {
@@ -101,7 +110,7 @@
 				<!-- Add floor form -->
 				<div class="flex items-end gap-2">
 					<label class="text-[10px] text-gray-500 uppercase tracking-wider">Floor #
-						<input bind:value={newFloorNumber} type="number" min="-9" max="200"
+						<input bind:value={newFloorNumber} type="number" min="-9" max="9999"
 							class="w-16 h-7 px-2 text-xs font-mono bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
 							onkeydown={e => e.key === 'Enter' && addFloor()}
 						/>
@@ -130,6 +139,23 @@
 								<div class="flex items-center gap-3 px-3 py-2">
 									<!-- Floor label -->
 									<span class="font-mono text-xs font-semibold text-blue-600 w-10 shrink-0">{fmtFloor(fl.number)}</span>
+									{#if editingLabel === fl.number}
+										<input class="w-24 h-5 px-1 text-[10px] border border-blue-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+											value={fl.label ?? ''}
+											placeholder="Label"
+											onkeydown={e => { if (e.key === 'Enter') updateFloorLabel(fl.number, e.currentTarget.value.trim()); if (e.key === 'Escape') editingLabel = null }}
+											onblur={e => updateFloorLabel(fl.number, e.currentTarget.value.trim())}
+										/>
+									{:else if fl.label}
+										<span class="text-[10px] text-gray-600 font-medium">{fl.label}</span>
+										<button class="p-0.5 rounded text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors" title="Edit floor label"
+											onclick={() => editingLabel = fl.number}>
+											<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+										</button>
+									{:else}
+										<button class="text-[10px] text-gray-300 hover:text-blue-500 transition-colors" title="Add floor label"
+											onclick={() => editingLabel = fl.number}>rename</button>
+									{/if}
 
 									<!-- Room count buttons -->
 									<div class="flex items-center gap-1.5">

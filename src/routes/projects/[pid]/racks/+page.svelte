@@ -37,7 +37,12 @@
 		if (!pid) return;
 		const unsub = db.subscribeOne('projects', pid, data => {
 			if (data?.name) projectName = data.name;
-			if (data?.floors?.length) floors = migrateFloors(data.floors);
+			if (data?.floors?.length) {
+				floors = migrateFloors(data.floors);
+				if (!floors.find(f => f.number === activeFloor)) {
+					activeFloor = floors[0].number;
+				}
+			}
 		});
 		return () => { unsub?.(); };
 	});

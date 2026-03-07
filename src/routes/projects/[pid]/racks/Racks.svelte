@@ -162,8 +162,10 @@
 		saveTimer = setTimeout(doSave, 500)
 	}
 
-	/** Format floor number using floorFormat setting */
+	/** Format floor number using floorFormat setting, using custom label if set */
 	function fmtFloor(fl: number): string {
+		const cfg = floors.find(f => f.number === fl)
+		if (cfg?.label) return cfg.label
 		if (fl < 0) {
 			const n = String(Math.abs(fl)).padStart(2, '0')
 			if (floorFormat === '01F') return `B${Math.abs(fl)}F`

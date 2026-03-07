@@ -419,7 +419,7 @@
 <svelte:window bind:innerWidth={cw} bind:innerHeight={ch} onkeydown={onCanvasKeyDown} />
 
 {#if !file?.url}
-	<div class="h-full flex items-center justify-center bg-gray-50">
+	<div class="h-full flex items-center justify-center bg-gray-50 print:hidden">
 		<div class="text-center text-gray-400">
 			<Icon name="fileText" class="h-10 w-10 mx-auto mb-2 text-gray-300" />
 			<p class="text-sm">Select a floorplan from the sidebar</p>
@@ -427,7 +427,7 @@
 	</div>
 {:else}
 	<!-- Toolbar -->
-	<div class="h-8 px-3 flex items-center gap-2 border-b border-gray-200 bg-white shrink-0 text-xs">
+	<div class="h-8 px-3 flex items-center gap-2 border-b border-gray-200 bg-white shrink-0 text-xs print:hidden">
 		<!-- Tool buttons -->
 		<button
 			class="flex items-center gap-1 px-2 py-1 rounded transition-colors
@@ -477,7 +477,7 @@
 	<!-- Canvas area -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div bind:this={containerEl}
-		class="flex-1 overflow-hidden bg-gray-100
+		class="flex-1 overflow-hidden bg-gray-100 print:overflow-visible print:bg-white
 			{activeTool === 'outlet' && calibration ? 'cursor-crosshair' : panning ? 'cursor-grabbing' : 'cursor-default'}"
 		onmousedown={onMouseDown}
 		oncontextmenu={e => e.preventDefault()}
@@ -507,23 +507,19 @@
 					{@const selected = selectedIds.has(outlet.id)}
 					<g class="pointer-events-auto" style:cursor={activeTool === 'select' ? 'pointer' : undefined}>
 						<!-- Hit area (larger) -->
-						<circle cx={px.x} cy={px.y} r={radiusPx * 1.5}
-							fill="transparent"
+						<circle cx={px.x} cy={px.y} r={radiusPx * 1.5} fill="transparent"
 							onmousedown={e => { if (e.button === 0 && activeTool === 'select') { e.stopPropagation(); onMouseDown(e) }}} />
 
 						<!-- Selection highlight -->
 						{#if selected}
-							<circle cx={px.x} cy={px.y} r={radiusPx + 4 / zoom}
-								fill="none" stroke="#06b6d4" stroke-width={2 / zoom} />
+							<circle cx={px.x} cy={px.y} r={radiusPx + 4 / zoom} fill="none" stroke="#06b6d4" stroke-width={2 / zoom} />
 						{/if}
 
 						<!-- Outlet circle -->
 						{#if outlet.level === 'low'}
-							<circle cx={px.x} cy={px.y} r={radiusPx}
-								fill={colors.fill} stroke={colors.stroke} stroke-width={1.5 / zoom} opacity="0.85" />
+							<circle cx={px.x} cy={px.y} r={radiusPx} fill={colors.fill} stroke={colors.stroke} stroke-width={1.5 / zoom} opacity="0.85" />
 						{:else}
-							<circle cx={px.x} cy={px.y} r={radiusPx}
-								fill="none" stroke={colors.stroke} stroke-width={2.5 / zoom} opacity="0.85" />
+							<circle cx={px.x} cy={px.y} r={radiusPx} fill="none" stroke={colors.stroke} stroke-width={2.5 / zoom} opacity="0.85" />
 						{/if}
 
 						<!-- Port count -->

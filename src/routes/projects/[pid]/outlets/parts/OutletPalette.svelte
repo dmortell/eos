@@ -333,17 +333,16 @@
 					{@const uColors = USAGE_COLORS[outlet.usage]}
 					{@const cColors = CABLE_COLORS[outlet.cableType]}
 					{@const selected = selectedIds.has(outlet.id)}
-					<button
-						class="w-full flex items-center gap-1.5 px-1.5 py-0.5 text-left transition-colors
+					<button class="w-full flex items-center gap-1.5 px-1.5 pb-0.5 text-left transition-colors
 							{selected ? 'bg-blue-50 border-y border-blue-200' : 'hover:bg-gray-50 border-y border-transparent'}"
 						onclick={e => handleListClick(e, outlet, i)}>
 						<span class="w-2 h-2 rounded-full shrink-0" style:background={uColors.fill}></span>
 						<span class="font-mono text-[10px] text-gray-700 truncate">{outlet.label ?? outlet.id.slice(0, 8)}</span>
-						<span class="text-[9px] text-gray-400 shrink-0">{outlet.portCount}p</span>
-						<span class="ml-auto flex items-center gap-1 shrink-0">
-							<span class="text-[9px] px-0.5 rounded" style:color={cColors.color}>{cColors.short}</span>
-							<span class="text-[9px] text-gray-400">{MOUNT_SHORT[outlet.mountType]}</span>
-							<span class="text-[9px] {outlet.level === 'high' ? 'text-amber-500 font-semibold' : 'text-gray-300'}">{outlet.level === 'high' ? 'H' : 'L'}</span>
+						<span class="text-[10px] text-gray-400 shrink-0">{outlet.portCount}p</span>
+						<span class="xxml-auto flex items-center gap-1 shrink-0">
+							<span class="text-[10px] px-0.5 rounded" style:color={cColors.color}>{cColors.short}</span>
+							<span class="text-[10px] text-gray-500">{MOUNT_SHORT[outlet.mountType]}</span>
+							<span class="text-[10px] {outlet.level === 'high' ? 'bg-red-100 text-amber-800 font-semibold' : 'text-green-800 bg-green-100'}">{outlet.level === 'high' ? 'HL' : 'LL'}</span>
 						</span>
 					</button>
 				{/each}

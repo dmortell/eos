@@ -7,6 +7,7 @@
 	import { HistoryStore } from './parts/HistoryStore.svelte.ts'
 	import OutletCanvas from './parts/OutletCanvas.svelte'
 	import OutletPalette from './parts/OutletPalette.svelte'
+	import { exportOutletsToExcel } from './parts/exportExcel'
 
 	let { data = null, files = [], floors = [], frameData = null, floor, projectId = '', projectName = '', onsave, onfloorchange, onupdatefloors, ondeletefloor }: {
 		data?: any
@@ -250,6 +251,8 @@
 
 	// ── Floor format ──
 	function fmtFloor(fl: number): string {
+		const cfg = floors.find(f => f.number === fl)
+		if (cfg?.label) return cfg.label
 		if (fl < 0) {
 			const n = String(Math.abs(fl)).padStart(2, '0')
 			return `B${n}`
@@ -289,11 +292,11 @@
 <svelte:window onkeydown={onKeyDown} />
 
 <div class="h-screen flex flex-col overflow-hidden">
-<Titlebar title={projectName ? `${projectName} — Outlets` : 'Outlets'} />
+<div class="print:hidden"><Titlebar title={projectName ? `${projectName} — Outlets` : 'Outlets'} /></div>
 
 <PaneGroup direction="horizontal" class="flex-1 min-h-0">
 	<!-- Sidebar -->
-	<Pane defaultSize={20} minSize={15} maxSize={35}>
+	<Pane defaultSize={20} minSize={15} maxSize={35} class="print:hidden">
 
 		<div class="h-full border-r border-gray-200">
 			<OutletPalette
@@ -321,7 +324,7 @@
 		</div>
 	</Pane>
 
-	<Handle withHandle />
+	<Handle withHandle class="print:hidden" />
 
 	<!-- Main content -->
 	<Pane defaultSize={80}>
@@ -348,7 +351,7 @@
 			</div>
 
 			<!-- Status bar with floor tabs -->
-			<div class="h-7 flex items-stretch border-t border-gray-200 bg-gray-50 shrink-0 relative z-10">
+			<div class="h-7 flex items-stretch border-t border-gray-200 bg-gray-50 shrink-0 relative z-10 print:hidden">
 				<div class="flex items-stretch gap-0 overflow-x-auto">
 					{#each floors as fl (fl.number)}
 						<button
@@ -369,6 +372,11 @@
 					{#if calibration}
 						<span>Scale: 1px = {calibration.scaleFactor.toFixed(1)}mm</span>
 					{/if}
+					<button
+						class="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] text-gray-500 hover:text-green-600 hover:bg-green-50 transition-colors"
+						title="Export outlets to Excel"
+						onclick={() => exportOutletsToExcel(outlets, projectName, fmtFloor(floor))}
+					><Icon name="download" size={11} /> Excel</button>
 				</div>
 			</div>
 		</div>
@@ -376,11 +384,13 @@
 </PaneGroup>
 </div>
 
-<FloorManagerDialog
-	open={floorManagerOpen}
-	{floors}
-	{floorFormat}
-	onclose={() => floorManagerOpen = false}
-	onupdate={updated => onupdatefloors?.(updated)}
-	ondelete={fl => ondeletefloor?.(fl)}
-/>
+<div class="print:hidden">
+	<FloorManagerDialog
+		open={floorManagerOpen}
+		{floors}
+		{floorFormat}
+		onclose={() => floorManagerOpen = false}
+		onupdate={updated => onupdatefloors?.(updated)}
+		ondelete={fl => ondeletefloor?.(fl)}
+	/>
+</div>
