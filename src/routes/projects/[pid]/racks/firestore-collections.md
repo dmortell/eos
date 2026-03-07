@@ -1,3 +1,12 @@
+## Firestore
+
+All calls to firestore to read and write data must use the Firestore svelte5 store methods in /src/lib/db.svelte.ts
+
+Refer to the following files for usage examples:
+* src\routes\projects\[pid]\frames\+page.svelte
+* src\routes\projects\[pid]\racks\+page.svelte
+
+
 ## Firestore Collections
 
 * files: List of PDF and image file assets that have been uploaded to the app. The doc id is the filename.

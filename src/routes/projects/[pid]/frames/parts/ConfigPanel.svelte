@@ -19,7 +19,8 @@
 	$effect(() => { if (locations.length > 0) locationCount = locations.length })
 </script>
 
-<div class="space-y-1.5 p-2.5 bg-gray-50 rounded-lg border border-gray-200">
+<div class="xxspace-y-1.5 px-3 pb-3 bg-gray-50 rounded-lg border border-gray-200">
+	{#if 0}
 	<!-- Row 1: Floor + Server Rooms -->
 	<div class="grid grid-cols-2 gap-1.5 items-end">
 		<div>
@@ -44,6 +45,7 @@
 			</label>
 		</div>
 	</div>
+	{/if}
 
 	<!-- Row 2: Zone select + Locations + Generate -->
 	<div class="grid grid-cols-[1fr_2fr] gap-1.5 items-end">

@@ -51,7 +51,8 @@
 			return
 		}
 		error = ''
-		const updated = [...floors, { number: num, serverRoomCount: newRoomCount }].sort((a, b) => a.number - b.number)
+		const roomCount = Math.max(1, Math.min(4, Math.round(newRoomCount) || 1))
+		const updated = [...floors, { number: num, serverRoomCount: roomCount }].sort((a, b) => a.number - b.number)
 		onupdate(updated)
 		newFloorNumber = Math.max(...updated.map(f => f.number)) + 1
 	}
@@ -94,7 +95,7 @@
 						<h2 class="font-semibold text-sm">Floor Manager</h2>
 						<p class="text-xs text-gray-500">Manage floors, server rooms and room names. Use negative numbers for basements (e.g. -1 = B01).</p>
 					</div>
-					<button class="text-gray-400 hover:text-gray-600 text-lg" onclick={onclose}>&times;</button>
+					<button class="h-6 px-2 text-[11px] rounded border border-gray-200 bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-800 transition-colors" onclick={onclose}>Close</button>
 				</div>
 
 				<!-- Add floor form -->
@@ -102,6 +103,12 @@
 					<label class="text-[10px] text-gray-500 uppercase tracking-wider">Floor #
 						<input bind:value={newFloorNumber} type="number" min="-9" max="200"
 							class="w-16 h-7 px-2 text-xs font-mono bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
+							onkeydown={e => e.key === 'Enter' && addFloor()}
+						/>
+					</label>
+					<label class="text-[10px] text-gray-500 uppercase tracking-wider">Rooms
+						<input bind:value={newRoomCount} type="number" min="1" max="4"
+							class="w-12 h-7 px-2 text-xs font-mono bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
 							onkeydown={e => e.key === 'Enter' && addFloor()}
 						/>
 					</label>

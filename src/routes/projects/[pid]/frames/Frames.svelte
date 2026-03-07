@@ -450,9 +450,12 @@
 		</Pane>
 		<Handle withHandle />
 		<Pane defaultSize={75}>
-			<div class="h-full overflow-auto p-4 bg-gray-50/50" bind:this={frameDrawingEl}>
-				{@render toolbar()}
-				{@render frameContent()}
+			<div class="h-full flex flex-col">
+				<div class="flex-1 overflow-auto p-4 bg-gray-50/50" bind:this={frameDrawingEl}>
+					{@render toolbar()}
+					{@render frameContent()}
+				</div>
+				{@render statusBar()}
 			</div>
 		</Pane>
 	</PaneGroup>
@@ -467,35 +470,16 @@
 		</Pane>
 		<Handle withHandle />
 		<Pane defaultSize={60} minSize={20}>
-			<div class="h-full overflow-auto p-4 bg-gray-50/50" bind:this={frameDrawingEl}>
-				{@render toolbar()}
-				{@render frameContent()}
+			<div class="h-full flex flex-col">
+				<div class="flex-1 overflow-auto p-4 bg-gray-50/50" bind:this={frameDrawingEl}>
+					{@render toolbar()}
+					{@render frameContent()}
+				</div>
+				{@render statusBar()}
 			</div>
 		</Pane>
 	</PaneGroup>
 {/if}
-
-<!-- Status bar with floor tabs -->
-<div class="h-7 flex items-stretch border-t border-gray-200 bg-gray-50 shrink-0">
-	<div class="flex items-stretch gap-0 overflow-x-auto">
-		{#each floors as fl (fl.number)}
-			<button
-				class="px-3 text-[11px] font-mono font-medium border-r border-gray-200 transition-colors
-					{floor === fl.number ? 'bg-white text-blue-600 border-t-2 border-t-blue-500' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 border-t-2 border-t-transparent'}"
-				onclick={() => onfloorchange?.(fl.number)}
-			>{fmtFloor(fl.number)}</button>
-		{/each}
-		<button
-			class="px-2 text-gray-300 hover:text-gray-500 transition-colors"
-			title="Manage floors"
-			onclick={() => floorManagerOpen = true}
-		><Icon name="plus" size={12} /></button>
-	</div>
-	<div class="flex-1"></div>
-	<div class="flex items-center gap-3 px-3 text-[10px] text-gray-400">
-		<span>{allLabels.length} ports &middot; {racks.length} frame{racks.length !== 1 ? 's' : ''}</span>
-	</div>
-</div>
 
 <FloorManagerDialog
 	open={floorManagerOpen}
@@ -506,6 +490,29 @@
 	ondelete={fl => ondeletefloor?.(fl)}
 />
 </div>
+
+{#snippet statusBar()}
+	<div class="h-7 flex items-stretch border-t border-gray-200 bg-gray-50 shrink-0">
+		<div class="flex items-stretch gap-0 overflow-x-auto">
+			{#each floors as fl (fl.number)}
+				<button
+					class="px-3 text-[11px] font-mono font-medium border-r border-gray-200 transition-colors
+						{floor === fl.number ? 'bg-white text-blue-600 border-t-2 border-t-blue-500' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 border-t-2 border-t-transparent'}"
+					onclick={() => onfloorchange?.(fl.number)}
+				>{fmtFloor(fl.number)}</button>
+			{/each}
+			<button
+				class="px-2 text-gray-300 hover:text-gray-500 transition-colors"
+				title="Manage floors"
+				onclick={() => floorManagerOpen = true}
+			><Icon name="plus" size={12} /></button>
+		</div>
+		<div class="flex-1"></div>
+		<div class="flex items-center gap-3 px-3 text-[10px] text-gray-400">
+			<span>{allLabels.length} ports &middot; {racks.length} frame{racks.length !== 1 ? 's' : ''}</span>
+		</div>
+	</div>
+{/snippet}
 
 {#snippet configAndLocations()}
 	<ConfigPanel
