@@ -14,20 +14,13 @@
 	let activeFloor = $state(1);
 	let projectName = $state('');
 
-	/** Migrate old floors format */
-	function migrateFloors(/** @type {any} */ raw) {
-		if (!Array.isArray(raw) || !raw.length) return [{ number: 1, serverRoomCount: 1 }];
-		if (typeof raw[0] === 'object' && 'number' in raw[0]) return raw;
-		return raw.map((/** @type {number} */ n) => ({ number: n, serverRoomCount: 1 }));
-	}
-
 	// Project doc (name, floors)
 	$effect(() => {
 		const pid = page.params.pid;
 		if (!pid) return;
 		const unsub = db.subscribeOne('projects', pid, data => {
 			if (data?.name) projectName = /** @type {string} */ (data.name);
-			if (Array.isArray(data?.floors) && data.floors.length) floors = migrateFloors(data.floors);
+			if (Array.isArray(data?.floors) && data.floors.length) floors = data.floors;
 		});
 		return () => { unsub?.(); };
 	});

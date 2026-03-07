@@ -197,7 +197,13 @@
 		// Select tool: check if clicking an outlet
 		const hitId = hitTest(pos)
 		if (hitId) {
-			onselect(hitId, e.ctrlKey || e.metaKey)
+			const alreadySelected = selectedIds.has(hitId)
+			if (e.ctrlKey || e.metaKey) {
+				onselect(hitId, true)
+			} else if (!alreadySelected) {
+				onselect(hitId, false)
+			}
+			// If already selected in a multi-selection, keep it for dragging
 
 			// Start drag
 			dragging = true
@@ -409,7 +415,7 @@
 
 		{#if selectedIds.size > 0}
 			<div class="w-px h-4 bg-gray-200"></div>
-			<button class="text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 text-[11px]"
+			<button class="flex items-center gap-1 text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 text-[11px] whitespace-nowrap"
 				onclick={() => ondelete()} title="Delete selected (Del)">
 				<Icon name="trash" size={12} />
 				{selectedIds.size}
@@ -421,19 +427,19 @@
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div bind:this={containerEl}
 		class="flex-1 overflow-hidden bg-gray-100
-			{activeTool === 'outlet' && calibration ? 'cursor-crosshair' : panning ? 'cursor-grabbing' : 'cursor-grab'}"
+			{activeTool === 'outlet' && calibration ? 'cursor-crosshair' : panning ? 'cursor-grabbing' : 'cursor-default'}"
 		onmousedown={onMouseDown}
 		oncontextmenu={e => e.preventDefault()}
 		ontouchstart={onTouchStart}
 		ontouchmove={onTouchMove}
 		ontouchend={onTouchEnd}>
 
-		<div style:transform="translate({vx}px, {vy}px) scale({zoom})" style:transform-origin="0 0" class="relative will-change-transform">
+		<div style:transform="translate({vx}px, {vy}px) scale({zoom})" style:transform-origin="0 0" class="relative">
 			<!-- PDF canvas -->
-			<canvas bind:this={canvasEl} class="shadow-lg" style:filter={grayscale ? 'grayscale(0.8)' : 'none'}></canvas>
+			<canvas bind:this={canvasEl} class="shadow-lg will-change-transform" style:filter={grayscale ? 'grayscale(0.8)' : 'none'}></canvas>
 
 			<!-- SVG overlay -->
-			<svg class="absolute top-0 left-0 pointer-events-none" width={pageW} height={pageH}>
+			<svg class="absolute top-0 left-0 pointer-events-none" width={pageW} height={pageH} style:overflow="visible">
 				<!-- Outlets -->
 				{#each outlets as outlet (outlet.id)}
 					{@const px = outletPx(outlet)}

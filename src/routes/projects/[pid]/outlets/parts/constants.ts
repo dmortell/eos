@@ -13,10 +13,10 @@ export const USAGE_COLORS: Record<OutletUsage, { fill: string; stroke: string; l
 }
 
 /** Colors per cable type */
-export const CABLE_COLORS: Record<CableType, { color: string; label: string }> = {
-	'cat6a':    { color: '#3b82f6', label: 'Cat6a' },
-	'fiber-sm': { color: '#f59e0b', label: 'SM Fiber' },
-	'fiber-mm': { color: '#10b981', label: 'MM Fiber' },
+export const CABLE_COLORS: Record<CableType, { color: string; label: string; short: string }> = {
+	'cat6a':    { color: '#3b82f6', label: 'Cat6a', short: '6a' },
+	'fiber-sm': { color: '#f59e0b', label: 'SM Fiber', short: 'SM' },
+	'fiber-mm': { color: '#10b981', label: 'MM Fiber', short: 'MM' },
 }
 
 /** Mount type labels */
@@ -28,6 +28,15 @@ export const MOUNT_LABELS: Record<MountType, string> = {
 	ceiling: 'Ceiling',
 }
 
+/** Short mount abbreviations */
+export const MOUNT_SHORT: Record<MountType, string> = {
+	wall: 'W',
+	floor: 'F',
+	box: 'B',
+	panel: 'P',
+	ceiling: 'C',
+}
+
 /** Default values for new outlets */
 export const OUTLET_DEFAULTS = {
 	level: 'low' as const,
@@ -36,3 +45,5 @@ export const OUTLET_DEFAULTS = {
 	mountType: 'wall' as const,
 	usage: 'network' as const,
 }
+
+export type StickyDefaults = typeof OUTLET_DEFAULTS

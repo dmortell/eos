@@ -3,7 +3,8 @@
 	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
 	import FloorManagerDialog, { type FloorConfig } from '$lib/components/FloorManagerDialog.svelte'
 	import type { OutletConfig, OutletsData, ToolMode, PageCalibration, Point } from './parts/types'
-	import { OUTLET_DEFAULTS } from './parts/constants'
+	import { OUTLET_DEFAULTS, type StickyDefaults } from './parts/constants'
+	import { HistoryStore } from './parts/HistoryStore.svelte.ts'
 	import OutletCanvas from './parts/OutletCanvas.svelte'
 	import OutletPalette from './parts/OutletPalette.svelte'
 
@@ -60,38 +61,46 @@
 	)
 
 	// ── Sync from remote ──
-	let syncPaused = $state(false)
-	let syncTimer: ReturnType<typeof setTimeout> | null = null
+	// lastSavedSnapshot tracks what we last sent to Firestore.
+	// Sync-from-remote only applies when incoming data matches what we saved
+	// (i.e. Firestore has caught up), preventing stale data from overwriting local edits.
+	let lastSavedSnapshot = ''
+	let dirty = $state(false)
 
-	function pauseSync() {
-		syncPaused = true
-		if (syncTimer) clearTimeout(syncTimer)
-		syncTimer = setTimeout(() => { syncPaused = false }, 1500)
+	function snapshotOf(d: any): string {
+		return JSON.stringify({ outlets: d?.outlets, selectedFileId: d?.selectedFileId, selectedPage: d?.selectedPage, activeZone: d?.activeZone })
 	}
 
 	$effect(() => {
 		const d = data
-		if (syncPaused || !d) return
+		if (!d || dirty) return
+		// Only sync if remote matches our last save (Firestore caught up) or we haven't saved yet
+		if (lastSavedSnapshot && snapshotOf(d) !== lastSavedSnapshot) return
 		if (d.outlets) outlets = d.outlets
 		if (d.selectedFileId) selectedFileId = d.selectedFileId
 		if (d.selectedPage) selectedPage = d.selectedPage
 		if (d.activeZone) activeZone = d.activeZone
+		lastSavedSnapshot = ''
 	})
 
 	// ── Auto-save ──
 	let saveTimer: ReturnType<typeof setTimeout> | null = null
-	let initialized = false
+	let prevSnapshot = $state('')
 
 	$effect(() => {
 		const snapshot = JSON.stringify({ outlets, selectedFileId, selectedPage, activeZone })
-		if (!initialized) { initialized = true; return }
+		if (!prevSnapshot) { prevSnapshot = snapshot; return }
+		if (snapshot === prevSnapshot) return
+		prevSnapshot = snapshot
 
-		syncPaused = true
+		dirty = true
 		if (saveTimer) clearTimeout(saveTimer)
 		saveTimer = setTimeout(() => {
-			onsave?.({ outlets, selectedFileId, selectedPage, activeZone })
-			pauseSync()
-		}, 500)
+			const payload = { outlets, selectedFileId, selectedPage, activeZone }
+			lastSavedSnapshot = JSON.stringify(payload)
+			onsave?.(payload)
+			dirty = false
+		}, 300)
 	})
 
 	// ── Coordinate conversion ──
@@ -111,6 +120,9 @@
 		}
 	}
 
+	// ── Sticky defaults (last-used properties carry forward to new outlets) ──
+	let stickyDefaults = $state({ ...OUTLET_DEFAULTS })
+
 	// ── Outlet CRUD ──
 	function addOutlet(pagePosPixels: Point) {
 		if (!calibration) return
@@ -129,7 +141,7 @@
 			id,
 			position: mm,
 			label,
-			...OUTLET_DEFAULTS,
+			...stickyDefaults,
 		}
 		outlets = [...outlets, outlet]
 		selectedIds = new Set([id])
@@ -143,6 +155,15 @@
 
 	function updateOutlet(id: string, updates: Partial<OutletConfig>) {
 		outlets = outlets.map(o => o.id === id ? { ...o, ...updates } : o)
+		updateStickyDefaults(updates)
+	}
+
+	function updateStickyDefaults(updates: Partial<StickyDefaults>) {
+		if (updates.level) stickyDefaults.level = updates.level
+		if (updates.portCount) stickyDefaults.portCount = updates.portCount
+		if (updates.cableType) stickyDefaults.cableType = updates.cableType
+		if (updates.mountType) stickyDefaults.mountType = updates.mountType
+		if (updates.usage) stickyDefaults.usage = updates.usage
 	}
 
 	function moveOutlets(ids: Set<string>, dxMm: number, dyMm: number) {
@@ -161,6 +182,16 @@
 		} else {
 			selectedIds = new Set([id])
 		}
+	}
+
+	function rangeSelect(fromIndex: number, toIndex: number) {
+		const lo = Math.min(fromIndex, toIndex)
+		const hi = Math.max(fromIndex, toIndex)
+		const next = new Set(selectedIds)
+		for (let i = lo; i <= hi; i++) {
+			if (outlets[i]) next.add(outlets[i].id)
+		}
+		selectedIds = next
 	}
 
 	function clearSelection() {
@@ -228,7 +259,7 @@
 <PaneGroup direction="horizontal" class="flex-1 min-h-0">
 	<!-- Sidebar -->
 	<Pane defaultSize={20} minSize={15} maxSize={35}>
-		<div class="h-full overflow-y-auto border-r border-gray-200">
+		<div class="h-full border-r border-gray-200">
 			<OutletPalette
 				{projectFiles}
 				{selectedFileId}
@@ -239,13 +270,16 @@
 				{selectedIds}
 				{activeTool}
 				{activeZone}
+				{stickyDefaults}
 				onfilechange={(id) => { selectedFileId = id; selectedPage = 1 }}
 				onpagechange={(p) => selectedPage = p}
 				onzonechange={(z) => activeZone = z}
 				ontoolchange={(t) => activeTool = t}
 				onselect={selectOutlet}
+				onrangeselect={rangeSelect}
 				onupdate={updateOutlet}
 				ondelete={deleteSelected}
+				ondefaultschange={updateStickyDefaults}
 			/>
 		</div>
 	</Pane>
@@ -275,7 +309,7 @@
 			</div>
 
 			<!-- Status bar with floor tabs -->
-			<div class="h-7 flex items-stretch border-t border-gray-200 bg-gray-50 shrink-0">
+			<div class="h-7 flex items-stretch border-t border-gray-200 bg-gray-50 shrink-0 relative z-10">
 				<div class="flex items-stretch gap-0 overflow-x-auto">
 					{#each floors as fl (fl.number)}
 						<button
