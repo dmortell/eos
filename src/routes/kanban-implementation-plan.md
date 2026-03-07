@@ -18,6 +18,54 @@
    - Create, edit, delete tasks
    - Advanced filtering and search
 
+### User Flow
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Dashboard (/+page.svelte)                              │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │ Projects List (existing)                        │   │
+│  └─────────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │ Task Summary Cards                              │   │
+│  │  [12 Pending] [5 In Progress] [3 Review] ...   │   │
+│  └─────────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │ Tasks by Project                                │   │
+│  │  Project Alpha: 5 pending, 2 in progress       │   │
+│  │  Project Beta:  3 pending, 1 in progress       │   │
+│  └─────────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │ Tasks by User                                   │   │
+│  │  John: 5 pending, 2 in progress                │   │
+│  │  Jane: 3 pending, 1 in progress                │   │
+│  └─────────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │ Recent Activity                                 │   │
+│  │  Jane moved "Setup auth" to Done - 2 min ago   │   │
+│  └─────────────────────────────────────────────────┘   │
+│                                                         │
+│        [Open Task Board] ──────────────────────┐        │
+└─────────────────────────────────────────────────┼───────┘
+                                                  │
+                                                  ▼
+┌─────────────────────────────────────────────────────────┐
+│  Kanban Board (/tasks/+page.svelte)                    │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │ Filters: [Projects ▼] [Users ▼] [Search...]    │   │
+│  └─────────────────────────────────────────────────┘   │
+│  ┌────────┬────────┬────────┬────────┬────────────┐   │
+│  │Backlog │ To Do  │Progress│ Review │    Done    │   │
+│  ├────────┼────────┼────────┼────────┼────────────┤   │
+│  │[Task 1]│[Task 4]│[Task 7]│[Task 9]│ [Task 11]  │   │
+│  │[Task 2]│[Task 5]│[Task 8]│        │ [Task 12]  │   │
+│  │[Task 3]│[Task 6]│        │        │            │   │
+│  │   +    │   +    │   +    │   +    │     +      │   │
+│  └────────┴────────┴────────┴────────┴────────────┘   │
+│         ▲ Drag & Drop between columns ▲                │
+└─────────────────────────────────────────────────────────┘
+```
+
 ## Architecture
 
 ### 1. Data Model (Firestore)
@@ -101,10 +149,74 @@ src/
   - ✅ `delete()` — delete tasks
   - ✅ `saveBatch()` — reorder tasks in bulk
 
-#### Phase 2: Task Card Component (Est. 45 min)
+#### Phase 2: Dashboard Summary Components (Est. 60 min)
 
-**Step 2.1:** Create TaskCard.svelte
-- Props: `task`, `onclick`, `ondragstart`, `ondragend`
+**Step 2.1:** Create TaskSummary.svelte
+- Location: `src/routes/dashboard/parts/TaskSummary.svelte`
+- Props: `tasks: Task[]`
+- Display: Cards showing counts for each status:
+  ```
+  [Pending: 12] [In Progress: 5] [Review: 3] [Done: 24]
+  ```
+- Styling:
+  - Grid layout (4 columns on desktop, 2 on mobile)
+  - Color-coded borders matching status colors
+  - Click to navigate to kanban page with filter
+  - Large count numbers, small labels
+  - Icon for each status
+
+**Step 2.2:** Create ProjectTaskList.svelte
+- Location: `src/routes/dashboard/parts/ProjectTaskList.svelte`
+- Props: `tasks: Task[]`, `projects: Project[]`
+- Display: Table/list view grouped by project:
+  ```
+  Project Alpha
+    ├─ Pending: 5 | In Progress: 2 | Review: 1
+  Project Beta
+    ├─ Pending: 3 | In Progress: 1 | Review: 0
+  ```
+- Features:
+  - Expandable/collapsible project rows
+  - Progress bar showing completion %
+  - Click project row to filter kanban by project
+  - Show overdue tasks count with warning icon
+
+**Step 2.3:** Create UserTaskList.svelte
+- Location: `src/routes/dashboard/parts/UserTaskList.svelte`
+- Props: `tasks: Task[]`
+- Display: Table showing tasks by assignee:
+  ```
+  User              | Pending | In Progress | Review
+  John Doe          |    5    |      2      |   1
+  Jane Smith        |    3    |      1      |   0
+  (Unassigned)      |    4    |      0      |   0
+  ```
+- Features:
+  - Sortable columns
+  - Click row to filter kanban by user
+  - Show overdue count per user
+  - Avatar/initials for each user
+
+**Step 2.4:** Create RecentActivity.svelte
+- Location: `src/routes/dashboard/parts/RecentActivity.svelte`
+- Props: `tasks: Task[]` (pass sorted by updatedAt)
+- Display: Feed of recent task changes (last 10-20):
+  ```
+  [Icon] Jane moved "Setup auth" to Done - 2 min ago
+  [Icon] John created "Design kanban" - 15 min ago
+  [Icon] Jane assigned "API testing" to John - 1 hour ago
+  ```
+- Features:
+  - Relative timestamps (moment.js style)
+  - Activity type icons (created, moved, assigned, etc.)
+  - Click to view task in kanban
+  - Auto-refresh or real-time updates
+
+#### Phase 3: Kanban Page - Task Card & Dialog (Est. 60 min)
+
+**Step 3.1:** Create TaskCard.svelte
+- Location: `src/routes/tasks/parts/TaskCard.svelte`
+- Props: `task`, `onclick`, `ondragstart`, `ondragend`, `compact` (boolean)
 - Display:
   - Task title (truncated if long)
   - Priority badge (colored dot/icon)
@@ -112,10 +224,14 @@ src/
   - Due date (with color coding: red if overdue, yellow if due soon)
   - Project name/badge
   - Quick actions: edit, delete icons on hover
-- Styling: Match existing UI patterns (rounded border, shadow on hover)
-- Draggable: Add `draggable="true"` attribute
+- Styling:
+  - Match existing UI patterns (rounded border, shadow on hover)
+  - Compact mode for dashboard (smaller text, no description)
+  - Full mode for kanban (show more details)
+- Draggable: Add `draggable="true"` attribute for kanban view
 
-**Step 2.2:** Create TaskDialog.svelte
+**Step 3.2:** Create TaskDialog.svelte
+- Location: `src/routes/tasks/parts/TaskDialog.svelte`
 - Props: `task` (null for new), `projects`, `users`, `onSave`, `onClose`
 - Form fields:
   - Title (required, Input component)
@@ -131,59 +247,69 @@ src/
   - Cancel button (outline variant)
   - Delete button (danger variant, only for existing tasks)
 - Use Dialog component from `$lib`
+- Validation: Title required, project required
 
-#### Phase 3: Kanban Column Component (Est. 30 min)
+#### Phase 4: Kanban Page - Columns & Filters (Est. 45 min)
 
-**Step 3.1:** Create KanbanColumn.svelte
+**Step 4.1:** Create KanbanColumn.svelte
+- Location: `src/routes/tasks/parts/KanbanColumn.svelte`
 - Props:
   - `status: TaskStatus`
   - `title: string`
+  - `color: string`
   - `tasks: Task[]`
   - `onTaskClick: (task) => void`
   - `onDrop: (task, newStatus) => void`
+  - `onAddTask: () => void`
 - Display:
   - Column header with title and count badge
-  - Scrollable task list
+  - Scrollable task list using TaskCard component
   - Empty state message ("No tasks")
-  - Add task button (+ icon) at top
+  - Add task button (+ icon) in header
 - Drag & Drop:
   - Accept dragged tasks with `ondrop`, `ondragover`, `ondragenter`, `ondragleave`
-  - Highlight column when dragging task over it
+  - Highlight column when dragging task over it (border color change)
   - Call `onDrop()` when task dropped
 - Styling:
   - Min width: 280px
   - Max height: calc(100vh - 200px) with overflow-y-auto
-  - Background: light gray
+  - Background: light gray (matching color scheme)
   - Border radius, padding
+  - Header with status color accent
 
-#### Phase 4: Filters Component (Est. 30 min)
-
-**Step 4.1:** Create TaskFilters.svelte
-- Props: `projects`, `users`, bindable filters object
+**Step 4.2:** Create TaskFilters.svelte
+- Location: `src/routes/tasks/parts/TaskFilters.svelte`
+- Props: `projects`, `users`, bindable `filters` object
 - Filters:
-  - Project dropdown (with "All Projects" option)
+  - Project multi-select (with "All Projects" option)
   - Assigned To dropdown (with "All Users", "Unassigned", "Assigned to me")
+    - NOTE: The main "All Tasks / My Tasks" toggle is in the page header, not here
   - Search input (searches title and description)
-  - Status checkboxes (show/hide columns)
+  - Status toggles (show/hide columns)
+  - Priority filter (multi-select)
+  - Date range picker (optional)
   - Clear all filters button
 - Layout: Horizontal row with flex gap, wraps on mobile
 - Use Search, Select, Button components from `$lib`
-- Emit events or bind filter values for reactivity
+- Persist filters in localStorage
 
-#### Phase 5: Main Kanban Component (Est. 60 min)
+#### Phase 5: Kanban Page - Main Component (Est. 75 min)
 
-**Step 5.1:** Create Kanban.svelte
+**Step 5.1:** Create +page.svelte (Kanban)
+- Location: `src/routes/tasks/+page.svelte`
 - Import: Firestore, Session from context
 - Subscribe to data:
   - `projects` collection
-  - `tasks` collection (initially all, later filtered)
-  - Optional: users collection or derive from tasks
+  - `tasks` collection (all tasks)
+  - Derive unique users from tasks
 - State:
   - `tasks` — all tasks ($state)
+    - `showAllTasks` — toggle for all vs my tasks ($state, synced with localStorage)
   - `filteredTasks` — derived from tasks and filters ($derived)
   - `filters` — filter state object ($state)
   - `selectedTask` — for edit dialog ($state)
   - `showDialog` — boolean for dialog visibility ($state)
+  - `draggingTask` — currently dragging task ($state)
 - Columns definition:
   ```typescript
   const columns = [
@@ -197,16 +323,57 @@ src/
 - Computed:
   - Group filtered tasks by status using $derived
   - Filter by project, user, search term
+  - Sort by order field within each column
 - Functions:
   - `handleTaskClick(task)` — open edit dialog
-  - `handleTaskDrop(task, newStatus)` — update task status
-  - `handleTaskSave(task)` — save to Firestore
+  - `handleTaskDrop(task, newStatus)` — update task status in Firestore
+  - `handleTaskSave(task)` — save to Firestore (create or update)
   - `handleTaskDelete(taskId)` — delete from Firestore
-  - `handleNewTask(status)` — open dialog for new task with preset status
+  - `handleNewTask(status?)` — open dialog for new task with optional preset status
+  - `handleDragStart(task)` — set draggingTask state
+  - `handleDragEnd()` — clear draggingTask state
 - Layout:
-  - Filters bar at top
-  - Horizontal scrollable columns container
-  - Action buttons: "New Task", refresh, settings
+  ```svelte
+  <Titlebar>
+    <span>Task Board</span>
+    <Button onclick={() => handleNewTask()}>New Task</Button>
+  </Titlebar>
+  <div class="p-4">
+        <div class="flex justify-between items-center mb-4">
+          <h1 class="text-xl font-bold">Task Board</h1>
+          <div class="flex gap-2">
+            <label class="flex items-center gap-2">
+              <input type="checkbox" bind:checked={showAllTasks} />
+              {showAllTasks ? 'All Tasks' : 'My Tasks'}
+            </label>
+            <Button onclick={() => handleNewTask()} variant="primary">New Task</Button>
+          </div>
+        </div>
+    <TaskFilters bind:filters {projects} {users} />
+    <div class="flex gap-4 overflow-x-auto mt-4">
+      {#each columns as col}
+        <KanbanColumn
+          status={col.status}
+          title={col.title}
+          color={col.color}
+          tasks={filteredTasksByStatus[col.status]}
+          onTaskClick={handleTaskClick}
+          onDrop={handleTaskDrop}
+          onAddTask={() => handleNewTask(col.status)}
+        />
+      {/each}
+    </div>
+  </div>
+  {#if showDialog}
+    <TaskDialog
+      task={selectedTask}
+      {projects}
+      {users}
+      onSave={handleTaskSave}
+      onClose={() => showDialog = false}
+    />
+  {/if}
+  ```
 
 **Step 5.2:** Drag & Drop Logic
 - Use native HTML5 drag and drop API (no library needed)
@@ -215,47 +382,76 @@ src/
 - Visual feedback: Add dragging class to card, highlight drop zone
 - Ensure drag works across columns
 
-#### Phase 6: Dashboard Integration (Est. 20 min)
+#### Phase 6: Dashboard Integration (Est. 45 min)
 
-**Step 6.1:** Update +page.svelte
-- Import Kanban component
-- Layout options:
-
-  **Option A: Tabbed View**
+**Step 6.1:** Update +page.svelte (Dashboard)
+- Location: `src/routes/+page.svelte`
+- Import dashboard summary components
+- Subscribe to:
+  - `projects` collection
+  - `tasks` collection
+- State:
+  - `showAllTasks` — toggle state ($state, default: true)
+  - `filteredTasks` — derived based on toggle ($derived)
+- Toggle logic:
+  - Filter: `showAllTasks ? allTasks : allTasks.filter(t => t.assignedTo === session.user.uid)`
+  - Save preference to localStorage: `localStorage.setItem('showAllTasks', showAllTasks)`
+  - Load on mount from localStorage
+- Layout:
   ```svelte
   <Titlebar />
-  <div class="flex border-b">
-    <button class:active={tab === 'projects'} onclick={() => tab = 'projects'}>Projects</button>
-    <button class:active={tab === 'tasks'} onclick={() => tab = 'tasks'}>Tasks</button>
-  </div>
-  {#if tab === 'projects'}
-    <Projects />
-  {:else}
-    <Kanban />
-  {/if}
-  ```
-
-  **Option B: Split View** (Recommended)
-  ```svelte
-  <Titlebar />
-  <div class="grid grid-cols-[300px_1fr] h-[calc(100vh-3rem)]">
-    <div class="border-r overflow-auto">
-      <div class="p-4">
-        <h2 class="font-bold mb-2">Projects</h2>
-        <!-- Compact project list -->
+  <div class="p-8">
+    <!-- Projects Section -->
+    <div class="mb-8">
+      <div class="flex items-center justify-between mb-4">
+        <h1 class="text-xl font-bold">Projects</h1>
       </div>
+      <Projects /> <!-- Existing component, make more compact -->
     </div>
-    <Kanban />
+
+    <!-- Task Summary Section -->
+    <div class="mb-8">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-bold">Tasks Overview</h2>
+        <div class="flex gap-2 items-center">
+          <!-- Toggle Switch -->
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" bind:checked={showAllTasks} class="..." />
+            <span>{showAllTasks ? 'All Tasks' : 'My Tasks'}</span>
+          </label>
+          <Button href="/tasks" variant="primary">
+            Open Task Board
+          </Button>
+        </div>
+      </div>
+      <TaskSummary tasks={filteredTasks} />
+    </div>
+
+    <!-- Tasks by Project -->
+    <div class="mb-8">
+      <h2 class="text-lg font-bold mb-4">Tasks by Project</h2>
+      <ProjectTaskList tasks={filteredTasks} {projects} />
+    </div>
+
+    <!-- Tasks by User -->
+    <div class="mb-8">
+      <h2 class="text-lg font-bold mb-4">Tasks by User</h2>
+      <UserTaskList tasks={filteredTasks} />
+    </div>
+
+    <!-- Recent Activity -->
+    <div>
+      <h2 class="text-lg font-bold mb-4">Recent Activity</h2>
+      <RecentActivity tasks={filteredTasks.slice(0, 20).sort(...)} />
+    </div>
   </div>
   ```
 
-  **Option C: Full Width Kanban** (Simplest)
-  ```svelte
-  <Titlebar />
-  <Kanban />
-  ```
-
-- Choose option based on UX preference (recommend Option B or C)
+**Step 6.2:** Add same toggle to Kanban page
+- Location: `src/routes/tasks/+page.svelte`
+- Add toggle in the filters bar (TaskFilters component or main page header)
+- Same logic: filter tasks by `assignedTo === session.user.uid` when "My Tasks" selected
+- Sync with localStorage so preference persists across dashboard/kanban
 
 ### 4. Styling & UX Details
 
@@ -371,26 +567,45 @@ src/
 ### 8. File Creation Order
 
 **Recommended implementation order:**
-1. `src/lib/types/task.ts` — Foundation
-2. `src/routes/dashboard/parts/TaskCard.svelte` — Visual component
-3. `src/routes/dashboard/parts/KanbanColumn.svelte` — Container
-4. `src/routes/dashboard/parts/TaskFilters.svelte` — Controls
-5. `src/routes/dashboard/parts/TaskDialog.svelte` — Form
-6. `src/routes/dashboard/Kanban.svelte` — Main logic
-7. Update `src/routes/+page.svelte` — Integration
+
+**Round 1: Foundation**
+1. `src/lib/types/task.ts` — TypeScript types and enums
+
+**Round 2: Shared Components (used by both dashboard and kanban)**
+2. `src/routes/tasks/parts/TaskCard.svelte` — Reusable task card (compact mode for dashboard)
+3. `src/routes/tasks/parts/TaskDialog.svelte` — Task create/edit dialog
+
+**Round 3: Dashboard Summary**
+4. `src/routes/dashboard/parts/TaskSummary.svelte` — Status count cards
+5. `src/routes/dashboard/parts/ProjectTaskList.svelte` — Tasks grouped by project
+6. `src/routes/dashboard/parts/UserTaskList.svelte` — Tasks by user table
+7. `src/routes/dashboard/parts/RecentActivity.svelte` — Activity feed
+8. Update `src/routes/+page.svelte` — Dashboard with summary components
+
+**Round 4: Kanban Page**
+9. `src/routes/tasks/parts/KanbanColumn.svelte` — Status column component
+10. `src/routes/tasks/parts/TaskFilters.svelte` — Filter controls
+11. `src/routes/tasks/+page.svelte` — Full kanban board page
+
+**Round 5: Polish & Testing**
+12. Test all functionality
+13. Add keyboard shortcuts
+14. Responsive testing
+15. Performance optimization
 
 ### 9. Estimated Timeline
 
 | Phase | Task | Time |
 |-------|------|------|
 | 1 | Data layer & types | 30 min |
-| 2 | TaskCard + Dialog | 45 min |
-| 3 | KanbanColumn | 30 min |
-| 4 | TaskFilters | 30 min |
-| 5 | Main Kanban | 60 min |
-| 6 | Dashboard integration | 20 min |
-| 7 | Testing & polish | 45 min |
-| **Total** | | **~4 hours** |
+| 2 | Dashboard summary components | 60 min |
+| 3 | TaskCard + Dialog (shared) | 60 min |
+| 4 | KanbanColumn + Filters | 45 min |
+| 5 | Kanban page (+page.svelte) | 75 min |
+| 6 | Dashboard integration | 45 min |
+| 6 | Dashboard integration | 45 min |
+| 7 | Testing & polish | 60 min |
+| **Total** | | **~5.5 hours** |
 
 Advanced features (Phase 7+): 2-4 hours per feature
 
@@ -432,20 +647,79 @@ const tasks = [
 ### 11. Next Steps
 
 1. **Review this plan** — Confirm approach and priorities
-2. **Create Firestore collection** — Set up `tasks` in Firebase
-3. **Start with Phase 1** — Types and data layer
-4. **Build incrementally** — Test each component before moving on
-5. **Iterate on feedback** — Adjust as needed
+2. **Create Firestore collection** — Set up `tasks` in Firebase Console
+3. **Update security rules** — Add rules for tasks collection
+4. **Start with Phase 1** — Types and data layer
+5. **Build incrementally** — Test each component before moving on
+6. **Iterate on feedback** — Adjust as needed
 
 ---
 
-## Questions to Consider
+## Architecture Summary
 
-1. **Layout preference** — Tabbed vs Split vs Full Width for dashboard?
-2. **Default view** — Show all tasks or filter to current user by default?
-3. **Project selector** — Single project or multi-project view?
-4. **Permissions** — Can any user create tasks, or only project owners?
-5. **Notifications** — Should users be notified of task assignments? (future feature)
-6. **Data retention** — Should completed tasks auto-archive after X days?
+### Dashboard View (Management)
+**Purpose:** High-level overview of all tasks across all users and projects
 
-Let me know which options you prefer, and I can begin implementation!
+**Location:** `src/routes/+page.svelte`
+
+**Features:**
+- Task count cards (pending, in-progress, review, done)
+- **Toggle to view "All Tasks" vs. "My Tasks Only"** (affects all dashboard views)
+- Tasks grouped by project with progress indicators
+- Tasks grouped by user/assignee with workload view
+- Recent activity feed
+- "Open Task Board" button to navigate to full kanban
+
+**Target Users:** Project managers, team leads, anyone wanting overview
+
+### Kanban Page (Task Management)
+**Purpose:** Detailed task management with drag & drop
+
+**Location:** `src/routes/tasks/+page.svelte`
+
+**Features:**
+- Full 5-column kanban board
+- **Toggle to view "All Tasks" vs. "My Tasks Only"**
+- Drag & drop between status columns
+- Advanced filtering (project, user, search, priority, date)
+- Create, edit, delete tasks
+- Persistent filter preferences in localStorage
+
+**Target Users:** Individual contributors, anyone assigned to projects
+
+---
+
+## Remaining Questions
+
+1. **User project access** — How do we determine which projects a user is "assigned to"?
+   - Option A: Any user can see all projects (current behavior)
+   - Option B: Add `members` array field to projects collection
+   - Option C: Derive from tasks (if user has tasks in project, they can see it)
+
+2. **Default dashboard filter** — What should dashboard show by default?
+  - **CONFIRMED:** Toggle between all tasks and user's own tasks
+  - Default view: All tasks (for management overview)
+  - Toggle persisted in localStorage per user
+
+3. **Task permissions** — Who can perform actions?
+   - Create task: Any authenticated user? Or only project members?
+   - Edit task: Creator, assignee, or project owner?
+   - Delete task: Creator or project owner?
+   - Assign task: Any user? Or only project owner?
+
+4. **Activity tracking** — Should we log all task changes for the activity feed?
+   - Option A: Use `updatedAt` timestamp only (simple, already in task)
+   - Option B: Create separate `task_activity` collection (detailed history)
+
+5. **Navigation** — How should users navigate between dashboard and kanban?
+  - **CONFIRMED: Option B** — Card/button on dashboard only
+  - Prominent "Open Task Board" button in task summary section
+
+**Recommended Defaults:**
+- **Question 1:** ✅ Option A (all users see all projects)
+- **Question 2:** ✅ Toggle between all/my tasks (default: all tasks)
+- **Question 3:** ✅ Any authenticated user can create/edit/assign; creator or project owner can delete
+- **Question 4:** ✅ Option A (use updatedAt, add activity collection later if needed)
+- **Question 5:** ✅ Option B (button on dashboard only)
+
+**CONFIRMED - Ready to begin implementation!**
