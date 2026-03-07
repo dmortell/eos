@@ -50,39 +50,56 @@ export interface DocWithId {
     [key: string]: unknown
 }
 
+function sanitizeFirestoreData<T>(input: T): T {
+    if (Array.isArray(input)) {
+        return input
+            .map((item) => sanitizeFirestoreData(item))
+            .filter((item) => item !== undefined) as T;
+    }
+    if (input && Object.prototype.toString.call(input) === '[object Object]') {
+        const entries = Object.entries(input as Record<string, unknown>)
+            .filter(([, value]) => value !== undefined)
+            .map(([key, value]) => [key, sanitizeFirestoreData(value)]);
+        return Object.fromEntries(entries) as T;
+    }
+    return input;
+}
+
 export class Firestore {
     async getMany(path: string): Promise<DocWithId[]> {
         const q = query(collection(firestore, path));
         const snap = await getDocs(q)
-        return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+        return snap.docs.map((d) => ({ ...d.data(), id: d.id }))
     }
     subscribeWhere(path: string, field: string, value: unknown, callback: (data: DocWithId[]) => void): () => void {
         const q = query(collection(firestore, path), where(field, '==', value));
         return onSnapshot(q, (snap) => {
-            const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const data = snap.docs.map(d => ({ ...d.data(), id: d.id }));
             callback?.(data)
         });
     }
     subscribeMany(path: string, callback: (data: DocWithId[]) => void): () => void {
         const q = query(collection(firestore, path));
         return onSnapshot(q, (snap) => {
-            const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const data = snap.docs.map(d => ({ ...d.data(), id: d.id }));
             callback?.(data)
         });
     }
     async getOne(path: string, id: string): Promise<DocWithId | null> {
         const snap = await getDoc(doc(firestore, path, id));
-        return snap.exists() ? { id: snap.id, ...snap.data() } as DocWithId : null;
+        return snap.exists() ? { ...snap.data(), id: snap.id } as DocWithId : null;
     }
     subscribeOne(table: string, id: string, callback: (data: DocWithId) => void): () => void {
         return onSnapshot(doc(firestore, table, id), snap => { callback?.({ ...snap.data(), id }) });
     }
     create = async (path: string, data: DocumentData): Promise<void> => {
-        await setDoc(doc(collection(firestore, path)), data, { merge: true });
+        const clean = sanitizeFirestoreData(data);
+        await setDoc(doc(collection(firestore, path)), clean, { merge: true });
     }
     save = async (path: string, data: DocWithId | DocumentData): Promise<void> => {
-        if (!('id' in data) || !data.id) return await this.create(path, data)
-        await setDoc(doc(firestore, path, data.id as string), data, { merge: true });
+        const clean = sanitizeFirestoreData(data);
+        if (!('id' in clean) || !clean.id) return await this.create(path, clean)
+        await setDoc(doc(firestore, path, clean.id as string), clean, { merge: true });
     }
     async saveBatch(path: string, docs: DocWithId[], callback?: (docs: DocWithId[]) => void): Promise<void> {
         const batch = writeBatch(firestore);
@@ -90,7 +107,8 @@ export class Firestore {
             const id = d.id || nanoid(8);
             d.id = id
             const ref = doc(firestore, path, id);
-            batch.set(ref, { ...d, id, updatedAt: serverTimestamp() }, { merge: true });
+            const clean = sanitizeFirestoreData({ ...d, id, updatedAt: serverTimestamp() });
+            batch.set(ref, clean, { merge: true });
         }
         await batch.commit();
         callback?.(docs)

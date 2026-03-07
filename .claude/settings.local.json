@@ -6,7 +6,8 @@
       "Bash(npx vite:*)",
       "Bash(grep:*)",
       "Bash(ls:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(wc:*)"
     ]
   }
 }
