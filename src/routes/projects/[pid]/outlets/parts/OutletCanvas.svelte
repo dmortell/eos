@@ -5,7 +5,7 @@
 	import type { OutletConfig, PageCalibration, Point, ToolMode } from './types'
 	import { OUTLET_RADIUS_MM, USAGE_COLORS } from './constants'
 
-	let { file, page = 1, calibration, outlets, selectedIds, activeTool, toPx, toMm, onadd, onselect, onclear, onmove, ondelete }: {
+	let { file, page = 1, calibration, outlets, selectedIds, activeTool, toPx, toMm, onadd, onselect, onclear, onmove, onmoveend, ondelete }: {
 		file: any
 		page: number
 		calibration: PageCalibration | null
@@ -18,6 +18,7 @@
 		onselect: (id: string, multi: boolean) => void
 		onclear: () => void
 		onmove: (ids: Set<string>, dxMm: number, dyMm: number) => void
+		onmoveend: (ids: Set<string>) => void
 		ondelete: () => void
 	} = $props()
 
@@ -44,6 +45,7 @@
 
 	// Drag state
 	let dragging = $state(false)
+	let dragMoved = false
 	let dragStart: { x: number; y: number; outletPositions: Map<string, Point> } | null = null
 
 	// Drag-select
@@ -207,6 +209,7 @@
 
 			// Start drag
 			dragging = true
+			dragMoved = false
 			dragStart = {
 				x: pos.x, y: pos.y,
 				outletPositions: new Map(
@@ -261,18 +264,21 @@
 		const dxMm = dxPx * calibration.scaleFactor
 		const dyMm = dyPx * calibration.scaleFactor
 
-		// Update positions relative to drag start
+		dragMoved = true
 		const ids = new Set(dragStart.outletPositions.keys())
 		onmove(ids, dxMm, dyMm)
 
-		// Update drag start to current for incremental moves
 		dragStart.x = pos.x
 		dragStart.y = pos.y
 	}
 
 	function onDragUp() {
+		if (dragMoved && dragStart) {
+			onmoveend(new Set(dragStart.outletPositions.keys()))
+		}
 		dragging = false
 		dragStart = null
+		dragMoved = false
 		document.removeEventListener('mousemove', onDragMove)
 		document.removeEventListener('mouseup', onDragUp)
 	}

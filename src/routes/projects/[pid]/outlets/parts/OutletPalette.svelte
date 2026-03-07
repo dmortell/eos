@@ -5,7 +5,7 @@
 
 	import type { StickyDefaults } from './constants'
 
-	let { projectFiles, selectedFileId, selectedPage, selectedFile, calibration, outlets, selectedIds, activeTool, activeZone, stickyDefaults, onfilechange, onpagechange, onzonechange, ontoolchange, onselect, onrangeselect, onupdate, ondelete, ondefaultschange }: {
+	let { projectFiles, selectedFileId, selectedPage, selectedFile, calibration, outlets, selectedIds, activeTool, activeZone, stickyDefaults, onfilechange, onpagechange, onzonechange, ontoolchange, onselect, onrangeselect, onupdate, onupdateselected, ondelete, ondefaultschange }: {
 		projectFiles: any[]
 		selectedFileId: string
 		selectedPage: number
@@ -23,11 +23,20 @@
 		onselect: (id: string, multi: boolean) => void
 		onrangeselect: (fromIndex: number, toIndex: number) => void
 		onupdate: (id: string, updates: Partial<OutletConfig>) => void
+		onupdateselected: (updates: Partial<OutletConfig>) => void
 		ondelete: () => void
 		ondefaultschange: (updates: Partial<StickyDefaults>) => void
 	} = $props()
 
 	let selectedOutlet = $derived(outlets.find(o => selectedIds.size === 1 && selectedIds.has(o.id)) ?? null)
+	let selectedOutlets = $derived(outlets.filter(o => selectedIds.has(o.id)))
+
+	/** For multi-select: return value if all selected share it, else undefined */
+	function shared<K extends keyof OutletConfig>(key: K): OutletConfig[K] | undefined {
+		if (selectedOutlets.length === 0) return undefined
+		const first = selectedOutlets[0][key]
+		return selectedOutlets.every(o => o[key] === first) ? first : undefined
+	}
 	let lastClickedIndex = $state(-1)
 
 	function isPageCalibrated(file: any, page: number): boolean {
@@ -173,6 +182,75 @@
 				<span class="w-12 shrink-0">Pos</span>
 				<span class="font-mono text-[10px]">{Math.round(selectedOutlet.position.x)}, {Math.round(selectedOutlet.position.y)} mm</span>
 			</div>
+		</div>
+	{:else if selectedIds.size > 1}
+		<div class="space-y-1 border-t border-gray-200 pt-2">
+			<div class="text-[10px] text-gray-400 uppercase tracking-wider font-medium">{selectedIds.size} selected</div>
+
+			<label class="flex items-center gap-2">
+				<span class="text-gray-500 w-12 shrink-0">Ports</span>
+				<input type="number" min="1" max="12"
+					class="w-14 h-5 px-1.5 text-xs font-mono border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+					value={shared('portCount') ?? ''}
+					placeholder="—"
+					onchange={e => onupdateselected({ portCount: parseInt(e.currentTarget.value) || 2 })} />
+			</label>
+
+			<label class="flex items-center gap-2">
+				<span class="text-gray-500 w-12 shrink-0">Level</span>
+				<div class="flex gap-0.5">
+					<button class="h-5 px-2 rounded text-[10px] font-medium transition-colors
+						{shared('level') === 'low' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
+						onclick={() => onupdateselected({ level: 'low' })}>Low</button>
+					<button class="h-5 px-2 rounded text-[10px] font-medium transition-colors
+						{shared('level') === 'high' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
+						onclick={() => onupdateselected({ level: 'high' })}>High</button>
+				</div>
+			</label>
+
+			<label class="flex items-center gap-2">
+				<span class="text-gray-500 w-12 shrink-0">Usage</span>
+				<select class="flex-1 h-5 px-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+					value={shared('usage') ?? ''}
+					onchange={e => { if (e.currentTarget.value) onupdateselected({ usage: e.currentTarget.value as any }) }}>
+					{#if !shared('usage')}<option value="">— mixed —</option>{/if}
+					{#each Object.entries(USAGE_COLORS) as [key, val]}
+						<option value={key}>{val.label}</option>
+					{/each}
+				</select>
+			</label>
+
+			<label class="flex items-center gap-2">
+				<span class="text-gray-500 w-12 shrink-0">Mount</span>
+				<select class="flex-1 h-5 px-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+					value={shared('mountType') ?? ''}
+					onchange={e => { if (e.currentTarget.value) onupdateselected({ mountType: e.currentTarget.value as any }) }}>
+					{#if !shared('mountType')}<option value="">— mixed —</option>{/if}
+					{#each Object.entries(MOUNT_LABELS) as [key, label]}
+						<option value={key}>{label}</option>
+					{/each}
+				</select>
+			</label>
+
+			<label class="flex items-center gap-2">
+				<span class="text-gray-500 w-12 shrink-0">Cable</span>
+				<select class="flex-1 h-5 px-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+					value={shared('cableType') ?? ''}
+					onchange={e => { if (e.currentTarget.value) onupdateselected({ cableType: e.currentTarget.value as any }) }}>
+					{#if !shared('cableType')}<option value="">— mixed —</option>{/if}
+					{#each Object.entries(CABLE_COLORS) as [key, val]}
+						<option value={key}>{val.label}</option>
+					{/each}
+				</select>
+			</label>
+
+			<label class="flex items-center gap-2">
+				<span class="text-gray-500 w-12 shrink-0">Room</span>
+				<input type="text" class="w-20 h-5 px-1.5 text-xs font-mono border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+					value={shared('roomNumber') ?? ''}
+					placeholder={shared('roomNumber') === undefined ? '— mixed —' : '—'}
+					onchange={e => onupdateselected({ roomNumber: e.currentTarget.value || undefined })} />
+			</label>
 		</div>
 	{:else if activeTool === 'outlet' || selectedIds.size === 0}
 		<div class="space-y-1 border-t border-gray-200 pt-2">

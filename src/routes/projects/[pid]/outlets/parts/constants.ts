@@ -22,8 +22,8 @@ export const CABLE_COLORS: Record<CableType, { color: string; label: string; sho
 /** Mount type labels */
 export const MOUNT_LABELS: Record<MountType, string> = {
 	wall: 'Wall',
-	floor: 'Floor',
-	box: 'Box',
+	floor: 'Floorbox',
+	box: 'Rosette',
 	panel: 'Panel',
 	ceiling: 'Ceiling',
 }
@@ -42,7 +42,7 @@ export const OUTLET_DEFAULTS = {
 	level: 'low' as const,
 	portCount: 2,
 	cableType: 'cat6a' as const,
-	mountType: 'wall' as const,
+	mountType: 'floor' as const,
 	usage: 'network' as const,
 }
 

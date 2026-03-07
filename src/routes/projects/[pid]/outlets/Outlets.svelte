@@ -120,6 +120,9 @@
 		}
 	}
 
+	// ── Undo/redo ──
+	const history = new HistoryStore()
+
 	// ── Sticky defaults (last-used properties carry forward to new outlets) ──
 	let stickyDefaults = $state({ ...OUTLET_DEFAULTS })
 
@@ -143,19 +146,51 @@
 			label,
 			...stickyDefaults,
 		}
+		const prev = outlets
 		outlets = [...outlets, outlet]
 		selectedIds = new Set([id])
+		history.record({
+			label: 'Add outlet',
+			undo: () => { outlets = prev; selectedIds = new Set() },
+			redo: () => { outlets = [...prev, outlet]; selectedIds = new Set([id]) },
+		})
 	}
 
 	function deleteSelected() {
 		if (selectedIds.size === 0) return
-		outlets = outlets.filter(o => !selectedIds.has(o.id))
+		const prev = outlets
+		const deletedIds = new Set(selectedIds)
+		outlets = outlets.filter(o => !deletedIds.has(o.id))
 		selectedIds = new Set()
+		history.record({
+			label: `Delete ${deletedIds.size}`,
+			undo: () => { outlets = prev; selectedIds = deletedIds },
+			redo: () => { outlets = prev.filter(o => !deletedIds.has(o.id)); selectedIds = new Set() },
+		})
 	}
 
 	function updateOutlet(id: string, updates: Partial<OutletConfig>) {
+		const prev = outlets
 		outlets = outlets.map(o => o.id === id ? { ...o, ...updates } : o)
 		updateStickyDefaults(updates)
+		history.record({
+			label: 'Update outlet',
+			undo: () => { outlets = prev },
+			redo: () => { outlets = prev.map(o => o.id === id ? { ...o, ...updates } : o) },
+		})
+	}
+
+	function updateSelectedOutlets(updates: Partial<OutletConfig>) {
+		if (selectedIds.size === 0) return
+		const prev = outlets
+		const ids = new Set(selectedIds)
+		outlets = outlets.map(o => ids.has(o.id) ? { ...o, ...updates } : o)
+		updateStickyDefaults(updates)
+		history.record({
+			label: `Update ${ids.size}`,
+			undo: () => { outlets = prev },
+			redo: () => { outlets = prev.map(o => ids.has(o.id) ? { ...o, ...updates } : o) },
+		})
 	}
 
 	function updateStickyDefaults(updates: Partial<StickyDefaults>) {
@@ -166,10 +201,25 @@
 		if (updates.usage) stickyDefaults.usage = updates.usage
 	}
 
+	let preMoveSnapshot: OutletConfig[] | null = null
+
 	function moveOutlets(ids: Set<string>, dxMm: number, dyMm: number) {
+		if (!preMoveSnapshot) preMoveSnapshot = outlets
 		outlets = outlets.map(o => {
 			if (!ids.has(o.id)) return o
 			return { ...o, position: { x: o.position.x + dxMm, y: o.position.y + dyMm } }
+		})
+	}
+
+	function moveEnd(ids: Set<string>) {
+		if (!preMoveSnapshot) return
+		const prev = preMoveSnapshot
+		const final = outlets
+		preMoveSnapshot = null
+		history.record({
+			label: `Move ${ids.size}`,
+			undo: () => { outlets = prev },
+			redo: () => { outlets = final },
 		})
 	}
 
@@ -212,6 +262,10 @@
 
 	// ── Keyboard shortcuts ──
 	function onKeyDown(e: KeyboardEvent) {
+		// Undo/redo works even in inputs
+		if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); history.undo(); return }
+		if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'Z'))) { e.preventDefault(); history.redo(); return }
+
 		if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'SELECT') return
 
 		if (e.key === 'Escape') {
@@ -220,34 +274,15 @@
 		}
 		else if (e.key === 'o' || e.key === 'O') activeTool = 'outlet'
 		else if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected()
-		else if (e.key >= '1' && e.key <= '9') {
-			const count = parseInt(e.key)
-			for (const id of selectedIds) updateOutlet(id, { portCount: count })
-		}
-		else if (e.key === 'l') {
-			for (const id of selectedIds) updateOutlet(id, { level: 'low' })
-		}
-		else if (e.key === 'h') {
-			for (const id of selectedIds) updateOutlet(id, { level: 'high' })
-		}
-		else if (e.key === 'c') {
-			for (const id of selectedIds) updateOutlet(id, { cableType: 'cat6a' })
-		}
-		else if (e.key === 's') {
-			for (const id of selectedIds) updateOutlet(id, { cableType: 'fiber-sm' })
-		}
-		else if (e.key === 'm') {
-			for (const id of selectedIds) updateOutlet(id, { cableType: 'fiber-mm' })
-		}
-		else if (e.key === 'w') {
-			for (const id of selectedIds) updateOutlet(id, { mountType: 'wall' })
-		}
-		else if (e.key === 'f') {
-			for (const id of selectedIds) updateOutlet(id, { mountType: 'floor' })
-		}
-		else if (e.key === 'b') {
-			for (const id of selectedIds) updateOutlet(id, { mountType: 'box' })
-		}
+		else if (e.key >= '1' && e.key <= '9') updateSelectedOutlets({ portCount: parseInt(e.key) })
+		else if (e.key === 'l') updateSelectedOutlets({ level: 'low' })
+		else if (e.key === 'h') updateSelectedOutlets({ level: 'high' })
+		else if (e.key === 'c') updateSelectedOutlets({ cableType: 'cat6a' })
+		else if (e.key === 's') updateSelectedOutlets({ cableType: 'fiber-sm' })
+		else if (e.key === 'm') updateSelectedOutlets({ cableType: 'fiber-mm' })
+		else if (e.key === 'w') updateSelectedOutlets({ mountType: 'wall' })
+		else if (e.key === 'f') updateSelectedOutlets({ mountType: 'floor' })
+		else if (e.key === 'b') updateSelectedOutlets({ mountType: 'box' })
 	}
 </script>
 
@@ -278,6 +313,7 @@
 				onselect={selectOutlet}
 				onrangeselect={rangeSelect}
 				onupdate={updateOutlet}
+				onupdateselected={updateSelectedOutlets}
 				ondelete={deleteSelected}
 				ondefaultschange={updateStickyDefaults}
 			/>
@@ -304,6 +340,7 @@
 					onselect={selectOutlet}
 					onclear={clearSelection}
 					onmove={moveOutlets}
+					onmoveend={moveEnd}
 					ondelete={deleteSelected}
 				/>
 			</div>
