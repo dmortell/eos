@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { getContext } from 'svelte';
 	import { Button, Firestore, Titlebar } from '$lib';
 	import TaskFilters from './parts/TaskFilters.svelte';
@@ -12,11 +13,14 @@
 
 	let tasks = $state<Task[]>([]);
 	let projects = $state<Project[]>([]);
+	let userDocs = $state<Array<{ id: string; uid?: string; displayName?: string; email?: string; providerIds?: string[] }>>([]);
 	let filters = $state<TaskFiltersState>(structuredClone(DEFAULT_FILTERS));
 	let showAllTasks = $state(true);
 	let selectedTask = $state<Task | null>(null);
 	let dialogOpen = $state(false);
 	let draggingTask = $state<Task | null>(null);
+	let queryOpenedTaskId = $state('');
+	let queryAppliedFilterKey = $state('');
 
 	const toggleKey = 'task-board-show-all';
 	const filtersKey = 'task-board-filters-v1';
@@ -55,11 +59,15 @@
 		const unsubProjects = db.subscribeMany('projects', (data) => {
 			projects = data as unknown as Project[];
 		});
+		const unsubUsers = db.subscribeMany('users', (data) => {
+			userDocs = data as unknown as Array<{ id: string; uid?: string; displayName?: string; email?: string; providerIds?: string[] }>;
+		});
 		const unsubTasks = db.subscribeMany('tasks', (data) => {
 			tasks = data as unknown as Task[];
 		});
 		return () => {
 			unsubProjects?.();
+			unsubUsers?.();
 			unsubTasks?.();
 		};
 	});
@@ -76,9 +84,14 @@
 
 	let users = $derived.by(() => {
 		const map = new Map<string, TaskUser>();
-		for (const task of tasks) {
-			if (!task.assignedTo) continue;
-			map.set(task.assignedTo, { id: task.assignedTo, name: task.assignedToName || task.assignedTo });
+		for (const user of userDocs) {
+			if (!('providerIds' in user)) continue;
+			const id = user.uid || user.id;
+			if (!id) continue;
+			map.set(id, {
+				id,
+				name: user.displayName || user.email || id
+			});
 		}
 		return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
 	});
@@ -123,12 +136,57 @@
 		return map;
 	});
 
+	$effect(() => {
+		const taskId = page.url.searchParams.get('taskId') || '';
+		if (!taskId || taskId === queryOpenedTaskId || tasks.length === 0) return;
+		const found = tasks.find((task) => task.id === taskId);
+		if (!found) return;
+		queryOpenedTaskId = taskId;
+		openTask(found);
+		try {
+			const url = new URL(window.location.href);
+			url.searchParams.delete('taskId');
+			window.history.replaceState(window.history.state, '', url.toString());
+		} catch {
+			// Ignore history update issues in non-browser contexts.
+		}
+	});
+
+	$effect(() => {
+		const projectId = page.url.searchParams.get('projectId') || '';
+		const assignedTo = page.url.searchParams.get('assignedTo') || '';
+		if (!projectId && !assignedTo) return;
+		const key = `${projectId}|${assignedTo}`;
+		if (key === queryAppliedFilterKey) return;
+
+		if (projectId) filters.projectId = projectId;
+		if (assignedTo) filters.assignedTo = assignedTo;
+		queryAppliedFilterKey = key;
+
+		try {
+			const url = new URL(window.location.href);
+			url.searchParams.delete('projectId');
+			url.searchParams.delete('assignedTo');
+			window.history.replaceState(window.history.state, '', url.toString());
+		} catch {
+			// Ignore history update issues in non-browser contexts.
+		}
+	});
+
 	function openNewTask(status: TaskStatus = 'todo') {
+		const today = new Date();
+		const todayDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+		const defaultProjectId = filters.projectId !== 'all'
+			? filters.projectId
+			: (projects[0]?.id || '');
 		selectedTask = {
 			id: '',
 			title: '',
 			status,
-			projectId: projects[0]?.id || '',
+			projectId: defaultProjectId,
+			assignedTo: session?.user?.uid || undefined,
+			assignedToName: session?.user?.displayName || session?.user?.email || undefined,
+			dueDate: todayDate,
 			createdBy: session?.user?.uid,
 			createdByName: session?.user?.displayName || session?.user?.email || 'unknown'
 		};

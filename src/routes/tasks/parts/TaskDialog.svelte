@@ -56,7 +56,7 @@
 
 <Dialog bind:open title={task ? 'Edit Task' : 'New Task'}>
 	<div class="space-y-3 mt-2">
-		<Input label="Title" bind:value={title} placeholder="Task title" />
+		<Input label="Title" bind:value={title} placeholder="Task title" class="w-full"/>
 		<Input label="Description" type="textarea" bind:value={description} rows="3" />
 
 		<div class="grid grid-cols-2 gap-2">

@@ -15,7 +15,7 @@
 	});
 </script>
 
-<div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+<div class="space-y-1">
 	<div class="border rounded-md bg-gray-50 p-2">
 		<div class="text-xs text-gray-600">Pending</div>
 		<div class="text-lg font-semibold leading-tight">{counts.pending}</div>

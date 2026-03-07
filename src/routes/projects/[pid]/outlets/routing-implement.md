@@ -16,11 +16,44 @@ parts/
   constants.ts        — Colors, sizes, defaults
 ```
 
-### Coordinate System
+### Coordinate System — Real-World mm
 
-All outlet positions are stored in **PDF page coordinates** (the native coordinate space of the rendered page at scale=1). Pan/zoom is handled by a CSS `transform: translate(vx, vy) scale(zoom)` on a wrapper div containing both the rasterised PDF canvas and the SVG overlay. This matches the PdfViewer pattern exactly.
+All outlet positions, trunk waypoints, and route geometry are stored in **real-world millimetres** relative to the user-marked origin point on the floorplan. This matches the coordinate system used by the parallel CAD app, enabling direct data interchange.
 
-The uploads tool already stores `origin` and `scale` per page in `files/{id}.pages[pageNum]`. The outlets tool reads these to convert between page-pixel coords and real-world mm for cable length calculations.
+**Convention:** X-right, Y-down for plan views (matching both screen coordinates and CAD plan-view convention). Elevation views use Y-up but that's not relevant to this tool.
+
+**How it works:**
+
+Each uploaded PDF page has calibration data in `files/{id}.pages[pageNum]`:
+- `origin: {x, y}` — reference point in PDF-pixel coords
+- `scale: {scale, ...}` — mm per PDF pixel (e.g. `scale = 20` means 1 PDF pixel = 20mm)
+
+Conversion functions (two lines each direction):
+```typescript
+// PDF pixels → real-world mm
+const toMm = (px: Point): Point => ({
+  x: (px.x - origin.x) * scaleFactor,
+  y: (px.y - origin.y) * scaleFactor,
+})
+
+// Real-world mm → PDF pixels (for rendering)
+const toPx = (mm: Point): Point => ({
+  x: mm.x / scaleFactor + origin.x,
+  y: mm.y / scaleFactor + origin.y,
+})
+```
+
+**Rendering approach:** The canvas operates in PDF-pixel space (CSS `transform: translate(vx, vy) scale(zoom)`) since that's what pdfjs renders. The SVG overlay converts mm positions to PDF-pixel positions for display. This keeps pan/zoom identical to the PdfViewer pattern — no refactor needed.
+
+**Why mm, not PDF pixels:**
+1. **CAD interop** — the parallel CAD app uses mm coordinates. Same data, no conversion.
+2. **Drawing-independent** — outlet positions survive PDF reissues at different scales/crops. Re-calibrate the new PDF and everything aligns.
+3. **Multi-drawing** — multiple PDFs can overlay on the same mm coordinate space (e.g. architectural + electrical drawings for the same floor).
+4. **Cable lengths** — route distances are directly in mm, no conversion step.
+5. **Future rack rendering** — rack dimensions (700mm wide, 2100mm tall) compose naturally in mm space.
+6. **Scale display** — status bar can show drawing scale (1:50, 1:100) and rulers work in real units.
+
+**Requirement:** Outlets can only be placed on calibrated pages (origin + scale set). The uploads list already shows "Set origin" / "Set scale" warnings for uncalibrated files — the outlets tool simply filters to "Ready" files.
 
 ### Firestore Schema
 
@@ -47,6 +80,7 @@ Outlets reference frame ports by label (`FF.Z.NNN-SPP[-H]`), not by internal IDs
 ```typescript
 // types.ts
 
+/** All coordinates in real-world mm from origin. X-right, Y-down. */
 interface Point { x: number; y: number }
 
 type OutletLevel = 'low' | 'high'
@@ -56,7 +90,7 @@ type OutletUsage = 'network' | 'phone' | 'av' | 'printer' | 'security'
 
 interface OutletConfig {
   id: string
-  position: Point              // PDF page coords
+  position: Point              // mm from origin (real-world)
   level: OutletLevel
   portCount: number            // 1-12
   cableType: CableType
@@ -72,7 +106,7 @@ interface OutletConfig {
 // Phase 2
 interface TrunkConfig {
   id: string
-  points: Point[]
+  points: Point[]              // mm from origin
   level: OutletLevel
   cableType: CableType
   label?: string
@@ -82,8 +116,15 @@ interface RouteConfig {
   id: string
   outletId: string
   rackId: string               // frame ID from racks tool
-  waypoints: Point[]
-  length: number               // mm (real-world via scale)
+  waypoints: Point[]           // mm from origin
+  length: number               // mm (Euclidean sum of segments)
+}
+
+/** Calibration data read from files/{id}.pages[pageNum] */
+interface PageCalibration {
+  origin: Point                // PDF-pixel coords of the reference point
+  scaleFactor: number          // mm per PDF pixel
+  crop?: { x: number; y: number; width: number; height: number }
 }
 ```
 
@@ -130,26 +171,50 @@ Reuse the PdfViewer pan/zoom pattern:
 - Wheel: Ctrl/Meta = zoom (factor 1.15), Shift = horiz pan, else vert pan
 - Right/middle drag = pan
 - Left drag = tool action (place outlet, drag-select, etc.)
-- `getPagePos(e)` converts screen to page coords
+
+**Coordinate conversions:**
+```typescript
+// Screen → PDF pixels (for pan/zoom hit testing)
+const getPagePos = (e: MouseEvent): Point => ({
+  x: (e.clientX - rect.left - vx) / zoom,
+  y: (e.clientY - rect.top - vy) / zoom,
+})
+
+// Screen → World mm (for outlet placement/storage)
+const getWorldPos = (e: MouseEvent): Point => {
+  const px = getPagePos(e)
+  return toMm(px)  // uses calibration origin + scaleFactor
+}
+
+// World mm → PDF pixels (for SVG rendering)
+const toPx = (mm: Point): Point => ({
+  x: mm.x / scaleFactor + origin.x,
+  y: mm.y / scaleFactor + origin.y,
+})
+```
 
 PDF rendering:
 - Import `PdfState` from uploads tool (already exists)
 - Render active page to `<canvas>` at RENDER_SCALE=2
 - Apply grayscale filter by default (matching PdfViewer)
 - Read crop from `fileDoc.pages[pageNum].crop` to clip display
+- Read origin + scale from `fileDoc.pages[pageNum]` for coordinate conversion
 
-SVG overlay (sibling of canvas, same dimensions):
-- Outlets rendered as SVG symbols (circles, with port-count indicator)
+SVG overlay (sibling of canvas, same PDF-pixel dimensions):
+- Outlets rendered at `toPx(outlet.position)` — converting mm back to PDF pixels for display
+- Stroke widths scaled by `1/zoom` for consistent screen appearance
 - Selection highlights (cyan border)
-- Drag-select rectangle
+- Drag-select rectangle (in PDF-pixel space, converted to mm for hit testing)
 - (Phase 2: trunk lines, route dashes)
 
 ### 1.4 Sidebar (`OutletPalette.svelte`)
 
 **File/page picker:**
-- Dropdown of uploaded files (filtered to `projectId`, only files with `pages[n].origin` and `pages[n].scale` — i.e. calibrated files marked "Ready")
+- Dropdown of uploaded files filtered to `projectId`
+- Only pages with both `origin` and `scale` calibrated are selectable (others shown greyed with "Set origin" / "Set scale" hint)
 - Page number selector (if multi-page PDF)
 - Small thumbnail of selected page
+- On selection, load calibration data (`origin`, `scaleFactor`, `crop`) for coordinate conversions
 
 **Tool buttons:**
 - Select (pointer) — default
@@ -164,21 +229,23 @@ SVG overlay (sibling of canvas, same dimensions):
 ### 1.5 Outlet Placement
 
 **Click to place:**
-- In outlet tool mode, left-click on canvas creates outlet at page coords
+- In outlet tool mode, left-click converts screen position to world mm via `getWorldPos(e)`
+- Stores `position: {x, y}` in mm from origin
 - New outlet gets defaults: `level: 'low', portCount: 2, cableType: 'cat6a', mountType: 'wall', usage: 'network'`
 - Auto-increment label counter (within zone): next available number
 
 **Outlet symbols (SVG):**
-- Circle (r=8/zoom for consistent screen size, or fixed page-coords size ~15px)
+- Rendered at `toPx(outlet.position)` — mm converted to PDF pixels for display
+- Circle radius: fixed mm size (e.g. 150mm = ~3mm at 1:50 scale), so outlets scale with the drawing like real symbols
 - Color by usage (matching frame tool LOC_TYPE_COLORS: blue=network, green=AP, etc.)
 - Port count shown as small number inside or beside circle
 - Level indicator: solid fill = low, ring/outline = high
 - Mount type indicator: small icon suffix (wall bracket, floor arrow, box square)
-- Selected: cyan highlight ring
+- Selected: cyan highlight ring (stroke-width scaled by 1/zoom for consistent screen size)
 
 **Dragging:**
 - Left-click on existing outlet in select mode → select it
-- Drag selected outlet(s) → move by delta in page coords
+- Drag selected outlet(s) → delta converted to mm: `dxMm = dxPx / zoom * scaleFactor`
 - Ctrl+click for multi-select, shift+click for range (if in list)
 - Drag from empty space → drag-select rectangle
 
@@ -248,7 +315,7 @@ Outlets need labels that match the frame tool's location numbering scheme: `FF.Z
 ### Auto-routing
 - For each outlet, find nearest rack (from frames data)
 - Route: outlet → nearest trunk entry point → follow trunk → nearest trunk exit → rack
-- Cable length = sum of segment lengths, converted to mm via page scale factor
+- Cable length = direct Euclidean sum of segment lengths (already in mm, no conversion needed)
 - Display as dashed lines color-coded by cable type
 
 ### Cable Calculations

@@ -37,7 +37,11 @@
 		<div class="px-2 py-2 text-xs text-gray-500">No recent task activity</div>
 	{:else}
 		{#each recent as task}
-			<div class="px-2 py-1 text-xs flex items-center justify-between gap-2">
+			<a
+				href={task.id ? `/tasks?taskId=${encodeURIComponent(task.id)}` : '/tasks'}
+				class="px-2 py-1 text-xs flex items-center justify-between gap-2 hover:bg-gray-50 transition-colors"
+				title="Open task on task board"
+			>
 				<div class="truncate">
 					<span class="font-medium">{task.assignedToName || task.createdByName || 'User'}</span>
 					<span class="text-gray-600"> updated </span>
@@ -45,7 +49,7 @@
 					<span class="text-gray-500"> in {task.status}</span>
 				</div>
 				<div class="text-xs text-gray-500 shrink-0">{ago(task.updatedAt || task.createdAt)}</div>
-			</div>
+			</a>
 		{/each}
 	{/if}
 </div>

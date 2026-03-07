@@ -46,7 +46,13 @@
 			{:else}
 				{#each rows as row}
 					<tr class="border-t">
-						<td class="px-2 py-1">{row.name}</td>
+						<td class="px-2 py-1">
+							<a
+								href={`/tasks?projectId=${encodeURIComponent(row.projectId)}`}
+								class="text-blue-600 hover:text-blue-500 hover:underline"
+								title="Open task board filtered by project"
+							>{row.name}</a>
+						</td>
 						<td class="px-2 py-1 text-right">{row.pending}</td>
 						<td class="px-2 py-1 text-right">{row.inProgress}</td>
 						<td class="px-2 py-1 text-right">{row.review}</td>

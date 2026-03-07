@@ -4,11 +4,12 @@
 	let { tasks = [] }: { tasks: Task[] } = $props();
 
 	let rows = $derived.by(() => {
-		const grouped = new Map<string, { name: string; pending: number; inProgress: number; review: number; done: number }>();
+		const grouped = new Map<string, { userId: string; name: string; pending: number; inProgress: number; review: number; done: number }>();
 		for (const task of tasks) {
 			const key = task.assignedTo || 'unassigned';
 			if (!grouped.has(key)) {
 				grouped.set(key, {
+					userId: key,
 					name: task.assignedToName || (key === 'unassigned' ? '(Unassigned)' : key),
 					pending: 0,
 					inProgress: 0,
@@ -43,7 +44,13 @@
 			{:else}
 				{#each rows as row}
 					<tr class="border-t">
-						<td class="px-2 py-1">{row.name}</td>
+						<td class="px-2 py-1">
+							<a
+								href={`/tasks?assignedTo=${encodeURIComponent(row.userId)}`}
+								class="text-blue-600 hover:text-blue-500 hover:underline"
+								title="Open task board filtered by user"
+							>{row.name}</a>
+						</td>
 						<td class="px-2 py-1 text-right">{row.pending}</td>
 						<td class="px-2 py-1 text-right">{row.inProgress}</td>
 						<td class="px-2 py-1 text-right">{row.review}</td>

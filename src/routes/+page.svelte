@@ -59,7 +59,7 @@
 
 	<section class="space-y-1">
 		<div class="flex items-center justify-between gap-2 flex-wrap">
-			<h2 class="text-sm font-semibold">Tasks Overview</h2>
+			<h2 class="text-sm font-semibold">Task Dashboard</h2>
 			<div class="flex items-center gap-2">
 				<label class="text-xs flex items-center gap-1 border rounded px-2 py-0.5 bg-white">
 					<input type="checkbox" bind:checked={showAllTasks} />
@@ -68,17 +68,20 @@
 				<Button class="text-xs px-2 py-0.5" variant="primary" href="/tasks">Open Task Board</Button>
 			</div>
 		</div>
-		<TaskSummary tasks={filteredTasks} />
-	</section>
-
-	<section class="space-y-1">
-		<h2 class="text-sm font-semibold">Tasks By Project</h2>
-		<ProjectTaskList tasks={filteredTasks} {projects} />
-	</section>
-
-	<section class="space-y-1">
-		<h2 class="text-sm font-semibold">Tasks By User</h2>
-		<UserTaskList tasks={filteredTasks} />
+		<div class="grid grid-cols-1 min-[800px]:grid-cols-3 gap-2 items-start">
+			<div class="space-y-1">
+				<h3 class="text-xs font-semibold text-gray-700">Overview</h3>
+				<TaskSummary tasks={filteredTasks} />
+			</div>
+			<div class="space-y-1">
+				<h3 class="text-xs font-semibold text-gray-700">By User</h3>
+				<UserTaskList tasks={filteredTasks} />
+			</div>
+			<div class="space-y-1">
+				<h3 class="text-xs font-semibold text-gray-700">By Project</h3>
+				<ProjectTaskList tasks={filteredTasks} {projects} />
+			</div>
+		</div>
 	</section>
 
 	<section class="space-y-1">

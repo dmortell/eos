@@ -28,9 +28,28 @@ export class Session {
     user = $state<User | null>(null);
     unsub: () => void = () => {};
 
+    private syncUserProfile(user: User): void {
+        const payload = sanitizeFirestoreData({
+            uid: user.uid,
+            displayName: user.displayName ?? null,
+            email: user.email ?? null,
+            photoURL: user.photoURL ?? null,
+            phoneNumber: user.phoneNumber ?? null,
+            providerIds: user.providerData.map((p) => p.providerId),
+            updatedAt: serverTimestamp(),
+            lastLoginAt: serverTimestamp(),
+        });
+        setDoc(doc(firestore, 'users', user.uid), payload, { merge: true }).catch((error) => {
+            console.error('Error syncing user profile:', error);
+        });
+    }
+
     constructor() {
         this.unsub?.()
-        this.unsub = onAuthStateChanged(auth, (user) => { this.user = user })
+        this.unsub = onAuthStateChanged(auth, (user) => {
+            this.user = user
+            if (user) this.syncUserProfile(user)
+        })
     }
     async logout(): Promise<void> { await signOut(auth) }
     async login(provider: 'google' | 'github' | 'microsoft' = 'google'): Promise<UserCredential | undefined> {

@@ -9,6 +9,89 @@ Refer to the following files for usage examples:
 
 ## Firestore Collections
 
+* companies: clients and vendors
+  - id is company full name
+  - name
+  - tel
+  - fax
+  - address
+  - contact: contact person name
+  - type: client | vendor
+
+* currencies
+  - id is 3 letter code of currency
+  - code: is 3 letter code of currency
+
+* details: each record is a detail of an item in an invoice or quote
+  - cost: numeric
+  - description
+  - list: list price (string)
+  - supplier
+  - model: model of item
+  - product
+  - qty
+  - total: calculated total of items
+
+  - quoteid: string
+  - percent: numeric percent value of margin
+  - pos: numeric position/order of this item in the list
+  - prices: list of prices from each vendor
+    - vendor_code: { cost, name(vendor name), note, excluded:bool}
+  - prices2: array of prices from each vendor (maybe not used?)
+
+* drawings
+  - id
+  - pages collection
+    - layers collection
+      - id
+      - active:bool
+      - createdAt
+      - updatedAt
+      - locked:bool
+      - visible:bool
+      - name:string
+      - order:number (sort order)
+    - shapes collection
+      - id
+      - x1, y1, x2, y2
+      - a: number (0-360) angle in degrees
+      - type:string
+      - sides: number of sides for polygon, or points for star (duplicated in properties)
+      - layerId
+      - layerid       DELETE THIS
+      - points: array of points [{x,y}]
+      - properties: object of props for rendering
+        - fill, fontFamily, fontSize, fontStyle, fontWeight,
+        - inner: number (0 to 1) inner radius for stars
+        - markerSize, opacity, stroke, textAlign, textColor, textDecoration, verticalAlign,
+        - stroke-width, strokeWidth
+        - sides        MAYBE DELETE THIS
+    - createdAt
+    - id
+    - landscape
+    - margin: number
+    - name
+    - order: number
+    - paperScale: number (1 to 1000)
+    - paperSize: string (A3, A4 etc)
+    - type: string (page | model)
+    - updatedAt
+  - createdAt
+  - updatedAt
+  - name
+  - description
+  - projectid
+
+  - clientAddress?
+  - clientLogo?: url to logo
+  - clientName?
+  - companyName?
+  - companyLogo?: url to logo
+  - companyAddress?
+  - revisions: array of revisions
+    { author, date: string (yyyy-mm-dd), note, rev:string (A, B, etc)}
+
+
 * files: List of PDF and image file assets that have been uploaded to the app. The doc id is the filename.
   - pages: contains an array of details for PDF pages (1-based, to match pdf page numbers)
     - updatedAt
