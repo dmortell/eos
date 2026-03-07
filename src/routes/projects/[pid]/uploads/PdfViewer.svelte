@@ -1,15 +1,16 @@
 <script lang="ts">
 	import { tick } from 'svelte'
 	import { onMount, onDestroy } from 'svelte'
-	import { Icon, Firestore } from '$lib'
-	import { PdfState } from './pdf-viewer-sample/assets/PdfState.svelte'
+	import { Icon, Firestore, Titlebar } from '$lib'
+	import { PdfState } from './PdfState.svelte'
 	import DimensionLine from './DimensionLine.svelte'
 	import { dragDimension, isHorizontal } from './DimensionLine.ts'
 
-	let { url, name, fileDoc, onclose }: {
+	let { url, name, fileDoc = $bindable(), initialTool = null, onclose }: {
 		url: string
 		name: string
 		fileDoc: any
+		initialTool?: string | null
 		onclose: () => void
 	} = $props()
 
@@ -52,7 +53,7 @@
 	let dimHandle = 0
 
 	// Crop
-	let cropRect = $state({ x: 0, y: 0, width: 100, height: 100 })
+	let cropRect = $state({ x: 0, y: 0, width: 0, height: 0 })
 	let cropHandle = 0
 	let cropStart = { x: 0, y: 0, width: 0, height: 0, mx: 0, my: 0 }
 
@@ -70,6 +71,7 @@
 
 	// Track if tool data has been modified since last save
 	let dirty = $state(false)
+	let grayscale = $state(true)
 
 	onMount(async () => {
 		try {
@@ -85,6 +87,10 @@
 			await tick()
 			containerEl?.addEventListener('wheel', onWheel, { passive: false })
 			await pdf.render({ canvas: canvasEl, page: 1, scale: RENDER_SCALE })
+			if (initialTool === 'origin' || initialTool === 'scale' || initialTool === 'crop') {
+				await tick()
+				activeTool = initialTool as Tool
+			}
 		} catch (e: any) {
 			error = e.message ?? 'Failed to load PDF'
 			loading = false
@@ -104,7 +110,7 @@
 		if (p.origin) origin = { ...p.origin }
 		if (p.scale) dimLine = { ...dimLine, ...p.scale }
 		if (p.crop) cropRect = { ...p.crop }
-		else cropRect = { x: 0, y: 0, width: pageW, height: pageH }
+		else cropRect = { x: 0, y: 0, width: 0, height: 0 }
 		dirty = false
 	}
 
@@ -226,12 +232,13 @@
 			if (activeTool === 'origin') {
 				origin = { x: pos.x, y: pos.y }
 				dirty = true
+				document.addEventListener('mousemove', onOriginMove)
+				document.addEventListener('mouseup', onOriginUp)
 				return
 			}
 
 			if (activeTool === 'scale') {
 				dimHandle = +((e.target as HTMLElement)?.dataset?.id ?? 0)
-				const userDist = dimLine.distance // preserve user-entered distance
 				dimLine.sx = pos.x  // set start pos for handle 8 (move whole line)
 				dimLine.sy = pos.y
 				document.addEventListener('mousemove', onScaleMove)
@@ -244,7 +251,6 @@
 					dimLine.y2 = pos.y
 					dimHandle = 2 // drag end-point
 				}
-				dimLine.distance = userDist
 				dirty = true
 				return
 			}
@@ -252,9 +258,11 @@
 			if (activeTool === 'crop') {
 				cropHandle = +((e.target as HTMLElement)?.dataset?.id ?? 0)
 				const p = getPagePos(e)
-				cropStart = { ...cropRect, mx: p.x, my: p.y }
-				if (!cropHandle) {
-					// Start new crop from click
+				if (cropHandle) {
+					// Dragging a handle or the interior (15)
+					cropStart = { ...cropRect, mx: p.x, my: p.y }
+				} else {
+					// Click on empty space — start new crop
 					cropRect = { x: p.x, y: p.y, width: 0, height: 0 }
 					cropHandle = 3 // drag bottom-right
 					cropStart = { x: p.x, y: p.y, width: 0, height: 0, mx: p.x, my: p.y }
@@ -283,12 +291,23 @@
 		document.removeEventListener('mouseup', onPanUp)
 	}
 
+	// Origin drag
+	function onOriginMove(e: MouseEvent) {
+		const pos = getPagePos(e)
+		origin = { x: pos.x, y: pos.y }
+	}
+
+	function onOriginUp() {
+		document.removeEventListener('mousemove', onOriginMove)
+		document.removeEventListener('mouseup', onOriginUp)
+	}
+
 	// Scale drag
 	function onScaleMove(e: MouseEvent) {
 		const pos = getPagePos(e)
-		const userDist = dimLine.distance // preserve user-entered distance
 		dragDimension(dimLine, dimHandle, pos)
-		dimLine.distance = userDist
+		dimLine.sx = pos.x  // update for next move (handle 8 uses delta from sx/sy)
+		dimLine.sy = pos.y
 		dimLine = dimLine // trigger reactivity
 	}
 
@@ -305,20 +324,29 @@
 		const dy = pos.y - cropStart.my
 		let { x, y, width: w, height: h } = cropStart
 
-		if (cropHandle & 1) w += dx  // right
-		if (cropHandle & 2) h += dy  // bottom
-		if (cropHandle & 4) { x += dx; w -= dx }  // left
-		if (cropHandle & 8) { y += dy; h -= dy }  // top
+		if (cropHandle === 15) {
+			// Move whole rect
+			x += dx; y += dy
+			if (x < 0) x = 0
+			if (y < 0) y = 0
+			if (x + w > pageW) x = pageW - w
+			if (y + h > pageH) y = pageH - h
+		} else {
+			if (cropHandle & 1) w += dx  // right
+			if (cropHandle & 2) h += dy  // bottom
+			if (cropHandle & 4) { x += dx; w -= dx }  // left
+			if (cropHandle & 8) { y += dy; h -= dy }  // top
 
-		// Normalize negative dimensions
-		if (w < 0) { x += w; w = -w }
-		if (h < 0) { y += h; h = -h }
+			// Normalize negative dimensions
+			if (w < 0) { x += w; w = -w }
+			if (h < 0) { y += h; h = -h }
 
-		// Clamp to page bounds
-		if (x < 0) { w += x; x = 0 }
-		if (y < 0) { h += y; y = 0 }
-		if (x + w > pageW) w = pageW - x
-		if (y + h > pageH) h = pageH - y
+			// Clamp to page bounds
+			if (x < 0) { w += x; x = 0 }
+			if (y < 0) { h += y; y = 0 }
+			if (x + w > pageW) w = pageW - x
+			if (y + h > pageH) h = pageH - y
+		}
 
 		cropRect = { x, y, width: w, height: h }
 	}
@@ -428,6 +456,9 @@
 
 <svelte:window bind:innerWidth={cw} bind:innerHeight={ch} onkeydown={onKeyDown} />
 
+<!-- <Titlebar title={projectName ? `${projectName} — Uploads` : 'Uploads'} /> -->
+<Titlebar title='PDF Viewer' />
+
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="h-screen bg-gray-900 flex flex-col" oncontextmenu={e => e.preventDefault()}>
 	<!-- Toolbar -->
@@ -436,7 +467,7 @@
 			<Icon name="chevronLeft" size={16} />
 		</button>
 
-		<span class="text-xs text-gray-300 truncate max-w-60" title={name}>{name}</span>
+		<button class="text-xs text-gray-300 hover:text-white truncate max-w-60" title={name} onclick={onclose}>{name}</button>
 
 		<div class="w-px h-4 bg-gray-700 mx-1"></div>
 
@@ -490,7 +521,7 @@
 			<span class="text-xs text-gray-400">Drag to crop</span>
 			<span class="text-xs text-gray-500 tabular-nums">{Math.round(cropRect.width)} x {Math.round(cropRect.height)}</span>
 			<button class="px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-400 hover:bg-gray-600"
-				onclick={() => { cropRect = { x: 0, y: 0, width: pageW, height: pageH }; dirty = true }}>Reset</button>
+				onclick={() => { cropRect = { x: 0, y: 0, width: 0, height: 0 }; dirty = true }}>Clear</button>
 			<button class="px-2 py-0.5 text-xs rounded {dirty ? 'bg-green-600 hover:bg-green-500 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}"
 				onclick={saveCrop}>Save</button>
 		{/if}
@@ -518,6 +549,14 @@
 		<button class="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-gray-700" onclick={fitToView} title="Fit to view (0)">
 			Fit
 		</button>
+
+		<div class="w-px h-4 bg-gray-700 mx-1"></div>
+		<button
+			class="flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors {grayscale ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}"
+			onclick={() => grayscale = !grayscale}
+			title="Toggle grayscale">
+			{grayscale ? 'Color' : 'B/W'}
+		</button>
 	</div>
 
 	<!-- Canvas -->
@@ -540,7 +579,7 @@
 			ontouchmove={onTouchMove}
 			ontouchend={onTouchEnd}>
 			<div style:transform="translate({vx}px, {vy}px) scale({zoom})" style:transform-origin="0 0" class="relative">
-				<canvas bind:this={canvasEl} class="shadow-2xl"></canvas>
+				<canvas bind:this={canvasEl} class="shadow-2xl" style:filter={grayscale ? 'grayscale(0.8)' : 'none'}></canvas>
 
 				<!-- SVG overlay for tools (same size as PDF page at scale=1) -->
 				<svg class="absolute top-0 left-0 pointer-events-none" width={pageW} height={pageH}>
@@ -566,33 +605,39 @@
 					<!-- Crop rectangle -->
 					{#if activeTool === 'crop'}
 						<g class="pointer-events-auto">
-							<!-- Dimmed area outside crop -->
-							<path d="M0,0 H{pageW} V{pageH} H0 Z M{cropRect.x},{cropRect.y} V{cropRect.y + cropRect.height} H{cropRect.x + cropRect.width} V{cropRect.y} Z"
-								fill="rgba(0,0,0,0.4)" fill-rule="evenodd" />
+							{#if cropRect.width > 0 && cropRect.height > 0}
+								<!-- Dimmed area outside crop -->
+								<path d="M0,0 H{pageW} V{pageH} H0 Z M{cropRect.x},{cropRect.y} V{cropRect.y + cropRect.height} H{cropRect.x + cropRect.width} V{cropRect.y} Z"
+									fill="rgba(0,0,0,0.4)" fill-rule="evenodd" pointer-events="none" />
 
-							<!-- Crop border -->
-							<rect x={cropRect.x} y={cropRect.y} width={cropRect.width} height={cropRect.height}
-								fill="none" stroke="#ef4444" stroke-width={2 / zoom} stroke-dasharray="{6 / zoom} {4 / zoom}" />
+								<!-- Crop interior (draggable) -->
+								<rect data-id="15" x={cropRect.x} y={cropRect.y} width={cropRect.width} height={cropRect.height}
+									fill="transparent" cursor="move" />
 
-							<!-- Resize handles: edges (invisible wide hit areas) -->
-							<rect data-id="1" x={cropRect.x + cropRect.width - 4 / zoom} y={cropRect.y} width={8 / zoom} height={cropRect.height}
-								fill="transparent" cursor="ew-resize" />
-							<rect data-id="2" x={cropRect.x} y={cropRect.y + cropRect.height - 4 / zoom} width={cropRect.width} height={8 / zoom}
-								fill="transparent" cursor="ns-resize" />
-							<rect data-id="4" x={cropRect.x - 4 / zoom} y={cropRect.y} width={8 / zoom} height={cropRect.height}
-								fill="transparent" cursor="ew-resize" />
-							<rect data-id="8" x={cropRect.x} y={cropRect.y - 4 / zoom} width={cropRect.width} height={8 / zoom}
-								fill="transparent" cursor="ns-resize" />
+								<!-- Crop border -->
+								<rect x={cropRect.x} y={cropRect.y} width={cropRect.width} height={cropRect.height}
+									fill="none" stroke="#ef4444" stroke-width={2 / zoom} stroke-dasharray="{6 / zoom} {4 / zoom}" pointer-events="none" />
 
-							<!-- Corner handles (visible squares) -->
-							<rect data-id="12" x={cropRect.x - 6 / zoom} y={cropRect.y - 6 / zoom} width={12 / zoom} height={12 / zoom}
-								fill="white" stroke="#ef4444" stroke-width={1 / zoom} cursor="nwse-resize" />
-							<rect data-id="9" x={cropRect.x + cropRect.width - 6 / zoom} y={cropRect.y - 6 / zoom} width={12 / zoom} height={12 / zoom}
-								fill="white" stroke="#ef4444" stroke-width={1 / zoom} cursor="nesw-resize" />
-							<rect data-id="6" x={cropRect.x - 6 / zoom} y={cropRect.y + cropRect.height - 6 / zoom} width={12 / zoom} height={12 / zoom}
-								fill="white" stroke="#ef4444" stroke-width={1 / zoom} cursor="nesw-resize" />
-							<rect data-id="3" x={cropRect.x + cropRect.width - 6 / zoom} y={cropRect.y + cropRect.height - 6 / zoom} width={12 / zoom} height={12 / zoom}
-								fill="white" stroke="#ef4444" stroke-width={1 / zoom} cursor="nwse-resize" />
+								<!-- Resize handles: edges (invisible wide hit areas) -->
+								<rect data-id="1" x={cropRect.x + cropRect.width - 4 / zoom} y={cropRect.y} width={8 / zoom} height={cropRect.height}
+									fill="transparent" cursor="ew-resize" />
+								<rect data-id="2" x={cropRect.x} y={cropRect.y + cropRect.height - 4 / zoom} width={cropRect.width} height={8 / zoom}
+									fill="transparent" cursor="ns-resize" />
+								<rect data-id="4" x={cropRect.x - 4 / zoom} y={cropRect.y} width={8 / zoom} height={cropRect.height}
+									fill="transparent" cursor="ew-resize" />
+								<rect data-id="8" x={cropRect.x} y={cropRect.y - 4 / zoom} width={cropRect.width} height={8 / zoom}
+									fill="transparent" cursor="ns-resize" />
+
+								<!-- Corner handles (visible squares) -->
+								<rect data-id="12" x={cropRect.x - 6 / zoom} y={cropRect.y - 6 / zoom} width={12 / zoom} height={12 / zoom}
+									fill="white" stroke="#ef4444" stroke-width={1 / zoom} cursor="nwse-resize" />
+								<rect data-id="9" x={cropRect.x + cropRect.width - 6 / zoom} y={cropRect.y - 6 / zoom} width={12 / zoom} height={12 / zoom}
+									fill="white" stroke="#ef4444" stroke-width={1 / zoom} cursor="nesw-resize" />
+								<rect data-id="6" x={cropRect.x - 6 / zoom} y={cropRect.y + cropRect.height - 6 / zoom} width={12 / zoom} height={12 / zoom}
+									fill="white" stroke="#ef4444" stroke-width={1 / zoom} cursor="nesw-resize" />
+								<rect data-id="3" x={cropRect.x + cropRect.width - 6 / zoom} y={cropRect.y + cropRect.height - 6 / zoom} width={12 / zoom} height={12 / zoom}
+									fill="white" stroke="#ef4444" stroke-width={1 / zoom} cursor="nwse-resize" />
+							{/if}
 						</g>
 					{:else if hasCrop()}
 						<!-- Show saved crop outline faintly when not in crop tool -->

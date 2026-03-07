@@ -31,9 +31,14 @@
 
 <g class="dimension hover-line no-panzoom" {stroke} fill={stroke} stroke-width=1>
 	<marker id="arrowhead" fill="inherit" stroke="none" refX="20.4" refY="9" markerWidth="40.8" markerHeight="18" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M 1 1 L 21 9 L 1 16.8 L 6 9 z"></path></marker>
-	<line cursor=move {...dimension(0)} ></line>
-	<line cursor=move {...dimension(1)} ></line>
-	<line cursor=move {...dimension(2)}  marker-start="url(#arrowhead)" marker-end="url(#arrowhead)"></line>
+	<!-- Ghost lines for easier drag targeting (data-id=8 = move whole line) -->
+	<line {...dimension(0)} data-id=8 stroke="transparent" stroke-width=12 cursor=move></line>
+	<line {...dimension(1)} data-id=8 stroke="transparent" stroke-width=12 cursor=move></line>
+	<line {...dimension(2)} data-id=8 stroke="transparent" stroke-width=12 cursor=move></line>
+	<!-- Visible lines -->
+	<line cursor=move {...dimension(0)} pointer-events=none></line>
+	<line cursor=move {...dimension(1)} pointer-events=none></line>
+	<line cursor=move {...dimension(2)} marker-start="url(#arrowhead)" marker-end="url(#arrowhead)" pointer-events=none></line>
 	<text cursor=move {...text()} data-id=8 text-anchor=middle dominant-baseline=middle class="select-none">{size.distance}mm</text>
 	{#if selected}
 		{@const line=parts()}

@@ -69,3 +69,20 @@ Create a standalone PDF viewer that:
 
 ● The PdfViewer has been rewritten to the simple canvas approach based on import-sample/Viewer.svelte. It renders the PDF once at RENDER_SCALE = 2 and uses CSS transform: translate() scale() for all pan/zoom — no re-rendering on zoom, so no flickering
   or blurriness.
+
+
+ ## Implemented:
+
+  Three tools in the PDF viewer toolbar:
+
+  - Origin — Click anywhere on the drawing to place a crosshair marker. Shows coordinates in the toolbar. Red when active, blue when saved.
+  - Scale — Click and drag to draw a dimension line between two points. Drag handles to adjust endpoints and offset. Enter the real-world distance (mm) in the toolbar input, then Save computes the scale factor.
+  - Crop — Click and drag to define a crop rectangle. Resize via corner/edge handles. Dimmed overlay shows the excluded area. Reset button restores full page.
+
+  UX details:
+  - Tool buttons toggle on/off; only one active at a time
+  - Left-click interacts with the active tool; right/middle-click always pans
+  - Green dot indicators on toolbar buttons show which tools have saved data
+  - Save button highlights green when there are unsaved changes
+  - Escape deactivates the current tool (second Escape closes the viewer)
+  - All data persists per-page to Firestore (files/{id}.pages[pageNum].origin/scale/crop)

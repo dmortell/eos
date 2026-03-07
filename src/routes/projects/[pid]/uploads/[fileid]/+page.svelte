@@ -7,6 +7,7 @@
 	let fileDoc = $state(/** @type {any} */ (null));
 	let loading = $state(true);
 	let error = $state('');
+	let initialTool = new URLSearchParams(window.location.search).get('tool');
 
 	$effect(() => {
 		const pid = page.params.pid;
@@ -42,5 +43,5 @@
 		</div>
 	</div>
 {:else}
-	<PdfViewer url={fileDoc.url} name={fileDoc.name ?? fileDoc.id} {fileDoc} onclose={goBack} />
+	<PdfViewer url={fileDoc.url} name={fileDoc.name ?? fileDoc.id} bind:fileDoc {initialTool} onclose={goBack} />
 {/if}

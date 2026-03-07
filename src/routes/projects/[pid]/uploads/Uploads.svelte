@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Titlebar, Firestore } from '$lib'
 	import { Icon } from '$lib'
-	import { createUploadThing } from './upload-sample/uploader'
+	import { createUploadThing } from './uploader'
 	import { goto } from '$app/navigation'
 
 	interface FileDoc {
@@ -137,8 +137,9 @@
 		return { hasOrigin: !!p?.origin, hasScale: !!(p?.scale?.scale) }
 	}
 
-	function openFile(file: FileDoc) {
-		goto(`/projects/${projectId}/uploads/${encodeURIComponent(file.id)}`)
+	function openFile(file: FileDoc, tool?: string) {
+		const url = `/projects/${projectId}/uploads/${encodeURIComponent(file.id)}` + (tool ? `?tool=${tool}` : '')
+		goto(url)
 	}
 
 	function doDelete(file: FileDoc) {
@@ -240,9 +241,11 @@
 						<!-- Origin / Scale status -->
 						<div class="flex items-center gap-2">
 							{#if !status.hasOrigin}
-								<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200" title="Origin not set">No origin</span>
+								<button class="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 cursor-pointer"
+									title="Set origin" onclick={(e) => { e.stopPropagation(); openFile(file, 'origin') }}>No origin</button>
 							{:else if !status.hasScale}
-								<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200" title="Scale not set">No scale</span>
+								<button class="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 cursor-pointer"
+									title="Set scale" onclick={(e) => { e.stopPropagation(); openFile(file, 'scale') }}>No scale</button>
 							{:else}
 								<Icon name="check" class="h-3 w-3 text-green-500" />
 								<span class="text-[10px] text-green-600">Ready</span>
