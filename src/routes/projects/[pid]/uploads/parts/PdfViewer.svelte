@@ -2,7 +2,7 @@
 	import { tick } from 'svelte'
 	import { onMount, onDestroy } from 'svelte'
 	import { Icon, Firestore, Titlebar } from '$lib'
-	import { PdfState } from './PdfState.svelte'
+	import { PdfState } from './PdfState.svelte.ts'
 	import DimensionLine from './DimensionLine.svelte'
 	import { dragDimension, isHorizontal } from './DimensionLine.ts'
 

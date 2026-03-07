@@ -618,9 +618,7 @@
 		<!-- Sidebar -->
 		<Pane defaultSize={20} minSize={15} maxSize={35}>
 			<div class="h-full overflow-y-auto border-r border-gray-200 print:hidden">
-				<RackList {racks} {rows} {activeRowId}
-					onadd={addRack} onselect={selectRack} ondelete={deleteRack} onaddrow={addRow} />
-
+				<RackList {racks} {rows} {activeRowId} onadd={addRack} onselect={selectRack} ondelete={deleteRack} onaddrow={addRow} />
 				<DevicePalette {library} onadd={addDevice} ondragstart={onPaletteDragStart} oncustomadd={addCustomTemplate} />
 			</div>
 		</Pane>
@@ -772,7 +770,7 @@
 		<div class="flex-1"></div>
 		<div class="flex items-center gap-4 px-3 text-[10px] text-gray-400">
 			{#if innerWidth > 1200}
-				<span class="text-gray-300">Ctrl+Scroll to zoom · Right-drag to pan</span>
+				<span class="text-gray-500">Ctrl+Scroll to zoom · Right-drag to pan</span>
 			{/if}
 			<span>{activeRacks.length} rack{activeRacks.length !== 1 ? 's' : ''} · {devices.length} device{devices.length !== 1 ? 's' : ''}</span>
 			<span>Zoom: {Math.round(view.zoom * 100)}%</span>

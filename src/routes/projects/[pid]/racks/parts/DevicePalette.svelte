@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Icon, Search } from '$lib'
+    import { slide } from 'svelte/transition';
 	import { DEFAULT_PALETTE } from './constants'
 	import type { DeviceTemplate } from './types'
 
@@ -49,14 +50,14 @@
 <div class="space-y-2 p-2">
 	<!-- Custom Device Builder -->
 	<div class="space-y-1">
-		<button class="flex items-center justify-between w-full text-[10px] font-semibold text-gray-500 uppercase tracking-wider"
-			onclick={() => builderOpen = !builderOpen}>
+
+		<div class="flex items-center justify-between gap-2 xxmb-2 text-gray-500 text-[10px] uppercase tracking-wider">
 			<span class="flex items-center gap-1"><Icon name="box" size={11} /> Custom Device Builder</span>
-			<Icon name={builderOpen ? 'chevronUp' : 'chevronDown'} size={12} />
-		</button>
+			<button onclick={e=>{builderOpen = !builderOpen}} class={['transition p-1 rounded hover:bg-slate-200', builderOpen && "rotate-180"]} ><Icon name="edit" size={12} /></button>
+		</div>
 
 		{#if builderOpen}
-			<div class="grid grid-cols-2 gap-1 gap-x-2 text-xs">
+			<div class="grid grid-cols-2 gap-1 gap-x-2 text-xs" transition:slide>
 				<label class="text-[10px] text-gray-500">Label
 					<input class="w-full h-6 px-1 border border-gray-300 rounded text-xs" bind:value={custom.label} />
 				</label>
@@ -91,7 +92,7 @@
 	</div>
 
 	<!-- Search -->
-	<div><Search bind:value={query} /></div>
+	<div><Search bind:value={query} class="text-sm"/></div>
 
 	<!-- Palette -->
 	<div class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1 flex gap-1">

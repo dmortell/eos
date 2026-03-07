@@ -16,5 +16,4 @@ export function dragDimension(size, handle, next){
     size.distance = isHorizontal(size)
       ? (abs(size.x2 - size.x1) * scale).toFixed(1)
       : (abs(size.y2 - size.y1) * scale).toFixed(1)
-
 }

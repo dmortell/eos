@@ -241,7 +241,7 @@
 	{/if}
 
 	<!-- File list -->
-	<div class="flex-1 overflow-y-auto p-4">
+	<div class="flex-1 overflow-y-auto py-4 px-1">
 		{#if files.length === 0 && !uploading}
 			<div class="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
 				<Icon name="upload" class="h-10 w-10 text-gray-300" />
@@ -258,7 +258,7 @@
 						<span class="text-gray-400 font-normal">{group.files.length} file{group.files.length !== 1 ? 's' : ''} ({formatSize(groupSize(group.files))})</span>
 					</summary>
 
-					<div class="space-y-0.5 mt-1">
+					<div class="space-y-0.5 mt-1 ml-4">
 						<!-- Header -->
 						<div class="grid grid-cols-[1fr_70px_45px_120px_100px_32px] gap-2 px-3 py-1 text-[10px] text-gray-400 uppercase tracking-wider font-medium">
 							<span>Name</span>

@@ -1,6 +1,6 @@
 <script>
-	import { isHorizontal, dragDimension } from './DimensionLine.ts'
 	let {size={}, selected=false,stroke='black'} = $props();
+	import { isHorizontal, dragDimension } from './DimensionLine.ts'
 	let {abs} = Math
 
 	function parts(){

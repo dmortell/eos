@@ -30,4 +30,4 @@ implementation.md
 src/routes/projects/\[pid]/uploads/upload-sample
 src/routes/projects/\[pid]/uploads/pdf-viewer-sample
 src/routes/projects/\[pid]/uploads/Uploads.svelte
-# static/*.pdf
+static/*.pdf

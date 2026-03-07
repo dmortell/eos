@@ -20,13 +20,14 @@
 
 <div class="p-4 bg-white dark:bg-black space-y-1">
 	<div class="font-semibold">{project.name}</div>
-	<div class="text-muted-foreground">{project.description}</div>
+	<div class="text-muted-foreground text-sm">{project.description}</div>
 	<hr/>
 	<div class="text-muted-foreground mt-2 py-1">Tools</div>
 	<ul class="text-sm space-y-1 ml-2">
 		<li><a href="{path}/racks">Rack Elevations</a> - manage server rooms, racks and devices</li>
 		<li><a href="{path}/frames">Patch Frames</a> - allocate outlet ports to patch frames</li>
 		<li><a href="{path}/uploads">Floorplan Uploads</a> - upload and manage floorplans</li>
+		<li><a href="{path}/outlets">Outlets</a> - manage floorplan outlets</li>
 	</ul>
 	<!-- <a href="{path}/docs">Proposals</a>, -->
 	<!-- <div>BOM, Quotes, Invoices, RFPs </div>
