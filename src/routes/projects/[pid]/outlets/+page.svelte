@@ -20,7 +20,12 @@
 		if (!pid) return;
 		const unsub = db.subscribeOne('projects', pid, data => {
 			if (data?.name) projectName = /** @type {string} */ (data.name);
-			if (Array.isArray(data?.floors) && data.floors.length) floors = data.floors;
+			if (Array.isArray(data?.floors) && data.floors.length) {
+				floors = data.floors;
+				if (!data.floors.find(/** @param {any} f */ f => f.number === activeFloor)) {
+					activeFloor = data.floors[0].number;
+				}
+			}
 		});
 		return () => { unsub?.(); };
 	});

@@ -5,9 +5,10 @@
 	import type { OutletConfig, PageCalibration, Point, ToolMode } from './types'
 	import { OUTLET_RADIUS_MM, USAGE_COLORS } from './constants'
 
-	let { file, page = 1, calibration, outlets, selectedIds, activeTool, toPx, toMm, onadd, onselect, onclear, onmove, onmoveend, ondelete }: {
+	let { file, page = 1, viewKey = '', calibration, outlets, selectedIds, activeTool, toPx, toMm, onadd, onselect, onclear, onmove, onmoveend, ondelete }: {
 		file: any
 		page: number
+		viewKey?: string
 		calibration: PageCalibration | null
 		outlets: OutletConfig[]
 		selectedIds: Set<string>
@@ -32,6 +33,38 @@
 	let zoom = $state(1)
 	let panning = $state(false)
 	let grayscale = $state(true)
+	let viewRestored = false
+
+	function viewStorageKey() { return viewKey ? `outlets-view:${viewKey}` : '' }
+
+	function saveView() {
+		const key = viewStorageKey()
+		if (!key) return
+		try { localStorage.setItem(key, JSON.stringify({ vx, vy, zoom, grayscale })) } catch {}
+	}
+
+	function restoreView(): boolean {
+		const key = viewStorageKey()
+		if (!key) return false
+		try {
+			const raw = localStorage.getItem(key)
+			if (!raw) return false
+			const v = JSON.parse(raw)
+			if (typeof v.vx === 'number') { vx = v.vx; vy = v.vy; zoom = v.zoom }
+			if (typeof v.grayscale === 'boolean') grayscale = v.grayscale
+			return true
+		} catch { return false }
+	}
+
+	// Persist view changes (debounced)
+	let viewSaveTimer: ReturnType<typeof setTimeout> | null = null
+	$effect(() => {
+		// Touch reactive deps
+		void vx; void vy; void zoom; void grayscale
+		if (!viewRestored) return
+		if (viewSaveTimer) clearTimeout(viewSaveTimer)
+		viewSaveTimer = setTimeout(saveView, 500)
+	})
 
 	// Page dimensions at RENDER_SCALE
 	let pageW = $state(0)
@@ -55,12 +88,18 @@
 	// Track current file URL to detect changes
 	let currentUrl = ''
 
-	onMount(() => {
-		containerEl?.addEventListener('wheel', onWheel, { passive: false })
+	// Attach wheel listener when container becomes available (may be conditional)
+	let prevContainer: HTMLDivElement | null = null
+	$effect(() => {
+		if (containerEl && containerEl !== prevContainer) {
+			prevContainer?.removeEventListener('wheel', onWheel)
+			containerEl.addEventListener('wheel', onWheel, { passive: false })
+			prevContainer = containerEl
+		}
 	})
 
 	onDestroy(() => {
-		containerEl?.removeEventListener('wheel', onWheel)
+		prevContainer?.removeEventListener('wheel', onWheel)
 		pdf?.destroy()
 	})
 
@@ -93,9 +132,10 @@
 		if (!pdf?.pdfDoc || !canvasEl) return
 		if (p < 1 || p > pdf.totalPages) return
 		const dims = await pdf.getPageDimensions(p)
-		pageW = dims.width
-		pageH = dims.height
-		fitToView()
+		pageW = Math.floor(dims.width)
+		pageH = Math.floor(dims.height)
+		if (!restoreView()) fitToView()
+		viewRestored = true
 		await tick()
 		await pdf.render({ canvas: canvasEl, page: p, scale: RENDER_SCALE })
 	}
@@ -122,14 +162,19 @@
 	/** Outlet radius in PDF pixels (fixed mm size) */
 	let radiusPx = $derived(calibration ? OUTLET_RADIUS_MM / calibration.scaleFactor : 10)
 
+	/** Crop rect in PDF pixels, or full page if no crop */
+	let crop = $derived(calibration?.crop ?? { x: 0, y: 0, width: pageW, height: pageH })
+
 	// ── View controls ──
 
 	function fitToView() {
 		if (!pageW || !pageH) return
+		const c = calibration?.crop ?? { x: 0, y: 0, width: pageW, height: pageH }
+		if (!c.width || !c.height) return
 		const pad = 40
-		zoom = Math.min((cw - pad) / pageW, (ch - pad) / pageH, 4)
-		vx = (cw - pageW * zoom) / 2
-		vy = (ch - pageH * zoom) / 2
+		zoom = Math.min((cw - pad) / c.width, (ch - pad) / c.height, 4)
+		vx = (cw - c.width * zoom) / 2 - c.x * zoom
+		vy = (ch - c.height * zoom) / 2 - c.y * zoom
 	}
 
 	function onWheel(e: WheelEvent) {
@@ -441,8 +486,17 @@
 		ontouchend={onTouchEnd}>
 
 		<div style:transform="translate({vx}px, {vy}px) scale({zoom})" style:transform-origin="0 0" class="relative">
-			<!-- PDF canvas -->
-			<canvas bind:this={canvasEl} class="shadow-lg will-change-transform" style:filter={grayscale ? 'grayscale(0.8)' : 'none'}></canvas>
+			<!-- PDF canvas with optional crop -->
+			<div class="shadow-lg" style:overflow={calibration?.crop ? 'hidden' : undefined}
+				style:width={calibration?.crop ? `${crop.width}px` : undefined}
+				style:height={calibration?.crop ? `${crop.height}px` : undefined}
+				style:position={calibration?.crop ? 'relative' : undefined}
+				style:left={calibration?.crop ? `${crop.x}px` : undefined}
+				style:top={calibration?.crop ? `${crop.y}px` : undefined}>
+				<canvas bind:this={canvasEl} class="will-change-transform" style:filter={grayscale ? 'grayscale(0.8)' : 'none'}
+					style:margin-left={calibration?.crop ? `-${crop.x}px` : undefined}
+					style:margin-top={calibration?.crop ? `-${crop.y}px` : undefined}></canvas>
+			</div>
 
 			<!-- SVG overlay -->
 			<svg class="absolute top-0 left-0 pointer-events-none" width={pageW} height={pageH} style:overflow="visible">

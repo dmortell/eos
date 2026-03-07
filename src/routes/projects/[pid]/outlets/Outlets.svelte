@@ -294,6 +294,7 @@
 <PaneGroup direction="horizontal" class="flex-1 min-h-0">
 	<!-- Sidebar -->
 	<Pane defaultSize={20} minSize={15} maxSize={35}>
+
 		<div class="h-full border-r border-gray-200">
 			<OutletPalette
 				{projectFiles}
@@ -330,6 +331,7 @@
 				<OutletCanvas
 					file={selectedFile}
 					page={selectedPage}
+					viewKey={`${projectId}_F${floor}_${selectedFileId}_${selectedPage}`}
 					{calibration}
 					{outlets}
 					{selectedIds}

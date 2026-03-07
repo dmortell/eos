@@ -30,22 +30,22 @@
 
 	let activeProjects = $derived.by(() => {
 		let filtered = projects.filter(p => !p.deleted)
-		
+
 		// Filter by ownership
 		if (showOnlyMine) {
 			const uid = session?.user?.uid
 			filtered = filtered.filter(p => p.ownerId === uid)
 		}
-		
+
 		// Filter by search query
 		if (searchQuery.trim()) {
 			const q = searchQuery.toLowerCase()
-			filtered = filtered.filter(p => 
-				p.name.toLowerCase().includes(q) || 
+			filtered = filtered.filter(p =>
+				p.name.toLowerCase().includes(q) ||
 				(p.description && p.description.toLowerCase().includes(q))
 			)
 		}
-		
+
 		return filtered
 	})
 	let trashedProjects = $derived.by(() => projects.filter(p => p.deleted))
@@ -150,32 +150,36 @@
 </script>
 
 <div class="p-2">
-	<div class="flex items-center justify-between mb-2">
+	<div class="flex items-center justify-between mb-2 gap-2">
 		<h1 class="text-sm font-semibold">Projects</h1>
-		<Button icon="plus" variant="primary" class="text-xs px-2 py-0.5" onclick={openCreate}>New Project</Button>
-	</div>
-
-	<div class="flex items-center gap-2 mb-2">
-		<input 
-			type="text" 
-			class="flex-1 border rounded px-2 py-1 text-xs" 
-			placeholder="Search projects..." 
-			bind:value={searchQuery}
-		/>
-		<label class="flex items-center gap-1.5 text-xs cursor-pointer select-none whitespace-nowrap">
-			<input 
-				type="checkbox" 
-				class="rounded" 
-				bind:checked={showOnlyMine}
+		<div class="flex items-center gap-2 flex-1 max-w-md">
+			<input
+				type="text"
+				class="flex-1 border rounded px-2 py-1 text-xs"
+				placeholder="Search projects..."
+				bind:value={searchQuery}
 			/>
-			<span>My Projects</span>
-		</label>
+			<label class="text-xs flex items-center gap-1 border rounded px-2 py-0.5 bg-white whitespace-nowrap">
+				<input
+					type="checkbox"
+					bind:checked={showOnlyMine}
+				/>
+				<span>My Projects</span>
+			</label>
+			<Button icon="plus" variant="primary" class="text-xs px-2 py-0.5" onclick={openCreate}>New Project</Button>
+		</div>
 	</div>
 
 	{#if loading}
 		<div class="text-xs text-gray-500">Loading projects...</div>
 	{:else if activeProjects.length===0}
-		<div class="text-xs text-gray-500">No active projects</div>
+		<div class="text-xs text-gray-500">
+			{#if searchQuery.trim() || showOnlyMine}
+				No projects match your filters
+			{:else}
+				No active projects
+			{/if}
+		</div>
 	{:else}
 		<div class="border rounded bg-white divide-y divide-gray-100">
 		{#each activeProjects as project}
