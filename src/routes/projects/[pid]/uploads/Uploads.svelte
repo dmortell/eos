@@ -10,6 +10,8 @@
 		url?: string
 		key?: string
 		size?: number
+		pageCount?: number
+		projectId?: string
 		uploadedAt?: any
 		updatedAt?: any
 		pages?: Record<number, PageInfo>
@@ -37,11 +39,49 @@
 	let uploadError = $state('')
 	let dragOver = $state(false)
 
+	// Fetch project names for grouping
+	let projects = $state<Record<string, string>>({})
+	$effect(() => {
+		const unsub = db.subscribeMany('projects', data => {
+			const map: Record<string, string> = {}
+			for (const p of data) if (p.id && p.name) map[p.id as string] = p.name as string
+			projects = map
+		})
+		return () => { unsub?.() }
+	})
+
 	let filtered = $derived(
 		files
 			.filter(f => !search || (f.name ?? f.id).toLowerCase().includes(search.toLowerCase()))
 			.sort((a, b) => (a.name ?? a.id).localeCompare(b.name ?? b.id))
 	)
+
+	let totalSize = $derived(filtered.reduce((sum, f) => sum + (f.size ?? 0), 0))
+
+	// Group filtered files by projectId
+	let grouped = $derived.by(() => {
+		const groups: { pid: string; name: string; files: FileDoc[] }[] = []
+		const map = new Map<string, FileDoc[]>()
+		for (const f of filtered) {
+			const pid = (f.projectId as string) || ''
+			if (!map.has(pid)) map.set(pid, [])
+			map.get(pid)!.push(f)
+		}
+		// Current project first, then others alphabetically
+		if (map.has(projectId)) {
+			groups.push({ pid: projectId, name: projects[projectId] || projectName || projectId, files: map.get(projectId)! })
+			map.delete(projectId)
+		}
+		const rest = [...map.entries()].sort((a, b) => {
+			const nameA = projects[a[0]] || a[0] || 'Unassigned'
+			const nameB = projects[b[0]] || b[0] || 'Unassigned'
+			return nameA.localeCompare(nameB)
+		})
+		for (const [pid, files] of rest) {
+			groups.push({ pid, name: projects[pid] || pid || 'Unassigned', files })
+		}
+		return groups
+	})
 
 	// UploadThing
 	const { startUpload } = createUploadThing('floorplanUploader', {
@@ -146,6 +186,10 @@
 		confirmingDelete = null
 		ondelete?.(file.id, file.key)
 	}
+
+	function groupSize(files: FileDoc[]): number {
+		return files.reduce((sum, f) => sum + (f.size ?? 0), 0)
+	}
 </script>
 
 <Titlebar title={projectName ? `${projectName} — Uploads` : 'Uploads'} />
@@ -160,7 +204,7 @@
 	<div class="flex items-center gap-3 px-4 py-2 bg-white border-b border-gray-200">
 		<div class="flex items-center gap-2 flex-1">
 			<Icon name="fileText" class="h-4 w-4 text-gray-400" />
-			<span class="text-xs text-gray-500 font-medium">{filtered.length} file{filtered.length !== 1 ? 's' : ''}</span>
+			<span class="text-xs text-gray-500 font-medium">{filtered.length} file{filtered.length !== 1 ? 's' : ''} ({formatSize(totalSize)})</span>
 		</div>
 		{#if files.length > 5}
 			<input type="text" bind:value={search} placeholder="Filter files..."
@@ -200,80 +244,94 @@
 			<div class="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
 				<Icon name="upload" class="h-10 w-10 text-gray-300" />
 				<p class="text-sm">No files uploaded yet</p>
-				<p class="text-xs text-gray-400">Drop PDF floorplans here or click Upload</p>
+				<p class="text-xs text-gray-400">Drop PDF floorplans here, or click Upload</p>
 			</div>
 		{:else if filtered.length === 0}
 			<p class="text-xs text-gray-400 text-center py-8">No files match "{search}"</p>
 		{:else}
-			<div class="space-y-0.5">
-				<!-- Header -->
-				<div class="grid grid-cols-[1fr_70px_120px_100px_32px] gap-2 px-3 py-1 text-[10px] text-gray-400 uppercase tracking-wider font-medium">
-					<span>Name</span>
-					<span>Size</span>
-					<span>Status</span>
-					<span>Uploaded</span>
-					<span></span>
-				</div>
+			{#each grouped as group (group.pid)}
+				<details open={group.pid === projectId} class="mb-2">
+					<summary class="flex items-center gap-2 px-3 py-1.5 cursor-pointer select-none rounded hover:bg-gray-100 text-xs font-medium text-gray-600">
+						<Icon name="folder" size={13} class="text-gray-400" />
+						{group.name}
+						<span class="text-gray-400 font-normal">{group.files.length} file{group.files.length !== 1 ? 's' : ''} ({formatSize(groupSize(group.files))})</span>
+					</summary>
 
-				{#each filtered as file (file.id)}
-					{@const status = fileStatus(file)}
-					<div class="grid grid-cols-[1fr_70px_120px_100px_32px] gap-2 items-center px-3 py-1 rounded bg-white border border-gray-100 hover:border-gray-200 transition-colors">
-						<!-- Name -->
-						<div class="flex items-center gap-2 min-w-0">
-							<Icon name="fileText" class="h-3.5 w-3.5 text-gray-400 shrink-0" />
-							<div class="min-w-0">
-								{#if file.url}
-									<button
-										class="text-xs text-gray-700 hover:text-blue-600 truncate block text-left cursor-pointer"
-										title={file.name ?? file.id}
-										onclick={() => openFile(file)}>
-										{file.name ?? file.id}
-									</button>
-								{:else}
-									<span class="text-xs text-gray-700 truncate block">{file.name ?? file.id}</span>
-								{/if}
-							</div>
+					<div class="space-y-0.5 mt-1">
+						<!-- Header -->
+						<div class="grid grid-cols-[1fr_70px_45px_120px_100px_32px] gap-2 px-3 py-1 text-[10px] text-gray-400 uppercase tracking-wider font-medium">
+							<span>Name</span>
+							<span>Size</span>
+							<span>Pg</span>
+							<span>Status</span>
+							<span>Uploaded</span>
+							<span></span>
 						</div>
 
-						<!-- Size -->
-						<span class="text-[11px] text-gray-500 tabular-nums">{formatSize(file.size)}</span>
-
-						<!-- Origin / Scale status -->
-						<div class="flex items-center gap-2">
-							{#if !status.hasOrigin}
-								<button class="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 cursor-pointer"
-									title="Set origin" onclick={(e) => { e.stopPropagation(); openFile(file, 'origin') }}>No origin</button>
-							{:else if !status.hasScale}
-								<button class="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 cursor-pointer"
-									title="Set scale" onclick={(e) => { e.stopPropagation(); openFile(file, 'scale') }}>No scale</button>
-							{:else}
-								<Icon name="check" class="h-3 w-3 text-green-500" />
-								<span class="text-[10px] text-green-600">Ready</span>
-							{/if}
-						</div>
-
-						<!-- Date -->
-						<span class="text-[11px] text-gray-500">{formatDate(file.uploadedAt ?? file.updatedAt)}</span>
-
-						<!-- Delete -->
-						<div class="flex justify-end">
-							{#if confirmingDelete === file.id}
-								<div class="flex items-center gap-1">
-									<button class="px-1.5 py-0.5 bg-red-600 text-white rounded text-[10px] hover:bg-red-700" onclick={() => doDelete(file)}>Yes</button>
-									<button class="px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded text-[10px] hover:bg-gray-300" onclick={() => confirmingDelete = null}>No</button>
+						{#each group.files as file (file.id)}
+							{@const status = fileStatus(file)}
+							<div class="grid grid-cols-[1fr_70px_45px_120px_100px_32px] gap-2 items-center px-3 py-1 rounded bg-white border border-gray-100 hover:border-gray-200 transition-colors">
+								<!-- Name -->
+								<div class="flex items-center gap-2 min-w-0">
+									<Icon name="fileText" class="h-3.5 w-3.5 text-gray-400 shrink-0" />
+									<div class="min-w-0">
+										{#if file.url}
+											<button
+												class="text-xs text-gray-700 hover:text-blue-600 truncate block text-left cursor-pointer"
+												title={file.name ?? file.id}
+												onclick={() => openFile(file)}>
+												{file.name ?? file.id}
+											</button>
+										{:else}
+											<span class="text-xs text-gray-700 truncate block">{file.name ?? file.id}</span>
+										{/if}
+									</div>
 								</div>
-							{:else}
-								<button
-									class="text-gray-300 hover:text-red-500 transition-colors"
-									title="Delete file"
-									onclick={() => confirmingDelete = file.id}>
-									<Icon name="trash" class="h-3.5 w-3.5" />
-								</button>
-							{/if}
-						</div>
+
+								<!-- Size -->
+								<span class="text-[11px] text-gray-500 tabular-nums">{formatSize(file.size)}</span>
+
+								<!-- Pages -->
+								<span class="text-[11px] text-gray-500 tabular-nums">{file.pageCount ?? '—'}</span>
+
+								<!-- Origin / Scale status -->
+								<div class="flex items-center gap-2">
+									{#if !status.hasOrigin}
+										<button class="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 cursor-pointer"
+											title="Set origin" onclick={(e) => { e.stopPropagation(); openFile(file, 'origin') }}>Set origin</button>
+									{:else if !status.hasScale}
+										<button class="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 cursor-pointer"
+											title="Set scale" onclick={(e) => { e.stopPropagation(); openFile(file, 'scale') }}>Set scale</button>
+									{:else}
+										<Icon name="check" class="h-3 w-3 text-green-500" />
+										<span class="text-[10px] text-green-600">Ready</span>
+									{/if}
+								</div>
+
+								<!-- Date -->
+								<span class="text-[11px] text-gray-500">{formatDate(file.uploadedAt ?? file.updatedAt)}</span>
+
+								<!-- Delete -->
+								<div class="flex justify-end">
+									{#if confirmingDelete === file.id}
+										<div class="flex items-center gap-1">
+											<button class="px-1.5 py-0.5 bg-red-600 text-white rounded text-[10px] hover:bg-red-700" onclick={() => doDelete(file)}>Yes</button>
+											<button class="px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded text-[10px] hover:bg-gray-300" onclick={() => confirmingDelete = null}>No</button>
+										</div>
+									{:else}
+										<button
+											class="text-gray-300 hover:text-red-500 transition-colors"
+											title="Delete file"
+											onclick={() => confirmingDelete = file.id}>
+											<Icon name="trash" class="h-3.5 w-3.5" />
+										</button>
+									{/if}
+								</div>
+							</div>
+						{/each}
 					</div>
-				{/each}
-			</div>
+				</details>
+			{/each}
 		{/if}
 	</div>
 </div>

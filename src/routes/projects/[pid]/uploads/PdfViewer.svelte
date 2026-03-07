@@ -78,6 +78,10 @@
 			pdf = new PdfState()
 			await pdf.load(url)
 			totalPages = pdf.totalPages
+			if (fileDoc?.id && fileDoc.pageCount !== totalPages) {
+				fileDoc.pageCount = totalPages
+				db.save('files', { id: fileDoc.id, pageCount: totalPages })
+			}
 			const dims = await pdf.getPageDimensions(1)
 			pageW = dims.width
 			pageH = dims.height

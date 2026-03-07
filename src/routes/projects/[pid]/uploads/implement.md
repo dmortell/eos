@@ -50,6 +50,9 @@ Here's a summary of what was created:
     - "Ready" (green check) — both origin and scale configured
   3. Delete button — Already made permanently visible in previous edit.
 
+  - Pages column — shows the PDF page count (populated when a file is first opened in the viewer)
+  - Total size — shown next to the file count in the toolbar, e.g. "3 files (12.4 MB)"
+  - The "Set origin" and "Set scale" badges are now buttons — clicking them opens the viewer with the corresponding tool already active.
 
 Create a standalone PDF viewer that:
 
@@ -86,3 +89,6 @@ Create a standalone PDF viewer that:
   - Save button highlights green when there are unsaved changes
   - Escape deactivates the current tool (second Escape closes the viewer)
   - All data persists per-page to Firestore (files/{id}.pages[pageNum].origin/scale/crop)
+  - Added a grayscale toggle button
+  - Dimension line: Ghost lines now use data-id=8 so dragging any line segment moves the whole shape (not just an endpoint). Endpoint handles still work for adjusting individual points.
+  - Crop: No longer defaults to full-page rect. Starts empty — click-drag on the canvas draws a new crop rect. Once drawn, the interior is draggable (move cursor), edges/corners resize, and Clear removes it.

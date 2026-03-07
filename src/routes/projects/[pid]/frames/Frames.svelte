@@ -1,6 +1,8 @@
 <script lang="ts">
-	import { Button, Icon } from '$lib'
 	import type { ZoneConfig, LocationConfig, FrameConfig, RackData, PortLabel } from './parts/types'
+	import type { ChangeDetail } from '$lib/logger'
+	import { Button, Icon, Titlebar } from '$lib'
+	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
 	import { generatePortLabels, generateRacks } from './parts/engine'
 	import { exportToExcel } from './parts/exportExcel'
 	import ConfigPanel from './parts/ConfigPanel.svelte'
@@ -10,10 +12,6 @@
 	import SettingsDialog from './parts/SettingsDialog.svelte'
 	import LogsDialog from './parts/LogsDialog.svelte'
 	import FloorManagerDialog, { type FloorConfig } from '$lib/components/FloorManagerDialog.svelte'
-	import Titlebar from '$lib/Titlebar.svelte'
-	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
-
-	import type { ChangeDetail } from '$lib/logger'
 
 	let { data = null, racksData = {}, floor, floors = [], projectId = '', projectName = '', onsave, onfloorchange, onupdatefloors, ondeletefloor }: {
 		data?: any
@@ -27,24 +25,6 @@
 		onupdatefloors?: (floors: FloorConfig[]) => void
 		ondeletefloor?: (floor: number) => void
 	} = $props()
-
-	// ── Migrate from old single-zone format ──
-	function migrateData(d: any): { serverRoomCount: number; zoneLocations: Record<string, LocationConfig[]> } {
-		if (d?.zoneLocations) {
-			return { serverRoomCount: d.serverRoomCount ?? 1, zoneLocations: d.zoneLocations }
-		}
-		// Old format: single zone object or zones array
-		const zone = d?.zones?.[0] ?? d?.zone
-		if (zone) {
-			return {
-				serverRoomCount: zone.serverRoomCount ?? 1,
-				zoneLocations: { [zone.zone ?? 'A']: zone.locations ?? [] }
-			}
-		}
-		return { serverRoomCount: 1, zoneLocations: {} }
-	}
-
-	const migrated = migrateData(data)
 
 	/** Derive FrameConfig[] from Racks tool data. Falls back to legacy frames if no racks data. */
 	function deriveFramesFromRacks(rData: Record<string, any>, legacyFrames?: FrameConfig[]): FrameConfig[] {
@@ -93,12 +73,11 @@
 	}
 
 	// ── State: global settings ──
-	// serverRoomCount is derived from project-level floors config, with fallback to migrated data
-	let serverRoomCount = $derived(floors.find(f => f.number === floor)?.serverRoomCount ?? migrated.serverRoomCount)
+	let serverRoomCount = $derived(floors.find(f => f.number === floor)?.serverRoomCount ?? data?.serverRoomCount ?? 1)
 
 	// ── State: per-zone locations keyed by zone letter ──
-	let zoneLocations = $state<Record<string, LocationConfig[]>>(migrated.zoneLocations)
-	let activeZone = $state<string>(Object.keys(migrated.zoneLocations)[0] ?? 'A')
+	let zoneLocations = $state<Record<string, LocationConfig[]>>(data?.zoneLocations ?? {})
+	let activeZone = $state<string>(Object.keys(data?.zoneLocations ?? {})[0] ?? 'A')
 
 	// ── Frames derived from Racks tool data (read-only) ──
 	// Falls back to legacy data.frames if no racks data exists yet
