@@ -59,4 +59,5 @@ export interface OutletsData {
 	selectedFileId?: string
 	selectedPage?: number
 	activeZone?: string
+	legendPos?: Point
 }

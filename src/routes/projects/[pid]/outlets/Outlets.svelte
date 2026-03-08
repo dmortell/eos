@@ -38,6 +38,7 @@
 	let selectedFileId = $state<string>(data?.selectedFileId ?? '')
 	let selectedPage = $state<number>(data?.selectedPage ?? 1)
 	let activeZone = $state<string>(data?.activeZone ?? 'A')
+	let legendPos = $state<{ x: number; y: number }>(data?.legendPos ?? { x: 12, y: 12 })
 	let activeTool = $state<ToolMode>('select')
 	let selectedIds = $state<Set<string>>(new Set())
 	let selectedRackIds = $state<Set<string>>(new Set())
@@ -75,6 +76,8 @@
 		color: string      // derived from room
 		trunkId: string    // which trunk this connects to
 		cableCount: number // number of cables for this room from this outlet
+		entrySegNodeIds: [string, string]  // segment node IDs where cables enter trunk
+		entryT: number     // parametric position on entry segment (0-1)
 	}
 
 	const ROOM_ROUTE_COLORS: Record<string, string> = {
@@ -91,12 +94,19 @@
 		cat6a: 9, cat6: 7, cat5e: 6, 'fiber-sm': 3, 'fiber-mm': 3,
 	}
 
+	/** Whether a trunk location is high-level (ceiling) */
+	function isTrunkHigh(location: string): boolean {
+		return location === 'ceiling-plenum' || location === 'ceiling-tray'
+	}
+
 	let secondaryRoutes = $derived.by(() => {
 		if (trunks.length === 0 || outlets.length === 0) return []
-		// Pre-build segment list per room, with trunk ID
-		interface TrunkSeg { a: Point; b: Point; trunkId: string }
-		const segsByRoom = new Map<string, TrunkSeg[]>()
-		const allSegs: TrunkSeg[] = []
+		// Pre-build segment list per room+level, with trunk ID and segment node IDs
+		interface TrunkSeg { a: Point; b: Point; trunkId: string; nodeIds: [string, string] }
+		// Key: "room:level" where level is 'high' or 'low'
+		const segsByRoomLevel = new Map<string, TrunkSeg[]>()
+		const highSegs: TrunkSeg[] = []
+		const lowSegs: TrunkSeg[] = []
 		for (const trunk of trunks) {
 			if (trunk.visible === false) continue
 			const nodeMap = new Map(trunk.nodes.map(n => [n.id, n.position]))
@@ -104,30 +114,33 @@
 			for (const seg of trunk.segments) {
 				const a = nodeMap.get(seg.nodes[0])
 				const b = nodeMap.get(seg.nodes[1])
-				if (a && b) segs.push({ a, b, trunkId: trunk.id })
+				if (a && b) segs.push({ a, b, trunkId: trunk.id, nodeIds: seg.nodes })
 			}
-			allSegs.push(...segs)
+			const level = isTrunkHigh(trunk.location) ? 'high' : 'low'
+			if (level === 'high') highSegs.push(...segs)
+			else lowSegs.push(...segs)
 			for (const room of trunk.rooms ?? []) {
-				const existing = segsByRoom.get(room) ?? []
+				const key = `${room}:${level}`
+				const existing = segsByRoomLevel.get(key) ?? []
 				existing.push(...segs)
-				segsByRoom.set(room, existing)
+				segsByRoomLevel.set(key, existing)
 			}
 		}
-		if (allSegs.length === 0) return []
+		if (highSegs.length === 0 && lowSegs.length === 0) return []
 
-		const findNearest = (pos: Point, segs: TrunkSeg[]): { point: Point; trunkId: string } | null => {
+		const findNearest = (pos: Point, segs: TrunkSeg[]): { point: Point; trunkId: string; segNodeIds: [string, string]; t: number } | null => {
+			if (segs.length === 0) return null
 			let bestDist = Infinity
-			let best: { point: Point; trunkId: string } | null = null
+			let best: { point: Point; trunkId: string; segNodeIds: [string, string]; t: number } | null = null
 			for (const seg of segs) {
 				const result = nearestPointOnSegment(pos, seg.a, seg.b)
-				if (result.dist < bestDist) { bestDist = result.dist; best = { point: result.point, trunkId: seg.trunkId } }
+				if (result.dist < bestDist) { bestDist = result.dist; best = { point: result.point, trunkId: seg.trunkId, segNodeIds: seg.nodeIds, t: result.t } }
 			}
 			return best
 		}
 
 		const routes: SecondaryRoute[] = []
 		for (const outlet of outlets) {
-			// Determine room(s) from port labels, then outlet label (S.PPP), then default 'A'
 			const roomPortCounts = new Map<string, number>()
 			if (outlet.portLabels && outlet.portLabels.length > 0) {
 				for (const label of outlet.portLabels) {
@@ -142,40 +155,47 @@
 			}
 			if (roomPortCounts.size === 0) roomPortCounts.set('A', outlet.portCount)
 
+			const level = outlet.level === 'high' ? 'high' : 'low'
+			const levelSegs = level === 'high' ? highSegs : lowSegs
+
 			for (const [room, count] of roomPortCounts) {
-				const roomSegs = segsByRoom.get(room)
-				const hit = findNearest(outlet.position, roomSegs ?? allSegs)
+				// Try room+level match first, then level-only fallback
+				const roomLevelSegs = segsByRoomLevel.get(`${room}:${level}`)
+				const hit = findNearest(outlet.position, roomLevelSegs ?? levelSegs)
 				if (hit) routes.push({
 					outletId: outlet.id, from: outlet.position, to: hit.point,
 					room, color: ROOM_ROUTE_COLORS[room] ?? '#6b7280',
 					trunkId: hit.trunkId, cableCount: count,
+					entrySegNodeIds: hit.segNodeIds, entryT: hit.t,
 				})
 			}
 		}
 		return routes
 	})
 
-	/** Per-trunk fill info: cable count, area, fill ratio */
-	interface TrunkFillInfo { cableCount: number; cableAreaMm2: number; trunkAreaMm2: number; fillRatio: number }
+	/** Per-node fill info */
+	interface NodeFillInfo { cableCount: number; cableAreaMm2: number; trunkAreaMm2: number; fillRatio: number; byType: Record<string, number> }
 
-	let trunkFillMap = $derived.by(() => {
-		const map = new Map<string, TrunkFillInfo>()
-		// Aggregate cables per trunk
-		const trunkCables = new Map<string, { count: number; areaMm2: number }>()
+	let nodeFillMap = $derived.by(() => {
+		const map = new Map<string, NodeFillInfo>()
+		if (secondaryRoutes.length === 0) return map
+
+		// Build outlet lookup
+		const outletMap = new Map(outlets.map(o => [o.id, o]))
+
+		// Process each trunk that has routes
+		const routesByTrunk = new Map<string, SecondaryRoute[]>()
 		for (const route of secondaryRoutes) {
-			const outlet = outlets.find(o => o.id === route.outletId)
-			if (!outlet) continue
-			const diam = CABLE_DIAMETER_MM[outlet.cableType] ?? 7
-			const cableArea = Math.PI * (diam / 2) ** 2 * route.cableCount
-			const existing = trunkCables.get(route.trunkId) ?? { count: 0, areaMm2: 0 }
-			existing.count += route.cableCount
-			existing.areaMm2 += cableArea
-			trunkCables.set(route.trunkId, existing)
+			const existing = routesByTrunk.get(route.trunkId) ?? []
+			existing.push(route)
+			routesByTrunk.set(route.trunkId, existing)
 		}
-		// Compute fill ratio per trunk
+
 		for (const trunk of trunks) {
-			const cables = trunkCables.get(trunk.id)
-			if (!cables) continue
+			const trunkRoutes = routesByTrunk.get(trunk.id)
+			if (!trunkRoutes || trunkRoutes.length === 0) continue
+
+			// Compute trunk cross-section area
 			let trunkAreaMm2: number
 			if (trunk.shape === 'pipe') {
 				const inner = (trunk.spec as any).innerDiameterMm ?? 0
@@ -185,12 +205,96 @@
 				const h = (trunk.spec as any).heightMm ?? 0
 				trunkAreaMm2 = w * h
 			}
-			map.set(trunk.id, {
-				cableCount: cables.count,
-				cableAreaMm2: cables.areaMm2,
-				trunkAreaMm2,
-				fillRatio: trunkAreaMm2 > 0 ? cables.areaMm2 / trunkAreaMm2 : 0,
-			})
+
+			// Find rack node (root of the tree) — pick first node with connectedRackId
+			const rackNode = trunk.nodes.find(n => n.connectedRackId)
+			if (!rackNode) {
+				// No rack connection — just show total at all nodes
+				let totalCount = 0, totalArea = 0
+				const byType: Record<string, number> = {}
+				for (const route of trunkRoutes) {
+					const outlet = outletMap.get(route.outletId)
+					const ct = outlet?.cableType ?? 'cat6'
+					const diam = CABLE_DIAMETER_MM[ct] ?? 7
+					totalCount += route.cableCount
+					totalArea += Math.PI * (diam / 2) ** 2 * route.cableCount
+					byType[ct] = (byType[ct] ?? 0) + route.cableCount
+				}
+				for (const node of trunk.nodes) {
+					map.set(node.id, { cableCount: totalCount, cableAreaMm2: totalArea, trunkAreaMm2, fillRatio: trunkAreaMm2 > 0 ? totalArea / trunkAreaMm2 : 0, byType: { ...byType } })
+				}
+				continue
+			}
+
+			// Build adjacency list for BFS
+			const adj = new Map<string, string[]>()
+			for (const n of trunk.nodes) adj.set(n.id, [])
+			for (const seg of trunk.segments) {
+				adj.get(seg.nodes[0])?.push(seg.nodes[1])
+				adj.get(seg.nodes[1])?.push(seg.nodes[0])
+			}
+
+			// BFS from rack node to build parent map (tree rooted at rack)
+			const parent = new Map<string, string | null>()
+			parent.set(rackNode.id, null)
+			const queue = [rackNode.id]
+			for (let i = 0; i < queue.length; i++) {
+				const curr = queue[i]
+				for (const nb of adj.get(curr) ?? []) {
+					if (!parent.has(nb)) {
+						parent.set(nb, curr)
+						queue.push(nb)
+					}
+				}
+			}
+
+			// Depth (hops from rack) for each node
+			const depth = new Map<string, number>()
+			depth.set(rackNode.id, 0)
+			for (const id of queue) {
+				const p = parent.get(id)
+				depth.set(id, p != null ? (depth.get(p) ?? 0) + 1 : 0)
+			}
+
+			// For each route, find entry node (the node on entry segment closer to rack = lower depth)
+			// Then add cables to that node and all ancestors up to rack
+			const nodeCables = new Map<string, { count: number; areaMm2: number; byType: Record<string, number> }>()
+
+			for (const route of trunkRoutes) {
+				const outlet = outletMap.get(route.outletId)
+				const ct = outlet?.cableType ?? 'cat6'
+				const diam = CABLE_DIAMETER_MM[ct] ?? 7
+				const cableArea = Math.PI * (diam / 2) ** 2 * route.cableCount
+
+				const [nA, nB] = route.entrySegNodeIds
+				const dA = depth.get(nA) ?? 999
+				const dB = depth.get(nB) ?? 999
+				let entryNodeId = dA >= dB ? nA : nB
+
+				let curr: string | null | undefined = entryNodeId
+				while (curr != null) {
+					const existing = nodeCables.get(curr) ?? { count: 0, areaMm2: 0, byType: {} }
+					existing.count += route.cableCount
+					existing.areaMm2 += cableArea
+					existing.byType[ct] = (existing.byType[ct] ?? 0) + route.cableCount
+					nodeCables.set(curr, existing)
+					curr = parent.get(curr)
+				}
+			}
+
+			// Write to map
+			for (const node of trunk.nodes) {
+				const cables = nodeCables.get(node.id)
+				if (cables) {
+					map.set(node.id, {
+						cableCount: cables.count,
+						cableAreaMm2: cables.areaMm2,
+						trunkAreaMm2,
+						fillRatio: trunkAreaMm2 > 0 ? cables.areaMm2 / trunkAreaMm2 : 0,
+						byType: cables.byType,
+					})
+				}
+			}
 		}
 		return map
 	})
@@ -217,6 +321,15 @@
 	// Selected rack data for floating properties panel
 	let selectedRackConfigs = $derived(allRackConfigs.filter(r => selectedRackIds.has(r.id)))
 	let selectedRackPlaced = $derived(rackPlacements.filter(p => selectedRackIds.has(p.rackId)))
+	let outletTypeCounts = $derived.by(() => {
+		let wall = 0, floor = 0, box = 0
+		for (const outlet of outlets) {
+			if (outlet.mountType === 'wall') wall++
+			else if (outlet.mountType === 'floor') floor++
+			else box++
+		}
+		return { wall, floor, box }
+	})
 
 	function sharedRack<K extends keyof RackConfig>(key: K): RackConfig[K] | undefined {
 		if (selectedRackConfigs.length === 0) return undefined
@@ -262,7 +375,7 @@
 	let dirty = $state(false)
 
 	function snapshotOf(d: any): string {
-		return JSON.stringify({ outlets: d?.outlets, rackPlacements: d?.rackPlacements, trunks: d?.trunks, selectedFileId: d?.selectedFileId, selectedPage: d?.selectedPage, activeZone: d?.activeZone })
+		return JSON.stringify({ outlets: d?.outlets, rackPlacements: d?.rackPlacements, trunks: d?.trunks, selectedFileId: d?.selectedFileId, selectedPage: d?.selectedPage, activeZone: d?.activeZone, legendPos: d?.legendPos })
 	}
 
 	$effect(() => {
@@ -275,6 +388,7 @@
 		if (d.selectedFileId) selectedFileId = d.selectedFileId
 		if (d.selectedPage) selectedPage = d.selectedPage
 		if (d.activeZone) activeZone = d.activeZone
+		if (d.legendPos) legendPos = d.legendPos
 		lastSavedSnapshot = ''
 	})
 
@@ -283,7 +397,7 @@
 	let prevSnapshot = $state('')
 
 	$effect(() => {
-		const snapshot = JSON.stringify({ outlets, rackPlacements, trunks, selectedFileId, selectedPage, activeZone })
+		const snapshot = JSON.stringify({ outlets, rackPlacements, trunks, selectedFileId, selectedPage, activeZone, legendPos })
 		if (!prevSnapshot) { prevSnapshot = snapshot; return }
 		if (snapshot === prevSnapshot) return
 		prevSnapshot = snapshot
@@ -291,7 +405,7 @@
 		dirty = true
 		if (saveTimer) clearTimeout(saveTimer)
 		saveTimer = setTimeout(() => {
-			const payload = { outlets, rackPlacements, trunks, selectedFileId, selectedPage, activeZone }
+			const payload = { outlets, rackPlacements, trunks, selectedFileId, selectedPage, activeZone, legendPos }
 			lastSavedSnapshot = JSON.stringify(payload)
 			onsave?.(payload)
 			dirty = false
@@ -1306,10 +1420,12 @@
 					{selectedRackIds}
 					{trunks}
 					{secondaryRoutes}
-					{trunkFillMap}
+					{nodeFillMap}
 					{selectedTrunkIds}
 					{selectedNodeIds}
 					trunkPalette={trunkPaletteRef}
+					{outletTypeCounts}
+					bind:legendPos
 					{gridMm}
 					{toPx}
 					{toMm}

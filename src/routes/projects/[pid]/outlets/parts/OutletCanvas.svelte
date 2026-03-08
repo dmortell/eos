@@ -16,7 +16,9 @@
 
 	let { file, page = 1, viewKey = '', calibration, outlets, selectedIds, activeTool, sidebarTab = 'outlets',
 		rackPlacements = [], rackConfigs = [], selectedRackIds = new Set(),
-		trunks = [], secondaryRoutes = [], trunkFillMap = new Map(), selectedTrunkIds = new Set(), selectedNodeIds = new Set(), trunkPalette,
+		trunks = [], secondaryRoutes = [], nodeFillMap = new Map(), selectedTrunkIds = new Set(), selectedNodeIds = new Set(), trunkPalette,
+		outletTypeCounts = { wall: 0, floor: 0, box: 0 },
+		legendPos = $bindable({ x: 12, y: 12 }),
 		gridMm = 0,
 		toPx, toMm, onadd, onselect, onclear, onmove, onmoveend, ondelete,
 		onselectrack, onmoveracks, onmoveracksend, onplacerack, onremoveracks, onrotateracks,
@@ -34,10 +36,12 @@
 		selectedRackIds?: Set<string>
 		trunks?: TrunkConfig[]
 		secondaryRoutes?: { outletId: string; from: Point; to: Point; room: string; color: string; trunkId: string; cableCount: number }[]
-		trunkFillMap?: Map<string, { cableCount: number; cableAreaMm2: number; trunkAreaMm2: number; fillRatio: number }>
+		nodeFillMap?: Map<string, { cableCount: number; cableAreaMm2: number; trunkAreaMm2: number; fillRatio: number; byType: Record<string, number> }>
 		selectedTrunkIds?: Set<string>
 		selectedNodeIds?: Set<string>
 		trunkPalette?: TrunkPalette
+		outletTypeCounts?: { wall: number; floor: number; box: number }
+		legendPos?: Point
 		gridMm?: number
 		toPx: (mm: Point) => Point
 		toMm: (px: Point) => Point
@@ -67,6 +71,53 @@
 	let containerEl: HTMLDivElement
 	let canvasEl: HTMLCanvasElement
 	let pdf: PdfState | null = null
+
+	// ── View visibility bitmask ──
+	const VIEW_LOW_OUTLETS  = 1 << 0  // 1
+	const VIEW_HIGH_OUTLETS = 1 << 1  // 2
+	const VIEW_LOW_TRUNKS   = 1 << 2  // 4
+	const VIEW_HIGH_TRUNKS  = 1 << 3  // 8
+	const VIEW_ROUTES       = 1 << 4  // 16
+	const VIEW_LABELS       = 1 << 5  // 32
+	const VIEW_LEGEND       = 1 << 6  // 64
+	const VIEW_RACKS        = 1 << 7  // 128
+	const VIEW_ALL = VIEW_LOW_OUTLETS | VIEW_HIGH_OUTLETS | VIEW_LOW_TRUNKS | VIEW_HIGH_TRUNKS | VIEW_ROUTES | VIEW_LABELS | VIEW_LEGEND | VIEW_RACKS
+
+	function viewStorageKeyView() { return viewKey ? `outlets-view-flags:${viewKey}` : '' }
+
+	let viewFlags = $state(VIEW_ALL)
+	let viewMenuOpen = $state(false)
+
+	// Restore view flags from localStorage
+	$effect(() => {
+		const key = viewStorageKeyView()
+		if (!key) return
+		try {
+			const raw = localStorage.getItem(key)
+			if (raw != null) viewFlags = parseInt(raw) || VIEW_ALL
+		} catch {}
+	})
+
+	// Persist view flags
+	$effect(() => {
+		const key = viewStorageKeyView()
+		if (!key) return
+		try { localStorage.setItem(key, String(viewFlags)) } catch {}
+	})
+
+	function toggleViewFlag(flag: number) { viewFlags ^= flag }
+	function hasViewFlag(flag: number): boolean { return (viewFlags & flag) !== 0 }
+
+	const VIEW_MENU_ITEMS = [
+		{ flag: VIEW_LOW_OUTLETS,  label: 'Low outlets' },
+		{ flag: VIEW_HIGH_OUTLETS, label: 'High outlets' },
+		{ flag: VIEW_LOW_TRUNKS,   label: 'Low trunks' },
+		{ flag: VIEW_HIGH_TRUNKS,  label: 'High trunks' },
+		{ flag: VIEW_ROUTES,       label: 'Secondary routes' },
+		{ flag: VIEW_LABELS,       label: 'Cable qty labels' },
+		{ flag: VIEW_LEGEND,       label: 'Legend' },
+		{ flag: VIEW_RACKS,        label: 'Racks' },
+	]
 
 	// Modifier key tracking
 	let ctrlKey = $state(false)
@@ -139,6 +190,8 @@
 
 	// Drop target state for drag-from-list
 	let dropTarget = $state(false)
+	let legendDragging = $state(false)
+	let legendDragStart: { x: number; y: number; startX: number; startY: number } | null = null
 
 	// Track current file URL to detect changes
 	let currentUrl = ''
@@ -155,6 +208,8 @@
 
 	onDestroy(() => {
 		prevContainer?.removeEventListener('wheel', onWheel)
+		document.removeEventListener('mousemove', onLegendDragMove)
+		document.removeEventListener('mouseup', onLegendDragUp)
 		pdf?.destroy()
 	})
 
@@ -219,6 +274,26 @@
 
 	/** Crop rect in PDF pixels, or full page if no crop */
 	let crop = $derived(calibration?.crop ?? { x: 0, y: 0, width: pageW, height: pageH })
+	let legendGeom = $derived.by(() => {
+		const lx = crop.x + legendPos.x / zoom
+		const ly = crop.y + legendPos.y / zoom
+		const rowH = 16 / zoom
+		return {
+			lx,
+			ly,
+			rowH,
+			symbolX: lx + 12 / zoom,
+			symbolW: 22 / zoom,
+			textX: lx + 32 / zoom,
+			legendW: 190 / zoom,
+			legendH: 104 / zoom,
+			y1: ly + 24 / zoom,
+			y2: ly + 24 / zoom + rowH,
+			y3: ly + 24 / zoom + rowH * 2,
+			y4: ly + 24 / zoom + rowH * 3,
+			y5: ly + 24 / zoom + rowH * 4,
+		}
+	})
 
 	// ── Rack helpers ──
 
@@ -1029,13 +1104,60 @@
 		}
 	}
 
+	function onLegendMouseDown(e: MouseEvent) {
+		if (e.button !== 0) return
+		e.preventDefault()
+		e.stopPropagation()
+		legendDragging = true
+		legendDragStart = { x: e.clientX, y: e.clientY, startX: legendPos.x, startY: legendPos.y }
+		document.addEventListener('mousemove', onLegendDragMove)
+		document.addEventListener('mouseup', onLegendDragUp)
+	}
+
+	function onLegendDragMove(e: MouseEvent) {
+		if (!legendDragStart) return
+		legendPos = {
+			x: Math.max(0, legendDragStart.startX + (e.clientX - legendDragStart.x)),
+			y: Math.max(0, legendDragStart.startY + (e.clientY - legendDragStart.y)),
+		}
+	}
+
+	function onLegendDragUp() {
+		legendDragging = false
+		legendDragStart = null
+		document.removeEventListener('mousemove', onLegendDragMove)
+		document.removeEventListener('mouseup', onLegendDragUp)
+	}
+
 	/** Room colors for rack outlines */
 	const ROOM_COLORS: Record<string, string> = {
 		A: '#3b82f6', B: '#10b981', C: '#f59e0b', D: '#ef4444',
 	}
+
+	function trianglePoints(cx: number, cy: number, r: number): string {
+		const angle1 = Math.PI / 2
+		const angle2 = Math.PI / 2 + (2 * Math.PI) / 3
+		const angle3 = Math.PI / 2 + (4 * Math.PI) / 3
+		const x1 = cx + r * Math.cos(angle1)
+		const y1 = cy + r * Math.sin(angle1)
+		const x2 = cx + r * Math.cos(angle2)
+		const y2 = cy + r * Math.sin(angle2)
+		const x3 = cx + r * Math.cos(angle3)
+		const y3 = cy + r * Math.sin(angle3)
+		return `${x1},${y1} ${x2},${y2} ${x3},${y3}`
+	}
+
+	function squarePoints(cx: number, cy: number, r: number): string {
+		const side = r * Math.sqrt(2)
+		const half = side / 2
+		return `${cx - half},${cy - half} ${cx + half},${cy - half} ${cx + half},${cy + half} ${cx - half},${cy + half}`
+	}
 </script>
 
-<svelte:window bind:innerWidth={cw} bind:innerHeight={ch} onkeydown={e => { ctrlKey = e.ctrlKey || e.metaKey; onCanvasKeyDown(e) }} onkeyup={e => { ctrlKey = e.ctrlKey || e.metaKey }} />
+<svelte:window bind:innerWidth={cw} bind:innerHeight={ch}
+	onkeydown={e => { ctrlKey = e.ctrlKey || e.metaKey; onCanvasKeyDown(e) }}
+	onkeyup={e => { ctrlKey = e.ctrlKey || e.metaKey }}
+	onclick={() => { viewMenuOpen = false }} />
 
 {#if !file?.url}
 	<div class="h-full flex items-center justify-center bg-gray-50 print:hidden">
@@ -1110,6 +1232,32 @@
 			<div class="w-px h-4 bg-gray-200"></div>
 		{/if}
 
+		<!-- View menu -->
+		<div class="relative">
+			<button
+				class="flex items-center gap-1 px-2 py-1 rounded text-[11px] transition-colors text-gray-500 hover:bg-gray-100"
+				onclick={(e) => { e.stopPropagation(); viewMenuOpen = !viewMenuOpen }}>
+				<Icon name="eye" size={12} /> View
+			</button>
+			{#if viewMenuOpen}
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<div class="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 w-44"
+					onclick={(e) => e.stopPropagation()}>
+					{#each VIEW_MENU_ITEMS as item}
+						<button class="w-full flex items-center gap-2 px-3 py-1 text-[11px] text-left hover:bg-gray-50 transition-colors"
+							onclick={() => toggleViewFlag(item.flag)}>
+							<span class="w-4 text-center {hasViewFlag(item.flag) ? 'text-blue-600' : 'text-gray-300'}">
+								{hasViewFlag(item.flag) ? '✓' : ''}
+							</span>
+							<span class="{hasViewFlag(item.flag) ? 'text-gray-700' : 'text-gray-400'}">{item.label}</span>
+						</button>
+					{/each}
+				</div>
+			{/if}
+		</div>
+
+		<div class="w-px h-4 bg-gray-200"></div>
+
 		<!-- Zoom -->
 		<button class="text-gray-400 hover:text-gray-600 px-1.5 py-0.5 rounded hover:bg-gray-100 text-sm font-bold leading-none" onclick={zoomOut} title="Zoom out (-)">&#x2212;</button>
 		<span class="text-[10px] text-gray-400 tabular-nums min-w-10 text-center">{Math.round(zoom * 100)}%</span>
@@ -1167,10 +1315,13 @@
 			<svg class="absolute top-0 left-0 pointer-events-none" width={pageW} height={pageH} style:overflow="visible">
 				<!-- Trunks -->
 				<TrunkRenderer
-					{trunks}
+					trunks={trunks.filter(t => {
+						const high = t.location === 'ceiling-plenum' || t.location === 'ceiling-tray'
+						return high ? hasViewFlag(VIEW_HIGH_TRUNKS) : hasViewFlag(VIEW_LOW_TRUNKS)
+					})}
 					{calibration}
 					{zoom}
-					{trunkFillMap}
+					nodeFillMap={hasViewFlag(VIEW_LABELS) ? nodeFillMap : new Map()}
 					{selectedTrunkIds}
 					{selectedNodeIds}
 					{drawingNodes}
@@ -1182,13 +1333,15 @@
 				/>
 
 				<!-- Secondary routes (outlet → nearest trunk) -->
-				{#each secondaryRoutes as route (route.outletId + route.room)}
-					{@const fromPx = toPx(route.from)}
-					{@const toPxPt = toPx(route.to)}
-					<line x1={fromPx.x} y1={fromPx.y} x2={toPxPt.x} y2={toPxPt.y}
-						stroke={route.color} stroke-width={2 / zoom} opacity="0.5"
-						class="pointer-events-none" />
-				{/each}
+				{#if hasViewFlag(VIEW_ROUTES)}
+					{#each secondaryRoutes as route (route.outletId + route.room)}
+						{@const fromPx = toPx(route.from)}
+						{@const toPxPt = toPx(route.to)}
+						<line x1={fromPx.x} y1={fromPx.y} x2={toPxPt.x} y2={toPxPt.y}
+							stroke={route.color} stroke-width={2 / zoom} opacity="0.5"
+							class="pointer-events-none" />
+					{/each}
+				{/if}
 
 				<!-- Snap highlight ring during node drag or drawing -->
 				{#if dragSnapHighlight}
@@ -1203,33 +1356,37 @@
 				{/if}
 
 				<!-- Placed racks -->
-				{#each rackPlacements as placement (placement.rackId)}
-					{@const rect = rackPxRect(placement)}
-					{#if rect}
-						{@const selected = selectedRackIds.has(placement.rackId)}
-						<OutletRack
-							{rect}
-							{selected}
-							{zoom}
-							roomColor={ROOM_COLORS[placement.room] ?? '#6b7280'}
-							onmousedown={e => { if (e.button === 0) { e.stopPropagation(); onMouseDown(e) }}}
-						/>
-					{/if}
-				{/each}
+				{#if hasViewFlag(VIEW_RACKS)}
+					{#each rackPlacements as placement (placement.rackId)}
+						{@const rect = rackPxRect(placement)}
+						{#if rect}
+							{@const selected = selectedRackIds.has(placement.rackId)}
+							<OutletRack
+								{rect}
+								{selected}
+								{zoom}
+								roomColor={ROOM_COLORS[placement.room] ?? '#6b7280'}
+								onmousedown={e => { if (e.button === 0) { e.stopPropagation(); onMouseDown(e) }}}
+							/>
+						{/if}
+					{/each}
+				{/if}
 
 				<!-- Outlets -->
 				{#each outlets as outlet (outlet.id)}
-					{@const px = outletPx(outlet)}
-					{@const selected = selectedIds.has(outlet.id)}
-					<OutletShape
-						{outlet}
-						{px}
-						{radiusPx}
-						{zoom}
-						{selected}
-						{activeTool}
-						onmousedown={e => { if (e.button === 0 && activeTool === 'select') { e.stopPropagation(); onMouseDown(e) }}}
-					/>
+					{#if outlet.level === 'high' ? hasViewFlag(VIEW_HIGH_OUTLETS) : hasViewFlag(VIEW_LOW_OUTLETS)}
+						{@const px = outletPx(outlet)}
+						{@const selected = selectedIds.has(outlet.id)}
+						<OutletShape
+							{outlet}
+							{px}
+							{radiusPx}
+							{zoom}
+							{selected}
+							{activeTool}
+							onmousedown={e => { if (e.button === 0 && activeTool === 'select') { e.stopPropagation(); onMouseDown(e) }}}
+						/>
+					{/if}
 				{/each}
 
 				<!-- Origin crosshair (if calibrated) -->
@@ -1239,6 +1396,44 @@
 					<circle cx={ox} cy={oy} r={12 / zoom} fill="none" stroke="#3b82f6" stroke-width={1 / zoom} opacity="0.5" />
 					<line x1={ox - 18 / zoom} y1={oy} x2={ox + 18 / zoom} y2={oy} stroke="#3b82f6" stroke-width={0.5 / zoom} opacity="0.5" />
 					<line x1={ox} y1={oy - 18 / zoom} x2={ox} y2={oy + 18 / zoom} stroke="#3b82f6" stroke-width={0.5 / zoom} opacity="0.5" />
+				{/if}
+
+				<!-- Drawing legend -->
+				{#if hasViewFlag(VIEW_LEGEND)}
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<g class="pointer-events-auto" style:cursor={legendDragging ? 'grabbing' : 'grab'} onmousedown={onLegendMouseDown}>
+					<rect x={legendGeom.lx} y={legendGeom.ly} width={legendGeom.legendW} height={legendGeom.legendH}
+						rx={4 / zoom} fill="white" stroke="#d1d5db" stroke-width={1 / zoom} opacity="0.95" />
+					<text x={legendGeom.lx + 8 / zoom} y={legendGeom.ly + 11 / zoom} font-size={9 / zoom} font-weight="700" fill="#111827">Legend</text>
+
+					<!-- Wall outlets -->
+					<polygon points={trianglePoints(legendGeom.symbolX, legendGeom.y1 - 3 / zoom, 5 / zoom)}
+						fill="#e5e7eb" stroke="#374151" stroke-width={1.2 / zoom} />
+					<text x={legendGeom.textX} y={legendGeom.y1} font-size={9 / zoom} fill="#111827">Wall outlet (qty: {outletTypeCounts.wall})</text>
+
+					<!-- Floor outlets -->
+					<polygon points={squarePoints(legendGeom.symbolX, legendGeom.y2 - 3 / zoom, 6 / zoom)}
+						fill="#e5e7eb" stroke="#374151" stroke-width={1.2 / zoom} />
+					<polygon points={trianglePoints(legendGeom.symbolX, legendGeom.y2 - 3 / zoom, 4.5 / zoom)}
+						fill="none" stroke="#374151" stroke-width={1.1 / zoom} opacity="0.75" />
+					<text x={legendGeom.textX} y={legendGeom.y2} font-size={9 / zoom} fill="#111827">Floor outlet (qty: {outletTypeCounts.floor})</text>
+
+					<!-- Box outlets -->
+					<circle cx={legendGeom.symbolX} cy={legendGeom.y3 - 3 / zoom} r={5 / zoom}
+						fill="#e5e7eb" stroke="#374151" stroke-width={1.2 / zoom} />
+					<polygon points={trianglePoints(legendGeom.symbolX, legendGeom.y3 - 3 / zoom, 4 / zoom)}
+						fill="none" stroke="#374151" stroke-width={1.1 / zoom} opacity="0.75" />
+					<text x={legendGeom.textX} y={legendGeom.y3} font-size={9 / zoom} fill="#111827">Box outlet (qty: {outletTypeCounts.box})</text>
+
+					<!-- High/low trunk symbols -->
+					<line x1={legendGeom.symbolX - legendGeom.symbolW / 2} y1={legendGeom.y4 - 3 / zoom} x2={legendGeom.symbolX + legendGeom.symbolW / 2} y2={legendGeom.y4 - 3 / zoom}
+						stroke="#374151" stroke-width={1.5 / zoom} stroke-dasharray={`${5 / zoom} ${3 / zoom}`} />
+					<text x={legendGeom.textX} y={legendGeom.y4} font-size={9 / zoom} fill="#111827">High level trunk</text>
+
+					<line x1={legendGeom.symbolX - legendGeom.symbolW / 2} y1={legendGeom.y5 - 3 / zoom} x2={legendGeom.symbolX + legendGeom.symbolW / 2} y2={legendGeom.y5 - 3 / zoom}
+						stroke="#374151" stroke-width={1.5 / zoom} />
+					<text x={legendGeom.textX} y={legendGeom.y5} font-size={9 / zoom} fill="#111827">Low level trunk</text>
+				</g>
 				{/if}
 
 				<!-- Drag-select rectangle -->

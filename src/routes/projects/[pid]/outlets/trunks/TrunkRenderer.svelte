@@ -7,13 +7,13 @@
 
 	const INNER_CORNER_RADIUS_MM = 10
 
-	let { trunks = [], calibration, zoom = 1, trunkFillMap = new Map(), selectedTrunkIds = new Set(), selectedNodeIds = new Set(),
+	let { trunks = [], calibration, zoom = 1, nodeFillMap = new Map(), selectedTrunkIds = new Set(), selectedNodeIds = new Set(),
 		drawingNodes = [], drawingSegments = [], drawingSpec, rubberBandTarget = null,
 		ctrlKey = false, toPx }: {
 		trunks: TrunkConfig[]
 		calibration: PageCalibration | null
 		zoom: number
-		trunkFillMap?: Map<string, { cableCount: number; cableAreaMm2: number; trunkAreaMm2: number; fillRatio: number }>
+		nodeFillMap?: Map<string, { cableCount: number; cableAreaMm2: number; trunkAreaMm2: number; fillRatio: number; byType: Record<string, number> }>
 		selectedTrunkIds: Set<string>
 		selectedNodeIds: Set<string>
 		drawingNodes?: TrunkNode[]
@@ -141,6 +141,18 @@
 	function isCeiling(trunk: TrunkConfig): boolean {
 		return trunk.location === 'ceiling-plenum' || trunk.location === 'ceiling-tray'
 	}
+
+	const CABLE_TYPE_LABELS: Record<string, string> = {
+		cat6a: 'C6A', cat6: 'C6', cat5e: 'C5e', 'fiber-sm': 'FSM', 'fiber-mm': 'FMM',
+	}
+
+	function formatByType(byType: Record<string, number>): string {
+		const parts: string[] = []
+		for (const [type, count] of Object.entries(byType)) {
+			if (count > 0) parts.push(`${count}${CABLE_TYPE_LABELS[type] ?? type}`)
+		}
+		return parts.join(' ')
+	}
 </script>
 
 <!-- Committed trunks -->
@@ -157,22 +169,53 @@
 		opacity={trunk.isPrimary ? 0.85 : 0.5}
 		class="pointer-events-auto" style:cursor={selected ? 'move' : 'pointer'} />
 
-	<!-- Fill label -->
-	{@const fill = trunkFillMap.get(trunk.id)}
-	{#if fill && fill.cableCount > 0}
-		{@const labelSeg = trunk.segments[0]}
-		{@const labelMid = labelSeg ? segMidPx(trunk, labelSeg) : null}
-		{#if labelMid}
-			{@const fillPct = Math.round(fill.fillRatio * 100)}
-			{@const fillColor = fillPct > 60 ? '#ef4444' : fillPct > 40 ? '#f59e0b' : '#22c55e'}
-			{@const labelText = `${fill.cableCount}C ${fillPct}%`}
-			{@const labelW = (labelText.length * 6 + 8) / zoom}
-			<rect x={labelMid.x - labelW / 2} y={labelMid.y - 8 / zoom} width={labelW} height={16 / zoom}
-				rx={3 / zoom} fill="white" stroke={fillColor} stroke-width={1 / zoom} opacity="0.9" />
-			<text x={labelMid.x} y={labelMid.y + 3.5 / zoom} text-anchor="middle" font-size={10 / zoom}
-				fill={fillColor} font-weight="600" class="select-none pointer-events-none">{labelText}</text>
+	<!-- Per-node fill labels (offset along segment toward neighbor) -->
+	{#each trunk.segments as seg (seg.id)}
+		{@const nA = trunk.nodes.find(n => n.id === seg.nodes[0])}
+		{@const nB = trunk.nodes.find(n => n.id === seg.nodes[1])}
+		{#if nA && nB}
+			<!-- Label near node A (offset toward B) -->
+			{@const fillA = nodeFillMap.get(nA.id)}
+			{#if fillA && fillA.cableCount > 0}
+				{@const pxA = nodePx(nA)}
+				{@const pxB = nodePx(nB)}
+				{@const dx = pxB.x - pxA.x}
+				{@const dy = pxB.y - pxA.y}
+				{@const d = Math.sqrt(dx * dx + dy * dy) || 1}
+				{@const off = Math.min(20 / zoom, d * 0.25)}
+				{@const lx = pxA.x + dx / d * off}
+				{@const ly = pxA.y + dy / d * off}
+				{@const fillPct = Math.round(fillA.fillRatio * 100)}
+				{@const fillColor = fillPct > 60 ? '#ef4444' : fillPct > 40 ? '#f59e0b' : '#22c55e'}
+				{@const labelText = `${formatByType(fillA.byType)} ${fillPct}%`}
+				{@const labelW = (labelText.length * 5.5 + 10) / zoom}
+				<rect x={lx - labelW / 2} y={ly - 18 / zoom} width={labelW} height={14 / zoom}
+					rx={3 / zoom} fill="white" stroke={fillColor} stroke-width={1 / zoom} opacity="0.9" />
+				<text x={lx} y={ly - 8 / zoom} text-anchor="middle" font-size={10 / zoom}
+					fill={fillColor} font-weight="600" class="select-none pointer-events-none">{labelText}</text>
+			{/if}
+			<!-- Label near node B (offset toward A) -->
+			{@const fillB = nodeFillMap.get(nB.id)}
+			{#if fillB && fillB.cableCount > 0}
+				{@const pxA2 = nodePx(nA)}
+				{@const pxB2 = nodePx(nB)}
+				{@const dx2 = pxA2.x - pxB2.x}
+				{@const dy2 = pxA2.y - pxB2.y}
+				{@const d2 = Math.sqrt(dx2 * dx2 + dy2 * dy2) || 1}
+				{@const off2 = Math.min(20 / zoom, d2 * 0.25)}
+				{@const lx2 = pxB2.x + dx2 / d2 * off2}
+				{@const ly2 = pxB2.y + dy2 / d2 * off2}
+				{@const fillPct2 = Math.round(fillB.fillRatio * 100)}
+				{@const fillColor2 = fillPct2 > 60 ? '#ef4444' : fillPct2 > 40 ? '#f59e0b' : '#22c55e'}
+				{@const labelText2 = `${formatByType(fillB.byType)} ${fillPct2}%`}
+				{@const labelW2 = (labelText2.length * 5.5 + 10) / zoom}
+				<rect x={lx2 - labelW2 / 2} y={ly2 - 18 / zoom} width={labelW2} height={14 / zoom}
+					rx={3 / zoom} fill="white" stroke={fillColor2} stroke-width={1 / zoom} opacity="0.9" />
+				<text x={lx2} y={ly2 - 8 / zoom} text-anchor="middle" font-size={10 / zoom}
+					fill={fillColor2} font-weight="600" class="select-none pointer-events-none">{labelText2}</text>
+			{/if}
 		{/if}
-	{/if}
+	{/each}
 
 	<!-- Node handles (only when trunk is selected) -->
 	{#if selected}
