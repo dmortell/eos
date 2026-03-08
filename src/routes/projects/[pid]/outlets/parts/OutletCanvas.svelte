@@ -355,6 +355,8 @@
 		prevContainer?.removeEventListener('wheel', onWheel)
 		document.removeEventListener('mousemove', onLegendDragMove)
 		document.removeEventListener('mouseup', onLegendDragUp)
+		document.removeEventListener('mousemove', onPaperDragMove)
+		document.removeEventListener('mouseup', onPaperDragUp)
 		pdf?.destroy()
 	})
 
@@ -729,17 +731,10 @@
 	function onPanMove(e: MouseEvent) {
 		vx += e.movementX
 		vy += e.movementY
-		// In sync mode (default), paper moves with drawing
-		if (!alignMode && printSettings.showPaper) {
-			paperScreenX += e.movementX
-			paperScreenY += e.movementY
-		}
 	}
 
 	function onPanUp() {
 		panning = false
-		// In align mode, save the new alignment after panning
-		if (alignMode && printSettings.showPaper) saveDrawingOffset()
 		document.removeEventListener('mousemove', onPanMove)
 		document.removeEventListener('mouseup', onPanUp)
 	}
@@ -1416,7 +1411,7 @@
 		</div>
 
 		<!-- Print preview -->
-		<PrintToolbar bind:settings={printSettings} bind:alignMode onprint={handlePrint} onsetview={handleSetView} />
+		<PrintToolbar bind:settings={printSettings} onprint={handlePrint} onsetview={handleSetView} />
 
 		<div class="w-px h-4 bg-gray-200"></div>
 
@@ -1460,17 +1455,21 @@
 		ondragover={onDragOver}
 		ondragleave={onDragLeave}>
 
-		<!-- Paper overlay (fixed on screen, outside pan/zoom transform) -->
+		<!-- Paper overlay (moves with drawing, draggable to reposition) -->
 		{#if paperScreen && !printing}
-			<div class="absolute pointer-events-none border-2 border-blue-400/60"
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div class="absolute border-2 border-blue-400/60"
 				style:left="{paperScreen.x}px" style:top="{paperScreen.y}px"
-				style:width="{paperScreen.w}px" style:height="{paperScreen.h}px">
+				style:width="{paperScreen.w}px" style:height="{paperScreen.h}px"
+				style:cursor={paperDragging ? 'grabbing' : 'grab'}
+				style:pointer-events="auto"
+				onmousedown={onPaperMouseDown}>
 				<!-- Margin dashes -->
-				<div class="absolute border border-dashed border-blue-300/40"
+				<div class="absolute border border-dashed border-blue-300/40 pointer-events-none"
 					style:left="{paperScreen.mx}px" style:top="{paperScreen.my}px"
 					style:width="{paperScreen.mw}px" style:height="{paperScreen.mh}px"></div>
 				<!-- Label -->
-				<span class="absolute top-1 left-2 text-[10px] text-blue-400/70 select-none">
+				<span class="absolute top-1 left-2 text-[10px] text-blue-400/70 select-none pointer-events-none">
 					{printSettings.paperSize} {printSettings.orientation} 1:{printSettings.scale || 'Fit'}
 				</span>
 			</div>

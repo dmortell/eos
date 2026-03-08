@@ -83,6 +83,31 @@ function sanitizeFirestoreData<T>(input: T): T {
     }
     return input;
 }
+	/** Strip undefined values recursively (Firestore rejects them) */
+	// function strip(obj: any): any {
+	// 	if (Array.isArray(obj)) return obj.map(strip)
+	// 	if (obj && typeof obj === 'object') {
+	// 		const out: any = {}
+	// 		for (const [k, v] of Object.entries(obj)) {
+	// 			if (v !== undefined) out[k] = strip(v)
+	// 		}
+	// 		return out
+	// 	}
+	// 	return obj
+	// }
+
+	/** Strip undefined values recursively (Firestore rejects them) */
+	// function stripUndefined(obj: any): any {
+	// 	if (Array.isArray(obj)) return obj.map(stripUndefined)
+	// 	if (obj && typeof obj === 'object') {
+	// 		const out: any = {}
+	// 		for (const [k, v] of Object.entries(obj)) {
+	// 			if (v !== undefined) out[k] = stripUndefined(v)
+	// 		}
+	// 		return out
+	// 	}
+	// 	return obj
+	// }
 
 export class Firestore {
     async getMany(path: string): Promise<DocWithId[]> {
