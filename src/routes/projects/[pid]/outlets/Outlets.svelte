@@ -48,6 +48,7 @@
 	let selectedTrunkIds = $state<Set<string>>(new Set())
 	let selectedNodeIds = $state<Set<string>>(new Set())
 	let trunkPaletteRef: TrunkPalette | undefined = $state()
+	let trunkDrawingActive = $state(false)
 	let floorManagerOpen = $state(false)
 	let floorFormat = $state<string>('L01')
 	let gridMm = $state(100)
@@ -433,23 +434,50 @@
 
 	// ── Trunk CRUD ──
 
+	/** Check if two trunks have the same shape and spec (safe to merge into one graph) */
+	function trunksCompatible(a: TrunkConfig, b: TrunkConfig): boolean {
+		if (a.shape !== b.shape) return false
+		if (a.location !== b.location) return false
+		const sa = a.spec, sb = b.spec
+		if ('catalog' in sa && 'catalog' in sb && sa.catalog !== sb.catalog) return false
+		if ('outerDiameterMm' in sa && 'outerDiameterMm' in sb && sa.outerDiameterMm !== (sb as any).outerDiameterMm) return false
+		if ('widthMm' in sa && 'widthMm' in sb && sa.widthMm !== (sb as any).widthMm) return false
+		if ('heightMm' in sa && 'heightMm' in sb && (sa as any).heightMm !== (sb as any).heightMm) return false
+		return true
+	}
+
 	function addTrunk(nodes: TrunkNode[], segments: TrunkSegment[], snaps?: Map<string, { trunkId: string; nodeId: string }>) {
 		if (!trunkPaletteRef || nodes.length < 2 || segments.length === 0) return
 		const prev = trunks
+
+		// Build a temporary trunk config for the new drawing (to compare compatibility)
+		const newTrunkSpec: TrunkConfig = {
+			id: '',
+			shape: trunkPaletteRef.currentShape(),
+			location: trunkPaletteRef.currentLocation(),
+			spec: trunkPaletteRef.currentSpec(),
+			nodes, segments, isPrimary: true,
+		}
 
 		// Collect unique trunk IDs that are being connected to
 		const connectedTrunkIds = new Set<string>()
 		if (snaps) for (const s of snaps.values()) connectedTrunkIds.add(s.trunkId)
 
-		if (connectedTrunkIds.size > 0) {
-			// Merge: add new nodes/segments into existing trunk(s)
-			// If connecting to multiple trunks, merge everything into the first one
-			const targetTrunkIds = [...connectedTrunkIds]
+		// Filter to only compatible trunks for actual merging
+		const compatibleTrunkIds = new Set<string>()
+		for (const tid of connectedTrunkIds) {
+			const t = trunks.find(tr => tr.id === tid)
+			if (t && trunksCompatible(newTrunkSpec, t)) compatibleTrunkIds.add(tid)
+		}
+
+		if (compatibleTrunkIds.size > 0) {
+			// Merge: add new nodes/segments into compatible existing trunk(s)
+			const targetTrunkIds = [...compatibleTrunkIds]
 			const primaryTargetId = targetTrunkIds[0]
 
-			// Gather all trunks being merged
-			const mergeTargets = trunks.filter(t => connectedTrunkIds.has(t.id))
-			const otherTrunks = trunks.filter(t => !connectedTrunkIds.has(t.id))
+			// Gather all compatible trunks being merged
+			const mergeTargets = trunks.filter(t => compatibleTrunkIds.has(t.id))
+			const otherTrunks = trunks.filter(t => !compatibleTrunkIds.has(t.id))
 			const primaryTarget = mergeTargets.find(t => t.id === primaryTargetId)!
 
 			// Start with the primary target's nodes and segments
@@ -458,7 +486,7 @@
 			const mergedSegments = [...primaryTarget.segments]
 			for (const n of mergedNodes) existingNodeIds.add(n.id)
 
-			// Add nodes/segments from other trunks being merged (if connecting across trunks)
+			// Add nodes/segments from other compatible trunks being merged
 			for (const t of mergeTargets) {
 				if (t.id === primaryTargetId) continue
 				for (const n of t.nodes) {
@@ -486,7 +514,7 @@
 			selectedTrunkIds = new Set([primaryTargetId])
 			selectedNodeIds = new Set()
 			history.record({
-				label: connectedTrunkIds.size > 1 ? 'Merge trunks' : 'Extend trunk',
+				label: compatibleTrunkIds.size > 1 ? 'Merge trunks' : 'Extend trunk',
 				undo: () => { trunks = prev; selectedTrunkIds = new Set() },
 				redo: () => { trunks = [...otherTrunks, mergedTrunk]; selectedTrunkIds = new Set([primaryTargetId]) },
 			})
@@ -627,12 +655,34 @@
 
 	function moveTrunkNodes(trunkId: string, nodeIds: Set<string>, dxMm: number, dyMm: number) {
 		if (!preTrunkNodeMoveSnapshot) preTrunkNodeMoveSnapshot = trunks
+		// Find positions of moved nodes before the move (from snapshot) to identify coincident nodes in other trunks
+		const srcTrunk = preTrunkNodeMoveSnapshot.find(t => t.id === trunkId)
+		const movedPositions = new Set<string>()
+		if (srcTrunk) {
+			for (const n of srcTrunk.nodes) {
+				if (nodeIds.has(n.id)) movedPositions.add(`${n.position.x},${n.position.y}`)
+			}
+		}
 		trunks = trunks.map(t => {
-			if (t.id !== trunkId) return t
+			if (t.id === trunkId) {
+				return {
+					...t,
+					nodes: t.nodes.map(n =>
+						nodeIds.has(n.id) ? { ...n, position: { x: n.position.x + dxMm, y: n.position.y + dyMm } } : n
+					),
+				}
+			}
+			// Move coincident nodes in other trunks (connected at same position but separate trunk)
+			const origT = preTrunkNodeMoveSnapshot!.find(ot => ot.id === t.id)
+			if (!origT) return t
+			const coincidentIds = origT.nodes
+				.filter(n => movedPositions.has(`${n.position.x},${n.position.y}`))
+				.map(n => n.id)
+			if (coincidentIds.length === 0) return t
 			return {
 				...t,
 				nodes: t.nodes.map(n =>
-					nodeIds.has(n.id) ? { ...n, position: { x: n.position.x + dxMm, y: n.position.y + dyMm } } : n
+					coincidentIds.includes(n.id) ? { ...n, position: { x: n.position.x + dxMm, y: n.position.y + dyMm } } : n
 				),
 			}
 		})
@@ -640,13 +690,54 @@
 
 	function moveTrunkNodesEnd(trunkId: string, nodeIds: Set<string>) {
 		if (!preTrunkNodeMoveSnapshot) return
-		// Snap to grid on release
+
+		// Find original positions of moved nodes to identify coincident nodes in other trunks
+		const srcTrunk = preTrunkNodeMoveSnapshot.find(t => t.id === trunkId)
+		const origPositions = new Set<string>()
+		if (srcTrunk) {
+			for (const n of srcTrunk.nodes) {
+				if (nodeIds.has(n.id)) origPositions.add(`${n.position.x},${n.position.y}`)
+			}
+		}
+
+		// Snap to grid on release — also snap coincident nodes in other trunks
+		const movedTrunk = trunks.find(t => t.id === trunkId)!
+		const snappedPositions = new Map<string, Point>()  // nodeId → snapped position
+		for (const n of movedTrunk.nodes) {
+			if (nodeIds.has(n.id)) snappedPositions.set(n.id, snapToGrid(n.position, gridMm))
+		}
+		// Build a map of original position → snapped position for coincident node updates
+		const positionMap = new Map<string, Point>()
+		if (srcTrunk) {
+			for (const n of srcTrunk.nodes) {
+				if (nodeIds.has(n.id)) {
+					const snapped = snappedPositions.get(n.id)
+					if (snapped) positionMap.set(`${n.position.x},${n.position.y}`, snapped)
+				}
+			}
+		}
 		trunks = trunks.map(t => {
-			if (t.id !== trunkId) return t
-			return { ...t, nodes: t.nodes.map(n => nodeIds.has(n.id) ? { ...n, position: snapToGrid(n.position, gridMm) } : n) }
+			if (t.id === trunkId) {
+				return { ...t, nodes: t.nodes.map(n => nodeIds.has(n.id) ? { ...n, position: snappedPositions.get(n.id) ?? n.position } : n) }
+			}
+			// Snap coincident nodes in other trunks too
+			const origT = preTrunkNodeMoveSnapshot!.find(ot => ot.id === t.id)
+			if (!origT) return t
+			let changed = false
+			const newNodes = t.nodes.map(n => {
+				const origNode = origT.nodes.find(on => on.id === n.id)
+				if (!origNode) return n
+				const key = `${origNode.position.x},${origNode.position.y}`
+				if (origPositions.has(key)) {
+					const snapped = positionMap.get(key)
+					if (snapped) { changed = true; return { ...n, position: snapped } }
+				}
+				return n
+			})
+			return changed ? { ...t, nodes: newNodes } : t
 		})
 
-		// Check if any moved node landed near a node in another trunk → merge
+		// Check if any moved node landed near a node in another trunk
 		const sourceTrunk = trunks.find(t => t.id === trunkId)
 		if (sourceTrunk) {
 			for (const movedNodeId of nodeIds) {
@@ -657,21 +748,30 @@
 					if (otherTrunk.id === trunkId || otherTrunk.visible === false) continue
 					for (const targetNode of otherTrunk.nodes) {
 						if (dist(movedNode.position, targetNode.position) <= SNAP_THRESHOLD_MM) {
-							// Merge: combine otherTrunk into sourceTrunk, rewiring moved node → target node
-							trunks = mergeTrunks(trunks, trunkId, movedNodeId, otherTrunk.id, targetNode.id)
-							// Update selection to merged trunk
-							selectedTrunkIds = new Set([trunkId])
-							selectedNodeIds = new Set()
+							if (trunksCompatible(sourceTrunk, otherTrunk)) {
+								// Compatible: merge trunks together
+								trunks = mergeTrunks(trunks, trunkId, movedNodeId, otherTrunk.id, targetNode.id)
+								selectedTrunkIds = new Set([trunkId])
+								selectedNodeIds = new Set()
 
-							const prev = preTrunkNodeMoveSnapshot!
-							const final = trunks
-							preTrunkNodeMoveSnapshot = null
-							history.record({
-								label: 'Merge trunks',
-								undo: () => { trunks = prev; selectedTrunkIds = new Set() },
-								redo: () => { trunks = final; selectedTrunkIds = new Set([trunkId]) },
-							})
-							return
+								const prev = preTrunkNodeMoveSnapshot!
+								const final = trunks
+								preTrunkNodeMoveSnapshot = null
+								history.record({
+									label: 'Merge trunks',
+									undo: () => { trunks = prev; selectedTrunkIds = new Set() },
+									redo: () => { trunks = final; selectedTrunkIds = new Set([trunkId]) },
+								})
+								return
+							} else {
+								// Incompatible: snap position to target node but keep trunks separate
+								trunks = trunks.map(t => {
+									if (t.id !== trunkId) return t
+									return { ...t, nodes: t.nodes.map(n =>
+										n.id === movedNodeId ? { ...n, position: { ...targetNode.position } } : n
+									)}
+								})
+							}
 						}
 					}
 				}
@@ -763,8 +863,11 @@
 
 		if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'SELECT') return
 
-		if (e.key === 'Escape' && !e.defaultPrevented) {
-			// Cascade: clear selection → revert to select mode
+		if (e.key === 'Escape') {
+			// Cascade: drawing handled by canvas → clear selection → revert to select mode
+			// (If trunk drawing is active, the canvas Escape handler finishes it and
+			//  sets trunkDrawingActive=false via ontrunkdrawingchange. Skip this handler.)
+			if (trunkDrawingActive) return
 			if (selectedIds.size > 0 || selectedRackIds.size > 0 || selectedTrunkIds.size > 0 || selectedNodeIds.size > 0) {
 				clearSelection()
 			} else if (activeTool !== 'select') {
@@ -919,6 +1022,7 @@
 					onremoveracks={removeRackPlacements}
 					onrotateracks={rotateSelectedRacks}
 					onaddtrunk={addTrunk}
+					ontrunkdrawingchange={active => trunkDrawingActive = active}
 					onselecttrunk={selectTrunk}
 					onselecttrunknode={selectTrunkNode}
 					onmovetrunknodes={moveTrunkNodes}

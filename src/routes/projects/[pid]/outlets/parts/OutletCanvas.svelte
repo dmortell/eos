@@ -20,7 +20,7 @@
 		gridMm = 0,
 		toPx, toMm, onadd, onselect, onclear, onmove, onmoveend, ondelete,
 		onselectrack, onmoveracks, onmoveracksend, onplacerack, onremoveracks, onrotateracks,
-		onaddtrunk, onselecttrunk, onselecttrunknode, onmovetrunknodes, onmovetrunknodesend, ondeletetrunks, onsplittrunksegment }: {
+		onaddtrunk, ontrunkdrawingchange, onselecttrunk, onselecttrunknode, onmovetrunknodes, onmovetrunknodesend, ondeletetrunks, onsplittrunksegment }: {
 		file: any
 		page: number
 		viewKey?: string
@@ -52,6 +52,7 @@
 		onremoveracks?: () => void
 		onrotateracks?: () => void
 		onaddtrunk?: (nodes: TrunkNode[], segments: TrunkSegment[], snaps?: Map<string, { trunkId: string; nodeId: string }>) => void
+		ontrunkdrawingchange?: (active: boolean) => void
 		onselecttrunk?: (trunkId: string, multi: boolean) => void
 		onselecttrunknode?: (nodeId: string, multi: boolean) => void
 		onmovetrunknodes?: (trunkId: string, nodeIds: Set<string>, dxMm: number, dyMm: number) => void
@@ -639,11 +640,9 @@
 		return cache
 	})
 
-	export function isDrawingTrunk(): boolean {
+	function isDrawingTrunk(): boolean {
 		return activeTool === 'trunk' && drawingNodes.length > 0
 	}
-
-	export { finishTrunkDrawing }
 
 	/** Build snap targets from existing trunk nodes, outlets, and racks.
 	 *  Excludes drawing nodes except the first one (to allow closing loops with 3+ segments). */
@@ -723,6 +722,7 @@
 		if (drawingNodes.length === 0) {
 			// First node
 			drawingNodes = [newNode]
+			ontrunkdrawingchange?.(true)
 			if (snappedToExistingNode) {
 				drawingSnaps = new Map([[nodeId, { trunkId: snap!.target.trunkId!, nodeId }]])
 			}
@@ -752,6 +752,7 @@
 		drawingSegments = []
 		drawingSnaps = new Map()
 		rubberBandTarget = null
+		ontrunkdrawingchange?.(false)
 	}
 
 	function cancelTrunkDrawing() {
@@ -759,6 +760,7 @@
 		drawingSegments = []
 		drawingSnaps = new Map()
 		rubberBandTarget = null
+		ontrunkdrawingchange?.(false)
 	}
 
 	function handleTrunkMouseMove(e: MouseEvent) {
@@ -841,7 +843,7 @@
 		if (e.key === '+' || e.key === '=') zoomIn()
 		else if (e.key === '-') zoomOut()
 		else if (e.key === 'Home') fitToView()
-		// Escape for trunk drawing is handled by Outlets.svelte
+		else if (e.key === 'Escape' && isDrawingTrunk()) { finishTrunkDrawing() }
 	}
 
 	function onCanvasDblClick(e: MouseEvent) {

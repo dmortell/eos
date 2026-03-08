@@ -149,6 +149,84 @@ export function polygonToPath(polygon: Point[]): string {
 	return polygon.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ') + ' Z'
 }
 
+interface RoundedCorner {
+	start: Point
+	end: Point
+	radius: number
+	sweep: 0 | 1
+	rounded: boolean
+}
+
+/**
+ * Convert polygon points to SVG path string with rounded corners.
+ * Radius is expressed in the same units as the polygon points.
+ */
+export function polygonToRoundedPath(polygon: Point[], radius: number): string {
+	if (polygon.length === 0) return ''
+	if (polygon.length < 3 || radius <= 0) return polygonToPath(polygon)
+
+	const corners: RoundedCorner[] = []
+
+	for (let i = 0; i < polygon.length; i++) {
+		const prev = polygon[(i - 1 + polygon.length) % polygon.length]
+		const curr = polygon[i]
+		const next = polygon[(i + 1) % polygon.length]
+
+		const inVec = sub(prev, curr)
+		const outVec = sub(next, curr)
+		const inLen = vlen(inVec)
+		const outLen = vlen(outVec)
+
+		if (inLen < 1e-6 || outLen < 1e-6) {
+			corners.push({ start: curr, end: curr, radius: 0, sweep: 0, rounded: false })
+			continue
+		}
+
+		const inDir = scale(inVec, 1 / inLen)
+		const outDir = scale(outVec, 1 / outLen)
+		const dot = Math.max(-1, Math.min(1, inDir.x * outDir.x + inDir.y * outDir.y))
+		const angle = Math.acos(dot)
+
+		// Straight-through / degenerate corners are not rounded.
+		if (angle < 1e-3 || Math.abs(Math.PI - angle) < 1e-3) {
+			corners.push({ start: curr, end: curr, radius: 0, sweep: 0, rounded: false })
+			continue
+		}
+
+		const maxOffset = Math.min(inLen, outLen) * 0.5
+		const idealOffset = radius / Math.tan(angle / 2)
+		const offset = Math.min(idealOffset, maxOffset)
+
+		if (offset < 1e-6) {
+			corners.push({ start: curr, end: curr, radius: 0, sweep: 0, rounded: false })
+			continue
+		}
+
+		const actualRadius = offset * Math.tan(angle / 2)
+		const start = add(curr, scale(inDir, offset))
+		const end = add(curr, scale(outDir, offset))
+		const sweep: 0 | 1 = cross(inDir, outDir) < 0 ? 1 : 0
+
+		corners.push({ start, end, radius: actualRadius, sweep, rounded: true })
+	}
+
+	let path = `M${corners[0].start.x},${corners[0].start.y}`
+
+	for (let i = 0; i < corners.length; i++) {
+		const c = corners[i]
+		if (c.rounded) {
+			path += ` A${c.radius},${c.radius} 0 0 ${c.sweep} ${c.end.x},${c.end.y}`
+		} else {
+			path += ` L${c.end.x},${c.end.y}`
+		}
+
+		const next = corners[(i + 1) % corners.length]
+		path += ` L${next.start.x},${next.start.y}`
+	}
+
+	return `${path} Z`
+}
+
 // ── Hit testing ──
 
 export function hitTestNode(pos: Point, nodes: TrunkNode[], radiusMm: number): TrunkNode | null {
