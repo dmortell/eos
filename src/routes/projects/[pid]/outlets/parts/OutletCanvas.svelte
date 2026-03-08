@@ -55,8 +55,8 @@
 		ontrunkdrawingchange?: (active: boolean) => void
 		onselecttrunk?: (trunkId: string, multi: boolean) => void
 		onselecttrunknode?: (nodeId: string, multi: boolean) => void
-		onmovetrunknodes?: (trunkId: string, nodeIds: Set<string>, dxMm: number, dyMm: number) => void
-		onmovetrunknodesend?: (trunkId: string, nodeIds: Set<string>) => void
+		onmovetrunknodes?: (trunkId: string, nodeIds: Set<string>, dxMm: number, dyMm: number, independent?: boolean) => void
+		onmovetrunknodesend?: (trunkId: string, nodeIds: Set<string>, independent?: boolean) => void
 		ondeletetrunks?: () => void
 		onsplittrunksegment?: (trunkId: string, segmentId: string, point: Point) => void
 	} = $props()
@@ -808,13 +808,13 @@
 		const dxMm = dxPx * calibration.scaleFactor
 		const dyMm = dyPx * calibration.scaleFactor
 		trunkNodeDragMoved = true
-		onmovetrunknodes(trunkNodeDragStart.trunkId, selectedNodeIds, dxMm, dyMm)
+		onmovetrunknodes(trunkNodeDragStart.trunkId, selectedNodeIds, dxMm, dyMm, e.altKey)
 		trunkNodeDragStart = { ...trunkNodeDragStart, x: pos.x, y: pos.y }
 	}
 
-	function onTrunkNodeDragUp() {
+	function onTrunkNodeDragUp(e: MouseEvent) {
 		if (trunkNodeDragMoved && trunkNodeDragStart && onmovetrunknodesend) {
-			onmovetrunknodesend(trunkNodeDragStart.trunkId, selectedNodeIds)
+			onmovetrunknodesend(trunkNodeDragStart.trunkId, selectedNodeIds, e.altKey)
 		}
 		draggingTrunkNode = false
 		trunkNodeDragStart = null

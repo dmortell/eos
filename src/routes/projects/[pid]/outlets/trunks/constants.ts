@@ -33,5 +33,5 @@ export const LOCATION_LABELS: Record<TrunkLocation, string> = {
 }
 
 export const DEFAULT_TRUNK_Z = 0
-export const SNAP_THRESHOLD_MM = 500
+export const SNAP_THRESHOLD_MM = 125
 export const MITER_LIMIT = 4.0

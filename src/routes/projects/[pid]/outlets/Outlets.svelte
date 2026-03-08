@@ -53,6 +53,19 @@
 	let floorFormat = $state<string>('L01')
 	let gridMm = $state(100)
 
+	// Check if selected node is at a junction between different trunks
+	let selectedNodeIsJunction = $derived.by(() => {
+		if (selectedNodeIds.size !== 1 || selectedTrunkIds.size !== 1) return false
+		const trunkId = [...selectedTrunkIds][0]
+		const nodeId = [...selectedNodeIds][0]
+		const trunk = trunks.find(t => t.id === trunkId)
+		const node = trunk?.nodes.find(n => n.id === nodeId)
+		if (!node) return false
+		return trunks.some(t => t.id !== trunkId && t.nodes.some(n =>
+			n.position.x === node.position.x && n.position.y === node.position.y
+		))
+	})
+
 	// Calibration from selected file/page
 	let calibration = $state<PageCalibration | null>(null)
 
@@ -653,12 +666,12 @@
 
 	let preTrunkNodeMoveSnapshot: TrunkConfig[] | null = null
 
-	function moveTrunkNodes(trunkId: string, nodeIds: Set<string>, dxMm: number, dyMm: number) {
+	function moveTrunkNodes(trunkId: string, nodeIds: Set<string>, dxMm: number, dyMm: number, independent?: boolean) {
 		if (!preTrunkNodeMoveSnapshot) preTrunkNodeMoveSnapshot = trunks
 		// Find positions of moved nodes before the move (from snapshot) to identify coincident nodes in other trunks
 		const srcTrunk = preTrunkNodeMoveSnapshot.find(t => t.id === trunkId)
 		const movedPositions = new Set<string>()
-		if (srcTrunk) {
+		if (!independent && srcTrunk) {
 			for (const n of srcTrunk.nodes) {
 				if (nodeIds.has(n.id)) movedPositions.add(`${n.position.x},${n.position.y}`)
 			}
@@ -672,6 +685,7 @@
 					),
 				}
 			}
+			if (independent) return t  // Alt+drag: only move this trunk's nodes
 			// Move coincident nodes in other trunks (connected at same position but separate trunk)
 			const origT = preTrunkNodeMoveSnapshot!.find(ot => ot.id === t.id)
 			if (!origT) return t
@@ -688,7 +702,7 @@
 		})
 	}
 
-	function moveTrunkNodesEnd(trunkId: string, nodeIds: Set<string>) {
+	function moveTrunkNodesEnd(trunkId: string, nodeIds: Set<string>, independent?: boolean) {
 		if (!preTrunkNodeMoveSnapshot) return
 
 		// Find original positions of moved nodes to identify coincident nodes in other trunks
@@ -700,11 +714,27 @@
 			}
 		}
 
-		// Snap to grid on release — also snap coincident nodes in other trunks
+		// Snap to grid on release — also snap coincident nodes in other trunks (unless independent)
 		const movedTrunk = trunks.find(t => t.id === trunkId)!
 		const snappedPositions = new Map<string, Point>()  // nodeId → snapped position
 		for (const n of movedTrunk.nodes) {
 			if (nodeIds.has(n.id)) snappedPositions.set(n.id, snapToGrid(n.position, gridMm))
+		}
+		if (independent) {
+			// Alt+drag: only snap this trunk's nodes, skip coincident and merge logic
+			trunks = trunks.map(t => {
+				if (t.id !== trunkId) return t
+				return { ...t, nodes: t.nodes.map(n => nodeIds.has(n.id) ? { ...n, position: snappedPositions.get(n.id) ?? n.position } : n) }
+			})
+			const prev = preTrunkNodeMoveSnapshot
+			const final = trunks
+			preTrunkNodeMoveSnapshot = null
+			history.record({
+				label: `Disconnect ${nodeIds.size} node(s)`,
+				undo: () => { trunks = prev },
+				redo: () => { trunks = final },
+			})
+			return
 		}
 		// Build a map of original position → snapped position for coincident node updates
 		const positionMap = new Map<string, Point>()
@@ -1159,6 +1189,7 @@
 					<span>{outlets.length} outlet{outlets.length !== 1 ? 's' : ''}</span>
 					<span>{rackPlacements.length} rack{rackPlacements.length !== 1 ? 's' : ''} placed</span>
 					{#if trunks.length > 0}<span>{trunks.length} trunk{trunks.length !== 1 ? 's' : ''}</span>{/if}
+					{#if selectedNodeIsJunction}<span class="text-amber-500">Alt+drag to disconnect</span>{/if}
 					{#if calibration}
 						<span>Scale: 1px = {calibration.scaleFactor.toFixed(1)}mm</span>
 					{/if}

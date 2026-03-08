@@ -5,7 +5,7 @@
 	import { TRUNK_COLORS } from './constants'
 	import { dist, generateTrunkPolygons, polygonToRoundedPath } from './geometry'
 
-	const INNER_CORNER_RADIUS_MM = 100
+	const INNER_CORNER_RADIUS_MM = 10
 
 	let { trunks = [], calibration, zoom = 1, selectedTrunkIds = new Set(), selectedNodeIds = new Set(),
 		drawingNodes = [], drawingSegments = [], drawingSpec, rubberBandTarget = null,
@@ -31,11 +31,49 @@
 	}
 
 	let innerCornerRadiusPx = $derived.by(() => {
-		const origin = toPx({ x: 0, y: 0 })
-		const xAxis = toPx({ x: INNER_CORNER_RADIUS_MM, y: 0 })
-		const yAxis = toPx({ x: 0, y: INNER_CORNER_RADIUS_MM })
-		return (dist(origin, xAxis) + dist(origin, yAxis)) / 2
+		const mmToPx = (mm: number): number => {
+			const origin = toPx({ x: 0, y: 0 })
+			const xAxis = toPx({ x: mm, y: 0 })
+			const yAxis = toPx({ x: 0, y: mm })
+			return (dist(origin, xAxis) + dist(origin, yAxis)) / 2
+		}
+		return mmToPx(INNER_CORNER_RADIUS_MM)
 	})
+
+	function trunkPathPx(trunk: TrunkConfig, polys: Point[][]): string {
+		const polygonsPx = polys.map(poly => poly.map(p => toPx(p)))
+
+		if (trunk.shape !== 'rect') {
+			return polygonsPx.map(poly => polygonToRoundedPath(poly, innerCornerRadiusPx)).join(' ')
+		}
+
+		const nodeDegree = new Map<string, number>()
+		for (const n of trunk.nodes) nodeDegree.set(n.id, 0)
+		for (const seg of trunk.segments) {
+			nodeDegree.set(seg.nodes[0], (nodeDegree.get(seg.nodes[0]) ?? 0) + 1)
+			nodeDegree.set(seg.nodes[1], (nodeDegree.get(seg.nodes[1]) ?? 0) + 1)
+		}
+
+		const endCentersPx = trunk.nodes
+			.filter(n => (nodeDegree.get(n.id) ?? 0) === 1)
+			.map(n => toPx(n.position))
+
+		const mmToPx = (mm: number): number => {
+			const origin = toPx({ x: 0, y: 0 })
+			const xAxis = toPx({ x: mm, y: 0 })
+			const yAxis = toPx({ x: 0, y: mm })
+			return (dist(origin, xAxis) + dist(origin, yAxis)) / 2
+		}
+		const halfWidthPx = mmToPx(trunkWidthMm(trunk)) / 2
+		const endSkipDistancePx = halfWidthPx + 1
+
+		return polygonsPx
+			.map(poly => polygonToRoundedPath(poly, innerCornerRadiusPx, {
+				skipRoundCenters: endCentersPx,
+				skipRoundDistancePx: endSkipDistancePx,
+			}))
+			.join(' ')
+	}
 
 	let renderedTrunks = $derived.by(() => {
 		const result: RenderedTrunk[] = []
@@ -44,9 +82,7 @@
 			const color = trunk.color ?? TRUNK_COLORS[trunk.shape]
 			const polys = generateTrunkPolygons(trunk)
 			// Combine all sub-polygons into one path string — evenodd fill-rule handles loop holes
-			const path = polys
-				.map(poly => polygonToRoundedPath(poly.map(p => toPx(p)), innerCornerRadiusPx))
-				.join(' ')
+			const path = trunkPathPx(trunk, polys)
 			result.push({ trunk, path, color, selected: selectedTrunkIds.has(trunk.id) })
 		}
 		return result
@@ -72,9 +108,7 @@
 			segments: drawingSegments,
 		}
 		const polys = generateTrunkPolygons(tempTrunk)
-		return polys
-			.map(poly => polygonToRoundedPath(poly.map(p => toPx(p)), innerCornerRadiusPx))
-			.join(' ')
+		return trunkPathPx(tempTrunk, polys)
 	})
 
 	/** Last drawing node position in px (for rubber-band line) */

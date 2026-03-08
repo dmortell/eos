@@ -157,13 +157,26 @@ interface RoundedCorner {
 	rounded: boolean
 }
 
+interface RoundedPathOptions {
+	/** Corners near these points (within skipRoundDistancePx) are kept sharp */
+	skipRoundCenters?: Point[]
+	skipRoundDistancePx?: number
+}
+
 /**
  * Convert polygon points to SVG path string with rounded corners.
  * Radius is expressed in the same units as the polygon points.
  */
-export function polygonToRoundedPath(polygon: Point[], radius: number): string {
+export function polygonToRoundedPath(
+	polygon: Point[],
+	radius: number,
+	options: RoundedPathOptions = {},
+): string {
 	if (polygon.length === 0) return ''
 	if (polygon.length < 3 || radius <= 0) return polygonToPath(polygon)
+
+	const skipRoundCenters = options.skipRoundCenters ?? []
+	const skipRoundDistancePx = options.skipRoundDistancePx ?? 0
 
 	const corners: RoundedCorner[] = []
 
@@ -171,6 +184,14 @@ export function polygonToRoundedPath(polygon: Point[], radius: number): string {
 		const prev = polygon[(i - 1 + polygon.length) % polygon.length]
 		const curr = polygon[i]
 		const next = polygon[(i + 1) % polygon.length]
+
+		if (
+			skipRoundDistancePx > 0
+			&& skipRoundCenters.some(center => dist(center, curr) <= skipRoundDistancePx)
+		) {
+			corners.push({ start: curr, end: curr, radius: 0, sweep: 0, rounded: false })
+			continue
+		}
 
 		const inVec = sub(prev, curr)
 		const outVec = sub(next, curr)

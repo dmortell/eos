@@ -19,7 +19,7 @@
 	} = $props()
 
 	// ── Drawing settings (sticky for new trunks) ──
-	let shape = $state<TrunkShape>('pipe')
+	let shape = $state<TrunkShape>('rect')
 	let location = $state<TrunkLocation>('floor')
 	let pipeCatalog = $state<PipeCatalog>('PF28')
 	let rectCatalog = $state<RectCatalog>('MK3')
@@ -153,12 +153,11 @@
 				{@const selected = selectedTrunkIds.has(trunk.id)}
 				{@const color = trunk.color ?? TRUNK_COLORS[trunk.shape]}
 				{@const len = computeTrunkLength(trunk)}
-				<div
-					class="w-full flex items-center gap-1.5 px-2 py-1 text-left transition-colors cursor-pointer
+				<!-- svelte-ignore a11y_click_events_have_key_events -->
+				<div class="w-full flex items-center gap-1.5 px-2 py-1 text-left transition-colors cursor-pointer
 						{selected ? 'bg-cyan-50 text-cyan-800' : 'hover:bg-gray-50 text-gray-600'}"
 					onclick={(e) => onselect(trunk.id, e.ctrlKey || e.metaKey)}
-					role="button"
-					tabindex="0"
+					role="button" tabindex="0"
 				>
 					<!-- Visibility toggle -->
 					<button
