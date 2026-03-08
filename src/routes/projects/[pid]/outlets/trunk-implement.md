@@ -488,29 +488,48 @@ This works for simple polyline trunks. For the graph-based model, the route calc
 
 ## Verification Checklist
 
-- [ ] Draw trunk by clicking points on floorplan (click-click mode)
-- [ ] Draw trunk by dragging (drag mode)
-- [ ] Shift constrains to 15-degree angles
-- [ ] Snap to existing nodes/outlets/racks within threshold
-- [ ] Escape finishes drawing, right-click cancels
-- [ ] Click existing node during drawing creates junction
-- [ ] Select mode: click node/segment/body to select
-- [ ] Drag node moves it, updates connected segments
-- [ ] Drag segment moves both endpoints
-- [ ] Ctrl+drag from node creates branch
-- [ ] Ctrl+click segment splits it
-- [ ] Delete node removes node + connected segments
-- [ ] Delete segment removes segment only, keeps nodes
-- [ ] Miter radius handle adjusts corner rounding
-- [ ] Undo/redo works for all operations
-- [ ] Trunk renders with correct width and mitered corners
-- [ ] Rounded corners render when node.radius > 0
-- [ ] Pipes vs rectangular trunks visually distinct
-- [ ] Location-based styling (dashed for ceiling, solid for floor)
-- [ ] Primary vs secondary trunk styling distinct
-- [ ] Labels display at segment midpoints, are editable via dblclick
-- [ ] Per-trunk visibility toggle works
-- [ ] Properties panel shows/edits trunk, node, and segment details
-- [ ] Sidebar lists all trunks with visibility toggles
-- [ ] Data persists to Firestore
-- [ ] Zoom-invariant stroke widths and handles
+- [x] Draw trunk by clicking points on floorplan (click-click mode)
+- [ ] Draw trunk by dragging (drag mode) — NOT IMPLEMENTED, click-click only
+- [x] Shift constrains to 15-degree angles (drawing + node drag)
+- [x] Snap to existing nodes/outlets/racks within threshold (125mm, rack edge midpoints)
+- [x] Escape finishes drawing, right-click cancels
+- [x] Click existing node during drawing creates junction (reuses node ID, merges trunks)
+- [x] Select mode: click node/segment/body to select
+- [x] Drag node moves it, updates connected segments (absolute delta, grid snap, node snap)
+- [x] Drag segment moves both endpoints
+- [ ] Ctrl+drag from node creates branch — NOT IMPLEMENTED
+- [x] Ctrl+click segment splits it
+- [x] Delete node removes node + connected segments (merges 2-segment nodes)
+- [ ] Delete segment removes segment only — NOT IMPLEMENTED (delete removes nodes)
+- [ ] Miter radius handle adjusts corner rounding — NOT IMPLEMENTED (radius field exists but no drag handle)
+- [x] Undo/redo works for all operations
+- [x] Trunk renders with correct width and mitered corners
+- [x] Rounded corners render when node.radius > 0
+- [x] Pipes vs rectangular trunks visually distinct
+- [x] Location-based styling (dashed for ceiling, solid for floor)
+- [ ] Primary vs secondary trunk styling distinct — PARTIAL (opacity differs)
+- [ ] Labels display at segment midpoints, are editable via dblclick — NOT IMPLEMENTED
+- [x] Per-trunk visibility toggle works
+- [ ] Properties panel shows/edits trunk, node, and segment details — PARTIAL (palette only)
+- [x] Sidebar lists all trunks with visibility toggles
+- [x] Data persists to Firestore
+- [x] Zoom-invariant stroke widths and handles
+
+## Additional Features Implemented (not in original plan)
+
+- [x] Grid snapping with configurable size (status bar input, default 100mm)
+- [x] Realtime grid snap during drag (absolute delta from snapshot)
+- [x] Realtime node snap during drag with visual highlight ring
+- [x] Drawing snap highlight (purple ring near targets)
+- [x] Incompatible trunk types kept separate (trunksCompatible check)
+- [x] Coincident node dragging (connected-but-separate trunks move together)
+- [x] Alt+drag to disconnect nodes at junctions
+- [x] Right-click-drag to disconnect last segment from a node
+- [x] Same-trunk node reconnection on drop
+- [x] Trunk-to-rack connections (connectedRackId on nodes, edge midpoint snaps)
+- [x] Connected nodes move with rack drag
+- [x] Segment midpoint handles only show crosshair cursor when Ctrl held
+- [x] Loop support with evenodd fill-rule (hollow interiors)
+- [x] Escape cascade: finish drawing → clear selection → switch to select mode
+- [x] Status bar hint "Alt+drag to disconnect" for junction nodes
+- [x] Double-click duplicate node prevention (e.detail >= 2 and same-position check)

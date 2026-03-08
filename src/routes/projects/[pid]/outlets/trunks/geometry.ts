@@ -161,6 +161,8 @@ interface RoundedPathOptions {
 	/** Corners near these points (within skipRoundDistancePx) are kept sharp */
 	skipRoundCenters?: Point[]
 	skipRoundDistancePx?: number
+	/** Per-node radius overrides: map of node center to custom radius in same units as polygon */
+	nodeRadiusMap?: Map<string, number>
 }
 
 /**
@@ -177,6 +179,7 @@ export function polygonToRoundedPath(
 
 	const skipRoundCenters = options.skipRoundCenters ?? []
 	const skipRoundDistancePx = options.skipRoundDistancePx ?? 0
+	const nodeRadiusMap = options.nodeRadiusMap ?? new Map()
 
 	const corners: RoundedCorner[] = []
 
@@ -185,12 +188,24 @@ export function polygonToRoundedPath(
 		const curr = polygon[i]
 		const next = polygon[(i + 1) % polygon.length]
 
+		// Check for skip centers (straight corners)
 		if (
 			skipRoundDistancePx > 0
 			&& skipRoundCenters.some(center => dist(center, curr) <= skipRoundDistancePx)
 		) {
 			corners.push({ start: curr, end: curr, radius: 0, sweep: 0, rounded: false })
 			continue
+		}
+
+		// Check for per-node radius override
+		let effectiveRadius = radius
+		for (const [key, nodeRadius] of nodeRadiusMap) {
+			const [x, y] = key.split(',').map(Number)
+			const threshold = Math.max(skipRoundDistancePx, 10) // Use at least 10px threshold
+			if (dist(curr, { x, y }) <= threshold) {
+				effectiveRadius = nodeRadius
+				break
+			}
 		}
 
 		const inVec = sub(prev, curr)
@@ -215,7 +230,7 @@ export function polygonToRoundedPath(
 		}
 
 		const maxOffset = Math.min(inLen, outLen) * 0.5
-		const idealOffset = radius / Math.tan(angle / 2)
+		const idealOffset = effectiveRadius / Math.tan(angle / 2)
 		const offset = Math.min(idealOffset, maxOffset)
 
 		if (offset < 1e-6) {

@@ -46,7 +46,7 @@
 		onmoveend: (ids: Set<string>) => void
 		ondelete: () => void
 		onselectrack?: (rackId: string, multi: boolean) => void
-		onmoveracks?: (ids: Set<string>, dxMm: number, dyMm: number) => void
+		onmoveracks?: (ids: Set<string>, dxMm: number, dyMm: number, absolute?: boolean) => void
 		onmoveracksend?: (ids: Set<string>) => void
 		onplacerack?: (rackId: string, room: string, position: Point) => void
 		onremoveracks?: () => void
@@ -69,8 +69,9 @@
 	// Modifier key tracking
 	let ctrlKey = $state(false)
 
-	// Snap highlight during node drag (px coordinates for rendering)
+	// Snap highlight during node drag or drawing (px coordinates for rendering)
 	let dragSnapHighlight = $state<Point | null>(null)
+	let drawingSnapHighlight = $state<Point | null>(null)
 
 	// Pan/zoom state
 	let vx = $state(0)
@@ -128,7 +129,7 @@
 	// Rack drag state
 	let draggingRack = $state(false)
 	let rackDragMoved = false
-	let rackDragStart: { x: number; y: number } | null = null
+	let rackDragStart: { startX: number; startY: number; originMm: Point } | null = null
 
 	// Drag-select
 	let dragSelecting = $state(false)
@@ -446,7 +447,9 @@
 			// Start rack drag
 			draggingRack = true
 			rackDragMoved = false
-			rackDragStart = { x: pos.x, y: pos.y }
+			const firstRack = rackPlacements.find(p => selectedRackIds.has(p.rackId))
+			const originMm = firstRack ? { ...firstRack.position } : { x: 0, y: 0 }
+			rackDragStart = { startX: pos.x, startY: pos.y, originMm }
 			document.addEventListener('mousemove', onRackDragMove)
 			document.addEventListener('mouseup', onRackDragUp)
 			return
@@ -541,14 +544,15 @@
 	function onRackDragMove(e: MouseEvent) {
 		if (!rackDragStart || !calibration || !onmoveracks) return
 		const pos = getPagePos(e)
-		const dxPx = pos.x - rackDragStart.x
-		const dyPx = pos.y - rackDragStart.y
-		const dxMm = dxPx * calibration.scaleFactor
-		const dyMm = dyPx * calibration.scaleFactor
+		const totalDxMm = (pos.x - rackDragStart.startX) * calibration.scaleFactor
+		const totalDyMm = (pos.y - rackDragStart.startY) * calibration.scaleFactor
+		let targetMm = { x: rackDragStart.originMm.x + totalDxMm, y: rackDragStart.originMm.y + totalDyMm }
+		targetMm = snapToGrid(targetMm, gridMm)
+		const dxMm = targetMm.x - rackDragStart.originMm.x
+		const dyMm = targetMm.y - rackDragStart.originMm.y
 
 		rackDragMoved = true
-		onmoveracks(selectedRackIds, dxMm, dyMm)
-		rackDragStart = { x: pos.x, y: pos.y }
+		onmoveracks(selectedRackIds, dxMm, dyMm, true)
 	}
 
 	function onRackDragUp() {
@@ -741,7 +745,25 @@
 			targets.push({ position: outlet.position, id: outlet.id, type: 'outlet' })
 		}
 		for (const rp of rackPlacements) {
-			targets.push({ position: rp.position, id: rp.rackId, type: 'rack' })
+			const cfg = getRackConfig(rp.rackId)
+			if (cfg) {
+				// Snap to center of each edge of the rack (accounting for rotation)
+				const w = cfg.widthMm, d = cfg.depthMm
+				const cx = rp.position.x + w / 2, cy = rp.position.y + d / 2
+				const rot = (rp.rotation ?? 0) * Math.PI / 180
+				const cos = Math.cos(rot), sin = Math.sin(rot)
+				const rotPt = (lx: number, ly: number): Point => ({
+					x: cx + (lx - cx) * cos - (ly - cy) * sin,
+					y: cy + (lx - cx) * sin + (ly - cy) * cos,
+				})
+				// Four edge midpoints
+				targets.push({ position: rotPt(cx, rp.position.y), id: rp.rackId, type: 'rack' })           // top
+				targets.push({ position: rotPt(cx, rp.position.y + d), id: rp.rackId, type: 'rack' })        // bottom
+				targets.push({ position: rotPt(rp.position.x, cy), id: rp.rackId, type: 'rack' })            // left
+				targets.push({ position: rotPt(rp.position.x + w, cy), id: rp.rackId, type: 'rack' })        // right
+			} else {
+				targets.push({ position: rp.position, id: rp.rackId, type: 'rack' })
+			}
 		}
 		return targets
 	}
@@ -793,6 +815,9 @@
 		} else {
 			nodeId = genId('tn')
 			newNode = { id: nodeId, position: mmPos, z: trunkPalette?.currentZ() ?? 0 }
+			// Set connection IDs when snapping to racks or outlets
+			if (snap?.target.type === 'rack') newNode.connectedRackId = snap.target.id
+			else if (snap?.target.type === 'outlet') newNode.connectedOutletId = snap.target.id
 		}
 
 		if (drawingNodes.length === 0) {
@@ -839,6 +864,7 @@
 		drawingSegments = []
 		drawingSnaps = new Map()
 		rubberBandTarget = null
+		drawingSnapHighlight = null
 		ontrunkdrawingchange?.(false)
 	}
 
@@ -847,6 +873,7 @@
 		drawingSegments = []
 		drawingSnaps = new Map()
 		rubberBandTarget = null
+		drawingSnapHighlight = null
 		ontrunkdrawingchange?.(false)
 	}
 
@@ -861,6 +888,7 @@
 		}
 		const snap = snapToNearby(mmPos, buildSnapTargets(), SNAP_THRESHOLD_MM)
 		rubberBandTarget = snap ? snap.snappedPos : mmPos
+		drawingSnapHighlight = snap ? toPx(snap.snappedPos) : null
 	}
 
 	// Trunk node drag state
@@ -904,7 +932,7 @@
 			targetMm = snapToGrid(targetMm, gridMm)
 		}
 
-		// Snap to nearby node (overrides grid snap)
+		// Snap to nearby node, rack, or outlet (overrides grid snap)
 		dragSnapHighlight = null
 		let bestSnapDist = SNAP_THRESHOLD_MM
 		let bestSnapPos: Point | null = null
@@ -913,11 +941,32 @@
 			for (const node of trunk.nodes) {
 				if (selectedNodeIds.has(node.id)) continue
 				const d = dist(targetMm, node.position)
-				if (d <= bestSnapDist) {
-					bestSnapDist = d
-					bestSnapPos = node.position
-				}
+				if (d <= bestSnapDist) { bestSnapDist = d; bestSnapPos = node.position }
 			}
+		}
+		for (const rp of rackPlacements) {
+			const cfg = getRackConfig(rp.rackId)
+			if (cfg) {
+				const w = cfg.widthMm, dp = cfg.depthMm
+				const cx = rp.position.x + w / 2, cy = rp.position.y + dp / 2
+				const rot = (rp.rotation ?? 0) * Math.PI / 180
+				const cos = Math.cos(rot), sin = Math.sin(rot)
+				const rotPt = (lx: number, ly: number): Point => ({
+					x: cx + (lx - cx) * cos - (ly - cy) * sin,
+					y: cy + (lx - cx) * sin + (ly - cy) * cos,
+				})
+				for (const ep of [rotPt(cx, rp.position.y), rotPt(cx, rp.position.y + dp), rotPt(rp.position.x, cy), rotPt(rp.position.x + w, cy)]) {
+					const d2 = dist(targetMm, ep)
+					if (d2 <= bestSnapDist) { bestSnapDist = d2; bestSnapPos = ep }
+				}
+			} else {
+				const d2 = dist(targetMm, rp.position)
+				if (d2 <= bestSnapDist) { bestSnapDist = d2; bestSnapPos = rp.position }
+			}
+		}
+		for (const outlet of outlets) {
+			const d = dist(targetMm, outlet.position)
+			if (d <= bestSnapDist) { bestSnapDist = d; bestSnapPos = outlet.position }
 		}
 		if (bestSnapPos) {
 			targetMm = bestSnapPos
@@ -1129,10 +1178,15 @@
 					{toPx}
 				/>
 
-				<!-- Snap highlight ring during node drag -->
+				<!-- Snap highlight ring during node drag or drawing -->
 				{#if dragSnapHighlight}
 					<circle cx={dragSnapHighlight.x} cy={dragSnapHighlight.y} r={8 / zoom}
 						fill="none" stroke="#06b6d4" stroke-width={2 / zoom}
+						stroke-dasharray="{4 / zoom} {2 / zoom}" class="pointer-events-none" />
+				{/if}
+				{#if drawingSnapHighlight}
+					<circle cx={drawingSnapHighlight.x} cy={drawingSnapHighlight.y} r={8 / zoom}
+						fill="none" stroke="#8b5cf6" stroke-width={2 / zoom}
 						stroke-dasharray="{4 / zoom} {2 / zoom}" class="pointer-events-none" />
 				{/if}
 

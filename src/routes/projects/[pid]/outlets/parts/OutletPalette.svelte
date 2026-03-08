@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Icon } from '$lib'
 	import type { OutletConfig, PageCalibration, ToolMode } from './types'
-	import { USAGE_COLORS, MOUNT_LABELS, MOUNT_SHORT, CABLE_COLORS } from './constants'
+	import { USAGE_COLORS, MOUNT_LABELS, MOUNT_SHORT, CABLE_COLORS, LEVEL_INFO } from './constants'
 
 	import type { StickyDefaults } from './constants'
 
@@ -93,7 +93,7 @@
 
 	<!-- Zone selector -->
 	<div class="space-y-1.5">
-		<div class="text-[10px] text-gray-400 uppercase tracking-wider font-medium">Zone</div>
+		<div class="text-[10px] text-gray-400 uppercase tracking-wider font-medium" title="Outlet labels zone">Zone</div>
 		<div class="flex gap-0.5">
 			{#each ['A', 'B', 'C', 'D', 'E', 'F'] as z}
 				<button
@@ -340,10 +340,10 @@
 						<span class="font-mono text-[10px] text-gray-700 truncate">{outlet.label ?? outlet.id.slice(0, 8)}</span>
 						<span class="text-[10px] text-gray-400 shrink-0">{outlet.portCount}p</span>
 						<span class="xxml-auto flex items-center gap-1 shrink-0">
-							<span class="text-[10px] px-0.5 rounded" style:color={cColors.color}>{cColors.short}</span>
-							<span class="text-[10px] text-gray-500">{MOUNT_SHORT[outlet.mountType]}</span>
-							<span class="text-[10px] {outlet.level === 'high' ? 'bg-red-100 text-amber-800 font-semibold' : 'text-green-800 bg-green-100'}">{outlet.level === 'high' ? 'HL' : 'LL'}</span>
-							<span class="text-[10px] text-gray-500">{outlet.usage}</span>
+						<span class="text-[10px] px-0.5 rounded" style:color={cColors.color} title={cColors.title}>{cColors.short}</span>
+						<span class="text-[10px] text-gray-500" title={MOUNT_SHORT[outlet.mountType].title}>{MOUNT_SHORT[outlet.mountType].short}</span>
+						<span class="text-[10px] {LEVEL_INFO[outlet.level].bgClass} {LEVEL_INFO[outlet.level].textClass}" title={LEVEL_INFO[outlet.level].title}>{LEVEL_INFO[outlet.level].short}</span>
+						<span class="text-[10px] text-gray-500" title={USAGE_COLORS[outlet.usage].title}>{outlet.usage}</span>
 						</span>
 					</button>
 				{/each}

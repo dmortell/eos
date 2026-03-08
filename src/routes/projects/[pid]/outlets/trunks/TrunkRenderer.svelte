@@ -44,8 +44,31 @@
 	function trunkPathPx(trunk: TrunkConfig, polys: Point[][]): string {
 		const polygonsPx = polys.map(poly => poly.map(p => toPx(p)))
 
+		const mmToPx = (mm: number): number => {
+			const origin = toPx({ x: 0, y: 0 })
+			const xAxis = toPx({ x: mm, y: 0 })
+			const yAxis = toPx({ x: 0, y: mm })
+			return (dist(origin, xAxis) + dist(origin, yAxis)) / 2
+		}
+
+		// Build per-node radius map
+		const nodeRadiusMap = new Map<string, number>()
+		for (const node of trunk.nodes) {
+			if (node.radius && node.radius > 0) {
+				const nodePx = toPx(node.position)
+				const key = `${nodePx.x},${nodePx.y}`
+				nodeRadiusMap.set(key, mmToPx(node.radius))
+			}
+		}
+
 		if (trunk.shape !== 'rect') {
-			return polygonsPx.map(poly => polygonToRoundedPath(poly, innerCornerRadiusPx)).join(' ')
+			const halfWidthPx = mmToPx(trunkWidthMm(trunk)) / 2
+			return polygonsPx.map(poly => 
+				polygonToRoundedPath(poly, innerCornerRadiusPx, { 
+					nodeRadiusMap,
+					skipRoundDistancePx: halfWidthPx + 1,
+				})
+			).join(' ')
 		}
 
 		const nodeDegree = new Map<string, number>()
@@ -59,12 +82,6 @@
 			.filter(n => (nodeDegree.get(n.id) ?? 0) === 1)
 			.map(n => toPx(n.position))
 
-		const mmToPx = (mm: number): number => {
-			const origin = toPx({ x: 0, y: 0 })
-			const xAxis = toPx({ x: mm, y: 0 })
-			const yAxis = toPx({ x: 0, y: mm })
-			return (dist(origin, xAxis) + dist(origin, yAxis)) / 2
-		}
 		const halfWidthPx = mmToPx(trunkWidthMm(trunk)) / 2
 		const endSkipDistancePx = halfWidthPx + 1
 
@@ -72,6 +89,7 @@
 			.map(poly => polygonToRoundedPath(poly, innerCornerRadiusPx, {
 				skipRoundCenters: endCentersPx,
 				skipRoundDistancePx: endSkipDistancePx,
+				nodeRadiusMap,
 			}))
 			.join(' ')
 	}
@@ -143,8 +161,14 @@
 		{#each trunk.nodes as node (node.id)}
 			{@const px = nodePx(node)}
 			{@const nodeSelected = selectedNodeIds.has(node.id)}
+			{@const isConnected = !!(node.connectedRackId || node.connectedOutletId)}
+			{#if isConnected}
+				<circle cx={px.x} cy={px.y} r={7 / zoom}
+					fill="none" stroke={node.connectedRackId ? '#3b82f6' : '#10b981'} stroke-width={1.5 / zoom}
+					class="pointer-events-none" />
+			{/if}
 			<circle cx={px.x} cy={px.y} r={4 / zoom}
-				fill={nodeSelected ? '#06b6d4' : color} stroke="white" stroke-width={1.5 / zoom}
+				fill={nodeSelected ? '#06b6d4' : isConnected ? (node.connectedRackId ? '#3b82f6' : '#10b981') : color} stroke="white" stroke-width={1.5 / zoom}
 				class="pointer-events-auto" style:cursor="pointer" />
 		{/each}
 

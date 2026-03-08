@@ -380,12 +380,30 @@
 	}
 
 	let preRackMoveSnapshot: RackPlacement[] | null = null
+	let preRackMoveTrunkSnapshot: TrunkConfig[] | null = null
 
-	function moveRacks(ids: Set<string>, dxMm: number, dyMm: number) {
-		if (!preRackMoveSnapshot) preRackMoveSnapshot = rackPlacements
-		rackPlacements = rackPlacements.map(p => {
+	function moveRacks(ids: Set<string>, dxMm: number, dyMm: number, absolute?: boolean) {
+		if (!preRackMoveSnapshot) {
+			preRackMoveSnapshot = rackPlacements
+			preRackMoveTrunkSnapshot = trunks
+		}
+		const base = absolute ? preRackMoveSnapshot : rackPlacements
+		rackPlacements = base.map(p => {
 			if (!ids.has(p.rackId)) return p
 			return { ...p, position: { x: p.position.x + dxMm, y: p.position.y + dyMm } }
+		})
+		// Move connected trunk nodes with the racks
+		const baseTrunks = absolute ? preRackMoveTrunkSnapshot! : trunks
+		trunks = baseTrunks.map(t => {
+			let changed = false
+			const newNodes = t.nodes.map(n => {
+				if (n.connectedRackId && ids.has(n.connectedRackId)) {
+					changed = true
+					return { ...n, position: { x: n.position.x + dxMm, y: n.position.y + dyMm } }
+				}
+				return n
+			})
+			return changed ? { ...t, nodes: newNodes } : t
 		})
 	}
 
@@ -393,13 +411,28 @@
 		if (!preRackMoveSnapshot) return
 		// Snap to grid on release
 		rackPlacements = rackPlacements.map(p => ids.has(p.rackId) ? { ...p, position: snapToGrid(p.position, gridMm) } : p)
-		const prev = preRackMoveSnapshot
-		const final = rackPlacements
+		// Snap connected trunk nodes to grid too
+		trunks = trunks.map(t => {
+			let changed = false
+			const newNodes = t.nodes.map(n => {
+				if (n.connectedRackId && ids.has(n.connectedRackId)) {
+					changed = true
+					return { ...n, position: snapToGrid(n.position, gridMm) }
+				}
+				return n
+			})
+			return changed ? { ...t, nodes: newNodes } : t
+		})
+		const prevRacks = preRackMoveSnapshot
+		const finalRacks = rackPlacements
+		const prevTrunks = preRackMoveTrunkSnapshot
+		const finalTrunks = trunks
 		preRackMoveSnapshot = null
+		preRackMoveTrunkSnapshot = null
 		history.record({
 			label: `Move ${ids.size} rack(s)`,
-			undo: () => { rackPlacements = prev },
-			redo: () => { rackPlacements = final },
+			undo: () => { rackPlacements = prevRacks; trunks = prevTrunks! },
+			redo: () => { rackPlacements = finalRacks; trunks = finalTrunks },
 		})
 	}
 
@@ -842,6 +875,47 @@
 			}
 		}
 
+		// Check if moved nodes landed on a rack or outlet → set connection
+		const updatedTrunk = trunks.find(t => t.id === trunkId)
+		if (updatedTrunk) {
+			trunks = trunks.map(t => {
+				if (t.id !== trunkId) return t
+				return {
+					...t, nodes: t.nodes.map(n => {
+						if (!nodeIds.has(n.id)) return n
+						// Check racks — use edge midpoints for matching
+						for (const rp of rackPlacements) {
+							const rc = allRackConfigs.find(r => r.id === rp.rackId)
+							if (!rc) continue
+							const w = rc.widthMm, dp = rc.depthMm ?? rc.widthMm
+							const cx = rp.position.x + w / 2, cy = rp.position.y + dp / 2
+							const rot = (rp.rotation ?? 0) * Math.PI / 180
+							const cos = Math.cos(rot), sin = Math.sin(rot)
+							const rotPt = (lx: number, ly: number): Point => ({
+								x: cx + (lx - cx) * cos - (ly - cy) * sin,
+								y: cy + (lx - cx) * sin + (ly - cy) * cos,
+							})
+							const edges = [rotPt(cx, rp.position.y), rotPt(cx, rp.position.y + dp), rotPt(rp.position.x, cy), rotPt(rp.position.x + w, cy)]
+							if (edges.some(ep => dist(n.position, ep) <= SNAP_THRESHOLD_MM)) {
+								return { ...n, connectedRackId: rp.rackId, connectedOutletId: undefined }
+							}
+						}
+						// Check outlets
+						for (const o of outlets) {
+							if (dist(n.position, o.position) <= SNAP_THRESHOLD_MM) {
+								return { ...n, connectedOutletId: o.id, connectedRackId: undefined }
+							}
+						}
+						// Clear connections if moved away
+						if (n.connectedRackId || n.connectedOutletId) {
+							return { ...n, connectedRackId: undefined, connectedOutletId: undefined }
+						}
+						return n
+					}),
+				}
+			})
+		}
+
 		const prev = preTrunkNodeMoveSnapshot
 		const final = trunks
 		preTrunkNodeMoveSnapshot = null
@@ -1229,6 +1303,7 @@
 
 						<div class="flex items-center gap-1 pt-1 border-t border-gray-100">
 							<button class="flex items-center gap-1 px-1.5 py-0.5 text-[10px] text-red-500 border border-red-200 rounded hover:bg-red-50 transition-colors"
+								title="Remove selected rack(s) from floor plan (does not delete the rack)"
 								onclick={removeRackPlacements}>
 								<Icon name="trash" size={10} /> Remove
 							</button>
