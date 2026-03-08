@@ -4,7 +4,7 @@
 	import { page } from '$app/state';
 	import { type Project } from './racks/parts/types';
 	let {params, ...other} = $props()
-	let project = $state({})
+	let project: Record<string, any> = $state({})
 	let pid = $derived(params.pid)
 	let id = $derived(page.params.pid); // This will correctly update id
 	let path = $derived(page.url.pathname); // This will correctly update id

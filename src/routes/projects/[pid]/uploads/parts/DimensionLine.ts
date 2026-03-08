@@ -1,10 +1,10 @@
 let abs = Math.abs
 
-export function isHorizontal(size){
+export function isHorizontal(size: Record<string, any>){
   return abs(size.x2-size.x1) > abs(size.y2-size.y1)
 }
 
-export function dragDimension(size, handle, next){
+export function dragDimension(size: Record<string, any>, handle: number, next: { x: number; y: number }){
     if (handle & 1)            Object.assign(size, { x1: next.x, y1: next.y });
     if (handle & 2 || !handle) Object.assign(size, { x2: next.x, y2: next.y });
     if (handle & 4) size.offset = isHorizontal(size) ? (size.y1 - next.y) : (next.x - size.x1);

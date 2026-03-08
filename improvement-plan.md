@@ -1076,6 +1076,576 @@ describe('FloorTabs', () => {
 
 ---
 
+---
+
+## 16. Eliminate Code Duplication (Critical)
+
+### Problem
+Several utility functions are copy-pasted verbatim across multiple files, creating silent maintenance traps where a bug fix or enhancement in one place is missed in others.
+
+### 16.1 ✅ Extract `fmtFloor` Utility
+
+**Current state:** Identical function in 4 files:
+- `Outlets.svelte`
+- `Racks.svelte`
+- `Frames.svelte`
+- `FloorManagerDialog.svelte`
+
+**Solution:** Create `src/lib/utils/floor.ts`:
+
+```typescript
+import type { FloorConfig } from '$lib/types/project'
+
+/**
+ * Format a floor number for display using the project's floor format setting.
+ * Uses custom label from FloorConfig if set.
+ *
+ * @param fl - Floor number (negative = basement)
+ * @param floorFormat - Format style: 'L01' | '01F' | '01'
+ * @param floors - Floor config array for custom label lookup
+ */
+export function fmtFloor(
+  fl: number,
+  floorFormat: string = 'L01',
+  floors: FloorConfig[] = []
+): string {
+  const cfg = floors.find(f => f.number === fl)
+  if (cfg?.label) return cfg.label
+
+  if (fl < 0) {
+    const n = String(Math.abs(fl)).padStart(2, '0')
+    if (floorFormat === '01F') return `B${Math.abs(fl)}F`
+    if (floorFormat === '01') return `B${n}`
+    return `B${n}`
+  }
+  const n = String(fl).padStart(2, '0')
+  if (floorFormat === '01F') return `${n}F`
+  if (floorFormat === '01') return n
+  return `L${n}`
+}
+
+/** Build a Firestore doc ID for a floor-scoped tool document */
+export function floorDocId(projectId: string, floor: number): string {
+  return `${projectId}_F${String(floor).padStart(2, '0')}`
+}
+
+/** Build a Firestore doc ID for a floor+room-scoped document */
+export function roomDocId(projectId: string, floor: number, room: string): string {
+  return `${floorDocId(projectId, floor)}_R${room}`
+}
+```
+
+**Import everywhere:**
+```typescript
+import { fmtFloor, floorDocId, roomDocId } from '$lib/utils/floor'
+```
+
+**Impact:** Removes ~25 lines × 4 files = 100 lines of duplication. Bug fixes apply everywhere instantly.
+
+---
+
+### 16.2 ✅ Extract `migrateFloors` Utility
+
+**Current state:** Identical function duplicated in `racks/+page.svelte` and `frames/+page.svelte`:
+```javascript
+function migrateFloors(raw) {
+  if (!raw?.length) return [{ number: 1, serverRoomCount: 1 }]
+  if (typeof raw[0] === 'object' && 'number' in raw[0]) return raw
+  return raw.map(n => ({ number: n, serverRoomCount: 1 }))
+}
+```
+
+**Solution:** Add to `src/lib/utils/floor.ts`:
+```typescript
+/** Migrate legacy floors format: number[] → FloorConfig[] */
+export function migrateFloors(raw: any[]): FloorConfig[] {
+  if (!raw?.length) return [{ number: 1, serverRoomCount: 1 }]
+  if (typeof raw[0] === 'object' && 'number' in raw[0]) return raw as FloorConfig[]
+  return raw.map((n: number) => ({ number: n, serverRoomCount: 1 }))
+}
+```
+
+---
+
+### 16.3 ✅ Remove Redundant `strip`/`stripUndefined` Functions
+
+**Current state:**
+- `Racks.svelte` has `strip(obj)` — strips undefined values before saving
+- `Frames.svelte` has `stripUndefined(obj)` — identical logic, different name
+- `db.svelte.ts` already calls `sanitizeFirestoreData()` on **every** `save()` and `saveBatch()` call
+
+**Solution:** Delete both component-level functions entirely. The `Firestore.save()` method already sanitizes, so double-stripping is unnecessary work.
+
+```diff
+- function strip(obj: any): any {
+-   if (Array.isArray(obj)) return obj.map(strip)
+-   if (obj && typeof obj === 'object') {
+-     const out: any = {}
+-     for (const [k, v] of Object.entries(obj)) {
+-       if (v !== undefined) out[k] = strip(v)
+-     }
+-     return out
+-   }
+-   return obj
+- }
+```
+
+In `doSave()` / save handlers, remove the `strip()` wrapper:
+```diff
+- onsave?.(strip({ rows, racks: racks.map(...), devices, settings }), pendingChanges)
++ onsave?.({ rows, racks: racks.map(({ _x, _z, ...r }) => r), devices, settings }, pendingChanges)
+```
+
+**Impact:** Removes ~30 lines, eliminates confusion about why data is stripped twice.
+
+---
+
+### 16.4 Extract Shared Floor Management Logic
+
+**Current state:** All three +page.svelte files have near-identical `updateFloors()` and `deleteFloor()` handlers duplicated verbatim.
+
+**Solution:** Add helper functions to `src/lib/utils/floor.ts`:
+
+```typescript
+import type { Firestore } from '$lib'
+
+/** Save updated floors list to the project document */
+export async function saveFloors(
+  db: Firestore,
+  projectId: string,
+  floors: FloorConfig[]
+): Promise<void> {
+  await db.save('projects', { id: projectId, floors })
+}
+
+/** Delete all tool documents for a floor (frames, racks for all rooms) */
+export async function deleteFloorDocs(
+  db: Firestore,
+  projectId: string,
+  floor: number,
+  tools: Array<'outlets' | 'frames' | 'racks'>
+): Promise<void> {
+  const fstr = String(floor).padStart(2, '0')
+  const pid = projectId
+  for (const tool of tools) {
+    if (tool === 'racks') {
+      for (const rm of ['A', 'B', 'C', 'D']) {
+        try { await db.delete('racks', `${pid}_F${fstr}_R${rm}`) } catch {}
+      }
+    } else {
+      try { await db.delete(tool, `${pid}_F${fstr}`) } catch {}
+    }
+  }
+}
+```
+
+**Impact:** Reduces each +page.svelte by ~20-30 lines of floor management boilerplate.
+
+---
+
+### 16.5 ✅ Move `FloorConfig` Type Out of a Component
+
+**Current state:** `FloorConfig` is exported from `FloorManagerDialog.svelte`:
+```typescript
+// FloorManagerDialog.svelte
+export interface FloorConfig {
+  number: number
+  serverRoomCount: number
+  roomNames?: Record<string, string>
+  label?: string
+}
+```
+
+This forces every file that needs this type to import it from a UI component:
+```typescript
+import FloorManagerDialog, { type FloorConfig } from '$lib/components/FloorManagerDialog.svelte'
+```
+
+**Solution:** Move to `src/lib/types/project.ts` (already planned), update `FloorManagerDialog.svelte` to import from there, and update all 6+ import sites.
+
+```typescript
+// src/lib/types/project.ts
+export interface FloorConfig {
+  number: number
+  serverRoomCount: number
+  roomNames?: Record<string, string>
+  label?: string
+}
+```
+
+**Impact:** Types belong in `$lib/types`, not in components. Enables importing just the type without dragging in component code.
+
+---
+
+## 17. TypeScript Migration for +page.svelte Files
+
+### Problem
+All three tool +page.svelte files use JavaScript with JSDoc annotations (`/** @type {any} */`, `/** @param {string} pid */`) while their child components use full TypeScript. This inconsistency:
+- Loses type safety at the data layer
+- Makes JSDoc annotations verbose and error-prone
+- IDE tooling is degraded (no TypeScript-aware refactoring)
+
+### Solution: Convert to `<script lang="ts">`
+
+**Before (`outlets/+page.svelte`):**
+```javascript
+<script>
+  let files = $state(/** @type {any[]} */ ([]))
+  let floors = $state(/** @type {import('$lib/components/FloorManagerDialog.svelte').FloorConfig[]} */ ([{ number: 1, serverRoomCount: 1 }]))
+
+  function save(payload) { ... }
+  async function deleteFloor(/** @type {number} */ fl) { ... }
+</script>
+```
+
+**After:**
+```typescript
+<script lang="ts">
+  import type { FloorConfig } from '$lib/types/project'
+
+  let files = $state<any[]>([])
+  let floors = $state<FloorConfig[]>([{ number: 1, serverRoomCount: 1 }])
+
+  function save(payload: any): void { ... }
+  async function deleteFloor(fl: number): Promise<void> { ... }
+</script>
+```
+
+**Files to convert:**
+- `outlets/+page.svelte`
+- `racks/+page.svelte`
+- `frames/+page.svelte`
+
+**Impact:** Consistent codebase, full type safety end-to-end, better IDE support.
+
+---
+
+## 18. Fix Architecture Issues
+
+### 18.1 Session Context vs Multiple Instantiation
+
+**Problem:** `Titlebar.svelte` creates `let session = new Session()` which calls `onAuthStateChanged` and registers a new Firebase auth listener. Some +page.svelte files also use `getContext('session')`. Multiple `Session` instances mean multiple auth listeners.
+
+**Solution:** Have `Titlebar.svelte` use context instead of creating a new instance:
+```svelte
+<script>
+  import { getContext } from 'svelte'
+  import type { Session } from '$lib'
+
+  let session: Session = getContext('session')
+</script>
+```
+
+The session is already set up at the layout level — Titlebar shouldn't create its own.
+
+---
+
+### 18.2 Replace `{#key activeFloor}` Full Remounts
+
+**Problem:** All tool +page.svelte files use `{#key activeFloor}` which destroys and recreates the entire child component on floor change. This is wasteful and loses all local state (scroll position, open dialogs, etc.).
+
+**Before:**
+```svelte
+{#key activeFloor}
+  <Outlets data={outletsData} floor={activeFloor} ... />
+{/key}
+```
+
+**After:** Remove `{#key}` and handle resets reactively in the child component:
+```svelte
+<!-- In +page.svelte -->
+<Outlets data={outletsData} floor={activeFloor} ... />
+```
+
+```typescript
+// In Outlets.svelte — react to floor prop changes
+$effect(() => {
+  void floor  // track floor changes
+  // Reset only what needs resetting (selection, active tool)
+  selectedIds = new Set()
+  selectedRackIds = new Set()
+  selectedTrunkIds = new Set()
+})
+```
+
+**Impact:** Smoother floor switching, canvas view preserved, no component teardown overhead.
+
+---
+
+### 18.3 Fix `activeTool` Ownership in OutletCanvas
+
+**Problem:** `OutletCanvas.svelte` receives `activeTool` as a plain prop (not `$bindable`), but its internal toolbar writes `activeTool = 'select'` directly — modifying a prop, which is an anti-pattern in Svelte 5 and doesn't propagate back to the parent.
+
+**Solution:** Either:
+
+**Option A:** Make it `$bindable()` (simple):
+```typescript
+// OutletCanvas.svelte
+let { ..., activeTool = $bindable<ToolMode>('select'), ... } = $props()
+```
+
+**Option B:** Use a callback (cleaner):
+```typescript
+// OutletCanvas.svelte — toolbar buttons call:
+onclick={() => ontoolchange?.('select')}
+
+// Outlets.svelte passes:
+ontoolchange={(t) => activeTool = t}
+```
+
+Option B is preferred as it makes data flow explicit.
+
+---
+
+### 18.4 Scope the `files` Firestore Subscription
+
+**Problem:** `outlets/+page.svelte` calls `subscribeMany('files', ...)` which loads **all** files from Firestore across all projects. Filtering to project files happens in a `$derived` in the component. As the files collection grows, this becomes increasingly inefficient.
+
+**Solution:** Use the existing `subscribeWhere` method:
+```typescript
+// Before
+const unsub = db.subscribeMany('files', data => { files = data })
+
+// After
+const unsub = db.subscribeWhere('files', 'projectId', pid, data => { files = data })
+```
+
+**Impact:** Only downloads files belonging to the current project. Significant bandwidth and memory savings as file count grows.
+
+---
+
+## 19. Component Extraction
+
+### 19.1 Extract `RackPropertiesPanel.svelte` from Outlets
+
+**Problem:** `Outlets.svelte` contains an ~80-line inline floating `<Window>` component with a complete rack properties form. This makes `Outlets.svelte` even larger and harder to understand at a glance.
+
+**Solution:** Create `outlets/parts/RackPropertiesPanel.svelte`:
+
+```svelte
+<!-- outlets/parts/RackPropertiesPanel.svelte -->
+<script lang="ts">
+  import { Window, Icon } from '$lib'
+  import type { RackConfig } from '../../racks/parts/types'
+  import type { RackPlacement } from './types'
+
+  let { selectedRackConfigs, selectedRackPlaced, sharedRack, sharedRotation,
+        onupdate, onremove, onrotate } = $props<{
+    selectedRackConfigs: (RackConfig & { room: string })[]
+    selectedRackPlaced: RackPlacement[]
+    sharedRack: <K extends keyof RackConfig>(key: K) => RackConfig[K] | undefined
+    sharedRotation: number | undefined
+    onupdate: (updates: Partial<RackConfig>) => void
+    onremove: () => void
+    onrotate: () => void
+  }>()
+</script>
+
+{#if selectedRackConfigs.length > 0}
+  <Window title="Rack Properties" open={true} right={16} top={48} class="p-3 space-y-1.5 text-xs w-56">
+    <!-- ...form content... -->
+  </Window>
+{/if}
+```
+
+**Impact:** Removes ~80 lines from `Outlets.svelte`, makes the rack properties form independently editable/testable.
+
+---
+
+### 19.2 Extract `PropertyField` for OutletPalette
+
+**Problem:** `OutletPalette.svelte` repeats the same 6 property fields (ports, level, usage, mount, cable, room) nearly identically three times: once for single selection, once for multi-selection, and once for defaults. That's ~180 lines of duplicated form markup.
+
+**Solution:** Extract a data-driven `PropertyRow.svelte` and reduce to one rendered block:
+
+```svelte
+<!-- outlets/parts/PropertyRow.svelte -->
+<script lang="ts">
+  let { label, width = 'w-12', children } = $props<{
+    label: string
+    width?: string
+    children?: any
+  }>()
+</script>
+<label class="flex items-center gap-2">
+  <span class="text-gray-500 {width} shrink-0">{label}</span>
+  {@render children?.()}
+</label>
+```
+
+Then in `OutletPalette.svelte`, factor the fields into a snippet or sub-component that accepts a generic `values` object and `onchange` handler, reducing the three near-identical blocks to one.
+
+**Impact:** Removes ~120 lines of duplicated markup from `OutletPalette.svelte`.
+
+---
+
+## 20. Unified Auto-Save Pattern
+
+### Problem
+Three tools have divergent auto-save implementations:
+
+| Tool | Pattern |
+|------|---------|
+| Outlets | Snapshot diff + `setTimeout` in `$effect` |
+| Racks | `logChange()` → `scheduleSave()` → `doSave()` with `syncPaused` flag |
+| Frames | `$effect` with `computeChanges()` + `setTimeout` + `initialized` guard |
+
+This makes it hard to reason about save behavior, and each has slightly different edge cases.
+
+### Solution: Create `AutoSave.svelte.ts`
+
+```typescript
+/**
+ * @file src/lib/utils/AutoSave.svelte.ts
+ * Reusable debounced auto-save with status tracking and sync pause.
+ */
+export class AutoSave {
+  status = $state<'saved' | 'saving' | 'unsaved'>('saved')
+  private timer: ReturnType<typeof setTimeout> | null = null
+  private syncPaused = false
+  private syncTimer: ReturnType<typeof setTimeout> | null = null
+
+  constructor(
+    private readonly onSave: (payload: any) => void,
+    private readonly delay = 400
+  ) {}
+
+  /** Call when data changes. Debounces the save. */
+  schedule(payload: () => any): void {
+    this.status = 'unsaved'
+    this.syncPaused = true
+    if (this.timer) clearTimeout(this.timer)
+    this.timer = setTimeout(() => {
+      this.status = 'saving'
+      this.onSave(payload())
+      this.status = 'saved'
+      // Resume remote sync after a delay to avoid clobbering
+      if (this.syncTimer) clearTimeout(this.syncTimer)
+      this.syncTimer = setTimeout(() => { this.syncPaused = false }, 1500)
+    }, this.delay)
+  }
+
+  /** Returns true if remote updates should be applied */
+  get canSync(): boolean { return !this.syncPaused }
+}
+```
+
+**Usage in each tool:**
+```typescript
+// In Racks.svelte
+const autoSave = new AutoSave((payload) => onsave?.(payload, pendingChanges))
+
+function logChange(action: string, field?: string, details?: string) {
+  pendingChanges.push({ action, field, details })
+  autoSave.schedule(() => strip({ rows, racks, devices, settings }))
+}
+```
+
+**Impact:** Removes ~30 lines per tool, consistent behavior everywhere, single place to fix save bugs.
+
+---
+
+## 21. Security & Environment Configuration
+
+### Problem
+Firebase API keys and project configuration are hardcoded in `src/lib/db.svelte.ts`:
+
+```typescript
+const config = {
+  apiKey: 'AIzaSyCfoM8CLFAWuMDveWMeCJ8k3cYb-4ah_xA',
+  authDomain: 'sunny-jetty-180208.firebaseapp.com',
+  projectId: 'sunny-jetty-180208',
+  // ...
+}
+```
+
+While Firebase web API keys are somewhat public by nature (protected by security rules), hardcoding them has drawbacks:
+- Cannot switch between dev/staging/prod environments
+- Keys appear in git history
+- No clear indication of how to configure for a new deployment
+
+### Solution: Use Vite Environment Variables
+
+**`.env` file (gitignored):**
+```
+VITE_FIREBASE_API_KEY=AIzaSyCfoM8CLFAWuMDveWMeCJ8k3cYb-4ah_xA
+VITE_FIREBASE_AUTH_DOMAIN=sunny-jetty-180208.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=sunny-jetty-180208
+VITE_FIREBASE_STORAGE_BUCKET=sunny-jetty-180208.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=699730861576
+VITE_FIREBASE_APP_ID=1:699730861576:web:73bfa0ed599a7011
+VITE_FIREBASE_DATABASE_URL=https://sunny-jetty-180208.firebaseio.com
+```
+
+**`.env.example` (committed — update from current `.env.example`):**
+```
+VITE_FIREBASE_API_KEY=your-api-key
+VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your-project-id
+# ...
+```
+
+**`db.svelte.ts`:**
+```typescript
+const config = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
+}
+```
+
+**Impact:** Enables multi-environment deployments, removes credentials from source code.
+
+---
+
+## 22. Racks Toolbar Deduplication
+
+### Problem
+`Racks.svelte` displays floor selection tabs in **two places**:
+1. The top toolbar (as pill buttons with Floor/Room/Row controls)
+2. The bottom status bar (as tab buttons identical to Outlets and Frames)
+
+This is redundant UI — users have two separate controls doing the same thing.
+
+### Solution
+
+Remove the floor pills from the **top toolbar** since the status bar tabs are the consistent pattern used by all three tools. The top toolbar should only contain Room and Row selection controls (which are unique to Racks).
+
+**Before (toolbar):**
+```svelte
+<div class="h-8 px-3 flex items-center gap-3 ...">
+  <!-- Floor (remove this section) -->
+  <span>Floor</span>
+  <div class="flex gap-0.5">
+    {#each floors as fl} ... {/each}
+    <button title="Manage floors">+</button>
+  </div>
+  <div class="divider"></div>
+  <!-- Room (keep) -->
+  <span>Room</span> ...
+  <!-- Row (keep) -->
+  <span>Row</span> ...
+</div>
+```
+
+**After (toolbar):**
+```svelte
+<div class="h-8 px-3 flex items-center gap-3 ...">
+  <!-- Room only -->
+  <span>Room</span> ...
+  <!-- Row only -->
+  <span>Row</span> ...
+</div>
+```
+
+**Impact:** Removes ~15 lines of duplicated markup, cleaner toolbar, consistent navigation pattern with other tools.
+
+---
+
 ## 11. Implementation Phases
 
 ### Phase 1: Foundation (Week 1)
@@ -1226,6 +1796,8 @@ describe('FloorTabs', () => {
 
 Start with these high-impact, low-risk improvements:
 
+### Original Quick Wins
+
 1. **Extract FloorTabs component** (2 hours)
    - Used in 4 places, immediate consistency gain
 
@@ -1242,6 +1814,43 @@ Start with these high-impact, low-risk improvements:
    - Eliminate 5-10 props from each tool component
 
 **Total:** ~12 hours, ~30% code reduction in main files.
+
+### Additional Quick Wins (from Sections 16–22)
+
+6. **Create `src/lib/utils/floor.ts`** (1 hour) — §16.1, §16.2
+   - Extract `fmtFloor`, `floorDocId`, `roomDocId`, `migrateFloors`
+   - Removes ~100 lines of duplication across 4 files immediately
+   - Zero risk: pure utility, no UI changes
+
+7. **Delete `strip()`/`stripUndefined()` from components** (30 min) — §16.3
+   - `db.svelte.ts` already sanitizes on every save
+   - Remove ~30 lines, zero functional impact
+
+8. **Move `FloorConfig` to `$lib/types/project.ts`** (1 hour) — §16.5
+   - Update 6+ import sites
+   - Unblocks clean type imports everywhere
+
+9. **Convert +page.svelte files to TypeScript** (2 hours) — §17
+   - Add `lang="ts"`, replace JSDoc with proper types
+   - Immediate type safety at the data layer
+
+10. **Fix `files` subscription scope** (15 min) — §18.4
+    - `subscribeMany` → `subscribeWhere('files', 'projectId', pid, ...)`
+    - Single line change, significant efficiency gain
+
+11. **Fix Titlebar Session instantiation** (30 min) — §18.1
+    - Replace `new Session()` with `getContext('session')`
+    - Eliminates redundant auth listener
+
+12. **Remove duplicate floor tabs from Racks toolbar** (30 min) — §22
+    - Remove ~15 lines of HTML from top toolbar
+    - Keep only in status bar (matches Outlets/Frames pattern)
+
+13. **Extract `RackPropertiesPanel.svelte`** (1 hour) — §19.1
+    - Pull the 80-line floating properties window out of `Outlets.svelte`
+    - Makes `Outlets.svelte` immediately more readable
+
+**Total additional:** ~6 hours, removes ~300+ lines of duplication/redundancy.
 
 ---
 

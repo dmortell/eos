@@ -1,10 +1,7 @@
 <script lang="ts">
-	export interface FloorConfig {
-		number: number
-		serverRoomCount: number
-		roomNames?: Record<string, string> // e.g. { A: 'HR11-1', B: 'SER11' }
-		label?: string // custom display label, e.g. "Penthouse"
-	}
+	import { fmtFloor } from '$lib/utils/floor'
+	export type { FloorConfig } from '$lib/types/project'
+	import type { FloorConfig } from '$lib/types/project'
 
 	let { open = false, floors, floorFormat = 'L01', onclose, onupdate, ondelete }: {
 		open: boolean
@@ -34,23 +31,13 @@
 		}
 	})
 
-	function fmtFloor(fl: number): string {
-		if (fl < 0) {
-			const n = String(Math.abs(fl)).padStart(2, '0')
-			if (floorFormat === '01F') return `B${Math.abs(fl)}F`
-			if (floorFormat === '01') return `B${n}`
-			return `B${n}`
-		}
-		const n = String(fl).padStart(2, '0')
-		if (floorFormat === '01F') return `${n}F`
-		if (floorFormat === '01') return n
-		return `L${n}`
-	}
+	/** Local shorthand: format a floor number using this dialog's floorFormat + floors */
+	const fmt = (fl: number) => fmtFloor(fl, floorFormat, floors)
 
 	function addFloor() {
 		const num = Math.max(-9, Math.min(9999, Math.round(newFloorNumber) || 1))
 		if (floors.find(f => f.number === num)) {
-			error = `Floor ${fmtFloor(num)} already exists`
+			error = `Floor ${fmt(num)} already exists`
 			return
 		}
 		error = ''
@@ -138,7 +125,7 @@
 							<div class="rounded bg-gray-50 border border-gray-100">
 								<div class="flex items-center gap-3 px-3 py-2">
 									<!-- Floor label -->
-									<span class="font-mono text-xs font-semibold text-blue-600 w-10 shrink-0">{fmtFloor(fl.number)}</span>
+									<span class="font-mono text-xs font-semibold text-blue-600 w-10 shrink-0">{fmt(fl.number)}</span>
 									{#if editingLabel === fl.number}
 										<input class="w-24 h-5 px-1 text-[10px] border border-blue-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
 											value={fl.label ?? ''}

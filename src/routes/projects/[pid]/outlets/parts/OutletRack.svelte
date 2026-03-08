@@ -49,7 +49,7 @@
 
 	<!-- Text stays vertical regardless of rack rotation -->
 	<g transform="rotate({textRotation} {cx} {cy})">
-		<text x={cx} y={cy + 4  / zoom} font-size={Math.max(12 / zoom, rect.w * 0.15)} text-anchor="middle" fill="#333333" class="select-none pointer-events-none" font-weight="bold" >{rect.cfg.label}</text>
-		<text x={cx} y={cy + 16 / zoom} font-size={Math.max(10 / zoom, rect.w * 0.08)} text-anchor="middle" fill="#444444" class="select-none pointer-events-none" font-weight="bold" opacity="0.8" >{rect.cfg.heightU}U</text>
+		<text x={cx} y={cy + rect.h * 0.05} font-size={rect.w * 0.15} text-anchor="middle" fill="#333333" class="select-none pointer-events-none" font-weight="bold" >{rect.cfg.label}</text>
+		<text x={cx} y={cy + rect.h * 0.2} font-size={rect.w * 0.1} text-anchor="middle" fill="#444444" class="select-none pointer-events-none" font-weight="bold" opacity="0.8" >{rect.cfg.heightU}U</text>
 	</g>
 </g>

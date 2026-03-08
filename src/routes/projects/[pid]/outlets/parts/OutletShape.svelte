@@ -116,9 +116,9 @@
 	{#if outlet.label}
 		<text
 			x={px.x}
-			y={px.y - radiusPx - 4 / zoom}
+			y={px.y - radiusPx - radiusPx * 0.3}
 			text-anchor="middle"
-			font-size={Math.max(8 / zoom, radiusPx * 0.6)}
+			font-size={radiusPx * 0.6}
 			fill="#374151"
 			class="select-none pointer-events-none">{outlet.label}</text>
 	{/if}

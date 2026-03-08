@@ -52,7 +52,7 @@ export async function exportToExcel(racks: RackData[], zones: ZoneConfig[], grou
 
 		// Print settings: A3 landscape, fit on one page, narrow margins
 		ws.pageSetup = {
-			paperSize: 8, // A3
+			paperSize: 8 as ExcelJS.PaperSize, // A3
 			orientation: 'landscape',
 			fitToPage: true,
 			fitToWidth: 1,

@@ -14,7 +14,9 @@
 	import DeviceView from './parts/DeviceView.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
 
-	import FloorManagerDialog, { type FloorConfig } from '$lib/components/FloorManagerDialog.svelte'
+	import FloorManagerDialog from '$lib/components/FloorManagerDialog.svelte'
+	import type { FloorConfig } from '$lib/types/project'
+	import { fmtFloor } from '$lib/utils/floor'
 
 	let { data = null, library = [], floor, room, floors = [], projectId = '', projectName = '', floorFormat = 'L01', onsave, onlibrarychange, onfloorchange, onroomchange, onupdatefloors, ondeletefloor }: {
 		data?: any
@@ -162,21 +164,8 @@
 		saveTimer = setTimeout(doSave, 500)
 	}
 
-	/** Format floor number using floorFormat setting, using custom label if set */
-	function fmtFloor(fl: number): string {
-		const cfg = floors.find(f => f.number === fl)
-		if (cfg?.label) return cfg.label
-		if (fl < 0) {
-			const n = String(Math.abs(fl)).padStart(2, '0')
-			if (floorFormat === '01F') return `B${Math.abs(fl)}F`
-			if (floorFormat === '01') return `B${n}`
-			return `B${n}`
-		}
-		const n = String(fl).padStart(2, '0')
-		if (floorFormat === '01F') return `${n}F`
-		if (floorFormat === '01') return n
-		return `L${n}`
-	}
+	/** Local shorthand: format a floor number using this component's floorFormat + floors */
+	const fmt = (fl: number) => fmtFloor(fl, floorFormat, floors)
 
 	/** Get display name for a room (custom name or default "Room X") */
 	function roomLabel(rm: string): string {
@@ -184,27 +173,15 @@
 		return floorCfg?.roomNames?.[rm] || `Room ${rm}`
 	}
 
-	/** Strip undefined values recursively (Firestore rejects them) */
-	function strip(obj: any): any {
-		if (Array.isArray(obj)) return obj.map(strip)
-		if (obj && typeof obj === 'object') {
-			const out: any = {}
-			for (const [k, v] of Object.entries(obj)) {
-				if (v !== undefined) out[k] = strip(v)
-			}
-			return out
-		}
-		return obj
-	}
-
 	function doSave() {
 		saveStatus = 'saving'
-		const payload = strip({
+		// db.save() already sanitizes undefined values via sanitizeFirestoreData()
+		const payload = {
 			rows,
-			racks: racks.map(({ _x, _z, ...r }: any) => r),
+			racks: racks.map(({ _x, _z, ...r }: any) => r), // strip computed canvas-only props
 			devices,
 			settings,
-		})
+		}
 		onsave?.(payload, pendingChanges)
 		pendingChanges = []
 		pauseSync()
@@ -579,7 +556,7 @@
 							class="h-6 px-2 rounded text-[11px] font-mono font-medium transition-colors
 								{floor === fl.number ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
 							onclick={() => onfloorchange?.(fl.number)}
-						>{fmtFloor(fl.number)}</button>
+						>{fmt(fl.number)}</button>
 					{/each}
 					<button
 						class="h-6 w-6 rounded bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 flex items-center justify-center transition-colors"
@@ -643,7 +620,7 @@
 						style:left={20 + roomLeft * SCALE + 'px'}
 						style:top={(view.bottom - settings.ceilingLevel - 180) * SCALE + 'px'}
 						style:font-size="24px">
-						<span class="font-semibold text-gray-700">{fmtFloor(floor)} — {roomLabel(room)}</span>
+						<span class="font-semibold text-gray-700">{fmt(floor)} — {roomLabel(room)}</span>
 					</div>
 
 					<!-- Slab (static, extends to outer wall edges) -->
@@ -758,7 +735,7 @@
 							class="px-3 text-[11px] font-mono font-medium border-r border-gray-200 transition-colors
 								{floor === fl.number ? 'bg-white text-blue-600 border-t-2 border-t-blue-500' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 border-t-2 border-t-transparent'}"
 							onclick={() => onfloorchange?.(fl.number)}
-						>{fmtFloor(fl.number)}</button>
+						>{fmt(fl.number)}</button>
 					{/each}
 					<button
 						class="px-2 text-gray-300 hover:text-gray-500 transition-colors"

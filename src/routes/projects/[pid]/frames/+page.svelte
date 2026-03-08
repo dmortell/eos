@@ -3,6 +3,7 @@
 	import { getContext } from 'svelte';
 	import { Firestore, Spinner, Session } from '$lib';
 	import { writeLog } from '$lib/logger';
+	import { migrateFloors } from '$lib/utils/floor';
 	import Frames from './Frames.svelte';
 
 	let db = new Firestore();
@@ -11,27 +12,18 @@
 	let frameData = $state(/** @type {any} */ (null));
 	/** @type {Record<string, any>} */
 	let racksData = $state({});
-	/** @type {import('$lib/components/FloorManagerDialog.svelte').FloorConfig[]} */
+	/** @type {import('$lib/types/project').FloorConfig[]} */
 	let floors = $state([{ number: 1, serverRoomCount: 1 }]);
 	let loading = $state(true);
 	let activeFloor = $state(1);
 	let projectName = $state('');
 	let hasMigrated = false;
 
-	/** Migrate old floors format: number[] → FloorConfig[] */
-	function migrateFloors(/** @type {any[]} */ raw) {
-		if (!raw?.length) return [{ number: 1, serverRoomCount: 1 }];
-		// Already FloorConfig[] format
-		if (typeof raw[0] === 'object' && 'number' in raw[0]) return raw;
-		// Old number[] format
-		return raw.map(n => ({ number: n, serverRoomCount: 1 }));
-	}
-
 	// Subscribe to project doc for shared floors list
 	$effect(() => {
 		const pid = page.params.pid;
 		if (!pid) return;
-		const unsub = db.subscribeOne('projects', pid, data => {
+		const unsub = db.subscribeOne('projects', pid, (/** @type {Record<string, any>} */ data) => {
 			if (data?.name) projectName = data.name;
 			if (data?.floors?.length) {
 				floors = migrateFloors(data.floors);
@@ -114,7 +106,7 @@
 		activeFloor = newFloor;
 	}
 
-	/** @param {import('$lib/components/FloorManagerDialog.svelte').FloorConfig[]} updated */
+	/** @param {import('$lib/types/project').FloorConfig[]} updated */
 	function updateFloors(updated) {
 		const pid = page.params.pid;
 		if (!pid) return;

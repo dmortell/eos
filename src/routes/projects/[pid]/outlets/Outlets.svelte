@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { Icon, Titlebar, Window } from '$lib'
 	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
-	import FloorManagerDialog, { type FloorConfig } from '$lib/components/FloorManagerDialog.svelte'
+	import { fmtFloor } from '$lib/utils/floor'
+	import FloorManagerDialog from '$lib/components/FloorManagerDialog.svelte'
+	import type { FloorConfig } from '$lib/types/project'
 	import type { OutletConfig, OutletsData, ToolMode, PageCalibration, Point, RackPlacement, SidebarTab } from './parts/types'
-	import { DEFAULT_PRINT_SETTINGS, type PrintSettings } from '$lib/ui/print/types'
 	import type { RackConfig } from '../racks/parts/types'
+	import { DEFAULT_PRINT_SETTINGS, type PrintSettings } from '$lib/ui/print/types'
 	import { OUTLET_DEFAULTS, type StickyDefaults } from './parts/constants'
 	import { HistoryStore } from './parts/HistoryStore.svelte.ts'
 	import OutletCanvas from './parts/OutletCanvas.svelte'
@@ -436,7 +438,7 @@
 	const history = new HistoryStore()
 
 	// ── Sticky defaults ──
-	let stickyDefaults = $state({ ...OUTLET_DEFAULTS })
+	let stickyDefaults: StickyDefaults = $state({ ...OUTLET_DEFAULTS })
 
 	// ── Outlet CRUD ──
 	function addOutlet(pagePosPixels: Point) {
@@ -1261,19 +1263,8 @@
 		})
 	}
 
-	// ── Floor format ──
-	function fmtFloor(fl: number): string {
-		const cfg = floors.find(f => f.number === fl)
-		if (cfg?.label) return cfg.label
-		if (fl < 0) {
-			const n = String(Math.abs(fl)).padStart(2, '0')
-			return `B${n}`
-		}
-		const n = String(fl).padStart(2, '0')
-		if (floorFormat === '01F') return `${n}F`
-		if (floorFormat === '01') return n
-		return `L${n}`
-	}
+	// ── Floor format shorthand ──
+	const fmt = (fl: number) => fmtFloor(fl, floorFormat, floors)
 
 	// ── Keyboard shortcuts ──
 	function onKeyDown(e: KeyboardEvent) {
@@ -1430,6 +1421,8 @@
 					{outletTypeCounts}
 					bind:legendPos
 					bind:printSettings
+					{projectName}
+					{floor}
 					{gridMm}
 					{toPx}
 					{toMm}
@@ -1572,7 +1565,7 @@
 							class="px-3 text-[11px] font-mono font-medium border-r border-gray-200 transition-colors
 								{floor === fl.number ? 'bg-white text-blue-600 border-t-2 border-t-blue-500' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 border-t-2 border-t-transparent'}"
 							onclick={() => onfloorchange?.(fl.number)}
-						>{fmtFloor(fl.number)}</button>
+						>{fmt(fl.number)}</button>
 					{/each}
 					<button
 						class="px-2 text-gray-300 hover:text-gray-500 transition-colors"
@@ -1600,7 +1593,7 @@
 					<button
 						class="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] text-gray-500 hover:text-green-600 hover:bg-green-50 transition-colors"
 						title="Export outlets to Excel"
-						onclick={() => exportOutletsToExcel(outlets, projectName, fmtFloor(floor))}
+						onclick={() => exportOutletsToExcel(outlets, projectName, fmt(floor))}
 					><Icon name="download" size={11} /> Excel</button>
 				</div>
 			</div>

@@ -11,7 +11,9 @@
 	import FrameDrawing from './parts/FrameDrawing.svelte'
 	import SettingsDialog from './parts/SettingsDialog.svelte'
 	import LogsDialog from './parts/LogsDialog.svelte'
-	import FloorManagerDialog, { type FloorConfig } from '$lib/components/FloorManagerDialog.svelte'
+	import FloorManagerDialog from '$lib/components/FloorManagerDialog.svelte'
+	import type { FloorConfig } from '$lib/types/project'
+	import { fmtFloor } from '$lib/utils/floor'
 
 	let { data = null, racksData = {}, floor, floors = [], projectId = '', projectName = '', onsave, onfloorchange, onupdatefloors, ondeletefloor }: {
 		data?: any
@@ -156,19 +158,6 @@
 	let pendingChanges: ChangeDetail[] = []
 	let prevSnapshot: string = ''
 
-	/** Strip undefined values recursively (Firestore rejects them) */
-	function stripUndefined(obj: any): any {
-		if (Array.isArray(obj)) return obj.map(stripUndefined)
-		if (obj && typeof obj === 'object') {
-			const out: any = {}
-			for (const [k, v] of Object.entries(obj)) {
-				if (v !== undefined) out[k] = stripUndefined(v)
-			}
-			return out
-		}
-		return obj
-	}
-
 	/** Compute human-readable change details by diffing previous vs current state */
 	function computeChanges(prev: any, next: any): ChangeDetail[] {
 		if (!prev) return []
@@ -242,7 +231,8 @@
 				saveStatus = 'saving'
 				const changesToLog = [...pendingChanges]
 				pendingChanges = []
-				onsave(stripUndefined({ floor, zoneLocations, rooms, customLocationTypes, excelGroupByRoom, floorFormat }), changesToLog)
+				// db.save() already sanitizes undefined values via sanitizeFirestoreData()
+				onsave({ floor, zoneLocations, rooms, customLocationTypes, excelGroupByRoom, floorFormat }, changesToLog)
 				saveStatus = 'saved'
 			}
 		}, 500)
@@ -410,21 +400,8 @@
 		floorFormat = data.floorFormat
 	}
 
-	/** Format a floor number according to the floorFormat setting, using custom label if set */
-	function fmtFloor(fl: number): string {
-		const cfg = floors.find(f => f.number === fl)
-		if (cfg?.label) return cfg.label
-		if (fl < 0) {
-			const n = String(Math.abs(fl)).padStart(2, '0')
-			if (floorFormat === '01F') return `B${Math.abs(fl)}F`
-			if (floorFormat === '01') return `B${n}`
-			return `B${n}`
-		}
-		const n = String(fl).padStart(2, '0')
-		if (floorFormat === '01F') return `${n}F`
-		if (floorFormat === '01') return n
-		return `L${n}` // default 'L01'
-	}
+	/** Local shorthand: format a floor number using this component's floorFormat + floors */
+	const fmt = (fl: number) => fmtFloor(fl, floorFormat, floors)
 </script>
 
 <div class="h-screen flex flex-col overflow-hidden">
@@ -501,7 +478,7 @@
 					class="px-3 text-[11px] font-mono font-medium border-r border-gray-200 transition-colors
 						{floor === fl.number ? 'bg-white text-blue-600 border-t-2 border-t-blue-500' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 border-t-2 border-t-transparent'}"
 					onclick={() => onfloorchange?.(fl.number)}
-				>{fmtFloor(fl.number)}</button>
+				>{fmt(fl.number)}</button>
 			{/each}
 			<button
 				class="px-2 text-gray-300 hover:text-gray-500 transition-colors"
@@ -519,7 +496,7 @@
 {#snippet configAndLocations()}
 	<ConfigPanel
 		{floor}
-		floorLabel={fmtFloor(floor)}
+		floorLabel={fmt(floor)}
 		{serverRoomCount}
 		{activeZone}
 		locations={activeLocations}
@@ -548,7 +525,7 @@
 		<div class="flex items-center gap-3">
 			{#if allLabels.length > 0}
 				<span class="font-mono text-blue-600 font-semibold">
-					{fmtFloor(floor)} &middot; {zoneLetters.length > 1 ? `Zones ${zoneLetters.join(', ')}` : `Zone ${zoneLetters[0] ?? activeZone}`}
+					{fmt(floor)} &middot; {zoneLetters.length > 1 ? `Zones ${zoneLetters.join(', ')}` : `Zone ${zoneLetters[0] ?? activeZone}`}
 				</span>
 				<span class="text-gray-400">
 					{allLabels.length} ports

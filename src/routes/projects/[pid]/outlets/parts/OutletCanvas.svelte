@@ -13,7 +13,7 @@
 	import OutletShape from './OutletShape.svelte'
 	import OutletRack from './OutletRack.svelte'
 	import type TrunkPalette from '../trunks/TrunkPalette.svelte'
-	import { PrintToolbar, triggerPrint, paperDimsMm, type PrintSettings, DEFAULT_PRINT_SETTINGS } from '$lib/ui/print'
+	import { PrintToolbar, triggerPrint, updatePrintStyles, removePrintStyles, paperDimsMm, type PrintSettings, DEFAULT_PRINT_SETTINGS } from '$lib/ui/print'
 
 	let { file, page = 1, viewKey = '', calibration, outlets, selectedIds, activeTool, sidebarTab = 'outlets',
 		rackPlacements = [], rackConfigs = [], selectedRackIds = new Set(),
@@ -21,6 +21,7 @@
 		outletTypeCounts = { wall: 0, floor: 0, box: 0 },
 		legendPos = $bindable({ x: 12, y: 12 }),
 		printSettings = $bindable({ ...DEFAULT_PRINT_SETTINGS }),
+		projectName = '', floor = 0,
 		gridMm = 0,
 		toPx, toMm, onadd, onselect, onclear, onmove, onmoveend, ondelete,
 		onselectrack, onmoveracks, onmoveracksend, onplacerack, onremoveracks, onrotateracks,
@@ -45,6 +46,8 @@
 		outletTypeCounts?: { wall: number; floor: number; box: number }
 		legendPos?: Point
 		printSettings?: PrintSettings
+		projectName?: string
+		floor?: number
 		gridMm?: number
 		toPx: (mm: Point) => Point
 		toMm: (px: Point) => Point
@@ -84,8 +87,9 @@
 	const VIEW_LABELS       = 1 << 5  // 32
 	const VIEW_LEGEND       = 1 << 6  // 64
 	const VIEW_RACKS        = 1 << 7  // 128
-	const VIEW_ALL = VIEW_LOW_OUTLETS | VIEW_HIGH_OUTLETS | VIEW_LOW_TRUNKS | VIEW_HIGH_TRUNKS | VIEW_ROUTES | VIEW_LABELS | VIEW_LEGEND | VIEW_RACKS
-	const VIEW_DEFAULT = VIEW_LOW_OUTLETS | VIEW_HIGH_OUTLETS | VIEW_LOW_TRUNKS | VIEW_HIGH_TRUNKS | VIEW_ROUTES | VIEW_LEGEND | VIEW_RACKS
+	const VIEW_TITLEBLOCK   = 1 << 8  // 256
+	const VIEW_ALL = VIEW_LOW_OUTLETS | VIEW_HIGH_OUTLETS | VIEW_LOW_TRUNKS | VIEW_HIGH_TRUNKS | VIEW_ROUTES | VIEW_LABELS | VIEW_LEGEND | VIEW_RACKS | VIEW_TITLEBLOCK
+	const VIEW_DEFAULT = VIEW_LOW_OUTLETS | VIEW_HIGH_OUTLETS | VIEW_LOW_TRUNKS | VIEW_HIGH_TRUNKS | VIEW_ROUTES | VIEW_LEGEND | VIEW_RACKS | VIEW_TITLEBLOCK
 
 	function viewStorageKeyView() { return viewKey ? `outlets-view-flags:${viewKey}` : '' }
 
@@ -121,13 +125,30 @@
 		{ flag: VIEW_LABELS,       label: 'Cable qty labels' },
 		{ flag: VIEW_LEGEND,       label: 'Legend' },
 		{ flag: VIEW_RACKS,        label: 'Racks' },
+		{ flag: VIEW_TITLEBLOCK,   label: 'Title block' },
 	]
 
 	// ── Printing state ──
 	let printing = $state(false)
 
+	/**
+	 * paperScale: the CSS zoom level for printing.
+	 * Container is sized in mm (e.g. 420mm for A3 landscape).
+	 * In CSS, 1mm = 96/25.4 px. So container = paperW * 96/25.4 CSS px.
+	 * Paper covers paperW * scale mm real world = paperW * scale / sf PDF pixels.
+	 * zoom = containerCSSPx / pdfPixels = (paperW * 96/25.4) / (paperW * scale / sf)
+	 *      = 96 * sf / (25.4 * scale)
+	 */
+	const CSS_PX_PER_MM = 96 / 25.4
+
+	function getPaperScale(): number {
+		if (!calibration) return 1
+		const effectiveScale = printSettings.scale || 100
+		return CSS_PX_PER_MM * calibration.scaleFactor / effectiveScale
+	}
+
 	function handlePrint() {
-		triggerPrint(printSettings)
+		triggerPrint(printSettings, '.print-canvas-container')
 	}
 
 	/** Center paper on current viewport */
@@ -217,38 +238,27 @@
 	$effect(() => {
 		const onBefore = () => {
 			printing = true
-			if (!calibration || !printSettings.showPaper) return
+			if (!calibration) return
 
 			// Save current view
 			savedPrintView = { vx, vy, zoom }
 
-			// Compute print transform: map drawingOffset area to fill the page
-			const dims = paperDimsMm(printSettings)
-			const effectiveScale = printSettings.scale || 100
-			const sf = calibration.scaleFactor
-			// Paper covers this many real-world mm
-			const paperRealW = dims.w * effectiveScale
-			const paperRealH = dims.h * effectiveScale
-			// In PDF pixels
-			const paperPxW = paperRealW / sf
-			const paperPxH = paperRealH / sf
-			// The page will be dims.w x dims.h mm. We need to fit paperPxW x paperPxH PDF pixels into that.
-			// Screen size at print = viewport size (100vw x 100vh)
-			// We set zoom so paperPxW * zoom = screen width
-			const screenW = window.innerWidth
-			const screenH = window.innerHeight
-			const printZoom = Math.min(screenW / paperPxW, screenH / paperPxH)
+			// Inject comprehensive print CSS with mm-based sizing
+			updatePrintStyles(printSettings, '.print-canvas-container')
 
-			// The drawingOffset is the mm coord at the paper top-left
+			// Set zoom = paperScale so drawing coordinates map correctly to paper mm
+			const paperScale = getPaperScale()
 			const off = printSettings.drawingOffset
 			const offPx = toPx(off)
 
-			zoom = printZoom
-			vx = -offPx.x * printZoom
-			vy = -offPx.y * printZoom
+			zoom = paperScale
+			// Position so drawingOffset maps to container origin (0,0)
+			vx = -offPx.x * paperScale
+			vy = -offPx.y * paperScale
 		}
 		const onAfter = () => {
 			printing = false
+			removePrintStyles()
 			if (savedPrintView) {
 				vx = savedPrintView.vx
 				vy = savedPrintView.vy
@@ -421,28 +431,99 @@
 
 	/** Crop rect in PDF pixels, or full page if no crop */
 	let crop = $derived(calibration?.crop ?? { x: 0, y: 0, width: pageW, height: pageH })
-	/** Legend: mm-based position via toPx(), screen-constant sizing via /zoom */
+	/**
+	 * Legend: mm-based position, paper-scale sizing.
+	 * Dimensions are fixed in "paper mm" (how they appear on print),
+	 * multiplied by scale to get real-world mm, then /sf to get PDF pixels.
+	 * E.g. 60mm on paper at 1:100 = 6000mm real = 6000/sf PDF px.
+	 */
 	let legendGeom = $derived.by(() => {
 		if (!calibration) return null
-		const pos = toPx(legendPos) // legendPos is in mm
+		const sf = calibration.scaleFactor
+		const effectiveScale = printSettings.scale || 100
+		const u = effectiveScale / sf // 1 "paper mm" in PDF pixels
+		const pos = toPx(legendPos)
 		const lx = pos.x
 		const ly = pos.y
-		const rowH = 16 / zoom
+		const rowH = 5 * u
+		const fontSize = 2.8 * u
+		const padTop = 8 * u
 		return {
-			lx,
-			ly,
-			rowH,
-			symbolX: lx + 12 / zoom,
-			symbolW: 22 / zoom,
-			textX: lx + 32 / zoom,
-			legendW: 190 / zoom,
-			legendH: 104 / zoom,
-			y1: ly + 24 / zoom,
-			y2: ly + 24 / zoom + rowH,
-			y3: ly + 24 / zoom + rowH * 2,
-			y4: ly + 24 / zoom + rowH * 3,
-			y5: ly + 24 / zoom + rowH * 4,
+			lx, ly, rowH, fontSize, u,
+			symbolX: lx + 4 * u,
+			symbolW: 7 * u,
+			textX: lx + 10 * u,
+			legendW: 60 * u,
+			legendH: 35 * u,
+			y1: ly + padTop,
+			y2: ly + padTop + rowH,
+			y3: ly + padTop + rowH * 2,
+			y4: ly + padTop + rowH * 3,
+			y5: ly + padTop + rowH * 4,
 		}
+	})
+
+	/**
+	 * Title block + border geometry — rendered in the SVG inside the transform.
+	 * All coordinates are in PDF pixel space (same as outlets/trunks).
+	 * The border sits at the margin inset of the paper.
+	 * The title block sits on the right side of the border.
+	 */
+	let titleBlockGeom = $derived.by(() => {
+		if (!calibration || !printSettings.showPaper) return null
+		const sf = calibration.scaleFactor
+		const effectiveScale = printSettings.scale || 100
+		const u = effectiveScale / sf // 1 paper-mm in PDF pixels
+		const dims = paperDimsMm(printSettings)
+		const m = printSettings.margins
+		const off = printSettings.drawingOffset
+
+		// Convert paper corners to PDF pixels via toPx (same as outlets/trunks)
+		const tlMm = { x: off.x + m * effectiveScale, y: off.y + m * effectiveScale }
+		const brMm = { x: off.x + (dims.w - m) * effectiveScale, y: off.y + (dims.h - m) * effectiveScale }
+		const borderTopLeft = toPx(tlMm)
+		const borderBottomRight = toPx(brMm)
+		const bx = borderTopLeft.x
+		const by = borderTopLeft.y
+		const bw = borderBottomRight.x - borderTopLeft.x
+		const bh = borderBottomRight.y - borderTopLeft.y
+
+		// Title block on right side — 60mm wide on paper
+		const tbPaperW = 60
+		const tbW = tbPaperW * u
+		const tbX = bx + bw - tbW
+		const tbY = by
+		const tbH = bh
+
+		// Title block sections
+		const sections = [
+			{ h: 8, name: '', title: projectName || 'DRAWING TITLE', subtitle: `Floor ${floor}` },
+			{ h: 0, name: 'REVISIONS', title: '' },
+			{ h: 2, name: 'PROJECT', title: projectName || '' },
+			{ h: 4, name: 'DRAWING', title: `F${floor} FLOOR CABLING`, subtitle: '' },
+			{ h: 2, name: 'SCALE', title: `1:${effectiveScale}` },
+			{ h: 2, name: 'PAPER', title: `${printSettings.paperSize} ${printSettings.orientation}` },
+		]
+
+		const fixedWeight = sections.reduce((sum, sec) => sum + (sec.h || 0), 0)
+		const expandableCount = sections.filter(sec => !sec.h || sec.h === 0).length
+		const sy = fixedWeight > 0
+			? (expandableCount > 0 ? tbH * 0.8 / fixedWeight : tbH / fixedWeight)
+			: 0
+		const expandedHeight = expandableCount > 0 ? (tbH - fixedWeight * sy) / expandableCount : 0
+
+		const rows: { y: number; h: number; name: string; title: string; subtitle: string }[] = []
+		let currentY = tbY
+		for (const sec of sections) {
+			const sectionH = (sec.h && sec.h > 0) ? sec.h * sy : expandedHeight
+			rows.push({ y: currentY, h: sectionH, name: sec.name || '', title: sec.title || '', subtitle: sec.subtitle || '' })
+			currentY += sectionH
+		}
+
+		const fontSize = 2.8 * u
+		const sw = 0.3 * u
+
+		return { bx, by, bw, bh, tbX, tbY, tbW, tbH, rows, fontSize, sw, u }
 	})
 
 	// ── Rack helpers ──
@@ -1321,7 +1402,7 @@
 	</div>
 {:else}
 	<!-- Toolbar -->
-	<div class="h-8 px-3 flex items-center gap-2 border-b border-gray-200 bg-white shrink-0 text-xs print:hidden">
+	<div class="h-8 px-3 flex items-center gap-2 border-b border-gray-200 bg-white shrink-0 text-xs print-hidden" data-no-print>
 		<!-- Tool buttons -->
 		<button
 			class="flex items-center gap-1 px-2 py-1 rounded transition-colors
@@ -1441,7 +1522,7 @@
 	<!-- Canvas area -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div bind:this={containerEl}
-		class="flex-1 overflow-hidden bg-gray-100 print-canvas-container print:overflow-visible print:bg-white
+		class="relative flex-1 overflow-hidden bg-gray-100 print-canvas-container print:overflow-visible print:bg-white
 			{(activeTool === 'outlet' && calibration && sidebarTab === 'outlets') || (activeTool === 'trunk' && calibration && sidebarTab === 'trunks') ? 'cursor-crosshair' : panning ? 'cursor-grabbing' : 'cursor-default'}
 			{dropTarget ? 'ring-2 ring-inset ring-blue-400 bg-blue-50/20' : ''}"
 		onmousedown={onMouseDown}
@@ -1477,7 +1558,7 @@
 
 		<div style:transform="translate({vx}px, {vy}px) scale({zoom})" style:transform-origin="0 0" class="relative">
 			<!-- PDF canvas with optional crop -->
-			<div class="shadow-lg" style:overflow={calibration?.crop ? 'hidden' : undefined}
+			<div style:overflow={calibration?.crop ? 'hidden' : undefined}
 				style:width={calibration?.crop ? `${crop.width}px` : undefined}
 				style:height={calibration?.crop ? `${crop.height}px` : undefined}
 				style:position={calibration?.crop ? 'relative' : undefined}
@@ -1575,41 +1656,91 @@
 					<line x1={ox} y1={oy - 18 / zoom} x2={ox} y2={oy + 18 / zoom} stroke="#3b82f6" stroke-width={0.5 / zoom} opacity="0.5" />
 				{/if}
 
-				<!-- Drawing legend -->
+				<!-- Drawing legend (paper-scale sizing — scales with drawing) -->
 				{#if hasViewFlag(VIEW_LEGEND) && legendGeom}
+				{@const u = legendGeom.u}
+				{@const sw = 0.3 * u}
+				{@const symOff = 1 * u}
+				{@const symR = 1.5 * u}
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<g class="pointer-events-auto" style:cursor={legendDragging ? 'grabbing' : 'grab'} onmousedown={onLegendMouseDown}>
 					<rect x={legendGeom.lx} y={legendGeom.ly} width={legendGeom.legendW} height={legendGeom.legendH}
-						rx={4 / zoom} fill="white" stroke="#d1d5db" stroke-width={1 / zoom} opacity="0.95" />
-					<text x={legendGeom.lx + 8 / zoom} y={legendGeom.ly + 11 / zoom} font-size={9 / zoom} font-weight="700" fill="#111827">Legend</text>
+						rx={1 * u} fill="white" stroke="#d1d5db" stroke-width={sw} opacity="0.95" />
+					<text x={legendGeom.lx + 2.5 * u} y={legendGeom.ly + 3.5 * u} font-size={legendGeom.fontSize * 1.1} font-weight="700" fill="#111827">Legend</text>
 
 					<!-- Wall outlets -->
-					<polygon points={trianglePoints(legendGeom.symbolX, legendGeom.y1 - 3 / zoom, 5 / zoom)}
-						fill="#e5e7eb" stroke="#374151" stroke-width={1.2 / zoom} />
-					<text x={legendGeom.textX} y={legendGeom.y1} font-size={9 / zoom} fill="#111827">Wall outlet (qty: {outletTypeCounts.wall})</text>
+					<polygon points={trianglePoints(legendGeom.symbolX, legendGeom.y1 - symOff, symR)}
+						fill="#e5e7eb" stroke="#374151" stroke-width={sw} />
+					<text x={legendGeom.textX} y={legendGeom.y1} font-size={legendGeom.fontSize} fill="#111827">Wall outlet (qty: {outletTypeCounts.wall})</text>
 
 					<!-- Floor outlets -->
-					<polygon points={squarePoints(legendGeom.symbolX, legendGeom.y2 - 3 / zoom, 6 / zoom)}
-						fill="#e5e7eb" stroke="#374151" stroke-width={1.2 / zoom} />
-					<polygon points={trianglePoints(legendGeom.symbolX, legendGeom.y2 - 3 / zoom, 4.5 / zoom)}
-						fill="none" stroke="#374151" stroke-width={1.1 / zoom} opacity="0.75" />
-					<text x={legendGeom.textX} y={legendGeom.y2} font-size={9 / zoom} fill="#111827">Floor outlet (qty: {outletTypeCounts.floor})</text>
+					<polygon points={squarePoints(legendGeom.symbolX, legendGeom.y2 - symOff, symR * 1.2)}
+						fill="#e5e7eb" stroke="#374151" stroke-width={sw} />
+					<polygon points={trianglePoints(legendGeom.symbolX, legendGeom.y2 - symOff, symR * 0.9)}
+						fill="none" stroke="#374151" stroke-width={sw} opacity="0.75" />
+					<text x={legendGeom.textX} y={legendGeom.y2} font-size={legendGeom.fontSize} fill="#111827">Floor outlet (qty: {outletTypeCounts.floor})</text>
 
 					<!-- Box outlets -->
-					<circle cx={legendGeom.symbolX} cy={legendGeom.y3 - 3 / zoom} r={5 / zoom}
-						fill="#e5e7eb" stroke="#374151" stroke-width={1.2 / zoom} />
-					<polygon points={trianglePoints(legendGeom.symbolX, legendGeom.y3 - 3 / zoom, 4 / zoom)}
-						fill="none" stroke="#374151" stroke-width={1.1 / zoom} opacity="0.75" />
-					<text x={legendGeom.textX} y={legendGeom.y3} font-size={9 / zoom} fill="#111827">Box outlet (qty: {outletTypeCounts.box})</text>
+					<circle cx={legendGeom.symbolX} cy={legendGeom.y3 - symOff} r={symR}
+						fill="#e5e7eb" stroke="#374151" stroke-width={sw} />
+					<polygon points={trianglePoints(legendGeom.symbolX, legendGeom.y3 - symOff, symR * 0.8)}
+						fill="none" stroke="#374151" stroke-width={sw} opacity="0.75" />
+					<text x={legendGeom.textX} y={legendGeom.y3} font-size={legendGeom.fontSize} fill="#111827">Box outlet (qty: {outletTypeCounts.box})</text>
 
 					<!-- High/low trunk symbols -->
-					<line x1={legendGeom.symbolX - legendGeom.symbolW / 2} y1={legendGeom.y4 - 3 / zoom} x2={legendGeom.symbolX + legendGeom.symbolW / 2} y2={legendGeom.y4 - 3 / zoom}
-						stroke="#374151" stroke-width={1.5 / zoom} stroke-dasharray={`${5 / zoom} ${3 / zoom}`} />
-					<text x={legendGeom.textX} y={legendGeom.y4} font-size={9 / zoom} fill="#111827">High level trunk</text>
+					<line x1={legendGeom.symbolX - legendGeom.symbolW / 2} y1={legendGeom.y4 - symOff} x2={legendGeom.symbolX + legendGeom.symbolW / 2} y2={legendGeom.y4 - symOff}
+						stroke="#374151" stroke-width={0.4 * u} stroke-dasharray={`${1.5 * u} ${1 * u}`} />
+					<text x={legendGeom.textX} y={legendGeom.y4} font-size={legendGeom.fontSize} fill="#111827">High level trunk</text>
 
-					<line x1={legendGeom.symbolX - legendGeom.symbolW / 2} y1={legendGeom.y5 - 3 / zoom} x2={legendGeom.symbolX + legendGeom.symbolW / 2} y2={legendGeom.y5 - 3 / zoom}
-						stroke="#374151" stroke-width={1.5 / zoom} />
-					<text x={legendGeom.textX} y={legendGeom.y5} font-size={9 / zoom} fill="#111827">Low level trunk</text>
+					<line x1={legendGeom.symbolX - legendGeom.symbolW / 2} y1={legendGeom.y5 - symOff} x2={legendGeom.symbolX + legendGeom.symbolW / 2} y2={legendGeom.y5 - symOff}
+						stroke="#374151" stroke-width={0.4 * u} />
+					<text x={legendGeom.textX} y={legendGeom.y5} font-size={legendGeom.fontSize} fill="#111827">Low level trunk</text>
+				</g>
+				{/if}
+
+				<!-- Title block + border (inside paper margin) -->
+				{#if hasViewFlag(VIEW_TITLEBLOCK) && titleBlockGeom}
+				{@const tb = titleBlockGeom}
+				<g class="pointer-events-none">
+					<!-- Border rect at margin inset -->
+					<rect x={tb.bx} y={tb.by} width={tb.bw} height={tb.bh}
+						fill="none" stroke="#333" stroke-width={tb.sw * 2} />
+
+					<!-- Title block background -->
+					<rect x={tb.tbX} y={tb.tbY} width={tb.tbW} height={tb.tbH}
+						fill="white" stroke="#333" stroke-width={tb.sw * 3} />
+
+					<!-- Title block sections -->
+					{#each tb.rows as row, idx}
+						<!-- Section rect -->
+						<rect x={tb.tbX} y={row.y} width={tb.tbW} height={row.h}
+							fill="none" stroke="#333" stroke-width={tb.sw} />
+
+						<!-- Section label (small gray, top-left) -->
+						{#if row.name}
+							<text x={tb.tbX + 2 * tb.u} y={row.y + tb.fontSize * 1.3}
+								font-size={tb.fontSize * 0.8} fill="#666" font-family="sans-serif">{row.name}:</text>
+						{/if}
+
+						<!-- Section title -->
+						{#if row.title}
+							{@const isFullWidth = !row.name}
+							<text x={isFullWidth ? tb.tbX + tb.tbW / 2 : tb.tbX + 2 * tb.u}
+								y={row.y + tb.fontSize * (row.name ? 2.8 : 2.5)}
+								font-size={tb.fontSize * (isFullWidth ? 1.2 : 1)} fill="#333" font-family="sans-serif"
+								text-anchor={isFullWidth ? 'middle' : 'start'}
+								font-weight={isFullWidth ? 'bold' : 'normal'}>{row.title}</text>
+						{/if}
+
+						<!-- Section subtitle -->
+						{#if row.subtitle}
+							{@const isFullWidth = !row.name}
+							<text x={isFullWidth ? tb.tbX + tb.tbW / 2 : tb.tbX + 2 * tb.u}
+								y={row.y + tb.fontSize * 4}
+								font-size={tb.fontSize * 0.85} fill="#666" font-family="sans-serif"
+								text-anchor={isFullWidth ? 'middle' : 'start'}>{row.subtitle}</text>
+						{/if}
+					{/each}
 				</g>
 				{/if}
 
@@ -1632,18 +1763,5 @@
 	@media print {
 		:global(.print-hidden) { display: none !important; }
 		:global(.panzoom) { background-image: none !important; }
-		/* Hide all UI chrome */
-		:global(.titlebar-area), :global(.sidebar-area), :global([data-no-print]) {
-			display: none !important;
-		}
-		/* Container fills the page */
-		:global(.print-canvas-container) {
-			position: fixed !important;
-			inset: 0 !important;
-			width: 100vw !important;
-			height: 100vh !important;
-			overflow: visible !important;
-			background: white !important;
-		}
 	}
 </style>

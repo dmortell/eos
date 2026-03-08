@@ -261,3 +261,18 @@ How to align drawing with paper:
     }`
 	}
 ```
+
+
+
+  $lib/ui/print/print-handler.ts — Rewrote to inject comprehensive print CSS following the CadCanvas pattern:
+  - updatePrintStyles() injects @page { size: A3 landscape; margin: 0 } plus @media print rules that set html, body to exact mm dimensions, hide UI chrome (.titlebar-area, .sidebar-area,
+  .print-hidden, [data-no-print]), and size the container element to exact paper mm with position: fixed; top: 0; left: 0
+  - removePrintStyles() cleans up the injected style
+  - triggerPrint() now calls updatePrintStyles() before printing
+
+  OutletCanvas.svelte — Fixed the beforeprint/afterprint handlers:
+  - Added getPaperScale() — computes calibration.scaleFactor / effectiveScale, which is the zoom level where 1 PDF pixel maps to the correct mm on paper
+  - beforeprint: injects full print CSS via updatePrintStyles(), sets zoom = paperScale and positions vx/vy so drawingOffset maps to container origin (0,0)
+  - afterprint: removes injected styles via removePrintStyles(), restores saved view
+  - Toolbar now has data-no-print attribute for reliable hiding
+  - Removed redundant static print CSS (container sizing) — now handled by dynamic injection

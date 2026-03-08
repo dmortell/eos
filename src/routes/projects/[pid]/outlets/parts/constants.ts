@@ -1,4 +1,4 @@
-import type { OutletUsage, CableType, MountType } from './types'
+import type { OutletUsage, OutletLevel, CableType, MountType } from './types'
 
 /** Outlet symbol radius in mm (real-world). At 1:50, 150mm = 3px on screen. */
 export const OUTLET_RADIUS_MM = 200
@@ -56,4 +56,10 @@ export const OUTLET_DEFAULTS = {
 	usage: 'network' as const,
 }
 
-export type StickyDefaults = typeof OUTLET_DEFAULTS
+export interface StickyDefaults {
+	level: OutletLevel
+	portCount: number
+	cableType: CableType
+	mountType: MountType
+	usage: OutletUsage
+}

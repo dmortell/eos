@@ -244,6 +244,39 @@ Export to DWG or DXF
 
 Support for dimension lines
 
+# Print Preview & Title Block Implementation
+
+## Architecture
+Reusable print module at `$lib/ui/print/` — shared by outlets canvas and (future) rack elevations.
+
+### Files
+- `$lib/ui/print/types.ts` — `PrintSettings` interface, paper dimensions, scale options, `paperDimsMm()` helper
+- `$lib/ui/print/print-handler.ts` — `updatePrintStyles()` injects dynamic `@page` + `@media print` CSS with mm-based html/body/container sizing; `triggerPrint()` calls it then `window.print()`; `removePrintStyles()` cleans up
+- `$lib/ui/print/PrintToolbar.svelte` — Reusable Preview button + dropdown (paper size, orientation, scale, margins, Center Paper, Print, Hide)
+- `$lib/ui/print/PrintPaper.svelte` — SVG paper rect (available but not currently used)
+- `parts/types.ts` — Re-exports `PrintSettings` from shared module, added `printSettings?` to `OutletsData`
+- `Outlets.svelte` — Syncs `printSettings` to/from Firestore
+- `parts/OutletCanvas.svelte` — Paper overlay, title block, border, legend, print event handlers
+
+### Key Concepts
+
+**Coordinate unit `u`**: `u = effectiveScale / calibration.scaleFactor` — converts 1 "paper mm" to PDF pixels. Used for legend, title block, and border sizing so they appear at correct physical size on print.
+
+**Paper scale for printing**: `getPaperScale() = CSS_PX_PER_MM * sf / scale` where `CSS_PX_PER_MM = 96/25.4 ≈ 3.78`. The container is sized in mm at print time; CSS pixels map to mm via the standard 96dpi definition. The old formula `sf / scale` was missing this factor, causing ~1/4 size output.
+
+**Print CSS injection**: `@page { size: 420mm 297mm; margin: 0 }` with explicit mm (not named sizes) for Chrome reliability. Plus `html, body { width/height in mm }` and container `position: fixed; top: 0; left: 0; width/height in mm`.
+
+**beforeprint/afterprint**: Save view → set `zoom = getPaperScale()`, `vx/vy` to position drawingOffset at origin → inject CSS. Afterprint restores view and removes CSS.
+
+**Paper overlay**: HTML div outside the pan/zoom transform, positioned via `toPx(drawingOffset) * zoom + vx/vy`. Draggable to reposition. Container needs `position: relative` for correct absolute positioning.
+
+**Title block + border**: SVG elements inside the transform (so they print). Border rect at margin inset from paper edges. Title block 60mm wide on right side with sections (title, revisions, project, drawing, scale, paper). All sized in `u` units.
+
+**Legend**: Position in mm via `toPx(legendPos)`, sizing in `u` units (paper-mm → PDF pixels). Scales with drawing zoom and prints at correct physical size.
+
+### View toggles
+Bitmask `viewFlags` with `VIEW_TITLEBLOCK` (bit 8) for title block visibility. Stored in localStorage per view key.
+
 # Bugs
 
 BUG: A deleted trunk reappears when a new point is added. might need to clear the old points of the trunk.
