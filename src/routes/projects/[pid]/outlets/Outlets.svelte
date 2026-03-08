@@ -9,6 +9,9 @@
 	import OutletCanvas from './parts/OutletCanvas.svelte'
 	import OutletPalette from './parts/OutletPalette.svelte'
 	import RackPalette from './parts/RackPalette.svelte'
+	import TrunkPalette from './trunks/TrunkPalette.svelte'
+	import type { TrunkConfig, TrunkNode, TrunkSegment, PipeSpec, RectSpec } from './trunks/types'
+	import { genId, splitSegment as splitTrunkSeg } from './trunks/geometry'
 	import { exportOutletsToExcel } from './parts/exportExcel'
 
 	let { data = null, files = [], floors = [], frameData = null, racksData = {}, floor, projectId = '', projectName = '', onsave, onfloorchange, onupdatefloors, ondeletefloor, onsaverack }: {
@@ -30,6 +33,7 @@
 	// ── State ──
 	let outlets = $state<OutletConfig[]>(data?.outlets ?? [])
 	let rackPlacements = $state<RackPlacement[]>(data?.rackPlacements ?? [])
+	let trunks = $state<TrunkConfig[]>(data?.trunks ?? [])
 	let selectedFileId = $state<string>(data?.selectedFileId ?? '')
 	let selectedPage = $state<number>(data?.selectedPage ?? 1)
 	let activeZone = $state<string>(data?.activeZone ?? 'A')
@@ -40,6 +44,9 @@
 		(typeof localStorage !== 'undefined' && localStorage.getItem('outlets-sidebar-tab') as SidebarTab) || 'outlets'
 	)
 	$effect(() => { try { localStorage.setItem('outlets-sidebar-tab', sidebarTab) } catch {} })
+	let selectedTrunkIds = $state<Set<string>>(new Set())
+	let selectedNodeIds = $state<Set<string>>(new Set())
+	let trunkPaletteRef: TrunkPalette | undefined = $state()
 	let floorManagerOpen = $state(false)
 	let floorFormat = $state<string>('L01')
 
@@ -110,7 +117,7 @@
 	let dirty = $state(false)
 
 	function snapshotOf(d: any): string {
-		return JSON.stringify({ outlets: d?.outlets, rackPlacements: d?.rackPlacements, selectedFileId: d?.selectedFileId, selectedPage: d?.selectedPage, activeZone: d?.activeZone })
+		return JSON.stringify({ outlets: d?.outlets, rackPlacements: d?.rackPlacements, trunks: d?.trunks, selectedFileId: d?.selectedFileId, selectedPage: d?.selectedPage, activeZone: d?.activeZone })
 	}
 
 	$effect(() => {
@@ -119,6 +126,7 @@
 		if (lastSavedSnapshot && snapshotOf(d) !== lastSavedSnapshot) return
 		if (d.outlets) outlets = d.outlets
 		if (d.rackPlacements) rackPlacements = d.rackPlacements
+		if (d.trunks) trunks = d.trunks
 		if (d.selectedFileId) selectedFileId = d.selectedFileId
 		if (d.selectedPage) selectedPage = d.selectedPage
 		if (d.activeZone) activeZone = d.activeZone
@@ -130,7 +138,7 @@
 	let prevSnapshot = $state('')
 
 	$effect(() => {
-		const snapshot = JSON.stringify({ outlets, rackPlacements, selectedFileId, selectedPage, activeZone })
+		const snapshot = JSON.stringify({ outlets, rackPlacements, trunks, selectedFileId, selectedPage, activeZone })
 		if (!prevSnapshot) { prevSnapshot = snapshot; return }
 		if (snapshot === prevSnapshot) return
 		prevSnapshot = snapshot
@@ -138,7 +146,7 @@
 		dirty = true
 		if (saveTimer) clearTimeout(saveTimer)
 		saveTimer = setTimeout(() => {
-			const payload = { outlets, rackPlacements, selectedFileId, selectedPage, activeZone }
+			const payload = { outlets, rackPlacements, trunks, selectedFileId, selectedPage, activeZone }
 			lastSavedSnapshot = JSON.stringify(payload)
 			onsave?.(payload)
 			dirty = false
@@ -290,6 +298,8 @@
 	function clearSelection() {
 		selectedIds = new Set()
 		selectedRackIds = new Set()
+		selectedTrunkIds = new Set()
+		selectedNodeIds = new Set()
 	}
 
 	// ── Rack placement CRUD ──
@@ -415,6 +425,156 @@
 		})
 	}
 
+	// ── Trunk CRUD ──
+
+	function addTrunk(nodes: TrunkNode[], segments: TrunkSegment[]) {
+		if (!trunkPaletteRef || nodes.length < 2 || segments.length === 0) return
+		const id = genId('trunk')
+		const trunk: TrunkConfig = {
+			id,
+			shape: trunkPaletteRef.currentShape(),
+			location: trunkPaletteRef.currentLocation(),
+			spec: trunkPaletteRef.currentSpec(),
+			nodes,
+			segments,
+			isPrimary: true,
+		}
+		const prev = trunks
+		trunks = [...trunks, trunk]
+		selectedTrunkIds = new Set([id])
+		selectedNodeIds = new Set()
+		history.record({
+			label: 'Add trunk',
+			undo: () => { trunks = prev; selectedTrunkIds = new Set() },
+			redo: () => { trunks = [...prev, trunk]; selectedTrunkIds = new Set([id]) },
+		})
+	}
+
+	function deleteTrunks() {
+		if (selectedTrunkIds.size === 0) return
+		const prev = trunks
+		const ids = new Set(selectedTrunkIds)
+		trunks = trunks.filter(t => !ids.has(t.id))
+		selectedTrunkIds = new Set()
+		selectedNodeIds = new Set()
+		history.record({
+			label: `Delete ${ids.size} trunk(s)`,
+			undo: () => { trunks = prev; selectedTrunkIds = ids },
+			redo: () => { trunks = prev.filter(t => !ids.has(t.id)); selectedTrunkIds = new Set() },
+		})
+	}
+
+	function deleteSelectedNodes() {
+		if (selectedNodeIds.size === 0 || selectedTrunkIds.size !== 1) return
+		const trunkId = [...selectedTrunkIds][0]
+		const trunk = trunks.find(t => t.id === trunkId)
+		if (!trunk) return
+
+		const prev = trunks
+		const nodeIds = new Set(selectedNodeIds)
+		const newNodes = trunk.nodes.filter(n => !nodeIds.has(n.id))
+		const newSegments = trunk.segments.filter(s => !nodeIds.has(s.nodes[0]) && !nodeIds.has(s.nodes[1]))
+
+		if (newNodes.length < 2 || newSegments.length === 0) {
+			// Remove entire trunk if too few nodes remain
+			trunks = trunks.filter(t => t.id !== trunkId)
+			selectedTrunkIds = new Set()
+		} else {
+			trunks = trunks.map(t => t.id === trunkId ? { ...t, nodes: newNodes, segments: newSegments } : t)
+		}
+		selectedNodeIds = new Set()
+		const final = trunks
+		history.record({
+			label: `Delete ${nodeIds.size} node(s)`,
+			undo: () => { trunks = prev; selectedNodeIds = nodeIds; selectedTrunkIds = new Set([trunkId]) },
+			redo: () => { trunks = final; selectedNodeIds = new Set(); if (!final.find(t => t.id === trunkId)) selectedTrunkIds = new Set() },
+		})
+	}
+
+	function updateTrunk(trunkId: string, updates: Partial<TrunkConfig>) {
+		const prev = trunks
+		trunks = trunks.map(t => t.id === trunkId ? { ...t, ...updates } : t)
+		history.record({
+			label: 'Update trunk',
+			undo: () => { trunks = prev },
+			redo: () => { trunks = prev.map(t => t.id === trunkId ? { ...t, ...updates } : t) },
+		})
+	}
+
+	function toggleTrunkVisibility(trunkId: string) {
+		const trunk = trunks.find(t => t.id === trunkId)
+		if (!trunk) return
+		trunks = trunks.map(t => t.id === trunkId ? { ...t, visible: t.visible === false ? true : false } : t)
+	}
+
+	function selectTrunk(trunkId: string, multi: boolean) {
+		if (multi) {
+			const next = new Set(selectedTrunkIds)
+			if (next.has(trunkId)) next.delete(trunkId)
+			else next.add(trunkId)
+			selectedTrunkIds = next
+		} else {
+			selectedTrunkIds = new Set([trunkId])
+		}
+		selectedNodeIds = new Set()
+		selectedIds = new Set()
+		selectedRackIds = new Set()
+	}
+
+	function selectTrunkNode(nodeId: string, multi: boolean) {
+		if (multi) {
+			const next = new Set(selectedNodeIds)
+			if (next.has(nodeId)) next.delete(nodeId)
+			else next.add(nodeId)
+			selectedNodeIds = next
+		} else {
+			selectedNodeIds = new Set([nodeId])
+		}
+	}
+
+	let preTrunkNodeMoveSnapshot: TrunkConfig[] | null = null
+
+	function moveTrunkNodes(trunkId: string, nodeIds: Set<string>, dxMm: number, dyMm: number) {
+		if (!preTrunkNodeMoveSnapshot) preTrunkNodeMoveSnapshot = trunks
+		trunks = trunks.map(t => {
+			if (t.id !== trunkId) return t
+			return {
+				...t,
+				nodes: t.nodes.map(n =>
+					nodeIds.has(n.id) ? { ...n, position: { x: n.position.x + dxMm, y: n.position.y + dyMm } } : n
+				),
+			}
+		})
+	}
+
+	function moveTrunkNodesEnd(trunkId: string, nodeIds: Set<string>) {
+		if (!preTrunkNodeMoveSnapshot) return
+		const prev = preTrunkNodeMoveSnapshot
+		const final = trunks
+		preTrunkNodeMoveSnapshot = null
+		history.record({
+			label: `Move ${nodeIds.size} node(s)`,
+			undo: () => { trunks = prev },
+			redo: () => { trunks = final },
+		})
+	}
+
+	function splitTrunkSegment(trunkId: string, segmentId: string, point: Point) {
+		const trunk = trunks.find(t => t.id === trunkId)
+		if (!trunk) return
+
+		const prev = trunks
+		const { trunk: updated, newNodeId } = splitTrunkSeg(trunk, segmentId, point)
+		trunks = trunks.map(t => t.id === trunkId ? updated : t)
+		selectedNodeIds = new Set([newNodeId])
+		const final = trunks
+		history.record({
+			label: 'Split segment',
+			undo: () => { trunks = prev; selectedNodeIds = new Set() },
+			redo: () => { trunks = final; selectedNodeIds = new Set([newNodeId]) },
+		})
+	}
+
 	// ── Floor format ──
 	function fmtFloor(fl: number): string {
 		const cfg = floors.find(f => f.number === fl)
@@ -441,11 +601,16 @@
 			else clearSelection()
 		}
 		else if (e.key === 'Delete' || e.key === 'Backspace') {
-			if (selectedRackIds.size > 0) removeRackPlacements()
+			if (selectedNodeIds.size > 0) deleteSelectedNodes()
+			else if (selectedTrunkIds.size > 0) deleteTrunks()
+			else if (selectedRackIds.size > 0) removeRackPlacements()
 			else deleteSelected()
 		}
 		else if (e.key === 'r' || e.key === 'R') {
 			if (selectedRackIds.size > 0) rotateSelectedRacks()
+		}
+		else if (e.key === 't' || e.key === 'T') {
+			if (sidebarTab === 'trunks') activeTool = activeTool === 'trunk' ? 'select' : 'trunk'
 		}
 		else if (sidebarTab === 'outlets') {
 			if (e.key === 'o' || e.key === 'O') activeTool = 'outlet'
@@ -483,6 +648,11 @@
 						{sidebarTab === 'racks' ? 'text-blue-600 border-b-2 border-blue-500 bg-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}"
 					onclick={() => sidebarTab = 'racks'}
 				>Racks</button>
+				<button
+					class="flex-1 py-1.5 text-[11px] font-medium transition-colors
+						{sidebarTab === 'trunks' ? 'text-blue-600 border-b-2 border-blue-500 bg-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}"
+					onclick={() => sidebarTab = 'trunks'}
+				>Trunks</button>
 			</div>
 
 			<!-- Sidebar content -->
@@ -510,7 +680,7 @@
 						ondelete={deleteSelected}
 						ondefaultschange={updateStickyDefaults}
 					/>
-				{:else}
+				{:else if sidebarTab === 'racks'}
 					<RackPalette
 						rackConfigs={allRackConfigs}
 						{rackPlacements}
@@ -520,6 +690,19 @@
 						onselect={selectRack}
 						onremove={removeRackPlacements}
 						onrotate={rotateSelectedRacks}
+					/>
+				{:else}
+					<TrunkPalette
+						bind:this={trunkPaletteRef}
+						{trunks}
+						{selectedTrunkIds}
+						{selectedNodeIds}
+						{activeTool}
+						onselect={selectTrunk}
+						ontoolchange={(t) => activeTool = t}
+						ondelete={() => { if (selectedNodeIds.size > 0) deleteSelectedNodes(); else deleteTrunks() }}
+						ontogglevisibility={toggleTrunkVisibility}
+						onupdatetrunk={updateTrunk}
 					/>
 				{/if}
 			</div>
@@ -545,6 +728,10 @@
 					{rackPlacements}
 					rackConfigs={allRackConfigs}
 					{selectedRackIds}
+					{trunks}
+					{selectedTrunkIds}
+					{selectedNodeIds}
+					trunkPalette={trunkPaletteRef}
 					{toPx}
 					{toMm}
 					onadd={addOutlet}
@@ -559,6 +746,13 @@
 					onplacerack={placeRack}
 					onremoveracks={removeRackPlacements}
 					onrotateracks={rotateSelectedRacks}
+					onaddtrunk={addTrunk}
+					onselecttrunk={selectTrunk}
+					onselecttrunknode={selectTrunkNode}
+					onmovetrunknodes={moveTrunkNodes}
+					onmovetrunknodesend={moveTrunkNodesEnd}
+					ondeletetrunks={deleteTrunks}
+					onsplittrunksegment={splitTrunkSegment}
 				/>
 
 				<!-- Floating rack properties window -->
@@ -688,6 +882,7 @@
 				<div class="flex items-center gap-3 px-3 text-[10px] text-gray-400">
 					<span>{outlets.length} outlet{outlets.length !== 1 ? 's' : ''}</span>
 					<span>{rackPlacements.length} rack{rackPlacements.length !== 1 ? 's' : ''} placed</span>
+					{#if trunks.length > 0}<span>{trunks.length} trunk{trunks.length !== 1 ? 's' : ''}</span>{/if}
 					{#if calibration}
 						<span>Scale: 1px = {calibration.scaleFactor.toFixed(1)}mm</span>
 					{/if}

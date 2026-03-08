@@ -5,11 +5,19 @@
 	import type { OutletConfig, PageCalibration, Point, ToolMode, RackPlacement, SidebarTab } from './types'
 	import type { RackConfig } from '../../racks/parts/types'
 	import { OUTLET_RADIUS_MM, USAGE_COLORS } from './constants'
+	import type { TrunkConfig, TrunkNode, TrunkSegment } from '../trunks/types'
+	import { trunkWidthMm } from '../trunks/types'
+	import { hitTestNode, hitTestSegment, hitTestTrunkBody, constrainAngle, generateTrunkPolygons, genId, snapToNearby, type SnapTarget } from '../trunks/geometry'
+	import { SNAP_THRESHOLD_MM } from '../trunks/constants'
+	import TrunkRenderer from '../trunks/TrunkRenderer.svelte'
+	import type TrunkPalette from '../trunks/TrunkPalette.svelte'
 
 	let { file, page = 1, viewKey = '', calibration, outlets, selectedIds, activeTool, sidebarTab = 'outlets',
 		rackPlacements = [], rackConfigs = [], selectedRackIds = new Set(),
+		trunks = [], selectedTrunkIds = new Set(), selectedNodeIds = new Set(), trunkPalette,
 		toPx, toMm, onadd, onselect, onclear, onmove, onmoveend, ondelete,
-		onselectrack, onmoveracks, onmoveracksend, onplacerack, onremoveracks, onrotateracks }: {
+		onselectrack, onmoveracks, onmoveracksend, onplacerack, onremoveracks, onrotateracks,
+		onaddtrunk, onselecttrunk, onselecttrunknode, onmovetrunknodes, onmovetrunknodesend, ondeletetrunks, onsplittrunksegment }: {
 		file: any
 		page: number
 		viewKey?: string
@@ -21,6 +29,10 @@
 		rackPlacements?: RackPlacement[]
 		rackConfigs?: (RackConfig & { room: string })[]
 		selectedRackIds?: Set<string>
+		trunks?: TrunkConfig[]
+		selectedTrunkIds?: Set<string>
+		selectedNodeIds?: Set<string>
+		trunkPalette?: TrunkPalette
 		toPx: (mm: Point) => Point
 		toMm: (px: Point) => Point
 		onadd: (pagePosPixels: Point) => void
@@ -35,6 +47,13 @@
 		onplacerack?: (rackId: string, room: string, position: Point) => void
 		onremoveracks?: () => void
 		onrotateracks?: () => void
+		onaddtrunk?: (nodes: TrunkNode[], segments: TrunkSegment[]) => void
+		onselecttrunk?: (trunkId: string, multi: boolean) => void
+		onselecttrunknode?: (nodeId: string, multi: boolean) => void
+		onmovetrunknodes?: (trunkId: string, nodeIds: Set<string>, dxMm: number, dyMm: number) => void
+		onmovetrunknodesend?: (trunkId: string, nodeIds: Set<string>) => void
+		ondeletetrunks?: () => void
+		onsplittrunksegment?: (trunkId: string, segmentId: string, point: Point) => void
 	} = $props()
 
 	let containerEl: HTMLDivElement
@@ -297,6 +316,42 @@
 			return
 		}
 
+		// Trunk tool: click to add nodes
+		if (activeTool === 'trunk' && calibration && sidebarTab === 'trunks') {
+			handleTrunkClick(e)
+			return
+		}
+
+		// Select tool: check trunks (nodes, segments, bodies)
+		if (calibration && onselecttrunk) {
+			const mmPos = toMm(pos)
+			const hit = hitTestTrunks(mmPos)
+			if (hit) {
+				if (hit.type === 'node' && onselecttrunknode) {
+					// Select the trunk first if not already
+					if (!selectedTrunkIds.has(hit.trunkId)) onselecttrunk(hit.trunkId, e.ctrlKey || e.metaKey)
+					onselecttrunknode(hit.nodeId!, e.ctrlKey || e.metaKey)
+
+					// Start node drag
+					draggingTrunkNode = true
+					trunkNodeDragMoved = false
+					trunkNodeDragStart = { x: pos.x, y: pos.y, trunkId: hit.trunkId }
+					document.addEventListener('mousemove', onTrunkNodeDragMove)
+					document.addEventListener('mouseup', onTrunkNodeDragUp)
+					return
+				}
+				if (hit.type === 'segment' && (e.ctrlKey || e.metaKey) && onsplittrunksegment) {
+					// Ctrl+click segment: split
+					onsplittrunksegment(hit.trunkId, hit.segmentId!, mmPos)
+					return
+				}
+				if (hit.type === 'segment' || hit.type === 'body') {
+					onselecttrunk(hit.trunkId, e.ctrlKey || e.metaKey)
+					return
+				}
+			}
+		}
+
 		// Select tool: check racks first (if in rack mode or always)
 		const hitRackId = hitTestRack(pos)
 		if (hitRackId && onselectrack) {
@@ -465,6 +520,18 @@
 						}
 					}
 				}
+
+				// Select trunks in rect (any node center in rect)
+				if (onselecttrunk && calibration) {
+					for (const trunk of trunks) {
+						if (trunk.visible === false) continue
+						const hasNodeInRect = trunk.nodes.some(n => {
+							const px = toPx(n.position)
+							return px.x >= x1 && px.x <= x2 && px.y >= y1 && px.y <= y2
+						})
+						if (hasNodeInRect) onselecttrunk(trunk.id, true)
+					}
+				}
 			}
 		}
 		dragSelecting = false
@@ -553,12 +620,174 @@
 		if (e.touches.length === 0) { panning = false; lastPanMid = null }
 	}
 
+	// ── Trunk drawing state ──
+	let drawingNodes = $state<TrunkNode[]>([])
+	let drawingSegments = $state<TrunkSegment[]>([])
+	let rubberBandTarget = $state<Point | null>(null)
+
+	// Precomputed polygons for trunk hit-testing (in mm coords)
+	let trunkPolygonCache = $derived.by(() => {
+		const cache = new Map<string, Point[][]>()
+		for (const trunk of trunks) {
+			if (trunk.visible === false) continue
+			cache.set(trunk.id, generateTrunkPolygons(trunk))
+		}
+		return cache
+	})
+
+	function isDrawingTrunk(): boolean {
+		return activeTool === 'trunk' && drawingNodes.length > 0
+	}
+
+	/** Build snap targets from existing trunk nodes, outlets, and racks */
+	function buildSnapTargets(): SnapTarget[] {
+		const targets: SnapTarget[] = []
+		for (const trunk of trunks) {
+			for (const node of trunk.nodes) {
+				targets.push({ position: node.position, id: node.id, type: 'node' })
+			}
+		}
+		for (const outlet of outlets) {
+			targets.push({ position: outlet.position, id: outlet.id, type: 'outlet' })
+		}
+		for (const rp of rackPlacements) {
+			targets.push({ position: rp.position, id: rp.rackId, type: 'rack' })
+		}
+		return targets
+	}
+
+	function handleTrunkClick(e: MouseEvent) {
+		if (!calibration) return
+		const pos = getPagePos(e)
+		let mmPos = toMm(pos)
+
+		// Shift-constrain to 15° angles from last node
+		if (e.shiftKey && drawingNodes.length > 0) {
+			mmPos = constrainAngle(drawingNodes[drawingNodes.length - 1].position, mmPos)
+		}
+
+		// Snap to nearby targets
+		const snap = snapToNearby(mmPos, buildSnapTargets(), SNAP_THRESHOLD_MM)
+		if (snap) mmPos = snap.snappedPos
+
+		const nodeId = genId('tn')
+		const newNode: TrunkNode = { id: nodeId, position: mmPos, z: trunkPalette?.currentZ() ?? 0 }
+
+		if (drawingNodes.length === 0) {
+			// First node
+			drawingNodes = [newNode]
+		} else {
+			// Add node and segment
+			const prevNode = drawingNodes[drawingNodes.length - 1]
+			const segId = genId('ts')
+			const seg: TrunkSegment = { id: segId, nodes: [prevNode.id, nodeId] }
+			drawingNodes = [...drawingNodes, newNode]
+			drawingSegments = [...drawingSegments, seg]
+		}
+	}
+
+	function finishTrunkDrawing() {
+		if (drawingNodes.length >= 2 && drawingSegments.length > 0 && onaddtrunk) {
+			onaddtrunk(drawingNodes, drawingSegments)
+		}
+		drawingNodes = []
+		drawingSegments = []
+		rubberBandTarget = null
+	}
+
+	function cancelTrunkDrawing() {
+		drawingNodes = []
+		drawingSegments = []
+		rubberBandTarget = null
+	}
+
+	function handleTrunkMouseMove(e: MouseEvent) {
+		if (!calibration || drawingNodes.length === 0) return
+		const pos = getPagePos(e)
+		let mmPos = toMm(pos)
+		if (e.shiftKey) {
+			mmPos = constrainAngle(drawingNodes[drawingNodes.length - 1].position, mmPos)
+		}
+		const snap = snapToNearby(mmPos, buildSnapTargets(), SNAP_THRESHOLD_MM)
+		rubberBandTarget = snap ? snap.snappedPos : mmPos
+	}
+
+	// Trunk node drag state
+	let draggingTrunkNode = $state(false)
+	let trunkNodeDragMoved = false
+	let trunkNodeDragStart: { x: number; y: number; trunkId: string } | null = null
+
+	function hitTestTrunks(mmPos: Point): { type: 'node' | 'segment' | 'body'; trunkId: string; nodeId?: string; segmentId?: string; t?: number } | null {
+		// Priority: nodes > segments > body
+		for (const trunk of trunks) {
+			if (trunk.visible === false) continue
+			const nodeHit = hitTestNode(mmPos, trunk.nodes, Math.max(trunkWidthMm(trunk) / 2, 200))
+			if (nodeHit) return { type: 'node', trunkId: trunk.id, nodeId: nodeHit.id }
+		}
+		for (const trunk of trunks) {
+			if (trunk.visible === false) continue
+			const segHit = hitTestSegment(mmPos, trunk.nodes, trunk.segments, trunkWidthMm(trunk))
+			if (segHit) return { type: 'segment', trunkId: trunk.id, segmentId: segHit.segment.id, t: segHit.t }
+		}
+		for (const trunk of trunks) {
+			if (trunk.visible === false) continue
+			const polys = trunkPolygonCache.get(trunk.id)
+			if (polys && hitTestTrunkBody(mmPos, polys)) return { type: 'body', trunkId: trunk.id }
+		}
+		return null
+	}
+
+	function onTrunkNodeDragMove(e: MouseEvent) {
+		if (!trunkNodeDragStart || !calibration || !onmovetrunknodes) return
+		const pos = getPagePos(e)
+		const dxPx = pos.x - trunkNodeDragStart.x
+		const dyPx = pos.y - trunkNodeDragStart.y
+		const dxMm = dxPx * calibration.scaleFactor
+		const dyMm = dyPx * calibration.scaleFactor
+		trunkNodeDragMoved = true
+		onmovetrunknodes(trunkNodeDragStart.trunkId, selectedNodeIds, dxMm, dyMm)
+		trunkNodeDragStart = { ...trunkNodeDragStart, x: pos.x, y: pos.y }
+	}
+
+	function onTrunkNodeDragUp() {
+		if (trunkNodeDragMoved && trunkNodeDragStart && onmovetrunknodesend) {
+			onmovetrunknodesend(trunkNodeDragStart.trunkId, selectedNodeIds)
+		}
+		draggingTrunkNode = false
+		trunkNodeDragStart = null
+		trunkNodeDragMoved = false
+		document.removeEventListener('mousemove', onTrunkNodeDragMove)
+		document.removeEventListener('mouseup', onTrunkNodeDragUp)
+	}
+
+	/** Build a TrunkConfig shell for the drawing preview */
+	let drawingPreviewSpec = $derived.by((): TrunkConfig | null => {
+		if (!trunkPalette || drawingNodes.length < 2) return null
+		return {
+			id: 'drawing-preview',
+			shape: trunkPalette.currentShape(),
+			location: trunkPalette.currentLocation(),
+			spec: trunkPalette.currentSpec(),
+			nodes: drawingNodes,
+			segments: drawingSegments,
+			isPrimary: true,
+		}
+	})
+
 	function onCanvasKeyDown(e: KeyboardEvent) {
 		const tag = (e.target as HTMLElement).tagName
 		if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return
 		if (e.key === '+' || e.key === '=') zoomIn()
 		else if (e.key === '-') zoomOut()
 		else if (e.key === 'Home') fitToView()
+		else if (e.key === 'Escape' && isDrawingTrunk()) { finishTrunkDrawing(); e.stopPropagation() }
+	}
+
+	function onCanvasDblClick(e: MouseEvent) {
+		if (isDrawingTrunk()) {
+			e.preventDefault()
+			finishTrunkDrawing()
+		}
 	}
 
 	/** Room colors for rack outlines */
@@ -596,6 +825,30 @@
 				<Icon name="ellipse" size={13} />
 				Outlet
 			</button>
+		{:else if sidebarTab === 'trunks'}
+			<button
+				class="flex items-center gap-1 px-2 py-1 rounded transition-colors
+					{activeTool === 'trunk' ? 'bg-purple-100 text-purple-700' : 'text-gray-500 hover:bg-gray-100'}"
+				onclick={() => activeTool = activeTool === 'trunk' ? 'select' : 'trunk'}
+				title="Draw trunk (T)">
+				<Icon name="route" size={13} />
+				Trunk
+			</button>
+			{#if isDrawingTrunk()}
+				<button
+					class="flex items-center gap-1 px-2 py-1 rounded text-green-600 hover:bg-green-50 transition-colors"
+					onclick={finishTrunkDrawing}
+					title="Finish trunk (Esc/Dblclick)">
+					<Icon name="check" size={13} /> Finish
+				</button>
+				<button
+					class="flex items-center gap-1 px-2 py-1 rounded text-red-400 hover:bg-red-50 transition-colors"
+					onclick={cancelTrunkDrawing}
+					title="Cancel (Right-click)">
+					<Icon name="x" size={13} />
+				</button>
+				<span class="text-[10px] text-gray-400">{drawingNodes.length} pts</span>
+			{/if}
 		{/if}
 
 		{#if !calibration}
@@ -645,10 +898,12 @@
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div bind:this={containerEl}
 		class="flex-1 overflow-hidden bg-gray-100 print:overflow-visible print:bg-white
-			{activeTool === 'outlet' && calibration && sidebarTab === 'outlets' ? 'cursor-crosshair' : panning ? 'cursor-grabbing' : 'cursor-default'}
+			{(activeTool === 'outlet' && calibration && sidebarTab === 'outlets') || (activeTool === 'trunk' && calibration && sidebarTab === 'trunks') ? 'cursor-crosshair' : panning ? 'cursor-grabbing' : 'cursor-default'}
 			{dropTarget ? 'ring-2 ring-inset ring-blue-400 bg-blue-50/20' : ''}"
 		onmousedown={onMouseDown}
-		oncontextmenu={e => e.preventDefault()}
+		onmousemove={e => { if (activeTool === 'trunk' && drawingNodes.length > 0) handleTrunkMouseMove(e) }}
+		oncontextmenu={e => { e.preventDefault(); if (isDrawingTrunk()) cancelTrunkDrawing() }}
+		ondblclick={onCanvasDblClick}
 		ontouchstart={onTouchStart}
 		ontouchmove={onTouchMove}
 		ontouchend={onTouchEnd}
@@ -671,6 +926,20 @@
 
 			<!-- SVG overlay -->
 			<svg class="absolute top-0 left-0 pointer-events-none" width={pageW} height={pageH} style:overflow="visible">
+				<!-- Trunks -->
+				<TrunkRenderer
+					{trunks}
+					{calibration}
+					{zoom}
+					{selectedTrunkIds}
+					{selectedNodeIds}
+					{drawingNodes}
+					{drawingSegments}
+					drawingSpec={drawingPreviewSpec}
+					{rubberBandTarget}
+					{toPx}
+				/>
+
 				<!-- Placed racks -->
 				{#each rackPlacements as placement (placement.rackId)}
 					{@const rect = rackPxRect(placement)}

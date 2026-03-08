@@ -250,3 +250,5 @@ BUG: A deleted trunk reappears when a new point is added. might need to clear th
 BUG: immediately after opening an image file, pressing ctrl-o shortcut to add an outlet actually opens the file browser; use Shift for selecting tools instead of ctrl.
 BUG: after pan/zoom, adding trunk points doesn't work, points are in the wrong position.
 BUG: browser print preview still show up blank
+
+ADD: layers to show/hide different parts of outlets drawings: low/high outlets/routes

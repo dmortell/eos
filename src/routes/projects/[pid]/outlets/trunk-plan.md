@@ -164,6 +164,8 @@ Separated rendering component for cleaner code.
 - Highlight selected/hovered elements
 - Render labels with leader lines
 
+
+Build new components and utilities required for trunks in src\routes\projects\[pid]\outlets\trunks directory
 ---
 
 ## 3. Core Algorithms
@@ -238,11 +240,11 @@ function splitEdge(edge: TrunkEdge, point: Point): TrunkNode {
   const nodeA = findNode(edge.nodeA)
   const nodeB = findNode(edge.nodeB)
   const projected = projectPointOnSegment(point, nodeA, nodeB)
-  
+
   // Calculate z-height via linear interpolation
   const t = distance(nodeA, projected) / distance(nodeA, nodeB)
   const z = nodeA.z + (nodeB.z - nodeA.z) * t
-  
+
   const newNode: TrunkNode = {
     id: generateId(),
     x: projected.x,
@@ -250,12 +252,12 @@ function splitEdge(edge: TrunkEdge, point: Point): TrunkNode {
     z: z,
     miterRadius: (nodeA.miterRadius + nodeB.miterRadius) / 2
   }
-  
+
   // Remove old edge, create two new edges
   removeEdge(edge.id)
   createEdge(edge.nodeA, newNode.id, edge.trunkId)
   createEdge(newNode.id, edge.nodeB, edge.trunkId)
-  
+
   return newNode
 }
 ```
@@ -568,16 +570,16 @@ Ctrl-drag from node could create invalid loops.
 
 ## 13. Success Criteria
 
-✅ Users can draw primary trunks with click-click or drag methods  
-✅ Trunks render with proper mitered corners  
-✅ Nodes can be selected, moved, and deleted  
-✅ Edges can be split via ctrl-drag/click  
-✅ Z-coordinates can be edited, affecting vertical routing  
-✅ Labels can be added to edges and repositioned  
-✅ Secondary trunks auto-generate from outlets to racks  
-✅ All trunk data persists to Firestore  
-✅ Undo/redo works for all trunk operations  
-✅ Performance is smooth for networks of 100+ nodes  
+✅ Users can draw primary trunks with click-click or drag methods
+✅ Trunks render with proper mitered corners
+✅ Nodes can be selected, moved, and deleted
+✅ Edges can be split via ctrl-drag/click
+✅ Z-coordinates can be edited, affecting vertical routing
+✅ Labels can be added to edges and repositioned
+✅ Secondary trunks auto-generate from outlets to racks
+✅ All trunk data persists to Firestore
+✅ Undo/redo works for all trunk operations
+✅ Performance is smooth for networks of 100+ nodes
 
 ---
 

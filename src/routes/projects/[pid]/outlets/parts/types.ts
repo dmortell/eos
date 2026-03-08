@@ -22,14 +22,7 @@ export interface OutletConfig {
 	locked?: boolean
 }
 
-// Phase 2
-export interface TrunkConfig {
-	id: string
-	points: Point[]              // mm from origin
-	level: OutletLevel
-	cableType: CableType
-	label?: string
-}
+// Phase 2 — trunk types are in ../trunks/types.ts
 
 export interface RouteConfig {
 	id: string
@@ -54,13 +47,13 @@ export interface PageCalibration {
 	crop?: { x: number; y: number; width: number; height: number }
 }
 
-export type ToolMode = 'select' | 'outlet'
-export type SidebarTab = 'outlets' | 'racks'
+export type ToolMode = 'select' | 'outlet' | 'trunk'
+export type SidebarTab = 'outlets' | 'racks' | 'trunks'
 
 export interface OutletsData {
 	floor: number
 	outlets: OutletConfig[]
-	trunks?: TrunkConfig[]
+	trunks?: import('../trunks/types').TrunkConfig[]
 	routes?: RouteConfig[]
 	rackPlacements?: RackPlacement[]
 	selectedFileId?: string
