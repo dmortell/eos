@@ -27,7 +27,7 @@
 		<li><a href="{path}/racks">Rack Elevations</a> - manage server rooms, racks and devices</li>
 		<li><a href="{path}/frames">Patch Frames</a> - allocate outlet ports to patch frames</li>
 		<li><a href="{path}/uploads">Floorplan Uploads</a> - upload and manage floorplans</li>
-		<li><a href="{path}/outlets">Outlets</a> - manage floorplan outlets</li>
+		<li><a href="{path}/outlets">Outlets and Routes</a> - manage floorplan outlets and cable routes</li>
 	</ul>
 	<!-- <a href="{path}/docs">Proposals</a>, -->
 	<!-- <div>BOM, Quotes, Invoices, RFPs </div>

@@ -212,10 +212,42 @@ Refer to the following files for usage examples:
 
 
   * quotes: document this later. contains quote header details & notes and subcollections for details and suppliers
+    - id: quote id, usually in the format of QyymmddA, where A is a letter A to Z
+    - details subcollection: unused, delete this
+    - suppliers subcollection
+      - name: supplier name
+      - request: string note of request requirement
+      -status: pending | draft | etc
+      -total: number
+    - address: client address
+    - client: client company name
+    - contact: client contact's name
+    - sales: sales person name
+    - currency: 3 char currency code (USD, JPY, GBP, etc)
+    - show_tax: bool to show a row with calculated tax in the quote
+    - status: (string) cancelled | approved | ordered | and many more
+    - subject: string
+    - tags: tags for filtering list of quotes
+    - date: "yyyy-mm-dd" format
+    - comments: internal comments
+    - margin: string with value 0 to 100 for the percent margin to be added by default to items in the quote (overriden if margin is set in individual items). This should be changed to numeric
+    - notes: array of strings containing notes to be displayed on the bottom of the quote (eg Tax not included, quote validity, etc)
+    - quote_ref: quote id for display on quote and filename for saving quote, editable
+    - show: "on" - unused, delete this
+    - tax: (number) calculated total tax (sometimes NaN in firestore)
+    - tax_rate: (string, but should be changed to number) tax rate percent (eg 10 for 10% tax added per item)
+    - total: total of quote before tax
+    - pricefiles: array with a list of price files received from vendors
+      - name: filename
+      - note: note about the file, usually just a code to identify the vendor
+      - uploadedAt
+      - url: url to firebase storage
 
-  * received: document this later. seems to be for received invoices or quotes from suppliers
 
-  * settings: app settings for user. id is user email address - not used I think
+  * received: document this later. seems to be for invoices to clients or quotes from suppliers
+
+  * settings: app settings. not used yet.  but will be used for settings that need to be more permanent than localstorage
+    - id is user email. this is wrong, user settings should go in prefs collection
     - displayName
     - email
     - uid

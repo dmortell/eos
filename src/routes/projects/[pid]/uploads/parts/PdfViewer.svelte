@@ -47,9 +47,12 @@
 
 	// Origin
 	let origin = $state({ x: 50, y: 50 })
+	let loadedOrigin = $state({ x: 50, y: 50 })
 
 	// Scale / dimension line
-	let dimLine = $state<any>({ x1: 100, y1: 100, x2: 300, y2: 100, offset: 30, units: 'mm', distance: 1000, scale: 1 })
+	const defaultDimLine = { x1: 100, y1: 100, x2: 300, y2: 100, offset: 30, units: 'mm', distance: 1000, scale: 1 }
+	let dimLine = $state<any>({ ...defaultDimLine })
+	let loadedDimLine = $state<any>({ ...defaultDimLine })
 	let dimHandle = 0
 
 	// Crop
@@ -111,11 +114,27 @@
 	function loadPageData(page: number) {
 		const pages = fileDoc?.pages ?? {}
 		const p = pages[page] ?? {}
-		if (p.origin) origin = { ...p.origin }
-		if (p.scale) dimLine = { ...dimLine, ...p.scale }
+		const pageOrigin = p.origin ? { ...p.origin } : { x: 50, y: 50 }
+		const pageScale = { ...defaultDimLine, ...(p.scale ?? {}) }
+
+		origin = { ...pageOrigin }
+		loadedOrigin = { ...pageOrigin }
+		dimLine = { ...pageScale }
+		loadedDimLine = { ...pageScale }
+
 		if (p.crop) cropRect = { ...p.crop }
 		else cropRect = { x: 0, y: 0, width: 0, height: 0 }
 		dirty = false
+	}
+
+	function resetOrigin() {
+		origin = { ...loadedOrigin }
+		dirty = true
+	}
+
+	function resetScale() {
+		dimLine = { ...loadedDimLine }
+		dirty = true
 	}
 
 	function savePageProp(prop: string, value: any) {
@@ -462,10 +481,10 @@
 <svelte:window bind:innerWidth={cw} bind:innerHeight={ch} onkeydown={onKeyDown} />
 
 <!-- <Titlebar title={projectName ? `${projectName} — Uploads` : 'Uploads'} /> -->
-<Titlebar title='PDF Viewer' />
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="h-screen bg-gray-900 flex flex-col" oncontextmenu={e => e.preventDefault()}>
+<div class="h-screen bg-gray-300 flex flex-col" oncontextmenu={e => e.preventDefault()}>
+	<Titlebar title='PDF Viewer' />
 	<!-- Toolbar -->
 	<div class="flex items-center gap-2 px-3 py-1.5 bg-gray-800 border-b border-gray-700 shrink-0">
 		<button class="text-gray-400 hover:text-white p-1 rounded hover:bg-gray-700" onclick={onclose} title="Back (Esc)">
@@ -506,34 +525,46 @@
 
 		<!-- Tool-specific controls -->
 		{#if activeTool === 'origin'}
+
 			<div class="w-px h-4 bg-gray-700 mx-1"></div>
 			<span class="text-xs text-gray-400">Click to place origin</span>
 			<span class="text-xs text-gray-500 tabular-nums">{Math.round(origin.x)}, {Math.round(origin.y)}</span>
-			<button class="px-2 py-0.5 text-xs rounded border border-gray-400 text-gray-400 hover:bg-gray-600" onclick={() => { dirty = true }}>Reset</button>
-			<button class="px-2 py-0.5 text-xs rounded {dirty ? 'bg-green-600 hover:bg-green-500 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}"
-				onclick={saveOrigin}>Save</button>
+			<button class="px-2 py-0.5 text-xs rounded border border-gray-400 text-gray-400 hover:bg-gray-600" onclick={resetOrigin}>Reset</button>
+			{#if dirty}
+				<MetalButton variant="green" onclick={saveOrigin}>Save</MetalButton>
+			{:else}
+				<button class="px-2 py-0.5 my-1 text-xs rounded bg-gray-700 text-gray-400 hover:bg-gray-600" onclick={saveOrigin}>Save</button>
+			{/if}
+
 		{:else if activeTool === 'scale'}
+
 			<div class="w-px h-4 bg-gray-700 mx-1"></div>
 			<span class="text-xs text-gray-400">Drag endpoints on drawing</span>
-			<span class="text-xs text-gray-500">Distance:</span>
-			<input type="number" bind:value={dimLine.distance}
+			<span class="text-xs text-gray-300">Distance:</span>
+			<input type="number" bind:value={dimLine.distance} title="Enter the real-world distance between the endpoints"
 				class="w-20 h-6 px-2 text-xs text-right text-white bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-400"
 				oninput={() => dirty = true} />
-			<span class="text-xs text-gray-500">mm</span>
-			<button class="px-2 py-0.5 text-xs rounded border border-gray-400 text-gray-400 hover:bg-gray-600" onclick={() => { dirty = true }}>Reset</button>
-			<button class="px-2 py-0.5 text-xs rounded {dirty ? 'bg-green-600 hover:bg-green-500 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}"
-				onclick={saveScale}>Save</button>
+			<span class="text-xs text-gray-300">mm</span>
+			<button class="px-2 py-0.5 text-xs rounded border border-gray-400 text-gray-400 hover:bg-gray-600" onclick={resetScale}>Reset</button>
+			{#if dirty}
+				<MetalButton variant="green" onclick={saveScale}>Save</MetalButton>
+			{:else}
+				<button class="px-2 py-0.5 my-1 text-xs rounded bg-gray-700 text-gray-400 hover:bg-gray-600" onclick={saveScale}>Save</button>
+			{/if}
+
 		{:else if activeTool === 'crop'}
+
 			<div class="w-px h-4 bg-gray-700 mx-1"></div>
 			<span class="text-xs text-gray-400">Drag to crop</span>
 			<span class="text-xs text-gray-500 tabular-nums">{Math.round(cropRect.width)} x {Math.round(cropRect.height)}</span>
 			<button class="px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-400 hover:bg-gray-600"
 				onclick={() => { cropRect = { x: 0, y: 0, width: 0, height: 0 }; dirty = true }}>Clear</button>
-			<button class="px-2 py-0.5 text-xs rounded {dirty ? 'bg-green-600 hover:bg-green-500 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}"
-				onclick={saveCrop}>Save</button>
+			{#if dirty}
+				<MetalButton variant="green" onclick={saveCrop}>Save</MetalButton>
+			{:else}
+				<button class="px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-400 hover:bg-gray-600" onclick={saveCrop}>Save</button>
+			{/if}
 		{/if}
-
-		<MetalButton variant="green">SAVE</MetalButton>
 
 		<div class="flex-1"></div>
 
