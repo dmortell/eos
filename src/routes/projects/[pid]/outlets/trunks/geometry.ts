@@ -3,6 +3,17 @@ import type { TrunkConfig, TrunkNode, TrunkSegment } from './types'
 import { trunkWidthMm } from './types'
 import { MITER_LIMIT } from './constants'
 
+// ── Grid snapping ──
+
+/** Snap a point to the nearest grid intersection. gridMm=0 disables snapping. */
+export function snapToGrid(pos: Point, gridMm: number): Point {
+	if (gridMm <= 0) return pos
+	return {
+		x: Math.round(pos.x / gridMm) * gridMm,
+		y: Math.round(pos.y / gridMm) * gridMm,
+	}
+}
+
 // ── Vector math ──
 
 const sub = (a: Point, b: Point): Point => ({ x: a.x - b.x, y: a.y - b.y })
@@ -210,6 +221,7 @@ export interface SnapTarget {
 	position: Point
 	id: string
 	type: 'node' | 'outlet' | 'rack'
+	trunkId?: string  // which trunk this node belongs to (only for type 'node')
 }
 
 export function snapToNearby(

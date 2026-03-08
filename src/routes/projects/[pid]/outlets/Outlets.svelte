@@ -11,7 +11,8 @@
 	import RackPalette from './parts/RackPalette.svelte'
 	import TrunkPalette from './trunks/TrunkPalette.svelte'
 	import type { TrunkConfig, TrunkNode, TrunkSegment, PipeSpec, RectSpec } from './trunks/types'
-	import { genId, splitSegment as splitTrunkSeg } from './trunks/geometry'
+	import { genId, splitSegment as splitTrunkSeg, snapToGrid, dist } from './trunks/geometry'
+	import { SNAP_THRESHOLD_MM } from './trunks/constants'
 	import { exportOutletsToExcel } from './parts/exportExcel'
 
 	let { data = null, files = [], floors = [], frameData = null, racksData = {}, floor, projectId = '', projectName = '', onsave, onfloorchange, onupdatefloors, ondeletefloor, onsaverack }: {
@@ -49,6 +50,7 @@
 	let trunkPaletteRef: TrunkPalette | undefined = $state()
 	let floorManagerOpen = $state(false)
 	let floorFormat = $state<string>('L01')
+	let gridMm = $state(100)
 
 	// Calibration from selected file/page
 	let calibration = $state<PageCalibration | null>(null)
@@ -179,7 +181,7 @@
 	// ── Outlet CRUD ──
 	function addOutlet(pagePosPixels: Point) {
 		if (!calibration) return
-		const mm = toMm(pagePosPixels)
+		const mm = snapToGrid(toMm(pagePosPixels), gridMm)
 		const id = `out-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
 
 		const zoneOutlets = outlets.filter(o => o.label?.startsWith(activeZone + '.'))
@@ -262,6 +264,8 @@
 
 	function moveEnd(ids: Set<string>) {
 		if (!preMoveSnapshot) return
+		// Snap to grid on release
+		outlets = outlets.map(o => ids.has(o.id) ? { ...o, position: snapToGrid(o.position, gridMm) } : o)
 		const prev = preMoveSnapshot
 		const final = outlets
 		preMoveSnapshot = null
@@ -307,7 +311,7 @@
 
 	function placeRack(rackId: string, room: string, position: Point) {
 		const prev = rackPlacements
-		const placement: RackPlacement = { rackId, room, position, rotation: stickyRotation }
+		const placement: RackPlacement = { rackId, room, position: snapToGrid(position, gridMm), rotation: stickyRotation }
 		rackPlacements = [...rackPlacements, placement]
 		selectedRackIds = new Set([rackId])
 		selectedIds = new Set()
@@ -323,7 +327,7 @@
 		const newPlacements: RackPlacement[] = rackIds.map((id, i) => {
 			const cfg = allRackConfigs.find(r => r.id === id)
 			const offset = i * ((cfg?.widthMm ?? 600) + 200)
-			return { rackId: id, room, position: { x: position.x + offset, y: position.y }, rotation: stickyRotation }
+			return { rackId: id, room, position: snapToGrid({ x: position.x + offset, y: position.y }, gridMm), rotation: stickyRotation }
 		})
 		rackPlacements = [...rackPlacements, ...newPlacements]
 		selectedRackIds = new Set(rackIds)
@@ -373,6 +377,8 @@
 
 	function moveRacksEnd(ids: Set<string>) {
 		if (!preRackMoveSnapshot) return
+		// Snap to grid on release
+		rackPlacements = rackPlacements.map(p => ids.has(p.rackId) ? { ...p, position: snapToGrid(p.position, gridMm) } : p)
 		const prev = preRackMoveSnapshot
 		const final = rackPlacements
 		preRackMoveSnapshot = null
@@ -427,27 +433,84 @@
 
 	// ── Trunk CRUD ──
 
-	function addTrunk(nodes: TrunkNode[], segments: TrunkSegment[]) {
+	function addTrunk(nodes: TrunkNode[], segments: TrunkSegment[], snaps?: Map<string, { trunkId: string; nodeId: string }>) {
 		if (!trunkPaletteRef || nodes.length < 2 || segments.length === 0) return
-		const id = genId('trunk')
-		const trunk: TrunkConfig = {
-			id,
-			shape: trunkPaletteRef.currentShape(),
-			location: trunkPaletteRef.currentLocation(),
-			spec: trunkPaletteRef.currentSpec(),
-			nodes,
-			segments,
-			isPrimary: true,
-		}
 		const prev = trunks
-		trunks = [...trunks, trunk]
-		selectedTrunkIds = new Set([id])
-		selectedNodeIds = new Set()
-		history.record({
-			label: 'Add trunk',
-			undo: () => { trunks = prev; selectedTrunkIds = new Set() },
-			redo: () => { trunks = [...prev, trunk]; selectedTrunkIds = new Set([id]) },
-		})
+
+		// Collect unique trunk IDs that are being connected to
+		const connectedTrunkIds = new Set<string>()
+		if (snaps) for (const s of snaps.values()) connectedTrunkIds.add(s.trunkId)
+
+		if (connectedTrunkIds.size > 0) {
+			// Merge: add new nodes/segments into existing trunk(s)
+			// If connecting to multiple trunks, merge everything into the first one
+			const targetTrunkIds = [...connectedTrunkIds]
+			const primaryTargetId = targetTrunkIds[0]
+
+			// Gather all trunks being merged
+			const mergeTargets = trunks.filter(t => connectedTrunkIds.has(t.id))
+			const otherTrunks = trunks.filter(t => !connectedTrunkIds.has(t.id))
+			const primaryTarget = mergeTargets.find(t => t.id === primaryTargetId)!
+
+			// Start with the primary target's nodes and segments
+			const existingNodeIds = new Set<string>()
+			const mergedNodes = [...primaryTarget.nodes]
+			const mergedSegments = [...primaryTarget.segments]
+			for (const n of mergedNodes) existingNodeIds.add(n.id)
+
+			// Add nodes/segments from other trunks being merged (if connecting across trunks)
+			for (const t of mergeTargets) {
+				if (t.id === primaryTargetId) continue
+				for (const n of t.nodes) {
+					if (!existingNodeIds.has(n.id)) {
+						mergedNodes.push(n)
+						existingNodeIds.add(n.id)
+					}
+				}
+				mergedSegments.push(...t.segments)
+			}
+
+			// Add new drawing nodes (skip ones that snapped to existing nodes)
+			for (const n of nodes) {
+				if (!existingNodeIds.has(n.id)) {
+					mergedNodes.push(n)
+					existingNodeIds.add(n.id)
+				}
+			}
+
+			// Add new drawing segments
+			mergedSegments.push(...segments)
+
+			const mergedTrunk: TrunkConfig = { ...primaryTarget, nodes: mergedNodes, segments: mergedSegments }
+			trunks = [...otherTrunks, mergedTrunk]
+			selectedTrunkIds = new Set([primaryTargetId])
+			selectedNodeIds = new Set()
+			history.record({
+				label: connectedTrunkIds.size > 1 ? 'Merge trunks' : 'Extend trunk',
+				undo: () => { trunks = prev; selectedTrunkIds = new Set() },
+				redo: () => { trunks = [...otherTrunks, mergedTrunk]; selectedTrunkIds = new Set([primaryTargetId]) },
+			})
+		} else {
+			// No connections — create a new trunk
+			const id = genId('trunk')
+			const trunk: TrunkConfig = {
+				id,
+				shape: trunkPaletteRef.currentShape(),
+				location: trunkPaletteRef.currentLocation(),
+				spec: trunkPaletteRef.currentSpec(),
+				nodes,
+				segments,
+				isPrimary: true,
+			}
+			trunks = [...trunks, trunk]
+			selectedTrunkIds = new Set([id])
+			selectedNodeIds = new Set()
+			history.record({
+				label: 'Add trunk',
+				undo: () => { trunks = prev; selectedTrunkIds = new Set() },
+				redo: () => { trunks = [...prev, trunk]; selectedTrunkIds = new Set([id]) },
+			})
+		}
 	}
 
 	function deleteTrunks() {
@@ -472,11 +535,39 @@
 
 		const prev = trunks
 		const nodeIds = new Set(selectedNodeIds)
+		let newSegments = [...trunk.segments]
+
+		// For each deleted node that connects exactly 2 segments, merge them into one
+		for (const delId of nodeIds) {
+			const connected = newSegments.filter(s => s.nodes[0] === delId || s.nodes[1] === delId)
+			if (connected.length === 2) {
+				// Find the two other endpoints
+				const otherA = connected[0].nodes[0] === delId ? connected[0].nodes[1] : connected[0].nodes[0]
+				const otherB = connected[1].nodes[0] === delId ? connected[1].nodes[1] : connected[1].nodes[0]
+				if (otherA !== otherB) {
+					// Remove the two old segments and add a merged one
+					const removeIds = new Set(connected.map(s => s.id))
+					newSegments = newSegments.filter(s => !removeIds.has(s.id))
+					// Only add if this segment doesn't already exist
+					const exists = newSegments.some(s =>
+						(s.nodes[0] === otherA && s.nodes[1] === otherB) || (s.nodes[0] === otherB && s.nodes[1] === otherA)
+					)
+					if (!exists) {
+						newSegments.push({ id: genId('ts'), nodes: [otherA, otherB] })
+					}
+				} else {
+					// Both segments connect to the same node (loop of 2) — just remove them
+					newSegments = newSegments.filter(s => s.nodes[0] !== delId && s.nodes[1] !== delId)
+				}
+			} else {
+				// Node has 1 or 3+ connections — just remove its segments
+				newSegments = newSegments.filter(s => s.nodes[0] !== delId && s.nodes[1] !== delId)
+			}
+		}
+
 		const newNodes = trunk.nodes.filter(n => !nodeIds.has(n.id))
-		const newSegments = trunk.segments.filter(s => !nodeIds.has(s.nodes[0]) && !nodeIds.has(s.nodes[1]))
 
 		if (newNodes.length < 2 || newSegments.length === 0) {
-			// Remove entire trunk if too few nodes remain
 			trunks = trunks.filter(t => t.id !== trunkId)
 			selectedTrunkIds = new Set()
 		} else {
@@ -549,6 +640,44 @@
 
 	function moveTrunkNodesEnd(trunkId: string, nodeIds: Set<string>) {
 		if (!preTrunkNodeMoveSnapshot) return
+		// Snap to grid on release
+		trunks = trunks.map(t => {
+			if (t.id !== trunkId) return t
+			return { ...t, nodes: t.nodes.map(n => nodeIds.has(n.id) ? { ...n, position: snapToGrid(n.position, gridMm) } : n) }
+		})
+
+		// Check if any moved node landed near a node in another trunk → merge
+		const sourceTrunk = trunks.find(t => t.id === trunkId)
+		if (sourceTrunk) {
+			for (const movedNodeId of nodeIds) {
+				const movedNode = sourceTrunk.nodes.find(n => n.id === movedNodeId)
+				if (!movedNode) continue
+
+				for (const otherTrunk of trunks) {
+					if (otherTrunk.id === trunkId || otherTrunk.visible === false) continue
+					for (const targetNode of otherTrunk.nodes) {
+						if (dist(movedNode.position, targetNode.position) <= SNAP_THRESHOLD_MM) {
+							// Merge: combine otherTrunk into sourceTrunk, rewiring moved node → target node
+							trunks = mergeTrunks(trunks, trunkId, movedNodeId, otherTrunk.id, targetNode.id)
+							// Update selection to merged trunk
+							selectedTrunkIds = new Set([trunkId])
+							selectedNodeIds = new Set()
+
+							const prev = preTrunkNodeMoveSnapshot!
+							const final = trunks
+							preTrunkNodeMoveSnapshot = null
+							history.record({
+								label: 'Merge trunks',
+								undo: () => { trunks = prev; selectedTrunkIds = new Set() },
+								redo: () => { trunks = final; selectedTrunkIds = new Set([trunkId]) },
+							})
+							return
+						}
+					}
+				}
+			}
+		}
+
 		const prev = preTrunkNodeMoveSnapshot
 		const final = trunks
 		preTrunkNodeMoveSnapshot = null
@@ -559,12 +688,50 @@
 		})
 	}
 
+	/** Merge two trunks by connecting movedNodeId to targetNodeId.
+	 *  All references to movedNode are rewired to targetNode, then trunks are combined. */
+	function mergeTrunks(
+		allTrunks: TrunkConfig[],
+		srcTrunkId: string, movedNodeId: string,
+		dstTrunkId: string, targetNodeId: string,
+	): TrunkConfig[] {
+		const src = allTrunks.find(t => t.id === srcTrunkId)!
+		const dst = allTrunks.find(t => t.id === dstTrunkId)!
+
+		// Collect all nodes: src nodes (replacing moved node with target node's position) + dst nodes
+		const existingNodeIds = new Set(dst.nodes.map(n => n.id))
+		const mergedNodes = [...dst.nodes]
+		for (const n of src.nodes) {
+			if (n.id === movedNodeId) continue  // drop the moved node, we'll use target node instead
+			if (!existingNodeIds.has(n.id)) {
+				mergedNodes.push(n)
+				existingNodeIds.add(n.id)
+			}
+		}
+
+		// Rewire src segments: replace movedNodeId references with targetNodeId
+		const mergedSegments = [...dst.segments]
+		for (const seg of src.segments) {
+			const n0 = seg.nodes[0] === movedNodeId ? targetNodeId : seg.nodes[0]
+			const n1 = seg.nodes[1] === movedNodeId ? targetNodeId : seg.nodes[1]
+			if (n0 === n1) continue  // skip self-loops
+			// Skip duplicate segments
+			const isDup = mergedSegments.some(s =>
+				(s.nodes[0] === n0 && s.nodes[1] === n1) || (s.nodes[0] === n1 && s.nodes[1] === n0)
+			)
+			if (!isDup) mergedSegments.push({ ...seg, nodes: [n0, n1] })
+		}
+
+		const merged: TrunkConfig = { ...src, nodes: mergedNodes, segments: mergedSegments }
+		return allTrunks.filter(t => t.id !== srcTrunkId && t.id !== dstTrunkId).concat(merged)
+	}
+
 	function splitTrunkSegment(trunkId: string, segmentId: string, point: Point) {
 		const trunk = trunks.find(t => t.id === trunkId)
 		if (!trunk) return
 
 		const prev = trunks
-		const { trunk: updated, newNodeId } = splitTrunkSeg(trunk, segmentId, point)
+		const { trunk: updated, newNodeId } = splitTrunkSeg(trunk, segmentId, snapToGrid(point, gridMm))
 		trunks = trunks.map(t => t.id === trunkId ? updated : t)
 		selectedNodeIds = new Set([newNodeId])
 		const final = trunks
@@ -596,9 +763,13 @@
 
 		if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'SELECT') return
 
-		if (e.key === 'Escape') {
-			if (activeTool !== 'select') activeTool = 'select'
-			else clearSelection()
+		if (e.key === 'Escape' && !e.defaultPrevented) {
+			// Cascade: clear selection → revert to select mode
+			if (selectedIds.size > 0 || selectedRackIds.size > 0 || selectedTrunkIds.size > 0 || selectedNodeIds.size > 0) {
+				clearSelection()
+			} else if (activeTool !== 'select') {
+				activeTool = 'select'
+			}
 		}
 		else if (e.key === 'Delete' || e.key === 'Backspace') {
 			if (selectedNodeIds.size > 0) deleteSelectedNodes()
@@ -732,6 +903,7 @@
 					{selectedTrunkIds}
 					{selectedNodeIds}
 					trunkPalette={trunkPaletteRef}
+					{gridMm}
 					{toPx}
 					{toMm}
 					onadd={addOutlet}
@@ -886,6 +1058,14 @@
 					{#if calibration}
 						<span>Scale: 1px = {calibration.scaleFactor.toFixed(1)}mm</span>
 					{/if}
+					<label class="flex items-center gap-1" title="Grid snap size in mm (0 = off)">
+						Grid
+						<input type="number" min="0" max="1000" step="10"
+							class="w-12 h-4 px-1 text-[10px] text-center border border-gray-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+							value={gridMm}
+							onchange={e => { gridMm = Math.max(0, parseInt(e.currentTarget.value) || 0) }}
+						/>mm
+					</label>
 					<button
 						class="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] text-gray-500 hover:text-green-600 hover:bg-green-50 transition-colors"
 						title="Export outlets to Excel"

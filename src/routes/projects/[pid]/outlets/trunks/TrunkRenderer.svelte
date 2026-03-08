@@ -22,7 +22,8 @@
 
 	interface RenderedTrunk {
 		trunk: TrunkConfig
-		paths: string[]
+		/** Single combined path (all polygons joined), using evenodd to cut holes for loops */
+		path: string
 		color: string
 		selected: boolean
 	}
@@ -33,9 +34,9 @@
 			if (trunk.visible === false) continue
 			const color = trunk.color ?? TRUNK_COLORS[trunk.shape]
 			const polys = generateTrunkPolygons(trunk)
-			// Convert mm polygons to px
-			const paths = polys.map(poly => polygonToPath(poly.map(p => toPx(p))))
-			result.push({ trunk, paths, color, selected: selectedTrunkIds.has(trunk.id) })
+			// Combine all sub-polygons into one path string — evenodd fill-rule handles loop holes
+			const path = polys.map(poly => polygonToPath(poly.map(p => toPx(p)))).join(' ')
+			result.push({ trunk, path, color, selected: selectedTrunkIds.has(trunk.id) })
 		}
 		return result
 	})
@@ -52,15 +53,15 @@
 	}
 
 	/** Drawing preview: build temporary trunk polygon for in-progress drawing */
-	let drawingPaths = $derived.by(() => {
-		if (drawingNodes.length < 2 || drawingSegments.length === 0 || !drawingSpec) return []
+	let drawingPath = $derived.by(() => {
+		if (drawingNodes.length < 2 || drawingSegments.length === 0 || !drawingSpec) return ''
 		const tempTrunk: TrunkConfig = {
 			...drawingSpec,
 			nodes: drawingNodes,
 			segments: drawingSegments,
 		}
 		const polys = generateTrunkPolygons(tempTrunk)
-		return polys.map(poly => polygonToPath(poly.map(p => toPx(p))))
+		return polys.map(poly => polygonToPath(poly.map(p => toPx(p)))).join(' ')
 	})
 
 	/** Last drawing node position in px (for rubber-band line) */
@@ -76,19 +77,18 @@
 </script>
 
 <!-- Committed trunks -->
-{#each renderedTrunks as { trunk, paths, color, selected } (trunk.id)}
-	<!-- Trunk body polygons -->
-	{#each paths as d}
-		{#if selected}
-			<path {d} fill="none" stroke="#06b6d4" stroke-width={trunkWidthMm(trunk) / (calibration?.scaleFactor ?? 1) * 0.1 + 4 / zoom}
-				class="pointer-events-none" />
-		{/if}
-		<path {d}
-			fill="{color}33" stroke={color} stroke-width={1.5 / zoom}
-			stroke-dasharray={isCeiling(trunk) ? `${6 / zoom} ${4 / zoom}` : 'none'}
-			opacity={trunk.isPrimary ? 0.85 : 0.5}
-			class="pointer-events-auto" style:cursor="pointer" />
-	{/each}
+{#each renderedTrunks as { trunk, path, color, selected } (trunk.id)}
+	<!-- Trunk body -->
+	{#if selected}
+		<path d={path} fill="none" stroke="#06b6d4" stroke-width={trunkWidthMm(trunk) / (calibration?.scaleFactor ?? 1) * 0.1 + 4 / zoom}
+			fill-rule="evenodd" class="pointer-events-none" />
+	{/if}
+	<path d={path}
+		fill="{color}33" stroke={color} stroke-width={1.5 / zoom}
+		fill-rule="evenodd"
+		stroke-dasharray={isCeiling(trunk) ? `${6 / zoom} ${4 / zoom}` : 'none'}
+		opacity={trunk.isPrimary ? 0.85 : 0.5}
+		class="pointer-events-auto" style:cursor="pointer" />
 
 	<!-- Node handles (only when trunk is selected) -->
 	{#if selected}
@@ -128,9 +128,10 @@
 {/each}
 
 <!-- Drawing preview -->
-{#each drawingPaths as d}
-	<path {d} fill="#8b5cf633" stroke="#8b5cf6" stroke-width={1.5 / zoom} stroke-dasharray="{4 / zoom} {2 / zoom}" />
-{/each}
+{#if drawingPath}
+	<path d={drawingPath} fill="#8b5cf633" stroke="#8b5cf6" stroke-width={1.5 / zoom}
+		fill-rule="evenodd" stroke-dasharray="{4 / zoom} {2 / zoom}" />
+{/if}
 
 <!-- Drawing node handles -->
 {#each drawingNodes as node (node.id)}

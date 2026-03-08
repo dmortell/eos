@@ -7,7 +7,7 @@
 	import { OUTLET_RADIUS_MM, USAGE_COLORS } from './constants'
 	import type { TrunkConfig, TrunkNode, TrunkSegment } from '../trunks/types'
 	import { trunkWidthMm } from '../trunks/types'
-	import { hitTestNode, hitTestSegment, hitTestTrunkBody, constrainAngle, generateTrunkPolygons, genId, snapToNearby, type SnapTarget } from '../trunks/geometry'
+	import { hitTestNode, hitTestSegment, hitTestTrunkBody, constrainAngle, generateTrunkPolygons, genId, snapToNearby, snapToGrid, type SnapTarget } from '../trunks/geometry'
 	import { SNAP_THRESHOLD_MM } from '../trunks/constants'
 	import TrunkRenderer from '../trunks/TrunkRenderer.svelte'
 	import OutletShape from './OutletShape.svelte'
@@ -17,6 +17,7 @@
 	let { file, page = 1, viewKey = '', calibration, outlets, selectedIds, activeTool, sidebarTab = 'outlets',
 		rackPlacements = [], rackConfigs = [], selectedRackIds = new Set(),
 		trunks = [], selectedTrunkIds = new Set(), selectedNodeIds = new Set(), trunkPalette,
+		gridMm = 0,
 		toPx, toMm, onadd, onselect, onclear, onmove, onmoveend, ondelete,
 		onselectrack, onmoveracks, onmoveracksend, onplacerack, onremoveracks, onrotateracks,
 		onaddtrunk, onselecttrunk, onselecttrunknode, onmovetrunknodes, onmovetrunknodesend, ondeletetrunks, onsplittrunksegment }: {
@@ -35,6 +36,7 @@
 		selectedTrunkIds?: Set<string>
 		selectedNodeIds?: Set<string>
 		trunkPalette?: TrunkPalette
+		gridMm?: number
 		toPx: (mm: Point) => Point
 		toMm: (px: Point) => Point
 		onadd: (pagePosPixels: Point) => void
@@ -49,7 +51,7 @@
 		onplacerack?: (rackId: string, room: string, position: Point) => void
 		onremoveracks?: () => void
 		onrotateracks?: () => void
-		onaddtrunk?: (nodes: TrunkNode[], segments: TrunkSegment[]) => void
+		onaddtrunk?: (nodes: TrunkNode[], segments: TrunkSegment[], snaps?: Map<string, { trunkId: string; nodeId: string }>) => void
 		onselecttrunk?: (trunkId: string, multi: boolean) => void
 		onselecttrunknode?: (nodeId: string, multi: boolean) => void
 		onmovetrunknodes?: (trunkId: string, nodeIds: Set<string>, dxMm: number, dyMm: number) => void
@@ -553,7 +555,7 @@
 
 		const rackIds = data.split(',')
 		const pos = getPagePos(e as unknown as MouseEvent)
-		const mm = toMm(pos)
+		const mm = snapToGrid(toMm(pos), gridMm)
 
 		// Place each rack, offset horizontally
 		for (let i = 0; i < rackIds.length; i++) {
@@ -637,17 +639,28 @@
 		return cache
 	})
 
-	function isDrawingTrunk(): boolean {
+	export function isDrawingTrunk(): boolean {
 		return activeTool === 'trunk' && drawingNodes.length > 0
 	}
 
-	/** Build snap targets from existing trunk nodes, outlets, and racks */
+	export { finishTrunkDrawing }
+
+	/** Build snap targets from existing trunk nodes, outlets, and racks.
+	 *  Excludes drawing nodes except the first one (to allow closing loops with 3+ segments). */
 	function buildSnapTargets(): SnapTarget[] {
 		const targets: SnapTarget[] = []
+		const drawingNodeIds = new Set(drawingNodes.map(n => n.id))
 		for (const trunk of trunks) {
 			for (const node of trunk.nodes) {
-				targets.push({ position: node.position, id: node.id, type: 'node' })
+				if (!drawingNodeIds.has(node.id)) {
+					targets.push({ position: node.position, id: node.id, type: 'node', trunkId: trunk.id })
+				}
 			}
+		}
+		// Include first drawing node as snap target to allow closing loops (need 3+ nodes for a valid loop)
+		if (drawingNodes.length >= 3) {
+			const first = drawingNodes[0]
+			targets.push({ position: first.position, id: first.id, type: 'node', trunkId: '__drawing__' })
 		}
 		for (const outlet of outlets) {
 			targets.push({ position: outlet.position, id: outlet.id, type: 'outlet' })
@@ -657,6 +670,9 @@
 		}
 		return targets
 	}
+
+	/** Maps drawing node IDs that snapped to existing trunk nodes: drawingNodeId → { trunkId, nodeId } */
+	let drawingSnaps = $state<Map<string, { trunkId: string; nodeId: string }>>(new Map())
 
 	function handleTrunkClick(e: MouseEvent) {
 		if (!calibration) return
@@ -668,38 +684,80 @@
 			mmPos = constrainAngle(drawingNodes[drawingNodes.length - 1].position, mmPos)
 		}
 
-		// Snap to nearby targets
+		// Grid snap first, then target snap overrides if close enough
+		mmPos = snapToGrid(mmPos, gridMm)
+
+		// Snap to nearby targets (overrides grid snap)
 		const snap = snapToNearby(mmPos, buildSnapTargets(), SNAP_THRESHOLD_MM)
 		if (snap) mmPos = snap.snappedPos
 
-		const nodeId = genId('tn')
-		const newNode: TrunkNode = { id: nodeId, position: mmPos, z: trunkPalette?.currentZ() ?? 0 }
+		// If snapped to an existing trunk node, reuse that node's ID
+		const snappedToExistingNode = snap?.target.type === 'node' && snap.target.trunkId
+		const snappedToDrawingNode = snappedToExistingNode && snap!.target.trunkId === '__drawing__'
+		let nodeId: string
+		let newNode: TrunkNode
+
+		if (snappedToDrawingNode) {
+			// Closing a loop — snap to first drawing node
+			nodeId = snap!.target.id
+			const prevNode = drawingNodes[drawingNodes.length - 1]
+			if (prevNode.id === nodeId) return
+			const segId = genId('ts')
+			const seg: TrunkSegment = { id: segId, nodes: [prevNode.id, nodeId] }
+			drawingSegments = [...drawingSegments, seg]
+			finishTrunkDrawing()
+			return
+		} else if (snappedToExistingNode) {
+			// Reuse existing node — find it in the trunk
+			const trunk = trunks.find(t => t.id === snap!.target.trunkId)
+			const existingNode = trunk?.nodes.find(n => n.id === snap!.target.id)
+			nodeId = snap!.target.id
+			newNode = existingNode
+				? { ...existingNode }
+				: { id: nodeId, position: mmPos, z: trunkPalette?.currentZ() ?? 0 }
+		} else {
+			nodeId = genId('tn')
+			newNode = { id: nodeId, position: mmPos, z: trunkPalette?.currentZ() ?? 0 }
+		}
 
 		if (drawingNodes.length === 0) {
 			// First node
 			drawingNodes = [newNode]
+			if (snappedToExistingNode) {
+				drawingSnaps = new Map([[nodeId, { trunkId: snap!.target.trunkId!, nodeId }]])
+			}
 		} else {
-			// Add node and segment
+			// Don't add a segment from a node back to itself
 			const prevNode = drawingNodes[drawingNodes.length - 1]
+			if (prevNode.id === nodeId) return
+
 			const segId = genId('ts')
 			const seg: TrunkSegment = { id: segId, nodes: [prevNode.id, nodeId] }
 			drawingNodes = [...drawingNodes, newNode]
 			drawingSegments = [...drawingSegments, seg]
+
+			if (snappedToExistingNode) {
+				const updated = new Map(drawingSnaps)
+				updated.set(nodeId, { trunkId: snap!.target.trunkId!, nodeId })
+				drawingSnaps = updated
+			}
 		}
 	}
 
 	function finishTrunkDrawing() {
 		if (drawingNodes.length >= 2 && drawingSegments.length > 0 && onaddtrunk) {
-			onaddtrunk(drawingNodes, drawingSegments)
+			onaddtrunk(drawingNodes, drawingSegments, drawingSnaps.size > 0 ? drawingSnaps : undefined)
 		}
 		drawingNodes = []
 		drawingSegments = []
+		drawingSnaps = new Map()
 		rubberBandTarget = null
 	}
 
 	function cancelTrunkDrawing() {
 		drawingNodes = []
 		drawingSegments = []
+		drawingSnaps = new Map()
 		rubberBandTarget = null
 	}
 
@@ -710,6 +768,7 @@
 		if (e.shiftKey) {
 			mmPos = constrainAngle(drawingNodes[drawingNodes.length - 1].position, mmPos)
 		}
+		mmPos = snapToGrid(mmPos, gridMm)
 		const snap = snapToNearby(mmPos, buildSnapTargets(), SNAP_THRESHOLD_MM)
 		rubberBandTarget = snap ? snap.snappedPos : mmPos
 	}
@@ -782,7 +841,7 @@
 		if (e.key === '+' || e.key === '=') zoomIn()
 		else if (e.key === '-') zoomOut()
 		else if (e.key === 'Home') fitToView()
-		else if (e.key === 'Escape' && isDrawingTrunk()) { finishTrunkDrawing(); e.stopPropagation() }
+		// Escape for trunk drawing is handled by Outlets.svelte
 	}
 
 	function onCanvasDblClick(e: MouseEvent) {

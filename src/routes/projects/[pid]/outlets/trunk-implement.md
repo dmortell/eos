@@ -421,7 +421,27 @@ This works for simple polyline trunks. For the graph-based model, the route calc
 
 
 
+
   ## How Trunk Drawing Works
+
+  Key scenarios:
+
+  * Scenario 1: Extend an existing trunk from its endpoint
+  1. Click on existing trunk's node A → drawingNodes = [{id: 'A', ...}], drawingSnaps = {A → trunkX}
+  2. Click new point B → drawingNodes = [A, B], drawingSegments = [{A→B}]
+  3. Finish → addTrunk sees snap for node A → merges into trunkX, adds node B and segment A→B
+
+  * Scenario 2: Connect two existing trunks
+  1. Click on trunk1's node A → snaps recorded
+  2. Click new point B → new node + segment
+  3. Click on trunk2's node C → snaps recorded
+  4. Finish → addTrunk sees snaps for A (trunk1) and C (trunk2) → merges all into trunk1, incorporating trunk2's nodes/segments + the new drawing
+
+  * Scenario 3: Create T-junction on same trunk
+  1. Click on existing trunk's node A → snaps recorded
+  2. Click new points B, C → new nodes + segments
+  3. Finish → merges into trunkA, creating a branch from node A
+
 
   The trunk tool uses click-click mode (not click-drag). Here's the workflow:
 
@@ -456,6 +476,15 @@ This works for simple polyline trunks. For the graph-based model, the route calc
   - Click trunk body — selects the whole trunk
   - Ctrl+click a segment — splits it (inserts a new node at that point)
   - Delete key — removes selected nodes or trunks
+
+
+  How to use it now
+
+  1. Activate trunk tool (T key or toolbar button)
+  2. Click near an existing node to start from it (you'll see the snap indicator)
+  3. Click to place new intermediate nodes
+  4. Click near another existing node (same or different trunk) to connect to it
+  5. Press Escape or double-click to finish — the new segments merge into the existing trunk(s)
 
 ## Verification Checklist
 
