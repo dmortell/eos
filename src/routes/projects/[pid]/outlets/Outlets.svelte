@@ -3,6 +3,7 @@
 	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
 	import FloorManagerDialog, { type FloorConfig } from '$lib/components/FloorManagerDialog.svelte'
 	import type { OutletConfig, OutletsData, ToolMode, PageCalibration, Point, RackPlacement, SidebarTab } from './parts/types'
+	import { DEFAULT_PRINT_SETTINGS, type PrintSettings } from '$lib/ui/print/types'
 	import type { RackConfig } from '../racks/parts/types'
 	import { OUTLET_DEFAULTS, type StickyDefaults } from './parts/constants'
 	import { HistoryStore } from './parts/HistoryStore.svelte.ts'
@@ -39,6 +40,7 @@
 	let selectedPage = $state<number>(data?.selectedPage ?? 1)
 	let activeZone = $state<string>(data?.activeZone ?? 'A')
 	let legendPos = $state<{ x: number; y: number }>(data?.legendPos ?? { x: 12, y: 12 })
+	let printSettings = $state<PrintSettings>(data?.printSettings ?? { ...DEFAULT_PRINT_SETTINGS })
 	let activeTool = $state<ToolMode>('select')
 	let selectedIds = $state<Set<string>>(new Set())
 	let selectedRackIds = $state<Set<string>>(new Set())
@@ -375,7 +377,7 @@
 	let dirty = $state(false)
 
 	function snapshotOf(d: any): string {
-		return JSON.stringify({ outlets: d?.outlets, rackPlacements: d?.rackPlacements, trunks: d?.trunks, selectedFileId: d?.selectedFileId, selectedPage: d?.selectedPage, activeZone: d?.activeZone, legendPos: d?.legendPos })
+		return JSON.stringify({ outlets: d?.outlets, rackPlacements: d?.rackPlacements, trunks: d?.trunks, selectedFileId: d?.selectedFileId, selectedPage: d?.selectedPage, activeZone: d?.activeZone, legendPos: d?.legendPos, printSettings: d?.printSettings })
 	}
 
 	$effect(() => {
@@ -389,6 +391,7 @@
 		if (d.selectedPage) selectedPage = d.selectedPage
 		if (d.activeZone) activeZone = d.activeZone
 		if (d.legendPos) legendPos = d.legendPos
+		if (d.printSettings) printSettings = d.printSettings
 		lastSavedSnapshot = ''
 	})
 
@@ -397,7 +400,7 @@
 	let prevSnapshot = $state('')
 
 	$effect(() => {
-		const snapshot = JSON.stringify({ outlets, rackPlacements, trunks, selectedFileId, selectedPage, activeZone, legendPos })
+		const snapshot = JSON.stringify({ outlets, rackPlacements, trunks, selectedFileId, selectedPage, activeZone, legendPos, printSettings })
 		if (!prevSnapshot) { prevSnapshot = snapshot; return }
 		if (snapshot === prevSnapshot) return
 		prevSnapshot = snapshot
@@ -405,7 +408,7 @@
 		dirty = true
 		if (saveTimer) clearTimeout(saveTimer)
 		saveTimer = setTimeout(() => {
-			const payload = { outlets, rackPlacements, trunks, selectedFileId, selectedPage, activeZone, legendPos }
+			const payload = { outlets, rackPlacements, trunks, selectedFileId, selectedPage, activeZone, legendPos, printSettings }
 			lastSavedSnapshot = JSON.stringify(payload)
 			onsave?.(payload)
 			dirty = false
@@ -1426,6 +1429,7 @@
 					trunkPalette={trunkPaletteRef}
 					{outletTypeCounts}
 					bind:legendPos
+					bind:printSettings
 					{gridMm}
 					{toPx}
 					{toMm}

@@ -13,12 +13,14 @@
 	import OutletShape from './OutletShape.svelte'
 	import OutletRack from './OutletRack.svelte'
 	import type TrunkPalette from '../trunks/TrunkPalette.svelte'
+	import { PrintToolbar, triggerPrint, paperDimsMm, type PrintSettings, DEFAULT_PRINT_SETTINGS } from '$lib/ui/print'
 
 	let { file, page = 1, viewKey = '', calibration, outlets, selectedIds, activeTool, sidebarTab = 'outlets',
 		rackPlacements = [], rackConfigs = [], selectedRackIds = new Set(),
 		trunks = [], secondaryRoutes = [], nodeFillMap = new Map(), selectedTrunkIds = new Set(), selectedNodeIds = new Set(), trunkPalette,
 		outletTypeCounts = { wall: 0, floor: 0, box: 0 },
 		legendPos = $bindable({ x: 12, y: 12 }),
+		printSettings = $bindable({ ...DEFAULT_PRINT_SETTINGS }),
 		gridMm = 0,
 		toPx, toMm, onadd, onselect, onclear, onmove, onmoveend, ondelete,
 		onselectrack, onmoveracks, onmoveracksend, onplacerack, onremoveracks, onrotateracks,
@@ -42,6 +44,7 @@
 		trunkPalette?: TrunkPalette
 		outletTypeCounts?: { wall: number; floor: number; box: number }
 		legendPos?: Point
+		printSettings?: PrintSettings
 		gridMm?: number
 		toPx: (mm: Point) => Point
 		toMm: (px: Point) => Point
@@ -82,10 +85,11 @@
 	const VIEW_LEGEND       = 1 << 6  // 64
 	const VIEW_RACKS        = 1 << 7  // 128
 	const VIEW_ALL = VIEW_LOW_OUTLETS | VIEW_HIGH_OUTLETS | VIEW_LOW_TRUNKS | VIEW_HIGH_TRUNKS | VIEW_ROUTES | VIEW_LABELS | VIEW_LEGEND | VIEW_RACKS
+	const VIEW_DEFAULT = VIEW_LOW_OUTLETS | VIEW_HIGH_OUTLETS | VIEW_LOW_TRUNKS | VIEW_HIGH_TRUNKS | VIEW_ROUTES | VIEW_LEGEND | VIEW_RACKS
 
 	function viewStorageKeyView() { return viewKey ? `outlets-view-flags:${viewKey}` : '' }
 
-	let viewFlags = $state(VIEW_ALL)
+	let viewFlags = $state(VIEW_DEFAULT)
 	let viewMenuOpen = $state(false)
 
 	// Restore view flags from localStorage
@@ -118,6 +122,147 @@
 		{ flag: VIEW_LEGEND,       label: 'Legend' },
 		{ flag: VIEW_RACKS,        label: 'Racks' },
 	]
+
+	// ── Printing state ──
+	let printing = $state(false)
+
+	function handlePrint() {
+		triggerPrint(printSettings)
+	}
+
+	/** Center paper on current viewport */
+	function handleSetView() {
+		if (!calibration) return
+		const ps = paperScreenDims()
+		if (!ps) return
+		// Compute mm at the center of the viewport, offset by half paper size
+		const centerPageX = ((containerEl?.clientWidth ?? cw) / 2 - vx) / zoom
+		const centerPageY = ((containerEl?.clientHeight ?? ch) / 2 - vy) / zoom
+		const centerMm = toMm({ x: centerPageX, y: centerPageY })
+		const dims = paperDimsMm(printSettings)
+		const effectiveScale = printSettings.scale || 100
+		printSettings = { ...printSettings, drawingOffset: {
+			x: centerMm.x - dims.w * effectiveScale / 2,
+			y: centerMm.y - dims.h * effectiveScale / 2,
+		}}
+	}
+
+	/** Paper dimensions in screen pixels (zoom-dependent) */
+	function paperScreenDims(): { w: number; h: number; mPx: number } | null {
+		if (!calibration) return null
+		const dims = paperDimsMm(printSettings)
+		const effectiveScale = printSettings.scale || 100
+		const sf = calibration.scaleFactor
+		return {
+			w: (dims.w * effectiveScale / sf) * zoom,
+			h: (dims.h * effectiveScale / sf) * zoom,
+			mPx: (printSettings.margins * effectiveScale / sf) * zoom,
+		}
+	}
+
+	/** Paper screen rect — moves with drawing via drawingOffset + vx/vy/zoom */
+	let paperScreen = $derived.by(() => {
+		if (!calibration || !printSettings.showPaper) return null
+		const ps = paperScreenDims()
+		if (!ps) return null
+		const off = printSettings.drawingOffset
+		const pxPos = toPx(off)
+		return {
+			x: pxPos.x * zoom + vx,
+			y: pxPos.y * zoom + vy,
+			w: ps.w, h: ps.h,
+			mx: ps.mPx, my: ps.mPx,
+			mw: ps.w - ps.mPx * 2, mh: ps.h - ps.mPx * 2,
+		}
+	})
+
+	// ── Paper drag ──
+	let paperDragging = $state(false)
+	let paperDragStart: { x: number; y: number; offX: number; offY: number } | null = null
+
+	function onPaperMouseDown(e: MouseEvent) {
+		if (e.button !== 0 || !calibration) return
+		e.preventDefault()
+		e.stopPropagation()
+		paperDragging = true
+		paperDragStart = {
+			x: e.clientX, y: e.clientY,
+			offX: printSettings.drawingOffset.x,
+			offY: printSettings.drawingOffset.y,
+		}
+		document.addEventListener('mousemove', onPaperDragMove)
+		document.addEventListener('mouseup', onPaperDragUp)
+	}
+
+	function onPaperDragMove(e: MouseEvent) {
+		if (!paperDragStart || !calibration) return
+		const dxMm = (e.clientX - paperDragStart.x) / zoom * calibration.scaleFactor
+		const dyMm = (e.clientY - paperDragStart.y) / zoom * calibration.scaleFactor
+		printSettings = { ...printSettings, drawingOffset: {
+			x: paperDragStart.offX + dxMm,
+			y: paperDragStart.offY + dyMm,
+		}}
+	}
+
+	function onPaperDragUp() {
+		paperDragging = false
+		paperDragStart = null
+		document.removeEventListener('mousemove', onPaperDragMove)
+		document.removeEventListener('mouseup', onPaperDragUp)
+	}
+
+	// Saved view state for restoring after print
+	let savedPrintView: { vx: number; vy: number; zoom: number } | null = null
+
+	$effect(() => {
+		const onBefore = () => {
+			printing = true
+			if (!calibration || !printSettings.showPaper) return
+
+			// Save current view
+			savedPrintView = { vx, vy, zoom }
+
+			// Compute print transform: map drawingOffset area to fill the page
+			const dims = paperDimsMm(printSettings)
+			const effectiveScale = printSettings.scale || 100
+			const sf = calibration.scaleFactor
+			// Paper covers this many real-world mm
+			const paperRealW = dims.w * effectiveScale
+			const paperRealH = dims.h * effectiveScale
+			// In PDF pixels
+			const paperPxW = paperRealW / sf
+			const paperPxH = paperRealH / sf
+			// The page will be dims.w x dims.h mm. We need to fit paperPxW x paperPxH PDF pixels into that.
+			// Screen size at print = viewport size (100vw x 100vh)
+			// We set zoom so paperPxW * zoom = screen width
+			const screenW = window.innerWidth
+			const screenH = window.innerHeight
+			const printZoom = Math.min(screenW / paperPxW, screenH / paperPxH)
+
+			// The drawingOffset is the mm coord at the paper top-left
+			const off = printSettings.drawingOffset
+			const offPx = toPx(off)
+
+			zoom = printZoom
+			vx = -offPx.x * printZoom
+			vy = -offPx.y * printZoom
+		}
+		const onAfter = () => {
+			printing = false
+			if (savedPrintView) {
+				vx = savedPrintView.vx
+				vy = savedPrintView.vy
+				zoom = savedPrintView.zoom
+				savedPrintView = null
+			}
+		}
+		window.addEventListener('beforeprint', onBefore)
+		window.addEventListener('afterprint', onAfter)
+		return () => {
+			window.removeEventListener('beforeprint', onBefore)
+			window.removeEventListener('afterprint', onAfter)
+		}
+	})
 
 	// Modifier key tracking
 	let ctrlKey = $state(false)
@@ -274,9 +419,12 @@
 
 	/** Crop rect in PDF pixels, or full page if no crop */
 	let crop = $derived(calibration?.crop ?? { x: 0, y: 0, width: pageW, height: pageH })
+	/** Legend: mm-based position via toPx(), screen-constant sizing via /zoom */
 	let legendGeom = $derived.by(() => {
-		const lx = crop.x + legendPos.x / zoom
-		const ly = crop.y + legendPos.y / zoom
+		if (!calibration) return null
+		const pos = toPx(legendPos) // legendPos is in mm
+		const lx = pos.x
+		const ly = pos.y
 		const rowH = 16 / zoom
 		return {
 			lx,
@@ -581,10 +729,17 @@
 	function onPanMove(e: MouseEvent) {
 		vx += e.movementX
 		vy += e.movementY
+		// In sync mode (default), paper moves with drawing
+		if (!alignMode && printSettings.showPaper) {
+			paperScreenX += e.movementX
+			paperScreenY += e.movementY
+		}
 	}
 
 	function onPanUp() {
 		panning = false
+		// In align mode, save the new alignment after panning
+		if (alignMode && printSettings.showPaper) saveDrawingOffset()
 		document.removeEventListener('mousemove', onPanMove)
 		document.removeEventListener('mouseup', onPanUp)
 	}
@@ -1115,10 +1270,13 @@
 	}
 
 	function onLegendDragMove(e: MouseEvent) {
-		if (!legendDragStart) return
+		if (!legendDragStart || !calibration) return
+		// Convert screen pixel delta to mm delta
+		const dxMm = (e.clientX - legendDragStart.x) / zoom * calibration.scaleFactor
+		const dyMm = (e.clientY - legendDragStart.y) / zoom * calibration.scaleFactor
 		legendPos = {
-			x: Math.max(0, legendDragStart.startX + (e.clientX - legendDragStart.x)),
-			y: Math.max(0, legendDragStart.startY + (e.clientY - legendDragStart.y)),
+			x: legendDragStart.startX + dxMm,
+			y: legendDragStart.startY + dyMm,
 		}
 	}
 
@@ -1160,7 +1318,7 @@
 	onclick={() => { viewMenuOpen = false }} />
 
 {#if !file?.url}
-	<div class="h-full flex items-center justify-center bg-gray-50 print:hidden">
+	<div class="h-full flex items-center justify-center bg-gray-50 print:hidden print-hidden">
 		<div class="text-center text-gray-400">
 			<Icon name="fileText" class="h-10 w-10 mx-auto mb-2 text-gray-300" />
 			<p class="text-sm">Select a floorplan from the sidebar</p>
@@ -1241,6 +1399,7 @@
 			</button>
 			{#if viewMenuOpen}
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<!-- svelte-ignore a11y_click_events_have_key_events -->
 				<div class="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 w-44"
 					onclick={(e) => e.stopPropagation()}>
 					{#each VIEW_MENU_ITEMS as item}
@@ -1255,6 +1414,9 @@
 				</div>
 			{/if}
 		</div>
+
+		<!-- Print preview -->
+		<PrintToolbar bind:settings={printSettings} bind:alignMode onprint={handlePrint} onsetview={handleSetView} />
 
 		<div class="w-px h-4 bg-gray-200"></div>
 
@@ -1284,7 +1446,7 @@
 	<!-- Canvas area -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div bind:this={containerEl}
-		class="flex-1 overflow-hidden bg-gray-100 print:overflow-visible print:bg-white
+		class="flex-1 overflow-hidden bg-gray-100 print-canvas-container print:overflow-visible print:bg-white
 			{(activeTool === 'outlet' && calibration && sidebarTab === 'outlets') || (activeTool === 'trunk' && calibration && sidebarTab === 'trunks') ? 'cursor-crosshair' : panning ? 'cursor-grabbing' : 'cursor-default'}
 			{dropTarget ? 'ring-2 ring-inset ring-blue-400 bg-blue-50/20' : ''}"
 		onmousedown={onMouseDown}
@@ -1297,6 +1459,22 @@
 		ondrop={onDrop}
 		ondragover={onDragOver}
 		ondragleave={onDragLeave}>
+
+		<!-- Paper overlay (fixed on screen, outside pan/zoom transform) -->
+		{#if paperScreen && !printing}
+			<div class="absolute pointer-events-none border-2 border-blue-400/60"
+				style:left="{paperScreen.x}px" style:top="{paperScreen.y}px"
+				style:width="{paperScreen.w}px" style:height="{paperScreen.h}px">
+				<!-- Margin dashes -->
+				<div class="absolute border border-dashed border-blue-300/40"
+					style:left="{paperScreen.mx}px" style:top="{paperScreen.my}px"
+					style:width="{paperScreen.mw}px" style:height="{paperScreen.mh}px"></div>
+				<!-- Label -->
+				<span class="absolute top-1 left-2 text-[10px] text-blue-400/70 select-none">
+					{printSettings.paperSize} {printSettings.orientation} 1:{printSettings.scale || 'Fit'}
+				</span>
+			</div>
+		{/if}
 
 		<div style:transform="translate({vx}px, {vy}px) scale({zoom})" style:transform-origin="0 0" class="relative">
 			<!-- PDF canvas with optional crop -->
@@ -1399,7 +1577,7 @@
 				{/if}
 
 				<!-- Drawing legend -->
-				{#if hasViewFlag(VIEW_LEGEND)}
+				{#if hasViewFlag(VIEW_LEGEND) && legendGeom}
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<g class="pointer-events-auto" style:cursor={legendDragging ? 'grabbing' : 'grab'} onmousedown={onLegendMouseDown}>
 					<rect x={legendGeom.lx} y={legendGeom.ly} width={legendGeom.legendW} height={legendGeom.legendH}
@@ -1450,3 +1628,23 @@
 		</div>
 	</div>
 {/if}
+
+<style>
+	@media print {
+		:global(.print-hidden) { display: none !important; }
+		:global(.panzoom) { background-image: none !important; }
+		/* Hide all UI chrome */
+		:global(.titlebar-area), :global(.sidebar-area), :global([data-no-print]) {
+			display: none !important;
+		}
+		/* Container fills the page */
+		:global(.print-canvas-container) {
+			position: fixed !important;
+			inset: 0 !important;
+			width: 100vw !important;
+			height: 100vh !important;
+			overflow: visible !important;
+			background: white !important;
+		}
+	}
+</style>

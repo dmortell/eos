@@ -50,6 +50,10 @@ export interface PageCalibration {
 export type ToolMode = 'select' | 'outlet' | 'trunk'
 export type SidebarTab = 'outlets' | 'racks' | 'trunks'
 
+import type { PrintSettings as _PrintSettings } from '$lib/ui/print/types'
+export type { PrintSettings, PaperSize, PaperOrientation } from '$lib/ui/print/types'
+export { DEFAULT_PRINT_SETTINGS, PAPER_DIMENSIONS } from '$lib/ui/print/types'
+
 export interface OutletsData {
 	floor: number
 	outlets: OutletConfig[]
@@ -60,4 +64,5 @@ export interface OutletsData {
 	selectedPage?: number
 	activeZone?: string
 	legendPos?: Point
+	printSettings?: _PrintSettings
 }
