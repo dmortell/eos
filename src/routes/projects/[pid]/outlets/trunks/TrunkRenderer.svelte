@@ -9,7 +9,7 @@
 
 	let { trunks = [], calibration, zoom = 1, selectedTrunkIds = new Set(), selectedNodeIds = new Set(),
 		drawingNodes = [], drawingSegments = [], drawingSpec, rubberBandTarget = null,
-		toPx }: {
+		ctrlKey = false, toPx }: {
 		trunks: TrunkConfig[]
 		calibration: PageCalibration | null
 		zoom: number
@@ -19,6 +19,7 @@
 		drawingSegments?: TrunkSegment[]
 		drawingSpec?: TrunkConfig | null
 		rubberBandTarget?: Point | null
+		ctrlKey?: boolean
 		toPx: (mm: Point) => Point
 	} = $props()
 
@@ -135,7 +136,7 @@
 		fill-rule="evenodd"
 		stroke-dasharray={isCeiling(trunk) ? `${6 / zoom} ${4 / zoom}` : 'none'}
 		opacity={trunk.isPrimary ? 0.85 : 0.5}
-		class="pointer-events-auto" style:cursor="pointer" />
+		class="pointer-events-auto" style:cursor={selected ? 'move' : 'pointer'} />
 
 	<!-- Node handles (only when trunk is selected) -->
 	{#if selected}
@@ -144,7 +145,7 @@
 			{@const nodeSelected = selectedNodeIds.has(node.id)}
 			<circle cx={px.x} cy={px.y} r={4 / zoom}
 				fill={nodeSelected ? '#06b6d4' : color} stroke="white" stroke-width={1.5 / zoom}
-				class="pointer-events-auto" style:cursor="grab" />
+				class="pointer-events-auto" style:cursor="pointer" />
 		{/each}
 
 		<!-- Segment midpoint handles (for splitting) -->
@@ -152,8 +153,8 @@
 			{@const mid = segMidPx(trunk, seg)}
 			{#if mid}
 				<circle cx={mid.x} cy={mid.y} r={3 / zoom}
-					fill="white" stroke={color} stroke-width={1 / zoom} opacity="0.6"
-					class="pointer-events-auto" style:cursor="crosshair" />
+					fill="white" stroke={color} stroke-width={1 / zoom} opacity={ctrlKey ? 1 : 0.3}
+					class="pointer-events-auto" style:cursor={ctrlKey ? 'crosshair' : 'default'} />
 			{/if}
 		{/each}
 

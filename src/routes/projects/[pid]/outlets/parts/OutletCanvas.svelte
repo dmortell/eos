@@ -7,7 +7,7 @@
 	import { OUTLET_RADIUS_MM, USAGE_COLORS } from './constants'
 	import type { TrunkConfig, TrunkNode, TrunkSegment } from '../trunks/types'
 	import { trunkWidthMm } from '../trunks/types'
-	import { hitTestNode, hitTestSegment, hitTestTrunkBody, constrainAngle, generateTrunkPolygons, genId, snapToNearby, snapToGrid, type SnapTarget } from '../trunks/geometry'
+	import { hitTestNode, hitTestSegment, hitTestTrunkBody, constrainAngle, generateTrunkPolygons, genId, snapToNearby, snapToGrid, dist, type SnapTarget } from '../trunks/geometry'
 	import { SNAP_THRESHOLD_MM } from '../trunks/constants'
 	import TrunkRenderer from '../trunks/TrunkRenderer.svelte'
 	import OutletShape from './OutletShape.svelte'
@@ -20,7 +20,7 @@
 		gridMm = 0,
 		toPx, toMm, onadd, onselect, onclear, onmove, onmoveend, ondelete,
 		onselectrack, onmoveracks, onmoveracksend, onplacerack, onremoveracks, onrotateracks,
-		onaddtrunk, ontrunkdrawingchange, onselecttrunk, onselecttrunknode, onmovetrunknodes, onmovetrunknodesend, ondeletetrunks, onsplittrunksegment }: {
+		onaddtrunk, ontrunkdrawingchange, onselecttrunk, onselecttrunknode, onmovetrunknodes, onmovetrunknodesend, ondeletetrunks, onsplittrunksegment, ondisconnecttrunknode }: {
 		file: any
 		page: number
 		viewKey?: string
@@ -55,15 +55,22 @@
 		ontrunkdrawingchange?: (active: boolean) => void
 		onselecttrunk?: (trunkId: string, multi: boolean) => void
 		onselecttrunknode?: (nodeId: string, multi: boolean) => void
-		onmovetrunknodes?: (trunkId: string, nodeIds: Set<string>, dxMm: number, dyMm: number, independent?: boolean) => void
+		onmovetrunknodes?: (trunkId: string, nodeIds: Set<string>, dxMm: number, dyMm: number, independent?: boolean, absolute?: boolean) => void
 		onmovetrunknodesend?: (trunkId: string, nodeIds: Set<string>, independent?: boolean) => void
 		ondeletetrunks?: () => void
 		onsplittrunksegment?: (trunkId: string, segmentId: string, point: Point) => void
+		ondisconnecttrunknode?: (trunkId: string, nodeId: string, segmentId: string) => string | null
 	} = $props()
 
 	let containerEl: HTMLDivElement
 	let canvasEl: HTMLCanvasElement
 	let pdf: PdfState | null = null
+
+	// Modifier key tracking
+	let ctrlKey = $state(false)
+
+	// Snap highlight during node drag (px coordinates for rendering)
+	let dragSnapHighlight = $state<Point | null>(null)
 
 	// Pan/zoom state
 	let vx = $state(0)
@@ -303,6 +310,40 @@
 	function onMouseDown(e: MouseEvent) {
 		e.preventDefault()
 
+		// Right-click on trunk node: disconnect last segment
+		if (e.button === 2 && calibration && ondisconnecttrunknode) {
+			const mmPos = toMm(getPagePos(e))
+			const hit = hitTestTrunks(mmPos)
+			if (hit?.type === 'node') {
+				const trunk = trunks.find(t => t.id === hit.trunkId)
+				const connectedSegs = trunk?.segments.filter(s => s.nodes[0] === hit.nodeId || s.nodes[1] === hit.nodeId)
+				if (trunk && connectedSegs && connectedSegs.length >= 2) {
+					// Disconnect the last segment from this node
+					const seg = connectedSegs[connectedSegs.length - 1]
+					const newNodeId = ondisconnecttrunknode(hit.trunkId, hit.nodeId!, seg.id)
+					if (newNodeId) {
+						// Start dragging the new node independently
+						if (!selectedTrunkIds.has(hit.trunkId)) onselecttrunk?.(hit.trunkId, false)
+						onselecttrunknode?.(newNodeId, false)
+						draggingTrunkNode = true
+						trunkNodeDragMoved = false
+						// New node is at the same position as the original node
+						const origNode = trunk.nodes.find(n => n.id === hit.nodeId)!
+						const originMm = { ...origNode.position }
+						// Neighbor is the other end of the disconnected segment
+						const otherEndId = seg.nodes[0] === hit.nodeId ? seg.nodes[1] : seg.nodes[0]
+						const otherEnd = trunk.nodes.find(n => n.id === otherEndId)
+						const neighborMm = otherEnd ? { ...otherEnd.position } : null
+						const pos = getPagePos(e)
+						trunkNodeDragStart = { startX: pos.x, startY: pos.y, lastX: pos.x, lastY: pos.y, trunkId: hit.trunkId, originMm, neighborMm, forceIndependent: true }
+						document.addEventListener('mousemove', onTrunkNodeDragMove)
+						document.addEventListener('mouseup', onTrunkNodeDragUp)
+						return
+					}
+				}
+			}
+		}
+
 		// Middle/right click = pan
 		if (e.button === 1 || e.button === 2) {
 			panning = true
@@ -337,10 +378,24 @@
 					if (!selectedTrunkIds.has(hit.trunkId)) onselecttrunk(hit.trunkId, e.ctrlKey || e.metaKey)
 					onselecttrunknode(hit.nodeId!, e.ctrlKey || e.metaKey)
 
-					// Start node drag
+					// Start node drag — capture origin and nearest connected neighbor for Shift-constrain
 					draggingTrunkNode = true
 					trunkNodeDragMoved = false
-					trunkNodeDragStart = { x: pos.x, y: pos.y, trunkId: hit.trunkId }
+					const dragTrunk = trunks.find(t => t.id === hit.trunkId)
+					const dragNode = dragTrunk?.nodes.find(n => n.id === hit.nodeId)
+					const originMm = dragNode ? { ...dragNode.position } : { x: 0, y: 0 }
+					let neighborMm: Point | null = null
+					if (dragTrunk && dragNode) {
+						// Find first connected neighbor node
+						for (const seg of dragTrunk.segments) {
+							const otherId = seg.nodes[0] === dragNode.id ? seg.nodes[1] : seg.nodes[1] === dragNode.id ? seg.nodes[0] : null
+							if (otherId) {
+								const other = dragTrunk.nodes.find(n => n.id === otherId)
+								if (other) { neighborMm = { ...other.position }; break }
+							}
+						}
+					}
+					trunkNodeDragStart = { startX: pos.x, startY: pos.y, lastX: pos.x, lastY: pos.y, trunkId: hit.trunkId, originMm, neighborMm }
 					document.addEventListener('mousemove', onTrunkNodeDragMove)
 					document.addEventListener('mouseup', onTrunkNodeDragUp)
 					return
@@ -350,7 +405,28 @@
 					onsplittrunksegment(hit.trunkId, hit.segmentId!, mmPos)
 					return
 				}
-				if (hit.type === 'segment' || hit.type === 'body') {
+				if (hit.type === 'segment' && onselecttrunknode) {
+					// Select trunk and both endpoint nodes, start segment drag
+					if (!selectedTrunkIds.has(hit.trunkId)) onselecttrunk(hit.trunkId, false)
+					const dragTrunk = trunks.find(t => t.id === hit.trunkId)
+					const seg = dragTrunk?.segments.find(s => s.id === hit.segmentId)
+					if (dragTrunk && seg) {
+						onselecttrunknode(seg.nodes[0], false)
+						onselecttrunknode(seg.nodes[1], true)  // multi-select both nodes
+						const segNodeIds = new Set(seg.nodes)
+						draggingTrunkNode = true
+						trunkNodeDragMoved = false
+						// Use midpoint of segment as origin for shift-constrain reference
+						const nodeA = dragTrunk.nodes.find(n => n.id === seg.nodes[0])
+						const nodeB = dragTrunk.nodes.find(n => n.id === seg.nodes[1])
+						const originMm = nodeA ? { ...nodeA.position } : { x: 0, y: 0 }
+						trunkNodeDragStart = { startX: pos.x, startY: pos.y, lastX: pos.x, lastY: pos.y, trunkId: hit.trunkId, originMm, neighborMm: null }
+						document.addEventListener('mousemove', onTrunkNodeDragMove)
+						document.addEventListener('mouseup', onTrunkNodeDragUp)
+					}
+					return
+				}
+				if (hit.type === 'body') {
 					onselecttrunk(hit.trunkId, e.ctrlKey || e.metaKey)
 					return
 				}
@@ -678,13 +754,13 @@
 		const pos = getPagePos(e)
 		let mmPos = toMm(pos)
 
-		// Shift-constrain to 15° angles from last node
+		// Shift-constrain to 15° angles from last node (skip grid snap to preserve angle)
 		if (e.shiftKey && drawingNodes.length > 0) {
 			mmPos = constrainAngle(drawingNodes[drawingNodes.length - 1].position, mmPos)
+		} else {
+			// Grid snap only when not angle-constrained
+			mmPos = snapToGrid(mmPos, gridMm)
 		}
-
-		// Grid snap first, then target snap overrides if close enough
-		mmPos = snapToGrid(mmPos, gridMm)
 
 		// Snap to nearby targets (overrides grid snap)
 		const snap = snapToNearby(mmPos, buildSnapTargets(), SNAP_THRESHOLD_MM)
@@ -727,9 +803,10 @@
 				drawingSnaps = new Map([[nodeId, { trunkId: snap!.target.trunkId!, nodeId }]])
 			}
 		} else {
-			// Don't add a segment from a node back to itself
+			// Don't add a node at the same position as an existing drawing node
 			const prevNode = drawingNodes[drawingNodes.length - 1]
 			if (prevNode.id === nodeId) return
+			if (drawingNodes.some(n => n.position.x === mmPos.x && n.position.y === mmPos.y)) return
 
 			const segId = genId('ts')
 			const seg: TrunkSegment = { id: segId, nodes: [prevNode.id, nodeId] }
@@ -745,6 +822,16 @@
 	}
 
 	function finishTrunkDrawing() {
+		// Remove duplicate last node (caused by dblclick firing after the second click)
+		if (drawingNodes.length >= 2) {
+			const last = drawingNodes[drawingNodes.length - 1]
+			const prev = drawingNodes[drawingNodes.length - 2]
+			if (last.position.x === prev.position.x && last.position.y === prev.position.y) {
+				drawingNodes = drawingNodes.slice(0, -1)
+				drawingSegments = drawingSegments.filter(s => s.nodes[0] !== last.id && s.nodes[1] !== last.id)
+				drawingSnaps.delete(last.id)
+			}
+		}
 		if (drawingNodes.length >= 2 && drawingSegments.length > 0 && onaddtrunk) {
 			onaddtrunk(drawingNodes, drawingSegments, drawingSnaps.size > 0 ? drawingSnaps : undefined)
 		}
@@ -769,8 +856,9 @@
 		let mmPos = toMm(pos)
 		if (e.shiftKey) {
 			mmPos = constrainAngle(drawingNodes[drawingNodes.length - 1].position, mmPos)
+		} else {
+			mmPos = snapToGrid(mmPos, gridMm)
 		}
-		mmPos = snapToGrid(mmPos, gridMm)
 		const snap = snapToNearby(mmPos, buildSnapTargets(), SNAP_THRESHOLD_MM)
 		rubberBandTarget = snap ? snap.snappedPos : mmPos
 	}
@@ -778,7 +866,7 @@
 	// Trunk node drag state
 	let draggingTrunkNode = $state(false)
 	let trunkNodeDragMoved = false
-	let trunkNodeDragStart: { x: number; y: number; trunkId: string } | null = null
+	let trunkNodeDragStart: { startX: number; startY: number; lastX: number; lastY: number; trunkId: string; originMm: Point; neighborMm: Point | null; forceIndependent?: boolean } | null = null
 
 	function hitTestTrunks(mmPos: Point): { type: 'node' | 'segment' | 'body'; trunkId: string; nodeId?: string; segmentId?: string; t?: number } | null {
 		// Priority: nodes > segments > body
@@ -803,22 +891,59 @@
 	function onTrunkNodeDragMove(e: MouseEvent) {
 		if (!trunkNodeDragStart || !calibration || !onmovetrunknodes) return
 		const pos = getPagePos(e)
-		const dxPx = pos.x - trunkNodeDragStart.x
-		const dyPx = pos.y - trunkNodeDragStart.y
-		const dxMm = dxPx * calibration.scaleFactor
-		const dyMm = dyPx * calibration.scaleFactor
+
+		// Compute target position from drag start
+		const totalDxMm = (pos.x - trunkNodeDragStart.startX) * calibration.scaleFactor
+		const totalDyMm = (pos.y - trunkNodeDragStart.startY) * calibration.scaleFactor
+		let targetMm = { x: trunkNodeDragStart.originMm.x + totalDxMm, y: trunkNodeDragStart.originMm.y + totalDyMm }
+
+		// Shift: constrain angle relative to connected neighbor
+		if (e.shiftKey && trunkNodeDragStart.neighborMm) {
+			targetMm = constrainAngle(trunkNodeDragStart.neighborMm, targetMm)
+		} else {
+			targetMm = snapToGrid(targetMm, gridMm)
+		}
+
+		// Snap to nearby node (overrides grid snap)
+		dragSnapHighlight = null
+		let bestSnapDist = SNAP_THRESHOLD_MM
+		let bestSnapPos: Point | null = null
+		for (const trunk of trunks) {
+			if (trunk.visible === false) continue
+			for (const node of trunk.nodes) {
+				if (selectedNodeIds.has(node.id)) continue
+				const d = dist(targetMm, node.position)
+				if (d <= bestSnapDist) {
+					bestSnapDist = d
+					bestSnapPos = node.position
+				}
+			}
+		}
+		if (bestSnapPos) {
+			targetMm = bestSnapPos
+			dragSnapHighlight = toPx(bestSnapPos)
+		}
+
+		// Delta from original position
+		const dxMm = targetMm.x - trunkNodeDragStart.originMm.x
+		const dyMm = targetMm.y - trunkNodeDragStart.originMm.y
+
 		trunkNodeDragMoved = true
-		onmovetrunknodes(trunkNodeDragStart.trunkId, selectedNodeIds, dxMm, dyMm, e.altKey)
-		trunkNodeDragStart = { ...trunkNodeDragStart, x: pos.x, y: pos.y }
+		// Use absolute delta from origin (reset to snapshot first, then apply)
+		const independent = e.altKey || trunkNodeDragStart.forceIndependent
+		onmovetrunknodes(trunkNodeDragStart.trunkId, selectedNodeIds, dxMm, dyMm, independent, true)
+		trunkNodeDragStart = { ...trunkNodeDragStart, lastX: pos.x, lastY: pos.y }
 	}
 
 	function onTrunkNodeDragUp(e: MouseEvent) {
 		if (trunkNodeDragMoved && trunkNodeDragStart && onmovetrunknodesend) {
-			onmovetrunknodesend(trunkNodeDragStart.trunkId, selectedNodeIds, e.altKey)
+			const independent = e.altKey || trunkNodeDragStart.forceIndependent
+			onmovetrunknodesend(trunkNodeDragStart.trunkId, selectedNodeIds, independent)
 		}
 		draggingTrunkNode = false
 		trunkNodeDragStart = null
 		trunkNodeDragMoved = false
+		dragSnapHighlight = null
 		document.removeEventListener('mousemove', onTrunkNodeDragMove)
 		document.removeEventListener('mouseup', onTrunkNodeDragUp)
 	}
@@ -859,7 +984,7 @@
 	}
 </script>
 
-<svelte:window bind:innerWidth={cw} bind:innerHeight={ch} onkeydown={onCanvasKeyDown} />
+<svelte:window bind:innerWidth={cw} bind:innerHeight={ch} onkeydown={e => { ctrlKey = e.ctrlKey || e.metaKey; onCanvasKeyDown(e) }} onkeyup={e => { ctrlKey = e.ctrlKey || e.metaKey }} />
 
 {#if !file?.url}
 	<div class="h-full flex items-center justify-center bg-gray-50 print:hidden">
@@ -1000,8 +1125,16 @@
 					{drawingSegments}
 					drawingSpec={drawingPreviewSpec}
 					{rubberBandTarget}
+					{ctrlKey}
 					{toPx}
 				/>
+
+				<!-- Snap highlight ring during node drag -->
+				{#if dragSnapHighlight}
+					<circle cx={dragSnapHighlight.x} cy={dragSnapHighlight.y} r={8 / zoom}
+						fill="none" stroke="#06b6d4" stroke-width={2 / zoom}
+						stroke-dasharray="{4 / zoom} {2 / zoom}" class="pointer-events-none" />
+				{/if}
 
 				<!-- Placed racks -->
 				{#each rackPlacements as placement (placement.rackId)}

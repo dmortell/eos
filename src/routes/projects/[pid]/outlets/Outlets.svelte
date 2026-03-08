@@ -666,7 +666,7 @@
 
 	let preTrunkNodeMoveSnapshot: TrunkConfig[] | null = null
 
-	function moveTrunkNodes(trunkId: string, nodeIds: Set<string>, dxMm: number, dyMm: number, independent?: boolean) {
+	function moveTrunkNodes(trunkId: string, nodeIds: Set<string>, dxMm: number, dyMm: number, independent?: boolean, absolute?: boolean) {
 		if (!preTrunkNodeMoveSnapshot) preTrunkNodeMoveSnapshot = trunks
 		// Find positions of moved nodes before the move (from snapshot) to identify coincident nodes in other trunks
 		const srcTrunk = preTrunkNodeMoveSnapshot.find(t => t.id === trunkId)
@@ -676,7 +676,7 @@
 				if (nodeIds.has(n.id)) movedPositions.add(`${n.position.x},${n.position.y}`)
 			}
 		}
-		trunks = trunks.map(t => {
+		trunks = (absolute ? preTrunkNodeMoveSnapshot : trunks).map(t => {
 			if (t.id === trunkId) {
 				return {
 					...t,
@@ -693,9 +693,10 @@
 				.filter(n => movedPositions.has(`${n.position.x},${n.position.y}`))
 				.map(n => n.id)
 			if (coincidentIds.length === 0) return t
+			const baseT = absolute ? origT : t
 			return {
-				...t,
-				nodes: t.nodes.map(n =>
+				...baseT,
+				nodes: baseT.nodes.map(n =>
 					coincidentIds.includes(n.id) ? { ...n, position: { x: n.position.x + dxMm, y: n.position.y + dyMm } } : n
 				),
 			}
@@ -767,12 +768,45 @@
 			return changed ? { ...t, nodes: newNodes } : t
 		})
 
-		// Check if any moved node landed near a node in another trunk
+		// Check if any moved node landed near another node → reconnect or merge
 		const sourceTrunk = trunks.find(t => t.id === trunkId)
 		if (sourceTrunk) {
 			for (const movedNodeId of nodeIds) {
 				const movedNode = sourceTrunk.nodes.find(n => n.id === movedNodeId)
 				if (!movedNode) continue
+
+				// Same-trunk reconnection: merge moved node into a nearby node in the same trunk
+				for (const targetNode of sourceTrunk.nodes) {
+					if (targetNode.id === movedNodeId || nodeIds.has(targetNode.id)) continue
+					if (dist(movedNode.position, targetNode.position) <= SNAP_THRESHOLD_MM) {
+						// Rewire all segments referencing movedNode to use targetNode, then remove movedNode
+						trunks = trunks.map(t => {
+							if (t.id !== trunkId) return t
+							const newSegments = t.segments
+								.map(s => ({
+									...s,
+									nodes: s.nodes.map(nid => nid === movedNodeId ? targetNode.id : nid) as [string, string],
+								}))
+								.filter(s => s.nodes[0] !== s.nodes[1])  // remove self-loops
+								// deduplicate
+								.filter((s, i, arr) => !arr.slice(0, i).some(prev =>
+									(prev.nodes[0] === s.nodes[0] && prev.nodes[1] === s.nodes[1]) ||
+									(prev.nodes[0] === s.nodes[1] && prev.nodes[1] === s.nodes[0])
+								))
+							return { ...t, nodes: t.nodes.filter(n => n.id !== movedNodeId), segments: newSegments }
+						})
+						selectedNodeIds = new Set([targetNode.id])
+						const prev = preTrunkNodeMoveSnapshot!
+						const final = trunks
+						preTrunkNodeMoveSnapshot = null
+						history.record({
+							label: 'Reconnect node',
+							undo: () => { trunks = prev; selectedNodeIds = new Set() },
+							redo: () => { trunks = final; selectedNodeIds = new Set([targetNode.id]) },
+						})
+						return
+					}
+				}
 
 				for (const otherTrunk of trunks) {
 					if (otherTrunk.id === trunkId || otherTrunk.visible === false) continue
@@ -854,6 +888,40 @@
 
 		const merged: TrunkConfig = { ...src, nodes: mergedNodes, segments: mergedSegments }
 		return allTrunks.filter(t => t.id !== srcTrunkId && t.id !== dstTrunkId).concat(merged)
+	}
+
+	/** Disconnect a segment from a node by creating a new node at the same position.
+	 *  Returns the new node ID so the canvas can start dragging it. */
+	function disconnectTrunkNode(trunkId: string, nodeId: string, segmentId: string): string | null {
+		const trunk = trunks.find(t => t.id === trunkId)
+		if (!trunk) return null
+		const node = trunk.nodes.find(n => n.id === nodeId)
+		const seg = trunk.segments.find(s => s.id === segmentId)
+		if (!node || !seg) return null
+
+		const prev = trunks
+		const newNodeId = genId('tn')
+		const newNode: TrunkNode = { id: newNodeId, position: { ...node.position }, z: node.z }
+		// Rewire the segment to use the new node instead
+		const newSeg: TrunkSegment = {
+			...seg,
+			nodes: seg.nodes[0] === nodeId ? [newNodeId, seg.nodes[1]] : [seg.nodes[0], newNodeId],
+		}
+		trunks = trunks.map(t => {
+			if (t.id !== trunkId) return t
+			return {
+				...t,
+				nodes: [...t.nodes, newNode],
+				segments: t.segments.map(s => s.id === segmentId ? newSeg : s),
+			}
+		})
+		const final = trunks
+		history.record({
+			label: 'Disconnect segment',
+			undo: () => { trunks = prev; selectedNodeIds = new Set() },
+			redo: () => { trunks = final; selectedNodeIds = new Set([newNodeId]) },
+		})
+		return newNodeId
 	}
 
 	function splitTrunkSegment(trunkId: string, segmentId: string, point: Point) {
@@ -1059,6 +1127,7 @@
 					onmovetrunknodesend={moveTrunkNodesEnd}
 					ondeletetrunks={deleteTrunks}
 					onsplittrunksegment={splitTrunkSegment}
+					ondisconnecttrunknode={disconnectTrunkNode}
 				/>
 
 				<!-- Floating rack properties window -->

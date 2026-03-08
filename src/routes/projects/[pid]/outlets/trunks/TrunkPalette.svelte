@@ -161,7 +161,7 @@
 				>
 					<!-- Visibility toggle -->
 					<button
-						class="shrink-0 text-gray-300 hover:text-gray-500 p-0.5"
+						class="shrink-0 text-gray-500 hover:text-gray-700 p-0.5"
 						onclick={(e) => { e.stopPropagation(); ontogglevisibility(trunk.id) }}
 					>
 						<Icon name={trunk.visible !== false ? 'eye' : 'eyeSlash'} size={11} />
