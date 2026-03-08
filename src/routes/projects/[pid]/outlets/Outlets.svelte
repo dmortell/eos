@@ -73,6 +73,8 @@
 		to: Point          // nearest point on trunk (mm)
 		room: string       // server room letter
 		color: string      // derived from room
+		trunkId: string    // which trunk this connects to
+		cableCount: number // number of cables for this room from this outlet
 	}
 
 	const ROOM_ROUTE_COLORS: Record<string, string> = {
@@ -85,24 +87,27 @@
 		return 'A'
 	}
 
+	const CABLE_DIAMETER_MM: Record<string, number> = {
+		cat6a: 9, cat6: 7, cat5e: 6, 'fiber-sm': 3, 'fiber-mm': 3,
+	}
+
 	let secondaryRoutes = $derived.by(() => {
 		if (trunks.length === 0 || outlets.length === 0) return []
-		// Pre-build segment list per room
-		const segsByRoom = new Map<string, { a: Point; b: Point }[]>()
-		const allSegs: { a: Point; b: Point }[] = []
+		// Pre-build segment list per room, with trunk ID
+		interface TrunkSeg { a: Point; b: Point; trunkId: string }
+		const segsByRoom = new Map<string, TrunkSeg[]>()
+		const allSegs: TrunkSeg[] = []
 		for (const trunk of trunks) {
 			if (trunk.visible === false) continue
 			const nodeMap = new Map(trunk.nodes.map(n => [n.id, n.position]))
-			const segs: { a: Point; b: Point }[] = []
+			const segs: TrunkSeg[] = []
 			for (const seg of trunk.segments) {
 				const a = nodeMap.get(seg.nodes[0])
 				const b = nodeMap.get(seg.nodes[1])
-				if (a && b) segs.push({ a, b })
+				if (a && b) segs.push({ a, b, trunkId: trunk.id })
 			}
 			allSegs.push(...segs)
-			// Index segments by each room this trunk serves
-			const rooms = trunk.rooms ?? []
-			for (const room of rooms) {
+			for (const room of trunk.rooms ?? []) {
 				const existing = segsByRoom.get(room) ?? []
 				existing.push(...segs)
 				segsByRoom.set(room, existing)
@@ -110,40 +115,84 @@
 		}
 		if (allSegs.length === 0) return []
 
-		const findNearest = (pos: Point, segs: { a: Point; b: Point }[]): Point | null => {
+		const findNearest = (pos: Point, segs: TrunkSeg[]): { point: Point; trunkId: string } | null => {
 			let bestDist = Infinity
-			let bestPoint: Point | null = null
+			let best: { point: Point; trunkId: string } | null = null
 			for (const seg of segs) {
 				const result = nearestPointOnSegment(pos, seg.a, seg.b)
-				if (result.dist < bestDist) { bestDist = result.dist; bestPoint = result.point }
+				if (result.dist < bestDist) { bestDist = result.dist; best = { point: result.point, trunkId: seg.trunkId } }
 			}
-			return bestPoint
+			return best
 		}
 
 		const routes: SecondaryRoute[] = []
 		for (const outlet of outlets) {
-			// Determine room(s) from port labels
-			const rooms = new Set<string>()
+			// Determine room(s) from port labels, then outlet label (S.PPP), then default 'A'
+			const roomPortCounts = new Map<string, number>()
 			if (outlet.portLabels && outlet.portLabels.length > 0) {
 				for (const label of outlet.portLabels) {
-					if (label) rooms.add(roomFromPortLabel(label))
+					if (label) {
+						const room = roomFromPortLabel(label)
+						roomPortCounts.set(room, (roomPortCounts.get(room) ?? 0) + 1)
+					}
 				}
 			}
+			if (roomPortCounts.size === 0 && outlet.label) {
+				roomPortCounts.set(roomFromPortLabel(outlet.label), outlet.portCount)
+			}
+			if (roomPortCounts.size === 0) roomPortCounts.set('A', outlet.portCount)
 
-			if (rooms.size === 0) {
-				// No room info — find nearest trunk overall
-				const to = findNearest(outlet.position, allSegs)
-				if (to) routes.push({ outletId: outlet.id, from: outlet.position, to, room: '', color: '#9ca3af' })
-			} else {
-				// One route per room — find nearest trunk that serves that room
-				for (const room of rooms) {
-					const roomSegs = segsByRoom.get(room)
-					const to = findNearest(outlet.position, roomSegs ?? allSegs)
-					if (to) routes.push({ outletId: outlet.id, from: outlet.position, to, room, color: ROOM_ROUTE_COLORS[room] ?? '#6b7280' })
-				}
+			for (const [room, count] of roomPortCounts) {
+				const roomSegs = segsByRoom.get(room)
+				const hit = findNearest(outlet.position, roomSegs ?? allSegs)
+				if (hit) routes.push({
+					outletId: outlet.id, from: outlet.position, to: hit.point,
+					room, color: ROOM_ROUTE_COLORS[room] ?? '#6b7280',
+					trunkId: hit.trunkId, cableCount: count,
+				})
 			}
 		}
 		return routes
+	})
+
+	/** Per-trunk fill info: cable count, area, fill ratio */
+	interface TrunkFillInfo { cableCount: number; cableAreaMm2: number; trunkAreaMm2: number; fillRatio: number }
+
+	let trunkFillMap = $derived.by(() => {
+		const map = new Map<string, TrunkFillInfo>()
+		// Aggregate cables per trunk
+		const trunkCables = new Map<string, { count: number; areaMm2: number }>()
+		for (const route of secondaryRoutes) {
+			const outlet = outlets.find(o => o.id === route.outletId)
+			if (!outlet) continue
+			const diam = CABLE_DIAMETER_MM[outlet.cableType] ?? 7
+			const cableArea = Math.PI * (diam / 2) ** 2 * route.cableCount
+			const existing = trunkCables.get(route.trunkId) ?? { count: 0, areaMm2: 0 }
+			existing.count += route.cableCount
+			existing.areaMm2 += cableArea
+			trunkCables.set(route.trunkId, existing)
+		}
+		// Compute fill ratio per trunk
+		for (const trunk of trunks) {
+			const cables = trunkCables.get(trunk.id)
+			if (!cables) continue
+			let trunkAreaMm2: number
+			if (trunk.shape === 'pipe') {
+				const inner = (trunk.spec as any).innerDiameterMm ?? 0
+				trunkAreaMm2 = Math.PI * (inner / 2) ** 2
+			} else {
+				const w = (trunk.spec as any).widthMm ?? 0
+				const h = (trunk.spec as any).heightMm ?? 0
+				trunkAreaMm2 = w * h
+			}
+			map.set(trunk.id, {
+				cableCount: cables.count,
+				cableAreaMm2: cables.areaMm2,
+				trunkAreaMm2,
+				fillRatio: trunkAreaMm2 > 0 ? cables.areaMm2 / trunkAreaMm2 : 0,
+			})
+		}
+		return map
 	})
 
 	// Calibration from selected file/page
@@ -1257,6 +1306,7 @@
 					{selectedRackIds}
 					{trunks}
 					{secondaryRoutes}
+					{trunkFillMap}
 					{selectedTrunkIds}
 					{selectedNodeIds}
 					trunkPalette={trunkPaletteRef}

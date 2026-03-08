@@ -7,12 +7,13 @@
 
 	const INNER_CORNER_RADIUS_MM = 10
 
-	let { trunks = [], calibration, zoom = 1, selectedTrunkIds = new Set(), selectedNodeIds = new Set(),
+	let { trunks = [], calibration, zoom = 1, trunkFillMap = new Map(), selectedTrunkIds = new Set(), selectedNodeIds = new Set(),
 		drawingNodes = [], drawingSegments = [], drawingSpec, rubberBandTarget = null,
 		ctrlKey = false, toPx }: {
 		trunks: TrunkConfig[]
 		calibration: PageCalibration | null
 		zoom: number
+		trunkFillMap?: Map<string, { cableCount: number; cableAreaMm2: number; trunkAreaMm2: number; fillRatio: number }>
 		selectedTrunkIds: Set<string>
 		selectedNodeIds: Set<string>
 		drawingNodes?: TrunkNode[]
@@ -155,6 +156,23 @@
 		stroke-dasharray={isCeiling(trunk) ? `${6 / zoom} ${4 / zoom}` : 'none'}
 		opacity={trunk.isPrimary ? 0.85 : 0.5}
 		class="pointer-events-auto" style:cursor={selected ? 'move' : 'pointer'} />
+
+	<!-- Fill label -->
+	{@const fill = trunkFillMap.get(trunk.id)}
+	{#if fill && fill.cableCount > 0}
+		{@const labelSeg = trunk.segments[0]}
+		{@const labelMid = labelSeg ? segMidPx(trunk, labelSeg) : null}
+		{#if labelMid}
+			{@const fillPct = Math.round(fill.fillRatio * 100)}
+			{@const fillColor = fillPct > 60 ? '#ef4444' : fillPct > 40 ? '#f59e0b' : '#22c55e'}
+			{@const labelText = `${fill.cableCount}C ${fillPct}%`}
+			{@const labelW = (labelText.length * 6 + 8) / zoom}
+			<rect x={labelMid.x - labelW / 2} y={labelMid.y - 8 / zoom} width={labelW} height={16 / zoom}
+				rx={3 / zoom} fill="white" stroke={fillColor} stroke-width={1 / zoom} opacity="0.9" />
+			<text x={labelMid.x} y={labelMid.y + 3.5 / zoom} text-anchor="middle" font-size={10 / zoom}
+				fill={fillColor} font-weight="600" class="select-none pointer-events-none">{labelText}</text>
+		{/if}
+	{/if}
 
 	<!-- Node handles (only when trunk is selected) -->
 	{#if selected}

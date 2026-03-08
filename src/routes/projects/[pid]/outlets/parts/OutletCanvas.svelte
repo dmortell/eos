@@ -16,7 +16,7 @@
 
 	let { file, page = 1, viewKey = '', calibration, outlets, selectedIds, activeTool, sidebarTab = 'outlets',
 		rackPlacements = [], rackConfigs = [], selectedRackIds = new Set(),
-		trunks = [], secondaryRoutes = [], selectedTrunkIds = new Set(), selectedNodeIds = new Set(), trunkPalette,
+		trunks = [], secondaryRoutes = [], trunkFillMap = new Map(), selectedTrunkIds = new Set(), selectedNodeIds = new Set(), trunkPalette,
 		gridMm = 0,
 		toPx, toMm, onadd, onselect, onclear, onmove, onmoveend, ondelete,
 		onselectrack, onmoveracks, onmoveracksend, onplacerack, onremoveracks, onrotateracks,
@@ -33,7 +33,8 @@
 		rackConfigs?: (RackConfig & { room: string })[]
 		selectedRackIds?: Set<string>
 		trunks?: TrunkConfig[]
-		secondaryRoutes?: { outletId: string; from: Point; to: Point; room: string; color: string }[]
+		secondaryRoutes?: { outletId: string; from: Point; to: Point; room: string; color: string; trunkId: string; cableCount: number }[]
+		trunkFillMap?: Map<string, { cableCount: number; cableAreaMm2: number; trunkAreaMm2: number; fillRatio: number }>
 		selectedTrunkIds?: Set<string>
 		selectedNodeIds?: Set<string>
 		trunkPalette?: TrunkPalette
@@ -1169,6 +1170,7 @@
 					{trunks}
 					{calibration}
 					{zoom}
+					{trunkFillMap}
 					{selectedTrunkIds}
 					{selectedNodeIds}
 					{drawingNodes}
@@ -1184,8 +1186,8 @@
 					{@const fromPx = toPx(route.from)}
 					{@const toPxPt = toPx(route.to)}
 					<line x1={fromPx.x} y1={fromPx.y} x2={toPxPt.x} y2={toPxPt.y}
-						stroke={route.color} stroke-width={1.5 / zoom} opacity="0.5"
-						stroke-dasharray="{3 / zoom} {2 / zoom}" class="pointer-events-none" />
+						stroke={route.color} stroke-width={2 / zoom} opacity="0.5"
+						class="pointer-events-none" />
 				{/each}
 
 				<!-- Snap highlight ring during node drag or drawing -->
