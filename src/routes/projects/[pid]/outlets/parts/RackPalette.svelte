@@ -105,6 +105,7 @@
 
 		<!-- Rack list by room -->
 		<div class="flex-1 min-h-0 overflow-y-auto space-y-2">
+			<p>Drag racks to drawing</p>
 			{#each [...racksByRoom.entries()].sort((a, b) => a[0].localeCompare(b[0])) as [room, racks] (room)}
 				<div>
 					<div class="text-[10px] text-gray-400 uppercase tracking-wider font-medium mb-0.5">Room {room}</div>
