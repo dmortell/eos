@@ -13,10 +13,9 @@
 	import Draggable from './parts/Draggable.svelte'
 	import DeviceView from './parts/DeviceView.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
-
 	import FloorManagerDialog from '$lib/components/FloorManagerDialog.svelte'
-	import type { FloorConfig } from '$lib/types/project'
 	import { fmtFloor } from '$lib/utils/floor'
+	import type { FloorConfig } from '$lib/types/project'
 
 	let { data = null, library = [], floor, room, floors = [], projectId = '', projectName = '', floorFormat = 'L01', onsave, onlibrarychange, onfloorchange, onroomchange, onupdatefloors, ondeletefloor }: {
 		data?: any

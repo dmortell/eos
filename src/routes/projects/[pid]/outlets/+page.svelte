@@ -1,16 +1,13 @@
-<script>
+<script lang="ts">
 	import { page } from '$app/state';
 	import { Firestore, Spinner } from '$lib';
 	import Outlets from './Outlets.svelte';
 
 	let db = new Firestore();
-	let outletsData = $state(/** @type {any} */ (null));
-	/** @type {any[]} */
+	let outletsData = $state(null);
 	let files = $state([]);
-	/** @type {import('$lib/components/FloorManagerDialog.svelte').FloorConfig[]} */
 	let floors = $state([{ number: 1, serverRoomCount: 1 }]);
-	let frameData = $state(/** @type {any} */ (null));
-	/** @type {Record<string, any>} */
+	let frameData = $state(null);
 	let racksData = $state({});
 	let loading = $state(true);
 	let activeFloor = $state(1);
@@ -21,7 +18,7 @@
 		const pid = page.params.pid;
 		if (!pid) return;
 		const unsub = db.subscribeOne('projects', pid, data => {
-			if (data?.name) projectName = /** @type {string} */ (data.name);
+			if (data?.name) projectName = data.name;
 			if (Array.isArray(data?.floors) && data.floors.length) {
 				floors = data.floors;
 				if (!data.floors.find(/** @param {any} f */ f => f.number === activeFloor)) {
@@ -83,12 +80,11 @@
 		return () => { unsubs.forEach(u => u?.()); };
 	});
 
-	function changeFloor(/** @type {number} */ newFloor) {
+	function changeFloor(newFloor) {
 		if (newFloor === activeFloor) return;
 		activeFloor = newFloor;
 	}
 
-	/** @param {import('$lib/components/FloorManagerDialog.svelte').FloorConfig[]} updated */
 	function updateFloors(updated) {
 		const pid = page.params.pid;
 		if (!pid) return;
@@ -99,8 +95,7 @@
 		}
 	}
 
-	/** @param {number} fl */
-	async function deleteFloor(fl) {
+	async function deleteFloor(fl:number) {
 		const pid = page.params.pid;
 		if (!pid) return;
 		try { await db.delete('outlets', `${pid}_F${String(fl).padStart(2, '0')}`); } catch {}
@@ -110,7 +105,6 @@
 		if (activeFloor === fl) activeFloor = floors[0].number;
 	}
 
-	/** @param {any} payload */
 	function save(payload) {
 		const pid = page.params.pid;
 		if (!pid) return;

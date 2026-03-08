@@ -1,30 +1,22 @@
-<script>
+<script lang="ts">
 	import { page } from '$app/state';
 	import { getContext } from 'svelte';
 	import { Firestore, Spinner, Session } from '$lib';
 	import { writeLog } from '$lib/logger';
+	import { migrateFloors } from '$lib/utils/floor';
+	import type { DeviceTemplate } from './parts/types';
 	import Racks from './Racks.svelte';
 
 	let db = new Firestore();
-	/** @type {Session} */
-	let session = getContext('session');
-	let rackData = $state(/** @type {any} */ (null));
-	/** @type {import('./parts/types').DeviceTemplate[]} */
-	let library = $state([]);
-	/** @type {import('$lib/components/FloorManagerDialog.svelte').FloorConfig[]} */
+	let session = getContext('session') as Session;
+	let rackData: any = $state(null);
+	let library: DeviceTemplate[] = $state([]);
 	let floors = $state([{ number: 1, serverRoomCount: 1 }]);
 	let loading = $state(true);
 	let activeFloor = $state(1);
 	let activeRoom = $state('A');
 	let floorFormat = $state('L01');
 	let projectName = $state('');
-
-	/** Migrate old floors format: number[] → FloorConfig[] */
-	function migrateFloors(/** @type {any[]} */ raw) {
-		if (!raw?.length) return [{ number: 1, serverRoomCount: 1 }];
-		if (typeof raw[0] === 'object' && 'number' in raw[0]) return raw;
-		return raw.map(n => ({ number: n, serverRoomCount: 1 }));
-	}
 
 	/** Firestore doc ID for a given floor + room */
 	function docId(floor = activeFloor, room = activeRoom) {
@@ -35,7 +27,7 @@
 	$effect(() => {
 		const pid = page.params.pid;
 		if (!pid) return;
-		const unsub = db.subscribeOne('projects', pid, data => {
+		const unsub = db.subscribeOne('projects', pid, (data: Record<string, any>) => {
 			if (data?.name) projectName = data.name;
 			if (data?.floors?.length) {
 				floors = migrateFloors(data.floors);
@@ -57,7 +49,7 @@
 		const id = docId(fl, rm);
 		loading = true;
 
-		const unsub = db.subscribeOne('racks', id, data => {
+		const unsub = db.subscribeOne('racks', id, (data: any) => {
 			rackData = data;
 			loading = false;
 		});
@@ -72,7 +64,7 @@
 		if (!pid) return;
 
 		const frameDocId = `${pid}_F${String(fl).padStart(2, '0')}`;
-		const unsub = db.subscribeOne('frames', frameDocId, data => {
+		const unsub = db.subscribeOne('frames', frameDocId, (data: Record<string, any>) => {
 			if (data?.floorFormat) floorFormat = data.floorFormat;
 		});
 
@@ -84,14 +76,14 @@
 		const pid = page.params.pid;
 		if (!pid) return;
 
-		const unsub = db.subscribeOne('racks', `${pid}_library`, data => {
+		const unsub = db.subscribeOne('racks', `${pid}_library`, (data: Record<string, any>) => {
 			library = data?.templates ?? [];
 		});
 
 		return () => { unsub?.(); };
 	});
 
-	function changeFloor(/** @type {number} */ newFloor) {
+	function changeFloor(newFloor: number) {
 		if (newFloor === activeFloor) return;
 		activeFloor = newFloor;
 		// Clamp room to what exists on this floor
@@ -101,13 +93,12 @@
 		if (!available.includes(activeRoom)) activeRoom = available[0];
 	}
 
-	function changeRoom(/** @type {string} */ newRoom) {
+	function changeRoom(newRoom: string) {
 		if (newRoom === activeRoom) return;
 		activeRoom = newRoom;
 	}
 
-	/** @param {import('$lib/components/FloorManagerDialog.svelte').FloorConfig[]} updated */
-	function updateFloors(updated) {
+	function updateFloors(updated: import('$lib/types/project').FloorConfig[]) {
 		const pid = page.params.pid;
 		if (!pid) return;
 		floors = updated;
@@ -117,8 +108,7 @@
 		}
 	}
 
-	/** @param {number} fl */
-	async function deleteFloor(fl) {
+	async function deleteFloor(fl: number) {
 		const pid = page.params.pid;
 		if (!pid) return;
 
@@ -137,8 +127,7 @@
 		}
 	}
 
-	/** @param {any} payload @param {import('$lib/logger').ChangeDetail[]} changes */
-	function save(payload, changes) {
+	function save(payload: any, changes: import('$lib/logger').ChangeDetail[]) {
 		const pid = page.params.pid;
 		if (!pid) return;
 		db.save('racks', { id: docId(), ...payload, floor: activeFloor, room: activeRoom });
@@ -155,8 +144,7 @@
 		}
 	}
 
-	/** @param {import('./parts/types').DeviceTemplate[]} templates */
-	function saveLibrary(templates) {
+	function saveLibrary(templates: DeviceTemplate[]) {
 		const pid = page.params.pid;
 		if (!pid) return;
 		db.save('racks', { id: `${pid}_library`, templates });

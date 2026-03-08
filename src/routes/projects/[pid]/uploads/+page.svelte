@@ -1,10 +1,9 @@
-<script>
+<script lang="ts">
 	import { page } from '$app/state';
 	import { Firestore, Spinner } from '$lib';
 	import Uploads from './Uploads.svelte';
 
 	let db = new Firestore();
-	/** @type {any[]} */
 	let files = $state([]);
 	let projectName = $state('');
 	let loading = $state(true);
@@ -12,7 +11,7 @@
 	$effect(() => {
 		const pid = page.params.pid;
 		if (!pid) return;
-		const unsub = db.subscribeOne('projects', pid, data => {
+		const unsub = db.subscribeOne('projects', pid, (/** @type {Record<string, any>} */ data) => {
 			if (data?.name) projectName = data.name;
 		});
 		return () => { unsub?.(); };

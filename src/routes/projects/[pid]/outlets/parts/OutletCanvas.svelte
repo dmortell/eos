@@ -121,10 +121,10 @@
 		{ flag: VIEW_HIGH_OUTLETS, label: 'High outlets' },
 		{ flag: VIEW_LOW_TRUNKS,   label: 'Low trunks' },
 		{ flag: VIEW_HIGH_TRUNKS,  label: 'High trunks' },
+		{ flag: VIEW_LABELS,       label: 'Trunk labels' },
 		{ flag: VIEW_ROUTES,       label: 'Secondary routes' },
-		{ flag: VIEW_LABELS,       label: 'Cable qty labels' },
-		{ flag: VIEW_LEGEND,       label: 'Legend' },
 		{ flag: VIEW_RACKS,        label: 'Racks' },
+		{ flag: VIEW_LEGEND,       label: 'Legend' },
 		{ flag: VIEW_TITLEBLOCK,   label: 'Title block' },
 	]
 
@@ -1662,6 +1662,7 @@
 				{@const sw = 0.3 * u}
 				{@const symOff = 1 * u}
 				{@const symR = 1.5 * u}
+				{@const fill = 'none'}
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<g class="pointer-events-auto" style:cursor={legendDragging ? 'grabbing' : 'grab'} onmousedown={onLegendMouseDown}>
 					<rect x={legendGeom.lx} y={legendGeom.ly} width={legendGeom.legendW} height={legendGeom.legendH}
@@ -1670,19 +1671,19 @@
 
 					<!-- Wall outlets -->
 					<polygon points={trianglePoints(legendGeom.symbolX, legendGeom.y1 - symOff, symR)}
-						fill="#e5e7eb" stroke="#374151" stroke-width={sw} />
+						{fill} stroke="#374151" stroke-width={sw} />
 					<text x={legendGeom.textX} y={legendGeom.y1} font-size={legendGeom.fontSize} fill="#111827">Wall outlet (qty: {outletTypeCounts.wall})</text>
 
 					<!-- Floor outlets -->
 					<polygon points={squarePoints(legendGeom.symbolX, legendGeom.y2 - symOff, symR * 1.2)}
-						fill="#e5e7eb" stroke="#374151" stroke-width={sw} />
+						{fill} stroke="#374151" stroke-width={sw} />
 					<polygon points={trianglePoints(legendGeom.symbolX, legendGeom.y2 - symOff, symR * 0.9)}
 						fill="none" stroke="#374151" stroke-width={sw} opacity="0.75" />
 					<text x={legendGeom.textX} y={legendGeom.y2} font-size={legendGeom.fontSize} fill="#111827">Floor outlet (qty: {outletTypeCounts.floor})</text>
 
 					<!-- Box outlets -->
 					<circle cx={legendGeom.symbolX} cy={legendGeom.y3 - symOff} r={symR}
-						fill="#e5e7eb" stroke="#374151" stroke-width={sw} />
+						{fill} stroke="#374151" stroke-width={sw} />
 					<polygon points={trianglePoints(legendGeom.symbolX, legendGeom.y3 - symOff, symR * 0.8)}
 						fill="none" stroke="#374151" stroke-width={sw} opacity="0.75" />
 					<text x={legendGeom.textX} y={legendGeom.y3} font-size={legendGeom.fontSize} fill="#111827">Box outlet (qty: {outletTypeCounts.box})</text>

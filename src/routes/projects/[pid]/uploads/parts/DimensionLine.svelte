@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	let {size={}, selected=false,stroke='black'} = $props();
 	import { isHorizontal, dragDimension } from './DimensionLine.ts'
 	let {abs} = Math
@@ -24,7 +24,7 @@
 	}
 </script>
 
-{#snippet Handle(type, x, y, w=0, h=0, rx=5, opacity=0.8, size=10, cursor="move")}
+{#snippet Handle(type: number, x: number, y: number, w=0, h=0, rx=5, opacity=0.8, size=10, cursor="move")}
 	{@const half=size/2}
 	<rect data-id={type} x={x-half} y={y-half} width={w+size} height={h+size} {rx} {opacity} stroke-width=1 fill=transparent stroke=red {cursor}></rect>
 {/snippet}
