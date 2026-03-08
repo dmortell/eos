@@ -63,8 +63,8 @@
 
 		if (trunk.shape !== 'rect') {
 			const halfWidthPx = mmToPx(trunkWidthMm(trunk)) / 2
-			return polygonsPx.map(poly => 
-				polygonToRoundedPath(poly, innerCornerRadiusPx, { 
+			return polygonsPx.map(poly =>
+				polygonToRoundedPath(poly, innerCornerRadiusPx, {
 					nodeRadiusMap,
 					skipRoundDistancePx: halfWidthPx + 1,
 				})

@@ -50,6 +50,7 @@ export interface TrunkConfig {
 	labels?: TrunkLabel[]
 	label?: string
 	color?: string
+	rooms?: string[]             // server room letters this trunk serves (e.g. ['A', 'B'])
 	isPrimary: boolean
 	visible?: boolean
 }

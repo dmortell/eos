@@ -11,7 +11,7 @@
 	import RackPalette from './parts/RackPalette.svelte'
 	import TrunkPalette from './trunks/TrunkPalette.svelte'
 	import type { TrunkConfig, TrunkNode, TrunkSegment, PipeSpec, RectSpec } from './trunks/types'
-	import { genId, splitSegment as splitTrunkSeg, snapToGrid, dist } from './trunks/geometry'
+	import { genId, splitSegment as splitTrunkSeg, snapToGrid, dist, nearestPointOnSegment } from './trunks/geometry'
 	import { SNAP_THRESHOLD_MM } from './trunks/constants'
 	import { exportOutletsToExcel } from './parts/exportExcel'
 
@@ -64,6 +64,77 @@
 		return trunks.some(t => t.id !== trunkId && t.nodes.some(n =>
 			n.position.x === node.position.x && n.position.y === node.position.y
 		))
+	})
+
+	// ── Secondary routes: auto-computed lines from outlets to nearest trunk ──
+	interface SecondaryRoute {
+		outletId: string
+		from: Point        // outlet position (mm)
+		to: Point          // nearest point on trunk (mm)
+		room: string       // server room letter
+		color: string      // derived from room
+	}
+
+	const ROOM_ROUTE_COLORS: Record<string, string> = {
+		A: '#3b82f6', B: '#10b981', C: '#f59e0b', D: '#ef4444',
+	}
+
+	/** Extract server room letter from a port label (FF.Z.NNN-SPP) — the char after '-' */
+	function roomFromPortLabel(label: string): string {
+		const dashIdx = label.lastIndexOf('-')
+		if (dashIdx >= 0 && dashIdx + 1 < label.length) return label[dashIdx + 1]
+		return 'A'
+	}
+
+	let secondaryRoutes = $derived.by(() => {
+		if (trunks.length === 0 || outlets.length === 0) return []
+		// Pre-build segment list with node positions for all trunks
+		const allSegs: { a: Point; b: Point }[] = []
+		for (const trunk of trunks) {
+			if (trunk.visible === false) continue
+			const nodeMap = new Map(trunk.nodes.map(n => [n.id, n.position]))
+			for (const seg of trunk.segments) {
+				const a = nodeMap.get(seg.nodes[0])
+				const b = nodeMap.get(seg.nodes[1])
+				if (a && b) allSegs.push({ a, b })
+			}
+		}
+		if (allSegs.length === 0) return []
+
+		const routes: SecondaryRoute[] = []
+		for (const outlet of outlets) {
+			// Find nearest trunk segment point
+			let bestDist = Infinity
+			let bestPoint: Point | null = null
+			for (const seg of allSegs) {
+				const result = nearestPointOnSegment(outlet.position, seg.a, seg.b)
+				if (result.dist < bestDist) {
+					bestDist = result.dist
+					bestPoint = result.point
+				}
+			}
+			if (!bestPoint) continue
+
+			// Determine room(s) from port labels — group by room, emit one route per room
+			const rooms = new Set<string>()
+			if (outlet.portLabels && outlet.portLabels.length > 0) {
+				for (const label of outlet.portLabels) {
+					if (label) rooms.add(roomFromPortLabel(label))
+				}
+			}
+			if (rooms.size === 0) rooms.add('A')
+
+			for (const room of rooms) {
+				routes.push({
+					outletId: outlet.id,
+					from: outlet.position,
+					to: bestPoint,
+					room,
+					color: ROOM_ROUTE_COLORS[room] ?? '#6b7280',
+				})
+			}
+		}
+		return routes
 	})
 
 	// Calibration from selected file/page
@@ -1175,6 +1246,7 @@
 					rackConfigs={allRackConfigs}
 					{selectedRackIds}
 					{trunks}
+					{secondaryRoutes}
 					{selectedTrunkIds}
 					{selectedNodeIds}
 					trunkPalette={trunkPaletteRef}

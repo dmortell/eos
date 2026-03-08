@@ -27,6 +27,9 @@
 	let customRectW = $state(100)
 	let customRectH = $state(50)
 	let defaultZ = $state(DEFAULT_TRUNK_Z)
+	let defaultRooms = $state<string[]>(['A'])
+
+	const ROOM_OPTIONS = ['A', 'B', 'C', 'D']
 
 	/** Build current spec from drawing settings */
 	export function currentSpec(): PipeSpec | RectSpec {
@@ -43,6 +46,7 @@
 	export function currentShape(): TrunkShape { return shape }
 	export function currentLocation(): TrunkLocation { return location }
 	export function currentZ(): number { return defaultZ }
+	export function currentRooms(): string[] { return defaultRooms }
 
 	// ── Selection info ──
 	let selectedTrunks = $derived(trunks.filter(t => selectedTrunkIds.has(t.id)))
@@ -138,6 +142,21 @@
 			<span class={labelCls}>Z elev</span>
 			<input type="number" step="100" class={inputCls} bind:value={defaultZ} />
 			<span class="text-[10px] text-gray-400">mm</span>
+		</div>
+
+		<!-- Rooms -->
+		<div class="flex items-center gap-2">
+			<span class={labelCls}>Rooms</span>
+			<div class="flex gap-0.5 flex-1">
+				{#each ROOM_OPTIONS as room}
+					{@const active = defaultRooms.includes(room)}
+					<button class="flex-1 py-0.5 rounded text-[10px] {active ? 'bg-blue-100 text-blue-700 font-medium' : 'text-gray-400 hover:bg-gray-50 border border-gray-200'}"
+						onclick={() => {
+							if (active && defaultRooms.length > 1) defaultRooms = defaultRooms.filter(r => r !== room)
+							else if (!active) defaultRooms = [...defaultRooms, room]
+						}}>{room}</button>
+				{/each}
+			</div>
 		</div>
 	</div>
 
@@ -296,6 +315,22 @@
 					<button class="text-[10px] text-gray-400 hover:text-gray-600"
 						onclick={() => onupdatetrunk(singleTrunk.id, { color: undefined })}>Reset</button>
 				{/if}
+			</div>
+
+			<!-- Rooms -->
+			<div class="flex items-center gap-2">
+				<span class={labelCls}>Rooms</span>
+				<div class="flex gap-0.5 flex-1">
+					{#each ROOM_OPTIONS as room}
+						{@const active = (singleTrunk.rooms ?? []).includes(room)}
+						<button class="flex-1 py-0.5 rounded text-[10px] {active ? 'bg-blue-100 text-blue-700 font-medium' : 'text-gray-400 hover:bg-gray-50 border border-gray-200'}"
+							onclick={() => {
+								const current = singleTrunk.rooms ?? []
+								if (active && current.length > 1) onupdatetrunk(singleTrunk.id, { rooms: current.filter(r => r !== room) })
+								else if (!active) onupdatetrunk(singleTrunk.id, { rooms: [...current, room] })
+							}}>{room}</button>
+					{/each}
+				</div>
 			</div>
 
 			<!-- Stats -->

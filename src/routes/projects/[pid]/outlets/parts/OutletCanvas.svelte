@@ -16,7 +16,7 @@
 
 	let { file, page = 1, viewKey = '', calibration, outlets, selectedIds, activeTool, sidebarTab = 'outlets',
 		rackPlacements = [], rackConfigs = [], selectedRackIds = new Set(),
-		trunks = [], selectedTrunkIds = new Set(), selectedNodeIds = new Set(), trunkPalette,
+		trunks = [], secondaryRoutes = [], selectedTrunkIds = new Set(), selectedNodeIds = new Set(), trunkPalette,
 		gridMm = 0,
 		toPx, toMm, onadd, onselect, onclear, onmove, onmoveend, ondelete,
 		onselectrack, onmoveracks, onmoveracksend, onplacerack, onremoveracks, onrotateracks,
@@ -33,6 +33,7 @@
 		rackConfigs?: (RackConfig & { room: string })[]
 		selectedRackIds?: Set<string>
 		trunks?: TrunkConfig[]
+		secondaryRoutes?: { outletId: string; from: Point; to: Point; room: string; color: string }[]
 		selectedTrunkIds?: Set<string>
 		selectedNodeIds?: Set<string>
 		trunkPalette?: TrunkPalette
@@ -1177,6 +1178,15 @@
 					{ctrlKey}
 					{toPx}
 				/>
+
+				<!-- Secondary routes (outlet → nearest trunk) -->
+				{#each secondaryRoutes as route (route.outletId + route.room)}
+					{@const fromPx = toPx(route.from)}
+					{@const toPxPt = toPx(route.to)}
+					<line x1={fromPx.x} y1={fromPx.y} x2={toPxPt.x} y2={toPxPt.y}
+						stroke={route.color} stroke-width={1.5 / zoom} opacity="0.5"
+						stroke-dasharray="{3 / zoom} {2 / zoom}" class="pointer-events-none" />
+				{/each}
 
 				<!-- Snap highlight ring during node drag or drawing -->
 				{#if dragSnapHighlight}
