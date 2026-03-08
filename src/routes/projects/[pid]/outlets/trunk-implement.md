@@ -419,6 +419,44 @@ This works for simple polyline trunks. For the graph-based model, the route calc
 - Dead-end handling: 180-degree turn with both perpendiculars
 - Vector math: `sub`, `add`, `scale`, `norm`, `perp`, `cross`, `distSq`
 
+
+
+  ## How Trunk Drawing Works
+
+  The trunk tool uses click-click mode (not click-drag). Here's the workflow:
+
+  * Drawing a New Trunk
+
+  1. Switch to the Trunks sidebar tab (click "Trunks" in the sidebar tabs)
+  2. Activate the trunk tool — press T or click the "Trunk" button in the toolbar
+  3. Click on the floorplan to place the first node — nothing visible yet, just a starting point
+  4. Click again at the next position — this creates the second node and a segment connecting them. The trunk body now renders
+  5. Keep clicking to add more nodes/segments — each new click extends the chain from the last node
+  6. Finish the trunk by one of:
+    - Press Escape — commits the trunk (requires 2+ nodes)
+    - Double-click — commits
+    - Click the green Finish button in the toolbar
+  7. Cancel (discard without saving) by right-clicking or clicking the red X button
+
+  * Modifiers While Drawing
+
+  - Shift+click — constrains the next segment to 15-degree angle increments
+  - Snap indicators appear when your cursor is near an existing node, outlet, or rack (within 500mm)
+
+  * What "Connecting" Means
+
+  Currently, the drawing always creates a new trunk as a linear chain. There is no support yet for clicking on an existing node to merge into it or create a junction during drawing. The handleTrunkClick function (line 661) always creates a brand-new node — it never checks if you clicked near an existing trunk's node to reuse it.
+
+  The snapping (line 672) snaps the position to nearby targets, but doesn't actually link the new node to the existing one — it just places the new node at the same coordinates.
+
+  * After Drawing — Editing
+
+  Once a trunk is committed, switch back to Select mode:
+  - Click a node — selects it, then drag to move it
+  - Click trunk body — selects the whole trunk
+  - Ctrl+click a segment — splits it (inserts a new node at that point)
+  - Delete key — removes selected nodes or trunks
+
 ## Verification Checklist
 
 - [ ] Draw trunk by clicking points on floorplan (click-click mode)

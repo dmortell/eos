@@ -112,8 +112,22 @@ Refer to the following files for usage examples:
     - size: size in bytes
     - url: url for accessing file from UploadThing
 
-  * frames
-    see frames tool documentation
+  * frames: patch frame port allocation data per floor
+    - id: composite "{projectId}_F{floorNumber}" (eg "proj1_F01")
+    - floor: number (1-20)
+    - zoneLocations: Record<string, LocationConfig[]> — zones keyed by letter (A-Z), each containing array of locations
+      - LocationConfig:
+        - locationNumber: number (1-99)
+        - portCount: number (1-99)
+        - serverRoomAssignment: string[] — per-port server room ('A', 'B', 'C', 'D')
+        - locationType: string ('desk', 'AP', 'PR', 'RS', 'FR', 'WC', 'TV', 'LK', 'N/A', or custom)
+        - roomNumber?: string (4-digit room ref)
+        - isHighLevel?: bool (ceiling port, appends "-H" to label)
+    - rooms: array of { roomNumber, roomName }
+    - customLocationTypes: string[] — user-defined location type labels
+    - excelGroupByRoom: bool — Excel export grouping preference
+    - floorFormat: string — floor numbering format ('L01', '01F', '01', etc)
+    - serverRoomCount: number (1-4)
 
   * leave: staff vacations - not used
 
@@ -283,3 +297,77 @@ Refer to the following files for usage examples:
     - entitlement: annual vacation days entitled
     - start: default start time hh:mm
     - finish: default end time hh:mm
+
+  * logs: audit trail of changes. subcollection path: logs/{projectId}/{tool}
+    - id: auto-generated
+    - timestamp: server timestamp
+    - uid: string — user who made the change
+    - tool: string — tool name ('frames', 'racks', 'outlets', etc)
+    - floor?: number
+    - changes: array of ChangeDetail objects
+      - action: string ('add', 'remove', 'update', 'copy')
+      - field?: string — field name that changed
+      - zone?: string — zone letter (if applicable)
+      - from?: unknown — previous value
+      - to?: unknown — new value
+      - count?: number
+      - details?: string — human-readable description
+
+  * outlets: outlet placements and trunk routing per floor
+    - id: composite "{projectId}_F{floorNumber}" (eg "proj1_F01")
+    - floor: number
+    - outlets: array of OutletConfig
+      - id: string
+      - position: {x, y} — mm from origin
+      - level: 'low' | 'high' (cable run)
+      - portCount: number (1-12), but copper/fiber panels in AV cabs may have more
+      - cableType: 'cat5e' | 'cat6' | 'cat6a' | 'fiber-sm' | 'fiber-mm'
+      - mountType: 'wall' | 'floor' | 'box'
+      - usage: 'network' | 'phone' | 'av' | 'printer' | 'security' | 'ap' | 'rb' (this should roughly match locationType in frames collection)
+      - label?: string (eg "A.042")
+      - portLabels?: string[] — linked frame port labels (FF.Z.NNN-SPP)
+      - rotation?: number (degrees)
+      - roomNumber?: string
+      - locked?: bool
+    - trunks?: array of TrunkConfig
+      - id: string
+      - shape: 'pipe' | 'rect'
+      - location: 'floor' | 'ceiling-plenum' | 'ceiling-tray' | 'wall'
+      - spec: PipeSpec | RectSpec
+        - PipeSpec: { catalog, innerDiameterMm, outerDiameterMm }
+        - RectSpec: { catalog, widthMm, heightMm }
+      - nodes: array of TrunkNode
+        - id, position: {x,y} (mm), z: number (mm elevation), radius?: number, connectedOutletId?, connectedRackId?
+      - segments: array of TrunkSegment
+        - id, nodes: [fromNodeId, toNodeId]
+      - labels?: array of TrunkLabel
+        - id, segmentId, text, offset: {x,y}
+      - label?: string
+      - color?: string
+      - isPrimary: bool
+      - visible?: bool
+    - routes?: array of RouteConfig
+      - id, outletId, rackId, waypoints: Point[], length: number (mm)
+    - rackPlacements?: array of RackPlacement
+      - rackId, room, position: {x,y} (mm), rotation: number (degrees)
+    - selectedFileId?: string
+    - selectedPage?: number
+    - activeZone?: string
+
+  * tasks: kanban task board items
+    - id: string
+    - title: string
+    - description?: string
+    - status: 'backlog' | 'todo' | 'in-progress' | 'review' | 'done'
+    - priority?: 'low' | 'medium' | 'high' | 'urgent'
+    - projectId: string
+    - projectName?: string
+    - assignedTo?: string (user ID)
+    - assignedToName?: string
+    - createdBy?: string (user ID)
+    - createdByName?: string
+    - createdAt?: timestamp
+    - updatedAt?: timestamp
+    - dueDate?: string ("yyyy-mm-dd")
+    - tags?: string[]
+    - order?: number

@@ -10,6 +10,8 @@
 	import { hitTestNode, hitTestSegment, hitTestTrunkBody, constrainAngle, generateTrunkPolygons, genId, snapToNearby, type SnapTarget } from '../trunks/geometry'
 	import { SNAP_THRESHOLD_MM } from '../trunks/constants'
 	import TrunkRenderer from '../trunks/TrunkRenderer.svelte'
+	import OutletShape from './OutletShape.svelte'
+	import OutletRack from './OutletRack.svelte'
 	import type TrunkPalette from '../trunks/TrunkPalette.svelte'
 
 	let { file, page = 1, viewKey = '', calibration, outlets, selectedIds, activeTool, sidebarTab = 'outlets',
@@ -945,81 +947,29 @@
 					{@const rect = rackPxRect(placement)}
 					{#if rect}
 						{@const selected = selectedRackIds.has(placement.rackId)}
-						{@const color = ROOM_COLORS[placement.room] ?? '#6b7280'}
-						{@const cx = rect.x + rect.w / 2}
-						{@const cy = rect.y + rect.h / 2}
-						<g class="pointer-events-auto" style:cursor="pointer"
-							transform="rotate({rect.rotation} {cx} {cy})">
-							<!-- Hit area (invisible, larger for easy clicking) -->
-							<rect x={rect.x} y={rect.y} width={rect.w} height={rect.h}
-								fill="transparent"
-								onmousedown={e => { if (e.button === 0) { e.stopPropagation(); onMouseDown(e) }}} />
-
-							<!-- Selection highlight -->
-							{#if selected}
-								<rect x={rect.x - 3 / zoom} y={rect.y - 3 / zoom}
-									width={rect.w + 6 / zoom} height={rect.h + 6 / zoom}
-									fill="none" stroke="#06b6d4" stroke-width={2 / zoom} rx={2 / zoom} />
-							{/if}
-
-							<!-- Rack body -->
-							<rect x={rect.x} y={rect.y} width={rect.w} height={rect.h}
-								fill="{color}10" stroke={color} stroke-width={1.5 / zoom} rx={1 / zoom} opacity="0.8" />
-
-							<!-- Front indicator (thick line on top edge = front before rotation) -->
-							<line x1={rect.x} y1={rect.y} x2={rect.x + rect.w} y2={rect.y}
-								stroke={color} stroke-width={8 / zoom} opacity="0.9" />
-
-							<!-- Label -->
-							<text x={cx} y={cy + 4 / zoom}
-								text-anchor="middle" font-size={Math.max(10 / zoom, rect.w * 0.15)}
-								fill={'#666666'} font-weight="bold"
-								class="select-none pointer-events-none">{rect.cfg.label}</text>
-
-							<!-- Dimensions label below -->
-							<text x={cx} y={cy + 16 / zoom}
-								text-anchor="middle" font-size={Math.max(9 / zoom, rect.w * 0.08)}
-								fill="#6b7280" opacity="0.8"
-								class="select-none pointer-events-none">{rect.cfg.heightU}U</text>
-						</g>
+						<OutletRack
+							{rect}
+							{selected}
+							{zoom}
+							roomColor={ROOM_COLORS[placement.room] ?? '#6b7280'}
+							onmousedown={e => { if (e.button === 0) { e.stopPropagation(); onMouseDown(e) }}}
+						/>
 					{/if}
 				{/each}
 
 				<!-- Outlets -->
 				{#each outlets as outlet (outlet.id)}
 					{@const px = outletPx(outlet)}
-					{@const colors = USAGE_COLORS[outlet.usage]}
 					{@const selected = selectedIds.has(outlet.id)}
-					<g class="pointer-events-auto" style:cursor={activeTool === 'select' ? 'pointer' : undefined}>
-						<!-- Hit area (larger) -->
-						<circle cx={px.x} cy={px.y} r={radiusPx * 1.5} fill="transparent"
-							onmousedown={e => { if (e.button === 0 && activeTool === 'select') { e.stopPropagation(); onMouseDown(e) }}} />
-
-						<!-- Selection highlight -->
-						{#if selected}
-							<circle cx={px.x} cy={px.y} r={radiusPx + 4 / zoom} fill="none" stroke="#06b6d4" stroke-width={2 / zoom} />
-						{/if}
-
-						<!-- Outlet circle -->
-						{#if outlet.level === 'low'}
-							<circle cx={px.x} cy={px.y} r={radiusPx} fill={colors.fill} stroke={colors.stroke} stroke-width={1.5 / zoom} opacity="0.85" />
-						{:else}
-							<circle cx={px.x} cy={px.y} r={radiusPx} fill="none" stroke={colors.stroke} stroke-width={2.5 / zoom} opacity="0.85" />
-						{/if}
-
-						<!-- Port count -->
-						<text x={px.x} y={px.y + radiusPx * 0.35}
-							text-anchor="middle" font-size={radiusPx * 0.9}
-							fill={outlet.level === 'low' ? 'white' : colors.stroke} font-weight="bold"
-							class="select-none pointer-events-none">{outlet.portCount}</text>
-
-						<!-- Label -->
-						{#if outlet.label}
-							<text x={px.x} y={px.y - radiusPx - 4 / zoom}
-								text-anchor="middle" font-size={Math.max(8 / zoom, radiusPx * 0.6)}
-								fill="#374151" class="select-none pointer-events-none">{outlet.label}</text>
-						{/if}
-					</g>
+					<OutletShape
+						{outlet}
+						{px}
+						{radiusPx}
+						{zoom}
+						{selected}
+						{activeTool}
+						onmousedown={e => { if (e.button === 0 && activeTool === 'select') { e.stopPropagation(); onMouseDown(e) }}}
+					/>
 				{/each}
 
 				<!-- Origin crosshair (if calibrated) -->

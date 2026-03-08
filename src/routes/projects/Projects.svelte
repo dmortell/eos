@@ -13,12 +13,16 @@
 	let selected = $state<Project | null>(null)
 	let draftName = $state('')
 	let draftDescription = $state('')
+	let draftClientCode = $state('')
+	let draftProjectCode = $state('')
 	let searchQuery = $state('')
 	let showOnlyMine = $state(false)
 
 	interface Project {
 		id: string;
 		name: string;
+		clientCode?: string;
+		projectCode?: string;
 		description?: string;
 		createdAt?: any;
 		updatedAt?: any;
@@ -81,6 +85,8 @@
 		selected = null
 		draftName = ''
 		draftDescription = ''
+		draftClientCode = ''
+		draftProjectCode = ''
 		editorOpen = true
 	}
 
@@ -90,7 +96,29 @@
 		selected = project
 		draftName = project.name || ''
 		draftDescription = project.description || ''
+		draftClientCode = project.clientCode || ''
+		draftProjectCode = project.projectCode || ''
 		editorOpen = true
+	}
+
+	function normalizeCode(input: string): string {
+		return input
+			.trim()
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, '-')
+			.replace(/^-+|-+$/g, '')
+	}
+
+	async function generateUniqueProjectId(clientCode: string, projectCode: string): Promise<string> {
+		const base = `${clientCode}-${projectCode}`
+		for (let i = 0; i < 8; i += 1) {
+			const num = Math.floor(Math.random() * 9000) + 1000
+			const candidate = `${base}-${num}`
+			const exists = await db.getOne('projects', candidate)
+			if (!exists) return candidate
+		}
+		const fallback = `${base}-${Date.now().toString().slice(-6)}`
+		return fallback
 	}
 
 	async function saveProject() {
@@ -98,8 +126,15 @@
 		if (!name) return
 		const now = new Date()
 		if (mode === 'create') {
+			const clientCode = normalizeCode(draftClientCode)
+			const projectCode = normalizeCode(draftProjectCode)
+			if (!clientCode || !projectCode) return
+			const id = await generateUniqueProjectId(clientCode, projectCode)
 			await db.save('projects', {
+				id,
 				name,
+				clientCode,
+				projectCode,
 				description: draftDescription.trim() || '',
 				ownerId: session?.user?.uid,
 				createdAt: now,
@@ -216,6 +251,7 @@
 							<div class="font-medium truncate">{project.name}</div>
 							<div class="text-gray-500">Deleted: {project.deletedAt?.toDate ? project.deletedAt.toDate().toLocaleDateString(cfg.locale) : ''}</div>
 						</div>
+						{#if project.description}<div class="text-gray-600 truncate leading-tight">{project.description}</div>{/if}
 						<div class="flex items-center gap-1 shrink-0">
 							{#if canManageTrashDelete}
 								<Button class="text-xs px-1.5 py-0" variant="danger" disabled title="Coming soon - permanent deletion across collections">Delete Permanently</Button>
@@ -233,6 +269,21 @@
 
 <Dialog bind:open={editorOpen} title={mode === 'create' ? 'Create Project' : 'Edit Project'}>
 	<div class="space-y-2 mt-1">
+		{#if mode === 'create'}
+			<div class="grid grid-cols-2 gap-2">
+				<div>
+					<div class="text-xs text-gray-700">Client Code</div>
+					<input class="w-full border rounded px-2 py-1 text-sm" bind:value={draftClientCode} placeholder="ex: acme" maxlength="12" />
+				</div>
+				<div>
+					<div class="text-xs text-gray-700">Project Code</div>
+					<input class="w-full border rounded px-2 py-1 text-sm" bind:value={draftProjectCode} placeholder="ex: hqfit" maxlength="12" />
+				</div>
+			</div>
+			<div class="text-[10px] text-gray-500">
+				Firestore ID preview: {normalizeCode(draftClientCode) || 'client'}-{normalizeCode(draftProjectCode) || 'project'}-####
+			</div>
+		{/if}
 		<div class="text-xs text-gray-700">Name</div>
 		<input class="w-full border rounded px-2 py-1 text-sm" bind:value={draftName} placeholder="Project name" />
 		<div class="text-xs text-gray-700">Description</div>
@@ -248,7 +299,7 @@
 			</div>
 			<div class="flex gap-2">
 			<Button variant="outline" onclick={() => editorOpen = false}>Cancel</Button>
-			<Button variant="primary" onclick={saveProject} disabled={!draftName.trim() || (mode === 'edit' && selected ? !canEditProject(selected) : false)}>Save</Button>
+			<Button variant="primary" onclick={saveProject} disabled={!draftName.trim() || (mode === 'create' && (!normalizeCode(draftClientCode) || !normalizeCode(draftProjectCode))) || (mode === 'edit' && selected ? !canEditProject(selected) : false)}>Save</Button>
 			</div>
 		</div>
 	</div>
