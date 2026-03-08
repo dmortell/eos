@@ -79,59 +79,68 @@
 		A: '#3b82f6', B: '#10b981', C: '#f59e0b', D: '#ef4444',
 	}
 
-	/** Extract server room letter from a port label (FF.Z.NNN-SPP) — the char after '-' */
+	/** Extract server room letter from a port label (S.PPP) — the first char */
 	function roomFromPortLabel(label: string): string {
-		const dashIdx = label.lastIndexOf('-')
-		if (dashIdx >= 0 && dashIdx + 1 < label.length) return label[dashIdx + 1]
+		if (label.length > 0) return label[0]
 		return 'A'
 	}
 
 	let secondaryRoutes = $derived.by(() => {
 		if (trunks.length === 0 || outlets.length === 0) return []
-		// Pre-build segment list with node positions for all trunks
+		// Pre-build segment list per room
+		const segsByRoom = new Map<string, { a: Point; b: Point }[]>()
 		const allSegs: { a: Point; b: Point }[] = []
 		for (const trunk of trunks) {
 			if (trunk.visible === false) continue
 			const nodeMap = new Map(trunk.nodes.map(n => [n.id, n.position]))
+			const segs: { a: Point; b: Point }[] = []
 			for (const seg of trunk.segments) {
 				const a = nodeMap.get(seg.nodes[0])
 				const b = nodeMap.get(seg.nodes[1])
-				if (a && b) allSegs.push({ a, b })
+				if (a && b) segs.push({ a, b })
+			}
+			allSegs.push(...segs)
+			// Index segments by each room this trunk serves
+			const rooms = trunk.rooms ?? []
+			for (const room of rooms) {
+				const existing = segsByRoom.get(room) ?? []
+				existing.push(...segs)
+				segsByRoom.set(room, existing)
 			}
 		}
 		if (allSegs.length === 0) return []
 
-		const routes: SecondaryRoute[] = []
-		for (const outlet of outlets) {
-			// Find nearest trunk segment point
+		const findNearest = (pos: Point, segs: { a: Point; b: Point }[]): Point | null => {
 			let bestDist = Infinity
 			let bestPoint: Point | null = null
-			for (const seg of allSegs) {
-				const result = nearestPointOnSegment(outlet.position, seg.a, seg.b)
-				if (result.dist < bestDist) {
-					bestDist = result.dist
-					bestPoint = result.point
-				}
+			for (const seg of segs) {
+				const result = nearestPointOnSegment(pos, seg.a, seg.b)
+				if (result.dist < bestDist) { bestDist = result.dist; bestPoint = result.point }
 			}
-			if (!bestPoint) continue
+			return bestPoint
+		}
 
-			// Determine room(s) from port labels — group by room, emit one route per room
+		const routes: SecondaryRoute[] = []
+		for (const outlet of outlets) {
+			// Determine room(s) from port labels
 			const rooms = new Set<string>()
 			if (outlet.portLabels && outlet.portLabels.length > 0) {
 				for (const label of outlet.portLabels) {
 					if (label) rooms.add(roomFromPortLabel(label))
 				}
 			}
-			if (rooms.size === 0) rooms.add('A')
 
-			for (const room of rooms) {
-				routes.push({
-					outletId: outlet.id,
-					from: outlet.position,
-					to: bestPoint,
-					room,
-					color: ROOM_ROUTE_COLORS[room] ?? '#6b7280',
-				})
+			if (rooms.size === 0) {
+				// No room info — find nearest trunk overall
+				const to = findNearest(outlet.position, allSegs)
+				if (to) routes.push({ outletId: outlet.id, from: outlet.position, to, room: '', color: '#9ca3af' })
+			} else {
+				// One route per room — find nearest trunk that serves that room
+				for (const room of rooms) {
+					const roomSegs = segsByRoom.get(room)
+					const to = findNearest(outlet.position, roomSegs ?? allSegs)
+					if (to) routes.push({ outletId: outlet.id, from: outlet.position, to, room, color: ROOM_ROUTE_COLORS[room] ?? '#6b7280' })
+				}
 			}
 		}
 		return routes
@@ -645,6 +654,7 @@
 				spec: trunkPaletteRef.currentSpec(),
 				nodes,
 				segments,
+				rooms: trunkPaletteRef.currentRooms(),
 				isPrimary: true,
 			}
 			trunks = [...trunks, trunk]
