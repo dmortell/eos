@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte'
 	import { onMount, onDestroy } from 'svelte'
-	import { Icon, Firestore, Titlebar } from '$lib'
+	import { Icon, Firestore, Titlebar, MetalButton } from '$lib'
 	import { PdfState } from './PdfState.svelte.ts'
 	import DimensionLine from './DimensionLine.svelte'
 	import { dragDimension, isHorizontal } from './DimensionLine.ts'
@@ -509,6 +509,7 @@
 			<div class="w-px h-4 bg-gray-700 mx-1"></div>
 			<span class="text-xs text-gray-400">Click to place origin</span>
 			<span class="text-xs text-gray-500 tabular-nums">{Math.round(origin.x)}, {Math.round(origin.y)}</span>
+			<button class="px-2 py-0.5 text-xs rounded border border-gray-400 text-gray-400 hover:bg-gray-600" onclick={() => { dirty = true }}>Reset</button>
 			<button class="px-2 py-0.5 text-xs rounded {dirty ? 'bg-green-600 hover:bg-green-500 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}"
 				onclick={saveOrigin}>Save</button>
 		{:else if activeTool === 'scale'}
@@ -519,6 +520,7 @@
 				class="w-20 h-6 px-2 text-xs text-right text-white bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-400"
 				oninput={() => dirty = true} />
 			<span class="text-xs text-gray-500">mm</span>
+			<button class="px-2 py-0.5 text-xs rounded border border-gray-400 text-gray-400 hover:bg-gray-600" onclick={() => { dirty = true }}>Reset</button>
 			<button class="px-2 py-0.5 text-xs rounded {dirty ? 'bg-green-600 hover:bg-green-500 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}"
 				onclick={saveScale}>Save</button>
 		{:else if activeTool === 'crop'}
@@ -530,6 +532,8 @@
 			<button class="px-2 py-0.5 text-xs rounded {dirty ? 'bg-green-600 hover:bg-green-500 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}"
 				onclick={saveCrop}>Save</button>
 		{/if}
+
+		<MetalButton variant="green">SAVE</MetalButton>
 
 		<div class="flex-1"></div>
 

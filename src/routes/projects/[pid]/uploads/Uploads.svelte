@@ -31,6 +31,8 @@
 		ondelete?: (fileId: string, utKey?: string) => void
 	} = $props()
 
+	const STORAGE_LIMIT = 2048;		// 2GB limit for now (can be increased later if needed, but let's avoid unbounded storage for free users)
+
 	let db = new Firestore()
 	let confirmingDelete = $state<string | null>(null)
 	let search = $state('')
@@ -57,6 +59,7 @@
 	)
 
 	let totalSize = $derived(filtered.reduce((sum, f) => sum + (f.size ?? 0), 0))
+	let storageFull = $derived(totalSize >= STORAGE_LIMIT * 1024 * 1024)
 
 	// Group filtered files by projectId
 	let grouped = $derived.by(() => {
@@ -121,6 +124,11 @@
 
 	async function handleFiles(fileList: FileList | null) {
 		if (!fileList?.length) return
+		if (storageFull) {
+			uploadError = 'Storage limit reached. Delete some files to upload more.'
+			setTimeout(() => { uploadError = '' }, 5000)
+			return
+		}
 		const arr = Array.from(fileList)
 		uploading = true
 		uploadError = ''
@@ -148,7 +156,7 @@
 
 	function onDragOver(e: DragEvent) {
 		e.preventDefault()
-		dragOver = true
+		if (!storageFull) dragOver = true
 	}
 
 	function onDragLeave() {
@@ -159,7 +167,8 @@
 		if (!bytes) return '—'
 		if (bytes < 1024) return `${bytes} B`
 		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
-		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+		if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+		return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
 	}
 
 	function formatDate(ts: any): string {
@@ -194,7 +203,7 @@
 
 <Titlebar title={projectName ? `${projectName} — Uploads` : 'Uploads'} />
 
-<input bind:this={fileInput} type="file" accept=".pdf,image/*" multiple class="hidden" onchange={onInputChange} />
+<input bind:this={fileInput} type="file" accept=".pdf,image/*" multiple class="hidden" onchange={onInputChange} disabled={storageFull} />
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="flex-1 overflow-hidden flex flex-col bg-gray-50" style="height: calc(100vh - 33px)"
@@ -204,7 +213,7 @@
 	<div class="flex items-center gap-3 px-4 py-2 bg-white border-b border-gray-200">
 		<div class="flex items-center gap-2 flex-1">
 			<Icon name="fileText" class="h-4 w-4 text-gray-400" />
-			<div class="text-xs text-gray-500 font-medium">{filtered.length} file{filtered.length !== 1 ? 's' : ''} ({formatSize(totalSize)})</div>
+			<div class="text-xs text-gray-500 font-medium">{filtered.length} file{filtered.length !== 1 ? 's' : ''} ({formatSize(totalSize)} of {formatSize(STORAGE_LIMIT * 1024 * 1024)})</div>
 			<div class="text-xs text-gray-400 ml-4">Drag PDF floorplans here, or click Upload</div>
 
 		</div>
@@ -212,14 +221,19 @@
 			<input type="text" bind:value={search} placeholder="Filter files..."
 				class="w-48 h-7 px-2 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400" />
 		{/if}
-		<button class="h-7 px-3 text-[11px] bg-blue-600 text-white rounded hover:bg-blue-500 transition-colors flex items-center gap-1.5"
-			onclick={selectFiles} disabled={uploading}>
+		<button class="h-7 px-3 text-[11px] bg-blue-600 text-white rounded hover:bg-blue-500 transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+			onclick={selectFiles} disabled={uploading || storageFull} title={storageFull ? 'Storage limit reached. Delete files to upload more.' : ''}>
 			<Icon name="upload" size={12} />
 			{uploading ? 'Uploading...' : 'Upload'}
 		</button>
 	</div>
 
-	{#if uploadError}
+	{#if storageFull}
+		<div class="px-4 py-1.5 bg-red-50 border-b border-red-200 text-xs text-red-600 flex items-center gap-2">
+			<Icon name="warning" size={12} />
+			Storage Full: {formatSize(totalSize)} / {formatSize(STORAGE_LIMIT * 1024 * 1024)} used. Delete some files to upload more.
+		</div>
+	{:else if uploadError}
 		<div class="px-4 py-1.5 bg-red-50 border-b border-red-200 text-xs text-red-600">{uploadError}</div>
 	{/if}
 
@@ -260,10 +274,10 @@
 
 					<div class="space-y-0.5 mt-1 ml-4">
 						<!-- Header -->
-						<div class="grid grid-cols-[1fr_70px_45px_120px_100px_32px] gap-2 px-3 py-1 text-[10px] text-gray-400 uppercase tracking-wider font-medium">
+						<div class="grid gap-2 px-3 py-1 text-[10px] text-gray-400 uppercase tracking-wider font-medium" style="grid-template-columns: 1fr 70px 45px 120px 100px 32px">
 							<span>Name</span>
 							<span>Size</span>
-							<span>Pg</span>
+							<span>Pages</span>
 							<span>Status</span>
 							<span>Uploaded</span>
 							<span></span>
@@ -271,7 +285,7 @@
 
 						{#each group.files as file (file.id)}
 							{@const status = fileStatus(file)}
-							<div class="grid grid-cols-[1fr_70px_45px_120px_100px_32px] gap-2 items-center px-3 py-1 rounded bg-white border border-gray-100 hover:border-gray-200 transition-colors">
+							<div class="grid gap-2 items-center px-3 py-1 rounded bg-white border border-gray-200 hover:border-gray-400 transition-colors" style="grid-template-columns: 1fr 70px 45px 120px 100px 32px">
 								<!-- Name -->
 								<div class="flex items-center gap-2 min-w-0">
 									<Icon name="fileText" class="h-3.5 w-3.5 text-gray-400 shrink-0" />

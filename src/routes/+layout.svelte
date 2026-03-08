@@ -3,6 +3,7 @@
 	import favicon from '$lib/assets/favicon.ico';
 	import { setContext } from 'svelte';
 	import { Session, Firestore, Titlebar, Spinner } from '$lib';
+	// import { MetalButton } from '$lib';
 	let { children } = $props();
 
 	class App { locale = $state('ja') }
@@ -70,16 +71,23 @@
 						</div>
 					</div>
 
-					<!-- Right column: Feature messaging -->
+					<!-- Right column: Feature messaging  📦  -->
 					<div class="flex flex-col justify-center items-center px-12 py-16 bg-linear-to-br from-gray-800/50 to-gray-900/80 border-l border-gray-700 space-y-8">
 						<div class="space-y-4 text-center">
-							<div class="text-5xl">📦</div>
+							<div class="text-5xl">
+
+								<!-- <MetalButton variant="gold" icon="grid" onclick={(e) => {}}></MetalButton> -->
+								<!-- <MetalButton variant="cyan" icon="plus">Power</MetalButton> -->
+								<!-- <MetalButton variant="yellow">Launch System</MetalButton> -->
+								<!-- <MetalButton variant="red" icon="grid" onclick={e => console.log(e)} /> -->
+
+							</div>
 							<h3 class="text-xl font-semibold text-white">Manage Your Projects</h3>
 							<p class="text-sm text-gray-400">Organize tasks, track progress, and collaborate with your team seamlessly.</p>
 						</div>
 
 						<!-- <div class="w-full h-32 rounded-2xl bg-linear-to-br from-blue-500/20 to-purple-600/20 border border-gray-700/50 flex items-center justify-center">
-							<div class="text-3xl opacity-50">→</div>
+							<div class="text-3xl opacity-50 text-slate-100">→</div>
 						</div> -->
 
 						<p class="text-xs text-gray-500">Fast, intuitive, and built for teams</p>

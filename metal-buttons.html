@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Metallic Border</title>
+<style>
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: #0d0d0f;
+  gap: 40px;
+  flex-wrap: wrap;
+  padding: 48px;
+}
+
+.icon-outer {
+  position: relative;
+  width: 110px;
+  height: 110px;
+  border-radius: 28px;
+  cursor: pointer;
+  padding: 3px;
+  box-sizing: border-box;
+  background-size: 200% 100%;
+  animation: metalSlide 6s linear infinite;
+  box-shadow: 0 0 0 3px #0d0d0f, 0 8px 24px rgba(0,0,0,0.8);
+  transition: box-shadow 0.3s;
+}
+
+@keyframes metalSlide {
+  from { background-position: 0% 50%; }
+  to   { background-position: 200% 50%; }
+}
+
+.icon-mid {
+  width: 100%;
+  height: 100%;
+  border-radius: calc(28px - 3px);
+  background: #0a0a0c;
+  padding: 3px;
+  box-sizing: border-box;
+}
+
+.icon-face {
+  width: 100%;
+  height: 100%;
+  border-radius: calc(28px - 6px);
+  background: radial-gradient(ellipse at 38% 20%, #2c2c2e 0%, #1c1c1e 55%, #111 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.icon-face::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 35% 18%, rgba(255,255,255,0.05) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.icon-face svg {
+  width: 38px;
+  height: 38px;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── GOLD ── */
+.gold {
+  background: linear-gradient(120deg,
+    #1a0d00, #3d2600, #6b4200, #a06800, #c8880a,
+    #a87020, #6b4200, #3d2600, #1a0d00, #3d2600,
+    #6b4200, #a06800, #c8880a, #a87020, #6b4200, #1a0d00
+  );
+  background-size: 200% 100%;
+}
+.gold .icon-face svg { stroke: rgba(255,255,255,0.88); filter: drop-shadow(0 1px 3px rgba(0,0,0,0.8)); }
+
+/* ── SILVER ── */
+.silver {
+  background: linear-gradient(120deg,
+    #0a0a0a, #222, #555, #888, #aaa,
+    #888, #555, #222, #0a0a0a, #222,
+    #555, #888, #aaa, #888, #555, #0a0a0a
+  );
+  background-size: 200% 100%;
+}
+.silver .icon-face svg { stroke: rgba(255,255,255,0.88); filter: drop-shadow(0 1px 3px rgba(0,0,0,0.8)); }
+
+/* ── ROSE GOLD ── */
+.rose {
+  background: linear-gradient(120deg,
+    #1a0a08, #3d1810, #6b3028, #955048, #b87060,
+    #955048, #6b3028, #3d1810, #1a0a08, #3d1810,
+    #6b3028, #955048, #b87060, #955048, #6b3028, #1a0a08
+  );
+  background-size: 200% 100%;
+}
+.rose .icon-face svg { stroke: rgba(255,255,255,0.88); filter: drop-shadow(0 1px 3px rgba(0,0,0,0.8)); }
+
+/* ── CYBER YELLOW ── */
+.cyber-yellow {
+  background: linear-gradient(120deg,
+    #0a0800, #1f1a00, #3d3300, #706000,
+    #f0c000, #ffe44d, #f0c000,
+    #706000, #3d3300, #1f1a00,
+    #3d3300, #706000, #f0c000, #ffe44d,
+    #f0c000, #0a0800
+  );
+  background-size: 200% 100%;
+  animation: metalSlide 4s linear infinite;
+  box-shadow: 0 0 0 3px #0d0d0f, 0 0 20px rgba(240,192,0,0.15), 0 8px 24px rgba(0,0,0,0.8);
+}
+.cyber-yellow .icon-face {
+  background: radial-gradient(ellipse at 38% 20%, #1a1800 0%, #0e0d00 55%, #080800 100%);
+}
+.cyber-yellow .icon-face svg {
+  stroke: #f0c000;
+  filter: drop-shadow(0 0 6px rgba(240,192,0,0.8));
+}
+
+/* ── CYBER CYAN ── */
+.cyber-cyan {
+  background: linear-gradient(120deg,
+    #000a0a, #001f1f, #003d3d, #007070,
+    #00d4d4, #40ffff, #00d4d4,
+    #007070, #003d3d, #001f1f,
+    #003d3d, #007070, #00d4d4, #40ffff,
+    #00d4d4, #000a0a
+  );
+  background-size: 200% 100%;
+  animation: metalSlide 4s linear infinite;
+  box-shadow: 0 0 0 3px #0d0d0f, 0 0 20px rgba(0,212,212,0.15), 0 8px 24px rgba(0,0,0,0.8);
+}
+.cyber-cyan .icon-face {
+  background: radial-gradient(ellipse at 38% 20%, #001818 0%, #000e0e 55%, #000808 100%);
+}
+.cyber-cyan .icon-face svg {
+  stroke: #00d4d4;
+  filter: drop-shadow(0 0 6px rgba(0,212,212,0.9));
+}
+
+/* ── CYBER MAGENTA ── */
+.cyber-magenta {
+  background: linear-gradient(120deg,
+    #0a0010, #200030, #450060, #800090,
+    #cc00cc, #ff40ff, #cc00cc,
+    #800090, #450060, #200030,
+    #450060, #800090, #cc00cc, #ff40ff,
+    #cc00cc, #0a0010
+  );
+  background-size: 200% 100%;
+  animation: metalSlide 4s linear infinite;
+  box-shadow: 0 0 0 3px #0d0d0f, 0 0 20px rgba(204,0,204,0.2), 0 8px 24px rgba(0,0,0,0.8);
+}
+.cyber-magenta .icon-face {
+  background: radial-gradient(ellipse at 38% 20%, #180020 0%, #0e0018 55%, #080010 100%);
+}
+.cyber-magenta .icon-face svg {
+  stroke: #dd00dd;
+  filter: drop-shadow(0 0 6px rgba(220,0,220,0.9));
+}
+
+/* ── CYBER RED ── */
+.cyber-red {
+  background: linear-gradient(120deg,
+    #0a0000, #200000, #500000, #900000,
+    #dd0000, #ff4040, #dd0000,
+    #900000, #500000, #200000,
+    #500000, #900000, #dd0000, #ff4040,
+    #dd0000, #0a0000
+  );
+  background-size: 200% 100%;
+  animation: metalSlide 4s linear infinite;
+  box-shadow: 0 0 0 3px #0d0d0f, 0 0 20px rgba(220,0,0,0.2), 0 8px 24px rgba(0,0,0,0.8);
+}
+.cyber-red .icon-face {
+  background: radial-gradient(ellipse at 38% 20%, #1a0000 0%, #0e0000 55%, #080000 100%);
+}
+.cyber-red .icon-face svg {
+  stroke: #ff3030;
+  filter: drop-shadow(0 0 6px rgba(255,40,40,0.9));
+}
+
+/* ── CYBER GREEN ── */
+.cyber-green {
+  background: linear-gradient(120deg,
+    #000a00, #001500, #003000, #006000,
+    #00bb00, #40ff40, #00bb00,
+    #006000, #003000, #001500,
+    #003000, #006000, #00bb00, #40ff40,
+    #00bb00, #000a00
+  );
+  background-size: 200% 100%;
+  animation: metalSlide 4s linear infinite;
+  box-shadow: 0 0 0 3px #0d0d0f, 0 0 20px rgba(0,187,0,0.15), 0 8px 24px rgba(0,0,0,0.8);
+}
+.cyber-green .icon-face {
+  background: radial-gradient(ellipse at 38% 20%, #001800 0%, #000e00 55%, #000800 100%);
+}
+.cyber-green .icon-face svg {
+  stroke: #00cc00;
+  filter: drop-shadow(0 0 6px rgba(0,200,0,0.9));
+}
+
+/* labels */
+.demo  { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.label { color: #bbb; font-size: 9px; letter-spacing: 2px; font-family: monospace; text-transform: uppercase; }
+
+</style>
+
+</head>
+<body>
+
+  <!-- METAL -->
+  <div class="demo">
+    <div class="icon-outer gold">
+      <div class="icon-mid"><div class="icon-face">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/></svg>
+      </div></div>
+    </div>
+    <span class="label">Gold</span>
+  </div>
+
+  <div class="demo">
+    <div class="icon-outer silver">
+      <div class="icon-mid"><div class="icon-face">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12"/></svg>
+      </div></div>
+    </div>
+    <span class="label">Silver</span>
+  </div>
+
+  <div class="demo">
+    <div class="icon-outer rose">
+      <div class="icon-mid"><div class="icon-face">
+        <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      </div></div>
+    </div>
+    <span class="label">Rose</span>
+  </div>
+
+  <!-- CYBERPUNK -->
+  <div class="demo">
+    <div class="icon-outer cyber-yellow">
+      <div class="icon-mid"><div class="icon-face">
+        <svg viewBox="0 0 24 24"><polygon points="13,2 3,14 12,14 11,22 21,10 12,10"/></svg>
+      </div></div>
+    </div>
+    <span class="label">Yellow</span>
+  </div>
+
+  <div class="demo">
+    <div class="icon-outer cyber-cyan">
+      <div class="icon-mid"><div class="icon-face">
+        <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><path d="M12 8v4l3 3"/></svg>
+      </div></div>
+    </div>
+    <span class="label">Cyan</span>
+  </div>
+
+  <div class="demo">
+    <div class="icon-outer cyber-magenta">
+      <div class="icon-mid"><div class="icon-face">
+        <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      </div></div>
+    </div>
+    <span class="label">Cyber ◆</span>
+  </div>
+
+  <div class="demo">
+    <div class="icon-outer cyber-red">
+      <div class="icon-mid"><div class="icon-face">
+        <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </div></div>
+    </div>
+    <span class="label">Cyber ▲</span>
+  </div>
+
+  <div class="demo">
+    <div class="icon-outer cyber-green">
+      <div class="icon-mid"><div class="icon-face">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/></svg>
+      </div></div>
+    </div>
+    <span class="label">Cyber ■</span>
+  </div>
+
+</body>
+</html>
