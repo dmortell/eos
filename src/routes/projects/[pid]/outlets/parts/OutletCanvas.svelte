@@ -1447,7 +1447,8 @@
 		{/if}
 
 		{#if !calibration}
-			<span class="text-amber-600 text-[10px] ml-2">Page not calibrated — set origin and scale in uploads</span>
+			<span class="text-amber-600 text-[10px] ml-2">Page not calibrated — set origin and scale in
+				<a href="uploads" class="underline hover:text-amber-800">uploads</a></span>
 		{/if}
 
 		<div class="flex-1"></div>
@@ -1635,13 +1636,7 @@
 					{#if outlet.level === 'high' ? hasViewFlag(VIEW_HIGH_OUTLETS) : hasViewFlag(VIEW_LOW_OUTLETS)}
 						{@const px = outletPx(outlet)}
 						{@const selected = selectedIds.has(outlet.id)}
-						<OutletShape
-							{outlet}
-							{px}
-							{radiusPx}
-							{zoom}
-							{selected}
-							{activeTool}
+						<OutletShape {outlet} {px} {radiusPx} {zoom} {selected} {activeTool}
 							onmousedown={e => { if (e.button === 0 && activeTool === 'select') { e.stopPropagation(); onMouseDown(e) }}}
 						/>
 					{/if}

@@ -55,19 +55,19 @@
 </script>
 
 <Dialog bind:open title={task ? 'Edit Task' : 'New Task'}>
-	<div class="space-y-3 mt-2">
-		<Input label="Title" bind:value={title} placeholder="Task title" class="w-full"/>
-		<Input label="Description" type="textarea" bind:value={description} rows="3" />
+	<div class="space-y-2 mt-2 text-sm flex flex-col ">
+		<Input label="Task" bind:value={title} placeholder="Task title" class="w-full"/>
+		<Input label="Details" type="textarea" bind:value={description} rows="3" class="w-full border block" />
 
 		<div class="grid grid-cols-2 gap-2">
-			<Select bind:value={projectId}>
+			<Select bind:value={projectId} label="Project" class="block w-full">
 				<option value="">Select Project</option>
 				{#each projects as project}
 					<option value={project.id}>{project.name}</option>
 				{/each}
 			</Select>
 
-			<Select bind:value={status}>
+			<Select bind:value={status} label="Status" class="block w-full">
 				<option value="backlog">backlog</option>
 				<option value="todo">todo</option>
 				<option value="in-progress">in-progress</option>
@@ -77,14 +77,14 @@
 		</div>
 
 		<div class="grid grid-cols-2 gap-2">
-			<Select bind:value={priority}>
+			<Select bind:value={priority} label="Priority" class="block w-full">
 				<option value="low">low</option>
 				<option value="medium">medium</option>
 				<option value="high">high</option>
 				<option value="urgent">urgent</option>
 			</Select>
 
-			<Select bind:value={assignedTo}>
+			<Select bind:value={assignedTo} label="Assigned To" class="block w-full">
 				<option value="">Unassigned</option>
 				{#each users as user}
 					<option value={user.id}>{user.name}</option>
@@ -101,8 +101,8 @@
 				{/if}
 			</div>
 			<div class="flex gap-2">
-				<Button variant="outline" onclick={() => open = false}>Cancel</Button>
-				<Button variant="primary" onclick={save} disabled={!title.trim() || !projectId}>Save</Button>
+				<Button variant="outline" class="w-16" onclick={() => open = false}>Cancel</Button>
+				<Button variant="primary" class="w-16" onclick={save} disabled={!title.trim() || !projectId}>Save</Button>
 			</div>
 		</div>
 	</div>

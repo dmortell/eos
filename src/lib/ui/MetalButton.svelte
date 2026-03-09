@@ -1,8 +1,8 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import type { HTMLButtonAttributes } from 'svelte/elements';
-  import { cn } from './utils';
-  import Icon from './ui/Icon.svelte';
+  import { cn } from '../utils';
+  import Icon from './Icon.svelte';
 
   type MetalVariant =
     | 'gold'

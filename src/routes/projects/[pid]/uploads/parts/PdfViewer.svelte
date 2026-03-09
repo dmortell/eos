@@ -570,6 +570,7 @@
 
 		<!-- Page nav -->
 		{#if totalPages > 1}
+			<span class="text-white text-sm">Page:</span>
 			<button class="text-gray-400 hover:text-white p-1 rounded hover:bg-gray-700 disabled:opacity-30"
 				onclick={() => goToPage(pageNum - 1)} disabled={pageNum <= 1} title="Previous page">
 				<Icon name="chevronLeft" size={14} />
@@ -586,7 +587,7 @@
 		<button class="text-gray-400 hover:text-white px-1.5 py-0.5 rounded hover:bg-gray-700 text-sm font-bold leading-none" onclick={zoomOut} title="Zoom out (-)">&#x2212;</button>
 		<span class="text-xs text-gray-400 tabular-nums min-w-10 text-center">{Math.round(zoom * 100)}%</span>
 		<button class="text-gray-400 hover:text-white px-1.5 py-0.5 rounded hover:bg-gray-700 text-sm font-bold leading-none" onclick={zoomIn} title="Zoom in (+)">+</button>
-		<button class="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-gray-700" onclick={fitToView} title="Fit to view (Home)">
+		<button class="text-xs text-gray-400 hover:text-white px-3 py-1 rounded border hover:bg-gray-700" onclick={fitToView} title="Fit to view (Home)">
 			Fit
 		</button>
 

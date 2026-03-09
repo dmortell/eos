@@ -81,10 +81,10 @@
 		<div class="flex items-center gap-2">
 			<span class={labelCls}>Shape</span>
 			<div class="flex gap-1 flex-1">
-				<button class="flex-1 py-0.5 rounded text-[10px] {shape === 'pipe' ? 'bg-purple-100 text-purple-700 font-medium' : 'text-gray-400 hover:bg-gray-50 border border-gray-200'}"
-					onclick={() => shape = 'pipe'}>Pipe</button>
 				<button class="flex-1 py-0.5 rounded text-[10px] {shape === 'rect' ? 'bg-orange-100 text-orange-700 font-medium' : 'text-gray-400 hover:bg-gray-50 border border-gray-200'}"
 					onclick={() => shape = 'rect'}>Rect</button>
+				<button class="flex-1 py-0.5 rounded text-[10px] {shape === 'pipe' ? 'bg-purple-100 text-purple-700 font-medium' : 'text-gray-400 hover:bg-gray-50 border border-gray-200'}"
+					onclick={() => shape = 'pipe'}>Pipe</button>
 			</div>
 		</div>
 

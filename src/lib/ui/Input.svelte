@@ -8,18 +8,20 @@
 </script>
 
 {#if type=='textarea'}
-	<label {title} class="flex items-center gap-2">{label} {@render children?.()}
+	<label {title} class="flexxx items-centerxx gap-2">
+		{label} {@render children?.()}
 		<textarea bind:value class={classes} {...props}></textarea>
 	</label>
 {:else}
-	<label {title} class="flex-inline items-center gap-2">{label} {@render children?.()}
+	<label {title} class="flex-inline items-center gap-2">
+		{label} {@render children?.()}
 		<input bind:value {type} class={classes} {...props} />
 	</label>
 {/if}
 
 <style>
 	input {
-		all: unset;
+		/* all: unset; */
 		padding: 0 4px;
 		border-radius: 2px;
 		border: 1px solid transparent;

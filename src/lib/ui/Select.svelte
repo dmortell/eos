@@ -9,6 +9,12 @@
 	])
 </script>
 
-<select bind:value class={classes} {title} {...props}>
-	{@render children?.()}
-</select>
+<!-- {label} {@render children?.()} -->
+<!-- <input bind:value {type} class={classes} {...props} /> -->
+
+	<label {title} class="flex-inline items-center gap-2">
+		{label}
+		<select bind:value class={classes} {title} {...props}>
+			{@render children?.()}
+		</select>
+	</label>

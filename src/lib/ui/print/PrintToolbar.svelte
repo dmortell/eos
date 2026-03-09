@@ -32,11 +32,12 @@
 <svelte:window onclick={() => { menuOpen = false }} />
 
 <div class="relative">
+	<!-- {settings.showPaper ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:bg-gray-100'}" -->
 	<button
 		class="flex items-center gap-1 px-2 py-1 rounded text-[11px] transition-colors
-			{settings.showPaper ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:bg-gray-100'}"
+			{'text-gray-500 hover:bg-gray-100'}"
 		onclick={(e) => { e.stopPropagation(); if (!settings.showPaper) { settings = { ...settings, showPaper: true }; menuOpen = true } else { menuOpen = !menuOpen } }}>
-		<Icon name="print" size={12} /> Preview
+		<Icon name="print" size={12} /> Page
 	</button>
 	{#if menuOpen}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -103,7 +104,7 @@
 					oninput={(e) => { settings = { ...settings, margins: parseInt((e.target as HTMLInputElement).value) || 0 } }}
 					class="w-full px-2 py-0.5 rounded border border-gray-200 text-[11px] text-gray-600 mb-2" />
 
-				<div class="border-t border-gray-100 pt-2 mt-1 space-y-1">
+				<!-- <div class="border-t border-gray-100 pt-2 mt-1 space-y-1">
 					<button
 						class="w-full flex items-center justify-center gap-1 px-2 py-1 rounded text-[11px] text-gray-600 hover:bg-gray-100 border border-gray-200 transition-colors"
 						onclick={() => onsetview?.()}>
@@ -121,7 +122,7 @@
 							Hide
 						</button>
 					</div>
-				</div>
+				</div> -->
 			{/if}
 		</div>
 	{/if}
