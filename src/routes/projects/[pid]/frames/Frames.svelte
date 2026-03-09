@@ -405,7 +405,7 @@
 </script>
 
 <div class="h-screen flex flex-col overflow-hidden">
-<Titlebar title={projectName ? `${projectName} — Patch Frames` : 'Patch Frames'} />
+<Titlebar menu=1 title={projectName ? `${projectName} — Patch Frames` : 'Patch Frames'} />
 
 <SettingsDialog
 	open={settingsOpen}

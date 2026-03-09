@@ -6,7 +6,7 @@ import {
     type Query, type DocumentData, type Firestore as FirestoreType, type QuerySnapshot
 } from 'firebase/firestore';
 import {
-    getAuth, onAuthStateChanged, GoogleAuthProvider, GithubAuthProvider, OAuthProvider, 
+    getAuth, onAuthStateChanged, GoogleAuthProvider, GithubAuthProvider, OAuthProvider,
     signInWithPopup, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword,
     type User, type UserCredential
 } from "firebase/auth";
@@ -87,45 +87,33 @@ export interface DocWithId {
     [key: string]: unknown
 }
 
-function sanitizeFirestoreData<T>(input: T): T {
-    if (Array.isArray(input)) {
-        return input
-            .map((item) => sanitizeFirestoreData(item))
-            .filter((item) => item !== undefined) as T;
-    }
-    if (input && Object.prototype.toString.call(input) === '[object Object]') {
-        const entries = Object.entries(input as Record<string, unknown>)
-            .filter(([, value]) => value !== undefined)
-            .map(([key, value]) => [key, sanitizeFirestoreData(value)]);
-        return Object.fromEntries(entries) as T;
-    }
-    return input;
-}
-	/** Strip undefined values recursively (Firestore rejects them) */
-	// function strip(obj: any): any {
-	// 	if (Array.isArray(obj)) return obj.map(strip)
-	// 	if (obj && typeof obj === 'object') {
-	// 		const out: any = {}
-	// 		for (const [k, v] of Object.entries(obj)) {
-	// 			if (v !== undefined) out[k] = strip(v)
-	// 		}
-	// 		return out
-	// 	}
-	// 	return obj
-	// }
+// function sanitizeFirestoreData<T>(input: T): T {
+//     if (Array.isArray(input)) {
+//         return input
+//             .map((item) => sanitizeFirestoreData(item))
+//             .filter((item) => item !== undefined) as T;
+//     }
+//     if (input && Object.prototype.toString.call(input) === '[object Object]') {
+//         const entries = Object.entries(input as Record<string, unknown>)
+//             .filter(([, value]) => value !== undefined)
+//             .map(([key, value]) => [key, sanitizeFirestoreData(value)]);
+//         return Object.fromEntries(entries) as T;
+//     }
+//     return input;
+// }
 
-	/** Strip undefined values recursively (Firestore rejects them) */
-	// function stripUndefined(obj: any): any {
-	// 	if (Array.isArray(obj)) return obj.map(stripUndefined)
-	// 	if (obj && typeof obj === 'object') {
-	// 		const out: any = {}
-	// 		for (const [k, v] of Object.entries(obj)) {
-	// 			if (v !== undefined) out[k] = stripUndefined(v)
-	// 		}
-	// 		return out
-	// 	}
-	// 	return obj
-	// }
+/** Strip undefined values recursively (Firestore rejects them) */
+function sanitizeFirestoreData(obj: any): any {
+    if (Array.isArray(obj)) return obj.map(sanitizeFirestoreData)
+    if (obj && typeof obj === 'object') {
+        const out: any = {}
+        for (const [k, v] of Object.entries(obj)) {
+            if (v !== undefined) out[k] = sanitizeFirestoreData(v)
+        }
+        return out
+    }
+    return obj
+}
 
 export class Firestore {
     async getMany(path: string): Promise<DocWithId[]> {

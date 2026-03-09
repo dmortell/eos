@@ -8,7 +8,7 @@ EOS is a set of tools for managing IT Infrastructure related projects.
 - **Styling**: Tailwind CSS v4
 - **Icons**: @lucide/svelte, available via `import { Icon } from '$lib'`
 - **UI Components**: Custom components in `$lib/ui` - `import { Button, Input, Row, Icon } from '$lib'` (see `lib/index.ts`). shadcn-svelte components can be added if needed.
-- **Auth**: Firebase authentication 
+- **Auth**: Firebase authentication. Firestore rules prevent unauthorised access to data.
 - **Database**: Firestore with realtime subscriptions
 - **Deployment**: Vercel via GitHub
 - **Package Manager**: pnpm (preferred)

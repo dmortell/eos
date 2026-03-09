@@ -523,12 +523,7 @@
 {/if}
 
 <main class="h-dvh w-full overflow-hidden flex flex-col">
-	<Titlebar title={projectName ? `${projectName} — Rack Elevations` : 'Rack Elevations'}>
-		<div class="flex items-center gap-2 text-xs">
-			<span class="text-gray-400">
-				{#if saveStatus === 'saved'}Saved{:else if saveStatus === 'saving'}Saving...{:else}Unsaved{/if}
-			</span>
-		</div>
+	<Titlebar menu=1 title={projectName ? `${projectName} — Rack Elevations` : 'Rack Elevations'}>
 	</Titlebar>
 
 	<PaneGroup direction="horizontal" class="flex-1 min-h-0">

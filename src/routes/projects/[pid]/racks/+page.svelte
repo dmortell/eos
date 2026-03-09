@@ -156,9 +156,9 @@
 		<Spinner>Loading racks...</Spinner>
 	</div>
 {:else}
-	{#key `${activeFloor}-${activeRoom}`}
+	<!-- {#key `${activeFloor}-${activeRoom}`}
+			{/key} -->
 		<Racks data={rackData} {library} floor={activeFloor} room={activeRoom} {floors} projectId={page.params.pid} {floorFormat} {projectName}
 			onsave={save} onlibrarychange={saveLibrary} onfloorchange={changeFloor} onroomchange={changeRoom}
 			onupdatefloors={updateFloors} ondeletefloor={deleteFloor} />
-	{/key}
 {/if}
