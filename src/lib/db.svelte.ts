@@ -6,7 +6,8 @@ import {
     type Query, type DocumentData, type Firestore as FirestoreType, type QuerySnapshot
 } from 'firebase/firestore';
 import {
-    getAuth, onAuthStateChanged, GoogleAuthProvider, GithubAuthProvider, OAuthProvider, signInWithPopup, signOut,
+    getAuth, onAuthStateChanged, GoogleAuthProvider, GithubAuthProvider, OAuthProvider, 
+    signInWithPopup, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword,
     type User, type UserCredential
 } from "firebase/auth";
 
@@ -60,6 +61,23 @@ export class Session {
             else throw new Error(`Unknown provider ${provider}`)
         } catch (error) {
             console.error('Error signing in:', error);
+            throw error;
+        }
+    }
+    async loginWithEmail(email: string, password: string): Promise<UserCredential> {
+        try {
+            return await signInWithEmailAndPassword(auth, email, password);
+        } catch (error) {
+            console.error('Error signing in with email:', error);
+            throw error;
+        }
+    }
+    async registerWithEmail(email: string, password: string): Promise<UserCredential> {
+        try {
+            return await createUserWithEmailAndPassword(auth, email, password);
+        } catch (error) {
+            console.error('Error registering with email:', error);
+            throw error;
         }
     }
 }
