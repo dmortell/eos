@@ -1,110 +1,148 @@
 # Presence Implementation Plan
 
 ## Overview
-Show active users in the Titlebar with overlapping avatars + overflow dropdown. Track activity via mouse movement, stored in a Firestore `presence/{pid}` field.
+Show active users in the Titlebar with overlapping avatars + overflow dropdown. Track activity via mouse movement on `document`, stored in a single Firestore doc `settings/presence`.
 
 ## Firestore Schema
 
-**Collection:** `presence` → **Document:** `{pid}` (project ID)
+**Document:** `settings/presence`
 
 ```ts
-// presence/{pid}
 {
   users: {
     [uid: string]: {
       displayName: string
       photoURL: string | null
-      lastActive: Timestamp    // serverTimestamp on each update
+      lastActive: Timestamp
     }
   }
 }
 ```
 
-Single document per project. Each user writes their entry under `users.{uid}`. No composite indexes needed — just read the whole doc.
+Single doc for the whole app. Each user writes their entry under `users.{uid}` via `setDoc(merge: true)`. No indexes needed.
 
-## Files to Create
+## Files to Create/Modify
 
-### 1. `src/lib/presence/presence.svelte.ts` — Presence tracker (reactive module)
+### 1. `src/lib/presence/presence.svelte.ts` — Presence tracker
 
-State & logic, no class needed (module-level `$state`):
+Module-level reactive state + functions (no class):
 
 ```ts
 import { doc, setDoc, onSnapshot, serverTimestamp, deleteField } from 'firebase/firestore'
 import { firestore } from '$lib/db.svelte'
 
-// State
-let activeUsers = $state<PresenceUser[]>([])  // exported, reactive
-let unsubscribe: (() => void) | null = null
-let throttleTimer: number | null = null
-let lastUpdate = 0
-let inactivityTimer: number | null = null
-let currentPid: string | null = null
-let currentUid: string | null = null
-
-interface PresenceUser {
+export interface PresenceUser {
   uid: string
   displayName: string
   photoURL: string | null
   lastActive: Date
 }
+
+// Reactive state
+export let activeUsers = $state<PresenceUser[]>([])
+
+// Private
+let unsub: (() => void) | null = null
+let lastWrite = 0
+let trailingTimer: ReturnType<typeof setTimeout> | null = null
+let inactivityTimer: ReturnType<typeof setTimeout> | null = null
+let currentUid: string | null = null
+const THROTTLE = 3000
+const INACTIVE = 5 * 60 * 1000
+const docRef = doc(firestore, 'settings', 'presence')
 ```
 
-**Key functions:**
+**Exported functions:**
 
-- `startPresence(pid, user)` — Write user entry to `presence/{pid}.users.{uid}`, subscribe to doc, attach mousemove listener, start inactivity timer
-- `stopPresence()` — Remove user entry (`deleteField()`), unsubscribe, remove listeners, clear timers
-- `handleMouseMove()` — Throttled at 3000ms. Writes `{ users.{uid}: { displayName, photoURL, lastActive: serverTimestamp() } }` via `setDoc(merge: true)`. Resets 5-min inactivity timer
-- `markInactive()` — Called after 5 min idle. Removes user entry from doc with `deleteField()`
-- `onDocSnapshot(snap)` — Parse `users` map, filter out entries with `lastActive` older than 5 min, exclude self, sort by lastActive desc, update `activeUsers`
+- `startPresence(user: User)` — Sets `currentUid`, writes initial entry, subscribes to doc snapshot, attaches `document.addEventListener('mousemove', onMouseMove)`, starts inactivity timer, adds `beforeunload` listener
+- `stopPresence()` — Removes user entry (`deleteField()`), unsubscribes snapshot, removes mousemove + beforeunload listeners, clears timers
 
-**Throttle:** Track `lastUpdate` timestamp. On mousemove, if `Date.now() - lastUpdate >= 3000`, write immediately and reset. Otherwise skip. Use trailing-edge timeout so the last move before idle is captured.
+**Internal functions:**
 
-**Cleanup:** `beforeunload` listener calls `stopPresence()`. Also call `stopPresence()` on page navigation (SvelteKit `beforeNavigate`).
+- `onMouseMove()` — Throttled at 3000ms (leading + trailing edge). Writes `{ users: { [uid]: { displayName, photoURL, lastActive: serverTimestamp() } } }` via `setDoc(merge: true)`. Resets 5-min inactivity timer each time
+- `markInactive()` — Called by inactivity timer. Writes `{ users: { [uid]: deleteField() } }` to remove entry
+- `onSnapshot` callback — Reads `users` map from doc, filters entries with `lastActive` older than 5 min, excludes `currentUid`, sorts by `lastActive` desc, assigns to `activeUsers`
 
-### 2. `src/lib/presence/PresenceAvatars.svelte` — Avatar bar component
+**Mouse detection:** Listener on `document` level. Captures all mouse activity regardless of page/component. Attached in `startPresence()`, removed only in `stopPresence()` (sign-out).
 
-Props: none (imports reactive `activeUsers` from module)
+**Inactivity → re-activation:** `markInactive()` removes the Firestore entry and unsubscribes the snapshot, but keeps the mousemove listener alive. When the mouse moves again after idle, `onMouseMove` fires → `writePresence()` re-creates the entry and re-subscribes automatically.
+
+**Cleanup:** `beforeunload` only. No `beforeNavigate` — SPA navigation keeps the tab alive.
+
+### 2. `src/lib/ui/Avatar.svelte` — Reusable avatar component
+
+```svelte
+<script lang="ts">
+  let {
+    name,
+    photoURL = null,
+    size = 'sm',
+    border = 'border-gray-800',
+  }: {
+    name: string
+    photoURL?: string | null
+    size?: 'sm' | 'md' | 'lg'
+    border?: string
+  } = $props()
+
+  const sizes = { sm: 'w-6 h-6 text-xs', md: 'w-8 h-8 text-sm', lg: 'w-10 h-10 text-base' }
+</script>
+
+{#if photoURL}
+  <img src={photoURL} alt={name} title={name}
+    class="rounded-full border-2 {border} object-cover {sizes[size]}" />
+{:else}
+  <div class="rounded-full border-2 {border} bg-blue-500 text-white
+    flex items-center justify-center font-semibold {sizes[size]}"
+    title={name}>
+    {name[0]?.toUpperCase() ?? '?'}
+  </div>
+{/if}
+```
+
+Exported from `$lib/index.ts` barrel for use anywhere.
+
+### 3. `src/lib/presence/PresenceAvatars.svelte` — Titlebar avatar strip
 
 ```svelte
 <script lang="ts">
   import { activeUsers } from './presence.svelte'
+  import Avatar from '$lib/ui/Avatar.svelte'
 
   let showDropdown = $state(false)
+  let container: HTMLDivElement
   let visible = $derived(activeUsers.slice(0, 3))
-  let overflow = $derived(activeUsers.length - 3)
+  let overflow = $derived(Math.max(0, activeUsers.length - 3))
+
+  $effect(() => {
+    if (!showDropdown) return
+    const onClick = (e: MouseEvent) => {
+      if (container && !container.contains(e.target as Node)) showDropdown = false
+    }
+    document.addEventListener('click', onClick)
+    return () => document.removeEventListener('click', onClick)
+  })
 </script>
 
 {#if activeUsers.length > 0}
-  <div class="relative flex items-center ml-2 pl-2 border-l border-gray-600">
+  <div class="relative flex items-center ml-2 pl-2 border-l border-gray-600" bind:this={container}>
     <div class="flex -space-x-2">
       {#each visible as user (user.uid)}
-        <!-- Avatar: photo or initial -->
-        {#if user.photoURL}
-          <img src={user.photoURL} alt={user.displayName} title={user.displayName}
-            class="w-6 h-6 rounded-full border-2 border-gray-800 object-cover" />
-        {:else}
-          <div class="w-6 h-6 rounded-full border-2 border-gray-800 bg-blue-500
-            text-white text-xs flex items-center justify-center font-semibold"
-            title={user.displayName}>
-            {user.displayName[0]?.toUpperCase()}
-          </div>
-        {/if}
+        <Avatar name={user.displayName} photoURL={user.photoURL} />
       {/each}
     </div>
 
     {#if overflow > 0}
-      <button class="ml-1 text-xs text-gray-300 hover:text-white"
-        onclick={() => showDropdown = !showDropdown}>
-        +{overflow}
-      </button>
+      <button class="ml-1 text-xs text-gray-300 hover:text-white cursor-pointer"
+        onclick={() => showDropdown = !showDropdown}>+{overflow}</button>
     {/if}
 
     {#if showDropdown}
-      <!-- Dropdown list of all users -->
       <div class="absolute top-full right-0 mt-1 bg-white text-gray-800 rounded shadow-lg p-2 z-50 min-w-48">
         {#each activeUsers as user (user.uid)}
           <div class="flex items-center gap-2 py-1 px-2">
-            <!-- same avatar + displayName -->
+            <Avatar name={user.displayName} photoURL={user.photoURL} />
+            <span class="text-sm">{user.displayName}</span>
           </div>
         {/each}
       </div>
@@ -113,60 +151,39 @@ Props: none (imports reactive `activeUsers` from module)
 {/if}
 ```
 
-Click-outside closes dropdown (use `$effect` with document listener, same pattern as sample).
+### 4. `src/lib/ui/Titlebar.svelte` — Add presence avatars
 
-### 3. Integrate into `src/lib/ui/Titlebar.svelte`
-
-Add `PresenceAvatars` after the Sign Out button, before the save status div:
+After the Sign Out button, before the save-status div:
 
 ```svelte
-<script>
-  import PresenceAvatars from '$lib/presence/PresenceAvatars.svelte'
-</script>
+import PresenceAvatars from '$lib/presence/PresenceAvatars.svelte'
 
-<!-- After sign out button -->
+<!-- in the Row, after sign out/in button -->
 <PresenceAvatars />
 ```
 
-### 4. Start/stop presence in page components
+### 5. Presence started in Titlebar
 
-In each `+page.svelte` or main component that has a project context:
-
-```svelte
-<script>
-  import { startPresence, stopPresence } from '$lib/presence/presence.svelte'
-  import { beforeNavigate } from '$app/navigation'
-  import { onDestroy } from 'svelte'
-
-  // Start when user and pid are available
-  $effect(() => {
-    if (session.user && pid) {
-      startPresence(pid, session.user)
-    }
-    return () => stopPresence()
-  })
-
-  beforeNavigate(() => stopPresence())
-</script>
-```
+`Titlebar.svelte` already has `session` via `getContext`. An `$effect` there calls `startPresence(session.user)` when logged in, `stopPresence()` on sign-out. No per-page wiring needed — Titlebar is on every page.
 
 ## Implementation Order
 
-1. `presence.svelte.ts` — Core tracker with Firestore read/write, throttle, inactivity
-2. `PresenceAvatars.svelte` — UI component
-3. `Titlebar.svelte` — Mount the component
-4. Page integration — Wire up start/stop in project pages
+1. `presence.svelte.ts` — Core tracker
+2. `Avatar.svelte` — Reusable component in `$lib/ui/`
+3. `PresenceAvatars.svelte` — Avatar strip
+4. `Titlebar.svelte` — Mount PresenceAvatars
+5. Start presence in layout/page `$effect`
+6. Add Avatar to `$lib/index.ts` barrel
 
 ## Firestore Considerations
 
-- **No extra collection** — uses single doc per project, avoids index requirements
-- **Merge writes** — `setDoc(ref, { users: { [uid]: data } }, { merge: true })` only touches one user's entry
-- **Cleanup** — `deleteField()` on the user's key when leaving or going idle
-- **Stale entries** — Snapshot listener filters out entries older than 5 min client-side. If a user's browser crashes without cleanup, their entry auto-expires visually for all other clients
-- **No server-side TTL needed** — Entries are small; stale ones are harmless and get overwritten on next visit
+- **Single doc** `settings/presence` — simple, no indexes, no extra collections
+- **Merge writes** — `setDoc(ref, { users: { [uid]: data } }, { merge: true })` touches only one user's entry
+- **Cleanup** — `deleteField()` on leave/idle; stale entries filtered client-side (>5 min)
+- **No TTL needed** — Entries are tiny; stale ones are harmless and overwritten on next visit
 
 ## Edge Cases
 
-- Multiple tabs: Same uid overwrites same key — latest tab wins (acceptable)
-- User signs out: `stopPresence()` in auth state change handler
-- Network disconnect: Firestore SDK reconnects automatically; stale lastActive gets filtered client-side
+- Multiple tabs: Same uid key, latest tab wins (fine)
+- Browser crash: No cleanup call; entry expires visually after 5 min for other clients
+- Sign out: `stopPresence()` in the `$effect` cleanup when `session.user` becomes null

@@ -2,6 +2,8 @@
 	import { Dropdown, Icon, Row, Session, Spinner } from '$lib'
 	import { ModeWatcher, toggleMode } from "mode-watcher";
 	import { getContext } from 'svelte';
+	import PresenceAvatars from '$lib/presence/PresenceAvatars.svelte'
+	import { startPresence, stopPresence } from '$lib/presence/presence.svelte'
 	const menuItems = [
 		{ label: 'Racks', href: 'racks' },
 		{ label: 'Frames', href: 'frames' },
@@ -9,6 +11,14 @@
 	]
 	let {title="EOS 0.1", height=null, children=null, menu=null, saveStatus=''} = $props()
 	let session = getContext('session')
+
+	$effect(() => {
+		if (session.user) {
+			startPresence(session.user)
+		} else {
+			stopPresence()
+		}
+	})
 </script>
 
 <ModeWatcher />
@@ -24,6 +34,7 @@
 		{/if}
 		{#if session.user}
 			<button class="cursor-pointer rounded hover:text-gray-200 px-2" onclick={session.logout} title='Sign out {session.user.email}'>Sign Out</button>
+			<PresenceAvatars />
 		{:else if session.user!==undefined}
 			<button class="cursor-pointer rounded hover:text-gray-200 px-2" onclick={e=>session.login('google')} title='Sign in with Google'>Sign In</button>
 		{/if}

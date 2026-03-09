@@ -1,4 +1,5 @@
 export { Firestore, Session, type DocWithId } from './db.svelte'
+export {default as Avatar} from './ui/Avatar.svelte'
 export {default as Button} from './ui/Button.svelte'
 export {default as Dialog} from './ui/Dialog.svelte'
 export {default as Dropdown} from './ui/Dropdown.svelte'
