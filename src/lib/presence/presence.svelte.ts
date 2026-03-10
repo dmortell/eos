@@ -1,7 +1,7 @@
 /**
  * Presence tracker — tracks active users in `settings/presence` Firestore doc.
- * Mouse movement on `document` marks the user active (throttled at 3s).
- * After 5 min idle the entry is removed; mouse movement re-activates.
+ * Mouse movement on `document` writes a heartbeat every 3 min.
+ * Users with lastActive older than 5 min are cleaned up by any active client.
  */
 
 import {
@@ -28,14 +28,10 @@ let unsub: Unsubscribe | null = null
 let currentUid: string | null = null
 let currentUser: User | null = null
 let lastWrite = 0
-let trailingTimer: ReturnType<typeof setTimeout> | null = null
-let inactivityTimer: ReturnType<typeof setTimeout> | null = null
-let listening = false // mousemove listener attached
-let active = false    // currently has a presence entry
-let fakeUsers: PresenceUser[] = [] // TODO: remove — for testing
+let listening = false
 
-const THROTTLE = 3000
-const INACTIVE_MS = 5 * 60 * 1000
+const HEARTBEAT = 3 * 60 * 1000   // write at most once per 3 min
+const EXPIRY_MS = 5 * 60 * 1000   // consider user gone after 5 min
 const docRef = doc(firestore, 'settings', 'presence')
 
 function writePresence() {
@@ -50,53 +46,43 @@ function writePresence() {
 			}
 		}
 	}, { merge: true }).catch(() => {})
-	if (!active) {
-		active = true
-		subscribe()
-	}
-	resetInactivityTimer()
+	if (!unsub) subscribe()
 }
 
 function removePresence() {
 	if (!currentUid) return
-	active = false
 	setDoc(docRef, { users: { [currentUid]: deleteField() } }, { merge: true }).catch(() => {})
 }
 
-function onMouseMove() {
-	const now = Date.now()
-	if (trailingTimer) clearTimeout(trailingTimer)
-	if (now - lastWrite >= THROTTLE) {
-		lastWrite = now
-		writePresence()
-	} else {
-		trailingTimer = setTimeout(() => {
-			lastWrite = Date.now()
-			writePresence()
-		}, THROTTLE - (now - lastWrite))
+/** Delete expired entries (>5 min) from Firestore */
+function cleanupExpired(users: Record<string, any>, cutoff: number) {
+	const deletes: Record<string, any> = {}
+	let count = 0
+	for (const [uid, entry] of Object.entries(users)) {
+		if (!entry?.lastActive) { deletes[uid] = deleteField(); count++; continue }
+		const ts = entry.lastActive instanceof Date
+			? entry.lastActive.getTime()
+			: (entry.lastActive as Timestamp).toDate().getTime()
+		if (ts < cutoff) { deletes[uid] = deleteField(); count++ }
+	}
+	if (count > 0) {
+		setDoc(docRef, { users: deletes }, { merge: true }).catch(() => {})
 	}
 }
 
-function resetInactivityTimer() {
-	if (inactivityTimer) clearTimeout(inactivityTimer)
-	inactivityTimer = setTimeout(markInactive, INACTIVE_MS)
-}
-
-function markInactive() {
-	// Remove Firestore entry + unsubscribe snapshot, but keep mousemove listener
-	// so moving the mouse again re-activates
-	removePresence()
-	if (unsub) { unsub(); unsub = null }
+function onMouseMove() {
+	if (Date.now() - lastWrite < HEARTBEAT) return
+	lastWrite = Date.now()
+	writePresence()
 }
 
 function subscribe() {
-	if (unsub) return // already subscribed
-	unsub = onSnapshot(docRef, { includeMetadataChanges: false }, (snap) => {
-		// Skip snapshots from our own pending writes (serverTimestamp is null locally)
+	if (unsub) return
+	unsub = onSnapshot(docRef, (snap) => {
 		if (snap.metadata.hasPendingWrites) return
 		const data = snap.data()
-		if (!data?.users) { presence.users = [...fakeUsers]; return } // TODO: remove fakeUsers
-		const cutoff = Date.now() - INACTIVE_MS
+		if (!data?.users) { presence.users = []; return }
+		const cutoff = Date.now() - EXPIRY_MS
 		let self: PresenceUser | null = null
 		const others: PresenceUser[] = []
 		for (const [uid, entry] of Object.entries(data.users as Record<string, any>)) {
@@ -109,9 +95,9 @@ function subscribe() {
 			if (uid === currentUid) self = u
 			else others.push(u)
 		}
+		cleanupExpired(data.users, cutoff)
 		others.sort((a, b) => b.lastActive.getTime() - a.lastActive.getTime())
-		const users = self ? [self, ...others] : others
-		presence.users = [...users, ...fakeUsers] // TODO: remove fakeUsers spread
+		presence.users = self ? [self, ...others] : others
 	}, () => {})
 }
 
@@ -122,12 +108,10 @@ function onBeforeUnload() {
 /** Start tracking presence for the given user. Safe to call multiple times. */
 export function startPresence(user: User) {
 	if (listening && currentUid === user.uid) return
-	// If switching users, clean up old
 	if (currentUid && currentUid !== user.uid) stopPresence()
 
 	currentUid = user.uid
 	currentUser = user
-	active = false
 
 	if (!listening) {
 		document.addEventListener('mousemove', onMouseMove)
@@ -138,14 +122,6 @@ export function startPresence(user: User) {
 	// Write immediately so user shows up right away
 	lastWrite = Date.now()
 	writePresence()
-
-	// TODO: remove — fake users for testing
-	fakeUsers = [
-		{ uid: 'fake1', displayName: 'Alice Johnson', email: 'alice@example.com', photoURL: null, lastActive: new Date() },
-		{ uid: 'fake2', displayName: 'Bob Smith', email: 'bob@example.com', photoURL: null, lastActive: new Date() },
-		{ uid: 'fake3', displayName: 'Charlie Brown', email: 'charlie@example.com', photoURL: null, lastActive: new Date() },
-		{ uid: 'fake4', displayName: 'Diana Prince', email: 'diana@example.com', photoURL: null, lastActive: new Date() },
-	]
 }
 
 /** Stop tracking presence entirely (sign-out). */
@@ -155,12 +131,9 @@ export function stopPresence() {
 		window.removeEventListener('beforeunload', onBeforeUnload)
 		listening = false
 	}
-	if (trailingTimer) { clearTimeout(trailingTimer); trailingTimer = null }
-	if (inactivityTimer) { clearTimeout(inactivityTimer); inactivityTimer = null }
 	removePresence()
 	if (unsub) { unsub(); unsub = null }
 	currentUid = null
 	currentUser = null
-	active = false
 	presence.users = []
 }
