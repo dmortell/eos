@@ -1337,6 +1337,9 @@
 						{sidebarTab === 'trunks' ? 'text-blue-600 border-b-2 border-blue-500 bg-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}"
 					onclick={() => sidebarTab = 'trunks'}
 				>Trunks</button>
+				<a href="/projects/{projectId}/uploads" class="shrink-0 px-2 py-1.5 text-gray-400 hover:text-blue-600 transition-colors" title="Upload floorplans">
+					<Icon name="upload" size={14} />
+				</a>
 			</div>
 
 			<!-- Sidebar content -->

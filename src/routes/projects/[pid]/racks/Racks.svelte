@@ -42,6 +42,7 @@
 	let devices = $state<DeviceConfig[]>(data?.devices ?? [])
 	let settings = $state<RackSettings>({ ...DEFAULT_SETTINGS, ...(data?.settings ?? {}) })
 	let activeRowId = $state<string>(rows[0]?.id ?? 'default')
+	let sidebarTab = $state<'racks' | 'devices' | 'library'>('racks')
 	let selectedIds = new SvelteSet<string>()
 	let floorManagerOpen = $state(false)
 	let saveStatus = $state<'saved' | 'saving' | 'unsaved'>('saved')
@@ -428,6 +429,13 @@
 		}
 	}
 
+	function snapOffsetX(rect: any, rr: any, devW: number): number {
+		const devMidX = rect.left + rect.width / 2
+		const rackCenterX = rr.left + rr.width / 2
+		const offsetPx = devMidX - rackCenterX
+		return Math.round(offsetPx / SCALE / 25) * 25
+	}
+
 	function onDeviceDrag(rect: any, _mouse: any, item: any) {
 		// Show ghost at snap position while dragging existing device
 		const midX = rect.left + rect.width / 2
@@ -440,10 +448,11 @@
 					? rack.heightU - item.heightU + 1
 					: Math.floor(rack.heightMm / RU_HEIGHT_MM) - item.heightU + 1
 				const snappedRU = Math.max(1, Math.min(maxRU, Math.round(ruFromBottom)))
-				const innerLeft = rr.left + (rr.width - devW) / 2
+				const ox = snapOffsetX(rect, rr, devW)
+				const centerLeft = rr.left + (rr.width - devW) / 2 + ox * SCALE
 				const ruBottom = rr.top + rr.height - snappedRU * RU_HEIGHT_MM * SCALE
 				dropGhost = {
-					left: innerLeft,
+					left: centerLeft,
 					top: ruBottom - item.heightU * RU_HEIGHT_MM * SCALE,
 					width: devW,
 					height: item.heightU * RU_HEIGHT_MM * SCALE,
@@ -456,6 +465,7 @@
 
 	function onDeviceDragged(rect: any, device: DeviceConfig, copy?: boolean) {
 		dropGhost = null
+		const devW = (device.widthMm ?? RACK_19IN_MM) * SCALE
 		for (const rack of activeRacks) {
 			const rr = screenRect(rack)
 			const midX = rect.left + rect.width / 2
@@ -465,16 +475,16 @@
 					? rack.heightU - device.heightU + 1
 					: Math.floor(rack.heightMm / RU_HEIGHT_MM) - device.heightU + 1
 				const snappedRU = Math.max(1, Math.min(maxRU, Math.round(ruFromBottom)))
+				const ox = snapOffsetX(rect, rr, devW)
 				if (copy) {
-					// Ctrl+drag: duplicate the device at the new position
 					const id = `dev-${Date.now()}`
 					const { id: _, ...rest } = device
-					devices = [...devices, { ...rest, id, rackId: rack.id, positionU: snappedRU }]
+					devices = [...devices, { ...rest, id, rackId: rack.id, positionU: snappedRU, offsetX: ox }]
 					selectedIds.clear()
 					selectedIds.add(id)
 					logChange('copy', 'device', `${device.label} to ${rack.label} RU${snappedRU}`)
 				} else {
-					updateDevice(device.id, { rackId: rack.id, positionU: snappedRU })
+					updateDevice(device.id, { rackId: rack.id, positionU: snappedRU, offsetX: ox })
 				}
 				return
 			}

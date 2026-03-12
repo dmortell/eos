@@ -35,6 +35,7 @@
 			if (!doc?.racks) continue
 			for (const rack of doc.racks as any[]) {
 				if (!rack.serverRoom) continue
+				if (rack.type === 'desk' || rack.type === 'shelf' || rack.type === 'vcm') continue
 				const rackDevices = ((doc.devices ?? []) as any[]).filter((d: any) => d.rackId === rack.id)
 				// All non-copper-panel devices are slots (occupy RU space, no copper ports)
 				// This includes enclosures (fiber), switches, servers, managers, etc.

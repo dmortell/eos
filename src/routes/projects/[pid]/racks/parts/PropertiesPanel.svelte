@@ -24,9 +24,8 @@
 				{@render NumberField('positionU', selectedDevice.positionU, v => onupdatedevice?.(selectedDevice!.id, { positionU: v }))}
 				{@render NumberField('heightU', selectedDevice.heightU, v => onupdatedevice?.(selectedDevice!.id, { heightU: v }))}
 				{@render NumberField('portCount', selectedDevice.portCount, v => onupdatedevice?.(selectedDevice!.id, { portCount: v }))}
-				{#if selectedDevice.widthMm}
-					{@render NumberField('widthMm', selectedDevice.widthMm, v => onupdatedevice?.(selectedDevice!.id, { widthMm: v }))}
-				{/if}
+				{@render NumberField('widthMm', selectedDevice.widthMm ?? 480, v => onupdatedevice?.(selectedDevice!.id, { widthMm: v }))}
+				{@render NumberField('offsetX', selectedDevice.offsetX ?? 0, v => onupdatedevice?.(selectedDevice!.id, { offsetX: Math.round(v / 25) * 25 }))}
 				{#if selectedDevice.type === 'panel'}
 					{@render SelectField('patchLevel', selectedDevice.patchLevel ?? 'floor', [['floor', 'Floor'], ['high', 'High-level']], v => onupdatedevice?.(selectedDevice!.id, { patchLevel: v }))}
 					{@render SelectField('serverRoom', selectedDevice.serverRoom ?? 'A', [['A', 'A'], ['B', 'B'], ['C', 'C'], ['D', 'D']], v => onupdatedevice?.(selectedDevice!.id, { serverRoom: v }))}
