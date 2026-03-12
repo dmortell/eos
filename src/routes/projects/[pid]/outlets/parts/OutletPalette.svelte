@@ -5,8 +5,9 @@
 
 	import type { StickyDefaults } from './constants'
 
-	let { projectFiles, selectedFileId, selectedPage, selectedFile, calibration, outlets, selectedIds, activeTool, activeZone, stickyDefaults, onfilechange, onpagechange, onzonechange, ontoolchange, onselect, onrangeselect, onupdate, onupdateselected, ondelete, ondefaultschange }: {
+	let { projectFiles, projectId, selectedFileId, selectedPage, selectedFile, calibration, outlets, selectedIds, activeTool, activeZone, stickyDefaults, onfilechange, onpagechange, onzonechange, ontoolchange, onselect, onrangeselect, onupdate, onupdateselected, ondelete, ondefaultschange }: {
 		projectFiles: any[]
+		projectId: string
 		selectedFileId: string
 		selectedPage: number
 		selectedFile: any
@@ -57,7 +58,12 @@
 <div class="p-3 h-full flex flex-col gap-4 text-xs">
 	<!-- File picker -->
 	<div class="space-y-1.5">
-		<div class="text-[10px] text-gray-400 uppercase tracking-wider font-medium">Floorplan</div>
+		<div class="flex items-center gap-2 justify-between">
+			<div class="text-[10px] text-gray-400 uppercase tracking-wider font-medium">Floorplan</div>
+			<a href="/projects/{projectId}/uploads" class="flex gap-1 items-center border rounded shrink-0 px-2 py-1 text-gray-400 hover:text-blue-600 transition-colors" title="Upload floorplans">
+				<Icon name="upload" size={14} /> Upload
+			</a>
+		</div>
 		<select
 			class="w-full h-7 px-2 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
 			value={selectedFileId}
