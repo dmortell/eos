@@ -1,5 +1,5 @@
 export type DeviceType = 'panel' | 'enclosure' | 'switch' | 'server' | 'manager' | 'shelf' | 'pdu' | 'other'
-export type RackType = '2-post' | '4-post' | 'cabinet'
+export type RackType = '2-post' | '4-post' | 'cabinet' | 'desk' | 'shelf' | 'vcm'
 export type PortType = 'RJ45' | 'LC' | 'SC' | 'SFP' | null
 
 export interface RackRow {
@@ -11,6 +11,9 @@ export const rackTypes = [
 	{ id: '2-post', label: '2-Post' },
 	{ id: '4-post', label: '4-Post' },
 	{ id: 'cabinet', label: 'Cabinet' },
+	{ id: 'desk', label: 'Desk' },
+	{ id: 'shelf', label: 'Shelf' },
+	{ id: 'vcm', label: 'Vertical Cable Manager' },
 ]
 
 export interface RackConfig {
@@ -26,6 +29,13 @@ export interface RackConfig {
 	serverRoom?: string // 'A', 'B', 'C', 'D' — which server room this rack is in
 	maker?: string
 	model?: string
+	shelfHeights?: number[] // mm from floor, for desk/shelf types (4 adjustable lines)
+}
+
+/** Default shelf/tray heights for desk and shelf rack types */
+export const DEFAULT_SHELF_HEIGHTS: Record<string, number[]> = {
+	desk:  [600, 800, 0, 0],
+	shelf: [300, 600, 900, 1200],
 }
 
 export interface DeviceConfig {
@@ -40,6 +50,8 @@ export interface DeviceConfig {
 	maker?: string
 	model?: string
 	color?: string
+	widthMm?: number // device width override (for non-19" items like tower PCs, monitors)
+	offsetX?: number // horizontal offset from center in mm (positive = right, snapped to 25mm)
 	// Patch panel fields (only relevant when type === 'panel')
 	patchLevel?: 'floor' | 'high' // floor-level or high-level (ceiling) ports
 	serverRoom?: string // 'A', 'B', 'C', 'D' — which server room this panel serves

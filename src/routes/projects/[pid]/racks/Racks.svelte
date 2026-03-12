@@ -36,7 +36,9 @@
 
 	// ── State ──
 	let rows = $state<RackRow[]>(data?.rows ?? [{ id: 'default', label: 'Row A' }])
-	let racks = $state<RackConfig[]>((data?.racks ?? []).map((r: any) => ({ ...r, heightMm: rackHeightMm(r.heightU ?? 42) })))
+	const isRUType = (t: string) => t !== 'desk' && t !== 'shelf' && t !== 'vcm'
+	const hydrateRack = (r: any) => ({ ...r, heightMm: isRUType(r.type) ? rackHeightMm(r.heightU ?? 42) : (r.heightMm ?? 1600) })
+	let racks = $state<RackConfig[]>((data?.racks ?? []).map(hydrateRack))
 	let devices = $state<DeviceConfig[]>(data?.devices ?? [])
 	let settings = $state<RackSettings>({ ...DEFAULT_SETTINGS, ...(data?.settings ?? {}) })
 	let activeRowId = $state<string>(rows[0]?.id ?? 'default')
@@ -147,7 +149,7 @@
 		const d = data
 		if (syncPaused || saveStatus !== 'saved' || !d) return
 		if (d.rows) rows = d.rows
-		if (d.racks) racks = d.racks.map((r: any) => ({ ...r, heightMm: rackHeightMm(r.heightU ?? 42) }))
+		if (d.racks) racks = d.racks.map(hydrateRack)
 		if (d.devices) devices = d.devices
 		if (d.settings) settings = { ...DEFAULT_SETTINGS, ...d.settings }
 	})
@@ -197,14 +199,18 @@
 		const id = `rack-${Date.now()}`
 		const order = racks.filter(r => r.rowId === activeRowId).length
 		const label = form?.label || `R${String(order + 1).padStart(2, '0')}`
-		const hu = form?.heightU ?? 42
+		const rackType = form?.type ?? '4-post'
+		const isFurniture = rackType === 'desk' || rackType === 'shelf' || rackType === 'vcm'
+		const hu = isFurniture ? 0 : (form?.heightU ?? 42)
+		const defaultHeightMm = rackType === 'desk' ? 1600 : rackType === 'shelf' ? 1600 : rackType === 'vcm' ? 2000 : rackHeightMm(hu)
+		const defaultWidthMm = rackType === 'vcm' ? 300 : 700
 		const newRack: RackConfig = {
 			id, label, rowId: activeRowId, order,
 			heightU: hu,
-			heightMm: rackHeightMm(hu),
-			widthMm: form?.widthMm ?? 700,
+			heightMm: form?.heightMm ?? defaultHeightMm,
+			widthMm: form?.widthMm ?? defaultWidthMm,
 			depthMm: form?.depthMm ?? 800,
-			type: form?.type ?? '4-post',
+			type: rackType,
 			serverRoom: room,
 			maker: form?.maker,
 			model: form?.model,
@@ -223,7 +229,10 @@
 	}
 
 	function updateRack(rackId: string, updates: Partial<RackConfig>) {
-		if (updates.heightU != null) updates.heightMm = rackHeightMm(updates.heightU)
+		if (updates.heightU != null) {
+			const rack = racks.find(r => r.id === rackId)
+			if (rack && isRUType(rack.type)) updates.heightMm = rackHeightMm(updates.heightU)
+		}
 		racks = racks.map(r => r.id === rackId ? { ...r, ...updates } : r)
 		logChange('update', 'rack', rackId)
 	}
@@ -244,8 +253,11 @@
 			for (const d of rackDevices) {
 				for (let u = d.positionU; u < d.positionU + d.heightU; u++) occupied.add(u)
 			}
+			const maxU = isRUType(targetRack.type)
+				? targetRack.heightU
+				: Math.floor(targetRack.heightMm / RU_HEIGHT_MM)
 			positionU = 1
-			while (occupied.has(positionU)) positionU++
+			while (occupied.has(positionU) && positionU <= maxU) positionU++
 		}
 
 		const id = `dev-${Date.now()}`
@@ -259,6 +271,7 @@
 			portCount: template.portCount,
 			portType: template.portType,
 			maker: template.maker,
+			...(template.widthMm ? { widthMm: template.widthMm } : {}),
 			// Default panel metadata from parent rack
 			...(template.type === 'panel' ? {
 				patchLevel: 'floor' as const,
@@ -403,12 +416,14 @@
 		const rack = activeRacks.find(r => r.id === device.rackId)
 		if (!rack) return { left: 0, top: 0, width: 0, height: 0 }
 		const rackRect = screenRect(rack)
-		const innerLeft = rackRect.left + ((rack.widthMm - RACK_19IN_MM) / 2) * SCALE
+		const devW = (device.widthMm ?? RACK_19IN_MM) * SCALE
+		const ox = (device.offsetX ?? 0) * SCALE
+		const innerLeft = rackRect.left + (rackRect.width - devW) / 2 + ox
 		const ruBottom = rackRect.top + rackRect.height - device.positionU * RU_HEIGHT_MM * SCALE
 		return {
 			left: innerLeft,
 			top: ruBottom - device.heightU * RU_HEIGHT_MM * SCALE,
-			width: RACK_19IN_MM * SCALE,
+			width: devW,
 			height: device.heightU * RU_HEIGHT_MM * SCALE,
 		}
 	}
@@ -416,17 +431,21 @@
 	function onDeviceDrag(rect: any, _mouse: any, item: any) {
 		// Show ghost at snap position while dragging existing device
 		const midX = rect.left + rect.width / 2
+		const devW = (item.widthMm ?? RACK_19IN_MM) * SCALE
 		for (const rack of activeRacks) {
 			const rr = screenRect(rack)
 			if (midX >= rr.left && midX <= rr.left + rr.width) {
 				const ruFromBottom = (rr.top + rr.height - rect.top - rect.height) / SCALE / RU_HEIGHT_MM
-				const snappedRU = Math.max(1, Math.min(rack.heightU - item.heightU + 1, Math.round(ruFromBottom)))
-				const innerLeft = rr.left + ((rack.widthMm - RACK_19IN_MM) / 2) * SCALE
+				const maxRU = isRUType(rack.type)
+					? rack.heightU - item.heightU + 1
+					: Math.floor(rack.heightMm / RU_HEIGHT_MM) - item.heightU + 1
+				const snappedRU = Math.max(1, Math.min(maxRU, Math.round(ruFromBottom)))
+				const innerLeft = rr.left + (rr.width - devW) / 2
 				const ruBottom = rr.top + rr.height - snappedRU * RU_HEIGHT_MM * SCALE
 				dropGhost = {
 					left: innerLeft,
 					top: ruBottom - item.heightU * RU_HEIGHT_MM * SCALE,
-					width: RACK_19IN_MM * SCALE,
+					width: devW,
 					height: item.heightU * RU_HEIGHT_MM * SCALE,
 				}
 				return
@@ -442,7 +461,10 @@
 			const midX = rect.left + rect.width / 2
 			if (midX >= rr.left && midX <= rr.left + rr.width) {
 				const ruFromBottom = (rr.top + rr.height - rect.top - rect.height) / SCALE / RU_HEIGHT_MM
-				const snappedRU = Math.max(1, Math.min(rack.heightU - device.heightU + 1, Math.round(ruFromBottom)))
+				const maxRU = isRUType(rack.type)
+					? rack.heightU - device.heightU + 1
+					: Math.floor(rack.heightMm / RU_HEIGHT_MM) - device.heightU + 1
+				const snappedRU = Math.max(1, Math.min(maxRU, Math.round(ruFromBottom)))
 				if (copy) {
 					// Ctrl+drag: duplicate the device at the new position
 					const id = `dev-${Date.now()}`

@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { Window } from '$lib'
-	import { type RackConfig, type DeviceConfig, rackTypes } from './types'
+	import { type RackConfig, type DeviceConfig, rackTypes, DEFAULT_SHELF_HEIGHTS } from './types'
+
+	let isRU = $derived(selectedRack && selectedRack.type !== 'desk' && selectedRack.type !== 'shelf' && selectedRack.type !== 'vcm')
+	let hasShelves = $derived(selectedRack && (selectedRack.type === 'desk' || selectedRack.type === 'shelf'))
 
 	let { selectedRack = null, selectedDevice = null, onupdaterack, onupdatedevice }: {
 		selectedRack?: (RackConfig & Record<string, any>) | null
@@ -21,6 +24,9 @@
 				{@render NumberField('positionU', selectedDevice.positionU, v => onupdatedevice?.(selectedDevice!.id, { positionU: v }))}
 				{@render NumberField('heightU', selectedDevice.heightU, v => onupdatedevice?.(selectedDevice!.id, { heightU: v }))}
 				{@render NumberField('portCount', selectedDevice.portCount, v => onupdatedevice?.(selectedDevice!.id, { portCount: v }))}
+				{#if selectedDevice.widthMm}
+					{@render NumberField('widthMm', selectedDevice.widthMm, v => onupdatedevice?.(selectedDevice!.id, { widthMm: v }))}
+				{/if}
 				{#if selectedDevice.type === 'panel'}
 					{@render SelectField('patchLevel', selectedDevice.patchLevel ?? 'floor', [['floor', 'Floor'], ['high', 'High-level']], v => onupdatedevice?.(selectedDevice!.id, { patchLevel: v }))}
 					{@render SelectField('serverRoom', selectedDevice.serverRoom ?? 'A', [['A', 'A'], ['B', 'B'], ['C', 'C'], ['D', 'D']], v => onupdatedevice?.(selectedDevice!.id, { serverRoom: v }))}
@@ -32,10 +38,23 @@
 			<div class="space-y-1 text-xs">
 				{@render Field('label', selectedRack.label, v => onupdaterack?.(selectedRack!.id, { label: v }))}
 				{@render SelectField('serverRoom', selectedRack.serverRoom ?? '', [['', '—'], ['A', 'A'], ['B', 'B'], ['C', 'C'], ['D', 'D']], v => onupdaterack?.(selectedRack!.id, { serverRoom: v || undefined }))}
-				{@render NumberField('heightU', selectedRack.heightU, v => onupdaterack?.(selectedRack!.id, { heightU: v }))}
 				{@render SelectField('type', selectedRack.type, rackTypes.map(rt => [rt.id, rt.label]), v => onupdaterack?.(selectedRack!.id, { type: v }))}
+				{#if isRU}
+					{@render NumberField('heightU', selectedRack.heightU, v => onupdaterack?.(selectedRack!.id, { heightU: v }))}
+				{:else}
+					{@render NumberField('heightMm', selectedRack.heightMm, v => onupdaterack?.(selectedRack!.id, { heightMm: v }))}
+				{/if}
 				{@render NumberField('widthMm', selectedRack.widthMm, v => onupdaterack?.(selectedRack!.id, { widthMm: v }))}
 				{@render NumberField('depthMm', selectedRack.depthMm, v => onupdaterack?.(selectedRack!.id, { depthMm: v }))}
+				{#if hasShelves}
+					{@const heights = selectedRack.shelfHeights ?? DEFAULT_SHELF_HEIGHTS[selectedRack.type] ?? [0,0,0,0]}
+					{#each [0,1,2,3] as i}
+						{@render NumberField(`shelf ${i+1}`, heights[i] ?? 0, v => {
+							const h = [...heights]; h[i] = v;
+							onupdaterack?.(selectedRack!.id, { shelfHeights: h })
+						})}
+					{/each}
+				{/if}
 				{@render Field('maker', selectedRack.maker ?? '', v => onupdaterack?.(selectedRack!.id, { maker: v }))}
 				{@render Field('model', selectedRack.model ?? '', v => onupdaterack?.(selectedRack!.id, { model: v }))}
 			</div>

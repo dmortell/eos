@@ -2,7 +2,7 @@ import type { DeviceTemplate, DeviceType, RackSettings } from './types'
 
 export const SCALE = 0.5
 export const RU_HEIGHT_MM = 45 // 44.45mm actual, rounded for pixel snap
-export const RACK_GAP_PX = 10
+export const RACK_GAP_PX = 5
 export const RACK_19IN_MM = 480 // 19" internal width
 export const RACK_FRAME_MARGIN_MM = 80 // top + bottom frame rails beyond RU space
 
@@ -41,6 +41,8 @@ export const DEFAULT_PALETTE: DeviceTemplate[] = [
 	{ id: 'cm2', label: 'Horizontal Manager 2u', description: '2U - Finger Duct', type: 'manager', heightU: 2, portCount: 0, portType: null, icon: 'box' },
 	{ id: 'srv2u', label: 'Server (2U)', description: '4 Port Generic', type: 'server', heightU: 2, portCount: 4, portType: 'RJ45', icon: 'server' },
 	{ id: 'srv1u', label: 'Server (1U)', description: '2 Port Generic', type: 'server', heightU: 1, portCount: 2, portType: 'RJ45', icon: 'server' },
+	{ id: 'tower', label: 'Tower PC', description: 'Desktop Tower 200mm', type: 'other', heightU: 9, portCount: 2, portType: 'RJ45', widthMm: 200, icon: 'pcCase' },
+	{ id: 'mon27', label: '27" Monitor', description: '27" Display 620mm', type: 'other', heightU: 8, portCount: 0, portType: 'RJ45', widthMm: 620, icon: 'monitor' },
 ]
 
 export const DEVICE_TYPE_COLORS: Record<DeviceType, string> = {
