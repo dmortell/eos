@@ -42,7 +42,7 @@
 	let devices = $state<DeviceConfig[]>(data?.devices ?? [])
 	let settings = $state<RackSettings>({ ...DEFAULT_SETTINGS, ...(data?.settings ?? {}) })
 	let activeRowId = $state<string>(rows[0]?.id ?? 'default')
-	let sidebarTab = $state<'racks' | 'devices' | 'library'>('racks')
+	let sidebarTab = $state<'racks' | 'devices' | 'library'>('devices')
 	let selectedIds = new SvelteSet<string>()
 	let floorManagerOpen = $state(false)
 	let saveStatus = $state<'saved' | 'saving' | 'unsaved'>('saved')
@@ -560,9 +560,73 @@
 	<PaneGroup direction="horizontal" class="flex-1 min-h-0">
 		<!-- Sidebar -->
 		<Pane defaultSize={20} minSize={15} maxSize={35}>
-			<div class="h-full overflow-y-auto border-r border-gray-200 print:hidden">
-				<RackList {racks} {rows} {activeRowId} onadd={addRack} onselect={selectRack} ondelete={deleteRack} onaddrow={addRow} />
-				<DevicePalette {library} onadd={addDevice} ondragstart={onPaletteDragStart} oncustomadd={addCustomTemplate} />
+			<div class="h-full border-r border-gray-200 flex flex-col print:hidden">
+				<!-- Sidebar tabs -->
+				<div class="flex border-b border-gray-200 shrink-0">
+					<button
+						class="flex-1 py-1.5 text-[11px] font-medium transition-colors
+							{sidebarTab === 'racks' ? 'text-blue-600 border-b-2 border-blue-500 bg-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}"
+						onclick={() => sidebarTab = 'racks'}
+					>Racks</button>
+					<button
+						class="flex-1 py-1.5 text-[11px] font-medium transition-colors
+							{sidebarTab === 'devices' ? 'text-blue-600 border-b-2 border-blue-500 bg-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}"
+						onclick={() => sidebarTab = 'devices'}
+					>Devices</button>
+					<button
+						class="flex-1 py-1.5 text-[11px] font-medium transition-colors
+							{sidebarTab === 'library' ? 'text-blue-600 border-b-2 border-blue-500 bg-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}"
+						onclick={() => sidebarTab = 'library'}
+					>Library</button>
+				</div>
+
+				<!-- Sidebar content -->
+				<div class="flex-1 min-h-0 overflow-y-auto">
+					{#if sidebarTab === 'racks'}
+						<RackList {racks} {rows} {activeRowId} onadd={addRack} onselect={selectRack} ondelete={deleteRack} onaddrow={addRow} />
+					{:else if sidebarTab === 'devices'}
+						<div class="p-2 space-y-2">
+							{#if activeRacks.length === 0}
+								<p class="text-xs text-gray-400 py-4 text-center">No racks in this row</p>
+							{:else}
+								{#each activeRacks as rack (rack.id)}
+									{@const rackDevices = devices.filter(d => d.rackId === rack.id).sort((a, b) => b.positionU - a.positionU)}
+									<div>
+										{#if rackDevices.length === 0}
+										<!-- <p class="text-[10px] text-gray-300 pl-1">Empty</p> -->
+										{:else}
+										<div class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">{rack.label}</div>
+											<div class="space-y-0.5">
+												{#each rackDevices as device (device.id)}
+													<!-- svelte-ignore a11y_click_events_have_key_events -->
+												<!-- svelte-ignore a11y_no_static_element_interactions -->
+												 <!-- {selectedIds.has(device.id) ? 'bg-blue-50 border border-blue-300' : 'bg-gray-50 border border-gray-200 hover:bg-gray-100'}" -->
+												<div
+													class="flex items-center gap-2 w-full pb-1 rounded text-left text-xs transition-colors cursor-pointer
+														{selectedIds.has(device.id) ? 'bg-blue-50 border border-blue-300' : 'xxbg-gray-50 border border-gray-200 hover:bg-gray-100'}"
+													onclick={() => { selectedIds.clear(); selectedIds.add(device.id) }}
+												>
+													<div class="min-w-0 flex-1">
+														<div class="font-mediumxx text-gray-700 truncate">U{device.positionU}: {device.label} · {device.type}</div>
+														<!-- <div class="text-[10px] text-gray-400">U{device.positionU} · {device.heightU}U · {device.type}</div> -->
+													</div>
+													<button class="shrink-0 p-0.5 text-gray-300 hover:text-red-500 transition-colors"
+														onclick={e => { e.stopPropagation(); deleteDevice(device.id) }}
+														title="Delete device">
+														<Icon name="trash" size={12} />
+													</button>
+												</div>
+												{/each}
+											</div>
+										{/if}
+									</div>
+								{/each}
+							{/if}
+						</div>
+					{:else if sidebarTab === 'library'}
+						<DevicePalette {library} onadd={addDevice} ondragstart={onPaletteDragStart} oncustomadd={addCustomTemplate} />
+					{/if}
+				</div>
 			</div>
 		</Pane>
 
