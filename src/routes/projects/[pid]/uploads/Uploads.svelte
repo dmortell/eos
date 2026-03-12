@@ -31,6 +31,8 @@
 		ondelete?: (fileId: string, utKey?: string) => void
 	} = $props()
 
+	$inspect(files)
+
 	const STORAGE_LIMIT = 2048;		// 2GB limit for now (can be increased later if needed, but let's avoid unbounded storage for free users)
 
 	let db = new Firestore()
@@ -174,6 +176,14 @@
 	function formatDate(ts: any): string {
 		if (!ts) return '—'
 		try {
+			// Handle Firestore Timestamp with seconds/nanoseconds
+			if (ts.seconds !== undefined) {
+				const d = new Date(ts.seconds * 1000)
+				const date = d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+				console.log(ts, date)
+				return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+			}
+			// Handle Firestore Timestamp with toDate() method or regular Date
 			const d = ts.toDate ? ts.toDate() : new Date(ts)
 			return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 		} catch { return '—' }
@@ -324,7 +334,7 @@
 								</div>
 
 								<!-- Date -->
-								<span class="text-[11px] text-gray-500">{formatDate(file.uploadedAt ?? file.updatedAt)}</span>
+								<span class="text-[11px] text-gray-500">{formatDate(file.uploadedAt)}</span>
 
 								<!-- Delete -->
 								<div class="flex justify-end">

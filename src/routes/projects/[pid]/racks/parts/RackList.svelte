@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Button, Icon } from '$lib'
-	import type { RackConfig, RackRow } from './types'
+	import { rackTypes, type RackConfig, type RackRow } from './types'
 
 	let { racks = [], rows = [], activeRowId = '', onadd, onselect, ondelete, onaddrow }: {
 		racks: RackConfig[]
@@ -15,7 +15,7 @@
 	let formOpen = $state(false)
 	let confirmingDelete = $state<string | null>(null)
 	let form = $state({
-		label: '',
+		label: 'Rack ' + (racks.length + 1),
 		heightU: 42,
 		heightMm: 2000,
 		widthMm: 700,
@@ -67,9 +67,12 @@
 			</label>
 			<label class="text-[10px] text-gray-500">Type
 				<select class="w-full h-6 px-1 border border-gray-300 rounded text-xs" bind:value={form.type}>
-					<option value="2-post">2-post</option>
-					<option value="4-post">4-post</option>
-					<option value="cabinet">Cabinet</option>
+				{#each rackTypes as rt}
+					<option value={rt.id}>{rt.label}</option>
+				{/each}
+					<!-- <option value="2-post">2-post</option> -->
+					<!-- <option value="4-post">4-post</option> -->
+					<!-- <option value="cabinet">Cabinet</option> -->
 				</select>
 			</label>
 			<label class="text-[10px] text-gray-500">Width (mm)

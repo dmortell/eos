@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Window } from '$lib'
-	import type { RackConfig, DeviceConfig } from './types'
+	import { type RackConfig, type DeviceConfig, rackTypes } from './types'
 
 	let { selectedRack = null, selectedDevice = null, onupdaterack, onupdatedevice }: {
 		selectedRack?: (RackConfig & Record<string, any>) | null
@@ -33,7 +33,7 @@
 				{@render Field('label', selectedRack.label, v => onupdaterack?.(selectedRack!.id, { label: v }))}
 				{@render SelectField('serverRoom', selectedRack.serverRoom ?? '', [['', '—'], ['A', 'A'], ['B', 'B'], ['C', 'C'], ['D', 'D']], v => onupdaterack?.(selectedRack!.id, { serverRoom: v || undefined }))}
 				{@render NumberField('heightU', selectedRack.heightU, v => onupdaterack?.(selectedRack!.id, { heightU: v }))}
-				{@render Field('type', selectedRack.type)}
+				{@render SelectField('type', selectedRack.type, rackTypes.map(rt => [rt.id, rt.label]), v => onupdaterack?.(selectedRack!.id, { type: v }))}
 				{@render NumberField('widthMm', selectedRack.widthMm, v => onupdaterack?.(selectedRack!.id, { widthMm: v }))}
 				{@render NumberField('depthMm', selectedRack.depthMm, v => onupdaterack?.(selectedRack!.id, { depthMm: v }))}
 				{@render Field('maker', selectedRack.maker ?? '', v => onupdaterack?.(selectedRack!.id, { maker: v }))}

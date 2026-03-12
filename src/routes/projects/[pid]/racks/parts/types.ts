@@ -7,6 +7,12 @@ export interface RackRow {
 	label: string // "Row A", "Row B"
 }
 
+export const rackTypes = [
+	{ id: '2-post', label: '2-Post' },
+	{ id: '4-post', label: '4-Post' },
+	{ id: 'cabinet', label: 'Cabinet' },
+]
+
 export interface RackConfig {
 	id: string
 	label: string // "A101"

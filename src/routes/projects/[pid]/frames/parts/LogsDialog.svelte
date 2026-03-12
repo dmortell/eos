@@ -15,6 +15,7 @@
 	let loading = $state(false)
 	let error = $state<string | null>(null)
 	let userNames = $state<Record<string, string>>({})
+	let deletingLogId = $state<string | null>(null)
 
 	$effect(() => {
 		if (open && projectId) loadLogs()
@@ -55,6 +56,20 @@
 		if (!uid || uid === 'unknown') return uid
 		return userNames[uid] ?? uid.slice(0, 8)
 	}
+
+	async function deleteLog(log: LogEntry): Promise<void> {
+		if (!projectId || !log?.id || deletingLogId) return
+		deletingLogId = log.id
+		error = null
+		try {
+			await db.delete(`logs/${projectId}/frames`, log.id)
+			logs = logs.filter((entry) => entry.id !== log.id)
+		} catch (e: any) {
+			error = e?.message ?? 'Failed to delete log entry'
+		} finally {
+			deletingLogId = null
+		}
+	}
 </script>
 
 {#if open}
@@ -82,12 +97,22 @@
 					<div class="space-y-0.5 font-mono text-[11px]">
 						{#each logs as log}
 							<div class="py-1 border-b border-gray-100 last:border-b-0">
-								<div class="flex items-baseline gap-2">
-									<span class="text-gray-400 shrink-0">{formatTimestamp(log.timestamp)}</span>
-									{#if log.floor}
-										<span class="text-blue-500 shrink-0">{formatFloor(log.floor, floorFormat)}</span>
-									{/if}
-									<span class="text-purple-400 shrink-0" title={log.uid}>{displayName(log.uid)}</span>
+								<div class="flex items-baseline justify-between gap-2">
+									<div class="flex items-baseline gap-2 min-w-0">
+										<span class="text-gray-400 shrink-0">{formatTimestamp(log.timestamp)}</span>
+										{#if log.floor}
+											<span class="text-blue-500 shrink-0">{formatFloor(log.floor, floorFormat)}</span>
+										{/if}
+										<span class="text-purple-400 shrink-0" title={log.uid}>{displayName(log.uid)}</span>
+									</div>
+									<button
+										type="button"
+										class="text-[10px] text-red-500 hover:underline disabled:text-gray-300 disabled:no-underline"
+										onclick={() => deleteLog(log)}
+										disabled={!log.id || deletingLogId === log.id}
+									>
+										{deletingLogId === log.id ? 'Deleting...' : 'Delete'}
+									</button>
 								</div>
 								<div class="pl-4 text-gray-600">
 									{#each log.changes as change}

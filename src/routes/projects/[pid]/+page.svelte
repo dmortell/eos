@@ -3,6 +3,7 @@
 	import { Titlebar } from '$lib'
 	import { page } from '$app/state';
 	import { type Project } from './racks/parts/types';
+	import { fmtFloor, migrateFloors } from '$lib/utils/floor'
 	let {params, ...other} = $props()
 	let project: Record<string, any> = $state({})
 	let pid = $derived(params.pid)
@@ -10,15 +11,24 @@
 	let path = $derived(page.url.pathname); // This will correctly update id
 	let db = new Firestore();
 
+	let floors = $state([{ number: 1, serverRoomCount: 1 }]);
+	// let floorFormat = $state('01');
+	// const fmt = (fl: number) => fmtFloor(fl, floorFormat, floors)
+	const fmt = (fl: number) => fl < 0 ? `B${String(Math.abs(fl))}` : `${fl}F`
+
 	const tools = [
-		{ href: 'racks',   icon: 'server', label: 'Rack Elevations', description: 'Manage server rooms, racks, and devices.' },
-		{ href: 'frames',  icon: 'rows',   label: 'Patch Frames', description: 'Allocate outlet ports to patch frames.', },
-		{ href: 'outlets', icon: 'route',  label: 'Outlets and Routes', description: 'Manage floorplan outlets and cable routes.', },
-		{ href: 'uploads', icon: 'upload', label: 'Floorplan Uploads', description: 'Upload and manage floorplan files and pages.', },
+		{ detail:1, href: 'racks',   icon: 'server', label: 'Rack Elevations', description: 'Manage server rooms, racks, and devices.' },
+		{ detail:1, href: 'frames',  icon: 'rows',   label: 'Patch Frames', description: 'Allocate outlet ports to patch frames.', },
+		{ detail:1, href: 'outlets', icon: 'route',  label: 'Outlets and Routes', description: 'Manage floorplan outlets and cable routes.', },
+		{ detail:0, href: 'uploads', icon: 'upload', label: 'Floorplan Uploads', description: 'Upload and manage floorplan files and pages.', },
 	]
 
+
 	$effect(()=>{
-		let unsub = db.subscribeOne(`projects`, pid, data => project=data)
+		let unsub = db.subscribeOne(`projects`, pid, data => {
+			project = data
+			if (data?.floors?.length) floors = migrateFloors(data.floors);
+		})
 		return () => { unsub?.() }
 	})
 </script>
@@ -43,7 +53,18 @@
 							<span class="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-100 text-zinc-700 group-hover:bg-blue-100 group-hover:text-blue-700 dark:bg-zinc-900 dark:text-zinc-300 dark:group-hover:bg-blue-900/50 dark:group-hover:text-blue-300">
 								<Icon name={tool.icon} size={16} />
 							</span>
-							<span class="col-start-2 row-start-1 block pt-0.5 text-sm font-semibold text-zinc-900 group-hover:text-blue-800 dark:text-zinc-100 dark:group-hover:text-blue-200">{tool.label}</span>
+							<div class="col-start-2 row-start-1 block pt-0.5 text-sm text-zinc-900 group-hover:text-blue-800 dark:text-zinc-100 dark:group-hover:text-blue-200">
+							<div class="font-semibold">{tool.label}</div>
+							<div>
+								{#if tool.detail}
+								{#each floors as fl (fl.number)}
+									<button class="text-xs pr-1">{fmt(fl.number)}</button>
+									<!-- <button class="h-6 px-2 rounded text-[11px] font-mono font-medium transition-colors">{fmt(fl.number)}</button> -->
+								{/each}
+								{/if}
+
+							</div>
+							</div>
 							<span class="col-start-2 row-start-2 md:col-start-3 md:row-start-1 block pt-0.5 text-sm text-zinc-600 dark:text-zinc-400">{tool.description}</span>
 						</a>
 					</li>

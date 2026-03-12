@@ -30,16 +30,17 @@ export class Session {
     unsub: () => void = () => {};
 
     private syncUserProfile(user: User): void {
-        const payload = sanitizeFirestoreData({
+        const now = new Date();
+        const payload = {
             uid: user.uid,
-            displayName: user.displayName ?? null,
-            email: user.email ?? null,
-            photoURL: user.photoURL ?? null,
-            phoneNumber: user.phoneNumber ?? null,
+            displayName: user.displayName ?? '',
+            email: user.email ?? '',
+            photoURL: user.photoURL ?? '',
+            phoneNumber: user.phoneNumber ?? '',
             providerIds: user.providerData.map((p) => p.providerId),
-            updatedAt: serverTimestamp(),
-            lastLoginAt: serverTimestamp(),
-        });
+            updatedAt: now,
+            lastLoginAt: now,
+        };
         setDoc(doc(firestore, 'users', user.uid), payload, { merge: true }).catch((error) => {
             console.error('Error syncing user profile:', error);
         });
@@ -102,8 +103,9 @@ export interface DocWithId {
 //     return input;
 // }
 
-/** Strip undefined values recursively (Firestore rejects them) */
+/** Strip undefined values recursively (Firestore rejects them). Preserve Date objects and other special types. */
 function sanitizeFirestoreData(obj: any): any {
+    if (obj instanceof Date) return obj  // Let Firebase handle Date conversion to Timestamp
     if (Array.isArray(obj)) return obj.map(sanitizeFirestoreData)
     if (obj && typeof obj === 'object') {
         const out: any = {}

@@ -523,8 +523,7 @@
 {/if}
 
 <main class="h-dvh w-full overflow-hidden flex flex-col">
-	<Titlebar menu=1 title={projectName ? `${projectName} — Rack Elevations` : 'Rack Elevations'}>
-	</Titlebar>
+	<Titlebar menu=1 title={projectName ? `${projectName} — Rack Elevations` : 'Rack Elevations'}></Titlebar>
 
 	<PaneGroup direction="horizontal" class="flex-1 min-h-0">
 		<!-- Sidebar -->
@@ -618,7 +617,7 @@
 					</div>
 
 					<!-- Slab (static, extends to outer wall edges) -->
-					<Rect item={{ x: roomLeft - wallW, z: settings.slabLevel - 200, width: roomW + wallW * 2, height: 200 }} label="Slab FL+{settings.slabLevel}" {view} />
+					<Rect item={{ x: roomLeft - wallW, z: settings.slabLevel - 100, width: roomW + wallW * 2, height: 100 }} label="Slab FL+{settings.slabLevel}" {view} />
 
 					<!-- Floor line (draggable, between walls) -->
 					<!-- svelte-ignore a11y_no_static_element_interactions -->

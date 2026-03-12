@@ -20,10 +20,6 @@
 
 a 360 degree viewer would be awesome. take a 360 panaroma ot various locations for client to walkthru.
 
-# build your own (this may actually suit you)
-
-Since you’re already a strong JS developer (CAD app, Svelte, etc) this is quite doable.
-
 ## Architecture:
 
 * Mobile PWA (Svelte)
@@ -53,11 +49,6 @@ Metadata captured becomes the photo album title and report header:
    - surveyor
    - date
    - floor
-
-No concerns with cable length limits.
-Preference is for Hub 1 and Hub 3.
-Swapping Hub 1 with AHU room would be preferred if possible.
-If theres any possibility of expanding to the upper or lower floor in future, the rooms should be aligned with the internal vertical risers. So
 
 ## Data structure
 
