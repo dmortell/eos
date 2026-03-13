@@ -1,7 +1,7 @@
-<script>
+<script lang="ts">
 	import { Dropdown, Icon, Row, Session, Spinner } from '$lib'
 	import { ModeWatcher, toggleMode } from "mode-watcher";
-	import { getContext } from 'svelte';
+	import { getContext, type Snippet } from 'svelte';
 	import PresenceAvatars from '$lib/presence/PresenceAvatars.svelte'
 	import { startPresence, stopPresence } from '$lib/presence/presence.svelte'
 	const menuItems = [
@@ -9,8 +9,14 @@
 		{ label: 'Frames', href: 'frames' },
 		{ label: 'Floorplans', href: 'outlets' },
 	]
-	let {title="EOS 0.1", height=null, children=null, menu=null, saveStatus=''} = $props()
-	let session = getContext('session')
+	let {title="EOS 0.1", height=null, children=null, menu=null, saveStatus=''}: {
+		title?: string
+		height?: number | null
+		children?: Snippet | null
+		menu?: boolean | null
+		saveStatus?: string
+	} = $props()
+	let session = getContext('session') as Session
 
 	$effect(() => {
 		if (session.user) {

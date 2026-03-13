@@ -1,19 +1,18 @@
-<script>
+<script lang="ts">
 	import { page } from '$app/state';
 	import { getContext } from 'svelte';
 	import { Firestore, Spinner, Session } from '$lib';
 	import { writeLog } from '$lib/logger';
+	import type { ChangeDetail } from '$lib/logger';
+	import type { FloorConfig } from '$lib/types/project';
 	import { migrateFloors, updateFloors as _updateFloors, deleteFloor as _deleteFloor } from '$lib/utils/floor';
 	import Frames from './Frames.svelte';
 
 	let db = new Firestore();
-	/** @type {Session} */
-	let session = getContext('session');
-	let frameData = $state(/** @type {any} */ (null));
-	/** @type {Record<string, any>} */
-	let racksData = $state({});
-	/** @type {import('$lib/types/project').FloorConfig[]} */
-	let floors = $state([{ number: 1, serverRoomCount: 1 }]);
+	let session = getContext('session') as Session;
+	let frameData: any = $state(null);
+	let racksData: Record<string, any> = $state({});
+	let floors = $state<FloorConfig[]>([{ number: 1, serverRoomCount: 1 }]);
 	let loading = $state(true);
 	let activeFloor = $state(1);
 	let projectName = $state('');
@@ -23,7 +22,7 @@
 	$effect(() => {
 		const pid = page.params.pid;
 		if (!pid) return;
-		const unsub = db.subscribeOne('projects', pid, (/** @type {Record<string, any>} */ data) => {
+		const unsub = db.subscribeOne('projects', pid, (data: any) => {
 			if (data?.name) projectName = data.name;
 			if (data?.floors?.length) {
 				floors = migrateFloors(data.floors);
@@ -80,12 +79,11 @@
 		return () => { unsubs.forEach(u => u?.()); };
 	});
 
-	/** Migrate data from old `frames/{pid}` doc to new per-floor doc if it exists */
-	async function migrateOldDoc(/** @type {string} */ pid) {
+	async function migrateOldDoc(pid: string) {
 		try {
 			const oldData = await db.getOne('frames', pid);
 			if (oldData && (oldData.zoneLocations || oldData.zone || oldData.zones)) {
-				const oldFloor = /** @type {number} */ (oldData.floor ?? 1);
+				const oldFloor = (oldData.floor as number) ?? 1;
 				const newId = `${pid}_F${String(oldFloor).padStart(2, '0')}`;
 				const existing = await db.getOne('frames', newId);
 				if (!existing || (!existing.zoneLocations && !existing.frames)) {
@@ -101,21 +99,19 @@
 		}
 	}
 
-	function changeFloor(/** @type {number} */ newFloor) {
+	function changeFloor(newFloor: number) {
 		if (newFloor === activeFloor) return;
 		activeFloor = newFloor;
 	}
 
-	/** @param {import('$lib/types/project').FloorConfig[]} updated */
-	function updateFloors(updated) {
+	function updateFloors(updated: FloorConfig[]) {
 		const pid = page.params.pid;
 		if (!pid) return;
 		floors = updated;
 		activeFloor = _updateFloors(db, pid, updated, activeFloor);
 	}
 
-	/** @param {number} fl */
-	async function deleteFloor(fl) {
+	async function deleteFloor(fl: number) {
 		const pid = page.params.pid;
 		if (!pid) return;
 		const result = await _deleteFloor(db, pid, fl, floors, activeFloor);
@@ -123,8 +119,7 @@
 		activeFloor = result.activeFloor;
 	}
 
-	/** @param {any} payload @param {import('$lib/logger').ChangeDetail[]} changes */
-	function save(payload, changes) {
+	function save(payload: any, changes: ChangeDetail[]) {
 		const pid = page.params.pid;
 		if (!pid) return;
 		db.save('frames', { id: docId(), ...payload, floor: activeFloor });

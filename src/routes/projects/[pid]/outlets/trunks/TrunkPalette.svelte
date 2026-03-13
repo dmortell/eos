@@ -185,7 +185,7 @@
 				{@const color = trunk.color ?? TRUNK_COLORS[trunk.shape]}
 				{@const len = computeTrunkLength(trunk)}
 				<!-- svelte-ignore a11y_click_events_have_key_events -->
-				<div class="w-full flex items-center gap-1.5 px-2 py-1 text-left transition-colors cursor-pointer
+				<div class="w-full flex items-center gap-1.5 px-2 py-1 text-left transition-colors cursor-pointer select-none
 						{selected ? 'bg-cyan-50 text-cyan-800' : 'hover:bg-gray-50 text-gray-600'}"
 					onclick={(e) => handleListClick(e, trunk, i)}
 					role="button" tabindex="0"

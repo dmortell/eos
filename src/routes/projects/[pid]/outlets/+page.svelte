@@ -1,15 +1,16 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { Firestore, Spinner } from '$lib';
+	import type { FloorConfig } from '$lib/types/project';
 	import { updateFloors as _updateFloors, deleteFloor as _deleteFloor } from '$lib/utils/floor';
 	import Outlets from './Outlets.svelte';
 
 	let db = new Firestore();
-	let outletsData = $state(null);
-	let files = $state([]);
-	let floors = $state([{ number: 1, serverRoomCount: 1 }]);
-	let frameData = $state(null);
-	let racksData = $state({});
+	let outletsData: any = $state(null);
+	let files: any[] = $state([]);
+	let floors = $state<FloorConfig[]>([{ number: 1, serverRoomCount: 1 }]);
+	let frameData: any = $state(null);
+	let racksData: Record<string, any> = $state({});
 	let loading = $state(true);
 	let activeFloor = $state(1);
 	let projectName = $state('');
@@ -22,7 +23,7 @@
 			if (data?.name) projectName = data.name;
 			if (Array.isArray(data?.floors) && data.floors.length) {
 				floors = data.floors;
-				if (!data.floors.find(/** @param {any} f */ f => f.number === activeFloor)) {
+				if (!data.floors.find((f: any) => f.number === activeFloor)) {
 					activeFloor = data.floors[0].number;
 				}
 			}
@@ -30,11 +31,11 @@
 		return () => { unsub?.(); };
 	});
 
-	// Files collection (all uploaded PDFs)
+	// Files collection (only this project's uploaded PDFs)
 	$effect(() => {
 		const pid = page.params.pid;
 		if (!pid) return;
-		const unsub = db.subscribeMany('files', data => { files = data; });
+		const unsub = db.subscribeWhere('files', 'projectId', pid, data => { files = data; });
 		return () => { unsub?.(); };
 	});
 
@@ -81,7 +82,7 @@
 		return () => { unsubs.forEach(u => u?.()); };
 	});
 
-	function changeFloor(newFloor) {
+	function changeFloor(newFloor: number) {
 		if (newFloor === activeFloor) return;
 		activeFloor = newFloor;
 	}
@@ -101,25 +102,20 @@
 		activeFloor = result.activeFloor;
 	}
 
-	function save(payload) {
+	function save(payload: any) {
 		const pid = page.params.pid;
 		if (!pid) return;
 		db.save('outlets', { id: docId(), ...payload, floor: activeFloor });
 	}
 
-	/** Update a rack config in the racks collection
-	 * @param {string} room
-	 * @param {string} rackId
-	 * @param {Record<string, any>} updates
-	 */
-	function saveRack(room, rackId, updates) {
+	function saveRack(room: string, rackId: string, updates: Record<string, any>) {
 		const pid = page.params.pid;
 		if (!pid) return;
 		const floorStr = String(activeFloor).padStart(2, '0');
 		const rackDocId = `${pid}_F${floorStr}_R${room}`;
-		const doc = racksData[room];
-		if (!doc?.racks) return;
-		const updatedRacks = doc.racks.map(/** @param {any} r */ r => r.id === rackId ? { ...r, ...updates } : r);
+		const rackDoc = racksData[room];
+		if (!rackDoc?.racks) return;
+		const updatedRacks = rackDoc.racks.map((r: any) => r.id === rackId ? { ...r, ...updates } : r);
 		db.save('racks', { id: rackDocId, racks: updatedRacks });
 	}
 </script>

@@ -211,7 +211,7 @@
 	}
 </script>
 
-<Titlebar menu=1 title={projectName ? `${projectName} — Uploads` : 'Uploads'} />
+<Titlebar menu={true} title={projectName ? `${projectName} — Uploads` : 'Uploads'} />
 
 <input bind:this={fileInput} type="file" accept=".pdf,image/*" multiple class="hidden" onchange={onInputChange} disabled={storageFull} />
 

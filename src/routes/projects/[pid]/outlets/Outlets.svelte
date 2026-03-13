@@ -1363,7 +1363,7 @@
 <svelte:window onkeydown={onKeyDown} />
 
 <div class="h-screen flex flex-col overflow-hidden">
-<Titlebar menu=1 title={projectName ? `${projectName} — Floorplan` : 'Floorplan'} />
+<Titlebar menu={true} title={projectName ? `${projectName} — Floorplan` : 'Floorplan'} />
 
 <PaneGroup direction="horizontal" class="flex-1 min-h-0">
 	<!-- Sidebar -->

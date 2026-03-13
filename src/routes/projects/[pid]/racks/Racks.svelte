@@ -555,7 +555,7 @@
 {/if}
 
 <main class="h-dvh w-full overflow-hidden flex flex-col">
-	<Titlebar menu=1 title={projectName ? `${projectName} — Rack Elevations` : 'Rack Elevations'}></Titlebar>
+	<Titlebar menu={true} title={projectName ? `${projectName} — Rack Elevations` : 'Rack Elevations'}></Titlebar>
 
 	<PaneGroup direction="horizontal" class="flex-1 min-h-0">
 		<!-- Sidebar -->
