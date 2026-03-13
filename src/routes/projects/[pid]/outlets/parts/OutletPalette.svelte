@@ -1,24 +1,16 @@
 <script lang="ts">
 	import { Icon } from '$lib'
-	import type { OutletConfig, PageCalibration, ToolMode } from './types'
+	import type { OutletConfig, ToolMode } from './types'
 	import { USAGE_COLORS, MOUNT_LABELS, MOUNT_SHORT, CABLE_COLORS, LEVEL_INFO } from './constants'
 
 	import type { StickyDefaults } from './constants'
 
-	let { projectFiles, projectId, selectedFileId, selectedPage, selectedFile, calibration, outlets, selectedIds, activeTool, activeZone, stickyDefaults, onfilechange, onpagechange, onzonechange, ontoolchange, onselect, onrangeselect, onupdate, onupdateselected, ondelete, ondefaultschange }: {
-		projectFiles: any[]
-		projectId: string
-		selectedFileId: string
-		selectedPage: number
-		selectedFile: any
-		calibration: PageCalibration | null
+	let { outlets, selectedIds, activeTool, activeZone, stickyDefaults, onzonechange, ontoolchange, onselect, onrangeselect, onupdate, onupdateselected, ondelete, ondefaultschange }: {
 		outlets: OutletConfig[]
 		selectedIds: Set<string>
 		activeTool: ToolMode
 		activeZone: string
 		stickyDefaults: StickyDefaults
-		onfilechange: (id: string) => void
-		onpagechange: (page: number) => void
 		onzonechange: (zone: string) => void
 		ontoolchange: (tool: ToolMode) => void
 		onselect: (id: string, multi: boolean) => void
@@ -40,11 +32,6 @@
 	}
 	let lastClickedIndex = $state(-1)
 
-	function isPageCalibrated(file: any, page: number): boolean {
-		const p = file?.pages?.[page]
-		return !!(p?.origin && p?.scale?.scale)
-	}
-
 	function handleListClick(e: MouseEvent, outlet: OutletConfig, index: number) {
 		if (e.shiftKey && lastClickedIndex >= 0) {
 			onrangeselect(lastClickedIndex, index)
@@ -56,47 +43,6 @@
 </script>
 
 <div class="p-3 h-full flex flex-col gap-4 text-xs">
-	<!-- File picker -->
-	<div class="space-y-1.5">
-		<div class="flex items-center gap-2 justify-between">
-			<div class="text-[10px] text-gray-400 uppercase tracking-wider font-medium">Floorplan</div>
-			<a href="/projects/{projectId}/uploads" class="flex gap-1 items-center border rounded shrink-0 px-2 py-1 text-gray-400 hover:text-blue-600 transition-colors" title="Upload floorplans">
-				<Icon name="upload" size={14} /> Upload
-			</a>
-		</div>
-		<select
-			class="w-full h-7 px-2 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-			value={selectedFileId}
-			onchange={e => onfilechange(e.currentTarget.value)}>
-			<option value="">— Select file —</option>
-			{#each projectFiles as f (f.id)}
-				<option value={f.id}>{f.name ?? f.id}</option>
-			{/each}
-		</select>
-
-		{#if selectedFile?.pageCount && selectedFile.pageCount > 1}
-			<div class="flex items-center gap-2">
-				<span class="text-gray-400">Page</span>
-				<select
-					class="h-6 px-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-					value={selectedPage}
-					onchange={e => onpagechange(parseInt(e.currentTarget.value))}>
-					{#each Array.from({ length: selectedFile.pageCount }, (_, i) => i + 1) as p}
-						<option value={p} disabled={!isPageCalibrated(selectedFile, p)}>
-							{p} {isPageCalibrated(selectedFile, p) ? '' : '(not calibrated)'}
-						</option>
-					{/each}
-				</select>
-			</div>
-		{/if}
-
-		{#if selectedFileId && !calibration}
-			<div class="px-2 py-1.5 bg-amber-50 border border-amber-200 rounded text-[10px] text-amber-700">
-				This page needs origin and scale set in the uploads tool before outlets can be placed.
-			</div>
-		{/if}
-	</div>
-
 	<!-- Zone selector -->
 	<div class="space-y-1.5">
 		<div class="text-[10px] text-gray-400 uppercase tracking-wider font-medium" title="Outlet labels zone">Zone</div>

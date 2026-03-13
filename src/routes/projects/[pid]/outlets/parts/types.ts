@@ -48,7 +48,7 @@ export interface PageCalibration {
 }
 
 export type ToolMode = 'select' | 'outlet' | 'trunk'
-export type SidebarTab = 'outlets' | 'racks' | 'trunks'
+export type SidebarTab = 'file' | 'outlets' | 'racks' | 'trunks'
 
 import type { PrintSettings as _PrintSettings } from '$lib/ui/print/types'
 export type { PrintSettings, PaperSize, PaperOrientation } from '$lib/ui/print/types'

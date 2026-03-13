@@ -17,6 +17,7 @@
 	import { genId, splitSegment as splitTrunkSeg, snapToGrid, dist, nearestPointOnSegment } from './trunks/geometry'
 	import { SNAP_THRESHOLD_MM } from './trunks/constants'
 	import { exportOutletsToExcel } from './parts/exportExcel'
+    import { toast } from 'svelte-sonner';
 
 	let { data = null, files = [], floors = [], frameData = null, racksData = {}, floor, projectId = '', projectName = '', onsave, onfloorchange, onupdatefloors, ondeletefloor, onsaverack }: {
 		data?: any
@@ -352,6 +353,11 @@
 		}
 	}
 
+	function isPageCalibrated(file: any, page: number): boolean {
+		const p = file?.pages?.[page]
+		return !!(p?.origin && p?.scale?.scale)
+	}
+
 	// Update calibration when file/page changes
 	$effect(() => {
 		if (!selectedFile?.pages) { calibration = null; return }
@@ -462,6 +468,7 @@
 		const prev = outlets
 		outlets = [...outlets, outlet]
 		selectedIds = new Set([id])
+		toast.success("Outlet added")
 		history.record({
 			label: 'Add outlet',
 			undo: () => { outlets = prev; selectedIds = new Set() },
@@ -1324,6 +1331,11 @@
 			<div class="flex border-b border-gray-200 shrink-0">
 				<button
 					class="flex-1 py-1.5 text-[11px] font-medium transition-colors
+						{sidebarTab === 'file' ? 'text-blue-600 border-b-2 border-blue-500 bg-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}"
+					onclick={() => sidebarTab = 'file'}
+				>Plan</button>
+				<button
+					class="flex-1 py-1.5 text-[11px] font-medium transition-colors
 						{sidebarTab === 'outlets' ? 'text-blue-600 border-b-2 border-blue-500 bg-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}"
 					onclick={() => sidebarTab = 'outlets'}
 				>Outlets</button>
@@ -1341,20 +1353,53 @@
 
 			<!-- Sidebar content -->
 			<div class="flex-1 min-h-0">
-				{#if sidebarTab === 'outlets'}
-					<OutletPalette {projectId}
-						{projectFiles}
-						{selectedFileId}
-						{selectedPage}
-						{selectedFile}
-						{calibration}
+				{#if sidebarTab === 'file'}
+					<div class="p-3 space-y-1.5 text-xs">
+						<div class="flex items-center gap-2 justify-between">
+							<div class="text-[10px] text-gray-400 uppercase tracking-wider font-medium">Floorplan</div>
+							<a href="/projects/{projectId}/uploads" class="flex gap-1 items-center border rounded shrink-0 px-2 py-1 text-gray-400 hover:text-blue-600 transition-colors" title="Upload floorplans">
+								<Icon name="upload" size={14} /> Upload
+							</a>
+						</div>
+						<select
+							class="w-full h-7 px-2 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+							value={selectedFileId}
+							onchange={e => { selectedFileId = e.currentTarget.value; selectedPage = 1 }}>
+							<option value="">— Select file —</option>
+							{#each projectFiles as f (f.id)}
+								<option value={f.id}>{f.name ?? f.id}</option>
+							{/each}
+						</select>
+
+						{#if selectedFile?.pageCount && selectedFile.pageCount > 1}
+							<div class="flex items-center gap-2">
+								<span class="text-gray-400">Page</span>
+								<select
+									class="h-6 px-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+									value={selectedPage}
+									onchange={e => selectedPage = parseInt(e.currentTarget.value)}>
+									{#each Array.from({ length: selectedFile.pageCount }, (_, i) => i + 1) as p}
+										<option value={p} disabled={!isPageCalibrated(selectedFile, p)}>
+											{p} {isPageCalibrated(selectedFile, p) ? '' : '(not calibrated)'}
+										</option>
+									{/each}
+								</select>
+							</div>
+						{/if}
+
+						{#if selectedFileId && !calibration}
+							<div class="px-2 py-1.5 bg-amber-50 border border-amber-200 rounded text-[10px] text-amber-700">
+								This page needs origin and scale set in the uploads tool before outlets can be placed.
+							</div>
+						{/if}
+					</div>
+				{:else if sidebarTab === 'outlets'}
+					<OutletPalette
 						{outlets}
 						{selectedIds}
 						{activeTool}
 						{activeZone}
 						{stickyDefaults}
-						onfilechange={(id) => { selectedFileId = id; selectedPage = 1 }}
-						onpagechange={(p) => selectedPage = p}
 						onzonechange={(z) => activeZone = z}
 						ontoolchange={(t) => activeTool = t}
 						onselect={selectOutlet}
@@ -1407,7 +1452,7 @@
 					{calibration}
 					{outlets}
 					{selectedIds}
-					{activeTool}
+					bind:activeTool={activeTool}
 					{sidebarTab}
 					{rackPlacements}
 					rackConfigs={allRackConfigs}

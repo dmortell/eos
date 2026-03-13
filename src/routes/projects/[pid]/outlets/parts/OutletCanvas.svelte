@@ -15,7 +15,7 @@
 	import type TrunkPalette from '../trunks/TrunkPalette.svelte'
 	import { PrintToolbar, triggerPrint, updatePrintStyles, removePrintStyles, paperDimsMm, type PrintSettings, DEFAULT_PRINT_SETTINGS } from '$lib/ui/print'
 
-	let { file, page = 1, viewKey = '', calibration, outlets, selectedIds, activeTool, sidebarTab = 'outlets',
+	let { file, page = 1, viewKey = '', calibration, outlets, selectedIds, activeTool=$bindable(), sidebarTab = 'outlets',
 		rackPlacements = [], rackConfigs = [], selectedRackIds = new Set(),
 		trunks = [], secondaryRoutes = [], nodeFillMap = new Map(), selectedTrunkIds = new Set(), selectedNodeIds = new Set(), trunkPalette,
 		outletTypeCounts = { wall: 0, floor: 0, box: 0 },

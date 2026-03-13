@@ -1,6 +1,7 @@
 <script lang="ts">
   import './layout.css';
   import favicon from '$lib/assets/favicon.ico';
+	import { Toaster } from '$lib/components/ui/sonner';
   import { setContext } from 'svelte';
   import { Session, Firestore, Titlebar, Spinner, MetalButton } from '$lib';
   let { children } = $props();
@@ -67,6 +68,8 @@
   <link rel="icon" href={favicon} />
   <title>EOS</title>
 </svelte:head>
+
+<Toaster />
 
 {#if session.user===undefined || (session.user===null && !showLogin)}
 
