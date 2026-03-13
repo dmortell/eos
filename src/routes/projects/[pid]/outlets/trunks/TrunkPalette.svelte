@@ -6,17 +6,29 @@
 	import { computeTrunkLength } from './geometry'
 
 	let { trunks = [], selectedTrunkIds = new Set(), selectedNodeIds = new Set(), activeTool = 'select',
-		onselect, ontoolchange, ondelete, ontogglevisibility, onupdatetrunk }: {
+		onselect, onrangeselect, ontoolchange, ondelete, ontogglevisibility, onupdatetrunk }: {
 		trunks: TrunkConfig[]
 		selectedTrunkIds: Set<string>
 		selectedNodeIds: Set<string>
 		activeTool: string
 		onselect: (trunkId: string, multi: boolean) => void
+		onrangeselect: (fromIndex: number, toIndex: number) => void
 		ontoolchange: (tool: 'select' | 'trunk') => void
 		ondelete: () => void
 		ontogglevisibility: (trunkId: string) => void
 		onupdatetrunk: (trunkId: string, updates: Partial<TrunkConfig>) => void
 	} = $props()
+
+	let lastClickedIndex = $state(-1)
+
+	function handleListClick(e: MouseEvent, trunk: TrunkConfig, index: number) {
+		if (e.shiftKey && lastClickedIndex >= 0) {
+			onrangeselect(lastClickedIndex, index)
+		} else {
+			onselect(trunk.id, e.ctrlKey || e.metaKey)
+		}
+		lastClickedIndex = index
+	}
 
 	// ── Drawing settings (sticky for new trunks) ──
 	let shape = $state<TrunkShape>('rect')
@@ -168,14 +180,14 @@
 		{#if trunks.length === 0}
 			<div class="p-4 text-center text-gray-400 text-[11px]">No trunks yet</div>
 		{:else}
-			{#each trunks as trunk (trunk.id)}
+			{#each trunks as trunk, i (trunk.id)}
 				{@const selected = selectedTrunkIds.has(trunk.id)}
 				{@const color = trunk.color ?? TRUNK_COLORS[trunk.shape]}
 				{@const len = computeTrunkLength(trunk)}
 				<!-- svelte-ignore a11y_click_events_have_key_events -->
 				<div class="w-full flex items-center gap-1.5 px-2 py-1 text-left transition-colors cursor-pointer
 						{selected ? 'bg-cyan-50 text-cyan-800' : 'hover:bg-gray-50 text-gray-600'}"
-					onclick={(e) => onselect(trunk.id, e.ctrlKey || e.metaKey)}
+					onclick={(e) => handleListClick(e, trunk, i)}
 					role="button" tabindex="0"
 				>
 					<!-- Visibility toggle -->

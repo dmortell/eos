@@ -717,8 +717,8 @@
 			if (hit) {
 				if (hit.type === 'node' && onselecttrunknode) {
 					// Select the trunk first if not already
-					if (!selectedTrunkIds.has(hit.trunkId)) onselecttrunk(hit.trunkId, e.ctrlKey || e.metaKey)
-					onselecttrunknode(hit.nodeId!, e.ctrlKey || e.metaKey)
+					if (!selectedTrunkIds.has(hit.trunkId)) onselecttrunk(hit.trunkId, e.ctrlKey || e.metaKey || e.shiftKey)
+					onselecttrunknode(hit.nodeId!, e.ctrlKey || e.metaKey || e.shiftKey)
 
 					// Start node drag — capture origin and nearest connected neighbor for Shift-constrain
 					draggingTrunkNode = true
@@ -769,7 +769,7 @@
 					return
 				}
 				if (hit.type === 'body') {
-					onselecttrunk(hit.trunkId, e.ctrlKey || e.metaKey)
+					onselecttrunk(hit.trunkId, e.ctrlKey || e.metaKey || e.shiftKey)
 					return
 				}
 			}

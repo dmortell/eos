@@ -3,7 +3,7 @@
 	import { getContext } from 'svelte';
 	import { Firestore, Spinner, Session } from '$lib';
 	import { writeLog } from '$lib/logger';
-	import { migrateFloors } from '$lib/utils/floor';
+	import { migrateFloors, updateFloors as _updateFloors, deleteFloor as _deleteFloor } from '$lib/utils/floor';
 	import Frames from './Frames.svelte';
 
 	let db = new Firestore();
@@ -111,36 +111,16 @@
 		const pid = page.params.pid;
 		if (!pid) return;
 		floors = updated;
-		db.save('projects', { id: pid, floors: updated });
-		// If active floor was removed, switch to first available
-		if (!updated.find(f => f.number === activeFloor) && updated.length > 0) {
-			activeFloor = updated[0].number;
-		}
+		activeFloor = _updateFloors(db, pid, updated, activeFloor);
 	}
 
 	/** @param {number} fl */
 	async function deleteFloor(fl) {
 		const pid = page.params.pid;
 		if (!pid) return;
-
-		// Delete frames doc for this floor
-		const floorStr = String(fl).padStart(2, '0');
-		try { await db.delete('frames', `${pid}_F${floorStr}`); } catch {}
-
-		// Delete racks docs for this floor (all rooms A-D)
-		for (const rm of ['A', 'B', 'C', 'D']) {
-			try { await db.delete('racks', `${pid}_F${floorStr}_R${rm}`); } catch {}
-		}
-
-		// Update floors list
-		const updated = floors.filter(f => f.number !== fl);
-		floors = updated.length > 0 ? updated : [{ number: 1, serverRoomCount: 1 }];
-		db.save('projects', { id: pid, floors });
-
-		// Switch to another floor if we deleted the active one
-		if (activeFloor === fl) {
-			activeFloor = floors[0].number;
-		}
+		const result = await _deleteFloor(db, pid, fl, floors, activeFloor);
+		floors = result.floors;
+		activeFloor = result.activeFloor;
 	}
 
 	/** @param {any} payload @param {import('$lib/logger').ChangeDetail[]} changes */

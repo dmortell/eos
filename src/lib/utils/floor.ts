@@ -63,6 +63,66 @@ export function roomDocId(projectId: string, floor: number, room: string): strin
 // Data migration
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Floor CRUD helpers (shared across +page.svelte files)
+// ---------------------------------------------------------------------------
+
+/** Minimal DB interface needed by floor helpers (avoids importing the full Firestore class). */
+interface FloorDb {
+  save(path: string, data: Record<string, any>): void
+  delete(path: string, id: string): Promise<void>
+}
+
+/**
+ * Update the project's floor list and persist to Firestore.
+ * Returns the new active floor (unchanged if it still exists, else first floor).
+ */
+export function updateFloors(
+  db: FloorDb,
+  projectId: string,
+  updated: FloorConfig[],
+  activeFloor: number,
+): number {
+  db.save('projects', { id: projectId, floors: updated })
+  if (!updated.find(f => f.number === activeFloor) && updated.length > 0) {
+    return updated[0].number
+  }
+  return activeFloor
+}
+
+/**
+ * Delete a floor and all its tool documents (frames, racks rooms, outlets).
+ * Returns the new active floor.
+ */
+export async function deleteFloor(
+  db: FloorDb,
+  projectId: string,
+  fl: number,
+  floors: FloorConfig[],
+  activeFloor: number,
+): Promise<{ floors: FloorConfig[]; activeFloor: number }> {
+  const fid = floorDocId(projectId, fl)
+
+  // Delete all tool documents for this floor
+  try { await db.delete('frames', fid) } catch {}
+  try { await db.delete('outlets', fid) } catch {}
+  for (const rm of ['A', 'B', 'C', 'D']) {
+    try { await db.delete('racks', `${fid}_R${rm}`) } catch {}
+  }
+
+  // Update floors list
+  const updated = floors.filter(f => f.number !== fl)
+  const newFloors = updated.length > 0 ? updated : [{ number: 1, serverRoomCount: 1 }]
+  db.save('projects', { id: projectId, floors: newFloors })
+
+  const newActive = activeFloor === fl ? newFloors[0].number : activeFloor
+  return { floors: newFloors, activeFloor: newActive }
+}
+
+// ---------------------------------------------------------------------------
+// Data migration
+// ---------------------------------------------------------------------------
+
 /**
  * Migrate legacy floors format from a plain number array to FloorConfig objects.
  * Safely handles null/undefined, already-migrated arrays, and legacy number arrays.

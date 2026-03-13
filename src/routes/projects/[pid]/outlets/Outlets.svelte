@@ -596,6 +596,19 @@
 		selectedIds = next
 	}
 
+	function rangeSelectTrunks(fromIndex: number, toIndex: number) {
+		const lo = Math.min(fromIndex, toIndex)
+		const hi = Math.max(fromIndex, toIndex)
+		const next = new Set(selectedTrunkIds)
+		for (let i = lo; i <= hi; i++) {
+			if (trunks[i]) next.add(trunks[i].id)
+		}
+		selectedTrunkIds = next
+		selectedNodeIds = new Set()
+		selectedIds = new Set()
+		selectedRackIds = new Set()
+	}
+
 	function clearSelection() {
 		selectedIds = new Set()
 		selectedRackIds = new Set()
@@ -1433,12 +1446,10 @@
 						{activeTool}
 						{activeZone}
 						{stickyDefaults}
-						onzonechange={(z) => activeZone = z}
-						ontoolchange={(t) => activeTool = t}
+						onzonechange={(z: string) => activeZone = z}
+						ontoolchange={(t: ToolMode) => activeTool = t}
 						onselect={selectOutlet}
 						onrangeselect={rangeSelect}
-						onupdate={updateOutlet}
-						onupdateselected={updateSelectedOutlets}
 						ondelete={deleteSelected}
 						ondefaultschange={updateStickyDefaults}
 					/>
@@ -1461,7 +1472,8 @@
 						{selectedNodeIds}
 						{activeTool}
 						onselect={selectTrunk}
-						ontoolchange={(t) => activeTool = t}
+						onrangeselect={rangeSelectTrunks}
+						ontoolchange={(t: ToolMode) => activeTool = t}
 						ondelete={() => { if (selectedNodeIds.size > 0) deleteSelectedNodes(); else deleteTrunks() }}
 						ontogglevisibility={toggleTrunkVisibility}
 						onupdatetrunk={updateTrunk}
@@ -1768,35 +1780,38 @@
 									value={singleTrunk.label ?? ''}
 									onchange={e => updateTrunk(singleTrunk!.id, { label: e.currentTarget.value || undefined })} />
 							</label>
+						{/if}
 
-							<label class="flex items-center gap-2">
-								<span class="text-gray-500 w-14 shrink-0">Shape</span>
-								<div class="flex gap-1 flex-1">
-									<button class="flex-1 py-0.5 rounded text-[10px] {singleTrunk.shape === 'rect' ? 'bg-orange-100 text-orange-700 font-medium' : 'text-gray-400 hover:bg-gray-50 border border-gray-200'}"
-										onclick={() => {
-											const cat = RECT_CATALOG.MK3
-											updateTrunk(singleTrunk!.id, { shape: 'rect', spec: { catalog: 'MK3', widthMm: cat.widthMm, heightMm: cat.heightMm } })
-										}}>Rect</button>
-									<button class="flex-1 py-0.5 rounded text-[10px] {singleTrunk.shape === 'pipe' ? 'bg-purple-100 text-purple-700 font-medium' : 'text-gray-400 hover:bg-gray-50 border border-gray-200'}"
-										onclick={() => {
-											const cat = PIPE_CATALOG.PF28
-											updateTrunk(singleTrunk!.id, { shape: 'pipe', spec: { catalog: 'PF28', innerDiameterMm: cat.innerMm, outerDiameterMm: cat.outerMm } })
-										}}>Pipe</button>
-								</div>
-							</label>
+						<label class="flex items-center gap-2">
+							<span class="text-gray-500 w-14 shrink-0">Shape</span>
+							<div class="flex gap-1 flex-1">
+								<button class="flex-1 py-0.5 rounded text-[10px] {sharedTrunk('shape') === 'rect' ? 'bg-orange-100 text-orange-700 font-medium' : 'text-gray-400 hover:bg-gray-50 border border-gray-200'}"
+									onclick={() => {
+										const cat = RECT_CATALOG.MK3
+										updateSelectedTrunks({ shape: 'rect', spec: { catalog: 'MK3', widthMm: cat.widthMm, heightMm: cat.heightMm } })
+									}}>Rect</button>
+								<button class="flex-1 py-0.5 rounded text-[10px] {sharedTrunk('shape') === 'pipe' ? 'bg-purple-100 text-purple-700 font-medium' : 'text-gray-400 hover:bg-gray-50 border border-gray-200'}"
+									onclick={() => {
+										const cat = PIPE_CATALOG.PF28
+										updateSelectedTrunks({ shape: 'pipe', spec: { catalog: 'PF28', innerDiameterMm: cat.innerMm, outerDiameterMm: cat.outerMm } })
+									}}>Pipe</button>
+							</div>
+						</label>
 
-							<label class="flex items-center gap-2">
-								<span class="text-gray-500 w-14 shrink-0">Location</span>
-								<select class="flex-1 h-5 px-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-									value={singleTrunk.location}
-									onchange={e => updateTrunk(singleTrunk!.id, { location: e.currentTarget.value as any })}>
-									{#each Object.entries(LOCATION_LABELS) as [val, label]}
-										<option value={val}>{label}</option>
-									{/each}
-								</select>
-							</label>
+						<label class="flex items-center gap-2">
+							<span class="text-gray-500 w-14 shrink-0">Location</span>
+							<select class="flex-1 h-5 px-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+								value={sharedTrunk('location') ?? ''}
+								onchange={e => { if (e.currentTarget.value) updateSelectedTrunks({ location: e.currentTarget.value as any }) }}>
+								{#if !sharedTrunk('location')}<option value="">— mixed —</option>{/if}
+								{#each Object.entries(LOCATION_LABELS) as [val, label]}
+									<option value={val}>{label}</option>
+								{/each}
+							</select>
+						</label>
 
-							<!-- Type (catalog) -->
+						<!-- Type (catalog) — only for single trunk since spec structure differs by shape -->
+						{#if singleTrunk}
 							<label class="flex items-center gap-2">
 								<span class="text-gray-500 w-14 shrink-0">Type</span>
 								{#if singleTrunk.shape === 'pipe'}
@@ -1823,10 +1838,12 @@
 									</select>
 								{/if}
 							</label>
+						{/if}
 
-							<!-- Color -->
-							<div class="flex items-center gap-2">
-								<span class="text-gray-500 w-14 shrink-0">Color</span>
+						<!-- Color -->
+						<div class="flex items-center gap-2">
+							<span class="text-gray-500 w-14 shrink-0">Color</span>
+							{#if singleTrunk}
 								<input type="color" class="w-6 h-5 rounded border border-gray-200 cursor-pointer"
 									value={singleTrunk.color ?? TRUNK_COLORS[singleTrunk.shape]}
 									onchange={e => updateTrunk(singleTrunk!.id, { color: e.currentTarget.value })} />
@@ -1834,9 +1851,17 @@
 									<button class="text-[10px] text-gray-400 hover:text-gray-600"
 										onclick={() => updateTrunk(singleTrunk!.id, { color: undefined })}>Reset</button>
 								{/if}
-							</div>
+							{:else}
+								<input type="color" class="w-6 h-5 rounded border border-gray-200 cursor-pointer"
+									value={sharedTrunk('color') ?? '#888888'}
+									onchange={e => updateSelectedTrunks({ color: e.currentTarget.value })} />
+								<button class="text-[10px] text-gray-400 hover:text-gray-600"
+									onclick={() => updateSelectedTrunks({ color: undefined })}>Reset</button>
+							{/if}
+						</div>
 
-							<!-- Rooms -->
+						<!-- Rooms -->
+						{#if singleTrunk}
 							<div class="flex items-center gap-2">
 								<span class="text-gray-500 w-14 shrink-0">Rooms</span>
 								<div class="flex gap-0.5 flex-1">

@@ -3,7 +3,7 @@
 	import { getContext } from 'svelte';
 	import { Firestore, Spinner, Session } from '$lib';
 	import { writeLog } from '$lib/logger';
-	import { migrateFloors } from '$lib/utils/floor';
+	import { migrateFloors, updateFloors as _updateFloors, deleteFloor as _deleteFloor } from '$lib/utils/floor';
 	import type { DeviceTemplate } from './parts/types';
 	import Racks from './Racks.svelte';
 
@@ -102,29 +102,15 @@
 		const pid = page.params.pid;
 		if (!pid) return;
 		floors = updated;
-		db.save('projects', { id: pid, floors: updated });
-		if (!updated.find(f => f.number === activeFloor) && updated.length > 0) {
-			activeFloor = updated[0].number;
-		}
+		activeFloor = _updateFloors(db, pid, updated, activeFloor);
 	}
 
 	async function deleteFloor(fl: number) {
 		const pid = page.params.pid;
 		if (!pid) return;
-
-		const floorStr = String(fl).padStart(2, '0');
-		try { await db.delete('frames', `${pid}_F${floorStr}`); } catch {}
-		for (const rm of ['A', 'B', 'C', 'D']) {
-			try { await db.delete('racks', `${pid}_F${floorStr}_R${rm}`); } catch {}
-		}
-
-		const updated = floors.filter(f => f.number !== fl);
-		floors = updated.length > 0 ? updated : [{ number: 1, serverRoomCount: 1 }];
-		db.save('projects', { id: pid, floors });
-
-		if (activeFloor === fl) {
-			activeFloor = floors[0].number;
-		}
+		const result = await _deleteFloor(db, pid, fl, floors, activeFloor);
+		floors = result.floors;
+		activeFloor = result.activeFloor;
 	}
 
 	function save(payload: any, changes: import('$lib/logger').ChangeDetail[]) {
