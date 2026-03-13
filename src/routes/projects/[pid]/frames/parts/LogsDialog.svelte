@@ -16,6 +16,7 @@
 	let error = $state<string | null>(null)
 	let userNames = $state<Record<string, string>>({})
 	let deletingLogId = $state<string | null>(null)
+	let confirmingLogId = $state<string | null>(null)
 
 	$effect(() => {
 		if (open && projectId) loadLogs()
@@ -57,6 +58,11 @@
 		return userNames[uid] ?? uid.slice(0, 8)
 	}
 
+	function requestDelete(log: LogEntry): void {
+		if (!log?.id || deletingLogId) return
+		confirmingLogId = confirmingLogId === log.id ? null : log.id
+	}
+
 	async function deleteLog(log: LogEntry): Promise<void> {
 		if (!projectId || !log?.id || deletingLogId) return
 		deletingLogId = log.id
@@ -68,6 +74,7 @@
 			error = e?.message ?? 'Failed to delete log entry'
 		} finally {
 			deletingLogId = null
+			if (confirmingLogId === log.id) confirmingLogId = null
 		}
 	}
 </script>
@@ -105,14 +112,35 @@
 										{/if}
 										<span class="text-purple-400 shrink-0" title={log.uid}>{displayName(log.uid)}</span>
 									</div>
-									<button
-										type="button"
-										class="text-[10px] text-red-500 hover:underline disabled:text-gray-300 disabled:no-underline"
-										onclick={() => deleteLog(log)}
-										disabled={!log.id || deletingLogId === log.id}
-									>
-										{deletingLogId === log.id ? 'Deleting...' : 'Delete'}
-									</button>
+									{#if confirmingLogId === log.id}
+										<div class="flex items-center gap-1 shrink-0">
+											<button
+												type="button"
+												class="text-[10px] text-gray-500 hover:underline disabled:text-gray-300"
+												onclick={() => confirmingLogId = null}
+												disabled={deletingLogId === log.id}
+											>
+												Cancel
+											</button>
+											<button
+												type="button"
+												class="text-[10px] text-red-500 hover:underline disabled:text-gray-300 disabled:no-underline"
+												onclick={() => deleteLog(log)}
+												disabled={!log.id || deletingLogId === log.id}
+											>
+												{deletingLogId === log.id ? 'Deleting...' : 'Confirm'}
+											</button>
+										</div>
+									{:else}
+										<button
+											type="button"
+											class="text-[10px] text-red-500 hover:underline disabled:text-gray-300 disabled:no-underline"
+											onclick={() => requestDelete(log)}
+											disabled={!log.id || !!deletingLogId}
+										>
+											Delete
+										</button>
+									{/if}
 								</div>
 								<div class="pl-4 text-gray-600">
 									{#each log.changes as change}

@@ -113,6 +113,7 @@
 
 button {
   cursor: pointer;
+  /* text-box-trim: trim-both; */
 }
 
 @layer base {

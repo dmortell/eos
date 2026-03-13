@@ -407,6 +407,39 @@
 		await pdf.render({ canvas: canvasEl, page: p, scale: RENDER_SCALE })
 	}
 
+	/** Test if a line segment (ax,ay)→(bx,by) intersects an axis-aligned rect [rx1,ry1,rx2,ry2] */
+	function segmentIntersectsRect(ax: number, ay: number, bx: number, by: number, rx1: number, ry1: number, rx2: number, ry2: number): boolean {
+		// If either endpoint is inside the rect, it intersects
+		if (ax >= rx1 && ax <= rx2 && ay >= ry1 && ay <= ry2) return true
+		if (bx >= rx1 && bx <= rx2 && by >= ry1 && by <= ry2) return true
+		// Check intersection with each edge of the rect
+		return segmentsIntersect(ax, ay, bx, by, rx1, ry1, rx2, ry1) || // top
+			segmentsIntersect(ax, ay, bx, by, rx1, ry2, rx2, ry2) ||    // bottom
+			segmentsIntersect(ax, ay, bx, by, rx1, ry1, rx1, ry2) ||    // left
+			segmentsIntersect(ax, ay, bx, by, rx2, ry1, rx2, ry2)       // right
+	}
+
+	function segmentsIntersect(ax: number, ay: number, bx: number, by: number, cx: number, cy: number, dx: number, dy: number): boolean {
+		const d1 = cross(cx, cy, dx, dy, ax, ay)
+		const d2 = cross(cx, cy, dx, dy, bx, by)
+		const d3 = cross(ax, ay, bx, by, cx, cy)
+		const d4 = cross(ax, ay, bx, by, dx, dy)
+		if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) return true
+		if (d1 === 0 && onSegment(cx, cy, dx, dy, ax, ay)) return true
+		if (d2 === 0 && onSegment(cx, cy, dx, dy, bx, by)) return true
+		if (d3 === 0 && onSegment(ax, ay, bx, by, cx, cy)) return true
+		if (d4 === 0 && onSegment(ax, ay, bx, by, dx, dy)) return true
+		return false
+	}
+
+	function cross(ax: number, ay: number, bx: number, by: number, cx: number, cy: number): number {
+		return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
+	}
+
+	function onSegment(ax: number, ay: number, bx: number, by: number, px: number, py: number): boolean {
+		return Math.min(ax, bx) <= px && px <= Math.max(ax, bx) && Math.min(ay, by) <= py && py <= Math.max(ay, by)
+	}
+
 	// ── Coordinate helpers ──
 
 	function getPagePos(e: MouseEvent): Point {
@@ -914,15 +947,27 @@
 					}
 				}
 
-				// Select trunks in rect (any node center in rect)
+				// Select trunks in rect (node center or segment intersection)
 				if (onselecttrunk && calibration) {
 					for (const trunk of trunks) {
 						if (trunk.visible === false) continue
+						// Check if any node center is in rect
 						const hasNodeInRect = trunk.nodes.some(n => {
 							const px = toPx(n.position)
 							return px.x >= x1 && px.x <= x2 && px.y >= y1 && px.y <= y2
 						})
-						if (hasNodeInRect) onselecttrunk(trunk.id, true)
+						if (hasNodeInRect) { onselecttrunk(trunk.id, true); continue }
+						// Check if any segment intersects the rect
+						const nodeMap = new Map(trunk.nodes.map(n => [n.id, n]))
+						const hasSegmentHit = trunk.segments.some(seg => {
+							const nA = nodeMap.get(seg.nodes[0])
+							const nB = nodeMap.get(seg.nodes[1])
+							if (!nA || !nB) return false
+							const pA = toPx(nA.position)
+							const pB = toPx(nB.position)
+							return segmentIntersectsRect(pA.x, pA.y, pB.x, pB.y, x1, y1, x2, y2)
+						})
+						if (hasSegmentHit) onselecttrunk(trunk.id, true)
 					}
 				}
 			}

@@ -204,7 +204,8 @@
 	</div>
 
 	<!-- Selected trunk properties -->
-	{#if singleTrunk}
+	 <!-- TODO delete this, but keep delete button -->
+	{#if 0 && singleTrunk}
 		{@const isPipe = singleTrunk.shape === 'pipe'}
 		{@const spec = singleTrunk.spec}
 		<div class="border-t border-gray-200 p-2 space-y-1.5">

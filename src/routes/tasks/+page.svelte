@@ -15,7 +15,7 @@
 	let projects = $state<Project[]>([]);
 	let userDocs = $state<Array<{ id: string; uid?: string; displayName?: string; email?: string; providerIds?: string[] }>>([]);
 	let filters = $state<TaskFiltersState>(structuredClone(DEFAULT_FILTERS));
-	let showAllTasks = $state(true);
+	// let showAllTasks = $state(true);
 	let selectedTask = $state<Task | null>(null);
 	let dialogOpen = $state(false);
 	let draggingTask = $state<Task | null>(null);
@@ -25,14 +25,14 @@
 	const toggleKey = 'task-board-show-all';
 	const filtersKey = 'task-board-filters-v1';
 
-	$effect(() => {
-		const raw = localStorage.getItem(toggleKey);
-		showAllTasks = raw !== 'false';
-	});
+	// $effect(() => {
+	// 	const raw = localStorage.getItem(toggleKey);
+	// 	showAllTasks = raw !== 'false';
+	// });
 
-	$effect(() => {
-		localStorage.setItem(toggleKey, String(showAllTasks));
-	});
+	// $effect(() => {
+	// 	localStorage.setItem(toggleKey, String(showAllTasks));
+	// });
 
 	$effect(() => {
 		const raw = localStorage.getItem(filtersKey);
@@ -98,10 +98,10 @@
 
 	let visibleTasks = $derived.by(() => {
 		const me = session?.user?.uid;
-		const source = showAllTasks || !me ? tasks : tasks.filter((t) => t.assignedTo === me);
+		// const source = showAllTasks || !me ? tasks : tasks.filter((t) => t.assignedTo === me);
 		const projectMap = new Map(projects.map((p) => [p.id, p.name]));
 
-		const filtered = source.filter((task) => {
+		const filtered = tasks.filter((task) => {
 			if (filters.projectId !== 'all' && task.projectId !== filters.projectId) return false;
 			if (filters.assignedTo === 'unassigned' && task.assignedTo) return false;
 			if (filters.assignedTo !== 'all' && filters.assignedTo !== 'unassigned' && task.assignedTo !== filters.assignedTo) return false;
@@ -239,10 +239,10 @@
 	<div class="flex items-center justify-between">
 		<h1 class="text-sm font-semibold">Task Board</h1>
 		<div class="flex gap-2 items-center">
-			<label class="text-xs flex items-center gap-1 border rounded px-2 py-0.5 bg-white">
+			<!-- <label class="text-xs flex items-center gap-1 border rounded px-2 py-0.5 bg-white">
 				<input type="checkbox" bind:checked={showAllTasks} />
 				<span>{showAllTasks ? 'All Tasks' : 'My Tasks'}</span>
-			</label>
+			</label> -->
 			<Button class="text-xs px-2 py-0.5" variant="primary" icon="plus" onclick={() => openNewTask('todo')}>New Task</Button>
 		</div>
 	</div>

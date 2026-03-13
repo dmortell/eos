@@ -17,6 +17,7 @@
 	let draftProjectCode = $state('')
 	let searchQuery = $state('')
 	let showOnlyMine = $state(false)
+	let trashedOpen = $state(false)
 
 	interface Project {
 		id: string;
@@ -188,17 +189,11 @@
 	<div class="flex items-center justify-between mb-2 gap-2">
 		<h1 class="text-sm font-semibold">Projects</h1>
 		<div class="flex items-center gap-2 flex-1 max-w-md">
-			<input
-				type="text"
-				class="flex-1 border rounded px-2 py-1 text-xs"
-				placeholder="Search projects..."
+			<input type="text" class="flex-1 border rounded px-2 py-1 text-xs" placeholder="Search projects..."
 				bind:value={searchQuery}
 			/>
 			<label class="text-xs flex items-center gap-1 border rounded px-2 py-0.5 bg-white whitespace-nowrap">
-				<input
-					type="checkbox"
-					bind:checked={showOnlyMine}
-				/>
+				<input type="checkbox" bind:checked={showOnlyMine} />
 				<span>My Projects</span>
 			</label>
 			<Button icon="plus" variant="primary" class="text-xs px-2 py-0.5" onclick={openCreate}>New Project</Button>
@@ -239,7 +234,7 @@
 		</div>
 	{/if}
 
-	<details class="mt-2 border rounded bg-gray-50" open={trashedProjects.length > 0}>
+	<details class="mt-2 border rounded bg-gray-50" open={trashedOpen}>
 		<summary class="cursor-pointer text-xs px-2 py-1 select-none">Archived ({trashedProjects.length})</summary>
 		<div class="px-2 pb-2 space-y-1">
 			{#if trashedProjects.length===0}

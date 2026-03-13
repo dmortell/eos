@@ -7,7 +7,9 @@
 	import type { OutletConfig, OutletsData, ToolMode, PageCalibration, Point, RackPlacement, SidebarTab } from './parts/types'
 	import type { RackConfig } from '../racks/parts/types'
 	import { DEFAULT_PRINT_SETTINGS, type PrintSettings } from '$lib/ui/print/types'
-	import { OUTLET_DEFAULTS, type StickyDefaults } from './parts/constants'
+	import { OUTLET_DEFAULTS, USAGE_COLORS, MOUNT_LABELS, CABLE_COLORS, type StickyDefaults } from './parts/constants'
+	import { LOCATION_LABELS, PIPE_CATALOG, RECT_CATALOG, TRUNK_COLORS } from './trunks/constants'
+	import { computeTrunkLength } from './trunks/geometry'
 	import { HistoryStore } from './parts/HistoryStore.svelte.ts'
 	import OutletCanvas from './parts/OutletCanvas.svelte'
 	import OutletPalette from './parts/OutletPalette.svelte'
@@ -51,6 +53,8 @@
 		(typeof localStorage !== 'undefined' && localStorage.getItem('outlets-sidebar-tab') as SidebarTab) || 'outlets'
 	)
 	$effect(() => { try { localStorage.setItem('outlets-sidebar-tab', sidebarTab) } catch {} })
+	// Force back to file tab when calibration is lost
+	$effect(() => { if (!calibration && sidebarTab !== 'file') sidebarTab = 'file' })
 	let selectedTrunkIds = $state<Set<string>>(new Set())
 	let selectedNodeIds = $state<Set<string>>(new Set())
 	let trunkPaletteRef: TrunkPalette | undefined = $state()
@@ -322,6 +326,30 @@
 		}
 		return result
 	})
+
+	// Selected outlet data for floating properties panel
+	let selectedOutlets = $derived(outlets.filter(o => selectedIds.has(o.id)))
+	let singleOutlet = $derived(selectedOutlets.length === 1 ? selectedOutlets[0] : null)
+
+	function sharedOutlet<K extends keyof OutletConfig>(key: K): OutletConfig[K] | undefined {
+		if (selectedOutlets.length === 0) return undefined
+		const first = selectedOutlets[0][key]
+		return selectedOutlets.every(o => o[key] === first) ? first : undefined
+	}
+
+	// Selected trunk data for floating properties panel
+	let selectedTrunks = $derived(trunks.filter(t => selectedTrunkIds.has(t.id)))
+	let singleTrunk = $derived(selectedTrunks.length === 1 ? selectedTrunks[0] : null)
+
+	function sharedTrunk<K extends keyof TrunkConfig>(key: K): TrunkConfig[K] | undefined {
+		if (selectedTrunks.length === 0) return undefined
+		const first = selectedTrunks[0][key]
+		return selectedTrunks.every(t => JSON.stringify(t[key]) === JSON.stringify(first)) ? first : undefined
+	}
+
+	function updateSelectedTrunks(updates: Partial<TrunkConfig>) {
+		for (const t of selectedTrunks) updateTrunk(t.id, updates)
+	}
 
 	// Selected rack data for floating properties panel
 	let selectedRackConfigs = $derived(allRackConfigs.filter(r => selectedRackIds.has(r.id)))
@@ -1316,6 +1344,7 @@
 			else if (e.key === 'b') updateSelectedOutlets({ mountType: 'box' })
 		}
 	}
+	const tabsDisabled = $derived(!calibration)
 </script>
 
 <svelte:window onkeydown={onKeyDown} />
@@ -1327,6 +1356,7 @@
 	<!-- Sidebar -->
 	<Pane defaultSize={20} minSize={15} maxSize={35} class="print:hidden">
 		<div class="h-full border-r border-gray-200 flex flex-col">
+
 			<!-- Sidebar tabs -->
 			<div class="flex border-b border-gray-200 shrink-0">
 				<button
@@ -1336,17 +1366,20 @@
 				>Plan</button>
 				<button
 					class="flex-1 py-1.5 text-[11px] font-medium transition-colors
-						{sidebarTab === 'outlets' ? 'text-blue-600 border-b-2 border-blue-500 bg-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}"
+						{sidebarTab === 'outlets' ? 'text-blue-600 border-b-2 border-blue-500 bg-white' : tabsDisabled ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}"
+					disabled={tabsDisabled}
 					onclick={() => sidebarTab = 'outlets'}
 				>Outlets</button>
 				<button
 					class="flex-1 py-1.5 text-[11px] font-medium transition-colors
-						{sidebarTab === 'racks' ? 'text-blue-600 border-b-2 border-blue-500 bg-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}"
+						{sidebarTab === 'racks' ? 'text-blue-600 border-b-2 border-blue-500 bg-white' : tabsDisabled ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}"
+					disabled={tabsDisabled}
 					onclick={() => sidebarTab = 'racks'}
 				>Racks</button>
 				<button
 					class="flex-1 py-1.5 text-[11px] font-medium transition-colors
-						{sidebarTab === 'trunks' ? 'text-blue-600 border-b-2 border-blue-500 bg-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}"
+						{sidebarTab === 'trunks' ? 'text-blue-600 border-b-2 border-blue-500 bg-white' : tabsDisabled ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}"
+					disabled={tabsDisabled}
 					onclick={() => sidebarTab = 'trunks'}
 				>Trunks</button>
 			</div>
@@ -1596,6 +1629,244 @@
 								title="Remove selected rack(s) from floor plan (does not delete the rack)"
 								onclick={removeRackPlacements}>
 								<Icon name="trash" size={10} /> Remove
+							</button>
+						</div>
+					</Window>
+				{/if}
+
+				<!-- Floating outlet properties window -->
+				{#if selectedIds.size > 0}
+					<Window title="Outlet Properties" open={true} right={16} top={selectedRackIds.size > 0 ? 320 : 48} class="p-3 space-y-1.5 text-xs w-56">
+						<div class="text-[10px] text-gray-400 uppercase tracking-wider font-medium mb-1">
+							{singleOutlet ? (singleOutlet.label ?? singleOutlet.id.slice(0, 8)) : `${selectedIds.size} outlets`}
+						</div>
+
+						{#if singleOutlet}
+							<label class="flex items-center gap-2">
+								<span class="text-gray-500 w-12 shrink-0">Label</span>
+								<input type="text" class="flex-1 h-5 px-1.5 text-xs font-mono border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+									value={singleOutlet.label ?? ''}
+									onchange={e => updateOutlet(singleOutlet!.id, { label: e.currentTarget.value || undefined })} />
+							</label>
+						{/if}
+
+						<label class="flex items-center gap-2">
+							<span class="text-gray-500 w-12 shrink-0">Ports</span>
+							<input type="number" min="1" max="12"
+								class="w-14 h-5 px-1.5 text-xs font-mono border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+								value={singleOutlet ? singleOutlet.portCount : (sharedOutlet('portCount') ?? '')}
+								placeholder="—"
+								onchange={e => {
+									const v = parseInt(e.currentTarget.value) || 2
+									if (singleOutlet) updateOutlet(singleOutlet.id, { portCount: v })
+									else updateSelectedOutlets({ portCount: v })
+								}} />
+						</label>
+
+						<label class="flex items-center gap-2">
+							<span class="text-gray-500 w-12 shrink-0">Level</span>
+							<div class="flex gap-0.5">
+								{#each ['low', 'high'] as lvl}
+									{@const active = singleOutlet ? singleOutlet.level === lvl : sharedOutlet('level') === lvl}
+									<button class="h-5 px-2 rounded text-[10px] font-medium transition-colors
+										{active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
+										onclick={() => {
+											if (singleOutlet) updateOutlet(singleOutlet.id, { level: lvl as any })
+											else updateSelectedOutlets({ level: lvl as any })
+										}}>{lvl === 'low' ? 'Low' : 'High'}</button>
+								{/each}
+							</div>
+						</label>
+
+						<label class="flex items-center gap-2">
+							<span class="text-gray-500 w-12 shrink-0">Usage</span>
+							<select class="flex-1 h-5 px-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+								value={singleOutlet ? singleOutlet.usage : (sharedOutlet('usage') ?? '')}
+								onchange={e => {
+									if (!e.currentTarget.value) return
+									if (singleOutlet) updateOutlet(singleOutlet.id, { usage: e.currentTarget.value as any })
+									else updateSelectedOutlets({ usage: e.currentTarget.value as any })
+								}}>
+								{#if !singleOutlet && !sharedOutlet('usage')}<option value="">— mixed —</option>{/if}
+								{#each Object.entries(USAGE_COLORS) as [key, val]}
+									<option value={key}>{val.label}</option>
+								{/each}
+							</select>
+						</label>
+
+						<label class="flex items-center gap-2">
+							<span class="text-gray-500 w-12 shrink-0">Mount</span>
+							<select class="flex-1 h-5 px-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+								value={singleOutlet ? singleOutlet.mountType : (sharedOutlet('mountType') ?? '')}
+								onchange={e => {
+									if (!e.currentTarget.value) return
+									if (singleOutlet) updateOutlet(singleOutlet.id, { mountType: e.currentTarget.value as any })
+									else updateSelectedOutlets({ mountType: e.currentTarget.value as any })
+								}}>
+								{#if !singleOutlet && !sharedOutlet('mountType')}<option value="">— mixed —</option>{/if}
+								{#each Object.entries(MOUNT_LABELS) as [key, label]}
+									<option value={key}>{label}</option>
+								{/each}
+							</select>
+						</label>
+
+						<label class="flex items-center gap-2">
+							<span class="text-gray-500 w-12 shrink-0">Cable</span>
+							<select class="flex-1 h-5 px-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+								value={singleOutlet ? singleOutlet.cableType : (sharedOutlet('cableType') ?? '')}
+								onchange={e => {
+									if (!e.currentTarget.value) return
+									if (singleOutlet) updateOutlet(singleOutlet.id, { cableType: e.currentTarget.value as any })
+									else updateSelectedOutlets({ cableType: e.currentTarget.value as any })
+								}}>
+								{#if !singleOutlet && !sharedOutlet('cableType')}<option value="">— mixed —</option>{/if}
+								{#each Object.entries(CABLE_COLORS) as [key, val]}
+									<option value={key}>{val.label}</option>
+								{/each}
+							</select>
+						</label>
+
+						<label class="flex items-center gap-2">
+							<span class="text-gray-500 w-12 shrink-0">Room</span>
+							<input type="text" class="w-20 h-5 px-1.5 text-xs font-mono border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+								value={singleOutlet ? (singleOutlet.roomNumber ?? '') : (sharedOutlet('roomNumber') ?? '')}
+								placeholder={!singleOutlet && sharedOutlet('roomNumber') === undefined ? '— mixed —' : '—'}
+								onchange={e => {
+									const v = e.currentTarget.value || undefined
+									if (singleOutlet) updateOutlet(singleOutlet.id, { roomNumber: v })
+									else updateSelectedOutlets({ roomNumber: v })
+								}} />
+						</label>
+
+						{#if singleOutlet}
+							<div class="flex items-center gap-2 text-gray-400">
+								<span class="w-12 shrink-0">Pos</span>
+								<span class="font-mono text-[10px]">{Math.round(singleOutlet.position.x)}, {Math.round(singleOutlet.position.y)} mm</span>
+							</div>
+						{/if}
+
+						<div class="flex items-center gap-1 pt-1 border-t border-gray-100">
+							<button class="flex items-center gap-1 px-1.5 py-0.5 text-[10px] text-red-500 border border-red-200 rounded hover:bg-red-50 transition-colors"
+								onclick={deleteSelected}>
+								<Icon name="trash" size={10} /> Delete {selectedIds.size > 1 ? selectedIds.size : ''}
+							</button>
+						</div>
+					</Window>
+				{/if}
+
+				<!-- Floating trunk properties window -->
+				{#if selectedTrunkIds.size > 0 && selectedTrunks.length > 0}
+					<Window title="Trunk Properties" open={true} right={16} top={selectedIds.size > 0 ? 480 : (selectedRackIds.size > 0 ? 320 : 48)} class="p-3 space-y-1.5 text-xs w-56">
+						<div class="text-[10px] text-gray-400 uppercase tracking-wider font-medium mb-1">
+							{singleTrunk ? (singleTrunk.label || singleTrunk.id.slice(0, 8)) : `${selectedTrunkIds.size} trunks`}
+						</div>
+
+						{#if singleTrunk}
+							<label class="flex items-center gap-2">
+								<span class="text-gray-500 w-14 shrink-0">Label</span>
+								<input type="text" class="flex-1 h-5 px-1.5 text-xs font-mono border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+									value={singleTrunk.label ?? ''}
+									onchange={e => updateTrunk(singleTrunk!.id, { label: e.currentTarget.value || undefined })} />
+							</label>
+
+							<label class="flex items-center gap-2">
+								<span class="text-gray-500 w-14 shrink-0">Shape</span>
+								<div class="flex gap-1 flex-1">
+									<button class="flex-1 py-0.5 rounded text-[10px] {singleTrunk.shape === 'rect' ? 'bg-orange-100 text-orange-700 font-medium' : 'text-gray-400 hover:bg-gray-50 border border-gray-200'}"
+										onclick={() => {
+											const cat = RECT_CATALOG.MK3
+											updateTrunk(singleTrunk!.id, { shape: 'rect', spec: { catalog: 'MK3', widthMm: cat.widthMm, heightMm: cat.heightMm } })
+										}}>Rect</button>
+									<button class="flex-1 py-0.5 rounded text-[10px] {singleTrunk.shape === 'pipe' ? 'bg-purple-100 text-purple-700 font-medium' : 'text-gray-400 hover:bg-gray-50 border border-gray-200'}"
+										onclick={() => {
+											const cat = PIPE_CATALOG.PF28
+											updateTrunk(singleTrunk!.id, { shape: 'pipe', spec: { catalog: 'PF28', innerDiameterMm: cat.innerMm, outerDiameterMm: cat.outerMm } })
+										}}>Pipe</button>
+								</div>
+							</label>
+
+							<label class="flex items-center gap-2">
+								<span class="text-gray-500 w-14 shrink-0">Location</span>
+								<select class="flex-1 h-5 px-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+									value={singleTrunk.location}
+									onchange={e => updateTrunk(singleTrunk!.id, { location: e.currentTarget.value as any })}>
+									{#each Object.entries(LOCATION_LABELS) as [val, label]}
+										<option value={val}>{label}</option>
+									{/each}
+								</select>
+							</label>
+
+							<!-- Type (catalog) -->
+							<label class="flex items-center gap-2">
+								<span class="text-gray-500 w-14 shrink-0">Type</span>
+								{#if singleTrunk.shape === 'pipe'}
+									<select class="flex-1 h-5 px-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+										value={(singleTrunk.spec as import('./trunks/types').PipeSpec).catalog}
+										onchange={e => {
+											const cat = PIPE_CATALOG[e.currentTarget.value as import('./trunks/types').PipeCatalog]
+											if (cat) updateTrunk(singleTrunk!.id, { spec: { catalog: e.currentTarget.value as any, innerDiameterMm: cat.innerMm, outerDiameterMm: cat.outerMm } })
+										}}>
+										{#each Object.entries(PIPE_CATALOG) as [val, cat]}
+											<option value={val}>{cat.label}</option>
+										{/each}
+									</select>
+								{:else}
+									<select class="flex-1 h-5 px-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+										value={(singleTrunk.spec as import('./trunks/types').RectSpec).catalog}
+										onchange={e => {
+											const cat = RECT_CATALOG[e.currentTarget.value as import('./trunks/types').RectCatalog]
+											if (cat) updateTrunk(singleTrunk!.id, { spec: { catalog: e.currentTarget.value as any, widthMm: cat.widthMm, heightMm: cat.heightMm } })
+										}}>
+										{#each Object.entries(RECT_CATALOG) as [val, cat]}
+											<option value={val}>{cat.label}</option>
+										{/each}
+									</select>
+								{/if}
+							</label>
+
+							<!-- Color -->
+							<div class="flex items-center gap-2">
+								<span class="text-gray-500 w-14 shrink-0">Color</span>
+								<input type="color" class="w-6 h-5 rounded border border-gray-200 cursor-pointer"
+									value={singleTrunk.color ?? TRUNK_COLORS[singleTrunk.shape]}
+									onchange={e => updateTrunk(singleTrunk!.id, { color: e.currentTarget.value })} />
+								{#if singleTrunk.color}
+									<button class="text-[10px] text-gray-400 hover:text-gray-600"
+										onclick={() => updateTrunk(singleTrunk!.id, { color: undefined })}>Reset</button>
+								{/if}
+							</div>
+
+							<!-- Rooms -->
+							<div class="flex items-center gap-2">
+								<span class="text-gray-500 w-14 shrink-0">Rooms</span>
+								<div class="flex gap-0.5 flex-1">
+									{#each ['A', 'B', 'C', 'D'] as room}
+										{@const active = (singleTrunk.rooms ?? []).includes(room)}
+										<button class="flex-1 py-0.5 rounded text-[10px] {active ? 'bg-blue-100 text-blue-700 font-medium' : 'text-gray-400 hover:bg-gray-50 border border-gray-200'}"
+											onclick={() => {
+												const current = singleTrunk!.rooms ?? []
+												if (active && current.length > 1) updateTrunk(singleTrunk!.id, { rooms: current.filter(r => r !== room) })
+												else if (!active) updateTrunk(singleTrunk!.id, { rooms: [...current, room] })
+											}}>{room}</button>
+									{/each}
+								</div>
+							</div>
+
+							<!-- Stats -->
+							<div class="flex items-center gap-2 text-[10px] text-gray-400">
+								<span class="w-14">Nodes</span>
+								<span class="font-mono">{singleTrunk.nodes.length}</span>
+							</div>
+							<div class="flex items-center gap-2 text-[10px] text-gray-400">
+								<span class="w-14">Length</span>
+								<span class="font-mono">{(computeTrunkLength(singleTrunk) / 1000).toFixed(2)} m</span>
+							</div>
+						{/if}
+
+						<div class="flex items-center gap-1 pt-1 border-t border-gray-100">
+							<button class="flex items-center gap-1 px-1.5 py-0.5 text-[10px] text-red-500 border border-red-200 rounded hover:bg-red-50 transition-colors"
+								onclick={deleteTrunks}>
+								<Icon name="trash" size={10} /> Delete {selectedTrunks.length > 1 ? selectedTrunks.length : ''}
 							</button>
 						</div>
 					</Window>
