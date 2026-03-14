@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { SvelteSet } from 'svelte/reactivity'
+
 	import { Button, Icon, Titlebar } from '$lib'
 	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
 	import type { ChangeDetail } from '$lib/logger'
@@ -7,6 +7,7 @@
 	import { DEFAULT_SETTINGS, SCALE, RU_HEIGHT_MM, RACK_GAP_PX, RACK_19IN_MM, rackHeightMm } from './parts/constants'
 	import RackList from './parts/RackList.svelte'
 	import DevicePalette from './parts/DevicePalette.svelte'
+	import RackDevices from './parts/RackDevices.svelte'
 	import Canvas from './parts/Canvas.svelte'
 	import RackFrame from './parts/RackFrame.svelte'
 	import Rect from './parts/Rect.svelte'
@@ -43,7 +44,7 @@
 	let settings = $state<RackSettings>({ ...DEFAULT_SETTINGS, ...(data?.settings ?? {}) })
 	let activeRowId = $state<string>(rows[0]?.id ?? 'default')
 	let sidebarTab = $state<'racks' | 'devices' | 'library'>('devices')
-	let selectedIds = new SvelteSet<string>()
+	let selectedIds = $state(new Set<string>())
 	let floorManagerOpen = $state(false)
 	let saveStatus = $state<'saved' | 'saving' | 'unsaved'>('saved')
 
@@ -225,7 +226,7 @@
 		if (!rack) return
 		devices = devices.filter(d => d.rackId !== rackId)
 		racks = racks.filter(r => r.id !== rackId)
-		selectedIds.delete(rackId)
+		const next = new Set(selectedIds); next.delete(rackId); selectedIds = next
 		logChange('remove', 'rack', rack.label)
 	}
 
@@ -240,21 +241,19 @@
 
 	function selectRack(rackId: string, multi = false) {
 		if (multi) {
-			if (selectedIds.has(rackId)) selectedIds.delete(rackId)
-			else selectedIds.add(rackId)
+			const next = new Set(selectedIds)
+			if (next.has(rackId)) next.delete(rackId)
+			else next.add(rackId)
+			selectedIds = next
 		} else {
-			selectedIds.clear()
-			selectedIds.add(rackId)
+			selectedIds = new Set([rackId])
 		}
 	}
 
-	function rangeSelectRacks(fromIndex: number, toIndex: number) {
-		const sorted = activeRacks
-		const lo = Math.min(fromIndex, toIndex)
-		const hi = Math.max(fromIndex, toIndex)
-		for (let i = lo; i <= hi; i++) {
-			if (sorted[i]) selectedIds.add(sorted[i].id)
-		}
+	function rangeSelectRacks(ids: string[]) {
+		const next = new Set(selectedIds)
+		for (const id of ids) next.add(id)
+		selectedIds = next
 	}
 
 	// ── Device CRUD ──
@@ -294,8 +293,7 @@
 			} : {}),
 		}
 		devices = [...devices, newDevice]
-		selectedIds.clear()
-		selectedIds.add(id)
+		selectedIds = new Set([id])
 		logChange('add', 'device', `${template.label} in ${targetRack.label}`)
 	}
 
@@ -378,7 +376,7 @@
 	function deleteDevice(deviceId: string) {
 		const dev = devices.find(d => d.id === deviceId)
 		devices = devices.filter(d => d.id !== deviceId)
-		selectedIds.delete(deviceId)
+		const next = new Set(selectedIds); next.delete(deviceId); selectedIds = next
 		if (dev) logChange('remove', 'device', dev.label)
 	}
 
@@ -494,8 +492,7 @@
 					const id = `dev-${Date.now()}`
 					const { id: _, ...rest } = device
 					devices = [...devices, { ...rest, id, rackId: rack.id, positionU: snappedRU, offsetX: ox }]
-					selectedIds.clear()
-					selectedIds.add(id)
+					selectedIds = new Set([id])
 					logChange('copy', 'device', `${device.label} to ${rack.label} RU${snappedRU}`)
 				} else {
 					updateDevice(device.id, { rackId: rack.id, positionU: snappedRU, offsetX: ox })
@@ -507,7 +504,7 @@
 
 	function onCanvasClick(e: MouseEvent) {
 		if (!view.dragging) {
-			selectedIds.clear()
+			selectedIds = new Set()
 		}
 	}
 
@@ -616,9 +613,9 @@
 												<!-- svelte-ignore a11y_no_static_element_interactions -->
 												 <!-- {selectedIds.has(device.id) ? 'bg-blue-50 border border-blue-300' : 'bg-gray-50 border border-gray-200 hover:bg-gray-100'}" -->
 												<div
-													class="flex items-center gap-2 w-full pb-1 rounded text-left text-xs transition-colors cursor-pointer
+													class="flex items-center gap-2 w-full pb-1 rounded text-left text-xs transition-colors cursor-pointer select-none
 														{selectedIds.has(device.id) ? 'bg-blue-50 border border-blue-300' : 'xxbg-gray-50 border border-gray-200 hover:bg-gray-100'}"
-													onclick={() => { selectedIds.clear(); selectedIds.add(device.id) }}
+													onclick={() => { selectedIds = new Set([device.id]) }}
 												>
 													<div class="min-w-0 flex-1">
 														<div class="font-mediumxx text-gray-700 truncate">U{device.positionU}: {device.label} · {device.type}</div>
@@ -808,7 +805,7 @@
 					{#each devices.filter(d => activeRacks.some(r => r.id === d.rackId)) as device (device.id)}
 						<Draggable {view} shape={deviceScreenRect(device)} item={device}
 							selected={selectedIds.has(device.id)}
-							onClick={e => { selectedIds.clear(); selectedIds.add(device.id) }}
+							onClick={e => { selectedIds = new Set([device.id]) }}
 							onDrag={onDeviceDrag}
 							onDragged={(rect, _item, copy) => onDeviceDragged(rect, device, copy)}>
 							<DeviceView {device} {view} ondelete={() => deleteDevice(device.id)} />

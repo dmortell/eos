@@ -39,11 +39,29 @@
 		rackConfigs.filter(r => selectedRackIds.has(r.id))
 	)
 
+	// Flat list of all racks in display order (sorted by room, then original order within room)
+	let flatRacks = $derived(
+		[...racksByRoom.entries()]
+			.sort((a, b) => a[0].localeCompare(b[0]))
+			.flatMap(([, racks]) => racks)
+	)
+
 	function handleListClick(e: MouseEvent, rack: RackConfig & { room: string }) {
 		const placed = placedIds.has(rack.id)
-		if (placed) {
-			onselect(rack.id, e.ctrlKey || e.metaKey)
+		if (!placed) return
+
+		if (e.shiftKey && selectedRackIds.size > 0 && onrangeselect) {
+			const anchorIdx = flatRacks.findIndex(r => selectedRackIds.has(r.id))
+			const clickIdx = flatRacks.findIndex(r => r.id === rack.id)
+			if (anchorIdx >= 0 && clickIdx >= 0) {
+				const lo = Math.min(anchorIdx, clickIdx)
+				const hi = Math.max(anchorIdx, clickIdx)
+				const ids = flatRacks.slice(lo, hi + 1).filter(r => placedIds.has(r.id)).map(r => r.id)
+				onrangeselect(ids)
+				return
+			}
 		}
+		onselect(rack.id, e.ctrlKey || e.metaKey || e.shiftKey)
 	}
 
 	function handleDragStart(e: DragEvent, rack: RackConfig & { room: string }) {
@@ -104,7 +122,7 @@
 		{/if}
 
 		<!-- Rack list by room -->
-		<div class="flex-1 min-h-0 overflow-y-auto space-y-2">
+		<div class="flex-1 min-h-0 overflow-y-auto space-y-2 select-none">
 			<p>Drag racks to drawing</p>
 			{#each [...racksByRoom.entries()].sort((a, b) => a[0].localeCompare(b[0])) as [room, racks] (room)}
 				<div>
@@ -113,7 +131,7 @@
 						{@const placed = isPlaced(rack.id)}
 						{@const selected = selectedRackIds.has(rack.id)}
 						<button
-							class="w-full flex items-center gap-1.5 px-1.5 py-1 text-left transition-colors rounded
+							class="w-full flex items-center gap-1.5 px-1.5 py-1 text-left transition-colors rounded select-none
 								{selected ? 'bg-blue-50 ring-1 ring-blue-200' : placed ? 'bg-green-50/50 hover:bg-green-50' : 'hover:bg-gray-50'}"
 							draggable={!placed && !!calibration}
 							ondragstart={e => handleDragStart(e, rack)}

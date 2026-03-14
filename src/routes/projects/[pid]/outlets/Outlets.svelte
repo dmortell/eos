@@ -665,6 +665,13 @@
 		selectedIds = new Set()
 	}
 
+	function rangeSelectRacks(ids: string[]) {
+		const next = new Set(selectedRackIds)
+		for (const id of ids) next.add(id)
+		selectedRackIds = next
+		selectedIds = new Set()
+	}
+
 	let preRackMoveSnapshot: RackPlacement[] | null = null
 	let preRackMoveTrunkSnapshot: TrunkConfig[] | null = null
 
@@ -1451,6 +1458,7 @@
 						{calibration}
 						onplace={placeRacks}
 						onselect={selectRack}
+						onrangeselect={rangeSelectRacks}
 						onremove={removeRackPlacements}
 						onrotate={rotateSelectedRacks}
 					/>
