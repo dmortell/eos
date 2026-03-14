@@ -238,9 +238,23 @@
 		logChange('update', 'rack', rackId)
 	}
 
-	function selectRack(rackId: string) {
-		selectedIds.clear()
-		selectedIds.add(rackId)
+	function selectRack(rackId: string, multi = false) {
+		if (multi) {
+			if (selectedIds.has(rackId)) selectedIds.delete(rackId)
+			else selectedIds.add(rackId)
+		} else {
+			selectedIds.clear()
+			selectedIds.add(rackId)
+		}
+	}
+
+	function rangeSelectRacks(fromIndex: number, toIndex: number) {
+		const sorted = activeRacks
+		const lo = Math.min(fromIndex, toIndex)
+		const hi = Math.max(fromIndex, toIndex)
+		for (let i = lo; i <= hi; i++) {
+			if (sorted[i]) selectedIds.add(sorted[i].id)
+		}
 	}
 
 	// ── Device CRUD ──
@@ -583,7 +597,7 @@
 				<!-- Sidebar content -->
 				<div class="flex-1 min-h-0 overflow-y-auto">
 					{#if sidebarTab === 'racks'}
-						<RackList {racks} {rows} {activeRowId} onadd={addRack} onselect={selectRack} ondelete={deleteRack} onaddrow={addRow} />
+						<RackList {racks} {rows} {activeRowId} {selectedIds} onadd={addRack} onselect={selectRack} onrangeselect={rangeSelectRacks} ondelete={deleteRack} onaddrow={addRow} />
 					{:else if sidebarTab === 'devices'}
 						<div class="p-2 space-y-2">
 							{#if activeRacks.length === 0}

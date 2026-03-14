@@ -2,15 +2,28 @@
 	import { Button, Icon } from '$lib'
 	import { rackTypes, type RackConfig, type RackRow } from './types'
 
-	let { racks = [], rows = [], activeRowId = '', onadd, onselect, ondelete, onaddrow }: {
+	let { racks = [], rows = [], activeRowId = '', selectedIds = new Set<string>(), onadd, onselect, onrangeselect, ondelete, onaddrow }: {
 		racks: RackConfig[]
 		rows: RackRow[]
 		activeRowId: string
+		selectedIds: Set<string>
 		onadd?: (form: { label: string; heightU: number; heightMm: number; widthMm: number; depthMm: number; type: string; maker: string; model: string }) => void
-		onselect?: (rackId: string) => void
+		onselect?: (rackId: string, multi?: boolean) => void
+		onrangeselect?: (fromIndex: number, toIndex: number) => void
 		ondelete?: (rackId: string) => void
 		onaddrow?: () => void
 	} = $props()
+
+	let lastClickedIndex = $state(-1)
+
+	function handleListClick(e: MouseEvent, rackId: string, index: number) {
+		if (e.shiftKey && lastClickedIndex >= 0) {
+			onrangeselect?.(lastClickedIndex, index)
+		} else {
+			onselect?.(rackId, e.ctrlKey || e.metaKey)
+		}
+		lastClickedIndex = index
+	}
 
 	let formOpen = $state(false)
 	let confirmingDelete = $state<string | null>(null)
@@ -92,12 +105,14 @@
 
 	<!-- Rack list -->
 	{#if filteredRacks.length > 0}
-		<div class="space-y-0.5">
-			{#each filteredRacks.sort((a, b) => a.order - b.order) as rack (rack.id)}
+		<div class="space-y-0.5 select-none">
+			{#each filteredRacks.sort((a, b) => a.order - b.order) as rack, i (rack.id)}
+				{@const selected = selectedIds.has(rack.id)}
 				<!-- svelte-ignore a11y_click_events_have_key_events -->
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="flex items-center justify-between p-1 bg-gray-50 border border-gray-200 rounded text-xs hover:bg-gray-100 cursor-pointer transition-colors"
-					onclick={() => onselect?.(rack.id)}>
+				<div class="flex items-center justify-between p-1 rounded text-xs cursor-pointer transition-colors
+						{selected ? 'bg-cyan-50 border border-cyan-300' : 'bg-gray-50 border border-gray-200 hover:bg-gray-100'}"
+					onclick={(e) => handleListClick(e, rack.id, i)}>
 					<div>
 						<span class="font-medium text-gray-700">{rack.label}</span>
 						<span class="text-gray-400 ml-1">{rack.heightU}U {rack.type}</span>
