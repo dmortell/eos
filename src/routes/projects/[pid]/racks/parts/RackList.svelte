@@ -2,7 +2,7 @@
 	import { Button, Icon } from '$lib'
 	import { rackTypes, type RackConfig, type RackRow } from './types'
 
-	let { racks = [], rows = [], activeRowId = '', selectedIds = new Set<string>(), onadd, onselect, onrangeselect, ondelete, onaddrow }: {
+	let { racks = [], rows = [], activeRowId = '', selectedIds = new Set<string>(), onadd, onselect, onrangeselect, ondelete, onaddrow, onreorder }: {
 		racks: RackConfig[]
 		rows: RackRow[]
 		activeRowId: string
@@ -12,6 +12,7 @@
 		onrangeselect?: (ids: string[]) => void
 		ondelete?: (rackId: string) => void
 		onaddrow?: () => void
+		onreorder?: (orderedIds: string[]) => void
 	} = $props()
 
 	let formOpen = $state(false)
@@ -53,6 +54,49 @@
 		onadd?.(form)
 		form.label = ''
 	}
+
+	// ── Drag-to-reorder ──
+	let dragId = $state<string | null>(null)
+	let dropIndex = $state<number | null>(null)
+
+	function handleDragStart(e: DragEvent, rackId: string) {
+		if (!selectedIds.has(rackId)) onselect?.(rackId)
+		dragId = rackId
+		e.dataTransfer!.effectAllowed = 'move'
+		e.dataTransfer!.setData('text/plain', rackId)
+	}
+
+	function handleDragOver(e: DragEvent, index: number) {
+		e.preventDefault()
+		e.dataTransfer!.dropEffect = 'move'
+		const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+		dropIndex = e.clientY < rect.top + rect.height / 2 ? index : index + 1
+	}
+
+	function handleDrop(e: DragEvent) {
+		e.preventDefault()
+		if (dragId == null || dropIndex == null) return
+
+		const draggedIds = new Set(selectedIds.has(dragId) ? selectedIds : [dragId])
+		const remaining = sortedRacks.filter(r => !draggedIds.has(r.id))
+		const dragged = sortedRacks.filter(r => draggedIds.has(r.id))
+
+		// Find insert position in the remaining array
+		let insertAt = 0
+		for (let i = 0; i < dropIndex; i++) {
+			if (i < sortedRacks.length && !draggedIds.has(sortedRacks[i].id)) insertAt++
+		}
+
+		remaining.splice(insertAt, 0, ...dragged)
+		onreorder?.(remaining.map(r => r.id))
+		dragId = null
+		dropIndex = null
+	}
+
+	function handleDragEnd() {
+		dragId = null
+		dropIndex = null
+	}
 </script>
 
 <div class="space-y-2 p-2 border-b border-gray-200 print:hidden">
@@ -90,9 +134,6 @@
 				{#each rackTypes as rt}
 					<option value={rt.id}>{rt.label}</option>
 				{/each}
-					<!-- <option value="2-post">2-post</option> -->
-					<!-- <option value="4-post">4-post</option> -->
-					<!-- <option value="cabinet">Cabinet</option> -->
 				</select>
 			</label>
 			<label class="text-[10px] text-gray-500">Width (mm)
@@ -112,17 +153,27 @@
 
 	<!-- Rack list -->
 	{#if filteredRacks.length > 0}
-		<div class="space-y-0.5 select-none">
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div class="space-y-0.5 select-none" ondragover={e => e.preventDefault()} ondrop={handleDrop}>
 			{#each sortedRacks as rack, i (rack.id)}
 				{@const selected = selectedIds.has(rack.id)}
+				{#if dropIndex === i && dragId}
+					<div class="h-0.5 bg-blue-500 rounded-full mx-1"></div>
+				{/if}
 				<!-- svelte-ignore a11y_click_events_have_key_events -->
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div class="flex items-center justify-between p-1 rounded text-xs cursor-pointer transition-colors select-none
-						{selected ? 'bg-cyan-50 border border-cyan-300' : 'bg-gray-50 border border-gray-200 hover:bg-gray-100'}"
+						{selected ? 'bg-cyan-50 border border-cyan-300' : 'bg-gray-50 border border-gray-200 hover:bg-gray-100'}
+						{dragId && (selectedIds.has(rack.id) || dragId === rack.id) ? 'opacity-40' : ''}"
+					draggable="true"
+					ondragstart={e => handleDragStart(e, rack.id)}
+					ondragover={e => handleDragOver(e, i)}
+					ondragend={handleDragEnd}
 					onclick={(e) => handleListClick(e, rack.id, i)}>
-					<div>
+					<div class="flex items-center gap-1">
+						<Icon name="grip" size={10} class="text-gray-300 shrink-0 cursor-grab" />
 						<span class="font-medium text-gray-700">{rack.label}</span>
-						<span class="text-gray-400 ml-1">{rack.heightU}U {rack.type}</span>
+						<span class="text-gray-400">{rack.heightU}U {rack.type}</span>
 					</div>
 					{#if confirmingDelete === rack.id}
 						<div class="flex items-center gap-1 text-[10px]">
@@ -140,6 +191,9 @@
 					{/if}
 				</div>
 			{/each}
+			{#if dropIndex === sortedRacks.length && dragId}
+				<div class="h-0.5 bg-blue-500 rounded-full mx-1"></div>
+			{/if}
 		</div>
 	{:else}
 		{#if !formOpen}

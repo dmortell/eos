@@ -109,9 +109,10 @@
 	)
 
 	// Selected item helpers
-	let selectedRack = $derived(
-		racks.find(r => selectedIds.has(r.id)) ?? null
+	let selectedRacks = $derived(
+		racks.filter(r => selectedIds.has(r.id))
 	)
+	let selectedRack = $derived(selectedRacks[0] ?? null)
 	let selectedDevice = $derived(
 		devices.find(d => selectedIds.has(d.id)) ?? null
 	)
@@ -238,6 +239,14 @@
 		}
 		racks = racks.map(r => r.id === rackId ? { ...r, ...updates } : r)
 		logChange('update', 'rack', rackId)
+	}
+
+	function reorderRacks(orderedIds: string[]) {
+		racks = racks.map(r => {
+			const idx = orderedIds.indexOf(r.id)
+			return idx >= 0 ? { ...r, order: idx } : r
+		})
+		logChange('update', 'rack', 'reorder')
 	}
 
 	function selectRack(rackId: string, multi = false) {
@@ -677,7 +686,7 @@
 				<!-- Sidebar content -->
 				<div class="flex-1 min-h-0 overflow-y-auto">
 					{#if sidebarTab === 'racks'}
-						<RackList {racks} {rows} {activeRowId} {selectedIds} onadd={addRack} onselect={selectRack} onrangeselect={rangeSelectRacks} ondelete={deleteRack} onaddrow={addRow} />
+						<RackList {racks} {rows} {activeRowId} {selectedIds} onadd={addRack} onselect={selectRack} onrangeselect={rangeSelectRacks} ondelete={deleteRack} onaddrow={addRow} onreorder={reorderRacks} />
 					{:else if sidebarTab === 'devices'}
 						<RackDevices racks={activeRacks} {devices} {selectedIds} onselect={selectDevice} onrangeselect={rangeSelectDevices} ondelete={deleteDevice} />
 					{:else if sidebarTab === 'library'}
