@@ -1,6 +1,7 @@
 <script lang="ts">
 
 	import { Button, Icon, Titlebar } from '$lib'
+	import { onMount, onDestroy } from 'svelte'
 	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
 	import type { ChangeDetail } from '$lib/logger'
 	import type { RackConfig, DeviceConfig, DeviceTemplate, RackRow, RackSettings, ViewState } from './parts/types'
@@ -385,6 +386,23 @@
 		logChange('update', 'device', deviceId)
 	}
 
+	function selectDevice(deviceId: string, multi = false) {
+		if (multi) {
+			const next = new Set(selectedIds)
+			if (next.has(deviceId)) next.delete(deviceId)
+			else next.add(deviceId)
+			selectedIds = next
+		} else {
+			selectedIds = new Set([deviceId])
+		}
+	}
+
+	function rangeSelectDevices(ids: string[]) {
+		const next = new Set(selectedIds)
+		for (const id of ids) next.add(id)
+		selectedIds = next
+	}
+
 	// ── Custom device library (project-level) ──
 	function addCustomTemplate(template: DeviceTemplate) {
 		const updated = [...library, template]
@@ -546,6 +564,71 @@
 		if (lineDragField) logChange('update', 'settings', lineDragField)
 		lineDragField = null
 	}
+
+	// ── Print support ──
+	let printSavedView: { x: number; y: number; zoom: number; title: string } | null = null
+
+	function setPrinting() {
+		const wallW = 50
+		const pad = 60 // mm padding for labels
+
+		// Content bounds in canvas coords (pre-zoom pixels)
+		const canvasLeft = (settings.leftWallX - wallW - pad) * SCALE
+		const canvasRight = (settings.rightWallX + wallW + pad) * SCALE
+		const canvasTop = (view.bottom - settings.ceilingLevel - 200 - pad) * SCALE
+		const canvasBottom = (view.bottom - settings.slabLevel + 100 + pad) * SCALE
+
+		const contentW = canvasRight - canvasLeft
+		const contentH = canvasBottom - canvasTop
+
+		// A3 landscape: 420mm x 297mm, 10mm visual margin
+		const pageWmm = 420, pageHmm = 297, marginMm = 10
+		const pxPerMm = 96 / 25.4
+		const usableWpx = (pageWmm - 2 * marginMm) * pxPerMm
+		const usableHpx = (pageHmm - 2 * marginMm) * pxPerMm
+		const marginPx = marginMm * pxPerMm
+		const printZoom = Math.min(usableWpx / contentW, usableHpx / contentH)
+
+		printSavedView = { x: view.x, y: view.y, zoom: view.zoom, title: document.title }
+		document.title = `${projectName} - ${fmt(floor)} - ${roomLabel(room)} Elevation`
+		view.zoom = printZoom
+		view.x = marginPx - canvasLeft * printZoom
+		view.y = marginPx - canvasTop * printZoom
+
+		updatePrintStyles()
+	}
+
+	function clrPrinting() {
+		if (printSavedView) {
+			document.title = printSavedView.title
+			view.x = printSavedView.x
+			view.y = printSavedView.y
+			view.zoom = printSavedView.zoom
+			printSavedView = null
+		}
+	}
+
+	function updatePrintStyles() {
+		const id = 'racks-print-style'
+		let style = document.getElementById(id) as HTMLStyleElement
+		if (!style) { style = document.createElement('style'); style.id = id; document.head.appendChild(style) }
+		style.textContent = `@page { size: A3 landscape; margin: 0; }
+@media print {
+	html, body { margin: 0; padding: 0; overflow: visible !important; }
+	.panzoom { position: fixed !important; top: 0; left: 0; width: 420mm !important; height: 297mm !important; background: white !important; overflow: visible !important; z-index: 9999; }
+}`
+	}
+
+	onMount(() => {
+		window.addEventListener('beforeprint', setPrinting)
+		window.addEventListener('afterprint', clrPrinting)
+	})
+
+	onDestroy(() => {
+		window.removeEventListener('beforeprint', setPrinting)
+		window.removeEventListener('afterprint', clrPrinting)
+		document.getElementById('racks-print-style')?.remove()
+	})
 </script>
 
 <svelte:window bind:innerHeight bind:innerWidth />
@@ -596,44 +679,7 @@
 					{#if sidebarTab === 'racks'}
 						<RackList {racks} {rows} {activeRowId} {selectedIds} onadd={addRack} onselect={selectRack} onrangeselect={rangeSelectRacks} ondelete={deleteRack} onaddrow={addRow} />
 					{:else if sidebarTab === 'devices'}
-						<div class="p-2 space-y-2">
-							{#if activeRacks.length === 0}
-								<p class="text-xs text-gray-400 py-4 text-center">No racks in this row</p>
-							{:else}
-								{#each activeRacks as rack (rack.id)}
-									{@const rackDevices = devices.filter(d => d.rackId === rack.id).sort((a, b) => b.positionU - a.positionU)}
-									<div>
-										{#if rackDevices.length === 0}
-										<!-- <p class="text-[10px] text-gray-300 pl-1">Empty</p> -->
-										{:else}
-										<div class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">{rack.label}</div>
-											<div class="space-y-0.5">
-												{#each rackDevices as device (device.id)}
-													<!-- svelte-ignore a11y_click_events_have_key_events -->
-												<!-- svelte-ignore a11y_no_static_element_interactions -->
-												 <!-- {selectedIds.has(device.id) ? 'bg-blue-50 border border-blue-300' : 'bg-gray-50 border border-gray-200 hover:bg-gray-100'}" -->
-												<div
-													class="flex items-center gap-2 w-full pb-1 rounded text-left text-xs transition-colors cursor-pointer select-none
-														{selectedIds.has(device.id) ? 'bg-blue-50 border border-blue-300' : 'xxbg-gray-50 border border-gray-200 hover:bg-gray-100'}"
-													onclick={() => { selectedIds = new Set([device.id]) }}
-												>
-													<div class="min-w-0 flex-1">
-														<div class="font-mediumxx text-gray-700 truncate">U{device.positionU}: {device.label} · {device.type}</div>
-														<!-- <div class="text-[10px] text-gray-400">U{device.positionU} · {device.heightU}U · {device.type}</div> -->
-													</div>
-													<button class="shrink-0 p-0.5 text-gray-300 hover:text-red-500 transition-colors"
-														onclick={e => { e.stopPropagation(); deleteDevice(device.id) }}
-														title="Delete device">
-														<Icon name="trash" size={12} />
-													</button>
-												</div>
-												{/each}
-											</div>
-										{/if}
-									</div>
-								{/each}
-							{/if}
-						</div>
+						<RackDevices racks={activeRacks} {devices} {selectedIds} onselect={selectDevice} onrangeselect={rangeSelectDevices} ondelete={deleteDevice} />
 					{:else if sidebarTab === 'library'}
 						<DevicePalette {library} onadd={addDevice} ondragstart={onPaletteDragStart} oncustomadd={addCustomTemplate} />
 					{/if}

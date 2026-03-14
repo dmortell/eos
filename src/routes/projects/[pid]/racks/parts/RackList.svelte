@@ -68,7 +68,7 @@
 					<Icon name="rows" size={12} />
 				</button>
 			{/if}
-			<button class="p-0.5 rounded bg-gray-100 hover:bg-gray-200 transition-colors" title="Toggle form"
+			<button class="p-0.5 rounded bg-gray-100 hover:bg-gray-200 transition-colors" title="Add Rack"
 				onclick={() => formOpen = !formOpen}>
 				<Icon name={formOpen ? 'chevronUp' : 'plus'} size={12} />
 			</button>

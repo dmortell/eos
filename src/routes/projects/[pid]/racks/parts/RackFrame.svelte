@@ -59,7 +59,7 @@
 			{@const y = height - h * scale}
 			<rect x={1} y={y - 3 * scale} width={width - 2} height={6 * scale}
 				fill="#e5e7eb" stroke="#999" stroke-width={1} />
-			<text x={width - 6} y={y + 3 * scale} fill="#888" font-size={Math.max(7, 20 * scale)}
+			<text x={width - 6} y={y + 20 * scale} fill="#888" font-size={Math.max(7, 20 * scale)}
 				font-family="sans-serif" text-anchor="end" class="pointer-events-none select-none">
 				{h}
 			</text>
