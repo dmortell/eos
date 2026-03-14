@@ -173,7 +173,7 @@
 	</div>
 
 	<!-- Trunk list -->
-	<div class="flex-1 min-h-0 overflow-y-auto">
+	<div class="flex-1 min-h-0 overflow-y-auto select-none">
 		<div class="px-2 py-1 text-[10px] text-gray-400 uppercase tracking-wider font-medium sticky top-0 bg-white border-b border-gray-100">
 			Trunks ({trunks.length})
 		</div>

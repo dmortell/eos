@@ -16,7 +16,7 @@
 </script>
 
 {#if hasSelection}
-	<Window title="Properties" open={true} top={70} right={20} class="w-56 p-2">
+	<Window title="Properties" open={true} top={70} right={20} class="w-56 p-2 overflow-hidden">
 		{#if selectedDevice}
 			<div class="space-y-1 text-xs">
 				{@render Field('label', selectedDevice.label, v => onupdatedevice?.(selectedDevice!.id, { label: v }))}
@@ -65,7 +65,7 @@
 	<label class="flex gap-2 items-center">
 		<span class="w-16 text-gray-500 text-[10px] shrink-0">{key}</span>
 		{#if onchange}
-			<input {value} class="flex-1 h-6 px-1 border-b border-gray-300 text-xs"
+			<input {value} class="flex-1 min-w-0 h-6 px-1 border-b border-gray-300 text-xs"
 				onchange={e => onchange(e.currentTarget.value)} />
 		{:else}
 			<span class="text-gray-700">{value}</span>
@@ -76,7 +76,7 @@
 {#snippet SelectField(key: string, value: string, options: [string, string][], onchange?: (v: string) => void)}
 	<label class="flex gap-2 items-center">
 		<span class="w-16 text-gray-500 text-[10px] shrink-0">{key}</span>
-		<select class="flex-1 h-6 px-1 border-b border-gray-300 text-xs" {value}
+		<select class="flex-1 min-w-0 h-6 px-1 border-b border-gray-300 text-xs" {value}
 			onchange={e => onchange?.(e.currentTarget.value)}>
 			{#each options as [val, label]}
 				<option value={val} selected={val === value}>{label}</option>
@@ -89,7 +89,7 @@
 	<label class="flex gap-2 items-center">
 		<span class="w-16 text-gray-500 text-[10px] shrink-0">{key}</span>
 		{#if onchange}
-			<input type="number" {value} class="flex-1 h-6 px-1 border-b border-gray-300 text-xs"
+			<input type="number" {value} class="flex-1 min-w-0 h-6 px-1 border-b border-gray-300 text-xs"
 				onchange={e => onchange(parseInt(e.currentTarget.value) || 0)} />
 		{:else}
 			<span class="text-gray-700">{value}</span>
