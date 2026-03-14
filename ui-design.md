@@ -38,6 +38,10 @@
 - Strength: lightweight and already used in several areas.
 - Gaps: no `size` model, no loading state, no icon-only treatment, no semantic `tone` set beyond current variants, no built-in confirmation/danger affordances.
 
+- `src/lib/components/ui/button/button.svelte`
+- Separate advanced button system (variant + size) exists but is not the primary app-level import path.
+- Risk: two competing button systems in one codebase.
+
 - `src/lib/ui/Input.svelte`
 - Supports `type='textarea'` mode and `label`.
 - Gaps: odd class names (`flexxx`, `flex-inline`), mixed styling strategy (component classes plus element-level CSS), limited size/validation/assistive text model.
@@ -45,10 +49,6 @@
 - `src/lib/ui/Select.svelte`
 - Basic wrapper with `label` and class composition.
 - Gaps: no standardized hint/error state, no consistent sizing tokens with `Input`.
-
-- `src/lib/components/ui/button/button.svelte`
-- Separate advanced button system (variant + size) exists but is not the primary app-level import path.
-- Risk: two competing button systems in one codebase.
 
 ## Style Variants Observed In Native Controls
 - Primary action buttons (`bg-blue-600 text-white`, often small heights like `h-5/h-6/h-7`).
@@ -107,6 +107,7 @@
 
 ## Suggested Migration Plan
 - Phase 1: Define design tokens and variant map inside `Button`, `Input`, `Select`.
+  - Implement src\lib\ui\ButtonNew.svelte InputNew.svelte and SelectNew.svelte and change $lib\index.ts to use them
 - Phase 2: Migrate high-volume hotspots first:
 - `src/routes/projects/[pid]/uploads/parts/PdfViewer.svelte`
 - `src/routes/projects/[pid]/outlets/Outlets.svelte`

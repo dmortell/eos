@@ -37,6 +37,8 @@
 <div class="p-2 space-y-2 select-none">
 	{#if racks.length === 0}
 		<p class="text-xs text-gray-400 py-4 text-center">No racks in this row</p>
+	{:else if devices.length === 0}
+		<p class="text-xs text-gray-400 py-4 text-center">No devices. Add devices from Library</p>
 	{:else}
 		{#each racks as rack (rack.id)}
 			{@const rackDevices = devices.filter(d => d.rackId === rack.id).sort((a, b) => b.positionU - a.positionU)}

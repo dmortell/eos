@@ -50,7 +50,7 @@
 	<!-- Row 2: Zone select + Locations + Generate -->
 	<div class="grid grid-cols-[1fr_2fr] gap-1.5 items-end">
 		<div>
-			<label class="text-[10px] text-gray-500 uppercase tracking-wider">Zone
+			<label class="text-[10px] text-gray-500 uppercase tracking-wider">Floor Zone
 			<select value={activeZone} onchange={e => onzone(e.currentTarget.value)}
 				class="w-full h-7 px-1 text-xs font-mono bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
 			>

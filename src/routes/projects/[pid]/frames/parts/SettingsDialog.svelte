@@ -85,12 +85,12 @@
 							class="flex-1 h-7 px-2 text-xs font-mono bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
 							onkeydown={e => e.key === 'Enter' && addType()}
 						/>
-						<Button onclick={addType}>Add</Button>
+						<Button variant=outline  onclick={addType}>Add</Button>
 					</div>
 				</div>
 
-				<!-- Room Directory -->
-				<div class="space-y-2">
+				<!-- Room Directory - not currently used -->
+				<!-- <div class="space-y-2">
 					<h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Room Directory</h3>
 
 					{#if rooms.length > 0}
@@ -123,7 +123,7 @@
 						/>
 						<Button onclick={addRoom}>Add</Button>
 					</div>
-				</div>
+				</div> -->
 
 				<!-- Floor/Level Format -->
 				<div class="space-y-2">
@@ -143,9 +143,9 @@
 					<p class="text-[10px] text-gray-400">Preview: {floorFormat === '01F' ? '01F, 02F, 03F' : floorFormat === '01' ? '01, 02, 03' : 'L01, L02, L03'}</p>
 				</div>
 
-				<!-- Excel Export -->
+				<!-- Excel Export - one patch frame, one row or one room per excel tab -->
 				<div class="space-y-2">
-					<h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Excel Export</h3>
+					<h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Excel Export Tabs</h3>
 					<label class="flex items-center gap-2 cursor-pointer">
 						<input
 							type="checkbox"

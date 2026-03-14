@@ -495,6 +495,7 @@
 {/snippet}
 
 {#snippet configAndLocations()}
+	<Button href={`/projects/${projectId}`} icon="chevronLeft" class="text-xs">Back</Button>
 	<ConfigPanel
 		{floor}
 		floorLabel={fmt(floor)}
