@@ -4,7 +4,9 @@
 	import { getContext, type Snippet } from 'svelte';
 	import PresenceAvatars from '$lib/presence/PresenceAvatars.svelte'
 	import { startPresence, stopPresence } from '$lib/presence/presence.svelte'
-	const menuItems = [
+  import { updated } from '$app/state';
+
+  const menuItems = [
 		{ label: 'Racks', href: 'racks' },
 		{ label: 'Frames', href: 'frames' },
 		{ label: 'Floorplans', href: 'outlets' },
@@ -40,6 +42,9 @@
 		{/if}
 		{#if session.user}
 			<button class="cursor-pointer rounded hover:text-gray-200 px-2" onclick={session.logout} title='Sign out {session.user.email}'>Sign Out</button>
+			{#if updated.current}
+				<button onclick={()=>location.reload()} class="bg-blue-500 text-white px-2 py-1 rounded" title="A new version is available. Click to refresh.">Refresh</button>
+			{/if}
 			<PresenceAvatars />
 		{:else if session.user!==undefined}
 			<button class="cursor-pointer rounded hover:text-gray-200 px-2" onclick={e=>session.login('google')} title='Sign in with Google'>Sign In</button>

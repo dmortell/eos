@@ -13,6 +13,8 @@
 	import RackElevations from './parts/RackElevations.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
 	import DeviceProperties from './parts/DeviceProperties.svelte'
+	import FloorTabs from './parts/FloorTabs.svelte'
+	import RoomSelector from './parts/RoomSelector.svelte'
 	import FloorManagerDialog from '$lib/components/FloorManagerDialog.svelte'
 	import { fmtFloor } from '$lib/utils/floor'
 	import type { FloorConfig } from '$lib/types/project'
@@ -684,66 +686,12 @@
 		<!-- Canvas + toolbar + status bar -->
 		<Pane defaultSize={80}>
 			<div class="h-full flex flex-col">
-			<!-- Toolbar: Floor + Room + Row selection -->
-			<div class="h-8 px-3 flex items-center gap-3 border-b border-gray-200 bg-white shrink-0 text-xs print:hidden">
-				<!-- Floor -->
-				<span class="text-[10px] text-gray-400 uppercase tracking-wider">Floor</span>
-				<div class="flex gap-0.5 items-center">
-					{#each floors as fl (fl.number)}
-						<button
-							class="h-6 px-2 rounded text-[11px] font-mono font-medium transition-colors
-								{floor === fl.number ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
-							onclick={() => onfloorchange?.(fl.number)}
-						>{fmt(fl.number)}</button>
-					{/each}
-					<button
-						class="h-6 w-6 rounded bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 flex items-center justify-center transition-colors"
-						title="Manage floors"
-						onclick={() => floorManagerOpen = true}
-					><Icon name="plus" size={12} /></button>
-				</div>
-
-				<div class="w-px h-4 bg-gray-200"></div>
-
-				<!-- Server Room pills -->
-				<span class="text-[10px] text-gray-400 uppercase tracking-wider">Room</span>
-				<div class="flex gap-0.5">
-					{#each ['A', 'B', 'C', 'D'].slice(0, floors.find(f => f.number === floor)?.serverRoomCount ?? 4) as r}
-						<button
-							class="h-6 w-7 rounded text-[11px] font-semibold transition-colors
-								{room === r ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
-							onclick={() => onroomchange?.(r)}
-						>{r}</button>
-					{/each}
-				</div>
-
-				<div class="w-px h-4 bg-gray-200"></div>
-
-				<!-- Row pills -->
-				<span class="text-[10px] text-gray-400 uppercase tracking-wider">Row</span>
-				<div class="flex gap-0.5">
-					{#each rows as row}
-						<div class="relative group">
-							<button
-								class="h-6 px-2 rounded text-[11px] font-medium transition-colors
-									{activeRowId === row.id ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
-								onclick={() => activeRowId = row.id}
-							>{row.label}</button>
-							{#if rows.length > 1}
-								<button
-									class="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-500 text-white text-[7px] leading-none flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-									onclick={e => { e.stopPropagation(); confirmingDeleteRow = row.id }}
-								>&times;</button>
-							{/if}
-						</div>
-					{/each}
-					<button
-						class="h-6 w-6 rounded bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 flex items-center justify-center transition-colors"
-						title="Add row"
-						onclick={addRow}
-					><Icon name="plus" size={12} /></button>
-				</div>
-			</div>
+			<RoomSelector {floors} {floor} {room} {floorFormat} {rows} {activeRowId}
+				{onfloorchange} {onroomchange}
+				onactiverowchange={id => activeRowId = id}
+				onaddrow={addRow}
+				ondeleterow={id => confirmingDeleteRow = id}
+				onmanagefloors={() => floorManagerOpen = true} />
 
 			<!-- svelte-ignore a11y_click_events_have_key_events -->
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -768,21 +716,7 @@
 
 			<!-- Status bar with floor tabs -->
 			<div class="h-7 flex items-stretch border-t border-gray-200 bg-gray-50 shrink-0 print:hidden">
-				<!-- Floor tabs (left) -->
-				<div class="flex items-stretch gap-0 overflow-x-auto">
-					{#each floors as fl (fl.number)}
-						<button
-							class="px-3 text-[11px] font-mono font-medium border-r border-gray-200 transition-colors
-								{floor === fl.number ? 'bg-white text-blue-600 border-t-2 border-t-blue-500' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 border-t-2 border-t-transparent'}"
-							onclick={() => onfloorchange?.(fl.number)}
-						>{fmt(fl.number)}</button>
-					{/each}
-					<button
-						class="px-2 text-gray-300 hover:text-gray-500 transition-colors"
-						title="Manage floors"
-						onclick={() => floorManagerOpen = true}
-					><Icon name="plus" size={12} /></button>
-				</div>
+				<FloorTabs {floors} {floor} {floorFormat} {onfloorchange} onmanage={() => floorManagerOpen = true} />
 
 				<!-- Spacer + stats (right) -->
 				<div class="flex-1"></div>
