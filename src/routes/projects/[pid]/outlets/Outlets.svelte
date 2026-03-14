@@ -14,6 +14,7 @@
 	import OutletCanvas from './parts/OutletCanvas.svelte'
 	import OutletPalette from './parts/OutletPalette.svelte'
 	import RackPalette from './parts/RackPalette.svelte'
+	import RackProperties from './parts/RackProperties.svelte'
 	import TrunkPalette from './trunks/TrunkPalette.svelte'
 	import type { TrunkConfig, TrunkNode, TrunkSegment, PipeSpec, RectSpec } from './trunks/types'
 	import { genId, splitSegment as splitTrunkSeg, snapToGrid, dist, nearestPointOnSegment } from './trunks/geometry'
@@ -363,17 +364,6 @@
 		}
 		return { wall, floor, box }
 	})
-
-	function sharedRack<K extends keyof RackConfig>(key: K): RackConfig[K] | undefined {
-		if (selectedRackConfigs.length === 0) return undefined
-		const first = selectedRackConfigs[0][key]
-		return selectedRackConfigs.every(r => r[key] === first) ? first : undefined
-	}
-
-	let sharedRotation = $derived(
-		selectedRackPlaced.length === 0 ? undefined :
-		selectedRackPlaced.every(p => p.rotation === selectedRackPlaced[0].rotation) ? selectedRackPlaced[0].rotation : undefined
-	)
 
 	function updateSelectedRackConfigs(updates: Partial<RackConfig>) {
 		for (const rc of selectedRackConfigs) {
@@ -1541,109 +1531,14 @@
 
 				<!-- Floating rack properties window -->
 				{#if selectedRackIds.size > 0 && selectedRackConfigs.length > 0}
-					<Window title="Rack Properties" open={true} right={16} top={48} class="p-3 space-y-1.5 text-xs w-56">
-						<div class="text-[10px] text-gray-400 uppercase tracking-wider font-medium mb-1">
-							{selectedRackConfigs.length === 1 ? selectedRackConfigs[0].label : `${selectedRackConfigs.length} racks`}
-						</div>
-
-						<label class="flex items-center gap-2">
-							<span class="text-gray-500 w-14 shrink-0">Label</span>
-							{#if selectedRackConfigs.length === 1}
-								<input type="text" class="flex-1 h-5 px-1.5 text-xs font-mono border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-									value={selectedRackConfigs[0].label}
-									onchange={e => updateSelectedRackConfigs({ label: e.currentTarget.value })} />
-							{:else}
-								<span class="text-[10px] text-gray-400 italic">— multiple —</span>
-							{/if}
-						</label>
-
-						<label class="flex items-center gap-2">
-							<span class="text-gray-500 w-14 shrink-0">Height</span>
-							<input type="number" min="1" max="60"
-								class="w-14 h-5 px-1.5 text-xs font-mono border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-								value={sharedRack('heightU') ?? ''}
-								placeholder="—"
-								onchange={e => updateSelectedRackConfigs({ heightU: parseInt(e.currentTarget.value) || 42 })} />
-							<span class="text-[10px] text-gray-400">U</span>
-						</label>
-
-						<label class="flex items-center gap-2">
-							<span class="text-gray-500 w-14 shrink-0">Width</span>
-							<input type="number" min="100" max="2000" step="50"
-								class="w-16 h-5 px-1.5 text-xs font-mono border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-								value={sharedRack('widthMm') ?? ''}
-								placeholder="—"
-								onchange={e => updateSelectedRackConfigs({ widthMm: parseInt(e.currentTarget.value) || 600 })} />
-							<span class="text-[10px] text-gray-400">mm</span>
-						</label>
-
-						<label class="flex items-center gap-2">
-							<span class="text-gray-500 w-14 shrink-0">Depth</span>
-							<input type="number" min="100" max="2000" step="50"
-								class="w-16 h-5 px-1.5 text-xs font-mono border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-								value={sharedRack('depthMm') ?? ''}
-								placeholder="—"
-								onchange={e => updateSelectedRackConfigs({ depthMm: parseInt(e.currentTarget.value) || 1000 })} />
-							<span class="text-[10px] text-gray-400">mm</span>
-						</label>
-
-						<label class="flex items-center gap-2">
-							<span class="text-gray-500 w-14 shrink-0">Type</span>
-							<select class="flex-1 h-5 px-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-								value={sharedRack('type') ?? ''}
-								onchange={e => { if (e.currentTarget.value) updateSelectedRackConfigs({ type: e.currentTarget.value as any }) }}>
-								{#if !sharedRack('type')}<option value="">— mixed —</option>{/if}
-								<option value="cabinet">Cabinet</option>
-								<option value="4-post">4-Post</option>
-								<option value="2-post">2-Post</option>
-							</select>
-						</label>
-
-						<label class="flex items-center gap-2">
-							<span class="text-gray-500 w-14 shrink-0">Maker</span>
-							<input type="text"
-								class="flex-1 h-5 px-1.5 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-								value={sharedRack('maker') ?? ''}
-								placeholder={sharedRack('maker') === undefined && selectedRackConfigs.length > 1 ? '— mixed —' : '—'}
-								onchange={e => updateSelectedRackConfigs({ maker: e.currentTarget.value || undefined })} />
-						</label>
-
-						<label class="flex items-center gap-2">
-							<span class="text-gray-500 w-14 shrink-0">Model</span>
-							<input type="text"
-								class="flex-1 h-5 px-1.5 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-								value={sharedRack('model') ?? ''}
-								placeholder={sharedRack('model') === undefined && selectedRackConfigs.length > 1 ? '— mixed —' : '—'}
-								onchange={e => updateSelectedRackConfigs({ model: e.currentTarget.value || undefined })} />
-						</label>
-
-						<label class="flex items-center gap-2">
-							<span class="text-gray-500 w-14 shrink-0">Rotation</span>
-							<input type="number" min="0" max="345" step="15"
-								class="w-14 h-5 px-1.5 text-xs font-mono border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-								value={sharedRotation ?? ''}
-								placeholder="—"
-								onchange={e => setSelectedRacksRotation(parseInt(e.currentTarget.value) || 0)} />
-							<span class="text-[10px] text-gray-400">°</span>
-							<button class="ml-auto text-[10px] text-gray-400 hover:text-blue-500 px-1 rounded hover:bg-blue-50 transition-colors"
-								onclick={rotateSelectedRacks}>+90°</button>
-						</label>
-
-						{#if selectedRackPlaced.length === 1}
-							<div class="flex items-center gap-2 text-gray-400">
-								<span class="w-14 shrink-0">Pos</span>
-								<span class="font-mono text-[10px]">{Math.round(selectedRackPlaced[0].position.x)}, {Math.round(selectedRackPlaced[0].position.y)} mm</span>
-							</div>
-						{/if}
-
-						<div class="flex items-center gap-1 pt-1 border-t border-gray-100">
-							<button class="flex items-center gap-1 px-1.5 py-0.5 text-[10px] text-red-500 border border-red-200 rounded hover:bg-red-50 transition-colors"
-								title="Remove selected rack(s) from floor plan (does not delete the rack)"
-								onclick={removeRackPlacements}>
-								<Icon name="trash" size={10} /> Remove
-							</button>
-						</div>
-					</Window>
+					<RackProperties
+						racks={selectedRackConfigs}
+						placements={selectedRackPlaced}
+						onupdate={updateSelectedRackConfigs}
+						onsetrotation={setSelectedRacksRotation}
+						onrotate={rotateSelectedRacks}
+						onremove={removeRackPlacements}
+					/>
 				{/if}
 
 				<!-- Floating outlet properties window -->

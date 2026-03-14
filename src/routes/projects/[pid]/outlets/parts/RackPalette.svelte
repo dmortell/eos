@@ -3,19 +3,19 @@
 	import type { RackPlacement, PageCalibration } from './types'
 	import type { RackConfig } from '../../racks/parts/types'
 
-	let { rackConfigs, rackPlacements, selectedRackIds, calibration, onplace, onselect, onremove, onrotate }: {
+	let { rackConfigs, rackPlacements, selectedRackIds, calibration, onplace, onselect, onrangeselect, onremove, onrotate }: {
 		rackConfigs: (RackConfig & { room: string })[]
 		rackPlacements: RackPlacement[]
 		selectedRackIds: Set<string>
 		calibration: PageCalibration | null
 		onplace: (rackIds: string[], room: string, position: { x: number; y: number }) => void
 		onselect: (rackId: string, multi: boolean) => void
+		onrangeselect?: (ids: string[]) => void
 		onremove: () => void
 		onrotate: () => void
 	} = $props()
 
 	let draggedIds = $state<string[]>([])
-	let lastClickedIndex = $state(-1)
 
 	// Placed rack IDs for quick lookup
 	let placedIds = $derived(new Set(rackPlacements.map(p => p.rackId)))
