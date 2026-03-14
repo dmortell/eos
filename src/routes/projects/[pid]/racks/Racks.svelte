@@ -15,6 +15,7 @@
 	import Draggable from './parts/Draggable.svelte'
 	import DeviceView from './parts/DeviceView.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
+	import DeviceProperties from './parts/DeviceProperties.svelte'
 	import FloorManagerDialog from '$lib/components/FloorManagerDialog.svelte'
 	import { fmtFloor } from '$lib/utils/floor'
 	import type { FloorConfig } from '$lib/types/project'
@@ -879,8 +880,8 @@
 			</div>
 
 			<!-- Properties panel -->
-			<PropertiesPanel {selectedRacks} {selectedDevices}
-				onupdaterack={updateRack} onupdatedevice={updateDevice} />
+			<PropertiesPanel {selectedRacks} onupdaterack={updateRack} />
+			<DeviceProperties devices={selectedDevices} onupdate={updateDevice} />
 
 			<!-- Status bar with floor tabs -->
 			<div class="h-7 flex items-stretch border-t border-gray-200 bg-gray-50 shrink-0 print:hidden">
