@@ -113,9 +113,10 @@
 		racks.filter(r => selectedIds.has(r.id))
 	)
 	let selectedRack = $derived(selectedRacks[0] ?? null)
-	let selectedDevice = $derived(
-		devices.find(d => selectedIds.has(d.id)) ?? null
+	let selectedDevices = $derived(
+		devices.filter(d => selectedIds.has(d.id))
 	)
+	let selectedDevice = $derived(selectedDevices[0] ?? null)
 
 	/** Per-rack set of RU positions occupied by more than one device */
 	let rackOverlaps = $derived.by(() => {
@@ -878,7 +879,7 @@
 			</div>
 
 			<!-- Properties panel -->
-			<PropertiesPanel {selectedRack} {selectedDevice}
+			<PropertiesPanel {selectedRacks} {selectedDevices}
 				onupdaterack={updateRack} onupdatedevice={updateDevice} />
 
 			<!-- Status bar with floor tabs -->
