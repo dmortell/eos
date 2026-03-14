@@ -11,7 +11,7 @@
 		{ label: 'Frames', href: 'frames' },
 		{ label: 'Floorplans', href: 'outlets' },
 	]
-	let {title="EOS 0.1", height=null, children=null, menu=null, saveStatus=''}: {
+	let {title="EOS 0.2", height=null, children=null, menu=null, saveStatus=''}: {
 		title?: string
 		height?: number | null
 		children?: Snippet | null
