@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { getContext } from "svelte";
-	import { Firestore, Button, Dialog, type Session } from "$lib";
+	import { Firestore, Button, Dialog, Icon, type Session } from "$lib";
 	let db = getContext('db') as Firestore
 	let session = getContext('session') as Session
 	let projects = $state<Project[]>([])
+	let allUsers = $state<UserDoc[]>([])
 	let loading = $state(1)
 	let role = $state('user')
 	let cfg = getContext<{ locale: string }>('settings')
@@ -15,9 +16,18 @@
 	let draftDescription = $state('')
 	let draftClientCode = $state('')
 	let draftProjectCode = $state('')
+	let draftMembers = $state<string[]>([])
+	let memberSearch = $state('')
 	let searchQuery = $state('')
 	let showOnlyMine = $state(false)
 	let trashedOpen = $state(false)
+
+	interface UserDoc {
+		id: string;
+		uid?: string;
+		displayName?: string;
+		email?: string;
+	}
 
 	interface Project {
 		id: string;
@@ -25,6 +35,7 @@
 		clientCode?: string;
 		projectCode?: string;
 		description?: string;
+		members?: string[];
 		createdAt?: any;
 		updatedAt?: any;
 		ownerId?: string;
@@ -32,6 +43,20 @@
 		deletedAt?: any;
 		deletedBy?: string;
 	}
+
+	let memberResults = $derived.by(() => {
+		const q = memberSearch.trim().toLowerCase()
+		if (!q) return []
+		return allUsers
+			.filter(u => !draftMembers.includes(u.id) &&
+				u.email && u.email.includes('@ei') &&
+				((u.displayName?.toLowerCase().includes(q)) || (u.email?.toLowerCase().includes(q))))
+			.slice(0, 5)
+	})
+
+	let draftMemberUsers = $derived(
+		draftMembers.map(id => allUsers.find(u => u.id === id)).filter(Boolean) as UserDoc[]
+	)
 
 	let activeProjects = $derived.by(() => {
 		let filtered = projects.filter(p => !p.deleted)
@@ -66,7 +91,8 @@
 
 	$effect(()=>{
 		let unsub = db.subscribeMany('projects', data=>{ projects = data as unknown as Project[]; loading=0 })
-		return () => { unsub?.() }
+		let unsubUsers = db.subscribeMany('users', data=>{ allUsers = data as unknown as UserDoc[] })
+		return () => { unsub?.(); unsubUsers?.() }
 	})
 
 	$effect(() => {
@@ -88,6 +114,8 @@
 		draftDescription = ''
 		draftClientCode = ''
 		draftProjectCode = ''
+		draftMembers = session?.user?.uid ? [session.user.uid] : []
+		memberSearch = ''
 		editorOpen = true
 	}
 
@@ -99,7 +127,18 @@
 		draftDescription = project.description || ''
 		draftClientCode = project.clientCode || ''
 		draftProjectCode = project.projectCode || ''
+		draftMembers = [...(project.members ?? [])]
+		memberSearch = ''
 		editorOpen = true
+	}
+
+	function addMember(userId: string) {
+		if (!draftMembers.includes(userId)) draftMembers = [...draftMembers, userId]
+		memberSearch = ''
+	}
+
+	function removeMember(userId: string) {
+		draftMembers = draftMembers.filter(id => id !== userId)
 	}
 
 	function normalizeCode(input: string): string {
@@ -137,6 +176,7 @@
 				clientCode,
 				projectCode,
 				description: draftDescription.trim() || '',
+				members: draftMembers,
 				ownerId: session?.user?.uid,
 				createdAt: now,
 				updatedAt: now,
@@ -148,6 +188,7 @@
 				id: selected.id,
 				name,
 				description: draftDescription.trim() || '',
+				members: draftMembers,
 				updatedAt: now,
 			})
 		}
@@ -283,6 +324,38 @@
 		<input class="w-full border rounded px-2 py-1 text-sm" bind:value={draftName} placeholder="Project name" />
 		<div class="text-xs text-gray-700">Description</div>
 		<textarea class="w-full border rounded px-2 py-1 text-sm" bind:value={draftDescription} rows="4" placeholder="Optional description"></textarea>
+
+		<!-- Members -->
+		<div class="text-xs text-gray-700">Members</div>
+		<div class="space-y-1">
+			{#if draftMemberUsers.length > 0}
+				<div class="flex flex-wrap gap-1">
+					{#each draftMemberUsers as user (user.id)}
+						<span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
+							{user.displayName || user.email || user.id}
+							<button class="text-blue-400 hover:text-red-500" onclick={() => removeMember(user.id)} title="Remove">
+								<Icon name="close" size={10} />
+							</button>
+						</span>
+					{/each}
+				</div>
+			{/if}
+			<div class="relative">
+				<input class="w-full border rounded px-2 py-1 text-sm" bind:value={memberSearch} placeholder="Search users by name or email..." />
+				{#if memberResults.length > 0}
+					<div class="absolute z-10 left-0 right-0 mt-0.5 bg-white border rounded shadow-lg max-h-40 overflow-y-auto">
+						{#each memberResults as user (user.id)}
+							<button class="w-full text-left px-2 py-1 text-xs hover:bg-blue-50 flex items-center gap-2"
+								onclick={() => addMember(user.id)}>
+								<span class="font-medium text-gray-700">{user.displayName || '(no name)'}</span>
+								{#if user.email}<span class="text-gray-400">{user.email}</span>{/if}
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		</div>
+
 		{#if mode === 'edit' && selected && !canEditProject(selected)}
 			<div class="text-xs text-amber-700">You do not have permission to edit this project.</div>
 		{/if}

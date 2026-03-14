@@ -4,7 +4,7 @@
 	import { getContext, type Snippet } from 'svelte';
 	import PresenceAvatars from '$lib/presence/PresenceAvatars.svelte'
 	import { startPresence, stopPresence } from '$lib/presence/presence.svelte'
-  import { updated } from '$app/state';
+  import { updated } from '$app/state';		// For update notifications. Polling interval is set in svelte.config.js
 
   const menuItems = [
 		{ label: 'Racks', href: 'racks' },
