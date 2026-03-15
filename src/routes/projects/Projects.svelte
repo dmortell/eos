@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { getContext } from "svelte";
 	import { Firestore, Button, Dialog, Icon, type Session } from "$lib";
+	import ButtonNew from "$lib/ui/ButtonNew.svelte";
+	import InputNew from "$lib/ui/InputNew.svelte";
+	import Checkbox from "$lib/ui/Checkbox.svelte";
 	let db = getContext('db') as Firestore
 	let session = getContext('session') as Session
 	let projects = $state<Project[]>([])
@@ -227,17 +230,18 @@
 </script>
 
 <div class="p-2 pb-10">
-	<div class="flex items-center justify-between mb-2 gap-2">
-		<h1 class="text-sm font-semibold">Projects</h1>
-		<div class="flex items-center gap-2 flex-1 max-w-md">
-			<input type="text" class="flex-1 border rounded px-2 py-1 text-xs" placeholder="Search projects..."
-				bind:value={searchQuery}
-			/>
-			<label class="text-xs flex items-center gap-1 border rounded px-2 py-0.5 bg-white whitespace-nowrap">
+	<div class="row justify-between mb-2">
+	<!-- @apply flex items-center gap-2;   /* justify-between  */ -->
+		<h1>Projects</h1>
+		<div class="row xxflex-1 xxmax-w-md">
+			<!-- <label class="text-xs flex items-center gap-1 border rounded px-2 py-0.5 bg-white whitespace-nowrap">
 				<input type="checkbox" bind:checked={showOnlyMine} />
 				<span>My Projects</span>
-			</label>
-			<Button icon="plus" variant="primary" class="text-xs px-2 py-0.5" onclick={openCreate}>New Project</Button>
+			</label> -->
+			<Checkbox bind:value={showOnlyMine}>My Projects</Checkbox>
+			<!-- <input type="text" class="flex-1 border rounded px-2 py-1 text-xs" placeholder="Search projects..." bind:value={searchQuery}/> -->
+			<InputNew placeholder="Search..." class="min-w-40 flex-1" bind:value={searchQuery} />
+			<Button icon="plus" variant="primary" onclick={openCreate}>New Project</Button>
 		</div>
 	</div>
 
@@ -267,7 +271,8 @@
 				</div>
 				<div class="flex items-center gap-1 shrink-0">
 					{#if canEditProject(project)}
-						<Button class="text-xs px-1.5 py-0" variant="outline" onclick={() => openEdit(project)}>Edit</Button>
+						<!-- <Button class="text-xs px-1.5 py-0 h-6" variant="outline" onclick={() => openEdit(project)}>Edit</Button> -->
+						<Button variant="outline" onclick={() => openEdit(project)}>Edit</Button>
 					{/if}
 				</div>
 			</div>
