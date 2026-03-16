@@ -2,8 +2,9 @@
   import './layout.css';
   import favicon from '$lib/assets/favicon.ico';
 	import { Toaster } from '$lib/components/ui/sonner';
-  import { setContext } from 'svelte';
+	import { Skeleton } from "$lib/components/ui/skeleton/index.js";
   import { Session, Firestore, Titlebar, Spinner, MetalButton } from '$lib';
+  import { setContext } from 'svelte';
   import LoginScreen from './LoginScreen.svelte';
   let { children } = $props();
 
@@ -66,15 +67,27 @@
 </script>
 
 <svelte:head>
-  <link rel="icon" href={favicon} />
   <title>EOS</title>
+  <link rel="icon" href={favicon} />
 </svelte:head>
 
 <Toaster />
 
-{#if session.user===undefined || (session.user===null && !showLogin)}
+{#if 0 || session.user===undefined || (session.user===null && !showLogin)}
 
   <Titlebar>Loading...</Titlebar>
+	<div class="flex flex-col space-y-8 p-10">
+		<Skeleton class="h-[125px] w-[250px] rounded-xl" />
+		<div class="space-y-2">
+			<Skeleton class="h-4 w-[250px]" />
+			<Skeleton class="h-4 w-[200px]" />
+		</div>
+		<Skeleton class="h-[125px] w-[250px] rounded-xl" />
+		<div class="space-y-2">
+			<Skeleton class="h-4 w-[250px]" />
+			<Skeleton class="h-4 w-[200px]" />
+		</div>
+	</div>
 
 {:else if 0 || session.user===null}
 
