@@ -88,21 +88,6 @@ export interface DocWithId {
     [key: string]: unknown
 }
 
-// function sanitizeFirestoreData<T>(input: T): T {
-//     if (Array.isArray(input)) {
-//         return input
-//             .map((item) => sanitizeFirestoreData(item))
-//             .filter((item) => item !== undefined) as T;
-//     }
-//     if (input && Object.prototype.toString.call(input) === '[object Object]') {
-//         const entries = Object.entries(input as Record<string, unknown>)
-//             .filter(([, value]) => value !== undefined)
-//             .map(([key, value]) => [key, sanitizeFirestoreData(value)]);
-//         return Object.fromEntries(entries) as T;
-//     }
-//     return input;
-// }
-
 /** Strip undefined values recursively (Firestore rejects them). Preserve Date objects and other special types. */
 function sanitizeFirestoreData(obj: any): any {
     if (obj instanceof Date) return obj  // Let Firebase handle Date conversion to Timestamp
@@ -149,8 +134,8 @@ export class Firestore {
         await setDoc(doc(collection(firestore, path)), clean, { merge: true });
     }
     save = async (path: string, data: DocWithId | DocumentData): Promise<void> => {
+        if (!('id' in data) || !data.id) return await this.create(path, data)
         const clean = sanitizeFirestoreData(data);
-        if (!('id' in clean) || !clean.id) return await this.create(path, clean)
         await setDoc(doc(firestore, path, clean.id as string), clean, { merge: true });
     }
     async saveBatch(path: string, docs: DocWithId[], callback?: (docs: DocWithId[]) => void): Promise<void> {

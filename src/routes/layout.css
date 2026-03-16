@@ -118,15 +118,13 @@ h3 { @apply text-xs text-gray-600; }
 
 button {
   cursor: pointer;
-  /* text-box-trim: trim-both; */
 }
 .newbtn {
-  /* font-size: 11px; */
   text-box-trim: trim-both;
   @apply py-0;
 }
 .row {
-  @apply flex items-center gap-2;   /* justify-between  */
+  @apply flex items-center gap-2;  
 }
 
 @layer base {

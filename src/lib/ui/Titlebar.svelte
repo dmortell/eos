@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button, Dropdown, Icon, Row, Session, Spinner } from '$lib'
+	import { Button, Dropdown, Icon, MetalButton, Row, Session, Spinner } from '$lib'
 	import { getContext, type Snippet } from 'svelte';
 	import PresenceAvatars from '$lib/presence/PresenceAvatars.svelte'
 	import { startPresence, stopPresence } from '$lib/presence/presence.svelte'
@@ -38,7 +38,7 @@
 		{#if session.user}
 			<button class="cursor-pointer rounded hover:text-gray-200 px-2" onclick={session.logout} title='Sign out {session.user.email}'>Sign Out</button>
 			{#if updated.current}
-				<button onclick={()=>location.reload()} class="bg-blue-500 text-white px-2 py-1 rounded" title="A new version is available. Click to refresh.">Refresh</button>
+				<MetalButton onclick={()=>location.reload()} class="bg-blue-500 text-white px-2 py-1 rounded" title="A new version is available. Click to refresh.">Refresh</MetalButton>
 			{/if}
 			<PresenceAvatars />
 		{:else if session.user!==undefined}

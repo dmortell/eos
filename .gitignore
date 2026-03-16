@@ -27,7 +27,6 @@ sample
 sample-*
 implementation.md
 *-00*
-src/routes/projects/\[pid]/uploads/upload-sample
-src/routes/projects/\[pid]/uploads/pdf-viewer-sample
-src/routes/projects/\[pid]/uploads/Uploads.svelte
 static/*.pdf
+survey-implement.md
+survey-photo-album.md

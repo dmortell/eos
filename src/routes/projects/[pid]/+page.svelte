@@ -11,10 +11,8 @@
 	let path = $derived(page.url.pathname); // This will correctly update id
 	let db = new Firestore();
 
-	let floors = $state([{ number: 1, serverRoomCount: 1 }]);
-	// let floorFormat = $state('01');
-	// const fmt = (fl: number) => fmtFloor(fl, floorFormat, floors)
-	const fmt = (fl: number) => fl < 0 ? `B${String(Math.abs(fl))}` : `${fl}F`
+	let floors = $state([{ number: 1, serverRoomCount: 1 }]);	// let floorFormat = $state('01');
+	const fmt = (fl: number) => fl < 0 ? `B${String(Math.abs(fl))}` : `${fl}F`	// const fmt = (fl: number) => fmtFloor(fl, floorFormat, floors)
 
 	const tools = [
 		{ detail:1, href: 'racks',   icon: 'server', label: 'Rack Elevations', description: 'Manage server rooms, racks, and devices.' },

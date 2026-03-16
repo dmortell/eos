@@ -32,10 +32,7 @@
 <svelte:window onclick={() => { menuOpen = false }} />
 
 <div class="relative">
-	<!-- {settings.showPaper ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:bg-gray-100'}" -->
-	<button
-		class="flex items-center gap-1 px-2 py-1 rounded text-[11px] transition-colors
-			{'text-gray-500 hover:bg-gray-100'}"
+	<button class="flex items-center gap-1 px-2 py-1 rounded text-[11px] transition-colors text-gray-500 hover:bg-gray-100"
 		onclick={(e) => { e.stopPropagation(); if (!settings.showPaper) { settings = { ...settings, showPaper: true }; menuOpen = true } else { menuOpen = !menuOpen } }}>
 		<Icon name="print" size={12} /> Page
 	</button>
@@ -98,31 +95,14 @@
 				</div>
 
 				<!-- Margins -->
-				<div class="text-[10px] text-gray-400 mb-1">Margins (mm)</div>
-				<input type="number" min="0" max="30" step="5"
-					value={settings.margins}
-					oninput={(e) => { settings = { ...settings, margins: parseInt((e.target as HTMLInputElement).value) || 0 } }}
-					class="w-full px-2 py-0.5 rounded border border-gray-200 text-[11px] text-gray-600 mb-2" />
+				<div class="flex gap-2 items-center text-[10px] text-gray-400 mb-1">
+					<label for="pageMargins" class="flex-1 py-0.5 mb-[7px]">Margins (mm)</label>
+					<input  id="pageMargins" type="number" min="0" max="30" step="5"
+						value={settings.margins}
+						oninput={(e) => { settings = { ...settings, margins: parseInt((e.target as HTMLInputElement).value) || 0 } }}
+						class="flex-1 px-2 py-0.5 rounded border border-gray-200 text-[11px] text-gray-600 mb-2" />
+				</div>
 
-				<!-- <div class="border-t border-gray-100 pt-2 mt-1 space-y-1">
-					<button
-						class="w-full flex items-center justify-center gap-1 px-2 py-1 rounded text-[11px] text-gray-600 hover:bg-gray-100 border border-gray-200 transition-colors"
-						onclick={() => onsetview?.()}>
-						<Icon name="crosshair" size={12} /> Center Paper
-					</button>
-					<div class="flex gap-1">
-						<button
-							class="flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded text-[11px] bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-							onclick={() => onprint?.()}>
-							<Icon name="print" size={12} /> Print
-						</button>
-						<button
-							class="px-2 py-1 rounded text-[11px] text-gray-500 hover:bg-gray-100 border border-gray-200 transition-colors"
-							onclick={() => { settings = { ...settings, showPaper: false }; menuOpen = false }}>
-							Hide
-						</button>
-					</div>
-				</div> -->
 			{/if}
 		</div>
 	{/if}
