@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte'
 	import { Icon } from '$lib'
 
 	let {
@@ -10,15 +11,16 @@
 	} = $props()
 
 	let videoEl: HTMLVideoElement | undefined = $state()
-	let stream: MediaStream | null = $state(null)
-	let facingMode = $state<'environment' | 'user'>('environment')
 	let flash = $state(false)
 	let error = $state('')
+
+	// Non-reactive — no $state so they don't trigger effect loops
+	let stream: MediaStream | null = null
+	let currentFacing: 'environment' | 'user' = 'environment'
 	let geoPromise: Promise<{ latitude: number; longitude: number } | null> | null = null
 
-	$effect(() => {
+	onMount(() => {
 		startCamera()
-		// Request geo early so it's ready by capture time
 		geoPromise = getGeo()
 		return () => stopCamera()
 	})
@@ -39,10 +41,13 @@
 		error = ''
 		try {
 			stream = await navigator.mediaDevices.getUserMedia({
-				video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
+				video: { facingMode: currentFacing, width: { ideal: 1920 }, height: { ideal: 1080 } },
 				audio: false,
 			})
-			if (videoEl) videoEl.srcObject = stream
+			if (videoEl) {
+				videoEl.srcObject = stream
+				await videoEl.play().catch(() => {})
+			}
 		} catch (e: any) {
 			if (e.name === 'NotAllowedError') error = 'Camera permission denied. Please allow camera access in your browser settings.'
 			else error = 'Could not access camera: ' + (e.message || e.name)
@@ -81,7 +86,7 @@
 	}
 
 	function switchCamera() {
-		facingMode = facingMode === 'environment' ? 'user' : 'environment'
+		currentFacing = currentFacing === 'environment' ? 'user' : 'environment'
 		startCamera()
 	}
 
@@ -110,7 +115,7 @@
 		</div>
 	{:else}
 		<!-- svelte-ignore a11y_media_has_caption -->
-		<video bind:this={videoEl} autoplay playsinline class="flex-1 object-cover"></video>
+		<video bind:this={videoEl} autoplay playsinline muted class="flex-1 object-cover"></video>
 	{/if}
 
 	<!-- Controls -->
