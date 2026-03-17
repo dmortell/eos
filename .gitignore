@@ -28,5 +28,8 @@ sample-*
 implementation.md
 *-00*
 static/*.pdf
-survey-implement.md
-survey-photo-album.md
+
+# survey-implement.md
+# survey-photo-album.md
+src/routes/survey/survey-snap-v0-svelte
+# src/routes/survey/survey-snap-replit-react

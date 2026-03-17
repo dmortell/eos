@@ -8,7 +8,8 @@
       "Bash(ls:*)",
       "Bash(git add:*)",
       "Bash(wc:*)",
-      "Bash(pnpm check:*)"
+      "Bash(pnpm check:*)",
+      "Bash(head:*)"
     ]
   }
 }
