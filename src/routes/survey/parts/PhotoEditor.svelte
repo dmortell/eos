@@ -63,33 +63,33 @@
 
 <div class="fixed inset-0 z-50 flex flex-col bg-white">
 	<!-- Header -->
-	<div class="flex items-center gap-2 border-b px-3 py-2">
-		<button type="button" class="flex h-8 w-8 items-center justify-center rounded" onclick={onclose}>
-			<Icon name="close" size={20} />
+	<div class="flex items-center gap-2 border-b px-4 py-3">
+		<button type="button" class="flex h-10 w-10 items-center justify-center rounded-lg active:bg-gray-100" onclick={onclose}>
+			<Icon name="close" size={22} />
 		</button>
-		<span class="flex-1 text-sm font-medium">New Photo</span>
+		<span class="flex-1 text-base font-semibold">New Photo</span>
 	</div>
 
-	<div class="flex-1 overflow-y-auto">
+	<div class="flex-1 overflow-y-auto overscroll-contain">
 		<!-- Preview -->
 		<div class="bg-black">
-			<img src={previewUrl} alt="Captured" class="mx-auto max-h-[40vh] object-contain" />
+			<img src={previewUrl} alt="Captured" class="mx-auto max-h-[35vh] object-contain" />
 		</div>
 
 		<!-- Form -->
-		<div class="space-y-3 p-4">
+		<div class="space-y-4 p-4">
 			<VoiceInput bind:value={title} label="Title" placeholder="Photo title..." />
-			<VoiceInput bind:value={description} label="Description" placeholder="Optional description..." multiline rows={2} />
+			<VoiceInput bind:value={description} label="Description" placeholder="Optional description..." multiline />
 
 			{#if geo}
-				<div class="flex items-center gap-1.5 text-xs text-gray-500">
-					<Icon name="mapPin" size={12} />
+				<div class="flex items-center gap-1.5 text-sm text-gray-500">
+					<Icon name="mapPin" size={14} />
 					<span>{geo.latitude.toFixed(5)}, {geo.longitude.toFixed(5)}</span>
 				</div>
 			{/if}
 
 			{#if errorMsg}
-				<p class="text-xs text-red-600">{errorMsg}</p>
+				<p class="text-sm text-red-600">{errorMsg}</p>
 			{/if}
 
 			{#if saving}
@@ -102,9 +102,27 @@
 	</div>
 
 	<!-- Actions -->
-	<div class="safe-bottom flex gap-2 border-t p-3">
-		<Button variant="outline" onclick={onretake} disabled={saving} class="flex-1">Retake</Button>
-		<Button variant="primary" onclick={handleSave} loading={saving} class="flex-1">Save</Button>
+	<div class="safe-bottom flex gap-3 border-t px-4 py-3">
+		<button
+			type="button"
+			class="flex-1 rounded-lg border border-gray-300 px-4 py-3 text-base font-medium text-gray-700 active:bg-gray-100"
+			disabled={saving}
+			onclick={onretake}
+		>
+			Retake
+		</button>
+		<button
+			type="button"
+			class="flex-1 rounded-lg bg-blue-600 px-4 py-3 text-base font-medium text-white active:bg-blue-500 disabled:opacity-50"
+			disabled={saving}
+			onclick={handleSave}
+		>
+			{#if saving}
+				Uploading... {uploadProgress}%
+			{:else}
+				Save
+			{/if}
+		</button>
 	</div>
 </div>
 
