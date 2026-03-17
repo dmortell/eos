@@ -5,7 +5,6 @@
 	import type { Survey, SurveyPhoto, ViewState } from './types'
 	import SurveyHome from './parts/SurveyHome.svelte'
 	import SurveyDetail from './parts/SurveyDetail.svelte'
-	import Camera from './parts/Camera.svelte'
 	import PhotoEditor from './parts/PhotoEditor.svelte'
 	import PhotoView from './parts/PhotoView.svelte'
 
@@ -42,12 +41,8 @@
 		view = 'detail'
 	}
 
-	function openCamera() {
-		view = 'camera'
-	}
-
-	function handleCapture(blob: Blob, geo: { latitude: number; longitude: number } | null) {
-		capturedBlob = blob
+	function handleCapture(file: File, geo: { latitude: number; longitude: number } | null) {
+		capturedBlob = file
 		capturedGeo = geo
 		view = 'editor'
 	}
@@ -92,11 +87,9 @@
 	<SurveyDetail
 		survey={currentSurvey}
 		onback={goHome}
-		oncamera={openCamera}
+		oncapture={handleCapture}
 		onphoto={handleSelectPhoto}
 	/>
-{:else if view === 'camera'}
-	<Camera oncapture={handleCapture} onclose={goDetail} />
 {:else if view === 'editor' && capturedBlob && currentSurvey}
 	<PhotoEditor
 		surveyId={currentSurvey.id}
@@ -104,7 +97,7 @@
 		geo={capturedGeo}
 		onclose={goDetail}
 		onsaved={handlePhotoSaved}
-		onretake={openCamera}
+		onretake={goDetail}
 	/>
 {:else if view === 'photo' && selectedPhoto && currentSurvey}
 	<PhotoView

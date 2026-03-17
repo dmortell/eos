@@ -8,14 +8,34 @@
 	let {
 		survey,
 		onback,
-		oncamera,
+		oncapture,
 		onphoto,
 	}: {
 		survey: Survey
 		onback: () => void
-		oncamera: () => void
+		oncapture: (file: File, geo: { latitude: number; longitude: number } | null) => void
 		onphoto: (photo: SurveyPhoto, allPhotos: SurveyPhoto[]) => void
 	} = $props()
+
+	let fileInput: HTMLInputElement | undefined = $state()
+	let geoResult: { latitude: number; longitude: number } | null = null
+
+	// Pre-fetch geo
+	if (typeof navigator !== 'undefined' && navigator.geolocation) {
+		navigator.geolocation.getCurrentPosition(
+			(pos) => { geoResult = { latitude: pos.coords.latitude, longitude: pos.coords.longitude } },
+			() => {},
+			{ enableHighAccuracy: true, timeout: 5000 }
+		)
+	}
+
+	function handleFile(e: Event) {
+		const file = (e.target as HTMLInputElement).files?.[0]
+		if (!file) return
+		oncapture(file, geoResult)
+		// Reset so the same file can be re-selected
+		if (fileInput) fileInput.value = ''
+	}
 
 	let photos: SurveyPhoto[] = $state([])
 	let loading = $state(true)
@@ -81,15 +101,17 @@
 		{/if}
 	</div>
 
-	<!-- FAB -->
-	<button
-		type="button"
-		class="fixed bottom-6 right-6 z-10 flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg transition-transform hover:bg-blue-500 active:scale-90"
-		onclick={oncamera}
+	<!-- Hidden file input for native camera -->
+	<input bind:this={fileInput} type="file" accept="image/*" capture="environment" class="hidden" onchange={handleFile} />
+
+	<!-- FAB — opens native camera directly -->
+	<label
+		class="fixed bottom-6 right-6 z-10 flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-blue-600 text-white shadow-lg transition-transform hover:bg-blue-500 active:scale-90"
 		style="bottom: max(1.5rem, env(safe-area-inset-bottom, 1.5rem))"
 	>
 		<Icon name="camera" size={24} />
-	</button>
+		<input type="file" accept="image/*" capture="environment" class="hidden" onchange={handleFile} />
+	</label>
 </div>
 
 <ShareDialog {survey} bind:open={showShare} />
