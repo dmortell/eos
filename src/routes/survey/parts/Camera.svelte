@@ -30,43 +30,30 @@
 		if (!file) return
 		oncapture(file, geoResult)
 	}
-
-	// Auto-open the native camera picker on mount
-	$effect(() => {
-		if (fileInput) fileInput.click()
-	})
 </script>
 
-<!-- Hidden file input — capture="environment" opens native camera on mobile -->
-<input
-	bind:this={fileInput}
-	type="file"
-	accept="image/*"
-	capture="environment"
-	class="hidden"
-	onchange={handleFile}
-/>
-
-<!-- Fallback UI shown briefly while native picker opens, or if user cancels -->
 <div class="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-black text-white">
 	<Icon name="camera" size={48} class="opacity-50" />
-	<p class="text-sm text-white/70">Opening camera...</p>
 
-	<div class="flex gap-4">
-		<button
-			type="button"
-			class="flex items-center gap-2 rounded-lg bg-white/20 px-5 py-3 text-sm backdrop-blur active:bg-white/30"
-			onclick={openCamera}
-		>
-			<Icon name="camera" size={18} />
-			Take Photo
-		</button>
-		<button
-			type="button"
-			class="flex items-center gap-2 rounded-lg bg-white/20 px-5 py-3 text-sm backdrop-blur active:bg-white/30"
-			onclick={onclose}
-		>
-			Cancel
-		</button>
-	</div>
+	<!-- Take photo — opens native camera -->
+	<label class="flex items-center gap-2 rounded-full bg-blue-600 px-6 py-3 text-base font-medium active:bg-blue-500">
+		<Icon name="camera" size={20} />
+		Take Photo
+		<input type="file" accept="image/*" capture="environment" class="hidden" onchange={handleFile} />
+	</label>
+
+	<!-- Choose from gallery -->
+	<label class="flex items-center gap-2 rounded-full bg-white/20 px-6 py-3 text-sm backdrop-blur active:bg-white/30">
+		<Icon name="image" size={18} />
+		Choose from Gallery
+		<input type="file" accept="image/*" class="hidden" onchange={handleFile} />
+	</label>
+
+	<button
+		type="button"
+		class="mt-4 text-sm text-white/50 active:text-white/80"
+		onclick={onclose}
+	>
+		Cancel
+	</button>
 </div>
