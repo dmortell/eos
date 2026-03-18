@@ -33,3 +33,4 @@ static/*.pdf
 # survey-photo-album.md
 src/routes/survey/survey-snap-v0-svelte
 src/routes/survey/survey-snap-replit-react
+src/routes/survey/survey-react

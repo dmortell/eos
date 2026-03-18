@@ -7,6 +7,8 @@ export interface Survey {
 	date: string
 	ownerId: string
 	ownerName?: string
+	projectId?: string
+	projectName?: string
 	shareToken?: string
 	isPublic: boolean
 	photoCount: number
@@ -22,6 +24,10 @@ export interface SurveyPhoto {
 	imageUrl: string
 	latitude?: number
 	longitude?: number
+	floorplanId?: string
+	pinX?: number
+	pinY?: number
+	direction?: number
 	capturedAt: Timestamp | Date
 	createdAt: Timestamp | Date
 	sortOrder: number

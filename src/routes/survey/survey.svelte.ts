@@ -22,7 +22,7 @@ export function subscribePhotos(surveyId: string, callback: (photos: SurveyPhoto
 	})
 }
 
-export async function createSurvey(ownerId: string, ownerName: string, name: string, date: string): Promise<string> {
+export async function createSurvey(ownerId: string, ownerName: string, name: string, date: string, projectId?: string, projectName?: string): Promise<string> {
 	const id = nanoid(10)
 	const survey: Survey = {
 		id,
@@ -34,6 +34,7 @@ export async function createSurvey(ownerId: string, ownerName: string, name: str
 		photoCount: 0,
 		createdAt: new Date(),
 		updatedAt: new Date(),
+		...(projectId ? { projectId, projectName } : {}),
 	}
 	await db.save('surveys', survey as unknown as DocWithId)
 	return id
@@ -108,4 +109,26 @@ export async function saveFloorplan(surveyId: string, plan: Omit<SurveyFloorplan
 
 export async function deleteFloorplan(surveyId: string, planId: string) {
 	await db.delete(`surveys/${surveyId}/floorplans`, planId)
+}
+
+// --- Projects ---
+
+export function subscribeProjects(callback: (projects: Array<{ id: string; name: string }>) => void) {
+	return db.subscribeMany('projects', (docs) => {
+		const projects = (docs as Array<{ id: string; name: string }>).sort((a, b) =>
+			(a.name ?? '').localeCompare(b.name ?? '')
+		)
+		callback(projects)
+	})
+}
+
+export function subscribeProjectSurveys(projectId: string, callback: (surveys: Survey[]) => void) {
+	return db.subscribeWhere('surveys', 'projectId', projectId, (docs) => {
+		const surveys = (docs as unknown as Survey[]).sort((a, b) => {
+			const da = a.createdAt && 'toMillis' in a.createdAt ? a.createdAt.toMillis() : new Date(a.createdAt as any).getTime()
+			const db2 = b.createdAt && 'toMillis' in b.createdAt ? b.createdAt.toMillis() : new Date(b.createdAt as any).getTime()
+			return db2 - da
+		})
+		callback(surveys)
+	})
 }

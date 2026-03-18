@@ -2,10 +2,11 @@
 	import { Button, Icon, Spinner } from '$lib'
 	import PhotoGrid from './PhotoGrid.svelte'
 	import FloorplanTab from './FloorplanTab.svelte'
+	import FloorplanView from './FloorplanView.svelte'
 	import ShareDialog from './ShareDialog.svelte'
 	import SurveyDialog from './SurveyDialog.svelte'
-	import { deleteSurvey, updateSurvey, subscribePhotos } from '../survey.svelte'
-	import type { Survey, SurveyPhoto } from '../types'
+	import { deleteSurvey, updateSurvey, subscribePhotos, subscribeProjects } from '../survey.svelte'
+	import type { Survey, SurveyPhoto, SurveyFloorplan } from '../types'
 
 	let {
 		survey,
@@ -45,7 +46,9 @@
 	let showEdit = $state(false)
 	let editName = $state(survey.name)
 	let editDate = $state(survey.date)
+	let editProjectId = $state(survey.projectId ?? '')
 	let tab: 'photos' | 'floorplans' = $state('photos')
+	let activeFloorplan: SurveyFloorplan | null = $state(null)
 
 	$effect(() => {
 		loading = true
@@ -62,15 +65,25 @@
 		onback()
 	}
 
+	// Project lookup
+	let projects: Array<{ id: string; name: string }> = $state([])
+	$effect(() => {
+		const unsub = subscribeProjects((data) => { projects = data })
+		return () => unsub()
+	})
+	let projectMap = $derived(new Map(projects.map(p => [p.id, p.name])))
+
 	async function handleEditSave() {
 		if (!editName.trim()) return
-		await updateSurvey({ id: survey.id, name: editName.trim(), date: editDate })
+		const projName = editProjectId ? (projectMap.get(editProjectId) ?? '') : ''
+		await updateSurvey({ id: survey.id, name: editName.trim(), date: editDate, projectId: editProjectId || '', projectName: projName })
 		showEdit = false
 	}
 
 	function openEditDialog() {
 		editName = survey.name
 		editDate = survey.date
+		editProjectId = survey.projectId ?? ''
 		showMenu = false
 		showEdit = true
 	}
@@ -89,7 +102,14 @@
 		</button>
 		<div class="min-w-0 flex-1">
 			<p class="truncate text-sm font-medium">{survey.name}</p>
-			<p class="text-[11px] text-gray-500">{fmtDate(survey.date)} · {photos.length} photos</p>
+			<p class="text-[11px] text-gray-500">
+				{fmtDate(survey.date)} · {photos.length} photos
+				{#if survey.projectName}
+					<span class="ml-1 inline-flex items-center gap-0.5 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
+						<Icon name="folder" size={9} />{survey.projectName}
+					</span>
+				{/if}
+			</p>
 		</div>
 		<button type="button" class="flex h-10 w-10 items-center justify-center rounded-lg active:bg-gray-100" onclick={() => (showShare = true)} title="Share">
 			<Icon name="share" size={18} />
@@ -103,11 +123,13 @@
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div class="fixed inset-0 z-10" onclick={() => (showMenu = false)}></div>
 				<div class="absolute right-0 top-full z-20 mt-1 w-48 rounded-lg border bg-white py-1 shadow-lg">
-					<button type="button" class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm active:bg-gray-100" onclick={openEditDialog}>
-						<Icon name="edit" size={16} />
+					<!-- <Button type="button" icon="edit" class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm active:bg-gray-100" onclick={openEditDialog}> -->
+					<Button variant="ghost" size="lg" icon="edit" class="w-full justify-start" onclick={openEditDialog}>
+						<!-- <Icon name="edit" size={16} /> -->
 						Edit Survey
-					</button>
-					<Button variant="ghost" icon="trash" onclick={handleDelete} confirm={{ text: 'Delete survey?', confirmLabel: 'Delete', cancelLabel: 'Cancel' }} class="w-full justify-start text-red-600">
+					</Button>
+					<hr class="mb-2"/>
+					<Button variant="ghost" size="lg" icon="trash" onclick={handleDelete} confirm={{ text: 'Delete survey?', confirmLabel: 'Delete', cancelLabel: 'Cancel' }} class="w-full justify-start text-red-600">
 						Delete Survey
 					</Button>
 				</div>
@@ -157,9 +179,18 @@
 			<input type="file" accept="image/*" capture="environment" class="hidden" onchange={handleFile} />
 		</label>
 	{:else}
-		<FloorplanTab surveyId={survey.id} />
+		<FloorplanTab surveyId={survey.id} onselect={(plan) => { activeFloorplan = plan }} />
 	{/if}
 </div>
 
-<SurveyDialog title="Edit Survey" bind:open={showEdit} bind:name={editName} bind:date={editDate} onsave={handleEditSave} />
+{#if activeFloorplan}
+	<FloorplanView
+		surveyId={survey.id}
+		floorplan={activeFloorplan}
+		onclose={() => { activeFloorplan = null }}
+		onphoto={onphoto}
+	/>
+{/if}
+
+<SurveyDialog title="Edit Survey" bind:open={showEdit} bind:name={editName} bind:date={editDate} bind:projectId={editProjectId} onsave={handleEditSave} />
 <ShareDialog {survey} bind:open={showShare} />

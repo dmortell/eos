@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { type Session, Spinner, Button } from '$lib'
 	import { getContext, onMount } from 'svelte'
+	import { pushState, replaceState } from '$app/navigation'
+	import { page } from '$app/state'
 	import { subscribeSurveys } from './survey.svelte'
 	import type { Survey, SurveyPhoto, ViewState } from './types'
 	import SurveyHome from './parts/SurveyHome.svelte'
@@ -18,21 +20,20 @@
 	let capturedGeo: { latitude: number; longitude: number } | null = $state(null)
 	let selectedPhoto: SurveyPhoto | null = $state(null)
 
-	// --- History management ---
+	// --- History management using SvelteKit shallow routing ---
 	let suppressPush = false
 
 	function pushView(v: ViewState) {
 		if (!suppressPush) {
-			history.pushState({ view: v }, '')
+			pushState('', { surveyView: v })
 		}
 		view = v
 	}
 
-	function handlePopState(e: PopStateEvent) {
+	function handlePopState() {
 		suppressPush = true
-		const target = e.state?.view as ViewState | undefined
+		const target = page.state.surveyView as ViewState | undefined
 		if (target === 'photo' || target === 'editor') {
-			// Can't restore these views without their data, go to detail
 			goDetail()
 		} else if (target === 'detail' && currentSurvey) {
 			goDetail()
@@ -43,8 +44,7 @@
 	}
 
 	onMount(() => {
-		// Replace initial entry so we have state on it
-		history.replaceState({ view: 'home' }, '')
+		replaceState('', { surveyView: 'home' })
 	})
 
 	// --- Subscriptions ---

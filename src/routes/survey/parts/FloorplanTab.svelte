@@ -7,7 +7,7 @@
 
 	const { createUploadThing } = generateSvelteHelpers<OurFileRouter>()
 
-	let { surveyId }: { surveyId: string } = $props()
+	let { surveyId, onselect }: { surveyId: string; onselect?: (plan: SurveyFloorplan) => void } = $props()
 
 	let floorplans: SurveyFloorplan[] = $state([])
 	let loading = $state(true)
@@ -85,13 +85,15 @@
 		<div class="space-y-2 p-3">
 			{#each floorplans as plan (plan.id)}
 				<div class="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-3">
-					<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100">
-						<Icon name={plan.name?.endsWith('.pdf') ? 'fileText' : 'image'} size={20} class="text-gray-500" />
-					</div>
-					<div class="min-w-0 flex-1">
-						<p class="truncate text-sm font-medium">{plan.name}</p>
-						<p class="text-xs text-gray-400">{fmtSize(plan.size)}</p>
-					</div>
+					<button type="button" class="flex min-w-0 flex-1 items-center gap-3 text-left" onclick={() => onselect?.(plan)}>
+						<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100">
+							<Icon name={plan.name?.endsWith('.pdf') ? 'fileText' : 'image'} size={20} class="text-gray-500" />
+						</div>
+						<div class="min-w-0 flex-1">
+							<p class="truncate text-sm font-medium">{plan.name}</p>
+							<p class="text-xs text-gray-400">{fmtSize(plan.size)}</p>
+						</div>
+					</button>
 					<a href={plan.url} target="_blank" rel="noopener" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg active:bg-gray-100" title="Open">
 						<Icon name="eye" size={18} class="text-gray-500" />
 					</a>

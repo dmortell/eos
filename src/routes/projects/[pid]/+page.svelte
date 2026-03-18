@@ -14,12 +14,13 @@
 	let floors = $state([{ number: 1, serverRoomCount: 1 }]);	// let floorFormat = $state('01');
 	const fmt = (fl: number) => fl < 0 ? `B${String(Math.abs(fl))}` : `${fl}F`	// const fmt = (fl: number) => fmtFloor(fl, floorFormat, floors)
 
-	const tools = [
+	let tools = $derived([
 		{ detail:1, href: 'racks',   icon: 'server', label: 'Rack Elevations', description: 'Manage server rooms, racks, and devices.' },
 		{ detail:1, href: 'frames',  icon: 'rows',   label: 'Patch Frames', description: 'Allocate outlet ports to patch frames.', },
 		{ detail:1, href: 'outlets', icon: 'route',  label: 'Outlets and Routes', description: 'Manage floorplan outlets and cable routes.', },
 		{ detail:0, href: 'uploads', icon: 'upload', label: 'Floorplan Uploads', description: 'Upload and manage floorplan files and pages.', },
-	]
+		{ detail:0, href: `/survey?project=${pid}`, icon: 'camera', label: 'Photo Surveys', description: 'Take photos, voice notes, and share survey albums.', absolute: true },
+	])
 
 
 	$effect(()=>{
@@ -47,7 +48,7 @@
 			<ul class="space-y-2">
 				{#each tools as tool}
 					<li>
-						<a href="{path}/{tool.href}" class="group grid grid-cols-[auto_1fr] md:grid-cols-[auto_180px_1fr] items-start gap-x-3 gap-y-1 rounded-xl border border-zinc-200 px-3 py-3 transition-all hover:border-blue-300 hover:bg-blue-50/60 dark:border-zinc-800 dark:hover:border-blue-700 dark:hover:bg-blue-950/40" >
+						<a href={tool.absolute ? tool.href : `${path}/${tool.href}`} class="group grid grid-cols-[auto_1fr] md:grid-cols-[auto_180px_1fr] items-start gap-x-3 gap-y-1 rounded-xl border border-zinc-200 px-3 py-3 transition-all hover:border-blue-300 hover:bg-blue-50/60 dark:border-zinc-800 dark:hover:border-blue-700 dark:hover:bg-blue-950/40" >
 							<span class="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-100 text-zinc-700 group-hover:bg-blue-100 group-hover:text-blue-700 dark:bg-zinc-900 dark:text-zinc-300 dark:group-hover:bg-blue-900/50 dark:group-hover:text-blue-300">
 								<Icon name={tool.icon} size={16} />
 							</span>

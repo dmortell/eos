@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Button, Icon } from '$lib'
 	import VoiceInput from './VoiceInput.svelte'
+	import FloorplanMinimap from './FloorplanMinimap.svelte'
 	import { updatePhoto, deletePhoto, subscribePhotos } from '../survey.svelte'
 	import type { SurveyPhoto } from '../types'
 
@@ -101,8 +102,11 @@
 	</div>
 
 	<!-- Image -->
-	<div class="flex flex-1 items-center justify-center overflow-hidden">
+	<div class="relative flex flex-1 items-center justify-center overflow-hidden">
 		<img src={currentPhoto.imageUrl} alt={currentPhoto.title} class="max-h-full max-w-full object-contain" />
+
+		<!-- Floorplan minimap -->
+		<FloorplanMinimap {surveyId} photo={currentPhoto} />
 
 		<!-- Nav arrows (desktop) -->
 		{#if currentIndex > 0}

@@ -1,265 +1,247 @@
 # Survey Photo Album — Implementation Plan
 
-## Overview
+## Status: Phase 1 Complete
 
-Mobile-first photo survey tool for site visits. Users capture photos, add titles (keyboard or voice), organize by project, and share albums with team members. Built on existing `$lib` Firestore/auth/UI infrastructure.
+Core survey tool is built and working: survey CRUD, photo capture (native camera), voice input, photo viewer with swipe nav, floorplan upload, sharing, browser history, project-scoped routing ready.
 
-## Route & File Structure
+## Current File Structure
 
 ```
 src/routes/survey/
-├── +page.svelte              # Entry: auth gate, Firestore subscriptions, router
+├── +page.svelte              # Entry: view router, SvelteKit history
 ├── implement.md              # This plan
+├── survey.svelte.ts          # Firestore CRUD helpers
+├── types.ts                  # TypeScript interfaces
 ├── parts/
-│   ├── SurveyHome.svelte     # Project list + create new
-│   ├── SurveyDetail.svelte   # Photo grid + camera trigger for one project
-│   ├── Camera.svelte         # Full-screen camera capture overlay
-│   ├── PhotoEditor.svelte    # Post-capture: title, description, voice, save
-│   ├── PhotoView.svelte      # Full-screen photo viewer with edit/delete
-│   ├── PhotoGrid.svelte      # Responsive grid of photo thumbnails
-│   ├── VoiceInput.svelte     # Input with mic button (Web Speech API)
-│   └── ShareDialog.svelte    # Copy share link / toggle public
-├── survey.svelte.ts          # Reactive state & Firestore helpers
-└── types.ts                  # TypeScript interfaces
+│   ├── SurveyHome.svelte     # Survey list + create
+│   ├── SurveyDetail.svelte   # Tabs: Photos | Floorplans, edit/delete/share
+│   ├── SurveyDialog.svelte   # Shared create/edit survey dialog
+│   ├── Camera.svelte         # Native camera via <input capture>
+│   ├── PhotoEditor.svelte    # Post-capture: title, description, voice, upload
+│   ├── PhotoView.svelte      # Full-screen viewer with swipe, edit, delete
+│   ├── PhotoGrid.svelte      # Responsive thumbnail grid
+│   ├── VoiceInput.svelte     # Input + mic button (Web Speech API, ja locale)
+│   ├── FloorplanTab.svelte   # Upload/list/delete floorplans
+│   └── ShareDialog.svelte    # Public toggle + copy link
 ```
 
-## Data Model (Firestore)
+---
 
-### Collection: `surveys/{surveyId}`
+## Phase 2: Project Linking
+
+### Goal
+Link each survey to an EOS project so surveys appear in project context.
+
+### Data Changes
+
+Add to `Survey` interface:
+```ts
+projectId?: string    // projects collection doc ID (e.g. "acme-hqfit-4821")
+projectName?: string  // denormalized for display without join
+```
+
+### UI Changes
+
+**SurveyDialog.svelte** — Add optional project picker:
+- Subscribe to `projects` collection via `db.subscribeMany('projects', ...)`
+- `<Select>` dropdown showing project names, with "No project" option
+- Selected projectId + projectName saved to survey doc
+- Show project badge on survey cards in SurveyHome
+
+**SurveyHome.svelte** — Filter by project:
+- "All" | "My Projects" | specific project filter chips
+- Group surveys by project when unfiltered
+
+**Projects integration** — Add survey link to project tool list:
+- In `src/routes/projects/[pid]/+page.svelte`, add a "Surveys" tool card
+- Links to `/survey?project={pid}` (filtered view)
+- Or later: move to `/projects/[pid]/survey/`
+
+### Firestore Queries
+- `subscribeSurveys` gains optional `projectId` filter
+- `subscribeWhere('surveys', 'projectId', pid, ...)` for project-scoped views
+
+---
+
+## Phase 3: Floorplan Photo Mapping
+
+### Goal
+Pin photos to locations on floorplans. Tap a pin to see photos. See a minimap in photo viewer.
+
+### Data Changes
+
+Add to `SurveyPhoto`:
+```ts
+floorplanId?: string   // which floorplan this photo is pinned to
+pinX?: number          // 0-1 normalized x position on floorplan
+pinY?: number          // 0-1 normalized y position on floorplan
+direction?: number     // 0-359 compass heading (degrees, 0=north)
+```
+
+### New Components
+
+**`FloorplanView.svelte`** — Interactive floorplan with photo pins:
+- Displays floorplan image (or PDF first page rendered via PdfState)
+- Pan/zoom using the existing CSS transform pattern from racks/frames tools
+- Photo pins rendered as SVG markers at `(pinX%, pinY%)` positions
+- Each pin: colored dot with direction arrow, shows photo count badge if stacked
+- **Tap a pin** → popup/drawer showing the photo(s) at that location
+- **Tap empty space** → enters "place mode": shows bottom drawer with unplaced photos
+- **Place mode**: select a photo from drawer, tap floorplan to set position
+- Direction arrow: small wedge/cone icon showing camera direction
+
+**`FloorplanMinimap.svelte`** — Small floorplan preview in PhotoView:
+- Thumbnail of the floorplan (150×100px) in corner of PhotoView
+- Red dot showing current photo's position
+- Direction cone showing which way camera pointed
+- Tap minimap → opens FloorplanView centered on that pin
+
+**`PinPlaceDialog.svelte`** — Bottom drawer for placing photos:
+- Shows horizontal scrollable list of photos not yet placed on any floorplan
+- Photo thumbnails with title below
+- Tap to select, then tap floorplan to place
+- "Remove pin" option for already-placed photos
+
+### Interaction Flow
+
+1. **From FloorplanTab**: Tap a floorplan → opens FloorplanView
+2. **FloorplanView**: See all pinned photos as markers on the plan
+3. **Tap empty area** → bottom drawer slides up with unplaced photos
+4. **Select photo + tap location** → pin placed, direction defaults to 0
+5. **Tap existing pin** → photo popup, tap to open full PhotoView
+6. **Long-press pin** → edit: drag to move, rotate dial for direction, remove
+7. **In PhotoView**: minimap shows position, tap to jump to floorplan
+
+### Direction Capture (Optional Enhancement)
+- Use `DeviceOrientationEvent` to auto-capture compass heading when taking photo
+- `window.addEventListener('deviceorientation', e => e.alpha)` gives compass bearing
+- Requires HTTPS + user permission on iOS (`DeviceOrientationEvent.requestPermission()`)
+- Fallback: manual direction picker (circular dial UI) in PinPlaceDialog
+
+---
+
+## Phase 4: Barcode/QR Scanning
+
+### Package Required
+`@AimScannerJs/barcode-reader` or `@AimScannerJs/barcode-reader` — **User to add: `pnpm add @AimScannerJs/barcode-reader`**
+Alternative: `html5-qrcode` (simpler API, no wasm) — **`pnpm add html5-qrcode`**
+
+### New Component
+
+**`BarcodeScanner.svelte`** — Full-screen scanner overlay:
+- Opens camera via `getUserMedia` with `facingMode: 'environment'`
+- Scanning frame overlay (corner brackets like React sample)
+- Continuous decode loop via library
+- On detect: vibrate + return scanned text + auto-close
+- Fallback: manual text entry if camera unavailable
+
+### Integration Points
+
+**PhotoEditor.svelte** — Add barcode button next to title field:
+- Scan icon button → opens BarcodeScanner
+- Scanned value auto-fills or appends to title/description
+- Use case: scan rack serial → becomes photo title "Rack SN: ABC123"
+
+**SurveyDetail header** — Quick scan button:
+- Scan → creates a new photo entry pre-filled with scanned value as title
+- Opens camera to capture the labeled item
+
+### Data Changes
+
+Add to `SurveyPhoto`:
+```ts
+barcode?: string   // scanned barcode/QR value
+```
+
+---
+
+## Phase 5: Photo Annotation
+
+### Package Required
+Canvas drawing library — **`pnpm add perfect-freehand`** (lightweight stroke lib, ~3KB)
+Or build custom SVG annotation layer (no dependency needed).
+
+### New Component
+
+**`AnnotationOverlay.svelte`** — Drawing overlay on photos/floorplans:
+- SVG layer positioned over the image
+- Tools: freehand draw, arrow, rectangle, text label, circle
+- Color picker (red, blue, green, yellow, white)
+- Stroke width: thin/medium/thick
+- Undo/redo stack
+- Save: serialize SVG paths to JSON, store in Firestore
+
+### Data Changes
+
+Add to `SurveyPhoto`:
+```ts
+annotations?: AnnotationData[]  // array of drawn shapes
+```
 
 ```ts
-interface Survey {
-  id: string             // nanoid via db.create()
-  name: string
-  description?: string
-  date: string           // ISO date of survey
-  ownerId: string        // Firebase auth uid
-  ownerName?: string
-  shareToken?: string    // Random token for public sharing
-  isPublic: boolean
-  photoCount: number     // Denormalized for list display
-  coverPhoto?: string    // URL of first/selected photo
-  createdAt: Timestamp
-  updatedAt: Timestamp
+interface AnnotationData {
+  type: 'path' | 'arrow' | 'rect' | 'circle' | 'text'
+  points?: number[][]     // for path/arrow
+  bounds?: { x: number; y: number; w: number; h: number }  // for rect/circle
+  text?: string           // for text labels
+  color: string
+  strokeWidth: number
 }
 ```
 
-### Collection: `surveys/{surveyId}/photos/{photoId}`
+### Integration
+- PhotoView: "Annotate" button → enters annotation mode
+- FloorplanView: "Annotate" button → mark up the floorplan itself
+- Annotations render as SVG overlay on top of image/plan
+- Toggle annotations on/off in viewer
 
-```ts
-interface SurveyPhoto {
-  id: string
-  title: string
-  description?: string
-  imageUrl: string       // UploadThing URL
-  thumbnailUrl?: string  // Smaller version (or same URL with resize params)
-  latitude?: number
-  longitude?: number
-  capturedAt: Timestamp
-  createdAt: Timestamp
-  sortOrder: number      // For manual reordering
-}
-```
+---
 
-## Reusable `$lib` Components
+## Phase 6: Export & Reporting
 
-| Component | Usage |
-|-----------|-------|
-| `Session` | Auth gate — require login before showing survey UI |
-| `Firestore` | `subscribeMany('surveys')`, `subscribeWhere` by ownerId, subcollection subscriptions |
-| `Button` | All actions — primary/outline/ghost/danger variants, loading states |
-| `Input` | Title, description fields (multiline for description) |
-| `Dialog` | Create survey, confirm delete, share |
-| `Icon` | `camera`, `mic`, `micOff`, `trash`, `share2`, `plus`, `arrowLeft`, `image`, `mapPin` |
-| `Spinner` | Loading states while Firestore data loads |
-| `Search` | Filter surveys on home screen |
-| `Dropdown` | Photo action menu (edit, delete) |
+### PDF Report Generation
+- Package: `jspdf` + `html2canvas` or `pdfmake`
+- Generate survey report with:
+  - Cover page: survey name, date, project, surveyor
+  - Floorplan pages with numbered pin markers
+  - Photo pages: image + title + description + GPS + barcode + timestamp
+  - Photos grouped by floorplan location
+- Export as downloadable PDF
 
-## Implementation Phases
+### ZIP Export
+- Package: `jszip`
+- Bundle all photos + floorplans + metadata JSON
+- Structured folders: `photos/`, `floorplans/`, `metadata.json`
 
-### Phase 1: Foundation
+### Share Improvements
+- QR code on share dialog (use `qrcode` package)
+- Email share with preview image
+- Improve the Share dialog for mobile
 
-**`types.ts`** — Define `Survey` and `SurveyPhoto` interfaces.
+---
 
-**`survey.svelte.ts`** — Reactive state class:
-- `surveys: Survey[]` — subscribed list filtered by `ownerId`
-- `currentSurvey: Survey | null` — active survey
-- `photos: SurveyPhoto[]` — photos for current survey
-- `createSurvey(name, date)` → `db.create('surveys', {...})`
-- `deleteSurvey(id)` → delete doc + subcollection photos
-- `savePhoto(surveyId, photoData)` → `db.create('surveys/${surveyId}/photos', {...})`
-- `deletePhoto(surveyId, photoId)` → `db.delete(...)`
-- `updatePhoto(surveyId, photoId, fields)` → `db.save(...)`
-- `togglePublic(surveyId)` → generate/clear `shareToken`, toggle `isPublic`
+## Priority Order
 
-**`+page.svelte`** — Entry point:
-- Import `Session`, `Firestore` from `$lib`
-- Auth gate: show login prompt if no user
-- Simple client-side view state: `'home' | 'detail' | 'camera' | 'photo'`
-- Pass `db`, `session.user`, view state to child components
-- Subscribe to `surveys` collection where `ownerId == user.uid`
+| Phase | Effort | Impact | Priority |
+|-------|--------|--------|----------|
+| 2. Project linking | Small | High | **Do first** |
+| 3. Floorplan photo mapping | Medium | Very high | **Do second** |
+| 4. Barcode scanning | Small | High | **Do third** |
+| 5. Photo annotation | Medium | Medium | Do fourth |
+| 6. Export & reporting | Medium | High | Do fifth |
 
-### Phase 2: Survey List (SurveyHome)
+---
 
-**`SurveyHome.svelte`**:
-- List of survey cards showing name, date, photo count, cover thumbnail
-- Search/filter bar using `Search` component
-- "New Survey" button → `Dialog` with name + date inputs
-- Tap card → navigate to detail view
-- Swipe-to-delete or long-press menu (mobile UX)
-- Empty state with illustration/prompt
+## Packages Summary
 
-### Phase 3: Survey Detail (SurveyDetail + PhotoGrid)
+Packages to add (when implementing each phase):
 
-**`SurveyDetail.svelte`**:
-- Header: survey name, date, back arrow, share button, edit/delete menu
-- `PhotoGrid` component showing all photos
-- Floating action button (FAB) at bottom-right → opens camera
-- Photo count badge
+| Phase | Package | Size | Purpose |
+|-------|---------|------|---------|
+| 4 | `html5-qrcode` | ~200KB | Barcode/QR scanning |
+| 5 | `perfect-freehand` | ~3KB | Smooth freehand drawing strokes |
+| 6 | `jspdf` | ~300KB | PDF report generation |
+| 6 | `jszip` | ~100KB | ZIP export |
+| 6 | `qrcode` | ~30KB | QR code on share dialog |
 
-**`PhotoGrid.svelte`**:
-- CSS Grid: `grid-template-columns: repeat(auto-fill, minmax(150px, 1fr))`
-- Lazy-load images with `loading="lazy"`
-- Each cell: thumbnail, title overlay at bottom, location pin icon if geo available
-- Tap → open `PhotoView`
-- Empty state when no photos
-
-### Phase 4: Camera Capture
-
-**`Camera.svelte`**:
-- Full-screen overlay (`fixed inset-0 z-50 bg-black`)
-- `navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })`
-- Video preview fills screen
-- Bottom bar: capture button (centered), switch camera button, close button
-- Capture flow:
-  1. Draw video frame to offscreen `<canvas>`
-  2. `canvas.toBlob('image/jpeg', 0.85)` → create `File` object
-  3. Flash effect (white overlay fade)
-  4. Pass blob to `PhotoEditor`
-- Handle permissions denied gracefully with message + settings link
-- Fallback: `<input type="file" accept="image/*" capture="environment">` for browsers without getUserMedia
-
-### Phase 5: Photo Editor (Post-Capture)
-
-**`PhotoEditor.svelte`**:
-- Shows captured photo preview (object-fit: contain)
-- Title input with `VoiceInput` (keyboard + mic)
-- Description input (multiline) with `VoiceInput`
-- Location display if geo available (lat/lng, small map link)
-- Action buttons: Save, Retake, Cancel
-- On save:
-  1. Upload photo via UploadThing (`imageUploader` route — already configured)
-  2. Create Firestore doc in `surveys/{id}/photos` with URL + metadata
-  3. Update survey `photoCount` and `coverPhoto`
-  4. Return to detail view
-
-**`VoiceInput.svelte`**:
-- Wraps `Input` from `$lib` with a mic toggle button
-- Uses `webkitSpeechRecognition` / `SpeechRecognition` API
-- `lang: 'ja'` (app locale is Japanese)
-- States: idle, listening (pulsing red dot), error
-- Appends recognized text to current input value
-- Falls back to plain input if Speech API unavailable
-- Continuous mode: keeps listening until user taps stop
-
-### Phase 6: Photo Viewer
-
-**`PhotoView.svelte`**:
-- Full-screen image view with pinch-to-zoom (CSS `touch-action: manipulation`)
-- Overlay header: back arrow, edit button, delete button
-- Bottom info panel: title, description, timestamp, location
-- Edit mode: inline edit title/description with voice
-- Delete: confirm dialog → remove from Firestore + update counts
-- Swipe left/right to navigate between photos
-
-### Phase 7: Sharing
-
-**`ShareDialog.svelte`**:
-- Toggle: "Make album public" switch
-- On enable: generate `shareToken` (nanoid), save to survey doc
-- Display share URL: `{origin}/survey/share/{shareToken}`
-- Copy-to-clipboard button
-- QR code generation (optional, future)
-
-**Shared view route** (future — `src/routes/survey/share/[token]/+page.svelte`):
-- Server load: query Firestore where `shareToken == token` and `isPublic == true`
-- Read-only photo grid, no auth required
-- App branding + "Create your own" CTA
-
-## Upload Strategy
-
-Use existing `imageUploader` UploadThing route (already supports 4MB × 20 images). For survey photos:
-1. Capture → JPEG blob at 85% quality
-2. Resize client-side if >2048px on longest edge (canvas downscale)
-3. Upload via `createUploadThing('imageUploader')` from `uploadthing/svelte`
-4. Store returned `ufsUrl` in Firestore photo doc
-
-Consider bumping `imageUploader` max size to 8MB to accommodate higher-res phone cameras.
-
-## Mobile-First Design
-
-- **Viewport**: Full-height layouts using `h-dvh` (dynamic viewport height)
-- **Touch targets**: Minimum 44×44px tap areas
-- **Bottom navigation**: Primary actions at thumb-reach zone
-- **Camera FAB**: Bottom-right floating button, 56px round
-- **Swipe gestures**: Navigate photos, delete with swipe
-- **Safe areas**: Respect `env(safe-area-inset-*)` for notch/home-indicator
-- **Font sizes**: Minimum 16px inputs (prevents iOS zoom on focus)
-- **Dark camera UI**: Black background for camera/viewer screens
-- **Haptic feedback**: `navigator.vibrate(50)` on capture (where supported)
-
-## Geo-Location
-
-```ts
-navigator.geolocation.getCurrentPosition(
-  pos => ({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
-  err => null, // Silently skip if denied
-  { enableHighAccuracy: true, timeout: 5000 }
-)
-```
-- Request on camera open, cache for session
-- Display as coordinates with Google Maps link
-- No map embed (keeps it lightweight)
-
-## Voice Input (Web Speech API)
-
-```ts
-const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)()
-recognition.lang = 'ja'       // Japanese locale
-recognition.continuous = true
-recognition.interimResults = true
-```
-- Feature-detect and hide mic button if unsupported
-- Visual indicator: pulsing red dot while recording
-- Append mode: new speech appends to existing text (with space separator)
-- Handle `onerror` and `onend` gracefully
-
-## Build Order (Recommended)
-
-1. **`types.ts`** + **`survey.svelte.ts`** — Data layer
-2. **`+page.svelte`** — Auth gate + view routing
-3. **`SurveyHome.svelte`** — List + create
-4. **`SurveyDetail.svelte`** + **`PhotoGrid.svelte`** — View photos
-5. **`Camera.svelte`** — Capture photos
-6. **`VoiceInput.svelte`** — Speech input widget
-7. **`PhotoEditor.svelte`** — Post-capture editing + upload
-8. **`PhotoView.svelte`** — View/edit/delete individual photos
-9. **`ShareDialog.svelte`** — Public sharing
-
-## Migration Path to Project-Scoped Route
-
-The prototype lives at `/survey` for easy testing. Production deployment will move to `src/routes/projects/[pid]/survey/` so surveys are associated with a project:
-
-- Add `projectId: string` field to `Survey` interface
-- Change Firestore path to `surveys/{pid}` (or keep flat collection with `projectId` filter via `subscribeWhere`)
-- Move `+page.svelte` to `src/routes/projects/[pid]/survey/+page.svelte` (receives `pid` from `$page.params`)
-- `parts/` components are route-agnostic — they just receive data props, so no changes needed
-- Titlebar integration: reuse project Titlebar with survey tab/nav
-
-## Testing Notes
-
-- The prototype lives at `/survey` (no project ID needed for now)
-- Camera requires HTTPS or localhost (getUserMedia constraint)
-- Test voice input on Chrome (best Speech API support)
-- Test on actual mobile device early — camera/voice behave differently than desktop
-- Use `pnpm dev --host` to test from phone on same network
+No packages needed for Phase 2 (project linking) or Phase 3 (floorplan mapping) — all built with existing tools + SVG.

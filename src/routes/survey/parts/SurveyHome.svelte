@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Button, Icon, Search, Spinner } from '$lib'
 	import SurveyDialog from './SurveyDialog.svelte'
-	import { createSurvey } from '../survey.svelte'
+	import { createSurvey, subscribeProjects } from '../survey.svelte'
 	import type { Survey } from '../types'
 
 	let {
@@ -22,7 +22,16 @@
 	let showCreate = $state(false)
 	let newName = $state('')
 	let newDate = $state(new Date().toISOString().slice(0, 10))
+	let newProjectId = $state('')
 	let creating = $state(false)
+
+	// Project lookup for names
+	let projects: Array<{ id: string; name: string }> = $state([])
+	$effect(() => {
+		const unsub = subscribeProjects((data) => { projects = data })
+		return () => unsub()
+	})
+	let projectMap = $derived(new Map(projects.map(p => [p.id, p.name])))
 
 	let filtered = $derived(
 		searchQuery
@@ -33,10 +42,12 @@
 	async function handleCreate() {
 		if (!newName.trim()) return
 		creating = true
-		await createSurvey(userId, userName, newName.trim(), newDate)
+		const projName = newProjectId ? (projectMap.get(newProjectId) ?? '') : undefined
+		await createSurvey(userId, userName, newName.trim(), newDate, newProjectId || undefined, projName)
 		creating = false
 		showCreate = false
 		newName = ''
+		newProjectId = ''
 	}
 
 	function fmtDate(d: string) {
@@ -86,7 +97,15 @@
 					<div class="min-w-0 flex-1">
 						<p class="truncate text-sm font-medium">{survey.name}</p>
 						<p class="text-xs text-gray-500">{fmtDate(survey.date)}</p>
-						<p class="text-xs text-gray-400">{survey.photoCount ?? 0} photos</p>
+						<div class="flex items-center gap-2">
+							<span class="text-xs text-gray-400">{survey.photoCount ?? 0} photos</span>
+							{#if survey.projectName}
+								<span class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">
+									<Icon name="folder" size={10} />
+									{survey.projectName}
+								</span>
+							{/if}
+						</div>
 					</div>
 					<Icon name="chevronRight" size={16} class="shrink-0 text-gray-300" />
 				</button>
@@ -95,4 +114,4 @@
 	{/if}
 </div>
 
-<SurveyDialog title="New Survey" bind:open={showCreate} bind:name={newName} bind:date={newDate} saving={creating} onsave={handleCreate} />
+<SurveyDialog title="New Survey" bind:open={showCreate} bind:name={newName} bind:date={newDate} bind:projectId={newProjectId} saving={creating} onsave={handleCreate} />
