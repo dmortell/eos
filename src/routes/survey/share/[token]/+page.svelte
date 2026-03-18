@@ -1,33 +1,10 @@
 <script lang="ts">
-	import { Spinner, Icon } from '$lib'
-	import { page } from '$app/state'
-	import { subscribeByShareToken, subscribePhotos } from '../../survey.svelte'
-	import type { Survey, SurveyPhoto } from '../../types'
+	import { Icon } from '$lib'
 
-	let token = $derived(page.params.token)
-	let survey: Survey | null = $state(null)
-	let photos: SurveyPhoto[] = $state([])
-	let loading = $state(true)
-	let notFound = $state(false)
+	let { data } = $props()
+	let { survey, photos } = data
+
 	let selectedIndex: number | null = $state(null)
-
-	$effect(() => {
-		loading = true
-		notFound = false
-		const unsub = subscribeByShareToken(token, (data) => {
-			survey = data
-			loading = false
-			if (!data) notFound = true
-		})
-		return () => unsub()
-	})
-
-	$effect(() => {
-		if (!survey) { photos = []; return }
-		const unsub = subscribePhotos(survey.id, (data) => { photos = data })
-		return () => unsub()
-	})
-
 	let currentPhoto = $derived(selectedIndex != null ? photos[selectedIndex] : null)
 
 	function fmtDate(d: string) {
@@ -37,7 +14,7 @@
 
 	function fmtTime(ts: any): string {
 		if (!ts) return ''
-		const d = ts.toDate ? ts.toDate() : new Date(ts)
+		const d = typeof ts === 'string' ? new Date(ts) : ts.toDate ? ts.toDate() : new Date(ts)
 		return d.toLocaleDateString('en', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 	}
 
@@ -61,68 +38,54 @@
 
 <svelte:head>
 	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-	{#if survey}
-		<title>{survey.name} — Photo Survey</title>
-	{/if}
+	<title>{survey.name} — Photo Survey</title>
 </svelte:head>
 <svelte:window onkeydown={handleKeydown} />
 
-{#if loading}
-	<div class="flex h-dvh items-center justify-center">
-		<Spinner />
-	</div>
-{:else if notFound}
-	<div class="flex h-dvh flex-col items-center justify-center gap-3 p-4 text-gray-500">
-		<Icon name="lock" size={40} class="opacity-40" />
-		<p class="text-lg font-medium">Album not found</p>
-		<p class="text-sm">This album may have been removed or is no longer shared.</p>
-	</div>
-{:else if survey}
-	<div class="mx-auto flex h-dvh max-w-lg flex-col">
-		<!-- Header -->
-		<div class="border-b px-4 py-3">
-			<h1 class="text-lg font-semibold">{survey.name}</h1>
-			<p class="text-sm text-gray-500">
-				{fmtDate(survey.date)} · {photos.length} photos
-				{#if survey.projectName}
-					<span class="ml-1 inline-flex items-center gap-0.5 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
-						<Icon name="folder" size={9} />{survey.projectName}
-					</span>
-				{/if}
-			</p>
-			{#if survey.ownerName}
-				<p class="mt-0.5 text-xs text-gray-400">by {survey.ownerName}</p>
+<div class="mx-auto flex h-dvh max-w-lg flex-col bg-white">
+	<!-- Header -->
+	<div class="border-b px-4 py-3">
+		<h1 class="text-lg font-semibold">{survey.name}</h1>
+		<p class="text-sm text-gray-500">
+			{fmtDate(survey.date)} · {photos.length} photos
+			{#if survey.projectName}
+				<span class="ml-1 inline-flex items-center gap-0.5 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
+					<Icon name="folder" size={9} />{survey.projectName}
+				</span>
 			{/if}
-		</div>
+		</p>
+		{#if survey.ownerName}
+			<p class="mt-0.5 text-xs text-gray-400">by {survey.ownerName}</p>
+		{/if}
+	</div>
 
-		<!-- Photo grid -->
-		<div class="flex-1 overflow-y-auto p-2">
-			{#if photos.length === 0}
-				<div class="flex flex-col items-center gap-2 py-16 text-gray-400">
-					<Icon name="image" size={40} class="opacity-40" />
-					<p class="text-sm">No photos yet</p>
-				</div>
-			{:else}
-				<div class="grid grid-cols-3 gap-1">
-					{#each photos as photo, i (photo.id)}
-						<button
-							type="button"
-							class="relative aspect-square overflow-hidden rounded-lg"
-							onclick={() => (selectedIndex = i)}
-						>
-							<img src={photo.imageUrl} alt={photo.title} class="h-full w-full object-cover" loading="lazy" />
-							{#if photo.title}
-								<div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 pb-1 pt-4">
-									<p class="truncate text-[10px] text-white">{photo.title}</p>
-								</div>
-							{/if}
-						</button>
-					{/each}
-				</div>
-			{/if}
-		</div>
+	<!-- Photo grid -->
+	<div class="flex-1 overflow-y-auto p-2">
+		{#if photos.length === 0}
+			<div class="flex flex-col items-center gap-2 py-16 text-gray-400">
+				<Icon name="image" size={40} class="opacity-40" />
+				<p class="text-sm">No photos yet</p>
+			</div>
+		{:else}
+			<div class="grid grid-cols-3 gap-1">
+				{#each photos as photo, i (photo.id)}
+					<button
+						type="button"
+						class="relative aspect-square overflow-hidden rounded-lg"
+						onclick={() => (selectedIndex = i)}
+					>
+						<img src={photo.imageUrl} alt={photo.title} class="h-full w-full object-cover" loading="lazy" />
+						{#if photo.title}
+							<div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 pb-1 pt-4">
+								<p class="truncate text-[10px] text-white">{photo.title}</p>
+							</div>
+						{/if}
+					</button>
+				{/each}
+			</div>
+		{/if}
 	</div>
-{/if}
+</div>
 
 <!-- Full-screen read-only photo viewer -->
 {#if currentPhoto}
