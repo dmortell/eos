@@ -109,8 +109,8 @@
 				<VoiceInput bind:value={title} label="Title" placeholder="Photo title..." />
 				<VoiceInput bind:value={description} label="Description" placeholder="Description..." multiline rows={2} />
 				<div class="flex gap-2 pt-1">
-					<Button variant="outline" size="sm" onclick={() => (editing = false)} class="flex-1">Cancel</Button>
-					<Button variant="primary" size="sm" onclick={handleSave} class="flex-1">Save</Button>
+					<Button variant="outline" size="lg" onclick={() => (editing = false)} class="flex-1">Cancel</Button>
+					<Button variant="primary" size="lg" onclick={handleSave} class="flex-1">Save</Button>
 				</div>
 			</div>
 		{:else}

@@ -40,7 +40,7 @@
 
 	function fmtDate(d: string) {
 		if (!d) return ''
-		return new Date(d).toLocaleDateString('ja', { year: 'numeric', month: 'short', day: 'numeric' })
+		return new Date(d).toLocaleDateString('en', { year: 'numeric', month: 'short', day: 'numeric' })
 	}
 </script>
 
@@ -48,7 +48,7 @@
 	<!-- Header -->
 	<div class="mb-4 flex items-center justify-between">
 		<h1 class="text-lg font-semibold">Surveys</h1>
-		<Button variant="primary" size="sm" icon="plus" onclick={() => (showCreate = true)}>New</Button>
+		<Button variant="primary" size="lg" icon="plus" onclick={() => (showCreate = true)}>New Photo Survey</Button>
 	</div>
 
 	<!-- Search -->
@@ -72,10 +72,8 @@
 	{:else}
 		<div class="space-y-2">
 			{#each filtered as survey (survey.id)}
-				<button
-					type="button"
+				<button type="button" onclick={() => onselect(survey)}
 					class="flex w-full items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 text-left transition-colors hover:border-blue-300 hover:bg-blue-50/50 active:bg-blue-50"
-					onclick={() => onselect(survey)}
 				>
 					<!-- Cover thumbnail -->
 					{#if survey.coverPhoto}

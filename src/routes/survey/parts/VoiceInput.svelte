@@ -61,31 +61,21 @@
 
 <div class="space-y-1">
 	{#if label}
-		<span class="block text-sm font-medium text-gray-600">{label}</span>
+		<span class="block text-sm font-medium text-gray-500">{label}</span>
 	{/if}
 	<div class="flex items-start gap-2">
 		{#if multiline}
-			<textarea
-				bind:this={textareaEl}
-				bind:value
-				{placeholder}
-				rows="1"
+			<textarea bind:this={textareaEl} bind:value {placeholder} rows="1"
 				class="min-w-0 flex-1 resize-none rounded-lg border border-gray-300 px-3 py-2.5 text-base leading-snug focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
 			></textarea>
 		{:else}
-			<input
-				type="text"
-				bind:value
-				{placeholder}
+			<input bind:value type="text" {placeholder}
 				class="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2.5 text-base leading-snug focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
 			/>
 		{/if}
 		{#if supported}
-			<button
-				type="button"
+			<button type="button" onclick={toggleVoice} title={listening ? 'Stop voice input' : 'Voice input'}
 				class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition-colors {listening ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-500 active:bg-gray-200'}"
-				onclick={toggleVoice}
-				title={listening ? 'Stop voice input' : 'Voice input'}
 			>
 				{#if listening}
 					<span class="relative flex items-center justify-center">
