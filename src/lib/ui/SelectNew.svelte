@@ -73,7 +73,7 @@
 	{#if hasLabel}
 		<span class={labelClasses}>
 			{label}
-			{@render children?.()}
+			<!-- {@render children?.()} -->
 			{#if required}
 				<span class="ml-1 text-red-600">*</span>
 			{/if}

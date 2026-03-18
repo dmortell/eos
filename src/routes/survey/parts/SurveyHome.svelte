@@ -10,19 +10,22 @@
 		userName,
 		loading,
 		onselect,
+		projectFilter = '',
 	}: {
 		surveys: Survey[]
 		userId: string
 		userName: string
 		loading: boolean
 		onselect: (survey: Survey) => void
+		projectFilter?: string
 	} = $props()
 
 	let searchQuery = $state('')
+	let filterProjectId = $state(projectFilter)
 	let showCreate = $state(false)
 	let newName = $state('')
 	let newDate = $state(new Date().toISOString().slice(0, 10))
-	let newProjectId = $state('')
+	let newProjectId = $state(projectFilter)
 	let creating = $state(false)
 
 	// Project lookup for names
@@ -33,11 +36,20 @@
 	})
 	let projectMap = $derived(new Map(projects.map(p => [p.id, p.name])))
 
-	let filtered = $derived(
-		searchQuery
-			? surveys.filter((s) => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
-			: surveys
-	)
+	let filtered = $derived.by(() => {
+		let list = surveys
+		if (filterProjectId) {
+			list = list.filter(s => s.projectId === filterProjectId)
+		}
+		if (searchQuery) {
+			list = list.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
+		}
+		return list
+	})
+
+	// Projects that have surveys, for filter chips
+	let surveyProjectIds = $derived(new Set(surveys.map(s => s.projectId).filter(Boolean)))
+	let filterableProjects = $derived(projects.filter(p => surveyProjectIds.has(p.id)))
 
 	async function handleCreate() {
 		if (!newName.trim()) return
@@ -59,14 +71,38 @@
 <div class="mx-auto max-w-lg p-4">
 	<!-- Header -->
 	<div class="mb-4 flex items-center justify-between">
-		<h1 class="text-lg font-semibold">Surveys</h1>
-		<Button variant="primary" size="lg" icon="plus" onclick={() => (showCreate = true)}>New Photo Survey</Button>
+		<h1 class="text-lg font-semibold">
+			{#if filterProjectId && projectMap.get(filterProjectId)}
+				{projectMap.get(filterProjectId)} Surveys
+			{:else}
+				Surveys
+			{/if}
+		</h1>
+		<Button variant="primary" size="lg" icon="plus" onclick={() => (showCreate = true)}>New</Button>
 	</div>
 
 	<!-- Search -->
 	{#if surveys.length > 3}
 		<div class="mb-3">
 			<Search bind:value={searchQuery} placeholder="Search surveys..." />
+		</div>
+	{/if}
+
+	<!-- Project filter chips -->
+	{#if filterableProjects.length > 0}
+		<div class="mb-3 flex gap-1.5 overflow-x-auto">
+			<button
+				type="button"
+				class="shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors {!filterProjectId ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 active:bg-gray-200'}"
+				onclick={() => (filterProjectId = '')}
+			>All</button>
+			{#each filterableProjects as proj (proj.id)}
+				<button
+					type="button"
+					class="shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors {filterProjectId === proj.id ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 active:bg-gray-200'}"
+					onclick={() => (filterProjectId = filterProjectId === proj.id ? '' : proj.id)}
+				>{proj.name}</button>
+			{/each}
 		</div>
 	{/if}
 

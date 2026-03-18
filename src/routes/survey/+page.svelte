@@ -12,6 +12,9 @@
 
 	const session = getContext<Session>('session')
 
+	// Extract ?project= query param for project-scoped views
+	let initialProjectId = $derived(page.url.searchParams.get('project') ?? '')
+
 	let view: ViewState = $state('home')
 	let surveys: Survey[] = $state([])
 	let loading = $state(true)
@@ -113,6 +116,7 @@
 		userId={session?.user?.uid ?? ''}
 		userName={session?.user?.displayName ?? session?.user?.email ?? ''}
 		onselect={selectSurvey}
+		projectFilter={initialProjectId}
 	/>
 {:else if view === 'detail' && currentSurvey}
 	<SurveyDetail

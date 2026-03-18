@@ -139,6 +139,12 @@
 			{/if}
 			<div class="mt-1.5 flex items-center gap-3 text-xs text-white/50">
 				<span>{fmtTime(currentPhoto.capturedAt)}</span>
+				{#if currentPhoto.barcode}
+					<span class="flex items-center gap-0.5">
+						<Icon name="scan" size={12} />
+						{currentPhoto.barcode}
+					</span>
+				{/if}
 				{#if currentPhoto.latitude}
 					<span class="flex items-center gap-0.5">
 						<Icon name="mapPin" size={12} />

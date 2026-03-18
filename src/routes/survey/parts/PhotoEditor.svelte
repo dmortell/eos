@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Button, Icon, Spinner } from '$lib'
 	import VoiceInput from './VoiceInput.svelte'
+	import BarcodeScanner from './BarcodeScanner.svelte'
 	import { savePhoto } from '../survey.svelte'
 	import { generateSvelteHelpers } from '@uploadthing/svelte'
 	import type { OurFileRouter } from '../../api/uploadthing/uploadthing'
@@ -25,11 +26,13 @@
 
 	let title = $state('')
 	let description = $state('')
+	let barcode = $state('')
 	let saving = $state(false)
 	let uploadProgress = $state(0)
 	let errorMsg = $state('')
 	let previewReady = $state(false)
 	let previewUrl = $state('')
+	let showScanner = $state(false)
 
 	// Generate preview — this can take a moment for large photos
 	$effect(() => {
@@ -60,6 +63,7 @@
 			await savePhoto(surveyId, {
 				title: title.trim(),
 				description: description.trim() || undefined,
+				barcode: barcode || undefined,
 				imageUrl,
 				latitude: geo?.latitude,
 				longitude: geo?.longitude,
@@ -98,7 +102,14 @@
 
 		<!-- Form -->
 		<div class="space-y-4 p-4">
-			<VoiceInput bind:value={title} label="Title" placeholder="Photo title..." />
+			<div class="flex items-end gap-2">
+				<div class="min-w-0 flex-1">
+					<VoiceInput bind:value={title} label="Title" placeholder="Photo title..." />
+				</div>
+				<button type="button" class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-gray-300 active:bg-gray-100" title="Scan barcode" onclick={() => (showScanner = true)}>
+					<Icon name="scan" size={20} />
+				</button>
+			</div>
 			<VoiceInput bind:value={description} label="Description" placeholder="Optional description..." multiline />
 
 			{#if geo}
@@ -145,6 +156,13 @@
 		</button>
 	</div>
 </div>
+
+{#if showScanner}
+	<BarcodeScanner
+		onscanned={(val) => { title = title ? `${title} ${val}` : val; barcode = val; showScanner = false }}
+		onclose={() => (showScanner = false)}
+	/>
+{/if}
 
 <style>
 	.safe-bottom {

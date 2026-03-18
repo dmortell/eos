@@ -24,6 +24,7 @@
 		"bits-ui": "^2.14.4",
 		"clsx": "^2.1.1",
 		"firebase": "^12.10.0",
+		"html5-qrcode": "^2.3.8",
 		"mode-watcher": "^1.1.0",
 		"nanoid": "^5.1.6",
 		"paneforge": "^1.0.2",

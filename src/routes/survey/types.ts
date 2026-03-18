@@ -28,6 +28,7 @@ export interface SurveyPhoto {
 	pinX?: number
 	pinY?: number
 	direction?: number
+	barcode?: string
 	capturedAt: Timestamp | Date
 	createdAt: Timestamp | Date
 	sortOrder: number

@@ -30,14 +30,16 @@
 </script>
 
 <Dialog {title} bind:open>
-	<div class="space-y-3">
+	<div class="space-y-4">
 		<div>
 			<Input bind:value={name} label="Survey name" placeholder="e.g. Building A - Floor 1" size="lg" />
 		</div>
-		<Input bind:value={date} label="Date" type="date" size="lg" />
+		<div>
+			<Input bind:value={date} label="Date" type="date" size="lg" />
+		</div>
 		{#if projects.length > 0}
 			<SelectNew bind:value={projectId} label="Project" size="lg" placeholder="No project">
-				<option value="">No project</option>
+				<!-- <option value="">No project</option> -->
 				{#each projects as proj (proj.id)}
 					<option value={proj.id}>{proj.name}</option>
 				{/each}
