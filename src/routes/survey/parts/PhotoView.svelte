@@ -133,7 +133,7 @@
 			{/if}
 			{#if !editing}
 				<button type="button" class="flex h-10 w-10 items-center justify-center rounded-lg active:bg-white/10" title="Annotate" onclick={startAnnotating}>
-					<Icon name="pen" size={18} />
+					<Icon name="highlighter" size={18} />
 				</button>
 				<button type="button" class="flex h-10 w-10 items-center justify-center rounded-lg active:bg-white/10" onclick={() => (editing = true)}>
 					<Icon name="edit" size={18} />

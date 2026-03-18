@@ -113,6 +113,13 @@ export async function deleteFloorplan(surveyId: string, planId: string) {
 
 // --- Projects ---
 
+export function subscribeByShareToken(token: string, callback: (survey: Survey | null) => void) {
+	return db.subscribeWhere('surveys', 'shareToken', token, (docs) => {
+		const survey = docs[0] as unknown as Survey | undefined
+		callback(survey && survey.isPublic ? survey : null)
+	})
+}
+
 export function subscribeProjects(callback: (projects: Array<{ id: string; name: string }>) => void) {
 	return db.subscribeMany('projects', (docs) => {
 		const projects = (docs as Array<{ id: string; name: string }>).sort((a, b) =>

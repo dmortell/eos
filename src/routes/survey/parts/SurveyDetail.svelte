@@ -5,7 +5,8 @@
 	import FloorplanView from './FloorplanView.svelte'
 	import ShareDialog from './ShareDialog.svelte'
 	import SurveyDialog from './SurveyDialog.svelte'
-	import { deleteSurvey, updateSurvey, subscribePhotos, subscribeProjects } from '../survey.svelte'
+	import { deleteSurvey, updateSurvey, subscribePhotos, subscribeProjects, subscribeFloorplans } from '../survey.svelte'
+	import { exportPdf, exportZip } from '../export'
 	import type { Survey, SurveyPhoto, SurveyFloorplan } from '../types'
 
 	let {
