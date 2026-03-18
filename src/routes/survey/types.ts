@@ -29,9 +29,19 @@ export interface SurveyPhoto {
 	pinY?: number
 	direction?: number
 	barcode?: string
+	annotations?: AnnotationData[]
 	capturedAt: Timestamp | Date
 	createdAt: Timestamp | Date
 	sortOrder: number
+}
+
+export interface AnnotationData {
+	type: 'path' | 'arrow' | 'rect' | 'text'
+	points?: number[][]
+	bounds?: { x: number; y: number; w: number; h: number }
+	text?: string
+	color: string
+	strokeWidth: number
 }
 
 export type ViewState = 'home' | 'detail' | 'camera' | 'editor' | 'photo'

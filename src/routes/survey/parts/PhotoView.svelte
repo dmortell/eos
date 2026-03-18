@@ -2,8 +2,9 @@
 	import { Button, Icon } from '$lib'
 	import VoiceInput from './VoiceInput.svelte'
 	import FloorplanMinimap from './FloorplanMinimap.svelte'
+	import AnnotationOverlay from './AnnotationOverlay.svelte'
 	import { updatePhoto, deletePhoto, subscribePhotos } from '../survey.svelte'
-	import type { SurveyPhoto } from '../types'
+	import type { SurveyPhoto, AnnotationData } from '../types'
 
 	let {
 		surveyId,
@@ -21,6 +22,10 @@
 	let title = $state(photo.title)
 	let description = $state(photo.description ?? '')
 	let deleting = $state(false)
+	let annotating = $state(false)
+	let annotationData: AnnotationData[] = $state([])
+	let imgNaturalW = $state(0)
+	let imgNaturalH = $state(0)
 	let currentIndex = $state(0)
 	let photos: SurveyPhoto[] = $state([])
 
@@ -43,7 +48,9 @@
 	$effect(() => {
 		title = currentPhoto.title
 		description = currentPhoto.description ?? ''
+		annotationData = currentPhoto.annotations ? [...currentPhoto.annotations] : []
 		editing = false
+		annotating = false
 	})
 
 	function fmtTime(ts: any): string {
@@ -55,6 +62,27 @@
 	async function handleSave() {
 		await updatePhoto(surveyId, { id: currentPhoto.id, title: title.trim(), description: description.trim() || undefined })
 		editing = false
+	}
+
+	async function handleSaveAnnotations() {
+		await updatePhoto(surveyId, { id: currentPhoto.id, annotations: annotationData.length > 0 ? annotationData : undefined })
+		annotating = false
+	}
+
+	function startAnnotating() {
+		annotationData = currentPhoto.annotations ? [...currentPhoto.annotations] : []
+		annotating = true
+	}
+
+	function cancelAnnotating() {
+		annotationData = currentPhoto.annotations ? [...currentPhoto.annotations] : []
+		annotating = false
+	}
+
+	function onImgLoad(e: Event) {
+		const img = e.target as HTMLImageElement
+		imgNaturalW = img.naturalWidth
+		imgNaturalH = img.naturalHeight
 	}
 
 	async function handleDelete() {
@@ -87,26 +115,48 @@
 <div class="fixed inset-0 z-50 flex flex-col bg-black" ontouchstart={handleTouchStart} ontouchend={handleTouchEnd}>
 	<!-- Header -->
 	<div class="flex items-center gap-2 bg-black/80 px-3 py-2 text-white backdrop-blur">
-		<button type="button" class="flex h-10 w-10 items-center justify-center rounded-lg active:bg-white/10" onclick={onclose}>
+		<button type="button" class="flex h-10 w-10 items-center justify-center rounded-lg active:bg-white/10" onclick={annotating ? cancelAnnotating : onclose}>
 			<Icon name="arrowLeft" size={22} />
 		</button>
-		<span class="flex-1 truncate text-sm">{currentPhoto.title}</span>
-		{#if photos.length > 1}
-			<span class="text-xs text-white/50">{currentIndex + 1}/{photos.length}</span>
-		{/if}
-		{#if !editing}
-			<button type="button" class="flex h-10 w-10 items-center justify-center rounded-lg active:bg-white/10" onclick={() => (editing = true)}>
-				<Icon name="edit" size={18} />
-			</button>
+		<span class="flex-1 truncate text-sm">
+			{#if annotating}
+				Annotate
+			{:else}
+				{currentPhoto.title}
+			{/if}
+		</span>
+		{#if annotating}
+			<button type="button" class="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium active:bg-blue-500" onclick={handleSaveAnnotations}>Save</button>
+		{:else}
+			{#if photos.length > 1}
+				<span class="text-xs text-white/50">{currentIndex + 1}/{photos.length}</span>
+			{/if}
+			{#if !editing}
+				<button type="button" class="flex h-10 w-10 items-center justify-center rounded-lg active:bg-white/10" title="Annotate" onclick={startAnnotating}>
+					<Icon name="pen" size={18} />
+				</button>
+				<button type="button" class="flex h-10 w-10 items-center justify-center rounded-lg active:bg-white/10" onclick={() => (editing = true)}>
+					<Icon name="edit" size={18} />
+				</button>
+			{/if}
 		{/if}
 	</div>
 
 	<!-- Image -->
 	<div class="relative flex flex-1 items-center justify-center overflow-hidden">
-		<img src={currentPhoto.imageUrl} alt={currentPhoto.title} class="max-h-full max-w-full object-contain" />
+		<div class="relative inline-block">
+			<img src={currentPhoto.imageUrl} alt={currentPhoto.title} class="max-h-[70vh] max-w-full object-contain" onload={onImgLoad} />
+
+			<!-- Annotation SVG overlay -->
+			{#if (annotationData.length > 0 || annotating) && imgNaturalW > 0}
+				<AnnotationOverlay width={imgNaturalW} height={imgNaturalH} bind:annotations={annotationData} readonly={!annotating} />
+			{/if}
+		</div>
 
 		<!-- Floorplan minimap -->
-		<FloorplanMinimap {surveyId} photo={currentPhoto} />
+		{#if !annotating}
+			<FloorplanMinimap {surveyId} photo={currentPhoto} />
+		{/if}
 
 		<!-- Nav arrows (desktop) -->
 		{#if currentIndex > 0}
@@ -122,6 +172,7 @@
 	</div>
 
 	<!-- Info / Edit panel -->
+	{#if !annotating}
 	<div class="safe-bottom bg-black/80 px-4 py-3 text-white backdrop-blur">
 		{#if editing}
 			<div class="space-y-2">
@@ -157,6 +208,7 @@
 			</div>
 		{/if}
 	</div>
+	{/if}
 </div>
 
 <style>

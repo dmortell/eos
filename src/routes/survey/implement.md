@@ -1,27 +1,31 @@
 # Survey Photo Album — Implementation Plan
 
-## Status: Phase 1 Complete
+## Status: Phase 1-5 Complete
 
-Core survey tool is built and working: survey CRUD, photo capture (native camera), voice input, photo viewer with swipe nav, floorplan upload, sharing, browser history, project-scoped routing ready.
+Core survey tool + project linking + floorplan photo mapping + barcode scanning + photo annotations all built and working.
 
 ## Current File Structure
 
 ```
 src/routes/survey/
-├── +page.svelte              # Entry: view router, SvelteKit history
+├── +page.svelte              # Entry: view router, SvelteKit history, ?project= param
 ├── implement.md              # This plan
-├── survey.svelte.ts          # Firestore CRUD helpers
-├── types.ts                  # TypeScript interfaces
+├── survey.svelte.ts          # Firestore CRUD + subscribeProjects/subscribeProjectSurveys
+├── types.ts                  # Survey, SurveyPhoto (with pin/barcode/annotation fields), AnnotationData
 ├── parts/
-│   ├── SurveyHome.svelte     # Survey list + create
-│   ├── SurveyDetail.svelte   # Tabs: Photos | Floorplans, edit/delete/share
-│   ├── SurveyDialog.svelte   # Shared create/edit survey dialog
+│   ├── SurveyHome.svelte     # Survey list + create + project filter chips
+│   ├── SurveyDetail.svelte   # Tabs: Photos | Floorplans, edit/delete/share, FloorplanView
+│   ├── SurveyDialog.svelte   # Shared create/edit dialog with project picker
 │   ├── Camera.svelte         # Native camera via <input capture>
-│   ├── PhotoEditor.svelte    # Post-capture: title, description, voice, upload
-│   ├── PhotoView.svelte      # Full-screen viewer with swipe, edit, delete
+│   ├── PhotoEditor.svelte    # Post-capture: title, description, voice, barcode scan, upload
+│   ├── PhotoView.svelte      # Full-screen viewer with swipe, edit, annotate, delete
 │   ├── PhotoGrid.svelte      # Responsive thumbnail grid
 │   ├── VoiceInput.svelte     # Input + mic button (Web Speech API, ja locale)
-│   ├── FloorplanTab.svelte   # Upload/list/delete floorplans
+│   ├── FloorplanTab.svelte   # Upload/list/delete floorplans, tap to open FloorplanView
+│   ├── FloorplanView.svelte  # Interactive floorplan with pan/zoom, photo pins, place mode
+│   ├── FloorplanMinimap.svelte # Small floorplan thumbnail in PhotoView
+│   ├── BarcodeScanner.svelte # html5-qrcode barcode/QR scanner overlay
+│   ├── AnnotationOverlay.svelte # SVG drawing overlay (freehand, arrow, rect, text)
 │   └── ShareDialog.svelte    # Public toggle + copy link
 ```
 
