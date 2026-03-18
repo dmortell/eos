@@ -28,8 +28,21 @@
 	let saving = $state(false)
 	let uploadProgress = $state(0)
 	let errorMsg = $state('')
+	let previewReady = $state(false)
+	let previewUrl = $state('')
 
-	let previewUrl = $derived(URL.createObjectURL(blob))
+	// Generate preview — this can take a moment for large photos
+	$effect(() => {
+		previewReady = false
+		const url = URL.createObjectURL(blob)
+		previewUrl = url
+		// Wait for image to decode before showing
+		const img = new Image()
+		img.onload = () => { previewReady = true }
+		img.onerror = () => { previewReady = true }
+		img.src = url
+		return () => URL.revokeObjectURL(url)
+	})
 
 	const { startUpload } = createUploadThing('imageUploader', {
 		onUploadProgress: (p: number) => { uploadProgress = p },
@@ -72,8 +85,15 @@
 
 	<div class="flex-1 overflow-y-auto overscroll-contain">
 		<!-- Preview -->
-		<div class="bg-black">
-			<img src={previewUrl} alt="Captured" class="mx-auto max-h-[35vh] object-contain" />
+		<div class="flex items-center justify-center bg-black" style="min-height: 30vh">
+			{#if previewReady}
+				<img src={previewUrl} alt="Captured" class="mx-auto max-h-[35vh] object-contain" />
+			{:else}
+				<div class="flex flex-col items-center gap-2 py-8 text-white/60">
+					<Spinner />
+					<span class="text-sm">Loading photo...</span>
+				</div>
+			{/if}
 		</div>
 
 		<!-- Form -->

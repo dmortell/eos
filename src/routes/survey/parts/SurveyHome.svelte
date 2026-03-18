@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { Button, Dialog, Icon, Input, Search, Spinner } from '$lib'
-	import { createSurvey, deleteSurvey } from '../survey.svelte'
+	import { Button, Icon, Search, Spinner } from '$lib'
+	import SurveyDialog from './SurveyDialog.svelte'
+	import { createSurvey } from '../survey.svelte'
 	import type { Survey } from '../types'
 
 	let {
@@ -75,7 +76,6 @@
 				<button type="button" onclick={() => onselect(survey)}
 					class="flex w-full items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 text-left transition-colors hover:border-blue-300 hover:bg-blue-50/50 active:bg-blue-50"
 				>
-					<!-- Cover thumbnail -->
 					{#if survey.coverPhoto}
 						<img src={survey.coverPhoto} alt="" class="h-14 w-14 shrink-0 rounded-lg object-cover" />
 					{:else}
@@ -95,14 +95,4 @@
 	{/if}
 </div>
 
-<!-- Create dialog -->
-<Dialog title="New Survey" bind:open={showCreate}>
-	<div class="space-y-3">
-		<Input bind:value={newName} label="Survey name" placeholder="e.g. Building A - Floor 1" />
-		<Input bind:value={newDate} label="Date" type="date" />
-		<div class="flex justify-end gap-2 pt-2">
-			<Button variant="outline" onclick={() => (showCreate = false)}>Cancel</Button>
-			<Button variant="primary" onclick={handleCreate} loading={creating} disabled={!newName.trim()}>Create</Button>
-		</div>
-	</div>
-</Dialog>
+<SurveyDialog title="New Survey" bind:open={showCreate} bind:name={newName} bind:date={newDate} saving={creating} onsave={handleCreate} />

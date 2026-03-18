@@ -28,3 +28,13 @@ export interface SurveyPhoto {
 }
 
 export type ViewState = 'home' | 'detail' | 'camera' | 'editor' | 'photo'
+
+export interface SurveyFloorplan {
+	id: string
+	name: string
+	url: string
+	key?: string
+	size: number
+	pageCount?: number
+	uploadedAt: Timestamp | Date
+}

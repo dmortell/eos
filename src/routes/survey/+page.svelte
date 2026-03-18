@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { type Session, Spinner, Button } from '$lib'
-	import { getContext } from 'svelte'
+	import { getContext, onMount } from 'svelte'
 	import { subscribeSurveys } from './survey.svelte'
 	import type { Survey, SurveyPhoto, ViewState } from './types'
 	import SurveyHome from './parts/SurveyHome.svelte'
@@ -17,16 +17,43 @@
 	let capturedBlob: Blob | null = $state(null)
 	let capturedGeo: { latitude: number; longitude: number } | null = $state(null)
 	let selectedPhoto: SurveyPhoto | null = $state(null)
-	let detailPhotos: SurveyPhoto[] = $state([])
 
-	// Subscribe to surveys when user is logged in
+	// --- History management ---
+	let suppressPush = false
+
+	function pushView(v: ViewState) {
+		if (!suppressPush) {
+			history.pushState({ view: v }, '')
+		}
+		view = v
+	}
+
+	function handlePopState(e: PopStateEvent) {
+		suppressPush = true
+		const target = e.state?.view as ViewState | undefined
+		if (target === 'photo' || target === 'editor') {
+			// Can't restore these views without their data, go to detail
+			goDetail()
+		} else if (target === 'detail' && currentSurvey) {
+			goDetail()
+		} else {
+			goHome()
+		}
+		suppressPush = false
+	}
+
+	onMount(() => {
+		// Replace initial entry so we have state on it
+		history.replaceState({ view: 'home' }, '')
+	})
+
+	// --- Subscriptions ---
 	$effect(() => {
 		const user = session?.user
 		if (!user) { loading = false; surveys = []; return }
 		loading = true
 		const unsub = subscribeSurveys(user.uid, (data) => {
 			surveys = data
-			// Update currentSurvey reference if it exists
 			if (currentSurvey) {
 				const updated = data.find((s) => s.id === currentSurvey!.id)
 				if (updated) currentSurvey = updated
@@ -36,40 +63,44 @@
 		return () => unsub()
 	})
 
+	// --- Navigation ---
 	function selectSurvey(survey: Survey) {
 		currentSurvey = survey
-		view = 'detail'
+		pushView('detail')
 	}
 
 	function handleCapture(file: File, geo: { latitude: number; longitude: number } | null) {
 		capturedBlob = file
 		capturedGeo = geo
-		view = 'editor'
+		pushView('editor')
 	}
 
 	function handlePhotoSaved() {
 		capturedBlob = null
 		capturedGeo = null
-		view = 'detail'
+		pushView('detail')
 	}
 
-	function handleSelectPhoto(photo: SurveyPhoto, allPhotos: SurveyPhoto[]) {
+	function handleSelectPhoto(photo: SurveyPhoto) {
 		selectedPhoto = photo
-		detailPhotos = allPhotos
-		view = 'photo'
+		pushView('photo')
 	}
 
 	function goHome() {
 		currentSurvey = null
-		view = 'home'
+		selectedPhoto = null
+		capturedBlob = null
+		pushView('home')
 	}
 
 	function goDetail() {
 		selectedPhoto = null
 		capturedBlob = null
-		view = 'detail'
+		pushView('detail')
 	}
 </script>
+
+<svelte:window onpopstate={handlePopState} />
 
 <svelte:head>
 	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -103,7 +134,6 @@
 	<PhotoView
 		surveyId={currentSurvey.id}
 		photo={selectedPhoto}
-		photos={detailPhotos}
 		onclose={goDetail}
 		ondeleted={goDetail}
 	/>

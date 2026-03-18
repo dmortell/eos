@@ -1,6 +1,6 @@
 import { Firestore, type DocWithId } from '$lib'
 import { nanoid } from 'nanoid'
-import type { Survey, SurveyPhoto } from './types'
+import type { Survey, SurveyPhoto, SurveyFloorplan } from './types'
 
 const db = new Firestore()
 
@@ -89,4 +89,23 @@ export function getGeoLocation(): Promise<{ latitude: number; longitude: number 
 			{ enableHighAccuracy: true, timeout: 5000 }
 		)
 	})
+}
+
+// --- Floorplans ---
+
+export function subscribeFloorplans(surveyId: string, callback: (plans: SurveyFloorplan[]) => void) {
+	return db.subscribeMany(`surveys/${surveyId}/floorplans`, (docs) => {
+		callback(docs as unknown as SurveyFloorplan[])
+	})
+}
+
+export async function saveFloorplan(surveyId: string, plan: Omit<SurveyFloorplan, 'id'> & { id?: string }): Promise<string> {
+	const id = plan.id || nanoid(10)
+	const doc = { ...plan, id }
+	await db.save(`surveys/${surveyId}/floorplans`, doc as unknown as DocWithId)
+	return id
+}
+
+export async function deleteFloorplan(surveyId: string, planId: string) {
+	await db.delete(`surveys/${surveyId}/floorplans`, planId)
 }
