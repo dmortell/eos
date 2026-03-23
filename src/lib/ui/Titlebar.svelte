@@ -37,7 +37,7 @@
 		{/if}
 		{#if session.user}
 			<button class="cursor-pointer rounded hover:text-gray-200 px-2" onclick={session.logout} title='Sign out {session.user.email}'>Sign Out</button>
-			{#if updated.current || 1}
+			{#if updated.current}
 				<MetalButton onclick={()=>location.reload()} variant="green" title="A new version is available. Click to refresh.">Refresh</MetalButton>
 			{/if}
 			<PresenceAvatars />
