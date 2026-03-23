@@ -110,3 +110,8 @@ pnpm dlx sv@0.12.4 create --template minimal --types ts --add vitest="usages:uni
 Settings > Service accounts > Generate new key
 
 Download the json file, and paste it as one line into .env
+
+Then in Vercel, got to Project > Settings (bottom of sidebar) > Environment Variables
+Add Key: FIREBASE_SERVICE_ACCOUNT
+Value: paste the full json value with no spaces at the end: {"type":....}
+Click Redeploy
