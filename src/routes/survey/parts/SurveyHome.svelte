@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button, Icon, Search, Spinner } from '$lib'
+	import { Button, Icon, Search, Spinner, Titlebar } from '$lib'
 	import SurveyDialog from './SurveyDialog.svelte'
 	import { createSurvey, subscribeProjects } from '../survey.svelte'
 	import type { Survey } from '../types'
@@ -68,6 +68,8 @@
 	}
 </script>
 
+<Titlebar />
+
 <div class="mx-auto max-w-lg p-4">
 	<!-- Header -->
 	<div class="mb-4 flex items-center justify-between">
@@ -78,7 +80,7 @@
 				Surveys
 			{/if}
 		</h1>
-		<Button variant="primary" size="lg" icon="plus" onclick={() => (showCreate = true)}>New</Button>
+		<Button variant="primary" size="lg" icon="plus" onclick={() => (showCreate = true)}>New Survey</Button>
 	</div>
 
 	<!-- Search -->

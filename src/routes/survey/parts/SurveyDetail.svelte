@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Button, Icon, Spinner } from '$lib'
 	import PhotoGrid from './PhotoGrid.svelte'
+	import AlbumView from './AlbumView.svelte'
 	import FloorplanTab from './FloorplanTab.svelte'
 	import FloorplanView from './FloorplanView.svelte'
 	import ShareDialog from './ShareDialog.svelte'
@@ -48,8 +49,11 @@
 	let editName = $state(survey.name)
 	let editDate = $state(survey.date)
 	let editProjectId = $state(survey.projectId ?? '')
-	let tab: 'photos' | 'floorplans' = $state('photos')
+	let tab: 'photos' | 'album' | 'floorplans' = $state('photos')
 	let activeFloorplan: SurveyFloorplan | null = $state(null)
+	let floorplans: SurveyFloorplan[] = $state([])
+	let exporting = $state(false)
+	let exportMsg = $state('')
 
 	$effect(() => {
 		loading = true
@@ -57,6 +61,11 @@
 			photos = data
 			loading = false
 		})
+		return () => unsub()
+	})
+
+	$effect(() => {
+		const unsub = subscribeFloorplans(survey.id, (data) => { floorplans = data })
 		return () => unsub()
 	})
 
@@ -89,15 +98,41 @@
 		showEdit = true
 	}
 
+	async function handleExportPdf() {
+		showMenu = false
+		exporting = true
+		try {
+			await exportPdf(survey, photos, floorplans, (msg) => { exportMsg = msg })
+		} catch (e: any) {
+			console.error('PDF export failed', e)
+		} finally {
+			exporting = false
+			exportMsg = ''
+		}
+	}
+
+	async function handleExportZip() {
+		showMenu = false
+		exporting = true
+		try {
+			await exportZip(survey, photos, floorplans, (msg) => { exportMsg = msg })
+		} catch (e: any) {
+			console.error('ZIP export failed', e)
+		} finally {
+			exporting = false
+			exportMsg = ''
+		}
+	}
+
 	function fmtDate(d: string) {
 		if (!d) return ''
 		return new Date(d).toLocaleDateString('en', { year: 'numeric', month: 'short', day: 'numeric' })
 	}
 </script>
 
-<div class="mx-auto flex h-dvh max-w-lg flex-col">
+<div class="mx-auto flex h-dvh max-w-lg flex-col print:h-auto print:max-w-none">
 	<!-- Header -->
-	<div class="flex items-center gap-2 border-b px-3 py-2">
+	<div class="flex items-center gap-2 border-b px-3 py-2 print:hidden">
 		<button type="button" class="flex h-10 w-10 items-center justify-center rounded-lg active:bg-gray-100" onclick={onback}>
 			<Icon name="arrowLeft" size={22} />
 		</button>
@@ -124,12 +159,17 @@
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div class="fixed inset-0 z-10" onclick={() => (showMenu = false)}></div>
 				<div class="absolute right-0 top-full z-20 mt-1 w-48 rounded-lg border bg-white py-1 shadow-lg">
-					<!-- <Button type="button" icon="edit" class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm active:bg-gray-100" onclick={openEditDialog}> -->
 					<Button variant="ghost" size="lg" icon="edit" class="w-full justify-start" onclick={openEditDialog}>
-						<!-- <Icon name="edit" size={16} /> -->
 						Edit Survey
 					</Button>
-					<hr class="mb-2"/>
+					<hr class="my-1"/>
+					<Button variant="ghost" size="lg" icon="fileText" class="w-full justify-start" onclick={handleExportPdf} disabled={exporting || photos.length === 0}>
+						Export PDF
+					</Button>
+					<Button variant="ghost" size="lg" icon="download" class="w-full justify-start" onclick={handleExportZip} disabled={exporting || photos.length === 0}>
+						Export ZIP
+					</Button>
+					<hr class="my-1"/>
 					<Button variant="ghost" size="lg" icon="trash" onclick={handleDelete} confirm={{ text: 'Delete survey?', confirmLabel: 'Delete', cancelLabel: 'Cancel' }} class="w-full justify-start text-red-600">
 						Delete Survey
 					</Button>
@@ -139,7 +179,7 @@
 	</div>
 
 	<!-- Tab bar -->
-	<div class="flex border-b">
+	<div class="flex border-b print:hidden">
 		<button
 			type="button"
 			class="flex flex-1 items-center justify-center gap-1.5 py-2.5 text-sm font-medium transition-colors {tab === 'photos' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 active:text-gray-700'}"
@@ -147,6 +187,14 @@
 		>
 			<Icon name="image" size={16} />
 			Photos
+		</button>
+		<button
+			type="button"
+			class="flex flex-1 items-center justify-center gap-1.5 py-2.5 text-sm font-medium transition-colors {tab === 'album' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 active:text-gray-700'}"
+			onclick={() => (tab = 'album')}
+		>
+			<Icon name="print" size={16} />
+			Album
 		</button>
 		<button
 			type="button"
@@ -179,6 +227,14 @@
 			<Icon name="camera" size={24} />
 			<input type="file" accept="image/*" capture="environment" class="hidden" onchange={handleFile} />
 		</label>
+	{:else if tab === 'album'}
+		<div class="flex-1 overflow-y-auto">
+			{#if loading}
+				<div class="flex justify-center py-12"><Spinner /></div>
+			{:else}
+				<AlbumView surveyName={survey.name} surveyDate={survey.date} {photos} />
+			{/if}
+		</div>
 	{:else}
 		<FloorplanTab surveyId={survey.id} onselect={(plan) => { activeFloorplan = plan }} />
 	{/if}
@@ -195,3 +251,12 @@
 
 <SurveyDialog title="Edit Survey" bind:open={showEdit} bind:name={editName} bind:date={editDate} bind:projectId={editProjectId} onsave={handleEditSave} />
 <ShareDialog {survey} bind:open={showShare} />
+
+{#if exporting}
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+		<div class="flex flex-col items-center gap-3 rounded-xl bg-white px-8 py-6 shadow-lg">
+			<Spinner />
+			<p class="text-sm text-gray-600">{exportMsg || 'Exporting...'}</p>
+		</div>
+	</div>
+{/if}

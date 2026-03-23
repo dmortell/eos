@@ -15,8 +15,6 @@ export const load: PageServerLoad = async ({ params }) => {
 	const surveyData = doc.data()
 	if (!surveyData.isPublic) return error(404, 'Album not found')
 
-	const survey = { id: doc.id, ...surveyData }
-
 	// Fetch photos
 	const photosSnap = await db
 		.collection(`surveys/${doc.id}/photos`)
@@ -26,18 +24,30 @@ export const load: PageServerLoad = async ({ params }) => {
 		const data = d.data()
 		return {
 			id: d.id,
-			...data,
-			// Convert Firestore Timestamps to ISO strings for serialization
-			capturedAt: data.capturedAt?.toDate?.()?.toISOString?.() ?? data.capturedAt,
-			createdAt: data.createdAt?.toDate?.()?.toISOString?.() ?? data.createdAt,
+			title: (data.title ?? '') as string,
+			description: (data.description ?? '') as string,
+			imageUrl: (data.imageUrl ?? '') as string,
+			barcode: (data.barcode ?? '') as string,
+			latitude: data.latitude as number | undefined,
+			longitude: data.longitude as number | undefined,
+			sortOrder: (data.sortOrder ?? 0) as number,
+			capturedAt: data.capturedAt?.toDate?.()?.toISOString?.() ?? data.capturedAt ?? '',
+			createdAt: data.createdAt?.toDate?.()?.toISOString?.() ?? data.createdAt ?? '',
 		}
 	})
 
 	return {
 		survey: {
-			...survey,
-			createdAt: surveyData.createdAt?.toDate?.()?.toISOString?.() ?? surveyData.createdAt,
-			updatedAt: surveyData.updatedAt?.toDate?.()?.toISOString?.() ?? surveyData.updatedAt,
+			id: doc.id,
+			name: (surveyData.name ?? '') as string,
+			date: (surveyData.date ?? '') as string,
+			description: (surveyData.description ?? '') as string,
+			ownerName: (surveyData.ownerName ?? '') as string,
+			projectName: (surveyData.projectName ?? '') as string,
+			isPublic: surveyData.isPublic as boolean,
+			photoCount: (surveyData.photoCount ?? 0) as number,
+			createdAt: surveyData.createdAt?.toDate?.()?.toISOString?.() ?? surveyData.createdAt ?? '',
+			updatedAt: surveyData.updatedAt?.toDate?.()?.toISOString?.() ?? surveyData.updatedAt ?? '',
 		},
 		photos,
 	}
