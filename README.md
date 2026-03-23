@@ -103,3 +103,10 @@ To recreate this project from scratch with the same configuration:
 ```sh
 pnpm dlx sv@0.12.4 create --template minimal --types ts --add vitest="usages:unit,component" tailwindcss="plugins:none" sveltekit-adapter="adapter:vercel" devtools-json --install pnpm .
 ```
+
+
+## Set up a private key in Firebase console
+
+Settings > Service accounts > Generate new key
+
+Download the json file, and paste it as one line into .env

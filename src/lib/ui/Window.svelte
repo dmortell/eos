@@ -19,10 +19,10 @@
 	const saved = $derived(storageKey ? loadState() : null)
 
 	// svelte-ignore state_referenced_locally
-	let right = $state<number | null>(saved?.right ?? (initRight != null ? +initRight : null))
-	let left = $state<number | null>(saved?.left ?? (initLeft != null ? +initLeft : null))
-	let top = $state<number | null>(saved?.top ?? (initTop != null ? +initTop : null))
-	let useLeft = saved ? saved.left != null : initLeft != null
+	let right = $derived<number | null>(saved?.right ?? (initRight != null ? +initRight : null))
+	let left  = $derived<number | null>(saved?.left  ?? (initLeft  != null ? +initLeft : null))
+	let top   = $derived<number | null>(saved?.top   ?? (initTop   != null ? +initTop : null))
+	let useLeft = $derived(saved ? saved.left != null : initLeft != null)
 	let moved = 0;
 
 	// Vertical resize state

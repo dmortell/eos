@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { Button, Dropdown, Icon, MetalButton, Row, Session, Spinner } from '$lib'
 	import { getContext, type Snippet } from 'svelte';
-	import PresenceAvatars from '$lib/presence/PresenceAvatars.svelte'
 	import { startPresence, stopPresence } from '$lib/presence/presence.svelte'
   import { updated } from '$app/state';		// For update notifications. Polling interval is set in svelte.config.js
+	import PresenceAvatars from '$lib/presence/PresenceAvatars.svelte'
   import ToggleTheme from './ToggleTheme.svelte';
 
   const menuItems = [
@@ -11,7 +11,7 @@
 		{ label: 'Frames', href: 'frames' },
 		{ label: 'Floorplans', href: 'outlets' },
 	]
-	let {title="EOS 0.2", height=null, children=null, menu=null, saveStatus=''}: {
+	let {title="EOS 0.3", height=null, children=null, menu=null, saveStatus=''}: {
 		title?: string
 		height?: number | null
 		children?: Snippet | null

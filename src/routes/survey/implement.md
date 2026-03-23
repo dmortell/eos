@@ -1,8 +1,8 @@
 # Survey Photo Album — Implementation Plan
 
-## Status: Phase 1-5 Complete
+## Status: Phase 1-6 Complete
 
-Core survey tool + project linking + floorplan photo mapping + barcode scanning + photo annotations all built and working.
+Core survey tool + project linking + floorplan photo mapping + barcode scanning + photo annotations + export/sharing all built and working.
 
 ## Current File Structure
 
@@ -10,11 +10,12 @@ Core survey tool + project linking + floorplan photo mapping + barcode scanning 
 src/routes/survey/
 ├── +page.svelte              # Entry: view router, SvelteKit history, ?project= param
 ├── implement.md              # This plan
-├── survey.svelte.ts          # Firestore CRUD + subscribeProjects/subscribeProjectSurveys
+├── survey.svelte.ts          # Firestore CRUD + subscribeProjects/subscribeProjectSurveys/subscribeByShareToken
 ├── types.ts                  # Survey, SurveyPhoto (with pin/barcode/annotation fields), AnnotationData
+├── export.ts                 # PDF and ZIP export utilities (jspdf, jszip)
 ├── parts/
 │   ├── SurveyHome.svelte     # Survey list + create + project filter chips
-│   ├── SurveyDetail.svelte   # Tabs: Photos | Floorplans, edit/delete/share, FloorplanView
+│   ├── SurveyDetail.svelte   # Tabs: Photos | Floorplans, edit/delete/share/export PDF/ZIP
 │   ├── SurveyDialog.svelte   # Shared create/edit dialog with project picker
 │   ├── Camera.svelte         # Native camera via <input capture>
 │   ├── PhotoEditor.svelte    # Post-capture: title, description, voice, barcode scan, upload
@@ -27,6 +28,11 @@ src/routes/survey/
 │   ├── BarcodeScanner.svelte # html5-qrcode barcode/QR scanner overlay
 │   ├── AnnotationOverlay.svelte # SVG drawing overlay (freehand, arrow, rect, text)
 │   └── ShareDialog.svelte    # Public toggle + copy link
+├── share/
+│   ├── +layout@.svelte       # Layout reset (bypasses auth gate)
+│   └── [token]/
+│       ├── +page.server.ts   # Server-side load via firebase-admin (no auth required)
+│       └── +page.svelte      # Public read-only album view
 ```
 
 ---

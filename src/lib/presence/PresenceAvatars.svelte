@@ -2,8 +2,9 @@
 	import { presence } from './presence.svelte'
 	import Avatar from '$lib/ui/Avatar.svelte'
 
-	let showDropdown = $state(false)
+	// svelte-ignore non_reactive_update
 	let container: HTMLDivElement
+	let showDropdown = $state(false)
 	let visible = $derived(presence.users.slice(0, 3))
 	let overflow = $derived(Math.max(0, presence.users.length - 3))
 

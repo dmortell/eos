@@ -26,7 +26,7 @@
 	$effect(()=>{
 		let unsub = db.subscribeOne(`projects`, pid, data => {
 			project = data
-			if (data?.floors?.length) floors = migrateFloors(data.floors);
+			if (Array.isArray(data?.floors) && data.floors.length) floors = migrateFloors(data.floors);
 		})
 		return () => { unsub?.() }
 	})
