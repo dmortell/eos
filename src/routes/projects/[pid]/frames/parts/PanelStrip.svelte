@@ -1,12 +1,19 @@
 <script lang="ts">
-	import type { PanelData } from './types'
+	import type { PanelData, LocType } from './types'
 	import PortCell from './PortCell.svelte'
 
-	let { panel, selectedLocations, onselect }: {
+	let { panel, frameId, selectedLocations, selectedPorts, reservationMap, onselect }: {
 		panel: PanelData
+		frameId: string
 		selectedLocations?: Set<string>
+		selectedPorts?: Set<string>
+		reservationMap?: Map<string, LocType>
 		onselect?: (key: string) => void
 	} = $props()
+
+	function portKey(row: 'top' | 'bottom', col: number): string {
+		return `${frameId}:${panel.ru}:${row}:${col}`
+	}
 </script>
 
 <div class="border-b border-gray-200 last:border-b-0">
@@ -19,14 +26,30 @@
 
 		<div class="flex-1 p-0.5 space-y-px">
 			<div class="grid grid-cols-24 gap-px">
-				{#each panel.topRow as port, i (i)}
-					<PortCell {port} selected={port ? (selectedLocations?.has(`${port.zone}-${port.locationNumber}`) ?? false) : false} {onselect} />
+				{#each panel.topRow as port, col (col)}
+					{@const pk = portKey('top', col)}
+					<PortCell
+						{port}
+						portKey={pk}
+						selected={port ? (selectedLocations?.has(`${port.zone}-${port.locationNumber}`) ?? false) : false}
+						portSelected={selectedPorts?.has(pk) ?? false}
+						reservation={reservationMap?.get(pk)}
+						{onselect}
+					/>
 				{/each}
 			</div>
 			{#if panel.bottomRow.length > 0}
 				<div class="grid grid-cols-24 gap-px">
-					{#each panel.bottomRow as port, i (i)}
-						<PortCell {port} selected={port ? (selectedLocations?.has(`${port.zone}-${port.locationNumber}`) ?? false) : false} {onselect} />
+					{#each panel.bottomRow as port, col (col)}
+						{@const pk = portKey('bottom', col)}
+						<PortCell
+							{port}
+							portKey={pk}
+							selected={port ? (selectedLocations?.has(`${port.zone}-${port.locationNumber}`) ?? false) : false}
+							portSelected={selectedPorts?.has(pk) ?? false}
+							reservation={reservationMap?.get(pk)}
+							{onselect}
+						/>
 					{/each}
 				</div>
 			{/if}

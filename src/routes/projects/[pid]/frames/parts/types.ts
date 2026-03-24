@@ -105,6 +105,35 @@ export interface RackData {
 	panels: PanelData[]
 }
 
+// ── Port reservations (block assign) ──
+
+/** A single port position on a physical panel */
+export interface PortPosition {
+	frameId: string
+	ru: number
+	row: 'top' | 'bottom'  // 'bottom' only for 48-port panels
+	col: number             // 0–23
+}
+
+/** A block reservation: a set of port positions sharing a usage type */
+export interface PortReservation {
+	id: string              // unique ID
+	type: LocType           // 'AP', 'desk', 'PR', etc.
+	ports: PortPosition[]   // the reserved port positions
+	label?: string          // optional user note
+}
+
+/** Key for a port position: "frameId:ru:row:col" */
+export function portPosKey(p: PortPosition): string {
+	return `${p.frameId}:${p.ru}:${p.row}:${p.col}`
+}
+
+/** Parse a port position key back into a PortPosition */
+export function parsePortPosKey(key: string): PortPosition {
+	const [frameId, ru, row, col] = key.split(':')
+	return { frameId, ru: Number(ru), row: row as 'top' | 'bottom', col: Number(col) }
+}
+
 // ── Defaults ──
 
 export function defaultZoneConfig(): ZoneConfig {

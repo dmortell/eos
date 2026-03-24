@@ -1,10 +1,13 @@
 <script lang="ts">
-	import type { PortLabel } from './types'
+	import type { PortLabel, LocType } from './types'
 	import { LOC_TYPE_COLORS } from './types'
 
-	let { port, selected = false, onselect }: {
+	let { port, selected = false, portSelected = false, reservation, portKey, onselect }: {
 		port: PortLabel | null
 		selected?: boolean
+		portSelected?: boolean
+		reservation?: LocType
+		portKey?: string
 		onselect?: (key: string) => void
 	} = $props()
 
@@ -29,10 +32,12 @@
 {#if port}
 	<button
 		class="w-full h-7 rounded-sm border flex items-center justify-center cursor-pointer transition-colors {colorClass} {roomClass}"
-		class:ring-2={selected}
-		class:ring-yellow-400={selected}
+		class:ring-2={selected || portSelected}
+		class:ring-yellow-400={selected && !portSelected}
+		class:ring-blue-400={portSelected}
 		title={port.label}
 		data-loc={locKey}
+		data-port={portKey}
 		onclick={() => onselect?.(locKey)}
 	>
 		<span class="font-mono text-[9px] leading-none select-all whitespace-nowrap overflow-hidden">
@@ -40,5 +45,17 @@
 		</span>
 	</button>
 {:else}
-	<div class="w-full h-7 bg-gray-100 rounded-sm border border-gray-200/50"></div>
+	<div
+		class="w-full h-7 rounded-sm border flex items-center justify-center
+			{reservation
+				? LOC_TYPE_COLORS[reservation] + ' border-dashed'
+				: 'bg-gray-100 border-gray-200/50'}"
+		class:ring-2={portSelected}
+		class:ring-blue-400={portSelected}
+		data-port={portKey}
+	>
+		{#if reservation}
+			<span class="font-mono text-[7px] opacity-60">{reservation}</span>
+		{/if}
+	</div>
 {/if}

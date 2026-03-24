@@ -1,5 +1,6 @@
 <script lang="ts">
-	import type { ZoneConfig, LocationConfig, FrameConfig, RackData, PortLabel } from './parts/types'
+	import type { ZoneConfig, LocationConfig, FrameConfig, RackData, PortLabel, PortReservation, LocType } from './parts/types'
+	import { portPosKey, parsePortPosKey } from './parts/types'
 	import type { ChangeDetail } from '$lib/logger'
 	import { Button, Icon, Titlebar } from '$lib'
 	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
@@ -9,6 +10,7 @@
 	import LocationList from './parts/LocationList.svelte'
 	import FrameToolbar from './parts/FrameToolbar.svelte'
 	import FrameDrawing from './parts/FrameDrawing.svelte'
+	import BlockAssignBar from './parts/BlockAssignBar.svelte'
 	import SettingsDialog from './parts/SettingsDialog.svelte'
 	import LogsDialog from './parts/LogsDialog.svelte'
 	import FloorManagerDialog from '$lib/components/FloorManagerDialog.svelte'
@@ -98,6 +100,18 @@
 			selectedFrameId = frames[0].id
 		}
 	})
+	// ── Block assign: port-level reservations ──
+	let selectedPorts = $state<Set<string>>(new Set())
+	let portReservations = $state<PortReservation[]>(data?.portReservations ?? [])
+	let reservationMap = $derived<Map<string, LocType>>(
+		new Map(
+			portReservations.flatMap(r =>
+				r.ports.map(p => [portPosKey(p), r.type] as [string, LocType])
+			)
+		)
+	)
+	let nextReservationId = $state(1)
+
 	let saveStatus = $state<'saved' | 'saving' | 'unsaved'>('saved')
 	let viewMode = $state<'sidebar' | 'stacked'>('sidebar')
 	let settingsOpen = $state(false)
@@ -204,11 +218,17 @@
 			changes.push({ action: 'update', field: 'excelGroupByRoom', to: next.excelGroupByRoom })
 		}
 
+		if (JSON.stringify(prev.portReservations) !== JSON.stringify(next.portReservations)) {
+			const prevCount = (prev.portReservations ?? []).reduce((s: number, r: any) => s + r.ports.length, 0)
+			const nextCount = (next.portReservations ?? []).reduce((s: number, r: any) => s + r.ports.length, 0)
+			changes.push({ action: 'update', field: 'portReservations', from: prevCount, to: nextCount })
+		}
+
 		return changes
 	}
 
 	$effect(() => {
-		const current = { zoneLocations, rooms, customLocationTypes, excelGroupByRoom, floorFormat }
+		const current = { zoneLocations, rooms, customLocationTypes, excelGroupByRoom, floorFormat, portReservations }
 		const snapshot = JSON.stringify(current)
 
 		if (!initialized) {
@@ -233,7 +253,7 @@
 				const changesToLog = [...pendingChanges]
 				pendingChanges = []
 				// db.save() already sanitizes undefined values via sanitizeFirestoreData()
-				onsave({ floor, zoneLocations, rooms, customLocationTypes, excelGroupByRoom, floorFormat }, changesToLog)
+				onsave({ floor, zoneLocations, rooms, customLocationTypes, excelGroupByRoom, floorFormat, portReservations }, changesToLog)
 				saveStatus = 'saved'
 			}
 		}, 500)
@@ -394,6 +414,53 @@
 		exportToExcel(racks, allZoneConfigs, excelGroupByRoom, floorFormat)
 	}
 
+	// ── Block assign handlers ──
+	function blockSelectPorts(portKeys: string[], event: PointerEvent) {
+		if (event.shiftKey) {
+			selectedPorts = new Set([...selectedPorts, ...portKeys])
+		} else if (event.ctrlKey || event.metaKey) {
+			const next = new Set(selectedPorts)
+			for (const k of portKeys) next.has(k) ? next.delete(k) : next.add(k)
+			selectedPorts = next
+		} else {
+			selectedPorts = new Set(portKeys)
+		}
+	}
+
+	function assignReservation(type: LocType) {
+		const positions = [...selectedPorts].map(parsePortPosKey)
+
+		// Remove these ports from existing reservations
+		let updated = portReservations.map(r => ({
+			...r,
+			ports: r.ports.filter(p => !selectedPorts.has(portPosKey(p)))
+		})).filter(r => r.ports.length > 0)
+
+		// Add new reservation
+		updated.push({ id: String(nextReservationId++), type, ports: positions })
+		portReservations = updated
+		selectedPorts = new Set()
+	}
+
+	function removeReservation() {
+		portReservations = portReservations.map(r => ({
+			...r,
+			ports: r.ports.filter(p => !selectedPorts.has(portPosKey(p)))
+		})).filter(r => r.ports.length > 0)
+		selectedPorts = new Set()
+	}
+
+	function clearPortSelection() {
+		selectedPorts = new Set()
+	}
+
+	function handleBlockKeydown(e: KeyboardEvent) {
+		if (selectedPorts.size === 0) return
+		if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return
+		if (e.key === 'Escape') { clearPortSelection(); e.preventDefault() }
+		if (e.key === 'Delete' || e.key === 'Backspace') { removeReservation(); e.preventDefault() }
+	}
+
 	function updateSettings(data: { customTypes: string[]; rooms: { roomNumber: string; roomName: string }[]; excelGroupByRoom: boolean; floorFormat: string }) {
 		customLocationTypes = data.customTypes
 		rooms = data.rooms
@@ -405,7 +472,8 @@
 	const fmt = (fl: number) => fmtFloor(fl, floorFormat, floors)
 </script>
 
-<div class="h-screen flex flex-col overflow-hidden">
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="h-screen flex flex-col overflow-hidden" onkeydown={handleBlockKeydown}>
 <Titlebar menu={true} title={projectName ? `${projectName} — Patch Frames` : 'Patch Frames'} />
 
 <SettingsDialog
@@ -489,7 +557,7 @@
 		</div>
 		<div class="flex-1"></div>
 		<div class="flex items-center gap-3 px-3 text-[10px] text-gray-400">
-			<span>{allLabels.length} ports &middot; {racks.length} frame{racks.length !== 1 ? 's' : ''}</span>
+			<span>{allLabels.length} ports &middot; {racks.length} frame{racks.length !== 1 ? 's' : ''}{#if reservationMap.size > 0} &middot; {reservationMap.size} reserved{/if}</span>
 		</div>
 	</div>
 {/snippet}
@@ -565,8 +633,24 @@
 			onselect={id => selectedFrameId = id}
 		/>
 	</div>
+
+	<BlockAssignBar
+		count={selectedPorts.size}
+		customTypes={customLocationTypes}
+		onassign={assignReservation}
+		onremove={removeReservation}
+		onclear={clearPortSelection}
+	/>
 {/snippet}
 
 {#snippet frameContent()}
-	<FrameDrawing {racks} {selectedFrameId} {selectedLocations} onselect={selectLocationFromFrame} />
+	<FrameDrawing
+		{racks}
+		{selectedFrameId}
+		{selectedLocations}
+		{selectedPorts}
+		{reservationMap}
+		onselect={selectLocationFromFrame}
+		onblockselect={blockSelectPorts}
+	/>
 {/snippet}

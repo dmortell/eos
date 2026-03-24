@@ -1,12 +1,16 @@
 <script lang="ts">
-	import type { RackData, PanelData, FrameSlot } from './types'
+	import type { RackData, PanelData, FrameSlot, LocType } from './types'
 	import PanelStrip from './PanelStrip.svelte'
+	import SelectionRect from './SelectionRect.svelte'
 
-	let { racks, selectedFrameId, selectedLocations, onselect }: {
+	let { racks, selectedFrameId, selectedLocations, selectedPorts, reservationMap, onselect, onblockselect }: {
 		racks: RackData[]
 		selectedFrameId?: string | null
 		selectedLocations?: Set<string>
+		selectedPorts?: Set<string>
+		reservationMap?: Map<string, LocType>
 		onselect?: (key: string) => void
+		onblockselect?: (portKeys: string[], event: PointerEvent) => void
 	} = $props()
 
 	/** Show only the selected frame, or all if none selected */
@@ -89,6 +93,92 @@
 		const typeName = DEVICE_TYPE_LABELS[slot.type] ?? slot.type
 		return slot.label ? `${typeName}: ${slot.label}` : typeName
 	}
+
+	// ── Drag-select state ──
+	let containerEl: HTMLDivElement | undefined = $state()
+	let dragStart: { x: number; y: number } | null = $state(null)
+	let dragEnd: { x: number; y: number } | null = $state(null)
+	let isDragging = $state(false)
+
+	const MIN_DRAG = 4
+
+	let rectStyle = $derived.by(() => {
+		if (!dragStart || !dragEnd || !isDragging) return null
+		const x = Math.min(dragStart.x, dragEnd.x)
+		const y = Math.min(dragStart.y, dragEnd.y)
+		const width = Math.abs(dragEnd.x - dragStart.x)
+		const height = Math.abs(dragEnd.y - dragStart.y)
+		if (width < MIN_DRAG && height < MIN_DRAG) return null
+		return { x, y, width, height }
+	})
+
+	function onPointerDown(e: PointerEvent) {
+		// Only left button, not on an existing port button click
+		if (e.button !== 0) return
+		if (!containerEl) return
+
+		const rect = containerEl.getBoundingClientRect()
+		const x = e.clientX - rect.left + containerEl.scrollLeft
+		const y = e.clientY - rect.top + containerEl.scrollTop
+
+		dragStart = { x, y }
+		dragEnd = { x, y }
+		isDragging = false
+		containerEl.setPointerCapture(e.pointerId)
+	}
+
+	function onPointerMove(e: PointerEvent) {
+		if (!dragStart || !containerEl) return
+
+		const rect = containerEl.getBoundingClientRect()
+		const x = e.clientX - rect.left + containerEl.scrollLeft
+		const y = e.clientY - rect.top + containerEl.scrollTop
+		dragEnd = { x, y }
+
+		if (!isDragging) {
+			const dx = Math.abs(x - dragStart.x)
+			const dy = Math.abs(y - dragStart.y)
+			if (dx >= MIN_DRAG || dy >= MIN_DRAG) {
+				isDragging = true
+			}
+		}
+	}
+
+	function onPointerUp(e: PointerEvent) {
+		if (!containerEl) { dragStart = null; return }
+		containerEl.releasePointerCapture(e.pointerId)
+
+		if (isDragging && rectStyle) {
+			// Compute intersection with port cells
+			const containerRect = containerEl.getBoundingClientRect()
+			const scrollLeft = containerEl.scrollLeft
+			const scrollTop = containerEl.scrollTop
+
+			// Convert selection rect to viewport coordinates
+			const selLeft = rectStyle.x - scrollLeft + containerRect.left
+			const selTop = rectStyle.y - scrollTop + containerRect.top
+			const selRight = selLeft + rectStyle.width
+			const selBottom = selTop + rectStyle.height
+
+			const keys: string[] = []
+			for (const el of containerEl.querySelectorAll('[data-port]')) {
+				const r = el.getBoundingClientRect()
+				if (r.right > selLeft && r.left < selRight &&
+					r.bottom > selTop && r.top < selBottom) {
+					const key = el.getAttribute('data-port')
+					if (key) keys.push(key)
+				}
+			}
+
+			if (keys.length > 0) {
+				onblockselect?.(keys, e)
+			}
+		}
+
+		dragStart = null
+		dragEnd = null
+		isDragging = false
+	}
 </script>
 
 {#if visibleRacks.length === 0 && racks.length === 0}
@@ -96,7 +186,19 @@
 		Configure a zone and generate locations to see the patch frame
 	</div>
 {:else}
-	<div class="space-y-6">
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div
+		class="space-y-6 relative select-none"
+		class:cursor-crosshair={!isDragging}
+		bind:this={containerEl}
+		onpointerdown={onPointerDown}
+		onpointermove={onPointerMove}
+		onpointerup={onPointerUp}
+	>
+		{#if rectStyle}
+			<SelectionRect x={rectStyle.x} y={rectStyle.y} width={rectStyle.width} height={rectStyle.height} />
+		{/if}
+
 		{#each visibleRacks as rack (rack.frame.id)}
 			{@const ruMap = buildRUMap(rack)}
 			<div class="space-y-2">
@@ -125,7 +227,14 @@
 
 					{#each ruMap as item}
 						{#if item.type === 'panel'}
-							<PanelStrip panel={item.panel} {selectedLocations} {onselect} />
+							<PanelStrip
+								panel={item.panel}
+								frameId={rack.frame.id}
+								{selectedLocations}
+								{selectedPorts}
+								{reservationMap}
+								{onselect}
+							/>
 						{:else if item.type === 'slot'}
 							{@const colors = deviceColor(item.slot.type)}
 							<!-- Slot: device, blanking, cable mgmt -->
