@@ -205,6 +205,12 @@ interface AnnotationData {
 - Annotations render as SVG overlay on top of image/plan
 - Toggle annotations on/off in viewer
 
+
+Floorplan pin instructions:
+
+FloorplanTab — Empty state now says "Upload a floorplan, then tap it to place photo pins on it". Below the floorplan list: "Tap a floorplan to open it, then use Place to pin photos".
+FloorplanView — Place mode drawer text changed from "Select a photo to place" to "Select a photo below, then tap the floorplan" for clarity.
+
 ---
 
 ## Phase 6: Export & Reporting

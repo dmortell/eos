@@ -70,7 +70,7 @@
 
 <Titlebar />
 
-<div class="mx-auto max-w-lg p-4">
+<div class="mx-auto max-w-lg p-4 lg:max-w-4xl xl:max-w-6xl">
 	<!-- Header -->
 	<div class="mb-4 flex items-center justify-between">
 		<h1 class="text-lg font-semibold">
@@ -120,7 +120,7 @@
 			{/if}
 		</div>
 	{:else}
-		<div class="space-y-2">
+		<div class="space-y-2 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0 xl:grid-cols-3">
 			{#each filtered as survey (survey.id)}
 				<button type="button" onclick={() => onselect(survey)}
 					class="flex w-full items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 text-left transition-colors hover:border-blue-300 hover:bg-blue-50/50 active:bg-blue-50"

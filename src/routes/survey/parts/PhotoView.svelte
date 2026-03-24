@@ -139,76 +139,78 @@
 		{/if}
 	</div>
 
-	<!-- Image -->
-	<div class="relative flex flex-1 items-center justify-center overflow-hidden">
-		<div class="relative inline-block">
-			<img src={currentPhoto.imageUrl} alt={currentPhoto.title} class="max-h-[70vh] max-w-full object-contain" onload={onImgLoad} />
+	<div class="flex flex-1 flex-col overflow-hidden lg:flex-row">
+		<!-- Image -->
+		<div class="relative flex flex-1 items-center justify-center overflow-hidden">
+			<div class="relative inline-block">
+				<img src={currentPhoto.imageUrl} alt={currentPhoto.title} class="max-h-[70vh] max-w-full object-contain lg:max-h-[85vh]" onload={onImgLoad} />
 
-			<!-- Annotation SVG overlay -->
-			{#if (annotationData.length > 0 || annotating) && imgNaturalW > 0}
-				<AnnotationOverlay width={imgNaturalW} height={imgNaturalH} bind:annotations={annotationData} readonly={!annotating} />
+				<!-- Annotation SVG overlay -->
+				{#if (annotationData.length > 0 || annotating) && imgNaturalW > 0}
+					<AnnotationOverlay width={imgNaturalW} height={imgNaturalH} bind:annotations={annotationData} readonly={!annotating} />
+				{/if}
+			</div>
+
+			<!-- Floorplan minimap -->
+			{#if !annotating}
+				<FloorplanMinimap {surveyId} photo={currentPhoto} />
+			{/if}
+
+			<!-- Nav arrows (desktop) -->
+			{#if currentIndex > 0}
+				<button type="button" class="absolute left-2 top-1/2 hidden -translate-y-1/2 rounded-full bg-black/50 p-2 text-white md:block" onclick={prev}>
+					<Icon name="chevronLeft" size={24} />
+				</button>
+			{/if}
+			{#if currentIndex < photos.length - 1}
+				<button type="button" class="absolute right-2 top-1/2 hidden -translate-y-1/2 rounded-full bg-black/50 p-2 text-white md:block" onclick={next}>
+					<Icon name="chevronRight" size={24} />
+				</button>
 			{/if}
 		</div>
 
-		<!-- Floorplan minimap -->
+		<!-- Info / Edit panel -->
 		{#if !annotating}
-			<FloorplanMinimap {surveyId} photo={currentPhoto} />
-		{/if}
-
-		<!-- Nav arrows (desktop) -->
-		{#if currentIndex > 0}
-			<button type="button" class="absolute left-2 top-1/2 hidden -translate-y-1/2 rounded-full bg-black/50 p-2 text-white md:block" onclick={prev}>
-				<Icon name="chevronLeft" size={24} />
-			</button>
-		{/if}
-		{#if currentIndex < photos.length - 1}
-			<button type="button" class="absolute right-2 top-1/2 hidden -translate-y-1/2 rounded-full bg-black/50 p-2 text-white md:block" onclick={next}>
-				<Icon name="chevronRight" size={24} />
-			</button>
-		{/if}
-	</div>
-
-	<!-- Info / Edit panel -->
-	{#if !annotating}
-	<div class="safe-bottom bg-black/80 px-4 py-3 text-white backdrop-blur">
-		{#if editing}
-			<div class="space-y-2">
-				<VoiceInput bind:value={title} label="Title" placeholder="Photo title..." />
-				<VoiceInput bind:value={description} label="Description" placeholder="Description..." multiline />
-				<div class="flex gap-3 pt-2">
-					<button type="button" class="flex-1 rounded-lg border border-white/30 px-4 py-3 text-base font-medium active:bg-white/10" onclick={() => (editing = false)}>Cancel</button>
-					<button type="button" class="flex-1 rounded-lg bg-blue-600 px-4 py-3 text-base font-medium active:bg-blue-500" onclick={handleSave}>Save</button>
+		<div class="safe-bottom bg-black/80 px-4 py-3 text-white backdrop-blur lg:flex lg:w-80 lg:flex-col lg:justify-end lg:border-l lg:border-white/10 xl:w-96">
+			{#if editing}
+				<div class="space-y-2">
+					<VoiceInput bind:value={title} label="Title" placeholder="Photo title..." />
+					<VoiceInput bind:value={description} label="Description" placeholder="Description..." multiline />
+					<div class="flex gap-3 pt-2">
+						<button type="button" class="flex-1 rounded-lg border border-white/30 px-4 py-3 text-base font-medium active:bg-white/10" onclick={() => (editing = false)}>Cancel</button>
+						<button type="button" class="flex-1 rounded-lg bg-blue-600 px-4 py-3 text-base font-medium active:bg-blue-500" onclick={handleSave}>Save</button>
+					</div>
 				</div>
-			</div>
-		{:else}
-			<p class="text-base font-medium">{currentPhoto.title}</p>
-			{#if currentPhoto.description}
-				<p class="mt-0.5 text-sm text-white/70">{currentPhoto.description}</p>
+			{:else}
+				<p class="text-base font-medium">{currentPhoto.title}</p>
+				{#if currentPhoto.description}
+					<p class="mt-0.5 text-sm text-white/70">{currentPhoto.description}</p>
+				{/if}
+				<div class="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-white/50">
+					<span>{fmtTime(currentPhoto.capturedAt)}</span>
+					{#if currentPhoto.barcode}
+						<span class="flex items-center gap-0.5">
+							<Icon name="scan" size={12} />
+							{currentPhoto.barcode}
+						</span>
+					{/if}
+					{#if currentPhoto.latitude}
+						<span class="flex items-center gap-0.5">
+							<Icon name="mapPin" size={12} />
+							{currentPhoto.latitude.toFixed(4)}, {currentPhoto.longitude?.toFixed(4)}
+						</span>
+					{/if}
+				</div>
+				<div class="mt-3 flex items-center gap-3">
+					{#if !editing}
+						<Button variant="primary" size="lg" icon="edit" onclick={() => (editing = true)}>Edit</Button>
+						<Button variant="danger"  size="lg" icon="trash" confirm={{ text: 'Delete?', confirmLabel: 'Yes', cancelLabel: 'No' }} loading={deleting} onclick={handleDelete}>Delete</Button>
+					{/if}
+				</div>
 			{/if}
-			<div class="mt-1.5 flex items-center gap-3 text-xs text-white/50">
-				<span>{fmtTime(currentPhoto.capturedAt)}</span>
-				{#if currentPhoto.barcode}
-					<span class="flex items-center gap-0.5">
-						<Icon name="scan" size={12} />
-						{currentPhoto.barcode}
-					</span>
-				{/if}
-				{#if currentPhoto.latitude}
-					<span class="flex items-center gap-0.5">
-						<Icon name="mapPin" size={12} />
-						{currentPhoto.latitude.toFixed(4)}, {currentPhoto.longitude?.toFixed(4)}
-					</span>
-				{/if}
-			</div>
-			<div class="mt-3 flex items-center gap-3">
-				{#if !editing}
-					<Button variant="primary" size="lg" icon="edit" onclick={() => (editing = true)}>Edit</Button>
-					<Button variant="danger"  size="lg" icon="trash" confirm={{ text: 'Delete?', confirmLabel: 'Yes', cancelLabel: 'No' }} loading={deleting} onclick={handleDelete}>Delete</Button>
-				{/if}
-			</div>
+		</div>
 		{/if}
 	</div>
-	{/if}
 </div>
 
 <style>

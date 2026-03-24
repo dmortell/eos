@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Icon } from '$lib'
 	import { subscribeFloorplans } from '../survey.svelte'
+	import { PdfState } from '../../projects/[pid]/uploads/parts/PdfState.svelte.ts'
 	import type { SurveyPhoto, SurveyFloorplan } from '../types'
 
 	let {
@@ -22,12 +23,34 @@
 
 	let floorplan = $derived(photo.floorplanId ? floorplans.find(f => f.id === photo.floorplanId) : null)
 
+	// Render PDF floorplans to an image URL
+	let thumbUrl = $state('')
+	$effect(() => {
+		const fp = floorplan
+		if (!fp) { thumbUrl = ''; return }
+		const isPdf = fp.name?.toLowerCase().endsWith('.pdf') || fp.url?.includes('.pdf')
+		if (!isPdf) { thumbUrl = fp.url; return }
+		let cancelled = false
+		const pdf = new PdfState()
+		pdf.load(fp.url).then(async () => {
+			if (cancelled) return
+			const { objectUrl } = await pdf.renderToObjectUrl(1, 1)
+			if (cancelled) { URL.revokeObjectURL(objectUrl); return }
+			thumbUrl = objectUrl
+		}).catch(() => {})
+		return () => {
+			cancelled = true
+			pdf.destroy()
+			if (thumbUrl && thumbUrl !== fp.url) URL.revokeObjectURL(thumbUrl)
+		}
+	})
+
 	function handleTap() {
 		if (floorplan && ontap) ontap(floorplan)
 	}
 </script>
 
-{#if floorplan && photo.pinX != null && photo.pinY != null}
+{#if floorplan && thumbUrl && photo.pinX != null && photo.pinY != null}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
@@ -35,7 +58,7 @@
 		style="width: 140px; height: 100px"
 		onclick={handleTap}
 	>
-		<img src={floorplan.url} alt={floorplan.name} class="h-full w-full object-cover" />
+		<img src={thumbUrl} alt={floorplan.name} class="h-full w-full object-cover" />
 		<!-- Pin dot -->
 		<div
 			class="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-red-500 shadow"

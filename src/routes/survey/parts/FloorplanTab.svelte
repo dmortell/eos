@@ -75,6 +75,7 @@
 		<div class="flex flex-col items-center justify-center gap-3 py-16 text-gray-400">
 			<Icon name="fileText" size={40} class="opacity-40" />
 			<p class="text-sm">No floorplans yet</p>
+			<p class="px-8 text-center text-xs">Upload a floorplan, then tap it to place photo pins on it</p>
 			<label class="flex cursor-pointer items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white active:bg-blue-500">
 				<Icon name="upload" size={16} />
 				Upload PDF or Image
@@ -118,6 +119,7 @@
 				Add Floorplan
 				<input type="file" accept=".pdf,image/*" multiple class="hidden" onchange={handleFileSelect} />
 			</label>
+			<p class="px-1 text-center text-[11px] text-gray-400">Tap a floorplan to open it, then use <strong>Place</strong> to pin photos</p>
 		</div>
 	{/if}
 </div>

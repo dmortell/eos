@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Icon, Spinner } from '$lib'
 	import { subscribePhotos, updatePhoto } from '../survey.svelte'
+	import { PdfState } from '../../projects/[pid]/uploads/parts/PdfState.svelte.ts'
 	import type { SurveyPhoto, SurveyFloorplan } from '../types'
 	import { onMount } from 'svelte'
 
@@ -26,6 +27,33 @@
 	let imgH = $state(0)
 	let loaded = $state(false)
 
+	// PDF rendering — convert PDF page to an image URL
+	let isPdf = $derived(floorplan.name?.toLowerCase().endsWith('.pdf') || floorplan.url?.includes('.pdf'))
+	let resolvedUrl = $state(floorplan.url)
+	let pdfState: PdfState | null = null
+
+	$effect(() => {
+		if (!isPdf) return
+		let cancelled = false
+		const pdf = new PdfState()
+		pdfState = pdf
+		pdf.load(floorplan.url).then(async () => {
+			if (cancelled) return
+			const { objectUrl, width, height } = await pdf.renderToObjectUrl(1, 2)
+			if (cancelled) { URL.revokeObjectURL(objectUrl); return }
+			resolvedUrl = objectUrl
+			imgW = width
+			imgH = height
+			loaded = true
+			fitToView()
+		}).catch(() => {})
+		return () => {
+			cancelled = true
+			pdf.destroy()
+			if (resolvedUrl !== floorplan.url) URL.revokeObjectURL(resolvedUrl)
+		}
+	})
+
 	let photos: SurveyPhoto[] = $state([])
 	let pinnedPhotos = $derived(photos.filter(p => p.floorplanId === floorplan.id && p.pinX != null && p.pinY != null))
 	let unpinnedPhotos = $derived(photos.filter(p => !p.floorplanId || p.floorplanId !== floorplan.id))
@@ -35,6 +63,12 @@
 	let selectedPhotoId: string | null = $state(null)
 	let showDrawer = $state(false)
 	let tappedPin: SurveyPhoto | null = $state(null)
+
+	// Drag pin state
+	let draggingPin: SurveyPhoto | null = null
+	let dragStartX = 0
+	let dragStartY = 0
+	let dragMoved = false
 
 	// Subscribe to photos
 	$effect(() => {
@@ -188,10 +222,74 @@
 		showDrawer = false
 	}
 
-	// --- Pin tap ---
-	function handlePinClick(e: MouseEvent, photo: SurveyPhoto) {
+	// --- Pin tap / drag ---
+	function handlePinMouseDown(e: MouseEvent, photo: SurveyPhoto) {
+		if (e.button !== 0) return
 		e.stopPropagation()
-		tappedPin = photo
+		draggingPin = photo
+		dragStartX = e.clientX
+		dragStartY = e.clientY
+		dragMoved = false
+		document.addEventListener('mousemove', onPinDragMove)
+		document.addEventListener('mouseup', onPinDragEnd)
+	}
+
+	function handlePinTouchStart(e: TouchEvent, photo: SurveyPhoto) {
+		if (e.touches.length !== 1) return
+		e.stopPropagation()
+		draggingPin = photo
+		dragStartX = e.touches[0].clientX
+		dragStartY = e.touches[0].clientY
+		dragMoved = false
+		document.addEventListener('touchmove', onPinTouchMove, { passive: false })
+		document.addEventListener('touchend', onPinTouchEnd)
+	}
+
+	function onPinDragMove(e: MouseEvent) {
+		if (!draggingPin) return
+		const dx = e.clientX - dragStartX
+		const dy = e.clientY - dragStartY
+		if (!dragMoved && Math.abs(dx) + Math.abs(dy) < 5) return
+		dragMoved = true
+		movePinTo(e.clientX, e.clientY)
+	}
+
+	function onPinTouchMove(e: TouchEvent) {
+		if (!draggingPin || e.touches.length !== 1) return
+		e.preventDefault()
+		const dx = e.touches[0].clientX - dragStartX
+		const dy = e.touches[0].clientY - dragStartY
+		if (!dragMoved && Math.abs(dx) + Math.abs(dy) < 8) return
+		dragMoved = true
+		movePinTo(e.touches[0].clientX, e.touches[0].clientY)
+	}
+
+	function movePinTo(clientX: number, clientY: number) {
+		if (!draggingPin || !containerEl) return
+		const rect = containerEl.getBoundingClientRect()
+		const x = (clientX - rect.left - vx) / zoom
+		const y = (clientY - rect.top - vy) / zoom
+		const pinX = Math.max(0, Math.min(1, x / imgW))
+		const pinY = Math.max(0, Math.min(1, y / imgH))
+		updatePhoto(surveyId, { id: draggingPin.id, pinX, pinY })
+	}
+
+	function onPinDragEnd() {
+		if (draggingPin && !dragMoved) {
+			tappedPin = draggingPin
+		}
+		draggingPin = null
+		document.removeEventListener('mousemove', onPinDragMove)
+		document.removeEventListener('mouseup', onPinDragEnd)
+	}
+
+	function onPinTouchEnd() {
+		if (draggingPin && !dragMoved) {
+			tappedPin = draggingPin
+		}
+		draggingPin = null
+		document.removeEventListener('touchmove', onPinTouchMove)
+		document.removeEventListener('touchend', onPinTouchEnd)
 	}
 
 	function closePinPopup() {
@@ -208,6 +306,53 @@
 		if (!tappedPin) return
 		await updatePhoto(surveyId, { id: tappedPin.id, floorplanId: '', pinX: undefined as any, pinY: undefined as any, direction: undefined as any })
 		tappedPin = null
+	}
+
+	// --- Direction rotation ---
+	let rotatingDirection = $state(false)
+	let rotateStartAngle = 0
+	let rotateStartDir = 0
+
+	function startRotate(e: MouseEvent | TouchEvent) {
+		if (!tappedPin) return
+		e.preventDefault()
+		rotatingDirection = true
+		const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+		const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+		const dial = (e.currentTarget as HTMLElement).getBoundingClientRect()
+		const cx = dial.left + dial.width / 2
+		const cy = dial.top + dial.height / 2
+		rotateStartAngle = Math.atan2(clientY - cy, clientX - cx) * 180 / Math.PI
+		rotateStartDir = tappedPin.direction ?? 0
+		document.addEventListener('mousemove', onRotateMove)
+		document.addEventListener('mouseup', onRotateEnd)
+		document.addEventListener('touchmove', onRotateMove, { passive: false })
+		document.addEventListener('touchend', onRotateEnd)
+	}
+
+	function onRotateMove(e: MouseEvent | TouchEvent) {
+		if (!rotatingDirection || !tappedPin) return
+		if ('preventDefault' in e) e.preventDefault()
+		const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+		const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+		const dial = document.getElementById('direction-dial')
+		if (!dial) return
+		const rect = dial.getBoundingClientRect()
+		const cx = rect.left + rect.width / 2
+		const cy = rect.top + rect.height / 2
+		const angle = Math.atan2(clientY - cy, clientX - cx) * 180 / Math.PI
+		const delta = angle - rotateStartAngle
+		let newDir = (rotateStartDir + delta) % 360
+		if (newDir < 0) newDir += 360
+		updatePhoto(surveyId, { id: tappedPin.id, direction: Math.round(newDir) })
+	}
+
+	function onRotateEnd() {
+		rotatingDirection = false
+		document.removeEventListener('mousemove', onRotateMove)
+		document.removeEventListener('mouseup', onRotateEnd)
+		document.removeEventListener('touchmove', onRotateMove)
+		document.removeEventListener('touchend', onRotateEnd)
 	}
 
 	function openDrawer() {
@@ -273,9 +418,9 @@
 		<div style:transform="translate({vx}px, {vy}px) scale({zoom})" style:transform-origin="0 0" class="relative">
 			<img
 				bind:this={imgEl}
-				src={floorplan.url}
+				src={resolvedUrl}
 				alt={floorplan.name}
-				onload={onImgLoad}
+				onload={isPdf ? undefined : onImgLoad}
 				class="pointer-events-none select-none"
 				draggable="false"
 			/>
@@ -290,9 +435,10 @@
 						<!-- svelte-ignore a11y_click_events_have_key_events -->
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
 						<g
-							class="pointer-events-auto cursor-pointer"
+							class="pointer-events-auto cursor-grab"
 							transform="translate({px}, {py})"
-							onclick={e => handlePinClick(e, p)}
+							onmousedown={e => handlePinMouseDown(e, p)}
+							ontouchstart={e => handlePinTouchStart(e, p)}
 						>
 							<!-- Pin drop shadow -->
 							<circle cx="0" cy="0" r={pinSize * 0.6} fill="rgba(0,0,0,0.2)" />
@@ -341,12 +487,45 @@
 					{#if tappedPin.description}
 						<p class="truncate text-xs text-gray-500">{tappedPin.description}</p>
 					{/if}
+					<p class="mt-0.5 text-[11px] text-gray-400">Drag pin on floorplan to reposition</p>
 				</div>
 			</div>
+
+			<!-- Direction dial -->
+			<div class="mt-3 flex items-center gap-3">
+				<span class="text-xs font-medium text-gray-600">Direction</span>
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<div
+					id="direction-dial"
+					class="relative h-12 w-12 shrink-0 cursor-grab rounded-full border-2 border-gray-200 bg-gray-50 active:cursor-grabbing"
+					onmousedown={startRotate}
+					ontouchstart={startRotate}
+				>
+					{#if true}
+						{@const rad = ((tappedPin.direction ?? 0) - 90) * Math.PI / 180}
+						<div class="absolute left-1/2 top-1/2 h-0.5 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gray-400"></div>
+						<div
+							class="absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-600 shadow"
+							style="left: {50 + Math.cos(rad) * 38}%; top: {50 + Math.sin(rad) * 38}%"
+						></div>
+						<svg class="absolute inset-0" viewBox="0 0 48 48">
+							<line
+								x1="24" y1="24"
+								x2={24 + Math.cos(rad) * 18}
+								y2={24 + Math.sin(rad) * 18}
+								stroke="#2563eb" stroke-width="2" stroke-linecap="round"
+							/>
+						</svg>
+					{/if}
+				</div>
+				<span class="text-xs tabular-nums text-gray-500">{Math.round(tappedPin.direction ?? 0)}°</span>
+			</div>
+
 			<div class="mt-3 flex gap-2">
 				<button type="button" class="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white active:bg-blue-500" onclick={viewPinnedPhoto}>View Photo</button>
-				<button type="button" class="rounded-lg border border-red-300 px-4 py-2.5 text-sm font-medium text-red-600 active:bg-red-50" onclick={removePin}>
-					<Icon name="trash" size={16} />
+				<button type="button" class="flex items-center gap-1.5 rounded-lg border border-red-300 px-4 py-2.5 text-sm font-medium text-red-600 active:bg-red-50" onclick={removePin}>
+					<Icon name="trash" size={14} />
+					Remove Pin
 				</button>
 				<button type="button" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium active:bg-gray-100" onclick={closePinPopup}>Close</button>
 			</div>
@@ -361,7 +540,7 @@
 					{#if selectedPhotoId}
 						Tap floorplan to place pin
 					{:else}
-						Select a photo to place
+						Select a photo below, then tap the floorplan
 					{/if}
 				</p>
 				<button type="button" class="text-xs text-gray-500 active:text-gray-700" onclick={cancelPlace}>Cancel</button>

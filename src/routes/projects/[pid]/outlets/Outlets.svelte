@@ -20,7 +20,7 @@
 	import { genId, splitSegment as splitTrunkSeg, snapToGrid, dist, nearestPointOnSegment } from './trunks/geometry'
 	import { SNAP_THRESHOLD_MM } from './trunks/constants'
 	import { exportOutletsToExcel } from './parts/exportExcel'
-    import { toast } from 'svelte-sonner';
+  import { toast } from 'svelte-sonner';
 
 	let { data = null, files = [], floors = [], frameData = null, racksData = {}, floor, projectId = '', projectName = '', onsave, onfloorchange, onupdatefloors, ondeletefloor, onsaverack }: {
 		data?: any
