@@ -233,13 +233,8 @@
 	<div class="row justify-between mb-2">
 	<!-- @apply flex items-center gap-2;   /* justify-between  */ -->
 		<h1>Projects</h1>
-		<div class="row xxflex-1 xxmax-w-md">
-			<!-- <label class="text-xs flex items-center gap-1 border rounded px-2 py-0.5 bg-white whitespace-nowrap">
-				<input type="checkbox" bind:checked={showOnlyMine} />
-				<span>My Projects</span>
-			</label> -->
+		<div class="row">
 			<Checkbox bind:value={showOnlyMine}>My Projects</Checkbox>
-			<!-- <input type="text" class="flex-1 border rounded px-2 py-1 text-xs" placeholder="Search projects..." bind:value={searchQuery}/> -->
 			<InputNew placeholder="Search..." class="min-w-40 flex-1" bind:value={searchQuery} />
 			<Button icon="plus" variant="primary" onclick={openCreate}>New Project</Button>
 		</div>
@@ -258,23 +253,18 @@
 	{:else}
 		<div class="border rounded bg-white divide-y divide-gray-100">
 		{#each activeProjects as project}
-			<div class="flex items-center justify-between text-xs px-1.5 py-1 gap-2">
+			<div class="flex items-center justify-between xxtext-xs px-1.5 py-1 gap-2">
 				<div class="flex items-start gap-1.5 min-w-0">
-					<div class="w-2 h-2 rounded-full bg-green-500 shrink-0 mt-1"></div>
+					<div class="mt-2 w-2 h-2 rounded-full bg-green-500 shrink-0 mt-1"></div>
 					<div class="min-w-0">
 						<a href='/projects/{project.id}' class="text-blue-600 hover:text-blue-400 truncate leading-tight">{project.name}</a>
 						<div class="flex items-center gap-2 min-w-0">
-							<div class="w-24 shrink-0 text-[10px] text-gray-500 leading-tight">{project.createdAt ? project.createdAt.toDate().toLocaleDateString(cfg.locale) :''}</div>
-							{#if project.description}<div class="text-[10px] text-gray-600 truncate leading-tight">{project.description}</div>{/if}
+							<div class="w-24 shrink-0 text-xs text-gray-500 leading-tight">{project.createdAt ? project.createdAt.toDate().toLocaleDateString(cfg.locale) :''}</div>
+							{#if project.description}<div class="text-xs text-gray-600 truncate leading-tight">{project.description}</div>{/if}
 						</div>
 					</div>
 				</div>
-				<div class="flex items-center gap-1 shrink-0">
-					{#if canEditProject(project)}
-						<!-- <Button class="text-xs px-1.5 py-0 h-6" variant="outline" onclick={() => openEdit(project)}>Edit</Button> -->
-						<Button variant="outline" onclick={() => openEdit(project)}>Edit</Button>
-					{/if}
-				</div>
+				{#if canEditProject(project)}<Button variant="outline" onclick={() => openEdit(project)} title="Edit details">Edit</Button>{/if}
 			</div>
 		{/each}
 		</div>
@@ -296,8 +286,6 @@
 						<div class="flex items-center gap-1 shrink-0">
 							{#if canManageTrashDelete}
 								<Button class="text-xs px-1.5 py-0" variant="danger" disabled title="Coming soon - permanent deletion across collections">Delete Permanently</Button>
-							{:else}
-								<!-- <span class="text-[10px] text-gray-500">Permanent delete: admin/manager</span> -->
 							{/if}
 							<Button class="text-xs px-1.5 py-0" variant="outline" title="Move project back to active list" onclick={() => restore(project)}>Restore to Active</Button>
 						</div>
@@ -331,7 +319,7 @@
 		<textarea class="w-full border rounded px-2 py-1 text-sm" bind:value={draftDescription} rows="4" placeholder="Optional description"></textarea>
 
 		<!-- Members -->
-		<div class="text-xs text-gray-700">Members</div>
+		<div class="text-xs text-gray-700">Project Members</div>
 		<div class="space-y-1">
 			{#if draftMemberUsers.length > 0}
 				<div class="flex flex-wrap gap-1">
@@ -380,7 +368,7 @@
 
 <div class="fixed bottom-0 left-0 right-0 z-10 border-t border-gray-200 bg-white/95 px-3 py-1.5 text-xs text-gray-600 backdrop-blur">
 	<div class="mx-auto flex max-w-6xl items-center justify-between gap-2">
-		<span>Status: Ready</span>
+		<span></span>
 		<a
 			href="https://github.com/dmortell/eos/issues"
 			target="_blank"

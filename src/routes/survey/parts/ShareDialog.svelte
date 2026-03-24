@@ -3,6 +3,7 @@
 	import { updateSurvey } from '../survey.svelte'
 	import { nanoid } from 'nanoid'
 	import type { Survey } from '../types'
+    import InputNew from '$lib/ui/InputNew.svelte';
 
 	let {
 		survey,
@@ -38,26 +39,20 @@
 <Dialog title="Share Album" bind:open>
 	<div class="space-y-4">
 		<div class="flex items-center justify-between">
-			<span class="text-sm">Make album public</span>
-			<button
-				type="button"
-				class="h-6 w-11 rounded-full transition-colors {survey.isPublic ? 'bg-blue-600' : 'bg-gray-300'}"
-				onclick={togglePublic}
-			>
+			<label for="makePublic" class="xxtext-sm">Make album public</label>
+			<button type="button" id="makePublic" title="Make album public/private" onclick={togglePublic} class="h-6 w-11 rounded-full transition-colors {survey.isPublic ? 'bg-blue-600' : 'bg-gray-300'}" >
 				<div class="h-5 w-5 translate-x-0.5 rounded-full bg-white shadow transition-transform {survey.isPublic ? 'translate-x-[22px]' : ''}"></div>
 			</button>
 		</div>
 
-		{#if survey.isPublic && shareUrl}
-			<div class="space-y-2">
-				<label class="text-xs font-medium text-gray-600">Share link</label>
+		<div class="h-20">
+			{#if survey.isPublic && shareUrl}
+				<label for="shareLink" class="font-medium text-gray-600">Share link</label>
 				<div class="flex gap-2">
-					<Input value={shareUrl} disabled class="flex-1 text-xs" />
-					<Button variant="outline" icon={copied ? 'check' : 'copy'} onclick={copyLink}>
-						{copied ? 'Copied' : 'Copy'}
-					</Button>
+					<InputNew value={shareUrl} size="lg" disabled id="shareLink" />
+					<Button variant="outline"  size="lg" icon={copied ? 'check' : 'copy'} onclick={copyLink}>{copied ? 'Copied' : 'Copy'}</Button>
 				</div>
+				{/if}
 			</div>
-		{/if}
-	</div>
+		</div>
 </Dialog>

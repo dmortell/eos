@@ -135,9 +135,6 @@
 				<button type="button" class="flex h-10 w-10 items-center justify-center rounded-lg active:bg-white/10" title="Annotate" onclick={startAnnotating}>
 					<Icon name="highlighter" size={18} />
 				</button>
-				<button type="button" class="flex h-10 w-10 items-center justify-center rounded-lg active:bg-white/10" onclick={() => (editing = true)}>
-					<Icon name="edit" size={18} />
-				</button>
 			{/if}
 		{/if}
 	</div>
@@ -203,8 +200,11 @@
 					</span>
 				{/if}
 			</div>
-			<div class="mt-3">
-				<Button variant="danger" size="sm" icon="trash" confirm={{ text: 'Delete?', confirmLabel: 'Yes', cancelLabel: 'No' }} loading={deleting} onclick={handleDelete}>Delete</Button>
+			<div class="mt-3 flex items-center gap-3">
+				{#if !editing}
+					<Button variant="primary" size="lg" icon="edit" onclick={() => (editing = true)}>Edit</Button>
+					<Button variant="danger"  size="lg" icon="trash" confirm={{ text: 'Delete?', confirmLabel: 'Yes', cancelLabel: 'No' }} loading={deleting} onclick={handleDelete}>Delete</Button>
+				{/if}
 			</div>
 		{/if}
 	</div>

@@ -70,7 +70,7 @@
 	))
 </script>
 
-<label class="flex flex-col gap-1" {title}>
+<label class={[size=="lg" && 'w-full', "flex flex-col gap-1"]} {title}>
 	{#if hasLabel}
 		<span class={labelClasses}>
 			{label}

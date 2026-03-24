@@ -13,7 +13,7 @@
 		<textarea bind:value class={classes} {...props}></textarea>
 	</label>
 {:else}
-	<label {title} class="flex-inline items-center gap-2">
+	<label {title} class="flex-inline items-center gap-2 w-fullxx">
 		{label} {@render children?.()}
 		<input bind:value {type} class={classes} {...props} />
 	</label>

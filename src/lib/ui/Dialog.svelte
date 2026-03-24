@@ -1,5 +1,5 @@
 <script>
-	let { trigger=null, title='', children, open=$bindable(false) } = $props()
+	let { title='', children, open=$bindable(false) } = $props()
 </script>
 
 {#if open}
@@ -12,7 +12,7 @@
 		<div class="px-6 pb-6 overflow-y-auto">
 			{@render children?.()}
 		</div>
-		<button class="absolute top-2 right-2 text-gray-400 hover:text-gray-600" onclick={() => open = false}>x</button>
+		<button class="absolute top-4 right-6 text-gray-400 hover:text-gray-600" onclick={() => open = false}>x</button>
 	</div>
 </div>
 {/if}

@@ -1,12 +1,11 @@
 <script lang="ts">
-    import { Button, Checkbox, Firestore, Session } from "$lib";
-    import type { Project, Task } from "$lib/types/task";
-    import ButtonNew from "$lib/ui/ButtonNew.svelte";
-    import ProjectTaskList from "./ProjectTaskList.svelte";
-    import RecentActivity from "./RecentActivity.svelte";
-    import TaskSummary from "./TaskSummary.svelte";
-    import UserTaskList from "./UserTaskList.svelte";
-		import { getContext } from 'svelte';
+	import type { Project, Task } from "$lib/types/task";
+	import { getContext } from 'svelte';
+	import { Button, Checkbox, Firestore, Session } from "$lib";
+	import ProjectTaskList from "./ProjectTaskList.svelte";
+	import RecentActivity from "./RecentActivity.svelte";
+	import TaskSummary from "./TaskSummary.svelte";
+	import UserTaskList from "./UserTaskList.svelte";
 
 	let db = getContext('db') as Firestore;
 	let session = getContext('session') as Session;
@@ -51,7 +50,7 @@
 				<Button variant="primary" href="/tasks">Open Task Board</Button>
 			</div>
 		</div>
-		<div class="grid grid-cols-1 min-[800px]:grid-cols-3 gap-2 items-start">
+		<div class="grid grid-cols-1 min-[900px]:grid-cols-3 gap-2 items-start">
 			<div class="space-y-1">
 				<h3>Overview</h3>
 				<TaskSummary tasks={filteredTasks} />

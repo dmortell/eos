@@ -53,77 +53,113 @@ export async function exportPdf(
 	onProgress?.('Loading PDF library...')
 	const { jsPDF } = await import('jspdf')
 	const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-	const pageW = doc.internal.pageSize.getWidth()
-	const pageH = doc.internal.pageSize.getHeight()
-	const margin = 15
+	const pageW = doc.internal.pageSize.getWidth()   // 210
+	const pageH = doc.internal.pageSize.getHeight()   // 297
+	const margin = 10
+	const headerH = 10   // space for header text
+	const footerH = 8    // space for footer text
+	const cols = 2
+	const rows = 3
+	const photosPerPage = cols * rows
+	const gap = 4
+	const captionH = 10  // reserved below each image for text
+	const gridTop = margin + headerH
+	const gridBottom = pageH - margin - footerH
+	const cellW = (pageW - margin * 2 - gap * (cols - 1)) / cols
+	const cellH = (gridBottom - gridTop - gap * (rows - 1)) / rows
+	const imgH = cellH - captionH
 
-	// --- Cover page ---
-	doc.setFontSize(28)
-	doc.text(survey.name, pageW / 2, 60, { align: 'center' })
-	doc.setFontSize(14)
-	doc.setTextColor(100)
-	doc.text(`Survey Report`, pageW / 2, 75, { align: 'center' })
-	doc.setFontSize(11)
-	doc.text(`Date: ${fmtDate(survey.date)}`, pageW / 2, 90, { align: 'center' })
-	if (survey.projectName) {
-		doc.text(`Project: ${survey.projectName}`, pageW / 2, 98, { align: 'center' })
-	}
-	doc.text(`${photos.length} photos · ${floorplans.length} floorplans`, pageW / 2, 110, { align: 'center' })
-	if (survey.ownerName) {
-		doc.text(`Surveyor: ${survey.ownerName}`, pageW / 2, 120, { align: 'center' })
-	}
-	doc.setTextColor(0)
+	const totalPages = Math.ceil(photos.length / photosPerPage) || 1
+	const headerLeft = survey.projectName ? `${survey.projectName} — ${survey.name}` : survey.name
+	const headerRight = fmtDate(survey.date)
 
-	// --- Photo pages ---
-	for (let i = 0; i < photos.length; i++) {
-		const photo = photos[i]
-		onProgress?.(`Processing photo ${i + 1}/${photos.length}...`)
-		doc.addPage()
-
-		// Title bar
-		doc.setFontSize(12)
-		doc.setFont('helvetica', 'bold')
-		doc.text(`${i + 1}. ${photo.title}`, margin, margin + 5)
-		doc.setFont('helvetica', 'normal')
-
-		// Metadata line
+	function drawHeader(pageNum: number) {
 		doc.setFontSize(8)
-		doc.setTextColor(100)
-		let meta = fmtTime(photo.capturedAt)
-		if (photo.barcode) meta += ` | Barcode: ${photo.barcode}`
-		if (photo.latitude) meta += ` | GPS: ${photo.latitude.toFixed(5)}, ${photo.longitude?.toFixed(5)}`
-		doc.text(meta, margin, margin + 12)
+		doc.setFont('helvetica', 'bold')
+		doc.setTextColor(60)
+		doc.text(headerLeft, margin, margin + 5)
+		doc.setFont('helvetica', 'normal')
+		doc.text(headerRight, pageW - margin, margin + 5, { align: 'right' })
+		doc.setDrawColor(200)
+		doc.line(margin, margin + headerH - 2, pageW - margin, margin + headerH - 2)
+	}
+
+	function drawFooter(pageNum: number) {
+		const y = pageH - margin - 1
+		doc.setDrawColor(200)
+		doc.line(margin, y - 4, pageW - margin, y - 4)
+		doc.setFontSize(7)
+		doc.setTextColor(120)
+		doc.text(`Page ${pageNum} of ${totalPages}`, pageW - margin, y, { align: 'right' })
 		doc.setTextColor(0)
+	}
 
-		// Photo image
+	// Pre-load all images
+	const images: (HTMLImageElement | null)[] = []
+	for (let i = 0; i < photos.length; i++) {
+		onProgress?.(`Loading photo ${i + 1}/${photos.length}...`)
 		try {
-			const img = await loadImage(photo.imageUrl)
-			const dataUrl = imgToDataUrl(img, 1200, 900)
-			const maxImgW = pageW - margin * 2
-			const maxImgH = pageH - 55
-			let imgW = img.naturalWidth
-			let imgH = img.naturalHeight
-			const scale = Math.min(maxImgW / imgW, maxImgH / imgH)
-			imgW = imgW * scale
-			imgH = imgH * scale
-			const imgX = (pageW - imgW) / 2
-			doc.addImage(dataUrl, 'JPEG', imgX, margin + 18, imgW, imgH)
-
-			// Description below image
-			if (photo.description) {
-				const descY = margin + 20 + imgH
-				if (descY < pageH - 20) {
-					doc.setFontSize(9)
-					doc.setTextColor(80)
-					const lines = doc.splitTextToSize(photo.description, pageW - margin * 2)
-					doc.text(lines, margin, descY)
-					doc.setTextColor(0)
-				}
-			}
+			images.push(await loadImage(photos[i].imageUrl))
 		} catch {
-			doc.setFontSize(10)
-			doc.setTextColor(200, 0, 0)
-			doc.text('(Image could not be loaded)', margin, margin + 30)
+			images.push(null)
+		}
+	}
+
+	// --- Render pages ---
+	for (let page = 0; page < totalPages; page++) {
+		if (page > 0) doc.addPage()
+		const pageNum = page + 1
+		drawHeader(pageNum)
+		drawFooter(pageNum)
+
+		for (let slot = 0; slot < photosPerPage; slot++) {
+			const idx = page * photosPerPage + slot
+			if (idx >= photos.length) break
+
+			const photo = photos[idx]
+			const col = slot % cols
+			const row = Math.floor(slot / cols)
+			const cellX = margin + col * (cellW + gap)
+			const cellY = gridTop + row * (cellH + gap)
+
+			// Draw photo image
+			const img = images[idx]
+			if (img) {
+				const dataUrl = imgToDataUrl(img, 800, 600)
+				let iw = img.naturalWidth
+				let ih = img.naturalHeight
+				const scale = Math.min(cellW / iw, imgH / ih)
+				iw = iw * scale
+				ih = ih * scale
+				const imgX = cellX + (cellW - iw) / 2
+				doc.addImage(dataUrl, 'JPEG', imgX, cellY, iw, ih)
+			} else {
+				doc.setFontSize(7)
+				doc.setTextColor(180)
+				doc.text('(image unavailable)', cellX + cellW / 2, cellY + imgH / 2, { align: 'center' })
+				doc.setTextColor(0)
+			}
+
+			// Caption below image
+			const capY = cellY + imgH + 2
+			doc.setFontSize(7)
+			doc.setFont('helvetica', 'bold')
+			doc.setTextColor(0)
+			const titleText = photo.title ? doc.splitTextToSize(photo.title, cellW)[0] : ``
+			doc.text(`${idx + 1}. ${titleText}`, cellX, capY + 3)
+			doc.setFont('helvetica', 'normal')
+			doc.setFontSize(6)
+			doc.setTextColor(100)
+
+			let meta = fmtTime(photo.capturedAt)
+			if (photo.barcode) meta += ` | Barcode: ${photo.barcode}`
+			if (photo.latitude) meta += ` | GPS: ${photo.latitude.toFixed(5)}, ${photo.longitude?.toFixed(5)}`
+			doc.text(meta, cellX, capY + 6.5)
+
+			if (photo.description) {
+				const descLines = doc.splitTextToSize(photo.description, cellW)
+				doc.text(descLines[0], cellX, capY + 9.5)
+			}
 			doc.setTextColor(0)
 		}
 	}
