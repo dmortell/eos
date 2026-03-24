@@ -1,4 +1,4 @@
-import type { ZoneConfig, PortLabel, PanelData, PanelDevice, RackData, FrameConfig } from './types'
+import type { ZoneConfig, PortLabel, PanelData, PanelDevice, RackData, FrameConfig, LocType } from './types'
 import { defaultFrameConfig } from './types'
 
 /** Format a floor number according to the floorFormat setting */
@@ -84,6 +84,114 @@ function buildPanelsForDevices(
 	return panels
 }
 
+/**
+ * Reservation-aware panel builder.
+ * 1. Place labels whose locationType matches a reserved slot into that slot.
+ * 2. Fill remaining unreserved slots sequentially with leftover labels.
+ */
+function buildPanelsWithReservations(
+	labels: PortLabel[],
+	devices: PanelDevice[],
+	startingPanel: number,
+	frameId: string,
+	reservations: Map<string, LocType>,
+): PanelData[] {
+	if (devices.length === 0) return []
+
+	const sorted = [...devices].sort((a, b) => b.ru - a.ru)
+
+	// Build empty panel grid: array of { ru, slots: (PortLabel | null)[] }
+	const panelSlots: { device: PanelDevice; slots: (PortLabel | null)[] }[] =
+		sorted.map(d => ({ device: d, slots: Array(d.portCount).fill(null) }))
+
+	// Index: for each slot, what reservation type (if any)?
+	// Slot index within a panel: top row 0..23, bottom row 24..47
+	const slotReservations: (LocType | null)[][] = panelSlots.map(({ device }) => {
+		const pc = device.portCount
+		const res: (LocType | null)[] = []
+		const topCols = Math.min(pc, 24)
+		for (let col = 0; col < topCols; col++) {
+			const key = `${frameId}:${device.ru}:top:${col}`
+			res.push(reservations.get(key) ?? null)
+		}
+		if (pc > 24) {
+			for (let col = 0; col < 24; col++) {
+				const key = `${frameId}:${device.ru}:bottom:${col}`
+				res.push(reservations.get(key) ?? null)
+			}
+		}
+		return res
+	})
+
+	// Split labels into buckets by locationType
+	const byType = new Map<string, PortLabel[]>()
+	for (const l of labels) {
+		const list = byType.get(l.locationType) ?? []
+		list.push(l)
+		byType.set(l.locationType, list)
+	}
+	// Track consumed labels per type
+	const typeOffsets = new Map<string, number>()
+
+	// Pass 1: fill reserved slots with matching-type labels
+	for (let p = 0; p < panelSlots.length; p++) {
+		for (let s = 0; s < panelSlots[p].slots.length; s++) {
+			const resType = slotReservations[p][s]
+			if (!resType) continue
+			const bucket = byType.get(resType)
+			if (!bucket) continue
+			const off = typeOffsets.get(resType) ?? 0
+			if (off < bucket.length) {
+				panelSlots[p].slots[s] = bucket[off]
+				typeOffsets.set(resType, off + 1)
+			}
+		}
+	}
+
+	// Pass 2: collect all remaining (unplaced) labels in original order
+	const placed = new Set<PortLabel>()
+	for (const ps of panelSlots) {
+		for (const slot of ps.slots) {
+			if (slot) placed.add(slot)
+		}
+	}
+	const remaining = labels.filter(l => !placed.has(l))
+
+	// Pass 3: fill unreserved (null-reservation) empty slots with remaining labels
+	let remIdx = 0
+	for (let p = 0; p < panelSlots.length; p++) {
+		for (let s = 0; s < panelSlots[p].slots.length; s++) {
+			if (panelSlots[p].slots[s] !== null) continue  // already filled
+			if (slotReservations[p][s] !== null) continue   // reserved but no matching label — leave empty
+			if (remIdx >= remaining.length) break
+			panelSlots[p].slots[s] = remaining[remIdx++]
+		}
+	}
+
+	// Convert to PanelData
+	return panelSlots.map(({ device, slots }, i) => {
+		const pc = device.portCount
+		if (pc <= 24) {
+			return {
+				panelNumber: startingPanel + i,
+				ru: device.ru,
+				topRow: slots.slice(0, pc),
+				bottomRow: [],
+				isHighLevel: device.isHighLevel,
+				portCount: pc,
+			}
+		}
+		return {
+			panelNumber: startingPanel + i,
+			ru: device.ru,
+			topRow: slots.slice(0, 24),
+			bottomRow: slots.slice(24, 48),
+			isHighLevel: device.isHighLevel,
+			portCount: pc,
+		}
+	})
+}
+
 /** Lay out labels into 48-port panels (legacy fallback when no panelDevices) */
 function buildPanelsLegacy(labels: PortLabel[], isHighLevel: boolean, startingPanel: number): PanelData[] {
 	if (labels.length === 0) return []
@@ -141,8 +249,9 @@ function panelCapacity(frame: FrameConfig, isHighLevel: boolean): number {
 }
 
 /** Generate rack data, distributing labels across frames of the same server room.
- *  If no frames are provided, auto-generates one per server room. */
-export function generateRacks(labels: PortLabel[], serverRoomCount: number, frames?: FrameConfig[]): RackData[] {
+ *  If no frames are provided, auto-generates one per server room.
+ *  If reservations are provided, labels are placed into reserved slots by matching locationType. */
+export function generateRacks(labels: PortLabel[], serverRoomCount: number, frames?: FrameConfig[], reservations?: Map<string, LocType>): RackData[] {
 	const ROOM_LETTERS = ['A', 'B', 'C', 'D'] as const
 	const rooms = ROOM_LETTERS.slice(0, Math.min(serverRoomCount, 4)) as ('A' | 'B')[]
 
@@ -212,8 +321,13 @@ export function generateRacks(labels: PortLabel[], serverRoomCount: number, fram
 			// Use actual panel device positions and port counts
 			const floorDevices = frame.panelDevices!.filter(d => !d.isHighLevel)
 			const highDevices = frame.panelDevices!.filter(d => d.isHighLevel)
-			floorPanels = buildPanelsForDevices(frameLbls.floor, floorDevices, 1)
-			highPanels = buildPanelsForDevices(frameLbls.high, highDevices, floorPanels.length + 1)
+			if (reservations && reservations.size > 0) {
+				floorPanels = buildPanelsWithReservations(frameLbls.floor, floorDevices, 1, frame.id, reservations)
+				highPanels = buildPanelsWithReservations(frameLbls.high, highDevices, floorPanels.length + 1, frame.id, reservations)
+			} else {
+				floorPanels = buildPanelsForDevices(frameLbls.floor, floorDevices, 1)
+				highPanels = buildPanelsForDevices(frameLbls.high, highDevices, floorPanels.length + 1)
+			}
 		} else {
 			// Legacy path: auto-generate 48-port panels and place in available RUs
 			floorPanels = buildPanelsLegacy(frameLbls.floor, false, 1)

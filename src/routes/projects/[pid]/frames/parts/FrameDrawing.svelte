@@ -112,8 +112,10 @@
 		return { x, y, width, height }
 	})
 
+	let dragPointerId: number | null = $state(null)
+
 	function onPointerDown(e: PointerEvent) {
-		// Only left button, not on an existing port button click
+		// Only left button
 		if (e.button !== 0) return
 		if (!containerEl) return
 
@@ -124,11 +126,12 @@
 		dragStart = { x, y }
 		dragEnd = { x, y }
 		isDragging = false
-		containerEl.setPointerCapture(e.pointerId)
+		dragPointerId = e.pointerId
+		// Don't capture yet — let clicks through to PortCell buttons
 	}
 
 	function onPointerMove(e: PointerEvent) {
-		if (!dragStart || !containerEl) return
+		if (!dragStart || !containerEl || e.pointerId !== dragPointerId) return
 
 		const rect = containerEl.getBoundingClientRect()
 		const x = e.clientX - rect.left + containerEl.scrollLeft
@@ -140,13 +143,15 @@
 			const dy = Math.abs(y - dragStart.y)
 			if (dx >= MIN_DRAG || dy >= MIN_DRAG) {
 				isDragging = true
+				// Now capture pointer so drag continues even outside container
+				containerEl.setPointerCapture(e.pointerId)
 			}
 		}
 	}
 
 	function onPointerUp(e: PointerEvent) {
-		if (!containerEl) { dragStart = null; return }
-		containerEl.releasePointerCapture(e.pointerId)
+		if (!containerEl || e.pointerId !== dragPointerId) { dragStart = null; return }
+		if (isDragging) containerEl.releasePointerCapture(e.pointerId)
 
 		if (isDragging && rectStyle) {
 			// Compute intersection with port cells

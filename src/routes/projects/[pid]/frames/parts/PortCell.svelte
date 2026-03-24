@@ -40,7 +40,7 @@
 		data-port={portKey}
 		onclick={() => onselect?.(locKey)}
 	>
-		<span class="font-mono text-[9px] leading-none select-all whitespace-nowrap overflow-hidden">
+		<span class="font-mono text-[9px] leading-none select-none whitespace-nowrap overflow-hidden">
 			{shortLabel}
 		</span>
 	</button>

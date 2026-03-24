@@ -165,7 +165,7 @@
 		zoneLetters.map(z => ({ floor, zone: z, serverRoomCount, locations: zoneLocations[z] }))
 	)
 
-	let racks = $derived<RackData[]>(generateRacks(allLabels, serverRoomCount, frames.length > 0 ? frames : undefined))
+	let racks = $derived<RackData[]>(generateRacks(allLabels, serverRoomCount, frames.length > 0 ? frames : undefined, reservationMap.size > 0 ? reservationMap : undefined))
 
 	// ── Debounced auto-save with change tracking ──
 	let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -473,8 +473,10 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="h-screen flex flex-col overflow-hidden" onkeydown={handleBlockKeydown}>
-<Titlebar menu={true} title={projectName ? `${projectName} — Patch Frames` : 'Patch Frames'} />
+<div class="h-screen flex flex-col overflow-hidden print:h-auto print:overflow-visible" onkeydown={handleBlockKeydown}>
+<div class="print:hidden">
+	<Titlebar menu={true} title={projectName ? `${projectName} — Patch Frames` : 'Patch Frames'} />
+</div>
 
 <SettingsDialog
 	open={settingsOpen}
@@ -490,40 +492,40 @@
 {#if viewMode === 'sidebar'}
 	<PaneGroup direction="horizontal" class="flex-1 min-h-0 bg-white">
 		<Pane defaultSize={25} minSize={15} maxSize={50}>
-			<div class="h-full flex flex-col overflow-hidden">
+			<div class="h-full flex flex-col overflow-hidden print:hidden">
 				<div class="p-3 space-y-3 overflow-y-auto flex-1" bind:this={locationListEl}>
 					{@render configAndLocations()}
 				</div>
 			</div>
 		</Pane>
-		<Handle withHandle />
+		<Handle withHandle class="print:hidden" />
 		<Pane defaultSize={75}>
 			<div class="h-full flex flex-col">
-				<div class="flex-1 overflow-auto p-4 bg-gray-50/50" bind:this={frameDrawingEl}>
-					{@render toolbar()}
+				<div class="flex-1 overflow-auto p-4 bg-gray-50/50 print:overflow-visible print:p-0" bind:this={frameDrawingEl}>
+					<div class="print:hidden">{@render toolbar()}</div>
 					{@render frameContent()}
 				</div>
-				{@render statusBar()}
+				<div class="print:hidden">{@render statusBar()}</div>
 			</div>
 		</Pane>
 	</PaneGroup>
 {:else}
 	<PaneGroup direction="vertical" class="flex-1 min-h-0 bg-white">
 		<Pane defaultSize={40} minSize={15}>
-			<div class="h-full overflow-auto p-3" bind:this={locationListEl}>
+			<div class="h-full overflow-auto p-3 print:hidden" bind:this={locationListEl}>
 				<div class="max-w-6xl mx-auto space-y-3">
 					{@render configAndLocations()}
 				</div>
 			</div>
 		</Pane>
-		<Handle withHandle />
+		<Handle withHandle class="print:hidden" />
 		<Pane defaultSize={60} minSize={20}>
 			<div class="h-full flex flex-col">
-				<div class="flex-1 overflow-auto p-4 bg-gray-50/50" bind:this={frameDrawingEl}>
-					{@render toolbar()}
+				<div class="flex-1 overflow-auto p-4 bg-gray-50/50 print:overflow-visible print:p-0" bind:this={frameDrawingEl}>
+					<div class="print:hidden">{@render toolbar()}</div>
 					{@render frameContent()}
 				</div>
-				{@render statusBar()}
+				<div class="print:hidden">{@render statusBar()}</div>
 			</div>
 		</Pane>
 	</PaneGroup>
