@@ -15,11 +15,15 @@
 		onback,
 		oncapture,
 		onphoto,
+		openFloorplanId,
+		onopenedfloorplan,
 	}: {
 		survey: Survey
 		onback: () => void
 		oncapture: (file: File, geo: { latitude: number; longitude: number } | null) => void
 		onphoto: (photo: SurveyPhoto) => void
+		openFloorplanId?: string | null
+		onopenedfloorplan?: () => void
 	} = $props()
 
 	let fileInput: HTMLInputElement | undefined = $state()
@@ -67,6 +71,18 @@
 	$effect(() => {
 		const unsub = subscribeFloorplans(survey.id, (data) => { floorplans = data })
 		return () => unsub()
+	})
+
+	// Auto-open a floorplan when requested from PhotoView
+	$effect(() => {
+		if (openFloorplanId && floorplans.length) {
+			const fp = floorplans.find(f => f.id === openFloorplanId)
+			if (fp) {
+				activeFloorplan = fp
+				tab = 'floorplans'
+				onopenedfloorplan?.()
+			}
+		}
 	})
 
 	async function handleDelete() {

@@ -22,6 +22,7 @@
 	let capturedBlob: Blob | null = $state(null)
 	let capturedGeo: { latitude: number; longitude: number } | null = $state(null)
 	let selectedPhoto: SurveyPhoto | null = $state(null)
+	let pendingFloorplanId: string | null = $state(null)
 
 	// --- History management using SvelteKit shallow routing ---
 	let suppressPush = false
@@ -89,6 +90,12 @@
 		pushView('photo')
 	}
 
+	function handleOpenFloorplan(floorplanId: string) {
+		selectedPhoto = null
+		pendingFloorplanId = floorplanId
+		pushView('detail')
+	}
+
 	function goHome() {
 		currentSurvey = null
 		selectedPhoto = null
@@ -124,6 +131,8 @@
 		onback={goHome}
 		oncapture={handleCapture}
 		onphoto={handleSelectPhoto}
+		openFloorplanId={pendingFloorplanId}
+		onopenedfloorplan={() => { pendingFloorplanId = null }}
 	/>
 {:else if view === 'editor' && capturedBlob && currentSurvey}
 	<PhotoEditor
@@ -140,5 +149,6 @@
 		photo={selectedPhoto}
 		onclose={goDetail}
 		ondeleted={goDetail}
+		onopenfloorplan={handleOpenFloorplan}
 	/>
 {/if}

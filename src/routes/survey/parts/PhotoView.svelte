@@ -11,11 +11,13 @@
 		photo,
 		onclose,
 		ondeleted,
+		onopenfloorplan,
 	}: {
 		surveyId: string
 		photo: SurveyPhoto
 		onclose: () => void
 		ondeleted: () => void
+		onopenfloorplan?: (floorplanId: string) => void
 	} = $props()
 
 	let editing = $state(false)
@@ -153,7 +155,7 @@
 
 			<!-- Floorplan minimap -->
 			{#if !annotating}
-				<FloorplanMinimap {surveyId} photo={currentPhoto} />
+				<FloorplanMinimap {surveyId} photo={currentPhoto} ontap={(fp) => onopenfloorplan?.(fp.id)} />
 			{/if}
 
 			<!-- Nav arrows (desktop) -->
@@ -171,7 +173,7 @@
 
 		<!-- Info / Edit panel -->
 		{#if !annotating}
-		<div class="safe-bottom bg-black/80 px-4 py-3 text-white backdrop-blur lg:flex lg:w-80 lg:flex-col lg:justify-end lg:border-l lg:border-white/10 xl:w-96">
+		<div class="safe-bottom bg-black/80 px-4 py-3 text-white backdrop-blur lg:flex lg:w-80 lg:flex-col lg:border-l lg:border-white/10 xl:w-96">
 			{#if editing}
 				<div class="space-y-2">
 					<VoiceInput bind:value={title} label="Title" placeholder="Photo title..." />
@@ -200,10 +202,13 @@
 							{currentPhoto.latitude.toFixed(4)}, {currentPhoto.longitude?.toFixed(4)}
 						</span>
 					{/if}
-				</div>
+				</div>s
 				<div class="mt-3 flex items-center gap-3">
 					{#if !editing}
 						<Button variant="primary" size="lg" icon="edit" onclick={() => (editing = true)}>Edit</Button>
+						{#if currentPhoto.floorplanId}
+							<Button variant="outline" size="lg" icon="map" onclick={() => onopenfloorplan?.(currentPhoto.floorplanId!)}>Floorplan</Button>
+						{/if}
 						<Button variant="danger"  size="lg" icon="trash" confirm={{ text: 'Delete?', confirmLabel: 'Yes', cancelLabel: 'No' }} loading={deleting} onclick={handleDelete}>Delete</Button>
 					{/if}
 				</div>

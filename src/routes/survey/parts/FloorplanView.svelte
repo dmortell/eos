@@ -401,6 +401,7 @@
 
 	<!-- Floorplan canvas area -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<div
 		bind:this={containerEl}
 		class="flex-1 cursor-grab overflow-hidden active:cursor-grabbing"
@@ -428,7 +429,7 @@
 			<!-- SVG overlay for pins -->
 			{#if imgW && imgH}
 				<svg class="pointer-events-none absolute left-0 top-0" width={imgW} height={imgH}>
-					{#each pinnedPhotos as p (p.id)}
+					{#each pinnedPhotos as p, pIdx (p.id)}
 						{@const px = (p.pinX ?? 0) * imgW}
 						{@const py = (p.pinY ?? 0) * imgH}
 						{@const pinSize = Math.max(12, 18 / zoom)}
@@ -458,15 +459,17 @@
 									stroke-linecap="round"
 								/>
 							{/if}
-							<!-- Label -->
+							<!-- Number inside pin -->
 							<text
 								x="0"
-								y="{pinSize * 0.7}"
+								y="{-pinSize * 0.3}"
 								text-anchor="middle"
-								font-size="{Math.max(8, 11 / zoom)}"
-								fill="#1e40af"
-								font-weight="600"
-							>{p.title?.slice(0, 12) || '?'}</text>
+								dominant-baseline="central"
+								font-size="{Math.max(7, 10 / zoom)}"
+								fill="white"
+								font-weight="700"
+								style="user-select: none"
+							>{photos.indexOf(p) + 1}</text>
 						</g>
 					{/each}
 				</svg>
@@ -483,7 +486,7 @@
 			<div class="flex items-center gap-3">
 				<img src={tappedPin.imageUrl} alt={tappedPin.title} class="h-16 w-16 shrink-0 rounded-lg object-cover" />
 				<div class="min-w-0 flex-1">
-					<p class="truncate text-sm font-medium">{tappedPin.title}</p>
+					<p class="truncate text-sm font-medium"><span class="mr-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-[11px] font-bold text-white">{photos.indexOf(tappedPin) + 1}</span>{tappedPin.title}</p>
 					{#if tappedPin.description}
 						<p class="truncate text-xs text-gray-500">{tappedPin.description}</p>
 					{/if}
