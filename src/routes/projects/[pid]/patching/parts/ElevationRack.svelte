@@ -2,9 +2,9 @@
 	import type { PatchConnection, CustomCableType } from './types'
 	import ElevationPort from './ElevationPort.svelte'
 	import {
-		RU_HEIGHT, PORT_GAP, RACK_PADDING,
+		RU_HEIGHT, PORT_CELL_H, PORT_GAP, RACK_PADDING,
 		U_LABEL_W, RACK_LABEL_H, PORTS_PER_ROW,
-		rackWidth, rackHeight, uToY, portRowCount,
+		rackWidth, rackHeight, uToY, portRowCount, deviceAreaWidth,
 	} from './elevationUtils'
 
 	let {
@@ -25,6 +25,7 @@
 
 	let width = $derived(rackWidth())
 	let height = $derived(rackHeight(rack.heightU))
+	let devAreaW = $derived(deviceAreaWidth())
 
 	// Sort devices by positionU descending (top of rack first visually)
 	let sortedDevices = $derived(
@@ -38,12 +39,19 @@
 	function deviceH(device: any): number {
 		return device.heightU * RU_HEIGHT
 	}
+
+	/** Calculate vertical centering offset for port grid within device */
+	function portGridTopOffset(device: any): number {
+		const rows = portRowCount(device.portCount)
+		const totalGridH = rows * PORT_CELL_H + (rows - 1) * PORT_GAP
+		return (deviceH(device) - totalGridH) / 2
+	}
 </script>
 
 <div class="relative" style:width="{width}px" style:height="{height + RACK_LABEL_H}px">
 	<!-- Rack label above -->
-	<div class="absolute flex items-center justify-between w-full pointer-events-none select-none"
-		style:top="0px" style:height="{RACK_LABEL_H}px" style:left="0px">
+	<div class="absolute flex items-center justify-between pointer-events-none select-none"
+		style:top="0px" style:height="{RACK_LABEL_H}px" style:left="{U_LABEL_W}px" style:width="{devAreaW}px">
 		<b class="text-[11px] text-gray-700 pl-1">{rack.label}</b>
 		<span class="text-[9px] text-gray-400 pr-1">{rack.heightU}U</span>
 	</div>
@@ -52,17 +60,23 @@
 	<div class="absolute border border-gray-300 bg-white rounded-sm"
 		style:top="{RACK_LABEL_H}px" style:left="0px" style:width="{width}px" style:height="{height}px">
 
-		<!-- U labels -->
+		<!-- U labels (left + right) -->
 		{#each Array.from({ length: rack.heightU }) as _, i}
 			{@const u = i + 1}
 			{@const y = uToY(u, rack.heightU)}
+			<!-- Left U label -->
 			<div class="absolute text-[7px] font-mono text-gray-300 text-right pr-0.5 select-none pointer-events-none leading-none flex items-center justify-end"
 				style:top="{y}px" style:left="0px" style:width="{U_LABEL_W - 2}px" style:height="{RU_HEIGHT}px">
 				{u}
 			</div>
+			<!-- Right U label -->
+			<div class="absolute text-[7px] font-mono text-gray-300 pl-0.5 select-none pointer-events-none leading-none flex items-center"
+				style:top="{y}px" style:right="0px" style:width="{U_LABEL_W - 2}px" style:height="{RU_HEIGHT}px">
+				{u}
+			</div>
 			<!-- U gridline -->
 			<div class="absolute bg-gray-100"
-				style:top="{y + RU_HEIGHT - 1}px" style:left="{U_LABEL_W}px" style:right="0" style:height="1px"></div>
+				style:top="{y + RU_HEIGHT - 1}px" style:left="{U_LABEL_W}px" style:width="{devAreaW}px" style:height="1px"></div>
 		{/each}
 
 		<!-- Devices -->
@@ -71,8 +85,9 @@
 			{@const dH = deviceH(device)}
 			{@const rows = portRowCount(device.portCount)}
 			{@const hasPorts = device.portCount > 0}
+			{@const cols = Math.min(device.portCount, PORTS_PER_ROW)}
 			<div class="absolute rounded-sm"
-				style:top="{dTop}px" style:left="{U_LABEL_W}px" style:right="0" style:height="{dH}px"
+				style:top="{dTop}px" style:left="{U_LABEL_W}px" style:width="{devAreaW}px" style:height="{dH}px"
 				title="{device.label || device.type} — U{device.positionU} {device.portCount ? device.portCount + ' ports' : ''}">
 
 				<!-- Device background -->
@@ -82,12 +97,14 @@
 				</div>
 
 				{#if hasPorts}
-					<!-- Port grid fills the device block using CSS grid (like sample1) -->
-					<div class="relative w-full h-full grid place-items-center px-0.5"
-						style:grid-template-columns="repeat({Math.min(device.portCount, PORTS_PER_ROW)}, 1fr)"
-						style:grid-template-rows="repeat({rows}, 1fr)"
-						style:gap="{PORT_GAP}px"
-						style:padding="{RACK_PADDING}px {RACK_PADDING}px">
+					<!-- Port grid: fixed row height, centered vertically -->
+					<div class="absolute grid"
+						style:top="{portGridTopOffset(device)}px"
+						style:left="{RACK_PADDING}px"
+						style:right="{RACK_PADDING}px"
+						style:grid-template-columns="repeat({cols}, 1fr)"
+						style:grid-template-rows="repeat({rows}, {PORT_CELL_H}px)"
+						style:gap="{PORT_GAP}px">
 						{#each Array.from({ length: device.portCount }) as _, idx}
 							{@const pIdx = idx + 1}
 							{@const connKey = `${device.id}:${pIdx}`}

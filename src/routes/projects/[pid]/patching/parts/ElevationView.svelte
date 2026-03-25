@@ -50,6 +50,15 @@
 		racks.length > 0 ? Math.max(...racks.map((r: any) => rackHeight(r.heightU) + RACK_LABEL_H)) : 400
 	)
 
+	let rackYPositions = $derived.by(() => {
+		const map = new Map<string, number>()
+		for (const rack of racks) {
+			const rackTotalH = rackHeight(rack.heightU) + RACK_LABEL_H
+			map.set(rack.id, maxRackHeight - rackTotalH)
+		}
+		return map
+	})
+
 	let totalWidth = $derived(racks.length * rackW + (racks.length - 1) * RACK_GAP + 80)
 	let totalHeight = $derived(maxRackHeight + 60)
 
@@ -151,11 +160,12 @@
 	{:else}
 		<!-- Transformed canvas -->
 		<div class="absolute" style:transform="translate({panX}px, {panY}px) scale({zoom})" style:transform-origin="0 0">
-			<!-- Racks side by side -->
+			<!-- Racks side by side, bottom-aligned -->
 			{#each racks as rack (rack.id)}
 				{@const rackX = rackXPositions.get(rack.id) ?? 0}
+				{@const rackY = rackYPositions.get(rack.id) ?? 0}
 				{@const rackDevices = devices.filter((d: any) => d.rackId === rack.id)}
-				<div class="absolute" style:left="{rackX}px" style:top="0px">
+				<div class="absolute" style:left="{rackX}px" style:top="{rackY}px">
 					<ElevationRack
 						{rack}
 						devices={rackDevices}
@@ -173,6 +183,7 @@
 				{racks}
 				{devices}
 				{rackXPositions}
+				{rackYPositions}
 				{customCableTypes}
 				canvasWidth={totalWidth}
 				canvasHeight={totalHeight}

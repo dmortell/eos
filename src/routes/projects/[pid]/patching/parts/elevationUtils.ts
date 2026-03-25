@@ -3,6 +3,7 @@ import type { PatchConnection } from './types'
 // ── Layout constants ──
 
 export const RU_HEIGHT = 30 // px per rack unit in elevation view
+export const PORT_CELL_W = 14 // fixed port cell width (same for all devices)
 export const PORT_CELL_H = 12 // fixed port cell height (same for all devices)
 export const PORT_GAP = 1   // px gap between ports
 export const RACK_GAP = 80  // px gap between racks
@@ -15,7 +16,7 @@ export const DOT_INSET = 1  // dot inset from port edge
 
 /** Inner width of the device area (between left and right U labels) */
 export function deviceAreaWidth(): number {
-	return PORTS_PER_ROW * 15 + RACK_PADDING * 2
+	return PORTS_PER_ROW * (PORT_CELL_W + PORT_GAP) + RACK_PADDING * 2
 }
 
 /** Width of a single rack column (left U labels + device area + right U labels) */
@@ -46,6 +47,7 @@ export function portRowCount(portCount: number): number {
  */
 export function absolutePortPosition(
 	rackX: number,
+	rackY: number,
 	portIndex: number,
 	portCount: number,
 	devicePositionU: number,
@@ -71,29 +73,17 @@ export function absolutePortPosition(
 	}
 
 	// Device block geometry
-	const devW = deviceAreaWidth()
-	const devH = deviceHeightU * RU_HEIGHT
 	const deviceTop = uToY(devicePositionU + deviceHeightU - 1, rackHeightU)
 
-	// Grid area (after padding)
-	const gridW = devW - RACK_PADDING * 2
-
-	// Fixed row height, centered vertically
-	const totalGridH = rows * PORT_CELL_H + (rows - 1) * PORT_GAP
-	const gridTopOffset = (devH - totalGridH) / 2
-
-	// Cell width (distributed evenly)
-	const cellW = (gridW - (cols - 1) * PORT_GAP) / cols
-
-	// Port cell top-left
-	const cellLeft = U_LABEL_W + RACK_PADDING + col * (cellW + PORT_GAP)
-	const cellTop = RACK_LABEL_H + deviceTop + gridTopOffset + row * (PORT_CELL_H + PORT_GAP)
+	// Port cell top-left (fixed width, top-aligned with RACK_PADDING)
+	const cellLeft = U_LABEL_W + RACK_PADDING + col * (PORT_CELL_W + PORT_GAP)
+	const cellTop = RACK_LABEL_H + deviceTop + RACK_PADDING + row * (PORT_CELL_H + PORT_GAP)
 
 	// Dot center is at top-right of port cell (inset by DOT_INSET + DOT_R)
-	const dotX = cellLeft + cellW - DOT_INSET - DOT_R
+	const dotX = cellLeft + PORT_CELL_W - DOT_INSET - DOT_R
 	const dotY = cellTop + DOT_INSET + DOT_R
 
-	return { x: rackX + dotX, y: dotY }
+	return { x: rackX + dotX, y: rackY + dotY }
 }
 
 /** Build a lookup of portRef → connection for quick checks */

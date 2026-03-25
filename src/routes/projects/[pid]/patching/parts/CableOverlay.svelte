@@ -8,6 +8,7 @@
 		racks = [],
 		devices = [],
 		rackXPositions = new Map(),
+		rackYPositions = new Map(),
 		customCableTypes = [],
 		canvasWidth = 0,
 		canvasHeight = 0,
@@ -17,6 +18,7 @@
 		racks: any[]
 		devices: any[]
 		rackXPositions: Map<string, number>
+		rackYPositions: Map<string, number>
 		customCableTypes: CustomCableType[]
 		canvasWidth: number
 		canvasHeight: number
@@ -49,14 +51,16 @@
 
 			const fromRackX = rackXPositions.get(fromRack.id)
 			const toRackX = rackXPositions.get(toRack.id)
+			const fromRackY = rackYPositions.get(fromRack.id) ?? 0
+			const toRackY = rackYPositions.get(toRack.id) ?? 0
 			if (fromRackX === undefined || toRackX === undefined) continue
 
 			const from = absolutePortPosition(
-				fromRackX, c.fromPortRef.portIndex, fromDev.portCount,
+				fromRackX, fromRackY, c.fromPortRef.portIndex, fromDev.portCount,
 				fromDev.positionU, fromDev.heightU, fromRack.heightU
 			)
 			const to = absolutePortPosition(
-				toRackX, c.toPortRef.portIndex, toDev.portCount,
+				toRackX, toRackY, c.toPortRef.portIndex, toDev.portCount,
 				toDev.positionU, toDev.heightU, toRack.heightU
 			)
 
