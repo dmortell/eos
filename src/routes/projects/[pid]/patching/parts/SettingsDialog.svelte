@@ -91,27 +91,6 @@
 					</div>
 				</div>
 
-				<!-- Display options -->
-				<div class="space-y-1.5">
-					<div class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Display</div>
-					<label class="flex items-center gap-2 text-[11px] text-gray-600 cursor-pointer">
-						<input type="checkbox" class="rounded" bind:checked={localSettings.showLabels} />
-						Show port labels
-					</label>
-					<label class="flex items-center gap-2 text-[11px] text-gray-600 cursor-pointer">
-						<input type="checkbox" class="rounded" bind:checked={localSettings.showLengths} />
-						Show cable lengths
-					</label>
-					<div class="flex items-center gap-2">
-						<label class="text-[11px] text-gray-500 w-24">Group by</label>
-						<select class="flex-1 text-[11px] border border-gray-200 rounded px-2 py-1 bg-white" bind:value={localSettings.groupBy}>
-							<option value="rack">Rack</option>
-							<option value="device">Device</option>
-							<option value="cableType">Cable type</option>
-						</select>
-					</div>
-				</div>
-
 				<!-- Custom cable types -->
 				<div class="space-y-2">
 					<div class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Custom Cable Types</div>

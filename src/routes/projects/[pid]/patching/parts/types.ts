@@ -8,6 +8,10 @@ export interface PortRef {
 	label?: string           // cached display label (from frames engine)
 }
 
+// ── Status type ──
+// add = new patch to install, remove = existing to remove, change = re-patch, installed = done
+export type PatchStatus = 'add' | 'remove' | 'change' | 'installed'
+
 // ── Patch connection ──
 
 export interface PatchConnection {
@@ -20,7 +24,7 @@ export interface PatchConnection {
 	lengthLocked: boolean    // true = user-specified, skip auto-calc
 	kind: 'patch' | 'cross-connect'
 	cordId?: string          // vendor-assigned patch cord ID
-	status: 'planned' | 'installed'
+	status: PatchStatus
 	notes?: string
 }
 

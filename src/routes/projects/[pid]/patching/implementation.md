@@ -114,7 +114,7 @@ interface PatchConnection {
   lengthLocked: boolean           // true = user-specified, skip auto-calc
   kind: 'patch' | 'cross-connect' // patch = normal, cross-connect = interconnect
   cordId?: string                 // vendor-assigned patch cord ID (imported)
-  status: 'planned' | 'installed' // planned = future, installed = existing
+  status: PatchStatus              // add, remove, change, installed
   notes?: string
 }
 
@@ -238,16 +238,40 @@ src/routes/projects/[pid]/patching/
 
 ### Phase 6a — Polish ✓
 
-13. ✓ Settings dialog (`SettingsDialog.svelte`) — default cable type/color, display options (show labels, show lengths, group by), accessible via gear icon in toolbar
-14. ✓ Custom cable types UI — add/edit/delete custom types with label, category (copper/fiber/other), color picker; inline editing in settings dialog
+13. ✓ Settings dialog (`SettingsDialog.svelte`) — default cable type/color, accessible via gear icon in toolbar
+14. ✓ Custom cable types UI — add/edit/delete custom types with label, category (copper/fiber/other), color picker
 15. ✓ Notes column — inline text input in patch list table, persisted to Firestore, included in Excel export
-16. ✓ Port number zero-padding — ports padded to 2+ digits (e.g. "01", "02") when device has 10+ ports, in dropdowns, display, and Excel export
+16. ✓ Port number zero-padding — ports padded to 2+ digits when device has 10+ ports
+17. ✓ Status types expanded: Add (new patch), Change (re-patch), Remove (remove existing), Installed (done). When status changes to "Change", current from/to ports are captured in notes automatically.
+18. ✓ Column order: Cord ID before Status (status is the action column, placed near notes)
+19. ✓ Rack label shown in port dropdowns when patching across multiple racks
+20. ✓ Display settings (showLabels, showLengths, groupBy) removed from settings dialog — they had no effect. Will be wired up when rack elevation view is implemented.
 
-### Phase 6b — Polish (future)
+### Phase 6b — Polish ✓
 
-17. Cord ID import from vendor Excel
-18. Auto-assign function (select outlet ports → auto-allocate to compatible switch ports)
-19. Audit logging via `writeLog()` system
+21. ✓ Orphaned reference detection — scans connections for rackId/deviceId refs that no longer exist in racks data. Warning banner with count, amber-highlighted rows with warning icon. Protects against silent breakage when devices are moved/deleted in Racks tool.
+22. ✓ Cord ID import — "Import" button reads vendor-returned Excel (.xlsx), matches rows by row number (#) to connections, updates cordId fields. Status message shows import result with auto-dismiss.
+23. ✓ Audit logging — already wired up via `logChange()` → `pendingChanges` → `onsave` → `writeLog()` in +page.svelte. All CRUD operations (add, update, delete, bulk, import) generate `ChangeDetail` entries logged to `logs/{pid}/patching`.
+24. ✓ Bulk operations toolbar — when rows are selected: color picker, cable type changer, status changer, delete. All apply to selected rows.
+
+### Phase 6c — Polish (future)
+
+25. Auto-assign function (select outlet ports → auto-allocate to compatible switch ports)
+26. Lock patched devices in Racks tool (prevent moving/deleting devices with active patch connections)
+
+---
+
+## Cross-Tool Data Integrity
+
+**Problem:** Patching stores references to rackId + deviceId. If a user moves or deletes a device in the Racks tool, patching connections become orphaned/broken — the dropdown shows "— Select port —" instead of the correct device.
+
+**Options:**
+1. **Detect & warn (recommended first step)** — On load, scan connections for orphaned deviceId/rackId references. Show a warning banner listing broken connections. Highlight broken rows in the table with a warning icon.
+2. **Lock patched devices** — In the Racks tool, prevent moving/deleting devices that have active patch connections. Show a warning: "This device has N patch connections. Remove patches first."
+3. **Auto-update references** — When a device moves in the racks tool, fire an update to all patching docs that reference it. Complex because racks and patching are separate Firestore docs, and the move might change the rackId.
+4. **Manual reconciliation** — Let users review and fix broken references. A "Fix broken" button that lets them re-assign orphaned ports.
+
+Start with option 1 (detection + visual warnings) and 2 (lock in racks tool). Options 3-4 are more complex and can come later.
 
 ---
 
@@ -256,7 +280,6 @@ src/routes/projects/[pid]/patching/
 - **Drag-to-connect** — In rack elevation view, allow click-drag from one port to another to create a connection (visual patching workflow)
 - **Circuit tracing** — BFS `traceCircuit()` to highlight full end-to-end path through cross-connects, even across floors/rooms
 - **Port label resolution** — Where patch panels exist in both racks and frames tools, resolve port labels (FF.Z.NNN-SPP) from frames data for display and export
-- **Notes column** — Consider adding a notes column to the patch list table for free-text annotations per connection
 - **Cord ID import** — Parse vendor Excel to match cord IDs back to connections; use cord ID presence to distinguish existing vs. future cords
 - **Validation warnings** — Port type mismatches (RJ45↔LC), duplicate connections, unpatched port summary
 - **Keyboard navigation** — Tab through ports, Enter to confirm, Escape to cancel

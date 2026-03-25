@@ -9,7 +9,7 @@
 	import { DEFAULT_SETTINGS } from './parts/types'
 	import { CABLE_TYPES, getCableType } from './parts/constants'
 	import { calculateCableLength } from './parts/cableUtils'
-	import { exportPatchExcel } from './parts/exportExcel'
+	import { exportPatchExcel, importCordIds } from './parts/exportExcel'
 	import PatchList from './parts/PatchList.svelte'
 	import SettingsDialog from './parts/SettingsDialog.svelte'
 
@@ -70,6 +70,25 @@
 		devices.reduce((sum: number, d: any) => sum + (d.portCount ?? 0), 0)
 	)
 	let connectedPorts = $derived(connections.length * 2)
+
+	// ── Orphaned reference detection ──
+	let rackIds = $derived(new Set(racks.map((r: any) => r.id)))
+	let deviceIds = $derived(new Set(devices.map((d: any) => d.id)))
+
+	function isRefOrphaned(ref: PatchConnection['fromPortRef']): boolean {
+		if (!ref.rackId && !ref.deviceId) return false  // empty ref, not orphaned
+		return (ref.rackId && !rackIds.has(ref.rackId)) || (ref.deviceId && !deviceIds.has(ref.deviceId))
+	}
+
+	let orphanedIds = $derived.by(() => {
+		const ids = new Set<string>()
+		for (const c of connections) {
+			if (isRefOrphaned(c.fromPortRef) || isRefOrphaned(c.toPortRef)) {
+				ids.add(c.id)
+			}
+		}
+		return ids
+	})
 
 	// ── Sync from remote ──
 	let syncPaused = $state(false)
@@ -182,7 +201,7 @@
 				lengthMeters: len,
 				lengthLocked: false,
 				kind: 'patch',
-				status: 'planned',
+				status: 'add',
 			})
 		}
 		connections = [...connections, ...newConns]
@@ -202,7 +221,7 @@
 			lengthMeters: 0,
 			lengthLocked: false,
 			kind: 'patch',
-			status: 'planned',
+			status: 'add',
 		}
 		connections = [...connections, conn]
 		editNewId = id
@@ -231,6 +250,45 @@
 	function deleteSelected(ids: string[]) {
 		connections = connections.filter(c => !ids.includes(c.id))
 		logChange('remove', 'connections', `${ids.length} connections`)
+	}
+
+	function updateSelected(ids: string[], updates: Partial<PatchConnection>) {
+		const idSet = new Set(ids)
+		connections = connections.map(c => idSet.has(c.id) ? { ...c, ...updates } : c)
+		logChange('update', 'connections', `${ids.length} connections`)
+	}
+
+	// ── Cord ID import ──
+	let importStatus = $state<string | null>(null)
+
+	async function handleCordIdImport(e: Event) {
+		const input = e.target as HTMLInputElement
+		const file = input.files?.[0]
+		if (!file) return
+		try {
+			const cordMap = await importCordIds(file)
+			if (cordMap.size === 0) {
+				importStatus = 'No cord IDs found in file'
+				return
+			}
+			let updated = 0
+			connections = connections.map((c, i) => {
+				const cordId = cordMap.get(i)
+				if (cordId && cordId !== c.cordId) {
+					updated++
+					return { ...c, cordId }
+				}
+				return c
+			})
+			if (updated > 0) {
+				logChange('import', 'cordIds', `${updated} cord IDs imported`)
+			}
+			importStatus = `Imported ${updated} cord ID${updated !== 1 ? 's' : ''}`
+		} catch (err) {
+			importStatus = `Import failed: ${err instanceof Error ? err.message : 'Unknown error'}`
+		}
+		input.value = ''
+		setTimeout(() => importStatus = null, 4000)
 	}
 </script>
 
@@ -318,7 +376,9 @@
 							<div class="bg-gray-50 rounded p-2.5 space-y-1.5">
 								<div class="flex justify-between"><span>Total connections</span><span class="font-mono font-medium text-gray-700">{connections.length}</span></div>
 								<div class="flex justify-between"><span>Ports used</span><span class="font-mono font-medium text-gray-700">{connectedPorts} / {totalPorts}</span></div>
-								<div class="flex justify-between"><span>Planned</span><span class="font-mono text-amber-600">{connections.filter(c => c.status === 'planned').length}</span></div>
+								<div class="flex justify-between"><span>Add</span><span class="font-mono text-blue-600">{connections.filter(c => c.status === 'add' || c.status === 'planned').length}</span></div>
+								<div class="flex justify-between"><span>Change</span><span class="font-mono text-amber-600">{connections.filter(c => c.status === 'change').length}</span></div>
+								<div class="flex justify-between"><span>Remove</span><span class="font-mono text-red-600">{connections.filter(c => c.status === 'remove').length}</span></div>
 								<div class="flex justify-between"><span>Installed</span><span class="font-mono text-green-600">{connections.filter(c => c.status === 'installed').length}</span></div>
 							</div>
 
@@ -458,6 +518,16 @@
 						onclick={() => settingsOpen = true}
 					><Icon name="settings" size={13} /></button>
 
+					<!-- Import cord IDs -->
+					<label
+						class="h-6 px-2 rounded bg-gray-100 text-gray-600 text-[11px] font-medium hover:bg-gray-200 transition-colors flex items-center gap-1 cursor-pointer"
+						title="Import cord IDs from vendor Excel"
+					>
+						<Icon name="upload" size={12} />
+						Import
+						<input type="file" accept=".xlsx" class="hidden" onchange={handleCordIdImport} />
+					</label>
+
 					<!-- Export -->
 					<button
 						class="h-6 px-2 rounded bg-gray-100 text-gray-600 text-[11px] font-medium hover:bg-gray-200 transition-colors flex items-center gap-1"
@@ -465,7 +535,7 @@
 						onclick={() => exportPatchExcel({ connections, racks, devices, customCableTypes, projectName, floor, room })}
 					>
 						<Icon name="download" size={12} />
-						Excel
+						Export
 					</button>
 
 					<!-- Add connection button -->
@@ -478,6 +548,24 @@
 					</button>
 				</div>
 
+				<!-- Orphaned references warning -->
+				{#if orphanedIds.size > 0}
+					<div class="flex items-center gap-2 px-3 py-1.5 bg-amber-50 border-b border-amber-200 shrink-0">
+						<Icon name="alertTriangle" size={14} class="text-amber-500 shrink-0" />
+						<span class="text-[11px] text-amber-700">
+							{orphanedIds.size} connection{orphanedIds.size !== 1 ? 's' : ''} reference devices that no longer exist in the racks tool. These rows are highlighted below.
+						</span>
+					</div>
+				{/if}
+
+				<!-- Import status -->
+				{#if importStatus}
+					<div class="flex items-center gap-2 px-3 py-1.5 bg-blue-50 border-b border-blue-200 shrink-0">
+						<Icon name="info" size={14} class="text-blue-500 shrink-0" />
+						<span class="text-[11px] text-blue-700">{importStatus}</span>
+					</div>
+				{/if}
+
 				<!-- Patch list table -->
 				<div class="flex-1 min-h-0 overflow-auto">
 					<PatchList
@@ -487,9 +575,11 @@
 						{customCableTypes}
 						{settings}
 						{editNewId}
+						{orphanedIds}
 						onupdate={updateConnection}
 						ondelete={deleteConnection}
 						ondeleteselected={deleteSelected}
+						onupdateselected={updateSelected}
 						oneditnewclear={() => editNewId = null}
 					/>
 				</div>

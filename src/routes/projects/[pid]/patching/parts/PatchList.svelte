@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte'
 	import { Icon } from '$lib'
-	import type { PatchConnection, PatchSettings, CustomCableType, PortRef } from './types'
+	import type { PatchConnection, PatchSettings, CustomCableType, PortRef, PatchStatus } from './types'
 	import { CABLE_TYPES, getCableType } from './constants'
 
 	let {
@@ -11,10 +11,12 @@
 		customCableTypes = [],
 		settings,
 		editNewId = null,
+		orphanedIds = new Set<string>(),
 		onupdate,
 		ondelete,
 		ondeleteselected,
 		oneditnewclear,
+		onupdateselected,
 	}: {
 		connections: PatchConnection[]
 		racks: any[]
@@ -22,10 +24,12 @@
 		customCableTypes: CustomCableType[]
 		settings: PatchSettings
 		editNewId?: string | null
+		orphanedIds?: Set<string>
 		onupdate?: (id: string, updates: Partial<PatchConnection>) => void
 		ondelete?: (id: string) => void
 		ondeleteselected?: (ids: string[]) => void
 		oneditnewclear?: () => void
+		onupdateselected?: (ids: string[], updates: Partial<PatchConnection>) => void
 	} = $props()
 
 	let selectedIds = $state(new Set<string>())
@@ -44,6 +48,8 @@
 		group: string        // rack label for optgroup
 		deviceLabel: string
 	}
+
+	let multiRack = $derived(racks.length > 1)
 
 	let portOptions = $derived.by(() => {
 		const opts: PortOption[] = []
@@ -67,12 +73,13 @@
 				for (let p = 1; p <= count; p++) {
 					const val = `${rack.id}:${dev.id}:${p}`
 					const pLabel = String(p).padStart(padW, '0')
+					const prefix = multiRack ? `${rack.label} / ` : ''
 					opts.push({
 						value: val,
 						rackId: rack.id,
 						deviceId: dev.id,
 						portIndex: p,
-						label: `${dev.label || dev.type} U${dev.positionU} / ${pLabel}`,
+						label: `${prefix}${dev.label || dev.type} U${dev.positionU} / ${pLabel}`,
 						group: rack.label,
 						deviceLabel: `${dev.label || dev.type} (U${dev.positionU})`,
 					})
@@ -195,6 +202,29 @@
 		return sortAsc ? ' ▲' : ' ▼'
 	}
 
+	// Status helpers
+	const STATUS_COLORS: Record<string, string> = {
+		add: 'text-blue-600',
+		remove: 'text-red-600',
+		change: 'text-amber-600',
+		installed: 'text-green-600',
+		planned: 'text-amber-600', // legacy compat
+	}
+
+	function handleStatusChange(conn: PatchConnection, newStatus: PatchStatus) {
+		const updates: Partial<PatchConnection> = { status: newStatus }
+		// When changing to "change", capture current from/to in notes
+		if (newStatus === 'change' && conn.status !== 'change') {
+			const fromDesc = fmtRef(conn.fromPortRef)
+			const toDesc = fmtRef(conn.toPortRef)
+			const prev = conn.notes ? conn.notes + ' | ' : ''
+			if (fromDesc || toDesc) {
+				updates.notes = `${prev}Was: ${fromDesc || '?'} → ${toDesc || '?'}`
+			}
+		}
+		onupdate?.(conn.id, updates)
+	}
+
 	// Auto-scroll + focus new row
 	$effect(() => {
 		if (!editNewId) return
@@ -223,10 +253,60 @@
 
 	{#if selectedIds.size > 0}
 		<span class="text-[11px] text-gray-400">{selectedIds.size} selected</span>
+
+		<!-- Bulk color -->
+		<label class="flex items-center gap-1 cursor-pointer" title="Change color of selected">
+			<input type="color" class="w-5 h-5 rounded border border-gray-200 cursor-pointer"
+				onchange={e => {
+					const color = (e.target as HTMLInputElement).value
+					onupdateselected?.([...selectedIds], { cableColor: color })
+				}} />
+			<span class="text-[10px] text-gray-400">Color</span>
+		</label>
+
+		<!-- Bulk cable type -->
+		<select
+			class="h-6 text-[11px] border border-gray-200 rounded px-1 bg-white text-gray-600"
+			onchange={e => {
+				const val = (e.target as HTMLSelectElement).value
+				if (!val) return
+				const ct = getCableType(val, customCableTypes)
+				onupdateselected?.([...selectedIds], { cableType: val, cableColor: ct.color });
+				(e.target as HTMLSelectElement).value = ''
+			}}
+		>
+			<option value="">Cable type...</option>
+			{#each CABLE_TYPES as t}
+				<option value={t.id}>{t.label}</option>
+			{/each}
+			{#if customCableTypes.length > 0}
+				{#each customCableTypes as t}
+					<option value={t.id}>{t.label}</option>
+				{/each}
+			{/if}
+		</select>
+
+		<!-- Bulk status -->
+		<select
+			class="h-6 text-[11px] border border-gray-200 rounded px-1 bg-white text-gray-600"
+			onchange={e => {
+				const val = (e.target as HTMLSelectElement).value
+				if (!val) return
+				onupdateselected?.([...selectedIds], { status: val as PatchStatus });
+				(e.target as HTMLSelectElement).value = ''
+			}}
+		>
+			<option value="">Status...</option>
+			<option value="add">Add</option>
+			<option value="change">Change</option>
+			<option value="remove">Remove</option>
+			<option value="installed">Installed</option>
+		</select>
+
 		<button
 			class="h-6 px-2 rounded bg-red-50 text-red-600 text-[11px] font-medium hover:bg-red-100 transition-colors"
 			onclick={handleDeleteSelected}
-		>Delete selected</button>
+		>Delete</button>
 	{/if}
 </div>
 
@@ -250,10 +330,10 @@
 				<th class="w-16 px-2 py-1.5 cursor-pointer hover:text-gray-600 select-none" onclick={() => toggleSort('length')}>
 					Length{sortIcon('length')}
 				</th>
+				<th class="w-24 px-2 py-1.5">Cord ID</th>
 				<th class="w-20 px-2 py-1.5 cursor-pointer hover:text-gray-600 select-none" onclick={() => toggleSort('status')}>
 					Status{sortIcon('status')}
 				</th>
-				<th class="w-24 px-2 py-1.5">Cord ID</th>
 				<th class="px-2 py-1.5">Notes</th>
 				<th class="w-8 px-2 py-1.5"></th>
 			</tr>
@@ -262,23 +342,30 @@
 			{#each sortedConnections as conn (conn.id)}
 				{@const ct = getCableType(conn.cableType, customCableTypes)}
 				{@const isSelected = selectedIds.has(conn.id)}
+				{@const isOrphaned = orphanedIds.has(conn.id)}
 				<!-- svelte-ignore a11y_click_events_have_key_events -->
 				<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 				<tr
 					class="border-b border-gray-100 transition-colors cursor-default
-						{isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}"
+						{isOrphaned ? 'bg-amber-50/70 border-l-2 border-l-amber-400' : ''}
+						{isSelected ? 'bg-blue-50' : isOrphaned ? '' : 'hover:bg-gray-50'}"
 					onclick={e => toggleSelect(conn.id, e)}
 				>
 					<!-- Checkbox -->
 					<td class="px-2 py-1">
-						<input type="checkbox" class="rounded" checked={isSelected}
-							onclick={e => e.stopPropagation()}
-							onchange={() => {
-								const next = new Set(selectedIds)
-								if (next.has(conn.id)) next.delete(conn.id)
-								else next.add(conn.id)
-								selectedIds = next
-							}} />
+						<div class="flex items-center gap-1">
+							<input type="checkbox" class="rounded" checked={isSelected}
+								onclick={e => e.stopPropagation()}
+								onchange={() => {
+									const next = new Set(selectedIds)
+									if (next.has(conn.id)) next.delete(conn.id)
+									else next.add(conn.id)
+									selectedIds = next
+								}} />
+							{#if isOrphaned}
+								<Icon name="alertTriangle" size={11} class="text-amber-500" />
+							{/if}
+						</div>
 					</td>
 
 					<!-- From port — always a dropdown -->
@@ -392,19 +479,6 @@
 						</div>
 					</td>
 
-					<!-- Status -->
-					<td class="px-2 py-0.5" onclick={e => e.stopPropagation()}>
-						<select
-							class="text-[11px] border border-gray-200 rounded px-1 py-0.5 bg-white focus:border-blue-400 focus:outline-none
-								{conn.status === 'installed' ? 'text-green-600' : 'text-amber-600'}"
-							value={conn.status}
-							onchange={e => onupdate?.(conn.id, { status: (e.target as HTMLSelectElement).value as 'planned' | 'installed' })}
-						>
-							<option value="planned">Planned</option>
-							<option value="installed">Installed</option>
-						</select>
-					</td>
-
 					<!-- Cord ID -->
 					<td class="px-2 py-0.5" onclick={e => e.stopPropagation()}>
 						<input
@@ -414,6 +488,21 @@
 							value={conn.cordId ?? ''}
 							onchange={e => onupdate?.(conn.id, { cordId: (e.target as HTMLInputElement).value || undefined })}
 						/>
+					</td>
+
+					<!-- Status -->
+					<td class="px-2 py-0.5" onclick={e => e.stopPropagation()}>
+						<select
+							class="text-[11px] border border-gray-200 rounded px-1 py-0.5 bg-white focus:border-blue-400 focus:outline-none
+								{STATUS_COLORS[conn.status] ?? 'text-gray-600'}"
+							value={conn.status === 'planned' ? 'add' : conn.status}
+							onchange={e => handleStatusChange(conn, (e.target as HTMLSelectElement).value as PatchStatus)}
+						>
+							<option value="add">Add</option>
+							<option value="change">Change</option>
+							<option value="remove">Remove</option>
+							<option value="installed">Installed</option>
+						</select>
 					</td>
 
 					<!-- Notes -->

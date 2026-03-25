@@ -41,6 +41,36 @@ function fmtPort(devices: any[], deviceId: string, portIndex: number){
 	return portIndex
 }
 
+/**
+ * Import cord IDs from a vendor-returned Excel file.
+ * Matches rows by row number (column A "#") to connection index.
+ * Returns a map of connection index (0-based) → cordId.
+ */
+export async function importCordIds(file: File): Promise<Map<number, string>> {
+	const wb = new ExcelJS.Workbook()
+	const buf = await file.arrayBuffer()
+	await wb.xlsx.load(buf)
+
+	const ws = wb.getWorksheet('Patch Schedule') || wb.getWorksheet(1)
+	if (!ws) throw new Error('No "Patch Schedule" sheet found')
+
+	const result = new Map<number, string>()
+
+	ws.eachRow((row, rowNum) => {
+		if (rowNum <= 1) return  // skip header
+		const idx = row.getCell(1).value  // column A = "#" (1-based row number)
+		const cordId = row.getCell(12).value  // column L = "Cord ID"
+		if (typeof idx === 'number' && cordId) {
+			const val = String(cordId).trim()
+			if (val && val !== '—') {
+				result.set(idx - 1, val)  // convert to 0-based index
+			}
+		}
+	})
+
+	return result
+}
+
 /** Export patch schedule and BOM to Excel */
 export async function exportPatchExcel(opts: ExportOptions) {
 	const { connections, racks, devices, customCableTypes, projectName, floor, room } = opts
@@ -57,7 +87,7 @@ export async function exportPatchExcel(opts: ExportOptions) {
 	const headers = [
 		'#', 'From Rack', 'From Device', 'From U/Face', 'From Port',
 		'To Rack', 'To Device', 'To U/Face', 'To Port',
-		'Cable Type', 'Length (m)', 'Status', 'Cord ID', 'Notes',
+		'Cable Type', 'Length (m)', 'Cord ID', 'Status', 'Notes',
 	]
 	const headerRow = ws.addRow(headers)
 	headerRow.font = { bold: true, size: 9 }
@@ -77,8 +107,8 @@ export async function exportPatchExcel(opts: ExportOptions) {
 		{ width: 6 },   // To Port
 		{ width: 10 },  // Cable Type
 		{ width: 8 },   // Length
-		{ width: 9 },   // Status
 		{ width: 12 },  // Cord ID
+		{ width: 9 },   // Status
 		{ width: 20 },  // Notes
 	]
 
@@ -97,20 +127,20 @@ export async function exportPatchExcel(opts: ExportOptions) {
 			fmtPort(devices, c.toPortRef.deviceId, c.toPortRef.portIndex),
 			ct.label,
 			c.lengthMeters || '',
-			c.status,
 			c.cordId || '',
+			(c.status as string) === 'planned' ? 'Add' : c.status.charAt(0).toUpperCase() + c.status.slice(1),
 			c.notes || '',
 		])
 		row.font = { size: 9 }
 		row.alignment = { vertical: 'middle' }
 
 		// Color the status cell
-		const statusCell = row.getCell(12)
-		if (c.status === 'installed') {
-			statusCell.font = { size: 9, color: { argb: 'FF16A34A' } }
-		} else {
-			statusCell.font = { size: 9, color: { argb: 'FFD97706' } }
+		const statusCell = row.getCell(13)
+		const statusColors: Record<string, string> = {
+			add: 'FF2563EB', installed: 'FF16A34A', change: 'FFD97706', remove: 'FFDC2626',
 		}
+		const sKey = (c.status as string) === 'planned' ? 'add' : c.status
+		statusCell.font = { size: 9, color: { argb: statusColors[sKey] ?? 'FF6B7280' } }
 	})
 
 	// Freeze header row + print titles (repeat row 1 on every printed page)
