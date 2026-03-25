@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { PatchConnection, CustomCableType, PatchSettings } from './types'
-	import { getCableType } from './constants'
+	import { CABLE_TYPES, getCableType } from './constants'
 	import { calculateCableLength } from './cableUtils'
 	import {
 		buildPortConnectionMap, buildPortInfoMap, findDuplicatePorts,
@@ -60,6 +60,7 @@
 
 	// ── Click-to-connect state ──
 	let connectFromKey = $state<string | null>(null)
+	let activeCableType = $state(settings?.defaultCableType ?? 'uutp')
 
 	// ── Rack layout: side by side, bottom-aligned ──
 	let rackW = $derived(rackWidth())
@@ -157,7 +158,7 @@
 			const from = parsePortKey(connectFromKey)
 			const to = parsePortKey(key)
 			if (from && to && onaddconnection) {
-				const cableType = settings?.defaultCableType ?? 'uutp'
+				const cableType = activeCableType
 				const ct = getCableType(cableType, customCableTypes)
 				const fromRef = { rackId: from.rackId, deviceId: from.deviceId, portIndex: from.portIndex, face: 'front' as const }
 				const toRef = { rackId: to.rackId, deviceId: to.deviceId, portIndex: to.portIndex, face: 'front' as const }
@@ -281,12 +282,38 @@
 			/>
 		</div>
 
-		<!-- Connect-mode indicator -->
-		{#if connectFromKey}
-			<div class="absolute top-2 left-1/2 -translate-x-1/2 text-[11px] text-white bg-blue-600 px-3 py-1 rounded-full shadow-md select-none pointer-events-none z-30">
-				Click another port to connect — Esc to cancel
+		<!-- Top bar: cable type selector + connect mode indicator -->
+		<div class="absolute top-2 left-2 z-30 flex items-center gap-2">
+			<!-- Cable type quick selector -->
+			<div class="flex items-center gap-1 bg-white/90 rounded border border-gray-200 shadow-sm px-1.5 py-0.5">
+				<span class="text-[9px] text-gray-400 uppercase tracking-wider mr-0.5">Cable</span>
+				{#each CABLE_TYPES as ct (ct.id)}
+					<button
+						class="h-5 px-1.5 rounded text-[9px] font-medium transition-colors
+							{activeCableType === ct.id ? 'text-white' : 'text-gray-500 hover:bg-gray-100'}"
+						style:background={activeCableType === ct.id ? ct.color : undefined}
+						title={ct.label}
+						onclick={() => activeCableType = ct.id}
+					>{ct.label}</button>
+				{/each}
+				{#each customCableTypes as ct (ct.id)}
+					<button
+						class="h-5 px-1.5 rounded text-[9px] font-medium transition-colors
+							{activeCableType === ct.id ? 'text-white' : 'text-gray-500 hover:bg-gray-100'}"
+						style:background={activeCableType === ct.id ? ct.color : undefined}
+						title={ct.label}
+						onclick={() => activeCableType = ct.id}
+					>{ct.label}</button>
+				{/each}
 			</div>
-		{/if}
+
+			<!-- Connect-mode indicator -->
+			{#if connectFromKey}
+				<div class="text-[11px] text-white bg-blue-600 px-3 py-1 rounded-full shadow-md select-none">
+					Click another port to connect — Esc to cancel
+				</div>
+			{/if}
+		</div>
 
 		<!-- Zoom indicator -->
 		<div class="absolute bottom-2 right-2 text-[10px] text-gray-400 bg-white/80 px-1.5 py-0.5 rounded border border-gray-200 select-none pointer-events-none">

@@ -122,10 +122,54 @@ export interface PortInfo {
 }
 
 /**
+ * Derive FrameConfig objects from racks + devices data (same logic as Frames tool).
+ * Frames are not stored in Firestore — they're derived at runtime from racks data.
+ */
+function deriveFrameConfigs(racks: any[], devices: any[]): any[] {
+	const frames: any[] = []
+	for (const rack of racks) {
+		if (!rack.serverRoom) continue
+		if (rack.type === 'desk' || rack.type === 'shelf' || rack.type === 'vcm') continue
+
+		const rackDevices = devices.filter((d: any) => d.rackId === rack.id)
+		const slots: any[] = []
+		for (const dev of rackDevices) {
+			if (dev.type !== 'panel') {
+				slots.push({ ru: dev.positionU, type: dev.type, height: dev.heightU, label: dev.label })
+			}
+		}
+		const copperPanels = rackDevices.filter((d: any) => d.type === 'panel')
+		const floorPanels = copperPanels.filter((d: any) => d.patchLevel !== 'high')
+		const highPanels = copperPanels.filter((d: any) => d.patchLevel === 'high')
+
+		const panelDevices = copperPanels.map((d: any) => ({
+			ru: d.positionU as number,
+			portCount: (d.portCount as number) || 48,
+			isHighLevel: d.patchLevel === 'high',
+		}))
+
+		frames.push({
+			id: rack.id,
+			name: rack.label,
+			serverRoom: rack.serverRoom,
+			totalRU: rack.heightU ?? 42,
+			panelStartRU: floorPanels.length ? Math.min(...floorPanels.map((d: any) => d.positionU)) : 1,
+			panelEndRU: floorPanels.length ? Math.max(...floorPanels.map((d: any) => d.positionU + d.heightU - 1)) : rack.heightU ?? 42,
+			hlPanelStartRU: highPanels.length ? Math.min(...highPanels.map((d: any) => d.positionU)) : undefined,
+			hlPanelEndRU: highPanels.length ? Math.max(...highPanels.map((d: any) => d.positionU + d.heightU - 1)) : undefined,
+			slots,
+			panelDevices,
+		})
+	}
+	return frames
+}
+
+/**
  * Build a map of `deviceId:portIndex` → PortInfo by matching racks devices
  * to frames panel data via RU position within the same server room.
  *
  * frameData.zoneLocations is Record<string, LocationConfig[]> (keyed by zone letter).
+ * Frame configs are derived from racks data at runtime (not stored in Firestore).
  */
 export function buildPortInfoMap(
 	frameData: any,
@@ -143,9 +187,11 @@ export function buildPortInfoMap(
 	const zoneLetters = Object.keys(zoneLocations).filter(k => zoneLocations[k]?.length > 0).sort()
 	if (zoneLetters.length === 0) return map
 
-	const frameConfigs = frameData.frames ?? []
-	const reservations = frameData.reservations
-		? new Map(Object.entries(frameData.reservations))
+	// Derive frame configs from racks data (same as Frames tool does at runtime)
+	const frameConfigs = deriveFrameConfigs(racks, devices)
+
+	const reservations = frameData.portReservations
+		? new Map(Object.entries(frameData.portReservations))
 		: undefined
 
 	// Generate all port labels for all zones on this floor
@@ -156,7 +202,7 @@ export function buildPortInfoMap(
 			floorFormat,
 		))
 	}
-	if (allLabels.length === 0 && frameConfigs.length === 0) return map
+	if (allLabels.length === 0) return map
 
 	// Generate rack/panel data from frames engine
 	const rackDataList = generateRacks(
@@ -179,10 +225,8 @@ export function buildPortInfoMap(
 
 	// Match racks devices to frame panels by RU position
 	for (const device of devices) {
-		const rack = racks.find((r: any) => r.id === device.rackId)
-		if (!rack || !device.portCount) continue
+		if (!device.portCount || device.type !== 'panel') continue
 
-		// Try matching by device RU position
 		const labels = ruToLabels.get(device.positionU)
 		if (!labels) continue
 
