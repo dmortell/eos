@@ -495,7 +495,7 @@
 						<select
 							class="text-[11px] border border-gray-200 rounded px-1 py-0.5 bg-white focus:border-blue-400 focus:outline-none
 								{STATUS_COLORS[conn.status] ?? 'text-gray-600'}"
-							value={conn.status === 'planned' ? 'add' : conn.status}
+							value={(conn.status as string) === 'planned' ? 'add' : conn.status}
 							onchange={e => handleStatusChange(conn, (e.target as HTMLSelectElement).value as PatchStatus)}
 						>
 							<option value="add">Add</option>

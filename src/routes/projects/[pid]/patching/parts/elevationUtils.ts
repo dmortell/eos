@@ -15,7 +15,7 @@ export const RACK_LABEL_H = 22 // px height for rack label above frame
 export const PORTS_PER_ROW = 24
 export const DOT_R = 3      // dot radius px
 export const DOT_INSET = 1  // dot inset from port edge
-export const CABLE_CH_OFFSET = 4 // px offset from device area edge for cable channel
+export const CABLE_CH_OFFSET = 2 // px offset from device area edge for cable channel
 
 /** Inner width of the device area (between left and right U labels) */
 export function deviceAreaWidth(): number {
@@ -80,13 +80,13 @@ export function absolutePortPosition(
 	const cellTop = RACK_LABEL_H + deviceTop + RACK_PADDING + row * (PORT_CELL_H + PORT_GAP)
 
 	// Dot center is at center-bottom of port cell
-	const dotX = cellLeft + PORT_CELL_W / 2
-	const dotY = cellTop + PORT_CELL_H - DOT_INSET - DOT_R
+	const dotX = cellLeft + PORT_CELL_W / 2 + 1
+	const dotY = cellTop + PORT_CELL_H - DOT_INSET - DOT_R + 1
 
 	return { x: rackX + dotX, y: rackY + dotY, col }
 }
 
-/** Left and right cable channel X positions for a rack */
+/** Left and right cable channel X positions for a rack (inside device area) */
 export function cableChannelX(rackX: number): { left: number; right: number } {
 	return {
 		left: rackX + U_LABEL_W - CABLE_CH_OFFSET,

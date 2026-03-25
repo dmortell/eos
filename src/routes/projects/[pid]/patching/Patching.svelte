@@ -79,7 +79,7 @@
 
 	function isRefOrphaned(ref: PatchConnection['fromPortRef']): boolean {
 		if (!ref.rackId && !ref.deviceId) return false  // empty ref, not orphaned
-		return (ref.rackId && !rackIds.has(ref.rackId)) || (ref.deviceId && !deviceIds.has(ref.deviceId))
+		return !!(ref.rackId && !rackIds.has(ref.rackId)) || !!(ref.deviceId && !deviceIds.has(ref.deviceId))
 	}
 
 	let orphanedIds = $derived.by(() => {
@@ -397,7 +397,7 @@
 							<div class="bg-gray-50 rounded p-2.5 space-y-1.5">
 								<div class="flex justify-between"><span>Total connections</span><span class="font-mono font-medium text-gray-700">{connections.length}</span></div>
 								<div class="flex justify-between"><span>Ports used</span><span class="font-mono font-medium text-gray-700">{connectedPorts} / {totalPorts}</span></div>
-								<div class="flex justify-between"><span>Add</span><span class="font-mono text-blue-600">{connections.filter(c => c.status === 'add' || c.status === 'planned').length}</span></div>
+								<div class="flex justify-between"><span>Add</span><span class="font-mono text-blue-600">{connections.filter(c => c.status === 'add' || (c.status as string) === 'planned').length}</span></div>
 								<div class="flex justify-between"><span>Change</span><span class="font-mono text-amber-600">{connections.filter(c => c.status === 'change').length}</span></div>
 								<div class="flex justify-between"><span>Remove</span><span class="font-mono text-red-600">{connections.filter(c => c.status === 'remove').length}</span></div>
 								<div class="flex justify-between"><span>Installed</span><span class="font-mono text-green-600">{connections.filter(c => c.status === 'installed').length}</span></div>

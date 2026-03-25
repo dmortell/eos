@@ -82,8 +82,8 @@
 		<span
 			class="absolute rounded-full"
 			class:animate-pulse={isDuplicate}
-			style:bottom="{DOT_INSET}px"
-			style:left="{PORT_CELL_W / 2 - DOT_R}px"
+			style:bottom="{DOT_INSET - 3}px"
+			style:left="{PORT_CELL_W / 2 - DOT_R - 1}px"
 			style:width="{dotSize}px"
 			style:height="{dotSize}px"
 			style:background={dotColor}
