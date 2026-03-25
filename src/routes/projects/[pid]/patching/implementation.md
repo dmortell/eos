@@ -230,11 +230,17 @@ src/routes/projects/[pid]/patching/
 11. ✓ Inline bulk-add panel at sidebar bottom: port range inputs (from-start, to-start), count, cable type selector, preview of port ranges, "Create N patches" button
 12. ✓ Auto-defaults: first available port on each device, count = min available ports, cable type from settings
 
-### Phase 5 — Rack Elevation View (future)
+### Phase 5 — Rack Elevation View
 
-10. `parts/RackPreview.svelte` — Read-only racks with interactive port indicators
-11. `parts/CableOverlay.svelte` — H/V straight-line cable routing (like outlet trunks)
-12. Drag-to-connect on rack elevation view
+See detailed design below in **Elevation View Design**.
+
+10. `parts/ElevationView.svelte` — Multi-rack elevation canvas with pan/zoom, port grid rendering, cable overlay
+11. `parts/ElevationRack.svelte` — Single rack column: U markers, devices, port grid
+12. `parts/ElevationPort.svelte` — Individual port cell: color-coded by usage type (from frames data), connection state indicators
+13. `parts/CableOverlay.svelte` — SVG cable lines between connected ports, color-coded by cable type
+14. View toggle in toolbar: list view ↔ elevation view
+15. Click port → select/create connection; click cable → select connection in list
+16. Auto-assign with left/right port affinity to minimize cable crossing
 
 ### Phase 6a — Polish ✓
 
@@ -285,3 +291,157 @@ Start with option 1 (detection + visual warnings) and 2 (lock in racks tool). Op
 - **Keyboard navigation** — Tab through ports, Enter to confirm, Escape to cancel
 - **Bulk-add enhancements** — Skip already-used ports in bulk range; support face selection (front/rear) in bulk panel; allow reverse port mapping (e.g. ports 1-24 → ports 24-1)
 - **Quick single-add from sidebar** — "+" button on device hover to add one connection pre-filled with that device's first available port as "from"
+
+---
+
+## Elevation View Design
+
+### Scope & Purpose
+
+The elevation view shows **front-face port grids** for all racks in the current room, side by side, with cable lines drawn between connected ports. This is a **visual patching view** — the user can see which ports are patched, to where, and what type of cable. It complements the table view (which is for bulk data entry/editing).
+
+The frames tool handles **structured cabling behind the panels** (outlet → patch panel port assignments, zone/location labeling). The patching tool handles **patch cords on the front** (panel port → switch port). The elevation view needs to consume port assignment data from frames to color-code ports by usage type, but does NOT duplicate the frames tool's assignment/editing capabilities.
+
+### Frames vs. Patching — Division of Responsibility
+
+| Concern | Frames Tool | Patching Tool |
+|---------|-------------|---------------|
+| Port labeling (FF.Z.NNN-SPP) | Owns — assigns labels | Reads — displays labels |
+| Port usage type (desk, AP, PR) | Owns — assigns via block select | Reads — colors ports by type |
+| Port reservation blocks | Owns — drag-select + assign type | N/A |
+| Structured cabling (outlet → panel) | Owns | N/A |
+| Patch cords (panel → switch) | N/A | Owns |
+| Port grid rendering | HTML grid (PortCell.svelte) | HTML grid (ElevationPort.svelte) |
+| LOC_TYPE_COLORS | Exports from `frames/parts/types.ts` | Imports and reuses |
+
+**Key principle:** The patching tool **imports** `LOC_TYPE_COLORS` and port label data from the frames tool. No duplication of assignment logic. The elevation view is read-only for frames data; write-only for patch connections.
+
+### Multi-Rack Layout
+
+All racks in the current floor/room rendered side by side horizontally:
+
+```
+┌─────────────┐  ┌─────────────┐  ┌─────────────┐
+│   Rack A    │  │   Rack B    │  │   Rack C    │
+│  ┌───────┐  │  │  ┌───────┐  │  │  ┌───────┐  │
+│  │ U42   │  │  │  │ U42   │  │  │  │ U42   │  │
+│  │  ...  │  │  │  │  ...  │  │  │  │  ...  │  │
+│  │ Sw-1  │◄─┼──┼──┤ PP-1  │  │  │  │ PP-2  │  │
+│  │ ░░░░░ │  │  │  │ ▓▓▓▓▓ │◄─┼──┼──┤ ▓▓▓▓▓ │  │
+│  │  ...  │  │  │  │  ...  │  │  │  │  ...  │  │
+│  │ U1    │  │  │  │ U1    │  │  │  │ U1    │  │
+│  └───────┘  │  │  └───────┘  │  │  └───────┘  │
+└─────────────┘  └─────────────┘  └─────────────┘
+```
+
+- Pan/zoom canvas (right/middle-click to pan, ctrl+wheel to zoom) following existing pan/zoom pattern from racks/frames/uploads tools
+- Rack spacing: configurable gap (default ~40px)
+- U labels on left rail of each rack
+
+### Port Grid Rendering
+
+Each device with ports renders a port grid inside its device block:
+
+- **24-port devices:** Single row of 24 cells
+- **48-port devices:** Two rows of 24 cells (top + bottom)
+- Port cells: small rectangles (~16×14px) with:
+  - **Background color** from `LOC_TYPE_COLORS` (frames data) — shows usage type (desk=blue, AP=green, PR=orange, etc.)
+  - **Dot/ring indicator** for connection state:
+    - Empty port: no indicator
+    - Connected port: colored dot matching cable type color
+    - Selected: ring highlight
+  - **Port number** in tiny monospace font
+  - **Tooltip** on hover: full port label, connection details, cable type
+
+### Port Coloring Strategy
+
+Ports are colored by **two independent dimensions**:
+
+1. **Background = usage type** (from frames data): desk, AP, PR, WC, etc. using `LOC_TYPE_COLORS`. This tells the technician what KIND of outlet is connected to this panel port.
+2. **Dot/badge = connection state** (from patching data): which cable type is patched, or whether the port is unpatched. This tells the technician what's actually plugged in.
+
+This dual-coding means a technician can see at a glance: "This is a desk port (blue background) patched with U/UTP (blue dot) to Switch A port 3."
+
+### Cable Overlay
+
+SVG layer over the rack canvas, drawing lines between connected ports:
+
+- **Line color** matches cable type color
+- **Line style:** solid for installed, dashed for add/change/remove
+- **Routing:** Initially straight lines between port centers. Future: H/V orthogonal routing through cable manager zones (vertical channels between racks, horizontal channels between U positions)
+- **Hover:** Highlight cable + both endpoints; show tooltip with cable type, length, status
+- **Click:** Select the connection in both elevation view and table view (scroll to row)
+
+### Auto-Assign with Port Affinity
+
+When auto-assigning patch panel ports to switch ports, minimize cable crossing by using **left/right affinity**. Port physical layout varies by device type:
+
+**Patch panels** (ports numbered left-to-right per row):
+- 24-port (1RU): ports 1-12 left, 13-24 right
+- 48-port (2RU): top row 1-12 left / 13-24 right, bottom row 25-36 left / 37-48 right
+
+**Switches** (varied layouts — need port layout config per device):
+- 48-port stacked: ports 1-24 left half, 25-48 right half (or 1&2 stacked, 3&4 stacked, etc.)
+- 24-port: ports 1-12 left, 13-24 right
+- Small switches (8/12 port): all ports may be on one side (left or right)
+- Stacked pairs: port 1 above port 2, 3 above 4, etc.
+
+**Port layout definition** — devices in the Racks tool should eventually support a `portLayout` config that defines the physical arrangement. For now, assume the default: left half = first half of ports, right half = second half. This can be refined per device type later.
+
+Auto-assign algorithm:
+1. User selects source ports (on patch panel) — optionally filtered by usage type (e.g., "all desk ports")
+2. User selects target device (switch)
+3. Algorithm groups source ports by left/right physical position
+4. Assigns left-source → lowest-available left-target, right-source → lowest-available right-target
+5. If one side is full, spill to the other side
+6. Cable type inherited from settings default
+
+This can be triggered from:
+- Sidebar: select source device → target device → "Auto-assign" option in bulk panel
+- Elevation view (future): select ports on panel → "Auto-assign to..." context action
+
+### Cross-Room / Cross-Floor Chain Visualization
+
+Connections can span rooms (cross-connects) and floors. The elevation view shows only the current room's racks, but needs to indicate when a cable leaves the room:
+
+- Ports patched to a different room/floor show a **"→ F2/B"** badge (target floor/room)
+- Clicking such a port could navigate to the target room's patching view (future)
+- Circuit tracing (BFS across all patching docs) highlights the full end-to-end path (future)
+- Such cross-connects will be defined as structured cabling using the Frame tool
+
+### Implementation Approach
+
+**Integrated toggle view** — Toolbar toggle switches between table view and elevation view within the existing Patching.svelte layout. Both views share the same connections state. Sidebar remains unchanged. Can evolve to split-pane later if both views are needed simultaneously.
+
+### Component Structure
+
+```
+parts/
+├── ElevationView.svelte      # Canvas container: pan/zoom, rack layout, cable overlay
+├── ElevationRack.svelte      # Single rack: U markers, device blocks, port grids
+├── ElevationPort.svelte      # Port cell: color-coded, connection indicator, click handler
+├── CableOverlay.svelte       # SVG cable lines between connected ports
+└── elevationUtils.ts         # Port coordinate calculation, auto-assign algorithm
+```
+
+### Data Flow
+
+```
+frames/{docId}  → port labels + usage types (LOC_TYPE_COLORS)
+                   ↓
+racks/{docId}   → rack layout, device positions, port counts
+                   ↓
+              ElevationView
+                   ↓
+patching/{docId} → connections (which ports are patched)
+                   ↓
+              CableOverlay (SVG lines)
+```
+
+### Shared Code Strategy
+
+To avoid duplicating code between frames and patching tools:
+
+1. **Move `LOC_TYPE_COLORS` and `LOC_TYPE_LABELS` to `$lib`** — both tools import from shared location
+2. **Port grid rendering** — frames uses `PortCell.svelte` (with assignment editing); patching uses `ElevationPort.svelte` (read-only for usage, click-to-patch). Different components, shared color constants.
+3. **Pan/zoom** — already a common pattern across racks/frames/uploads tools. No shared component needed, just follow the same `view = { x, y, scale }` pattern.

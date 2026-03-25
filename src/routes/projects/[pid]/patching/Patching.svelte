@@ -90,6 +90,25 @@
 		return ids
 	})
 
+	// ── BOM summary (grouped by cable type then length) ──
+	let bomGroups = $derived.by(() => {
+		const map = new Map<string, Map<number, number>>()
+		for (const c of connections) {
+			if (!map.has(c.cableType)) map.set(c.cableType, new Map())
+			const lengths = map.get(c.cableType)!
+			lengths.set(c.lengthMeters, (lengths.get(c.lengthMeters) ?? 0) + 1)
+		}
+		const groups: { typeId: string; label: string; color: string; totalQty: number; lengths: { length: number; qty: number }[] }[] = []
+		for (const [typeId, lengths] of map) {
+			const ct = getCableType(typeId, customCableTypes)
+			const entries = [...lengths.entries()]
+				.map(([length, qty]) => ({ length, qty }))
+				.sort((a, b) => a.length - b.length)
+			groups.push({ typeId, label: ct.label, color: ct.color, totalQty: entries.reduce((s, e) => s + e.qty, 0), lengths: entries })
+		}
+		return groups.sort((a, b) => a.label.localeCompare(b.label))
+	})
+
 	// ── Sync from remote ──
 	let syncPaused = $state(false)
 	let syncTimer: ReturnType<typeof setTimeout> | null = null
@@ -382,29 +401,29 @@
 								<div class="flex justify-between"><span>Installed</span><span class="font-mono text-green-600">{connections.filter(c => c.status === 'installed').length}</span></div>
 							</div>
 
-							<!-- Cable type breakdown -->
+							<!-- BOM: cable type + length breakdown -->
 							<div class="bg-gray-50 rounded p-2.5 space-y-1">
-								<div class="text-[10px] text-gray-400 uppercase tracking-wider mb-1">By cable type</div>
-								{#each CABLE_TYPES as ct (ct.id)}
-									{@const count = connections.filter(c => c.cableType === ct.id).length}
-									{#if count > 0}
-										<div class="flex items-center gap-2">
-											<span class="w-2.5 h-2.5 rounded-full shrink-0" style:background={ct.color}></span>
-											<span class="flex-1">{ct.label}</span>
-											<span class="font-mono font-medium text-gray-700">{count}</span>
+								<div class="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Bill of materials</div>
+								{#each bomGroups as group (group.typeId)}
+									<div>
+										<div class="flex items-center gap-1.5">
+											<span class="w-2 h-2 rounded-full shrink-0" style:background={group.color}></span>
+											<span class="font-medium text-gray-600">{group.label}</span>
+											<span class="font-mono text-gray-400 text-[10px] ml-auto">{group.totalQty}</span>
 										</div>
-									{/if}
-								{/each}
-								{#each customCableTypes as ct (ct.id)}
-									{@const count = connections.filter(c => c.cableType === ct.id).length}
-									{#if count > 0}
-										<div class="flex items-center gap-2">
-											<span class="w-2.5 h-2.5 rounded-full shrink-0" style:background={ct.color}></span>
-											<span class="flex-1">{ct.label}</span>
-											<span class="font-mono font-medium text-gray-700">{count}</span>
+										<div class="ml-3.5 space-y-px">
+											{#each group.lengths as entry}
+												<div class="flex justify-between text-[10px] text-gray-400">
+													<span>{entry.length}m</span>
+													<span class="font-mono text-gray-500">×{entry.qty}</span>
+												</div>
+											{/each}
 										</div>
-									{/if}
+									</div>
 								{/each}
+								{#if bomGroups.length === 0}
+									<div class="text-[10px] text-gray-300">No connections</div>
+								{/if}
 							</div>
 						</div>
 					{/if}
