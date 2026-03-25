@@ -33,6 +33,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Routing
 
 All project tools live under `src/routes/projects/[pid]/`:
+
 - `/frames/` — Patch Frame Port Allocation (labeling, panel layout)
 - `/racks/` — Rack Elevations (server room device management)
 - `/uploads/` — Floorplan Uploads (PDF viewer with origin/scale/crop tools)
@@ -45,6 +46,7 @@ Each tool has a `+page.svelte` entry point that subscribes to Firestore, and a m
 **Barrel exports** via `src/lib/index.ts`: Button, Dialog, Dropdown, Icon, Input, Row, Select, Search, Spacer, Spinner, Titlebar, Truncate, Window, Firestore, Session
 
 **`db.svelte.ts`** — Firestore wrapper class with:
+
 - `subscribeOne(table, id, callback)` — real-time single doc
 - `subscribeMany(path, callback)` — real-time collection
 - `subscribeWhere(path, field, value, callback)` — filtered subscription
@@ -66,7 +68,7 @@ Each tool has a `+page.svelte` entry point that subscribes to Firestore, and a m
 
 The racks, frames, and uploads tools all use a similar canvas pattern:
 - CSS `transform: translate(Xpx, Ypx) scale(Z)` with `transform-origin: 0 0`
-- Right/middle-click pans, ctrl/alt/meta+wheel zooms. Right+wheel zooms
+- Right/middle-click to pan, ctrl/alt/meta+wheel to zoom view. Right+wheel to zoom
 - SVG overlays positioned absolutely over a canvas or div
 - Wheel listener attached with `{ passive: false }` for `preventDefault()`
 - Use `tick()` (not `requestAnimationFrame`) for DOM timing after state changes
@@ -77,7 +79,6 @@ The racks, frames, and uploads tools all use a similar canvas pattern:
 
 ## Environment
 
-- `.env` requires `UPLOADTHING_TOKEN`
 - Firebase config is hardcoded in `db.svelte.ts` (project: sunny-jetty-180208)
 - App locale is `'ja'` (Japanese)
 - Dont use cd unnecessarily to change to the current working directory

@@ -25,7 +25,7 @@ vite.config.ts.timestamp-*
 
 sample
 sample-*
-implementation.md
+# implementation.md
 *-00*
 static/*.pdf
 

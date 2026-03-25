@@ -10,7 +10,8 @@
       "Bash(wc:*)",
       "Bash(pnpm check:*)",
       "Bash(head:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(du -sh /m/dev/eos/src/routes/projects/[pid]/*)"
     ]
   }
 }
