@@ -9,18 +9,22 @@
 		devices = [],
 		customCableTypes = [],
 		settings,
+		editNewId = null,
 		onupdate,
 		ondelete,
 		ondeleteselected,
+		oneditnewclear,
 	}: {
 		connections: PatchConnection[]
 		racks: any[]
 		devices: any[]
 		customCableTypes: CustomCableType[]
 		settings: PatchSettings
+		editNewId?: string | null
 		onupdate?: (id: string, updates: Partial<PatchConnection>) => void
 		ondelete?: (id: string) => void
 		ondeleteselected?: (ids: string[]) => void
+		oneditnewclear?: () => void
 	} = $props()
 
 	let selectedIds = $state(new Set<string>())
@@ -211,7 +215,7 @@
 						{:else}
 							<!-- svelte-ignore a11y_click_events_have_key_events -->
 							<!-- svelte-ignore a11y_no_static_element_interactions -->
-							<span class="text-gray-700 hover:text-blue-600 cursor-pointer" ondblclick={() => startEdit(conn.id, 'from')}>
+							<span class="text-gray-700 hover:text-blue-600 cursor-pointer" onclick={e => { e.stopPropagation(); startEdit(conn.id, 'from') }}>
 								{fmtRef(conn.fromPortRef)}
 							</span>
 						{/if}
@@ -224,7 +228,7 @@
 						{:else}
 							<!-- svelte-ignore a11y_click_events_have_key_events -->
 							<!-- svelte-ignore a11y_no_static_element_interactions -->
-							<span class="text-gray-700 hover:text-blue-600 cursor-pointer" ondblclick={() => startEdit(conn.id, 'to')}>
+							<span class="text-gray-700 hover:text-blue-600 cursor-pointer" onclick={e => { e.stopPropagation(); startEdit(conn.id, 'to') }}>
 								{fmtRef(conn.toPortRef)}
 							</span>
 						{/if}

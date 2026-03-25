@@ -38,6 +38,7 @@
 	let floorManagerOpen = $state(false)
 	let saveStatus = $state<'saved' | 'saving' | 'unsaved'>('saved')
 	let sidebarTab = $state<'devices' | 'summary'>('devices')
+	let editNewId = $state<string | null>(null)
 
 	// ── Racks data (read-only, from racks tool) ──
 	let racks = $derived(rackData?.racks ?? [])
@@ -116,6 +117,7 @@
 			status: 'planned',
 		}
 		connections = [...connections, conn]
+		editNewId = id
 		logChange('add', 'connection', id)
 	}
 
@@ -296,9 +298,11 @@
 						{devices}
 						{customCableTypes}
 						{settings}
+						{editNewId}
 						onupdate={updateConnection}
 						ondelete={deleteConnection}
 						ondeleteselected={deleteSelected}
+						oneditnewclear={() => editNewId = null}
 					/>
 				</div>
 
