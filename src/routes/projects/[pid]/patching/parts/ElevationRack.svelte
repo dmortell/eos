@@ -1,8 +1,9 @@
 <script lang="ts">
 	import type { PatchConnection, CustomCableType } from './types'
+	import type { PortInfo } from './elevationUtils'
 	import ElevationPort from './ElevationPort.svelte'
 	import {
-		RU_HEIGHT, PORT_CELL_H, PORT_GAP, RACK_PADDING,
+		RU_HEIGHT, PORT_CELL_W, PORT_CELL_H, PORT_GAP, RACK_PADDING,
 		U_LABEL_W, RACK_LABEL_H, PORTS_PER_ROW,
 		rackWidth, rackHeight, uToY, portRowCount, deviceAreaWidth,
 	} from './elevationUtils'
@@ -11,15 +12,21 @@
 		rack,
 		devices = [],
 		portConnectionMap = new Map(),
+		portInfoMap = new Map(),
+		duplicatePorts = new Set(),
 		customCableTypes = [],
 		selectedPortKey = null,
+		connectFromKey = null,
 		onportclick,
 	}: {
 		rack: any
 		devices: any[]
 		portConnectionMap: Map<string, PatchConnection>
+		portInfoMap: Map<string, PortInfo>
+		duplicatePorts: Set<string>
 		customCableTypes: CustomCableType[]
 		selectedPortKey?: string | null
+		connectFromKey?: string | null
 		onportclick?: (deviceId: string, portIndex: number) => void
 	} = $props()
 
@@ -38,13 +45,6 @@
 
 	function deviceH(device: any): number {
 		return device.heightU * RU_HEIGHT
-	}
-
-	/** Calculate vertical centering offset for port grid within device */
-	function portGridTopOffset(device: any): number {
-		const rows = portRowCount(device.portCount)
-		const totalGridH = rows * PORT_CELL_H + (rows - 1) * PORT_GAP
-		return (deviceH(device) - totalGridH) / 2
 	}
 </script>
 
@@ -87,38 +87,48 @@
 			{@const hasPorts = device.portCount > 0}
 			{@const cols = Math.min(device.portCount, PORTS_PER_ROW)}
 			<div class="absolute rounded-sm"
-				style:top="{dTop}px" style:left="{U_LABEL_W}px" style:width="{devAreaW}px" style:height="{dH}px"
-				title="{device.label || device.type} — U{device.positionU} {device.portCount ? device.portCount + ' ports' : ''}">
+				style:top="{dTop}px" style:left="{U_LABEL_W}px" style:width="{devAreaW}px" style:height="{dH}px">
 
-				<!-- Device background -->
+				<!-- Device background (shows title on hover over empty area) -->
 				<div class="absolute inset-0 border rounded-sm"
 					style:background={device.color ? device.color + '15' : '#f1f5f9'}
-					style:border-color={device.color || '#cbd5e1'}>
+					style:border-color={device.color || '#cbd5e1'}
+					title="{device.label || device.type} — U{device.positionU} {device.portCount ? device.portCount + ' ports' : ''}">
 				</div>
 
 				{#if hasPorts}
-					<!-- Port grid: fixed row height, centered vertically -->
-					<div class="absolute grid"
-						style:top="{portGridTopOffset(device)}px"
-						style:left="{RACK_PADDING}px"
-						style:right="{RACK_PADDING}px"
-						style:grid-template-columns="repeat({cols}, 1fr)"
-						style:grid-template-rows="repeat({rows}, {PORT_CELL_H}px)"
-						style:gap="{PORT_GAP}px">
-						{#each Array.from({ length: device.portCount }) as _, idx}
-							{@const pIdx = idx + 1}
-							{@const connKey = `${device.id}:${pIdx}`}
-							<ElevationPort
-								portIndex={pIdx}
-								connection={portConnectionMap.get(connKey) ?? null}
-								{customCableTypes}
-								selected={selectedPortKey === connKey}
-								onclick={() => onportclick?.(device.id, pIdx)}
-							/>
+					<!-- Device label at bottom-left, under ports (z-0) -->
+					<div class="absolute bottom-0 left-0.5 select-none pointer-events-none z-0 opacity-50">
+						<span class="text-[7px] text-gray-500 truncate">{device.label || device.type}</span>
+					</div>
+
+					<!-- Port grid: fixed cell size, top-aligned (z-10, above label) -->
+					<div class="absolute z-10"
+						style:top="{RACK_PADDING}px"
+						style:left="{RACK_PADDING}px">
+						{#each Array.from({ length: rows }) as _, rowIdx}
+							{@const rowStart = rowIdx * PORTS_PER_ROW}
+							{@const rowEnd = Math.min(rowStart + PORTS_PER_ROW, device.portCount)}
+							<div class="flex" style:gap="{PORT_GAP}px" style:margin-bottom="{rowIdx < rows - 1 ? PORT_GAP : 0}px">
+								{#each Array.from({ length: rowEnd - rowStart }) as _, colIdx}
+									{@const pIdx = rowStart + colIdx + 1}
+									{@const connKey = `${device.id}:${pIdx}`}
+									<ElevationPort
+										portIndex={pIdx}
+										connection={portConnectionMap.get(connKey) ?? null}
+										portInfo={portInfoMap.get(connKey) ?? null}
+										isDuplicate={duplicatePorts.has(connKey)}
+										{customCableTypes}
+										selected={selectedPortKey === connKey}
+										isConnectSource={connectFromKey === connKey}
+										onclick={() => onportclick?.(device.id, pIdx)}
+									/>
+								{/each}
+							</div>
 						{/each}
 					</div>
 				{:else}
-					<!-- No ports: show label -->
+					<!-- No ports: show label centered -->
 					<div class="relative flex items-center justify-center w-full h-full select-none pointer-events-none">
 						<span class="text-[9px] font-medium text-gray-500 truncate px-1">{device.label || device.type}</span>
 					</div>

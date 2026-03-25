@@ -539,13 +539,13 @@
 								{viewMode === 'list' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
 							onclick={() => viewMode = 'list'}
 							title="Table view"
-						><Icon name="list" size={12} /></button>
+						><Icon name="list" size={12} />Table</button>
 						<button
 							class="h-6 px-2 text-[11px] font-medium flex items-center gap-1 transition-colors
 								{viewMode === 'elevation' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
 							onclick={() => viewMode = 'elevation'}
 							title="Elevation view"
-						><Icon name="server" size={12} /></button>
+						><Icon name="server" size={12} />Elevation</button>
 					</div>
 
 					<!-- Settings -->
@@ -629,6 +629,16 @@
 							{devices}
 							{customCableTypes}
 							{frameData}
+							{settings}
+							{floor}
+							{room}
+							serverRoomCount={roomCount}
+							{floorFormat}
+							onaddconnection={conn => {
+								connections = [...connections, conn]
+								logChange('add', 'connection', conn.id)
+							}}
+							onupdateconnection={(id, updates) => updateConnection(id, updates)}
 						/>
 					</div>
 				{/if}

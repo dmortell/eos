@@ -67,6 +67,19 @@
 
 			<!-- Content -->
 			<div class="flex-1 overflow-y-auto p-4 space-y-5">
+				<!-- Display settings (for elevation view) -->
+				<div class="space-y-1.5">
+					<div class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Elevation Display</div>
+					<label class="flex items-center gap-2 text-[11px] text-gray-600 cursor-pointer">
+						<input type="checkbox" class="rounded border-gray-300" bind:checked={localSettings.showLabels} />
+						Show port labels on cables
+					</label>
+					<label class="flex items-center gap-2 text-[11px] text-gray-600 cursor-pointer">
+						<input type="checkbox" class="rounded border-gray-300" bind:checked={localSettings.showLengths} />
+						Show cable lengths
+					</label>
+				</div>
+
 				<!-- Default cable type -->
 				<div class="space-y-1.5">
 					<div class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Defaults</div>

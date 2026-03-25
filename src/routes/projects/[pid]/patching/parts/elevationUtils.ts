@@ -1,4 +1,6 @@
 import type { PatchConnection } from './types'
+import type { PortLabel } from '../../frames/parts/types'
+import { generatePortLabels, generateRacks } from '../../frames/parts/engine'
 
 // ── Layout constants ──
 
@@ -98,4 +100,122 @@ export function buildPortConnectionMap(connections: PatchConnection[]): Map<stri
 		}
 	}
 	return map
+}
+
+/** Hex background colors for port usage types (matching LOC_TYPE_COLORS from frames tool) */
+export const PORT_TYPE_COLORS: Record<string, string> = {
+	'N/A': '#d1d5db',
+	desk: '#3b82f6',
+	AP: '#22c55e',
+	PR: '#f97316',
+	RS: '#a855f7',
+	FR: '#ef4444',
+	WC: '#06b6d4',
+	TV: '#ec4899',
+	LK: '#f59e0b',
+}
+
+/** Info resolved for a port from frames data */
+export interface PortInfo {
+	label: string
+	locationType: string
+}
+
+/**
+ * Build a map of `deviceId:portIndex` → PortInfo by matching racks devices
+ * to frames panel data via RU position within the same server room.
+ *
+ * frameData.zoneLocations is Record<string, LocationConfig[]> (keyed by zone letter).
+ */
+export function buildPortInfoMap(
+	frameData: any,
+	room: string,
+	devices: any[],
+	racks: any[],
+	floor: number = 1,
+	serverRoomCount: number = 1,
+	floorFormat: string = 'L01',
+): Map<string, PortInfo> {
+	const map = new Map<string, PortInfo>()
+	if (!frameData) return map
+
+	const zoneLocations: Record<string, any[]> = frameData.zoneLocations ?? {}
+	const zoneLetters = Object.keys(zoneLocations).filter(k => zoneLocations[k]?.length > 0).sort()
+	if (zoneLetters.length === 0) return map
+
+	const frameConfigs = frameData.frames ?? []
+	const reservations = frameData.reservations
+		? new Map(Object.entries(frameData.reservations))
+		: undefined
+
+	// Generate all port labels for all zones on this floor
+	const allLabels: PortLabel[] = []
+	for (const z of zoneLetters) {
+		allLabels.push(...generatePortLabels(
+			{ floor, zone: z, serverRoomCount, locations: zoneLocations[z] },
+			floorFormat,
+		))
+	}
+	if (allLabels.length === 0 && frameConfigs.length === 0) return map
+
+	// Generate rack/panel data from frames engine
+	const rackDataList = generateRacks(
+		allLabels, serverRoomCount,
+		frameConfigs.length > 0 ? frameConfigs : undefined,
+		reservations as any,
+	)
+
+	// Filter to frames in the current server room
+	const roomRacks = rackDataList.filter(rd => rd.frame.serverRoom === room)
+
+	// Build RU → PortLabel[] lookup from frames panels
+	const ruToLabels = new Map<number, (PortLabel | null)[]>()
+	for (const rd of roomRacks) {
+		for (const panel of rd.panels) {
+			const ports = [...panel.topRow, ...panel.bottomRow]
+			ruToLabels.set(panel.ru, ports)
+		}
+	}
+
+	// Match racks devices to frame panels by RU position
+	for (const device of devices) {
+		const rack = racks.find((r: any) => r.id === device.rackId)
+		if (!rack || !device.portCount) continue
+
+		// Try matching by device RU position
+		const labels = ruToLabels.get(device.positionU)
+		if (!labels) continue
+
+		for (let i = 0; i < device.portCount && i < labels.length; i++) {
+			const portLabel = labels[i]
+			if (portLabel) {
+				map.set(`${device.id}:${i + 1}`, {
+					label: portLabel.label,
+					locationType: portLabel.locationType,
+				})
+			}
+		}
+	}
+
+	return map
+}
+
+/**
+ * Find ports that appear in more than one connection (duplicate assignments).
+ * Returns a Set of `deviceId:portIndex` keys.
+ */
+export function findDuplicatePorts(connections: PatchConnection[]): Set<string> {
+	const count = new Map<string, number>()
+	for (const c of connections) {
+		for (const ref of [c.fromPortRef, c.toPortRef]) {
+			if (!ref.deviceId || ref.portIndex <= 0) continue
+			const key = `${ref.deviceId}:${ref.portIndex}`
+			count.set(key, (count.get(key) ?? 0) + 1)
+		}
+	}
+	const dupes = new Set<string>()
+	for (const [key, n] of count) {
+		if (n > 1) dupes.add(key)
+	}
+	return dupes
 }
