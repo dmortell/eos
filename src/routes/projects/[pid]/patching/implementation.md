@@ -413,6 +413,30 @@ Connections can span rooms (cross-connects) and floors. The elevation view shows
 
 **Integrated toggle view** — Toolbar toggle switches between table view and elevation view within the existing Patching.svelte layout. Both views share the same connections state. Sidebar remains unchanged. Can evolve to split-pane later if both views are needed simultaneously.
 
+**Option A — Integrated elevation pane (recommended)**
+- Add elevation view as a toggleable view within the existing Patching.svelte layout
+- Toggle button in toolbar switches between table view and elevation view
+- Both views share the same connections state — edits in one reflect in the other
+- Sidebar remains the same (device tree + summary)
+- Pros: Single source of truth, no sync issues, compact
+- Cons: Only one view visible at a time
+
+**Option B — Split pane (elevation + table)**
+- PaneGroup with elevation on top, table on bottom (or side by side)
+- Both visible simultaneously
+- Clicking a port in elevation scrolls to the connection in the table
+- Clicking a row in the table highlights the cable in the elevation
+- Pros: See both views, cross-reference easily
+- Cons: Screen real estate, complex layout
+
+**Option C — Elevation as a separate tool page**
+- `/projects/[pid]/patching/elevation/` — separate route
+- Reads same Firestore doc
+- Pros: Clean separation, full screen for elevation
+- Cons: Two pages to maintain, potential sync issues with concurrent edits
+
+**Recommendation:** Start with **Option A** (toggle) for simplicity, move to **Option B** (split) if users need both views simultaneously. Option C is unnecessary given Firestore's real-time sync.
+
 ### Component Structure
 
 ```

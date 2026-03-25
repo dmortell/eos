@@ -11,6 +11,7 @@
 	import { calculateCableLength } from './parts/cableUtils'
 	import { exportPatchExcel, importCordIds } from './parts/exportExcel'
 	import PatchList from './parts/PatchList.svelte'
+	import ElevationView from './parts/ElevationView.svelte'
 	import SettingsDialog from './parts/SettingsDialog.svelte'
 
 	let {
@@ -43,6 +44,7 @@
 	let saveStatus = $state<'saved' | 'saving' | 'unsaved'>('saved')
 	let sidebarTab = $state<'devices' | 'summary'>('devices')
 	let editNewId = $state<string | null>(null)
+	let viewMode = $state<'list' | 'elevation'>('list')
 
 	// ── Bulk-add state ──
 	let bulkFrom = $state<{ rackId: string; deviceId: string } | null>(null)
@@ -530,6 +532,22 @@
 
 					<div class="flex-1"></div>
 
+					<!-- View toggle -->
+					<div class="flex rounded overflow-hidden border border-gray-200">
+						<button
+							class="h-6 px-2 text-[11px] font-medium flex items-center gap-1 transition-colors
+								{viewMode === 'list' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
+							onclick={() => viewMode = 'list'}
+							title="Table view"
+						><Icon name="list" size={12} /></button>
+						<button
+							class="h-6 px-2 text-[11px] font-medium flex items-center gap-1 transition-colors
+								{viewMode === 'elevation' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
+							onclick={() => viewMode = 'elevation'}
+							title="Elevation view"
+						><Icon name="server" size={12} /></button>
+					</div>
+
 					<!-- Settings -->
 					<button
 						class="h-6 w-6 rounded bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-colors flex items-center justify-center"
@@ -585,23 +603,35 @@
 					</div>
 				{/if}
 
-				<!-- Patch list table -->
-				<div class="flex-1 min-h-0 overflow-auto">
-					<PatchList
-						{connections}
-						{racks}
-						{devices}
-						{customCableTypes}
-						{settings}
-						{editNewId}
-						{orphanedIds}
-						onupdate={updateConnection}
-						ondelete={deleteConnection}
-						ondeleteselected={deleteSelected}
-						onupdateselected={updateSelected}
-						oneditnewclear={() => editNewId = null}
-					/>
-				</div>
+				<!-- Main content area -->
+				{#if viewMode === 'list'}
+					<div class="flex-1 min-h-0 overflow-auto">
+						<PatchList
+							{connections}
+							{racks}
+							{devices}
+							{customCableTypes}
+							{settings}
+							{editNewId}
+							{orphanedIds}
+							onupdate={updateConnection}
+							ondelete={deleteConnection}
+							ondeleteselected={deleteSelected}
+							onupdateselected={updateSelected}
+							oneditnewclear={() => editNewId = null}
+						/>
+					</div>
+				{:else}
+					<div class="flex-1 min-h-0">
+						<ElevationView
+							{connections}
+							{racks}
+							{devices}
+							{customCableTypes}
+							{frameData}
+						/>
+					</div>
+				{/if}
 
 				<!-- Status bar -->
 				<div class="h-7 flex items-stretch border-t border-gray-200 bg-gray-50 shrink-0 print:hidden">
