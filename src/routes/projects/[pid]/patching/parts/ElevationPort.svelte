@@ -77,13 +77,13 @@
 	<!-- Port number -->
 	<span class="text-[7px] font-mono leading-none" style:color={textColor}>{portIndex}</span>
 
-	<!-- Connection/duplicate indicator dot (top-right), 70% opacity -->
+	<!-- Connection/duplicate indicator dot (center-bottom), 70% opacity -->
 	{#if showDot}
 		<span
 			class="absolute rounded-full"
 			class:animate-pulse={isDuplicate}
-			style:top="{DOT_INSET}px"
-			style:right="{DOT_INSET}px"
+			style:bottom="{DOT_INSET}px"
+			style:left="{PORT_CELL_W / 2 - DOT_R}px"
 			style:width="{dotSize}px"
 			style:height="{dotSize}px"
 			style:background={dotColor}

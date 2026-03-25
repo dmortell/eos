@@ -1,7 +1,11 @@
 <script lang="ts">
 	import type { PatchConnection, CustomCableType } from './types'
 	import { getCableType } from './constants'
-	import { absolutePortPosition } from './elevationUtils'
+	import {
+		absolutePortPosition, cableChannelX,
+		RACK_LABEL_H, RACK_GAP, rackHeight, rackWidth,
+		U_LABEL_W, deviceAreaWidth, PORTS_PER_ROW,
+	} from './elevationUtils'
 
 	let {
 		connections = [],
@@ -36,18 +40,87 @@
 
 	let hoveredId = $state<string | null>(null)
 
-	interface CableLine {
+	// Build set of cable-manager RU positions per rack for routing awareness
+	let managersByRack = $derived.by(() => {
+		const map = new Map<string, number[]>()
+		for (const d of devices) {
+			if (d.type === 'manager') {
+				const list = map.get(d.rackId) ?? []
+				list.push(d.positionU)
+				map.set(d.rackId, list)
+			}
+		}
+		return map
+	})
+
+	interface CableRoute {
 		id: string
-		x1: number; y1: number
-		x2: number; y2: number
+		path: string       // SVG path data
 		color: string
 		dashed: boolean
 		label: string
-		midLabel: string // short label for cable overlay text
+		midLabel: string
+		midX: number       // midpoint for label placement
+		midY: number
+	}
+
+	/**
+	 * Compute an orthogonal cable route:
+	 * dot → down from port → horizontal to rack side → vertical to destination Y
+	 * → horizontal across (cross-rack) → vertical to dest Y → horizontal to dest dot
+	 */
+	function computeRoute(
+		from: { x: number; y: number; col: number },
+		to: { x: number; y: number; col: number },
+		fromRackX: number, fromRackY: number, fromRackHeightU: number,
+		toRackX: number, toRackY: number, toRackHeightU: number,
+		sameRack: boolean,
+	): { path: string; midX: number; midY: number } {
+		const fromCh = cableChannelX(fromRackX)
+		const toCh = cableChannelX(toRackX)
+		const DROP = 4 // px drop below dot before going horizontal
+
+		if (sameRack) {
+			// Same rack: route through nearest side
+			// Pick side based on which half the ports are on
+			const halfCols = PORTS_PER_ROW / 2
+			const fromLeft = from.col < halfCols
+			const toLeft = to.col < halfCols
+			// If both on same half, use that side; if different, use the side of the "from" port
+			const useLeft = fromLeft && toLeft ? true : !fromLeft && !toLeft ? false : fromLeft
+			const chX = useLeft ? fromCh.left : fromCh.right
+
+			const y1 = from.y + DROP
+			const y2 = to.y + DROP
+			const midY = (y1 + y2) / 2
+
+			return {
+				path: `M${from.x},${from.y} V${y1} H${chX} V${y2} H${to.x} V${to.y}`,
+				midX: chX,
+				midY,
+			}
+		}
+
+		// Cross-rack: route toward the other rack
+		const fromIsLeft = fromRackX < toRackX
+		const fromChX = fromIsLeft ? fromCh.right : fromCh.left
+		const toChX = fromIsLeft ? toCh.left : toCh.right
+
+		// Transit Y: midpoint between the two ports, clamped to rack area
+		const transitY = (from.y + to.y) / 2
+
+		const y1drop = from.y + DROP
+		const y2drop = to.y + DROP
+
+		return {
+			path: `M${from.x},${from.y} V${y1drop} H${fromChX} V${transitY} H${toChX} V${y2drop} H${to.x} V${to.y}`,
+			midX: (fromChX + toChX) / 2,
+			midY: transitY,
+		}
 	}
 
 	let cables = $derived.by(() => {
-		const lines: CableLine[] = []
+		const routes: CableRoute[] = []
 
 		for (const c of connections) {
 			const fromDev = deviceLookup.get(c.fromPortRef.deviceId)
@@ -74,33 +147,39 @@
 				toDev.positionU, toDev.heightU, toRack.heightU
 			)
 
+			const sameRack = fromRack.id === toRack.id
+			const { path, midX, midY } = computeRoute(
+				from, to,
+				fromRackX, fromRackY, fromRack.heightU,
+				toRackX, toRackY, toRack.heightU,
+				sameRack,
+			)
+
 			const ct = getCableType(c.cableType, customCableTypes)
 			const dashed = (c.status as string) !== 'installed'
 
-			// Build tooltip label
 			const fromLabel = `${fromDev.label || fromDev.type}:${c.fromPortRef.portIndex}`
 			const toLabel = `${toDev.label || toDev.type}:${c.toPortRef.portIndex}`
 			const status = c.status === 'installed' ? '' : ` [${c.status}]`
 			const label = `${fromLabel} → ${toLabel}\n${ct.label} ${c.lengthMeters}m${status}`
 
-			// Build short mid-cable label
 			const midParts: string[] = []
 			if (showLabels) midParts.push(ct.label)
 			if (showLengths) midParts.push(`${c.lengthMeters}m`)
-			const midLabel = midParts.join(' ')
 
-			lines.push({
+			routes.push({
 				id: c.id,
-				x1: from.x, y1: from.y,
-				x2: to.x, y2: to.y,
+				path,
 				color: c.cableColor || ct.color,
 				dashed,
 				label,
-				midLabel,
+				midLabel: midParts.join(' '),
+				midX,
+				midY,
 			})
 		}
 
-		return lines
+		return routes
 	})
 </script>
 
@@ -113,9 +192,9 @@
 		<!-- Hit area (wider, invisible, clickable) -->
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<line
-			x1={cable.x1} y1={cable.y1}
-			x2={cable.x2} y2={cable.y2}
+		<path
+			d={cable.path}
+			fill="none"
 			stroke="transparent"
 			stroke-width={12}
 			class="pointer-events-stroke cursor-pointer"
@@ -124,28 +203,22 @@
 			onmouseleave={() => hoveredId = null}
 		>
 			<title>{cable.label}</title>
-		</line>
-		<!-- Visible cable line -->
-		<line
-			x1={cable.x1} y1={cable.y1}
-			x2={cable.x2} y2={cable.y2}
+		</path>
+		<!-- Visible cable path -->
+		<path
+			d={cable.path}
+			fill="none"
 			stroke={cable.color}
-			stroke-width={isHighlighted ? 3 : 1.5}
+			stroke-width={isHighlighted ? 2.5 : 1}
 			stroke-dasharray={cable.dashed ? '4,3' : 'none'}
-			stroke-opacity={isDimmed ? 0.12 : isHighlighted ? 1 : 0.7}
-			class="pointer-events-none transition-all"
+			stroke-opacity={isDimmed ? 0.08 : isHighlighted ? 1 : 0.5}
+			stroke-linejoin="round"
+			class="pointer-events-none"
 		/>
-		<!-- Endpoint dots on hover/select -->
-		{#if isHighlighted}
-			<circle cx={cable.x1} cy={cable.y1} r={3} fill={cable.color} class="pointer-events-none" />
-			<circle cx={cable.x2} cy={cable.y2} r={3} fill={cable.color} class="pointer-events-none" />
-		{/if}
 		<!-- Mid-cable label (when showLabels or showLengths) -->
 		{#if cable.midLabel && !isDimmed}
-			{@const mx = (cable.x1 + cable.x2) / 2}
-			{@const my = (cable.y1 + cable.y2) / 2}
 			<text
-				x={mx} y={my - 3}
+				x={cable.midX} y={cable.midY - 3}
 				text-anchor="middle"
 				font-size="7"
 				fill={cable.color}

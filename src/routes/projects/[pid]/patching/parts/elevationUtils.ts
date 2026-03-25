@@ -15,6 +15,7 @@ export const RACK_LABEL_H = 22 // px height for rack label above frame
 export const PORTS_PER_ROW = 24
 export const DOT_R = 3      // dot radius px
 export const DOT_INSET = 1  // dot inset from port edge
+export const CABLE_CH_OFFSET = 4 // px offset from device area edge for cable channel
 
 /** Inner width of the device area (between left and right U labels) */
 export function deviceAreaWidth(): number {
@@ -42,10 +43,8 @@ export function portRowCount(portCount: number): number {
 }
 
 /**
- * Get the pixel coordinates of a port's connection dot (top-right circle),
+ * Get the pixel coordinates of a port's connection dot (center-bottom),
  * relative to the canvas origin. Cables connect to this point.
- *
- * Port grid uses fixed PORT_CELL_H rows, centered vertically within the device block.
  */
 export function absolutePortPosition(
 	rackX: number,
@@ -55,9 +54,8 @@ export function absolutePortPosition(
 	devicePositionU: number,
 	deviceHeightU: number,
 	rackHeightU: number,
-): { x: number; y: number } {
+): { x: number; y: number; col: number } {
 	const rows = portRowCount(portCount)
-	const cols = Math.min(portCount, PORTS_PER_ROW)
 
 	// Which row and column (0-based)
 	let row: number, col: number
@@ -81,11 +79,19 @@ export function absolutePortPosition(
 	const cellLeft = U_LABEL_W + RACK_PADDING + col * (PORT_CELL_W + PORT_GAP)
 	const cellTop = RACK_LABEL_H + deviceTop + RACK_PADDING + row * (PORT_CELL_H + PORT_GAP)
 
-	// Dot center is at top-right of port cell (inset by DOT_INSET + DOT_R)
-	const dotX = cellLeft + PORT_CELL_W - DOT_INSET - DOT_R
-	const dotY = cellTop + DOT_INSET + DOT_R
+	// Dot center is at center-bottom of port cell
+	const dotX = cellLeft + PORT_CELL_W / 2
+	const dotY = cellTop + PORT_CELL_H - DOT_INSET - DOT_R
 
-	return { x: rackX + dotX, y: rackY + dotY }
+	return { x: rackX + dotX, y: rackY + dotY, col }
+}
+
+/** Left and right cable channel X positions for a rack */
+export function cableChannelX(rackX: number): { left: number; right: number } {
+	return {
+		left: rackX + U_LABEL_W - CABLE_CH_OFFSET,
+		right: rackX + U_LABEL_W + deviceAreaWidth() + CABLE_CH_OFFSET,
+	}
 }
 
 /** Build a lookup of portRef → connection for quick checks */
