@@ -8,6 +8,8 @@
 	import type { PatchConnection, PatchSettings, CustomCableType } from './parts/types'
 	import { DEFAULT_SETTINGS } from './parts/types'
 	import { CABLE_TYPES, getCableType } from './parts/constants'
+	import { calculateCableLength } from './parts/cableUtils'
+	import { exportPatchExcel } from './parts/exportExcel'
 	import PatchList from './parts/PatchList.svelte'
 
 	let {
@@ -39,6 +41,14 @@
 	let saveStatus = $state<'saved' | 'saving' | 'unsaved'>('saved')
 	let sidebarTab = $state<'devices' | 'summary'>('devices')
 	let editNewId = $state<string | null>(null)
+
+	// ── Bulk-add state ──
+	let bulkFrom = $state<{ rackId: string; deviceId: string } | null>(null)
+	let bulkTo = $state<{ rackId: string; deviceId: string } | null>(null)
+	let bulkFromStart = $state(1)
+	let bulkToStart = $state(1)
+	let bulkCount = $state(1)
+	let bulkCableType = $state(settings.defaultCableType)
 
 	// ── Racks data (read-only, from racks tool) ──
 	let racks = $derived(rackData?.racks ?? [])
@@ -102,6 +112,82 @@
 		scheduleSave()
 	}
 
+	// ── Bulk-add helpers ──
+	function usedPortsForDevice(deviceId: string): Set<number> {
+		const used = new Set<number>()
+		for (const c of connections) {
+			if (c.fromPortRef.deviceId === deviceId) used.add(c.fromPortRef.portIndex)
+			if (c.toPortRef.deviceId === deviceId) used.add(c.toPortRef.portIndex)
+		}
+		return used
+	}
+
+	function firstAvailablePort(deviceId: string): number {
+		const dev = devices.find((d: any) => d.id === deviceId)
+		if (!dev || !dev.portCount) return 1
+		const used = usedPortsForDevice(deviceId)
+		for (let i = 1; i <= dev.portCount; i++) {
+			if (!used.has(i)) return i
+		}
+		return 1
+	}
+
+	function handleDeviceClick(rackId: string, deviceId: string) {
+		const dev = devices.find((d: any) => d.id === deviceId)
+		if (!dev?.portCount) return
+
+		if (!bulkFrom) {
+			// First click: select source device
+			bulkFrom = { rackId, deviceId }
+			bulkFromStart = firstAvailablePort(deviceId)
+			bulkTo = null
+		} else if (bulkFrom.deviceId === deviceId) {
+			// Click same device: deselect
+			bulkFrom = null
+			bulkTo = null
+		} else {
+			// Second click: select destination, show bulk panel
+			bulkTo = { rackId, deviceId }
+			bulkToStart = firstAvailablePort(deviceId)
+			// Default count = min available ports on both devices
+			const fromDev = devices.find((d: any) => d.id === bulkFrom!.deviceId)
+			const fromAvail = (fromDev?.portCount ?? 0) - usedPortsForDevice(bulkFrom!.deviceId).size
+			const toAvail = (dev.portCount ?? 0) - usedPortsForDevice(deviceId).size
+			bulkCount = Math.max(1, Math.min(fromAvail, toAvail))
+			bulkCableType = settings.defaultCableType
+		}
+	}
+
+	function cancelBulk() {
+		bulkFrom = null
+		bulkTo = null
+	}
+
+	function executeBulk() {
+		if (!bulkFrom || !bulkTo) return
+		const ct = getCableType(bulkCableType, customCableTypes)
+		const newConns: PatchConnection[] = []
+		for (let i = 0; i < bulkCount; i++) {
+			const fromRef = { rackId: bulkFrom.rackId, deviceId: bulkFrom.deviceId, portIndex: bulkFromStart + i, face: 'front' as const }
+			const toRef = { rackId: bulkTo.rackId, deviceId: bulkTo.deviceId, portIndex: bulkToStart + i, face: 'front' as const }
+			const len = calculateCableLength(fromRef, toRef, racks, devices)
+			newConns.push({
+				id: `patch-${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${i}`,
+				fromPortRef: fromRef,
+				toPortRef: toRef,
+				cableType: bulkCableType,
+				cableColor: ct.color,
+				lengthMeters: len,
+				lengthLocked: false,
+				kind: 'patch',
+				status: 'planned',
+			})
+		}
+		connections = [...connections, ...newConns]
+		logChange('add', 'connections', `${bulkCount} bulk connections`)
+		cancelBulk()
+	}
+
 	// ── Connection CRUD ──
 	function addConnection() {
 		const id = `patch-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
@@ -122,7 +208,16 @@
 	}
 
 	function updateConnection(id: string, updates: Partial<PatchConnection>) {
-		connections = connections.map(c => c.id === id ? { ...c, ...updates } : c)
+		connections = connections.map(c => {
+			if (c.id !== id) return c
+			const updated = { ...c, ...updates }
+			// Auto-calc length when ports change and length is not locked
+			if (!updated.lengthLocked && (updates.fromPortRef || updates.toPortRef)) {
+				const len = calculateCableLength(updated.fromPortRef, updated.toPortRef, racks, devices)
+				if (len > 0) updated.lengthMeters = len
+			}
+			return updated
+		})
 		logChange('update', 'connection', id)
 	}
 
@@ -279,6 +374,16 @@
 					</div>
 
 					<div class="flex-1"></div>
+
+					<!-- Export -->
+					<button
+						class="h-6 px-2 rounded bg-gray-100 text-gray-600 text-[11px] font-medium hover:bg-gray-200 transition-colors flex items-center gap-1"
+						title="Export to Excel"
+						onclick={() => exportPatchExcel({ connections, racks, devices, customCableTypes, projectName, floor, room })}
+					>
+						<Icon name="download" size={12} />
+						Excel
+					</button>
 
 					<!-- Add connection button -->
 					<button

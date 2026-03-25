@@ -1,6 +1,7 @@
 <script lang="ts">
+	import { tick } from 'svelte'
 	import { Icon } from '$lib'
-	import type { PatchConnection, PatchSettings, CustomCableType } from './types'
+	import type { PatchConnection, PatchSettings, CustomCableType, PortRef } from './types'
 	import { CABLE_TYPES, getCableType } from './constants'
 
 	let {
@@ -32,36 +33,105 @@
 	let sortAsc = $state(true)
 	let filter = $state('')
 
-	// All cable types (built-in + custom)
-	let allCableTypes = $derived([...CABLE_TYPES, ...customCableTypes.map(c => ({ ...c, category: c.category as string }))])
+	// ── Build flat port options for dropdowns ──
+	// "Rack / Device (Unn) / Port nn" — grouped by rack, then device
+	interface PortOption {
+		value: string        // "rackId:deviceId:portIndex"
+		rackId: string
+		deviceId: string
+		portIndex: number
+		label: string        // compact display
+		group: string        // rack label for optgroup
+		deviceLabel: string
+	}
 
-	// Helper: get device label
+	let portOptions = $derived.by(() => {
+		const opts: PortOption[] = []
+		// Build a set of already-used ports for quick lookup
+		const usedPorts = new Set<string>()
+		for (const c of connections) {
+			if (c.fromPortRef.deviceId && c.fromPortRef.portIndex > 0) {
+				usedPorts.add(`${c.fromPortRef.rackId}:${c.fromPortRef.deviceId}:${c.fromPortRef.portIndex}`)
+			}
+			if (c.toPortRef.deviceId && c.toPortRef.portIndex > 0) {
+				usedPorts.add(`${c.toPortRef.rackId}:${c.toPortRef.deviceId}:${c.toPortRef.portIndex}`)
+			}
+		}
+		for (const rack of racks) {
+			const rackDevs = devices
+				.filter((d: any) => d.rackId === rack.id)
+				.sort((a: any, b: any) => b.positionU - a.positionU)
+			for (const dev of rackDevs) {
+				const count = dev.portCount ?? 0
+				for (let p = 1; p <= count; p++) {
+					const val = `${rack.id}:${dev.id}:${p}`
+					opts.push({
+						value: val,
+						rackId: rack.id,
+						deviceId: dev.id,
+						portIndex: p,
+						label: `${dev.label || dev.type} U${dev.positionU} / ${p}`,
+						group: rack.label,
+						deviceLabel: `${dev.label || dev.type} (U${dev.positionU})`,
+					})
+				}
+			}
+		}
+		return opts
+	})
+
+	// Group options by rack for <optgroup>
+	let portGroups = $derived.by(() => {
+		const groups: { label: string; options: PortOption[] }[] = []
+		const map = new Map<string, PortOption[]>()
+		for (const opt of portOptions) {
+			if (!map.has(opt.group)) map.set(opt.group, [])
+			map.get(opt.group)!.push(opt)
+		}
+		for (const [label, options] of map) {
+			groups.push({ label, options })
+		}
+		return groups
+	})
+
+	// Convert PortRef to select value string
+	function refToValue(ref: PortRef): string {
+		if (!ref.rackId || !ref.deviceId || ref.portIndex <= 0) return ''
+		return `${ref.rackId}:${ref.deviceId}:${ref.portIndex}`
+	}
+
+	// Convert select value string to PortRef
+	function valueToRef(val: string): PortRef {
+		if (!val) return { rackId: '', deviceId: '', portIndex: 0, face: 'front' }
+		const [rackId, deviceId, portStr] = val.split(':')
+		return { rackId, deviceId, portIndex: parseInt(portStr) || 0, face: 'front' }
+	}
+
+	// Check if a port is used by another connection (not the current one)
+	function isPortUsed(val: string, excludeConnId: string): boolean {
+		for (const c of connections) {
+			if (c.id === excludeConnId) continue
+			if (refToValue(c.fromPortRef) === val || refToValue(c.toPortRef) === val) return true
+		}
+		return false
+	}
+
+	// Helpers
+	function rackLabel(rackId: string): string {
+		return racks.find((r: any) => r.id === rackId)?.label || '—'
+	}
 	function deviceLabel(deviceId: string): string {
 		const d = devices.find((d: any) => d.id === deviceId)
 		return d?.label || d?.type || '—'
 	}
-
-	// Helper: get rack label
-	function rackLabel(rackId: string): string {
-		const r = racks.find((r: any) => r.id === rackId)
-		return r?.label || '—'
-	}
-
-	// Helper: format port reference for display
-	function fmtRef(ref: PatchConnection['fromPortRef']): string {
-		if (!ref.rackId || !ref.deviceId) return '(not set)'
-		const rack = rackLabel(ref.rackId)
-		const dev = deviceLabel(ref.deviceId)
-		const port = ref.portIndex > 0 ? ref.portIndex : '?'
-		const label = ref.label ? ` [${ref.label}]` : ''
-		return `${rack} / ${dev} / ${port}${label}`
+	function fmtRef(ref: PortRef): string {
+		if (!ref.rackId || !ref.deviceId || ref.portIndex <= 0) return ''
+		return `${rackLabel(ref.rackId)} / ${deviceLabel(ref.deviceId)} U${devices.find((d: any) => d.id === ref.deviceId)?.positionU ?? '?'} / ${ref.portIndex}`
 	}
 
 	// Sorted + filtered connections
 	let sortedConnections = $derived.by(() => {
 		let list = [...connections]
-
-		// Filter
 		if (filter) {
 			const q = filter.toLowerCase()
 			list = list.filter(c => {
@@ -72,8 +142,6 @@
 					(c.notes?.toLowerCase().includes(q))
 			})
 		}
-
-		// Sort
 		list.sort((a, b) => {
 			let cmp = 0
 			switch (sortField) {
@@ -85,7 +153,6 @@
 			}
 			return sortAsc ? cmp : -cmp
 		})
-
 		return list
 	})
 
@@ -107,11 +174,8 @@
 	}
 
 	function selectAll() {
-		if (selectedIds.size === sortedConnections.length) {
-			selectedIds = new Set()
-		} else {
-			selectedIds = new Set(sortedConnections.map(c => c.id))
-		}
+		if (selectedIds.size === sortedConnections.length) selectedIds = new Set()
+		else selectedIds = new Set(sortedConnections.map(c => c.id))
 	}
 
 	function handleDeleteSelected() {
@@ -120,27 +184,27 @@
 		selectedIds = new Set()
 	}
 
-	// Inline editing: which cell is being edited
-	let editingCell = $state<{ id: string; field: string } | null>(null)
-
-	function startEdit(id: string, field: string) {
-		editingCell = { id, field }
-	}
-
-	function stopEdit() {
-		editingCell = null
-	}
-
-	// Header sort indicator
 	function sortIcon(field: typeof sortField): string {
 		if (sortField !== field) return ''
 		return sortAsc ? ' ▲' : ' ▼'
 	}
+
+	// Auto-scroll + focus new row
+	$effect(() => {
+		if (!editNewId) return
+		tick().then(() => {
+			const el = document.getElementById(`patch-from-${editNewId}`)
+			if (el) {
+				el.scrollIntoView({ block: 'nearest' })
+				el.focus()
+			}
+			oneditnewclear?.()
+		})
+	})
 </script>
 
 <!-- Toolbar row -->
 <div class="flex items-center gap-2 px-3 py-1.5 border-b border-gray-100 bg-gray-50/50 shrink-0">
-	<!-- Search -->
 	<div class="relative flex-1 max-w-xs">
 		<Icon name="search" size={12} class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-300" />
 		<input
@@ -200,48 +264,70 @@
 				>
 					<!-- Checkbox -->
 					<td class="px-2 py-1">
-						<input type="checkbox" class="rounded" checked={isSelected} onclick={e => e.stopPropagation()} onchange={() => {
-							const next = new Set(selectedIds)
-							if (next.has(conn.id)) next.delete(conn.id)
-							else next.add(conn.id)
-							selectedIds = next
-						}} />
+						<input type="checkbox" class="rounded" checked={isSelected}
+							onclick={e => e.stopPropagation()}
+							onchange={() => {
+								const next = new Set(selectedIds)
+								if (next.has(conn.id)) next.delete(conn.id)
+								else next.add(conn.id)
+								selectedIds = next
+							}} />
 					</td>
 
-					<!-- From -->
-					<td class="px-2 py-1">
-						{#if editingCell?.id === conn.id && editingCell.field === 'from'}
-							{@render portSelector(conn.fromPortRef, (ref) => { onupdate?.(conn.id, { fromPortRef: ref }); stopEdit() })}
-						{:else}
-							<!-- svelte-ignore a11y_click_events_have_key_events -->
-							<!-- svelte-ignore a11y_no_static_element_interactions -->
-							<span class="text-gray-700 hover:text-blue-600 cursor-pointer" onclick={e => { e.stopPropagation(); startEdit(conn.id, 'from') }}>
-								{fmtRef(conn.fromPortRef)}
-							</span>
-						{/if}
+					<!-- From port — always a dropdown -->
+					<td class="px-2 py-0.5" onclick={e => e.stopPropagation()}>
+						<select
+							id="patch-from-{conn.id}"
+							class="w-full text-[11px] border border-gray-200 rounded px-1 py-0.5 bg-white text-gray-700 focus:border-blue-400 focus:outline-none truncate"
+							value={refToValue(conn.fromPortRef)}
+							onchange={e => {
+								const ref = valueToRef((e.target as HTMLSelectElement).value)
+								onupdate?.(conn.id, { fromPortRef: ref })
+							}}
+						>
+							<option value="">— Select port —</option>
+							{#each portGroups as group}
+								<optgroup label={group.label}>
+									{#each group.options as opt}
+										{#if !isPortUsed(opt.value, conn.id) || opt.value === refToValue(conn.fromPortRef)}
+											<option value={opt.value}>{opt.label}</option>
+										{/if}
+									{/each}
+								</optgroup>
+							{/each}
+						</select>
 					</td>
 
-					<!-- To -->
-					<td class="px-2 py-1">
-						{#if editingCell?.id === conn.id && editingCell.field === 'to'}
-							{@render portSelector(conn.toPortRef, (ref) => { onupdate?.(conn.id, { toPortRef: ref }); stopEdit() })}
-						{:else}
-							<!-- svelte-ignore a11y_click_events_have_key_events -->
-							<!-- svelte-ignore a11y_no_static_element_interactions -->
-							<span class="text-gray-700 hover:text-blue-600 cursor-pointer" onclick={e => { e.stopPropagation(); startEdit(conn.id, 'to') }}>
-								{fmtRef(conn.toPortRef)}
-							</span>
-						{/if}
+					<!-- To port — always a dropdown -->
+					<td class="px-2 py-0.5" onclick={e => e.stopPropagation()}>
+						<select
+							class="w-full text-[11px] border border-gray-200 rounded px-1 py-0.5 bg-white text-gray-700 focus:border-blue-400 focus:outline-none truncate"
+							value={refToValue(conn.toPortRef)}
+							onchange={e => {
+								const ref = valueToRef((e.target as HTMLSelectElement).value)
+								onupdate?.(conn.id, { toPortRef: ref })
+							}}
+						>
+							<option value="">— Select port —</option>
+							{#each portGroups as group}
+								<optgroup label={group.label}>
+									{#each group.options as opt}
+										{#if !isPortUsed(opt.value, conn.id) || opt.value === refToValue(conn.toPortRef)}
+											<option value={opt.value}>{opt.label}</option>
+										{/if}
+									{/each}
+								</optgroup>
+							{/each}
+						</select>
 					</td>
 
 					<!-- Cable type -->
-					<td class="px-2 py-1">
+					<td class="px-2 py-0.5" onclick={e => e.stopPropagation()}>
 						<div class="flex items-center gap-1.5">
 							<span class="w-2.5 h-2.5 rounded-full shrink-0" style:background={conn.cableColor || ct.color}></span>
 							<select
-								class="bg-transparent text-[11px] text-gray-600 border-none outline-none cursor-pointer appearance-none pr-3 -ml-0.5"
+								class="flex-1 text-[11px] text-gray-600 border border-gray-200 rounded px-1 py-0.5 bg-white focus:border-blue-400 focus:outline-none"
 								value={conn.cableType}
-								onclick={e => e.stopPropagation()}
 								onchange={e => {
 									const newType = (e.target as HTMLSelectElement).value
 									const newCt = getCableType(newType, customCableTypes)
@@ -275,21 +361,36 @@
 					</td>
 
 					<!-- Length -->
-					<td class="px-2 py-1 font-mono text-gray-500">
-						{#if conn.lengthMeters > 0}
-							{conn.lengthMeters}m
-						{:else}
-							<span class="text-gray-300">—</span>
-						{/if}
+					<td class="px-2 py-0.5" onclick={e => e.stopPropagation()}>
+						<div class="flex items-center gap-0.5">
+							<input
+								type="number"
+								step="0.1"
+								min="0"
+								class="w-12 text-[11px] font-mono border border-gray-200 rounded px-1 py-0.5 bg-white text-gray-600 focus:border-blue-400 focus:outline-none
+									{conn.lengthLocked ? 'bg-amber-50' : ''}"
+								value={conn.lengthMeters || ''}
+								placeholder="—"
+								onchange={e => {
+									const val = parseFloat((e.target as HTMLInputElement).value) || 0
+									onupdate?.(conn.id, { lengthMeters: val, lengthLocked: val > 0 })
+								}}
+							/>
+							{#if conn.lengthLocked}
+								<button class="text-amber-400 hover:text-gray-400" title="Unlock (auto-calculate)"
+									onclick={() => onupdate?.(conn.id, { lengthLocked: false })}>
+									<Icon name="lock" size={10} />
+								</button>
+							{/if}
+						</div>
 					</td>
 
 					<!-- Status -->
-					<td class="px-2 py-1">
+					<td class="px-2 py-0.5" onclick={e => e.stopPropagation()}>
 						<select
-							class="bg-transparent text-[11px] border-none outline-none cursor-pointer appearance-none pr-3
+							class="text-[11px] border border-gray-200 rounded px-1 py-0.5 bg-white focus:border-blue-400 focus:outline-none
 								{conn.status === 'installed' ? 'text-green-600' : 'text-amber-600'}"
 							value={conn.status}
-							onclick={e => e.stopPropagation()}
 							onchange={e => onupdate?.(conn.id, { status: (e.target as HTMLSelectElement).value as 'planned' | 'installed' })}
 						>
 							<option value="planned">Planned</option>
@@ -298,13 +399,12 @@
 					</td>
 
 					<!-- Cord ID -->
-					<td class="px-2 py-1">
+					<td class="px-2 py-0.5" onclick={e => e.stopPropagation()}>
 						<input
 							type="text"
-							class="w-full bg-transparent text-[11px] text-gray-500 border-none outline-none placeholder:text-gray-200 focus:text-gray-700"
+							class="w-full text-[11px] text-gray-500 border border-gray-200 rounded px-1 py-0.5 bg-white placeholder:text-gray-300 focus:border-blue-400 focus:outline-none focus:text-gray-700"
 							placeholder="—"
 							value={conn.cordId ?? ''}
-							onclick={e => e.stopPropagation()}
 							onchange={e => onupdate?.(conn.id, { cordId: (e.target as HTMLInputElement).value || undefined })}
 						/>
 					</td>
@@ -334,64 +434,3 @@
 		</tbody>
 	</table>
 </div>
-
-<!-- Inline port selector snippet -->
-{#snippet portSelector(ref: import('./types').PortRef, onchange: (ref: import('./types').PortRef) => void)}
-	<div class="flex items-center gap-1" onclick={e => e.stopPropagation()}>
-		<!-- Rack -->
-		<select
-			class="text-[11px] border border-gray-200 rounded px-1 py-0.5 bg-white max-w-20"
-			value={ref.rackId}
-			onchange={e => {
-				const rackId = (e.target as HTMLSelectElement).value
-				onchange({ ...ref, rackId, deviceId: '', portIndex: 0 })
-			}}
-		>
-			<option value="">Rack...</option>
-			{#each racks as r}
-				<option value={r.id}>{r.label}</option>
-			{/each}
-		</select>
-
-		<!-- Device -->
-		{#if ref.rackId}
-			{@const rackDevs = devices.filter((d: any) => d.rackId === ref.rackId)}
-			<select
-				class="text-[11px] border border-gray-200 rounded px-1 py-0.5 bg-white max-w-24"
-				value={ref.deviceId}
-				onchange={e => {
-					const deviceId = (e.target as HTMLSelectElement).value
-					onchange({ ...ref, deviceId, portIndex: 0 })
-				}}
-			>
-				<option value="">Device...</option>
-				{#each rackDevs.sort((a: any, b: any) => b.positionU - a.positionU) as d}
-					<option value={d.id}>{d.label || d.type} (U{d.positionU})</option>
-				{/each}
-			</select>
-		{/if}
-
-		<!-- Port -->
-		{#if ref.deviceId}
-			{@const dev = devices.find((d: any) => d.id === ref.deviceId)}
-			{@const portCount = dev?.portCount ?? 0}
-			<select
-				class="text-[11px] border border-gray-200 rounded px-1 py-0.5 bg-white w-14"
-				value={ref.portIndex || ''}
-				onchange={e => {
-					const portIndex = parseInt((e.target as HTMLSelectElement).value) || 0
-					onchange({ ...ref, portIndex })
-				}}
-			>
-				<option value="">Port</option>
-				{#each Array.from({ length: portCount }, (_, i) => i + 1) as p}
-					<option value={p}>{p}</option>
-				{/each}
-			</select>
-		{/if}
-
-		<button class="text-gray-400 hover:text-gray-600" onclick={stopEdit}>
-			<Icon name="x" size={12} />
-		</button>
-	</div>
-{/snippet}

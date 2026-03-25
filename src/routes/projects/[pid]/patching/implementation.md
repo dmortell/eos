@@ -203,35 +203,49 @@ src/routes/projects/[pid]/patching/
 
 ## Implementation Phases
 
-### Phase 1 — Data Layer & Scaffolding ← START HERE
+### Phase 1 — Data Layer & Scaffolding ✓
 
-1. `parts/types.ts` — All type definitions
-2. `parts/constants.ts` — Built-in cable types, colors, standard lengths
-3. `+page.svelte` — Firestore subscriptions (patching + racks + frames), floor/room state
-4. `Patching.svelte` — PaneGroup shell with sidebar device tree + patch list area, auto-save
+1. ✓ `parts/types.ts` — All type definitions
+2. ✓ `parts/constants.ts` — Built-in cable types, colors, standard lengths
+3. ✓ `+page.svelte` — Firestore subscriptions (patching + racks + frames), floor/room state
+4. ✓ `Patching.svelte` — PaneGroup shell with sidebar device tree + patch list area, auto-save
 
-### Phase 2 — Patch List (Core Feature)
+### Phase 2 — Patch List (Core Feature) ✓
 
-5. `parts/PortPicker.svelte` — Rack → Device → Port cascading dropdown
-6. `parts/PatchRow.svelte` — Inline-editable connection row
-7. `parts/PatchList.svelte` — Scrollable table with add/delete/sort/filter
-8. `parts/PatchToolbar.svelte` — Cable type default, export buttons
+5. ✓ `parts/PatchList.svelte` — Port selector dropdowns (grouped by rack/device), inline editing for all fields, sort/filter, bulk select/delete, auto-scroll to new rows
+6. ✓ Toolbar with filter, bulk delete, add connection, export button
+7. ✓ Sidebar: device tree (racks → devices with port counts) + summary tab (stats, cable type breakdown)
 
-### Phase 3 — Cable Length Estimation
+### Phase 3 — Cable Length Estimation ✓
 
-9. `parts/cableUtils.ts` — Length calculation using real rack positions, front/rear depth
+8. ✓ `parts/cableUtils.ts` — Manhattan distance with U positions, inter-rack gaps, front/rear depth, slack, snap to standard lengths
 
-### Phase 4 — Rack Elevation View (later)
+### Phase 4 — BOM & Export ✓
+
+9. ✓ `parts/exportExcel.ts` — Patch schedule sheet (landscape, all fields) + BOM sheet (aggregate by cable type + length + status)
+
+### Phase 5 — Rack Elevation View (future)
 
 10. `parts/RackPreview.svelte` — Read-only racks with interactive port indicators
 11. `parts/CableOverlay.svelte` — H/V straight-line cable routing (like outlet trunks)
 12. Drag-to-connect on rack elevation view
 
-### Phase 5 — BOM & Export
+### Phase 6 — Polish (future)
 
-13. `parts/BomSummary.svelte` — Aggregated summary, planned vs. installed
-14. `parts/exportExcel.ts` — Patch schedule + BOM sheets, cord ID column
+13. Custom cable types UI (add/edit/delete from settings dialog)
+14. Cord ID import from vendor Excel
+15. Auto-assign function (select outlet ports → auto-allocate to compatible switch ports)
+16. Settings dialog (defaults, display preferences)
+17. Audit logging via `writeLog()` system
 
-### Phase 6 — Polish
+---
 
-15. Custom cable types UI, cord ID import, auto-assign, settings dialog, audit logging
+## Future UX Notes
+
+- **Drag-to-connect** — In rack elevation view, allow click-drag from one port to another to create a connection (visual patching workflow)
+- **Circuit tracing** — BFS `traceCircuit()` to highlight full end-to-end path through cross-connects, even across floors/rooms
+- **Port label resolution** — Where patch panels exist in both racks and frames tools, resolve port labels (FF.Z.NNN-SPP) from frames data for display and export
+- **Notes column** — Consider adding a notes column to the patch list table for free-text annotations per connection
+- **Cord ID import** — Parse vendor Excel to match cord IDs back to connections; use cord ID presence to distinguish existing vs. future cords
+- **Validation warnings** — Port type mismatches (RJ45↔LC), duplicate connections, unpatched port summary
+- **Keyboard navigation** — Tab through ports, Enter to confirm, Escape to cancel
