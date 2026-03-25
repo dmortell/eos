@@ -63,14 +63,16 @@
 				.sort((a: any, b: any) => b.positionU - a.positionU)
 			for (const dev of rackDevs) {
 				const count = dev.portCount ?? 0
+				const padW = count >= 100 ? 3 : count >= 10 ? 2 : 1
 				for (let p = 1; p <= count; p++) {
 					const val = `${rack.id}:${dev.id}:${p}`
+					const pLabel = String(p).padStart(padW, '0')
 					opts.push({
 						value: val,
 						rackId: rack.id,
 						deviceId: dev.id,
 						portIndex: p,
-						label: `${dev.label || dev.type} U${dev.positionU} / ${p}`,
+						label: `${dev.label || dev.type} U${dev.positionU} / ${pLabel}`,
 						group: rack.label,
 						deviceLabel: `${dev.label || dev.type} (U${dev.positionU})`,
 					})
@@ -126,7 +128,11 @@
 	}
 	function fmtRef(ref: PortRef): string {
 		if (!ref.rackId || !ref.deviceId || ref.portIndex <= 0) return ''
-		return `${rackLabel(ref.rackId)} / ${deviceLabel(ref.deviceId)} U${devices.find((d: any) => d.id === ref.deviceId)?.positionU ?? '?'} / ${ref.portIndex}`
+		const dev = devices.find((d: any) => d.id === ref.deviceId)
+		const count = dev?.portCount ?? 0
+		const padW = count >= 100 ? 3 : count >= 10 ? 2 : 1
+		const pLabel = String(ref.portIndex).padStart(padW, '0')
+		return `${rackLabel(ref.rackId)} / ${deviceLabel(ref.deviceId)} U${dev?.positionU ?? '?'} / ${pLabel}`
 	}
 
 	// Sorted + filtered connections
@@ -248,6 +254,7 @@
 					Status{sortIcon('status')}
 				</th>
 				<th class="w-24 px-2 py-1.5">Cord ID</th>
+				<th class="px-2 py-1.5">Notes</th>
 				<th class="w-8 px-2 py-1.5"></th>
 			</tr>
 		</thead>
@@ -409,6 +416,17 @@
 						/>
 					</td>
 
+					<!-- Notes -->
+					<td class="px-2 py-0.5" onclick={e => e.stopPropagation()}>
+						<input
+							type="text"
+							class="w-full text-[11px] text-gray-500 border border-gray-200 rounded px-1 py-0.5 bg-white placeholder:text-gray-300 focus:border-blue-400 focus:outline-none focus:text-gray-700"
+							placeholder="—"
+							value={conn.notes ?? ''}
+							onchange={e => onupdate?.(conn.id, { notes: (e.target as HTMLInputElement).value || undefined })}
+						/>
+					</td>
+
 					<!-- Delete -->
 					<td class="px-2 py-1 text-center">
 						<button
@@ -422,7 +440,7 @@
 
 			{#if sortedConnections.length === 0}
 				<tr>
-					<td colspan="8" class="px-4 py-8 text-center text-gray-300 text-xs">
+					<td colspan="9" class="px-4 py-8 text-center text-gray-300 text-xs">
 						{#if filter}
 							No connections match filter.
 						{:else}

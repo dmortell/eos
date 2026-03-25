@@ -32,6 +32,15 @@ function deviceUFace(devices: any[], deviceId: string, face: string): string {
 	return `U${d.positionU} ${face}`
 }
 
+function fmtPort(devices: any[], deviceId: string, portIndex: number){
+	if (portIndex <= 0) return ''
+	// const d = devices.find((d: any) => d.id === deviceId)
+	// const count = d?.portCount ?? 0
+	// const padW = count >= 100 ? 3 : count >= 10 ? 2 : 1
+	// return String(portIndex).padStart(padW, '0')
+	return portIndex
+}
+
 /** Export patch schedule and BOM to Excel */
 export async function exportPatchExcel(opts: ExportOptions) {
 	const { connections, racks, devices, customCableTypes, projectName, floor, room } = opts
@@ -81,11 +90,11 @@ export async function exportPatchExcel(opts: ExportOptions) {
 			rackLabel(racks, c.fromPortRef.rackId),
 			deviceLabel(devices, c.fromPortRef.deviceId),
 			deviceUFace(devices, c.fromPortRef.deviceId, c.fromPortRef.face),
-			c.fromPortRef.portIndex || '',
+			fmtPort(devices, c.fromPortRef.deviceId, c.fromPortRef.portIndex),
 			rackLabel(racks, c.toPortRef.rackId),
 			deviceLabel(devices, c.toPortRef.deviceId),
 			deviceUFace(devices, c.toPortRef.deviceId, c.toPortRef.face),
-			c.toPortRef.portIndex || '',
+			fmtPort(devices, c.toPortRef.deviceId, c.toPortRef.portIndex),
 			ct.label,
 			c.lengthMeters || '',
 			c.status,

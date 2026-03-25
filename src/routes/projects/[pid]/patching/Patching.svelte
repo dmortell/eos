@@ -11,6 +11,7 @@
 	import { calculateCableLength } from './parts/cableUtils'
 	import { exportPatchExcel } from './parts/exportExcel'
 	import PatchList from './parts/PatchList.svelte'
+	import SettingsDialog from './parts/SettingsDialog.svelte'
 
 	let {
 		data = null, rackData = null, frameData = null,
@@ -38,6 +39,7 @@
 	let customCableTypes = $state<CustomCableType[]>(data?.customCableTypes ?? [])
 	let settings = $state<PatchSettings>({ ...DEFAULT_SETTINGS, ...(data?.settings ?? {}) })
 	let floorManagerOpen = $state(false)
+	let settingsOpen = $state(false)
 	let saveStatus = $state<'saved' | 'saving' | 'unsaved'>('saved')
 	let sidebarTab = $state<'devices' | 'summary'>('devices')
 	let editNewId = $state<string | null>(null)
@@ -282,10 +284,23 @@
 												{@const devConns = connections.filter(c =>
 													c.fromPortRef.deviceId === device.id || c.toPortRef.deviceId === device.id
 												)}
-												<div class="flex items-center gap-1.5 px-1.5 py-0.5 rounded hover:bg-blue-50 text-[11px] text-gray-500 cursor-default group">
-													<span class="w-5 text-right text-[10px] text-gray-300 font-mono">U{device.positionU}</span>
+												{@const isBulkFrom = bulkFrom?.deviceId === device.id}
+												{@const isBulkTo = bulkTo?.deviceId === device.id}
+												<!-- svelte-ignore a11y_click_events_have_key_events -->
+												<!-- svelte-ignore a11y_no_static_element_interactions -->
+												<div
+													class="flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[11px] transition-colors
+														{isBulkFrom ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-300' : isBulkTo ? 'bg-green-100 text-green-700 ring-1 ring-green-300' : 'text-gray-500 hover:bg-blue-50'}
+														{device.portCount > 0 ? 'cursor-pointer' : 'cursor-default'}"
+													onclick={() => handleDeviceClick(rack.id, device.id)}
+												>
+													<span class="w-5 text-right text-[10px] font-mono {isBulkFrom ? 'text-blue-400' : isBulkTo ? 'text-green-400' : 'text-gray-300'}">U{device.positionU}</span>
 													<span class="flex-1 truncate">{device.label || device.type}</span>
-													{#if device.portCount > 0}
+													{#if isBulkFrom}
+														<span class="text-[9px] text-blue-400 font-medium">FROM</span>
+													{:else if isBulkTo}
+														<span class="text-[9px] text-green-500 font-medium">TO</span>
+													{:else if device.portCount > 0}
 														<span class="text-[10px] text-gray-300">{devConns.length}/{device.portCount}</span>
 													{/if}
 												</div>
@@ -334,6 +349,67 @@
 						</div>
 					{/if}
 				</div>
+
+				<!-- Bulk-add panel -->
+				{#if bulkFrom}
+					<div class="border-t border-gray-200 bg-blue-50/50 p-2 shrink-0 space-y-2">
+						{#if !bulkTo}
+							<div class="text-[11px] text-blue-600 font-medium">
+								Now click a destination device
+							</div>
+							<button class="text-[10px] text-gray-400 hover:text-gray-600" onclick={cancelBulk}>Cancel</button>
+						{:else}
+							{@const fromDev = devices.find((d: any) => d.id === bulkFrom?.deviceId)}
+							{@const toDev = devices.find((d: any) => d.id === bulkTo?.deviceId)}
+							<div class="text-[11px] font-medium text-gray-700">Bulk Add Patches</div>
+							<div class="text-[10px] text-gray-500 space-y-1">
+								<div class="flex items-center gap-1">
+									<span class="text-blue-600 font-medium">{fromDev?.label || fromDev?.type}</span>
+									<Icon name="arrowRight" size={10} class="text-gray-300" />
+									<span class="text-green-600 font-medium">{toDev?.label || toDev?.type}</span>
+								</div>
+							</div>
+
+							<div class="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px]">
+								<label class="text-gray-400">From port</label>
+								<label class="text-gray-400">To port</label>
+								<input type="number" min="1" max={fromDev?.portCount ?? 48}
+									class="w-full border border-gray-200 rounded px-1.5 py-0.5 text-[11px] bg-white"
+									bind:value={bulkFromStart} />
+								<input type="number" min="1" max={toDev?.portCount ?? 48}
+									class="w-full border border-gray-200 rounded px-1.5 py-0.5 text-[11px] bg-white"
+									bind:value={bulkToStart} />
+
+								<label class="text-gray-400">Count</label>
+								<label class="text-gray-400">Cable</label>
+								<input type="number" min="1" max={99}
+									class="w-full border border-gray-200 rounded px-1.5 py-0.5 text-[11px] bg-white"
+									bind:value={bulkCount} />
+								<select class="w-full border border-gray-200 rounded px-1 py-0.5 text-[11px] bg-white"
+									bind:value={bulkCableType}>
+									{#each CABLE_TYPES as ct}
+										<option value={ct.id}>{ct.label}</option>
+									{/each}
+								</select>
+							</div>
+
+							<div class="text-[10px] text-gray-400">
+								Ports {bulkFromStart}–{bulkFromStart + bulkCount - 1} → {bulkToStart}–{bulkToStart + bulkCount - 1}
+							</div>
+
+							<div class="flex gap-1.5">
+								<button
+									class="flex-1 h-6 rounded bg-blue-600 text-white text-[11px] font-medium hover:bg-blue-500 transition-colors"
+									onclick={executeBulk}
+								>Create {bulkCount} patches</button>
+								<button
+									class="h-6 px-2 rounded bg-gray-100 text-gray-500 text-[11px] hover:bg-gray-200 transition-colors"
+									onclick={cancelBulk}
+								>Cancel</button>
+							</div>
+						{/if}
+					</div>
+				{/if}
 			</div>
 		</Pane>
 
@@ -374,6 +450,13 @@
 					</div>
 
 					<div class="flex-1"></div>
+
+					<!-- Settings -->
+					<button
+						class="h-6 w-6 rounded bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-colors flex items-center justify-center"
+						title="Settings"
+						onclick={() => settingsOpen = true}
+					><Icon name="settings" size={13} /></button>
 
 					<!-- Export -->
 					<button
@@ -434,4 +517,13 @@
 	onclose={() => floorManagerOpen = false}
 	onupdate={updated => onupdatefloors?.(updated)}
 	ondelete={fl => ondeletefloor?.(fl)}
+/>
+
+<SettingsDialog
+	open={settingsOpen}
+	{settings}
+	{customCableTypes}
+	onclose={() => settingsOpen = false}
+	onsavesettings={s => { settings = s; logChange('update', 'settings') }}
+	onsavecabletypes={types => { customCableTypes = types; logChange('update', 'customCableTypes') }}
 />

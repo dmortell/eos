@@ -222,7 +222,13 @@ src/routes/projects/[pid]/patching/
 
 ### Phase 4 — BOM & Export ✓
 
-9. ✓ `parts/exportExcel.ts` — Patch schedule sheet (landscape, all fields) + BOM sheet (aggregate by cable type + length + status)
+9. ✓ `parts/exportExcel.ts` — Patch schedule sheet (landscape, all fields) + BOM sheet (aggregate by cable type + length + status). Merged U/Face columns, print titles (header row repeats), header/footer with title + page numbers.
+
+### Phase 4b — Bulk Add (sidebar-driven) ✓
+
+10. ✓ Sidebar device tree made interactive: click device → select as "from" (blue highlight), click another → select as "to" (green highlight)
+11. ✓ Inline bulk-add panel at sidebar bottom: port range inputs (from-start, to-start), count, cable type selector, preview of port ranges, "Create N patches" button
+12. ✓ Auto-defaults: first available port on each device, count = min available ports, cable type from settings
 
 ### Phase 5 — Rack Elevation View (future)
 
@@ -230,13 +236,18 @@ src/routes/projects/[pid]/patching/
 11. `parts/CableOverlay.svelte` — H/V straight-line cable routing (like outlet trunks)
 12. Drag-to-connect on rack elevation view
 
-### Phase 6 — Polish (future)
+### Phase 6a — Polish ✓
 
-13. Custom cable types UI (add/edit/delete from settings dialog)
-14. Cord ID import from vendor Excel
-15. Auto-assign function (select outlet ports → auto-allocate to compatible switch ports)
-16. Settings dialog (defaults, display preferences)
-17. Audit logging via `writeLog()` system
+13. ✓ Settings dialog (`SettingsDialog.svelte`) — default cable type/color, display options (show labels, show lengths, group by), accessible via gear icon in toolbar
+14. ✓ Custom cable types UI — add/edit/delete custom types with label, category (copper/fiber/other), color picker; inline editing in settings dialog
+15. ✓ Notes column — inline text input in patch list table, persisted to Firestore, included in Excel export
+16. ✓ Port number zero-padding — ports padded to 2+ digits (e.g. "01", "02") when device has 10+ ports, in dropdowns, display, and Excel export
+
+### Phase 6b — Polish (future)
+
+17. Cord ID import from vendor Excel
+18. Auto-assign function (select outlet ports → auto-allocate to compatible switch ports)
+19. Audit logging via `writeLog()` system
 
 ---
 
@@ -249,3 +260,5 @@ src/routes/projects/[pid]/patching/
 - **Cord ID import** — Parse vendor Excel to match cord IDs back to connections; use cord ID presence to distinguish existing vs. future cords
 - **Validation warnings** — Port type mismatches (RJ45↔LC), duplicate connections, unpatched port summary
 - **Keyboard navigation** — Tab through ports, Enter to confirm, Escape to cancel
+- **Bulk-add enhancements** — Skip already-used ports in bulk range; support face selection (front/rear) in bulk panel; allow reverse port mapping (e.g. ports 1-24 → ports 24-1)
+- **Quick single-add from sidebar** — "+" button on device hover to add one connection pre-filled with that device's first available port as "from"
