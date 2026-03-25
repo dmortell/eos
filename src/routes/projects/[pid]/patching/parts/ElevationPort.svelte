@@ -28,28 +28,24 @@
 		connection ? getCableType(connection.cableType, customCableTypes).color : null
 	)
 
-	// Port background color from usage type (frames data)
+	// Port background color from usage type (frames data) — solid color
 	let bgColor = $derived.by(() => {
 		if (!portInfo) return null
-		const hex = PORT_TYPE_COLORS[portInfo.locationType]
-		return hex ?? null
+		return PORT_TYPE_COLORS[portInfo.locationType] ?? null
 	})
 
 	let title = $derived.by(() => {
 		const parts: string[] = []
-		// Port label from frames, or just port number
 		if (portInfo?.label) {
 			parts.push(portInfo.label)
 		} else {
 			parts.push(`Port ${portIndex}`)
 		}
-		// Connection info
 		if (connection) {
 			const ct = getCableType(connection.cableType, customCableTypes)
 			const status = connection.status === 'installed' ? '' : ` [${connection.status}]`
 			parts.push(`${ct.label} ${connection.lengthMeters}m${status}`)
 		}
-		// Duplicate warning
 		if (isDuplicate) {
 			parts.push('⚠ DUPLICATE — multiple patches on this port')
 		}
@@ -61,24 +57,27 @@
 	// Determine dot color: red for duplicate, cable color for connected
 	let dotColor = $derived(isDuplicate ? '#ef4444' : cableColor)
 	let showDot = $derived(isDuplicate || !!cableColor)
+
+	// Text color — darker on colored backgrounds for contrast
+	let textColor = $derived(bgColor ? bgColor : '#9ca3af')
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	class="relative flex items-center justify-center rounded-sm border cursor-pointer transition-all select-none shrink-0
-		{isDuplicate ? 'border-red-400' : connection ? 'border-gray-300 bg-gray-50' : 'border-gray-200 bg-white'}
+		{isDuplicate ? 'border-red-400' : connection ? 'border-gray-300' : 'border-gray-200'}
 		{isConnectSource ? 'ring-2 ring-green-400 z-10' : selected ? 'ring-2 ring-blue-400 z-10' : 'hover:border-blue-300'}"
 	style:width="{PORT_CELL_W}px"
 	style:height="{PORT_CELL_H}px"
-	style:background={bgColor ? bgColor + '20' : undefined}
+	style:background={bgColor ? bgColor + '30' : connection ? '#f9fafb' : '#ffffff'}
 	{title}
 	onclick={() => onclick?.(portIndex)}
 >
 	<!-- Port number -->
-	<span class="text-[7px] font-mono text-gray-400 leading-none">{portIndex}</span>
+	<span class="text-[7px] font-mono leading-none" style:color={textColor}>{portIndex}</span>
 
-	<!-- Connection/duplicate indicator dot (top-right) -->
+	<!-- Connection/duplicate indicator dot (top-right), 70% opacity -->
 	{#if showDot}
 		<span
 			class="absolute rounded-full"
@@ -88,6 +87,7 @@
 			style:width="{dotSize}px"
 			style:height="{dotSize}px"
 			style:background={dotColor}
+			style:opacity="0.7"
 		></span>
 	{/if}
 </div>

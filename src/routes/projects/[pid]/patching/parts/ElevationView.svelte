@@ -22,6 +22,7 @@
 		floorFormat = 'L01',
 		onaddconnection,
 		onupdateconnection,
+		ondeleteconnection,
 	}: {
 		connections: PatchConnection[]
 		racks: any[]
@@ -35,6 +36,7 @@
 		floorFormat?: string
 		onaddconnection?: (conn: PatchConnection) => void
 		onupdateconnection?: (id: string, updates: Partial<PatchConnection>) => void
+		ondeleteconnection?: (id: string) => void
 	} = $props()
 
 	// ── Pan/zoom state ──
@@ -211,6 +213,27 @@
 		connectFromKey = null
 	}
 
+	// ── Selected connection details ──
+	let selectedConn = $derived(selectedConnectionId ? connections.find(c => c.id === selectedConnectionId) : null)
+
+	function deleteSelectedConnection() {
+		if (!selectedConnectionId || !ondeleteconnection) return
+		const conn = connections.find(c => c.id === selectedConnectionId)
+		if (!conn) return
+
+		// Find the "other" end — the port NOT currently selected
+		const fromKey = `${conn.fromPortRef.deviceId}:${conn.fromPortRef.portIndex}`
+		const toKey = `${conn.toPortRef.deviceId}:${conn.toPortRef.portIndex}`
+		const otherKey = selectedPortKey === fromKey ? toKey : fromKey
+
+		ondeleteconnection(selectedConnectionId)
+
+		// Select the other port as "from" so user can immediately re-connect it
+		selectedPortKey = otherKey
+		selectedConnectionId = null
+		connectFromKey = otherKey
+	}
+
 	// Center view on mount
 	$effect(() => {
 		if (containerW > 0 && containerH > 0 && racks.length > 0) {
@@ -315,6 +338,30 @@
 			{/if}
 		</div>
 
+		<!-- Selected connection info bar -->
+		{#if selectedConn}
+			{@const ct = getCableType(selectedConn.cableType, customCableTypes)}
+			{@const fromDev = devices.find((d: any) => d.id === selectedConn.fromPortRef.deviceId)}
+			{@const toDev = devices.find((d: any) => d.id === selectedConn.toPortRef.deviceId)}
+			<div class="absolute bottom-2 left-2 z-30 flex items-center gap-2 bg-white/95 rounded border border-gray-200 shadow-sm px-2.5 py-1.5 text-[11px]">
+				<span class="w-2 h-2 rounded-full shrink-0" style:background={ct.color}></span>
+				<span class="text-gray-600">
+					{fromDev?.label || fromDev?.type || '?'}:{selectedConn.fromPortRef.portIndex}
+					→
+					{toDev?.label || toDev?.type || '?'}:{selectedConn.toPortRef.portIndex}
+				</span>
+				<span class="text-gray-400">{ct.label} {selectedConn.lengthMeters}m</span>
+				{#if selectedConn.status !== 'installed'}
+					<span class="text-[9px] px-1 py-0.5 rounded bg-blue-50 text-blue-600">{selectedConn.status}</span>
+				{/if}
+				<button
+					class="h-5 px-1.5 rounded text-[10px] font-medium bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+					title="Delete this connection (Del)"
+					onclick={deleteSelectedConnection}
+				>Delete</button>
+			</div>
+		{/if}
+
 		<!-- Zoom indicator -->
 		<div class="absolute bottom-2 right-2 text-[10px] text-gray-400 bg-white/80 px-1.5 py-0.5 rounded border border-gray-200 select-none pointer-events-none">
 			{Math.round(zoom * 100)}%
@@ -322,4 +369,7 @@
 	{/if}
 </div>
 
-<svelte:window onkeydown={e => { if (e.key === 'Escape') { connectFromKey = null; selectedPortKey = null; selectedConnectionId = null } }} />
+<svelte:window onkeydown={e => {
+	if (e.key === 'Escape') { connectFromKey = null; selectedPortKey = null; selectedConnectionId = null }
+	if ((e.key === 'Delete' || e.key === 'Backspace') && selectedConnectionId && !connectFromKey) { deleteSelectedConnection() }
+}} />

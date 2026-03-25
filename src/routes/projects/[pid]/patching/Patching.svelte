@@ -639,6 +639,7 @@
 								logChange('add', 'connection', conn.id)
 							}}
 							onupdateconnection={(id, updates) => updateConnection(id, updates)}
+							ondeleteconnection={deleteConnection}
 						/>
 					</div>
 				{/if}
