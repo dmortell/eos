@@ -21,7 +21,7 @@ const RACK_GAP = 1   // gap column between racks
 const ROWS_PER_RU = 2 // every RU uses 2 Excel rows
 
 /** Export patch frame data to an Excel workbook and trigger download */
-export async function exportToExcel(racks: RackData[], zones: ZoneConfig[], groupByRoom = false, floorFormat = 'L01') {
+export async function exportToExcel(racks: RackData[], zones: ZoneConfig[], groupByRoom = false, floorFormat = 'L01', reservations?: Map<string, LocType>) {
 	const wb = new ExcelJS.Workbook()
 	const floor = zones[0]?.floor ?? 1
 	const floorStr = formatFloor(floor, floorFormat)
@@ -69,7 +69,7 @@ export async function exportToExcel(racks: RackData[], zones: ZoneConfig[], grou
 
 		if (group.racks.length <= 1) {
 			setColWidths(ws, 1)
-			writeRack(ws, group.racks[0], 1, 1, floorStr)
+			writeRack(ws, group.racks[0], 1, 1, floorStr, reservations)
 		} else {
 			// Multiple racks side by side, bottoms aligned
 			const maxRU = Math.max(...group.racks.map(r => r.frame.totalRU))
@@ -80,7 +80,7 @@ export async function exportToExcel(racks: RackData[], zones: ZoneConfig[], grou
 
 				// Pad shorter racks so RU 1 aligns at the bottom
 				const pad = (maxRU - group.racks[ri].frame.totalRU) * ROWS_PER_RU
-				writeRack(ws, group.racks[ri], 1 + pad, colOffset, floorStr)
+				writeRack(ws, group.racks[ri], 1 + pad, colOffset, floorStr, reservations)
 			}
 		}
 	}
@@ -103,7 +103,7 @@ function setColWidths(ws: ExcelJS.Worksheet, colOffset: number) {
 	}
 }
 
-function writeRack(ws: ExcelJS.Worksheet, rack: RackData, startRow: number, colOffset: number, floorStr: string) {
+function writeRack(ws: ExcelJS.Worksheet, rack: RackData, startRow: number, colOffset: number, floorStr: string, reservations?: Map<string, LocType>) {
 	const c1 = colOffset          // RU column
 	const cPort1 = colOffset + 1  // first port column
 	const cEnd = colOffset + RACK_COLS - 1
@@ -145,7 +145,8 @@ function writeRack(ws: ExcelJS.Worksheet, rack: RackData, startRow: number, colO
 
 		if (panel) {
 			const blockStart = row
-			// Panel: top row
+			const frameId = rack.frame.id
+			// Panel: upper row
 			ws.getCell(row, c1).value = ru
 			ws.getCell(row, c1).font = { bold: true, size: 8 }
 			ws.getCell(row, c1).alignment = { horizontal: 'center' }
@@ -153,22 +154,28 @@ function writeRack(ws: ExcelJS.Worksheet, rack: RackData, startRow: number, colO
 				const port = panel.topRow[col]
 				if (port) {
 					writePortCell(ws.getCell(row, cPort1 + col), port)
+				} else {
+					const resType = reservations?.get(`${frameId}:${ru}:top:${col}`)
+					if (resType) writeReservedCell(ws.getCell(row, cPort1 + col), resType)
 				}
 			}
 			ws.getRow(row).height = 14
 			row++
 
-			// Panel: bottom row (only for 48-port panels)
+			// Panel: lower row — always emit to maintain 2 rows per RU
 			if (panel.bottomRow.length > 0) {
 				for (let col = 0; col < panel.bottomRow.length; col++) {
 					const port = panel.bottomRow[col]
 					if (port) {
 						writePortCell(ws.getCell(row, cPort1 + col), port)
+					} else {
+						const resType = reservations?.get(`${frameId}:${ru}:bottom:${col}`)
+						if (resType) writeReservedCell(ws.getCell(row, cPort1 + col), resType)
 					}
 				}
-				ws.getRow(row).height = 14
-				row++
 			}
+			ws.getRow(row).height = 14
+			row++
 			applyBlockBorder(ws, blockStart, row - 1, c1, cEnd)
 		} else if (slot && slot.ru === ru) {
 			// Slot: 2 rows per RU of slot height
@@ -181,7 +188,8 @@ function writeRack(ws: ExcelJS.Worksheet, rack: RackData, startRow: number, colO
 			for (let h = slot.height - 1; h >= 0; h--) {
 				// Row 1 of this RU: show RU number
 				ws.getCell(row, c1).value = slot.ru + h
-				ws.getCell(row, c1).font = { size: 7 }
+				// ws.getCell(row, c1).font = { size: 7 }
+				ws.getCell(row, c1).font = { bold: true, size: 8 }
 				ws.getCell(row, c1).alignment = { horizontal: 'center' }
 				ws.getRow(row).height = 14
 				for (let c = cPort1; c <= cEnd; c++) ws.getCell(row, c).fill = slotFill
@@ -196,14 +204,15 @@ function writeRack(ws: ExcelJS.Worksheet, rack: RackData, startRow: number, colO
 			const cell = ws.getCell(blockStart, cPort1)
 			cell.value = `${slot.type.replace(/-/g, ' ').toUpperCase()}${slot.label ? ': ' + slot.label : ''}`
 			cell.font = { size: 8, italic: true, color: { argb: 'FF888888' } }
-			cell.alignment = { vertical: 'middle' }
+			// cell.alignment = { vertical: 'middle' }
 			cell.fill = slotFill
 			applyBlockBorder(ws, blockStart, row - 1, c1, cEnd)
 		} else if (!slotRUs.has(ru)) {
 			// Empty RU: 2 rows
 			const blockStart = row
 			ws.getCell(row, c1).value = ru
-			ws.getCell(row, c1).font = { size: 7, color: { argb: 'FFCCCCCC' } }
+			// ws.getCell(row, c1).font = { size: 7, color: { argb: 'FFCCCCCC' } }
+			ws.getCell(row, c1).font = { bold: true, size: 8 }
 			ws.getCell(row, c1).alignment = { horizontal: 'center' }
 			ws.getRow(row).height = 14
 			row++
@@ -229,6 +238,18 @@ function writeRack(ws: ExcelJS.Worksheet, rack: RackData, startRow: number, colO
 	for (let r = headerRow; r <= bodyEndRow; r++) {
 		mergeBorder(ws.getCell(r, c1), { right: ruSep })
 	}
+}
+
+/** Write a reserved-but-unallocated port cell with the reservation type color and a dashed border */
+function writeReservedCell(cell: ExcelJS.Cell, type: LocType) {
+	const colors = LOC_TYPE_FILLS[type] ?? DEFAULT_FILL
+	// cell.value = type
+	cell.font = { size: 7, name: 'Consolas', italic: false, color: { argb: colors.text } }
+	cell.alignment = { horizontal: 'center' }
+	cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.bg } }
+	// const side: Partial<ExcelJS.Border> = { style: 'dotted', color: { argb: colors.text } }
+	// cell.border = { top: side, bottom: side, left: side, right: side }
+	cell.border = portBorder()
 }
 
 /** Write a single port cell with location-type color */

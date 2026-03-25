@@ -411,7 +411,7 @@
 	}
 
 	function handleExport() {
-		exportToExcel(racks, allZoneConfigs, excelGroupByRoom, floorFormat)
+		exportToExcel(racks, allZoneConfigs, excelGroupByRoom, floorFormat, reservationMap.size > 0 ? reservationMap : undefined)
 	}
 
 	// ── Block assign handlers ──
@@ -656,3 +656,29 @@
 		onblockselect={blockSelectPorts}
 	/>
 {/snippet}
+
+<style>
+	@media print {
+		/* Collapse sidebar/top pane and resize handle — paneforge sets inline styles so !important is needed */
+		:global([data-pane-group] > [data-pane]:first-child) {
+			flex-basis: 0 !important;
+			flex-grow: 0 !important;
+			overflow: hidden !important;
+			max-width: 0 !important;
+			max-height: 0 !important;
+			padding: 0 !important;
+		}
+		:global([data-pane-group] > [data-slot="resizable-handle"]) {
+			display: none !important;
+		}
+		/* Let the main pane take full width */
+		:global([data-pane-group] > [data-pane]:last-child) {
+			flex-basis: 100% !important;
+			flex-grow: 1 !important;
+			max-width: 100% !important;
+		}
+		:global([data-pane-group]) {
+			overflow: visible !important;
+		}
+	}
+</style>
