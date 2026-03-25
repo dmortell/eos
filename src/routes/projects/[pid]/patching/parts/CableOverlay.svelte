@@ -23,8 +23,8 @@
 		selectedConnectionId?: string | null
 	} = $props()
 
-	let deviceMap = $derived(new Map(devices.map((d: any) => [d.id, d])))
-	let rackMap = $derived(new Map(racks.map((r: any) => [r.id, r])))
+	let deviceLookup = $derived(new Map(devices.map((d: any) => [d.id, d])))
+	let rackLookup = $derived(new Map(racks.map((r: any) => [r.id, r])))
 
 	interface CableLine {
 		id: string
@@ -32,20 +32,19 @@
 		x2: number; y2: number
 		color: string
 		dashed: boolean
-		connection: PatchConnection
 	}
 
 	let cables = $derived.by(() => {
 		const lines: CableLine[] = []
 
 		for (const c of connections) {
-			const fromDev = deviceMap.get(c.fromPortRef.deviceId)
-			const toDev = deviceMap.get(c.toPortRef.deviceId)
+			const fromDev = deviceLookup.get(c.fromPortRef.deviceId)
+			const toDev = deviceLookup.get(c.toPortRef.deviceId)
 			if (!fromDev || !toDev) continue
 			if (c.fromPortRef.portIndex <= 0 || c.toPortRef.portIndex <= 0) continue
 
-			const fromRack = rackMap.get(c.fromPortRef.rackId)
-			const toRack = rackMap.get(c.toPortRef.rackId)
+			const fromRack = rackLookup.get(c.fromPortRef.rackId)
+			const toRack = rackLookup.get(c.toPortRef.rackId)
 			if (!fromRack || !toRack) continue
 
 			const fromRackX = rackXPositions.get(fromRack.id)
@@ -66,11 +65,10 @@
 
 			lines.push({
 				id: c.id,
-				x1: from.x, y1: from.y + 22, // +22 for rack label offset
-				x2: to.x, y2: to.y + 22,
+				x1: from.x, y1: from.y,
+				x2: to.x, y2: to.y,
 				color: c.cableColor || ct.color,
 				dashed,
-				connection: c,
 			})
 		}
 
@@ -78,14 +76,14 @@
 	})
 </script>
 
-<svg class="absolute inset-0 pointer-events-none" width={canvasWidth} height={canvasHeight}>
+<svg class="absolute inset-0 z-20 pointer-events-none" width={canvasWidth} height={canvasHeight} style="overflow: visible">
 	{#each cables as cable (cable.id)}
 		<!-- Hit area (wider, invisible) -->
 		<line
 			x1={cable.x1} y1={cable.y1}
 			x2={cable.x2} y2={cable.y2}
 			stroke="transparent"
-			stroke-width={8}
+			stroke-width={10}
 			class="pointer-events-stroke cursor-pointer"
 		/>
 		<!-- Visible cable line -->
@@ -93,10 +91,10 @@
 			x1={cable.x1} y1={cable.y1}
 			x2={cable.x2} y2={cable.y2}
 			stroke={cable.color}
-			stroke-width={selectedConnectionId === cable.id ? 2.5 : 1.5}
+			stroke-width={selectedConnectionId === cable.id ? 3 : 1.5}
 			stroke-dasharray={cable.dashed ? '4,3' : 'none'}
-			stroke-opacity={selectedConnectionId && selectedConnectionId !== cable.id ? 0.2 : 0.7}
-			class="pointer-events-none transition-opacity"
+			stroke-opacity={selectedConnectionId && selectedConnectionId !== cable.id ? 0.15 : 0.8}
+			class="pointer-events-none"
 		/>
 	{/each}
 </svg>

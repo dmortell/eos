@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { PatchConnection, CustomCableType } from './types'
-	import { buildPortConnectionMap, rackWidth, rackHeight, RACK_GAP } from './elevationUtils'
+	import { buildPortConnectionMap, rackWidth, rackHeight, RACK_GAP, RACK_LABEL_H } from './elevationUtils'
 	import ElevationRack from './ElevationRack.svelte'
 	import CableOverlay from './CableOverlay.svelte'
 
@@ -47,11 +47,11 @@
 	})
 
 	let maxRackHeight = $derived(
-		racks.length > 0 ? Math.max(...racks.map((r: any) => rackHeight(r.heightU))) : 400
+		racks.length > 0 ? Math.max(...racks.map((r: any) => rackHeight(r.heightU) + RACK_LABEL_H)) : 400
 	)
 
 	let totalWidth = $derived(racks.length * rackW + (racks.length - 1) * RACK_GAP + 80)
-	let totalHeight = $derived(maxRackHeight + 80)
+	let totalHeight = $derived(maxRackHeight + 60)
 
 	// ── Pan/zoom handlers ──
 	let isPanning = $state(false)
@@ -151,18 +151,6 @@
 	{:else}
 		<!-- Transformed canvas -->
 		<div class="absolute" style:transform="translate({panX}px, {panY}px) scale({zoom})" style:transform-origin="0 0">
-			<!-- Cable overlay (behind racks) -->
-			<CableOverlay
-				{connections}
-				{racks}
-				{devices}
-				{rackXPositions}
-				{customCableTypes}
-				canvasWidth={totalWidth}
-				canvasHeight={totalHeight}
-				{selectedConnectionId}
-			/>
-
 			<!-- Racks side by side -->
 			{#each racks as rack (rack.id)}
 				{@const rackX = rackXPositions.get(rack.id) ?? 0}
@@ -178,6 +166,18 @@
 					/>
 				</div>
 			{/each}
+
+			<!-- Cable overlay (above racks, z-20) -->
+			<CableOverlay
+				{connections}
+				{racks}
+				{devices}
+				{rackXPositions}
+				{customCableTypes}
+				canvasWidth={totalWidth}
+				canvasHeight={totalHeight}
+				{selectedConnectionId}
+			/>
 		</div>
 
 		<!-- Zoom indicator -->

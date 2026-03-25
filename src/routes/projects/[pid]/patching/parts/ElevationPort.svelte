@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { PatchConnection } from './types'
 	import { getCableType } from './constants'
-	import { PORT_W, PORT_H } from './elevationUtils'
 
 	let {
 		portIndex,
@@ -32,11 +31,9 @@
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-	class="relative flex items-center justify-center rounded-sm border cursor-pointer transition-all select-none
+	class="relative flex items-center justify-center rounded-sm border cursor-pointer transition-all select-none w-full h-full min-w-0 min-h-0
 		{connection ? 'border-gray-300 bg-gray-50' : 'border-gray-200 bg-white'}
 		{selected ? 'ring-2 ring-blue-400 z-10' : 'hover:border-blue-300'}"
-	style:width="{PORT_W}px"
-	style:height="{PORT_H}px"
 	{title}
 	onclick={() => onclick?.(portIndex)}
 >
@@ -46,7 +43,7 @@
 	<!-- Connection indicator dot -->
 	{#if cableColor}
 		<span
-			class="absolute top-0.5 right-0.5 w-[5px] h-[5px] rounded-full"
+			class="absolute top-px right-px w-[5px] h-[5px] rounded-full"
 			style:background={cableColor}
 		></span>
 	{/if}
