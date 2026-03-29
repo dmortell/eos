@@ -53,6 +53,6 @@ export const DEVICE_TYPE_COLORS: Record<DeviceType, string> = {
 	enclosure: '#0ea5e9', // sky
 	manager: '#a855f7', // purple
 	shelf: '#f97316',   // orange
-	pdu: '#ef4444',     // red
+	pdu: '#ab7240',     // red '#ef4444'
 	other: '#6b7280',   // gray
 }

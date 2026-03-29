@@ -118,12 +118,17 @@
 	)
 	let selectedDevice = $derived(selectedDevices[0] ?? null)
 
-	/** Per-rack set of RU positions occupied by more than one device */
+	/** Per-rack set of RU positions occupied by more than one device.
+	 *  Excludes devices wider than the 19″ internal frame (e.g. vertical PDUs)
+	 *  since they mount on the rack sides and don't compete for internal RU space. */
 	let rackOverlaps = $derived.by(() => {
 		const map = new Map<string, Set<number>>()
-		// Count how many devices occupy each RU in each rack
 		const ruCounts = new Map<string, Map<number, number>>()
 		for (const d of devices) {
+			const ox = d.offsetX ?? 0
+			if (ox < -446/2 || ox>446/2) continue
+			if (d.widthMm==46) console.log(d.offsetX, 446/2)
+			// if ((d.widthMm ?? RACK_19IN_MM) > RACK_19IN_MM) continue
 			if (!ruCounts.has(d.rackId)) ruCounts.set(d.rackId, new Map())
 			const counts = ruCounts.get(d.rackId)!
 			for (let u = d.positionU; u < d.positionU + d.heightU; u++) {

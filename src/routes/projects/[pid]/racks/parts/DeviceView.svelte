@@ -25,7 +25,9 @@
 
 <div class="flex h-full relative cursor-pointer group" style:border-left="3px solid {color}">
 	<!-- Label -->
-	<div class="flex items-center pl-1.5 text-gray-700 font-bold truncate" style:font-size={Math.max(8, 16 * zoom * scale) + 'px'}>
+	<div class="flex items-center pl-1.5 text-gray-700 font-bold truncate"
+	class:rotate-label={(device.widthMm ?? 450) <= 150}
+	style:font-size={Math.max(8, 16 * zoom * scale) + 'px'}>
 		<Icon name={iconName} size={Math.max(8, 14 * zoom * scale)} />
 		<span class="ml-1 truncate">{device.label}</span>
 	</div>
@@ -53,3 +55,14 @@
 		{/if}
 	</div>
 </div>
+
+<style>
+.rotate-label {
+	position: absolute;
+	left: 20px;
+	bottom: 40%;
+	transform: rotate(-90deg);
+	transform-origin: bottom left;
+	white-space: nowrap;
+}
+</style>
