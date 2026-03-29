@@ -366,16 +366,19 @@
 		const rect = canvasEl.getBoundingClientRect()
 		const cx = (clientX - rect.left - view.x) / view.zoom
 		const cy = (clientY - rect.top - view.y) / view.zoom
-		for (const rack of activeRacks) {
+		const allRacks: { rack: typeof activeRacks[number]; isRear: boolean }[] = [
+			...activeRacks.map(r => ({ rack: r, isRear: false })),
+			...rearRacks.map(r => ({ rack: r, isRear: true })),
+		]
+		for (const { rack, isRear } of allRacks) {
 			const rr = screenRect(rack)
 			if (cx >= rr.left && cx <= rr.left + rr.width && cy >= rr.top && cy <= rr.top + rr.height) {
 				const ruFromBottom = (rr.top + rr.height - cy) / SCALE / RU_HEIGHT_MM
 				const snappedRU = Math.max(1, Math.min(rack.heightU - heightU + 1, Math.round(ruFromBottom)))
-				// Compute ghost rect in canvas coords
 				const innerLeft = rr.left + ((rack.widthMm - RACK_19IN_MM) / 2) * SCALE
 				const ruBottom = rr.top + rr.height - snappedRU * RU_HEIGHT_MM * SCALE
 				return {
-					rack, snappedRU,
+					rack, snappedRU, isRear,
 					ghost: {
 						left: innerLeft,
 						top: ruBottom - heightU * RU_HEIGHT_MM * SCALE,
@@ -418,6 +421,11 @@
 		const hit = hitTestRack(e.clientX, e.clientY, draggingTemplate.heightU)
 		if (hit) {
 			placeDevice(draggingTemplate, hit.rack, hit.snappedRU)
+			if (hit.isRear) {
+				// Device dropped in rear view — set mounting to rear
+				const lastDev = devices[devices.length - 1]
+				if (lastDev) updateDevice(lastDev.id, { mounting: 'rear' })
+			}
 		}
 		draggingTemplate = null
 	}
@@ -498,29 +506,43 @@
 		return Math.round(offsetPx / SCALE / 25) * 25
 	}
 
-	function onDeviceDrag(rect: any, _mouse: any, item: any) {
-		// Show ghost at snap position while dragging existing device
-		const midX = rect.left + rect.width / 2
-		const devW = (item.widthMm ?? RACK_19IN_MM) * SCALE
+	/** Find which rack (front or rear) a drop rect lands in, checking both X and Y */
+	function findDropRack(midX: number, midY: number): { rack: typeof activeRacks[number]; rr: ReturnType<typeof screenRect>; isRear: boolean } | null {
 		for (const rack of activeRacks) {
 			const rr = screenRect(rack)
-			if (midX >= rr.left && midX <= rr.left + rr.width) {
-				const ruFromBottom = (rr.top + rr.height - rect.top - rect.height) / SCALE / RU_HEIGHT_MM
-				const maxRU = isRUType(rack.type)
-					? rack.heightU - item.heightU + 1
-					: Math.floor(rack.heightMm / RU_HEIGHT_MM) - item.heightU + 1
-				const snappedRU = Math.max(1, Math.min(maxRU, Math.round(ruFromBottom)))
-				const ox = snapOffsetX(rect, rr, devW)
-				const centerLeft = rr.left + (rr.width - devW) / 2 + ox * SCALE
-				const ruBottom = rr.top + rr.height - snappedRU * RU_HEIGHT_MM * SCALE
-				dropGhost = {
-					left: centerLeft,
-					top: ruBottom - item.heightU * RU_HEIGHT_MM * SCALE,
-					width: devW,
-					height: item.heightU * RU_HEIGHT_MM * SCALE,
-				}
-				return
+			if (midX >= rr.left && midX <= rr.left + rr.width && midY >= rr.top && midY <= rr.top + rr.height)
+				return { rack, rr, isRear: false }
+		}
+		for (const rack of rearRacks) {
+			const rr = screenRect(rack)
+			if (midX >= rr.left && midX <= rr.left + rr.width && midY >= rr.top && midY <= rr.top + rr.height)
+				return { rack, rr, isRear: true }
+		}
+		return null
+	}
+
+	function onDeviceDrag(rect: any, _mouse: any, item: any) {
+		const midX = rect.left + rect.width / 2
+		const midY = rect.top + rect.height / 2
+		const devW = (item.widthMm ?? RACK_19IN_MM) * SCALE
+		const hit = findDropRack(midX, midY)
+		if (hit) {
+			const { rack, rr, isRear } = hit
+			const ruFromBottom = (rr.top + rr.height - rect.top - rect.height) / SCALE / RU_HEIGHT_MM
+			const maxRU = isRUType(rack.type)
+				? rack.heightU - item.heightU + 1
+				: Math.floor(rack.heightMm / RU_HEIGHT_MM) - item.heightU + 1
+			const snappedRU = Math.max(1, Math.min(maxRU, Math.round(ruFromBottom)))
+			const ox = snapOffsetX(rect, rr, devW) * (isRear ? -1 : 1)
+			const centerLeft = rr.left + (rr.width - devW) / 2 + ox * (isRear ? -1 : 1) * SCALE
+			const ruBottom = rr.top + rr.height - snappedRU * RU_HEIGHT_MM * SCALE
+			dropGhost = {
+				left: centerLeft,
+				top: ruBottom - item.heightU * RU_HEIGHT_MM * SCALE,
+				width: devW,
+				height: item.heightU * RU_HEIGHT_MM * SCALE,
 			}
+			return
 		}
 		dropGhost = null
 	}
@@ -528,27 +550,25 @@
 	function onDeviceDragged(rect: any, device: DeviceConfig, copy?: boolean) {
 		dropGhost = null
 		const devW = (device.widthMm ?? RACK_19IN_MM) * SCALE
-		for (const rack of activeRacks) {
-			const rr = screenRect(rack)
-			const midX = rect.left + rect.width / 2
-			if (midX >= rr.left && midX <= rr.left + rr.width) {
-				const ruFromBottom = (rr.top + rr.height - rect.top - rect.height) / SCALE / RU_HEIGHT_MM
-				const maxRU = isRUType(rack.type)
-					? rack.heightU - device.heightU + 1
-					: Math.floor(rack.heightMm / RU_HEIGHT_MM) - device.heightU + 1
-				const snappedRU = Math.max(1, Math.min(maxRU, Math.round(ruFromBottom)))
-				const ox = snapOffsetX(rect, rr, devW)
-				if (copy) {
-					const id = `dev-${Date.now()}`
-					const { id: _, ...rest } = device
-					devices = [...devices, { ...rest, id, rackId: rack.id, positionU: snappedRU, offsetX: ox }]
-					selectedIds = new Set([id])
-					logChange('copy', 'device', `${device.label} to ${rack.label} RU${snappedRU}`)
-				} else {
-					updateDevice(device.id, { rackId: rack.id, positionU: snappedRU, offsetX: ox })
-				}
-				return
-			}
+		const midX = rect.left + rect.width / 2
+		const midY = rect.top + rect.height / 2
+		const hit = findDropRack(midX, midY)
+		if (!hit) return
+		const { rack, rr, isRear } = hit
+		const ruFromBottom = (rr.top + rr.height - rect.top - rect.height) / SCALE / RU_HEIGHT_MM
+		const maxRU = isRUType(rack.type)
+			? rack.heightU - device.heightU + 1
+			: Math.floor(rack.heightMm / RU_HEIGHT_MM) - device.heightU + 1
+		const snappedRU = Math.max(1, Math.min(maxRU, Math.round(ruFromBottom)))
+		const ox = snapOffsetX(rect, rr, devW) * (isRear ? -1 : 1)
+		if (copy) {
+			const id = `dev-${Date.now()}`
+			const { id: _, ...rest } = device
+			devices = [...devices, { ...rest, id, rackId: rack.id, positionU: snappedRU, offsetX: ox }]
+			selectedIds = new Set([id])
+			logChange('copy', 'device', `${device.label} to ${rack.label} RU${snappedRU}`)
+		} else {
+			updateDevice(device.id, { rackId: rack.id, positionU: snappedRU, offsetX: ox })
 		}
 	}
 
