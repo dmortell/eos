@@ -41,6 +41,8 @@
 			{@render NumberField('heightU', shared(d => d.heightU), v => updateAll({ heightU: v }))}
 			{@render NumberField('portCount', shared(d => d.portCount), v => updateAll({ portCount: v }))}
 			{@render NumberField('widthMm', shared(d => d.widthMm ?? 480), v => updateAll({ widthMm: v }))}
+			{@render NumberField('depthMm', shared(d => d.depthMm ?? 0), v => updateAll({ depthMm: v || undefined }))}
+			{@render SelectField('mounting', shared(d => d.mounting ?? 'both') ?? '', [['front', 'Front'], ['rear', 'Rear'], ['both', 'Both'], ['none', 'None']], v => updateAll({ mounting: v }))}
 			{#if !multi}
 				{@render NumberField('offsetX', device.offsetX ?? 0, v => onupdate?.(device!.id, { offsetX: Math.round(v / 25) * 25 }))}
 			{/if}

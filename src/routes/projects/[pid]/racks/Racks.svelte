@@ -120,26 +120,44 @@
 
 	/** Per-rack set of RU positions occupied by more than one device.
 	 *  Excludes devices wider than the 19″ internal frame (e.g. vertical PDUs)
-	 *  since they mount on the rack sides and don't compete for internal RU space. */
+	 *  and uses mounting position (front/rear/both/none) to determine conflicts:
+	 *  two devices only overlap if they share at least one rail (front or rear). */
 	let rackOverlaps = $derived.by(() => {
 		const map = new Map<string, Set<number>>()
-		const ruCounts = new Map<string, Map<number, number>>()
+		// Track front and rear rail occupancy separately per rack
+		const frontCounts = new Map<string, Map<number, number>>()
+		const rearCounts = new Map<string, Map<number, number>>()
 		for (const d of devices) {
 			const ox = d.offsetX ?? 0
 			if (ox < -446/2 || ox>446/2) continue
-			if (d.widthMm==46) console.log(d.offsetX, 446/2)
-			// if ((d.widthMm ?? RACK_19IN_MM) > RACK_19IN_MM) continue
-			if (!ruCounts.has(d.rackId)) ruCounts.set(d.rackId, new Map())
-			const counts = ruCounts.get(d.rackId)!
-			for (let u = d.positionU; u < d.positionU + d.heightU; u++) {
-				counts.set(u, (counts.get(u) ?? 0) + 1)
+
+			const mounting = d.mounting ?? 'both'
+			if (mounting === 'none') continue
+			const usesFront = mounting === 'front' || mounting === 'both'
+			const usesRear = mounting === 'rear' || mounting === 'both'
+			if (usesFront) {
+				if (!frontCounts.has(d.rackId)) frontCounts.set(d.rackId, new Map())
+				const counts = frontCounts.get(d.rackId)!
+				for (let u = d.positionU; u < d.positionU + d.heightU; u++) {
+					counts.set(u, (counts.get(u) ?? 0) + 1)
+				}
+			}
+			if (usesRear) {
+				if (!rearCounts.has(d.rackId)) rearCounts.set(d.rackId, new Map())
+				const counts = rearCounts.get(d.rackId)!
+				for (let u = d.positionU; u < d.positionU + d.heightU; u++) {
+					counts.set(u, (counts.get(u) ?? 0) + 1)
+				}
 			}
 		}
-		for (const [rackId, counts] of ruCounts) {
+		// A RU overlaps if either front or rear rail has >1 device
+		const allRackIds = new Set([...frontCounts.keys(), ...rearCounts.keys()])
+		for (const rackId of allRackIds) {
 			const overlapping = new Set<number>()
-			for (const [u, count] of counts) {
-				if (count > 1) overlapping.add(u)
-			}
+			const fc = frontCounts.get(rackId)
+			const rc = rearCounts.get(rackId)
+			if (fc) for (const [u, count] of fc) { if (count > 1) overlapping.add(u) }
+			if (rc) for (const [u, count] of rc) { if (count > 1) overlapping.add(u) }
 			if (overlapping.size > 0) map.set(rackId, overlapping)
 		}
 		return map

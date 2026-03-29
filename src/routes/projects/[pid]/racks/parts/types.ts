@@ -38,6 +38,8 @@ export const DEFAULT_SHELF_HEIGHTS: Record<string, number[]> = {
 	shelf: [300, 600, 900, 1200],
 }
 
+export type MountingPosition = 'front' | 'rear' | 'both' | 'none'
+
 export interface DeviceConfig {
 	id: string
 	rackId: string
@@ -51,6 +53,8 @@ export interface DeviceConfig {
 	model?: string
 	color?: string
 	widthMm?: number // device width override (for non-19" items like tower PCs, monitors)
+	depthMm?: number // device depth in mm (defaults to rack depth)
+	mounting?: MountingPosition // rail mounting position (default 'both')
 	offsetX?: number // horizontal offset from center in mm (positive = right, snapped to 25mm)
 	// Patch panel fields (only relevant when type === 'panel')
 	patchLevel?: 'floor' | 'high' // floor-level or high-level (ceiling) ports
