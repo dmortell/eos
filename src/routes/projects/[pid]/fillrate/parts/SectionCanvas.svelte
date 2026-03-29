@@ -79,7 +79,7 @@
 		allCables.sort((a, b) => b.diameter - a.diameter)
 
 		const positions: { x: number; y: number; radius: number }[] = []
-		const cableColor = fillRate > 100 ? '#dc2626' : fillRate > 60 ? '#ea580c' : fillRate > 40 ? '#16a34a' : '#3b82f6'
+		const cableColor = fillRate > 100 ? '#dc2626' : fillRate > 60 ? '#e08020' : fillRate > 40 ? '#16a34a' : '#3b82f6'
 
 		function collides(x: number, y: number, radius: number): boolean {
 			for (const pos of positions) {

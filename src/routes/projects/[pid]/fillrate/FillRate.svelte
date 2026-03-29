@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button, Icon, Titlebar } from '$lib'
+	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
 	import type { ChangeDetail } from '$lib/logger'
 	import type { Section as SectionType } from './parts/constants'
 	import { createSection, formatLabel, calcFillRate, fillColor } from './parts/constants'
@@ -104,9 +105,10 @@
 
 	<Titlebar title="{projectName} — Fill Rate" />
 
-	<div class="flex flex-1 overflow-hidden">
+	<PaneGroup direction="horizontal" class="flex-1 min-h-0">
 		<!-- Sidebar -->
-		<div class="w-72 border-r border-gray-300 flex flex-col bg-white print:hidden shrink-0">
+		<Pane defaultSize={22} minSize={15} maxSize={40}>
+		<div class="h-full border-r border-gray-300 flex flex-col bg-white print:hidden">
 			<div class="flex items-center gap-1 px-2 py-1 border-b border-gray-200 bg-gray-50">
 				<Button icon="plus" variant="primary" class="rounded px-2 py-1 text-xs" title="Add Container" onclick={addSection}>Add</Button>
 				<Button icon="trash" class="rounded px-1 py-1 text-xs" title="Delete Container" onclick={() => { if (selectedId) deleteSection(selectedId) }}
@@ -152,9 +154,13 @@
 				</div>
 			{/if}
 		</div>
+		</Pane>
+
+		<Handle withHandle />
 
 		<!-- Main content: section drawings -->
-		<div class="flex-1 overflow-auto p-4 bg-gray-50 print:bg-white print:p-0">
+		<Pane defaultSize={78}>
+		<div class="h-full overflow-auto p-4 bg-gray-50 print:bg-white print:p-0">
 			{#if sections.length === 0}
 				<div class="flex flex-col items-center justify-center h-full text-gray-400">
 					<Icon name="cable" size={48} />
@@ -183,7 +189,8 @@
 				</div>
 			{/if}
 		</div>
-	</div>
+		</Pane>
+	</PaneGroup>
 </main>
 
 <style>
