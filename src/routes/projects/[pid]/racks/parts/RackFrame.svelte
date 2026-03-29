@@ -38,7 +38,7 @@
 	<div class="flex items-center gap-1.5">
 		<b class="text-sm" class:text-gray-700={face === 'front'} class:text-gray-400={face === 'rear'}>{rack.label}</b>
 		{#if face === 'rear'}
-			<span class="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Rear</span>
+			<span class="text-sm font-bold text-gray-500 uppercase tracking-wider">Rear</span>
 		{/if}
 	</div>
 	{#if isRU}

@@ -74,6 +74,11 @@
 		devices.filter(d => activeRacks.some(r => r.id === d.rackId))
 	)
 
+	/** Sort devices so faded (opposite-face) ones render first (underneath) */
+	function sortedByFace(devs: DeviceConfig[], face: ElevationFace): DeviceConfig[] {
+		return [...devs].sort((a, b) => deviceOpacity(a, face) - deviceOpacity(b, face))
+	}
+
 	let showFront = $derived(!!(viewMask & VIEW_FRONT))
 	let showRear = $derived(!!(viewMask & VIEW_REAR))
 
@@ -173,7 +178,7 @@
 	{/each}
 
 	<!-- Devices -->
-	{#each visibleDevices as device (device.id)}
+	{#each sortedByFace(visibleDevices, 'front') as device (device.id)}
 		{@const opacity = deviceOpacity(device, 'front')}
 		{@const faded = opacity < 1}
 		<Draggable {view} shape={deviceScreenRect(device, activeRacks)} item={device}
@@ -193,7 +198,7 @@
 	{@const firstRear = rearRacks[0]}
 	<div class="absolute pointer-events-none select-none"
 		style:left={firstRear._x * SCALE + 'px'}
-		style:top={(view.bottom - firstRear._z - firstRear.heightMm - 50) * SCALE + 'px'}
+		style:top={(view.bottom - firstRear._z - firstRear.heightMm - 150) * SCALE + 'px'}
 		style:font-size="14px">
 		<span class="font-semibold text-gray-400">REAR ELEVATION</span>
 	</div>
@@ -204,7 +209,7 @@
 	{/each}
 
 	<!-- Rear devices -->
-	{#each visibleDevices as device (`rear-${device.id}`)}
+	{#each sortedByFace(visibleDevices, 'rear') as device (`rear-${device.id}`)}
 		{@const opacity = deviceOpacity(device, 'rear')}
 		{@const faded = opacity < 1}
 		<Draggable {view} shape={deviceScreenRect(device, rearRacks, 'rear')} item={device}

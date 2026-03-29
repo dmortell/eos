@@ -170,7 +170,7 @@
 					ondragover={e => handleDragOver(e, i)}
 					ondragend={handleDragEnd}
 					onclick={(e) => handleListClick(e, rack.id, i)}>
-					<div class="flex items-center gap-1">
+					<div class="flex items-center gap-1" title="Drag to reorder">
 						<Icon name="grip" size={10} class="text-gray-300 shrink-0 cursor-grab" />
 						<span class="font-medium text-gray-700">{rack.label}</span>
 						<span class="text-gray-400">{rack.heightU}U {rack.type}</span>
