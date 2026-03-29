@@ -4,7 +4,8 @@
 	import { onMount, onDestroy } from 'svelte'
 	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
 	import type { ChangeDetail } from '$lib/logger'
-	import type { RackConfig, DeviceConfig, DeviceTemplate, RackRow, RackSettings, ViewState } from './parts/types'
+	import type { RackConfig, DeviceConfig, DeviceTemplate, RackRow, RackSettings, ViewState, ElevationFace } from './parts/types'
+	import { VIEW_FRONT, VIEW_REAR, VIEW_DEFAULT } from './parts/types'
 	import { DEFAULT_SETTINGS, SCALE, RU_HEIGHT_MM, RACK_GAP_PX, RACK_19IN_MM, rackHeightMm } from './parts/constants'
 	import RackList from './parts/RackList.svelte'
 	import DevicePalette from './parts/DevicePalette.svelte'
@@ -46,6 +47,7 @@
 	let activeRowId = $state<string>(rows[0]?.id ?? 'default')
 	let sidebarTab = $state<'racks' | 'devices' | 'library'>('devices')
 	let selectedIds = $state(new Set<string>())
+	let viewMask = $state(VIEW_DEFAULT)
 	let floorManagerOpen = $state(false)
 	let saveStatus = $state<'saved' | 'saving' | 'unsaved'>('saved')
 
@@ -107,6 +109,19 @@
 				return { ...rack, _x: x, _z: settings.floorLevel }
 			})
 	)
+
+	// Rear elevation: reversed rack order, bottom-aligned below front view
+	const REAR_GAP_MM = 600
+	let rearRacks = $derived.by(() => {
+		if (!(viewMask & VIEW_REAR) || activeRacks.length === 0) return []
+		const tallest = Math.max(...activeRacks.map(r => r.heightMm))
+		const rearBottom = settings.floorLevel - REAR_GAP_MM - tallest
+		return [...activeRacks].reverse().map((rack, idx, arr) => {
+			let x = 0
+			for (let i = 0; i < idx; i++) x += arr[i].widthMm + RACK_GAP_PX / SCALE
+			return { ...rack, _x: x, _z: rearBottom, _face: 'rear' as ElevationFace }
+		})
+	})
 
 	// Selected item helpers
 	let selectedRacks = $derived(
@@ -709,18 +724,19 @@
 		<!-- Canvas + toolbar + status bar -->
 		<Pane defaultSize={80}>
 			<div class="h-full flex flex-col">
-			<RoomSelector {floors} {floor} {room} {floorFormat} {rows} {activeRowId}
+			<RoomSelector {floors} {floor} {room} {floorFormat} {rows} {activeRowId} {viewMask}
 				{onfloorchange} {onroomchange}
 				onactiverowchange={id => activeRowId = id}
 				onaddrow={addRow}
 				ondeleterow={id => confirmingDeleteRow = id}
-				onmanagefloors={() => floorManagerOpen = true} />
+				onmanagefloors={() => floorManagerOpen = true}
+				onviewmaskchange={m => viewMask = m} />
 
 			<!-- svelte-ignore a11y_click_events_have_key_events -->
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div class="flex-1 min-h-0" onclick={onCanvasClick} bind:this={canvasEl}>
 				<Canvas bind:view width={canvasWidth} height={canvasHeight}>
-					<RackElevations {view} {settings} {activeRacks} {devices} {selectedIds} {dropGhost} {rackOverlaps} {editingLine}
+					<RackElevations {view} {settings} {activeRacks} {rearRacks} {viewMask} {devices} {selectedIds} {dropGhost} {rackOverlaps} {editingLine}
 						floorLabel={fmt(floor)} roomLabel={roomLabel(room)}
 						onstarttlinedrag={startLineDrag}
 						oneditline={field => editingLine = field}

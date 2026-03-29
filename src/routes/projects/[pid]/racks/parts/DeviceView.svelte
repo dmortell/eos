@@ -3,10 +3,11 @@
 	import type { DeviceConfig, ViewState } from './types'
 	import { DEVICE_TYPE_COLORS } from './constants'
 
-	let { device, view, showPorts=false, ondelete }: {
+	let { device, view, showPorts=false, opacity=1, ondelete }: {
 		device: DeviceConfig
 		view: ViewState
 		showPorts?: boolean
+		opacity?: number
 		ondelete?: () => void
 	} = $props()
 
@@ -23,7 +24,8 @@
 	)
 </script>
 
-<div class="flex h-full relative cursor-pointer group" style:border-left="3px solid {color}">
+<div class="flex h-full relative cursor-pointer group" style:border-left="3px solid {color}"
+	style:opacity={opacity} class:pointer-events-none={opacity < 1}>
 	<!-- Label -->
 	<div class="flex items-center pl-1.5 text-gray-700 font-bold truncate"
 	class:rotate-label={(device.widthMm ?? 450) <= 150}

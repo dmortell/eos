@@ -3,9 +3,12 @@
 	import { DEFAULT_SHELF_HEIGHTS } from './types'
 	import { RU_HEIGHT_MM, RACK_19IN_MM, RACK_19IN_INNER } from './constants'
 
-	let { rack, view, selected = false, overlaps = new Set() }: {
+	import type { ElevationFace } from './types'
+
+	let { rack, view, face = 'front', selected = false, overlaps = new Set() }: {
 		rack: RackConfig & { _x: number; _z: number }
 		view: ViewState
+		face?: ElevationFace
 		selected?: boolean
 		overlaps?: Set<number>
 	} = $props()
@@ -32,7 +35,12 @@
 <!-- Label above rack -->
 <div class="absolute flex justify-between items-center gap-2 pointer-events-none select-none"
 	style:left={left + 'px'} style:top={top - 24 + 'px'} style:width={width + 'px'}>
-	<b class="text-sm text-gray-700">{rack.label}</b>
+	<div class="flex items-center gap-1.5">
+		<b class="text-sm" class:text-gray-700={face === 'front'} class:text-gray-400={face === 'rear'}>{rack.label}</b>
+		{#if face === 'rear'}
+			<span class="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Rear</span>
+		{/if}
+	</div>
 	{#if isRU}
 		<span class="text-[10px] text-gray-400">{rack.heightU}U {rack.type}</span>
 	{:else}

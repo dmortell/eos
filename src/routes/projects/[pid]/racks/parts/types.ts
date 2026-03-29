@@ -75,6 +75,14 @@ export interface DeviceTemplate {
 	icon: string
 }
 
+// ── Elevation view bitmask ──
+export type ElevationFace = 'front' | 'rear'
+export const VIEW_FRONT = 0b0001
+export const VIEW_REAR  = 0b0010
+export const VIEW_PLAN  = 0b0100  // reserved
+export const VIEW_SIDE  = 0b1000  // reserved
+export const VIEW_DEFAULT = VIEW_FRONT
+
 export interface RackSettings {
 	slabLevel: number // mm, default 0
 	floorLevel: number // mm, default 150

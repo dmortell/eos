@@ -2,12 +2,15 @@
 	import { Icon } from '$lib'
 	import type { FloorConfig } from '$lib/types/project'
 	import type { RackRow } from './types'
+	import { VIEW_FRONT, VIEW_REAR } from './types'
 	import { fmtFloor } from '$lib/utils/floor'
 
 	let {
 		floors = [], floor, room, floorFormat = 'L01',
 		rows = [], activeRowId,
+		viewMask = VIEW_FRONT,
 		onfloorchange, onroomchange, onactiverowchange, onaddrow, ondeleterow, onmanagefloors,
+		onviewmaskchange,
 	}: {
 		floors: FloorConfig[]
 		floor: number
@@ -15,17 +18,25 @@
 		floorFormat?: string
 		rows: RackRow[]
 		activeRowId: string
+		viewMask?: number
 		onfloorchange?: (floor: number) => void
 		onroomchange?: (room: string) => void
 		onactiverowchange?: (rowId: string) => void
 		onaddrow?: () => void
 		ondeleterow?: (rowId: string) => void
 		onmanagefloors?: () => void
+		onviewmaskchange?: (mask: number) => void
 	} = $props()
 
 	const fmt = (fl: number) => fmtFloor(fl, floorFormat, floors)
 
 	let roomCount = $derived(floors.find(f => f.number === floor)?.serverRoomCount ?? 4)
+
+	function toggleView(bit: number) {
+		const next = viewMask ^ bit
+		if (next === 0) return // must keep at least one view on
+		onviewmaskchange?.(next)
+	}
 </script>
 
 <div class="h-8 px-3 flex items-center gap-3 border-b border-gray-200 bg-white shrink-0 text-xs print:hidden">
@@ -85,5 +96,24 @@
 			title="Add row"
 			onclick={onaddrow}
 		><Icon name="plus" size={12} /></button>
+	</div>
+
+	<div class="flex-1"></div>
+
+	<!-- View toggles -->
+	<span class="text-[10px] text-gray-400 uppercase tracking-wider">View</span>
+	<div class="flex rounded overflow-hidden border border-gray-200">
+		<button
+			class="h-6 px-2 text-[11px] font-medium transition-colors
+				{viewMask & VIEW_FRONT ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
+			title="Front elevation"
+			onclick={() => toggleView(VIEW_FRONT)}
+		>Front</button>
+		<button
+			class="h-6 px-2 text-[11px] font-medium transition-colors
+				{viewMask & VIEW_REAR ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
+			title="Rear elevation"
+			onclick={() => toggleView(VIEW_REAR)}
+		>Rear</button>
 	</div>
 </div>
