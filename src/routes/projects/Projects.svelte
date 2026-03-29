@@ -255,7 +255,7 @@
 		{#each activeProjects as project}
 			<div class="flex items-center justify-between xxtext-xs px-1.5 py-1 gap-2">
 				<div class="flex items-start gap-1.5 min-w-0">
-					<div class="mt-2 w-2 h-2 rounded-full bg-green-500 shrink-0 mt-1"></div>
+					<div class="w-2 h-2 rounded-full bg-green-500 shrink-0 mt-1"></div>
 					<div class="min-w-0">
 						<a href='/projects/{project.id}' class="text-blue-600 hover:text-blue-400 truncate leading-tight">{project.name}</a>
 						<div class="flex items-center gap-2 min-w-0">

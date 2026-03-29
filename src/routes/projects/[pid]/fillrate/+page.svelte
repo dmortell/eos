@@ -40,8 +40,6 @@
 	}
 </script>
 
-<Titlebar title="{projectName} — Fill Rate" />
-
 {#if loading || 0}
 	<div class="flex items-center justify-center h-screen">
 		<Spinner>Loading fill rate...</Spinner>

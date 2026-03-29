@@ -37,6 +37,9 @@
 		<label class="text-xs text-gray-500">Label</label>
 		<input type="text" bind:value={section.label} oninput={changed}
 			class="font-bold text-sm bg-transparent border-b border-dashed border-gray-400 outline-none w-24" />
+		<div class="flex-1"></div>
+		<Button icon="chevronUp" class="rounded px-1 py-0.5" onclick={onmoveup} disabled={!canMoveUp} />
+		<Button icon="chevronDown" class="rounded px-1 py-0.5" onclick={onmovedown} disabled={!canMoveDown} />
 	</div>
 
 	<div class="flex items-center gap-1">

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button, Icon } from '$lib'
+	import { Button, Icon, Titlebar } from '$lib'
 	import type { ChangeDetail } from '$lib/logger'
 	import type { Section as SectionType } from './parts/constants'
 	import { createSection, formatLabel, calcFillRate, fillColor } from './parts/constants'
@@ -21,6 +21,13 @@
 
 	let selected = $derived(sections.find(s => s.id === selectedId) ?? null)
 	let selectedIndex = $derived(selectedId ? sections.findIndex(s => s.id === selectedId) : -1)
+
+	// Auto-scroll to selected section card
+	$effect(() => {
+		if (!selectedId) return
+		const el = document.getElementById(`section-${selectedId}`)
+		el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+	})
 
 	// ── Sync from remote ──
 	let syncPaused = $state(false)
@@ -93,22 +100,19 @@
 	}
 </script>
 
-<main class="h-dvh flex flex-col print:h-auto">
+<main class="h-dvh flex flex-col print:h-auto overflow-hidden">
+
+	<Titlebar title="{projectName} — Fill Rate" />
 
 	<div class="flex flex-1 overflow-hidden">
 		<!-- Sidebar -->
 		<div class="w-72 border-r border-gray-300 flex flex-col bg-white print:hidden shrink-0">
 			<div class="flex items-center gap-1 px-2 py-1 border-b border-gray-200 bg-gray-50">
-				<Button icon="plus" variant="primary" class="rounded px-2 py-1 text-xs" onclick={addSection}>Add</Button>
-				<Button icon="trash" class="rounded px-1 py-1 text-xs" onclick={() => { if (selectedId) deleteSection(selectedId) }}
+				<Button icon="plus" variant="primary" class="rounded px-2 py-1 text-xs" title="Add Container" onclick={addSection}>Add</Button>
+				<Button icon="trash" class="rounded px-1 py-1 text-xs" title="Delete Container" onclick={() => { if (selectedId) deleteSection(selectedId) }}
 					disabled={!selectedId} />
-				<div class="w-px h-5 bg-gray-300 mx-1"></div>
-				<Button icon="chevronUp" class="rounded px-1 py-1" onclick={() => moveSection(-1)}
-					disabled={!selectedId || selectedIndex <= 0} />
-				<Button icon="chevronDown" class="rounded px-1 py-1" onclick={() => moveSection(1)}
-					disabled={!selectedId || selectedIndex >= sections.length - 1} />
 				<div class="flex-1"></div>
-				<Button icon="print" class="rounded px-2 py-1 text-xs" onclick={() => window.print()} />
+				<Button icon="print" class="rounded px-2 py-1 text-xs" title="Print Preview" onclick={() => window.print()} />
 				<span class="text-[10px] font-mono ml-1 {saveStatus === 'saved' ? 'text-green-500' : saveStatus === 'saving' ? 'text-blue-500' : 'text-orange-500'}">
 					{saveStatus === 'saved' ? 'Saved' : saveStatus === 'saving' ? 'Saving...' : 'Unsaved'}
 				</span>
@@ -139,7 +143,12 @@
 			<!-- Editor for selected section -->
 			{#if selected}
 				<div class="border-t border-gray-300 overflow-y-auto" style="max-height: 50%">
-					<SectionEditor section={selected} onchange={() => logChange('edit', 'section', selected?.label)} />
+					<SectionEditor section={selected}
+						canMoveUp={selectedIndex > 0}
+						canMoveDown={selectedIndex < sections.length - 1}
+						onchange={() => logChange('edit', 'section', selected?.label)}
+						onmoveup={() => moveSection(-1)}
+						onmovedown={() => moveSection(1)} />
 				</div>
 			{/if}
 		</div>
@@ -153,12 +162,12 @@
 					<div class="text-sm">Click "Add" to create a fill rate cross-section</div>
 				</div>
 			{:else}
-				<div class="hidden print:block text-lg font-bold mb-2 px-2">{projectName} — Containment Fill Rate</div>
-				<div class="flex flex-wrap gap-4 print:gap-2">
+				<div class="hidden print:block text-lg font-bold mb-2 px-2">{projectName} — Containment Fill Rates</div>
+				<div class="flex flex-wrap gap-4 print:gap-8">
 					{#each sections as section (section.id)}
 						<!-- svelte-ignore a11y_click_events_have_key_events -->
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
-						<div class="bg-white border rounded-lg overflow-hidden print:break-inside-avoid print:border-gray-300
+						<div id="section-{section.id}" class="bg-white border rounded-lg overflow-hidden print:break-inside-avoid print:border-gray-300
 							{section.id === selectedId ? 'ring-2 ring-blue-400' : 'border-gray-200'}"
 							onclick={() => { selectedId = section.id }}>
 							<div class="px-3 py-1 text-xs font-mono font-bold bg-gray-50 border-b border-gray-100">{section.label}</div>

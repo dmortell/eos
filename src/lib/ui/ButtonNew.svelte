@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'link' | 'toggle'
+	export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'link' | 'toggle' | 'toggle2'
 	export type ButtonSize = 'xs' | 'sm' | 'md' | 'lg' | 'icon'
 	export type ButtonConfirm = {
 		text?: string
@@ -68,7 +68,8 @@
 		ghost: 'border border-transparent bg-transparent text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-visible:ring-gray-300',
 		danger: 'border border-red-600 bg-red-600 text-white shadow-sm hover:bg-red-500 hover:border-red-500 focus-visible:ring-red-300',
 		link: 'border border-transparent bg-transparent px-0 text-blue-700 underline-offset-2 hover:underline focus-visible:ring-blue-300',
-		toggle: 'border text-gray-700 focus-visible:ring-blue-300'
+		toggle: 'border text-gray-700 focus-visible:ring-blue-300',
+		toggle2: 'border text-gray-700 focus-visible:ring-blue-300',
 	}
 
 	let isDisabled = $derived(Boolean(disabled || loading))
