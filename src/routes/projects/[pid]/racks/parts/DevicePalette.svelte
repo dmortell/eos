@@ -19,7 +19,7 @@
 		heightU: 1,
 		portCount: 0,
 		portType: null as any,
-		widthMm: 480,
+		widthMm: 460,		// actual is 445mm for 19" rack, but allow some extra for bezel/ears
 		depthMm: 200,
 		maker: '',
 	})

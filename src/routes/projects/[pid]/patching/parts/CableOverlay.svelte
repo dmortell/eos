@@ -37,7 +37,6 @@
 
 	let deviceLookup = $derived(new Map(devices.map((d: any) => [d.id, d])))
 	let rackLookup = $derived(new Map(racks.map((r: any) => [r.id, r])))
-
 	let hoveredId = $state<string | null>(null)
 
 	// Build set of cable-manager RU positions per rack for routing awareness
@@ -118,6 +117,7 @@
 			midY: transitY,
 		}
 	}
+
 
 	let cables = $derived.by(() => {
 		const routes: CableRoute[] = []

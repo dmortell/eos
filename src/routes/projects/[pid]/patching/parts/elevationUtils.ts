@@ -90,7 +90,7 @@ export function absolutePortPosition(
 export function cableChannelX(rackX: number): { left: number; right: number } {
 	return {
 		left: rackX + U_LABEL_W - CABLE_CH_OFFSET,
-		right: rackX + U_LABEL_W + deviceAreaWidth() + CABLE_CH_OFFSET,
+		right: rackX + U_LABEL_W + deviceAreaWidth() + CABLE_CH_OFFSET +2,
 	}
 }
 

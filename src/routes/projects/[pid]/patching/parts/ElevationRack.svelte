@@ -65,13 +65,13 @@
 			{@const u = i + 1}
 			{@const y = uToY(u, rack.heightU)}
 			<!-- Left U label -->
-			<div class="absolute text-[7px] font-mono text-gray-300 text-right pr-0.5 select-none pointer-events-none leading-none flex items-center justify-end"
-				style:top="{y}px" style:left="0px" style:width="{U_LABEL_W - 2}px" style:height="{RU_HEIGHT}px">
+			<div class="absolute text-[7px] font-mono text-gray-500 text-right pr-0.5 select-none pointer-events-none leading-none flex items-center justify-end"
+				style:top="{y}px" style:left="-4px" style:width="{U_LABEL_W - 2}px" style:height="{RU_HEIGHT}px">
 				{u}
 			</div>
 			<!-- Right U label -->
-			<div class="absolute text-[7px] font-mono text-gray-300 pl-0.5 select-none pointer-events-none leading-none flex items-center"
-				style:top="{y}px" style:right="0px" style:width="{U_LABEL_W - 2}px" style:height="{RU_HEIGHT}px">
+			<div class="absolute text-[7px] font-mono text-gray-500 pl-0.5 select-none pointer-events-none leading-none flex items-center"
+				style:top="{y}px" style:right="-4px" style:width="{U_LABEL_W - 2}px" style:height="{RU_HEIGHT}px">
 				{u}
 			</div>
 			<!-- U gridline -->
@@ -99,7 +99,7 @@
 				{#if hasPorts}
 					<!-- Device label at bottom-left, under ports (z-0) -->
 					<div class="absolute bottom-0 left-0.5 select-none pointer-events-none z-0 opacity-50">
-						<span class="text-[7px] text-gray-500 truncate">{device.label || device.type}</span>
+						<span class="text-[7px] text-gray-700 truncate">{device.label || device.type}</span>
 					</div>
 
 					<!-- Port grid: fixed cell size, top-aligned (z-10, above label) -->
