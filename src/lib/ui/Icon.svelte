@@ -2,7 +2,7 @@
 import {
 	AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart,
 	ArrowLeft, Box, Cable, Camera, Check, Crosshair, Crop,
-	ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Copy, Circle,
+	ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Copy, Circle, CirclePile,
 	Ellipsis, EllipsisVertical, ExternalLink, Expand, Eye, EyeOff,
 	FileDown, FileText, FileUp, FileImage, Folder, FolderOpen,
 	Grid3x3, GripHorizontal, GripVertical,
@@ -33,7 +33,7 @@ let lucide: Record<string, any> = {
 	home: House, highlighter: Highlighter, image: Image, layers: Layers, line: Slash, link: ExternalLink,
 	list: List, lock: Lock, lockOpen: LockKeyholeOpen,
 	magnet: Magnet, mapPin: MapPin, mic: Mic, micOff: MicOff, move: Move, moon: Moon, monitor: Monitor, panels: PanelsTopLeft,
-	pen: Pen, plus: Plus, power: Power, print: Printer, pcCase: PcCase,
+	pen: Pen, pile:CirclePile, plus: Plus, power: Power, print: Printer, pcCase: PcCase,
 	rect: RectangleHorizontal, rectVertical: RectangleVertical,
 	redo: Redo, rotate3d: Rotate3d, rotateLeft: RotateCcw, rotateRight: RotateCw,
 	route: Route, routeOff: RouteOff, ruler: Ruler, scale: Scaling, scan: ScanBarcode, search: Search,

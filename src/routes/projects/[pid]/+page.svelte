@@ -19,6 +19,7 @@
 		{ detail:1, href: 'frames',  icon: 'rows',   label: 'Patch Frames', description: 'Allocate outlet ports to patch frames.', },
 		{ detail:1, href: 'outlets', icon: 'route',  label: 'Outlets and Routes', description: 'Manage floorplan outlets and cable routes.', },
 		{ detail:1, href: 'patching', icon: 'cable', label: 'Patching', description: 'Manage patch cord connections and cable schedules.', },
+		{ detail:0, href: 'fillrate', icon: 'pile',  label: 'Fill Rates', description: 'Containment fill rates with cross-section diagrams.', },
 		{ detail:0, href: 'uploads', icon: 'upload', label: 'Floorplan Uploads', description: 'Upload and manage floorplan files and pages.', },
 		{ detail:0, href: `/survey?project=${pid}`, icon: 'camera', label: 'Photo Surveys', description: 'Take photos, voice notes, and share survey albums.', absolute: true },
 	])
