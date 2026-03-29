@@ -3,13 +3,13 @@
 	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
 	import type { ChangeDetail } from '$lib/logger'
 	import type { FloorConfig } from '$lib/types/project'
-	import { fmtFloor } from '$lib/utils/floor'
-	import FloorManagerDialog from '$lib/components/FloorManagerDialog.svelte'
 	import type { PatchConnection, PatchSettings, CustomCableType } from './parts/types'
+	import { fmtFloor } from '$lib/utils/floor'
 	import { DEFAULT_SETTINGS } from './parts/types'
 	import { CABLE_TYPES, getCableType } from './parts/constants'
 	import { calculateCableLength } from './parts/cableUtils'
 	import { exportPatchExcel, importCordIds } from './parts/exportExcel'
+	import FloorManagerDialog from '$lib/components/FloorManagerDialog.svelte'
 	import PatchList from './parts/PatchList.svelte'
 	import ElevationView from './parts/ElevationView.svelte'
 	import SettingsDialog from './parts/SettingsDialog.svelte'
@@ -539,7 +539,7 @@
 								{viewMode === 'list' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
 							onclick={() => viewMode = 'list'}
 							title="Table view"
-						><Icon name="list" size={12} />Table</button>
+						><Icon name="list" size={12} />Patch List</button>
 						<button
 							class="h-6 px-2 text-[11px] font-medium flex items-center gap-1 transition-colors
 								{viewMode === 'elevation' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"

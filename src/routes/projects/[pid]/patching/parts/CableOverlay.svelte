@@ -5,6 +5,7 @@
 		absolutePortPosition, cableChannelX,
 		RACK_LABEL_H, RACK_GAP, rackHeight, rackWidth,
 		U_LABEL_W, deviceAreaWidth, PORTS_PER_ROW,
+		uToY, RU_HEIGHT,
 	} from './elevationUtils'
 
 	let {
@@ -63,10 +64,26 @@
 		midY: number
 	}
 
+	const AdvancedRouting = true // Whether to route around managers and use orthogonal paths instead of straight lines
+
+	/** Find the manager Y position closest to a target Y */
+	function nearestManagerY(managers: number[], rackY: number, rackHeightU: number, targetY: number): number | null {
+		if (managers.length === 0) return null
+		let bestY = 0
+		let bestDist = Infinity
+		for (const u of managers) {
+			const y = rackY + RACK_LABEL_H + uToY(u, rackHeightU) + RU_HEIGHT / 2
+			const dist = Math.abs(y - targetY)
+			if (dist < bestDist) { bestDist = dist; bestY = y }
+		}
+		return bestY + 10
+	}
+
 	/**
-	 * Compute an orthogonal cable route:
-	 * dot → down from port → horizontal to rack side → vertical to destination Y
-	 * → horizontal across (cross-rack) → vertical to dest Y → horizontal to dest dot
+	 * Compute an orthogonal cable route.
+	 * When AdvancedRouting is enabled and cable managers exist, cables cross
+	 * between left and right side channels via the nearest horizontal manager,
+	 * even if the route is longer than a direct path.
 	 */
 	function computeRoute(
 		from: { x: number; y: number; col: number },
@@ -74,23 +91,39 @@
 		fromRackX: number, fromRackY: number, fromRackHeightU: number,
 		toRackX: number, toRackY: number, toRackHeightU: number,
 		sameRack: boolean,
+		fromManagers: number[],
+		toManagers: number[],
 	): { path: string; midX: number; midY: number } {
 		const fromCh = cableChannelX(fromRackX)
 		const toCh = cableChannelX(toRackX)
 		const DROP = 4 // px drop below dot before going horizontal
+		const halfCols = PORTS_PER_ROW / 2
+		const fromLeft = from.col < halfCols
+		const toLeft = to.col < halfCols
 
 		if (sameRack) {
-			// Same rack: route through nearest side
-			// Pick side based on which half the ports are on
-			const halfCols = PORTS_PER_ROW / 2
-			const fromLeft = from.col < halfCols
-			const toLeft = to.col < halfCols
-			// If both on same half, use that side; if different, use the side of the "from" port
-			const useLeft = fromLeft && toLeft ? true : !fromLeft && !toLeft ? false : fromLeft
-			const chX = useLeft ? fromCh.left : fromCh.right
-
 			const y1 = from.y + DROP
 			const y2 = to.y + DROP
+
+			// Advanced: ports on different halves → route through a cable manager
+			if (AdvancedRouting && fromLeft !== toLeft && fromManagers.length > 0) {
+				const midTarget = (from.y + to.y) / 2
+				const mgrY = nearestManagerY(fromManagers, fromRackY, fromRackHeightU, midTarget)!
+				const leftCh = fromCh.left
+				const rightCh = fromCh.right
+				const fromChX = fromLeft ? leftCh : rightCh
+				const toChX = toLeft ? leftCh : rightCh
+
+				return {
+					path: `M${from.x},${from.y} V${y1} H${fromChX} V${mgrY} H${toChX} V${y2} H${to.x} V${to.y}`,
+					midX: (leftCh + rightCh) / 2,
+					midY: mgrY,
+				}
+			}
+
+			// Simple: same half or no managers — use nearest side
+			const useLeft = fromLeft && toLeft ? true : !fromLeft && !toLeft ? false : fromLeft
+			const chX = useLeft ? fromCh.left : fromCh.right
 			const midY = (y1 + y2) / 2
 
 			return {
@@ -100,16 +133,55 @@
 			}
 		}
 
-		// Cross-rack: route toward the other rack
+		// Cross-rack
 		const fromIsLeft = fromRackX < toRackX
-		const fromChX = fromIsLeft ? fromCh.right : fromCh.left
-		const toChX = fromIsLeft ? toCh.left : toCh.right
-
-		// Transit Y: midpoint between the two ports, clamped to rack area
-		const transitY = (from.y + to.y) / 2
-
 		const y1drop = from.y + DROP
 		const y2drop = to.y + DROP
+
+		// Advanced: if port is on the wrong side for exit, route through a manager first
+		if (AdvancedRouting) {
+			const fromExitLeft = !fromIsLeft   // exit left when destination rack is to the left
+			const toExitLeft = fromIsLeft      // enter from the left when source rack is to the left
+			const fromNeedsCross = fromLeft !== fromExitLeft
+			const toNeedsCross = toLeft !== toExitLeft
+
+			const fromPortCh = fromLeft ? fromCh.left : fromCh.right
+			const fromExitCh = fromIsLeft ? fromCh.right : fromCh.left
+			const toEnterCh = fromIsLeft ? toCh.left : toCh.right
+			const toPortCh = toLeft ? toCh.left : toCh.right
+
+			const transitY = (from.y + to.y) / 2
+			const segments: string[] = [`M${from.x},${from.y}`, `V${y1drop}`]
+
+			if (fromNeedsCross && fromManagers.length > 0) {
+				// Route to port's side channel, then through manager to exit side
+				const mgrY = nearestManagerY(fromManagers, fromRackY, fromRackHeightU, from.y)!
+				segments.push(`H${fromPortCh}`, `V${mgrY}`, `H${fromExitCh}`)
+			} else {
+				segments.push(`H${fromExitCh}`)
+			}
+
+			segments.push(`V${transitY}`, `H${toEnterCh}`)
+
+			if (toNeedsCross && toManagers.length > 0) {
+				// Route through manager in destination rack to reach port's side
+				const mgrY = nearestManagerY(toManagers, toRackY, toRackHeightU, to.y)!
+				segments.push(`V${mgrY}`, `H${toPortCh}`)
+			}
+
+			segments.push(`V${y2drop}`, `H${to.x}`, `V${to.y}`)
+
+			return {
+				path: segments.join(' '),
+				midX: (fromExitCh + toEnterCh) / 2,
+				midY: transitY,
+			}
+		}
+
+		// Simple cross-rack
+		const fromChX = fromIsLeft ? fromCh.right : fromCh.left
+		const toChX = fromIsLeft ? toCh.left : toCh.right
+		const transitY = (from.y + to.y) / 2
 
 		return {
 			path: `M${from.x},${from.y} V${y1drop} H${fromChX} V${transitY} H${toChX} V${y2drop} H${to.x} V${to.y}`,
@@ -153,6 +225,8 @@
 				fromRackX, fromRackY, fromRack.heightU,
 				toRackX, toRackY, toRack.heightU,
 				sameRack,
+				managersByRack.get(fromRack.id) ?? [],
+				managersByRack.get(toRack.id) ?? [],
 			)
 
 			const ct = getCableType(c.cableType, customCableTypes)

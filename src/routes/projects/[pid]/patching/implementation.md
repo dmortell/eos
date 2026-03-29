@@ -66,7 +66,7 @@ A complete drag-drop rack layout and cabling tool with BOM export.
 
 ### Cable Routing Notes
 
-- Cables should route through vertical cable managers (if installed, else rack sides) and horizontal cable managers
+- Cables must route through vertical cable managers (if installed, else up/down the rack sides), and horizontal cable managers (if installed in the rack) if they need to cross from side to side even if the route is longer
 - Some devices are front-mounted, some rear-mounted — patching between front/rear must account for rack depth in length calculations
 - Cable line drawing: straight horizontal/vertical routes similar to trunk drawing in outlets tool (mark for later — initially use simple straight lines)
 
