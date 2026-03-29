@@ -53,13 +53,9 @@
 	})
 
 	let dotSize = DOT_R * 2
-
-	// Determine dot color: red for duplicate, cable color for connected
-	let dotColor = $derived(isDuplicate ? '#ef4444' : cableColor)
 	let showDot = $derived(isDuplicate || !!cableColor)
-
-	// Text color — darker on colored backgrounds for contrast
-	let textColor = $derived(bgColor ? bgColor : '#9ca3af')
+	let dotColor = $derived(isDuplicate ? '#ef4444' : cableColor)	// Determine dot color: red for duplicate, cable color for connected
+	let textColor = $derived(bgColor ? bgColor : '#9ca3af')	// Text color — darker on colored backgrounds for contrast
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->

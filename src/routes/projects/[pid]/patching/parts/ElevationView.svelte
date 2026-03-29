@@ -178,10 +178,10 @@
 					status: 'add',
 				}
 				onaddconnection(conn)
+				selectedPortKey = key
+				selectedConnectionId = conn.id
 			}
 			connectFromKey = null
-			selectedPortKey = null
-			selectedConnectionId = null
 			return
 		}
 

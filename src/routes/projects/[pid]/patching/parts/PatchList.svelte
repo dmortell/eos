@@ -17,6 +17,7 @@
 		ondeleteselected,
 		oneditnewclear,
 		onupdateselected,
+		onadd,
 	}: {
 		connections: PatchConnection[]
 		racks: any[]
@@ -30,6 +31,7 @@
 		ondeleteselected?: (ids: string[]) => void
 		oneditnewclear?: () => void
 		onupdateselected?: (ids: string[], updates: Partial<PatchConnection>) => void
+		onadd?: () => void
 	} = $props()
 
 	let selectedIds = $state(new Set<string>())
@@ -250,6 +252,16 @@
 			bind:value={filter}
 		/>
 	</div>
+
+	<div class="flex-1"></div>
+
+	<button
+		class="h-6 px-2.5 rounded bg-blue-600 text-white text-[11px] font-medium hover:bg-blue-500 transition-colors flex items-center gap-1 shrink-0"
+		onclick={onadd}
+	>
+		<Icon name="plus" size={12} />
+		Add Patch
+	</button>
 
 	{#if selectedIds.size > 0}
 		<span class="text-[11px] text-gray-400">{selectedIds.size} selected</span>

@@ -551,13 +551,6 @@
 						><Icon name="server" size={12} />Elevation</button>
 					</div>
 
-					<!-- Settings -->
-					<button
-						class="h-6 w-6 rounded bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-colors flex items-center justify-center"
-						title="Settings"
-						onclick={() => settingsOpen = true}
-					><Icon name="settings" size={13} /></button>
-
 					<!-- Import cord IDs -->
 					<label
 						class="h-6 px-2 rounded bg-gray-100 text-gray-600 text-[11px] font-medium hover:bg-gray-200 transition-colors flex items-center gap-1 cursor-pointer"
@@ -578,14 +571,13 @@
 						Export
 					</button>
 
-					<!-- Add connection button -->
+					<!-- Settings -->
 					<button
-						class="h-6 px-2.5 rounded bg-blue-600 text-white text-[11px] font-medium hover:bg-blue-500 transition-colors flex items-center gap-1"
-						onclick={addConnection}
-					>
-						<Icon name="plus" size={12} />
-						Add Patch
-					</button>
+						class="h-6 w-6 rounded bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-colors flex items-center justify-center"
+						title="Settings"
+						onclick={() => settingsOpen = true}
+					><Icon name="settings" size={13} /></button>
+
 				</div>
 
 				<!-- Orphaned references warning -->
@@ -622,6 +614,7 @@
 							ondeleteselected={deleteSelected}
 							onupdateselected={updateSelected}
 							oneditnewclear={() => editNewId = null}
+							onadd={addConnection}
 						/>
 					</div>
 				{:else}

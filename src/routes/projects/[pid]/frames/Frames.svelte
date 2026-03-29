@@ -30,15 +30,21 @@
 		ondeletefloor?: (floor: number) => void
 	} = $props()
 
+	/** Check if a device matches the selected face view */
+	function matchesFace(dev: any, face: 'front' | 'rear'): boolean {
+		const m = dev.mounting ?? 'both'
+		return m === 'both' || m === 'none' || m === face
+	}
+
 	/** Derive FrameConfig[] from Racks tool data. Falls back to legacy frames if no racks data. */
-	function deriveFramesFromRacks(rData: Record<string, any>, legacyFrames?: FrameConfig[]): FrameConfig[] {
+	function deriveFramesFromRacks(rData: Record<string, any>, face: 'front' | 'rear', legacyFrames?: FrameConfig[]): FrameConfig[] {
 		const derived: FrameConfig[] = []
 		for (const [rm, doc] of Object.entries(rData)) {
 			if (!doc?.racks) continue
 			for (const rack of doc.racks as any[]) {
 				if (!rack.serverRoom) continue
 				if (rack.type === 'desk' || rack.type === 'shelf' || rack.type === 'vcm') continue
-				const rackDevices = ((doc.devices ?? []) as any[]).filter((d: any) => d.rackId === rack.id)
+				const rackDevices = ((doc.devices ?? []) as any[]).filter((d: any) => d.rackId === rack.id && matchesFace(d, face))
 				// All non-copper-panel devices are slots (occupy RU space, no copper ports)
 				// This includes enclosures (fiber), switches, servers, managers, etc.
 				const slots: import('./parts/types').FrameSlot[] = []
@@ -84,9 +90,12 @@
 	let zoneLocations = $state<Record<string, LocationConfig[]>>(data?.zoneLocations ?? {})
 	let activeZone = $state<string>(Object.keys(data?.zoneLocations ?? {})[0] ?? 'A')
 
+	// ── Frame face view ──
+	let frameFace = $state<'front' | 'rear'>('front')
+
 	// ── Frames derived from Racks tool data (read-only) ──
 	// Falls back to legacy data.frames if no racks data exists yet
-	let frames = $derived<FrameConfig[]>(deriveFramesFromRacks(racksData, data?.frames))
+	let frames = $derived<FrameConfig[]>(deriveFramesFromRacks(racksData, frameFace, data?.frames))
 	let rooms = $state<{ roomNumber: string; roomName: string }[]>(data?.rooms ?? [])
 	let customLocationTypes = $state<string[]>(data?.customLocationTypes ?? [])
 	let excelGroupByRoom = $state<boolean>(data?.excelGroupByRoom ?? true)
@@ -595,6 +604,18 @@
 {#snippet toolbar()}
 	<div class="mb-3 flex items-center justify-between text-sm flex-wrap gap-2">
 		<div class="flex items-center gap-3">
+			<div class="flex rounded overflow-hidden border border-gray-200">
+				<button
+					class="h-6 px-2 text-[11px] font-medium transition-colors
+						{frameFace === 'front' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
+					onclick={() => frameFace = 'front'}
+				>Front</button>
+				<button
+					class="h-6 px-2 text-[11px] font-medium transition-colors
+						{frameFace === 'rear' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
+					onclick={() => frameFace = 'rear'}
+				>Rear</button>
+			</div>
 			{#if allLabels.length > 0}
 				<span class="font-mono text-blue-600 font-semibold">
 					{fmt(floor)} &middot; {zoneLetters.length > 1 ? `Zones ${zoneLetters.join(', ')}` : `Zone ${zoneLetters[0] ?? activeZone}`}
