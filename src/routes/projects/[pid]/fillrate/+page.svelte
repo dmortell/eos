@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { getContext } from 'svelte';
-	import { Firestore, Spinner, Session } from '$lib';
+	import { Firestore, Spinner, Session, Titlebar } from '$lib';
 	import { writeLog } from '$lib/logger';
 	import type { ChangeDetail } from '$lib/logger';
 	import FillRate from './FillRate.svelte';
@@ -39,6 +39,8 @@
 		}
 	}
 </script>
+
+<Titlebar title="{projectName} — Fill Rate" />
 
 {#if loading || 0}
 	<div class="flex items-center justify-center h-screen">

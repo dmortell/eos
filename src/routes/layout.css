@@ -124,7 +124,7 @@ button {
   @apply py-0;
 }
 .row {
-  @apply flex items-center gap-2;  
+  @apply flex items-center gap-2;
 }
 
 @layer base {
@@ -138,6 +138,9 @@ button {
 
 @media print {
   [data-slot="resizable-handle"] {
+    display: none !important;
+  }
+  header {
     display: none !important;
   }
 }

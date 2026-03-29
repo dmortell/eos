@@ -5,7 +5,6 @@
 	let { section, size = 400 }: { section: Section; size?: number } = $props()
 
 	let canvas = $state<HTMLCanvasElement>()
-
 	let fillRate = $derived(calcFillRate(section))
 
 	$effect(() => {
@@ -19,7 +18,7 @@
 		const ctx = canvas.getContext('2d')
 		if (!ctx) return
 
-		const padding = 40
+		const padding = 20
 		let containmentWidth = 0
 		let containmentHeight = 0
 		if (section.containmentType === 'round') {
@@ -56,8 +55,8 @@
 			ctx.fill()
 
 			ctx.fillStyle = '#374151'
-			ctx.fillText(`\u00D8 ${section.diameter}mm`, centerX + 50, canvas.height - 20)
-			ctx.fillText(`Fill: ${fillRate.toFixed(1)}%`, centerX - 50, canvas.height - 20)
+			ctx.fillText(`\u00D8 ${section.diameter}mm`, centerX - 130, canvas.height - 20)
+			ctx.fillText(`Fill: ${fillRate.toFixed(1)}%`, centerX + 130, canvas.height - 20)
 		} else {
 			const w = containmentWidth * scaleFactor
 			const h = containmentHeight * scaleFactor
@@ -66,8 +65,8 @@
 			ctx.strokeRect(centerX - w / 2, centerY - h / 2, w, h)
 
 			ctx.fillStyle = '#374151'
-			ctx.fillText(`${section.width} \u00D7 ${section.height}mm`, centerX + w / 2 - 50, centerY + h / 2 + 20)
-			ctx.fillText(`Fill: ${fillRate.toFixed(1)}%`, centerX - w / 2 + 50, centerY + h / 2 + 20)
+			ctx.fillText(`${section.width} \u00D7 ${section.height}mm`, centerX - w / 2 + 50, centerY + h / 2 + 20)
+			ctx.fillText(`Fill: ${fillRate.toFixed(1)}%`,               centerX + w / 2 - 50, centerY + h / 2 + 20)
 		}
 
 		// Build individual cable instances
@@ -80,7 +79,7 @@
 		allCables.sort((a, b) => b.diameter - a.diameter)
 
 		const positions: { x: number; y: number; radius: number }[] = []
-		const cableColor = fillRate > 100 ? '#dc2626' : fillRate > 80 ? '#ea580c' : fillRate > 40 ? '#f59e0b' : '#16a34a'
+		const cableColor = fillRate > 100 ? '#dc2626' : fillRate > 60 ? '#ea580c' : fillRate > 40 ? '#16a34a' : '#3b82f6'
 
 		function collides(x: number, y: number, radius: number): boolean {
 			for (const pos of positions) {

@@ -33,8 +33,8 @@ export function createSection(label: string): Section {
 		height: 30,
 		calcMethod: 'rectangular',
 		cables: [
-			{ id: '1', diameter: 6, quantity: 15 },
-			{ id: '2', diameter: 10, quantity: 5 },
+			{ id: '1', diameter: 8, quantity: 10 },
+			// { id: '2', diameter: 10, quantity: 5 },
 		],
 	}
 }
@@ -63,7 +63,7 @@ export function calcFillRate(section: Section): number {
 
 export function fillColor(rate: number): string {
 	if (rate > 100) return 'text-red-600'
-	if (rate > 80) return 'text-orange-500'
+	if (rate > 60) return 'text-orange-500'
 	if (rate > 40) return 'text-green-600'
 	return 'text-blue-500'
 }
