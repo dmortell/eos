@@ -8,6 +8,7 @@
 	} from './elevationUtils'
 	import ElevationRack from './ElevationRack.svelte'
 	import CableOverlay from './CableOverlay.svelte'
+    import { Button } from '$lib';
 
 	let {
 		connections = [],
@@ -216,6 +217,16 @@
 	// ── Selected connection details ──
 	let selectedConn = $derived(selectedConnectionId ? connections.find(c => c.id === selectedConnectionId) : null)
 
+	function refreshSelectedLength() {
+		if (!selectedConnectionId || !onupdateconnection) return
+		const conn = connections.find(c => c.id === selectedConnectionId)
+		if (!conn) return
+		const len = calculateCableLength(conn.fromPortRef, conn.toPortRef, racks, devices)
+		if (len !== conn.lengthMeters) {
+			onupdateconnection(selectedConnectionId, { lengthMeters: len, lengthLocked: false })
+		}
+	}
+
 	function deleteSelectedConnection() {
 		if (!selectedConnectionId || !ondeleteconnection) return
 		const conn = connections.find(c => c.id === selectedConnectionId)
@@ -354,6 +365,10 @@
 				{#if selectedConn.status !== 'installed'}
 					<span class="text-[9px] px-1 py-0.5 rounded bg-blue-50 text-blue-600">{selectedConn.status}</span>
 				{/if}
+				<Button icon="refresh" title="Refresh cable length" 
+					class="h-5 px-1.5 rounded text-[10px] font-medium bg-gray-50 text-gray-600 hover:bg-gray-100 transition-colors"
+					onclick={refreshSelectedLength}
+				></Button>
 				<button
 					class="h-5 px-1.5 rounded text-[10px] font-medium bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
 					title="Delete this connection (Del)"

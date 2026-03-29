@@ -150,7 +150,10 @@
 	}
 
 	function logChange(action: string, field?: string, details?: string) {
-		pendingChanges.push({ action, field, details })
+		const entry: ChangeDetail = { action }
+		if (field !== undefined) entry.field = field
+		if (details !== undefined) entry.details = details
+		pendingChanges.push(entry)
 		scheduleSave()
 	}
 
