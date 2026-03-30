@@ -3,12 +3,14 @@
 	import PanelStrip from './PanelStrip.svelte'
 	import SelectionRect from './SelectionRect.svelte'
 
-	let { racks, selectedFrameId, selectedLocations, selectedPorts, reservationMap, onselect, onblockselect }: {
+	let { racks, selectedFrameId, selectedLocations, selectedPorts, reservationMap, oppositePanelRUs, frameFace, onselect, onblockselect }: {
 		racks: RackData[]
 		selectedFrameId?: string | null
 		selectedLocations?: Set<string>
 		selectedPorts?: Set<string>
 		reservationMap?: Map<string, LocType>
+		oppositePanelRUs?: Map<string, Set<number>>
+		frameFace?: 'front' | 'rear'
 		onselect?: (key: string) => void
 		onblockselect?: (portKeys: string[], event: PointerEvent) => void
 	} = $props()
@@ -206,6 +208,7 @@
 
 		{#each visibleRacks as rack (rack.frame.id)}
 			{@const ruMap = buildRUMap(rack)}
+			{@const oppRUs = oppositePanelRUs?.get(rack.frame.id)}
 			<div class="space-y-2">
 				<!-- Frame header -->
 				<div class="flex items-center gap-3">
@@ -259,12 +262,19 @@
 							</div>
 						{:else}
 							<!-- Empty RU -->
+							{@const hasOppPanel = oppRUs?.has(item.ru) ?? false}
 							<div class="border-b border-gray-100 last:border-b-0">
-								<div class="flex items-stretch h-3">
+								<div class="flex items-stretch xxh-3">
 									<div class="w-8 bg-gray-50 flex items-center justify-center border-r border-gray-100 shrink-0">
 										<span class="font-mono text-[7px] text-gray-300">{item.ru}</span>
 									</div>
-									<div class="flex-1"></div>
+									{#if hasOppPanel}
+										<div class="flex-1 bg-gray-100/60 flex items-center px-2 py-0">
+											<span class="font-mono text-md text-gray-400 xxitalic">{frameFace === 'front' ? 'Rear' : 'Front'} panel</span>
+										</div>
+									{:else}
+										<div class="flex-1"></div>
+									{/if}
 								</div>
 							</div>
 						{/if}

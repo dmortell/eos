@@ -96,6 +96,27 @@
 	// ── Frames derived from Racks tool data (read-only) ──
 	// Falls back to legacy data.frames if no racks data exists yet
 	let frames = $derived<FrameConfig[]>(deriveFramesFromRacks(racksData, frameFace, data?.frames))
+
+	/** RU positions occupied by panels on the opposite face, keyed by rack id */
+	let oppositePanelRUs = $derived.by(() => {
+		const oppFace = frameFace === 'front' ? 'rear' : 'front'
+		const map = new Map<string, Set<number>>()
+		for (const [_rm, doc] of Object.entries(racksData)) {
+			if (!doc?.racks) continue
+			for (const rack of doc.racks as any[]) {
+				const rackDevices = ((doc.devices ?? []) as any[]).filter(
+					(d: any) => d.rackId === rack.id && d.type === 'panel' && !matchesFace(d, frameFace) && matchesFace(d, oppFace)
+				)
+				if (rackDevices.length === 0) continue
+				const rus = new Set<number>()
+				for (const d of rackDevices) {
+					for (let u = d.positionU; u < d.positionU + (d.heightU ?? 1); u++) rus.add(u)
+				}
+				map.set(rack.id, rus)
+			}
+		}
+		return map
+	})
 	let rooms = $state<{ roomNumber: string; roomName: string }[]>(data?.rooms ?? [])
 	let customLocationTypes = $state<string[]>(data?.customLocationTypes ?? [])
 	let excelGroupByRoom = $state<boolean>(data?.excelGroupByRoom ?? true)
@@ -673,6 +694,8 @@
 		{selectedLocations}
 		{selectedPorts}
 		{reservationMap}
+		{oppositePanelRUs}
+		{frameFace}
 		onselect={selectLocationFromFrame}
 		onblockselect={blockSelectPorts}
 	/>
