@@ -25,7 +25,8 @@
 		gridMm = 0,
 		toPx, toMm, onadd, onselect, onclear, onmove, onmoveend, ondelete,
 		onselectrack, onmoveracks, onmoveracksend, onplacerack, onremoveracks, onrotateracks,
-		onaddtrunk, ontrunkdrawingchange, onselecttrunk, onselecttrunknode, onmovetrunknodes, onmovetrunknodesend, ondeletetrunks, onsplittrunksegment, ondisconnecttrunknode }: {
+		onaddtrunk, ontrunkdrawingchange, onselecttrunk, onselecttrunknode, onmovetrunknodes, onmovetrunknodesend, ondeletetrunks, onsplittrunksegment, ondisconnecttrunknode,
+		onexport, onzoomchange }: {
 		file: any
 		page: number
 		viewKey?: string
@@ -72,6 +73,8 @@
 		ondeletetrunks?: () => void
 		onsplittrunksegment?: (trunkId: string, segmentId: string, point: Point) => void
 		ondisconnecttrunknode?: (trunkId: string, nodeId: string, segmentId: string) => string | null
+		onexport?: () => void
+		onzoomchange?: (zoom: number) => void
 	} = $props()
 
 	let containerEl: HTMLDivElement
@@ -318,6 +321,8 @@
 		if (viewSaveTimer) clearTimeout(viewSaveTimer)
 		viewSaveTimer = setTimeout(saveView, 500)
 	})
+
+	$effect(() => { onzoomchange?.(zoom) })
 
 	// Page dimensions at RENDER_SCALE
 	let pageW = $state(0)
@@ -596,7 +601,7 @@
 
 	// ── View controls ──
 
-	function fitToView() {
+	export function fitToView() {
 		if (!pageW || !pageH) return
 		const c = calibration?.crop ?? { x: 0, y: 0, width: pageW, height: pageH }
 		if (!c.width || !c.height) return
@@ -629,7 +634,7 @@
 		zoom = newZoom
 	}
 
-	function zoomIn() {
+	export function zoomIn() {
 		const cx = cw / 2, cy = ch / 2
 		const newZoom = Math.min(8, zoom * 1.3)
 		const s = newZoom / zoom
@@ -638,7 +643,7 @@
 		zoom = newZoom
 	}
 
-	function zoomOut() {
+	export function zoomOut() {
 		const cx = cw / 2, cy = ch / 2
 		const newZoom = Math.max(0.05, zoom / 1.3)
 		const s = newZoom / zoom
@@ -1543,13 +1548,14 @@
 
 		<div class="w-px h-4 bg-gray-200"></div>
 
-		<!-- Zoom -->
-		<button class="text-gray-400 hover:text-gray-600 px-1.5 py-0.5 rounded hover:bg-gray-100 text-sm font-bold leading-none" onclick={zoomOut} title="Zoom out (-)">&#x2212;</button>
-		<span class="text-[10px] text-gray-400 tabular-nums min-w-10 text-center">{Math.round(zoom * 100)}%</span>
-		<button class="text-gray-400 hover:text-gray-600 px-1.5 py-0.5 rounded hover:bg-gray-100 text-sm font-bold leading-none" onclick={zoomIn} title="Zoom in (+)">+</button>
-		<button class="text-[10px] text-gray-400 hover:text-gray-600 px-2 py-1 rounded hover:bg-gray-100" onclick={fitToView} title="Fit to view (Home)">Fit</button>
-
-		<div class="w-px h-4 bg-gray-200"></div>
+		{#if onexport}
+			<button
+				class="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-gray-500 hover:text-green-600 hover:bg-green-50 transition-colors"
+				title="Export outlets to Excel"
+				onclick={() => onexport?.()}
+			><Icon name="download" size={11} /> Excel</button>
+			<div class="w-px h-4 bg-gray-200"></div>
+		{/if}
 		<button title="Toggle grayscale floorplan (G)"
 			class="flex items-center gap-1 px-2 py-1 rounded text-[11px] transition-colors {grayscale ? 'bg-gray-200 text-gray-700' : 'text-gray-400 hover:bg-gray-100'}"
 			onclick={() => grayscale = !grayscale}>
