@@ -55,8 +55,8 @@
 		onadd: (pagePosPixels: Point) => void
 		onselect: (id: string, multi: boolean) => void
 		onclear: () => void
-		onmove: (ids: Set<string>, dxMm: number, dyMm: number) => void
-		onmoveend: (ids: Set<string>) => void
+		onmove: (ids: Set<string>, dxMm: number, dyMm: number, copying: boolean) => void
+		onmoveend: (ids: Set<string>, copying: boolean) => void
 		ondelete: () => void
 		onselectrack?: (rackId: string, multi: boolean) => void
 		onmoveracks?: (ids: Set<string>, dxMm: number, dyMm: number, absolute?: boolean) => void
@@ -337,7 +337,7 @@
 	// Drag state
 	let dragging = $state(false)
 	let dragMoved = false
-	let dragStart: { x: number; y: number; outletPositions: Map<string, Point> } | null = null
+	let dragStart = $state<{ x: number; y: number; outletPositions: Map<string, Point> } | null>(null)
 
 	// Rack drag state
 	let draggingRack = $state(false)
@@ -859,6 +859,8 @@
 	}
 
 	// Outlet drag
+	let dragCopying = $state(false)
+
 	function onDragMove(e: MouseEvent) {
 		if (!dragStart || !calibration) return
 		const pos = getPagePos(e)
@@ -866,22 +868,26 @@
 		const dyPx = pos.y - dragStart.y
 		const dxMm = dxPx * calibration.scaleFactor
 		const dyMm = dyPx * calibration.scaleFactor
+		const copying = e.ctrlKey || e.metaKey
+		dragCopying = copying
 
 		dragMoved = true
 		const ids = new Set(dragStart.outletPositions.keys())
-		onmove(ids, dxMm, dyMm)
+		onmove(ids, dxMm, dyMm, copying)
 
 		dragStart.x = pos.x
 		dragStart.y = pos.y
 	}
 
-	function onDragUp() {
+	function onDragUp(e: MouseEvent) {
+		const copying = e.ctrlKey || e.metaKey
 		if (dragMoved && dragStart) {
-			onmoveend(new Set(dragStart.outletPositions.keys()))
+			onmoveend(new Set(dragStart.outletPositions.keys()), copying)
 		}
 		dragging = false
 		dragStart = null
 		dragMoved = false
+		dragCopying = false
 		document.removeEventListener('mousemove', onDragMove)
 		document.removeEventListener('mouseup', onDragUp)
 	}
@@ -1681,6 +1687,18 @@
 							/>
 						{/if}
 					{/each}
+				{/if}
+
+				<!-- Copy-drag ghosts: show originals at pre-drag positions -->
+				{#if dragCopying && dragStart}
+					<g opacity="0.4">
+						{#each outlets as outlet (outlet.id)}
+							{#if dragStart.outletPositions.has(outlet.id)}
+								{@const origPx = toPx(dragStart.outletPositions.get(outlet.id)!)}
+								<OutletShape {outlet} px={origPx} {radiusPx} {zoom} selected={false} {activeTool} />
+							{/if}
+						{/each}
+					</g>
 				{/if}
 
 				<!-- Outlets -->

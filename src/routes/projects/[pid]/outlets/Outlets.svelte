@@ -526,7 +526,7 @@
 
 	let preMoveSnapshot: OutletConfig[] | null = null
 
-	function moveOutlets(ids: Set<string>, dxMm: number, dyMm: number) {
+	function moveOutlets(ids: Set<string>, dxMm: number, dyMm: number, copying: boolean) {
 		if (!preMoveSnapshot) preMoveSnapshot = outlets
 		outlets = outlets.map(o => {
 			if (!ids.has(o.id)) return o
@@ -534,18 +534,42 @@
 		})
 	}
 
-	function moveEnd(ids: Set<string>) {
+	function moveEnd(ids: Set<string>, copying: boolean) {
 		if (!preMoveSnapshot) return
-		// Snap to grid on release
-		outlets = outlets.map(o => ids.has(o.id) ? { ...o, position: snapToGrid(o.position, gridMm) } : o)
-		const prev = preMoveSnapshot
-		const final = outlets
-		preMoveSnapshot = null
-		history.record({
-			label: `Move ${ids.size}`,
-			undo: () => { outlets = prev },
-			redo: () => { outlets = final },
-		})
+		if (copying) {
+			// Create copies at the dragged positions, restore originals
+			const snapped = outlets.filter(o => ids.has(o.id)).map(o => ({
+				...o, position: snapToGrid(o.position, gridMm)
+			}))
+			const copies: OutletConfig[] = snapped.map(o => {
+				const id = `out-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+				const label = o.label ? `${o.label}-copy` : undefined
+				return { ...o, id, label }
+			})
+			// Restore originals + add copies
+			const prev = preMoveSnapshot
+			outlets = [...prev, ...copies]
+			const copyIds = new Set(copies.map(c => c.id))
+			selectedIds = copyIds
+			const final = outlets
+			preMoveSnapshot = null
+			history.record({
+				label: `Copy ${copies.length}`,
+				undo: () => { outlets = prev; selectedIds = ids },
+				redo: () => { outlets = final; selectedIds = copyIds },
+			})
+		} else {
+			// Normal move
+			outlets = outlets.map(o => ids.has(o.id) ? { ...o, position: snapToGrid(o.position, gridMm) } : o)
+			const prev = preMoveSnapshot
+			const final = outlets
+			preMoveSnapshot = null
+			history.record({
+				label: `Move ${ids.size}`,
+				undo: () => { outlets = prev },
+				redo: () => { outlets = final },
+			})
+		}
 	}
 
 	function selectOutlet(id: string, multi: boolean) {
