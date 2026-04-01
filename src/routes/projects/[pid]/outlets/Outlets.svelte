@@ -1581,12 +1581,18 @@
 				</div>
 				<div class="flex-1"></div>
 				<div class="flex items-center gap-3 px-3 text-[10px] text-gray-400">
-					<span>{outlets.length} outlet{outlets.length !== 1 ? 's' : ''}</span>
-					<span>{rackPlacements.length} rack{rackPlacements.length !== 1 ? 's' : ''}</span>
-					{#if trunks.length > 0}<span>{trunks.length} trunk{trunks.length !== 1 ? 's' : ''}</span>{/if}
-					{#if selectedNodeIsJunction}<span class="text-amber-500">Alt+drag to disconnect</span>{/if}
+					<div class="hidden xl:contents">
+						<span>{outlets.length} outlet{outlets.length !== 1 ? 's' : ''}</span>
+						<span>{rackPlacements.length} rack{rackPlacements.length !== 1 ? 's' : ''}</span>
+						{#if trunks.length > 0}<span>{trunks.length} trunk{trunks.length !== 1 ? 's' : ''}</span>{/if}
+					</div>
+					{#if selectedTrunkIds.size > 0}
+						{#if selectedNodeIsJunction}<span class="text-amber-500">Alt+drag to disconnect</span>
+						{:else}<span class="text-blue-400">Ctrl+click segment to add corner</span>
+						{/if}
+					{/if}
 					{#if calibration}
-						<span>Scale: 1px = {calibration.scaleFactor.toFixed(1)}mm</span>
+						<span class="hidden lg:inline">Scale: 1px = {calibration.scaleFactor.toFixed(1)}mm</span>
 					{/if}
 					<div class="w-px h-3.5 bg-gray-300"></div>
 					<button class="text-gray-400 hover:text-gray-600 px-1 py-0.5 rounded hover:bg-gray-100 text-xs font-bold leading-none" onclick={() => canvasRef?.zoomOut()} title="Zoom out (-)">&#x2212;</button>

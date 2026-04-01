@@ -23,6 +23,17 @@
 		const first = vals[0]
 		return vals.every(v => v === first) ? first : undefined
 	}
+
+	/** Shared catalog value across selection (only when all same shape) */
+	let sharedCatalog = $derived.by(() => {
+		if (selectedTrunks.length === 0) return undefined
+		const shape = sharedTrunk('shape')
+		if (!shape) return undefined
+		const cats = selectedTrunks.map(t =>
+			shape === 'pipe' ? (t.spec as PipeSpec).catalog : (t.spec as RectSpec).catalog
+		)
+		return cats.every(c => c === cats[0]) ? cats[0] : undefined
+	})
 </script>
 
 <Window title="Trunk Properties" open={true} right={16} top={selectedIds.size > 0 ? 480 : (selectedRackIds.size > 0 ? 320 : 48)} class="p-3 space-y-1.5 text-xs w-56">
@@ -67,34 +78,87 @@
 		</select>
 	</label>
 
-	<!-- Type (catalog) — only for single trunk since spec structure differs by shape -->
-	{#if singleTrunk}
+	<!-- Type (catalog) — works for single or multi when same shape -->
+	{#if sharedTrunk('shape') === 'pipe'}
 		<label class="flex items-center gap-2">
 			<span class="text-gray-500 w-14 shrink-0">Type</span>
-			{#if singleTrunk.shape === 'pipe'}
-				<select class="flex-1 h-5 px-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-					value={(singleTrunk.spec as PipeSpec).catalog}
-					onchange={e => {
-						const cat = PIPE_CATALOG[e.currentTarget.value as PipeCatalog]
-						if (cat) onupdate(singleTrunk!.id, { spec: { catalog: e.currentTarget.value as any, innerDiameterMm: cat.innerMm, outerDiameterMm: cat.outerMm } })
-					}}>
-					{#each Object.entries(PIPE_CATALOG) as [val, cat]}
-						<option value={val}>{cat.label}</option>
-					{/each}
-				</select>
-			{:else}
-				<select class="flex-1 h-5 px-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-					value={(singleTrunk.spec as RectSpec).catalog}
-					onchange={e => {
-						const cat = RECT_CATALOG[e.currentTarget.value as RectCatalog]
-						if (cat) onupdate(singleTrunk!.id, { spec: { catalog: e.currentTarget.value as any, widthMm: cat.widthMm, heightMm: cat.heightMm } })
-					}}>
-					{#each Object.entries(RECT_CATALOG) as [val, cat]}
-						<option value={val}>{cat.label}</option>
-					{/each}
-				</select>
-			{/if}
+			<select class="flex-1 h-5 px-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+				value={sharedCatalog ?? ''}
+				onchange={e => {
+					const cat = PIPE_CATALOG[e.currentTarget.value as PipeCatalog]
+					if (cat) onupdateselected({ spec: { catalog: e.currentTarget.value as any, innerDiameterMm: cat.innerMm, outerDiameterMm: cat.outerMm } })
+				}}>
+				{#if !sharedCatalog}<option value="">— mixed —</option>{/if}
+				{#each Object.entries(PIPE_CATALOG) as [val, cat]}
+					<option value={val}>{cat.label}</option>
+				{/each}
+			</select>
 		</label>
+
+		<!-- Custom dimensions for pipe -->
+		{#if singleTrunk}
+			{@const spec = singleTrunk.spec as PipeSpec}
+			<div class="flex items-center gap-2">
+				<span class="text-gray-500 w-14 shrink-0">Inner</span>
+				<input type="number" min="1" max="500" step="1"
+					class="w-14 h-5 px-1.5 text-xs font-mono border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+					value={spec.innerDiameterMm}
+					onchange={e => {
+						const v = parseFloat(e.currentTarget.value) || spec.innerDiameterMm
+						onupdate(singleTrunk!.id, { spec: { ...spec, catalog: 'custom' as PipeCatalog, innerDiameterMm: v } })
+					}} /><span class="text-gray-400">mm</span>
+			</div>
+			<div class="flex items-center gap-2">
+				<span class="text-gray-500 w-14 shrink-0">Outer</span>
+				<input type="number" min="1" max="500" step="1"
+					class="w-14 h-5 px-1.5 text-xs font-mono border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+					value={spec.outerDiameterMm}
+					onchange={e => {
+						const v = parseFloat(e.currentTarget.value) || spec.outerDiameterMm
+						onupdate(singleTrunk!.id, { spec: { ...spec, catalog: 'custom' as PipeCatalog, outerDiameterMm: v } })
+					}} /><span class="text-gray-400">mm</span>
+			</div>
+		{/if}
+	{:else if sharedTrunk('shape') === 'rect'}
+		<label class="flex items-center gap-2">
+			<span class="text-gray-500 w-14 shrink-0">Type</span>
+			<select class="flex-1 h-5 px-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+				value={sharedCatalog ?? ''}
+				onchange={e => {
+					const cat = RECT_CATALOG[e.currentTarget.value as RectCatalog]
+					if (cat) onupdateselected({ spec: { catalog: e.currentTarget.value as any, widthMm: cat.widthMm, heightMm: cat.heightMm } })
+				}}>
+				{#if !sharedCatalog}<option value="">— mixed —</option>{/if}
+				{#each Object.entries(RECT_CATALOG) as [val, cat]}
+					<option value={val}>{cat.label}</option>
+				{/each}
+			</select>
+		</label>
+
+		<!-- Custom dimensions for rect -->
+		{#if singleTrunk}
+			{@const spec = singleTrunk.spec as RectSpec}
+			<div class="flex items-center gap-2">
+				<span class="text-gray-500 w-14 shrink-0">Width</span>
+				<input type="number" min="1" max="2000" step="1"
+					class="w-14 h-5 px-1.5 text-xs font-mono border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+					value={spec.widthMm}
+					onchange={e => {
+						const v = parseFloat(e.currentTarget.value) || spec.widthMm
+						onupdate(singleTrunk!.id, { spec: { ...spec, catalog: 'custom' as RectCatalog, widthMm: v } })
+					}} /><span class="text-gray-400">mm</span>
+			</div>
+			<div class="flex items-center gap-2">
+				<span class="text-gray-500 w-14 shrink-0">Height</span>
+				<input type="number" min="1" max="2000" step="1"
+					class="w-14 h-5 px-1.5 text-xs font-mono border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+					value={spec.heightMm}
+					onchange={e => {
+						const v = parseFloat(e.currentTarget.value) || spec.heightMm
+						onupdate(singleTrunk!.id, { spec: { ...spec, catalog: 'custom' as RectCatalog, heightMm: v } })
+					}} /><span class="text-gray-400">mm</span>
+			</div>
+		{/if}
 	{/if}
 
 	<!-- Color -->
