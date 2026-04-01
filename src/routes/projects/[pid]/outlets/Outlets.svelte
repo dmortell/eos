@@ -1315,8 +1315,8 @@
 	function onKeyDown(e: KeyboardEvent) {
 		if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); history.undo(); return }
 		if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'Z'))) { e.preventDefault(); history.redo(); return }
-
 		if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'SELECT') return
+		// console.log(e.key)
 
 		if (e.key === 'Escape') {
 			// Cascade: drawing handled by canvas → clear selection → revert to select mode
@@ -1820,7 +1820,7 @@
 				<div class="flex-1"></div>
 				<div class="flex items-center gap-3 px-3 text-[10px] text-gray-400">
 					<span>{outlets.length} outlet{outlets.length !== 1 ? 's' : ''}</span>
-					<span>{rackPlacements.length} rack{rackPlacements.length !== 1 ? 's' : ''} placed</span>
+					<span>{rackPlacements.length} rack{rackPlacements.length !== 1 ? 's' : ''}</span>
 					{#if trunks.length > 0}<span>{trunks.length} trunk{trunks.length !== 1 ? 's' : ''}</span>{/if}
 					{#if selectedNodeIsJunction}<span class="text-amber-500">Alt+drag to disconnect</span>{/if}
 					{#if calibration}

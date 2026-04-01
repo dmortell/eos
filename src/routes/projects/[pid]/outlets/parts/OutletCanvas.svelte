@@ -1530,7 +1530,8 @@
 							<span class="w-4 text-center {hasViewFlag(item.flag) ? 'text-blue-600' : 'text-gray-300'}">
 								{hasViewFlag(item.flag) ? '✓' : ''}
 							</span>
-							<span class="{hasViewFlag(item.flag) ? 'text-gray-700' : 'text-gray-400'}">{item.label}</span>
+							<!-- <span class="{hasViewFlag(item.flag) ? 'text-gray-700' : 'text-gray-400'}">{item.label}</span> -->
+							<span>{item.label}</span>
 						</button>
 					{/each}
 				</div>
@@ -1549,7 +1550,7 @@
 		<button class="text-[10px] text-gray-400 hover:text-gray-600 px-2 py-1 rounded hover:bg-gray-100" onclick={fitToView} title="Fit to view (Home)">Fit</button>
 
 		<div class="w-px h-4 bg-gray-200"></div>
-		<button
+		<button title="Toggle grayscale floorplan (G)"
 			class="flex items-center gap-1 px-2 py-1 rounded text-[11px] transition-colors {grayscale ? 'bg-gray-200 text-gray-700' : 'text-gray-400 hover:bg-gray-100'}"
 			onclick={() => grayscale = !grayscale}>
 			{grayscale ? 'Color' : 'B/W'}

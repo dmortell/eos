@@ -24,13 +24,14 @@
 	)
 </script>
 
-<div class="flex h-full relative cursor-pointer group" style:border-left="3px solid {color}"
+	<!-- style:background-color={color} -->
+<div class="flex h-full relative cursor-pointer group"
 	style:opacity={opacity} class:pointer-events-none={opacity < 1}>
 	<!-- Label -->
 	<div class="flex items-center pl-1.5 text-gray-700 font-bold truncate"
 	class:rotate-label={(device.widthMm ?? 450) <= 150}
 	style:font-size={Math.max(8, 16 * zoom * scale) + 'px'}>
-		<Icon name={iconName} size={Math.max(8, 14 * zoom * scale)} />
+		<!-- <Icon name={iconName} size={Math.max(8, 14 * zoom * scale)} /> -->
 		<span class="ml-1 truncate">{device.label}</span>
 	</div>
 

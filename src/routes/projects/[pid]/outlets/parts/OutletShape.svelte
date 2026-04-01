@@ -38,8 +38,7 @@
 
 	/** Calculate square corners centered at (cx, cy) with "radius" r (half-side) */
 	function squarePoints(cx: number, cy: number, r: number): string {
-		const side = r * Math.sqrt(2)
-		const half = side / 2
+		const side = r * Math.sqrt(2), half = side / 2
 		return `${cx - half},${cy - half} ${cx + half},${cy - half} ${cx + half},${cy + half} ${cx - half},${cy + half}`
 	}
 </script>
@@ -103,23 +102,14 @@
 	{/if}
 
 	<!-- Port count -->
-	<text
-		x={px.x}
-		y={px.y + radiusPx * 0.35}
-		text-anchor="middle"
-		font-size={radiusPx * 0.9}
-		fill={outlet.level === 'low' ? 'white' : colors.stroke}
-		font-weight="bold"
+	<text x={px.x} y={px.y + radiusPx * 0.35} font-size={radiusPx * 0.9}
+		font-weight="bold" text-anchor="middle" fill={outlet.level === 'low' ? 'white' : colors.stroke}
 		class="select-none pointer-events-none">{outlet.portCount}</text>
 
 	<!-- Label -->
 	{#if outlet.label}
-		<text
-			x={px.x}
-			y={px.y - radiusPx - radiusPx * 0.3}
-			text-anchor="middle"
-			font-size={radiusPx * 0.6}
-			fill="#374151"
+		<text x={px.x} y={px.y - radiusPx - radiusPx * 0.3} font-size={radiusPx * 0.6}
+			text-anchor="middle" fill="#374151"
 			class="select-none pointer-events-none">{outlet.label}</text>
 	{/if}
 </g>

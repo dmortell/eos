@@ -105,7 +105,9 @@ pnpm dlx sv@0.12.4 create --template minimal --types ts --add vitest="usages:uni
 ```
 
 
-## Set up a private key in Firebase console
+## Sharing Site Survey Albums
+
+* Set up a private key in Firebase console:
 
 Settings > Service accounts > Generate new key
 

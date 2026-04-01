@@ -279,9 +279,20 @@ Bitmask `viewFlags` with `VIEW_TITLEBLOCK` (bit 8) for title block visibility. S
 
 # Bugs
 
-BUG: A deleted trunk reappears when a new point is added. might need to clear the old points of the trunk.
+BUG: A deleted trunk reappears when a new point is added. might need to clear the old points of the trunk - fixed
 BUG: immediately after opening an image file, pressing ctrl-o shortcut to add an outlet actually opens the file browser; use Shift for selecting tools instead of ctrl.
 BUG: after pan/zoom, adding trunk points doesn't work, points are in the wrong position.
 BUG: browser print preview still show up blank
 
 ADD: layers to show/hide different parts of outlets drawings: low/high outlets/routes
+
+
+
+Trunks
+Allow editing trunk sizes in Trunk Properties window
+
+•	Insert outlet (increases following numbers), Delete outlet reduces following numbers.
+•	Ctrl-drag to copy selected outlets - How to handle numbers
+•	Frame: drag/drop outlets. Assign ports to different uses
+
+Move Export Outlets from statusbar to toolbar. Move zoom buttons from toolbar to statusbar (right-side)

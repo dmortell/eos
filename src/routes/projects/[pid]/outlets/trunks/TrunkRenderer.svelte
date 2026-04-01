@@ -263,7 +263,8 @@
 <!-- Drawing preview -->
 {#if drawingPath}
 	<path d={drawingPath} fill="#8b5cf633" stroke="#8b5cf6" stroke-width={1.5 / zoom}
-		fill-rule="evenodd" stroke-dasharray="{4 / zoom} {2 / zoom}" />
+		fill-rule="evenodd"  />
+		<!-- stroke-dasharray="{4 / zoom} {2 / zoom}" -->
 {/if}
 
 <!-- Drawing node handles -->

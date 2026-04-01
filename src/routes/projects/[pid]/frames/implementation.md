@@ -504,7 +504,8 @@ Currently all patch frame data (zones, locations, frames, settings) is stored in
 
 
   Plan: Scalable Rack Selector for Frames Tool
-                                                                                                                                                                                                                                                               Problem
+
+Problem
 
   When a floor has >6 racks across multiple rooms and rows, the current flat row of buttons becomes unwieldy — too many buttons to scan, no visual grouping by room/row.
 

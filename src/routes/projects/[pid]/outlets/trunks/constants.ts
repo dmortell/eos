@@ -9,8 +9,8 @@ export const PIPE_CATALOG: Record<PipeCatalog, { innerMm: number; outerMm: numbe
 
 export const RECT_CATALOG: Record<RectCatalog, { widthMm: number; heightMm: number; label: string }> = {
 	MK0:    { widthMm: 40,  heightMm: 20,  label: 'MK No.0 (40x20)' },
-	MK1:    { widthMm: 40,  heightMm: 20,  label: 'MK No.1 (40x20)' },
-	MK2:    { widthMm: 40,  heightMm: 20,  label: 'MK No.2 (40x20)' },
+	MK1:    { widthMm: 40,  heightMm: 30,  label: 'MK No.1 (40x30)' },
+	MK2:    { widthMm: 60,  heightMm: 40,  label: 'MK No.2 (60x40)' },
 	MK3:    { widthMm: 80,  heightMm: 60,  label: 'MK No.3 (80x60)' },
 	MK4:    { widthMm: 100, heightMm: 80,  label: 'MK No.4 (100x80)' },
 	MK5:    { widthMm: 150, heightMm: 100, label: 'MK No.5 (150x100)' },

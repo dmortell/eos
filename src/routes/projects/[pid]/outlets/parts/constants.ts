@@ -5,11 +5,13 @@ export const OUTLET_RADIUS_MM = 200
 
 /** Colors per outlet usage type */
 export const USAGE_COLORS: Record<OutletUsage, { fill: string; stroke: string; label: string; title: string }> = {
+	new:      { fill: '#a855f7', stroke: '#9333ea', label: 'New', title: 'New Outlet' },
 	network:  { fill: '#3b82f6', stroke: '#2563eb', label: 'Network', title: 'Network' },
 	phone:    { fill: '#8b5cf6', stroke: '#7c3aed', label: 'Phone', title: 'Phone' },
 	av:       { fill: '#ec4899', stroke: '#db2777', label: 'TV/AV', title: 'Television / Audio Video' },
 	printer:  { fill: '#f97316', stroke: '#ea580c', label: 'Printer', title: 'Printer' },
 	security: { fill: '#ef4444', stroke: '#dc2626', label: 'Security', title: 'Security' },
+	mep:      { fill: '#78716c', stroke: '#57534e', label: 'MEP/BMS', title: 'MEP / Building Management System' },
 	ap:       { fill: '#10b981', stroke: '#059669', label: 'AP', title: 'Access Point' },
 	rb:       { fill: '#06b6d4', stroke: '#0891b2', label: 'Room Booking', title: 'Room Booking' },
 }

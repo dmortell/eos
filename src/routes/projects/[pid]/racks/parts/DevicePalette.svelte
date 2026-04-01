@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Icon, Search } from '$lib'
-    import { slide } from 'svelte/transition';
+  import { slide } from 'svelte/transition';
 	import { DEFAULT_PALETTE } from './constants'
 	import type { DeviceTemplate } from './types'
 
