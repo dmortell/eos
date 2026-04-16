@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'link' | 'toggle' | 'toggle2'
+	export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'subtle' | 'danger' | 'link' | 'toggle' | 'toggle2'
 	export type ButtonSize = 'xs' | 'sm' | 'md' | 'lg' | 'icon'
 	export type ButtonConfirm = {
 		text?: string
@@ -38,7 +38,7 @@
 	let awaitingConfirm = $state(false)
 
 	const sizeClasses: Record<ButtonSize, string> = {
-		xs: 'h-5 min-w-5 px-1.5 text-[10px] gap-1 rounded',
+		xs: 'px-1 py-0.5 text-xs gap-1 rounded leading-none',
 		sm: 'h-6 min-w-7 px-2 text-xs gap-1.5 rounded',
 		md: 'h-6 min-w-8 px-2 py-4 text-sm gap-1.5 rounded',
 		lg: 'h-10 min-w-10 px-4 text-sm gap-2 rounded',
@@ -46,7 +46,7 @@
 	}
 
 	const iconOnlyClasses: Record<ButtonSize, string> = {
-		xs: 'w-5 px-0',
+		xs: 'px-0.5',
 		sm: 'w-7 px-0',
 		md: 'w-8 px-0',
 		lg: 'w-10 px-0',
@@ -66,6 +66,7 @@
 		secondary: 'border border-slate-300 bg-slate-100 text-slate-800 hover:bg-slate-200 hover:border-slate-400 focus-visible:ring-slate-300',
 		outline: 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 focus-visible:ring-gray-300',
 		ghost: 'border border-transparent bg-transparent text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-visible:ring-gray-300',
+		subtle: 'border border-transparent bg-transparent text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus-visible:ring-gray-300',
 		danger: 'border border-red-600 bg-red-600 text-white shadow-sm hover:bg-red-500 hover:border-red-500 focus-visible:ring-red-300',
 		link: 'border border-transparent bg-transparent px-0 text-blue-700 underline-offset-2 hover:underline focus-visible:ring-blue-300',
 		toggle: 'border text-gray-700 focus-visible:ring-blue-300',
@@ -91,7 +92,7 @@
 		isIconOnly && iconOnlyClasses[size],
 		active && variant === 'primary' && 'ring-2 ring-blue-200',
 		active && variant === 'danger' && 'ring-2 ring-red-200',
-		active && ['secondary', 'outline', 'ghost'].includes(variant) && 'bg-blue-50 border-blue-300 text-blue-700',
+		active && ['secondary', 'outline', 'ghost', 'subtle'].includes(variant) && 'bg-blue-50 border-blue-300 text-blue-700',
 		active && variant === 'link' && 'text-blue-900',
 		variant === 'toggle' && (active ? 'bg-blue-100 border-blue-300 hover:bg-blue-100' : 'bg-white border-gray-300 hover:bg-gray-50'),
 		variant === 'toggle2' && (active ? 'bg-amber-100 border-amber-300 hover:bg-amber-100' : 'bg-white border-gray-300 hover:bg-gray-50'),

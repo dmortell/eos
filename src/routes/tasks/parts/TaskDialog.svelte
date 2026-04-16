@@ -57,7 +57,7 @@
 <Dialog bind:open title={task ? 'Edit Task' : 'New Task'}>
 	<div class="space-y-2 mt-2 text-sm flex flex-col ">
 		<Input label="Task" bind:value={title} placeholder="Task title" class="w-full"/>
-		<Input label="Details" type="textarea" bind:value={description} rows="3" class="w-full border block" />
+		<Input label="Details" type="textarea" bind:value={description} rows={3} class="w-full border block" />
 
 		<div class="grid grid-cols-2 gap-2">
 			<Select bind:value={projectId} label="Project" class="block w-full">

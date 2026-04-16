@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	export type SelectSize = 'sm' | 'md' | 'lg'
+	export type SelectSize = 'xs' | 'sm' | 'md' | 'lg'
 	export type SelectState = 'default' | 'error' | 'success'
 </script>
 
@@ -12,7 +12,7 @@
 
 	let {
 		class: className = '',
-		value = $bindable<string>(''),
+		value = $bindable<any>(''),
 		size = 'md' as SelectSize,
 		state = 'default' as SelectState,
 		label = null as string | null,
@@ -32,6 +32,7 @@
 	let describedBy = $derived(id ? `${id}-hint` : undefined)
 
 	const sizeClasses: Record<SelectSize, string> = {
+		xs: 'h-6 px-1.5 pr-6 text-xs rounded',
 		sm: 'h-7 px-2 pr-7 text-xs rounded',
 		md: 'h-8 px-3 pr-8 text-sm rounded',
 		lg: 'h-10 px-3.5 pr-9 text-sm rounded-md'
@@ -49,7 +50,6 @@
 		'disabled:opacity-60 disabled:cursor-not-allowed',
 		sizeClasses[size],
 		stateClasses[effectiveState],
-		className
 	))
 
 	let labelClasses = $derived(cx(
@@ -62,14 +62,14 @@
 		error ? 'text-red-600' : effectiveState === 'success' ? 'text-emerald-600' : 'text-gray-500'
 	))
 
-	let iconSize = $derived(size === 'sm' ? 13 : 15)
+	let iconSize = $derived(size === 'xs' || size === 'sm' ? 13 : 15)
 	let iconWrapperClasses = $derived(cx(
 		'pointer-events-none absolute inset-y-0 right-0 flex items-center text-gray-500',
-		size === 'sm' ? 'pr-2' : size === 'lg' ? 'pr-3' : 'pr-2.5'
+		size === 'xs' ? 'pr-1.5' : size === 'sm' ? 'pr-2' : size === 'lg' ? 'pr-3' : 'pr-2.5'
 	))
 </script>
 
-<label class="flex flex-col gap-1" {title}>
+<label class={["inline-flex flex-col gap-1", className]} {title}>
 	{#if hasLabel}
 		<span class={labelClasses}>
 			{label}

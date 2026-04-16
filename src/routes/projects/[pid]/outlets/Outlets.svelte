@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Icon, Titlebar } from '$lib'
+	import { Button, Icon, Select, Titlebar } from '$lib'
 	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
 	import { fmtFloor } from '$lib/utils/floor'
 	import FloorManagerDialog from '$lib/components/FloorManagerDialog.svelte'
@@ -8,7 +8,7 @@
 	import type { RackConfig } from '../racks/parts/types'
 	import { DEFAULT_PRINT_SETTINGS, type PrintSettings } from '$lib/ui/print/types'
 	import { OUTLET_DEFAULTS, type StickyDefaults } from './parts/constants'
-	import { HistoryStore } from './parts/HistoryStore.svelte.ts'
+	import { HistoryStore } from './parts/HistoryStore.svelte'
 	import OutletCanvas from './parts/OutletCanvas.svelte'
 	import OutletPalette from './parts/OutletPalette.svelte'
 	import RackPalette from './parts/RackPalette.svelte'
@@ -1413,29 +1413,22 @@
 								<Icon name="upload" size={14} /> Upload
 							</a>
 						</div>
-						<select
-							class="w-full h-7 px-2 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-							value={selectedFileId}
-							onchange={e => { selectedFileId = e.currentTarget.value; selectedPage = 1 }}>
-							<option value="">— Select file —</option>
+						<Select size="sm" bind:value={selectedFileId} placeholder="— Select file —" onchange={() => selectedPage = 1} class="w-full">
 							{#each projectFiles as f (f.id)}
 								<option value={f.id}>{f.name ?? f.id}</option>
 							{/each}
-						</select>
+						</Select>
 
 						{#if selectedFile?.pageCount && selectedFile.pageCount > 1}
 							<div class="flex items-center gap-2">
 								<span class="text-gray-400">Page</span>
-								<select
-									class="h-6 px-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-									value={selectedPage}
-									onchange={e => selectedPage = parseInt(e.currentTarget.value)}>
+								<Select size="xs" bind:value={selectedPage}>
 									{#each Array.from({ length: selectedFile.pageCount }, (_, i) => i + 1) as p}
 										<option value={p} disabled={!isPageCalibrated(selectedFile, p)}>
 											{p} {isPageCalibrated(selectedFile, p) ? '' : '(not calibrated)'}
 										</option>
 									{/each}
-								</select>
+								</Select>
 							</div>
 						{/if}
 
@@ -1619,10 +1612,10 @@
 						<span class="hidden lg:inline">Scale: 1px = {calibration.scaleFactor.toFixed(1)}mm</span>
 					{/if}
 					<div class="w-px h-3.5 bg-gray-300"></div>
-					<button class="text-gray-400 hover:text-gray-600 px-1 py-0.5 rounded hover:bg-gray-100 text-xs font-bold leading-none" onclick={() => canvasRef?.zoomOut()} title="Zoom out (-)">&#x2212;</button>
+					<Button variant="subtle" size="xs" class="font-bold" onclick={() => canvasRef?.zoomOut()} title="Zoom out (-)">&#x2212;</Button>
 					<span class="text-[10px] text-gray-400 tabular-nums min-w-8 text-center">{Math.round(canvasZoom * 100)}%</span>
-					<button class="text-gray-400 hover:text-gray-600 px-1 py-0.5 rounded hover:bg-gray-100 text-xs font-bold leading-none" onclick={() => canvasRef?.zoomIn()} title="Zoom in (+)">+</button>
-					<button class="text-[10px] text-gray-400 hover:text-gray-600 px-1.5 py-0.5 rounded hover:bg-gray-100" onclick={() => canvasRef?.fitToView()} title="Fit to view (Home)">Fit</button>
+					<Button variant="subtle" size="xs" class="font-bold" onclick={() => canvasRef?.zoomIn()} title="Zoom in (+)">+</Button>
+					<Button variant="subtle" size="xs" class="text-[10px]" onclick={() => canvasRef?.fitToView()} title="Fit to view (Home)">Fit</Button>
 					<label class="flex items-center gap-1" title="Grid snap size in mm (0 = off)">
 						Grid
 						<input type="number" min="0" max="1000" step="10"

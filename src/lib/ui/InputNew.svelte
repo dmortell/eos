@@ -56,7 +56,6 @@
 		'disabled:opacity-60 disabled:cursor-not-allowed',
 		isTextarea ? textareaSizeClasses[size] : sizeClasses[size],
 		stateClasses[effectiveState],
-		className
 	))
 
 	let labelClasses = $derived(cx(
@@ -70,7 +69,7 @@
 	))
 </script>
 
-<label class={[size=="lg" && 'w-full', "flex flex-col gap-1"]} {title}>
+<label class={["inline-flex flex-col gap-1", className]} {title}>
 	{#if hasLabel}
 		<span class={labelClasses}>
 			{label}
