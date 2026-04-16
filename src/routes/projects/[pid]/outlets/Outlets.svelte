@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Button, Icon, Select, Titlebar } from '$lib'
+	import { Button, Icon, Select, Titlebar, Firestore } from '$lib'
+	import VersionPanel from '../parts/VersionPanel.svelte'
 	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
 	import { fmtFloor } from '$lib/utils/floor'
 	import FloorManagerDialog from '$lib/components/FloorManagerDialog.svelte'
@@ -22,7 +23,7 @@
 	import { exportOutletsToExcel } from './parts/exportExcel'
   import { toast } from 'svelte-sonner';
 
-	let { data = null, files = [], floors = [], frameData = null, racksData = {}, floor, projectId = '', projectName = '', onsave, onfloorchange, onupdatefloors, ondeletefloor, onsaverack }: {
+	let { data = null, files = [], floors = [], frameData = null, racksData = {}, floor, projectId = '', projectName = '', drawingId = '', db = new Firestore(), uid = '', onsave, onfloorchange, onupdatefloors, ondeletefloor, onsaverack }: {
 		data?: any
 		files?: any[]
 		floors?: FloorConfig[]
@@ -31,12 +32,33 @@
 		floor: number
 		projectId?: string
 		projectName?: string
+		drawingId?: string
+		db?: Firestore
+		uid?: string
 		onsave?: (payload: any) => void
 		onfloorchange?: (floor: number) => void
 		onupdatefloors?: (floors: FloorConfig[]) => void
 		ondeletefloor?: (floor: number) => void
 		onsaverack?: (room: string, rackId: string, updates: Partial<RackConfig>) => void
 	} = $props()
+
+	let versionPanelOpen = $state(false)
+
+	function getCurrentSnapshot(): unknown {
+		return { floor, outlets, trunks, rackPlacements, selectedFileId, selectedPage, activeZone, legendPos, printSettings }
+	}
+
+	function handleRestore(snapshot: unknown) {
+		const s = snapshot as any
+		if (s.outlets) outlets = s.outlets
+		if (s.trunks) trunks = s.trunks
+		if (s.rackPlacements) rackPlacements = s.rackPlacements
+		if (s.selectedFileId) selectedFileId = s.selectedFileId
+		if (s.selectedPage) selectedPage = s.selectedPage
+		if (s.activeZone) activeZone = s.activeZone
+		if (s.legendPos) legendPos = s.legendPos
+		if (s.printSettings) printSettings = s.printSettings
+	}
 
 	// ── State ──
 	let outlets = $state<OutletConfig[]>(data?.outlets ?? [])
@@ -1369,7 +1391,14 @@
 <svelte:window onkeydown={onKeyDown} />
 
 <div class="h-screen flex flex-col overflow-hidden">
-<Titlebar menu={true} title={projectName ? `${projectName} — Floorplan` : 'Floorplan'} />
+<Titlebar menu={true} title={projectName ? `${projectName} — Floorplan` : 'Floorplan'}>
+	{#if drawingId}
+		<button class="flex items-center gap-1 px-2 py-0.5 rounded text-xs hover:bg-white/20 transition-colors"
+			onclick={() => versionPanelOpen = !versionPanelOpen} title="Version History">
+			<Icon name="history" size={14} /> Versions
+		</button>
+	{/if}
+</Titlebar>
 
 <PaneGroup direction="horizontal" class="flex-1 min-h-0">
 	<!-- Sidebar -->
@@ -1641,3 +1670,15 @@
 		ondelete={fl => ondeletefloor?.(fl)}
 	/>
 </div>
+
+{#if drawingId}
+	<VersionPanel
+		bind:open={versionPanelOpen}
+		projectId={projectId ?? ''}
+		{drawingId}
+		{uid}
+		{db}
+		currentSnapshot={getCurrentSnapshot}
+		onrestore={handleRestore}
+	/>
+{/if}

@@ -93,6 +93,35 @@ export async function updateDrawing(
   })
 }
 
+/** Find an existing drawing for a source doc, or create one on demand. */
+export async function findOrCreateDrawing(
+  db: Firestore,
+  input: {
+    projectId: string
+    toolType: ToolType
+    sourceDocId: string
+    title: string
+    uid: string
+    viewPreset?: ViewPreset
+  },
+): Promise<string> {
+  const path = drawingsPath(input.projectId)
+  const all = await db.getMany(path) as unknown as DrawingDoc[]
+  const existing = all.find(d => d.sourceDocId === input.sourceDocId && d.status === 'active')
+  if (existing) return existing.id
+
+  const { drawingId } = await createDrawing(db, {
+    projectId: input.projectId,
+    toolType: input.toolType,
+    drawingNumber: '',
+    title: input.title,
+    sourceDocId: input.sourceDocId,
+    viewPreset: input.viewPreset ?? { name: 'Default', layers: { default: true } },
+    uid: input.uid,
+  })
+  return drawingId
+}
+
 // ── Version Service ──
 
 export async function createVersion(

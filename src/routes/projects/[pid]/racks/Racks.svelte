@@ -1,7 +1,8 @@
 <script lang="ts">
 
-	import { Button, Icon, Titlebar } from '$lib'
+	import { Button, Icon, Titlebar, Firestore } from '$lib'
 	import { onMount, onDestroy } from 'svelte'
+	import VersionPanel from '../parts/VersionPanel.svelte'
 	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
 	import type { ChangeDetail } from '$lib/logger'
 	import type { RackConfig, DeviceConfig, DeviceTemplate, RackRow, RackSettings, ViewState, ElevationFace } from './parts/types'
@@ -20,7 +21,7 @@
 	import { fmtFloor } from '$lib/utils/floor'
 	import type { FloorConfig } from '$lib/types/project'
 
-	let { data = null, library = [], floor, room, floors = [], projectId = '', projectName = '', floorFormat = 'L01', onsave, onlibrarychange, onfloorchange, onroomchange, onupdatefloors, ondeletefloor }: {
+	let { data = null, library = [], floor, room, floors = [], projectId = '', projectName = '', floorFormat = 'L01', drawingId = '', db = new Firestore(), uid = '', onsave, onlibrarychange, onfloorchange, onroomchange, onupdatefloors, ondeletefloor }: {
 		data?: any
 		library?: DeviceTemplate[]
 		floor: number
@@ -29,6 +30,9 @@
 		projectId?: string
 		projectName?: string
 		floorFormat?: string
+		drawingId?: string
+		db?: Firestore
+		uid?: string
 		onsave?: (payload: any, changes: ChangeDetail[]) => void
 		onlibrarychange?: (templates: DeviceTemplate[]) => void
 		onfloorchange?: (floor: number) => void
@@ -36,6 +40,25 @@
 		onupdatefloors?: (floors: FloorConfig[]) => void
 		ondeletefloor?: (floor: number) => void
 	} = $props()
+
+	let versionPanelOpen = $state(false)
+
+	function getCurrentSnapshot(): unknown {
+		return {
+			floor, room, rows,
+			racks: racks.map(({ _x, _z, ...r }: any) => r),
+			devices, library, settings,
+		}
+	}
+
+	function handleRestore(snapshot: unknown) {
+		const s = snapshot as any
+		if (s.rows) rows = s.rows
+		if (s.racks) racks = s.racks.map(hydrateRack)
+		if (s.devices) devices = s.devices
+		if (s.settings) settings = { ...DEFAULT_SETTINGS, ...s.settings }
+		doSave()
+	}
 
 	// ── State ──
 	let rows = $state<RackRow[]>(data?.rows ?? [{ id: 'default', label: 'Row A' }])
@@ -701,7 +724,14 @@
 {/if}
 
 <main class="h-dvh w-full overflow-hidden flex flex-col">
-	<Titlebar menu={true} title={projectName ? `${projectName} — Rack Elevations` : 'Rack Elevations'}></Titlebar>
+	<Titlebar menu={true} title={projectName ? `${projectName} — Rack Elevations` : 'Rack Elevations'}>
+		{#if drawingId}
+			<button class="flex items-center gap-1 px-2 py-0.5 rounded text-xs hover:bg-white/20 transition-colors"
+				onclick={() => versionPanelOpen = !versionPanelOpen} title="Version History">
+				<Icon name="history" size={14} /> Versions
+			</button>
+		{/if}
+	</Titlebar>
 
 	<PaneGroup direction="horizontal" class="flex-1 min-h-0">
 		<!-- Sidebar -->
@@ -808,3 +838,15 @@
 	onupdate={updated => onupdatefloors?.(updated)}
 	ondelete={fl => ondeletefloor?.(fl)}
 />
+
+{#if drawingId}
+	<VersionPanel
+		bind:open={versionPanelOpen}
+		projectId={projectId ?? ''}
+		{drawingId}
+		{uid}
+		{db}
+		currentSnapshot={getCurrentSnapshot}
+		onrestore={handleRestore}
+	/>
+{/if}

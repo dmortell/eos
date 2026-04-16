@@ -2,7 +2,8 @@
 	import type { ZoneConfig, LocationConfig, FrameConfig, RackData, PortLabel, PortReservation, LocType } from './parts/types'
 	import { portPosKey, parsePortPosKey } from './parts/types'
 	import type { ChangeDetail } from '$lib/logger'
-	import { Button, Icon, Titlebar } from '$lib'
+	import { Button, Icon, Titlebar, Firestore } from '$lib'
+	import VersionPanel from '../parts/VersionPanel.svelte'
 	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
 	import { generatePortLabels, generateRacks } from './parts/engine'
 	import { exportToExcel } from './parts/exportExcel'
@@ -17,18 +18,37 @@
 	import type { FloorConfig } from '$lib/types/project'
 	import { fmtFloor } from '$lib/utils/floor'
 
-	let { data = null, racksData = {}, floor, floors = [], projectId = '', projectName = '', onsave, onfloorchange, onupdatefloors, ondeletefloor }: {
+	let { data = null, racksData = {}, floor, floors = [], projectId = '', projectName = '', drawingId = '', db = new Firestore(), uid = '', onsave, onfloorchange, onupdatefloors, ondeletefloor }: {
 		data?: any
 		racksData?: Record<string, any>
 		floor: number
 		floors?: FloorConfig[]
 		projectId?: string
 		projectName?: string
+		drawingId?: string
+		db?: Firestore
+		uid?: string
 		onsave?: (payload: any, changes: ChangeDetail[]) => void
 		onfloorchange?: (floor: number) => void
 		onupdatefloors?: (floors: FloorConfig[]) => void
 		ondeletefloor?: (floor: number) => void
 	} = $props()
+
+	let versionPanelOpen = $state(false)
+
+	function getCurrentSnapshot(): unknown {
+		return { floor, zoneLocations, rooms, customLocationTypes, excelGroupByRoom, floorFormat, portReservations }
+	}
+
+	function handleRestore(snapshot: unknown) {
+		const s = snapshot as any
+		if (s.zoneLocations) zoneLocations = s.zoneLocations
+		if (s.rooms) rooms = s.rooms
+		if (s.customLocationTypes) customLocationTypes = s.customLocationTypes
+		if (s.excelGroupByRoom !== undefined) excelGroupByRoom = s.excelGroupByRoom
+		if (s.floorFormat) floorFormat = s.floorFormat
+		if (s.portReservations) portReservations = s.portReservations
+	}
 
 	/** Check if a device matches the selected face view */
 	function matchesFace(dev: any, face: 'front' | 'rear'): boolean {
@@ -505,7 +525,14 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="h-screen flex flex-col overflow-hidden print:h-auto print:overflow-visible" onkeydown={handleBlockKeydown}>
 <div class="print:hidden">
-	<Titlebar menu={true} title={projectName ? `${projectName} — Patch Frames` : 'Patch Frames'} />
+	<Titlebar menu={true} title={projectName ? `${projectName} — Patch Frames` : 'Patch Frames'}>
+		{#if drawingId}
+			<button class="flex items-center gap-1 px-2 py-0.5 rounded text-xs hover:bg-white/20 transition-colors"
+				onclick={() => versionPanelOpen = !versionPanelOpen} title="Version History">
+				<Icon name="history" size={14} /> Versions
+			</button>
+		{/if}
+	</Titlebar>
 </div>
 
 <SettingsDialog
@@ -700,6 +727,18 @@
 		onblockselect={blockSelectPorts}
 	/>
 {/snippet}
+
+{#if drawingId}
+	<VersionPanel
+		bind:open={versionPanelOpen}
+		projectId={projectId ?? ''}
+		{drawingId}
+		{uid}
+		{db}
+		currentSnapshot={getCurrentSnapshot}
+		onrestore={handleRestore}
+	/>
+{/if}
 
 <style>
 	@media print {

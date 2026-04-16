@@ -5,6 +5,7 @@
 	import { writeLog } from '$lib/logger';
 	import { migrateFloors, updateFloors as _updateFloors, deleteFloor as _deleteFloor } from '$lib/utils/floor';
 	import type { DeviceTemplate } from './parts/types';
+	import { findOrCreateDrawing } from '$lib/versioning/service';
 	import Racks from './Racks.svelte';
 
 	let db = new Firestore();
@@ -17,6 +18,7 @@
 	let activeRoom = $state('A');
 	let floorFormat = $state('L01');
 	let projectName = $state('');
+	let drawingId = $state('');
 
 	/** Firestore doc ID for a given floor + room */
 	function docId(floor = activeFloor, room = activeRoom) {
@@ -83,6 +85,23 @@
 		return () => { unsub?.(); };
 	});
 
+	// Resolve drawing ID for versioning
+	$effect(() => {
+		const pid = page.params.pid;
+		const fl = activeFloor;
+		const rm = activeRoom;
+		const uid = session?.user?.uid;
+		if (!pid || !uid) return;
+		const sourceDocId = docId(fl, rm);
+		findOrCreateDrawing(db, {
+			projectId: pid,
+			toolType: 'racks',
+			sourceDocId,
+			title: `Rack Elevations ${fl}F Room ${rm}`,
+			uid,
+		}).then(id => { drawingId = id });
+	});
+
 	function changeFloor(newFloor: number) {
 		if (newFloor === activeFloor) return;
 		activeFloor = newFloor;
@@ -145,6 +164,7 @@
 	<!-- {#key `${activeFloor}-${activeRoom}`}
 			{/key} -->
 		<Racks data={rackData} {library} floor={activeFloor} room={activeRoom} {floors} projectId={page.params.pid} {floorFormat} {projectName}
+			{drawingId} {db} uid={session.user?.uid ?? ''}
 			onsave={save} onlibrarychange={saveLibrary} onfloorchange={changeFloor} onroomchange={changeRoom}
 			onupdatefloors={updateFloors} ondeletefloor={deleteFloor} />
 {/if}

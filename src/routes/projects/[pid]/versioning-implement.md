@@ -324,20 +324,20 @@ src/routes/projects/[pid]/
 3. ✅ Create `src/lib/versioning/service.ts` with drawing, version, revision, and package CRUD
 4. ✅ Create snapshot adapters for racks, frames, and outlets
 
-### Phase 2 — Master Drawing List
-1. Build drawing list page at `/projects/[pid]/drawings/`
-2. Build `DrawingList.svelte` — table with inline editing
-3. Implement drawing number assignment (auto-generate or manual entry)
-4. Add Excel export via `src/lib/versioning/export.ts`
-5. Add "Drawing List" entry to project dashboard tools list
+### Phase 2 — Master Drawing List ✅
+1. ✅ Build drawing list page at `/projects/[pid]/drawings/+page.svelte`
+2. ✅ Build `DrawingList.svelte` — table with inline editing (double-click cells)
+3. ✅ Implement drawing number assignment (manual entry via add form)
+4. ✅ Add Excel export via `src/lib/versioning/export.ts` (exceljs, styled header, dynamic revision columns)
+5. ✅ Add "Drawing List" entry to project dashboard tools list
 
-### Phase 3 — Version History UI
-1. Build `VersionPanel.svelte` — slide-out panel listing versions + revisions
-2. Wire into racks tool titlebar as first integration
-3. Add "Save Version" action (snapshots current state)
-4. Add "Restore Version" action (loads snapshot → saves as new working state + new version)
-5. Add "Create Revision" action (freeze version with code A/B/C)
-6. Roll out to remaining tools (frames, outlets, patching, fillrate)
+### Phase 3 — Version History UI ✅
+1. ✅ Build `VersionPanel.svelte` — slide-out panel with versions tab, revisions tab, save/restore/issue actions
+2. ✅ Wire into Racks tool titlebar ("Versions" button, auto-creates drawing doc via `findOrCreateDrawing`)
+3. ✅ Save Version — snapshots current tool state into Firestore subcollection
+4. ✅ Restore Version — loads snapshot, applies to tool state, triggers save
+5. ✅ Issue Revision — freeze version with code A/B/C, form overlay in panel
+6. ✅ Integrated into Frames and Outlets tools (same pattern: +page resolves drawingId, passes to component)
 
 ### Phase 4 — Drawing Packages
 1. Create drawing doc auto-registration (when a tool saves, ensure a drawing doc exists)

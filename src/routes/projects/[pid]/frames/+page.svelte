@@ -6,6 +6,7 @@
 	import type { ChangeDetail } from '$lib/logger';
 	import type { FloorConfig } from '$lib/types/project';
 	import { migrateFloors, updateFloors as _updateFloors, deleteFloor as _deleteFloor } from '$lib/utils/floor';
+	import { findOrCreateDrawing } from '$lib/versioning/service';
 	import Frames from './Frames.svelte';
 
 	let db = new Firestore();
@@ -16,6 +17,7 @@
 	let loading = $state(true);
 	let activeFloor = $state(1);
 	let projectName = $state('');
+	let drawingId = $state('');
 	let hasMigrated = false;
 
 	// Subscribe to project doc for shared floors list
@@ -99,6 +101,22 @@
 		}
 	}
 
+	// Resolve drawing ID for versioning
+	$effect(() => {
+		const pid = page.params.pid;
+		const fl = activeFloor;
+		const uid = session?.user?.uid;
+		if (!pid || !uid) return;
+		const sourceDocId = docId(fl);
+		findOrCreateDrawing(db, {
+			projectId: pid,
+			toolType: 'frames',
+			sourceDocId,
+			title: `Patch Frames ${fl}F`,
+			uid,
+		}).then(id => { drawingId = id });
+	});
+
 	function changeFloor(newFloor: number) {
 		if (newFloor === activeFloor) return;
 		activeFloor = newFloor;
@@ -145,6 +163,7 @@
 {:else}
 	{#key activeFloor}
 		<Frames data={frameData} {racksData} floor={activeFloor} {floors} projectId={page.params.pid} {projectName}
+			{drawingId} {db} uid={session.user?.uid ?? ''}
 			onsave={save} onfloorchange={changeFloor} onupdatefloors={updateFloors} ondeletefloor={deleteFloor} />
 	{/key}
 {/if}
