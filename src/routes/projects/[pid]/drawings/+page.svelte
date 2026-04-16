@@ -3,7 +3,9 @@
 	import { getContext } from 'svelte'
 	import { Firestore, Titlebar, Spinner, Session } from '$lib'
 	import type { DrawingDoc, RevisionDoc } from '$lib/types/versioning'
+	import type { FloorConfig } from '$lib/types/project'
 	import { subscribeDrawings } from '$lib/versioning/service'
+	import { migrateFloors } from '$lib/utils/floor'
 	import DrawingList from './parts/DrawingList.svelte'
 
 	let db = new Firestore()
@@ -11,15 +13,17 @@
 	let pid = $derived(page.params.pid)
 
 	let projectName = $state('')
+	let floors = $state<FloorConfig[]>([{ number: 1, serverRoomCount: 1 }])
 	let drawings = $state<DrawingDoc[]>([])
 	let revisionsByDrawing = $state<Record<string, RevisionDoc[]>>({})
 	let loading = $state(true)
 
-	// Subscribe to project name
+	// Subscribe to project name + floors
 	$effect(() => {
 		if (!pid) return
 		const unsub = db.subscribeOne('projects', pid, (data: any) => {
 			if (data?.name) projectName = data.name
+			if (Array.isArray(data?.floors) && data.floors.length) floors = migrateFloors(data.floors)
 		})
 		return () => { unsub?.() }
 	})
@@ -57,5 +61,5 @@
 		<Spinner>Loading drawings...</Spinner>
 	</div>
 {:else}
-	<DrawingList {drawings} {revisionsByDrawing} projectId={pid ?? ''} uid={session.user?.uid ?? ''} {db} />
+	<DrawingList {drawings} {revisionsByDrawing} {floors} projectId={pid ?? ''} uid={session.user?.uid ?? ''} {db} />
 {/if}

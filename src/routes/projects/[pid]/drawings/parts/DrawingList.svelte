@@ -1,29 +1,25 @@
 <script lang="ts">
 	import { Button, Icon, Input, Select, Firestore } from '$lib'
-	import type { DrawingDoc, RevisionDoc, ToolType, ViewPreset } from '$lib/types/versioning'
+	import type { DrawingDoc, RevisionDoc, ToolType } from '$lib/types/versioning'
+	import type { FloorConfig } from '$lib/types/project'
 	import { createDrawing, updateDrawing } from '$lib/versioning/service'
 	import { exportDrawingListToExcel } from '$lib/versioning/export'
+	import { allToolMeta, buildSourceDocId, defaultDrawingTitle } from '$lib/versioning/adapters/index'
 
-	const TOOL_LABELS: Record<ToolType, string> = {
-		racks: 'Rack Elevations',
-		frames: 'Patch Frames',
-		outlets: 'Outlets / Routes',
-		patching: 'Patching',
-		fillrate: 'Fill Rates',
-		survey: 'Photo Surveys',
-	}
-
-	const TOOL_TYPES: ToolType[] = ['racks', 'frames', 'outlets', 'patching', 'fillrate', 'survey']
+	const toolMeta = allToolMeta()
+	const TOOL_TYPES = Object.keys(toolMeta) as ToolType[]
 
 	let {
 		drawings,
 		revisionsByDrawing,
+		floors,
 		projectId,
 		uid,
 		db,
 	}: {
 		drawings: DrawingDoc[]
 		revisionsByDrawing: Record<string, RevisionDoc[]>
+		floors: FloorConfig[]
 		projectId: string
 		uid: string
 		db: Firestore
@@ -60,32 +56,59 @@
 		else if (e.key === 'Escape') cancelEdit()
 	}
 
-	// Add drawing
+	// ── Add drawing form state ──
 	let showAdd = $state(false)
-	let newDrawing = $state({
-		drawingNumber: '',
-		title: '',
-		toolType: 'outlets' as ToolType,
-		sheetSize: 'A1',
-		scale: '1/150',
-	})
+	let addToolType = $state<ToolType>('outlets')
+	let addFloorStr = $state('1')
+	let addFloor = $derived(Number(addFloorStr))
+	let addRoom = $state('A')
+	let addPresetStr = $state('0')
+	let addPresetIdx = $derived(Number(addPresetStr))
+	let addDrawingNumber = $state('')
+	let addSheetSize = $state('A1')
+	let addScale = $state('1/150')
+	let addTitleOverride = $state('')
+
+	let addMeta = $derived(toolMeta[addToolType])
+	let addScope = $derived(addMeta.scope)
+	let addPresets = $derived(addMeta.presets)
+	let addPreset = $derived(addPresets[addPresetIdx] ?? addPresets[0])
+	let addAutoTitle = $derived(defaultDrawingTitle(addToolType, addPreset?.name ?? '', addScope !== 'project' ? addFloor : undefined, addScope === 'floor-room' ? addRoom : undefined))
+	let addTitle = $derived(addTitleOverride || addAutoTitle)
+
+	// Available rooms for selected floor
+	let addRoomCount = $derived(floors.find(f => f.number === addFloor)?.serverRoomCount ?? 1)
+	let addRooms = $derived(['A', 'B', 'C', 'D'].slice(0, addRoomCount))
+
+	// Reset preset index when tool type changes
+	$effect(() => { addToolType; addPresetStr = '0' })
 
 	async function addDrawing() {
-		if (!newDrawing.drawingNumber || !newDrawing.title) return
-		const preset: ViewPreset = { name: 'Default', layers: { default: true } }
+		if (!addTitle) return
+		const sourceDocId = buildSourceDocId(projectId, addToolType,
+			addScope !== 'project' ? addFloor : undefined,
+			addScope === 'floor-room' ? addRoom : undefined)
 		await createDrawing(db, {
 			projectId,
-			toolType: newDrawing.toolType,
-			drawingNumber: newDrawing.drawingNumber,
-			title: newDrawing.title,
-			sourceDocId: '',
-			viewPreset: preset,
+			toolType: addToolType,
+			drawingNumber: addDrawingNumber,
+			title: addTitle,
+			sourceDocId,
+			viewPreset: addPreset,
 			uid,
-			sheetSize: newDrawing.sheetSize,
-			scale: newDrawing.scale,
+			sheetSize: addSheetSize,
+			scale: addScale,
 		})
-		newDrawing = { drawingNumber: '', title: '', toolType: 'outlets', sheetSize: 'A1', scale: '1/150' }
+		addDrawingNumber = ''
+		addTitleOverride = ''
 		showAdd = false
+	}
+
+	let confirmDeleteId = $state<string | null>(null)
+
+	async function deleteDrawing(drawingId: string) {
+		await updateDrawing(db, projectId, drawingId, { status: 'archived' })
+		confirmDeleteId = null
 	}
 
 	async function handleExport() {
@@ -121,17 +144,42 @@
 
 		<!-- Add drawing form -->
 		{#if showAdd}
-			<div class="mb-4 rounded-lg border border-blue-200 bg-blue-50/50 p-3 dark:border-blue-800 dark:bg-blue-950/30">
-				<div class="grid grid-cols-[1fr_2fr_auto_auto_auto_auto] gap-2 items-end">
-					<Input bind:value={newDrawing.drawingNumber} label="Drawing No." placeholder="XX-DR-0001" size="sm" />
-					<Input bind:value={newDrawing.title} label="Title" placeholder="Drawing title" size="sm" />
-					<Select bind:value={newDrawing.toolType} label="Tool" size="sm">
+			<div class="mb-4 rounded-lg border border-blue-200 bg-blue-50/50 p-3 space-y-2 dark:border-blue-800 dark:bg-blue-950/30">
+				<!-- Row 1: Tool, Floor, Room, View Preset -->
+				<div class="grid grid-cols-[1fr_auto_auto_2fr] gap-2 items-end">
+					<Select bind:value={addToolType} label="Tool" size="sm">
 						{#each TOOL_TYPES as t}
-							<option value={t}>{TOOL_LABELS[t]}</option>
+							<option value={t}>{toolMeta[t].label}</option>
 						{/each}
 					</Select>
-					<Input bind:value={newDrawing.sheetSize} label="Size" placeholder="A1" size="sm" class="w-16" />
-					<Input bind:value={newDrawing.scale} label="Scale" placeholder="1/150" size="sm" class="w-20" />
+					{#if addScope !== 'project'}
+						<Select bind:value={addFloorStr} label="Floor" size="sm">
+							{#each floors as fl}
+								<option value={String(fl.number)}>{fl.number}F</option>
+							{/each}
+						</Select>
+					{/if}
+					{#if addScope === 'floor-room'}
+						<Select bind:value={addRoom} label="Room" size="sm">
+							{#each addRooms as rm}
+								<option value={rm}>{rm}</option>
+							{/each}
+						</Select>
+					{/if}
+					{#if addPresets.length > 1}
+						<Select bind:value={addPresetStr} label="View Preset" size="sm">
+							{#each addPresets as p, i}
+								<option value={String(i)}>{p.name}</option>
+							{/each}
+						</Select>
+					{/if}
+				</div>
+				<!-- Row 2: Drawing No, Title, Size, Scale, Add -->
+				<div class="grid grid-cols-[1fr_2fr_auto_auto_auto] gap-2 items-end">
+					<Input bind:value={addDrawingNumber} label="Drawing No." placeholder="XX-DR-0001" size="sm" />
+					<Input bind:value={addTitleOverride} label="Title" placeholder={addAutoTitle} size="sm" />
+					<Input bind:value={addSheetSize} label="Size" placeholder="A1" size="sm" class="w-16" />
+					<Input bind:value={addScale} label="Scale" placeholder="1/150" size="sm" class="w-20" />
 					<Button onclick={addDrawing}>Add</Button>
 				</div>
 			</div>
@@ -153,6 +201,7 @@
 						{#each { length: maxRevisions } as _, i}
 							<th class="px-3 py-2 w-24 text-center">Rev {String.fromCharCode(65 + i)}</th>
 						{/each}
+						<th class="px-3 py-2 w-10"></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -192,7 +241,7 @@
 							</td>
 
 							<!-- Tool Type -->
-							<td class="px-3 py-1.5 text-xs text-zinc-500">{TOOL_LABELS[drawing.toolType] ?? drawing.toolType}</td>
+							<td class="px-3 py-1.5 text-xs text-zinc-500">{toolMeta[drawing.toolType]?.label ?? drawing.toolType}</td>
 
 							<!-- Sheet Size -->
 							<td class="px-3 py-1.5 text-xs text-center">
@@ -236,12 +285,23 @@
 									{/if}
 								</td>
 							{/each}
+							<td class="px-2 py-1.5 text-center">
+								{#if confirmDeleteId === drawing.id}
+									<button class="text-[10px] px-1.5 py-0.5 rounded bg-red-600 text-white hover:bg-red-500"
+										onclick={() => deleteDrawing(drawing.id)}>Delete</button>
+								{:else}
+									<button class="text-zinc-300 hover:text-red-500 transition-colors" title="Delete drawing"
+										onclick={() => confirmDeleteId = drawing.id}>
+										<Icon name="trash" size={13} />
+									</button>
+								{/if}
+							</td>
 						</tr>
 					{/each}
 
 					{#if drawings.length === 0}
 						<tr>
-							<td colspan={6 + maxRevisions} class="px-3 py-8 text-center text-zinc-400">
+							<td colspan={7 + maxRevisions} class="px-3 py-8 text-center text-zinc-400">
 								No drawings yet. Click "Add Drawing" to create one.
 							</td>
 						</tr>
