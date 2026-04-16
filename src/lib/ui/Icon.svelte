@@ -42,7 +42,7 @@ let lucide: Record<string, any> = {
 	rows: Rows3, scrollText: ScrollText, select: MousePointer2, settings: Settings, share: Share2, sidebar: PanelRight, server: Server, switchCamera: SwitchCamera,
 	spinner: LoaderCircle, square: Square, star: Star, start: TextAlignStart,
 	sun: Sun, text: Type, trash: Trash2, upload: FileUp, undo: Undo,
-	polygon: Triangle, warning: TriangleAlert, waypoints: Waypoints,
+	polygon: Triangle, warning: TriangleAlert, waypoints: Waypoints, x: X,
 }
 
 let {name, size=14, rotate=0, flip=false, class:className=null, ...props} = $props();

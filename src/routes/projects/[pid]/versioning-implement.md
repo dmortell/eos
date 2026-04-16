@@ -339,12 +339,12 @@ src/routes/projects/[pid]/
 5. ✅ Issue Revision — freeze version with code A/B/C, form overlay in panel
 6. ✅ Integrated into Frames and Outlets tools (same pattern: +page resolves drawingId, passes to component)
 
-### Phase 4 — Drawing Packages
-1. Create drawing doc auto-registration (when a tool saves, ensure a drawing doc exists)
-2. Build package list page at `/projects/[pid]/packages/`
-3. Build PackageBuilder — select revisions, order sheets
-4. Build PublishDialog — confirm and generate immutable issue
-5. Add "Packages" entry to project dashboard tools list
+### Phase 4 — Drawing Packages ✅
+1. ✅ Drawing doc auto-registration already done via `findOrCreateDrawing` in each tool's +page
+2. ✅ Build package list page at `/projects/[pid]/packages/+page.svelte`
+3. ✅ Build `PackageList.svelte` — create packages, add/remove/reorder revisions, available revisions picker
+4. ✅ Build `PublishDialog.svelte` — confirm publish, shows issue code on success, error handling
+5. ✅ Add "Drawing Packages" entry to project dashboard tools list
 
 ### Phase 5 — Migration & Polish
 1. Backfill script: create drawing docs + v1 version for all existing tool data

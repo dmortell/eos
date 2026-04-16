@@ -142,11 +142,16 @@
 		<!-- Save version form -->
 		{#if tab === 'versions'}
 			<div class="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800 space-y-2">
+				<p class="text-[11px] text-zinc-400 leading-snug">Versions are working saves while you design. Save frequently to keep a history you can restore from.</p>
 				<Input bind:value={versionNotes} placeholder="Version notes (optional)" size="sm" class="w-full"/>
 				<Button onclick={handleSaveVersion} class="w-full" disabled={saving}>
 					<Icon name="save" size={14} />
 					{saving ? 'Saving...' : 'Save Version'}
 				</Button>
+			</div>
+		{:else}
+			<div class="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800">
+				<p class="text-[11px] text-zinc-400 leading-snug">Revisions are frozen milestones (A, B, C) issued from a version. Once issued they cannot be changed. Use them to mark design stages for drawing packages.</p>
 			</div>
 		{/if}
 

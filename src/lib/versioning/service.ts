@@ -355,14 +355,25 @@ export async function updatePackageItems(
   }>,
 ): Promise<void> {
   const path = packageItemsPath(projectId, packageId)
-  const docs = items.map((item) => ({
-    id: `${item.drawingId}_${item.revisionId}`,
-    drawingId: item.drawingId,
-    revisionId: item.revisionId,
-    sheetOrder: item.sheetOrder,
-    include: item.include,
-  }))
-  await db.saveBatch(path, docs)
+
+  // Read current items so we can delete removed ones
+  const existing = await db.getMany(path)
+  const newIds = new Set(items.map(i => `${i.drawingId}_${i.revisionId}`))
+  const toDelete = existing.filter(d => !newIds.has(d.id))
+  if (toDelete.length) await db.deleteMany(path, toDelete)
+
+  // Write remaining items
+  if (items.length) {
+    const docs = items.map((item) => ({
+      id: `${item.drawingId}_${item.revisionId}`,
+      drawingId: item.drawingId,
+      revisionId: item.revisionId,
+      sheetOrder: item.sheetOrder,
+      include: item.include,
+    }))
+    await db.saveBatch(path, docs)
+  }
+
   await db.save(packagesPath(projectId), {
     id: packageId,
     updatedAt: new Date().toISOString(),

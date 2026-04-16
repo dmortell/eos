@@ -137,6 +137,8 @@
 			</div>
 		{/if}
 
+		<p class="my-2 text-xs text-zinc-400">Double-click a cell to edit. Press Enter to save, Escape to cancel.</p>
+
 		<!-- Table -->
 		<div class="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
 			<table class="w-full text-sm">
@@ -248,6 +250,5 @@
 			</table>
 		</div>
 
-		<p class="mt-2 text-xs text-zinc-400">Double-click a cell to edit. Press Enter to save, Escape to cancel.</p>
 	</div>
 </div>

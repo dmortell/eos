@@ -65,6 +65,8 @@ export interface PackageDoc {
   description?: string
   issueSequence: number
   currentIssueId?: string
+  publishedAt?: string
+  publishedBy?: string
   createdAt: string
   createdBy: string
   updatedAt: string
