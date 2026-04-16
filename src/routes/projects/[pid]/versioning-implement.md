@@ -318,11 +318,11 @@ src/routes/projects/[pid]/
 
 ## Implementation Phases
 
-### Phase 1 — Foundation (types + service + adapters)
-1. Create `src/lib/types/versioning.ts` with all types
-2. Create `src/lib/versioning/service.ts` with drawing, version, and revision CRUD using Firestore transactions
-3. Create snapshot adapters for each tool (start with racks + frames)
-4. Add Firestore composite indexes
+### Phase 1 — Foundation (types + service + adapters) ✅
+1. ✅ Create `src/lib/types/versioning.ts` with all types
+2. ✅ Add `runTransaction` support to `db.svelte.ts`
+3. ✅ Create `src/lib/versioning/service.ts` with drawing, version, revision, and package CRUD
+4. ✅ Create snapshot adapters for racks, frames, and outlets
 
 ### Phase 2 — Master Drawing List
 1. Build drawing list page at `/projects/[pid]/drawings/`

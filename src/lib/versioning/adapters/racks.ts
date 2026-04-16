@@ -1,0 +1,24 @@
+import type { SnapshotAdapter, ViewPreset } from '$lib/types/versioning'
+import type { RackDocData } from '../../../routes/projects/[pid]/racks/parts/types'
+
+export const racksAdapter: SnapshotAdapter<RackDocData> = {
+  toolType: 'racks',
+
+  serialize(state: RackDocData): unknown {
+    const { floor, room, rows, racks, devices, library, settings } = state
+    return { floor, room, rows, racks, devices, library, settings }
+  },
+
+  validate(snapshot: unknown): boolean {
+    if (!snapshot || typeof snapshot !== 'object') return false
+    const s = snapshot as Record<string, unknown>
+    return Array.isArray(s.racks) && Array.isArray(s.devices)
+  },
+
+  defaultViewPresets(): ViewPreset[] {
+    return [
+      { name: 'Front Elevation', layers: { front: true, rear: false } },
+      { name: 'Rear Elevation', layers: { front: false, rear: true } },
+    ]
+  },
+}

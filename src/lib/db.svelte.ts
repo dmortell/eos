@@ -2,7 +2,7 @@ import { getApp, getApps, initializeApp } from "firebase/app";
 import { nanoid } from "nanoid";
 import {
     getFirestore, collection, doc, getDoc, getDocs, deleteDoc, query, where,
-    serverTimestamp, onSnapshot, setDoc, writeBatch,
+    serverTimestamp, onSnapshot, setDoc, writeBatch, runTransaction,
     type Query, type DocumentData, type Firestore as FirestoreType, type QuerySnapshot
 } from 'firebase/firestore';
 import {
@@ -161,5 +161,25 @@ export class Firestore {
             batch.delete(shapeRef);
         }
         await batch.commit();
+    }
+    /** Run a Firestore transaction. The callback receives helpers to read/write docs within the transaction. */
+    async runTransaction<T>(fn: (txn: {
+        get: (path: string, id: string) => Promise<DocWithId | null>
+        set: (path: string, id: string, data: Record<string, any>) => void
+    }) => Promise<T>): Promise<T> {
+        return runTransaction(firestore, async (transaction) => {
+            return fn({
+                async get(path: string, id: string) {
+                    const ref = doc(firestore, path, id)
+                    const snap = await transaction.get(ref)
+                    return snap.exists() ? { ...snap.data(), id: snap.id } as DocWithId : null
+                },
+                set(path: string, id: string, data: Record<string, any>) {
+                    const ref = doc(firestore, path, id)
+                    const clean = sanitizeFirestoreData(data)
+                    transaction.set(ref, clean, { merge: true })
+                },
+            })
+        })
     }
 }
