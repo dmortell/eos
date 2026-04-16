@@ -9,6 +9,9 @@ Each tool stores its data in a **single Firestore document** per floor (or floor
 1. **Versions** — save snapshots of a tool's state so users can view history and restore
 2. **Revisions** — freeze a version as an issued milestone (A, B, C…), immutable
 3. **Packages** — curate revision sets (Concept Design, Detailed Design, RFP, etc.) for publish/share
+4. **Master Drawing List** — project-wide register of all drawings with revision history, exportable to Excel
+
+This enables controlled design progression (Concept -> Schematic -> Detailed -> RFP -> Shop) without forcing each tool to reinvent revision logic.
 
 ## Key Design Decisions
 
@@ -17,8 +20,8 @@ Each tool stores its data in a **single Firestore document** per floor (or floor
 | Storage model | **Full snapshot** | Simplest, reliable restore, fits Firestore well. Storage cost is low for these document sizes. |
 | Revision codes | **Alphabetic** (A, B, C) | Industry standard for structured cabling drawings |
 | Version storage | **Subcollection** under drawing doc | Avoids bloating the main doc, enables pagination |
-| Package status | **Draft → Published → Superseded** | Simple 3-state model, no approval gate for MVP |
-| Sharing | **Authenticated only** for MVP | Simpler security; signed public links can come later |
+| Package status | **Draft → Published → Superseded** | Simple 3-state model, no approval gate for first release |
+| Sharing | **Authenticated only** for first release | Simpler security; signed public links can come later |
 | Withdraw policy | **Supersede only** | Published issues stay immutable, new issues supersede |
 
 ## Firestore Data Model
@@ -36,18 +39,33 @@ projects/{pid}/issues/{issueId}              ← immutable publish manifests
 
 ### How Drawings Map to Existing Data
 
-Each existing tool document becomes one or more "drawings":
+Each existing tool document becomes one or more "drawings". **Multiple drawings can share the same source document** — each with a different view preset (e.g. low-level outlets vs high-level outlets from the same floor data).
 
 | Tool | Current Doc ID | Drawing Scope | toolType |
 |---|---|---|---|
 | Racks | `{pid}_F{fl}_R{rm}` | One drawing per floor+room | `racks` |
 | Frames | `{pid}_F{fl}` | One drawing per floor | `frames` |
-| Outlets | `{pid}_F{fl}` | One drawing per floor | `outlets` |
+| Outlets | `{pid}_F{fl}` | Multiple drawings per floor (by view preset) | `outlets` |
 | Patching | `{pid}_F{fl}_R{rm}` | One drawing per floor+room | `patching` |
 | Fill Rate | `{pid}` | One drawing per project | `fillrate` |
 | Surveys | `{surveyId}` | One drawing per survey | `survey` |
 
-The **drawing doc** stores metadata and pointers; the **existing tool doc** remains the live working copy. Versions snapshot that working copy into the subcollection.
+The **drawing doc** stores metadata, view preset, and pointers; the **existing tool doc** remains the live working copy. Versions snapshot that working copy into the subcollection.
+
+### View Presets
+
+Tools with multiple view modes (outlets, racks rear view, etc.) store a **view preset** on each drawing. This controls what's visible when rendering the drawing in a package or version history.
+
+Example: Floor 1 outlets source doc (`proj_F01`) produces four separate drawings:
+
+| Drawing title | viewPreset.layers |
+|---|---|
+| 1F Low Level IT Data Outlets | `{ lowOutlets: true, highOutlets: false, lowTrunks: false, highTrunks: false }` |
+| 1F High Level Cable Routes and Outlets | `{ lowOutlets: false, highOutlets: true, lowTrunks: false, highTrunks: true }` |
+| 1F Low Level IT Cable Routes | `{ lowOutlets: false, highOutlets: false, lowTrunks: true, highTrunks: false }` |
+| 1F High Level Trunk Routes | `{ lowOutlets: false, highOutlets: false, lowTrunks: false, highTrunks: true }` |
+
+Tools without meaningful view variants (frames, patching, fillrate) use a single default preset.
 
 ### Core Types
 
@@ -59,15 +77,27 @@ export type DrawingStatus = 'active' | 'archived';
 export type PackageStatus = 'draft' | 'published' | 'superseded';
 export type PackageType = 'concept' | 'schematic' | 'detailed' | 'rfp' | 'shop' | 'as-built' | 'custom';
 
+export interface ViewPreset {
+  name: string;                    // "Low Level Outlets", "High Level Trunk Routes"
+  layers: Record<string, boolean>; // which layers are on/off
+  filters?: Record<string, any>;  // tool-specific view filters (e.g. scale, paper size)
+}
+
 export interface DrawingDoc {
   id: string;
   projectId: string;
   toolType: ToolType;
-  title: string;
-  sourceDocId: string;          // e.g. "{pid}_F01_RA" — link to live tool doc
+  drawingNumber: string;           // e.g. "UBSLR-EIR-05-IT-DR-0001"
+  title: string;                   // e.g. "Low level IT cable routes 5F"
+  sourceDocId: string;             // e.g. "{pid}_F01" — link to live tool doc
+  viewPreset: ViewPreset;          // controls what's visible in this drawing
   status: DrawingStatus;
+  sheetSize?: string;              // e.g. "A1", "A3"
+  scale?: string;                  // e.g. "1/150", "NTS"
+  discipline?: string;             // e.g. "IT", "AV", "Security"
+  sortOrder: number;               // position in master drawing list
   currentVersionNumber: number;
-  latestRevisionCode?: string;  // e.g. "C"
+  latestRevisionCode?: string;     // e.g. "C"
   createdAt: string;
   createdBy: string;
   updatedAt: string;
@@ -78,7 +108,6 @@ export interface VersionDoc {
   drawingId: string;
   number: number;
   snapshot: unknown;            // full tool state blob
-  snapshotHash: string;         // SHA-256 for integrity
   notes?: string;
   createdAt: string;
   createdBy: string;
@@ -89,7 +118,6 @@ export interface RevisionDoc {
   drawingId: string;
   code: string;                 // "A", "B", "C"
   fromVersionId: string;
-  snapshotHash: string;
   title?: string;
   description?: string;
   issuedAt: string;
@@ -131,16 +159,55 @@ export interface IssueDoc {
     packageType: PackageType;
     items: Array<{
       drawingId: string;
+      drawingNumber: string;
       drawingTitle: string;
       toolType: ToolType;
       revisionCode: string;
-      snapshotHash: string;
       sheetOrder: number;
     }>;
   };
   supersedesIssueId?: string;
 }
 ```
+
+## Master Drawing List
+
+A project-level register of all drawings — the standard deliverable clients and vendors expect.
+
+### What It Contains
+
+| Column | Source | Example |
+|---|---|---|
+| Drawing No. | `drawingNumber` | UBSLR-EIR-05-IT-DR-0001 |
+| Title / Description | `title` | Low level IT cable routes 5F |
+| Size | `sheetSize` | A1 |
+| Scale | `scale` | 1/150 |
+| Rev A date | `revisions[0].issuedAt` | 2026-02-15 |
+| Rev B date | `revisions[1].issuedAt` | 2026-03-20 |
+| Rev C date | `revisions[2].issuedAt` | 2026-04-10 |
+| ... | (dynamic columns per revision) | |
+
+### Drawing Number Format
+
+Configurable per project. Default pattern: `{prefix}-{floor}-{discipline}-DR-{seq}` where:
+- `{prefix}` — project code (e.g. `UBSLR-EIR`)
+- `{floor}` — floor code (e.g. `05`, `GF`, `B1`)
+- `{discipline}` — `IT`, `AV`, `SEC`, etc.
+- `{seq}` — zero-padded sequence number within the project
+
+Users can also enter drawing numbers manually for flexibility.
+
+### Excel Export
+
+Built client-side using a lightweight library (e.g. `xlsx` / SheetJS or `exceljs`). Reads all drawing docs + their revisions, assembles the table, and downloads an `.xlsx` file. Revision columns are generated dynamically based on the highest revision code in the project.
+
+### UI
+
+- Accessible from project dashboard as "Drawing List" tool
+- Table view with sortable columns
+- Inline edit for drawing number, title, size, scale, discipline, sort order
+- "Export to Excel" button in titlebar
+- Filter by tool type, discipline, floor
 
 ## Tool Adapter Contract
 
@@ -153,15 +220,23 @@ export interface SnapshotAdapter<T = unknown> {
   toolType: ToolType;
   serialize(state: T): unknown;       // strip ephemeral UI state
   validate(snapshot: unknown): boolean;
+  defaultViewPresets(): ViewPreset[];  // available view presets for this tool
 }
 ```
 
 Adapters are thin — they mostly pass through the existing doc data, stripping UI-only fields (cursor positions, drag state, selection). The existing type definitions in each tool's `parts/types.ts` define the snapshot shape.
 
+The `defaultViewPresets()` method returns the available view combinations for that tool. For outlets this returns presets for low/high outlets and low/high trunks. For tools without view modes it returns a single default preset.
+
 ## Service Layer
 
 ```ts
 // src/lib/versioning/service.ts — uses db.save(), Firestore transactions
+
+// Drawing operations
+createDrawing(projectId, toolType, title, sourceDocId, viewPreset, opts?) → { drawingId }
+listDrawings(projectId, filters?) → DrawingDoc[]
+updateDrawing(projectId, drawingId, fields) → void
 
 // Version operations
 createVersion(projectId, drawingId, snapshot, notes?) → { versionId, number }
@@ -176,26 +251,36 @@ listRevisions(projectId, drawingId) → RevisionDoc[]
 createPackage(projectId, name, type, description?) → { packageId }
 updatePackageItems(projectId, packageId, items[]) → void
 publishPackage(projectId, packageId) → { issueId, issueCode }
+
+// Master Drawing List
+getDrawingListWithRevisions(projectId) → Array<DrawingDoc & { revisions: RevisionDoc[] }>
+exportDrawingListToExcel(projectId) → Blob
 ```
 
 All state-changing operations use **Firestore transactions** to ensure consistency (increment version numbers, validate revision code uniqueness, assemble immutable manifests).
 
 ## UI Components
 
-### 1. Version History Panel (per tool)
+### 1. Master Drawing List (project-level)
+- Table showing all drawings with drawing number, title, size, scale, revision columns
+- Inline editing for metadata fields
+- Sort/filter by tool type, discipline, floor
+- "Export to Excel" downloads `.xlsx` with dynamic revision date columns
+- "Add Drawing" creates a new drawing doc with view preset selection
+
+### 2. Version History Panel (per tool)
 - Slide-out panel accessible from each tool's titlebar
 - Lists versions (descending) with timestamp, author, notes
 - "Restore" button creates a new version from the selected snapshot
 - "Create Revision" promotes a version to immutable revision with code input
 
-### 2. Package Builder (project-level)
-- New tool entry on project dashboard — "Drawing Packages"
+### 3. Package Builder (project-level)
 - List/create packages with type selector (Concept, Schematic, Detailed, RFP, Shop, As-Built)
 - Add drawings by browsing revisions, filter by tool type
 - Drag-to-reorder sheet order
 - Preview manifest before publish
 
-### 3. Publish Dialog
+### 4. Publish Dialog
 - Confirm publish action
 - Optional message/notes
 - Shows immutable manifest summary
@@ -205,8 +290,8 @@ All state-changing operations use **Firestore transactions** to ensure consisten
 
 ```
 src/lib/types/versioning.ts              ← shared types
-src/lib/versioning/service.ts            ← version/revision/package logic
-src/lib/versioning/hash.ts               ← SHA-256 snapshot hashing
+src/lib/versioning/service.ts            ← version/revision/package/drawing-list logic
+src/lib/versioning/export.ts             ← Excel export for master drawing list
 src/lib/versioning/adapters/
   ├── racks.ts
   ├── frames.ts
@@ -215,6 +300,12 @@ src/lib/versioning/adapters/
   ├── fillrate.ts
   └── survey.ts
 src/routes/projects/[pid]/
+  ├── drawings/
+  │   ├── +page.svelte                   ← master drawing list
+  │   └── parts/
+  │       ├── DrawingList.svelte
+  │       ├── DrawingRow.svelte
+  │       └── ExportButton.svelte
   ├── packages/
   │   ├── +page.svelte                   ← package list & builder
   │   └── parts/
@@ -229,12 +320,18 @@ src/routes/projects/[pid]/
 
 ### Phase 1 — Foundation (types + service + adapters)
 1. Create `src/lib/types/versioning.ts` with all types
-2. Create `src/lib/versioning/hash.ts` (SHA-256 canonical JSON)
-3. Create `src/lib/versioning/service.ts` with version CRUD using Firestore transactions
-4. Create snapshot adapters for each tool (start with racks + frames)
-5. Add Firestore composite indexes
+2. Create `src/lib/versioning/service.ts` with drawing, version, and revision CRUD using Firestore transactions
+3. Create snapshot adapters for each tool (start with racks + frames)
+4. Add Firestore composite indexes
 
-### Phase 2 — Version History UI
+### Phase 2 — Master Drawing List
+1. Build drawing list page at `/projects/[pid]/drawings/`
+2. Build `DrawingList.svelte` — table with inline editing
+3. Implement drawing number assignment (auto-generate or manual entry)
+4. Add Excel export via `src/lib/versioning/export.ts`
+5. Add "Drawing List" entry to project dashboard tools list
+
+### Phase 3 — Version History UI
 1. Build `VersionPanel.svelte` — slide-out panel listing versions + revisions
 2. Wire into racks tool titlebar as first integration
 3. Add "Save Version" action (snapshots current state)
@@ -242,26 +339,28 @@ src/routes/projects/[pid]/
 5. Add "Create Revision" action (freeze version with code A/B/C)
 6. Roll out to remaining tools (frames, outlets, patching, fillrate)
 
-### Phase 3 — Drawing Packages
+### Phase 4 — Drawing Packages
 1. Create drawing doc auto-registration (when a tool saves, ensure a drawing doc exists)
 2. Build package list page at `/projects/[pid]/packages/`
 3. Build PackageBuilder — select revisions, order sheets
 4. Build PublishDialog — confirm and generate immutable issue
 5. Add "Packages" entry to project dashboard tools list
 
-### Phase 4 — Migration & Polish
+### Phase 5 — Migration & Polish
 1. Backfill script: create drawing docs + v1 version for all existing tool data
 2. Add migration marker (`migratedToVersioningAt`) on source docs
 3. Add audit logging for version/revision/publish events
 4. Snapshot size warning (>500KB)
 
-### Phase 5 (Future) — Sharing & Export
+### Phase 6 (Future) — Sharing & Export
 - Signed share links for published issues
 - Read-only package viewer
 - PDF export pipeline
 - Hybrid delta storage for large floorplans
+- Show revision history in drawing title block
+- Show drawing type (SD, DD, for RFQ, Shop Drawing) in title blocks
 
-## What We're NOT Doing (MVP)
+## Out of Scope (First Release)
 
 - No branching/merge workflows
 - No real-time collaborative conflict resolution
@@ -269,14 +368,15 @@ src/routes/projects/[pid]/
 - No delta/incremental storage
 - No PDF composition
 - No external/public share links
-- No autosave versions (manual save only for MVP)
+- No autosave versions (manual save only for first release)
 
 ## Risk Mitigations
 
 | Risk | Mitigation |
 |---|---|
-| Inconsistent serialization across tools | Common adapter contract + snapshot hash verification |
-| Large snapshot sizes | Warning threshold at save time; defer blob storage to Phase 5 |
+| Inconsistent serialization across tools | Common adapter contract + validation |
+| Large snapshot sizes | Warning threshold at save time; defer blob storage to Phase 6 |
 | Users confuse version vs revision | Clear UI labeling: "Save Working Copy" vs "Issue Revision A" |
 | Existing data continuity | Live tool docs remain untouched; versioning is additive |
 | Migration failures | Idempotent backfill with marker fields; legacy read fallback |
+| Multiple drawings from same source | View presets stored on drawing doc; renderers apply preset when displaying |
