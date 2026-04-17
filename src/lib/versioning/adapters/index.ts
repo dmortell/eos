@@ -46,6 +46,18 @@ export function buildSourceDocId(pid: string, toolType: ToolType, floor?: number
   }
 }
 
+/** Build a relative URL path to open the tool for this drawing */
+export function drawingToolHref(pid: string, toolType: ToolType, sourceDocId: string): string {
+  const base = `/projects/${pid}`
+  const toolPath: Record<ToolType, string> = {
+    racks: 'racks', frames: 'frames', outlets: 'outlets',
+    patching: 'patching', fillrate: 'fillrate', survey: '',
+  }
+  const path = toolPath[toolType]
+  if (!path) return base
+  return `${base}/${path}`
+}
+
 /** Generate a default title for a drawing */
 export function defaultDrawingTitle(toolType: ToolType, presetName: string, floor?: number, room?: string): string {
   const flStr = floor ? `${floor}F` : ''

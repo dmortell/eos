@@ -93,7 +93,11 @@ export async function updateDrawing(
   })
 }
 
-/** Find an existing drawing for a source doc, or create one on demand. */
+/**
+ * Find existing drawings for a source doc, or auto-create all view-preset
+ * drawings for that tool type on first encounter.
+ * Returns the ID of the first (default) drawing.
+ */
 export async function findOrCreateDrawing(
   db: Firestore,
   input: {
@@ -107,19 +111,35 @@ export async function findOrCreateDrawing(
 ): Promise<string> {
   const path = drawingsPath(input.projectId)
   const all = await db.getMany(path) as unknown as DrawingDoc[]
-  const existing = all.find(d => d.sourceDocId === input.sourceDocId && d.status === 'active')
-  if (existing) return existing.id
+  const existing = all.filter(d => d.sourceDocId === input.sourceDocId && d.status === 'active')
+  if (existing.length) return existing[0].id
 
-  const { drawingId } = await createDrawing(db, {
-    projectId: input.projectId,
-    toolType: input.toolType,
-    drawingNumber: '',
-    title: input.title,
-    sourceDocId: input.sourceDocId,
-    viewPreset: input.viewPreset ?? { name: 'Default', layers: { default: true } },
-    uid: input.uid,
-  })
-  return drawingId
+  // Auto-create drawings for all view presets of this tool type
+  const { getToolMeta, defaultDrawingTitle } = await import('./adapters/index')
+  const meta = getToolMeta(input.toolType)
+  const presets = meta?.presets ?? [{ name: 'Default', layers: { default: true } }]
+
+  // Parse floor/room from sourceDocId for title generation
+  const floorMatch = input.sourceDocId.match(/_F(\d+)/)
+  const roomMatch = input.sourceDocId.match(/_R([A-D])/)
+  const floor = floorMatch ? Number(floorMatch[1]) : undefined
+  const room = roomMatch ? roomMatch[1] : undefined
+
+  let firstId = ''
+  for (const preset of presets) {
+    const title = defaultDrawingTitle(input.toolType, preset.name, floor, room)
+    const { drawingId } = await createDrawing(db, {
+      projectId: input.projectId,
+      toolType: input.toolType,
+      drawingNumber: '',
+      title,
+      sourceDocId: input.sourceDocId,
+      viewPreset: preset,
+      uid: input.uid,
+    })
+    if (!firstId) firstId = drawingId
+  }
+  return firstId
 }
 
 // ── Version Service ──
@@ -186,6 +206,15 @@ export async function getVersion(
   versionId: string,
 ): Promise<VersionDoc | null> {
   return db.getOne(versionsPath(projectId, drawingId), versionId) as Promise<VersionDoc | null>
+}
+
+export async function deleteVersion(
+  db: Firestore,
+  projectId: string,
+  drawingId: string,
+  versionId: string,
+): Promise<void> {
+  await db.delete(versionsPath(projectId, drawingId), versionId)
 }
 
 export async function restoreVersion(
@@ -329,6 +358,19 @@ export async function createPackage(
 
   await db.save(packagesPath(input.projectId), pkg as any)
   return { packageId: id }
+}
+
+export async function updatePackage(
+  db: Firestore,
+  projectId: string,
+  packageId: string,
+  fields: Partial<Pick<PackageDoc, 'name' | 'description' | 'type'>>,
+): Promise<void> {
+  await db.save(packagesPath(projectId), {
+    id: packageId,
+    ...fields,
+    updatedAt: new Date().toISOString(),
+  })
 }
 
 export function subscribePackages(

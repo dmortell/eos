@@ -346,6 +346,14 @@ src/routes/projects/[pid]/
 4. ✅ Build `PublishDialog.svelte` — confirm publish, shows issue code on success, error handling
 5. ✅ Add "Drawing Packages" entry to project dashboard tools list
 
+### Post-Phase Improvements ✅
+- ✅ Version deletion — delete button with confirm on each version in VersionPanel
+- ✅ Drawing deletion — soft-delete (archive) from master drawing list with trash icon + confirm
+- ✅ Auto-create drawings — `findOrCreateDrawing` now creates all view-preset drawings for a tool type on first encounter (e.g. outlets auto-creates low/high outlets + low/high trunks)
+- ✅ Package editing — edit name and description via pencil icon in package builder header
+- ✅ Click-to-open — row number in drawing list links to the tool page for that drawing
+- ✅ Package item removal — `updatePackageItems` now diffs and deletes removed items from Firestore
+
 ### Phase 5 — Migration & Polish
 1. Backfill script: create drawing docs + v1 version for all existing tool data
 2. Add migration marker (`migratedToVersioningAt`) on source docs

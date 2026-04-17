@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Button, Icon, Input, Select, Firestore } from '$lib'
 	import type { DrawingDoc, RevisionDoc, PackageDoc, PackageItemDoc, PackageType } from '$lib/types/versioning'
-	import { createPackage, subscribePackageItems, updatePackageItems, publishPackage } from '$lib/versioning/service'
+	import { createPackage, updatePackage, subscribePackageItems, updatePackageItems, publishPackage } from '$lib/versioning/service'
 	import PublishDialog from './PublishDialog.svelte'
 
 	const PACKAGE_TYPES: { value: PackageType; label: string }[] = [
@@ -121,6 +121,27 @@
 	)
 
 	let activePackage = $derived(packages.find(p => p.id === activePackageId))
+
+	// Package editing
+	let editingPackage = $state(false)
+	let editPkgName = $state('')
+	let editPkgDescription = $state('')
+
+	function startEditPackage() {
+		if (!activePackage) return
+		editPkgName = activePackage.name
+		editPkgDescription = activePackage.description ?? ''
+		editingPackage = true
+	}
+
+	async function saveEditPackage() {
+		if (!activePackageId || !editPkgName) return
+		await updatePackage(db, projectId, activePackageId, {
+			name: editPkgName,
+			description: editPkgDescription || undefined,
+		})
+		editingPackage = false
+	}
 </script>
 
 <div class="p-4 md:p-6">
@@ -182,16 +203,35 @@
 			<!-- Package builder -->
 			<div class="rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden">
 				{#if activePackage}
-					<div class="px-3 py-2 bg-zinc-50 dark:bg-zinc-900 flex items-center justify-between">
-						<div>
-							<span class="text-sm font-semibold">{activePackage.name}</span>
-							<span class="ml-2 text-[10px] px-1.5 py-0.5 rounded {STATUS_BADGE[activePackage.status] ?? STATUS_BADGE.draft}">{activePackage.status}</span>
-						</div>
-						{#if activePackage.status === 'draft' || activePackage.status === 'published'}
-							<Button onclick={() => publishingPackageId = activePackage?.id ?? null}>
-								<Icon name="share" size={14} />
-								{activePackage.status === 'published' ? 'Publish Update' : 'Publish'}
-							</Button>
+					<div class="px-3 py-2 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800">
+						{#if editingPackage}
+							<div class="space-y-2">
+								<Input bind:value={editPkgName} label="Name" size="sm" />
+								<Input bind:value={editPkgDescription} label="Description" placeholder="Optional" size="sm" />
+								<div class="flex gap-1">
+									<Button onclick={saveEditPackage} disabled={!editPkgName}>Save</Button>
+									<Button onclick={() => editingPackage = false}>Cancel</Button>
+								</div>
+							</div>
+						{:else}
+							<div class="flex items-center justify-between">
+								<div class="flex items-center gap-2">
+									<span class="text-sm font-semibold">{activePackage.name}</span>
+									<span class="text-[10px] px-1.5 py-0.5 rounded {STATUS_BADGE[activePackage.status] ?? STATUS_BADGE.draft}">{activePackage.status}</span>
+									<button class="text-zinc-400 hover:text-blue-600 transition-colors" onclick={startEditPackage} title="Edit package details">
+										<Icon name="edit" size={12} />
+									</button>
+								</div>
+								{#if activePackage.status === 'draft' || activePackage.status === 'published'}
+									<Button onclick={() => publishingPackageId = activePackage?.id ?? null}>
+										<Icon name="share" size={14} />
+										{activePackage.status === 'published' ? 'Publish Update' : 'Publish'}
+									</Button>
+								{/if}
+							</div>
+							{#if activePackage.description}
+								<p class="text-xs text-zinc-500 mt-1">{activePackage.description}</p>
+							{/if}
 						{/if}
 					</div>
 

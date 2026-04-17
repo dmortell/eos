@@ -2,7 +2,7 @@
 	import { Button, Icon, Input, Firestore } from '$lib'
 	import type { VersionDoc, RevisionDoc } from '$lib/types/versioning'
 	import {
-		createVersion, subscribeVersions, restoreVersion,
+		createVersion, subscribeVersions, restoreVersion, deleteVersion,
 		createRevision, subscribeRevisions, nextRevisionCode,
 	} from '$lib/versioning/service'
 
@@ -110,6 +110,19 @@
 		})
 	}
 
+	let confirmDeleteId = $state<string | null>(null)
+
+	async function handleDelete(versionId: string) {
+		if (!projectId || !drawingId || saving) return
+		saving = true
+		try {
+			await deleteVersion(db, projectId, drawingId, versionId)
+			confirmDeleteId = null
+		} finally {
+			saving = false
+		}
+	}
+
 	function close() { open = false }
 </script>
 
@@ -180,6 +193,21 @@
 										onclick={() => startRevision(ver.id)} disabled={saving}>
 										Issue Revision
 									</button>
+									{#if confirmDeleteId === ver.id}
+										<button class="text-[11px] px-2 py-0.5 rounded bg-red-600 text-white hover:bg-red-500 transition-colors"
+											onclick={() => handleDelete(ver.id)} disabled={saving}>
+											Confirm
+										</button>
+										<button class="text-[11px] px-2 py-0.5 rounded bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 transition-colors"
+											onclick={() => confirmDeleteId = null}>
+											Cancel
+										</button>
+									{:else}
+										<button class="text-[11px] px-2 py-0.5 rounded bg-zinc-100 hover:bg-red-100 hover:text-red-600 dark:bg-zinc-800 dark:hover:bg-red-900/40 dark:hover:text-red-300 transition-colors"
+											onclick={() => confirmDeleteId = ver.id} disabled={saving}>
+											Delete
+										</button>
+									{/if}
 								</div>
 							</li>
 						{/each}

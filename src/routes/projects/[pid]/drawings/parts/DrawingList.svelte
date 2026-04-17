@@ -4,7 +4,7 @@
 	import type { FloorConfig } from '$lib/types/project'
 	import { createDrawing, updateDrawing } from '$lib/versioning/service'
 	import { exportDrawingListToExcel } from '$lib/versioning/export'
-	import { allToolMeta, buildSourceDocId, defaultDrawingTitle } from '$lib/versioning/adapters/index'
+	import { allToolMeta, buildSourceDocId, defaultDrawingTitle, drawingToolHref } from '$lib/versioning/adapters/index'
 
 	const toolMeta = allToolMeta()
 	const TOOL_TYPES = Object.keys(toolMeta) as ToolType[]
@@ -208,7 +208,12 @@
 					{#each drawings as drawing, idx (drawing.id)}
 						{@const revisions = revisionsByDrawing[drawing.id] ?? []}
 						<tr class="border-t border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors">
-							<td class="px-3 py-1.5 text-zinc-400 tabular-nums">{idx + 1}</td>
+							<td class="px-3 py-1.5 text-zinc-400 tabular-nums">
+								<a href={drawingToolHref(projectId, drawing.toolType, drawing.sourceDocId)}
+									class="hover:text-blue-600 transition-colors" title="Open {toolMeta[drawing.toolType]?.label}">
+									{idx + 1}
+								</a>
+							</td>
 
 							<!-- Drawing Number -->
 							<td class="px-3 py-1.5 font-mono text-xs">
