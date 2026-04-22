@@ -33,30 +33,44 @@
 		Math.max(1, ...Object.values(revisionsByDrawing).map(r => r.length))
 	)
 
-	// Inline editing state
-	let editingCell = $state<{ drawingId: string; field: string } | null>(null)
-	let editValue = $state('')
+	// ── Row-level inline editing ──
+	type EditBuffer = {
+		drawingNumber: string
+		title: string
+		sheetSize: string
+		scale: string
+	}
+	let rowEditingId = $state<string | null>(null)
+	let rowEdits = $state<EditBuffer>({ drawingNumber: '', title: '', sheetSize: '', scale: '' })
 
-	function startEdit(drawingId: string, field: string, currentValue: string) {
-		editingCell = { drawingId, field }
-		editValue = currentValue ?? ''
+	function startRowEdit(drawing: DrawingDoc) {
+		rowEditingId = drawing.id
+		rowEdits = {
+			drawingNumber: drawing.drawingNumber ?? '',
+			title: drawing.title ?? '',
+			sheetSize: drawing.sheetSize ?? '',
+			scale: drawing.scale ?? '',
+		}
 	}
 
-	async function commitEdit() {
-		if (!editingCell) return
-		const { drawingId, field } = editingCell
-		const fields: Record<string, any> = { [field]: editValue }
-		await updateDrawing(db, projectId, drawingId, fields)
-		editingCell = null
+	async function commitRowEdit() {
+		if (!rowEditingId) return
+		await updateDrawing(db, projectId, rowEditingId, { ...rowEdits })
+		rowEditingId = null
 	}
 
-	function cancelEdit() {
-		editingCell = null
+	function cancelRowEdit() {
+		rowEditingId = null
 	}
 
-	function handleKeydown(e: KeyboardEvent) {
-		if (e.key === 'Enter') commitEdit()
-		else if (e.key === 'Escape') cancelEdit()
+	function handleRowEditKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter') commitRowEdit()
+		else if (e.key === 'Escape') cancelRowEdit()
+	}
+
+	function openDrawing(drawing: DrawingDoc) {
+		if (rowEditingId) return // don't navigate while editing
+		goto(drawingToolHref(projectId, drawing.toolType, drawing.sourceDocId, drawing.viewPreset))
 	}
 
 	// ── Add drawing form state ──
@@ -138,10 +152,6 @@
 		await setPageIncludeInPackages(db, projectId, pageId, checked, drawing.id)
 	}
 
-	function isEditing(drawingId: string, field: string) {
-		return editingCell?.drawingId === drawingId && editingCell?.field === field
-	}
-
 	function fmtDate(iso?: string) {
 		if (!iso) return ''
 		return new Date(iso).toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' })
@@ -212,7 +222,7 @@
 			</div>
 		{/if}
 
-		<p class="my-2 text-xs text-zinc-400">Double-click a cell to edit. Press Enter to save, Escape to cancel.</p>
+		<p class="my-2 text-xs text-zinc-400">Click a row to open the drawing. Click the pencil icon to edit fields inline.</p>
 
 		<!-- Table -->
 		<div class="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
@@ -229,47 +239,40 @@
 							<th class="px-3 py-2 w-24 text-center">Rev {String.fromCharCode(65 + i)}</th>
 						{/each}
 						<th class="px-3 py-2 w-16 text-center" title="Include in published drawing packages">In Pkg</th>
-						<th class="px-3 py-2 w-10"></th>
+						<th class="px-3 py-2 w-20 text-center">Actions</th>
 					</tr>
 				</thead>
 				<tbody>
 					{#each drawings as drawing, idx (drawing.id)}
 						{@const revisions = revisionsByDrawing[drawing.id] ?? []}
-						<tr class="border-t border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors">
-							<td class="px-3 py-1.5 text-zinc-400 tabular-nums">
-								<a href={drawingToolHref(projectId, drawing.toolType, drawing.sourceDocId, drawing.viewPreset)}
-									class="hover:text-blue-600 transition-colors" title="Open {toolMeta[drawing.toolType]?.label}">
-									{idx + 1}
-								</a>
-							</td>
+						{@const isRowEditing = rowEditingId === drawing.id}
+						<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+						<tr class="border-t border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors"
+							class:cursor-pointer={!isRowEditing}
+							onclick={() => { if (!isRowEditing) openDrawing(drawing) }}>
+							<td class="px-3 py-1.5 text-zinc-400 tabular-nums">{idx + 1}</td>
 
 							<!-- Drawing Number -->
 							<td class="px-3 py-1.5 font-mono text-xs">
-								{#if isEditing(drawing.id, 'drawingNumber')}
+								{#if isRowEditing}
 									<input class="w-full border border-blue-400 rounded px-1 py-0.5 text-xs font-mono bg-white"
-										bind:value={editValue} onkeydown={handleKeydown} onblur={commitEdit}
-									/>
+										bind:value={rowEdits.drawingNumber}
+										onkeydown={handleRowEditKeydown}
+										onclick={e => e.stopPropagation()} />
 								{:else}
-									<button class="text-left w-full hover:text-blue-600 cursor-text"
-										ondblclick={() => startEdit(drawing.id, 'drawingNumber', drawing.drawingNumber)}
-									>
-										{drawing.drawingNumber || '—'}
-									</button>
+									{drawing.drawingNumber || '—'}
 								{/if}
 							</td>
 
 							<!-- Title -->
 							<td class="px-3 py-1.5">
-								{#if isEditing(drawing.id, 'title')}
+								{#if isRowEditing}
 									<input class="w-full border border-blue-400 rounded px-1 py-0.5 text-sm bg-white"
-										bind:value={editValue} onkeydown={handleKeydown} onblur={commitEdit}
-									/>
+										bind:value={rowEdits.title}
+										onkeydown={handleRowEditKeydown}
+										onclick={e => e.stopPropagation()} />
 								{:else}
-									<button class="text-left w-full hover:text-blue-600 cursor-text"
-										ondblclick={() => startEdit(drawing.id, 'title', drawing.title)}
-									>
-										{drawing.title || '—'}
-									</button>
+									{drawing.title || '—'}
 								{/if}
 							</td>
 
@@ -278,31 +281,25 @@
 
 							<!-- Sheet Size -->
 							<td class="px-3 py-1.5 text-xs text-center">
-								{#if isEditing(drawing.id, 'sheetSize')}
+								{#if isRowEditing}
 									<input class="w-full border border-blue-400 rounded px-1 py-0.5 text-xs bg-white text-center"
-										bind:value={editValue} onkeydown={handleKeydown} onblur={commitEdit}
-									/>
+										bind:value={rowEdits.sheetSize}
+										onkeydown={handleRowEditKeydown}
+										onclick={e => e.stopPropagation()} />
 								{:else}
-									<button class="text-center w-full hover:text-blue-600 cursor-text"
-										ondblclick={() => startEdit(drawing.id, 'sheetSize', drawing.sheetSize ?? '')}
-									>
-										{drawing.sheetSize || '—'}
-									</button>
+									{drawing.sheetSize || '—'}
 								{/if}
 							</td>
 
 							<!-- Scale -->
 							<td class="px-3 py-1.5 text-xs text-center">
-								{#if isEditing(drawing.id, 'scale')}
+								{#if isRowEditing}
 									<input class="w-full border border-blue-400 rounded px-1 py-0.5 text-xs bg-white text-center"
-										bind:value={editValue} onkeydown={handleKeydown} onblur={commitEdit}
-									/>
+										bind:value={rowEdits.scale}
+										onkeydown={handleRowEditKeydown}
+										onclick={e => e.stopPropagation()} />
 								{:else}
-									<button class="text-center w-full hover:text-blue-600 cursor-text"
-										ondblclick={() => startEdit(drawing.id, 'scale', drawing.scale ?? '')}
-									>
-										{drawing.scale || '—'}
-									</button>
+									{drawing.scale || '—'}
 								{/if}
 							</td>
 
@@ -318,8 +315,9 @@
 									{/if}
 								</td>
 							{/each}
+
 							<!-- Include in packages (page rows only) -->
-							<td class="px-3 py-1.5 text-center">
+							<td class="px-3 py-1.5 text-center" onclick={e => e.stopPropagation()}>
 								{#if drawing.toolType === 'page'}
 									<input type="checkbox"
 										class="h-4 w-4 accent-blue-600 cursor-pointer"
@@ -330,11 +328,24 @@
 									<span class="text-zinc-300 dark:text-zinc-700">—</span>
 								{/if}
 							</td>
-							<td class="px-2 py-1.5 text-center">
-								{#if confirmDeleteId === drawing.id}
-									<button class="text-[10px] px-1.5 py-0.5 rounded bg-red-600 text-white hover:bg-red-500"
-										onclick={() => deleteDrawing(drawing.id)}>Delete</button>
+
+							<!-- Actions -->
+							<td class="px-2 py-1.5 text-center whitespace-nowrap" onclick={e => e.stopPropagation()}>
+								{#if isRowEditing}
+									<button class="text-[10px] px-1.5 py-0.5 rounded bg-blue-600 text-white hover:bg-blue-500 mr-1"
+										onclick={commitRowEdit} title="Save changes (Enter)">Save</button>
+									<button class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-200"
+										onclick={cancelRowEdit} title="Cancel (Escape)">Cancel</button>
+								{:else if confirmDeleteId === drawing.id}
+									<button class="text-[10px] px-1.5 py-0.5 rounded bg-red-600 text-white hover:bg-red-500 mr-1"
+										onclick={() => deleteDrawing(drawing.id)}>Confirm</button>
+									<button class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-200"
+										onclick={() => confirmDeleteId = null}>Cancel</button>
 								{:else}
+									<button class="text-zinc-400 hover:text-blue-600 transition-colors mr-2" title="Edit drawing"
+										onclick={() => startRowEdit(drawing)}>
+										<Icon name="edit" size={13} />
+									</button>
 									<button class="text-zinc-300 hover:text-red-500 transition-colors" title="Delete drawing"
 										onclick={() => confirmDeleteId = drawing.id}>
 										<Icon name="trash" size={13} />

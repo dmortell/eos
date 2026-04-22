@@ -2,11 +2,13 @@
 	import { page as routePage } from '$app/state'
 	import { goto } from '$app/navigation'
 	import { getContext } from 'svelte'
-	import { Button, Icon, Input, Firestore, Spinner, Titlebar, Session } from '$lib'
+	import { Button, Icon, Input, Select, Firestore, Spinner, Titlebar, Session } from '$lib'
 	import type { Page, Viewport, ViewportSource } from '$lib/types/pages'
 	import type { DrawingDoc } from '$lib/types/versioning'
+	import type { FloorConfig } from '$lib/types/project'
 	import { subscribePage, savePage, deletePage } from '$lib/pages/service'
 	import { DEFAULT_PRINT_SETTINGS } from '$lib/ui/print/types'
+	import { migrateFloors } from '$lib/utils/floor'
 	import PageCanvas from '../../parts/PageCanvas.svelte'
 
 	let db = new Firestore()
@@ -20,6 +22,7 @@
 	let loading = $state(true)
 	let selectedViewportId = $state<string | null>(null)
 	let projectName = $state('')
+	let floors = $state<FloorConfig[]>([{ number: 1, serverRoomCount: 1 }])
 
 	// Window dims for canvas sizing.
 	let innerWidth = $state(1200)
@@ -32,9 +35,27 @@
 		if (!pid) return
 		const unsub = db.subscribeOne('projects', pid, (data: any) => {
 			if (data?.name) projectName = data.name
+			if (Array.isArray(data?.floors) && data.floors.length) floors = migrateFloors(data.floors)
 		})
 		return () => { unsub?.() }
 	})
+
+	function rackDocIdFor(floor: number, room: string): string {
+		return `${pid}_F${String(floor).padStart(2, '0')}_R${room}`
+	}
+
+	/** Parse `{pid}_F{NN}_R{X}` back into floor + room for the source pickers. */
+	function parseRackDocId(id: string): { floor: number; room: string } {
+		const m = id.match(/_F(\d+)_R([A-D])/)
+		return m ? { floor: Number(m[1]), room: m[2] } : { floor: floors[0]?.number ?? 1, room: 'A' }
+	}
+
+	function updateSource(id: string, patch: Partial<ViewportSource>) {
+		if (!pageData) return
+		const vp = pageData.viewports.find(v => v.id === id)
+		if (!vp) return
+		updateViewport(id, { source: { ...vp.source, ...patch } as ViewportSource })
+	}
 
 	// Subscribe to the page doc.
 	$effect(() => {
@@ -202,7 +223,95 @@
 							<Input label="H (mm)" type="number" value={String(Math.round(vp.heightMm))} size="sm"
 								onchange={(e: Event) => updateViewport(vp.id, { heightMm: inputNumber(e) })} />
 						</div>
-						<div class="text-[10px] text-zinc-500">kind: <span class="font-mono">{vp.source.kind}</span></div>
+						<Input label="Scale 1:" type="number" value={String(vp.scale)} size="sm"
+							onchange={(e: Event) => updateViewport(vp.id, { scale: inputNumber(e) })} />
+
+						<!-- Source-specific fields -->
+						<div class="mt-2 pt-2 border-t border-zinc-200 dark:border-zinc-800">
+							<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-1.5">
+								Source · <span class="font-mono text-zinc-500">{vp.source.kind}</span>
+							</div>
+
+							{#if vp.source.kind === 'rack-elevation'}
+								{@const parsed = parseRackDocId(vp.source.rackDocId)}
+								<div class="grid grid-cols-3 gap-1.5">
+									<Select label="Floor" size="sm"
+										value={String(parsed.floor)}
+										onchange={(e: Event) => updateSource(vp.id, { rackDocId: rackDocIdFor(inputNumber(e), parsed.room) })}>
+										{#each floors as fl}
+											<option value={String(fl.number)}>{fl.number}F</option>
+										{/each}
+									</Select>
+									<Select label="Room" size="sm"
+										value={parsed.room}
+										onchange={(e: Event) => updateSource(vp.id, { rackDocId: rackDocIdFor(parsed.floor, inputValue(e)) })}>
+										{#each ['A','B','C','D'].slice(0, floors.find(f => f.number === parsed.floor)?.serverRoomCount ?? 1) as r}
+											<option value={r}>{r}</option>
+										{/each}
+									</Select>
+									<Select label="Face" size="sm"
+										value={vp.source.face}
+										onchange={(e: Event) => updateSource(vp.id, { face: inputValue(e) as 'front' | 'rear' })}>
+										<option value="front">Front</option>
+										<option value="rear">Rear</option>
+									</Select>
+								</div>
+
+							{:else if vp.source.kind === 'rack-plan'}
+								{@const parsed = parseRackDocId(vp.source.rackDocId)}
+								<div class="grid grid-cols-2 gap-1.5">
+									<Select label="Floor" size="sm"
+										value={String(parsed.floor)}
+										onchange={(e: Event) => updateSource(vp.id, { rackDocId: rackDocIdFor(inputNumber(e), parsed.room) })}>
+										{#each floors as fl}
+											<option value={String(fl.number)}>{fl.number}F</option>
+										{/each}
+									</Select>
+									<Select label="Room" size="sm"
+										value={parsed.room}
+										onchange={(e: Event) => updateSource(vp.id, { rackDocId: rackDocIdFor(parsed.floor, inputValue(e)) })}>
+										{#each ['A','B','C','D'].slice(0, floors.find(f => f.number === parsed.floor)?.serverRoomCount ?? 1) as r}
+											<option value={r}>{r}</option>
+										{/each}
+									</Select>
+								</div>
+
+							{:else if vp.source.kind === 'text'}
+								<textarea
+									class="w-full border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-1 text-xs bg-white dark:bg-zinc-900 min-h-16 resize-y"
+									value={vp.source.content}
+									placeholder="Note text…"
+									onchange={(e: Event) => updateSource(vp.id, { content: (e.currentTarget as HTMLTextAreaElement).value })}
+								></textarea>
+								<div class="grid grid-cols-2 gap-1.5 mt-1.5">
+									<Input label="Pt" type="number" value={String(vp.source.fontSizePt ?? 10)} size="sm"
+										onchange={(e: Event) => updateSource(vp.id, { fontSizePt: inputNumber(e) })} />
+									<Select label="Align" size="sm"
+										value={vp.source.align ?? 'left'}
+										onchange={(e: Event) => updateSource(vp.id, { align: inputValue(e) as 'left' | 'center' | 'right' })}>
+										<option value="left">Left</option>
+										<option value="center">Center</option>
+										<option value="right">Right</option>
+									</Select>
+								</div>
+
+							{:else if vp.source.kind === 'image'}
+								<Input label="URL" value={vp.source.url} size="sm" placeholder="https://…"
+									onchange={(e: Event) => updateSource(vp.id, { url: inputValue(e) })} />
+								<div class="mt-1.5">
+									<Select label="Fit" size="sm"
+										value={vp.source.fit ?? 'contain'}
+										onchange={(e: Event) => updateSource(vp.id, { fit: inputValue(e) as 'contain' | 'cover' })}>
+										<option value="contain">Contain</option>
+										<option value="cover">Cover</option>
+									</Select>
+								</div>
+
+							{:else}
+								<div class="text-[10px] text-zinc-400 italic">Source picker not yet available for this kind.</div>
+							{/if}
+						</div>
+
 						<Button onclick={() => removeViewport(vp.id)}>
 							<Icon name="trash" size={12} />
 							Delete viewport
@@ -227,6 +336,7 @@
 			{selectedViewportId}
 			width={canvasWidth}
 			height={canvasHeight}
+			{db}
 			onselect={id => selectedViewportId = id}
 			ondeselect={() => selectedViewportId = null}
 			onupdateviewport={updateViewport} />

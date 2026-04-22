@@ -1,11 +1,18 @@
 <script lang="ts">
 	import type { Viewport, ViewportSource } from '$lib/types/pages'
+	import { Firestore } from '$lib'
+	import TextViewport from './viewports/TextViewport.svelte'
+	import ImageViewport from './viewports/ImageViewport.svelte'
+	import RackElevationViewport from './viewports/RackElevationViewport.svelte'
+	import RackPlanViewport from './viewports/RackPlanViewport.svelte'
 
-	let { viewport, selected, pxPerMm, onselect, onupdate }: {
+	let { viewport, selected, pxPerMm, db, onselect, onupdate }: {
 		viewport: Viewport
 		selected: boolean
 		/** Pixels per mm — canvas zoom factor. Used to convert mouse px deltas to mm. */
 		pxPerMm: number
+		/** Firestore wrapper — forwarded to source-subscribing viewport kinds. */
+		db: Firestore
 		onselect: () => void
 		onupdate: (patch: Partial<Viewport>) => void
 	} = $props()
@@ -135,10 +142,28 @@
 	style:cursor={dragStart?.mode === 'move' ? 'grabbing' : 'grab'}
 	onmousedown={onBodyMouseDown}
 >
-	<!-- Viewport label -->
-	<div class="absolute inset-0 flex items-center justify-center text-[10px] text-zinc-500 pointer-events-none px-2 text-center leading-tight">
-		<span>{label}</span>
-	</div>
+	<!-- Source content -->
+	{#if viewport.source.kind === 'text'}
+		<TextViewport {viewport} />
+	{:else if viewport.source.kind === 'image'}
+		<ImageViewport {viewport} />
+	{:else if viewport.source.kind === 'rack-elevation'}
+		<RackElevationViewport {viewport} {db} />
+	{:else if viewport.source.kind === 'rack-plan'}
+		<RackPlanViewport {viewport} {db} />
+	{:else}
+		<!-- Kinds without a renderer yet (frame-detail, floorplan, fillrate) — show placeholder label -->
+		<div class="absolute inset-0 flex items-center justify-center text-[10px] text-zinc-500 pointer-events-none px-2 text-center leading-tight">
+			<span>{label}</span>
+		</div>
+	{/if}
+
+	<!-- Label overlay (viewport label or selection info) — shown on hover/selection -->
+	{#if selected && viewport.label}
+		<div class="absolute -top-4 left-0 text-[9px] text-blue-600 font-medium pointer-events-none whitespace-nowrap">
+			{viewport.label}
+		</div>
+	{/if}
 
 	{#if selected}
 		<!-- Resize handles. Scaled by canvas zoom so they stay usable at different zooms. -->

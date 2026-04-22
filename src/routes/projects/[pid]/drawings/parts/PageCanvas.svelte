@@ -1,13 +1,15 @@
 <script lang="ts">
 	import type { Page, Viewport } from '$lib/types/pages'
 	import { paperDimsMm } from '$lib/ui/print/types'
+	import { Firestore } from '$lib'
 	import ViewportFrame from './ViewportFrame.svelte'
 
-	let { page, selectedViewportId, width, height, onselect, onupdateviewport, ondeselect }: {
+	let { page, selectedViewportId, width, height, db, onselect, onupdateviewport, ondeselect }: {
 		page: Page
 		selectedViewportId: string | null
 		width: number
 		height: number
+		db: Firestore
 		onselect: (id: string) => void
 		onupdateviewport: (id: string, patch: Partial<Viewport>) => void
 		ondeselect: () => void
@@ -116,6 +118,7 @@
 					viewport={vp}
 					selected={selectedViewportId === vp.id}
 					pxPerMm={zoom}
+					{db}
 					onselect={() => onselect(vp.id)}
 					onupdate={patch => onupdateviewport(vp.id, patch)}
 				/>
