@@ -287,6 +287,11 @@ Phase this into M7 (after M6 room primitives) since walls/doors need to render i
 - BOM panel in the racks tool (current row + project), export to Excel (reuse `xlsx` from frames export).
 - Containment kit auto-add via `CatalogRule.emit`.
 
+### Backlog (revisit during/after M6)
+
+- **Project-wide BOM scope** — BOM is currently computed from rows/racks in the *active* `racks/{pid}_F{NN}_R{room}` doc only. For drawing packages and procurement, users need a BOM spanning **every floor + room** in the project. Requires subscribing to all rack docs for the project (enumerate `{pid}_F{NN}_R{room}` ids from the project's floors/rooms, or use `subscribeWhere('racks', 'projectId', pid)` if we add that field). Aggregation logic is already in `computeConsolidatedBOM` — it just needs a multi-doc feed. Affects Excel filename/title too.
+- **Exclude existing racks from purchase BOM** — for brownfield projects the user needs to flag racks as "existing / do-not-purchase". Proposal: add `RackConfig.excludeFromPurchase?: boolean` + a toggle in PropertiesPanel. `computeRowBOM` would filter those out of the purchase BOM (while they still render in elevations / plan views for context). Excel export may want a separate "Existing Equipment" reference sheet. Note: when a rack is excluded, its accessory emissions (top caps, containment kits) should also be skipped.
+
 ### M5 — Frame ↔ Rack linkage (1:1, optional)
 - `rackId` ↔ `frameId` cross-reference in both tools.
 - Picker UI in rack and frame properties, filtering out already-linked peers.

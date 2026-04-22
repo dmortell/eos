@@ -1,9 +1,13 @@
 <script lang="ts">
-	import { Window } from '$lib'
+	import { Window, Icon } from '$lib'
 	import { type RackConfig, rackTypes, DEFAULT_SHELF_HEIGHTS } from './types'
 
-	let { selectedRacks = [], onupdaterack }: {
+	let { selectedRacks = [], floorFrames = [], allRacks = [], onupdaterack }: {
 		selectedRacks?: RackConfig[]
+		/** Frames on the active floor (any room). Used for Frame ↔ Rack linkage. */
+		floorFrames?: { id: string; name: string; serverRoom: string }[]
+		/** All racks in the current doc — used to detect other racks already linked to a frame. */
+		allRacks?: RackConfig[]
 		onupdaterack?: (id: string, updates: Record<string, any>) => void
 	} = $props()
 
@@ -59,6 +63,41 @@
 			{#if selectedRack.sku}
 				{@render Field('sku', shared(r => r.sku ?? ''), undefined)}
 			{/if}
+
+			<!-- Frame ↔ Rack link (single-select only). Picker is scoped to racks
+			     in the same server room; already-linked frames are hidden. -->
+			{#if !multi}
+				{@const rackRoom = selectedRack.serverRoom ?? ''}
+				{@const roomFrames = floorFrames.filter(f => !rackRoom || f.serverRoom === rackRoom)}
+				{@const linkedElsewhere = new Set(allRacks.filter(r => r.id !== selectedRack!.id && r.frameId).map(r => r.frameId!))}
+				{@const availableFrames = roomFrames.filter(f => !linkedElsewhere.has(f.id))}
+				{@const currentFrame = selectedRack.frameId ? floorFrames.find(f => f.id === selectedRack!.frameId) : null}
+				{@const staleFrame = selectedRack.frameId && !currentFrame}
+				<label class="flex gap-2 items-center">
+					<span class="w-16 text-gray-500 text-[10px] shrink-0">frame</span>
+					<select
+						class="flex-1 min-w-0 h-6 px-1 border-b border-gray-300 text-xs"
+						value={selectedRack.frameId ?? ''}
+						onchange={e => onupdaterack?.(selectedRack!.id, { frameId: e.currentTarget.value || undefined })}>
+						<option value="">— none —</option>
+						{#if currentFrame}
+							<option value={currentFrame.id}>{currentFrame.name} (Room {currentFrame.serverRoom})</option>
+						{/if}
+						{#each availableFrames.filter(f => !currentFrame || f.id !== currentFrame.id) as f}
+							<option value={f.id}>{f.name} (Room {f.serverRoom})</option>
+						{/each}
+						{#if staleFrame}
+							<option value={selectedRack.frameId} selected>{selectedRack.frameId} (missing)</option>
+						{/if}
+					</select>
+				</label>
+				{#if staleFrame}
+					<div class="ml-18 text-[10px] text-amber-700 flex items-center gap-1">
+						<Icon name="warning" size={10} /> linked frame no longer exists
+					</div>
+				{/if}
+			{/if}
+
 			<label class="flex gap-2 items-start">
 				<span class="w-16 text-gray-500 text-[10px] shrink-0 pt-1">notes</span>
 				<textarea

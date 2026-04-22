@@ -16,6 +16,7 @@
 	import RackElevations from './parts/RackElevations.svelte'
 	import RackPlan from './parts/RackPlan.svelte'
 	import CatalogBrowser from './parts/CatalogBrowser.svelte'
+	import BOMPanel from './parts/BOMPanel.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
 	import DeviceProperties from './parts/DeviceProperties.svelte'
 	import FloorTabs from './parts/FloorTabs.svelte'
@@ -26,7 +27,7 @@
 	import { fmtFloor } from '$lib/utils/floor'
 	import type { FloorConfig } from '$lib/types/project'
 
-	let { data = null, library = [], floor, room, floors = [], projectId = '', projectName = '', floorFormat = 'L01', drawingId = '', db = new Firestore(), uid = '', initialViewMask, onsave, onlibrarychange, onfloorchange, onroomchange, onupdatefloors, ondeletefloor }: {
+	let { data = null, library = [], floor, room, floors = [], projectId = '', projectName = '', floorFormat = 'L01', drawingId = '', db = new Firestore(), uid = '', initialViewMask, floorFrames = [], onsave, onlibrarychange, onfloorchange, onroomchange, onupdatefloors, ondeletefloor }: {
 		data?: any
 		library?: DeviceTemplate[]
 		floor: number
@@ -39,6 +40,8 @@
 		db?: Firestore
 		uid?: string
 		initialViewMask?: number
+		/** Frames on the active floor — read-only, used for Frame↔Rack linkage picker. */
+		floorFrames?: { id: string; name: string; serverRoom: string }[]
 		onsave?: (payload: any, changes: ChangeDetail[]) => void
 		onlibrarychange?: (templates: DeviceTemplate[]) => void
 		onfloorchange?: (floor: number) => void
@@ -74,7 +77,7 @@
 	let devices = $state<DeviceConfig[]>(data?.devices ?? [])
 	let settings = $state<RackSettings>({ ...DEFAULT_SETTINGS, ...(data?.settings ?? {}) })
 	let activeRowId = $state<string>(rows[0]?.id ?? 'default')
-	let sidebarTab = $state<'racks' | 'devices' | 'library' | 'catalog'>('devices')
+	let sidebarTab = $state<'racks' | 'devices' | 'library' | 'catalog' | 'bom'>('devices')
 	let catalog = $state<CatalogProduct[]>([])
 	let selectedIds = $state(new Set<string>())
 	let viewMask = $state(initialViewMask ?? VIEW_DEFAULT)
@@ -971,6 +974,11 @@
 							{sidebarTab === 'catalog' ? 'text-blue-600 border-b-2 border-blue-500 bg-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}"
 						onclick={() => sidebarTab = 'catalog'}
 					>Catalog</button>
+					<button
+						class="flex-1 py-1.5 text-[11px] font-medium transition-colors
+							{sidebarTab === 'bom' ? 'text-blue-600 border-b-2 border-blue-500 bg-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}"
+						onclick={() => sidebarTab = 'bom'}
+					>BOM</button>
 				</div>
 
 				<!-- Sidebar content -->
@@ -1000,6 +1008,11 @@
 							onadd={addRackFromCatalog}
 							onaddcustom={addCustomProduct}
 							ondelete={deleteCatalogProduct} />
+					{:else if sidebarTab === 'bom'}
+						<BOMPanel {rows} {racks} {activeRowId} {catalog}
+							{projectName}
+							floorLabel={fmt(floor)}
+							roomLabel={roomLabel(room)} />
 					{/if}
 				</div>
 			</div>
@@ -1044,7 +1057,7 @@
 			</div>
 
 			<!-- Properties panel -->
-			<PropertiesPanel {selectedRacks} onupdaterack={updateRack} />
+			<PropertiesPanel {selectedRacks} {floorFrames} allRacks={racks} onupdaterack={updateRack} />
 			<DeviceProperties devices={selectedDevices} onupdate={updateDevice} />
 
 			<!-- Status bar with floor tabs -->

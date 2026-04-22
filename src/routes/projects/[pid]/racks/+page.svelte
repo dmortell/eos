@@ -26,6 +26,7 @@
 	let floorFormat = $state('L01');
 	let projectName = $state('');
 	let drawingId = $state('');
+	let floorFrames: any[] = $state([]);
 
 	/** Firestore doc ID for a given floor + room */
 	function docId(floor = activeFloor, room = activeRoom) {
@@ -75,6 +76,7 @@
 		const frameDocId = `${pid}_F${String(fl).padStart(2, '0')}`;
 		const unsub = db.subscribeOne('frames', frameDocId, (data: Record<string, any>) => {
 			if (data?.floorFormat) floorFormat = data.floorFormat;
+			floorFrames = Array.isArray(data?.frames) ? data.frames : [];
 		});
 
 		return () => { unsub?.(); };
@@ -171,7 +173,7 @@
 	<!-- {#key `${activeFloor}-${activeRoom}`}
 			{/key} -->
 		<Racks data={rackData} {library} floor={activeFloor} room={activeRoom} {floors} projectId={page.params.pid} {floorFormat} {projectName}
-			{drawingId} {db} uid={session.user?.uid ?? ''} {initialViewMask}
+			{drawingId} {db} uid={session.user?.uid ?? ''} {initialViewMask} {floorFrames}
 			onsave={save} onlibrarychange={saveLibrary} onfloorchange={changeFloor} onroomchange={changeRoom}
 			onupdatefloors={updateFloors} ondeletefloor={deleteFloor} />
 {/if}
