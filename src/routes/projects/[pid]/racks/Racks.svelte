@@ -6,17 +6,21 @@
 	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
 	import type { ChangeDetail } from '$lib/logger'
 	import type { RackConfig, DeviceConfig, DeviceTemplate, RackRow, RackSettings, ViewState, ElevationFace } from './parts/types'
-	import { VIEW_FRONT, VIEW_REAR, VIEW_DEFAULT } from './parts/types'
+	import { VIEW_FRONT, VIEW_REAR, VIEW_PLAN, VIEW_DEFAULT } from './parts/types'
 	import { DEFAULT_SETTINGS, SCALE, RU_HEIGHT_MM, RACK_GAP_PX, RACK_19IN_MM, rackHeightMm } from './parts/constants'
 	import RackList from './parts/RackList.svelte'
 	import DevicePalette from './parts/DevicePalette.svelte'
 	import RackDevices from './parts/RackDevices.svelte'
 	import Canvas from './parts/Canvas.svelte'
 	import RackElevations from './parts/RackElevations.svelte'
+	import RackPlan from './parts/RackPlan.svelte'
+	import CatalogBrowser from './parts/CatalogBrowser.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
 	import DeviceProperties from './parts/DeviceProperties.svelte'
 	import FloorTabs from './parts/FloorTabs.svelte'
 	import RoomSelector from './parts/RoomSelector.svelte'
+	import { subscribeCatalog, saveCustomProduct, deleteCustomProduct, rackFromCatalog } from '$lib/catalog/service'
+	import type { CatalogProduct } from '$lib/catalog/types'
 	import FloorManagerDialog from '$lib/components/FloorManagerDialog.svelte'
 	import { fmtFloor } from '$lib/utils/floor'
 	import type { FloorConfig } from '$lib/types/project'
@@ -69,7 +73,8 @@
 	let devices = $state<DeviceConfig[]>(data?.devices ?? [])
 	let settings = $state<RackSettings>({ ...DEFAULT_SETTINGS, ...(data?.settings ?? {}) })
 	let activeRowId = $state<string>(rows[0]?.id ?? 'default')
-	let sidebarTab = $state<'racks' | 'devices' | 'library'>('devices')
+	let sidebarTab = $state<'racks' | 'devices' | 'library' | 'catalog'>('devices')
+	let catalog = $state<CatalogProduct[]>([])
 	let selectedIds = $state(new Set<string>())
 	let viewMask = $state(initialViewMask ?? VIEW_DEFAULT)
 	let floorManagerOpen = $state(false)
@@ -134,8 +139,30 @@
 			})
 	)
 
+	// ── Subscribe to the global catalog (seed + Firestore customs) ──
+	$effect(() => {
+		const unsub = subscribeCatalog(db, list => { catalog = list })
+		return () => unsub?.()
+	})
+
+	// ── Back-fill: every rack must belong to a row. Legacy data may have
+	//    orphaned rowIds — move those racks into the first row. ──
+	$effect(() => {
+		const validIds = new Set(rows.map(r => r.id))
+		const orphaned = racks.filter(r => !validIds.has(r.rowId))
+		if (orphaned.length === 0) return
+		if (rows.length === 0) {
+			rows = [{ id: 'default', label: 'Row A' }]
+			validIds.add('default')
+		}
+		const target = rows[0].id
+		racks = racks.map(r => validIds.has(r.rowId) ? r : { ...r, rowId: target })
+		logChange('update', 'rack', `Moved ${orphaned.length} unassigned rack(s) to ${rows[0].label}`)
+	})
+
 	// Rear elevation: reversed rack order, bottom-aligned below front view
 	const REAR_GAP_MM = 600
+	const PLAN_GAP_MM = 1500
 	let rearRacks = $derived.by(() => {
 		if (!(viewMask & VIEW_REAR) || activeRacks.length === 0) return []
 		const tallest = Math.max(...activeRacks.map(r => r.heightMm))
@@ -146,6 +173,30 @@
 			return { ...rack, _x: x, _z: rearBottom, _face: 'rear' as ElevationFace }
 		})
 	})
+
+	// ── Plan view: place below elevations (or at top of canvas if no elevations) ──
+	let planTopPx = $derived.by(() => {
+		if (!(viewMask & VIEW_PLAN)) return 0
+		const hasFront = viewMask & VIEW_FRONT
+		const hasRear = viewMask & VIEW_REAR
+		if (!hasFront && !hasRear) return 0
+		// Canvas Y (in mm from top of canvas) of the lowest elevation content
+		let bottomMm: number
+		if (hasRear && racks.length > 0) {
+			const tallest = Math.max(...racks.map(r => r.heightMm))
+			bottomMm = view.bottom - settings.floorLevel + REAR_GAP_MM + tallest
+		} else {
+			bottomMm = view.bottom - settings.floorLevel + 100
+		}
+		return (bottomMm + PLAN_GAP_MM) * SCALE
+	})
+
+	function moveRow(rowId: string, originMm: { x: number; y: number }) {
+		rows = rows.map(r => r.id === rowId
+			? { ...r, plan: { originMm, rotationDeg: r.plan?.rotationDeg ?? 0 } }
+			: r)
+		logChange('update', 'row', rowId)
+	}
 
 	// Selected item helpers
 	let selectedRacks = $derived(
@@ -281,9 +332,33 @@
 			serverRoom: room,
 			maker: form?.maker,
 			model: form?.model,
+			sku: form?.sku,
+			productRef: form?.productRef,
+			color: form?.color,
+			adjustable: form?.adjustable,
+			minDepthMm: form?.minDepthMm,
+			maxDepthMm: form?.maxDepthMm,
+			containmentCapability: form?.containmentCapability,
 		}
 		racks = [...racks, newRack]
 		logChange('add', 'rack', label)
+	}
+
+	function addRackFromCatalog(product: CatalogProduct) {
+		const base = rackFromCatalog(product)
+		addRack({
+			...base,
+			type: product.kind === 'vcm' ? 'vcm' : '4-post',
+			label: product.sku,
+		})
+	}
+
+	async function addCustomProduct(product: Omit<CatalogProduct, 'seeded'>) {
+		await saveCustomProduct(db, product, uid, projectId)
+	}
+
+	async function deleteCatalogProduct(id: string) {
+		await deleteCustomProduct(db, id)
 	}
 
 	function deleteRack(rackId: string) {
@@ -787,16 +862,24 @@
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div class="flex-1 min-h-0" onclick={onCanvasClick} bind:this={canvasEl}>
 				<Canvas bind:view width={canvasWidth} height={canvasHeight}>
-					<RackElevations {view} {settings} {activeRacks} {rearRacks} {viewMask} {devices} {selectedIds} {dropGhost} {rackOverlaps} {editingLine}
-						floorLabel={fmt(floor)} roomLabel={roomLabel(room)}
-						onstarttlinedrag={startLineDrag}
-						oneditline={field => editingLine = field}
-						oncleareditline={() => editingLine = null}
-						onsettingchange={(field, value) => { settings[field as keyof RackSettings] = value as never; logChange('update', 'settings', field) }}
-						ondevicedrag={onDeviceDrag}
-						ondevicedragged={onDeviceDragged}
-						ondeletedevice={deleteDevice}
-						onselectdevice={id => selectedIds = new Set([id])} />
+					{#if viewMask & (VIEW_FRONT | VIEW_REAR)}
+						<RackElevations {view} {settings} {activeRacks} {rearRacks} {viewMask} {devices} {selectedIds} {dropGhost} {rackOverlaps} {editingLine}
+							floorLabel={fmt(floor)} roomLabel={roomLabel(room)}
+							onstarttlinedrag={startLineDrag}
+							oneditline={field => editingLine = field}
+							oncleareditline={() => editingLine = null}
+							onsettingchange={(field, value) => { settings[field as keyof RackSettings] = value as never; logChange('update', 'settings', field) }}
+							ondevicedrag={onDeviceDrag}
+							ondevicedragged={onDeviceDragged}
+							ondeletedevice={deleteDevice}
+							onselectdevice={id => selectedIds = new Set([id])} />
+					{/if}
+					{#if viewMask & VIEW_PLAN}
+						<RackPlan {view} {rows} {racks} {selectedIds} {activeRowId} {planTopPx}
+							onmoverow={moveRow}
+							onselectrack={selectRack}
+							onselectrow={id => activeRowId = id} />
+					{/if}
 				</Canvas>
 			</div>
 

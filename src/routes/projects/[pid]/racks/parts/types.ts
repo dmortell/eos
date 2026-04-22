@@ -5,7 +5,22 @@ export type PortType = 'RJ45' | 'LC' | 'SC' | 'SFP' | null
 export interface RackRow {
 	id: string
 	label: string // "Row A", "Row B"
+	/** Starter values for new racks in this row and baseline for BOM/compatibility.
+	 *  Per-rack edits are allowed; rows may become heterogeneous. */
+	defaults?: {
+		heightU?: number
+		color?: string
+		depthMm?: number
+		containment?: RowContainment
+	}
+	/** Plan-view placement within the server room (mm, room-relative) */
+	plan?: {
+		originMm: { x: number; y: number }
+		rotationDeg: number
+	}
 }
+
+export type RowContainment = 'none' | 'hac' | 'cac' | 'combined'
 
 export const rackTypes = [
 	{ id: '2-post', label: '2-Post' },
@@ -30,6 +45,21 @@ export interface RackConfig {
 	maker?: string
 	model?: string
 	shelfHeights?: number[] // mm from floor, for desk/shelf types (4 adjustable lines)
+	// ── Catalog linkage (populated when added via catalog browser) ──
+	sku?: string
+	productRef?: string // catalog product id (maker-sku slug)
+	color?: string
+	adjustable?: boolean
+	minDepthMm?: number
+	maxDepthMm?: number
+	containmentCapability?: {
+		hacTopCap?: string
+		cacTopCap?: string
+		containmentKitBlack?: string
+		containmentKitWhite?: string
+	}
+	// ── Frame linkage (0..1 per rack) ──
+	frameId?: string
 }
 
 /** Default shelf/tray heights for desk and shelf rack types */

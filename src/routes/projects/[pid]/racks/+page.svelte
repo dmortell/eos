@@ -5,7 +5,7 @@
 	import { writeLog } from '$lib/logger';
 	import { migrateFloors, updateFloors as _updateFloors, deleteFloor as _deleteFloor } from '$lib/utils/floor';
 	import type { DeviceTemplate } from './parts/types';
-	import { VIEW_FRONT, VIEW_REAR, VIEW_DEFAULT } from './parts/types';
+	import { VIEW_FRONT, VIEW_REAR, VIEW_PLAN, VIEW_DEFAULT } from './parts/types';
 	import { findOrCreateDrawing } from '$lib/versioning/service';
 	import Racks from './Racks.svelte';
 
@@ -18,8 +18,10 @@
 	let activeFloor = $state(Number(page.url.searchParams.get('floor')) || 1);
 	let activeRoom = $state(page.url.searchParams.get('room') ?? 'A');
 	const _sp = page.url.searchParams;
-	const initialViewMask = _sp.has('front') || _sp.has('rear')
-		? ((_sp.get('front') === '1' ? VIEW_FRONT : 0) | (_sp.get('rear') === '1' ? VIEW_REAR : 0)) || VIEW_DEFAULT
+	const initialViewMask = _sp.has('front') || _sp.has('rear') || _sp.has('plan')
+		? ((_sp.get('front') === '1' ? VIEW_FRONT : 0)
+			| (_sp.get('rear') === '1' ? VIEW_REAR : 0)
+			| (_sp.get('plan') === '1' ? VIEW_PLAN : 0)) || VIEW_DEFAULT
 		: undefined;
 	let floorFormat = $state('L01');
 	let projectName = $state('');

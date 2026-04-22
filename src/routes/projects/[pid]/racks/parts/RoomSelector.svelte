@@ -2,7 +2,7 @@
 	import { Icon } from '$lib'
 	import type { FloorConfig } from '$lib/types/project'
 	import type { RackRow } from './types'
-	import { VIEW_FRONT, VIEW_REAR } from './types'
+	import { VIEW_FRONT, VIEW_REAR, VIEW_PLAN } from './types'
 	import { fmtFloor } from '$lib/utils/floor'
 
 	let {
@@ -115,5 +115,11 @@
 			title="Rear elevation"
 			onclick={() => toggleView(VIEW_REAR)}
 		>Rear</button>
+		<button
+			class="h-6 px-2 text-[11px] font-medium transition-colors border-l border-gray-200
+				{viewMask & VIEW_PLAN ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
+			title="Plan view (top-down)"
+			onclick={() => toggleView(VIEW_PLAN)}
+		>Plan</button>
 	</div>
 </div>
