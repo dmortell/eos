@@ -9,6 +9,7 @@
 	import { VIEW_FRONT, VIEW_REAR, VIEW_PLAN, VIEW_DEFAULT } from './parts/types'
 	import { DEFAULT_SETTINGS, SCALE, RU_HEIGHT_MM, RACK_GAP_PX, RACK_19IN_MM, rackHeightMm } from './parts/constants'
 	import RackList from './parts/RackList.svelte'
+	import RowEditor from './parts/RowEditor.svelte'
 	import DevicePalette from './parts/DevicePalette.svelte'
 	import RackDevices from './parts/RackDevices.svelte'
 	import Canvas from './parts/Canvas.svelte'
@@ -338,9 +339,11 @@
 			adjustable: form?.adjustable,
 			minDepthMm: form?.minDepthMm,
 			maxDepthMm: form?.maxDepthMm,
+			frontProtrusionMm: form?.frontProtrusionMm,
 			containmentCapability: form?.containmentCapability,
 		}
 		racks = [...racks, newRack]
+		normalizeRowOrders(activeRowId)
 		logChange('add', 'rack', label)
 	}
 
@@ -350,6 +353,7 @@
 			...base,
 			type: product.kind === 'vcm' ? 'vcm' : '4-post',
 			label: product.sku,
+			frontProtrusionMm: base.frontProtrusionMm,
 		})
 	}
 
@@ -572,6 +576,138 @@
 		rows = [...rows, { id, label }]
 		activeRowId = id
 		logChange('add', 'row', label)
+	}
+
+	function renameRow(rowId: string, label: string) {
+		rows = rows.map(r => r.id === rowId ? { ...r, label } : r)
+		logChange('update', 'row', `rename ${rowId}`)
+	}
+
+	/** Partial update to row.defaults. `undefined` values clear the field. */
+	function updateRowDefaults(rowId: string, partial: Record<string, unknown>) {
+		rows = rows.map(r => {
+			if (r.id !== rowId) return r
+			const next = { ...(r.defaults ?? {}) }
+			for (const [k, v] of Object.entries(partial)) {
+				if (v === undefined) delete (next as any)[k]
+				else (next as any)[k] = v
+			}
+			return { ...r, defaults: Object.keys(next).length ? next : undefined }
+		})
+		logChange('update', 'row', `defaults ${rowId}`)
+	}
+
+	/** Apply a catalog product to all racks of matching kind in the row. */
+	function quickFillRow(rowId: string, kind: 'rack' | 'vcm', productId: string) {
+		const product = catalog.find(p => p.id === productId)
+		if (!product) return
+		const base = rackFromCatalog(product)
+		const targetType = kind === 'vcm' ? 'vcm' : '4-post'
+		const isTargetKind = (r: RackConfig) => kind === 'vcm' ? r.type === 'vcm' : r.type !== 'vcm'
+		let count = 0
+		racks = racks.map(r => {
+			if (r.rowId !== rowId || !isTargetKind(r)) return r
+			count++
+			return {
+				...r,
+				...base,
+				type: targetType as any,
+				heightMm: kind === 'vcm' ? r.heightMm : rackHeightMm(base.heightU),
+				frontProtrusionMm: base.frontProtrusionMm,
+			}
+		})
+		if (count > 0) logChange('update', 'row', `quick-fill ${count} ${kind}(s) with ${product.sku}`)
+	}
+
+	/**
+	 * Re-assign `order` values in a row to produce the V-R-V-R-...-V interleave
+	 * pattern (Panduit convention). Preserves relative ordering within each kind,
+	 * so user drag-reorders still work — we only reshuffle racks vs VCMs.
+	 * Racks end up at odd orders (1, 3, 5, …), VCMs at even (0, 2, 4, …). Extra
+	 * VCMs beyond R+1 land past the last rack.
+	 */
+	function normalizeRowOrders(rowId: string) {
+		const items = racks.filter(r => r.rowId === rowId).sort((a, b) => a.order - b.order)
+		if (items.length === 0) return
+		const rackItems = items.filter(r => r.type !== 'vcm')
+		const vcmItems = items.filter(r => r.type === 'vcm')
+		const R = rackItems.length
+		const updates = new Map<string, number>()
+		rackItems.forEach((r, i) => updates.set(r.id, 2 * i + 1))
+		vcmItems.forEach((v, i) => {
+			const pos = i <= R ? 2 * i : 2 * R + 2 * (i - R)
+			updates.set(v.id, pos)
+		})
+		racks = racks.map(r =>
+			updates.has(r.id) && updates.get(r.id) !== r.order
+				? { ...r, order: updates.get(r.id)! }
+				: r
+		)
+	}
+
+	/** Create N new racks/VCMs in a row from a catalog product. */
+	function addRacksFromCatalog(rowId: string, productId: string, count: number) {
+		const product = catalog.find(p => p.id === productId)
+		if (!product || count < 1) return
+		if (product.kind !== 'rack' && product.kind !== 'vcm') return
+		const base = rackFromCatalog(product)
+		const isVcm = product.kind === 'vcm'
+		const targetType = isVcm ? 'vcm' : '4-post'
+		const heightMm = rackHeightMm(base.heightU)
+		const prefix = isVcm ? 'V' : 'R'
+		const now = Date.now()
+		let order = racks.filter(r => r.rowId === rowId).length
+		const newRacks: RackConfig[] = []
+		for (let i = 0; i < count; i++) {
+			order++
+			newRacks.push({
+				id: `rack-${now}-${i}`,
+				label: `${prefix}${String(order).padStart(2, '0')}`,
+				rowId,
+				order: order - 1, // 0-based within row
+				heightU: base.heightU,
+				heightMm,
+				widthMm: base.widthMm,
+				depthMm: base.depthMm,
+				type: targetType as any,
+				serverRoom: room,
+				maker: base.maker,
+				model: base.model,
+				sku: base.sku,
+				productRef: base.productRef,
+				color: base.color,
+				adjustable: base.adjustable,
+				minDepthMm: base.minDepthMm,
+				maxDepthMm: base.maxDepthMm,
+				frontProtrusionMm: base.frontProtrusionMm,
+				containmentCapability: base.containmentCapability,
+			})
+		}
+		racks = [...racks, ...newRacks]
+		normalizeRowOrders(rowId)
+		logChange('add', 'rack', `Added ${count} × ${product.sku}`)
+	}
+
+	/** Force all racks in the row to match row.defaults — irreversible without undo. */
+	function copyRowDefaultsToAllRacks(rowId: string) {
+		const row = rows.find(r => r.id === rowId)
+		const d = row?.defaults
+		if (!d) return
+		let count = 0
+		racks = racks.map(r => {
+			if (r.rowId !== rowId) return r
+			const updates: Partial<RackConfig> = {}
+			if (d.heightU != null && r.type !== 'vcm' && r.heightU !== d.heightU) {
+				updates.heightU = d.heightU
+				updates.heightMm = rackHeightMm(d.heightU)
+			}
+			if (d.color && r.color !== d.color) updates.color = d.color
+			if (d.depthMm != null && r.depthMm !== d.depthMm) updates.depthMm = d.depthMm
+			if (Object.keys(updates).length === 0) return r
+			count++
+			return { ...r, ...updates }
+		})
+		if (count > 0) logChange('update', 'row', `apply defaults to ${count} rack(s)`)
 	}
 
 	let confirmingDeleteRow = $state<string | null>(null)
@@ -830,16 +966,40 @@
 							{sidebarTab === 'library' ? 'text-blue-600 border-b-2 border-blue-500 bg-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}"
 						onclick={() => sidebarTab = 'library'}
 					>Library</button>
+					<button
+						class="flex-1 py-1.5 text-[11px] font-medium transition-colors
+							{sidebarTab === 'catalog' ? 'text-blue-600 border-b-2 border-blue-500 bg-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}"
+						onclick={() => sidebarTab = 'catalog'}
+					>Catalog</button>
 				</div>
 
 				<!-- Sidebar content -->
 				<div class="flex-1 min-h-0 overflow-y-auto">
 					{#if sidebarTab === 'racks'}
+						{@const activeRow = rows.find(r => r.id === activeRowId)}
+						{#if activeRow}
+							<RowEditor
+								row={activeRow}
+								{racks}
+								{catalog}
+								onrename={label => renameRow(activeRow.id, label)}
+								onupdate={partial => updateRowDefaults(activeRow.id, partial as any)}
+								onquickfill={(kind, pid) => quickFillRow(activeRow.id, kind, pid)}
+								onaddn={(pid, count) => addRacksFromCatalog(activeRow.id, pid, count)}
+								oncopyrowdefaults={() => copyRowDefaultsToAllRacks(activeRow.id)} />
+						{/if}
 						<RackList {racks} {rows} {activeRowId} {selectedIds} onadd={addRack} onselect={selectRack} onrangeselect={rangeSelectRacks} ondelete={deleteRack} onaddrow={addRow} onreorder={reorderRacks} />
 					{:else if sidebarTab === 'devices'}
 						<RackDevices racks={activeRacks} {devices} {selectedIds} onselect={selectDevice} onrangeselect={rangeSelectDevices} ondelete={deleteDevice} />
 					{:else if sidebarTab === 'library'}
 						<DevicePalette {library} onadd={addDevice} ondragstart={onPaletteDragStart} oncustomadd={addCustomTemplate} />
+					{:else if sidebarTab === 'catalog'}
+						<CatalogBrowser
+							products={catalog}
+							contextRow={rows.find(r => r.id === activeRowId)}
+							onadd={addRackFromCatalog}
+							onaddcustom={addCustomProduct}
+							ondelete={deleteCatalogProduct} />
 					{/if}
 				</div>
 			</div>

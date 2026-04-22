@@ -33,17 +33,36 @@
 		return row.plan?.originMm ?? { x: 0, y: 0 }
 	}
 
-	/** Racks for this row with cumulative X offset (mm) from row origin */
+	/**
+	 * Racks for this row with cumulative X offset and front-aligned Y offset (mm).
+	 *
+	 * Plan convention: hot aisle at y=0 (top of diagram), cold aisle at larger y
+	 * (bottom). All items align their rack-front edge at y=rackFrontDepth, so
+	 * shallower items sit flush with the rack fronts. Items with
+	 * `frontProtrusionMm > 0` (typically VCMs — Panduit PR2V/PE2V protrude 224mm
+	 * past the rack rails) extend BELOW the rack-front line by that amount.
+	 */
 	function rowRacks(row: RackRow) {
-		let x = 0
-		return racks
+		const items = racks
 			.filter(r => r.rowId === row.id)
 			.sort((a, b) => a.order - b.order)
-			.map(r => {
-				const out = { rack: r, xMm: x }
-				x += r.widthMm + RACK_GAP_MM
-				return out
-			})
+		// rackFrontDepth = deepest rack (not counting VCM protrusion).
+		// Fall back to deepest item if no racks (all VCMs).
+		const rackItems = items.filter(r => r.type !== 'vcm')
+		const rackFrontDepth = rackItems.length
+			? rackItems.reduce((m, r) => Math.max(m, r.depthMm), 0)
+			: items.reduce((m, r) => Math.max(m, r.depthMm), 0)
+		const maxProtrusion = items.reduce((m, r) => Math.max(m, r.frontProtrusionMm ?? 0), 0)
+		const rowDepth = rackFrontDepth + maxProtrusion
+		let x = 0
+		return items.map(r => {
+			const protrusion = r.frontProtrusionMm ?? 0
+			// Item front edge = rackFrontDepth + protrusion. Item top = front - item depth.
+			const yMm = rackFrontDepth + protrusion - r.depthMm
+			const out = { rack: r, xMm: x, yMm, rackFrontDepth, rowDepth }
+			x += r.widthMm + RACK_GAP_MM
+			return out
+		})
 	}
 
 	// ── Row drag ──
@@ -130,15 +149,15 @@
 				{/if}
 			</div>
 
-			<!-- Rack footprints -->
-			{#each rr as { rack, xMm } (rack.id)}
+			<!-- Rack footprints (front edges aligned at bottom / cold aisle) -->
+			{#each rr as { rack, xMm, yMm } (rack.id)}
 				{@const selected = selectedIds.has(rack.id)}
 				<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 				<div
 					class="absolute border cursor-pointer flex items-center justify-center text-[10px] font-mono text-white
 						{selected ? 'ring-2 ring-blue-500 border-blue-700' : 'border-gray-700/60 hover:border-gray-900'}"
 					style:left="{xMm * SCALE}px"
-					style:top="0"
+					style:top="{yMm * SCALE}px"
 					style:width="{rack.widthMm * SCALE}px"
 					style:height="{rack.depthMm * SCALE}px"
 					style:background={rackFillColor(rack)}
@@ -148,16 +167,27 @@
 				</div>
 			{/each}
 
-			<!-- Row outline (if any racks) -->
+			<!-- Row outline + rack-front indicator (if any racks) -->
 			{#if rr.length > 0}
 				{@const totalWidthMm = rr.reduce((s, x) => s + x.rack.widthMm + RACK_GAP_MM, 0) - RACK_GAP_MM}
-				{@const maxDepthMm = Math.max(...rr.map(x => x.rack.depthMm))}
+				{@const rackFrontDepthMm = rr[0].rackFrontDepth}
+				{@const rowDepthMm = rr[0].rowDepth}
+				<!-- Outline wraps the full row including any VCM protrusion -->
 				<div class="absolute pointer-events-none border border-dashed
 					{isActive ? 'border-blue-400/80' : 'border-gray-400/50'}"
 					style:left="-4px"
 					style:top="-4px"
 					style:width="{totalWidthMm * SCALE + 8}px"
-					style:height="{maxDepthMm * SCALE + 8}px"></div>
+					style:height="{rowDepthMm * SCALE + 8}px"></div>
+				<!-- Rack-front line (VCMs protrude past this toward cold aisle) -->
+				<div class="absolute pointer-events-none border-b-2 border-blue-500/60"
+					style:left="0"
+					style:top="{rackFrontDepthMm * SCALE}px"
+					style:width="{totalWidthMm * SCALE}px"
+					style:height="0"></div>
+				<div class="absolute pointer-events-none text-[9px] text-blue-600 whitespace-nowrap"
+					style:left="0"
+					style:top="{rackFrontDepthMm * SCALE + 2}px">rack front</div>
 			{/if}
 		</div>
 	{/each}

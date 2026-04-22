@@ -7,6 +7,12 @@ import { inToMm, productId, type CatalogProduct } from './types'
 
 const MAKER = 'Panduit'
 
+/**
+ * Panduit VCMs (PR2V / PE2V families) protrude forward of the rack rails by
+ * 8.8 inches — the "vcmOffset" used by the Panduit row-builder plan view.
+ */
+const PANDUIT_VCM_PROTRUSION_MM = inToMm(8.8) // 224mm
+
 function urlFor(sku: string): string {
 	return `https://www.panduit.com/PanProducts/${encodeURIComponent(sku)}`
 }
@@ -52,6 +58,7 @@ function seedVcms(): CatalogProduct[] {
 		widthMm: inToMm(v.width),
 		depthMm: inToMm(v.depth),
 		color: v.color,
+		frontProtrusionMm: PANDUIT_VCM_PROTRUSION_MM,
 		hacTopCap: v.top_cap_HAC || undefined,
 		cacTopCap: v.top_cap_CAC || undefined,
 		hacEndPanel: v.end_panel_HAC || undefined,

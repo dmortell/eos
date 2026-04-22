@@ -56,6 +56,18 @@
 			{/if}
 			{@render Field('maker', shared(r => r.maker ?? ''), v => updateAll({ maker: v }))}
 			{@render Field('model', shared(r => r.model ?? ''), v => updateAll({ model: v }))}
+			{#if selectedRack.sku}
+				{@render Field('sku', shared(r => r.sku ?? ''), undefined)}
+			{/if}
+			<label class="flex gap-2 items-start">
+				<span class="w-16 text-gray-500 text-[10px] shrink-0 pt-1">notes</span>
+				<textarea
+					rows="2"
+					value={shared(r => r.notes ?? '') ?? ''}
+					placeholder={shared(r => r.notes) === undefined ? 'mixed' : ''}
+					class="flex-1 min-w-0 px-1 py-0.5 border border-gray-300 rounded text-xs resize-y"
+					onchange={e => updateAll({ notes: e.currentTarget.value || undefined })}></textarea>
+			</label>
 		</div>
 	</Window>
 {/if}

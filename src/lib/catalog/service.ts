@@ -67,6 +67,7 @@ export function rackFromCatalog(product: CatalogProduct): {
 	adjustable?: boolean
 	minDepthMm?: number
 	maxDepthMm?: number
+	frontProtrusionMm?: number
 	maker: string
 	model: string
 	heightU: number
@@ -87,6 +88,7 @@ export function rackFromCatalog(product: CatalogProduct): {
 		adjustable: product.adjustable,
 		minDepthMm: product.minDepthMm,
 		maxDepthMm: product.maxDepthMm,
+		frontProtrusionMm: product.frontProtrusionMm,
 		maker: product.maker,
 		model: product.sku,
 		heightU: product.ru ?? 45,

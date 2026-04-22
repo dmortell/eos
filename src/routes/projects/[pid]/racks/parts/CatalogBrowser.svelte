@@ -2,9 +2,12 @@
 	import { Icon, Search } from '$lib'
 	import { slide } from 'svelte/transition'
 	import type { CatalogProduct, ProductKind } from '$lib/catalog/types'
+	import type { RackRow } from './types'
+	import { isProductCompatibleWithRow } from './compat'
 
-	let { products = [], onadd, onaddcustom, ondelete }: {
+	let { products = [], contextRow, onadd, onaddcustom, ondelete }: {
 		products?: CatalogProduct[]
+		contextRow?: RackRow
 		onadd?: (product: CatalogProduct) => void
 		onaddcustom?: (product: Omit<CatalogProduct, 'seeded'>) => void
 		ondelete?: (id: string) => void
@@ -15,6 +18,8 @@
 	let colorFilter = $state<'all' | 'Black' | 'White'>('all')
 	let ruFilter = $state<'all' | 45 | 52>('all')
 	let builderOpen = $state(false)
+	// Auto-filter to products compatible with the active row (on by default when a row context exists)
+	let compatibleOnly = $state(true)
 
 	let custom = $state({
 		maker: '',
@@ -38,6 +43,9 @@
 			if (ruFilter !== 'all' && p.ru !== ruFilter) return false
 			if (makerFilter !== 'all' && p.maker !== makerFilter) return false
 			if (q && !p.sku.toLowerCase().includes(q) && !p.description.toLowerCase().includes(q)) return false
+			if (compatibleOnly && contextRow && (p.kind === 'rack' || p.kind === 'vcm')) {
+				if (!isProductCompatibleWithRow(p, contextRow).ok) return false
+			}
 			return true
 		})
 	})
@@ -162,6 +170,13 @@
 				<option value={52}>52 RU</option>
 			</select>
 		</div>
+
+		{#if contextRow}
+			<label class="flex items-center gap-1.5 text-[10px] text-gray-600 cursor-pointer select-none">
+				<input type="checkbox" bind:checked={compatibleOnly} class="accent-blue-600" />
+				<span>Compatible with <strong class="text-gray-800">{contextRow.label}</strong> only</span>
+			</label>
+		{/if}
 
 		<div class="text-[10px] text-gray-400">{filtered.length} of {products.length} products</div>
 	</div>

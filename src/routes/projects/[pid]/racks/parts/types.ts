@@ -52,6 +52,8 @@ export interface RackConfig {
 	adjustable?: boolean
 	minDepthMm?: number
 	maxDepthMm?: number
+	/** Forward protrusion past rack front (mm) — nonzero for VCMs like Panduit PR2V/PE2V. */
+	frontProtrusionMm?: number
 	containmentCapability?: {
 		hacTopCap?: string
 		cacTopCap?: string
@@ -60,6 +62,8 @@ export interface RackConfig {
 	}
 	// ── Frame linkage (0..1 per rack) ──
 	frameId?: string
+	// ── Free-form notes (shown in properties panel + row BOM) ──
+	notes?: string
 }
 
 /** Default shelf/tray heights for desk and shelf rack types */

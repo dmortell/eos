@@ -332,3 +332,12 @@ Phase this into M7 (after M6 room primitives) since walls/doors need to render i
 
 **Unchanged**
 - `outlets/+page.svelte`, `outlets/Outlets.svelte` — continue to consume the racks doc as today.
+
+
+Try it:
+- Open Racks sidebar tab → Row Settings appears at the top.
+- Pick 45 / Black / 30″ / Hot-Aisle (HAC) → if any rack in the row is R4P (fixed-depth, no HAC for some variants), you'll see an amber info box with the reasons.
+- Add a few racks from the Catalog tab (Compatible filter is on by default) → they land already matching row defaults.
+- Manually edit one rack's color to "White" in the PropertiesPanel → the RowEditor flashes the heterogeneous warning; "Apply row defaults to all" resets it.
+- Quick-fill — pick a catalog rack → every rack in the row rewrites to that SKU.
+- Enter per-rack notes → they're saved and visible when selecting that rack.

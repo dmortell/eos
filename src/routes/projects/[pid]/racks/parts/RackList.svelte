@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button, Icon } from '$lib'
+	import { Icon } from '$lib'
 	import { rackTypes, type RackConfig, type RackRow } from './types'
 
 	let { racks = [], rows = [], activeRowId = '', selectedIds = new Set<string>(), onadd, onselect, onrangeselect, ondelete, onaddrow, onreorder }: {
@@ -199,9 +199,11 @@
 		{#if !formOpen}
 			<div class="text-center py-3">
 				<p class="text-[10px] text-gray-400 mb-2">No racks yet</p>
-				<Button class="px-3 py-1 bg-blue-600 text-white text-[10px] rounded hover:bg-blue-500 transition-colors" onclick={() => formOpen = true}>
-					<Icon name="plus" size={10} /> Add Rack
-				</Button>
+				<button
+					class="inline-flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-[11px] font-medium rounded hover:bg-blue-500 transition-colors shadow-sm"
+					onclick={() => formOpen = true}>
+					<Icon name="plus" size={11} /> Add Rack
+				</button>
 			</div>
 		{/if}
 	{/if}
