@@ -109,13 +109,32 @@ export interface DeviceTemplate {
 	icon: string
 }
 
-// ── Elevation view bitmask ──
+// ── Canvas view (exclusive — one view at a time) ──
 export type ElevationFace = 'front' | 'rear'
+export type RackView = 'front' | 'rear' | 'plan'
+export const RACK_VIEWS: RackView[] = ['front', 'rear', 'plan']
+export const RACK_VIEW_DEFAULT: RackView = 'front'
+
+/**
+ * Legacy bitmask constants — retained temporarily so existing saved snapshots
+ * and old URL params can be migrated. New code should use `RackView` instead.
+ * @deprecated use RackView
+ */
 export const VIEW_FRONT = 0b0001
+/** @deprecated use RackView */
 export const VIEW_REAR  = 0b0010
-export const VIEW_PLAN  = 0b0100  // reserved
-export const VIEW_SIDE  = 0b1000  // reserved
+/** @deprecated use RackView */
+export const VIEW_PLAN  = 0b0100
+/** @deprecated use RackView */
 export const VIEW_DEFAULT = VIEW_FRONT
+
+/** Collapse the legacy view bitmask to a single view (priority: plan > front > rear). */
+export function viewFromMask(mask: number): RackView {
+	if (mask & VIEW_PLAN) return 'plan'
+	if (mask & VIEW_FRONT) return 'front'
+	if (mask & VIEW_REAR) return 'rear'
+	return RACK_VIEW_DEFAULT
+}
 
 export interface RackSettings {
 	slabLevel: number // mm, default 0

@@ -17,10 +17,9 @@ export const racksAdapter: SnapshotAdapter<RackDocData> = {
 
   defaultViewPresets(): ViewPreset[] {
     return [
-      { name: 'Front Elevation', layers: { front: true, rear: false, plan: false } },
-      { name: 'Rear Elevation', layers: { front: false, rear: true, plan: false } },
-      { name: 'Plan View', layers: { front: false, rear: false, plan: true } },
-      { name: 'Elevations + Plan', layers: { front: true, rear: true, plan: true } },
+      { name: 'Front Elevation', layers: { view: 'front' } },
+      { name: 'Rear Elevation',  layers: { view: 'rear' } },
+      { name: 'Plan View',       layers: { view: 'plan' } },
     ]
   },
 }

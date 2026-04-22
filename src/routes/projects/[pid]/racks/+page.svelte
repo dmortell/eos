@@ -5,7 +5,7 @@
 	import { writeLog } from '$lib/logger';
 	import { migrateFloors, updateFloors as _updateFloors, deleteFloor as _deleteFloor } from '$lib/utils/floor';
 	import type { DeviceTemplate } from './parts/types';
-	import { VIEW_FRONT, VIEW_REAR, VIEW_PLAN, VIEW_DEFAULT } from './parts/types';
+	import { RACK_VIEWS, RACK_VIEW_DEFAULT, viewFromMask, type RackView } from './parts/types';
 	import { findOrCreateDrawing } from '$lib/versioning/service';
 	import Racks from './Racks.svelte';
 
@@ -18,11 +18,17 @@
 	let activeFloor = $state(Number(page.url.searchParams.get('floor')) || 1);
 	let activeRoom = $state(page.url.searchParams.get('room') ?? 'A');
 	const _sp = page.url.searchParams;
-	const initialViewMask = _sp.has('front') || _sp.has('rear') || _sp.has('plan')
-		? ((_sp.get('front') === '1' ? VIEW_FRONT : 0)
-			| (_sp.get('rear') === '1' ? VIEW_REAR : 0)
-			| (_sp.get('plan') === '1' ? VIEW_PLAN : 0)) || VIEW_DEFAULT
-		: undefined;
+	// Preferred: ?view=front|rear|plan. Backwards-compat: old ?front=/?rear=/?plan= bitmask URLs.
+	const _rawView = _sp.get('view');
+	const initialView: RackView | undefined = _rawView && (RACK_VIEWS as readonly string[]).includes(_rawView)
+		? (_rawView as RackView)
+		: (_sp.has('front') || _sp.has('rear') || _sp.has('plan')
+			? viewFromMask(
+				(_sp.get('front') === '1' ? 0b0001 : 0) |
+				(_sp.get('rear') === '1' ? 0b0010 : 0) |
+				(_sp.get('plan') === '1' ? 0b0100 : 0)
+			) || RACK_VIEW_DEFAULT
+			: undefined);
 	const SIDEBAR_TABS = ['racks', 'devices', 'library', 'catalog', 'bom'] as const;
 	type SidebarTab = typeof SIDEBAR_TABS[number];
 	const _rawTab = _sp.get('tab');
@@ -177,7 +183,7 @@
 	<!-- {#key `${activeFloor}-${activeRoom}`}
 			{/key} -->
 		<Racks data={rackData} {library} floor={activeFloor} room={activeRoom} {floors} projectId={page.params.pid} {floorFormat} {projectName}
-			{drawingId} {db} uid={session.user?.uid ?? ''} {initialViewMask} {initialTab}
+			{drawingId} {db} uid={session.user?.uid ?? ''} {initialView} {initialTab}
 			onsave={save} onlibrarychange={saveLibrary} onfloorchange={changeFloor} onroomchange={changeRoom}
 			onupdatefloors={updateFloors} ondeletefloor={deleteFloor} />
 {/if}

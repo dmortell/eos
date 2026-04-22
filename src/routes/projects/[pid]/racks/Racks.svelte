@@ -5,8 +5,8 @@
 	import VersionPanel from '../parts/VersionPanel.svelte'
 	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
 	import type { ChangeDetail } from '$lib/logger'
-	import type { RackConfig, DeviceConfig, DeviceTemplate, RackRow, RackSettings, ViewState, ElevationFace, RoomObject } from './parts/types'
-	import { VIEW_FRONT, VIEW_REAR, VIEW_PLAN, VIEW_DEFAULT } from './parts/types'
+	import type { RackConfig, DeviceConfig, DeviceTemplate, RackRow, RackSettings, ViewState, ElevationFace, RoomObject, RackView } from './parts/types'
+	import { RACK_VIEW_DEFAULT } from './parts/types'
 	import { DEFAULT_SETTINGS, SCALE, RU_HEIGHT_MM, RACK_GAP_PX, RACK_19IN_MM, rackHeightMm } from './parts/constants'
 	import RackList from './parts/RackList.svelte'
 	import RowEditor from './parts/RowEditor.svelte'
@@ -31,7 +31,7 @@
 
 	type SidebarTab = 'racks' | 'devices' | 'library' | 'catalog' | 'bom'
 
-	let { data = null, library = [], floor, room, floors = [], projectId = '', projectName = '', floorFormat = 'L01', drawingId = '', db = new Firestore(), uid = '', initialViewMask, initialTab, onsave, onlibrarychange, onfloorchange, onroomchange, onupdatefloors, ondeletefloor }: {
+	let { data = null, library = [], floor, room, floors = [], projectId = '', projectName = '', floorFormat = 'L01', drawingId = '', db = new Firestore(), uid = '', initialView, initialTab, onsave, onlibrarychange, onfloorchange, onroomchange, onupdatefloors, ondeletefloor }: {
 		data?: any
 		library?: DeviceTemplate[]
 		floor: number
@@ -43,7 +43,8 @@
 		drawingId?: string
 		db?: Firestore
 		uid?: string
-		initialViewMask?: number
+		/** Initial canvas view from the `?view=` URL param. */
+		initialView?: RackView
 		/** Initial sidebar tab from the `?tab=` URL param. Falls back to 'devices'. */
 		initialTab?: SidebarTab
 		onsave?: (payload: any, changes: ChangeDetail[]) => void
@@ -99,7 +100,21 @@
 	})
 	let catalog = $state<CatalogProduct[]>([])
 	let selectedIds = $state(new Set<string>())
-	let viewMask = $state(initialViewMask ?? VIEW_DEFAULT)
+	let canvasView = $state<RackView>(initialView ?? RACK_VIEW_DEFAULT)
+
+	// Persist canvas view in the URL so browser back from cross-tool nav restores it.
+	$effect(() => {
+		const current = canvasView
+		if (typeof window === 'undefined') return
+		const url = new URL(window.location.href)
+		if (url.searchParams.get('view') === current) return
+		url.searchParams.set('view', current)
+		// Clean up any old bitmask params so the URL stays tidy after migration.
+		url.searchParams.delete('front')
+		url.searchParams.delete('rear')
+		url.searchParams.delete('plan')
+		window.history.replaceState(null, '', url.toString())
+	})
 	let floorManagerOpen = $state(false)
 	let saveStatus = $state<'saved' | 'saving' | 'unsaved'>('saved')
 
@@ -183,36 +198,20 @@
 		logChange('update', 'rack', `Moved ${orphaned.length} unassigned rack(s) to ${rows[0].label}`)
 	})
 
-	// Rear elevation: reversed rack order, bottom-aligned below front view
-	const REAR_GAP_MM = 600
-	const PLAN_GAP_MM = 1500
+	// Rear-view racks: same floor level as front, but reversed left-to-right order
+	// (viewer is standing behind the row). Only populated when canvasView === 'rear'.
 	let rearRacks = $derived.by(() => {
-		if (!(viewMask & VIEW_REAR) || activeRacks.length === 0) return []
-		const tallest = Math.max(...activeRacks.map(r => r.heightMm))
-		const rearBottom = settings.floorLevel - REAR_GAP_MM - tallest
+		if (canvasView !== 'rear' || activeRacks.length === 0) return []
 		return [...activeRacks].reverse().map((rack, idx, arr) => {
 			let x = 0
 			for (let i = 0; i < idx; i++) x += arr[i].widthMm + RACK_GAP_PX / SCALE
-			return { ...rack, _x: x, _z: rearBottom, _face: 'rear' as ElevationFace }
+			return { ...rack, _x: x, _z: settings.floorLevel, _face: 'rear' as ElevationFace }
 		})
 	})
 
-	// ── Plan view: place below elevations (or at top of canvas if no elevations) ──
-	let planTopPx = $derived.by(() => {
-		if (!(viewMask & VIEW_PLAN)) return 0
-		const hasFront = viewMask & VIEW_FRONT
-		const hasRear = viewMask & VIEW_REAR
-		if (!hasFront && !hasRear) return 0
-		// Canvas Y (in mm from top of canvas) of the lowest elevation content
-		let bottomMm: number
-		if (hasRear && racks.length > 0) {
-			const tallest = Math.max(...racks.map(r => r.heightMm))
-			bottomMm = view.bottom - settings.floorLevel + REAR_GAP_MM + tallest
-		} else {
-			bottomMm = view.bottom - settings.floorLevel + 100
-		}
-		return (bottomMm + PLAN_GAP_MM) * SCALE
-	})
+	// Single-view mode: plan view has the canvas to itself. RackPlan's internal
+	// section label + drawable area live at the top of the canvas.
+	let planTopPx = $state(80)
 
 	function moveRow(rowId: string, originMm: { x: number; y: number }) {
 		rows = rows.map(r => r.id === rowId
@@ -1065,23 +1064,23 @@
 		<!-- Canvas + toolbar + status bar -->
 		<Pane defaultSize={80}>
 			<div class="h-full flex flex-col">
-			<RoomSelector {floors} {floor} {room} {floorFormat} {rows} {activeRowId} {viewMask}
+			<RoomSelector {floors} {floor} {room} {floorFormat} {rows} {activeRowId} view={canvasView}
 				{onfloorchange} {onroomchange}
 				onactiverowchange={id => activeRowId = id}
 				onaddrow={addRow}
 				ondeleterow={id => confirmingDeleteRow = id}
 				onmanagefloors={() => floorManagerOpen = true}
-				onviewmaskchange={m => viewMask = m} />
+				onviewchange={v => canvasView = v} />
 
 			<!-- svelte-ignore a11y_click_events_have_key_events -->
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div class="flex-1 min-h-0 relative" onclick={onCanvasClick} bind:this={canvasEl}>
-				{#if viewMask & VIEW_PLAN}
+				{#if canvasView === 'plan'}
 					<PlanToolbar mode={planMode} onchange={m => planMode = m} />
 				{/if}
 				<Canvas bind:view width={canvasWidth} height={canvasHeight}>
-					{#if viewMask & (VIEW_FRONT | VIEW_REAR)}
-						<RackElevations {view} {settings} {activeRacks} {rearRacks} {viewMask} {devices} {selectedIds} {dropGhost} {rackOverlaps} {editingLine}
+					{#if canvasView === 'front' || canvasView === 'rear'}
+						<RackElevations {view} {settings} {activeRacks} {rearRacks} face={canvasView} {devices} {selectedIds} {dropGhost} {rackOverlaps} {editingLine}
 							floorLabel={fmt(floor)} roomLabel={roomLabel(room)}
 							onstarttlinedrag={startLineDrag}
 							oneditline={field => editingLine = field}
@@ -1092,7 +1091,7 @@
 							ondeletedevice={deleteDevice}
 							onselectdevice={id => selectedIds = new Set([id])} />
 					{/if}
-					{#if viewMask & VIEW_PLAN}
+					{#if canvasView === 'plan'}
 						<RackPlan {view} {rows} {racks} {roomObjects} {selectedIds} {activeRowId} {planTopPx}
 							{planMode} {selectedRoomObjectId}
 							onmoverow={moveRow}
@@ -1108,7 +1107,7 @@
 			<!-- Properties panel -->
 			<PropertiesPanel {selectedRacks} {projectId} {floor} onupdaterack={updateRack} />
 
-			{#if viewMask & VIEW_PLAN}
+			{#if canvasView === 'plan'}
 				{@const selectedRoomObject = roomObjects.find(o => o.id === selectedRoomObjectId) ?? null}
 				<RoomObjectProperties
 					object={selectedRoomObject}

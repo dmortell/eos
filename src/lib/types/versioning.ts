@@ -9,9 +9,9 @@ export type PackageStatus = 'draft' | 'published' | 'superseded'
 export type PackageType = 'concept' | 'schematic' | 'detailed' | 'rfp' | 'shop' | 'as-built' | 'custom'
 
 export interface ViewPreset {
-  name: string                     // "Low Level Outlets", "High Level Trunk Routes"
-  layers: Record<string, boolean>  // which layers are on/off
-  filters?: Record<string, any>   // tool-specific view filters
+  name: string                                // "Low Level Outlets", "High Level Trunk Routes"
+  layers: Record<string, boolean | string>    // boolean layers (on/off) or enum values (e.g. view: 'plan')
+  filters?: Record<string, any>               // tool-specific view filters
 }
 
 export interface DrawingDoc {

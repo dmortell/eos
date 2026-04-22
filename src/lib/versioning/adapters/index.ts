@@ -71,10 +71,10 @@ export function drawingToolHref(pid: string, toolType: ToolType, sourceDocId: st
   if (floor != null) params.set('floor', String(floor))
   if (room) params.set('room', room)
 
-  // Encode view preset layers as params (e.g. lowOutlets=1&highTrunks=0)
+  // Encode view preset layers as params. Booleans → 1/0, strings → literal value.
   if (viewPreset?.layers) {
     for (const [key, val] of Object.entries(viewPreset.layers)) {
-      params.set(key, val ? '1' : '0')
+      params.set(key, typeof val === 'string' ? val : (val ? '1' : '0'))
     }
   }
 

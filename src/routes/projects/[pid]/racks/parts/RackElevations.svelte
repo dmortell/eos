@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { RackConfig, DeviceConfig, RackSettings, ViewState, ElevationFace } from './types'
-	import { VIEW_FRONT, VIEW_REAR } from './types'
 	import { SCALE, RU_HEIGHT_MM, RACK_19IN_MM } from './constants'
 	import RackFrame from './RackFrame.svelte'
 	import Rect from './Rect.svelte'
@@ -8,7 +7,7 @@
 	import DeviceView from './DeviceView.svelte'
 
 	let {
-		view, settings, activeRacks, rearRacks = [], viewMask, devices, selectedIds, dropGhost, rackOverlaps,
+		view, settings, activeRacks, rearRacks = [], face, devices, selectedIds, dropGhost, rackOverlaps,
 		floorLabel, roomLabel,
 		onstarttlinedrag, oneditline, oncleareditline, onsettingchange,
 		ondevicedrag, ondevicedragged, ondeletedevice, onselectdevice,
@@ -18,7 +17,7 @@
 		settings: RackSettings
 		activeRacks: (RackConfig & { _x: number; _z: number })[]
 		rearRacks?: (RackConfig & { _x: number; _z: number; _face: ElevationFace })[]
-		viewMask: number
+		face: ElevationFace
 		devices: DeviceConfig[]
 		selectedIds: Set<string>
 		dropGhost: { left: number; top: number; width: number; height: number } | null
@@ -78,9 +77,6 @@
 	function sortedByFace(devs: DeviceConfig[], face: ElevationFace): DeviceConfig[] {
 		return [...devs].sort((a, b) => deviceOpacity(a, face) - deviceOpacity(b, face))
 	}
-
-	let showFront = $derived(!!(viewMask & VIEW_FRONT))
-	let showRear = $derived(!!(viewMask & VIEW_REAR))
 
 	const wallW = 50
 	let roomW = $derived(settings.rightWallX - settings.leftWallX)
@@ -170,14 +166,12 @@
 	<span class="absolute -top-4 left-1/2 -translate-x-1/2 text-[10px] text-gray-500 whitespace-nowrap">Wall</span>
 </div>
 
-<!-- ── FRONT ELEVATION ── -->
-{#if showFront}
-	<!-- Rack frames -->
+<!-- ── ELEVATION (front or rear) ── -->
+{#if face === 'front'}
 	{#each activeRacks as rack (rack.id)}
 		<RackFrame {rack} {view} face="front" selected={selectedIds.has(rack.id)} overlaps={rackOverlaps.get(rack.id)} />
 	{/each}
 
-	<!-- Devices -->
 	{#each sortedByFace(visibleDevices, 'front') as device (device.id)}
 		{@const opacity = deviceOpacity(device, 'front')}
 		{@const faded = opacity < 1}
@@ -190,26 +184,12 @@
 			<DeviceView {device} {view} {opacity} ondelete={faded ? undefined : () => ondeletedevice(device.id)} />
 		</Draggable>
 	{/each}
-{/if}
-
-<!-- ── REAR ELEVATION ── -->
-{#if showRear && rearRacks.length > 0}
-	<!-- Rear label -->
-	{@const firstRear = rearRacks[0]}
-	<div class="absolute pointer-events-none select-none"
-		style:left={firstRear._x * SCALE + 'px'}
-		style:top={(view.bottom - firstRear._z - firstRear.heightMm - 150) * SCALE + 'px'}
-		style:font-size="14px">
-		<span class="font-semibold text-gray-400">REAR ELEVATION</span>
-	</div>
-
-	<!-- Rear rack frames -->
-	{#each rearRacks as rack (`rear-${rack.id}`)}
+{:else if face === 'rear'}
+	{#each rearRacks as rack (rack.id)}
 		<RackFrame {rack} {view} face="rear" selected={selectedIds.has(rack.id)} overlaps={rackOverlaps.get(rack.id)} />
 	{/each}
 
-	<!-- Rear devices -->
-	{#each sortedByFace(visibleDevices, 'rear') as device (`rear-${device.id}`)}
+	{#each sortedByFace(visibleDevices, 'rear') as device (device.id)}
 		{@const opacity = deviceOpacity(device, 'rear')}
 		{@const faded = opacity < 1}
 		<Draggable {view} shape={deviceScreenRect(device, rearRacks, 'rear')} item={device}

@@ -43,14 +43,18 @@ export interface Page {
   projectId: string
   title: string                      // drawing title on the title block
   drawingNumber?: string             // e.g. "E-001"
-  revision?: string                  // e.g. "A"
-  order: number                      // position in the drawing package
+  order: number                      // position in the parent drawing package (if any)
+  /** Default scale applied to newly-created viewports. Each viewport stores its own `scale`. */
   paper: PrintSettings               // reuse existing type from $lib/ui/print/types
   titleBlock?: TitleBlockConfig
   viewports: Viewport[]
   notes?: string
+  /** Whether this page is printed when its drawing packages are published. Default true. */
+  includeInPackages?: boolean
   updatedAt?: number
   updatedBy?: string
+  // Note: the "revision code" (A/B/C) shown on the title block is NOT stored here.
+  // It comes from the page's `RevisionDoc` subcollection — see Versioning section.
 }
 
 export interface Viewport {
@@ -64,12 +68,23 @@ export interface Viewport {
   source: ViewportSource
   /** Clip / crop within the source drawing's own coordinate space (mm). */
   sourceClip?: { x: number; y: number; widthMm: number; heightMm: number }
-  /** Drawing scale ratio — 50 = 1:50, 100 = 1:100, etc. Zero = "fit". */
+  /**
+   * Drawing scale for this viewport — 50 = 1:50, 100 = 1:100, etc. Zero = "fit to viewport".
+   * Independent of `Page.paper.scale`, which only seeds new viewports' default.
+   */
   scale: number
   /** Optional viewport label (shown above the viewport frame). */
   label?: string
   /** Optional border / frame style. */
   border?: 'none' | 'thin' | 'thick'
+  /**
+   * When set, the viewport renders a frozen revision of its source. Absent = live-subscribed
+   * to the source's current state. See the Versioning section for how publishing sets this.
+   */
+  sourcePin?: {
+    drawingId: string                // target DrawingDoc id
+    revisionCode: string             // e.g. 'A', 'B', 'C'
+  }
 }
 
 export type ViewportSource =
@@ -216,7 +231,10 @@ src/routes/projects/[pid]/drawings/packages/[packageId]/+page.svelte        (pac
 ### P2 — Page model + storage
 - `Page` / `Viewport` / `TitleBlock` types.
 - `lib/pages/service.ts` — CRUD + subscribe.
+- **On page create, auto-create a matching `DrawingDoc` with `toolType: 'page'`** so it flows into the drawing list and the versioning system. `ToolType` union gets `'page'` added; `drawingToolHref('page', …)` returns `/projects/{pid}/drawings/pages/{pageId}`.
+- Add `meta['page']` entry in `lib/versioning/adapters/index.ts` with `scope: 'project'`.
 - Firestore rules added for `pages/` collection.
+- Drawing list row actions for page rows: **Open page editor** + a **"Include in packages"** checkbox inline.
 
 ### P3 — PageCanvas foundation
 - `PageCanvas.svelte` with paper + pan/zoom + add/select/move/resize viewport frames.
@@ -231,27 +249,120 @@ src/routes/projects/[pid]/drawings/packages/[packageId]/+page.svelte        (pac
 - Add-viewport palette wires each kind to its creation form.
 
 ### P6 — Title block
-- `TitleBlock.svelte` with 'standard' / 'compact' templates.
-- Project-level defaults (project name, author, address) pulled from the project doc.
-- Per-page overrides.
+- `TitleBlock.svelte` with 'standard' / 'compact' code-defined templates.
+- Layout is hard-coded in the component (grid of fields — project name, drawing number, revision from current `RevisionDoc`, scale, paper size, date, drawn/checked/approved initials, client logo slot).
+- Project-level defaults (project name, author, address, logo) pulled from the project doc.
+- Per-page overrides via `titleBlock.fields`.
+- *Backlog:* **visual block editor** — let project admins drag-design custom title blocks (company-specific headers, custom field sets, logo placement) without touching code. Stored as a `TitleBlockTemplate` doc, referenced by `titleBlock.template` when set to a custom id.
 
 ### P7 — Remaining viewport kinds
 - `FrameDetailViewport`, `FillrateViewport`, `FloorplanViewport`.
 
+### P7.5 — Page publishing + viewport pin-on-publish
+- Implement the publish flow described in the Versioning section: walk each live viewport, find-or-create a source `RevisionDoc`, write `sourcePin` into the page revision snapshot.
+- `pagesAdapter` with `serialize` that includes pinned viewport sources keyed by viewport id.
+- "N changes since pin" badge logic on stale viewports.
+- Version panel wired up for pages (uses the generic version panel already used by other tools).
+
 ### P8 — Drawing packages
 - `DrawingPackage` collection + CRUD.
 - Package editor page (reorder pages, set cover/rev).
+- Bulk publish: for each page in the package with `includeInPackages === true`, call the page-publish routine, then concatenate pinned renders into one PDF.
 - Multi-page PDF export via sequential print or a batched approach.
 
 ---
 
-## Open Questions
+## Settled Decisions
 
-1. **Source freshness** — when a viewport shows "rack elevations floor 2 room A", does it live-subscribe to the racks doc (always current) or snapshot the data at placement time (stable, can be updated manually)? Recommend **live by default**, with an optional "pin to version" that references a `RevisionDoc` snapshot — matches the existing versioning story.
-2. **Scale per viewport vs page** — viewports can have independent scales (e.g. a detail callout at 1:20 alongside a plan at 1:100). Confirm the paper's `scale` is just the *default* used when creating new viewports; each viewport carries its own.
-3. **Title block authoring** — full template-editor with a visual designer, or just a JSON-configured layout in code for v1? Recommend **code layout** for P6, **template editor** later if needed.
-4. **Drawings tool integration** — should every page automatically appear in the drawing list (`DrawingDoc` created on page creation)? Or are pages + drawings separate? Recommend **pages subsume drawings for page-edited tools** — a page gets a `DrawingDoc` record so revisioning / listing / linking keeps working unchanged, but tool-scoped drawings (e.g. rack elevation of a single room) stay as today.
-5. **Print scale fidelity** — at print time, 1 mm in source must equal exactly 1 mm on paper × (1 / scale). Reuse the calibration pattern from `OutletCanvas` but simpler since paper IS the coordinate space.
+1. **Page scale is just the default** used when creating new viewports. Each viewport carries its own `scale` — a detail callout at 1:20 can sit alongside a plan at 1:100.
+2. **Title block uses a code-defined layout** for v1 (a Svelte component with fixed zones for the usual fields). *Backlog:* add a visual block editor later so project admins can design custom title blocks without code changes.
+3. **Every page appears in the drawing list.** A `DrawingDoc` record is auto-created when a page is created (with `toolType: 'page'` — a new value in the ToolType union). Each page has an **"include in published packages"** boolean (default `true`) that controls whether it's printed when a drawing package is exported.
+4. **Print scale fidelity:** at print time, 1 mm in source = 1 mm on paper × (1 / viewport.scale). Reuse the `triggerPrint` / `updatePrintStyles` pipeline from `$lib/ui/print` — simpler than `OutletCanvas` because the paper IS the coordinate space (no PDF underlay calibration needed).
+
+See the next section for versioning — this needed more thought than the other questions.
+
+## Versioning across viewports
+
+### The problem
+
+A page has viewports pointing to source drawings in other tools. Each source already has its own versioning (`DrawingDoc` + `RevisionDoc` subcollection). The page itself also needs revisions. Three things interact:
+1. When a source drawing changes, does the page see the new version immediately?
+2. When you publish a revision of a page, does it freeze the viewports' source data so the revision is reproducible?
+3. How do you compare "page rev A" vs "page rev B" — structural differences plus source data differences?
+
+### Strategy: live by default, pin on publish
+
+**Authoring** (default state while someone is designing the page):
+- Every viewport is **live-subscribed** to its source doc — it shows whatever the source currently contains.
+- No `sourcePin` set.
+- Editing the page's structure (move/add/remove viewports, change layout) creates autosave writes like any other tool.
+
+**Publishing** (creating a page revision, typically via the version panel or when assembling a drawing package):
+- Walks every live viewport on the page.
+- For each, ensures the source drawing has a revision at its current state (creates one automatically, labelled like `Auto — pinned for {Page.title} rev {Rev.code}` if no revision at current state exists; otherwise references the latest existing revision).
+- Writes each viewport's `sourcePin: { drawingId, revisionCode }` into the snapshot stored on the page's `RevisionDoc`.
+- The page's current doc is not modified — viewports stay live for ongoing authoring.
+
+**Viewing an older page revision:**
+- Each viewport reads its `sourcePin` from the revision snapshot and loads that exact source revision's data.
+- Renders read-only. "Jump to source" navigates to the source tool filtered by the pinned revision.
+- An "N changes since pin" badge appears on pins that have been superseded — useful for deciding whether to re-publish.
+
+**Promoting to a new page revision:**
+- User edits the live page → autosaves land in the current page doc.
+- "Publish revision" again → re-pins viewports to their current source state → new page `RevisionDoc`.
+
+### Data model additions
+
+```ts
+export interface Viewport {
+  // … existing fields …
+  /**
+   * When set, this viewport renders against a specific frozen revision of the source.
+   * Absent = live (follow source's latest). Populated automatically when a page
+   * revision is published; may also be set manually by the user via the viewport
+   * properties panel ("Pin to version").
+   */
+  sourcePin?: {
+    drawingId: string    // target DrawingDoc id
+    revisionCode: string // e.g. 'A', 'B', 'C'
+  }
+}
+
+export interface Page {
+  // … existing fields …
+  /** Whether this page is included when its drawing packages are printed. Default true. */
+  includeInPackages?: boolean
+  // Drop the old top-level `revision` field — revision data lives on RevisionDoc subcollection.
+}
+```
+
+### Auto-creation of source revisions
+
+When publishing a page revision, we may need to create revisions on source drawings that haven't been explicitly revised. To avoid polluting the version list with noise:
+
+- Auto-created source revisions get a special flag `autoCreatedForPage?: { pageId: string; pageRevisionCode: string }` on the RevisionDoc.
+- The version panel UI filters or visually dims auto-created revisions by default (toggle "show auto pins").
+- If the source state is identical to the latest existing revision, we *reference* that one instead of creating a new revision.
+
+### Adapter work
+
+- New `pagesAdapter` in `src/lib/versioning/adapters/pages.ts` — its serialize/validate handles the Page type.
+- `meta['page']` added to the `ToolType` registry: scope `'project'`, default presets like `{ name: 'As drafted', layers: { printable: true } }`.
+- Per-page `buildSourceDocId` returns `pages/{pid}_{pageId}` (the storage doc for live page state).
+- `pageRevision.snapshot` stores `{ page: Page, viewportSources: Record<viewportId, { drawingId, revisionCode }> }` — the viewport pins indexed for fast lookup.
+
+### Open sub-questions
+
+- Should creating a page auto-create a rev A immediately, or only on first "publish"? Lean **only on first publish** — a freshly-created page with no data isn't worth a revision.
+- When a viewport's source drawing is *deleted*, the pinned revision is still reachable (revisions survive deletion), but "edit source" navigation is broken. Show a warning badge and allow the user to replace the viewport source with something current.
+
+---
+
+## Other settled questions
+
+- **Pages flow into the drawing list unchanged** — `DrawingList.svelte` just needs to handle `toolType: 'page'` (different row actions — "open page editor" instead of "open in tool"). Revisions render the same way they do for other tools.
+- **Publishing workflow for drawing packages** — a future `packages/[packageId]/+page.svelte` view filters `Page[]` by `projectId + packageId + includeInPackages === true`, sorts by the package's `pageOrder`, and calls a bulk-publish routine that walks each page, calls the page-publish logic above, then concatenates the resulting pinned renders into one PDF.
 
 ---
 
