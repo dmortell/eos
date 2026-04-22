@@ -1,27 +1,40 @@
 <script lang="ts">
 	import { SCALE, RACK_GAP_PX } from './constants'
-	import type { RackRow, RackConfig, ViewState } from './types'
+	import type { RackRow, RackConfig, ViewState, RoomObject } from './types'
+	import type { PlanMode } from './PlanToolbar.svelte'
 
 	let {
 		view,
 		rows,
 		racks,
+		roomObjects = [],
 		selectedIds,
 		activeRowId,
 		planTopPx = 0,
+		planMode = 'select',
+		selectedRoomObjectId = null,
 		onmoverow,
 		onselectrack,
 		onselectrow,
+		onaddroomobject,
+		onselectroomobject,
+		ondeleteroomobject,
 	}: {
 		view: ViewState
 		rows: RackRow[]
 		racks: RackConfig[]
+		roomObjects?: RoomObject[]
 		selectedIds: Set<string>
 		activeRowId: string
 		planTopPx?: number
+		planMode?: PlanMode
+		selectedRoomObjectId?: string | null
 		onmoverow?: (rowId: string, originMm: { x: number; y: number }) => void
 		onselectrack?: (id: string, multi?: boolean) => void
 		onselectrow?: (rowId: string) => void
+		onaddroomobject?: (obj: RoomObject) => void
+		onselectroomobject?: (id: string | null) => void
+		ondeleteroomobject?: (id: string) => void
 	} = $props()
 
 	const GRID_MM = 100
@@ -115,6 +128,124 @@
 		if (rack.type === 'cabinet') return '#334155'
 		return '#0fa958'
 	}
+
+	// ── Room-object drawing ──
+	/** Canvas size for the room-object overlay (20m × 20m — plenty for a server room). */
+	const PLAN_CANVAS_MM = 20000
+
+	let overlayEl = $state<HTMLDivElement | null>(null)
+	let drawStart = $state<{ x: number; y: number } | null>(null)
+	let hoverPoint = $state<{ x: number; y: number } | null>(null)
+	let rectDragging = $state(false)
+
+	function clientToPlanMm(clientX: number, clientY: number): { x: number; y: number } {
+		if (!overlayEl) return { x: 0, y: 0 }
+		const rect = overlayEl.getBoundingClientRect()
+		const mmX = (clientX - rect.left) / (view.zoom * SCALE)
+		const mmY = (clientY - rect.top) / (view.zoom * SCALE)
+		return { x: snap(mmX), y: snap(mmY) }
+	}
+
+	function onOverlayClick(e: MouseEvent) {
+		if (e.button !== 0) return
+		const p = clientToPlanMm(e.clientX, e.clientY)
+		if (planMode === 'wall') {
+			if (!drawStart) {
+				drawStart = p
+			} else {
+				if (p.x === drawStart.x && p.y === drawStart.y) return
+				onaddroomobject?.({
+					id: `obj-${Date.now()}`,
+					kind: 'wall',
+					position: drawStart,
+					endPosition: p,
+					thicknessMm: 100,
+				})
+				drawStart = null
+			}
+		} else if (planMode === 'door') {
+			onaddroomobject?.({
+				id: `obj-${Date.now()}`,
+				kind: 'door',
+				position: p,
+				widthMm: 900,
+				depthMm: 100,
+				rotationDeg: 0,
+				swing: 'left',
+			})
+		}
+	}
+
+	function onOverlayMouseMove(e: MouseEvent) {
+		hoverPoint = clientToPlanMm(e.clientX, e.clientY)
+	}
+
+	function onOverlayMouseDown(e: MouseEvent) {
+		if (planMode !== 'rect' || e.button !== 0) return
+		e.preventDefault()
+		drawStart = clientToPlanMm(e.clientX, e.clientY)
+		hoverPoint = drawStart
+		rectDragging = true
+		document.addEventListener('mousemove', onRectDragMove)
+		document.addEventListener('mouseup', onRectDragEnd)
+	}
+
+	function onRectDragMove(e: MouseEvent) {
+		if (!rectDragging) return
+		hoverPoint = clientToPlanMm(e.clientX, e.clientY)
+	}
+
+	function onRectDragEnd(e: MouseEvent) {
+		document.removeEventListener('mousemove', onRectDragMove)
+		document.removeEventListener('mouseup', onRectDragEnd)
+		if (!rectDragging || !drawStart) { rectDragging = false; drawStart = null; hoverPoint = null; return }
+		const end = clientToPlanMm(e.clientX, e.clientY)
+		const x = Math.min(drawStart.x, end.x)
+		const y = Math.min(drawStart.y, end.y)
+		const w = Math.abs(end.x - drawStart.x)
+		const h = Math.abs(end.y - drawStart.y)
+		if (w > 0 && h > 0) {
+			onaddroomobject?.({
+				id: `obj-${Date.now()}`,
+				kind: 'rect',
+				position: { x, y },
+				widthMm: w,
+				depthMm: h,
+				label: 'Object',
+			})
+		}
+		rectDragging = false
+		drawStart = null
+		hoverPoint = null
+	}
+
+	function cancelDraw() {
+		drawStart = null
+		hoverPoint = null
+	}
+
+	$effect(() => {
+		// Mode changed — abandon any in-progress draw
+		planMode
+		untrack(() => {
+			drawStart = null
+			hoverPoint = null
+		})
+	})
+
+	// Delete selected room object with Delete / Backspace (unless typing in a field)
+	function onKeyDown(e: KeyboardEvent) {
+		const t = e.target as HTMLElement | null
+		if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+		if (e.key === 'Escape') { cancelDraw(); return }
+		if ((e.key === 'Delete' || e.key === 'Backspace') && selectedRoomObjectId) {
+			ondeleteroomobject?.(selectedRoomObjectId)
+		}
+	}
+
+	import { untrack, onMount, onDestroy } from 'svelte'
+	onMount(() => window.addEventListener('keydown', onKeyDown))
+	onDestroy(() => window.removeEventListener('keydown', onKeyDown))
 </script>
 
 <div class="absolute left-0" style:top="{planTopPx}px">
@@ -191,4 +322,94 @@
 			{/if}
 		</div>
 	{/each}
+
+	<!-- Room objects (walls, doors, rects) rendered as SVG in mm-units. -->
+	<svg
+		class="absolute top-0 left-0 pointer-events-none"
+		style:width="{PLAN_CANVAS_MM * SCALE}px"
+		style:height="{PLAN_CANVAS_MM * SCALE}px"
+		viewBox="0 0 {PLAN_CANVAS_MM} {PLAN_CANVAS_MM}"
+		preserveAspectRatio="xMinYMin meet">
+		<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+		{#each roomObjects as obj (obj.id)}
+			{@const isSelected = selectedRoomObjectId === obj.id}
+			{@const stroke = isSelected ? '#2563eb' : (obj.color ?? '#64748b')}
+			{#if obj.kind === 'wall' && obj.endPosition}
+				<line
+					x1={obj.position.x} y1={obj.position.y}
+					x2={obj.endPosition.x} y2={obj.endPosition.y}
+					stroke={stroke}
+					stroke-width={obj.thicknessMm ?? 100}
+					stroke-linecap="round"
+					class={planMode === 'select' ? 'cursor-pointer pointer-events-auto' : ''}
+					onclick={e => { if (planMode === 'select') { e.stopPropagation(); onselectroomobject?.(obj.id) } }} />
+			{:else if obj.kind === 'door'}
+				{@const w = obj.widthMm ?? 900}
+				{@const d = obj.depthMm ?? 100}
+				{@const rot = obj.rotationDeg ?? 0}
+				{@const swingSign = obj.swing === 'right' ? -1 : 1}
+				<g transform="translate({obj.position.x} {obj.position.y}) rotate({rot})"
+					class={planMode === 'select' ? 'cursor-pointer pointer-events-auto' : ''}>
+					<!-- Door panel -->
+					<rect x="0" y="0" width={w} height={d} fill="none" stroke={stroke} stroke-width="40"
+						onclick={e => { if (planMode === 'select') { e.stopPropagation(); onselectroomobject?.(obj.id) } }} />
+					<!-- Swing arc: pivot at hinge (origin), sweeps out a quarter-circle of radius w -->
+					<path d="M 0 0 L {w} 0 A {w} {w} 0 0 {swingSign === 1 ? 1 : 0} 0 {swingSign * w} Z"
+						fill="none" stroke={stroke} stroke-width="20" stroke-dasharray="50 50" opacity="0.6" />
+				</g>
+			{:else if obj.kind === 'rect'}
+				{@const w = obj.widthMm ?? 100}
+				{@const d = obj.depthMm ?? 100}
+				<g class={planMode === 'select' ? 'cursor-pointer pointer-events-auto' : ''}>
+					<rect x={obj.position.x} y={obj.position.y} width={w} height={d}
+						fill={obj.color ?? 'rgba(148, 163, 184, 0.25)'}
+						stroke={stroke} stroke-width={isSelected ? 40 : 30}
+						onclick={e => { if (planMode === 'select') { e.stopPropagation(); onselectroomobject?.(obj.id) } }} />
+					{#if obj.label}
+						<text x={obj.position.x + w / 2} y={obj.position.y + d / 2}
+							text-anchor="middle" dominant-baseline="middle"
+							font-size={Math.min(w, d) / 6} fill="#475569"
+							pointer-events="none">{obj.label}</text>
+					{/if}
+				</g>
+			{/if}
+		{/each}
+
+		<!-- Draw previews -->
+		{#if planMode === 'wall' && drawStart && hoverPoint}
+			<line x1={drawStart.x} y1={drawStart.y} x2={hoverPoint.x} y2={hoverPoint.y}
+				stroke="#2563eb" stroke-width="100" stroke-linecap="round" opacity="0.5" />
+		{/if}
+		{#if planMode === 'wall' && drawStart}
+			<circle cx={drawStart.x} cy={drawStart.y} r="80" fill="#2563eb" opacity="0.6" />
+		{/if}
+		{#if planMode === 'rect' && rectDragging && drawStart && hoverPoint}
+			{@const rx = Math.min(drawStart.x, hoverPoint.x)}
+			{@const ry = Math.min(drawStart.y, hoverPoint.y)}
+			{@const rw = Math.abs(hoverPoint.x - drawStart.x)}
+			{@const rh = Math.abs(hoverPoint.y - drawStart.y)}
+			<rect x={rx} y={ry} width={rw} height={rh}
+				fill="rgba(37, 99, 235, 0.15)" stroke="#2563eb" stroke-width="40" stroke-dasharray="80 40" />
+		{/if}
+	</svg>
+
+	<!-- Drawing overlay — catches clicks when not in select mode. Behind rack rows
+	     visually, but covers empty plan space for wall/door/rect creation. -->
+	{#if planMode !== 'select'}
+		<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+		<div
+			bind:this={overlayEl}
+			class="absolute top-0 left-0 cursor-crosshair"
+			style:width="{PLAN_CANVAS_MM * SCALE}px"
+			style:height="{PLAN_CANVAS_MM * SCALE}px"
+			style:z-index="5"
+			onclick={onOverlayClick}
+			onmousemove={onOverlayMouseMove}
+			onmousedown={onOverlayMouseDown}></div>
+	{:else}
+		<div bind:this={overlayEl}
+			class="absolute top-0 left-0 pointer-events-none"
+			style:width="{PLAN_CANVAS_MM * SCALE}px"
+			style:height="{PLAN_CANVAS_MM * SCALE}px"></div>
+	{/if}
 </div>

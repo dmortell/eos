@@ -5,8 +5,8 @@ export const racksAdapter: SnapshotAdapter<RackDocData> = {
   toolType: 'racks',
 
   serialize(state: RackDocData): unknown {
-    const { floor, room, rows, racks, devices, library, settings } = state
-    return { floor, room, rows, racks, devices, library, settings }
+    const { floor, room, rows, racks, devices, library, settings, roomObjects } = state
+    return { floor, room, rows, racks, devices, library, settings, roomObjects }
   },
 
   validate(snapshot: unknown): boolean {

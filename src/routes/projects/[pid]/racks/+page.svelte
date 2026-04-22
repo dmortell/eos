@@ -23,6 +23,12 @@
 			| (_sp.get('rear') === '1' ? VIEW_REAR : 0)
 			| (_sp.get('plan') === '1' ? VIEW_PLAN : 0)) || VIEW_DEFAULT
 		: undefined;
+	const SIDEBAR_TABS = ['racks', 'devices', 'library', 'catalog', 'bom'] as const;
+	type SidebarTab = typeof SIDEBAR_TABS[number];
+	const _rawTab = _sp.get('tab');
+	const initialTab: SidebarTab | undefined = _rawTab && (SIDEBAR_TABS as readonly string[]).includes(_rawTab)
+		? (_rawTab as SidebarTab)
+		: undefined;
 	let floorFormat = $state('L01');
 	let projectName = $state('');
 	let drawingId = $state('');
@@ -171,7 +177,7 @@
 	<!-- {#key `${activeFloor}-${activeRoom}`}
 			{/key} -->
 		<Racks data={rackData} {library} floor={activeFloor} room={activeRoom} {floors} projectId={page.params.pid} {floorFormat} {projectName}
-			{drawingId} {db} uid={session.user?.uid ?? ''} {initialViewMask}
+			{drawingId} {db} uid={session.user?.uid ?? ''} {initialViewMask} {initialTab}
 			onsave={save} onlibrarychange={saveLibrary} onfloorchange={changeFloor} onroomchange={changeRoom}
 			onupdatefloors={updateFloors} ondeletefloor={deleteFloor} />
 {/if}

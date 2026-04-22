@@ -126,6 +126,33 @@ export interface RackSettings {
 	showGrid: boolean
 }
 
+/** ── Plan-view room objects (walls, doors, generic rects) ── */
+export type RoomObjectKind = 'wall' | 'door' | 'rect'
+
+/**
+ * An object drawn in the server-room plan view. All coordinates are
+ * room-relative millimetres (x right, y down — same convention as rack rows).
+ */
+export interface RoomObject {
+	id: string
+	kind: RoomObjectKind
+	/** Primary position — start point for walls, top-left for rects/doors. */
+	position: { x: number; y: number }
+	/** End point — for line-like objects (walls). */
+	endPosition?: { x: number; y: number }
+	/** Rectangular bounds — for rects and doors. */
+	widthMm?: number
+	depthMm?: number
+	rotationDeg?: number
+	/** Wall thickness (stroke weight for line-like objects). */
+	thicknessMm?: number
+	label?: string
+	/** Door swing direction relative to its hinge. */
+	swing?: 'left' | 'right'
+	/** Color override (hex). */
+	color?: string
+}
+
 export interface RackDocData {
 	floor: number
 	room: string
@@ -134,6 +161,7 @@ export interface RackDocData {
 	devices: DeviceConfig[]
 	library: DeviceTemplate[]
 	settings: RackSettings
+	roomObjects?: RoomObject[]
 }
 
 export interface ViewState {

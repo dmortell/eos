@@ -353,3 +353,8 @@ Try it:
 - Manually edit one rack's color to "White" in the PropertiesPanel → the RowEditor flashes the heterogeneous warning; "Apply row defaults to all" resets it.
 - Quick-fill — pick a catalog rack → every rack in the row rewrites to that SKU.
 - Enter per-rack notes → they're saved and visible when selecting that rack.
+
+
+
+
+

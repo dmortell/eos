@@ -5,7 +5,7 @@
 	import VersionPanel from '../parts/VersionPanel.svelte'
 	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
 	import type { ChangeDetail } from '$lib/logger'
-	import type { RackConfig, DeviceConfig, DeviceTemplate, RackRow, RackSettings, ViewState, ElevationFace } from './parts/types'
+	import type { RackConfig, DeviceConfig, DeviceTemplate, RackRow, RackSettings, ViewState, ElevationFace, RoomObject } from './parts/types'
 	import { VIEW_FRONT, VIEW_REAR, VIEW_PLAN, VIEW_DEFAULT } from './parts/types'
 	import { DEFAULT_SETTINGS, SCALE, RU_HEIGHT_MM, RACK_GAP_PX, RACK_19IN_MM, rackHeightMm } from './parts/constants'
 	import RackList from './parts/RackList.svelte'
@@ -15,9 +15,11 @@
 	import Canvas from './parts/Canvas.svelte'
 	import RackElevations from './parts/RackElevations.svelte'
 	import RackPlan from './parts/RackPlan.svelte'
+	import PlanToolbar from './parts/PlanToolbar.svelte'
 	import CatalogBrowser from './parts/CatalogBrowser.svelte'
 	import BOMPanel from './parts/BOMPanel.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
+	import RoomObjectProperties from './parts/RoomObjectProperties.svelte'
 	import DeviceProperties from './parts/DeviceProperties.svelte'
 	import FloorTabs from './parts/FloorTabs.svelte'
 	import RoomSelector from './parts/RoomSelector.svelte'
@@ -27,7 +29,9 @@
 	import { fmtFloor } from '$lib/utils/floor'
 	import type { FloorConfig } from '$lib/types/project'
 
-	let { data = null, library = [], floor, room, floors = [], projectId = '', projectName = '', floorFormat = 'L01', drawingId = '', db = new Firestore(), uid = '', initialViewMask, onsave, onlibrarychange, onfloorchange, onroomchange, onupdatefloors, ondeletefloor }: {
+	type SidebarTab = 'racks' | 'devices' | 'library' | 'catalog' | 'bom'
+
+	let { data = null, library = [], floor, room, floors = [], projectId = '', projectName = '', floorFormat = 'L01', drawingId = '', db = new Firestore(), uid = '', initialViewMask, initialTab, onsave, onlibrarychange, onfloorchange, onroomchange, onupdatefloors, ondeletefloor }: {
 		data?: any
 		library?: DeviceTemplate[]
 		floor: number
@@ -40,6 +44,8 @@
 		db?: Firestore
 		uid?: string
 		initialViewMask?: number
+		/** Initial sidebar tab from the `?tab=` URL param. Falls back to 'devices'. */
+		initialTab?: SidebarTab
 		onsave?: (payload: any, changes: ChangeDetail[]) => void
 		onlibrarychange?: (templates: DeviceTemplate[]) => void
 		onfloorchange?: (floor: number) => void
@@ -54,7 +60,7 @@
 		return {
 			floor, room, rows,
 			racks: racks.map(({ _x, _z, ...r }: any) => r),
-			devices, library, settings,
+			devices, library, settings, roomObjects,
 		}
 	}
 
@@ -64,6 +70,7 @@
 		if (s.racks) racks = s.racks.map(hydrateRack)
 		if (s.devices) devices = s.devices
 		if (s.settings) settings = { ...DEFAULT_SETTINGS, ...s.settings }
+		if (Array.isArray(s.roomObjects)) roomObjects = s.roomObjects
 		doSave()
 	}
 
@@ -74,8 +81,22 @@
 	let racks = $state<RackConfig[]>((data?.racks ?? []).map(hydrateRack))
 	let devices = $state<DeviceConfig[]>(data?.devices ?? [])
 	let settings = $state<RackSettings>({ ...DEFAULT_SETTINGS, ...(data?.settings ?? {}) })
+	let roomObjects = $state<RoomObject[]>(data?.roomObjects ?? [])
+	let selectedRoomObjectId = $state<string | null>(null)
+	let planMode = $state<'select' | 'wall' | 'door' | 'rect'>('select')
 	let activeRowId = $state<string>(rows[0]?.id ?? 'default')
-	let sidebarTab = $state<'racks' | 'devices' | 'library' | 'catalog' | 'bom'>('devices')
+	let sidebarTab = $state<SidebarTab>(initialTab ?? 'devices')
+
+	// Persist sidebar tab in the URL (?tab=) via replaceState so browser back
+	// from a cross-tool navigation (e.g. "Open in Frames") restores the tab.
+	$effect(() => {
+		const current = sidebarTab
+		if (typeof window === 'undefined') return
+		const url = new URL(window.location.href)
+		if (url.searchParams.get('tab') === current) return
+		url.searchParams.set('tab', current)
+		window.history.replaceState(null, '', url.toString())
+	})
 	let catalog = $state<CatalogProduct[]>([])
 	let selectedIds = $state(new Set<string>())
 	let viewMask = $state(initialViewMask ?? VIEW_DEFAULT)
@@ -200,6 +221,27 @@
 		logChange('update', 'row', rowId)
 	}
 
+	// ── Room object CRUD ──
+	function addRoomObject(obj: RoomObject) {
+		roomObjects = [...roomObjects, obj]
+		selectedRoomObjectId = obj.id
+		logChange('add', 'roomObject', `${obj.kind} ${obj.id}`)
+	}
+	function updateRoomObject(id: string, updates: Partial<RoomObject>) {
+		roomObjects = roomObjects.map(o => o.id === id ? { ...o, ...updates } : o)
+		logChange('update', 'roomObject', id)
+	}
+	function deleteRoomObject(id: string) {
+		roomObjects = roomObjects.filter(o => o.id !== id)
+		if (selectedRoomObjectId === id) selectedRoomObjectId = null
+		logChange('remove', 'roomObject', id)
+	}
+	function selectRoomObject(id: string | null) {
+		selectedRoomObjectId = id
+		// Clear rack selection when a room object is selected
+		if (id !== null) selectedIds = new Set()
+	}
+
 	// Selected item helpers
 	let selectedRacks = $derived(
 		racks.filter(r => selectedIds.has(r.id))
@@ -272,6 +314,7 @@
 		if (d.racks) racks = d.racks.map(hydrateRack)
 		if (d.devices) devices = d.devices
 		if (d.settings) settings = { ...DEFAULT_SETTINGS, ...d.settings }
+		if (Array.isArray(d.roomObjects)) roomObjects = d.roomObjects
 	})
 
 	// ── Auto-save ──
@@ -302,6 +345,7 @@
 			racks: racks.map(({ _x, _z, ...r }: any) => r), // strip computed canvas-only props
 			devices,
 			settings,
+			roomObjects,
 		}
 		onsave?.(payload, pendingChanges)
 		pendingChanges = []
@@ -1031,7 +1075,10 @@
 
 			<!-- svelte-ignore a11y_click_events_have_key_events -->
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<div class="flex-1 min-h-0" onclick={onCanvasClick} bind:this={canvasEl}>
+			<div class="flex-1 min-h-0 relative" onclick={onCanvasClick} bind:this={canvasEl}>
+				{#if viewMask & VIEW_PLAN}
+					<PlanToolbar mode={planMode} onchange={m => planMode = m} />
+				{/if}
 				<Canvas bind:view width={canvasWidth} height={canvasHeight}>
 					{#if viewMask & (VIEW_FRONT | VIEW_REAR)}
 						<RackElevations {view} {settings} {activeRacks} {rearRacks} {viewMask} {devices} {selectedIds} {dropGhost} {rackOverlaps} {editingLine}
@@ -1046,16 +1093,29 @@
 							onselectdevice={id => selectedIds = new Set([id])} />
 					{/if}
 					{#if viewMask & VIEW_PLAN}
-						<RackPlan {view} {rows} {racks} {selectedIds} {activeRowId} {planTopPx}
+						<RackPlan {view} {rows} {racks} {roomObjects} {selectedIds} {activeRowId} {planTopPx}
+							{planMode} {selectedRoomObjectId}
 							onmoverow={moveRow}
 							onselectrack={selectRack}
-							onselectrow={id => activeRowId = id} />
+							onselectrow={id => activeRowId = id}
+							onaddroomobject={addRoomObject}
+							onselectroomobject={selectRoomObject}
+							ondeleteroomobject={deleteRoomObject} />
 					{/if}
 				</Canvas>
 			</div>
 
 			<!-- Properties panel -->
 			<PropertiesPanel {selectedRacks} {projectId} {floor} onupdaterack={updateRack} />
+
+			{#if viewMask & VIEW_PLAN}
+				{@const selectedRoomObject = roomObjects.find(o => o.id === selectedRoomObjectId) ?? null}
+				<RoomObjectProperties
+					object={selectedRoomObject}
+					onupdate={updateRoomObject}
+					ondelete={deleteRoomObject}
+					ondeselect={() => selectedRoomObjectId = null} />
+			{/if}
 			<DeviceProperties devices={selectedDevices} onupdate={updateDevice} />
 
 			<!-- Status bar with floor tabs -->
