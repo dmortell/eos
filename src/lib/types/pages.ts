@@ -22,7 +22,12 @@ export interface Page {
 	order: number
 	/** Paper settings + default scale seeded onto newly-created viewports. */
 	paper: PrintSettings
-	titleBlock?: TitleBlockConfig
+	/**
+	 * Title block config. `undefined` → render the default ('standard' template
+	 * at bottom-right). `null` → explicitly hidden. A config object → use those
+	 * settings.
+	 */
+	titleBlock?: TitleBlockConfig | null
 	viewports: Viewport[]
 	notes?: string
 	/**

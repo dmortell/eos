@@ -3,13 +3,14 @@
 	import { goto } from '$app/navigation'
 	import { getContext } from 'svelte'
 	import { Button, Icon, Input, Select, Firestore, Spinner, Titlebar, Session } from '$lib'
-	import type { Page, Viewport, ViewportSource } from '$lib/types/pages'
+	import type { Page, Viewport, ViewportSource, TitleBlockConfig } from '$lib/types/pages'
 	import type { DrawingDoc } from '$lib/types/versioning'
 	import type { FloorConfig } from '$lib/types/project'
 	import { subscribePage, savePage, deletePage } from '$lib/pages/service'
 	import { DEFAULT_PRINT_SETTINGS } from '$lib/ui/print/types'
 	import { migrateFloors } from '$lib/utils/floor'
 	import PageCanvas from '../../parts/PageCanvas.svelte'
+	import type { TitleBlockProjectDefaults } from '../../parts/TitleBlock.svelte'
 
 	let db = new Firestore()
 	let session = getContext('session') as Session
@@ -23,6 +24,7 @@
 	let selectedViewportId = $state<string | null>(null)
 	let projectName = $state('')
 	let floors = $state<FloorConfig[]>([{ number: 1, serverRoomCount: 1 }])
+	let projectDefaults = $state<TitleBlockProjectDefaults>({})
 
 	// Window dims for canvas sizing.
 	let innerWidth = $state(1200)
@@ -36,9 +38,31 @@
 		const unsub = db.subscribeOne('projects', pid, (data: any) => {
 			if (data?.name) projectName = data.name
 			if (Array.isArray(data?.floors) && data.floors.length) floors = migrateFloors(data.floors)
+			projectDefaults = {
+				name: data?.name,
+				author: data?.author ?? data?.ownerName,
+				address: data?.address,
+				logoUrl: data?.logoUrl,
+				client: data?.client,
+			}
 		})
 		return () => { unsub?.() }
 	})
+
+	async function updateTitleBlock(patch: Partial<TitleBlockConfig>) {
+		if (!pageData) return
+		const current: TitleBlockConfig = pageData.titleBlock ?? { template: 'standard' }
+		await persist({ titleBlock: { ...current, ...patch } })
+	}
+
+	async function removeTitleBlock() {
+		// `null` sentinel means "explicitly hidden" — distinct from "never set".
+		await persist({ titleBlock: null })
+	}
+
+	async function restoreTitleBlock() {
+		await persist({ titleBlock: { template: 'standard' } })
+	}
 
 	function rackDocIdFor(floor: number, room: string): string {
 		return `${pid}_F${String(floor).padStart(2, '0')}_R${room}`
@@ -322,6 +346,39 @@
 				{/if}
 			</div>
 
+			<!-- Title block -->
+			<div class="p-3 border-t border-zinc-200 dark:border-zinc-800 space-y-1.5">
+				<div class="flex items-center justify-between">
+					<div class="text-[10px] uppercase tracking-wider text-zinc-400">Title Block</div>
+					{#if pageData.titleBlock === null}
+						<button class="text-[10px] text-blue-600 hover:underline" onclick={restoreTitleBlock}>Show</button>
+					{:else}
+						<button class="text-[10px] text-zinc-500 hover:text-red-500" onclick={removeTitleBlock}>Hide</button>
+					{/if}
+				</div>
+				{#if pageData.titleBlock !== null}
+					{@const tb = pageData.titleBlock ?? { template: 'standard' as const }}
+					<Select label="Template" size="sm"
+						value={tb.template}
+						onchange={(e: Event) => updateTitleBlock({ template: inputValue(e) as 'standard' | 'compact' | 'custom' })}>
+						<option value="standard">Standard</option>
+						<option value="compact">Compact</option>
+					</Select>
+					<Input label="Drawing No." value={tb.fields?.drawingNumber ?? pageData.drawingNumber ?? ''} size="sm"
+						onchange={(e: Event) => updateTitleBlock({ fields: { ...(tb.fields ?? {}), drawingNumber: inputValue(e) } })} />
+					<div class="grid grid-cols-3 gap-1.5">
+						<Input label="Drawn" value={tb.fields?.drawnBy ?? projectDefaults.author ?? ''} size="sm"
+							onchange={(e: Event) => updateTitleBlock({ fields: { ...(tb.fields ?? {}), drawnBy: inputValue(e) } })} />
+						<Input label="Chkd" value={tb.fields?.checkedBy ?? ''} size="sm"
+							onchange={(e: Event) => updateTitleBlock({ fields: { ...(tb.fields ?? {}), checkedBy: inputValue(e) } })} />
+						<Input label="App" value={tb.fields?.approvedBy ?? ''} size="sm"
+							onchange={(e: Event) => updateTitleBlock({ fields: { ...(tb.fields ?? {}), approvedBy: inputValue(e) } })} />
+					</div>
+					<Input label="Date" value={tb.fields?.date ?? ''} size="sm" placeholder="YYYY-MM-DD"
+						onchange={(e: Event) => updateTitleBlock({ fields: { ...(tb.fields ?? {}), date: inputValue(e) } })} />
+				{/if}
+			</div>
+
 			<!-- Page-level actions -->
 			<div class="p-3 border-t border-zinc-200 dark:border-zinc-800">
 				<button class="text-red-500 hover:text-red-600 text-xs" onclick={handleDeletePage}>
@@ -337,8 +394,11 @@
 			width={canvasWidth}
 			height={canvasHeight}
 			{db}
+			{projectDefaults}
+			revisionCode={drawing?.latestRevisionCode}
 			onselect={id => selectedViewportId = id}
 			ondeselect={() => selectedViewportId = null}
-			onupdateviewport={updateViewport} />
+			onupdateviewport={updateViewport}
+			onupdatetitleblock={updateTitleBlock} />
 	</div>
 {/if}

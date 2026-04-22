@@ -1,21 +1,51 @@
 <script lang="ts">
-	import type { Page, Viewport } from '$lib/types/pages'
+	import type { Page, Viewport, TitleBlockConfig } from '$lib/types/pages'
 	import { paperDimsMm } from '$lib/ui/print/types'
 	import { Firestore } from '$lib'
 	import ViewportFrame from './ViewportFrame.svelte'
+	import TitleBlock, { type TitleBlockProjectDefaults } from './TitleBlock.svelte'
 
-	let { page, selectedViewportId, width, height, db, onselect, onupdateviewport, ondeselect }: {
+	let {
+		page, selectedViewportId, width, height, db,
+		projectDefaults = {},
+		revisionCode,
+		onselect, onupdateviewport, onupdatetitleblock, ondeselect,
+	}: {
 		page: Page
 		selectedViewportId: string | null
 		width: number
 		height: number
 		db: Firestore
+		projectDefaults?: TitleBlockProjectDefaults
+		revisionCode?: string
 		onselect: (id: string) => void
 		onupdateviewport: (id: string, patch: Partial<Viewport>) => void
+		onupdatetitleblock?: (patch: Partial<TitleBlockConfig>) => void
 		ondeselect: () => void
 	} = $props()
 
 	let paperMm = $derived(paperDimsMm(page.paper))
+
+	/**
+	 * Effective title-block config. If the page has no `titleBlock` stored yet,
+	 * we default to the standard layout pinned to the paper's bottom-right
+	 * (inside the margin guide). Saving a move/template change materialises it.
+	 */
+	let titleBlockCfg = $derived.by<TitleBlockConfig | null>(() => {
+		if (page.titleBlock === null) return null // explicitly hidden
+		const cfg = page.titleBlock ?? { template: 'standard' as const }
+		const defaultW = cfg.template === 'compact' ? 120 : 180
+		const defaultH = cfg.template === 'compact' ? 20 : 60
+		const w = cfg.widthMm ?? defaultW
+		const h = cfg.heightMm ?? defaultH
+		const margin = page.paper.margins
+		return {
+			...cfg,
+			positionMm: cfg.positionMm ?? { x: paperMm.w - w - margin, y: paperMm.h - h - margin },
+			widthMm: w,
+			heightMm: h,
+		}
+	})
 
 	// Pan/zoom state — units: `x`/`y` are layout offset (px), `zoom` is pxPerMm.
 	// At zoom=1, 1 mm = 1 px in layout, so an A3 landscape paper (420×297 mm) is 420×297 px.
@@ -123,6 +153,20 @@
 					onupdate={patch => onupdateviewport(vp.id, patch)}
 				/>
 			{/each}
+
+			<!-- Title block — pinned to the paper like a special viewport -->
+			{#if titleBlockCfg}
+				<TitleBlock
+					config={titleBlockCfg}
+					project={projectDefaults}
+					drawingTitle={page.title}
+					drawingNumber={page.drawingNumber}
+					{revisionCode}
+					paperSize={page.paper.paperSize}
+					scaleDenominator={page.paper.scale || 100}
+					pxPerMm={zoom}
+					onupdate={onupdatetitleblock} />
+			{/if}
 		</div>
 	</div>
 
