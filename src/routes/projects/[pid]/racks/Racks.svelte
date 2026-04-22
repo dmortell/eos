@@ -14,8 +14,8 @@
 	import DevicePalette from './parts/DevicePalette.svelte'
 	import RackDevices from './parts/RackDevices.svelte'
 	import Canvas from './parts/Canvas.svelte'
-	import RackElevations from './parts/RackElevations.svelte'
-	import RackPlan from './parts/RackPlan.svelte'
+	import RackElevationRenderer from './parts/RackElevationRenderer.svelte'
+	import RackPlanRenderer from './parts/RackPlanRenderer.svelte'
 	import PlanToolbar from './parts/PlanToolbar.svelte'
 	import CatalogBrowser from './parts/CatalogBrowser.svelte'
 	import BOMPanel from './parts/BOMPanel.svelte'
@@ -1081,7 +1081,7 @@
 				{/if}
 				<Canvas bind:view width={canvasWidth} height={canvasHeight}>
 					{#if canvasView === 'front' || canvasView === 'rear'}
-						<RackElevations {view} {settings} {activeRacks} {rearRacks} face={canvasView} {devices} {selectedIds} {dropGhost} {rackOverlaps} {editingLine}
+						<RackElevationRenderer {view} {settings} {activeRacks} {rearRacks} face={canvasView} {devices} {selectedIds} {dropGhost} {rackOverlaps} {editingLine}
 							floorLabel={fmt(floor)} roomLabel={roomLabel(room)}
 							onstarttlinedrag={startLineDrag}
 							oneditline={field => editingLine = field}
@@ -1093,7 +1093,7 @@
 							onselectdevice={id => selectedIds = new Set([id])} />
 					{/if}
 					{#if canvasView === 'plan'}
-						<RackPlan {view} {rows} {racks} {roomObjects} {selectedIds} {activeRowId} {planTopPx}
+						<RackPlanRenderer {view} {rows} {racks} {roomObjects} {selectedIds} {activeRowId} {planTopPx}
 							{planMode} {selectedRoomObjectId}
 							onmoverow={moveRow}
 							onselectrack={selectRack}
