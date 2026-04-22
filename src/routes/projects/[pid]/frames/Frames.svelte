@@ -18,7 +18,7 @@
 	import type { FloorConfig } from '$lib/types/project'
 	import { fmtFloor } from '$lib/utils/floor'
 
-	let { data = null, racksData = {}, floor, floors = [], projectId = '', projectName = '', drawingId = '', db = new Firestore(), uid = '', onsave, onfloorchange, onupdatefloors, ondeletefloor }: {
+	let { data = null, racksData = {}, floor, floors = [], projectId = '', projectName = '', drawingId = '', db = new Firestore(), uid = '', initialFrameId, onsave, onfloorchange, onupdatefloors, ondeletefloor }: {
 		data?: any
 		racksData?: Record<string, any>
 		floor: number
@@ -28,6 +28,8 @@
 		drawingId?: string
 		db?: Firestore
 		uid?: string
+		/** Frame id to pre-select on mount (from ?frame= URL param, cross-tool nav). */
+		initialFrameId?: string
 		onsave?: (payload: any, changes: ChangeDetail[]) => void
 		onfloorchange?: (floor: number) => void
 		onupdatefloors?: (floors: FloorConfig[]) => void
@@ -143,10 +145,12 @@
 	let floorFormat = $state<string>(data?.floorFormat ?? 'L01')
 	let selectedLocations = $state<Set<string>>(new Set())
 	let lastSelectedKey = $state<string | null>(null)
-	let selectedFrameId = $state<string | null>(null)
-	// Keep selectedFrameId in sync with available frames
+	let selectedFrameId = $state<string | null>(initialFrameId ?? null)
+	// Keep selectedFrameId in sync with available frames. Honour initialFrameId
+	// if it exists in the derived frames list; otherwise fall back to frames[0].
 	$effect(() => {
-		if (frames.length > 0 && (!selectedFrameId || !frames.find(f => f.id === selectedFrameId))) {
+		if (frames.length === 0) return
+		if (!selectedFrameId || !frames.find(f => f.id === selectedFrameId)) {
 			selectedFrameId = frames[0].id
 		}
 	})

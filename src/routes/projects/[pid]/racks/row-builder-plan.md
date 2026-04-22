@@ -293,9 +293,16 @@ Phase this into M7 (after M6 room primitives) since walls/doors need to render i
 - **Exclude existing racks from purchase BOM** — for brownfield projects the user needs to flag racks as "existing / do-not-purchase". Proposal: add `RackConfig.excludeFromPurchase?: boolean` + a toggle in PropertiesPanel. `computeRowBOM` would filter those out of the purchase BOM (while they still render in elevations / plan views for context). Excel export may want a separate "Existing Equipment" reference sheet. Note: when a rack is excluded, its accessory emissions (top caps, containment kits) should also be skipped.
 
 ### M5 — Frame ↔ Rack linkage (1:1, optional)
-- `rackId` ↔ `frameId` cross-reference in both tools.
-- Picker UI in rack and frame properties, filtering out already-linked peers.
-- Cascade unlink on deletion.
+
+**Architecture note — revised after implementation started:** the Frames tool derives its frame list directly from racks (see `deriveFramesFromRacks` in [Frames.svelte:118](src/routes/projects/[pid]/frames/Frames.svelte#L118)). Every non-furniture rack becomes a frame with `frame.id === rack.id` and the same label. The 1:1 linkage is *structural and automatic* — no `frameId` / `rackId` fields are needed, no picker UI is needed, no cascade logic is needed.
+
+**Delivered instead — cross-tool navigation**
+
+- PropertiesPanel in the Racks tool now shows an **Open in Frames tool** link for any rack that has a derived frame (all RU-bearing types).
+- The link targets `/projects/{pid}/frames?floor={N}&frame={rack.id}`.
+- `frames/+page.svelte` parses the `?frame=` URL param; `Frames.svelte` accepts `initialFrameId` as a prop and seeds `selectedFrameId` from it on mount. If the id doesn't resolve to a frame, the existing fallback-to-first behaviour kicks in.
+- No changes to `RackConfig`, `FrameConfig`, or either tool's data model.
+- The `frameId?` field remains on `RackConfig` (already added in M1) as unused, optional, forward-compat metadata. Remove if it doesn't find a use.
 
 ### M6 — Room primitives (walls, entrances, CRAC, PDU, trays)
 - New `RoomObject[]` array in the racks doc.

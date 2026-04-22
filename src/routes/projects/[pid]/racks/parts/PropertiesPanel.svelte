@@ -2,14 +2,26 @@
 	import { Window, Icon } from '$lib'
 	import { type RackConfig, rackTypes, DEFAULT_SHELF_HEIGHTS } from './types'
 
-	let { selectedRacks = [], floorFrames = [], allRacks = [], onupdaterack }: {
+	let { selectedRacks = [], projectId = '', floor, framesHref, onupdaterack }: {
 		selectedRacks?: RackConfig[]
-		/** Frames on the active floor (any room). Used for Frame ↔ Rack linkage. */
-		floorFrames?: { id: string; name: string; serverRoom: string }[]
-		/** All racks in the current doc — used to detect other racks already linked to a frame. */
-		allRacks?: RackConfig[]
+		projectId?: string
+		floor?: number
+		/** Optional override for the frames-tool URL builder. Defaults to standard path. */
+		framesHref?: (rackId: string) => string
 		onupdaterack?: (id: string, updates: Record<string, any>) => void
 	} = $props()
+
+	/** Build URL to open the frames tool scoped to this rack's derived frame. */
+	function buildFramesUrl(rackId: string): string {
+		if (framesHref) return framesHref(rackId)
+		const fl = floor ?? 1
+		return `/projects/${projectId}/frames?floor=${fl}&frame=${encodeURIComponent(rackId)}`
+	}
+
+	/** A rack has a derived frame if it's a real RU-bearing rack type. */
+	function hasDerivedFrame(rack: RackConfig): boolean {
+		return rack.type !== 'desk' && rack.type !== 'shelf' && rack.type !== 'vcm'
+	}
 
 	let multi = $derived(selectedRacks.length > 1)
 	let selectedRack = $derived(selectedRacks[0] ?? null)
@@ -64,38 +76,16 @@
 				{@render Field('sku', shared(r => r.sku ?? ''), undefined)}
 			{/if}
 
-			<!-- Frame ↔ Rack link (single-select only). Picker is scoped to racks
-			     in the same server room; already-linked frames are hidden. -->
-			{#if !multi}
-				{@const rackRoom = selectedRack.serverRoom ?? ''}
-				{@const roomFrames = floorFrames.filter(f => !rackRoom || f.serverRoom === rackRoom)}
-				{@const linkedElsewhere = new Set(allRacks.filter(r => r.id !== selectedRack!.id && r.frameId).map(r => r.frameId!))}
-				{@const availableFrames = roomFrames.filter(f => !linkedElsewhere.has(f.id))}
-				{@const currentFrame = selectedRack.frameId ? floorFrames.find(f => f.id === selectedRack!.frameId) : null}
-				{@const staleFrame = selectedRack.frameId && !currentFrame}
-				<label class="flex gap-2 items-center">
-					<span class="w-16 text-gray-500 text-[10px] shrink-0">frame</span>
-					<select
-						class="flex-1 min-w-0 h-6 px-1 border-b border-gray-300 text-xs"
-						value={selectedRack.frameId ?? ''}
-						onchange={e => onupdaterack?.(selectedRack!.id, { frameId: e.currentTarget.value || undefined })}>
-						<option value="">— none —</option>
-						{#if currentFrame}
-							<option value={currentFrame.id}>{currentFrame.name} (Room {currentFrame.serverRoom})</option>
-						{/if}
-						{#each availableFrames.filter(f => !currentFrame || f.id !== currentFrame.id) as f}
-							<option value={f.id}>{f.name} (Room {f.serverRoom})</option>
-						{/each}
-						{#if staleFrame}
-							<option value={selectedRack.frameId} selected>{selectedRack.frameId} (missing)</option>
-						{/if}
-					</select>
-				</label>
-				{#if staleFrame}
-					<div class="ml-18 text-[10px] text-amber-700 flex items-center gap-1">
-						<Icon name="warning" size={10} /> linked frame no longer exists
-					</div>
-				{/if}
+			<!-- Cross-tool navigation: every non-furniture rack has a derived frame
+			     (frame.id === rack.id) in the Frames tool, with the same label.
+			     Jump to it to configure patch panel ports. -->
+			{#if !multi && hasDerivedFrame(selectedRack) && projectId}
+				<a
+					class="flex items-center gap-1 px-2 py-1 mt-1 rounded border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 text-[11px] font-medium no-underline"
+					href={buildFramesUrl(selectedRack.id)}
+					title="Open this rack's patch frame in the Frames tool">
+					<Icon name="link" size={11} /> Open in Frames tool
+				</a>
 			{/if}
 
 			<label class="flex gap-2 items-start">

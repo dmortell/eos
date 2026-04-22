@@ -19,6 +19,8 @@
 	let projectName = $state('');
 	let drawingId = $state('');
 	let hasMigrated = false;
+	/** Optional frame id from ?frame= URL param (from cross-tool navigation, e.g. Racks tool). */
+	const initialFrameId = page.url.searchParams.get('frame') || undefined;
 
 	// Subscribe to project doc for shared floors list
 	$effect(() => {
@@ -163,7 +165,7 @@
 {:else}
 	{#key activeFloor}
 		<Frames data={frameData} {racksData} floor={activeFloor} {floors} projectId={page.params.pid} {projectName}
-			{drawingId} {db} uid={session.user?.uid ?? ''}
+			{drawingId} {db} uid={session.user?.uid ?? ''} {initialFrameId}
 			onsave={save} onfloorchange={changeFloor} onupdatefloors={updateFloors} ondeletefloor={deleteFloor} />
 	{/key}
 {/if}

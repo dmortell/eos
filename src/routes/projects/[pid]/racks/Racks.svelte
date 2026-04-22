@@ -27,7 +27,7 @@
 	import { fmtFloor } from '$lib/utils/floor'
 	import type { FloorConfig } from '$lib/types/project'
 
-	let { data = null, library = [], floor, room, floors = [], projectId = '', projectName = '', floorFormat = 'L01', drawingId = '', db = new Firestore(), uid = '', initialViewMask, floorFrames = [], onsave, onlibrarychange, onfloorchange, onroomchange, onupdatefloors, ondeletefloor }: {
+	let { data = null, library = [], floor, room, floors = [], projectId = '', projectName = '', floorFormat = 'L01', drawingId = '', db = new Firestore(), uid = '', initialViewMask, onsave, onlibrarychange, onfloorchange, onroomchange, onupdatefloors, ondeletefloor }: {
 		data?: any
 		library?: DeviceTemplate[]
 		floor: number
@@ -40,8 +40,6 @@
 		db?: Firestore
 		uid?: string
 		initialViewMask?: number
-		/** Frames on the active floor — read-only, used for Frame↔Rack linkage picker. */
-		floorFrames?: { id: string; name: string; serverRoom: string }[]
 		onsave?: (payload: any, changes: ChangeDetail[]) => void
 		onlibrarychange?: (templates: DeviceTemplate[]) => void
 		onfloorchange?: (floor: number) => void
@@ -1057,7 +1055,7 @@
 			</div>
 
 			<!-- Properties panel -->
-			<PropertiesPanel {selectedRacks} {floorFrames} allRacks={racks} onupdaterack={updateRack} />
+			<PropertiesPanel {selectedRacks} {projectId} {floor} onupdaterack={updateRack} />
 			<DeviceProperties devices={selectedDevices} onupdate={updateDevice} />
 
 			<!-- Status bar with floor tabs -->
