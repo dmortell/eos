@@ -3,7 +3,7 @@
  * @description Shared types for drawing versioning, revision control, and packages.
  */
 
-export type ToolType = 'racks' | 'frames' | 'outlets' | 'patching' | 'fillrate' | 'survey'
+export type ToolType = 'racks' | 'frames' | 'outlets' | 'patching' | 'fillrate' | 'survey' | 'page'
 export type DrawingStatus = 'active' | 'archived'
 export type PackageStatus = 'draft' | 'published' | 'superseded'
 export type PackageType = 'concept' | 'schematic' | 'detailed' | 'rfp' | 'shop' | 'as-built' | 'custom'
@@ -27,6 +27,8 @@ export interface DrawingDoc {
   scale?: string                   // e.g. "1/150", "NTS"
   discipline?: string              // e.g. "IT", "AV", "Security"
   sortOrder: number                // position in master drawing list
+  /** Whether this drawing is included when its drawing packages are published. Default true. */
+  includeInPackages?: boolean
   currentVersionNumber: number
   latestRevisionCode?: string      // e.g. "C"
   createdAt: string

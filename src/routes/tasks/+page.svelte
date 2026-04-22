@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { replaceState } from '$app/navigation';
 	import { getContext } from 'svelte';
 	import { Button, Firestore, Titlebar } from '$lib';
 	import TaskFilters from './parts/TaskFilters.svelte';
@@ -146,7 +147,7 @@
 		try {
 			const url = new URL(window.location.href);
 			url.searchParams.delete('taskId');
-			window.history.replaceState(window.history.state, '', url.toString());
+			replaceState(url.toString(), page.state);
 		} catch {
 			// Ignore history update issues in non-browser contexts.
 		}
@@ -167,7 +168,7 @@
 			const url = new URL(window.location.href);
 			url.searchParams.delete('projectId');
 			url.searchParams.delete('assignedTo');
-			window.history.replaceState(window.history.state, '', url.toString());
+			replaceState(url.toString(), page.state);
 		} catch {
 			// Ignore history update issues in non-browser contexts.
 		}

@@ -2,6 +2,7 @@
 
 	import { Button, Icon, Titlebar, Firestore } from '$lib'
 	import { onMount, onDestroy } from 'svelte'
+	import { replaceState } from '$app/navigation'
 	import VersionPanel from '../parts/VersionPanel.svelte'
 	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
 	import type { ChangeDetail } from '$lib/logger'
@@ -96,7 +97,7 @@
 		const url = new URL(window.location.href)
 		if (url.searchParams.get('tab') === current) return
 		url.searchParams.set('tab', current)
-		window.history.replaceState(null, '', url.toString())
+		replaceState(url.toString(), {})
 	})
 	let catalog = $state<CatalogProduct[]>([])
 	let selectedIds = $state(new Set<string>())
@@ -113,7 +114,7 @@
 		url.searchParams.delete('front')
 		url.searchParams.delete('rear')
 		url.searchParams.delete('plan')
-		window.history.replaceState(null, '', url.toString())
+		replaceState(url.toString(), {})
 	})
 	let floorManagerOpen = $state(false)
 	let saveStatus = $state<'saved' | 'saving' | 'unsaved'>('saved')

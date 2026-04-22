@@ -4,10 +4,13 @@
 	import type { FloorConfig } from '$lib/types/project'
 	import { createDrawing, updateDrawing } from '$lib/versioning/service'
 	import { exportDrawingListToExcel } from '$lib/versioning/export'
-	import { allToolMeta, buildSourceDocId, defaultDrawingTitle, drawingToolHref } from '$lib/versioning/adapters/index'
+	import { allToolMeta, buildSourceDocId, defaultDrawingTitle, drawingToolHref, parsePageSourceDocId } from '$lib/versioning/adapters/index'
+	import { createPage, setPageIncludeInPackages } from '$lib/pages/service'
+	import { goto } from '$app/navigation'
 
 	const toolMeta = allToolMeta()
-	const TOOL_TYPES = Object.keys(toolMeta) as ToolType[]
+	// Pages are added via the dedicated "New Page" button, not the generic Add Drawing form.
+	const TOOL_TYPES = (Object.keys(toolMeta) as ToolType[]).filter(t => t !== 'page')
 
 	let {
 		drawings,
@@ -115,6 +118,26 @@
 		await exportDrawingListToExcel(db, projectId)
 	}
 
+	async function handleNewPage() {
+		const { pageId } = await createPage(db, { projectId, uid })
+		await goto(`/projects/${projectId}/drawings/pages/${pageId}`)
+	}
+
+	/**
+	 * Returns the page id for a page-typed drawing row. Non-page rows return null.
+	 * Used to gate the "include in packages" checkbox + page-editor link.
+	 */
+	function pageIdFor(drawing: DrawingDoc): string | null {
+		if (drawing.toolType !== 'page') return null
+		return parsePageSourceDocId(projectId, drawing.sourceDocId)
+	}
+
+	async function toggleIncludeInPackages(drawing: DrawingDoc, checked: boolean) {
+		const pageId = pageIdFor(drawing)
+		if (!pageId) return
+		await setPageIncludeInPackages(db, projectId, pageId, checked, drawing.id)
+	}
+
 	function isEditing(drawingId: string, field: string) {
 		return editingCell?.drawingId === drawingId && editingCell?.field === field
 	}
@@ -131,6 +154,10 @@
 		<div class="flex items-center justify-between mb-4">
 			<h2 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Master Drawing List</h2>
 			<div class="flex gap-2">
+				<Button onclick={handleNewPage}>
+					<Icon name="plus" size={14} />
+					New Page
+				</Button>
 				<Button onclick={() => showAdd = !showAdd}>
 					<Icon name="plus" size={14} />
 					Add Drawing
@@ -201,6 +228,7 @@
 						{#each { length: maxRevisions } as _, i}
 							<th class="px-3 py-2 w-24 text-center">Rev {String.fromCharCode(65 + i)}</th>
 						{/each}
+						<th class="px-3 py-2 w-16 text-center" title="Include in published drawing packages">In Pkg</th>
 						<th class="px-3 py-2 w-10"></th>
 					</tr>
 				</thead>
@@ -290,6 +318,18 @@
 									{/if}
 								</td>
 							{/each}
+							<!-- Include in packages (page rows only) -->
+							<td class="px-3 py-1.5 text-center">
+								{#if drawing.toolType === 'page'}
+									<input type="checkbox"
+										class="h-4 w-4 accent-blue-600 cursor-pointer"
+										checked={drawing.includeInPackages ?? true}
+										onchange={e => toggleIncludeInPackages(drawing, e.currentTarget.checked)}
+										title="Include this page when publishing drawing packages" />
+								{:else}
+									<span class="text-zinc-300 dark:text-zinc-700">—</span>
+								{/if}
+							</td>
 							<td class="px-2 py-1.5 text-center">
 								{#if confirmDeleteId === drawing.id}
 									<button class="text-[10px] px-1.5 py-0.5 rounded bg-red-600 text-white hover:bg-red-500"
@@ -306,8 +346,8 @@
 
 					{#if drawings.length === 0}
 						<tr>
-							<td colspan={7 + maxRevisions} class="px-3 py-8 text-center text-zinc-400">
-								No drawings yet. Click "Add Drawing" to create one.
+							<td colspan={8 + maxRevisions} class="px-3 py-8 text-center text-zinc-400">
+								No drawings yet. Click "Add Drawing" or "New Page" to create one.
 							</td>
 						</tr>
 					{/if}

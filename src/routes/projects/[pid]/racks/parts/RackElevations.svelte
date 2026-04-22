@@ -142,6 +142,12 @@
 	{/if}
 </div>
 
+<!--
+	TODO: fix wall positions in rear view. leftWallX / rightWallX are defined
+	in front-facing room coordinates; in 'rear' face the walls need to swap
+	sides (or the rack x-positions need mirroring) so the room reads correctly
+	when viewed from behind. Currently walls render identically in both faces.
+-->
 <!-- Left wall (draggable, 50mm thick, from slab top to above ceiling) -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="absolute cursor-ew-resize group/lw select-none"

@@ -366,6 +366,10 @@ When publishing a page revision, we may need to create revisions on source drawi
 
 ---
 
+## Known follow-ups
+
+- **Rear-view wall positions** — `RackElevations.svelte` draws the left/right walls at the same x-coordinates in both the 'front' and 'rear' faces. When viewing from the rear the room is effectively mirrored, so walls (and rack x-positions) need to swap sides for the rear face to read correctly. Tracked inline via a `TODO` in the wall block.
+
 ## Out of scope for this plan
 
 - The M7 row-builder.md backlog item "multi-page drawing package export, one server room per page" — this becomes trivial once the Page Editor ships (just a package with one page per room, using a default template).
