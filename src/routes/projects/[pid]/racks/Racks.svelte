@@ -21,7 +21,7 @@
 	import { fmtFloor } from '$lib/utils/floor'
 	import type { FloorConfig } from '$lib/types/project'
 
-	let { data = null, library = [], floor, room, floors = [], projectId = '', projectName = '', floorFormat = 'L01', drawingId = '', db = new Firestore(), uid = '', onsave, onlibrarychange, onfloorchange, onroomchange, onupdatefloors, ondeletefloor }: {
+	let { data = null, library = [], floor, room, floors = [], projectId = '', projectName = '', floorFormat = 'L01', drawingId = '', db = new Firestore(), uid = '', initialViewMask, onsave, onlibrarychange, onfloorchange, onroomchange, onupdatefloors, ondeletefloor }: {
 		data?: any
 		library?: DeviceTemplate[]
 		floor: number
@@ -33,6 +33,7 @@
 		drawingId?: string
 		db?: Firestore
 		uid?: string
+		initialViewMask?: number
 		onsave?: (payload: any, changes: ChangeDetail[]) => void
 		onlibrarychange?: (templates: DeviceTemplate[]) => void
 		onfloorchange?: (floor: number) => void
@@ -70,7 +71,7 @@
 	let activeRowId = $state<string>(rows[0]?.id ?? 'default')
 	let sidebarTab = $state<'racks' | 'devices' | 'library'>('devices')
 	let selectedIds = $state(new Set<string>())
-	let viewMask = $state(VIEW_DEFAULT)
+	let viewMask = $state(initialViewMask ?? VIEW_DEFAULT)
 	let floorManagerOpen = $state(false)
 	let saveStatus = $state<'saved' | 'saving' | 'unsaved'>('saved')
 

@@ -15,7 +15,7 @@
 	let racksData: Record<string, any> = $state({});
 	let floors = $state<FloorConfig[]>([{ number: 1, serverRoomCount: 1 }]);
 	let loading = $state(true);
-	let activeFloor = $state(1);
+	let activeFloor = $state(Number(page.url.searchParams.get('floor')) || 1);
 	let projectName = $state('');
 	let drawingId = $state('');
 	let hasMigrated = false;

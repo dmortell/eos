@@ -46,8 +46,18 @@ export function buildSourceDocId(pid: string, toolType: ToolType, floor?: number
   }
 }
 
-/** Build a relative URL path to open the tool for this drawing */
-export function drawingToolHref(pid: string, toolType: ToolType, sourceDocId: string): string {
+/** Parse floor/room from a source doc ID like "{pid}_F05_RA" */
+export function parseSourceDocId(sourceDocId: string): { floor?: number; room?: string } {
+  const floorMatch = sourceDocId.match(/_F(\d+)/)
+  const roomMatch = sourceDocId.match(/_R([A-D])/)
+  return {
+    floor: floorMatch ? Number(floorMatch[1]) : undefined,
+    room: roomMatch ? roomMatch[1] : undefined,
+  }
+}
+
+/** Build a relative URL to open the tool for a drawing, with floor/room/view params */
+export function drawingToolHref(pid: string, toolType: ToolType, sourceDocId: string, viewPreset?: ViewPreset): string {
   const base = `/projects/${pid}`
   const toolPath: Record<ToolType, string> = {
     racks: 'racks', frames: 'frames', outlets: 'outlets',
@@ -55,7 +65,21 @@ export function drawingToolHref(pid: string, toolType: ToolType, sourceDocId: st
   }
   const path = toolPath[toolType]
   if (!path) return base
-  return `${base}/${path}`
+
+  const params = new URLSearchParams()
+  const { floor, room } = parseSourceDocId(sourceDocId)
+  if (floor != null) params.set('floor', String(floor))
+  if (room) params.set('room', room)
+
+  // Encode view preset layers as params (e.g. lowOutlets=1&highTrunks=0)
+  if (viewPreset?.layers) {
+    for (const [key, val] of Object.entries(viewPreset.layers)) {
+      params.set(key, val ? '1' : '0')
+    }
+  }
+
+  const qs = params.toString()
+  return `${base}/${path}${qs ? `?${qs}` : ''}`
 }
 
 /** Generate a default title for a drawing */

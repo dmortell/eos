@@ -5,6 +5,7 @@
 	import { writeLog } from '$lib/logger';
 	import { migrateFloors, updateFloors as _updateFloors, deleteFloor as _deleteFloor } from '$lib/utils/floor';
 	import type { DeviceTemplate } from './parts/types';
+	import { VIEW_FRONT, VIEW_REAR, VIEW_DEFAULT } from './parts/types';
 	import { findOrCreateDrawing } from '$lib/versioning/service';
 	import Racks from './Racks.svelte';
 
@@ -14,8 +15,12 @@
 	let library: DeviceTemplate[] = $state([]);
 	let floors = $state([{ number: 1, serverRoomCount: 1 }]);
 	let loading = $state(true);
-	let activeFloor = $state(1);
-	let activeRoom = $state('A');
+	let activeFloor = $state(Number(page.url.searchParams.get('floor')) || 1);
+	let activeRoom = $state(page.url.searchParams.get('room') ?? 'A');
+	const _sp = page.url.searchParams;
+	const initialViewMask = _sp.has('front') || _sp.has('rear')
+		? ((_sp.get('front') === '1' ? VIEW_FRONT : 0) | (_sp.get('rear') === '1' ? VIEW_REAR : 0)) || VIEW_DEFAULT
+		: undefined;
 	let floorFormat = $state('L01');
 	let projectName = $state('');
 	let drawingId = $state('');
@@ -164,7 +169,7 @@
 	<!-- {#key `${activeFloor}-${activeRoom}`}
 			{/key} -->
 		<Racks data={rackData} {library} floor={activeFloor} room={activeRoom} {floors} projectId={page.params.pid} {floorFormat} {projectName}
-			{drawingId} {db} uid={session.user?.uid ?? ''}
+			{drawingId} {db} uid={session.user?.uid ?? ''} {initialViewMask}
 			onsave={save} onlibrarychange={saveLibrary} onfloorchange={changeFloor} onroomchange={changeRoom}
 			onupdatefloors={updateFloors} ondeletefloor={deleteFloor} />
 {/if}

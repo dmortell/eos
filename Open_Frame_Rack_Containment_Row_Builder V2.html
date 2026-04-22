@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Open Frame Rack Containment Row Builder V2</title>
+  <!-- Creator Notes: Josh Valenti -->
+  <!--
+    Version History (internal only):
+    V2  2026-03-18  Collapsible Row Editor, Quick-fill, and Row Layout sections; section dividers;
+                    containment kit auto-add for AR4P and R4P rack families (HAC/CAC/Combined);
+                    expanded BOM table height.
+    V1  2025        Initial release — row builder with rack/VCM selection, compatibility filtering,
+                    BOM generation, Excel export, layout diagram.
+  -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --bg:#f6f7fb; --panel:#ffffff; --text:#1f2933; --muted:#6c757d; --border:#d9dce2;
+      --accent:#1d8ffd; --accent-2:#36cfc9; --danger:#dc3545; --success:#28a745; --shadow:0 2px 10px rgba(0,0,0,0.05);
+    }
+    .dark {
+      --bg:#0f1624; --panel:#171f2f; --text:#e6eef7; --muted:#9aa8bc; --border:#243049;
+      --accent:#4aa8ff; --accent-2:#5ce0d8; --danger:#f46d75; --success:#4ade80; --shadow:0 2px 12px rgba(0,0,0,0.3);
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:'Segoe UI',Arial,sans-serif; background:var(--bg); color:var(--text); }
+    header { position:fixed; top:0; left:0; right:0; height:58px; background:var(--panel); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:14px; padding:0 18px; z-index:10; box-shadow:var(--shadow); }
+    .logo { display:flex; align-items:center; gap:8px; font-weight:700; font-size:18px; color:var(--text); }
+    .logo-img { height:32px; width:auto; display:block; }
+    .header-actions { margin-left:auto; display:flex; gap:10px; }
+    button { font-family:inherit; }
+    .btn { background:var(--accent); color:#fff; border:1px solid var(--accent); border-radius:8px; padding:8px 14px; font-weight:600; cursor:pointer; transition:all 0.12s ease; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+    .btn:hover { filter:brightness(0.95); }
+    .btn-secondary { background:var(--panel); color:var(--text); border:1px solid var(--border); }
+    .btn-ghost { background:transparent; color:var(--text); border:1px solid var(--border); }
+    .layout { display:flex; margin-top:58px; min-height:calc(100vh - 58px); }
+    aside { width:280px; background:var(--panel); border-right:1px solid var(--border); display:flex; flex-direction:column; position:fixed; top:58px; bottom:56px; overflow:auto; }
+    .sidebar-title { padding:12px 14px 4px 14px; font-weight:700; color:var(--muted); letter-spacing:0.02em; text-transform:uppercase; font-size:11px; }
+    .rows { padding:6px 10px 16px 10px; display:flex; flex-direction:column; gap:10px; }
+    .row-card { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:10px 12px; display:flex; flex-direction:column; gap:6px; cursor:pointer; box-shadow:var(--shadow); position:relative; }
+    .row-card.active { border-color:var(--accent); box-shadow:0 0 0 2px rgba(29,143,253,0.18); }
+    .row-name { font-weight:700; font-size:14px; }
+    .row-meta { color:var(--muted); font-size:12px; display:flex; flex-wrap:wrap; gap:6px; }
+    .dot { width:12px; height:12px; border-radius:50%; position:absolute; top:10px; right:10px; border:2px solid var(--panel); }
+    .row-delete { position:absolute; right:10px; bottom:8px; background:rgba(220,53,69,0.08); border:1px solid rgba(220,53,69,0.35); color:var(--danger); cursor:pointer; font-size:13px; padding:4px 10px; border-radius:14px; transition:background 0.12s ease, border-color 0.12s ease; }
+    .row-delete:hover { background:rgba(220,53,69,0.14); border-color:rgba(220,53,69,0.55); }
+    main { margin-left:280px; flex:1; padding:18px 18px 110px 18px; min-height:calc(100vh - 58px); }
+    .card { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:16px 18px; box-shadow:var(--shadow); margin-bottom:16px; }
+    .card h3 { margin:0 0 10px 0; font-size:16px; }
+    .form-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; }
+    label { font-size:12px; color:var(--muted); display:block; margin-bottom:4px; }
+    input, select { width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--panel); color:var(--text); }
+    .chips { display:flex; gap:8px; flex-wrap:wrap; }
+    .chip { padding:7px 10px; border-radius:18px; border:1px solid var(--border); background:var(--panel); cursor:pointer; }
+    .chip.active { border-color:var(--accent); color:var(--accent); font-weight:700; }
+    .quick-fill { display:flex; flex-direction:column; gap:8px; padding:10px; border:1px dashed var(--border); border-radius:10px; background:rgba(0,0,0,0.02); }
+    .collapse-btn { padding:4px 10px; font-size:12px; }
+    .layout-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; }
+    .slot { border:1px solid var(--border); border-radius:10px; padding:10px; display:flex; flex-direction:column; gap:6px; background:var(--panel); position:relative; }
+    .slot-title { font-weight:600; font-size:13px; }
+    .note-btn { position:absolute; top:6px; right:10px; width:24px; height:24px; border-radius:50%; border:1px solid var(--border); background:var(--panel); cursor:pointer; display:flex; align-items:center; justify-content:center; line-height:1; padding:0; font-size:14px; }
+    .note-btn.has-note { background:#ffe066; }
+    .status-pill { padding:10px 14px; border-radius:16px; background:var(--panel); border:1px solid var(--border); min-height:42px; display:flex; align-items:center; box-shadow:var(--shadow); }
+    .bom-table-wrap { overflow:auto; max-height:600px; border:1px solid var(--border); border-radius:10px; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th, td { padding:8px 10px; border-bottom:1px solid var(--border); text-align:left; }
+    tr:nth-child(even) { background:rgba(0,0,0,0.02); }
+    .collapse-btn { font-size:12px; }
+    footer { position:fixed; left:0; right:0; bottom:0; height:56px; background:var(--panel); border-top:1px solid var(--border); display:flex; align-items:center; gap:10px; padding:0 14px; z-index:10; box-shadow:var(--shadow); }
+    .footer-actions { margin-left:auto; display:flex; gap:8px; flex-wrap:wrap; }
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; z-index:100; }
+    .modal { background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:12px; padding:14px 16px; max-width:92vw; max-height:90vh; overflow:auto; box-shadow:var(--shadow); }
+    .modal header { position:sticky; top:0; background:var(--panel); padding:0 0 8px 0; box-shadow:none; border-bottom:1px solid var(--border); margin-bottom:8px; height:auto; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo"><img class="logo-img" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZ4AAAB6CAMAAAC4AMUdAAAAclBMVEX///8AAAA0NDRgYGB3d3c+Pj6mpqYoKChVVVXa2toZGRnU1NR8fHzLy8u9vb3m5uaCgoLs7OwgICCTk5NfX1+Kiorz8/Ourq5oaGjg4OBubm61tbVSUlIdHR3AwMA4ODgSEhKenp5HR0dLS0sLCwuPj498mm4ZAAAFXklEQVR4nO2d6WKiMBRGiVpRW1EQcLdoO+//igNRR9SbEPCymPnOv3oDWY6EmEDqOAAAAAAAAAAAAAAAAAAAAAAAAAAADKzE6yzbroS9DBj0CLFtuxq2wqNH7KdtV8ROmPQIsWm7JlbCpkeM4rbrYiF8eoRAB8cOpx5xaLs21sGqZ9d2bayDVQ/8cMOrB90bM8x6xLrtCtkFtx78/GGFWw8uH1bY9QzarpFVGOoJZeK4Z5C05QrZhaGe0Tm1yfIDZq8Z4deDy4eRGvSs+g+E/XyOx/AxfmUkJ+2i53g4zwIb5YFPJzrMbhUkjzpn9ec5NkqHNt6IOCIcEgXTEXLchWvQQ5CfLJ2rk8l+MSQCcjYiKJPj4Dp//k3HvSzWJwJjxxmSR0RUwXR8X0oQbwaDwabafHEzevLL3Ro9QtVmMnu3Up4fdNRTVYdPz8dZzvVbNaoiqBk9+fuRTs+aUY8YdkFPvD9/UaanSgsuDelZmOnZcOoRx/b1+IkYHLztdjt1FkKUX7BsSE9urkenR7DqCeLW9SxE5Jz/GqYlmXdVT6530+pZcuqR8+ft6hGJH4ujP4vDtAWEmDklaUrP0ExPxKpn1LaeadptxPLeE07SnxTlJySb0uP+63e1egSrnqRtPUupZzefr7K/vO7qEb6ZHo9Tz6QbeiTpfefQYT0rMz1Rk3pGRIBVz1oMLp3bd5K1dXf1ZPU20CPIPGrSMyMCvEODRMxied9d7bOhQYf1XGeyC/REG1X276gnFDtf6ukLJ7r1IB3U82OmZ0W1wtvqSQvdO2Xj+8XKFUnpcXWDen7XRnrU2b+lHk+Inef7/nqTGx11Uc915uBt9awmwY09mWafSzE5dxfj61Dnt4KdJvW4denxttsFGWDV83XXbmsyzSfVxMvsbrrwKshpVM+5SWrQkwW3VKBGPZ9kGvaXAJrUI2rUE1MB6ClFXJ8enwpATyki6KlHzy5OB4dxVH7wdA/01KOHiQP0dFnPAnq6rEdAT6f1zKGny3r60NNlPeITerqh54tszhB6uqFndqQ+dWPo6YKelTMlP59FFU4GPdwMHWdHfb6j5/71QA836bnJ6+Q3qXAy6GHmlDXZhOts0MOMLCjHTpgS6OHlvHBNDw4qAD28yFdr6CXMKkBPRb7oj6NhxrLss0cqoEdLtKDILpEqw+TyQI8W5Vt3bN2XHujRonyCjnx+iR/o0aLUo6g8N9CjRaWHbeRcAPRoUek5Gh39OtCjRaXH6GAG8JSoFoWeKmsDlSjW80MF/nM9bHNqRej1fPd6dEyjR24ZTPWI9ugZGx3LAf/7PR+z8XhNVd4ePdRboPXAr0eJNXqMdhY1wy0oBvRoIfUcS1ZcQ4+6SeeAHi2kHq7paJEtD+lPBj1aKD2cA4NA0SRXXtCj2KxShetbood8Didl8IDJRRYU/MJ9QU/JBa3s9XEr9CgGBsPHdPQ7zPcEqja58IIeuh2V9C3Rs1QkfS4htbHQA0HB7OoLekr2wVNL9ChSfjynNFgTSvVo7+EV9fxmh5Wb2vDt0KPqsoiNF+JT4fkDZYXPVNQjXzUuGLPfI3f7tECP4jvpUnep4tmFTI+uE3xhL9FyK7rygPfXo/pKkv88jlyLuUPq+aOOV9PTu+Rv7kdebhboOSoSkpvKOIqnrW5IPT69jVBGJT3Jv8KY+rn4fH89ipYM6Uz0vzlT9jKZuhMs/z8U0nFBlCuA0fRgT1vcVvTM3V4xk0c92z2ZzlXto50UZHCSqaaBKi63ETwZlPRGcH8h/xQfcbo+Lrak2sSN7s43plogwP89BgAAAAAAAAAAAAAAAAAAAAAAAAAAoMv8Bc0wj4qltrUWAAAAAElFTkSuQmCC" alt="Panduit logo"><span>Open Frame Rack Containment Row Builder V2</span></div>
+    <div class="header-actions">
+      <button class="btn" id="add-row-btn" aria-label="Add row">Add Row</button>
+      <button class="btn" id="dup-row-btn" aria-label="Duplicate current row">Duplicate Row</button>
+    </div>
+  </header>
+  <div class="layout">
+    <aside><div class="sidebar-title">Rows</div><div class="rows" id="sidebar-content"></div></aside>
+    <main>
+      <div class="card" id="row-editor"></div>
+      <div class="card" id="bom-row-card"></div>
+      <div class="card" id="bom-project-card"></div>
+    </main>
+  </div>
+  <footer>
+    <div class="status-pill" id="status-pill" role="status" aria-live="polite">Ready</div>
+    <div class="footer-actions">
+      <button class="btn-secondary btn" id="theme-btn" aria-label="Toggle light or dark theme">Light / Dark Theme</button>
+      <button class="btn-secondary btn" id="legal-btn" aria-label="View legal disclaimer">Legal Disclaimer</button>
+      <button class="btn-secondary btn" id="save-btn" aria-label="Save project to file">Save File</button>
+      <button class="btn-secondary btn" id="load-btn" aria-label="Load project from file">Load File</button>
+      <button class="btn-secondary btn" id="export-btn" aria-label="Export bill of materials to Excel">Download BOM (Excel)</button>
+      <button class="btn-secondary btn" id="layout-btn" aria-label="Open row layout view">Row Layout</button>
+    </div>
+  </footer>
+  <script>
+const CATALOG = {
+      racks: [ 
+                { sku: "AR4P", desc: "4-Post Rack, Adjustable Depth, 45RU, #12-24 Threaded E-Rails, Black", ru: 45, width: 20.3, depth: null, adjustable: true, min_depth: 23, max_depth: 42, quick_depths: [30,36], hac_topcap: "AR4PATCBL", cac_topcap: "AR4PCACTCBL", color: "Black" },
+                { sku: "AR4P96", desc: "4-Post Rack, Adjustable Depth, 52RU, #12-24 Threaded E-Rails, Black", ru: 52, width: 20.3, depth: null, adjustable: true, min_depth: 23, max_depth: 42, quick_depths: [30,36], hac_topcap: "AR4PATCBL", cac_topcap: "AR4PCACTCBL", color: "Black" },
+                { sku: "AR4P96WH", desc: "4-Post Rack, Adjustable Depth, 52RU, #12-24 Threaded E-Rails, White", ru: 52, width: 20.3, depth: null, adjustable: true, min_depth: 23, max_depth: 42, quick_depths: [30,36], hac_topcap: "AR4PATCWH", cac_topcap: "AR4PCACTCWH", color: "White" },
+                { sku: "AR4PCN", desc: "4-Post Rack, Adjustable Depth, 45RU, Cage Nut E-Rails, Black", ru: 45, width: 20.3, depth: null, adjustable: true, min_depth: 23, max_depth: 42, quick_depths: [30,36], hac_topcap: "AR4PATCBL", cac_topcap: "AR4PCACTCBL", color: "Black" },
+                { sku: "AR4PCN96", desc: "4-Post Rack, Adjustable Depth, 52RU, Cage Nut E-Rails, Black", ru: 52, width: 20.3, depth: null, adjustable: true, min_depth: 23, max_depth: 42, quick_depths: [30,36], hac_topcap: "AR4PATCBL", cac_topcap: "AR4PCACTCBL", color: "Black" },
+                { sku: "AR4PCN96WH", desc: "4-Post Rack, Adjustable Depth, 52RU, Cage Nut E-Rails, White", ru: 52, width: 20.3, depth: null, adjustable: true, min_depth: 23, max_depth: 42, quick_depths: [30,36], hac_topcap: "AR4PATCWH", cac_topcap: "AR4PCACTCWH", color: "White" },
+                { sku: "AR4PCNWH", desc: "4-Post Rack, Adjustable Depth, 45RU, Cage Nut E-Rails, White", ru: 45, width: 20.3, depth: null, adjustable: true, min_depth: 23, max_depth: 42, quick_depths: [30,36], hac_topcap: "AR4PATCWH", cac_topcap: "AR4PCACTCWH", color: "White" },
+                { sku: "AR4PWH", desc: "4-Post Rack, Adjustable Depth, 45RU, #12-24 Threaded E-Rails, White", ru: 45, width: 20.3, depth: null, adjustable: true, min_depth: 23, max_depth: 42, quick_depths: [30,36], hac_topcap: "AR4PATCWH", cac_topcap: "AR4PCACTCWH", color: "White" },
+                { sku: "R4P", desc: "4-Post Rack, 45RU, 30 in. Deep, #12-24 Threaded E-Rails, Black", ru: 45, width: 23.25, depth: 30, adjustable: false, color: "Black", hac_topcap: "R4PATC", cac_topcap: "", },
+                { sku: "R4P36", desc: "4-Post Rack, 45RU, 36 in. Deep, #12-24 Threaded E-Rails, Black", ru: 45, width: 23.25, depth: 36, adjustable: false, color: "Black", hac_topcap: "R4PATC", cac_topcap: "", },
+                { sku: "R4P3696", desc: "4-Post Rack, 52RU, 36 in. Deep, #12-24 Threaded E-Rails, Black", ru: 52, width: 23.25, depth: 36, adjustable: false, color: "Black", hac_topcap: "R4PATC", cac_topcap: "", },
+                { sku: "R4P3696WH", desc: "4-Post Rack, 52RU, 36 in. Deep, #12-24 Threaded E-Rails, White", ru: 52, width: 23.25, depth: 36, adjustable: false, color: "White", hac_topcap: "R4PATCWH", cac_topcap: "", },
+                { sku: "R4P36CN", desc: "4-Post Rack, 45RU, 36 in. Deep, Cage Nut E-Rails, Black", ru: 45, width: 23.25, depth: 36, adjustable: false, color: "Black", hac_topcap: "R4PATC", cac_topcap: "", },
+                { sku: "R4P36CN96", desc: "4-Post Rack, 52RU, 36 in. Deep, Cage Nut E-Rails, Black", ru: 52, width: 23.25, depth: 36, adjustable: false, color: "Black", hac_topcap: "R4PATC", cac_topcap: "", },
+                { sku: "R4P36CN96WH", desc: "4-Post Rack, 52RU, 36 in. Deep, Cage Nut E-Rails, White", ru: 52, width: 23.25, depth: 36, adjustable: false, color: "White", hac_topcap: "R4PATCWH", cac_topcap: "", },
+                { sku: "R4P36CNWH", desc: "4-Post Rack, 45RU, 36 in. Deep, Cage Nut E-Rails, White", ru: 45, width: 23.25, depth: 36, adjustable: false, color: "White", hac_topcap: "R4PATCWH", cac_topcap: "", },
+                { sku: "R4P36WH", desc: "4-Post Rack, 45RU, 36 in. Deep, #12-24 Threaded E-Rails, White", ru: 45, width: 23.25, depth: 36, adjustable: false, color: "White", hac_topcap: "R4PATCWH", cac_topcap: "", },
+                { sku: "R4P96", desc: "4-Post Rack, 52RU, 30 in. Deep, #12-24 Threaded E-Rails, Black", ru: 52, width: 23.25, depth: 30, adjustable: false, color: "Black", hac_topcap: "R4PATC", cac_topcap: "", },
+                { sku: "R4PCN", desc: "4-Post Rack, 45RU, 30 in. Deep, Cage Nut E-Rails, Black", ru: 45, width: 23.25, depth: 30, adjustable: false, color: "Black", hac_topcap: "R4PATC", cac_topcap: "", },
+                { sku: "R4PCN96", desc: "4-Post Rack, 52RU, 30 in. Deep, Cage Nut E-Rails, Black", ru: 52, width: 23.25, depth: 30, adjustable: false, color: "Black", hac_topcap: "R4PATC", cac_topcap: "", },
+                { sku: "R4PCNWH", desc: "4-Post Rack, 45RU, 30 in. Deep, Cage Nut E-Rails, White", ru: 45, width: 23.25, depth: 30, adjustable: false, color: "White", hac_topcap: "R4PATCWH", cac_topcap: "", },
+                { sku: "R4PWH", desc: "4-Post Rack, 45RU, 30 in. Deep, #12-24 Threaded E-Rails, White", ru: 45, width: 23.25, depth: 30, adjustable: false, color: "White", hac_topcap: "R4PATCWH", cac_topcap: "", },
+            ],
+            // All 90 VCMs from the CSV (batch 1 of 3)
+            vcms: [
+                { sku: "PE2VD06", name: "PE2V Vertical Dual-Sided Manager, 45RU, 6 in. Wide, Black", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 45, width: 6, depth: 26.8, end_panel_HAC: "P2VAEP2", end_panel_CAC: "", top_cap_HAC: "PE2V0636TC", top_cap_CAC: "", color: "Black", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V06BBP" },
+                { sku: "PE2VD0696", name: "PE2V Vertical Dual-Sided Manager, 52RU, 6 in. Wide, Black", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 52, width: 6, depth: 26.8, end_panel_HAC: "P2V96AEP2", end_panel_CAC: "", top_cap_HAC: "PE2V0636TC", top_cap_CAC: "", color: "Black", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V06BBP" },
+                { sku: "PE2VD0696WH", name: "PE2V Vertical Dual-Sided Manager, 52RU, 6 in. Wide, White", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 52, width: 6, depth: 26.8, end_panel_HAC: "P2V96AEP2WH", end_panel_CAC: "", top_cap_HAC: "PE2V0636TCWH", top_cap_CAC: "", color: "White", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V06BBP" },
+                { sku: "PE2VD06WH", name: "PE2V Vertical Dual-Sided Manager, 45RU, 6 in. Wide, White", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 45, width: 6, depth: 26.8, end_panel_HAC: "P2VAEP2WH", end_panel_CAC: "", top_cap_HAC: "PE2V0636TCWH", top_cap_CAC: "", color: "White", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V06BBP" },
+                { sku: "PE2VD08", name: "PE2V Vertical Dual-Sided Manager, 45RU, 8 in. Wide, Black", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 45, width: 8, depth: 26.8, end_panel_HAC: "P2VAEP2", end_panel_CAC: "", top_cap_HAC: "PE2V0836TC", top_cap_CAC: "", color: "Black", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V08BBP" },
+                { sku: "PE2VD0896", name: "PE2V Vertical Dual-Sided Manager, 52RU, 8 in. Wide, Black", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 52, width: 8, depth: 26.8, end_panel_HAC: "P2V96AEP2", end_panel_CAC: "", top_cap_HAC: "PE2V0836TC", top_cap_CAC: "", color: "Black", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V08BBP" },
+                { sku: "PE2VD0896WH", name: "PE2V Vertical Dual-Sided Manager, 52RU, 8 in. Wide, White", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 52, width: 8, depth: 26.8, end_panel_HAC: "P2V96AEP2WH", end_panel_CAC: "", top_cap_HAC: "PE2V0836TCWH", top_cap_CAC: "", color: "White", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V08BBP" },
+                { sku: "PE2VD08WH", name: "PE2V Vertical Dual-Sided Manager, 45RU, 8 in. Wide, White", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 45, width: 8, depth: 26.8, end_panel_HAC: "P2VAEP2WH", end_panel_CAC: "", top_cap_HAC: "PE2V0836TCWH", top_cap_CAC: "", color: "White", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V08BBP" },
+                { sku: "PE2VD10", name: "PE2V Vertical Dual-Sided Manager, 45RU, 10 in. Wide, Black", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 45, width: 10, depth: 26.8, end_panel_HAC: "P2VAEP2", end_panel_CAC: "", top_cap_HAC: "PE2V1036TC", top_cap_CAC: "", color: "Black", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V10BBP" },
+                { sku: "PE2VD1096", name: "PE2V Vertical Dual-Sided Manager, 52RU, 10 in. Wide, Black", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 52, width: 10, depth: 26.8, end_panel_HAC: "P2V96AEP2", end_panel_CAC: "", top_cap_HAC: "PE2V1036TC", top_cap_CAC: "", color: "Black", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V10BBP" },
+                { sku: "PE2VD1096WH", name: "PE2V Vertical Dual-Sided Manager, 52RU, 10 in. Wide, White", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 52, width: 10, depth: 26.8, end_panel_HAC: "P2V96AEP2WH", end_panel_CAC: "", top_cap_HAC: "PE2V1036TCWH", top_cap_CAC: "", color: "White", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V10BBP" },
+                { sku: "PE2VD10WH", name: "PE2V Vertical Dual-Sided Manager, 45RU, 10 in. Wide, White", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 45, width: 10, depth: 26.8, end_panel_HAC: "P2VAEP2WH", end_panel_CAC: "", top_cap_HAC: "PE2V1036TCWH", top_cap_CAC: "", color: "White", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V10BBP" },
+                { sku: "PE2VD12", name: "PE2V Vertical Dual-Sided Manager, 45RU, 12 in. Wide, Black", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 45, width: 12, depth: 26.8, end_panel_HAC: "P2VAEP2", end_panel_CAC: "", top_cap_HAC: "PE2V1236TC", top_cap_CAC: "", color: "Black", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V12BBP" },
+                { sku: "PE2VD1296", name: "PE2V Vertical Dual-Sided Manager, 52RU, 12 in. Wide, Black", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 52, width: 12, depth: 26.8, end_panel_HAC: "P2V96AEP2", end_panel_CAC: "", top_cap_HAC: "PE2V1236TC", top_cap_CAC: "", color: "Black", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V12BBP" },
+                { sku: "PE2VD1296WH", name: "PE2V Vertical Dual Sided Manager, 52RU, 12 in. Wide, White", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 52, width: 12, depth: 26.8, end_panel_HAC: "P2V96AEP2WH", end_panel_CAC: "", top_cap_HAC: "PE2V1236TCWH", top_cap_CAC: "", color: "White", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V12BBP" },
+                { sku: "PE2VD12WH", name: "PE2V Vertical Dual-Sided Manager, 45RU, 12 in. Wide, White", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 45, width: 12, depth: 26.8, end_panel_HAC: "P2VAEP2WH", end_panel_CAC: "", top_cap_HAC: "PE2V1236TCWH", top_cap_CAC: "", color: "White", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V12BBP" },
+                { sku: "PE2VFD06", name: "PE2V Vertical Single-Sided Manager, 45RU, 6 in. Wide, Black", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 45, width: 6, depth: 16.3, end_panel_HAC: "P2VAEP2", end_panel_CAC: "", top_cap_HAC: "PE2V0636TC", top_cap_CAC: "", color: "Black", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V06BBP" },
+                { sku: "PE2VFD0696", name: "PE2V Vertical Single-Sided Manager, 52RU, 6 in. Wide, Black", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 52, width: 6, depth: 16.3, end_panel_HAC: "P2V96AEP2", end_panel_CAC: "", top_cap_HAC: "PE2V0636TC", top_cap_CAC: "", color: "Black", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V06BBP" },
+                { sku: "PE2VFD0696WH", name: "PE2V Vertical Single Sided Manager, 52RU, 6 in. Wide, White", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 52, width: 6, depth: 16.3, end_panel_HAC: "P2V96AEP2WH", end_panel_CAC: "", top_cap_HAC: "PE2V0636TCWH", top_cap_CAC: "", color: "White", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V06BBP" },
+                { sku: "PE2VFD06WH", name: "PE2V Vertical Single-Sided Manager, 45RU, 6 in. Wide, White", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 45, width: 6, depth: 16.3, end_panel_HAC: "P2VAEP2WH", end_panel_CAC: "", top_cap_HAC: "PE2V0636TCWH", top_cap_CAC: "", color: "White", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V06BBP" },
+                { sku: "PE2VFD08", name: "PE2V Vertical Single-Sided Manager, 45RU, 8 in. Wide, Black", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 45, width: 8, depth: 16.3, end_panel_HAC: "P2VAEP2", end_panel_CAC: "", top_cap_HAC: "PE2V0836TC", top_cap_CAC: "", color: "Black", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V08BBP" },
+                { sku: "PE2VFD0896", name: "PE2V Vertical Single-Sided Manager, 52RU, 8 in. Wide, Black", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 52, width: 8, depth: 16.3, end_panel_HAC: "P2V96AEP2", end_panel_CAC: "", top_cap_HAC: "PE2V0836TC", top_cap_CAC: "", color: "Black", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V08BBP" },
+                { sku: "PE2VFD0896WH", name: "PE2V Vertical Single-Sided Manager, 52RU, 8 in. Wide, White", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 52, width: 8, depth: 16.3, end_panel_HAC: "P2V96AEP2WH", end_panel_CAC: "", top_cap_HAC: "PE2V0836TCWH", top_cap_CAC: "", color: "White", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V08BBP" },
+                { sku: "PE2VFD08WH", name: "PE2V Vertical Single-Sided Manager, 45RU, 8 in. Wide, White", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 45, width: 8, depth: 16.3, end_panel_HAC: "P2VAEP2WH", end_panel_CAC: "", top_cap_HAC: "PE2V0836TCWH", top_cap_CAC: "", color: "White", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V08BBP" },
+                { sku: "PE2VFD10", name: "PE2V Vertical Single-Sided Manager, 45RU, 10 in. Wide, Black", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 45, width: 10, depth: 16.3, end_panel_HAC: "P2VAEP2", end_panel_CAC: "", top_cap_HAC: "PE2V1036TC", top_cap_CAC: "", color: "Black", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V10BBP" },
+                { sku: "PE2VFD1096", name: "PE2V Vertical Single-Sided Manager, 52RU, 10 in. Wide, Black", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 52, width: 10, depth: 16.3, end_panel_HAC: "P2V96AEP2", end_panel_CAC: "", top_cap_HAC: "PE2V1036TC", top_cap_CAC: "", color: "Black", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V10BBP" },
+                { sku: "PE2VFD1096WH", name: "PE2V Vertical Single Sided Manager, 52RU, 10 in. Wide, White", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 52, width: 10, depth: 16.3, end_panel_HAC: "P2V96AEP2WH", end_panel_CAC: "", top_cap_HAC: "PE2V1036TCWH", top_cap_CAC: "", color: "White", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V10BBP" },
+                { sku: "PE2VFD10WH", name: "PE2V Vertical Single-Sided Manager, 45RU, 10 in. Wide, White", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 45, width: 10, depth: 16.3, end_panel_HAC: "P2VAEP2WH", end_panel_CAC: "", top_cap_HAC: "PE2V1036TCWH", top_cap_CAC: "", color: "White", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V10BBP" },
+                { sku: "PE2VFD12", name: "PE2V Vertical Single-Sided Manager, 45RU, 12 in. Wide, Black", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 45, width: 12, depth: 16.3, end_panel_HAC: "P2VAEP2", end_panel_CAC: "", top_cap_HAC: "PE2V1236TC", top_cap_CAC: "", color: "Black", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V12BBP" },
+                { sku: "PE2VFD1296", name: "PE2V Vertical Single-Sided Manager, 52RU, 12 in. Wide, Black", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 52, width: 12, depth: 16.3, end_panel_HAC: "P2V96AEP2", end_panel_CAC: "", top_cap_HAC: "PE2V1236TC", top_cap_CAC: "", color: "Black", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V12BBP" },
+                { sku: "PE2VFD1296WH", name: "PE2V Vertical Single-Sided Manager, 52RU, 12 in. Wide, White", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 52, width: 12, depth: 16.3, end_panel_HAC: "P2V96AEP2WH", end_panel_CAC: "", top_cap_HAC: "PE2V1236TCWH", top_cap_CAC: "", color: "White", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V12BBP" },
+                { sku: "PE2VFD12WH", name: "PE2V Vertical Single-Sided Manager, 45RU, 12 in. Wide, White", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 45, width: 12, depth: 16.3, end_panel_HAC: "P2VAEP2WH", end_panel_CAC: "", top_cap_HAC: "PE2V1236TCWH", top_cap_CAC: "", color: "White", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V12BBP" },
+                { sku: "PE2VSD06", name: "PE2V Vertical Dual-Sided Manager, 1 Door, 45RU, 6 in. Wide, Black", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 45, width: 6, depth: 26.8, end_panel_HAC: "P2VAEP2", end_panel_CAC: "", top_cap_HAC: "PE2V0636TC", top_cap_CAC: "", color: "Black", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V06BBP" },
+                { sku: "PE2VSD0696", name: "PE2V Vertical Dual-Sided Manager, 1 Door, 52RU, 6 in. Wide, Black", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 52, width: 6, depth: 26.8, end_panel_HAC: "P2V96AEP2", end_panel_CAC: "", top_cap_HAC: "PE2V0636TC", top_cap_CAC: "", color: "Black", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V06BBP" },
+                { sku: "PE2VSD0696WH", name: "PE2V Vertical Dual-Sided Manager, 1 Door, 52RU, 6 in. Wide, White", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 52, width: 6, depth: 26.8, end_panel_HAC: "P2V96AEP2WH", end_panel_CAC: "", top_cap_HAC: "PE2V0636TCWH", top_cap_CAC: "", color: "White", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V06BBP" },
+                { sku: "PE2VSD06WH", name: "PE2V Vertical Dual-Sided Manager, 1 Door, 45RU, 6 in. Wide, White", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 45, width: 6, depth: 26.8, end_panel_HAC: "P2VAEP2WH", end_panel_CAC: "", top_cap_HAC: "PE2V0636TCWH", top_cap_CAC: "", color: "White", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V06BBP" },
+                { sku: "PE2VSD08", name: "PE2V Vertical Dual-Sided Manager, 1 Door, 45RU, 8 in. Wide, Black", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 45, width: 8, depth: 26.8, end_panel_HAC: "P2VAEP2", end_panel_CAC: "", top_cap_HAC: "PE2V0836TC", top_cap_CAC: "", color: "Black", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V08BBP" },
+                { sku: "PE2VSD0896", name: "PE2V Vertical Dual-Sided Manager, 1 Door, 52RU, 8 in. Wide, Black", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 52, width: 8, depth: 26.8, end_panel_HAC: "P2V96AEP2", end_panel_CAC: "", top_cap_HAC: "PE2V0836TC", top_cap_CAC: "", color: "Black", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V08BBP" },
+                { sku: "PE2VSD0896WH", name: "PE2V Vertical Dual-Sided Manager, 1 Door, 52RU, 8 in. Wide, White", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 52, width: 8, depth: 26.8, end_panel_HAC: "P2V96AEP2WH", end_panel_CAC: "", top_cap_HAC: "PE2V0836TCWH", top_cap_CAC: "", color: "White", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V08BBP" },
+                { sku: "PE2VSD08WH", name: "PE2V Vertical Dual-Sided Manager, 1 Door, 45RU, 8 in. Wide, White", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 45, width: 8, depth: 26.8, end_panel_HAC: "P2VAEP2WH", end_panel_CAC: "", top_cap_HAC: "PE2V0836TCWH", top_cap_CAC: "", color: "White", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V08BBP" },
+                { sku: "PE2VSD10", name: "PE2V Vertical Dual-Sided Manager, 1 Door, 45RU, 10 in. Wide, Black", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 45, width: 10, depth: 26.8, end_panel_HAC: "P2VAEP2", end_panel_CAC: "", top_cap_HAC: "PE2V1036TC", top_cap_CAC: "", color: "Black", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V10BBP" },
+                { sku: "PE2VSD1096", name: "PE2V Vertical Dual-Sided Manager, 1 Door, 52RU, 10 in. Wide, Black", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 52, width: 10, depth: 26.8, end_panel_HAC: "P2V96AEP2", end_panel_CAC: "", top_cap_HAC: "PE2V1036TC", top_cap_CAC: "", color: "Black", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V10BBP" },
+                { sku: "PE2VSD1096WH", name: "PE2V Vertical Dual Sided Manager, 1 Door, 52RU, 10 in. Wide, White", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 52, width: 10, depth: 26.8, end_panel_HAC: "P2V96AEP2WH", end_panel_CAC: "", top_cap_HAC: "PE2V1036TCWH", top_cap_CAC: "", color: "White", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V10BBP" },
+                { sku: "PE2VSD10WH", name: "PE2V Vertical Dual-Sided Manager, 1 Door, 45RU, 10 in. Wide, White", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 45, width: 10, depth: 26.8, end_panel_HAC: "P2VAEP2WH", end_panel_CAC: "", top_cap_HAC: "PE2V1036TCWH", top_cap_CAC: "", color: "White", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V10BBP" },
+                { sku: "PE2VSD12", name: "PE2V Vertical Dual-Sided Manager, 1 Door, 45RU, 12 in. Wide, Black", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 45, width: 12, depth: 26.8, end_panel_HAC: "P2VAEP2", end_panel_CAC: "", top_cap_HAC: "PE2V1236TC", top_cap_CAC: "", color: "Black", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V12BBP" },
+                { sku: "PE2VSD1296", name: "PE2V Vertical Dual-Sided Manager, 1 Door, 52RU, 12 in. Wide, Black", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 52, width: 12, depth: 26.8, end_panel_HAC: "P2V96AEP2", end_panel_CAC: "", top_cap_HAC: "PE2V1236TC", top_cap_CAC: "", color: "Black", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V12BBP" },
+                { sku: "PE2VSD1296WH", name: "PE2V Vertical Dual-Sided Manager, 1 Door, 52RU, 12 in. Wide, White", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 52, width: 12, depth: 26.8, end_panel_HAC: "P2V96AEP2WH", end_panel_CAC: "", top_cap_HAC: "PE2V1236TCWH", top_cap_CAC: "", color: "White", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V12BBP" },
+                { sku: "PE2VSD12WH", name: "PE2V Vertical Dual-Sided Manager, 1 Door, 45RU, 12 in. Wide, White", family: "PatchRunner 2 Enhanced", style: "PE2V", ru: 45, width: 12, depth: 26.8, end_panel_HAC: "P2VAEP2WH", end_panel_CAC: "", top_cap_HAC: "PE2V1236TCWH", top_cap_CAC: "", color: "White", PR2V_blanking_accessory_skus: "", PE2V_blanking_accessory_skus: "PE2V12BBP" },
+                { sku: "PR2VD06", name: "PR2V Vertical Dual-Sided Manager, 45RU, 6 in. Wide, Black", family: "PatchRunner 2", style: "PR2V", ru: 45, width: 6, depth: 20.7, end_panel_HAC: "P2VAEP2", end_panel_CAC: "PR2CACFEP2BL", top_cap_HAC: "PR2V06ATC", top_cap_CAC: "PR2V06CACFSTCBL", color: "Black", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VD0696", name: "PR2V Vertical Dual-Sided Manager, 52RU, 6 in. Wide, Black", family: "PatchRunner 2", style: "PR2V", ru: 52, width: 6, depth: 20.7, end_panel_HAC: "P2V96AEP2", end_panel_CAC: "PR2CACFEP962BL", top_cap_HAC: "PR2V06ATC", top_cap_CAC: "PR2V06CACFSTCBL", color: "Black", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VD0696WH", name: "PR2V Vertical Dual-Sided Manager, 52RU, 6 in. Wide, White", family: "PatchRunner 2", style: "PR2V", ru: 52, width: 6, depth: 20.7, end_panel_HAC: "P2V96AEP2WH", end_panel_CAC: "PR2CACFEP962WH", top_cap_HAC: "PR2V06ATCWH", top_cap_CAC: "PR2V06CACFSTCWH", color: "White", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VD06WH", name: "PR2V Vertical Dual-Sided Manager, 45RU, 6 in. Wide, White", family: "PatchRunner 2", style: "PR2V", ru: 45, width: 6, depth: 20.7, end_panel_HAC: "P2VAEP2WH", end_panel_CAC: "PR2CACFEP2WH", top_cap_HAC: "PR2V06ATCWH", top_cap_CAC: "PR2V06CACFSTCWH", color: "White", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VD08", name: "PR2V Vertical Dual-Sided Manager, 45RU, 8 in. Wide, Black", family: "PatchRunner 2", style: "PR2V", ru: 45, width: 8, depth: 20.7, end_panel_HAC: "P2VAEP2", end_panel_CAC: "PR2CACFEP2BL", top_cap_HAC: "PR2V08ATC", top_cap_CAC: "PR2V08CACFSTCBL", color: "Black", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VD0896", name: "PR2V Vertical Dual-Sided Manager, 52RU, 8 in. Wide, Black", family: "PatchRunner 2", style: "PR2V", ru: 52, width: 8, depth: 20.7, end_panel_HAC: "P2V96AEP2", end_panel_CAC: "PR2CACFEP962BL", top_cap_HAC: "PR2V08ATC", top_cap_CAC: "PR2V08CACFSTCBL", color: "Black", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VD08WH", name: "PR2V Vertical Dual-Sided Manager, 45RU, 8 in. Wide, White", family: "PatchRunner 2", style: "PR2V", ru: 45, width: 8, depth: 20.7, end_panel_HAC: "P2VAEP2WH", end_panel_CAC: "PR2CACFEP2WH", top_cap_HAC: "PR2V08ATCWH", top_cap_CAC: "PR2V08CACFSTCWH", color: "White", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VD10", name: "PR2V Vertical Dual-Sided Manager, 45RU, 10 in. Wide, Black", family: "PatchRunner 2", style: "PR2V", ru: 45, width: 10, depth: 20.7, end_panel_HAC: "P2VAEP2", end_panel_CAC: "PR2CACFEP2BL", top_cap_HAC: "PR2V10ATC", top_cap_CAC: "PR2V10CACFSTCBL", color: "Black", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VD1096", name: "PR2V Vertical Dual-Sided Manager, 52RU, 10 in. Wide, Black", family: "PatchRunner 2", style: "PR2V", ru: 52, width: 10, depth: 20.7, end_panel_HAC: "P2V96AEP2", end_panel_CAC: "PR2CACFEP962BL", top_cap_HAC: "PR2V10ATC", top_cap_CAC: "PR2V10CACFSTCBL", color: "Black", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VD10WH", name: "PR2V Vertical Dual-Sided Manager, 45RU, 10 in. Wide, White", family: "PatchRunner 2", style: "PR2V", ru: 45, width: 10, depth: 20.7, end_panel_HAC: "P2VAEP2WH", end_panel_CAC: "PR2CACFEP2WH", top_cap_HAC: "PR2V10ATCWH", top_cap_CAC: "PR2V10CACFSTCWH", color: "White", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VD12", name: "PR2V Vertical Dual-Sided Manager, 45RU, 12 in. Wide, Black", family: "PatchRunner 2", style: "PR2V", ru: 45, width: 12, depth: 20.7, end_panel_HAC: "P2VAEP2", end_panel_CAC: "PR2CACFEP2BL", top_cap_HAC: "PR2V12ATC", top_cap_CAC: "PR2V12CACFSTCBL", color: "Black", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VD1296", name: "PR2V Vertical Dual-Sided Manager, 52RU, 12 in. Wide, Black", family: "PatchRunner 2", style: "PR2V", ru: 52, width: 12, depth: 20.7, end_panel_HAC: "P2V96AEP2", end_panel_CAC: "PR2CACFEP962BL", top_cap_HAC: "PR2V12ATC", top_cap_CAC: "PR2V12CACFSTCBL", color: "Black", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VD1296WH", name: "PR2V Vertical Dual-Sided Manager, 52RU, 12 in. Wide, White", family: "PatchRunner 2", style: "PR2V", ru: 52, width: 12, depth: 20.7, end_panel_HAC: "P2V96AEP2WH", end_panel_CAC: "PR2CACFEP962WH", top_cap_HAC: "PR2V12ATCWH", top_cap_CAC: "PR2V12CACFSTCWH", color: "White", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VD12WH", name: "PR2V Vertical Dual-Sided Manager, 45RU, 12 in. Wide, White", family: "PatchRunner 2", style: "PR2V", ru: 45, width: 12, depth: 20.7, end_panel_HAC: "P2VAEP2WH", end_panel_CAC: "PR2CACFEP2WH", top_cap_HAC: "PR2V12ATCWH", top_cap_CAC: "PR2V12CACFSTCWH", color: "White", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VFD06", name: "PR2V Vertical Single-Sided Manager, 45RU, 6 in. Wide, Black", family: "PatchRunner 2", style: "PR2V", ru: 45, width: 6, depth: 12, end_panel_HAC: "P2VAEP2", end_panel_CAC: "PR2CACFEP2BL", top_cap_HAC: "PR2V06ATC", top_cap_CAC: "PR2V06CACFSTCBL", color: "Black", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VFD0696", name: "PR2V Vertical Single-Sided Manager, 52RU, 6 in. Wide, Black", family: "PatchRunner 2", style: "PR2V", ru: 52, width: 6, depth: 12, end_panel_HAC: "P2V96AEP2", end_panel_CAC: "PR2CACFEP962BL", top_cap_HAC: "PR2V06ATC", top_cap_CAC: "PR2V06CACFSTCBL", color: "Black", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VFD0696WH", name: "PR2V Vertical Single-Sided Manager, 52RU, 6 in. Wide, White", family: "PatchRunner 2", style: "PR2V", ru: 52, width: 6, depth: 12, end_panel_HAC: "P2V96AEP2WH", end_panel_CAC: "PR2CACFEP962WH", top_cap_HAC: "PR2V06ATCWH", top_cap_CAC: "PR2V06CACFSTCWH", color: "White", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VFD06WH", name: "PR2V Vertical Single-Sided Manager, 45RU, 6 in. Wide, White", family: "PatchRunner 2", style: "PR2V", ru: 45, width: 6, depth: 12, end_panel_HAC: "P2VAEP2WH", end_panel_CAC: "PR2CACFEP2WH", top_cap_HAC: "PR2V06ATCWH", top_cap_CAC: "PR2V06CACFSTCWH", color: "White", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VFD08", name: "PR2V Vertical Single-Sided Manager, 45RU, 8 in. Wide, Black", family: "PatchRunner 2", style: "PR2V", ru: 45, width: 8, depth: 12, end_panel_HAC: "P2VAEP2", end_panel_CAC: "PR2CACFEP2BL", top_cap_HAC: "PR2V08ATC", top_cap_CAC: "PR2V08CACFSTCBL", color: "Black", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VFD0896", name: "PR2V Vertical Single-Sided Manager, 52RU, 8 in. Wide, Black", family: "PatchRunner 2", style: "PR2V", ru: 52, width: 8, depth: 12, end_panel_HAC: "P2V96AEP2", end_panel_CAC: "PR2CACFEP962BL", top_cap_HAC: "PR2V08ATC", top_cap_CAC: "PR2V08CACFSTCBL", color: "Black", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VFD0896WH", name: "PR2V Vertical Single-Sided Manager, 52RU, 8 in. Wide, White", family: "PatchRunner 2", style: "PR2V", ru: 52, width: 8, depth: 12, end_panel_HAC: "P2V96AEP2WH", end_panel_CAC: "PR2CACFEP962WH", top_cap_HAC: "PR2V08ATCWH", top_cap_CAC: "PR2V08CACFSTCWH", color: "White", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VFD08WH", name: "PR2V Vertical Single-Sided Manager, 45RU, 8 in. Wide, White", family: "PatchRunner 2", style: "PR2V", ru: 45, width: 8, depth: 12, end_panel_HAC: "P2VAEP2WH", end_panel_CAC: "PR2CACFEP2WH", top_cap_HAC: "PR2V08ATCWH", top_cap_CAC: "PR2V08CACFSTCWH", color: "White", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VFD10", name: "PR2V Vertical Single-Sided Manager, 45RU, 10 in. Wide, Black", family: "PatchRunner 2", style: "PR2V", ru: 45, width: 10, depth: 12, end_panel_HAC: "P2VAEP2", end_panel_CAC: "PR2CACFEP2BL", top_cap_HAC: "PR2V10ATC", top_cap_CAC: "PR2V10CACFSTCBL", color: "Black", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VFD1096", name: "PR2V Vertical Single-Sided Manager, 52RU, 10 in. Wide, Black", family: "PatchRunner 2", style: "PR2V", ru: 52, width: 10, depth: 12, end_panel_HAC: "P2V96AEP2", end_panel_CAC: "PR2CACFEP962BL", top_cap_HAC: "PR2V10ATC", top_cap_CAC: "PR2V10CACFSTCBL", color: "Black", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VFD1096WH", name: "PR2V Vertical Single-Sided Manager, 52RU, 10 in. Wide, White", family: "PatchRunner 2", style: "PR2V", ru: 52, width: 10, depth: 12, end_panel_HAC: "P2V96AEP2WH", end_panel_CAC: "PR2CACFEP962WH", top_cap_HAC: "PR2V10ATCWH", top_cap_CAC: "PR2V10CACFSTCWH", color: "White", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VFD10WH", name: "PR2V Vertical Single-Sided Manager, 45RU, 10 in. Wide, White", family: "PatchRunner 2", style: "PR2V", ru: 45, width: 10, depth: 12, end_panel_HAC: "P2VAEP2WH", end_panel_CAC: "PR2CACFEP2WH", top_cap_HAC: "PR2V10ATCWH", top_cap_CAC: "PR2V10CACFSTCWH", color: "White", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VFD12", name: "PR2V Vertical Single-Sided Manager, 45RU, 12 in. Wide, Black", family: "PatchRunner 2", style: "PR2V", ru: 45, width: 12, depth: 12, end_panel_HAC: "P2VAEP2", end_panel_CAC: "PR2CACFEP2BL", top_cap_HAC: "PR2V12ATC", top_cap_CAC: "PR2V12CACFSTCBL", color: "Black", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VFD1296", name: "PR2V Vertical Single-Sided Manager, 52RU, 12 in. Wide, Black", family: "PatchRunner 2", style: "PR2V", ru: 52, width: 12, depth: 12, end_panel_HAC: "P2V96AEP2", end_panel_CAC: "PR2CACFEP962BL", top_cap_HAC: "PR2V12ATC", top_cap_CAC: "PR2V12CACFSTCBL", color: "Black", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VFD1296WH", name: "PR2V Vertical Single-Sided Manager, 52RU, 12 in. Wide, White", family: "PatchRunner 2", style: "PR2V", ru: 52, width: 12, depth: 12, end_panel_HAC: "P2V96AEP2WH", end_panel_CAC: "PR2CACFEP962WH", top_cap_HAC: "PR2V12ATCWH", top_cap_CAC: "PR2V12CACFSTCWH", color: "White", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VFD12WH", name: "PR2V Vertical Single-Sided Manager, 45RU, 12 in. Wide, White", family: "PatchRunner 2", style: "PR2V", ru: 45, width: 12, depth: 12, end_panel_HAC: "P2VAEP2WH", end_panel_CAC: "PR2CACFEP2WH", top_cap_HAC: "PR2V12ATCWH", top_cap_CAC: "PR2V12CACFSTCWH", color: "White", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VSD06", name: "PR2V Vertical Dual-Sided Manager, 1 Door, 45RU, 6 in. Wide, Black", family: "PatchRunner 2", style: "PR2V", ru: 45, width: 6, depth: 20.7, end_panel_HAC: "P2VAEP2", end_panel_CAC: "PR2CACFEP2BL", top_cap_HAC: "PR2V06ATC", top_cap_CAC: "PR2V06CACFSTCBL", color: "Black", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VSD0696", name: "PR2V Vertical Dual-Sided Manager, 1 Door, 52RU, 6 in. Wide, Black", family: "PatchRunner 2", style: "PR2V", ru: 52, width: 6, depth: 20.7, end_panel_HAC: "P2V96AEP2", end_panel_CAC: "PR2CACFEP962BL", top_cap_HAC: "PR2V06ATC", top_cap_CAC: "PR2V06CACFSTCBL", color: "Black", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VSD06WH", name: "PR2V Vertical Dual-Sided Manager, 1 Door, 45RU, 6 in. Wide, White", family: "PatchRunner 2", style: "PR2V", ru: 45, width: 6, depth: 20.7, end_panel_HAC: "P2VAEP2WH", end_panel_CAC: "PR2CACFEP2WH", top_cap_HAC: "PR2V06ATCWH", top_cap_CAC: "PR2V06CACFSTCWH", color: "White", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VSD08", name: "PR2V Vertical Dual-Sided Manager, 1 Door, 45RU, 8 in. Wide, Black", family: "PatchRunner 2", style: "PR2V", ru: 45, width: 8, depth: 20.7, end_panel_HAC: "P2VAEP2", end_panel_CAC: "PR2CACFEP2BL", top_cap_HAC: "PR2V08ATC", top_cap_CAC: "PR2V08CACFSTCBL", color: "Black", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VSD0896", name: "PR2V Vertical Dual-Sided Manager, 1 Door, 52RU, 8 in. Wide, Black", family: "PatchRunner 2", style: "PR2V", ru: 52, width: 8, depth: 20.7, end_panel_HAC: "P2V96AEP2", end_panel_CAC: "PR2CACFEP962BL", top_cap_HAC: "PR2V08ATC", top_cap_CAC: "PR2V08CACFSTCBL", color: "Black", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VSD08WH", name: "PR2V Vertical Dual-Sided Manager, 1 Door, 45RU, 8 in. Wide, White", family: "PatchRunner 2", style: "PR2V", ru: 45, width: 8, depth: 20.7, end_panel_HAC: "P2VAEP2WH", end_panel_CAC: "PR2CACFEP2WH", top_cap_HAC: "PR2V08ATCWH", top_cap_CAC: "PR2V08CACFSTCWH", color: "White", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VSD10", name: "PR2V Vertical Dual-Sided Manager, 1 Door, 45RU, 10 in. Wide, Black", family: "PatchRunner 2", style: "PR2V", ru: 45, width: 10, depth: 20.7, end_panel_HAC: "P2VAEP2", end_panel_CAC: "PR2CACFEP2BL", top_cap_HAC: "PR2V10ATC", top_cap_CAC: "PR2V10CACFSTCBL", color: "Black", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VSD1096", name: "PR2V Vertical Dual Sided Manager, 1 Door, 52RU, 10 in. Wide, Black", family: "PatchRunner 2", style: "PR2V", ru: 52, width: 10, depth: 20.7, end_panel_HAC: "P2V96AEP2", end_panel_CAC: "PR2CACFEP962BL", top_cap_HAC: "PR2V10ATC", top_cap_CAC: "PR2V10CACFSTCBL", color: "Black", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VSD10WH", name: "PR2V Vertical Dual-Sided Manager, 1 Door, 45RU, 10 in. Wide, White", family: "PatchRunner 2", style: "PR2V", ru: 45, width: 10, depth: 20.7, end_panel_HAC: "P2VAEP2WH", end_panel_CAC: "PR2CACFEP2WH", top_cap_HAC: "PR2V10ATCWH", top_cap_CAC: "PR2V10CACFSTCWH", color: "White", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VSD12", name: "PR2V Vertical Dual-Sided Manager, 1 Door, 45RU, 12 in. Wide, Black", family: "PatchRunner 2", style: "PR2V", ru: 45, width: 12, depth: 20.7, end_panel_HAC: "P2VAEP2", end_panel_CAC: "PR2CACFEP2BL", top_cap_HAC: "PR2V12ATC", top_cap_CAC: "PR2V12CACFSTCBL", color: "Black", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VSD1296", name: "PR2V Vertical Dual-Sided Manager, 1 Door, 52RU, 12 in. Wide, Black", family: "PatchRunner 2", style: "PR2V", ru: 52, width: 12, depth: 20.7, end_panel_HAC: "P2V96AEP2", end_panel_CAC: "PR2CACFEP962BL", top_cap_HAC: "PR2V12ATC", top_cap_CAC: "PR2V12CACFSTCBL", color: "Black", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" },
+                { sku: "PR2VSD12WH", name: "PR2V Vertical Dual-Sided Manager, 1 Door, 45RU, 12 in. Wide, White", family: "PatchRunner 2", style: "PR2V", ru: 45, width: 12, depth: 20.7, end_panel_HAC: "P2VAEP2WH", end_panel_CAC: "PR2CACFEP2WH", top_cap_HAC: "PR2V12ATCWH", top_cap_CAC: "PR2V12CACFSTCWH", color: "White", PR2V_blanking_accessory_skus: "PR2VBPK", PE2V_blanking_accessory_skus: "" }
+            ],
+            accessories: [
+                { sku: "AR4PATC", desc: "AR4P Adjustable Rack Top Cap, Black", color: "Black" },
+                { sku: "AR4PATCBL", desc: "AR4P Adjustable HAC Rack Top Cap, Black", color: "Black" },
+                { sku: "AR4PATCWH", desc: "AR4P Adjustable HAC Rack Top Cap, White", color: "White" },
+                { sku: "R4PATC", desc: "R4P Adjustable HAC Rack Top Cap, Black", color: "Black" },
+                { sku: "R4PATCWH", desc: "R4P Adjustable HACRack Top Cap, White", color: "White" },
+                { sku: "AR4P-AC-KIT", desc: "Upper AR4P and AR4P96 Containment Bracket, Black", color: "Black" },
+                { sku: "AR4P-AC-KITWH", desc: "Upper AR4P and AR4P96 Containment Bracket, White", color: "White" },
+                { sku: "R4P-AC-KIT", desc: "Upper and Lower R4P Containment Kit Brackets, Black", color: "Black" },
+                { sku: "R4P-AC-KITWH", desc: "Upper and Lower R4P Containment Kit Brackets, White", color: "White" },
+                { sku: "R4P96-AC-KIT", desc: "Upper and Lower R4P96 Containment Kit Brackets, Black", color: "Black" },
+                { sku: "R4P96-AC-KITWH", desc: "Upper and Lower R4P96 Containment Kit Brackets, White", color: "White" },
+                { sku: "P2V96AEP2", desc: "Hot Aisle Containment Adjustable End Panel Kit, 52RU, 30\" to 36\", Black", color: "Black" },
+                { sku: "P2V96AEP2WH", desc: "Hot Aisle Containment Adjustable End Panel Kit, 52RU, 30\" to 36\", White", color: "White" },
+                { sku: "P2VAEP2", desc: "Hot Aisle Containment Adjustable End Panel Kit, 45RU, 30\" to 36\", Black", color: "Black" },
+                { sku: "P2VAEP2WH", desc: "Hot Aisle Containment Adjustable End Panel Kit, 45RU, 30\" to 36\", White", color: "White" },
+                { sku: "PE2V06BBP", desc: "Back Bone Side Panel Set for 6\" Wide PE2V Managers, Black", color: "Black" },
+                { sku: "PE2V08BBP", desc: "Back Bone Side Panel Set for 8\" Wide PE2V Managers, Black", color: "Black" },
+                { sku: "PE2V10BBP", desc: "Back Bone Side Panel Set for 10\" Wide PE2V Managers, Black", color: "Black" },
+                { sku: "PE2V12BBP", desc: "Back Bone Side Panel Set for 12\" Wide PE2V Managers, Black", color: "Black" },
+                { sku: "PE2V0636TC", desc: "PatchRunner™ 2 Enhanced HAC Rack Top Cap, 6\", Black", color: "Black" },
+                { sku: "PE2V0636TCWH", desc: "PatchRunner™ 2 Enhanced HAC Rack Top Cap, 6\", White", color: "White" },
+                { sku: "PE2V0836TC", desc: "PatchRunner™ 2 Enhanced HAC Rack Top Cap, 8\", Black", color: "Black" },
+                { sku: "PE2V0836TCWH", desc: "PatchRunner™ 2 Enhanced HAC Rack Top Cap, 8\", White", color: "White" },
+                { sku: "PE2V1036TC", desc: "PatchRunner™ 2 Enhanced HAC Rack Top Cap, 10\", Black", color: "Black" },
+                { sku: "PE2V1036TCWH", desc: "PatchRunner™ 2 Enhanced HAC Rack Top Cap, 10\", White", color: "White" },
+                { sku: "PE2V1236TC", desc: "PatchRunner™ 2 Enhanced HAC Rack Top Cap, 12\", Black", color: "Black" },
+                { sku: "PE2V1236TCWH", desc: "PatchRunner™ 2 Enhanced HAC Rack Top Cap, 12\", White", color: "White" },
+                { sku: "PR2V06ATC", desc: "PatchRunner™ 2 HAC Rack Adjustable Top Cap, 6\", Black", color: "Black" },
+                { sku: "PR2V06ATCWH", desc: "PatchRunner™ 2 HAC Rack Adjustable Top Cap, 6\", White", color: "White" },
+                { sku: "PR2V08ATC", desc: "PatchRunner™ 2 HAC Rack Adjustable Top Cap, 8\", Black", color: "Black" },
+                { sku: "PR2V08ATCWH", desc: "PatchRunner™ 2 HAC Rack Adjustable Top Cap, 8\", White", color: "White" },
+                { sku: "PR2V10ATC", desc: "PatchRunner™ 2 HAC Rack Adjustable Top Cap, 10\", Black", color: "Black" },
+                { sku: "PR2V10ATCWH", desc: "PatchRunner™ 2 HAC Rack Adjustable Top Cap, 10\", White", color: "White" },
+                { sku: "PR2V12ATC", desc: "PatchRunner™ 2 HAC Rack Adjustable Top Cap, 12\", Black", color: "Black" },
+                { sku: "PR2V12ATCWH", desc: "PatchRunner™ 2 HAC Rack Adjustable Top Cap, 12\", White", color: "White" },
+                { sku: "AR4PCACTCBL", desc: "AR4P Cold Aisle Rack Top Cap, Black", color: "Black" },
+                { sku: "AR4PCACTCWH", desc: "AR4P Cold Aisle Rack Top Cap, White", color: "White" },
+                { sku: "PR2V06CACFSTCBL", desc: "PatchRunner™ 2 Cold Aisle Rack Top Cap, 6\", Black", color: "Black" },
+                { sku: "PR2V06CACFSTCWH", desc: "PatchRunner™ 2 Cold Aisle Rack Top Cap, 6\", White", color: "White" },
+                { sku: "PR2V08CACFSTCBL", desc: "PatchRunner™ 2 Cold Aisle Rack Top Cap, 8\", Black", color: "Black" },
+                { sku: "PR2V08CACFSTCWH", desc: "PatchRunner™ 2 Cold Aisle Rack Top Cap, 8\", White", color: "White" },
+                { sku: "PR2V10CACFSTCBL", desc: "PatchRunner™ 2 Cold Aisle Rack Top Cap, 10\", Black", color: "Black" },
+                { sku: "PR2V10CACFSTCWH", desc: "PatchRunner™ 2 Cold Aisle Rack Top Cap, 10\", White", color: "White" },
+                { sku: "PR2V12CACFSTCBL", desc: "PatchRunner™ 2 Cold Aisle Rack Top Cap, 12\", Black", color: "Black" },
+                { sku: "PR2V12CACFSTCWH", desc: "PatchRunner™ 2 Cold Aisle Rack Top Cap, 12\", White", color: "White" },
+                { sku: "PR2VBPK", desc: "PatchRunner™ 2 Pass-Through Blanking Plug", color: "Black" },
+                { sku: "PR2CACFEP2BL", desc: "Cold Aisle End Panel Kit, 45RU, Black", color: "Black" },
+                { sku: "PR2CACFEP2WH", desc: "Cold Aisle End Panel Kit, 45RU, White", color: "White" },
+                { sku: "PR2CACFEP962BL", desc: "Cold Aisle End Panel Kit, 52RU, Black", color: "Black" },
+                { sku: "PR2CACFEP962WH", desc: "Cold Aisle End Panel Kit, 52RU, White", color: "White" }
+            ],
+            ruOptions: [45, 52],
+            colors: ["Black", "White"],
+            depths: [30, 36],
+            containmentTypes: [
+                { value: "None", label: "None" },
+                { value: "HAC", label: "Hot-Aisle Only" },
+                { value: "CAC", label: "Cold-Aisle Only" },
+                { value: "Combined", label: "Combined" }
+            ]
+        };
+
+    // ---- State ----
+    let rows = [createDefaultRow('Row 1')];
+    let activeRow = 0;
+    let darkMode = false;
+
+    function createDefaultRow(name) {
+      return { name, ru:45, color:'Black', depth:30, containment:'None', rackCount:2, racks:[null,null], vcms:[null,null,null], notes:{} };
+    }
+
+    const PRODUCT_URL_BASE = 'https://www.panduit.com/PanProducts/';
+    function productUrl(sku) { return sku ? `${PRODUCT_URL_BASE}${encodeURIComponent(sku)}` : ''; }
+    function lookupCatalogDesc(sku) {
+      if(!sku) return '';
+      const rack = CATALOG.racks.find(x=>x.sku===sku);
+      if(rack?.desc) return rack.desc;
+      const vcm = CATALOG.vcms.find(x=>x.sku===sku);
+      if(vcm?.name) return vcm.name;
+      const acc = CATALOG.accessories.find(x=>x.sku===sku);
+      if(acc?.desc) return acc.desc;
+      return '';
+    }
+
+    function isRackCompatible(row, sku) {
+      const r = CATALOG.racks.find(x=>x.sku===sku);
+      if(!r) return false;
+      if(row.ru && r.ru && row.ru!==r.ru) return false;
+      if(row.color && r.color && row.color!==r.color) return false;
+      if(row.depth && r.depth && r.depth!==row.depth) return false;
+      const needsCAC = row.containment==='CAC' || row.containment==='Combined';
+      const needsHAC = row.containment==='HAC' || row.containment==='Combined';
+      if(needsCAC && !r.cac_topcap) return false;
+      if(needsHAC && !r.hac_topcap) return false;
+      if(needsCAC && r.depth && !r.adjustable) return false;
+      return true;
+    }
+
+    function isVCMCompatible(row, sku) {
+      const v = CATALOG.vcms.find(x=>x.sku===sku);
+      if(!v) return false;
+      if(row.ru && v.ru && row.ru!==v.ru) return false;
+      if(row.color && v.color && row.color!==v.color) return false;
+      const needsCAC = row.containment==='CAC' || row.containment==='Combined';
+      const needsHAC = row.containment==='HAC' || row.containment==='Combined';
+      if(needsCAC && (!v.top_cap_CAC || !v.end_panel_CAC)) return false;
+      if(needsHAC && (!v.top_cap_HAC || !v.end_panel_HAC)) return false;
+      const isPE2V=(v.family||'').includes('PatchRunner 2 Enhanced') || v.style==='PE2V';
+      if(needsHAC && row.depth===30 && isPE2V) return false;
+      return true;
+    }
+
+    function containmentRules(row) {
+      let disableCAC=false, disableHAC=false; const reasons=[];
+      const racks=row.racks.map(s=>CATALOG.racks.find(r=>r?.sku===s)).filter(Boolean);
+      const vcms=row.vcms.map(s=>CATALOG.vcms.find(v=>v?.sku===s)).filter(Boolean);
+      const hasR4P=racks.some(r=>r.sku?.startsWith('R4P') || (r.depth && !r.adjustable));
+      if(hasR4P) { disableCAC=true; reasons.push('CAC disabled: R4P racks present'); }
+      if(vcms.some(v=>!v?.top_cap_CAC || !v?.end_panel_CAC)) { disableCAC=true; reasons.push('CAC disabled: PE2V not CAC-ready'); }
+      if(row.depth===30 && vcms.some(v=>((v.family||'').includes('PatchRunner 2 Enhanced') || v.style==='PE2V'))) { disableHAC=true; reasons.push('HAC disabled at 30" with PE2V managers'); }
+      if(racks.some(r=>!r?.hac_topcap)) { disableHAC=true; reasons.push('HAC disabled: rack family lacks HAC top cap'); }
+      const uniqueReasons=[...new Set(reasons)];
+      return { disableCAC, disableHAC, reasons: uniqueReasons };
+    }
+
+    function clearIncompatible(row) {
+      row.racks = row.racks.map(s => (s && isRackCompatible(row,s)) ? s : null);
+      row.vcms = row.vcms.map(s => (s && isVCMCompatible(row,s)) ? s : null);
+    }
+
+    function getIncompatibleSelections(row, changes) {
+      const next={...row, ...changes};
+      const racksToClear=row.racks.filter(s=>s && !isRackCompatible(next,s));
+      const vcmsToClear=row.vcms.filter(s=>s && !isVCMCompatible(next,s));
+      return {racksToClear, vcmsToClear};
+    }
+
+    function shouldProceedWithChange(row, changes, reasonLabel) {
+      const {racksToClear, vcmsToClear}=getIncompatibleSelections(row, changes);
+      if(!racksToClear.length && !vcmsToClear.length) return true;
+      const parts=[];
+      if(racksToClear.length) parts.push(`Racks: ${racksToClear.join(', ')}`);
+      if(vcmsToClear.length) parts.push(`VCMs: ${vcmsToClear.join(', ')}`);
+      const msg=`Changing ${reasonLabel} will clear incompatible selections.\n${parts.join('\n')}\nProceed?`;
+      return confirm(msg);
+    }
+
+    function isRowComplete(row) {
+      return row.racks.every(s=>s && isRackCompatible(row,s)) && row.vcms.every(s=>s && isVCMCompatible(row,s));
+    }
+
+    function isDuplicateName(name, idx) { return rows.some((r,i)=>r.name===name && i!==idx); }
+    function flashStatusPill() { const pill=document.getElementById('status-pill'); if(!pill) return; pill.style.boxShadow='0 0 0 4px rgba(29,143,253,0.35)'; setTimeout(()=>pill.style.boxShadow='var(--shadow)',600); }
+
+    function renderSidebar() {
+      const wrap=document.getElementById('sidebar-content'); wrap.innerHTML='';
+      rows.forEach((row,idx)=>{
+        const card=document.createElement('div'); card.className='row-card'+(idx===activeRow?' active':''); card.setAttribute('tabindex','0'); card.setAttribute('role','button'); card.setAttribute('aria-label', `${row.name}, ${row.rackCount} racks, ${row.ru} RU, ${row.color}, ${row.containment}`);
+        card.onclick=(e)=>{ if(e.target.classList.contains('row-delete')) return; setActiveRow(idx); };
+        card.onkeydown=(e)=>{ if(e.target.classList.contains('row-delete')) return; if(e.key==='Enter'||e.key===' ') { e.preventDefault(); setActiveRow(idx); } };
+        const dot=document.createElement('div'); dot.className='dot'; dot.style.background=isRowComplete(row)?'var(--success)':'var(--danger)'; card.appendChild(dot);
+        card.innerHTML += `<div class="row-name">${row.name}</div><div class="row-meta">${row.rackCount} racks • ${row.ru}RU • ${row.color} • ${row.containment}</div>`;
+        const del=document.createElement('button'); del.textContent='Delete'; del.className='row-delete'; del.setAttribute('aria-label', `Delete ${row.name}`); del.onclick=(e)=>{ e.stopPropagation(); deleteRow(idx); }; card.appendChild(del);
+        wrap.appendChild(card);
+      });
+    }
+
+    function addRow() {
+      let n=rows.length+1; let name='Row '+n; while(rows.some(r=>r.name===name)) { n++; name='Row '+n; }
+      rows.push(createDefaultRow(name)); setActiveRow(rows.length-1);
+    }
+
+    function deleteRow(idx) { if(rows.length===1) return; rows.splice(idx,1); if(activeRow>=rows.length) activeRow=rows.length-1; render(); }
+    function duplicateRow() { const src=rows[activeRow]; const copy=JSON.parse(JSON.stringify(src)); let name=src.name+' (Copy)'; let n=2; while(rows.some(r=>r.name===name)) { name=src.name+' (Copy '+n+')'; n++; } copy.name=name; rows.push(copy); setActiveRow(rows.length-1); flashStatusPill(); }
+    function setActiveRow(idx) { activeRow=idx; render(); }
+
+    function renderRowEditor() {
+      const row=rows[activeRow]; const contRules=containmentRules(row); const card=document.getElementById('row-editor'); card.innerHTML='';
+      const editorHeader=document.createElement('div'); editorHeader.style.display='flex'; editorHeader.style.justifyContent='space-between'; editorHeader.style.alignItems='center';
+      const title=document.createElement('h3'); title.textContent='Row Editor'; title.style.margin='0'; editorHeader.appendChild(title);
+      const editorCollapseBtn=document.createElement('button'); editorCollapseBtn.className='btn-secondary btn collapse-btn';
+      const eState=JSON.parse(localStorage.getItem('collapseState')||'{}'); const eCollapsed=eState['rowEditor'];
+      editorCollapseBtn.textContent=eCollapsed?'Expand':'Collapse'; editorCollapseBtn.setAttribute('aria-label', eCollapsed?'Expand row editor':'Collapse row editor');
+      editorCollapseBtn.onclick=()=>{ const s=JSON.parse(localStorage.getItem('collapseState')||'{}'); s['rowEditor']=!s['rowEditor']; localStorage.setItem('collapseState', JSON.stringify(s)); render(); };
+      editorHeader.appendChild(editorCollapseBtn); card.appendChild(editorHeader);
+      if(!eCollapsed) {
+      const form=document.createElement('div'); form.className='form-grid';
+      form.appendChild(makeInput('Row Name', row.name, v=>{ row.name=v; render(); }));
+      form.appendChild(makeSelect('Height (RU)', CATALOG.ruOptions.map(v=>({value:v,label:v+' RU'})), row.ru, v=>{ const next=parseInt(v,10); if(!shouldProceedWithChange(row,{ru:next},'height')) { render(); return; } row.ru=next; clearIncompatible(row); render(); }));
+      form.appendChild(makeSelect('Color', CATALOG.colors.map(v=>({value:v,label:v})), row.color, v=>{ if(!shouldProceedWithChange(row,{color:v},'color')) { render(); return; } row.color=v; clearIncompatible(row); render(); }));
+      const depthWrap=document.createElement('div'); depthWrap.innerHTML='<label>Rack Depth</label>'; const chips=document.createElement('div'); chips.className='chips';
+      CATALOG.depths.forEach(d=>{ const c=document.createElement('div'); c.className='chip'+(row.depth===d?' active':''); c.textContent=d+' in'; c.onclick=()=>{ if(row.depth===d) return; if(!shouldProceedWithChange(row,{depth:d},'depth')) { render(); return; } row.depth=d; clearIncompatible(row); render(); }; chips.appendChild(c); });
+      depthWrap.appendChild(chips); form.appendChild(depthWrap);
+      const contWrap=document.createElement('div'); const cl=document.createElement('label'); cl.textContent='Containment'; contWrap.appendChild(cl); const contSel=document.createElement('select');
+      CATALOG.containmentTypes.forEach(opt=>{ const o=document.createElement('option'); o.value=opt.value; o.textContent=opt.label; if((opt.value==='CAC'||opt.value==='Combined') && contRules.disableCAC) o.disabled=true; if(opt.value==='HAC' && contRules.disableHAC) o.disabled=true; if(row.containment===opt.value && o.disabled) row.containment='None'; if(row.containment===opt.value) o.selected=true; contSel.appendChild(o); });
+      contSel.onchange=()=>{
+        const nextVal=contSel.value;
+        const preview={...row, containment:nextVal};
+        const firstWarnings=[];
+        if(row.vcms[0] && !isVCMCompatible(preview, row.vcms[0])) firstWarnings.push(`VCM 1 (${row.vcms[0]})`);
+        if(row.racks[0] && !isRackCompatible(preview, row.racks[0])) firstWarnings.push(`Rack 1 (${row.racks[0]})`);
+        if(firstWarnings.length) {
+          const ok=confirm(`Changing containment to ${nextVal} will clear: ${firstWarnings.join(', ')}.\nProceed?`);
+          if(!ok) { contSel.value=row.containment; return; }
+        }
+        row.containment=nextVal;
+        clearIncompatible(row);
+        render();
+      }; contWrap.appendChild(contSel);
+      if(contRules.reasons.length) { const hint=document.createElement('div'); hint.style.color='var(--muted)'; hint.style.fontSize='12px'; hint.textContent=contRules.reasons.join(' | '); contWrap.appendChild(hint); }
+      form.appendChild(contWrap);
+      form.appendChild(makeInput('Total Racks in Row', row.rackCount, v=>{ const n=Math.max(1, Math.min(20, parseInt(v,10)||1)); if(n!==row.rackCount) { row.rackCount=n; row.racks=Array(n).fill(null); row.vcms=Array(n+1).fill(null); row.notes={}; clearIncompatible(row); render(); } }, 'number', {min:1,max:20}));
+      card.appendChild(form);
+      if(isDuplicateName(row.name, activeRow)) { const warn=document.createElement('div'); warn.style.color='var(--danger)'; warn.textContent='Duplicate row name!'; card.appendChild(warn); }
+      }
+      const hr1=document.createElement('hr'); hr1.style.border='none'; hr1.style.borderTop='1px solid var(--border)'; hr1.style.margin='12px 0'; card.appendChild(hr1);
+      const quickHeader=document.createElement('div'); quickHeader.style.display='flex'; quickHeader.style.justifyContent='space-between'; quickHeader.style.alignItems='center';
+      const quickLabel=document.createElement('strong'); quickLabel.textContent='Quick-fill'; quickHeader.appendChild(quickLabel);
+      const quickCollapseBtn=document.createElement('button'); quickCollapseBtn.className='btn-secondary btn collapse-btn';
+      const qState=JSON.parse(localStorage.getItem('collapseState')||'{}'); const qCollapsed=qState['quickFill'];
+      quickCollapseBtn.textContent=qCollapsed?'Expand':'Collapse'; quickCollapseBtn.setAttribute('aria-label', qCollapsed?'Expand quick-fill':'Collapse quick-fill');
+      quickCollapseBtn.onclick=()=>{ const s=JSON.parse(localStorage.getItem('collapseState')||'{}'); s['quickFill']=!s['quickFill']; localStorage.setItem('collapseState', JSON.stringify(s)); render(); };
+      quickHeader.appendChild(quickCollapseBtn); card.appendChild(quickHeader);
+      if(!qCollapsed) {
+      const quick=document.createElement('div'); quick.className='quick-fill'; quick.style.marginTop='6px';
+      const rackFill=document.createElement('select'); rackFill.setAttribute('aria-label','Choose rack for all positions'); rackFill.innerHTML='<option value="">Choose Rack for all positions (filtered)</option>'; CATALOG.racks.forEach(r=>{ if(!isRackCompatible(row,r.sku)) return; const o=document.createElement('option'); o.value=r.sku; o.textContent=`${r.sku} — ${r.desc}`; rackFill.appendChild(o); }); rackFill.onchange=()=>{ if(!rackFill.value) return; row.racks=Array(row.rackCount).fill(rackFill.value); render(); flashStatusPill(); }; quick.appendChild(rackFill);
+      const vcmFill=document.createElement('select'); vcmFill.setAttribute('aria-label','Choose VCM for all positions'); vcmFill.innerHTML='<option value="">Choose VCM for all positions (filtered)</option>'; CATALOG.vcms.forEach(v=>{ if(!isVCMCompatible(row,v.sku)) return; const o=document.createElement('option'); o.value=v.sku; o.textContent=`${v.sku} — ${v.name}`; vcmFill.appendChild(o); }); vcmFill.onchange=()=>{ if(!vcmFill.value) return; row.vcms=Array(row.rackCount+1).fill(vcmFill.value); render(); flashStatusPill(); }; quick.appendChild(vcmFill);
+      card.appendChild(quick);
+      }
+      const hr2=document.createElement('hr'); hr2.style.border='none'; hr2.style.borderTop='1px solid var(--border)'; hr2.style.margin='12px 0'; card.appendChild(hr2);
+      const gridHeader=document.createElement('div'); gridHeader.style.display='flex'; gridHeader.style.justifyContent='space-between'; gridHeader.style.alignItems='center';
+      const gridTitle=document.createElement('h4'); gridTitle.textContent='Row Layout (VCM – Rack – … – VCM)'; gridTitle.style.margin='0'; gridHeader.appendChild(gridTitle);
+      const gridCollapseBtn=document.createElement('button'); gridCollapseBtn.className='btn-secondary btn collapse-btn';
+      const gState=JSON.parse(localStorage.getItem('collapseState')||'{}'); const gCollapsed=gState['rowLayout'];
+      gridCollapseBtn.textContent=gCollapsed?'Expand':'Collapse'; gridCollapseBtn.setAttribute('aria-label', gCollapsed?'Expand row layout':'Collapse row layout');
+      gridCollapseBtn.onclick=()=>{ const s=JSON.parse(localStorage.getItem('collapseState')||'{}'); s['rowLayout']=!s['rowLayout']; localStorage.setItem('collapseState', JSON.stringify(s)); render(); };
+      gridHeader.appendChild(gridCollapseBtn); card.appendChild(gridHeader);
+      if(!gCollapsed) {
+      const grid=document.createElement('div'); grid.className='layout-grid';
+      for(let i=0;i<row.rackCount*2+1;i++) {
+        const isVCM=i%2===0; const idx=isVCM?i/2:(i-1)/2; const label=(isVCM?'VCM ':'Rack ')+(idx+1); const posKey=(isVCM?'vcm-':'rack-')+idx; const slot=document.createElement('div'); slot.className='slot';
+        const t=document.createElement('div'); t.className='slot-title'; t.textContent=label; slot.appendChild(t);
+        const filter=document.createElement('input'); filter.placeholder=isVCM?'Filter VCMs…':'Filter Racks…'; filter.setAttribute('aria-label', isVCM?'Filter VCM options':'Filter rack options'); slot.appendChild(filter);
+        const sel=document.createElement('select'); sel.setAttribute('aria-label', `${label} selector`); sel.innerHTML=`<option value="">Select ${isVCM?'VCM':'Rack'}…</option>`; slot.appendChild(sel);
+        function updateOptions() {
+          sel.innerHTML=`<option value="">Select ${isVCM?'VCM':'Rack'}…</option>`;
+          const list=isVCM?CATALOG.vcms:CATALOG.racks;
+          const currentVal=isVCM?row.vcms[idx]:row.racks[idx];
+          const f=filter.value.trim().toLowerCase();
+          list.forEach(item=>{
+            const text=isVCM?item.name:item.desc;
+            const okFilter=!f || item.sku.toLowerCase().includes(f) || (text||'').toLowerCase().includes(f);
+            const okCompat=isVCM?isVCMCompatible(row,item.sku):isRackCompatible(row,item.sku);
+            if(!okFilter||!okCompat) return;
+            const o=document.createElement('option'); o.value=item.sku; o.textContent=`${item.sku} — ${text||''}`; if(currentVal===item.sku) o.selected=true; sel.appendChild(o);
+          });
+          if(currentVal && !Array.from(sel.options).some(o=>o.value===currentVal)) {
+            const item=list.find(x=>x.sku===currentVal);
+            const text=isVCM?item?.name:item?.desc;
+            const o=document.createElement('option');
+            o.value=currentVal; o.textContent=`${currentVal} — ${text||'Selected (check compatibility)'}`; o.selected=true; sel.appendChild(o);
+          }
+          if(!currentVal) {
+            sel.style.border='2px solid var(--danger)';
+            sel.title='Required';
+          } else if(!(isVCM?isVCMCompatible(row,currentVal):isRackCompatible(row,currentVal))) {
+            sel.style.border='2px solid var(--danger)';
+            sel.title='Selected item not compatible with current settings';
+          } else {
+            sel.style.border='1px solid var(--border)';
+            sel.title='';
+          }
+        }
+        updateOptions(); filter.oninput=updateOptions; sel.onchange=()=>{ if(isVCM) row.vcms[idx]=sel.value||null; else row.racks[idx]=sel.value||null; renderSidebar(); renderBOM(); updateStatusPill(); render(); };
+        const noteBtn=document.createElement('button'); noteBtn.className='note-btn'; noteBtn.textContent='📝'; noteBtn.setAttribute('aria-label', `${label} note`); if(row.notes[posKey]) noteBtn.classList.add('has-note'); noteBtn.onclick=(e)=>{ e.preventDefault(); e.stopPropagation(); showNoteEditor(posKey,noteBtn); }; slot.appendChild(noteBtn);
+        grid.appendChild(slot);
+      }
+      card.appendChild(grid);
+      }
+    }
+
+    function makeInput(labelText, value, onChange, type='text', attrs={}) { const wrap=document.createElement('div'); const l=document.createElement('label'); l.textContent=labelText; wrap.appendChild(l); const inp=document.createElement('input'); inp.type=type; inp.value=value; inp.setAttribute('aria-label', labelText); Object.entries(attrs).forEach(([k,v])=>inp[k]=v); inp.oninput=()=>onChange(type==='number'?inp.value:inp.value); wrap.appendChild(inp); return wrap; }
+    function makeSelect(labelText, options, value, onChange) { const wrap=document.createElement('div'); const l=document.createElement('label'); l.textContent=labelText; wrap.appendChild(l); const sel=document.createElement('select'); sel.setAttribute('aria-label', labelText); options.forEach(o=>{ const op=document.createElement('option'); op.value=o.value; op.textContent=o.label; if(o.value===value) op.selected=true; sel.appendChild(op); }); sel.onchange=()=>onChange(sel.value); wrap.appendChild(sel); return wrap; }
+
+    function showNoteEditor(posKey, anchor) {
+      const row=rows[activeRow]; const existing=document.getElementById('note-editor'); if(existing) existing.remove();
+      const editor=document.createElement('div'); editor.id='note-editor'; editor.className='modal'; editor.style.position='fixed'; editor.style.zIndex='120'; editor.style.width='260px'; editor.style.padding='10px';
+      const ta=document.createElement('textarea'); ta.style.width='100%'; ta.style.height='90px'; ta.value=row.notes[posKey]||''; ta.setAttribute('aria-label','Note text'); editor.appendChild(ta);
+      const actions=document.createElement('div'); actions.style.display='flex'; actions.style.gap='6px'; actions.style.marginTop='6px';
+      const save=document.createElement('button'); save.className='btn'; save.textContent='Save'; save.setAttribute('aria-label','Save note'); save.onclick=()=>{ row.notes[posKey]=ta.value.trim(); if(!row.notes[posKey]) delete row.notes[posKey]; render(); editor.remove(); };
+      const clear=document.createElement('button'); clear.className='btn-secondary btn'; clear.textContent='Clear'; clear.setAttribute('aria-label','Clear note'); clear.onclick=()=>{ delete row.notes[posKey]; render(); editor.remove(); };
+      const close=document.createElement('button'); close.className='btn-ghost'; close.textContent='Close'; close.setAttribute('aria-label','Close note editor'); close.onclick=()=>editor.remove();
+      actions.append(save, clear, close); editor.appendChild(actions);
+      document.body.appendChild(editor);
+      const rect=anchor.getBoundingClientRect(); editor.style.left=`${rect.left}px`; editor.style.top=`${rect.bottom+6}px`;
+    }
+
+    function computeRowBOM(row) {
+      const lines=[]; const add=(group, sku, desc, qty=1, note='')=>{ if(!sku) return; const resolvedDesc=desc||lookupCatalogDesc(sku)||sku; lines.push({ row:row.name, group, sku, link:productUrl(sku), desc:resolvedDesc, qty, note }); };
+      const rackDepths=new Set(), vcmDepths=new Set();
+      row.racks.forEach((sku,idx)=>{ if(!sku) return; const rackSku=String(sku).trim().toUpperCase(); const r=CATALOG.racks.find(x=>x.sku===rackSku)||CATALOG.racks.find(x=>x.sku===sku); const canonicalSku=r?.sku||rackSku||sku; add('Rack', canonicalSku, r?.desc, 1, row.notes['rack-'+idx]||''); if(r?.depth) rackDepths.add(r.depth); if(r?.adjustable && row.depth) rackDepths.add(row.depth);
+        const isHAC=row.containment==='HAC'||row.containment==='Combined'; const isCAC=row.containment==='CAC'||row.containment==='Combined';
+        const containmentOn=isHAC||isCAC;
+        if(isHAC) {
+          // Force R4P HAC top caps based on rack color to avoid catalog gaps/typos.
+          if(rackSku.startsWith('R4P')) {
+            const forcedTopCap=(r?.color||'Black').toLowerCase()==='white'?'R4PATCWH':'R4PATC';
+            add('Rack Accessory', forcedTopCap, lookupCatalogDesc(forcedTopCap)||'R4P HAC rack top cap', 1, 'Auto (containment)');
+          } else {
+            add('Rack Accessory', r?.hac_topcap, lookupCatalogDesc(r?.hac_topcap)||'Rack HAC top cap', 1, 'Auto (containment)');
+          }
+        }
+        if(isCAC) add('Rack Accessory', r?.cac_topcap, lookupCatalogDesc(r?.cac_topcap)||'Rack CAC top cap', 1, 'Auto (containment)');
+        if(containmentOn) {
+          const inferredWhite=rackSku.includes('WH');
+          const rackColor=(r?.color||(inferredWhite?'White':'Black')).toLowerCase();
+          const isWhite=rackColor==='white';
+          let containmentKit='';
+          if(rackSku.startsWith('AR4P')) {
+            containmentKit=isWhite?'AR4P-AC-KITWH':'AR4P-AC-KIT';
+          } else if(rackSku.startsWith('R4P')) {
+            const is96=rackSku.includes('96') || r?.ru===52;
+            containmentKit=is96
+              ? (isWhite?'R4P96-AC-KITWH':'R4P96-AC-KIT')
+              : (isWhite?'R4P-AC-KITWH':'R4P-AC-KIT');
+          }
+          if(containmentKit) add('Rack Accessory', containmentKit, lookupCatalogDesc(containmentKit)||'Containment kit per rack', 1, 'Auto (containment kit per rack)');
+        }
+      });
+      row.vcms.forEach((sku,idx)=>{ if(!sku) return; const v=CATALOG.vcms.find(x=>x.sku===sku); add('VCM', sku, v?.name, 1, row.notes['vcm-'+idx]||''); if(v?.depth) vcmDepths.add(v.depth); const isHAC=row.containment==='HAC'||row.containment==='Combined'; const isCAC=row.containment==='CAC'||row.containment==='Combined'; const containmentOn=row.containment!=='None'; const family=v?.family||''; const isPE2V=family.includes('Enhanced')||v?.style==='PE2V'; const isPR2V=v?.style==='PR2V' || (!family.includes('Enhanced') && family.includes('PatchRunner 2')); if(isHAC) { add('VCM Accessory', v?.top_cap_HAC, lookupCatalogDesc(v?.top_cap_HAC)||'VCM HAC top cap', 1, 'Auto (containment)'); } if(isCAC) { add('VCM Accessory', v?.top_cap_CAC, lookupCatalogDesc(v?.top_cap_CAC)||'VCM CAC top cap', 1, 'Auto (containment)'); } if(row.containment==='HAC' && isPR2V && v?.PR2V_blanking_accessory_skus) add('VCM Accessory', v.PR2V_blanking_accessory_skus, lookupCatalogDesc(v.PR2V_blanking_accessory_skus)||'PR2V Blanking', 1, 'Auto (blanking; HAC only)'); if(containmentOn && isPE2V && v?.PE2V_blanking_accessory_skus) add('VCM Accessory', v.PE2V_blanking_accessory_skus, lookupCatalogDesc(v.PE2V_blanking_accessory_skus)||'PE2V Blanking', 1, 'Auto (blanking; containment rows only)'); });
+      if(row.containment!=='None') {
+        const wantCAC=row.containment==='CAC'||row.containment==='Combined';
+        const wantHAC=row.containment==='HAC'||row.containment==='Combined';
+        const cacKit=row.vcms.map(s=>CATALOG.vcms.find(v=>v?.sku===s)).find(v=>v?.end_panel_CAC)?.end_panel_CAC||'';
+        const hacKit=row.vcms.map(s=>CATALOG.vcms.find(v=>v?.sku===s)).find(v=>v?.end_panel_HAC)?.end_panel_HAC||'';
+        if(wantCAC && cacKit) add('Row Accessory', cacKit, lookupCatalogDesc(cacKit)||'Row CAC end panel kit (pair)', 1, 'One pair per row');
+        if(wantHAC && hacKit) add('Row Accessory', hacKit, lookupCatalogDesc(hacKit)||'Row HAC end panel kit (pair)', 1, 'One pair per row');
+      }
+      // Depth combinations are allowed (adjustable racks and mixed VCM families), so we no longer warn on mixed depths.
+      const grouped={}; lines.forEach(l=>{ const key=`${l.sku}|${l.note}`; if(!grouped[key]) grouped[key]={...l, qty:0}; grouped[key].qty+=l.qty; }); return Object.values(grouped).sort((a,b)=>a.sku.localeCompare(b.sku));
+    }
+
+    function generateBOM() { const agg={}; rows.forEach(r=>{ computeRowBOM(r).forEach(line=>{ if(line.sku.startsWith('⚠')) return; if(!agg[line.sku]) agg[line.sku]={ sku:line.sku, group:line.group, link:line.link, desc:line.desc, qty:0, notes:new Set() }; agg[line.sku].qty+=line.qty; if(line.note) agg[line.sku].notes.add(line.note); }); }); return Object.values(agg).map(x=>({ ...x, notes:Array.from(x.notes).join(' | ') })).sort((a,b)=>a.sku.localeCompare(b.sku)); }
+
+    function renderBOM() { const rowCard=document.getElementById('bom-row-card'); const projCard=document.getElementById('bom-project-card'); const rowLines=computeRowBOM(rows[activeRow]); const projLines=rows.flatMap(r=>computeRowBOM(r)); makeBOMCard(rowCard, 'Bill of Materials — Current Row', rowLines, 'bomRowCollapse'); makeBOMCard(projCard, 'Bill of Materials — Entire Project', projLines, 'bomProjectCollapse'); }
+
+    function makeBOMCard(container, title, lines, key) { container.innerHTML=''; const header=document.createElement('div'); header.style.display='flex'; header.style.justifyContent='space-between'; header.style.alignItems='center'; const h=document.createElement('h3'); h.textContent=title; header.appendChild(h); const collapse=document.createElement('button'); collapse.className='btn-secondary btn collapse-btn'; const state=JSON.parse(localStorage.getItem('collapseState')||'{}'); const collapsed=state[key]; collapse.textContent=collapsed?'Expand':'Collapse'; collapse.setAttribute('aria-label', collapsed?'Expand table':'Collapse table'); collapse.onclick=()=>{ state[key]=!state[key]; localStorage.setItem('collapseState', JSON.stringify(state)); renderBOM(); }; header.appendChild(collapse); container.appendChild(header); if(collapsed) return; const wrap=document.createElement('div'); wrap.className='bom-table-wrap'; const table=document.createElement('table'); table.innerHTML='<thead><tr><th>Row</th><th>Group</th><th>SKU</th><th>Description</th><th>Qty</th><th>Note</th></tr></thead>'; const tbody=document.createElement('tbody'); lines.forEach(l=>{ const tr=document.createElement('tr'); const linkUrl=l.link||productUrl(l.sku); tr.innerHTML=`<td>${l.row||''}</td><td>${l.group||''}</td><td><a href="${linkUrl}" target="_blank" rel="noopener">${l.sku}</a></td><td>${l.desc||''}</td><td style="text-align:right">${l.qty}</td><td>${l.note||''}</td>`; tbody.appendChild(tr); }); table.appendChild(tbody); wrap.appendChild(table); container.appendChild(wrap); }
+
+    function exportBOMExcel() { if(rows.some(r=>!isRowComplete(r))) { if(!confirm('Some rows are incomplete. Export anyway?')) return; } const rowLines=rows.flatMap(r=>computeRowBOM(r)); const cons=generateBOM(); const rowSheet=[['Row','Group','SKU','Link','Description','Qty','Note']]; rowLines.forEach(l=>rowSheet.push([l.row||'',l.group||'',l.sku,l.link||'',l.desc||'',l.qty,l.note||''])); const consSheet=[['Group','SKU','Link','Description','Total Qty','Notes']]; cons.forEach(l=>consSheet.push([l.group||'',l.sku,l.link||'',l.desc||'',l.qty,l.notes||''])); const notice=[['Section','Details'],['Legal Disclaimer','This Open-Frame Rack Containment Row Builder is provided as a planning aid only. Results are for informational purposes and do not constitute engineering advice or a finalized bill of materials. Product availability and specifications are subject to change without notice. Verify all selections and quantities against official Panduit documentation and your site requirements before ordering or installation. Use of this tool is at your own risk.'],['Library','SheetJS Community Edition (xlsx)'],['Version','0.18.5'],['License','Apache License, Version 2.0'],['Copyright','(C) 2012-present SheetJS LLC'],['Project URL','https://sheetjs.com'],['License text','https://www.apache.org/licenses/LICENSE-2.0']]; const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rowSheet), 'Row BOM'); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(consSheet), 'Consolidated BOM'); const noticeWs=XLSX.utils.aoa_to_sheet(notice); noticeWs['!state']='hidden'; XLSX.utils.book_append_sheet(wb, noticeWs, 'Notices'); XLSX.writeFile(wb, 'Open-Frame-Row-BOM.xlsx'); flashStatusPill(); announce('Exported bill of materials to Excel'); }
+
+    function announce(message) {
+      let live=document.getElementById('sr-live');
+      if(!live) {
+        live=document.createElement('div');
+        live.id='sr-live';
+        live.setAttribute('aria-live','polite');
+        live.setAttribute('role','status');
+        live.style.position='absolute';
+        live.style.width='1px'; live.style.height='1px'; live.style.overflow='hidden'; live.style.clip='rect(1px,1px,1px,1px)'; live.style.clipPath='inset(50%)'; live.style.whiteSpace='nowrap';
+        document.body.appendChild(live);
+      }
+      live.textContent=message;
+    }
+
+    function saveProject() { const payload={version:1, rows, activeRow}; const blob=new Blob([JSON.stringify(payload,null,2)], {type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='open-frame-row-builder.json'; a.click(); URL.revokeObjectURL(url); announce('Project saved'); }
+    function loadProject() { const inp=document.createElement('input'); inp.type='file'; inp.accept='application/json'; inp.setAttribute('aria-label','Choose project JSON file'); inp.onchange=()=>{ const file=inp.files?.[0]; if(!file) return; const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(reader.result); const valid=validateProject(data); if(!valid.ok) return alert('Load failed: '+valid.reason); rows=data.rows; activeRow=Math.min(Math.max(0,data.activeRow||0), rows.length-1); render(); announce('Project loaded'); }catch(err){ alert('Could not parse file: '+err.message); } }; reader.readAsText(file); }; inp.click(); }
+    function validateProject(data) { const fail=r=>({ok:false, reason:r}); if(!data||typeof data!=='object') return fail('File is not an object'); if(!Array.isArray(data.rows)) return fail('Missing rows array'); const okRows=data.rows.every(r=>r&&typeof r.name==='string'&&CATALOG.ruOptions.includes(r.ru)&&CATALOG.colors.includes(r.color)&&CATALOG.depths.includes(r.depth)&&['None','HAC','CAC','Combined'].includes(r.containment)&&Array.isArray(r.racks)&&Array.isArray(r.vcms)&&typeof r.rackCount==='number'&&r.racks.length===r.rackCount&&r.vcms.length===r.rackCount+1); if(!okRows) return fail('Rows are missing required fields or lengths'); return {ok:true}; }
+
+    function showLegalModal() { const overlay=document.createElement('div'); overlay.className='modal-overlay'; const modal=document.createElement('div'); modal.className='modal'; modal.style.width='520px'; modal.innerHTML=`<header><h3 style="margin:0">Legal Disclaimer</h3></header><p>This Open-Frame Rack Containment Row Builder is provided as a planning aid only. Results are for informational purposes and do not constitute engineering advice or a finalized bill of materials. Product availability and specifications are subject to change without notice. Verify all selections and quantities against official Panduit documentation and your site requirements before ordering or installation. Use of this tool is at your own risk.</p><p style="margin-bottom:6px; font-weight:600;">Open Source / Third-Party Licenses</p><p style="margin:0;">This tool uses the following third-party library:</p><ul style="margin-top:4px; margin-bottom:8px; padding-left:18px;"><li>SheetJS Community Edition (xlsx) – Version 0.18.5<br>License: Apache License, Version 2.0<br>Copyright (C) 2012-present SheetJS LLC<br>Project URL: <a href="https://sheetjs.com" target="_blank" rel="noopener">https://sheetjs.com</a><br>License text: <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank" rel="noopener">https://www.apache.org/licenses/LICENSE-2.0</a></li></ul><p style="margin-top:12px; font-size:12px; color:var(--muted);">Version: V2</p><div style="text-align:right; margin-top:12px;"><button class="btn" id="legal-close" aria-label="Close legal disclaimer">Close</button></div>`; overlay.appendChild(modal); overlay.onclick=(e)=>{ if(e.target===overlay) overlay.remove(); }; document.addEventListener('keydown', function esc(ev){ if(ev.key==='Escape'){ overlay.remove(); document.removeEventListener('keydown', esc); } }); modal.querySelector('#legal-close').onclick=()=>overlay.remove(); document.body.appendChild(overlay); }
+
+    function showLayoutModal() { const completeRows=rows.map((r,i)=>({row:r,idx:i})).filter(x=>isRowComplete(x.row)); if(!completeRows.length) return alert('Finish rack and VCM selections for this row first.'); let current=completeRows.findIndex(x=>x.idx===activeRow); if(current<0) current=0; let unit='in'; const overlay=document.createElement('div'); overlay.className='modal-overlay'; const modal=document.createElement('div'); modal.className='modal'; modal.style.width='960px'; const header=document.createElement('header'); header.style.display='flex'; header.style.alignItems='center'; header.style.gap='8px'; const title=document.createElement('h3'); title.textContent='Row Layout'; title.style.margin='0'; header.appendChild(title);
+      const sel=document.createElement('select'); sel.setAttribute('aria-label','Select completed row for layout'); sel.style.minWidth='160px'; completeRows.forEach((x,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=x.row.name; if(i===current) o.selected=true; sel.appendChild(o); });
+      const badge=document.createElement('span'); badge.style.marginLeft='4px'; badge.style.fontSize='12px'; badge.style.color='var(--muted)'; badge.setAttribute('aria-live','polite');
+      const setCurrent=(next)=>{ current=(next+completeRows.length)%completeRows.length; sel.value=String(current); updateBadge(); draw(); };
+      const updateBadge=()=>{ badge.textContent=`Viewing ${completeRows[current].row.name} (${current+1} of ${completeRows.length})`; };
+      sel.onchange=()=>setCurrent(parseInt(sel.value,10));
+      const controls=document.createElement('div'); controls.style.display='flex'; controls.style.alignItems='center'; controls.style.gap='6px';
+      const prev=document.createElement('button'); prev.className='btn-secondary btn'; prev.textContent='Prev'; prev.setAttribute('aria-label','Previous completed row'); prev.onclick=()=>setCurrent(current-1);
+      const next=document.createElement('button'); next.className='btn-secondary btn'; next.textContent='Next'; next.setAttribute('aria-label','Next completed row'); next.onclick=()=>setCurrent(current+1);
+      if(completeRows.length>1) controls.append(prev);
+      controls.append(sel);
+      if(completeRows.length>1) controls.append(next);
+      controls.append(badge);
+      header.appendChild(controls);
+      const unitBtn=document.createElement('button'); unitBtn.className='btn-secondary btn'; unitBtn.textContent='Units: in'; unitBtn.setAttribute('aria-label','Toggle units between inches and millimeters'); unitBtn.onclick=()=>{ unit=unit==='in'?'mm':'in'; unitBtn.textContent='Units: '+unit; draw(); }; const dlBtn=document.createElement('button'); dlBtn.className='btn-secondary btn'; dlBtn.textContent='Download PNG'; dlBtn.setAttribute('aria-label','Download layout as PNG');
+      const zoomWrap=document.createElement('div'); zoomWrap.style.display='flex'; zoomWrap.style.alignItems='center'; zoomWrap.style.gap='4px'; const zoomLabel=document.createElement('span'); zoomLabel.style.fontSize='12px'; const zoomRange=document.createElement('input'); zoomRange.type='range'; zoomRange.min='60'; zoomRange.max='200'; zoomRange.value='100'; zoomRange.style.width='90px'; const fitBtn=document.createElement('button'); fitBtn.className='btn-secondary btn'; fitBtn.textContent='Fit'; fitBtn.setAttribute('aria-label','Fit diagram to view');
+      zoomWrap.append(zoomLabel, zoomRange, fitBtn); header.append(unitBtn, dlBtn, zoomWrap); const close=document.createElement('button'); close.className='btn'; close.textContent='Close'; close.setAttribute('aria-label','Close layout modal'); close.onclick=()=>overlay.remove(); header.appendChild(close); modal.appendChild(header);
+      const canvasWrap=document.createElement('div'); canvasWrap.style.maxHeight='70vh'; canvasWrap.style.maxWidth='100%'; canvasWrap.style.overflow='auto'; canvasWrap.style.border='1px solid var(--border)'; canvasWrap.style.marginTop='8px'; const canvas=document.createElement('canvas'); canvas.width=1200; canvas.height=700; canvas.style.display='block'; canvas.setAttribute('aria-label','Row layout diagram'); canvasWrap.appendChild(canvas); modal.appendChild(canvasWrap);
+      let zoom=1; let skuHotspots=[]; const applyZoom=()=>{ canvas.style.transform=`scale(${zoom})`; canvas.style.transformOrigin='top left'; zoomLabel.textContent=`Zoom: ${(zoom*100).toFixed(0)}%`; zoomRange.value=(zoom*100).toFixed(0); }; const fitToView=()=>{ const availW=canvasWrap.clientWidth-24; const availH=canvasWrap.clientHeight-24; const zW=availW>0?availW/canvas.width:1; const zH=availH>0?availH/canvas.height:1; zoom=Math.min(1, zW, zH); applyZoom(); canvasWrap.scrollTop=0; canvasWrap.scrollLeft=0; };
+      zoomRange.oninput=()=>{ zoom=parseInt(zoomRange.value,10)/100; applyZoom(); }; fitBtn.onclick=fitToView;
+      const caption=document.createElement('div'); caption.style.marginTop='8px'; caption.style.fontSize='13px'; caption.setAttribute('aria-live','polite'); modal.appendChild(caption); overlay.appendChild(modal); overlay.onclick=(e)=>{ if(e.target===overlay) overlay.remove(); }; document.body.appendChild(overlay);
+      const fmt=inches=>unit==='mm'?`${(inches*25.4).toFixed(0)} mm`:`${inches.toFixed(2)} in`; const fmtDual=inches=>`${inches.toFixed(2)} in / ${(inches*25.4).toFixed(0)} mm`;
+      function draw(withOverlay=false) { skuHotspots=[]; const {row}=completeRows[current]; const ctx=canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height);
+        const baseHeight=row.ru*1.75;
+        const rackSku=row.racks.find(Boolean); const rackSpec=rackSku?CATALOG.racks.find(r=>r.sku===rackSku):null;
+        const rackType=rackSku?.startsWith('AR4P')?'AR4P':(rackSku?.startsWith('R4P')?'R4P':null);
+        const hacFlatPerSide=0.07851; const hacHwPerSide=0.35016;
+        const cacFlatPerSide=0.07851; const cacHwPerSide=0.374;
+        const hacHeightAdd=rackType==='AR4P'?0.0516:(rackType==='R4P'?0.07874:0);
+        const hacHeightHwAdd=rackType==='AR4P'?0.30357:(rackType==='R4P'?0.26071:0);
+        const cacHeightAdd=0.0516; const cacHeightHwAdd=0.30533;
+        const flatPerSide=row.containment==='HAC'?hacFlatPerSide:row.containment==='CAC'?cacFlatPerSide:row.containment==='Combined'?Math.max(hacFlatPerSide,cacFlatPerSide):0;
+        const hwPerSide=row.containment==='HAC'?hacHwPerSide:row.containment==='CAC'?cacHwPerSide:row.containment==='Combined'?Math.max(hacHwPerSide,cacHwPerSide):0;
+        const heightAdd=row.containment==='HAC'?hacHeightAdd:row.containment==='CAC'?cacHeightAdd:row.containment==='Combined'?Math.max(hacHeightAdd,cacHeightAdd):0;
+        const heightHwAdd=row.containment==='HAC'?hacHeightHwAdd:row.containment==='CAC'?cacHeightHwAdd:row.containment==='Combined'?Math.max(hacHeightHwAdd,cacHeightHwAdd):0;
+        const heightIn=baseHeight+heightAdd; const heightHardwareIn=baseHeight+heightHwAdd;
+        const vcmOffset=8.8; const ordered=[]; for(let i=0;i<row.vcms.length;i++){ const vSku=row.vcms[i]; if(vSku) { const v=CATALOG.vcms.find(x=>x.sku===vSku); ordered.push({type:'vcm',label:`VCM ${i+1}`,width:v?.width||6,depth:v?.depth||20,sku:vSku}); } if(i<row.racks.length) { const rSku=row.racks[i]; if(rSku){ const r=CATALOG.racks.find(x=>x.sku===rSku); ordered.push({type:'rack',label:`Rack ${i+1}`,width:r?.width||24,depth:r?.depth||row.depth||36,sku:rSku}); } } } const baseDepth=row.depth||36; const firstVCMSku=row.vcms.find(Boolean)||null; const firstVCMSpec=firstVCMSku?CATALOG.vcms.find(v=>v.sku===firstVCMSku):null; const vcmDepthIn=firstVCMSpec?.depth||20; const resolveWidthInches=(seg)=>seg.type==='vcm'? (CATALOG.vcms.find(v=>v.sku===seg.sku)?.width ?? seg.width ?? 6) : (CATALOG.racks.find(r=>r.sku===seg.sku)?.width ?? seg.width ?? 24); const resolveDepthInches=(seg)=>seg.type==='vcm'? (CATALOG.vcms.find(v=>v.sku===seg.sku)?.depth ?? seg.depth ?? vcmDepthIn) : (seg.depth ?? baseDepth); const totalWidth=ordered.reduce((s,p)=>s+resolveWidthInches(p),0); const widthToFlat=totalWidth+flatPerSide*2; const widthToHardware=totalWidth+hwPerSide*2; const rowDepth=baseDepth+vcmOffset; const widthFactor=2.5; const totalDrawWidth=totalWidth*widthFactor; canvas.width=Math.max(1200, Math.ceil(totalDrawWidth*3 + 260)); const scale=Math.min((canvas.width-260)/totalDrawWidth,4); const depthScale=Math.min(6, (canvas.height-360)/Math.max(rowDepth, baseDepth+vcmOffset)); const pxPerInch=scale*widthFactor; const rackHeight=240; const baseY=canvas.height-180; const yRack=baseY - rackHeight - vcmOffset*depthScale; const rackFront=yRack + rackHeight; const vcmFrontBase=rackFront + vcmOffset*depthScale; const vcmHeightFirst=vcmDepthIn*depthScale; const widthStart=200; const widthEnd=200+totalDrawWidth*scale; const dimBaseY=baseY+80; const epWidthPx=row.containment!=='None'?12:0; let x=widthStart; ctx.font='12px sans-serif'; const textColor=darkMode?'#f5f5f5':'#0f172a';
+        const drawTag=(text, cx, cy)=>{ const pad=4; const m=ctx.measureText(text); const w=m.width+pad*2; const hTag=16; ctx.fillStyle=textColor; ctx.textBaseline='middle'; ctx.fillText(text, cx - m.width/2, cy); return {x:cx-w/2, y:cy-hTag/2, w, h:hTag}; };
+        let epLabel=null; ordered.forEach(seg=>{ const segWidthIn=resolveWidthInches(seg); const segDepth=resolveDepthInches(seg); const w=segWidthIn*pxPerInch; const h=seg.type==='vcm'?segDepth*depthScale:rackHeight; const y=seg.type==='vcm'?(vcmFrontBase - h):yRack; ctx.fillStyle=seg.type==='vcm'?'#c0392b':'#0fa958'; ctx.fillRect(x,y,w,h); ctx.strokeStyle=textColor; ctx.strokeRect(x,y,w,h); drawTag(seg.label, x+w/2, y-14); if(seg.sku) { const r=drawTag(seg.sku, x+w/2, y+h+14); skuHotspots.push({x:r.x,y:r.y,w:r.w,h:r.h,url:productUrl(seg.sku)}); } else { drawTag(seg.sku, x+w/2, y+h+14); } const dimTag=`${segWidthIn.toFixed(2)} in W × ${segDepth.toFixed(1)} in D`; drawTag(dimTag, x+w/2, y+h+34); x+=w; });
+        if(row.containment!=='None') {
+          const vcmSpec=firstVCMSku?CATALOG.vcms.find(v=>v.sku===firstVCMSku):null;
+          const epHAC=vcmSpec?.end_panel_HAC||'HAC EP';
+          const epCAC=vcmSpec?.end_panel_CAC||'CAC EP';
+          const epLines=(()=>{
+            if(row.containment==='CAC') return [epCAC];
+            if(row.containment==='HAC') return [epHAC];
+            return [epHAC, epCAC];
+          })();
+          const isCACOnly=row.containment==='CAC';
+          const epHeight=isCACOnly?vcmHeightFirst:(rackHeight+vcmOffset*depthScale);
+          const epY=isCACOnly?(vcmFrontBase - vcmHeightFirst):yRack;
+          ctx.fillStyle='#f59f00'; const leftX=widthStart-epWidthPx; const rightX=widthEnd; ctx.fillRect(leftX,epY,epWidthPx,epHeight); ctx.fillRect(rightX,epY,epWidthPx,epHeight);
+          ctx.fillStyle=textColor; ctx.font='11px sans-serif'; const lineH=12; const drawStack=(x)=>{ const maxW=Math.max(...epLines.map(t=>ctx.measureText(t).width)); const baseY=yRack-10; const startY=baseY-(epLines.length-1)*lineH; epLines.forEach((t,i)=>{ const w=ctx.measureText(t).width; ctx.fillText(t, x + epWidthPx/2 - w/2, startY + i*lineH); }); return maxW; }; const labelWidth=drawStack(leftX); drawStack(rightX); epLabel=epLines.length===2?`${epLines[0]} & ${epLines[1]}`:epLines[0]; }
+
+        const arrow=(x1,y1,x2,y2,label,labelOffset=-10)=>{ ctx.strokeStyle=textColor; ctx.fillStyle=textColor; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); const head=6; const ang=Math.atan2(y2-y1,x2-x1); const drawHead=(x,y,a)=>{ ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x-head*Math.cos(a-Math.PI/6), y-head*Math.sin(a-Math.PI/6)); ctx.lineTo(x-head*Math.cos(a+Math.PI/6), y-head*Math.sin(a+Math.PI/6)); ctx.closePath(); ctx.fill(); }; drawHead(x1,y1,ang+Math.PI); drawHead(x2,y2,ang); const tx=(x1+x2)/2; const ty=(y1+y2)/2; const vertical=Math.abs(x2-x1)<0.5; if(vertical){ ctx.save(); ctx.translate(tx+labelOffset, ty); ctx.rotate(-Math.PI/2); ctx.fillText(label, -ctx.measureText(label).width/2, 4); ctx.restore(); } else { ctx.fillText(label, tx-ctx.measureText(label).width/2, ty-6); } };
+        const baseStart=widthStart; const baseEnd=widthEnd; const flatStart=row.containment!=='None'?widthStart-epWidthPx:widthStart; const hwStart=flatStart; const flatEnd=flatStart + widthToFlat*pxPerInch + (row.containment!=='None'?epWidthPx:0); const hwEnd=hwStart + widthToHardware*pxPerInch + (row.containment!=='None'?epWidthPx:0); arrow(baseStart, dimBaseY, baseEnd, dimBaseY, `Base width: ${fmt(totalWidth)}`); if(row.containment!=='None'){ arrow(flatStart, dimBaseY+20, flatEnd, dimBaseY+20, `Width to flat: ${fmt(widthToFlat)} (+${fmt(flatPerSide)} per side)`); arrow(hwStart, dimBaseY+40, hwEnd, dimBaseY+40, `Width to hardware: ${fmt(widthToHardware)} (+${fmt(hwPerSide)} per side)`); }
+        const depthX=160; const vcmFront=vcmFrontBase; const vcmOffsetX=widthEnd+60; arrow(depthX, yRack, depthX, yRack+rackHeight, `Rack depth: ${fmt(baseDepth)}`); arrow(depthX-30, vcmFront, depthX-30, yRack, `Row depth: ${fmt(rowDepth)}`); arrow(vcmOffsetX, rackFront, vcmOffsetX, vcmFront, `VCM front offset: ${fmt(vcmOffset)}`, -18);
+        ctx.fillStyle=textColor; ctx.font='12px sans-serif'; const legendY=dimBaseY+90; if(row.containment!=='None') { const centerX=(widthStart+widthEnd)/2; ctx.fillText('Front (Cold Aisle)', centerX-ctx.measureText('Front (Cold Aisle)').width/2, legendY); ctx.fillText('Back (Hot Aisle)', centerX-ctx.measureText('Back (Hot Aisle)').width/2, yRack-30); }
+        ctx.fillStyle='#0fa958'; ctx.fillRect(widthStart, legendY+12, 18, 12); ctx.fillStyle=textColor; ctx.fillText('Rack', widthStart+24, legendY+22); ctx.fillStyle='#c0392b'; ctx.fillRect(widthStart+90, legendY+12, 18, 12); ctx.fillStyle=textColor; ctx.fillText('Vertical Cable Manager', widthStart+114, legendY+22); if(row.containment!=='None') { ctx.fillStyle='#f59f00'; ctx.fillRect(widthStart+320, legendY+12, 18, 12); ctx.fillStyle=textColor; ctx.fillText('End Panel', widthStart+344, legendY+22); }
+
+        if(row.containment!=='None') {
+          const legendTop=24; const box=12; const lineH=18; const items=[{text:'Rack', color:'#0fa958'},{text:'Vertical Cable Manager', color:'#c0392b'}]; if(epLabel) items.push({text:`End Panel (${epLabel})`, color:'#f59f00'});
+          const maxTextWidth=Math.max(...items.map(it=>ctx.measureText(it.text).width));
+          const legendWidth=box+6+maxTextWidth;
+          const legendX=Math.max(20, canvas.width - legendWidth - 24); // keep padding from right edge
+          ctx.textAlign='left'; ctx.textBaseline='top';
+          items.forEach((it,idx)=>{ const y=legendTop+idx*lineH; ctx.fillStyle=it.color; ctx.fillRect(legendX, y, box, box); ctx.strokeStyle=textColor; ctx.strokeRect(legendX, y, box, box); ctx.fillStyle=textColor; ctx.fillText(it.text, legendX+box+6, y+1); });
+        }
+        const widthParts=row.containment!=='None'?`, width to flat ${fmt(widthToFlat)} (+${fmt(flatPerSide)} per side), width to hardware ${fmt(widthToHardware)} (+${fmt(hwPerSide)} per side)`:''; const heightHardwarePart=row.containment!=='None'?`, height to hardware ${fmt(heightHardwareIn)} (+${fmt(heightHardwareIn-baseHeight)})`:''; caption.textContent=`${row.name}: ${row.rackCount} racks • ${row.ru}RU • ${row.color} • ${row.depth}" • ${row.containment}. Base width ${fmt(totalWidth)}${widthParts}, depth ${fmt(rowDepth)}, height ${fmt(heightIn)}${heightHardwarePart}.`; }
+      dlBtn.onclick=()=>{ draw(true); const url=canvas.toDataURL('image/png'); const a=document.createElement('a'); a.href=url; a.download=`${completeRows[current].row.name}-layout.png`; a.click(); draw(false); };
+      canvas.onclick=(evt)=>{ const rect=canvas.getBoundingClientRect(); const x=(evt.clientX-rect.left)/zoom; const y=(evt.clientY-rect.top)/zoom; const hit=skuHotspots.find(h=>x>=h.x && x<=h.x+h.w && y>=h.y && y<=h.y+h.h); if(hit) { window.open(hit.url, '_blank','noopener'); } };
+      updateBadge();
+      draw();
+      fitToView();
+    }
+
+    function updateStatusPill() { const pill=document.getElementById('status-pill'); const row=rows[activeRow]; const rule=containmentRules(row); const parts=[`${row.name}`, `${row.rackCount} racks`, `${row.ru}RU`, row.color, `${row.depth}"`, row.containment]; if(rule.reasons.length) parts.push(rule.reasons.join(' | ')); if(isDuplicateName(row.name, activeRow)) parts.push('Duplicate name'); if(!isRowComplete(row)) parts.push('Incomplete'); pill.textContent=parts.join(' • '); }
+    function setTheme(dark) { darkMode=dark; document.body.classList.toggle('dark', dark); localStorage.setItem('darkMode', dark?'1':'0'); }
+    function render() { renderSidebar(); renderRowEditor(); renderBOM(); updateStatusPill(); }
+
+    document.getElementById('add-row-btn').onclick=addRow;
+    document.getElementById('dup-row-btn').onclick=duplicateRow;
+    document.getElementById('export-btn').onclick=exportBOMExcel;
+    document.getElementById('save-btn').onclick=saveProject;
+    document.getElementById('load-btn').onclick=loadProject;
+    document.getElementById('legal-btn').onclick=showLegalModal;
+    document.getElementById('layout-btn').onclick=showLayoutModal;
+    document.getElementById('theme-btn').onclick=()=>setTheme(!darkMode);
+
+    setTheme(localStorage.getItem('darkMode')==='1');
+    render();
+  </script>
+</body>
+</html>

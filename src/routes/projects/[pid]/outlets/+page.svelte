@@ -15,9 +15,21 @@
 	let frameData: any = $state(null);
 	let racksData: Record<string, any> = $state({});
 	let loading = $state(true);
-	let activeFloor = $state(1);
+	let activeFloor = $state(Number(page.url.searchParams.get('floor')) || 1);
 	let projectName = $state('');
 	let drawingId = $state('');
+
+	// Parse initial view layer params from URL (e.g. ?lowOutlets=1&highTrunks=0)
+	const _sp = page.url.searchParams;
+	const initialLayers: Record<string, boolean> | undefined =
+		_sp.has('lowOutlets') || _sp.has('highOutlets') || _sp.has('lowTrunks') || _sp.has('highTrunks')
+			? {
+				lowOutlets: _sp.get('lowOutlets') === '1',
+				highOutlets: _sp.get('highOutlets') === '1',
+				lowTrunks: _sp.get('lowTrunks') === '1',
+				highTrunks: _sp.get('highTrunks') === '1',
+			}
+			: undefined;
 
 	// Project doc (name, floors)
 	$effect(() => {
@@ -158,6 +170,7 @@
 			{drawingId}
 			{db}
 			uid={session.user?.uid ?? ''}
+			{initialLayers}
 			onsave={save}
 			onsaverack={saveRack}
 			onfloorchange={changeFloor}

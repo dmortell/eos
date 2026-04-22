@@ -23,7 +23,7 @@
 	import { exportOutletsToExcel } from './parts/exportExcel'
   import { toast } from 'svelte-sonner';
 
-	let { data = null, files = [], floors = [], frameData = null, racksData = {}, floor, projectId = '', projectName = '', drawingId = '', db = new Firestore(), uid = '', onsave, onfloorchange, onupdatefloors, ondeletefloor, onsaverack }: {
+	let { data = null, files = [], floors = [], frameData = null, racksData = {}, floor, projectId = '', projectName = '', drawingId = '', db = new Firestore(), uid = '', initialLayers, onsave, onfloorchange, onupdatefloors, ondeletefloor, onsaverack }: {
 		data?: any
 		files?: any[]
 		floors?: FloorConfig[]
@@ -35,12 +35,15 @@
 		drawingId?: string
 		db?: Firestore
 		uid?: string
+		initialLayers?: Record<string, boolean>
 		onsave?: (payload: any) => void
 		onfloorchange?: (floor: number) => void
 		onupdatefloors?: (floors: FloorConfig[]) => void
 		ondeletefloor?: (floor: number) => void
 		onsaverack?: (room: string, rackId: string, updates: Partial<RackConfig>) => void
 	} = $props()
+
+	// initialLayers will be used to filter outlet/trunk visibility when layer toggle UI is built
 
 	let versionPanelOpen = $state(false)
 
