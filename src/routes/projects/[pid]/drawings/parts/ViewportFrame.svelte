@@ -5,6 +5,9 @@
 	import ImageViewport from './viewports/ImageViewport.svelte'
 	import RackElevationViewport from './viewports/RackElevationViewport.svelte'
 	import RackPlanViewport from './viewports/RackPlanViewport.svelte'
+	import FrameDetailViewport from './viewports/FrameDetailViewport.svelte'
+	import FillrateViewport from './viewports/FillrateViewport.svelte'
+	import FloorplanViewport from './viewports/FloorplanViewport.svelte'
 
 	let { viewport, selected, pxPerMm, db, onselect, onupdate }: {
 		viewport: Viewport
@@ -151,8 +154,13 @@
 		<RackElevationViewport {viewport} {db} />
 	{:else if viewport.source.kind === 'rack-plan'}
 		<RackPlanViewport {viewport} {db} />
+	{:else if viewport.source.kind === 'frame-detail'}
+		<FrameDetailViewport {viewport} {db} />
+	{:else if viewport.source.kind === 'fillrate'}
+		<FillrateViewport {viewport} {db} />
+	{:else if viewport.source.kind === 'floorplan'}
+		<FloorplanViewport {viewport} {db} />
 	{:else}
-		<!-- Kinds without a renderer yet (frame-detail, floorplan, fillrate) — show placeholder label -->
 		<div class="absolute inset-0 flex items-center justify-center text-[10px] text-zinc-500 pointer-events-none px-2 text-center leading-tight">
 			<span>{label}</span>
 		</div>

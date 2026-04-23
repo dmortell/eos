@@ -331,6 +331,27 @@
 									</Select>
 								</div>
 
+							{:else if vp.source.kind === 'frame-detail'}
+								{@const frameFloor = Number(vp.source.frameDocId.match(/_F(\d+)/)?.[1] ?? floors[0]?.number ?? 1)}
+								<Select label="Floor" size="sm"
+									value={String(frameFloor)}
+									onchange={(e: Event) => updateSource(vp.id, { frameDocId: `${pid}_F${String(inputNumber(e)).padStart(2, '0')}` })}>
+									{#each floors as fl}
+										<option value={String(fl.number)}>{fl.number}F</option>
+									{/each}
+								</Select>
+								<Input label="Frame ID" value={vp.source.frameId} size="sm" placeholder="e.g. frame-A1"
+									onchange={(e: Event) => updateSource(vp.id, { frameId: inputValue(e) })} />
+
+							{:else if vp.source.kind === 'fillrate'}
+								<div class="text-[10px] text-zinc-500">Reads <span class="font-mono">fillrate/{vp.source.projectId}</span></div>
+
+							{:else if vp.source.kind === 'floorplan'}
+								<Input label="File ID" value={vp.source.fileId} size="sm" placeholder="files/<id>"
+									onchange={(e: Event) => updateSource(vp.id, { fileId: inputValue(e) })} />
+								<Input label="Page" type="number" value={String(vp.source.pageNum)} size="sm"
+									onchange={(e: Event) => updateSource(vp.id, { pageNum: inputNumber(e) || 1 })} />
+
 							{:else}
 								<div class="text-[10px] text-zinc-400 italic">Source picker not yet available for this kind.</div>
 							{/if}
