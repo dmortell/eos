@@ -368,23 +368,27 @@ When publishing a page revision, we may need to create revisions on source drawi
 
 ## Known follow-ups
 
-### Viewports — missing renderers
+### Viewports — shipped
 
-Existing `ViewportSource` kinds have renderers, but some are placeholder-level and several tools are entirely unrepresented. Everything below adds a new file under `src/routes/projects/[pid]/drawings/parts/viewports/` plus a new branch in `ViewportSource` + `ViewportFrame` dispatch + sidebar source picker.
+- **`frame-detail` — full port-grid.** `FrameDetailViewport.svelte` subscribes to `frames/{pid}_F{NN}` + all four `racks/{pid}_F{NN}_R{A..D}` docs, re-runs the `deriveFramesFromRacks` + `generatePortLabels` + `generateRacks` pipeline, and mounts `FrameDrawing.svelte` read-only inside the clipped viewport. `deriveFramesFromRacks` + `matchesFace` were extracted from `Frames.svelte` into `engine.ts` so the pipeline has a single source of truth.
+- **`outlets` viewport.** `OutletsViewport.svelte` renders the floorplan PDF underlay + SVG overlay with outlet dots (colour-keyed by usage) and trunk/route polylines. Calibration-aware: real-world mm → PDF-px via `files/{id}.pages[n].origin + scaleFactor`. `showOutlets` / `showTrunks` toggles on the source gate the overlay groups.
+- **`patching` viewport.** `PatchingViewport.svelte` subscribes to `patching/{pid}_F{NN}_R{X}` and renders a compact 6-column table (# / From / To / Cable / m / status pill) styled for print.
+- **`survey` viewport.** `SurveyViewport.svelte` — two modes: `album` (square-tile grid of all photos) and `single` (one annotated photo filling the frame with title caption). Reads from top-level `surveys/{surveyId}` + `surveys/{surveyId}/photos`.
+- **Rack elevation — multi-row.** `RackElevationViewport.svelte` lays all rows out sequentially (separated by `ROW_GAP_MM = 600`) when `source.rowId` is absent; single-row mode still honoured when it's set. Sidebar picker lets the user enter a row id or leave blank for all.
+- **Viewport rotation.** `ViewportFrame.svelte` wraps the content container in a centred `rotate({deg})`, swapping inner dimensions at 90° / 270° so the rotated content still fills the frame footprint. Sidebar renders a 0°/90°/180°/270° pill picker per viewport.
 
-- **`frame-detail` — full port-grid fidelity.** `FrameDetailViewport.svelte` currently renders a panel-summary card (RU + coloured bar + port count) because the real frames tool derives its visual from a fan-out of racks docs + `engine.ts#generatePortLabels` + `generateRacks`. A full viewport needs to replicate that pipeline: subscribe to all `racks/{pid}_F{NN}_R{A..D}` docs for the frame's floor, build `allLabels`, derive the matching `RackData` for the requested `frameId`, then mount `FrameDrawing.svelte` read-only inside the clipped viewport. Worth building when users need printable patch schedules on a page.
-- **`outlets` viewport** (missing kind). Represents low-level outlet plans and high-level trunk-route plans from the Outlets tool. The tool already calibrates floorplans against a PDF underlay, so the viewport should reuse `OutletCanvas`'s SVG output layer with the PDF disabled (or as a faint background) plus the view-preset layers (`lowOutlets`, `highTrunks`). Probably becomes two `ViewportSource` kinds (`outlets-floor` and `outlets-trunks`) so one page can show both at different scales.
-- **`patching` viewport** (missing kind). Renders a patch-schedule extract — typically a paginated table of panel ports, source labels, destinations, cable types, and notes for a floor+room. Should wrap the existing Patching tool's schedule table component, filter by the viewport's (floor, room, frame) scope, and apply the print-friendly table styling already used in `patching/Patching.svelte`.
-- **`survey` viewport** (missing kind). Photo-survey album or single-photo embed. Two likely sub-forms: (a) a contact-sheet tile grid of photos for a scoped album (project / floor / room), (b) a single annotated photo with the current `AnnotationOverlay` pins rendered read-only. Data path: `survey/{projectId}/...` — same subscription model the survey tool already uses.
-- **Rack elevation — multi-row / full-room composition.** `RackElevationViewport.svelte` renders one row at a time (first row when `source.rowId` is absent). A "full-room" mode that stacks all rows side-by-side matching the rack canvas's 'front' layout would be useful for summary pages.
-- **Frame-rotation support.** All viewports ignore `viewport.rotationDeg`. Wrap the inner scaled container in a second `rotate({deg})` transform + swap width/height in 90° increments so sheets can host vertical callouts on landscape paper.
+### Viewports — still outstanding
+
+- **Trunk-shape fidelity inside `OutletsViewport`** — trunks are rendered as simple polylines along waypoints; the Outlets tool draws them as shaped cable-tray forms with width + turn radius. Follow-up.
+- **`survey` viewport single-mode annotations** — single-mode renders the raw photo, not the `AnnotationOverlay` pins. Add a read-only annotation layer.
+- **`patching` viewport port-label resolution** — port refs fall back to short `rack/dev:port` ids when `PortRef.label` is empty. Subscribe to the frames port-label engine output to show `FF.Z.NNN-SPP` labels instead.
+- **Visual title-block editor** — explicit P6 backlog item. Lets project admins drag-design custom templates stored as `TitleBlockTemplate` docs and referenced by `titleBlock.template` when set to a custom id.
 
 ### Other known follow-ups
 
-- **Rear-view wall positions** — `RackElevationRenderer.svelte` draws the left/right walls at the same x-coordinates in both `front` and `rear` faces. When viewing from the rear the room is mirrored, so walls (and rack x-positions) need to swap sides for the rear face to read correctly. Tracked inline via a `TODO` in the wall block.
 - **Mixed-paper-size printing** — `@page` is applied globally per print job, so the package print preview forces the first page's size onto the entire job. True per-sheet sizing needs named `@page` rules + per-sheet `page` CSS properties.
-- **Visual title-block editor** — explicit P6 backlog item. Lets project admins drag-design custom templates stored as `TitleBlockTemplate` docs and referenced by `titleBlock.template` when set to a custom id.
 - **Stale-badge precision** — currently a boolean `latestRevisionCode !== sourcePin.revisionCode`. A "N versions behind" count would join `RevisionDoc.fromVersionId` → `VersionDoc.number` and compare against `DrawingDoc.currentVersionNumber`.
+- **Rear-view wall mirroring** (done) — `RackElevationRenderer.svelte` now computes `effLeftWallX` / `effRightWallX` by mirroring around the row's right edge in rear face. Drag handlers swap which stored `wallX` field they target so the physical wall's identity is preserved.
 
 ## Out of scope for this plan
 

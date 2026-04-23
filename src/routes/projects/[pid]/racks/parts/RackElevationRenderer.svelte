@@ -82,8 +82,33 @@
 	}
 
 	const wallW = 50
-	let roomW = $derived(settings.rightWallX - settings.leftWallX)
-	let roomLeft = $derived(settings.leftWallX)
+
+	/**
+	 * Rear-view mirroring. Racks in rear face are already re-laid-out starting
+	 * at x=0 (see `Racks.svelte`'s `rearRacks` derivation) — visually mirroring
+	 * the row. Walls stored in `settings` are front-facing coords, so we mirror
+	 * them around the row's mid-x in rear face so the room still frames the
+	 * racks correctly.
+	 *
+	 * `rowEndXMm` is the rightmost edge of the rendered row (front or rear);
+	 * mirror formula: `mirror(x) = rowEndXMm - x`.
+	 */
+	let rowEndXMm = $derived.by(() => {
+		const list = face === 'rear' ? rearRacks : activeRacks
+		if (list.length === 0) return 0
+		const last = list[list.length - 1]
+		return last._x + last.widthMm
+	})
+
+	let effLeftWallX = $derived(face === 'rear' && rowEndXMm > 0
+		? rowEndXMm - settings.rightWallX
+		: settings.leftWallX)
+	let effRightWallX = $derived(face === 'rear' && rowEndXMm > 0
+		? rowEndXMm - settings.leftWallX
+		: settings.rightWallX)
+
+	let roomW = $derived(effRightWallX - effLeftWallX)
+	let roomLeft = $derived(effLeftWallX)
 
 </script>
 
@@ -99,12 +124,6 @@
 <!-- Slab (static, extends to outer wall edges) -->
 <Rect item={{ x: roomLeft - wallW, z: settings.slabLevel - 100, width: roomW + wallW * 2, height: 100 }} label="Slab FL+{settings.slabLevel}" {view} />
 
-<!--
-	TODO: fix wall positions in rear view. leftWallX / rightWallX are defined
-	in front-facing room coordinates; in 'rear' face the walls need to swap
-	sides (or the rack x-positions need mirroring) so the room reads correctly
-	when viewed from behind. Currently walls render identically in both faces.
--->
 <!-- Floor line -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="absolute group/fl select-none"
@@ -155,28 +174,35 @@
 	{/if}
 </div>
 
-<!-- Left wall -->
+<!--
+	Walls are rendered at `effLeftWallX` / `effRightWallX` so rear face mirrors
+	correctly. Drag handlers still target the *stored* `leftWallX` / `rightWallX`
+	fields — in rear face the visual-left wall corresponds to the stored
+	`rightWallX` (its physical identity doesn't change, only which side we see
+	it from), so the drag-field is swapped to match.
+-->
+<!-- Left wall (visually — drag field swaps in rear face) -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="absolute group/lw select-none"
 	class:cursor-ew-resize={interactive}
-	style:left={(settings.leftWallX - wallW) * SCALE + 'px'}
+	style:left={(effLeftWallX - wallW) * SCALE + 'px'}
 	style:top={(view.bottom - settings.ceilingLevel - 200) * SCALE + 'px'}
 	style:width={wallW * SCALE + 'px'}
 	style:height={(settings.ceilingLevel - settings.slabLevel + 200) * SCALE + 'px'}
-	onmousedown={interactive && onstarttlinedrag ? (e => onstarttlinedrag(e, 'leftWallX')) : undefined}>
+	onmousedown={interactive && onstarttlinedrag ? (e => onstarttlinedrag(e, face === 'rear' ? 'rightWallX' : 'leftWallX')) : undefined}>
 	<div class="w-full h-full bg-gray-300/60 {interactive ? 'group-hover/lw:bg-gray-400/70' : ''} transition-colors border border-gray-400/40"></div>
 	<span class="absolute -top-4 left-1/2 -translate-x-1/2 text-[10px] text-gray-500 whitespace-nowrap">Wall</span>
 </div>
 
-<!-- Right wall -->
+<!-- Right wall (visually — drag field swaps in rear face) -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="absolute group/rw select-none"
 	class:cursor-ew-resize={interactive}
-	style:left={settings.rightWallX * SCALE + 'px'}
+	style:left={effRightWallX * SCALE + 'px'}
 	style:top={(view.bottom - settings.ceilingLevel - 200) * SCALE + 'px'}
 	style:width={wallW * SCALE + 'px'}
 	style:height={(settings.ceilingLevel - settings.slabLevel + 200) * SCALE + 'px'}
-	onmousedown={interactive && onstarttlinedrag ? (e => onstarttlinedrag(e, 'rightWallX')) : undefined}>
+	onmousedown={interactive && onstarttlinedrag ? (e => onstarttlinedrag(e, face === 'rear' ? 'leftWallX' : 'rightWallX')) : undefined}>
 	<div class="w-full h-full bg-gray-300/60 {interactive ? 'group-hover/rw:bg-gray-400/70' : ''} transition-colors border border-gray-400/40"></div>
 	<span class="absolute -top-4 left-1/2 -translate-x-1/2 text-[10px] text-gray-500 whitespace-nowrap">Wall</span>
 </div>

@@ -1,20 +1,34 @@
 <script lang="ts">
+	/**
+	 * Frame-detail viewport — full port-grid fidelity.
+	 *
+	 * Subscribes to:
+	 *   - `frames/{frameDocId}` for zoneLocations + floorFormat + portReservations
+	 *     + customLocationTypes + serverRoomCount + legacy frames
+	 *   - All 4 rooms' `racks/{frameDocId}_R{A..D}` docs so we can derive the
+	 *     current FrameConfig[] via `deriveFramesFromRacks` (the frames tool's
+	 *     runtime-derived shape — no direct storage)
+	 *
+	 * Then replicates the Frames.svelte pipeline
+	 * (`generatePortLabels` → `generateRacks`) to get the full `RackData[]`,
+	 * filters to the requested `frameId`, and mounts the existing
+	 * `FrameDrawing.svelte` read-only, scaled to fit the viewport.
+	 *
+	 * Reusing `FrameDrawing.svelte` gives the page the same port-grid visual
+	 * authors see inside the frames tool — labels, high-level ports, slots,
+	 * opposite-face panel hatching etc. — without reimplementing any of it.
+	 */
 	import type { Viewport } from '$lib/types/pages'
-	import type { FrameConfig, PanelDevice } from '../../../frames/parts/types'
+	import type { PortLabel, RackData, PortReservation, LocType, FrameConfig, ZoneConfig } from '../../../frames/parts/types'
+	import { portPosKey } from '../../../frames/parts/types'
+	import { deriveFramesFromRacks, generatePortLabels, generateRacks } from '../../../frames/parts/engine'
 	import { Firestore } from '$lib'
+	import FrameDrawing from '../../../frames/parts/FrameDrawing.svelte'
 
 	let { viewport, db }: { viewport: Viewport; db: Firestore } = $props()
 
 	let src = $derived(viewport.source.kind === 'frame-detail' ? viewport.source : null)
 
-	/**
-	 * Subscribe to the frames doc for the referenced floor. The frames tool
-	 * derives its frame list from the racks docs at runtime; we mirror that by
-	 * looking at the matching racks docs and extracting `panel` devices per rack.
-	 * For P7 scope this viewport renders a summary (name + RU + panel list)
-	 * rather than the full port grid — the full grid is only legible when the
-	 * user opens the frames tool directly.
-	 */
 	let framesDoc = $state<any>(null)
 	$effect(() => {
 		const id = src?.frameDocId
@@ -23,26 +37,94 @@
 		return () => unsub?.()
 	})
 
-	/** Derive the specific frame from the legacy `data.frames` field. */
-	let frame = $derived.by<FrameConfig | null>(() => {
-		const id = src?.frameId
-		if (!id || !framesDoc?.frames) return null
-		return (framesDoc.frames as FrameConfig[]).find(f => f.id === id) ?? null
+	/**
+	 * Subscribe to all four room racks docs for the frame's floor. `frameDocId`
+	 * is `{pid}_F{NN}`; racks live at `{pid}_F{NN}_R{room}`. Re-run whenever the
+	 * frameDocId changes so switching sources cleans up stale subscriptions.
+	 */
+	let racksData = $state<Record<string, any>>({})
+	$effect(() => {
+		const base = src?.frameDocId
+		if (!base) { racksData = {}; return }
+		racksData = {}
+		const rooms = ['A', 'B', 'C', 'D']
+		const unsubs = rooms.map(rm => db.subscribeOne('racks', `${base}_R${rm}`, (data: any) => {
+			racksData = { ...racksData, [rm]: data }
+		}))
+		return () => { unsubs.forEach(u => u?.()) }
 	})
 
-	const ROOM_DOT: Record<string, string> = {
-		A: 'bg-blue-500', B: 'bg-purple-500', C: 'bg-teal-500', D: 'bg-rose-500',
-	}
+	/** Front/rear view — defaults to front (FrameDrawing also defaults to front). */
+	const frameFace: 'front' | 'rear' = 'front'
 
-	/** Reconstruct a panel list from `panelDevices`, falling back to panelStart/End range. */
-	function panelSummary(f: FrameConfig): PanelDevice[] {
-		if (f.panelDevices?.length) return [...f.panelDevices].sort((a, b) => a.ru - b.ru)
-		const out: PanelDevice[] = []
-		for (let ru = f.panelStartRU; ru <= f.panelEndRU; ru++) {
-			out.push({ ru, portCount: 24, isHighLevel: false })
-		}
-		return out
-	}
+	let derivedFrames = $derived<FrameConfig[]>(
+		deriveFramesFromRacks(racksData, frameFace, framesDoc?.frames),
+	)
+
+	let serverRoomCount = $derived<number>(framesDoc?.serverRoomCount ?? 1)
+	let floorFormat = $derived<string>(framesDoc?.floorFormat ?? 'L01')
+	let zoneLocations = $derived<Record<string, any[]>>(framesDoc?.zoneLocations ?? {})
+
+	/**
+	 * Extract the floor number from `frameDocId` ({pid}_F{NN}) so the port-label
+	 * engine can stamp it into each label. Falls back to 1 if the doc id doesn't
+	 * match the expected pattern.
+	 */
+	let floor = $derived.by<number>(() => {
+		const m = src?.frameDocId?.match(/_F(\d+)/)
+		return m ? Number(m[1]) : 1
+	})
+
+	/** Zones that actually contain locations — skip the empty ones. */
+	let zoneLetters = $derived<string[]>(
+		Object.keys(zoneLocations).filter(k => zoneLocations[k]?.length > 0).sort(),
+	)
+
+	/** Flatten labels across zones; the engine handles each zone independently. */
+	let allLabels = $derived<PortLabel[]>(
+		zoneLetters.flatMap(z => generatePortLabels(
+			{ floor, zone: z, serverRoomCount, locations: zoneLocations[z] } as ZoneConfig,
+			floorFormat,
+		)),
+	)
+
+	let reservationMap = $derived<Map<string, LocType>>(
+		new Map(
+			((framesDoc?.portReservations ?? []) as PortReservation[]).flatMap(r =>
+				r.ports.map(p => [portPosKey(p), r.type] as [string, LocType]),
+			),
+		),
+	)
+
+	let racks = $derived<RackData[]>(
+		generateRacks(
+			allLabels,
+			serverRoomCount,
+			derivedFrames.length > 0 ? derivedFrames : undefined,
+			reservationMap.size > 0 ? reservationMap : undefined,
+		),
+	)
+
+	/**
+	 * Visible racks — filtered to the single frame requested by the source.
+	 * `FrameDrawing` also accepts a `selectedFrameId` filter, but we pre-filter
+	 * here so the natural-width CSS layout only reflects the target frame
+	 * (keeps the inner-scale math simple).
+	 */
+	let targetRacks = $derived<RackData[]>(
+		src?.frameId ? racks.filter(r => r.frame.id === src.frameId) : racks,
+	)
+
+	/**
+	 * The frames tool's rack card renders at a natural width around
+	 * 24 cols × ~16px ≈ 400 px. We scale the entire card down to fit the
+	 * viewport, keeping the aspect ratio. If content is taller than fits,
+	 * overflow-hidden clips it — users can adjust `contentOffsetMm` to pan.
+	 */
+	const NATURAL_WIDTH_PX = 420
+	let innerScale = $derived(viewport.widthMm / NATURAL_WIDTH_PX)
+	let contentOffsetX = $derived(viewport.contentOffsetMm?.x ?? 0)
+	let contentOffsetY = $derived(viewport.contentOffsetMm?.y ?? 0)
 
 	let noSource = $derived(!src?.frameDocId || !src?.frameId)
 </script>
@@ -56,29 +138,22 @@
 		<div class="w-full h-full flex items-center justify-center text-[10px] text-zinc-400 italic">
 			Loading…
 		</div>
-	{:else if !frame}
+	{:else if targetRacks.length === 0}
 		<div class="w-full h-full flex items-center justify-center text-[10px] text-red-500 italic px-2 text-center">
-			Frame <span class="font-mono">{src?.frameId}</span> not found in this doc
+			Frame <span class="font-mono">{src?.frameId}</span> not found in this floor's racks
 		</div>
 	{:else}
-		{@const panels = panelSummary(frame)}
-		<div class="w-full h-full p-1.5 overflow-hidden text-[3pt] leading-tight">
-			<!-- Header -->
-			<div class="flex items-center gap-1 mb-1 border-b border-zinc-300 pb-0.5">
-				<div class="w-1.5 h-1.5 rounded-full {ROOM_DOT[frame.serverRoom] ?? 'bg-zinc-400'}"></div>
-				<div class="font-semibold uppercase tracking-wider truncate">{frame.name}</div>
-				<div class="ml-auto text-zinc-400">{frame.totalRU}U · {panels.length}p</div>
-			</div>
-			<!-- Panel list — each as a small coloured bar -->
-			<div class="space-y-px">
-				{#each panels as p}
-					<div class="flex items-center gap-1 bg-zinc-50 px-1 py-px">
-						<span class="font-mono text-zinc-400 w-5 text-right">RU{p.ru}</span>
-						<div class="flex-1 h-1 rounded-sm {p.isHighLevel ? 'bg-amber-300' : 'bg-emerald-400'}"></div>
-						<span class="font-mono text-zinc-500 w-4 text-right">{p.portCount}</span>
-					</div>
-				{/each}
-			</div>
+		<div class="absolute top-0 left-0"
+			style:width="{NATURAL_WIDTH_PX}px"
+			style:transform="scale({innerScale}) translate({-contentOffsetX}px, {-contentOffsetY}px)"
+			style:transform-origin="top left">
+			<FrameDrawing
+				racks={targetRacks}
+				selectedFrameId={src?.frameId}
+				selectedLocations={new Set()}
+				selectedPorts={new Set()}
+				{reservationMap}
+				{frameFace} />
 		</div>
 	{/if}
 </div>

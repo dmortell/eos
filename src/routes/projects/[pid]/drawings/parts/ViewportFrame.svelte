@@ -222,6 +222,19 @@
 		if (dragStart?.mode === 'move') return 'grabbing'
 		return 'grab'
 	})
+
+	/**
+	 * Rotation (0/90/180/270). The frame keeps its user-placed footprint
+	 * (wPx × hPx); only the content container rotates. For 90°/270° the inner
+	 * container is sized with swapped dimensions so after rotating around its
+	 * centre it fills the frame exactly.
+	 */
+	let rot = $derived(((viewport.rotationDeg ?? 0) % 360 + 360) % 360)
+	let isQuarterRot = $derived(rot === 90 || rot === 270)
+	let innerW = $derived(isQuarterRot ? hPx : wPx)
+	let innerH = $derived(isQuarterRot ? wPx : hPx)
+	let innerOffsetX = $derived((wPx - innerW) / 2)
+	let innerOffsetY = $derived((hPx - innerH) / 2)
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -238,32 +251,47 @@
 	onwheel={onBodyWheel}
 	ondblclick={onBodyDoubleClick}
 >
-	<!-- Source content -->
-	{#if viewport.source.kind === 'text'}
-		<TextViewport {viewport} />
-	{:else if viewport.source.kind === 'image'}
-		<ImageViewport {viewport} />
-	{:else if viewport.source.kind === 'rack-elevation'}
-		<RackElevationViewport {viewport} {db} />
-	{:else if viewport.source.kind === 'rack-plan'}
-		<RackPlanViewport {viewport} {db} />
-	{:else if viewport.source.kind === 'frame-detail'}
-		<FrameDetailViewport {viewport} {db} />
-	{:else if viewport.source.kind === 'fillrate'}
-		<FillrateViewport {viewport} {db} />
-	{:else if viewport.source.kind === 'floorplan'}
-		<FloorplanViewport {viewport} {db} />
-	{:else if viewport.source.kind === 'patching'}
-		<PatchingViewport {viewport} {db} />
-	{:else if viewport.source.kind === 'outlets'}
-		<OutletsViewport {viewport} {db} />
-	{:else if viewport.source.kind === 'survey'}
-		<SurveyViewport {viewport} {db} />
-	{:else}
-		<div class="absolute inset-0 flex items-center justify-center text-[10px] text-zinc-500 pointer-events-none px-2 text-center leading-tight">
-			<span>{describe(viewport.source)}</span>
-		</div>
-	{/if}
+	<!--
+		Rotation wrapper — content container rotates around its centre; the
+		frame's bounds stay axis-aligned. At 90°/270° the inner box is sized
+		with swapped dimensions so after rotation it fills the frame exactly.
+	-->
+	<div
+		class="absolute"
+		style:left="{innerOffsetX}px"
+		style:top="{innerOffsetY}px"
+		style:width="{innerW}px"
+		style:height="{innerH}px"
+		style:transform={rot ? `rotate(${rot}deg)` : undefined}
+		style:transform-origin="center center"
+	>
+		<!-- Source content -->
+		{#if viewport.source.kind === 'text'}
+			<TextViewport {viewport} />
+		{:else if viewport.source.kind === 'image'}
+			<ImageViewport {viewport} />
+		{:else if viewport.source.kind === 'rack-elevation'}
+			<RackElevationViewport {viewport} {db} />
+		{:else if viewport.source.kind === 'rack-plan'}
+			<RackPlanViewport {viewport} {db} />
+		{:else if viewport.source.kind === 'frame-detail'}
+			<FrameDetailViewport {viewport} {db} />
+		{:else if viewport.source.kind === 'fillrate'}
+			<FillrateViewport {viewport} {db} />
+		{:else if viewport.source.kind === 'floorplan'}
+			<FloorplanViewport {viewport} {db} />
+		{:else if viewport.source.kind === 'patching'}
+			<PatchingViewport {viewport} {db} />
+		{:else if viewport.source.kind === 'outlets'}
+			<OutletsViewport {viewport} {db} />
+		{:else if viewport.source.kind === 'survey'}
+			<SurveyViewport {viewport} {db} />
+		{:else}
+			<div class="absolute inset-0 flex items-center justify-center text-[10px] text-zinc-500 pointer-events-none px-2 text-center leading-tight">
+				<span>{describe(viewport.source)}</span>
+			</div>
+		{/if}
+	</div>
 
 	<!-- Viewport label — always shown if set -->
 	{#if hasCustomLabel}

@@ -459,6 +459,20 @@
 							</label>
 						</div>
 
+						<!-- Rotation pills (0/90/180/270). Rotates content only; frame bounds stay put. -->
+						<div class="flex items-center gap-1.5">
+							<div class="text-[10px] uppercase tracking-wider text-zinc-400 w-14 shrink-0">Rotate</div>
+							<div class="flex gap-0.5 rounded border border-zinc-200 dark:border-zinc-700 overflow-hidden text-[10px]">
+								{#each [0, 90, 180, 270] as deg}
+									<button
+										class="px-2 py-0.5 transition-colors {(vp.rotationDeg ?? 0) === deg ? 'bg-blue-600 text-white' : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'}"
+										onclick={() => updateViewportLive(vp.id, { rotationDeg: deg })}>
+										{deg}°
+									</button>
+								{/each}
+							</div>
+						</div>
+
 						<!-- Source-specific fields -->
 						<div class="mt-2 pt-2 border-t border-zinc-200 dark:border-zinc-800">
 							<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-1.5">
@@ -489,6 +503,16 @@
 										<option value="rear">Rear</option>
 									</Select>
 								</div>
+								<label class="block">
+									<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Row id <span class="text-zinc-300">(empty = all rows)</span></div>
+									<input type="text"
+										class="w-full border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-1 text-xs bg-white dark:bg-zinc-900"
+										value={vp.source.rowId ?? ''}
+										oninput={(e: Event) => {
+											const v = inputValue(e).trim()
+											updateSource(vp.id, { rowId: v ? v : undefined })
+										}} />
+								</label>
 
 							{:else if vp.source.kind === 'rack-plan'}
 								{@const parsed = parseRackDocId(vp.source.rackDocId)}

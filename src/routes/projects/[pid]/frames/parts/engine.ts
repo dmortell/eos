@@ -388,3 +388,68 @@ export function validateConfig(zone: ZoneConfig): string[] {
 
 	return errors
 }
+
+/** Does a device's mounting setting include the given face? */
+export function matchesFace(dev: { mounting?: string }, face: 'front' | 'rear'): boolean {
+	const m = dev.mounting ?? 'both'
+	return m === 'both' || m === 'none' || m === face
+}
+
+/**
+ * Derive `FrameConfig[]` from the racks tool's per-room data. Mirrors the
+ * logic originally embedded inside `Frames.svelte` — now exported so page-
+ * editor viewports can rebuild the same frame list without going through
+ * the full Frames.svelte component.
+ *
+ * Falls back to the `legacyFrames` argument when the racks data contains no
+ * frames (empty project / old doc shape).
+ */
+export function deriveFramesFromRacks(
+	rData: Record<string, any>,
+	face: 'front' | 'rear',
+	legacyFrames?: FrameConfig[],
+): FrameConfig[] {
+	const derived: FrameConfig[] = []
+	for (const [, doc] of Object.entries(rData)) {
+		if (!doc?.racks) continue
+		for (const rack of doc.racks as any[]) {
+			if (!rack.serverRoom) continue
+			if (rack.type === 'desk' || rack.type === 'shelf' || rack.type === 'vcm') continue
+
+			const rackDevices = ((doc.devices ?? []) as any[]).filter(
+				(d: any) => d.rackId === rack.id && matchesFace(d, face),
+			)
+
+			const slots: import('./types').FrameSlot[] = []
+			for (const dev of rackDevices) {
+				if (dev.type !== 'panel') {
+					slots.push({ ru: dev.positionU, type: dev.type, height: dev.heightU, label: dev.label })
+				}
+			}
+
+			const copperPanels = rackDevices.filter((d: any) => d.type === 'panel')
+			const floorPanels = copperPanels.filter((d: any) => d.patchLevel !== 'high')
+			const highPanels = copperPanels.filter((d: any) => d.patchLevel === 'high')
+
+			const panelDevices: PanelDevice[] = copperPanels.map((d: any) => ({
+				ru: d.positionU as number,
+				portCount: (d.portCount as number) || 48,
+				isHighLevel: d.patchLevel === 'high',
+			}))
+
+			derived.push({
+				id: rack.id,
+				name: rack.label,
+				serverRoom: rack.serverRoom,
+				totalRU: rack.heightU ?? 42,
+				panelStartRU: floorPanels.length ? Math.min(...floorPanels.map((d: any) => d.positionU)) : 1,
+				panelEndRU: floorPanels.length ? Math.max(...floorPanels.map((d: any) => d.positionU + d.heightU - 1)) : rack.heightU ?? 42,
+				hlPanelStartRU: highPanels.length ? Math.min(...highPanels.map((d: any) => d.positionU)) : undefined,
+				hlPanelEndRU: highPanels.length ? Math.max(...highPanels.map((d: any) => d.positionU + d.heightU - 1)) : undefined,
+				slots,
+				panelDevices,
+			})
+		}
+	}
+	return derived.length > 0 ? derived : (legacyFrames ?? [])
+}

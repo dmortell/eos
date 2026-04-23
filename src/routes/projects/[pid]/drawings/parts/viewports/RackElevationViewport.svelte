@@ -28,26 +28,49 @@
 	let devices = $derived<DeviceConfig[]>(rackDoc?.devices ?? [])
 	let rows = $derived(rackDoc?.rows ?? [])
 
-	/** Lay out racks in the requested row (or first row) with _x/_z for the renderer. */
+	/**
+	 * Lay out racks with `_x`/`_z` for the renderer. Two modes:
+	 *   - `source.rowId` set → single row at x=0…Σ widths
+	 *   - `source.rowId` unset → every row in `rows` order, separated by
+	 *     `ROW_GAP_MM` so multi-row pages show the full room elevation.
+	 *
+	 * The gap keeps rows visually distinct without needing label chrome.
+	 */
+	const ROW_GAP_MM = 600
+	const RACK_GAP_MM = RACK_GAP_PX / SCALE
+
 	let activeRacks = $derived.by(() => {
-		const rowId = src?.rowId ?? rows[0]?.id
-		return rawRacks
-			.filter(r => !rowId || r.rowId === rowId)
-			.sort((a, b) => a.order - b.order)
-			.map((rack, idx, arr) => {
-				let x = 0
-				for (let i = 0; i < idx; i++) x += arr[i].widthMm + RACK_GAP_PX / SCALE
-				return { ...rack, _x: x, _z: settings.floorLevel }
-			})
+		const requestedRow = src?.rowId
+		const targetRowIds: string[] = requestedRow
+			? [requestedRow]
+			: (rows.length ? rows.map((r: any) => r.id) : [undefined as unknown as string])
+		const out: (RackConfig & { _x: number; _z: number })[] = []
+		let x = 0
+		for (const rowId of targetRowIds) {
+			const rowRacks = rawRacks
+				.filter(r => rowId ? r.rowId === rowId : true)
+				.sort((a, b) => a.order - b.order)
+			for (const rack of rowRacks) {
+				out.push({ ...rack, _x: x, _z: settings.floorLevel })
+				x += rack.widthMm + RACK_GAP_MM
+			}
+			x += ROW_GAP_MM
+		}
+		return out
 	})
 
 	let rearRacks = $derived.by(() => {
 		if (src?.face !== 'rear' || activeRacks.length === 0) return []
-		return [...activeRacks].reverse().map((rack, idx, arr) => {
-			let x = 0
-			for (let i = 0; i < idx; i++) x += arr[i].widthMm + RACK_GAP_PX / SCALE
-			return { ...rack, _x: x, _z: settings.floorLevel, _face: 'rear' as const }
-		})
+		// Reverse the laid-out order; re-compute sequential _x so rear-face racks
+		// render left-to-right in visual order (mirror of front).
+		const reversed = [...activeRacks].reverse()
+		const out: (RackConfig & { _x: number; _z: number; _face: 'rear' })[] = []
+		let x = 0
+		for (const rack of reversed) {
+			out.push({ ...rack, _x: x, _z: settings.floorLevel, _face: 'rear' as const })
+			x += rack.widthMm + RACK_GAP_MM
+		}
+		return out
 	})
 
 	/**
