@@ -379,15 +379,19 @@ When publishing a page revision, we may need to create revisions on source drawi
 
 ### Viewports — still outstanding
 
-- **Trunk-shape fidelity inside `OutletsViewport`** — trunks are rendered as simple polylines along waypoints; the Outlets tool draws them as shaped cable-tray forms with width + turn radius. Follow-up.
-- **`survey` viewport single-mode annotations** — single-mode renders the raw photo, not the `AnnotationOverlay` pins. Add a read-only annotation layer.
-- **`patching` viewport port-label resolution** — port refs fall back to short `rack/dev:port` ids when `PortRef.label` is empty. Subscribe to the frames port-label engine output to show `FF.Z.NNN-SPP` labels instead.
 - **Visual title-block editor** — explicit P6 backlog item. Lets project admins drag-design custom templates stored as `TitleBlockTemplate` docs and referenced by `titleBlock.template` when set to a custom id.
+- **Mixed-paper-size printing** — `@page` is applied globally per print job, so the package print preview forces the first page's size onto the entire job. True per-sheet sizing needs named `@page` rules + per-sheet `page` CSS properties.
+- **Secondary route shapes** — `OutletsViewport` uses the real `TrunkRenderer` for trunks, but outlet→rack `routes` still draw as simple polylines. Could share styling with trunks (waypoint nodes, radii, ceiling dashes).
+
+### Newly shipped this round
+
+- **Stale-badge precision** — [ViewportFrame.svelte](../ViewportFrame.svelte) now shows "N rev behind" instead of a flat "STALE" pill. `revisionsBehind` is a char-code diff on the single-letter revision codes (A/B/C…), cheaper than joining through version numbers and just as accurate for monotonic sequences.
+- **`survey` single-mode annotations** — [SurveyViewport.svelte](../viewports/SurveyViewport.svelte) mounts the real `AnnotationOverlay` from the survey tool with `readonly={true}` on top of the photo. The overlay's viewBox matches the image's natural dimensions (captured on `<img>` onload) so pins stay aligned under `object-contain`.
+- **`patching` port-label resolution** — [PatchingViewport.svelte](../viewports/PatchingViewport.svelte) subscribes to the floor's frames doc + all four rooms' racks docs, re-runs the frames engine pipeline, and resolves each `PortRef` via a `(rackId → frame, deviceId → panel.ru, portIndex → row/col)` lookup. Port labels now display as `FF.Z.NNN-SPP`; the short `rack/dev:port` form remains as the fallback when data hasn't loaded.
+- **Trunk-shape fidelity** — [OutletsViewport.svelte](../viewports/OutletsViewport.svelte) now mounts the real `TrunkRenderer` from `outlets/trunks/` inside its SVG overlay. Pipe/rect shapes, ceiling-dashed styling, and corner radii now match the outlets editor exactly. Secondary outlet→rack `routes` still draw as simple polylines (own follow-up above).
 
 ### Other known follow-ups
 
-- **Mixed-paper-size printing** — `@page` is applied globally per print job, so the package print preview forces the first page's size onto the entire job. True per-sheet sizing needs named `@page` rules + per-sheet `page` CSS properties.
-- **Stale-badge precision** — currently a boolean `latestRevisionCode !== sourcePin.revisionCode`. A "N versions behind" count would join `RevisionDoc.fromVersionId` → `VersionDoc.number` and compare against `DrawingDoc.currentVersionNumber`.
 - **Rear-view wall mirroring** (done) — `RackElevationRenderer.svelte` now computes `effLeftWallX` / `effRightWallX` by mirroring around the row's right edge in rear face. Drag handlers swap which stored `wallX` field they target so the physical wall's identity is preserved.
 
 ## Out of scope for this plan

@@ -9,17 +9,20 @@
 	 *     scaleFactor for PDF-px ↔ real-world mm)
 	 *
 	 * Renders the PDF page as a background image with an SVG overlay containing
-	 * outlet dots and trunk polylines. Real-world mm coordinates from the
-	 * outlets doc are mapped back to PDF-px via the stored calibration, then
-	 * scaled to the SVG viewBox so the overlay stays aligned with the underlay.
+	 * outlet dots and trunk shapes. Real-world mm coordinates from the outlets
+	 * doc are mapped back to PDF-px via the stored calibration, then scaled to
+	 * the SVG viewBox so the overlay stays aligned with the underlay.
 	 *
 	 * Layer toggles come from the viewport source (`showOutlets`, `showTrunks`
-	 * — both default true). Trunks are drawn as simple polylines along their
-	 * waypoint list; full trunk-shape rendering is a follow-up.
+	 * — both default true). Trunks now use the real `TrunkRenderer` from the
+	 * outlets tool so pipe/rect shapes + ceiling-dashed styling appear exactly
+	 * as in the editor; non-trunk `routes` still draw as simple polylines.
 	 */
 	import type { Viewport } from '$lib/types/pages'
 	import type { OutletConfig, Point } from '../../../outlets/parts/types'
+	import type { TrunkConfig } from '../../../outlets/trunks/types'
 	import { Firestore } from '$lib'
+	import TrunkRenderer from '../../../outlets/trunks/TrunkRenderer.svelte'
 
 	let { viewport, db }: { viewport: Viewport; db: Firestore } = $props()
 
@@ -106,7 +109,7 @@
 	)
 
 	let outlets = $derived<OutletConfig[]>(outletsDoc?.outlets ?? [])
-	let trunks = $derived<any[]>(outletsDoc?.trunks ?? [])
+	let trunks = $derived<TrunkConfig[]>(outletsDoc?.trunks ?? [])
 	let routes = $derived<any[]>(outletsDoc?.routes ?? [])
 
 	const OUTLET_COLORS: Record<string, string> = {
@@ -142,18 +145,26 @@
 				viewBox={viewBox}
 				preserveAspectRatio="xMidYMid meet">
 				{#if showTrunks}
+					<!--
+						Full trunk shapes via the outlets tool's own renderer.
+						`toPx` shares the viewport's mm → PDF-px mapping so shapes
+						line up with outlets + underlay. Passing empty selection /
+						drawing sets makes it render in pure read-only mode.
+					-->
+					<TrunkRenderer
+						{trunks}
+						{calibration}
+						zoom={1}
+						toPx={mmToPdfPx}
+						selectedTrunkIds={new Set()}
+						selectedNodeIds={new Set()} />
+
+					<!-- Secondary outlet→rack routes still draw as simple polylines. -->
 					{#each routes as r (r.id)}
 						{#if r.waypoints?.length >= 2}
-							{@const pts = [r.waypoints[0], ...r.waypoints].map((w: Point) => mmToPdfPx(w))}
+							{@const pts = r.waypoints.map((w: Point) => mmToPdfPx(w))}
 							<polyline points={pts.map((p: Point) => `${p.x},${p.y}`).join(' ')}
 								fill="none" stroke="#2563eb" stroke-width={2 / scaleFactor * 1000} stroke-linecap="round" opacity="0.7" />
-						{/if}
-					{/each}
-					{#each trunks as t (t.id)}
-						{#if t.waypoints?.length >= 2}
-							{@const pts = t.waypoints.map((w: Point) => mmToPdfPx(w))}
-							<polyline points={pts.map((p: Point) => `${p.x},${p.y}`).join(' ')}
-								fill="none" stroke="#14b8a6" stroke-width={3 / scaleFactor * 1000} stroke-linecap="round" opacity="0.8" />
 						{/if}
 					{/each}
 				{/if}

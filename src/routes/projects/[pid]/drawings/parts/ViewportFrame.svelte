@@ -29,9 +29,10 @@
 
 	/**
 	 * When the viewport has a `sourcePin`, subscribe to the pinned DrawingDoc
-	 * to detect whether newer revisions have shipped since the pin. The UI
-	 * shows a badge so authors know to re-publish the page if they want to
-	 * capture those changes.
+	 * to detect whether newer revisions have shipped since the pin, and show
+	 * how many revisions behind. Revision codes are monotonic single letters
+	 * ('A', 'B', 'C', ...), so we diff their char codes directly rather than
+	 * joining through version numbers — cheaper and just as accurate.
 	 */
 	let pinnedDrawing = $state<{ latestRevisionCode?: string } | null>(null)
 	$effect(() => {
@@ -42,8 +43,13 @@
 		})
 		return () => unsub?.()
 	})
-	let isStale = $derived(!!(viewport.sourcePin && pinnedDrawing?.latestRevisionCode
-		&& pinnedDrawing.latestRevisionCode !== viewport.sourcePin.revisionCode))
+	let revisionsBehind = $derived.by(() => {
+		if (!viewport.sourcePin || !pinnedDrawing?.latestRevisionCode) return 0
+		const pinned = viewport.sourcePin.revisionCode.charCodeAt(0)
+		const latest = pinnedDrawing.latestRevisionCode.charCodeAt(0)
+		return Math.max(0, latest - pinned)
+	})
+	let isStale = $derived(revisionsBehind > 0)
 
 	const MIN_MM = 10
 	type Handle = 'nw' | 'ne' | 'sw' | 'se'
@@ -304,10 +310,10 @@
 	{/if}
 
 	<!-- Stale source badge — shown when the pinned source has a newer revision. -->
-	{#if isStale}
-		<div class="absolute top-0 right-0 m-0.5 px-1 py-px rounded-sm bg-amber-500 text-white text-[8px] font-medium pointer-events-none"
-			title="Source has newer revisions since this viewport was pinned">
-			STALE
+	{#if isStale && viewport.sourcePin}
+		<div class="absolute top-0 right-0 m-0.5 px-1 py-px rounded-sm bg-amber-500 text-white text-[8px] font-medium pointer-events-none whitespace-nowrap"
+			title="Pinned at rev {viewport.sourcePin.revisionCode} · source now at rev {pinnedDrawing?.latestRevisionCode}">
+			{revisionsBehind} rev{revisionsBehind === 1 ? '' : 's'} behind
 		</div>
 	{/if}
 
