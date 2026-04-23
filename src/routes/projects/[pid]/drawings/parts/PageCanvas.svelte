@@ -4,6 +4,7 @@
 	import { Firestore } from '$lib'
 	import ViewportFrame from './ViewportFrame.svelte'
 	import TitleBlock, { type TitleBlockProjectDefaults } from './TitleBlock.svelte'
+	import { triggerPrint } from '$lib/ui/print'
 
 	let {
 		page, selectedViewportId, width, height, db, projectId,
@@ -130,6 +131,29 @@
 	}
 
 	function onContextMenu(e: MouseEvent) { e.preventDefault() }
+
+	/**
+	 * Print the current page. Called from the editor's sidebar button — resets
+	 * pan/zoom so the paper lands at the page's top-left at 1:1, invokes
+	 * `triggerPrint` (which injects `@page size: Wmm Hmm` + a @media print block
+	 * that forces `.print-canvas-container` to that exact footprint and hides
+	 * anything marked `.print-hidden` / `.sidebar-area`), then restores the
+	 * user's pan/zoom state after `afterprint` fires.
+	 */
+	export function doPrint() {
+		const saved = { panX, panY, zoom }
+		panX = 0
+		panY = 0
+		zoom = 1
+		const cleanup = () => {
+			panX = saved.panX
+			panY = saved.panY
+			zoom = saved.zoom
+			window.removeEventListener('afterprint', cleanup)
+		}
+		window.addEventListener('afterprint', cleanup)
+		requestAnimationFrame(() => triggerPrint(page.paper, '.print-canvas-container'))
+	}
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -146,17 +170,18 @@
 		style:transform="translate({panX}px, {panY}px) scale({zoom})"
 	>
 		<!-- Paper -->
+		<!-- Paper — `.print-canvas-container` is targeted by triggerPrint's injected CSS -->
 		<div
-			class="absolute bg-white shadow-md"
+			class="absolute bg-white shadow-md print-canvas-container"
 			style:left="0px"
 			style:top="0px"
 			style:width="{paperMm.w}px"
 			style:height="{paperMm.h}px"
 		>
-			<!-- Margin guide -->
+			<!-- Margin guide — editorial only, hidden on print. -->
 			{#if page.paper.margins > 0}
 				<div
-					class="absolute border border-dashed border-zinc-300 pointer-events-none"
+					class="absolute border border-dashed border-zinc-300 pointer-events-none print-hidden"
 					style:left="{page.paper.margins}px"
 					style:top="{page.paper.margins}px"
 					style:width="{paperMm.w - 2 * page.paper.margins}px"
@@ -194,8 +219,8 @@
 		</div>
 	</div>
 
-	<!-- Paper-size label (fixed, not zoomed) -->
-	<div class="absolute bottom-2 left-2 text-[10px] text-zinc-500 dark:text-zinc-400 pointer-events-none">
+	<!-- Paper-size label (fixed, not zoomed). Hidden during print. -->
+	<div class="absolute bottom-2 left-2 text-[10px] text-zinc-500 dark:text-zinc-400 pointer-events-none print-hidden">
 		{page.paper.paperSize} {page.paper.orientation} · 1:{page.paper.scale || 100} · {Math.round(zoom * 100)}%
 	</div>
 </div>

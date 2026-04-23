@@ -6,7 +6,7 @@
  */
 
 import type { Firestore } from '$lib'
-import type { Page, Viewport, ViewportSource } from '$lib/types/pages'
+import type { Page, ViewportSource } from '$lib/types/pages'
 import type { DrawingDoc, ToolType } from '$lib/types/versioning'
 import { createVersion, createRevision, nextRevisionCode } from '$lib/versioning/service'
 import { serializeForRevision } from '$lib/versioning/adapters/pages'
@@ -135,4 +135,65 @@ export async function publishPage(
 		uid: input.uid,
 	})
 	return { revisionCode: code, versionId }
+}
+
+/**
+ * Publish every page in the project with `includeInPackages !== false` and add
+ * the resulting revisions as items on a target package. Pages without a linked
+ * DrawingDoc or already at their latest revision get a fresh publish anyway so
+ * the package captures a consistent snapshot of the current state.
+ *
+ * Returns the list of `{ pageId, revisionCode, drawingId }` per published page.
+ */
+export async function publishAllPagesToPackage(
+	db: Firestore,
+	input: { projectId: string; uid: string; packageId: string; revisionTitle?: string },
+): Promise<Array<{ pageId: string; revisionCode: string; drawingId: string }>> {
+	// One-shot read of pages scoped to this project.
+	const allPages = await db.getMany('pages') as unknown as Page[]
+	const pages = allPages
+		.filter(p => p.projectId === input.projectId && p.includeInPackages !== false)
+		.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+
+	const allDrawings = await db.getMany(`projects/${input.projectId}/drawings`) as unknown as Array<{
+		id: string; toolType: string; sourceDocId: string; status: string; latestRevisionCode?: string
+	}>
+
+	const results: Array<{ pageId: string; revisionCode: string; drawingId: string }> = []
+	let sheetOrder = 0
+	const packageItems: Array<{ drawingId: string; revisionId: string; sheetOrder: number; include: boolean }> = []
+
+	for (const page of pages) {
+		// `page.id` is `${projectId}_${pageId}` — derive the bare pageId for `publishPage`.
+		const prefix = `${input.projectId}_`
+		const pageId = page.id.startsWith(prefix) ? page.id.slice(prefix.length) : page.id
+		const sourceDocId = page.id
+		const drawing = allDrawings.find(d => d.toolType === 'page' && d.sourceDocId === sourceDocId && d.status === 'active')
+		if (!drawing) continue
+
+		const { revisionCode } = await publishPage(db, {
+			projectId: input.projectId,
+			uid: input.uid,
+			page,
+			pageDrawingId: drawing.id,
+			revisionTitle: input.revisionTitle,
+			latestPageRevisionCode: drawing.latestRevisionCode,
+		})
+		results.push({ pageId, revisionCode, drawingId: drawing.id })
+		sheetOrder += 1
+		packageItems.push({
+			drawingId: drawing.id,
+			revisionId: `r${revisionCode}`,
+			sheetOrder,
+			include: true,
+		})
+	}
+
+	// Import lazily to avoid pulling the whole versioning service graph into callers.
+	const { updatePackageItems } = await import('$lib/versioning/service')
+	if (packageItems.length) {
+		await updatePackageItems(db, input.projectId, input.packageId, packageItems)
+	}
+
+	return results
 }

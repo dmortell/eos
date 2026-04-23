@@ -2,6 +2,8 @@
 	import { Button, Icon, Input, Select, Firestore } from '$lib'
 	import type { DrawingDoc, RevisionDoc, PackageDoc, PackageItemDoc, PackageType } from '$lib/types/versioning'
 	import { createPackage, updatePackage, subscribePackageItems, updatePackageItems, publishPackage } from '$lib/versioning/service'
+	import { publishAllPagesToPackage } from '$lib/pages/publish'
+	import { goto } from '$app/navigation'
 	import PublishDialog from './PublishDialog.svelte'
 
 	const PACKAGE_TYPES: { value: PackageType; label: string }[] = [
@@ -142,6 +144,34 @@
 		})
 		editingPackage = false
 	}
+
+	let autoAdding = $state(false)
+	async function handleAutoAddAllPages() {
+		if (!activePackageId || autoAdding) return
+		if (!confirm('Publish every page with "Include in packages" = ON and add the new revisions to this package?')) return
+		autoAdding = true
+		try {
+			const results = await publishAllPagesToPackage(db, {
+				projectId,
+				uid,
+				packageId: activePackageId,
+				revisionTitle: `Auto-published for "${activePackage?.name ?? 'package'}"`,
+			})
+			alert(`Published ${results.length} page${results.length === 1 ? '' : 's'}.`)
+		} catch (err: any) {
+			alert(`Auto-add failed: ${err?.message ?? err}`)
+		} finally {
+			autoAdding = false
+		}
+	}
+
+	function openPrintPreview() {
+		if (!activePackageId) return
+		// Sequential print: open a preview route that renders every page's paper
+		// in order with CSS page-breaks. The browser's print dialog handles the
+		// multi-page export in a single job.
+		goto(`/projects/${projectId}/packages/${activePackageId}/print`)
+	}
 </script>
 
 <div class="p-4 md:p-6">
@@ -222,12 +252,22 @@
 										<Icon name="edit" size={12} />
 									</button>
 								</div>
-								{#if activePackage.status === 'draft' || activePackage.status === 'published'}
-									<Button onclick={() => publishingPackageId = activePackage?.id ?? null}>
-										<Icon name="share" size={14} />
-										{activePackage.status === 'published' ? 'Publish Update' : 'Publish'}
+								<div class="flex items-center gap-1.5">
+									<Button onclick={handleAutoAddAllPages} disabled={autoAdding || activePackage.status === 'superseded'}>
+										<Icon name="refresh" size={14} />
+										{autoAdding ? 'Publishing pages…' : 'Auto-add all pages'}
 									</Button>
-								{/if}
+									<Button onclick={openPrintPreview} disabled={activeItems.length === 0}>
+										<Icon name="print" size={14} />
+										Print package
+									</Button>
+									{#if activePackage.status === 'draft' || activePackage.status === 'published'}
+										<Button onclick={() => publishingPackageId = activePackage?.id ?? null}>
+											<Icon name="share" size={14} />
+											{activePackage.status === 'published' ? 'Publish Update' : 'Publish'}
+										</Button>
+									{/if}
+								</div>
 							</div>
 							{#if activePackage.description}
 								<p class="text-xs text-zinc-500 mt-1">{activePackage.description}</p>

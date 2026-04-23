@@ -51,7 +51,7 @@
 		return () => { unsub?.() }
 	})
 
-	async function updateTitleBlock(patch: Partial<TitleBlockConfig>) {
+	function updateTitleBlock(patch: Partial<TitleBlockConfig>) {
 		if (!pageData) return
 		const current: TitleBlockConfig = pageData.titleBlock ?? { template: 'standard' }
 		// Switching template invalidates cached size/position — let PageCanvas recompute defaults.
@@ -61,7 +61,15 @@
 			delete merged.heightMm
 			delete merged.positionMm
 		}
-		await persist({ titleBlock: merged })
+		persistLive({ titleBlock: merged })
+	}
+
+	/** Merge a single field into titleBlock.fields without clobbering siblings. */
+	function updateTitleBlockField(key: string, value: string) {
+		if (!pageData) return
+		const current: TitleBlockConfig = pageData.titleBlock ?? { template: 'standard' }
+		const mergedFields = { ...(current.fields ?? {}), [key]: value }
+		persistLive({ titleBlock: { ...current, fields: mergedFields } })
 	}
 
 	async function removeTitleBlock() {
@@ -237,6 +245,11 @@
 
 	let versionPanelOpen = $state(false)
 	let publishing = $state(false)
+	let pageCanvas: { doPrint: () => void } | null = $state(null)
+
+	function handlePrint() {
+		pageCanvas?.doPrint()
+	}
 
 	function getCurrentSnapshot(): unknown {
 		return pageData
@@ -302,7 +315,9 @@
 
 <svelte:window bind:innerWidth bind:innerHeight />
 
-<Titlebar title="{projectName} — {pageData?.title ?? 'Page'}" height={30} />
+<div class="print:hidden">
+	<Titlebar title="{projectName} — {pageData?.title ?? 'Page'}" height={30} />
+</div>
 
 {#if loading || !pageData}
 	<div class="flex items-center justify-center h-screen">
@@ -310,8 +325,8 @@
 	</div>
 {:else}
 	<div class="flex" style:height="{canvasHeight}px">
-		<!-- Sidebar -->
-		<aside class="border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex flex-col text-xs"
+		<!-- Sidebar — `sidebar-area` is hidden by print-handler.ts injected CSS. -->
+		<aside class="border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex flex-col text-xs sidebar-area print:hidden"
 			style:width="{SIDEBAR_W}px">
 			<div class="p-3 border-b border-zinc-200 dark:border-zinc-800">
 				<a href="/projects/{pid}/drawings" class="inline-flex items-center gap-1 text-zinc-500 hover:text-blue-600">
@@ -554,34 +569,66 @@
 				</div>
 				{#if pageData.titleBlock !== null}
 					{@const tb = pageData.titleBlock ?? { template: 'standard' as const }}
-					<Select label="Template" size="sm"
-						value={tb.template}
-						onchange={(e: Event) => updateTitleBlock({ template: inputValue(e) as 'standard' | 'compact' | 'vertical' | 'custom' })}>
-						<option value="standard">Standard</option>
-						<option value="compact">Compact</option>
-						<option value="vertical">Vertical (right edge)</option>
-					</Select>
-					<Input label="Drawing No." value={tb.fields?.drawingNumber ?? pageData.drawingNumber ?? ''} size="sm"
-						onchange={(e: Event) => updateTitleBlock({ fields: { ...(tb.fields ?? {}), drawingNumber: inputValue(e) } })} />
+					<label class="block">
+						<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Template</div>
+						<select class="w-full border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-1 text-xs bg-white dark:bg-zinc-900"
+							value={tb.template}
+							onchange={(e: Event) => updateTitleBlock({ template: inputValue(e) as 'standard' | 'compact' | 'vertical' | 'custom' })}>
+							<option value="standard">Standard</option>
+							<option value="compact">Compact</option>
+							<option value="vertical">Vertical (right edge)</option>
+						</select>
+					</label>
+					<label class="block">
+						<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Drawing No.</div>
+						<input type="text"
+							class="w-full border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-1 text-xs bg-white dark:bg-zinc-900"
+							value={tb.fields?.drawingNumber ?? pageData.drawingNumber ?? ''}
+							oninput={(e: Event) => updateTitleBlockField('drawingNumber', inputValue(e))} />
+					</label>
 					<div class="grid grid-cols-3 gap-1.5">
-						<Input label="Drawn" value={tb.fields?.drawnBy ?? projectDefaults.author ?? ''} size="sm"
-							onchange={(e: Event) => updateTitleBlock({ fields: { ...(tb.fields ?? {}), drawnBy: inputValue(e) } })} />
-						<Input label="Chkd" value={tb.fields?.checkedBy ?? ''} size="sm"
-							onchange={(e: Event) => updateTitleBlock({ fields: { ...(tb.fields ?? {}), checkedBy: inputValue(e) } })} />
-						<Input label="App" value={tb.fields?.approvedBy ?? ''} size="sm"
-							onchange={(e: Event) => updateTitleBlock({ fields: { ...(tb.fields ?? {}), approvedBy: inputValue(e) } })} />
+						<label class="block">
+							<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Drawn</div>
+							<input type="text"
+								class="w-full border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-1 text-xs bg-white dark:bg-zinc-900"
+								value={tb.fields?.drawnBy ?? projectDefaults.author ?? ''}
+								oninput={(e: Event) => updateTitleBlockField('drawnBy', inputValue(e))} />
+						</label>
+						<label class="block">
+							<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Chkd</div>
+							<input type="text"
+								class="w-full border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-1 text-xs bg-white dark:bg-zinc-900"
+								value={tb.fields?.checkedBy ?? ''}
+								oninput={(e: Event) => updateTitleBlockField('checkedBy', inputValue(e))} />
+						</label>
+						<label class="block">
+							<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">App</div>
+							<input type="text"
+								class="w-full border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-1 text-xs bg-white dark:bg-zinc-900"
+								value={tb.fields?.approvedBy ?? ''}
+								oninput={(e: Event) => updateTitleBlockField('approvedBy', inputValue(e))} />
+						</label>
 					</div>
-					<Input label="Date" value={tb.fields?.date ?? ''} size="sm" placeholder="YYYY-MM-DD"
-						onchange={(e: Event) => updateTitleBlock({ fields: { ...(tb.fields ?? {}), date: inputValue(e) } })} />
+					<label class="block">
+						<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Date</div>
+						<input type="text"
+							class="w-full border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-1 text-xs bg-white dark:bg-zinc-900"
+							value={tb.fields?.date ?? ''}
+							placeholder="YYYY-MM-DD"
+							oninput={(e: Event) => updateTitleBlockField('date', inputValue(e))} />
+					</label>
 				{/if}
 			</div>
 
-			<!-- Publish + versions -->
+			<!-- Publish + versions + print -->
 			<div class="p-3 border-t border-zinc-200 dark:border-zinc-800 space-y-1.5">
-				<div class="flex items-center gap-1.5">
+				<div class="flex items-center gap-1.5 flex-wrap">
 					<Button onclick={handlePublish} disabled={publishing || !drawing}>
 						<Icon name="check" size={12} />
 						{publishing ? 'Publishing…' : 'Publish'}
+					</Button>
+					<Button onclick={handlePrint}>
+						<Icon name="print" size={12} /> Print
 					</Button>
 					<button class="text-[10px] text-zinc-500 hover:text-blue-600"
 						onclick={() => versionPanelOpen = !versionPanelOpen}>
@@ -614,6 +661,7 @@
 
 		<!-- Canvas -->
 		<PageCanvas
+			bind:this={pageCanvas}
 			page={pageData}
 			{selectedViewportId}
 			width={canvasWidth}

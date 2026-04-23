@@ -110,14 +110,35 @@
 		beginDrag(e, handle)
 	}
 
-	/** Alt+wheel on a selected viewport adjusts its scale. */
+	/**
+	 * Alt+wheel on a selected viewport adjusts its scale, pivoting around the
+	 * mouse cursor: the source-mm point under the cursor stays under the cursor.
+	 *
+	 * Math: the source-mm offset of the cursor relative to the viewport top-left
+	 * is `offset + mouseInside_paperMm * scale`. To keep that source point fixed
+	 * when scale changes from S1 → S2, we update offset so
+	 *     offsetNew = offsetOld + mouseInside_paperMm * (S1 − S2)
+	 * (smaller scale means fewer source-mm per paper-mm, so offset shifts less).
+	 */
 	function onBodyWheel(e: WheelEvent) {
 		if (!e.altKey) return // let canvas handle regular zoom/pan
 		e.preventDefault()
 		e.stopPropagation()
 		const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1
 		const next = Math.max(1, Math.round(viewport.scale * factor))
-		if (next !== viewport.scale) onupdate({ scale: next })
+		if (next === viewport.scale) return
+
+		// Cursor position relative to viewport top-left, in paper-mm.
+		const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+		const mouseMmX = (e.clientX - rect.left) / pxPerMm
+		const mouseMmY = (e.clientY - rect.top) / pxPerMm
+
+		const curOffX = viewport.contentOffsetMm?.x ?? 0
+		const curOffY = viewport.contentOffsetMm?.y ?? 0
+		const newOffX = curOffX + mouseMmX * (viewport.scale - next)
+		const newOffY = curOffY + mouseMmY * (viewport.scale - next)
+
+		onupdate({ scale: next, contentOffsetMm: { x: newOffX, y: newOffY } })
 	}
 
 	function onMouseMove(e: MouseEvent) {
@@ -251,10 +272,10 @@
 	{/if}
 
 	{#if selected}
-		<!-- Open-source icon in top-right corner when a jump-to-source is available -->
+		<!-- Open-source icon — positioned above the frame so it doesn't overlap the NE resize handle. -->
 		{#if onopensource}
 			<button
-				class="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center shadow hover:bg-blue-500"
+				class="absolute right-1 top-1 w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center shadow hover:bg-blue-500"
 				title="Open underlying source (double-click also works)"
 				onmousedown={e => e.stopPropagation()}
 				onclick={e => { e.stopPropagation(); onopensource() }}>
