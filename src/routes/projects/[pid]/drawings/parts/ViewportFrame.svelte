@@ -345,7 +345,7 @@
 
 		<!-- Hint line — shown briefly when selected -->
 		<div class="absolute top-full left-0 mt-0.5 text-[8px] text-blue-500/70 pointer-events-none whitespace-nowrap">
-			Alt+drag pan · Alt+wheel scale · dbl-click opens source
+			Alt+drag pan · Alt+wheel scale · dbl-click opens source · arrows nudge · Ctrl/⌘-D dup · Del removes
 		</div>
 	{/if}
 </div>

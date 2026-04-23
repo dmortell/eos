@@ -159,12 +159,42 @@
 						selectedTrunkIds={new Set()}
 						selectedNodeIds={new Set()} />
 
-					<!-- Secondary outlet→rack routes still draw as simple polylines. -->
+					<!--
+						Secondary outlet→rack routes. Styled consistently with trunks:
+						polyline body with rounded joins, waypoint bullets at every
+						intermediate node, and an optional length pill at the route's
+						midpoint. Simpler than full trunk geometry (no catalog shape
+						spec), but at-a-glance readable on a drawing page.
+					-->
 					{#each routes as r (r.id)}
 						{#if r.waypoints?.length >= 2}
-							{@const pts = r.waypoints.map((w: Point) => mmToPdfPx(w))}
-							<polyline points={pts.map((p: Point) => `${p.x},${p.y}`).join(' ')}
-								fill="none" stroke="#2563eb" stroke-width={2 / scaleFactor * 1000} stroke-linecap="round" opacity="0.7" />
+							{@const pts = (r.waypoints as Point[]).map(w => mmToPdfPx(w))}
+							{@const strokeW = 2 / scaleFactor * 1000}
+							{@const nodeR = 2.5 / scaleFactor * 1000}
+							{@const midIdx = Math.floor(pts.length / 2)}
+							{@const mid = pts.length % 2 === 0
+								? { x: (pts[midIdx - 1].x + pts[midIdx].x) / 2, y: (pts[midIdx - 1].y + pts[midIdx].y) / 2 }
+								: pts[midIdx]}
+							{@const lengthM = (r.length ?? 0) / 1000}
+							<polyline points={pts.map(p => `${p.x},${p.y}`).join(' ')}
+								fill="none" stroke="#2563eb" stroke-width={strokeW}
+								stroke-linecap="round" stroke-linejoin="round" opacity="0.75" />
+							<!-- Waypoint bullets — skip endpoints since those are the outlet dot / rack anchor. -->
+							{#each pts.slice(1, -1) as wp}
+								<circle cx={wp.x} cy={wp.y} r={nodeR} fill="#2563eb" opacity="0.9" />
+							{/each}
+							{#if lengthM > 0}
+								{@const labelW = 5 / scaleFactor * 1000}
+								{@const labelH = 3 / scaleFactor * 1000}
+								<g transform="translate({mid.x - labelW / 2} {mid.y - labelH / 2})" class="pointer-events-none">
+									<rect width={labelW} height={labelH} fill="white" stroke="#2563eb"
+										stroke-width={strokeW * 0.3} rx={labelH * 0.15} opacity="0.95" />
+									<text x={labelW / 2} y={labelH * 0.68} text-anchor="middle"
+										font-size={labelH * 0.55} fill="#2563eb" font-weight="600">
+										{lengthM.toFixed(1)}m
+									</text>
+								</g>
+							{/if}
 						{/if}
 					{/each}
 				{/if}

@@ -7,18 +7,19 @@
 	 * paper stacked vertically with CSS `break-after: page`. The browser's
 	 * native print dialog turns the result into a multi-page PDF / paper job.
 	 *
-	 * Limitation: CSS `@page { size }` is applied globally to the entire print
-	 * job, so if the package mixes paper sizes, the first page's size wins.
-	 * For mixed-size packages, export in groups.
+	 * Mixed paper sizes are supported via named `@page` rules + the CSS `page`
+	 * property: we emit one `@page pkg_<size>_<orientation> { size: … }` rule
+	 * per unique (paperSize, orientation) combination in the package, then tag
+	 * each sheet with a matching class so the browser switches page size as it
+	 * paginates between sheets.
 	 */
-	import { onMount } from 'svelte'
+	import { onMount, onDestroy } from 'svelte'
 	import { page as routePage } from '$app/state'
 	import { Firestore, Spinner, Titlebar } from '$lib'
 	import type { DrawingDoc, PackageDoc, PackageItemDoc, RevisionDoc } from '$lib/types/versioning'
 	import type { Page } from '$lib/types/pages'
 	import { pageDocId } from '$lib/pages/service'
 	import { paperDimsMm } from '$lib/ui/print/types'
-	import { triggerPrint } from '$lib/ui/print'
 	import ViewportFrame from '../../../drawings/parts/ViewportFrame.svelte'
 	import TitleBlock, { type TitleBlockProjectDefaults } from '../../../drawings/parts/TitleBlock.svelte'
 
@@ -100,10 +101,81 @@
 		}
 	})
 
+	/**
+	 * Per-sheet class name used to tag each sheet-wrap + to build CSS rules.
+	 * Two sheets sharing paperSize+orientation share a class (and named @page).
+	 */
+	function sheetClassFor(p: Page['paper']): string {
+		return `sheet-size-${p.paperSize}-${p.orientation}`
+	}
+	function pageNameFor(p: Page['paper']): string {
+		return `pkg_${p.paperSize}_${p.orientation}`
+	}
+
+	/**
+	 * Unique (paperSize, orientation) pairs present in the package. One named
+	 * `@page` rule + one `.sheet-size-…` CSS rule emitted per entry.
+	 */
+	let uniquePaperConfigs = $derived.by(() => {
+		const seen = new Set<string>()
+		const out: Array<{ paper: Page['paper']; wMm: number; hMm: number }> = []
+		for (const { page } of resolvedPages) {
+			const key = sheetClassFor(page.paper)
+			if (seen.has(key)) continue
+			seen.add(key)
+			const dims = paperDimsMm(page.paper)
+			out.push({ paper: page.paper, wMm: dims.w, hMm: dims.h })
+		}
+		return out
+	})
+
+	const PRINT_STYLE_ID = 'pkg-multi-page-style'
+
+	/**
+	 * Inject named @page rules + the `.sheet-size-…` classes that bind each
+	 * sheet to its size. Chrome honours the CSS `page:` property, shifting
+	 * paper size at page-break boundaries — the mechanism powering
+	 * mixed-paper-size output.
+	 */
+	function injectMultiPageStyles() {
+		let rules = ''
+		for (const cfg of uniquePaperConfigs) {
+			const pageName = pageNameFor(cfg.paper)
+			const cls = sheetClassFor(cfg.paper)
+			rules += `@page ${pageName} { size: ${cfg.wMm}mm ${cfg.hMm}mm; margin: 0; }\n`
+			rules += `.${cls} { page: ${pageName}; }\n`
+		}
+		rules += `@media print {\n`
+		rules += `  html, body { margin: 0; padding: 0; background: white !important; }\n`
+		rules += `  .sidebar-area, [data-no-print] { display: none !important; }\n`
+		rules += `  .sheet-wrap { margin: 0 !important; box-shadow: none !important; page-break-after: always; break-after: page; }\n`
+		rules += `  .sheet-wrap:last-child { page-break-after: auto; break-after: auto; }\n`
+		rules += `}\n`
+
+		let el = document.getElementById(PRINT_STYLE_ID) as HTMLStyleElement | null
+		if (!el) {
+			el = document.createElement('style')
+			el.id = PRINT_STYLE_ID
+			document.head.appendChild(el)
+		}
+		el.textContent = rules
+	}
+
+	function removeMultiPageStyles() {
+		document.getElementById(PRINT_STYLE_ID)?.remove()
+	}
+
+	onDestroy(removeMultiPageStyles)
+
 	function handlePrintNow() {
 		if (!resolvedPages.length) return
-		// Use the first page's paper for the global @page size.
-		triggerPrint(resolvedPages[0].page.paper, '.pkg-print-container')
+		injectMultiPageStyles()
+		const cleanup = () => {
+			removeMultiPageStyles()
+			window.removeEventListener('afterprint', cleanup)
+		}
+		window.addEventListener('afterprint', cleanup)
+		requestAnimationFrame(() => window.print())
 	}
 </script>
 
@@ -149,8 +221,13 @@
 							: pg.titleBlock?.template === 'compact' ? 20 : 60
 					),
 			}}
-			<!-- Each sheet forces a page break after it (except the last). -->
-			<div class="sheet-wrap mx-auto my-4 bg-white shadow-md relative"
+			<!--
+				Each sheet forces a page break after it (except the last). The
+				`sheet-size-…` class binds it to a named @page rule injected by
+				`injectMultiPageStyles`, so mixed-paper-size packages pick up the
+				right paper size at each break.
+			-->
+			<div class="sheet-wrap mx-auto my-4 bg-white shadow-md relative {sheetClassFor(pg.paper)}"
 				class:break-after-page={idx < resolvedPages.length - 1}
 				style:width="{paperMm.w}px"
 				style:height="{paperMm.h}px">

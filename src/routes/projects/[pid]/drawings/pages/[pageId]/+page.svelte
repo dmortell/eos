@@ -259,6 +259,68 @@
 		await persist({ viewports: pageData.viewports.filter(v => v.id !== id) })
 	}
 
+	/**
+	 * Duplicate the selected viewport 10 mm down-right of the original, with a
+	 * fresh id. The new viewport becomes the selection so the user can reposition
+	 * it immediately.
+	 */
+	function duplicateViewport(id: string) {
+		if (!pageData) return
+		const vp = pageData.viewports.find(v => v.id === id)
+		if (!vp) return
+		const newId = crypto.randomUUID().slice(0, 10)
+		const copy: Viewport = {
+			...vp,
+			id: newId,
+			positionMm: { x: vp.positionMm.x + 10, y: vp.positionMm.y + 10 },
+		}
+		selectedViewportId = newId
+		void persist({ viewports: [...pageData.viewports, copy] })
+	}
+
+	/**
+	 * Keyboard shortcuts for the selected viewport. Gated by focus on plain
+	 * elements — typing in an `<input>` / `<textarea>` keeps its own key
+	 * semantics. Arrow keys nudge 1 mm (10 mm with shift), Delete/Backspace
+	 * removes, Ctrl/Cmd+D duplicates, Escape deselects.
+	 */
+	function onWindowKeyDown(e: KeyboardEvent) {
+		if (!selectedViewportId || !pageData) return
+		const t = e.target as HTMLElement | null
+		if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+
+		const vp = pageData.viewports.find(v => v.id === selectedViewportId)
+		if (!vp) return
+
+		if (e.key === 'Escape') {
+			selectedViewportId = null
+			e.preventDefault()
+			return
+		}
+		if (e.key === 'Delete' || e.key === 'Backspace') {
+			e.preventDefault()
+			void removeViewport(vp.id)
+			return
+		}
+		if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
+			e.preventDefault()
+			duplicateViewport(vp.id)
+			return
+		}
+		const step = e.shiftKey ? 10 : 1
+		let dx = 0
+		let dy = 0
+		switch (e.key) {
+			case 'ArrowLeft':  dx = -step; break
+			case 'ArrowRight': dx =  step; break
+			case 'ArrowUp':    dy = -step; break
+			case 'ArrowDown':  dy =  step; break
+			default: return
+		}
+		e.preventDefault()
+		updateViewportLive(vp.id, { positionMm: { x: vp.positionMm.x + dx, y: vp.positionMm.y + dy } })
+	}
+
 	let versionPanelOpen = $state(false)
 	let publishing = $state(false)
 	let pageCanvas: { doPrint: () => void } | null = $state(null)
@@ -332,7 +394,7 @@
 	]
 </script>
 
-<svelte:window bind:innerWidth bind:innerHeight />
+<svelte:window bind:innerWidth bind:innerHeight onkeydown={onWindowKeyDown} />
 
 <div class="print:hidden">
 	<Titlebar title="{projectName} — {pageData?.title ?? 'Page'}" height={30} />
