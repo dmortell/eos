@@ -78,6 +78,9 @@ export type ViewportSource =
 	| { kind: 'frame-detail'; frameDocId: string; frameId: string }
 	| { kind: 'fillrate'; projectId: string }
 	| { kind: 'floorplan'; fileId: string; pageNum: number }
+	| { kind: 'patching'; patchDocId: string }
+	| { kind: 'outlets'; outletsDocId: string; showOutlets?: boolean; showTrunks?: boolean }
+	| { kind: 'survey'; surveyId: string; mode?: 'album' | 'single'; photoId?: string }
 	| { kind: 'text'; content: string; fontSizePt?: number; align?: 'left' | 'center' | 'right' }
 	| { kind: 'image'; url: string; fit?: 'contain' | 'cover' }
 

@@ -1,0 +1,82 @@
+<script lang="ts">
+	/**
+	 * Photo survey viewport.
+	 *
+	 * Two modes:
+	 *   - 'album' (default): responsive tile grid of all photos in the survey
+	 *   - 'single': one photo at `photoId` filling the viewport
+	 *
+	 * Photos live at `surveys/{surveyId}/photos/{photoId}` with an `imageUrl`.
+	 * We subscribe lazily based on mode to avoid the full photo list load when
+	 * only a single photo is embedded.
+	 */
+	import type { Viewport } from '$lib/types/pages'
+	import type { SurveyPhoto, Survey } from '../../../../../survey/types'
+	import { Firestore } from '$lib'
+
+	let { viewport, db }: { viewport: Viewport; db: Firestore } = $props()
+
+	let src = $derived(viewport.source.kind === 'survey' ? viewport.source : null)
+	let mode = $derived(src?.mode ?? 'album')
+
+	let survey = $state<Survey | null>(null)
+	let photos = $state<SurveyPhoto[]>([])
+
+	$effect(() => {
+		const id = src?.surveyId
+		if (!id) { survey = null; photos = []; return }
+		const unsubMeta = db.subscribeOne('surveys', id, (data: any) => { survey = (data as Survey) ?? null })
+		const unsubPhotos = db.subscribeMany(`surveys/${id}/photos`, (docs: any[]) => {
+			photos = (docs as SurveyPhoto[]).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+		})
+		return () => { unsubMeta?.(); unsubPhotos?.() }
+	})
+
+	let singlePhoto = $derived<SurveyPhoto | null>(
+		mode === 'single' && src?.photoId
+			? photos.find(p => p.id === src.photoId) ?? null
+			: null,
+	)
+
+	let tileCols = $derived(Math.max(1, Math.ceil(Math.sqrt(photos.length || 1))))
+	let noSource = $derived(!src?.surveyId)
+</script>
+
+<div class="absolute inset-0 overflow-hidden pointer-events-none bg-white">
+	{#if noSource}
+		<div class="w-full h-full flex items-center justify-center text-[10px] text-zinc-400 italic">
+			Pick a survey source in the properties panel
+		</div>
+	{:else if !survey}
+		<div class="w-full h-full flex items-center justify-center text-[10px] text-zinc-400 italic">
+			Loading…
+		</div>
+	{:else if mode === 'single'}
+		{#if singlePhoto}
+			<div class="w-full h-full flex flex-col">
+				<img src={singlePhoto.imageUrl} alt={singlePhoto.title ?? 'survey photo'}
+					class="flex-1 min-h-0 object-contain" draggable="false" />
+				<div class="text-[2.4pt] text-zinc-600 text-center py-0.5 truncate">{singlePhoto.title || '—'}</div>
+			</div>
+		{:else}
+			<div class="w-full h-full flex items-center justify-center text-[10px] text-red-400 italic">
+				Photo not found in this survey
+			</div>
+		{/if}
+	{:else if photos.length === 0}
+		<div class="w-full h-full flex items-center justify-center text-[10px] text-zinc-400 italic">
+			{survey.name} · no photos yet
+		</div>
+	{:else}
+		<div class="w-full h-full overflow-auto p-0.5">
+			<div class="text-[2.4pt] text-zinc-600 font-semibold mb-0.5 truncate">{survey.name} · {photos.length} photos</div>
+			<div class="grid gap-0.5" style:grid-template-columns="repeat({tileCols}, minmax(0, 1fr))">
+				{#each photos as p (p.id)}
+					<div class="aspect-square overflow-hidden bg-zinc-100">
+						<img src={p.imageUrl} alt={p.title ?? 'survey'} class="w-full h-full object-cover" draggable="false" />
+					</div>
+				{/each}
+			</div>
+		</div>
+	{/if}
+</div>

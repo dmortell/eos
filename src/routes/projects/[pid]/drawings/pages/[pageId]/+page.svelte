@@ -122,6 +122,19 @@
 			}
 			case 'fillrate':  return `/projects/${pid}/fillrate`
 			case 'floorplan': return `/projects/${pid}/uploads?file=${encodeURIComponent(src.fileId)}&page=${src.pageNum}`
+			case 'patching': {
+				const m = src.patchDocId.match(/_F(\d+)_R([A-D])/)
+				const floor = m ? Number(m[1]) : 1
+				const room = m ? m[2] : 'A'
+				return `/projects/${pid}/patching?floor=${floor}&room=${room}`
+			}
+			case 'outlets': {
+				const m = src.outletsDocId.match(/_F(\d+)/)
+				const floor = m ? Number(m[1]) : 1
+				return `/projects/${pid}/outlets?floor=${floor}`
+			}
+			case 'survey':
+				return `/survey#${encodeURIComponent(src.surveyId)}`
 			case 'text':
 			case 'image':
 				return null
@@ -204,6 +217,9 @@
 			case 'frame-detail':   return { kind, frameDocId: '', frameId: '' }
 			case 'fillrate':       return { kind, projectId: pid ?? '' }
 			case 'floorplan':      return { kind, fileId: '', pageNum: 1 }
+			case 'patching':       return { kind, patchDocId: rackDocIdFor(floors[0]?.number ?? 1, 'A') }
+			case 'outlets':        return { kind, outletsDocId: `${pid}_F${String(floors[0]?.number ?? 1).padStart(2, '0')}`, showOutlets: true, showTrunks: true }
+			case 'survey':         return { kind, surveyId: '', mode: 'album' }
 			case 'text':           return { kind, content: 'Note' }
 			case 'image':          return { kind, url: '' }
 		}
@@ -307,6 +323,9 @@
 		{ kind: 'rack-plan',      label: 'Rack Plan' },
 		{ kind: 'frame-detail',   label: 'Frame Detail' },
 		{ kind: 'floorplan',      label: 'Floorplan' },
+		{ kind: 'outlets',        label: 'Outlets / Trunks' },
+		{ kind: 'patching',       label: 'Patching' },
+		{ kind: 'survey',         label: 'Photo Survey' },
 		{ kind: 'fillrate',       label: 'Fill Rate' },
 		{ kind: 'text',           label: 'Text' },
 		{ kind: 'image',          label: 'Image' },
@@ -541,6 +560,68 @@
 									onchange={(e: Event) => updateSource(vp.id, { fileId: inputValue(e) })} />
 								<Input label="Page" type="number" value={String(vp.source.pageNum)} size="sm"
 									onchange={(e: Event) => updateSource(vp.id, { pageNum: inputNumber(e) || 1 })} />
+
+							{:else if vp.source.kind === 'patching'}
+								{@const parsed = parseRackDocId(vp.source.patchDocId)}
+								<div class="grid grid-cols-2 gap-1.5">
+									<Select label="Floor" size="sm"
+										value={String(parsed.floor)}
+										onchange={(e: Event) => updateSource(vp.id, { patchDocId: rackDocIdFor(inputNumber(e), parsed.room) })}>
+										{#each floors as fl}
+											<option value={String(fl.number)}>{fl.number}F</option>
+										{/each}
+									</Select>
+									<Select label="Room" size="sm"
+										value={parsed.room}
+										onchange={(e: Event) => updateSource(vp.id, { patchDocId: rackDocIdFor(parsed.floor, inputValue(e)) })}>
+										{#each ['A','B','C','D'].slice(0, floors.find(f => f.number === parsed.floor)?.serverRoomCount ?? 1) as r}
+											<option value={r}>{r}</option>
+										{/each}
+									</Select>
+								</div>
+
+							{:else if vp.source.kind === 'outlets'}
+								{@const floorMatch = vp.source.outletsDocId.match(/_F(\d+)/)}
+								{@const outFloor = Number(floorMatch?.[1] ?? floors[0]?.number ?? 1)}
+								<Select label="Floor" size="sm"
+									value={String(outFloor)}
+									onchange={(e: Event) => updateSource(vp.id, { outletsDocId: `${pid}_F${String(inputNumber(e)).padStart(2, '0')}` })}>
+									{#each floors as fl}
+										<option value={String(fl.number)}>{fl.number}F</option>
+									{/each}
+								</Select>
+								<div class="grid grid-cols-2 gap-1.5">
+									<label class="flex items-center gap-1 text-[10px] text-zinc-600 dark:text-zinc-300">
+										<input type="checkbox"
+											class="h-3 w-3 accent-blue-600"
+											checked={vp.source.showOutlets !== false}
+											onchange={e => updateSource(vp.id, { showOutlets: e.currentTarget.checked })} />
+										Outlets
+									</label>
+									<label class="flex items-center gap-1 text-[10px] text-zinc-600 dark:text-zinc-300">
+										<input type="checkbox"
+											class="h-3 w-3 accent-blue-600"
+											checked={vp.source.showTrunks !== false}
+											onchange={e => updateSource(vp.id, { showTrunks: e.currentTarget.checked })} />
+										Trunks
+									</label>
+								</div>
+
+							{:else if vp.source.kind === 'survey'}
+								<Input label="Survey ID" value={vp.source.surveyId} size="sm" placeholder="surveys/<id>"
+									onchange={(e: Event) => updateSource(vp.id, { surveyId: inputValue(e) })} />
+								<div class="grid grid-cols-2 gap-1.5">
+									<Select label="Mode" size="sm"
+										value={vp.source.mode ?? 'album'}
+										onchange={(e: Event) => updateSource(vp.id, { mode: inputValue(e) as 'album' | 'single' })}>
+										<option value="album">Album grid</option>
+										<option value="single">Single photo</option>
+									</Select>
+									{#if (vp.source.mode ?? 'album') === 'single'}
+										<Input label="Photo ID" value={vp.source.photoId ?? ''} size="sm"
+											onchange={(e: Event) => updateSource(vp.id, { photoId: inputValue(e) })} />
+									{/if}
+								</div>
 
 							{:else}
 								<div class="text-[10px] text-zinc-400 italic">Source picker not yet available for this kind.</div>

@@ -137,7 +137,7 @@
 	 * pan/zoom so the paper lands at the page's top-left at 1:1, invokes
 	 * `triggerPrint` (which injects `@page size: Wmm Hmm` + a @media print block
 	 * that forces `.print-canvas-container` to that exact footprint and hides
-	 * anything marked `.print-hidden` / `.sidebar-area`), then restores the
+	 * anything marked `print:hidden` / `.sidebar-area`), then restores the
 	 * user's pan/zoom state after `afterprint` fires.
 	 */
 	export function doPrint() {
@@ -181,7 +181,7 @@
 			<!-- Margin guide — editorial only, hidden on print. -->
 			{#if page.paper.margins > 0}
 				<div
-					class="absolute border border-dashed border-zinc-300 pointer-events-none print-hidden"
+					class="absolute border border-dashed border-zinc-300 pointer-events-none print:hidden"
 					style:left="{page.paper.margins}px"
 					style:top="{page.paper.margins}px"
 					style:width="{paperMm.w - 2 * page.paper.margins}px"
@@ -220,7 +220,7 @@
 	</div>
 
 	<!-- Paper-size label (fixed, not zoomed). Hidden during print. -->
-	<div class="absolute bottom-2 left-2 text-[10px] text-zinc-500 dark:text-zinc-400 pointer-events-none print-hidden">
+	<div class="absolute bottom-2 left-2 text-[10px] text-zinc-500 dark:text-zinc-400 pointer-events-none print:hidden">
 		{page.paper.paperSize} {page.paper.orientation} · 1:{page.paper.scale || 100} · {Math.round(zoom * 100)}%
 	</div>
 </div>

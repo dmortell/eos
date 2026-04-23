@@ -21,12 +21,20 @@ type SourceLookup = { toolType: ToolType; sourceDocId: string; collection: strin
 function lookupFor(src: ViewportSource): SourceLookup | null {
 	switch (src.kind) {
 		case 'rack-elevation':
-		case 'rack-plan':    return { toolType: 'racks',    sourceDocId: src.rackDocId, collection: 'racks' }
-		case 'frame-detail': return { toolType: 'frames',   sourceDocId: src.frameDocId, collection: 'frames' }
-		case 'fillrate':     return { toolType: 'fillrate', sourceDocId: src.projectId, collection: 'fillrate' }
+		case 'rack-plan':    return { toolType: 'racks',    sourceDocId: src.rackDocId,    collection: 'racks' }
+		case 'frame-detail': return { toolType: 'frames',   sourceDocId: src.frameDocId,   collection: 'frames' }
+		case 'fillrate':     return { toolType: 'fillrate', sourceDocId: src.projectId,    collection: 'fillrate' }
+		case 'patching':     return { toolType: 'patching', sourceDocId: src.patchDocId,   collection: 'patching' }
+		case 'outlets':      return { toolType: 'outlets',  sourceDocId: src.outletsDocId, collection: 'outlets' }
 		case 'floorplan':
+		case 'survey':
 		case 'text':
 		case 'image':
+			// `floorplan` and `image` are asset references (no DrawingDoc/Revision
+			// lifecycle of their own). `survey` lives outside the project tree
+			// (top-level `surveys` collection) so it isn't covered by the
+			// project-scoped versioning model for now. All stay live in the page
+			// revision snapshot without a sourcePin.
 			return null
 	}
 }

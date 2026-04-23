@@ -107,7 +107,7 @@
 	}
 </script>
 
-<div class="print-hidden">
+<div class="print:hidden">
 	<Titlebar title="{projectName} — Print preview" height={30} />
 </div>
 
@@ -117,7 +117,7 @@
 	<div class="p-6 text-red-500 text-sm">{error}</div>
 {:else}
 	<!-- Floating toolbar (hidden during print) -->
-	<div class="print-hidden sticky top-0 z-10 flex items-center gap-2 bg-zinc-100 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-3 py-2 text-xs">
+	<div class="print:hidden sticky top-0 z-10 flex items-center gap-2 bg-zinc-100 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-3 py-2 text-xs">
 		<span class="font-semibold">{pkg?.name}</span>
 		<span class="text-zinc-500">· {resolvedPages.length} sheet{resolvedPages.length === 1 ? '' : 's'}</span>
 		<div class="ml-auto flex gap-1.5">

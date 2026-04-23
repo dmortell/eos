@@ -224,11 +224,17 @@
 
 		<p class="my-2 text-xs text-zinc-400">Click a row to open the drawing. Click the pencil icon to edit fields inline.</p>
 
-		<!-- Table -->
-		<div class="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
-			<table class="w-full text-sm">
+		<!--
+			Table — the previous `overflow-x-auto` wrapper trapped `position: sticky`
+			on the thead (it became a scroll container). Sticky is applied to each
+			<th> individually because `sticky` on <thead>/<tr> has uneven browser
+			support; on a <th> it reliably anchors to the nearest scrolling ancestor
+			(the page body in our case).
+		-->
+		<div class="rounded-lg border border-zinc-200 dark:border-zinc-800">
+			<table class="w-full text-sm border-collapse">
 				<thead>
-					<tr class="bg-zinc-100 dark:bg-zinc-900 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+					<tr class="[&>th]:sticky [&>th]:top-0 [&>th]:z-10 [&>th]:bg-zinc-100 dark:[&>th]:bg-zinc-900 [&>th]:shadow-[inset_0_-1px_0] [&>th]:shadow-zinc-200 dark:[&>th]:shadow-zinc-800 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
 						<th class="px-3 py-2 w-12">#</th>
 						<th class="px-3 py-2">Drawing No.</th>
 						<th class="px-3 py-2">Title / Description</th>

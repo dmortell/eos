@@ -368,10 +368,26 @@ When publishing a page revision, we may need to create revisions on source drawi
 
 ## Known follow-ups
 
-- **Rear-view wall positions** — `RackElevations.svelte` draws the left/right walls at the same x-coordinates in both the 'front' and 'rear' faces. When viewing from the rear the room is effectively mirrored, so walls (and rack x-positions) need to swap sides for the rear face to read correctly. Tracked inline via a `TODO` in the wall block.
+### Viewports — missing renderers
+
+Existing `ViewportSource` kinds have renderers, but some are placeholder-level and several tools are entirely unrepresented. Everything below adds a new file under `src/routes/projects/[pid]/drawings/parts/viewports/` plus a new branch in `ViewportSource` + `ViewportFrame` dispatch + sidebar source picker.
+
+- **`frame-detail` — full port-grid fidelity.** `FrameDetailViewport.svelte` currently renders a panel-summary card (RU + coloured bar + port count) because the real frames tool derives its visual from a fan-out of racks docs + `engine.ts#generatePortLabels` + `generateRacks`. A full viewport needs to replicate that pipeline: subscribe to all `racks/{pid}_F{NN}_R{A..D}` docs for the frame's floor, build `allLabels`, derive the matching `RackData` for the requested `frameId`, then mount `FrameDrawing.svelte` read-only inside the clipped viewport. Worth building when users need printable patch schedules on a page.
+- **`outlets` viewport** (missing kind). Represents low-level outlet plans and high-level trunk-route plans from the Outlets tool. The tool already calibrates floorplans against a PDF underlay, so the viewport should reuse `OutletCanvas`'s SVG output layer with the PDF disabled (or as a faint background) plus the view-preset layers (`lowOutlets`, `highTrunks`). Probably becomes two `ViewportSource` kinds (`outlets-floor` and `outlets-trunks`) so one page can show both at different scales.
+- **`patching` viewport** (missing kind). Renders a patch-schedule extract — typically a paginated table of panel ports, source labels, destinations, cable types, and notes for a floor+room. Should wrap the existing Patching tool's schedule table component, filter by the viewport's (floor, room, frame) scope, and apply the print-friendly table styling already used in `patching/Patching.svelte`.
+- **`survey` viewport** (missing kind). Photo-survey album or single-photo embed. Two likely sub-forms: (a) a contact-sheet tile grid of photos for a scoped album (project / floor / room), (b) a single annotated photo with the current `AnnotationOverlay` pins rendered read-only. Data path: `survey/{projectId}/...` — same subscription model the survey tool already uses.
+- **Rack elevation — multi-row / full-room composition.** `RackElevationViewport.svelte` renders one row at a time (first row when `source.rowId` is absent). A "full-room" mode that stacks all rows side-by-side matching the rack canvas's 'front' layout would be useful for summary pages.
+- **Frame-rotation support.** All viewports ignore `viewport.rotationDeg`. Wrap the inner scaled container in a second `rotate({deg})` transform + swap width/height in 90° increments so sheets can host vertical callouts on landscape paper.
+
+### Other known follow-ups
+
+- **Rear-view wall positions** — `RackElevationRenderer.svelte` draws the left/right walls at the same x-coordinates in both `front` and `rear` faces. When viewing from the rear the room is mirrored, so walls (and rack x-positions) need to swap sides for the rear face to read correctly. Tracked inline via a `TODO` in the wall block.
+- **Mixed-paper-size printing** — `@page` is applied globally per print job, so the package print preview forces the first page's size onto the entire job. True per-sheet sizing needs named `@page` rules + per-sheet `page` CSS properties.
+- **Visual title-block editor** — explicit P6 backlog item. Lets project admins drag-design custom templates stored as `TitleBlockTemplate` docs and referenced by `titleBlock.template` when set to a custom id.
+- **Stale-badge precision** — currently a boolean `latestRevisionCode !== sourcePin.revisionCode`. A "N versions behind" count would join `RevisionDoc.fromVersionId` → `VersionDoc.number` and compare against `DrawingDoc.currentVersionNumber`.
 
 ## Out of scope for this plan
 
 - The M7 row-builder.md backlog item "multi-page drawing package export, one server room per page" — this becomes trivial once the Page Editor ships (just a package with one page per room, using a default template).
-- Cross-tool editing from within a viewport — viewports are read-only windows into other tools' data. To edit the source, click through to the owning tool via a "jump to source" link.
-- Collaborative real-time editing of a page — Firestore already gives us last-write-wins eventual consistency; concurrent authoring on a single page is rare enough that we don't need OT/CRDT for v1.
+- Cross-tool editing from within a viewport — viewports are read-only windows into other tools' data. To edit the source, click through to the owning tool via a "jump to source" link. Implemented.
+- Collaborative real-time editing of a page — Firestore already gives us last-write-wins eventual consistency; concurrent authoring on a single page is rare enough that we don't need OT/CRDT for v1. Not required.

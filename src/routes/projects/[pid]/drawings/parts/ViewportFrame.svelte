@@ -8,6 +8,9 @@
 	import FrameDetailViewport from './viewports/FrameDetailViewport.svelte'
 	import FillrateViewport from './viewports/FillrateViewport.svelte'
 	import FloorplanViewport from './viewports/FloorplanViewport.svelte'
+	import PatchingViewport from './viewports/PatchingViewport.svelte'
+	import OutletsViewport from './viewports/OutletsViewport.svelte'
+	import SurveyViewport from './viewports/SurveyViewport.svelte'
 
 	let { viewport, selected, pxPerMm, db, projectId, onselect, onupdate, onopensource }: {
 		viewport: Viewport
@@ -65,6 +68,9 @@
 			case 'frame-detail':   return `frame-detail · ${src.frameId || '(unset)'}`
 			case 'fillrate':       return 'fillrate'
 			case 'floorplan':      return `floorplan · p${src.pageNum}`
+			case 'patching':       return 'patching'
+			case 'outlets':        return 'outlets'
+			case 'survey':         return `survey${src.mode === 'single' ? ' · single' : ' · album'}`
 			case 'text':           return `text`
 			case 'image':          return 'image'
 		}
@@ -247,6 +253,12 @@
 		<FillrateViewport {viewport} {db} />
 	{:else if viewport.source.kind === 'floorplan'}
 		<FloorplanViewport {viewport} {db} />
+	{:else if viewport.source.kind === 'patching'}
+		<PatchingViewport {viewport} {db} />
+	{:else if viewport.source.kind === 'outlets'}
+		<OutletsViewport {viewport} {db} />
+	{:else if viewport.source.kind === 'survey'}
+		<SurveyViewport {viewport} {db} />
 	{:else}
 		<div class="absolute inset-0 flex items-center justify-center text-[10px] text-zinc-500 pointer-events-none px-2 text-center leading-tight">
 			<span>{describe(viewport.source)}</span>
