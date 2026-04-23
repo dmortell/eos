@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Viewport, ViewportSource } from '$lib/types/pages'
-	import { Firestore } from '$lib'
+	import { Firestore, Icon } from '$lib'
 	import TextViewport from './viewports/TextViewport.svelte'
 	import ImageViewport from './viewports/ImageViewport.svelte'
 	import RackElevationViewport from './viewports/RackElevationViewport.svelte'
@@ -9,28 +9,53 @@
 	import FillrateViewport from './viewports/FillrateViewport.svelte'
 	import FloorplanViewport from './viewports/FloorplanViewport.svelte'
 
-	let { viewport, selected, pxPerMm, db, onselect, onupdate }: {
+	let { viewport, selected, pxPerMm, db, projectId, onselect, onupdate, onopensource }: {
 		viewport: Viewport
 		selected: boolean
 		/** Pixels per mm — canvas zoom factor. Used to convert mouse px deltas to mm. */
 		pxPerMm: number
 		/** Firestore wrapper — forwarded to source-subscribing viewport kinds. */
 		db: Firestore
+		/** Project id — needed to resolve staleness against the pinned source drawing. */
+		projectId: string
 		onselect: () => void
 		onupdate: (patch: Partial<Viewport>) => void
+		/** Open the underlying source (drawing/floorplan/etc.) in its owning tool. */
+		onopensource?: () => void
 	} = $props()
+
+	/**
+	 * When the viewport has a `sourcePin`, subscribe to the pinned DrawingDoc
+	 * to detect whether newer revisions have shipped since the pin. The UI
+	 * shows a badge so authors know to re-publish the page if they want to
+	 * capture those changes.
+	 */
+	let pinnedDrawing = $state<{ latestRevisionCode?: string } | null>(null)
+	$effect(() => {
+		const pin = viewport.sourcePin
+		if (!pin) { pinnedDrawing = null; return }
+		const unsub = db.subscribeOne(`projects/${projectId}/drawings`, pin.drawingId, (data: any) => {
+			pinnedDrawing = data ?? null
+		})
+		return () => unsub?.()
+	})
+	let isStale = $derived(!!(viewport.sourcePin && pinnedDrawing?.latestRevisionCode
+		&& pinnedDrawing.latestRevisionCode !== viewport.sourcePin.revisionCode))
 
 	const MIN_MM = 10
 	type Handle = 'nw' | 'ne' | 'sw' | 'se'
+	type DragMode = 'move' | Handle | 'pan-content'
 
 	let dragStart = $state<{
-		mode: 'move' | Handle
+		mode: DragMode
 		mouseX: number
 		mouseY: number
 		startX: number
 		startY: number
 		startW: number
 		startH: number
+		startOffsetX: number
+		startOffsetY: number
 	} | null>(null)
 
 	function describe(src: ViewportSource): string {
@@ -45,40 +70,54 @@
 		}
 	}
 
-	let label = $derived(viewport.label || describe(viewport.source))
+	let hasCustomLabel = $derived(!!viewport.label && viewport.label.trim().length > 0)
+	let displayLabel = $derived(viewport.label?.trim() || '')
+	let labelFontPt = $derived(viewport.labelFontPt ?? 6)
+	let offsetX = $derived(viewport.contentOffsetMm?.x ?? 0)
+	let offsetY = $derived(viewport.contentOffsetMm?.y ?? 0)
 
-	function onBodyMouseDown(e: MouseEvent) {
-		if (e.button !== 0) return
+	function beginDrag(e: MouseEvent, mode: DragMode) {
 		e.stopPropagation()
 		onselect()
 		dragStart = {
-			mode: 'move',
+			mode,
 			mouseX: e.clientX,
 			mouseY: e.clientY,
 			startX: viewport.positionMm.x,
 			startY: viewport.positionMm.y,
 			startW: viewport.widthMm,
 			startH: viewport.heightMm,
+			startOffsetX: offsetX,
+			startOffsetY: offsetY,
 		}
 		window.addEventListener('mousemove', onMouseMove)
 		window.addEventListener('mouseup', onMouseUp)
 	}
 
+	function onBodyMouseDown(e: MouseEvent) {
+		if (e.button !== 0) return
+		// Alt+drag pans the source content instead of moving the frame.
+		if (e.altKey) {
+			e.preventDefault()
+			beginDrag(e, 'pan-content')
+			return
+		}
+		beginDrag(e, 'move')
+	}
+
 	function onHandleMouseDown(e: MouseEvent, handle: Handle) {
 		if (e.button !== 0) return
+		beginDrag(e, handle)
+	}
+
+	/** Alt+wheel on a selected viewport adjusts its scale. */
+	function onBodyWheel(e: WheelEvent) {
+		if (!e.altKey) return // let canvas handle regular zoom/pan
+		e.preventDefault()
 		e.stopPropagation()
-		onselect()
-		dragStart = {
-			mode: handle,
-			mouseX: e.clientX,
-			mouseY: e.clientY,
-			startX: viewport.positionMm.x,
-			startY: viewport.positionMm.y,
-			startW: viewport.widthMm,
-			startH: viewport.heightMm,
-		}
-		window.addEventListener('mousemove', onMouseMove)
-		window.addEventListener('mouseup', onMouseUp)
+		const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1
+		const next = Math.max(1, Math.round(viewport.scale * factor))
+		if (next !== viewport.scale) onupdate({ scale: next })
 	}
 
 	function onMouseMove(e: MouseEvent) {
@@ -88,6 +127,19 @@
 
 		if (dragStart.mode === 'move') {
 			onupdate({ positionMm: { x: dragStart.startX + dxMm, y: dragStart.startY + dyMm } })
+			return
+		}
+
+		if (dragStart.mode === 'pan-content') {
+			// Source pan in source-mm. dx px on paper → dx/scaleRatio in source-mm,
+			// where scaleRatio = 1/viewport.scale (paper-mm per source-mm).
+			// Dragging right shows content further left → offset decreases.
+			const sourceDx = -dxMm * viewport.scale
+			const sourceDy = -dyMm * viewport.scale
+			onupdate({ contentOffsetMm: {
+				x: dragStart.startOffsetX + sourceDx,
+				y: dragStart.startOffsetY + sourceDy,
+			} })
 			return
 		}
 
@@ -127,23 +179,37 @@
 		window.removeEventListener('mouseup', onMouseUp)
 	}
 
-	// In mm → px for final sizing. The parent's transform already applies canvas zoom,
-	// so we render at a fixed 1 px per mm here; the container scales us up.
+	function onBodyDoubleClick(e: MouseEvent) {
+		if (!onopensource) return
+		e.stopPropagation()
+		onopensource()
+	}
+
 	let leftPx = $derived(viewport.positionMm.x)
 	let topPx  = $derived(viewport.positionMm.y)
 	let wPx    = $derived(viewport.widthMm)
 	let hPx    = $derived(viewport.heightMm)
+
+	let bodyCursor = $derived.by(() => {
+		if (dragStart?.mode === 'pan-content') return 'grabbing'
+		if (dragStart?.mode === 'move') return 'grabbing'
+		return 'grab'
+	})
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-	class="absolute border {selected ? 'border-blue-500' : 'border-zinc-400'} bg-white/60 hover:bg-white/80 select-none"
+	class="absolute border bg-white/60 hover:bg-white/80 select-none"
+	class:border-blue-500={selected}
+	class:border-zinc-400={!selected}
 	style:left="{leftPx}px"
 	style:top="{topPx}px"
 	style:width="{wPx}px"
 	style:height="{hPx}px"
-	style:cursor={dragStart?.mode === 'move' ? 'grabbing' : 'grab'}
+	style:cursor={bodyCursor}
 	onmousedown={onBodyMouseDown}
+	onwheel={onBodyWheel}
+	ondblclick={onBodyDoubleClick}
 >
 	<!-- Source content -->
 	{#if viewport.source.kind === 'text'}
@@ -162,19 +228,41 @@
 		<FloorplanViewport {viewport} {db} />
 	{:else}
 		<div class="absolute inset-0 flex items-center justify-center text-[10px] text-zinc-500 pointer-events-none px-2 text-center leading-tight">
-			<span>{label}</span>
+			<span>{describe(viewport.source)}</span>
 		</div>
 	{/if}
 
-	<!-- Label overlay (viewport label or selection info) — shown on hover/selection -->
-	{#if selected && viewport.label}
-		<div class="absolute -top-4 left-0 text-[9px] text-blue-600 font-medium pointer-events-none whitespace-nowrap">
-			{viewport.label}
+	<!-- Viewport label — always shown if set -->
+	{#if hasCustomLabel}
+		<div
+			class="absolute left-0 -top-0.5 px-0.5 text-zinc-700 pointer-events-none whitespace-nowrap leading-none"
+			style:font-size="{labelFontPt}pt"
+			style:transform="translateY(-100%)">
+			{displayLabel}
+		</div>
+	{/if}
+
+	<!-- Stale source badge — shown when the pinned source has a newer revision. -->
+	{#if isStale}
+		<div class="absolute top-0 right-0 m-0.5 px-1 py-px rounded-sm bg-amber-500 text-white text-[8px] font-medium pointer-events-none"
+			title="Source has newer revisions since this viewport was pinned">
+			STALE
 		</div>
 	{/if}
 
 	{#if selected}
-		<!-- Resize handles. Scaled by canvas zoom so they stay usable at different zooms. -->
+		<!-- Open-source icon in top-right corner when a jump-to-source is available -->
+		{#if onopensource}
+			<button
+				class="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center shadow hover:bg-blue-500"
+				title="Open underlying source (double-click also works)"
+				onmousedown={e => e.stopPropagation()}
+				onclick={e => { e.stopPropagation(); onopensource() }}>
+				<Icon name="link" size={9} />
+			</button>
+		{/if}
+
+		<!-- Resize handles -->
 		{#each (['nw','ne','sw','se'] as const) as h}
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div
@@ -187,5 +275,10 @@
 				onmousedown={e => onHandleMouseDown(e, h)}
 			></div>
 		{/each}
+
+		<!-- Hint line — shown briefly when selected -->
+		<div class="absolute top-full left-0 mt-0.5 text-[8px] text-blue-500/70 pointer-events-none whitespace-nowrap">
+			Alt+drag pan · Alt+wheel scale · dbl-click opens source
+		</div>
 	{/if}
 </div>

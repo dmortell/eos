@@ -57,6 +57,10 @@ export interface Viewport {
 	 */
 	scale: number
 	label?: string
+	/** Label font size in points. Default 6pt. Stored so users can tune legibility per viewport. */
+	labelFontPt?: number
+	/** Additional pan offset applied to the source content in source-mm. Default 0,0. */
+	contentOffsetMm?: { x: number; y: number }
 	border?: 'none' | 'thin' | 'thick'
 	/**
 	 * When set, the viewport renders a frozen source revision rather than the
@@ -82,7 +86,7 @@ export interface TitleBlockConfig {
 	positionMm?: { x: number; y: number }
 	widthMm?: number
 	heightMm?: number
-	template: 'standard' | 'compact' | 'custom'
+	template: 'standard' | 'compact' | 'vertical' | 'custom'
 	/** Per-field overrides — anything not overridden falls back to project/page defaults. */
 	fields?: Record<string, string>
 }

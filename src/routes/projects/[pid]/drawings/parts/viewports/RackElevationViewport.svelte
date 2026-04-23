@@ -67,8 +67,11 @@
 		bottom: settings.ceilingLevel + slopMm,
 	})
 
-	/** Translate so the left wall maps to x=0 in the scaled frame. */
-	let xTranslate = $derived(-settings.leftWallX * SCALE)
+	/** Translate so the left wall maps to x=0 in the scaled frame, plus any user-specified content offset (source-mm). */
+	let offX = $derived(viewport.contentOffsetMm?.x ?? 0)
+	let offY = $derived(viewport.contentOffsetMm?.y ?? 0)
+	let xTranslate = $derived((-settings.leftWallX - offX) * SCALE)
+	let yTranslate = $derived(-offY * SCALE)
 	let noSource = $derived(!src?.rackDocId)
 </script>
 
@@ -83,7 +86,7 @@
 		</div>
 	{:else}
 		<div class="absolute top-0 left-0"
-			style:transform="scale({innerScale}) translate({xTranslate}px, 0)"
+			style:transform="scale({innerScale}) translate({xTranslate}px, {yTranslate}px)"
 			style:transform-origin="top left">
 			<RackElevationRenderer
 				view={syntheticView}

@@ -7,9 +7,11 @@
 	import type { DrawingDoc } from '$lib/types/versioning'
 	import type { FloorConfig } from '$lib/types/project'
 	import { subscribePage, savePage, deletePage } from '$lib/pages/service'
+	import { publishPage } from '$lib/pages/publish'
 	import { DEFAULT_PRINT_SETTINGS } from '$lib/ui/print/types'
 	import { migrateFloors } from '$lib/utils/floor'
 	import PageCanvas from '../../parts/PageCanvas.svelte'
+	import VersionPanel from '../../../parts/VersionPanel.svelte'
 	import type { TitleBlockProjectDefaults } from '../../parts/TitleBlock.svelte'
 
 	let db = new Firestore()
@@ -52,7 +54,14 @@
 	async function updateTitleBlock(patch: Partial<TitleBlockConfig>) {
 		if (!pageData) return
 		const current: TitleBlockConfig = pageData.titleBlock ?? { template: 'standard' }
-		await persist({ titleBlock: { ...current, ...patch } })
+		// Switching template invalidates cached size/position — let PageCanvas recompute defaults.
+		const merged: TitleBlockConfig = { ...current, ...patch }
+		if (patch.template && patch.template !== current.template) {
+			delete merged.widthMm
+			delete merged.heightMm
+			delete merged.positionMm
+		}
+		await persist({ titleBlock: merged })
 	}
 
 	async function removeTitleBlock() {
@@ -79,6 +88,41 @@
 		const vp = pageData.viewports.find(v => v.id === id)
 		if (!vp) return
 		updateViewport(id, { source: { ...vp.source, ...patch } as ViewportSource })
+	}
+
+	/**
+	 * Navigate to the owning tool for a viewport's source. Each viewport kind
+	 * maps to a different route (rack source → racks tool at the right floor+room
+	 * +face; floorplan → uploads tool; fillrate → fillrate tool; …). Sources
+	 * without a target (text, image) are skipped.
+	 */
+	function openViewportSource(vp: Viewport): string | null {
+		const src = vp.source
+		switch (src.kind) {
+			case 'rack-elevation': {
+				const parsed = parseRackDocId(src.rackDocId)
+				return `/projects/${pid}/racks?floor=${parsed.floor}&room=${parsed.room}&view=${src.face}`
+			}
+			case 'rack-plan': {
+				const parsed = parseRackDocId(src.rackDocId)
+				return `/projects/${pid}/racks?floor=${parsed.floor}&room=${parsed.room}&view=plan`
+			}
+			case 'frame-detail': {
+				const floorMatch = src.frameDocId.match(/_F(\d+)/)
+				const floor = floorMatch ? Number(floorMatch[1]) : 1
+				return `/projects/${pid}/frames?floor=${floor}&frame=${encodeURIComponent(src.frameId)}`
+			}
+			case 'fillrate':  return `/projects/${pid}/fillrate`
+			case 'floorplan': return `/projects/${pid}/uploads?file=${encodeURIComponent(src.fileId)}&page=${src.pageNum}`
+			case 'text':
+			case 'image':
+				return null
+		}
+	}
+
+	function handleOpenSource(vp: Viewport) {
+		const href = openViewportSource(vp)
+		if (href) goto(href)
 	}
 
 	// Subscribe to the page doc.
@@ -114,6 +158,28 @@
 		if (!selectedViewportId || !pageData) return null
 		return pageData.viewports.find(v => v.id === selectedViewportId) ?? null
 	})
+
+	/**
+	 * Optimistic + debounced page update. Mutates the local `pageData` state
+	 * immediately so the UI reflects the change on every keystroke / number-spin,
+	 * then coalesces Firestore writes on a trailing 250 ms timer so we don't
+	 * flood the backend while the user is still dragging an input.
+	 */
+	let persistTimer: ReturnType<typeof setTimeout> | null = null
+	let pendingPatch: Partial<Omit<Page, 'id' | 'projectId'>> = {}
+	function persistLive(patch: Partial<Omit<Page, 'id' | 'projectId'>>) {
+		if (!pageData || !pid || !pageId) return
+		// Optimistic local mutation — assign a new object so Svelte reactivity fires.
+		pageData = { ...pageData, ...patch }
+		pendingPatch = { ...pendingPatch, ...patch }
+		if (persistTimer) clearTimeout(persistTimer)
+		persistTimer = setTimeout(() => {
+			const toSave = pendingPatch
+			pendingPatch = {}
+			persistTimer = null
+			void persist(toSave)
+		}, 250)
+	}
 
 	async function persist(patch: Partial<Omit<Page, 'id' | 'projectId'>>) {
 		if (!pageData || !pid || !pageId) return
@@ -156,10 +222,61 @@
 		await persist({ viewports: next })
 	}
 
+	/** Live variant of updateViewport — mirrors `persistLive`. */
+	function updateViewportLive(id: string, patch: Partial<Viewport>) {
+		if (!pageData) return
+		const next = pageData.viewports.map(v => v.id === id ? { ...v, ...patch } : v)
+		persistLive({ viewports: next })
+	}
+
 	async function removeViewport(id: string) {
 		if (!pageData) return
 		if (selectedViewportId === id) selectedViewportId = null
 		await persist({ viewports: pageData.viewports.filter(v => v.id !== id) })
+	}
+
+	let versionPanelOpen = $state(false)
+	let publishing = $state(false)
+
+	function getCurrentSnapshot(): unknown {
+		return pageData
+	}
+
+	function handleRestore(snapshot: unknown) {
+		if (!snapshot || typeof snapshot !== 'object') return
+		const s = snapshot as Partial<Page>
+		// Apply restored fields; keep the page's identity fields intact.
+		void persist({
+			title: s.title,
+			drawingNumber: s.drawingNumber,
+			order: s.order,
+			paper: s.paper,
+			titleBlock: s.titleBlock,
+			viewports: s.viewports,
+			notes: s.notes,
+			includeInPackages: s.includeInPackages,
+		})
+	}
+
+	async function handlePublish() {
+		if (!pageData || !pid || !pageId || !drawing) return
+		publishing = true
+		try {
+			const title = prompt('Revision title (optional):', '') ?? undefined
+			const res = await publishPage(db, {
+				projectId: pid,
+				uid: session?.user?.uid ?? 'unknown',
+				page: pageData,
+				pageDrawingId: drawing.id,
+				revisionTitle: title,
+				latestPageRevisionCode: drawing.latestRevisionCode,
+			})
+			alert(`Published as revision ${res.revisionCode}`)
+		} catch (err: any) {
+			alert(`Publish failed: ${err?.message ?? err}`)
+		} finally {
+			publishing = false
+		}
 	}
 
 	async function handleDeletePage() {
@@ -196,23 +313,27 @@
 		<!-- Sidebar -->
 		<aside class="border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex flex-col text-xs"
 			style:width="{SIDEBAR_W}px">
-			<div class="p-3 border-b border-zinc-200 dark:border-zinc-800 space-y-2">
+			<div class="p-3 border-b border-zinc-200 dark:border-zinc-800">
 				<a href="/projects/{pid}/drawings" class="inline-flex items-center gap-1 text-zinc-500 hover:text-blue-600">
 					<Icon name="chevronLeft" size={12} />
 					Back to drawings
 				</a>
-				<Input
-					label="Page Title"
-					value={pageData.title}
-					size="sm"
-					onchange={(e: Event) => persist({ title: inputValue(e) })} />
-				<label class="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
-					<input type="checkbox"
-						class="h-3.5 w-3.5 accent-blue-600"
-						checked={pageData.includeInPackages ?? true}
-						onchange={e => persist({ includeInPackages: e.currentTarget.checked })} />
-					Include in packages
-				</label>
+				<div class="mt-3 space-y-2">
+					<label class="block">
+						<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Page Title</div>
+						<input type="text"
+							class="w-full border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-1 text-xs bg-white dark:bg-zinc-900"
+							value={pageData.title}
+							oninput={(e: Event) => persistLive({ title: inputValue(e) })} />
+					</label>
+					<label class="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
+						<input type="checkbox"
+							class="h-3.5 w-3.5 accent-blue-600"
+							checked={pageData.includeInPackages ?? true}
+							onchange={e => persist({ includeInPackages: e.currentTarget.checked })} />
+						Include in packages
+					</label>
+				</div>
 			</div>
 
 			<!-- Add viewport palette -->
@@ -231,24 +352,78 @@
 
 			<!-- Selected viewport properties -->
 			<div class="p-3 flex-1 overflow-y-auto">
-				<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-1.5">Selected Viewport</div>
+				<div class="flex items-center justify-between mb-1.5">
+					<div class="text-[10px] uppercase tracking-wider text-zinc-400">Selected Viewport</div>
+					{#if selectedViewport && openViewportSource(selectedViewport)}
+						<button class="text-[10px] text-blue-600 hover:underline inline-flex items-center gap-0.5"
+							onclick={() => handleOpenSource(selectedViewport!)}>
+							<Icon name="link" size={10} /> Open source
+						</button>
+					{/if}
+				</div>
 				{#if selectedViewport}
 					{@const vp = selectedViewport}
 					<div class="space-y-1.5">
-						<Input label="Label" value={vp.label ?? ''} size="sm"
-							onchange={(e: Event) => updateViewport(vp.id, { label: inputValue(e) })} />
-						<div class="grid grid-cols-2 gap-1.5">
-							<Input label="X (mm)" type="number" value={String(Math.round(vp.positionMm.x))} size="sm"
-								onchange={(e: Event) => updateViewport(vp.id, { positionMm: { x: inputNumber(e), y: vp.positionMm.y } })} />
-							<Input label="Y (mm)" type="number" value={String(Math.round(vp.positionMm.y))} size="sm"
-								onchange={(e: Event) => updateViewport(vp.id, { positionMm: { x: vp.positionMm.x, y: inputNumber(e) } })} />
-							<Input label="W (mm)" type="number" value={String(Math.round(vp.widthMm))} size="sm"
-								onchange={(e: Event) => updateViewport(vp.id, { widthMm: inputNumber(e) })} />
-							<Input label="H (mm)" type="number" value={String(Math.round(vp.heightMm))} size="sm"
-								onchange={(e: Event) => updateViewport(vp.id, { heightMm: inputNumber(e) })} />
+						<div class="grid grid-cols-[1fr_auto] gap-1.5 items-end">
+							<label class="block">
+								<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Label</div>
+								<input type="text" class="w-full border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-1 text-xs bg-white dark:bg-zinc-900"
+									value={vp.label ?? ''}
+									oninput={(e: Event) => updateViewportLive(vp.id, { label: inputValue(e) })} />
+							</label>
+							<label class="block w-12">
+								<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Pt</div>
+								<input type="number" class="w-full border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-1 text-xs bg-white dark:bg-zinc-900"
+									value={String(vp.labelFontPt ?? 6)}
+									oninput={(e: Event) => updateViewportLive(vp.id, { labelFontPt: inputNumber(e) || 6 })} />
+							</label>
 						</div>
-						<Input label="Scale 1:" type="number" value={String(vp.scale)} size="sm"
-							onchange={(e: Event) => updateViewport(vp.id, { scale: inputNumber(e) })} />
+						<div class="grid grid-cols-2 gap-1.5">
+							<label class="block">
+								<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">X (mm)</div>
+								<input type="number" class="w-full border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-1 text-xs bg-white dark:bg-zinc-900"
+									value={String(Math.round(vp.positionMm.x))}
+									oninput={(e: Event) => updateViewportLive(vp.id, { positionMm: { x: inputNumber(e), y: vp.positionMm.y } })} />
+							</label>
+							<label class="block">
+								<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Y (mm)</div>
+								<input type="number" class="w-full border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-1 text-xs bg-white dark:bg-zinc-900"
+									value={String(Math.round(vp.positionMm.y))}
+									oninput={(e: Event) => updateViewportLive(vp.id, { positionMm: { x: vp.positionMm.x, y: inputNumber(e) } })} />
+							</label>
+							<label class="block">
+								<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">W (mm)</div>
+								<input type="number" class="w-full border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-1 text-xs bg-white dark:bg-zinc-900"
+									value={String(Math.round(vp.widthMm))}
+									oninput={(e: Event) => updateViewportLive(vp.id, { widthMm: inputNumber(e) })} />
+							</label>
+							<label class="block">
+								<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">H (mm)</div>
+								<input type="number" class="w-full border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-1 text-xs bg-white dark:bg-zinc-900"
+									value={String(Math.round(vp.heightMm))}
+									oninput={(e: Event) => updateViewportLive(vp.id, { heightMm: inputNumber(e) })} />
+							</label>
+						</div>
+						<div class="grid grid-cols-3 gap-1.5">
+							<label class="block">
+								<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Scale 1:</div>
+								<input type="number" class="w-full border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-1 text-xs bg-white dark:bg-zinc-900"
+									value={String(vp.scale)}
+									oninput={(e: Event) => updateViewportLive(vp.id, { scale: inputNumber(e) })} />
+							</label>
+							<label class="block">
+								<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Off X (mm)</div>
+								<input type="number" class="w-full border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-1 text-xs bg-white dark:bg-zinc-900"
+									value={String(Math.round(vp.contentOffsetMm?.x ?? 0))}
+									oninput={(e: Event) => updateViewportLive(vp.id, { contentOffsetMm: { x: inputNumber(e), y: vp.contentOffsetMm?.y ?? 0 } })} />
+							</label>
+							<label class="block">
+								<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Off Y (mm)</div>
+								<input type="number" class="w-full border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-1 text-xs bg-white dark:bg-zinc-900"
+									value={String(Math.round(vp.contentOffsetMm?.y ?? 0))}
+									oninput={(e: Event) => updateViewportLive(vp.id, { contentOffsetMm: { x: vp.contentOffsetMm?.x ?? 0, y: inputNumber(e) } })} />
+							</label>
+						</div>
 
 						<!-- Source-specific fields -->
 						<div class="mt-2 pt-2 border-t border-zinc-200 dark:border-zinc-800">
@@ -381,9 +556,10 @@
 					{@const tb = pageData.titleBlock ?? { template: 'standard' as const }}
 					<Select label="Template" size="sm"
 						value={tb.template}
-						onchange={(e: Event) => updateTitleBlock({ template: inputValue(e) as 'standard' | 'compact' | 'custom' })}>
+						onchange={(e: Event) => updateTitleBlock({ template: inputValue(e) as 'standard' | 'compact' | 'vertical' | 'custom' })}>
 						<option value="standard">Standard</option>
 						<option value="compact">Compact</option>
+						<option value="vertical">Vertical (right edge)</option>
 					</Select>
 					<Input label="Drawing No." value={tb.fields?.drawingNumber ?? pageData.drawingNumber ?? ''} size="sm"
 						onchange={(e: Event) => updateTitleBlock({ fields: { ...(tb.fields ?? {}), drawingNumber: inputValue(e) } })} />
@@ -400,6 +576,23 @@
 				{/if}
 			</div>
 
+			<!-- Publish + versions -->
+			<div class="p-3 border-t border-zinc-200 dark:border-zinc-800 space-y-1.5">
+				<div class="flex items-center gap-1.5">
+					<Button onclick={handlePublish} disabled={publishing || !drawing}>
+						<Icon name="check" size={12} />
+						{publishing ? 'Publishing…' : 'Publish'}
+					</Button>
+					<button class="text-[10px] text-zinc-500 hover:text-blue-600"
+						onclick={() => versionPanelOpen = !versionPanelOpen}>
+						<Icon name="history" size={11} /> Versions
+					</button>
+				</div>
+				<div class="text-[10px] text-zinc-500">
+					Latest rev: <span class="font-mono font-bold">{drawing?.latestRevisionCode ?? '—'}</span>
+				</div>
+			</div>
+
 			<!-- Page-level actions -->
 			<div class="p-3 border-t border-zinc-200 dark:border-zinc-800">
 				<button class="text-red-500 hover:text-red-600 text-xs" onclick={handleDeletePage}>
@@ -408,6 +601,17 @@
 			</div>
 		</aside>
 
+		{#if versionPanelOpen && drawing}
+			<VersionPanel
+				bind:open={versionPanelOpen}
+				projectId={pid ?? ''}
+				drawingId={drawing.id}
+				uid={session?.user?.uid ?? ''}
+				{db}
+				currentSnapshot={getCurrentSnapshot}
+				onrestore={handleRestore} />
+		{/if}
+
 		<!-- Canvas -->
 		<PageCanvas
 			page={pageData}
@@ -415,11 +619,13 @@
 			width={canvasWidth}
 			height={canvasHeight}
 			{db}
+			projectId={pid ?? ''}
 			{projectDefaults}
 			revisionCode={drawing?.latestRevisionCode}
 			onselect={id => selectedViewportId = id}
 			ondeselect={() => selectedViewportId = null}
 			onupdateviewport={updateViewport}
-			onupdatetitleblock={updateTitleBlock} />
+			onupdatetitleblock={updateTitleBlock}
+			onopensource={handleOpenSource} />
 	</div>
 {/if}

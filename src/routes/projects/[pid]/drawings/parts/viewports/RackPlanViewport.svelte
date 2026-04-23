@@ -42,6 +42,9 @@
 	})
 
 	let noSource = $derived(!src?.rackDocId)
+	/** User-specified content pan in source-mm. Applied before the scale transform. */
+	let offX = $derived(viewport.contentOffsetMm?.x ?? 0)
+	let offY = $derived(viewport.contentOffsetMm?.y ?? 0)
 </script>
 
 <div class="absolute inset-0 overflow-hidden pointer-events-none">
@@ -55,7 +58,7 @@
 		</div>
 	{:else}
 		<div class="absolute top-0 left-0"
-			style:transform="scale({innerScale})"
+			style:transform="scale({innerScale}) translate({-offX * SCALE}px, {-offY * SCALE}px)"
 			style:transform-origin="top left">
 			<RackPlanRenderer
 				view={syntheticView}

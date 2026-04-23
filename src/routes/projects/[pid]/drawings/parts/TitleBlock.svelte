@@ -116,6 +116,75 @@
 			<div><span class="font-mono">{fScale}</span></div>
 			<div><span class="font-mono">{fPaper}</span></div>
 		</div>
+	{:else if config.template === 'vertical'}
+		<!-- Vertical: tall strip down the right edge of the paper, similar to the Outlet floorplan title block. -->
+		<div class="w-full h-full grid overflow-hidden"
+			style:grid-template-rows="auto auto 1fr auto auto auto">
+			<!-- Logo / project name -->
+			<div class="border-b border-zinc-400 p-1 flex flex-col items-center gap-0.5">
+				{#if fLogo}
+					<img src={fLogo} alt="logo" class="max-h-8 w-auto object-contain" draggable="false" />
+				{/if}
+				<div class="text-[3pt] font-bold uppercase tracking-wider text-center leading-tight">{fProjectName || '—'}</div>
+				{#if fClient}<div class="text-[2pt] text-zinc-600 text-center">{fClient}</div>{/if}
+			</div>
+
+			<!-- Drawing title -->
+			<div class="border-b border-zinc-400 p-1">
+				<div class="text-[1.6pt] uppercase tracking-wider text-zinc-500">Drawing</div>
+				<div class="text-[2.8pt] font-semibold leading-tight mt-0.5 line-clamp-3">{fTitle || '—'}</div>
+			</div>
+
+			<!-- Address / notes (grows) -->
+			<div class="border-b border-zinc-400 p-1 overflow-hidden">
+				<div class="text-[1.6pt] uppercase tracking-wider text-zinc-500">Site</div>
+				<div class="text-[2pt] text-zinc-600 leading-tight mt-0.5">{fAddress || '—'}</div>
+			</div>
+
+			<!-- Drawn / Checked / Approved row -->
+			<div class="border-b border-zinc-400 grid grid-cols-3 text-[1.8pt]">
+				<div class="p-1 border-r border-zinc-400 flex flex-col">
+					<span class="uppercase tracking-wider text-zinc-500">Drawn</span>
+					<span class="font-mono text-[2.2pt]">{fDrawnBy || '—'}</span>
+				</div>
+				<div class="p-1 border-r border-zinc-400 flex flex-col">
+					<span class="uppercase tracking-wider text-zinc-500">Chk</span>
+					<span class="font-mono text-[2.2pt]">{fCheckedBy || '—'}</span>
+				</div>
+				<div class="p-1 flex flex-col">
+					<span class="uppercase tracking-wider text-zinc-500">App</span>
+					<span class="font-mono text-[2.2pt]">{fApprovedBy || '—'}</span>
+				</div>
+			</div>
+
+			<!-- Scale / Paper / Date -->
+			<div class="border-b border-zinc-400 grid grid-cols-3 text-[1.8pt]">
+				<div class="p-1 border-r border-zinc-400 flex flex-col">
+					<span class="uppercase tracking-wider text-zinc-500">Scale</span>
+					<span class="font-mono text-[2.2pt]">{fScale}</span>
+				</div>
+				<div class="p-1 border-r border-zinc-400 flex flex-col">
+					<span class="uppercase tracking-wider text-zinc-500">Size</span>
+					<span class="font-mono text-[2.2pt]">{fPaper}</span>
+				</div>
+				<div class="p-1 flex flex-col">
+					<span class="uppercase tracking-wider text-zinc-500">Date</span>
+					<span class="font-mono text-[2.2pt]">{fDate}</span>
+				</div>
+			</div>
+
+			<!-- Drawing No. + Rev (bottom emphasis) -->
+			<div class="grid grid-cols-[2fr_1fr] text-[2pt]">
+				<div class="p-1 border-r border-zinc-400 flex flex-col justify-center">
+					<span class="uppercase tracking-wider text-zinc-500">Drawing No.</span>
+					<span class="font-mono text-[3.2pt] font-bold">{fNumber || '—'}</span>
+				</div>
+				<div class="p-1 flex flex-col justify-center">
+					<span class="uppercase tracking-wider text-zinc-500">Rev.</span>
+					<span class="font-mono text-[3.2pt] font-bold">{fRevision}</span>
+				</div>
+			</div>
+		</div>
 	{:else}
 		<!-- Standard: ISO-style 3-band grid. Dimensions scale with widthMm/heightMm. -->
 		<div class="w-full h-full grid"

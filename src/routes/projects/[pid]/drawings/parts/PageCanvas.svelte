@@ -6,22 +6,26 @@
 	import TitleBlock, { type TitleBlockProjectDefaults } from './TitleBlock.svelte'
 
 	let {
-		page, selectedViewportId, width, height, db,
+		page, selectedViewportId, width, height, db, projectId,
 		projectDefaults = {},
 		revisionCode,
-		onselect, onupdateviewport, onupdatetitleblock, ondeselect,
+		onselect, onupdateviewport, onupdatetitleblock, ondeselect, onopensource,
 	}: {
 		page: Page
 		selectedViewportId: string | null
 		width: number
 		height: number
 		db: Firestore
+		/** Project id — forwarded to viewports for stale-source resolution. */
+		projectId: string
 		projectDefaults?: TitleBlockProjectDefaults
 		revisionCode?: string
 		onselect: (id: string) => void
 		onupdateviewport: (id: string, patch: Partial<Viewport>) => void
 		onupdatetitleblock?: (patch: Partial<TitleBlockConfig>) => void
 		ondeselect: () => void
+		/** Caller navigates to the underlying source drawing for a given viewport. */
+		onopensource?: (viewport: Viewport) => void
 	} = $props()
 
 	let paperMm = $derived(paperDimsMm(page.paper))
@@ -34,14 +38,32 @@
 	let titleBlockCfg = $derived.by<TitleBlockConfig | null>(() => {
 		if (page.titleBlock === null) return null // explicitly hidden
 		const cfg = page.titleBlock ?? { template: 'standard' as const }
-		const defaultW = cfg.template === 'compact' ? 120 : 180
-		const defaultH = cfg.template === 'compact' ? 20 : 60
+		const margin = page.paper.margins
+		let defaultW: number
+		let defaultH: number
+		let defaultX: number
+		let defaultY: number
+		if (cfg.template === 'vertical') {
+			defaultW = 40
+			defaultH = paperMm.h - margin * 2
+			defaultX = paperMm.w - defaultW - margin
+			defaultY = margin
+		} else if (cfg.template === 'compact') {
+			defaultW = 120
+			defaultH = 20
+			defaultX = paperMm.w - defaultW - margin
+			defaultY = paperMm.h - defaultH - margin
+		} else {
+			defaultW = 180
+			defaultH = 60
+			defaultX = paperMm.w - defaultW - margin
+			defaultY = paperMm.h - defaultH - margin
+		}
 		const w = cfg.widthMm ?? defaultW
 		const h = cfg.heightMm ?? defaultH
-		const margin = page.paper.margins
 		return {
 			...cfg,
-			positionMm: cfg.positionMm ?? { x: paperMm.w - w - margin, y: paperMm.h - h - margin },
+			positionMm: cfg.positionMm ?? { x: defaultX, y: defaultY },
 			widthMm: w,
 			heightMm: h,
 		}
@@ -149,8 +171,10 @@
 					selected={selectedViewportId === vp.id}
 					pxPerMm={zoom}
 					{db}
+					{projectId}
 					onselect={() => onselect(vp.id)}
 					onupdate={patch => onupdateviewport(vp.id, patch)}
+					onopensource={onopensource ? () => onopensource(vp) : undefined}
 				/>
 			{/each}
 
