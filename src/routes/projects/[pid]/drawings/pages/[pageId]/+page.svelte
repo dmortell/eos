@@ -25,6 +25,17 @@
 	let loading = $state(true)
 	let selectedViewportId = $state<string | null>(null)
 	let projectName = $state('')
+
+	/**
+	 * Sidebar is organised into three tabs so the editor fits vertically without
+	 * the entire sidebar scrolling. Viewports tab gets auto-focus whenever the
+	 * user selects a viewport on the canvas, so interaction flows naturally.
+	 */
+	type SidebarTab = 'viewports' | 'titleblock' | 'publish'
+	let sidebarTab = $state<SidebarTab>('viewports')
+	$effect(() => {
+		if (selectedViewportId) sidebarTab = 'viewports'
+	})
 	let floors = $state<FloorConfig[]>([{ number: 1, serverRoomCount: 1 }])
 	let projectDefaults = $state<TitleBlockProjectDefaults>({})
 
@@ -407,14 +418,21 @@
 {:else}
 	<div class="flex" style:height="{canvasHeight}px">
 		<!-- Sidebar — `sidebar-area` is hidden by print-handler.ts injected CSS. -->
-		<aside class="border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex flex-col text-xs sidebar-area print:hidden"
+		<aside class="border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex flex-col text-xs sidebar-area print:hidden overflow-hidden"
 			style:width="{SIDEBAR_W}px">
-			<div class="p-3 border-b border-zinc-200 dark:border-zinc-800">
-				<a href="/projects/{pid}/drawings" class="inline-flex items-center gap-1 text-zinc-500 hover:text-blue-600">
-					<Icon name="chevronLeft" size={12} />
+			<!-- Compact header: back-link + inline page title. -->
+			<div class="px-3 py-2 border-b border-zinc-200 dark:border-zinc-800 flex items-center gap-2 shrink-0">
+				<a href="/projects/{pid}/drawings" class="inline-flex text-zinc-500 hover:text-blue-600 shrink-0" title="Back to drawings">
+					<Icon name="chevronLeft" size={14} />
 					Back to drawings
 				</a>
-				<div class="mt-3 space-y-2">
+				<!-- <input type="text"
+					class="flex-1 min-w-0 border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-0.5 text-xs bg-white dark:bg-zinc-900"
+					value={pageData.title}
+					placeholder="Page title"
+					oninput={(e: Event) => persistLive({ title: inputValue(e) })} /> -->
+				</div>
+				<div class="mt-3xx space-y-2 px-2 my-2">
 					<label class="block">
 						<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Page Title</div>
 						<input type="text"
@@ -422,15 +440,35 @@
 							value={pageData.title}
 							oninput={(e: Event) => persistLive({ title: inputValue(e) })} />
 					</label>
-					<label class="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
-						<input type="checkbox"
-							class="h-3.5 w-3.5 accent-blue-600"
-							checked={pageData.includeInPackages ?? true}
-							onchange={e => persist({ includeInPackages: e.currentTarget.checked })} />
-						Include in packages
-					</label>
 				</div>
+
+			<!--
+				Tabbed sidebar. Three tabs keep the editor functional in short
+				viewports — the previous flat layout ran off the bottom on laptop
+				screens. Viewports tab auto-activates when a viewport is selected
+				(see `$effect` on `selectedViewportId`).
+			-->
+			<div class="flex border-b border-zinc-200 dark:border-zinc-800 shrink-0">
+				{#each [
+					{ id: 'viewports' as const, label: 'Viewports', icon: 'grid' },
+					{ id: 'titleblock' as const, label: 'Title', icon: 'fileText' },
+					{ id: 'publish' as const, label: 'Publish', icon: 'check' },
+				] as t}
+					<button
+						class="flex-1 px-2 py-1.5 text-[11px] font-medium border-b-2 transition-colors inline-flex items-center justify-center gap-1
+							{sidebarTab === t.id
+								? 'border-blue-600 text-blue-600 bg-blue-50/50 dark:bg-blue-950/20'
+								: 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'}"
+						onclick={() => sidebarTab = t.id}>
+						<Icon name={t.icon} size={11} />
+						{t.label}
+					</button>
+				{/each}
 			</div>
+
+			<!-- Tab content — single flex-1 overflow-y-auto so only the active tab scrolls. -->
+			<div class="flex-1 overflow-y-auto min-h-0">
+			{#if sidebarTab === 'viewports'}
 
 			<!-- Add viewport palette -->
 			<div class="p-3 border-b border-zinc-200 dark:border-zinc-800">
@@ -446,8 +484,41 @@
 				</div>
 			</div>
 
+			<!--
+				Viewport list — navigable index of every viewport on the page.
+				Click to select, double-click to jump to source. Complex pages
+				become hard to navigate on the canvas alone (viewports behind
+				title block, tiny text viewports, etc.) — this gives the user
+				a reliable handle on each one.
+			-->
+			{#if pageData.viewports.length > 0}
+				<div class="p-3 border-b border-zinc-200 dark:border-zinc-800">
+					<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-1.5">Viewports ({pageData.viewports.length})</div>
+					<ul class="space-y-0.5 max-h-40 overflow-y-auto">
+						{#each pageData.viewports as vp (vp.id)}
+							{@const isSel = selectedViewportId === vp.id}
+							<li>
+								<button class="w-full text-left px-1.5 py-0.5 rounded text-[11px] flex items-center gap-1.5 transition-colors
+										{isSel ? 'bg-blue-600 text-white' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300'}"
+									onclick={() => selectedViewportId = vp.id}
+									ondblclick={() => handleOpenSource(vp)}
+									title="{vp.source.kind} · {Math.round(vp.widthMm)} × {Math.round(vp.heightMm)} mm">
+									<span class="font-mono text-[9px] opacity-70 w-6 shrink-0">{vp.source.kind.slice(0, 4)}</span>
+									<span class="truncate flex-1">{vp.label || '—'}</span>
+									{#if vp.sourcePin}
+										<span class="text-[8px] px-1 rounded bg-amber-400/20 text-amber-700 dark:text-amber-300" title="Pinned at rev {vp.sourcePin.revisionCode}">
+											{vp.sourcePin.revisionCode}
+										</span>
+									{/if}
+								</button>
+							</li>
+						{/each}
+					</ul>
+				</div>
+			{/if}
+
 			<!-- Selected viewport properties -->
-			<div class="p-3 flex-1 overflow-y-auto">
+			<div class="p-3">
 				<div class="flex items-center justify-between mb-1.5">
 					<div class="text-[10px] uppercase tracking-wider text-zinc-400">Selected Viewport</div>
 					{#if selectedViewport && openViewportSource(selectedViewport)}
@@ -724,8 +795,9 @@
 				{/if}
 			</div>
 
+			{:else if sidebarTab === 'titleblock'}
 			<!-- Title block -->
-			<div class="p-3 border-t border-zinc-200 dark:border-zinc-800 space-y-1.5">
+			<div class="p-3 space-y-1.5">
 				<div class="flex items-center justify-between">
 					<div class="text-[10px] uppercase tracking-wider text-zinc-400">Title Block</div>
 					{#if pageData.titleBlock === null}
@@ -787,8 +859,20 @@
 				{/if}
 			</div>
 
+			{:else if sidebarTab === 'publish'}
+			<!-- Include-in-packages toggle (moved here since it gates package publish flow). -->
+			<div class="p-3 border-b border-zinc-200 dark:border-zinc-800">
+				<label class="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
+					<input type="checkbox"
+						class="h-3.5 w-3.5 accent-blue-600"
+						checked={pageData.includeInPackages ?? true}
+						onchange={e => persist({ includeInPackages: e.currentTarget.checked })} />
+					Include in published packages
+				</label>
+			</div>
+
 			<!-- Publish + versions + print -->
-			<div class="p-3 border-t border-zinc-200 dark:border-zinc-800 space-y-1.5">
+			<div class="p-3 border-b border-zinc-200 dark:border-zinc-800 space-y-1.5">
 				<div class="flex items-center gap-1.5 flex-wrap">
 					<Button onclick={handlePublish} disabled={publishing || !drawing}>
 						<Icon name="check" size={12} />
@@ -808,10 +892,12 @@
 			</div>
 
 			<!-- Page-level actions -->
-			<div class="p-3 border-t border-zinc-200 dark:border-zinc-800">
+			<div class="p-3">
 				<button class="text-red-500 hover:text-red-600 text-xs" onclick={handleDeletePage}>
 					Delete page…
 				</button>
+			</div>
+			{/if}
 			</div>
 		</aside>
 

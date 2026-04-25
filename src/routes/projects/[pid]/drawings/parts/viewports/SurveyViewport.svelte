@@ -105,8 +105,19 @@
 			<div class="text-[2.4pt] text-zinc-600 font-semibold mb-0.5 truncate">{survey.name} · {photos.length} photos</div>
 			<div class="grid gap-0.5" style:grid-template-columns="repeat({tileCols}, minmax(0, 1fr))">
 				{#each photos as p (p.id)}
-					<div class="aspect-square overflow-hidden bg-zinc-100">
+					{@const annotationCount = p.annotations?.length ?? 0}
+					<div class="aspect-square overflow-hidden bg-zinc-100 relative">
 						<img src={p.imageUrl} alt={p.title ?? 'survey'} class="w-full h-full object-cover" draggable="false" />
+						<!--
+							Annotation-count badge — surfaces which tiles carry drawn
+							notes at a glance. Hidden for tiles with no annotations.
+						-->
+						{#if annotationCount > 0}
+							<div class="absolute top-0.5 right-0.5 bg-amber-500 text-white text-[1.6pt] font-bold rounded-full px-1 leading-tight"
+								title="{annotationCount} annotation{annotationCount === 1 ? '' : 's'}">
+								{annotationCount}
+							</div>
+						{/if}
 					</div>
 				{/each}
 			</div>

@@ -1100,6 +1100,7 @@
 							onselectrow={id => activeRowId = id}
 							onaddroomobject={addRoomObject}
 							onselectroomobject={selectRoomObject}
+							onupdateroomobject={updateRoomObject}
 							ondeleteroomobject={deleteRoomObject} />
 					{/if}
 				</Canvas>
