@@ -28,19 +28,18 @@
 <div class="flex h-full relative cursor-pointer group"
 	style:opacity={opacity} class:pointer-events-none={opacity < 1}>
 	<!-- Label -->
-	<div class="flex items-center pl-1.5 text-gray-700 font-bold truncate"
+	<div class="flex xxitems-center pl-1.5 text-gray-700 truncate"
 	class:rotate-label={(device.widthMm ?? 450) <= 150}
 	style:font-size={Math.max(8, 16 * zoom * scale) + 'px'}>
-		<!-- <Icon name={iconName} size={Math.max(8, 14 * zoom * scale)} /> -->
-		<span class="ml-1 truncate">{device.label}</span>
+		<span class="ml-0 font-bold">{device.label}</span>
+		<span class="ml-1">{device.portCount>7 ? '('+device.portCount+')' : ''}</span>
 	</div>
 
 	<!-- Port indicators -->
-	{#if showPorts && device.portCount > 0}
-		<div class="absolute right-1 top-0 bottom-0 flex items-center">
+	{#if 0 || showPorts && device.portCount > 0}
+		<div class="absolute left-1 xxright-1 xxtop-0 bottom-0 flex items-center">
 			{#each Array.from({ length: Math.min(device.portCount, 24) }) as _, idx}
-				<div class="w-1.5 h-1.5 rounded-full border border-gray-400 bg-gray-200 mx-px"
-					style:font-size={8 * scale + 'px'}></div>
+				<div class="w-[6.4px] h-1.5 rounded-full border border-gray-400 bg-gray-100 mx-px" style:font-size={8 * scale + 'px'}></div>
 			{/each}
 			{#if device.portCount > 24}
 				<span class="text-[8px] text-gray-400 ml-1">+{device.portCount - 24}</span>

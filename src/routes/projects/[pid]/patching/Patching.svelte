@@ -56,8 +56,11 @@
 	let bulkCableType = $state(settings.defaultCableType)
 
 	// ── Racks data (read-only, from racks tool) ──
-	let racks = $derived(rackData?.racks ?? [])
-	let devices = $derived(rackData?.devices ?? [])
+	// VCM racks and PDU devices are temporarily filtered out: their rendering in
+	// the patching elevation view is broken (VCMs appear as standalone 0U racks,
+	// PDUs span the full rack width). Re-enable once ElevationRack handles them.
+	let racks = $derived((rackData?.racks ?? []).filter((r: any) => r.type !== 'vcm'))
+	let devices = $derived((rackData?.devices ?? []).filter((d: any) => d.type !== 'pdu'))
 	let rows = $derived(rackData?.rows ?? [])
 
 	// ── Frames data (read-only, for port labels) ──

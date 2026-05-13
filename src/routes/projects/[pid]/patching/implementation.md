@@ -1,5 +1,10 @@
 # Patching Tool — Implementation Plan
 
+## Known Issues / TODO
+
+- **PDU and VCM rendering in elevation view is broken** — currently filtered out in `Patching.svelte` (`racks` excludes `type === 'vcm'`, `devices` excludes `type === 'pdu'`). They render correctly in the racks tool, so the fix is to port that handling into `ElevationRack.svelte` / `ElevationView.svelte`. Symptoms before filtering: PDUs (0U) drew full-width across the rack; VCMs (rack-type, no devices) drew as standalone 0U racks in the row.
+- **Patch List view disabled** — unusable with >30 rows (~60s load). Default and only view is Elevation. Toggle button commented out in `Patching.svelte`; `PatchList` import + related handlers retained for easy re-enable once the per-row dropdown perf is fixed (see UX brainstorm below).
+
 ## Overview
 
 The patching tool manages patch lists: connections between patch frame ports and network devices (switches, servers, etc.), including device-to-device patch cords. It supports copper and fiber patch cords of various types and estimates optimum cable lengths for bill-of-materials generation.
@@ -474,7 +479,7 @@ To avoid duplicating code between frames and patching tools:
 # Issues with current implementation
 
 The list of combobox dropdowns we have now will not work, and causes performance issues even with just 30 or 40 rows.
-Editing any source code, even this markdown, causes patching page to refresh and reset to the first room of the first floor, and switches from elevation view back to patch list view.
+Editing any source code, even this markdown, causes the patching page to refresh and reset to the first room of the first floor, and switches from elevation view back to patch list view.
 
 In PatchList.svelte, two giant <select> per row, each rebuilding hundreds of <option> and <optgroup> nodes, plus the isPortUsed O(n) scan inside each {#each}. The DOM cost compounds fast. Worth fixing the tech, but I agree the bigger win is rethinking the interaction.
 

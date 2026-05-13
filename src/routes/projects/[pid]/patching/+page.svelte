@@ -15,8 +15,8 @@
 	let frameData: any = $state(null);
 	let floors = $state<FloorConfig[]>([{ number: 1, serverRoomCount: 1 }]);
 	let loading = $state(true);
-	let activeFloor = $state(1);
-	let activeRoom = $state('A');
+	let activeFloor = $state(Number(page.url.searchParams.get('floor')) || 1);
+	let activeRoom = $state(page.url.searchParams.get('room') ?? 'A');
 	let floorFormat = $state('L01');
 	let projectName = $state('');
 
@@ -92,6 +92,14 @@
 		});
 
 		return () => { unsub?.(); };
+	});
+
+	// Sync floor/room to URL so reloads (incl. HMR full reloads from .md edits) preserve context
+	$effect(() => {
+		const url = new URL(window.location.href);
+		url.searchParams.set('floor', String(activeFloor));
+		url.searchParams.set('room', activeRoom);
+		history.replaceState(history.state, '', url.toString());
 	});
 
 	function changeFloor(newFloor: number) {
