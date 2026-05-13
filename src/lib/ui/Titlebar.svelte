@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Button, Dropdown, Icon, MetalButton, Row, Session, Spinner } from '$lib'
 	import { getContext, type Snippet } from 'svelte';
+	import { page } from '$app/state'
 	import { startPresence, stopPresence } from '$lib/presence/presence.svelte'
   import { updated } from '$app/state';		// For update notifications. Polling interval is set in svelte.config.js
 	import PresenceAvatars from '$lib/presence/PresenceAvatars.svelte'
@@ -20,6 +21,18 @@
 	} = $props()
 	let session = getContext('session') as Session
 
+	// Carry forward floor/room/row/rack params so tool switches keep context
+	let menuQs = $derived.by(() => {
+		const sp = page.url.searchParams
+		const out = new URLSearchParams()
+		for (const key of ['floor', 'room', 'row', 'rack']) {
+			const v = sp.get(key)
+			if (v != null) out.set(key, v)
+		}
+		const qs = out.toString()
+		return qs ? `?${qs}` : ''
+	})
+
 	$effect(() => {
 		if (session.user) startPresence(session.user)
 		else              stopPresence()
@@ -32,7 +45,7 @@
 
 	<div class='row'>
 		{#if menu}
-			{#each menuItems as item}<a href={item.href} class="rounded hover:text-gray-200 px-2">{item.label}</a>{/each}
+			{#each menuItems as item}<a href={`${item.href}${menuQs}`} class="rounded hover:text-gray-200 px-2">{item.label}</a>{/each}
 			&middot;
 		{/if}
 		{#if session.user}

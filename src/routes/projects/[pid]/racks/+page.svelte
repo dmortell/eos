@@ -121,6 +121,14 @@
 		}).then(id => { drawingId = id });
 	});
 
+	// Sync floor/room to URL so tool menu links carry context across tools
+	$effect(() => {
+		const url = new URL(window.location.href);
+		url.searchParams.set('floor', String(activeFloor));
+		url.searchParams.set('room', activeRoom);
+		history.replaceState(history.state, '', url.toString());
+	});
+
 	function changeFloor(newFloor: number) {
 		if (newFloor === activeFloor) return;
 		activeFloor = newFloor;
