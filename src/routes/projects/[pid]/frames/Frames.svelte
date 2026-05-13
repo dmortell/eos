@@ -69,9 +69,10 @@
 				const rackDevices = ((doc.devices ?? []) as any[]).filter((d: any) => d.rackId === rack.id && matchesFace(d, face))
 				// All non-copper-panel devices are slots (occupy RU space, no copper ports)
 				// This includes enclosures (fiber), switches, servers, managers, etc.
+				// PDUs excluded — their 0U rendering is broken (see implementation.md TODO).
 				const slots: import('./parts/types').FrameSlot[] = []
 				for (const dev of rackDevices) {
-					if (dev.type !== 'panel') {
+					if (dev.type !== 'panel' && dev.type !== 'pdu') {
 						slots.push({ ru: dev.positionU, type: dev.type, height: dev.heightU, label: dev.label })
 					}
 				}

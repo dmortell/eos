@@ -1,5 +1,9 @@
 # Patch Frame Port Allocation Tool - Implementation Plan
 
+## Known Issues / TODO
+
+- **PDU devices excluded from frame slots** — PDUs (0U) render incorrectly when emitted as `FrameSlot`s (height 0, span the full width). Currently filtered out in both `Frames.svelte` `deriveFramesFromRacks` and `parts/engine.ts` `deriveFramesFromRacks`. Re-include once the slot renderer handles 0U devices (typically side-mounted on the rack). VCM racks are already excluded at the rack level (`rack.type === 'vcm'`).
+
 ## Overview
 
 Build the Patch Frame Port Allocation tool as a Svelte 5 application within the existing SvelteKit project. The tool generates visual representations of data patch frames showing LAN port outlet labels assigned to each port position.

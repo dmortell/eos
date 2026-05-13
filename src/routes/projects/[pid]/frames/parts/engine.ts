@@ -420,9 +420,10 @@ export function deriveFramesFromRacks(
 				(d: any) => d.rackId === rack.id && matchesFace(d, face),
 			)
 
+			// PDUs excluded — their 0U rendering is broken (see implementation.md TODO).
 			const slots: import('./types').FrameSlot[] = []
 			for (const dev of rackDevices) {
-				if (dev.type !== 'panel') {
+				if (dev.type !== 'panel' && dev.type !== 'pdu') {
 					slots.push({ ru: dev.positionU, type: dev.type, height: dev.heightU, label: dev.label })
 				}
 			}
