@@ -229,20 +229,10 @@
 
 	function deleteSelectedConnection() {
 		if (!selectedConnectionId || !ondeleteconnection) return
-		const conn = connections.find(c => c.id === selectedConnectionId)
-		if (!conn) return
-
-		// Find the "other" end — the port NOT currently selected
-		const fromKey = `${conn.fromPortRef.deviceId}:${conn.fromPortRef.portIndex}`
-		const toKey = `${conn.toPortRef.deviceId}:${conn.toPortRef.portIndex}`
-		const otherKey = selectedPortKey === fromKey ? toKey : fromKey
-
 		ondeleteconnection(selectedConnectionId)
-
-		// Select the other port as "from" so user can immediately re-connect it
-		selectedPortKey = otherKey
+		selectedPortKey = null
 		selectedConnectionId = null
-		connectFromKey = otherKey
+		connectFromKey = null
 	}
 
 	// Center view on mount

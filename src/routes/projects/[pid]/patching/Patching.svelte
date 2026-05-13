@@ -44,7 +44,8 @@
 	let saveStatus = $state<'saved' | 'saving' | 'unsaved'>('saved')
 	let sidebarTab = $state<'devices' | 'summary'>('devices')
 	let editNewId = $state<string | null>(null)
-	let viewMode = $state<'list' | 'elevation'>('list')
+	// Patch List view disabled — unusably slow with >30 rows. Elevation only for now.
+	let viewMode = $state<'list' | 'elevation'>('elevation')
 
 	// ── Bulk-add state ──
 	let bulkFrom = $state<{ rackId: string; deviceId: string } | null>(null)
@@ -535,7 +536,8 @@
 
 					<div class="flex-1"></div>
 
-					<!-- View toggle -->
+					<!-- View toggle (Patch List disabled — re-enable when perf is fixed) -->
+					<!--
 					<div class="flex rounded overflow-hidden border border-gray-200">
 						<button
 							class="h-6 px-2 text-[11px] font-medium flex items-center gap-1 transition-colors
@@ -550,6 +552,8 @@
 							title="Elevation view"
 						><Icon name="server" size={12} />Elevation</button>
 					</div>
+					-->
+
 
 					<!-- Import cord IDs -->
 					<label
@@ -598,47 +602,27 @@
 					</div>
 				{/if}
 
-				<!-- Main content area -->
-				{#if viewMode === 'list'}
-					<div class="flex-1 min-h-0 overflow-auto">
-						<PatchList
-							{connections}
-							{racks}
-							{devices}
-							{customCableTypes}
-							{settings}
-							{editNewId}
-							{orphanedIds}
-							onupdate={updateConnection}
-							ondelete={deleteConnection}
-							ondeleteselected={deleteSelected}
-							onupdateselected={updateSelected}
-							oneditnewclear={() => editNewId = null}
-							onadd={addConnection}
-						/>
-					</div>
-				{:else}
-					<div class="flex-1 min-h-0">
-						<ElevationView
-							{connections}
-							{racks}
-							{devices}
-							{customCableTypes}
-							{frameData}
-							{settings}
-							{floor}
-							{room}
-							serverRoomCount={roomCount}
-							{floorFormat}
-							onaddconnection={conn => {
-								connections = [...connections, conn]
-								logChange('add', 'connection', conn.id)
-							}}
-							onupdateconnection={(id, updates) => updateConnection(id, updates)}
-							ondeleteconnection={deleteConnection}
-						/>
-					</div>
-				{/if}
+				<!-- Main content area — Patch List disabled (perf), Elevation only -->
+				<div class="flex-1 min-h-0">
+					<ElevationView
+						{connections}
+						{racks}
+						{devices}
+						{customCableTypes}
+						{frameData}
+						{settings}
+						{floor}
+						{room}
+						serverRoomCount={roomCount}
+						{floorFormat}
+						onaddconnection={conn => {
+							connections = [...connections, conn]
+							logChange('add', 'connection', conn.id)
+						}}
+						onupdateconnection={(id, updates) => updateConnection(id, updates)}
+						ondeleteconnection={deleteConnection}
+					/>
+				</div>
 
 				<!-- Status bar -->
 				<div class="h-7 flex items-stretch border-t border-gray-200 bg-gray-50 shrink-0 print:hidden">

@@ -469,3 +469,41 @@ To avoid duplicating code between frames and patching tools:
 1. **Move `LOC_TYPE_COLORS` and `LOC_TYPE_LABELS` to `$lib`** — both tools import from shared location
 2. **Port grid rendering** — frames uses `PortCell.svelte` (with assignment editing); patching uses `ElevationPort.svelte` (read-only for usage, click-to-patch). Different components, shared color constants.
 3. **Pan/zoom** — already a common pattern across racks/frames/uploads tools. No shared component needed, just follow the same `view = { x, y, scale }` pattern.
+
+
+# Issues with current implementation
+
+The list of combobox dropdowns we have now will not work, and causes performance issues even with just 30 or 40 rows.
+Editing any source code, even this markdown, causes patching page to refresh and reset to the first room of the first floor, and switches from elevation view back to patch list view.
+
+In PatchList.svelte, two giant <select> per row, each rebuilding hundreds of <option> and <optgroup> nodes, plus the isPortUsed O(n) scan inside each {#each}. The DOM cost compounds fast. Worth fixing the tech, but I agree the bigger win is rethinking the interaction.
+
+Here are the directions I'd weigh, roughly from most-disruptive to least:
+
+1. Visual patching (my favourite). Patch cords are inherently spatial — humans wire them by looking at two faceplates. Add a "Patch" mode where the workspace splits into two pickable panes (rack elevation, frame layout, or floor outlet on either side). Click a port → it lights up as "from", click another → cord drawn between them, row appended to the list. The list stays as the system of record / bulk editor, but creation and re-routing happen visually. Bonus: you already have rack/frame/floorplan canvases — reuse them. Bonus 2: cable colour and length can be inferred from geometry.
+
+2. Sidebar "port tray" + drag-to-cell. Persistent tree (Location → Rack/Frame → Device → Port) on one side, virtualised list on the other. Drag a port onto the From or To cell of a row. Multi-select N consecutive ports on each side and drop → N rows generated. Fast for the "wire all 24 of these to all 24 of those" case which is most of real patching.
+
+3. Command-palette cell editor. Replace the native <select> with a popover that opens on cell click — single search input with fuzzy match over rack/device/port labels (r1 sw01 24, 1.A.001-101), virtualised results, recent/adjacent ports pinned. Type-ahead beats dropdown-scrolling once you have >50 ports. This is the smallest UX shift and fixes the perf issue almost for free (one popover at a time, not 80 dropdowns mounted at once).
+
+4. Range-based batch row. A separate "Add patches" form: From = "SW-01 ports 1–24", To = "PP-01 ports 1–24", optional reverse/stride, → creates N rows. Avoids the per-row editing problem entirely for the common bulk case; the list becomes a review/exception-edit surface.
+
+5. Parse the canonical label. Single text cell per side, parse FF.Z.NNN-SPP directly with suggestions. Brutally fast for power users; useless for everyone else. Probably best as a complement to one of the above, not the primary interaction.
+
+6. Have two tree views side by side, that let the user drill down from building/floor/room/rack in each tree, then use multi-select to drag ports to connect them to the other tree.
+   I like it more than my #2 because the symmetry matches reality — there's no real "from" and "to," just two endpoints. It also unifies racks/frames/outlets/devices under one navigation metaphor
+
+   A few things I'd push on before you commit:
+
+    * Leaf level is the friction point. Drilling Building → Floor → Room → Rack → Device is fine — those are short lists. But then you hit a 48-port switch, and a flat list of 48 port nodes is both ugly and slow to scan. I'd render the device leaf as a compact port strip (one square per port, port number inside, colour = used/free/selected, hover = label). That way the tree handles location navigation and the strip handles port picking — the thing each is good at. Bonus: a port strip is just the rack-face you already render in the racks tool, scaled down.
+
+    * The "navigate back up after every drop" problem. If a user wires 24 cords from SW-01 to PP-01, they don't want to re-drill on both sides 24 times. Two things help: (a) make the device node sticky — after dropping, both trees stay expanded on the last device, just clear the port selection; (b) range-select on the port strip (shift-click port 1, shift-click port 24) so 24 cords happen in one drag.
+
+    * Used-port visibility. Mark ports already in a connection with a coloured dot/border on the port strip, and on hover show "→ PP-01:14". The current isPortUsed scan can be replaced with a Map<portKey, connectionId> derived once, used everywhere.
+
+    * Where does the list live? The patch list still has to exist (cable type, length, status, cord ID, bulk edits, export). I'd put it as a bottom pane under the two trees — selecting a cord in the list highlights both endpoints in the trees, and vice versa. Three-pane layout: tree | tree | list-below.
+
+    * Re-routing. Clicking a connection in the list (or its cord line if you draw one) should select both endpoints in the trees, then dragging either endpoint to a new port re-routes it. Don't make users delete + re-add.
+
+
+If I had to ship one: #1 as the primary creation flow + #3 for inline cell edits on the list. The list stops being a data-entry form and becomes a review/edit/bulk-action grid, which is what it should be for 100s of cords.
