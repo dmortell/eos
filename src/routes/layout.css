@@ -109,16 +109,12 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-html {
-  font-size: 14px;
-}
+html { font-size: 14px; }
+button { cursor: pointer; }
 h1, h2, h3 { @apply font-semibold; }
 h2 { @apply text-sm; }
 h3 { @apply text-xs text-gray-600; }
 
-button {
-  cursor: pointer;
-}
 .newbtn {
   text-box-trim: trim-both;
   @apply py-0;

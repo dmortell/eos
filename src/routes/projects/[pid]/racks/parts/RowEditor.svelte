@@ -50,7 +50,7 @@
 		catalog.filter(p => p.kind === 'vcm' && isProductCompatibleWithRow(p, row).ok)
 	)
 
-	let expanded = $state(true)
+	let expanded = $state(false)
 	let rackFillValue = $state('')
 	let vcmFillValue = $state('')
 	let rackAddCount = $state(2)
@@ -81,7 +81,7 @@
 <div class="p-2 border-b border-gray-200 bg-gray-50/50 space-y-1.5 text-xs">
 	<!-- Header -->
 	<div class="flex items-center gap-1.5">
-		<span class="text-[10px] uppercase tracking-wider text-gray-500 flex-1">Row Settings</span>
+		<span class="text-[10px] uppercase tracking-wider text-gray-500 flex-1">Row Builder</span>
 		<button
 			onclick={() => expanded = !expanded}
 			class={['p-1 rounded hover:bg-slate-200 transition', expanded && 'rotate-180']}

@@ -36,7 +36,7 @@
 	})
 </script>
 
-<Titlebar title={project.name} height={30}/>
+<Titlebar title={project.name} />
 
 <div class="p-4 md:p-6 bg-white dark:bg-black">
 	<div class="mx-auto max-w-4xl space-y-4 md:space-y-5">

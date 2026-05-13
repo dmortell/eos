@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Icon } from '$lib'
+	import { Icon, IconButton } from '$lib'
 	import { rackTypes, type RackConfig, type RackRow } from './types'
 
 	let { racks = [], rows = [], activeRowId = '', selectedIds = new Set<string>(), onadd, onselect, onrangeselect, ondelete, onaddrow, onreorder }: {
@@ -103,19 +103,12 @@
 	<!-- Header -->
 	<div class="flex items-center justify-between">
 		<span class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
-			<Icon name="server" size={11} /> Racks
+			<!-- <Icon name="server" size={11} /> -->
+			Rack List
 		</span>
 		<div class="flex gap-1">
-			{#if rows.length === 0 || activeRowId}
-				<button class="p-0.5 rounded bg-gray-100 hover:bg-gray-200 transition-colors" title="Add a row of racks"
-					onclick={onaddrow}>
-					<Icon name="rows" size={12} />
-				</button>
-			{/if}
-			<button class="p-0.5 rounded bg-gray-100 hover:bg-gray-200 transition-colors" title="Add Rack"
-				onclick={() => formOpen = !formOpen}>
-				<Icon name={formOpen ? 'chevronUp' : 'plus'} size={12} />
-			</button>
+			{#if rows.length === 0 || activeRowId}<IconButton icon="rows" title="Add an empty row" onclick={onaddrow} />{/if}
+			<IconButton icon={formOpen ? 'chevronUp' : 'plus'} title="Add Rack" onclick={() => formOpen = !formOpen} />
 		</div>
 	</div>
 
@@ -123,8 +116,7 @@
 	{#if formOpen}
 		<form class="grid grid-cols-2 gap-1 gap-x-2 text-xs" onsubmit={e => { e.preventDefault(); submit() }}>
 			<label class="text-[10px] text-gray-500">Label
-				<input class="w-full h-6 px-1 border border-gray-300 rounded text-xs" bind:value={form.label}
-					placeholder={`Rack ${filteredRacks.length + 1}`} />
+				<input class="w-full h-6 px-1 border border-gray-300 rounded text-xs" bind:value={form.label} placeholder={`Rack ${filteredRacks.length + 1}`} />
 			</label>
 			<label class="text-[10px] text-gray-500">Height (U)
 				<input type="number" min="1" max="60" class="w-full h-6 px-1 border border-gray-300 rounded text-xs" bind:value={form.heightU} />

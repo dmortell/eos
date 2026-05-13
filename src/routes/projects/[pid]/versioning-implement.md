@@ -4,6 +4,104 @@
 
 Each tool stores its data in a **single Firestore document** per floor (or floor+room), keyed like `{pid}_F{floor}` or `{pid}_F{floor}_R{room}`. There are no versions, no revision history, and no concept of "drawings" as publishable artifacts. Saves are immediate merge-writes via `db.save()`.
 
+
+
+Principles of Version Control
+- Unique Identifiers: Every revision must have a unique identifier (e.g., R1, Rev 03, or alphabetic P1, P2).
+- Centralization: All files must be stored in one authorized location (Common Data Environment) to prevent using outdated files, such as a "Current" folder.
+- Standardized Naming Convention: File names should include the project number, sheet number, and revision identifier.
+- Revision Clouds & Deltas: Changed areas on a drawing must be graphically highlighted using "clouds," with a delta triangle noting the revision number.
+
+Title Block Revision Table
+
+Every drawing sheet must contain a revision table, typically in the bottom-right corner, detailing:
+- Revision Number/Symbol: (e.g., Δ1, Δ2).
+- Description of Change: A brief note explaining what was revised (e.g., "Updated Wall Type A").
+- Date: When the revision was made.
+- Authorized By: Initials of the person who made the change.
+- Checked By: Initials of the person who approved the change
+
+File Management and Archiving
+- Superseded Folder: As soon as a new version is issued, the old file must be moved to a "Superseded" or "Archive" folder, and marked "SUPERSEDED".
+- PDF Management: The PDF should include the revision letter/number in the filename (e.g., A101_Rev2.pdf).
+- Master Drawing List: Maintain a log that tracks the current version of every sheet in the set.
+
+Best Practices Checklist
+- Consistent Issuance: Deliver the entire new drawing set when revisions occur to ensure coordination between sub-consultants.
+- Clouding Policy: Do not remove previous revision clouds until a new major, stamped set (like "Permit" or "Construction") is released, so the history of changes remains visible.
+- Electronic Collaboration: Use tools that track version history automatically, such as Procore, BIM 360, or Revizto, which allow for comparing drawing versions side-by-side.
+- As-Builts: As-built drawings should reflect the final, constructed state, often removing the revision clouds and numbers used during the construction phase to represent the final state
+
+Project Explorer
+  CAD
+    Outlets
+    Routes/Containment
+    Elevations/Sections
+    Fill Rates
+  Documents/Designs
+    Cable & Harness
+    Specifications
+    Datasheets
+    Patch Frames/Lists
+    BOM
+    RFQ
+  Project Management
+    Tasks
+    Schedule
+    Photo Albums
+    Change Orders
+  Libraries
+    Received
+      Test Results
+    Published
+      Schematic Design
+      Detailed Design
+      Construction Design
+      As-Built Handover
+    Samples
+
+Document List
+  Name Title Revision State(WIP,Review,Released), Lifecycle, Category
+  Locked, Used By, Has Markup
+
+Numbering Schemes (File, Item, Change Order, All)
+  Name Type Active Default Preview
+  Org O-#####
+  Part Family FAM-#####
+  Project P-#####
+  Task T-#####
+
+IFR = Issued for Review
+IFT = Issued for Tender
+IFC = Issued for Construction
+
+Insert Fields in text boxes
+Insert Sheet number for refs
+
+Menus
+  Design
+  3D Model
+  Sketch
+  Annotate
+  Insert
+  Tools
+  Manage
+
+
+Sheet Set Manager (SSM)
+  Sheet Set: name, description, label block for views, callout block
+  Project Control: Project number, name, phase, milestone
+  Sheet Creation: location, template
+  New Sheet
+  New Subset
+  Resave all sheets
+  Archive...
+  Publish
+  eTransmit
+  Insert Sheet List Table
+  Properties
+
+
 ## What We're Adding
 
 1. **Versions** — save snapshots of a tool's state so users can view history and restore

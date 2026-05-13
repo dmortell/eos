@@ -15,11 +15,10 @@
 
 	let query = $state('')
 	let kindFilter = $state<ProductKind | 'all'>('rack')
-	let colorFilter = $state<'all' | 'Black' | 'White'>('all')
+	let colorFilter = $state<'all' | 'Black' | 'White'>('Black')
 	let ruFilter = $state<'all' | 45 | 52>('all')
 	let builderOpen = $state(false)
-	// Auto-filter to products compatible with the active row (on by default when a row context exists)
-	let compatibleOnly = $state(true)
+	let compatibleOnly = $state(true)		// Auto-filter to products compatible with the active row (on by default when a row context exists)
 
 	let custom = $state({
 		maker: '',
@@ -33,7 +32,7 @@
 	})
 
 	let makers = $derived(Array.from(new Set(products.map(p => p.maker))).sort())
-	let makerFilter = $state<string>('all')
+	let makerFilter = $state<string>('Panduit')
 
 	let filtered = $derived.by(() => {
 		const q = query.trim().toLowerCase()

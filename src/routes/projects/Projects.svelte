@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { getContext } from "svelte";
 	import { Firestore, Button, Dialog, Icon, type Session } from "$lib";
-	import ButtonNew from "$lib/ui/ButtonNew.svelte";
 	import InputNew from "$lib/ui/InputNew.svelte";
 	import Checkbox from "$lib/ui/Checkbox.svelte";
 	let db = getContext('db') as Firestore
@@ -231,7 +230,6 @@
 
 <div class="p-2 pb-10">
 	<div class="row justify-between mb-2">
-	<!-- @apply flex items-center gap-2;   /* justify-between  */ -->
 		<h1>Projects</h1>
 		<div class="row">
 			<Checkbox bind:value={showOnlyMine}>My Projects</Checkbox>

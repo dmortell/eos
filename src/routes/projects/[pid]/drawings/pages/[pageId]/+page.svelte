@@ -83,13 +83,23 @@
 		persistLive({ titleBlock: { ...current, fields: mergedFields } })
 	}
 
+	/**
+	 * Hide preserves the entire title-block config in `_hidden`, then sets the
+	 * live `titleBlock` to `null` (the sentinel that PageCanvas reads as
+	 * "explicitly hidden"). Show / Restore swap them back. This way users don't
+	 * lose Drawing No. / Drawn / Date entries when toggling visibility.
+	 */
+	let hiddenTitleBlock = $state<TitleBlockConfig | null>(null)
 	async function removeTitleBlock() {
-		// `null` sentinel means "explicitly hidden" — distinct from "never set".
+		if (!pageData) return
+		if (pageData.titleBlock) hiddenTitleBlock = pageData.titleBlock
 		await persist({ titleBlock: null })
 	}
 
 	async function restoreTitleBlock() {
-		await persist({ titleBlock: { template: 'standard' } })
+		const restore = hiddenTitleBlock ?? { template: 'standard' as const }
+		hiddenTitleBlock = null
+		await persist({ titleBlock: restore })
 	}
 
 	function rackDocIdFor(floor: number, room: string): string {
@@ -318,6 +328,8 @@
 			duplicateViewport(vp.id)
 			return
 		}
+		// Locked viewports skip nudge/duplicate so they truly stay put.
+		if (vp.locked) return
 		const step = e.shiftKey ? 10 : 1
 		let dx = 0
 		let dy = 0

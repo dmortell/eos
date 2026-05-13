@@ -61,6 +61,8 @@ export interface Viewport {
 	labelFontPt?: number
 	/** Additional pan offset applied to the source content in source-mm. Default 0,0. */
 	contentOffsetMm?: { x: number; y: number }
+	/** When true, the viewport's frame can't be moved/resized/rotated and keyboard nudges are blocked. Source pickers + content pan still work. */
+	locked?: boolean
 	border?: 'none' | 'thin' | 'thick'
 	/**
 	 * When set, the viewport renders a frozen source revision rather than the

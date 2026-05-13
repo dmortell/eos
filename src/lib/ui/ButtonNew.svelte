@@ -40,7 +40,7 @@
 	const sizeClasses: Record<ButtonSize, string> = {
 		xs: 'px-1 py-0.5 text-xs gap-1 rounded leading-none',
 		sm: 'h-6 min-w-7 px-2 text-xs gap-1.5 rounded',
-		md: 'h-6 min-w-8 px-2 py-4 text-sm gap-1.5 rounded',
+		md: 'h-7 min-w-8 px-2 py-4 text-sm gap-1.5 rounded',
 		lg: 'h-10 min-w-10 px-4 text-sm gap-2 rounded',
 		icon: 'h-6 w-6 rounded p-0'
 	}

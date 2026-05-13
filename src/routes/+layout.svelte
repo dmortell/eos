@@ -3,9 +3,8 @@
   import favicon from '$lib/assets/favicon.ico';
   import { Toaster } from '$lib/components/ui/sonner';
   import { Skeleton } from "$lib/components/ui/skeleton/index.js";
-  import { Session, Firestore, Titlebar, Spinner, MetalButton } from '$lib';
+  import { Session, Firestore, Titlebar, LoginScreen } from '$lib';
   import { setContext } from 'svelte';
-  import LoginScreen from './LoginScreen.svelte';
   let { children } = $props();
 
   class App { locale = $state('ja') }
@@ -15,42 +14,6 @@
   setContext('settings', settings)
   setContext('session', session)
   setContext('db', db)
-
-  // Email auth state
-  let authMode = $state<'signin' | 'register'>('signin')
-  let email = $state('')
-  let password = $state('')
-  let authSuccess = $state<string | null>(null)
-  let authError = $state<string | null>(null)
-  let authLoading = $state(false)
-
-  async function handleEmailAuth() {
-    if (!email || !password) {
-      authError = 'Please enter both email and password'
-      return
-    }
-    authSuccess = null
-    authLoading = true
-    authError = null
-    try {
-      if (authMode === 'signin') {
-        await session.loginWithEmail(email, password)
-        email = ''
-        password = ''
-      } else {
-        await session.registerWithEmail(email, password)
-        // After successful registration, switch to signin and show message
-        email = ''
-        password = ''
-        authMode = 'signin'
-        authSuccess = 'Account created successfully! Please sign in.'
-      }
-    } catch (error: any) {
-      authError = (error.message || 'Authentication failed').replace(/^Firebase:\s*/i, '')
-    } finally {
-      authLoading = false
-    }
-  }
 
   // Delay showing login card to avoid flicker on refresh for authenticated users
   let showLogin = $state(false)
@@ -73,7 +36,7 @@
 
 <Toaster />
 
-{#if 0 || session.user===undefined || (session.user===null && !showLogin)}
+{#if session.user===undefined || (session.user===null && !showLogin)}
 
   <Titlebar>Loading...</Titlebar>
   <div class="flex flex-col space-y-8 p-10">
@@ -89,7 +52,7 @@
     </div>
   </div>
 
-{:else if 0 || session.user===null}
+{:else if session.user===null}
 
   <Titlebar/>
   <LoginScreen />

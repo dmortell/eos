@@ -18,7 +18,6 @@ export const ourFileRouter = {
   .middleware(async ({ req }) => {
     const session = new Session()
     const {user} = session
-    console.log({user})
     return {}
   })
   .onUploadComplete(async ({ metadata, file }) => {

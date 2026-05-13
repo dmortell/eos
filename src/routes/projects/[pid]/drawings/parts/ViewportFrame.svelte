@@ -87,8 +87,12 @@
 	let labelFontPt = $derived(viewport.labelFontPt ?? 6)
 	let offsetX = $derived(viewport.contentOffsetMm?.x ?? 0)
 	let offsetY = $derived(viewport.contentOffsetMm?.y ?? 0)
+	let isLocked = $derived(viewport.locked === true)
 
 	function beginDrag(e: MouseEvent, mode: DragMode) {
+		// Locked viewports block frame moves/resize but still allow Alt-drag
+		// content panning so users can re-frame source content without unlocking.
+		if (isLocked && mode !== 'pan-content') return
 		e.stopPropagation()
 		onselect()
 		dragStart = {
@@ -114,11 +118,17 @@
 			beginDrag(e, 'pan-content')
 			return
 		}
+		// Locked frames just select on click (no body drag); still allow selection.
+		if (isLocked) {
+			e.stopPropagation()
+			onselect()
+			return
+		}
 		beginDrag(e, 'move')
 	}
 
 	function onHandleMouseDown(e: MouseEvent, handle: Handle) {
-		if (e.button !== 0) return
+		if (e.button !== 0 || isLocked) return
 		beginDrag(e, handle)
 	}
 
@@ -225,6 +235,7 @@
 
 	let bodyCursor = $derived.by(() => {
 		if (dragStart?.mode === 'pan-content') return 'grabbing'
+		if (isLocked) return 'default'
 		if (dragStart?.mode === 'move') return 'grabbing'
 		return 'grab'
 	})
@@ -318,30 +329,42 @@
 	{/if}
 
 	{#if selected}
-		<!-- Open-source icon — positioned above the frame so it doesn't overlap the NE resize handle. -->
-		{#if onopensource}
+		<!-- Top-right action buttons. Lock toggles frame edit-lock; open-source jumps to source tool. -->
+		<div class="absolute right-1 top-1 flex items-center gap-0.5">
 			<button
-				class="absolute right-1 top-1 w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center shadow hover:bg-blue-500"
-				title="Open underlying source (double-click also works)"
+				class="w-4 h-4 rounded-full text-white flex items-center justify-center shadow hover:opacity-90
+					{isLocked ? 'bg-amber-500' : 'bg-zinc-400'}"
+				title={isLocked ? 'Unlock — allow drag/resize/rotate' : 'Lock — freeze size + position'}
 				onmousedown={e => e.stopPropagation()}
-				onclick={e => { e.stopPropagation(); onopensource() }}>
-				<Icon name="link" size={9} />
+				onclick={e => { e.stopPropagation(); onupdate({ locked: !isLocked }) }}>
+				<Icon name={isLocked ? 'lock' : 'lockOpen'} size={9} />
 			</button>
-		{/if}
+			{#if onopensource}
+				<button
+					class="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center shadow hover:bg-blue-500"
+					title="Open underlying source (double-click also works)"
+					onmousedown={e => e.stopPropagation()}
+					onclick={e => { e.stopPropagation(); onopensource() }}>
+					<Icon name="link" size={9} />
+				</button>
+			{/if}
+		</div>
 
-		<!-- Resize handles -->
-		{#each (['nw','ne','sw','se'] as const) as h}
-			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<div
-				class="absolute w-2 h-2 bg-white border border-blue-500 rounded-sm"
-				style:left={h === 'nw' || h === 'sw' ? '-4px' : undefined}
-				style:right={h === 'ne' || h === 'se' ? '-4px' : undefined}
-				style:top={h === 'nw' || h === 'ne' ? '-4px' : undefined}
-				style:bottom={h === 'sw' || h === 'se' ? '-4px' : undefined}
-				style:cursor={h === 'nw' || h === 'se' ? 'nwse-resize' : 'nesw-resize'}
-				onmousedown={e => onHandleMouseDown(e, h)}
-			></div>
-		{/each}
+		<!-- Resize handles — hidden on locked viewports. -->
+		{#if !isLocked}
+			{#each (['nw','ne','sw','se'] as const) as h}
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<div
+					class="absolute w-2 h-2 bg-white border border-blue-500 rounded-sm"
+					style:left={h === 'nw' || h === 'sw' ? '-4px' : undefined}
+					style:right={h === 'ne' || h === 'se' ? '-4px' : undefined}
+					style:top={h === 'nw' || h === 'ne' ? '-4px' : undefined}
+					style:bottom={h === 'sw' || h === 'se' ? '-4px' : undefined}
+					style:cursor={h === 'nw' || h === 'se' ? 'nwse-resize' : 'nesw-resize'}
+					onmousedown={e => onHandleMouseDown(e, h)}
+				></div>
+			{/each}
+		{/if}
 
 		<!-- Hint line — shown briefly when selected -->
 		<div class="absolute top-full left-0 mt-0.5 text-[8px] text-blue-500/70 pointer-events-none whitespace-nowrap">
