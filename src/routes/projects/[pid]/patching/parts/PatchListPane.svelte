@@ -2,7 +2,7 @@
 	import { tick } from 'svelte'
 	import { Icon } from '$lib'
 	import type { PatchConnection, PortRef, CustomCableType, PatchStatus } from './types'
-	import { getCableType } from './constants'
+	import { CABLE_TYPES, getCableType } from './constants'
 
 	let {
 		connections = [],
@@ -18,6 +18,7 @@
 		ondelete,
 		onrestore,
 		onpurge,
+		onupdate,
 	}: {
 		connections: PatchConnection[]
 		racks: any[]
@@ -32,6 +33,7 @@
 		ondelete?: (ids: string[]) => void
 		onrestore?: (ids: string[]) => void
 		onpurge?: () => void
+		onupdate?: (id: string, updates: Partial<PatchConnection>) => void
 	} = $props()
 
 	let filter = $state('')
@@ -39,6 +41,7 @@
 	let sortField = $state<'from' | 'to' | 'type' | 'length' | 'status'>('from')
 	let sortAsc = $state(true)
 	let checkedIds = $state<Set<string>>(new Set())
+	let lastCheckedId = $state<string | null>(null)
 
 	let rowRefs: Record<string, HTMLTableRowElement | undefined> = {}
 
@@ -115,7 +118,32 @@
 		const next = new Set(checkedIds)
 		if (next.has(id)) next.delete(id); else next.add(id)
 		checkedIds = next
+		lastCheckedId = id
 	}
+
+	/** Row click — modifier-aware. Plain click drives elevation highlight (single select).
+	 *  Ctrl/Cmd-click toggles the row's checkbox. Shift-click range-adds checkboxes
+	 *  between the last-toggled row and the clicked row. */
+	function rowClick(id: string, e: MouseEvent) {
+		if (e.shiftKey && lastCheckedId) {
+			const ids = visibleConnections.map(c => c.id)
+			const a = ids.indexOf(lastCheckedId)
+			const b = ids.indexOf(id)
+			if (a >= 0 && b >= 0) {
+				const [lo, hi] = a < b ? [a, b] : [b, a]
+				const next = new Set(checkedIds)
+				for (let i = lo; i <= hi; i++) next.add(ids[i])
+				checkedIds = next
+			}
+			lastCheckedId = id
+		} else if (e.ctrlKey || e.metaKey) {
+			toggleCheck(id)
+		} else {
+			onselect?.(selectedConnectionId === id ? null : id)
+		}
+	}
+
+	let selectedConn = $derived(selectedConnectionId ? connections.find(c => c.id === selectedConnectionId) ?? null : null)
 
 	function checkAllVisible() {
 		const allChecked = visibleConnections.every(c => checkedIds.has(c.id))
@@ -255,11 +283,11 @@
 					<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 					<tr
 						bind:this={rowRefs[conn.id]}
-						class="border-b border-gray-100 cursor-pointer transition-colors
+						class="border-b border-gray-100 cursor-pointer transition-colors select-none
 							{isOrphaned ? 'bg-amber-50/70 border-l-2 border-l-amber-400' : ''}
 							{isSelected ? 'bg-blue-50 ring-1 ring-blue-200' : isOrphaned ? '' : 'hover:bg-gray-50'}
 							{isRemoved ? 'opacity-60 line-through decoration-red-400' : ''}"
-						onclick={() => onselect?.(isSelected ? null : conn.id)}
+						onclick={e => rowClick(conn.id, e)}
 					>
 						<td class="px-2 py-1" onclick={e => e.stopPropagation()}>
 							<input type="checkbox" class="rounded" checked={isChecked} onchange={() => toggleCheck(conn.id)} />
@@ -308,4 +336,117 @@
 			</tbody>
 		</table>
 	</div>
+
+	<!-- Bottom edit panel for the selected row -->
+	{#if selectedConn}
+		{@const conn = selectedConn}
+		{@const ct = getCableType(conn.cableType, customCableTypes)}
+		<div class="shrink-0 border-t border-gray-200 bg-gray-50/70 px-3 py-2 text-[11px]">
+			<div class="flex items-center gap-2 mb-1.5">
+				<span class="w-2.5 h-2.5 rounded-full" style:background={conn.cableColor || ct.color}></span>
+				<span class="font-semibold text-gray-600 truncate">
+					{fmtRef(conn.fromPortRef) || '—'} <span class="text-gray-300">→</span> {fmtRef(conn.toPortRef) || '—'}
+				</span>
+				<span class="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded border {STATUS_PILL[(conn.status as string) === 'planned' ? 'add' : conn.status] ?? ''}">
+					{STATUS_LABEL[((conn.status as string) === 'planned' ? 'add' : conn.status) as PatchStatus] ?? conn.status}
+				</span>
+				<div class="flex-1"></div>
+				<button
+					class="text-gray-400 hover:text-gray-700 text-[10px]"
+					onclick={() => onselect?.(null)}
+					title="Close edit panel"
+				>Close ✕</button>
+			</div>
+
+			<div class="grid grid-cols-[auto_1fr_auto_1fr_auto_1fr] items-center gap-x-2 gap-y-1.5">
+				<label class="text-gray-400">Cable</label>
+				<select
+					class="h-6 text-[11px] border border-gray-200 rounded px-1 bg-white"
+					value={conn.cableType}
+					onchange={e => {
+						const newType = (e.target as HTMLSelectElement).value
+						const newCt = getCableType(newType, customCableTypes)
+						onupdate?.(conn.id, { cableType: newType, cableColor: newCt.color })
+					}}
+				>
+					<optgroup label="Copper">
+						{#each CABLE_TYPES.filter(t => t.category === 'copper') as t}<option value={t.id}>{t.label}</option>{/each}
+					</optgroup>
+					<optgroup label="Fiber">
+						{#each CABLE_TYPES.filter(t => t.category === 'fiber') as t}<option value={t.id}>{t.label}</option>{/each}
+					</optgroup>
+					<optgroup label="Other">
+						{#each CABLE_TYPES.filter(t => t.category === 'direct-attach') as t}<option value={t.id}>{t.label}</option>{/each}
+					</optgroup>
+					{#if customCableTypes.length > 0}
+						<optgroup label="Custom">
+							{#each customCableTypes as t}<option value={t.id}>{t.label}</option>{/each}
+						</optgroup>
+					{/if}
+				</select>
+
+				<label class="text-gray-400">Length</label>
+				<div class="flex items-center gap-1">
+					<input
+						type="number" step="0.1" min="0"
+						class="w-16 h-6 text-[11px] font-mono border border-gray-200 rounded px-1.5 bg-white {conn.lengthLocked ? 'bg-amber-50' : ''}"
+						value={conn.lengthMeters || ''}
+						placeholder="—"
+						onchange={e => {
+							const v = parseFloat((e.target as HTMLInputElement).value) || 0
+							onupdate?.(conn.id, { lengthMeters: v, lengthLocked: v > 0 })
+						}}
+					/>
+					<span class="text-gray-400 text-[10px]">m</span>
+					{#if conn.lengthLocked}
+						<button
+							class="text-amber-500 hover:text-gray-500 ml-0.5"
+							title="Unlock (auto-calculate from rack positions)"
+							onclick={() => onupdate?.(conn.id, { lengthLocked: false })}
+						><Icon name="lock" size={11} /></button>
+					{/if}
+				</div>
+
+				<label class="text-gray-400">Cord ID</label>
+				<input
+					type="text"
+					class="h-6 text-[11px] font-mono border border-gray-200 rounded px-1.5 bg-white w-full"
+					value={conn.cordId ?? ''}
+					placeholder="—"
+					onchange={e => onupdate?.(conn.id, { cordId: (e.target as HTMLInputElement).value || undefined })}
+				/>
+
+				<label class="text-gray-400">Status</label>
+				<select
+					class="h-6 text-[11px] border border-gray-200 rounded px-1 bg-white"
+					value={(conn.status as string) === 'planned' ? 'add' : conn.status}
+					onchange={e => onupdate?.(conn.id, { status: (e.target as HTMLSelectElement).value as PatchStatus })}
+				>
+					<option value="add">Add</option>
+					<option value="change">Change</option>
+					<option value="remove">Remove</option>
+					<option value="installed">Installed</option>
+				</select>
+
+				<label class="text-gray-400">Notes</label>
+				<input
+					type="text"
+					class="h-6 text-[11px] border border-gray-200 rounded px-1.5 bg-white col-span-3 w-full"
+					value={conn.notes ?? ''}
+					placeholder="—"
+					onchange={e => onupdate?.(conn.id, { notes: (e.target as HTMLInputElement).value || undefined })}
+				/>
+			</div>
+
+			{#if conn.previousFromRef || conn.previousToRef}
+				<div class="mt-1.5 text-[10px] text-amber-600">
+					<span class="font-semibold">Change history:</span>
+					was
+					{conn.previousFromRef ? fmtRef(conn.previousFromRef) : fmtRef(conn.fromPortRef)}
+					<span class="text-gray-300">→</span>
+					{conn.previousToRef ? fmtRef(conn.previousToRef) : fmtRef(conn.toPortRef)}
+				</div>
+			{/if}
+		</div>
+	{/if}
 </div>

@@ -786,6 +786,7 @@
 									ondelete={deleteSelected}
 									onrestore={restoreConnections}
 									onpurge={purgeRemoved}
+									onupdate={updateConnection}
 								/>
 							</Pane>
 						</PaneGroup>
