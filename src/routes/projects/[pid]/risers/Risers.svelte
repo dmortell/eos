@@ -6,10 +6,14 @@
 	import FloorBand from './parts/FloorBand.svelte'
 	import RoomBox from './parts/RoomBox.svelte'
 	import Ladder from './parts/Ladder.svelte'
+	import CablePath from './parts/CablePath.svelte'
+	import CableEditor from './parts/CableEditor.svelte'
+	import CableList from './parts/CableList.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
 	import RiserToolbar from './parts/RiserToolbar.svelte'
 	import {
 		DEFAULT_RISER_SETTINGS,
+		type Cable,
 		type RiserDocData,
 		type RiserMode,
 		type RiserRoom,
@@ -21,6 +25,8 @@
 		bandAtY,
 		buildFloorBands,
 		clampRange,
+		compressionBreaks,
+		computeCableLanes,
 		nextId,
 		svgPointFromClient,
 		totalStackHeightMm,
@@ -66,6 +72,7 @@
 	let rooms = $state(data?.rooms ?? [])
 	let ladders = $state(data?.ladders ?? [])
 	let cables = $state(data?.cables ?? [])
+	let hiddenFloors = $state<number[]>(data?.hiddenFloors ?? [])
 	let initialised = $state(!!data)
 
 	// First-time initialisation: pick whole-building range if doc didn't exist.
@@ -93,14 +100,18 @@
 		settings,
 		fromFloor,
 		toFloor,
+		hiddenFloors,
 		rooms,
 		ladders,
 		cables,
 	} as RiserDocData)
 
 	const bands = $derived(buildFloorBands(doc, fromFloor, toFloor))
+	const breaks = $derived(compressionBreaks(bands))
 	const stackHeightMm = $derived(totalStackHeightMm(bands))
 	const buildingWidthMm = $derived(settings.widthMm)
+	const wallY = $derived(bands[0]?.topMm ?? 0)
+	const wallH = $derived(stackHeightMm)
 
 	// SVG viewBox includes a left margin for the floor labels.
 	const LEFT_MARGIN_MM = 1500
@@ -190,7 +201,12 @@
 	let pendingChanges: ChangeDetail[] = []
 
 	function logChange(c: ChangeDetail) {
-		pendingChanges.push(c)
+		// Firestore rejects undefined field values — strip them.
+		const cleaned: ChangeDetail = { action: c.action }
+		for (const [k, v] of Object.entries(c)) {
+			if (v !== undefined) (cleaned as any)[k] = v
+		}
+		pendingChanges.push(cleaned)
 	}
 
 	function scheduleSave() {
@@ -207,6 +223,7 @@
 					rooms,
 					ladders,
 					cables,
+					hiddenFloors,
 				},
 				changes,
 			)
@@ -222,13 +239,14 @@
 		void rooms
 		void ladders
 		void cables
+		void hiddenFloors
 		if (initialised) scheduleSave()
 	})
 
 	// ────────────────────────────────────────────────────────────────────
 	// Selection + interaction
 	// ────────────────────────────────────────────────────────────────────
-	let selection = $state<{ kind: 'room' | 'ladder'; id: string } | null>(null)
+	let selection = $state<{ kind: 'room' | 'ladder' | 'cable'; id: string } | null>(null)
 	let svgEl: SVGSVGElement | null = $state(null)
 
 	// Drag state for moving rooms / ladders horizontally
@@ -236,7 +254,17 @@
 		| null
 		| { kind: 'room'; id: string; startMmX: number; itemStartX: number; moved: boolean }
 		| { kind: 'ladder'; id: string; startMmX: number; itemStartX: number; moved: boolean }
+		| { kind: 'ladderResize'; id: string; edge: 'high' | 'low'; moved: boolean }
 		| { kind: 'ladderDraft'; startMmX: number; startFloor: number; currentFloor: number; currentMmX: number }
+		| {
+				kind: 'wall'
+				side: 'left' | 'right'
+				startMmX: number
+				startWidthMm: number
+				startRoomsX: Map<string, number>
+				startLaddersX: Map<string, number>
+				moved: boolean
+			}
 	let drag = $state<DragState>(null)
 
 	function clientToMm(e: MouseEvent) {
@@ -246,11 +274,128 @@
 
 	function selectRoom(id: string) { selection = { kind: 'room', id } }
 	function selectLadder(id: string) { selection = { kind: 'ladder', id } }
+	function selectCable(id: string) { selection = { kind: 'cable', id } }
 	function clearSelection() { selection = null }
+
+	// ────────────────────────────────────────────────────────────────────
+	// Cable drawing flow (click rooms + ladders to build a route)
+	// ────────────────────────────────────────────────────────────────────
+	/** Draft cable being assembled; null = not currently drawing. */
+	let cableDraft = $state<Cable | null>(null)
+	/** Pending ladder pick — set after a room hop, cleared by a ladder pick. */
+	let awaitingLadder = $state(false)
+
+	// ────────────────────────────────────────────────────────────────────
+	// Cable lane assignment (recomputed when cables / rooms / ladders change).
+	// The in-progress draft is included so it renders alongside committed cables.
+	// ────────────────────────────────────────────────────────────────────
+	const cablesForRender = $derived(cableDraft ? [...cables, cableDraft] : cables)
+	const cableLanes = $derived(computeCableLanes(cablesForRender, { rooms, ladders }))
+
+	const selectedCable = $derived.by(() => {
+		const s = selection
+		if (!s || s.kind !== 'cable') return null
+		return cables.find((c) => c.id === s.id) ?? null
+	})
+	const propsSelection = $derived.by((): { kind: 'room' | 'ladder'; id: string } | null => {
+		const s = selection
+		if (!s) return null
+		if (s.kind === 'room' || s.kind === 'ladder') return { kind: s.kind, id: s.id }
+		return null
+	})
+
+	function startNewCable() {
+		cableDraft = {
+			id: nextId('cable'),
+			type: 'OM4 48-core',
+			media: 'fiber',
+			mediaSpec: 'OM4',
+			count: 48,
+			countUnit: 'core',
+			segments: [],
+			color: '#14b8a6',
+		}
+		awaitingLadder = false
+		mode = 'addCable'
+	}
+
+	function appendCableHop(pick: { roomId?: string; ladderId?: string }) {
+		if (mode !== 'addCable') return
+		// First click in addCable mode bootstraps the draft if needed.
+		if (!cableDraft) startNewCable()
+		const d = cableDraft!
+
+		if (pick.roomId) {
+			if (awaitingLadder) {
+				// We expected a ladder but got a room — silently accept by attaching
+				// the room to the last segment's hop and waiting for the next ladder.
+				// (Allows direct room→room when there's only one floor involved.)
+				return
+			}
+			if (d.segments.length > 0) {
+				// Set the next segment's room (this finishes the previous hop).
+				d.segments = [...d.segments, { roomId: pick.roomId, level: 'high' }]
+			} else {
+				// Very first room.
+				d.segments = [{ roomId: pick.roomId, level: 'high' }]
+			}
+			awaitingLadder = true
+		} else if (pick.ladderId) {
+			if (d.segments.length === 0 || !awaitingLadder) return
+			// Attach ladder to the most-recent segment.
+			const last = d.segments[d.segments.length - 1]
+			d.segments = [...d.segments.slice(0, -1), { ...last, ladderId: pick.ladderId }]
+			awaitingLadder = false
+		}
+		cableDraft = { ...d }
+	}
+
+	function commitCableDraft() {
+		if (!cableDraft) return
+		const draft = cableDraft
+		if (draft.segments.length < 2) {
+			// Not a valid cable — discard.
+			cableDraft = null
+			awaitingLadder = false
+			return
+		}
+		cables = [...cables, draft]
+		selectCable(draft.id)
+		logChange({ action: 'add', field: 'cable', to: draft.type, details: draft.label })
+		cableDraft = null
+		awaitingLadder = false
+		mode = 'select'
+	}
+
+	function cancelCableDraft() {
+		cableDraft = null
+		awaitingLadder = false
+	}
+
+	function updateCable(id: string, patch: Partial<Cable>) {
+		const idx = cables.findIndex((c) => c.id === id)
+		if (idx < 0) return
+		const before = cables[idx]
+		cables[idx] = { ...before, ...patch }
+		for (const [k, v] of Object.entries(patch)) {
+			logChange({ action: 'update', field: `cable.${k}`, from: (before as any)[k], to: v, details: before.label || before.type })
+		}
+	}
+
+	function deleteCable(id: string) {
+		const c = cables.find((x) => x.id === id)
+		cables = cables.filter((x) => x.id !== id)
+		if (c) logChange({ action: 'delete', field: 'cable', from: c.label || c.type })
+		if (selection?.kind === 'cable' && selection.id === id) selection = null
+	}
 
 	function onRoomMouseDown(roomId: string, e: MouseEvent) {
 		if (e.button !== 0) return
 		e.stopPropagation()
+		if (mode === 'addCable') {
+			appendCableHop({ roomId })
+			return
+		}
 		selectRoom(roomId)
 		const room = rooms.find((r) => r.id === roomId)
 		if (!room) return
@@ -260,9 +405,45 @@
 		document.addEventListener('mouseup', onDragEnd)
 	}
 
+	function onCableMouseDown(cableId: string, e: MouseEvent) {
+		if (e.button !== 0) return
+		e.stopPropagation()
+		selectCable(cableId)
+	}
+
+	function onWallMouseDown(side: 'left' | 'right', e: MouseEvent) {
+		if (e.button !== 0) return
+		e.stopPropagation()
+		const start = clientToMm(e)
+		drag = {
+			kind: 'wall',
+			side,
+			startMmX: start.x,
+			startWidthMm: settings.widthMm,
+			startRoomsX: new Map(rooms.map((r) => [r.id, r.xMm])),
+			startLaddersX: new Map(ladders.map((l) => [l.id, l.xMm])),
+			moved: false,
+		}
+		document.addEventListener('mousemove', onDragMove)
+		document.addEventListener('mouseup', onDragEnd)
+	}
+
+	function onLadderHandleMouseDown(ladderId: string, edge: 'high' | 'low', e: MouseEvent) {
+		if (e.button !== 0) return
+		e.stopPropagation()
+		selectLadder(ladderId)
+		drag = { kind: 'ladderResize', id: ladderId, edge, moved: false }
+		document.addEventListener('mousemove', onDragMove)
+		document.addEventListener('mouseup', onDragEnd)
+	}
+
 	function onLadderMouseDown(ladderId: string, e: MouseEvent) {
 		if (e.button !== 0) return
 		e.stopPropagation()
+		if (mode === 'addCable') {
+			appendCableHop({ ladderId })
+			return
+		}
 		selectLadder(ladderId)
 		const ladder = ladders.find((l) => l.id === ladderId)
 		if (!ladder) return
@@ -284,14 +465,20 @@
 				id: nextId('room'),
 				kind,
 				floor: band.floor,
-				xMm: Math.max(600, Math.min(buildingWidthMm - 600, p.x)),
-				widthMm: kind === 'server' ? 1200 : 800,
+				xMm: Math.max(1000, Math.min(buildingWidthMm - 1000, p.x)),
+				widthMm: 2000,
 				label: defaultRoomLabel(kind, band.floor),
 			}
 			rooms = [...rooms, newRoom]
 			selectRoom(newRoom.id)
 			logChange({ action: 'add', field: kind === 'server' ? 'server-room' : 'eps-room', to: newRoom.label, details: `floor ${band.floor}` })
 			// Stay in add mode so multiple rooms can be dropped quickly.
+			return
+		}
+
+		if (mode === 'addCable') {
+			// Background click commits the draft (if any).
+			commitCableDraft()
 			return
 		}
 
@@ -321,19 +508,78 @@
 		if (d.kind === 'room') {
 			const idx = rooms.findIndex((r) => r.id === d.id)
 			if (idx < 0) return
-			const newX = Math.max(100, Math.min(buildingWidthMm - 100, d.itemStartX + (p.x - d.startMmX)))
+			const newX = Math.round(
+				Math.max(100, Math.min(buildingWidthMm - 100, d.itemStartX + (p.x - d.startMmX))),
+			)
 			rooms[idx] = { ...rooms[idx], xMm: newX }
 			d.moved = true
 		} else if (d.kind === 'ladder') {
 			const idx = ladders.findIndex((l) => l.id === d.id)
 			if (idx < 0) return
-			const newX = Math.max(50, Math.min(buildingWidthMm - 50, d.itemStartX + (p.x - d.startMmX)))
+			const newX = Math.round(
+				Math.max(50, Math.min(buildingWidthMm - 50, d.itemStartX + (p.x - d.startMmX))),
+			)
 			ladders[idx] = { ...ladders[idx], xMm: newX }
 			d.moved = true
+		} else if (d.kind === 'ladderResize') {
+			const band = bandAtY(bands, p.y)
+			if (!band) return
+			const idx = ladders.findIndex((l) => l.id === d.id)
+			if (idx < 0) return
+			const cur = ladders[idx]
+			const lo = Math.min(cur.fromFloor, cur.toFloor)
+			const hi = Math.max(cur.fromFloor, cur.toFloor)
+			if (d.edge === 'high') {
+				const newHi = Math.max(lo, band.floor)
+				if (newHi !== hi) {
+					ladders[idx] = { ...cur, fromFloor: lo, toFloor: newHi }
+					d.moved = true
+				}
+			} else {
+				const newLo = Math.min(hi, band.floor)
+				if (newLo !== lo) {
+					ladders[idx] = { ...cur, fromFloor: newLo, toFloor: hi }
+					d.moved = true
+				}
+			}
 		} else if (d.kind === 'ladderDraft') {
 			const band = bandAtY(bands, p.y)
 			d.currentFloor = band ? band.floor : d.currentFloor
 			d.currentMmX = p.x
+		} else if (d.kind === 'wall') {
+			const delta = Math.round(p.x - d.startMmX)
+			const minRoomX = Math.min(...Array.from(d.startRoomsX.values()), Infinity)
+			const maxRoomX = Math.max(...Array.from(d.startRoomsX.values()), -Infinity)
+			const minLadX = Math.min(...Array.from(d.startLaddersX.values()), Infinity)
+			const maxLadX = Math.max(...Array.from(d.startLaddersX.values()), -Infinity)
+			const leftmost = Math.min(minRoomX, minLadX)
+			const rightmost = Math.max(maxRoomX, maxLadX)
+			const MIN_WIDTH = 5000
+			if (d.side === 'right') {
+				// Drag right wall: width += delta. Clamp so right wall stays past rightmost item.
+				const maxDelta = -d.startWidthMm + Math.max(MIN_WIDTH, rightmost + 1000)
+				const clamped = Math.max(maxDelta, delta)
+				settings = { ...settings, widthMm: Math.round(d.startWidthMm + clamped) }
+				if (clamped !== 0) d.moved = true
+			} else {
+				// Drag left wall: width -= delta, shift everything by -delta.
+				// Clamp so leftmost item stays past 0 (left wall) after shift.
+				// new pos = old - delta ≥ 0  ⇒  delta ≤ old
+				const maxDeltaLeft = leftmost - 1000
+				// And don't shrink below MIN_WIDTH: new width = startWidth - delta ≥ MIN_WIDTH ⇒ delta ≤ startWidth - MIN_WIDTH
+				const maxDeltaWidth = d.startWidthMm - MIN_WIDTH
+				const clamped = Math.min(delta, maxDeltaLeft, maxDeltaWidth)
+				settings = { ...settings, widthMm: Math.round(d.startWidthMm - clamped) }
+				rooms = rooms.map((r) => {
+					const start = d.startRoomsX.get(r.id)
+					return start != null ? { ...r, xMm: Math.round(start - clamped) } : r
+				})
+				ladders = ladders.map((l) => {
+					const start = d.startLaddersX.get(l.id)
+					return start != null ? { ...l, xMm: Math.round(start - clamped) } : l
+				})
+				if (clamped !== 0) d.moved = true
+			}
 		}
 	}
 
@@ -349,6 +595,18 @@
 		} else if (d.kind === 'ladder' && d.moved) {
 			const l = ladders.find((x) => x.id === d.id)
 			if (l) logChange({ action: 'update', field: 'ladder.xMm', to: l.xMm, details: l.label })
+		} else if (d.kind === 'wall' && d.moved) {
+			logChange({ action: 'update', field: `building.${d.side}-wall`, to: settings.widthMm, details: `width ${settings.widthMm}mm` })
+		} else if (d.kind === 'ladderResize' && d.moved) {
+			const l = ladders.find((x) => x.id === d.id)
+			if (l) {
+				logChange({
+					action: 'update',
+					field: d.edge === 'high' ? 'ladder.toFloor' : 'ladder.fromFloor',
+					to: d.edge === 'high' ? l.toFloor : l.fromFloor,
+					details: l.label,
+				})
+			}
 		} else if (d.kind === 'ladderDraft') {
 			const lo = Math.min(d.startFloor, d.currentFloor)
 			const hi = Math.max(d.startFloor, d.currentFloor)
@@ -413,6 +671,10 @@
 
 	function deleteSelected() {
 		if (!selection) return
+		if (selection.kind === 'cable') {
+			deleteCable(selection.id)
+			return
+		}
 		if (selection.kind === 'room') {
 			const room = rooms.find((r) => r.id === selection!.id)
 			rooms = rooms.filter((r) => r.id !== selection!.id)
@@ -442,8 +704,11 @@
 				deleteSelected()
 			}
 		} else if (e.key === 'Escape') {
+			if (cableDraft) { cancelCableDraft(); mode = 'select'; return }
 			clearSelection()
 			drag = null
+		} else if (e.key === 'Enter') {
+			if (cableDraft) { e.preventDefault(); commitCableDraft() }
 		}
 	}
 
@@ -478,6 +743,7 @@
 		bind:fromFloor
 		bind:toFloor
 		bind:mode
+		bind:hiddenFloors
 		{floors}
 		{floorFormat}
 		onZoomIn={zoomIn}
@@ -531,13 +797,49 @@
 						<FloorBand {band} widthMm={buildingWidthMm} {floors} {floorFormat} />
 					{/each}
 
+					<!-- Building walls (draggable) -->
+					<g
+						class="wall left-wall"
+						onmousedown={(e) => onWallMouseDown('left', e)}
+						role="button"
+						tabindex="-1"
+					>
+						<rect x={-150} y={wallY} width={300} height={wallH} class="wall-hit" />
+						<line x1={0} y1={wallY} x2={0} y2={wallY + wallH} class="wall-line" />
+					</g>
+					<g
+						class="wall right-wall"
+						onmousedown={(e) => onWallMouseDown('right', e)}
+						role="button"
+						tabindex="-1"
+					>
+						<rect x={buildingWidthMm - 150} y={wallY} width={300} height={wallH} class="wall-hit" />
+						<line x1={buildingWidthMm} y1={wallY} x2={buildingWidthMm} y2={wallY + wallH} class="wall-line" />
+					</g>
+
 					<!-- Ladders (drawn before rooms so rooms read in front at the floor level) -->
 					{#each ladders as ladder (ladder.id)}
 						<Ladder
 							{ladder}
 							{bands}
+							{breaks}
 							selected={selection?.kind === 'ladder' && selection.id === ladder.id}
 							onmousedown={(e) => onLadderMouseDown(ladder.id, e)}
+							onHandleMouseDown={(edge, e) => onLadderHandleMouseDown(ladder.id, edge, e)}
+						/>
+					{/each}
+
+					<!-- Cables (drawn before rooms so room boxes overlay them) -->
+					{#each cablesForRender as cable (cable.id)}
+						{@const runs = cableLanes.get(cable.id) ?? []}
+						<CablePath
+							{cable}
+							{runs}
+							{rooms}
+							{ladders}
+							{bands}
+							selected={selection?.kind === 'cable' && selection.id === cable.id}
+							onmousedown={(e) => onCableMouseDown(cable.id, e)}
 						/>
 					{/each}
 
@@ -568,14 +870,34 @@
 			</Canvas>
 		</div>
 
-		<PropertiesPanel
-			{selection}
-			{rooms}
-			{ladders}
-			onUpdateRoom={updateRoom}
-			onUpdateLadder={updateLadder}
-			onDelete={deleteSelected}
-		/>
+		<aside class="sidebar">
+			{#if selectedCable}
+				<CableEditor
+					cable={selectedCable}
+					{rooms}
+					{ladders}
+					onUpdate={(patch) => updateCable(selectedCable!.id, patch)}
+					onDelete={() => deleteCable(selectedCable!.id)}
+				/>
+			{:else}
+				<PropertiesPanel
+					selection={propsSelection}
+					{rooms}
+					{ladders}
+					onUpdateRoom={updateRoom}
+					onUpdateLadder={updateLadder}
+					onDelete={deleteSelected}
+				/>
+			{/if}
+			<div class="sidebar-divider"></div>
+			<CableList
+				{cables}
+				{rooms}
+				selectedId={selection?.kind === 'cable' ? selection.id : null}
+				onSelect={selectCable}
+				onAddCable={startNewCable}
+			/>
+		</aside>
 	</div>
 
 	<div class="status-bar">
@@ -586,6 +908,27 @@
 		<span class="status-item">
 			Stack {(stackHeightMm / 1000).toFixed(1)} m
 		</span>
+		{#if mode === 'addCable'}
+			<span class="status-sep">·</span>
+			<span class="status-item hint">
+				{#if !cableDraft || cableDraft.segments.length === 0}
+					Click a room to start the route
+				{:else if awaitingLadder}
+					Click a ladder, or a room to finish · Enter = save · Esc = cancel
+				{:else}
+					Click the next room · Enter = save · Esc = cancel
+				{/if}
+			</span>
+		{:else if selection?.kind === 'ladder'}
+			<span class="status-sep">·</span>
+			<span class="status-item hint">Drag top/bottom handles to extend across floors</span>
+		{:else if selection?.kind === 'room'}
+			<span class="status-sep">·</span>
+			<span class="status-item hint">Drag to reposition horizontally · Delete to remove</span>
+		{:else if selection?.kind === 'cable'}
+			<span class="status-sep">·</span>
+			<span class="status-item hint">Edit route in sidebar · Delete to remove</span>
+		{/if}
 		<span class="status-grow"></span>
 		<span class="status-item zoom-indicator" title="Click to fit">
 			<button type="button" class="zoom-btn" onclick={() => { userInteracted = false; zoomFit() }}>
@@ -628,6 +971,59 @@
 		vector-effect: non-scaling-stroke;
 		pointer-events: none;
 	}
+	.wall {
+		cursor: ew-resize;
+	}
+	.wall-hit {
+		fill: transparent;
+	}
+	.wall-line {
+		stroke: rgb(80, 80, 95);
+		stroke-width: 4;
+		vector-effect: non-scaling-stroke;
+		pointer-events: none;
+	}
+	.wall:hover .wall-line {
+		stroke: rgb(59, 130, 246);
+		stroke-width: 6;
+	}
+	:global(.dark) .wall-line {
+		stroke: rgb(180, 180, 200);
+	}
+	.sidebar {
+		width: 340px;
+		display: flex;
+		flex-direction: column;
+		border-left: 1px solid rgb(228, 228, 231);
+		background: rgb(250, 250, 252);
+		overflow-y: auto;
+		min-height: 0;
+	}
+	:global(.dark) .sidebar {
+		background: rgb(24, 24, 27);
+		border-left-color: rgb(39, 39, 42);
+	}
+	.sidebar-divider {
+		height: 1px;
+		background: rgb(228, 228, 231);
+		margin: 0.5rem 0;
+	}
+	:global(.dark) .sidebar-divider {
+		background: rgb(39, 39, 42);
+	}
+	.sidebar > :global(*) {
+		padding: 0 0.75rem;
+	}
+	.sidebar :global(aside.props) {
+		border-left: none !important;
+		padding: 0.75rem !important;
+		width: auto !important;
+		background: transparent !important;
+		overflow-y: visible !important;
+	}
+	.sidebar > :global(.cable-list) {
+		padding: 0 0.75rem 0.75rem;
+	}
 	.status-bar {
 		display: flex;
 		align-items: center;
@@ -646,6 +1042,13 @@
 	}
 	.status-sep { opacity: 0.4; }
 	.status-grow { flex: 1; }
+	.hint {
+		color: rgb(59, 130, 246);
+		font-weight: 500;
+	}
+	:global(.dark) .hint {
+		color: rgb(96, 165, 250);
+	}
 	.zoom-btn {
 		background: none;
 		border: none;

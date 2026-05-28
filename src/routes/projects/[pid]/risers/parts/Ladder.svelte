@@ -5,13 +5,17 @@
 	let {
 		ladder,
 		bands,
+		breaks = [],
 		selected = false,
 		onmousedown,
+		onHandleMouseDown,
 	}: {
 		ladder: LadderType
 		bands: FloorYBand[]
+		breaks?: Array<{ yMm: number; hiddenFloors: number[] }>
 		selected?: boolean
 		onmousedown?: (e: MouseEvent) => void
+		onHandleMouseDown?: (edge: 'high' | 'low', e: MouseEvent) => void
 	} = $props()
 
 	const lo = $derived(Math.min(ladder.fromFloor, ladder.toFloor))
@@ -19,6 +23,12 @@
 
 	const topBand = $derived(bands.find((b) => b.floor === hi))
 	const bottomBand = $derived(bands.find((b) => b.floor === lo))
+
+	// Compression breaks within this ladder's vertical span.
+	const ladderBreaks = $derived.by(() => {
+		if (!topBand || !bottomBand) return []
+		return breaks.filter((br) => br.yMm >= topBand.topMm && br.yMm <= bottomBand.slabBottomMm)
+	})
 
 	const yTop = $derived(topBand?.topMm ?? 0)
 	const yBot = $derived(bottomBand?.slabBottomMm ?? 0)
@@ -74,6 +84,33 @@
 		pointer-events="none"
 	/>
 
+	<!-- Compression breaks (double slanted lines indicating hidden floors) -->
+	{#each ladderBreaks as br (br.yMm)}
+		{@const slashY = br.yMm}
+		{@const halfW = width / 2 + 80}
+		{@const slashHalf = 180}
+		<g class="break" pointer-events="none">
+			<line
+				x1={ladder.xMm - halfW}
+				y1={slashY + slashHalf}
+				x2={ladder.xMm + halfW}
+				y2={slashY - slashHalf}
+				stroke={stroke}
+				stroke-width="20"
+				vector-effect="non-scaling-stroke"
+			/>
+			<line
+				x1={ladder.xMm - halfW}
+				y1={slashY + slashHalf + 200}
+				x2={ladder.xMm + halfW}
+				y2={slashY - slashHalf + 200}
+				stroke={stroke}
+				stroke-width="20"
+				vector-effect="non-scaling-stroke"
+			/>
+		</g>
+	{/each}
+
 	<!-- Label at top -->
 	<text
 		x={ladder.xMm}
@@ -106,6 +143,27 @@
 			height={height + 120}
 			class="selection"
 		/>
+		<!-- Resize handles: top extends to higher floors, bottom extends to lower floors -->
+		<g
+			class="handle"
+			onmousedown={(e) => { e.stopPropagation(); onHandleMouseDown?.('high', e) }}
+			role="button"
+			tabindex="-1"
+		>
+			<circle cx={ladder.xMm} cy={yTop} r="120" class="handle-circle" />
+			<line x1={ladder.xMm - 60} y1={yTop} x2={ladder.xMm + 60} y2={yTop} class="handle-bar" />
+			<line x1={ladder.xMm} y1={yTop - 60} x2={ladder.xMm} y2={yTop + 60} class="handle-bar" />
+		</g>
+		<g
+			class="handle"
+			onmousedown={(e) => { e.stopPropagation(); onHandleMouseDown?.('low', e) }}
+			role="button"
+			tabindex="-1"
+		>
+			<circle cx={ladder.xMm} cy={yBot} r="120" class="handle-circle" />
+			<line x1={ladder.xMm - 60} y1={yBot} x2={ladder.xMm + 60} y2={yBot} class="handle-bar" />
+			<line x1={ladder.xMm} y1={yBot - 60} x2={ladder.xMm} y2={yBot + 60} class="handle-bar" />
+		</g>
 	{/if}
 </g>
 
@@ -131,6 +189,24 @@
 		stroke: rgb(59, 130, 246);
 		stroke-width: 3;
 		stroke-dasharray: 12 8;
+		vector-effect: non-scaling-stroke;
+		pointer-events: none;
+	}
+	.handle {
+		cursor: ns-resize;
+	}
+	.handle-circle {
+		fill: white;
+		stroke: rgb(59, 130, 246);
+		stroke-width: 3;
+		vector-effect: non-scaling-stroke;
+	}
+	.handle:hover .handle-circle {
+		fill: rgb(219, 234, 254);
+	}
+	.handle-bar {
+		stroke: rgb(59, 130, 246);
+		stroke-width: 3;
 		vector-effect: non-scaling-stroke;
 		pointer-events: none;
 	}

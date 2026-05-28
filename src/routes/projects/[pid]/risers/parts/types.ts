@@ -127,6 +127,8 @@ export interface RiserDocData {
 	/** Visible floor range (subset of project.floors). */
 	fromFloor: number
 	toFloor: number
+	/** Floors hidden from the elevation — gaps are shown as compression breaks. */
+	hiddenFloors?: number[]
 	rooms: RiserRoom[]
 	ladders: Ladder[]
 	cables: Cable[]

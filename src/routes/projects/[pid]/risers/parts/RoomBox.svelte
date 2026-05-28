@@ -80,12 +80,23 @@
 		{room.label}
 	</text>
 	{#if selected}
+		<!-- Outer glow halo -->
 		<rect
-			x={xLeft - 60}
-			y={yTop - 60}
-			width={room.widthMm + 120}
-			height={height + 120}
-			class="selection"
+			x={xLeft - 120}
+			y={yTop - 120}
+			width={room.widthMm + 240}
+			height={height + 240}
+			class="selection-halo"
+			rx="100"
+			ry="100"
+		/>
+		<!-- Inner crisp outline -->
+		<rect
+			x={xLeft - 40}
+			y={yTop - 40}
+			width={room.widthMm + 80}
+			height={height + 80}
+			class="selection-outline"
 			rx="80"
 			ry="80"
 		/>
@@ -109,11 +120,18 @@
 		opacity: 0.6;
 		pointer-events: none;
 	}
-	.selection {
+	.selection-halo {
+		fill: rgba(59, 130, 246, 0.18);
+		stroke: rgba(59, 130, 246, 0.35);
+		stroke-width: 8;
+		vector-effect: non-scaling-stroke;
+		pointer-events: none;
+	}
+	.selection-outline {
 		fill: none;
-		stroke: rgb(59, 130, 246);
-		stroke-width: 3;
-		stroke-dasharray: 12 8;
+		stroke: rgb(37, 99, 235);
+		stroke-width: 4;
+		stroke-dasharray: 14 8;
 		vector-effect: non-scaling-stroke;
 		pointer-events: none;
 	}
