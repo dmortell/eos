@@ -102,6 +102,13 @@
 						<input type="color" class="w-7 h-7 rounded border border-gray-200 cursor-pointer" bind:value={localSettings.defaultCableColor} />
 						<span class="text-[10px] text-gray-400 font-mono">{localSettings.defaultCableColor}</span>
 					</div>
+					<div class="flex items-center gap-2">
+						<label class="text-[11px] text-gray-500 w-24">New patch status</label>
+						<select class="flex-1 text-[11px] border border-gray-200 rounded px-2 py-1 bg-white" bind:value={localSettings.defaultStatus}>
+							<option value="add">Add (to install)</option>
+							<option value="installed">Installed (already in place)</option>
+						</select>
+					</div>
 				</div>
 
 				<!-- Custom cable types -->

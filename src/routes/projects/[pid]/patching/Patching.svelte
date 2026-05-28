@@ -12,6 +12,7 @@
 	import FloorManagerDialog from '$lib/components/FloorManagerDialog.svelte'
 	import PatchList from './parts/PatchList.svelte'
 	import ElevationView from './parts/ElevationView.svelte'
+	import PatchListPane from './parts/PatchListPane.svelte'
 	import SettingsDialog from './parts/SettingsDialog.svelte'
 
 	let {
@@ -54,6 +55,12 @@
 	let bulkToStart = $state(1)
 	let bulkCount = $state(1)
 	let bulkCableType = $state(settings.defaultCableType)
+
+	// ── Selection (shared between elevation and list pane) ──
+	let selectedConnectionId = $state<string | null>(null)
+
+	// ── List pane (bottom) ──
+	let listPaneOpen = $state(true)
 
 	// ── Racks data (read-only, from racks tool) ──
 	// VCM racks and PDU devices are temporarily filtered out: their rendering in
@@ -240,7 +247,7 @@
 				lengthMeters: len,
 				lengthLocked: false,
 				kind: 'patch',
-				status: 'add',
+				status: settings.defaultStatus ?? 'add',
 			})
 		}
 		connections = [...connections, ...newConns]
@@ -260,7 +267,7 @@
 			lengthMeters: 0,
 			lengthLocked: false,
 			kind: 'patch',
-			status: 'add',
+			status: settings.defaultStatus ?? 'add',
 		}
 		connections = [...connections, conn]
 		editNewId = id
@@ -340,6 +347,25 @@
 		<!-- Sidebar: device tree -->
 		<Pane defaultSize={22} minSize={15} maxSize={40}>
 			<div class="h-full border-r border-gray-200 flex flex-col print:hidden">
+				<!-- Default status for new patches -->
+				<div class="flex items-center gap-1.5 px-2 py-1 border-b border-gray-100 bg-gray-50/60 shrink-0">
+					<span class="text-[10px] text-gray-400 uppercase tracking-wider">New patches</span>
+					<div class="flex rounded overflow-hidden border border-gray-200 ml-auto">
+						<button
+							class="h-5 px-1.5 text-[10px] font-medium transition-colors
+								{settings.defaultStatus === 'add' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-100'}"
+							onclick={() => { settings = { ...settings, defaultStatus: 'add' }; logChange('update', 'defaultStatus', 'add') }}
+							title="New patches start as 'Add' (to install)"
+						>Add</button>
+						<button
+							class="h-5 px-1.5 text-[10px] font-medium border-l border-gray-200 transition-colors
+								{settings.defaultStatus === 'installed' ? 'bg-green-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-100'}"
+							onclick={() => { settings = { ...settings, defaultStatus: 'installed' }; logChange('update', 'defaultStatus', 'installed') }}
+							title="New patches start as 'Installed' (already in place)"
+						>Installed</button>
+					</div>
+				</div>
+
 				<!-- Sidebar tabs -->
 				<div class="flex border-b border-gray-200 shrink-0">
 					<button
@@ -364,6 +390,8 @@
 								<span class="text-gray-500">Add racks in the Rack Elevations tool first.</span>
 							</div>
 						{:else}
+							<p class="text-xs text-gray-500 mb-2">Add individual patches by setting CABLE type, then selecting from and to ports in the rack elevations.</p>
+							<p class="text-xs text-gray-500 mb-2">Or bulk add patches by selecting a From and To panel below, then set the ports and cord type.</p>
 							{#each racks as rack (rack.id)}
 								{@const rackDevices = devices.filter((d: any) => d.rackId === rack.id)}
 								{@const rackConns = connections.filter(c =>
@@ -496,6 +524,18 @@
 								Ports {bulkFromStart}–{bulkFromStart + bulkCount - 1} → {bulkToStart}–{bulkToStart + bulkCount - 1}
 							</div>
 
+							<div class="flex items-center gap-1.5 text-[10px]">
+								<label class="text-gray-400">Status</label>
+								<select
+									class="flex-1 border border-gray-200 rounded px-1 py-0.5 text-[11px] bg-white"
+									bind:value={settings.defaultStatus}
+									onchange={() => logChange('update', 'defaultStatus', settings.defaultStatus)}
+								>
+									<option value="add">Add (to install)</option>
+									<option value="installed">Installed (already in place)</option>
+								</select>
+							</div>
+
 							<div class="flex gap-1.5">
 								<button
 									class="flex-1 h-6 rounded bg-blue-600 text-white text-[11px] font-medium hover:bg-blue-500 transition-colors"
@@ -616,26 +656,81 @@
 					</div>
 				{/if}
 
-				<!-- Main content area — Patch List disabled (perf), Elevation only -->
-				<div class="flex-1 min-h-0">
-					<ElevationView
-						{connections}
-						{racks}
-						{devices}
-						{customCableTypes}
-						{frameData}
-						{settings}
-						{floor}
-						{room}
-						serverRoomCount={roomCount}
-						{floorFormat}
-						onaddconnection={conn => {
-							connections = [...connections, conn]
-							logChange('add', 'connection', conn.id)
-						}}
-						onupdateconnection={(id, updates) => updateConnection(id, updates)}
-						ondeleteconnection={deleteConnection}
-					/>
+				<!-- Main content: Elevation on top, read-only patch list at the bottom -->
+				<div class="flex-1 min-h-0 relative">
+					{#if listPaneOpen}
+						<PaneGroup direction="vertical" class="h-full">
+							<Pane defaultSize={62} minSize={30}>
+								<ElevationView
+									{connections}
+									{racks}
+									{devices}
+									{customCableTypes}
+									{frameData}
+									{settings}
+									{floor}
+									{room}
+									serverRoomCount={roomCount}
+									{floorFormat}
+									{selectedConnectionId}
+									onaddconnection={conn => {
+										connections = [...connections, conn]
+										logChange('add', 'connection', conn.id)
+									}}
+									onupdateconnection={(id, updates) => updateConnection(id, updates)}
+									ondeleteconnection={deleteConnection}
+									onselectconnection={id => selectedConnectionId = id}
+								/>
+							</Pane>
+							<Handle withHandle />
+							<Pane defaultSize={38} minSize={15}>
+								<PatchListPane
+									{connections}
+									{racks}
+									{devices}
+									{customCableTypes}
+									{orphanedIds}
+									{selectedConnectionId}
+									onselect={id => selectedConnectionId = id}
+									ontoggle={() => listPaneOpen = false}
+								/>
+							</Pane>
+						</PaneGroup>
+					{:else}
+						<div class="h-full flex flex-col">
+							<div class="flex-1 min-h-0">
+								<ElevationView
+									{connections}
+									{racks}
+									{devices}
+									{customCableTypes}
+									{frameData}
+									{settings}
+									{floor}
+									{room}
+									serverRoomCount={roomCount}
+									{floorFormat}
+									{selectedConnectionId}
+									onaddconnection={conn => {
+										connections = [...connections, conn]
+										logChange('add', 'connection', conn.id)
+									}}
+									onupdateconnection={(id, updates) => updateConnection(id, updates)}
+									ondeleteconnection={deleteConnection}
+									onselectconnection={id => selectedConnectionId = id}
+								/>
+							</div>
+							<!-- Collapsed-list reopen handle -->
+							<button
+								class="h-6 border-t border-gray-200 bg-gray-50 hover:bg-gray-100 text-[11px] text-gray-500 hover:text-gray-700 flex items-center justify-center gap-1.5 transition-colors shrink-0 print:hidden"
+								onclick={() => listPaneOpen = true}
+								title="Show patch list"
+							>
+								<Icon name="chevronUp" size={12} />
+								Patch list <span class="text-gray-400">({connections.length})</span>
+							</button>
+						</div>
+					{/if}
 				</div>
 
 				<!-- Status bar -->

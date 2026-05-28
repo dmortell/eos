@@ -21,9 +21,11 @@
 		room = 'A',
 		serverRoomCount = 1,
 		floorFormat = 'L01',
+		selectedConnectionId: externalSelectedConnectionId = null,
 		onaddconnection,
 		onupdateconnection,
 		ondeleteconnection,
+		onselectconnection,
 	}: {
 		connections: PatchConnection[]
 		racks: any[]
@@ -35,9 +37,11 @@
 		room?: string
 		serverRoomCount?: number
 		floorFormat?: string
+		selectedConnectionId?: string | null
 		onaddconnection?: (conn: PatchConnection) => void
 		onupdateconnection?: (id: string, updates: Partial<PatchConnection>) => void
 		ondeleteconnection?: (id: string) => void
+		onselectconnection?: (id: string | null) => void
 	} = $props()
 
 	// ── Pan/zoom state ──
@@ -59,7 +63,29 @@
 
 	// ── Selected state ──
 	let selectedPortKey = $state<string | null>(null)
-	let selectedConnectionId = $state<string | null>(null)
+	let selectedConnectionId = $state<string | null>(externalSelectedConnectionId)
+
+	// Sync from parent without causing feedback loops (track only the prop, not the local)
+	let prevExt: string | null = externalSelectedConnectionId
+	$effect(() => {
+		const ext = externalSelectedConnectionId
+		if (ext !== prevExt) {
+			prevExt = ext
+			selectedConnectionId = ext
+			if (ext === null) selectedPortKey = null
+			else {
+				// Mirror selectedPortKey to one end of the cable so the elevation highlights it
+				const conn = connections.find(c => c.id === ext)
+				if (conn?.fromPortRef.deviceId) selectedPortKey = `${conn.fromPortRef.deviceId}:${conn.fromPortRef.portIndex}`
+			}
+		}
+	})
+
+	function setSelected(id: string | null) {
+		selectedConnectionId = id
+		prevExt = id
+		onselectconnection?.(id)
+	}
 
 	// ── Click-to-connect state ──
 	let connectFromKey = $state<string | null>(null)
@@ -179,7 +205,7 @@
 				}
 				onaddconnection(conn)
 				selectedPortKey = key
-				selectedConnectionId = conn.id
+				setSelected(conn.id)
 			}
 			connectFromKey = null
 			return
@@ -188,12 +214,12 @@
 		// Toggle selection
 		if (selectedPortKey === key) {
 			selectedPortKey = null
-			selectedConnectionId = null
+			setSelected(null)
 			connectFromKey = null
 		} else {
 			selectedPortKey = key
 			const conn = portConnMap.get(key)
-			selectedConnectionId = conn?.id ?? null
+			setSelected(conn?.id ?? null)
 			// If port has no connection, set it as "from" for click-to-connect
 			connectFromKey = conn ? null : key
 		}
@@ -201,10 +227,10 @@
 
 	function handleCableClick(connectionId: string) {
 		if (selectedConnectionId === connectionId) {
-			selectedConnectionId = null
+			setSelected(null)
 			selectedPortKey = null
 		} else {
-			selectedConnectionId = connectionId
+			setSelected(connectionId)
 			// Find and highlight one of the ports
 			const conn = connections.find(c => c.id === connectionId)
 			if (conn?.fromPortRef.deviceId) {
@@ -231,7 +257,7 @@
 		if (!selectedConnectionId || !ondeleteconnection) return
 		ondeleteconnection(selectedConnectionId)
 		selectedPortKey = null
-		selectedConnectionId = null
+		setSelected(null)
 		connectFromKey = null
 	}
 
@@ -375,6 +401,6 @@
 </div>
 
 <svelte:window onkeydown={e => {
-	if (e.key === 'Escape') { connectFromKey = null; selectedPortKey = null; selectedConnectionId = null }
+	if (e.key === 'Escape') { connectFromKey = null; selectedPortKey = null; setSelected(null) }
 	if ((e.key === 'Delete' || e.key === 'Backspace') && selectedConnectionId && !connectFromKey) { deleteSelectedConnection() }
 }} />

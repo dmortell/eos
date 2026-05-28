@@ -42,6 +42,7 @@ export interface CustomCableType {
 export interface PatchSettings {
 	defaultCableType: string
 	defaultCableColor: string
+	defaultStatus: PatchStatus
 	showLabels: boolean
 	showLengths: boolean
 	groupBy: 'rack' | 'device' | 'cableType'
@@ -62,6 +63,7 @@ export interface PatchDoc {
 export const DEFAULT_SETTINGS: PatchSettings = {
 	defaultCableType: 'uutp',
 	defaultCableColor: '#3b82f6',
+	defaultStatus: 'add',
 	showLabels: true,
 	showLengths: true,
 	groupBy: 'rack',
