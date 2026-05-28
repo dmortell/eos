@@ -91,6 +91,9 @@
 	let connectFromKey = $state<string | null>(null)
 	let activeCableType = $state(settings?.defaultCableType ?? 'uutp')
 
+	// ── Re-route state (replace one endpoint of an existing connection) ──
+	let rerouteState = $state<{ connectionId: string; side: 'from' | 'to' } | null>(null)
+
 	// ── Rack layout: side by side, bottom-aligned ──
 	let rackW = $derived(rackWidth())
 
@@ -181,6 +184,19 @@
 
 	function handlePortClick(deviceId: string, portIndex: number) {
 		const key = `${deviceId}:${portIndex}`
+
+		// Re-route mode: replace one endpoint of the existing selected connection
+		if (rerouteState) {
+			const target = parsePortKey(key)
+			if (target && onupdateconnection) {
+				const newRef = { rackId: target.rackId, deviceId: target.deviceId, portIndex: target.portIndex, face: 'front' as const }
+				const field = rerouteState.side === 'from' ? 'fromPortRef' : 'toPortRef'
+				onupdateconnection(rerouteState.connectionId, { [field]: newRef })
+				selectedPortKey = key
+			}
+			rerouteState = null
+			return
+		}
 
 		// If we have a "from" port selected, and clicking a different port → create connection
 		if (connectFromKey && connectFromKey !== key) {
@@ -357,8 +373,12 @@
 				{/each}
 			</div>
 
-			<!-- Connect-mode indicator -->
-			{#if connectFromKey}
+			<!-- Connect / re-route mode indicator -->
+			{#if rerouteState}
+				<div class="text-[11px] text-white bg-amber-600 px-3 py-1 rounded-full shadow-md select-none">
+					Click a port to re-route the <b>{rerouteState.side}</b> endpoint — Esc to cancel
+				</div>
+			{:else if connectFromKey}
 				<div class="text-[11px] text-white bg-blue-600 px-3 py-1 rounded-full shadow-md select-none">
 					Click another port to connect — Esc to cancel
 				</div>
@@ -381,10 +401,20 @@
 				{#if selectedConn.status !== 'installed'}
 					<span class="text-[9px] px-1 py-0.5 rounded bg-blue-50 text-blue-600">{selectedConn.status}</span>
 				{/if}
-				<Button icon="refresh" title="Refresh cable length" 
+				<Button icon="refresh" title="Refresh cable length"
 					class="h-5 px-1.5 rounded text-[10px] font-medium bg-gray-50 text-gray-600 hover:bg-gray-100 transition-colors"
 					onclick={refreshSelectedLength}
 				></Button>
+				<button
+					class="h-5 px-1.5 rounded text-[10px] font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
+					title="Click then pick a new port for the FROM endpoint"
+					onclick={() => { rerouteState = { connectionId: selectedConn!.id, side: 'from' }; connectFromKey = null }}
+				>Re-route From</button>
+				<button
+					class="h-5 px-1.5 rounded text-[10px] font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
+					title="Click then pick a new port for the TO endpoint"
+					onclick={() => { rerouteState = { connectionId: selectedConn!.id, side: 'to' }; connectFromKey = null }}
+				>Re-route To</button>
 				<button
 					class="h-5 px-1.5 rounded text-[10px] font-medium bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
 					title="Delete this connection (Del)"
@@ -401,6 +431,6 @@
 </div>
 
 <svelte:window onkeydown={e => {
-	if (e.key === 'Escape') { connectFromKey = null; selectedPortKey = null; setSelected(null) }
-	if ((e.key === 'Delete' || e.key === 'Backspace') && selectedConnectionId && !connectFromKey) { deleteSelectedConnection() }
+	if (e.key === 'Escape') { connectFromKey = null; rerouteState = null; selectedPortKey = null; setSelected(null) }
+	if ((e.key === 'Delete' || e.key === 'Backspace') && selectedConnectionId && !connectFromKey && !rerouteState) { deleteSelectedConnection() }
 }} />

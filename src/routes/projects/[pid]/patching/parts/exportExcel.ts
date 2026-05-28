@@ -73,7 +73,8 @@ export async function importCordIds(file: File): Promise<Map<number, string>> {
 
 type PatchStatusKey = 'add' | 'change' | 'remove' | 'installed'
 
-const STATUS_ORDER: PatchStatusKey[] = ['add', 'change', 'remove', 'installed']
+// Work-order sequence: pull existing → re-route existing → install new → reference.
+const STATUS_ORDER: PatchStatusKey[] = ['remove', 'change', 'add', 'installed']
 const STATUS_BG: Record<PatchStatusKey, string> = {
 	add: 'FFDBEAFE',
 	change: 'FFFEF3C7',
