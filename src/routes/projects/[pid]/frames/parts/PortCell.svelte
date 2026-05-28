@@ -31,11 +31,11 @@
 
 {#if port}
 	<button
-		class="w-full h-7 rounded-sm border flex items-center justify-center cursor-pointer transition-colors {colorClass} {roomClass}"
+		class="relative w-full h-7 rounded-sm border flex items-center justify-center cursor-pointer transition-colors {colorClass} {roomClass}"
 		class:ring-2={selected || portSelected}
 		class:ring-yellow-400={selected && !portSelected}
 		class:ring-blue-400={portSelected}
-		title={port.label}
+		title={reservation ? `${port.label} (reserved: ${reservation})` : port.label}
 		data-loc={locKey}
 		data-port={portKey}
 		onclick={() => onselect?.(locKey)}
@@ -43,6 +43,11 @@
 		<span class="font-mono text-[9px] leading-none select-none whitespace-nowrap overflow-hidden">
 			{shortLabel}
 		</span>
+		{#if reservation}
+			<!-- Reservation marker so Remove has a visible effect on filled cells -->
+			<span class="absolute top-0 left-0 right-0 h-0.5 {LOC_TYPE_COLORS[reservation]?.split(' ')[0] ?? 'bg-gray-400'}"
+				title="Block-reserved as {reservation}"></span>
+		{/if}
 	</button>
 {:else}
 	<div

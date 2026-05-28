@@ -231,7 +231,7 @@
 							<a class="h-5 px-1.5 text-[10px] rounded bg-gray-50 text-gray-500 hover:bg-gray-100 flex items-center justify-center border border-gray-200"
 								href={p.productUrl} target="_blank" rel="noopener"
 								title="View on maker site">
-								↗
+								<Icon name="url" size={11}/>
 							</a>
 						{/if}
 					</div>

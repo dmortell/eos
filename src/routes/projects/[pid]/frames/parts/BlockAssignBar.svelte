@@ -42,6 +42,6 @@
 			class="text-[10px] text-gray-400 hover:text-gray-600 font-medium"
 			onclick={onclear}
 			title="Deselect ports without changing reservations (Esc)"
-		>Clear</button>
+		>Deselect</button>
 	</div>
 {/if}

@@ -7,7 +7,7 @@ import {
 	FileDown, FileText, FileUp, FileImage, Folder, FolderOpen,
 	Grid3x3, GripHorizontal, GripVertical,
 	History, House, Image, Highlighter,
-	Layers, List, LoaderCircle, Lock, LockKeyholeOpen,
+	Layers, List, Link, LoaderCircle, Lock, LockKeyholeOpen,
 	Magnet, MapPin, Mic, MicOff, MousePointer2, Move, Moon, Monitor,
 	PanelsTopLeft, PcCase,
 	Plus, PanelRight, Pen, Power, Printer,
@@ -41,7 +41,7 @@ let lucide: Record<string, any> = {
 	route: Route, routeOff: RouteOff, ruler: Ruler, save: Save, scale: Scaling, scan: ScanBarcode, search: Search,
 	rows: Rows3, scrollText: ScrollText, select: MousePointer2, settings: Settings, share: Share2, sidebar: PanelRight, server: Server, switchCamera: SwitchCamera,
 	spinner: LoaderCircle, square: Square, star: Star, start: TextAlignStart,
-	sun: Sun, text: Type, trash: Trash2, upload: FileUp, undo: Undo,
+	sun: Sun, text: Type, trash: Trash2, upload: FileUp, undo: Undo, url: Link,
 	polygon: Triangle, warning: TriangleAlert, waypoints: Waypoints, x: X,
 }
 

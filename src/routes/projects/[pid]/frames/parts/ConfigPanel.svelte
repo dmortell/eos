@@ -74,4 +74,8 @@
 			</label>
 		</div>
 	</div>
+
+	<p class="text-[10px] text-gray-500 leading-snug mt-1.5">
+		Set the number of locations and click <b>Generate</b> to define the number of outlets in the selected zone. Use the list below to set each outlet's port count and type (desk, printer, access point, etc.), and check <b>HL</b> to mark it as high-level. Each outlet's ports can be assigned to IDF room A or B — per port, split 50/50, or all to one IDF.
+	</p>
 </div>

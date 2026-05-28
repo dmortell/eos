@@ -527,8 +527,11 @@
 	const fmt = (fl: number) => fmtFloor(fl, floorFormat, floors)
 </script>
 
+<!-- Global keydown so Delete/Esc work regardless of focus (drag-select leaves nothing focused) -->
+<svelte:window onkeydown={handleBlockKeydown} />
+
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="h-screen flex flex-col overflow-hidden print:h-auto print:overflow-visible" onkeydown={handleBlockKeydown}>
+<div class="h-screen flex flex-col overflow-hidden print:h-auto print:overflow-visible">
 <div class="print:hidden">
 	<Titlebar menu={true} title={projectName ? `${projectName} — Patch Frames` : 'Patch Frames'}>
 		{#if drawingId}
@@ -628,6 +631,7 @@
 
 {#snippet configAndLocations()}
 	<Button href={`/projects/${projectId}`} icon="chevronLeft" class="text-xs">Back</Button>
+	<p class="text-sm">Assign outlet ports to patch frames, then specify the usage for each group of ports.</p>
 	<ConfigPanel
 		{floor}
 		floorLabel={fmt(floor)}

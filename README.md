@@ -104,7 +104,14 @@ To recreate this project from scratch with the same configuration:
 pnpm dlx sv@0.12.4 create --template minimal --types ts --add vitest="usages:unit,component" tailwindcss="plugins:none" sveltekit-adapter="adapter:vercel" devtools-json --install pnpm .
 ```
 
+## Claude Code
 
+  --allow-dangerously-skip-permissions     Enable bypassing all permission checks as an option
+  --dangerously-skip-permissions                    Bypass all permission checks.
+  --chrome                                          Enable Claude in Chrome integration
+  --permission-mode <mode>                          Permission mode to use for the session (choices: "acceptEdits", "auto", "bypassPermissions", "default", "dontAsk", "plan")
+  -w, --worktree [name]                             Create a new git worktree for this session (optionally specify a name)
+  
 ## Sharing Site Survey Albums
 
 * Set up a private key in Firebase console:

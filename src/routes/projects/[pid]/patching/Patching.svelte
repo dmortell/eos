@@ -59,9 +59,20 @@
 	// VCM racks and PDU devices are temporarily filtered out: their rendering in
 	// the patching elevation view is broken (VCMs appear as standalone 0U racks,
 	// PDUs span the full rack width). Re-enable once ElevationRack handles them.
-	let racks = $derived((rackData?.racks ?? []).filter((r: any) => r.type !== 'vcm'))
-	let devices = $derived((rackData?.devices ?? []).filter((d: any) => d.type !== 'pdu'))
+	// Racks are sorted to match the racks tool's front-view left-to-right order:
+	// rows in array order, then by rack.order within each row.
 	let rows = $derived(rackData?.rows ?? [])
+	let racks = $derived.by(() => {
+		const filtered = (rackData?.racks ?? []).filter((r: any) => r.type !== 'vcm')
+		const rowOrder = new Map<string, number>(rows.map((r: any, i: number) => [r.id, i] as [string, number]))
+		return [...filtered].sort((a: any, b: any) => {
+			const ra = rowOrder.get(a.rowId) ?? Infinity
+			const rb = rowOrder.get(b.rowId) ?? Infinity
+			if (ra !== rb) return ra - rb
+			return (a.order ?? 0) - (b.order ?? 0)
+		})
+	})
+	let devices = $derived((rackData?.devices ?? []).filter((d: any) => d.type !== 'pdu'))
 
 	// ── Frames data (read-only, for port labels) ──
 	let frameZones = $derived(frameData?.zoneLocations ?? [])
