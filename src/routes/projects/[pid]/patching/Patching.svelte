@@ -3,7 +3,7 @@
 	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
 	import type { ChangeDetail } from '$lib/logger'
 	import type { FloorConfig } from '$lib/types/project'
-	import type { PatchConnection, PatchSettings, CustomCableType } from './parts/types'
+	import type { PatchConnection, PatchSettings, CustomCableType, PortRef, PatchStatus } from './parts/types'
 	import { fmtFloor } from '$lib/utils/floor'
 	import { DEFAULT_SETTINGS } from './parts/types'
 	import { CABLE_TYPES, getCableType } from './parts/constants'
@@ -61,6 +61,10 @@
 
 	// ── List pane (bottom) ──
 	let listPaneOpen = $state(true)
+
+	// Connections shown in the elevation = current "target state" (no soft-deleted)
+	let elevationConnections = $derived(connections.filter(c => c.status !== 'remove'))
+	let removedCount = $derived(connections.filter(c => c.status === 'remove').length)
 
 	// ── Racks data (read-only, from racks tool) ──
 	// VCM racks and PDU devices are temporarily filtered out: their rendering in
@@ -274,10 +278,35 @@
 		logChange('add', 'connection', id)
 	}
 
+	/** Compare two PortRefs for equality (ignores `label` cache field). */
+	function sameRef(a: PortRef, b: PortRef): boolean {
+		return a.rackId === b.rackId && a.deviceId === b.deviceId && a.portIndex === b.portIndex && a.face === b.face
+	}
+
 	function updateConnection(id: string, updates: Partial<PatchConnection>) {
 		connections = connections.map(c => {
 			if (c.id !== id) return c
 			const updated = { ...c, ...updates }
+
+			// Edit-tracking: if an installed cord's endpoints are being moved, capture the
+			// originals and flip status to 'change' so the cabling team sees the move order.
+			const movedFrom = updates.fromPortRef && !sameRef(c.fromPortRef, updates.fromPortRef)
+			const movedTo = updates.toPortRef && !sameRef(c.toPortRef, updates.toPortRef)
+			if ((movedFrom || movedTo) && c.status === 'installed') {
+				updated.status = 'change'
+				updated.previousFromRef = c.previousFromRef ?? c.fromPortRef
+				updated.previousToRef = c.previousToRef ?? c.toPortRef
+			}
+
+			// If a 'change' is reverted to its original endpoints, drop back to 'installed'.
+			if (updated.status === 'change' && updated.previousFromRef && updated.previousToRef
+				&& sameRef(updated.fromPortRef, updated.previousFromRef)
+				&& sameRef(updated.toPortRef, updated.previousToRef)) {
+				updated.status = 'installed'
+				delete updated.previousFromRef
+				delete updated.previousToRef
+			}
+
 			// Auto-calc length when ports change and length is not locked
 			if (!updated.lengthLocked && (updates.fromPortRef || updates.toPortRef)) {
 				const len = calculateCableLength(updated.fromPortRef, updated.toPortRef, racks, devices)
@@ -288,14 +317,66 @@
 		logChange('update', 'connection', id)
 	}
 
+	/** Soft-delete: a never-installed 'add' cord is hard-deleted; anything else flips to 'remove'. */
 	function deleteConnection(id: string) {
-		connections = connections.filter(c => c.id !== id)
-		logChange('remove', 'connection', id)
+		const conn = connections.find(c => c.id === id)
+		if (!conn) return
+		if (conn.status === 'add') {
+			connections = connections.filter(c => c.id !== id)
+			logChange('remove', 'connection', id)
+		} else {
+			connections = connections.map(c => c.id === id
+				? { ...c, status: 'remove' as const, previousStatus: c.previousStatus ?? c.status }
+				: c)
+			logChange('update', 'status', `${id} → remove`)
+		}
 	}
 
 	function deleteSelected(ids: string[]) {
-		connections = connections.filter(c => !ids.includes(c.id))
-		logChange('remove', 'connections', `${ids.length} connections`)
+		const idSet = new Set(ids)
+		const purge: string[] = []
+		connections = connections.map(c => {
+			if (!idSet.has(c.id)) return c
+			if (c.status === 'add') { purge.push(c.id); return c }
+			return { ...c, status: 'remove' as const, previousStatus: c.previousStatus ?? c.status }
+		}).filter(c => !purge.includes(c.id))
+		logChange('remove', 'connections', `${ids.length} connections (${purge.length} purged, ${ids.length - purge.length} marked remove)`)
+	}
+
+	/** Restore soft-deleted cords back to their prior status. */
+	function restoreConnections(ids: string[]) {
+		const idSet = new Set(ids)
+		connections = connections.map(c => {
+			if (!idSet.has(c.id) || c.status !== 'remove') return c
+			const restored = { ...c, status: c.previousStatus ?? 'installed' }
+			delete restored.previousStatus
+			return restored
+		})
+		logChange('update', 'restore', `${ids.length} connections`)
+	}
+
+	/** Bulk status change. For 'installed', also clears change-tracking fields. */
+	function setStatus(ids: string[], status: PatchStatus) {
+		const idSet = new Set(ids)
+		connections = connections.map(c => {
+			if (!idSet.has(c.id)) return c
+			const next: PatchConnection = { ...c, status }
+			if (status === 'installed') {
+				delete next.previousFromRef
+				delete next.previousToRef
+				delete next.previousStatus
+			}
+			return next
+		})
+		logChange('update', 'status', `${ids.length} connections → ${status}`)
+	}
+
+	/** Hard-delete all cords currently marked 'remove'. */
+	function purgeRemoved() {
+		const count = connections.filter(c => c.status === 'remove').length
+		if (count === 0) return
+		connections = connections.filter(c => c.status !== 'remove')
+		logChange('remove', 'purged', `${count} removed connections`)
 	}
 
 	function updateSelected(ids: string[], updates: Partial<PatchConnection>) {
@@ -636,6 +717,13 @@
 						onclick={() => settingsOpen = true}
 					><Icon name="settings" size={13} /></button>
 
+					<!-- Save indicator -->
+					<span
+						class="text-[10px] font-medium tabular-nums w-14 text-right
+							{saveStatus === 'saved' ? 'text-gray-400' : saveStatus === 'saving' ? 'text-blue-500' : 'text-amber-500'}"
+						title={saveStatus === 'saved' ? 'All changes saved' : saveStatus === 'saving' ? 'Saving…' : 'Unsaved changes'}
+					>{saveStatus === 'saved' ? 'Saved' : saveStatus === 'saving' ? 'Saving…' : 'Unsaved'}</span>
+
 				</div>
 
 				<!-- Orphaned references warning -->
@@ -662,7 +750,7 @@
 						<PaneGroup direction="vertical" class="h-full">
 							<Pane defaultSize={62} minSize={30}>
 								<ElevationView
-									{connections}
+									connections={elevationConnections}
 									{racks}
 									{devices}
 									{customCableTypes}
@@ -691,8 +779,13 @@
 									{customCableTypes}
 									{orphanedIds}
 									{selectedConnectionId}
+									{removedCount}
 									onselect={id => selectedConnectionId = id}
 									ontoggle={() => listPaneOpen = false}
+									onsetstatus={setStatus}
+									ondelete={deleteSelected}
+									onrestore={restoreConnections}
+									onpurge={purgeRemoved}
 								/>
 							</Pane>
 						</PaneGroup>
@@ -700,7 +793,7 @@
 						<div class="h-full flex flex-col">
 							<div class="flex-1 min-h-0">
 								<ElevationView
-									{connections}
+									connections={elevationConnections}
 									{racks}
 									{devices}
 									{customCableTypes}
@@ -731,18 +824,6 @@
 							</button>
 						</div>
 					{/if}
-				</div>
-
-				<!-- Status bar -->
-				<div class="h-7 flex items-stretch border-t border-gray-200 bg-gray-50 shrink-0 print:hidden">
-					<div class="flex items-center gap-4 px-3 text-[10px] text-gray-400 w-full">
-						<span>{connections.length} connection{connections.length !== 1 ? 's' : ''}</span>
-						<span>{racks.length} rack{racks.length !== 1 ? 's' : ''} · {devices.length} device{devices.length !== 1 ? 's' : ''}</span>
-						<div class="flex-1"></div>
-						<span class:text-amber-500={saveStatus === 'unsaved'} class:text-blue-500={saveStatus === 'saving'}>
-							{saveStatus === 'saved' ? 'Saved' : saveStatus === 'saving' ? 'Saving...' : 'Unsaved'}
-						</span>
-					</div>
 				</div>
 			</div>
 		</Pane>

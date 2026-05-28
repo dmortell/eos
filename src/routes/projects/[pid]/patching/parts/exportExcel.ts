@@ -71,6 +71,29 @@ export async function importCordIds(file: File): Promise<Map<number, string>> {
 	return result
 }
 
+type PatchStatusKey = 'add' | 'change' | 'remove' | 'installed'
+
+const STATUS_ORDER: PatchStatusKey[] = ['add', 'change', 'remove', 'installed']
+const STATUS_BG: Record<PatchStatusKey, string> = {
+	add: 'FFDBEAFE',
+	change: 'FFFEF3C7',
+	remove: 'FFFEE2E2',
+	installed: 'FFDCFCE7',
+}
+const STATUS_FG: Record<PatchStatusKey, string> = {
+	add: 'FF2563EB', change: 'FFD97706', remove: 'FFDC2626', installed: 'FF16A34A',
+}
+const STATUS_TITLE: Record<PatchStatusKey, string> = {
+	add: 'ADD — install these cords',
+	change: 'CHANGE — move these cords',
+	remove: 'REMOVE — pull these cords',
+	installed: 'INSTALLED — already in place (reference only)',
+}
+
+function statusKey(c: PatchConnection): PatchStatusKey {
+	return ((c.status as string) === 'planned' ? 'add' : c.status) as PatchStatusKey
+}
+
 /** Export patch schedule and BOM to Excel */
 export async function exportPatchExcel(opts: ExportOptions) {
 	const { connections, racks, devices, customCableTypes, projectName, floor, room } = opts
@@ -83,67 +106,93 @@ export async function exportPatchExcel(opts: ExportOptions) {
 
 	const title = `Patch Schedule — ${projectName || 'Export'} — F${floor} Room ${room}`
 
-	// Header row
+	// Header row — extra trailing pair for change history
 	const headers = [
 		'#', 'From Rack', 'From Device', 'From U/Face', 'From Port',
 		'To Rack', 'To Device', 'To U/Face', 'To Port',
 		'Cable Type', 'Length (m)', 'Cord ID', 'Status', 'Notes',
+		'Was From', 'Was To',
 	]
 	const headerRow = ws.addRow(headers)
 	headerRow.font = { bold: true, size: 9 }
 	headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }
 	headerRow.alignment = { horizontal: 'center', vertical: 'middle' }
 
-	// Set column widths
 	ws.columns = [
-		{ width: 4 },   // #
-		{ width: 10 },  // From Rack
-		{ width: 20 },  // From Device
-		{ width: 10 },  // From U/Face
-		{ width: 6 },   // From Port
-		{ width: 10 },  // To Rack
-		{ width: 20 },  // To Device
-		{ width: 10 },  // To U/Face
-		{ width: 6 },   // To Port
-		{ width: 10 },  // Cable Type
-		{ width: 8 },   // Length
-		{ width: 12 },  // Cord ID
-		{ width: 9 },   // Status
-		{ width: 20 },  // Notes
+		{ width: 4 }, { width: 10 }, { width: 20 }, { width: 10 }, { width: 6 },
+		{ width: 10 }, { width: 20 }, { width: 10 }, { width: 6 },
+		{ width: 10 }, { width: 8 }, { width: 12 }, { width: 9 }, { width: 20 },
+		{ width: 24 }, { width: 24 },
 	]
 
-	// Data rows
-	connections.forEach((c, i) => {
-		const ct = getCableType(c.cableType, customCableTypes)
-		const row = ws.addRow([
-			i + 1,
-			rackLabel(racks, c.fromPortRef.rackId),
-			deviceLabel(devices, c.fromPortRef.deviceId),
-			deviceUFace(devices, c.fromPortRef.deviceId, c.fromPortRef.face),
-			fmtPort(devices, c.fromPortRef.deviceId, c.fromPortRef.portIndex),
-			rackLabel(racks, c.toPortRef.rackId),
-			deviceLabel(devices, c.toPortRef.deviceId),
-			deviceUFace(devices, c.toPortRef.deviceId, c.toPortRef.face),
-			fmtPort(devices, c.toPortRef.deviceId, c.toPortRef.portIndex),
-			ct.label,
-			c.lengthMeters || '',
-			c.cordId || '',
-			(c.status as string) === 'planned' ? 'Add' : c.status.charAt(0).toUpperCase() + c.status.slice(1),
-			c.notes || '',
-		])
-		row.font = { size: 9 }
-		row.alignment = { vertical: 'middle' }
+	// Group by status
+	const grouped = new Map<PatchStatusKey, PatchConnection[]>()
+	for (const c of connections) {
+		const k = statusKey(c)
+		const list = grouped.get(k) ?? []
+		list.push(c)
+		grouped.set(k, list)
+	}
 
-		// Color the status cell
-		const statusCell = row.getCell(13)
-		const statusColors: Record<string, string> = {
-			add: 'FF2563EB', installed: 'FF16A34A', change: 'FFD97706', remove: 'FFDC2626',
+	// Counts banner row(s)
+	const summary = STATUS_ORDER.map(k => `${(grouped.get(k) ?? []).length} ${k}`).join('  ·  ')
+	const summaryRow = ws.addRow([summary])
+	ws.mergeCells(summaryRow.number, 1, summaryRow.number, headers.length)
+	summaryRow.font = { italic: true, size: 9, color: { argb: 'FF6B7280' } }
+	summaryRow.alignment = { horizontal: 'center' }
+
+	let runningIdx = 0
+	for (const key of STATUS_ORDER) {
+		const group = grouped.get(key) ?? []
+		if (group.length === 0) continue
+
+		// Section header
+		const sectionRow = ws.addRow([`${STATUS_TITLE[key]}  (${group.length})`])
+		ws.mergeCells(sectionRow.number, 1, sectionRow.number, headers.length)
+		sectionRow.font = { bold: true, size: 10, color: { argb: STATUS_FG[key] } }
+		sectionRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: STATUS_BG[key] } }
+		sectionRow.alignment = { horizontal: 'left', indent: 1 }
+
+		for (const c of group) {
+			runningIdx++
+			const ct = getCableType(c.cableType, customCableTypes)
+			const wasFrom = c.previousFromRef
+				? `${rackLabel(racks, c.previousFromRef.rackId)} / ${deviceLabel(devices, c.previousFromRef.deviceId)} ${deviceUFace(devices, c.previousFromRef.deviceId, c.previousFromRef.face)} / ${fmtPort(devices, c.previousFromRef.deviceId, c.previousFromRef.portIndex)}`
+				: ''
+			const wasTo = c.previousToRef
+				? `${rackLabel(racks, c.previousToRef.rackId)} / ${deviceLabel(devices, c.previousToRef.deviceId)} ${deviceUFace(devices, c.previousToRef.deviceId, c.previousToRef.face)} / ${fmtPort(devices, c.previousToRef.deviceId, c.previousToRef.portIndex)}`
+				: ''
+			const row = ws.addRow([
+				runningIdx,
+				rackLabel(racks, c.fromPortRef.rackId),
+				deviceLabel(devices, c.fromPortRef.deviceId),
+				deviceUFace(devices, c.fromPortRef.deviceId, c.fromPortRef.face),
+				fmtPort(devices, c.fromPortRef.deviceId, c.fromPortRef.portIndex),
+				rackLabel(racks, c.toPortRef.rackId),
+				deviceLabel(devices, c.toPortRef.deviceId),
+				deviceUFace(devices, c.toPortRef.deviceId, c.toPortRef.face),
+				fmtPort(devices, c.toPortRef.deviceId, c.toPortRef.portIndex),
+				ct.label,
+				c.lengthMeters || '',
+				c.cordId || '',
+				key.charAt(0).toUpperCase() + key.slice(1),
+				c.notes || '',
+				wasFrom,
+				wasTo,
+			])
+			row.font = { size: 9 }
+			row.alignment = { vertical: 'middle' }
+
+			const statusCell = row.getCell(13)
+			statusCell.font = { size: 9, color: { argb: STATUS_FG[key] } }
+
+			if (key === 'remove') {
+				// Strikethrough the endpoint cells so a quick eyeball confirms the cord to pull
+				for (let col = 2; col <= 9; col++) row.getCell(col).font = { size: 9, strike: true }
+			}
 		}
-		const sKey = (c.status as string) === 'planned' ? 'add' : c.status
-		statusCell.font = { size: 9, color: { argb: statusColors[sKey] ?? 'FF6B7280' } }
-	})
+	}
 
-	// Freeze header row + print titles (repeat row 1 on every printed page)
 	ws.views = [{ state: 'frozen', ySplit: 1, xSplit: 0, topLeftCell: 'A2', activeCell: 'A2' }]
 	ws.pageSetup.printTitlesRow = '1:1'
 	ws.headerFooter = {

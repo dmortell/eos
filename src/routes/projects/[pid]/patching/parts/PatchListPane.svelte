@@ -11,8 +11,13 @@
 		customCableTypes = [],
 		orphanedIds = new Set<string>(),
 		selectedConnectionId = null,
+		removedCount = 0,
 		onselect,
 		ontoggle,
+		onsetstatus,
+		ondelete,
+		onrestore,
+		onpurge,
 	}: {
 		connections: PatchConnection[]
 		racks: any[]
@@ -20,14 +25,20 @@
 		customCableTypes: CustomCableType[]
 		orphanedIds?: Set<string>
 		selectedConnectionId?: string | null
+		removedCount?: number
 		onselect?: (id: string | null) => void
 		ontoggle?: () => void
+		onsetstatus?: (ids: string[], status: PatchStatus) => void
+		ondelete?: (ids: string[]) => void
+		onrestore?: (ids: string[]) => void
+		onpurge?: () => void
 	} = $props()
 
 	let filter = $state('')
 	let statusFilter = $state<Set<PatchStatus>>(new Set(['add', 'change', 'remove', 'installed']))
 	let sortField = $state<'from' | 'to' | 'type' | 'length' | 'status'>('from')
 	let sortAsc = $state(true)
+	let checkedIds = $state<Set<string>>(new Set())
 
 	let rowRefs: Record<string, HTMLTableRowElement | undefined> = {}
 
@@ -82,6 +93,9 @@
 		return counts
 	})
 
+	let checkedConnections = $derived(connections.filter(c => checkedIds.has(c.id)))
+	let anyRemovedChecked = $derived(checkedConnections.some(c => c.status === 'remove'))
+
 	function toggleSort(field: typeof sortField) {
 		if (sortField === field) sortAsc = !sortAsc
 		else { sortField = field; sortAsc = true }
@@ -95,6 +109,32 @@
 		const next = new Set(statusFilter)
 		if (next.has(s)) next.delete(s); else next.add(s)
 		statusFilter = next
+	}
+
+	function toggleCheck(id: string) {
+		const next = new Set(checkedIds)
+		if (next.has(id)) next.delete(id); else next.add(id)
+		checkedIds = next
+	}
+
+	function checkAllVisible() {
+		const allChecked = visibleConnections.every(c => checkedIds.has(c.id))
+		const next = new Set(checkedIds)
+		if (allChecked) { for (const c of visibleConnections) next.delete(c.id) }
+		else { for (const c of visibleConnections) next.add(c.id) }
+		checkedIds = next
+	}
+
+	function applyAction(action: 'add' | 'installed' | 'delete' | 'restore') {
+		const ids = [...checkedIds]
+		if (ids.length === 0) return
+		switch (action) {
+			case 'add': onsetstatus?.(ids, 'add'); break
+			case 'installed': onsetstatus?.(ids, 'installed'); break
+			case 'delete': ondelete?.(ids); break
+			case 'restore': onrestore?.(ids); break
+		}
+		checkedIds = new Set()
 	}
 
 	// Auto-scroll selected row into view when selection changes from outside
@@ -154,14 +194,46 @@
 		</div>
 
 		<div class="flex-1"></div>
+
+		{#if removedCount > 0}
+			<button
+				class="h-6 px-2 text-[10px] rounded border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
+				onclick={onpurge}
+				title="Permanently remove all cords marked for removal"
+			>Purge {removedCount} removed</button>
+		{/if}
 		<span class="text-[10px] text-gray-400">{visibleConnections.length} / {connections.length}</span>
 	</div>
+
+	<!-- Selection action bar -->
+	{#if checkedIds.size > 0}
+		<div class="flex items-center gap-2 px-3 py-1 border-b border-blue-100 bg-blue-50/60 shrink-0 text-[11px]">
+			<span class="font-mono font-semibold text-blue-700">{checkedIds.size} selected</span>
+			<span class="text-blue-300">|</span>
+			<button class="h-5 px-2 rounded text-[10px] font-medium bg-white border border-blue-200 text-blue-700 hover:bg-blue-100" onclick={() => applyAction('installed')}>Mark Installed</button>
+			<button class="h-5 px-2 rounded text-[10px] font-medium bg-white border border-blue-200 text-blue-700 hover:bg-blue-100" onclick={() => applyAction('add')}>Mark Add</button>
+			{#if anyRemovedChecked}
+				<button class="h-5 px-2 rounded text-[10px] font-medium bg-white border border-green-200 text-green-700 hover:bg-green-100" onclick={() => applyAction('restore')}>Restore</button>
+			{/if}
+			<button class="h-5 px-2 rounded text-[10px] font-medium bg-white border border-red-200 text-red-700 hover:bg-red-100" onclick={() => applyAction('delete')}>Delete</button>
+			<div class="flex-1"></div>
+			<button class="text-[10px] text-gray-400 hover:text-gray-700" onclick={() => checkedIds = new Set()}>Unselect</button>
+		</div>
+	{/if}
 
 	<!-- Table -->
 	<div class="flex-1 min-h-0 overflow-auto">
 		<table class="w-full text-[11px]">
 			<thead class="sticky top-0 z-10 bg-gray-50 shadow-[inset_0_-1px_0_0_#e5e7eb]">
 				<tr class="text-left text-gray-400 uppercase tracking-wider whitespace-nowrap">
+					<th class="w-8 px-2 py-1.5">
+						<input
+							type="checkbox"
+							class="rounded"
+							checked={visibleConnections.length > 0 && visibleConnections.every(c => checkedIds.has(c.id))}
+							onchange={checkAllVisible}
+						/>
+					</th>
 					<th class="px-2 py-1.5 cursor-pointer hover:text-gray-600 select-none w-1/4" onclick={() => toggleSort('from')}>From{sortIcon('from')}</th>
 					<th class="px-2 py-1.5 cursor-pointer hover:text-gray-600 select-none w-1/4" onclick={() => toggleSort('to')}>To{sortIcon('to')}</th>
 					<th class="w-24 px-2 py-1.5 cursor-pointer hover:text-gray-600 select-none" onclick={() => toggleSort('type')}>Cable{sortIcon('type')}</th>
@@ -175,22 +247,36 @@
 				{#each visibleConnections as conn (conn.id)}
 					{@const ct = getCableType(conn.cableType, customCableTypes)}
 					{@const isSelected = selectedConnectionId === conn.id}
+					{@const isChecked = checkedIds.has(conn.id)}
 					{@const isOrphaned = orphanedIds.has(conn.id)}
 					{@const statusKey = (conn.status as string) === 'planned' ? 'add' : conn.status}
+					{@const isRemoved = statusKey === 'remove'}
 					<!-- svelte-ignore a11y_click_events_have_key_events -->
 					<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 					<tr
 						bind:this={rowRefs[conn.id]}
 						class="border-b border-gray-100 cursor-pointer transition-colors
 							{isOrphaned ? 'bg-amber-50/70 border-l-2 border-l-amber-400' : ''}
-							{isSelected ? 'bg-blue-50 ring-1 ring-blue-200' : isOrphaned ? '' : 'hover:bg-gray-50'}"
+							{isSelected ? 'bg-blue-50 ring-1 ring-blue-200' : isOrphaned ? '' : 'hover:bg-gray-50'}
+							{isRemoved ? 'opacity-60 line-through decoration-red-400' : ''}"
 						onclick={() => onselect?.(isSelected ? null : conn.id)}
 					>
+						<td class="px-2 py-1" onclick={e => e.stopPropagation()}>
+							<input type="checkbox" class="rounded" checked={isChecked} onchange={() => toggleCheck(conn.id)} />
+						</td>
 						<td class="px-2 py-1 truncate">
 							{#if isOrphaned}<Icon name="alertTriangle" size={10} class="inline text-amber-500 mr-1" />{/if}
 							{fmtRef(conn.fromPortRef) || '—'}
+							{#if conn.previousFromRef}
+								<span class="text-[10px] text-amber-600 ml-1" title="Was: {fmtRef(conn.previousFromRef)}">↶</span>
+							{/if}
 						</td>
-						<td class="px-2 py-1 truncate">{fmtRef(conn.toPortRef) || '—'}</td>
+						<td class="px-2 py-1 truncate">
+							{fmtRef(conn.toPortRef) || '—'}
+							{#if conn.previousToRef}
+								<span class="text-[10px] text-amber-600 ml-1" title="Was: {fmtRef(conn.previousToRef)}">↶</span>
+							{/if}
+						</td>
 						<td class="px-2 py-1">
 							<div class="flex items-center gap-1.5">
 								<span class="w-2.5 h-2.5 rounded-full shrink-0" style:background={conn.cableColor || ct.color}></span>
@@ -210,7 +296,7 @@
 
 				{#if visibleConnections.length === 0}
 					<tr>
-						<td colspan="7" class="px-4 py-6 text-center text-gray-300 text-xs">
+						<td colspan="8" class="px-4 py-6 text-center text-gray-300 text-xs">
 							{#if filter || statusFilter.size < 4}
 								No connections match the filter.
 							{:else}

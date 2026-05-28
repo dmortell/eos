@@ -26,6 +26,11 @@ export interface PatchConnection {
 	cordId?: string          // vendor-assigned patch cord ID
 	status: PatchStatus
 	notes?: string
+	/** Original endpoints captured when an installed cord is rerouted (status → 'change'). */
+	previousFromRef?: PortRef
+	previousToRef?: PortRef
+	/** Status before soft-delete (so 'remove' can be restored). */
+	previousStatus?: PatchStatus
 }
 
 // ── Custom cable type (user-defined) ──
