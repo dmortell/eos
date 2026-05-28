@@ -259,6 +259,44 @@ export function computeCableLanes(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Picking — translate client coordinates to mm and find the floor under a point
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Map a client (screen) point to the SVG's user-space (mm) coordinates. */
+export function svgPointFromClient(
+	svg: SVGSVGElement,
+	clientX: number,
+	clientY: number,
+): { x: number; y: number } {
+	const pt = svg.createSVGPoint()
+	pt.x = clientX
+	pt.y = clientY
+	const ctm = svg.getScreenCTM()
+	if (!ctm) return { x: 0, y: 0 }
+	const p = pt.matrixTransform(ctm.inverse())
+	return { x: p.x, y: p.y }
+}
+
+/** Find the floor band containing a given Y (mm). Falls back to the nearest band. */
+export function bandAtY(bands: FloorYBand[], yMm: number): FloorYBand | undefined {
+	if (!bands.length) return undefined
+	for (const b of bands) {
+		if (yMm >= b.topMm && yMm <= b.slabBottomMm) return b
+	}
+	// Outside the stack — return nearest by distance.
+	let best = bands[0]
+	let bestDist = Math.min(Math.abs(yMm - best.topMm), Math.abs(yMm - best.slabBottomMm))
+	for (const b of bands) {
+		const d = Math.min(Math.abs(yMm - b.topMm), Math.abs(yMm - b.slabBottomMm))
+		if (d < bestDist) {
+			best = b
+			bestDist = d
+		}
+	}
+	return best
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // ID helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
