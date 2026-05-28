@@ -3,7 +3,7 @@
  * @description Shared types for drawing versioning, revision control, and packages.
  */
 
-export type ToolType = 'racks' | 'frames' | 'outlets' | 'patching' | 'fillrate' | 'survey' | 'page'
+export type ToolType = 'racks' | 'frames' | 'outlets' | 'patching' | 'fillrate' | 'survey' | 'risers' | 'page'
 export type DrawingStatus = 'active' | 'archived'
 export type PackageStatus = 'draft' | 'published' | 'superseded'
 export type PackageType = 'concept' | 'schematic' | 'detailed' | 'rfp' | 'shop' | 'as-built' | 'custom'

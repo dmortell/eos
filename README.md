@@ -111,7 +111,9 @@ pnpm dlx sv@0.12.4 create --template minimal --types ts --add vitest="usages:uni
   --chrome                                          Enable Claude in Chrome integration
   --permission-mode <mode>                          Permission mode to use for the session (choices: "acceptEdits", "auto", "bypassPermissions", "default", "dontAsk", "plan")
   -w, --worktree [name]                             Create a new git worktree for this session (optionally specify a name)
-  
+
+  --chrome --dangerously-skip-permissions -w
+
 ## Sharing Site Survey Albums
 
 * Set up a private key in Firebase console:

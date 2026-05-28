@@ -19,6 +19,7 @@ const meta: Record<ToolType, ToolMeta> = {
   patching: { label: 'Patching',           scope: 'floor-room', presets: [{ name: 'Patch Schedule', layers: { default: true } }] },
   fillrate: { label: 'Fill Rates',         scope: 'project',    presets: [{ name: 'Fill Rate Diagram', layers: { default: true } }] },
   survey:   { label: 'Photo Surveys',      scope: 'project',    presets: [{ name: 'Survey Album', layers: { default: true } }] },
+  risers:   { label: 'Risers',             scope: 'project',    presets: [{ name: 'Riser Diagram', layers: { default: true } }] },
   page:     { label: 'Drawing Page',       scope: 'project',    presets: [{ name: 'Page', layers: { default: true } }] },
 }
 
@@ -48,6 +49,7 @@ export function buildSourceDocId(pid: string, toolType: ToolType, floor?: number
       return `${pid}_F${fl}`
     case 'fillrate':
     case 'survey':
+    case 'risers':
     case 'page':
       return pid
   }
@@ -81,7 +83,7 @@ export function drawingToolHref(pid: string, toolType: ToolType, sourceDocId: st
 
   const toolPath: Record<Exclude<ToolType, 'page'>, string> = {
     racks: 'racks', frames: 'frames', outlets: 'outlets',
-    patching: 'patching', fillrate: 'fillrate', survey: '',
+    patching: 'patching', fillrate: 'fillrate', survey: '', risers: 'risers',
   }
   const path = toolPath[toolType]
   if (!path) return base

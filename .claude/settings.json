@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git commit -m ' *)",
+      "Bash(mkdir src\\\\routes\\\\projects\\\\[pid]\\\\risers)"
+    ],
+    "additionalDirectories": [
+      "M:\\dev\\eos"
+    ]
+  }
+}
