@@ -321,33 +321,47 @@
 
 	function appendCableHop(pick: { roomId?: string; ladderId?: string }) {
 		if (mode !== 'addCable') return
-		// First click in addCable mode bootstraps the draft if needed.
 		if (!cableDraft) startNewCable()
 		const d = cableDraft!
 
 		if (pick.roomId) {
-			if (awaitingLadder) {
-				// We expected a ladder but got a room — silently accept by attaching
-				// the room to the last segment's hop and waiting for the next ladder.
-				// (Allows direct room→room when there's only one floor involved.)
+			const newRoom = rooms.find((r) => r.id === pick.roomId)
+			if (!newRoom) return
+
+			if (d.segments.length === 0) {
+				// First room of the cable.
+				d.segments = [{ roomId: pick.roomId, level: 'high' }]
+				awaitingLadder = true
+				cableDraft = { ...d }
 				return
 			}
-			if (d.segments.length > 0) {
-				// Set the next segment's room (this finishes the previous hop).
-				d.segments = [...d.segments, { roomId: pick.roomId, level: 'high' }]
-			} else {
-				// Very first room.
-				d.segments = [{ roomId: pick.roomId, level: 'high' }]
+
+			const lastSeg = d.segments[d.segments.length - 1]
+			const lastRoom = rooms.find((r) => r.id === lastSeg.roomId)
+
+			if (awaitingLadder) {
+				// We expected a ladder. Accept a room only if it's on the same floor
+				// as the previous one — a no-ladder same-floor hop.
+				if (lastRoom && lastRoom.floor === newRoom.floor) {
+					d.segments = [...d.segments, { roomId: pick.roomId, level: 'high' }]
+					awaitingLadder = true
+					cableDraft = { ...d }
+				}
+				// Different floor and no ladder picked yet → ignore, user needs to click a ladder.
+				return
 			}
+
+			// Previous hop is closed (has a ladder) — this room is the next destination.
+			d.segments = [...d.segments, { roomId: pick.roomId, level: 'high' }]
 			awaitingLadder = true
+			cableDraft = { ...d }
 		} else if (pick.ladderId) {
 			if (d.segments.length === 0 || !awaitingLadder) return
-			// Attach ladder to the most-recent segment.
 			const last = d.segments[d.segments.length - 1]
 			d.segments = [...d.segments.slice(0, -1), { ...last, ladderId: pick.ladderId }]
 			awaitingLadder = false
+			cableDraft = { ...d }
 		}
-		cableDraft = { ...d }
 	}
 
 	function commitCableDraft() {

@@ -193,8 +193,18 @@ export function validateRoute(
 			continue
 		}
 		if (i < segments.length - 1) {
+			const next = segments[i + 1]
+			const nextRoom = roomById.get(next.roomId)
+			if (!nextRoom) continue
 			if (!s.ladderId) {
-				issues.push({ segmentIndex: i, severity: 'error', message: 'Hop is missing a ladder.' })
+				// No ladder is fine if both rooms are on the same floor.
+				if (room.floor !== nextRoom.floor) {
+					issues.push({
+						segmentIndex: i,
+						severity: 'error',
+						message: `Hop spans floors ${room.floor} → ${nextRoom.floor} but no ladder is selected.`,
+					})
+				}
 				continue
 			}
 			const ladder = ladderById.get(s.ladderId)
@@ -202,9 +212,6 @@ export function validateRoute(
 				issues.push({ segmentIndex: i, severity: 'error', message: 'Ladder not found.' })
 				continue
 			}
-			const next = segments[i + 1]
-			const nextRoom = roomById.get(next.roomId)
-			if (!nextRoom) continue
 			const lo = Math.min(ladder.fromFloor, ladder.toFloor)
 			const hi = Math.max(ladder.fromFloor, ladder.toFloor)
 			if (room.floor < lo || room.floor > hi || nextRoom.floor < lo || nextRoom.floor > hi) {
@@ -243,7 +250,7 @@ export function validateRoute(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Perpendicular spacing (mm) between adjacent parallel cables. */
-export const LANE_SPACING_MM = 80
+export const LANE_SPACING_MM = 100
 
 /** One straight stretch of a cable path — used for lane assignment + rendering. */
 export interface CableRun {
@@ -288,7 +295,32 @@ export function buildCableRuns(
 		const ladder = seg.ladderId ? ladderById.get(seg.ladderId) : undefined
 		const nextRoom = roomById.get(next.roomId)
 		const level: CableLevel = seg.level ?? 'high'
-		if (!room || !ladder || !nextRoom) continue
+		if (!room || !nextRoom) continue
+
+		// Same-floor hop (no ladder) — one horizontal run between the rooms,
+		// plus the two room-vertical jogs.
+		if (!ladder && room.floor === nextRoom.floor) {
+			const lo = Math.min(room.xMm, nextRoom.xMm)
+			const hi = Math.max(room.xMm, nextRoom.xMm)
+			runs.push({
+				cableId: cable.id, hopIndex: i, type: 'h',
+				channelKey: `${room.floor}:${level}`,
+				lo, hi, floor: room.floor, level, lane: 0,
+			})
+			runs.push({
+				cableId: cable.id, hopIndex: i, type: 'rv',
+				channelKey: `rv:${room.id}:${level}`,
+				lo: 0, hi: 0, roomId: room.id, level, lane: 0,
+			})
+			runs.push({
+				cableId: cable.id, hopIndex: i, type: 'rv',
+				channelKey: `rv:${nextRoom.id}:${level}`,
+				lo: 0, hi: 0, roomId: nextRoom.id, level, lane: 0,
+			})
+			continue
+		}
+
+		if (!ladder) continue
 		const exitLo = Math.min(room.xMm, ladder.xMm)
 		const exitHi = Math.max(room.xMm, ladder.xMm)
 		runs.push({
@@ -310,9 +342,6 @@ export function buildCableRuns(
 			channelKey: `${nextRoom.floor}:${level}`,
 			lo: entryLo, hi: entryHi, floor: nextRoom.floor, level, lane: 0,
 		})
-		// Room-vertical runs (short jogs in/out of the room body). Each contends
-		// on a per-(roomId, level) channel so multiple cables touching the same
-		// room+level get spread along the room's X axis.
 		runs.push({
 			cableId: cable.id, hopIndex: i, type: 'rv',
 			channelKey: `rv:${room.id}:${level}`,
@@ -433,7 +462,7 @@ export function cablePolylinePoints(
 		const room = roomById.get(seg.roomId)
 		const ladder = seg.ladderId ? ladderById.get(seg.ladderId) : undefined
 		const nextRoom = roomById.get(next.roomId)
-		if (!room || !ladder || !nextRoom) return null
+		if (!room || !nextRoom) return null
 		const bandA = bandByFloor.get(room.floor)
 		const bandB = bandByFloor.get(nextRoom.floor)
 		if (!bandA || !bandB) return null
@@ -447,6 +476,30 @@ export function cablePolylinePoints(
 		const vRun = hopRuns.find((r) => r.type === 'v')
 		const entryRun = hopRuns.find((r) => r.type === 'h' && r.floor === nextRoom.floor)
 
+		const xExit = room.xMm + rvOffset(room.id, level)
+		const xEntry = nextRoom.xMm + rvOffset(nextRoom.id, level)
+
+		// Same-floor hop (no ladder): one horizontal run at lane Y between
+		// the two rooms.
+		if (!ladder && room.floor === nextRoom.floor) {
+			const yLane = baseYA + (exitRun?.lane ?? 0) * LANE_SPACING_MM
+			pts.push([xExit, yLane])         // up out of room A
+			pts.push([xEntry, yLane])        // horizontal to above/below room B
+			pts.push([xEntry, insideYB])     // down into room B
+			if (i < cable.segments.length - 2) {
+				const nextLevel: CableLevel = next.level ?? level
+				if (nextLevel !== level) {
+					const xNext = nextRoom.xMm + rvOffset(nextRoom.id, nextLevel)
+					const insideYNext = roomInsideY(bandB, nextLevel)
+					pts.push([xNext, insideYB])
+					pts.push([xNext, insideYNext])
+				}
+			}
+			continue
+		}
+
+		if (!ladder) return null
+
 		const exitLaneOffset = (exitRun?.lane ?? 0) * LANE_SPACING_MM
 		const entryLaneOffset = (entryRun?.lane ?? 0) * LANE_SPACING_MM
 		const ladderWidth = ladder.widthMm ?? 450
@@ -457,9 +510,6 @@ export function cablePolylinePoints(
 
 		const yExit = baseYA + exitLaneOffset
 		const yEntry = baseYB + entryLaneOffset
-
-		const xExit = room.xMm + rvOffset(room.id, level)
-		const xEntry = nextRoom.xMm + rvOffset(nextRoom.id, level)
 
 		// Short vertical out of room A: from inside-Y up/down through the ceiling/floor
 		// at the room-vertical's lane X.

@@ -14,11 +14,11 @@
 		onmousedown?: (e: MouseEvent) => void
 	} = $props()
 
-	// Vertical extent — occupy the clear space (between ceiling and raised floor),
-	// inset slightly so the box doesn't kiss the slab/ceiling lines.
+	// Vertical extent — full floor: from the bottom of the upper slab (top of
+	// this floor's plenum) down to the top of this floor's structural slab.
 	const inset = 50
-	const yTop = $derived(band.plenumBottomMm + inset)
-	const yBot = $derived(band.raisedFloorTopMm - inset)
+	const yTop = $derived(band.topMm + inset)
+	const yBot = $derived(band.slabTopMm - inset)
 	const height = $derived(Math.max(200, yBot - yTop))
 	const xLeft = $derived(room.xMm - room.widthMm / 2)
 
