@@ -9,6 +9,7 @@
 	import CablePath from './parts/CablePath.svelte'
 	import CableEditor from './parts/CableEditor.svelte'
 	import CableList from './parts/CableList.svelte'
+	import LabelNode from './parts/Label.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
 	import RiserToolbar from './parts/RiserToolbar.svelte'
 	import {
@@ -17,6 +18,7 @@
 		type RiserDocData,
 		type RiserMode,
 		type RiserRoom,
+		type TextLabel,
 		type Ladder as LadderType,
 		type ViewState,
 	} from './parts/types'
@@ -72,6 +74,7 @@
 	let rooms = $state(data?.rooms ?? [])
 	let ladders = $state(data?.ladders ?? [])
 	let cables = $state(data?.cables ?? [])
+	let labels = $state<TextLabel[]>(data?.labels ?? [])
 	let hiddenFloors = $state<number[]>(data?.hiddenFloors ?? [])
 	let initialised = $state(!!data)
 
@@ -104,6 +107,7 @@
 		rooms,
 		ladders,
 		cables,
+		labels,
 	} as RiserDocData)
 
 	const bands = $derived(buildFloorBands(doc, fromFloor, toFloor))
@@ -223,6 +227,7 @@
 					rooms,
 					ladders,
 					cables,
+					labels,
 					hiddenFloors,
 				},
 				changes,
@@ -239,6 +244,7 @@
 		void rooms
 		void ladders
 		void cables
+		void labels
 		void hiddenFloors
 		if (initialised) scheduleSave()
 	})
@@ -246,7 +252,7 @@
 	// ────────────────────────────────────────────────────────────────────
 	// Selection + interaction
 	// ────────────────────────────────────────────────────────────────────
-	let selection = $state<{ kind: 'room' | 'ladder' | 'cable'; id: string } | null>(null)
+	let selection = $state<{ kind: 'room' | 'ladder' | 'cable' | 'label'; id: string } | null>(null)
 	let svgEl: SVGSVGElement | null = $state(null)
 
 	// Drag state for moving rooms / ladders horizontally
@@ -256,6 +262,15 @@
 		| { kind: 'ladder'; id: string; startMmX: number; itemStartX: number; moved: boolean }
 		| { kind: 'ladderResize'; id: string; edge: 'high' | 'low'; moved: boolean }
 		| { kind: 'ladderDraft'; startMmX: number; startFloor: number; currentFloor: number; currentMmX: number }
+		| {
+				kind: 'label'
+				id: string
+				startMmX: number
+				startMmY: number
+				itemStartX: number
+				itemStartY: number
+				moved: boolean
+			}
 		| {
 				kind: 'wall'
 				side: 'left' | 'right'
@@ -275,7 +290,45 @@
 	function selectRoom(id: string) { selection = { kind: 'room', id } }
 	function selectLadder(id: string) { selection = { kind: 'ladder', id } }
 	function selectCable(id: string) { selection = { kind: 'cable', id } }
+	function selectLabel(id: string) { selection = { kind: 'label', id } }
 	function clearSelection() { selection = null }
+
+	function onLabelMouseDown(labelId: string, e: MouseEvent) {
+		if (e.button !== 0) return
+		e.stopPropagation()
+		selectLabel(labelId)
+		const lbl = labels.find((l) => l.id === labelId)
+		if (!lbl) return
+		const start = clientToMm(e)
+		drag = {
+			kind: 'label',
+			id: labelId,
+			startMmX: start.x,
+			startMmY: start.y,
+			itemStartX: lbl.xMm,
+			itemStartY: lbl.yMm,
+			moved: false,
+		}
+		document.addEventListener('mousemove', onDragMove)
+		document.addEventListener('mouseup', onDragEnd)
+	}
+
+	function updateLabel(id: string, patch: Partial<TextLabel>) {
+		const idx = labels.findIndex((l) => l.id === id)
+		if (idx < 0) return
+		const before = labels[idx]
+		labels[idx] = { ...before, ...patch }
+		for (const [k, v] of Object.entries(patch)) {
+			logChange({ action: 'update', field: `label.${k}`, from: (before as any)[k], to: v })
+		}
+	}
+
+	function deleteLabel(id: string) {
+		const l = labels.find((x) => x.id === id)
+		labels = labels.filter((x) => x.id !== id)
+		if (l) logChange({ action: 'delete', field: 'label', from: l.text.split('\n')[0]?.slice(0, 40) })
+		if (selection?.kind === 'label' && selection.id === id) selection = null
+	}
 
 	// ────────────────────────────────────────────────────────────────────
 	// Cable drawing flow (click rooms + ladders to build a route)
@@ -296,6 +349,11 @@
 		const s = selection
 		if (!s || s.kind !== 'cable') return null
 		return cables.find((c) => c.id === s.id) ?? null
+	})
+	const selectedLabel = $derived.by(() => {
+		const s = selection
+		if (!s || s.kind !== 'label') return null
+		return labels.find((l) => l.id === s.id) ?? null
 	})
 	const propsSelection = $derived.by((): { kind: 'room' | 'ladder'; id: string } | null => {
 		const s = selection
@@ -339,20 +397,21 @@
 			const lastSeg = d.segments[d.segments.length - 1]
 			const lastRoom = rooms.find((r) => r.id === lastSeg.roomId)
 
+			const prevLevel = lastSeg.level ?? 'high'
+
 			if (awaitingLadder) {
-				// We expected a ladder. Accept a room only if it's on the same floor
-				// as the previous one — a no-ladder same-floor hop.
 				if (lastRoom && lastRoom.floor === newRoom.floor) {
-					d.segments = [...d.segments, { roomId: pick.roomId, level: 'high' }]
+					d.segments = [...d.segments, { roomId: pick.roomId, level: 'high', entryLevel: prevLevel }]
 					awaitingLadder = true
 					cableDraft = { ...d }
 				}
-				// Different floor and no ladder picked yet → ignore, user needs to click a ladder.
 				return
 			}
 
 			// Previous hop is closed (has a ladder) — this room is the next destination.
-			d.segments = [...d.segments, { roomId: pick.roomId, level: 'high' }]
+			// Default entryLevel to the prev hop's exit level (cable rides the ladder
+			// at that level and arrives at the same level). User can change in editor.
+			d.segments = [...d.segments, { roomId: pick.roomId, level: 'high', entryLevel: prevLevel }]
 			awaitingLadder = true
 			cableDraft = { ...d }
 		} else if (pick.ladderId) {
@@ -496,6 +555,22 @@
 			return
 		}
 
+		if (mode === 'addLabel') {
+			const newLabel: TextLabel = {
+				id: nextId('label'),
+				xMm: Math.round(p.x),
+				yMm: Math.round(p.y),
+				text: 'Label',
+				fontSizeMm: 240,
+				color: '#1f2937',
+			}
+			labels = [...labels, newLabel]
+			selectLabel(newLabel.id)
+			logChange({ action: 'add', field: 'label', to: newLabel.text })
+			mode = 'select'
+			return
+		}
+
 		if (mode === 'addLadder') {
 			if (!band) return
 			drag = {
@@ -534,6 +609,13 @@
 				Math.max(50, Math.min(buildingWidthMm - 50, d.itemStartX + (p.x - d.startMmX))),
 			)
 			ladders[idx] = { ...ladders[idx], xMm: newX }
+			d.moved = true
+		} else if (d.kind === 'label') {
+			const idx = labels.findIndex((l) => l.id === d.id)
+			if (idx < 0) return
+			const newX = Math.round(d.itemStartX + (p.x - d.startMmX))
+			const newY = Math.round(d.itemStartY + (p.y - d.startMmY))
+			labels[idx] = { ...labels[idx], xMm: newX, yMm: newY }
 			d.moved = true
 		} else if (d.kind === 'ladderResize') {
 			const band = bandAtY(bands, p.y)
@@ -609,6 +691,9 @@
 		} else if (d.kind === 'ladder' && d.moved) {
 			const l = ladders.find((x) => x.id === d.id)
 			if (l) logChange({ action: 'update', field: 'ladder.xMm', to: l.xMm, details: l.label })
+		} else if (d.kind === 'label' && d.moved) {
+			const l = labels.find((x) => x.id === d.id)
+			if (l) logChange({ action: 'move', field: 'label', to: `${l.xMm},${l.yMm}` })
 		} else if (d.kind === 'wall' && d.moved) {
 			logChange({ action: 'update', field: `building.${d.side}-wall`, to: settings.widthMm, details: `width ${settings.widthMm}mm` })
 		} else if (d.kind === 'ladderResize' && d.moved) {
@@ -687,6 +772,10 @@
 		if (!selection) return
 		if (selection.kind === 'cable') {
 			deleteCable(selection.id)
+			return
+		}
+		if (selection.kind === 'label') {
+			deleteLabel(selection.id)
 			return
 		}
 		if (selection.kind === 'room') {
@@ -870,6 +959,15 @@
 						{/if}
 					{/each}
 
+					<!-- Labels (drawn on top so they sit above rooms/cables) -->
+					{#each labels as label (label.id)}
+						<LabelNode
+							{label}
+							selected={selection?.kind === 'label' && selection.id === label.id}
+							onmousedown={(e) => onLabelMouseDown(label.id, e)}
+						/>
+					{/each}
+
 					<!-- Ladder draft preview -->
 					{#if draftLadder}
 						<rect
@@ -893,6 +991,83 @@
 					onUpdate={(patch) => updateCable(selectedCable!.id, patch)}
 					onDelete={() => deleteCable(selectedCable!.id)}
 				/>
+			{:else if selectedLabel}
+				{@const l = selectedLabel}
+				<div class="label-editor">
+					<header>
+						<span class="kind">Label</span>
+						<button type="button" class="del" onclick={() => deleteLabel(l.id)} title="Delete">✕</button>
+					</header>
+					<label>
+						<span>Text (multi-line)</span>
+						<textarea
+							rows="5"
+							value={l.text}
+							oninput={(e) => updateLabel(l.id, { text: (e.target as HTMLTextAreaElement).value })}
+						></textarea>
+					</label>
+					<div class="row">
+						<label>
+							<span>Font (mm)</span>
+							<input
+								type="number"
+								min="40"
+								step="20"
+								value={l.fontSizeMm ?? 240}
+								oninput={(e) => updateLabel(l.id, { fontSizeMm: Number((e.target as HTMLInputElement).value) })}
+							/>
+						</label>
+						<label>
+							<span>Width (mm, 0=auto)</span>
+							<input
+								type="number"
+								min="0"
+								step="100"
+								value={l.widthMm ?? 0}
+								oninput={(e) => updateLabel(l.id, { widthMm: Number((e.target as HTMLInputElement).value) || undefined })}
+							/>
+						</label>
+					</div>
+					<div class="row">
+						<label>
+							<span>Color</span>
+							<input
+								type="color"
+								value={l.color ?? '#1f2937'}
+								oninput={(e) => updateLabel(l.id, { color: (e.target as HTMLInputElement).value })}
+							/>
+						</label>
+						<label>
+							<span>Background</span>
+							<input
+								type="text"
+								placeholder="transparent / #fff"
+								value={l.background ?? ''}
+								oninput={(e) => updateLabel(l.id, { background: (e.target as HTMLInputElement).value || undefined })}
+							/>
+						</label>
+					</div>
+					<div class="row">
+						<label>
+							<span>X (mm)</span>
+							<input
+								type="number"
+								step="100"
+								value={l.xMm}
+								oninput={(e) => updateLabel(l.id, { xMm: Number((e.target as HTMLInputElement).value) })}
+							/>
+						</label>
+						<label>
+							<span>Y (mm)</span>
+							<input
+								type="number"
+								step="100"
+								value={l.yMm}
+								oninput={(e) => updateLabel(l.id, { yMm: Number((e.target as HTMLInputElement).value) })}
+							/>
+						</label>
+					</div>
+				</div>
 			{:else}
 				<PropertiesPanel
 					selection={propsSelection}
@@ -922,7 +1097,10 @@
 		<span class="status-item">
 			Stack {(stackHeightMm / 1000).toFixed(1)} m
 		</span>
-		{#if mode === 'addCable'}
+		{#if mode === 'addLabel'}
+			<span class="status-sep">·</span>
+			<span class="status-item hint">Click on the drawing to drop a label</span>
+		{:else if mode === 'addCable'}
 			<span class="status-sep">·</span>
 			<span class="status-item hint">
 				{#if !cableDraft || cableDraft.segments.length === 0}
@@ -942,6 +1120,9 @@
 		{:else if selection?.kind === 'cable'}
 			<span class="status-sep">·</span>
 			<span class="status-item hint">Edit route in sidebar · Delete to remove</span>
+		{:else if selection?.kind === 'label'}
+			<span class="status-sep">·</span>
+			<span class="status-item hint">Drag to reposition · Edit text in sidebar · Delete to remove</span>
 		{/if}
 		<span class="status-grow"></span>
 		<span class="status-item zoom-indicator" title="Click to fit">
@@ -1034,6 +1215,76 @@
 		width: auto !important;
 		background: transparent !important;
 		overflow-y: visible !important;
+	}
+	.label-editor {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		font-size: 0.8rem;
+	}
+	.label-editor header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		font-weight: 700;
+		padding-bottom: 0.4rem;
+		border-bottom: 1px solid rgb(228, 228, 231);
+	}
+	:global(.dark) .label-editor header {
+		border-bottom-color: rgb(39, 39, 42);
+	}
+	.label-editor .kind {
+		font-size: 0.75rem;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: rgb(82, 82, 91);
+	}
+	.label-editor .del {
+		background: none;
+		border: 1px solid rgb(228, 228, 231);
+		border-radius: 0.25rem;
+		padding: 0.05rem 0.4rem;
+		cursor: pointer;
+		font-size: 0.8rem;
+		color: rgb(120, 30, 30);
+	}
+	.label-editor label {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+	}
+	.label-editor label > span {
+		font-size: 0.7rem;
+		color: rgb(82, 82, 91);
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+	}
+	.label-editor .row {
+		display: flex;
+		gap: 0.4rem;
+	}
+	.label-editor .row label {
+		flex: 1;
+		min-width: 0;
+	}
+	.label-editor input,
+	.label-editor textarea {
+		font: inherit;
+		padding: 0.2rem 0.4rem;
+		border: 1px solid rgb(212, 212, 216);
+		border-radius: 0.25rem;
+		background: white;
+		resize: vertical;
+	}
+	:global(.dark) .label-editor input,
+	:global(.dark) .label-editor textarea {
+		background: rgb(39, 39, 42);
+		border-color: rgb(63, 63, 70);
+		color: rgb(244, 244, 245);
+	}
+	.label-editor input[type='color'] {
+		padding: 0;
+		height: 1.8rem;
 	}
 	.sidebar > :global(.cable-list) {
 		padding: 0 0.75rem 0.75rem;

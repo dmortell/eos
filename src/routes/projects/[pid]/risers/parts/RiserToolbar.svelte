@@ -123,6 +123,8 @@
 			icon="rectVertical" onclick={() => setMode('addLadder')} title="Add Ladder">Ladder</Button>
 		<Button size="sm" variant={mode === 'addCable' ? 'primary' : 'ghost'}
 			icon="cable" onclick={() => setMode('addCable')} title="Add Cable">Cable</Button>
+		<Button size="sm" variant={mode === 'addLabel' ? 'primary' : 'ghost'}
+			icon="text" onclick={() => setMode('addLabel')} title="Add Label">Label</Button>
 	</div>
 
 	<div class="sep"></div>

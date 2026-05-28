@@ -81,6 +81,10 @@ export interface CableSegment {
 	roomId: string
 	/** Level the cable runs at *leaving* this room (ignored on final segment). */
 	level?: CableLevel
+	/** Level the cable was at *arriving* at this room (ignored on first segment).
+	 *  Defaults to the previous segment's `level` if undefined. Allows a hop to
+	 *  exit at one level and enter the next room at a different level. */
+	entryLevel?: CableLevel
 	/** Ladder used to travel to the next room (omit on final segment). */
 	ladderId?: string
 }
@@ -98,6 +102,27 @@ export interface Cable {
 	segments: CableSegment[]
 	color?: string
 	notes?: string
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Drawing labels (free-form multi-line text annotations placed on the canvas)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface TextLabel {
+	id: string
+	/** Top-left position of the label in mm. */
+	xMm: number
+	yMm: number
+	/** Text content. Newlines (`\n`) render as line breaks. */
+	text: string
+	/** Font size in mm. Defaults to 240. */
+	fontSizeMm?: number
+	/** Text colour (CSS). */
+	color?: string
+	/** Background fill (CSS) — useful for placing labels over cables/rooms. */
+	background?: string
+	/** Width box for text wrapping (mm). 0/undefined = auto. */
+	widthMm?: number
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -132,6 +157,7 @@ export interface RiserDocData {
 	rooms: RiserRoom[]
 	ladders: Ladder[]
 	cables: Cable[]
+	labels?: TextLabel[]
 	settings: RiserSettings
 }
 
@@ -153,6 +179,6 @@ export interface ViewState {
 // Editor modes
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type RiserMode = 'select' | 'addServer' | 'addEps' | 'addLadder' | 'addCable'
+export type RiserMode = 'select' | 'addServer' | 'addEps' | 'addLadder' | 'addCable' | 'addLabel'
 
-export const RISER_MODES: RiserMode[] = ['select', 'addServer', 'addEps', 'addLadder', 'addCable']
+export const RISER_MODES: RiserMode[] = ['select', 'addServer', 'addEps', 'addLadder', 'addCable', 'addLabel']

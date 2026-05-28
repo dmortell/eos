@@ -128,10 +128,22 @@
 						<button type="button" title="Remove hop" disabled={cable.segments.length <= 2} onclick={() => removeSegment(i)}>✕</button>
 					</div>
 				</div>
+				{#if i > 0}
+					<label class="inline">
+						<span>Enters at</span>
+						<select
+							value={seg.entryLevel ?? cable.segments[i - 1].level ?? 'high'}
+							onchange={(e) => updateSegment(i, { entryLevel: (e.target as HTMLSelectElement).value as CableLevel })}
+						>
+							<option value="high">High</option>
+							<option value="low">Low</option>
+						</select>
+					</label>
+				{/if}
 				{#if !isLast}
 					<div class="hop-sub">
 						<label class="inline">
-							<span>Level</span>
+							<span>Exits at</span>
 							<select
 								value={seg.level ?? 'high'}
 								onchange={(e) => updateSegment(i, { level: (e.target as HTMLSelectElement).value as CableLevel })}
