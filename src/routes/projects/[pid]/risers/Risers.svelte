@@ -617,7 +617,7 @@
 				fromFloor: lo,
 				toFloor: hi,
 				level: 'both',
-				widthMm: 150,
+				widthMm: 450,
 			}
 			ladders = [...ladders, newLadder]
 			selectLadder(newLadder.id)
@@ -728,9 +728,9 @@
 		const bot = bands.find((b) => b.floor === lo)
 		if (!top || !bot) return null
 		return {
-			x: drag.startMmX - 75,
+			x: drag.startMmX - 225,
 			y: top.topMm,
-			width: 150,
+			width: 450,
 			height: bot.slabBottomMm - top.topMm,
 		}
 	})

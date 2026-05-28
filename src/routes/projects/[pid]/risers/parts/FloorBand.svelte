@@ -106,7 +106,7 @@
 	}
 	.floor-label {
 		font-family: ui-sans-serif, system-ui, sans-serif;
-		font-size: 220px;
+		font-size: 280px;
 		font-weight: 600;
 		fill: rgb(63, 63, 70);
 	}

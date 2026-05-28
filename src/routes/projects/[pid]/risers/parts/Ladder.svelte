@@ -32,7 +32,7 @@
 
 	const yTop = $derived(topBand?.topMm ?? 0)
 	const yBot = $derived(bottomBand?.slabBottomMm ?? 0)
-	const width = $derived(ladder.widthMm ?? 150)
+	const width = $derived(ladder.widthMm ?? 450)
 	const xLeft = $derived(ladder.xMm - width / 2)
 	const height = $derived(Math.max(100, yBot - yTop))
 

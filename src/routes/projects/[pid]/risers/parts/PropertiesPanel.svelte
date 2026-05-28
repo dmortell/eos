@@ -135,7 +135,7 @@
 			<span>Width (mm)</span>
 			<input
 				type="number"
-				value={l.widthMm ?? 150}
+				value={l.widthMm ?? 450}
 				min="50"
 				step="10"
 				oninput={(e) => onUpdateLadder(l.id, { widthMm: Number((e.target as HTMLInputElement).value) })}

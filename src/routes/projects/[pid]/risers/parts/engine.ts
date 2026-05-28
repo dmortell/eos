@@ -243,25 +243,27 @@ export function validateRoute(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Perpendicular spacing (mm) between adjacent parallel cables. */
-export const LANE_SPACING_MM = 40
+export const LANE_SPACING_MM = 80
 
 /** One straight stretch of a cable path — used for lane assignment + rendering. */
 export interface CableRun {
 	cableId: string
 	hopIndex: number
-	/** 'h' = floor-horizontal at a level; 'v' = vertical inside a ladder. */
-	type: 'h' | 'v'
-	/** Shared resource the run uses (`${floor}:${level}` for h, `lad:${ladderId}` for v). */
+	/** 'h' = floor-horizontal at a level; 'v' = vertical inside a ladder; 'rv' = short vertical at a room entry/exit. */
+	type: 'h' | 'v' | 'rv'
+	/** Shared resource the run uses (`${floor}:${level}` for h, `lad:${ladderId}` for v, `rv:${roomId}:${level}` for rv). */
 	channelKey: string
-	/** Interval the run occupies on its channel (mm for horizontal, floor # for vertical). */
+	/** Interval the run occupies on its channel (mm for horizontal, floor # for vertical, unused for rv). */
 	lo: number
 	hi: number
 	/** Floor (for horizontal runs only). */
 	floor?: number
-	/** Level the run sits at (horizontal only). */
+	/** Level the run sits at (horizontal + rv). */
 	level?: CableLevel
 	/** Ladder id (vertical only). */
 	ladderId?: string
+	/** Room id (rv only). */
+	roomId?: string
 	/** Assigned lane index — set after interval scheduling. */
 	lane: number
 }
@@ -308,6 +310,19 @@ export function buildCableRuns(
 			channelKey: `${nextRoom.floor}:${level}`,
 			lo: entryLo, hi: entryHi, floor: nextRoom.floor, level, lane: 0,
 		})
+		// Room-vertical runs (short jogs in/out of the room body). Each contends
+		// on a per-(roomId, level) channel so multiple cables touching the same
+		// room+level get spread along the room's X axis.
+		runs.push({
+			cableId: cable.id, hopIndex: i, type: 'rv',
+			channelKey: `rv:${room.id}:${level}`,
+			lo: 0, hi: 0, roomId: room.id, level, lane: 0,
+		})
+		runs.push({
+			cableId: cable.id, hopIndex: i, type: 'rv',
+			channelKey: `rv:${nextRoom.id}:${level}`,
+			lo: 0, hi: 0, roomId: nextRoom.id, level, lane: 0,
+		})
 	}
 	return runs
 }
@@ -322,35 +337,68 @@ export function computeCableLanes(
 ): Map<string, CableRun[]> {
 	const out = new Map<string, CableRun[]>()
 	const sorted = [...cables].sort((a, b) => a.id.localeCompare(b.id))
-	/** channelKey → array of lanes (each lane = list of placed intervals [lo,hi]). */
+	/** Interval channels (h, v) — channelKey → array of lanes (each lane = list of placed intervals [lo,hi]). */
 	const channels = new Map<string, Array<Array<[number, number]>>>()
+	/** Degenerate point-channels (rv) — channelKey → Map<cableId, laneIndex>. */
+	const pointChannels = new Map<string, Map<string, number>>()
 
 	for (const cable of sorted) {
 		const runs = buildCableRuns(cable, ctx)
 		for (const r of runs) {
-			const lanes = channels.get(r.channelKey) ?? []
-			let assigned = -1
-			for (let li = 0; li < lanes.length; li++) {
-				const overlaps = lanes[li].some(([lo, hi]) => !(r.hi <= lo || r.lo >= hi))
-				if (!overlaps) { assigned = li; break }
+			if (r.type === 'rv') {
+				let m = pointChannels.get(r.channelKey)
+				if (!m) { m = new Map(); pointChannels.set(r.channelKey, m) }
+				let lane = m.get(cable.id)
+				if (lane == null) { lane = m.size; m.set(cable.id, lane) }
+				r.lane = lane
+			} else {
+				const lanes = channels.get(r.channelKey) ?? []
+				let assigned = -1
+				for (let li = 0; li < lanes.length; li++) {
+					const overlaps = lanes[li].some(([lo, hi]) => !(r.hi <= lo || r.lo >= hi))
+					if (!overlaps) { assigned = li; break }
+				}
+				if (assigned === -1) {
+					assigned = lanes.length
+					lanes.push([])
+				}
+				lanes[assigned].push([r.lo, r.hi])
+				channels.set(r.channelKey, lanes)
+				r.lane = assigned
 			}
-			if (assigned === -1) {
-				assigned = lanes.length
-				lanes.push([])
-			}
-			lanes[assigned].push([r.lo, r.hi])
-			channels.set(r.channelKey, lanes)
-			r.lane = assigned
 		}
 		out.set(cable.id, runs)
 	}
 	return out
 }
 
+/** How far inside a room (mm past the ceiling or floor) the cable terminates. */
+export const ROOM_ENTRY_DEPTH_MM = 300
+
+/** Y inside the room body at which the cable runs after a level entry. */
+export function roomInsideY(band: FloorYBand, level: CableLevel): number {
+	if (level === 'high') {
+		// Just below the ceiling — cable drops down from the plenum into the room.
+		return band.plenumBottomMm + ROOM_ENTRY_DEPTH_MM
+	}
+	// Just above the raised-floor surface (or slab top, if no raised floor) — cable
+	// rises up from the floor void into the room.
+	const surface = band.heights.raisedFloorMm > 0 ? band.raisedFloorTopMm : band.slabTopMm
+	return surface - ROOM_ENTRY_DEPTH_MM
+}
+
 /**
  * Build the SVG polyline points (mm) for a cable, given its lane-assigned runs.
  * Returns null if any referenced room/ladder/band is missing — caller can skip
  * rendering rather than emit a broken path.
+ *
+ * Path shape per hop:
+ *   inside-room → room edge (still inside) → short vertical out into plenum/void
+ *   → horizontal in void at lane Y → ladder → through ladder
+ *   → horizontal in void at lane Y → next room edge → short vertical entry into room
+ *   → inside next room
+ * Between hops, if the level changes, a vertical transition is drawn inside the
+ * transit room from the arrival inside-Y to the departure inside-Y.
  */
 export function cablePolylinePoints(
 	cable: Cable,
@@ -362,22 +410,21 @@ export function cablePolylinePoints(
 	const bandByFloor = new Map(ctx.bands.map((b) => [b.floor, b]))
 	const pts: Array<[number, number]> = []
 
-	const yForRoom = (roomId: string, level: CableLevel): number | null => {
-		const room = roomById.get(roomId)
-		if (!room) return null
-		const band = bandByFloor.get(room.floor)
-		if (!band) return null
-		return levelYMm(band, level)
+	if (cable.segments.length < 2) return null
+
+	/** Lane X-offset for room-vertical runs (degenerate channel, simple stacking). */
+	function rvOffset(roomId: string, level: CableLevel): number {
+		const r = runs.find((rr) => rr.type === 'rv' && rr.roomId === roomId && rr.level === level)
+		return (r?.lane ?? 0) * LANE_SPACING_MM
 	}
 
-	if (cable.segments.length < 2) return null
 	const first = cable.segments[0]
 	const firstRoom = roomById.get(first.roomId)
 	if (!firstRoom) return null
+	const firstBand = bandByFloor.get(firstRoom.floor)
+	if (!firstBand) return null
 	const firstLevel: CableLevel = first.level ?? 'high'
-	const firstY = yForRoom(firstRoom.id, firstLevel)
-	if (firstY == null) return null
-	pts.push([firstRoom.xMm, firstY])
+	pts.push([firstRoom.xMm + rvOffset(firstRoom.id, firstLevel), roomInsideY(firstBand, firstLevel)])
 
 	for (let i = 0; i < cable.segments.length - 1; i++) {
 		const seg = cable.segments[i]
@@ -387,11 +434,14 @@ export function cablePolylinePoints(
 		const ladder = seg.ladderId ? ladderById.get(seg.ladderId) : undefined
 		const nextRoom = roomById.get(next.roomId)
 		if (!room || !ladder || !nextRoom) return null
-		const yLeave = yForRoom(room.id, level)
-		const yArrive = yForRoom(nextRoom.id, level)
-		if (yLeave == null || yArrive == null) return null
+		const bandA = bandByFloor.get(room.floor)
+		const bandB = bandByFloor.get(nextRoom.floor)
+		if (!bandA || !bandB) return null
 
-		// Find the runs for this hop.
+		const insideYB = roomInsideY(bandB, level)
+		const baseYA = levelYMm(bandA, level)
+		const baseYB = levelYMm(bandB, level)
+
 		const hopRuns = runs.filter((r) => r.hopIndex === i)
 		const exitRun = hopRuns.find((r) => r.type === 'h' && r.floor === room.floor)
 		const vRun = hopRuns.find((r) => r.type === 'v')
@@ -399,34 +449,43 @@ export function cablePolylinePoints(
 
 		const exitLaneOffset = (exitRun?.lane ?? 0) * LANE_SPACING_MM
 		const entryLaneOffset = (entryRun?.lane ?? 0) * LANE_SPACING_MM
-		const ladderWidth = ladder.widthMm ?? 150
-		// Vertical lane offset is centred so lanes pack inside the ladder's width.
+		const ladderWidth = ladder.widthMm ?? 450
 		const vLaneOffset = ((vRun?.lane ?? 0) - 0) * LANE_SPACING_MM
 		const ladderInnerXMax = ladderWidth / 2 - LANE_SPACING_MM
 		const clampedVOffset = Math.max(-ladderInnerXMax, Math.min(ladderInnerXMax, vLaneOffset))
 		const ladderX = ladder.xMm + clampedVOffset
 
-		// 1) From current point (which was the last room/transition point) to
-		//    the exit-side x of the ladder at the leave level + exit lane.
-		const yExit = yLeave + exitLaneOffset
-		const yEntry = yArrive + entryLaneOffset
+		const yExit = baseYA + exitLaneOffset
+		const yEntry = baseYB + entryLaneOffset
 
-		// Adjust last point Y to the exit lane (so the horizontal run sits at the assigned lane)
-		const lastPt = pts[pts.length - 1]
-		// Insert a small jog inside the room: down/up to exit lane Y at the room's edge.
-		const roomEdgeX = room.xMm + (ladder.xMm > room.xMm ? room.widthMm / 2 : -room.widthMm / 2)
-		pts.push([roomEdgeX, lastPt[1]])
-		pts.push([roomEdgeX, yExit])
-		// Horizontal exit run to ladder.
+		const xExit = room.xMm + rvOffset(room.id, level)
+		const xEntry = nextRoom.xMm + rvOffset(nextRoom.id, level)
+
+		// Short vertical out of room A: from inside-Y up/down through the ceiling/floor
+		// at the room-vertical's lane X.
+		pts.push([xExit, yExit])
+		// Horizontal at lane Y over to the ladder.
 		pts.push([ladderX, yExit])
-		// Vertical descent/ascent through the ladder.
+		// Vertical through the ladder to the next floor's lane Y.
 		pts.push([ladderX, yEntry])
-		// Horizontal entry run to next room.
-		const nextRoomEdgeX = nextRoom.xMm + (ladder.xMm > nextRoom.xMm ? nextRoom.widthMm / 2 : -nextRoom.widthMm / 2)
-		pts.push([nextRoomEdgeX, yEntry])
-		// Bring back to room centre at the arrival Y (preparing for next hop or terminus).
-		pts.push([nextRoomEdgeX, yArrive])
-		pts.push([nextRoom.xMm, yArrive])
+		// Horizontal at lane Y to a point directly above/below the next room's lane X.
+		pts.push([xEntry, yEntry])
+		// Short vertical entry straight down/up into the next room.
+		pts.push([xEntry, insideYB])
+
+		// If room B is a transit and the next hop uses a different level, jog
+		// inside the room from the current lane X / arrival inside-Y to the next
+		// hop's lane X / departure inside-Y.
+		if (i < cable.segments.length - 2) {
+			const nextLevel: CableLevel = next.level ?? level
+			if (nextLevel !== level) {
+				const xNext = nextRoom.xMm + rvOffset(nextRoom.id, nextLevel)
+				const insideYNext = roomInsideY(bandB, nextLevel)
+				// Step horizontally first inside the room, then vertically to the new inside-Y.
+				pts.push([xNext, insideYB])
+				pts.push([xNext, insideYNext])
+			}
+		}
 	}
 
 	return pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ')
