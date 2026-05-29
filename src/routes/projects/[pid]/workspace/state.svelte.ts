@@ -40,6 +40,28 @@ export interface ViewOption {
 	label: string
 }
 
+/** Label-rendering preferences. Settings are workspace-level and persisted to
+ *  localStorage. They drive how port labels render across Frames / Patching /
+ *  Outlets views in the workspace canvas. */
+export interface LabelRendering {
+	/** Level-of-detail: shrink / abbreviate labels at low zoom. */
+	lod: boolean
+	/** Hover shows the full label even when shrunk. */
+	tooltip: boolean
+	/** Magnifying-glass lens follows the cursor and enlarges nearby labels. */
+	hoverMagnifier: boolean
+	/** Right-panel inspector always shows the full canonical label of the
+	 *  currently-selected port / device, regardless of canvas LOD. */
+	inspectorAlways: boolean
+}
+
+export const DEFAULT_LABEL_RENDERING: LabelRendering = {
+	lod: true,
+	tooltip: true,
+	hoverMagnifier: false,
+	inspectorAlways: true,
+}
+
 /** A workspace tab is a saved snapshot of selection + view + viewport.
  *  Closing the panel selections (device / connection) is intentionally NOT
  *  persisted per-tab — those are transient picks within whichever tab is
@@ -83,6 +105,9 @@ export class WorkspaceState {
 	 *  viewport. Each tab is an independent context the user can flip between. */
 	tabs = $state<WorkspaceTab[]>([])
 	activeTabId = $state<string | null>(null)
+
+	/** Label-rendering preferences (per-browser, localStorage). */
+	labelRendering = $state<LabelRendering>({ ...DEFAULT_LABEL_RENDERING })
 
 	constructor(pid: string) {
 		this.pid = pid

@@ -4,6 +4,7 @@
 	import TreeNavigator from './parts/TreeNavigator.svelte'
 	import TabStrip from './parts/TabStrip.svelte'
 	import ViewStrip from './parts/ViewStrip.svelte'
+	import DisplaySettings from './parts/DisplaySettings.svelte'
 	import CanvasArea from './parts/CanvasArea.svelte'
 	import RightPanel from './parts/RightPanel.svelte'
 	import BottomPanel from './parts/BottomPanel.svelte'
@@ -63,6 +64,7 @@
 				<span class="ml-auto font-mono">
 					{ws.viewport.x.toFixed(0)}, {ws.viewport.y.toFixed(0)} · {ws.viewport.zoom.toFixed(2)}x
 				</span>
+				<DisplaySettings />
 			</div>
 		</main>
 

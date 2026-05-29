@@ -6,7 +6,14 @@
 	import { migrateFloors } from '$lib/utils/floor'
 	import type { FloorConfig } from '$lib/types/project'
 	import Workspace from './Workspace.svelte'
-	import { WorkspaceState, setWorkspace, type NodeKind, type WorkspaceTab } from './state.svelte'
+	import {
+		WorkspaceState,
+		setWorkspace,
+		type NodeKind,
+		type WorkspaceTab,
+		type LabelRendering,
+		DEFAULT_LABEL_RENDERING,
+	} from './state.svelte'
 
 	const db = new Firestore()
 	const ws = new WorkspaceState(page.params.pid ?? '')
@@ -20,8 +27,9 @@
 		ws.pid = page.params.pid ?? ''
 	})
 
-	// ── Tabs: load from localStorage on mount, save on change ──
+	// ── Tabs + display settings: load from localStorage on mount, save on change ──
 	const tabsStorageKey = $derived(`eos-ws-tabs-${ws.pid}`)
+	const displayStorageKey = 'eos-ws-display'
 
 	onMount(() => {
 		if (typeof window === 'undefined') return
@@ -42,6 +50,15 @@
 			// corrupted storage — ignore
 		}
 		ws.ensureInitialTab()
+		try {
+			const raw = window.localStorage.getItem(displayStorageKey)
+			if (raw) {
+				const parsed = JSON.parse(raw) as Partial<LabelRendering>
+				ws.labelRendering = { ...DEFAULT_LABEL_RENDERING, ...parsed }
+			}
+		} catch {
+			// corrupted storage — ignore
+		}
 	})
 
 	$effect(() => {
@@ -58,6 +75,16 @@
 		const key = tabsStorageKey
 		try {
 			window.localStorage.setItem(key, JSON.stringify({ tabs, activeTabId }))
+		} catch {
+			// quota / disabled — ignore
+		}
+	})
+
+	$effect(() => {
+		if (typeof window === 'undefined') return
+		const value = ws.labelRendering
+		try {
+			window.localStorage.setItem(displayStorageKey, JSON.stringify(value))
 		} catch {
 			// quota / disabled — ignore
 		}
