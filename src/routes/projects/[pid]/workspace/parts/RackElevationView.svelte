@@ -19,6 +19,7 @@
 
 	/** Workspace selection drives which racks doc we subscribe to. */
 	const docId = $derived.by(() => {
+		if (!ws) return null
 		const m = ws.selectedNodeMeta
 		if (!m?.floor || !m?.room) return null
 		const fl = String(m.floor).padStart(2, '0')

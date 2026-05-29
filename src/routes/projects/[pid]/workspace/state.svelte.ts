@@ -113,7 +113,11 @@ export function defaultViewFor(kind: NodeKind | null): string | null {
 	return v[0]?.id ?? null
 }
 
-const WORKSPACE_CTX = Symbol('workspace')
+// `Symbol.for` uses the cross-realm Symbol registry so HMR re-evaluating this
+// module (or a stale parent holding an old symbol) doesn't break the context
+// lookup chain. Plain `Symbol('workspace')` mints a new identity per module
+// instance, which is fragile under Vite HMR.
+const WORKSPACE_CTX = Symbol.for('eos-workspace-ctx')
 export function setWorkspace(state: WorkspaceState): void {
 	setContext(WORKSPACE_CTX, state)
 }

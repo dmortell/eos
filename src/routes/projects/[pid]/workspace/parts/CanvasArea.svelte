@@ -6,13 +6,19 @@
 	/** Views that render a rack elevation (the `RackElevation` component). Rack
 	 *  kind defaults to 'elevation'; row kind uses 'row-elevation' from viewsFor. */
 	const isRackElevationView = $derived(
-		(ws.selectedNodeKind === 'rack' && ws.activeView === 'elevation') ||
+		!!ws && (
+			(ws.selectedNodeKind === 'rack' && ws.activeView === 'elevation') ||
 			(ws.selectedNodeKind === 'row' && ws.activeView === 'row-elevation') ||
-			(ws.selectedNodeKind === 'serverRoom' && ws.activeView === 'room-elevation'),
+			(ws.selectedNodeKind === 'serverRoom' && ws.activeView === 'room-elevation')
+		),
 	)
 </script>
 
-{#if isRackElevationView}
+{#if !ws}
+	<div class="absolute inset-0 grid place-items-center text-xs text-zinc-400">
+		Workspace context not initialised.
+	</div>
+{:else if isRackElevationView}
 	<RackElevationView />
 {:else if !ws.selectedNodeId}
 	<div class="absolute inset-0 grid place-items-center text-zinc-400 dark:text-zinc-600 text-sm">
