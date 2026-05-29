@@ -51,6 +51,7 @@ export class WorkspaceState {
 	leftPanelWidth = $state(280)
 	rightPanelOpen = $state(true)
 	rightPanelWidth = $state(320)
+	rightPanelTab = $state<'properties' | 'library'>('properties')
 	bottomPanelOpen = $state(false)
 	bottomPanelHeight = $state(220)
 
