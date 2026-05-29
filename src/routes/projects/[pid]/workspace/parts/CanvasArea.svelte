@@ -3,6 +3,7 @@
 	import RackElevationView from './RackElevationView.svelte'
 	import RisersView from './RisersView.svelte'
 	import FramesView from './FramesView.svelte'
+	import PatchingView from './PatchingView.svelte'
 	const ws = getWorkspace()
 
 	/** Views that render a rack elevation (the `RackElevation` component). Rack
@@ -21,6 +22,12 @@
 		),
 	)
 
+	const isPatchingView = $derived(
+		!!ws && ws.activeView === 'patching' && (
+			ws.selectedNodeKind === 'rack' || ws.selectedNodeKind === 'panel'
+		),
+	)
+
 	const isRisersView = $derived(
 		!!ws && ws.selectedNodeKind === 'risers' && ws.activeView === 'risers',
 	)
@@ -34,6 +41,8 @@
 	<RackElevationView />
 {:else if isFramesView}
 	<FramesView />
+{:else if isPatchingView}
+	<PatchingView />
 {:else if isRisersView}
 	<RisersView />
 {:else if !ws.selectedNodeId}

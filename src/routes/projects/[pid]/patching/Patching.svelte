@@ -20,6 +20,7 @@
 		data = null, rackData = null, frameData = null,
 		floor, room, floors = [], projectId = '', projectName = '', floorFormat = 'L01',
 		onsave, onfloorchange, onroomchange, onupdatefloors, ondeletefloor,
+		bare = false,
 	}: {
 		data?: any
 		rackData?: any
@@ -35,6 +36,8 @@
 		onroomchange?: (room: string) => void
 		onupdatefloors?: (floors: FloorConfig[]) => void
 		ondeletefloor?: (floor: number) => void
+		/** Embed mode (workspace): skip standalone Titlebar, size to container. */
+		bare?: boolean
 	} = $props()
 
 	// ── State ──
@@ -427,8 +430,10 @@
 
 <svelte:window />
 
-<main class="h-dvh w-full overflow-hidden flex flex-col">
-	<Titlebar menu={true} title={projectName ? `${projectName} — Patching` : 'Patching'}></Titlebar>
+<main class="w-full overflow-hidden flex flex-col" class:h-dvh={!bare} class:h-full={bare}>
+	{#if !bare}
+		<Titlebar menu={true} title={projectName ? `${projectName} — Patching` : 'Patching'}></Titlebar>
+	{/if}
 
 	<PaneGroup direction="horizontal" class="flex-1 min-h-0">
 		<!-- Sidebar: device tree -->
