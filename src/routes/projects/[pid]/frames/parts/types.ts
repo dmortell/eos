@@ -82,13 +82,35 @@ export interface FrameConfig {
 // ── Generated output ──
 
 export interface PortLabel {
-	label: string // FF.Z.NNN-SPP or FF.Z.NNN-SPP-H
+	label: string // FF.Z.NNN-SPP or FF.Z.NNN-SPP-H (format may vary per LabelFormat settings)
 	zone: string // zone letter
 	serverRoom: string
 	locationNumber: number
 	portNumber: number
 	locationType: LocType
 	isHighLevel: boolean
+}
+
+// ── Label format settings (per-project, varies by client) ──
+
+/** Separator preset for port labels.
+ *  - `legacy`: matches the historical hybrid format `L01.A.001-A01[-H]` (periods between
+ *    floor/zone/location, hyphen before server room, hyphen before high-level suffix).
+ *  - `period`: all components separated by `.` → `L01.A.001.A01[.H]`
+ *  - `hyphen`: all components separated by `-` → `L01-A-001-A01[-H]` */
+export type LabelSeparator = 'legacy' | 'period' | 'hyphen'
+
+export interface LabelFormat {
+	separator: LabelSeparator
+	includeZone: boolean
+	/** Include the location's `roomNumber` (if set) as a component between zone and location. */
+	includeRoom: boolean
+}
+
+export const DEFAULT_LABEL_FORMAT: LabelFormat = {
+	separator: 'legacy',
+	includeZone: true,
+	includeRoom: false,
 }
 
 export interface PanelData {

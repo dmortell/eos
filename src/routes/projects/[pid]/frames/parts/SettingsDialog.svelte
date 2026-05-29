@@ -1,15 +1,16 @@
 <script lang="ts">
 	import { Button } from '$lib'
-	import { DEFAULT_LOC_TYPES } from './types'
+	import { DEFAULT_LOC_TYPES, DEFAULT_LABEL_FORMAT, type LabelFormat, type LabelSeparator } from './types'
 
-	let { open = false, customTypes, rooms, excelGroupByRoom = false, floorFormat = 'L01', onclose, onupdate }: {
+	let { open = false, customTypes, rooms, excelGroupByRoom = false, floorFormat = 'L01', labelFormat = DEFAULT_LABEL_FORMAT, onclose, onupdate }: {
 		open: boolean
 		customTypes: string[]
 		rooms: { roomNumber: string; roomName: string }[]
 		excelGroupByRoom?: boolean
 		floorFormat?: string
+		labelFormat?: LabelFormat
 		onclose: () => void
-		onupdate: (data: { customTypes: string[]; rooms: { roomNumber: string; roomName: string }[]; excelGroupByRoom: boolean; floorFormat: string }) => void
+		onupdate: (data: { customTypes: string[]; rooms: { roomNumber: string; roomName: string }[]; excelGroupByRoom: boolean; floorFormat: string; labelFormat: LabelFormat }) => void
 	} = $props()
 
 	let newType = $state('')
@@ -17,8 +18,34 @@
 	let newRoomName = $state('')
 
 	function emit() {
-		onupdate({ customTypes, rooms, excelGroupByRoom, floorFormat })
+		onupdate({ customTypes, rooms, excelGroupByRoom, floorFormat, labelFormat })
 	}
+
+	function setSeparator(sep: LabelSeparator) {
+		labelFormat = { ...labelFormat, separator: sep }
+		emit()
+	}
+	function toggleIncludeZone() {
+		labelFormat = { ...labelFormat, includeZone: !labelFormat.includeZone }
+		emit()
+	}
+	function toggleIncludeRoom() {
+		labelFormat = { ...labelFormat, includeRoom: !labelFormat.includeRoom }
+		emit()
+	}
+
+	/** Example preview of the current label format. Uses synthetic values: floor 1, zone A,
+	 *  optional room 33, location 001, server room A, port 01. */
+	const previewLabel = $derived.by(() => {
+		const fl = floorFormat === '01F' ? '01F' : floorFormat === '01' ? '01' : 'L01'
+		const parts: string[] = [fl]
+		if (labelFormat.includeZone) parts.push('A')
+		if (labelFormat.includeRoom) parts.push('33')
+		parts.push('001')
+		if (labelFormat.separator === 'legacy') return `${parts.join('.')}-A01`
+		const sep = labelFormat.separator === 'period' ? '.' : '-'
+		return `${parts.join(sep)}${sep}A01`
+	})
 
 	function addType() {
 		const t = newType.trim().toUpperCase()
@@ -141,6 +168,39 @@
 						{/each}
 					</div>
 					<p class="text-[10px] text-gray-400">Preview: {floorFormat === '01F' ? '01F, 02F, 03F' : floorFormat === '01' ? '01, 02, 03' : 'L01, L02, L03'}</p>
+				</div>
+
+				<!-- Port label format -->
+				<div class="space-y-2">
+					<h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Port Label Format</h3>
+					<p class="text-[10px] text-gray-400">Shapes the canonical label printed on patch panels and shown in Frames, Patching, and exports.</p>
+
+					<div>
+						<div class="text-[10px] text-gray-500 mb-1">Separator</div>
+						<div class="flex gap-1">
+							{#each [{ value: 'legacy' as LabelSeparator, label: 'Default', example: 'L01.A.001-A01' }, { value: 'period' as LabelSeparator, label: 'All periods', example: 'L01.A.001.A01' }, { value: 'hyphen' as LabelSeparator, label: 'All hyphens', example: 'L01-A-001-A01' }] as opt}
+								<button
+									class="flex-1 h-8 rounded border text-xs transition-colors
+										{labelFormat.separator === opt.value ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}"
+									onclick={() => setSeparator(opt.value)}
+									title={opt.example}
+								>{opt.label}</button>
+							{/each}
+						</div>
+					</div>
+
+					<div class="space-y-1.5">
+						<label class="flex items-center gap-2 cursor-pointer">
+							<input type="checkbox" checked={labelFormat.includeZone} onchange={toggleIncludeZone} class="w-4 h-4 rounded" />
+							<span class="text-xs text-gray-600">Include zone in label</span>
+						</label>
+						<label class="flex items-center gap-2 cursor-pointer">
+							<input type="checkbox" checked={labelFormat.includeRoom} onchange={toggleIncludeRoom} class="w-4 h-4 rounded" />
+							<span class="text-xs text-gray-600">Include room number in label (when a location has one)</span>
+						</label>
+					</div>
+
+					<p class="text-[10px] text-gray-400">Preview: <span class="font-mono text-gray-600">{previewLabel}</span></p>
 				</div>
 
 				<!-- Excel Export - one patch frame, one row or one room per excel tab -->
