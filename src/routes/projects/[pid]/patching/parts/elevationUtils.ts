@@ -200,12 +200,23 @@ export function buildPortInfoMap(
 		? new Map(Object.entries(frameData.portReservations))
 		: undefined
 
+	// Project-level label format (separator preset, zone/room inclusion). Falls back
+	// to legacy hybrid format if not set on the frames doc.
+	const labelFormat = frameData.labelFormat
+		? {
+			separator: frameData.labelFormat.separator ?? 'legacy',
+			includeZone: frameData.labelFormat.includeZone ?? true,
+			includeRoom: frameData.labelFormat.includeRoom ?? false,
+		}
+		: undefined
+
 	// Generate all port labels for all zones on this floor
 	const allLabels: PortLabel[] = []
 	for (const z of zoneLetters) {
 		allLabels.push(...generatePortLabels(
 			{ floor, zone: z, serverRoomCount, locations: zoneLocations[z] },
 			floorFormat,
+			labelFormat as any,
 		))
 	}
 	if (allLabels.length === 0) return map
