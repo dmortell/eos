@@ -34,12 +34,18 @@
 		return PORT_TYPE_COLORS[portInfo.locationType] ?? null
 	})
 
+	/** Port has no Frames label — gate patching on it until the panel is
+	 *  assigned to a frame in the Frames tool. */
+	let unlabeled = $derived(!portInfo?.label)
+
 	let title = $derived.by(() => {
 		const parts: string[] = []
 		if (portInfo?.label) {
 			parts.push(portInfo.label)
+		} else if (connection) {
+			parts.push(`Port ${portIndex} (unlabeled)`)
 		} else {
-			parts.push(`Port ${portIndex}`)
+			parts.push(`Port ${portIndex} — unlabeled. Assign this panel to a patch frame before patching.`)
 		}
 		if (connection) {
 			const ct = getCableType(connection.cableType, customCableTypes)
@@ -52,6 +58,14 @@
 		return parts.join(' — ')
 	})
 
+	function handleClick() {
+		// Already-connected ports can still be clicked (to select / inspect) even
+		// if their panel is no longer in a frame — orphan refs need to remain
+		// reachable. Brand-new patches on unlabeled ports are gated.
+		if (unlabeled && !connection) return
+		onclick?.(portIndex)
+	}
+
 	let dotSize = DOT_R * 2
 	let showDot = $derived(isDuplicate || !!cableColor)
 	let dotColor = $derived(isDuplicate ? '#ef4444' : cableColor)	// Determine dot color: red for duplicate, cable color for connected
@@ -61,14 +75,16 @@
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-	class="relative flex items-center justify-center rounded-sm border cursor-pointer transition-all select-none shrink-0
-		{isDuplicate ? 'border-red-400' : connection ? 'border-gray-300' : 'border-gray-200'}
-		{isConnectSource ? 'ring-2 ring-green-400 z-10' : selected ? 'ring-2 ring-blue-400 z-10' : 'hover:border-blue-300'}"
+	class="relative flex items-center justify-center rounded-sm border transition-all select-none shrink-0
+		{unlabeled && !connection ? 'border-dashed border-gray-200 cursor-not-allowed' : 'cursor-pointer'}
+		{isDuplicate ? 'border-red-400' : connection ? 'border-gray-300' : unlabeled ? 'border-gray-200' : 'border-gray-200'}
+		{isConnectSource ? 'ring-2 ring-green-400 z-10' : selected ? 'ring-2 ring-blue-400 z-10' : (unlabeled && !connection ? '' : 'hover:border-blue-300')}"
 	style:width="{PORT_CELL_W}px"
 	style:height="{PORT_CELL_H}px"
 	style:background={bgColor ? bgColor + '30' : connection ? '#f9fafb' : '#ffffff'}
+	style:opacity={unlabeled && !connection ? '0.45' : null}
 	{title}
-	onclick={() => onclick?.(portIndex)}
+	onclick={handleClick}
 >
 	<!-- Port number -->
 	<span class="text-[7px] font-mono leading-none" style:color={textColor}>{portIndex}</span>
