@@ -2,6 +2,7 @@
 	import { getWorkspace } from '../state.svelte'
 	import RackElevationView from './RackElevationView.svelte'
 	import RisersView from './RisersView.svelte'
+	import FramesView from './FramesView.svelte'
 	const ws = getWorkspace()
 
 	/** Views that render a rack elevation (the `RackElevation` component). Rack
@@ -11,6 +12,12 @@
 			(ws.selectedNodeKind === 'rack' && ws.activeView === 'elevation') ||
 			(ws.selectedNodeKind === 'row' && ws.activeView === 'row-elevation') ||
 			(ws.selectedNodeKind === 'serverRoom' && ws.activeView === 'room-elevation')
+		),
+	)
+
+	const isFramesView = $derived(
+		!!ws && ws.activeView === 'frames' && (
+			ws.selectedNodeKind === 'frames' || ws.selectedNodeKind === 'rack' || ws.selectedNodeKind === 'panel'
 		),
 	)
 
@@ -25,6 +32,8 @@
 	</div>
 {:else if isRackElevationView}
 	<RackElevationView />
+{:else if isFramesView}
+	<FramesView />
 {:else if isRisersView}
 	<RisersView />
 {:else if !ws.selectedNodeId}

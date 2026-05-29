@@ -79,7 +79,10 @@
 			const kids: TreeNode[] = []
 
 			const fd = framesByFloor[fl.number]
-			if (fd?.zones?.length || fd?.frames?.length) {
+			const zoneLocsCount = fd?.zoneLocations
+				? Object.values(fd.zoneLocations).reduce((n: number, locs: any) => n + ((locs as any[])?.length ?? 0), 0)
+				: 0
+			if (zoneLocsCount > 0 || fd?.zones?.length || fd?.frames?.length) {
 				kids.push({
 					id: `${floorId}/frames`,
 					kind: 'frames',

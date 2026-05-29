@@ -18,7 +18,7 @@
 	import type { FloorConfig } from '$lib/types/project'
 	import { fmtFloor } from '$lib/utils/floor'
 
-	let { data = null, racksData = {}, floor, floors = [], projectId = '', projectName = '', drawingId = '', db = new Firestore(), uid = '', initialFrameId, onsave, onfloorchange, onupdatefloors, ondeletefloor }: {
+	let { data = null, racksData = {}, floor, floors = [], projectId = '', projectName = '', drawingId = '', db = new Firestore(), uid = '', initialFrameId, onsave, onfloorchange, onupdatefloors, ondeletefloor, bare = false }: {
 		data?: any
 		racksData?: Record<string, any>
 		floor: number
@@ -34,6 +34,9 @@
 		onfloorchange?: (floor: number) => void
 		onupdatefloors?: (floors: FloorConfig[]) => void
 		ondeletefloor?: (floor: number) => void
+		/** When embedded in the workspace, skip standalone-page chrome (Titlebar)
+		 *  and size to the parent container instead of the viewport. */
+		bare?: boolean
 	} = $props()
 
 	let versionPanelOpen = $state(false)
@@ -542,7 +545,8 @@
 <svelte:window onkeydown={handleBlockKeydown} />
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="h-screen flex flex-col overflow-hidden print:h-auto print:overflow-visible">
+<div class="flex flex-col overflow-hidden print:h-auto print:overflow-visible" class:h-screen={!bare} class:h-full={bare}>
+{#if !bare}
 <div class="print:hidden">
 	<Titlebar menu={true} title={projectName ? `${projectName} — Patch Frames` : 'Patch Frames'}>
 		{#if drawingId}
@@ -553,6 +557,7 @@
 		{/if}
 	</Titlebar>
 </div>
+{/if}
 
 <SettingsDialog
 	open={settingsOpen}
