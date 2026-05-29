@@ -8,6 +8,7 @@
 	import { DEFAULT_SETTINGS } from './parts/types'
 	import { CABLE_TYPES, getCableType } from './parts/constants'
 	import { calculateCableLength } from './parts/cableUtils'
+	import { buildPortInfoMap } from './parts/elevationUtils'
 	import { exportPatchExcel, importCordIds } from './parts/exportExcel'
 	import FloorManagerDialog from '$lib/components/FloorManagerDialog.svelte'
 	import PatchList from './parts/PatchList.svelte'
@@ -92,6 +93,11 @@
 	// ── Floor/room helpers ──
 	const fmt = (fl: number) => fmtFloor(fl, floorFormat, floors)
 	let roomCount = $derived(floors.find(f => f.number === floor)?.serverRoomCount ?? 1)
+
+	// ── Port label resolver (Frames labels are canonical for the patch list) ──
+	let portInfoMap = $derived(
+		buildPortInfoMap(frameData, room, devices, racks, floor, roomCount, floorFormat),
+	)
 
 	// ── Connection stats ──
 	let totalPorts = $derived(
@@ -704,7 +710,7 @@
 					<button
 						class="h-6 px-2 rounded bg-gray-100 text-gray-600 text-[11px] font-medium hover:bg-gray-200 transition-colors flex items-center gap-1"
 						title="Export to Excel"
-						onclick={() => exportPatchExcel({ connections, racks, devices, customCableTypes, projectName, floor, room })}
+						onclick={() => exportPatchExcel({ connections, racks, devices, customCableTypes, projectName, floor, room, portInfoMap })}
 					>
 						<Icon name="download" size={12} />
 						Export
@@ -780,6 +786,7 @@
 									{orphanedIds}
 									{selectedConnectionId}
 									{removedCount}
+									{portInfoMap}
 									onselect={id => selectedConnectionId = id}
 									ontoggle={() => listPaneOpen = false}
 									onsetstatus={setStatus}

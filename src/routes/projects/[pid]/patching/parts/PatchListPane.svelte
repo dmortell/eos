@@ -3,6 +3,7 @@
 	import { Icon } from '$lib'
 	import type { PatchConnection, PortRef, CustomCableType, PatchStatus } from './types'
 	import { CABLE_TYPES, getCableType } from './constants'
+	import type { PortInfo } from './elevationUtils'
 
 	let {
 		connections = [],
@@ -12,6 +13,7 @@
 		orphanedIds = new Set<string>(),
 		selectedConnectionId = null,
 		removedCount = 0,
+		portInfoMap = new Map<string, PortInfo>(),
 		onselect,
 		ontoggle,
 		onsetstatus,
@@ -27,6 +29,7 @@
 		orphanedIds?: Set<string>
 		selectedConnectionId?: string | null
 		removedCount?: number
+		portInfoMap?: Map<string, PortInfo>
 		onselect?: (id: string | null) => void
 		ontoggle?: () => void
 		onsetstatus?: (ids: string[], status: PatchStatus) => void
@@ -52,13 +55,25 @@
 		const d = devices.find((d: any) => d.id === deviceId)
 		return d?.label || d?.type || '—'
 	}
-	function fmtRef(ref: PortRef): string {
-		if (!ref.rackId || !ref.deviceId || ref.portIndex <= 0) return ''
+	/** Fallback display when a port has no Frames label yet (panel not in a patch frame). */
+	function fmtRefFallback(ref: PortRef): string {
 		const dev = devices.find((d: any) => d.id === ref.deviceId)
 		const count = dev?.portCount ?? 0
 		const padW = count >= 100 ? 3 : count >= 10 ? 2 : 1
 		const pLabel = String(ref.portIndex).padStart(padW, '0')
 		return `${rackLabel(ref.rackId)} / ${deviceLabel(ref.deviceId)} U${dev?.positionU ?? '?'} / ${pLabel}`
+	}
+	/** Frames label if known; otherwise rack/device/U/port# fallback. */
+	function fmtRef(ref: PortRef): string {
+		if (!ref.rackId || !ref.deviceId || ref.portIndex <= 0) return ''
+		const label = portInfoMap.get(`${ref.deviceId}:${ref.portIndex}`)?.label
+		if (label) return label
+		return fmtRefFallback(ref)
+	}
+	/** True when the ref resolves to a canonical Frames label. */
+	function hasLabel(ref: PortRef): boolean {
+		if (!ref.rackId || !ref.deviceId || ref.portIndex <= 0) return false
+		return !!portInfoMap.get(`${ref.deviceId}:${ref.portIndex}`)?.label
 	}
 
 	let visibleConnections = $derived.by(() => {
@@ -292,14 +307,16 @@
 						<td class="px-2 py-1" onclick={e => e.stopPropagation()}>
 							<input type="checkbox" class="rounded" checked={isChecked} onchange={() => toggleCheck(conn.id)} />
 						</td>
-						<td class="px-2 py-1 truncate">
+						<td class="px-2 py-1 truncate {hasLabel(conn.fromPortRef) ? '' : 'italic text-gray-400'}"
+							title={hasLabel(conn.fromPortRef) ? '' : 'Port has no Frames label — panel not assigned to a patch frame yet'}>
 							{#if isOrphaned}<Icon name="alertTriangle" size={10} class="inline text-amber-500 mr-1" />{/if}
 							{fmtRef(conn.fromPortRef) || '—'}
 							{#if conn.previousFromRef}
 								<span class="text-[10px] text-amber-600 ml-1" title="Was: {fmtRef(conn.previousFromRef)}">↶</span>
 							{/if}
 						</td>
-						<td class="px-2 py-1 truncate">
+						<td class="px-2 py-1 truncate {hasLabel(conn.toPortRef) ? '' : 'italic text-gray-400'}"
+							title={hasLabel(conn.toPortRef) ? '' : 'Port has no Frames label — panel not assigned to a patch frame yet'}>
 							{fmtRef(conn.toPortRef) || '—'}
 							{#if conn.previousToRef}
 								<span class="text-[10px] text-amber-600 ml-1" title="Was: {fmtRef(conn.previousToRef)}">↶</span>
