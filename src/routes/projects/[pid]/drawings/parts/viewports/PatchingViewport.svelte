@@ -70,6 +70,7 @@
 		zoneLetters.flatMap(z => generatePortLabels(
 			{ floor, zone: z, serverRoomCount, locations: zoneLocations[z] } as ZoneConfig,
 			floorFormat,
+			framesDoc?.labelFormat,
 		)),
 	)
 	let reservationMap = $derived<Map<string, LocType>>(
