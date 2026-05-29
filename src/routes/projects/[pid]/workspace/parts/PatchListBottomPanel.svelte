@@ -1,46 +1,60 @@
 <script lang="ts">
 	import { Firestore } from '$lib'
+	import { migrateFloors } from '$lib/utils/floor'
+	import type { FloorConfig } from '$lib/types/project'
 	import PatchListPane from '../../patching/parts/PatchListPane.svelte'
+	import { buildPortInfoMap } from '../../patching/parts/elevationUtils'
 	import type { PatchConnection, CustomCableType, PortRef } from '../../patching/parts/types'
 	import { getWorkspace } from '../state.svelte'
 
 	const ws = getWorkspace()
 	const db = new Firestore()
 
-	/** Doc ids derived from the workspace selection. Patching, racks, and frames
-	 *  are all floor+room scoped (frames is just floor); when no floor/room is
-	 *  selected, the patch list shows an empty-state message. */
+	/** Doc ids derived from the workspace selection. Patching + racks are
+	 *  floor+room scoped; the frames doc is floor-scoped. */
 	const baseId = $derived.by(() => {
 		if (!ws) return null
 		const m = ws.selectedNodeMeta
 		if (!m?.floor || !m?.room) return null
 		const fl = String(m.floor).padStart(2, '0')
-		return { floor: m.floor, room: m.room, racks: `${ws.pid}_F${fl}_R${m.room}` }
+		return {
+			floor: m.floor,
+			room: m.room,
+			roomDoc: `${ws.pid}_F${fl}_R${m.room}`,
+			floorDoc: `${ws.pid}_F${fl}`,
+		}
 	})
 
 	let patchDoc = $state<any>(null)
 	let rackDoc = $state<any>(null)
+	let frameDoc = $state<any>(null)
+	let floors = $state<FloorConfig[]>([])
 
 	$effect(() => {
-		const id = baseId?.racks
-		if (!id) {
-			patchDoc = null
-			return
-		}
-		const unsub = db.subscribeOne('patching', id, (data: any) => {
-			patchDoc = data
-		})
+		const id = baseId?.roomDoc
+		if (!id) { patchDoc = null; return }
+		const unsub = db.subscribeOne('patching', id, (data: any) => (patchDoc = data))
 		return () => unsub?.()
 	})
 
 	$effect(() => {
-		const id = baseId?.racks
-		if (!id) {
-			rackDoc = null
-			return
-		}
-		const unsub = db.subscribeOne('racks', id, (data: any) => {
-			rackDoc = data
+		const id = baseId?.roomDoc
+		if (!id) { rackDoc = null; return }
+		const unsub = db.subscribeOne('racks', id, (data: any) => (rackDoc = data))
+		return () => unsub?.()
+	})
+
+	$effect(() => {
+		const id = baseId?.floorDoc
+		if (!id) { frameDoc = null; return }
+		const unsub = db.subscribeOne('frames', id, (data: any) => (frameDoc = data))
+		return () => unsub?.()
+	})
+
+	$effect(() => {
+		if (!ws?.pid) return
+		const unsub = db.subscribeOne('projects', ws.pid, (data: any) => {
+			if (data?.floors?.length) floors = migrateFloors(data.floors)
 		})
 		return () => unsub?.()
 	})
@@ -49,6 +63,20 @@
 	const customCableTypes = $derived<CustomCableType[]>(patchDoc?.customCableTypes ?? [])
 	const racks = $derived(rackDoc?.racks ?? [])
 	const devices = $derived(rackDoc?.devices ?? [])
+
+	const serverRoomCount = $derived(
+		baseId ? (floors.find((f) => f.number === baseId.floor)?.serverRoomCount ?? 1) : 1,
+	)
+	const floorFormat = $derived<string>(frameDoc?.floorFormat ?? 'L01')
+
+	/** Canonical Frames-label resolver. Mirrors the standalone Patching tool so
+	 *  the bottom-panel patch list shows the same identifiers as the printed
+	 *  panel stickers. Falls back to rack/U/port when frame data is missing. */
+	const portInfoMap = $derived(
+		baseId
+			? buildPortInfoMap(frameDoc, baseId.room, devices, racks, baseId.floor, serverRoomCount, floorFormat)
+			: new Map(),
+	)
 
 	const rackIds = $derived(new Set<string>(racks.map((r: any) => r.id)))
 	const deviceIds = $derived(new Set<string>(devices.map((d: any) => d.id)))
@@ -92,6 +120,7 @@
 		{orphanedIds}
 		{selectedConnectionId}
 		{removedCount}
+		{portInfoMap}
 		onselect={(id) => (selectedConnectionId = id)}
 		ontoggle={() => (ws.bottomPanelOpen = false)}
 	/>
