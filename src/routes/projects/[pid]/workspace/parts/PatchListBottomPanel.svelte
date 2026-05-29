@@ -95,8 +95,6 @@
 	})
 
 	const removedCount = $derived(connections.filter((c) => c.status === 'remove').length)
-
-	let selectedConnectionId = $state<string | null>(null)
 </script>
 
 {#if !ws}
@@ -118,10 +116,10 @@
 		{devices}
 		{customCableTypes}
 		{orphanedIds}
-		{selectedConnectionId}
+		selectedConnectionId={ws.selectedConnectionId}
 		{removedCount}
 		{portInfoMap}
-		onselect={(id) => (selectedConnectionId = id)}
+		onselect={(id) => (ws.selectedConnectionId = id)}
 		ontoggle={() => (ws.bottomPanelOpen = false)}
 	/>
 {/if}
