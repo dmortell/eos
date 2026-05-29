@@ -40,6 +40,24 @@ export interface ViewOption {
 	label: string
 }
 
+/** A workspace tab is a saved snapshot of selection + view + viewport.
+ *  Closing the panel selections (device / connection) is intentionally NOT
+ *  persisted per-tab — those are transient picks within whichever tab is
+ *  active. */
+export interface WorkspaceTab {
+	id: string
+	title: string
+	selectedNodeId: string | null
+	selectedNodeKind: NodeKind | null
+	selectedNodeMeta: TreeNode['meta'] | null
+	activeView: string | null
+	viewport: Viewport
+}
+
+function makeTabId(): string {
+	return 't-' + Math.random().toString(36).slice(2, 10)
+}
+
 export class WorkspaceState {
 	pid = $state('')
 	selectedNodeId = $state<string | null>(null)
@@ -61,6 +79,11 @@ export class WorkspaceState {
 	/** Patch connection selected in the bottom-panel list. */
 	selectedConnectionId = $state<string | null>(null)
 
+	/** Tabs are per-browser bookmarks (localStorage) for selection + view +
+	 *  viewport. Each tab is an independent context the user can flip between. */
+	tabs = $state<WorkspaceTab[]>([])
+	activeTabId = $state<string | null>(null)
+
 	constructor(pid: string) {
 		this.pid = pid
 	}
@@ -81,10 +104,87 @@ export class WorkspaceState {
 		// the new node, not stale device picks from the previous one.
 		this.selectedDeviceIds = new Set()
 		this.selectedConnectionId = null
+		this.syncActiveTab()
 	}
 
 	selectDevices(ids: Iterable<string>) {
 		this.selectedDeviceIds = new Set(ids)
+	}
+
+	// ── Tabs ─────────────────────────────────────────────────────────────
+
+	private snapshotCurrent(title?: string): WorkspaceTab {
+		return {
+			id: makeTabId(),
+			title: title ?? this.titleFromCurrent(),
+			selectedNodeId: this.selectedNodeId,
+			selectedNodeKind: this.selectedNodeKind,
+			selectedNodeMeta: this.selectedNodeMeta ? { ...this.selectedNodeMeta } : null,
+			activeView: this.activeView,
+			viewport: { ...this.viewport },
+		}
+	}
+
+	private titleFromCurrent(): string {
+		const id = this.selectedNodeId
+		if (!id) return 'Untitled'
+		// Trim path prefixes so the tab label is just the leaf node piece.
+		const tail = id.split('/').pop() ?? id
+		return tail.replace(/^[a-z]+:/i, '')
+	}
+
+	/** Reflect the current state into the active tab in place — called whenever
+	 *  selection / view / viewport changes so closing/switching tabs preserves it. */
+	syncActiveTab(): void {
+		const tab = this.tabs.find((t) => t.id === this.activeTabId)
+		if (!tab) return
+		tab.title = this.titleFromCurrent()
+		tab.selectedNodeId = this.selectedNodeId
+		tab.selectedNodeKind = this.selectedNodeKind
+		tab.selectedNodeMeta = this.selectedNodeMeta ? { ...this.selectedNodeMeta } : null
+		tab.activeView = this.activeView
+		tab.viewport = { ...this.viewport }
+	}
+
+	openTab(): void {
+		const tab = this.snapshotCurrent()
+		this.tabs = [...this.tabs, tab]
+		this.activeTabId = tab.id
+	}
+
+	switchTab(id: string): void {
+		const tab = this.tabs.find((t) => t.id === id)
+		if (!tab) return
+		this.syncActiveTab()
+		this.activeTabId = id
+		this.selectedNodeId = tab.selectedNodeId
+		this.selectedNodeKind = tab.selectedNodeKind
+		this.selectedNodeMeta = tab.selectedNodeMeta ? { ...tab.selectedNodeMeta } : null
+		this.activeView = tab.activeView
+		this.viewport = { ...tab.viewport }
+		this.selectedDeviceIds = new Set()
+		this.selectedConnectionId = null
+	}
+
+	closeTab(id: string): void {
+		const idx = this.tabs.findIndex((t) => t.id === id)
+		if (idx < 0) return
+		const remaining = this.tabs.filter((t) => t.id !== id)
+		this.tabs = remaining
+		if (this.activeTabId === id) {
+			const next = remaining[Math.min(idx, remaining.length - 1)] ?? null
+			if (next) this.switchTab(next.id)
+			else this.activeTabId = null
+		}
+	}
+
+	/** Ensure there's at least one tab — call once on workspace mount. */
+	ensureInitialTab(): void {
+		if (this.tabs.length === 0) {
+			this.openTab()
+		} else if (!this.activeTabId || !this.tabs.find((t) => t.id === this.activeTabId)) {
+			this.switchTab(this.tabs[0].id)
+		}
 	}
 }
 

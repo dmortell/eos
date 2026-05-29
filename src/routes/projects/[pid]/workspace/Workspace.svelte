@@ -2,6 +2,7 @@
 	import { Titlebar, Icon } from '$lib'
 	import type { FloorConfig } from '$lib/types/project'
 	import TreeNavigator from './parts/TreeNavigator.svelte'
+	import TabStrip from './parts/TabStrip.svelte'
 	import ViewStrip from './parts/ViewStrip.svelte'
 	import CanvasArea from './parts/CanvasArea.svelte'
 	import RightPanel from './parts/RightPanel.svelte'
@@ -26,6 +27,7 @@
 		</aside>
 
 		<main class="flex flex-col min-w-0 min-h-0">
+			<TabStrip />
 			<ViewStrip />
 			<div class="flex-1 min-h-0 relative">
 				<CanvasArea />

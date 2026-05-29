@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { untrack } from 'svelte'
+	import { untrack, onMount } from 'svelte'
 	import { page } from '$app/state'
 	import { goto } from '$app/navigation'
 	import { Firestore, Spinner } from '$lib'
 	import { migrateFloors } from '$lib/utils/floor'
 	import type { FloorConfig } from '$lib/types/project'
 	import Workspace from './Workspace.svelte'
-	import { WorkspaceState, setWorkspace, type NodeKind } from './state.svelte'
+	import { WorkspaceState, setWorkspace, type NodeKind, type WorkspaceTab } from './state.svelte'
 
 	const db = new Firestore()
 	const ws = new WorkspaceState(page.params.pid ?? '')
@@ -18,6 +18,49 @@
 
 	$effect(() => {
 		ws.pid = page.params.pid ?? ''
+	})
+
+	// ── Tabs: load from localStorage on mount, save on change ──
+	const tabsStorageKey = $derived(`eos-ws-tabs-${ws.pid}`)
+
+	onMount(() => {
+		if (typeof window === 'undefined') return
+		try {
+			const raw = window.localStorage.getItem(tabsStorageKey)
+			if (raw) {
+				const parsed = JSON.parse(raw) as { tabs: WorkspaceTab[]; activeTabId: string | null }
+				if (Array.isArray(parsed.tabs) && parsed.tabs.length) {
+					ws.tabs = parsed.tabs
+					if (parsed.activeTabId && parsed.tabs.find((t) => t.id === parsed.activeTabId)) {
+						ws.switchTab(parsed.activeTabId)
+					} else {
+						ws.switchTab(parsed.tabs[0].id)
+					}
+				}
+			}
+		} catch {
+			// corrupted storage — ignore
+		}
+		ws.ensureInitialTab()
+	})
+
+	$effect(() => {
+		// Reflect active tab whenever derivable fields change. Use untrack to
+		// avoid making syncActiveTab itself create a dep loop.
+		const _ = [ws.selectedNodeId, ws.selectedNodeKind, ws.activeView, ws.viewport]
+		untrack(() => ws.syncActiveTab())
+	})
+
+	$effect(() => {
+		if (typeof window === 'undefined') return
+		const tabs = ws.tabs
+		const activeTabId = ws.activeTabId
+		const key = tabsStorageKey
+		try {
+			window.localStorage.setItem(key, JSON.stringify({ tabs, activeTabId }))
+		} catch {
+			// quota / disabled — ignore
+		}
 	})
 
 	$effect(() => {
