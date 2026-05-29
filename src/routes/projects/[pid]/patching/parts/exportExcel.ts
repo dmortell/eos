@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs'
 import type { PatchConnection, CustomCableType } from './types'
 import { getCableType } from './constants'
+import type { PortInfo } from './elevationUtils'
 
 function dateStr() {
 	const d = new Date()
@@ -15,6 +16,7 @@ interface ExportOptions {
 	projectName: string
 	floor: number
 	room: string
+	portInfoMap?: Map<string, PortInfo>
 }
 
 function rackLabel(racks: any[], rackId: string): string {
@@ -39,6 +41,12 @@ function fmtPort(devices: any[], deviceId: string, portIndex: number){
 	// const padW = count >= 100 ? 3 : count >= 10 ? 2 : 1
 	// return String(portIndex).padStart(padW, '0')
 	return portIndex
+}
+
+/** Canonical Frames label for a port; empty string if not in a patch frame yet. */
+function portLabel(portInfoMap: Map<string, PortInfo> | undefined, deviceId: string, portIndex: number): string {
+	if (!portInfoMap || !deviceId || portIndex <= 0) return ''
+	return portInfoMap.get(`${deviceId}:${portIndex}`)?.label ?? ''
 }
 
 /**
@@ -97,7 +105,7 @@ function statusKey(c: PatchConnection): PatchStatusKey {
 
 /** Export patch schedule and BOM to Excel */
 export async function exportPatchExcel(opts: ExportOptions) {
-	const { connections, racks, devices, customCableTypes, projectName, floor, room } = opts
+	const { connections, racks, devices, customCableTypes, projectName, floor, room, portInfoMap } = opts
 	const wb = new ExcelJS.Workbook()
 	const filename = `Patching-${projectName || 'export'}-F${floor}R${room}-${dateStr()}.xlsx`
 
@@ -107,10 +115,12 @@ export async function exportPatchExcel(opts: ExportOptions) {
 
 	const title = `Patch Schedule — ${projectName || 'Export'} — F${floor} Room ${room}`
 
-	// Header row — extra trailing pair for change history
+	// Header row — Frames port labels lead each endpoint; rack/device/U/port stay as
+	// secondary identifiers for physical troubleshooting.
 	const headers = [
-		'#', 'From Rack', 'From Device', 'From U/Face', 'From Port',
-		'To Rack', 'To Device', 'To U/Face', 'To Port',
+		'#',
+		'From Label', 'From Rack', 'From Device', 'From U/Face', 'From Port',
+		'To Label', 'To Rack', 'To Device', 'To U/Face', 'To Port',
 		'Cable Type', 'Length (m)', 'Cord ID', 'Status', 'Notes',
 		'Was From', 'Was To',
 	]
@@ -120,8 +130,9 @@ export async function exportPatchExcel(opts: ExportOptions) {
 	headerRow.alignment = { horizontal: 'center', vertical: 'middle' }
 
 	ws.columns = [
-		{ width: 4 }, { width: 10 }, { width: 20 }, { width: 10 }, { width: 6 },
-		{ width: 10 }, { width: 20 }, { width: 10 }, { width: 6 },
+		{ width: 4 },
+		{ width: 16 }, { width: 10 }, { width: 20 }, { width: 10 }, { width: 6 },
+		{ width: 16 }, { width: 10 }, { width: 20 }, { width: 10 }, { width: 6 },
 		{ width: 10 }, { width: 8 }, { width: 12 }, { width: 9 }, { width: 20 },
 		{ width: 24 }, { width: 24 },
 	]
@@ -165,10 +176,12 @@ export async function exportPatchExcel(opts: ExportOptions) {
 				: ''
 			const row = ws.addRow([
 				runningIdx,
+				portLabel(portInfoMap, c.fromPortRef.deviceId, c.fromPortRef.portIndex),
 				rackLabel(racks, c.fromPortRef.rackId),
 				deviceLabel(devices, c.fromPortRef.deviceId),
 				deviceUFace(devices, c.fromPortRef.deviceId, c.fromPortRef.face),
 				fmtPort(devices, c.fromPortRef.deviceId, c.fromPortRef.portIndex),
+				portLabel(portInfoMap, c.toPortRef.deviceId, c.toPortRef.portIndex),
 				rackLabel(racks, c.toPortRef.rackId),
 				deviceLabel(devices, c.toPortRef.deviceId),
 				deviceUFace(devices, c.toPortRef.deviceId, c.toPortRef.face),
@@ -184,12 +197,13 @@ export async function exportPatchExcel(opts: ExportOptions) {
 			row.font = { size: 9 }
 			row.alignment = { vertical: 'middle' }
 
-			const statusCell = row.getCell(13)
+			// Status column is now 15 (#, FromLabel, From×4, ToLabel, To×4, Cable, Len, Cord, Status)
+			const statusCell = row.getCell(15)
 			statusCell.font = { size: 9, color: { argb: STATUS_FG[key] } }
 
 			if (key === 'remove') {
-				// Strikethrough the endpoint cells so a quick eyeball confirms the cord to pull
-				for (let col = 2; col <= 9; col++) row.getCell(col).font = { size: 9, strike: true }
+				// Strikethrough the endpoint cells (From Label..From Port + To Label..To Port = cols 2–11)
+				for (let col = 2; col <= 11; col++) row.getCell(col).font = { size: 9, strike: true }
 			}
 		}
 	}
