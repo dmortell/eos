@@ -44,6 +44,7 @@ export class WorkspaceState {
 	pid = $state('')
 	selectedNodeId = $state<string | null>(null)
 	selectedNodeKind = $state<NodeKind | null>(null)
+	selectedNodeMeta = $state<TreeNode['meta'] | null>(null)
 	expanded = $state<Set<string>>(new Set())
 	viewport = $state<Viewport>({ x: 0, y: 0, zoom: 1 })
 	activeView = $state<string | null>(null)
@@ -64,9 +65,10 @@ export class WorkspaceState {
 		this.expanded = next
 	}
 
-	select(id: string, kind: NodeKind) {
+	select(id: string, kind: NodeKind, meta?: TreeNode['meta']) {
 		this.selectedNodeId = id
 		this.selectedNodeKind = kind
+		this.selectedNodeMeta = meta ?? null
 		this.activeView = defaultViewFor(kind)
 	}
 }
@@ -93,11 +95,12 @@ export function viewsFor(kind: NodeKind | null): ViewOption[] {
 			]
 		case 'row':
 			return [{ id: 'row-elevation', label: 'Row elevation' }]
+		case 'serverRoom':
+			return [{ id: 'room-elevation', label: 'Room elevation' }]
 		case 'frames':
 			return [{ id: 'frames', label: 'Patch frames' }]
 		case 'risers':
 			return [{ id: 'risers', label: 'Risers' }]
-		case 'serverRoom':
 		case 'building':
 		case 'group':
 		default:
