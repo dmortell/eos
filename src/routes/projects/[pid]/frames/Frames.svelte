@@ -39,7 +39,7 @@
 	let versionPanelOpen = $state(false)
 
 	function getCurrentSnapshot(): unknown {
-		return { floor, zoneLocations, rooms, customLocationTypes, excelGroupByRoom, floorFormat, portReservations }
+		return { floor, zoneLocations, rooms, customLocationTypes, excelGroupByRoom, floorFormat, labelFormat, portReservations }
 	}
 
 	function handleRestore(snapshot: unknown) {
@@ -49,6 +49,11 @@
 		if (s.customLocationTypes) customLocationTypes = s.customLocationTypes
 		if (s.excelGroupByRoom !== undefined) excelGroupByRoom = s.excelGroupByRoom
 		if (s.floorFormat) floorFormat = s.floorFormat
+		if (s.labelFormat) labelFormat = {
+			separator: s.labelFormat.separator ?? 'legacy',
+			includeZone: s.labelFormat.includeZone ?? true,
+			includeRoom: s.labelFormat.includeRoom ?? false,
+		}
 		if (s.portReservations) portReservations = s.portReservations
 	}
 
@@ -144,6 +149,11 @@
 	let customLocationTypes = $state<string[]>(data?.customLocationTypes ?? [])
 	let excelGroupByRoom = $state<boolean>(data?.excelGroupByRoom ?? true)
 	let floorFormat = $state<string>(data?.floorFormat ?? 'L01')
+	let labelFormat = $state<import('./parts/types').LabelFormat>({
+		separator: data?.labelFormat?.separator ?? 'legacy',
+		includeZone: data?.labelFormat?.includeZone ?? true,
+		includeRoom: data?.labelFormat?.includeRoom ?? false,
+	})
 	let selectedLocations = $state<Set<string>>(new Set())
 	let lastSelectedKey = $state<string | null>(null)
 	let selectedFrameId = $state<string | null>(initialFrameId ?? null)
@@ -212,7 +222,7 @@
 
 	/** Build ZoneConfig objects for each zone and generate combined labels */
 	let allLabels = $derived<PortLabel[]>(
-		zoneLetters.flatMap(z => generatePortLabels({ floor, zone: z, serverRoomCount, locations: zoneLocations[z] }, floorFormat))
+		zoneLetters.flatMap(z => generatePortLabels({ floor, zone: z, serverRoomCount, locations: zoneLocations[z] }, floorFormat, labelFormat))
 	)
 
 	/** Build ZoneConfig array for export */
@@ -283,7 +293,7 @@
 	}
 
 	$effect(() => {
-		const current = { zoneLocations, rooms, customLocationTypes, excelGroupByRoom, floorFormat, portReservations }
+		const current = { zoneLocations, rooms, customLocationTypes, excelGroupByRoom, floorFormat, labelFormat, portReservations }
 		const snapshot = JSON.stringify(current)
 
 		if (!initialized) {
@@ -308,7 +318,7 @@
 				const changesToLog = [...pendingChanges]
 				pendingChanges = []
 				// db.save() already sanitizes undefined values via sanitizeFirestoreData()
-				onsave({ floor, zoneLocations, rooms, customLocationTypes, excelGroupByRoom, floorFormat, portReservations }, changesToLog)
+				onsave({ floor, zoneLocations, rooms, customLocationTypes, excelGroupByRoom, floorFormat, labelFormat, portReservations }, changesToLog)
 				saveStatus = 'saved'
 			}
 		}, 500)
@@ -516,11 +526,12 @@
 		if (e.key === 'Delete' || e.key === 'Backspace') { removeReservation(); e.preventDefault() }
 	}
 
-	function updateSettings(data: { customTypes: string[]; rooms: { roomNumber: string; roomName: string }[]; excelGroupByRoom: boolean; floorFormat: string }) {
+	function updateSettings(data: { customTypes: string[]; rooms: { roomNumber: string; roomName: string }[]; excelGroupByRoom: boolean; floorFormat: string; labelFormat: import('./parts/types').LabelFormat }) {
 		customLocationTypes = data.customTypes
 		rooms = data.rooms
 		excelGroupByRoom = data.excelGroupByRoom
 		floorFormat = data.floorFormat
+		if (data.labelFormat) labelFormat = data.labelFormat
 	}
 
 	/** Local shorthand: format a floor number using this component's floorFormat + floors */
@@ -549,6 +560,7 @@
 	{rooms}
 	{excelGroupByRoom}
 	{floorFormat}
+	{labelFormat}
 	onclose={() => settingsOpen = false}
 	onupdate={updateSettings}
 />

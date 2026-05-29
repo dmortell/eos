@@ -1,5 +1,5 @@
-import type { ZoneConfig, PortLabel, PanelData, PanelDevice, RackData, FrameConfig, LocType } from './types'
-import { defaultFrameConfig } from './types'
+import type { ZoneConfig, PortLabel, PanelData, PanelDevice, RackData, FrameConfig, LocType, LabelFormat } from './types'
+import { defaultFrameConfig, DEFAULT_LABEL_FORMAT } from './types'
 
 /** Format a floor number according to the floorFormat setting */
 export function formatFloor(fl: number, fmt: string = 'L01'): string {
@@ -9,8 +9,37 @@ export function formatFloor(fl: number, fmt: string = 'L01'): string {
 	return `L${n}`
 }
 
+/** Build a single port label from its components, honouring the project's LabelFormat. */
+function buildLabel(
+	floor: string,
+	zone: string,
+	room: string | undefined,
+	location: string,
+	serverRoom: string,
+	port: string,
+	isHighLevel: boolean,
+	fmt: LabelFormat,
+): string {
+	const components: string[] = [floor]
+	if (fmt.includeZone) components.push(zone)
+	if (fmt.includeRoom && room) components.push(room)
+	components.push(location)
+
+	if (fmt.separator === 'legacy') {
+		// Historical hybrid: periods between floor/zone/(room)/location, hyphen before
+		// the server room + port group, and a hyphen prefix for the high-level marker.
+		return `${components.join('.')}-${serverRoom}${port}${isHighLevel ? '-H' : ''}`
+	}
+	const sep = fmt.separator === 'period' ? '.' : '-'
+	return `${components.join(sep)}${sep}${serverRoom}${port}${isHighLevel ? sep + 'H' : ''}`
+}
+
 /** Generate port labels for all locations in a zone */
-export function generatePortLabels(zone: ZoneConfig, floorFormat: string = 'L01'): PortLabel[] {
+export function generatePortLabels(
+	zone: ZoneConfig,
+	floorFormat: string = 'L01',
+	labelFormat: LabelFormat = DEFAULT_LABEL_FORMAT,
+): PortLabel[] {
 	const labels: PortLabel[] = []
 	const ff = formatFloor(zone.floor, floorFormat)
 	const z = zone.zone
@@ -25,10 +54,9 @@ export function generatePortLabels(zone: ZoneConfig, floorFormat: string = 'L01'
 		for (let p = 0; p < loc.portCount; p++) {
 			const s = loc.serverRoomAssignment[p] || 'A'
 			const pp = String(p + 1).padStart(2, '0')
-			const suffix = isHL ? '-H' : ''
 
 			labels.push({
-				label: `${ff}.${z}.${nnn}-${s}${pp}${suffix}`,
+				label: buildLabel(ff, z, loc.roomNumber, nnn, s, pp, isHL, labelFormat),
 				zone: z,
 				serverRoom: s,
 				locationNumber: loc.locationNumber,
