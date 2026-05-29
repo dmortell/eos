@@ -23,7 +23,7 @@
 	import { exportOutletsToExcel } from './parts/exportExcel'
   import { toast } from 'svelte-sonner';
 
-	let { data = null, files = [], floors = [], frameData = null, racksData = {}, floor, projectId = '', projectName = '', drawingId = '', db = new Firestore(), uid = '', initialLayers, onsave, onfloorchange, onupdatefloors, ondeletefloor, onsaverack }: {
+	let { data = null, files = [], floors = [], frameData = null, racksData = {}, floor, projectId = '', projectName = '', drawingId = '', db = new Firestore(), uid = '', initialLayers, onsave, onfloorchange, onupdatefloors, ondeletefloor, onsaverack, bare = false }: {
 		data?: any
 		files?: any[]
 		floors?: FloorConfig[]
@@ -41,6 +41,8 @@
 		onupdatefloors?: (floors: FloorConfig[]) => void
 		ondeletefloor?: (floor: number) => void
 		onsaverack?: (room: string, rackId: string, updates: Partial<RackConfig>) => void
+		/** Embed mode (workspace): skip standalone Titlebar, size to container. */
+		bare?: boolean
 	} = $props()
 
 	// initialLayers will be used to filter outlet/trunk visibility when layer toggle UI is built
@@ -1393,7 +1395,8 @@
 
 <svelte:window onkeydown={onKeyDown} />
 
-<div class="h-screen flex flex-col overflow-hidden">
+<div class="flex flex-col overflow-hidden" class:h-screen={!bare} class:h-full={bare}>
+{#if !bare}
 <Titlebar menu={true} title={projectName ? `${projectName} — Floorplan` : 'Floorplan'}>
 	{#if drawingId}
 		<button class="flex items-center gap-1 px-2 py-0.5 rounded text-xs hover:bg-white/20 transition-colors"
@@ -1402,6 +1405,7 @@
 		</button>
 	{/if}
 </Titlebar>
+{/if}
 
 <PaneGroup direction="horizontal" class="flex-1 min-h-0">
 	<!-- Sidebar -->

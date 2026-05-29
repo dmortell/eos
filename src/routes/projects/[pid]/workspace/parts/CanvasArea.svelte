@@ -4,6 +4,7 @@
 	import RisersView from './RisersView.svelte'
 	import FramesView from './FramesView.svelte'
 	import PatchingView from './PatchingView.svelte'
+	import OutletsView from './OutletsView.svelte'
 	const ws = getWorkspace()
 
 	/** Views that render a rack elevation (the `RackElevation` component). Rack
@@ -28,6 +29,14 @@
 		),
 	)
 
+	const isOutletsView = $derived(
+		!!ws && (
+			ws.activeView === 'outlets-high' ||
+			ws.activeView === 'outlets-low' ||
+			ws.activeView === 'trunks'
+		),
+	)
+
 	const isRisersView = $derived(
 		!!ws && ws.selectedNodeKind === 'risers' && ws.activeView === 'risers',
 	)
@@ -43,6 +52,8 @@
 	<FramesView />
 {:else if isPatchingView}
 	<PatchingView />
+{:else if isOutletsView}
+	<OutletsView />
 {:else if isRisersView}
 	<RisersView />
 {:else if !ws.selectedNodeId}
