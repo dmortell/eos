@@ -12,7 +12,23 @@
 
 	let framesByFloor: Record<number, any> = $state({})
 	let racksByFloorRoom: Record<string, any> = $state({})
+	let riserDoc: any = $state(null)
 	const rowRefs = new Map<string, HTMLDivElement>()
+
+	$effect(() => {
+		if (!ws.pid) return
+		const unsub = db.subscribeOne('risers', ws.pid, (data: any) => {
+			riserDoc = data
+		})
+		return () => unsub?.()
+	})
+
+	/** Risers branch surfaces only when the doc has any actual content
+	 *  (rooms / cables / ladders / labels). An empty doc with just defaults
+	 *  doesn't deserve a tree node. */
+	const hasRiserContent = $derived(
+		!!(riserDoc?.rooms?.length || riserDoc?.cables?.length || riserDoc?.ladders?.length || riserDoc?.labels?.length),
+	)
 
 	function registerRow(el: HTMLDivElement, id: string) {
 		rowRefs.set(id, el)
@@ -129,6 +145,15 @@
 
 		if (floorChildren.length) {
 			out.push({ id: 'group:floors', kind: 'group', label: 'Floors', children: floorChildren })
+		}
+
+		if (hasRiserContent) {
+			out.push({
+				id: 'group:building',
+				kind: 'building',
+				label: 'Building',
+				children: [{ id: 'building/risers', kind: 'risers', label: 'Risers' }],
+			})
 		}
 
 		return out

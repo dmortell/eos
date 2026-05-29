@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getWorkspace } from '../state.svelte'
 	import RackElevationView from './RackElevationView.svelte'
+	import RisersView from './RisersView.svelte'
 	const ws = getWorkspace()
 
 	/** Views that render a rack elevation (the `RackElevation` component). Rack
@@ -12,6 +13,10 @@
 			(ws.selectedNodeKind === 'serverRoom' && ws.activeView === 'room-elevation')
 		),
 	)
+
+	const isRisersView = $derived(
+		!!ws && ws.selectedNodeKind === 'risers' && ws.activeView === 'risers',
+	)
 </script>
 
 {#if !ws}
@@ -20,6 +25,8 @@
 	</div>
 {:else if isRackElevationView}
 	<RackElevationView />
+{:else if isRisersView}
+	<RisersView />
 {:else if !ws.selectedNodeId}
 	<div class="absolute inset-0 grid place-items-center text-zinc-400 dark:text-zinc-600 text-sm">
 		<div class="text-center">

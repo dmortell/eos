@@ -46,6 +46,9 @@
 		onsave,
 		onupdatefloors: _onupdatefloors,
 		ondeletefloor: _ondeletefloor,
+		/** When true, omit the standalone-page chrome (Titlebar + full-viewport
+		 *  height). Used when embedded inside the workspace canvas. */
+		bare = false,
 	}: {
 		data?: RiserDocData | null
 		floors?: FloorConfig[]
@@ -58,6 +61,7 @@
 		onsave: (payload: Partial<RiserDocData>, changes: any[]) => void
 		onupdatefloors?: (updated: FloorConfig[]) => void
 		ondeletefloor?: (fl: number) => void
+		bare?: boolean
 	} = $props()
 
 	// ────────────────────────────────────────────────────────────────────
@@ -839,8 +843,10 @@
 	})
 </script>
 
-<div class="page">
-	<Titlebar title={projectName ? `Risers — ${projectName}` : 'Risers'} menu />
+<div class="page" class:bare>
+	{#if !bare}
+		<Titlebar title={projectName ? `Risers — ${projectName}` : 'Risers'} menu />
+	{/if}
 
 	<RiserToolbar
 		bind:fromFloor
@@ -1139,6 +1145,9 @@
 		flex-direction: column;
 		height: 100vh;
 		overflow: hidden;
+	}
+	.page.bare {
+		height: 100%;
 	}
 	.body {
 		flex: 1;
