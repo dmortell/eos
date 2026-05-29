@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte'
 	import { page } from '$app/state'
 	import { Firestore, Icon } from '$lib'
 	import { fmtFloor } from '$lib/utils/floor'
@@ -11,6 +12,22 @@
 
 	let framesByFloor: Record<number, any> = $state({})
 	let racksByFloorRoom: Record<string, any> = $state({})
+	const rowRefs = new Map<string, HTMLDivElement>()
+
+	function registerRow(el: HTMLDivElement, id: string) {
+		rowRefs.set(id, el)
+		return {
+			update(nextId: string) {
+				if (nextId === id) return
+				if (rowRefs.get(id) === el) rowRefs.delete(id)
+				id = nextId
+				rowRefs.set(id, el)
+			},
+			destroy() {
+				if (rowRefs.get(id) === el) rowRefs.delete(id)
+			},
+		}
+	}
 
 	$effect(() => {
 		if (!ws.pid || !floors.length) return
@@ -117,6 +134,94 @@
 		return out
 	})
 
+	interface VisibleItem {
+		node: TreeNode
+		depth: number
+		parentId: string | null
+	}
+
+	const visible: VisibleItem[] = $derived.by(() => {
+		const out: VisibleItem[] = []
+		const walk = (nodes: TreeNode[], depth: number, parentId: string | null) => {
+			for (const n of nodes) {
+				out.push({ node: n, depth, parentId })
+				if (n.children?.length && ws.expanded.has(n.id)) {
+					walk(n.children, depth + 1, n.id)
+				}
+			}
+		}
+		walk(tree, 0, null)
+		return out
+	})
+
+	const focusedId = $derived(ws.selectedNodeId ?? visible[0]?.node.id ?? null)
+
+	async function selectAndFocus(node: TreeNode) {
+		ws.select(node.id, node.kind)
+		await tick()
+		const el = rowRefs.get(node.id)
+		el?.focus()
+		el?.scrollIntoView({ block: 'nearest' })
+	}
+
+	async function handleKey(e: KeyboardEvent, item: VisibleItem) {
+		const { node } = item
+		const hasChildren = !!node.children?.length
+		const expanded = ws.expanded.has(node.id)
+		const idx = visible.findIndex((v) => v.node.id === node.id)
+
+		switch (e.key) {
+			case 'ArrowDown': {
+				e.preventDefault()
+				const next = visible[idx + 1]
+				if (next) await selectAndFocus(next.node)
+				break
+			}
+			case 'ArrowUp': {
+				e.preventDefault()
+				const prev = visible[idx - 1]
+				if (prev) await selectAndFocus(prev.node)
+				break
+			}
+			case 'ArrowRight': {
+				e.preventDefault()
+				if (hasChildren && !expanded) {
+					ws.toggleExpanded(node.id)
+				} else if (hasChildren && expanded) {
+					await selectAndFocus(node.children![0])
+				}
+				break
+			}
+			case 'ArrowLeft': {
+				e.preventDefault()
+				if (hasChildren && expanded) {
+					ws.toggleExpanded(node.id)
+				} else if (item.parentId) {
+					const parent = visible.find((v) => v.node.id === item.parentId)
+					if (parent) await selectAndFocus(parent.node)
+				}
+				break
+			}
+			case 'Home': {
+				e.preventDefault()
+				if (visible[0]) await selectAndFocus(visible[0].node)
+				break
+			}
+			case 'End': {
+				e.preventDefault()
+				const last = visible[visible.length - 1]
+				if (last) await selectAndFocus(last.node)
+				break
+			}
+			case 'Enter':
+			case ' ': {
+				e.preventDefault()
+				ws.select(node.id, node.kind)
+				break
+			}
+		}
+	}
+
 	function iconFor(kind: NodeKind): string {
 		switch (kind) {
 			case 'floor': return 'layers'
@@ -137,38 +242,37 @@
 	}
 </script>
 
-<div class="p-2 text-sm select-none">
+<div class="p-2 text-sm select-none" role="tree" aria-label="Project navigator">
 	{#if tree.length === 0}
 		<div class="p-3 text-xs text-zinc-500 dark:text-zinc-400">
 			No drawings yet. Use the existing tool pages to add floors, racks, or frames; they'll appear here.
 		</div>
 	{:else}
-		{#each tree as node (node.id)}
-			{@render renderNode(node, 0)}
+		{#each visible as item (item.node.id)}
+			{@render renderRow(item)}
 		{/each}
 	{/if}
 </div>
 
-{#snippet renderNode(node: TreeNode, depth: number)}
+{#snippet renderRow(item: VisibleItem)}
+	{@const { node, depth } = item}
 	{@const expanded = ws.expanded.has(node.id)}
 	{@const selected = ws.selectedNodeId === node.id}
+	{@const focused = focusedId === node.id}
 	{@const hasChildren = !!(node.children && node.children.length)}
 	<div
-		class="flex items-center gap-1 py-1 pr-2 rounded cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 {selected
+		use:registerRow={node.id}
+		class="flex items-center gap-1 py-1 pr-2 rounded cursor-pointer outline-none hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:ring-2 focus-visible:ring-blue-500 {selected
 			? 'bg-blue-100 dark:bg-blue-900/40'
 			: ''}"
 		style="padding-left: {depth * 12 + 8}px"
 		role="treeitem"
 		aria-selected={selected}
 		aria-expanded={hasChildren ? expanded : undefined}
-		tabindex="0"
+		aria-level={depth + 1}
+		tabindex={focused ? 0 : -1}
 		onclick={() => ws.select(node.id, node.kind)}
-		onkeydown={(e) => {
-			if (e.key === 'Enter' || e.key === ' ') {
-				e.preventDefault()
-				ws.select(node.id, node.kind)
-			}
-		}}
+		onkeydown={(e) => handleKey(e, item)}
 	>
 		{#if hasChildren}
 			<button
@@ -177,6 +281,7 @@
 					e.stopPropagation()
 					ws.toggleExpanded(node.id)
 				}}
+				tabindex="-1"
 				aria-label={expanded ? 'Collapse' : 'Expand'}
 			>
 				<Icon name={expanded ? 'chevronDown' : 'chevronRight'} size={12} />
@@ -187,9 +292,4 @@
 		<Icon name={iconFor(node.kind)} size={14} />
 		<span class="truncate">{node.label}</span>
 	</div>
-	{#if hasChildren && expanded}
-		{#each node.children ?? [] as child (child.id)}
-			{@render renderNode(child, depth + 1)}
-		{/each}
-	{/if}
 {/snippet}
