@@ -55,6 +55,12 @@ export class WorkspaceState {
 	bottomPanelOpen = $state(false)
 	bottomPanelHeight = $state(220)
 
+	/** Devices selected in the canvas. Lifted out of view components so the
+	 *  inspector (and future patch-list cross-highlight) can read it. */
+	selectedDeviceIds = $state<Set<string>>(new Set())
+	/** Patch connection selected in the bottom-panel list. */
+	selectedConnectionId = $state<string | null>(null)
+
 	constructor(pid: string) {
 		this.pid = pid
 	}
@@ -71,6 +77,14 @@ export class WorkspaceState {
 		this.selectedNodeKind = kind
 		this.selectedNodeMeta = meta ?? null
 		this.activeView = defaultViewFor(kind)
+		// Tree navigation clears canvas-level selections so the inspector follows
+		// the new node, not stale device picks from the previous one.
+		this.selectedDeviceIds = new Set()
+		this.selectedConnectionId = null
+	}
+
+	selectDevices(ids: Iterable<string>) {
+		this.selectedDeviceIds = new Set(ids)
 	}
 }
 

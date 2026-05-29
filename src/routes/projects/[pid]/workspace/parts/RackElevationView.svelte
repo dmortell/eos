@@ -1,9 +1,12 @@
 <script lang="ts">
 	import { Firestore } from '$lib'
+	import { writeLog, type ChangeDetail } from '$lib/logger'
 	import {
 		RackElevation,
 		SCALE,
 		RACK_GAP_PX,
+		RU_HEIGHT_MM,
+		RACK_19IN_MM,
 		DEFAULT_SETTINGS,
 		rackHeightMm,
 		type RackConfig,
@@ -17,7 +20,6 @@
 	const ws = getWorkspace()
 	const db = new Firestore()
 
-	/** Workspace selection drives which racks doc we subscribe to. */
 	const docId = $derived.by(() => {
 		if (!ws) return null
 		const m = ws.selectedNodeMeta
@@ -33,9 +35,7 @@
 			rackDoc = null
 			return
 		}
-		const unsub = db.subscribeOne('racks', id, (data: any) => {
-			rackDoc = data ?? null
-		})
+		const unsub = db.subscribeOne('racks', id, (data: any) => (rackDoc = data ?? null))
 		return () => unsub?.()
 	})
 
@@ -47,13 +47,53 @@
 
 	const settings = $derived<RackSettings>({ ...DEFAULT_SETTINGS, ...(rackDoc?.settings ?? {}) })
 	const allRacks = $derived<RackConfig[]>((rackDoc?.racks ?? []).map(hydrateRack))
-	const devices = $derived<DeviceConfig[]>(rackDoc?.devices ?? [])
 	const rows = $derived(rackDoc?.rows ?? [])
 
-	/** Which racks to render. Driven by the tree selection kind:
-	 *   - `rack`  → just that one rack
-	 *   - `row`   → all racks in that row
-	 *   - `serverRoom` → all racks in the room (all rows) */
+	// ── Local mutable devices mirror, with debounced save-back to Firestore ──
+	// The Firestore subscription is the source of truth, but we keep a local
+	// copy that we mutate optimistically on drag/delete. A short suppression
+	// window prevents the echo of our own write from clobbering further edits.
+	let localDevices = $state<DeviceConfig[]>([])
+	let suppressUntil = 0
+
+	$effect(() => {
+		if (!rackDoc) {
+			localDevices = []
+			return
+		}
+		const remote: DeviceConfig[] = rackDoc.devices ?? []
+		if (Date.now() < suppressUntil) return
+		localDevices = remote
+	})
+
+	let saveTimer: ReturnType<typeof setTimeout> | null = null
+	let pendingChanges: ChangeDetail[] = []
+
+	function logEdit(c: ChangeDetail) {
+		pendingChanges.push({ ...c })
+	}
+
+	function scheduleSave() {
+		suppressUntil = Date.now() + 1500
+		if (saveTimer) clearTimeout(saveTimer)
+		saveTimer = setTimeout(doSave, 400)
+	}
+
+	function doSave() {
+		const id = docId
+		if (!id) return
+		const payload = {
+			id,
+			projectId: ws.pid,
+			devices: localDevices,
+		}
+		db.save('racks', payload)
+		if (pendingChanges.length) {
+			writeLog(ws.pid, 'racks', 'workspace', pendingChanges)
+			pendingChanges = []
+		}
+	}
+
 	const visibleRackIds = $derived.by(() => {
 		const m = ws.selectedNodeMeta
 		const kind = ws.selectedNodeKind
@@ -83,6 +123,10 @@
 		}
 		return out
 	})
+
+	const visibleDevices = $derived(
+		localDevices.filter((d) => visibleRackIds.has(d.rackId)),
+	)
 
 	const contentWidthMm = $derived(activeRacks.reduce((max, r) => Math.max(max, r._x + r.widthMm), 0))
 
@@ -114,9 +158,6 @@
 		bottom: settings.ceilingLevel + slopMm,
 	})
 
-	/** Fit-to-view scale chosen so the laid-out content occupies most of the
-	 *  container width at workspace zoom = 1. The user's pan/zoom is applied as
-	 *  an outer transform on top of this so the math stays decoupled. */
 	const fitScale = $derived.by(() => {
 		if (containerSize.w === 0 || contentWidthMm === 0) return 1
 		const contentPx = contentWidthMm * SCALE
@@ -135,8 +176,6 @@
 	let panButton = 0
 
 	function onPointerDown(e: PointerEvent) {
-		// Right (2) or middle (1) button starts a pan. Left button is reserved
-		// for selection / interaction in views that overlay on top.
 		if (e.button !== 1 && e.button !== 2) return
 		e.preventDefault()
 		panning = true
@@ -167,11 +206,9 @@
 		}
 	}
 
-	/** Wheel: ctrl/alt/meta or right-button-held = zoom around cursor; otherwise pan. */
 	$effect(() => {
 		if (!containerEl) return
 		const el = containerEl
-
 		function onWheel(e: WheelEvent) {
 			const isZoom = e.ctrlKey || e.altKey || e.metaKey || (panning && panButton === 2)
 			e.preventDefault()
@@ -188,31 +225,133 @@
 					zoom: newZoom,
 				}
 			} else {
-				// Plain wheel pans. Shift+wheel pans horizontally (browser convention).
 				const dx = e.shiftKey ? e.deltaY : e.deltaX
 				const dy = e.shiftKey ? 0 : e.deltaY
-				ws.viewport = {
-					...ws.viewport,
-					x: ws.viewport.x - dx,
-					y: ws.viewport.y - dy,
-				}
+				ws.viewport = { ...ws.viewport, x: ws.viewport.x - dx, y: ws.viewport.y - dy }
 			}
 		}
-
 		el.addEventListener('wheel', onWheel, { passive: false })
 		return () => el.removeEventListener('wheel', onWheel)
 	})
 
 	function onContextMenu(e: MouseEvent) {
-		// Right-click is reserved for pan; suppress the browser context menu over
-		// the canvas so panning doesn't pop a menu on mouse-up.
 		e.preventDefault()
 	}
 
 	function resetView() {
 		ws.viewport = { x: 0, y: 0, zoom: 1 }
 	}
+
+	// ── Edit affordances: drag, drop, delete, select ──────────────────────
+
+	function screenRect(rack: RackConfig & { _x: number; _z: number }) {
+		return {
+			left: rack._x * SCALE,
+			top: (syntheticView.bottom - rack._z - rack.heightMm) * SCALE,
+			width: rack.widthMm * SCALE,
+			height: rack.heightMm * SCALE,
+		}
+	}
+
+	function snapOffsetX(rect: { left: number; width: number }, rr: { left: number; width: number }, devW: number): number {
+		const devMidX = rect.left + rect.width / 2
+		const rackCenterX = rr.left + rr.width / 2
+		const offsetPx = devMidX - rackCenterX
+		return Math.round(offsetPx / SCALE / 25) * 25
+	}
+
+	function findDropRack(midX: number, midY: number) {
+		for (const rack of activeRacks) {
+			const rr = screenRect(rack)
+			if (midX >= rr.left && midX <= rr.left + rr.width && midY >= rr.top && midY <= rr.top + rr.height) {
+				return { rack, rr }
+			}
+		}
+		return null
+	}
+
+	let dropGhost = $state<{ left: number; top: number; width: number; height: number } | null>(null)
+
+	function onDeviceDrag(rect: any, _mouse: any, item: any) {
+		const midX = rect.left + rect.width / 2
+		const midY = rect.top + rect.height / 2
+		const devW = (item.widthMm ?? RACK_19IN_MM) * SCALE
+		const hit = findDropRack(midX, midY)
+		if (!hit) {
+			dropGhost = null
+			return
+		}
+		const { rack, rr } = hit
+		const ruFromBottom = (rr.top + rr.height - rect.top - rect.height) / SCALE / RU_HEIGHT_MM
+		const maxRU = isRUType(rack.type)
+			? rack.heightU - item.heightU + 1
+			: Math.floor(rack.heightMm / RU_HEIGHT_MM) - item.heightU + 1
+		const snappedRU = Math.max(1, Math.min(maxRU, Math.round(ruFromBottom)))
+		const ox = snapOffsetX(rect, rr, devW)
+		const centerLeft = rr.left + (rr.width - devW) / 2 + ox * SCALE
+		const ruBottom = rr.top + rr.height - snappedRU * RU_HEIGHT_MM * SCALE
+		dropGhost = {
+			left: centerLeft,
+			top: ruBottom - item.heightU * RU_HEIGHT_MM * SCALE,
+			width: devW,
+			height: item.heightU * RU_HEIGHT_MM * SCALE,
+		}
+	}
+
+	function onDeviceDragged(rect: any, device: DeviceConfig, copy?: boolean) {
+		dropGhost = null
+		const devW = (device.widthMm ?? RACK_19IN_MM) * SCALE
+		const midX = rect.left + rect.width / 2
+		const midY = rect.top + rect.height / 2
+		const hit = findDropRack(midX, midY)
+		if (!hit) return
+		const { rack, rr } = hit
+		const ruFromBottom = (rr.top + rr.height - rect.top - rect.height) / SCALE / RU_HEIGHT_MM
+		const maxRU = isRUType(rack.type)
+			? rack.heightU - device.heightU + 1
+			: Math.floor(rack.heightMm / RU_HEIGHT_MM) - device.heightU + 1
+		const snappedRU = Math.max(1, Math.min(maxRU, Math.round(ruFromBottom)))
+		const ox = snapOffsetX(rect, rr, devW)
+		if (copy) {
+			const id = `dev-${Date.now()}`
+			const { id: _, ...rest } = device
+			localDevices = [...localDevices, { ...rest, id, rackId: rack.id, positionU: snappedRU, offsetX: ox }]
+			ws.selectDevices([id])
+			logEdit({ action: 'copy', field: 'device', details: `${device.label} → ${rack.label} RU${snappedRU}` })
+		} else {
+			localDevices = localDevices.map((d) =>
+				d.id === device.id ? { ...d, rackId: rack.id, positionU: snappedRU, offsetX: ox } : d,
+			)
+			logEdit({ action: 'update', field: 'device', details: `${device.label} → ${rack.label} RU${snappedRU}` })
+		}
+		scheduleSave()
+	}
+
+	function deleteDevice(deviceId: string) {
+		const dev = localDevices.find((d) => d.id === deviceId)
+		if (!dev) return
+		localDevices = localDevices.filter((d) => d.id !== deviceId)
+		const next = new Set(ws.selectedDeviceIds)
+		next.delete(deviceId)
+		ws.selectedDeviceIds = next
+		logEdit({ action: 'remove', field: 'device', details: dev.label })
+		scheduleSave()
+	}
+
+	function selectDevice(deviceId: string) {
+		ws.selectDevices([deviceId])
+	}
+
+	function onKeyDown(e: KeyboardEvent) {
+		if (e.key !== 'Delete' && e.key !== 'Backspace') return
+		const ids = [...ws.selectedDeviceIds]
+		if (!ids.length) return
+		e.preventDefault()
+		for (const id of ids) deleteDevice(id)
+	}
 </script>
+
+<svelte:window onkeydown={onKeyDown} />
 
 <div
 	bind:this={containerEl}
@@ -226,6 +365,7 @@
 	oncontextmenu={onContextMenu}
 	role="img"
 	aria-label="Rack elevation"
+	tabindex="0"
 >
 	{#if !docId}
 		<div class="absolute inset-0 grid place-items-center text-xs text-zinc-400">
@@ -254,17 +394,21 @@
 					{activeRacks}
 					rearRacks={[]}
 					face={'front' as ElevationFace}
-					{devices}
-					selectedIds={new Set<string>()}
+					devices={visibleDevices}
+					selectedIds={ws.selectedDeviceIds}
 					rackOverlaps={new Map<string, Set<number>>()}
+					{dropGhost}
 					floorLabel=""
 					roomLabel=""
-					readonly={true}
+					readonly={false}
+					ondevicedrag={onDeviceDrag}
+					ondevicedragged={onDeviceDragged}
+					ondeletedevice={deleteDevice}
+					onselectdevice={selectDevice}
 				/>
 			</div>
 		</div>
 
-		<!-- Reset / zoom indicator (bottom-left) -->
 		<div class="absolute bottom-2 left-2 flex items-center gap-2 text-[10px] font-mono text-zinc-500 bg-white/70 dark:bg-zinc-900/70 rounded px-2 py-1 backdrop-blur">
 			<button
 				class="hover:text-zinc-900 dark:hover:text-zinc-100"
@@ -272,6 +416,10 @@
 				title="Reset view (pan to 0,0, zoom 1×)"
 			>reset</button>
 			<span>{(ws.viewport.zoom * 100).toFixed(0)}%</span>
+			{#if ws.selectedDeviceIds.size > 0}
+				<span class="text-blue-500 dark:text-blue-300">·</span>
+				<span class="text-blue-700 dark:text-blue-300">{ws.selectedDeviceIds.size} selected</span>
+			{/if}
 		</div>
 	{/if}
 </div>
