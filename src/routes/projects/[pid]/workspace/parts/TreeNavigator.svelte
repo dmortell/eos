@@ -182,6 +182,21 @@
 		return out
 	})
 
+	// Maintain ws.knownNodeIds so persisted tabs can show a staleness indicator
+	// when their target node no longer exists. Walks the FULL tree (not just
+	// visible) so collapsed branches still count as known.
+	$effect(() => {
+		const ids = new Set<string>()
+		const walk = (nodes: TreeNode[]) => {
+			for (const n of nodes) {
+				ids.add(n.id)
+				if (n.children?.length) walk(n.children)
+			}
+		}
+		walk(tree)
+		ws.knownNodeIds = ids
+	})
+
 	const focusedId = $derived(ws.selectedNodeId ?? visible[0]?.node.id ?? null)
 
 	async function selectAndFocus(node: TreeNode) {

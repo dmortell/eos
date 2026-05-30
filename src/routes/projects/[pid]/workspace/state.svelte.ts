@@ -113,6 +113,12 @@ export class WorkspaceState {
 	/** Label-rendering preferences (per-browser, localStorage). */
 	labelRendering = $state<LabelRendering>({ ...DEFAULT_LABEL_RENDERING })
 
+	/** Set of tree-node IDs that currently exist in the project. Maintained by
+	 *  TreeNavigator as it builds the tree. Tab staleness indicators key off it:
+	 *  a persisted tab whose selectedNodeId isn't in this set points to a node
+	 *  that's been deleted or never existed in this project. */
+	knownNodeIds = $state<Set<string>>(new Set())
+
 	// ── Library → canvas drag handoff ────────────────────────────────────
 	// The inspector library drives the drag; the canvas view (RackElevationView)
 	// renders the ghost and finalises the drop. State here so the two components
@@ -147,11 +153,21 @@ export class WorkspaceState {
 		// the new node, not stale device picks from the previous one.
 		this.selectedDeviceIds = new Set()
 		this.selectedConnectionId = null
+		// Selecting something is a clear "show me properties" signal — reopen
+		// the right panel if it was collapsed. Switching to the properties tab
+		// too, since that's the panel face users expect for tree picks.
+		this.rightPanelOpen = true
+		this.rightPanelTab = 'properties'
 		this.syncActiveTab()
 	}
 
 	selectDevices(ids: Iterable<string>) {
-		this.selectedDeviceIds = new Set(ids)
+		const next = new Set(ids)
+		this.selectedDeviceIds = next
+		if (next.size > 0) {
+			this.rightPanelOpen = true
+			this.rightPanelTab = 'properties'
+		}
 	}
 
 	// ── Tabs ─────────────────────────────────────────────────────────────
@@ -222,6 +238,49 @@ export class WorkspaceState {
 		}
 	}
 
+	closeOtherTabs(keepId: string): void {
+		const kept = this.tabs.find((t) => t.id === keepId)
+		if (!kept) return
+		this.tabs = [kept]
+		if (this.activeTabId !== keepId) this.switchTab(keepId)
+	}
+
+	closeTabsToRight(keepId: string): void {
+		const idx = this.tabs.findIndex((t) => t.id === keepId)
+		if (idx < 0) return
+		const trimmed = this.tabs.slice(0, idx + 1)
+		this.tabs = trimmed
+		if (!trimmed.find((t) => t.id === this.activeTabId)) this.switchTab(keepId)
+	}
+
+	duplicateTab(id: string): void {
+		const tab = this.tabs.find((t) => t.id === id)
+		if (!tab) return
+		const idx = this.tabs.findIndex((t) => t.id === id)
+		const clone: WorkspaceTab = {
+			id: makeTabId(),
+			title: tab.title,
+			selectedNodeId: tab.selectedNodeId,
+			selectedNodeKind: tab.selectedNodeKind,
+			selectedNodeMeta: tab.selectedNodeMeta ? { ...tab.selectedNodeMeta } : null,
+			activeView: tab.activeView,
+			viewport: { ...tab.viewport },
+		}
+		this.tabs = [...this.tabs.slice(0, idx + 1), clone, ...this.tabs.slice(idx + 1)]
+		this.switchTab(clone.id)
+	}
+
+	reorderTab(id: string, toIdx: number): void {
+		const fromIdx = this.tabs.findIndex((t) => t.id === id)
+		if (fromIdx < 0) return
+		const clampedTo = Math.max(0, Math.min(this.tabs.length - 1, toIdx))
+		if (fromIdx === clampedTo) return
+		const next = [...this.tabs]
+		const [moved] = next.splice(fromIdx, 1)
+		next.splice(clampedTo, 0, moved)
+		this.tabs = next
+	}
+
 	/** Ensure there's at least one tab — call once on workspace mount. */
 	ensureInitialTab(): void {
 		if (this.tabs.length === 0) {
@@ -236,8 +295,8 @@ export function viewsFor(kind: NodeKind | null): ViewOption[] {
 	switch (kind) {
 		case 'floor':
 			return [
-				{ id: 'outlets-high', label: 'Outlets (high)' },
 				{ id: 'outlets-low', label: 'Outlets (low)' },
+				{ id: 'outlets-high', label: 'Outlets (high)' },
 				{ id: 'trunks', label: 'Trunks' },
 				{ id: 'fillrate', label: 'Fill rate' },
 			]

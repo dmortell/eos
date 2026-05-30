@@ -27,9 +27,19 @@
 		ws.pid = page.params.pid ?? ''
 	})
 
-	// ── Tabs + display settings: load from localStorage on mount, save on change ──
+	// ── Tabs + display settings + panel sizes: load from localStorage on mount, save on change ──
 	const tabsStorageKey = $derived(`eos-ws-tabs-${ws.pid}`)
 	const displayStorageKey = 'eos-ws-display'
+	const panelsStorageKey = 'eos-ws-panels'
+
+	interface PanelSettings {
+		leftPanelWidth: number
+		rightPanelWidth: number
+		bottomPanelHeight: number
+		rightPanelOpen: boolean
+		bottomPanelOpen: boolean
+		rightPanelTab: 'properties' | 'library'
+	}
 
 	onMount(() => {
 		if (typeof window === 'undefined') return
@@ -55,6 +65,21 @@
 			if (raw) {
 				const parsed = JSON.parse(raw) as Partial<LabelRendering>
 				ws.labelRendering = { ...DEFAULT_LABEL_RENDERING, ...parsed }
+			}
+		} catch {
+			// corrupted storage — ignore
+		}
+		try {
+			const raw = window.localStorage.getItem(panelsStorageKey)
+			if (raw) {
+				const parsed = JSON.parse(raw) as Partial<PanelSettings>
+				if (typeof parsed.leftPanelWidth === 'number') ws.leftPanelWidth = parsed.leftPanelWidth
+				if (typeof parsed.rightPanelWidth === 'number') ws.rightPanelWidth = parsed.rightPanelWidth
+				if (typeof parsed.bottomPanelHeight === 'number') ws.bottomPanelHeight = parsed.bottomPanelHeight
+				if (typeof parsed.rightPanelOpen === 'boolean') ws.rightPanelOpen = parsed.rightPanelOpen
+				if (typeof parsed.bottomPanelOpen === 'boolean') ws.bottomPanelOpen = parsed.bottomPanelOpen
+				if (parsed.rightPanelTab === 'properties' || parsed.rightPanelTab === 'library')
+					ws.rightPanelTab = parsed.rightPanelTab
 			}
 		} catch {
 			// corrupted storage — ignore
@@ -85,6 +110,23 @@
 		const value = ws.labelRendering
 		try {
 			window.localStorage.setItem(displayStorageKey, JSON.stringify(value))
+		} catch {
+			// quota / disabled — ignore
+		}
+	})
+
+	$effect(() => {
+		if (typeof window === 'undefined') return
+		const value: PanelSettings = {
+			leftPanelWidth: ws.leftPanelWidth,
+			rightPanelWidth: ws.rightPanelWidth,
+			bottomPanelHeight: ws.bottomPanelHeight,
+			rightPanelOpen: ws.rightPanelOpen,
+			bottomPanelOpen: ws.bottomPanelOpen,
+			rightPanelTab: ws.rightPanelTab,
+		}
+		try {
+			window.localStorage.setItem(panelsStorageKey, JSON.stringify(value))
 		} catch {
 			// quota / disabled — ignore
 		}

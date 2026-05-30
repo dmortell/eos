@@ -15,14 +15,14 @@
 	const fmt = (fl: number) => fl < 0 ? `B${String(Math.abs(fl))}` : `${fl}F`	// const fmt = (fl: number) => fmtFloor(fl, floorFormat, floors)
 
 	let tools = $derived([
-		{ detail:0, href: 'workspace', icon: 'panels', label: 'Workspace (preview)', description: 'Unified workspace with tree navigator and view switcher. Under construction — existing tools below remain authoritative.', },
+		{ detail:0, primary: true, href: 'workspace', icon: 'panels', label: 'Workspace', description: 'Unified tree navigator, view switcher, and live patch list. Tabs, library drag-to-canvas, inline edits — all five tools in one surface.', },
 		{ detail:0, href: 'drawings', icon: 'list',  label: 'Drawing List', description: 'Master drawing register with revision history and Excel export.', },
 		{ detail:0, href: 'packages', icon: 'layers', label: 'Drawing Packages', description: 'Assemble and publish drawing revision packages for vendors and clients.', },
-		{ detail:1, href: 'outlets', icon: 'route',  label: 'Outlets and Routes', description: 'Draw racks, outlets and cable routes on floorplans.', },
-		{ detail:1, href: 'racks',   icon: 'server', label: 'Rack Elevations', description: 'Manage server rooms, racks, and devices.' },
-		{ detail:1, href: 'frames',  icon: 'rows',   label: 'Patch Frames', description: 'Assign floor ports and rack panels to patch frames.', },
-		{ detail:1, href: 'patching', icon: 'cable', label: 'Patching', description: 'Manage patch cord connections and cable schedules.', },
-		{ detail:1, href: 'risers',  icon: 'rectVertical', label: 'Risers', description: 'Building elevation with cable risers and inter-floor routing.', },
+		{ detail:1, href: 'outlets', icon: 'route',  label: 'Outlets and Routes', description: 'Floorplan view (opens in workspace). Draw racks, outlets, and cable routes.', },
+		{ detail:1, href: 'racks',   icon: 'server', label: 'Rack Elevations', description: 'Rack elevation view (opens in workspace). Manage server rooms, racks, devices.' },
+		{ detail:1, href: 'frames',  icon: 'rows',   label: 'Patch Frames', description: 'Patch frames view (opens in workspace). Assign floor ports and rack panels.', },
+		{ detail:1, href: 'patching', icon: 'cable', label: 'Patching', description: 'Patching view (opens in workspace). Manage patch cord connections and cable schedules.', },
+		{ detail:1, href: 'risers',  icon: 'rectVertical', label: 'Risers', description: 'Risers view (opens in workspace). Building elevation with inter-floor cable routing.', },
 		{ detail:0, href: 'fillrate', icon: 'pile',  label: 'Fill Rates', description: 'Containment fill rates with cross-section diagrams.', },
 		{ detail:0, href: 'uploads', icon: 'upload', label: 'Floorplan Uploads', description: 'Upload and manage floorplan files and pages.', },
 		{ detail:0, href: `/survey?project=${pid}`, icon: 'camera', label: 'Photo Surveys', description: 'Take photos, voice notes, and share survey albums.', absolute: true },
@@ -54,8 +54,14 @@
 			<ul class="space-y-2">
 				{#each tools as tool}
 					<li>
-						<a href={tool.absolute ? tool.href : `${path}/${tool.href}`} class="group grid grid-cols-[auto_1fr] md:grid-cols-[auto_180px_1fr] items-start gap-x-3 gap-y-1 rounded-xl border border-zinc-200 px-3 py-3 transition-all hover:border-blue-300 hover:bg-blue-50/60 dark:border-zinc-800 dark:hover:border-blue-700 dark:hover:bg-blue-950/40" >
-							<span class="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-100 text-zinc-700 group-hover:bg-blue-100 group-hover:text-blue-700 dark:bg-zinc-900 dark:text-zinc-300 dark:group-hover:bg-blue-900/50 dark:group-hover:text-blue-300">
+						<a href={tool.absolute ? tool.href : `${path}/${tool.href}`} class="group grid grid-cols-[auto_1fr] md:grid-cols-[auto_180px_1fr] items-start gap-x-3 gap-y-1 rounded-xl border px-3 py-3 transition-all
+							{tool.primary
+								? 'border-blue-300 bg-blue-50/60 hover:border-blue-400 dark:border-blue-700 dark:bg-blue-950/40 dark:hover:border-blue-600'
+								: 'border-zinc-200 hover:border-blue-300 hover:bg-blue-50/60 dark:border-zinc-800 dark:hover:border-blue-700 dark:hover:bg-blue-950/40'}" >
+							<span class="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg
+								{tool.primary
+									? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
+									: 'bg-zinc-100 text-zinc-700 group-hover:bg-blue-100 group-hover:text-blue-700 dark:bg-zinc-900 dark:text-zinc-300 dark:group-hover:bg-blue-900/50 dark:group-hover:text-blue-300'}">
 								<Icon name={tool.icon} size={16} />
 							</span>
 							<div class="col-start-2 row-start-1 block pt-0.5 text-sm text-zinc-900 group-hover:text-blue-800 dark:text-zinc-100 dark:group-hover:text-blue-200">
