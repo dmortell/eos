@@ -24,6 +24,16 @@
 			quickOpen = !quickOpen
 		}
 	}
+
+	/** Effective zoom on the workspace transform layer (above embedded tool
+	 *  zoom). When tiny, swap the canvas root to a "dim labels" mode that
+	 *  fades small text so the rack/row shape is still readable. */
+	const lodMode = $derived.by(() => {
+		if (!ws.labelRendering.lod) return null
+		if (ws.viewport.zoom < 0.45) return 'tiny'
+		if (ws.viewport.zoom < 0.75) return 'dim'
+		return null
+	})
 </script>
 
 <svelte:window onkeydown={onGlobalKey} />
@@ -43,7 +53,7 @@
 		<main class="flex flex-col min-w-0 min-h-0">
 			<TabStrip />
 			<ViewStrip />
-			<div class="flex-1 min-h-0 relative">
+			<div class="flex-1 min-h-0 relative workspace-canvas" data-lod={lodMode}>
 				<CanvasArea />
 			</div>
 			{#if ws.bottomPanelOpen}
@@ -94,3 +104,20 @@
 </div>
 
 <QuickSwitcher bind:open={quickOpen} {floors} />
+
+<style>
+	/* Level-of-detail: when the user zooms out far on the workspace transform
+	 * layer, small text becomes unreadable noise. Fade it so the rack/row
+	 * shape stays legible. Triggered by the data-lod attribute set by
+	 * Workspace.svelte; affects everything inside .workspace-canvas. */
+	:global(.workspace-canvas[data-lod='dim'] .text-\[7px\]),
+	:global(.workspace-canvas[data-lod='dim'] .text-\[10px\]),
+	:global(.workspace-canvas[data-lod='dim'] [class*='text-xs']) {
+		opacity: 0.35;
+	}
+	:global(.workspace-canvas[data-lod='tiny'] .text-\[7px\]),
+	:global(.workspace-canvas[data-lod='tiny'] .text-\[10px\]),
+	:global(.workspace-canvas[data-lod='tiny'] [class*='text-xs']) {
+		opacity: 0;
+	}
+</style>
