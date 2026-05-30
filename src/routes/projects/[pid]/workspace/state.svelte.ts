@@ -113,6 +113,19 @@ export class WorkspaceState {
 	/** Label-rendering preferences (per-browser, localStorage). */
 	labelRendering = $state<LabelRendering>({ ...DEFAULT_LABEL_RENDERING })
 
+	// ── Library → canvas drag handoff ────────────────────────────────────
+	// The inspector library drives the drag; the canvas view (RackElevationView)
+	// renders the ghost and finalises the drop. State here so the two components
+	// don't need a direct reference.
+	/** Currently-dragging device template from the inspector library. Null when
+	 *  no drag is in flight. */
+	draggingTemplate = $state<unknown | null>(null)
+	/** Live cursor position in screen pixels during a library drag. */
+	dragClientPos = $state<{ x: number; y: number } | null>(null)
+	/** Set by the library on mouseup, consumed by the canvas. Carries the final
+	 *  cursor position and the template so the canvas can hit-test and place. */
+	pendingDrop = $state<{ x: number; y: number; template: any } | null>(null)
+
 	constructor(pid: string) {
 		this.pid = pid
 	}

@@ -272,6 +272,98 @@
 
 	let dropGhost = $state<{ left: number; top: number; width: number; height: number } | null>(null)
 
+	/** Convert a client (screen) coord into the inner-local space where
+	 *  rack._x*SCALE / screenRect() live. */
+	function clientToLocal(clientX: number, clientY: number): { x: number; y: number } | null {
+		if (!containerEl) return null
+		const rect = containerEl.getBoundingClientRect()
+		const canvasX = clientX - rect.left
+		const canvasY = clientY - rect.top
+		const innerScale = fitScale * ws.viewport.zoom
+		if (innerScale === 0) return null
+		const x = (canvasX - ws.viewport.x) / innerScale - fitTranslateX
+		const y = (canvasY - ws.viewport.y) / innerScale - fitTranslateY
+		return { x, y }
+	}
+
+	function ghostFromTemplate(template: any, clientX: number, clientY: number) {
+		const local = clientToLocal(clientX, clientY)
+		if (!local) return null
+		const heightU = template.heightU ?? 1
+		const devW = (template.widthMm ?? RACK_19IN_MM) * SCALE
+		// Centre the device rect on the cursor for hit-testing purposes.
+		const rect = {
+			left: local.x - devW / 2,
+			top: local.y - (heightU * RU_HEIGHT_MM * SCALE) / 2,
+			width: devW,
+			height: heightU * RU_HEIGHT_MM * SCALE,
+		}
+		const hit = findDropRack(local.x, local.y)
+		if (!hit) return { hit: null, rect }
+		const { rack, rr } = hit
+		const ruFromBottom = (rr.top + rr.height - rect.top - rect.height) / SCALE / RU_HEIGHT_MM
+		const maxRU = isRUType(rack.type)
+			? rack.heightU - heightU + 1
+			: Math.floor(rack.heightMm / RU_HEIGHT_MM) - heightU + 1
+		const snappedRU = Math.max(1, Math.min(maxRU, Math.round(ruFromBottom)))
+		const ox = snapOffsetX(rect, rr, devW)
+		const centerLeft = rr.left + (rr.width - devW) / 2 + ox * SCALE
+		const ruBottom = rr.top + rr.height - snappedRU * RU_HEIGHT_MM * SCALE
+		return {
+			hit: { rack, snappedRU, ox },
+			rect: {
+				left: centerLeft,
+				top: ruBottom - heightU * RU_HEIGHT_MM * SCALE,
+				width: devW,
+				height: heightU * RU_HEIGHT_MM * SCALE,
+			},
+		}
+	}
+
+	// While a library drag is in flight, update the dropGhost from the cursor.
+	$effect(() => {
+		const tpl = ws.draggingTemplate
+		const pos = ws.dragClientPos
+		if (!tpl || !pos) {
+			// Don't clobber the per-device dropGhost during in-canvas dragging.
+			if (!ws.draggingTemplate) return
+			dropGhost = null
+			return
+		}
+		const g = ghostFromTemplate(tpl, pos.x, pos.y)
+		dropGhost = g?.hit ? g.rect : null
+	})
+
+	// Consume a library drop landed by InspectorLibrary.
+	$effect(() => {
+		const drop = ws.pendingDrop
+		if (!drop) return
+		const g = ghostFromTemplate(drop.template, drop.x, drop.y)
+		if (g?.hit) {
+			const t = drop.template
+			const id = `dev-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+			const newDev: DeviceConfig = {
+				id,
+				rackId: g.hit.rack.id,
+				type: t.type,
+				positionU: g.hit.snappedRU,
+				heightU: t.heightU,
+				offsetX: g.hit.ox,
+				label: t.label,
+				portCount: t.portCount,
+				portType: t.portType,
+				icon: t.icon,
+				...(t.widthMm ? { widthMm: t.widthMm } : {}),
+			} as DeviceConfig
+			localDevices = [...localDevices, newDev]
+			ws.selectDevices([id])
+			logEdit({ action: 'add', field: 'device', details: `${t.label} → ${g.hit.rack.label} RU${g.hit.snappedRU}` })
+			scheduleSave()
+		}
+		dropGhost = null
+		ws.pendingDrop = null
+	})
+
 	function onDeviceDrag(rect: any, _mouse: any, item: any) {
 		const midX = rect.left + rect.width / 2
 		const midY = rect.top + rect.height / 2
