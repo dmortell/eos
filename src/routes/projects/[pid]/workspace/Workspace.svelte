@@ -5,6 +5,7 @@
 	import TabStrip from './parts/TabStrip.svelte'
 	import ViewStrip from './parts/ViewStrip.svelte'
 	import DisplaySettings from './parts/DisplaySettings.svelte'
+	import QuickSwitcher from './parts/QuickSwitcher.svelte'
 	import CanvasArea from './parts/CanvasArea.svelte'
 	import RightPanel from './parts/RightPanel.svelte'
 	import BottomPanel from './parts/BottomPanel.svelte'
@@ -13,7 +14,19 @@
 
 	let { projectName, floors }: { projectName: string; floors: FloorConfig[] } = $props()
 	const ws = getWorkspace()
+
+	let quickOpen = $state(false)
+
+	function onGlobalKey(e: KeyboardEvent) {
+		// Cmd/Ctrl+K opens the quick switcher; ignore when focus is in an input.
+		if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+			e.preventDefault()
+			quickOpen = !quickOpen
+		}
+	}
 </script>
+
+<svelte:window onkeydown={onGlobalKey} />
 
 <div class="h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
 	<Titlebar title={projectName || 'Workspace'} />
@@ -79,3 +92,5 @@
 		{/if}
 	</div>
 </div>
+
+<QuickSwitcher bind:open={quickOpen} {floors} />
