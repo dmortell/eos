@@ -22,19 +22,33 @@
 	const height = $derived(Math.max(200, yBot - yTop))
 	const xLeft = $derived(room.xMm - room.widthMm / 2)
 
-	const fill = $derived(
-		room.color ??
-			(room.kind === 'server'
-				? 'rgba(80, 130, 200, 0.18)'
-				: 'rgba(200, 160, 80, 0.22)'),
-	)
-	const stroke = $derived(
+	function hexToRgba(hex: string, alpha: number): string {
+		const h = hex.trim()
+		if (!h.startsWith('#')) return h
+		let r = 0, g = 0, b = 0
+		if (h.length === 4) {
+			r = parseInt(h[1] + h[1], 16)
+			g = parseInt(h[2] + h[2], 16)
+			b = parseInt(h[3] + h[3], 16)
+		} else if (h.length >= 7) {
+			r = parseInt(h.slice(1, 3), 16)
+			g = parseInt(h.slice(3, 5), 16)
+			b = parseInt(h.slice(5, 7), 16)
+		}
+		return `rgba(${r}, ${g}, ${b}, ${alpha})`
+	}
+
+	// Stroke + text use the saturated color; fill is a low-opacity tint so
+	// the text and badge stay readable against a colored room.
+	const baseColor = $derived(
 		room.color
 			? room.color
 			: room.kind === 'server'
-				? 'rgb(40, 90, 160)'
-				: 'rgb(160, 110, 30)',
+				? '#285aa0'
+				: '#a06e1e',
 	)
+	const fill = $derived(hexToRgba(baseColor, 0.18))
+	const stroke = $derived(baseColor)
 	const badge = $derived(room.kind === 'server' ? 'SER' : 'EPS')
 </script>
 
@@ -50,11 +64,7 @@
 		x={xLeft}
 		y={yTop}
 		width={room.widthMm}
-		height={height}
-		rx="60"
-		ry="60"
-		{fill}
-		{stroke}
+		{height} {fill} {stroke}
 		stroke-width="20"
 		vector-effect="non-scaling-stroke"
 	/>
