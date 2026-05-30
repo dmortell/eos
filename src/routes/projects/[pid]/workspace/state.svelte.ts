@@ -85,6 +85,10 @@ export class WorkspaceState {
 	selectedNodeId = $state<string | null>(null)
 	selectedNodeKind = $state<NodeKind | null>(null)
 	selectedNodeMeta = $state<TreeNode['meta'] | null>(null)
+	/** Human-readable label of the currently-selected node, used for tab titles
+	 *  and breadcrumbs. Set from the tree when the user clicks; falls back to
+	 *  the trailing path segment when the URL restores a selection. */
+	selectedNodeLabel = $state<string | null>(null)
 	expanded = $state<Set<string>>(new Set())
 	viewport = $state<Viewport>({ x: 0, y: 0, zoom: 1 })
 	activeView = $state<string | null>(null)
@@ -120,10 +124,11 @@ export class WorkspaceState {
 		this.expanded = next
 	}
 
-	select(id: string, kind: NodeKind, meta?: TreeNode['meta']) {
+	select(id: string, kind: NodeKind, meta?: TreeNode['meta'], label?: string) {
 		this.selectedNodeId = id
 		this.selectedNodeKind = kind
 		this.selectedNodeMeta = meta ?? null
+		this.selectedNodeLabel = label ?? null
 		this.activeView = defaultViewFor(kind)
 		// Tree navigation clears canvas-level selections so the inspector follows
 		// the new node, not stale device picks from the previous one.
@@ -151,9 +156,10 @@ export class WorkspaceState {
 	}
 
 	private titleFromCurrent(): string {
+		if (this.selectedNodeLabel) return this.selectedNodeLabel
 		const id = this.selectedNodeId
 		if (!id) return 'Untitled'
-		// Trim path prefixes so the tab label is just the leaf node piece.
+		// Fallback: trim path prefixes so the tab label is the leaf segment.
 		const tail = id.split('/').pop() ?? id
 		return tail.replace(/^[a-z]+:/i, '')
 	}

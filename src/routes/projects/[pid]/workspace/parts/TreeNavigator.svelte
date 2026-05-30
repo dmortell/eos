@@ -185,7 +185,7 @@
 	const focusedId = $derived(ws.selectedNodeId ?? visible[0]?.node.id ?? null)
 
 	async function selectAndFocus(node: TreeNode) {
-		ws.select(node.id, node.kind, node.meta)
+		ws.select(node.id, node.kind, node.meta, node.label)
 		await tick()
 		const el = rowRefs.get(node.id)
 		el?.focus()
@@ -244,7 +244,7 @@
 			case 'Enter':
 			case ' ': {
 				e.preventDefault()
-				ws.select(node.id, node.kind, node.meta)
+				ws.select(node.id, node.kind, node.meta, node.label)
 				break
 			}
 		}
@@ -299,7 +299,7 @@
 		aria-expanded={hasChildren ? expanded : undefined}
 		aria-level={depth + 1}
 		tabindex={focused ? 0 : -1}
-		onclick={() => ws.select(node.id, node.kind, node.meta)}
+		onclick={() => ws.select(node.id, node.kind, node.meta, node.label)}
 		onkeydown={(e) => handleKey(e, item)}
 	>
 		{#if hasChildren}
