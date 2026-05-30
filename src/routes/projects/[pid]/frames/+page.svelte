@@ -1,7 +1,19 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { getContext } from 'svelte';
+	import { getContext, onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { Firestore, Spinner, Session } from '$lib';
+	import { framesRedirect } from '../workspace/redirect';
+
+	const legacy = page.url.searchParams.has('legacy');
+	onMount(() => {
+		if (legacy) return;
+		goto(framesRedirect({
+			pid: page.params.pid ?? '',
+			floor: page.url.searchParams.get('floor'),
+			frame: page.url.searchParams.get('frame'),
+		}), { replaceState: true });
+	});
 	import { writeLog } from '$lib/logger';
 	import type { ChangeDetail } from '$lib/logger';
 	import type { FloorConfig } from '$lib/types/project';
@@ -165,7 +177,9 @@
 	}
 </script>
 
-{#if loading}
+{#if !legacy}
+	<div class="flex items-center justify-center h-screen text-xs text-zinc-500">Redirecting to the workspace…</div>
+{:else if loading}
 	<div class="flex items-center justify-center h-screen">
 		<Spinner>Loading frames...</Spinner>
 	</div>

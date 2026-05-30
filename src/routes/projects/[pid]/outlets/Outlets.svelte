@@ -1525,7 +1525,7 @@
 	<Pane defaultSize={80}>
 		<div class="h-full flex flex-col">
 			<!-- Canvas -->
-			<div class="flex-1 min-h-0 relative">
+			<div class="flex-1 min-h-0 relative flex flex-col">
 				<OutletCanvas
 					bind:this={canvasRef}
 					file={selectedFile}

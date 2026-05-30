@@ -1,8 +1,16 @@
 <script lang="ts">
 	import { page } from '$app/state'
-	import { getContext } from 'svelte'
+	import { getContext, onMount } from 'svelte'
+	import { goto } from '$app/navigation'
 	import { Firestore, Spinner, Session } from '$lib'
+	import { risersRedirect } from '../workspace/redirect'
 	import { writeLog } from '$lib/logger'
+
+	const legacy = page.url.searchParams.has('legacy')
+	onMount(() => {
+		if (legacy) return
+		goto(risersRedirect({ pid: page.params.pid ?? '' }), { replaceState: true })
+	})
 	import type { ChangeDetail } from '$lib/logger'
 	import type { FloorConfig } from '$lib/types/project'
 	import { migrateFloors, updateFloors as _updateFloors, deleteFloor as _deleteFloor } from '$lib/utils/floor'

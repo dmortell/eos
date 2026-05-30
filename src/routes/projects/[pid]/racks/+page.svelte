@@ -1,7 +1,21 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { getContext } from 'svelte';
+	import { getContext, onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { Firestore, Spinner, Session } from '$lib';
+	import { racksRedirect } from '../workspace/redirect';
+
+	// Strangler-fig: default to the workspace. ?legacy=1 keeps this route alive.
+	const legacy = page.url.searchParams.has('legacy');
+	onMount(() => {
+		if (legacy) return;
+		const url = racksRedirect({
+			pid: page.params.pid ?? '',
+			floor: page.url.searchParams.get('floor'),
+			room: page.url.searchParams.get('room'),
+		});
+		goto(url, { replaceState: true });
+	});
 	import { writeLog } from '$lib/logger';
 	import { migrateFloors, updateFloors as _updateFloors, deleteFloor as _deleteFloor } from '$lib/utils/floor';
 	import type { DeviceTemplate } from './parts/types';
@@ -183,7 +197,9 @@
 	}
 </script>
 
-{#if loading}
+{#if !legacy}
+	<div class="flex items-center justify-center h-screen text-xs text-zinc-500">Redirecting to the workspace…</div>
+{:else if loading}
 	<div class="flex items-center justify-center h-screen">
 		<Spinner>Loading racks...</Spinner>
 	</div>
