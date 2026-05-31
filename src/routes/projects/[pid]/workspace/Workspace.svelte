@@ -43,7 +43,7 @@
 
 	<div class="flex-1 grid grid-cols-[auto_1fr_auto] min-h-0">
 		<aside
-			class="relative border-r border-zinc-200 dark:border-zinc-800 overflow-y-auto bg-white dark:bg-zinc-900"
+			class="relative border-r border-zinc-200 dark:border-zinc-800 overflow-x-hidden overflow-y-auto bg-white dark:bg-zinc-900"
 			style="width: {ws.leftPanelWidth}px"
 		>
 			<TreeNavigator {floors} />
@@ -93,7 +93,7 @@
 
 		{#if ws.rightPanelOpen}
 			<aside
-				class="relative border-l border-zinc-200 dark:border-zinc-800 overflow-y-auto bg-white dark:bg-zinc-900"
+				class="relative border-l border-zinc-200 dark:border-zinc-800 overflow-x-hidden overflow-y-auto bg-white dark:bg-zinc-900"
 				style="width: {ws.rightPanelWidth}px"
 			>
 				<ResizeHandle orientation="vertical" side="left" min={220} max={600} bind:value={ws.rightPanelWidth} />
