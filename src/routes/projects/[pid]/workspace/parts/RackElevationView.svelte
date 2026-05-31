@@ -185,6 +185,16 @@
 	}
 
 	function onPointerMove(e: PointerEvent) {
+		// Update world-coord readout for the status bar regardless of pan state.
+		const local = clientToLocal(e.clientX, e.clientY)
+		if (local) {
+			// Convert from SCALE-px to source mm. y is inverted in our coord
+			// system (bottom-of-view origin) — flip back to "height above floor".
+			const xMm = local.x / SCALE
+			const yMm = (syntheticView.bottom - local.y / SCALE) | 0
+			ws.canvasCursor = { x: xMm | 0, y: yMm, units: 'mm' }
+		}
+
 		if (!panning) return
 		const dx = e.clientX - panLast.x
 		const dy = e.clientY - panLast.y
@@ -194,6 +204,10 @@
 			x: ws.viewport.x + dx,
 			y: ws.viewport.y + dy,
 		}
+	}
+
+	function onPointerLeave() {
+		ws.canvasCursor = null
 	}
 
 	function onPointerUp(e: PointerEvent) {
@@ -454,6 +468,7 @@
 	onpointermove={onPointerMove}
 	onpointerup={onPointerUp}
 	onpointercancel={onPointerUp}
+	onpointerleave={onPointerLeave}
 	oncontextmenu={onContextMenu}
 	role="img"
 	aria-label="Rack elevation"

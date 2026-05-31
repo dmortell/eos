@@ -119,6 +119,12 @@ export class WorkspaceState {
 	 *  that's been deleted or never existed in this project. */
 	knownNodeIds = $state<Set<string>>(new Set())
 
+	/** Cursor position in the canvas's world coordinate system, set by the
+	 *  active view on pointermove and cleared on pointerleave. Surfaced in the
+	 *  bottom status bar. `units` describes what the numbers mean for the
+	 *  current view ('mm' for rack/floor elevations, 'u' for RU coords, etc.). */
+	canvasCursor = $state<{ x: number; y: number; units: 'mm' | 'u' | 'px' } | null>(null)
+
 	// ── Library → canvas drag handoff ────────────────────────────────────
 	// The inspector library drives the drag; the canvas view (RackElevationView)
 	// renders the ghost and finalises the drop. State here so the two components

@@ -64,8 +64,8 @@
 					onchange={() => toggle('hoverMagnifier')}
 				/>
 				<div>
-					<div class="text-zinc-700 dark:text-zinc-200">Hover magnifier</div>
-					<div class="text-zinc-500 text-[10px]">A lens follows the cursor and enlarges nearby labels. <span class="text-amber-600">Experimental — not wired yet.</span></div>
+					<div class="text-zinc-700 dark:text-zinc-200">Hover label tip</div>
+					<div class="text-zinc-500 text-[10px]">Hovering over a port pops a large readable bubble with its full label, so you don't need to zoom in to read it.</div>
 				</div>
 			</label>
 

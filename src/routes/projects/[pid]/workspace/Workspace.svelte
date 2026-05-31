@@ -6,6 +6,7 @@
 	import ViewStrip from './parts/ViewStrip.svelte'
 	import DisplaySettings from './parts/DisplaySettings.svelte'
 	import QuickSwitcher from './parts/QuickSwitcher.svelte'
+	import LabelMagnifier from './parts/LabelMagnifier.svelte'
 	import CanvasArea from './parts/CanvasArea.svelte'
 	import RightPanel from './parts/RightPanel.svelte'
 	import BottomPanel from './parts/BottomPanel.svelte'
@@ -84,9 +85,17 @@
 						Inspector
 					</button>
 				{/if}
-				<span class="ml-auto font-mono">
-					{ws.viewport.x.toFixed(0)}, {ws.viewport.y.toFixed(0)} · {ws.viewport.zoom.toFixed(2)}x
-				</span>
+				{#if ws.canvasCursor}
+					<span class="ml-auto font-mono">
+						X {ws.canvasCursor.x} Y {ws.canvasCursor.y} {ws.canvasCursor.units}
+						<span class="text-zinc-400 mx-1">·</span>
+						{ws.viewport.zoom.toFixed(2)}x
+					</span>
+				{:else}
+					<span class="ml-auto font-mono">
+						pan {ws.viewport.x.toFixed(0)},{ws.viewport.y.toFixed(0)} · {ws.viewport.zoom.toFixed(2)}x
+					</span>
+				{/if}
 				<DisplaySettings />
 			</div>
 		</main>
@@ -104,6 +113,7 @@
 </div>
 
 <QuickSwitcher bind:open={quickOpen} {floors} />
+<LabelMagnifier />
 
 <style>
 	/* Level-of-detail: when the user zooms out far on the workspace transform
