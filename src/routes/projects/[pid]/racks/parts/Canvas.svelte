@@ -8,7 +8,9 @@
 		children?: any
 	} = $props()
 
-	let canvas: HTMLDivElement | null = null
+	// `$state()` so bind:this triggers the $effect that attaches the wheel
+	// listener — plain `let` raced mount timing in some embed paths.
+	let canvas: HTMLDivElement | null = $state(null)
 	let gw = $derived(view.grid * view.zoom)
 	let gx = $derived(view.x % gw)
 	let gy = $derived(view.y % gw)

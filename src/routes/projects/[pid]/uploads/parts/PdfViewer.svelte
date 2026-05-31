@@ -16,8 +16,10 @@
 
 	let db = new Firestore()
 
-	let containerEl: HTMLDivElement
-	let canvasEl: HTMLCanvasElement
+	// `$state()` so bind:this triggers the $effect that attaches the wheel
+	// listener — plain `let` raced mount timing in embed paths.
+	let containerEl: HTMLDivElement | undefined = $state()
+	let canvasEl: HTMLCanvasElement | undefined = $state()
 	let pdf: PdfState | null = null
 
 	let loading = $state(true)
@@ -203,7 +205,7 @@
 	// ── Get mouse position in PDF-page coordinates (accounting for pan/zoom) ──
 
 	function getPagePos(e: MouseEvent) {
-		const rect = containerEl.getBoundingClientRect()
+		const rect = containerEl?.getBoundingClientRect() ?? { left: 0, top: 0 } as DOMRect
 		return {
 			x: (e.clientX - rect.left - vx) / zoom,
 			y: (e.clientY - rect.top - vy) / zoom,
@@ -224,6 +226,7 @@
 	}
 
 	function doZoom(e: WheelEvent) {
+		if (!containerEl) return
 		const rect = containerEl.getBoundingClientRect()
 		const mx = e.clientX - rect.left
 		const my = e.clientY - rect.top
@@ -407,7 +410,8 @@
 			const scaleFactor = dist / pinchLastDist
 			pinchLastDist = dist
 			const newZoom = Math.min(8, Math.max(0.05, zoom * scaleFactor))
-			const rect = containerEl.getBoundingClientRect()
+			const rect = containerEl?.getBoundingClientRect()
+			if (!rect) return
 			const mx = newMid.x - rect.left
 			const my = newMid.y - rect.top
 			const s = newZoom / zoom
