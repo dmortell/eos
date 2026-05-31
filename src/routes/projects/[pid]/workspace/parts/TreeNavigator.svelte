@@ -168,12 +168,43 @@
 		parentId: string | null
 	}
 
+	let search = $state('')
+
+	/** When filtering, compute the set of nodes that match (or are an ancestor
+	 *  of a match) so the tree shows just the relevant paths and nothing else. */
+	const filterMatch = $derived.by(() => {
+		const q = search.trim().toLowerCase()
+		if (!q) return null as null | { include: Set<string>; hit: Set<string> }
+		const include = new Set<string>()
+		const hit = new Set<string>()
+		const walk = (nodes: TreeNode[], ancestors: string[]): boolean => {
+			let anyMatch = false
+			for (const n of nodes) {
+				const isHit = n.label.toLowerCase().includes(q)
+				const childMatch = n.children?.length ? walk(n.children, [...ancestors, n.id]) : false
+				if (isHit || childMatch) {
+					include.add(n.id)
+					for (const a of ancestors) include.add(a)
+					if (isHit) hit.add(n.id)
+					anyMatch = true
+				}
+			}
+			return anyMatch
+		}
+		walk(tree, [])
+		return { include, hit }
+	})
+
 	const visible: VisibleItem[] = $derived.by(() => {
 		const out: VisibleItem[] = []
+		const filter = filterMatch
 		const walk = (nodes: TreeNode[], depth: number, parentId: string | null) => {
 			for (const n of nodes) {
+				if (filter && !filter.include.has(n.id)) continue
 				out.push({ node: n, depth, parentId })
-				if (n.children?.length && ws.expanded.has(n.id)) {
+				// While filtering, force-expand matched branches so the user sees the path.
+				const expanded = filter ? true : ws.expanded.has(n.id)
+				if (n.children?.length && expanded) {
 					walk(n.children, depth + 1, n.id)
 				}
 			}
@@ -285,10 +316,36 @@
 	}
 </script>
 
+<div class="sticky top-0 z-10 bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800/60 px-2 py-1.5">
+	<div class="relative">
+		<Icon name="search" size={11} class="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-400" />
+		<input
+			type="text"
+			placeholder="Filter…"
+			bind:value={search}
+			class="w-full h-7 pl-7 pr-7 text-xs rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 focus:outline-none focus:border-blue-400 dark:focus:border-blue-600"
+		/>
+		{#if search}
+			<button
+				class="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-zinc-400 hover:text-zinc-700"
+				onclick={() => (search = '')}
+				aria-label="Clear filter"
+				title="Clear filter"
+			>
+				<Icon name="close" size={10} />
+			</button>
+		{/if}
+	</div>
+</div>
+
 <div class="p-2 text-sm select-none" role="tree" aria-label="Project navigator">
 	{#if tree.length === 0}
 		<div class="p-3 text-xs text-zinc-500 dark:text-zinc-400">
 			No drawings yet. Use the existing tool pages to add floors, racks, or frames; they'll appear here.
+		</div>
+	{:else if visible.length === 0}
+		<div class="p-3 text-xs text-zinc-500 dark:text-zinc-400">
+			No nodes match "{search}".
 		</div>
 	{:else}
 		{#each visible as item (item.node.id)}
@@ -333,6 +390,6 @@
 			<span class="w-4 h-4 inline-block"></span>
 		{/if}
 		<Icon name={iconFor(node.kind)} size={14} />
-		<span class="truncate">{node.label}</span>
+		<span class="truncate {filterMatch?.hit.has(node.id) ? 'text-blue-700 dark:text-blue-300 font-medium' : ''}">{node.label}</span>
 	</div>
 {/snippet}

@@ -5,7 +5,7 @@
 	const ws = getWorkspace()
 	let open = $state(false)
 
-	function toggle(field: 'lod' | 'tooltip' | 'hoverMagnifier' | 'inspectorAlways') {
+	function toggle(field: 'lod' | 'hoverMagnifier' | 'inspectorAlways') {
 		ws.labelRendering = { ...ws.labelRendering, [field]: !ws.labelRendering[field] }
 	}
 </script>
@@ -40,19 +40,6 @@
 				<div>
 					<div class="text-zinc-700 dark:text-zinc-200">Level-of-detail</div>
 					<div class="text-zinc-500 text-[10px]">Shrink port labels at low zoom so rows of racks stay readable. <span class="text-amber-600">Experimental — partial.</span></div>
-				</div>
-			</label>
-
-			<label class="flex items-start gap-2 py-1 cursor-pointer">
-				<input
-					type="checkbox"
-					class="mt-0.5"
-					checked={ws.labelRendering.tooltip}
-					onchange={() => toggle('tooltip')}
-				/>
-				<div>
-					<div class="text-zinc-700 dark:text-zinc-200">Hover tooltip</div>
-					<div class="text-zinc-500 text-[10px]">Hovering a port shows the full label even when shrunk.</div>
 				</div>
 			</label>
 

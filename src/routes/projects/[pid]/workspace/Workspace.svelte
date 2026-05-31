@@ -7,6 +7,7 @@
 	import DisplaySettings from './parts/DisplaySettings.svelte'
 	import QuickSwitcher from './parts/QuickSwitcher.svelte'
 	import LabelMagnifier from './parts/LabelMagnifier.svelte'
+	import ShortcutsOverlay from './parts/ShortcutsOverlay.svelte'
 	import CanvasArea from './parts/CanvasArea.svelte'
 	import RightPanel from './parts/RightPanel.svelte'
 	import BottomPanel from './parts/BottomPanel.svelte'
@@ -17,12 +18,23 @@
 	const ws = getWorkspace()
 
 	let quickOpen = $state(false)
+	let shortcutsOpen = $state(false)
 
 	function onGlobalKey(e: KeyboardEvent) {
 		// Cmd/Ctrl+K opens the quick switcher; ignore when focus is in an input.
 		if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
 			e.preventDefault()
 			quickOpen = !quickOpen
+			return
+		}
+		// '?' opens the keyboard cheatsheet, but only when not typing into an
+		// input/textarea/contenteditable (otherwise the user is typing a '?').
+		if (e.key === '?') {
+			const t = e.target as HTMLElement | null
+			const tag = t?.tagName
+			if (tag === 'INPUT' || tag === 'TEXTAREA' || t?.isContentEditable) return
+			e.preventDefault()
+			shortcutsOpen = !shortcutsOpen
 		}
 	}
 
@@ -118,6 +130,7 @@
 </div>
 
 <QuickSwitcher bind:open={quickOpen} {floors} />
+<ShortcutsOverlay bind:open={shortcutsOpen} />
 <LabelMagnifier />
 
 <style>

@@ -44,11 +44,12 @@ export interface ViewOption {
  *  localStorage. They drive how port labels render across Frames / Patching /
  *  Outlets views in the workspace canvas. */
 export interface LabelRendering {
-	/** Level-of-detail: shrink / abbreviate labels at low zoom. */
+	/** Level-of-detail: shrink / fade labels at low zoom so the rack/row
+	 *  shape stays legible at a glance. */
 	lod: boolean
-	/** Hover shows the full label even when shrunk. */
-	tooltip: boolean
-	/** Magnifying-glass lens follows the cursor and enlarges nearby labels. */
+	/** Hover over a port (or any element with a `[title]`) pops a large
+	 *  readable bubble at the cursor showing its full label. Useful for
+	 *  reading tiny labels without zooming. */
 	hoverMagnifier: boolean
 	/** Right-panel inspector always shows the full canonical label of the
 	 *  currently-selected port / device, regardless of canvas LOD. */
@@ -57,7 +58,6 @@ export interface LabelRendering {
 
 export const DEFAULT_LABEL_RENDERING: LabelRendering = {
 	lod: true,
-	tooltip: true,
 	hoverMagnifier: false,
 	inspectorAlways: true,
 }
