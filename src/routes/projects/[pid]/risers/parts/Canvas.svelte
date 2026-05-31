@@ -13,7 +13,10 @@
 		children?: any
 	} = $props()
 
-	let canvas: HTMLDivElement | null = null
+	// `$state()` so bind:this assignment triggers the $effect that attaches
+	// the wheel listener. As a plain `let` it raced mount timing — fine in
+	// standalone, fragile in the workspace embed.
+	let canvas: HTMLDivElement | null = $state(null)
 	let zoomTarget = view.zoom
 	let zoomAnimation: number | null = null
 

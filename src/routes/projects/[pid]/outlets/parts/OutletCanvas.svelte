@@ -77,8 +77,12 @@
 		onzoomchange?: (zoom: number) => void
 	} = $props()
 
-	let containerEl: HTMLDivElement
-	let canvasEl: HTMLCanvasElement
+	// `$state()` so bind:this assignment triggers the $effect below that
+	// attaches the wheel listener. As a plain `let` the effect raced mount
+	// timing — it worked in the standalone /outlets route by coincidence and
+	// broke in the workspace embed where the effect order differed.
+	let containerEl: HTMLDivElement | undefined = $state()
+	let canvasEl: HTMLCanvasElement | undefined = $state()
 	let pdf: PdfState | null = null
 
 	// ── View visibility bitmask ──
@@ -448,7 +452,7 @@
 	// ── Coordinate helpers ──
 
 	function getPagePos(e: MouseEvent): Point {
-		const rect = containerEl.getBoundingClientRect()
+		const rect = containerEl?.getBoundingClientRect() ?? { left: 0, top: 0 } as DOMRect
 		return {
 			x: (e.clientX - rect.left - vx) / zoom,
 			y: (e.clientY - rect.top - vy) / zoom,
@@ -623,6 +627,7 @@
 	}
 
 	function doZoom(e: WheelEvent) {
+		if (!containerEl) return
 		const rect = containerEl.getBoundingClientRect()
 		const mx = e.clientX - rect.left
 		const my = e.clientY - rect.top
@@ -1049,7 +1054,8 @@
 			const scaleFactor = dist / pinchLastDist
 			pinchLastDist = dist
 			const newZoom = Math.min(8, Math.max(0.05, zoom * scaleFactor))
-			const rect = containerEl.getBoundingClientRect()
+			const rect = containerEl?.getBoundingClientRect()
+			if (!rect) return
 			const mx = newMid.x - rect.left
 			const my = newMid.y - rect.top
 			const s = newZoom / zoom

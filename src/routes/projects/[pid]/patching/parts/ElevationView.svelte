@@ -45,7 +45,9 @@
 	} = $props()
 
 	// ── Pan/zoom state ──
-	let container: HTMLDivElement | null = null
+	// `$state()` so bind:this triggers the $effect that attaches the wheel
+	// listener. Plain `let` raced mount timing in the workspace embed.
+	let container: HTMLDivElement | null = $state(null)
 	let containerW = $state(0)
 	let containerH = $state(0)
 	let panX = $state(40)
