@@ -50,6 +50,8 @@
 	let showShare = $state(false)
 	let showMenu = $state(false)
 	let showEdit = $state(false)
+	// `$state` (not `$derived`) — these back a dialog with bind:value and are
+	// reset to the current survey when the dialog opens (openEditDialog).
 	let editName = $state(survey.name)
 	let editDate = $state(survey.date)
 	let editProjectId = $state(survey.projectId ?? '')

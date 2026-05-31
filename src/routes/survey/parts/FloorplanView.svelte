@@ -29,7 +29,10 @@
 
 	// PDF rendering — convert PDF page to an image URL
 	let isPdf = $derived(floorplan.name?.toLowerCase().endsWith('.pdf') || floorplan.url?.includes('.pdf'))
+	// `$state` (not `$derived`) — the PDF branch overwrites this with an object URL
+	// once the first page is rendered. An $effect below resets it when the prop changes.
 	let resolvedUrl = $state(floorplan.url)
+	$effect(() => { resolvedUrl = floorplan.url })
 	let pdfState: PdfState | null = null
 
 	$effect(() => {

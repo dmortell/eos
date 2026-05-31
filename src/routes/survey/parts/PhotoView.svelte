@@ -21,6 +21,8 @@
 	} = $props()
 
 	let editing = $state(false)
+	// `$state` (not `$derived`) — these back bind:value inputs and are reset
+	// when switching photo or opening the edit panel.
 	let title = $state(photo.title)
 	let description = $state(photo.description ?? '')
 	let deleting = $state(false)

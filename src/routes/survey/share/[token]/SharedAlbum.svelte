@@ -2,7 +2,8 @@
 	import { Icon } from '$lib'
 
 	let { data } = $props()
-	let { survey, photos } = data
+	const survey = $derived(data.survey)
+	const photos = $derived(data.photos)
 
 	let selectedIndex: number | null = $state(null)
 	let currentPhoto = $derived(selectedIndex != null ? photos[selectedIndex] : null)
