@@ -91,10 +91,15 @@
 						<span class="text-zinc-400 mx-1">·</span>
 						{ws.viewport.zoom.toFixed(2)}x
 					</span>
-				{:else}
+				{:else if ws.activeView === 'elevation' || ws.activeView === 'row-elevation' || ws.activeView === 'room-elevation'}
+					<!-- ws.viewport only drives the rack-elevation views; other views
+					     (Frames/Patching/Outlets/Risers) have their own internal pan/zoom,
+					     so showing ws.viewport for them would be misleading. -->
 					<span class="ml-auto font-mono">
 						pan {ws.viewport.x.toFixed(0)},{ws.viewport.y.toFixed(0)} · {ws.viewport.zoom.toFixed(2)}x
 					</span>
+				{:else}
+					<span class="ml-auto"></span>
 				{/if}
 				<DisplaySettings />
 			</div>
