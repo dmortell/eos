@@ -83,10 +83,10 @@
 				<!-- Default cable type -->
 				<div class="space-y-1.5">
 					<div class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Defaults</div>
-					<div class="flex items-center gap-2">
-						<label class="text-[11px] text-gray-500 w-24">Cable type</label>
+					<label class="flex items-center gap-2 text-[11px] text-gray-500">
+						<span class="w-24">Cable type</span>
 						<select
-							class="flex-1 text-[11px] border border-gray-200 rounded px-2 py-1 bg-white"
+							class="flex-1 border border-gray-200 rounded px-2 py-1 bg-white"
 							bind:value={localSettings.defaultCableType}
 						>
 							{#each CABLE_TYPES as ct}
@@ -96,19 +96,19 @@
 								<option value={ct.id}>{ct.label}</option>
 							{/each}
 						</select>
-					</div>
-					<div class="flex items-center gap-2">
-						<label class="text-[11px] text-gray-500 w-24">Cable color</label>
+					</label>
+					<label class="flex items-center gap-2 text-[11px] text-gray-500">
+						<span class="w-24">Cable color</span>
 						<input type="color" class="w-7 h-7 rounded border border-gray-200 cursor-pointer" bind:value={localSettings.defaultCableColor} />
 						<span class="text-[10px] text-gray-400 font-mono">{localSettings.defaultCableColor}</span>
-					</div>
-					<div class="flex items-center gap-2">
-						<label class="text-[11px] text-gray-500 w-24">New patch status</label>
-						<select class="flex-1 text-[11px] border border-gray-200 rounded px-2 py-1 bg-white" bind:value={localSettings.defaultStatus}>
+					</label>
+					<label class="flex items-center gap-2 text-[11px] text-gray-500">
+						<span class="w-24">New patch status</span>
+						<select class="flex-1 border border-gray-200 rounded px-2 py-1 bg-white" bind:value={localSettings.defaultStatus}>
 							<option value="add">Add (to install)</option>
 							<option value="installed">Installed (already in place)</option>
 						</select>
-					</div>
+					</label>
 				</div>
 
 				<!-- Custom cable types -->

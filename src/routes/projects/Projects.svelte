@@ -1,35 +1,21 @@
 <script lang="ts">
 	import { getContext } from "svelte";
-	import { Firestore, Button, Dialog, Icon, type Session } from "$lib";
+	import { Firestore, Button, type Session } from "$lib";
 	import InputNew from "$lib/ui/InputNew.svelte";
 	import Checkbox from "$lib/ui/Checkbox.svelte";
+	import ProjectSettingsDialog from "./ProjectSettingsDialog.svelte";
 	let db = getContext('db') as Firestore
 	let session = getContext('session') as Session
 	let projects = $state<Project[]>([])
-	let allUsers = $state<UserDoc[]>([])
 	let loading = $state(1)
 	let role = $state('user')
 	let cfg = getContext<{ locale: string }>('settings')
 	let editorOpen = $state(false)
-	let confirmOpen = $state(false)
 	let mode = $state<'create' | 'edit'>('create')
 	let selected = $state<Project | null>(null)
-	let draftName = $state('')
-	let draftDescription = $state('')
-	let draftClientCode = $state('')
-	let draftProjectCode = $state('')
-	let draftMembers = $state<string[]>([])
-	let memberSearch = $state('')
 	let searchQuery = $state('')
 	let showOnlyMine = $state(false)
 	let trashedOpen = $state(false)
-
-	interface UserDoc {
-		id: string;
-		uid?: string;
-		displayName?: string;
-		email?: string;
-	}
 
 	interface Project {
 		id: string;
@@ -37,6 +23,10 @@
 		clientCode?: string;
 		projectCode?: string;
 		description?: string;
+		client?: string;
+		address?: string;
+		author?: string;
+		logoUrl?: string;
 		members?: string[];
 		createdAt?: any;
 		updatedAt?: any;
@@ -45,20 +35,6 @@
 		deletedAt?: any;
 		deletedBy?: string;
 	}
-
-	let memberResults = $derived.by(() => {
-		const q = memberSearch.trim().toLowerCase()
-		if (!q) return []
-		return allUsers
-			.filter(u => !draftMembers.includes(u.id) &&
-				u.email && u.email.includes('@ei') &&
-				((u.displayName?.toLowerCase().includes(q)) || (u.email?.toLowerCase().includes(q))))
-			.slice(0, 5)
-	})
-
-	let draftMemberUsers = $derived(
-		draftMembers.map(id => allUsers.find(u => u.id === id)).filter(Boolean) as UserDoc[]
-	)
 
 	let activeProjects = $derived.by(() => {
 		let filtered = projects.filter(p => !p.deleted)
@@ -93,8 +69,7 @@
 
 	$effect(()=>{
 		let unsub = db.subscribeMany('projects', data=>{ projects = data as unknown as Project[]; loading=0 })
-		let unsubUsers = db.subscribeMany('users', data=>{ allUsers = data as unknown as UserDoc[] })
-		return () => { unsub?.(); unsubUsers?.() }
+		return () => { unsub?.() }
 	})
 
 	$effect(() => {
@@ -112,12 +87,6 @@
 	function openCreate() {
 		mode = 'create'
 		selected = null
-		draftName = ''
-		draftDescription = ''
-		draftClientCode = ''
-		draftProjectCode = ''
-		draftMembers = session?.user?.uid ? [session.user.uid] : []
-		memberSearch = ''
 		editorOpen = true
 	}
 
@@ -125,96 +94,7 @@
 		if (!canEditProject(project)) return
 		mode = 'edit'
 		selected = project
-		draftName = project.name || ''
-		draftDescription = project.description || ''
-		draftClientCode = project.clientCode || ''
-		draftProjectCode = project.projectCode || ''
-		draftMembers = [...(project.members ?? [])]
-		memberSearch = ''
 		editorOpen = true
-	}
-
-	function addMember(userId: string) {
-		if (!draftMembers.includes(userId)) draftMembers = [...draftMembers, userId]
-		memberSearch = ''
-	}
-
-	function removeMember(userId: string) {
-		draftMembers = draftMembers.filter(id => id !== userId)
-	}
-
-	function normalizeCode(input: string): string {
-		return input
-			.trim()
-			.toLowerCase()
-			.replace(/[^a-z0-9]+/g, '-')
-			.replace(/^-+|-+$/g, '')
-	}
-
-	async function generateUniqueProjectId(clientCode: string, projectCode: string): Promise<string> {
-		const base = `${clientCode}-${projectCode}`
-		for (let i = 0; i < 8; i += 1) {
-			const num = Math.floor(Math.random() * 9000) + 1000
-			const candidate = `${base}-${num}`
-			const exists = await db.getOne('projects', candidate)
-			if (!exists) return candidate
-		}
-		const fallback = `${base}-${Date.now().toString().slice(-6)}`
-		return fallback
-	}
-
-	async function saveProject() {
-		const name = draftName.trim()
-		if (!name) return
-		const now = new Date()
-		if (mode === 'create') {
-			const clientCode = normalizeCode(draftClientCode)
-			const projectCode = normalizeCode(draftProjectCode)
-			if (!clientCode || !projectCode) return
-			const id = await generateUniqueProjectId(clientCode, projectCode)
-			await db.save('projects', {
-				id,
-				name,
-				clientCode,
-				projectCode,
-				description: draftDescription.trim() || '',
-				members: draftMembers,
-				ownerId: session?.user?.uid,
-				createdAt: now,
-				updatedAt: now,
-				deleted: false,
-			})
-		} else if (selected?.id) {
-			if (!canEditProject(selected)) return
-			await db.save('projects', {
-				id: selected.id,
-				name,
-				description: draftDescription.trim() || '',
-				members: draftMembers,
-				updatedAt: now,
-			})
-		}
-		editorOpen = false
-	}
-
-	function askDelete(project: Project) {
-		if (!canEditProject(project)) return
-		selected = project
-		confirmOpen = true
-	}
-
-	async function confirmDelete() {
-		if (!selected?.id) return
-		if (!canEditProject(selected)) return
-		await db.save('projects', {
-			id: selected.id,
-			deleted: true,
-			deletedAt: new Date(),
-			deletedBy: session?.user?.uid || null,
-			updatedAt: new Date(),
-		})
-		confirmOpen = false
-		editorOpen = false
 	}
 
 	async function restore(project: Project) {
@@ -294,75 +174,7 @@
 	</details>
 </div>
 
-<Dialog bind:open={editorOpen} title={mode === 'create' ? 'Create Project' : 'Edit Project'}>
-	<div class="space-y-2 mt-1">
-		{#if mode === 'create'}
-			<div class="grid grid-cols-2 gap-2">
-				<div>
-					<div class="text-xs text-gray-700">Client Code</div>
-					<input class="w-full border rounded px-2 py-1 text-sm" bind:value={draftClientCode} placeholder="ex: acme" maxlength="12" />
-				</div>
-				<div>
-					<div class="text-xs text-gray-700">Project Code</div>
-					<input class="w-full border rounded px-2 py-1 text-sm" bind:value={draftProjectCode} placeholder="ex: hqfit" maxlength="12" />
-				</div>
-			</div>
-			<div class="text-[10px] text-gray-500">
-				Firestore ID preview: {normalizeCode(draftClientCode) || 'client'}-{normalizeCode(draftProjectCode) || 'project'}-####
-			</div>
-		{/if}
-		<div class="text-xs text-gray-700">Name</div>
-		<input class="w-full border rounded px-2 py-1 text-sm" bind:value={draftName} placeholder="Project name" />
-		<div class="text-xs text-gray-700">Description</div>
-		<textarea class="w-full border rounded px-2 py-1 text-sm" bind:value={draftDescription} rows="4" placeholder="Optional description"></textarea>
-
-		<!-- Members -->
-		<div class="text-xs text-gray-700">Project Members</div>
-		<div class="space-y-1">
-			{#if draftMemberUsers.length > 0}
-				<div class="flex flex-wrap gap-1">
-					{#each draftMemberUsers as user (user.id)}
-						<span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
-							{user.displayName || user.email || user.id}
-							<button class="text-blue-400 hover:text-red-500" onclick={() => removeMember(user.id)} title="Remove">
-								<Icon name="close" size={10} />
-							</button>
-						</span>
-					{/each}
-				</div>
-			{/if}
-			<div class="relative">
-				<input class="w-full border rounded px-2 py-1 text-sm" bind:value={memberSearch} placeholder="Search users by name or email..." />
-				{#if memberResults.length > 0}
-					<div class="absolute z-10 left-0 right-0 mt-0.5 bg-white border rounded shadow-lg max-h-40 overflow-y-auto">
-						{#each memberResults as user (user.id)}
-							<button class="w-full text-left px-2 py-1 text-xs hover:bg-blue-50 flex items-center gap-2"
-								onclick={() => addMember(user.id)}>
-								<span class="font-medium text-gray-700">{user.displayName || '(no name)'}</span>
-								{#if user.email}<span class="text-gray-400">{user.email}</span>{/if}
-							</button>
-						{/each}
-					</div>
-				{/if}
-			</div>
-		</div>
-
-		{#if mode === 'edit' && selected && !canEditProject(selected)}
-			<div class="text-xs text-amber-700">You do not have permission to edit this project.</div>
-		{/if}
-		<div class="flex justify-between gap-2 pt-1">
-			<div>
-				{#if mode === 'edit' && selected && canEditProject(selected)}
-					<Button variant="outline" onclick={() => { if (selected) askDelete(selected) }}>Archive Project</Button>
-				{/if}
-			</div>
-			<div class="flex gap-2">
-			<Button variant="outline" onclick={() => editorOpen = false}>Cancel</Button>
-			<Button variant="primary" onclick={saveProject} disabled={!draftName.trim() || (mode === 'create' && (!normalizeCode(draftClientCode) || !normalizeCode(draftProjectCode))) || (mode === 'edit' && selected ? !canEditProject(selected) : false)}>Save</Button>
-			</div>
-		</div>
-	</div>
-</Dialog>
+<ProjectSettingsDialog bind:open={editorOpen} {mode} project={selected} />
 
 <div class="fixed bottom-0 left-0 right-0 z-10 border-t border-gray-200 bg-white/95 px-3 py-1.5 text-xs text-gray-600 backdrop-blur">
 	<div class="mx-auto flex max-w-6xl items-center justify-between gap-2">
@@ -380,14 +192,3 @@
 		</a>
 	</div>
 </div>
-
-<Dialog bind:open={confirmOpen} title="Archive Project?">
-	<div class="space-y-2 mt-1 text-sm">
-		<div>This will move <strong>{selected?.name}</strong> to Archived.</div>
-		<div class="text-xs text-gray-600">Project data is not permanently deleted and can be restored later.</div>
-		<div class="flex justify-end gap-2 pt-1">
-			<Button variant="outline" onclick={() => confirmOpen = false}>Cancel</Button>
-			<Button variant="danger" onclick={confirmDelete}>Archive</Button>
-		</div>
-	</div>
-</Dialog>

@@ -1,11 +1,14 @@
 <script lang="ts">
-	import { Firestore, Icon } from '$lib'
+	import { Firestore, Icon, Button } from '$lib'
 	import { Titlebar } from '$lib'
 	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
 	import { type Project } from './racks/parts/types';
 	import { fmtFloor, migrateFloors } from '$lib/utils/floor'
+	import ProjectSettingsDialog from '../ProjectSettingsDialog.svelte'
 	let {params, ...other} = $props()
 	let project: Record<string, any> = $state({})
+	let settingsOpen = $state(false)
 	let pid = $derived(params.pid)
 	let id = $derived(page.params.pid); // This will correctly update id
 	let path = $derived(page.url.pathname); // This will correctly update id
@@ -42,11 +45,14 @@
 
 <div class="p-4 md:p-6 bg-white dark:bg-black">
 	<div class="mx-auto max-w-4xl space-y-4 md:space-y-5">
-		<div class="rounded-2xl border border-zinc-200 bg-zinc-50/80 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
-			<div class="text-lg font-semibold tracking-tight">{project.name}</div>
-			{#if project.description}
-				<div class="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{project.description}</div>
-			{/if}
+		<div class="flex items-start justify-between gap-3 rounded-2xl border border-zinc-200 bg-zinc-50/80 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
+			<div class="min-w-0">
+				<div class="text-lg font-semibold tracking-tight">{project.name}</div>
+				{#if project.description}
+					<div class="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{project.description}</div>
+				{/if}
+			</div>
+			<Button variant="outline" icon="settings" onclick={() => settingsOpen = true}>Settings</Button>
 		</div>
 
 		<section class="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/80">
@@ -84,3 +90,5 @@
 		</section>
 	</div>
 </div>
+
+<ProjectSettingsDialog bind:open={settingsOpen} mode="edit" project={project as any} onarchived={() => goto('/projects')} />

@@ -34,9 +34,11 @@
 
 <div class="px-3 py-2 text-sm space-y-2">
 	<div class="flex items-center gap-2">
-		<label class="text-xs text-gray-500">Label</label>
-		<input type="text" bind:value={section.label} oninput={changed}
-			class="font-bold text-sm bg-transparent border-b border-dashed border-gray-400 outline-none w-24" />
+		<label class="flex items-center gap-2 text-xs text-gray-500">
+			Label
+			<input type="text" bind:value={section.label} oninput={changed}
+				class="font-bold text-sm bg-transparent border-b border-dashed border-gray-400 outline-none w-24" />
+		</label>
 		<div class="flex-1"></div>
 		<Button icon="chevronUp" class="rounded px-1 py-0.5" onclick={onmoveup} disabled={!canMoveUp} />
 		<Button icon="chevronDown" class="rounded px-1 py-0.5" onclick={onmovedown} disabled={!canMoveDown} />
@@ -56,20 +58,20 @@
 	</div>
 
 	{#if section.containmentType === 'round'}
-		<div class="flex items-center gap-2">
-			<label class="text-xs text-gray-500">Diameter (mm)</label>
+		<label class="flex items-center gap-2 text-xs text-gray-500">
+			Diameter (mm)
 			<input type="number" min="1" bind:value={section.diameter} oninput={changed} />
-		</div>
+		</label>
 	{:else}
 		<div class="flex gap-2">
-			<div>
-				<label class="text-xs text-gray-500">Width (mm)</label>
+			<label class="text-xs text-gray-500">
+				Width (mm)
 				<input type="number" min="1" bind:value={section.width} oninput={changed} />
-			</div>
-			<div>
-				<label class="text-xs text-gray-500">Height (mm)</label>
+			</label>
+			<label class="text-xs text-gray-500">
+				Height (mm)
 				<input type="number" min="1" bind:value={section.height} oninput={changed} />
-			</div>
+			</label>
 		</div>
 	{/if}
 

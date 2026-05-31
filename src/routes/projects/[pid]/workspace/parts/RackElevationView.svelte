@@ -472,7 +472,6 @@
 	oncontextmenu={onContextMenu}
 	role="img"
 	aria-label="Rack elevation"
-	tabindex="0"
 >
 	{#if !docId}
 		<div class="absolute inset-0 grid place-items-center text-xs text-zinc-400">

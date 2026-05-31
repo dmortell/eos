@@ -590,8 +590,8 @@
 							</div>
 
 							<div class="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px]">
-								<label class="text-gray-400">From port</label>
-								<label class="text-gray-400">To port</label>
+								<div class="text-gray-400">From port</div>
+								<div class="text-gray-400">To port</div>
 								<input type="number" min="1" max={fromDev?.portCount ?? 48}
 									class="w-full border border-gray-200 rounded px-1.5 py-0.5 text-[11px] bg-white"
 									bind:value={bulkFromStart} />
@@ -599,8 +599,8 @@
 									class="w-full border border-gray-200 rounded px-1.5 py-0.5 text-[11px] bg-white"
 									bind:value={bulkToStart} />
 
-								<label class="text-gray-400">Count</label>
-								<label class="text-gray-400">Cable</label>
+								<div class="text-gray-400">Count</div>
+								<div class="text-gray-400">Cable</div>
 								<input type="number" min="1" max={99}
 									class="w-full border border-gray-200 rounded px-1.5 py-0.5 text-[11px] bg-white"
 									bind:value={bulkCount} />
@@ -616,8 +616,8 @@
 								Ports {bulkFromStart}–{bulkFromStart + bulkCount - 1} → {bulkToStart}–{bulkToStart + bulkCount - 1}
 							</div>
 
-							<div class="flex items-center gap-1.5 text-[10px]">
-								<label class="text-gray-400">Status</label>
+							<label class="flex items-center gap-1.5 text-[10px] text-gray-400">
+								Status
 								<select
 									class="flex-1 border border-gray-200 rounded px-1 py-0.5 text-[11px] bg-white"
 									bind:value={settings.defaultStatus}
@@ -626,7 +626,7 @@
 									<option value="add">Add (to install)</option>
 									<option value="installed">Installed (already in place)</option>
 								</select>
-							</div>
+							</label>
 
 							<div class="flex gap-1.5">
 								<button

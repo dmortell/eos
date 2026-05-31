@@ -376,7 +376,7 @@
 			</div>
 
 			<div class="grid grid-cols-[auto_1fr_auto_1fr_auto_1fr] items-center gap-x-2 gap-y-1.5">
-				<label class="text-gray-400">Cable</label>
+				<div class="text-gray-400">Cable</div>
 				<select
 					class="h-6 text-[11px] border border-gray-200 rounded px-1 bg-white"
 					value={conn.cableType}
@@ -402,7 +402,7 @@
 					{/if}
 				</select>
 
-				<label class="text-gray-400">Length</label>
+				<div class="text-gray-400">Length</div>
 				<div class="flex items-center gap-1">
 					<input
 						type="number" step="0.1" min="0"
@@ -424,7 +424,7 @@
 					{/if}
 				</div>
 
-				<label class="text-gray-400">Cord ID</label>
+				<div class="text-gray-400">Cord ID</div>
 				<input
 					type="text"
 					class="h-6 text-[11px] font-mono border border-gray-200 rounded px-1.5 bg-white w-full"
@@ -433,7 +433,7 @@
 					onchange={e => onupdate?.(conn.id, { cordId: (e.target as HTMLInputElement).value || undefined })}
 				/>
 
-				<label class="text-gray-400">Status</label>
+				<div class="text-gray-400">Status</div>
 				<select
 					class="h-6 text-[11px] border border-gray-200 rounded px-1 bg-white"
 					value={(conn.status as string) === 'planned' ? 'add' : conn.status}
@@ -445,7 +445,7 @@
 					<option value="installed">Installed</option>
 				</select>
 
-				<label class="text-gray-400">Notes</label>
+				<div class="text-gray-400">Notes</div>
 				<input
 					type="text"
 					class="h-6 text-[11px] border border-gray-200 rounded px-1.5 bg-white col-span-3 w-full"

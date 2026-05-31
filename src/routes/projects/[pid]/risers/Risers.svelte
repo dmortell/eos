@@ -908,6 +908,7 @@
 	<div class="body" class:cursor-crosshair={mode !== 'select'}>
 		<div class="canvas-wrap" bind:this={canvasEl}>
 			<Canvas bind:view width={canvasWidth} height={canvasHeight}>
+				<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 				<svg
 					bind:this={svgEl}
 					width={svgWidthMm}
@@ -915,6 +916,7 @@
 					viewBox="{-LEFT_MARGIN_MM} {-TOP_MARGIN_MM} {svgWidthMm} {svgHeightMm}"
 					xmlns="http://www.w3.org/2000/svg"
 					class="elevation-svg"
+					role="img" aria-label="Risers elevation"
 					onmousedown={onSvgMouseDown}
 				>
 					<!-- Optional grid -->

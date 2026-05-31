@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(git commit -m ' *)",
-      "Bash(mkdir src\\\\routes\\\\projects\\\\[pid]\\\\risers)"
+      "Bash(mkdir src\\\\routes\\\\projects\\\\[pid]\\\\risers)",
+      "mcp__svelte__svelte-autofixer"
     ],
     "additionalDirectories": [
       "M:\\dev\\eos"

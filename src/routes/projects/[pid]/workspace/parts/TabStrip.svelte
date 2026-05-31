@@ -59,12 +59,14 @@
 	}
 </script>
 
-<div class="flex items-stretch border-b border-zinc-200 dark:border-zinc-800 bg-zinc-100/50 dark:bg-zinc-900/50 text-xs overflow-x-auto overflow-y-hidden">
+<div role="tablist" class="flex items-stretch border-b border-zinc-200 dark:border-zinc-800 bg-zinc-100/50 dark:bg-zinc-900/50 text-xs overflow-x-auto overflow-y-hidden">
 	{#each ws.tabs as tab (tab.id)}
-		<!-- svelte-ignore a11y_click_events_have_key_events -->
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		{@const stale = !!tab.selectedNodeId && ws.knownNodeIds.size > 0 && !ws.knownNodeIds.has(tab.selectedNodeId)}
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<div
+			role="tab"
+			tabindex="0"
+			aria-selected={ws.activeTabId === tab.id}
 			class="group flex items-center gap-1.5 pl-3 pr-1 py-1 border-r border-zinc-200 dark:border-zinc-800 cursor-pointer min-w-0 max-w-[200px]
 				{ws.activeTabId === tab.id
 					? 'bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 border-b-2 border-b-blue-500 -mb-px'

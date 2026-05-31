@@ -43,7 +43,7 @@
 		</p>
 		<ul class="space-y-1">
 			{#each DEFAULT_PALETTE as item}
-				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 				<li
 					class="flex items-center gap-2 px-2 py-1.5 rounded border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-grab select-none"
 					title="Drag onto a rack"
