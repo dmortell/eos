@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { getContext } from 'svelte'
 	import { Titlebar } from '$lib'
 	import type { FloorConfig } from '$lib/types/project'
 	import type { Firestore } from '$lib/db.svelte'
@@ -11,6 +12,7 @@
 	import CableList from './parts/CableList.svelte'
 	import LabelNode from './parts/Label.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
+	import RisersSidebar from './parts/RisersSidebar.svelte'
 	import RiserToolbar from './parts/RiserToolbar.svelte'
 	import {
 		DEFAULT_RISER_SETTINGS,
@@ -47,8 +49,17 @@
 		onupdatefloors: _onupdatefloors,
 		ondeletefloor: _ondeletefloor,
 		/** When true, omit the standalone-page chrome (Titlebar + full-viewport
-		 *  height). Used when embedded inside the workspace canvas. */
+		 *  height) and the inline RiserToolbar. Used when embedded inside the
+		 *  workspace canvas — the workspace renders its own toolbar bound to
+		 *  the same state via the bindable props below. */
 		bare = false,
+		/** Bindable view state — surfaced so the workspace shell can render
+		 *  RiserToolbar / RiserPropertiesPanel outside the canvas (Phase 2).
+		 *  When undefined (standalone /risers route), internal state drives. */
+		fromFloor = $bindable<number>(data?.fromFloor ?? 1),
+		toFloor = $bindable<number>(data?.toFloor ?? 1),
+		mode = $bindable<RiserMode>('select'),
+		hiddenFloors = $bindable<number[]>(data?.hiddenFloors ?? []),
 	}: {
 		data?: RiserDocData | null
 		floors?: FloorConfig[]
@@ -62,6 +73,10 @@
 		onupdatefloors?: (updated: FloorConfig[]) => void
 		ondeletefloor?: (fl: number) => void
 		bare?: boolean
+		fromFloor?: number
+		toFloor?: number
+		mode?: RiserMode
+		hiddenFloors?: number[]
 	} = $props()
 
 	// ────────────────────────────────────────────────────────────────────
@@ -71,16 +86,19 @@
 	const defaultFrom = $derived(Math.min(...(floorNumbers.length ? floorNumbers : [1])))
 	const defaultTo = $derived(Math.max(...(floorNumbers.length ? floorNumbers : [1])))
 
-	let fromFloor = $state(data?.fromFloor ?? 1)
-	let toFloor = $state(data?.toFloor ?? 1)
 	let floorHeights = $state<Record<number, any>>(data?.floorHeights ?? {})
 	let settings = $state(data?.settings ?? DEFAULT_RISER_SETTINGS)
 	let rooms = $state(data?.rooms ?? [])
 	let ladders = $state(data?.ladders ?? [])
 	let cables = $state(data?.cables ?? [])
 	let labels = $state<TextLabel[]>(data?.labels ?? [])
-	let hiddenFloors = $state<number[]>(data?.hiddenFloors ?? [])
 	let initialised = $state(!!data)
+
+	/** When embedded in the workspace, RisersView sets a `risers-bridge`
+	 *  context object that the right panel (RisersInspector) reads. We mirror
+	 *  our internal state + callback references into it so RisersSidebar can
+	 *  live in the workspace right panel instead of overlaying the canvas. */
+	const bridge = getContext<any>('risers-bridge') ?? null
 
 	// First-time initialisation: pick whole-building range if doc didn't exist.
 	$effect(() => {
@@ -159,10 +177,11 @@
 		button: 0,
 	})
 
-	let mode = $state<RiserMode>('select')
+	// `mode` is now a bindable prop — see $props() block above.
 
-	// Fit-to-view
-	function zoomFit() {
+	// Fit-to-view. Exported so external consumers (the workspace toolbar) can
+	// trigger it without prop-drilling the view object.
+	export function zoomFit() {
 		if (!svgWidthMm || !svgHeightMm) return
 		const padding = 40
 		const sx = (canvasWidth - padding * 2) / pxFromMm(svgWidthMm)
@@ -179,10 +198,10 @@
 		return mm
 	}
 
-	function zoomIn() {
+	export function zoomIn() {
 		view.zoom = Math.min(5, view.zoom * 1.2)
 	}
-	function zoomOut() {
+	export function zoomOut() {
 		view.zoom = Math.max(0.001, view.zoom / 1.2)
 	}
 
@@ -772,6 +791,27 @@
 		}
 	}
 
+	// Mirror state + callbacks into the workspace bridge so RisersInspector
+	// in the workspace right panel can read/write us without us depending on
+	// the workspace module.
+	$effect(() => {
+		if (!bridge) return
+		bridge.selection = selection
+		bridge.cables = cables
+		bridge.rooms = rooms
+		bridge.ladders = ladders
+		bridge.labels = labels
+		bridge.selectCable = selectCable
+		bridge.startNewCable = startNewCable
+		bridge.updateCable = updateCable
+		bridge.deleteCable = deleteCable
+		bridge.updateRoom = updateRoom
+		bridge.updateLadder = updateLadder
+		bridge.updateLabel = updateLabel
+		bridge.deleteLabel = deleteLabel
+		bridge.deleteSelected = deleteSelected
+	})
+
 	function deleteSelected() {
 		if (!selection) return
 		if (selection.kind === 'cable') {
@@ -848,20 +888,22 @@
 		<Titlebar title={projectName ? `Risers — ${projectName}` : 'Risers'} menu />
 	{/if}
 
-	<RiserToolbar
-		bind:fromFloor
-		bind:toFloor
-		bind:mode
-		bind:hiddenFloors
-		{floors}
-		{floorFormat}
-		onZoomIn={zoomIn}
-		onZoomOut={zoomOut}
-		onZoomFit={() => {
-			userInteracted = false
-			zoomFit()
-		}}
-	/>
+	{#if !bare}
+		<RiserToolbar
+			bind:fromFloor
+			bind:toFloor
+			bind:mode
+			bind:hiddenFloors
+			{floors}
+			{floorFormat}
+			onZoomIn={zoomIn}
+			onZoomOut={zoomOut}
+			onZoomFit={() => {
+				userInteracted = false
+				zoomFit()
+			}}
+		/>
+	{/if}
 
 	<div class="body" class:cursor-crosshair={mode !== 'select'}>
 		<div class="canvas-wrap" bind:this={canvasEl}>
@@ -988,113 +1030,27 @@
 			</Canvas>
 		</div>
 
-		<aside class="sidebar">
-			{#if selectedCable}
-				<CableEditor
-					cable={selectedCable}
-					{rooms}
-					{ladders}
-					onUpdate={(patch) => updateCable(selectedCable!.id, patch)}
-					onDelete={() => deleteCable(selectedCable!.id)}
-				/>
-			{:else if selectedLabel}
-				{@const l = selectedLabel}
-				<div class="label-editor">
-					<header>
-						<span class="kind">Label</span>
-						<button type="button" class="del" onclick={() => deleteLabel(l.id)} title="Delete">✕</button>
-					</header>
-					<label>
-						<span>Text (multi-line)</span>
-						<textarea
-							rows="5"
-							value={l.text}
-							oninput={(e) => updateLabel(l.id, { text: (e.target as HTMLTextAreaElement).value })}
-						></textarea>
-					</label>
-					<div class="row">
-						<label>
-							<span>Font (mm)</span>
-							<input
-								type="number"
-								min="40"
-								step="20"
-								value={l.fontSizeMm ?? 240}
-								oninput={(e) => updateLabel(l.id, { fontSizeMm: Number((e.target as HTMLInputElement).value) })}
-							/>
-						</label>
-						<label>
-							<span>Width (mm, 0=auto)</span>
-							<input
-								type="number"
-								min="0"
-								step="100"
-								value={l.widthMm ?? 0}
-								oninput={(e) => updateLabel(l.id, { widthMm: Number((e.target as HTMLInputElement).value) || undefined })}
-							/>
-						</label>
-					</div>
-					<div class="row">
-						<label>
-							<span>Color</span>
-							<input
-								type="color"
-								value={l.color ?? '#1f2937'}
-								oninput={(e) => updateLabel(l.id, { color: (e.target as HTMLInputElement).value })}
-							/>
-						</label>
-						<label>
-							<span>Background</span>
-							<input
-								type="text"
-								placeholder="transparent / #fff"
-								value={l.background ?? ''}
-								oninput={(e) => updateLabel(l.id, { background: (e.target as HTMLInputElement).value || undefined })}
-							/>
-						</label>
-					</div>
-					<div class="row">
-						<label>
-							<span>X (mm)</span>
-							<input
-								type="number"
-								step="100"
-								value={l.xMm}
-								oninput={(e) => updateLabel(l.id, { xMm: Number((e.target as HTMLInputElement).value) })}
-							/>
-						</label>
-						<label>
-							<span>Y (mm)</span>
-							<input
-								type="number"
-								step="100"
-								value={l.yMm}
-								oninput={(e) => updateLabel(l.id, { yMm: Number((e.target as HTMLInputElement).value) })}
-							/>
-						</label>
-					</div>
-				</div>
-			{:else}
-				<PropertiesPanel
-					selection={propsSelection}
-					{rooms}
-					{ladders}
-					onUpdateRoom={updateRoom}
-					onUpdateLadder={updateLadder}
-					onDelete={deleteSelected}
-				/>
-			{/if}
-			<div class="sidebar-divider"></div>
-			<CableList
+		{#if !bare}
+			<RisersSidebar
+				{selection}
 				{cables}
 				{rooms}
-				selectedId={selection?.kind === 'cable' ? selection.id : null}
-				onSelect={selectCable}
-				onAddCable={startNewCable}
+				{ladders}
+				{labels}
+				onUpdateCable={updateCable}
+				onDeleteCable={deleteCable}
+				onUpdateRoom={updateRoom}
+				onUpdateLadder={updateLadder}
+				onUpdateLabel={updateLabel}
+				onDeleteLabel={deleteLabel}
+				onDeleteSelected={deleteSelected}
+				onSelectCable={selectCable}
+				onStartNewCable={startNewCable}
 			/>
-		</aside>
+		{/if}
 	</div>
 
+	{#if !bare}
 	<div class="status-bar">
 		<span class="status-item">
 			Floors {fromFloor === toFloor ? fromFloor : `${Math.min(fromFloor, toFloor)}–${Math.max(fromFloor, toFloor)}`}
@@ -1137,6 +1093,7 @@
 			</button>
 		</span>
 	</div>
+	{/if}
 </div>
 
 <style>

@@ -59,7 +59,7 @@
 	}
 </script>
 
-<div class="flex items-stretch border-b border-zinc-200 dark:border-zinc-800 bg-zinc-100/50 dark:bg-zinc-900/50 text-xs overflow-x-auto">
+<div class="flex items-stretch border-b border-zinc-200 dark:border-zinc-800 bg-zinc-100/50 dark:bg-zinc-900/50 text-xs overflow-x-auto overflow-y-hidden">
 	{#each ws.tabs as tab (tab.id)}
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
