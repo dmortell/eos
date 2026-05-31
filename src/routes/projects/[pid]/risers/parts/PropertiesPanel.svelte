@@ -150,25 +150,20 @@
 			/>
 		</label>
 	{:else}
-		<div class="empty">Select a room or ladder to edit its properties.</div>
+		<div class="empty">No selection.</div>
 	{/if}
 </aside>
 
 <style>
 	.props {
-		width: 240px;
-		border-left: 1px solid rgb(228, 228, 231);
-		background: rgb(250, 250, 252);
 		padding: 0.75rem;
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
-		overflow-y: auto;
 		font-size: 0.8rem;
+		background: transparent;
 	}
 	:global(.dark) .props {
-		background: rgb(24, 24, 27);
-		border-left-color: rgb(39, 39, 42);
 		color: rgb(212, 212, 216);
 	}
 	header {
@@ -236,8 +231,7 @@
 	}
 	.empty {
 		color: rgb(120, 120, 130);
-		font-style: italic;
-		text-align: center;
-		padding: 1rem 0.5rem;
+		font-size: 0.7rem;
+		padding: 0.25rem 0;
 	}
 </style>

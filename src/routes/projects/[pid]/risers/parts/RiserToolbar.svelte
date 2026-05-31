@@ -5,10 +5,10 @@
 	import type { RiserMode } from './types'
 
 	let {
-		fromFloor = $bindable(),
-		toFloor = $bindable(),
-		mode = $bindable(),
-		hiddenFloors = $bindable(),
+		fromFloor = $bindable<number | undefined>(undefined),
+		toFloor = $bindable<number | undefined>(undefined),
+		mode = $bindable<RiserMode>('select'),
+		hiddenFloors = $bindable<number[] | undefined>(undefined),
 		floors,
 		floorFormat = 'L01',
 		onZoomIn,
@@ -16,11 +16,13 @@
 		onZoomFit,
 		onSettings,
 	}: {
-		fromFloor: number
-		toFloor: number
+		/** Floor range / hide controls are optional — the workspace lifts them
+		 *  into its right panel and only the mode + zoom buttons live here. */
+		fromFloor?: number
+		toFloor?: number
 		mode: RiserMode
-		hiddenFloors: number[]
-		floors: FloorConfig[]
+		hiddenFloors?: number[]
+		floors?: FloorConfig[]
 		floorFormat?: string
 		onZoomIn?: () => void
 		onZoomOut?: () => void
@@ -31,13 +33,23 @@
 	let visMenuOpen = $state(false)
 	let visMenuEl: HTMLDetailsElement | null = $state(null)
 
+	const showFloorControls = $derived(
+		fromFloor !== undefined && toFloor !== undefined && hiddenFloors !== undefined && !!floors,
+	)
+
+	const sortedFloors = $derived(
+		[...(floors ?? [])].sort((a, b) => a.number - b.number).map((f) => f.number),
+	)
+
 	function rangeFloors(): number[] {
+		if (fromFloor === undefined || toFloor === undefined) return []
 		const lo = Math.min(fromFloor, toFloor)
 		const hi = Math.max(fromFloor, toFloor)
 		return sortedFloors.filter((f) => f >= lo && f <= hi)
 	}
 
 	function toggleFloorHidden(f: number) {
+		if (!hiddenFloors) return
 		const set = new Set(hiddenFloors)
 		if (set.has(f)) set.delete(f)
 		else set.add(f)
@@ -48,69 +60,67 @@
 		hiddenFloors = []
 	}
 
-	const sortedFloors = $derived(
-		[...floors].sort((a, b) => a.number - b.number).map((f) => f.number),
-	)
-
 	function setMode(m: RiserMode) {
 		mode = m
 	}
 </script>
 
 <div class="riser-toolbar">
-	<div class="group">
-		<label class="lbl">From
-			<select bind:value={fromFloor}>
-				{#each sortedFloors as f}
-					<option value={f}>{fmtFloor(f, floorFormat, floors)}</option>
-				{/each}
-			</select>
-		</label>
-		<label class="lbl">To
-			<select bind:value={toFloor}>
-				{#each sortedFloors as f}
-					<option value={f}>{fmtFloor(f, floorFormat, floors)}</option>
-				{/each}
-			</select>
-		</label>
-		<details
-			class="vis-menu"
-			bind:this={visMenuEl}
-			bind:open={visMenuOpen}
-		>
-			<summary>
-				{#if hiddenFloors.length}
-					Hide ({hiddenFloors.length})
-				{:else}
-					Hide…
-				{/if}
-			</summary>
-			<div class="vis-pop">
-				<div class="vis-head">
-					<span>Hide floors</span>
-					{#if hiddenFloors.length}
-						<button type="button" onclick={showAllFloors}>Show all</button>
-					{/if}
-				</div>
-				<ul>
-					{#each rangeFloors() as f}
-						<li>
-							<label>
-								<input
-									type="checkbox"
-									checked={hiddenFloors.includes(f)}
-									onchange={() => toggleFloorHidden(f)}
-								/>
-								{fmtFloor(f, floorFormat, floors)}
-							</label>
-						</li>
+	{#if showFloorControls}
+		<div class="group">
+			<label class="lbl">From
+				<select bind:value={fromFloor}>
+					{#each sortedFloors as f}
+						<option value={f}>{fmtFloor(f, floorFormat, floors)}</option>
 					{/each}
-				</ul>
-			</div>
-		</details>
-	</div>
+				</select>
+			</label>
+			<label class="lbl">To
+				<select bind:value={toFloor}>
+					{#each sortedFloors as f}
+						<option value={f}>{fmtFloor(f, floorFormat, floors)}</option>
+					{/each}
+				</select>
+			</label>
+			<details
+				class="vis-menu"
+				bind:this={visMenuEl}
+				bind:open={visMenuOpen}
+			>
+				<summary>
+					{#if hiddenFloors && hiddenFloors.length}
+						Hide ({hiddenFloors.length})
+					{:else}
+						Hide…
+					{/if}
+				</summary>
+				<div class="vis-pop">
+					<div class="vis-head">
+						<span>Hide floors</span>
+						{#if hiddenFloors && hiddenFloors.length}
+							<button type="button" onclick={showAllFloors}>Show all</button>
+						{/if}
+					</div>
+					<ul>
+						{#each rangeFloors() as f}
+							<li>
+								<label>
+									<input
+										type="checkbox"
+										checked={(hiddenFloors ?? []).includes(f)}
+										onchange={() => toggleFloorHidden(f)}
+									/>
+									{fmtFloor(f, floorFormat, floors ?? [])}
+								</label>
+							</li>
+						{/each}
+					</ul>
+				</div>
+			</details>
+		</div>
 
-	<div class="sep"></div>
+		<div class="sep"></div>
+	{/if}
 
 	<div class="group">
 		<Button size="sm" variant={mode === 'select' ? 'primary' : 'ghost'}
@@ -137,7 +147,9 @@
 
 	<div class="grow"></div>
 
-	<Button size="sm" variant="ghost" icon="settings" onclick={() => onSettings?.()} title="Settings" />
+	{#if onSettings}
+		<Button size="sm" variant="ghost" icon="settings" onclick={() => onSettings?.()} title="Settings" />
+	{/if}
 </div>
 
 <style>

@@ -83,6 +83,40 @@
 		initFromDoc = true
 	})
 
+	// ── Bridge wiring: floor range + project floor mgmt for RisersInspector ──
+	$effect(() => {
+		bridge.fromFloor = fromFloor
+		bridge.toFloor = toFloor
+		bridge.hiddenFloors = hiddenFloors
+		bridge.floors = floors
+		bridge.floorFormat = floorFormat
+	})
+
+	$effect(() => {
+		bridge.setFromFloor = (n: number) => {
+			fromFloor = n
+		}
+		bridge.setToFloor = (n: number) => {
+			toFloor = n
+		}
+		bridge.setHiddenFloors = (arr: number[]) => {
+			hiddenFloors = arr
+		}
+		bridge.updateFloors = (updated: FloorConfig[]) => {
+			const pid = page.params.pid
+			if (!pid) return
+			floors = updated
+			db.save('projects', { id: pid, floors: updated })
+		}
+		bridge.deleteFloor = (floorNumber: number) => {
+			const pid = page.params.pid
+			if (!pid) return
+			const remaining = floors.filter((f) => f.number !== floorNumber)
+			floors = remaining
+			db.save('projects', { id: pid, floors: remaining })
+		}
+	})
+
 	function save(payload: Partial<RiserDocData>, changes: ChangeDetail[]) {
 		const pid = page.params.pid
 		if (!pid) return
@@ -101,16 +135,11 @@
 		</div>
 	{:else}
 		<!-- Risers toolbar lifted OUT of the canvas so the canvas SVG below is
-		     drawing-clean. Bound to the same state Risers consumes. Zoom buttons
-		     defer to Risers' exported methods. -->
+		     drawing-clean. Floor range + Hide controls are NOT included here —
+		     they live in the workspace right panel inspector. -->
 		<div class="border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
 			<RiserToolbar
-				bind:fromFloor
-				bind:toFloor
 				bind:mode
-				bind:hiddenFloors
-				{floors}
-				{floorFormat}
 				onZoomIn={() => risersRef?.zoomIn?.()}
 				onZoomOut={() => risersRef?.zoomOut?.()}
 				onZoomFit={() => risersRef?.zoomFit?.()}

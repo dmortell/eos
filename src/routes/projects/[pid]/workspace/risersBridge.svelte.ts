@@ -11,12 +11,29 @@
  * instance live in the workspace at a time, so a single bridge per module
  * is fine.
  */
+import type { FloorConfig } from '$lib/types/project'
+
 export const risersBridge = $state<{
+	// Selection + content (mirrored from Risers internal state)
 	selection: { kind: 'room' | 'ladder' | 'cable' | 'label'; id: string } | null
 	cables: any[]
 	rooms: any[]
 	ladders: any[]
 	labels: any[]
+	// View state (owned by the workspace, two-way with Risers via RisersView)
+	fromFloor: number
+	toFloor: number
+	hiddenFloors: number[]
+	floorFormat: string
+	floors: FloorConfig[]
+	// Setters for view state — RisersView wires these so RisersInspector can
+	// write without needing a binding handle.
+	setFromFloor: ((n: number) => void) | null
+	setToFloor: ((n: number) => void) | null
+	setHiddenFloors: ((arr: number[]) => void) | null
+	updateFloors: ((floors: FloorConfig[]) => void) | null
+	deleteFloor: ((floorNumber: number) => void) | null
+	// Riser element callbacks (mirrored from Risers)
 	selectCable: ((id: string) => void) | null
 	startNewCable: (() => void) | null
 	updateCable: ((id: string, patch: any) => void) | null
@@ -33,6 +50,16 @@ export const risersBridge = $state<{
 	rooms: [],
 	ladders: [],
 	labels: [],
+	fromFloor: 1,
+	toFloor: 1,
+	hiddenFloors: [],
+	floorFormat: 'L01',
+	floors: [],
+	setFromFloor: null,
+	setToFloor: null,
+	setHiddenFloors: null,
+	updateFloors: null,
+	deleteFloor: null,
 	selectCable: null,
 	startNewCable: null,
 	updateCable: null,
