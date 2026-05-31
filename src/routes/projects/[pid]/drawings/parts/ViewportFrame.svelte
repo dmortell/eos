@@ -10,6 +10,7 @@
 	import FloorplanViewport from './viewports/FloorplanViewport.svelte'
 	import PatchingViewport from './viewports/PatchingViewport.svelte'
 	import OutletsViewport from './viewports/OutletsViewport.svelte'
+	import RisersViewport from './viewports/RisersViewport.svelte'
 	import SurveyViewport from './viewports/SurveyViewport.svelte'
 
 	let { viewport, selected, pxPerMm, db, projectId, onselect, onupdate, onopensource }: {
@@ -76,6 +77,7 @@
 			case 'floorplan':      return `floorplan · p${src.pageNum}`
 			case 'patching':       return 'patching'
 			case 'outlets':        return 'outlets'
+			case 'risers':         return `risers${src.fromFloor != null || src.toFloor != null ? ` · ${src.fromFloor ?? '?'}–${src.toFloor ?? '?'}` : ''}`
 			case 'survey':         return `survey${src.mode === 'single' ? ' · single' : ' · album'}`
 			case 'text':           return `text`
 			case 'image':          return 'image'
@@ -301,6 +303,8 @@
 			<PatchingViewport {viewport} {db} />
 		{:else if viewport.source.kind === 'outlets'}
 			<OutletsViewport {viewport} {db} />
+		{:else if viewport.source.kind === 'risers'}
+			<RisersViewport {viewport} {db} />
 		{:else if viewport.source.kind === 'survey'}
 			<SurveyViewport {viewport} {db} />
 		{:else}

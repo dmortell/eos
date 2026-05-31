@@ -154,6 +154,8 @@
 				const floor = m ? Number(m[1]) : 1
 				return `/projects/${pid}/outlets?floor=${floor}`
 			}
+			case 'risers':
+				return `/projects/${pid}/risers`
 			case 'survey':
 				return `/survey#${encodeURIComponent(src.surveyId)}`
 			case 'text':
@@ -240,6 +242,7 @@
 			case 'floorplan':      return { kind, fileId: '', pageNum: 1 }
 			case 'patching':       return { kind, patchDocId: rackDocIdFor(floors[0]?.number ?? 1, 'A') }
 			case 'outlets':        return { kind, outletsDocId: `${pid}_F${String(floors[0]?.number ?? 1).padStart(2, '0')}`, showOutlets: true, showTrunks: true }
+			case 'risers':         return { kind, risersDocId: pid ?? '' }
 			case 'survey':         return { kind, surveyId: '', mode: 'album' }
 			case 'text':           return { kind, content: 'Note' }
 			case 'image':          return { kind, url: '' }
@@ -410,6 +413,7 @@
 		{ kind: 'floorplan',      label: 'Floorplan' },
 		{ kind: 'outlets',        label: 'Outlets / Trunks' },
 		{ kind: 'patching',       label: 'Patching' },
+		{ kind: 'risers',         label: 'Risers' },
 		{ kind: 'survey',         label: 'Photo Survey' },
 		{ kind: 'fillrate',       label: 'Fill Rate' },
 		{ kind: 'text',           label: 'Text' },
@@ -775,6 +779,53 @@
 										Trunks
 									</label>
 								</div>
+
+							{:else if vp.source.kind === 'risers'}
+								{@const allFloors = [...floors].map(f => f.number).sort((a, b) => a - b)}
+								{@const riserFrom = vp.source.fromFloor ?? allFloors[0] ?? 1}
+								{@const riserTo = vp.source.toFloor ?? allFloors[allFloors.length - 1] ?? 1}
+								{@const riserHidden = vp.source.hiddenFloors ?? []}
+								{@const riserLo = Math.min(riserFrom, riserTo)}
+								{@const riserHi = Math.max(riserFrom, riserTo)}
+								{@const riserRangeFloors = allFloors.filter(f => f >= riserLo && f <= riserHi)}
+								<div class="grid grid-cols-2 gap-1.5">
+									<Select label="From floor" size="sm"
+										value={String(riserFrom)}
+										onchange={(e: Event) => updateSource(vp.id, { fromFloor: inputNumber(e) })}>
+										{#each allFloors as f}
+											<option value={String(f)}>{f}F</option>
+										{/each}
+									</Select>
+									<Select label="To floor" size="sm"
+										value={String(riserTo)}
+										onchange={(e: Event) => updateSource(vp.id, { toFloor: inputNumber(e) })}>
+										{#each allFloors as f}
+											<option value={String(f)}>{f}F</option>
+										{/each}
+									</Select>
+								</div>
+								{#if riserRangeFloors.length > 0}
+									<div class="text-[10px] text-zinc-500 dark:text-zinc-400 mt-1.5">
+										Hide from elevation
+									</div>
+									<div class="grid grid-cols-4 gap-1 max-h-32 overflow-y-auto">
+										{#each riserRangeFloors as f}
+											{@const hidden = riserHidden.includes(f)}
+											<label class="flex items-center gap-1 text-[10px] cursor-pointer">
+												<input type="checkbox"
+													class="h-3 w-3 accent-blue-600"
+													checked={hidden}
+													onchange={() => {
+														const set = new Set(riserHidden)
+														if (set.has(f)) set.delete(f)
+														else set.add(f)
+														updateSource(vp.id, { hiddenFloors: [...set].sort((a, b) => a - b) })
+													}} />
+												<span class={hidden ? 'line-through text-zinc-400' : ''}>{f}F</span>
+											</label>
+										{/each}
+									</div>
+								{/if}
 
 							{:else if vp.source.kind === 'survey'}
 								<Input label="Survey ID" value={vp.source.surveyId} size="sm" placeholder="surveys/<id>"

@@ -82,6 +82,15 @@ export type ViewportSource =
 	| { kind: 'floorplan'; fileId: string; pageNum: number }
 	| { kind: 'patching'; patchDocId: string }
 	| { kind: 'outlets'; outletsDocId: string; showOutlets?: boolean; showTrunks?: boolean }
+	| {
+			kind: 'risers'
+			risersDocId: string
+			/** Floor range to render. Omit to render the project's full range. */
+			fromFloor?: number
+			toFloor?: number
+			/** Floors hidden from the rendered elevation (compressed out via break lines). */
+			hiddenFloors?: number[]
+	  }
 	| { kind: 'survey'; surveyId: string; mode?: 'album' | 'single'; photoId?: string }
 	| { kind: 'text'; content: string; fontSizePt?: number; align?: 'left' | 'center' | 'right' }
 	| { kind: 'image'; url: string; fit?: 'contain' | 'cover' }
