@@ -122,6 +122,13 @@
 		)
 	)
 
+	// Only page-typed drawings render into the package PDF (the print route skips
+	// everything else). Surface that split so a source-view revision can't be
+	// added by mistake and then silently dropped from the output.
+	let availablePageRevisions = $derived(availableRevisions.filter(({ drawing }) => drawing.toolType === 'page'))
+	let availableSourceRevisions = $derived(availableRevisions.filter(({ drawing }) => drawing.toolType !== 'page'))
+	let showSourceRevisions = $state(false)
+
 	let activePackage = $derived(packages.find(p => p.id === activePackageId))
 
 	// Package editing
@@ -288,6 +295,11 @@
 									<li class="flex items-center gap-2 rounded border border-zinc-100 dark:border-zinc-800 px-2 py-1.5 text-sm">
 										<span class="text-zinc-400 tabular-nums w-5 text-right text-xs">{idx + 1}</span>
 										<span class="flex-1 truncate">{drawing?.drawingNumber || drawing?.title || item.drawingId}</span>
+										{#if drawing && drawing.toolType !== 'page'}
+											<span class="text-amber-500" title="Source view — won't render in the package PDF. Place it in a sheet's viewport instead.">
+												<Icon name="warning" size={12} />
+											</span>
+										{/if}
 										{#if revision}
 											<span class="text-[10px] px-1 rounded bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 font-bold">{revision.code}</span>
 										{/if}
@@ -305,22 +317,36 @@
 							</ul>
 						{/if}
 
-						<!-- Available revisions to add -->
-						<div class="text-xs font-medium text-zinc-500 mb-2">Available Revisions</div>
-						{#if availableRevisions.length === 0}
-							<p class="text-xs text-zinc-400 text-center py-2">No more revisions available. Issue revisions from the Version History panel in each tool.</p>
+						<!-- Available sheet revisions (printable) -->
+						<div class="text-xs font-medium text-zinc-500 mb-2">Available Sheets</div>
+						{#if availablePageRevisions.length === 0}
+							<p class="text-xs text-zinc-400 py-2">No more sheet revisions available. Publish pages from the Drawings tool, or use "Auto-add all pages" above.</p>
 						{:else}
 							<ul class="space-y-1 max-h-48 overflow-y-auto">
-								{#each availableRevisions as { drawing, revision }}
-									<li class="flex items-center gap-2 rounded border border-dashed border-zinc-200 dark:border-zinc-700 px-2 py-1 text-sm hover:border-blue-300 hover:bg-blue-50/30 dark:hover:border-blue-700 dark:hover:bg-blue-950/20 transition-colors">
-										<span class="flex-1 truncate text-xs">{drawing.drawingNumber || drawing.title}</span>
-										<span class="text-[10px] px-1 rounded bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 font-bold">{revision.code}</span>
-										<button class="text-blue-500 hover:text-blue-700 text-xs" onclick={() => addItem(drawing.id, revision.id)}>
-											<Icon name="plus" size={12} />
-										</button>
-									</li>
+								{#each availablePageRevisions as { drawing, revision }}
+									{@render availableRow(drawing, revision)}
 								{/each}
 							</ul>
+						{/if}
+
+						<!-- Source-view revisions — collapsed; these won't render in the PDF -->
+						{#if availableSourceRevisions.length > 0}
+							<button class="mt-3 flex items-center gap-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+								onclick={() => showSourceRevisions = !showSourceRevisions}>
+								<Icon name={showSourceRevisions ? 'chevronDown' : 'chevronRight'} size={12} />
+								Source views ({availableSourceRevisions.length})
+							</button>
+							{#if showSourceRevisions}
+								<p class="text-[10px] text-amber-600 dark:text-amber-400 mt-1 mb-1.5 flex items-start gap-1">
+									<Icon name="warning" size={12} />
+									<span>These are tool views, not sheets — they won't appear in the printed PDF. Place them in a sheet's viewport instead.</span>
+								</p>
+								<ul class="space-y-1 max-h-40 overflow-y-auto">
+									{#each availableSourceRevisions as { drawing, revision }}
+										{@render availableRow(drawing, revision)}
+									{/each}
+								</ul>
+							{/if}
 						{/if}
 					</div>
 				{:else}
@@ -332,6 +358,16 @@
 		</div>
 	</div>
 </div>
+
+{#snippet availableRow(drawing: DrawingDoc, revision: RevisionDoc)}
+	<li class="flex items-center gap-2 rounded border border-dashed border-zinc-200 dark:border-zinc-700 px-2 py-1 text-sm hover:border-blue-300 hover:bg-blue-50/30 dark:hover:border-blue-700 dark:hover:bg-blue-950/20 transition-colors">
+		<span class="flex-1 truncate text-xs">{drawing.drawingNumber || drawing.title}</span>
+		<span class="text-[10px] px-1 rounded bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 font-bold">{revision.code}</span>
+		<button class="text-blue-500 hover:text-blue-700 text-xs" onclick={() => addItem(drawing.id, revision.id)}>
+			<Icon name="plus" size={12} />
+		</button>
+	</li>
+{/snippet}
 
 <!-- Publish dialog -->
 {#if publishingPackageId}

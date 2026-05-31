@@ -28,10 +28,24 @@
 		db: Firestore
 	} = $props()
 
-	// Compute max revision columns needed
-	let maxRevisions = $derived(
-		Math.max(1, ...Object.values(revisionsByDrawing).map(r => r.length))
-	)
+	// ── Two-bucket split ──
+	// A "page" drawing is a composed sheet (paper + title block + viewports) and
+	// is the ONLY kind that renders into a published package PDF. Every other
+	// toolType is a live tool view that *feeds* sheet viewports but never prints
+	// on its own. Listing them separately makes "what's ready to distribute"
+	// legible at a glance.
+	let pages = $derived(drawings.filter(d => d.toolType === 'page'))
+	let sources = $derived(drawings.filter(d => d.toolType !== 'page'))
+
+	// Max revision columns needed — computed per section so each table is tight.
+	function maxRevsOf(rows: DrawingDoc[]) {
+		return Math.max(1, ...rows.map(d => revisionsByDrawing[d.id]?.length ?? 0))
+	}
+	let pageMaxRevs = $derived(maxRevsOf(pages))
+	let sourceMaxRevs = $derived(maxRevsOf(sources))
+
+	// Source Views section starts collapsed so the deliverable Sheets lead.
+	let showSources = $state(false)
 
 	// ── Row-level inline editing ──
 	type EditBuffer = {
@@ -224,153 +238,201 @@
 
 		<p class="my-2 text-xs text-zinc-400">Click a row to open the drawing. Click the pencil icon to edit fields inline.</p>
 
-		<!--
-			Table — the previous `overflow-x-auto` wrapper trapped `position: sticky`
-			on the thead (it became a scroll container). Sticky is applied to each
-			<th> individually because `sticky` on <thead>/<tr> has uneven browser
-			support; on a <th> it reliably anchors to the nearest scrolling ancestor
-			(the page body in our case).
-		-->
-		<div class="rounded-lg border border-zinc-200 dark:border-zinc-800">
-			<table class="w-full text-sm border-collapse">
-				<thead>
-					<tr class="[&>th]:sticky [&>th]:top-0 [&>th]:z-10 [&>th]:bg-zinc-100 dark:[&>th]:bg-zinc-900 [&>th]:shadow-[inset_0_-1px_0] [&>th]:shadow-zinc-200 dark:[&>th]:shadow-zinc-800 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
-						<th class="px-3 py-2 w-12">#</th>
-						<th class="px-3 py-2">Drawing No.</th>
-						<th class="px-3 py-2">Title / Description</th>
-						<th class="px-3 py-2 w-20">Tool</th>
-						<th class="px-3 py-2 w-14">Size</th>
-						<th class="px-3 py-2 w-16">Scale</th>
-						{#each { length: maxRevisions } as _, i}
-							<th class="px-3 py-2 w-24 text-center">Rev {String.fromCharCode(65 + i)}</th>
-						{/each}
-						<th class="px-3 py-2 w-16 text-center" title="Include in published drawing packages">In Pkg</th>
-						<th class="px-3 py-2 w-20 text-center">Actions</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each drawings as drawing, idx (drawing.id)}
-						{@const revisions = revisionsByDrawing[drawing.id] ?? []}
-						{@const isRowEditing = rowEditingId === drawing.id}
-						<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-						<tr class="border-t border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors"
-							class:cursor-pointer={!isRowEditing}
-							onclick={() => { if (!isRowEditing) openDrawing(drawing) }}>
-							<td class="px-3 py-1.5 text-zinc-400 tabular-nums">{idx + 1}</td>
-
-							<!-- Drawing Number -->
-							<td class="px-3 py-1.5 font-mono text-xs">
-								{#if isRowEditing}
-									<input class="w-full border border-blue-400 rounded px-1 py-0.5 text-xs font-mono bg-white"
-										bind:value={rowEdits.drawingNumber}
-										onkeydown={handleRowEditKeydown}
-										onclick={e => e.stopPropagation()} />
-								{:else}
-									{drawing.drawingNumber || '—'}
-								{/if}
-							</td>
-
-							<!-- Title -->
-							<td class="px-3 py-1.5">
-								{#if isRowEditing}
-									<input class="w-full border border-blue-400 rounded px-1 py-0.5 text-sm bg-white"
-										bind:value={rowEdits.title}
-										onkeydown={handleRowEditKeydown}
-										onclick={e => e.stopPropagation()} />
-								{:else}
-									{drawing.title || '—'}
-								{/if}
-							</td>
-
-							<!-- Tool Type -->
-							<td class="px-3 py-1.5 text-xs text-zinc-500">{toolMeta[drawing.toolType]?.label ?? drawing.toolType}</td>
-
-							<!-- Sheet Size -->
-							<td class="px-3 py-1.5 text-xs text-center">
-								{#if isRowEditing}
-									<input class="w-full border border-blue-400 rounded px-1 py-0.5 text-xs bg-white text-center"
-										bind:value={rowEdits.sheetSize}
-										onkeydown={handleRowEditKeydown}
-										onclick={e => e.stopPropagation()} />
-								{:else}
-									{drawing.sheetSize || '—'}
-								{/if}
-							</td>
-
-							<!-- Scale -->
-							<td class="px-3 py-1.5 text-xs text-center">
-								{#if isRowEditing}
-									<input class="w-full border border-blue-400 rounded px-1 py-0.5 text-xs bg-white text-center"
-										bind:value={rowEdits.scale}
-										onkeydown={handleRowEditKeydown}
-										onclick={e => e.stopPropagation()} />
-								{:else}
-									{drawing.scale || '—'}
-								{/if}
-							</td>
-
-							<!-- Revision columns -->
-							{#each { length: maxRevisions } as _, i}
-								{@const rev = revisions[i]}
-								<td class="px-3 py-1.5 text-xs text-center tabular-nums {rev ? 'text-zinc-700 dark:text-zinc-300' : 'text-zinc-300 dark:text-zinc-700'}">
-									{#if rev}
-										<div class="font-medium">{rev.code}</div>
-										<div class="text-[10px] text-zinc-400">{fmtDate(rev.issuedAt)}</div>
-									{:else}
-										—
-									{/if}
-								</td>
-							{/each}
-
-							<!-- Include in packages (page rows only) -->
-							<td class="px-3 py-1.5 text-center" onclick={e => e.stopPropagation()}>
-								{#if drawing.toolType === 'page'}
-									<input type="checkbox"
-										class="h-4 w-4 accent-blue-600 cursor-pointer"
-										checked={drawing.includeInPackages ?? true}
-										onchange={e => toggleIncludeInPackages(drawing, e.currentTarget.checked)}
-										title="Include this page when publishing drawing packages" />
-								{:else}
-									<span class="text-zinc-300 dark:text-zinc-700">—</span>
-								{/if}
-							</td>
-
-							<!-- Actions -->
-							<td class="px-2 py-1.5 text-center whitespace-nowrap" onclick={e => e.stopPropagation()}>
-								{#if isRowEditing}
-									<button class="text-[10px] px-1.5 py-0.5 rounded bg-blue-600 text-white hover:bg-blue-500 mr-1"
-										onclick={commitRowEdit} title="Save changes (Enter)">Save</button>
-									<button class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-200"
-										onclick={cancelRowEdit} title="Cancel (Escape)">Cancel</button>
-								{:else if confirmDeleteId === drawing.id}
-									<button class="text-[10px] px-1.5 py-0.5 rounded bg-red-600 text-white hover:bg-red-500 mr-1"
-										onclick={() => deleteDrawing(drawing.id)}>Confirm</button>
-									<button class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-200"
-										onclick={() => confirmDeleteId = null}>Cancel</button>
-								{:else}
-									<button class="text-zinc-400 hover:text-blue-600 transition-colors mr-2" title="Edit drawing"
-										onclick={() => startRowEdit(drawing)}>
-										<Icon name="edit" size={13} />
-									</button>
-									<button class="text-zinc-300 hover:text-red-500 transition-colors" title="Delete drawing"
-										onclick={() => confirmDeleteId = drawing.id}>
-										<Icon name="trash" size={13} />
-									</button>
-								{/if}
-							</td>
-						</tr>
-					{/each}
-
-					{#if drawings.length === 0}
-						<tr>
-							<td colspan={8 + maxRevisions} class="px-3 py-8 text-center text-zinc-400">
-								No drawings yet. Click "Add Drawing" or "New Page" to create one.
-							</td>
-						</tr>
-					{/if}
-				</tbody>
-			</table>
+		<!-- ── Sheets (deliverable pages) ── -->
+		<div class="mt-4 mb-2 flex items-baseline gap-2">
+			<Icon name="fileText" size={15} />
+			<h3 class="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Sheets</h3>
+			<span class="text-xs text-zinc-400 tabular-nums">{pages.length}</span>
+			<span class="text-xs text-zinc-400">— composed pages; these print to PDF and make up your distributed packages.</span>
 		</div>
+		{@render drawingTable(pages, pageMaxRevs, true)}
+
+		<!-- ── Source Views (tool views that feed sheets) ── -->
+		<button class="mt-6 mb-2 flex w-full items-baseline gap-2 text-left"
+			onclick={() => showSources = !showSources}>
+			<Icon name={showSources ? 'chevronDown' : 'chevronRight'} size={15} />
+			<h3 class="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Source Views</h3>
+			<span class="text-xs text-zinc-400 tabular-nums">{sources.length}</span>
+			<span class="text-xs text-zinc-400">— live tool views that feed sheet viewports; they don't print on their own.</span>
+		</button>
+		{#if showSources}
+			{@render drawingTable(sources, sourceMaxRevs, false)}
+		{/if}
 
 	</div>
 </div>
+
+<!--
+	Shared table for both sections. `isPage` toggles the two page-only columns
+	(readiness status + In Pkg) and swaps in a Tool column for source views.
+
+	The previous `overflow-x-auto` wrapper trapped `position: sticky` on the
+	thead (it became a scroll container). Sticky is applied to each <th>
+	individually because `sticky` on <thead>/<tr> has uneven browser support;
+	on a <th> it reliably anchors to the nearest scrolling ancestor (the page
+	body in our case).
+-->
+{#snippet drawingTable(rows: DrawingDoc[], maxRevs: number, isPage: boolean)}
+	{@const colspan = (isPage ? 8 : 7) + maxRevs}
+	<div class="rounded-lg border border-zinc-200 dark:border-zinc-800">
+		<table class="w-full text-sm border-collapse">
+			<thead>
+				<tr class="[&>th]:sticky [&>th]:top-0 [&>th]:z-10 [&>th]:bg-zinc-100 dark:[&>th]:bg-zinc-900 [&>th]:shadow-[inset_0_-1px_0] [&>th]:shadow-zinc-200 dark:[&>th]:shadow-zinc-800 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+					<th class="px-3 py-2 w-12">#</th>
+					<th class="px-3 py-2">Drawing No.</th>
+					<th class="px-3 py-2">Title / Description</th>
+					{#if !isPage}
+						<th class="px-3 py-2 w-28">Tool</th>
+					{/if}
+					<th class="px-3 py-2 w-14">Size</th>
+					<th class="px-3 py-2 w-16">Scale</th>
+					{#each { length: maxRevs } as _, i}
+						<th class="px-3 py-2 w-24 text-center">Rev {String.fromCharCode(65 + i)}</th>
+					{/each}
+					{#if isPage}
+						<th class="px-3 py-2 w-28 text-center" title="Whether this sheet has an issued revision that can be packaged">Status</th>
+						<th class="px-3 py-2 w-16 text-center" title="Include in published drawing packages">In Pkg</th>
+					{/if}
+					<th class="px-3 py-2 w-20 text-center">Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				{#each rows as drawing, idx (drawing.id)}
+					{@const revisions = revisionsByDrawing[drawing.id] ?? []}
+					{@const isRowEditing = rowEditingId === drawing.id}
+					{@const issued = !!drawing.latestRevisionCode}
+					<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+					<tr class="border-t border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors"
+						class:cursor-pointer={!isRowEditing}
+						onclick={() => { if (!isRowEditing) openDrawing(drawing) }}>
+						<td class="px-3 py-1.5 text-zinc-400 tabular-nums">{idx + 1}</td>
+
+						<!-- Drawing Number -->
+						<td class="px-3 py-1.5 font-mono text-xs">
+							{#if isRowEditing}
+								<input class="w-full border border-blue-400 rounded px-1 py-0.5 text-xs font-mono bg-white"
+									bind:value={rowEdits.drawingNumber}
+									onkeydown={handleRowEditKeydown}
+									onclick={e => e.stopPropagation()} />
+							{:else}
+								{drawing.drawingNumber || '—'}
+							{/if}
+						</td>
+
+						<!-- Title -->
+						<td class="px-3 py-1.5">
+							{#if isRowEditing}
+								<input class="w-full border border-blue-400 rounded px-1 py-0.5 text-sm bg-white"
+									bind:value={rowEdits.title}
+									onkeydown={handleRowEditKeydown}
+									onclick={e => e.stopPropagation()} />
+							{:else}
+								{drawing.title || '—'}
+							{/if}
+						</td>
+
+						<!-- Tool Type (source views only) -->
+						{#if !isPage}
+							<td class="px-3 py-1.5 text-xs text-zinc-500">{toolMeta[drawing.toolType]?.label ?? drawing.toolType}</td>
+						{/if}
+
+						<!-- Sheet Size -->
+						<td class="px-3 py-1.5 text-xs text-center">
+							{#if isRowEditing}
+								<input class="w-full border border-blue-400 rounded px-1 py-0.5 text-xs bg-white text-center"
+									bind:value={rowEdits.sheetSize}
+									onkeydown={handleRowEditKeydown}
+									onclick={e => e.stopPropagation()} />
+							{:else}
+								{drawing.sheetSize || '—'}
+							{/if}
+						</td>
+
+						<!-- Scale -->
+						<td class="px-3 py-1.5 text-xs text-center">
+							{#if isRowEditing}
+								<input class="w-full border border-blue-400 rounded px-1 py-0.5 text-xs bg-white text-center"
+									bind:value={rowEdits.scale}
+									onkeydown={handleRowEditKeydown}
+									onclick={e => e.stopPropagation()} />
+							{:else}
+								{drawing.scale || '—'}
+							{/if}
+						</td>
+
+						<!-- Revision columns -->
+						{#each { length: maxRevs } as _, i}
+							{@const rev = revisions[i]}
+							<td class="px-3 py-1.5 text-xs text-center tabular-nums {rev ? 'text-zinc-700 dark:text-zinc-300' : 'text-zinc-300 dark:text-zinc-700'}">
+								{#if rev}
+									<div class="font-medium">{rev.code}</div>
+									<div class="text-[10px] text-zinc-400">{fmtDate(rev.issuedAt)}</div>
+								{:else}
+									—
+								{/if}
+							</td>
+						{/each}
+
+						{#if isPage}
+							<!-- Readiness status -->
+							<td class="px-3 py-1.5 text-center">
+								{#if issued}
+									<span class="inline-block text-[10px] px-1.5 py-0.5 rounded font-medium bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+										title="Issued Rev {drawing.latestRevisionCode} — can be added to a package">Rev {drawing.latestRevisionCode}</span>
+								{:else}
+									<span class="inline-block text-[10px] px-1.5 py-0.5 rounded font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+										title="No issued revision yet — publish a revision to package this sheet">Draft</span>
+								{/if}
+							</td>
+
+							<!-- Include in packages -->
+							<td class="px-3 py-1.5 text-center" onclick={e => e.stopPropagation()}>
+								<input type="checkbox"
+									class="h-4 w-4 accent-blue-600 cursor-pointer"
+									checked={drawing.includeInPackages ?? true}
+									onchange={e => toggleIncludeInPackages(drawing, e.currentTarget.checked)}
+									title="Include this page when publishing drawing packages" />
+							</td>
+						{/if}
+
+						<!-- Actions -->
+						<td class="px-2 py-1.5 text-center whitespace-nowrap" onclick={e => e.stopPropagation()}>
+							{#if isRowEditing}
+								<button class="text-[10px] px-1.5 py-0.5 rounded bg-blue-600 text-white hover:bg-blue-500 mr-1"
+									onclick={commitRowEdit} title="Save changes (Enter)">Save</button>
+								<button class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-200"
+									onclick={cancelRowEdit} title="Cancel (Escape)">Cancel</button>
+							{:else if confirmDeleteId === drawing.id}
+								<button class="text-[10px] px-1.5 py-0.5 rounded bg-red-600 text-white hover:bg-red-500 mr-1"
+									onclick={() => deleteDrawing(drawing.id)}>Confirm</button>
+								<button class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-200"
+									onclick={() => confirmDeleteId = null}>Cancel</button>
+							{:else}
+								<button class="text-zinc-400 hover:text-blue-600 transition-colors mr-2" title="Edit drawing"
+									onclick={() => startRowEdit(drawing)}>
+									<Icon name="edit" size={13} />
+								</button>
+								<button class="text-zinc-300 hover:text-red-500 transition-colors" title="Delete drawing"
+									onclick={() => confirmDeleteId = drawing.id}>
+									<Icon name="trash" size={13} />
+								</button>
+							{/if}
+						</td>
+					</tr>
+				{/each}
+
+				{#if rows.length === 0}
+					<tr>
+						<td {colspan} class="px-3 py-8 text-center text-zinc-400">
+							{#if isPage}
+								No sheets yet. Click "New Page" to compose one.
+							{:else}
+								No source views yet. Click "Add Drawing" to register a tool view.
+							{/if}
+						</td>
+					</tr>
+				{/if}
+			</tbody>
+		</table>
+	</div>
+{/snippet}
