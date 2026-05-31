@@ -1,20 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { getContext, onMount } from 'svelte';
-	import { goto } from '$app/navigation';
+	import { getContext } from 'svelte';
 	import { Firestore, Spinner, Session } from '$lib';
-	import { patchingRedirect } from '../workspace/redirect';
 	import { writeLog } from '$lib/logger';
-
-	const legacy = page.url.searchParams.has('legacy');
-	onMount(() => {
-		if (legacy) return;
-		goto(patchingRedirect({
-			pid: page.params.pid ?? '',
-			floor: page.url.searchParams.get('floor'),
-			room: page.url.searchParams.get('room'),
-		}), { replaceState: true });
-	});
 	import type { ChangeDetail } from '$lib/logger';
 	import type { FloorConfig } from '$lib/types/project';
 	import { migrateFloors, updateFloors as _updateFloors, deleteFloor as _deleteFloor } from '$lib/utils/floor';

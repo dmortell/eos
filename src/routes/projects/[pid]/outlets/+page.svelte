@@ -1,19 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { getContext, onMount } from 'svelte';
-	import { goto } from '$app/navigation';
+	import { getContext } from 'svelte';
 	import { Firestore, Spinner, Session } from '$lib';
-	import { outletsRedirect } from '../workspace/redirect';
 	import type { FloorConfig } from '$lib/types/project';
-
-	const legacy = page.url.searchParams.has('legacy');
-	onMount(() => {
-		if (legacy) return;
-		goto(outletsRedirect({
-			pid: page.params.pid ?? '',
-			floor: page.url.searchParams.get('floor'),
-		}), { replaceState: true });
-	});
 	import { updateFloors as _updateFloors, deleteFloor as _deleteFloor } from '$lib/utils/floor';
 	import { findOrCreateDrawing } from '$lib/versioning/service';
 	import Outlets from './Outlets.svelte';
@@ -170,9 +159,7 @@
 	}
 </script>
 
-{#if !legacy}
-	<div class="flex items-center justify-center h-screen text-xs text-zinc-500">Redirecting to the workspace…</div>
-{:else if loading}
+{#if loading}
 	<div class="flex items-center justify-center h-screen">
 		<Spinner>Loading outlets...</Spinner>
 	</div>
