@@ -38,11 +38,19 @@
 		}
 	}
 
-	/** Effective zoom on the workspace transform layer (above embedded tool
-	 *  zoom). When tiny, swap the canvas root to a "dim labels" mode that
-	 *  fades small text so the rack/row shape is still readable. */
+	/** Effective zoom on the workspace transform layer. Only meaningful for
+	 *  the rack-elevation views — Frames / Patching / Outlets / Risers each
+	 *  have their own internal zoom. LOD must scope to those views only,
+	 *  otherwise stale ws.viewport.zoom values from a previous rack tab
+	 *  would zero-opacity unrelated chrome (the lifted Risers toolbar lives
+	 *  inside .workspace-canvas and uses text-xs). */
 	const lodMode = $derived.by(() => {
 		if (!ws.labelRendering.lod) return null
+		const usesWsViewport =
+			ws.activeView === 'elevation' ||
+			ws.activeView === 'row-elevation' ||
+			ws.activeView === 'room-elevation'
+		if (!usesWsViewport) return null
 		if (ws.viewport.zoom < 0.45) return 'tiny'
 		if (ws.viewport.zoom < 0.75) return 'dim'
 		return null
