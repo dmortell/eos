@@ -11,10 +11,25 @@
 		"sourceMap": true,
 		"strict": true,
 		"moduleResolution": "bundler"
-	}
+	},
+	// Overriding `exclude` replaces the generated list entirely. Re-add the
+	// service-worker exclusions from `.svelte-kit/tsconfig.json` alongside:
+	//   - `src/lib/ui/combo` — gitignored third-party svelte-select drop-in.
+	//   - `*-001.{svelte,ts}` — local backup copies (not tracked).
+	//   - `pdf-viewer-sample/` — vendored sample app.
+	"exclude": [
+		"node_modules/**",
+		"src/service-worker.js",
+		"src/service-worker/**/*.js",
+		"src/service-worker.ts",
+		"src/service-worker/**/*.ts",
+		"src/service-worker.d.ts",
+		"src/service-worker/**/*.d.ts",
+		"src/lib/ui/combo/**",
+		"src/**/*-001.svelte",
+		"src/**/*-001.ts",
+		"src/routes/projects/[pid]/uploads/pdf-viewer-sample/**"
+	]
 	// Path aliases are handled by https://svelte.dev/docs/kit/configuration#alias
 	// except $lib which is handled by https://svelte.dev/docs/kit/configuration#files
-	//
-	// To make changes to top-level options such as include and exclude, we recommend extending
-	// the generated config; see https://svelte.dev/docs/kit/configuration#typescript
 }

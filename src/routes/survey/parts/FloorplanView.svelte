@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Icon, Spinner } from '$lib'
 	import { subscribePhotos, updatePhoto } from '../survey.svelte'
-	import { PdfState } from '../../projects/[pid]/uploads/parts/PdfState.svelte.ts'
+	import { PdfState } from '../../projects/[pid]/uploads/parts/PdfState.svelte'
 	import type { SurveyPhoto, SurveyFloorplan } from '../types'
 	import { onMount } from 'svelte'
 

@@ -1,18 +1,18 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { Firestore, Spinner } from '$lib';
+	import { Firestore, Spinner, type DocWithId } from '$lib';
 	import Uploads from './Uploads.svelte';
 
 	let db = new Firestore();
-	let files = $state([]);
+	let files = $state<DocWithId[]>([]);
 	let projectName = $state('');
 	let loading = $state(true);
 
 	$effect(() => {
 		const pid = page.params.pid;
 		if (!pid) return;
-		const unsub = db.subscribeOne('projects', pid, (/** @type {Record<string, any>} */ data) => {
-			if (data?.name) projectName = data.name;
+		const unsub = db.subscribeOne('projects', pid, data => {
+			if (data?.name) projectName = data.name as string;
 		});
 		return () => { unsub?.(); };
 	});
@@ -25,8 +25,7 @@
 		return () => { unsub?.(); };
 	});
 
-	/** @param {string} fileId @param {string} [utKey] */
-	async function deleteFile(fileId, utKey) {
+	async function deleteFile(fileId: string, utKey?: string) {
 		if (utKey) {
 			try {
 				const res = await fetch('/api/uploadthing/delete', {

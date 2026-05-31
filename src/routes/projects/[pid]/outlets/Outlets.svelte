@@ -1459,7 +1459,7 @@
 						{#if selectedFile?.pageCount && selectedFile.pageCount > 1}
 							<div class="flex items-center gap-2">
 								<span class="text-gray-400">Page</span>
-								<Select size="xs" bind:value={selectedPage}>
+								<Select size="xs" value={String(selectedPage)} onchange={(e: any) => selectedPage = +e.currentTarget.value}>
 									{#each Array.from({ length: selectedFile.pageCount }, (_, i) => i + 1) as p}
 										<option value={p} disabled={!isPageCalibrated(selectedFile, p)}>
 											{p} {isPageCalibrated(selectedFile, p) ? '' : '(not calibrated)'}
@@ -1643,7 +1643,7 @@
 						{/each}
 					</Select>
 					{#if selectedFile?.pageCount && selectedFile.pageCount > 1}
-						<Select size="xs" bind:value={selectedPage}>
+						<Select size="xs" value={String(selectedPage)} onchange={(e: any) => selectedPage = +e.currentTarget.value}>
 							{#each Array.from({ length: selectedFile.pageCount }, (_, i) => i + 1) as p}
 								<option value={p} disabled={!isPageCalibrated(selectedFile, p)}>
 									p{p}{isPageCalibrated(selectedFile, p) ? '' : ' (not calibrated)'}

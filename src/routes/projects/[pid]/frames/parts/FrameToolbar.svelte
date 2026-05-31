@@ -44,27 +44,28 @@
 			{#each frames as frame (frame.id)}
 				{@const colors = roomColor(frame.serverRoom)}
 				{@const isSelected = frame.id === selectedFrameId}
-				<div class="group relative">
+				<div class="group relative inline-flex items-center">
 					<button
 						class="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono border transition-colors"
 						class:bg-white={!isSelected}
 						class:border-gray-200={!isSelected}
 						class:text-gray-500={!isSelected}
 						class:font-semibold={isSelected}
+						class:pr-7={isSelected}
 						onclick={() => onselect(frame.id)}
 					>
 						<span class="w-2 h-2 rounded-full {colors.dot}"></span>
 						{frame.name}
-						{#if isSelected}
-							<button
-								class="text-gray-400 hover:text-gray-600 p-0.5 ml-1"
-								onclick={e => { e.stopPropagation(); showInfo = !showInfo }}
-								title="Frame info"
-							>
-								<Icon name="info" size={11} />
-							</button>
-						{/if}
 					</button>
+					{#if isSelected}
+						<button
+							class="absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5"
+							onclick={e => { e.stopPropagation(); showInfo = !showInfo }}
+							title="Frame info"
+						>
+							<Icon name="info" size={11} />
+						</button>
+					{/if}
 					{#if isSelected}
 						<div class="absolute bottom-0 left-1 right-1 h-0.5 {colors.bg} rounded-full"></div>
 					{/if}

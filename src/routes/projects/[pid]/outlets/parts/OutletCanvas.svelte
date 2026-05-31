@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy, tick } from 'svelte'
 	import { Icon } from '$lib'
-	import { PdfState } from '../../uploads/parts/PdfState.svelte.ts'
+	import { PdfState } from '../../uploads/parts/PdfState.svelte'
 	import type { OutletConfig, PageCalibration, Point, ToolMode, RackPlacement, SidebarTab } from './types'
 	import type { RackConfig } from '../../racks/parts/types'
 	import { OUTLET_RADIUS_MM, USAGE_COLORS } from './constants'

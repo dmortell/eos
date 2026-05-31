@@ -8,4 +8,4 @@
 	style:top="{y}px"
 	style:width="{width}px"
 	style:height="{height}px"
-/>
+></div>

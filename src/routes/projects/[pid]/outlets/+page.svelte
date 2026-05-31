@@ -36,7 +36,7 @@
 		const pid = page.params.pid;
 		if (!pid) return;
 		const unsub = db.subscribeOne('projects', pid, data => {
-			if (data?.name) projectName = data.name;
+			if (data?.name) projectName = data.name as string;
 			if (Array.isArray(data?.floors) && data.floors.length) {
 				floors = data.floors;
 				if (!data.floors.find((f: any) => f.number === activeFloor)) {

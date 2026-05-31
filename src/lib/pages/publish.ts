@@ -28,13 +28,16 @@ function lookupFor(src: ViewportSource): SourceLookup | null {
 		case 'outlets':      return { toolType: 'outlets',  sourceDocId: src.outletsDocId, collection: 'outlets' }
 		case 'floorplan':
 		case 'survey':
+		case 'risers':
 		case 'text':
 		case 'image':
 			// `floorplan` and `image` are asset references (no DrawingDoc/Revision
 			// lifecycle of their own). `survey` lives outside the project tree
 			// (top-level `surveys` collection) so it isn't covered by the
-			// project-scoped versioning model for now. All stay live in the page
-			// revision snapshot without a sourcePin.
+			// project-scoped versioning model for now. `risers` is a read-only
+			// projection of the risers tool (single doc per project, not yet
+			// versioned). All stay live in the page revision snapshot without a
+			// sourcePin.
 			return null
 	}
 }

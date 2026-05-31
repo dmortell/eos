@@ -48,8 +48,7 @@
 			{@const frontDevices = rackDevices.filter(d => (d.mounting ?? 'both') !== 'rear').sort((a, b) => b.positionU - a.positionU)}
 			{@const rearDevices = rackDevices.filter(d => (d.mounting ?? 'both') === 'rear').sort((a, b) => b.positionU - a.positionU)}
 			<div>
-				{#if rackDevices.length === 0}
-				{:else}
+				{#if rackDevices.length > 0}
 					<div class="font-semibold bg-slate-200 px-2 py-1 uppercase tracking-wider mb-1">{rack.label}</div>
 					<div class="space-y-0.5">
 						{#each frontDevices as device (device.id)}

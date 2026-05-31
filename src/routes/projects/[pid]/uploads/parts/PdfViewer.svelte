@@ -2,9 +2,9 @@
 	import { tick } from 'svelte'
 	import { onMount, onDestroy } from 'svelte'
 	import { Icon, Firestore, Titlebar, MetalButton } from '$lib'
-	import { PdfState } from './PdfState.svelte.ts'
+	import { PdfState } from './PdfState.svelte'
 	import DimensionLine from './DimensionLine.svelte'
-	import { dragDimension, isHorizontal } from './DimensionLine.ts'
+	import { dragDimension, isHorizontal } from './DimensionLine'
 
 	let { url, name, fileDoc = $bindable(), initialTool = null, onclose }: {
 		url: string
@@ -95,7 +95,7 @@
 			loading = false
 			await tick()
 			containerEl?.addEventListener('wheel', onWheel, { passive: false })
-			await pdf.render({ canvas: canvasEl, page: 1, scale: RENDER_SCALE })
+			if (canvasEl) await pdf.render({ canvas: canvasEl, page: 1, scale: RENDER_SCALE })
 			if (initialTool === 'origin' || initialTool === 'scale' || initialTool === 'crop') {
 				await tick()
 				activeTool = initialTool as Tool
@@ -199,7 +199,7 @@
 		pageH = dims.height
 		loadPageData(n)
 		fitToView()
-		await pdf.render({ canvas: canvasEl, page: n, scale: RENDER_SCALE })
+		if (canvasEl) await pdf.render({ canvas: canvasEl, page: n, scale: RENDER_SCALE })
 	}
 
 	// ── Get mouse position in PDF-page coordinates (accounting for pan/zoom) ──
