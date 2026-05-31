@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Icon, Window } from '$lib'
 	import type { OutletConfig } from './types'
+	import { derivePortLabels } from './types'
 	import { USAGE_COLORS, MOUNT_LABELS, CABLE_COLORS } from './constants'
 
 	let { outlets, selectedIds, selectedRackIds = new Set(), onupdate, onupdateselected, ondelete }: {
@@ -32,8 +33,17 @@
 			<span class="text-gray-500 w-12 shrink-0">Label</span>
 			<input type="text" class="flex-1 h-5 px-1.5 text-xs font-mono border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
 				value={singleOutlet.label ?? ''}
-				onchange={e => onupdate(singleOutlet!.id, { label: e.currentTarget.value || undefined })} />
+				onchange={e => {
+					const newLabel = e.currentTarget.value || undefined
+					const portLabels = derivePortLabels(newLabel, singleOutlet!.portCount, singleOutlet!.portLabels)
+					onupdate(singleOutlet!.id, { label: newLabel, portLabels })
+				}} />
 		</label>
+		{#if singleOutlet.portCount > 1 && singleOutlet.label}
+			<div class="pl-14 text-[10px] text-gray-400 font-mono leading-tight">
+				ports: {derivePortLabels(singleOutlet.label, singleOutlet.portCount, singleOutlet.portLabels)?.join(', ')}
+			</div>
+		{/if}
 	{/if}
 
 	<label class="flex items-center gap-2">
@@ -44,8 +54,12 @@
 			placeholder="—"
 			onchange={e => {
 				const v = parseInt(e.currentTarget.value) || 2
-				if (singleOutlet) onupdate(singleOutlet.id, { portCount: v })
-				else onupdateselected({ portCount: v })
+				if (singleOutlet) {
+					const portLabels = derivePortLabels(singleOutlet.label, v, singleOutlet.portLabels)
+					onupdate(singleOutlet.id, { portCount: v, portLabels })
+				} else {
+					onupdateselected({ portCount: v })
+				}
 			}} />
 	</label>
 
