@@ -1408,6 +1408,7 @@
 {/if}
 
 <PaneGroup direction="horizontal" class="flex-1 min-h-0">
+	{#if !bare}
 	<!-- Sidebar -->
 	<Pane defaultSize={20} minSize={15} maxSize={35} class="print:hidden">
 		<div class="h-full border-r border-gray-200 flex flex-col">
@@ -1520,9 +1521,10 @@
 	</Pane>
 
 	<Handle withHandle class="print:hidden" />
+	{/if}
 
 	<!-- Main content -->
-	<Pane defaultSize={80}>
+	<Pane defaultSize={bare ? 100 : 80}>
 		<div class="h-full flex flex-col">
 			<!-- Canvas -->
 			<div class="flex-1 min-h-0 relative flex flex-col">
@@ -1618,6 +1620,7 @@
 
 			<!-- Status bar with floor tabs -->
 			<div class="h-7 flex items-stretch border-t border-gray-200 bg-gray-50 shrink-0 relative z-10 print:hidden">
+				{#if !bare}
 				<div class="flex items-stretch gap-0 overflow-x-auto">
 					{#each floors as fl (fl.number)}
 						<button
@@ -1632,6 +1635,27 @@
 						onclick={() => floorManagerOpen = true}
 					><Icon name="plus" size={12} /></button>
 				</div>
+				{:else}
+				<div class="flex items-center gap-2 px-3 text-[11px] text-gray-500">
+					<Select size="xs" bind:value={selectedFileId} placeholder="— Floorplan —" onchange={() => selectedPage = 1}>
+						{#each projectFiles as f (f.id)}
+							<option value={f.id}>{f.name ?? f.id}</option>
+						{/each}
+					</Select>
+					{#if selectedFile?.pageCount && selectedFile.pageCount > 1}
+						<Select size="xs" bind:value={selectedPage}>
+							{#each Array.from({ length: selectedFile.pageCount }, (_, i) => i + 1) as p}
+								<option value={p} disabled={!isPageCalibrated(selectedFile, p)}>
+									p{p}{isPageCalibrated(selectedFile, p) ? '' : ' (not calibrated)'}
+								</option>
+							{/each}
+						</Select>
+					{/if}
+					{#if selectedFileId && !calibration}
+						<a href="/projects/{projectId}/uploads" class="text-amber-600 hover:underline">Calibrate in Uploads →</a>
+					{/if}
+				</div>
+				{/if}
 				<div class="flex-1"></div>
 				<div class="flex items-center gap-3 px-3 text-[10px] text-gray-400">
 					<div class="hidden xl:contents">
