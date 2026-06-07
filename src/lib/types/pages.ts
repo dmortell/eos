@@ -74,6 +74,23 @@ export interface Viewport {
 	}
 }
 
+/**
+ * Per-viewport layer visibility for an `outlets` (floorplan) viewport. Lets one
+ * page show, e.g., only low-level outlets + floor trunks while another shows
+ * high-level + ceiling. All flags default to visible (undefined === true); the
+ * `showOutlets` / `showTrunks` source flags remain the master on/off switches.
+ */
+export interface OutletsLayers {
+	outletsLow?: boolean
+	outletsHigh?: boolean
+	trunksPrimary?: boolean
+	trunksSecondary?: boolean
+	/** Trunks routed in the ceiling (location `ceiling-*`). */
+	ceiling?: boolean
+	/** Trunks routed at floor/wall level. */
+	floor?: boolean
+}
+
 export type ViewportSource =
 	| { kind: 'rack-elevation'; rackDocId: string; face: 'front' | 'rear'; rowId?: string }
 	| { kind: 'rack-plan'; rackDocId: string; rowIds?: string[] }
@@ -81,7 +98,7 @@ export type ViewportSource =
 	| { kind: 'fillrate'; projectId: string }
 	| { kind: 'floorplan'; fileId: string; pageNum: number }
 	| { kind: 'patching'; patchDocId: string }
-	| { kind: 'outlets'; outletsDocId: string; showOutlets?: boolean; showTrunks?: boolean }
+	| { kind: 'outlets'; outletsDocId: string; showOutlets?: boolean; showTrunks?: boolean; layers?: OutletsLayers }
 	| {
 			kind: 'risers'
 			risersDocId: string

@@ -34,6 +34,7 @@
 	let src = $derived(viewport.source.kind === 'outlets' ? viewport.source : null)
 	let showOutlets = $derived(src?.showOutlets !== false)
 	let showTrunks = $derived(src?.showTrunks !== false)
+	let layers = $derived(src?.layers ?? {})
 
 	let outletsDoc = $state<any>(null)
 	$effect(() => {
@@ -153,6 +154,16 @@
 	let trunks = $derived<TrunkConfig[]>(outletsDoc?.trunks ?? [])
 	let routes = $derived<any[]>(outletsDoc?.routes ?? [])
 
+	// Per-layer visibility (high/low outlets, primary/secondary trunks, ceiling/floor).
+	let visibleOutlets = $derived(outlets.filter(o =>
+		o.level === 'high' ? layers.outletsHigh !== false : layers.outletsLow !== false))
+	let visibleTrunks = $derived(trunks.filter(t => {
+		const okClass = t.isPrimary ? layers.trunksPrimary !== false : layers.trunksSecondary !== false
+		const isCeiling = String(t.location ?? '').startsWith('ceiling')
+		const okPlane = isCeiling ? layers.ceiling !== false : layers.floor !== false
+		return okClass && okPlane
+	}))
+
 	const OUTLET_COLORS: Record<string, string> = {
 		network: '#3b82f6', phone: '#8b5cf6', av: '#ec4899', printer: '#f59e0b',
 		security: '#ef4444', ap: '#10b981', rb: '#6366f1', new: '#14b8a6', mep: '#94a3b8',
@@ -200,7 +211,7 @@
 						drawing sets makes it render in pure read-only mode.
 					-->
 					<TrunkRenderer
-						{trunks}
+						trunks={visibleTrunks}
 						{calibration}
 						zoom={1}
 						toPx={mmToPdfPx}
@@ -248,7 +259,7 @@
 				{/if}
 
 				{#if showOutlets}
-					{#each outlets as o (o.id)}
+					{#each visibleOutlets as o (o.id)}
 						{@const p = mmToPdfPx(o.position)}
 						{@const color = OUTLET_COLORS[o.usage] ?? '#64748b'}
 						{@const r = Math.max(3, 200 / scaleFactor)}

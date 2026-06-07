@@ -156,17 +156,26 @@ Steps:
 
 Risk: high (coordinate correctness + write-path to source doc + pointer-event layering). Acceptance: draw a trunk inside a drawing viewport → it appears in the Outlets tool; printed sheet measures true 1:100.
 
-### Phase 6 — Trunk editing enhancements + Layers (data)
-**Goal:** adopt the POC's *extra* trunk UX; add layer visibility.
+### Phase 6a — Viewport layers  ✅ (shipped)
+**Goal:** per-viewport control of what shows on a floorplan/outlets viewport.
+
+Shipped:
+- `OutletsLayers` added to the outlets `ViewportSource` (`$lib/types/pages.ts`): `{ outletsLow, outletsHigh, trunksPrimary, trunksSecondary, ceiling, floor }`, all default visible. `showOutlets`/`showTrunks` remain the master toggles.
+- `OutletsViewport.svelte` filters outlets by `level` (low/high) and trunks by `isPrimary` (primary/secondary) + `location` (ceiling-* vs floor/wall) before rendering; the filtered trunk list feeds `TrunkRenderer`.
+- Sidebar (outlets viewport): a **Layers** section with checkboxes — Outlets Low/High, Trunks Primary/Secondary/Ceiling/Floor — gated under the relevant master toggle.
+
+Acceptance (met): one page can show low-level + floor trunks while another shows high-level + ceiling, from the same source doc.
+
+### Phase 6b — Trunk editing extras (outlets tool)  ⏳ (next, optional)
+**Goal:** adopt the POC's *extra* trunk-editing UX. Lives in the `outlets` editing tool, not the drawing viewports.
 
 Steps:
-1. **Context menu** on trunk node/segment (in `OutletCanvas` + floorplan viewport): Insert node (at click), Disconnect node (if junction), **Select full trunk**, Delete node/segment. Port POC `TrunkOverlay` menu + `portal.ts`.
+1. **Context menu** on trunk node/segment (in `OutletCanvas`): Insert node (at click), Disconnect node (if junction), **Select full trunk**, Delete node/segment. Port POC `TrunkOverlay` menu + `portal.ts`.
 2. **Multi-segment angle snap**: add POC `snapNodeAngles` (least-squares) to production `outlets/trunks/geometry.ts`, used when dragging a junction node (Shift); keep `constrainAngle` for single-neighbor.
 3. **Snap-ring indicator**: render a ring at the merge-target node while dragging (port POC `TrunkLayer` snap circle + `nearestNode`).
-4. **Layers data**: extend the outlets `ViewportSource` (already has `showOutlets`/`showTrunks`) with `layers:{ outletsLow, outletsHigh, trunksPrimary, trunksSecondary, ceiling, floor }`. `TrunkRenderer`/outlet render gate groups by these.
-5. *(Optional, quality)* Refactor `OutletCanvas` toward POC's Layer/Overlay/Shape + headless editor split.
+4. *(Optional, quality)* Refactor `OutletCanvas` toward POC's Layer/Overlay/Shape + headless editor split.
 
-Risk: medium. Acceptance: right-click gives the four actions incl. select-full-trunk; junction drag snaps all legs; snap-ring shows; layer flags hide/show groups.
+Risk: medium. Acceptance: right-click gives the four actions incl. select-full-trunk; junction drag snaps all legs; snap-ring shows.
 
 ### Phase 7 — Annotations
 **Goal:** the missing annotation system.

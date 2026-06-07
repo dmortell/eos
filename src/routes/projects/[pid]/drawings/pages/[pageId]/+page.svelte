@@ -841,6 +841,7 @@
 							{:else if vp.source.kind === 'outlets'}
 								{@const floorMatch = vp.source.outletsDocId.match(/_F(\d+)/)}
 								{@const outFloor = Number(floorMatch?.[1] ?? floors[0]?.number ?? 1)}
+								{@const layersCfg = vp.source.layers ?? {}}
 								<Select label="Floor" size="sm"
 									value={String(outFloor)}
 									onchange={(e: Event) => updateSource(vp.id, { outletsDocId: `${pid}_F${String(inputNumber(e)).padStart(2, '0')}` })}>
@@ -863,6 +864,55 @@
 											onchange={e => updateSource(vp.id, { showTrunks: e.currentTarget.checked })} />
 										Trunks
 									</label>
+								</div>
+
+								<!-- Layers — fine-grained visibility within the master Outlets/Trunks toggles. -->
+								<div class="mt-2 pt-1.5 border-t border-zinc-100 dark:border-zinc-800 space-y-1">
+									<div class="text-[10px] uppercase tracking-wider text-zinc-400">Layers</div>
+									{#if vp.source.showOutlets !== false}
+										<div class="grid grid-cols-2 gap-1">
+											<label class="flex items-center gap-1 text-[10px] text-zinc-600 dark:text-zinc-300">
+												<input type="checkbox" class="h-3 w-3 accent-blue-600"
+													checked={layersCfg.outletsLow !== false}
+													onchange={e => updateSource(vp.id, { layers: { ...layersCfg, outletsLow: e.currentTarget.checked } })} />
+												Outlets · Low
+											</label>
+											<label class="flex items-center gap-1 text-[10px] text-zinc-600 dark:text-zinc-300">
+												<input type="checkbox" class="h-3 w-3 accent-blue-600"
+													checked={layersCfg.outletsHigh !== false}
+													onchange={e => updateSource(vp.id, { layers: { ...layersCfg, outletsHigh: e.currentTarget.checked } })} />
+												Outlets · High
+											</label>
+										</div>
+									{/if}
+									{#if vp.source.showTrunks !== false}
+										<div class="grid grid-cols-2 gap-1">
+											<label class="flex items-center gap-1 text-[10px] text-zinc-600 dark:text-zinc-300">
+												<input type="checkbox" class="h-3 w-3 accent-blue-600"
+													checked={layersCfg.trunksPrimary !== false}
+													onchange={e => updateSource(vp.id, { layers: { ...layersCfg, trunksPrimary: e.currentTarget.checked } })} />
+												Trunks · Primary
+											</label>
+											<label class="flex items-center gap-1 text-[10px] text-zinc-600 dark:text-zinc-300">
+												<input type="checkbox" class="h-3 w-3 accent-blue-600"
+													checked={layersCfg.trunksSecondary !== false}
+													onchange={e => updateSource(vp.id, { layers: { ...layersCfg, trunksSecondary: e.currentTarget.checked } })} />
+												Trunks · Secondary
+											</label>
+											<label class="flex items-center gap-1 text-[10px] text-zinc-600 dark:text-zinc-300">
+												<input type="checkbox" class="h-3 w-3 accent-blue-600"
+													checked={layersCfg.ceiling !== false}
+													onchange={e => updateSource(vp.id, { layers: { ...layersCfg, ceiling: e.currentTarget.checked } })} />
+												Trunks · Ceiling
+											</label>
+											<label class="flex items-center gap-1 text-[10px] text-zinc-600 dark:text-zinc-300">
+												<input type="checkbox" class="h-3 w-3 accent-blue-600"
+													checked={layersCfg.floor !== false}
+													onchange={e => updateSource(vp.id, { layers: { ...layersCfg, floor: e.currentTarget.checked } })} />
+												Trunks · Floor
+											</label>
+										</div>
+									{/if}
 								</div>
 
 							{:else if vp.source.kind === 'risers'}
