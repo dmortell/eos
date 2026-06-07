@@ -51,7 +51,7 @@
 			<Spinner>Loading sheet...</Spinner>
 		</div>
 	{:else if sheet}
-		<SheetEditor {sheet} {project} />
+		<SheetEditor {sheet} {project} {db} pid={pid ?? ''} />
 	{:else}
 		<div class="flex flex-1 items-center justify-center text-sm text-zinc-400">Sheet not found.</div>
 	{/if}

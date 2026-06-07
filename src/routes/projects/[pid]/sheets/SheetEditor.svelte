@@ -8,9 +8,16 @@
 	import SheetMenubar from "./SheetMenubar.svelte";
 	import StatusBar from "./StatusBar.svelte";
 	import { ViewportEditor } from "./viewports.svelte";
-	import type { SheetDoc, TitleBlockConfig } from "./types";
+	import type { SheetDoc, SheetViewport, TitleBlockConfig } from "./types";
+	import { updateSheet } from "./data";
+	import type { Firestore } from "$lib/db.svelte";
 
-	let { sheet, project = {} }: { sheet: SheetDoc; project?: TitleBlockProjectDefaults } = $props()
+	let { sheet, project = {}, db, pid }: {
+		sheet: SheetDoc
+		project?: TitleBlockProjectDefaults
+		db: Firestore
+		pid: string
+	} = $props()
 
 	// Normalized view of the sheet — guarantees paper/title exist even for a partial doc.
 	let page = $derived({
@@ -51,21 +58,43 @@
 	// ── Viewports ──
 	const vps = new ViewportEditor()
 	let mainZoom = $state(1)              // outer Canvas zoom — counter-scales viewport handles
+	let mainPanX = $state(0)             // outer Canvas pan (px) — for the status-bar readout
+	let mainPanY = $state(0)
 	let paperEl = $state<HTMLDivElement>()
 	$effect(() => { vps.paper = paperEl ?? null }) // paper sheet → client px ↔ paper mm mapping
 
-	// Load the embedded viewport array whenever the sheet identity changes. Gated on id so our
-	// own in-canvas edits (which mutate vps.viewports) don't get clobbered by this effect.
-	// (Persisting edits back to Firestore arrives in Stage C.)
+	// Load the embedded viewport array when the sheet IDENTITY changes (not on every snapshot).
+	// The `lastLoadedId` guard means our own save round-trips (same id, new object) don't reset
+	// the working set or clear the current selection.
+	let lastLoadedId: string | null = null
 	$effect(() => {
 		const id = sheet?.id
-		if (!id) return
+		if (!id || id === lastLoadedId) return
+		lastLoadedId = id
 		untrack(() => {
 			vps.viewports = (sheet.viewports ?? []).map(v => ({ ...v }))
 			vps.clearSel()
 			vps.deactivate()
 		})
 	})
+
+	// ── Persist viewport geometry (debounced) ──
+	// The editor calls vps.notify() after add / delete / move / resize. We coalesce bursts
+	// (drag emits one notify on mouseup; rapid edits collapse) into a single merge-write of
+	// the viewports array. $state.snapshot() unwraps the reactive proxies into plain objects
+	// that Firestore can serialise.
+	let saveTimer: ReturnType<typeof setTimeout> | null = null
+	function scheduleSave() {
+		if (saveTimer) clearTimeout(saveTimer)
+		saveTimer = setTimeout(() => {
+			saveTimer = null
+			if (!sheet?.id) return
+			const viewports = $state.snapshot(vps.viewports) as SheetViewport[]
+			updateSheet(db, pid, sheet.id, { viewports })
+		}, 400)
+	}
+	vps.onChange = scheduleSave
+	$effect(() => () => { if (saveTimer) clearTimeout(saveTimer) })
 
 	// Window-level gestures: Insert drag-out, marquee select, double-click activate, delete/esc.
 	// Capture phase so we run before the Canvas/viewport handlers call stopPropagation.
@@ -130,7 +159,7 @@
 		<!-- Canvas owns pan/zoom; everything below is drawn in mm (world units) inside its
 		     transform group. The paper sheet is the positioning context for the margin guide
 		     and title block. -->
-		<Canvas paper={page.paper} viewKey={`sheet-${sheet.id}`} bind:zoom={mainZoom} cursor={vps.insertMode ? 'crosshair' : ''}>
+		<Canvas paper={page.paper} viewKey={`sheet-${sheet.id}`} bind:zoom={mainZoom} bind:panX={mainPanX} bind:panY={mainPanY} cursor={vps.insertMode ? 'crosshair' : ''}>
 			<!-- Paper sheet (cad-thin → drawing borders render as hairlines, not 1mm) -->
 			<div
 				bind:this={paperEl}
@@ -197,4 +226,4 @@
 	</div>
 </div>
 
-<StatusBar {vps} />
+<StatusBar {vps} zoom={mainZoom} panX={mainPanX} panY={mainPanY} />

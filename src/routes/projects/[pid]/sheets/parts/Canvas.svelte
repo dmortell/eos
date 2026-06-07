@@ -10,6 +10,8 @@
 		background = 'bg-zinc-100',
 		showZoom = false,
 		zoom = $bindable(1),
+		panX = $bindable(0),
+		panY = $bindable(0),
 		cursor = '',
 	}: {
 		children?: any
@@ -36,6 +38,9 @@
 		showZoom?: boolean
 		/** Bindable: the canvas's current zoom factor (read-only mirror of the view zoom). */
 		zoom?: number
+		/** Bindable: the canvas's current pan offset (read-only mirror of the view x/y, px). */
+		panX?: number
+		panY?: number
 		/** CSS cursor for the canvas surface (e.g. 'crosshair' while placing). Empty = default. */
 		cursor?: string
 	} = $props()
@@ -51,7 +56,7 @@
 			const saved = localStorage.getItem(viewKey)
 			if (saved) return JSON.parse(saved)
 		} catch {}
-		return { x: 60, y: 0, zoom: 0.3 }
+		return { x: 10, y: 10, zoom: 2 }
 	}
 	// Always restore the saved view (each canvas has its own `viewKey`), even a passive one
 	// like a floorplan that isn't `interactive` until its viewport is activated.
@@ -59,8 +64,8 @@
 
 	let view = $state({ x: savedView.x, y: savedView.y, zoom: savedView.zoom, panning: false })
 
-	// Expose the current zoom to the parent (e.g. so a floorplan can size its node handles).
-	$effect(() => { zoom = view.zoom })
+	// Expose the current view to the parent (zoom for handle sizing; pan/zoom for the status readout).
+	$effect(() => { zoom = view.zoom; panX = view.x; panY = view.y })
 
 	// `$state()` so bind:this triggers the $effect that attaches the wheel
 	// listener — plain `let` raced mount timing in some embed paths.

@@ -86,9 +86,10 @@
 	style:pointer-events="none"
 >
 	<div class="absolute inset-0 overflow-hidden" style:pointer-events={active ? 'auto' : 'none'}>
-		<!-- Stage B placeholder; ViewportContent (source dispatcher) lands in Stage E. -->
+		<!-- Stage B placeholder; ViewportContent (source dispatcher) lands in Stage E.
+		     Font is counter-scaled by the Canvas zoom so it reads ~14px on screen at any zoom. -->
 		<div class="flex h-full w-full items-center justify-center text-zinc-400 print:hidden"
-			style:font-size="{Math.max(2, 4 / zoom)}px">
+			style:font-size="{14 / zoom}px">
 			{kindLabel === 'empty' ? 'Empty viewport' : kindLabel}
 		</div>
 	</div>
