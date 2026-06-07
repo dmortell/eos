@@ -104,6 +104,37 @@ To recreate this project from scratch with the same configuration:
 pnpm dlx sv@0.12.4 create --template minimal --types ts --add vitest="usages:unit,component" tailwindcss="plugins:none" sveltekit-adapter="adapter:vercel" devtools-json --install pnpm .
 ```
 
+## Enable PDF file uploads to Firestore
+
+Configure CORS to allow reading files uploaded to Firestore.
+First download and install Google Cloud SDK (https://docs.cloud.google.com/sdk/docs/install-sdk)
+
+```
+(New-Object Net.WebClient).DownloadFile("https://dl.google.com/dl/cloudsdk/channels/rapid/GoogleCloudSDKInstaller.exe", "$env:Temp\GoogleCloudSDKInstaller.exe")
+& $env:Temp\GoogleCloudSDKInstaller.exe
+```
+
+When installed, run `gcloud init` to sign in and select your project.
+
+Create a json settings file for upload. Origin ["*"] can be used for development, but for production is should be changed to you exact origins.
+
+```
+[
+  {
+    "origin": ["http://localhost:5173", "http://localhost:4173", "https://eos.vercel.app"]
+    "method": ["GET", "HEAD"],
+    "responseHeader": [ "Content-Type", "Content-Length", "Content-Range", "Accept-Ranges", "Range" ],
+    "maxAgeSeconds": 3600
+  }
+]
+```
+
+Run gsutil to upload the CORS json file for your project:
+```
+gsutil cors set cors-config.json gs://sunny-jetty-180208.appspot.com
+```
+
+
 ## Claude Code
 
   --allow-dangerously-skip-permissions     Enable bypassing all permission checks as an option

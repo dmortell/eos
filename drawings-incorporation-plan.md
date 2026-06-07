@@ -108,8 +108,9 @@ Steps:
 3. **Nested pan/zoom**: when a viewport is active, its interior becomes interactive and pans/zooms independently of the page canvas, persisted per-viewport (`contentOffsetMm` + a per-viewport view-zoom). Reuse production's existing pan/zoom pattern; the page canvas ignores wheel while a viewport is active.
 4. **Copy cursor**: page canvas cursor = `crosshair` in insert mode; floorplan interior cursor = `copy` when in add-shape/add-trunk mode.
 5. **StatusBar.svelte**: contextual instruction strip at canvas bottom, derived from current mode (insert / activated-idle / drawing-trunk / placing-shape / N-selected). Port POC `StatusBar.svelte` messages. Tag `print:hidden`.
+6. **Undo (Ctrl/⌘-Z) for viewport frame edits** *(user request)*: every viewport move/resize is reversible. The user still moves viewports by accident; the 4px threshold reduces it, undo is the safety net. Maintain an undo stack of viewport-geometry snapshots (`positionMm`/`widthMm`/`heightMm`/`rotationDeg` per viewport) pushed on drag/resize **commit** (not per-mousemove); Ctrl/⌘-Z pops and restores. Redo (Ctrl/⌘-Shift-Z) optional. Gate the key handler to skip when an input/textarea is focused. Scope v1 to frame geometry (position/size/rotation); extend to add/delete/source edits later.
 
-Risk: medium (pointer-event layering). Acceptance: can't accidentally drag a viewport; dblclick enters; wheel zooms inside; status bar tracks mode; nothing of this prints.
+Risk: medium (pointer-event layering). Acceptance: can't accidentally drag a viewport; dblclick enters; wheel zooms inside; status bar tracks mode; **Ctrl-Z reverts an accidental move/resize**; nothing of this prints.
 
 ### Phase 3 — DrawingMenubar (AutoCAD-like, incremental)
 **Goal:** a real menubar, expandable over time.

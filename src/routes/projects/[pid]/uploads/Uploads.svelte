@@ -131,6 +131,8 @@
 						name: file.name,
 						url: file.ufsUrl,
 						key: file.key,
+						path: file.key,
+						provider: 'uploadthing',
 						size: file.size,
 						projectId,
 						uploadedAt: new Date(),
@@ -169,12 +171,57 @@
 		uploadError = ''
 		for (const f of arr) uploadProgress[f.name] = 0
 		try {
-			await startUpload(arr)
+			if (provider === 'firebase') {
+				await Promise.all(arr.map(uploadToFirebase))
+				const ok = arr.length
+				if (ok) toast.success(`Uploaded ${ok} file${ok === 1 ? '' : 's'}`)
+				uploading = false
+				uploadProgress = {}
+			} else {
+				// UploadThing finalises via the createUploadThing callbacks above.
+				await startUpload(arr)
+			}
 		} catch (e: any) {
 			uploadError = e.message ?? 'Upload failed'
 			uploading = false
 			uploadProgress = {}
 		}
+	}
+
+	/**
+	 * Upload one file to Firebase Storage with live progress, then record it in
+	 * the shared `files` collection with `provider: 'firebase'`. The storage path
+	 * is namespaced per project and prefixed with a nanoid so same-named files
+	 * don't collide in the bucket (the Firestore doc id stays the filename, to
+	 * match the UploadThing path and keep downstream lookups stable).
+	 */
+	function uploadToFirebase(file: File): Promise<void> {
+		return new Promise((resolve, reject) => {
+			const path = `projects/${projectId}/uploads/${nanoid(8)}_${file.name}`
+			const task = uploadBytesResumable(ref(storage, path), file, { contentType: file.type })
+			task.on(
+				'state_changed',
+				snap => { uploadProgress[file.name] = Math.round((snap.bytesTransferred / snap.totalBytes) * 100) },
+				err => reject(err),
+				async () => {
+					try {
+						const url = await getDownloadURL(task.snapshot.ref)
+						await db.save('files', {
+							id: file.name,
+							name: file.name,
+							url,
+							path,
+							type: file.type,
+							provider: 'firebase',
+							size: file.size,
+							projectId,
+							uploadedAt: new Date(),
+						})
+						resolve()
+					} catch (err) { reject(err) }
+				}
+			)
+		})
 	}
 
 	function onInputChange(e: Event) {
@@ -236,7 +283,7 @@
 
 	function doDelete(file: FileDoc) {
 		confirmingDelete = null
-		ondelete?.(file.id, file.key)
+		ondelete?.(file)
 	}
 
 	function groupSize(files: FileDoc[]): number {
@@ -264,6 +311,32 @@
 			<input type="text" bind:value={search} placeholder="Filter files..."
 				class="w-48 h-7 px-2 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400" />
 		{/if}
+
+		{#if needsProviderBackfill.length}
+			<button class="h-7 px-2.5 text-[11px] bg-amber-50 text-amber-700 border border-amber-200 rounded hover:bg-amber-100 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+				onclick={backfillProviders} disabled={backfilling}
+				title="Tag {needsProviderBackfill.length} existing file(s) with their storage provider">
+				<Icon name="settings" size={12} />
+				{backfilling ? 'Tagging…' : `Tag provider (${needsProviderBackfill.length})`}
+			</button>
+		{/if}
+
+		<!-- Storage provider toggle (toggle buttons, not a select) -->
+		<div class="flex items-center gap-1.5">
+			<span class="text-[10px] text-gray-400 uppercase tracking-wider">Storage</span>
+			<div class="flex rounded overflow-hidden border border-gray-200" role="radiogroup" aria-label="Storage provider">
+				{#each [{ key: 'firebase', label: 'Firebase' }, { key: 'uploadthing', label: 'UploadThing' }] as opt}
+					<button
+						class="h-7 px-2.5 text-[11px] transition-colors {provider === opt.key ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
+						role="radio" aria-checked={provider === opt.key}
+						disabled={uploading}
+						onclick={() => provider = opt.key as FileProvider}>
+						{opt.label}
+					</button>
+				{/each}
+			</div>
+		</div>
+
 		<button class="h-7 px-3 text-[11px] bg-blue-600 text-white rounded hover:bg-blue-500 transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
 			onclick={selectFiles} disabled={uploading || storageFull} title={storageFull ? 'Storage limit reached. Delete files to upload more.' : ''}>
 			<Icon name="upload" size={12} />
@@ -344,6 +417,11 @@
 											<span class="text-xs text-gray-700 truncate block">{file.name ?? file.id}</span>
 										{/if}
 									</div>
+									<span class="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium border
+										{providerLabel(file) === 'UploadThing' ? 'bg-violet-50 text-violet-600 border-violet-200' : 'bg-sky-50 text-sky-600 border-sky-200'}"
+										title="Stored in {providerLabel(file)}">
+										{providerLabel(file)}
+									</span>
 								</div>
 
 								<!-- Size -->

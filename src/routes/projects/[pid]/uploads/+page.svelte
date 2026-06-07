@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { Firestore, Spinner, type DocWithId } from '$lib';
+	import { storage } from '$lib/db.svelte';
+	import { ref, deleteObject } from 'firebase/storage';
+	import { isUploadThing } from './provider';
 	import Uploads from './Uploads.svelte';
 
 	let db = new Firestore();
@@ -25,25 +28,40 @@
 		return () => { unsub?.(); };
 	});
 
-	async function deleteFile(fileId: string, utKey?: string) {
-		if (utKey) {
-			try {
-				const res = await fetch('/api/uploadthing/delete', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ key: utKey })
-				});
-				if (!res.ok) {
-					console.error('UploadThing delete failed:', await res.text());
+	async function deleteFile(file: DocWithId) {
+		// Remove the stored object first, routed by provider, then drop the Firestore doc.
+		if (isUploadThing(file)) {
+			const utKey = (file.key ?? file.path) as string | undefined;
+			if (utKey) {
+				try {
+					const res = await fetch('/api/uploadthing/delete', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ key: utKey })
+					});
+					if (!res.ok) {
+						console.error('UploadThing delete failed:', await res.text());
+						return;
+					}
+				}
+				catch (e) {
+					console.error('UploadThing delete failed:', e);
 					return;
 				}
 			}
-			catch (e) {
-				console.error('UploadThing delete failed:', e);
-				return;
+		} else if (file.path) {
+			// Firebase Storage object.
+			try {
+				await deleteObject(ref(storage, file.path as string));
+			} catch (e: any) {
+				// A missing object (already gone) shouldn't block removing the record.
+				if (e?.code !== 'storage/object-not-found') {
+					console.error('Firebase Storage delete failed:', e);
+					return;
+				}
 			}
 		}
-		await db.delete('files', fileId);
+		await db.delete('files', file.id);
 	}
 </script>
 

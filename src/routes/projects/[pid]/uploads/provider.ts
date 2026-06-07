@@ -19,6 +19,8 @@ export interface ProviderFileDoc {
 	key?: string
 	/** Firebase Storage object path (used for deletion via deleteObject). */
 	path?: string
+	/** Tolerate the wider file-doc shapes (FileDoc / DocWithId) passed by callers. */
+	[key: string]: unknown
 }
 
 /** True if the file lives in UploadThing. */
