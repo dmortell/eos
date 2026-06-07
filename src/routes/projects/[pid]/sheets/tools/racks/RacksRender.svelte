@@ -5,7 +5,7 @@
 
 	let {
 		racks = [], devices = [], settings = null, roomObjects = [], rows = [], face = 'front',
-		rowId = undefined, showWalls = false, colorDevices = true, vp, onview,
+		rowId = undefined, showWalls = false, colorDevices = true, vp, onview, view = null, onsvg, children,
 	}: {
 		racks?: RackConfig[]
 		devices?: DeviceConfig[]
@@ -18,6 +18,9 @@
 		colorDevices?: boolean
 		vp: SheetViewport
 		onview?: (v: { x: number; y: number; w: number; h: number; den: number }) => void
+		view?: { x: number; y: number; w: number; h: number } | null
+		onsvg?: (el: SVGSVGElement) => void
+		children?: any
 	} = $props()
 
 	const PT_TO_MM = 25.4 / 72
@@ -94,9 +97,12 @@
 		return { x: vp.contentOffsetMm?.x ?? bounds.x, y: vp.contentOffsetMm?.y ?? bounds.y, w: vp.w * s, h: vp.h * s }
 	})
 	let den = $derived(fit ? (vp.w > 0 && vp.h > 0 ? Math.max(bounds.w / vp.w, bounds.h / vp.h) : 0) : (vp.scale as number))
-	let viewBox = $derived(`${vb.x} ${vb.y} ${vb.w} ${vb.h}`)
-	let par = $derived(fit ? 'xMidYMid meet' : 'xMinYMin meet')
+	let viewBox = $derived(view ? `${view.x} ${view.y} ${view.w} ${view.h}` : `${vb.x} ${vb.y} ${vb.w} ${vb.h}`)
+	let par = $derived(view ? 'xMidYMid meet' : fit ? 'xMidYMid meet' : 'xMinYMin meet')
 	$effect(() => { onview?.({ ...vb, den }) })
+
+	let svgEl: SVGSVGElement | undefined = $state()
+	$effect(() => { if (svgEl) onsvg?.(svgEl) })
 
 	// Fonts sized in points * den → constant on-screen size during zoom (no roll), correct on paper.
 	let rackLabelMm = $derived(8 * PT_TO_MM * den)
@@ -108,7 +114,7 @@
 	const hasRU = (t: string) => t === '2-post' || t === '4-post' || t === 'cabinet'
 </script>
 
-<svg class="h-full w-full" {viewBox} preserveAspectRatio={par} style:overflow="hidden">
+<svg bind:this={svgEl} class="h-full w-full" {viewBox} preserveAspectRatio={par} style:overflow="hidden">
 	{#if face === 'plan'}
 		{#each roomObjects as o (o.id)}
 			{@const stroke = o.color ?? '#64748b'}
@@ -208,4 +214,6 @@
 			{/if}
 		{/each}
 	{/if}
+
+	{@render children?.()}
 </svg>

@@ -6,7 +6,7 @@
 
 	let {
 		rooms = [], ladders = [], cables = [], labels = [], floorHeights = {}, settings = null,
-		hiddenFloors = [], fromFloor, toFloor, vp, onview,
+		hiddenFloors = [], fromFloor, toFloor, vp, onview, view = null, onsvg, children,
 	}: {
 		rooms?: RiserRoom[]
 		ladders?: Ladder[]
@@ -19,6 +19,9 @@
 		toFloor: number
 		vp: SheetViewport
 		onview?: (v: { x: number; y: number; w: number; h: number; den: number }) => void
+		view?: { x: number; y: number; w: number; h: number } | null
+		onsvg?: (el: SVGSVGElement) => void
+		children?: any
 	} = $props()
 
 	const LEFT = 1500, RIGHT = 500, TOP = 500, BOTTOM = 500
@@ -46,9 +49,12 @@
 		return { x: vp.contentOffsetMm?.x ?? bounds.x, y: vp.contentOffsetMm?.y ?? bounds.y, w: vp.w * s, h: vp.h * s }
 	})
 	let den = $derived(fit ? (vp.w > 0 && vp.h > 0 ? Math.max(bounds.w / vp.w, bounds.h / vp.h) : 0) : (vp.scale as number))
-	let viewBox = $derived(`${vb.x} ${vb.y} ${vb.w} ${vb.h}`)
-	let par = $derived(fit ? 'xMidYMid meet' : 'xMinYMin meet')
+	let viewBox = $derived(view ? `${view.x} ${view.y} ${view.w} ${view.h}` : `${vb.x} ${vb.y} ${vb.w} ${vb.h}`)
+	let par = $derived(view ? 'xMidYMid meet' : fit ? 'xMidYMid meet' : 'xMinYMin meet')
 	$effect(() => { onview?.({ ...vb, den }) })
+
+	let svgEl: SVGSVGElement | undefined = $state()
+	$effect(() => { if (svgEl) onsvg?.(svgEl) })
 
 	function hexToRgba(hex: string | undefined, a: number): string {
 		if (!hex || hex[0] !== '#') return hex || `rgba(100,100,100,${a})`
@@ -77,7 +83,7 @@
 	}
 </script>
 
-<svg class="h-full w-full" {viewBox} preserveAspectRatio={par} style:overflow="hidden">
+<svg bind:this={svgEl} class="h-full w-full" {viewBox} preserveAspectRatio={par} style:overflow="hidden">
 	<!-- Floor bands -->
 	{#each bands as b (b.floor)}
 		<rect x="0" y={b.topMm} width={buildingWidthMm} height={b.plenumBottomMm - b.topMm} fill="rgba(120,130,160,0.08)" stroke="rgba(120,130,160,0.3)" stroke-width="0.4" vector-effect="non-scaling-stroke" />
@@ -142,4 +148,6 @@
 			<div style:font-size="{fs}px" style:color={lb.color ?? 'rgb(20,20,25)'} style:background={lb.background ?? 'transparent'} style:font-weight="600" style:line-height="1.3" style:white-space="pre-wrap" style:word-wrap="break-word" style:padding="{fs * 0.2}px {fs * 0.3}px">{lb.text}</div>
 		</foreignObject>
 	{/each}
+
+	{@render children?.()}
 </svg>

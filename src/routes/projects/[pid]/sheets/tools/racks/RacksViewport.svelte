@@ -5,9 +5,11 @@
 	import type { RackDocData } from './types'
 	import RacksRender from './RacksRender.svelte'
 
-	let { vp, zoom = 1, onview }: {
+	let { vp, zoom = 1, active = false, view = null, onview }: {
 		vp: SheetViewport
 		zoom?: number
+		active?: boolean
+		view?: { x: number; y: number; w: number; h: number } | null
 		onview?: (v: { x: number; y: number; w: number; h: number; den: number }) => void
 	} = $props()
 	const db = getContext('db') as Firestore
@@ -34,7 +36,7 @@
 		rowId={src.rowId}
 		showWalls={src.showWalls ?? false}
 		colorDevices={src.colorDevices ?? true}
-		{vp} {onview} />
+		{vp} {view} {onview} />
 {:else}
 	<div class="flex h-full w-full items-center justify-center text-zinc-400 print:hidden" style:font-size="{14 / zoom}px">No racks source</div>
 {/if}

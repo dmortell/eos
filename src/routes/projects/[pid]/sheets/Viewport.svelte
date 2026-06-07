@@ -92,7 +92,8 @@
 	const curOffset = () => vp.contentOffsetMm ?? { x: lastView?.x ?? 0, y: lastView?.y ?? 0 }
 
 	function contentDown(e: MouseEvent) {
-		if (e.button !== 0 || !lastView) return
+		// Middle/right-drag pans the viewport content; left is reserved for editing/selection.
+		if (!(e.button === 1 || e.button === 2) || !lastView) return
 		e.stopPropagation(); e.preventDefault()
 		contentPanning = true
 		cpx = e.clientX; cpy = e.clientY; cden = curDen()
@@ -130,11 +131,14 @@
 	$effect(() => {
 		const elc = contentEl
 		if (!elc || !active) return
+		const noctx = (e: Event) => e.preventDefault() // right-drag pans; don't pop the context menu
 		elc.addEventListener('wheel', contentWheel, { passive: false })
 		elc.addEventListener('mousedown', contentDown)
+		elc.addEventListener('contextmenu', noctx)
 		return () => {
 			elc.removeEventListener('wheel', contentWheel)
 			elc.removeEventListener('mousedown', contentDown)
+			elc.removeEventListener('contextmenu', noctx)
 			window.removeEventListener('mousemove', contentMove)
 			window.removeEventListener('mouseup', contentUp)
 		}
@@ -161,7 +165,7 @@
 	<div bind:this={contentEl} class="absolute inset-0 overflow-hidden"
 		style:pointer-events={active ? 'auto' : 'none'}
 		style:cursor={active ? (contentPanning ? 'grabbing' : 'grab') : 'default'}>
-		<ViewportContent {vp} {zoom} onview={(v) => lastView = v} />
+		<ViewportContent {vp} {zoom} {active} onview={(v) => lastView = v} />
 	</div>
 
 	<!-- Label (prints at point size, above the frame) -->

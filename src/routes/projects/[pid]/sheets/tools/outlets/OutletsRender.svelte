@@ -18,6 +18,9 @@
 		pageH = 0,
 		vp,
 		onview,
+		view = null,
+		onsvg,
+		children,
 	}: {
 		outlets?: OutletConfig[]
 		trunks?: TrunkConfig[]
@@ -29,6 +32,10 @@
 		pageH?: number
 		vp: SheetViewport
 		onview?: (v: { x: number; y: number; w: number; h: number; den: number }) => void
+		/** Model-mode viewBox override (real-mm window); when set, replaces the vp-derived viewBox. */
+		view?: { x: number; y: number; w: number; h: number } | null
+		onsvg?: (el: SVGSVGElement) => void
+		children?: any
 	} = $props()
 
 	// NOTE: outlet/trunk data is y-down (legacy convention → SheetViewport.version === 1). The
@@ -81,9 +88,12 @@
 		return { x: vp.contentOffsetMm?.x ?? bounds.x, y: vp.contentOffsetMm?.y ?? bounds.y, w: vp.w * s, h: vp.h * s }
 	})
 	let den = $derived(fit ? (vp.w > 0 && vp.h > 0 ? Math.max(bounds.w / vp.w, bounds.h / vp.h) : 0) : (vp.scale as number))
-	let viewBox = $derived(`${vb.x} ${vb.y} ${vb.w} ${vb.h}`)
-	let par = $derived(fit ? 'xMidYMid meet' : 'xMinYMin meet')
+	let viewBox = $derived(view ? `${view.x} ${view.y} ${view.w} ${view.h}` : `${vb.x} ${vb.y} ${vb.w} ${vb.h}`)
+	let par = $derived(view ? 'xMidYMid meet' : fit ? 'xMidYMid meet' : 'xMinYMin meet')
 	$effect(() => { onview?.({ ...vb, den }) })
+
+	let svgEl: SVGSVGElement | undefined = $state()
+	$effect(() => { if (svgEl) onsvg?.(svgEl) })
 
 	function isCeiling(t: TrunkConfig) { return t.location === 'ceiling-plenum' || t.location === 'ceiling-tray' }
 	function trunkPath(t: TrunkConfig): string {
@@ -103,7 +113,7 @@
 	const R = OUTLET_RADIUS_MM
 </script>
 
-<svg class="h-full w-full" {viewBox} preserveAspectRatio={par} style:overflow="hidden">
+<svg bind:this={svgEl} class="h-full w-full" {viewBox} preserveAspectRatio={par} style:overflow="hidden">
 	{#if cropRect}
 		<clipPath id={cid}><rect x={cropRect.x} y={cropRect.y} width={cropRect.w} height={cropRect.h} /></clipPath>
 	{/if}
@@ -164,4 +174,6 @@
 			{/if}
 		</g>
 	{/each}
+
+	{@render children?.()}
 </svg>

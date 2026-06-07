@@ -5,9 +5,11 @@
 	import type { RiserDocData } from './types'
 	import RisersRender from './RisersRender.svelte'
 
-	let { vp, zoom = 1, onview }: {
+	let { vp, zoom = 1, active = false, view = null, onview }: {
 		vp: SheetViewport
 		zoom?: number
+		active?: boolean
+		view?: { x: number; y: number; w: number; h: number } | null
 		onview?: (v: { x: number; y: number; w: number; h: number; den: number }) => void
 	} = $props()
 	const db = getContext('db') as Firestore
@@ -35,7 +37,7 @@
 		floorHeights={doc.floorHeights ?? {}}
 		settings={doc.settings ?? null}
 		hiddenFloors={doc.hiddenFloors ?? []}
-		{fromFloor} {toFloor} {vp} {onview} />
+		{fromFloor} {toFloor} {vp} {view} {onview} />
 {:else}
 	<div class="flex h-full w-full items-center justify-center text-zinc-400 print:hidden" style:font-size="{14 / zoom}px">No risers data</div>
 {/if}
