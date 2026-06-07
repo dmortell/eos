@@ -244,7 +244,7 @@
 
 		<!-- Model mode: full-area content editor over the sheet (no route / refresh). -->
 		{#if modelVp}
-			<ModelView vp={modelVp} onexit={() => modelVpId = null} />
+			<ModelView vp={modelVp} {vps} onexit={() => modelVpId = null} />
 		{/if}
 	</div>
 </div>

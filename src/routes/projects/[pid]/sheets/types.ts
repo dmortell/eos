@@ -41,6 +41,8 @@ export interface SheetViewport {
 	locked?: boolean
 	/** Per-viewport layer overrides (independent of the model & other viewports). */
 	layerOverrides?: Record<string, { hidden?: boolean; locked?: boolean }>
+	/** Model-space annotations drawn over this viewport's content. */
+	annotations?: Annotation[]
 	/**
 	 * Coordinate-convention version for this viewport's source data. Drives the y-axis
 	 * flip in ViewportContent.
@@ -57,6 +59,29 @@ export type ViewportSource =
 	| { kind: 'outlets'; outletsDocId: string; fileId?: string; pageNum?: number; showPdf?: boolean }
 	| { kind: 'racks'; racksDocId: string; face: 'front' | 'rear' | 'plan'; rowId?: string; showWalls?: boolean; colorDevices?: boolean }
 	| { kind: 'risers'; risersDocId: string; fromFloor?: number; toFloor?: number }
+
+/** A model-space annotation (text / arrow / rect / symbol), in the viewport's real-mm space. */
+export type AnnotationKind = 'text' | 'arrow' | 'rect' | 'symbol'
+export interface AnnotationLink {
+	kind: 'drawing' | 'photo'
+	sheetId?: string
+	ref?: string
+	surveyId?: string
+	photoId?: string
+}
+export interface Annotation {
+	id: string
+	kind: AnnotationKind
+	x: number; y: number          // anchor (text/symbol/rect-tl/arrow-start)
+	x2?: number; y2?: number      // arrow end / rect bottom-right
+	text?: string
+	fontPt?: number
+	symbol?: string               // symbol registry id
+	rotation?: number             // degrees (symbols)
+	color?: string
+	link?: AnnotationLink
+	layerId?: string
+}
 
 export interface TitleBlockConfig {
 	template?: 'vertical' | 'compact' | 'horizontal'

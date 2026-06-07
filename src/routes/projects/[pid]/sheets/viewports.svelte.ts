@@ -110,6 +110,12 @@ export class ViewportEditor {
 		const v = this.viewports.find(x => x.id === id); if (!v) return
 		v.scale = scale; v.contentOffsetMm = offset
 	}
+	/** Replace a viewport's annotations (persisted with the sheet). */
+	setAnnotations(id: string, annotations: any[]) {
+		const v = this.viewports.find(x => x.id === id); if (!v) return
+		v.annotations = annotations
+		this.notify()
+	}
 	/** Toggle a per-viewport layer override (hidden / locked). */
 	setLayerOverride(id: string, layerId: string, patch: { hidden?: boolean; locked?: boolean }) {
 		const v = this.viewports.find(x => x.id === id); if (!v) return
