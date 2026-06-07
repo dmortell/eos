@@ -14,8 +14,18 @@ export interface SheetDoc {
 	paper: PrintSettings                   // paper size / orientation / margins / scale
 	titleBlock?: TitleBlockConfig | null   // null = hidden, undefined = default
 	viewports: SheetViewport[]
+	revisions?: SheetRevision[]
+	currentRevision?: string               // revision code shown in the title block
 	updatedAt?: number
 	updatedBy?: string
+}
+
+/** A title-block revision entry. Notes are tracked for history; not normally drawn. */
+export interface SheetRevision {
+	code: string                           // 'A', 'B', 'P1', …
+	date?: string                          // ISO yyyy-mm-dd
+	note?: string
+	by?: string
 }
 
 /** A rectangle on the paper (mm) that renders a view from one tool. */

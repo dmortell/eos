@@ -11,6 +11,7 @@
 	import ViewportPropertiesWindow from "./parts/ViewportPropertiesWindow.svelte";
 	import ModelView from "./edit/ModelView.svelte";
 	import LayersPanel from "./layers/LayersPanel.svelte";
+	import RevisionsPanel from "./revisions/RevisionsPanel.svelte";
 	import { ViewportEditor } from "./viewports.svelte";
 	import type { SheetDoc, SheetViewport, TitleBlockConfig } from "./types";
 	import { updateSheet } from "./data";
@@ -226,6 +227,7 @@
 						{project}
 						drawingTitle={page.title}
 						drawingNumber={page.drawingNumber}
+						revisionCode={sheet.currentRevision}
 						paperSize={page.paper.paperSize}
 						scaleDenominator={page.paper.scale || 100}
 						pxPerMm={1}
@@ -238,6 +240,7 @@
 		<SheetPropertiesWindow {sheet} {project} {db} {pid} />
 		<ViewportPropertiesWindow {vps} {floors} {pid} />
 		<LayersPanel {vps} />
+		<RevisionsPanel {sheet} {db} {pid} />
 
 		<!-- Model mode: full-area content editor over the sheet (no route / refresh). -->
 		{#if modelVp}
