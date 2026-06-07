@@ -100,7 +100,7 @@ export class ViewportEditor {
 	}
 
 	addViewport(r: Rect) {
-		const v: SheetViewport = { id: this.uid('V'), ...r, source: { kind: 'empty' }, version: 2 }
+		const v: SheetViewport = { id: this.uid('V'), ...r, source: { kind: 'empty' }, border: 'thin', version: 2 }
 		this.viewports.push(v)
 		this.selectedIds = [v.id]
 		this.notify()

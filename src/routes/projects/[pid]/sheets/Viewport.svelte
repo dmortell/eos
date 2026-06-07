@@ -67,6 +67,12 @@
 		if (moved) vps.notify() // geometry changed → persist (Stage C)
 	}
 	$effect(() => () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) })
+
+	// Label (prints at point size) + scale readout (screen-only debug).
+	const LABEL_PT = 8
+	const PT_TO_MM = 25.4 / 72
+	let labelMm = $derived(LABEL_PT * PT_TO_MM)
+	let scaleText = $derived(vp.scale && vp.scale > 0 ? `1:${vp.scale}` : 'Fit')
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -75,11 +81,13 @@
 <div
 	bind:this={el}
 	class={[
-		'vp absolute select-none border',
-		active ? 'border-blue-600 ring-2 ring-inset ring-blue-500/40 print:border-black print:ring-0'
-			: selected ? 'border-blue-500 print:border-black'
-			: 'border-black',
-		vp.border === 'none' && 'print:border-0', // hide the frame on the printed page
+		'vp absolute select-none print:ring-0',
+		// Screen editing affordance: blue when active/selected; otherwise reflect vp.border.
+		active ? 'border border-blue-600 ring-2 ring-inset ring-blue-500/40'
+			: selected ? 'border border-blue-500'
+			: vp.border === 'none' ? '' : 'border border-black',
+		// Printed frame reflects vp.border only (nothing is selected/active when printing).
+		vp.border === 'none' ? 'print:border-0' : 'print:border print:border-black',
 	]}
 	style:left="{vp.x}px" style:top="{vp.y}px" style:width="{vp.w}px" style:height="{vp.h}px"
 	style:pointer-events="none"
@@ -87,6 +95,15 @@
 	<div class="absolute inset-0 overflow-hidden" style:pointer-events={active ? 'auto' : 'none'}>
 		<ViewportContent {vp} {zoom} />
 	</div>
+
+	<!-- Label (prints at point size, above the frame) -->
+	{#if vp.label}
+		<div class="absolute left-0 whitespace-nowrap leading-none text-zinc-700 pointer-events-none"
+			style:top="{-labelMm * 1.4}px" style:font-size="{labelMm}px">{vp.label}</div>
+	{/if}
+	<!-- Scale readout (screen-only debug, top-right above the frame) -->
+	<div class="absolute right-0 whitespace-nowrap leading-none text-zinc-400 pointer-events-none print:hidden"
+		style:top="{(-14 / zoom)}px" style:font-size="{12 / zoom}px">{scaleText}</div>
 
 	{#if !active}
 		<!-- Clickable frame: four thin edge strips so the interior stays click-through. -->

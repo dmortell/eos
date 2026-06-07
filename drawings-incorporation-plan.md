@@ -178,19 +178,17 @@ Shipped:
 
 Acceptance (met): one page can show low-level + floor trunks while another shows high-level + ceiling, from the same source doc.
 
-### Phase 7 — Annotations  ◑ (text + arrow shipped)
-**Goal:** the missing annotation system.
+### Phase 7 — Annotations  ✅ (text + arrow + dimension + cloud + symbol)
+**Goal:** the missing annotation system. **Done.**
 
 Shipped:
-- Data: `Page.annotations?: Annotation[]` (page-space mm). `Annotation` carries `kind: 'text' | 'arrow'` (+ `endMm` for arrows); room for dimension/revision-cloud/symbol.
-- `AnnotationLayer.svelte` renders **text** as HTML divs (pt→mm font, inline edit) and **arrows** as an SVG line + arrowhead with `vector-effect="non-scaling-stroke"` (crisp hairline at any zoom + PDF; a transparent wide hit-line makes thin arrows easy to grab).
-- **Menubar Insert ▸ Text / Arrow annotation** arms placement. A copy-cursor **capture overlay** sits above the whole paper (so placing works even **over a viewport** — the fix this round): text = click to place; arrow = **drag start→end** with a live dashed preview. Select + drag (4px threshold) to move (arrow moves both ends); double-click text to edit inline; Del removes; Esc cancels/deselects. Zero-length arrows are ignored.
-- Persists to the page doc; included in version restore; print-safe (selection chrome `print:*`, cleared in `handlePrint`).
+- Data: `Page.annotations?: Annotation[]` (page-space mm). `kind: 'text' | 'arrow' | 'dimension' | 'cloud' | 'symbol'` (+ `endMm` for vector kinds; `symbol`/`sizeMm`/`rotationDeg` for symbols).
+- `AnnotationLayer.svelte` renders **text** (HTML divs, pt→mm font, inline edit), **arrows** (line + arrowhead), **dimensions** (line + end ticks + auto length label in mm/m, rotated to the line & kept upright), **revision clouds** (scalloped quadratic-bump path over a drag-rect), and **symbols** (library: north arrow / level-datum / detail bubble — unit-coord geometry scaled by `sizeMm`, rotated by `rotationDeg`). All vectors use `vector-effect="non-scaling-stroke"` (crisp hairline at any zoom + PDF) with transparent wide hit-targets.
+- **Menubar Insert ▸ Text / Arrow / Dimension / Revision cloud / Symbol▸…** arms placement. A copy-cursor **capture overlay** above the whole paper makes placing work even **over a viewport**: text/symbol = click; arrow/dimension = drag start→end (dashed preview); cloud = drag a box. Select + drag to move; **endpoint/corner handles** on selected vectors; double-click text to edit inline; Del removes; Esc cancels/deselects.
+- **Sidebar editor**: text / font pt / colour (text); colour (arrow/dimension/cloud); symbol type / size / rotation / colour (symbol); + delete. Debounced live updates.
+- Persists to the page doc; included in version restore; print-safe (selection/handles `print:*` / cleared in `handlePrint`).
 
-Still outstanding (next):
-- **dimension, revision-cloud, symbol** kinds; arrow **endpoint** editing (move whole arrow only for now); a sidebar editor for font size / colour / arrow style.
-
-Risk: realised low–medium. Acceptance (met): place/move/edit/delete text + arrows, incl. over viewports; crisp in PDF; selection hidden in print.
+Risk: realised low–medium. Acceptance (met): place/move/edit/delete all five kinds, incl. over viewports + endpoint editing; crisp in PDF; selection hidden in print.
 
 ---
 

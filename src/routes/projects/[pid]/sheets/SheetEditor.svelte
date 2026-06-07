@@ -14,9 +14,10 @@
 	import { updateSheet } from "./data";
 	import type { Firestore } from "$lib/db.svelte";
 
-	let { sheet, project = {}, db, pid }: {
+	let { sheet, project = {}, floors = [], db, pid }: {
 		sheet: SheetDoc
 		project?: TitleBlockProjectDefaults
+		floors?: { number: number }[]
 		db: Firestore
 		pid: string
 	} = $props()
@@ -228,7 +229,7 @@
 
 		<!-- Floating property windows (over the canvas, not inside a viewport). -->
 		<SheetPropertiesWindow {sheet} {project} {db} {pid} />
-		<ViewportPropertiesWindow {vps} />
+		<ViewportPropertiesWindow {vps} {floors} {pid} />
 	</div>
 </div>
 

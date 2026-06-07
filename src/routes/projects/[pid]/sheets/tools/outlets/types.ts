@@ -1,0 +1,90 @@
+// Minimal data-model subset for the read-only outlets render, copied from the production
+// outlets tool so the sheets tool stays self-contained. Coordinates are real-world mm
+// (X-right, Y-down — legacy floorplan convention; see SheetViewport.version).
+
+export interface Point { x: number; y: number }
+
+export type OutletLevel = 'low' | 'high'
+export type CableType = 'cat5e' | 'cat6' | 'cat6a' | 'fiber-sm' | 'fiber-mm'
+export type MountType = 'wall' | 'floor' | 'box'
+export type OutletUsage = 'network' | 'phone' | 'av' | 'printer' | 'security' | 'ap' | 'rb' | 'new' | 'mep'
+
+export interface OutletConfig {
+	id: string
+	position: Point              // mm from origin
+	level: OutletLevel
+	portCount: number
+	cableType: CableType
+	mountType: MountType
+	usage: OutletUsage
+	label?: string
+	portLabels?: string[]
+	rotation?: number
+	roomNumber?: string
+	locked?: boolean
+}
+
+// ── Trunks ──
+export type TrunkShape = 'pipe' | 'rect'
+export type TrunkLocation = 'floor' | 'ceiling-plenum' | 'ceiling-tray' | 'wall'
+export type PipeCatalog = 'PF22' | 'PF28' | 'E51' | 'custom'
+export type RectCatalog = 'MK0' | 'MK1' | 'MK2' | 'MK3' | 'MK4' | 'MK5' | 'ladder' | 'tray' | 'mat' | 'custom'
+
+export interface PipeSpec { catalog: PipeCatalog; innerDiameterMm: number; outerDiameterMm: number }
+export interface RectSpec { catalog: RectCatalog; widthMm: number; heightMm: number }
+
+export interface TrunkNode {
+	id: string
+	position: Point
+	z: number
+	radius?: number
+	connectedOutletId?: string
+	connectedRackId?: string
+}
+export interface TrunkSegment { id: string; nodes: [string, string] }
+export interface TrunkLabel { id: string; segmentId: string; text: string; offset: Point }
+
+export interface TrunkConfig {
+	id: string
+	shape: TrunkShape
+	location: TrunkLocation
+	spec: PipeSpec | RectSpec
+	nodes: TrunkNode[]
+	segments: TrunkSegment[]
+	labels?: TrunkLabel[]
+	label?: string
+	color?: string
+	rooms?: string[]
+	isPrimary: boolean
+	visible?: boolean
+}
+
+/** Width used for rendering (outer diameter or width depending on shape). */
+export function trunkWidthMm(trunk: TrunkConfig): number {
+	if (trunk.shape === 'pipe') return (trunk.spec as PipeSpec).outerDiameterMm
+	return (trunk.spec as RectSpec).widthMm
+}
+
+/** A rack placed on the floorplan (dims come from the racks collection). */
+export interface RackPlacement {
+	rackId: string
+	room: string
+	position: Point              // mm from origin
+	rotation: number             // degrees
+}
+
+/** Calibration from files/{id}.pages[pageNum]. */
+export interface PageCalibration {
+	origin: { x: number; y: number }  // PDF-pixel coords
+	scaleFactor: number               // mm per PDF pixel
+	crop?: { x: number; y: number; width: number; height: number }
+}
+
+/** The slice of the outlets doc the read-only render needs. */
+export interface OutletsData {
+	outlets?: OutletConfig[]
+	trunks?: TrunkConfig[]
+	rackPlacements?: RackPlacement[]
+	selectedFileId?: string
+	selectedPage?: number
+}

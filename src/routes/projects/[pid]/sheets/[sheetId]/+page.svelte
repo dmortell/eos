@@ -12,6 +12,7 @@
 
 	let sheet = $state<SheetDoc | null>(null)
 	let project = $state<TitleBlockProjectDefaults>({})
+	let floors = $state<{ number: number }[]>([])
 	let loading = $state(true)
 
 	// Sheet doc
@@ -37,6 +38,7 @@
 				logoUrl: data?.logoUrl,
 				client: data?.client,
 			}
+			floors = Array.isArray(data?.floors) && data.floors.length ? data.floors : [{ number: 1 }]
 		})
 		return () => { unsub?.() }
 	})
@@ -51,7 +53,7 @@
 			<Spinner>Loading sheet...</Spinner>
 		</div>
 	{:else if sheet}
-		<SheetEditor {sheet} {project} {db} pid={pid ?? ''} />
+		<SheetEditor {sheet} {project} {floors} {db} pid={pid ?? ''} />
 	{:else}
 		<div class="flex flex-1 items-center justify-center text-sm text-zinc-400">Sheet not found.</div>
 	{/if}
