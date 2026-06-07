@@ -13,9 +13,11 @@
 	import RisersViewport from './viewports/RisersViewport.svelte'
 	import SurveyViewport from './viewports/SurveyViewport.svelte'
 
-	let { viewport, selected, pxPerMm, db, projectId, onselect, onupdate, onopensource }: {
+	let { viewport, selected, active = false, pxPerMm, db, projectId, onselect, onactivate, onupdate, onhistory, onopensource }: {
 		viewport: Viewport
 		selected: boolean
+		/** Activated (double-clicked into): content pans/zooms; frame move is locked. */
+		active?: boolean
 		/** Pixels per mm — canvas zoom factor. Used to convert mouse px deltas to mm. */
 		pxPerMm: number
 		/** Firestore wrapper — forwarded to source-subscribing viewport kinds. */
@@ -23,7 +25,15 @@
 		/** Project id — needed to resolve staleness against the pinned source drawing. */
 		projectId: string
 		onselect: () => void
+		/** Enter the viewport (double-click) so its content can be panned/zoomed. */
+		onactivate?: () => void
 		onupdate: (patch: Partial<Viewport>) => void
+		/**
+		 * Called once on commit of a frame move/resize, with the geometry *before*
+		 * the edit, so the editor can push an undo entry. Not called for no-op
+		 * clicks or content pans.
+		 */
+		onhistory?: (before: Partial<Viewport>) => void
 		/** Open the underlying source (drawing/floorplan/etc.) in its owning tool. */
 		onopensource?: () => void
 	} = $props()
@@ -53,6 +63,8 @@
 	let isStale = $derived(revisionsBehind > 0)
 
 	const MIN_MM = 10
+	/** Screen-px a press must travel before it counts as a drag — kills accidental nudges. */
+	const DRAG_THRESHOLD_PX = 4
 	type Handle = 'nw' | 'ne' | 'sw' | 'se'
 	type DragMode = 'move' | Handle | 'pan-content'
 
@@ -66,6 +78,8 @@
 		startH: number
 		startOffsetX: number
 		startOffsetY: number
+		/** Becomes true once the press crosses DRAG_THRESHOLD_PX (move/resize only). */
+		moved: boolean
 	} | null>(null)
 
 	function describe(src: ViewportSource): string {
@@ -107,6 +121,8 @@
 			startH: viewport.heightMm,
 			startOffsetX: offsetX,
 			startOffsetY: offsetY,
+			// Content pans take effect immediately; frame move/resize wait for the threshold.
+			moved: mode === 'pan-content',
 		}
 		window.addEventListener('mousemove', onMouseMove)
 		window.addEventListener('mouseup', onMouseUp)
@@ -114,14 +130,22 @@
 
 	function onBodyMouseDown(e: MouseEvent) {
 		if (e.button !== 0) return
+		// Activated viewport: plain drag pans the content (no Alt needed); frame stays put.
+		if (active) {
+			e.preventDefault()
+			beginDrag(e, 'pan-content')
+			return
+		}
 		// Alt+drag pans the source content instead of moving the frame.
 		if (e.altKey) {
 			e.preventDefault()
 			beginDrag(e, 'pan-content')
 			return
 		}
-		// Locked frames just select on click (no body drag); still allow selection.
-		if (isLocked) {
+		// First click only selects — never moves. Moving requires a deliberate
+		// drag on an already-selected viewport (past the threshold). This is the
+		// anti-accidental-move guard. Locked frames also just select.
+		if (!selected || isLocked) {
 			e.stopPropagation()
 			onselect()
 			return
@@ -145,10 +169,13 @@
 	 * (smaller scale means fewer source-mm per paper-mm, so offset shifts less).
 	 */
 	function onBodyWheel(e: WheelEvent) {
-		if (!e.altKey) return // let canvas handle regular zoom/pan
+		// Scale the content when activated (plain wheel) or via Alt on a selected
+		// frame; otherwise let the canvas handle page zoom/pan.
+		if (!active && !e.altKey) return
 		e.preventDefault()
 		e.stopPropagation()
-		const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1
+		// `scale` is a ratio denominator (1:N), so wheel-up = zoom in = smaller N.
+		const factor = e.deltaY < 0 ? 1 / 1.1 : 1.1
 		const next = Math.max(1, Math.round(viewport.scale * factor))
 		if (next === viewport.scale) return
 
@@ -167,6 +194,12 @@
 
 	function onMouseMove(e: MouseEvent) {
 		if (!dragStart) return
+		// Hold off on frame move/resize until the press crosses the threshold, so a
+		// click with a little jitter never nudges the viewport.
+		if (!dragStart.moved) {
+			if (Math.hypot(e.clientX - dragStart.mouseX, e.clientY - dragStart.mouseY) < DRAG_THRESHOLD_PX) return
+			dragStart.moved = true
+		}
 		const dxMm = (e.clientX - dragStart.mouseX) / pxPerMm
 		const dyMm = (e.clientY - dragStart.mouseY) / pxPerMm
 
@@ -219,15 +252,26 @@
 	}
 
 	function onMouseUp() {
+		const d = dragStart
 		dragStart = null
 		window.removeEventListener('mousemove', onMouseMove)
 		window.removeEventListener('mouseup', onMouseUp)
+		// Record an undo entry only for a frame move/resize that actually changed
+		// geometry (not content pans, not no-op clicks).
+		if (d && d.moved && d.mode !== 'pan-content') {
+			onhistory?.({
+				positionMm: { x: d.startX, y: d.startY },
+				widthMm: d.startW,
+				heightMm: d.startH,
+			})
+		}
 	}
 
 	function onBodyDoubleClick(e: MouseEvent) {
-		if (!onopensource) return
+		// Double-click enters the viewport (content pan/zoom). Open-source stays
+		// available via the link button on the selected frame.
 		e.stopPropagation()
-		onopensource()
+		onactivate?.()
 	}
 
 	let leftPx = $derived(viewport.positionMm.x)
@@ -237,8 +281,10 @@
 
 	let bodyCursor = $derived.by(() => {
 		if (dragStart?.mode === 'pan-content') return 'grabbing'
+		if (active) return 'grab' // activated → drag pans content
 		if (isLocked) return 'default'
 		if (dragStart?.mode === 'move') return 'grabbing'
+		if (!selected) return 'pointer' // click to select first
 		return 'grab'
 	})
 
@@ -259,8 +305,10 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	class="absolute border bg-white/60 hover:bg-white/80 select-none"
-	class:border-blue-500={selected}
-	class:border-zinc-400={!selected}
+	class:border-blue-500={selected || active}
+	class:border-zinc-400={!selected && !active}
+	class:ring-2={active}
+	class:ring-blue-500={active}
 	style:left="{leftPx}px"
 	style:top="{topPx}px"
 	style:width="{wPx}px"
@@ -334,7 +382,7 @@
 
 	{#if selected}
 		<!-- Top-right action buttons. Lock toggles frame edit-lock; open-source jumps to source tool. -->
-		<div class="absolute right-1 top-1 flex items-center gap-0.5">
+		<div class="absolute right-1 top-1 flex items-center gap-0.5 print:hidden">
 			<button
 				class="w-4 h-4 rounded-full text-white flex items-center justify-center shadow hover:opacity-90
 					{isLocked ? 'bg-amber-500' : 'bg-zinc-400'}"
@@ -354,12 +402,12 @@
 			{/if}
 		</div>
 
-		<!-- Resize handles — hidden on locked viewports. -->
-		{#if !isLocked}
+		<!-- Resize handles — hidden on locked viewports and while activated. -->
+		{#if !isLocked && !active}
 			{#each (['nw','ne','sw','se'] as const) as h}
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div
-					class="absolute w-2 h-2 bg-white border border-blue-500 rounded-sm"
+					class="absolute w-2 h-2 bg-white border border-blue-500 rounded-sm print:hidden"
 					style:left={h === 'nw' || h === 'sw' ? '-4px' : undefined}
 					style:right={h === 'ne' || h === 'se' ? '-4px' : undefined}
 					style:top={h === 'nw' || h === 'ne' ? '-4px' : undefined}
@@ -370,9 +418,13 @@
 			{/each}
 		{/if}
 
-		<!-- Hint line — shown briefly when selected -->
-		<div class="absolute top-full left-0 mt-0.5 text-[8px] text-blue-500/70 pointer-events-none whitespace-nowrap">
-			Alt+drag pan · Alt+wheel scale · dbl-click opens source · arrows nudge · Ctrl/⌘-D dup · Del removes
+		<!-- Hint line — shown when selected -->
+		<div class="absolute top-full left-0 mt-0.5 text-[8px] text-blue-500/70 pointer-events-none whitespace-nowrap print:hidden">
+			{#if active}
+				Drag pans content · wheel scales · dbl-click empty / Esc exits
+			{:else}
+				Drag moves · handles resize · dbl-click enters · Ctrl/⌘-Z undo · arrows nudge · Ctrl/⌘-D dup · Del removes
+			{/if}
 		</div>
 	{/if}
 </div>

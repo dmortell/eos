@@ -27,6 +27,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `{@const}` must be immediate child of `{#if}`, `{#each}`, `{:else}`, `{#snippet}` — not inside HTML elements
 - Use `{@render children?.()}` instead of deprecated `<slot />`
 - Props use `$props()`, bindable props use `$bindable()`
+- Avoid `history.pushState(...)` / `history.replaceState(...)` — they conflict with SvelteKit's router. Import `pushState` / `replaceState` from `$app/navigation` instead. (Existing raw calls live in `frames|outlets|patching|racks/+page.svelte` for URL param sync — migrate when touched.)
 
 ## Architecture
 

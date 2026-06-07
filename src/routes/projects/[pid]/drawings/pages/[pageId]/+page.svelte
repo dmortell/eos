@@ -2,7 +2,7 @@
 	import { page as routePage } from '$app/state'
 	import { goto } from '$app/navigation'
 	import { getContext } from 'svelte'
-	import { Button, Icon, Input, Select, Firestore, Spinner, Titlebar, Session } from '$lib'
+	import { Button, Icon, Input, Select, Firestore, Spinner, StatusBar, Titlebar, Session } from '$lib'
 	import type { Page, Viewport, ViewportSource, TitleBlockConfig } from '$lib/types/pages'
 	import type { DrawingDoc } from '$lib/types/versioning'
 	import type { FloorConfig } from '$lib/types/project'
@@ -24,6 +24,8 @@
 	let drawing = $state<DrawingDoc | null>(null)
 	let loading = $state(true)
 	let selectedViewportId = $state<string | null>(null)
+	/** Viewport double-clicked into — its content can be panned/zoomed. */
+	let activeViewportId = $state<string | null>(null)
 	let projectName = $state('')
 
 	/**
@@ -43,8 +45,10 @@
 	let innerWidth = $state(1200)
 	let innerHeight = $state(800)
 	const SIDEBAR_W = 280
+	const STATUSBAR_H = 24
 	let canvasWidth = $derived(innerWidth - SIDEBAR_W)
 	let canvasHeight = $derived(innerHeight - 30) // titlebar only
+	let canvasInnerHeight = $derived(canvasHeight - STATUSBAR_H) // canvas minus status bar
 
 	$effect(() => {
 		if (!pid) return
@@ -302,37 +306,99 @@
 		void persist({ viewports: [...pageData.viewports, copy] })
 	}
 
+	/** Double-click into a viewport: select + activate (content pan/zoom). */
+	function activateViewport(id: string) {
+		selectedViewportId = id
+		activeViewportId = id
+	}
+	function deactivateViewport() { activeViewportId = null }
+
 	/**
-	 * Keyboard shortcuts for the selected viewport. Gated by focus on plain
-	 * elements — typing in an `<input>` / `<textarea>` keeps its own key
-	 * semantics. Arrow keys nudge 1 mm (10 mm with shift), Delete/Backspace
-	 * removes, Ctrl/Cmd+D duplicates, Escape deselects.
+	 * Undo / redo for viewport frame geometry (move + resize). Each entry stores
+	 * the viewport id plus a geometry snapshot; undo swaps current ↔ stored so
+	 * redo is symmetric. Scoped to frame geometry for v1 (see plan) — accidental
+	 * drags are the main thing users want to take back.
+	 */
+	type GeomSnap = Partial<Viewport>
+	let undoStack = $state<{ id: string; geom: GeomSnap }[]>([])
+	let redoStack = $state<{ id: string; geom: GeomSnap }[]>([])
+	const HISTORY_LIMIT = 100
+
+	function geomOf(vp: Viewport): GeomSnap {
+		return { positionMm: { ...vp.positionMm }, widthMm: vp.widthMm, heightMm: vp.heightMm }
+	}
+
+	/** Canvas reports a committed move/resize with the geometry *before* the edit. */
+	function pushHistory(id: string, before: GeomSnap) {
+		undoStack.push({ id, geom: before })
+		if (undoStack.length > HISTORY_LIMIT) undoStack.shift()
+		redoStack = []
+	}
+
+	function undo() {
+		const entry = undoStack.pop()
+		if (!entry || !pageData) return
+		const vp = pageData.viewports.find(v => v.id === entry.id)
+		if (vp) redoStack.push({ id: entry.id, geom: geomOf(vp) })
+		selectedViewportId = entry.id
+		void updateViewport(entry.id, entry.geom)
+	}
+
+	function redo() {
+		const entry = redoStack.pop()
+		if (!entry || !pageData) return
+		const vp = pageData.viewports.find(v => v.id === entry.id)
+		if (vp) undoStack.push({ id: entry.id, geom: geomOf(vp) })
+		selectedViewportId = entry.id
+		void updateViewport(entry.id, entry.geom)
+	}
+
+	/**
+	 * Keyboard shortcuts. Gated by focus on plain elements — typing in an
+	 * `<input>` / `<textarea>` keeps its own key semantics. Ctrl/⌘-Z undoes a
+	 * frame move/resize (Shift or Ctrl-Y redoes) and works without a selection.
+	 * Escape exits an active viewport, else deselects. With a viewport selected:
+	 * arrows nudge 1 mm (10 mm with shift), Delete removes, Ctrl/⌘-D duplicates.
 	 */
 	function onWindowKeyDown(e: KeyboardEvent) {
-		if (!selectedViewportId || !pageData) return
 		const t = e.target as HTMLElement | null
 		if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
 
+		const meta = e.ctrlKey || e.metaKey
+		if (meta && (e.key === 'z' || e.key === 'Z')) {
+			e.preventDefault()
+			if (e.shiftKey) redo(); else undo()
+			return
+		}
+		if (meta && (e.key === 'y' || e.key === 'Y')) {
+			e.preventDefault()
+			redo()
+			return
+		}
+
+		if (e.key === 'Escape') {
+			e.preventDefault()
+			if (activeViewportId) activeViewportId = null
+			else selectedViewportId = null
+			return
+		}
+
+		if (!selectedViewportId || !pageData) return
 		const vp = pageData.viewports.find(v => v.id === selectedViewportId)
 		if (!vp) return
 
-		if (e.key === 'Escape') {
-			selectedViewportId = null
-			e.preventDefault()
-			return
-		}
 		if (e.key === 'Delete' || e.key === 'Backspace') {
 			e.preventDefault()
 			void removeViewport(vp.id)
 			return
 		}
-		if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
+		if (meta && (e.key === 'd' || e.key === 'D')) {
 			e.preventDefault()
 			duplicateViewport(vp.id)
 			return
 		}
-		// Locked viewports skip nudge/duplicate so they truly stay put.
-		if (vp.locked) return
+		// Locked / activated viewports skip nudge so they truly stay put.
+		if (vp.locked || activeViewportId) return
 		const step = e.shiftKey ? 10 : 1
 		let dx = 0
 		let dy = 0
@@ -352,8 +418,18 @@
 	let pageCanvas: { doPrint: () => void } | null = $state(null)
 
 	function handlePrint() {
+		// Drop selection/active chrome so no frame borders/handles land in the PDF.
+		selectedViewportId = null
+		activeViewportId = null
 		pageCanvas?.doPrint()
 	}
+
+	/** Contextual instruction shown in the status bar, by interaction mode. */
+	let statusMessage = $derived.by(() => {
+		if (activeViewportId) return 'Viewport active · drag pans content, wheel scales · double-click empty space or Esc to exit'
+		if (selectedViewportId) return 'Viewport selected · drag to move, handles to resize · double-click to enter · Ctrl/⌘-Z to undo · arrows nudge · Del removes'
+		return 'Click a viewport to select · double-click to enter · right/middle-drag to pan the page · Ctrl/⌘+wheel to zoom'
+	})
 
 	function getCurrentSnapshot(): unknown {
 		return pageData
@@ -975,21 +1051,28 @@
 				onrestore={handleRestore} />
 		{/if}
 
-		<!-- Canvas -->
-		<PageCanvas
-			bind:this={pageCanvas}
-			page={pageData}
-			{selectedViewportId}
-			width={canvasWidth}
-			height={canvasHeight}
-			{db}
-			projectId={pid ?? ''}
-			{projectDefaults}
-			revisionCode={drawing?.latestRevisionCode}
-			onselect={id => selectedViewportId = id}
-			ondeselect={() => selectedViewportId = null}
-			onupdateviewport={updateViewport}
-			onupdatetitleblock={updateTitleBlock}
-			onopensource={handleOpenSource} />
+		<!-- Canvas + status bar -->
+		<div class="flex-1 flex flex-col min-w-0">
+			<PageCanvas
+				bind:this={pageCanvas}
+				page={pageData}
+				{selectedViewportId}
+				{activeViewportId}
+				width={canvasWidth}
+				height={canvasInnerHeight}
+				{db}
+				projectId={pid ?? ''}
+				{projectDefaults}
+				revisionCode={drawing?.latestRevisionCode}
+				onselect={id => selectedViewportId = id}
+				ondeselect={() => { selectedViewportId = null; activeViewportId = null }}
+				onactivate={activateViewport}
+				ondeactivate={deactivateViewport}
+				onupdateviewport={updateViewport}
+				onhistory={pushHistory}
+				onupdatetitleblock={updateTitleBlock}
+				onopensource={handleOpenSource} />
+			<StatusBar message={statusMessage} height={STATUSBAR_H} />
+		</div>
 	</div>
 {/if}

@@ -7,13 +7,15 @@
 	import { triggerPrint } from '$lib/ui/print'
 
 	let {
-		page, selectedViewportId, width, height, db, projectId,
+		page, selectedViewportId, activeViewportId = null, width, height, db, projectId,
 		projectDefaults = {},
 		revisionCode,
-		onselect, onupdateviewport, onupdatetitleblock, ondeselect, onopensource,
+		onselect, onactivate, ondeactivate, onupdateviewport, onhistory, onupdatetitleblock, ondeselect, onopensource,
 	}: {
 		page: Page
 		selectedViewportId: string | null
+		/** Viewport that's been double-clicked into (content pan/zoom mode). */
+		activeViewportId?: string | null
 		width: number
 		height: number
 		db: Firestore
@@ -22,7 +24,13 @@
 		projectDefaults?: TitleBlockProjectDefaults
 		revisionCode?: string
 		onselect: (id: string) => void
+		/** Enter a viewport (double-click) for content pan/zoom. */
+		onactivate?: (id: string) => void
+		/** Leave the active viewport (double-click empty canvas / Esc). */
+		ondeactivate?: () => void
 		onupdateviewport: (id: string, patch: Partial<Viewport>) => void
+		/** Record an undo entry: viewport id + its geometry before a move/resize. */
+		onhistory?: (id: string, before: Partial<Viewport>) => void
 		onupdatetitleblock?: (patch: Partial<TitleBlockConfig>) => void
 		ondeselect: () => void
 		/** Caller navigates to the underlying source drawing for a given viewport. */
@@ -133,6 +141,12 @@
 	function onContextMenu(e: MouseEvent) { e.preventDefault() }
 
 	/**
+	 * Double-clicking empty canvas exits any activated viewport. Viewport
+	 * double-clicks stop propagation, so anything reaching here is "empty".
+	 */
+	function onCanvasDoubleClick() { ondeactivate?.() }
+
+	/**
 	 * Print the current page. Called from the editor's sidebar button — resets
 	 * pan/zoom so the paper lands at the page's top-left at 1:1, invokes
 	 * `triggerPrint` (which injects `@page size: Wmm Hmm` + a @media print block
@@ -163,6 +177,7 @@
 	style:width="{width}px"
 	style:height="{height}px"
 	onmousedown={onCanvasMouseDown}
+	ondblclick={onCanvasDoubleClick}
 	oncontextmenu={onContextMenu}
 >
 	<div
@@ -194,11 +209,14 @@
 				<ViewportFrame
 					viewport={vp}
 					selected={selectedViewportId === vp.id}
+					active={activeViewportId === vp.id}
 					pxPerMm={zoom}
 					{db}
 					{projectId}
 					onselect={() => onselect(vp.id)}
+					onactivate={() => onactivate?.(vp.id)}
 					onupdate={patch => onupdateviewport(vp.id, patch)}
+					onhistory={before => onhistory?.(vp.id, before)}
 					onopensource={onopensource ? () => onopensource(vp) : undefined}
 				/>
 			{/each}
