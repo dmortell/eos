@@ -24,11 +24,13 @@
 	import { Firestore } from '$lib'
 	import TrunkRenderer from '../../../outlets/trunks/TrunkRenderer.svelte'
 
-	let { viewport, db, onfit }: {
+	let { viewport, db, onfit, active = false }: {
 		viewport: Viewport
 		db: Firestore
 		/** Reports the real 1:N that fits the current frame, so a fit request (scale 0) can lock to a fixed scale. */
 		onfit?: (scale: number) => void
+		/** When activated (double-clicked into), existing outlets can be dragged to reposition them. */
+		active?: boolean
 	} = $props()
 
 	let src = $derived(viewport.source.kind === 'outlets' ? viewport.source : null)
@@ -170,6 +172,80 @@
 	}
 
 	let noSource = $derived(!src?.outletsDocId)
+
+	// ── In-place editing: drag existing outlets (only when activated) ──
+	let svgEl = $state<SVGSVGElement | null>(null)
+	/** Optimistic positions (outletId → mm) held from drag-commit until the doc echoes back, so the dot doesn't flash to its old spot. */
+	let optimistic = $state<Record<string, Point>>({})
+	let drag = $state<{ id: string } | null>(null)
+
+	/** Effective position for an outlet — optimistic override (mid/just-after drag) else the stored value. */
+	function outletPos(o: OutletConfig): Point { return optimistic[o.id] ?? o.position }
+
+	// Drop each optimistic override once the source doc echoes the new position
+	// (so the dot never flashes back to its old spot between commit and round-trip).
+	$effect(() => {
+		const docOutlets = outletsDoc?.outlets as OutletConfig[] | undefined
+		if (drag || !docOutlets) return
+		const ids = Object.keys(optimistic)
+		if (!ids.length) return
+		const next = { ...optimistic }
+		let changed = false
+		for (const id of ids) {
+			const o = docOutlets.find(x => x.id === id)
+			if (o && Math.hypot(o.position.x - optimistic[id].x, o.position.y - optimistic[id].y) < 1) {
+				delete next[id]; changed = true
+			}
+		}
+		if (changed) optimistic = next
+	})
+
+	/** Map a client point to real-world mm via the SVG's screen CTM (accounts for all canvas transforms). */
+	function clientToMm(clientX: number, clientY: number): Point | null {
+		const ctm = svgEl?.getScreenCTM()
+		if (!ctm) return null
+		const p = new DOMPoint(clientX, clientY).matrixTransform(ctm.inverse()) // → PDF-px (SVG user units)
+		return { x: (p.x - origin.x) * scaleFactor, y: (p.y - origin.y) * scaleFactor }
+	}
+
+	// Mouse events (not pointer) so stopPropagation suppresses the frame's
+	// pan-content mousedown when a drag starts on an outlet.
+	function onEditMouseDown(e: MouseEvent) {
+		if (!active || e.button !== 0) return
+		const mm = clientToMm(e.clientX, e.clientY)
+		if (!mm) return
+		// Hit-test outlets (generous ~250 mm radius around the dot).
+		let hit: OutletConfig | null = null
+		let bestD = 250
+		for (const o of visibleOutlets) {
+			const d = Math.hypot(mm.x - o.position.x, mm.y - o.position.y)
+			if (d <= bestD) { bestD = d; hit = o }
+		}
+		if (!hit) return // empty → let it bubble to the frame (pan)
+		e.stopPropagation()
+		e.preventDefault()
+		drag = { id: hit.id }
+		optimistic = { ...optimistic, [hit.id]: { ...hit.position } }
+		window.addEventListener('mousemove', onEditMouseMove)
+		window.addEventListener('mouseup', onEditMouseUp)
+	}
+	function onEditMouseMove(e: MouseEvent) {
+		if (!drag) return
+		const mm = clientToMm(e.clientX, e.clientY)
+		if (mm) optimistic = { ...optimistic, [drag.id]: mm }
+	}
+	async function onEditMouseUp() {
+		const d = drag
+		drag = null
+		window.removeEventListener('mousemove', onEditMouseMove)
+		window.removeEventListener('mouseup', onEditMouseUp)
+		if (!d || !src?.outletsDocId) return
+		const pos = optimistic[d.id]
+		if (!pos) return
+		// Persist back to the live outlets doc (merge replaces just the outlets array).
+		const next = (outletsDoc?.outlets ?? []).map((o: OutletConfig) => o.id === d.id ? { ...o, position: pos } : o)
+		await db.save('outlets', { id: src.outletsDocId, outlets: next })
+	}
 </script>
 
 <div class="absolute inset-0 overflow-hidden pointer-events-none bg-white">
@@ -200,9 +276,13 @@
 			style:transform-origin="top left">
 		<div class="relative" style:width="{contentW}px" style:height="{contentH}px">
 			<img src={pageUrl} alt="floorplan" class="absolute top-0 left-0" style:width="{contentW}px" style:height="{contentH}px" draggable="false" />
-			<svg class="absolute top-0 left-0" width={contentW} height={contentH}
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<svg bind:this={svgEl} class="absolute top-0 left-0" width={contentW} height={contentH}
 				viewBox="0 0 {contentW} {contentH}"
-				preserveAspectRatio="none">
+				preserveAspectRatio="none"
+				style:pointer-events={active ? 'auto' : 'none'}
+				style:cursor={active ? 'move' : 'default'}
+				onmousedown={onEditMouseDown}>
 				{#if showTrunks}
 					<!--
 						Full trunk shapes via the outlets tool's own renderer.
@@ -260,7 +340,7 @@
 
 				{#if showOutlets}
 					{#each visibleOutlets as o (o.id)}
-						{@const p = mmToPdfPx(o.position)}
+						{@const p = mmToPdfPx(outletPos(o))}
 						{@const color = OUTLET_COLORS[o.usage] ?? '#64748b'}
 						{@const r = Math.max(3, 200 / scaleFactor)}
 						<g>

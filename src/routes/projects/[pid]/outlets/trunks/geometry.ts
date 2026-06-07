@@ -331,6 +331,43 @@ export function constrainAngle(from: Point, to: Point, stepDeg: number = 15): Po
 	}
 }
 
+/**
+ * Position a dragged junction node so that *every* connected segment lands on a
+ * `stepDeg` interval. Each anchor's snapped direction is a ray the node must lie
+ * on; solved in least squares (ε-regularised toward the cursor). Exact for 1–2
+ * segments, best-fit for a branch; falls back to single-best-segment snapping
+ * when the rays are near-parallel (intersection runs away). Ported from the eos2
+ * POC trunk editor. For a single anchor this matches `constrainAngle`.
+ */
+export function snapNodeAngles(anchors: Point[], cursor: Point, stepDeg: number = 15): Point {
+	if (anchors.length === 0) return cursor
+	if (anchors.length === 1) return constrainAngle(anchors[0], cursor, stepDeg)
+
+	const step = (stepDeg * Math.PI) / 180
+	const eps = 1e-3
+	let m00 = eps, m01 = 0, m11 = eps, r0 = eps * cursor.x, r1 = eps * cursor.y, near = Infinity
+	for (const A of anchors) {
+		near = Math.min(near, dist(A, cursor))
+		const a = Math.round(Math.atan2(cursor.y - A.y, cursor.x - A.x) / step) * step
+		const nx = -Math.sin(a), ny = Math.cos(a) // normal to the snapped direction
+		const b = nx * A.x + ny * A.y // node must satisfy n·P = n·A
+		m00 += nx * nx; m01 += nx * ny; m11 += ny * ny; r0 += b * nx; r1 += b * ny
+	}
+	const det = m00 * m11 - m01 * m01
+	if (Math.abs(det) > 1e-6) {
+		const P = { x: (m11 * r0 - m01 * r1) / det, y: (m00 * r1 - m01 * r0) / det }
+		if (dist(P, cursor) <= 4 * near) return P
+	}
+	// Near-parallel rays — fall back to the single best-fitting segment.
+	let best = cursor, bd = Infinity
+	for (const A of anchors) {
+		const cand = constrainAngle(A, cursor, stepDeg)
+		const d = dist(cand, cursor)
+		if (d < bd) { bd = d; best = cand }
+	}
+	return best
+}
+
 export interface SnapTarget {
 	position: Point
 	id: string

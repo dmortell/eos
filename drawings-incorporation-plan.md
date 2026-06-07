@@ -147,14 +147,26 @@ Mirrors the working pattern in `RackElevationViewport` (`innerScale = 2 / scale`
 
 > **Migration note:** existing `outlets` viewports saved with `scale = 100` now honour it (1:100 window) instead of fitting. Set them to **Fit to viewport** (View ▸ Viewport scale) if the old whole-plan look is wanted.
 
-### Phase 5b — In-place editing inside an activated `outlets` viewport  ⏳ (next)
-**Goal:** edit trunks/outlets/racks in-place, writing to the live `outlets/{pid}_F{NN}` doc.
+### Phase 5b — In-place editing inside an activated `outlets` viewport  ◑ (partial)
+**Goal:** edit floorplan content in-place, writing to the live `outlets/{pid}_F{NN}` doc.
 
-Steps:
-1. When an **`outlets`** viewport is active, reuse `OutletCanvas` editing primitives (`hitTestNode/Segment`, `constrainAngle`, `snapToNearby`, add/move/disconnect) operating on the **live** `outlets/{pid}_F{NN}` doc. Keep production's toggle-button tool switch (outlets/racks/trunks) — not a `<select>`. Pointer-events become active only when the viewport is activated.
-2. Wheel inside an active viewport may adjust a transient view-zoom for comfort; "Set scale 1:N" re-locks content scale.
+Shipped (this round):
+- `OutletsViewport` gains an `active` mode: when the viewport is double-clicked into, its SVG becomes interactive and **existing outlets can be dragged to reposition them**, persisting straight to the live `outlets/{pid}_F{NN}` doc (`db.save` merge replaces the outlets array). Client→mm uses the SVG `getScreenCTM()` (accounts for every canvas transform). Drag-on-outlet uses **mouse** events + `stopPropagation` so the frame's pan is suppressed; drag-on-empty bubbles to the frame and pans (Phase 2). Optimistic position holds until the doc echoes back (no flash).
 
-Risk: high (coordinate correctness + write-path to source doc + pointer-event layering). Acceptance: draw a trunk inside a drawing viewport → it appears in the Outlets tool; printed sheet measures true 1:100.
+Still outstanding (next):
+- Dragging **trunk nodes** in-place (needs overriding `TrunkRenderer` node positions); **adding** new outlets/trunks (needs a tool palette in the viewport). Both depend on settling the pan/zoom model (Appendix D-1) since edit-vs-pan gesture disambiguation matters. The heavier option — mounting the full `OutletCanvas` in the viewport — remains possible (it's self-contained: no context/stores) but brings tool/legend/print chrome; deferred.
+
+Risk: medium. Acceptance (met for slice): drag an outlet inside a drawing viewport → it moves in the Outlets tool too.
+
+### Phase 6b — Trunk editing extras (outlets tool)  ✅ (shipped)
+**Goal:** adopt the POC's *extra* trunk-editing UX in the `outlets` editing tool.
+
+Shipped:
+1. **Context menu** on right-clicking a trunk node/segment (`OutletCanvas`): node → *Disconnect node* (if junction) / *Select full trunk* / *Delete trunk*; segment → *Insert node here* / *Select full trunk* / *Delete trunk*. Portaled to `<body>` (`outlets/trunks/portal.ts`) so it escapes the canvas transforms; a `panMoved` flag suppresses the menu that trails a right-drag pan, so right-drag still pans. Replaces the old immediate right-click-disconnect (now an explicit menu item).
+2. **Multi-segment angle snap**: `snapNodeAngles` (least-squares) ported to `outlets/trunks/geometry.ts`; Shift-dragging a junction node now snaps **every** connected segment to 15° (single-neighbour still falls back to `constrainAngle`).
+3. **Snap-ring** already existed in production (`dragSnapHighlight`, `OutletCanvas`) — no change needed.
+
+Risk: realised low–medium. Acceptance (met): right-click menu offers the four actions incl. select-full-trunk; junction Shift-drag snaps all legs; snap-ring shows.
 
 ### Phase 6a — Viewport layers  ✅ (shipped)
 **Goal:** per-viewport control of what shows on a floorplan/outlets viewport.
@@ -165,17 +177,6 @@ Shipped:
 - Sidebar (outlets viewport): a **Layers** section with checkboxes — Outlets Low/High, Trunks Primary/Secondary/Ceiling/Floor — gated under the relevant master toggle.
 
 Acceptance (met): one page can show low-level + floor trunks while another shows high-level + ceiling, from the same source doc.
-
-### Phase 6b — Trunk editing extras (outlets tool)  ⏳ (next, optional)
-**Goal:** adopt the POC's *extra* trunk-editing UX. Lives in the `outlets` editing tool, not the drawing viewports.
-
-Steps:
-1. **Context menu** on trunk node/segment (in `OutletCanvas`): Insert node (at click), Disconnect node (if junction), **Select full trunk**, Delete node/segment. Port POC `TrunkOverlay` menu + `portal.ts`.
-2. **Multi-segment angle snap**: add POC `snapNodeAngles` (least-squares) to production `outlets/trunks/geometry.ts`, used when dragging a junction node (Shift); keep `constrainAngle` for single-neighbor.
-3. **Snap-ring indicator**: render a ring at the merge-target node while dragging (port POC `TrunkLayer` snap circle + `nearestNode`).
-4. *(Optional, quality)* Refactor `OutletCanvas` toward POC's Layer/Overlay/Shape + headless editor split.
-
-Risk: medium. Acceptance: right-click gives the four actions incl. select-full-trunk; junction drag snaps all legs; snap-ring shows.
 
 ### Phase 7 — Annotations
 **Goal:** the missing annotation system.

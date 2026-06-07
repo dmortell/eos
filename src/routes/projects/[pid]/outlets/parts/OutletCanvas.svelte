@@ -7,7 +7,8 @@
 	import { OUTLET_RADIUS_MM, USAGE_COLORS } from './constants'
 	import type { TrunkConfig, TrunkNode, TrunkSegment } from '../trunks/types'
 	import { trunkWidthMm } from '../trunks/types'
-	import { hitTestNode, hitTestSegment, hitTestTrunkBody, constrainAngle, generateTrunkPolygons, genId, snapToNearby, snapToGrid, dist, type SnapTarget } from '../trunks/geometry'
+	import { hitTestNode, hitTestSegment, hitTestTrunkBody, constrainAngle, snapNodeAngles, generateTrunkPolygons, genId, snapToNearby, snapToGrid, dist, type SnapTarget } from '../trunks/geometry'
+	import { portal } from '../trunks/portal'
 	import { SNAP_THRESHOLD_MM } from '../trunks/constants'
 	import TrunkRenderer from '../trunks/TrunkRenderer.svelte'
 	import OutletShape from './OutletShape.svelte'
@@ -293,6 +294,7 @@
 	let vy = $state(0)
 	let zoom = $state(1)
 	let panning = $state(false)
+	let panMoved = false // right/middle-drag moved → suppress the trailing contextmenu
 	let grayscale = $state(true)
 	let viewRestored = false
 
@@ -662,43 +664,11 @@
 	function onMouseDown(e: MouseEvent) {
 		e.preventDefault()
 
-		// Right-click on trunk node: disconnect last segment
-		if (e.button === 2 && calibration && ondisconnecttrunknode) {
-			const mmPos = toMm(getPagePos(e))
-			const hit = hitTestTrunks(mmPos)
-			if (hit?.type === 'node') {
-				const trunk = trunks.find(t => t.id === hit.trunkId)
-				const connectedSegs = trunk?.segments.filter(s => s.nodes[0] === hit.nodeId || s.nodes[1] === hit.nodeId)
-				if (trunk && connectedSegs && connectedSegs.length >= 2) {
-					// Disconnect the last segment from this node
-					const seg = connectedSegs[connectedSegs.length - 1]
-					const newNodeId = ondisconnecttrunknode(hit.trunkId, hit.nodeId!, seg.id)
-					if (newNodeId) {
-						// Start dragging the new node independently
-						if (!selectedTrunkIds.has(hit.trunkId)) onselecttrunk?.(hit.trunkId, false)
-						onselecttrunknode?.(newNodeId, false)
-						draggingTrunkNode = true
-						trunkNodeDragMoved = false
-						// New node is at the same position as the original node
-						const origNode = trunk.nodes.find(n => n.id === hit.nodeId)!
-						const originMm = { ...origNode.position }
-						// Neighbor is the other end of the disconnected segment
-						const otherEndId = seg.nodes[0] === hit.nodeId ? seg.nodes[1] : seg.nodes[0]
-						const otherEnd = trunk.nodes.find(n => n.id === otherEndId)
-						const neighborMm = otherEnd ? { ...otherEnd.position } : null
-						const pos = getPagePos(e)
-						trunkNodeDragStart = { startX: pos.x, startY: pos.y, lastX: pos.x, lastY: pos.y, trunkId: hit.trunkId, originMm, neighborMm, forceIndependent: true }
-						document.addEventListener('mousemove', onTrunkNodeDragMove)
-						document.addEventListener('mouseup', onTrunkNodeDragUp)
-						return
-					}
-				}
-			}
-		}
-
-		// Middle/right click = pan
+		// Middle/right click = pan. (Right-click trunk actions are on the context
+		// menu — see onTrunkContextMenu.)
 		if (e.button === 1 || e.button === 2) {
 			panning = true
+			panMoved = false
 			document.addEventListener('mousemove', onPanMove)
 			document.addEventListener('mouseup', onPanUp)
 			return
@@ -736,18 +706,21 @@
 					const dragTrunk = trunks.find(t => t.id === hit.trunkId)
 					const dragNode = dragTrunk?.nodes.find(n => n.id === hit.nodeId)
 					const originMm = dragNode ? { ...dragNode.position } : { x: 0, y: 0 }
-					let neighborMm: Point | null = null
+					// Capture ALL connected neighbours so Shift snaps every segment to 15°
+					// at a junction (multi-segment least-squares); single-neighbour falls
+					// back to the same behaviour as before.
+					const neighborsMm: Point[] = []
 					if (dragTrunk && dragNode) {
-						// Find first connected neighbor node
 						for (const seg of dragTrunk.segments) {
 							const otherId = seg.nodes[0] === dragNode.id ? seg.nodes[1] : seg.nodes[1] === dragNode.id ? seg.nodes[0] : null
 							if (otherId) {
 								const other = dragTrunk.nodes.find(n => n.id === otherId)
-								if (other) { neighborMm = { ...other.position }; break }
+								if (other) neighborsMm.push({ ...other.position })
 							}
 						}
 					}
-					trunkNodeDragStart = { startX: pos.x, startY: pos.y, lastX: pos.x, lastY: pos.y, trunkId: hit.trunkId, originMm, neighborMm }
+					const neighborMm: Point | null = neighborsMm[0] ?? null
+					trunkNodeDragStart = { startX: pos.x, startY: pos.y, lastX: pos.x, lastY: pos.y, trunkId: hit.trunkId, originMm, neighborMm, neighborsMm }
 					document.addEventListener('mousemove', onTrunkNodeDragMove)
 					document.addEventListener('mouseup', onTrunkNodeDragUp)
 					return
@@ -853,6 +826,7 @@
 
 	// Pan
 	function onPanMove(e: MouseEvent) {
+		if (e.movementX || e.movementY) panMoved = true
 		vx += e.movementX
 		vy += e.movementY
 	}
@@ -861,6 +835,56 @@
 		panning = false
 		document.removeEventListener('mousemove', onPanMove)
 		document.removeEventListener('mouseup', onPanUp)
+	}
+
+	// ── Trunk context menu (right-click a node or segment) ──
+	let trunkMenu = $state<
+		| { x: number; y: number; kind: 'node'; trunkId: string; nodeId: string; canDisconnect: boolean }
+		| { x: number; y: number; kind: 'segment'; trunkId: string; segmentId: string; pointMm: Point }
+		| null
+	>(null)
+
+	function onTrunkContextMenu(e: MouseEvent) {
+		e.preventDefault()
+		if (panMoved) return // ignore the contextmenu that trails a right-drag pan
+		if (isDrawingTrunk()) { cancelTrunkDrawing(); return }
+		if (!calibration) return
+		const mmPos = toMm(getPagePos(e))
+		const hit = hitTestTrunks(mmPos)
+		if (!hit || hit.type === 'body') { trunkMenu = null; return }
+		if (!selectedTrunkIds.has(hit.trunkId)) onselecttrunk?.(hit.trunkId, false)
+		if (hit.type === 'node') {
+			const trunk = trunks.find(t => t.id === hit.trunkId)
+			const segs = trunk?.segments.filter(s => s.nodes[0] === hit.nodeId || s.nodes[1] === hit.nodeId) ?? []
+			trunkMenu = { x: e.clientX, y: e.clientY, kind: 'node', trunkId: hit.trunkId, nodeId: hit.nodeId!, canDisconnect: segs.length >= 2 }
+		} else {
+			trunkMenu = { x: e.clientX, y: e.clientY, kind: 'segment', trunkId: hit.trunkId, segmentId: hit.segmentId!, pointMm: mmPos }
+		}
+	}
+
+	function menuDisconnect() {
+		const m = trunkMenu
+		if (m?.kind !== 'node') return
+		const trunk = trunks.find(t => t.id === m.trunkId)
+		const segs = trunk?.segments.filter(s => s.nodes[0] === m.nodeId || s.nodes[1] === m.nodeId) ?? []
+		if (segs.length >= 2) ondisconnecttrunknode?.(m.trunkId, m.nodeId, segs[segs.length - 1].id)
+		trunkMenu = null
+	}
+	function menuInsertNode() {
+		const m = trunkMenu
+		if (m?.kind !== 'segment') return
+		onsplittrunksegment?.(m.trunkId, m.segmentId, m.pointMm)
+		trunkMenu = null
+	}
+	function menuSelectTrunk() {
+		const m = trunkMenu
+		if (m) onselecttrunk?.(m.trunkId, false)
+		trunkMenu = null
+	}
+	function menuDeleteTrunk() {
+		const m = trunkMenu
+		if (m) { onselecttrunk?.(m.trunkId, false); ondeletetrunks?.() }
+		trunkMenu = null
 	}
 
 	// Outlet drag
@@ -1264,7 +1288,7 @@
 	// Trunk node drag state
 	let draggingTrunkNode = $state(false)
 	let trunkNodeDragMoved = false
-	let trunkNodeDragStart: { startX: number; startY: number; lastX: number; lastY: number; trunkId: string; originMm: Point; neighborMm: Point | null; forceIndependent?: boolean } | null = null
+	let trunkNodeDragStart: { startX: number; startY: number; lastX: number; lastY: number; trunkId: string; originMm: Point; neighborMm: Point | null; neighborsMm?: Point[]; forceIndependent?: boolean } | null = null
 
 	function hitTestTrunks(mmPos: Point): { type: 'node' | 'segment' | 'body'; trunkId: string; nodeId?: string; segmentId?: string; t?: number } | null {
 		// Priority: nodes > segments > body
@@ -1295,9 +1319,12 @@
 		const totalDyMm = (pos.y - trunkNodeDragStart.startY) * calibration.scaleFactor
 		let targetMm = { x: trunkNodeDragStart.originMm.x + totalDxMm, y: trunkNodeDragStart.originMm.y + totalDyMm }
 
-		// Shift: constrain angle relative to connected neighbor
-		if (e.shiftKey && trunkNodeDragStart.neighborMm) {
-			targetMm = constrainAngle(trunkNodeDragStart.neighborMm, targetMm)
+		// Shift: snap so every connected segment lands on a 15° interval
+		// (multi-segment least-squares at junctions; single neighbour = simple
+		// angle constrain). Falls back to grid snap when not constraining.
+		const anchors = trunkNodeDragStart.neighborsMm ?? (trunkNodeDragStart.neighborMm ? [trunkNodeDragStart.neighborMm] : [])
+		if (e.shiftKey && anchors.length) {
+			targetMm = snapNodeAngles(anchors, targetMm)
 		} else {
 			targetMm = snapToGrid(targetMm, gridMm)
 		}
@@ -1592,7 +1619,7 @@
 			{dropTarget ? 'ring-2 ring-inset ring-blue-400 bg-blue-50/20' : ''}"
 		onmousedown={onMouseDown}
 		onmousemove={e => { if (activeTool === 'trunk' && drawingNodes.length > 0) handleTrunkMouseMove(e) }}
-		oncontextmenu={e => { e.preventDefault(); if (isDrawingTrunk()) cancelTrunkDrawing() }}
+		oncontextmenu={onTrunkContextMenu}
 		ondblclick={onCanvasDblClick}
 		ontouchstart={onTouchStart}
 		ontouchmove={onTouchMove}
@@ -1828,6 +1855,27 @@
 				{/if}
 			</svg>
 		</div>
+	</div>
+{/if}
+
+{#if trunkMenu}
+	<!-- Backdrop: any outside click/right-click closes the menu. -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<div use:portal class="fixed inset-0 z-40"
+		onmousedown={() => trunkMenu = null}
+		oncontextmenu={(e) => { e.preventDefault(); trunkMenu = null }}></div>
+	<div use:portal class="fixed z-50 min-w-36 rounded-md border border-zinc-200 bg-white shadow-lg py-1 text-xs"
+		style:left="{trunkMenu.x}px" style:top="{trunkMenu.y}px">
+		{#if trunkMenu.kind === 'node'}
+			{#if trunkMenu.canDisconnect}
+				<button class="block w-full text-left px-3 py-1 hover:bg-zinc-100" onclick={menuDisconnect}>Disconnect node</button>
+			{/if}
+		{:else}
+			<button class="block w-full text-left px-3 py-1 hover:bg-zinc-100" onclick={menuInsertNode}>Insert node here</button>
+		{/if}
+		<button class="block w-full text-left px-3 py-1 hover:bg-zinc-100" onclick={menuSelectTrunk}>Select full trunk</button>
+		<button class="block w-full text-left px-3 py-1 hover:bg-zinc-100 text-red-600" onclick={menuDeleteTrunk}>Delete trunk</button>
 	</div>
 {/if}
 

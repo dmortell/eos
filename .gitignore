@@ -37,3 +37,5 @@ src/routes/survey/survey-react
 src/routes/rack1
 src/routes/rack0
 src/lib/ui/combo
+
+src-sample/

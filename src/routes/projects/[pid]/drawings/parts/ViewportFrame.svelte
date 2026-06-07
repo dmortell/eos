@@ -355,7 +355,7 @@
 		{:else if viewport.source.kind === 'patching'}
 			<PatchingViewport {viewport} {db} />
 		{:else if viewport.source.kind === 'outlets'}
-			<OutletsViewport {viewport} {db} {onfit} />
+			<OutletsViewport {viewport} {db} {onfit} {active} />
 		{:else if viewport.source.kind === 'risers'}
 			<RisersViewport {viewport} {db} />
 		{:else if viewport.source.kind === 'survey'}
