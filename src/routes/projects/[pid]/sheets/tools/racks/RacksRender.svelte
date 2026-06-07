@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { SheetViewport } from '../../types'
 	import type { RackConfig, DeviceConfig, RackSettings, RoomObject, RackRow, RackFace } from './types'
-	import { RU_HEIGHT_MM, RACK_19IN_MM, RACK_19IN_INNER, RACK_GAP_MM, DEVICE_TYPE_COLORS, RACK_STYLE, DEFAULT_SETTINGS } from './colors'
+	import { RU_HEIGHT_MM, RACK_19IN_MM, RACK_19IN_INNER, RACK_GAP_MM, DEVICE_TYPE_COLORS, DEFAULT_SETTINGS } from './colors'
 
 	let {
 		racks = [], devices = [], settings = null, roomObjects = [], rows = [], face = 'front',
@@ -104,7 +104,8 @@
 	let ruLabelMm = $derived(3.5 * PT_TO_MM * den)
 	let planLabelMm = $derived(6 * PT_TO_MM * den)
 
-	function rackStyle(r: RackConfig) { return RACK_STYLE[r.type] ?? RACK_STYLE['2-post'] }
+	// Only standard racks carry a 19" RU area; VCMs / desks / shelves don't get RU numbers.
+	const hasRU = (t: string) => t === '2-post' || t === '4-post' || t === 'cabinet'
 </script>
 
 <svg class="h-full w-full" {viewBox} preserveAspectRatio={par} style:overflow="hidden">
@@ -133,22 +134,28 @@
 		{#each planRows as pr (pr.row.id)}
 			<g transform="translate({pr.origin.x} {pr.origin.y}) rotate({pr.rot})">
 				{#each pr.placed as { rack, x, y } (rack.id)}
-					{@const s = rackStyle(rack)}
 					<g>
-						<rect {x} {y} width={rack.widthMm} height={rack.depthMm} fill={s.fill} stroke={s.border} stroke-width="0.8" vector-effect="non-scaling-stroke" />
-						<text x={x + rack.widthMm / 2} y={y + rack.depthMm / 2} text-anchor="middle" dominant-baseline="middle" font-size={planLabelMm} fill={s.text} font-weight="bold">{rack.label}</text>
+						<rect {x} {y} width={rack.widthMm} height={rack.depthMm} fill="white" stroke="#333" stroke-width="0.4" vector-effect="non-scaling-stroke" stroke-dasharray={rack.type === 'vcm' ? '20 12' : undefined} />
+						<text x={x + rack.widthMm / 2} y={y + rack.depthMm / 2} text-anchor="middle" dominant-baseline="middle" font-size={planLabelMm} fill="#333">{rack.label}</text>
 					</g>
 				{/each}
 				{#if pr.width > 0}
-					<line x1="0" y1={pr.depth} x2={pr.width} y2={pr.depth} stroke="#2563eb" stroke-width="0.8" vector-effect="non-scaling-stroke" opacity="0.7" />
+					<line x1="0" y1={pr.depth} x2={pr.width} y2={pr.depth} stroke="#555" stroke-width="0.4" vector-effect="non-scaling-stroke" />
 				{/if}
 			</g>
 		{/each}
 	{:else}
-		<!-- Walls (optional) -->
+		<!-- Room shell (slab / ceiling / walls) when enabled -->
 		{#if showWalls}
-			<rect x={cfg.leftWallX - 50} y={Y(cfg.ceilingLevel)} width={50} height={cfg.ceilingLevel - cfg.slabLevel} fill="#0000000d" stroke="#cbd5e1" stroke-width="0.4" vector-effect="non-scaling-stroke" />
-			<rect x={cfg.rightWallX} y={Y(cfg.ceilingLevel)} width={50} height={cfg.ceilingLevel - cfg.slabLevel} fill="#0000000d" stroke="#cbd5e1" stroke-width="0.4" vector-effect="non-scaling-stroke" />
+			{@const rx0 = cfg.leftWallX - 50}
+			{@const rw = (cfg.rightWallX + 50) - (cfg.leftWallX - 50)}
+			<!-- structural slab below the raised floor -->
+			<rect x={rx0} y={Y(cfg.slabLevel)} width={rw} height={100} fill="#e5e7eb" stroke="#94a3b8" stroke-width="0.4" vector-effect="non-scaling-stroke" />
+			<!-- ceiling slab -->
+			<rect x={rx0} y={Y(cfg.ceilingLevel + 100)} width={rw} height={100} fill="#e5e7eb" stroke="#94a3b8" stroke-width="0.4" vector-effect="non-scaling-stroke" />
+			<!-- side walls -->
+			<rect x={cfg.leftWallX - 50} y={Y(cfg.ceilingLevel)} width={50} height={cfg.ceilingLevel - cfg.slabLevel} fill="#0000000d" stroke="#94a3b8" stroke-width="0.4" vector-effect="non-scaling-stroke" />
+			<rect x={cfg.rightWallX} y={Y(cfg.ceilingLevel)} width={50} height={cfg.ceilingLevel - cfg.slabLevel} fill="#0000000d" stroke="#94a3b8" stroke-width="0.4" vector-effect="non-scaling-stroke" />
 		{/if}
 
 		<!-- Floor + ceiling reference lines -->
@@ -159,13 +166,15 @@
 		{#each elevRacks as { rack, x, z } (rack.id)}
 			{@const innerX = x + (rack.widthMm - RACK_19IN_INNER) / 2}
 			<rect {x} y={Y(z + rack.heightMm)} width={rack.widthMm} height={rack.heightMm} fill="white" stroke="#333" stroke-width="0.4" vector-effect="non-scaling-stroke" />
-			<rect x={innerX} y={Y(z + (rack.heightU + 1) * RU_HEIGHT_MM)} width={RACK_19IN_INNER} height={rack.heightU * RU_HEIGHT_MM} fill="none" stroke="#bbb" stroke-width="0.3" vector-effect="non-scaling-stroke" />
-			{#each Array.from({ length: rack.heightU }) as _, i (i)}
-				{@const u = i + 1}
-				{@const yc = Y(z + u * RU_HEIGHT_MM + RU_HEIGHT_MM / 2)}
-				<text x={innerX - 25} y={yc} text-anchor="end" dominant-baseline="middle" font-size={ruLabelMm} fill="#aaa" font-family="monospace">{u}</text>
-				<text x={innerX + RACK_19IN_INNER + 25} y={yc} text-anchor="start" dominant-baseline="middle" font-size={ruLabelMm} fill="#aaa" font-family="monospace">{u}</text>
-			{/each}
+			{#if hasRU(rack.type)}
+				<rect x={innerX} y={Y(z + (rack.heightU + 1) * RU_HEIGHT_MM)} width={RACK_19IN_INNER} height={rack.heightU * RU_HEIGHT_MM} fill="none" stroke="#bbb" stroke-width="0.3" vector-effect="non-scaling-stroke" />
+				{#each Array.from({ length: rack.heightU }) as _, i (i)}
+					{@const u = i + 1}
+					{@const yc = Y(z + u * RU_HEIGHT_MM + RU_HEIGHT_MM / 2)}
+					<text x={innerX - 25} y={yc} text-anchor="end" dominant-baseline="middle" font-size={ruLabelMm} fill="#aaa" font-family="monospace">{u}</text>
+					<text x={innerX + RACK_19IN_INNER + 25} y={yc} text-anchor="start" dominant-baseline="middle" font-size={ruLabelMm} fill="#aaa" font-family="monospace">{u}</text>
+				{/each}
+			{/if}
 			<text x={x + rack.widthMm / 2} y={Y(z + rack.heightMm) - rackLabelMm * 0.4} text-anchor="middle" font-size={rackLabelMm} fill="#333" font-weight="bold">{rack.label}</text>
 		{/each}
 
@@ -185,7 +194,7 @@
 					{:else}
 						<rect x={dx} y={dyTop} width={devW} height={dh} fill="white" stroke="#888" stroke-width="0.4" vector-effect="non-scaling-stroke" />
 					{/if}
-					<text x={dx + devW * 0.04} y={dyTop + dh / 2} dominant-baseline="middle" font-size={deviceLabelMm} fill="#374151" font-weight="bold">{d.label}{d.portCount > 7 ? ` (${d.portCount})` : ''}</text>
+					<text x={dx + devW * 0.04} y={dyTop + dh / 2} dominant-baseline="middle" font-size={deviceLabelMm} fill="#374151">{d.label}{d.portCount > 7 ? ` (${d.portCount})` : ''}</text>
 				</g>
 			{/if}
 		{/each}

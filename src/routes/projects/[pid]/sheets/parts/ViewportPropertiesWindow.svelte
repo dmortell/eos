@@ -23,7 +23,7 @@
 	const VP_SCALES = [
 		{ label: 'Fit', value: 0 },
 		{ label: '1:2', value: 2 }, { label: '1:5', value: 5 }, { label: '1:10', value: 10 },
-		{ label: '1:20', value: 20 }, { label: '1:25', value: 25 }, { label: '1:50', value: 50 },
+		{ label: '1:15', value: 15 }, { label: '1:20', value: 20 }, { label: '1:25', value: 25 }, { label: '1:50', value: 50 },
 		{ label: '1:100', value: 100 }, { label: '1:200', value: 200 }, { label: '1:500', value: 500 },
 	]
 

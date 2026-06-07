@@ -188,21 +188,12 @@
 		startZoomAnimation(pt)
 	}
 
+	// Instant zoom (no rAF easing). The smooth interpolation made SVG <text> re-rasterise at
+	// each intermediate scale, so labels appeared to "roll" between zoom steps. Applying the
+	// target zoom in one step avoids the interpolation period entirely.
 	function startZoomAnimation(center: { x: number; y: number }) {
-		const animate = () => {
-			const next = view.zoom + (zoomTarget - view.zoom) * 0.2
-			if (Math.abs(next - zoomTarget) < 0.00001) {
-				applyZoom(zoomTarget, center)
-				view.zoom = zoomTarget
-				zoomAnimation = null
-				return
-			}
-			applyZoom(next, center)
-			view.zoom = next
-			zoomAnimation = requestAnimationFrame(animate)
-		}
-		if (zoomAnimation) cancelAnimationFrame(zoomAnimation)
-		zoomAnimation = requestAnimationFrame(animate)
+		applyZoom(zoomTarget, center)
+		view.zoom = zoomTarget
 	}
 
 	function applyZoom(newScale: number, center: { x: number; y: number }) {
