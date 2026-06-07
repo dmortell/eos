@@ -1,42 +1,58 @@
 <script lang="ts">
-	// Stage A stub — replaced by the full SheetEditor in Stage B.
 	import { page } from '$app/state'
-	import { goto } from '$app/navigation'
-	import { Firestore, Titlebar, Button, Icon } from '$lib'
+	import { getContext } from 'svelte'
+	import { Firestore, Titlebar, Spinner } from '$lib'
 	import type { SheetDoc } from '../types'
+	import type { TitleBlockProjectDefaults } from '../parts/TitleBlock.svelte'
+	import SheetEditor from '../SheetEditor.svelte'
 
 	let db = getContext('db') as Firestore
 	let pid = $derived(page.params.pid)
 	let sheetId = $derived(page.params.sheetId)
 
 	let sheet = $state<SheetDoc | null>(null)
+	let project = $state<TitleBlockProjectDefaults>({})
+	let loading = $state(true)
 
+	// Sheet doc
 	$effect(() => {
 		if (!pid || !sheetId) return
+		loading = true
 		const unsub = db.subscribeOne(`projects/${pid}/sheets`, sheetId, (data: any) => {
-			sheet = data?.title !== undefined ? (data as SheetDoc) : null
+			// subscribeOne returns { id } for a missing doc; treat absence of real fields as "not found".
+			sheet = data && (data.title !== undefined || data.paper !== undefined) ? (data as SheetDoc) : null
+			loading = false
+		})
+		return () => { unsub?.() }
+	})
+
+	// Project defaults for the title block
+	$effect(() => {
+		if (!pid) return
+		const unsub = db.subscribeOne('projects', pid, (data: any) => {
+			project = {
+				name: data?.name,
+				author: data?.author,
+				address: data?.address,
+				logoUrl: data?.logoUrl,
+				client: data?.client,
+			}
 		})
 		return () => { unsub?.() }
 	})
 </script>
 
-<Titlebar title={sheet ? `Sheet — ${sheet.title}` : 'Sheet'} height={30} />
-
-<div class="p-6 space-y-3">
-	<Button onclick={() => goto(`/projects/${pid}/sheets`)}>
-		<Icon name="chevronLeft" size={14} />
-		Back to sheets
-	</Button>
-
-	{#if sheet}
-		<div class="text-sm text-zinc-600 dark:text-zinc-300">
-			<div><span class="text-zinc-400">Title:</span> {sheet.title}</div>
-			<div><span class="text-zinc-400">Drawing No.:</span> {sheet.drawingNumber || '—'}</div>
-			<div><span class="text-zinc-400">Paper:</span> {sheet.paper?.paperSize} {sheet.paper?.orientation}</div>
-			<div><span class="text-zinc-400">Viewports:</span> {sheet.viewports?.length ?? 0}</div>
+<!-- App shell: a viewport-tall flex column. The titlebar takes its natural height;
+     everything below (SheetEditor → menubar / canvas / status bar) flexes to fill the rest. -->
+<div class="flex h-[100dvh] flex-col overflow-hidden">
+	<Titlebar title={sheet ? `Sheet — ${sheet.title}` : 'Sheet'} height={30} />
+	{#if loading}
+		<div class="flex flex-1 items-center justify-center">
+			<Spinner>Loading sheet...</Spinner>
 		</div>
-		<p class="text-xs text-zinc-400">Editor (canvas, viewports, title block) arrives in Stage B.</p>
+	{:else if sheet}
+		<SheetEditor {sheet} {project} />
 	{:else}
-		<p class="text-sm text-zinc-400">Sheet not found.</p>
+		<div class="flex flex-1 items-center justify-center text-sm text-zinc-400">Sheet not found.</div>
 	{/if}
 </div>
