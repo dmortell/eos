@@ -173,31 +173,57 @@
 
 	let noSource = $derived(!src?.outletsDocId)
 
-	// ── In-place editing: drag existing outlets (only when activated) ──
+	// ── In-place editing: drag existing outlets & trunk nodes (only when activated) ──
 	let svgEl = $state<SVGSVGElement | null>(null)
-	/** Optimistic positions (outletId → mm) held from drag-commit until the doc echoes back, so the dot doesn't flash to its old spot. */
-	let optimistic = $state<Record<string, Point>>({})
-	let drag = $state<{ id: string } | null>(null)
+	type DragTarget = { kind: 'outlet'; id: string } | { kind: 'node'; trunkId: string; nodeId: string }
+	let drag = $state<DragTarget | null>(null)
+	/** Optimistic outlet positions (outletId → mm), held until the doc echoes back. */
+	let optOutlets = $state<Record<string, Point>>({})
+	/** Optimistic trunk-node positions (`${trunkId}:${nodeId}` → mm). */
+	let optNodes = $state<Record<string, Point>>({})
+	const nodeKey = (trunkId: string, nodeId: string) => `${trunkId}:${nodeId}`
 
-	/** Effective position for an outlet — optimistic override (mid/just-after drag) else the stored value. */
-	function outletPos(o: OutletConfig): Point { return optimistic[o.id] ?? o.position }
+	/** Effective position for an outlet — optimistic override (mid/just-after drag) else stored. */
+	function outletPos(o: OutletConfig): Point { return optOutlets[o.id] ?? o.position }
+
+	/** Trunks with any dragged node positions overridden, for rendering. */
+	let renderTrunks = $derived(
+		Object.keys(optNodes).length === 0
+			? visibleTrunks
+			: visibleTrunks.map(t => ({
+				...t,
+				nodes: t.nodes.map(n => {
+					const o = optNodes[nodeKey(t.id, n.id)]
+					return o ? { ...n, position: o } : n
+				}),
+			})),
+	)
 
 	// Drop each optimistic override once the source doc echoes the new position
-	// (so the dot never flashes back to its old spot between commit and round-trip).
+	// (so an element never flashes back to its old spot between commit and round-trip).
 	$effect(() => {
 		const docOutlets = outletsDoc?.outlets as OutletConfig[] | undefined
-		if (drag || !docOutlets) return
-		const ids = Object.keys(optimistic)
-		if (!ids.length) return
-		const next = { ...optimistic }
-		let changed = false
-		for (const id of ids) {
-			const o = docOutlets.find(x => x.id === id)
-			if (o && Math.hypot(o.position.x - optimistic[id].x, o.position.y - optimistic[id].y) < 1) {
-				delete next[id]; changed = true
+		const docTrunks = outletsDoc?.trunks as TrunkConfig[] | undefined
+		if (drag) return
+		const oIds = Object.keys(optOutlets)
+		if (oIds.length && docOutlets) {
+			const next = { ...optOutlets }; let changed = false
+			for (const id of oIds) {
+				const o = docOutlets.find(x => x.id === id)
+				if (o && Math.hypot(o.position.x - optOutlets[id].x, o.position.y - optOutlets[id].y) < 1) { delete next[id]; changed = true }
 			}
+			if (changed) optOutlets = next
 		}
-		if (changed) optimistic = next
+		const nKeys = Object.keys(optNodes)
+		if (nKeys.length && docTrunks) {
+			const next = { ...optNodes }; let changed = false
+			for (const key of nKeys) {
+				const [tid, nid] = key.split(':')
+				const n = docTrunks.find(t => t.id === tid)?.nodes.find(x => x.id === nid)
+				if (n && Math.hypot(n.position.x - optNodes[key].x, n.position.y - optNodes[key].y) < 1) { delete next[key]; changed = true }
+			}
+			if (changed) optNodes = next
+		}
 	})
 
 	/** Map a client point to real-world mm via the SVG's screen CTM (accounts for all canvas transforms). */
@@ -209,30 +235,41 @@
 	}
 
 	// Mouse events (not pointer) so stopPropagation suppresses the frame's
-	// pan-content mousedown when a drag starts on an outlet.
+	// pan/content mousedown when a drag starts on an element. Left-drag on an
+	// outlet or trunk node moves it; left-drag on empty bubbles to the frame
+	// (which does nothing on left when active) — middle/right still pans.
 	function onEditMouseDown(e: MouseEvent) {
 		if (!active || e.button !== 0) return
 		const mm = clientToMm(e.clientX, e.clientY)
 		if (!mm) return
-		// Hit-test outlets (generous ~250 mm radius around the dot).
-		let hit: OutletConfig | null = null
-		let bestD = 250
+		// Nearest outlet or trunk node within ~250 mm.
+		let best: { d: number; target: DragTarget; start: Point } | null = null
 		for (const o of visibleOutlets) {
 			const d = Math.hypot(mm.x - o.position.x, mm.y - o.position.y)
-			if (d <= bestD) { bestD = d; hit = o }
+			if (d <= 250 && (!best || d < best.d)) best = { d, target: { kind: 'outlet', id: o.id }, start: { ...o.position } }
 		}
-		if (!hit) return // empty → let it bubble to the frame (pan)
+		for (const t of visibleTrunks) {
+			for (const n of t.nodes) {
+				const d = Math.hypot(mm.x - n.position.x, mm.y - n.position.y)
+				if (d <= 250 && (!best || d < best.d)) best = { d, target: { kind: 'node', trunkId: t.id, nodeId: n.id }, start: { ...n.position } }
+			}
+		}
+		if (!best) return // empty → let it bubble to the frame
 		e.stopPropagation()
 		e.preventDefault()
-		drag = { id: hit.id }
-		optimistic = { ...optimistic, [hit.id]: { ...hit.position } }
+		drag = best.target
+		if (best.target.kind === 'outlet') optOutlets = { ...optOutlets, [best.target.id]: best.start }
+		else optNodes = { ...optNodes, [nodeKey(best.target.trunkId, best.target.nodeId)]: best.start }
 		window.addEventListener('mousemove', onEditMouseMove)
 		window.addEventListener('mouseup', onEditMouseUp)
 	}
 	function onEditMouseMove(e: MouseEvent) {
-		if (!drag) return
+		const d = drag
+		if (!d) return
 		const mm = clientToMm(e.clientX, e.clientY)
-		if (mm) optimistic = { ...optimistic, [drag.id]: mm }
+		if (!mm) return
+		if (d.kind === 'outlet') optOutlets = { ...optOutlets, [d.id]: mm }
+		else optNodes = { ...optNodes, [nodeKey(d.trunkId, d.nodeId)]: mm }
 	}
 	async function onEditMouseUp() {
 		const d = drag
@@ -240,11 +277,18 @@
 		window.removeEventListener('mousemove', onEditMouseMove)
 		window.removeEventListener('mouseup', onEditMouseUp)
 		if (!d || !src?.outletsDocId) return
-		const pos = optimistic[d.id]
-		if (!pos) return
-		// Persist back to the live outlets doc (merge replaces just the outlets array).
-		const next = (outletsDoc?.outlets ?? []).map((o: OutletConfig) => o.id === d.id ? { ...o, position: pos } : o)
-		await db.save('outlets', { id: src.outletsDocId, outlets: next })
+		if (d.kind === 'outlet') {
+			const pos = optOutlets[d.id]
+			if (!pos) return
+			const next = (outletsDoc?.outlets ?? []).map((o: OutletConfig) => o.id === d.id ? { ...o, position: pos } : o)
+			await db.save('outlets', { id: src.outletsDocId, outlets: next })
+		} else {
+			const pos = optNodes[nodeKey(d.trunkId, d.nodeId)]
+			if (!pos) return
+			const next = (outletsDoc?.trunks ?? []).map((t: TrunkConfig) =>
+				t.id === d.trunkId ? { ...t, nodes: t.nodes.map(n => n.id === d.nodeId ? { ...n, position: pos } : n) } : t)
+			await db.save('outlets', { id: src.outletsDocId, trunks: next })
+		}
 	}
 </script>
 
@@ -291,7 +335,7 @@
 						drawing sets makes it render in pure read-only mode.
 					-->
 					<TrunkRenderer
-						trunks={visibleTrunks}
+						trunks={renderTrunks}
 						{calibration}
 						zoom={1}
 						toPx={mmToPdfPx}
@@ -353,7 +397,17 @@
 						</g>
 					{/each}
 				{/if}
-			</svg>
+			<!-- Draggable handles when activated: trunk-node vertices (outlets are already dots). -->
+					{#if active && showTrunks}
+						{#each renderTrunks as t (t.id)}
+							{#each t.nodes as n (n.id)}
+								{@const np = mmToPdfPx(n.position)}
+								{@const hr = Math.max(3, 150 / scaleFactor)}
+								<circle cx={np.x} cy={np.y} r={hr} fill="#06b6d4" stroke="white" stroke-width={hr * 0.25} opacity="0.9" />
+							{/each}
+						{/each}
+					{/if}
+				</svg>
 		</div>
 		</div>
 	{/if}

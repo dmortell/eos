@@ -208,15 +208,16 @@
 			style:width="{paperMm.w}px"
 			style:height="{paperMm.h}px"
 		>
-			<!-- Margin guide — editorial only, hidden on print. -->
+			<!-- Margin frame — a thin non-scaling hairline (shared `.dwg-line` with the
+			     title block). Prints crisp + thin, like a real drawing border. -->
 			{#if page.paper.margins > 0}
-				<div
-					class="absolute border border-dashed border-zinc-300 pointer-events-none print:hidden"
-					style:left="{page.paper.margins}px"
-					style:top="{page.paper.margins}px"
-					style:width="{paperMm.w - 2 * page.paper.margins}px"
-					style:height="{paperMm.h - 2 * page.paper.margins}px"
-				></div>
+				<svg class="absolute inset-0 pointer-events-none" width={paperMm.w} height={paperMm.h}
+					viewBox="0 0 {paperMm.w} {paperMm.h}" preserveAspectRatio="none" aria-hidden="true">
+					<rect class="dwg-line"
+						x={page.paper.margins} y={page.paper.margins}
+						width={paperMm.w - 2 * page.paper.margins} height={paperMm.h - 2 * page.paper.margins}
+						vector-effect="non-scaling-stroke" />
+				</svg>
 			{/if}
 
 			<!-- Viewports -->

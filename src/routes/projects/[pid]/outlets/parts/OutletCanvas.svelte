@@ -618,14 +618,13 @@
 	}
 
 	function onWheel(e: WheelEvent) {
+		// Unified model: wheel always zooms at the cursor (plain wheel OR right/middle
+		// held — kept for habit); panning is middle/right-drag.
 		e.preventDefault()
-		if (e.ctrlKey || e.altKey || e.metaKey || e.buttons === 2) {
-			doZoom(e)
-		} else if (e.shiftKey || e.deltaX) {
-			vx += (e.deltaY || e.deltaX) > 0 ? -80 : 80
-		} else {
-			vy += e.deltaY > 0 ? -80 : 80
-		}
+		// If the right/middle button is held while wheeling, count it as activity so the
+		// trailing contextmenu (trunk menu) is suppressed — protects the right-wheel habit.
+		if (panning) panMoved = true
+		doZoom(e)
 	}
 
 	function doZoom(e: WheelEvent) {
