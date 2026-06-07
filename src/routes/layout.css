@@ -123,6 +123,34 @@ h3 { @apply text-xs text-gray-600; }
   @apply flex items-center gap-2;
 }
 
+/* Drawing hairline — used for title-block dividers and the page margin frame.
+   Paired with vector-effect="non-scaling-stroke" so it stays a constant crisp
+   line at any canvas zoom and in printed PDF. Tune via --dwg-w / --dwg-c. */
+.dwg-line {
+  fill: none;
+  stroke: var(--dwg-c, #3f3f46);
+  stroke-width: var(--dwg-w, 1);
+}
+
+/* CAD line weights (Sheets tool). Drawing rects (viewport frames, paper margin,
+   title block) live inside the canvas transform and are sized in world-units
+   (1px = 1mm), so a plain 1px border scales with zoom on screen and prints ~1mm
+   thick. Within `.cad-thin`, borders render at a constant ~1px on screen (at any
+   zoom) and a thin fixed weight on paper. `--screen-scale` is the live content
+   scale (set by the Canvas; overridden during print). Per-side rules so
+   single-side utilities (border-b/-r) keep their selectivity. Tune via --cad-lw. */
+.cad-thin {
+  --cad-lw: 0.3px; /* min / printed line weight, in world-units (≈ mm) */
+  --cad-line: max(var(--cad-lw), calc(1px / var(--screen-scale, 1)));
+}
+.cad-thin .border   { border-width: var(--cad-line); }
+.cad-thin .border-t { border-top-width: var(--cad-line); }
+.cad-thin .border-r { border-right-width: var(--cad-line); }
+.cad-thin .border-b { border-bottom-width: var(--cad-line); }
+.cad-thin .border-l { border-left-width: var(--cad-line); }
+.cad-thin .border-x { border-left-width: var(--cad-line); border-right-width: var(--cad-line); }
+.cad-thin .border-y { border-top-width: var(--cad-line); border-bottom-width: var(--cad-line); }
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

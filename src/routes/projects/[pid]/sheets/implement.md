@@ -120,6 +120,14 @@ export interface SheetViewport {
   scale?: number                // 1:N denominator; 0 / undefined = fit-to-viewport
   contentOffsetMm?: Point       // pan offset of source content within the viewport
   border?: 'none' | 'thin'
+  /**
+   * Coordinate-convention version for this viewport's source data. Drives the y-axis flip in
+   * ViewportContent. Standard going forward is y-up (version 2). Legacy outlet floorplans whose
+   * stored coords are y-down render at version 1 until a conversion tool migrates them.
+   *   1 = y-down (legacy outlet floorplans)
+   *   2 = y-up   (current standard — default for all NEW viewports)
+   */
+  version?: 1 | 2               // undefined ⇒ treat as the current default (2 / y-up)
 }
 
 export type ViewportSource =
@@ -156,13 +164,17 @@ positioned and scaled using the **origin and scale settings stored per page in t
 tools today). The underlay therefore lands in the same source-mm space as the outlets/trunks vectors, so
 both share one viewport transform and print at the correct ratio.
 
-> **Coordinate-axis note (decision pending — see Q5).** Floorplans currently use **y extending
-> *downwards*** (screen convention), while the elevation tools (racks/risers) use **y extending
-> *upwards***. We are considering **inverting the floorplan canvas to y-up** so a single canvas/coordinate
-> convention is shared across floorplan and elevation renders. This affects the source-mm → paper-mm
-> transform in `ViewportContent` and the PDF underlay placement, so settle it **before** building the
-> Outlets render (Stage F). If inverted, the conversion lives in one place (the viewport transform) and
-> tool renders stay axis-agnostic.
+> **Coordinate-axis convention (DECIDED: y-up standard, with a per-viewport version flag).** The
+> standard going forward is **y extending *upwards*** for all renders — floorplan *and* elevation
+> (racks/risers) — so one canvas/coordinate convention is shared everywhere. The y-axis flip lives in a
+> single place: the source-mm → paper-mm transform in `ViewportContent` (and the PDF underlay
+> placement), so individual tool renders stay axis-agnostic.
+>
+> Legacy outlet floorplans store coordinates **y-down**. We do **not** rewrite that data now; instead
+> each viewport carries `version` (see `SheetViewport`): `version: 2` (y-up) is the default for all new
+> viewports, and `version: 1` (y-down) keeps legacy outlet floorplans rendering correctly until a
+> dedicated conversion tool migrates their stored coords to y-up (after which their viewports flip to
+> version 2). `ViewportContent` reads `version` and applies (or skips) the flip accordingly.
 
 ---
 
@@ -179,23 +191,38 @@ src/routes/projects/[pid]/sheets/
   StatusBar.svelte             # = sample StatusBar.svelte
   Viewport.svelte              # = sample Viewport.svelte (frame/handles/activation)
   ViewportContent.svelte       # = sample Floorplan.svelte, becomes the source dispatcher
+  EmptyViewport.svelte         # generic: dashed "choose a source" placeholder
+  TextViewport.svelte          # generic: prove-the-pipe text render
   parts/
     Canvas.svelte              # = sample parts/Canvas.svelte (pan/zoom + print)
     TitleBlock.svelte          # = sample parts/TitleBlock.svelte
     SheetList.svelte           # list UI (rows, inline rename, add/delete)
     SheetPropertiesWindow.svelte   # floating Window: paper + title-block fields (Stage D)
-    ViewportPropertiesWindow.svelte# floating Window: type + data source (Stage E)
-  viewports/
-    EmptyViewport.svelte
-    TextViewport.svelte        # prove-the-pipe
-    OutletsViewport.svelte     # milestone 1 — simplified outlets render
-    RacksViewport.svelte       # milestone 2
-    RisersViewport.svelte      # milestone 3
-  tools/                       # simplified, read-only render copies of the source tools
-    outlets/                   # geometry.ts (copied), OutletsRender.svelte, types.ts
-    racks/                     # RacksRender.svelte (front/rear/plan), types.ts
-    risers/                    # engine.ts (copied), RisersRender.svelte, types.ts
+    ViewportPropertiesWindow.svelte# floating Window: viewport type + data source (Stage E)
+  tools/                       # one folder per tool: its viewport, render, geometry, AND property editors
+    outlets/
+      OutletsViewport.svelte   # subscribes to source doc(s); hosts render in the nested canvas (milestone 1)
+      OutletsRender.svelte     # read-only SVG: PDF underlay + outlets + trunks + racks
+      OutletsProperties.svelte # floating-window body: floor/file/page/layer pickers for this viewport
+      geometry.ts              # copied from outlets/trunks/geometry.ts (pure)
+      types.ts                 # OutletConfig, TrunkConfig, RackPlacement subset
+    racks/
+      RacksViewport.svelte     # milestone 2
+      RacksRender.svelte       # read-only front/rear/plan
+      RacksProperties.svelte   # floor/room/face pickers
+      types.ts
+    risers/
+      RisersViewport.svelte    # milestone 3
+      RisersRender.svelte      # read-only building elevation
+      RisersProperties.svelte  # from/to floor pickers
+      engine.ts                # copied from risers/parts/engine.ts (pure)
+      types.ts
 ```
+
+Each `tools/<tool>/` folder is self-contained: the viewport host, the read-only render, the pure
+geometry, the local types, **and the property-editor window body** for that tool's viewport live
+together, so a tool can be added (or removed) as one unit. `ViewportContent.svelte` dispatches to the
+right `*Viewport.svelte`; `ViewportPropertiesWindow.svelte` dispatches to the right `*Properties.svelte`.
 
 > Naming: the sample calls everything "Drawing". We rename to "Sheet" on copy-in so the new tool reads
 > cleanly and doesn't collide with the old `drawings/` tool (which stays untouched until we delete it).
@@ -281,77 +308,96 @@ title block can be dragged and hidden.
 
    Each inner viewport renders inside the nested `Canvas` (non-interactive by default; interactive
    only when the parent viewport is active).
-2. `parts/ViewportPropertiesWindow.svelte` (floating `Window`, shown when a viewport is selected):
+2. `parts/ViewportPropertiesWindow.svelte` (floating `Window`, shown when a viewport is selected) —
+   a thin shell that picks the **Type** then dispatches the **data-source** body to the tool's own
+   `tools/<tool>/*Properties.svelte`:
    - **Type** select (`empty` / `text` / `outlets` / `racks` / `risers` — only enable the kinds shipped
      so far).
-   - **Data source** picker, dependent on type:
-     - text → textarea + font size
-     - outlets → floor select → resolves `outletsDocId = {pid}_F{floor:2d}`
-     - racks → floor + room select + face (front/rear/plan)
-     - risers → from/to floor range
-   - scale / fit toggle, border, label.
+   - **Data source** body (per type; lives with the tool):
+     - text → textarea + font size (inline; generic)
+     - outlets → `OutletsProperties`: floor select → `outletsDocId = {pid}_F{floor:2d}`; floorplan
+       file + page picker (`fileId`/`pageNum`); layer toggles
+     - racks → `RacksProperties`: floor + room select + face (front/rear/plan)
+     - risers → `RisersProperties`: from/to floor range
+   - common controls (scale / fit toggle, border, label) stay in the shell.
    - Writes through `saveSheet`.
-3. Build `viewports/EmptyViewport.svelte` (dashed placeholder + "choose a source") and
-   `viewports/TextViewport.svelte` (whitespace-pre-wrap div at `fontSizePt`). **Text is the
-   prove-the-pipe milestone** — it exercises select-viewport → set type → set source → render →
-   persist → print, with zero tool-render complexity.
+3. Build `EmptyViewport.svelte` (dashed placeholder + "choose a source") and `TextViewport.svelte`
+   (whitespace-pre-wrap div at `fontSizePt`) at the `sheets/` root. **Text is the prove-the-pipe
+   milestone** — it exercises select-viewport → set type → set source → render → persist → print, with
+   zero tool-render complexity.
 
 **Done when:** select a viewport → window opens → set type=text + content → text renders in the
 viewport, persists, and prints.
 
-### Stage F — Milestone 1: Outlets render
+### Stage F — Milestone 1: Outlets render (incl. floorplan PDF underlay)
 
 Make a **simplified, read-only** copy of the outlets render (the production `OutletCanvas.svelte` is
 ~1,900 lines and full of editing logic we don't want).
 
-1. `tools/outlets/`: copy `outlets/trunks/geometry.ts` (pure polygon math — no Svelte) and the minimal
-   `types.ts` subset (`OutletConfig`, `TrunkConfig`, `RackPlacement`).
-2. `tools/outlets/OutletsRender.svelte`: takes `OutletsData` (outlets, trunks, rackPlacements) + optional
-   PDF calibration and renders **read-only SVG**: outlet circles (color by usage), trunk polygons via
-   `generateTrunkPolygons`, placed racks, optional PDF underlay. No tools, no selection, no drag — lift
-   only the drawing code out of `OutletCanvas.svelte`.
-3. `viewports/OutletsViewport.svelte`: `subscribeOne('outlets', vp.source.outletsDocId)` →
-   `<OutletsRender>` inside the nested canvas, scaled to the viewport (`vp.scale` or fit).
+0. **Wire the y-axis flip in `ViewportContent` first.** Read `vp.version` (default 2 = y-up); apply the
+   y-flip in the source-mm → paper-mm transform for version 2, skip it for version 1 (legacy y-down
+   outlet floorplans). Existing outlet floorplan sources start at `version: 1`; new viewports default to
+   `version: 2`. Keep tool renders axis-agnostic — they never see the flip.
+1. `tools/outlets/geometry.ts` + `types.ts`: copy `outlets/trunks/geometry.ts` (pure polygon math — no
+   Svelte) and the minimal `types.ts` subset (`OutletConfig`, `TrunkConfig`, `RackPlacement`).
+2. `tools/outlets/OutletsRender.svelte`: takes `OutletsData` (outlets, trunks, rackPlacements) **plus the
+   floorplan PDF underlay** and renders **read-only SVG**: PDF page underlay positioned/scaled at the
+   page's origin + scale settings from `files/{fileId}.pages[pageNum]`, then outlet circles (color by
+   usage), trunk polygons via `generateTrunkPolygons`, placed racks. No tools, no selection, no drag —
+   lift only the drawing code out of `OutletCanvas.svelte`.
+3. `tools/outlets/OutletsViewport.svelte`: `subscribeOne('outlets', vp.source.outletsDocId)` **and**
+   `subscribeOne('files', vp.source.fileId)` → `<OutletsRender>` inside the nested canvas, scaled to the
+   viewport (`vp.scale` or fit). The underlay shares the viewport's source-mm → paper-mm transform so it
+   prints at the same ratio as the vectors.
 
-**Done when:** an outlets viewport shows the floor's outlets + trunks live and prints to scale.
+**Done when:** an outlets viewport shows the floorplan PDF underlay + outlets + trunks live, all
+correctly aligned.
 
-### Stage G — Milestone 2: Racks render
+### Stage G — Print preview / print-to-fit (validate NOW, on the Outlets render)
 
-1. `tools/racks/RacksRender.svelte`: read-only port of `racks/parts/RackElevationRenderer.svelte`
-   (front/rear) and `RackPlanRenderer.svelte` (plan). Inputs: `racks[]`, `devices[]`, `settings`,
-   `roomObjects[]`.
-2. `viewports/RacksViewport.svelte`: `subscribeOne('racks', vp.source.racksDocId)` → render the chosen
-   `face`.
-
-**Done when:** a racks viewport shows a front/rear elevation or plan, live + to scale.
-
-### Stage H — Milestone 3: Risers render
-
-1. `tools/risers/`: copy `risers/parts/engine.ts` (band/lane/compression geometry — pure) + `types.ts`.
-2. `tools/risers/RisersRender.svelte`: read-only port of the risers SVG (FloorBand / RoomBox / Ladder /
-   CablePath), honoring `fromFloor`/`toFloor`.
-3. `viewports/RisersViewport.svelte`: `subscribeOne('risers', vp.source.risersDocId)` → render range.
-
-**Done when:** a risers viewport shows the building elevation for a floor range, live + to scale.
-
-### Stage I — Print preview / print-to-fit (spec: print requirement)
+> Pulled forward deliberately: print scale is a prerequisite for every later tool, so we prove it on the
+> first real render (a floorplan at 1:100 **must** measure 1:100 on the printed page) rather than
+> deferring it. Stages H/I then reuse this proven print path unchanged.
 
 The sample's `Canvas.svelte` already injects an `@page { size: {w}mm {h}mm; margin:0 }` rule and scales
 the panzoom content by `PX_PER_MM = 96/25.4` on `beforeprint`, restoring on `afterprint`. Finalize:
 
 1. Confirm nested viewport canvases inherit the parent print scale (the sample marks non-interactive
-   nested canvases `managesPrint:false` so only the outer one injects `@page`). Verify each tool render
-   uses **non-scaling strokes** where lines must stay hairline (title block already does).
+   nested canvases `managesPrint:false` so only the outer one injects `@page`). Verify the Outlets render
+   uses **non-scaling strokes** where lines must stay hairline (title block already does), and that the
+   PDF underlay scales with content (raster, so it scales by the transform — confirm DPI looks right).
 2. Hide all chrome on print: menubar, status bar, floating `Window`s (`Window` already has
    `print:hidden`), selection/frame overlays, margin guide if desired. Add `data-no-print` / `print:hidden`
    to viewport frames and handles so only paper content remains.
 3. Add a **Print** action to the menubar calling `triggerPrint(sheet.paper, '<paper selector>')` (or the
    sample's existing Canvas print path).
-4. Test: Print → Save as PDF gives a single A3 page where 100mm on the drawing measures 100mm on paper
-   (verify with a known dimension at 1:1, then at 1:100).
+4. **Scale test (the important one):** place an outlets viewport at `vp.scale = 100`, Print → Save as
+   PDF, and measure a known building dimension on the PDF — 1000mm real must read as 10mm on an A3 page.
+   Repeat at 1:50 and Fit. Also confirm one sheet = exactly one A3 page, chrome hidden.
 
-**Done when:** print preview shows only the paper area, correctly scaled, chrome hidden, one sheet = one
-page.
+**Done when:** the floorplan prints to the correct scale on a single A3 page with no chrome — this is the
+reusable print contract for Racks and Risers.
+
+### Stage H — Milestone 2: Racks render
+
+1. `tools/racks/RacksRender.svelte`: read-only port of `racks/parts/RackElevationRenderer.svelte`
+   (front/rear) and `RackPlanRenderer.svelte` (plan). Inputs: `racks[]`, `devices[]`, `settings`,
+   `roomObjects[]`.
+2. `tools/racks/RacksViewport.svelte`: `subscribeOne('racks', vp.source.racksDocId)` → render the chosen
+   `face`. Reuses the Stage G print path.
+
+**Done when:** a racks viewport shows a front/rear elevation or plan, live + to scale + prints correctly.
+
+### Stage I — Milestone 3: Risers render
+
+1. `tools/risers/`: copy `risers/parts/engine.ts` (band/lane/compression geometry — pure) + `types.ts`.
+2. `tools/risers/RisersRender.svelte`: read-only port of the risers SVG (FloorBand / RoomBox / Ladder /
+   CablePath), honoring `fromFloor`/`toFloor`.
+3. `tools/risers/RisersViewport.svelte`: `subscribeOne('risers', vp.source.risersDocId)` → render range.
+   Reuses the Stage G print path.
+
+**Done when:** a risers viewport shows the building elevation for a floor range, live + to scale +
+prints correctly.
 
 ---
 
@@ -363,6 +409,18 @@ page.
   - *screen px* — actual pixels; Canvas zoom = `rect.width / offsetWidth`.
   - Each viewport applies one transform: source-mm → paper-mm via `vp.scale` (+ `contentOffsetMm`).
     Centralize this in `ViewportContent` so individual tool renders stay scale-agnostic.
+  - **y-axis convention (DECIDED — y-up standard):** renders use **y-up everywhere** (floorplan +
+    elevation). The flip lives in this single viewport transform (and the PDF underlay placement), so
+    tool renders stay axis-agnostic. A per-viewport `version` flag bridges legacy data: `version: 2`
+    (y-up) is the default for new viewports; `version: 1` (y-down) keeps legacy outlet floorplans
+    rendering until a conversion tool migrates their stored coords. `ViewportContent` branches on
+    `version` to apply or skip the flip. See §3 for details.
+- **Future editing (post-v1, see Q3):** v1 renders are read-only (edit in the source tool). Later,
+  editing happens via **floating windows over the main content area** (never inside the viewport),
+  shown based on the selected object, with **multiple open at once** — object properties, viewport
+  layers/settings, paper/sheet settings. Design the property-window shell (Stages D/E) so additional
+  windows can mount independently and coexist; the per-tool `*Properties.svelte` bodies are where
+  object/layer editing will later hang off the selected object.
 - **Svelte 5 rules** (per CLAUDE.md): runes only; no `$:`; no `onclick|stopPropagation`; `{@const}` only
   as immediate child of block; `{@render children?.()}`. Use `pushState`/`replaceState` from
   `$app/navigation` if syncing URL params, never raw `history.*`.
@@ -370,7 +428,7 @@ page.
   per-frame recompute; memoize geometry with `$derived`.
 - **Locale** is `'ja'`; keep user-facing strings consistent with the rest of the app.
 - **Bugs to fix from the sample** (flagged during analysis):
-  - Title-block `onupdate` never wired (Stage D fixes).
+  - Title-block `onupdate` never wired (Stage D fixes). No need to drag titleblock.
   - No persistence — everything is seeded/in-memory (Stages A–C fix).
   - `TrunkLabel` type defined but never rendered (only relevant if we surface trunk labels).
 
@@ -385,25 +443,33 @@ page.
 | C | 2 | Viewport geometry persists | B |
 | D | 3 | Sheet properties floating window | B |
 | E | 4 | Viewport properties window + text render (pipe proof) | C |
-| F | tool 1 | Outlets viewport render | E |
-| G | tool 2 | Racks viewport render | E |
-| H | tool 3 | Risers viewport render | E |
-| I | print | Print-to-fit, chrome hidden | F (then G, H) |
+| F | tool 1 | Outlets viewport render + floorplan PDF underlay | E |
+| G | print | **Print-to-fit, validated on the Outlets render at scale** | F |
+| H | tool 2 | Racks viewport render (reuses print path) | G |
+| I | tool 3 | Risers viewport render (reuses print path) | G |
 
-Ship A→E first (full sheet/viewport/text workflow end-to-end), then layer in F/G/H, then harden print
-(I) once at least one real tool render exists to validate scale.
+Ship A→E first (full sheet/viewport/text workflow end-to-end), then F (first real render) immediately
+followed by G (prove print scale on it) — print is the contract every later tool depends on. H and I
+then reuse the proven print path.
 
 ---
 
-## 8. Open questions to confirm before/while building
+## 8. Decisions & remaining questions
 
-1. **Sheet list location** — standalone `/sheets` list page (this plan), or reuse the existing project
-   nav? Plan assumes standalone.
-2. **One doc vs. subcollection** — embedded `viewports[]` array (this plan, simplest) vs. a
-   `viewports` subcollection. Embedded is fine until a sheet exceeds Firestore's 1MB doc limit; tool
-   *content* is referenced (by `outletsDocId` etc.), not copied, so docs stay small.
-3. **Editable in-viewport?** — spec says "Floating windows/sidebars allow editing properties of the
-   content". This plan ships tool renders **read-only** first (edit happens in the source tool), then
-   can add in-viewport editing later when a viewport is active. Confirm read-only-first is acceptable.
-4. **PDF underlay for outlets** — include the floorplan PDF in the outlets viewport, or vectors only?
-   Plan supports it via `files/{fileId}` but treats it as optional.
+**Decided (incorporated above):**
+
+1. **Sheet list location** — ✅ standalone `/sheets` list page.
+2. **Storage** — ✅ embedded `viewports[]` array, one doc per sheet. (Tool *content* is referenced by id,
+   not copied, so docs stay well under Firestore's 1MB limit.)
+3. **Editing model** — ✅ read-only renders in v1 (edit in the source tool). Later: floating windows over
+   the main content area (not in the viewport), shown per selected object, multiple open at once. See §6.
+4. **Floorplan PDF underlay** — ✅ required; positioned/scaled from the per-page origin + scale settings
+   in the files list (`files/{fileId}.pages[pageNum]`). See §3.
+
+5. **Floorplan y-axis** — ✅ **y-up is the standard** (one convention across floorplan + elevation),
+   implemented as a single flip in the `ViewportContent` transform. A per-viewport `version` flag carries
+   legacy data: `version: 2` (y-up) default for new viewports; `version: 1` (y-down) keeps legacy outlet
+   floorplans correct until a conversion tool migrates their stored coords to y-up. See §3 and §6.
+
+**Still open:** none — ready to build. (Future: a conversion tool to migrate legacy `version: 1` outlet
+floorplans to y-up, after which their viewports move to `version: 2`.)

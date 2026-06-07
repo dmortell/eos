@@ -147,16 +147,16 @@ Mirrors the working pattern in `RackElevationViewport` (`innerScale = 2 / scale`
 
 > **Migration note:** existing `outlets` viewports saved with `scale = 100` now honour it (1:100 window) instead of fitting. Set them to **Fit to viewport** (View ▸ Viewport scale) if the old whole-plan look is wanted.
 
-### Phase 5b — In-place editing inside an activated `outlets` viewport  ◑ (partial)
+### Phase 5b — In-place editing inside an activated `outlets` viewport  ✅ (move-existing)
 **Goal:** edit floorplan content in-place, writing to the live `outlets/{pid}_F{NN}` doc.
 
-Shipped (this round):
-- `OutletsViewport` gains an `active` mode: when the viewport is double-clicked into, its SVG becomes interactive and **existing outlets can be dragged to reposition them**, persisting straight to the live `outlets/{pid}_F{NN}` doc (`db.save` merge replaces the outlets array). Client→mm uses the SVG `getScreenCTM()` (accounts for every canvas transform). Drag-on-outlet uses **mouse** events + `stopPropagation` so the frame's pan is suppressed; drag-on-empty bubbles to the frame and pans (Phase 2). Optimistic position holds until the doc echoes back (no flash).
+Shipped:
+- `OutletsViewport` `active` mode: double-click in → SVG becomes interactive (`pointer-events`), and **left-drag repositions existing outlets *and* trunk nodes**, persisting straight to the live `outlets/{pid}_F{NN}` doc (`db.save` merge replaces just the outlets/trunks array). Client→mm uses the SVG `getScreenCTM()` (accounts for every canvas transform). Drag-on-element uses **mouse** events + `stopPropagation` so the frame's middle/right pan is suppressed; **middle/right-drag pans** the content (unified model); optimistic positions hold until the doc echoes back (no flash). Cyan **node handles** appear when active so trunk vertices are discoverable; outlets are already dots.
 
-Still outstanding (next):
-- Dragging **trunk nodes** in-place (needs overriding `TrunkRenderer` node positions); **adding** new outlets/trunks (needs a tool palette in the viewport). Both depend on settling the pan/zoom model (Appendix D-1) since edit-vs-pan gesture disambiguation matters. The heavier option — mounting the full `OutletCanvas` in the viewport — remains possible (it's self-contained: no context/stores) but brings tool/legend/print chrome; deferred.
+Still outstanding (later):
+- **Adding** new outlets/trunks and other edits (disconnect/insert) inside the viewport — needs a small tool palette + mode in the viewport. The heavier alternative (mount the full `OutletCanvas` in the viewport — it's self-contained: no context/stores) remains possible but brings tool/legend/print chrome; deferred.
 
-Risk: medium. Acceptance (met for slice): drag an outlet inside a drawing viewport → it moves in the Outlets tool too.
+Risk: realised medium. Acceptance (met): drag an outlet or trunk node inside a drawing viewport → it moves in the Outlets tool too.
 
 ### Phase 6b — Trunk editing extras (outlets tool)  ✅ (shipped)
 **Goal:** adopt the POC's *extra* trunk-editing UX in the `outlets` editing tool.
@@ -188,15 +188,15 @@ Steps:
 
 Risk: medium. Acceptance: place/edit each annotation type; thin in PDF; selection hidden in print.
 
-### Phase 8 — Title block + print polish
-**Goal:** dev-tunable title block; verified thin lines in PDF.
+### Phase 8 — Title block + print polish  ✅ (shipped)
+**Goal:** dev-tunable title block; thin lines in PDF.
 
-Steps:
-1. Port POC `TitleBlock.svelte` section-config (easy size/section adjustment) into production `drawings/parts/TitleBlock.svelte`; keep production's field/templating.
-2. Use `vector-effect="non-scaling-stroke"` + `.dwg-line` weights for title-block + margin borders.
-3. Verify `triggerPrint` hides `DrawingMenubar`, `StatusBar`, `LayersPanel`, selection/snap chrome (all tagged `print:hidden`/`data-no-print`).
+Shipped:
+1. **Data-driven title block** — production `TitleBlock.svelte` rewritten onto the POC's section-config engine: a single `sections` array (relative row heights `h`, `0`=grow; per-section `cols` with relative widths `w`; cell kinds incl. an `identity` block) drives **both** the text grid and the divider lines. All three templates (standard / compact / vertical) are now just different section configs — a dev tunes a drawing's layout by editing the array. Same fields/priority resolution as before.
+2. **Crisp hairlines** — every divider + the outer frame is an SVG overlay of `vector-effect="non-scaling-stroke"` `.dwg-line` strokes (shared class now in `layout.css`), replacing per-template CSS borders. The **page margin** frame (`PageCanvas`) switched from a dashed `print:hidden` guide to the same non-scaling `.dwg-line` rect — so it prints as a thin, crisp drawing border. Constant weight at any zoom and in PDF; tune via `--dwg-w` / `--dwg-c`.
+3. **Print chrome** — `DrawingMenubar` + `StatusBar` carry `print:hidden`; sidebar is `sidebar-area` (hidden by the print-handler); selection handles/active node handles are gated off because `handlePrint` clears selection+active before printing. Title block + margin intentionally print.
 
-Risk: low. Acceptance: dev can retune sections in code quickly; printed borders are hairline-thin; no UI chrome leaks into PDF.
+Risk: realised low. Acceptance (met): sections editable in code; printed borders are hairline-thin; no UI chrome in the PDF.
 
 ---
 
@@ -242,11 +242,11 @@ Goal later: floorplans use **positive-up** like elevations. For now, build so th
 
 -1. **Pan/zoom consistency — unify input methods.**  ✅ (resolved)
    Unified model shipped across the drawing surfaces (`PageCanvas` + `ViewportFrame`):
-   - **Wheel = zoom at cursor**, everywhere — the page canvas when no viewport is active; the active viewport's *content* when one is (its handler stops propagation so the page doesn't also zoom). Removed the old plain-wheel-pan / Ctrl-modifier-to-zoom split.
+   - **Wheel = zoom at cursor**, everywhere — the page canvas when no viewport is active; the active viewport's *content* when one is (its handler stops propagation so the page doesn't also zoom). **Any** wheel zooms: plain wheel (AutoCAD-style, the primary model) *and* right/middle-button-held wheel (kept for habit). In the outlets tool a right-held wheel is treated as activity so it doesn't pop the trunk context menu on release.
    - **Middle- or right-drag = pan**, everywhere — pans the page, or the *active viewport's content* when one is active. The active `ViewportFrame` now intercepts middle/right-drag and `stopPropagation`s, **fixing the bug** where right-drag over an active viewport panned the whole page.
    - **Left = interaction only** — drag a *selected* frame to move it; edit content in an *active* viewport (left swallowed so it can't deselect); click empty page to deselect.
    - **Dropped** Alt+drag / Alt+wheel on inactive viewports (the disliked inconsistency). To pan/zoom a viewport's content you double-click in first.
-   *Not yet aligned:* the standalone **outlets editing tool** (`OutletCanvas`) already uses middle/right-drag pan but still gates zoom behind Ctrl/right-button — align its wheel→zoom in a later pass if desired (separate surface, wasn't part of the reported issue).
+   **Outlets editing tool aligned too:** `OutletCanvas` now zooms on plain wheel at the cursor (was Ctrl/right-button-gated, with plain-wheel scroll-pan) — pan stays middle/right-drag. The whole app now shares the wheel=zoom / middle-right-drag=pan model.
 0. **Selection model — revisit for annotations.** Phase 2 shipped *select-first + 4px threshold* (a click anywhere on the viewport selects; a deliberate drag moves). The eos2 POC actually selects **only** when clicking/marquee-dragging across the *frame border* — clicking the content does **not** select. We left it as-is because Ctrl-Z undo covers accidental moves well. **Revisit** if/when annotations land: editing annotations inside a viewport will likely need clicking content to *not* select/move the frame, so we may want the POC's frame-border-only selection (+ marquee) then.
 1. Annotation coordinate space: page-level vs viewport-level vs both? (affects whether annotations pan with an activated viewport).
 2. Should `floorplan-edit` viewports allow editing racks/outlets too, or trunks only in v1?
