@@ -9,6 +9,7 @@
 	import StatusBar from "./StatusBar.svelte";
 	import SheetPropertiesWindow from "./parts/SheetPropertiesWindow.svelte";
 	import ViewportPropertiesWindow from "./parts/ViewportPropertiesWindow.svelte";
+	import ModelView from "./edit/ModelView.svelte";
 	import { ViewportEditor } from "./viewports.svelte";
 	import type { SheetDoc, SheetViewport, TitleBlockConfig } from "./types";
 	import { updateSheet } from "./data";
@@ -60,6 +61,9 @@
 
 	// ── Viewports ──
 	const vps = new ViewportEditor()
+	// Model mode: when set, that viewport's content fills the content area (paper hidden).
+	let modelVpId = $state<string | null>(null)
+	let modelVp = $derived(modelVpId ? vps.viewports.find(v => v.id === modelVpId) ?? null : null)
 	let mainZoom = $state(1)              // outer Canvas zoom — counter-scales viewport handles
 	let mainPanX = $state(0)             // outer Canvas pan (px) — for the status-bar readout
 	let mainPanY = $state(0)
@@ -109,6 +113,7 @@
 		let dragging = false
 
 		function onDown(e: MouseEvent) {
+			if (modelVpId) return // model mode overlay owns the content area
 			if (e.button !== 0 || inMenu(e.target)) return
 			const p = vps.toPaper(e.clientX, e.clientY); if (!p) return
 			if (vps.insertMode) { e.preventDefault(); e.stopPropagation(); vps.beginDrag(p); dragging = true; return }
@@ -126,12 +131,13 @@
 			if (p) vps.endDrag(p, e.shiftKey); else vps.cancelInsert()
 		}
 		function onDbl(e: MouseEvent) {
-			if (inMenu(e.target)) return
+			if (modelVpId || inMenu(e.target)) return
 			const p = vps.toPaper(e.clientX, e.clientY); if (!p) return
 			const hit = vps.hitTest(p)
 			if (hit) vps.activate(hit.id); else vps.deactivate()
 		}
 		function onKey(e: KeyboardEvent) {
+			if (modelVpId) { if (e.key === 'Escape') modelVpId = null; return }
 			if (e.key === 'Escape') { if (vps.insertMode) vps.cancelInsert(); else { vps.deactivate(); vps.clearSel() } }
 			else if ((e.key === 'Delete' || e.key === 'Backspace') && !isField(e.target) && !vps.activeId && vps.selectedIds.length) {
 				e.preventDefault(); vps.deleteSelected()
@@ -194,7 +200,7 @@
 				{/if}
 
 				{#each vps.viewports as vp (vp.id)}
-					<Viewport {vps} {vp} zoom={mainZoom} />
+					<Viewport {vps} {vp} zoom={mainZoom} onmodel={(id) => { vps.deactivate(); modelVpId = id }} />
 				{/each}
 
 				<!-- Insert drag-out preview -->
@@ -230,6 +236,11 @@
 		<!-- Floating property windows (over the canvas, not inside a viewport). -->
 		<SheetPropertiesWindow {sheet} {project} {db} {pid} />
 		<ViewportPropertiesWindow {vps} {floors} {pid} />
+
+		<!-- Model mode: full-area content editor over the sheet (no route / refresh). -->
+		{#if modelVp}
+			<ModelView vp={modelVp} onexit={() => modelVpId = null} />
+		{/if}
 	</div>
 </div>
 

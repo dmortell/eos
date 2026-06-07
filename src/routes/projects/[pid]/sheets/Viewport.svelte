@@ -6,7 +6,7 @@
 	// Model-driven: the controller owns position/selection/active state; this component renders
 	// one viewport and reports frame-clicks / handle-drags back. AutoCAD-style selection — you
 	// pick a viewport by its FRAME or a marquee box, never by clicking the inactive interior.
-	let { vps, vp, zoom = 1 }: { vps: ViewportEditor; vp: SheetViewport; zoom?: number } = $props()
+	let { vps, vp, zoom = 1, onmodel }: { vps: ViewportEditor; vp: SheetViewport; zoom?: number; onmodel?: (id: string) => void } = $props()
 
 	let selected = $derived(vps.isSelected(vp.id))
 	let active = $derived(vps.activeId === vp.id)
@@ -176,6 +176,14 @@
 	<!-- Scale readout (screen-only debug, top-right above the frame) -->
 	<div class="absolute right-0 whitespace-nowrap leading-none text-zinc-400 pointer-events-none print:hidden"
 		style:top="{(-14 / zoom)}px" style:font-size="{12 / zoom}px">{scaleText}</div>
+
+	<!-- Model-mode (maximize) button — shown when active, above the top-right corner. -->
+	{#if active && onmodel}
+		<button class="absolute leading-none text-blue-600 hover:text-blue-800 print:hidden"
+			style:right="{-2 / zoom}px" style:top="{-30 / zoom}px" style:font-size="{16 / zoom}px"
+			style:pointer-events="auto" title="Open in model mode"
+			onmousedown={e => { e.stopPropagation() }} onclick={e => { e.stopPropagation(); onmodel?.(vp.id) }}>⤢</button>
+	{/if}
 
 	{#if !active}
 		<!-- Clickable frame: four thin edge strips so the interior stays click-through. -->
