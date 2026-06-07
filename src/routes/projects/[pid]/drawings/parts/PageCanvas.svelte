@@ -140,6 +140,24 @@
 
 	function onContextMenu(e: MouseEvent) { e.preventDefault() }
 
+	/** Reset to 1:1 with the paper near the top-left (matches the initial view). */
+	export function zoom100() {
+		zoom = 1
+		panX = 40
+		panY = 40
+	}
+
+	/** Fit the whole paper within the canvas viewport, centred. */
+	export function zoomFit() {
+		const pad = 24
+		const zx = (width - pad * 2) / paperMm.w
+		const zy = (height - pad * 2) / paperMm.h
+		const z = Math.max(0.1, Math.min(8, Math.min(zx, zy)))
+		zoom = z
+		panX = (width - paperMm.w * z) / 2
+		panY = (height - paperMm.h * z) / 2
+	}
+
 	/**
 	 * Double-clicking empty canvas exits any activated viewport. Viewport
 	 * double-clicks stop propagation, so anything reaching here is "empty".

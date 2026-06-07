@@ -11,6 +11,8 @@
 	import { DEFAULT_PRINT_SETTINGS } from '$lib/ui/print/types'
 	import { migrateFloors } from '$lib/utils/floor'
 	import PageCanvas from '../../parts/PageCanvas.svelte'
+	import DrawingMenubar from '../../parts/DrawingMenubar.svelte'
+	import AddViewportDialog from '../../parts/AddViewportDialog.svelte'
 	import VersionPanel from '../../../parts/VersionPanel.svelte'
 	import type { TitleBlockProjectDefaults } from '../../parts/TitleBlock.svelte'
 
@@ -45,9 +47,10 @@
 	let innerWidth = $state(1200)
 	let innerHeight = $state(800)
 	const SIDEBAR_W = 280
+	const MENUBAR_H = 34
 	const STATUSBAR_H = 24
 	let canvasWidth = $derived(innerWidth - SIDEBAR_W)
-	let canvasHeight = $derived(innerHeight - 30) // titlebar only
+	let canvasHeight = $derived(innerHeight - 30 - MENUBAR_H) // minus titlebar + menubar
 	let canvasInnerHeight = $derived(canvasHeight - STATUSBAR_H) // canvas minus status bar
 
 	$effect(() => {
@@ -237,23 +240,17 @@
 		})
 	}
 
-	function defaultSourceFor(kind: ViewportSource['kind']): ViewportSource {
-		switch (kind) {
-			case 'rack-elevation': return { kind, rackDocId: '', face: 'front' }
-			case 'rack-plan':      return { kind, rackDocId: '' }
-			case 'frame-detail':   return { kind, frameDocId: '', frameId: '' }
-			case 'fillrate':       return { kind, projectId: pid ?? '' }
-			case 'floorplan':      return { kind, fileId: '', pageNum: 1 }
-			case 'patching':       return { kind, patchDocId: rackDocIdFor(floors[0]?.number ?? 1, 'A') }
-			case 'outlets':        return { kind, outletsDocId: `${pid}_F${String(floors[0]?.number ?? 1).padStart(2, '0')}`, showOutlets: true, showTrunks: true }
-			case 'risers':         return { kind, risersDocId: pid ?? '' }
-			case 'survey':         return { kind, surveyId: '', mode: 'album' }
-			case 'text':           return { kind, content: 'Note' }
-			case 'image':          return { kind, url: '' }
-		}
+	// Add-viewport dialog (type + source picker). `addViewportKind` pre-selects a
+	// kind so the sidebar palette can jump straight to the source step.
+	let addViewportOpen = $state(false)
+	let addViewportKind = $state<ViewportSource['kind'] | null>(null)
+	function openAddDialog(kind?: ViewportSource['kind']) {
+		addViewportKind = kind ?? null
+		addViewportOpen = true
 	}
 
-	async function addViewport(kind: ViewportSource['kind']) {
+	/** Create a viewport from a fully-bound source (produced by AddViewportDialog). */
+	async function createViewport(source: ViewportSource, label?: string) {
 		if (!pageData) return
 		const id = crypto.randomUUID().slice(0, 10)
 		const vp: Viewport = {
@@ -261,8 +258,9 @@
 			positionMm: { x: 40, y: 40 },
 			widthMm: 150,
 			heightMm: 100,
-			source: defaultSourceFor(kind),
+			source,
 			scale: pageData.paper.scale || 100,
+			...(label ? { label } : {}),
 		}
 		selectedViewportId = id
 		await persist({ viewports: [...pageData.viewports, vp] })
@@ -323,6 +321,8 @@
 	let undoStack = $state<{ id: string; geom: GeomSnap }[]>([])
 	let redoStack = $state<{ id: string; geom: GeomSnap }[]>([])
 	const HISTORY_LIMIT = 100
+	let canUndo = $derived(undoStack.length > 0)
+	let canRedo = $derived(redoStack.length > 0)
 
 	function geomOf(vp: Viewport): GeomSnap {
 		return { positionMm: { ...vp.positionMm }, widthMm: vp.widthMm, heightMm: vp.heightMm }
@@ -415,7 +415,7 @@
 
 	let versionPanelOpen = $state(false)
 	let publishing = $state(false)
-	let pageCanvas: { doPrint: () => void } | null = $state(null)
+	let pageCanvas: { doPrint: () => void; zoomFit: () => void; zoom100: () => void } | null = $state(null)
 
 	function handlePrint() {
 		// Drop selection/active chrome so no frame borders/handles land in the PDF.
@@ -508,6 +508,23 @@
 		<Spinner>Loading page...</Spinner>
 	</div>
 {:else}
+	<DrawingMenubar
+		height={MENUBAR_H}
+		{selectedViewportId}
+		{canUndo}
+		{canRedo}
+		canPublish={!!drawing}
+		onaddviewport={() => openAddDialog()}
+		onundo={undo}
+		onredo={redo}
+		onduplicate={() => { if (selectedViewportId) duplicateViewport(selectedViewportId) }}
+		ondelete={() => { if (selectedViewportId) removeViewport(selectedViewportId) }}
+		onprint={handlePrint}
+		onpublish={handlePublish}
+		ondeletepage={handleDeletePage}
+		onzoomfit={() => pageCanvas?.zoomFit()}
+		onzoom100={() => pageCanvas?.zoom100()}
+		onsetviewportscale={s => { if (selectedViewportId) updateViewport(selectedViewportId, { scale: s }) }} />
 	<div class="flex" style:height="{canvasHeight}px">
 		<!-- Sidebar — `sidebar-area` is hidden by print-handler.ts injected CSS. -->
 		<aside class="border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex flex-col text-xs sidebar-area print:hidden overflow-hidden"
@@ -569,7 +586,7 @@
 					{#each VIEWPORT_KINDS as vk}
 						<button
 							class="px-2 py-1 rounded border border-zinc-200 dark:border-zinc-700 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950 text-left"
-							onclick={() => addViewport(vk.kind)}>
+							onclick={() => openAddDialog(vk.kind)}>
 							{vk.label}
 						</button>
 					{/each}
@@ -1075,4 +1092,12 @@
 			<StatusBar message={statusMessage} height={STATUSBAR_H} />
 		</div>
 	</div>
+
+	<AddViewportDialog
+		bind:open={addViewportOpen}
+		initialKind={addViewportKind}
+		{db}
+		projectId={pid ?? ''}
+		{floors}
+		onadd={createViewport} />
 {/if}

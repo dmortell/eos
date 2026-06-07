@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { replaceState } from '$app/navigation';
 	import { getContext } from 'svelte';
 	import { Firestore, Spinner, Session } from '$lib';
 	import { writeLog } from '$lib/logger';
@@ -126,7 +127,7 @@
 		const url = new URL(window.location.href);
 		url.searchParams.set('floor', String(activeFloor));
 		url.searchParams.set('room', activeRoom);
-		history.replaceState(history.state, '', url.toString());
+		replaceState(url, page.state);
 	});
 
 	function changeFloor(newFloor: number) {

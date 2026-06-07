@@ -126,21 +126,20 @@ Steps:
 
 Risk: low–medium. Acceptance: menus drive existing actions; disabled states correct; hidden in print.
 
-### Phase 4 — Viewport add-flow: type + source + native floorplan kind
-**Goal:** adding a viewport prompts content **type** and **source**; add the editable `floorplan` kind.
+### Phase 4 — Viewport add-flow: type + source  ✅ (shipped)
+**Goal:** adding a viewport prompts content **type** and **source** up front.
+
+Shipped:
+1. `AddViewportDialog.svelte` — two-step modal (pick **type** → bind **source** with proper controls: floor/room/face selects, a real **file dropdown** for floorplans, outlets/trunks toggles, text/image fields, optional label). Wired to menubar **Insert ▸ Viewport…** (full type step) and the sidebar palette (jumps straight to the source step for the clicked kind). Replaced the old "add blank → hunt in sidebar" flow (`addViewport`/`defaultSourceFor` removed; new `createViewport(source, label)`).
+2. **Discovery — no new `floorplan-edit` kind needed.** Production's existing **`outlets`** viewport already renders the floorplan PDF underlay + `TrunkRenderer` trunks + outlet dots (read-only, calibration-aware). That IS the floorplan drawing, so the hybrid in-place editing target in Phase 5 is the **`outlets`** viewport (make it editable when activated) — not a new kind. The original plan's `floorplan-edit` idea is dropped.
+
+Acceptance (met): every new viewport gets a correct, non-empty source up front; floorplan picks a real uploaded file.
+
+### Phase 5 — In-place floorplan editing + scale/world-scale (revised target)
+**Goal:** edit trunks/outlets/racks inside an activated **`outlets`** viewport; finalize scale model.
 
 Steps:
-1. Add-viewport flow (from menubar/palette) opens a small picker: **type** (floorplan, rack-elevation, rack-plan, frame-detail, fillrate, outlets, patching, risers, survey, text, image) and **source** (floor, room, face, file/page as applicable). Production's sidebar already renders these per-kind pickers — reuse that logic at add-time instead of after-the-fact.
-2. Add `floorplan` to the `ViewportSource` union: `{ kind:'floorplan-edit'; outletsDocId; fileId; pageNum; layers:{…} }` (distinct from the read-only `floorplan` PDF-section kind).
-3. `FloorplanViewport.svelte`: read-only PDF underlay + `TrunkRenderer` + outlet/rack render by default; when its viewport is **activated**, mount the editing primitives (Phase 5).
-
-Risk: medium. Acceptance: every new viewport gets correct type+source up front; a floorplan viewport shows live outlets data.
-
-### Phase 5 — In-place floorplan editing + scale/world-scale
-**Goal:** edit trunks/outlets/racks inside an activated floorplan viewport; finalize scale model.
-
-Steps:
-1. When a `floorplan-edit` viewport is active, reuse `OutletCanvas` editing primitives (`hitTestNode/Segment`, `constrainAngle`, `snapToNearby`, add/move/disconnect) operating on the **live** `outlets/{pid}_F{NN}` doc. Keep production's toggle-button tool switch (outlets/racks/trunks) — not a `<select>`.
+1. When an **`outlets`** viewport is active, reuse `OutletCanvas` editing primitives (`hitTestNode/Segment`, `constrainAngle`, `snapToNearby`, add/move/disconnect) operating on the **live** `outlets/{pid}_F{NN}` doc. Keep production's toggle-button tool switch (outlets/racks/trunks) — not a `<select>`.
 2. **Exact scale**: viewport already has `scale` (1:N / 0=fit). Define the model:
    - `scale` = locked content scale (1mm world → (1/scale)·1mm paper).
    - Wheel inside an active viewport adjusts a **transient view-zoom** for comfort, but a "Set scale 1:N" (menubar/sidebar) re-locks content scale. A small readout shows the current effective scale.
@@ -222,6 +221,7 @@ Goal later: floorplans use **positive-up** like elevations. For now, build so th
 
 ## Appendix D — Open questions for later
 
+0. **Selection model — revisit for annotations.** Phase 2 shipped *select-first + 4px threshold* (a click anywhere on the viewport selects; a deliberate drag moves). The eos2 POC actually selects **only** when clicking/marquee-dragging across the *frame border* — clicking the content does **not** select. We left it as-is because Ctrl-Z undo covers accidental moves well. **Revisit** if/when annotations land: editing annotations inside a viewport will likely need clicking content to *not* select/move the frame, so we may want the POC's frame-border-only selection (+ marquee) then.
 1. Annotation coordinate space: page-level vs viewport-level vs both? (affects whether annotations pan with an activated viewport).
 2. Should `floorplan-edit` viewports allow editing racks/outlets too, or trunks only in v1?
 3. Layer presets — per-project default layer sets, or per-viewport only?
