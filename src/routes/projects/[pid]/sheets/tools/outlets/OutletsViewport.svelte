@@ -5,6 +5,10 @@
 	import type { SheetViewport } from '../../types'
 	import type { OutletsData, PageCalibration } from './types'
 	import OutletsRender from './OutletsRender.svelte'
+	import OutletsEditLayer from './OutletsEditLayer.svelte'
+	import OutletsEditPanel from './OutletsEditPanel.svelte'
+	import { OutletsEditor } from './outlets-editor.svelte'
+	import { docSaver } from '../../edit/persist'
 
 	const RENDER_SCALE = 2 // PDF rasterization scale (crispness)
 
@@ -92,17 +96,49 @@
 			pdf.destroy()
 		}
 	})
+
+	// ── Editing ── one editor per viewport instance; the source doc is the single source of truth.
+	const editor = new OutletsEditor()
+	// Mirror the doc into the editor while idle; once active, the editor owns the data.
+	$effect(() => { if (!active) editor.seed(outletsData) })
+	// Persist edits (debounced) to the outlets doc.
+	$effect(() => {
+		const id = src?.outletsDocId
+		if (!id) { editor.onChange = null; return }
+		const saver = docSaver(db, 'outlets', id)
+		editor.onChange = () => saver.save(editor.snapshot())
+		return () => { saver.flush(); editor.onChange = null }
+	})
+	// Delete / Escape while active (capture phase so the sheet's handlers don't also fire).
+	$effect(() => {
+		if (!active) return
+		const onKey = (e: KeyboardEvent) => {
+			const f = (e.target as Element)?.closest?.('input, textarea, select, [contenteditable]')
+			if (e.key === 'Delete' && !f && editor.sel) { e.preventDefault(); e.stopPropagation(); editor.deleteSel() }
+			else if (e.key === 'Escape' && editor.draw) { e.preventDefault(); e.stopPropagation(); editor.finishDraw() }
+		}
+		window.addEventListener('keydown', onKey, true)
+		return () => window.removeEventListener('keydown', onKey, true)
+	})
 </script>
 
 {#if src}
 	<OutletsRender
-		outlets={outletsData?.outlets ?? []}
-		trunks={outletsData?.trunks ?? []}
-		rackPlacements={outletsData?.rackPlacements ?? []}
+		outlets={editor.outlets}
+		trunks={editor.trunks}
+		rackPlacements={editor.rackPlacements}
 		{racksById}
 		{calibration}
 		{pdfUrl} {pageW} {pageH}
-		{vp} {view} {onview} />
+		{vp} {view} {onview}
+		onsvg={(el) => editor.svg = el}>
+		{#if active}
+			<OutletsEditLayer {editor} />
+		{/if}
+	</OutletsRender>
+	{#if active}
+		<OutletsEditPanel {editor} />
+	{/if}
 {:else}
 	<div class="flex h-full w-full items-center justify-center text-zinc-400 print:hidden" style:font-size="{14 / zoom}px">No outlets source</div>
 {/if}
