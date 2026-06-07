@@ -130,12 +130,18 @@
 	})
 
 	const PRINT_STYLE_ID = 'pkg-multi-page-style'
+	const PX_PER_MM = 96 / 25.4 // CSS px per mm — scales px-sized sheet content to true mm
 
 	/**
 	 * Inject named @page rules + the `.sheet-size-…` classes that bind each
 	 * sheet to its size. Chrome honours the CSS `page:` property, shifting
 	 * paper size at page-break boundaries — the mechanism powering
 	 * mixed-paper-size output.
+	 *
+	 * Each sheet's content is laid out in px (1px = 1mm at screen scale); on print
+	 * we size the sheet-wrap to its real mm and scale `.sheet-content` by
+	 * `PX_PER_MM`, so 1 world-unit maps to a real millimetre and the paper fills
+	 * the page (same technique as the single-page `PageCanvas` print).
 	 */
 	function injectMultiPageStyles() {
 		let rules = ''
@@ -148,8 +154,14 @@
 		rules += `@media print {\n`
 		rules += `  html, body { margin: 0; padding: 0; background: white !important; }\n`
 		rules += `  .sidebar-area, [data-no-print] { display: none !important; }\n`
-		rules += `  .sheet-wrap { margin: 0 !important; box-shadow: none !important; page-break-after: always; break-after: page; }\n`
+		rules += `  .pkg-print-container { background: white !important; }\n`
+		rules += `  .sheet-wrap { margin: 0 !important; box-shadow: none !important; overflow: hidden; page-break-after: always; break-after: page; }\n`
 		rules += `  .sheet-wrap:last-child { page-break-after: auto; break-after: auto; }\n`
+		rules += `  .sheet-content { transform: scale(${PX_PER_MM}) !important; transform-origin: 0 0 !important; }\n`
+		for (const cfg of uniquePaperConfigs) {
+			const cls = sheetClassFor(cfg.paper)
+			rules += `  .${cls} { width: ${cfg.wMm}mm !important; height: ${cfg.hMm}mm !important; }\n`
+		}
 		rules += `}\n`
 
 		let el = document.getElementById(PRINT_STYLE_ID) as HTMLStyleElement | null
@@ -231,7 +243,7 @@
 				class:break-after-page={idx < resolvedPages.length - 1}
 				style:width="{paperMm.w}px"
 				style:height="{paperMm.h}px">
-				<div class="absolute inset-0 relative" style:width="{paperMm.w}px" style:height="{paperMm.h}px">
+				<div class="sheet-content relative" style:width="{paperMm.w}px" style:height="{paperMm.h}px">
 					{#each pg.viewports as vp (vp.id)}
 						<ViewportFrame
 							viewport={vp}

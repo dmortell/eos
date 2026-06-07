@@ -20,7 +20,10 @@
 	 */
 	import type { Viewport } from '$lib/types/pages'
 	import type { OutletConfig, Point } from '../../../outlets/parts/types'
-	import type { TrunkConfig } from '../../../outlets/trunks/types'
+	import type { TrunkConfig, TrunkNode, TrunkSegment } from '../../../outlets/trunks/types'
+	import { OUTLET_DEFAULTS } from '../../../outlets/parts/constants'
+	import { hitTestNode, hitTestSegment, splitSegment, genId } from '../../../outlets/trunks/geometry'
+	import { portal } from '../../../outlets/trunks/portal'
 	import { Firestore } from '$lib'
 	import TrunkRenderer from '../../../outlets/trunks/TrunkRenderer.svelte'
 
@@ -242,6 +245,14 @@
 		if (!active || e.button !== 0) return
 		const mm = clientToMm(e.clientX, e.clientY)
 		if (!mm) return
+		// Add-outlet tool: click drops a new outlet at the point (stays in tool for
+		// repeated adds). Defaults from the outlets tool so the doc stays valid.
+		if (editMode === 'outlet') {
+			e.stopPropagation()
+			e.preventDefault()
+			void persistOutlets([...(outletsDoc?.outlets ?? []), { id: genId('o'), position: mm, ...OUTLET_DEFAULTS }])
+			return
+		}
 		// Nearest outlet or trunk node within ~250 mm.
 		let best: { d: number; target: DragTarget; start: Point } | null = null
 		for (const o of visibleOutlets) {
@@ -290,6 +301,91 @@
 			await db.save('outlets', { id: src.outletsDocId, trunks: next })
 		}
 	}
+
+	// ── In-viewport add / disconnect tools ──
+	let editMode = $state<'select' | 'outlet'>('select')
+	type TrunkMenu = { x: number; y: number; trunkId: string; kind: 'node' | 'segment'; nodeId?: string; segmentId?: string; pointMm: Point; canDisconnect: boolean }
+	let trunkMenu = $state<TrunkMenu | null>(null)
+	// Reset edit state when the viewport is deactivated.
+	$effect(() => { if (!active) { editMode = 'select'; trunkMenu = null } })
+
+	async function persistOutlets(outlets: OutletConfig[]) {
+		if (src?.outletsDocId) await db.save('outlets', { id: src.outletsDocId, outlets })
+	}
+	async function persistTrunks(trunks: TrunkConfig[]) {
+		if (src?.outletsDocId) await db.save('outlets', { id: src.outletsDocId, trunks })
+	}
+
+	/** Right-click a trunk node/segment → open the edit context menu. */
+	function onEditContextMenu(e: MouseEvent) {
+		if (!active) return
+		const mm = clientToMm(e.clientX, e.clientY)
+		if (!mm) return
+		for (const t of visibleTrunks) {
+			const node = hitTestNode(mm, t.nodes, 250)
+			if (node) {
+				e.preventDefault(); e.stopPropagation()
+				const segs = t.segments.filter(s => s.nodes[0] === node.id || s.nodes[1] === node.id)
+				trunkMenu = { x: e.clientX, y: e.clientY, trunkId: t.id, kind: 'node', nodeId: node.id, pointMm: mm, canDisconnect: segs.length >= 2 }
+				return
+			}
+			const seg = hitTestSegment(mm, t.nodes, t.segments, 0)
+			if (seg) {
+				e.preventDefault(); e.stopPropagation()
+				trunkMenu = { x: e.clientX, y: e.clientY, trunkId: t.id, kind: 'segment', segmentId: seg.segment.id, pointMm: mm, canDisconnect: false }
+				return
+			}
+		}
+	}
+
+	function menuInsertNode() {
+		const m = trunkMenu; trunkMenu = null
+		if (m?.kind !== 'segment' || !m.segmentId) return
+		const t = (outletsDoc?.trunks ?? []).find((x: TrunkConfig) => x.id === m.trunkId)
+		if (!t) return
+		const { trunk } = splitSegment(t, m.segmentId, m.pointMm)
+		void persistTrunks((outletsDoc?.trunks ?? []).map((x: TrunkConfig) => x.id === m.trunkId ? trunk : x))
+	}
+	function menuDisconnect() {
+		const m = trunkMenu; trunkMenu = null
+		if (m?.kind !== 'node' || !m.nodeId) return
+		const t = (outletsDoc?.trunks ?? []).find((x: TrunkConfig) => x.id === m.trunkId)
+		const node = t?.nodes.find((n: TrunkNode) => n.id === m.nodeId)
+		const segs = t?.segments.filter((s: TrunkSegment) => s.nodes[0] === m.nodeId || s.nodes[1] === m.nodeId) ?? []
+		if (!t || !node || segs.length < 2) return
+		// Split the junction: move the last segment onto a fresh coincident node.
+		const seg = segs[segs.length - 1]
+		const newId = genId('tn')
+		const newNode: TrunkNode = { id: newId, position: { ...node.position }, z: node.z }
+		const updated = { ...t, nodes: [...t.nodes, newNode],
+			segments: t.segments.map((s: TrunkSegment) => s.id === seg.id
+				? { ...s, nodes: (s.nodes[0] === m.nodeId ? [newId, s.nodes[1]] : [s.nodes[0], newId]) as [string, string] } : s) }
+		void persistTrunks((outletsDoc?.trunks ?? []).map((x: TrunkConfig) => x.id === m.trunkId ? updated : x))
+	}
+	function menuDeleteNode() {
+		const m = trunkMenu; trunkMenu = null
+		if (m?.kind !== 'node' || !m.nodeId) return
+		const t = (outletsDoc?.trunks ?? []).find((x: TrunkConfig) => x.id === m.trunkId)
+		if (!t) return
+		const connected = t.segments.filter((s: TrunkSegment) => s.nodes[0] === m.nodeId || s.nodes[1] === m.nodeId)
+		let segments = t.segments.filter((s: TrunkSegment) => s.nodes[0] !== m.nodeId && s.nodes[1] !== m.nodeId)
+		// Degree-2 node → reconnect its two neighbours so the run stays continuous.
+		if (connected.length === 2) {
+			const a = connected[0].nodes[0] === m.nodeId ? connected[0].nodes[1] : connected[0].nodes[0]
+			const b = connected[1].nodes[0] === m.nodeId ? connected[1].nodes[1] : connected[1].nodes[0]
+			if (a !== b && !segments.some((s: TrunkSegment) => (s.nodes[0] === a && s.nodes[1] === b) || (s.nodes[0] === b && s.nodes[1] === a)))
+				segments = [...segments, { id: genId('ts'), nodes: [a, b] as [string, string] }]
+		}
+		const nodes = t.nodes.filter((n: TrunkNode) => n.id === m.nodeId ? false : segments.some((s: TrunkSegment) => s.nodes[0] === n.id || s.nodes[1] === n.id))
+		const trunks = (outletsDoc?.trunks ?? []) as TrunkConfig[]
+		// Drop the trunk entirely if it no longer has a drawable segment.
+		void persistTrunks(segments.length === 0 ? trunks.filter(x => x.id !== m.trunkId) : trunks.map(x => x.id === m.trunkId ? { ...t, nodes, segments } : x))
+	}
+	function menuDeleteTrunk() {
+		const m = trunkMenu; trunkMenu = null
+		if (!m) return
+		void persistTrunks((outletsDoc?.trunks ?? []).filter((x: TrunkConfig) => x.id !== m.trunkId))
+	}
 </script>
 
 <div class="absolute inset-0 overflow-hidden pointer-events-none bg-white">
@@ -325,8 +421,9 @@
 				viewBox="0 0 {contentW} {contentH}"
 				preserveAspectRatio="none"
 				style:pointer-events={active ? 'auto' : 'none'}
-				style:cursor={active ? 'move' : 'default'}
-				onmousedown={onEditMouseDown}>
+				style:cursor={active ? (editMode === 'outlet' ? 'copy' : 'move') : 'default'}
+				onmousedown={onEditMouseDown}
+				oncontextmenu={onEditContextMenu}>
 				{#if showTrunks}
 					<!--
 						Full trunk shapes via the outlets tool's own renderer.
@@ -409,6 +506,36 @@
 					{/if}
 				</svg>
 		</div>
+		</div>
+	{/if}
+
+	{#if active}
+		<!-- Edit toolbar — unscaled, pinned to the viewport's top-left. -->
+		<div class="absolute top-1 left-1 z-10 flex gap-0.5 rounded border border-zinc-300 bg-white/95 shadow-sm p-0.5 print:hidden" style="pointer-events:auto">
+			{#each [{ m: 'select', label: 'Select' }, { m: 'outlet', label: '+ Outlet' }] as opt (opt.m)}
+				<button class="px-1.5 py-0.5 text-[10px] rounded {editMode === opt.m ? 'bg-blue-600 text-white' : 'text-zinc-600 hover:bg-zinc-100'}"
+					onmousedown={(e) => { e.stopPropagation(); editMode = opt.m as 'select' | 'outlet' }}>{opt.label}</button>
+			{/each}
+			<span class="px-1 self-center text-[9px] text-zinc-400">right-click a trunk to edit</span>
+		</div>
+	{/if}
+
+	{#if trunkMenu}
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<div use:portal class="fixed inset-0 z-40" onmousedown={() => trunkMenu = null}
+			oncontextmenu={(e) => { e.preventDefault(); trunkMenu = null }}></div>
+		<div use:portal class="fixed z-50 min-w-32 rounded-md border border-zinc-200 bg-white shadow-lg py-1 text-xs"
+			style:left="{trunkMenu.x}px" style:top="{trunkMenu.y}px">
+			{#if trunkMenu.kind === 'segment'}
+				<button class="block w-full text-left px-3 py-1 hover:bg-zinc-100" onclick={menuInsertNode}>Insert node</button>
+			{:else}
+				{#if trunkMenu.canDisconnect}
+					<button class="block w-full text-left px-3 py-1 hover:bg-zinc-100" onclick={menuDisconnect}>Disconnect node</button>
+				{/if}
+				<button class="block w-full text-left px-3 py-1 hover:bg-zinc-100" onclick={menuDeleteNode}>Delete node</button>
+			{/if}
+			<button class="block w-full text-left px-3 py-1 hover:bg-zinc-100 text-red-600" onclick={menuDeleteTrunk}>Delete trunk</button>
 		</div>
 	{/if}
 </div>
