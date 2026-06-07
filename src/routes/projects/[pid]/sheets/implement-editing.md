@@ -1,5 +1,25 @@
 # Sheets — Tool Editing Implementation Plan
 
+> **Build status (all stages implemented; `pnpm check` = 0 errors; NOT yet run in the browser).**
+> Committed K→M→E1→L→E2→E3→R/T→A. To use editing: select a viewport, double-click to **activate**
+> it, then **left-drag** = select/move, **middle/right-drag** = pan content, **wheel** = zoom; tool
+> palette + Layers/Annotate windows float (portaled) over the content; **⤢** on an active viewport
+> opens model mode (**Esc**/⤡ returns). Edits write to the shared source docs (outlets/racks/risers);
+> annotations + layer overrides + revisions persist on the sheet doc.
+>
+> **Deviations / kept lean:** renders were not split into Scene+Frame — instead each render gained a
+> small `view` override (model mode) + an `onsvg` + a `children` slot for the edit/annotation layer
+> (less churn, same result). The project layer list is a **fixed default set** (add/rename deferred).
+> **Known gaps to revisit:** racks **catalog/library + patch lists/cords** (deferred by request);
+> rack **device drag** in elevation (edited via the panel's numeric U field instead, since the
+> U-layout is render-internal); trunk node **merge/join** (sample has it; not ported); linked-symbol
+> **click-through navigation** (the section→drawing / photo→survey links are stored + editable, but
+> clicking a marker doesn't navigate yet); revision-cloud & dimension annotation kinds (text/arrow/
+> rect/symbol shipped). Annotations attach to tool viewports (which report a view); text/empty
+> viewports don't get the overlay. **First things worth eyeballing:** outlets add/move/trunk-draw +
+> persist; model mode; layer hide/lock; racks panel add device; risers drag rooms + cable hops;
+> text markdown render; revisions → title block.
+
 Builds on the completed read-only sheets tool (stages A–I). Two edit views over the **same** tool
 content/editor:
 1. **In-viewport quick edit** — edit directly inside the active viewport (as today). All
