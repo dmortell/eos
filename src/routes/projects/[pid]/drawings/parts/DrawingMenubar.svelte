@@ -14,6 +14,7 @@
 		canRedo = false,
 		canPublish = false,
 		onaddviewport,
+		onaddannotation,
 		onundo, onredo, onduplicate, ondelete,
 		onprint, onpublish, ondeletepage,
 		onzoomfit, onzoom100, onsetviewportscale,
@@ -25,6 +26,8 @@
 		canPublish?: boolean
 		/** Opens the Add-Viewport dialog (type + source picker). */
 		onaddviewport?: () => void
+		/** Arms placement of an annotation of the given kind. */
+		onaddannotation?: (kind: 'text') => void
 		onundo?: () => void
 		onredo?: () => void
 		onduplicate?: () => void
@@ -76,7 +79,7 @@
 			<Menubar.Content align="start">
 				<Menubar.Item onSelect={() => onaddviewport?.()}>Viewport…</Menubar.Item>
 				<Menubar.Separator />
-				<Menubar.Item disabled>Annotation (coming soon)</Menubar.Item>
+				<Menubar.Item onSelect={() => onaddannotation?.('text')}>Text annotation</Menubar.Item>
 			</Menubar.Content>
 		</Menubar.Menu>
 

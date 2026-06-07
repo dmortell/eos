@@ -1,16 +1,18 @@
 <script lang="ts">
-	import type { Page, Viewport, TitleBlockConfig } from '$lib/types/pages'
+	import type { Page, Viewport, TitleBlockConfig, Annotation } from '$lib/types/pages'
 	import { paperDimsMm } from '$lib/ui/print/types'
 	import { Firestore } from '$lib'
 	import ViewportFrame from './ViewportFrame.svelte'
+	import AnnotationLayer from './AnnotationLayer.svelte'
 	import TitleBlock, { type TitleBlockProjectDefaults } from './TitleBlock.svelte'
-	import { triggerPrint } from '$lib/ui/print'
 
 	let {
 		page, selectedViewportId, activeViewportId = null, width, height, db, projectId,
 		projectDefaults = {},
 		revisionCode,
+		selectedAnnotationId = null, annotationMode = null,
 		onselect, onactivate, ondeactivate, onupdateviewport, onhistory, onfit, onupdatetitleblock, ondeselect, onopensource,
+		onselectannotation, onupdateannotation, onplaceannotation,
 	}: {
 		page: Page
 		selectedViewportId: string | null
@@ -23,6 +25,10 @@
 		projectId: string
 		projectDefaults?: TitleBlockProjectDefaults
 		revisionCode?: string
+		/** Currently-selected annotation id (separate from viewport selection). */
+		selectedAnnotationId?: string | null
+		/** When set, a left-click on the paper places an annotation of this kind. */
+		annotationMode?: Annotation['kind'] | null
 		onselect: (id: string) => void
 		/** Enter a viewport (double-click) for content pan/zoom. */
 		onactivate?: (id: string) => void
@@ -35,6 +41,10 @@
 		onfit?: (id: string, scale: number) => void
 		onupdatetitleblock?: (patch: Partial<TitleBlockConfig>) => void
 		ondeselect: () => void
+		onselectannotation?: (id: string) => void
+		onupdateannotation?: (id: string, patch: Partial<Annotation>) => void
+		/** Place a new annotation at a page-mm point (called on canvas click in annotation mode). */
+		onplaceannotation?: (mm: { x: number; y: number }) => void
 		/** Caller navigates to the underlying source drawing for a given viewport. */
 		onopensource?: (viewport: Viewport) => void
 	} = $props()
@@ -110,6 +120,15 @@
 	}
 
 	function onCanvasMouseDown(e: MouseEvent) {
+		// In annotation mode, a left-click on empty paper places a new annotation
+		// at that page-mm point (annotations on existing elements stopPropagation).
+		if (e.button === 0 && annotationMode && onplaceannotation) {
+			const rect = canvas!.getBoundingClientRect()
+			const mmX = (e.clientX - rect.left - panX) / zoom
+			const mmY = (e.clientY - rect.top - panY) / zoom
+			onplaceannotation({ x: mmX, y: mmY })
+			return
+		}
 		// Left-click on empty canvas area deselects. Right/middle pans.
 		if (e.button === 0) {
 			ondeselect()
@@ -162,26 +181,43 @@
 	function onCanvasDoubleClick() { ondeactivate?.() }
 
 	/**
-	 * Print the current page. Called from the editor's sidebar button — resets
-	 * pan/zoom so the paper lands at the page's top-left at 1:1, invokes
-	 * `triggerPrint` (which injects `@page size: Wmm Hmm` + a @media print block
-	 * that forces `.print-canvas-container` to that exact footprint and hides
-	 * anything marked `print:hidden` / `.sidebar-area`), then restores the
-	 * user's pan/zoom state after `afterprint` fires.
+	 * Print the current page. Rather than print the whole pan/zoom canvas as-is,
+	 * we make the canvas the print root sized to the paper and scale its content
+	 * so 1 world-unit (= 1 mm at zoom 1) maps to a real millimetre — so the paper
+	 * sheet alone fills the printed page exactly (pattern from `src-sample`'s
+	 * `Canvas.svelte`). Injected CSS uses `!important`, overriding the live
+	 * pan/zoom transform, so no save/restore of view state is needed. Chrome
+	 * (menubar / sidebar / status bar) is hidden by its own `print:hidden`.
 	 */
+	const PRINT_STYLE_ID = 'page-canvas-print-style'
+	const PRINT_ROOT_CLASS = 'canvas-print-root'
+	const PX_PER_MM = 96 / 25.4 // CSS px per mm (1in = 96px = 25.4mm)
+
+	function applyPrintStyles() {
+		const { w, h } = paperMm
+		canvas?.classList.add(PRINT_ROOT_CLASS)
+		let style = document.getElementById(PRINT_STYLE_ID) as HTMLStyleElement | null
+		if (!style) { style = document.createElement('style'); style.id = PRINT_STYLE_ID; document.head.appendChild(style) }
+		style.textContent = `@page { size: ${w}mm ${h}mm; margin: 0; }
+@media print {
+	html, body { margin: 0 !important; padding: 0 !important; }
+	.${PRINT_ROOT_CLASS} { position: fixed !important; inset: 0 !important; width: ${w}mm !important; height: ${h}mm !important; overflow: visible !important; background: white !important; }
+	.${PRINT_ROOT_CLASS} > .panzoom-content { transform: scale(${PX_PER_MM}) !important; transform-origin: 0 0 !important; }
+}`
+	}
+	function removePrintStyles() {
+		canvas?.classList.remove(PRINT_ROOT_CLASS)
+		document.getElementById(PRINT_STYLE_ID)?.remove()
+	}
+
 	export function doPrint() {
-		const saved = { panX, panY, zoom }
-		panX = 0
-		panY = 0
-		zoom = 1
+		applyPrintStyles()
 		const cleanup = () => {
-			panX = saved.panX
-			panY = saved.panY
-			zoom = saved.zoom
+			removePrintStyles()
 			window.removeEventListener('afterprint', cleanup)
 		}
 		window.addEventListener('afterprint', cleanup)
-		requestAnimationFrame(() => triggerPrint(page.paper, '.print-canvas-container'))
+		requestAnimationFrame(() => window.print())
 	}
 </script>
 
@@ -191,12 +227,13 @@
 	class="panzoom relative overflow-hidden bg-zinc-100 dark:bg-zinc-900 select-none"
 	style:width="{width}px"
 	style:height="{height}px"
+	style:cursor={annotationMode ? 'copy' : null}
 	onmousedown={onCanvasMouseDown}
 	ondblclick={onCanvasDoubleClick}
 	oncontextmenu={onContextMenu}
 >
 	<div
-		class="absolute top-0 left-0 origin-top-left"
+		class="panzoom-content absolute top-0 left-0 origin-top-left"
 		style:transform="translate({panX}px, {panY}px) scale({zoom})"
 	>
 		<!-- Paper -->
@@ -251,6 +288,14 @@
 					pxPerMm={zoom}
 					onupdate={onupdatetitleblock} />
 			{/if}
+
+			<!-- Annotations — page-space overlay, on top of viewports + title block. -->
+			<AnnotationLayer
+				annotations={page.annotations ?? []}
+				selectedId={selectedAnnotationId}
+				pxPerMm={zoom}
+				onselect={id => onselectannotation?.(id)}
+				onupdate={(id, patch) => onupdateannotation?.(id, patch)} />
 		</div>
 	</div>
 

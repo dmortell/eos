@@ -29,6 +29,8 @@ export interface Page {
 	 */
 	titleBlock?: TitleBlockConfig | null
 	viewports: Viewport[]
+	/** Free annotations drawn on the page (text now; arrows/dimensions/etc. later). */
+	annotations?: Annotation[]
 	notes?: string
 	/**
 	 * Whether this page is printed when its drawing packages are published.
@@ -89,6 +91,22 @@ export interface OutletsLayers {
 	ceiling?: boolean
 	/** Trunks routed at floor/wall level. */
 	floor?: boolean
+}
+
+/**
+ * A free annotation placed directly on the page (page-space mm, like viewports).
+ * v1 supports `text`; the discriminated shape leaves room for arrow / rect /
+ * dimension / revision-cloud / symbol later. Rendered as a non-scaling-stroke
+ * SVG/HTML overlay so it stays crisp on screen and in print.
+ */
+export interface Annotation {
+	id: string
+	kind: 'text'
+	/** Page-space mm from the paper top-left. */
+	positionMm: { x: number; y: number }
+	text?: string
+	fontPt?: number
+	color?: string
 }
 
 export type ViewportSource =

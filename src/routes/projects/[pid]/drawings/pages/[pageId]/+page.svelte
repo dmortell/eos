@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation'
 	import { getContext } from 'svelte'
 	import { Button, Icon, Input, Select, Firestore, Spinner, StatusBar, Titlebar, Session } from '$lib'
-	import type { Page, Viewport, ViewportSource, TitleBlockConfig } from '$lib/types/pages'
+	import type { Page, Viewport, ViewportSource, TitleBlockConfig, Annotation } from '$lib/types/pages'
 	import type { DrawingDoc } from '$lib/types/versioning'
 	import type { FloorConfig } from '$lib/types/project'
 	import { subscribePage, savePage, deletePage } from '$lib/pages/service'
@@ -28,6 +28,10 @@
 	let selectedViewportId = $state<string | null>(null)
 	/** Viewport double-clicked into — its content can be panned/zoomed. */
 	let activeViewportId = $state<string | null>(null)
+	/** Selected annotation (separate from viewport selection). */
+	let selectedAnnotationId = $state<string | null>(null)
+	/** When set, clicking the page places an annotation of this kind. */
+	let annotationMode = $state<Annotation['kind'] | null>(null)
 	let projectName = $state('')
 
 	/**
@@ -307,6 +311,38 @@
 		void persist({ viewports: [...pageData.viewports, copy] })
 	}
 
+	// ── Annotations ──
+	/** Arm placement of an annotation kind (menubar Insert ▸ Annotation). */
+	function armAnnotation(kind: Annotation['kind']) {
+		annotationMode = kind
+		selectedViewportId = null
+		activeViewportId = null
+		selectedAnnotationId = null
+	}
+	/** Place a new annotation at a page-mm point, then exit placement mode. */
+	function placeAnnotation(mm: { x: number; y: number }) {
+		if (!pageData || !annotationMode) return
+		const ann: Annotation = { id: crypto.randomUUID().slice(0, 10), kind: annotationMode, positionMm: { x: mm.x, y: mm.y }, text: 'Text', fontPt: 10 }
+		annotationMode = null
+		selectedViewportId = null
+		selectedAnnotationId = ann.id
+		void persist({ annotations: [...(pageData.annotations ?? []), ann] })
+	}
+	function selectAnnotation(id: string) {
+		selectedAnnotationId = id
+		selectedViewportId = null
+		activeViewportId = null
+	}
+	async function updateAnnotation(id: string, patch: Partial<Annotation>) {
+		if (!pageData) return
+		await persist({ annotations: (pageData.annotations ?? []).map(a => a.id === id ? { ...a, ...patch } : a) })
+	}
+	function removeAnnotation(id: string) {
+		if (!pageData) return
+		if (selectedAnnotationId === id) selectedAnnotationId = null
+		void persist({ annotations: (pageData.annotations ?? []).filter(a => a.id !== id) })
+	}
+
 	/** Double-click into a viewport: select + activate (content pan/zoom). */
 	function activateViewport(id: string) {
 		selectedViewportId = id
@@ -381,8 +417,17 @@
 
 		if (e.key === 'Escape') {
 			e.preventDefault()
-			if (activeViewportId) activeViewportId = null
+			if (annotationMode) annotationMode = null
+			else if (activeViewportId) activeViewportId = null
+			else if (selectedAnnotationId) selectedAnnotationId = null
 			else selectedViewportId = null
+			return
+		}
+
+		// A selected annotation handles Delete itself (works without a viewport selected).
+		if (selectedAnnotationId && (e.key === 'Delete' || e.key === 'Backspace')) {
+			e.preventDefault()
+			removeAnnotation(selectedAnnotationId)
 			return
 		}
 
@@ -424,11 +469,15 @@
 		// Drop selection/active chrome so no frame borders/handles land in the PDF.
 		selectedViewportId = null
 		activeViewportId = null
+		selectedAnnotationId = null
+		annotationMode = null
 		pageCanvas?.doPrint()
 	}
 
 	/** Contextual instruction shown in the status bar, by interaction mode. */
 	let statusMessage = $derived.by(() => {
+		if (annotationMode) return 'Click on the page to place text · double-click text to edit · Esc to cancel'
+		if (selectedAnnotationId) return 'Annotation selected · drag to move · double-click to edit · Del removes · Esc deselects'
 		if (activeViewportId) return 'Viewport active · middle/right-drag pans, wheel zooms, left edits · double-click empty space or Esc to exit'
 		if (selectedViewportId) return 'Viewport selected · left-drag to move, handles to resize · double-click to enter · Ctrl/⌘-Z to undo · arrows nudge · Del removes'
 		return 'Click a viewport to select · double-click to enter · middle/right-drag to pan · wheel to zoom'
@@ -449,6 +498,7 @@
 			paper: s.paper,
 			titleBlock: s.titleBlock,
 			viewports: s.viewports,
+			annotations: s.annotations,
 			notes: s.notes,
 			includeInPackages: s.includeInPackages,
 		})
@@ -518,6 +568,7 @@
 		{canRedo}
 		canPublish={!!drawing}
 		onaddviewport={() => openAddDialog()}
+		onaddannotation={armAnnotation}
 		onundo={undo}
 		onredo={redo}
 		onduplicate={() => { if (selectedViewportId) duplicateViewport(selectedViewportId) }}
@@ -1123,15 +1174,20 @@
 				projectId={pid ?? ''}
 				{projectDefaults}
 				revisionCode={drawing?.latestRevisionCode}
-				onselect={id => selectedViewportId = id}
-				ondeselect={() => { selectedViewportId = null; activeViewportId = null }}
+				{selectedAnnotationId}
+				{annotationMode}
+				onselect={id => { selectedViewportId = id; selectedAnnotationId = null }}
+				ondeselect={() => { selectedViewportId = null; activeViewportId = null; selectedAnnotationId = null }}
 				onactivate={activateViewport}
 				ondeactivate={deactivateViewport}
 				onupdateviewport={updateViewport}
 				onhistory={pushHistory}
 				onfit={(id, scale) => updateViewport(id, { scale })}
 				onupdatetitleblock={updateTitleBlock}
-				onopensource={handleOpenSource} />
+				onopensource={handleOpenSource}
+				onselectannotation={selectAnnotation}
+				onupdateannotation={updateAnnotation}
+				onplaceannotation={placeAnnotation} />
 			<StatusBar message={statusMessage} height={STATUSBAR_H} />
 		</div>
 	</div>

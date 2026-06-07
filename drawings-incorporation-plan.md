@@ -178,15 +178,23 @@ Shipped:
 
 Acceptance (met): one page can show low-level + floor trunks while another shows high-level + ceiling, from the same source doc.
 
-### Phase 7 — Annotations
+### Phase 7 — Annotations  ◑ (text shipped)
 **Goal:** the missing annotation system.
 
-Steps:
-1. Data: `Page.annotations?: Annotation[]` (page-space mm) and/or `Viewport.annotations` (viewport-space). Types: `text`, `leader`, `dimension`, `revision-cloud`, `symbol`.
-2. `AnnotationLayer.svelte` renders in SVG with `vector-effect="non-scaling-stroke"` (print-crisp). Select/move/edit; menubar Insert ▸ Annotation arms placement (copy-cursor).
-3. Print-safe (selection chrome `data-no-print`).
+Shipped (text):
+- Data: `Page.annotations?: Annotation[]` (page-space mm). `Annotation` is a discriminated shape with `kind: 'text'` for v1 (room for arrow/rect/dimension/revision-cloud/symbol).
+- `AnnotationLayer.svelte` renders annotations in the paper space; **menubar Insert ▸ Text annotation** arms placement (canvas shows the **copy cursor** + status-bar hint), left-click on the page places one. Select + drag (4px threshold) to move; **double-click to edit inline** (focus + select-all); Del removes; Esc cancels placement / deselects. Font size converted pt → mm so it prints at true point size. Persists to the page doc; included in version restore.
+- Print-safe: the selection outline is `print:outline-none`; `handlePrint` clears annotation selection/mode. Text prints as normal page content.
 
-Risk: medium. Acceptance: place/edit each annotation type; thin in PDF; selection hidden in print.
+Still outstanding (next):
+- Other annotation kinds — **arrow/leader, dimension, revision-cloud, symbol** (the model + layer are built to extend; arrows would add `x2/y2` + an SVG `vector-effect="non-scaling-stroke"` line). A sidebar editor for font size/colour (currently inline text only).
+
+Risk: realised low–medium. Acceptance (met for text): place/move/edit/delete text; crisp in PDF; selection hidden in print.
+
+---
+
+## Print fix (post-Phase-8)  ✅
+The page editor printed the whole pan/zoom canvas as-is. Reworked `PageCanvas.doPrint` to the `src-sample/Canvas.svelte` technique: on print the **canvas becomes the print-root** (`position:fixed`, sized to the paper `@page`), and its content wrapper (`.panzoom-content`) is **scaled by `PX_PER_MM`** so 1 world-unit (1mm at zoom 1) maps to a real millimetre — the paper sheet alone fills the page. Injected CSS uses `!important`, overriding the live pan/zoom, so no save/restore of view state. Chrome stays hidden via its own `print:hidden`.
 
 ### Phase 8 — Title block + print polish  ✅ (shipped)
 **Goal:** dev-tunable title block; thin lines in PDF.
