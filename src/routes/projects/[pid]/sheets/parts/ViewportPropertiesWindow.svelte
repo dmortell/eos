@@ -8,6 +8,8 @@
 	import PropSelect from './PropSelect.svelte'
 	import PropTextarea from './PropTextarea.svelte'
 	import OutletsProperties from '../tools/outlets/OutletsProperties.svelte'
+	import RacksProperties from '../tools/racks/RacksProperties.svelte'
+	import type { RackFace } from '../tools/racks/types'
 
 	let { vps, floors = [], pid }: {
 		vps: ViewportEditor
@@ -19,7 +21,7 @@
 
 	// Editable mirror, re-synced when the selected viewport changes. Handlers write back to the
 	// reactive viewport object and call vps.notify() (→ debounced save in SheetEditor).
-	let form = $state({ kind: 'empty', label: '', scale: '0', border: 'thin', text: '', fontSizePt: '6', outletsDocId: '' })
+	let form = $state({ kind: 'empty', label: '', scale: '0', border: 'thin', text: '', fontSizePt: '6', outletsDocId: '', racksDocId: '', racksFace: 'front' as RackFace })
 	let syncedId: string | null = null
 	$effect(() => {
 		const id = vp?.id ?? null
@@ -36,16 +38,20 @@
 				text: s.kind === 'text' ? s.content : '',
 				fontSizePt: s.kind === 'text' ? String(s.fontSizePt ?? 6) : '6',
 				outletsDocId: s.kind === 'outlets' ? s.outletsDocId : '',
+				racksDocId: s.kind === 'racks' ? s.racksDocId : '',
+				racksFace: s.kind === 'racks' ? s.face : 'front',
 			}
 		})
 	})
 
-	const defaultOutletsDocId = () =>
-		floors[0] ? `${pid}_F${String(floors[0].number).padStart(2, '0')}` : ''
+	const floorStr0 = () => floors[0] ? String(floors[0].number).padStart(2, '0') : '01'
+	const defaultOutletsDocId = () => `${pid}_F${floorStr0()}`
+	const defaultRacksDocId = () => `${pid}_F${floorStr0()}_RA`
 
 	// Type changed: seed sensible source defaults for the new kind, then persist.
 	function onKindChange() {
 		if (form.kind === 'outlets' && !form.outletsDocId) form.outletsDocId = defaultOutletsDocId()
+		if (form.kind === 'racks' && !form.racksDocId) form.racksDocId = defaultRacksDocId()
 		apply()
 	}
 
@@ -68,6 +74,7 @@
 			const carry = cur?.kind === 'outlets' ? { fileId: cur.fileId, pageNum: cur.pageNum, showPdf: cur.showPdf } : {}
 			return { kind: 'outlets', outletsDocId: form.outletsDocId, ...carry }
 		}
+		if (form.kind === 'racks') return { kind: 'racks', racksDocId: form.racksDocId, face: form.racksFace }
 		return { kind: 'empty' }
 	}
 </script>
@@ -78,6 +85,7 @@
 			<option value="empty">Empty</option>
 			<option value="text">Text</option>
 			<option value="outlets">Outlets</option>
+			<option value="racks">Racks</option>
 		</PropSelect>
 		<PropText label="Label" bind:value={form.label} oninput={apply} />
 		<PropSelect label="Scale" bind:value={form.scale} onchange={apply}>
@@ -98,6 +106,10 @@
 			<hr class="border-zinc-200" />
 			<OutletsProperties {floors} {pid} outletsDocId={form.outletsDocId}
 				onpick={(id) => { form.outletsDocId = id; apply() }} />
+		{:else if form.kind === 'racks'}
+			<hr class="border-zinc-200" />
+			<RacksProperties {floors} {pid} racksDocId={form.racksDocId} face={form.racksFace}
+				onpick={(p) => { form.racksDocId = p.racksDocId; form.racksFace = p.face; apply() }} />
 		{/if}
 	</Window>
 {/if}

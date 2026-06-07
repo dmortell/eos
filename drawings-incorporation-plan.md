@@ -153,10 +153,14 @@ Mirrors the working pattern in `RackElevationViewport` (`innerScale = 2 / scale`
 Shipped:
 - `OutletsViewport` `active` mode: double-click in → SVG becomes interactive (`pointer-events`), and **left-drag repositions existing outlets *and* trunk nodes**, persisting straight to the live `outlets/{pid}_F{NN}` doc (`db.save` merge replaces just the outlets/trunks array). Client→mm uses the SVG `getScreenCTM()` (accounts for every canvas transform). Drag-on-element uses **mouse** events + `stopPropagation` so the frame's middle/right pan is suppressed; **middle/right-drag pans** the content (unified model); optimistic positions hold until the doc echoes back (no flash). Cyan **node handles** appear when active so trunk vertices are discoverable; outlets are already dots.
 
-Still outstanding (later):
-- **Adding** new outlets/trunks and other edits (disconnect/insert) inside the viewport — needs a small tool palette + mode in the viewport. The heavier alternative (mount the full `OutletCanvas` in the viewport — it's self-contained: no context/stores) remains possible but brings tool/legend/print chrome; deferred.
+Also shipped — **in-viewport add / disconnect tools** (this round):
+- An unscaled **edit toolbar** (Select / + Outlet) pinned to the active viewport's top-left. **+ Outlet** mode: click drops a new outlet (valid via `OUTLET_DEFAULTS`), stays in tool for repeated adds; copy cursor.
+- **Right-click a trunk** node/segment → context menu (portaled): **Insert node** (on a segment), **Disconnect node** (junctions), **Delete node** (degree-2 reconnects neighbours; drops the trunk if empty), **Delete trunk**. All are pure transforms on the live `outlets/{pid}_F{NN}` trunks array, reusing `splitSegment`/`genId` — no malformed data.
+- Edit state resets when the viewport deactivates.
 
-Risk: realised medium. Acceptance (met): drag an outlet or trunk node inside a drawing viewport → it moves in the Outlets tool too.
+Still outstanding (later): **trunk *drawing*** inside the viewport (multi-node + snap/merge) needs the trunk palette's shape/spec — better done in the Outlets tool (the "open source" link), or mount the full `OutletCanvas` later.
+
+Risk: realised medium. Acceptance (met): drag/add outlets + drag trunk nodes + insert/disconnect/delete trunk parts inside a drawing viewport → all reflected in the Outlets tool.
 
 ### Phase 6b — Trunk editing extras (outlets tool)  ✅ (shipped)
 **Goal:** adopt the POC's *extra* trunk-editing UX in the `outlets` editing tool.
@@ -194,6 +198,12 @@ Risk: realised low–medium. Acceptance (met): place/move/edit/delete all five k
 
 ## Print fix (post-Phase-8)  ✅
 The page editor printed the whole pan/zoom canvas as-is. Reworked `PageCanvas.doPrint` to the `src-sample/Canvas.svelte` technique: on print the **canvas becomes the print-root** (`position:fixed`, sized to the paper `@page`), and its content wrapper (`.panzoom-content`) is **scaled by `PX_PER_MM`** so 1 world-unit (1mm at zoom 1) maps to a real millimetre — the paper sheet alone fills the page. Injected CSS uses `!important`, overriding the live pan/zoom, so no save/restore of view state. Chrome stays hidden via its own `print:hidden`.
+
+## Drawing packages — multi-page PDF export  ✅
+The packages tool was already built (`packages/+page.svelte` + `PackageList` create/add-sheet/reorder/include/publish, `[pkgId]/print/+page.svelte` stacks each published page's paper with mixed-size `@page` rules + page-breaks, **Print** → browser PDF). It carried the **same print-scale bug** as the single page — sheets rendered at px with no `PX_PER_MM` scale, so content printed tiny in a corner. Fixed by sizing each `.sheet-wrap` to its real mm and scaling `.sheet-content` by `PX_PER_MM` at print (per-paper-size, so mixed A3/A4 packages stay correct). Multi-page export now produces full-bleed sheets at true scale.
+
+## Known issue to revisit
+- **Existing outlets/trunks not visible in an outlets viewport** (adding new ones works). Doc ids match (both `pid_F{NN}` zero-padded), so likely the viewport's selected floor ≠ the floor holding data, or items fall outside the current scaled window. Needs a runtime check (inspect the subscribed `outlets/{id}` doc contents vs. the viewport's `outletsDocId` + scale/offset).
 
 ### Phase 8 — Title block + print polish  ✅ (shipped)
 **Goal:** dev-tunable title block; thin lines in PDF.
