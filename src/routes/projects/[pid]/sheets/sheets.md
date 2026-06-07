@@ -37,6 +37,44 @@ Simplifications (v1 — can add later if you want)
 - Plan ignores frontProtrusionMm in depth alignment.
 - Note: rack elevations read best at ~1:20–1:25; at 1:100 device labels are technically to-scale but tiny.
 
+## Tool Editing
+
+Each tool should allow the following to be edited. Most of these functions have already been implemented in each tool under the [pid] folder, but we want to make them leaner and standardize similar functions between the different tools, so we will re-implement them in the sheets/tools folders.
+
+We want to be able to make quick edits directly within the viewport, as well as be able to expand the viewport to full size filling the main content area for more detailed edits, much like switching to model view in AutoCad.
+
+All objects added to drawings should be assigned to layers. Each viewport should allow layers to be shown/hidden.
+
+All sheets and contents should allow annotations: text boxs, callouts, lines with arrows, revision clouds, dimension lines, symbols (including outlets for example)
+
+Some symbols will be linked to underlying data, eg section markers on floorplans should link to the drawing/ref of the elevation drawing.
+Photo markers showing the position and direction of the photo should link to photos taken during site surveys in an album.
+
+Sheets should allow revision numbers to be added for the titleblock. And allow detailed revision notes to be added for tracking (although these will not normally be shown on drawings in most cases)
+
+Text viewports should allow markup for basic formatting, numbered headings, columns, tables.
+
+### Rack Elevations
+
+* Add & edit racks
+* Add devices and rack parts
+* Create custom devices/parts or add frfom a catalog/library
+* Assign port labels on patch panels and devices
+* Define patch lists and show patch cords in racks
+
+We may generalize elevations tool to handle room/wall elevations to show details like AV monitor installations, vertical conduits, wall mounted panels, etc.
+Ideally, we will want a 3D viewer to help visualize the room, and even edit trunks and cable routes to join horizontal and vertical sections to get comprehensive connectivity drawings.
+
+### Risers
+
+* Edit building floors
+* Add server rooms, EPS rooms, vertical risers, and define cable routes
+
+### Outlets
+
+* Edit outlets, racks, and cable trunk routes
+
+## Notes
 
 All clean. Here's what changed for the racks refinements:
 
@@ -70,3 +108,7 @@ Type-checks clean; not run. Worth testing: add a viewport → Type=Risers → se
 Sheet list → editor shell → viewport persistence → sheet properties → viewport properties + text → Outlets (+PDF underlay) → print-to-fit → Racks (front/rear/plan) → Risers. The sheets tool now covers the three tools from the spec, with content pan/zoom, print-to-scale, and floating property windows.
 
 If you'd like, next steps could be: refinements to risers (real floor-format labels, better cable label placement), the y-up conversion tool for legacy outlet floorplans (the deferred version-2 flip), or polishing the sheet list / titleblock. Let me know what you'd like to tackle.
+
+
+
+focus mode not required, all viewports are editable by default, we may add a lock toggle to each viewport to prevent changes later. writes go to the shared source doc. annotations go inside viewports, I might consider a toggle on each object for model-space vs paper-space. Layers need a lock toggle in addition to visibility toggle, with viewport toggles independent of the underlying model layers. Actually a project-scope layers list may work better than a per model list, as per-model would need user to re-create similar layers on every floor drawing (unless we allow copying layer lists between model drawings). When a viewport is active, middle/right-drag should drag the viewport content, not the paper canvas as we have now. left-drag is for select/move. Leave the catalog/patch for a later phase.

@@ -64,7 +64,7 @@
 	:global(.technical-drawing-text) {
 		/* Most construction docs use all caps */
 		/* text-transform: uppercase; */
-		font-family: 'Helvetica Neue', Helvetica, 'Arial Narrow', Arial, sans-serif, Verdana , Futura;
+		font-family: monospace, 'Helvetica Neue', Helvetica, 'Arial Narrow', Arial, sans-serif, Verdana , Futura;
 		/* letter-spacing: 0.2px; */
 	}
 	/* <link rel="stylesheet" href="https://googleapis.com"> */
