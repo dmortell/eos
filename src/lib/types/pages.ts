@@ -101,12 +101,19 @@ export interface OutletsLayers {
  */
 export interface Annotation {
 	id: string
-	kind: 'text'
-	/** Page-space mm from the paper top-left. */
+	kind: 'text' | 'arrow' | 'dimension' | 'cloud' | 'symbol'
+	/** Page-space mm from the paper top-left. Text anchor / line start / cloud corner / symbol centre. */
 	positionMm: { x: number; y: number }
+	/** End point (page-space mm) for arrow + dimension; opposite corner for cloud. */
+	endMm?: { x: number; y: number }
 	text?: string
 	fontPt?: number
 	color?: string
+	/** Symbol id from the library (kind 'symbol'). */
+	symbol?: string
+	/** Symbol size (mm) and rotation (deg). */
+	sizeMm?: number
+	rotationDeg?: number
 }
 
 export type ViewportSource =

@@ -43,8 +43,8 @@
 		ondeselect: () => void
 		onselectannotation?: (id: string) => void
 		onupdateannotation?: (id: string, patch: Partial<Annotation>) => void
-		/** Place a new annotation at a page-mm point (called on canvas click in annotation mode). */
-		onplaceannotation?: (mm: { x: number; y: number }) => void
+		/** Place a new annotation (text: point; arrow: start→end), in page-space mm. */
+		onplaceannotation?: (a: { kind: Annotation['kind']; x: number; y: number; x2?: number; y2?: number }) => void
 		/** Caller navigates to the underlying source drawing for a given viewport. */
 		onopensource?: (viewport: Viewport) => void
 	} = $props()
@@ -120,16 +120,8 @@
 	}
 
 	function onCanvasMouseDown(e: MouseEvent) {
-		// In annotation mode, a left-click on empty paper places a new annotation
-		// at that page-mm point (annotations on existing elements stopPropagation).
-		if (e.button === 0 && annotationMode && onplaceannotation) {
-			const rect = canvas!.getBoundingClientRect()
-			const mmX = (e.clientX - rect.left - panX) / zoom
-			const mmY = (e.clientY - rect.top - panY) / zoom
-			onplaceannotation({ x: mmX, y: mmY })
-			return
-		}
 		// Left-click on empty canvas area deselects. Right/middle pans.
+		// (Annotation placement is captured by the paper overlay below.)
 		if (e.button === 0) {
 			ondeselect()
 			return
@@ -179,6 +171,34 @@
 	 * double-clicks stop propagation, so anything reaching here is "empty".
 	 */
 	function onCanvasDoubleClick() { ondeactivate?.() }
+
+	// ── Annotation placement ──
+	// Text places instantly at the click; arrow drags start→end with a live
+	// preview. `offsetX/Y` (text) and the overlay rect (arrow) are page-mm.
+	let overlayEl = $state<HTMLDivElement | null>(null)
+	let placeDraw = $state<{ x1: number; y1: number; x2: number; y2: number } | null>(null)
+	function onPlaceDown(e: MouseEvent) {
+		const mode = annotationMode
+		if (e.button !== 0 || !mode) return
+		e.stopPropagation()
+		if (mode === 'text' || mode === 'symbol') { onplaceannotation?.({ kind: mode, x: e.offsetX, y: e.offsetY }); return }
+		// arrow / dimension / cloud — drag from start to end
+		const kind = mode
+		const rect = overlayEl!.getBoundingClientRect()
+		const toMm = (cx: number, cy: number) => ({ x: (cx - rect.left) / zoom, y: (cy - rect.top) / zoom })
+		const s = toMm(e.clientX, e.clientY)
+		placeDraw = { x1: s.x, y1: s.y, x2: s.x, y2: s.y }
+		const move = (ev: MouseEvent) => { const p = toMm(ev.clientX, ev.clientY); if (placeDraw) placeDraw = { ...placeDraw, x2: p.x, y2: p.y } }
+		const up = () => {
+			window.removeEventListener('mousemove', move)
+			window.removeEventListener('mouseup', up)
+			const p = placeDraw
+			placeDraw = null
+			if (p) onplaceannotation?.({ kind, x: p.x1, y: p.y1, x2: p.x2, y2: p.y2 })
+		}
+		window.addEventListener('mousemove', move)
+		window.addEventListener('mouseup', up)
+	}
 
 	/**
 	 * Print the current page. Rather than print the whole pan/zoom canvas as-is,
@@ -294,8 +314,32 @@
 				annotations={page.annotations ?? []}
 				selectedId={selectedAnnotationId}
 				pxPerMm={zoom}
+				paperW={paperMm.w}
+				paperH={paperMm.h}
 				onselect={id => onselectannotation?.(id)}
 				onupdate={(id, patch) => onupdateannotation?.(id, patch)} />
+
+			<!-- Placement capture: while in annotation mode, this overlay sits above the
+			     whole paper so a click/drag anywhere (incl. over a viewport) places,
+			     instead of being eaten by the viewport. -->
+			{#if annotationMode}
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<div bind:this={overlayEl} class="absolute inset-0 print:hidden" style:cursor="copy"
+					onmousedown={onPlaceDown}></div>
+				{#if placeDraw}
+					<svg class="absolute top-0 left-0 pointer-events-none" width="{paperMm.w}px" height="{paperMm.h}px"
+						viewBox="0 0 {paperMm.w} {paperMm.h}" preserveAspectRatio="none" style="overflow:visible">
+						{#if annotationMode === 'cloud'}
+							<rect x={Math.min(placeDraw.x1, placeDraw.x2)} y={Math.min(placeDraw.y1, placeDraw.y2)}
+								width={Math.abs(placeDraw.x2 - placeDraw.x1)} height={Math.abs(placeDraw.y2 - placeDraw.y1)}
+								fill="none" stroke="#3b82f6" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-dasharray="4 3" />
+						{:else}
+							<line x1={placeDraw.x1} y1={placeDraw.y1} x2={placeDraw.x2} y2={placeDraw.y2}
+								stroke="#3b82f6" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-dasharray="4 3" />
+						{/if}
+					</svg>
+				{/if}
+			{/if}
 		</div>
 	</div>
 

@@ -42,7 +42,7 @@
 	type SidebarTab = 'viewports' | 'titleblock' | 'publish'
 	let sidebarTab = $state<SidebarTab>('viewports')
 	$effect(() => {
-		if (selectedViewportId) sidebarTab = 'viewports'
+		if (selectedViewportId || selectedAnnotationId) sidebarTab = 'viewports'
 	})
 	let floors = $state<FloorConfig[]>([{ number: 1, serverRoomCount: 1 }])
 	let projectDefaults = $state<TitleBlockProjectDefaults>({})
@@ -214,6 +214,11 @@
 		return pageData.viewports.find(v => v.id === selectedViewportId) ?? null
 	})
 
+	let selectedAnnotation = $derived.by(() => {
+		if (!selectedAnnotationId || !pageData) return null
+		return (pageData.annotations ?? []).find(a => a.id === selectedAnnotationId) ?? null
+	})
+
 	/**
 	 * Optimistic + debounced page update. Mutates the local `pageData` state
 	 * immediately so the UI reflects the change on every keystroke / number-spin,
@@ -312,20 +317,33 @@
 	}
 
 	// ── Annotations ──
+	/** Symbol id to place when `annotationMode === 'symbol'`. */
+	let annotationSymbol = $state<string | null>(null)
 	/** Arm placement of an annotation kind (menubar Insert ▸ Annotation). */
-	function armAnnotation(kind: Annotation['kind']) {
+	function armAnnotation(kind: Annotation['kind'], symbol?: string) {
 		annotationMode = kind
+		annotationSymbol = symbol ?? null
 		selectedViewportId = null
 		activeViewportId = null
 		selectedAnnotationId = null
 	}
-	/** Place a new annotation at a page-mm point, then exit placement mode. */
-	function placeAnnotation(mm: { x: number; y: number }) {
-		if (!pageData || !annotationMode) return
-		const ann: Annotation = { id: crypto.randomUUID().slice(0, 10), kind: annotationMode, positionMm: { x: mm.x, y: mm.y }, text: 'Text', fontPt: 10 }
+	/** Place a new annotation (text/symbol: point; arrow/dimension: start→end; cloud: box), then exit placement mode. */
+	function placeAnnotation(a: { kind: Annotation['kind']; x: number; y: number; x2?: number; y2?: number }) {
+		if (!pageData) return
 		annotationMode = null
+		const id = crypto.randomUUID().slice(0, 10)
+		let ann: Annotation
+		if (a.kind === 'symbol') {
+			ann = { id, kind: 'symbol', positionMm: { x: a.x, y: a.y }, symbol: annotationSymbol ?? 'north', sizeMm: 15, rotationDeg: 0, color: '#111827' }
+		} else if (a.kind === 'text') {
+			ann = { id, kind: 'text', positionMm: { x: a.x, y: a.y }, text: 'Text', fontPt: 10 }
+		} else {
+			// arrow / dimension / cloud — ignore a zero-size drag (click with no drag).
+			if (Math.hypot((a.x2 ?? a.x) - a.x, (a.y2 ?? a.y) - a.y) < 2) return
+			ann = { id, kind: a.kind, positionMm: { x: a.x, y: a.y }, endMm: { x: a.x2 ?? a.x, y: a.y2 ?? a.y }, color: a.kind === 'cloud' ? '#dc2626' : '#111827' }
+		}
 		selectedViewportId = null
-		selectedAnnotationId = ann.id
+		selectedAnnotationId = id
 		void persist({ annotations: [...(pageData.annotations ?? []), ann] })
 	}
 	function selectAnnotation(id: string) {
@@ -336,6 +354,11 @@
 	async function updateAnnotation(id: string, patch: Partial<Annotation>) {
 		if (!pageData) return
 		await persist({ annotations: (pageData.annotations ?? []).map(a => a.id === id ? { ...a, ...patch } : a) })
+	}
+	/** Debounced/optimistic variant for sidebar typing (text/font/colour). */
+	function updateAnnotationLive(id: string, patch: Partial<Annotation>) {
+		if (!pageData) return
+		persistLive({ annotations: (pageData.annotations ?? []).map(a => a.id === id ? { ...a, ...patch } : a) })
 	}
 	function removeAnnotation(id: string) {
 		if (!pageData) return
@@ -476,6 +499,10 @@
 
 	/** Contextual instruction shown in the status bar, by interaction mode. */
 	let statusMessage = $derived.by(() => {
+		if (annotationMode === 'arrow') return 'Drag on the page to draw an arrow · Esc to cancel'
+		if (annotationMode === 'dimension') return 'Drag on the page to measure a dimension · Esc to cancel'
+		if (annotationMode === 'cloud') return 'Drag a box on the page to draw a revision cloud · Esc to cancel'
+		if (annotationMode === 'symbol') return 'Click on the page to place the symbol · adjust size/rotation in the sidebar · Esc to cancel'
 		if (annotationMode) return 'Click on the page to place text · double-click text to edit · Esc to cancel'
 		if (selectedAnnotationId) return 'Annotation selected · drag to move · double-click to edit · Del removes · Esc deselects'
 		if (activeViewportId) return 'Viewport active · middle/right-drag pans, wheel zooms, left edits · double-click empty space or Esc to exit'
@@ -666,6 +693,81 @@
 							</li>
 						{/each}
 					</ul>
+				</div>
+			{/if}
+
+			<!-- Selected annotation properties -->
+			{#if selectedAnnotation}
+				{@const a = selectedAnnotation}
+				<div class="p-3 border-b border-zinc-200 dark:border-zinc-800">
+					<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-1.5">
+						Selected Annotation · <span class="font-mono text-zinc-500">{a.kind}</span>
+					</div>
+					<div class="space-y-1.5">
+						{#if a.kind === 'text'}
+							<label class="block">
+								<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Text</div>
+								<textarea class="w-full border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-1 text-xs bg-white dark:bg-zinc-900 min-h-12 resize-y"
+									value={a.text ?? ''}
+									oninput={(e: Event) => updateAnnotationLive(a.id, { text: (e.currentTarget as HTMLTextAreaElement).value })}></textarea>
+							</label>
+							<div class="grid grid-cols-2 gap-1.5">
+								<label class="block">
+									<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Font pt</div>
+									<input type="number" class="w-full border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-1 text-xs bg-white dark:bg-zinc-900"
+										value={String(a.fontPt ?? 10)}
+										oninput={(e: Event) => updateAnnotationLive(a.id, { fontPt: inputNumber(e) || 10 })} />
+								</label>
+								<label class="block">
+									<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Colour</div>
+									<input type="color" class="w-full h-7 border border-zinc-200 dark:border-zinc-700 rounded bg-white dark:bg-zinc-900"
+										value={a.color ?? '#111827'}
+										oninput={(e: Event) => updateAnnotationLive(a.id, { color: inputValue(e) })} />
+								</label>
+							</div>
+						{:else if a.kind === 'symbol'}
+							<label class="block">
+								<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Symbol</div>
+								<Select size="sm" value={a.symbol ?? 'north'}
+									onchange={(e: Event) => updateAnnotation(a.id, { symbol: inputValue(e) })}>
+									<option value="north">North arrow</option>
+									<option value="level">Level / datum</option>
+									<option value="bubble">Detail bubble</option>
+								</Select>
+							</label>
+							<div class="grid grid-cols-2 gap-1.5">
+								<label class="block">
+									<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Size mm</div>
+									<input type="number" class="w-full border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-1 text-xs bg-white dark:bg-zinc-900"
+										value={String(a.sizeMm ?? 15)}
+										oninput={(e: Event) => updateAnnotationLive(a.id, { sizeMm: inputNumber(e) || 15 })} />
+								</label>
+								<label class="block">
+									<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Rotate °</div>
+									<input type="number" class="w-full border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-1 text-xs bg-white dark:bg-zinc-900"
+										value={String(a.rotationDeg ?? 0)}
+										oninput={(e: Event) => updateAnnotationLive(a.id, { rotationDeg: inputNumber(e) || 0 })} />
+								</label>
+							</div>
+							<label class="block">
+								<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Colour</div>
+								<input type="color" class="w-full h-7 border border-zinc-200 dark:border-zinc-700 rounded bg-white dark:bg-zinc-900"
+									value={a.color ?? '#111827'}
+									oninput={(e: Event) => updateAnnotationLive(a.id, { color: inputValue(e) })} />
+							</label>
+						{:else}
+							<label class="block">
+								<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Colour</div>
+								<input type="color" class="w-full h-7 border border-zinc-200 dark:border-zinc-700 rounded bg-white dark:bg-zinc-900"
+									value={a.color ?? (a.kind === 'cloud' ? '#dc2626' : '#111827')}
+									oninput={(e: Event) => updateAnnotationLive(a.id, { color: inputValue(e) })} />
+							</label>
+						{/if}
+						<Button onclick={() => removeAnnotation(a.id)}>
+							<Icon name="trash" size={12} />
+							Delete annotation
+						</Button>
+					</div>
 				</div>
 			{/if}
 

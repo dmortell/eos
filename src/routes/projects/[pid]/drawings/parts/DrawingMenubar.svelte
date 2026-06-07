@@ -26,8 +26,8 @@
 		canPublish?: boolean
 		/** Opens the Add-Viewport dialog (type + source picker). */
 		onaddviewport?: () => void
-		/** Arms placement of an annotation of the given kind. */
-		onaddannotation?: (kind: 'text') => void
+		/** Arms placement of an annotation of the given kind (symbol kinds pass a library id). */
+		onaddannotation?: (kind: 'text' | 'arrow' | 'dimension' | 'cloud' | 'symbol', symbol?: string) => void
 		onundo?: () => void
 		onredo?: () => void
 		onduplicate?: () => void
@@ -80,6 +80,17 @@
 				<Menubar.Item onSelect={() => onaddviewport?.()}>Viewport…</Menubar.Item>
 				<Menubar.Separator />
 				<Menubar.Item onSelect={() => onaddannotation?.('text')}>Text annotation</Menubar.Item>
+				<Menubar.Item onSelect={() => onaddannotation?.('arrow')}>Arrow annotation</Menubar.Item>
+				<Menubar.Item onSelect={() => onaddannotation?.('dimension')}>Dimension</Menubar.Item>
+				<Menubar.Item onSelect={() => onaddannotation?.('cloud')}>Revision cloud</Menubar.Item>
+				<Menubar.Sub>
+					<Menubar.SubTrigger>Symbol</Menubar.SubTrigger>
+					<Menubar.SubContent>
+						<Menubar.Item onSelect={() => onaddannotation?.('symbol', 'north')}>North arrow</Menubar.Item>
+						<Menubar.Item onSelect={() => onaddannotation?.('symbol', 'level')}>Level / datum</Menubar.Item>
+						<Menubar.Item onSelect={() => onaddannotation?.('symbol', 'bubble')}>Detail bubble</Menubar.Item>
+					</Menubar.SubContent>
+				</Menubar.Sub>
 			</Menubar.Content>
 		</Menubar.Menu>
 
