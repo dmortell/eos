@@ -4,6 +4,7 @@
 	import InputNew from "$lib/ui/InputNew.svelte";
 	import Checkbox from "$lib/ui/Checkbox.svelte";
 	import ProjectSettingsDialog from "./ProjectSettingsDialog.svelte";
+	import { formatDate } from "$lib/utils/date";
 	let db = getContext('db') as Firestore
 	let session = getContext('session') as Session
 	let projects = $state<Project[]>([])
@@ -137,7 +138,7 @@
 					<div class="min-w-0">
 						<a href='/projects/{project.id}' class="text-blue-600 hover:text-blue-400 truncate leading-tight">{project.name}</a>
 						<div class="flex items-center gap-2 min-w-0">
-							<div class="w-24 shrink-0 text-xs text-gray-500 leading-tight">{project.createdAt ? project.createdAt.toDate().toLocaleDateString(cfg.locale) :''}</div>
+							<div class="w-24 shrink-0 text-xs text-gray-500 leading-tight">{formatDate(project.createdAt, cfg.locale)}</div>
 							{#if project.description}<div class="text-xs text-gray-600 truncate leading-tight">{project.description}</div>{/if}
 						</div>
 					</div>
@@ -158,7 +159,7 @@
 					<div class="flex items-center justify-between text-xs gap-2 border rounded bg-white px-2 py-1">
 						<div class="min-w-0">
 							<div class="font-medium truncate">{project.name}</div>
-							<div class="text-gray-500">Deleted: {project.deletedAt?.toDate ? project.deletedAt.toDate().toLocaleDateString(cfg.locale) : ''}</div>
+							<div class="text-gray-500">Deleted: {formatDate(project.deletedAt, cfg.locale)}</div>
 						</div>
 						{#if project.description}<div class="text-gray-600 truncate leading-tight">{project.description}</div>{/if}
 						<div class="flex items-center gap-1 shrink-0">

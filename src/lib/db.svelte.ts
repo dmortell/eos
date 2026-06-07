@@ -10,6 +10,7 @@ import {
     signInWithPopup, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword,
     type User, type UserCredential
 } from "firebase/auth";
+import { getStorage } from "firebase/storage";
 
 const config = {
     apiKey: 'AIzaSyCfoM8CLFAWuMDveWMeCJ8k3cYb-4ah_xA',
@@ -24,6 +25,7 @@ const config = {
 export const firebase = getApps().length ? getApp() : initializeApp(config);
 export const firestore = getFirestore(firebase);
 export const auth = getAuth(firebase);
+export const storage = getStorage(firebase);
 
 export class Session {
     user = $state<User | null>(null);
@@ -88,11 +90,23 @@ export interface DocWithId {
     [key: string]: unknown
 }
 
-/** Strip undefined values recursively (Firestore rejects them). Preserve Date objects and other special types. */
+/** True only for `{}`-style objects — not class instances like Date, Timestamp, FieldValue, GeoPoint, DocumentReference. */
+function isPlainObject(obj: any): boolean {
+    if (obj === null || typeof obj !== 'object') return false
+    const proto = Object.getPrototypeOf(obj)
+    return proto === Object.prototype || proto === null
+}
+
+/**
+ * Strip undefined values recursively (Firestore rejects them).
+ * Only recurses into plain objects/arrays; Firestore special types (Date, Timestamp,
+ * serverTimestamp() FieldValue, GeoPoint, refs) are passed through with their prototype
+ * intact — otherwise a Timestamp would be flattened into a bare `{seconds, nanoseconds}`
+ * map (losing `.toDate()`) and serverTimestamp() into an empty `{}`.
+ */
 function sanitizeFirestoreData(obj: any): any {
-    if (obj instanceof Date) return obj  // Let Firebase handle Date conversion to Timestamp
     if (Array.isArray(obj)) return obj.map(sanitizeFirestoreData)
-    if (obj && typeof obj === 'object') {
+    if (isPlainObject(obj)) {
         const out: any = {}
         for (const [k, v] of Object.entries(obj)) {
             if (v !== undefined) out[k] = sanitizeFirestoreData(v)

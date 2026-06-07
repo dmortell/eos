@@ -1,7 +1,12 @@
 <script lang="ts">
 	import { Titlebar, Firestore } from '$lib'
 	import { Icon } from '$lib'
+	import { storage } from '$lib/db.svelte'
+	import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
+	import { nanoid } from 'nanoid'
+	import { toast } from 'svelte-sonner'
 	import { createUploadThing } from './uploader'
+	import { providerLabel, inferProvider, type FileProvider } from './provider'
 	import { goto } from '$app/navigation'
 
 	interface FileDoc {
@@ -9,6 +14,12 @@
 		name?: string
 		url?: string
 		key?: string
+		/** Firebase Storage object path (firebase provider only). */
+		path?: string
+		/** MIME type, captured on upload. */
+		type?: string
+		/** Where the file is stored: 'uploadthing' | 'firebase' (legacy POC docs: 'firestore'). */
+		provider?: string
 		size?: number
 		pageCount?: number
 		projectId?: string
@@ -28,7 +39,7 @@
 		files: FileDoc[]
 		projectName?: string
 		projectId?: string
-		ondelete?: (fileId: string, utKey?: string) => void
+		ondelete?: (file: FileDoc) => void
 	} = $props()
 
 	$inspect(files)
@@ -42,6 +53,28 @@
 	let uploadProgress = $state<Record<string, number>>({})
 	let uploadError = $state('')
 	let dragOver = $state(false)
+
+	/**
+	 * Active upload provider. Firebase Storage is the default (no per-file size
+	 * caps from a third party); UploadThing remains available via the toggle.
+	 */
+	let provider = $state<FileProvider>('firebase')
+
+	/** Existing files that predate the `provider` field — surfaced for one-click backfill. */
+	let needsProviderBackfill = $derived(files.filter(f => !f.provider))
+	let backfilling = $state(false)
+	async function backfillProviders() {
+		if (backfilling || !needsProviderBackfill.length) return
+		backfilling = true
+		try {
+			await db.saveBatch('files', needsProviderBackfill.map(f => ({ id: f.id, provider: inferProvider(f) })))
+			toast.success(`Tagged ${needsProviderBackfill.length} file${needsProviderBackfill.length === 1 ? '' : 's'} with a provider`)
+		} catch (e: any) {
+			toast.error(e?.message ?? 'Backfill failed')
+		} finally {
+			backfilling = false
+		}
+	}
 
 	// Fetch project names for grouping
 	let projects = $state<Record<string, string>>({})

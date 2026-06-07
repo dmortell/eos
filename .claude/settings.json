@@ -3,10 +3,12 @@
     "allow": [
       "Bash(git commit -m ' *)",
       "Bash(mkdir src\\\\routes\\\\projects\\\\[pid]\\\\risers)",
-      "mcp__svelte__svelte-autofixer"
+      "mcp__svelte__svelte-autofixer",
+      "Read(//m/dev/eos2/src/routes/projects/[pid]/drawings/**)"
     ],
     "additionalDirectories": [
-      "M:\\dev\\eos"
+      "M:\\dev\\eos",
+      "M:\\dev\\eos2"
     ]
   }
 }

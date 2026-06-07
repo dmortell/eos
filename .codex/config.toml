@@ -1,0 +1,21 @@
+[mcp_servers.box]
+url = "https://mcp.box.com"
+
+[mcp_servers.cloudflare]
+url = "https://bindings.mcp.cloudflare.com/mcp"
+
+[mcp_servers.context7]
+url = "https://mcp.context7.com/mcp"
+
+[mcp_servers.hugging-face]
+url = "https://huggingface.co/mcp"
+
+[mcp_servers.playwright]
+command = "npx"
+args = ["@playwright/mcp@latest"]
+
+[mcp_servers.stripe]
+url = "https://mcp.stripe.com"
+
+[mcp_servers.vercel]
+url = "https://mcp.vercel.com"

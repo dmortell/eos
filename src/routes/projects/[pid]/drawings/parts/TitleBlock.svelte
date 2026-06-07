@@ -118,8 +118,7 @@
 		</div>
 	{:else if config.template === 'vertical'}
 		<!-- Vertical: tall strip down the right edge of the paper, similar to the Outlet floorplan title block. -->
-		<div class="w-full h-full grid overflow-hidden"
-			style:grid-template-rows="auto auto 1fr auto auto auto">
+		<div class="w-full h-full grid overflow-hidden" style:grid-template-rows="auto auto 1fr auto auto auto">
 			<!-- Logo / project name -->
 			<div class="border-b border-zinc-400 p-1 flex flex-col items-center gap-0.5">
 				{#if fLogo}
@@ -157,26 +156,28 @@
 				</div>
 			</div>
 
+			<div class="border-b border-zinc-400 p-1">
+				<div class="text-[1.6pt] uppercase tracking-wider text-zinc-500">Date</div>
+				<div class="text-[2.8pt] font-semibold leading-tight mt-0.5 line-clamp-3">{fDate}</div>
+			</div>
+
 			<!-- Scale / Paper / Date -->
-			<div class="border-b border-zinc-400 grid grid-cols-3 text-[1.8pt]">
+			<!-- <div class="border-b border-zinc-400 grid grid-cols-2 text-[1.8pt]"> -->
+			<div class="border-b border-zinc-400 grid grid-cols-[2fr_1fr] text-[2pt]">
 				<div class="p-1 border-r border-zinc-400 flex flex-col">
 					<span class="uppercase tracking-wider text-zinc-500">Scale</span>
 					<span class="font-mono text-[2.2pt]">{fScale}</span>
 				</div>
-				<div class="p-1 border-r border-zinc-400 flex flex-col">
+				<div class="p-1 xxborder-r border-zinc-400 flex flex-col">
 					<span class="uppercase tracking-wider text-zinc-500">Size</span>
 					<span class="font-mono text-[2.2pt]">{fPaper}</span>
-				</div>
-				<div class="p-1 flex flex-col">
-					<span class="uppercase tracking-wider text-zinc-500">Date</span>
-					<span class="font-mono text-[2.2pt]">{fDate}</span>
 				</div>
 			</div>
 
 			<!-- Drawing No. + Rev (bottom emphasis) -->
 			<div class="grid grid-cols-[2fr_1fr] text-[2pt]">
 				<div class="p-1 border-r border-zinc-400 flex flex-col justify-center">
-					<span class="uppercase tracking-wider text-zinc-500">Drawing No.</span>
+					<span class="uppercase xxtracking-wider text-zinc-500">Drawing No.</span>
 					<span class="font-mono text-[3.2pt] font-bold">{fNumber || '—'}</span>
 				</div>
 				<div class="p-1 flex flex-col justify-center">
