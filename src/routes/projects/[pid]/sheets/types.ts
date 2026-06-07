@@ -27,6 +27,10 @@ export interface SheetViewport {
 	scale?: number                // 1:N denominator; 0 / undefined = fit-to-viewport
 	contentOffsetMm?: Point       // pan offset of source content within the viewport
 	border?: 'none' | 'thin'
+	/** Locks the viewport against content edits (geometry still movable via handles). */
+	locked?: boolean
+	/** Per-viewport layer overrides (independent of the model & other viewports). */
+	layerOverrides?: Record<string, { hidden?: boolean; locked?: boolean }>
 	/**
 	 * Coordinate-convention version for this viewport's source data. Drives the y-axis
 	 * flip in ViewportContent.

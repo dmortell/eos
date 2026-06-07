@@ -10,6 +10,7 @@
 	import SheetPropertiesWindow from "./parts/SheetPropertiesWindow.svelte";
 	import ViewportPropertiesWindow from "./parts/ViewportPropertiesWindow.svelte";
 	import ModelView from "./edit/ModelView.svelte";
+	import LayersPanel from "./layers/LayersPanel.svelte";
 	import { ViewportEditor } from "./viewports.svelte";
 	import type { SheetDoc, SheetViewport, TitleBlockConfig } from "./types";
 	import { updateSheet } from "./data";
@@ -236,6 +237,7 @@
 		<!-- Floating property windows (over the canvas, not inside a viewport). -->
 		<SheetPropertiesWindow {sheet} {project} {db} {pid} />
 		<ViewportPropertiesWindow {vps} {floors} {pid} />
+		<LayersPanel {vps} />
 
 		<!-- Model mode: full-area content editor over the sheet (no route / refresh). -->
 		{#if modelVp}

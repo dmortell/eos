@@ -2,9 +2,12 @@
 	// Interactive overlay for the outlets editor — rendered inside the OutletsRender <svg> so it
 	// shares the real-mm coordinate space. Handles in world-mm (scale with content).
 	import type { OutletsEditor } from './outlets-editor.svelte'
-	let { editor }: { editor: OutletsEditor } = $props()
+	let { editor, locked = [] }: { editor: OutletsEditor; locked?: string[] } = $props()
 
 	const HM = 140 // handle radius (mm)
+	let lockO = $derived(locked.includes('outlets'))
+	let lockT = $derived(locked.includes('trunks'))
+	let lockR = $derived(locked.includes('racks'))
 
 	function bg(e: MouseEvent) {
 		if (e.button !== 0) return
@@ -27,6 +30,7 @@
 		onmousedown={bg} onmousemove={bgMove} />
 
 	<!-- trunk segments (hit) + nodes -->
+	{#if !lockT}
 	{#each editor.trunks as t (t.id)}
 		{#each t.segments as s (s.id)}
 			{@const a = t.nodes.find(n => n.id === s.nodes[0])}
@@ -43,6 +47,7 @@
 				style:cursor="move" onmousedown={(e: MouseEvent) => { e.stopPropagation(); if (editor.tool === 'select') editor.dragNode(t, n.id) }} />
 		{/each}
 	{/each}
+	{/if}
 
 	<!-- draw preview -->
 	{#if editor.draw && editor.preview && drawNode}
@@ -50,6 +55,7 @@
 	{/if}
 
 	<!-- outlets (hit + selection ring) -->
+	{#if !lockO}
 	{#each editor.outlets as o (o.id)}
 		<circle cx={o.position.x} cy={o.position.y} r={260} fill="transparent" style:cursor="move"
 			onmousedown={(e: MouseEvent) => { e.stopPropagation(); if (editor.tool === 'select') editor.dragOutlet(o, e) }} />
@@ -57,10 +63,13 @@
 			<circle cx={o.position.x} cy={o.position.y} r={300} fill="none" stroke="#06b6d4" stroke-width="1.5" vector-effect="non-scaling-stroke" />
 		{/if}
 	{/each}
+	{/if}
 
 	<!-- rack placement move handles -->
+	{#if !lockR}
 	{#each editor.rackPlacements as rp (rp.rackId)}
 		<circle cx={rp.position.x} cy={rp.position.y} r={HM} fill="#3b82f6" fill-opacity="0.5" stroke="#2563eb" stroke-width="1" vector-effect="non-scaling-stroke"
 			style:cursor="move" onmousedown={(e: MouseEvent) => { e.stopPropagation(); if (editor.tool === 'select') editor.dragRack(rp, e) }} />
 	{/each}
+	{/if}
 </g>

@@ -4,6 +4,7 @@
 	import OutletsViewport from './tools/outlets/OutletsViewport.svelte'
 	import RacksViewport from './tools/racks/RacksViewport.svelte'
 	import RisersViewport from './tools/risers/RisersViewport.svelte'
+	import { effectiveLayers } from './layers/layers'
 	import type { SheetViewport } from './types'
 
 	// Dispatches a viewport's declarative `source` to the right renderer. `active` enables editing;
@@ -15,16 +16,18 @@
 		view?: { x: number; y: number; w: number; h: number } | null
 		onview?: (v: { x: number; y: number; w: number; h: number; den: number }) => void
 	} = $props()
+
+	let layers = $derived(effectiveLayers(vp))
 </script>
 
 {#if vp.source.kind === 'text'}
 	<TextViewport source={vp.source} />
 {:else if vp.source.kind === 'outlets'}
-	<OutletsViewport {vp} {zoom} {active} {view} {onview} />
+	<OutletsViewport {vp} {zoom} {active} {view} {onview} hidden={layers.hidden} locked={layers.locked} />
 {:else if vp.source.kind === 'racks'}
-	<RacksViewport {vp} {zoom} {active} {view} {onview} />
+	<RacksViewport {vp} {zoom} {active} {view} {onview} hidden={layers.hidden} locked={layers.locked} />
 {:else if vp.source.kind === 'risers'}
-	<RisersViewport {vp} {zoom} {active} {view} {onview} />
+	<RisersViewport {vp} {zoom} {active} {view} {onview} hidden={layers.hidden} locked={layers.locked} />
 {:else}
 	<EmptyViewport {zoom} />
 {/if}

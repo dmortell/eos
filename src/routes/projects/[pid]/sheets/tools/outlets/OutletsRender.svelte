@@ -21,6 +21,7 @@
 		view = null,
 		onsvg,
 		children,
+		hidden = [],
 	}: {
 		outlets?: OutletConfig[]
 		trunks?: TrunkConfig[]
@@ -36,6 +37,8 @@
 		view?: { x: number; y: number; w: number; h: number } | null
 		onsvg?: (el: SVGSVGElement) => void
 		children?: any
+		/** Hidden layer ids (groups skipped). */
+		hidden?: string[]
 	} = $props()
 
 	// NOTE: outlet/trunk data is y-down (legacy convention → SheetViewport.version === 1). The
@@ -126,6 +129,7 @@
 	{/if}
 
 	<!-- Trunks -->
+	{#if !hidden.includes('trunks')}
 	{#each trunks as t (t.id)}
 		{#if t.visible !== false && t.nodes.length >= 2}
 			{@const color = t.color ?? '#000000'}
@@ -134,8 +138,10 @@
 				stroke-dasharray={isCeiling(t) ? '4 3' : undefined} />
 		{/if}
 	{/each}
+	{/if}
 
 	<!-- Racks -->
+	{#if !hidden.includes('racks')}
 	{#each rackPlacements as p, i (p.rackId + ':' + i)}
 		{@const cfg = racksById[p.rackId]}
 		{#if cfg}
@@ -153,8 +159,10 @@
 			</g>
 		{/if}
 	{/each}
+	{/if}
 
 	<!-- Outlets -->
+	{#if !hidden.includes('outlets')}
 	{#each outlets as o (o.id)}
 		{@const c = USAGE_COLORS[o.usage] ?? USAGE_COLORS.network}
 		{@const low = o.level === 'low'}
@@ -174,6 +182,7 @@
 			{/if}
 		</g>
 	{/each}
+	{/if}
 
 	{@render children?.()}
 </svg>

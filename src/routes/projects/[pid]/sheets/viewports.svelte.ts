@@ -110,6 +110,14 @@ export class ViewportEditor {
 		const v = this.viewports.find(x => x.id === id); if (!v) return
 		v.scale = scale; v.contentOffsetMm = offset
 	}
+	/** Toggle a per-viewport layer override (hidden / locked). */
+	setLayerOverride(id: string, layerId: string, patch: { hidden?: boolean; locked?: boolean }) {
+		const v = this.viewports.find(x => x.id === id); if (!v) return
+		const ov = { ...(v.layerOverrides ?? {}) }
+		ov[layerId] = { ...(ov[layerId] ?? {}), ...patch }
+		v.layerOverrides = ov
+		this.notify()
+	}
 
 	addViewport(r: Rect) {
 		const v: SheetViewport = { id: this.uid('V'), ...r, source: { kind: 'empty' }, border: 'thin', version: 2 }

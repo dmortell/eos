@@ -6,7 +6,7 @@
 
 	let {
 		rooms = [], ladders = [], cables = [], labels = [], floorHeights = {}, settings = null,
-		hiddenFloors = [], fromFloor, toFloor, vp, onview, view = null, onsvg, children,
+		hiddenFloors = [], fromFloor, toFloor, vp, onview, view = null, onsvg, children, hidden = [],
 	}: {
 		rooms?: RiserRoom[]
 		ladders?: Ladder[]
@@ -22,6 +22,7 @@
 		view?: { x: number; y: number; w: number; h: number } | null
 		onsvg?: (el: SVGSVGElement) => void
 		children?: any
+		hidden?: string[]
 	} = $props()
 
 	const LEFT = 1500, RIGHT = 500, TOP = 500, BOTTOM = 500
@@ -96,6 +97,7 @@
 	{/each}
 
 	<!-- Ladders -->
+	{#if !hidden.includes('ladders')}
 	{#each visibleLadders as l (l.id)}
 		{@const span = ladderSpan(l)}
 		{@const w = l.widthMm ?? 450}
@@ -110,8 +112,10 @@
 			<text x={l.xMm} y={span.bot + 220} text-anchor="middle" font-size="180" font-weight="600" fill={stroke} opacity="0.7">{l.level === 'high' ? 'HIGH' : 'LOW'}</text>
 		{/if}
 	{/each}
+	{/if}
 
 	<!-- Cables -->
+	{#if !hidden.includes('cables')}
 	{#each cables as c (c.id)}
 		{@const points = cablePolylinePoints(c, runsByCable.get(c.id) ?? [], { rooms, ladders, bands })}
 		{#if points}
@@ -123,8 +127,10 @@
 			{/if}
 		{/if}
 	{/each}
+	{/if}
 
 	<!-- Rooms -->
+	{#if !hidden.includes('rooms')}
 	{#each visibleRooms as room (room.id)}
 		{@const band = bandForFloor(bands, room.floor)}
 		{#if band}
@@ -138,8 +144,10 @@
 			<text x={room.xMm} y={(yTop + yBot) / 2} text-anchor="middle" dominant-baseline="middle" font-size="280" font-weight="700" fill={base}>{room.label}</text>
 		{/if}
 	{/each}
+	{/if}
 
 	<!-- Free-form labels -->
+	{#if !hidden.includes('annotations')}
 	{#each labels as lb (lb.id)}
 		{@const fs = lb.fontSizeMm ?? 240}
 		{@const w = lb.widthMm && lb.widthMm > 0 ? lb.widthMm : 4000}
@@ -148,6 +156,7 @@
 			<div style:font-size="{fs}px" style:color={lb.color ?? 'rgb(20,20,25)'} style:background={lb.background ?? 'transparent'} style:font-weight="600" style:line-height="1.3" style:white-space="pre-wrap" style:word-wrap="break-word" style:padding="{fs * 0.2}px {fs * 0.3}px">{lb.text}</div>
 		</foreignObject>
 	{/each}
+	{/if}
 
 	{@render children?.()}
 </svg>

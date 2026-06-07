@@ -5,7 +5,7 @@
 
 	let {
 		racks = [], devices = [], settings = null, roomObjects = [], rows = [], face = 'front',
-		rowId = undefined, showWalls = false, colorDevices = true, vp, onview, view = null, onsvg, children,
+		rowId = undefined, showWalls = false, colorDevices = true, vp, onview, view = null, onsvg, children, hidden = [],
 	}: {
 		racks?: RackConfig[]
 		devices?: DeviceConfig[]
@@ -21,6 +21,7 @@
 		view?: { x: number; y: number; w: number; h: number } | null
 		onsvg?: (el: SVGSVGElement) => void
 		children?: any
+		hidden?: string[]
 	} = $props()
 
 	const PT_TO_MM = 25.4 / 72
@@ -137,6 +138,7 @@
 			{/if}
 		{/each}
 
+		{#if !hidden.includes('racks')}
 		{#each planRows as pr (pr.row.id)}
 			<g transform="translate({pr.origin.x} {pr.origin.y}) rotate({pr.rot})">
 				{#each pr.placed as { rack, x, y } (rack.id)}
@@ -150,6 +152,7 @@
 				{/if}
 			</g>
 		{/each}
+		{/if}
 	{:else}
 		<!-- Room shell (slab / ceiling / walls) when enabled -->
 		{#if showWalls}
@@ -169,6 +172,7 @@
 		<line x1={bounds.x} y1={Y(cfg.ceilingLevel)} x2={bounds.x + bounds.w} y2={Y(cfg.ceilingLevel)} stroke="#cbd5e1" stroke-width="0.5" stroke-dasharray="6 4" vector-effect="non-scaling-stroke" />
 
 		<!-- Rack frames + RU numbers -->
+		{#if !hidden.includes('racks')}
 		{#each elevRacks as { rack, x, z } (rack.id)}
 			{@const innerX = x + (rack.widthMm - RACK_19IN_INNER) / 2}
 			<rect {x} y={Y(z + rack.heightMm)} width={rack.widthMm} height={rack.heightMm} fill="white" stroke="#333" stroke-width="0.4" vector-effect="non-scaling-stroke" />
@@ -183,8 +187,10 @@
 			{/if}
 			<text x={x + rack.widthMm / 2} y={Y(z + rack.heightMm) - rackLabelMm * 0.4} text-anchor="middle" font-size={rackLabelMm} fill="#333" font-weight="bold">{rack.label}</text>
 		{/each}
+		{/if}
 
 		<!-- Devices -->
+		{#if !hidden.includes('devices')}
 		{#each devices as d (d.id)}
 			{@const e = elevById.get(d.rackId)}
 			{#if e}
@@ -213,6 +219,7 @@
 				</g>
 			{/if}
 		{/each}
+		{/if}
 	{/if}
 
 	{@render children?.()}
