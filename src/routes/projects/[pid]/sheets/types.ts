@@ -47,5 +47,10 @@ export type ViewportSource =
 export interface TitleBlockConfig {
 	template?: 'vertical' | 'compact' | 'horizontal'
 	positionMm?: Point; widthMm?: number; heightMm?: number
-	fields?: Record<string, string>   // per-sheet overrides; fall back to project defaults
+	/**
+	 * Per-sheet field overrides. A `null` value means "no override — fall back to the project
+	 * default" (works under Firestore merge: setting null lets TitleBlock's `?? projectFallback`
+	 * resolve to the default, whereas an absent key would be ambiguous and '' would force-blank).
+	 */
+	fields?: Record<string, string | null>
 }

@@ -178,18 +178,19 @@ Shipped:
 
 Acceptance (met): one page can show low-level + floor trunks while another shows high-level + ceiling, from the same source doc.
 
-### Phase 7 — Annotations  ◑ (text shipped)
+### Phase 7 — Annotations  ◑ (text + arrow shipped)
 **Goal:** the missing annotation system.
 
-Shipped (text):
-- Data: `Page.annotations?: Annotation[]` (page-space mm). `Annotation` is a discriminated shape with `kind: 'text'` for v1 (room for arrow/rect/dimension/revision-cloud/symbol).
-- `AnnotationLayer.svelte` renders annotations in the paper space; **menubar Insert ▸ Text annotation** arms placement (canvas shows the **copy cursor** + status-bar hint), left-click on the page places one. Select + drag (4px threshold) to move; **double-click to edit inline** (focus + select-all); Del removes; Esc cancels placement / deselects. Font size converted pt → mm so it prints at true point size. Persists to the page doc; included in version restore.
-- Print-safe: the selection outline is `print:outline-none`; `handlePrint` clears annotation selection/mode. Text prints as normal page content.
+Shipped:
+- Data: `Page.annotations?: Annotation[]` (page-space mm). `Annotation` carries `kind: 'text' | 'arrow'` (+ `endMm` for arrows); room for dimension/revision-cloud/symbol.
+- `AnnotationLayer.svelte` renders **text** as HTML divs (pt→mm font, inline edit) and **arrows** as an SVG line + arrowhead with `vector-effect="non-scaling-stroke"` (crisp hairline at any zoom + PDF; a transparent wide hit-line makes thin arrows easy to grab).
+- **Menubar Insert ▸ Text / Arrow annotation** arms placement. A copy-cursor **capture overlay** sits above the whole paper (so placing works even **over a viewport** — the fix this round): text = click to place; arrow = **drag start→end** with a live dashed preview. Select + drag (4px threshold) to move (arrow moves both ends); double-click text to edit inline; Del removes; Esc cancels/deselects. Zero-length arrows are ignored.
+- Persists to the page doc; included in version restore; print-safe (selection chrome `print:*`, cleared in `handlePrint`).
 
 Still outstanding (next):
-- Other annotation kinds — **arrow/leader, dimension, revision-cloud, symbol** (the model + layer are built to extend; arrows would add `x2/y2` + an SVG `vector-effect="non-scaling-stroke"` line). A sidebar editor for font size/colour (currently inline text only).
+- **dimension, revision-cloud, symbol** kinds; arrow **endpoint** editing (move whole arrow only for now); a sidebar editor for font size / colour / arrow style.
 
-Risk: realised low–medium. Acceptance (met for text): place/move/edit/delete text; crisp in PDF; selection hidden in print.
+Risk: realised low–medium. Acceptance (met): place/move/edit/delete text + arrows, incl. over viewports; crisp in PDF; selection hidden in print.
 
 ---
 

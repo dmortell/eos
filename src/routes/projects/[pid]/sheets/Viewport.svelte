@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { ViewportEditor } from "./viewports.svelte";
 	import type { SheetViewport } from "./types";
+	import ViewportContent from "./ViewportContent.svelte";
 
 	// Model-driven: the controller owns position/selection/active state; this component renders
 	// one viewport and reports frame-clicks / handle-drags back. AutoCAD-style selection — you
@@ -66,9 +67,6 @@
 		if (moved) vps.notify() // geometry changed → persist (Stage C)
 	}
 	$effect(() => () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) })
-
-	// Stage B placeholder content. Replaced by the ViewportContent dispatcher in Stage E.
-	let kindLabel = $derived(vp.source?.kind ?? 'empty')
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -81,17 +79,13 @@
 		active ? 'border-blue-600 ring-2 ring-inset ring-blue-500/40 print:border-black print:ring-0'
 			: selected ? 'border-blue-500 print:border-black'
 			: 'border-black',
+		vp.border === 'none' && 'print:border-0', // hide the frame on the printed page
 	]}
 	style:left="{vp.x}px" style:top="{vp.y}px" style:width="{vp.w}px" style:height="{vp.h}px"
 	style:pointer-events="none"
 >
 	<div class="absolute inset-0 overflow-hidden" style:pointer-events={active ? 'auto' : 'none'}>
-		<!-- Stage B placeholder; ViewportContent (source dispatcher) lands in Stage E.
-		     Font is counter-scaled by the Canvas zoom so it reads ~14px on screen at any zoom. -->
-		<div class="flex h-full w-full items-center justify-center text-zinc-400 print:hidden"
-			style:font-size="{14 / zoom}px">
-			{kindLabel === 'empty' ? 'Empty viewport' : kindLabel}
-		</div>
+		<ViewportContent {vp} {zoom} />
 	</div>
 
 	{#if !active}

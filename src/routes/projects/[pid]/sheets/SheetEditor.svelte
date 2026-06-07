@@ -7,6 +7,8 @@
 	import Viewport from "./Viewport.svelte";
 	import SheetMenubar from "./SheetMenubar.svelte";
 	import StatusBar from "./StatusBar.svelte";
+	import SheetPropertiesWindow from "./parts/SheetPropertiesWindow.svelte";
+	import ViewportPropertiesWindow from "./parts/ViewportPropertiesWindow.svelte";
 	import { ViewportEditor } from "./viewports.svelte";
 	import type { SheetDoc, SheetViewport, TitleBlockConfig } from "./types";
 	import { updateSheet } from "./data";
@@ -100,7 +102,7 @@
 	// Capture phase so we run before the Canvas/viewport handlers call stopPropagation.
 	$effect(() => {
 		const el = (t: EventTarget | null) => t as Element | null
-		const inMenu = (t: EventTarget | null) => !!el(t)?.closest?.('.dwg-menubar, .ctx-menu, .fp-toolbar, [data-slot="menubar-content"]')
+		const inMenu = (t: EventTarget | null) => !!el(t)?.closest?.('.dwg-menubar, .ctx-menu, .fp-toolbar, .gui, [data-slot="menubar-content"]')
 		const inViewport = (t: EventTarget | null) => !!el(t)?.closest?.('.vp')
 		const isField = (t: EventTarget | null) => !!el(t)?.closest?.('input, select, textarea, [contenteditable]')
 		let dragging = false
@@ -223,6 +225,10 @@
 				{/if}
 			</div>
 		</Canvas>
+
+		<!-- Floating property windows (over the canvas, not inside a viewport). -->
+		<SheetPropertiesWindow {sheet} {project} {db} {pid} />
+		<ViewportPropertiesWindow {vps} />
 	</div>
 </div>
 
