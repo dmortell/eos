@@ -41,7 +41,7 @@ export type ViewportSource =
 	| { kind: 'empty' }
 	| { kind: 'text'; content: string; fontSizePt?: number }
 	| { kind: 'outlets'; outletsDocId: string; fileId?: string; pageNum?: number; showPdf?: boolean }
-	| { kind: 'racks'; racksDocId: string; face: 'front' | 'rear' | 'plan' }
+	| { kind: 'racks'; racksDocId: string; face: 'front' | 'rear' | 'plan'; rowId?: string; showWalls?: boolean; colorDevices?: boolean }
 	| { kind: 'risers'; risersDocId: string; fromFloor?: number; toFloor?: number }
 
 export interface TitleBlockConfig {

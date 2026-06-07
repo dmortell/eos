@@ -5,7 +5,11 @@
 	import type { RackDocData } from './types'
 	import RacksRender from './RacksRender.svelte'
 
-	let { vp, zoom = 1 }: { vp: SheetViewport; zoom?: number } = $props()
+	let { vp, zoom = 1, onview }: {
+		vp: SheetViewport
+		zoom?: number
+		onview?: (v: { x: number; y: number; w: number; h: number; den: number }) => void
+	} = $props()
 	const db = getContext('db') as Firestore
 
 	let src = $derived(vp.source.kind === 'racks' ? vp.source : null)
@@ -27,7 +31,10 @@
 		roomObjects={doc?.roomObjects ?? []}
 		rows={doc?.rows ?? []}
 		face={src.face}
-		{vp} />
+		rowId={src.rowId}
+		showWalls={src.showWalls ?? false}
+		colorDevices={src.colorDevices ?? true}
+		{vp} {onview} />
 {:else}
 	<div class="flex h-full w-full items-center justify-center text-zinc-400 print:hidden" style:font-size="{14 / zoom}px">No racks source</div>
 {/if}

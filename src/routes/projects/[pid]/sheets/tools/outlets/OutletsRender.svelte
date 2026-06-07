@@ -17,6 +17,7 @@
 		pageW = 0,
 		pageH = 0,
 		vp,
+		onview,
 	}: {
 		outlets?: OutletConfig[]
 		trunks?: TrunkConfig[]
@@ -27,6 +28,7 @@
 		pageW?: number
 		pageH?: number
 		vp: SheetViewport
+		onview?: (v: { x: number; y: number; w: number; h: number; den: number }) => void
 	} = $props()
 
 	// NOTE: outlet/trunk data is y-down (legacy convention → SheetViewport.version === 1). The
@@ -73,15 +75,15 @@
 
 	// ── viewBox (real-mm window mapped into the viewport) ──
 	let fit = $derived(!vp.scale || vp.scale <= 0)
-	let viewBox = $derived.by(() => {
-		if (fit) return `${bounds.x} ${bounds.y} ${bounds.w} ${bounds.h}`
+	let vb = $derived.by(() => {
+		if (fit) return { x: bounds.x, y: bounds.y, w: bounds.w, h: bounds.h }
 		const s = vp.scale as number
-		const w = vp.w * s, h = vp.h * s
-		const ox = vp.contentOffsetMm?.x ?? bounds.x
-		const oy = vp.contentOffsetMm?.y ?? bounds.y
-		return `${ox} ${oy} ${w} ${h}`
+		return { x: vp.contentOffsetMm?.x ?? bounds.x, y: vp.contentOffsetMm?.y ?? bounds.y, w: vp.w * s, h: vp.h * s }
 	})
+	let den = $derived(fit ? (vp.w > 0 && vp.h > 0 ? Math.max(bounds.w / vp.w, bounds.h / vp.h) : 0) : (vp.scale as number))
+	let viewBox = $derived(`${vb.x} ${vb.y} ${vb.w} ${vb.h}`)
 	let par = $derived(fit ? 'xMidYMid meet' : 'xMinYMin meet')
+	$effect(() => { onview?.({ ...vb, den }) })
 
 	function isCeiling(t: TrunkConfig) { return t.location === 'ceiling-plenum' || t.location === 'ceiling-tray' }
 	function trunkPath(t: TrunkConfig): string {

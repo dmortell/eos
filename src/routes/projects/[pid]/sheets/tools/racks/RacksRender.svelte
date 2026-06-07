@@ -4,7 +4,8 @@
 	import { RU_HEIGHT_MM, RACK_19IN_MM, RACK_19IN_INNER, RACK_GAP_MM, DEVICE_TYPE_COLORS, RACK_STYLE, DEFAULT_SETTINGS } from './colors'
 
 	let {
-		racks = [], devices = [], settings = null, roomObjects = [], rows = [], face = 'front', vp,
+		racks = [], devices = [], settings = null, roomObjects = [], rows = [], face = 'front',
+		rowId = undefined, showWalls = false, colorDevices = true, vp, onview,
 	}: {
 		racks?: RackConfig[]
 		devices?: DeviceConfig[]
@@ -12,15 +13,21 @@
 		roomObjects?: RoomObject[]
 		rows?: RackRow[]
 		face?: RackFace
+		rowId?: string
+		showWalls?: boolean
+		colorDevices?: boolean
 		vp: SheetViewport
+		onview?: (v: { x: number; y: number; w: number; h: number; den: number }) => void
 	} = $props()
 
+	const PT_TO_MM = 25.4 / 72
 	let cfg = $derived(settings ?? DEFAULT_SETTINGS)
+	let scopedRacks = $derived(rowId ? racks.filter(r => r.rowId === rowId) : racks)
 
 	// ── Elevation layout (racks side-by-side by order; rear reverses order) ──
 	let elevRacks = $derived.by(() => {
 		if (face === 'plan') return []
-		const sorted = [...racks].sort((a, b) => a.order - b.order)
+		const sorted = [...scopedRacks].sort((a, b) => a.order - b.order)
 		const ordered = face === 'rear' ? [...sorted].reverse() : sorted
 		let x = 0
 		return ordered.map(rack => { const o = { rack, x, z: cfg.floorLevel }; x += rack.widthMm + RACK_GAP_MM; return o })
@@ -31,7 +38,7 @@
 		for (const e of elevRacks) m = Math.max(m, e.z + e.rack.heightMm)
 		return m + 200
 	})
-	const Y = (z: number) => topZ - z // world z (up) → SVG y (down)
+	const Y = (z: number) => topZ - z
 	let lastRight = $derived(elevRacks.length ? elevRacks[elevRacks.length - 1].x + elevRacks[elevRacks.length - 1].rack.widthMm : 480)
 
 	function devOpacity(d: DeviceConfig): number {
@@ -40,7 +47,7 @@
 		return m === face ? 1 : 0.4
 	}
 
-	// ── Plan layout (rows at originMm + rotation; racks within a row by order) ──
+	// ── Plan layout ──
 	function rowRacks(row: RackRow) {
 		const items = racks.filter(r => r.rowId === row.id).sort((a, b) => a.order - b.order)
 		const nonVcm = items.filter(r => r.type !== 'vcm')
@@ -52,19 +59,18 @@
 	}
 	let planRows = $derived.by(() => {
 		if (face !== 'plan') return []
-		return rows.map(row => ({ row, origin: row.plan?.originMm ?? { x: 0, y: 0 }, rot: row.plan?.rotationDeg ?? 0, ...rowRacks(row) }))
+		const scoped = rowId ? rows.filter(r => r.id === rowId) : rows
+		return scoped.map(row => ({ row, origin: row.plan?.originMm ?? { x: 0, y: 0 }, rot: row.plan?.rotationDeg ?? 0, ...rowRacks(row) }))
 	})
 
-	// ── Content bounds (real-mm) for fit + default offset ──
+	// ── Content bounds (real-mm) ──
 	let bounds = $derived.by(() => {
 		let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
 		const ext = (x: number, y: number) => { if (x < minX) minX = x; if (y < minY) minY = y; if (x > maxX) maxX = x; if (y > maxY) maxY = y }
 		if (face === 'plan') {
 			for (const pr of planRows) {
 				const rad = (pr.rot * Math.PI) / 180, cs = Math.cos(rad), sn = Math.sin(rad)
-				for (const [lx, ly] of [[0, 0], [pr.width, 0], [0, pr.depth], [pr.width, pr.depth]] as const) {
-					ext(lx * cs - ly * sn + pr.origin.x, lx * sn + ly * cs + pr.origin.y)
-				}
+				for (const [lx, ly] of [[0, 0], [pr.width, 0], [0, pr.depth], [pr.width, pr.depth]] as const) ext(lx * cs - ly * sn + pr.origin.x, lx * sn + ly * cs + pr.origin.y)
 			}
 			for (const o of roomObjects) {
 				ext(o.position.x, o.position.y)
@@ -74,6 +80,7 @@
 		} else {
 			ext(0, 0); ext(lastRight, topZ - cfg.slabLevel)
 			ext(0, Y(cfg.ceilingLevel)); ext(lastRight, Y(cfg.floorLevel))
+			if (showWalls) { ext(cfg.leftWallX - 50, Y(cfg.ceilingLevel)); ext(cfg.rightWallX + 50, Y(cfg.slabLevel)) }
 		}
 		if (!isFinite(minX)) return { x: 0, y: 0, w: 2000, h: 2000 }
 		const padX = (maxX - minX) * 0.04 || 200, padY = (maxY - minY) * 0.04 || 200
@@ -81,21 +88,27 @@
 	})
 
 	let fit = $derived(!vp.scale || vp.scale <= 0)
-	let viewBox = $derived.by(() => {
-		if (fit) return `${bounds.x} ${bounds.y} ${bounds.w} ${bounds.h}`
+	let vb = $derived.by(() => {
+		if (fit) return { x: bounds.x, y: bounds.y, w: bounds.w, h: bounds.h }
 		const s = vp.scale as number
-		const ox = vp.contentOffsetMm?.x ?? bounds.x
-		const oy = vp.contentOffsetMm?.y ?? bounds.y
-		return `${ox} ${oy} ${vp.w * s} ${vp.h * s}`
+		return { x: vp.contentOffsetMm?.x ?? bounds.x, y: vp.contentOffsetMm?.y ?? bounds.y, w: vp.w * s, h: vp.h * s }
 	})
+	let den = $derived(fit ? (vp.w > 0 && vp.h > 0 ? Math.max(bounds.w / vp.w, bounds.h / vp.h) : 0) : (vp.scale as number))
+	let viewBox = $derived(`${vb.x} ${vb.y} ${vb.w} ${vb.h}`)
 	let par = $derived(fit ? 'xMidYMid meet' : 'xMinYMin meet')
+	$effect(() => { onview?.({ ...vb, den }) })
+
+	// Fonts sized in points * den → constant on-screen size during zoom (no roll), correct on paper.
+	let rackLabelMm = $derived(8 * PT_TO_MM * den)
+	let deviceLabelMm = $derived(6 * PT_TO_MM * den)
+	let ruLabelMm = $derived(3.5 * PT_TO_MM * den)
+	let planLabelMm = $derived(6 * PT_TO_MM * den)
 
 	function rackStyle(r: RackConfig) { return RACK_STYLE[r.type] ?? RACK_STYLE['2-post'] }
 </script>
 
 <svg class="h-full w-full" {viewBox} preserveAspectRatio={par} style:overflow="hidden">
 	{#if face === 'plan'}
-		<!-- Room objects (room-relative mm) -->
 		{#each roomObjects as o (o.id)}
 			{@const stroke = o.color ?? '#64748b'}
 			{#if o.kind === 'wall' && o.endPosition}
@@ -113,39 +126,47 @@
 				{@const w = o.widthMm ?? 100}
 				{@const d = o.depthMm ?? 100}
 				<rect x={o.position.x} y={o.position.y} width={w} height={d} fill={o.color ?? 'rgba(148,163,184,0.25)'} stroke={stroke} stroke-width={o.thicknessMm ?? 30} />
-				{#if o.label}
-					<text x={o.position.x + w / 2} y={o.position.y + d / 2} text-anchor="middle" dominant-baseline="middle" font-size={Math.min(w, d) / 6} fill="#475569">{o.label}</text>
-				{/if}
+				{#if o.label}<text x={o.position.x + w / 2} y={o.position.y + d / 2} text-anchor="middle" dominant-baseline="middle" font-size={Math.min(w, d) / 6} fill="#475569">{o.label}</text>{/if}
 			{/if}
 		{/each}
 
-		<!-- Rows + rack footprints -->
 		{#each planRows as pr (pr.row.id)}
 			<g transform="translate({pr.origin.x} {pr.origin.y}) rotate({pr.rot})">
 				{#each pr.placed as { rack, x, y } (rack.id)}
 					{@const s = rackStyle(rack)}
 					<g>
-						<rect {x} {y} width={rack.widthMm} height={rack.depthMm} fill={s.fill} stroke={s.border} stroke-width="1.5" vector-effect="non-scaling-stroke" />
-						<text x={x + rack.widthMm / 2} y={y + rack.depthMm / 2} text-anchor="middle" dominant-baseline="middle" font-size={Math.min(rack.widthMm, rack.depthMm) * 0.4} fill={s.text} font-weight="bold">{rack.label}</text>
+						<rect {x} {y} width={rack.widthMm} height={rack.depthMm} fill={s.fill} stroke={s.border} stroke-width="0.8" vector-effect="non-scaling-stroke" />
+						<text x={x + rack.widthMm / 2} y={y + rack.depthMm / 2} text-anchor="middle" dominant-baseline="middle" font-size={planLabelMm} fill={s.text} font-weight="bold">{rack.label}</text>
 					</g>
 				{/each}
 				{#if pr.width > 0}
-					<!-- front-edge indicator -->
-					<line x1="0" y1={pr.depth} x2={pr.width} y2={pr.depth} stroke="#2563eb" stroke-width="1.5" vector-effect="non-scaling-stroke" opacity="0.7" />
+					<line x1="0" y1={pr.depth} x2={pr.width} y2={pr.depth} stroke="#2563eb" stroke-width="0.8" vector-effect="non-scaling-stroke" opacity="0.7" />
 				{/if}
 			</g>
 		{/each}
 	{:else}
-		<!-- Elevation: floor + ceiling reference lines -->
-		<line x1={bounds.x} y1={Y(cfg.floorLevel)} x2={bounds.x + bounds.w} y2={Y(cfg.floorLevel)} stroke="#94a3b8" stroke-width="0.75" vector-effect="non-scaling-stroke" />
-		<line x1={bounds.x} y1={Y(cfg.ceilingLevel)} x2={bounds.x + bounds.w} y2={Y(cfg.ceilingLevel)} stroke="#cbd5e1" stroke-width="0.75" stroke-dasharray="6 4" vector-effect="non-scaling-stroke" />
+		<!-- Walls (optional) -->
+		{#if showWalls}
+			<rect x={cfg.leftWallX - 50} y={Y(cfg.ceilingLevel)} width={50} height={cfg.ceilingLevel - cfg.slabLevel} fill="#0000000d" stroke="#cbd5e1" stroke-width="0.4" vector-effect="non-scaling-stroke" />
+			<rect x={cfg.rightWallX} y={Y(cfg.ceilingLevel)} width={50} height={cfg.ceilingLevel - cfg.slabLevel} fill="#0000000d" stroke="#cbd5e1" stroke-width="0.4" vector-effect="non-scaling-stroke" />
+		{/if}
 
-		<!-- Rack frames -->
+		<!-- Floor + ceiling reference lines -->
+		<line x1={bounds.x} y1={Y(cfg.floorLevel)} x2={bounds.x + bounds.w} y2={Y(cfg.floorLevel)} stroke="#94a3b8" stroke-width="0.5" vector-effect="non-scaling-stroke" />
+		<line x1={bounds.x} y1={Y(cfg.ceilingLevel)} x2={bounds.x + bounds.w} y2={Y(cfg.ceilingLevel)} stroke="#cbd5e1" stroke-width="0.5" stroke-dasharray="6 4" vector-effect="non-scaling-stroke" />
+
+		<!-- Rack frames + RU numbers -->
 		{#each elevRacks as { rack, x, z } (rack.id)}
 			{@const innerX = x + (rack.widthMm - RACK_19IN_INNER) / 2}
-			<rect {x} y={Y(z + rack.heightMm)} width={rack.widthMm} height={rack.heightMm} fill="white" stroke="#333" stroke-width="1.25" vector-effect="non-scaling-stroke" />
-			<rect x={innerX} y={Y(z + (rack.heightU + 1) * RU_HEIGHT_MM)} width={RACK_19IN_INNER} height={rack.heightU * RU_HEIGHT_MM} fill="none" stroke="#bbb" stroke-width="0.75" vector-effect="non-scaling-stroke" />
-			<text x={x + rack.widthMm / 2} y={Y(z + rack.heightMm) - 40} text-anchor="middle" font-size="140" fill="#333" font-weight="bold">{rack.label}</text>
+			<rect {x} y={Y(z + rack.heightMm)} width={rack.widthMm} height={rack.heightMm} fill="white" stroke="#333" stroke-width="0.4" vector-effect="non-scaling-stroke" />
+			<rect x={innerX} y={Y(z + (rack.heightU + 1) * RU_HEIGHT_MM)} width={RACK_19IN_INNER} height={rack.heightU * RU_HEIGHT_MM} fill="none" stroke="#bbb" stroke-width="0.3" vector-effect="non-scaling-stroke" />
+			{#each Array.from({ length: rack.heightU }) as _, i (i)}
+				{@const u = i + 1}
+				{@const yc = Y(z + u * RU_HEIGHT_MM + RU_HEIGHT_MM / 2)}
+				<text x={innerX - 25} y={yc} text-anchor="end" dominant-baseline="middle" font-size={ruLabelMm} fill="#aaa" font-family="monospace">{u}</text>
+				<text x={innerX + RACK_19IN_INNER + 25} y={yc} text-anchor="start" dominant-baseline="middle" font-size={ruLabelMm} fill="#aaa" font-family="monospace">{u}</text>
+			{/each}
+			<text x={x + rack.widthMm / 2} y={Y(z + rack.heightMm) - rackLabelMm * 0.4} text-anchor="middle" font-size={rackLabelMm} fill="#333" font-weight="bold">{rack.label}</text>
 		{/each}
 
 		<!-- Devices -->
@@ -159,8 +180,12 @@
 				{@const dh = d.heightU * RU_HEIGHT_MM}
 				{@const color = d.color ?? DEVICE_TYPE_COLORS[d.type] ?? '#6b7280'}
 				<g opacity={devOpacity(d)}>
-					<rect x={dx} y={dyTop} width={devW} height={dh} fill="{color}33" stroke={color} stroke-width="1" vector-effect="non-scaling-stroke" />
-					<text x={dx + 30} y={dyTop + dh / 2} dominant-baseline="middle" font-size={Math.min(dh * 0.55, 130)} fill="#1f2937">{d.label}{d.portCount > 7 ? ` (${d.portCount})` : ''}</text>
+					{#if colorDevices}
+						<rect x={dx} y={dyTop} width={devW} height={dh} fill="{color}33" stroke={color} stroke-width="0.5" vector-effect="non-scaling-stroke" />
+					{:else}
+						<rect x={dx} y={dyTop} width={devW} height={dh} fill="white" stroke="#888" stroke-width="0.4" vector-effect="non-scaling-stroke" />
+					{/if}
+					<text x={dx + devW * 0.04} y={dyTop + dh / 2} dominant-baseline="middle" font-size={deviceLabelMm} fill="#374151" font-weight="bold">{d.label}{d.portCount > 7 ? ` (${d.portCount})` : ''}</text>
 				</g>
 			{/if}
 		{/each}

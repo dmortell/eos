@@ -28,3 +28,26 @@ On print preview, each sheet must render only the content of the paper page area
 2. On opening a sheet from the list, allow the user to insert viewports by dragging out a rectangle.
 3. A sheet properties panel should allow user to enter details for the titlebar
 4. A viewport properties panel allows user to enter details of the viewport, including the type and data source
+
+## Rack elevations
+
+Simplifications (v1 — can add later if you want)
+
+- Elevation omits per-U RU number ticks, overlap "!" warnings, wall rectangles, and the special desk/shelf/VCM frame internals (all rack types draw as a plain frame + 19" rect).
+- Plan ignores frontProtrusionMm in depth alignment.
+- Note: rack elevations read best at ~1:20–1:25; at 1:100 device labels are technically to-scale but tiny.
+
+
+All clean. Here's what changed for the racks refinements:
+
+1. Row selection — added a Row picker to racks properties (populated live from the selected room's racks doc; "All rows" default). Filters both elevation and plan to that row.
+2. Thinner rack frames on screen — outer frame 0.6→0.4, inner 19" rect →0.3 (non-scaling hairlines). Note: on-screen stroke thickness scales with the canvas zoom (the SVG sits inside a CSS-transformed pan/zoom layer), so they look heavier when zoomed in — the reduced base keeps them light; PDF is unaffected.
+3. Zoom-roll fixed — the device label had a min(…, deviceHeight) cap, so during zoom the font switched regimes and the baseline jumped ("rolled"). Labels are now purely 6pt × scale, which renders at a constant on-screen size through the viewBox, so they no longer drift between zoom steps.
+4. RU numbers — added on both rails (monospace, point-sized), aligned to each U slot.
+5. Show walls — new checkbox; draws the left/right wall rects from settings.leftWallX/rightWallX (slab→ceiling) and includes them in the fit bounds.
+6. Turn off device colors — new Color devices checkbox (default on). Off = the original look: white device box + dark bold label, no type-color fill (matching the original DeviceView, which has no background fill).
+7. Plan labels — were scaling to rack size (min(w,d)·0.32); now 6pt × scale like elevation, so they're consistent and no longer balloon with rack footprint.
+
+All point-based fonts (rack 8pt, device 6pt, RU 3.5pt, plan 6pt) render at a stable size on screen and at the true point size on paper.
+
+Type-checks clean; not run. Worth testing: a Front elevation at ~1:20 (RU numbers + thin frames + readable labels), toggle Color devices off (should look like the original), Show walls on, pick a specific Row, zoom while active (labels should stay put now), and a Plan view (labels should be smaller/consistent).

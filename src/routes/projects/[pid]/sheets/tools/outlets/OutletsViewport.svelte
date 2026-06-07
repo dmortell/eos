@@ -8,7 +8,11 @@
 
 	const RENDER_SCALE = 2 // PDF rasterization scale (crispness)
 
-	let { vp, zoom = 1 }: { vp: SheetViewport; zoom?: number } = $props()
+	let { vp, zoom = 1, onview }: {
+		vp: SheetViewport
+		zoom?: number
+		onview?: (v: { x: number; y: number; w: number; h: number; den: number }) => void
+	} = $props()
 	const db = getContext('db') as Firestore
 
 	let src = $derived(vp.source.kind === 'outlets' ? vp.source : null)
@@ -96,7 +100,7 @@
 		{racksById}
 		{calibration}
 		{pdfUrl} {pageW} {pageH}
-		{vp} />
+		{vp} {onview} />
 {:else}
 	<div class="flex h-full w-full items-center justify-center text-zinc-400 print:hidden" style:font-size="{14 / zoom}px">No outlets source</div>
 {/if}

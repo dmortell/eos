@@ -72,7 +72,75 @@
 	const LABEL_PT = 8
 	const PT_TO_MM = 25.4 / 72
 	let labelMm = $derived(LABEL_PT * PT_TO_MM)
-	let scaleText = $derived(vp.scale && vp.scale > 0 ? `1:${vp.scale}` : 'Fit')
+
+	// The active tool render reports its effective view (real-mm window + scale denominator),
+	// so the readout can show the computed scale even in Fit mode, and pan/zoom can seed from it.
+	let lastView = $state<{ x: number; y: number; w: number; h: number; den: number } | null>(null)
+	let scaleText = $derived(
+		vp.scale && vp.scale > 0 ? `1:${Math.round(vp.scale)}`
+			: lastView ? `1:${Math.round(lastView.den)} (fit)` : 'Fit'
+	)
+
+	// ── Content pan / zoom (only when this viewport is active) ──
+	// Pan adjusts contentOffsetMm; wheel adjusts scale around the cursor. Both lock the viewport
+	// to an explicit scale (out of Fit) and persist via vps.notify().
+	let contentEl: HTMLDivElement | undefined = $state()
+	let contentPanning = $state(false)
+	let cpx = 0, cpy = 0, cox = 0, coy = 0, cden = 0
+
+	const curDen = () => (vp.scale && vp.scale > 0 ? vp.scale : (lastView?.den ?? 0))
+	const curOffset = () => vp.contentOffsetMm ?? { x: lastView?.x ?? 0, y: lastView?.y ?? 0 }
+
+	function contentDown(e: MouseEvent) {
+		if (e.button !== 0 || !lastView) return
+		e.stopPropagation(); e.preventDefault()
+		contentPanning = true
+		cpx = e.clientX; cpy = e.clientY; cden = curDen()
+		const o = curOffset(); cox = o.x; coy = o.y
+		window.addEventListener('mousemove', contentMove)
+		window.addEventListener('mouseup', contentUp)
+	}
+	function contentMove(e: MouseEvent) {
+		if (!contentPanning) return
+		const f = cden / zoom // real-mm per screen px
+		vp.scale = cden
+		vp.contentOffsetMm = { x: cox - (e.clientX - cpx) * f, y: coy - (e.clientY - cpy) * f }
+	}
+	function contentUp() {
+		if (!contentPanning) return
+		contentPanning = false
+		window.removeEventListener('mousemove', contentMove)
+		window.removeEventListener('mouseup', contentUp)
+		vps.notify()
+	}
+	function contentWheel(e: WheelEvent) {
+		if (!lastView || !contentEl) return
+		e.preventDefault(); e.stopPropagation()
+		const den0 = curDen(); const o = curOffset()
+		const rect = contentEl.getBoundingClientRect()
+		const px = (e.clientX - rect.left), py = (e.clientY - rect.top) // screen px in viewport
+		const mmX = o.x + px * den0 / zoom, mmY = o.y + py * den0 / zoom // real-mm under cursor
+		const factor = e.deltaY < 0 ? 1 / 1.1 : 1.1
+		const den1 = Math.min(100000, Math.max(0.5, den0 * factor))
+		vp.scale = den1
+		vp.contentOffsetMm = { x: mmX - px * den1 / zoom, y: mmY - py * den1 / zoom }
+		vps.notify()
+	}
+
+	// Attach content gestures non-passively while active (so preventDefault works and the outer
+	// Canvas doesn't also pan/zoom).
+	$effect(() => {
+		const elc = contentEl
+		if (!elc || !active) return
+		elc.addEventListener('wheel', contentWheel, { passive: false })
+		elc.addEventListener('mousedown', contentDown)
+		return () => {
+			elc.removeEventListener('wheel', contentWheel)
+			elc.removeEventListener('mousedown', contentDown)
+			window.removeEventListener('mousemove', contentMove)
+			window.removeEventListener('mouseup', contentUp)
+		}
+	})
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -92,8 +160,10 @@
 	style:left="{vp.x}px" style:top="{vp.y}px" style:width="{vp.w}px" style:height="{vp.h}px"
 	style:pointer-events="none"
 >
-	<div class="absolute inset-0 overflow-hidden" style:pointer-events={active ? 'auto' : 'none'}>
-		<ViewportContent {vp} {zoom} />
+	<div bind:this={contentEl} class="absolute inset-0 overflow-hidden"
+		style:pointer-events={active ? 'auto' : 'none'}
+		style:cursor={active ? (contentPanning ? 'grabbing' : 'grab') : 'default'}>
+		<ViewportContent {vp} {zoom} onview={(v) => lastView = v} />
 	</div>
 
 	<!-- Label (prints at point size, above the frame) -->

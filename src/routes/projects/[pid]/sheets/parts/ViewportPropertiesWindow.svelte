@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte'
 	import { Window } from '$lib'
-	import { SCALE_OPTIONS } from '$lib/ui/print/types'
 	import type { ViewportEditor } from '../viewports.svelte'
 	import type { ViewportSource } from '../types'
 	import PropText from './PropText.svelte'
@@ -19,9 +18,22 @@
 
 	let vp = $derived(vps.selectedViewport)
 
+	// Wider scale range than the sheet's paper scale — viewports often need large scales for
+	// elevations (1:10 / 1:5 / 1:2). value 0 = Fit (auto).
+	const VP_SCALES = [
+		{ label: 'Fit', value: 0 },
+		{ label: '1:2', value: 2 }, { label: '1:5', value: 5 }, { label: '1:10', value: 10 },
+		{ label: '1:20', value: 20 }, { label: '1:25', value: 25 }, { label: '1:50', value: 50 },
+		{ label: '1:100', value: 100 }, { label: '1:200', value: 200 }, { label: '1:500', value: 500 },
+	]
+
 	// Editable mirror, re-synced when the selected viewport changes. Handlers write back to the
 	// reactive viewport object and call vps.notify() (→ debounced save in SheetEditor).
-	let form = $state({ kind: 'empty', label: '', scale: '0', border: 'thin', text: '', fontSizePt: '6', outletsDocId: '', racksDocId: '', racksFace: 'front' as RackFace })
+	let form = $state({
+		kind: 'empty', label: '', scale: '0', border: 'thin', text: '', fontSizePt: '6',
+		outletsDocId: '',
+		racksDocId: '', racksFace: 'front' as RackFace, racksRowId: '', racksShowWalls: false, racksColorDevices: true,
+	})
 	let syncedId: string | null = null
 	$effect(() => {
 		const id = vp?.id ?? null
@@ -40,6 +52,9 @@
 				outletsDocId: s.kind === 'outlets' ? s.outletsDocId : '',
 				racksDocId: s.kind === 'racks' ? s.racksDocId : '',
 				racksFace: s.kind === 'racks' ? s.face : 'front',
+				racksRowId: s.kind === 'racks' ? (s.rowId ?? '') : '',
+				racksShowWalls: s.kind === 'racks' ? (s.showWalls ?? false) : false,
+				racksColorDevices: s.kind === 'racks' ? (s.colorDevices ?? true) : true,
 			}
 		})
 	})
@@ -74,7 +89,10 @@
 			const carry = cur?.kind === 'outlets' ? { fileId: cur.fileId, pageNum: cur.pageNum, showPdf: cur.showPdf } : {}
 			return { kind: 'outlets', outletsDocId: form.outletsDocId, ...carry }
 		}
-		if (form.kind === 'racks') return { kind: 'racks', racksDocId: form.racksDocId, face: form.racksFace }
+		if (form.kind === 'racks') return {
+			kind: 'racks', racksDocId: form.racksDocId, face: form.racksFace,
+			rowId: form.racksRowId || undefined, showWalls: form.racksShowWalls, colorDevices: form.racksColorDevices,
+		}
 		return { kind: 'empty' }
 	}
 </script>
@@ -89,7 +107,7 @@
 		</PropSelect>
 		<PropText label="Label" bind:value={form.label} oninput={apply} />
 		<PropSelect label="Scale" bind:value={form.scale} onchange={apply}>
-			{#each SCALE_OPTIONS as o (o.value)}
+			{#each VP_SCALES as o (o.value)}
 				<option value={String(o.value)}>{o.label}</option>
 			{/each}
 		</PropSelect>
@@ -109,7 +127,11 @@
 		{:else if form.kind === 'racks'}
 			<hr class="border-zinc-200" />
 			<RacksProperties {floors} {pid} racksDocId={form.racksDocId} face={form.racksFace}
-				onpick={(p) => { form.racksDocId = p.racksDocId; form.racksFace = p.face; apply() }} />
+				rowId={form.racksRowId} showWalls={form.racksShowWalls} colorDevices={form.racksColorDevices}
+				onchange={(p) => {
+					form.racksDocId = p.racksDocId; form.racksFace = p.face; form.racksRowId = p.rowId
+					form.racksShowWalls = p.showWalls; form.racksColorDevices = p.colorDevices; apply()
+				}} />
 		{/if}
 	</Window>
 {/if}
