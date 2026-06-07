@@ -111,8 +111,8 @@
 	let isLocked = $derived(viewport.locked === true)
 
 	function beginDrag(e: MouseEvent, mode: DragMode) {
-		// Locked viewports block frame moves/resize but still allow Alt-drag
-		// content panning so users can re-frame source content without unlocking.
+		// Locked viewports block frame moves/resize but still allow content panning
+		// (middle/right-drag when active) so users can re-frame without unlocking.
 		if (isLocked && mode !== 'pan-content') return
 		e.stopPropagation()
 		onselect()
@@ -134,19 +134,23 @@
 	}
 
 	function onBodyMouseDown(e: MouseEvent) {
-		if (e.button !== 0) return
-		// Activated viewport: plain drag pans the content (no Alt needed); frame stays put.
+		// Unified pan/zoom: middle/right-drag pans, left is for interaction.
 		if (active) {
-			e.preventDefault()
-			beginDrag(e, 'pan-content')
+			// Middle/right-drag pans the viewport CONTENT (and must not reach the
+			// page canvas, which would otherwise pan the whole page — the old bug).
+			if (e.button === 1 || e.button === 2) {
+				e.preventDefault()
+				beginDrag(e, 'pan-content')
+				return
+			}
+			// Left inside an active viewport is for editing its content (handled by
+			// the inner renderer). Swallow it so the page canvas doesn't deselect.
+			if (e.button === 0) { e.stopPropagation(); return }
 			return
 		}
-		// Alt+drag pans the source content instead of moving the frame.
-		if (e.altKey) {
-			e.preventDefault()
-			beginDrag(e, 'pan-content')
-			return
-		}
+		// Inactive frame: left selects / moves the frame; middle/right fall through
+		// to the page canvas to pan the page.
+		if (e.button !== 0) return
 		// First click only selects — never moves. Moving requires a deliberate
 		// drag on an already-selected viewport (past the threshold). This is the
 		// anti-accidental-move guard. Locked frames also just select.
@@ -174,9 +178,9 @@
 	 * (smaller scale means fewer source-mm per paper-mm, so offset shifts less).
 	 */
 	function onBodyWheel(e: WheelEvent) {
-		// Scale the content when activated (plain wheel) or via Alt on a selected
-		// frame; otherwise let the canvas handle page zoom/pan.
-		if (!active && !e.altKey) return
+		// Wheel zooms (scales) the content only when activated; otherwise it falls
+		// through to the page canvas, which zooms the page. Consistent everywhere.
+		if (!active) return
 		e.preventDefault()
 		e.stopPropagation()
 		// `scale` is a ratio denominator (1:N), so wheel-up = zoom in = smaller N.
@@ -286,7 +290,7 @@
 
 	let bodyCursor = $derived.by(() => {
 		if (dragStart?.mode === 'pan-content') return 'grabbing'
-		if (active) return 'grab' // activated → drag pans content
+		if (active) return 'default' // activated → left edits, middle/right pans (inner content sets its own cursor)
 		if (isLocked) return 'default'
 		if (dragStart?.mode === 'move') return 'grabbing'
 		if (!selected) return 'pointer' // click to select first
@@ -426,7 +430,7 @@
 		<!-- Hint line — shown when selected -->
 		<div class="absolute top-full left-0 mt-0.5 text-[8px] text-blue-500/70 pointer-events-none whitespace-nowrap print:hidden">
 			{#if active}
-				{scaleLabel} · Drag pans content · wheel scales · dbl-click empty / Esc exits
+				{scaleLabel} · Middle/right-drag pans · wheel zooms · left edits · dbl-click empty / Esc exits
 			{:else}
 				{scaleLabel} · Drag moves · handles resize · dbl-click enters · Ctrl/⌘-Z undo · Del removes
 			{/if}

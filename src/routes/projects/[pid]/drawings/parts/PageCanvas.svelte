@@ -95,23 +95,18 @@
 	})
 
 	function onWheel(e: WheelEvent) {
-		if (e.ctrlKey || e.altKey || e.metaKey || e.buttons === 2) {
-			e.preventDefault()
-			const rect = canvas!.getBoundingClientRect()
-			const cx = e.clientX - rect.left
-			const cy = e.clientY - rect.top
-			const factor = e.deltaY < 0 ? 1.2 : 1 / 1.2
-			const nextZoom = Math.min(8, Math.max(0.1, zoom * factor))
-			// Zoom around cursor: keep the mm point under cursor fixed.
-			panX = cx - (cx - panX) * (nextZoom / zoom)
-			panY = cy - (cy - panY) * (nextZoom / zoom)
-			zoom = nextZoom
-		} else if (e.shiftKey) {
-			panX -= e.deltaY
-		} else {
-			panY -= e.deltaY
-			panX -= e.deltaX
-		}
+		// Unified model: wheel always zooms at the cursor; panning is middle/right-drag.
+		// (An active viewport's own wheel handler stops propagation before this runs.)
+		e.preventDefault()
+		const rect = canvas!.getBoundingClientRect()
+		const cx = e.clientX - rect.left
+		const cy = e.clientY - rect.top
+		const factor = e.deltaY < 0 ? 1.2 : 1 / 1.2
+		const nextZoom = Math.min(8, Math.max(0.1, zoom * factor))
+		// Zoom around cursor: keep the mm point under cursor fixed.
+		panX = cx - (cx - panX) * (nextZoom / zoom)
+		panY = cy - (cy - panY) * (nextZoom / zoom)
+		zoom = nextZoom
 	}
 
 	function onCanvasMouseDown(e: MouseEvent) {

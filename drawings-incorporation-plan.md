@@ -240,11 +240,13 @@ Goal later: floorplans use **positive-up** like elevations. For now, build so th
 
 ## Appendix D — Open questions for later
 
--1. **Pan/zoom consistency — unify input methods.** *(user concern)* Right now there are three different pan/zoom gestures depending on context, which is confusing:
-   - **Page canvas:** right/middle-drag pans, Ctrl/Alt/Meta+wheel or right-wheel zooms.
-   - **Inactive viewport content:** Alt+drag pans, Alt+wheel scales.
-   - **Active viewport content:** plain drag pans, plain wheel scales.
-   The user wants **one consistent method** (preference: **middle- or right-wheel/drag** everywhere). Also a concrete bug surfaced by the mix: **on an active viewport, right-wheel zooms the content correctly, but right-drag pans the whole page canvas instead of the active viewport's content** (the page canvas's right-drag handler wins). Settle the unified scheme before Phase 5b/7, then make the active-viewport content honour the same gesture (intercept right-drag when a viewport is active). Don't pile more bespoke gestures on until this is resolved.
+-1. **Pan/zoom consistency — unify input methods.**  ✅ (resolved)
+   Unified model shipped across the drawing surfaces (`PageCanvas` + `ViewportFrame`):
+   - **Wheel = zoom at cursor**, everywhere — the page canvas when no viewport is active; the active viewport's *content* when one is (its handler stops propagation so the page doesn't also zoom). Removed the old plain-wheel-pan / Ctrl-modifier-to-zoom split.
+   - **Middle- or right-drag = pan**, everywhere — pans the page, or the *active viewport's content* when one is active. The active `ViewportFrame` now intercepts middle/right-drag and `stopPropagation`s, **fixing the bug** where right-drag over an active viewport panned the whole page.
+   - **Left = interaction only** — drag a *selected* frame to move it; edit content in an *active* viewport (left swallowed so it can't deselect); click empty page to deselect.
+   - **Dropped** Alt+drag / Alt+wheel on inactive viewports (the disliked inconsistency). To pan/zoom a viewport's content you double-click in first.
+   *Not yet aligned:* the standalone **outlets editing tool** (`OutletCanvas`) already uses middle/right-drag pan but still gates zoom behind Ctrl/right-button — align its wheel→zoom in a later pass if desired (separate surface, wasn't part of the reported issue).
 0. **Selection model — revisit for annotations.** Phase 2 shipped *select-first + 4px threshold* (a click anywhere on the viewport selects; a deliberate drag moves). The eos2 POC actually selects **only** when clicking/marquee-dragging across the *frame border* — clicking the content does **not** select. We left it as-is because Ctrl-Z undo covers accidental moves well. **Revisit** if/when annotations land: editing annotations inside a viewport will likely need clicking content to *not* select/move the frame, so we may want the POC's frame-border-only selection (+ marquee) then.
 1. Annotation coordinate space: page-level vs viewport-level vs both? (affects whether annotations pan with an activated viewport).
 2. Should `floorplan-edit` viewports allow editing racks/outlets too, or trunks only in v1?

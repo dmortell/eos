@@ -429,9 +429,9 @@
 
 	/** Contextual instruction shown in the status bar, by interaction mode. */
 	let statusMessage = $derived.by(() => {
-		if (activeViewportId) return 'Viewport active · drag pans content, wheel scales · double-click empty space or Esc to exit'
-		if (selectedViewportId) return 'Viewport selected · drag to move, handles to resize · double-click to enter · Ctrl/⌘-Z to undo · arrows nudge · Del removes'
-		return 'Click a viewport to select · double-click to enter · right/middle-drag to pan the page · Ctrl/⌘+wheel to zoom'
+		if (activeViewportId) return 'Viewport active · middle/right-drag pans, wheel zooms, left edits · double-click empty space or Esc to exit'
+		if (selectedViewportId) return 'Viewport selected · left-drag to move, handles to resize · double-click to enter · Ctrl/⌘-Z to undo · arrows nudge · Del removes'
+		return 'Click a viewport to select · double-click to enter · middle/right-drag to pan · wheel to zoom'
 	})
 
 	function getCurrentSnapshot(): unknown {
