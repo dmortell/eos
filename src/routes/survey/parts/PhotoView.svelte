@@ -204,7 +204,7 @@
 							{currentPhoto.latitude.toFixed(4)}, {currentPhoto.longitude?.toFixed(4)}
 						</span>
 					{/if}
-				</div>s
+				</div>
 				<div class="mt-3 flex items-center gap-3">
 					{#if !editing}
 						<Button variant="primary" size="lg" icon="edit" onclick={() => (editing = true)}>Edit</Button>

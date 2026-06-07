@@ -253,13 +253,16 @@
 	async function createViewport(source: ViewportSource, label?: string) {
 		if (!pageData) return
 		const id = crypto.randomUUID().slice(0, 10)
+		// Floorplan-style sources are usually larger than the page, so default them
+		// to fit-to-viewport (scale 0); the user can pick an exact 1:N afterwards.
+		const fitByDefault = source.kind === 'outlets' || source.kind === 'floorplan'
 		const vp: Viewport = {
 			id,
 			positionMm: { x: 40, y: 40 },
 			widthMm: 150,
 			heightMm: 100,
 			source,
-			scale: pageData.paper.scale || 100,
+			scale: fitByDefault ? 0 : (pageData.paper.scale || 100),
 			...(label ? { label } : {}),
 		}
 		selectedViewportId = id
@@ -530,17 +533,6 @@
 		<aside class="border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex flex-col text-xs sidebar-area print:hidden overflow-hidden"
 			style:width="{SIDEBAR_W}px">
 			<!-- Compact header: back-link + inline page title. -->
-			<div class="px-3 py-2 border-b border-zinc-200 dark:border-zinc-800 flex items-center gap-2 shrink-0">
-				<a href="/projects/{pid}/drawings" class="inline-flex text-zinc-500 hover:text-blue-600 shrink-0" title="Back to drawings">
-					<Icon name="chevronLeft" size={14} />
-					Back to drawings
-				</a>
-				<!-- <input type="text"
-					class="flex-1 min-w-0 border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-0.5 text-xs bg-white dark:bg-zinc-900"
-					value={pageData.title}
-					placeholder="Page title"
-					oninput={(e: Event) => persistLive({ title: inputValue(e) })} /> -->
-				</div>
 				<div class="mt-3xx space-y-2 px-2 my-2">
 					<label class="block">
 						<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Page Title</div>
@@ -1087,6 +1079,7 @@
 				ondeactivate={deactivateViewport}
 				onupdateviewport={updateViewport}
 				onhistory={pushHistory}
+				onfit={(id, scale) => updateViewport(id, { scale })}
 				onupdatetitleblock={updateTitleBlock}
 				onopensource={handleOpenSource} />
 			<StatusBar message={statusMessage} height={STATUSBAR_H} />

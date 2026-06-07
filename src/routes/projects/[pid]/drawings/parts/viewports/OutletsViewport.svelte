@@ -24,7 +24,12 @@
 	import { Firestore } from '$lib'
 	import TrunkRenderer from '../../../outlets/trunks/TrunkRenderer.svelte'
 
-	let { viewport, db }: { viewport: Viewport; db: Firestore } = $props()
+	let { viewport, db, onfit }: {
+		viewport: Viewport
+		db: Firestore
+		/** Reports the real 1:N that fits the current frame, so a fit request (scale 0) can lock to a fixed scale. */
+		onfit?: (scale: number) => void
+	} = $props()
 
 	let src = $derived(viewport.source.kind === 'outlets' ? viewport.source : null)
 	let showOutlets = $derived(src?.showOutlets !== false)
@@ -48,7 +53,6 @@
 
 	let pageNum = $derived<number>(outletsDoc?.selectedPage ?? 1)
 	let calibration = $derived(fileDoc?.pages?.[pageNum - 1] ?? null)
-	let crop = $derived(calibration?.crop as { x: number; y: number; width: number; height: number } | undefined)
 	let scaleFactor = $derived<number>(calibration?.scaleFactor ?? 1)
 	let origin = $derived<Point>(calibration?.origin ?? { x: 0, y: 0 })
 
@@ -101,12 +105,49 @@
 		}
 	}
 
-	/** viewBox in PDF-px, optionally cropped. Keeps the SVG aligned with the underlay. */
-	let viewBox = $derived(
-		crop
-			? `${crop.x} ${crop.y} ${crop.width} ${crop.height}`
-			: `0 0 ${renderWidthPx} ${renderHeightPx}`,
-	)
+	/**
+	 * World-scale rendering. The PDF page is rendered at its natural pixel size
+	 * (renderWidthPx × renderHeightPx) and transformed into the viewport's
+	 * paper-mm space (1 px = 1 paper-mm at canvas zoom 1):
+	 *
+	 *   - `viewport.scale > 0` → true drawing scale 1:N. 1 real-world mm maps to
+	 *     (1/N) paper-mm. Since 1 PDF-px = `scaleFactor` mm, the PDF-px content is
+	 *     scaled by `scaleFactor / N`. The view is panned by `contentOffsetMm`
+	 *     (real-world mm), so the frame is a window onto the plan at exact scale.
+	 *   - `viewport.scale === 0` → fit the whole page into the frame, centred
+	 *     (the previous behaviour, now the explicit "Fit to viewport" option).
+	 */
+	let contentW = $derived(renderWidthPx)
+	let contentH = $derived(renderHeightPx)
+	let worldScale = $derived(scaleFactor > 0 && (viewport.scale ?? 0) > 0 ? scaleFactor / viewport.scale : 0)
+	let fitScale = $derived(contentW && contentH ? Math.min(viewport.widthMm / contentW, viewport.heightMm / contentH) : 1)
+	let innerScale = $derived(worldScale > 0 ? worldScale : fitScale)
+	let offX = $derived(viewport.contentOffsetMm?.x ?? 0)
+	let offY = $derived(viewport.contentOffsetMm?.y ?? 0)
+	// Translate (PDF-px) applied inside scale(), origin top-left. Content pins to
+	// the frame's top-left in both fit and fixed-scale modes (only `innerScale`
+	// differs), so the one-shot fit→fixed lock is visually seamless. Pan shifts it
+	// by `contentOffsetMm` (real-world mm → PDF-px via scaleFactor).
+	let txPdf = $derived(-(offX / scaleFactor))
+	let tyPdf = $derived(-(offY / scaleFactor))
+
+	/**
+	 * One-shot "fit": when `scale === 0` (a fit request), compute the real 1:N
+	 * that fits the current frame and persist it via `onfit`. The viewport then
+	 * behaves as a fixed-scale window — **resizing the frame crops instead of
+	 * rescaling the content**. Choosing "Fit to viewport" again (scale → 0) at a
+	 * new frame size re-runs this. The token guards against duplicate writes
+	 * between the persist and the resulting prop update.
+	 */
+	let lastFitToken = ''
+	$effect(() => {
+		if ((viewport.scale ?? 0) !== 0) { lastFitToken = ''; return }
+		if (!fitScale || scaleFactor <= 0 || !contentW) return
+		const token = `${viewport.id}:${Math.round(viewport.widthMm)}x${Math.round(viewport.heightMm)}`
+		if (token === lastFitToken) return
+		lastFitToken = token
+		onfit?.(Math.max(1, Math.round(scaleFactor / fitScale)))
+	})
 
 	let outlets = $derived<OutletConfig[]>(outletsDoc?.outlets ?? [])
 	let trunks = $derived<TrunkConfig[]>(outletsDoc?.trunks ?? [])
@@ -138,12 +179,19 @@
 			Rendering floorplan…
 		</div>
 	{:else}
-		<!-- PDF underlay + SVG overlay share the same container so they scale together -->
-		<div class="relative w-full h-full">
-			<img src={pageUrl} alt="floorplan" class="absolute inset-0 w-full h-full object-contain" draggable="false" />
-			<svg class="absolute inset-0 w-full h-full"
-				viewBox={viewBox}
-				preserveAspectRatio="xMidYMid meet">
+		<!--
+			PDF underlay + SVG overlay share one transformed box so they scale and
+			pan together. Content is sized in natural PDF-px; the transform maps it
+			into paper-mm space at the viewport's drawing scale (see derivations).
+		-->
+		<div class="absolute top-0 left-0"
+			style:transform="scale({innerScale}) translate({txPdf}px, {tyPdf}px)"
+			style:transform-origin="top left">
+		<div class="relative" style:width="{contentW}px" style:height="{contentH}px">
+			<img src={pageUrl} alt="floorplan" class="absolute top-0 left-0" style:width="{contentW}px" style:height="{contentH}px" draggable="false" />
+			<svg class="absolute top-0 left-0" width={contentW} height={contentH}
+				viewBox="0 0 {contentW} {contentH}"
+				preserveAspectRatio="none">
 				{#if showTrunks}
 					<!--
 						Full trunk shapes via the outlets tool's own renderer.
@@ -215,6 +263,7 @@
 					{/each}
 				{/if}
 			</svg>
+		</div>
 		</div>
 	{/if}
 </div>

@@ -40,7 +40,14 @@
 </script>
 
 <header style="height:{height}px" class="row print:hidden bg-slate-800 text-white px-4 py-1 justify-between">
-	<a href='/' title="Home" class="row"><Icon name=home/> {title}</a>
+	<div class="row">
+		{#if page.url.pathname !== '/'}
+			<button onclick={() => history.back()} title="Back" aria-label="Back" class="row rounded hover:text-gray-200">
+				<Icon name="chevronLeft" />
+			</button>
+		{/if}
+		<a href='/' title="Home" class="row"><Icon name=home/> {title}</a>
+	</div>
 	<div>{@render children?.()}</div>
 
 	<div class='row'>

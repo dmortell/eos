@@ -135,17 +135,26 @@ Shipped:
 
 Acceptance (met): every new viewport gets a correct, non-empty source up front; floorplan picks a real uploaded file.
 
-### Phase 5 — In-place floorplan editing + scale/world-scale (revised target)
-**Goal:** edit trunks/outlets/racks inside an activated **`outlets`** viewport; finalize scale model.
+### Phase 5a — World-scale + exact scale for the floorplan/outlets viewport  ✅ (shipped)
+**Goal:** make `viewport.scale` (1:N) and `contentOffsetMm` actually drive the floorplan/outlets viewport.
+
+Shipped:
+- `OutletsViewport.svelte` previously used `object-contain` (fit-to-frame), ignoring scale + pan — the "world scale not implemented" gap. Now it renders the PDF page at natural px and applies `transform: scale(scaleFactor / viewport.scale) translate(pan)` so **1 real-world mm → (1/N) paper-mm** (true 1:N), panned by `contentOffsetMm`. `scale === 0` = fit-to-viewport, centred (the old behaviour, now the explicit "Fit" option).
+- Exact scale is now end-to-end: menubar **View ▸ Viewport scale** presets + sidebar scale input set `viewport.scale`; Alt-wheel / active-wheel nudge it; the floorplan honours it on screen and (via the same transform) in print.
+- New floorplan/outlets viewports default to **Fit** (`scale 0`) so they show the whole plan on add.
+
+Mirrors the working pattern in `RackElevationViewport` (`innerScale = 2 / scale`, translate by `contentOffsetMm`). `FloorplanViewport` (plain PDF section, no calibration) stays fit-to-frame — true 1:N needs calibration, which only the `outlets` viewport carries.
+
+> **Migration note:** existing `outlets` viewports saved with `scale = 100` now honour it (1:100 window) instead of fitting. Set them to **Fit to viewport** (View ▸ Viewport scale) if the old whole-plan look is wanted.
+
+### Phase 5b — In-place editing inside an activated `outlets` viewport  ⏳ (next)
+**Goal:** edit trunks/outlets/racks in-place, writing to the live `outlets/{pid}_F{NN}` doc.
 
 Steps:
-1. When an **`outlets`** viewport is active, reuse `OutletCanvas` editing primitives (`hitTestNode/Segment`, `constrainAngle`, `snapToNearby`, add/move/disconnect) operating on the **live** `outlets/{pid}_F{NN}` doc. Keep production's toggle-button tool switch (outlets/racks/trunks) — not a `<select>`.
-2. **Exact scale**: viewport already has `scale` (1:N / 0=fit). Define the model:
-   - `scale` = locked content scale (1mm world → (1/scale)·1mm paper).
-   - Wheel inside an active viewport adjusts a **transient view-zoom** for comfort, but a "Set scale 1:N" (menubar/sidebar) re-locks content scale. A small readout shows the current effective scale.
-3. **World scale**: make world-scale the single source of truth — same mm→paper factor used by (a) the static viewport render, (b) the nested activated pan/zoom, and (c) print (`PX_PER_MM`). Remove ad-hoc zoom-only scaling so 1:100 is exact on screen and on paper.
+1. When an **`outlets`** viewport is active, reuse `OutletCanvas` editing primitives (`hitTestNode/Segment`, `constrainAngle`, `snapToNearby`, add/move/disconnect) operating on the **live** `outlets/{pid}_F{NN}` doc. Keep production's toggle-button tool switch (outlets/racks/trunks) — not a `<select>`. Pointer-events become active only when the viewport is activated.
+2. Wheel inside an active viewport may adjust a transient view-zoom for comfort; "Set scale 1:N" re-locks content scale.
 
-Risk: high (coordinate correctness + write-path to source doc). Acceptance: draw a trunk inside a drawing viewport → it appears in the Outlets tool; printed sheet measures true 1:100.
+Risk: high (coordinate correctness + write-path to source doc + pointer-event layering). Acceptance: draw a trunk inside a drawing viewport → it appears in the Outlets tool; printed sheet measures true 1:100.
 
 ### Phase 6 — Trunk editing enhancements + Layers (data)
 **Goal:** adopt the POC's *extra* trunk UX; add layer visibility.
@@ -221,8 +230,25 @@ Goal later: floorplans use **positive-up** like elevations. For now, build so th
 
 ## Appendix D — Open questions for later
 
+-1. **Pan/zoom consistency — unify input methods.** *(user concern)* Right now there are three different pan/zoom gestures depending on context, which is confusing:
+   - **Page canvas:** right/middle-drag pans, Ctrl/Alt/Meta+wheel or right-wheel zooms.
+   - **Inactive viewport content:** Alt+drag pans, Alt+wheel scales.
+   - **Active viewport content:** plain drag pans, plain wheel scales.
+   The user wants **one consistent method** (preference: **middle- or right-wheel/drag** everywhere). Also a concrete bug surfaced by the mix: **on an active viewport, right-wheel zooms the content correctly, but right-drag pans the whole page canvas instead of the active viewport's content** (the page canvas's right-drag handler wins). Settle the unified scheme before Phase 5b/7, then make the active-viewport content honour the same gesture (intercept right-drag when a viewport is active). Don't pile more bespoke gestures on until this is resolved.
 0. **Selection model — revisit for annotations.** Phase 2 shipped *select-first + 4px threshold* (a click anywhere on the viewport selects; a deliberate drag moves). The eos2 POC actually selects **only** when clicking/marquee-dragging across the *frame border* — clicking the content does **not** select. We left it as-is because Ctrl-Z undo covers accidental moves well. **Revisit** if/when annotations land: editing annotations inside a viewport will likely need clicking content to *not* select/move the frame, so we may want the POC's frame-border-only selection (+ marquee) then.
 1. Annotation coordinate space: page-level vs viewport-level vs both? (affects whether annotations pan with an activated viewport).
 2. Should `floorplan-edit` viewports allow editing racks/outlets too, or trunks only in v1?
 3. Layer presets — per-project default layer sets, or per-viewport only?
 4. World-scale interaction: should wheel-zoom inside an active viewport be purely transient, or should it *redefine* the locked scale on release?
+
+
+
+Titlebar currently only has a Home button, but I think a back-button (left-chevron or left-arrow icon) would work better for deeper routes, and we can then remove the "Back to drawings" link in the pages\[pageid]\+page.svelte sidebar.
+
+Add a note that I'm not keen on having different methods of pan/zoom (right-wheel and right-drag for most drawings, and alt+wheel/drag for viewport contents when not active, and wheel/drag on active viewports). We need to be consistent (middle or right-wheel/drag is my preference).
+
+On active viewports right-wheel correctly zooms, but right-drag drags the whole canvas around instead of the active viewport contents.
+
+Show the current viewport scale (1:10 or 1:100, etc) in the hint message below the viewport for debugging. The scale shown in sidebar seems off, 1:5 is shown for a floorplan instead of a more realistic 1:50 or 1:100.
+
+When I resize a viewport, the content changes size to fit. This should not happen, content should remain at the scaled/zoom size.

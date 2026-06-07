@@ -10,7 +10,7 @@
 		page, selectedViewportId, activeViewportId = null, width, height, db, projectId,
 		projectDefaults = {},
 		revisionCode,
-		onselect, onactivate, ondeactivate, onupdateviewport, onhistory, onupdatetitleblock, ondeselect, onopensource,
+		onselect, onactivate, ondeactivate, onupdateviewport, onhistory, onfit, onupdatetitleblock, ondeselect, onopensource,
 	}: {
 		page: Page
 		selectedViewportId: string | null
@@ -31,6 +31,8 @@
 		onupdateviewport: (id: string, patch: Partial<Viewport>) => void
 		/** Record an undo entry: viewport id + its geometry before a move/resize. */
 		onhistory?: (id: string, before: Partial<Viewport>) => void
+		/** A viewport reports the real 1:N that fits its frame (fit request → fixed scale). */
+		onfit?: (id: string, scale: number) => void
 		onupdatetitleblock?: (patch: Partial<TitleBlockConfig>) => void
 		ondeselect: () => void
 		/** Caller navigates to the underlying source drawing for a given viewport. */
@@ -235,6 +237,7 @@
 					onactivate={() => onactivate?.(vp.id)}
 					onupdate={patch => onupdateviewport(vp.id, patch)}
 					onhistory={before => onhistory?.(vp.id, before)}
+					onfit={s => onfit?.(vp.id, s)}
 					onopensource={onopensource ? () => onopensource(vp) : undefined}
 				/>
 			{/each}

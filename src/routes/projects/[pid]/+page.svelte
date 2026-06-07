@@ -18,7 +18,7 @@
 	const fmt = (fl: number) => fl < 0 ? `B${String(Math.abs(fl))}` : `${fl}F`	// const fmt = (fl: number) => fmtFloor(fl, floorFormat, floors)
 
 	let tools = $derived([
-		{ detail:0, primary: true, href: 'workspace', icon: 'panels', label: 'Workspace', description: 'Unified tree navigator, view switcher, and live patch list. Tabs, library drag-to-canvas, inline edits — all five tools in one surface.', },
+		{ detail:0, primary: false, href: 'workspace', icon: 'panels', label: 'Workspace', description: 'Unified tree navigator, view switcher, and live patch list. Tabs, library drag-to-canvas, inline edits — all five tools in one surface.', },
 		{ detail:0, href: 'drawings', icon: 'list',  label: 'Drawing List', description: 'Master drawing register with revision history and Excel export.', },
 		{ detail:0, href: 'packages', icon: 'layers', label: 'Drawing Packages', description: 'Assemble and publish drawing revision packages for vendors and clients.', },
 		{ detail:1, href: 'outlets', icon: 'route',  label: 'Outlets and Routes', description: 'Draw racks, outlets, and cable routes on the floorplan.', },

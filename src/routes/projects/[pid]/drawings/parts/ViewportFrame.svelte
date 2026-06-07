@@ -13,7 +13,7 @@
 	import RisersViewport from './viewports/RisersViewport.svelte'
 	import SurveyViewport from './viewports/SurveyViewport.svelte'
 
-	let { viewport, selected, active = false, pxPerMm, db, projectId, onselect, onactivate, onupdate, onhistory, onopensource }: {
+	let { viewport, selected, active = false, pxPerMm, db, projectId, onselect, onactivate, onupdate, onhistory, onopensource, onfit }: {
 		viewport: Viewport
 		selected: boolean
 		/** Activated (double-clicked into): content pans/zooms; frame move is locked. */
@@ -36,7 +36,12 @@
 		onhistory?: (before: Partial<Viewport>) => void
 		/** Open the underlying source (drawing/floorplan/etc.) in its owning tool. */
 		onopensource?: () => void
+		/** A content renderer reports the real 1:N that fits the frame (fit → fixed scale). */
+		onfit?: (scale: number) => void
 	} = $props()
+
+	/** Effective drawing scale shown in the hint (debug); `fit` until a fit request resolves to 1:N. */
+	let scaleLabel = $derived(viewport.scale > 0 ? `1:${viewport.scale}` : 'fit')
 
 	/**
 	 * When the viewport has a `sourcePin`, subscribe to the pinned DrawingDoc
@@ -350,7 +355,7 @@
 		{:else if viewport.source.kind === 'patching'}
 			<PatchingViewport {viewport} {db} />
 		{:else if viewport.source.kind === 'outlets'}
-			<OutletsViewport {viewport} {db} />
+			<OutletsViewport {viewport} {db} {onfit} />
 		{:else if viewport.source.kind === 'risers'}
 			<RisersViewport {viewport} {db} />
 		{:else if viewport.source.kind === 'survey'}
@@ -421,9 +426,9 @@
 		<!-- Hint line — shown when selected -->
 		<div class="absolute top-full left-0 mt-0.5 text-[8px] text-blue-500/70 pointer-events-none whitespace-nowrap print:hidden">
 			{#if active}
-				Drag pans content · wheel scales · dbl-click empty / Esc exits
+				{scaleLabel} · Drag pans content · wheel scales · dbl-click empty / Esc exits
 			{:else}
-				Drag moves · handles resize · dbl-click enters · Ctrl/⌘-Z undo · arrows nudge · Ctrl/⌘-D dup · Del removes
+				{scaleLabel} · Drag moves · handles resize · dbl-click enters · Ctrl/⌘-Z undo · Del removes
 			{/if}
 		</div>
 	{/if}
