@@ -188,13 +188,22 @@
 				{@const dyTop = Y(e.z + (d.positionU + d.heightU) * RU_HEIGHT_MM)}
 				{@const dh = d.heightU * RU_HEIGHT_MM}
 				{@const color = d.color ?? DEVICE_TYPE_COLORS[d.type] ?? '#6b7280'}
+				{@const cx = dx + devW / 2}
+				{@const cy = dyTop + dh / 2}
+				{@const rotated = d.type === 'pdu' || (d.widthMm ?? RACK_19IN_MM) <= 150}
+				{@const text = `${d.label}${d.portCount > 7 ? ` (${d.portCount})` : ''}`}
 				<g opacity={devOpacity(d)}>
 					{#if colorDevices}
 						<rect x={dx} y={dyTop} width={devW} height={dh} fill="{color}33" stroke={color} stroke-width="0.5" vector-effect="non-scaling-stroke" />
 					{:else}
 						<rect x={dx} y={dyTop} width={devW} height={dh} fill="white" stroke="#888" stroke-width="0.4" vector-effect="non-scaling-stroke" />
 					{/if}
-					<text x={dx + devW * 0.04} y={dyTop + dh / 2} dominant-baseline="middle" font-size={deviceLabelMm} fill="#374151">{d.label}{d.portCount > 7 ? ` (${d.portCount})` : ''}</text>
+					{#if rotated}
+						<!-- Narrow devices (PDUs etc.): label runs bottom-to-top so it fits. -->
+						<text x={cx} y={cy} transform="rotate(-90 {cx} {cy})" text-anchor="middle" dominant-baseline="middle" font-size={deviceLabelMm} fill="#374151">{text}</text>
+					{:else}
+						<text x={dx + devW * 0.04} y={cy} dominant-baseline="middle" font-size={deviceLabelMm} fill="#374151">{text}</text>
+					{/if}
 				</g>
 			{/if}
 		{/each}

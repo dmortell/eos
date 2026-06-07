@@ -51,3 +51,22 @@ All clean. Here's what changed for the racks refinements:
 All point-based fonts (rack 8pt, device 6pt, RU 3.5pt, plan 6pt) render at a stable size on screen and at the true point size on paper.
 
 Type-checks clean; not run. Worth testing: a Front elevation at ~1:20 (RU numbers + thin frames + readable labels), toggle Color devices off (should look like the original), Show walls on, pick a specific Row, zoom while active (labels should stay put now), and a Plan view (labels should be smaller/consistent).
+
+
+
+ Stage I — Risers (complete) — the final tool:
+- tools/risers/types.ts + engine.ts — copied the data-model subset and the full pure engine (floor bands, compression breaks, cable lane scheduling, cable polyline geometry).
+- RisersRender.svelte — building elevation in real-mm: floor bands (plenum / ceiling line / raised floor / slab + floor label), rooms (server/EPS boxes with SER/EPS badge), ladders (with compression-break slashes + level tag), cables (lane-spaced polylines colored by media, with labels), and free-form text labels. Thin non-scaling strokes for the sheet/print look; fit + explicit-scale viewBox with the same onview reporting (so the scale readout works in Fit too).
+- RisersViewport.svelte — subscribes risers/{pid}; from/to floor fall back to the doc's range.
+- RisersProperties.svelte — From/To floor pickers (risers is a single per-project doc, so no doc picker needed).
+- Wired into the dispatcher and properties window (Type → Risers).
+
+Caveats (v1): floor labels show {n}F rather than the project's configured floor format; cable label placement is the midpoint of the longest horizontal run (approximate); strokes thinned for print.
+
+Type-checks clean; not run. Worth testing: add a viewport → Type=Risers → set From/To floors → you should see the building elevation with floors, rooms, ladders and routed cables; try a floor range that hides floors (compression-break slashes on ladders), and print.
+
+🎉 All plan stages A–I are done
+
+Sheet list → editor shell → viewport persistence → sheet properties → viewport properties + text → Outlets (+PDF underlay) → print-to-fit → Racks (front/rear/plan) → Risers. The sheets tool now covers the three tools from the spec, with content pan/zoom, print-to-scale, and floating property windows.
+
+If you'd like, next steps could be: refinements to risers (real floor-format labels, better cable label placement), the y-up conversion tool for legacy outlet floorplans (the deferred version-2 flip), or polishing the sheet list / titleblock. Let me know what you'd like to tackle.

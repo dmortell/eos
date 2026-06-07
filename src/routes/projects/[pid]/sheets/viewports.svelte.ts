@@ -99,6 +99,18 @@ export class ViewportEditor {
 		this.#anchor = null
 	}
 
+	/** Mutate a viewport's geometry (called by Viewport during move/resize). Mutating here —
+	 *  inside the editor that owns the state — avoids Svelte's prop-ownership warning. */
+	setRect(id: string, r: Rect) {
+		const v = this.viewports.find(x => x.id === id); if (!v) return
+		v.x = r.x; v.y = r.y; v.w = r.w; v.h = r.h
+	}
+	/** Mutate a viewport's content view (active-viewport pan/zoom). */
+	setContentView(id: string, scale: number, offset: { x: number; y: number }) {
+		const v = this.viewports.find(x => x.id === id); if (!v) return
+		v.scale = scale; v.contentOffsetMm = offset
+	}
+
 	addViewport(r: Rect) {
 		const v: SheetViewport = { id: this.uid('V'), ...r, source: { kind: 'empty' }, border: 'thin', version: 2 }
 		this.viewports.push(v)

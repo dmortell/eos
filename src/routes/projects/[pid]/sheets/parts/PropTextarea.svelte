@@ -9,8 +9,5 @@
 	} = $props()
 </script>
 
-{#if label}
-	<span class="text-xs text-zinc-500">{label}</span>
-{/if}
-<textarea bind:value {rows} {...props}
-	class={["w-full rounded border px-1 py-0.5 text-xs", className]}></textarea>
+{#if label}<span class="text-xs text-zinc-500">{label}</span>{/if}
+<textarea bind:value {rows} {...props} class={["w-full rounded border px-1 py-0.5 text-xs", className]}></textarea>

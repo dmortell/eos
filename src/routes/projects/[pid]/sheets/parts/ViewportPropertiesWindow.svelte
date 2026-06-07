@@ -8,6 +8,7 @@
 	import PropTextarea from './PropTextarea.svelte'
 	import OutletsProperties from '../tools/outlets/OutletsProperties.svelte'
 	import RacksProperties from '../tools/racks/RacksProperties.svelte'
+	import RisersProperties from '../tools/risers/RisersProperties.svelte'
 	import type { RackFace } from '../tools/racks/types'
 
 	let { vps, floors = [], pid }: {
@@ -33,6 +34,7 @@
 		kind: 'empty', label: '', scale: '0', border: 'thin', text: '', fontSizePt: '6',
 		outletsDocId: '',
 		racksDocId: '', racksFace: 'front' as RackFace, racksRowId: '', racksShowWalls: false, racksColorDevices: true,
+		risersFrom: 0, risersTo: 0,
 	})
 	let syncedId: string | null = null
 	$effect(() => {
@@ -55,11 +57,15 @@
 				racksRowId: s.kind === 'racks' ? (s.rowId ?? '') : '',
 				racksShowWalls: s.kind === 'racks' ? (s.showWalls ?? false) : false,
 				racksColorDevices: s.kind === 'racks' ? (s.colorDevices ?? true) : true,
+				risersFrom: s.kind === 'risers' ? (s.fromFloor ?? floorMin()) : floorMin(),
+				risersTo: s.kind === 'risers' ? (s.toFloor ?? floorMax()) : floorMax(),
 			}
 		})
 	})
 
 	const floorStr0 = () => floors[0] ? String(floors[0].number).padStart(2, '0') : '01'
+	const floorMin = () => floors.length ? Math.min(...floors.map(f => f.number)) : 1
+	const floorMax = () => floors.length ? Math.max(...floors.map(f => f.number)) : 1
 	const defaultOutletsDocId = () => `${pid}_F${floorStr0()}`
 	const defaultRacksDocId = () => `${pid}_F${floorStr0()}_RA`
 
@@ -67,6 +73,7 @@
 	function onKindChange() {
 		if (form.kind === 'outlets' && !form.outletsDocId) form.outletsDocId = defaultOutletsDocId()
 		if (form.kind === 'racks' && !form.racksDocId) form.racksDocId = defaultRacksDocId()
+		if (form.kind === 'risers' && !form.risersTo) { form.risersFrom = floorMin(); form.risersTo = floorMax() }
 		apply()
 	}
 
@@ -93,6 +100,7 @@
 			kind: 'racks', racksDocId: form.racksDocId, face: form.racksFace,
 			rowId: form.racksRowId || undefined, showWalls: form.racksShowWalls, colorDevices: form.racksColorDevices,
 		}
+		if (form.kind === 'risers') return { kind: 'risers', risersDocId: pid, fromFloor: form.risersFrom, toFloor: form.risersTo }
 		return { kind: 'empty' }
 	}
 </script>
@@ -104,6 +112,7 @@
 			<option value="text">Text</option>
 			<option value="outlets">Outlets</option>
 			<option value="racks">Racks</option>
+			<option value="risers">Risers</option>
 		</PropSelect>
 		<PropText label="Label" bind:value={form.label} oninput={apply} />
 		<PropSelect label="Scale" bind:value={form.scale} onchange={apply}>
@@ -132,6 +141,10 @@
 					form.racksDocId = p.racksDocId; form.racksFace = p.face; form.racksRowId = p.rowId
 					form.racksShowWalls = p.showWalls; form.racksColorDevices = p.colorDevices; apply()
 				}} />
+		{:else if form.kind === 'risers'}
+			<hr class="border-zinc-200" />
+			<RisersProperties {floors} fromFloor={form.risersFrom} toFloor={form.risersTo}
+				onchange={(p) => { form.risersFrom = p.fromFloor; form.risersTo = p.toFloor; apply() }} />
 		{/if}
 	</Window>
 {/if}

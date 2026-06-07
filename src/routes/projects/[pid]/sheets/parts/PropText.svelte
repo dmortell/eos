@@ -13,6 +13,5 @@
 
 <label class="flex items-center justify-between gap-2">
 	<span class="w-24 shrink-0 text-xs text-zinc-500">{label}</span>
-	<input {type} bind:value {...props}
-		class={["w-full rounded border px-1 py-0.5 text-xs", mono && "font-mono", className]} />
+	<input {type} bind:value {...props} class={["w-full rounded border px-1 py-0.5 text-xs", mono && "font-mono", className]} />
 </label>

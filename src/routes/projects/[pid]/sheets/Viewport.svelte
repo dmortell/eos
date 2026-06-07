@@ -47,7 +47,7 @@
 			drag.moved = true
 		}
 		const dx = (e.clientX - drag.mx) / drag.scale, dy = (e.clientY - drag.my) / drag.scale
-		if (drag.mode === 'move') { vp.x = drag.x0 + dx; vp.y = drag.y0 + dy; return }
+		if (drag.mode === 'move') { vps.setRect(vp.id, { x: drag.x0 + dx, y: drag.y0 + dy, w: vp.w, h: vp.h }); return }
 		const left = drag.mode === 'nw' || drag.mode === 'sw'
 		const top = drag.mode === 'nw' || drag.mode === 'ne'
 		let nx = drag.x0, ny = drag.y0
@@ -57,7 +57,7 @@
 		if (top) ny = drag.y0 + dy
 		if (nw < MIN) { if (left) nx = drag.x0 + (drag.w0 - MIN); nw = MIN }
 		if (nh < MIN) { if (top) ny = drag.y0 + (drag.h0 - MIN); nh = MIN }
-		vp.x = nx; vp.y = ny; vp.w = nw; vp.h = nh
+		vps.setRect(vp.id, { x: nx, y: ny, w: nw, h: nh })
 	}
 	function onUp() {
 		const moved = drag?.moved
@@ -103,8 +103,7 @@
 	function contentMove(e: MouseEvent) {
 		if (!contentPanning) return
 		const f = cden / zoom // real-mm per screen px
-		vp.scale = cden
-		vp.contentOffsetMm = { x: cox - (e.clientX - cpx) * f, y: coy - (e.clientY - cpy) * f }
+		vps.setContentView(vp.id, cden, { x: cox - (e.clientX - cpx) * f, y: coy - (e.clientY - cpy) * f })
 	}
 	function contentUp() {
 		if (!contentPanning) return
@@ -122,8 +121,7 @@
 		const mmX = o.x + px * den0 / zoom, mmY = o.y + py * den0 / zoom // real-mm under cursor
 		const factor = e.deltaY < 0 ? 1 / 1.1 : 1.1
 		const den1 = Math.min(100000, Math.max(0.5, den0 * factor))
-		vp.scale = den1
-		vp.contentOffsetMm = { x: mmX - px * den1 / zoom, y: mmY - py * den1 / zoom }
+		vps.setContentView(vp.id, den1, { x: mmX - px * den1 / zoom, y: mmY - py * den1 / zoom })
 		vps.notify()
 	}
 
