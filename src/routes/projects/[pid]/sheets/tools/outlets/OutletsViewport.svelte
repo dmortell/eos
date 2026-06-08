@@ -11,7 +11,7 @@
 	import { OutletsEditor } from './outlets-editor.svelte'
 	import EditBackground from '../../edit/EditBackground.svelte'
 	import AnnotationLayer from '../../annotations/AnnotationLayer.svelte'
-	import { AnnotationEditor } from '../../annotations/annotations.svelte'
+	import { useAnnotations } from '../../edit/annotations.svelte'
 	import type { ViewportEditor } from '../../viewports.svelte'
 	import { docSaver } from '../../edit/persist'
 
@@ -32,6 +32,9 @@
 	// Unified edit/annotate tool mode (select | outlet | trunk | text | arrow | rect | symbol).
 	let tool = $state('select')
 	let annLocked = $derived(locked.includes('annotations'))
+	// ── Editing ── one editor per viewport instance; the source doc is the single source of truth.
+	const editor = new OutletsEditor()
+	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor })
 
 	let src = $derived(vp.source.kind === 'outlets' ? vp.source : null)
 
@@ -109,19 +112,6 @@
 		}
 	})
 
-	// ── Annotations ── per-viewport, stored on the sheet doc (vp.annotations) via vps.
-	const annEditor = new AnnotationEditor()
-	let annSeeded = false
-	$effect(() => {
-		const a = vp.annotations
-		if (!active) { annEditor.seed(a); annSeeded = true; return }
-		if (!annSeeded) { annEditor.seed(a); annSeeded = true }
-	})
-	$effect(() => { annEditor.onChange = () => vps.setAnnotations(vp.id, annEditor.snapshot()); return () => { annEditor.onChange = null } })
-
-	// ── Editing ── one editor per viewport instance; the source doc is the single source of truth.
-	const editor = new OutletsEditor()
-	editor.peer = annEditor; annEditor.peer = editor // object ↔ annotation: one selection at a time
 	// Mirror the doc into the editor while idle; once active, the editor owns the data. Seed at
 	// least once even if mounted active (model mode opens active from the start).
 	let seeded = false

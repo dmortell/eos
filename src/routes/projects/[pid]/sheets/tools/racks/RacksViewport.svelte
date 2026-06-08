@@ -10,7 +10,7 @@
 	import { buildElevation, rackAtX, slotAtY } from './layout'
 	import EditBackground from '../../edit/EditBackground.svelte'
 	import AnnotationLayer from '../../annotations/AnnotationLayer.svelte'
-	import { AnnotationEditor } from '../../annotations/annotations.svelte'
+	import { useAnnotations } from '../../edit/annotations.svelte'
 	import type { ViewportEditor } from '../../viewports.svelte'
 	import { docSaver } from '../../edit/persist'
 
@@ -28,14 +28,8 @@
 
 	let tool = $state('select')
 	let annLocked = $derived(locked.includes('annotations'))
-	const annEditor = new AnnotationEditor()
-	let annSeeded = false
-	$effect(() => {
-		const a = vp.annotations
-		if (!active) { annEditor.seed(a); annSeeded = true; return }
-		if (!annSeeded) { annEditor.seed(a); annSeeded = true }
-	})
-	$effect(() => { annEditor.onChange = () => vps.setAnnotations(vp.id, annEditor.snapshot()); return () => { annEditor.onChange = null } })
+	const editor = new RacksEditor()
+	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor })
 
 	let src = $derived(vp.source.kind === 'racks' ? vp.source : null)
 	let doc = $state<RackDocData | null>(null)
@@ -48,8 +42,6 @@
 	})
 
 	// ── Editing ── seed from the doc while idle; seed once even if mounted active (model mode).
-	const editor = new RacksEditor()
-	editor.peer = annEditor; annEditor.peer = editor
 	let seeded = false
 	$effect(() => {
 		const d = doc
