@@ -2,6 +2,7 @@
 	import type { SheetViewport } from '../../types'
 	import type { RackConfig, DeviceConfig, RackSettings, RoomObject, RackRow, RackFace } from './types'
 	import { RU_HEIGHT_MM, RACK_19IN_MM, RACK_19IN_INNER, RACK_GAP_MM, DEVICE_TYPE_COLORS, DEFAULT_SETTINGS } from './colors'
+	import { buildElevation, deviceBox } from './layout'
 
 	let {
 		racks = [], devices = [], settings = null, roomObjects = [], rows = [], face = 'front',
@@ -29,21 +30,12 @@
 	let scopedRacks = $derived(rowId ? racks.filter(r => r.rowId === rowId) : racks)
 
 	// ── Elevation layout (racks side-by-side by order; rear reverses order) ──
-	let elevRacks = $derived.by(() => {
-		if (face === 'plan') return []
-		const sorted = [...scopedRacks].sort((a, b) => a.order - b.order)
-		const ordered = face === 'rear' ? [...sorted].reverse() : sorted
-		let x = 0
-		return ordered.map(rack => { const o = { rack, x, z: cfg.floorLevel }; x += rack.widthMm + RACK_GAP_MM; return o })
-	})
-	let elevById = $derived(new Map(elevRacks.map(e => [e.rack.id, e])))
-	let topZ = $derived.by(() => {
-		let m = cfg.ceilingLevel
-		for (const e of elevRacks) m = Math.max(m, e.z + e.rack.heightMm)
-		return m + 200
-	})
+	let elev = $derived(buildElevation(face === 'plan' ? [] : scopedRacks, settings, face))
+	let elevRacks = $derived(elev.placements)
+	let elevById = $derived(elev.byId)
+	let topZ = $derived(elev.topZ)
 	const Y = (z: number) => topZ - z
-	let lastRight = $derived(elevRacks.length ? elevRacks[elevRacks.length - 1].x + elevRacks[elevRacks.length - 1].rack.widthMm : 480)
+	let lastRight = $derived(elev.right)
 
 	function devOpacity(d: DeviceConfig): number {
 		const m = d.mounting ?? 'both'
@@ -192,13 +184,12 @@
 		<!-- Devices -->
 		{#if !hidden.includes('devices')}
 		{#each devices as d (d.id)}
-			{@const e = elevById.get(d.rackId)}
-			{#if e}
-				{@const devW = d.widthMm ?? RACK_19IN_MM}
-				{@const ox = (d.offsetX ?? 0) * (face === 'rear' ? -1 : 1)}
-				{@const dx = e.x + e.rack.widthMm / 2 - devW / 2 + ox}
-				{@const dyTop = Y(e.z + (d.positionU + d.heightU) * RU_HEIGHT_MM)}
-				{@const dh = d.heightU * RU_HEIGHT_MM}
+			{@const box = deviceBox(d, elev, face)}
+			{#if box}
+				{@const devW = box.w}
+				{@const dx = box.x}
+				{@const dyTop = box.y}
+				{@const dh = box.h}
 				{@const color = d.color ?? DEVICE_TYPE_COLORS[d.type] ?? '#6b7280'}
 				{@const cx = dx + devW / 2}
 				{@const cy = dyTop + dh / 2}

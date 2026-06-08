@@ -53,13 +53,16 @@ export class RacksEditor extends SurfaceEditor {
 	}
 
 	// ── devices ──
-	addDevice() {
-		const r = this.selRack; if (!r) return
-		const d: DeviceConfig = { id: this.uid('D'), rackId: r.id, label: 'Device', type: 'switch', heightU: 1, positionU: 1, portCount: 0, mounting: 'both' }
+	addDevice() { const r = this.selRack; if (r) this.addDeviceAt(r.id, 1) }
+	/** Add a 1U device to a rack at a given bottom-U (used by canvas click-to-add). */
+	addDeviceAt(rackId: string, positionU: number) {
+		const d: DeviceConfig = { id: this.uid('D'), rackId, label: 'Device', type: 'switch', heightU: 1, positionU, portCount: 0, mounting: 'both' }
 		this.devices.push(d); this.selectDevice(d.id); this.notify()
 	}
 	setDevice(patch: Partial<DeviceConfig>) { const d = this.selDevice; if (!d) return; Object.assign(d, patch); this.notify() }
 	deleteDevice() { const d = this.selDevice; if (!d) return; this.devices = this.devices.filter(x => x.id !== d.id); this.selDeviceId = null; this.notify() }
+	/** Live U reposition during an elevation drag (caller supplies the snapped U). */
+	moveDeviceU(d: DeviceConfig, positionU: number) { if (d.positionU !== positionU) { d.positionU = positionU; this.notify() } }
 
 	// ── plan: drag a row's origin ──
 	dragRow(row: RackRow, e0: MouseEvent) {

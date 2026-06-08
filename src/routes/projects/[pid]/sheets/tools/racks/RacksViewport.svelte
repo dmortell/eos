@@ -7,6 +7,7 @@
 	import RacksEditLayer from './RacksEditLayer.svelte'
 	import RacksEditPanel from './RacksEditPanel.svelte'
 	import { RacksEditor } from './racks-editor.svelte'
+	import { buildElevation, rackAtX, slotAtY } from './layout'
 	import EditBackground from '../../edit/EditBackground.svelte'
 	import AnnotationLayer from '../../annotations/AnnotationLayer.svelte'
 	import { AnnotationEditor } from '../../annotations/annotations.svelte'
@@ -91,13 +92,20 @@
 		{vp} {view} {onview} {hidden}
 		onsvg={(el) => { editor.svg = el; annEditor.svg = el }}>
 		{#if active}
-			<EditBackground {tool} {annEditor} toolEditor={editor} {annLocked} />
-			<RacksEditLayer {editor} face={src.face} interactive={tool === 'select'} />
+			<EditBackground {tool} {annEditor} toolEditor={editor} {annLocked}
+				onadd={(t, w) => {
+					if (t !== 'device' || src.face === 'plan') return false
+					const scoped = src.rowId ? editor.racks.filter(r => r.rowId === src.rowId) : editor.racks
+					const el = buildElevation(scoped, editor.settings, src.face)
+					const e = rackAtX(el, w.x); if (!e) return true
+					editor.addDeviceAt(e.rack.id, slotAtY(e, el, w.y, 1)); return true
+				}} />
+			<RacksEditLayer {editor} face={src.face} rowId={src.rowId} interactive={tool === 'select'} />
 		{/if}
 		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} locked={annLocked} />
 	</RacksRender>
 	{#if active}
-		<RacksEditPanel {editor} bind:tool {annEditor} />
+		<RacksEditPanel {editor} bind:tool {annEditor} face={src.face} />
 	{/if}
 {:else}
 	<div class="flex h-full w-full items-center justify-center text-zinc-400 print:hidden" style:font-size="{14 / zoom}px">No racks source</div>
