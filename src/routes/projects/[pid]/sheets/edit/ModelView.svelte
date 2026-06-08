@@ -60,7 +60,9 @@
 	})
 </script>
 
-<div class="absolute inset-0 z-20 flex flex-col bg-white">
+<!-- z below the portaled floating windows (z-10) so palettes/annotate panels stay on top, but
+     above the sheet canvas so the paper/other viewports are covered. -->
+<div class="absolute inset-0 z-[5] flex flex-col bg-white">
 	<div class="flex items-center gap-2 border-b border-slate-200 bg-white px-2 py-1 text-sm">
 		<span class="font-medium text-zinc-700">Model — {vp.label || vp.source.kind}</span>
 		<button class="ml-auto rounded px-2 py-0.5 hover:bg-slate-100" onclick={onexit} title="Back to sheet (Esc)">⤡ Sheet</button>

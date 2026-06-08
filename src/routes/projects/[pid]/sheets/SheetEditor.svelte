@@ -237,11 +237,14 @@
 			</div>
 		</Canvas>
 
-		<!-- Floating property windows (over the canvas, not inside a viewport). -->
-		<SheetPropertiesWindow {sheet} {project} {db} {pid} />
-		<ViewportPropertiesWindow {vps} {floors} {pid} />
-		<LayersPanel {vps} />
-		<RevisionsPanel {sheet} {db} {pid} />
+		<!-- Floating property windows (over the canvas). Hidden in model mode so only the model
+		     viewport's own edit/annotate panels show. -->
+		{#if !modelVpId}
+			<SheetPropertiesWindow {sheet} {project} {db} {pid} />
+			<ViewportPropertiesWindow {vps} {floors} {pid} />
+			<LayersPanel {vps} />
+			<RevisionsPanel {sheet} {db} {pid} />
+		{/if}
 
 		<!-- Model mode: full-area content editor over the sheet (no route / refresh). -->
 		{#if modelVp}
