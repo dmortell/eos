@@ -131,12 +131,21 @@
 	// Delete / Escape while active (capture phase so the sheet's handlers don't also fire).
 	$effect(() => {
 		if (!active) return
+		const NUDGE: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }
 		const onKey = (e: KeyboardEvent) => {
 			const f = (e.target as Element)?.closest?.('input, textarea, select, [contenteditable]')
-			if (e.key === 'Delete' && !f) {
+			if (f) return
+			if (e.key === 'Delete') {
 				if (annEditor.selAnn) { e.preventDefault(); e.stopPropagation(); annEditor.deleteSel() }
 				else if (editor.sel) { e.preventDefault(); e.stopPropagation(); editor.deleteSel() }
 			} else if (e.key === 'Escape' && editor.draw) { e.preventDefault(); e.stopPropagation(); editor.finishDraw(); tool = 'select' }
+			else if ((e.key === 'd' || e.key === 'D') && (e.ctrlKey || e.metaKey)) {
+				if (annEditor.selAnn || editor.sel) { e.preventDefault(); e.stopPropagation(); if (annEditor.selAnn) annEditor.duplicateSel(); else editor.duplicateSel() }
+			} else if (NUDGE[e.key]) {
+				const step = (e.shiftKey ? 500 : 50), [sx, sy] = NUDGE[e.key]
+				if (annEditor.selAnn) { e.preventDefault(); e.stopPropagation(); annEditor.nudge(sx * step, sy * step) }
+				else if (editor.sel) { e.preventDefault(); e.stopPropagation(); editor.nudge(sx * step, sy * step) }
+			}
 		}
 		window.addEventListener('keydown', onKey, true)
 		return () => window.removeEventListener('keydown', onKey, true)

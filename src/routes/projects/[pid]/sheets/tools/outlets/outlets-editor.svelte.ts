@@ -263,6 +263,16 @@ export class OutletsEditor extends SurfaceEditor {
 		this.menu = { x: e.clientX, y: e.clientY, kind: 'segment', trunk: t, segId: seg.id }
 	}
 
+	// ── nudge / duplicate the selection (keyboard) ──
+	nudge(dx: number, dy: number) {
+		if (this.selOutlet) { this.selOutlet.position = { x: this.selOutlet.position.x + dx, y: this.selOutlet.position.y + dy }; this.notify() }
+		else if (this.selTrunk) { for (const n of this.selTrunk.nodes) n.position = { x: n.position.x + dx, y: n.position.y + dy }; this.notify() }
+	}
+	duplicateSel() {
+		const o = this.selOutlet
+		if (o) { const c: OutletConfig = { ...o, id: this.uid('O'), position: { x: o.position.x + 300, y: o.position.y + 300 } }; this.outlets.push(c); this.select('outlet', c.id); this.notify() }
+	}
+
 	// ── racks (move only) ──
 	dragRack(rp: RackPlacement, e0: MouseEvent) {
 		this.select('rack', rp.rackId)

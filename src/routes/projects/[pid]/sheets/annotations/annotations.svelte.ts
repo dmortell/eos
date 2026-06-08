@@ -39,6 +39,20 @@ export class AnnotationEditor extends SurfaceEditor {
 			if (o.x2 != null) { a.x2 = o.x2 + dx; a.y2 = (o.y2 ?? 0) + dy }
 		}, () => this.notify())
 	}
+	nudge(dx: number, dy: number) {
+		const a = this.selAnn; if (!a) return
+		a.x += dx; a.y += dy
+		if (a.x2 != null) a.x2 += dx
+		if (a.y2 != null) a.y2 += dy
+		this.notify()
+	}
+	duplicateSel() {
+		const a = this.selAnn; if (!a) return
+		const copy: Annotation = { ...a, id: this.uid('a'), x: a.x + 500, y: a.y + 500 }
+		if (a.x2 != null) copy.x2 = a.x2 + 500
+		if (a.y2 != null) copy.y2 = a.y2 + 500
+		this.annotations.push(copy); this.select('ann', copy.id); this.notify()
+	}
 	setSel(patch: Partial<Annotation>) { const a = this.selAnn; if (!a) return; Object.assign(a, patch); this.notify() }
 	setLink(patch: Partial<NonNullable<Annotation['link']>>) { const a = this.selAnn; if (!a) return; a.link = { kind: 'drawing', ...(a.link ?? {}), ...patch } as any; this.notify() }
 	deleteSel() { const a = this.selAnn; if (!a) return; this.annotations = this.annotations.filter(x => x.id !== a.id); this.clearSel(); this.notify() }
