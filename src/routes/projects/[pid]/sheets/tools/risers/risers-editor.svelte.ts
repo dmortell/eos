@@ -38,8 +38,21 @@ export class RisersEditor extends SurfaceEditor {
 	}
 	addLadder(fromFloor: number, toFloor: number) {
 		const x = (this.settings?.widthMm ?? 30000) / 2
+		this.addLadderAt(x, fromFloor, toFloor)
+	}
+	addLadderAt(x: number, fromFloor: number, toFloor: number) {
 		const l: Ladder = { id: this.uid('ld'), label: 'Riser', xMm: x, fromFloor, toFloor, level: 'both' }
 		this.ladders.push(l); this.select('ladder', l.id); this.notify()
+	}
+	/** Click-to-place a room, then drag to size it (left edge anchored at the click x). */
+	addRoomAt(kind: RoomKind, x: number, floor: number) {
+		const r: RiserRoom = { id: this.uid('rm'), kind, floor, xMm: x, widthMm: 600, label: kind === 'server' ? 'Server' : 'EPS' }
+		this.rooms.push(r); this.select('room', r.id)
+		this.startDrag(e => {
+			const w = this.toWorld(e); if (!w) return
+			const width = Math.max(400, Math.abs(w.x - x))
+			r.widthMm = width; r.xMm = Math.min(x, w.x) + width / 2
+		}, () => this.notify())
 	}
 	addCable() {
 		const c: Cable = { id: this.uid('cb'), type: 'CAT6A', media: 'copper', segments: [] }

@@ -91,7 +91,13 @@
 		{fromFloor} {toFloor} {vp} {view} {onview} {hidden}
 		onsvg={(el) => { editor.svg = el; annEditor.svg = el }}>
 		{#if active}
-			<EditBackground {tool} {annEditor} toolEditor={editor} {annLocked} />
+			<EditBackground {tool} {annEditor} toolEditor={editor} {annLocked}
+				onadd={(t, w) => {
+					const f = editor.floorAtY(w.y, fromFloor, toFloor) ?? fromFloor
+					if (t === 'server' || t === 'eps') { editor.addRoomAt(t, w.x, f); return true }
+					if (t === 'riser') { editor.addLadderAt(w.x, Math.min(fromFloor, toFloor), Math.max(fromFloor, toFloor)); return true }
+					return false
+				}} />
 			<RisersEditLayer {editor} {fromFloor} {toFloor} interactive={tool === 'select'} />
 		{/if}
 		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} locked={annLocked} />

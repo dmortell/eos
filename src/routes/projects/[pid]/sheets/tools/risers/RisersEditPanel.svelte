@@ -10,18 +10,21 @@
 	let { editor, tool = $bindable(), annEditor, fromFloor, toFloor }: { editor: RisersEditor; tool: string; annEditor: AnnotationEditor; fromFloor: number; toFloor: number } = $props()
 	const val = (e: Event) => (e.currentTarget as HTMLInputElement | HTMLSelectElement).value
 	let floorOpts = $derived.by(() => { const a: number[] = []; for (let f = Math.max(fromFloor, toFloor); f >= Math.min(fromFloor, toFloor); f--) a.push(f); return a })
+	const objTools = [['select', 'Select'], ['server', '+ Server'], ['eps', '+ EPS'], ['riser', '+ Riser']] as const
+	const cls = (active: boolean) => ['rounded border px-1.5 py-0.5 text-xs', active ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-slate-100']
 </script>
 
 <div use:portal>
 <Window title="Edit" name="risers-edit" left={10} top={72} open class="w-64 space-y-2 p-2 text-zinc-700">
-	<AnnotationControls bind:tool editor={annEditor} showSelect />
-	<hr class="border-zinc-200" />
 	<div class="flex flex-wrap gap-1">
-		<button class="rounded border px-1.5 py-0.5 text-xs hover:bg-slate-100" onclick={() => editor.addRoom('server', fromFloor)}>+ Server</button>
-		<button class="rounded border px-1.5 py-0.5 text-xs hover:bg-slate-100" onclick={() => editor.addRoom('eps', fromFloor)}>+ EPS</button>
-		<button class="rounded border px-1.5 py-0.5 text-xs hover:bg-slate-100" onclick={() => editor.addLadder(Math.min(fromFloor, toFloor), Math.max(fromFloor, toFloor))}>+ Riser</button>
+		{#each objTools as [id, label] (id)}
+			<button class={cls(tool === id)} onclick={() => (tool = id)}>{label}</button>
+		{/each}
 		<button class="rounded border px-1.5 py-0.5 text-xs hover:bg-slate-100" onclick={() => editor.addCable()}>+ Cable</button>
 	</div>
+	<p class="text-[10px] text-zinc-400">Click to place; drag to size a room. Drag a room to any floor.</p>
+	<AnnotationControls bind:tool editor={annEditor} />
+	<hr class="border-zinc-200" />
 
 	{#if editor.selRoom}
 		{@const r = editor.selRoom}
