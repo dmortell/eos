@@ -228,6 +228,7 @@
 						drawingTitle={page.title}
 						drawingNumber={page.drawingNumber}
 						revisionCode={sheet.currentRevision}
+						revisions={sheet.revisions ?? []}
 						paperSize={page.paper.paperSize}
 						scaleDenominator={page.paper.scale || 100}
 						pxPerMm={1}

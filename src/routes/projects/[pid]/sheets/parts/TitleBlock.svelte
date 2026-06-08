@@ -19,6 +19,7 @@
 		drawingTitle,
 		drawingNumber,
 		revisionCode,
+		revisions = [],
 		paperSize,
 		scaleDenominator,
 		pxPerMm,
@@ -29,6 +30,7 @@
 		drawingTitle: string
 		drawingNumber?: string
 		revisionCode?: string
+		revisions?: { code: string; date?: string; note?: string }[]
 		paperSize: string
 		scaleDenominator: number
 		/** Canvas zoom factor — used to convert px drag deltas to mm. */
@@ -71,18 +73,20 @@
 	// fixed sections). One array drives the text grid AND the SVG divider lines, so the
 	// borders always match the section boundaries.
 	type Cell = { label?: string; value?: string; w?: number; mono?: boolean; big?: boolean }
-	type Section = Cell & { h: number; cols?: Cell[]; logo?: boolean }
+	type Section = Cell & { h: number; cols?: Cell[]; logo?: boolean; revs?: boolean }
 
 	let sections = $derived<Section[]>([
 		{ logo: true, h: 15 },
 		{ label: 'Drawing', value: fTitle || '—', h: 12 },
 		{ label: 'Site', value: fAddress || '—', h: 0 }, // grows
+		// Revision history (only when present) — grows with the number of entries.
+		...(revisions.length ? [{ revs: true, h: 3 + revisions.length * 3 } as Section] : []),
+		{ label: 'Date', value: fDate, h: 6, mono: true },
 		{ h: 6, cols: [
 			{ label: 'Drawn', value: fDrawnBy || '—', mono: true },
 			{ label: 'Chk', value: fCheckedBy || '—', mono: true },
 			{ label: 'App', value: fApprovedBy || '—', mono: true },
 		] },
-		{ label: 'Date', value: fDate, h: 6, mono: true },
 		{ h: 6, cols: [
 			{ label: 'Scale', value: fScale, w: 2, mono: true },
 			{ label: 'Size', value: fPaper, w: 1, mono: true },
@@ -195,6 +199,20 @@
 					{/if}
 					<div class="text-[3pt] font-bold uppercase tracking-wider text-center leading-tight">{fProjectName || '—'}</div>
 					{#if fClient}<div class="text-[2pt] text-zinc-600 text-center">{fClient}</div>{/if}
+				</div>
+			{:else if s.revs}
+				<!-- Revision history table (code · date · note) -->
+				<div class="flex flex-col overflow-hidden">
+					<div class="grid border-b border-zinc-300 px-1 text-[1.6pt] uppercase tracking-wider text-zinc-500 leading-none" style:grid-template-columns="1fr 2fr 4fr">
+						<span>Rev</span><span>Date</span><span>Description</span>
+					</div>
+					{#each revisions as r (r.code)}
+						<div class="grid items-center border-b border-zinc-200 px-1 text-[2pt] leading-tight" style:grid-template-columns="1fr 2fr 4fr">
+							<span class="font-mono font-bold">{r.code}</span>
+							<span class="font-mono">{r.date ?? ''}</span>
+							<span class="truncate">{r.note ?? ''}</span>
+						</div>
+					{/each}
 				</div>
 			{:else if s.cols}
 				<div class="grid overflow-hidden" style:grid-template-columns={colTemplate(s.cols)}>

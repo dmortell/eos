@@ -34,10 +34,10 @@
 </script>
 
 <div use:portal>
-<Window title="Revisions" name="sheet-revisions" right={10} top={360} open class="w-72 space-y-1 p-2 text-zinc-700">
+<Window title="Revisions" name="sheet-revisions" right={10} top={360} open class="w-[27rem] space-y-1 p-2 text-zinc-700">
 	{#each revs as r, i (i)}
 		<div class="flex items-center gap-1 text-xs">
-			<input type="radio" name="cur-rev" checked={current === r.code} onchange={() => save(revs, r.code)} title="Current" />
+			<input type="radio" name="cur-rev" checked={current === r.code} onchange={() => save(revs, r.code)} title="Current Revision" />
 			<input class="w-10 rounded border px-1 py-0.5 font-mono" value={r.code} oninput={(e) => patch(i, { code: val(e) })} />
 			<input type="date" class="rounded border px-1 py-0.5" value={r.date ?? ''} oninput={(e) => patch(i, { date: val(e) })} />
 			<input class="min-w-0 flex-1 rounded border px-1 py-0.5" placeholder="note" value={r.note ?? ''} oninput={(e) => patch(i, { note: val(e) })} />
