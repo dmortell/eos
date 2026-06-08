@@ -1,6 +1,10 @@
+<svelte:options namespace="svg" />
+
 <script lang="ts">
 	// Spatial editing for risers — drag rooms/ladders horizontally (xMm). Floor assignment is set
 	// via the panel. Floor bands are rebuilt from the same pure engine the render uses.
+	// `namespace="svg"` is required because this layer is hosted via the render's {@render children}
+	// slot, which otherwise compiles these elements in the HTML namespace (inert, zero-size).
 	import { buildFloorBands, bandForFloor, roomCentreYMm } from './engine'
 	import { DEFAULT_RISER_SETTINGS } from './types'
 	import type { RisersEditor } from './risers-editor.svelte'

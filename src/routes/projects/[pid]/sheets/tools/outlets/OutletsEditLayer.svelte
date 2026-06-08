@@ -1,8 +1,12 @@
+<svelte:options namespace="svg" />
+
 <script lang="ts">
 	// Interactive overlay for the outlets editor — inside the OutletsRender <svg> (shared real-mm
 	// space). Object hit-areas are click-through unless the Select tool is active, so the Outlet /
-	// Trunk add tools place via the background catcher.
-	import { portal } from '../../edit/portal'
+	// Trunk add tools place via the background catcher. `namespace="svg"` is required because this
+	// layer is hosted via OutletsRender's {@render children} slot, which otherwise compiles these
+	// elements in the HTML namespace (inert, zero-size). The context menu (HTML) lives in
+	// OutletsContextMenu so it isn't forced into the SVG namespace.
 	import type { OutletsEditor } from './outlets-editor.svelte'
 	let { editor, locked = [] }: { editor: OutletsEditor; locked?: string[] } = $props()
 
@@ -25,7 +29,6 @@
 
 	let drawNode = $derived(editor.draw ? editor.trunks.find(t => t.id === editor.draw!.trunkId)?.nodes.find(n => n.id === editor.draw!.lastNodeId) ?? null : null)
 	let selTrunkId = $derived(editor.sel?.kind === 'trunk' ? editor.sel.id : null)
-	const m = $derived(editor.menu)
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -92,19 +95,3 @@
 		{/each}
 	{/if}
 </g>
-
-{#if m}
-	<div use:portal>
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="ctx-menu fixed z-50 rounded border border-slate-200 bg-white py-1 text-xs shadow-lg" style:left="{m.x}px" style:top="{m.y}px">
-			{#if m.kind === 'node'}
-				{#if m.canDisconnect}
-					<button class="block w-full px-3 py-1 text-left hover:bg-slate-100" onclick={() => { editor.disconnectNode(m.trunk, m.nodeId) }}>Disconnect</button>
-				{/if}
-				<button class="block w-full px-3 py-1 text-left text-red-600 hover:bg-slate-100" onclick={() => { editor.deleteNode(m.trunk, m.nodeId) }}>Delete node</button>
-			{:else}
-				<button class="block w-full px-3 py-1 text-left hover:bg-slate-100" onclick={() => { editor.deleteSegment(m.trunk, m.segId) }}>Delete segment</button>
-			{/if}
-		</div>
-	</div>
-{/if}

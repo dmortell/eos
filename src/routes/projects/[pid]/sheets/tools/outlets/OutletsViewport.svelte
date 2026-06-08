@@ -6,6 +6,7 @@
 	import type { OutletsData, PageCalibration } from './types'
 	import OutletsRender from './OutletsRender.svelte'
 	import OutletsEditLayer from './OutletsEditLayer.svelte'
+	import OutletsContextMenu from './OutletsContextMenu.svelte'
 	import OutletsEditPanel from './OutletsEditPanel.svelte'
 	import { OutletsEditor } from './outlets-editor.svelte'
 	import { docSaver } from '../../edit/persist'
@@ -146,6 +147,7 @@
 	</OutletsRender>
 	{#if active}
 		<OutletsEditPanel {editor} />
+		<OutletsContextMenu {editor} />
 	{/if}
 {:else}
 	<div class="flex h-full w-full items-center justify-center text-zinc-400 print:hidden" style:font-size="{14 / zoom}px">No outlets source</div>
