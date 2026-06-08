@@ -31,7 +31,8 @@
 <!-- background catcher only while an add-tool is armed (so select-mode clicks fall through) -->
 {#if addMode}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<rect x="-1e6" y="-1e6" width="2e6" height="2e6" fill="transparent" style:cursor="crosshair" onmousedown={bg} />
+	<!-- pe:auto needed because the overlay <svg> is pointer-events:none -->
+	<rect x="-1e6" y="-1e6" width="2e6" height="2e6" fill="transparent" style:pointer-events="auto" style:cursor="crosshair" onmousedown={bg} />
 {/if}
 
 {#each editor.annotations as a (a.id)}
