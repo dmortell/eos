@@ -112,3 +112,18 @@ If you'd like, next steps could be: refinements to risers (real floor-format lab
 
 
 focus mode not required, all viewports are editable by default, we may add a lock toggle to each viewport to prevent changes later. writes go to the shared source doc. annotations go inside viewports, I might consider a toggle on each object for model-space vs paper-space. Layers need a lock toggle in addition to visibility toggle, with viewport toggles independent of the underlying model layers. Actually a project-scope layers list may work better than a per model list, as per-model would need user to re-create similar layers on every floor drawing (unless we allow copying layer lists between model drawings). When a viewport is active, middle/right-drag should drag the viewport content, not the paper canvas as we have now. left-drag is for select/move. Leave the catalog/patch for a later phase.
+
+
+How it works (for testing)
+
+Select a viewport → double-click to activate → left-drag edits, middle/right-drag pans content, wheel zooms. A tool palette + Layers + Annotate windows float over the canvas. ⤢ on an active viewport opens model mode (full-screen edit; Esc returns). Edits persist to the shared source docs (outlets/racks/risers); layer overrides, annotations and revisions persist on the sheet doc.
+
+Honest status notes (also written into implement-editing.md at the top)
+
+- Compiles, but not run in a browser — please smoke-test the items I listed there.
+- Lean deviation: I didn't split renders into Scene+Frame; instead each render took a small view override + onsvg + a children slot (same outcome, far less churn).
+- Deferred/known gaps: racks catalog/library + patch cords (as you asked); rack device drag in elevation (edited via the panel's numeric U field — the U-layout is render-internal); trunk node merge/join; linked-symbol click-through navigation (links are stored/editable but don't navigate yet); revision-cloud/dimension annotation kinds.
+
+Everything is in small, reviewable commits, so anything that doesn't behave is easy to isolate. I'd start tomorrow by eyeballing outlets add/move + model mode + layer hide/lock, then the racks/risers panels.
+
+One note for later if it recurs: a fully robust fix would be to give .gui windows position: fixed (viewport-relative) so a tall panel can never grow the document and reintroduce scrollbars — but that's a shared Window change affecting other tools, so I kept this scoped to the sheets panels.
