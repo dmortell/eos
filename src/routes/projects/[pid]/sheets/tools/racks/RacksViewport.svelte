@@ -30,9 +30,14 @@
 		return () => unsub?.()
 	})
 
-	// ── Editing ──
+	// ── Editing ── seed from the doc while idle; seed once even if mounted active (model mode).
 	const editor = new RacksEditor()
-	$effect(() => { if (!active) editor.seed(doc) })
+	let seeded = false
+	$effect(() => {
+		const d = doc
+		if (!active) { editor.seed(d); seeded = !!d; return }
+		if (!seeded && d) { editor.seed(d); seeded = true }
+	})
 	$effect(() => {
 		const id = src?.racksDocId
 		if (!id) { editor.onChange = null; return }

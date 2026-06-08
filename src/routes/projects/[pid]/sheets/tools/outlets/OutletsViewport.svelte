@@ -101,8 +101,14 @@
 
 	// ── Editing ── one editor per viewport instance; the source doc is the single source of truth.
 	const editor = new OutletsEditor()
-	// Mirror the doc into the editor while idle; once active, the editor owns the data.
-	$effect(() => { if (!active) editor.seed(outletsData) })
+	// Mirror the doc into the editor while idle; once active, the editor owns the data. Seed at
+	// least once even if mounted active (model mode opens active from the start).
+	let seeded = false
+	$effect(() => {
+		const d = outletsData
+		if (!active) { editor.seed(d); seeded = !!d; return }
+		if (!seeded && d) { editor.seed(d); seeded = true }
+	})
 	// Persist edits (debounced) to the outlets doc.
 	$effect(() => {
 		const id = src?.outletsDocId

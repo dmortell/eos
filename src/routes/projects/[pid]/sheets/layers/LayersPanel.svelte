@@ -4,9 +4,10 @@
 	import { LAYERS } from './layers'
 	import type { ViewportEditor } from '../viewports.svelte'
 
-	let { vps }: { vps: ViewportEditor } = $props()
-	// Layers act on the active (or otherwise the single-selected) viewport.
-	let vp = $derived(vps.activeViewport ?? vps.selectedViewport)
+	import type { SheetViewport } from '../types'
+	let { vps, vp: vpOverride = null }: { vps: ViewportEditor; vp?: SheetViewport | null } = $props()
+	// Layers act on the given viewport (model mode) or the active/single-selected one.
+	let vp = $derived(vpOverride ?? vps.activeViewport ?? vps.selectedViewport)
 </script>
 
 {#if vp}

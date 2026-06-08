@@ -249,6 +249,7 @@
 		<!-- Model mode: full-area content editor over the sheet (no route / refresh). -->
 		{#if modelVp}
 			<ModelView vp={modelVp} {vps} onexit={() => modelVpId = null} />
+			<LayersPanel {vps} vp={modelVp} />
 		{/if}
 	</div>
 </div>
