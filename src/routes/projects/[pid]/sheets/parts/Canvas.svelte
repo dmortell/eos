@@ -263,7 +263,7 @@
 <div {onmousedown} {oncontextmenu}
 	bind:this={canvas} class={['panzoom', background]} style:cursor={cursor || null}
 	style="background-size:{gw}px {gw}px; background-position:left {gx}px top {gy}px">
-	<div class="panzoom-content" style:transform="translate({view.x}px, {view.y}px) scale({view.zoom})" style:transform-origin="0 0" style:--screen-scale={view.zoom}>
+	<div class="panzoom-content technical-drawing-text" style:transform="translate({view.x}px, {view.y}px) scale({view.zoom})" style:transform-origin="0 0" style:--screen-scale={view.zoom}>
 		{@render children?.()}
 	</div>
 	{#if showZoom && interactive}

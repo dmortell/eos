@@ -46,7 +46,7 @@
 
 <!-- App shell: a viewport-tall flex column. The titlebar takes its natural height;
      everything below (SheetEditor → menubar / canvas / status bar) flexes to fill the rest. -->
-<div class="flex h-[100dvh] flex-col overflow-hidden technical-drawing-text">
+<div class="flex h-[100dvh] flex-col overflow-hidden">
 	<Titlebar title={sheet ? `Sheet — ${sheet.title}` : 'Sheet'} height={30} />
 	{#if loading}
 		<div class="flex flex-1 items-center justify-center">

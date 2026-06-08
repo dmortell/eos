@@ -2,16 +2,20 @@
 	import { Window } from '$lib'
 	import PropText from '../../parts/PropText.svelte'
 	import PropSelect from '../../parts/PropSelect.svelte'
+	import AnnotationControls from '../../edit/AnnotationControls.svelte'
 	import { portal } from '../../edit/portal'
 	import { RacksEditor, DEVICE_TYPES } from './racks-editor.svelte'
+	import type { AnnotationEditor } from '../../annotations/annotations.svelte'
 
-	let { editor }: { editor: RacksEditor } = $props()
+	let { editor, tool = $bindable(), annEditor }: { editor: RacksEditor; tool: string; annEditor: AnnotationEditor } = $props()
 	const val = (e: Event) => (e.currentTarget as HTMLInputElement | HTMLSelectElement).value
 	let firstRow = $derived(editor.rows[0]?.id ?? '')
 </script>
 
 <div use:portal>
-<Window title="Racks" name="racks-edit" left={10} top={72} open class="w-64 space-y-2 p-2 text-zinc-700">
+<Window title="Edit" name="racks-edit" left={10} top={72} open class="w-64 space-y-2 p-2 text-zinc-700">
+	<AnnotationControls bind:tool editor={annEditor} showSelect />
+	<hr class="border-zinc-200" />
 	<!-- racks -->
 	<div class="flex items-center gap-2">
 		<span class="w-16 shrink-0 text-xs text-zinc-500">Rack</span>

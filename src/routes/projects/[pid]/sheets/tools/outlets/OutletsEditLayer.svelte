@@ -1,31 +1,20 @@
 <svelte:options namespace="svg" />
 
 <script lang="ts">
-	// Interactive overlay for the outlets editor — inside the OutletsRender <svg> (shared real-mm
-	// space). Object hit-areas are click-through unless the Select tool is active, so the Outlet /
-	// Trunk add tools place via the background catcher. `namespace="svg"` is required because this
-	// layer is hosted via OutletsRender's {@render children} slot, which otherwise compiles these
-	// elements in the HTML namespace (inert, zero-size). The context menu (HTML) lives in
-	// OutletsContextMenu so it isn't forced into the SVG namespace.
+	// Object edit handles for the outlets editor — inside the OutletsRender <svg> (shared real-mm
+	// space). Handles are interactive only when `interactive` (viewport active + Select tool); the
+	// single background catcher and add-placement live in EditBackground. `namespace="svg"` is
+	// required because this layer is hosted via OutletsRender's {@render children} slot, which
+	// otherwise compiles these elements in the HTML namespace (inert, zero-size). The context menu
+	// (HTML) lives in OutletsContextMenu so it isn't forced into the SVG namespace.
 	import type { OutletsEditor } from './outlets-editor.svelte'
-	let { editor, locked = [] }: { editor: OutletsEditor; locked?: string[] } = $props()
+	let { editor, interactive = false, locked = [] }: { editor: OutletsEditor; interactive?: boolean; locked?: string[] } = $props()
 
 	const HM = 140 // node handle radius (mm)
 	const HL = '#06b6d4'
-	let interactive = $derived(editor.tool === 'select')
 	let lockO = $derived(locked.includes('outlets'))
 	let lockT = $derived(locked.includes('trunks'))
 	let lockR = $derived(locked.includes('racks'))
-
-	function bg(e: MouseEvent) {
-		if (e.button !== 0) return
-		const w = editor.toWorld(e); if (!w) return
-		if (editor.tool === 'outlet') { if (lockO) return; e.stopPropagation(); editor.addOutlet(w) }
-		else if (editor.tool === 'trunk') { if (lockT) return; e.stopPropagation(); editor.drawClick(w, e.shiftKey) }
-		else editor.clearSel()
-	}
-	function bgMove(e: MouseEvent) { if (editor.tool === 'trunk' && editor.draw) { const w = editor.toWorld(e); if (w) editor.preview = w } }
-	function bgDbl() { if (editor.tool === 'trunk') editor.finishDraw() }
 
 	let drawNode = $derived(editor.draw ? editor.trunks.find(t => t.id === editor.draw!.trunkId)?.nodes.find(n => n.id === editor.draw!.lastNodeId) ?? null : null)
 	let selTrunkId = $derived(editor.sel?.kind === 'trunk' ? editor.sel.id : null)
@@ -33,11 +22,6 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <g>
-	<!-- background: add/draw clicks (+ empty-click deselect in select mode) -->
-	<rect x="-1e6" y="-1e6" width="2e6" height="2e6" fill="transparent"
-		style:cursor={interactive ? 'default' : 'crosshair'}
-		onmousedown={bg} onmousemove={bgMove} ondblclick={bgDbl} />
-
 	<!-- trunks: segment hit lines (+ insert / context); nodes for the selected trunk -->
 	{#each editor.trunks as t (t.id)}
 		{#each t.segments as s (s.id)}
@@ -73,12 +57,11 @@
 		<line x1={drawNode.position.x} y1={drawNode.position.y} x2={editor.preview.x} y2={editor.preview.y} stroke="#0369a1" stroke-width="1" stroke-dasharray="6 4" vector-effect="non-scaling-stroke" style:pointer-events="none" />
 	{/if}
 
-	<!-- outlets — selectable/draggable in Select or the Outlet tool (so clicking an existing
-	     outlet picks it up instead of stacking a duplicate). -->
+	<!-- outlets — selectable/draggable in Select mode. -->
 	{#if !lockO}
 		{#each editor.outlets as o (o.id)}
 			<circle cx={o.position.x} cy={o.position.y} r={260} fill="transparent"
-				style:pointer-events={interactive || editor.tool === 'outlet' ? 'auto' : 'none'} style:cursor="move"
+				style:pointer-events={interactive ? 'auto' : 'none'} style:cursor="move"
 				onmousedown={(e: MouseEvent) => { e.stopPropagation(); editor.dragOutlet(o, e) }} />
 			{#if editor.isSel('outlet', o.id)}
 				<circle cx={o.position.x} cy={o.position.y} r={300} fill="none" stroke={HL} stroke-width="1.5" vector-effect="non-scaling-stroke" style:pointer-events="none" />

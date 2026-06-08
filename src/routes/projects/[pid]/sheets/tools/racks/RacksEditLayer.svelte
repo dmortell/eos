@@ -7,7 +7,7 @@
 	// elements in the HTML namespace (inert, zero-size).
 	import type { RacksEditor } from './racks-editor.svelte'
 	import type { RackFace } from './types'
-	let { editor, face }: { editor: RacksEditor; face: RackFace } = $props()
+	let { editor, face, interactive = false }: { editor: RacksEditor; face: RackFace; interactive?: boolean } = $props()
 </script>
 
 {#if face === 'plan'}
@@ -16,7 +16,7 @@
 		{#each editor.rows as row (row.id)}
 			{@const o = row.plan?.originMm ?? { x: 0, y: 0 }}
 			<circle cx={o.x} cy={o.y} r={250} fill="#2563eb" fill-opacity="0.55" stroke="#1d4ed8" stroke-width="1" vector-effect="non-scaling-stroke"
-				style:cursor="move" onmousedown={(e: MouseEvent) => { e.stopPropagation(); editor.dragRow(row, e) }} />
+				style:pointer-events={interactive ? 'auto' : 'none'} style:cursor="move" onmousedown={(e: MouseEvent) => { e.stopPropagation(); editor.dragRow(row, e) }} />
 		{/each}
 	</g>
 {/if}

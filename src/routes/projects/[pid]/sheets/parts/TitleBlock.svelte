@@ -81,18 +81,18 @@
 		{ label: 'Site', value: fAddress || '—', h: 0 }, // grows
 		// Revision history (only when present) — grows with the number of entries.
 		...(revisions.length ? [{ revs: true, h: 3 + revisions.length * 3 } as Section] : []),
-		{ label: 'Date', value: fDate, h: 6, mono: true },
-		{ h: 6, cols: [
+		{ label: 'Date', value: fDate, h: 5, mono: true },
+		{ h: 5, cols: [
 			{ label: 'Drawn', value: fDrawnBy || '—', mono: true },
 			{ label: 'Chk', value: fCheckedBy || '—', mono: true },
 			{ label: 'App', value: fApprovedBy || '—', mono: true },
 		] },
-		{ h: 6, cols: [
+		{ h: 5, cols: [
 			{ label: 'Scale', value: fScale, w: 2, mono: true },
 			{ label: 'Size', value: fPaper, w: 1, mono: true },
 		] },
-		{ h: 6, cols: [
-			{ label: 'Drawing No.', value: fNumber || '—', w: 2, mono: true, big: true },
+		{ h: 5, cols: [
+			{ label: 'Drawing No', value: fNumber || '—', w: 2, mono: true, big: true },
 			{ label: 'Rev.', value: fRevision, w: 1, mono: true, big: true },
 		] },
 	])
@@ -203,8 +203,9 @@
 			{:else if s.revs}
 				<!-- Revision history table (code · date · note) -->
 				<div class="flex flex-col overflow-hidden">
-					<div class="grid border-b border-zinc-300 px-1 text-[1.6pt] uppercase tracking-wider text-zinc-500 leading-none" style:grid-template-columns="1fr 2fr 4fr">
-						<span>Rev</span><span>Date</span><span>Description</span>
+					<div class="mt-1 grid border-b border-zinc-300 px-1 text-[1.6pt] uppercase tracking-wider text-zinc-500 leading-none" style:grid-template-columns="1fr 2fr 4fr">
+						<span>Rev</span><span>Date</span>
+						<span>Description</span>
 					</div>
 					{#each revisions as r (r.code)}
 						<div class="grid items-center border-b border-zinc-200 px-1 text-[2pt] leading-tight" style:grid-template-columns="1fr 2fr 4fr">

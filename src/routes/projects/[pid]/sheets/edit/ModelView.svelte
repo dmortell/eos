@@ -3,7 +3,6 @@
 	// filling the content area with its own free pan/zoom, no paper chrome. Mounted in place by
 	// SheetEditor (a $state toggle) — no route, no refresh.
 	import ViewportContent from '../ViewportContent.svelte'
-	import AnnotationOverlay from '../annotations/AnnotationOverlay.svelte'
 	import type { SheetViewport } from '../types'
 	import type { ViewportEditor } from '../viewports.svelte'
 
@@ -70,7 +69,6 @@
 	<div bind:this={el} bind:clientWidth={cw} bind:clientHeight={ch}
 		class="relative min-h-0 flex-1 overflow-hidden bg-zinc-50"
 		style:cursor={panning ? 'grabbing' : 'default'}>
-		<ViewportContent {vp} active view={view ?? null} onview={capture} zoom={1} />
-		<AnnotationOverlay {vp} {vps} {view} active />
+		<ViewportContent {vp} {vps} active view={view ?? null} onview={capture} zoom={1} />
 	</div>
 </div>

@@ -1,25 +1,34 @@
+<svelte:options namespace="svg" />
+
 <script lang="ts">
+	// Annotation shapes, rendered inside the tool render <svg> (shared real-mm space) so they pan,
+	// zoom, and print with the content. Always visible; selectable/draggable only when `interactive`
+	// (viewport active + Select tool). The background catcher / add-placement lives in
+	// EditBackground; this layer only renders + moves existing annotations. `namespace="svg"` is
+	// required because it is hosted via the render's {@render children} slot.
 	import type { AnnotationEditor } from './annotations.svelte'
 	import type { Annotation } from '../types'
 
-	let { editor, active = false }: { editor: AnnotationEditor; active?: boolean } = $props()
+	let { editor, interactive = false, locked = false }: { editor: AnnotationEditor; interactive?: boolean; locked?: boolean } = $props()
 
 	const PT = 25.4 / 72
 	const mid = `mk-${Math.random().toString(36).slice(2, 7)}`
-	let addMode = $derived(active && editor.tool !== 'select')
 
-	function bg(e: MouseEvent) {
-		if (e.button !== 0) return
-		const w = editor.toWorld(e); if (!w) return
-		e.stopPropagation()
-		if (editor.tool === 'arrow' || editor.tool === 'rect') editor.startShape(w)
-		else editor.click(w)
-	}
 	function down(a: Annotation, e: MouseEvent) {
-		if (!active || editor.tool !== 'select' || e.button !== 0) return
+		if (!interactive || locked || e.button !== 0) return
 		e.stopPropagation(); editor.move(a, e)
 	}
-	const sw = (n: number) => ({ 'stroke-width': n })
+	let pe = $derived(interactive && !locked ? 'auto' : 'none')
+
+	// Transparent hit box (real-mm, padded) so small annotations are grabbable without pixel-precision.
+	function hitBox(a: Annotation): { x: number; y: number; w: number; h: number } {
+		const x2 = a.x2 ?? a.x, y2 = a.y2 ?? a.y
+		let x = Math.min(a.x, x2), y = Math.min(a.y, y2), w = Math.abs(x2 - a.x), h = Math.abs(y2 - a.y)
+		if (a.kind === 'text') { const f = (a.fontPt ?? 8) * PT; w = (a.text?.length || 1) * f * 0.6; h = f }
+		else if (a.kind === 'symbol') { const R = 500; x = a.x - R; y = a.y - R; w = 2 * R; h = a.symbol === 'photo' ? 2.4 * R : 2 * R }
+		const pad = Math.max(200, h * 0.6)
+		return { x: x - pad, y: y - pad, w: w + 2 * pad, h: h + 2 * pad }
+	}
 </script>
 
 <defs>
@@ -28,19 +37,15 @@
 	</marker>
 </defs>
 
-<!-- background catcher only while an add-tool is armed (so select-mode clicks fall through) -->
-{#if addMode}
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<!-- pe:auto needed because the overlay <svg> is pointer-events:none -->
-	<rect x="-1e6" y="-1e6" width="2e6" height="2e6" fill="transparent" style:pointer-events="auto" style:cursor="crosshair" onmousedown={bg} />
-{/if}
-
 {#each editor.annotations as a (a.id)}
-	{@const sel = active && editor.isSel('ann', a.id)}
-	{@const pe = active && editor.tool === 'select' ? 'auto' : 'none'}
+	{@const sel = interactive && editor.isSel('ann', a.id)}
 	{@const color = a.color ?? '#dc2626'}
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<g style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)}>
+	{@const hb = hitBox(a)}
+	<g style:pointer-events="none">
+		<!-- transparent hit target (handler on the element itself — SVG event delegation does not
+		     reliably reach a handler on the wrapping <g> from a child) -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<rect x={hb.x} y={hb.y} width={hb.w} height={hb.h} fill="transparent" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} />
 		{#if a.kind === 'text'}
 			<text x={a.x} y={a.y} font-size={(a.fontPt ?? 8) * PT} fill={color} dominant-baseline="hanging">{a.text}</text>
 		{:else if a.kind === 'arrow'}

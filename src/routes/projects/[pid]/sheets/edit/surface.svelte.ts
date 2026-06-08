@@ -15,6 +15,8 @@ export class SurfaceEditor {
 	sel = $state<Sel>(null)
 	/** Called after any mutation that should persist; the host wires this to a debounced save. */
 	onChange: (() => void) | null = null
+	/** Sibling editor sharing this surface (object ↔ annotation); selecting here clears it there. */
+	peer: SurfaceEditor | null = null
 
 	#move: ((e: MouseEvent) => void) | null = null
 	#up: (() => void) | null = null
@@ -38,7 +40,7 @@ export class SurfaceEditor {
 	}
 
 	// ── selection ──
-	select(kind: string, id: string) { this.sel = { kind, id } }
+	select(kind: string, id: string) { this.sel = { kind, id }; this.peer?.clearSel() }
 	isSel(kind: string, id: string) { return this.sel?.kind === kind && this.sel.id === id }
 	clearSel() { this.sel = null }
 

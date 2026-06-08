@@ -9,12 +9,17 @@
 	import OutletsContextMenu from './OutletsContextMenu.svelte'
 	import OutletsEditPanel from './OutletsEditPanel.svelte'
 	import { OutletsEditor } from './outlets-editor.svelte'
+	import EditBackground from '../../edit/EditBackground.svelte'
+	import AnnotationLayer from '../../annotations/AnnotationLayer.svelte'
+	import { AnnotationEditor } from '../../annotations/annotations.svelte'
+	import type { ViewportEditor } from '../../viewports.svelte'
 	import { docSaver } from '../../edit/persist'
 
 	const RENDER_SCALE = 2 // PDF rasterization scale (crispness)
 
-	let { vp, zoom = 1, active = false, view = null, onview, hidden = [], locked = [] }: {
+	let { vp, vps, zoom = 1, active = false, view = null, onview, hidden = [], locked = [] }: {
 		vp: SheetViewport
+		vps: ViewportEditor
 		zoom?: number
 		active?: boolean
 		view?: { x: number; y: number; w: number; h: number } | null
@@ -23,6 +28,10 @@
 		locked?: string[]
 	} = $props()
 	const db = getContext('db') as Firestore
+
+	// Unified edit/annotate tool mode (select | outlet | trunk | text | arrow | rect | symbol).
+	let tool = $state('select')
+	let annLocked = $derived(locked.includes('annotations'))
 
 	let src = $derived(vp.source.kind === 'outlets' ? vp.source : null)
 
@@ -100,8 +109,19 @@
 		}
 	})
 
+	// ── Annotations ── per-viewport, stored on the sheet doc (vp.annotations) via vps.
+	const annEditor = new AnnotationEditor()
+	let annSeeded = false
+	$effect(() => {
+		const a = vp.annotations
+		if (!active) { annEditor.seed(a); annSeeded = true; return }
+		if (!annSeeded) { annEditor.seed(a); annSeeded = true }
+	})
+	$effect(() => { annEditor.onChange = () => vps.setAnnotations(vp.id, annEditor.snapshot()); return () => { annEditor.onChange = null } })
+
 	// ── Editing ── one editor per viewport instance; the source doc is the single source of truth.
 	const editor = new OutletsEditor()
+	editor.peer = annEditor; annEditor.peer = editor // object ↔ annotation: one selection at a time
 	// Mirror the doc into the editor while idle; once active, the editor owns the data. Seed at
 	// least once even if mounted active (model mode opens active from the start).
 	let seeded = false
@@ -123,8 +143,10 @@
 		if (!active) return
 		const onKey = (e: KeyboardEvent) => {
 			const f = (e.target as Element)?.closest?.('input, textarea, select, [contenteditable]')
-			if (e.key === 'Delete' && !f && editor.sel) { e.preventDefault(); e.stopPropagation(); editor.deleteSel() }
-			else if (e.key === 'Escape' && editor.draw) { e.preventDefault(); e.stopPropagation(); editor.finishDraw() }
+			if (e.key === 'Delete' && !f) {
+				if (annEditor.selAnn) { e.preventDefault(); e.stopPropagation(); annEditor.deleteSel() }
+				else if (editor.sel) { e.preventDefault(); e.stopPropagation(); editor.deleteSel() }
+			} else if (e.key === 'Escape' && editor.draw) { e.preventDefault(); e.stopPropagation(); editor.finishDraw(); tool = 'select' }
 		}
 		window.addEventListener('keydown', onKey, true)
 		return () => window.removeEventListener('keydown', onKey, true)
@@ -140,13 +162,22 @@
 		{calibration}
 		{pdfUrl} {pageW} {pageH}
 		{vp} {view} {onview} {hidden}
-		onsvg={(el) => editor.svg = el}>
+		onsvg={(el) => { editor.svg = el; annEditor.svg = el }}>
 		{#if active}
-			<OutletsEditLayer {editor} {locked} />
+			<EditBackground {tool} {annEditor} toolEditor={editor} {annLocked}
+				onadd={(t, w, shift) => {
+					if (t === 'outlet') { if (locked.includes('outlets')) return true; editor.addOutlet(w); return true }
+					if (t === 'trunk') { if (locked.includes('trunks')) return true; editor.drawClick(w, shift); return true }
+					return false
+				}}
+				onmove={(w) => { if (tool === 'trunk' && editor.draw) editor.preview = w }}
+				ondbl={() => { if (tool === 'trunk') { editor.finishDraw(); tool = 'select' } }} />
+			<OutletsEditLayer {editor} interactive={tool === 'select'} {locked} />
 		{/if}
+		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} locked={annLocked} />
 	</OutletsRender>
 	{#if active}
-		<OutletsEditPanel {editor} />
+		<OutletsEditPanel {editor} bind:tool {annEditor} />
 		<OutletsContextMenu {editor} />
 	{/if}
 {:else}

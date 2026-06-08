@@ -2,7 +2,6 @@
 	import type { ViewportEditor } from "./viewports.svelte";
 	import type { SheetViewport } from "./types";
 	import ViewportContent from "./ViewportContent.svelte";
-	import AnnotationOverlay from "./annotations/AnnotationOverlay.svelte";
 
 	// Model-driven: the controller owns position/selection/active state; this component renders
 	// one viewport and reports frame-clicks / handle-drags back. AutoCAD-style selection — you
@@ -166,9 +165,7 @@
 	<div bind:this={contentEl} class="absolute inset-0 overflow-hidden"
 		style:pointer-events={active ? 'auto' : 'none'}
 		style:cursor={active ? (contentPanning ? 'grabbing' : 'grab') : 'default'}>
-		<ViewportContent {vp} {zoom} {active} onview={(v) => lastView = v} />
-		<!-- Annotations overlay (always visible; editable when active). -->
-		<AnnotationOverlay {vp} {vps} view={lastView} {active} />
+		<ViewportContent {vp} {vps} {zoom} {active} onview={(v) => lastView = v} />
 	</div>
 
 	<!-- Label (prints at point size, above the frame) -->

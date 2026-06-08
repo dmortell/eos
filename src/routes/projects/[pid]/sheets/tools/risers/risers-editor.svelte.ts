@@ -1,4 +1,6 @@
 import { SurfaceEditor } from '../../edit/surface.svelte'
+import { buildFloorBands } from './engine'
+import { DEFAULT_RISER_SETTINGS } from './types'
 import type { RiserRoom, Ladder, Cable, CableSegment, TextLabel, RiserDocData, RiserSettings, FloorHeights, RoomKind, LadderLevel, CableLevel } from './types'
 
 /** Editor for a risers viewport — rooms, ladders, cables (hop routes). */
@@ -73,12 +75,23 @@ export class RisersEditor extends SurfaceEditor {
 		this.notify()
 	}
 
-	// ── drag (horizontal — xMm; floor is set via the panel) ──
-	dragRoomX(room: RiserRoom, e0: MouseEvent) {
+	// ── drag ── rooms move freely (xMm + reassigned to the floor band under the cursor); ladders
+	// move horizontally (their span is set via the panel).
+	floorAtY(y: number, from: number, to: number): number | null {
+		const bands = buildFloorBands({ floorHeights: this.floorHeights, settings: this.settings ?? DEFAULT_RISER_SETTINGS, hiddenFloors: this.hiddenFloors }, from, to)
+		if (!bands.length) return null
+		for (const b of bands) if (y >= b.topMm && y <= b.slabBottomMm) return b.floor
+		return y < bands[0].topMm ? bands[0].floor : bands[bands.length - 1].floor
+	}
+	dragRoom(room: RiserRoom, e0: MouseEvent, from: number, to: number) {
 		this.select('room', room.id)
 		const w0 = this.toWorld(e0); if (!w0) return
 		const x0 = room.xMm
-		this.startDrag(e => { const w = this.toWorld(e); if (w) room.xMm = x0 + (w.x - w0.x) }, () => this.notify())
+		this.startDrag(e => {
+			const w = this.toWorld(e); if (!w) return
+			room.xMm = x0 + (w.x - w0.x)
+			const f = this.floorAtY(w.y, from, to); if (f != null) room.floor = f
+		}, () => this.notify())
 	}
 	dragLadderX(ladder: Ladder, e0: MouseEvent) {
 		this.select('ladder', ladder.id)

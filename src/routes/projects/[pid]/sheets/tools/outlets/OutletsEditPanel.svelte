@@ -2,34 +2,37 @@
 	import { Window } from '$lib'
 	import PropText from '../../parts/PropText.svelte'
 	import PropSelect from '../../parts/PropSelect.svelte'
+	import AnnotationControls from '../../edit/AnnotationControls.svelte'
 	import { portal } from '../../edit/portal'
 	import type { OutletsEditor } from './outlets-editor.svelte'
+	import type { AnnotationEditor } from '../../annotations/annotations.svelte'
 
-	let { editor }: { editor: OutletsEditor } = $props()
+	let { editor, tool = $bindable(), annEditor }: { editor: OutletsEditor; tool: string; annEditor: AnnotationEditor } = $props()
 
-	const tools = [
+	const objTools = [
 		{ id: 'select', label: 'Select' },
 		{ id: 'outlet', label: '+ Outlet' },
 		{ id: 'trunk', label: '+ Trunk' },
 	] as const
 
-	function pick(id: typeof tools[number]['id']) {
-		if (id === 'trunk') editor.startDraw()
-		else { if (editor.draw) editor.finishDraw(); editor.tool = id }
+	function pick(id: typeof objTools[number]['id']) {
+		if (id === 'trunk') { tool = 'trunk'; editor.startDraw() }
+		else { if (editor.draw) editor.finishDraw(); tool = id }
 	}
 	const val = (e: Event) => (e.currentTarget as HTMLSelectElement | HTMLInputElement).value
+	const cls = (active: boolean) => ['flex-1 rounded border px-1 py-0.5 text-xs', active ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-slate-100']
 </script>
 
 <div use:portal>
 <Window title="Edit" name="outlets-edit" left={10} top={72} open class="w-60 space-y-2 p-2 text-zinc-700">
 	<div class="flex gap-1">
-		{#each tools as t (t.id)}
-			<button class={["flex-1 rounded border px-1 py-0.5 text-xs", editor.tool === t.id ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-slate-100']}
-				onclick={() => pick(t.id)}>{t.label}</button>
+		{#each objTools as t (t.id)}
+			<button class={cls(tool === t.id)} onclick={() => pick(t.id)}>{t.label}</button>
 		{/each}
 	</div>
+	<AnnotationControls bind:tool editor={annEditor} />
 	{#if editor.draw}
-		<button class="w-full rounded border px-1 py-0.5 text-xs hover:bg-slate-100" onclick={() => editor.finishDraw()}>Finish trunk</button>
+		<button class="w-full rounded border px-1 py-0.5 text-xs hover:bg-slate-100" onclick={() => { editor.finishDraw(); tool = 'select' }}>Finish trunk</button>
 	{/if}
 
 	{#if editor.selOutlet}
@@ -58,8 +61,6 @@
 		</PropSelect>
 		<PropText label="Width (mm)" type="number" min="0" value={String(editor.selTrunkWidth)} oninput={(e: Event) => editor.setTrunkWidth(Number(val(e)) || 0)} />
 		<button class="w-full rounded bg-red-600 px-1 py-0.5 text-xs text-white hover:bg-red-500" onclick={() => editor.deleteSel()}>Delete trunk</button>
-	{:else}
-		<p class="text-xs text-zinc-400">Select an object to edit, or pick a tool to add.</p>
 	{/if}
 </Window>
 </div>

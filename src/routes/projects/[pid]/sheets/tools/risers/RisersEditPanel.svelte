@@ -2,16 +2,20 @@
 	import { Window } from '$lib'
 	import PropText from '../../parts/PropText.svelte'
 	import PropSelect from '../../parts/PropSelect.svelte'
+	import AnnotationControls from '../../edit/AnnotationControls.svelte'
 	import { portal } from '../../edit/portal'
 	import { RisersEditor, LEVELS, LADDER_LEVELS } from './risers-editor.svelte'
+	import type { AnnotationEditor } from '../../annotations/annotations.svelte'
 
-	let { editor, fromFloor, toFloor }: { editor: RisersEditor; fromFloor: number; toFloor: number } = $props()
+	let { editor, tool = $bindable(), annEditor, fromFloor, toFloor }: { editor: RisersEditor; tool: string; annEditor: AnnotationEditor; fromFloor: number; toFloor: number } = $props()
 	const val = (e: Event) => (e.currentTarget as HTMLInputElement | HTMLSelectElement).value
 	let floorOpts = $derived.by(() => { const a: number[] = []; for (let f = Math.max(fromFloor, toFloor); f >= Math.min(fromFloor, toFloor); f--) a.push(f); return a })
 </script>
 
 <div use:portal>
-<Window title="Risers" name="risers-edit" left={10} top={72} open class="w-64 space-y-2 p-2 text-zinc-700">
+<Window title="Edit" name="risers-edit" left={10} top={72} open class="w-64 space-y-2 p-2 text-zinc-700">
+	<AnnotationControls bind:tool editor={annEditor} showSelect />
+	<hr class="border-zinc-200" />
 	<div class="flex flex-wrap gap-1">
 		<button class="rounded border px-1.5 py-0.5 text-xs hover:bg-slate-100" onclick={() => editor.addRoom('server', fromFloor)}>+ Server</button>
 		<button class="rounded border px-1.5 py-0.5 text-xs hover:bg-slate-100" onclick={() => editor.addRoom('eps', fromFloor)}>+ EPS</button>

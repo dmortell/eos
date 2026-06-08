@@ -6,11 +6,14 @@
 	import RisersViewport from './tools/risers/RisersViewport.svelte'
 	import { effectiveLayers } from './layers/layers'
 	import type { SheetViewport } from './types'
+	import type { ViewportEditor } from './viewports.svelte'
 
 	// Dispatches a viewport's declarative `source` to the right renderer. `active` enables editing;
-	// `view` is a model-mode viewBox override (real-mm) supplied by the full-area host.
-	let { vp, zoom = 1, active = false, view = null, onview }: {
+	// `view` is a model-mode viewBox override (real-mm) supplied by the full-area host. `vps` is
+	// needed so tool viewports can persist their model-space annotations onto the sheet doc.
+	let { vp, vps, zoom = 1, active = false, view = null, onview }: {
 		vp: SheetViewport
+		vps: ViewportEditor
 		zoom?: number
 		active?: boolean
 		view?: { x: number; y: number; w: number; h: number } | null
@@ -23,11 +26,11 @@
 {#if vp.source.kind === 'text'}
 	<TextViewport source={vp.source} />
 {:else if vp.source.kind === 'outlets'}
-	<OutletsViewport {vp} {zoom} {active} {view} {onview} hidden={layers.hidden} locked={layers.locked} />
+	<OutletsViewport {vp} {vps} {zoom} {active} {view} {onview} hidden={layers.hidden} locked={layers.locked} />
 {:else if vp.source.kind === 'racks'}
-	<RacksViewport {vp} {zoom} {active} {view} {onview} hidden={layers.hidden} locked={layers.locked} />
+	<RacksViewport {vp} {vps} {zoom} {active} {view} {onview} hidden={layers.hidden} locked={layers.locked} />
 {:else if vp.source.kind === 'risers'}
-	<RisersViewport {vp} {zoom} {active} {view} {onview} hidden={layers.hidden} locked={layers.locked} />
+	<RisersViewport {vp} {vps} {zoom} {active} {view} {onview} hidden={layers.hidden} locked={layers.locked} />
 {:else}
 	<EmptyViewport {zoom} />
 {/if}

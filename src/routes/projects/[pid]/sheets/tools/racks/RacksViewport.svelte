@@ -7,10 +7,15 @@
 	import RacksEditLayer from './RacksEditLayer.svelte'
 	import RacksEditPanel from './RacksEditPanel.svelte'
 	import { RacksEditor } from './racks-editor.svelte'
+	import EditBackground from '../../edit/EditBackground.svelte'
+	import AnnotationLayer from '../../annotations/AnnotationLayer.svelte'
+	import { AnnotationEditor } from '../../annotations/annotations.svelte'
+	import type { ViewportEditor } from '../../viewports.svelte'
 	import { docSaver } from '../../edit/persist'
 
-	let { vp, zoom = 1, active = false, view = null, onview, hidden = [], locked = [] }: {
+	let { vp, vps, zoom = 1, active = false, view = null, onview, hidden = [], locked = [] }: {
 		vp: SheetViewport
+		vps: ViewportEditor
 		zoom?: number
 		active?: boolean
 		view?: { x: number; y: number; w: number; h: number } | null
@@ -19,6 +24,17 @@
 		locked?: string[]
 	} = $props()
 	const db = getContext('db') as Firestore
+
+	let tool = $state('select')
+	let annLocked = $derived(locked.includes('annotations'))
+	const annEditor = new AnnotationEditor()
+	let annSeeded = false
+	$effect(() => {
+		const a = vp.annotations
+		if (!active) { annEditor.seed(a); annSeeded = true; return }
+		if (!annSeeded) { annEditor.seed(a); annSeeded = true }
+	})
+	$effect(() => { annEditor.onChange = () => vps.setAnnotations(vp.id, annEditor.snapshot()); return () => { annEditor.onChange = null } })
 
 	let src = $derived(vp.source.kind === 'racks' ? vp.source : null)
 	let doc = $state<RackDocData | null>(null)
@@ -32,6 +48,7 @@
 
 	// ── Editing ── seed from the doc while idle; seed once even if mounted active (model mode).
 	const editor = new RacksEditor()
+	editor.peer = annEditor; annEditor.peer = editor
 	let seeded = false
 	$effect(() => {
 		const d = doc
@@ -49,7 +66,11 @@
 		if (!active) return
 		const onKey = (e: KeyboardEvent) => {
 			const f = (e.target as Element)?.closest?.('input, textarea, select, [contenteditable]')
-			if (e.key === 'Delete' && !f) { e.preventDefault(); e.stopPropagation(); if (editor.selDevice) editor.deleteDevice(); else if (editor.selRack) editor.deleteRack() }
+			if (e.key === 'Delete' && !f) {
+				if (annEditor.selAnn) { e.preventDefault(); e.stopPropagation(); annEditor.deleteSel() }
+				else if (editor.selDevice) { e.preventDefault(); e.stopPropagation(); editor.deleteDevice() }
+				else if (editor.selRack) { e.preventDefault(); e.stopPropagation(); editor.deleteRack() }
+			}
 		}
 		window.addEventListener('keydown', onKey, true)
 		return () => window.removeEventListener('keydown', onKey, true)
@@ -68,13 +89,15 @@
 		showWalls={src.showWalls ?? false}
 		colorDevices={src.colorDevices ?? true}
 		{vp} {view} {onview} {hidden}
-		onsvg={(el) => editor.svg = el}>
+		onsvg={(el) => { editor.svg = el; annEditor.svg = el }}>
 		{#if active}
-			<RacksEditLayer {editor} face={src.face} />
+			<EditBackground {tool} {annEditor} toolEditor={editor} {annLocked} />
+			<RacksEditLayer {editor} face={src.face} interactive={tool === 'select'} />
 		{/if}
+		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} locked={annLocked} />
 	</RacksRender>
 	{#if active}
-		<RacksEditPanel {editor} />
+		<RacksEditPanel {editor} bind:tool {annEditor} />
 	{/if}
 {:else}
 	<div class="flex h-full w-full items-center justify-center text-zinc-400 print:hidden" style:font-size="{14 / zoom}px">No racks source</div>
