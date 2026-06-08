@@ -11,7 +11,7 @@
 </script>
 
 <div use:portal>
-<Window title="Risers" name="risers-edit" left={10} bottom={10} open class="w-64 space-y-2 p-2 text-zinc-700">
+<Window title="Risers" name="risers-edit" left={10} top={72} open class="w-64 space-y-2 p-2 text-zinc-700">
 	<div class="flex flex-wrap gap-1">
 		<button class="rounded border px-1.5 py-0.5 text-xs hover:bg-slate-100" onclick={() => editor.addRoom('server', fromFloor)}>+ Server</button>
 		<button class="rounded border px-1.5 py-0.5 text-xs hover:bg-slate-100" onclick={() => editor.addRoom('eps', fromFloor)}>+ EPS</button>

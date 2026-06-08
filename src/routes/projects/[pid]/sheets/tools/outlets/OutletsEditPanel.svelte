@@ -21,7 +21,7 @@
 </script>
 
 <div use:portal>
-<Window title="Edit" name="outlets-edit" left={10} bottom={10} open class="w-60 space-y-2 p-2 text-zinc-700">
+<Window title="Edit" name="outlets-edit" left={10} top={72} open class="w-60 space-y-2 p-2 text-zinc-700">
 	<div class="flex gap-1">
 		{#each tools as t (t.id)}
 			<button class={["flex-1 rounded border px-1 py-0.5 text-xs", editor.tool === t.id ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-slate-100']}

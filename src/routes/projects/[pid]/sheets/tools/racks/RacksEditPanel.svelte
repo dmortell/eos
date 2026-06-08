@@ -11,7 +11,7 @@
 </script>
 
 <div use:portal>
-<Window title="Racks" name="racks-edit" left={10} bottom={10} open class="w-64 space-y-2 p-2 text-zinc-700">
+<Window title="Racks" name="racks-edit" left={10} top={72} open class="w-64 space-y-2 p-2 text-zinc-700">
 	<!-- racks -->
 	<div class="flex items-center gap-2">
 		<span class="w-16 shrink-0 text-xs text-zinc-500">Rack</span>

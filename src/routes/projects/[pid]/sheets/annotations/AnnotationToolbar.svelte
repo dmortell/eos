@@ -14,7 +14,7 @@
 </script>
 
 <div use:portal>
-<Window title="Annotate" name="annotate" right={10} bottom={10} open class="w-60 space-y-2 p-2 text-zinc-700">
+<Window title="Annotate" name="annotate" left={10} top={360} open class="w-60 space-y-2 p-2 text-zinc-700">
 	<div class="flex flex-wrap gap-1">
 		{#each tools as [id, label] (id)}
 			<button class={["rounded border px-1.5 py-0.5 text-xs", editor.tool === id ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-slate-100']}

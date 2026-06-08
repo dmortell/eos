@@ -12,7 +12,7 @@
 {#if vp}
 	{@const v = vp}
 	<div use:portal>
-		<Window title="Layers" name="sheet-layers" right={10} bottom={10} open class="w-56 p-2 text-zinc-700">
+		<Window title="Layers" name="sheet-layers" right={10} top={72} open class="w-56 p-2 text-zinc-700">
 			{#each LAYERS as l (l.id)}
 				{@const ov = v.layerOverrides?.[l.id] ?? {}}
 				<div class="flex items-center gap-2 py-0.5 text-xs">
