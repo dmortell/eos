@@ -60,8 +60,14 @@ export type ViewportSource =
 	| { kind: 'racks'; racksDocId: string; face: 'front' | 'rear' | 'plan'; rowId?: string; showWalls?: boolean; colorDevices?: boolean }
 	| { kind: 'risers'; risersDocId: string; fromFloor?: number; toFloor?: number }
 
-/** A model-space annotation (text / arrow / rect / symbol), in the viewport's real-mm space. */
-export type AnnotationKind = 'text' | 'arrow' | 'rect' | 'symbol'
+/** A model-space annotation in the viewport's real-mm space.
+ *  - Box kinds (text/rect/cloud/symbol/callout): x,y = top-left, w,h = size, rotation° about centre.
+ *  - Line kinds (line/dimension/leader, legacy arrow): x,y = start, x2,y2 = end.
+ *  - Callout/leader also use x2,y2 as the pointer target. */
+export type AnnotationKind = 'text' | 'line' | 'rect' | 'cloud' | 'symbol' | 'callout' | 'dimension' | 'leader' | 'arrow'
+export type ArrowHead = 'none' | 'arrow' | 'dot' | 'tick'
+export type DashStyle = 'solid' | 'dashed' | 'dotted'
+export type TextAlign = 'left' | 'center' | 'right'
 export interface AnnotationLink {
 	kind: 'drawing' | 'photo'
 	sheetId?: string
@@ -72,12 +78,17 @@ export interface AnnotationLink {
 export interface Annotation {
 	id: string
 	kind: AnnotationKind
-	x: number; y: number          // anchor (text/symbol/rect-tl/arrow-start)
-	x2?: number; y2?: number      // arrow end / rect bottom-right
-	text?: string
+	x: number; y: number          // box top-left, or line start
+	x2?: number; y2?: number      // line end, or callout/leader pointer target
+	w?: number; h?: number        // box size (text/rect/cloud/symbol/callout)
+	rotation?: number             // degrees, about the box centre
+	text?: string                 // may contain newlines (multi-line)
 	fontPt?: number
+	align?: TextAlign
 	symbol?: string               // symbol registry id
-	rotation?: number             // degrees (symbols)
+	start?: ArrowHead             // line start head
+	end?: ArrowHead               // line end head
+	dash?: DashStyle              // line style
 	color?: string
 	link?: AnnotationLink
 	layerId?: string

@@ -22,7 +22,7 @@
 		onblocked?: () => void
 	} = $props()
 
-	const ANN = ['text', 'arrow', 'rect', 'symbol']
+	const ANN = ['text', 'line', 'arrow', 'rect', 'cloud', 'symbol', 'callout', 'dimension', 'leader']
 
 	function bg(e: MouseEvent) {
 		if (e.button !== 0) return
@@ -31,8 +31,7 @@
 			if (annLocked) { onblocked?.(); return }
 			e.stopPropagation()
 			annEditor.tool = tool as any
-			if (tool === 'arrow' || tool === 'rect') annEditor.startShape(w)
-			else annEditor.click(w)
+			annEditor.place(w)
 			return
 		}
 		if (tool === 'select') {

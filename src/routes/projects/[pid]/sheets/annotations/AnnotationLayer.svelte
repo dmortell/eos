@@ -1,80 +1,127 @@
 <svelte:options namespace="svg" />
 
 <script lang="ts">
-	// Annotation shapes, rendered inside the tool render <svg> (shared real-mm space) so they pan,
-	// zoom, and print with the content. Always visible; selectable/draggable only when `interactive`
-	// (viewport active + Select tool). The background catcher / add-placement lives in
-	// EditBackground; this layer only renders + moves existing annotations. `namespace="svg"` is
-	// required because it is hosted via the render's {@render children} slot.
+	// Annotation shapes inside the tool render <svg> (shared real-mm). Always visible; selection,
+	// move, resize/rotate and point-drag are enabled only when `interactive` (active + Select tool).
+	// Box kinds (text/rect/cloud/symbol/callout/leader) get TransformBox handles; line kinds
+	// (line/arrow/dimension) get PointHandles; callout/leader also get a pointer handle.
 	import type { AnnotationEditor } from './annotations.svelte'
 	import type { Annotation } from '../types'
+	import { box, boxCentre, bounds, textMetrics, fontMmOf, dashArray, cloudPath } from './geometry'
+	import TransformBox from '../edit/TransformBox.svelte'
+	import PointHandles from '../edit/PointHandles.svelte'
 
 	let { editor, interactive = false, locked = false, den = 1 }: { editor: AnnotationEditor; interactive?: boolean; locked?: boolean; den?: number } = $props()
 
-	const PT = 25.4 / 72
+	const HL = '#06b6d4'
 	const mid = `mk-${Math.random().toString(36).slice(2, 7)}`
-	// Text point-size → model-mm: paper points × scale-denominator, so text prints at its point size
-	// and stays legible at any zoom (raw mm would be ~3mm = invisible in a metre-scale floorplan).
-	let fontMm = $derived((pt: number) => pt * PT * (den || 1))
+	let pe = $derived(interactive && !locked ? 'auto' : 'none')
+
+	const BOX = new Set(['text', 'rect', 'cloud', 'symbol', 'callout', 'leader'])
+	const POINTER = new Set(['callout', 'leader']) // box kinds that also have a pointer target
+	const LINE = new Set(['line', 'arrow', 'dimension'])
+	const isBoxKind = (a: Annotation) => BOX.has(a.kind)
 
 	function down(a: Annotation, e: MouseEvent) {
 		if (!interactive || locked || e.button !== 0) return
 		e.stopPropagation(); editor.move(a, e)
 	}
-	let pe = $derived(interactive && !locked ? 'auto' : 'none')
-
-	// Transparent hit box (real-mm, padded) so small annotations are grabbable without pixel-precision.
-	function hitBox(a: Annotation): { x: number; y: number; w: number; h: number } {
-		const x2 = a.x2 ?? a.x, y2 = a.y2 ?? a.y
-		let x = Math.min(a.x, x2), y = Math.min(a.y, y2), w = Math.abs(x2 - a.x), h = Math.abs(y2 - a.y)
-		if (a.kind === 'text') { const f = fontMm(a.fontPt ?? 8); w = (a.text?.length || 1) * f * 0.6; h = f }
-		else if (a.kind === 'symbol') { const R = 500; x = a.x - R; y = a.y - R; w = 2 * R; h = a.symbol === 'photo' ? 2.4 * R : 2 * R }
-		const pad = Math.max(200, h * 0.6)
-		return { x: x - pad, y: y - pad, w: w + 2 * pad, h: h + 2 * pad }
+	const mk = (h?: string) => (h && h !== 'none' ? `url(#${mid}-${h})` : undefined)
+	const nearestCorner = (b: { x: number; y: number; w: number; h: number }, tx: number, ty: number) => {
+		const cs = [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]]
+		return cs.reduce((best, c) => (Math.hypot(c[0] - tx, c[1] - ty) < Math.hypot(best[0] - tx, best[1] - ty) ? c : best))
 	}
 </script>
 
 <defs>
-	<marker id={mid} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-		<path d="M0,0 L10,5 L0,10 z" fill="#dc2626" />
-	</marker>
+	<marker id="{mid}-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="context-stroke" /></marker>
+	<marker id="{mid}-dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto"><circle cx="5" cy="5" r="4" fill="context-stroke" /></marker>
+	<marker id="{mid}-tick" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M2,8 L8,2" stroke="context-stroke" stroke-width="1.6" /></marker>
 </defs>
 
 {#each editor.annotations as a (a.id)}
 	{@const sel = interactive && editor.isSel('ann', a.id)}
 	{@const color = a.color ?? '#dc2626'}
-	{@const hb = hitBox(a)}
-	<g style:pointer-events="none">
-		<!-- transparent hit target (handler on the element itself — SVG event delegation does not
-		     reliably reach a handler on the wrapping <g> from a child) -->
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<rect x={hb.x} y={hb.y} width={hb.w} height={hb.h} fill="transparent" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} />
-		{#if a.kind === 'text'}
-			<text x={a.x} y={a.y} font-size={fontMm(a.fontPt ?? 8)} fill={color} dominant-baseline="hanging">{a.text}</text>
-		{:else if a.kind === 'arrow'}
-			<line x1={a.x} y1={a.y} x2={a.x2 ?? a.x} y2={a.y2 ?? a.y} stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" marker-end="url(#{mid})" />
+	{@const b = bounds(a, den)}
+	{@const cx = b.x + b.w / 2}{@const cy = b.y + b.h / 2}
+	{@const rot = a.rotation ? `rotate(${a.rotation} ${cx} ${cy})` : undefined}
+
+	<!-- shape -->
+	<g transform={isBoxKind(a) ? rot : undefined} style:color={color}>
+		{#if a.kind === 'text' || a.kind === 'callout' || a.kind === 'leader'}
+			{@const m = textMetrics(a, den)}
+			{@const tb = box(a, den)}
+			{@const ax = a.align === 'center' ? tb.x + tb.w / 2 : a.align === 'right' ? tb.x + tb.w : tb.x}
+			{@const anchor = a.align === 'center' ? 'middle' : a.align === 'right' ? 'end' : 'start'}
+			{#if a.kind === 'callout'}
+				<rect x={tb.x} y={tb.y} width={tb.w} height={tb.h} fill="white" fill-opacity="0.6" stroke={color} stroke-width="1.2" vector-effect="non-scaling-stroke" />
+			{/if}
+			<text x={ax} y={tb.y + m.fontMm} font-size={m.fontMm} fill={color} text-anchor={anchor}>
+				{#each m.lines as ln, i (i)}<tspan x={ax} dy={i === 0 ? 0 : m.lineH}>{ln || ' '}</tspan>{/each}
+			</text>
 		{:else if a.kind === 'rect'}
-			{@const x = Math.min(a.x, a.x2 ?? a.x)}{@const y = Math.min(a.y, a.y2 ?? a.y)}
-			<rect {x} {y} width={Math.abs((a.x2 ?? a.x) - a.x)} height={Math.abs((a.y2 ?? a.y) - a.y)} fill="none" stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" />
+			<rect x={b.x} y={b.y} width={b.w} height={b.h} fill="none" stroke={color} stroke-width="1.5" stroke-dasharray={dashArray(a.dash)} vector-effect="non-scaling-stroke" />
+		{:else if a.kind === 'cloud'}
+			{@const r = Math.max(150, Math.min(b.w, b.h) / 6)}
+			<path d={cloudPath(b.x, b.y, b.w, b.h, r)} fill="none" stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" />
 		{:else if a.kind === 'symbol'}
-			{@const R = 500}
+			{@const R = Math.min(b.w, b.h) / 2}
 			{#if a.symbol === 'photo'}
-				<path d="M{a.x},{a.y} L{a.x - R * 0.8},{a.y + R * 1.4} L{a.x + R * 0.8},{a.y + R * 1.4} Z" fill="{color}22" stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" />
-				<circle cx={a.x} cy={a.y} r={R * 0.18} fill={color} />
+				<path d="M{cx},{cy - R} L{cx - R * 0.8},{cy + R * 0.7} L{cx + R * 0.8},{cy + R * 0.7} Z" fill="{color}22" stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" />
+				<circle cx={cx} cy={cy - R * 0.1} r={R * 0.18} fill={color} />
 			{:else if a.symbol === 'north'}
-				<line x1={a.x} y1={a.y + R} x2={a.x} y2={a.y - R} stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" marker-end="url(#{mid})" />
-				<text x={a.x} y={a.y - R} font-size={R} fill={color} text-anchor="middle">N</text>
+				<line x1={cx} y1={cy + R} x2={cx} y2={cy - R} stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" marker-end="url(#{mid}-arrow)" />
+				<text x={cx} y={cy - R} font-size={R} fill={color} text-anchor="middle">N</text>
 			{:else if a.symbol === 'outlet'}
-				<circle cx={a.x} cy={a.y} r={R * 0.5} fill="{color}22" stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" />
+				<circle cx={cx} cy={cy} r={R * 0.7} fill="{color}22" stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" />
 			{:else}
-				<!-- section / detail markers -->
-				<circle cx={a.x} cy={a.y} r={R} fill="white" stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-dasharray={a.symbol === 'detail' ? '40 24' : undefined} />
-				<text x={a.x} y={a.y} font-size={R * 0.9} fill={color} text-anchor="middle" dominant-baseline="middle">{a.link?.ref ?? '?'}</text>
+				<circle cx={cx} cy={cy} r={R} fill="white" stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-dasharray={a.symbol === 'detail' ? '40 24' : undefined} />
+				<text x={cx} y={cy} font-size={R * 0.9} fill={color} text-anchor="middle" dominant-baseline="middle">{a.link?.ref ?? '?'}</text>
 			{/if}
 		{/if}
-		{#if sel}
-			{@const bx = Math.min(a.x, a.x2 ?? a.x) - 400}{@const by = Math.min(a.y, a.y2 ?? a.y) - 400}
-			<rect x={bx} y={by} width={Math.abs((a.x2 ?? a.x) - a.x) + 800} height={Math.abs((a.y2 ?? a.y) - a.y) + 800} fill="none" stroke="#06b6d4" stroke-width="1" stroke-dasharray="6 4" vector-effect="non-scaling-stroke" />
-		{/if}
 	</g>
+
+	<!-- pointer leader for callout/leader -->
+	{#if POINTER.has(a.kind) && a.x2 != null}
+		{@const tb = box(a, den)}{@const c = nearestCorner(tb, a.x2, a.y2 ?? a.y)}
+		<line x1={c[0]} y1={c[1]} x2={a.x2} y2={a.y2} stroke={color} style:color={color} stroke-width="1.5" stroke-dasharray={dashArray(a.dash)} vector-effect="non-scaling-stroke" marker-end={mk(a.end ?? 'arrow')} />
+	{/if}
+
+	<!-- line / arrow / dimension -->
+	{#if LINE.has(a.kind)}
+		{@const x2 = a.x2 ?? a.x}{@const y2 = a.y2 ?? a.y}
+		{#if a.kind === 'dimension'}
+			{@const dist = Math.round(Math.hypot(x2 - a.x, y2 - a.y))}
+			{@const mx = (a.x + x2) / 2}{@const my = (a.y + y2) / 2}
+			{@const ang = (Math.atan2(y2 - a.y, x2 - a.x) * 180) / Math.PI}
+			{@const f = fontMmOf(a, den)}
+			<line x1={a.x} y1={a.y} x2={x2} y2={y2} stroke={color} style:color={color} stroke-width="1.2" vector-effect="non-scaling-stroke" marker-start="url(#{mid}-arrow)" marker-end="url(#{mid}-arrow)" />
+			<text x={mx} y={my} transform="rotate({ang} {mx} {my})" dy={-f * 0.4} font-size={f} fill={color} text-anchor="middle">{dist}mm</text>
+		{:else}
+			<line x1={a.x} y1={a.y} x2={x2} y2={y2} stroke={color} style:color={color} stroke-width="1.5" stroke-dasharray={dashArray(a.dash)} vector-effect="non-scaling-stroke" marker-start={mk(a.start)} marker-end={mk(a.end)} />
+		{/if}
+	{/if}
+
+	<!-- hit target (move / select) -->
+	{#if isBoxKind(a)}
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<g transform={rot}><rect x={b.x - 60} y={b.y - 60} width={b.w + 120} height={b.h + 120} fill="transparent" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} /></g>
+	{:else}
+		{@const x2 = a.x2 ?? a.x}{@const y2 = a.y2 ?? a.y}
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<line x1={a.x} y1={a.y} x2={x2} y2={y2} stroke="transparent" stroke-width="240" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} />
+	{/if}
+
+	<!-- selection handles -->
+	{#if sel}
+		{#if isBoxKind(a)}
+			<TransformBox {editor} box={box(a, den)} rotation={a.rotation ?? 0}
+				onresize={(_h, nb) => editor.setBox(a, nb)} onrotate={(d) => editor.setRotation(a, d)} />
+			{#if POINTER.has(a.kind) && a.x2 != null}
+				<PointHandles {editor} points={[{ x: a.x2, y: a.y2 ?? a.y }]} onmove={(_i, x, y) => editor.movePoint(a, 1, x, y)} />
+			{/if}
+		{:else}
+			<PointHandles {editor} points={[{ x: a.x, y: a.y }, { x: a.x2 ?? a.x, y: a.y2 ?? a.y }]} onmove={(i, x, y) => editor.movePoint(a, i, x, y)} />
+		{/if}
+	{/if}
 {/each}
