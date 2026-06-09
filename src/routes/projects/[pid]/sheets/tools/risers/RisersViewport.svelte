@@ -11,6 +11,8 @@
 	import AnnotationLayer from '../../annotations/AnnotationLayer.svelte'
 	import { useAnnotations } from '../../edit/annotations.svelte'
 	import type { ViewportEditor } from '../../viewports.svelte'
+	import { layerBlockReason } from '../../layers/layers'
+	import { toast } from 'svelte-sonner'
 	import { docSaver } from '../../edit/persist'
 
 	let { vp, vps, zoom = 1, active = false, view = null, onview, hidden = [], locked = [] }: {
@@ -29,7 +31,11 @@
 	let viewDen = $state(1)
 	let annLocked = $derived(locked.includes('annotations'))
 	let annHidden = $derived(hidden.includes('annotations'))
-	const blocked = (id: string) => locked.includes(id) || hidden.includes(id)
+	function blocked(id: string): boolean {
+		const reason = layerBlockReason(id, hidden, locked)
+		if (reason) { toast.warning(reason); return true }
+		return false
+	}
 	const editor = new RisersEditor()
 	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor })
 
@@ -88,6 +94,7 @@
 		onsvg={(el) => { editor.svg = el; annEditor.svg = el }}>
 		{#if active}
 			<EditBackground {tool} {annEditor} toolEditor={editor} annLocked={annLocked || annHidden}
+				onblocked={() => blocked('annotations')}
 				onadd={(t, w) => {
 					const f = editor.floorAtY(w.y, fromFloor, toFloor) ?? fromFloor
 					if (t === 'room') { if (blocked('rooms')) return true; editor.addRoomAt('server', w.x, f, () => { tool = 'select' }); return true }

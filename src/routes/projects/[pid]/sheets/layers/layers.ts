@@ -18,6 +18,14 @@ export const LAYERS: LayerDef[] = [
 	{ id: 'annotations', name: 'Annotations', color: '#ef4444' },
 ]
 
+/** Why a layer can't receive new objects, as a user-facing message — or null if it can. */
+export function layerBlockReason(id: string, hidden: string[], locked: string[]): string | null {
+	const h = hidden.includes(id), l = locked.includes(id)
+	if (!h && !l) return null
+	const name = LAYERS.find(x => x.id === id)?.name ?? id
+	return `${name} layer is ${h ? 'hidden' : 'locked'} — can't add to it`
+}
+
 /** Effective hidden/locked layer-id lists for a viewport (defaults: visible + unlocked). */
 export function effectiveLayers(vp: SheetViewport): { hidden: string[]; locked: string[] } {
 	const ov = vp.layerOverrides ?? {}

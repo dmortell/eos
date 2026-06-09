@@ -13,6 +13,8 @@
 	import AnnotationLayer from '../../annotations/AnnotationLayer.svelte'
 	import { useAnnotations } from '../../edit/annotations.svelte'
 	import type { ViewportEditor } from '../../viewports.svelte'
+	import { layerBlockReason } from '../../layers/layers'
+	import { toast } from 'svelte-sonner'
 	import { docSaver } from '../../edit/persist'
 
 	const RENDER_SCALE = 2 // PDF rasterization scale (crispness)
@@ -35,8 +37,12 @@
 	let annLocked = $derived(locked.includes('annotations'))
 	let annHidden = $derived(hidden.includes('annotations'))
 	// A layer that's hidden OR locked can't receive new objects (you'd otherwise create invisible
-	// or un-editable items — the AutoCAD "draw on an off layer" footgun).
-	const blocked = (id: string) => locked.includes(id) || hidden.includes(id)
+	// or un-editable items — the AutoCAD "draw on an off layer" footgun). Toast why.
+	function blocked(id: string): boolean {
+		const reason = layerBlockReason(id, hidden, locked)
+		if (reason) { toast.warning(reason); return true }
+		return false
+	}
 	// ── Editing ── one editor per viewport instance; the source doc is the single source of truth.
 	const editor = new OutletsEditor()
 	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor })
@@ -181,6 +187,7 @@
 		onsvg={(el) => { editor.svg = el; annEditor.svg = el }}>
 		{#if active}
 			<EditBackground {tool} {annEditor} toolEditor={editor} annLocked={annLocked || annHidden}
+				onblocked={() => blocked('annotations')}
 				onadd={(t, w, shift) => {
 					if (t === 'outlet') { if (blocked('outlets')) return true; editor.addOutlet(w); return true }
 					if (t === 'trunk') { if (blocked('trunks')) return true; editor.drawClick(w, shift); return true }

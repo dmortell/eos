@@ -14,6 +14,8 @@
 	import AnnotationLayer from '../../annotations/AnnotationLayer.svelte'
 	import { useAnnotations } from '../../edit/annotations.svelte'
 	import type { ViewportEditor } from '../../viewports.svelte'
+	import { layerBlockReason } from '../../layers/layers'
+	import { toast } from 'svelte-sonner'
 	import { docSaver } from '../../edit/persist'
 
 	let { vp, vps, zoom = 1, active = false, view = null, onview, hidden = [], locked = [] }: {
@@ -33,7 +35,11 @@
 	let showLibrary = $state(false)
 	let annLocked = $derived(locked.includes('annotations'))
 	let annHidden = $derived(hidden.includes('annotations'))
-	const blocked = (id: string) => locked.includes(id) || hidden.includes(id)
+	function blocked(id: string): boolean {
+		const reason = layerBlockReason(id, hidden, locked)
+		if (reason) { toast.warning(reason); return true }
+		return false
+	}
 
 	// Drop a dragged library template onto the rack under the cursor (elevation only).
 	function placeFromDrop(t: DeviceTemplate, clientX: number, clientY: number) {
@@ -102,6 +108,7 @@
 		onsvg={(el) => { editor.svg = el; annEditor.svg = el }}>
 		{#if active}
 			<EditBackground {tool} {annEditor} toolEditor={editor} annLocked={annLocked || annHidden}
+				onblocked={() => blocked('annotations')}
 				onadd={(t, w) => {
 					if (t !== 'device' || src.face === 'plan' || blocked('devices')) return false
 					const scoped = src.rowId ? editor.racks.filter(r => r.rowId === src.rowId) : editor.racks

@@ -9,7 +9,7 @@
 	import type { AnnotationEditor } from '../annotations/annotations.svelte'
 	import type { SurfaceEditor } from './surface.svelte'
 
-	let { tool, annEditor, toolEditor, annLocked = false, onadd, onmove, ondbl }: {
+	let { tool, annEditor, toolEditor, annLocked = false, onadd, onmove, ondbl, onblocked }: {
 		tool: string
 		annEditor: AnnotationEditor
 		toolEditor: SurfaceEditor
@@ -18,6 +18,8 @@
 		onadd?: (tool: string, w: Point, shift: boolean) => boolean
 		onmove?: (w: Point) => void
 		ondbl?: () => void
+		/** Called when an annotation add is refused because the Annotations layer is hidden/locked. */
+		onblocked?: () => void
 	} = $props()
 
 	const ANN = ['text', 'arrow', 'rect', 'symbol']
@@ -26,7 +28,7 @@
 		if (e.button !== 0) return
 		const w = annEditor.toWorld(e); if (!w) return
 		if (ANN.includes(tool)) {
-			if (annLocked) return
+			if (annLocked) { onblocked?.(); return }
 			e.stopPropagation()
 			annEditor.tool = tool as any
 			if (tool === 'arrow' || tool === 'rect') annEditor.startShape(w)
