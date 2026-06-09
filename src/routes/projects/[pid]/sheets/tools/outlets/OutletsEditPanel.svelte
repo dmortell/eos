@@ -36,7 +36,34 @@
 		<button class="w-full rounded border px-1 py-0.5 text-xs hover:bg-slate-100" onclick={() => { editor.finishDraw(); tool = 'select' }}>Finish trunk</button>
 	{/if}
 
-	{#if editor.selOutlet}
+	{#if editor.hasMulti}
+		{@const n = editor.selOutlets.length}
+		<hr class="border-zinc-200" />
+		<p class="text-xs text-zinc-500">{n} outlet{n === 1 ? '' : 's'}{editor.selRacks.length ? ` · ${editor.selRacks.length} rack${editor.selRacks.length === 1 ? '' : 's'}` : ''} selected</p>
+		{#if n}
+			<div class="flex items-center justify-between gap-2">
+				<span class="w-24 shrink-0 text-xs text-zinc-500">Level</span>
+				<div class="flex w-full gap-0.5">
+					{#each [['low', 'Low'], ['high', 'High']] as [lvl, lbl] (lvl)}
+						<button class={['flex-1 rounded border px-1 py-0.5 text-xs hover:bg-slate-100']} onclick={() => editor.setOutletMany({ level: lvl as any })}>{lbl}</button>
+					{/each}
+				</div>
+			</div>
+			<PropSelect label="Usage" value="" onchange={(e: Event) => { if (val(e)) editor.setOutletMany({ usage: val(e) as any }) }}>
+				<option value="">— set usage —</option>
+				{#each ['network', 'phone', 'av', 'printer', 'security', 'ap', 'rb', 'mep', 'new'] as u (u)}<option value={u}>{u}</option>{/each}
+			</PropSelect>
+			<PropSelect label="Mount" value="" onchange={(e: Event) => { if (val(e)) editor.setOutletMany({ mountType: val(e) as any }) }}>
+				<option value="">— set mount —</option>
+				<option value="box">Rosette</option><option value="wall">Wall</option><option value="floor">Floor</option>
+			</PropSelect>
+			<PropSelect label="Cable" value="" onchange={(e: Event) => { if (val(e)) editor.setOutletMany({ cableType: val(e) as any }) }}>
+				<option value="">— set cable —</option>
+				{#each [['cat5e', 'Cat5e'], ['cat6', 'Cat6'], ['cat6a', 'Cat6a'], ['fiber-sm', 'Fiber SM'], ['fiber-mm', 'Fiber MM']] as [v, lbl] (v)}<option value={v}>{lbl}</option>{/each}
+			</PropSelect>
+		{/if}
+		<button class="w-full rounded bg-red-600 px-1 py-0.5 text-xs text-white hover:bg-red-500" onclick={() => editor.deleteMany()}>Delete selection</button>
+	{:else if editor.selOutlet}
 		{@const o = editor.selOutlet}
 		<hr class="border-zinc-200" />
 		<PropText label="Label" value={o.label ?? ''} oninput={(e: Event) => editor.setOutlet({ label: val(e) })} />

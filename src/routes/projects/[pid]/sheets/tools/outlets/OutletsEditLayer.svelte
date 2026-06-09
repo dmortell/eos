@@ -66,7 +66,7 @@
 			<circle cx={o.position.x} cy={o.position.y} r={260} fill="transparent"
 				style:pointer-events={interactive ? 'auto' : 'none'} style:cursor="move"
 				onmousedown={(e: MouseEvent) => { e.stopPropagation(); editor.dragOutlet(o, e) }} />
-			{#if editor.isSel('outlet', o.id)}
+			{#if editor.isSel('outlet', o.id) || editor.selOutlets.includes(o.id)}
 				<circle cx={o.position.x} cy={o.position.y} r={300} fill="none" stroke={HL} stroke-width="1.5" vector-effect="non-scaling-stroke" style:pointer-events="none" />
 			{/if}
 		{/each}
@@ -82,10 +82,15 @@
 				<rect x={rp.position.x} y={rp.position.y} width={d.w} height={d.h} fill="transparent"
 					style:pointer-events={interactive ? 'auto' : 'none'} style:cursor="move"
 					onmousedown={(e: MouseEvent) => { e.stopPropagation(); editor.dragRack(rp, e) }} />
-				{#if editor.isSel('rack', rp.rackId)}
+				{#if editor.isSel('rack', rp.rackId) || editor.selRacks.includes(rp.rackId)}
 					<rect x={rp.position.x} y={rp.position.y} width={d.w} height={d.h} fill="none" stroke={HL} stroke-width="1.5" vector-effect="non-scaling-stroke" style:pointer-events="none" />
 				{/if}
 			</g>
 		{/each}
+	{/if}
+
+	<!-- marquee multi-select box -->
+	{#if editor.marquee}
+		<rect x={editor.marquee.x} y={editor.marquee.y} width={editor.marquee.w} height={editor.marquee.h} fill="{HL}1a" stroke={HL} stroke-width="1" stroke-dasharray="6 4" vector-effect="non-scaling-stroke" style:pointer-events="none" />
 	{/if}
 </g>

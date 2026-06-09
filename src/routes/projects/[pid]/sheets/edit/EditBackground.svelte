@@ -33,7 +33,12 @@
 			else annEditor.click(w)
 			return
 		}
-		if (tool === 'select') { toolEditor.clearSel(); annEditor.clearSel(); return }
+		if (tool === 'select') {
+			annEditor.clearSel()
+			const beginMarquee = (toolEditor as { beginMarquee?: (e: MouseEvent) => void }).beginMarquee
+			if (beginMarquee) beginMarquee.call(toolEditor, e); else toolEditor.clearSel()
+			return
+		}
 		if (onadd?.(tool, w, e.shiftKey)) e.stopPropagation()
 	}
 	function move(e: MouseEvent) { if (onmove) { const w = annEditor.toWorld(e); if (w) onmove(w) } }

@@ -29,6 +29,10 @@ export class OutletsEditor extends SurfaceEditor {
 	preview = $state<Point | null>(null)
 	snap = $state<{ trunkId: string; nodeId: string; pos: Point } | null>(null)
 	menu = $state<TrunkMenu | null>(null)
+	// marquee multi-select (real-mm rect while dragging; resulting selected ids)
+	marquee = $state<{ x: number; y: number; w: number; h: number } | null>(null)
+	selOutlets = $state<string[]>([])
+	selRacks = $state<string[]>([])
 
 	defaults = $state<{ level: OutletLevel; portCount: number; cableType: CableType; mountType: MountType; usage: OutletUsage }>(
 		{ level: 'low', portCount: 2, cableType: 'cat6a', mountType: 'box', usage: 'network' },
@@ -46,7 +50,39 @@ export class OutletsEditor extends SurfaceEditor {
 	selOutlet = $derived(this.sel?.kind === 'outlet' ? this.outlets.find(o => o.id === this.sel!.id) ?? null : null)
 	selTrunk = $derived(this.sel?.kind === 'trunk' ? this.trunks.find(t => t.id === this.sel!.id) ?? null : null)
 
-	clearSel() { super.clearSel(); this.tnode = null; this.tsegs = []; this.menu = null }
+	clearSel() { super.clearSel(); this.tnode = null; this.tsegs = []; this.menu = null; this.selOutlets = []; this.selRacks = [] }
+	hasMulti = $derived(this.selOutlets.length + this.selRacks.length > 0)
+
+	// ── marquee multi-select (empty-space left-drag in Select mode) ──
+	beginMarquee(e0: MouseEvent) {
+		const w0 = this.toWorld(e0)
+		this.clearSel()
+		if (!w0) return
+		this.startDrag(e => {
+			const w = this.toWorld(e); if (!w) return
+			this.marquee = { x: Math.min(w0.x, w.x), y: Math.min(w0.y, w.y), w: Math.abs(w.x - w0.x), h: Math.abs(w.y - w0.y) }
+		}, () => {
+			const m = this.marquee; this.marquee = null
+			if (!m || (m.w < 100 && m.h < 100)) return // tiny = treat as click → stay deselected
+			const inRect = (p: Point) => p.x >= m.x && p.x <= m.x + m.w && p.y >= m.y && p.y <= m.y + m.h
+			this.selOutlets = this.outlets.filter(o => inRect(o.position)).map(o => o.id)
+			this.selRacks = this.rackPlacements.filter(r => inRect(r.position)).map(r => r.rackId)
+		})
+	}
+	/** Delete the marquee multi-selection. Returns true if anything was removed. */
+	deleteMany() {
+		if (!this.hasMulti) return false
+		const os = new Set(this.selOutlets), rs = new Set(this.selRacks)
+		this.outlets = this.outlets.filter(o => !os.has(o.id))
+		this.rackPlacements = this.rackPlacements.filter(r => !rs.has(r.rackId))
+		this.selOutlets = []; this.selRacks = []; this.notify(); return true
+	}
+	/** Apply a patch to every multi-selected outlet (mass edit). */
+	setOutletMany(patch: Partial<OutletConfig>) {
+		const ids = new Set(this.selOutlets); if (!ids.size) return
+		for (const o of this.outlets) if (ids.has(o.id)) Object.assign(o, patch)
+		this.notify()
+	}
 
 	// ── helpers ──
 	nodeById = (t: TrunkConfig, id: string) => t.nodes.find(n => n.id === id)
