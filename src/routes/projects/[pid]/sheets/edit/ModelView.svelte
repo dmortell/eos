@@ -17,10 +17,20 @@
 	function loadView() { try { const r = localStorage.getItem(storeKey); return r ? JSON.parse(r) : null } catch { return null } }
 	function saveView() { if (view) try { localStorage.setItem(storeKey, JSON.stringify(view)) } catch {} }
 
+	// The render's <svg> uses preserveAspectRatio="xMidYMid meet", so the on-screen scale is uniform
+	// `min(cw/view.w, ch/view.h)` px-per-mm with the content letterbox-centred. Map screen↔world
+	// through that scale + offset (assuming view aspect == container is what broke pan when the
+	// render reported its window before the container was measured).
+	const fit = () => {
+		const s = Math.min(cw / view!.w, ch / view!.h)
+		return { s, offX: (cw - view!.w * s) / 2, offY: (ch - view!.h * s) / 2 }
+	}
+	const toWorld = (cxp: number, cyp: number) => { const { s, offX, offY } = fit(); return { x: view!.x + (cxp - offX) / s, y: view!.y + (cyp - offY) / s } }
+
 	// Seed from the saved view, else from the render's first reported window (expanded to the
 	// container aspect so nothing is letterboxed), then take over pan/zoom.
 	function capture(v: { x: number; y: number; w: number; h: number; den: number }) {
-		if (view) return
+		if (view || cw <= 1 || ch <= 1) return // wait for the container to be measured
 		const saved = loadView()
 		if (saved) { view = saved; return }
 		const ar = cw / ch || 1
@@ -40,18 +50,19 @@
 	}
 	function move(e: MouseEvent) {
 		if (!panning || !view) return
-		view = { ...view, x: vx0 - (e.clientX - px) * (view.w / cw), y: vy0 - (e.clientY - py) * (view.h / ch) }
+		const { s } = fit() // px per mm — pan 1:1 with the cursor regardless of aspect
+		view = { ...view, x: vx0 - (e.clientX - px) / s, y: vy0 - (e.clientY - py) / s }
 	}
 	function up() { panning = false; window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); saveView() }
 	function wheel(e: WheelEvent) {
 		if (!view || !el) return
 		e.preventDefault()
 		const r = el.getBoundingClientRect()
-		const cxp = e.clientX - r.left, cyp = e.clientY - r.top
-		const wx = view.x + cxp * (view.w / cw), wy = view.y + cyp * (view.h / ch)
+		const w0 = toWorld(e.clientX - r.left, e.clientY - r.top) // world point under the cursor
 		const f = e.deltaY < 0 ? 1 / 1.1 : 1.1
-		const nw = view.w * f, nh = view.h * f
-		view = { x: wx - cxp * (nw / cw), y: wy - cyp * (nh / ch), w: nw, h: nh }
+		view = { ...view, w: view.w * f, h: view.h * f }
+		const w1 = toWorld(e.clientX - r.left, e.clientY - r.top) // same screen point after resize
+		view = { ...view, x: view.x + (w0.x - w1.x), y: view.y + (w0.y - w1.y) } // keep cursor pinned
 		// Re-baseline an in-progress pan so zooming mid-pan doesn't snap back on the next move.
 		if (panning) { px = e.clientX; py = e.clientY; vx0 = view.x; vy0 = view.y }
 		saveView()
