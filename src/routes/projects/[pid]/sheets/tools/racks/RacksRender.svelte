@@ -98,9 +98,12 @@
 	$effect(() => { if (svgEl) onsvg?.(svgEl) })
 
 	// Fonts sized in points * den → constant on-screen size during zoom (no roll), correct on paper.
-	let rackLabelMm = $derived(16 * PT_TO_MM * den)
-	let deviceLabelMm = $derived(12 * PT_TO_MM * den)
-	let ruLabelMm = $derived(7 * PT_TO_MM * den)
+	// Elevation labels are sized in real-mm (proportional to a rack unit) so they're part of the
+	// drawing and scale with zoom — multiplying by `den` would peg them to a constant on-screen
+	// size (so zooming in wouldn't enlarge them). Plan labels stay point-constant.
+	let rackLabelMm = $derived(RU_HEIGHT_MM * 0.8)
+	let deviceLabelMm = $derived(RU_HEIGHT_MM * 0.55)
+	let ruLabelMm = $derived(RU_HEIGHT_MM * 0.42)
 	let planLabelMm = $derived(12 * PT_TO_MM * den)
 
 	// Only standard racks carry a 19" RU area; VCMs / desks / shelves don't get RU numbers.
