@@ -21,7 +21,6 @@
 				{/if}
 				<button class="block w-full px-3 py-1 text-left text-red-600 hover:bg-slate-100" onclick={() => { editor.deleteNode(m.trunk, m.nodeId) }}>Delete node</button>
 			{:else}
-				<button class="block w-full px-3 py-1 text-left hover:bg-slate-100" onclick={() => { editor.selectSeg(m.trunk.id, m.segId) }}>Select segment</button>
 				<button class="block w-full px-3 py-1 text-left text-red-600 hover:bg-slate-100" onclick={() => { editor.deleteSegment(m.trunk, m.segId) }}>Delete segment</button>
 			{/if}
 		</div>

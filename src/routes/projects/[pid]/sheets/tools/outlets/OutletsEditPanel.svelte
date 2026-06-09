@@ -62,13 +62,16 @@
 	{:else if editor.selTrunk}
 		{@const t = editor.selTrunk}
 		<hr class="border-zinc-200" />
-		<PropSelect label="Shape" value={t.shape} onchange={(e: Event) => editor.setTrunk({ shape: val(e) as any })}>
+		<PropSelect label="Shape" value={t.shape} onchange={(e: Event) => editor.setTrunkShape(val(e) as any)}>
 			<option value="rect">Rect / tray</option><option value="pipe">Pipe</option>
 		</PropSelect>
 		<PropSelect label="Location" value={t.location} onchange={(e: Event) => editor.setTrunk({ location: val(e) as any })}>
 			<option value="floor">Floor</option><option value="ceiling-plenum">Ceiling plenum</option><option value="ceiling-tray">Ceiling tray</option><option value="wall">Wall</option>
 		</PropSelect>
-		<PropText label="Width (mm)" type="number" min="0" value={String(editor.selTrunkWidth)} oninput={(e: Event) => editor.setTrunkWidth(Number(val(e)) || 0)} />
+		<PropText label={t.shape === 'pipe' ? 'Diameter (mm)' : 'Width (mm)'} type="number" min="0" value={String(editor.selTrunkWidth)} oninput={(e: Event) => editor.setTrunkWidth(Number(val(e)) || 0)} />
+		{#if t.shape !== 'pipe'}
+			<PropText label="Height (mm)" type="number" min="0" value={String(editor.selTrunkHeight)} oninput={(e: Event) => editor.setTrunkHeight(Number(val(e)) || 0)} />
+		{/if}
 		<button class="w-full rounded bg-red-600 px-1 py-0.5 text-xs text-white hover:bg-red-500" onclick={() => editor.deleteSel()}>Delete trunk</button>
 	{/if}
 </Window>

@@ -10,7 +10,7 @@
 	import type { OutletsEditor } from './outlets-editor.svelte'
 	let { editor, interactive = false, locked = [] }: { editor: OutletsEditor; interactive?: boolean; locked?: string[] } = $props()
 
-	const HM = 140 // node handle radius (mm)
+	const HM = 70 // node handle radius (mm)
 	const HL = '#06b6d4'
 	let lockO = $derived(locked.includes('outlets'))
 	let lockT = $derived(locked.includes('trunks'))

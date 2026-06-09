@@ -59,10 +59,12 @@ export interface TrunkConfig {
 	visible?: boolean
 }
 
-/** Width used for rendering (outer diameter or width depending on shape). */
+/** Width used for rendering (outer diameter or width depending on shape). Falls back across spec
+ *  shapes so a shape/spec mismatch never yields NaN (which would make the trunk vanish). */
 export function trunkWidthMm(trunk: TrunkConfig): number {
-	if (trunk.shape === 'pipe') return (trunk.spec as PipeSpec).outerDiameterMm
-	return (trunk.spec as RectSpec).widthMm
+	const s = trunk.spec as Partial<PipeSpec & RectSpec>
+	if (trunk.shape === 'pipe') return s.outerDiameterMm ?? s.widthMm ?? 50
+	return s.widthMm ?? s.outerDiameterMm ?? 50
 }
 
 /** A rack placed on the floorplan (dims come from the racks collection). */

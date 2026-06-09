@@ -150,6 +150,16 @@
 		window.addEventListener('keydown', onKey, true)
 		return () => window.removeEventListener('keydown', onKey, true)
 	})
+	// Context-specific status-bar hint while editing trunks.
+	$effect(() => {
+		if (!active) return
+		vps.editHint = editor.draw
+			? 'Drawing trunk: click to add points · double-click or Esc to finish'
+			: editor.selTrunk
+				? 'Trunk: double-click a segment to add a point · drag a node to move · Ctrl-drag a node to branch/extend · Shift-drag snaps 15° · Ctrl-click segments to multi-select · Del to delete'
+				: null
+		return () => { vps.editHint = null }
+	})
 </script>
 
 {#if src}

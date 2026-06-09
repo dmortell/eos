@@ -10,7 +10,7 @@
 
 	let message = $derived.by(() => {
 		if (vps.insertMode) return 'Viewport: drag a rectangle on the sheet to place it · Esc to cancel'
-		if (vps.activeId) return 'Viewport active · double-click outside to exit'
+		if (vps.activeId) return vps.editHint ?? 'Viewport active · double-click outside to exit'
 		const n = vps.selectedIds.length
 		if (n) return `${n} viewport${n > 1 ? 's' : ''} selected · drag the handles to move / resize · Delete to remove`
 		return 'Insert ▸ Viewport to add a view · click a frame or drag a box to select · double-click a viewport to edit'

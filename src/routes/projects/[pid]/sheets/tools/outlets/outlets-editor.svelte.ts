@@ -1,6 +1,6 @@
 import { SurfaceEditor, dist } from '../../edit/surface.svelte'
 import type { Point } from '$lib/ui/print/types'
-import type { OutletConfig, OutletLevel, CableType, MountType, OutletUsage, TrunkConfig, TrunkNode, TrunkSegment, RackPlacement, OutletsData } from './types'
+import type { OutletConfig, OutletLevel, CableType, MountType, OutletUsage, TrunkConfig, TrunkShape, TrunkNode, TrunkSegment, RackPlacement, OutletsData } from './types'
 
 export type OutletTool = 'select' | 'outlet' | 'trunk'
 
@@ -117,8 +117,12 @@ export class OutletsEditor extends SurfaceEditor {
 		this.notify()
 	}
 
-	// ── trunk selection ──
-	selectTrunk(tid: string) { this.select('trunk', tid); this.tnode = null; this.tsegs = []; this.menu = null }
+	// ── trunk selection ── (selects the whole trunk = all its segments)
+	selectTrunk(tid: string) {
+		this.select('trunk', tid); this.tnode = null; this.menu = null
+		const t = this.trunks.find(x => x.id === tid)
+		this.tsegs = t ? t.segments.map(s => s.id) : []
+	}
 	selectNode(tid: string, nid: string) { this.select('trunk', tid); this.tnode = nid; this.tsegs = [] }
 	selectSeg(tid: string, sid: string) { this.select('trunk', tid); this.tnode = null; this.tsegs = [sid] }
 
@@ -250,8 +254,26 @@ export class OutletsEditor extends SurfaceEditor {
 		this.mergeNodes(to, remap.get(fromNodeId)!, toNodeId)
 	}
 	setTrunk(patch: Partial<TrunkConfig>) { const t = this.selTrunk; if (!t) return; Object.assign(t, patch); this.notify() }
+	/** Switch shape AND rebuild the matching spec, preserving size (rect width↔pipe diameter). */
+	setTrunkShape(shape: TrunkShape) {
+		const t = this.selTrunk; if (!t || t.shape === shape) return
+		const w = this.selTrunkWidth || 50
+		const h = this.selTrunkHeight || w
+		t.spec = shape === 'pipe'
+			? { catalog: 'custom', innerDiameterMm: Math.max(0, w - 4), outerDiameterMm: w }
+			: { catalog: 'custom', widthMm: w, heightMm: h }
+		t.shape = shape
+		this.notify()
+	}
 	selTrunkWidth = $derived(((this.selTrunk?.spec as any)?.widthMm ?? (this.selTrunk?.spec as any)?.outerDiameterMm ?? 0) as number)
-	setTrunkWidth(w: number) { const t = this.selTrunk; if (!t) return; (t.spec as any).widthMm = w; this.notify() }
+	selTrunkHeight = $derived(((this.selTrunk?.spec as any)?.heightMm ?? (this.selTrunk?.spec as any)?.outerDiameterMm ?? 0) as number)
+	setTrunkWidth(w: number) {
+		const t = this.selTrunk; if (!t) return
+		if (t.shape === 'pipe') { (t.spec as any).outerDiameterMm = w; (t.spec as any).innerDiameterMm = Math.max(0, w - 4) }
+		else (t.spec as any).widthMm = w
+		this.notify()
+	}
+	setTrunkHeight(h: number) { const t = this.selTrunk; if (!t || t.shape === 'pipe') return; (t.spec as any).heightMm = h; this.notify() }
 
 	// ── context menu ──
 	onNodeContext(e: MouseEvent, t: TrunkConfig, node: TrunkNode) {

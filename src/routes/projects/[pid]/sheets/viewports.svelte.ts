@@ -22,6 +22,8 @@ export class ViewportEditor {
 	insertMode = $state<InsertKind | null>(null)
 	draft = $state<Rect | null>(null)    // live insert-rect preview (paper mm)
 	marquee = $state<Rect | null>(null)  // live selection box (paper mm)
+	/** Context-specific status-bar hint set by the active tool editor (e.g. trunk-edit commands). */
+	editHint = $state<string | null>(null)
 
 	/** Called after a mutation that should be persisted (add / delete / geometry change). */
 	onChange: (() => void) | null = null
