@@ -70,6 +70,13 @@ export class RacksEditor extends SurfaceEditor {
 	/** Add a custom device template to the persisted library. */
 	addLibraryDevice(t: DeviceTemplate) { this.library = [...this.library, { ...t, id: t.id || this.uid('tpl') }]; this.notify() }
 	removeLibraryDevice(id: string) { this.library = this.library.filter(t => t.id !== id); this.notify() }
+	/** Duplicate a device (same rack/U); returns the new reactive proxy so it can be dragged. */
+	duplicateDevice(d: DeviceConfig): DeviceConfig {
+		this.devices.push({ ...d, id: this.uid('D') })
+		const c = this.devices[this.devices.length - 1]
+		this.selectDevice(c.id)
+		return c
+	}
 	setDevice(patch: Partial<DeviceConfig>) { const d = this.selDevice; if (!d) return; Object.assign(d, patch); this.notify() }
 	deleteDevice() { const d = this.selDevice; if (!d) return; this.devices = this.devices.filter(x => x.id !== d.id); this.selDeviceId = null; this.notify() }
 	/** Live U reposition during an elevation drag (caller supplies the snapped U). */

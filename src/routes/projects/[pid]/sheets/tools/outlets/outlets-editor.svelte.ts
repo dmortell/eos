@@ -141,8 +141,10 @@ export class OutletsEditor extends SurfaceEditor {
 		this.outlets.push(o); this.select('outlet', o.id); this.notify()
 	}
 	dragOutlet(o: OutletConfig, e0: MouseEvent) {
-		// Ctrl/Cmd-drag duplicates: drag a fresh copy, leaving the original in place.
-		if (e0.ctrlKey || e0.metaKey) { const c: OutletConfig = { ...o, id: this.uid('O'), position: { ...o.position } }; this.outlets.push(c); o = c }
+		// Ctrl/Cmd-drag duplicates: drag a fresh copy, leaving the original in place. Re-fetch the
+		// pushed item from the array — $state stores a proxy, and mutating the raw object we pushed
+		// would not be reactive (the rendered copy would never move).
+		if (e0.ctrlKey || e0.metaKey) { this.outlets.push({ ...o, id: this.uid('O'), position: { ...o.position } }); o = this.outlets[this.outlets.length - 1] }
 		this.select('outlet', o.id)
 		const w0 = this.toWorld(e0); if (!w0) return
 		const p0 = { ...o.position }
@@ -226,8 +228,10 @@ export class OutletsEditor extends SurfaceEditor {
 			nodes: nodeIds.map(id => { const n = this.nodeById(t, id)!; return { ...n, id: remap.get(id)!, position: { ...n.position } } }),
 			segments: segs.map(s => ({ id: this.uid('s'), nodes: [remap.get(s.nodes[0])!, remap.get(s.nodes[1])!] as [string, string] })),
 		}
-		this.trunks.push(nt); this.selectTrunk(nt.id)
-		return nt
+		this.trunks.push(nt)
+		const proxy = this.trunks[this.trunks.length - 1] // proxy, so dragging its nodes is reactive
+		this.selectTrunk(proxy.id)
+		return proxy
 	}
 	toggleSeg(t: TrunkConfig, seg: TrunkSegment) {
 		const cur = this.sel?.kind === 'trunk' && this.sel.id === t.id ? this.tsegs : []
@@ -371,8 +375,9 @@ export class OutletsEditor extends SurfaceEditor {
 	/** Drag-out a new floorplan rack: place at the click, then size width×depth from the cursor.
 	 *  `onDone` (e.g. switch back to Select) runs on mouse-up so the placed rack is draggable. */
 	addRackAt(p: Point, onDone?: () => void) {
-		const rp: RackPlacement = { rackId: this.uid('FR'), room: 'A', position: { ...p }, rotation: 0, label: 'Rack', widthMm: 600, depthMm: 1000, heightU: 42, heightMm: 42 * 45 + 80, type: '4-post' }
-		this.rackPlacements.push(rp); this.select('rack', rp.rackId)
+		this.rackPlacements.push({ rackId: this.uid('FR'), room: 'A', position: { ...p }, rotation: 0, label: 'Rack', widthMm: 600, depthMm: 1000, heightU: 42, heightMm: 42 * 45 + 80, type: '4-post' })
+		const rp = this.rackPlacements[this.rackPlacements.length - 1] // proxy (see dragOutlet note)
+		this.select('rack', rp.rackId)
 		this.startDrag(e => {
 			const w = this.toWorld(e); if (!w) return
 			rp.widthMm = Math.max(100, Math.abs(w.x - p.x)); rp.depthMm = Math.max(100, Math.abs(w.y - p.y))
@@ -380,6 +385,7 @@ export class OutletsEditor extends SurfaceEditor {
 		}, () => { this.notify(); onDone?.() })
 	}
 	dragRack(rp: RackPlacement, e0: MouseEvent) {
+		if (e0.ctrlKey || e0.metaKey) { this.rackPlacements.push({ ...rp, rackId: this.uid('FR'), position: { ...rp.position } }); rp = this.rackPlacements[this.rackPlacements.length - 1] }
 		this.select('rack', rp.rackId)
 		const w0 = this.toWorld(e0); if (!w0) return
 		const p0 = { ...rp.position }

@@ -16,7 +16,9 @@
 	let boxes = $derived(elev ? editor.devices.map(d => ({ d, box: deviceBox(d, elev!, face) })).filter(x => x.box) as { d: DeviceConfig; box: { x: number; y: number; w: number; h: number } }[] : [])
 
 	function dragDevice(d: DeviceConfig, e0: MouseEvent) {
-		e0.stopPropagation(); editor.selectDevice(d.id)
+		e0.stopPropagation()
+		if (e0.ctrlKey || e0.metaKey) d = editor.duplicateDevice(d) // Ctrl-drag duplicates
+		editor.selectDevice(d.id)
 		const el = elev; const e = el?.byId.get(d.rackId); if (!el || !e) return
 		editor.startDrag(ev => { const w = editor.toWorld(ev); if (w) editor.moveDeviceU(d, slotAtY(e, el, w.y, d.heightU)) }, () => editor.notify())
 	}

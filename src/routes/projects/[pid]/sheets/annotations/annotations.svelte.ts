@@ -29,6 +29,8 @@ export class AnnotationEditor extends SurfaceEditor {
 		this.startDrag(e => { const w = this.toWorld(e); if (w) { a.x2 = w.x; a.y2 = w.y } }, () => { this.tool = 'select'; this.notify() })
 	}
 	move(a: Annotation, e0: MouseEvent) {
+		// Ctrl/Cmd-drag duplicates (re-fetch the pushed proxy so the copy is reactive when dragged).
+		if (e0.ctrlKey || e0.metaKey) { this.annotations.push({ ...a, id: this.uid('a') }); a = this.annotations[this.annotations.length - 1] }
 		this.select('ann', a.id)
 		const w0 = this.toWorld(e0); if (!w0) return
 		const o = { x: a.x, y: a.y, x2: a.x2, y2: a.y2 }

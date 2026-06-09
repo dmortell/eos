@@ -47,8 +47,9 @@ export class RisersEditor extends SurfaceEditor {
 	/** Click-to-place a room, then drag to size it (left edge anchored at the click x). `onDone`
 	 *  (e.g. switch to Select) runs on mouse-up so the placed room is draggable. */
 	addRoomAt(kind: RoomKind, x: number, floor: number, onDone?: () => void) {
-		const r: RiserRoom = { id: this.uid('rm'), kind, floor, xMm: x, widthMm: 600, label: kind === 'server' ? 'Server' : 'EPS' }
-		this.rooms.push(r); this.select('room', r.id)
+		this.rooms.push({ id: this.uid('rm'), kind, floor, xMm: x, widthMm: 600, label: kind === 'server' ? 'Server' : 'EPS' })
+		const r = this.rooms[this.rooms.length - 1] // proxy (mutating the raw push wouldn't be reactive)
+		this.select('room', r.id)
 		this.startDrag(e => {
 			const w = this.toWorld(e); if (!w) return
 			const width = Math.max(400, Math.abs(w.x - x))
@@ -58,8 +59,9 @@ export class RisersEditor extends SurfaceEditor {
 	/** Drag out a riser ladder spanning a floor range: down-floor is fixed, drag vertically to set
 	 *  the other end. */
 	addLadderDrag(x: number, downFloor: number, from: number, to: number, onDone?: () => void) {
-		const l: Ladder = { id: this.uid('ld'), label: 'Riser', xMm: x, fromFloor: downFloor, toFloor: downFloor, level: 'both' }
-		this.ladders.push(l); this.select('ladder', l.id)
+		this.ladders.push({ id: this.uid('ld'), label: 'Riser', xMm: x, fromFloor: downFloor, toFloor: downFloor, level: 'both' })
+		const l = this.ladders[this.ladders.length - 1] // proxy
+		this.select('ladder', l.id)
 		this.startDrag(e => {
 			const w = this.toWorld(e); if (!w) return
 			const f = this.floorAtY(w.y, from, to); if (f == null) return
@@ -120,6 +122,7 @@ export class RisersEditor extends SurfaceEditor {
 		return y < bands[0].topMm ? bands[0].floor : bands[bands.length - 1].floor
 	}
 	dragRoom(room: RiserRoom, e0: MouseEvent, from: number, to: number) {
+		if (e0.ctrlKey || e0.metaKey) { this.rooms.push({ ...room, id: this.uid('rm') }); room = this.rooms[this.rooms.length - 1] }
 		this.select('room', room.id)
 		const w0 = this.toWorld(e0); if (!w0) return
 		const x0 = room.xMm
@@ -130,6 +133,7 @@ export class RisersEditor extends SurfaceEditor {
 		}, () => this.notify())
 	}
 	dragLadderX(ladder: Ladder, e0: MouseEvent) {
+		if (e0.ctrlKey || e0.metaKey) { this.ladders.push({ ...ladder, id: this.uid('ld') }); ladder = this.ladders[this.ladders.length - 1] }
 		this.select('ladder', ladder.id)
 		const w0 = this.toWorld(e0); if (!w0) return
 		const x0 = ladder.xMm
