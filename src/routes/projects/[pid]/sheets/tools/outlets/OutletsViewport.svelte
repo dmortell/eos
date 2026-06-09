@@ -46,6 +46,7 @@
 	// ── Editing ── one editor per viewport instance; the source doc is the single source of truth.
 	const editor = new OutletsEditor()
 	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor })
+	annEditor.onPlaced = () => { tool = 'select' } // return to Select after placing so handles show
 
 	let src = $derived(vp.source.kind === 'outlets' ? vp.source : null)
 

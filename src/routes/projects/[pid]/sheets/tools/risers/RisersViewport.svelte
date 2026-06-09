@@ -38,6 +38,7 @@
 	}
 	const editor = new RisersEditor()
 	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor })
+	annEditor.onPlaced = () => { tool = 'select' }
 
 	let src = $derived(vp.source.kind === 'risers' ? vp.source : null)
 	let doc = $state<RiserDocData | null>(null)

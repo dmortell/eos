@@ -52,6 +52,7 @@
 	}
 	const editor = new RacksEditor()
 	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor })
+	annEditor.onPlaced = () => { tool = 'select' }
 
 	let src = $derived(vp.source.kind === 'racks' ? vp.source : null)
 	let doc = $state<RackDocData | null>(null)

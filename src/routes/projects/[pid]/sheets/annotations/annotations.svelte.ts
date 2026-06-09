@@ -29,6 +29,8 @@ export class AnnotationEditor extends SurfaceEditor {
 	annotations = $state<Annotation[]>([])
 	tool = $state<AnnTool>('select')
 	symbol = $state('section')
+	/** Called after an annotation is placed (host returns the unified tool to Select). */
+	onPlaced: (() => void) | null = null
 
 	seed(a: Annotation[] | undefined) { this.annotations = (a ?? []).map(x => ({ ...x })) }
 	snapshot() { return $state.snapshot(this.annotations) as Annotation[] }
@@ -46,7 +48,7 @@ export class AnnotationEditor extends SurfaceEditor {
 		const a = this.push({ id: this.uid('a'), kind: t, x: p.x, y: p.y, layerId: 'annotations', ...defaults(t, this.symbol) })
 		if (t === 'symbol') { a.w = 1000; a.h = 1000; a.x = p.x - 500; a.y = p.y - 500 } // centre the marker on the click
 		if (t === 'callout' || t === 'leader') { a.x2 = p.x + (a.w ?? 3000) + 1500; a.y2 = p.y - 1500 } // pointer target
-		this.select('ann', a.id); this.notify()
+		this.select('ann', a.id); this.notify(); this.onPlaced?.()
 	}
 	/** Drag placement: box (rect/cloud → w,h) or line (line/arrow/dimension → x2,y2). */
 	startShape(p: Point) {
@@ -58,7 +60,7 @@ export class AnnotationEditor extends SurfaceEditor {
 			const w = this.toWorld(e); if (!w) return
 			if (boxDrag) { a.x = Math.min(p.x, w.x); a.y = Math.min(p.y, w.y); a.w = Math.max(1, Math.abs(w.x - p.x)); a.h = Math.max(1, Math.abs(w.y - p.y)) }
 			else { a.x2 = w.x; a.y2 = w.y }
-		}, () => { this.tool = 'select'; this.notify() })
+		}, () => { this.tool = 'select'; this.notify(); this.onPlaced?.() })
 	}
 	/** Route an add by the active tool (called from EditBackground). */
 	place(p: Point) { if (CLICK_KINDS.has(this.tool as AnnotationKind)) this.click(p); else this.startShape(p) }
