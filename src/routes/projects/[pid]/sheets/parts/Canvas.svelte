@@ -284,13 +284,6 @@
 		   Without this the browser intercepts the gesture (zooming the whole page). */
 		touch-action: none;
 	}
-	/* Promote the pan/zoom content to its own GPU layer so a zoom (CSS transform scale)
-	   composites the existing raster smoothly instead of re-rasterising all the SVG <text>
-	   on the main thread — which flashed/"redrew with a delay" the rack RU numbers, device
-	   labels, riser/outlet labels, etc. (zooming a viewport's own viewBox stays crisp because
-	   it's a vector re-render, not an ancestor CSS scale). */
-	.panzoom-content { will-change: transform; }
-	@media print { .panzoom-content { will-change: auto; } }
 	@media print {
 		/* Only the print-root's overflow is opened up (via the injected .canvas-print-root
 		   rule); nested canvases keep `overflow: hidden` so a floorplan stays clipped to
