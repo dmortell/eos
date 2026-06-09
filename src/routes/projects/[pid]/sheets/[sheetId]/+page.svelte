@@ -67,6 +67,15 @@
 		font-family: monospace, 'Helvetica Neue', Helvetica, 'Arial Narrow', Arial, sans-serif, Verdana , Futura;
 		/* letter-spacing: 0.2px; */
 	}
+	/* Scale-linear glyph layout: without this, the browser hints/snaps glyph positions per
+	   rasterisation scale, so on a sheet (CSS-transform) zoom the labels appear at a slightly
+	   wrong spot until they re-layout — looking like they "redraw at the correct location" after a
+	   delay. geometricPrecision keeps positions consistent across zoom (viewBox zooms were already
+	   fine). Applied to SVG text and foreignObject HTML labels alike. */
+	:global(.technical-drawing-text text),
+	:global(.technical-drawing-text foreignObject) {
+		text-rendering: geometricPrecision;
+	}
 	/* <link rel="stylesheet" href="https://googleapis.com"> */
 	.hand-drafted-notes {
 		font-family: 'Architects Daughter', cursive;
