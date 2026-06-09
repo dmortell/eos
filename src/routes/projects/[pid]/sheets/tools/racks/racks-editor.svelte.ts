@@ -1,6 +1,7 @@
 import { SurfaceEditor } from '../../edit/surface.svelte'
 import type { Point } from '$lib/ui/print/types'
 import type { RackConfig, DeviceConfig, RackRow, RackSettings, RoomObject, RackDocData, DeviceType } from './types'
+import type { DeviceTemplate } from './palette'
 
 /**
  * Editor for a racks viewport. Spatial editing is plan-view (drag a row's origin); rack/device
@@ -14,6 +15,7 @@ export class RacksEditor extends SurfaceEditor {
 	settings = $state<RackSettings | null>(null)
 	roomObjects = $state<RoomObject[]>([])
 	selDeviceId = $state<string | null>(null)
+	library = $state<DeviceTemplate[]>([]) // user-added custom device templates (persisted on the doc)
 
 	seed(d: RackDocData | null) {
 		this.racks = (d?.racks ?? []).map(r => ({ ...r }))
@@ -21,9 +23,10 @@ export class RacksEditor extends SurfaceEditor {
 		this.rows = (d?.rows ?? []).map(r => ({ ...r, plan: r.plan ? { ...r.plan, originMm: { ...r.plan.originMm } } : undefined }))
 		this.settings = d?.settings ? { ...d.settings } : null
 		this.roomObjects = (d?.roomObjects ?? []).map(o => ({ ...o }))
+		this.library = ((d as { library?: DeviceTemplate[] })?.library ?? []).map(t => ({ ...t }))
 	}
 	snapshot() {
-		return { racks: $state.snapshot(this.racks), devices: $state.snapshot(this.devices), rows: $state.snapshot(this.rows) }
+		return { racks: $state.snapshot(this.racks), devices: $state.snapshot(this.devices), rows: $state.snapshot(this.rows), library: $state.snapshot(this.library) }
 	}
 
 	selRack = $derived(this.sel?.kind === 'rack' ? this.racks.find(r => r.id === this.sel!.id) ?? null : null)
@@ -59,6 +62,14 @@ export class RacksEditor extends SurfaceEditor {
 		const d: DeviceConfig = { id: this.uid('D'), rackId, label: 'Device', type: 'switch', heightU: 1, positionU, portCount: 0, mounting: 'both' }
 		this.devices.push(d); this.selectDevice(d.id); this.notify()
 	}
+	/** Place a device into a rack from a library/palette template (used by drag-from-library). */
+	addDeviceFromTemplate(rackId: string, positionU: number, t: DeviceTemplate) {
+		const d: DeviceConfig = { id: this.uid('D'), rackId, label: t.label, type: t.type, heightU: t.heightU || 1, positionU, portCount: t.portCount ?? 0, mounting: 'both', ...(t.widthMm ? { widthMm: t.widthMm } : {}) }
+		this.devices.push(d); this.selectDevice(d.id); this.notify()
+	}
+	/** Add a custom device template to the persisted library. */
+	addLibraryDevice(t: DeviceTemplate) { this.library = [...this.library, { ...t, id: t.id || this.uid('tpl') }]; this.notify() }
+	removeLibraryDevice(id: string) { this.library = this.library.filter(t => t.id !== id); this.notify() }
 	setDevice(patch: Partial<DeviceConfig>) { const d = this.selDevice; if (!d) return; Object.assign(d, patch); this.notify() }
 	deleteDevice() { const d = this.selDevice; if (!d) return; this.devices = this.devices.filter(x => x.id !== d.id); this.selDeviceId = null; this.notify() }
 	/** Live U reposition during an elevation drag (caller supplies the snapped U). */

@@ -9,7 +9,7 @@
 
 	import type { RackFace } from './types'
 
-	let { editor, tool = $bindable(), annEditor, face = 'front' }: { editor: RacksEditor; tool: string; annEditor: AnnotationEditor; face?: RackFace } = $props()
+	let { editor, tool = $bindable(), annEditor, face = 'front', libraryOpen = false, ondevices }: { editor: RacksEditor; tool: string; annEditor: AnnotationEditor; face?: RackFace; libraryOpen?: boolean; ondevices?: () => void } = $props()
 	const val = (e: Event) => (e.currentTarget as HTMLInputElement | HTMLSelectElement).value
 	let firstRow = $derived(editor.rows[0]?.id ?? '')
 	const cls = (active: boolean) => ['rounded border px-1.5 py-0.5 text-xs', active ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-slate-100']
@@ -19,7 +19,7 @@
 <Window title="Edit" name="racks-edit" left={10} top={72} open class="w-64 space-y-2 p-2 text-zinc-700">
 	<div class="flex flex-wrap gap-1">
 		<button class={cls(tool === 'select')} onclick={() => (tool = 'select')}>Select</button>
-		{#if face !== 'plan'}<button class={cls(tool === 'device')} onclick={() => (tool = 'device')}>+ Device</button>{/if}
+		{#if face !== 'plan'}<button class={cls(libraryOpen)} onclick={() => ondevices?.()}>Devices</button>{/if}
 	</div>
 	<AnnotationControls bind:tool editor={annEditor} />
 	<hr class="border-zinc-200" />

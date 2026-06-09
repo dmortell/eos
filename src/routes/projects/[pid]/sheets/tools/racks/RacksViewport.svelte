@@ -6,7 +6,9 @@
 	import RacksRender from './RacksRender.svelte'
 	import RacksEditLayer from './RacksEditLayer.svelte'
 	import RacksEditPanel from './RacksEditPanel.svelte'
+	import DeviceLibrary from './DeviceLibrary.svelte'
 	import { RacksEditor } from './racks-editor.svelte'
+	import type { DeviceTemplate } from './palette'
 	import { buildElevation, rackAtX, slotAtY } from './layout'
 	import EditBackground from '../../edit/EditBackground.svelte'
 	import AnnotationLayer from '../../annotations/AnnotationLayer.svelte'
@@ -28,7 +30,18 @@
 
 	let tool = $state('select')
 	let viewDen = $state(1)
+	let showLibrary = $state(false)
 	let annLocked = $derived(locked.includes('annotations'))
+
+	// Drop a dragged library template onto the rack under the cursor (elevation only).
+	function placeFromDrop(t: DeviceTemplate, clientX: number, clientY: number) {
+		if (!src || src.face === 'plan') return
+		const w = editor.toWorldXY(clientX, clientY); if (!w) return
+		const scoped = src.rowId ? editor.racks.filter(r => r.rowId === src.rowId) : editor.racks
+		const el = buildElevation(scoped, editor.settings, src.face)
+		const e = rackAtX(el, w.x); if (!e) return
+		editor.addDeviceFromTemplate(e.rack.id, slotAtY(e, el, w.y, t.heightU || 1), t)
+	}
 	const editor = new RacksEditor()
 	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor })
 
@@ -99,7 +112,10 @@
 		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} locked={annLocked} den={viewDen} />
 	</RacksRender>
 	{#if active}
-		<RacksEditPanel {editor} bind:tool {annEditor} face={src.face} />
+		<RacksEditPanel {editor} bind:tool {annEditor} face={src.face} libraryOpen={showLibrary} ondevices={() => { showLibrary = !showLibrary }} />
+		{#if showLibrary && src.face !== 'plan'}
+			<DeviceLibrary {editor} ondrop={placeFromDrop} onclose={() => { showLibrary = false }} />
+		{/if}
 	{/if}
 {:else}
 	<div class="flex h-full w-full items-center justify-center text-zinc-400 print:hidden" style:font-size="{14 / zoom}px">No racks source</div>
