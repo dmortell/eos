@@ -28,6 +28,8 @@
 	let tool = $state('select')
 	let viewDen = $state(1)
 	let annLocked = $derived(locked.includes('annotations'))
+	let annHidden = $derived(hidden.includes('annotations'))
+	const blocked = (id: string) => locked.includes(id) || hidden.includes(id)
 	const editor = new RisersEditor()
 	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor })
 
@@ -85,16 +87,18 @@
 		onview={(v) => { viewDen = v.den || 1; onview?.(v) }}
 		onsvg={(el) => { editor.svg = el; annEditor.svg = el }}>
 		{#if active}
-			<EditBackground {tool} {annEditor} toolEditor={editor} {annLocked}
+			<EditBackground {tool} {annEditor} toolEditor={editor} annLocked={annLocked || annHidden}
 				onadd={(t, w) => {
 					const f = editor.floorAtY(w.y, fromFloor, toFloor) ?? fromFloor
-					if (t === 'room') { editor.addRoomAt('server', w.x, f, () => { tool = 'select' }); return true }
-					if (t === 'riser') { editor.addLadderDrag(w.x, f, fromFloor, toFloor, () => { tool = 'select' }); return true }
+					if (t === 'room') { if (blocked('rooms')) return true; editor.addRoomAt('server', w.x, f, () => { tool = 'select' }); return true }
+					if (t === 'riser') { if (blocked('ladders')) return true; editor.addLadderDrag(w.x, f, fromFloor, toFloor, () => { tool = 'select' }); return true }
 					return false
 				}} />
 			<RisersEditLayer {editor} {fromFloor} {toFloor} interactive={tool === 'select'} />
 		{/if}
-		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} locked={annLocked} den={viewDen} />
+		{#if !annHidden}
+			<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} locked={annLocked} den={viewDen} />
+		{/if}
 	</RisersRender>
 	{#if active}
 		<RisersEditPanel {editor} bind:tool {annEditor} {fromFloor} {toFloor} />

@@ -33,6 +33,10 @@
 	let tool = $state('select')
 	let viewDen = $state(1) // scale denominator from the render, for sizing annotation text
 	let annLocked = $derived(locked.includes('annotations'))
+	let annHidden = $derived(hidden.includes('annotations'))
+	// A layer that's hidden OR locked can't receive new objects (you'd otherwise create invisible
+	// or un-editable items — the AutoCAD "draw on an off layer" footgun).
+	const blocked = (id: string) => locked.includes(id) || hidden.includes(id)
 	// ── Editing ── one editor per viewport instance; the source doc is the single source of truth.
 	const editor = new OutletsEditor()
 	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor })
@@ -176,18 +180,20 @@
 		onview={(v) => { viewDen = v.den || 1; onview?.(v) }}
 		onsvg={(el) => { editor.svg = el; annEditor.svg = el }}>
 		{#if active}
-			<EditBackground {tool} {annEditor} toolEditor={editor} {annLocked}
+			<EditBackground {tool} {annEditor} toolEditor={editor} annLocked={annLocked || annHidden}
 				onadd={(t, w, shift) => {
-					if (t === 'outlet') { if (locked.includes('outlets')) return true; editor.addOutlet(w); return true }
-					if (t === 'trunk') { if (locked.includes('trunks')) return true; editor.drawClick(w, shift); return true }
-					if (t === 'rack') { if (locked.includes('racks')) return true; editor.addRackAt(w, () => { tool = 'select' }); return true }
+					if (t === 'outlet') { if (blocked('outlets')) return true; editor.addOutlet(w); return true }
+					if (t === 'trunk') { if (blocked('trunks')) return true; editor.drawClick(w, shift); return true }
+					if (t === 'rack') { if (blocked('racks')) return true; editor.addRackAt(w, () => { tool = 'select' }); return true }
 					return false
 				}}
 				onmove={(w) => { if (tool === 'trunk' && editor.draw) editor.preview = w }}
 				ondbl={() => { if (tool === 'trunk') { editor.finishDraw(); tool = 'select' } }} />
 			<OutletsEditLayer {editor} interactive={tool === 'select'} {locked} {racksById} />
 		{/if}
-		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} locked={annLocked} den={viewDen} />
+		{#if !annHidden}
+			<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} locked={annLocked} den={viewDen} />
+		{/if}
 	</OutletsRender>
 	{#if active}
 		<OutletsEditPanel {editor} bind:tool {annEditor} />

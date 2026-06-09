@@ -32,10 +32,12 @@
 	let viewDen = $state(1)
 	let showLibrary = $state(false)
 	let annLocked = $derived(locked.includes('annotations'))
+	let annHidden = $derived(hidden.includes('annotations'))
+	const blocked = (id: string) => locked.includes(id) || hidden.includes(id)
 
 	// Drop a dragged library template onto the rack under the cursor (elevation only).
 	function placeFromDrop(t: DeviceTemplate, clientX: number, clientY: number) {
-		if (!src || src.face === 'plan') return
+		if (!src || src.face === 'plan' || blocked('devices')) return
 		const w = editor.toWorldXY(clientX, clientY); if (!w) return
 		const scoped = src.rowId ? editor.racks.filter(r => r.rowId === src.rowId) : editor.racks
 		const el = buildElevation(scoped, editor.settings, src.face)
@@ -99,9 +101,9 @@
 		onview={(v) => { viewDen = v.den || 1; onview?.(v) }}
 		onsvg={(el) => { editor.svg = el; annEditor.svg = el }}>
 		{#if active}
-			<EditBackground {tool} {annEditor} toolEditor={editor} {annLocked}
+			<EditBackground {tool} {annEditor} toolEditor={editor} annLocked={annLocked || annHidden}
 				onadd={(t, w) => {
-					if (t !== 'device' || src.face === 'plan') return false
+					if (t !== 'device' || src.face === 'plan' || blocked('devices')) return false
 					const scoped = src.rowId ? editor.racks.filter(r => r.rowId === src.rowId) : editor.racks
 					const el = buildElevation(scoped, editor.settings, src.face)
 					const e = rackAtX(el, w.x); if (!e) return true
@@ -109,7 +111,9 @@
 				}} />
 			<RacksEditLayer {editor} face={src.face} rowId={src.rowId} interactive={tool === 'select'} />
 		{/if}
-		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} locked={annLocked} den={viewDen} />
+		{#if !annHidden}
+			<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} locked={annLocked} den={viewDen} />
+		{/if}
 	</RacksRender>
 	{#if active}
 		<RacksEditPanel {editor} bind:tool {annEditor} face={src.face} libraryOpen={showLibrary} ondevices={() => { showLibrary = !showLibrary }} />
