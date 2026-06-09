@@ -39,9 +39,14 @@
 		{@const o = editor.selOutlet}
 		<hr class="border-zinc-200" />
 		<PropText label="Label" value={o.label ?? ''} oninput={(e: Event) => editor.setOutlet({ label: val(e) })} />
-		<PropSelect label="Level" value={o.level} onchange={(e: Event) => editor.setOutlet({ level: val(e) as any })}>
-			<option value="low">Low</option><option value="high">High</option>
-		</PropSelect>
+		<div class="flex items-center justify-between gap-2">
+			<span class="w-24 shrink-0 text-xs text-zinc-500">Level</span>
+			<div class="flex w-full gap-0.5">
+				{#each [['low', 'Low'], ['high', 'High']] as [lvl, lbl] (lvl)}
+					<button class={cls(o.level === lvl)} onclick={() => editor.setOutlet({ level: lvl as any })}>{lbl}</button>
+				{/each}
+			</div>
+		</div>
 		<PropText label="Ports" type="number" min="1" max="24" value={String(o.portCount)} oninput={(e: Event) => editor.setOutlet({ portCount: Number(val(e)) || 1 })} />
 		<PropSelect label="Usage" value={o.usage} onchange={(e: Event) => editor.setOutlet({ usage: val(e) as any })}>
 			{#each ['network', 'phone', 'av', 'printer', 'security', 'ap', 'rb', 'mep', 'new'] as u (u)}<option value={u}>{u}</option>{/each}
@@ -49,6 +54,10 @@
 		<PropSelect label="Mount" value={o.mountType} onchange={(e: Event) => editor.setOutlet({ mountType: val(e) as any })}>
 			<option value="box">Rosette</option><option value="wall">Wall</option><option value="floor">Floor</option>
 		</PropSelect>
+		<PropSelect label="Cable" value={o.cableType} onchange={(e: Event) => editor.setOutlet({ cableType: val(e) as any })}>
+			{#each [['cat5e', 'Cat5e'], ['cat6', 'Cat6'], ['cat6a', 'Cat6a'], ['fiber-sm', 'Fiber SM'], ['fiber-mm', 'Fiber MM']] as [v, lbl] (v)}<option value={v}>{lbl}</option>{/each}
+		</PropSelect>
+		<PropText label="Room" value={o.roomNumber ?? ''} oninput={(e: Event) => editor.setOutlet({ roomNumber: val(e) || undefined })} />
 		<button class="w-full rounded bg-red-600 px-1 py-0.5 text-xs text-white hover:bg-red-500" onclick={() => editor.deleteSel()}>Delete outlet</button>
 	{:else if editor.selTrunk}
 		{@const t = editor.selTrunk}
