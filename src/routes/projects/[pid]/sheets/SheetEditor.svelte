@@ -139,7 +139,7 @@
 			if (hit) vps.activate(hit.id); else vps.deactivate()
 		}
 		function onKey(e: KeyboardEvent) {
-			if (modelVpId) { if (e.key === 'Escape') modelVpId = null; return }
+			if (modelVpId) { if (e.key === 'Escape') { const id = modelVpId; modelVpId = null; vps.activate(id) } return }
 			if (e.key === 'Escape') { if (vps.insertMode) vps.cancelInsert(); else { vps.deactivate(); vps.clearSel() } }
 			else if ((e.key === 'Delete' || e.key === 'Backspace') && !isField(e.target) && !vps.activeId && vps.selectedIds.length) {
 				e.preventDefault(); vps.deleteSelected()
@@ -202,7 +202,7 @@
 				{/if}
 
 				{#each vps.viewports as vp (vp.id)}
-					<Viewport {vps} {vp} zoom={mainZoom} onmodel={(id) => { vps.activate(id); modelVpId = id }} />
+					<Viewport {vps} {vp} zoom={mainZoom} onmodel={(id) => { vps.deactivate(); modelVpId = id }} />
 				{/each}
 
 				<!-- Insert drag-out preview -->
@@ -246,9 +246,10 @@
 			<RevisionsPanel {sheet} {db} {pid} />
 		{/if}
 
-		<!-- Model mode: full-area content editor over the sheet (no route / refresh). -->
+		<!-- Model mode: full-area content editor over the sheet (no route / refresh). Re-activate the
+		     viewport on exit so returning to the sheet keeps it active. -->
 		{#if modelVp}
-			<ModelView vp={modelVp} {vps} onexit={() => modelVpId = null} />
+			<ModelView vp={modelVp} {vps} onexit={() => { const id = modelVpId; modelVpId = null; if (id) vps.activate(id) }} />
 			<LayersPanel {vps} vp={modelVp} />
 		{/if}
 	</div>

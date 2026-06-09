@@ -98,10 +98,10 @@
 	$effect(() => { if (svgEl) onsvg?.(svgEl) })
 
 	// Fonts sized in points * den → constant on-screen size during zoom (no roll), correct on paper.
-	let rackLabelMm = $derived(8 * PT_TO_MM * den)
-	let deviceLabelMm = $derived(6 * PT_TO_MM * den)
-	let ruLabelMm = $derived(3.5 * PT_TO_MM * den)
-	let planLabelMm = $derived(6 * PT_TO_MM * den)
+	let rackLabelMm = $derived(16 * PT_TO_MM * den)
+	let deviceLabelMm = $derived(12 * PT_TO_MM * den)
+	let ruLabelMm = $derived(7 * PT_TO_MM * den)
+	let planLabelMm = $derived(12 * PT_TO_MM * den)
 
 	// Only standard racks carry a 19" RU area; VCMs / desks / shelves don't get RU numbers.
 	const hasRU = (t: string) => t === '2-post' || t === '4-post' || t === 'cabinet'
