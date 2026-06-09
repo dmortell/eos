@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { untrack } from "svelte";
+	import { untrack, setContext } from "svelte";
 	import { DEFAULT_PRINT_SETTINGS, paperDimsMm, type PrintSettings } from '$lib/ui/print/types'
 	import Canvas from "./parts/Canvas.svelte";
 	import TitleBlock from "./parts/TitleBlock.svelte";
@@ -14,7 +14,7 @@
 	import RevisionsPanel from "./revisions/RevisionsPanel.svelte";
 	import { ViewportEditor } from "./viewports.svelte";
 	import type { SheetDoc, SheetViewport, TitleBlockConfig } from "./types";
-	import { updateSheet } from "./data";
+	import { updateSheet, subscribeSheets } from "./data";
 	import type { Firestore } from "$lib/db.svelte";
 
 	let { sheet, project = {}, floors = [], db, pid }: {
@@ -24,6 +24,18 @@
 		db: Firestore
 		pid: string
 	} = $props()
+
+	// Link targets for annotation symbol pickers (section/detail → other sheets). Surveys/photos
+	// fall back to free-text in AnnotationControls until wired. Shared via context to avoid drilling.
+	type Opt = { id: string; label: string }
+	let annLinks = $state<{ sheets: Opt[]; surveys: Opt[]; photos: (id?: string) => Opt[] }>({ sheets: [], surveys: [], photos: () => [] })
+	setContext('annLinks', annLinks)
+	$effect(() => {
+		const unsub = subscribeSheets(db, pid, (list) => {
+			annLinks.sheets = list.filter(s => s.id !== sheet?.id).map(s => ({ id: s.id, label: s.drawingNumber ? `${s.drawingNumber} · ${s.title}` : s.title }))
+		})
+		return () => unsub?.()
+	})
 
 	// Normalized view of the sheet — guarantees paper/title exist even for a partial doc.
 	let page = $derived({
