@@ -177,11 +177,12 @@
 				onadd={(t, w, shift) => {
 					if (t === 'outlet') { if (locked.includes('outlets')) return true; editor.addOutlet(w); return true }
 					if (t === 'trunk') { if (locked.includes('trunks')) return true; editor.drawClick(w, shift); return true }
+					if (t === 'rack') { if (locked.includes('racks')) return true; editor.addRackAt(w); return true }
 					return false
 				}}
 				onmove={(w) => { if (tool === 'trunk' && editor.draw) editor.preview = w }}
 				ondbl={() => { if (tool === 'trunk') { editor.finishDraw(); tool = 'select' } }} />
-			<OutletsEditLayer {editor} interactive={tool === 'select'} {locked} />
+			<OutletsEditLayer {editor} interactive={tool === 'select'} {locked} {racksById} />
 		{/if}
 		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} locked={annLocked} />
 	</OutletsRender>

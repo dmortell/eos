@@ -67,12 +67,24 @@ export function trunkWidthMm(trunk: TrunkConfig): number {
 	return s.widthMm ?? s.outerDiameterMm ?? 50
 }
 
-/** A rack placed on the floorplan (dims come from the racks collection). */
+export type RackType = '2-post' | '4-post' | 'cabinet' | 'desk' | 'shelf' | 'vcm'
+
+/** A rack placed on the floorplan. Dimensions come from the racks collection when `rackId` matches
+ *  a rack there; floorplan-defined racks (added on the sheet) carry their own dims/metadata. */
 export interface RackPlacement {
 	rackId: string
 	room: string
-	position: Point              // mm from origin
+	position: Point              // mm from origin (top-left)
 	rotation: number             // degrees
+	// Self-contained rack (set when drawn on the floorplan rather than linked to the racks doc):
+	label?: string
+	widthMm?: number
+	depthMm?: number
+	heightU?: number
+	heightMm?: number
+	type?: RackType
+	maker?: string
+	model?: string
 }
 
 /** Calibration from files/{id}.pages[pageNum]. */

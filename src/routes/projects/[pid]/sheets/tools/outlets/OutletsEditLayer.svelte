@@ -8,13 +8,16 @@
 	// otherwise compiles these elements in the HTML namespace (inert, zero-size). The context menu
 	// (HTML) lives in OutletsContextMenu so it isn't forced into the SVG namespace.
 	import type { OutletsEditor } from './outlets-editor.svelte'
-	let { editor, interactive = false, locked = [] }: { editor: OutletsEditor; interactive?: boolean; locked?: string[] } = $props()
+	import type { RackPlacement } from './types'
+	type RackCfg = { widthMm: number; depthMm: number }
+	let { editor, interactive = false, locked = [], racksById = {} }: { editor: OutletsEditor; interactive?: boolean; locked?: string[]; racksById?: Record<string, RackCfg> } = $props()
 
 	const HM = 70 // node handle radius (mm)
 	const HL = '#06b6d4'
 	let lockO = $derived(locked.includes('outlets'))
 	let lockT = $derived(locked.includes('trunks'))
 	let lockR = $derived(locked.includes('racks'))
+	const rackDims = (rp: RackPlacement) => ({ w: racksById[rp.rackId]?.widthMm ?? rp.widthMm ?? 600, h: racksById[rp.rackId]?.depthMm ?? rp.depthMm ?? 1000 })
 
 	let drawNode = $derived(editor.draw ? editor.trunks.find(t => t.id === editor.draw!.trunkId)?.nodes.find(n => n.id === editor.draw!.lastNodeId) ?? null : null)
 	let selTrunkId = $derived(editor.sel?.kind === 'trunk' ? editor.sel.id : null)
@@ -69,12 +72,20 @@
 		{/each}
 	{/if}
 
-	<!-- rack placement move handles -->
+	<!-- rack placements: drag the body to move; selection outline; rotate via panel -->
 	{#if !lockR}
 		{#each editor.rackPlacements as rp (rp.rackId)}
-			<circle cx={rp.position.x} cy={rp.position.y} r={HM} fill="#3b82f6" fill-opacity="0.5" stroke="#2563eb" stroke-width="1" vector-effect="non-scaling-stroke"
-				style:pointer-events={interactive ? 'auto' : 'none'} style:cursor="move"
-				onmousedown={(e: MouseEvent) => { e.stopPropagation(); editor.dragRack(rp, e) }} />
+			{@const d = rackDims(rp)}
+			{@const cx = rp.position.x + d.w / 2}
+			{@const cy = rp.position.y + d.h / 2}
+			<g transform="rotate({rp.rotation} {cx} {cy})">
+				<rect x={rp.position.x} y={rp.position.y} width={d.w} height={d.h} fill="transparent"
+					style:pointer-events={interactive ? 'auto' : 'none'} style:cursor="move"
+					onmousedown={(e: MouseEvent) => { e.stopPropagation(); editor.dragRack(rp, e) }} />
+				{#if editor.isSel('rack', rp.rackId)}
+					<rect x={rp.position.x} y={rp.position.y} width={d.w} height={d.h} fill="none" stroke={HL} stroke-width="1.5" vector-effect="non-scaling-stroke" style:pointer-events="none" />
+				{/if}
+			</g>
 		{/each}
 	{/if}
 </g>

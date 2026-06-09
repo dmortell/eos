@@ -295,17 +295,36 @@ export class OutletsEditor extends SurfaceEditor {
 		if (o) { const c: OutletConfig = { ...o, id: this.uid('O'), position: { x: o.position.x + 300, y: o.position.y + 300 } }; this.outlets.push(c); this.select('outlet', c.id); this.notify() }
 	}
 
-	// ── racks (move only) ──
+	// ── racks (placed on the floorplan) ──
+	selRackPlacement = $derived(this.sel?.kind === 'rack' ? this.rackPlacements.find(r => r.rackId === this.sel!.id) ?? null : null)
+
+	/** Drag-out a new floorplan rack: place at the click, then size width×depth from the cursor. */
+	addRackAt(p: Point) {
+		const rp: RackPlacement = { rackId: this.uid('FR'), room: 'A', position: { ...p }, rotation: 0, label: 'Rack', widthMm: 600, depthMm: 1000, heightU: 42, heightMm: 42 * 45 + 80, type: '4-post' }
+		this.rackPlacements.push(rp); this.select('rack', rp.rackId)
+		this.startDrag(e => {
+			const w = this.toWorld(e); if (!w) return
+			rp.widthMm = Math.max(100, Math.abs(w.x - p.x)); rp.depthMm = Math.max(100, Math.abs(w.y - p.y))
+			rp.position = { x: Math.min(p.x, w.x), y: Math.min(p.y, w.y) }
+		}, () => this.notify())
+	}
 	dragRack(rp: RackPlacement, e0: MouseEvent) {
 		this.select('rack', rp.rackId)
 		const w0 = this.toWorld(e0); if (!w0) return
 		const p0 = { ...rp.position }
 		this.startDrag(e => { const w = this.toWorld(e); if (w) rp.position = { x: p0.x + (w.x - w0.x), y: p0.y + (w.y - w0.y) } }, () => this.notify())
 	}
+	setRackPlacement(patch: Partial<RackPlacement>) {
+		const rp = this.selRackPlacement; if (!rp) return
+		Object.assign(rp, patch)
+		if (patch.heightU != null) rp.heightMm = patch.heightU * 45 + 80
+		this.notify()
+	}
 
 	deleteSel() {
 		const s = this.sel; if (!s) return
 		if (s.kind === 'outlet') { this.outlets = this.outlets.filter(o => o.id !== s.id); this.clearSel(); this.notify(); return }
+		if (s.kind === 'rack') { this.rackPlacements = this.rackPlacements.filter(r => r.rackId !== s.id); this.clearSel(); this.notify(); return }
 		if (s.kind === 'trunk') {
 			const t = this.trunks.find(x => x.id === s.id); if (!t) return
 			if (this.tnode) this.deleteNode(t, this.tnode)

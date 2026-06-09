@@ -11,8 +11,9 @@
 
 	const objTools = [
 		{ id: 'select', label: 'Select' },
-		{ id: 'outlet', label: '+ Outlet' },
-		{ id: 'trunk', label: '+ Trunk' },
+		{ id: 'outlet', label: 'Outlet' },
+		{ id: 'trunk', label: 'Trunk' },
+		{ id: 'rack', label: 'Rack' },
 	] as const
 
 	function pick(id: typeof objTools[number]['id']) {
@@ -25,7 +26,7 @@
 
 <div use:portal>
 <Window title="Edit" name="outlets-edit" left={10} top={72} open class="w-60 space-y-2 p-2 text-zinc-700">
-	<div class="flex gap-1">
+	<div class="flex flex-wrap gap-1">
 		{#each objTools as t (t.id)}
 			<button class={cls(tool === t.id)} onclick={() => pick(t.id)}>{t.label}</button>
 		{/each}
@@ -73,6 +74,21 @@
 			<PropText label="Height (mm)" type="number" min="0" value={String(editor.selTrunkHeight)} oninput={(e: Event) => editor.setTrunkHeight(Number(val(e)) || 0)} />
 		{/if}
 		<button class="w-full rounded bg-red-600 px-1 py-0.5 text-xs text-white hover:bg-red-500" onclick={() => editor.deleteSel()}>Delete trunk</button>
+	{:else if editor.selRackPlacement}
+		{@const r = editor.selRackPlacement}
+		<hr class="border-zinc-200" />
+		<PropText label="Label" value={r.label ?? ''} oninput={(e: Event) => editor.setRackPlacement({ label: val(e) })} />
+		<PropText label="Width (mm)" type="number" min="100" value={String(r.widthMm ?? 600)} oninput={(e: Event) => editor.setRackPlacement({ widthMm: Number(val(e)) || 600 })} />
+		<PropText label="Depth (mm)" type="number" min="100" value={String(r.depthMm ?? 1000)} oninput={(e: Event) => editor.setRackPlacement({ depthMm: Number(val(e)) || 1000 })} />
+		<PropText label="Height (U)" type="number" min="1" max="58" value={String(r.heightU ?? 42)} oninput={(e: Event) => editor.setRackPlacement({ heightU: Number(val(e)) || 42 })} />
+		<PropText label="Height (mm)" type="number" min="0" value={String(r.heightMm ?? 0)} oninput={(e: Event) => editor.setRackPlacement({ heightMm: Number(val(e)) || 0 })} />
+		<PropSelect label="Type" value={r.type ?? '4-post'} onchange={(e: Event) => editor.setRackPlacement({ type: val(e) as any })}>
+			{#each ['2-post', '4-post', 'cabinet', 'desk', 'shelf', 'vcm'] as t (t)}<option value={t}>{t}</option>{/each}
+		</PropSelect>
+		<PropText label="Maker" value={r.maker ?? ''} oninput={(e: Event) => editor.setRackPlacement({ maker: val(e) || undefined })} />
+		<PropText label="Model" value={r.model ?? ''} oninput={(e: Event) => editor.setRackPlacement({ model: val(e) || undefined })} />
+		<PropText label="Rotation°" type="number" value={String(r.rotation ?? 0)} oninput={(e: Event) => editor.setRackPlacement({ rotation: Number(val(e)) || 0 })} />
+		<button class="w-full rounded bg-red-600 px-1 py-0.5 text-xs text-white hover:bg-red-500" onclick={() => editor.deleteSel()}>Delete rack</button>
 	{/if}
 </Window>
 </div>

@@ -144,20 +144,20 @@
 	{#if !hidden.includes('racks')}
 	{#each rackPlacements as p, i (p.rackId + ':' + i)}
 		{@const cfg = racksById[p.rackId]}
-		{#if cfg}
-			{@const w = cfg.widthMm}
-			{@const h = cfg.depthMm}
-			{@const color = ROOM_COLORS[p.room] ?? '#64748b'}
-			{@const cx = p.position.x + w / 2}
-			{@const cy = p.position.y + h / 2}
-			<g transform="rotate({p.rotation} {cx} {cy})">
-				<rect x={p.position.x} y={p.position.y} width={w} height={h} fill="{color}1a" stroke={color} stroke-width="1" vector-effect="non-scaling-stroke" />
-				<line x1={p.position.x} y1={p.position.y} x2={p.position.x + w} y2={p.position.y} stroke={color} stroke-width="3" vector-effect="non-scaling-stroke" opacity="0.9" />
-				{#if cfg.label}
-					<text x={cx} y={cy} font-size={w * 0.18} text-anchor="middle" dominant-baseline="middle" fill="#333" font-weight="bold">{cfg.label}</text>
-				{/if}
-			</g>
-		{/if}
+		{@const w = cfg?.widthMm ?? p.widthMm ?? 600}
+		{@const h = cfg?.depthMm ?? p.depthMm ?? 1000}
+		{@const label = cfg?.label ?? p.label}
+		{@const color = ROOM_COLORS[p.room] ?? '#64748b'}
+		{@const cx = p.position.x + w / 2}
+		{@const cy = p.position.y + h / 2}
+		<g transform="rotate({p.rotation} {cx} {cy})">
+			<rect x={p.position.x} y={p.position.y} width={w} height={h} fill="{color}1a" stroke={color} stroke-width="1" vector-effect="non-scaling-stroke" />
+			<!-- front-of-rack indicator (top edge) -->
+			<line x1={p.position.x} y1={p.position.y} x2={p.position.x + w} y2={p.position.y} stroke={color} stroke-width="3" vector-effect="non-scaling-stroke" opacity="0.9" />
+			{#if label}
+				<text x={cx} y={cy} font-size={Math.min(w, h) * 0.18} text-anchor="middle" dominant-baseline="middle" fill="#333" font-weight="bold">{label}</text>
+			{/if}
+		</g>
 	{/each}
 	{/if}
 
