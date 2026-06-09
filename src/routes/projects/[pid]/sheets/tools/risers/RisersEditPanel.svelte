@@ -23,6 +23,12 @@
 		<button class="rounded border px-1.5 py-0.5 text-xs hover:bg-slate-100" onclick={() => { tool = 'select'; editor.addCable() }}>+ Cable</button>
 	</div>
 	<p class="text-[10px] text-zinc-400">Room: drag a box to place &amp; size. Riser: drag floor-to-floor. Drag a room to any floor; drag its edges to resize.</p>
+	{#if editor.cables.length}
+		<PropSelect label="Edit cable" value={editor.selCable?.id ?? ''} onchange={(e: Event) => editor.select('cable', val(e))}>
+			<option value="" disabled>— pick a cable —</option>
+			{#each editor.cables as c, i (c.id)}<option value={c.id}>{c.type} · {c.segments.length} hop{c.segments.length === 1 ? '' : 's'}</option>{/each}
+		</PropSelect>
+	{/if}
 	<AnnotationControls bind:tool editor={annEditor} />
 	<hr class="border-zinc-200" />
 
