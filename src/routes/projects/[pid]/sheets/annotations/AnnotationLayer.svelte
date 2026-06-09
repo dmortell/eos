@@ -9,10 +9,13 @@
 	import type { AnnotationEditor } from './annotations.svelte'
 	import type { Annotation } from '../types'
 
-	let { editor, interactive = false, locked = false }: { editor: AnnotationEditor; interactive?: boolean; locked?: boolean } = $props()
+	let { editor, interactive = false, locked = false, den = 1 }: { editor: AnnotationEditor; interactive?: boolean; locked?: boolean; den?: number } = $props()
 
 	const PT = 25.4 / 72
 	const mid = `mk-${Math.random().toString(36).slice(2, 7)}`
+	// Text point-size → model-mm: paper points × scale-denominator, so text prints at its point size
+	// and stays legible at any zoom (raw mm would be ~3mm = invisible in a metre-scale floorplan).
+	let fontMm = $derived((pt: number) => pt * PT * (den || 1))
 
 	function down(a: Annotation, e: MouseEvent) {
 		if (!interactive || locked || e.button !== 0) return
@@ -24,7 +27,7 @@
 	function hitBox(a: Annotation): { x: number; y: number; w: number; h: number } {
 		const x2 = a.x2 ?? a.x, y2 = a.y2 ?? a.y
 		let x = Math.min(a.x, x2), y = Math.min(a.y, y2), w = Math.abs(x2 - a.x), h = Math.abs(y2 - a.y)
-		if (a.kind === 'text') { const f = (a.fontPt ?? 8) * PT; w = (a.text?.length || 1) * f * 0.6; h = f }
+		if (a.kind === 'text') { const f = fontMm(a.fontPt ?? 8); w = (a.text?.length || 1) * f * 0.6; h = f }
 		else if (a.kind === 'symbol') { const R = 500; x = a.x - R; y = a.y - R; w = 2 * R; h = a.symbol === 'photo' ? 2.4 * R : 2 * R }
 		const pad = Math.max(200, h * 0.6)
 		return { x: x - pad, y: y - pad, w: w + 2 * pad, h: h + 2 * pad }
@@ -47,7 +50,7 @@
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<rect x={hb.x} y={hb.y} width={hb.w} height={hb.h} fill="transparent" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} />
 		{#if a.kind === 'text'}
-			<text x={a.x} y={a.y} font-size={(a.fontPt ?? 8) * PT} fill={color} dominant-baseline="hanging">{a.text}</text>
+			<text x={a.x} y={a.y} font-size={fontMm(a.fontPt ?? 8)} fill={color} dominant-baseline="hanging">{a.text}</text>
 		{:else if a.kind === 'arrow'}
 			<line x1={a.x} y1={a.y} x2={a.x2 ?? a.x} y2={a.y2 ?? a.y} stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" marker-end="url(#{mid})" />
 		{:else if a.kind === 'rect'}

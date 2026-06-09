@@ -298,15 +298,16 @@ export class OutletsEditor extends SurfaceEditor {
 	// ── racks (placed on the floorplan) ──
 	selRackPlacement = $derived(this.sel?.kind === 'rack' ? this.rackPlacements.find(r => r.rackId === this.sel!.id) ?? null : null)
 
-	/** Drag-out a new floorplan rack: place at the click, then size width×depth from the cursor. */
-	addRackAt(p: Point) {
+	/** Drag-out a new floorplan rack: place at the click, then size width×depth from the cursor.
+	 *  `onDone` (e.g. switch back to Select) runs on mouse-up so the placed rack is draggable. */
+	addRackAt(p: Point, onDone?: () => void) {
 		const rp: RackPlacement = { rackId: this.uid('FR'), room: 'A', position: { ...p }, rotation: 0, label: 'Rack', widthMm: 600, depthMm: 1000, heightU: 42, heightMm: 42 * 45 + 80, type: '4-post' }
 		this.rackPlacements.push(rp); this.select('rack', rp.rackId)
 		this.startDrag(e => {
 			const w = this.toWorld(e); if (!w) return
 			rp.widthMm = Math.max(100, Math.abs(w.x - p.x)); rp.depthMm = Math.max(100, Math.abs(w.y - p.y))
 			rp.position = { x: Math.min(p.x, w.x), y: Math.min(p.y, w.y) }
-		}, () => this.notify())
+		}, () => { this.notify(); onDone?.() })
 	}
 	dragRack(rp: RackPlacement, e0: MouseEvent) {
 		this.select('rack', rp.rackId)

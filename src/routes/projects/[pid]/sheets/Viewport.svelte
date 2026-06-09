@@ -122,8 +122,12 @@
 		const mmX = o.x + px * den0 / zoom, mmY = o.y + py * den0 / zoom // real-mm under cursor
 		const factor = e.deltaY < 0 ? 1 / 1.1 : 1.1
 		const den1 = Math.min(100000, Math.max(0.5, den0 * factor))
-		vps.setContentView(vp.id, den1, { x: mmX - px * den1 / zoom, y: mmY - py * den1 / zoom })
+		const offset = { x: mmX - px * den1 / zoom, y: mmY - py * den1 / zoom }
+		vps.setContentView(vp.id, den1, offset)
 		vps.notify()
+		// If zooming mid-pan (right-button held), re-baseline the pan so it doesn't snap back to the
+		// pre-wheel scale/offset on the next mousemove.
+		if (contentPanning) { cpx = e.clientX; cpy = e.clientY; cden = den1; cox = offset.x; coy = offset.y }
 	}
 
 	// Attach content gestures non-passively while active (so preventDefault works and the outer

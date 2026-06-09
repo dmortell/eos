@@ -202,7 +202,7 @@
 				{/if}
 
 				{#each vps.viewports as vp (vp.id)}
-					<Viewport {vps} {vp} zoom={mainZoom} onmodel={(id) => { vps.deactivate(); modelVpId = id }} />
+					<Viewport {vps} {vp} zoom={mainZoom} onmodel={(id) => { vps.activate(id); modelVpId = id }} />
 				{/each}
 
 				<!-- Insert drag-out preview -->

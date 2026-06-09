@@ -27,6 +27,7 @@
 	const db = getContext('db') as Firestore
 
 	let tool = $state('select')
+	let viewDen = $state(1)
 	let annLocked = $derived(locked.includes('annotations'))
 	const editor = new RacksEditor()
 	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor })
@@ -81,7 +82,8 @@
 		rowId={src.rowId}
 		showWalls={src.showWalls ?? false}
 		colorDevices={src.colorDevices ?? true}
-		{vp} {view} {onview} {hidden}
+		{vp} {view} {hidden}
+		onview={(v) => { viewDen = v.den || 1; onview?.(v) }}
 		onsvg={(el) => { editor.svg = el; annEditor.svg = el }}>
 		{#if active}
 			<EditBackground {tool} {annEditor} toolEditor={editor} {annLocked}
@@ -94,7 +96,7 @@
 				}} />
 			<RacksEditLayer {editor} face={src.face} rowId={src.rowId} interactive={tool === 'select'} />
 		{/if}
-		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} locked={annLocked} />
+		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} locked={annLocked} den={viewDen} />
 	</RacksRender>
 	{#if active}
 		<RacksEditPanel {editor} bind:tool {annEditor} face={src.face} />

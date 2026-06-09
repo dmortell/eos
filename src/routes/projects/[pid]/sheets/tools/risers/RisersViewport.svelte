@@ -26,6 +26,7 @@
 	const db = getContext('db') as Firestore
 
 	let tool = $state('select')
+	let viewDen = $state(1)
 	let annLocked = $derived(locked.includes('annotations'))
 	const editor = new RisersEditor()
 	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor })
@@ -80,7 +81,8 @@
 		floorHeights={editor.floorHeights}
 		settings={editor.settings}
 		hiddenFloors={editor.hiddenFloors}
-		{fromFloor} {toFloor} {vp} {view} {onview} {hidden}
+		{fromFloor} {toFloor} {vp} {view} {hidden}
+		onview={(v) => { viewDen = v.den || 1; onview?.(v) }}
 		onsvg={(el) => { editor.svg = el; annEditor.svg = el }}>
 		{#if active}
 			<EditBackground {tool} {annEditor} toolEditor={editor} {annLocked}
@@ -92,7 +94,7 @@
 				}} />
 			<RisersEditLayer {editor} {fromFloor} {toFloor} interactive={tool === 'select'} />
 		{/if}
-		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} locked={annLocked} />
+		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} locked={annLocked} den={viewDen} />
 	</RisersRender>
 	{#if active}
 		<RisersEditPanel {editor} bind:tool {annEditor} {fromFloor} {toFloor} />
