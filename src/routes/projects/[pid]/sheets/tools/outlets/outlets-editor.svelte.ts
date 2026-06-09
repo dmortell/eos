@@ -141,6 +141,8 @@ export class OutletsEditor extends SurfaceEditor {
 		this.outlets.push(o); this.select('outlet', o.id); this.notify()
 	}
 	dragOutlet(o: OutletConfig, e0: MouseEvent) {
+		// Ctrl/Cmd-drag duplicates: drag a fresh copy, leaving the original in place.
+		if (e0.ctrlKey || e0.metaKey) { const c: OutletConfig = { ...o, id: this.uid('O'), position: { ...o.position } }; this.outlets.push(c); o = c }
 		this.select('outlet', o.id)
 		const w0 = this.toWorld(e0); if (!w0) return
 		const p0 = { ...o.position }
@@ -214,14 +216,46 @@ export class OutletsEditor extends SurfaceEditor {
 			this.snap = null; this.notify()
 		})
 	}
-	// ── trunks: drag a segment (move both ends; ortho with shift; shift/ctrl click = multi-select) ──
+	/** Duplicate the given segments (and their nodes) into a new trunk; select & return it. */
+	duplicateSegsToTrunk(t: TrunkConfig, segIds: string[]): TrunkConfig {
+		const segs = t.segments.filter(s => segIds.includes(s.id))
+		const nodeIds = [...new Set(segs.flatMap(s => s.nodes))]
+		const remap = new Map(nodeIds.map(id => [id, this.uid('n')]))
+		const nt: TrunkConfig = {
+			...t, id: this.uid('T'), spec: { ...t.spec } as any, labels: undefined,
+			nodes: nodeIds.map(id => { const n = this.nodeById(t, id)!; return { ...n, id: remap.get(id)!, position: { ...n.position } } }),
+			segments: segs.map(s => ({ id: this.uid('s'), nodes: [remap.get(s.nodes[0])!, remap.get(s.nodes[1])!] as [string, string] })),
+		}
+		this.trunks.push(nt); this.selectTrunk(nt.id)
+		return nt
+	}
+	toggleSeg(t: TrunkConfig, seg: TrunkSegment) {
+		const cur = this.sel?.kind === 'trunk' && this.sel.id === t.id ? this.tsegs : []
+		this.select('trunk', t.id); this.tnode = null
+		this.tsegs = cur.includes(seg.id) ? cur.filter(x => x !== seg.id) : [...cur, seg.id]
+	}
+
+	// ── trunks: drag a segment (move both ends; ortho with shift; Shift-click multi-selects;
+	//    Ctrl-click multi-selects, Ctrl-drag duplicates the selected segments) ──
 	onSegDown(e: MouseEvent, t: TrunkConfig, seg: TrunkSegment) {
 		if (e.button !== 0) return
 		e.preventDefault(); e.stopPropagation(); this.menu = null
-		if (e.shiftKey || e.ctrlKey || e.metaKey) {
-			const cur = this.sel?.kind === 'trunk' && this.sel.id === t.id ? this.tsegs : []
-			this.select('trunk', t.id); this.tnode = null
-			this.tsegs = cur.includes(seg.id) ? cur.filter(x => x !== seg.id) : [...cur, seg.id]
+		if (e.shiftKey) { this.toggleSeg(t, seg); return }
+		if (e.ctrlKey || e.metaKey) {
+			// click → toggle multi-select; drag → duplicate the selection and move the copy
+			const sx = e.clientX, sy = e.clientY
+			let dup: TrunkConfig | null = null, w0: Point | null = null, bases: Map<string, Point> | null = null
+			this.startDrag(ev => {
+				if (!dup) {
+					if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < DRAG_PX) return
+					const segIds = [...new Set([...(this.sel?.kind === 'trunk' && this.sel.id === t.id ? this.tsegs : []), seg.id])]
+					dup = this.duplicateSegsToTrunk(t, segIds)
+					w0 = this.toWorld(ev); bases = new Map(dup.nodes.map(n => [n.id, { ...n.position }]))
+				}
+				const w = this.toWorld(ev); if (!w || !w0 || !bases || !dup) return
+				const dx = w.x - w0.x, dy = w.y - w0.y
+				for (const n of dup.nodes) { const b = bases.get(n.id)!; n.position = { x: b.x + dx, y: b.y + dy } }
+			}, () => { if (!dup) this.toggleSeg(t, seg); else this.notify() })
 			return
 		}
 		this.selectSeg(t.id, seg.id)
