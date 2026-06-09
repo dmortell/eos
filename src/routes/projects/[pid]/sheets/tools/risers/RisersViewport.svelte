@@ -88,8 +88,8 @@
 			<EditBackground {tool} {annEditor} toolEditor={editor} {annLocked}
 				onadd={(t, w) => {
 					const f = editor.floorAtY(w.y, fromFloor, toFloor) ?? fromFloor
-					if (t === 'server' || t === 'eps') { editor.addRoomAt(t, w.x, f); return true }
-					if (t === 'riser') { editor.addLadderAt(w.x, Math.min(fromFloor, toFloor), Math.max(fromFloor, toFloor)); return true }
+					if (t === 'room') { editor.addRoomAt('server', w.x, f, () => { tool = 'select' }); return true }
+					if (t === 'riser') { editor.addLadderDrag(w.x, f, fromFloor, toFloor, () => { tool = 'select' }); return true }
 					return false
 				}} />
 			<RisersEditLayer {editor} {fromFloor} {toFloor} interactive={tool === 'select'} />

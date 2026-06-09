@@ -10,7 +10,7 @@
 	let { editor, tool = $bindable(), annEditor, fromFloor, toFloor }: { editor: RisersEditor; tool: string; annEditor: AnnotationEditor; fromFloor: number; toFloor: number } = $props()
 	const val = (e: Event) => (e.currentTarget as HTMLInputElement | HTMLSelectElement).value
 	let floorOpts = $derived.by(() => { const a: number[] = []; for (let f = Math.max(fromFloor, toFloor); f >= Math.min(fromFloor, toFloor); f--) a.push(f); return a })
-	const objTools = [['select', 'Select'], ['server', '+ Server'], ['eps', '+ EPS'], ['riser', '+ Riser']] as const
+	const objTools = [['select', 'Select'], ['room', 'Room'], ['riser', 'Riser']] as const
 	const cls = (active: boolean) => ['rounded border px-1.5 py-0.5 text-xs', active ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-slate-100']
 </script>
 
@@ -20,9 +20,9 @@
 		{#each objTools as [id, label] (id)}
 			<button class={cls(tool === id)} onclick={() => (tool = id)}>{label}</button>
 		{/each}
-		<button class="rounded border px-1.5 py-0.5 text-xs hover:bg-slate-100" onclick={() => editor.addCable()}>+ Cable</button>
+		<button class="rounded border px-1.5 py-0.5 text-xs hover:bg-slate-100" onclick={() => { tool = 'select'; editor.addCable() }}>+ Cable</button>
 	</div>
-	<p class="text-[10px] text-zinc-400">Click to place; drag to size a room. Drag a room to any floor.</p>
+	<p class="text-[10px] text-zinc-400">Room: drag a box to place &amp; size. Riser: drag floor-to-floor. Drag a room to any floor; drag its edges to resize.</p>
 	<AnnotationControls bind:tool editor={annEditor} />
 	<hr class="border-zinc-200" />
 
@@ -30,7 +30,7 @@
 		{@const r = editor.selRoom}
 		<hr class="border-zinc-200" />
 		<PropText label="Label" value={r.label} oninput={(e: Event) => editor.setRoom({ label: val(e) })} />
-		<PropSelect label="Kind" value={r.kind} onchange={(e: Event) => editor.setRoom({ kind: val(e) as any })}>
+		<PropSelect label="Type" value={r.kind} onchange={(e: Event) => editor.setRoom({ kind: val(e) as any })}>
 			<option value="server">Server</option><option value="eps">EPS</option>
 		</PropSelect>
 		<PropSelect label="Floor" value={String(r.floor)} onchange={(e: Event) => editor.setRoom({ floor: Number(val(e)) })}>

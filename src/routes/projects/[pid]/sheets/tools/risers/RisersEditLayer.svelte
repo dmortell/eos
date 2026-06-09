@@ -19,8 +19,18 @@
 	{#each editor.rooms as room (room.id)}
 		{@const b = bandForFloor(bands, room.floor)}
 		{#if b}
-			<circle cx={room.xMm} cy={roomCentreYMm(b)} r={250} fill={editor.isSel('room', room.id) ? '#06b6d4' : '#2563eb'} fill-opacity="0.55" stroke="#1d4ed8" stroke-width="1" vector-effect="non-scaling-stroke"
+			{@const cy = roomCentreYMm(b)}
+			{@const sel = editor.isSel('room', room.id)}
+			<!-- centre handle: move (drag between floors / horizontally) -->
+			<circle cx={room.xMm} cy={cy} r={250} fill={sel ? '#06b6d4' : '#2563eb'} fill-opacity="0.55" stroke="#1d4ed8" stroke-width="1" vector-effect="non-scaling-stroke"
 				style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => { e.stopPropagation(); editor.dragRoom(room, e, fromFloor, toFloor) }} />
+			{#if sel}
+				<!-- edge handles: resize width -->
+				{#each [['l', room.xMm - room.widthMm / 2], ['r', room.xMm + room.widthMm / 2]] as [side, ex] (side)}
+					<rect x={Number(ex) - 90} y={cy - 350} width={180} height={700} fill="#06b6d4" fill-opacity="0.5" stroke="#0891b2" stroke-width="1" vector-effect="non-scaling-stroke"
+						style:pointer-events={pe} style:cursor="ew-resize" onmousedown={(e: MouseEvent) => { e.stopPropagation(); editor.resizeRoomEdge(room, side as 'l' | 'r', e) }} />
+				{/each}
+			{/if}
 		{/if}
 	{/each}
 	{#each editor.ladders as l (l.id)}

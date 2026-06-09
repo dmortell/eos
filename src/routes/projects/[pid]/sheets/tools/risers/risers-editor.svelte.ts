@@ -44,14 +44,37 @@ export class RisersEditor extends SurfaceEditor {
 		const l: Ladder = { id: this.uid('ld'), label: 'Riser', xMm: x, fromFloor, toFloor, level: 'both' }
 		this.ladders.push(l); this.select('ladder', l.id); this.notify()
 	}
-	/** Click-to-place a room, then drag to size it (left edge anchored at the click x). */
-	addRoomAt(kind: RoomKind, x: number, floor: number) {
+	/** Click-to-place a room, then drag to size it (left edge anchored at the click x). `onDone`
+	 *  (e.g. switch to Select) runs on mouse-up so the placed room is draggable. */
+	addRoomAt(kind: RoomKind, x: number, floor: number, onDone?: () => void) {
 		const r: RiserRoom = { id: this.uid('rm'), kind, floor, xMm: x, widthMm: 600, label: kind === 'server' ? 'Server' : 'EPS' }
 		this.rooms.push(r); this.select('room', r.id)
 		this.startDrag(e => {
 			const w = this.toWorld(e); if (!w) return
 			const width = Math.max(400, Math.abs(w.x - x))
 			r.widthMm = width; r.xMm = Math.min(x, w.x) + width / 2
+		}, () => { this.notify(); onDone?.() })
+	}
+	/** Drag out a riser ladder spanning a floor range: down-floor is fixed, drag vertically to set
+	 *  the other end. */
+	addLadderDrag(x: number, downFloor: number, from: number, to: number, onDone?: () => void) {
+		const l: Ladder = { id: this.uid('ld'), label: 'Riser', xMm: x, fromFloor: downFloor, toFloor: downFloor, level: 'both' }
+		this.ladders.push(l); this.select('ladder', l.id)
+		this.startDrag(e => {
+			const w = this.toWorld(e); if (!w) return
+			const f = this.floorAtY(w.y, from, to); if (f == null) return
+			l.fromFloor = Math.min(downFloor, f); l.toFloor = Math.max(downFloor, f)
+		}, () => { this.notify(); onDone?.() })
+	}
+	/** Drag a room's left/right edge to resize its width (opposite edge stays put). */
+	resizeRoomEdge(room: RiserRoom, side: 'l' | 'r', e0: MouseEvent) {
+		this.select('room', room.id)
+		const w0 = this.toWorld(e0); if (!w0) return
+		const half = room.widthMm / 2, left0 = room.xMm - half, right0 = room.xMm + half
+		this.startDrag(e => {
+			const w = this.toWorld(e); if (!w) return
+			if (side === 'l') { const l = Math.min(w.x, right0 - 400); room.widthMm = right0 - l; room.xMm = (l + right0) / 2 }
+			else { const r = Math.max(w.x, left0 + 400); room.widthMm = r - left0; room.xMm = (left0 + r) / 2 }
 		}, () => this.notify())
 	}
 	addCable() {
