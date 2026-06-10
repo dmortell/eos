@@ -505,6 +505,9 @@ section is the **living task list** for that ongoing work — keep it updated as
 - [x] **Faceplate (wall outlet) + door symbols** added to the annotation palette + render (partial of the shape-library ask).
 - [x] **Trunk run-length readout** (metres) in the outlets trunk properties (real-mm coords).
 - [x] Layers **lock toggle** — already present in LayersPanel (👁 + 🔒).
+- [x] **Copy/paste annotations** (Ctrl-C / Ctrl-V) across viewports & sheets (module clipboard).
+- [x] **Thinner outlet-render line weights** — CAD hairlines (outlets/racks/trunks) for a professional look + correct print weights.
+- [x] **Per-trunk bend radius** — configurable corner rounding in the trunk properties.
 
 ### In progress / next
 
@@ -515,9 +518,9 @@ section is the **living task list** for that ongoing work — keep it updated as
 - [x] **Viewport pan/zoom model rework** — content nav OFF by default (sheet pans/zooms as usual); per-viewport toggle; model mode unchanged; top-right frame toolbar (scale + content-nav toggle + model button).
 - [x] Text viewport pan/zoom in model mode (foreignObject + viewBox) — the sheets.md note was stale.
 - [ ] **VCMs as optional rack/frame parts** — model VCMs (vertical cable managers) as attachable parts rather than fixed.
-- [ ] **Trunk/conduit bend radius** — curved corners with a configurable bend-radius for trunks in plan and front/side elevations.
-- [ ] **Wall outlet / faceplate shapes** for elevations.
-- [ ] **Shape library** — palette of reusable shapes + save user-drawn shapes (port the original outlets tool's library).
+- [x] **Trunk/conduit bend radius** — per-trunk configurable corner rounding (plan). (Elevations get it when vertical trunks land.)
+- [x] **Wall outlet / faceplate + door symbols** added to the annotation palette.
+- [ ] **Shape library** — palette of reusable shapes + save user-drawn shapes (port the original outlets tool's library). (faceplate/door are a fixed-symbol down-payment.)
 - [ ] Layers: **lock toggle** (not just visibility); **project-scope** layer list (vs per-model) so layers aren't recreated per floor; viewport toggles independent of model layers.
 - [ ] Annotations: revision-cloud / dimension kinds polish; linked-symbol click-through navigation (section markers → drawing ref; photo markers → survey album).
 - [ ] Racks: catalog/library + patch cords (port labels on panels, patch-cord lists shown in racks) — later phase.
@@ -528,7 +531,7 @@ section is the **living task list** for that ongoing work — keep it updated as
 - [ ] **Cable schedule / BOM viewport** — a table viewport summarising outlets/cables/devices (the standalone outlets tool already has `exportOutletsToExcel`); could render as a text/table viewport and export.
 - [ ] **Trunk fill-rate overlay** — the outlets tool computes `nodeFillMap` (cable area vs conduit area); surface a fill-% colour/label on trunks (mirrors the `fillrate` tool).
 - [ ] **Align / distribute** for multi-selected objects & viewports; **snap-to-grid / alignment guides** while dragging.
-- [ ] **Copy/paste** objects & annotations within and across viewports.
+- [x] **Copy/paste annotations** within and across viewports (Ctrl-C/V). (Tool objects are doc-bound; not copied.)
 - [ ] **Auto-legend** for a viewport (symbol/colour key), and a **north arrow** placement helper.
 - [ ] 3D viewer for rooms/risers (big; mentioned in spec).
 
