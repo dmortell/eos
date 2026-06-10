@@ -83,7 +83,8 @@
 		const onKey = (e: KeyboardEvent) => {
 			const f = (e.target as Element)?.closest?.('input, textarea, select, [contenteditable]')
 			if (e.key === 'Delete' && !f) {
-				if (annEditor.selAnn) { e.preventDefault(); e.stopPropagation(); annEditor.deleteSel() }
+				if (editor.hasMultiSel() || annEditor.hasMultiSel()) { e.preventDefault(); e.stopPropagation(); editor.deleteMany(); annEditor.deleteMany() }
+				else if (annEditor.selAnn) { e.preventDefault(); e.stopPropagation(); annEditor.deleteSel() }
 				else if (editor.selDevice) { e.preventDefault(); e.stopPropagation(); editor.deleteDevice() }
 				else if (editor.selRack) { e.preventDefault(); e.stopPropagation(); editor.deleteRack() }
 			}

@@ -1,7 +1,11 @@
 import { SurfaceEditor } from '../../edit/surface.svelte'
 import type { Point } from '$lib/ui/print/types'
-import type { RackConfig, DeviceConfig, RackRow, RackSettings, RoomObject, RackDocData, DeviceType } from './types'
+import type { RackConfig, DeviceConfig, RackRow, RackSettings, RoomObject, RackDocData, DeviceType, RackFace } from './types'
 import type { DeviceTemplate } from './palette'
+
+type Rect = { x: number; y: number; w: number; h: number }
+/** Device boxes + face, injected by the edit layer so the editor can hit-test a marquee. */
+type RackLayout = { face: RackFace; boxes: { id: string; box: Rect }[] }
 
 /**
  * Editor for a racks viewport. Spatial editing is plan-view (drag a row's origin); rack/device
@@ -16,6 +20,14 @@ export class RacksEditor extends SurfaceEditor {
 	roomObjects = $state<RoomObject[]>([])
 	selDeviceId = $state<string | null>(null)
 	library = $state<DeviceTemplate[]>([]) // user-added custom device templates (persisted on the doc)
+
+	// marquee multi-select: devices (elevation) or rows (plan). `layout` is fed by the edit layer
+	// (which builds the elevation) so the editor can hit-test the box. `marquee` is the live rect.
+	marquee = $state<Rect | null>(null)
+	selDevices = $state<string[]>([])
+	selRows = $state<string[]>([])
+	layout: RackLayout | null = null
+	#gbRows = new Map<string, Point>()   // row-origin snapshot for a plan group drag
 
 	seed(d: RackDocData | null) {
 		this.racks = (d?.racks ?? []).map(r => ({ ...r }))
@@ -35,6 +47,69 @@ export class RacksEditor extends SurfaceEditor {
 
 	selectRack(id: string) { this.select('rack', id); this.selDeviceId = null }
 	selectDevice(id: string) { this.selDeviceId = id; const d = this.devices.find(x => x.id === id); if (d) this.select('rack', d.rackId) }
+
+	// ── marquee multi-select (devices in elevation, rows in plan) + annotation peer ──
+	clearSel() { super.clearSel(); this.selDeviceId = null; this.clearMulti() }
+	clearMulti() { this.selDevices = []; this.selRows = [] }
+	hasMultiSel() { return this.selDevices.length + this.selRows.length > 0 }
+	inDeviceMulti(id: string) { return this.selDevices.includes(id) }
+	inRowMulti(id: string) { return this.selRows.includes(id) }
+
+	beginMarquee(e0: MouseEvent) {
+		const w0 = this.toWorld(e0)
+		this.clearSel(); this.peer?.clearSel(); this.peer?.clearMulti()
+		if (!w0) return
+		this.startDrag(e => {
+			const w = this.toWorld(e); if (!w) return
+			this.marquee = { x: Math.min(w0.x, w.x), y: Math.min(w0.y, w.y), w: Math.abs(w.x - w0.x), h: Math.abs(w.y - w0.y) }
+		}, () => {
+			const m = this.marquee; this.marquee = null
+			if (!m || (m.w < 100 && m.h < 100)) return
+			this.marqueeCollect(m); this.peer?.marqueeCollect(m)
+		})
+	}
+	marqueeCollect(m: Rect) {
+		const inRect = (p: Point) => p.x >= m.x && p.x <= m.x + m.w && p.y >= m.y && p.y <= m.y + m.h
+		if (this.layout?.face === 'plan') {
+			this.selRows = this.rows.filter(r => r.plan?.originMm && inRect(r.plan.originMm)).map(r => r.id)
+			this.selDevices = []
+		} else {
+			const hit = (b: Rect) => !(b.x + b.w < m.x || b.x > m.x + m.w || b.y + b.h < m.y || b.y > m.y + m.h)
+			this.selDevices = (this.layout?.boxes ?? []).filter(b => hit(b.box)).map(b => b.id)
+			this.selRows = []
+		}
+	}
+	// Rows (plan) move freely → use the shared group-translate protocol (devices use a custom path
+	// in the layer because they snap to a rack column + U slot).
+	beginGroupTranslate() {
+		this.#gbRows.clear()
+		const ids = new Set(this.selRows)
+		for (const r of this.rows) if (ids.has(r.id) && r.plan) this.#gbRows.set(r.id, { ...r.plan.originMm })
+	}
+	applyGroupTranslate(dx: number, dy: number) {
+		for (const r of this.rows) {
+			const b = this.#gbRows.get(r.id); if (!b) continue
+			r.plan = { originMm: { x: b.x + dx, y: b.y + dy }, rotationDeg: r.plan?.rotationDeg ?? 0 }
+		}
+	}
+	/** Move every selected device into `rackId`, each at baseU + its original offset (clamped),
+	 *  preserving relative U. Multi-rack selections all land in the dropped rack. */
+	placeDeviceGroup(offsets: { id: string; off: number }[], rackId: string, baseU: number) {
+		const rack = this.racks.find(r => r.id === rackId); if (!rack) return
+		for (const { id, off } of offsets) {
+			const d = this.devices.find(x => x.id === id); if (!d) continue
+			d.rackId = rackId
+			d.positionU = Math.max(1, Math.min(rack.heightU - d.heightU + 1, baseU + off))
+		}
+		this.notify()
+	}
+	/** Delete the marquee multi-selection (devices + the annotation peer is handled by the host). */
+	deleteMany() {
+		if (!this.selDevices.length) return false
+		const ids = new Set(this.selDevices)
+		this.devices = this.devices.filter(d => !ids.has(d.id))
+		this.clearMulti(); this.notify(); return true
+	}
 
 	// ── racks ──
 	addRack(rowId: string) {

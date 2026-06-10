@@ -5,22 +5,48 @@
 	// Elevation: click a device to select it, drag it vertically to change its U. `namespace="svg"`
 	// is required because this layer is hosted via the render's {@render children} slot, which
 	// otherwise compiles these elements in the HTML namespace (inert, zero-size).
-	import { buildElevation, deviceBox, slotAtY } from './rack-layout'
+	import { buildElevation, deviceBox, slotAtY, rackAtX } from './rack-layout'
 	import type { RacksEditor } from './racks-editor.svelte'
 	import type { RackFace, DeviceConfig } from './types'
 	let { editor, face, rowId = undefined, interactive = false }: { editor: RacksEditor; face: RackFace; rowId?: string; interactive?: boolean } = $props()
 
+	const HL = '#06b6d4'
 	const pe = $derived(interactive ? 'auto' : 'none')
 	let scoped = $derived(rowId ? editor.racks.filter(r => r.rowId === rowId) : editor.racks)
 	let elev = $derived(face === 'plan' ? null : buildElevation(scoped, editor.settings, face))
 	let boxes = $derived(elev ? editor.devices.map(d => ({ d, box: deviceBox(d, elev!, face) })).filter(x => x.box) as { d: DeviceConfig; box: { x: number; y: number; w: number; h: number } }[] : [])
 
+	// Feed the editor the current device boxes + face so its marquee can hit-test them.
+	$effect(() => { editor.layout = { face, boxes: boxes.map(b => ({ id: b.d.id, box: b.box })) } })
+
 	function dragDevice(d: DeviceConfig, e0: MouseEvent) {
 		e0.stopPropagation()
 		if (e0.ctrlKey || e0.metaKey) d = editor.duplicateDevice(d) // Ctrl-drag duplicates
+		else if (editor.inDeviceMulti(d.id)) { dragDeviceGroup(d, e0); return } // grabbed a marquee item
+		else { editor.clearMulti(); editor.peer?.clearMulti() }
 		editor.selectDevice(d.id)
 		const el = elev; const e = el?.byId.get(d.rackId); if (!el || !e) return
 		editor.startDrag(ev => { const w = editor.toWorld(ev); if (w) editor.moveDeviceU(d, slotAtY(e, el, w.y, d.heightU)) }, () => editor.notify())
+	}
+
+	// Group drag: reassign every selected device into the rack column under the cursor, keeping
+	// their U offsets relative to the dragged anchor (devices from several racks all land here).
+	function dragDeviceGroup(anchor: DeviceConfig, e0: MouseEvent) {
+		const el = elev; if (!el) return
+		editor.selectDevice(anchor.id)
+		const baseU0 = anchor.positionU
+		const offsets = editor.devices.filter(x => editor.inDeviceMulti(x.id)).map(x => ({ id: x.id, off: x.positionU - baseU0 }))
+		editor.startDrag(ev => {
+			const w = editor.toWorld(ev); if (!w) return
+			const e = rackAtX(el, w.x); if (!e) return
+			editor.placeDeviceGroup(offsets, e.rack.id, slotAtY(e, el, w.y, anchor.heightU))
+		}, () => editor.notify())
+	}
+
+	function downRow(row: { id: string }, e: MouseEvent, drag: (e: MouseEvent) => void) {
+		e.stopPropagation()
+		if (editor.inRowMulti(row.id)) { editor.beginGroupDrag(e); return }
+		editor.clearMulti(); editor.peer?.clearMulti(); drag(e)
 	}
 </script>
 
@@ -29,8 +55,11 @@
 	<g>
 		{#each editor.rows as row (row.id)}
 			{@const o = row.plan?.originMm ?? { x: 0, y: 0 }}
+			{#if editor.inRowMulti(row.id)}
+				<circle cx={o.x} cy={o.y} r={360} fill="none" stroke={HL} stroke-width="1.5" vector-effect="non-scaling-stroke" style:pointer-events="none" />
+			{/if}
 			<circle cx={o.x} cy={o.y} r={250} fill="#2563eb" fill-opacity="0.55" stroke="#1d4ed8" stroke-width="1" vector-effect="non-scaling-stroke"
-				style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => { e.stopPropagation(); editor.dragRow(row, e) }} />
+				style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => downRow(row, e, (ev) => editor.dragRow(row, ev))} />
 		{/each}
 	</g>
 {:else}
@@ -39,9 +68,14 @@
 		{#each boxes as { d, box } (d.id)}
 			<rect x={box.x} y={box.y} width={box.w} height={box.h} fill="transparent"
 				style:pointer-events={pe} style:cursor="ns-resize" onmousedown={(e: MouseEvent) => dragDevice(d, e)} />
-			{#if editor.selDeviceId === d.id}
-				<rect x={box.x} y={box.y} width={box.w} height={box.h} fill="none" stroke="#06b6d4" stroke-width="1.5" vector-effect="non-scaling-stroke" style:pointer-events="none" />
+			{#if editor.selDeviceId === d.id || editor.inDeviceMulti(d.id)}
+				<rect x={box.x} y={box.y} width={box.w} height={box.h} fill={editor.inDeviceMulti(d.id) ? `${HL}22` : 'none'} stroke={HL} stroke-width="1.5" vector-effect="non-scaling-stroke" style:pointer-events="none" />
 			{/if}
 		{/each}
 	</g>
+{/if}
+
+<!-- marquee box -->
+{#if editor.marquee}
+	<rect x={editor.marquee.x} y={editor.marquee.y} width={editor.marquee.w} height={editor.marquee.h} fill="{HL}1a" stroke={HL} stroke-width="1" stroke-dasharray="6 4" vector-effect="non-scaling-stroke" style:pointer-events="none" />
 {/if}
