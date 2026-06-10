@@ -473,3 +473,38 @@ then reuse the proven print path.
 
 **Still open:** none — ready to build. (Future: a conversion tool to migrate legacy `version: 1` outlet
 floorplans to y-up, after which their viewports move to `version: 2`.)
+
+---
+
+## 9. Post-v1 task list (editing era — living checklist)
+
+The render pipeline (Stages A–I) shipped. v1's read-only renders have since grown into an in-place
+editing surface (merged edit/annotate overlay, per-tool canvas editors, model mode, annotations). This
+section is the **living task list** for that ongoing work — keep it updated as items land.
+
+### Done
+
+- [x] Merged edit/annotate overlay; per-tool canvas editors (`SurfaceEditor` base + outlets/racks/risers editors); model mode.
+- [x] Annotations: text/line/arrow/rect/cloud/symbol/callout/dimension; reusable `TransformBox` + `PointHandles`; multi-line text; 15° rotate snap; `PropColor` (swatches + custom + opacity); separate fill + border colours; smaller arrowheads; Leader folded into Callout (border option).
+- [x] Callout UX: drag box vs. drag line (box-only vs. move-both); double-click text → focus props textarea.
+- [x] Zoom flicker fix (text re-layout): `text-rendering: geometricPrecision`.
+- [x] Floating-window scrollbar fix: clamp windows to viewport (`Window`) + portal into a fixed clipped overlay (`edit/portal.ts`, `pointer-events:auto` on panels).
+- [x] TextViewport: fold Empty into Text ("Empty — choose source" placeholder); restore text editing (show props window when active); model-mode pan/zoom via SVG `viewBox` + `foreignObject`.
+- [x] Viewport properties window stays visible while a viewport is active.
+- [x] Marquee + group-drag/delete — **outlets** viewport (outlets, racks, trunk nodes/segments, annotations).
+- [x] Marquee + group-drag/delete — **racks** viewport (devices in elevation, rows in plan, annotations; device group-drag reassigns into the rack under the cursor preserving relative U).
+- [x] Rack device hover cursor: `move` (was `ns-resize`).
+
+### In progress / next
+
+- [ ] **Refactor:** lift the shared marquee (`marquee` state + `beginMarquee`) into `SurfaceEditor` so all editors reuse it; keep only `marqueeCollect`/group-translate per editor.
+- [ ] **Risers viewport multi-select** — marquee + group-drag/delete for rooms, ladders, labels, annotations.
+- [ ] **Undo/redo (Ctrl-Z)** — reusable history for the Sheets editors (none today; mirror the `/outlets` `history.record` stack, ideally shared via `SurfaceEditor`). Multi-drag/delete make this important.
+
+### Backlog (notes)
+
+- [ ] **Racks plan view polish** — drag handles are world-mm `<circle r={250}>` (huge/scale with zoom) → make screen-constant + smaller; one handle appears orphaned (row with no rendered geometry); verify doors/walls actually render in plan. (May be mooted by the consolidation below.)
+- [ ] **Building elements + vertical trunks** — add/edit racks, walls, doors, ceilings, floors, and **vertical trunks** in rack elevation & plan. Vertical trunks must be connectable to the horizontal (floorplan) trunks later (unify the trunk model with a riser/junction concept).
+- [ ] **Consolidate plan onto the outlet floorplan** — likely remove rack *plan* view from the racks viewport and use the outlet floorplan as the single plan surface; that means **adding walls & doors to the outlets floorplan**. Racks viewport becomes elevation-only.
+- [ ] **Selection-while-active** — a viewport can be selected while another is active (decided: leave as-is for now).
+- [ ] Legacy `version: 1` (y-down) outlet floorplan → y-up conversion tool (from §8).
