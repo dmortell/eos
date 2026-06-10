@@ -3,6 +3,7 @@ import { buildFloorBands, bandForFloor, roomCentreYMm } from './engine'
 import { DEFAULT_RISER_SETTINGS } from './types'
 
 type Rect = { x: number; y: number; w: number; h: number }
+const SNAP_X = 20 // room/ladder x-coords snap to this many mm
 import type { RiserRoom, Ladder, Cable, CableSegment, TextLabel, RiserDocData, RiserSettings, FloorHeights, RoomKind, LadderLevel, CableLevel } from './types'
 
 /** Editor for a risers viewport — rooms, ladders, cables (hop routes). */
@@ -27,6 +28,9 @@ export class RisersEditor extends SurfaceEditor {
 	snapshot() {
 		return { rooms: $state.snapshot(this.rooms), ladders: $state.snapshot(this.ladders), cables: $state.snapshot(this.cables), labels: $state.snapshot(this.labels) }
 	}
+
+	/** Snap an x-coordinate (mm) to the SNAP_X grid — rooms & ladders sit on multiples of it. */
+	snapX(x: number) { return Math.round(x / SNAP_X) * SNAP_X }
 
 	selRoom = $derived(this.sel?.kind === 'room' ? this.rooms.find(r => r.id === this.sel!.id) ?? null : null)
 	selLadder = $derived(this.sel?.kind === 'ladder' ? this.ladders.find(l => l.id === this.sel!.id) ?? null : null)
@@ -76,10 +80,10 @@ export class RisersEditor extends SurfaceEditor {
 		const r = this.range
 		for (const rm of this.rooms) {
 			const b = this.#gbRooms.get(rm.id); if (!b) continue
-			rm.xMm = b.xMm + dx
+			rm.xMm = this.snapX(b.xMm + dx)
 			if (r) { const f = this.floorAtY(b.cy + dy, r.from, r.to); if (f != null) rm.floor = f }
 		}
-		for (const l of this.ladders) { const b = this.#gbLadders.get(l.id); if (b) l.xMm = b.xMm + dx }
+		for (const l of this.ladders) { const b = this.#gbLadders.get(l.id); if (b) l.xMm = this.snapX(b.xMm + dx) }
 	}
 	/** Delete the marquee multi-selection (rooms + ladders; annotation peer handled by the host). */
 	deleteMany() {
@@ -113,13 +117,13 @@ export class RisersEditor extends SurfaceEditor {
 		this.startDrag(e => {
 			const w = this.toWorld(e); if (!w) return
 			const width = Math.max(400, Math.abs(w.x - x))
-			r.widthMm = width; r.xMm = Math.min(x, w.x) + width / 2
+			r.widthMm = width; r.xMm = this.snapX(Math.min(x, w.x) + width / 2)
 		}, () => { this.notify(); onDone?.() })
 	}
 	/** Drag out a riser ladder spanning a floor range: down-floor is fixed, drag vertically to set
 	 *  the other end. */
 	addLadderDrag(x: number, downFloor: number, from: number, to: number, onDone?: () => void) {
-		this.ladders.push({ id: this.uid('ld'), label: 'Riser', xMm: x, fromFloor: downFloor, toFloor: downFloor, level: 'both' })
+		this.ladders.push({ id: this.uid('ld'), label: 'Riser', xMm: this.snapX(x), fromFloor: downFloor, toFloor: downFloor, level: 'both' })
 		const l = this.ladders[this.ladders.length - 1] // proxy
 		this.select('ladder', l.id)
 		this.startDrag(e => {
@@ -135,8 +139,8 @@ export class RisersEditor extends SurfaceEditor {
 		const half = room.widthMm / 2, left0 = room.xMm - half, right0 = room.xMm + half
 		this.startDrag(e => {
 			const w = this.toWorld(e); if (!w) return
-			if (side === 'l') { const l = Math.min(w.x, right0 - 400); room.widthMm = right0 - l; room.xMm = (l + right0) / 2 }
-			else { const r = Math.max(w.x, left0 + 400); room.widthMm = r - left0; room.xMm = (left0 + r) / 2 }
+			if (side === 'l') { const l = Math.min(this.snapX(w.x), right0 - 400); room.widthMm = right0 - l; room.xMm = (l + right0) / 2 }
+			else { const r = Math.max(this.snapX(w.x), left0 + 400); room.widthMm = r - left0; room.xMm = (left0 + r) / 2 }
 		}, () => this.notify())
 	}
 	addCable() {
@@ -188,7 +192,7 @@ export class RisersEditor extends SurfaceEditor {
 		const x0 = room.xMm
 		this.startDrag(e => {
 			const w = this.toWorld(e); if (!w) return
-			room.xMm = x0 + (w.x - w0.x)
+			room.xMm = this.snapX(x0 + (w.x - w0.x))
 			const f = this.floorAtY(w.y, from, to); if (f != null) room.floor = f
 		}, () => this.notify())
 	}
@@ -197,7 +201,7 @@ export class RisersEditor extends SurfaceEditor {
 		this.select('ladder', ladder.id)
 		const w0 = this.toWorld(e0); if (!w0) return
 		const x0 = ladder.xMm
-		this.startDrag(e => { const w = this.toWorld(e); if (w) ladder.xMm = x0 + (w.x - w0.x) }, () => this.notify())
+		this.startDrag(e => { const w = this.toWorld(e); if (w) ladder.xMm = this.snapX(x0 + (w.x - w0.x)) }, () => this.notify())
 	}
 }
 
