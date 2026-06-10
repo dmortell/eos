@@ -52,7 +52,7 @@
 
 {#if face === 'plan'}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<g>
+	<g class="print:hidden">
 		{#each editor.rows as row (row.id)}
 			{@const o = row.plan?.originMm ?? { x: 0, y: 0 }}
 			{#if editor.inRowMulti(row.id)}
@@ -64,7 +64,7 @@
 	</g>
 {:else}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<g>
+	<g class="print:hidden">
 		{#each boxes as { d, box } (d.id)}
 			<rect x={box.x} y={box.y} width={box.w} height={box.h} fill="transparent"
 				style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => dragDevice(d, e)} />
@@ -77,5 +77,5 @@
 
 <!-- marquee box -->
 {#if editor.marquee}
-	<rect x={editor.marquee.x} y={editor.marquee.y} width={editor.marquee.w} height={editor.marquee.h} fill="{HL}1a" stroke={HL} stroke-width="1" stroke-dasharray="6 4" vector-effect="non-scaling-stroke" style:pointer-events="none" />
+	<rect class="print:hidden" x={editor.marquee.x} y={editor.marquee.y} width={editor.marquee.w} height={editor.marquee.h} fill="{HL}1a" stroke={HL} stroke-width="1" stroke-dasharray="6 4" vector-effect="non-scaling-stroke" style:pointer-events="none" />
 {/if}

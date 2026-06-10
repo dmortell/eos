@@ -31,7 +31,7 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<g>
+<g class="print:hidden">
 	{#each editor.rooms as room (room.id)}
 		{@const b = bandForFloor(bands, room.floor)}
 		{#if b}

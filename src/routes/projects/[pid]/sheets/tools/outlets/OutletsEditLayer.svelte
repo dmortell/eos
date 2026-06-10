@@ -24,7 +24,7 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<g>
+<g class="print:hidden">
 	<!-- trunks: segment hit lines (+ insert / context); nodes for the selected trunk -->
 	{#each editor.trunks as t (t.id)}
 		{#each t.segments as s (s.id)}
