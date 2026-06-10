@@ -44,6 +44,32 @@ export class SurfaceEditor {
 	isSel(kind: string, id: string) { return this.sel?.kind === kind && this.sel.id === id }
 	clearSel() { this.sel = null }
 
+	// ── marquee multi-selection + group translate ──
+	// Editors that support marquee override these to act on their own data slices. A marquee or a
+	// group drag drives BOTH the tool editor and its annotation peer through the same hooks so a
+	// box can hold (and a drag can move) mixed object + annotation selections together.
+	/** Select this editor's items whose position falls inside the world-mm rect. */
+	marqueeCollect(_rect: { x: number; y: number; w: number; h: number }): void {}
+	/** Snapshot the current multi-selection's positions ahead of a group drag. */
+	beginGroupTranslate(): void {}
+	/** Offset every multi-selected item by (dx,dy) from the snapshot taken in beginGroupTranslate. */
+	applyGroupTranslate(_dx: number, _dy: number): void {}
+	/** Clear the marquee multi-selection (not the single `sel`). */
+	clearMulti(): void {}
+	/** Whether a marquee multi-selection exists on this editor. */
+	hasMultiSel(): boolean { return false }
+
+	/** Drag the whole multi-selection (this editor + its peer) by the cursor delta. */
+	beginGroupDrag(e0: MouseEvent) {
+		const w0 = this.toWorld(e0); if (!w0) return
+		this.beginGroupTranslate(); this.peer?.beginGroupTranslate()
+		this.startDrag(e => {
+			const w = this.toWorld(e); if (!w) return
+			this.applyGroupTranslate(w.x - w0.x, w.y - w0.y)
+			this.peer?.applyGroupTranslate(w.x - w0.x, w.y - w0.y)
+		}, () => { this.notify(); this.peer?.notify() })
+	}
+
 	// ── drag: window-level listeners with auto-cleanup ──
 	startDrag(move: (e: MouseEvent) => void, up?: () => void) {
 		this.endDrag()

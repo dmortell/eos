@@ -31,6 +31,9 @@ export class AnnotationEditor extends SurfaceEditor {
 	symbol = $state('section')
 	/** Called after an annotation is placed (host returns the unified tool to Select). */
 	onPlaced: (() => void) | null = null
+	/** Marquee multi-selection (annotation ids) + position snapshot for a group drag. */
+	selAnns = $state<string[]>([])
+	#gbAnns = new Map<string, { x: number; y: number; x2?: number; y2?: number }>()
 
 	seed(a: Annotation[] | undefined) { this.annotations = (a ?? []).map(x => ({ ...x })) }
 	snapshot() { return $state.snapshot(this.annotations) as Annotation[] }
@@ -73,6 +76,8 @@ export class AnnotationEditor extends SurfaceEditor {
 	 */
 	move(a: Annotation, e0: MouseEvent, movePointer = true) {
 		if (e0.ctrlKey || e0.metaKey) a = this.push({ ...a, id: this.uid('a') }) // duplicate the proxy
+		else if (this.selAnns.includes(a.id)) { this.beginGroupDrag(e0); return } // part of a marquee → move whole group
+		else { this.clearMulti(); this.peer?.clearMulti() }
 		this.select('ann', a.id)
 		const w0 = this.toWorld(e0); if (!w0) return
 		const o = { x: a.x, y: a.y, x2: a.x2, y2: a.y2 }
@@ -111,4 +116,32 @@ export class AnnotationEditor extends SurfaceEditor {
 	setSel(patch: Partial<Annotation>) { const a = this.selAnn; if (!a) return; Object.assign(a, patch); this.notify() }
 	setLink(patch: Partial<NonNullable<Annotation['link']>>) { const a = this.selAnn; if (!a) return; a.link = { kind: 'drawing', ...(a.link ?? {}), ...patch } as any; this.notify() }
 	deleteSel() { const a = this.selAnn; if (!a) return; this.annotations = this.annotations.filter(x => x.id !== a.id); this.clearSel(); this.notify() }
+
+	// ── marquee multi-selection (driven by the tool editor's marquee via the peer link) ──
+	clearMulti() { this.selAnns = [] }
+	/** Delete every marquee-selected annotation. Returns true if any were removed. */
+	deleteMany() {
+		if (!this.selAnns.length) return false
+		const ids = new Set(this.selAnns)
+		this.annotations = this.annotations.filter(a => !ids.has(a.id))
+		this.clearMulti(); this.notify(); return true
+	}
+	hasMultiSel() { return this.selAnns.length > 0 }
+	/** Select annotations whose anchor or pointer endpoint falls inside the world-mm rect. */
+	marqueeCollect(m: { x: number; y: number; w: number; h: number }) {
+		const inR = (x: number, y: number) => x >= m.x && x <= m.x + m.w && y >= m.y && y <= m.y + m.h
+		this.selAnns = this.annotations.filter(a => inR(a.x, a.y) || (a.x2 != null && inR(a.x2, a.y2 ?? a.y))).map(a => a.id)
+	}
+	beginGroupTranslate() {
+		this.#gbAnns.clear()
+		const ids = new Set(this.selAnns)
+		for (const a of this.annotations) if (ids.has(a.id)) this.#gbAnns.set(a.id, { x: a.x, y: a.y, x2: a.x2, y2: a.y2 })
+	}
+	applyGroupTranslate(dx: number, dy: number) {
+		for (const a of this.annotations) {
+			const b = this.#gbAnns.get(a.id); if (!b) continue
+			a.x = b.x + dx; a.y = b.y + dy
+			if (b.x2 != null) { a.x2 = b.x2 + dx; a.y2 = (b.y2 ?? 0) + dy }
+		}
+	}
 }

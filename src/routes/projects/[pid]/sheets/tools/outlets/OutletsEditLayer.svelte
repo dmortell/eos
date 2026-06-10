@@ -31,7 +31,7 @@
 			{@const a = editor.nodePos(t, s.nodes[0])}
 			{@const b = editor.nodePos(t, s.nodes[1])}
 			{#if a && b}
-				{#if editor.tsegs.includes(s.id)}
+				{#if editor.tsegs.includes(s.id) || (editor.selNodes.includes(s.nodes[0]) && editor.selNodes.includes(s.nodes[1]))}
 					<line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={HL} stroke-width="2" vector-effect="non-scaling-stroke" style:pointer-events="none" />
 				{/if}
 				<line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="transparent" stroke-width={260}
@@ -47,6 +47,15 @@
 					style:pointer-events={interactive ? 'auto' : 'none'} style:cursor="grab"
 					onmousedown={(e: MouseEvent) => editor.onNodeDown(e, t, n)}
 					oncontextmenu={(e: MouseEvent) => editor.onNodeContext(e, t, n)} />
+			{/each}
+		{:else if !lockT}
+			<!-- marquee-selected nodes (any trunk): grabbable to move the whole group -->
+			{#each t.nodes as n (n.id)}
+				{#if editor.selNodes.includes(n.id)}
+					<circle cx={n.position.x} cy={n.position.y} r={HM} fill={HL} fill-opacity="0.25" stroke={HL} stroke-width="1.5" vector-effect="non-scaling-stroke"
+						style:pointer-events={interactive ? 'auto' : 'none'} style:cursor="move"
+						onmousedown={(e: MouseEvent) => editor.onNodeDown(e, t, n)} />
+				{/if}
 			{/each}
 		{/if}
 	{/each}

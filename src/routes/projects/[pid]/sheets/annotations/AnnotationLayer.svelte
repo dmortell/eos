@@ -46,6 +46,7 @@
 
 {#each editor.annotations as a (a.id)}
 	{@const sel = interactive && editor.isSel('ann', a.id)}
+	{@const multi = interactive && editor.selAnns.includes(a.id)}
 	{@const color = a.color ?? '#dc2626'}
 	{@const b = bounds(a, den)}
 	{@const cx = b.x + b.w / 2}{@const cy = b.y + b.h / 2}
@@ -128,6 +129,11 @@
 		{@const x2 = a.x2 ?? a.x}{@const y2 = a.y2 ?? a.y}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<line x1={a.x} y1={a.y} x2={x2} y2={y2} stroke="transparent" stroke-width="240" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} />
+	{/if}
+
+	<!-- marquee multi-select highlight (a plain outline; full transform handles are single-select) -->
+	{#if multi && !sel}
+		<rect x={b.x} y={b.y} width={b.w} height={b.h} transform={rot} fill="none" stroke={HL} stroke-width="1.5" stroke-dasharray="6 4" vector-effect="non-scaling-stroke" style:pointer-events="none" />
 	{/if}
 
 	<!-- selection handles -->

@@ -148,8 +148,8 @@
 			const f = (e.target as Element)?.closest?.('input, textarea, select, [contenteditable]')
 			if (f) return
 			if (e.key === 'Delete') {
-				if (annEditor.selAnn) { e.preventDefault(); e.stopPropagation(); annEditor.deleteSel() }
-				else if (editor.hasMulti) { e.preventDefault(); e.stopPropagation(); editor.deleteMany() }
+				if (editor.hasMultiSel() || annEditor.hasMultiSel()) { e.preventDefault(); e.stopPropagation(); editor.deleteMany(); annEditor.deleteMany() }
+				else if (annEditor.selAnn) { e.preventDefault(); e.stopPropagation(); annEditor.deleteSel() }
 				else if (editor.sel) { e.preventDefault(); e.stopPropagation(); editor.deleteSel() }
 			} else if (e.key === 'Escape' && editor.draw) { e.preventDefault(); e.stopPropagation(); editor.finishDraw(); tool = 'select' }
 			else if ((e.key === 'd' || e.key === 'D') && (e.ctrlKey || e.metaKey)) {
