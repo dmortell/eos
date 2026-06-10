@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getContext, untrack } from 'svelte'
+	import { getContext } from 'svelte'
 	import type { Firestore } from '$lib/db.svelte'
 	import { PdfState } from '../../../uploads/parts/PdfState.svelte'
 	import type { SheetViewport } from '../../types'
@@ -11,12 +11,10 @@
 	import { OutletsEditor } from './outlets-editor.svelte'
 	import EditBackground from '../../edit/EditBackground.svelte'
 	import AnnotationLayer from '../../annotations/AnnotationLayer.svelte'
-	import { useAnnotations } from '../../edit/annotations.svelte'
-	import { History } from '../../edit/history.svelte'
+	import { useViewportEditing } from '../../edit/editing.svelte'
 	import type { ViewportEditor } from '../../viewports.svelte'
 	import { layerBlockReason } from '../../layers/layers'
 	import { toast } from 'svelte-sonner'
-	import { docSaver } from '../../edit/persist'
 
 	const RENDER_SCALE = 2 // PDF rasterization scale (crispness)
 
@@ -46,11 +44,12 @@
 	}
 	// ── Editing ── one editor per viewport instance; the source doc is the single source of truth.
 	const editor = new OutletsEditor()
-	const history = new History()
-	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor, afterChange: () => history.touch() })
-	annEditor.onPlaced = () => { tool = 'select' } // return to Select after placing so handles show
-
 	let src = $derived(vp.source.kind === 'outlets' ? vp.source : null)
+	const { annEditor, history } = useViewportEditing({
+		editor, collection: 'outlets', docId: () => src?.outletsDocId, doc: () => outletsData,
+		active: () => active, vp: () => vp, vps, db,
+	})
+	annEditor.onPlaced = () => { tool = 'select' } // return to Select after placing so handles show
 
 	let outletsData = $state<OutletsData | null>(null)
 	let fileDoc = $state<any>(null)
@@ -126,22 +125,6 @@
 		}
 	})
 
-	// Mirror the doc into the editor while idle; once active, the editor owns the data. Seed at
-	// least once even if mounted active (model mode opens active from the start).
-	let seeded = false
-	$effect(() => {
-		const d = outletsData
-		if (!active) { editor.seed(d); seeded = !!d; untrack(() => { history.register(editor, annEditor); history.reset() }); return }
-		if (!seeded && d) { editor.seed(d); seeded = true; untrack(() => { history.register(editor, annEditor); history.reset() }) }
-	})
-	// Persist edits (debounced) to the outlets doc; tap the undo history on every change.
-	$effect(() => {
-		const id = src?.outletsDocId
-		if (!id) { editor.onChange = null; return }
-		const saver = docSaver(db, 'outlets', id)
-		editor.onChange = () => { saver.save(editor.snapshot()); history.touch() }
-		return () => { saver.flush(); editor.onChange = null }
-	})
 	// Delete / Escape while active (capture phase so the sheet's handlers don't also fire).
 	$effect(() => {
 		if (!active) return

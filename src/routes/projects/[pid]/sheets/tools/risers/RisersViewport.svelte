@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getContext, untrack } from 'svelte'
+	import { getContext } from 'svelte'
 	import type { Firestore } from '$lib/db.svelte'
 	import type { SheetViewport } from '../../types'
 	import type { RiserDocData } from './types'
@@ -9,12 +9,10 @@
 	import { RisersEditor } from './risers-editor.svelte'
 	import EditBackground from '../../edit/EditBackground.svelte'
 	import AnnotationLayer from '../../annotations/AnnotationLayer.svelte'
-	import { useAnnotations } from '../../edit/annotations.svelte'
-	import { History } from '../../edit/history.svelte'
+	import { useViewportEditing } from '../../edit/editing.svelte'
 	import type { ViewportEditor } from '../../viewports.svelte'
 	import { layerBlockReason } from '../../layers/layers'
 	import { toast } from 'svelte-sonner'
-	import { docSaver } from '../../edit/persist'
 
 	let { vp, vps, zoom = 1, active = false, view = null, onview, hidden = [], locked = [] }: {
 		vp: SheetViewport
@@ -38,12 +36,13 @@
 		return false
 	}
 	const editor = new RisersEditor()
-	const history = new History()
-	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor, afterChange: () => history.touch() })
-	annEditor.onPlaced = () => { tool = 'select' }
-
 	let src = $derived(vp.source.kind === 'risers' ? vp.source : null)
 	let doc = $state<RiserDocData | null>(null)
+	const { annEditor, history } = useViewportEditing({
+		editor, collection: 'risers', docId: () => src?.risersDocId, doc: () => doc,
+		active: () => active, vp: () => vp, vps, db,
+	})
+	annEditor.onPlaced = () => { tool = 'select' }
 
 	$effect(() => {
 		const id = src?.risersDocId
@@ -54,21 +53,6 @@
 
 	let fromFloor = $derived(src?.fromFloor ?? doc?.fromFloor ?? 1)
 	let toFloor = $derived(src?.toFloor ?? doc?.toFloor ?? 1)
-
-	// ── Editing ── seed from the doc while idle; seed once even if mounted active (model mode).
-	let seeded = false
-	$effect(() => {
-		const d = doc
-		if (!active) { editor.seed(d); seeded = !!d; untrack(() => { history.register(editor, annEditor); history.reset() }); return }
-		if (!seeded && d) { editor.seed(d); seeded = true; untrack(() => { history.register(editor, annEditor); history.reset() }) }
-	})
-	$effect(() => {
-		const id = src?.risersDocId
-		if (!id) { editor.onChange = null; return }
-		const saver = docSaver(db, 'risers', id)
-		editor.onChange = () => { saver.save(editor.snapshot()); history.touch() }
-		return () => { saver.flush(); editor.onChange = null }
-	})
 	$effect(() => {
 		if (!active) return
 		const onKey = (e: KeyboardEvent) => {
