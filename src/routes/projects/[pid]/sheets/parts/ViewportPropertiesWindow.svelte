@@ -17,10 +17,9 @@
 		pid: string
 	} = $props()
 
-	// Show for the selected viewport, or for an active text/empty one — those have no separate Edit
-	// panel, so this window IS their editor (activating clears the frame selection).
-	let activeText = $derived(vps.activeViewport && (vps.activeViewport.source.kind === 'text' || vps.activeViewport.source.kind === 'empty') ? vps.activeViewport : null)
-	let vp = $derived(vps.selectedViewport ?? activeText)
+	// Show for the selected viewport, or for the active one (activating clears the frame selection
+	// to hide resize handles, but we still want this panel available to edit type/scale/source).
+	let vp = $derived(vps.selectedViewport ?? vps.activeViewport)
 
 	// Wider scale range than the sheet's paper scale — viewports often need large scales for
 	// elevations (1:10 / 1:5 / 1:2). value 0 = Fit (auto).
