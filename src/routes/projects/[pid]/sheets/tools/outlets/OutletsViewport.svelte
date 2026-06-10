@@ -134,6 +134,8 @@
 			if (f) return
 			if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); e.stopPropagation(); if (e.shiftKey) history.redo(); else history.undo(); return }
 			if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); e.stopPropagation(); history.redo(); return }
+			if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C') && (annEditor.selAnn || annEditor.hasMultiSel())) { e.preventDefault(); e.stopPropagation(); annEditor.copySel(); return }
+			if ((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); e.stopPropagation(); annEditor.paste(); return }
 			if (e.key === 'Delete') {
 				if (editor.hasMultiSel() || annEditor.hasMultiSel()) { e.preventDefault(); e.stopPropagation(); editor.deleteMany(); annEditor.deleteMany() }
 				else if (annEditor.selAnn) { e.preventDefault(); e.stopPropagation(); annEditor.deleteSel() }

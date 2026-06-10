@@ -9,6 +9,9 @@ export type AnnTool = 'select' | AnnotationKind
 const CLICK_KINDS = new Set<AnnotationKind>(['text', 'symbol', 'callout', 'leader'])
 const BOX_DRAG = new Set<AnnotationKind>(['rect', 'cloud'])
 
+// Module-level clipboard so annotations copy/paste between viewports (and sheets, same session).
+let clipboard: Annotation[] = []
+
 /** Default fields for a freshly created annotation of a given kind. */
 function defaults(kind: AnnotationKind, symbol: string): Partial<Annotation> {
 	switch (kind) {
@@ -116,6 +119,22 @@ export class AnnotationEditor extends SurfaceEditor {
 	setSel(patch: Partial<Annotation>) { const a = this.selAnn; if (!a) return; Object.assign(a, patch); this.notify() }
 	setLink(patch: Partial<NonNullable<Annotation['link']>>) { const a = this.selAnn; if (!a) return; a.link = { kind: 'drawing', ...(a.link ?? {}), ...patch } as any; this.notify() }
 	deleteSel() { const a = this.selAnn; if (!a) return; this.annotations = this.annotations.filter(x => x.id !== a.id); this.clearSel(); this.notify() }
+
+	/** Copy the current annotation selection (multi or single) to the shared clipboard. */
+	copySel() {
+		const ids = new Set(this.selAnns.length ? this.selAnns : this.selAnn ? [this.selAnn.id] : [])
+		if (!ids.size) return
+		clipboard = this.annotations.filter(a => ids.has(a.id)).map(a => structuredClone($state.snapshot(a)) as Annotation)
+	}
+	/** Paste the clipboard into this viewport (new ids, offset so the copies are visible). */
+	paste() {
+		if (!clipboard.length) return
+		const D = 500
+		const copies = clipboard.map(a => ({ ...structuredClone(a), id: this.uid('a'), x: a.x + D, y: a.y + D, x2: a.x2 != null ? a.x2 + D : undefined, y2: a.y2 != null ? a.y2 + D : undefined }))
+		for (const c of copies) this.annotations.push(c)
+		this.clearSel(); this.selAnns = copies.map(c => c.id)
+		this.notify()
+	}
 
 	// ── marquee multi-selection (driven by the tool editor's marquee via the peer link) ──
 	clearMulti() { this.selAnns = [] }
