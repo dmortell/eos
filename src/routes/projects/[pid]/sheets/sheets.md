@@ -127,3 +127,18 @@ Honest status notes (also written into implement-editing.md at the top)
 Everything is in small, reviewable commits, so anything that doesn't behave is easy to isolate. I'd start tomorrow by eyeballing outlets add/move + model mode + layer hide/lock, then the racks/risers panels.
 
 One note for later if it recurs: a fully robust fix would be to give .gui windows position: fixed (viewport-relative) so a tall panel can never grow the document and reintroduce scrollbars — but that's a shared Window change affecting other tools, so I kept this scoped to the sheets panels.
+
+## Pending bugs/features
+
+* Consider changing VCMs to be optional parts of a rack/frame, and remind me about it later.
+
+* Need a fix for panning sheet when layout fills the screen (Esc to inactivate viewport, or no pan/zoom within viewports unless enabled)
+Probably need to reconsider how we pan/zoom viewport content.
+
+* Conduits need curved bend-radius for front/side elvations.
+
+* Add Wall outlets/faceplates.
+
+* Add Library for shapes.
+
+* Color for lines of text
