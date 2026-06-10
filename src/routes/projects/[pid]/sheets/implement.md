@@ -500,6 +500,11 @@ section is the **living task list** for that ongoing work — keep it updated as
 - [x] **Undo/redo (Ctrl-Z / Ctrl-Shift-Z / Ctrl-Y)** — reusable snapshot `History` (`edit/history.svelte.ts`); one per viewport covers tool editor + annotation peer as one frame; debounced; wired into all three viewports.
 - [x] Riser room/ladder x-coords snap to a 20mm grid (create/drag/resize/group). (Confirmed riser coords are real-world mm — floor-to-floor ~3.8m default, configurable; distances/cable lengths computable.)
 - [x] Edit handles / selection outlines / marquee box are `print:hidden` (outlets, racks, risers) — only drawing content prints.
+- [x] **Viewport pan/zoom rework + frame toolbar** — content nav OFF by default (sheet pans/zooms as usual); per-viewport ✥ toggle; top-right frame toolbar (scale + content-nav + model button). (sheets.md §Pending)
+- [x] **Refactor:** `useViewportEditing` composable (`edit/editing.svelte.ts`) — DRY'd the seed/persist/history/annotation wiring across all three viewports.
+- [x] **Faceplate (wall outlet) + door symbols** added to the annotation palette + render (partial of the shape-library ask).
+- [x] **Trunk run-length readout** (metres) in the outlets trunk properties (real-mm coords).
+- [x] Layers **lock toggle** — already present in LayersPanel (👁 + 🔒).
 
 ### In progress / next
 
@@ -507,8 +512,8 @@ section is the **living task list** for that ongoing work — keep it updated as
 
 ### Backlog — from sheets.md "Pending bugs/features"
 
-- [ ] **Viewport pan/zoom model rework** (sheets.md §Pending) — disable content pan/zoom in an active viewport by default; right-wheel/drag pans/zooms the whole sheet as usual. Per-viewport toggle to enable content pan/zoom. Model mode keeps pan/zoom as-is. Show a small toolbar in the top-right of a selected/active viewport frame: current scale, a content-pan/zoom toggle, and the model (⤢) button.
-- [ ] Text viewport pan/zoom in model mode — **done** (foreignObject + viewBox); verify the sheets.md note is stale.
+- [x] **Viewport pan/zoom model rework** — content nav OFF by default (sheet pans/zooms as usual); per-viewport toggle; model mode unchanged; top-right frame toolbar (scale + content-nav toggle + model button).
+- [x] Text viewport pan/zoom in model mode (foreignObject + viewBox) — the sheets.md note was stale.
 - [ ] **VCMs as optional rack/frame parts** — model VCMs (vertical cable managers) as attachable parts rather than fixed.
 - [ ] **Trunk/conduit bend radius** — curved corners with a configurable bend-radius for trunks in plan and front/side elevations.
 - [ ] **Wall outlet / faceplate shapes** for elevations.
