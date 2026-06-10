@@ -100,6 +100,7 @@
 		{#if t.shape !== 'pipe'}
 			<PropText label="Height (mm)" type="number" min="0" value={String(editor.selTrunkHeight)} oninput={(e: Event) => editor.setTrunkHeight(Number(val(e)) || 0)} />
 		{/if}
+		<PropText label="Bend radius (mm)" type="number" min="0" placeholder="10" value={String(t.bendRadiusMm ?? '')} oninput={(e: Event) => editor.setTrunk({ bendRadiusMm: Number(val(e)) || undefined })} />
 		<div class="flex items-center justify-between gap-2 text-xs text-zinc-500">
 			<span>Run length</span><span class="tabular-nums text-zinc-700">{(editor.selTrunkLengthMm / 1000).toFixed(2)} m</span>
 		</div>

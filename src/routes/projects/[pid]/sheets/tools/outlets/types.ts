@@ -57,6 +57,7 @@ export interface TrunkConfig {
 	rooms?: string[]
 	isPrimary: boolean
 	visible?: boolean
+	bendRadiusMm?: number   // corner rounding (mm); falls back to INNER_CORNER_RADIUS_MM
 }
 
 /** Width used for rendering (outer diameter or width depending on shape). Falls back across spec

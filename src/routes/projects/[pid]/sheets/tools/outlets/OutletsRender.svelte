@@ -100,7 +100,8 @@
 
 	function isCeiling(t: TrunkConfig) { return t.location === 'ceiling-plenum' || t.location === 'ceiling-tray' }
 	function trunkPath(t: TrunkConfig): string {
-		return generateTrunkPolygons(t).map(poly => polygonToRoundedPath(poly, INNER_CORNER_RADIUS_MM)).join(' ')
+		const r = t.bendRadiusMm ?? INNER_CORNER_RADIUS_MM
+		return generateTrunkPolygons(t).map(poly => polygonToRoundedPath(poly, r)).join(' ')
 	}
 
 	// Outlet symbol geometry (mm)
