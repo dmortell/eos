@@ -133,7 +133,7 @@
 	{#each trunks as t (t.id)}
 		{#if t.visible !== false && t.nodes.length >= 2}
 			{@const color = t.color ?? '#000000'}
-			<path d={trunkPath(t)} fill="{color}33" stroke={color} stroke-width="0.75" vector-effect="non-scaling-stroke"
+			<path d={trunkPath(t)} fill="{color}33" stroke={color} stroke-width="0.5" vector-effect="non-scaling-stroke"
 				fill-rule="evenodd" opacity={t.isPrimary ? 0.85 : 0.5}
 				stroke-dasharray={isCeiling(t) ? '4 3' : undefined} />
 		{/if}
@@ -151,9 +151,9 @@
 		{@const cx = p.position.x + w / 2}
 		{@const cy = p.position.y + h / 2}
 		<g transform="rotate({p.rotation} {cx} {cy})">
-			<rect x={p.position.x} y={p.position.y} width={w} height={h} fill="{color}1a" stroke={color} stroke-width="1" vector-effect="non-scaling-stroke" />
+			<rect x={p.position.x} y={p.position.y} width={w} height={h} fill="{color}1a" stroke={color} stroke-width="0.4" vector-effect="non-scaling-stroke" />
 			<!-- front-of-rack indicator (top edge) -->
-			<line x1={p.position.x} y1={p.position.y} x2={p.position.x + w} y2={p.position.y} stroke={color} stroke-width="3" vector-effect="non-scaling-stroke" opacity="0.9" />
+			<line x1={p.position.x} y1={p.position.y} x2={p.position.x + w} y2={p.position.y} stroke={color} stroke-width="0.9" vector-effect="non-scaling-stroke" opacity="0.9" />
 			{#if label}
 				<text x={cx} y={cy} font-size={Math.min(w, h) * 0.18} text-anchor="middle" dominant-baseline="middle" fill="#333" font-weight="bold">{label}</text>
 			{/if}
@@ -170,11 +170,11 @@
 		{@const y = o.position.y}
 		<g>
 			{#if o.mountType === 'wall'}
-				<polygon points={triangle(x, y, R)} fill={low ? c.fill : 'none'} stroke={c.stroke} stroke-width={low ? 1 : 1.6} vector-effect="non-scaling-stroke" opacity="0.9" />
+				<polygon points={triangle(x, y, R)} fill={low ? c.fill : 'none'} stroke={c.stroke} stroke-width={low ? 0.5 : 0.7} vector-effect="non-scaling-stroke" opacity="0.9" />
 			{:else if o.mountType === 'floor'}
-				<polygon points={square(x, y, R * 1.2)} fill={low ? c.fill : 'none'} stroke={c.stroke} stroke-width={low ? 1 : 1.6} vector-effect="non-scaling-stroke" opacity="0.9" />
+				<polygon points={square(x, y, R * 1.2)} fill={low ? c.fill : 'none'} stroke={c.stroke} stroke-width={low ? 0.5 : 0.7} vector-effect="non-scaling-stroke" opacity="0.9" />
 			{:else}
-				<circle cx={x} cy={y} r={R * 0.9} fill={low ? c.fill : 'none'} stroke={c.stroke} stroke-width={low ? 1 : 1.6} vector-effect="non-scaling-stroke" opacity="0.9" />
+				<circle cx={x} cy={y} r={R * 0.9} fill={low ? c.fill : 'none'} stroke={c.stroke} stroke-width={low ? 0.5 : 0.7} vector-effect="non-scaling-stroke" opacity="0.9" />
 			{/if}
 			<text x={x} y={y + R * 0.35} font-size={R * 0.9} text-anchor="middle" font-weight="bold" fill={low ? 'white' : c.stroke}>{o.portCount}</text>
 			{#if o.label}
