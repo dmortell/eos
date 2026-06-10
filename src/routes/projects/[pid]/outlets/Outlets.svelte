@@ -642,6 +642,15 @@
 		selectedNodeIds = new Set()
 	}
 
+	/** Atomic multi-type marquee selection: unions hits into each set without the
+	 *  cross-type clearing the single-select helpers do, so a drag-box can hold
+	 *  outlets + racks + trunks at once. (Canvas clears first unless Ctrl is held.) */
+	function marqueeSelect(hits: { outletIds: string[]; rackIds: string[]; trunkIds: string[] }) {
+		if (hits.outletIds.length) selectedIds = new Set([...selectedIds, ...hits.outletIds])
+		if (hits.rackIds.length) selectedRackIds = new Set([...selectedRackIds, ...hits.rackIds])
+		if (hits.trunkIds.length) selectedTrunkIds = new Set([...selectedTrunkIds, ...hits.trunkIds])
+	}
+
 	// ── Rack placement CRUD ──
 	let stickyRotation = $state(0)
 
@@ -1576,6 +1585,7 @@
 					ondeletetrunks={deleteTrunks}
 					onsplittrunksegment={splitTrunkSegment}
 					ondisconnecttrunknode={disconnectTrunkNode}
+					onmarquee={marqueeSelect}
 					onexport={() => exportOutletsToExcel(outlets, projectName, fmt(floor))}
 					onzoomchange={z => canvasZoom = z}
 				/>

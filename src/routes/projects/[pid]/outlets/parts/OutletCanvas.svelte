@@ -27,7 +27,7 @@
 		toPx, toMm, onadd, onselect, onclear, onmove, onmoveend, ondelete,
 		onselectrack, onmoveracks, onmoveracksend, onplacerack, onremoveracks, onrotateracks,
 		onaddtrunk, ontrunkdrawingchange, onselecttrunk, onselecttrunknode, onmovetrunknodes, onmovetrunknodesend, ondeletetrunks, onsplittrunksegment, ondisconnecttrunknode,
-		onexport, onzoomchange }: {
+		onmarquee, onexport, onzoomchange }: {
 		file: any
 		page: number
 		viewKey?: string
@@ -74,6 +74,7 @@
 		ondeletetrunks?: () => void
 		onsplittrunksegment?: (trunkId: string, segmentId: string, point: Point) => void
 		ondisconnecttrunknode?: (trunkId: string, nodeId: string, segmentId: string) => string | null
+		onmarquee?: (hits: { outletIds: string[]; rackIds: string[]; trunkIds: string[] }) => void
 		onexport?: () => void
 		onzoomchange?: (zoom: number) => void
 	} = $props()
@@ -586,21 +587,48 @@
 		return { x: pos.x, y: pos.y, w, h, cfg, rotation: placement.rotation }
 	}
 
+	/** Rotated corners of a rack rect in PDF pixels (rotation is about the centre). */
+	function rackCornersPx(rect: { x: number; y: number; w: number; h: number; rotation: number }) {
+		const cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2
+		const rad = rect.rotation * Math.PI / 180
+		const cos = Math.cos(rad), sin = Math.sin(rad)
+		const hw = rect.w / 2, hh = rect.h / 2
+		return ([[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]] as const).map(([lx, ly]) => ({
+			x: cx + lx * cos - ly * sin,
+			y: cy + lx * sin + ly * cos,
+		}))
+	}
+
+	/** True if a (rotated) rack overlaps the marquee rect at all — edge crossing, a rack
+	 *  corner inside the marquee, or the marquee sitting wholly inside the rack. */
+	function rackIntersectsRect(rect: { x: number; y: number; w: number; h: number; rotation: number }, x1: number, y1: number, x2: number, y2: number): boolean {
+		const c = rackCornersPx(rect)
+		for (let i = 0; i < 4; i++) {
+			const a = c[i], b = c[(i + 1) % 4]
+			if (segmentIntersectsRect(a.x, a.y, b.x, b.y, x1, y1, x2, y2)) return true
+		}
+		// Marquee fully inside the rack: test the marquee centre against the rack body.
+		return !!hitRackAt(rect, (x1 + x2) / 2, (y1 + y2) / 2)
+	}
+
+	/** Point-in-rack test in rack-local coords (shared by click + marquee). */
+	function hitRackAt(rect: { x: number; y: number; w: number; h: number; rotation: number }, px: number, py: number): boolean {
+		const cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2
+		const rad = -rect.rotation * Math.PI / 180
+		const cos = Math.cos(rad), sin = Math.sin(rad)
+		const dx = px - cx, dy = py - cy
+		const lx = dx * cos - dy * sin + rect.w / 2
+		const ly = dx * sin + dy * cos + rect.h / 2
+		return lx >= 0 && lx <= rect.w && ly >= 0 && ly <= rect.h
+	}
+
 	/** Hit-test a point against placed racks (rotation-aware). Returns rackId or null. */
 	function hitTestRack(pos: Point): string | null {
 		for (let i = rackPlacements.length - 1; i >= 0; i--) {
 			const p = rackPlacements[i]
 			const rect = rackPxRect(p)
 			if (!rect) continue
-			// Transform test point into rack-local coords (undo rotation around anchor)
-			const cx = rect.x + rect.w / 2
-			const cy = rect.y + rect.h / 2
-			const rad = -rect.rotation * Math.PI / 180
-			const cos = Math.cos(rad), sin = Math.sin(rad)
-			const dx = pos.x - cx, dy = pos.y - cy
-			const lx = dx * cos - dy * sin + rect.w / 2
-			const ly = dx * sin + dy * cos + rect.h / 2
-			if (lx >= 0 && lx <= rect.w && ly >= 0 && ly <= rect.h) return p.rackId
+			if (hitRackAt(rect, pos.x, pos.y)) return p.rackId
 		}
 		return null
 	}
@@ -961,42 +989,34 @@
 			const y2 = Math.max(dragSelectRect.y1, dragSelectRect.y2)
 
 			if (x2 - x1 > 3 && y2 - y1 > 3) {
-				// Select outlets in rect
-				const outletHits: string[] = []
+				// Collect every hit across all object types, then commit them in ONE atomic
+				// selection. Calling the per-type select callbacks individually doesn't work:
+				// each one clears the *other* types' selection sets, so a mixed marquee would
+				// keep only whichever type ran last. onmarquee unions all sets together.
+				const outletIds: string[] = []
 				for (const o of outlets) {
 					const px = outletPx(o)
-					if (px.x >= x1 && px.x <= x2 && px.y >= y1 && px.y <= y2) {
-						outletHits.push(o.id)
-					}
-				}
-				if (outletHits.length > 0) {
-					for (const id of outletHits) onselect(id, true)
+					if (px.x >= x1 && px.x <= x2 && px.y >= y1 && px.y <= y2) outletIds.push(o.id)
 				}
 
-				// Select racks in rect
-				if (onselectrack) {
-					for (const p of rackPlacements) {
-						const rect = rackPxRect(p)
-						if (!rect) continue
-						const cx = rect.x + rect.w / 2
-						const cy = rect.y + rect.h / 2
-						if (cx >= x1 && cx <= x2 && cy >= y1 && cy <= y2) {
-							onselectrack(p.rackId, true)
-						}
-					}
+				// Racks: overlap test (any part of the rotated rack inside the marquee), not
+				// centre-only — so clipping a corner of a large rack still selects it.
+				const rackIds: string[] = []
+				for (const p of rackPlacements) {
+					const rect = rackPxRect(p)
+					if (rect && rackIntersectsRect(rect, x1, y1, x2, y2)) rackIds.push(p.rackId)
 				}
 
-				// Select trunks in rect (node center or segment intersection)
-				if (onselecttrunk && calibration) {
+				// Trunks: any node inside the marquee, or any segment crossing it.
+				const trunkIds: string[] = []
+				if (calibration) {
 					for (const trunk of trunks) {
 						if (trunk.visible === false) continue
-						// Check if any node center is in rect
 						const hasNodeInRect = trunk.nodes.some(n => {
 							const px = toPx(n.position)
 							return px.x >= x1 && px.x <= x2 && px.y >= y1 && px.y <= y2
 						})
-						if (hasNodeInRect) { onselecttrunk(trunk.id, true); continue }
-						// Check if any segment intersects the rect
+						if (hasNodeInRect) { trunkIds.push(trunk.id); continue }
 						const nodeMap = new Map(trunk.nodes.map(n => [n.id, n]))
 						const hasSegmentHit = trunk.segments.some(seg => {
 							const nA = nodeMap.get(seg.nodes[0])
@@ -1006,8 +1026,17 @@
 							const pB = toPx(nB.position)
 							return segmentIntersectsRect(pA.x, pA.y, pB.x, pB.y, x1, y1, x2, y2)
 						})
-						if (hasSegmentHit) onselecttrunk(trunk.id, true)
+						if (hasSegmentHit) trunkIds.push(trunk.id)
 					}
+				}
+
+				if (onmarquee) {
+					onmarquee({ outletIds, rackIds, trunkIds })
+				} else {
+					// Fallback (no combined handler): single-type only, last type wins.
+					for (const id of outletIds) onselect(id, true)
+					for (const id of rackIds) onselectrack?.(id, true)
+					for (const id of trunkIds) onselecttrunk?.(id, true)
 				}
 			}
 		}
