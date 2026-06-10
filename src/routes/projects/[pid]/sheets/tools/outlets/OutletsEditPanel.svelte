@@ -100,6 +100,9 @@
 		{#if t.shape !== 'pipe'}
 			<PropText label="Height (mm)" type="number" min="0" value={String(editor.selTrunkHeight)} oninput={(e: Event) => editor.setTrunkHeight(Number(val(e)) || 0)} />
 		{/if}
+		<div class="flex items-center justify-between gap-2 text-xs text-zinc-500">
+			<span>Run length</span><span class="tabular-nums text-zinc-700">{(editor.selTrunkLengthMm / 1000).toFixed(2)} m</span>
+		</div>
 		<button class="w-full rounded bg-red-600 px-1 py-0.5 text-xs text-white hover:bg-red-500" onclick={() => editor.deleteSel()}>Delete trunk</button>
 	{:else if editor.selRackPlacement}
 		{@const r = editor.selRackPlacement}

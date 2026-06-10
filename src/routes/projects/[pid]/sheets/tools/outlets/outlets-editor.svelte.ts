@@ -369,6 +369,13 @@ export class OutletsEditor extends SurfaceEditor {
 		t.shape = shape
 		this.notify()
 	}
+	/** Total routed length of the selected trunk (mm) — sum of all its segment lengths. */
+	selTrunkLengthMm = $derived.by(() => {
+		const t = this.selTrunk; if (!t) return 0
+		let sum = 0
+		for (const s of t.segments) { const a = this.nodePos(t, s.nodes[0]), b = this.nodePos(t, s.nodes[1]); if (a && b) sum += Math.hypot(b.x - a.x, b.y - a.y) }
+		return sum
+	})
 	selTrunkWidth = $derived(((this.selTrunk?.spec as any)?.widthMm ?? (this.selTrunk?.spec as any)?.outerDiameterMm ?? 0) as number)
 	selTrunkHeight = $derived(((this.selTrunk?.spec as any)?.heightMm ?? (this.selTrunk?.spec as any)?.outerDiameterMm ?? 0) as number)
 	setTrunkWidth(w: number) {
