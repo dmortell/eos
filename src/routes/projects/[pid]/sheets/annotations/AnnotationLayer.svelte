@@ -80,6 +80,15 @@
 				<text x={cx} y={cy - R} font-size={R} fill={color} text-anchor="middle">N</text>
 			{:else if a.symbol === 'outlet'}
 				<circle cx={cx} cy={cy} r={R * 0.7} fill={a.fill ?? color} fill-opacity={a.fill ? undefined : 0.13} stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" />
+			{:else if a.symbol === 'faceplate'}
+				{@const pw = b.w * 0.6}{@const ph = b.h * 0.85}{@const ps = pw * 0.32}
+				<rect x={cx - pw / 2} y={cy - ph / 2} width={pw} height={ph} rx={pw * 0.08} fill={a.fill ?? 'white'} stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" />
+				<rect x={cx - ps / 2} y={cy - ph * 0.3} width={ps} height={ps} fill={color} fill-opacity="0.55" stroke={color} stroke-width="1" vector-effect="non-scaling-stroke" />
+				<rect x={cx - ps / 2} y={cy + ph * 0.3 - ps} width={ps} height={ps} fill={color} fill-opacity="0.55" stroke={color} stroke-width="1" vector-effect="non-scaling-stroke" />
+			{:else if a.symbol === 'door'}
+				{@const hx = b.x}{@const hy = b.y + b.h}
+				<line x1={hx} y1={hy} x2={hx} y2={b.y} stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" />
+				<path d="M{hx},{b.y} A {b.h},{b.h} 0 0 1 {hx + b.h},{hy}" fill="none" stroke={color} stroke-width="1" stroke-dasharray="20 12" vector-effect="non-scaling-stroke" />
 			{:else}
 				<circle cx={cx} cy={cy} r={R} fill={a.fill ?? 'white'} stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-dasharray={a.symbol === 'detail' ? '40 24' : undefined} />
 				<text x={cx} y={cy} font-size={R * 0.9} fill={color} text-anchor="middle" dominant-baseline="middle">{a.link?.ref ?? '?'}</text>

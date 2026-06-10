@@ -8,6 +8,8 @@ export const SYMBOLS: SymbolDef[] = [
 	{ id: 'photo', name: 'Photo marker', linkable: 'photo' },
 	{ id: 'north', name: 'North arrow' },
 	{ id: 'outlet', name: 'Outlet' },
+	{ id: 'faceplate', name: 'Faceplate (wall outlet)' },
+	{ id: 'door', name: 'Door' },
 ]
 
 export const symbolDef = (id?: string) => SYMBOLS.find(s => s.id === id)
