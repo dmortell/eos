@@ -494,13 +494,6 @@
 		logChange('add', 'device', `${template.label} in ${targetRack.label}`)
 	}
 
-	/** Click-to-add: place in selected rack or first rack */
-	function addDevice(template: DeviceTemplate) {
-		const targetRack = activeRacks.find(r => selectedIds.has(r.id)) ?? activeRacks[0]
-		if (!targetRack) return
-		placeDevice(template, targetRack)
-	}
-
 	// ── Palette drag-to-canvas ──
 	let canvasEl: HTMLDivElement | undefined = $state()
 	let draggingTemplate = $state<DeviceTemplate | null>(null)
@@ -609,9 +602,12 @@
 
 	// ── Custom device library (project-level) ──
 	function addCustomTemplate(template: DeviceTemplate) {
-		const updated = [...library, template]
+		const exists = library.some(item => item.id === template.id)
+		const updated = exists
+			? library.map(item => item.id === template.id ? template : item)
+			: [...library, template]
 		onlibrarychange?.(updated)
-		logChange('add', 'library', template.label)
+		logChange(exists ? 'update' : 'add', 'library', template.label)
 	}
 
 	// ── Row management ──
@@ -1042,7 +1038,7 @@
 					{:else if sidebarTab === 'devices'}
 						<RackDevices racks={activeRacks} {devices} {selectedIds} onselect={selectDevice} onrangeselect={rangeSelectDevices} ondelete={deleteDevice} />
 					{:else if sidebarTab === 'library'}
-						<DevicePalette {library} onadd={addDevice} ondragstart={onPaletteDragStart} oncustomadd={addCustomTemplate} />
+						<DevicePalette {library} ondragstart={onPaletteDragStart} oncustomadd={addCustomTemplate} />
 					{:else if sidebarTab === 'catalog'}
 						<CatalogBrowser
 							products={catalog}

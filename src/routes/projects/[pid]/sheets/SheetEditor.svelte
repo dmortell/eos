@@ -1,9 +1,13 @@
 <script lang="ts">
 	import { untrack, setContext } from "svelte";
 	import { DEFAULT_PRINT_SETTINGS, paperDimsMm, type PrintSettings } from '$lib/ui/print/types'
-	import Canvas from "./parts/Canvas.svelte";
-	import TitleBlock from "./parts/TitleBlock.svelte";
+	import { ViewportEditor } from "./viewports.svelte";
+	import { updateSheet, subscribeSheets } from "./data";
+	import type { SheetDoc, SheetViewport, TitleBlockConfig } from "./types";
+	import type { Firestore } from "$lib/db.svelte";
 	import type { TitleBlockProjectDefaults } from "./parts/TitleBlock.svelte";
+	import TitleBlock from "./parts/TitleBlock.svelte";
+	import Canvas from "./parts/Canvas.svelte";
 	import Viewport from "./Viewport.svelte";
 	import SheetMenubar from "./SheetMenubar.svelte";
 	import StatusBar from "./StatusBar.svelte";
@@ -12,10 +16,6 @@
 	import ModelView from "./edit/ModelView.svelte";
 	import LayersPanel from "./layers/LayersPanel.svelte";
 	import RevisionsPanel from "./revisions/RevisionsPanel.svelte";
-	import { ViewportEditor } from "./viewports.svelte";
-	import type { SheetDoc, SheetViewport, TitleBlockConfig } from "./types";
-	import { updateSheet, subscribeSheets } from "./data";
-	import type { Firestore } from "$lib/db.svelte";
 
 	let { sheet, project = {}, floors = [], db, pid }: {
 		sheet: SheetDoc

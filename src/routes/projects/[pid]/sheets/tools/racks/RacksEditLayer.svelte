@@ -5,7 +5,7 @@
 	// Elevation: click a device to select it, drag it vertically to change its U. `namespace="svg"`
 	// is required because this layer is hosted via the render's {@render children} slot, which
 	// otherwise compiles these elements in the HTML namespace (inert, zero-size).
-	import { buildElevation, deviceBox, slotAtY } from './layout'
+	import { buildElevation, deviceBox, slotAtY } from './rack-layout'
 	import type { RacksEditor } from './racks-editor.svelte'
 	import type { RackFace, DeviceConfig } from './types'
 	let { editor, face, rowId = undefined, interactive = false }: { editor: RacksEditor; face: RackFace; rowId?: string; interactive?: boolean } = $props()

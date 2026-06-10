@@ -2,7 +2,7 @@
 	import type { SheetViewport } from '../../types'
 	import type { RackConfig, DeviceConfig, RackSettings, RoomObject, RackRow, RackFace } from './types'
 	import { RU_HEIGHT_MM, RACK_19IN_MM, RACK_19IN_INNER, RACK_GAP_MM, DEVICE_TYPE_COLORS, DEFAULT_SETTINGS } from './colors'
-	import { buildElevation, deviceBox } from './layout'
+	import { buildElevation, deviceBox } from './rack-layout'
 
 	let {
 		racks = [], devices = [], settings = null, roomObjects = [], rows = [], face = 'front',

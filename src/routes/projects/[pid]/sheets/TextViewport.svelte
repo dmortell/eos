@@ -13,7 +13,7 @@
 	let source = $derived(vp.source)
 	// The viewport interior is paper-mm space (1px = 1mm). Point size → mm so it prints true size.
 	const PT_TO_MM = 25.4 / 72
-	let fontMm = $derived(((source.kind === 'text' ? source.fontSizePt : undefined) ?? 6) * PT_TO_MM)
+	let fontMm = $derived(((source.kind === 'text' ? source.fontSizePt : undefined) ?? 10) * PT_TO_MM)
 	let content = $derived(source.kind === 'text' ? (source.content ?? '') : '')
 	let empty = $derived(!content.trim())
 
@@ -78,7 +78,7 @@
 
 {#snippet body()}
 	{#if empty}
-		<div class="ph flex h-full w-full items-center justify-center text-center select-none" style:font-size="{fontMm}px">Empty — choose source</div>
+		<div class="ph flex h-full w-full items-center justify-center text-center select-none" style:font-size="{fontMm}px">Empty — choose Viewport type & source</div>
 	{:else}
 		<div class="tv h-full w-full overflow-hidden break-words text-black" style:font-size="{fontMm}px" style:padding="2px" style:line-height="1.3">
 			<!-- eslint-disable-next-line svelte/no-at-html-tags -->

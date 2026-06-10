@@ -2,8 +2,8 @@
 	import { page } from '$app/state'
 	import { getContext } from 'svelte'
 	import { Firestore, Titlebar, Spinner, Session } from '$lib'
-	import type { SheetDoc } from './types'
 	import { subscribeSheets } from './data'
+	import type { SheetDoc } from './types'
 	import SheetList from './parts/SheetList.svelte'
 
 	let db = getContext('db') as Firestore
