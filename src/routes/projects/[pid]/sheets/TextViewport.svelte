@@ -1,11 +1,29 @@
 <script lang="ts">
-	import type { ViewportSource } from './types'
+	import type { SheetViewport } from './types'
 
-	let { source }: { source: Extract<ViewportSource, { kind: 'text' }> } = $props()
+	// Renders text viewports — and empty ones, which show a placeholder ("Empty — choose source").
+	// In model mode the host supplies a `view` (real-mm viewBox) + `onview`; we render the text in
+	// an SVG <foreignObject> so the shared SVG viewBox pan/zoom drives it like the other renders.
+	let { vp, view = null, onview }: {
+		vp: SheetViewport
+		view?: { x: number; y: number; w: number; h: number } | null
+		onview?: (v: { x: number; y: number; w: number; h: number; den: number }) => void
+	} = $props()
 
+	let source = $derived(vp.source)
 	// The viewport interior is paper-mm space (1px = 1mm). Point size → mm so it prints true size.
 	const PT_TO_MM = 25.4 / 72
-	let fontMm = $derived((source.fontSizePt ?? 6) * PT_TO_MM)
+	let fontMm = $derived(((source.kind === 'text' ? source.fontSizePt : undefined) ?? 6) * PT_TO_MM)
+	let content = $derived(source.kind === 'text' ? (source.content ?? '') : '')
+	let empty = $derived(!content.trim())
+
+	// Natural content window (the viewport's own paper rect, mm). In model mode the SVG viewBox is
+	// the host's `view`; otherwise the natural rect. Report the natural rect so the host can seed
+	// its pan/zoom. Guard W/H > 0 so a zero-size frame doesn't make an invalid viewBox.
+	let W = $derived(Math.max(1, vp.w))
+	let H = $derived(Math.max(1, vp.h))
+	$effect(() => { onview?.({ x: 0, y: 0, w: W, h: H, den: 1 }) })
+	let viewBox = $derived(view ? `${view.x} ${view.y} ${view.w} ${view.h}` : `0 0 ${W} ${H}`)
 
 	const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 	const inline = (s: string) => esc(s)
@@ -55,15 +73,33 @@
 		return out.join('')
 	}
 
-	let html = $derived(render(source.content ?? ''))
+	let html = $derived(empty ? '' : render(content))
 </script>
 
-<div class="tv h-full w-full overflow-hidden break-words text-black" style:font-size="{fontMm}px" style:padding="2px" style:line-height="1.3">
-	<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-	{@html html}
-</div>
+{#snippet body()}
+	{#if empty}
+		<div class="ph flex h-full w-full items-center justify-center text-center select-none" style:font-size="{fontMm}px">Empty — choose source</div>
+	{:else}
+		<div class="tv h-full w-full overflow-hidden break-words text-black" style:font-size="{fontMm}px" style:padding="2px" style:line-height="1.3">
+			<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+			{@html html}
+		</div>
+	{/if}
+{/snippet}
+
+{#if view}
+	<!-- model mode: SVG viewBox handles pan/zoom; the text HTML lives in a foreignObject (mm units). -->
+	<svg class="h-full w-full" {viewBox} preserveAspectRatio="xMidYMid meet">
+		<foreignObject x="0" y="0" width={W} height={H}>
+			<div xmlns="http://www.w3.org/1999/xhtml" class="h-full w-full">{@render body()}</div>
+		</foreignObject>
+	</svg>
+{:else}
+	{@render body()}
+{/if}
 
 <style>
+	.ph { color: #94a3b8; }
 	.tv :global(h1) { font-size: 1.6em; font-weight: 700; margin: 0.2em 0; }
 	.tv :global(h2) { font-size: 1.3em; font-weight: 700; margin: 0.2em 0; }
 	.tv :global(h3) { font-size: 1.1em; font-weight: 700; margin: 0.2em 0; }

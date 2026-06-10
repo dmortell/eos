@@ -17,7 +17,10 @@
 		pid: string
 	} = $props()
 
-	let vp = $derived(vps.selectedViewport)
+	// Show for the selected viewport, or for an active text/empty one — those have no separate Edit
+	// panel, so this window IS their editor (activating clears the frame selection).
+	let activeText = $derived(vps.activeViewport && (vps.activeViewport.source.kind === 'text' || vps.activeViewport.source.kind === 'empty') ? vps.activeViewport : null)
+	let vp = $derived(vps.selectedViewport ?? activeText)
 
 	// Wider scale range than the sheet's paper scale — viewports often need large scales for
 	// elevations (1:10 / 1:5 / 1:2). value 0 = Fit (auto).
@@ -77,8 +80,11 @@
 		apply()
 	}
 
+	// Editing the text of an empty viewport promotes it to a text source.
+	function editText() { if (form.kind === 'empty') form.kind = 'text'; apply() }
+
 	function apply() {
-		const v = vps.selectedViewport
+		const v = vps.selectedViewport ?? vps.activeViewport
 		if (!v) return
 		v.label = form.label.trim() || undefined
 		v.scale = Number(form.scale) || 0
@@ -125,10 +131,10 @@
 			<option value="none">None</option>
 		</PropSelect>
 
-		{#if form.kind === 'text'}
+		{#if form.kind === 'text' || form.kind === 'empty'}
 			<hr class="border-zinc-200" />
-			<PropText label="Font (pt)" type="number" min="1" step="0.5" bind:value={form.fontSizePt} oninput={apply} />
-			<PropTextarea bind:value={form.text} oninput={apply} rows={4} />
+			<PropText label="Font (pt)" type="number" min="1" step="0.5" bind:value={form.fontSizePt} oninput={editText} />
+			<PropTextarea bind:value={form.text} oninput={editText} rows={4} placeholder="Empty — choose source, or type a note" />
 		{:else if form.kind === 'outlets'}
 			<hr class="border-zinc-200" />
 			<OutletsProperties {floors} {pid} outletsDocId={form.outletsDocId}

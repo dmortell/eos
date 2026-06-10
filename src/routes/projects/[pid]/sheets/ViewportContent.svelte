@@ -1,5 +1,4 @@
 <script lang="ts">
-	import EmptyViewport from './EmptyViewport.svelte'
 	import TextViewport from './TextViewport.svelte'
 	import OutletsViewport from './tools/outlets/OutletsViewport.svelte'
 	import RacksViewport from './tools/racks/RacksViewport.svelte'
@@ -23,14 +22,12 @@
 	let layers = $derived(effectiveLayers(vp))
 </script>
 
-{#if vp.source.kind === 'text'}
-	<TextViewport source={vp.source} />
+{#if vp.source.kind === 'text' || vp.source.kind === 'empty'}
+	<TextViewport {vp} view={view ?? null} {onview} />
 {:else if vp.source.kind === 'outlets'}
 	<OutletsViewport {vp} {vps} {zoom} {active} {view} {onview} hidden={layers.hidden} locked={layers.locked} />
 {:else if vp.source.kind === 'racks'}
 	<RacksViewport {vp} {vps} {zoom} {active} {view} {onview} hidden={layers.hidden} locked={layers.locked} />
 {:else if vp.source.kind === 'risers'}
 	<RisersViewport {vp} {vps} {zoom} {active} {view} {onview} hidden={layers.hidden} locked={layers.locked} />
-{:else}
-	<EmptyViewport {zoom} />
 {/if}

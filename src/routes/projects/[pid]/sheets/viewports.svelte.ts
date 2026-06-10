@@ -128,7 +128,9 @@ export class ViewportEditor {
 	}
 
 	addViewport(r: Rect) {
-		const v: SheetViewport = { id: this.uid('V'), ...r, source: { kind: 'empty' }, border: 'thin', version: 2 }
+		// New viewports start as an (empty) text note — they show the "Empty — choose source"
+		// placeholder until the user types or picks a real source from the Type dropdown.
+		const v: SheetViewport = { id: this.uid('V'), ...r, source: { kind: 'text', content: '' }, border: 'thin', version: 2 }
 		this.viewports.push(v)
 		this.selectedIds = [v.id]
 		this.notify()
