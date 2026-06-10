@@ -17,7 +17,9 @@
 	})
 </script>
 
-<div class="dwg-statusbar print:hidden flex items-center gap-2 border-t border-slate-200 bg-white px-3 py-1 text-xs text-slate-600">
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="dwg-statusbar print:hidden flex items-center gap-2 border-t border-slate-200 bg-white px-3 py-1 text-xs text-slate-600"
+	oncontextmenu={(e: MouseEvent) => e.preventDefault()}>
 	<span class="min-w-0 flex-1 truncate">{message}</span>
 	<!-- Debug readout (pan/zoom) — temporary, for tuning default view. -->
 	<span class="shrink-0 font-mono text-[11px] text-slate-400 tabular-nums">
