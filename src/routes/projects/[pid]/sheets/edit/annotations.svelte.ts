@@ -14,6 +14,8 @@ export function useAnnotations(opts: {
 	active: () => boolean
 	vps: ViewportEditor
 	toolEditor: SurfaceEditor
+	/** Called after each annotation change persists — e.g. to notify an undo History. */
+	afterChange?: () => void
 }): AnnotationEditor {
 	const ed = new AnnotationEditor()
 	ed.peer = opts.toolEditor
@@ -25,7 +27,7 @@ export function useAnnotations(opts: {
 		if (!seeded) { ed.seed(a); seeded = true }
 	})
 	$effect(() => {
-		ed.onChange = () => opts.vps.setAnnotations(opts.vp().id, ed.snapshot())
+		ed.onChange = () => { opts.vps.setAnnotations(opts.vp().id, ed.snapshot()); opts.afterChange?.() }
 		return () => { ed.onChange = null }
 	})
 	return ed

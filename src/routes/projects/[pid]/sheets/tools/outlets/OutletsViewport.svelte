@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getContext } from 'svelte'
+	import { getContext, untrack } from 'svelte'
 	import type { Firestore } from '$lib/db.svelte'
 	import { PdfState } from '../../../uploads/parts/PdfState.svelte'
 	import type { SheetViewport } from '../../types'
@@ -12,6 +12,7 @@
 	import EditBackground from '../../edit/EditBackground.svelte'
 	import AnnotationLayer from '../../annotations/AnnotationLayer.svelte'
 	import { useAnnotations } from '../../edit/annotations.svelte'
+	import { History } from '../../edit/history.svelte'
 	import type { ViewportEditor } from '../../viewports.svelte'
 	import { layerBlockReason } from '../../layers/layers'
 	import { toast } from 'svelte-sonner'
@@ -45,7 +46,8 @@
 	}
 	// ── Editing ── one editor per viewport instance; the source doc is the single source of truth.
 	const editor = new OutletsEditor()
-	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor })
+	const history = new History()
+	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor, afterChange: () => history.touch() })
 	annEditor.onPlaced = () => { tool = 'select' } // return to Select after placing so handles show
 
 	let src = $derived(vp.source.kind === 'outlets' ? vp.source : null)
@@ -129,15 +131,15 @@
 	let seeded = false
 	$effect(() => {
 		const d = outletsData
-		if (!active) { editor.seed(d); seeded = !!d; return }
-		if (!seeded && d) { editor.seed(d); seeded = true }
+		if (!active) { editor.seed(d); seeded = !!d; untrack(() => { history.register(editor, annEditor); history.reset() }); return }
+		if (!seeded && d) { editor.seed(d); seeded = true; untrack(() => { history.register(editor, annEditor); history.reset() }) }
 	})
-	// Persist edits (debounced) to the outlets doc.
+	// Persist edits (debounced) to the outlets doc; tap the undo history on every change.
 	$effect(() => {
 		const id = src?.outletsDocId
 		if (!id) { editor.onChange = null; return }
 		const saver = docSaver(db, 'outlets', id)
-		editor.onChange = () => saver.save(editor.snapshot())
+		editor.onChange = () => { saver.save(editor.snapshot()); history.touch() }
 		return () => { saver.flush(); editor.onChange = null }
 	})
 	// Delete / Escape while active (capture phase so the sheet's handlers don't also fire).
@@ -147,6 +149,8 @@
 		const onKey = (e: KeyboardEvent) => {
 			const f = (e.target as Element)?.closest?.('input, textarea, select, [contenteditable]')
 			if (f) return
+			if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); e.stopPropagation(); if (e.shiftKey) history.redo(); else history.undo(); return }
+			if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); e.stopPropagation(); history.redo(); return }
 			if (e.key === 'Delete') {
 				if (editor.hasMultiSel() || annEditor.hasMultiSel()) { e.preventDefault(); e.stopPropagation(); editor.deleteMany(); annEditor.deleteMany() }
 				else if (annEditor.selAnn) { e.preventDefault(); e.stopPropagation(); annEditor.deleteSel() }

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getContext } from 'svelte'
+	import { getContext, untrack } from 'svelte'
 	import type { Firestore } from '$lib/db.svelte'
 	import type { SheetViewport } from '../../types'
 	import type { RackDocData } from './types'
@@ -14,6 +14,7 @@
 	import { RacksEditor } from './racks-editor.svelte'
 	import { buildElevation, rackAtX, slotAtY } from './rack-layout'
 	import { useAnnotations } from '../../edit/annotations.svelte'
+	import { History } from '../../edit/history.svelte'
 	import { layerBlockReason } from '../../layers/layers'
 	import { toast } from 'svelte-sonner'
 	import { docSaver } from '../../edit/persist'
@@ -51,7 +52,8 @@
 		editor.addDeviceFromTemplate(e.rack.id, slotAtY(e, el, w.y, t.heightU || 1), t)
 	}
 	const editor = new RacksEditor()
-	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor })
+	const history = new History()
+	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor, afterChange: () => history.touch() })
 	annEditor.onPlaced = () => { tool = 'select' }
 
 	let src = $derived(vp.source.kind === 'racks' ? vp.source : null)
@@ -68,21 +70,24 @@
 	let seeded = false
 	$effect(() => {
 		const d = doc
-		if (!active) { editor.seed(d); seeded = !!d; return }
-		if (!seeded && d) { editor.seed(d); seeded = true }
+		if (!active) { editor.seed(d); seeded = !!d; untrack(() => { history.register(editor, annEditor); history.reset() }); return }
+		if (!seeded && d) { editor.seed(d); seeded = true; untrack(() => { history.register(editor, annEditor); history.reset() }) }
 	})
 	$effect(() => {
 		const id = src?.racksDocId
 		if (!id) { editor.onChange = null; return }
 		const saver = docSaver(db, 'racks', id)
-		editor.onChange = () => saver.save(editor.snapshot())
+		editor.onChange = () => { saver.save(editor.snapshot()); history.touch() }
 		return () => { saver.flush(); editor.onChange = null }
 	})
 	$effect(() => {
 		if (!active) return
 		const onKey = (e: KeyboardEvent) => {
 			const f = (e.target as Element)?.closest?.('input, textarea, select, [contenteditable]')
-			if (e.key === 'Delete' && !f) {
+			if (f) return
+			if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); e.stopPropagation(); if (e.shiftKey) history.redo(); else history.undo(); return }
+			if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); e.stopPropagation(); history.redo(); return }
+			if (e.key === 'Delete') {
 				if (editor.hasMultiSel() || annEditor.hasMultiSel()) { e.preventDefault(); e.stopPropagation(); editor.deleteMany(); annEditor.deleteMany() }
 				else if (annEditor.selAnn) { e.preventDefault(); e.stopPropagation(); annEditor.deleteSel() }
 				else if (editor.selDevice) { e.preventDefault(); e.stopPropagation(); editor.deleteDevice() }
