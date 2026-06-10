@@ -1,6 +1,8 @@
 import { SurfaceEditor } from '../../edit/surface.svelte'
-import { buildFloorBands } from './engine'
+import { buildFloorBands, bandForFloor, roomCentreYMm } from './engine'
 import { DEFAULT_RISER_SETTINGS } from './types'
+
+type Rect = { x: number; y: number; w: number; h: number }
 import type { RiserRoom, Ladder, Cable, CableSegment, TextLabel, RiserDocData, RiserSettings, FloorHeights, RoomKind, LadderLevel, CableLevel } from './types'
 
 /** Editor for a risers viewport — rooms, ladders, cables (hop routes). */
@@ -29,6 +31,64 @@ export class RisersEditor extends SurfaceEditor {
 	selRoom = $derived(this.sel?.kind === 'room' ? this.rooms.find(r => r.id === this.sel!.id) ?? null : null)
 	selLadder = $derived(this.sel?.kind === 'ladder' ? this.ladders.find(l => l.id === this.sel!.id) ?? null : null)
 	selCable = $derived(this.sel?.kind === 'cable' ? this.cables.find(c => c.id === this.sel!.id) ?? null : null)
+
+	// ── marquee multi-select (rooms + ladders; annotations via the peer) ──
+	// `range` (from/to floors) is injected by the edit layer so the editor can rebuild the floor
+	// bands to position rooms/ladders. The live `marquee` rect + beginMarquee live in SurfaceEditor.
+	selRooms = $state<string[]>([])
+	selLadders = $state<string[]>([])
+	range: { from: number; to: number } | null = null
+	#gbRooms = new Map<string, { xMm: number; cy: number }>()
+	#gbLadders = new Map<string, { xMm: number }>()
+
+	clearSel() { super.clearSel(); this.clearMulti() }
+	clearMulti() { this.selRooms = []; this.selLadders = [] }
+	hasMultiSel() { return this.selRooms.length + this.selLadders.length > 0 }
+	inRoomMulti(id: string) { return this.selRooms.includes(id) }
+	inLadderMulti(id: string) { return this.selLadders.includes(id) }
+
+	#bands() {
+		const r = this.range; if (!r) return []
+		return buildFloorBands({ floorHeights: this.floorHeights, settings: this.settings ?? DEFAULT_RISER_SETTINGS, hiddenFloors: this.hiddenFloors }, r.from, r.to)
+	}
+	marqueeCollect(m: Rect) {
+		const bands = this.#bands(); if (!bands.length) return
+		const inX = (x: number) => x >= m.x && x <= m.x + m.w
+		this.selRooms = this.rooms.filter(rm => {
+			const b = bandForFloor(bands, rm.floor); if (!b) return false
+			const cy = roomCentreYMm(b); return inX(rm.xMm) && cy >= m.y && cy <= m.y + m.h
+		}).map(rm => rm.id)
+		this.selLadders = this.ladders.filter(l => {
+			if (!inX(l.xMm)) return false
+			const bTop = bandForFloor(bands, Math.max(l.fromFloor, l.toFloor)), bBot = bandForFloor(bands, Math.min(l.fromFloor, l.toFloor))
+			if (!bTop || !bBot) return false
+			const top = Math.min(bTop.topMm, bBot.slabBottomMm), bot = Math.max(bTop.topMm, bBot.slabBottomMm)
+			return !(bot < m.y || top > m.y + m.h) // vertical span overlaps the rect
+		}).map(l => l.id)
+	}
+	beginGroupTranslate() {
+		this.#gbRooms.clear(); this.#gbLadders.clear()
+		const bands = this.#bands(), rs = new Set(this.selRooms), ls = new Set(this.selLadders)
+		for (const rm of this.rooms) if (rs.has(rm.id)) { const b = bandForFloor(bands, rm.floor); this.#gbRooms.set(rm.id, { xMm: rm.xMm, cy: b ? roomCentreYMm(b) : 0 }) }
+		for (const l of this.ladders) if (ls.has(l.id)) this.#gbLadders.set(l.id, { xMm: l.xMm })
+	}
+	applyGroupTranslate(dx: number, dy: number) {
+		const r = this.range
+		for (const rm of this.rooms) {
+			const b = this.#gbRooms.get(rm.id); if (!b) continue
+			rm.xMm = b.xMm + dx
+			if (r) { const f = this.floorAtY(b.cy + dy, r.from, r.to); if (f != null) rm.floor = f }
+		}
+		for (const l of this.ladders) { const b = this.#gbLadders.get(l.id); if (b) l.xMm = b.xMm + dx }
+	}
+	/** Delete the marquee multi-selection (rooms + ladders; annotation peer handled by the host). */
+	deleteMany() {
+		if (!this.hasMultiSel()) return false
+		const rs = new Set(this.selRooms), ls = new Set(this.selLadders)
+		if (rs.size) this.rooms = this.rooms.filter(rm => !rs.has(rm.id))
+		if (ls.size) this.ladders = this.ladders.filter(l => !ls.has(l.id))
+		this.clearMulti(); this.notify(); return true
+	}
 
 	// ── add ──
 	addRoom(kind: RoomKind, floor: number) {
