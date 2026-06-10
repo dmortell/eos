@@ -17,7 +17,7 @@
 	const mid = `mk-${Math.random().toString(36).slice(2, 7)}`
 	let pe = $derived(interactive && !locked ? 'auto' : 'none')
 
-	const BOX = new Set(['text', 'rect', 'cloud', 'symbol', 'callout', 'leader'])
+	const BOX = new Set(['text', 'rect', 'ellipse', 'cloud', 'symbol', 'callout', 'leader'])
 	const POINTER = new Set(['callout', 'leader']) // box kinds that also have a pointer target
 	const LINE = new Set(['line', 'arrow', 'dimension'])
 	const isBoxKind = (a: Annotation) => BOX.has(a.kind)
@@ -67,6 +67,8 @@
 			</text>
 		{:else if a.kind === 'rect'}
 			<rect x={b.x} y={b.y} width={b.w} height={b.h} fill={a.fill ?? 'none'} stroke={color} stroke-width="1.5" stroke-dasharray={dashArray(a.dash)} vector-effect="non-scaling-stroke" />
+		{:else if a.kind === 'ellipse'}
+			<ellipse cx={cx} cy={cy} rx={b.w / 2} ry={b.h / 2} fill={a.fill ?? 'none'} stroke={color} stroke-width="1.5" stroke-dasharray={dashArray(a.dash)} vector-effect="non-scaling-stroke" />
 		{:else if a.kind === 'cloud'}
 			{@const r = Math.max(150, Math.min(b.w, b.h) / 6)}
 			<path d={cloudPath(b.x, b.y, b.w, b.h, r)} fill={a.fill ?? 'none'} stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" />
@@ -86,9 +88,9 @@
 				<rect x={cx - ps / 2} y={cy - ph * 0.3} width={ps} height={ps} fill={color} fill-opacity="0.55" stroke={color} stroke-width="1" vector-effect="non-scaling-stroke" />
 				<rect x={cx - ps / 2} y={cy + ph * 0.3 - ps} width={ps} height={ps} fill={color} fill-opacity="0.55" stroke={color} stroke-width="1" vector-effect="non-scaling-stroke" />
 			{:else if a.symbol === 'door'}
-				{@const hx = b.x}{@const hy = b.y + b.h}
+				{@const dir = a.flip ? -1 : 1}{@const hx = a.flip ? b.x + b.w : b.x}{@const hy = b.y + b.h}
 				<line x1={hx} y1={hy} x2={hx} y2={b.y} stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" />
-				<path d="M{hx},{b.y} A {b.h},{b.h} 0 0 1 {hx + b.h},{hy}" fill="none" stroke={color} stroke-width="1" stroke-dasharray="20 12" vector-effect="non-scaling-stroke" />
+				<path d="M{hx},{b.y} A {b.h},{b.h} 0 0 {a.flip ? 0 : 1} {hx + dir * b.h},{hy}" fill="none" stroke={color} stroke-width="1" stroke-dasharray="20 12" vector-effect="non-scaling-stroke" />
 			{:else}
 				<circle cx={cx} cy={cy} r={R} fill={a.fill ?? 'white'} stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-dasharray={a.symbol === 'detail' ? '40 24' : undefined} />
 				<text x={cx} y={cy} font-size={R * 0.9} fill={color} text-anchor="middle" dominant-baseline="middle">{a.link?.ref ?? '?'}</text>
@@ -129,6 +131,9 @@
 	{:else if a.kind === 'rect'}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<g transform={rot}><rect x={b.x} y={b.y} width={b.w} height={b.h} fill="none" stroke="transparent" stroke-width="300" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} /></g>
+	{:else if a.kind === 'ellipse'}
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<g transform={rot}><ellipse cx={cx} cy={cy} rx={b.w / 2} ry={b.h / 2} fill="none" stroke="transparent" stroke-width="300" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} /></g>
 	{:else if isBoxKind(a)}
 		<!-- For callout/leader, dragging the box moves only the box (arrow tip stays put);
 		     double-click jumps focus to the text field in the properties panel. -->

@@ -17,7 +17,7 @@
 	const links = getContext<{ sheets?: Opt[]; surveys?: Opt[]; photos?: (surveyId?: string) => Opt[] }>('annLinks')
 
 	const annTools: [string, string][] = [
-		['text', 'Text'], ['line', 'Line'], ['arrow', 'Arrow'], ['rect', 'Rect'], ['cloud', 'Cloud'],
+		['text', 'Text'], ['line', 'Line'], ['arrow', 'Arrow'], ['rect', 'Rect'], ['ellipse', 'Ellipse'], ['cloud', 'Cloud'],
 		['callout', 'Callout'], ['dimension', 'Dim'], ['symbol', 'Symbol'],
 	]
 	const HEADS: [string, string][] = [['none', 'None'], ['arrow', 'Arrow'], ['dot', 'Dot'], ['tick', 'Tick']]
@@ -39,7 +39,7 @@
 	const cls = (active: boolean) => ['rounded border px-1.5 py-0.5 text-xs', active ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-slate-100']
 	const hasText = (k?: string) => k === 'text' || k === 'callout' || k === 'leader'
 	const hasLine = (k?: string) => k === 'line' || k === 'arrow' || k === 'callout' || k === 'leader'
-	const hasFill = (k?: string) => k === 'rect' || k === 'cloud' || k === 'callout' || k === 'symbol'
+	const hasFill = (k?: string) => k === 'rect' || k === 'ellipse' || k === 'cloud' || k === 'callout' || k === 'symbol'
 </script>
 
 <div class="flex flex-wrap gap-1">
@@ -81,7 +81,7 @@
 			{#each HEADS as [v, l] (v)}<option value={v}>{l}</option>{/each}
 		</PropSelect>
 	{/if}
-	{#if hasLine(sel.kind) || sel.kind === 'rect'}
+	{#if hasLine(sel.kind) || sel.kind === 'rect' || sel.kind === 'ellipse'}
 		<PropSelect label="Dash" value={sel.dash ?? 'solid'} onchange={(e: Event) => editor.setSel({ dash: val(e) as any })}>
 			{#each DASHES as [v, l] (v)}<option value={v}>{l}</option>{/each}
 		</PropSelect>
@@ -91,6 +91,9 @@
 		<PropSelect label="Symbol" value={sel.symbol ?? 'section'} onchange={(e: Event) => editor.setSel({ symbol: val(e) })}>
 			{#each SYMBOLS as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
 		</PropSelect>
+		{#if sel.symbol === 'door'}
+			<PropCheck label="Flip" value={!!sel.flip} onchange={(e: Event) => editor.setSel({ flip: (e.currentTarget as HTMLInputElement).checked })} />
+		{/if}
 		{#if def?.linkable === 'drawing'}
 			<PropText label="Ref" value={sel.link?.ref ?? ''} oninput={(e: Event) => editor.setLink({ kind: 'drawing', ref: val(e) })} />
 			{#if links?.sheets?.length}
