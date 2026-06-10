@@ -494,12 +494,16 @@ section is the **living task list** for that ongoing work — keep it updated as
 - [x] Marquee + group-drag/delete — **outlets** viewport (outlets, racks, trunk nodes/segments, annotations).
 - [x] Marquee + group-drag/delete — **racks** viewport (devices in elevation, rows in plan, annotations; device group-drag reassigns into the rack under the cursor preserving relative U).
 - [x] Rack device hover cursor: `move` (was `ns-resize`).
+- [x] **Refactor:** marquee (`marquee` state + `beginMarquee`) lifted into `SurfaceEditor`; tools keep only `marqueeCollect`/group-translate.
+- [x] Marquee + group-drag/delete — **risers** viewport (rooms + ladders + annotations; rooms reassign floor by cursor y, relative offsets kept). Multi-select now covers all three viewports.
+- [x] Status bar swallows the browser context menu (right-click consistency).
+- [x] **Undo/redo (Ctrl-Z / Ctrl-Shift-Z / Ctrl-Y)** — reusable snapshot `History` (`edit/history.svelte.ts`); one per viewport covers tool editor + annotation peer as one frame; debounced; wired into all three viewports.
+- [x] Riser room/ladder x-coords snap to a 20mm grid (create/drag/resize/group). (Confirmed riser coords are real-world mm — floor-to-floor ~3.8m default, configurable; distances/cable lengths computable.)
+- [x] Edit handles / selection outlines / marquee box are `print:hidden` (outlets, racks, risers) — only drawing content prints.
 
 ### In progress / next
 
-- [ ] **Refactor:** lift the shared marquee (`marquee` state + `beginMarquee`) into `SurfaceEditor` so all editors reuse it; keep only `marqueeCollect`/group-translate per editor.
-- [ ] **Risers viewport multi-select** — marquee + group-drag/delete for rooms, ladders, labels, annotations.
-- [ ] **Undo/redo (Ctrl-Z)** — reusable history for the Sheets editors (none today; mirror the `/outlets` `history.record` stack, ideally shared via `SurfaceEditor`). Multi-drag/delete make this important.
+- (nothing active — see backlog)
 
 ### Backlog (notes)
 
