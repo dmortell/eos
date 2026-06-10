@@ -505,7 +505,29 @@ section is the **living task list** for that ongoing work — keep it updated as
 
 - (nothing active — see backlog)
 
-### Backlog (notes)
+### Backlog — from sheets.md "Pending bugs/features"
+
+- [ ] **Viewport pan/zoom model rework** (sheets.md §Pending) — disable content pan/zoom in an active viewport by default; right-wheel/drag pans/zooms the whole sheet as usual. Per-viewport toggle to enable content pan/zoom. Model mode keeps pan/zoom as-is. Show a small toolbar in the top-right of a selected/active viewport frame: current scale, a content-pan/zoom toggle, and the model (⤢) button.
+- [ ] Text viewport pan/zoom in model mode — **done** (foreignObject + viewBox); verify the sheets.md note is stale.
+- [ ] **VCMs as optional rack/frame parts** — model VCMs (vertical cable managers) as attachable parts rather than fixed.
+- [ ] **Trunk/conduit bend radius** — curved corners with a configurable bend-radius for trunks in plan and front/side elevations.
+- [ ] **Wall outlet / faceplate shapes** for elevations.
+- [ ] **Shape library** — palette of reusable shapes + save user-drawn shapes (port the original outlets tool's library).
+- [ ] Layers: **lock toggle** (not just visibility); **project-scope** layer list (vs per-model) so layers aren't recreated per floor; viewport toggles independent of model layers.
+- [ ] Annotations: revision-cloud / dimension kinds polish; linked-symbol click-through navigation (section markers → drawing ref; photo markers → survey album).
+- [ ] Racks: catalog/library + patch cords (port labels on panels, patch-cord lists shown in racks) — later phase.
+
+### Candidate features (analysed from the existing tools — for review)
+
+- [ ] **Measure / dimension tool** — coords are real mm everywhere, so a click-click measure (and auto cable-length readouts on risers/trunks) is cheap and high-value for engineers.
+- [ ] **Cable schedule / BOM viewport** — a table viewport summarising outlets/cables/devices (the standalone outlets tool already has `exportOutletsToExcel`); could render as a text/table viewport and export.
+- [ ] **Trunk fill-rate overlay** — the outlets tool computes `nodeFillMap` (cable area vs conduit area); surface a fill-% colour/label on trunks (mirrors the `fillrate` tool).
+- [ ] **Align / distribute** for multi-selected objects & viewports; **snap-to-grid / alignment guides** while dragging.
+- [ ] **Copy/paste** objects & annotations within and across viewports.
+- [ ] **Auto-legend** for a viewport (symbol/colour key), and a **north arrow** placement helper.
+- [ ] 3D viewer for rooms/risers (big; mentioned in spec).
+
+### Backlog — earlier notes
 
 - [ ] **Racks plan view polish** — drag handles are world-mm `<circle r={250}>` (huge/scale with zoom) → make screen-constant + smaller; one handle appears orphaned (row with no rendered geometry); verify doors/walls actually render in plan. (May be mooted by the consolidation below.)
 - [ ] **Building elements + vertical trunks** — add/edit racks, walls, doors, ceilings, floors, and **vertical trunks** in rack elevation & plan. Vertical trunks must be connectable to the horizontal (floorplan) trunks later (unify the trunk model with a riser/junction concept).
