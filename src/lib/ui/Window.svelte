@@ -89,6 +89,37 @@
 		return s
 	})
 
+	// Keep the window inside the viewport. A saved/initial position that pushes the panel past an
+	// edge would otherwise grow the document and spawn scrollbars (the panel is position:absolute,
+	// so it isn't clipped by the app shell). This self-heals a bad persisted position on load and
+	// on window resize. Purely corrective — it never moves an already on-screen panel.
+	let rootEl = $state<HTMLDivElement>()
+	function clampToViewport() {
+		const el = rootEl; if (!el) return
+		const r = el.getBoundingClientRect()
+		// clientWidth/Height EXCLUDE any scrollbar, so clamping to them pulls the panel fully
+		// inside the content box and avoids the 100dvh ⇄ scrollbar feedback loop (clamping to
+		// innerWidth would leave the panel under a transient scrollbar and never settle).
+		const m = 4, vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight
+		let changed = false
+		if (r.width > 0 && r.width <= vw) {
+			if (r.right > vw - m) { const over = r.right - (vw - m); if (useLeft && left != null) left -= over; else right = (right ?? 0) + over; changed = true }
+			else if (r.left < m) { const under = m - r.left; if (useLeft) left = (left ?? 0) + under; else if (right != null) right = Math.max(0, right - under); changed = true }
+		}
+		if (r.height > 0 && r.height <= vh && top != null) {
+			if (r.bottom > vh - m) { top = Math.max(m, top - (r.bottom - (vh - m))); changed = true }
+			else if (r.top < m) { top = m; changed = true }
+		}
+		if (changed) saveState()
+	}
+	$effect(() => {
+		if (!rootEl) return
+		const raf = requestAnimationFrame(clampToViewport)
+		const onResizeWin = () => clampToViewport()
+		window.addEventListener('resize', onResizeWin)
+		return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', onResizeWin) }
+	})
+
 	const panelName = $derived(name ?? title?.toLowerCase().replace(/\s+/g, '-') ?? '')
 
 	function handleContextMenu(e: MouseEvent) {
@@ -100,7 +131,7 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="gui print:hidden" class:open style={posStyle} onpointerdown={(e) => e.stopPropagation()}>
+<div bind:this={rootEl} class="gui print:hidden" class:open style={posStyle} onpointerdown={(e) => e.stopPropagation()}>
 	{#if title}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div use:draggable={{onMove, cursor:'move'}} class="flex items-center gap-2 px-2 py-1 select-none border-b"
