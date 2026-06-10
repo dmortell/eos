@@ -54,28 +54,28 @@
 			{@const ax = a.align === 'center' ? tb.x + tb.w / 2 : a.align === 'right' ? tb.x + tb.w : tb.x}
 			{@const anchor = a.align === 'center' ? 'middle' : a.align === 'right' ? 'end' : 'start'}
 			{#if a.kind === 'callout' && a.border !== false}
-				<rect x={tb.x} y={tb.y} width={tb.w} height={tb.h} fill="white" fill-opacity="0.6" stroke={color} stroke-width="1.2" vector-effect="non-scaling-stroke" />
+				<rect x={tb.x} y={tb.y} width={tb.w} height={tb.h} fill={a.fill ?? 'white'} fill-opacity={a.fill ? undefined : 0.6} stroke={color} stroke-width="1.2" vector-effect="non-scaling-stroke" />
 			{/if}
 			<text x={ax} y={tb.y + m.fontMm} font-size={m.fontMm} fill={color} text-anchor={anchor}>
 				{#each m.lines as ln, i (i)}<tspan x={ax} dy={i === 0 ? 0 : m.lineH}>{ln || ' '}</tspan>{/each}
 			</text>
 		{:else if a.kind === 'rect'}
-			<rect x={b.x} y={b.y} width={b.w} height={b.h} fill="none" stroke={color} stroke-width="1.5" stroke-dasharray={dashArray(a.dash)} vector-effect="non-scaling-stroke" />
+			<rect x={b.x} y={b.y} width={b.w} height={b.h} fill={a.fill ?? 'none'} stroke={color} stroke-width="1.5" stroke-dasharray={dashArray(a.dash)} vector-effect="non-scaling-stroke" />
 		{:else if a.kind === 'cloud'}
 			{@const r = Math.max(150, Math.min(b.w, b.h) / 6)}
-			<path d={cloudPath(b.x, b.y, b.w, b.h, r)} fill="none" stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" />
+			<path d={cloudPath(b.x, b.y, b.w, b.h, r)} fill={a.fill ?? 'none'} stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" />
 		{:else if a.kind === 'symbol'}
 			{@const R = Math.min(b.w, b.h) / 2}
 			{#if a.symbol === 'photo'}
-				<path d="M{cx},{cy - R} L{cx - R * 0.8},{cy + R * 0.7} L{cx + R * 0.8},{cy + R * 0.7} Z" fill="{color}22" stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" />
+				<path d="M{cx},{cy - R} L{cx - R * 0.8},{cy + R * 0.7} L{cx + R * 0.8},{cy + R * 0.7} Z" fill={a.fill ?? color} fill-opacity={a.fill ? undefined : 0.13} stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" />
 				<circle cx={cx} cy={cy - R * 0.1} r={R * 0.18} fill={color} />
 			{:else if a.symbol === 'north'}
 				<line x1={cx} y1={cy + R} x2={cx} y2={cy - R} stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" marker-end="url(#{mid}-arrow)" />
 				<text x={cx} y={cy - R} font-size={R} fill={color} text-anchor="middle">N</text>
 			{:else if a.symbol === 'outlet'}
-				<circle cx={cx} cy={cy} r={R * 0.7} fill="{color}22" stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" />
+				<circle cx={cx} cy={cy} r={R * 0.7} fill={a.fill ?? color} fill-opacity={a.fill ? undefined : 0.13} stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" />
 			{:else}
-				<circle cx={cx} cy={cy} r={R} fill="white" stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-dasharray={a.symbol === 'detail' ? '40 24' : undefined} />
+				<circle cx={cx} cy={cy} r={R} fill={a.fill ?? 'white'} stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-dasharray={a.symbol === 'detail' ? '40 24' : undefined} />
 				<text x={cx} y={cy} font-size={R * 0.9} fill={color} text-anchor="middle" dominant-baseline="middle">{a.link?.ref ?? '?'}</text>
 			{/if}
 		{/if}

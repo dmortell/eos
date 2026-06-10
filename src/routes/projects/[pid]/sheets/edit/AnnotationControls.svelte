@@ -28,6 +28,7 @@
 	const cls = (active: boolean) => ['rounded border px-1.5 py-0.5 text-xs', active ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-slate-100']
 	const hasText = (k?: string) => k === 'text' || k === 'callout' || k === 'leader'
 	const hasLine = (k?: string) => k === 'line' || k === 'arrow' || k === 'callout' || k === 'leader'
+	const hasFill = (k?: string) => k === 'rect' || k === 'cloud' || k === 'callout' || k === 'symbol'
 </script>
 
 <div class="flex flex-wrap gap-1">
@@ -108,6 +109,9 @@
 		{/if}
 	{/if}
 
-	<PropColor label="Colour" value={sel.color ?? '#dc2626'} allowNone={false} onchange={(c) => editor.setSel({ color: c })} />
+	<PropColor label={hasFill(sel.kind) ? 'Border' : 'Colour'} value={sel.color ?? '#dc2626'} allowNone={false} onchange={(c) => editor.setSel({ color: c })} />
+	{#if hasFill(sel.kind)}
+		<PropColor label="Fill" value={sel.fill ?? 'none'} onchange={(c) => editor.setSel({ fill: c })} />
+	{/if}
 	<button class="w-full rounded bg-red-600 px-1 py-0.5 text-xs text-white hover:bg-red-500" onclick={() => editor.deleteSel()}>Delete annotation</button>
 {/if}
