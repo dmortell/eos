@@ -87,6 +87,11 @@
 	let contentEl: HTMLDivElement | undefined = $state()
 	let contentPanning = $state(false)
 	let cpx = 0, cpy = 0, cox = 0, coy = 0, cden = 0
+	// Content pan/zoom is OFF by default so middle/right-drag + wheel pan/zoom the whole sheet as
+	// usual (otherwise a full-screen active viewport would trap the gesture). Toggle it on per
+	// viewport via the frame toolbar; it resets when the viewport is deactivated.
+	let navContent = $state(false)
+	$effect(() => { if (!active) navContent = false })
 
 	const curDen = () => (vp.scale && vp.scale > 0 ? vp.scale : (lastView?.den ?? 0))
 	const curOffset = () => vp.contentOffsetMm ?? { x: lastView?.x ?? 0, y: lastView?.y ?? 0 }
@@ -134,7 +139,7 @@
 	// Canvas doesn't also pan/zoom).
 	$effect(() => {
 		const elc = contentEl
-		if (!elc || !active) return
+		if (!elc || !active || !navContent) return // only when content nav is toggled on
 		const noctx = (e: Event) => e.preventDefault() // right-drag pans; don't pop the context menu
 		elc.addEventListener('wheel', contentWheel, { passive: false })
 		elc.addEventListener('mousedown', contentDown)
@@ -168,7 +173,7 @@
 >
 	<div bind:this={contentEl} class="absolute inset-0 overflow-hidden"
 		style:pointer-events={active ? 'auto' : 'none'}
-		style:cursor={active ? (contentPanning ? 'grabbing' : 'grab') : 'default'}>
+		style:cursor={active && navContent ? (contentPanning ? 'grabbing' : 'grab') : null}>
 		<ViewportContent {vp} {vps} {zoom} {active} onview={(v) => lastView = v} />
 	</div>
 
@@ -177,17 +182,26 @@
 		<div class="absolute left-0 whitespace-nowrap leading-none text-zinc-700 pointer-events-none"
 			style:top="{-labelMm * 1.4}px" style:font-size="{labelMm}px">{vp.label}</div>
 	{/if}
-	<!-- Scale readout (screen-only debug, top-right above the frame) -->
-	<div class="absolute right-0 whitespace-nowrap leading-none text-zinc-400 pointer-events-none print:hidden"
-		style:top="{(-14 / zoom)}px" style:font-size="{12 / zoom}px">{scaleText}</div>
-
-	<!-- Model-mode (maximize) button — shown when active, above the top-right corner. -->
-	{#if active && onmodel}
-		<button class="absolute leading-none text-blue-600 hover:text-blue-800 print:hidden"
-			style:right="{-2 / zoom}px" style:top="{-30 / zoom}px" style:font-size="{16 / zoom}px"
-			style:pointer-events="auto" title="Open in model mode"
-			onmousedown={e => { e.stopPropagation() }} onclick={e => { e.stopPropagation(); onmodel?.(vp.id) }}>⤢</button>
-	{/if}
+	<!-- Frame toolbar (top-right, above the frame): scale readout + (when active) a content
+	     pan/zoom toggle and the model-mode button. Sizes counter-scale via the container font-size
+	     so the whole toolbar stays a steady on-screen size at any canvas zoom. -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class={['absolute right-0 flex items-center gap-[0.3em] whitespace-nowrap leading-none print:hidden',
+			selected || active ? 'rounded bg-white/90 px-[0.4em] py-[0.15em] shadow-sm ring-1 ring-zinc-300' : '']}
+		style:top="{-26 / zoom}px" style:font-size="{11 / zoom}px"
+		style:pointer-events={selected || active ? 'auto' : 'none'}
+		onmousedown={e => e.stopPropagation()}>
+		<span class={selected || active ? 'text-zinc-600 tabular-nums' : 'text-zinc-400 tabular-nums'}>{scaleText}</span>
+		{#if active}
+			<button class={['rounded px-[0.3em] py-[0.1em]', navContent ? 'bg-blue-600 text-white' : 'text-zinc-600 hover:bg-zinc-100']}
+				title="Pan/zoom viewport content (middle/right-drag + wheel). Off = pan/zoom the sheet."
+				onclick={e => { e.stopPropagation(); navContent = !navContent }}>✥</button>
+			{#if onmodel}
+				<button class="rounded px-[0.3em] py-[0.1em] text-blue-600 hover:bg-zinc-100" title="Open in model mode"
+					onclick={e => { e.stopPropagation(); onmodel?.(vp.id) }}>⤢</button>
+			{/if}
+		{/if}
+	</div>
 
 	{#if !active}
 		<!-- Clickable frame: four thin edge strips so the interior stays click-through. -->
