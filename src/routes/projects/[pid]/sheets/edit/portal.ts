@@ -8,6 +8,9 @@
  */
 export function portal(node: HTMLElement) {
 	const root = portalRoot()
+	// pointer-events is inherited, so the overlay's `none` would propagate into the panel and make
+	// it un-draggable/un-clickable. Re-enable it on the panel itself (empty overlay area stays none).
+	node.style.pointerEvents = 'auto'
 	root.appendChild(node)
 	return { destroy() { node.remove() } }
 }
