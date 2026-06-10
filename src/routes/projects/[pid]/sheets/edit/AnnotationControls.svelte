@@ -7,6 +7,8 @@
 	import PropText from '../parts/PropText.svelte'
 	import PropTextarea from '../parts/PropTextarea.svelte'
 	import PropSelect from '../parts/PropSelect.svelte'
+	import PropCheck from '../parts/PropCheck.svelte'
+	import PropColor from '../parts/PropColor.svelte'
 	import { SYMBOLS, symbolDef } from '../annotations/symbols/registry'
 	import type { AnnotationEditor } from '../annotations/annotations.svelte'
 
@@ -16,7 +18,7 @@
 
 	const annTools: [string, string][] = [
 		['text', 'Text'], ['line', 'Line'], ['arrow', 'Arrow'], ['rect', 'Rect'], ['cloud', 'Cloud'],
-		['callout', 'Callout'], ['leader', 'Leader'], ['dimension', 'Dim'], ['symbol', 'Symbol'],
+		['callout', 'Callout'], ['dimension', 'Dim'], ['symbol', 'Symbol'],
 	]
 	const HEADS: [string, string][] = [['none', 'None'], ['arrow', 'Arrow'], ['dot', 'Dot'], ['tick', 'Tick']]
 	const DASHES: [string, string][] = [['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted']]
@@ -54,6 +56,9 @@
 			</div>
 		</div>
 		<PropText label="Font (pt)" type="number" min="2" value={String(sel.fontPt ?? 8)} oninput={(e: Event) => editor.setSel({ fontPt: Number(val(e)) || 8 })} />
+		{#if sel.kind === 'callout' || sel.kind === 'leader'}
+			<PropCheck label="Box border" value={sel.border !== false} onchange={(e: Event) => editor.setSel({ border: (e.currentTarget as HTMLInputElement).checked })} />
+		{/if}
 	{/if}
 
 	{#if hasLine(sel.kind)}
@@ -103,9 +108,6 @@
 		{/if}
 	{/if}
 
-	<div class="flex items-center justify-between gap-2">
-		<span class="w-24 shrink-0 text-xs text-zinc-500">Colour</span>
-		<input type="color" class="h-6 w-full rounded border" value={sel.color ?? '#dc2626'} oninput={(e: Event) => editor.setSel({ color: val(e) })} />
-	</div>
+	<PropColor label="Colour" value={sel.color ?? '#dc2626'} allowNone={false} onchange={(c) => editor.setSel({ color: c })} />
 	<button class="w-full rounded bg-red-600 px-1 py-0.5 text-xs text-white hover:bg-red-500" onclick={() => editor.deleteSel()}>Delete annotation</button>
 {/if}

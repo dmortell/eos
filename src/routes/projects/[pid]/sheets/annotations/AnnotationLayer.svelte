@@ -34,7 +34,7 @@
 </script>
 
 <defs>
-	<marker id="{mid}-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="context-stroke" /></marker>
+	<marker id="{mid}-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="3.5" markerHeight="3.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="context-stroke" /></marker>
 	<marker id="{mid}-dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto"><circle cx="5" cy="5" r="4" fill="context-stroke" /></marker>
 	<marker id="{mid}-tick" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M2,8 L8,2" stroke="context-stroke" stroke-width="1.6" /></marker>
 </defs>
@@ -53,7 +53,7 @@
 			{@const tb = box(a, den)}
 			{@const ax = a.align === 'center' ? tb.x + tb.w / 2 : a.align === 'right' ? tb.x + tb.w : tb.x}
 			{@const anchor = a.align === 'center' ? 'middle' : a.align === 'right' ? 'end' : 'start'}
-			{#if a.kind === 'callout'}
+			{#if a.kind === 'callout' && a.border !== false}
 				<rect x={tb.x} y={tb.y} width={tb.w} height={tb.h} fill="white" fill-opacity="0.6" stroke={color} stroke-width="1.2" vector-effect="non-scaling-stroke" />
 			{/if}
 			<text x={ax} y={tb.y + m.fontMm} font-size={m.fontMm} fill={color} text-anchor={anchor}>
@@ -102,8 +102,16 @@
 		{/if}
 	{/if}
 
-	<!-- hit target (move / select) -->
-	{#if isBoxKind(a)}
+	<!-- hit target (move / select). Outline-only for cloud/rect so objects *inside* them stay
+	     selectable; filled box for text/symbol/callout. -->
+	{#if a.kind === 'cloud'}
+		{@const r = Math.max(150, Math.min(b.w, b.h) / 6)}
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<g transform={rot}><path d={cloudPath(b.x, b.y, b.w, b.h, r)} fill="none" stroke="transparent" stroke-width="300" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} /></g>
+	{:else if a.kind === 'rect'}
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<g transform={rot}><rect x={b.x} y={b.y} width={b.w} height={b.h} fill="none" stroke="transparent" stroke-width="300" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} /></g>
+	{:else if isBoxKind(a)}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<g transform={rot}><rect x={b.x - 60} y={b.y - 60} width={b.w + 120} height={b.h + 120} fill="transparent" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} /></g>
 	{:else}

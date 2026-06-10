@@ -13,7 +13,7 @@ const BOX_DRAG = new Set<AnnotationKind>(['rect', 'cloud'])
 function defaults(kind: AnnotationKind, symbol: string): Partial<Annotation> {
 	switch (kind) {
 		case 'text': return { text: 'Text', fontPt: 8, align: 'left' }
-		case 'callout': return { text: 'Note', fontPt: 8, align: 'left', w: 4000, h: 1400, end: 'arrow' }
+		case 'callout': return { text: 'Note', fontPt: 8, align: 'left', w: 4000, h: 1400, end: 'arrow', border: true }
 		case 'symbol': return { symbol }
 		case 'rect': case 'cloud': return {}
 		case 'line': return { start: 'none', end: 'none', dash: 'solid' }

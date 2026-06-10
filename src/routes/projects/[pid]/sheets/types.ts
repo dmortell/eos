@@ -85,6 +85,7 @@ export interface Annotation {
 	text?: string                 // may contain newlines (multi-line)
 	fontPt?: number
 	align?: TextAlign
+	border?: boolean              // callout text-box outline (false = leader-style, no box)
 	symbol?: string               // symbol registry id
 	start?: ArrowHead             // line start head
 	end?: ArrowHead               // line end head

@@ -37,7 +37,11 @@
 		e.stopPropagation(); e.preventDefault()
 		const w0 = editor.toWorld(e); if (!w0) return
 		const off = angleDeg(cx, cy, w0.x, w0.y) - rotation
-		editor.startDrag(ev => { const w = editor.toWorld(ev); if (w) onrotate(Math.round(angleDeg(cx, cy, w.x, w.y) - off)) }, () => editor.notify())
+		editor.startDrag(ev => {
+			const w = editor.toWorld(ev); if (!w) return
+			const deg = angleDeg(cx, cy, w.x, w.y) - off
+			onrotate(ev.shiftKey ? Math.round(deg) : Math.round(deg / 15) * 15) // snap 15° (Shift = free)
+		}, () => editor.notify())
 	}
 </script>
 
