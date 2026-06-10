@@ -3,7 +3,7 @@
 	// selected-annotation property editor. `tool` is bound from the host so object/annotation tools
 	// share one mode. Link pickers (sheet/survey/photo) read optional lists from context
 	// ('annLinks'); they fall back to free-text when no list is provided.
-	import { getContext } from 'svelte'
+	import { getContext, tick } from 'svelte'
 	import PropText from '../parts/PropText.svelte'
 	import PropTextarea from '../parts/PropTextarea.svelte'
 	import PropSelect from '../parts/PropSelect.svelte'
@@ -24,6 +24,17 @@
 	const DASHES: [string, string][] = [['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted']]
 	const val = (e: Event) => (e.currentTarget as HTMLInputElement | HTMLSelectElement).value
 	let sel = $derived(editor.selAnn)
+	// Double-clicking a text/callout/leader on the canvas bumps textFocusNonce; jump focus
+	// to the text field so the user can type straight away. Guard on the value changing so
+	// merely selecting an annotation doesn't steal focus.
+	let textEl = $state<HTMLTextAreaElement | undefined>()
+	let lastFocusNonce = 0
+	$effect(() => {
+		const n = editor.textFocusNonce
+		if (n === lastFocusNonce) return
+		lastFocusNonce = n
+		tick().then(() => { textEl?.focus(); textEl?.select() })
+	})
 	let def = $derived(sel?.kind === 'symbol' ? symbolDef(sel.symbol) : undefined)
 	const cls = (active: boolean) => ['rounded border px-1.5 py-0.5 text-xs', active ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-slate-100']
 	const hasText = (k?: string) => k === 'text' || k === 'callout' || k === 'leader'
@@ -47,7 +58,7 @@
 {#if sel}
 	<hr class="border-zinc-200" />
 	{#if hasText(sel.kind)}
-		<PropTextarea label="Text" rows={2} value={sel.text ?? ''} oninput={(e: Event) => editor.setSel({ text: val(e) })} />
+		<PropTextarea label="Text" rows={2} bind:element={textEl} value={sel.text ?? ''} oninput={(e: Event) => editor.setSel({ text: val(e) })} />
 		<div class="flex items-center justify-between gap-2">
 			<span class="w-24 shrink-0 text-xs text-zinc-500">Align</span>
 			<div class="flex w-full gap-0.5">

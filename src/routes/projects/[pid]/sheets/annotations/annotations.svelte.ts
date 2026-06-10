@@ -65,7 +65,13 @@ export class AnnotationEditor extends SurfaceEditor {
 	/** Route an add by the active tool (called from EditBackground). */
 	place(p: Point) { if (CLICK_KINDS.has(this.tool as AnnotationKind)) this.click(p); else this.startShape(p) }
 
-	move(a: Annotation, e0: MouseEvent) {
+	/**
+	 * Drag-move an annotation. `movePointer` controls the callout/leader pointer target:
+	 *   true  → move the whole thing (box + pointer tip) — used when grabbing the line.
+	 *   false → move only the box, leaving the arrow tip anchored — used when grabbing the box.
+	 * For line kinds (line/arrow/dimension) x2,y2 are the far end, so they always travel.
+	 */
+	move(a: Annotation, e0: MouseEvent, movePointer = true) {
 		if (e0.ctrlKey || e0.metaKey) a = this.push({ ...a, id: this.uid('a') }) // duplicate the proxy
 		this.select('ann', a.id)
 		const w0 = this.toWorld(e0); if (!w0) return
@@ -74,9 +80,13 @@ export class AnnotationEditor extends SurfaceEditor {
 			const w = this.toWorld(e); if (!w) return
 			const dx = w.x - w0.x, dy = w.y - w0.y
 			a.x = o.x + dx; a.y = o.y + dy
-			if (o.x2 != null) { a.x2 = o.x2 + dx; a.y2 = (o.y2 ?? 0) + dy }
+			if (movePointer && o.x2 != null) { a.x2 = o.x2 + dx; a.y2 = (o.y2 ?? 0) + dy }
 		}, () => this.notify())
 	}
+
+	/** Selected annotation's text edit focus signal — bumped to ask the props panel to focus. */
+	textFocusNonce = $state(0)
+	requestTextFocus(a: Annotation) { this.select('ann', a.id); this.textFocusNonce++ }
 	setBox(a: Annotation, b: Box) { a.x = b.x; a.y = b.y; a.w = b.w; a.h = b.h; this.notify() }
 	setRotation(a: Annotation, deg: number) { a.rotation = ((deg % 360) + 360) % 360; this.notify() }
 	/** Move a line endpoint (0 = start, 1 = end / pointer target). */

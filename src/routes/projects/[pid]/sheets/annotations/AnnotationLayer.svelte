@@ -22,10 +22,15 @@
 	const LINE = new Set(['line', 'arrow', 'dimension'])
 	const isBoxKind = (a: Annotation) => BOX.has(a.kind)
 
-	function down(a: Annotation, e: MouseEvent) {
+	function down(a: Annotation, e: MouseEvent, movePointer = true) {
 		if (!interactive || locked || e.button !== 0) return
-		e.stopPropagation(); editor.move(a, e)
+		e.stopPropagation(); editor.move(a, e, movePointer)
 	}
+	function dbl(a: Annotation, e: MouseEvent) {
+		if (!interactive || locked) return
+		e.stopPropagation(); editor.requestTextFocus(a)
+	}
+	const HAS_TEXT = new Set(['text', 'callout', 'leader'])
 	const mk = (h?: string) => (h && h !== 'none' ? `url(#${mid}-${h})` : undefined)
 	const nearestCorner = (b: { x: number; y: number; w: number; h: number }, tx: number, ty: number) => {
 		const cs = [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]]
@@ -81,10 +86,13 @@
 		{/if}
 	</g>
 
-	<!-- pointer leader for callout/leader -->
+	<!-- pointer leader for callout/leader. The fat transparent overlay is a grab target:
+	     dragging the line moves the whole callout (box + arrow tip) together. -->
 	{#if POINTER.has(a.kind) && a.x2 != null}
 		{@const tb = box(a, den)}{@const c = nearestCorner(tb, a.x2, a.y2 ?? a.y)}
 		<line x1={c[0]} y1={c[1]} x2={a.x2} y2={a.y2} stroke={color} style:color={color} stroke-width="1.5" stroke-dasharray={dashArray(a.dash)} vector-effect="non-scaling-stroke" marker-end={mk(a.end ?? 'arrow')} />
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<line x1={c[0]} y1={c[1]} x2={a.x2} y2={a.y2} stroke="transparent" stroke-width="200" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e, true)} />
 	{/if}
 
 	<!-- line / arrow / dimension -->
@@ -112,8 +120,10 @@
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<g transform={rot}><rect x={b.x} y={b.y} width={b.w} height={b.h} fill="none" stroke="transparent" stroke-width="300" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} /></g>
 	{:else if isBoxKind(a)}
+		<!-- For callout/leader, dragging the box moves only the box (arrow tip stays put);
+		     double-click jumps focus to the text field in the properties panel. -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<g transform={rot}><rect x={b.x - 60} y={b.y - 60} width={b.w + 120} height={b.h + 120} fill="transparent" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} /></g>
+		<g transform={rot}><rect x={b.x - 60} y={b.y - 60} width={b.w + 120} height={b.h + 120} fill="transparent" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e, !POINTER.has(a.kind))} ondblclick={HAS_TEXT.has(a.kind) ? (e: MouseEvent) => dbl(a, e) : undefined} /></g>
 	{:else}
 		{@const x2 = a.x2 ?? a.x}{@const y2 = a.y2 ?? a.y}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
