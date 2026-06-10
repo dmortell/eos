@@ -67,7 +67,7 @@
 	<g>
 		{#each boxes as { d, box } (d.id)}
 			<rect x={box.x} y={box.y} width={box.w} height={box.h} fill="transparent"
-				style:pointer-events={pe} style:cursor="ns-resize" onmousedown={(e: MouseEvent) => dragDevice(d, e)} />
+				style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => dragDevice(d, e)} />
 			{#if editor.selDeviceId === d.id || editor.inDeviceMulti(d.id)}
 				<rect x={box.x} y={box.y} width={box.w} height={box.h} fill={editor.inDeviceMulti(d.id) ? `${HL}22` : 'none'} stroke={HL} stroke-width="1.5" vector-effect="non-scaling-stroke" style:pointer-events="none" />
 			{/if}
