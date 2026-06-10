@@ -48,6 +48,24 @@ export class SurfaceEditor {
 	// Editors that support marquee override these to act on their own data slices. A marquee or a
 	// group drag drives BOTH the tool editor and its annotation peer through the same hooks so a
 	// box can hold (and a drag can move) mixed object + annotation selections together.
+	/** Live marquee rect (world-mm) while dragging an empty-space box; rendered by the edit layer. */
+	marquee = $state<{ x: number; y: number; w: number; h: number } | null>(null)
+
+	/** Empty-space left-drag in Select mode: rubber-band a box, then select inside it (this editor +
+	 *  the annotation peer). Identical across tools, so it lives here; tools only override marqueeCollect. */
+	beginMarquee(e0: MouseEvent) {
+		const w0 = this.toWorld(e0)
+		this.clearSel(); this.peer?.clearSel(); this.peer?.clearMulti()
+		if (!w0) return
+		this.startDrag(e => {
+			const w = this.toWorld(e); if (!w) return
+			this.marquee = { x: Math.min(w0.x, w.x), y: Math.min(w0.y, w.y), w: Math.abs(w.x - w0.x), h: Math.abs(w.y - w0.y) }
+		}, () => {
+			const m = this.marquee; this.marquee = null
+			if (!m || (m.w < 100 && m.h < 100)) return // tiny = treat as a click → stay deselected
+			this.marqueeCollect(m); this.peer?.marqueeCollect(m)
+		})
+	}
 	/** Select this editor's items whose position falls inside the world-mm rect. */
 	marqueeCollect(_rect: { x: number; y: number; w: number; h: number }): void {}
 	/** Snapshot the current multi-selection's positions ahead of a group drag. */

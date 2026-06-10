@@ -29,8 +29,7 @@ export class OutletsEditor extends SurfaceEditor {
 	preview = $state<Point | null>(null)
 	snap = $state<{ trunkId: string; nodeId: string; pos: Point } | null>(null)
 	menu = $state<TrunkMenu | null>(null)
-	// marquee multi-select (real-mm rect while dragging; resulting selected ids)
-	marquee = $state<{ x: number; y: number; w: number; h: number } | null>(null)
+	// marquee multi-select results (the live rect + beginMarquee live in SurfaceEditor)
 	selOutlets = $state<string[]>([])
 	selRacks = $state<string[]>([])
 	selNodes = $state<string[]>([])   // marquee-selected trunk node ids (across trunks)
@@ -62,22 +61,6 @@ export class OutletsEditor extends SurfaceEditor {
 	/** True if the given item belongs to the current marquee multi-selection. */
 	inMulti(kind: 'outlet' | 'rack' | 'node', id: string) {
 		return kind === 'outlet' ? this.selOutlets.includes(id) : kind === 'rack' ? this.selRacks.includes(id) : this.selNodes.includes(id)
-	}
-
-	// ── marquee multi-select (empty-space left-drag in Select mode) ──
-	beginMarquee(e0: MouseEvent) {
-		const w0 = this.toWorld(e0)
-		this.clearSel(); this.peer?.clearSel(); this.peer?.clearMulti()
-		if (!w0) return
-		this.startDrag(e => {
-			const w = this.toWorld(e); if (!w) return
-			this.marquee = { x: Math.min(w0.x, w.x), y: Math.min(w0.y, w.y), w: Math.abs(w.x - w0.x), h: Math.abs(w.y - w0.y) }
-		}, () => {
-			const m = this.marquee; this.marquee = null
-			if (!m || (m.w < 100 && m.h < 100)) return // tiny = treat as click → stay deselected
-			this.marqueeCollect(m)
-			this.peer?.marqueeCollect(m)   // also select annotations inside the box
-		})
 	}
 
 	// Outlets/racks/trunk-nodes whose position lies inside the marquee. (Selecting trunk nodes is

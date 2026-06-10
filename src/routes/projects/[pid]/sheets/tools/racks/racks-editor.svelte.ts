@@ -22,8 +22,8 @@ export class RacksEditor extends SurfaceEditor {
 	library = $state<DeviceTemplate[]>([]) // user-added custom device templates (persisted on the doc)
 
 	// marquee multi-select: devices (elevation) or rows (plan). `layout` is fed by the edit layer
-	// (which builds the elevation) so the editor can hit-test the box. `marquee` is the live rect.
-	marquee = $state<Rect | null>(null)
+	// (which builds the elevation) so the editor can hit-test the box. The live `marquee` rect +
+	// beginMarquee live in SurfaceEditor.
 	selDevices = $state<string[]>([])
 	selRows = $state<string[]>([])
 	layout: RackLayout | null = null
@@ -55,19 +55,6 @@ export class RacksEditor extends SurfaceEditor {
 	inDeviceMulti(id: string) { return this.selDevices.includes(id) }
 	inRowMulti(id: string) { return this.selRows.includes(id) }
 
-	beginMarquee(e0: MouseEvent) {
-		const w0 = this.toWorld(e0)
-		this.clearSel(); this.peer?.clearSel(); this.peer?.clearMulti()
-		if (!w0) return
-		this.startDrag(e => {
-			const w = this.toWorld(e); if (!w) return
-			this.marquee = { x: Math.min(w0.x, w.x), y: Math.min(w0.y, w.y), w: Math.abs(w.x - w0.x), h: Math.abs(w.y - w0.y) }
-		}, () => {
-			const m = this.marquee; this.marquee = null
-			if (!m || (m.w < 100 && m.h < 100)) return
-			this.marqueeCollect(m); this.peer?.marqueeCollect(m)
-		})
-	}
 	marqueeCollect(m: Rect) {
 		const inRect = (p: Point) => p.x >= m.x && p.x <= m.x + m.w && p.y >= m.y && p.y <= m.y + m.h
 		if (this.layout?.face === 'plan') {
