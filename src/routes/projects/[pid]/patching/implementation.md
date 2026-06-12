@@ -485,7 +485,7 @@ In PatchList.svelte, two giant <select> per row, each rebuilding hundreds of <op
 
 Here are the directions I'd weigh, roughly from most-disruptive to least:
 
-1. Visual patching (my favourite). Patch cords are inherently spatial — humans wire them by looking at two faceplates. Add a "Patch" mode where the workspace splits into two pickable panes (rack elevation, frame layout, or floor outlet on either side). Click a port → it lights up as "from", click another → cord drawn between them, row appended to the list. The list stays as the system of record / bulk editor, but creation and re-routing happen visually. Bonus: you already have rack/frame/floorplan canvases — reuse them. Bonus 2: cable colour and length can be inferred from geometry.
+1. Visual patching (my favourite). Patch cords are inherently spatial — humans wire them by looking at two faceplates. Add a "Patch" mode where the workspace splits into two pickable panes (rack elevation, frame layout, or floor outlet on either side). Click a port → it lights up as "from", click another → cord drawn between them, row appended to the list. The list stays as the system of record / bulk editor, but creation and re-routing happen visually. Bonus: you already have rack/frame/floorplan canvases — reuse them. Bonus 2: cable color and length can be inferred from geometry.
 
 2. Sidebar "port tray" + drag-to-cell. Persistent tree (Location → Rack/Frame → Device → Port) on one side, virtualised list on the other. Drag a port onto the From or To cell of a row. Multi-select N consecutive ports on each side and drop → N rows generated. Fast for the "wire all 24 of these to all 24 of those" case which is most of real patching.
 
@@ -500,11 +500,11 @@ Here are the directions I'd weigh, roughly from most-disruptive to least:
 
    A few things I'd push on before you commit:
 
-    * Leaf level is the friction point. Drilling Building → Floor → Room → Rack → Device is fine — those are short lists. But then you hit a 48-port switch, and a flat list of 48 port nodes is both ugly and slow to scan. I'd render the device leaf as a compact port strip (one square per port, port number inside, colour = used/free/selected, hover = label). That way the tree handles location navigation and the strip handles port picking — the thing each is good at. Bonus: a port strip is just the rack-face you already render in the racks tool, scaled down.
+    * Leaf level is the friction point. Drilling Building → Floor → Room → Rack → Device is fine — those are short lists. But then you hit a 48-port switch, and a flat list of 48 port nodes is both ugly and slow to scan. I'd render the device leaf as a compact port strip (one square per port, port number inside, color = used/free/selected, hover = label). That way the tree handles location navigation and the strip handles port picking — the thing each is good at. Bonus: a port strip is just the rack-face you already render in the racks tool, scaled down.
 
     * The "navigate back up after every drop" problem. If a user wires 24 cords from SW-01 to PP-01, they don't want to re-drill on both sides 24 times. Two things help: (a) make the device node sticky — after dropping, both trees stay expanded on the last device, just clear the port selection; (b) range-select on the port strip (shift-click port 1, shift-click port 24) so 24 cords happen in one drag.
 
-    * Used-port visibility. Mark ports already in a connection with a coloured dot/border on the port strip, and on hover show "→ PP-01:14". The current isPortUsed scan can be replaced with a Map<portKey, connectionId> derived once, used everywhere.
+    * Used-port visibility. Mark ports already in a connection with a colored dot/border on the port strip, and on hover show "→ PP-01:14". The current isPortUsed scan can be replaced with a Map<portKey, connectionId> derived once, used everywhere.
 
     * Where does the list live? The patch list still has to exist (cable type, length, status, cord ID, bulk edits, export). I'd put it as a bottom pane under the two trees — selecting a cord in the list highlights both endpoints in the trees, and vice versa. Three-pane layout: tree | tree | list-below.
 

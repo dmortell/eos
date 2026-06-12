@@ -275,7 +275,7 @@ Edge case: when a cable passes *through* a transit room (EPS), it doesn't consum
 2. **Floor bands** — one `<g>` per floor: slab (dark), raised-floor (hatched), open space (white), ceiling (thin line), plenum (light hatched). Floor label on the left margin via `fmtFloor()`.
 3. **Ladders** — vertical rectangles spanning their floor range.
 4. **Rooms** — rectangles inside their floor band; server rooms get a server icon, EPS rooms get a "EPS" badge.
-5. **Cable paths** — polylines with colour per cable, label at midpoint.
+5. **Cable paths** — polylines with color per cable, label at midpoint.
 6. **Selection overlays** — dashed outline on selected items.
 7. **Drag preview** — semi-transparent shape while adding.
 
@@ -381,5 +381,5 @@ Add to the tool list in [src/routes/projects/[pid]/+page.svelte](src/routes/proj
 1. **Icon choice** — `columns`, `arrowUpDown`, or new SVG. (Pick during impl.)
 2. **EPS room ↔ racks-tool coupling** — EPS rooms are currently *not* tracked in the racks tool. Do we add an `eps` flag to rack-tool rooms, or keep EPS purely a Riser-tool concept? *Recommend: Riser-tool-only for now; revisit if EPS appears in other tools.*
 3. **Multiple ladders sharing the same X** — allowed (e.g. one high-only + one low-only at the same shaft). Visually offset by ~50 mm if duplicates detected.
-4. **Cable colour defaults** — per-media palette (fiber = yellow/aqua, copper = blue/grey) vs. user-picked. Start with per-cable user colour, auto-suggest from media.
+4. **Cable color defaults** — per-media palette (fiber = yellow/aqua, copper = blue/grey) vs. user-picked. Start with per-cable user color, auto-suggest from media.
 5. **Cross-tool navigation** — clicking a server-room box could deep-link to the racks tool for that room (`/projects/{pid}/racks?floor={fl}&room={rm}`). Easy win; add in Phase 2.

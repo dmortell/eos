@@ -117,7 +117,7 @@ export interface TextLabel {
 	text: string
 	/** Font size in mm. Defaults to 240. */
 	fontSizeMm?: number
-	/** Text colour (CSS). */
+	/** Text color (CSS). */
 	color?: string
 	/** Background fill (CSS) — useful for placing labels over cables/rooms. */
 	background?: string

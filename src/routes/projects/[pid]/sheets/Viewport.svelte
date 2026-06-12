@@ -182,18 +182,27 @@
 		<div class="absolute left-0 whitespace-nowrap leading-none text-zinc-700 pointer-events-none"
 			style:top="{-labelMm * 1.4}px" style:font-size="{labelMm}px">{vp.label}</div>
 	{/if}
-	<!-- Frame toolbar (top-right, above the frame): scale readout + (when active) a content
+	<!-- Frame toolbar (top-right corner of the frame): scale readout + (when active) a content
 	     pan/zoom toggle and the model-mode button. Sizes counter-scale via the container font-size
 	     so the whole toolbar stays a steady on-screen size at any canvas zoom. -->
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class={['absolute right-0 flex items-center gap-[0.3em] whitespace-nowrap leading-none print:hidden',
-			selected || active ? 'rounded bg-white/90 px-[0.4em] py-[0.15em] shadow-sm ring-1 ring-zinc-300' : '']}
-		style:top="{-26 / zoom}px" style:font-size="{11 / zoom}px"
+
+<!--
+	<div class={['absolute right-2 flex items-center gap-[0.3em] whitespace-nowrap leading-none print:hidden',
+			selected || active ? 'rounded bg-white/90 px-[0.4em] pt-[0.8em] shadow-sm xxborder ring-1 ring-zinc-300' : '']}
+		style:top="{26 / zoom}px" style:font-size="{12 / zoom}px"
 		style:pointer-events={selected || active ? 'auto' : 'none'}
 		onmousedown={e => e.stopPropagation()}>
+
+-->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class={["absolute right-1 top-0.5 px-1 text-[6px] flex gap-1 items-center whitespace-nowrap print:hidden ",
+		(selected || active) && "rounded border border-slate-400 shadow-sm"
+	]}
+		style:pointer-events={selected || active ? 'auto' : 'none'}
+	>
 		<span class={selected || active ? 'text-zinc-600 tabular-nums' : 'text-zinc-400 tabular-nums'}>{scaleText}</span>
 		{#if active}
-			<button class={['rounded px-[0.3em] py-[0.1em]', navContent ? 'bg-blue-600 text-white' : 'text-zinc-600 hover:bg-zinc-100']}
+			<button class={['rounded px-[0.3em] xxpy-[0.1em]', navContent ? 'bg-blue-600 text-white' : 'text-zinc-600 hover:bg-zinc-100']}
 				title="Pan/zoom viewport content (middle/right-drag + wheel). Off = pan/zoom the sheet."
 				onclick={e => { e.stopPropagation(); navContent = !navContent }}>✥</button>
 			{#if onmodel}

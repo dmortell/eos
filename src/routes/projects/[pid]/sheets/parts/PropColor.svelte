@@ -1,6 +1,6 @@
 <script lang="ts">
-	// Labeled colour picker for the property windows: a swatch button → dropdown of preset colours
-	// (incl. transparent + None), a custom picker, and an opacity slider. `value` is a CSS colour
+	// Labeled color picker for the property windows: a swatch button → dropdown of preset colors
+	// (incl. transparent + None), a custom picker, and an opacity slider. `value` is a CSS color
 	// string — '#rrggbb', '#rrggbbaa' (with alpha), 'transparent', or 'none' (no paint).
 	let { label = '', value = $bindable('#000000'), onchange, allowNone = true, allowOpacity = true, class: className = '' }: {
 		label?: string

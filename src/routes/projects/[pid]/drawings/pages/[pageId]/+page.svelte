@@ -355,7 +355,7 @@
 		if (!pageData) return
 		await persist({ annotations: (pageData.annotations ?? []).map(a => a.id === id ? { ...a, ...patch } : a) })
 	}
-	/** Debounced/optimistic variant for sidebar typing (text/font/colour). */
+	/** Debounced/optimistic variant for sidebar typing (text/font/color). */
 	function updateAnnotationLive(id: string, patch: Partial<Annotation>) {
 		if (!pageData) return
 		persistLive({ annotations: (pageData.annotations ?? []).map(a => a.id === id ? { ...a, ...patch } : a) })
@@ -719,7 +719,7 @@
 										oninput={(e: Event) => updateAnnotationLive(a.id, { fontPt: inputNumber(e) || 10 })} />
 								</label>
 								<label class="block">
-									<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Colour</div>
+									<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Color</div>
 									<input type="color" class="w-full h-7 border border-zinc-200 dark:border-zinc-700 rounded bg-white dark:bg-zinc-900"
 										value={a.color ?? '#111827'}
 										oninput={(e: Event) => updateAnnotationLive(a.id, { color: inputValue(e) })} />
@@ -750,14 +750,14 @@
 								</label>
 							</div>
 							<label class="block">
-								<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Colour</div>
+								<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Color</div>
 								<input type="color" class="w-full h-7 border border-zinc-200 dark:border-zinc-700 rounded bg-white dark:bg-zinc-900"
 									value={a.color ?? '#111827'}
 									oninput={(e: Event) => updateAnnotationLive(a.id, { color: inputValue(e) })} />
 							</label>
 						{:else}
 							<label class="block">
-								<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Colour</div>
+								<div class="text-[10px] uppercase tracking-wider text-zinc-400 mb-0.5">Color</div>
 								<input type="color" class="w-full h-7 border border-zinc-200 dark:border-zinc-700 rounded bg-white dark:bg-zinc-900"
 									value={a.color ?? (a.kind === 'cloud' ? '#dc2626' : '#111827')}
 									oninput={(e: Event) => updateAnnotationLive(a.id, { color: inputValue(e) })} />

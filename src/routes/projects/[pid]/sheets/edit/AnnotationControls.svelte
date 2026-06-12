@@ -123,7 +123,7 @@
 		{/if}
 	{/if}
 
-	<PropColor label={hasFill(sel.kind) ? 'Border' : 'Colour'} value={sel.color ?? '#dc2626'} allowNone={false} onchange={(c) => editor.setSel({ color: c })} />
+	<PropColor label={hasFill(sel.kind) ? 'Border' : 'Color'} value={sel.color ?? '#dc2626'} allowNone={false} onchange={(c) => editor.setSel({ color: c })} />
 	{#if hasFill(sel.kind)}
 		<PropColor label="Fill" value={sel.fill ?? 'none'} onchange={(c) => editor.setSel({ fill: c })} />
 	{/if}

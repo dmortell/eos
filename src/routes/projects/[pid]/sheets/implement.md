@@ -485,7 +485,7 @@ section is the **living task list** for that ongoing work — keep it updated as
 ### Done
 
 - [x] Merged edit/annotate overlay; per-tool canvas editors (`SurfaceEditor` base + outlets/racks/risers editors); model mode.
-- [x] Annotations: text/line/arrow/rect/cloud/symbol/callout/dimension; reusable `TransformBox` + `PointHandles`; multi-line text; 15° rotate snap; `PropColor` (swatches + custom + opacity); separate fill + border colours; smaller arrowheads; Leader folded into Callout (border option).
+- [x] Annotations: text/line/arrow/rect/cloud/symbol/callout/dimension; reusable `TransformBox` + `PointHandles`; multi-line text; 15° rotate snap; `PropColor` (swatches + custom + opacity); separate fill + border colors; smaller arrowheads; Leader folded into Callout (border option).
 - [x] Callout UX: drag box vs. drag line (box-only vs. move-both); double-click text → focus props textarea.
 - [x] Zoom flicker fix (text re-layout): `text-rendering: geometricPrecision`.
 - [x] Floating-window scrollbar fix: clamp windows to viewport (`Window`) + portal into a fixed clipped overlay (`edit/portal.ts`, `pointer-events:auto` on panels).
@@ -529,10 +529,10 @@ section is the **living task list** for that ongoing work — keep it updated as
 
 - [ ] **Measure / dimension tool** — coords are real mm everywhere, so a click-click measure (and auto cable-length readouts on risers/trunks) is cheap and high-value for engineers.
 - [ ] **Cable schedule / BOM viewport** — a table viewport summarising outlets/cables/devices (the standalone outlets tool already has `exportOutletsToExcel`); could render as a text/table viewport and export.
-- [ ] **Trunk fill-rate overlay** — the outlets tool computes `nodeFillMap` (cable area vs conduit area); surface a fill-% colour/label on trunks (mirrors the `fillrate` tool).
+- [ ] **Trunk fill-rate overlay** — the outlets tool computes `nodeFillMap` (cable area vs conduit area); surface a fill-% color/label on trunks (mirrors the `fillrate` tool).
 - [ ] **Align / distribute** for multi-selected objects & viewports; **snap-to-grid / alignment guides** while dragging.
 - [x] **Copy/paste annotations** within and across viewports (Ctrl-C/V). (Tool objects are doc-bound; not copied.)
-- [ ] **Auto-legend** for a viewport (symbol/colour key), and a **north arrow** placement helper.
+- [ ] **Auto-legend** for a viewport (symbol/color key), and a **north arrow** placement helper.
 - [ ] 3D viewer for rooms/risers (big; mentioned in spec).
 
 ### Backlog — earlier notes

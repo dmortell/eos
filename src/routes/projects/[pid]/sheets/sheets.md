@@ -130,15 +130,18 @@ One note for later if it recurs: a fully robust fix would be to give .gui window
 
 ## Pending bugs/features
 
-* Consider changing VCMs to be optional parts of a rack/frame, and remind me about it later.
+* Text viewport doesnt pan/zoom
 
 * Need a fix for panning sheet when layout fills the screen (Esc to inactivate viewport, or no pan/zoom within viewports unless enabled)
 Probably need to reconsider how we pan/zoom viewport content.
 
-* Conduits need curved bend-radius for front/side elvations.
+Lets add a flag to disable pan/zoom in active view by default, and use right-wheel/drag to pan/zoom the whole sheet canvas instead as usual.
+Keep pan/zoom as is in model mode. Show a toolbar inside the top right corner of the frame of selected/active viewports that shows the current scale, a toggle button to enable viewport content pan/zoom, and the model toggle button.
 
-* Add Wall outlets/faceplates.
+* Consider changing VCMs to be optional parts of a rack/frame?
 
-* Add Library for shapes.
 
-* Color for lines of text
+* Conduits/trunks need a curved bend-radius setting at corners for plans and front/side elevations.
+
+* Add Wall outlets/faceplates shapes for elevations.
+Add a Library for such shapes, and saving user drawn shapes (see original outlets tool).

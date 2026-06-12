@@ -91,7 +91,7 @@ export interface Annotation {
 	start?: ArrowHead             // line start head
 	end?: ArrowHead               // line end head
 	dash?: DashStyle              // line style
-	color?: string                // stroke / border / text colour
+	color?: string                // stroke / border / text color
 	fill?: string                 // shape fill (rect/cloud/callout/symbol); 'none' = unfilled
 	link?: AnnotationLink
 	layerId?: string
