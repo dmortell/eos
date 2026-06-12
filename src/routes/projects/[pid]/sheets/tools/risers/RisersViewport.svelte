@@ -94,7 +94,7 @@
 					if (t === 'riser') { if (blocked('ladders')) return true; editor.addLadderDrag(w.x, f, fromFloor, toFloor, () => { tool = 'select' }); return true }
 					return false
 				}} />
-			<RisersEditLayer {editor} {fromFloor} {toFloor} interactive={tool === 'select'} />
+			<RisersEditLayer {editor} {fromFloor} {toFloor} interactive={tool === 'select'} {hidden} {locked} />
 		{/if}
 		{#if !annHidden}
 			<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} locked={annLocked} den={viewDen} />

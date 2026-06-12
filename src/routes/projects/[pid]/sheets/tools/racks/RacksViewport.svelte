@@ -109,7 +109,7 @@
 					const e = rackAtX(el, w.x); if (!e) return true
 					editor.addDeviceAt(e.rack.id, slotAtY(e, el, w.y, 1)); return true
 				}} />
-			<RacksEditLayer {editor} face={src.face} rowId={src.rowId} interactive={tool === 'select'} />
+			<RacksEditLayer {editor} face={src.face} rowId={src.rowId} interactive={tool === 'select'} {hidden} {locked} />
 		{/if}
 		{#if !annHidden}
 			<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} locked={annLocked} den={viewDen} />

@@ -186,7 +186,7 @@
 				}}
 				onmove={(w) => { if (tool === 'trunk' && editor.draw) editor.preview = w }}
 				ondbl={() => { if (tool === 'trunk') { editor.finishDraw(); tool = 'select' } }} />
-			<OutletsEditLayer {editor} interactive={tool === 'select'} {locked} {racksById} />
+			<OutletsEditLayer {editor} interactive={tool === 'select'} {locked} {hidden} {racksById} />
 		{/if}
 		{#if !annHidden}
 			<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} locked={annLocked} den={viewDen} />

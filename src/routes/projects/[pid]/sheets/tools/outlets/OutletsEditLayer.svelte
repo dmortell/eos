@@ -10,13 +10,15 @@
 	import type { OutletsEditor } from './outlets-editor.svelte'
 	import type { RackPlacement } from './types'
 	type RackCfg = { widthMm: number; depthMm: number }
-	let { editor, interactive = false, locked = [], racksById = {} }: { editor: OutletsEditor; interactive?: boolean; locked?: string[]; racksById?: Record<string, RackCfg> } = $props()
+	let { editor, interactive = false, locked = [], hidden = [], racksById = {} }: { editor: OutletsEditor; interactive?: boolean; locked?: string[]; hidden?: string[]; racksById?: Record<string, RackCfg> } = $props()
 
 	const HM = 70 // node handle radius (mm)
 	const HL = '#06b6d4'
-	let lockO = $derived(locked.includes('outlets'))
-	let lockT = $derived(locked.includes('trunks'))
-	let lockR = $derived(locked.includes('racks'))
+	// A layer that's hidden OR locked is non-interactive: skip its handles/hit targets entirely
+	// (hidden objects aren't drawn, so they must not be selectable; locked objects can't be edited).
+	let offO = $derived(hidden.includes('outlets') || locked.includes('outlets'))
+	let offT = $derived(hidden.includes('trunks') || locked.includes('trunks'))
+	let offR = $derived(hidden.includes('racks') || locked.includes('racks'))
 	const rackDims = (rp: RackPlacement) => ({ w: racksById[rp.rackId]?.widthMm ?? rp.widthMm ?? 600, h: racksById[rp.rackId]?.depthMm ?? rp.depthMm ?? 1000 })
 
 	let drawNode = $derived(editor.draw ? editor.trunks.find(t => t.id === editor.draw!.trunkId)?.nodes.find(n => n.id === editor.draw!.lastNodeId) ?? null : null)
@@ -35,20 +37,20 @@
 					<line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={HL} stroke-width="2" vector-effect="non-scaling-stroke" style:pointer-events="none" />
 				{/if}
 				<line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="transparent" stroke-width={260}
-					style:pointer-events={interactive && !lockT ? 'stroke' : 'none'} style:cursor="move"
+					style:pointer-events={interactive && !offT ? 'stroke' : 'none'} style:cursor="move"
 					onmousedown={(e: MouseEvent) => editor.onSegDown(e, t, s)}
 					ondblclick={(e: MouseEvent) => editor.insertNode(e, t, s)}
 					oncontextmenu={(e: MouseEvent) => editor.onSegContext(e, t, s)} />
 			{/if}
 		{/each}
-		{#if selTrunkId === t.id && !lockT}
+		{#if selTrunkId === t.id && !offT}
 			{#each t.nodes as n (n.id)}
 				<circle cx={n.position.x} cy={n.position.y} r={HM} fill={editor.tnode === n.id ? HL : 'white'} stroke={editor.tnode === n.id ? HL : '#0369a1'} stroke-width="1" vector-effect="non-scaling-stroke"
 					style:pointer-events={interactive ? 'auto' : 'none'} style:cursor="grab"
 					onmousedown={(e: MouseEvent) => editor.onNodeDown(e, t, n)}
 					oncontextmenu={(e: MouseEvent) => editor.onNodeContext(e, t, n)} />
 			{/each}
-		{:else if !lockT}
+		{:else if !offT}
 			<!-- marquee-selected nodes (any trunk): grabbable to move the whole group -->
 			{#each t.nodes as n (n.id)}
 				{#if editor.selNodes.includes(n.id)}
@@ -70,7 +72,7 @@
 	{/if}
 
 	<!-- outlets — selectable/draggable in Select mode. -->
-	{#if !lockO}
+	{#if !offO}
 		{#each editor.outlets as o (o.id)}
 			<circle cx={o.position.x} cy={o.position.y} r={260} fill="transparent"
 				style:pointer-events={interactive ? 'auto' : 'none'} style:cursor="move"
@@ -82,7 +84,7 @@
 	{/if}
 
 	<!-- rack placements: drag the body to move; selection outline; rotate via panel -->
-	{#if !lockR}
+	{#if !offR}
 		{#each editor.rackPlacements as rp (rp.rackId)}
 			{@const d = rackDims(rp)}
 			{@const cx = rp.position.x + d.w / 2}

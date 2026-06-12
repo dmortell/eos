@@ -8,16 +8,22 @@
 	import { buildElevation, deviceBox, slotAtY, rackAtX } from './rack-layout'
 	import type { RacksEditor } from './racks-editor.svelte'
 	import type { RackFace, DeviceConfig } from './types'
-	let { editor, face, rowId = undefined, interactive = false }: { editor: RacksEditor; face: RackFace; rowId?: string; interactive?: boolean } = $props()
+	let { editor, face, rowId = undefined, interactive = false, hidden = [], locked = [] }: { editor: RacksEditor; face: RackFace; rowId?: string; interactive?: boolean; hidden?: string[]; locked?: string[] } = $props()
 
 	const HL = '#06b6d4'
-	const pe = $derived(interactive ? 'auto' : 'none')
+	// Devices live on the 'devices' layer; racks/rows on 'racks'. A hidden or locked layer is
+	// non-interactive (hidden objects aren't drawn, so they must not be selectable).
+	let offDevices = $derived(hidden.includes('devices') || locked.includes('devices'))
+	let offRows = $derived(hidden.includes('racks') || locked.includes('racks'))
+	const dpe = $derived(interactive && !offDevices ? 'auto' : 'none')
+	const rpe = $derived(interactive && !offRows ? 'auto' : 'none')
 	let scoped = $derived(rowId ? editor.racks.filter(r => r.rowId === rowId) : editor.racks)
 	let elev = $derived(face === 'plan' ? null : buildElevation(scoped, editor.settings, face))
 	let boxes = $derived(elev ? editor.devices.map(d => ({ d, box: deviceBox(d, elev!, face) })).filter(x => x.box) as { d: DeviceConfig; box: { x: number; y: number; w: number; h: number } }[] : [])
 
-	// Feed the editor the current device boxes + face so its marquee can hit-test them.
-	$effect(() => { editor.layout = { face, boxes: boxes.map(b => ({ id: b.d.id, box: b.box })) } })
+	// Feed the editor the device boxes + face so its marquee can hit-test them (none when off, so a
+	// marquee can't grab hidden/locked devices).
+	$effect(() => { editor.layout = { face, boxes: offDevices ? [] : boxes.map(b => ({ id: b.d.id, box: b.box })) } })
 
 	function dragDevice(d: DeviceConfig, e0: MouseEvent) {
 		e0.stopPropagation()
@@ -55,20 +61,24 @@
 	<g class="print:hidden">
 		{#each editor.rows as row (row.id)}
 			{@const o = row.plan?.originMm ?? { x: 0, y: 0 }}
-			{#if editor.inRowMulti(row.id)}
+			{#if editor.inRowMulti(row.id) && !offRows}
 				<circle cx={o.x} cy={o.y} r={360} fill="none" stroke={HL} stroke-width="1.5" vector-effect="non-scaling-stroke" style:pointer-events="none" />
 			{/if}
-			<circle cx={o.x} cy={o.y} r={250} fill="#2563eb" fill-opacity="0.55" stroke="#1d4ed8" stroke-width="1" vector-effect="non-scaling-stroke"
-				style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => downRow(row, e, (ev) => editor.dragRow(row, ev))} />
+			{#if !offRows}
+				<circle cx={o.x} cy={o.y} r={250} fill="#2563eb" fill-opacity="0.55" stroke="#1d4ed8" stroke-width="1" vector-effect="non-scaling-stroke"
+					style:pointer-events={rpe} style:cursor="move" onmousedown={(e: MouseEvent) => downRow(row, e, (ev) => editor.dragRow(row, ev))} />
+			{/if}
 		{/each}
 	</g>
 {:else}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<g class="print:hidden">
 		{#each boxes as { d, box } (d.id)}
-			<rect x={box.x} y={box.y} width={box.w} height={box.h} fill="transparent"
-				style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => dragDevice(d, e)} />
-			{#if editor.selDeviceId === d.id || editor.inDeviceMulti(d.id)}
+			{#if !offDevices}
+				<rect x={box.x} y={box.y} width={box.w} height={box.h} fill="transparent"
+					style:pointer-events={dpe} style:cursor="move" onmousedown={(e: MouseEvent) => dragDevice(d, e)} />
+			{/if}
+			{#if (editor.selDeviceId === d.id || editor.inDeviceMulti(d.id)) && !offDevices}
 				<rect x={box.x} y={box.y} width={box.w} height={box.h} fill={editor.inDeviceMulti(d.id) ? `${HL}22` : 'none'} stroke={HL} stroke-width="1.5" vector-effect="non-scaling-stroke" style:pointer-events="none" />
 			{/if}
 		{/each}

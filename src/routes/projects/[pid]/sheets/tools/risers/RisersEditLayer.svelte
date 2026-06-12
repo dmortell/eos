@@ -9,10 +9,13 @@
 	import { DEFAULT_RISER_SETTINGS } from './types'
 	import type { RisersEditor } from './risers-editor.svelte'
 
-	let { editor, fromFloor, toFloor, interactive = false }: { editor: RisersEditor; fromFloor: number; toFloor: number; interactive?: boolean } = $props()
+	let { editor, fromFloor, toFloor, interactive = false, hidden = [], locked = [] }: { editor: RisersEditor; fromFloor: number; toFloor: number; interactive?: boolean; hidden?: string[]; locked?: string[] } = $props()
 	let bands = $derived(buildFloorBands({ floorHeights: editor.floorHeights, settings: editor.settings ?? DEFAULT_RISER_SETTINGS, hiddenFloors: editor.hiddenFloors }, fromFloor, toFloor))
 	const pe = $derived(interactive ? 'auto' : 'none')
 	const HL = '#06b6d4'
+	// Hidden or locked layers are non-interactive — skip their handles entirely.
+	let offRooms = $derived(hidden.includes('rooms') || locked.includes('rooms'))
+	let offLadders = $derived(hidden.includes('ladders') || locked.includes('ladders'))
 
 	// Feed the floor range to the editor so its marquee can rebuild bands to hit-test rooms/ladders.
 	$effect(() => { editor.range = { from: fromFloor, to: toFloor } })
@@ -34,7 +37,7 @@
 <g class="print:hidden">
 	{#each editor.rooms as room (room.id)}
 		{@const b = bandForFloor(bands, room.floor)}
-		{#if b}
+		{#if b && !offRooms}
 			{@const cy = roomCentreYMm(b)}
 			{@const sel = editor.isSel('room', room.id) || editor.inRoomMulti(room.id)}
 			<!-- centre handle: move (drag between floors / horizontally) -->
@@ -51,7 +54,7 @@
 	{/each}
 	{#each editor.ladders as l (l.id)}
 		{@const b = bandForFloor(bands, Math.max(l.fromFloor, l.toFloor)) ?? bands[0]}
-		{#if b}
+		{#if b && !offLadders}
 			<circle cx={l.xMm} cy={b.topMm + 200} r={250} fill={editor.isSel('ladder', l.id) || editor.inLadderMulti(l.id) ? HL : '#64468c'} fill-opacity="0.55" stroke="#4c3370" stroke-width="1" vector-effect="non-scaling-stroke"
 				style:pointer-events={pe} style:cursor="ew-resize" onmousedown={(e: MouseEvent) => downLadder(l, e)} />
 		{/if}
