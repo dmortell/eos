@@ -68,9 +68,12 @@ The sheets list should show the latest version by default, but maybe a dropdown 
        nearest main trunk that connects to the correct frame/rack.
 
 5c. Trunks
-  5c1. Trunk Shape: replace the select with 2 toggle buttons.
-  5c2. Trunk Location: simplify to floor / ceiling / wall toggle buttons.
-  5c3. Add type + color to the Sheets trunk props.
+  5c1. Trunk Shape: 2 toggle buttons (Rect / Pipe).   ✅
+  5c2. Trunk Location: 3 toggle buttons (Floor / Ceiling / Wall).   ✅
+       Ceiling maps to the existing 'ceiling-tray' value (both ceiling-* keep it active), so the
+       model + old-tool rendering are unchanged — the plenum/tray distinction is just dropped from
+       the Sheets UI.
+  5c3. Type (free-text) + Color picker on the Sheets trunk props.   ✅ (TrunkConfig.type added)
   5c4. Trunk list (select-only). Visibility is handled by layers (5a.), not the old visibility toggle.
 
 5d. Elevations
@@ -140,9 +143,10 @@ The sheets list should show the latest version by default, but maybe a dropdown 
 
 6. Sheets
 
-* The sheets list should be draggable, like the lists in the Packages tab.
-* I'm thinking of categorizing the sheet list into: Outlet plans, Trunk plans, Risers, Elevations, Patch Lists
-* We will want to be able to add fill rate drawings to sheets. As these are essentiall cross-sections of a trunk, they could be considered elevations (although some of them may be x-sections of a vertical riser). We could put them one per elevation vp.
+6a. The items in sheets list should be draggable, like the lists in the Packages tab.
+6b. I'm thinking of categorizing the sheet list into: Outlet plans, Trunk plans, Risers, Elevations, Patch Lists
+6c. We will want to be able to add fill rate drawings to sheets. As these are essentially cross-sections of a trunk, they could be considered elevations (although some of them may be x-sections of a vertical riser). We could put them one per elevation vp.
+
 
 7. Implement section references as annotes.
 I've seen two types:

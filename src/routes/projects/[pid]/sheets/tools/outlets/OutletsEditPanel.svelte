@@ -2,6 +2,7 @@
 	import { Window } from '$lib'
 	import PropText from '../../parts/PropText.svelte'
 	import PropSelect from '../../parts/PropSelect.svelte'
+	import PropColor from '../../parts/PropColor.svelte'
 	import AnnotationControls from '../../edit/AnnotationControls.svelte'
 	import { portal } from '../../edit/portal'
 	import type { OutletsEditor } from './outlets-editor.svelte'
@@ -90,12 +91,25 @@
 	{:else if editor.selTrunk}
 		{@const t = editor.selTrunk}
 		<hr class="border-zinc-200" />
-		<PropSelect label="Shape" value={t.shape} onchange={(e: Event) => editor.setTrunkShape(val(e) as any)}>
-			<option value="rect">Rect / tray</option><option value="pipe">Pipe</option>
-		</PropSelect>
-		<PropSelect label="Location" value={t.location} onchange={(e: Event) => editor.setTrunk({ location: val(e) as any })}>
-			<option value="floor">Floor</option><option value="ceiling-plenum">Ceiling plenum</option><option value="ceiling-tray">Ceiling tray</option><option value="wall">Wall</option>
-		</PropSelect>
+		<div class="flex items-center justify-between gap-2">
+			<span class="w-24 shrink-0 text-xs text-zinc-500">Shape</span>
+			<div class="flex w-full gap-0.5">
+				{#each [['rect', 'Rect'], ['pipe', 'Pipe']] as [v, lbl] (v)}
+					<button class={cls(t.shape === v)} onclick={() => editor.setTrunkShape(v as any)}>{lbl}</button>
+				{/each}
+			</div>
+		</div>
+		<div class="flex items-center justify-between gap-2">
+			<span class="w-24 shrink-0 text-xs text-zinc-500">Location</span>
+			<div class="flex w-full gap-0.5">
+				<!-- "Ceiling" maps to ceiling-tray; both ceiling-* values keep it highlighted. -->
+				{#each [['floor', 'Floor'], ['ceiling-tray', 'Ceiling'], ['wall', 'Wall']] as [v, lbl] (v)}
+					<button class={cls(v === 'ceiling-tray' ? t.location.startsWith('ceiling') : t.location === v)} onclick={() => editor.setTrunk({ location: v as any })}>{lbl}</button>
+				{/each}
+			</div>
+		</div>
+		<PropText label="Type" value={t.type ?? ''} placeholder="e.g. Data" oninput={(e: Event) => editor.setTrunk({ type: val(e) || undefined })} />
+		<PropColor label="Color" value={t.color ?? '#0369a1'} allowNone={false} onchange={(c: string) => editor.setTrunk({ color: c })} />
 		<PropText label={t.shape === 'pipe' ? 'Diameter (mm)' : 'Width (mm)'} type="number" min="0" value={String(editor.selTrunkWidth)} oninput={(e: Event) => editor.setTrunkWidth(Number(val(e)) || 0)} />
 		{#if t.shape !== 'pipe'}
 			<PropText label="Height (mm)" type="number" min="0" value={String(editor.selTrunkHeight)} oninput={(e: Event) => editor.setTrunkHeight(Number(val(e)) || 0)} />

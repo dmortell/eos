@@ -53,6 +53,7 @@ export interface TrunkConfig {
 	segments: TrunkSegment[]
 	labels?: TrunkLabel[]
 	label?: string
+	type?: string           // free-text containment/service type (e.g. 'Data', 'Power', 'Fiber')
 	color?: string
 	rooms?: string[]
 	isPrimary: boolean
