@@ -2,6 +2,7 @@
 	// Labeled color picker for the property windows: a swatch button → dropdown of preset colors
 	// (incl. transparent + None), a custom picker, and an opacity slider. `value` is a CSS color
 	// string — '#rrggbb', '#rrggbbaa' (with alpha), 'transparent', or 'none' (no paint).
+	import { portal } from '../edit/portal'
 	let { label = '', value = $bindable('#000000'), onchange, allowNone = true, allowOpacity = true, class: className = '' }: {
 		label?: string
 		value?: string
@@ -16,6 +17,21 @@
 		'#0d9488', '#0891b2', '#2563eb', '#4f46e5', '#7c3aed', '#db2777', '#92400e', 'transparent',
 	]
 	let open = $state(false)
+	// The popup is portalled to a fixed overlay (the Edit window clips/scrolls its content), placed
+	// from the swatch button's on-screen rect (right-aligned, clamped into the viewport).
+	const POP_W = 176, POP_H = 200
+	let anchorEl = $state<HTMLButtonElement>()
+	let pos = $state({ x: 0, y: 0 })
+	function toggle() {
+		if (!open && anchorEl) {
+			const r = anchorEl.getBoundingClientRect()
+			pos = {
+				x: Math.max(4, Math.min(r.right - POP_W, window.innerWidth - POP_W - 4)),
+				y: Math.max(4, Math.min(r.bottom + 4, window.innerHeight - POP_H - 4)),
+			}
+		}
+		open = !open
+	}
 
 	type Parsed = { special: string | null; hex: string; a: number }
 	function parse(v: string): Parsed {
@@ -39,17 +55,18 @@
 	{#if label}<span class="w-24 shrink-0 text-xs text-zinc-500">{label}</span>{/if}
 	<div class="relative w-full">
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<button type="button" class="flex h-6 w-full items-center gap-2 rounded border border-zinc-300 px-1 text-xs hover:bg-slate-50" onclick={() => (open = !open)}>
+		<button type="button" bind:this={anchorEl} class="flex h-6 w-full items-center gap-2 rounded border border-zinc-300 px-1 text-xs hover:bg-slate-50" onclick={toggle}>
 			<span class="grid h-4 w-4 shrink-0 place-items-center rounded border border-zinc-300" style:background={bg(value)}>
 				{#if value === 'none'}<span class="h-3.5 w-px rotate-45 bg-red-500"></span>{/if}
 			</span>
 			<span class="flex-1 truncate text-left text-zinc-600">{labelOf(value)}</span>
 		</button>
 		{#if open}
-			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<div class="fixed inset-0 z-40" onmousedown={() => (open = false)}></div>
-			<div class="absolute right-0 z-50 mt-1 w-44 rounded border border-zinc-200 bg-white p-1.5 shadow-lg">
-				<div class="grid grid-cols-4 gap-1">
+			<div use:portal>
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<div class="fixed inset-0" style:z-index="60" onmousedown={() => (open = false)}></div>
+				<div class="fixed w-44 rounded border border-zinc-200 bg-white p-1.5 shadow-lg" style:z-index="61" style:left="{pos.x}px" style:top="{pos.y}px">
+					<div class="grid grid-cols-4 gap-1">
 					{#each COLORS as c (c)}
 						<button type="button" class="h-7 w-7 rounded border border-zinc-300 {p.hex === c || value === c ? 'ring-2 ring-blue-500' : ''}" style:background={bg(c)} title={labelOf(c)} onclick={() => pick(c)} aria-label={labelOf(c)}></button>
 					{/each}
@@ -66,6 +83,7 @@
 				{#if allowNone}
 					<button type="button" class="mt-1 w-full rounded border border-zinc-200 px-1 py-0.5 text-[11px] text-zinc-600 hover:bg-slate-100" onclick={() => pick('none')}>None (no fill / border)</button>
 				{/if}
+				</div>
 			</div>
 		{/if}
 	</div>
