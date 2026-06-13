@@ -5,7 +5,7 @@
 	import PropColor from '../../parts/PropColor.svelte'
 	import AnnotationControls from '../../edit/AnnotationControls.svelte'
 	import { portal } from '../../edit/portal'
-	import { formNav } from '../../edit/formNav'
+	import { formNav } from '$lib/formNav'
 	import type { OutletsEditor } from './outlets-editor.svelte'
 	import type { AnnotationEditor } from '../../annotations/annotations.svelte'
 	import { PIPE_CATALOG, RECT_CATALOG } from './types'
@@ -94,6 +94,7 @@
 	{:else if editor.selTrunk}
 		{@const t = editor.selTrunk}
 		<hr class="border-zinc-200" />
+		<PropText label="Label" value={t.label ?? ''} oninput={(e: Event) => editor.setTrunk({ label: val(e) || undefined })} />
 		<div class="flex items-center justify-between gap-2">
 			<span class="w-24 shrink-0 text-xs text-zinc-500">Shape</span>
 			<div class="flex w-full gap-0.5">

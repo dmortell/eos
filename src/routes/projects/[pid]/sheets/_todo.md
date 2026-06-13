@@ -48,7 +48,9 @@ The sheets list should show the latest version by default, but maybe a dropdown 
        (reuse the uploads tool: origin/scale/crop).
   5b2. Auto-label new trunks: add a trunk-label input to the trunk props, and auto-generate a
        default label like the old tool. (Root cause of trunks showing the Firestore ID in old
-       tools — there is currently no label input at all.)
+       tools — there is currently no label input at all.)   ✅
+       Trunk props now have a Label field; new trunks auto-label T<n> (one past the highest
+       existing T-number), so they never render as the Firestore id in the old tools.
   5b3. Outlets list + Excel export — keep in the existing standalone tool (or a sidebar / menu
        item), NOT in the viewport.
   5b4. Auto-renumber outlets (after add/remove). UX TBD:
@@ -103,9 +105,13 @@ The sheets list should show the latest version by default, but maybe a dropdown 
        that looked like an annotation's rotate handle — leaves the top-centre free for a future
        viewport rotate handle. Corners still resize.
   5e3. Number viewports when a sheet has more than one; renumber on reorder/move (how?); include the
-       number in the label when one is defined. (for references)
-  5e4. AutoCAD-style vp controls on the vp toolbar: scale down-triangle (pick scale) + the square
-       control (purpose TBD).
+       number in the label when one is defined. (for references)   ✅
+       Numbered by viewport order (stable under move, renumbers on add/delete) — shown before any
+       text label, in the editor and in package print. (Order-based; a stored stable id can come
+       later if references must survive reordering.)
+  5e4. AutoCAD-style vp controls on the vp toolbar: scale down-triangle (pick scale).   ✅
+       Scale <select> on the frame toolbar (when selected/active) → vps.setScale. (The "square
+       control" is still TBD — wasn't sure of its purpose.)
 
 5f. Annotates   (small)
   5f1. Consolidate the annote toolbar.   ✅
@@ -180,7 +186,10 @@ I've seen two types:
 7a. Circles with up to 4 triangles (north, south, east, west) with a sheet-vp number indicating the sheet and vp to refer to. I dont remember if one number pre triangle (will it fit?)
 7b. A line with two perpendicular arrowheaded ticks indicating the viewpoint width and direction on a floorplan. A non-printing dotted backplane indicates the horizon, how far away from the line objects will be rendered in the elevation/section. The line is labeled with sheet-vp number of the section rendering.
 
-8. Copy/cut & paste viewports to other sheets (or duplicate on current sheet)
+8. Copy/cut & paste viewports to other sheets (or duplicate on current sheet)   ✅
+   Select viewport(s) (frame click / marquee) then Ctrl-C / Ctrl-X / Ctrl-V (module-level clipboard,
+   so paste works across sheets) or Ctrl-D to duplicate in place. Only active when no viewport is
+   active (active viewports keep Ctrl-C/V for their annotations).
 
 9. Surveys
 * We dont need to include surveys in packages for now.
@@ -213,10 +222,14 @@ the cheap alternative to rendering tables to PDF (see 5h2 MAYBE).
 14. Wall elevations
 * allow adding wall-mount-panels (plain rects will do), vertical conduits, cutouts, outlets, trunks
 
-15. apply formNav to other property dialogs for Enter navigation (e.g. the fillrate tool, device library)
+15. apply formNav to other property dialogs for Enter navigation (e.g. the fillrate tool, device library)   ✅
+    Moved formNav to $lib/formNav and applied it to the Fill-rate SectionEditor + the rack Device
+    Library's custom-device form.
 
 16. when adding a Callout, allow user to drag out the line, from the arrowhead to where the callout textbox should be. callout Textbox border should be off by default, add a buttons to toggle none, underline, border.   ✅
     Callout placement is now a drag: press at the arrowhead, release where the text box goes. Border
     defaults to None (off); toggle buttons None / Underline / Border in the props. The old 'leader'
     kind is merged into callout (border None = leader look) and migrated on load; 'L' is now Line.
     Cloud minimum size bumped to 500x500.
+
+17. build a list of skills based on lessons learned during development of this app that would be useful when building similar apps in future. Or a list of MCP we should build or fetch

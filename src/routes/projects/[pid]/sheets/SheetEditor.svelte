@@ -165,6 +165,15 @@
 		}
 		function onKey(e: KeyboardEvent) {
 			if (modelVpId) { if (e.key === 'Escape') { const id = modelVpId; modelVpId = null; vps.activate(id) } return }
+				// Sheet-level viewport clipboard — only when no viewport is active (active viewports own
+				// Ctrl-C/V for their own annotations). Cut/Copy/Duplicate need a selection; Paste doesn't.
+				if ((e.ctrlKey || e.metaKey) && !isField(e.target) && !vps.activeId) {
+					const k = e.key.toLowerCase()
+					if (k === 'c' && vps.selectedIds.length) { e.preventDefault(); vps.copySelected(); return }
+					if (k === 'x' && vps.selectedIds.length) { e.preventDefault(); vps.cutSelected(); return }
+					if (k === 'v') { e.preventDefault(); vps.pasteClipboard(); return }
+					if (k === 'd' && vps.selectedIds.length) { e.preventDefault(); vps.duplicateSelected(); return }
+				}
 			if (e.key === 'Escape') { if (vps.insertMode) vps.cancelInsert(); else { vps.deactivate(); vps.clearSel() } }
 			else if ((e.key === 'Delete' || e.key === 'Backspace') && !isField(e.target) && !vps.activeId && vps.selectedIds.length) {
 				e.preventDefault(); vps.deleteSelected()
@@ -226,8 +235,8 @@
 					</svg>
 				{/if}
 
-				{#each vps.viewports as vp (vp.id)}
-					<Viewport {vps} {vp} zoom={mainZoom} onmodel={(id) => { vps.deactivate(); modelVpId = id }} />
+				{#each vps.viewports as vp, i (vp.id)}
+					<Viewport {vps} {vp} zoom={mainZoom} num={i + 1} total={vps.viewports.length} onmodel={(id) => { vps.deactivate(); modelVpId = id }} />
 				{/each}
 
 				<!-- Insert drag-out preview -->

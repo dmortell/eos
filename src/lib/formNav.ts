@@ -1,7 +1,7 @@
 /**
- * Property-window keyboard nav: Enter focuses the next field, Shift+Enter the previous one.
+ * Property-form keyboard nav: Enter focuses the next field, Shift+Enter the previous one.
  * Textareas are skipped entirely (so Enter / Shift+Enter keep inserting newlines there).
- * Apply with `use:formNav` on a window's content container — it walks the visible, enabled
+ * Apply with `use:formNav` on a form/window content container — it walks the visible, enabled
  * input/select descendants in DOM order.
  */
 export function formNav(node: HTMLElement) {

@@ -4,7 +4,7 @@
 	import PropSelect from '../../parts/PropSelect.svelte'
 	import AnnotationControls from '../../edit/AnnotationControls.svelte'
 	import { portal } from '../../edit/portal'
-	import { formNav } from '../../edit/formNav'
+	import { formNav } from '$lib/formNav'
 	import { RisersEditor, LEVELS, LADDER_LEVELS } from './risers-editor.svelte'
 	import type { AnnotationEditor } from '../../annotations/annotations.svelte'
 

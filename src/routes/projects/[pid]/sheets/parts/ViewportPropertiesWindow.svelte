@@ -8,7 +8,7 @@
 	import PropSelect from './PropSelect.svelte'
 	import PropTextarea from './PropTextarea.svelte'
 	import PropCheck from './PropCheck.svelte'
-	import { formNav } from '../edit/formNav'
+	import { formNav } from '$lib/formNav'
 	import OutletsProperties from '../tools/outlets/OutletsProperties.svelte'
 	import RacksProperties from '../tools/racks/RacksProperties.svelte'
 	import RisersProperties from '../tools/risers/RisersProperties.svelte'

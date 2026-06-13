@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib'
+	import { formNav } from '$lib/formNav'
 	import type { Section } from './constants'
 	import { calcFillRate, fillColor, fillStatus } from './constants'
 
@@ -32,7 +33,7 @@
 	function changed() { onchange() }
 </script>
 
-<div class="px-3 py-2 text-sm space-y-2">
+<div class="px-3 py-2 text-sm space-y-2" use:formNav>
 	<div class="flex items-center gap-2">
 		<label class="flex items-center gap-2 text-xs text-gray-500">
 			Label

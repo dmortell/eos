@@ -7,6 +7,9 @@ type Pt = { x: number; y: number }
 
 const MIN_VP = 20 // smallest viewport you can drag out (mm)
 
+// Module-level so copied viewports paste across sheets (same session).
+let vpClipboard: SheetViewport[] = []
+
 /**
  * Headless controller for a sheet's viewports. Owns the viewport list, selection /
  * active state, and the insert (drag-a-rect) and marquee (drag-a-box) gestures. DOM
@@ -116,6 +119,12 @@ export class ViewportEditor {
 		const v = this.viewports.find(x => x.id === id); if (!v) return
 		v.x = r.x; v.y = r.y; v.w = r.w; v.h = r.h
 	}
+	/** Set a viewport's paper scale (0 = Fit). Used by the frame toolbar's scale picker. */
+	setScale(id: string, scale: number) {
+		const v = this.viewports.find(x => x.id === id); if (!v) return
+		v.scale = scale || 0
+		this.notify()
+	}
 	/** Mutate a viewport's content view (active-viewport pan/zoom). */
 	setContentView(id: string, scale: number, offset: { x: number; y: number }) {
 		const v = this.viewports.find(x => x.id === id); if (!v) return
@@ -166,6 +175,31 @@ export class ViewportEditor {
 		this.customLayers = this.customLayers.filter(l => l.id !== id)
 		if (this.activeLayerId === id) this.activeLayerId = 'annotations'
 		this.notifyLayers()
+	}
+
+	// ── copy / cut / paste / duplicate (clipboard is module-level, so it survives sheet navigation) ──
+	copySelected() {
+		vpClipboard = this.viewports.filter(v => this.selectedIds.includes(v.id)).map(v => structuredClone($state.snapshot(v)) as SheetViewport)
+	}
+	cutSelected() { this.copySelected(); this.deleteSelected() }
+	/** Paste the clipboard viewports into this sheet (new ids, nudged so they're visible). */
+	pasteClipboard() {
+		if (!vpClipboard.length) return
+		const D = 10
+		const copies = vpClipboard.map(v => ({ ...structuredClone(v), id: this.uid('V'), x: v.x + D, y: v.y + D }))
+		this.viewports.push(...copies)
+		this.selectedIds = copies.map(c => c.id); this.activeId = null
+		this.notify()
+	}
+	/** Duplicate the selected viewports in place (offset), without touching the clipboard. */
+	duplicateSelected() {
+		const sel = this.viewports.filter(v => this.selectedIds.includes(v.id))
+		if (!sel.length) return
+		const D = 10
+		const copies = sel.map(v => ({ ...structuredClone($state.snapshot(v)) as SheetViewport, id: this.uid('V'), x: v.x + D, y: v.y + D }))
+		this.viewports.push(...copies)
+		this.selectedIds = copies.map(c => c.id); this.activeId = null
+		this.notify()
 	}
 
 	addViewport(r: Rect) {

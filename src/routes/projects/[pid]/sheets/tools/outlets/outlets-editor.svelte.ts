@@ -193,9 +193,16 @@ export class OutletsEditor extends SurfaceEditor {
 	selectSeg(tid: string, sid: string) { this.select('trunk', tid); this.tnode = null; this.tsegs = [sid] }
 
 	// ── trunks: create / draw ──
+	/** Next default trunk label: T<n>, where n is one past the highest existing T-number. So a freshly
+	 *  drawn trunk always has a label (old tools fell back to the Firestore id when it was blank). */
+	nextTrunkLabel(): string {
+		let max = 0
+		for (const t of this.trunks) { const m = /^T(\d+)$/.exec(t.label ?? ''); if (m) max = Math.max(max, parseInt(m[1], 10)) }
+		return `T${max + 1}`
+	}
 	newTrunk(p: Point): TrunkConfig {
 		return {
-			id: this.uid('T'), shape: 'rect', location: 'floor', spec: { catalog: 'tray', widthMm: 50, heightMm: 50 },
+			id: this.uid('T'), label: this.nextTrunkLabel(), shape: 'rect', location: 'floor', spec: { catalog: 'tray', widthMm: 50, heightMm: 50 },
 			nodes: [{ id: this.uid('n'), position: p, z: 0 }], segments: [], isPrimary: false, visible: true, color: '#0369a1',
 		}
 	}

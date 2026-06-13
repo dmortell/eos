@@ -2,6 +2,7 @@
 	// Device library window for rack elevations: list of device templates (built-in palette + the
 	// doc's custom library); drag an item onto the rack to place it; add custom devices to the list.
 	import { Window, Search } from '$lib'
+	import { formNav } from '$lib/formNav'
 	import { portal } from '../../edit/portal'
 	import { DEVICE_PALETTE, type DeviceTemplate } from './palette'
 	import type { RacksEditor } from './racks-editor.svelte'
@@ -67,7 +68,7 @@
 		<hr class="border-zinc-200" />
 		<button class="w-full rounded border px-1 py-0.5 text-xs hover:bg-slate-100" onclick={() => (builderOpen = !builderOpen)}>+ Custom Device</button>
 		{#if builderOpen}
-			<div class="grid grid-cols-2 gap-1 text-xs">
+			<div class="grid grid-cols-2 gap-1 text-xs" use:formNav>
 				<label class="col-span-2 text-[10px] text-zinc-500">Label
 					<input class="h-6 w-full rounded border border-zinc-300 px-1 text-xs" bind:value={custom.label} />
 				</label>

@@ -5,7 +5,7 @@
 	import PropText from './PropText.svelte'
 	import PropSelect from './PropSelect.svelte'
 	import PropCheck from './PropCheck.svelte'
-	import { formNav } from '../edit/formNav'
+	import { formNav } from '$lib/formNav'
 	import type { Firestore } from '$lib/db.svelte'
 	import type { SheetDoc, TitleBlockConfig } from '../types'
 	import type { TitleBlockProjectDefaults } from './TitleBlock.svelte'

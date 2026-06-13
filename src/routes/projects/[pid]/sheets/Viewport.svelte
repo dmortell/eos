@@ -6,7 +6,7 @@
 	// Model-driven: the controller owns position/selection/active state; this component renders
 	// one viewport and reports frame-clicks / handle-drags back. AutoCAD-style selection — you
 	// pick a viewport by its FRAME or a marquee box, never by clicking the inactive interior.
-	let { vps, vp, zoom = 1, onmodel }: { vps: ViewportEditor; vp: SheetViewport; zoom?: number; onmodel?: (id: string) => void } = $props()
+	let { vps, vp, zoom = 1, num = 0, total = 1, onmodel }: { vps: ViewportEditor; vp: SheetViewport; zoom?: number; num?: number; total?: number; onmodel?: (id: string) => void } = $props()
 
 	let selected = $derived(vps.isSelected(vp.id))
 	let active = $derived(vps.activeId === vp.id)
@@ -17,6 +17,12 @@
 
 	const MIN = 20 // min viewport size (mm)
 	const THRESHOLD = 4 // screen px before a move commits (anti-nudge)
+	// Scale choices for the frame-toolbar picker (mirrors the Viewport properties window). 0 = Fit.
+	const VP_SCALES = [
+		{ label: 'Fit', value: 0 }, { label: '1:2', value: 2 }, { label: '1:5', value: 5 }, { label: '1:10', value: 10 },
+		{ label: '1:15', value: 15 }, { label: '1:20', value: 20 }, { label: '1:25', value: 25 }, { label: '1:50', value: 50 },
+		{ label: '1:100', value: 100 }, { label: '1:200', value: 200 }, { label: '1:500', value: 500 },
+	]
 
 	let el: HTMLDivElement
 	type Corner = 'nw' | 'ne' | 'sw' | 'se'
@@ -185,10 +191,14 @@
 		<ViewportContent {vp} {vps} {zoom} {active} onview={(v) => lastView = v} />
 	</div>
 
-	<!-- Label (prints at point size, above the frame) -->
-	{#if vp.label}
-		<div class="absolute left-0 whitespace-nowrap leading-none text-zinc-700 pointer-events-none"
-			style:top="{-labelMm * 1.4}px" style:font-size="{labelMm}px">{vp.label}</div>
+	<!-- Label (prints at point size, above the frame). Viewports are numbered (by order) when a sheet
+	     has more than one, for section/elevation references — number shown before any text label. -->
+	{#if (total > 1 && num) || vp.label}
+		<div class="absolute left-0 flex items-center gap-[0.4em] whitespace-nowrap leading-none text-zinc-700 pointer-events-none"
+			style:top="{-labelMm * 1.4}px" style:font-size="{labelMm}px">
+			{#if total > 1 && num}<span class="font-semibold">{num}</span>{/if}
+			{#if vp.label}<span>{vp.label}</span>{/if}
+		</div>
 	{/if}
 	<!-- Frame toolbar (top-right corner of the frame): scale readout + (when active) a content
 	     pan/zoom toggle and the model-mode button. Sizes counter-scale via the container font-size
@@ -208,7 +218,21 @@
 	]}
 		style:pointer-events={selected || active ? 'auto' : 'none'}
 	>
-		<span class={selected || active ? 'text-zinc-600 tabular-nums' : 'text-zinc-400 tabular-nums'}>{scaleText}</span>
+		{#if selected || active}
+			<!-- Scale picker (AutoCAD-style): change the viewport scale without opening the props window.
+			     appearance-none + a tiny ▾ so it stays compact at the toolbar's font size. -->
+			<span class="relative inline-flex items-center">
+				<select class="appearance-none rounded border border-slate-300 bg-white tabular-nums leading-none cursor-pointer" title="Scale — {scaleText}"
+					style:font-size="inherit" style:padding="0 1.1em 0 0.25em"
+					value={String(vp.scale ?? 0)} onmousedown={e => e.stopPropagation()}
+					onchange={e => { e.stopPropagation(); vps.setScale(vp.id, Number((e.currentTarget as HTMLSelectElement).value)) }}>
+					{#each VP_SCALES as s (s.value)}<option value={String(s.value)}>{s.label}</option>{/each}
+				</select>
+				<span class="pointer-events-none absolute right-[0.2em] leading-none text-zinc-500">▾</span>
+			</span>
+		{:else}
+			<span class="text-zinc-400 tabular-nums">{scaleText}</span>
+		{/if}
 		{#if active}
 			<button class={['rounded px-[0.3em] xxpy-[0.1em]', navContent ? 'bg-blue-600 text-white' : 'text-zinc-600 hover:bg-zinc-100']}
 				title="Pan/zoom viewport content (middle/right-drag + wheel). Off = pan/zoom the sheet."
