@@ -91,7 +91,7 @@ The sheets list should show the latest version by default, but maybe a dropdown 
 
   5d6. If we want 3D views, should we start linking walls to floorplans now?
     * 3d editor code (for a multi-storey building) is available in M:\dev\pascal-editor-svelte\src
-    
+
 
 5e. Viewports   (small, mostly UI polish)
   5e1. Border property → checkbox (thin / none). Put checkboxes to the right of the prop label.   ✅
@@ -109,8 +109,10 @@ The sheets list should show the latest version by default, but maybe a dropdown 
 
 5f. Annotates   (small)
   5f1. Consolidate the annote toolbar.   ✅
-       Select + the recently-used annotes (module-level MRU, seeded text/line/arrow) + a "▾" picker
-       listing all annotes (incl. Image). Picking from the picker promotes it into the MRU buttons.
+       Select + four quick annote buttons (first three fixed: text/line/arrow) + a "▾" picker
+       listing all annotes (incl. Image). The picker is portalled to a fixed overlay (the Edit
+       window clips/scrolls its content). Picking from the picker fills the LAST quick slot;
+       clicking a quick button just activates it (no reordering).
   5f2. Image annote.   ✅ (URL / data-URL)
        New 'image' annotation kind (drag a box; fits the image inside). Set the source via the
        "Image URL" prop — accepts an http(s) URL or a data: URL. NOTE: clipboard-image paste and
@@ -204,3 +206,5 @@ the cheap alternative to rendering tables to PDF (see 5h2 MAYBE).
 
 14. Wall elevations
 * allow adding wall-mount-panels (plain rects will do), vertical conduits, cutouts, outlets, trunks
+
+15. apply formNav to other property dialogs for Enter navigation (e.g. the fillrate tool, device library)

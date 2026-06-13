@@ -1,7 +1,7 @@
 <script module lang="ts">
-	// Recently-used annotation tools, shared across panels (module-level), so the quick buttons
-	// reflect what you actually use. Seeded with sensible defaults.
-	let mru = $state<string[]>(['text', 'line', 'arrow'])
+	// Quick-access annotation tools shared across panels (module-level). The first three stay fixed;
+	// the LAST (fourth) slot holds whatever was most recently picked from the "▾" dropdown.
+	let mru = $state<string[]>(['text', 'line', 'arrow', 'cloud'])
 </script>
 
 <script lang="ts">
@@ -16,6 +16,7 @@
 	import PropCheck from '../parts/PropCheck.svelte'
 	import PropColor from '../parts/PropColor.svelte'
 	import { SYMBOLS, symbolDef } from '../annotations/symbols/registry'
+	import { portal } from './portal'
 	import type { AnnotationEditor } from '../annotations/annotations.svelte'
 
 	type Opt = { id: string; label: string }
@@ -27,12 +28,22 @@
 		['callout', 'Callout'], ['dimension', 'Dim'], ['symbol', 'Symbol'], ['image', 'Image'],
 	]
 	const labelOf = (id: string) => annTools.find(t => t[0] === id)?.[1] ?? id
+	// The picker menu is portalled to a fixed overlay (the Edit window clips/scrolls its content),
+	// positioned under the chevron from its on-screen rect.
 	let menuOpen = $state(false)
-	/** Activate an annotation tool and bump it to the front of the recently-used list. */
-	function useTool(id: string) {
+	let chevronEl = $state<HTMLButtonElement>()
+	let menuPos = $state({ x: 0, y: 0 })
+	function toggleMenu() {
+		if (!menuOpen && chevronEl) { const r = chevronEl.getBoundingClientRect(); menuPos = { x: r.left, y: r.bottom + 2 } }
+		menuOpen = !menuOpen
+	}
+	// Quick buttons stay put when clicked. Picking from the dropdown drops it into the LAST quick
+	// slot (so the first two stay stable), unless it's already one of the others.
+	function selectTool(id: string) { tool = id; menuOpen = false }
+	function pickFromMenu(id: string) {
 		tool = id
 		menuOpen = false
-		if (id !== 'select') mru = [id, ...mru.filter(x => x !== id)].slice(0, 4)
+		if (!mru.slice(0, mru.length - 1).includes(id)) mru = [...mru.slice(0, mru.length - 1), id]
 	}
 	const HEADS: [string, string][] = [['none', 'None'], ['arrow', 'Arrow'], ['dot', 'Dot'], ['tick', 'Tick']]
 	const DASHES: [string, string][] = [['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted']]
@@ -62,21 +73,23 @@
 <div class="flex flex-wrap items-center gap-1">
 	{#if showSelect}<button class={cls(tool === 'select')} onclick={() => (tool = 'select')}>Select</button>{/if}
 	{#each mru as id (id)}
-		<button class={cls(tool === id)} onclick={() => useTool(id)}>{labelOf(id)}</button>
+		<button class={cls(tool === id)} onclick={() => selectTool(id)}>{labelOf(id)}</button>
 	{/each}
-	<div class="relative">
-		<button class={cls(!!tool && tool !== 'select' && !mru.includes(tool))} title="More annotations" aria-label="More annotations" onclick={() => (menuOpen = !menuOpen)}>▾</button>
-		{#if menuOpen}
-			<!-- svelte-ignore a11y_consider_explicit_label -->
-			<button class="fixed inset-0 z-40 cursor-default" aria-label="Close menu" onclick={() => (menuOpen = false)}></button>
-			<div class="absolute left-0 z-50 mt-1 w-32 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg">
-				{#each annTools as [id, label] (id)}
-					<button class="block w-full px-2 py-1 text-left text-xs hover:bg-slate-100 {tool === id ? 'text-blue-600' : 'text-zinc-700'}" onclick={() => useTool(id)}>{label}</button>
-				{/each}
-			</div>
-		{/if}
-	</div>
+	<button bind:this={chevronEl} class={cls(!!tool && tool !== 'select' && !mru.includes(tool))} title="More annotations" aria-label="More annotations" onclick={toggleMenu}>▾</button>
 </div>
+
+{#if menuOpen}
+	<!-- Portalled so the Edit window's overflow doesn't clip it; fixed at the chevron's rect. -->
+	<div use:portal>
+		<!-- svelte-ignore a11y_consider_explicit_label -->
+		<button class="fixed inset-0 cursor-default" style:z-index="60" aria-label="Close menu" onclick={() => (menuOpen = false)}></button>
+		<div class="fixed w-32 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg" style:z-index="61" style:left="{menuPos.x}px" style:top="{menuPos.y}px">
+			{#each annTools as [id, label] (id)}
+				<button class="block w-full px-2 py-1 text-left text-xs hover:bg-slate-100 {tool === id ? 'text-blue-600' : 'text-zinc-700'}" onclick={() => pickFromMenu(id)}>{label}</button>
+			{/each}
+		</div>
+	</div>
+{/if}
 
 {#if tool === 'symbol' && !sel}
 	<PropSelect label="Symbol" value={editor.symbol} onchange={(e: Event) => (editor.symbol = val(e))}>
