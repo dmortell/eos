@@ -20,6 +20,20 @@ export interface SheetDoc {
 	updatedBy?: string
 }
 
+/**
+ * A drawing set: an ordered selection of sheets, printable as one multi-page PDF.
+ * Stored at `projects/{pid}/sheetPackages/{id}`.
+ */
+export interface SheetPackage {
+	id: string
+	projectId: string
+	name: string
+	sheetIds: string[]      // ordered membership (the print order)
+	sortOrder: number
+	updatedAt?: number
+	updatedBy?: string
+}
+
 /** A title-block revision entry. Notes are tracked for history; not normally drawn. */
 export interface SheetRevision {
 	code: string                           // 'A', 'B', 'P1', …

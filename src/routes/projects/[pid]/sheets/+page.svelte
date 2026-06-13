@@ -2,9 +2,10 @@
 	import { page } from '$app/state'
 	import { getContext } from 'svelte'
 	import { Firestore, Titlebar, Spinner, Session } from '$lib'
-	import { subscribeSheets } from './data'
-	import type { SheetDoc } from './types'
+	import { subscribeSheets, subscribeSheetPackages } from './data'
+	import type { SheetDoc, SheetPackage } from './types'
 	import SheetList from './parts/SheetList.svelte'
+	import PackageManager from './parts/PackageManager.svelte'
 
 	let db = getContext('db') as Firestore
 	let session = getContext('session') as Session
@@ -12,7 +13,9 @@
 
 	let projectName = $state('')
 	let sheets = $state<SheetDoc[]>([])
+	let packages = $state<SheetPackage[]>([])
 	let loading = $state(true)
+	let mode = $state<'sheets' | 'packages'>('sheets')
 
 	// Project name for the titlebar
 	$effect(() => {
@@ -33,6 +36,13 @@
 		})
 		return () => { unsub?.() }
 	})
+
+	// Packages (drawing sets)
+	$effect(() => {
+		if (!pid) return
+		const unsub = subscribeSheetPackages(db, pid, (docs) => { packages = docs })
+		return () => { unsub?.() }
+	})
 </script>
 
 <Titlebar title="{projectName} — Sheets" height={30} />
@@ -41,6 +51,8 @@
 	<div class="flex items-center justify-center h-screen">
 		<Spinner>Loading sheets...</Spinner>
 	</div>
+{:else if mode === 'sheets'}
+	<SheetList {sheets} projectId={pid ?? ''} uid={session.user?.uid ?? ''} {db} {mode} onmode={(m) => mode = m} />
 {:else}
-	<SheetList {sheets} projectId={pid ?? ''} uid={session.user?.uid ?? ''} {db} />
+	<PackageManager {packages} {sheets} projectId={pid ?? ''} uid={session.user?.uid ?? ''} {db} {mode} onmode={(m) => mode = m} />
 {/if}

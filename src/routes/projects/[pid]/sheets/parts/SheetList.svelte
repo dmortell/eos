@@ -4,17 +4,22 @@
 	import { paperDimsMm } from '$lib/ui/print/types'
 	import type { SheetDoc } from '../types'
 	import { createSheet, updateSheet, deleteSheet } from '../data'
+	import ListTabs from './ListTabs.svelte'
 
 	let {
 		sheets,
 		projectId,
 		uid,
 		db,
+		mode = 'sheets',
+		onmode = () => {},
 	}: {
 		sheets: SheetDoc[]
 		projectId: string
 		uid: string
 		db: Firestore
+		mode?: 'sheets' | 'packages'
+		onmode?: (m: 'sheets' | 'packages') => void
 	} = $props()
 
 	// ── Inline row editing ──
@@ -76,7 +81,7 @@
 	<div class="mx-auto max-w-5xl">
 		<!-- Header -->
 		<div class="flex items-center justify-between mb-4">
-			<h2 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Sheets</h2>
+			<ListTabs {mode} {onmode} />
 			<Button onclick={handleNewSheet}>
 				<Icon name="plus" size={14} />
 				New Sheet
