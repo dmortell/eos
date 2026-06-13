@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { PanZoomInputAdapter, type PanZoomPoint } from '$lib/ui/panzoom-controller'
 	import type { ViewState } from './types'
 
 	let {
@@ -17,67 +18,48 @@
 	// the wheel listener. As a plain `let` it raced mount timing — fine in
 	// standalone, fragile in the workspace embed.
 	let canvas: HTMLDivElement | null = $state(null)
+	let input: PanZoomInputAdapter | null = null
 	let zoomTarget = view.zoom
 	let zoomAnimation: number | null = null
 
 	$effect(() => {
-		canvas?.addEventListener('wheel', onwheel, { passive: false })
+		if (!canvas) return
+		input?.dispose()
+		input = new PanZoomInputAdapter({
+			element: canvas,
+			onPan: pan,
+			onZoom: (factor, center) => zoomByFactor(factor, center),
+			onPanningChange: (panning) => {
+				view.panning = panning
+			},
+			onButtonMaskChange: (button, down) => {
+				if (down) view.button |= 1 << button
+				else view.button &= ~(1 << button)
+			},
+			panButtons: [1, 2],
+			enableTouch: true,
+			wheelZoomSpeed: 0.04,
+		})
+
 		return () => {
-			canvas?.removeEventListener('wheel', onwheel)
+			input?.dispose()
+			input = null
+			view.panning = false
 		}
 	})
-
-	function onwheel(e: WheelEvent) {
-		view.panning = true
-		if (e.ctrlKey || e.altKey || e.metaKey || e.buttons === 2) doZoom(e)
-		else if (e.shiftKey || e.deltaX) pan((e.deltaY || e.deltaX) > 0 ? -110 : 110, 0)
-		else pan(0, e.deltaY > 0 ? -110 : 110)
-	}
-
-	function mouseOffset(e: MouseEvent) {
-		const { left, top } = canvas!.getBoundingClientRect()
-		return { x: e.clientX - left, y: e.clientY - top }
-	}
 
 	function pan(dx: number, dy: number) {
 		view.x += dx
 		view.y += dy
 	}
 
-	function onmousedown(e: MouseEvent) {
-		view.button |= 1 << e.button
-		// Pan with middle or right button only — leave left clicks for the children.
-		if (e.button === 1 || e.button === 2) {
-			e.preventDefault()
-			view.panning = true
-			document.addEventListener('mousemove', onmousemove)
-			document.addEventListener('mouseup', onmouseup)
-		}
-	}
-
-	function onmousemove(e: MouseEvent) {
-		if (e.movementX === 0 && e.movementY === 0) return
-		if (view.panning) pan(e.movementX, e.movementY)
-	}
-
-	function onmouseup(e: MouseEvent) {
-		view.panning = false
-		view.button &= ~(1 << e.button)
-		document.removeEventListener('mousemove', onmousemove)
-		document.removeEventListener('mouseup', onmouseup)
-	}
-
 	function oncontextmenu(e: MouseEvent) {
 		e.preventDefault()
 	}
 
-	function doZoom(e: WheelEvent) {
-		e.preventDefault()
-		const pt = mouseOffset(e)
-		const base = 1.2
-		const factor = e.deltaY < 0 ? base : 1 / base
-		zoomTarget = Math.min(5, Math.max(0.001, zoomTarget * factor))
-		startZoomAnimation(pt)
+	function zoomByFactor(factor: number, center: PanZoomPoint) {
+		zoomTarget = Math.min(5, Math.max(0.001, view.zoom * factor))
+		startZoomAnimation(center)
 	}
 
 	function startZoomAnimation(center: { x: number; y: number }) {
@@ -106,7 +88,6 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-	{onmousedown}
 	{oncontextmenu}
 	bind:this={canvas}
 	class="panzoom"
