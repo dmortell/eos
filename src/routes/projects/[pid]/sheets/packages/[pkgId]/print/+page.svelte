@@ -61,7 +61,11 @@
 		return { ...cfg, positionMm: cfg.positionMm ?? { x, y }, widthMm: cfg.widthMm ?? w, heightMm: cfg.heightMm ?? h }
 	}
 
-	// ── multi-page print styles (named @page per unique paper size; scale px→mm) ──
+	// ── print styles (px→mm scale; named @page only when paper sizes are mixed) ──
+	// Kept ALWAYS present (not injected on a button press) so Ctrl-P works the same as the Print
+	// button. For a single paper size we use a plain @page (no `page:` property) — the named-page
+	// switch is what inserts a blank lead page, so it's only used when sizes actually differ, and
+	// then the body is bound to the first sheet's page so the document starts on it.
 	const STYLE_ID = 'sheet-pkg-print-style'
 	const PX_PER_MM = 96 / 25.4
 	const sizeClass = (p: PrintSettings) => `pgsz-${p.paperSize}-${p.orientation}`
@@ -70,25 +74,35 @@
 		for (const s of printSheets) { const p = paperOf(s); const cls = sizeClass(p); if (seen.has(cls)) continue; seen.add(cls); const d = paperDimsMm(p); out.push({ cls, w: d.w, h: d.h }) }
 		return out
 	})
-	function injectStyles() {
+	function buildCss(): string {
+		const papers = uniquePapers
+		if (!papers.length) return ''
+		const multi = papers.length > 1
 		let r = ''
-		for (const c of uniquePapers) r += `@page ${c.cls} { size: ${c.w}mm ${c.h}mm; margin: 0 }\n.${c.cls} { page: ${c.cls} }\n`
-		r += `@media print {\n html,body{margin:0;padding:0;background:#fff!important}\n [data-no-print]{display:none!important}\n .sheet-wrap{margin:0!important;box-shadow:none!important;overflow:hidden;break-after:page}\n .sheet-wrap:last-child{break-after:auto}\n .sheet-content{transform:scale(${PX_PER_MM})!important;transform-origin:0 0!important}\n`
-		for (const c of uniquePapers) r += ` .${c.cls}{width:${c.w}mm!important;height:${c.h}mm!important}\n`
-		r += `}\n`
+		if (multi) {
+			for (const c of papers) r += `@page ${c.cls}{size:${c.w}mm ${c.h}mm;margin:0}\n`
+			r += `@media print{\n body{page:${sizeClass(paperOf(printSheets[0]))}}\n`
+			for (const c of papers) r += ` .${c.cls}{page:${c.cls};width:${c.w}mm!important;height:${c.h}mm!important}\n`
+		} else {
+			const c = papers[0]
+			r += `@page{size:${c.w}mm ${c.h}mm;margin:0}\n@media print{\n .${c.cls}{width:${c.w}mm!important;height:${c.h}mm!important}\n`
+		}
+		r += ` html,body{margin:0;padding:0;background:#fff!important}\n`
+		r += ` [data-no-print]{display:none!important}\n`
+		r += ` .pkg-root{display:contents!important}\n` // no wrapper box before the first sheet
+		r += ` .sheet-wrap{margin:0!important;box-shadow:none!important;overflow:hidden;break-after:page}\n`
+		r += ` .sheet-wrap:last-child{break-after:auto}\n`
+		r += ` .sheet-content{transform:scale(${PX_PER_MM})!important;transform-origin:0 0!important}\n}\n`
+		return r
+	}
+	// Always-present style element, kept in sync with the package's paper sizes.
+	$effect(() => {
 		let el = document.getElementById(STYLE_ID) as HTMLStyleElement | null
 		if (!el) { el = document.createElement('style'); el.id = STYLE_ID; document.head.appendChild(el) }
-		el.textContent = r
-	}
-	function removeStyles() { document.getElementById(STYLE_ID)?.remove() }
-	onDestroy(removeStyles)
-	function printNow() {
-		if (!printSheets.length) return
-		injectStyles()
-		const done = () => { removeStyles(); window.removeEventListener('afterprint', done) }
-		window.addEventListener('afterprint', done)
-		requestAnimationFrame(() => window.print())
-	}
+		el.textContent = buildCss()
+	})
+	onDestroy(() => document.getElementById(STYLE_ID)?.remove())
+	function printNow() { if (printSheets.length) window.print() }
 </script>
 
 <div data-no-print><Titlebar title="{projectName} — Print preview" height={30} /></div>
@@ -111,7 +125,7 @@
 		<div class="p-6 text-sm text-zinc-400">This package has no sheets.</div>
 	{/if}
 
-	<div class="min-h-screen bg-zinc-200 dark:bg-zinc-950">
+	<div class="pkg-root min-h-screen bg-zinc-200 dark:bg-zinc-950">
 		{#each printSheets as sheet (sheet.id)}
 			{@const paper = paperOf(sheet)}
 			{@const paperMm = paperDimsMm(paper)}
