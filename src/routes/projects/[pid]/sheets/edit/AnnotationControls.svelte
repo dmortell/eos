@@ -1,7 +1,7 @@
 <script module lang="ts">
 	// Quick-access annotation tools shared across panels (module-level). The first three stay fixed;
 	// the LAST (fourth) slot holds whatever was most recently picked from the "▾" dropdown.
-	let mru = $state<string[]>(['text', 'line', 'arrow', 'cloud'])
+	let mru = $state<string[]>(['text', 'line', 'rect', 'dim'])
 </script>
 
 <script lang="ts">
@@ -25,8 +25,13 @@
 	const links = getContext<{ sheets?: Opt[]; surveys?: Opt[]; photos?: (surveyId?: string) => Opt[] }>('annLinks')
 
 	const annTools: [string, string][] = [
-		['text', 'Text'], ['line', 'Line'], ['arrow', 'Arrow'], ['rect', 'Rect'], ['ellipse', 'Ellipse'], ['cloud', 'Cloud'],
-		['callout', 'Callout'], ['dimension', 'Dim'], ['symbol', 'Symbol'], ['image', 'Image'],
+		['text', 'Text'], ['line', 'Line'],
+		['rect', 'Rect'],
+		['arrow', 'Arrow'],
+		['ellipse', 'Ellipse'], ['cloud', 'Cloud'],
+		['callout', 'Callout'], ['dimension', 'Dim'],
+		['image', 'Image'],
+		['symbol', 'Symbol'],
 	]
 	const labelOf = (id: string) => annTools.find(t => t[0] === id)?.[1] ?? id
 	// The picker menu is portalled to a fixed overlay (the Edit window clips/scrolls its content),
@@ -61,6 +66,18 @@
 		lastFocusNonce = n
 		tick().then(() => { textEl?.focus(); textEl?.select() })
 	})
+	// F2 toggles focus on the selected text annote's textarea (focus ⇄ blur back to the canvas).
+	// textEl only exists while a text/callout annote is selected, so F2 is a no-op otherwise.
+	$effect(() => {
+		function onKey(e: KeyboardEvent) {
+			if (e.key !== 'F2') return
+			e.preventDefault()
+			if (document.activeElement === textEl) textEl?.blur()
+			else if (textEl) { textEl.focus(); textEl.select() }
+		}
+		window.addEventListener('keydown', onKey)
+		return () => window.removeEventListener('keydown', onKey)
+	})
 	let def = $derived(sel?.kind === 'symbol' ? symbolDef(sel.symbol) : undefined)
 	// Annotation-category layers the selection can be moved to (default Annotations + customs under it).
 	let annLayers = $derived(editor.layers.filter(l => l.id === 'annotations' || l.base === 'annotations'))
@@ -75,7 +92,7 @@
 <div class="flex flex-wrap items-center gap-1">
 	{#if showSelect}<button class={cls(tool === 'select')} onclick={() => (tool = 'select')}>Select</button>{/if}
 	{#each mru as id (id)}
-		<button class={cls(tool === id)} title="Insert {labelOf(id)}{HOTKEY_OF[id] ? ` (${HOTKEY_OF[id]})` : ''}" onclick={() => selectTool(id)}>+ {labelOf(id)}</button>
+		<button class={cls(tool === id)} title="Insert {labelOf(id)}{HOTKEY_OF[id] ? ` (${HOTKEY_OF[id]})` : ''}" onclick={() => selectTool(id)}>+{labelOf(id)}</button>
 	{/each}
 	<button bind:this={chevronEl} class={cls(!!tool && tool !== 'select' && !mru.includes(tool))} title="More annotations" aria-label="More annotations" onclick={toggleMenu}>▾</button>
 </div>
@@ -114,7 +131,7 @@
 		<p class="text-[10px] text-zinc-400">Paste an image URL or a data: URL. Drag the box to size; the image fits inside.</p>
 	{/if}
 	{#if hasText(sel.kind)}
-		<PropTextarea label="Text" rows={2} bind:element={textEl} value={sel.text ?? ''} oninput={(e: Event) => editor.setSel({ text: val(e) })} />
+		<PropTextarea label="Text (F2)" rows={2} bind:element={textEl} value={sel.text ?? ''} oninput={(e: Event) => editor.setSel({ text: val(e) })} />
 		<div class="flex items-center justify-between gap-2">
 			<span class="w-24 shrink-0 text-xs text-zinc-500">Align</span>
 			<div class="flex w-full gap-0.5">
