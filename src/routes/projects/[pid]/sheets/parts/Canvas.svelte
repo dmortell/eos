@@ -1,5 +1,6 @@
 <script lang="ts">
     import { DEFAULT_PRINT_SETTINGS, paperDimsMm, type PrintSettings } from '$lib/ui/print/types'
+	import { isMacLikePlatform, normalizeWheelToPixels, wheelZoomFactorFromEvent } from '$lib/ui/panzoom-controller'
 
 	let {
 		children,
@@ -77,6 +78,10 @@
 	let zoomTarget = view.zoom
 	let zoomAnimation: number | null = null
 	let panScale = 1 // cumulative ancestor scale captured at drag start
+	let lastPanClient: { x: number; y: number } | null = null
+	const IS_MAC = isMacLikePlatform()
+	const WHEEL_PAN_SPEED = IS_MAC ? 0.4 : 0.9
+	const WHEEL_ZOOM_SPEED = IS_MAC ? 0.0035 : 0.0025
 
 	// Scale applied to this canvas by ancestor transforms (e.g. an outer canvas's zoom
 	// when nested in a viewport). on-screen width ÷ layout width. 1 for a top-level canvas.
@@ -107,10 +112,19 @@
 
 	function onwheel(e: WheelEvent) {
 		e.stopPropagation() // an active nested canvas handles its own zoom; don't also zoom the parent
-		view.panning = true
-		if (e.ctrlKey || e.altKey || e.metaKey || e.buttons==2) doZoom(e)
-		else if (e.shiftKey || e.deltaX) pan((e.deltaY || e.deltaX) > 0 ? -110 : 110, 0)
-		else pan(0, e.deltaY > 0 ? -110 : 110)
+		e.preventDefault()
+		if (e.ctrlKey || e.altKey || e.metaKey || e.buttons == 2) {
+			doZoom(e)
+			return
+		}
+		const delta = normalizeWheelToPixels(e)
+		const scale = ancestorScale()
+		if (e.shiftKey) {
+			const xDelta = Math.abs(delta.x) > 0.01 ? delta.x : delta.y
+			pan((-xDelta * WHEEL_PAN_SPEED) / scale, 0)
+			return
+		}
+		pan((-delta.x * WHEEL_PAN_SPEED) / scale, (-delta.y * WHEEL_PAN_SPEED) / scale)
 	}
 
 	function mouseOffset(e: MouseEvent) {
@@ -127,17 +141,26 @@
 		e.stopPropagation() // an active nested canvas pans itself; don't also pan the parent
 		panScale = ancestorScale()
 		view.panning = e.button === 1 || e.button === 2
+		lastPanClient = { x: e.clientX, y: e.clientY }
 		document.addEventListener('mousemove', onmousemove)
 		document.addEventListener('mouseup', onmouseup)
 	}
 
 	function onmousemove(e: MouseEvent) {
-		if (e.movementX === 0 && e.movementY === 0) return
-		if (view.panning) pan(e.movementX / panScale, e.movementY / panScale)
+		if (!lastPanClient) {
+			lastPanClient = { x: e.clientX, y: e.clientY }
+			return
+		}
+		const dx = e.clientX - lastPanClient.x
+		const dy = e.clientY - lastPanClient.y
+		lastPanClient = { x: e.clientX, y: e.clientY }
+		if (dx === 0 && dy === 0) return
+		if (view.panning) pan(dx / panScale, dy / panScale)
 	}
 
 	function onmouseup() {
 		view.panning = false
+		lastPanClient = null
 		document.removeEventListener('mousemove', onmousemove)
 		document.removeEventListener('mouseup', onmouseup)
 	}
@@ -180,10 +203,8 @@
 	}
 
 	function doZoom(e: WheelEvent) {
-		e.preventDefault()
 		const pt = mouseOffset(e)
-		const base = 1.2
-		const factor = e.deltaY < 0 ? base : 1 / base
+		const factor = wheelZoomFactorFromEvent(e, WHEEL_ZOOM_SPEED)
 		zoomTarget = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoomTarget * factor))
 		startZoomAnimation(pt)
 	}

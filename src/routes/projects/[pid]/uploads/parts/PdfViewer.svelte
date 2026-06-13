@@ -2,6 +2,7 @@
 	import { tick } from 'svelte'
 	import { onMount, onDestroy } from 'svelte'
 	import { Icon, Firestore, Titlebar, MetalButton } from '$lib'
+	import { isMacLikePlatform, normalizeWheelToPixels, wheelZoomFactorFromEvent } from '$lib/ui/panzoom-controller'
 	import { PdfState } from './PdfState.svelte'
 	import DimensionLine from './DimensionLine.svelte'
 	import { dragDimension, isHorizontal } from './DimensionLine'
@@ -32,6 +33,10 @@
 	let vy = $state(0)
 	let zoom = $state(1)
 	let panning = $state(false)
+	let lastPanClient: { x: number; y: number } | null = null
+	const IS_MAC = isMacLikePlatform()
+	const WHEEL_PAN_SPEED = IS_MAC ? 0.4 : 0.9
+	const WHEEL_ZOOM_SPEED = IS_MAC ? 0.0038 : 0.0025
 
 	// Page dimensions at RENDER_SCALE (for SVG overlay sizing)
 	let pageW = $state(0)
@@ -218,11 +223,16 @@
 		e.preventDefault()
 		if (e.ctrlKey || e.altKey || e.metaKey || e.buttons === 2) {
 			doZoom(e)
-		} else if (e.shiftKey || e.deltaX) {
-			vx += (e.deltaY || e.deltaX) > 0 ? -80 : 80
-		} else {
-			vy += e.deltaY > 0 ? -80 : 80
+			return
 		}
+		const delta = normalizeWheelToPixels(e)
+		if (e.shiftKey) {
+			const xDelta = Math.abs(delta.x) > 0.01 ? delta.x : delta.y
+			vx += -xDelta * WHEEL_PAN_SPEED
+			return
+		}
+		vx += -delta.x * WHEEL_PAN_SPEED
+		vy += -delta.y * WHEEL_PAN_SPEED
 	}
 
 	function doZoom(e: WheelEvent) {
@@ -230,7 +240,7 @@
 		const rect = containerEl.getBoundingClientRect()
 		const mx = e.clientX - rect.left
 		const my = e.clientY - rect.top
-		const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15
+		const factor = wheelZoomFactorFromEvent(e, WHEEL_ZOOM_SPEED)
 		const newZoom = Math.min(8, Math.max(0.05, zoom * factor))
 		const s = newZoom / zoom
 		vx = mx - (mx - vx) * s
@@ -246,6 +256,7 @@
 		const isPan = e.button === 1 || e.button === 2
 		if (isPan) {
 			panning = true
+			lastPanClient = { x: e.clientX, y: e.clientY }
 			document.addEventListener('mousemove', onPanMove)
 			document.addEventListener('mouseup', onPanUp)
 			return
@@ -302,17 +313,26 @@
 
 		// Default: pan
 		panning = true
+		lastPanClient = { x: e.clientX, y: e.clientY }
 		document.addEventListener('mousemove', onPanMove)
 		document.addEventListener('mouseup', onPanUp)
 	}
 
 	function onPanMove(e: MouseEvent) {
-		vx += e.movementX
-		vy += e.movementY
+		if (!lastPanClient) {
+			lastPanClient = { x: e.clientX, y: e.clientY }
+			return
+		}
+		const dx = e.clientX - lastPanClient.x
+		const dy = e.clientY - lastPanClient.y
+		lastPanClient = { x: e.clientX, y: e.clientY }
+		vx += dx
+		vy += dy
 	}
 
 	function onPanUp() {
 		panning = false
+		lastPanClient = null
 		document.removeEventListener('mousemove', onPanMove)
 		document.removeEventListener('mouseup', onPanUp)
 	}

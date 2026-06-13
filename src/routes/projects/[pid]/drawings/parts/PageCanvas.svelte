@@ -2,6 +2,7 @@
 	import type { Page, Viewport, TitleBlockConfig, Annotation } from '$lib/types/pages'
 	import { paperDimsMm } from '$lib/ui/print/types'
 	import { Firestore } from '$lib'
+	import { isMacLikePlatform, wheelZoomFactorFromEvent } from '$lib/ui/panzoom-controller'
 	import ViewportFrame from './ViewportFrame.svelte'
 	import AnnotationLayer from './AnnotationLayer.svelte'
 	import TitleBlock, { type TitleBlockProjectDefaults } from './TitleBlock.svelte'
@@ -98,6 +99,8 @@
 
 	let canvas = $state<HTMLDivElement | null>(null)
 	let panning = $state(false)
+	let lastPanClient: { x: number; y: number } | null = null
+	const WHEEL_ZOOM_SPEED = isMacLikePlatform() ? 0.0038 : 0.0025
 
 	$effect(() => {
 		canvas?.addEventListener('wheel', onWheel, { passive: false })
@@ -111,7 +114,7 @@
 		const rect = canvas!.getBoundingClientRect()
 		const cx = e.clientX - rect.left
 		const cy = e.clientY - rect.top
-		const factor = e.deltaY < 0 ? 1.2 : 1 / 1.2
+		const factor = wheelZoomFactorFromEvent(e, WHEEL_ZOOM_SPEED)
 		const nextZoom = Math.min(8, Math.max(0.1, zoom * factor))
 		// Zoom around cursor: keep the mm point under cursor fixed.
 		panX = cx - (cx - panX) * (nextZoom / zoom)
@@ -129,6 +132,7 @@
 		if (e.button === 1 || e.button === 2) {
 			e.preventDefault()
 			panning = true
+			lastPanClient = { x: e.clientX, y: e.clientY }
 			window.addEventListener('mousemove', onPanMove)
 			window.addEventListener('mouseup', onPanUp)
 		}
@@ -136,12 +140,20 @@
 
 	function onPanMove(e: MouseEvent) {
 		if (!panning) return
-		panX += e.movementX
-		panY += e.movementY
+		if (!lastPanClient) {
+			lastPanClient = { x: e.clientX, y: e.clientY }
+			return
+		}
+		const dx = e.clientX - lastPanClient.x
+		const dy = e.clientY - lastPanClient.y
+		lastPanClient = { x: e.clientX, y: e.clientY }
+		panX += dx
+		panY += dy
 	}
 
 	function onPanUp() {
 		panning = false
+		lastPanClient = null
 		window.removeEventListener('mousemove', onPanMove)
 		window.removeEventListener('mouseup', onPanUp)
 	}

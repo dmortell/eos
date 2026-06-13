@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { isMacLikePlatform, normalizeWheelToPixels, wheelZoomFactorFromEvent } from '$lib/ui/panzoom-controller'
 	import type { ViewState } from './types'
 
 	let { view = $bindable(), width, height, children }: {
@@ -17,6 +18,10 @@
 
 	let zoomTarget = view.zoom
 	let zoomAnimation: number | null = null
+	let lastPanClient: { x: number; y: number } | null = null
+	const IS_MAC = isMacLikePlatform()
+	const WHEEL_PAN_SPEED = IS_MAC ? 0.4 : 0.9
+	const WHEEL_ZOOM_SPEED = IS_MAC ? 0.0038 : 0.0025
 
 	$effect(() => {
 		canvas?.addEventListener('wheel', onwheel, { passive: false })
@@ -24,10 +29,18 @@
 	})
 
 	function onwheel(e: WheelEvent) {
-		view.panning = true
-		if (e.ctrlKey || e.altKey || e.metaKey || e.buttons==2) doZoom(e)
-		else if (e.shiftKey || e.deltaX) pan((e.deltaY || e.deltaX) > 0 ? -110 : 110, 0)
-		else pan(0, e.deltaY > 0 ? -110 : 110)
+		e.preventDefault()
+		if (e.ctrlKey || e.altKey || e.metaKey || e.buttons == 2) {
+			doZoom(e)
+			return
+		}
+		const delta = normalizeWheelToPixels(e)
+		if (e.shiftKey) {
+			const xDelta = Math.abs(delta.x) > 0.01 ? delta.x : delta.y
+			pan(-xDelta * WHEEL_PAN_SPEED, 0)
+			return
+		}
+		pan(-delta.x * WHEEL_PAN_SPEED, -delta.y * WHEEL_PAN_SPEED)
 	}
 
 	function mouseOffset(e: MouseEvent) {
@@ -41,19 +54,28 @@
 		e.preventDefault()
 		view.button |= 1 << e.button
 		view.panning = e.button === 1 || e.button === 2
+		lastPanClient = { x: e.clientX, y: e.clientY }
 		document.addEventListener('mousemove', onmousemove)
 		document.addEventListener('mouseup', onmouseup)
 	}
 
 	function onmousemove(e: MouseEvent) {
-		if (e.movementX === 0 && e.movementY === 0) return
+		if (!lastPanClient) {
+			lastPanClient = { x: e.clientX, y: e.clientY }
+			return
+		}
+		const dx = e.clientX - lastPanClient.x
+		const dy = e.clientY - lastPanClient.y
+		lastPanClient = { x: e.clientX, y: e.clientY }
+		if (dx === 0 && dy === 0) return
 		view.dragging = true
-		if (view.panning) pan(e.movementX, e.movementY)
+		if (view.panning) pan(dx, dy)
 	}
 
 	function onmouseup(e: MouseEvent) {
 		view.panning = false
 		view.dragging = false
+		lastPanClient = null
 		view.button &= ~(1 << e.button)
 		document.removeEventListener('mousemove', onmousemove)
 		document.removeEventListener('mouseup', onmouseup)
@@ -95,10 +117,8 @@
 	}
 
 	function doZoom(e: WheelEvent) {
-		e.preventDefault()
 		const pt = mouseOffset(e)
-		const base = 1.2
-		const factor = e.deltaY < 0 ? base : 1 / base
+		const factor = wheelZoomFactorFromEvent(e, WHEEL_ZOOM_SPEED)
 		zoomTarget = Math.min(5, Math.max(0.1, zoomTarget * factor))
 		startZoomAnimation(pt)
 	}
