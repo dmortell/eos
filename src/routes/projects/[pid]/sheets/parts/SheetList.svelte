@@ -3,8 +3,14 @@
 	import { goto } from '$app/navigation'
 	import { paperDimsMm } from '$lib/ui/print/types'
 	import type { SheetDoc } from '../types'
-	import { createSheet, updateSheet, deleteSheet, planRenumber } from '../data'
+	import { createSheet, createFileSheet, updateSheet, deleteSheet, planRenumber } from '../data'
 	import ListTabs from './ListTabs.svelte'
+
+	// Tools a "file" sheet can link to — dense tabular docs exported to Excel/PDF from their own tool.
+	const FILE_TOOLS: { tool: string; label: string; title: string }[] = [
+		{ tool: 'patching', label: 'Patch list', title: 'Patch Schedule' },
+		{ tool: 'frames', label: 'Patch frames', title: 'Patch Frames' },
+	]
 
 	let {
 		sheets,
@@ -44,7 +50,9 @@
 
 	function openSheet(sheet: SheetDoc) {
 		if (rowEditingId) return // don't navigate while editing
-		goto(`/projects/${projectId}/sheets/${sheet.id}`)
+		// "File" rows open their linked tool; normal sheets open the sheet editor.
+		if (sheet.link) goto(`/projects/${projectId}/${sheet.link.tool}`)
+		else goto(`/projects/${projectId}/sheets/${sheet.id}`)
 	}
 
 	let creating = $state(false)
@@ -57,6 +65,16 @@
 		} finally {
 			creating = false
 		}
+	}
+
+	// ── "Add file" rows: a list entry that opens a tool (Patching, Frames, …) for manual Excel export ──
+	let fileMenuOpen = $state(false)
+	async function addFile(t: { tool: string; label: string; title: string }) {
+		fileMenuOpen = false
+		if (creating) return
+		creating = true
+		try { await createFileSheet(db, projectId, sheets, uid, { tool: t.tool, label: 'export to Excel' }, t.title) }
+		finally { creating = false }
 	}
 
 	let confirmDeleteId = $state<string | null>(null)
@@ -82,13 +100,16 @@
 		await Promise.all(plan.map(p => updateSheet(db, projectId, p.id, { drawingNumber: p.drawingNumber })))
 	}
 
+	const toolLabel = (tool: string) => FILE_TOOLS.find(t => t.tool === tool)?.label ?? tool
 	function paperLabel(sheet: SheetDoc): string {
+		if (sheet.link) return toolLabel(sheet.link.tool)
 		const p = sheet.paper
 		if (!p) return '—'
 		const o = p.orientation === 'portrait' ? 'P' : 'L'
 		return `${p.paperSize} ${o}`
 	}
 	function scaleLabel(sheet: SheetDoc): string {
+		if (sheet.link) return '—'
 		const s = sheet.paper?.scale
 		return s ? `1:${s}` : 'Fit'
 	}
@@ -104,6 +125,20 @@
 					<Icon name="plus" size={14} />
 					New Sheet
 				</Button>
+				<div class="relative">
+					<button class="flex items-center gap-1 rounded border border-zinc-300 px-2 py-1.5 text-sm leading-none text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+						title="Add a file row that opens a tool to export (Excel/PDF)" onclick={() => fileMenuOpen = !fileMenuOpen}>
+						<Icon name="fileText" size={14} /> Add file
+					</button>
+					{#if fileMenuOpen}
+						<button class="fixed inset-0 z-40 cursor-default" aria-label="Close menu" onclick={() => fileMenuOpen = false}></button>
+						<div class="absolute right-0 z-50 mt-1 w-48 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+							{#each FILE_TOOLS as t (t.tool)}
+								<button class="block w-full px-3 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800" onclick={() => addFile(t)}>{t.label}</button>
+							{/each}
+						</div>
+					{/if}
+				</div>
 				<div class="relative">
 					<button class="rounded border border-zinc-300 px-2 py-1.5 leading-none text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
 						title="More actions" aria-label="More actions" onclick={() => menuOpen = !menuOpen}>⋮</button>
@@ -168,13 +203,22 @@
 										onkeydown={handleRowEditKeydown}
 										onclick={e => e.stopPropagation()} />
 								{:else}
-									{sheet.title || '—'}
+									{#if sheet.link}
+										<span class="inline-flex items-center gap-1">
+											<span class="inline-flex items-center gap-0.5 rounded bg-emerald-100 px-1 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" title="Opens the {toolLabel(sheet.link.tool)} tool — export from there">
+												<Icon name="fileText" size={10} /> File
+											</span>
+											{sheet.title || '—'}
+										</span>
+									{:else}
+										{sheet.title || '—'}
+									{/if}
 								{/if}
 							</td>
 
 							<td class="px-3 py-1.5 text-xs text-center text-zinc-500">{paperLabel(sheet)}</td>
 							<td class="px-3 py-1.5 text-xs text-center text-zinc-500">{scaleLabel(sheet)}</td>
-							<td class="px-3 py-1.5 text-xs text-center text-zinc-400 tabular-nums">{sheet.viewports?.length ?? 0}</td>
+							<td class="px-3 py-1.5 text-xs text-center text-zinc-400 tabular-nums">{sheet.link ? '—' : (sheet.viewports?.length ?? 0)}</td>
 
 							<!-- Actions -->
 							<td class="px-2 py-1.5 text-center whitespace-nowrap" onclick={e => e.stopPropagation()}>

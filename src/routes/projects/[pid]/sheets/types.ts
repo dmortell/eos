@@ -16,8 +16,20 @@ export interface SheetDoc {
 	viewports: SheetViewport[]
 	revisions?: SheetRevision[]
 	currentRevision?: string               // revision code shown in the title block
+	/**
+	 * A "file" sheet: a list entry that links to another tool (Patching, Frames, …) instead of the
+	 * sheet editor. Clicking the row opens that tool, where the user exports to Excel/PDF manually.
+	 * In a package it's a reminder placeholder (no viewports). Undefined = a normal drawing sheet.
+	 */
+	link?: ExternalLink
 	updatedAt?: number
 	updatedBy?: string
+}
+
+/** A "file" sheet's link target — a tool route within this project. */
+export interface ExternalLink {
+	tool: string            // route segment under /projects/{pid}/ (e.g. 'patching', 'frames')
+	label?: string          // optional note shown on the placeholder/list (e.g. 'export to Excel')
 }
 
 /**

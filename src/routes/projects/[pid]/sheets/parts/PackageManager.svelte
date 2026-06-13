@@ -37,8 +37,12 @@
 
 	const label = (s: SheetDoc) => [s.drawingNumber, s.title].filter(Boolean).join(' · ') || 'Untitled'
 	// The selected package already lives in the URL (?pkg=…), so opening a sheet and pressing Back
-	// returns to the list with it reselected.
-	const openSheet = (id: string) => goto(`/projects/${projectId}/sheets/${id}`)
+	// returns to the list with it reselected. "File" rows open their linked tool instead.
+	const openSheet = (id: string) => {
+		const s = sheetsById[id]
+		if (s?.link) goto(`/projects/${projectId}/${s.link.tool}`)
+		else goto(`/projects/${projectId}/sheets/${id}`)
+	}
 
 	function persist(ids: string[]) { if (pkg) updateSheetPackage(db, projectId, pkg.id, { sheetIds: ids }) }
 	function add(id: string) { if (pkg && !pkg.sheetIds.includes(id)) persist([...pkg.sheetIds, id]) }

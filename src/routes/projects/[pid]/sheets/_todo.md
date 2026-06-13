@@ -22,8 +22,7 @@ Preserve any prefix text the user may have entered in the label.
 Like our exiting tools, our sheets/packages will need to track published packages and revisions.
 The sheets list should show the latest version by default, but maybe a dropdown arrow in the actions column to select an old version for viewing or allow reverting it to be the latest version for further updates.
 
-4. Copy/paste from other projects
-
+4. Copy/paste from other projects / browser tabs
 
 5. Integrate original tools with Sheets
 
@@ -42,7 +41,7 @@ The sheets list should show the latest version by default, but maybe a dropdown 
   5a4. Move selected object(s) to another layer.   ✅ (annotations — props "Layer" dropdown)
   5a5. Wrong-category handling: falls back to the default layer + info toast.   ✅
   5a6. TODO: extend layerId + per-object layer visibility to tool objects (outlets/trunks/racks/
-       devices/rooms/ladders), and a move-to-layer in their property editors.
+       devices/rooms/ladders), and a move-to-layer in their property editors. Add Layer should add the new layer under the currently selected default layer group, not the bottom of the list.
 
 5b. Outlets   (largest item — split across several PRs)
   5b1. PDF floorplan: upload / insert a PDF as a floorplan background in the outlets viewport
@@ -118,6 +117,51 @@ The sheets list should show the latest version by default, but maybe a dropdown 
 
 5h. Patching   (mostly keep-as-is)
   5h1. Keep the patching tool as-is (manages patch lists + a visual connection editor).
-  5h2. Include the Excel patch list in packages (rendered to PDF). No viewport render needed.
+  5h2. Include the patch list in packages.
+       → NEAR-TERM (doing now): "file" sheet rows (see item 11) — a list row that opens the
+         Patching tool; the user exports to Excel/PDF manually. It sits in packages as a reminder.
+       → MAYBE (future): render the patch list to PDF pages directly inside the package print.
+         Plan, if we build it:
+         (a) Generalise package membership to a tagged union of items
+             ({kind:'sheet'|'patch'|'frames'}), migrating sheetIds — 5g1 (frames) needs this too.
+         (b) Extract a pure `buildPatchSchedule(connections, racks, devices, customCableTypes,
+             portInfoMap)` out of patching/parts/exportExcel.ts → {sections[], bom[]}; share it
+             between the Excel export and the PDF renderer so columns/grouping/labels never diverge.
+         (c) In sheets/packages/[pkgId]/print: for each patch item subscribe to
+             patching/{pid}_F{f}_R{r} + racks + frames (rebuild portInfoMap via buildPortInfoMap),
+             JS-paginate rows into fixed-rows-per-page `.sheet-wrap` pages (landscape A3), each an
+             HTML <table> + TitleBlock ("Patch Schedule — F/R", Page X/Y), then a BOM page.
+             Patch pages are normal pt/CSS layout — skip the PX_PER_MM canvas scale transform.
+         Open decisions: membership model (union vs parallel array); per-list drawing number for
+         the titleblock; schedule-only vs schedule+BOM (+5h3 schematic later).
   5h3. Consider a schematic "hops" view of A-end ↔ B-end — there may be multiple patchcords between
        panels, ties and endpoints (similar to the hops in riser cable routes).
+
+
+6. Sheets
+
+* The sheets list should be draggable, like the lists in the Packages tab.
+* I'm thinking of categorizing the sheet list into: Outlet plans, Trunk plans, Risers, Elevations, Patch Lists
+* We will want to be able to add fill rate drawings to sheets. As these are essentiall cross-sections of a trunk, they could be considered elevations (although some of them may be x-sections of a vertical riser). We could put them one per elevation vp.
+
+7. Implement section references as annotes.
+I've seen two types:
+7a. Circles with up to 4 triangles (north, south, east, west) with a sheet-vp number indicating the sheet and vp to refer to. I dont remember if one number pre triangle (will it fit?)
+7b. A line with two perpendicular arrowheaded ticks indicating the viewpoint width and direction on a floorplan. A non-printing dotted backplane indicates the horizon, how far away from the line objects will be rendered in the elevation/section. The line is labeled with sheet-vp number of the section rendering.
+
+8. Copy/cut & paste viewports to other sheets (or duplicate on current sheet)
+
+9. Surveys
+* We dont need to include surveys in packages for now.
+* The UX for selecting photos for inclusion in survey reports, editing comments, and placing markers on floorplans to show the prosiotn and direction the photo was taken, is non-intuitive. Improve the UX. When a photo is taken/uploaded, let user enter description and mark position/direction on floorplan (expandable minimap, wih selectable floors). Let user re-order photos for inclusion in report.
+
+10. Multi-segmetn annote
+A rect with two rows, bottom row is 3 columns. User can enter text for each cell. Useful on  floorplans for indicating an equipment ref number, LAN port reqs ref number, Power req ref number, etc, with all refs listed in legends.
+
+11. "File" sheet rows (external / Excel documents)   ← doing now
+An "Add file" button on the sheets list adds a lightweight row with a drawing number + title that
+links to a tool (Patching, Frames, …) instead of opening the sheet editor. Clicking the row opens
+that tool, where the user exports to Excel/PDF manually. The row can be added to packages so it
+appears in the set as a reminder to export (a placeholder page with the titleblock in the package
+print). Use this for patch lists, BOMs, and any other dense tabular data that lives best in Excel —
+the cheap alternative to rendering tables to PDF (see 5h2 MAYBE).

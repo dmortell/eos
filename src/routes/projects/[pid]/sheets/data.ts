@@ -48,6 +48,35 @@ export async function createSheet(
 	return id
 }
 
+/**
+ * Create a "file" sheet — a list row that links to another tool (Patching, Frames, …) instead of
+ * the sheet editor. Has no viewports; carries a title + the link. Returns its id.
+ */
+export async function createFileSheet(
+	db: Firestore,
+	pid: string,
+	existing: SheetDoc[],
+	uid: string,
+	link: { tool: string; label?: string },
+	title: string,
+): Promise<string> {
+	const id = nanoid(8)
+	const sortOrder = existing.length ? Math.max(...existing.map(s => s.sortOrder ?? 0)) + 1 : 0
+	const sheet: SheetDoc = {
+		id,
+		projectId: pid,
+		title,
+		sortOrder,
+		paper: { ...DEFAULT_PRINT_SETTINGS },
+		viewports: [],
+		link,
+		updatedAt: Date.now(),
+		updatedBy: uid,
+	}
+	await db.save(sheetsPath(pid), sheet)
+	return id
+}
+
 /** Upsert a full sheet doc (merge:true). */
 export async function saveSheet(db: Firestore, pid: string, sheet: SheetDoc): Promise<void> {
 	await db.save(sheetsPath(pid), { ...sheet, updatedAt: Date.now() })
