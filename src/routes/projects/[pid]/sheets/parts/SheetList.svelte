@@ -7,10 +7,21 @@
 	import ListTabs from './ListTabs.svelte'
 
 	// Tools a "file" sheet can link to — dense tabular docs exported to Excel/PDF from their own tool.
-	const FILE_TOOLS: { tool: string; label: string; title: string }[] = [
-		{ tool: 'patching', label: 'Patch list', title: 'Patch Schedule' },
-		{ tool: 'frames', label: 'Patch frames', title: 'Patch Frames' },
+	// floor/room flag which scope params the tool's route accepts (set per-row via inline edit).
+	const FILE_TOOLS: { tool: string; label: string; title: string; floor: boolean; room: boolean }[] = [
+		{ tool: 'patching', label: 'Patch list', title: 'Patch Schedule', floor: true, room: true },
+		{ tool: 'frames', label: 'Patch frames', title: 'Patch Frames', floor: true, room: false },
 	]
+	const fileTool = (tool?: string) => FILE_TOOLS.find(t => t.tool === tool)
+	/** Route (with ?floor=&room=) a "file" sheet opens. */
+	function fileHref(s: SheetDoc): string {
+		const l = s.link!
+		const q = new URLSearchParams()
+		if (l.floor != null) q.set('floor', String(l.floor))
+		if (l.room) q.set('room', l.room)
+		const qs = q.toString()
+		return `/projects/${projectId}/${l.tool}${qs ? `?${qs}` : ''}`
+	}
 
 	let {
 		sheets,
@@ -28,18 +39,34 @@
 		onmode?: (m: 'sheets' | 'packages') => void
 	} = $props()
 
-	// ── Inline row editing ──
-	type EditBuffer = { drawingNumber: string; title: string }
+	// ── Inline row editing ── (floor/room only apply to "file" rows)
+	type EditBuffer = { drawingNumber: string; title: string; floor: string; room: string }
 	let rowEditingId = $state<string | null>(null)
-	let rowEdits = $state<EditBuffer>({ drawingNumber: '', title: '' })
+	let rowEdits = $state<EditBuffer>({ drawingNumber: '', title: '', floor: '', room: '' })
 
 	function startRowEdit(sheet: SheetDoc) {
 		rowEditingId = sheet.id
-		rowEdits = { drawingNumber: sheet.drawingNumber ?? '', title: sheet.title ?? '' }
+		rowEdits = {
+			drawingNumber: sheet.drawingNumber ?? '',
+			title: sheet.title ?? '',
+			floor: sheet.link?.floor != null ? String(sheet.link.floor) : '',
+			room: sheet.link?.room ?? '',
+		}
 	}
 	async function commitRowEdit() {
 		if (!rowEditingId) return
-		await updateSheet(db, projectId, rowEditingId, { ...rowEdits })
+		const sheet = sheets.find(s => s.id === rowEditingId)
+		const patch: Partial<SheetDoc> = { drawingNumber: rowEdits.drawingNumber, title: rowEdits.title }
+		if (sheet?.link) {
+			// Rebuild the link without undefined keys (Firestore rejects them); merge keeps the rest.
+			const link: NonNullable<SheetDoc['link']> = { tool: sheet.link.tool }
+			if (sheet.link.label) link.label = sheet.link.label
+			const f = parseInt(rowEdits.floor, 10)
+			if (Number.isFinite(f)) link.floor = f
+			if (rowEdits.room.trim()) link.room = rowEdits.room.trim()
+			patch.link = link
+		}
+		await updateSheet(db, projectId, rowEditingId, patch)
 		rowEditingId = null
 	}
 	function cancelRowEdit() { rowEditingId = null }
@@ -50,8 +77,8 @@
 
 	function openSheet(sheet: SheetDoc) {
 		if (rowEditingId) return // don't navigate while editing
-		// "File" rows open their linked tool; normal sheets open the sheet editor.
-		if (sheet.link) goto(`/projects/${projectId}/${sheet.link.tool}`)
+		// "File" rows open their linked tool (at the chosen floor/room); normal sheets open the editor.
+		if (sheet.link) goto(fileHref(sheet))
 		else goto(`/projects/${projectId}/sheets/${sheet.id}`)
 	}
 
@@ -69,12 +96,14 @@
 
 	// ── "Add file" rows: a list entry that opens a tool (Patching, Frames, …) for manual Excel export ──
 	let fileMenuOpen = $state(false)
-	async function addFile(t: { tool: string; label: string; title: string }) {
+	async function addFile(t: { tool: string; label: string; title: string; floor: boolean; room: boolean }) {
 		fileMenuOpen = false
 		if (creating) return
 		creating = true
-		try { await createFileSheet(db, projectId, sheets, uid, { tool: t.tool, label: 'export to Excel' }, t.title) }
-		finally { creating = false }
+		try {
+			const link = { tool: t.tool, label: 'export to Excel', ...(t.floor ? { floor: 1 } : {}), ...(t.room ? { room: 'A' } : {}) }
+			await createFileSheet(db, projectId, sheets, uid, link, t.title)
+		} finally { creating = false }
 	}
 
 	let confirmDeleteId = $state<string | null>(null)
@@ -102,7 +131,11 @@
 
 	const toolLabel = (tool: string) => FILE_TOOLS.find(t => t.tool === tool)?.label ?? tool
 	function paperLabel(sheet: SheetDoc): string {
-		if (sheet.link) return toolLabel(sheet.link.tool)
+		if (sheet.link) {
+			const l = sheet.link
+			const scope = l.floor != null ? ` · F${l.floor}${l.room ? ` R-${l.room}` : ''}` : ''
+			return toolLabel(l.tool) + scope
+		}
 		const p = sheet.paper
 		if (!p) return '—'
 		const o = p.orientation === 'portrait' ? 'P' : 'L'
@@ -174,6 +207,7 @@
 				<tbody>
 					{#each sheets as sheet, idx (sheet.id)}
 						{@const isRowEditing = rowEditingId === sheet.id}
+						{@const ftool = sheet.link ? fileTool(sheet.link.tool) : null}
 						<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 						<tr class="border-t border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors"
 							class:cursor-pointer={!isRowEditing}
@@ -216,8 +250,26 @@
 								{/if}
 							</td>
 
-							<td class="px-3 py-1.5 text-xs text-center text-zinc-500">{paperLabel(sheet)}</td>
-							<td class="px-3 py-1.5 text-xs text-center text-zinc-500">{scaleLabel(sheet)}</td>
+							<!-- Paper (file rows in edit mode: floor input) -->
+							<td class="px-3 py-1.5 text-xs text-center text-zinc-500">
+								{#if isRowEditing && ftool?.floor}
+									<input type="number" min="1" placeholder="Floor" title="Floor"
+										class="w-16 rounded border border-blue-400 bg-white px-1 py-0.5 text-xs dark:bg-zinc-800"
+										bind:value={rowEdits.floor} onkeydown={handleRowEditKeydown} onclick={e => e.stopPropagation()} />
+								{:else}
+									{paperLabel(sheet)}
+								{/if}
+							</td>
+							<!-- Scale (file rows in edit mode: room input, when the tool is room-scoped) -->
+							<td class="px-3 py-1.5 text-xs text-center text-zinc-500">
+								{#if isRowEditing && ftool?.room}
+									<input placeholder="Room" title="Room"
+										class="w-12 rounded border border-blue-400 bg-white px-1 py-0.5 text-xs dark:bg-zinc-800"
+										bind:value={rowEdits.room} onkeydown={handleRowEditKeydown} onclick={e => e.stopPropagation()} />
+								{:else}
+									{scaleLabel(sheet)}
+								{/if}
+							</td>
 							<td class="px-3 py-1.5 text-xs text-center text-zinc-400 tabular-nums">{sheet.link ? '—' : (sheet.viewports?.length ?? 0)}</td>
 
 							<!-- Actions -->

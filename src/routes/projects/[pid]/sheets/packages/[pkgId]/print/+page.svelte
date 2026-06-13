@@ -141,7 +141,7 @@
 						<!-- "File" row: a reminder placeholder (the real doc is exported from its tool). -->
 						<div class="absolute inset-0 flex items-center justify-center">
 							<div class="text-center" style:color="#475569">
-								<div style:font-size="9px" style:font-weight="600">{sheet.title || 'External document'}</div>
+								<div style:font-size="9px" style:font-weight="600">{sheet.title || 'External document'}{sheet.link.floor != null ? ` — F${sheet.link.floor}${sheet.link.room ? ` R-${sheet.link.room}` : ''}` : ''}</div>
 								<div style:font-size="4px" style:margin-top="3px">Open the {sheet.link.tool} tool to {sheet.link.label ?? 'export this document'}.</div>
 							</div>
 						</div>

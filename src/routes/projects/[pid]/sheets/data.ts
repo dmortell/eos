@@ -57,7 +57,7 @@ export async function createFileSheet(
 	pid: string,
 	existing: SheetDoc[],
 	uid: string,
-	link: { tool: string; label?: string },
+	link: { tool: string; label?: string; floor?: number; room?: string },
 	title: string,
 ): Promise<string> {
 	const id = nanoid(8)

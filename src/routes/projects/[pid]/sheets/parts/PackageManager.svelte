@@ -40,8 +40,13 @@
 	// returns to the list with it reselected. "File" rows open their linked tool instead.
 	const openSheet = (id: string) => {
 		const s = sheetsById[id]
-		if (s?.link) goto(`/projects/${projectId}/${s.link.tool}`)
-		else goto(`/projects/${projectId}/sheets/${id}`)
+		if (s?.link) {
+			const q = new URLSearchParams()
+			if (s.link.floor != null) q.set('floor', String(s.link.floor))
+			if (s.link.room) q.set('room', s.link.room)
+			const qs = q.toString()
+			goto(`/projects/${projectId}/${s.link.tool}${qs ? `?${qs}` : ''}`)
+		} else goto(`/projects/${projectId}/sheets/${id}`)
 	}
 
 	function persist(ids: string[]) { if (pkg) updateSheetPackage(db, projectId, pkg.id, { sheetIds: ids }) }

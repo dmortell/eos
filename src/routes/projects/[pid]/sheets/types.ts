@@ -26,10 +26,12 @@ export interface SheetDoc {
 	updatedBy?: string
 }
 
-/** A "file" sheet's link target — a tool route within this project. */
+/** A "file" sheet's link target — a tool route within this project, optionally at a floor/room. */
 export interface ExternalLink {
 	tool: string            // route segment under /projects/{pid}/ (e.g. 'patching', 'frames')
 	label?: string          // optional note shown on the placeholder/list (e.g. 'export to Excel')
+	floor?: number          // ?floor= for tools that are floor-scoped (outlets/frames/patching)
+	room?: string           // ?room= for room-scoped tools (patching)
 }
 
 /**
