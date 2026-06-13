@@ -7,7 +7,7 @@
 	} = $props()
 </script>
 
-<label class="flex items-center gap-2">
+<label class="flex items-center justify-between gap-2">
+	<span class="w-24 shrink-0 text-xs text-zinc-500">{label}</span>
 	<input type="checkbox" class="accent-blue-600" bind:checked={value} {...props} />
-	<span class="text-xs text-zinc-600">{label}</span>
 </label>

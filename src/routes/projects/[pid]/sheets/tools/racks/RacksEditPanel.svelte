@@ -4,6 +4,7 @@
 	import PropSelect from '../../parts/PropSelect.svelte'
 	import AnnotationControls from '../../edit/AnnotationControls.svelte'
 	import { portal } from '../../edit/portal'
+	import { formNav } from '../../edit/formNav'
 	import { RacksEditor, DEVICE_TYPES } from './racks-editor.svelte'
 	import type { AnnotationEditor } from '../../annotations/annotations.svelte'
 
@@ -16,7 +17,8 @@
 </script>
 
 <div use:portal>
-<Window title="Edit" name="racks-edit" left={10} top={72} open class="w-64 space-y-2 p-2 text-zinc-700">
+<Window title="Edit" name="racks-edit" left={10} top={72} open class="w-64 p-2 text-zinc-700">
+	<div class="space-y-2" use:formNav>
 	<div class="flex flex-wrap gap-1">
 		<button class={cls(tool === 'select')} onclick={() => (tool = 'select')}>Select</button>
 		{#if face !== 'plan'}<button class={cls(libraryOpen)} onclick={() => ondevices?.()}>Devices</button>{/if}
@@ -69,5 +71,6 @@
 	{:else}
 		<p class="text-xs text-zinc-400">Select a rack (or drag a row in plan view).</p>
 	{/if}
+	</div>
 </Window>
 </div>

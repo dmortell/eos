@@ -4,6 +4,7 @@
 	import PropSelect from '../../parts/PropSelect.svelte'
 	import AnnotationControls from '../../edit/AnnotationControls.svelte'
 	import { portal } from '../../edit/portal'
+	import { formNav } from '../../edit/formNav'
 	import { RisersEditor, LEVELS, LADDER_LEVELS } from './risers-editor.svelte'
 	import type { AnnotationEditor } from '../../annotations/annotations.svelte'
 
@@ -15,7 +16,8 @@
 </script>
 
 <div use:portal>
-<Window title="Edit" name="risers-edit" left={10} top={72} open class="w-64 space-y-2 p-2 text-zinc-700">
+<Window title="Edit" name="risers-edit" left={10} top={72} open class="w-64 p-2 text-zinc-700">
+	<div class="space-y-2" use:formNav>
 	<div class="flex flex-wrap gap-1">
 		{#each objTools as [id, label] (id)}
 			<button class={cls(tool === id)} onclick={() => (tool = id)}>{label}</button>
@@ -86,5 +88,6 @@
 	{:else}
 		<p class="text-xs text-zinc-400">Add or drag a room / riser, or pick a cable to route.</p>
 	{/if}
+	</div>
 </Window>
 </div>

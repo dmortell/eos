@@ -5,6 +5,7 @@
 	import PropColor from '../../parts/PropColor.svelte'
 	import AnnotationControls from '../../edit/AnnotationControls.svelte'
 	import { portal } from '../../edit/portal'
+	import { formNav } from '../../edit/formNav'
 	import type { OutletsEditor } from './outlets-editor.svelte'
 	import type { AnnotationEditor } from '../../annotations/annotations.svelte'
 	import { PIPE_CATALOG, RECT_CATALOG } from './types'
@@ -27,7 +28,8 @@
 </script>
 
 <div use:portal>
-<Window title="Edit" name="outlets-edit" left={10} top={72} open class="w-60 space-y-2 p-2 text-zinc-700">
+<Window title="Edit" name="outlets-edit" left={10} top={72} open class="w-60 p-2 text-zinc-700">
+	<div class="space-y-2" use:formNav>
 	<div class="flex flex-wrap gap-1">
 		{#each objTools as t (t.id)}
 			<button class={cls(tool === t.id)} onclick={() => pick(t.id)}>{t.label}</button>
@@ -139,5 +141,6 @@
 		<PropText label="Rotation°" type="number" value={String(r.rotation ?? 0)} oninput={(e: Event) => editor.setRackPlacement({ rotation: Number(val(e)) || 0 })} />
 		<button class="w-full rounded bg-red-600 px-1 py-0.5 text-xs text-white hover:bg-red-500" onclick={() => editor.deleteSel()}>Delete rack</button>
 	{/if}
+	</div>
 </Window>
 </div>

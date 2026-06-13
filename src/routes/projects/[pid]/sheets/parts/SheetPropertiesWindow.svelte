@@ -5,6 +5,7 @@
 	import PropText from './PropText.svelte'
 	import PropSelect from './PropSelect.svelte'
 	import PropCheck from './PropCheck.svelte'
+	import { formNav } from '../edit/formNav'
 	import type { Firestore } from '$lib/db.svelte'
 	import type { SheetDoc, TitleBlockConfig } from '../types'
 	import type { TitleBlockProjectDefaults } from './TitleBlock.svelte'
@@ -94,7 +95,8 @@
 	}
 </script>
 
-<Window title="Sheet" name="sheet-properties" right={10} top={10} open class="w-60 space-y-1 p-2 text-zinc-700">
+<Window title="Sheet" name="sheet-properties" right={10} top={10} open class="w-60 p-2 text-zinc-700">
+	<div class="space-y-1" use:formNav>
 	<PropText label="Title" bind:value={form.title} oninput={save} />
 	<PropText label="Drawing No." bind:value={form.drawingNumber} oninput={save} mono />
 
@@ -128,4 +130,5 @@
 			<PropText label="Client" bind:value={form.client} oninput={save} placeholder={project.client ?? ''} />
 		</div>
 	{/if}
+	</div>
 </Window>

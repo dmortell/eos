@@ -7,6 +7,8 @@
 	import PropText from './PropText.svelte'
 	import PropSelect from './PropSelect.svelte'
 	import PropTextarea from './PropTextarea.svelte'
+	import PropCheck from './PropCheck.svelte'
+	import { formNav } from '../edit/formNav'
 	import OutletsProperties from '../tools/outlets/OutletsProperties.svelte'
 	import RacksProperties from '../tools/racks/RacksProperties.svelte'
 	import RisersProperties from '../tools/risers/RisersProperties.svelte'
@@ -125,7 +127,8 @@
 </script>
 
 {#if vp}
-	<Window title="Viewport" name="viewport-properties" left={10} top={10} open class="w-60 space-y-1 p-2 text-zinc-700">
+	<Window title="Viewport" name="viewport-properties" left={10} top={10} open class="w-60 p-2 text-zinc-700">
+		<div class="space-y-1" use:formNav>
 		<PropSelect label="Type" bind:value={form.kind} onchange={onKindChange}>
 			<option value="empty">Empty</option>
 			<option value="text">Text</option>
@@ -140,10 +143,8 @@
 				<option value={String(o.value)}>{o.label}</option>
 			{/each}
 		</PropSelect>
-		<PropSelect label="Border" bind:value={form.border} onchange={apply}>
-			<option value="thin">Thin</option>
-			<option value="none">None</option>
-		</PropSelect>
+		<PropCheck label="Border" value={form.border === 'thin'}
+			onchange={(e: Event) => { form.border = (e.currentTarget as HTMLInputElement).checked ? 'thin' : 'none'; apply() }} />
 
 		{#if form.kind === 'text' || form.kind === 'empty'}
 			<hr class="border-zinc-200" />
@@ -175,5 +176,6 @@
 				<p class="text-xs text-zinc-400">No fill-rate sections yet — add them in the Fill rates tool.</p>
 			{/if}
 		{/if}
+		</div>
 	</Window>
 {/if}

@@ -89,10 +89,20 @@ The sheets list should show the latest version by default, but maybe a dropdown 
        support wall elevations (server-room wall panels, meeting-room AV), not just rack rows.
   5d5. Draw trunks in elevations (horizontal + vertical) to add detail to the floorplan trunks.
 
+  5d6. If we want 3D views, should we start linking walls to floorplans now?
+    * 3d editor code (for a multi-storey building) is available in M:\dev\pascal-editor-svelte\src
+    
+
 5e. Viewports   (small, mostly UI polish)
-  5e1. Border property → checkbox (thin / none). Put checkboxes to the right of the prop label.
-  5e2. Property-editor keyboard nav: Enter → next field, Shift+Enter → previous (skip textareas).
-  5e3. Number viewports when a sheet has more than one; renumber on reorder/move; include the
+  5e1. Border property → checkbox (thin / none). Put checkboxes to the right of the prop label.   ✅
+       (PropCheck now lays out label-left / checkbox-right, so all property checkboxes match.)
+  5e2. Property-editor keyboard nav (for all property editor windows): Enter → next field, Shift+Enter → previous (skip textareas).   ✅
+       `use:formNav` action (edit/formNav.ts) on the Sheet / Viewport / Outlets / Racks / Risers
+       property windows — walks the visible input/select fields in DOM order; textareas are skipped.
+  (UX) Viewport move handle: drag the frame edge to move (cursor: move) instead of a floating grip
+       that looked like an annotation's rotate handle — leaves the top-centre free for a future
+       viewport rotate handle. Corners still resize.
+  5e3. Number viewports when a sheet has more than one; renumber on reorder/move (how?); include the
        number in the label when one is defined. (for references)
   5e4. AutoCAD-style vp controls on the vp toolbar: scale down-triangle (pick scale) + the square
        control (purpose TBD).
@@ -111,6 +121,7 @@ The sheets list should show the latest version by default, but maybe a dropdown 
   5g3. Port labels in a viewport: add a "frame" (or "ports") option to the viewport View setting, so
        the user can zoom a rack large enough to read labels on an A3 portrait page.
   5g4. Rack ties specify the B-end for the panel/ports on this frame.
+
   5g5. Outlet list (replaces the Generate auto-gen, which we likely drop): bulk-set outlet usage,
        room (description) and type (high/low-level, etc). Sub-decisions:
        - highlight duplicate labels and numbering gaps (a coloured rule where not sequential).
@@ -146,9 +157,11 @@ The sheets list should show the latest version by default, but maybe a dropdown 
 
 6. Sheets
 
-6a. The items in sheets list should be draggable, like the lists in the Packages tab.   ✅
+6a. The rows in the sheets list should be draggable, like the lists in the Packages tab.   ✅
     Drag a row (grip in the # column) to reorder; sortOrder is renumbered to the new positions.
-6b. I'm thinking of categorizing the sheet list into: Outlet plans, Trunk plans, Risers, Elevations, Patch Lists
+
+6b. Categorize the sheet list into: Outlet plans, Trunk plans, Risers, Elevations, Patch Lists, etc
+
 6c. We will want to be able to add fill rate drawings to sheets. As these are essentially cross-sections of a trunk, they could be considered elevations (although some of them may be x-sections of a vertical riser). We could put them one per elevation vp.   ✅
     New viewport Type "Fill rate" → pick a section from the Fill rates tool (project doc
     fillrate/{pid}). Rendered as crisp SVG via a shared mm-space packSection() (extracted from the
@@ -167,7 +180,7 @@ I've seen two types:
 * We dont need to include surveys in packages for now.
 * The UX for selecting photos for inclusion in survey reports, editing comments, and placing markers on floorplans to show the prosiotn and direction the photo was taken, is non-intuitive. Improve the UX. When a photo is taken/uploaded, let user enter description and mark position/direction on floorplan (expandable minimap, wih selectable floors). Let user re-order photos for inclusion in report.
 
-10. Multi-segmetn annote
+10. Multi-segment annote (need a better name for this text box type. is it a table?)
 A rect with two rows, bottom row is 3 columns. User can enter text for each cell. Useful on  floorplans for indicating an equipment ref number, LAN port reqs ref number, Power req ref number, etc, with all refs listed in legends.
 
 11. "File" sheet rows (external / Excel documents)   ← doing now
@@ -179,4 +192,9 @@ print). Use this for patch lists, BOMs, and any other dense tabular data that li
 the cheap alternative to rendering tables to PDF (see 5h2 MAYBE).
 
 12. Markup
-* For marking up a drawing, add a layer for the markup. Use Hotkeys to add clouds, text-callouts, arrow-lines
+* For marking up a drawing, user should add a layer for the markup. Use Hotkeys to add clouds, text-callouts, arrow-lines
+
+13. In original patching tool, when a patched port is selected, mark the ports at each end as either from or to, to make it easier to identify which button (reoute from or reroute to) in the toolbar we should use for repatching
+
+14. Wall elevations
+* allow adding wall-mount-panels (plain rects will do), vertical conduits, cutouts, outlets, trunks

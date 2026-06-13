@@ -28,6 +28,14 @@
 		e.stopPropagation() // we handle selection; don't let SheetEditor start a marquee
 		vps.select(vp.id, e.shiftKey || e.ctrlKey || e.metaKey)
 	}
+	// Press on the frame edge: Shift/Ctrl = additive select; otherwise select + arm a move (a plain
+	// click selects, a drag past THRESHOLD moves — so the frame itself is the move affordance and we
+	// don't need a floating grip that looks like an annotation's rotate handle).
+	function frameDown(e: MouseEvent) {
+		if (e.button !== 0) return
+		if (e.shiftKey || e.ctrlKey || e.metaKey) { selectFrame(e); return }
+		start('move', e)
+	}
 
 	// A screen-pixel delta is `scale` mm; derive scale from the element's rendered size
 	// (rect.width === vp.w * zoom) so we don't need to know the Canvas zoom directly.
@@ -213,26 +221,18 @@
 	</div>
 
 	{#if !active}
-		<!-- Clickable frame: four thin edge strips so the interior stays click-through. -->
+		<!-- Clickable frame: four thin edge strips so the interior stays click-through. Click selects;
+		     drag moves (no separate grip — keeps the top-centre clear for a future rotate handle). -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="vp-frame absolute" style:inset="0" style:pointer-events="none">
-			<div class="absolute left-0 right-0 top-0" style:height="{FRAME}px" style:pointer-events="auto" style:cursor="pointer" onmousedown={selectFrame}></div>
-			<div class="absolute left-0 right-0 bottom-0" style:height="{FRAME}px" style:pointer-events="auto" style:cursor="pointer" onmousedown={selectFrame}></div>
-			<div class="absolute top-0 bottom-0 left-0" style:width="{FRAME}px" style:pointer-events="auto" style:cursor="pointer" onmousedown={selectFrame}></div>
-			<div class="absolute top-0 bottom-0 right-0" style:width="{FRAME}px" style:pointer-events="auto" style:cursor="pointer" onmousedown={selectFrame}></div>
+			<div class="absolute left-0 right-0 top-0" style:height="{FRAME}px" style:pointer-events="auto" style:cursor="move" onmousedown={frameDown}></div>
+			<div class="absolute left-0 right-0 bottom-0" style:height="{FRAME}px" style:pointer-events="auto" style:cursor="move" onmousedown={frameDown}></div>
+			<div class="absolute top-0 bottom-0 left-0" style:width="{FRAME}px" style:pointer-events="auto" style:cursor="move" onmousedown={frameDown}></div>
+			<div class="absolute top-0 bottom-0 right-0" style:width="{FRAME}px" style:pointer-events="auto" style:cursor="move" onmousedown={frameDown}></div>
 		</div>
 	{/if}
 
 	{#if selected && !active}
-		<!-- Move grip, centred above the top edge. -->
-		<div
-			class="absolute bg-blue-500 print:hidden"
-			style:width="{H}px" style:height="{H}px"
-			style:left="calc(50% - {H / 2}px)" style:top="{-H * 1.6}px"
-			style:pointer-events="auto" style:cursor={drag?.mode === 'move' ? 'grabbing' : 'move'}
-			onmousedown={e => start('move', e)}
-			role="button" tabindex="-1" aria-label="Move viewport"
-		></div>
 		<!-- Corner resize handles. -->
 		{#each (['nw','ne','sw','se'] as const) as corner (corner)}
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
