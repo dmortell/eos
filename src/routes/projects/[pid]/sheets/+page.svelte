@@ -15,7 +15,9 @@
 	let sheets = $state<SheetDoc[]>([])
 	let packages = $state<SheetPackage[]>([])
 	let loading = $state(true)
-	let mode = $state<'sheets' | 'packages'>('sheets')
+	// Initial view + package come from the URL so returning from print preview (Close) restores them.
+	let mode = $state<'sheets' | 'packages'>(page.url.searchParams.get('view') === 'packages' ? 'packages' : 'sheets')
+	const initialPkg = page.url.searchParams.get('pkg') ?? null
 
 	// Project name for the titlebar
 	$effect(() => {
@@ -54,5 +56,5 @@
 {:else if mode === 'sheets'}
 	<SheetList {sheets} projectId={pid ?? ''} uid={session.user?.uid ?? ''} {db} {mode} onmode={(m) => mode = m} />
 {:else}
-	<PackageManager {packages} {sheets} projectId={pid ?? ''} uid={session.user?.uid ?? ''} {db} {mode} onmode={(m) => mode = m} />
+	<PackageManager {packages} {sheets} projectId={pid ?? ''} uid={session.user?.uid ?? ''} {db} {mode} onmode={(m) => mode = m} {initialPkg} />
 {/if}

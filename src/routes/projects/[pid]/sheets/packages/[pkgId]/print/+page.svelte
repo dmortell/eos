@@ -117,7 +117,7 @@
 		<span class="text-zinc-500">· {printSheets.length} sheet{printSheets.length === 1 ? '' : 's'}</span>
 		<div class="ml-auto flex gap-1.5">
 			<button class="rounded bg-blue-600 px-2 py-1 text-white hover:bg-blue-500" onclick={printNow}>Print</button>
-			<a href="/projects/{pid}/sheets" class="rounded border border-zinc-300 px-2 py-1 text-zinc-600 hover:border-blue-400 dark:border-zinc-700 dark:text-zinc-300">Close</a>
+			<a href="/projects/{pid}/sheets?view=packages&pkg={pkgId}" class="rounded border border-zinc-300 px-2 py-1 text-zinc-600 hover:border-blue-400 dark:border-zinc-700 dark:text-zinc-300">Close</a>
 		</div>
 	</div>
 

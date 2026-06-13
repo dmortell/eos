@@ -5,7 +5,7 @@
 	import { createSheetPackage, updateSheetPackage, deleteSheetPackage } from '../data'
 	import ListTabs from './ListTabs.svelte'
 
-	let { packages, sheets, projectId, uid, db, mode = 'packages', onmode = () => {} }: {
+	let { packages, sheets, projectId, uid, db, mode = 'packages', onmode = () => {}, initialPkg = null }: {
 		packages: SheetPackage[]
 		sheets: SheetDoc[]
 		projectId: string
@@ -13,11 +13,14 @@
 		db: Firestore
 		mode?: 'sheets' | 'packages'
 		onmode?: (m: 'sheets' | 'packages') => void
+		initialPkg?: string | null
 	} = $props()
 
-	let selectedId = $state<string | null>(null)
-	// Keep a valid selection as packages load / change.
-	$effect(() => { if (selectedId && !packages.some(p => p.id === selectedId)) selectedId = null })
+	// svelte-ignore state_referenced_locally
+	let selectedId = $state<string | null>(initialPkg) // seed once from the URL; user selection drives it after
+	// Drop the selection only once packages have loaded and the id is gone (so an initialPkg from
+	// the URL survives the initial empty state while the subscription is still loading).
+	$effect(() => { if (selectedId && packages.length && !packages.some(p => p.id === selectedId)) selectedId = null })
 	let pkg = $derived(packages.find(p => p.id === selectedId) ?? null)
 
 	let sheetsById = $derived(Object.fromEntries(sheets.map(s => [s.id, s])) as Record<string, SheetDoc>)
