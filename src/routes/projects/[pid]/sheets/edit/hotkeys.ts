@@ -9,8 +9,8 @@ import type { AnnotationKind } from '../types'
 export const MARKUP_HOTKEYS: Record<string, AnnotationKind> = {
 	c: 'cloud',       // revision cloud
 	t: 'text',        // free text note
-	n: 'callout',     // note: text box + leader
-	l: 'leader',      // leader line + text (no box)
+	n: 'callout',     // note: leader + text (border: none / underline / box)
+	l: 'line',        // line
 	a: 'arrow',       // arrow
 	d: 'dimension',   // dimension
 	r: 'rect',        // rectangle (highlight a region)

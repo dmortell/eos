@@ -93,7 +93,7 @@ export type ViewportSource =
  *  - Box kinds (text/rect/cloud/symbol/callout): x,y = top-left, w,h = size, rotation° about centre.
  *  - Line kinds (line/dimension/leader, legacy arrow): x,y = start, x2,y2 = end.
  *  - Callout/leader also use x2,y2 as the pointer target. */
-export type AnnotationKind = 'text' | 'line' | 'rect' | 'ellipse' | 'cloud' | 'symbol' | 'callout' | 'dimension' | 'leader' | 'arrow' | 'image'
+export type AnnotationKind = 'text' | 'line' | 'rect' | 'ellipse' | 'cloud' | 'symbol' | 'callout' | 'dimension' | 'arrow' | 'image'
 export type ArrowHead = 'none' | 'arrow' | 'dot' | 'tick'
 export type DashStyle = 'solid' | 'dashed' | 'dotted'
 export type TextAlign = 'left' | 'center' | 'right'
@@ -114,7 +114,7 @@ export interface Annotation {
 	text?: string                 // may contain newlines (multi-line)
 	fontPt?: number
 	align?: TextAlign
-	border?: boolean              // callout text-box outline (false = leader-style, no box)
+	border?: 'none' | 'underline' | 'box'   // callout text decoration (none = leader-style)
 	symbol?: string               // symbol registry id
 	flip?: boolean                // mirror the symbol horizontally (e.g. door hinge side)
 	start?: ArrowHead             // line start head

@@ -7,11 +7,22 @@ import type { LayerDef } from '../layers/layers'
 export type AnnTool = 'select' | AnnotationKind
 
 // Kinds placed by a single click (a default-sized box); the rest are dragged out.
-const CLICK_KINDS = new Set<AnnotationKind>(['text', 'symbol', 'callout', 'leader'])
+const CLICK_KINDS = new Set<AnnotationKind>(['text', 'symbol'])
 const BOX_DRAG = new Set<AnnotationKind>(['rect', 'ellipse', 'cloud', 'image'])
 // Minimum drawn size (world-mm) for box-drag kinds, so a click / tiny drag still yields a usable
 // shape rather than a near-zero one.
-const MIN_BOX: Partial<Record<AnnotationKind, number>> = { cloud: 50 }
+const MIN_BOX: Partial<Record<AnnotationKind, number>> = { cloud: 500 }
+
+/**
+ * Normalise an annotation on load: the old 'leader' kind is folded into 'callout' (a callout with
+ * no border), and the callout border is migrated from boolean to the 'none'|'underline'|'box' enum.
+ */
+function migrate(a: Annotation): Annotation {
+	const b = a.border as unknown
+	if ((a.kind as string) === 'leader') a.kind = 'callout'
+	if (a.kind === 'callout') a.border = (b === true || b === 'box') ? 'box' : (b === 'underline' ? 'underline' : 'none')
+	return a
+}
 
 // Module-level clipboard so annotations copy/paste between viewports (and sheets, same session).
 let clipboard: Annotation[] = []
@@ -20,13 +31,12 @@ let clipboard: Annotation[] = []
 function defaults(kind: AnnotationKind, symbol: string): Partial<Annotation> {
 	switch (kind) {
 		case 'text': return { text: 'Text', fontPt: 8, align: 'left' }
-		case 'callout': return { text: 'Note', fontPt: 8, align: 'left', w: 4000, h: 1400, end: 'arrow', border: true }
+		case 'callout': return { text: 'Note', fontPt: 8, align: 'left', w: 4000, h: 1400, end: 'arrow', border: 'none' }
 		case 'symbol': return { symbol }
 		case 'rect': case 'ellipse': case 'cloud': return {}
 		case 'image': return { src: '' }
 		case 'line': return { start: 'none', end: 'none', dash: 'solid' }
 		case 'arrow': return { start: 'none', end: 'arrow', dash: 'solid' }
-		case 'leader': return { text: 'Note', fontPt: 8, end: 'arrow', dash: 'solid', w: 3000, h: 1200 }
 		case 'dimension': return {}
 		default: return {}
 	}
@@ -47,7 +57,7 @@ export class AnnotationEditor extends SurfaceEditor {
 	selAnns = $state<string[]>([])
 	#gbAnns = new Map<string, { x: number; y: number; x2?: number; y2?: number }>()
 
-	seed(a: Annotation[] | undefined) { this.annotations = (a ?? []).map(x => ({ ...x })) }
+	seed(a: Annotation[] | undefined) { this.annotations = (a ?? []).map(x => migrate({ ...x })) }
 	snapshot() { return $state.snapshot(this.annotations) as Annotation[] }
 	selAnn = $derived(this.sel?.kind === 'ann' ? this.annotations.find(a => a.id === this.sel!.id) ?? null : null)
 
@@ -57,13 +67,25 @@ export class AnnotationEditor extends SurfaceEditor {
 		return this.annotations[this.annotations.length - 1]
 	}
 
-	/** Click placement: a default box at p (text/symbol/callout/leader). */
+	/** Click placement: a default box at p (text / symbol). */
 	click(p: Point) {
 		const t = this.tool; if (t === 'select') return
 		const a = this.push({ id: this.uid('a'), kind: t, x: p.x, y: p.y, layerId: this.nextLayerId(), ...defaults(t, this.symbol) })
 		if (t === 'symbol') { a.w = 1000; a.h = 1000; a.x = p.x - 500; a.y = p.y - 500 } // centre the marker on the click
-		if (t === 'callout' || t === 'leader') { a.x2 = p.x + (a.w ?? 3000) + 1500; a.y2 = p.y - 1500 } // pointer target
 		this.select('ann', a.id); this.notify(); this.onPlaced?.()
+	}
+	/**
+	 * Callout placement (item 16): press at the arrowhead, drag to where the text box goes. The
+	 * pointer tip (x2,y2) stays at the press point; the box (x,y) follows the cursor. A bare click
+	 * (no drag) drops the box at a default offset so the leader isn't zero-length.
+	 */
+	startCallout(p: Point) {
+		const a = this.push({ id: this.uid('a'), kind: 'callout', x: p.x, y: p.y, x2: p.x, y2: p.y, layerId: this.nextLayerId(), ...defaults('callout', this.symbol) })
+		this.select('ann', a.id)
+		this.startDrag(e => { const w = this.toWorld(e); if (!w) return; a.x = w.x; a.y = w.y }, () => {
+			if (Math.abs(a.x - (a.x2 ?? a.x)) < 1 && Math.abs(a.y - (a.y2 ?? a.y)) < 1) { a.x = (a.x2 ?? a.x) + 1500; a.y = (a.y2 ?? a.y) - 1500 }
+			this.tool = 'select'; this.notify(); this.onPlaced?.()
+		})
 	}
 	/** Drag placement: box (rect/cloud → w,h) or line (line/arrow/dimension → x2,y2). */
 	startShape(p: Point) {
@@ -82,7 +104,11 @@ export class AnnotationEditor extends SurfaceEditor {
 		})
 	}
 	/** Route an add by the active tool (called from EditBackground). */
-	place(p: Point) { if (CLICK_KINDS.has(this.tool as AnnotationKind)) this.click(p); else this.startShape(p) }
+	place(p: Point) {
+		if (this.tool === 'callout') this.startCallout(p)
+		else if (CLICK_KINDS.has(this.tool as AnnotationKind)) this.click(p)
+		else this.startShape(p)
+	}
 
 	/**
 	 * Drag-move an annotation. `movePointer` controls the callout/leader pointer target:

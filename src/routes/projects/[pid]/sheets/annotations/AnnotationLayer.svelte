@@ -21,10 +21,15 @@
 	const lyrOf = (a: Annotation) => a.layerId ?? 'annotations'
 	const isLocked = (a: Annotation) => locked.includes(lyrOf(a))
 
-	const BOX = new Set(['text', 'rect', 'ellipse', 'cloud', 'symbol', 'callout', 'leader', 'image'])
-	const POINTER = new Set(['callout', 'leader']) // box kinds that also have a pointer target
+	const BOX = new Set(['text', 'rect', 'ellipse', 'cloud', 'symbol', 'callout', 'image'])
+	const POINTER = new Set(['callout']) // box kinds that also have a pointer target
 	const LINE = new Set(['line', 'arrow', 'dimension'])
 	const isBoxKind = (a: Annotation) => BOX.has(a.kind)
+	// Callout text decoration (tolerates the legacy boolean border).
+	const calloutBorder = (a: Annotation): 'none' | 'underline' | 'box' => {
+		const b = a.border as unknown
+		return (b === true || b === 'box') ? 'box' : (b === 'underline' ? 'underline' : 'none')
+	}
 
 	function down(a: Annotation, e: MouseEvent, movePointer = true) {
 		if (!interactive || isLocked(a) || e.button !== 0) return
@@ -34,7 +39,7 @@
 		if (!interactive || isLocked(a)) return
 		e.stopPropagation(); editor.requestTextFocus(a)
 	}
-	const HAS_TEXT = new Set(['text', 'callout', 'leader'])
+	const HAS_TEXT = new Set(['text', 'callout'])
 	const mk = (h?: string) => (h && h !== 'none' ? `url(#${mid}-${h})` : undefined)
 	const nearestCorner = (b: { x: number; y: number; w: number; h: number }, tx: number, ty: number) => {
 		const cs = [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]]
@@ -61,17 +66,21 @@
 
 	<!-- shape -->
 	<g transform={isBoxKind(a) ? rot : undefined} style:color={color}>
-		{#if a.kind === 'text' || a.kind === 'callout' || a.kind === 'leader'}
+		{#if a.kind === 'text' || a.kind === 'callout'}
 			{@const m = textMetrics(a, den)}
 			{@const tb = box(a, den)}
 			{@const ax = a.align === 'center' ? tb.x + tb.w / 2 : a.align === 'right' ? tb.x + tb.w : tb.x}
 			{@const anchor = a.align === 'center' ? 'middle' : a.align === 'right' ? 'end' : 'start'}
-			{#if a.kind === 'callout' && a.border !== false}
+			{@const cb = a.kind === 'callout' ? calloutBorder(a) : 'none'}
+			{#if cb === 'box'}
 				<rect x={tb.x} y={tb.y} width={tb.w} height={tb.h} fill={a.fill ?? 'white'} fill-opacity={a.fill ? undefined : 0.6} stroke={color} stroke-width=".2" vector-effect="non-scaling-stroke" />
 			{/if}
 			<text x={ax} y={tb.y + m.fontMm} font-size={m.fontMm} fill={color} text-anchor={anchor}>
 				{#each m.lines as ln, i (i)}<tspan x={ax} dy={i === 0 ? 0 : m.lineH}>{ln || ' '}</tspan>{/each}
 			</text>
+			{#if cb === 'underline'}
+				<line x1={tb.x} y1={tb.y + tb.h} x2={tb.x + tb.w} y2={tb.y + tb.h} stroke={color} stroke-width=".3" vector-effect="non-scaling-stroke" />
+			{/if}
 		{:else if a.kind === 'rect'}
 			<rect x={b.x} y={b.y} width={b.w} height={b.h} fill={a.fill ?? 'none'} stroke={color} stroke-width=".5" stroke-dasharray={dashArray(a.dash)} vector-effect="non-scaling-stroke" />
 		{:else if a.kind === 'ellipse'}

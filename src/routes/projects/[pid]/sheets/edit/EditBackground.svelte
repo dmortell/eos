@@ -22,7 +22,7 @@
 		onblocked?: () => void
 	} = $props()
 
-	const ANN = ['text', 'line', 'arrow', 'rect', 'ellipse', 'cloud', 'symbol', 'callout', 'dimension', 'leader', 'image']
+	const ANN = ['text', 'line', 'arrow', 'rect', 'ellipse', 'cloud', 'symbol', 'callout', 'dimension', 'image']
 
 	function bg(e: MouseEvent) {
 		if (e.button !== 0) return

@@ -65,8 +65,9 @@
 	// Annotation-category layers the selection can be moved to (default Annotations + customs under it).
 	let annLayers = $derived(editor.layers.filter(l => l.id === 'annotations' || l.base === 'annotations'))
 	const cls = (active: boolean) => ['rounded border px-1.5 py-0.5 text-xs', active ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-slate-100']
-	const hasText = (k?: string) => k === 'text' || k === 'callout' || k === 'leader'
-	const hasLine = (k?: string) => k === 'line' || k === 'arrow' || k === 'callout' || k === 'leader'
+	const hasText = (k?: string) => k === 'text' || k === 'callout'
+	const hasLine = (k?: string) => k === 'line' || k === 'arrow' || k === 'callout'
+	const CALLOUT_BORDERS: [string, string][] = [['none', 'None'], ['underline', 'Underline'], ['box', 'Border']]
 	const hasFill = (k?: string) => k === 'rect' || k === 'ellipse' || k === 'cloud' || k === 'callout' || k === 'symbol'
 </script>
 
@@ -123,8 +124,15 @@
 			</div>
 		</div>
 		<PropText label="Font (pt)" type="number" min="2" value={String(sel.fontPt ?? 8)} oninput={(e: Event) => editor.setSel({ fontPt: Number(val(e)) || 8 })} />
-		{#if sel.kind === 'callout' || sel.kind === 'leader'}
-			<PropCheck label="Box border" value={sel.border !== false} onchange={(e: Event) => editor.setSel({ border: (e.currentTarget as HTMLInputElement).checked })} />
+		{#if sel.kind === 'callout'}
+			<div class="flex items-center justify-between gap-2">
+				<span class="w-24 shrink-0 text-xs text-zinc-500">Border</span>
+				<div class="flex w-full gap-0.5">
+					{#each CALLOUT_BORDERS as [v, l] (v)}
+						<button class={cls((sel.border ?? 'none') === v)} onclick={() => editor.setSel({ border: v as any })}>{l}</button>
+					{/each}
+				</div>
+			</div>
 		{/if}
 	{/if}
 
