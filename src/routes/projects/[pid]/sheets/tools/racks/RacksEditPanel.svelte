@@ -10,7 +10,7 @@
 
 	import type { RackFace } from './types'
 
-	let { editor, tool = $bindable(), annEditor, face = 'front', libraryOpen = false, ondevices }: { editor: RacksEditor; tool: string; annEditor: AnnotationEditor; face?: RackFace; libraryOpen?: boolean; ondevices?: () => void } = $props()
+	let { editor, tool = $bindable(), annEditor, face = 'front', libraryOpen = false, racksOpen = false, ondevices, onracks }: { editor: RacksEditor; tool: string; annEditor: AnnotationEditor; face?: RackFace; libraryOpen?: boolean; racksOpen?: boolean; ondevices?: () => void; onracks?: () => void } = $props()
 	const val = (e: Event) => (e.currentTarget as HTMLInputElement | HTMLSelectElement).value
 	let firstRow = $derived(editor.rows[0]?.id ?? '')
 	const cls = (active: boolean) => ['rounded border px-1.5 py-0.5 text-xs', active ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-slate-100']
@@ -21,6 +21,7 @@
 	<div class="space-y-2" use:formNav>
 	<div class="flex flex-wrap gap-1">
 		<button class={cls(tool === 'select')} onclick={() => (tool = 'select')}>Select</button>
+		<button class={cls(racksOpen)} onclick={() => onracks?.()}>Racks</button>
 		{#if face !== 'plan'}<button class={cls(libraryOpen)} onclick={() => ondevices?.()}>Devices</button>{/if}
 	</div>
 	<AnnotationControls bind:tool editor={annEditor} />

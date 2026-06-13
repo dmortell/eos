@@ -40,6 +40,17 @@
 		<button class="w-full rounded border px-1 py-0.5 text-xs hover:bg-slate-100" onclick={() => { editor.finishDraw(); tool = 'select' }}>Finish trunk</button>
 	{/if}
 
+	<!-- Trunk select-list (5c4): pick a trunk when they overlap on the plan. Visibility is via layers. -->
+	{#if editor.trunks.length}
+		<div class="flex items-center gap-2">
+			<span class="w-16 shrink-0 text-xs text-zinc-500">Trunk</span>
+			<select class="w-full rounded border px-1 py-0.5 text-xs" value={editor.selTrunk?.id ?? ''} onchange={(e: Event) => editor.selectTrunk(val(e))}>
+				<option value="" disabled>— select —</option>
+				{#each editor.trunks as t (t.id)}<option value={t.id}>{t.label || t.id.slice(0, 8)}</option>{/each}
+			</select>
+		</div>
+	{/if}
+
 	{#if editor.hasMulti}
 		{@const n = editor.selOutlets.length}
 		<hr class="border-zinc-200" />

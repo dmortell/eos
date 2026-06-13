@@ -79,12 +79,15 @@ The sheets list should show the latest version by default, but maybe a dropdown 
        "Type" = the catalog preset from the outlets tool's Trunk tab (PIPE_CATALOG / RECT_CATALOG);
        picking one sets spec.catalog + its standard dimensions, editing W/H/Ø sets catalog='custom'.
        Also added a Z-elev (mm) field (writes z to all the trunk's nodes).
-  5c4. Trunk list (select-only). Visibility is handled by layers (5a.), not the old visibility toggle.
+  5c4. Trunk list (select-only). Visibility is handled by layers (5a.), not the old visibility toggle.   ✅
+       A "Trunk" select dropdown in the outlets edit panel (when trunks exist) → selectTrunk.
 
 5d. Elevations
   5d1. Rack list beside the existing dropdown: reorder racks by dragging selected row(s); "Add rack"
-       button.
-  5d2. "Racks" button that opens a racks window (parallel to the existing Devices button/window).
+       button.   ✅ (in the Racks window — see 5d2)
+  5d2. "Racks" button that opens a racks window (parallel to the existing Devices button/window).   ✅
+       RacksWindow.svelte: select a rack, drag rows to reorder (sets the elevation order via
+       reorderRacks), and Add rack. Opened by a "Racks" button next to "Devices".
   5d3. Custom device form → modal dialog (the list gets long); openable from the device list for
        editing existing devices.
   5d4. Link rack elevations to floorplan section views for section/elevation references — and
@@ -232,6 +235,9 @@ the cheap alternative to rendering tables to PDF (see 5h2 MAYBE).
     kind is merged into callout (border None = leader look) and migrated on load; 'L' is now Line.
     Cloud minimum size bumped to 500x500.
 
-17. build a list of skills based on lessons learned during development of this app that would be useful when building similar apps in future. Or a list of MCP we should build or fetch
+17. build a list of skills based on lessons learned during development of this app that would be useful when building similar apps in future. Or a list of MCP we should build or fetch   ✅
+    → docs/reusable-skills-and-mcps.md (portaling popovers, capture/bubble keys, headless editor
+      pattern, mm-space print, Firestore/URL reactivity, runes discipline, …; plus MCP ideas — a
+      Firestore read/query MCP is the big one).
 
 18. Fix ugly vp scale dropdown, invisible scale value, and tiny font in scales list

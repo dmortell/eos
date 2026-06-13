@@ -110,6 +110,11 @@ export class RacksEditor extends SurfaceEditor {
 		if (patch.heightU != null) r.heightMm = patch.heightU * 45 + 80
 		this.notify()
 	}
+	/** Reassign rack `order` to the given id sequence (elevation lays racks out left→right by order). */
+	reorderRacks(orderedIds: string[]) {
+		orderedIds.forEach((id, i) => { const r = this.racks.find(x => x.id === id); if (r) r.order = i })
+		this.notify()
+	}
 	deleteRack() {
 		const r = this.selRack; if (!r) return
 		this.devices = this.devices.filter(d => d.rackId !== r.id)

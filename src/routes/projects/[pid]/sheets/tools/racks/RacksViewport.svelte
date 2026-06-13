@@ -9,6 +9,7 @@
 	import RacksEditLayer from './RacksEditLayer.svelte'
 	import RacksEditPanel from './RacksEditPanel.svelte'
 	import DeviceLibrary from './DeviceLibrary.svelte'
+	import RacksWindow from './RacksWindow.svelte'
 	import EditBackground from '../../edit/EditBackground.svelte'
 	import AnnotationLayer from '../../annotations/AnnotationLayer.svelte'
 	import { RacksEditor } from './racks-editor.svelte'
@@ -33,6 +34,7 @@
 	let tool = $state('select')
 	let viewDen = $state(1)
 	let showLibrary = $state(false)
+	let showRacks = $state(false)
 	let annTarget = $derived(annTargetLayer(vps.activeLayerId, vps.allLayers))
 	let annOff = $derived(hidden.includes(annTarget) || locked.includes(annTarget))
 	function blocked(id: string): boolean {
@@ -117,9 +119,12 @@
 		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} {hidden} {locked} den={viewDen} />
 	</RacksRender>
 	{#if active}
-		<RacksEditPanel {editor} bind:tool {annEditor} face={src.face} libraryOpen={showLibrary} ondevices={() => { showLibrary = !showLibrary }} />
+		<RacksEditPanel {editor} bind:tool {annEditor} face={src.face} libraryOpen={showLibrary} racksOpen={showRacks} ondevices={() => { showLibrary = !showLibrary }} onracks={() => { showRacks = !showRacks }} />
 		{#if showLibrary && src.face !== 'plan'}
 			<DeviceLibrary {editor} ondrop={placeFromDrop} onclose={() => { showLibrary = false }} />
+			{/if}
+			{#if showRacks}
+				<RacksWindow {editor} onclose={() => { showRacks = false }} />
 		{/if}
 	{/if}
 {:else}

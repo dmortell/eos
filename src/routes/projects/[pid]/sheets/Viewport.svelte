@@ -222,7 +222,7 @@
 			<!-- Scale picker (AutoCAD-style): change the viewport scale without opening the props window.
 			     appearance-none + a tiny ▾ so it stays compact at the toolbar's font size. -->
 			<span class="relative inline-flex items-center">
-				<select class="appearance-none rounded border border-slate-300 bg-white tabular-nums leading-none cursor-pointer" title="Scale — {scaleText}"
+				<select class="appearance-none bg-transparent tabular-nums leading-none cursor-pointer text-zinc-600" title="Scale — {scaleText}"
 					style:font-size="inherit" style:padding="0 1.1em 0 0.25em"
 					value={String(vp.scale ?? 0)} onmousedown={e => e.stopPropagation()}
 					onchange={e => { e.stopPropagation(); vps.setScale(vp.id, Number((e.currentTarget as HTMLSelectElement).value)) }}>
