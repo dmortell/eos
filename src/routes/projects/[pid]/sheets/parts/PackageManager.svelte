@@ -45,11 +45,18 @@
 	// ── drag/drop (reorder within, move between lists) ──
 	let dragged = $state<{ id: string; from: 'in' | 'avail' } | null>(null)
 	function dropInto(beforeId?: string) {
-		if (!dragged || !pkg) return
-		const ids = pkg.sheetIds.filter(x => x !== dragged!.id)
-		const at = beforeId ? ids.indexOf(beforeId) : ids.length
-		ids.splice(at < 0 ? ids.length : at, 0, dragged.id)
-		persist(ids); dragged = null
+		const d = dragged
+		if (!d || !pkg) return
+		dragged = null
+		if (beforeId === d.id) return
+		const from = pkg.sheetIds.indexOf(d.id)                    // -1 when coming from Available
+		const to = beforeId ? pkg.sheetIds.indexOf(beforeId) : pkg.sheetIds.length
+		const ids = pkg.sheetIds.filter(x => x !== d.id)
+		let at = beforeId ? ids.indexOf(beforeId) : ids.length
+		if (at < 0) at = ids.length
+		if (from !== -1 && from < to) at += 1                      // dragging downward → drop after the target row
+		ids.splice(at, 0, d.id)
+		persist(ids)
 	}
 	function dropOut() { if (dragged?.from === 'in') remove(dragged.id); dragged = null }
 
