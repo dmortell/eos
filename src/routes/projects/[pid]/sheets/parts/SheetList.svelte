@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation'
 	import { paperDimsMm } from '$lib/ui/print/types'
 	import type { SheetDoc } from '../types'
-	import { createSheet, updateSheet, deleteSheet } from '../data'
+	import { createSheet, updateSheet, deleteSheet, planRenumber } from '../data'
 	import ListTabs from './ListTabs.svelte'
 
 	let {
@@ -65,6 +65,23 @@
 		confirmDeleteId = null
 	}
 
+	// ── Multi-select + renumber ──
+	let selected = $state<Set<string>>(new Set())
+	let menuOpen = $state(false)
+	let allSelected = $derived(sheets.length > 0 && sheets.every(s => selected.has(s.id)))
+	function toggleSel(id: string) {
+		const n = new Set(selected)
+		n.has(id) ? n.delete(id) : n.add(id)
+		selected = n
+	}
+	function toggleAll() { selected = allSelected ? new Set() : new Set(sheets.map(s => s.id)) }
+	async function renumberSelected() {
+		menuOpen = false
+		const chosen = sheets.filter(s => selected.has(s.id)) // already in list order
+		const plan = planRenumber(chosen, sheets)
+		await Promise.all(plan.map(p => updateSheet(db, projectId, p.id, { drawingNumber: p.drawingNumber })))
+	}
+
 	function paperLabel(sheet: SheetDoc): string {
 		const p = sheet.paper
 		if (!p) return '—'
@@ -82,18 +99,34 @@
 		<!-- Header -->
 		<div class="flex items-center justify-between mb-4">
 			<ListTabs {mode} {onmode} />
-			<Button onclick={handleNewSheet}>
-				<Icon name="plus" size={14} />
-				New Sheet
-			</Button>
+			<div class="flex items-center gap-2">
+				<Button onclick={handleNewSheet}>
+					<Icon name="plus" size={14} />
+					New Sheet
+				</Button>
+				<div class="relative">
+					<button class="rounded border border-zinc-300 px-2 py-1.5 leading-none text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+						title="More actions" aria-label="More actions" onclick={() => menuOpen = !menuOpen}>⋮</button>
+					{#if menuOpen}
+						<button class="fixed inset-0 z-40 cursor-default" aria-label="Close menu" onclick={() => menuOpen = false}></button>
+						<div class="absolute right-0 z-50 mt-1 w-56 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+							<button class="block w-full px-3 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-200 dark:hover:bg-zinc-800"
+								disabled={selected.size === 0} onclick={renumberSelected}>
+								Renumber selected ({selected.size})
+							</button>
+						</div>
+					{/if}
+				</div>
+			</div>
 		</div>
 
-		<p class="my-2 text-xs text-zinc-400">Click a row to open the sheet. Click the pencil icon to edit fields inline.</p>
+		<p class="my-2 text-xs text-zinc-400">Click a row to open the sheet. Pencil = edit fields inline. Tick rows then ⋮ ▸ Renumber to renumber them sequentially (prefix preserved).</p>
 
 		<div class="rounded-lg border border-zinc-200 dark:border-zinc-800">
 			<table class="w-full text-sm border-collapse">
 				<thead>
 					<tr class="[&>th]:sticky [&>th]:top-0 [&>th]:z-10 [&>th]:bg-zinc-100 dark:[&>th]:bg-zinc-900 [&>th]:shadow-[inset_0_-1px_0] [&>th]:shadow-zinc-200 dark:[&>th]:shadow-zinc-800 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+						<th class="px-2 py-2 w-8 text-center"><input type="checkbox" checked={allSelected} onchange={toggleAll} title="Select all" /></th>
 						<th class="px-3 py-2 w-12">#</th>
 						<th class="px-3 py-2 w-40">Drawing No.</th>
 						<th class="px-3 py-2">Title</th>
@@ -110,6 +143,9 @@
 						<tr class="border-t border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors"
 							class:cursor-pointer={!isRowEditing}
 							onclick={() => { if (!isRowEditing) openSheet(sheet) }}>
+							<td class="px-2 py-1.5 text-center" onclick={e => e.stopPropagation()}>
+								<input type="checkbox" checked={selected.has(sheet.id)} onchange={() => toggleSel(sheet.id)} />
+							</td>
 							<td class="px-3 py-1.5 text-zinc-400 tabular-nums">{idx + 1}</td>
 
 							<!-- Drawing Number -->
@@ -168,7 +204,7 @@
 
 					{#if sheets.length === 0}
 						<tr>
-							<td colspan={7} class="px-3 py-8 text-center text-zinc-400">
+							<td colspan={8} class="px-3 py-8 text-center text-zinc-400">
 								No sheets yet. Click "New Sheet" to create one.
 							</td>
 						</tr>

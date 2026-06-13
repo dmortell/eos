@@ -68,6 +68,44 @@ export async function deleteSheet(db: Firestore, pid: string, id: string): Promi
 	await db.delete(sheetsPath(pid), id)
 }
 
+// ── Renumber ──
+
+/** Split a drawing number into a text prefix + trailing integer (keeping the zero-pad width). */
+export function parseDrawingNumber(s: string | undefined): { prefix: string; num: number | null; width: number } {
+	const v = (s ?? '').trim()
+	const m = v.match(/^(.*?)(\d+)$/)
+	if (m) return { prefix: m[1], num: parseInt(m[2], 10), width: m[2].length }
+	return { prefix: v, num: null, width: 0 }
+}
+
+/**
+ * Plan a sequential renumber of `selected` sheets (taken in their list order). The starting number
+ * comes from the first selected sheet's drawing number; if it has none, the sequence continues from
+ * the sheet immediately before it in `all`, otherwise starts at 1. Each sheet keeps its own prefix
+ * and zero-pad width (falling back to the lead sheet's), so only the numeric part is reassigned.
+ * Returns the id→drawingNumber changes (only where the value actually changes).
+ */
+export function planRenumber(selected: SheetDoc[], all: SheetDoc[]): { id: string; drawingNumber: string }[] {
+	if (!selected.length) return []
+	const lead = parseDrawingNumber(selected[0].drawingNumber)
+	let start = lead.num
+	if (start == null) {
+		const i = all.findIndex(s => s.id === selected[0].id)
+		const prev = i > 0 ? parseDrawingNumber(all[i - 1].drawingNumber) : null
+		start = prev?.num != null ? prev.num + 1 : 1
+	}
+	const out: { id: string; drawingNumber: string }[] = []
+	selected.forEach((s, i) => {
+		const p = parseDrawingNumber(s.drawingNumber)
+		const prefix = p.prefix || lead.prefix
+		const width = p.width || lead.width
+		const n = (start as number) + i
+		const drawingNumber = `${prefix}${width > 0 ? String(n).padStart(width, '0') : String(n)}`
+		if (drawingNumber !== (s.drawingNumber ?? '')) out.push({ id: s.id, drawingNumber })
+	})
+	return out
+}
+
 // ── Sheet packages (drawing sets) ──
 
 /** Subscribe to a project's packages, sorted by sortOrder. Returns an unsub fn. */
