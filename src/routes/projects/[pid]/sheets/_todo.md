@@ -197,8 +197,14 @@ appears in the set as a reminder to export (a placeholder page with the titleblo
 print). Use this for patch lists, BOMs, and any other dense tabular data that lives best in Excel —
 the cheap alternative to rendering tables to PDF (see 5h2 MAYBE).
 
-12. Markup
+12. Markup   ✅ (hotkeys)
 * For marking up a drawing, user should add a layer for the markup. Use Hotkeys to add clouds, text-callouts, arrow-lines
+  → Single-key markup hotkeys (no modifier) while a tool viewport is active (edit/hotkeys.ts):
+    C cloud · T text · N note(callout) · L leader · A arrow · D dimension · R rect · E ellipse.
+    Shown in the annote picker (key on the right) + button tooltips. New annotes land on the ACTIVE
+    layer, so make a "Markup" layer active (Layers panel) first — that's the per-markup-layer ask.
+  → Esc now reverts an armed tool back to Select (viewport stays active); a second Esc deactivates
+    the viewport. (Was: Esc immediately deactivated.)
 
 13. In original patching tool, when a patched port is selected, mark the ports at each end as either from or to, to make it easier to identify which button (reoute from or reroute to) in the toolbar we should use for repatching   ✅
     Selecting a cable badges its endpoints: amber "F" on the FROM port, violet "T" on the TO port
@@ -208,3 +214,5 @@ the cheap alternative to rendering tables to PDF (see 5h2 MAYBE).
 * allow adding wall-mount-panels (plain rects will do), vertical conduits, cutouts, outlets, trunks
 
 15. apply formNav to other property dialogs for Enter navigation (e.g. the fillrate tool, device library)
+
+16. when adding a Callout, allow user to drag out the line, from the arrowhead to where the callout textbox should be. callout Textbox border should be off by default, add a checkbox to toggle.

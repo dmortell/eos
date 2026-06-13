@@ -12,6 +12,7 @@
 	import { useViewportEditing } from '../../edit/editing.svelte'
 	import type { ViewportEditor } from '../../viewports.svelte'
 	import { layerBlockReason, annTargetLayer } from '../../layers/layers'
+	import { markupHotkey } from '../../edit/hotkeys'
 	import { toast } from 'svelte-sonner'
 
 	let { vp, vps, zoom = 1, active = false, view = null, onview, hidden = [], locked = [] }: {
@@ -58,11 +59,13 @@
 		const onKey = (e: KeyboardEvent) => {
 			const f = (e.target as Element)?.closest?.('input, textarea, select, [contenteditable]')
 			if (f) return
-			if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); e.stopPropagation(); if (e.shiftKey) history.redo(); else history.undo(); return }
+			const mk = markupHotkey(e); if (mk) { e.preventDefault(); e.stopPropagation(); tool = mk; return }
+				if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); e.stopPropagation(); if (e.shiftKey) history.redo(); else history.undo(); return }
 			if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); e.stopPropagation(); history.redo(); return }
 			if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C') && (annEditor.selAnn || annEditor.hasMultiSel())) { e.preventDefault(); e.stopPropagation(); annEditor.copySel(); return }
 			if ((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); e.stopPropagation(); annEditor.paste(); return }
-			if (e.key === 'Delete') {
+			if (e.key === 'Escape' && tool !== 'select') { e.preventDefault(); e.stopPropagation(); tool = 'select'; return }
+				if (e.key === 'Delete') {
 				if (editor.hasMultiSel() || annEditor.hasMultiSel()) { e.preventDefault(); e.stopPropagation(); editor.deleteMany(); annEditor.deleteMany() }
 				else if (annEditor.selAnn) { e.preventDefault(); e.stopPropagation(); annEditor.deleteSel() }
 				else if (editor.sel) { e.preventDefault(); e.stopPropagation(); editor.deleteSel() }

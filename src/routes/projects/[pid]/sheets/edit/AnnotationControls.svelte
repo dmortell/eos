@@ -17,6 +17,7 @@
 	import PropColor from '../parts/PropColor.svelte'
 	import { SYMBOLS, symbolDef } from '../annotations/symbols/registry'
 	import { portal } from './portal'
+	import { HOTKEY_OF } from './hotkeys'
 	import type { AnnotationEditor } from '../annotations/annotations.svelte'
 
 	type Opt = { id: string; label: string }
@@ -73,7 +74,7 @@
 <div class="flex flex-wrap items-center gap-1">
 	{#if showSelect}<button class={cls(tool === 'select')} onclick={() => (tool = 'select')}>Select</button>{/if}
 	{#each mru as id (id)}
-		<button class={cls(tool === id)} title="Insert {labelOf(id)}" onclick={() => selectTool(id)}>+ {labelOf(id)}</button>
+		<button class={cls(tool === id)} title="Insert {labelOf(id)}{HOTKEY_OF[id] ? ` (${HOTKEY_OF[id]})` : ''}" onclick={() => selectTool(id)}>+ {labelOf(id)}</button>
 	{/each}
 	<button bind:this={chevronEl} class={cls(!!tool && tool !== 'select' && !mru.includes(tool))} title="More annotations" aria-label="More annotations" onclick={toggleMenu}>▾</button>
 </div>
@@ -85,7 +86,10 @@
 		<button class="fixed inset-0 cursor-default" style:z-index="60" aria-label="Close menu" onclick={() => (menuOpen = false)}></button>
 		<div class="fixed w-32 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg" style:z-index="61" style:left="{menuPos.x}px" style:top="{menuPos.y}px">
 			{#each annTools as [id, label] (id)}
-				<button class="block w-full px-2 py-1 text-left text-xs hover:bg-slate-100 {tool === id ? 'text-blue-600' : 'text-zinc-700'}" onclick={() => pickFromMenu(id)}>+ {label}</button>
+				<button class="flex w-full items-center justify-between px-2 py-1 text-left text-xs hover:bg-slate-100 {tool === id ? 'text-blue-600' : 'text-zinc-700'}" onclick={() => pickFromMenu(id)}>
+					<span>+ {label}</span>
+					{#if HOTKEY_OF[id]}<span class="ml-2 text-[10px] text-zinc-400">{HOTKEY_OF[id]}</span>{/if}
+				</button>
 			{/each}
 		</div>
 	</div>
