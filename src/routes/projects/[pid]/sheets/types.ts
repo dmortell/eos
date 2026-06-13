@@ -87,6 +87,7 @@ export type ViewportSource =
 	| { kind: 'outlets'; outletsDocId: string; fileId?: string; pageNum?: number; showPdf?: boolean }
 	| { kind: 'racks'; racksDocId: string; face: 'front' | 'rear' | 'plan'; rowId?: string; showWalls?: boolean; colorDevices?: boolean }
 	| { kind: 'risers'; risersDocId: string; fromFloor?: number; toFloor?: number }
+	| { kind: 'fillrate'; sectionId: string }   // a trunk cross-section from the fill-rate tool
 
 /** A model-space annotation in the viewport's real-mm space.
  *  - Box kinds (text/rect/cloud/symbol/callout): x,y = top-left, w,h = size, rotation° about centre.

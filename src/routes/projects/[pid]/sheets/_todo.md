@@ -149,7 +149,11 @@ The sheets list should show the latest version by default, but maybe a dropdown 
 6a. The items in sheets list should be draggable, like the lists in the Packages tab.   ✅
     Drag a row (grip in the # column) to reorder; sortOrder is renumbered to the new positions.
 6b. I'm thinking of categorizing the sheet list into: Outlet plans, Trunk plans, Risers, Elevations, Patch Lists
-6c. We will want to be able to add fill rate drawings to sheets. As these are essentially cross-sections of a trunk, they could be considered elevations (although some of them may be x-sections of a vertical riser). We could put them one per elevation vp.
+6c. We will want to be able to add fill rate drawings to sheets. As these are essentially cross-sections of a trunk, they could be considered elevations (although some of them may be x-sections of a vertical riser). We could put them one per elevation vp.   ✅
+    New viewport Type "Fill rate" → pick a section from the Fill rates tool (project doc
+    fillrate/{pid}). Rendered as crisp SVG via a shared mm-space packSection() (extracted from the
+    fillrate canvas), fit to the viewport frame, captioned "FR-xxx · size · Fill %". Static like
+    the Text viewport (no annotation layer yet). Works in the package print too.
 
 
 7. Implement section references as annotes.
@@ -173,3 +177,6 @@ that tool, where the user exports to Excel/PDF manually. The row can be added to
 appears in the set as a reminder to export (a placeholder page with the titleblock in the package
 print). Use this for patch lists, BOMs, and any other dense tabular data that lives best in Excel —
 the cheap alternative to rendering tables to PDF (see 5h2 MAYBE).
+
+12. Markup
+* For marking up a drawing, add a layer for the markup. Use Hotkeys to add clouds, text-callouts, arrow-lines

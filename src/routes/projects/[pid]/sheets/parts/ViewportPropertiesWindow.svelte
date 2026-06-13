@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { untrack } from 'svelte'
+	import { untrack, getContext } from 'svelte'
 	import { Window } from '$lib'
+	import type { Firestore } from '$lib/db.svelte'
 	import type { ViewportEditor } from '../viewports.svelte'
 	import type { ViewportSource } from '../types'
 	import PropText from './PropText.svelte'
@@ -16,6 +17,15 @@
 		floors?: { number: number }[]
 		pid: string
 	} = $props()
+
+	const db = getContext('db') as Firestore
+	// Fill-rate sections (project-wide doc) for the section picker.
+	let fillrateSections = $state<{ id: string; label: string }[]>([])
+	$effect(() => {
+		if (!pid) return
+		const unsub = db.subscribeOne('fillrate', pid, (d: any) => { fillrateSections = Array.isArray(d?.sections) ? d.sections : [] })
+		return () => unsub?.()
+	})
 
 	// Show for the selected viewport, or for the active one (activating clears the frame selection
 	// to hide resize handles, but we still want this panel available to edit type/scale/source).
@@ -37,6 +47,7 @@
 		outletsDocId: '',
 		racksDocId: '', racksFace: 'front' as RackFace, racksRowId: '', racksShowWalls: false, racksColorDevices: true,
 		risersFrom: 0, risersTo: 0,
+		fillrateSectionId: '',
 	})
 	let syncedId: string | null = null
 	$effect(() => {
@@ -61,6 +72,7 @@
 				racksColorDevices: s.kind === 'racks' ? (s.colorDevices ?? true) : true,
 				risersFrom: s.kind === 'risers' ? (s.fromFloor ?? floorMin()) : floorMin(),
 				risersTo: s.kind === 'risers' ? (s.toFloor ?? floorMax()) : floorMax(),
+				fillrateSectionId: s.kind === 'fillrate' ? s.sectionId : '',
 			}
 		})
 	})
@@ -76,6 +88,7 @@
 		if (form.kind === 'outlets' && !form.outletsDocId) form.outletsDocId = defaultOutletsDocId()
 		if (form.kind === 'racks' && !form.racksDocId) form.racksDocId = defaultRacksDocId()
 		if (form.kind === 'risers' && !form.risersTo) { form.risersFrom = floorMin(); form.risersTo = floorMax() }
+		if (form.kind === 'fillrate' && !form.fillrateSectionId && fillrateSections[0]) form.fillrateSectionId = fillrateSections[0].id
 		apply()
 	}
 
@@ -106,6 +119,7 @@
 			rowId: form.racksRowId || undefined, showWalls: form.racksShowWalls, colorDevices: form.racksColorDevices,
 		}
 		if (form.kind === 'risers') return { kind: 'risers', risersDocId: pid, fromFloor: form.risersFrom, toFloor: form.risersTo }
+		if (form.kind === 'fillrate') return { kind: 'fillrate', sectionId: form.fillrateSectionId }
 		return { kind: 'empty' }
 	}
 </script>
@@ -118,6 +132,7 @@
 			<option value="outlets">Outlets</option>
 			<option value="racks">Racks</option>
 			<option value="risers">Risers</option>
+			<option value="fillrate">Fill rate</option>
 		</PropSelect>
 		<PropText label="Label" bind:value={form.label} oninput={apply} />
 		<PropSelect label="Scale" bind:value={form.scale} onchange={apply}>
@@ -150,6 +165,15 @@
 			<hr class="border-zinc-200" />
 			<RisersProperties {floors} fromFloor={form.risersFrom} toFloor={form.risersTo}
 				onchange={(p) => { form.risersFrom = p.fromFloor; form.risersTo = p.toFloor; apply() }} />
+		{:else if form.kind === 'fillrate'}
+			<hr class="border-zinc-200" />
+			{#if fillrateSections.length}
+				<PropSelect label="Section" bind:value={form.fillrateSectionId} onchange={apply}>
+					{#each fillrateSections as s (s.id)}<option value={s.id}>{s.label}</option>{/each}
+				</PropSelect>
+			{:else}
+				<p class="text-xs text-zinc-400">No fill-rate sections yet — add them in the Fill rates tool.</p>
+			{/if}
 		{/if}
 	</Window>
 {/if}
