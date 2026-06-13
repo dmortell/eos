@@ -233,3 +233,5 @@ the cheap alternative to rendering tables to PDF (see 5h2 MAYBE).
     Cloud minimum size bumped to 500x500.
 
 17. build a list of skills based on lessons learned during development of this app that would be useful when building similar apps in future. Or a list of MCP we should build or fetch
+
+18. Fix ugly vp scale dropdown, invisible scale value, and tiny font in scales list

@@ -104,6 +104,18 @@ To recreate this project from scratch with the same configuration:
 pnpm dlx sv@0.12.4 create --template minimal --types ts --add vitest="usages:unit,component" tailwindcss="plugins:none" sveltekit-adapter="adapter:vercel" devtools-json --install pnpm .
 ```
 
+## Disable auto HMR when editing markdown files
+
+Add this to vite.config.ts
+
+```
+  server: {
+    watch: {
+      ignored: ['**/*.md']
+    }
+  },
+```
+
 ## Enable PDF file uploads to Firestore
 
 Configure CORS to allow reading files uploaded to Firestore.
