@@ -7,6 +7,7 @@
 	import { portal } from '../../edit/portal'
 	import type { OutletsEditor } from './outlets-editor.svelte'
 	import type { AnnotationEditor } from '../../annotations/annotations.svelte'
+	import { PIPE_CATALOG, RECT_CATALOG } from './types'
 
 	let { editor, tool = $bindable(), annEditor }: { editor: OutletsEditor; tool: string; annEditor: AnnotationEditor } = $props()
 
@@ -108,12 +109,15 @@
 				{/each}
 			</div>
 		</div>
-		<PropText label="Type" value={t.type ?? ''} placeholder="e.g. Data" oninput={(e: Event) => editor.setTrunk({ type: val(e) || undefined })} />
+		<PropSelect label="Type" value={(t.spec as any).catalog ?? 'custom'} onchange={(e: Event) => editor.setTrunkCatalog(val(e))}>
+			{#each Object.entries(t.shape === 'pipe' ? PIPE_CATALOG : RECT_CATALOG) as [v, c] (v)}<option value={v}>{c.label}</option>{/each}
+		</PropSelect>
 		<PropColor label="Color" value={t.color ?? '#0369a1'} allowNone={false} onchange={(c: string) => editor.setTrunk({ color: c })} />
 		<PropText label={t.shape === 'pipe' ? 'Diameter (mm)' : 'Width (mm)'} type="number" min="0" value={String(editor.selTrunkWidth)} oninput={(e: Event) => editor.setTrunkWidth(Number(val(e)) || 0)} />
 		{#if t.shape !== 'pipe'}
 			<PropText label="Height (mm)" type="number" min="0" value={String(editor.selTrunkHeight)} oninput={(e: Event) => editor.setTrunkHeight(Number(val(e)) || 0)} />
 		{/if}
+		<PropText label="Z elev (mm)" type="number" step="100" value={String(editor.selTrunkZ)} oninput={(e: Event) => editor.setTrunkZ(Number(val(e)) || 0)} />
 		<PropText label="Bend radius (mm)" type="number" min="0" placeholder="10" value={String(t.bendRadiusMm ?? '')} oninput={(e: Event) => editor.setTrunk({ bendRadiusMm: Number(val(e)) || undefined })} />
 		<div class="flex items-center justify-between gap-2 text-xs text-zinc-500">
 			<span>Run length</span><span class="tabular-nums text-zinc-700">{(editor.selTrunkLengthMm / 1000).toFixed(2)} m</span>

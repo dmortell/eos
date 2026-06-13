@@ -112,6 +112,25 @@
 		confirmDeleteId = null
 	}
 
+	// ── Drag-reorder (persists sortOrder) ──
+	let dragId = $state<string | null>(null)
+	async function dropOnRow(targetId: string) {
+		const d = dragId; dragId = null
+		if (!d || d === targetId) return
+		const ids = sheets.map(s => s.id)
+		const from = ids.indexOf(d), to = ids.indexOf(targetId)
+		if (from < 0 || to < 0) return
+		const without = ids.filter(x => x !== d)
+		let at = without.indexOf(targetId)
+		if (from < to) at += 1                 // dragging downward → drop after the target row
+		without.splice(at, 0, d)
+		// Renumber sortOrder to the new positions; only write rows that actually moved.
+		await Promise.all(without.map((id, i) => {
+			const s = sheets.find(x => x.id === id)
+			return s && s.sortOrder !== i ? updateSheet(db, projectId, id, { sortOrder: i }) : null
+		}).filter(Boolean) as Promise<void>[])
+	}
+
 	// ── Multi-select + renumber ──
 	let selected = $state<Set<string>>(new Set())
 	let menuOpen = $state(false)
@@ -209,13 +228,19 @@
 						{@const isRowEditing = rowEditingId === sheet.id}
 						{@const ftool = sheet.link ? fileTool(sheet.link.tool) : null}
 						<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-						<tr class="border-t border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors"
+						<tr class="border-t border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors {dragId === sheet.id ? 'opacity-40' : ''}"
 							class:cursor-pointer={!isRowEditing}
+							draggable={!isRowEditing}
+							ondragstart={() => dragId = sheet.id}
+							ondragover={e => e.preventDefault()}
+							ondrop={e => { e.preventDefault(); dropOnRow(sheet.id) }}
 							onclick={() => { if (!isRowEditing) openSheet(sheet) }}>
 							<td class="px-2 py-1.5 text-center" onclick={e => e.stopPropagation()}>
 								<input type="checkbox" checked={selected.has(sheet.id)} onchange={() => toggleSel(sheet.id)} />
 							</td>
-							<td class="px-3 py-1.5 text-zinc-400 tabular-nums">{idx + 1}</td>
+							<td class="px-3 py-1.5 text-zinc-400 tabular-nums">
+								<span class="inline-flex items-center gap-1"><Icon name="grip" size={12} class="cursor-grab text-zinc-300" />{idx + 1}</span>
+							</td>
 
 							<!-- Drawing Number -->
 							<td class="px-3 py-1.5 font-mono text-xs">

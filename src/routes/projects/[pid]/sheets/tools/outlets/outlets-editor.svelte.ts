@@ -1,6 +1,7 @@
 import { SurfaceEditor, dist } from '../../edit/surface.svelte'
 import type { Point } from '$lib/ui/print/types'
-import type { OutletConfig, OutletLevel, CableType, MountType, OutletUsage, TrunkConfig, TrunkShape, TrunkNode, TrunkSegment, RackPlacement, OutletsData } from './types'
+import type { OutletConfig, OutletLevel, CableType, MountType, OutletUsage, TrunkConfig, TrunkShape, TrunkNode, TrunkSegment, RackPlacement, OutletsData, PipeCatalog, RectCatalog } from './types'
+import { PIPE_CATALOG, RECT_CATALOG } from './types'
 
 export type OutletTool = 'select' | 'outlet' | 'trunk'
 
@@ -382,9 +383,20 @@ export class OutletsEditor extends SurfaceEditor {
 		const t = this.selTrunk; if (!t) return
 		if (t.shape === 'pipe') { (t.spec as any).outerDiameterMm = w; (t.spec as any).innerDiameterMm = Math.max(0, w - 4) }
 		else (t.spec as any).widthMm = w
+		;(t.spec as any).catalog = 'custom'   // manual size → custom preset
 		this.notify()
 	}
-	setTrunkHeight(h: number) { const t = this.selTrunk; if (!t || t.shape === 'pipe') return; (t.spec as any).heightMm = h; this.notify() }
+	setTrunkHeight(h: number) { const t = this.selTrunk; if (!t || t.shape === 'pipe') return; (t.spec as any).heightMm = h; (t.spec as any).catalog = 'custom'; this.notify() }
+	/** Apply a "Type" catalog preset (sets spec.catalog + its standard dimensions). */
+	setTrunkCatalog(catalog: string) {
+		const t = this.selTrunk; if (!t) return
+		if (t.shape === 'pipe') { const c = PIPE_CATALOG[catalog as PipeCatalog]; if (c) t.spec = { catalog: catalog as PipeCatalog, innerDiameterMm: c.innerMm, outerDiameterMm: c.outerMm } }
+		else { const c = RECT_CATALOG[catalog as RectCatalog]; if (c) t.spec = { catalog: catalog as RectCatalog, widthMm: c.widthMm, heightMm: c.heightMm } }
+		this.notify()
+	}
+	/** Trunk elevation (mm) — z is stored per node; read the first node and write all nodes. */
+	selTrunkZ = $derived((this.selTrunk?.nodes[0]?.z ?? 0) as number)
+	setTrunkZ(z: number) { const t = this.selTrunk; if (!t) return; for (const n of t.nodes) n.z = z; this.notify() }
 
 	// ── context menu ──
 	onNodeContext(e: MouseEvent, t: TrunkConfig, node: TrunkNode) {

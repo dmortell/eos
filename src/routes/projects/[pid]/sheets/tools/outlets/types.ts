@@ -53,12 +53,31 @@ export interface TrunkConfig {
 	segments: TrunkSegment[]
 	labels?: TrunkLabel[]
 	label?: string
-	type?: string           // free-text containment/service type (e.g. 'Data', 'Power', 'Fiber')
 	color?: string
 	rooms?: string[]
 	isPrimary: boolean
 	visible?: boolean
 	bendRadiusMm?: number   // corner rounding (mm); falls back to INNER_CORNER_RADIUS_MM
+}
+
+/** Trunk "Type" presets (catalog → dimensions), mirrored from the outlets tool's Trunk tab. */
+export const PIPE_CATALOG: Record<PipeCatalog, { innerMm: number; outerMm: number; label: string }> = {
+	PF22:   { innerMm: 22, outerMm: 30, label: 'PF22 (22mm flex)' },
+	PF28:   { innerMm: 28, outerMm: 36, label: 'PF28 (28mm flex)' },
+	E51:    { innerMm: 43, outerMm: 51, label: 'E51 (51mm steel)' },
+	custom: { innerMm: 25, outerMm: 33, label: 'Custom pipe' },
+}
+export const RECT_CATALOG: Record<RectCatalog, { widthMm: number; heightMm: number; label: string }> = {
+	MK0:    { widthMm: 40,  heightMm: 20,  label: 'MK No.0 (40x20)' },
+	MK1:    { widthMm: 40,  heightMm: 30,  label: 'MK No.1 (40x30)' },
+	MK2:    { widthMm: 60,  heightMm: 40,  label: 'MK No.2 (60x40)' },
+	MK3:    { widthMm: 80,  heightMm: 60,  label: 'MK No.3 (80x60)' },
+	MK4:    { widthMm: 100, heightMm: 80,  label: 'MK No.4 (100x80)' },
+	MK5:    { widthMm: 150, heightMm: 100, label: 'MK No.5 (150x100)' },
+	ladder: { widthMm: 300, heightMm: 50,  label: 'Ladder' },
+	tray:   { widthMm: 200, heightMm: 50,  label: 'Tray' },
+	mat:    { widthMm: 500, heightMm: 5,   label: 'Rubber mat' },
+	custom: { widthMm: 100, heightMm: 50,  label: 'Custom' },
 }
 
 /** Width used for rendering (outer diameter or width depending on shape). Falls back across spec

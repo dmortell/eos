@@ -53,7 +53,7 @@ The sheets list should show the latest version by default, but maybe a dropdown 
        item), NOT in the viewport.
   5b4. Auto-renumber outlets (after add/remove). UX TBD:
        - enter the first outlet number, then a button arms "incremental renumber" of the next
-         outlets the user clicks, OR
+         outlets the user clicks (if the incremented label has an existing duplicate outlet, then increment the existing and all following outlets until there are no duplicates left), OR
        - drive it from the multi-select list (better for hundreds of outlets).
        - user-defined prefix for outlet labels.
        - highlight duplicate outlet numbers as errors.
@@ -73,7 +73,10 @@ The sheets list should show the latest version by default, but maybe a dropdown 
        Ceiling maps to the existing 'ceiling-tray' value (both ceiling-* keep it active), so the
        model + old-tool rendering are unchanged — the plenum/tray distinction is just dropped from
        the Sheets UI.
-  5c3. Type (free-text) + Color picker on the Sheets trunk props.   ✅ (TrunkConfig.type added)
+  5c3. Type + Color on the Sheets trunk props.   ✅
+       "Type" = the catalog preset from the outlets tool's Trunk tab (PIPE_CATALOG / RECT_CATALOG);
+       picking one sets spec.catalog + its standard dimensions, editing W/H/Ø sets catalog='custom'.
+       Also added a Z-elev (mm) field (writes z to all the trunk's nodes).
   5c4. Trunk list (select-only). Visibility is handled by layers (5a.), not the old visibility toggle.
 
 5d. Elevations
@@ -143,7 +146,8 @@ The sheets list should show the latest version by default, but maybe a dropdown 
 
 6. Sheets
 
-6a. The items in sheets list should be draggable, like the lists in the Packages tab.
+6a. The items in sheets list should be draggable, like the lists in the Packages tab.   ✅
+    Drag a row (grip in the # column) to reorder; sortOrder is renumbered to the new positions.
 6b. I'm thinking of categorizing the sheet list into: Outlet plans, Trunk plans, Risers, Elevations, Patch Lists
 6c. We will want to be able to add fill rate drawings to sheets. As these are essentially cross-sections of a trunk, they could be considered elevations (although some of them may be x-sections of a vertical riser). We could put them one per elevation vp.
 
