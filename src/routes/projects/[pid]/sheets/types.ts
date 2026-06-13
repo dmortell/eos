@@ -93,7 +93,7 @@ export type ViewportSource =
  *  - Box kinds (text/rect/cloud/symbol/callout): x,y = top-left, w,h = size, rotation° about centre.
  *  - Line kinds (line/dimension/leader, legacy arrow): x,y = start, x2,y2 = end.
  *  - Callout/leader also use x2,y2 as the pointer target. */
-export type AnnotationKind = 'text' | 'line' | 'rect' | 'ellipse' | 'cloud' | 'symbol' | 'callout' | 'dimension' | 'leader' | 'arrow'
+export type AnnotationKind = 'text' | 'line' | 'rect' | 'ellipse' | 'cloud' | 'symbol' | 'callout' | 'dimension' | 'leader' | 'arrow' | 'image'
 export type ArrowHead = 'none' | 'arrow' | 'dot' | 'tick'
 export type DashStyle = 'solid' | 'dashed' | 'dotted'
 export type TextAlign = 'left' | 'center' | 'right'
@@ -124,6 +124,7 @@ export interface Annotation {
 	fill?: string                 // shape fill (rect/cloud/callout/symbol); 'none' = unfilled
 	link?: AnnotationLink
 	layerId?: string
+	src?: string                  // image annotation source (http(s) URL or data: URL)
 }
 
 export interface TitleBlockConfig {

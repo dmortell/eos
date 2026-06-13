@@ -1,3 +1,9 @@
+<script module lang="ts">
+	// Recently-used annotation tools, shared across panels (module-level), so the quick buttons
+	// reflect what you actually use. Seeded with sensible defaults.
+	let mru = $state<string[]>(['text', 'line', 'arrow'])
+</script>
+
 <script lang="ts">
 	// Shared annotation controls for the merged Edit window: annotation tool buttons + the
 	// selected-annotation property editor. `tool` is bound from the host so object/annotation tools
@@ -18,8 +24,16 @@
 
 	const annTools: [string, string][] = [
 		['text', 'Text'], ['line', 'Line'], ['arrow', 'Arrow'], ['rect', 'Rect'], ['ellipse', 'Ellipse'], ['cloud', 'Cloud'],
-		['callout', 'Callout'], ['dimension', 'Dim'], ['symbol', 'Symbol'],
+		['callout', 'Callout'], ['dimension', 'Dim'], ['symbol', 'Symbol'], ['image', 'Image'],
 	]
+	const labelOf = (id: string) => annTools.find(t => t[0] === id)?.[1] ?? id
+	let menuOpen = $state(false)
+	/** Activate an annotation tool and bump it to the front of the recently-used list. */
+	function useTool(id: string) {
+		tool = id
+		menuOpen = false
+		if (id !== 'select') mru = [id, ...mru.filter(x => x !== id)].slice(0, 4)
+	}
 	const HEADS: [string, string][] = [['none', 'None'], ['arrow', 'Arrow'], ['dot', 'Dot'], ['tick', 'Tick']]
 	const DASHES: [string, string][] = [['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted']]
 	const val = (e: Event) => (e.currentTarget as HTMLInputElement | HTMLSelectElement).value
@@ -44,11 +58,24 @@
 	const hasFill = (k?: string) => k === 'rect' || k === 'ellipse' || k === 'cloud' || k === 'callout' || k === 'symbol'
 </script>
 
-<div class="flex flex-wrap gap-1">
+<!-- Consolidated annote toolbar: Select + a few recently-used annotes + a "▾" picker for the rest. -->
+<div class="flex flex-wrap items-center gap-1">
 	{#if showSelect}<button class={cls(tool === 'select')} onclick={() => (tool = 'select')}>Select</button>{/if}
-	{#each annTools as [id, label] (id)}
-		<button class={cls(tool === id)} onclick={() => (tool = id)}>{label}</button>
+	{#each mru as id (id)}
+		<button class={cls(tool === id)} onclick={() => useTool(id)}>{labelOf(id)}</button>
 	{/each}
+	<div class="relative">
+		<button class={cls(!!tool && tool !== 'select' && !mru.includes(tool))} title="More annotations" aria-label="More annotations" onclick={() => (menuOpen = !menuOpen)}>▾</button>
+		{#if menuOpen}
+			<!-- svelte-ignore a11y_consider_explicit_label -->
+			<button class="fixed inset-0 z-40 cursor-default" aria-label="Close menu" onclick={() => (menuOpen = false)}></button>
+			<div class="absolute left-0 z-50 mt-1 w-32 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg">
+				{#each annTools as [id, label] (id)}
+					<button class="block w-full px-2 py-1 text-left text-xs hover:bg-slate-100 {tool === id ? 'text-blue-600' : 'text-zinc-700'}" onclick={() => useTool(id)}>{label}</button>
+				{/each}
+			</div>
+		{/if}
+	</div>
 </div>
 
 {#if tool === 'symbol' && !sel}
@@ -63,6 +90,10 @@
 		<PropSelect label="Layer" value={sel.layerId ?? 'annotations'} onchange={(e: Event) => editor.setSelLayer(val(e))}>
 			{#each annLayers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
 		</PropSelect>
+	{/if}
+	{#if sel.kind === 'image'}
+		<PropText label="Image URL" value={sel.src ?? ''} placeholder="https://… or data:image/…" oninput={(e: Event) => editor.setSel({ src: val(e) })} />
+		<p class="text-[10px] text-zinc-400">Paste an image URL or a data: URL. Drag the box to size; the image fits inside.</p>
 	{/if}
 	{#if hasText(sel.kind)}
 		<PropTextarea label="Text" rows={2} bind:element={textEl} value={sel.text ?? ''} oninput={(e: Event) => editor.setSel({ text: val(e) })} />

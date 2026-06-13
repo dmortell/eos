@@ -108,10 +108,14 @@ The sheets list should show the latest version by default, but maybe a dropdown 
        control (purpose TBD).
 
 5f. Annotates   (small)
-  5f1. Consolidate the annote toolbar: a group toggle (Select ↔ annote) + a chevron dropdown to
-       pick the annote; keep a few most-recently-used annotes as extra toggle buttons if space allows.
-  5f2. Image annote: paste a URL / base64, or upload to the assets folder when an image is pasted
-       (or dragged) into the view.
+  5f1. Consolidate the annote toolbar.   ✅
+       Select + the recently-used annotes (module-level MRU, seeded text/line/arrow) + a "▾" picker
+       listing all annotes (incl. Image). Picking from the picker promotes it into the MRU buttons.
+  5f2. Image annote.   ✅ (URL / data-URL)
+       New 'image' annotation kind (drag a box; fits the image inside). Set the source via the
+       "Image URL" prop — accepts an http(s) URL or a data: URL. NOTE: clipboard-image paste and
+       upload-to-assets (UploadThing) are deferred — base64 in the sheet doc is fine for small
+       images but large pastes should upload first; follow-up.
 
 5g. Frames   (large — port-label integration)
   5g1. Keep Frames as a standalone tool (no viewport unless we want a titleblock), but list frames

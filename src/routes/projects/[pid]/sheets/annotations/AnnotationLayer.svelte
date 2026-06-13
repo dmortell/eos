@@ -21,7 +21,7 @@
 	const lyrOf = (a: Annotation) => a.layerId ?? 'annotations'
 	const isLocked = (a: Annotation) => locked.includes(lyrOf(a))
 
-	const BOX = new Set(['text', 'rect', 'ellipse', 'cloud', 'symbol', 'callout', 'leader'])
+	const BOX = new Set(['text', 'rect', 'ellipse', 'cloud', 'symbol', 'callout', 'leader', 'image'])
 	const POINTER = new Set(['callout', 'leader']) // box kinds that also have a pointer target
 	const LINE = new Set(['line', 'arrow', 'dimension'])
 	const isBoxKind = (a: Annotation) => BOX.has(a.kind)
@@ -101,6 +101,13 @@
 			{:else}
 				<circle cx={cx} cy={cy} r={R} fill={a.fill ?? 'white'} stroke={color} stroke-width=".5" vector-effect="non-scaling-stroke" stroke-dasharray={a.symbol === 'detail' ? '40 24' : undefined} />
 				<text x={cx} y={cy} font-size={R * 0.9} fill={color} text-anchor="middle" dominant-baseline="middle">{a.link?.ref ?? '?'}</text>
+			{/if}
+		{:else if a.kind === 'image'}
+			{#if a.src}
+				<image href={a.src} x={b.x} y={b.y} width={b.w} height={b.h} preserveAspectRatio="xMidYMid meet" />
+			{:else}
+				<rect x={b.x} y={b.y} width={b.w} height={b.h} fill="#f8fafc" stroke={color} stroke-width=".5" stroke-dasharray="8 5" vector-effect="non-scaling-stroke" />
+				<text x={cx} y={cy} font-size={Math.min(b.w, b.h) / 6} fill="#94a3b8" text-anchor="middle" dominant-baseline="central">image — set URL</text>
 			{/if}
 		{/if}
 	</g>

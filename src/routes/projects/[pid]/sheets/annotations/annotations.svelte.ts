@@ -8,7 +8,7 @@ export type AnnTool = 'select' | AnnotationKind
 
 // Kinds placed by a single click (a default-sized box); the rest are dragged out.
 const CLICK_KINDS = new Set<AnnotationKind>(['text', 'symbol', 'callout', 'leader'])
-const BOX_DRAG = new Set<AnnotationKind>(['rect', 'ellipse', 'cloud'])
+const BOX_DRAG = new Set<AnnotationKind>(['rect', 'ellipse', 'cloud', 'image'])
 
 // Module-level clipboard so annotations copy/paste between viewports (and sheets, same session).
 let clipboard: Annotation[] = []
@@ -20,6 +20,7 @@ function defaults(kind: AnnotationKind, symbol: string): Partial<Annotation> {
 		case 'callout': return { text: 'Note', fontPt: 8, align: 'left', w: 4000, h: 1400, end: 'arrow', border: true }
 		case 'symbol': return { symbol }
 		case 'rect': case 'ellipse': case 'cloud': return {}
+		case 'image': return { src: '' }
 		case 'line': return { start: 'none', end: 'none', dash: 'solid' }
 		case 'arrow': return { start: 'none', end: 'arrow', dash: 'solid' }
 		case 'leader': return { text: 'Note', fontPt: 8, end: 'arrow', dash: 'solid', w: 3000, h: 1200 }
