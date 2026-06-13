@@ -25,90 +25,92 @@ The sheets list should show the latest version by default, but maybe a dropdown 
 4. Copy/paste from other projects
 
 
-a. Layers   (smallest item — good first integration)
+5. Integrate original tools with Sheets
+
+5a. Layers   (smallest item — good first integration)
   Notes: default layers are fine; we just need custom layers + an active layer for new
   objects. See the existing outlets tool for sample layer code to reuse.
-  a1. Custom-layer CRUD: add / rename / delete custom layers in the layer panel.
-  a2. Categorise a custom layer under one of the default layers (optional parent).
-  a3. "Active layer" selector — new objects are created on the active layer.
-  a4. Move selected object(s) to another layer.
-  a5. Wrong-category handling when adding to a custom layer: either toast-warn, or silently
-      place on the default layer and let the user move it later. (decide which)
+  5a1. Custom-layer CRUD: add / rename / delete custom layers in the layer panel.
+  5a2. Categorise a custom layer under one of the default layers (optional parent).
+  5a3. "Active layer" selector — new objects are created on the active layer.
+  5a4. Move selected object(s) to another layer.
+  5a5. Wrong-category handling when adding to a custom layer: either toast-warn, or silently
+       place on the default layer and let the user move it later. (decide which)
 
-b. Outlets   (largest item — split across several PRs)
-  b1. PDF floorplan: upload / insert a PDF as a floorplan background in the outlets viewport
-      (reuse the uploads tool: origin/scale/crop).
-  b2. Auto-label new trunks: add a trunk-label input to the trunk props, and auto-generate a
-      default label like the old tool. (Root cause of trunks showing the Firestore ID in old
-      tools — there is currently no label input at all.)
-  b3. Outlets list + Excel export — keep in the existing standalone tool (or a sidebar / menu
-      item), NOT in the viewport.
-  b4. Auto-renumber outlets (after add/remove). UX TBD:
-      - enter the first outlet number, then a button arms "incremental renumber" of the next
-        outlets the user clicks, OR
-      - drive it from the multi-select list (better for hundreds of outlets).
-      - user-defined prefix for outlet labels.
-      - highlight duplicate outlet numbers as errors.
-  b5. Racks on the floorplan: list racks (from rack elevations); drag a rack onto the floorplan.
-      - decide: disable creating new racks in the outlets tool, OR
-      - generate a rack elevation by selecting an elevation/section on the floorplan and linking
-        via a Section annote.
-  b6. Unify the rack property editors (Sheets / outlets tool / racks tool) into one shared
-      component, keeping all advanced functionality. (shared by d. Elevations too)
-  b7. Link outlets back to patch frames (via the frames tool).
-  b8. Link trunks to one or more frames/racks; an outlet's secondary trunks auto-link to the
-      nearest main trunk that connects to the correct frame/rack.
+5b. Outlets   (largest item — split across several PRs)
+  5b1. PDF floorplan: upload / insert a PDF as a floorplan background in the outlets viewport
+       (reuse the uploads tool: origin/scale/crop).
+  5b2. Auto-label new trunks: add a trunk-label input to the trunk props, and auto-generate a
+       default label like the old tool. (Root cause of trunks showing the Firestore ID in old
+       tools — there is currently no label input at all.)
+  5b3. Outlets list + Excel export — keep in the existing standalone tool (or a sidebar / menu
+       item), NOT in the viewport.
+  5b4. Auto-renumber outlets (after add/remove). UX TBD:
+       - enter the first outlet number, then a button arms "incremental renumber" of the next
+         outlets the user clicks, OR
+       - drive it from the multi-select list (better for hundreds of outlets).
+       - user-defined prefix for outlet labels.
+       - highlight duplicate outlet numbers as errors.
+  5b5. Racks on the floorplan: list racks (from rack elevations); drag a rack onto the floorplan.
+       - decide: disable creating new racks in the outlets tool, OR
+       - generate a rack elevation by selecting an elevation/section on the floorplan and linking
+         via a Section annote.
+  5b6. Unify the rack property editors (Sheets / outlets tool / racks tool) into one shared
+       component, keeping all advanced functionality. (shared by 5d. Elevations too)
+  5b7. Link outlets back to patch frames (via the frames tool).
+  5b8. Link trunks to one or more frames/racks; an outlet's secondary trunks auto-link to the
+       nearest main trunk that connects to the correct frame/rack.
 
-c. Trunks
-  c1. Trunk Shape: replace the select with 2 toggle buttons.
-  c2. Trunk Location: simplify to floor / ceiling / wall toggle buttons.
-  c3. Add type + color to the Sheets trunk props.
-  c4. Trunk list (select-only). Visibility is handled by layers (a.), not the old visibility toggle.
+5c. Trunks
+  5c1. Trunk Shape: replace the select with 2 toggle buttons.
+  5c2. Trunk Location: simplify to floor / ceiling / wall toggle buttons.
+  5c3. Add type + color to the Sheets trunk props.
+  5c4. Trunk list (select-only). Visibility is handled by layers (5a.), not the old visibility toggle.
 
-d. Elevations
-  d1. Rack list beside the existing dropdown: reorder racks by dragging selected row(s); "Add rack"
-      button.
-  d2. "Racks" button that opens a racks window (parallel to the existing Devices button/window).
-  d3. Custom device form → modal dialog (the list gets long); openable from the device list for
-      editing existing devices.
-  d4. Link rack elevations to floorplan section views for section/elevation references — and
-      support wall elevations (server-room wall panels, meeting-room AV), not just rack rows.
-  d5. Draw trunks in elevations (horizontal + vertical) to add detail to the floorplan trunks.
+5d. Elevations
+  5d1. Rack list beside the existing dropdown: reorder racks by dragging selected row(s); "Add rack"
+       button.
+  5d2. "Racks" button that opens a racks window (parallel to the existing Devices button/window).
+  5d3. Custom device form → modal dialog (the list gets long); openable from the device list for
+       editing existing devices.
+  5d4. Link rack elevations to floorplan section views for section/elevation references — and
+       support wall elevations (server-room wall panels, meeting-room AV), not just rack rows.
+  5d5. Draw trunks in elevations (horizontal + vertical) to add detail to the floorplan trunks.
 
-e. Viewports   (small, mostly UI polish)
-  e1. Border property → checkbox (thin / none). Put checkboxes to the right of the prop label.
-  e2. Property-editor keyboard nav: Enter → next field, Shift+Enter → previous (skip textareas).
-  e3. Number viewports when a sheet has more than one; renumber on reorder/move; include the
-      number in the label when one is defined. (for references)
-  e4. AutoCAD-style vp controls on the vp toolbar: scale down-triangle (pick scale) + the square
-      control (purpose TBD).
+5e. Viewports   (small, mostly UI polish)
+  5e1. Border property → checkbox (thin / none). Put checkboxes to the right of the prop label.
+  5e2. Property-editor keyboard nav: Enter → next field, Shift+Enter → previous (skip textareas).
+  5e3. Number viewports when a sheet has more than one; renumber on reorder/move; include the
+       number in the label when one is defined. (for references)
+  5e4. AutoCAD-style vp controls on the vp toolbar: scale down-triangle (pick scale) + the square
+       control (purpose TBD).
 
-f. Annotates   (small)
-  f1. Consolidate the annote toolbar: a group toggle (Select ↔ annote) + a chevron dropdown to
-      pick the annote; keep a few most-recently-used annotes as extra toggle buttons if space allows.
-  f2. Image annote: paste a URL / base64, or upload to the assets folder when an image is pasted
-      (or dragged) into the view.
+5f. Annotates   (small)
+  5f1. Consolidate the annote toolbar: a group toggle (Select ↔ annote) + a chevron dropdown to
+       pick the annote; keep a few most-recently-used annotes as extra toggle buttons if space allows.
+  5f2. Image annote: paste a URL / base64, or upload to the assets folder when an image is pasted
+       (or dragged) into the view.
 
-g. Frames   (large — port-label integration)
-  g1. Keep Frames as a standalone tool (no viewport unless we want a titleblock), but list frames
-      in the drawings/sheets list so they can be added to packages. (decide: render to HTML/PDF or Excel?)
-  g2. Usage-driven port allocation: assign outlets a room/row (rack?) + a usage; assign a usage to
-      blocks of ports on frame panels to auto-allocate ports by usage. (see existing frames tool)
-  g3. Port labels in a viewport: add a "frame" (or "ports") option to the viewport View setting, so
-      the user can zoom a rack large enough to read labels on an A3 portrait page.
-  g4. Rack ties specify the B-end for the panel/ports on this frame.
-  g5. Outlet list (replaces the Generate auto-gen, which we likely drop): bulk-set outlet usage,
-      room (description) and type (high/low-level, etc). Sub-decisions:
-      - highlight duplicate labels and numbering gaps (a coloured rule where not sequential).
-      - is the list needed in BOTH the Frames view and the Outlets floorplan view?
-      - or drop the list entirely and rely on the selected-ports toolbar — maybe always-visible /
-        floating, disabled when no ports are selected.
-      - the resizable sidebar works well; drop the vertical-arrangement toggle buttons (unused).
-      - bring Export-to-Excel + Settings from the original tool into Sheets.
-      - skip logs for port assigns (change history matters more for outlet/device changes).
+5g. Frames   (large — port-label integration)
+  5g1. Keep Frames as a standalone tool (no viewport unless we want a titleblock), but list frames
+       in the drawings/sheets list so they can be added to packages. (decide: render to HTML/PDF or Excel?)
+  5g2. Usage-driven port allocation: assign outlets a room/row (rack?) + a usage; assign a usage to
+       blocks of ports on frame panels to auto-allocate ports by usage. (see existing frames tool)
+  5g3. Port labels in a viewport: add a "frame" (or "ports") option to the viewport View setting, so
+       the user can zoom a rack large enough to read labels on an A3 portrait page.
+  5g4. Rack ties specify the B-end for the panel/ports on this frame.
+  5g5. Outlet list (replaces the Generate auto-gen, which we likely drop): bulk-set outlet usage,
+       room (description) and type (high/low-level, etc). Sub-decisions:
+       - highlight duplicate labels and numbering gaps (a coloured rule where not sequential).
+       - is the list needed in BOTH the Frames view and the Outlets floorplan view?
+       - or drop the list entirely and rely on the selected-ports toolbar — maybe always-visible /
+         floating, disabled when no ports are selected.
+       - the resizable sidebar works well; drop the vertical-arrangement toggle buttons (unused).
+       - bring Export-to-Excel + Settings from the original tool into Sheets.
+       - skip logs for port assigns (change history matters more for outlet/device changes).
 
-h. Patching   (mostly keep-as-is)
-  h1. Keep the patching tool as-is (manages patch lists + a visual connection editor).
-  h2. Include the Excel patch list in packages (rendered to PDF). No viewport render needed.
-  h3. Consider a schematic "hops" view of A-end ↔ B-end — there may be multiple patchcords between
-      panels, ties and endpoints (similar to the hops in riser cable routes).
+5h. Patching   (mostly keep-as-is)
+  5h1. Keep the patching tool as-is (manages patch lists + a visual connection editor).
+  5h2. Include the Excel patch list in packages (rendered to PDF). No viewport render needed.
+  5h3. Consider a schematic "hops" view of A-end ↔ B-end — there may be multiple patchcords between
+       panels, ties and endpoints (similar to the hops in riser cable routes).
