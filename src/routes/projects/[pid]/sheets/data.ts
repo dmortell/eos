@@ -89,16 +89,19 @@ export function planRenumber(selected: SheetDoc[], all: SheetDoc[]): { id: strin
 	if (!selected.length) return []
 	const lead = parseDrawingNumber(selected[0].drawingNumber)
 	let start = lead.num
+	// Fallback prefix + zero-pad width for selected sheets that have no number of their own.
+	let basePrefix = lead.prefix, baseWidth = lead.width
 	if (start == null) {
 		const i = all.findIndex(s => s.id === selected[0].id)
 		const prev = i > 0 ? parseDrawingNumber(all[i - 1].drawingNumber) : null
-		start = prev?.num != null ? prev.num + 1 : 1
+		if (prev?.num != null) { start = prev.num + 1; basePrefix = prev.prefix; baseWidth = prev.width }
+		else start = 1
 	}
 	const out: { id: string; drawingNumber: string }[] = []
 	selected.forEach((s, i) => {
 		const p = parseDrawingNumber(s.drawingNumber)
-		const prefix = p.prefix || lead.prefix
-		const width = p.width || lead.width
+		const prefix = p.prefix || basePrefix
+		const width = p.width || baseWidth
 		const n = (start as number) + i
 		const drawingNumber = `${prefix}${width > 0 ? String(n).padStart(width, '0') : String(n)}`
 		if (drawingNumber !== (s.drawingNumber ?? '')) out.push({ id: s.id, drawingNumber })

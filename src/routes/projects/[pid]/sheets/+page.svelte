@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state'
+	import { replaceState, afterNavigate } from '$app/navigation'
 	import { getContext } from 'svelte'
 	import { Firestore, Titlebar, Spinner, Session } from '$lib'
 	import { subscribeSheets, subscribeSheetPackages } from './data'
@@ -15,9 +16,14 @@
 	let sheets = $state<SheetDoc[]>([])
 	let packages = $state<SheetPackage[]>([])
 	let loading = $state(true)
-	// Initial view + package come from the URL so returning from print preview (Close) restores them.
-	let mode = $state<'sheets' | 'packages'>(page.url.searchParams.get('view') === 'packages' ? 'packages' : 'sheets')
-	const initialPkg = page.url.searchParams.get('pkg') ?? null
+	// View mirrors the URL (?view=) so print-Close / back / forward restore it. Read the real browser
+	// URL (location.search), not page.url, which can be stale at mount / unreactive to shallow
+	// replaceState. PackageManager does the same for ?pkg.
+	const viewFromUrl = () => (typeof location !== 'undefined' ? new URLSearchParams(location.search).get('view') : page.url.searchParams.get('view'))
+	// svelte-ignore state_referenced_locally
+	let mode = $state<'sheets' | 'packages'>(viewFromUrl() === 'packages' ? 'packages' : 'sheets')
+	afterNavigate(() => { mode = viewFromUrl() === 'packages' ? 'packages' : 'sheets' })
+	const setMode = (m: 'sheets' | 'packages') => { mode = m; replaceState(`/projects/${pid}/sheets?view=${m}`, {}) }
 
 	// Project name for the titlebar
 	$effect(() => {
@@ -54,7 +60,7 @@
 		<Spinner>Loading sheets...</Spinner>
 	</div>
 {:else if mode === 'sheets'}
-	<SheetList {sheets} projectId={pid ?? ''} uid={session.user?.uid ?? ''} {db} {mode} onmode={(m) => mode = m} />
+	<SheetList {sheets} projectId={pid ?? ''} uid={session.user?.uid ?? ''} {db} {mode} onmode={setMode} />
 {:else}
-	<PackageManager {packages} {sheets} projectId={pid ?? ''} uid={session.user?.uid ?? ''} {db} {mode} onmode={(m) => mode = m} {initialPkg} />
+	<PackageManager {packages} {sheets} projectId={pid ?? ''} uid={session.user?.uid ?? ''} {db} {mode} onmode={setMode} />
 {/if}

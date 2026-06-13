@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { Button, Icon, Firestore } from '$lib'
-	import { goto } from '$app/navigation'
+	import { goto, replaceState, afterNavigate } from '$app/navigation'
+	import { page } from '$app/state'
 	import type { SheetDoc, SheetPackage } from '../types'
 	import { createSheetPackage, updateSheetPackage, deleteSheetPackage } from '../data'
 	import ListTabs from './ListTabs.svelte'
 
-	let { packages, sheets, projectId, uid, db, mode = 'packages', onmode = () => {}, initialPkg = null }: {
+	let { packages, sheets, projectId, uid, db, mode = 'packages', onmode = () => {} }: {
 		packages: SheetPackage[]
 		sheets: SheetDoc[]
 		projectId: string
@@ -13,14 +14,20 @@
 		db: Firestore
 		mode?: 'sheets' | 'packages'
 		onmode?: (m: 'sheets' | 'packages') => void
-		initialPkg?: string | null
 	} = $props()
 
+	// Selection mirrors the URL (?pkg=…) so browser back/forward restore it. We read the real browser
+	// URL (location.search), not page.url: this panel mounts late (after the view flips to packages),
+	// so it misses the navigation's afterNavigate and page.url can be stale at mount. location.search
+	// is always current at mount and after each navigation.
+	const pkgFromUrl = () => (typeof location !== 'undefined' ? new URLSearchParams(location.search).get('pkg') : page.url.searchParams.get('pkg'))
 	// svelte-ignore state_referenced_locally
-	let selectedId = $state<string | null>(initialPkg) // seed once from the URL; user selection drives it after
-	// Drop the selection only once packages have loaded and the id is gone (so an initialPkg from
-	// the URL survives the initial empty state while the subscription is still loading).
-	$effect(() => { if (selectedId && packages.length && !packages.some(p => p.id === selectedId)) selectedId = null })
+	let selectedId = $state<string | null>(pkgFromUrl())
+	afterNavigate(() => { selectedId = pkgFromUrl() })
+	const selectPkg = (id: string | null) => {
+		selectedId = id
+		replaceState(`/projects/${projectId}/sheets?view=packages${id ? `&pkg=${id}` : ''}`, {})
+	}
 	let pkg = $derived(packages.find(p => p.id === selectedId) ?? null)
 
 	let sheetsById = $derived(Object.fromEntries(sheets.map(s => [s.id, s])) as Record<string, SheetDoc>)
@@ -29,6 +36,9 @@
 	let availSheets = $derived(pkg ? sheets.filter(s => !pkg!.sheetIds.includes(s.id)) : [])
 
 	const label = (s: SheetDoc) => [s.drawingNumber, s.title].filter(Boolean).join(' · ') || 'Untitled'
+	// The selected package already lives in the URL (?pkg=…), so opening a sheet and pressing Back
+	// returns to the list with it reselected.
+	const openSheet = (id: string) => goto(`/projects/${projectId}/sheets/${id}`)
 
 	function persist(ids: string[]) { if (pkg) updateSheetPackage(db, projectId, pkg.id, { sheetIds: ids }) }
 	function add(id: string) { if (pkg && !pkg.sheetIds.includes(id)) persist([...pkg.sheetIds, id]) }
@@ -65,14 +75,14 @@
 	async function newPackage() {
 		if (creating) return
 		creating = true
-		try { selectedId = await createSheetPackage(db, projectId, packages, uid) } finally { creating = false }
+		try { selectPkg(await createSheetPackage(db, projectId, packages, uid)) } finally { creating = false }
 	}
 	let editingId = $state<string | null>(null)
 	let nameBuf = $state('')
 	function startRename(p: SheetPackage) { editingId = p.id; nameBuf = p.name }
 	function commitRename() { if (editingId) { updateSheetPackage(db, projectId, editingId, { name: nameBuf.trim() || 'Untitled' }); editingId = null } }
 	let confirmDelete = $state<string | null>(null)
-	function doDelete(id: string) { deleteSheetPackage(db, projectId, id); confirmDelete = null; if (selectedId === id) selectedId = null }
+	function doDelete(id: string) { deleteSheetPackage(db, projectId, id); confirmDelete = null; if (selectedId === id) selectPkg(null) }
 
 	function printPkg(id: string) { goto(`/projects/${projectId}/sheets/packages/${id}/print`) }
 </script>
@@ -96,7 +106,7 @@
 								onkeydown={e => { if (e.key === 'Enter') commitRename(); else if (e.key === 'Escape') editingId = null }}
 								onblur={commitRename} />
 						{:else}
-							<button class="min-w-0 flex-1 truncate text-left" onclick={() => { selectedId = p.id }}>{p.name}</button>
+							<button class="min-w-0 flex-1 truncate text-left" onclick={() => selectPkg(p.id)}>{p.name}</button>
 							<span class="shrink-0 tabular-nums text-xs text-zinc-400">{p.sheetIds?.length ?? 0}</span>
 							<button class="text-zinc-400 hover:text-blue-600" title="Print package" onclick={e => { e.stopPropagation(); printPkg(p.id) }}><Icon name="printer" size={13} /></button>
 							<button class="text-zinc-400 hover:text-blue-600" title="Rename" onclick={e => { e.stopPropagation(); startRename(p) }}><Icon name="edit" size={13} /></button>
@@ -132,7 +142,7 @@
 								ondragover={e => { e.preventDefault() }} ondrop={e => { e.stopPropagation(); dropInto(s.id) }}>
 								<Icon name="grip" size={12} />
 								<span class="w-5 shrink-0 tabular-nums text-xs text-zinc-400">{i + 1}</span>
-								<span class="min-w-0 flex-1 truncate">{label(s)}</span>
+								<button class="min-w-0 flex-1 truncate text-left hover:text-blue-600 hover:underline" title="Open sheet" onclick={() => openSheet(s.id)}>{label(s)}</button>
 								<button class="text-zinc-400 hover:text-blue-600 disabled:opacity-20" disabled={i === 0} title="Up" onclick={() => move(i, -1)}><Icon name="chevronUp" size={13} /></button>
 								<button class="text-zinc-400 hover:text-blue-600 disabled:opacity-20" disabled={i === inSheets.length - 1} title="Down" onclick={() => move(i, 1)}><Icon name="chevronDown" size={13} /></button>
 								<button class="text-zinc-400 hover:text-red-500" title="Remove" onclick={() => remove(s.id)}><Icon name="chevronRight" size={14} /></button>
@@ -156,7 +166,7 @@
 							<div class="flex items-center gap-1 border-b border-zinc-100 px-2 py-1 text-sm dark:border-zinc-800"
 								draggable="true" ondragstart={() => dragged = { id: s.id, from: 'avail' }}>
 								<button class="text-zinc-400 hover:text-green-600" title="Add" onclick={() => add(s.id)}><Icon name="chevronLeft" size={14} /></button>
-								<span class="min-w-0 flex-1 truncate">{label(s)}</span>
+								<button class="min-w-0 flex-1 truncate text-left hover:text-blue-600 hover:underline" title="Open sheet" onclick={() => openSheet(s.id)}>{label(s)}</button>
 							</div>
 						{/each}
 						{#if availSheets.length === 0}
