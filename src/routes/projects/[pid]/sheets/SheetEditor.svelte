@@ -117,6 +117,19 @@
 	vps.onChange = scheduleSave
 	$effect(() => () => { if (saveTimer) clearTimeout(saveTimer) })
 
+	// ── Custom layers (project-wide) ── load from the project doc and persist edits back to it.
+	// Layer definitions are shared across all sheets (per-viewport hidden/locked stays on the sheet).
+	$effect(() => {
+		if (!pid) return
+		const unsub = db.subscribeOne('projects', pid, (data: any) => {
+			const next = Array.isArray(data?.sheetLayers) ? data.sheetLayers : []
+			// Skip no-op echoes (our own writes round-trip) so an in-progress rename isn't clobbered.
+			if (JSON.stringify(next) !== JSON.stringify($state.snapshot(vps.customLayers))) vps.customLayers = next
+		})
+		return () => { unsub?.() }
+	})
+	vps.onLayersChange = () => { if (pid) db.save('projects', { id: pid, sheetLayers: $state.snapshot(vps.customLayers) }) }
+
 	// Window-level gestures: Insert drag-out, marquee select, double-click activate, delete/esc.
 	// Capture phase so we run before the Canvas/viewport handlers call stopPropagation.
 	$effect(() => {

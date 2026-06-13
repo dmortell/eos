@@ -1,4 +1,5 @@
 import type { SheetViewport } from './types'
+import { LAYERS, CUSTOM_LAYER_COLORS, type LayerDef } from './layers/layers'
 
 export type InsertKind = 'viewport'
 type Rect = { x: number; y: number; w: number; h: number }
@@ -25,8 +26,16 @@ export class ViewportEditor {
 	/** Context-specific status-bar hint set by the active tool editor (e.g. trunk-edit commands). */
 	editHint = $state<string | null>(null)
 
+	// ── Layers ── user-defined layers (project-wide; loaded/persisted by SheetEditor) plus the
+	// active layer that new objects are created on.
+	customLayers = $state<LayerDef[]>([])
+	activeLayerId = $state<string>('annotations')
+	allLayers = $derived<LayerDef[]>([...LAYERS, ...this.customLayers])
+
 	/** Called after a mutation that should be persisted (add / delete / geometry change). */
 	onChange: (() => void) | null = null
+	/** Called after the custom-layer list changes (SheetEditor persists it to the project doc). */
+	onLayersChange: (() => void) | null = null
 
 	/** Paper-sheet element, set by SheetEditor; used to map client px → paper mm. */
 	paper: HTMLElement | null = null
@@ -125,6 +134,38 @@ export class ViewportEditor {
 		ov[layerId] = { ...(ov[layerId] ?? {}), ...patch }
 		v.layerOverrides = ov
 		this.notify()
+	}
+
+	// ── custom-layer CRUD (persisted project-wide via onLayersChange) ──
+	notifyLayers() { this.onLayersChange?.() }
+	setActiveLayer(id: string) { this.activeLayerId = id }
+	/** Create a custom layer filed under a default layer (`base`); returns its id. */
+	addCustomLayer(base = 'annotations', name = 'New layer'): string {
+		const id = this.uid('L')
+		const color = CUSTOM_LAYER_COLORS[this.customLayers.length % CUSTOM_LAYER_COLORS.length]
+		this.customLayers = [...this.customLayers, { id, name, color, base, custom: true }]
+		this.activeLayerId = id
+		this.notifyLayers()
+		return id
+	}
+	renameLayer(id: string, name: string) {
+		this.customLayers = this.customLayers.map(l => l.id === id ? { ...l, name } : l)
+		this.notifyLayers()
+	}
+	setLayerColor(id: string, color: string) {
+		this.customLayers = this.customLayers.map(l => l.id === id ? { ...l, color } : l)
+		this.notifyLayers()
+	}
+	/** Re-file a custom layer under a different default layer. */
+	setLayerBase(id: string, base: string) {
+		this.customLayers = this.customLayers.map(l => l.id === id ? { ...l, base } : l)
+		this.notifyLayers()
+	}
+	/** Delete a custom layer. Objects still referencing it fall back to its base category at render. */
+	deleteLayer(id: string) {
+		this.customLayers = this.customLayers.filter(l => l.id !== id)
+		if (this.activeLayerId === id) this.activeLayerId = 'annotations'
+		this.notifyLayers()
 	}
 
 	addViewport(r: Rect) {

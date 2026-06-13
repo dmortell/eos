@@ -27,15 +27,22 @@ The sheets list should show the latest version by default, but maybe a dropdown 
 
 5. Integrate original tools with Sheets
 
-5a. Layers   (smallest item — good first integration)
-  Notes: default layers are fine; we just need custom layers + an active layer for new
-  objects. See the existing outlets tool for sample layer code to reuse.
-  5a1. Custom-layer CRUD: add / rename / delete custom layers in the layer panel.
-  5a2. Categorise a custom layer under one of the default layers (optional parent).
-  5a3. "Active layer" selector — new objects are created on the active layer.
-  5a4. Move selected object(s) to another layer.
-  5a5. Wrong-category handling when adding to a custom layer: either toast-warn, or silently
-       place on the default layer and let the user move it later. (decide which)
+5a. Layers   ✅ DONE (annotations) — tool-object assignment still TODO
+  Custom layers are project-wide (stored on the project doc as `sheetLayers`), filed under a
+  default layer as their category, and shown indented in the Layers panel. The active layer
+  (panel: "New objects → …") drives new objects; annotations now carry that layerId, so each
+  layer hides/locks independently per viewport. Wrong-category (5a5) falls back to Annotations +
+  an info toast. Move-to-layer is the "Layer" dropdown in the annotation properties.
+  → Done end-to-end for ANNOTATIONS only. Tool objects (outlets/trunks/racks/devices/rooms/
+    ladders) still map to their fixed default layer by kind — giving them a `layerId` + per-object
+    visibility in every render/edit layer is the follow-up (touches the live object schemas).
+  5a1. Custom-layer CRUD: add / rename / delete custom layers in the layer panel.   ✅
+  5a2. Categorise a custom layer under one of the default layers (optional parent).   ✅
+  5a3. "Active layer" selector — new objects are created on the active layer.   ✅ (annotations)
+  5a4. Move selected object(s) to another layer.   ✅ (annotations — props "Layer" dropdown)
+  5a5. Wrong-category handling: falls back to the default layer + info toast.   ✅
+  5a6. TODO: extend layerId + per-object layer visibility to tool objects (outlets/trunks/racks/
+       devices/rooms/ladders), and a move-to-layer in their property editors.
 
 5b. Outlets   (largest item — split across several PRs)
   5b1. PDF floorplan: upload / insert a PDF as a floorplan background in the outlets viewport

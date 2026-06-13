@@ -19,7 +19,7 @@
 		onview?: (v: { x: number; y: number; w: number; h: number; den: number }) => void
 	} = $props()
 
-	let layers = $derived(effectiveLayers(vp))
+	let layers = $derived(effectiveLayers(vp, vps.allLayers))
 </script>
 
 {#if vp.source.kind === 'text' || vp.source.kind === 'empty'}

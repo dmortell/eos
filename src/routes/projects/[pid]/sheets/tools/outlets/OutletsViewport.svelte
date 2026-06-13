@@ -13,7 +13,7 @@
 	import AnnotationLayer from '../../annotations/AnnotationLayer.svelte'
 	import { useViewportEditing } from '../../edit/editing.svelte'
 	import type { ViewportEditor } from '../../viewports.svelte'
-	import { layerBlockReason } from '../../layers/layers'
+	import { layerBlockReason, annTargetLayer } from '../../layers/layers'
 	import { toast } from 'svelte-sonner'
 
 	const RENDER_SCALE = 2 // PDF rasterization scale (crispness)
@@ -33,12 +33,14 @@
 	// Unified edit/annotate tool mode (select | outlet | trunk | text | arrow | rect | symbol).
 	let tool = $state('select')
 	let viewDen = $state(1) // scale denominator from the render, for sizing annotation text
-	let annLocked = $derived(locked.includes('annotations'))
-	let annHidden = $derived(hidden.includes('annotations'))
+	// The layer a new annotation would land on (active layer if it's an annotation layer, else the
+	// default Annotations layer). Drawing is blocked when that target is hidden/locked.
+	let annTarget = $derived(annTargetLayer(vps.activeLayerId, vps.allLayers))
+	let annOff = $derived(hidden.includes(annTarget) || locked.includes(annTarget))
 	// A layer that's hidden OR locked can't receive new objects (you'd otherwise create invisible
 	// or un-editable items — the AutoCAD "draw on an off layer" footgun). Toast why.
 	function blocked(id: string): boolean {
-		const reason = layerBlockReason(id, hidden, locked)
+		const reason = layerBlockReason(id, hidden, locked, vps.allLayers)
 		if (reason) { toast.warning(reason); return true }
 		return false
 	}
@@ -176,8 +178,8 @@
 		onview={(v) => { viewDen = v.den || 1; onview?.(v) }}
 		onsvg={(el) => { editor.svg = el; annEditor.svg = el }}>
 		{#if active}
-			<EditBackground {tool} {annEditor} toolEditor={editor} annLocked={annLocked || annHidden}
-				onblocked={() => blocked('annotations')}
+			<EditBackground {tool} {annEditor} toolEditor={editor} annLocked={annOff}
+				onblocked={() => blocked(annTarget)}
 				onadd={(t, w, shift) => {
 					if (t === 'outlet') { if (blocked('outlets')) return true; editor.addOutlet(w); return true }
 					if (t === 'trunk') { if (blocked('trunks')) return true; editor.drawClick(w, shift); return true }
@@ -188,9 +190,7 @@
 				ondbl={() => { if (tool === 'trunk') { editor.finishDraw(); tool = 'select' } }} />
 			<OutletsEditLayer {editor} interactive={tool === 'select'} {locked} {hidden} {racksById} />
 		{/if}
-		{#if !annHidden}
-			<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} locked={annLocked} den={viewDen} />
-		{/if}
+		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} {hidden} {locked} den={viewDen} />
 	</OutletsRender>
 	{#if active}
 		<OutletsEditPanel {editor} bind:tool {annEditor} />

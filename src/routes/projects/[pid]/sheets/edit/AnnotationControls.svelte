@@ -36,6 +36,8 @@
 		tick().then(() => { textEl?.focus(); textEl?.select() })
 	})
 	let def = $derived(sel?.kind === 'symbol' ? symbolDef(sel.symbol) : undefined)
+	// Annotation-category layers the selection can be moved to (default Annotations + customs under it).
+	let annLayers = $derived(editor.layers.filter(l => l.id === 'annotations' || l.base === 'annotations'))
 	const cls = (active: boolean) => ['rounded border px-1.5 py-0.5 text-xs', active ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-slate-100']
 	const hasText = (k?: string) => k === 'text' || k === 'callout' || k === 'leader'
 	const hasLine = (k?: string) => k === 'line' || k === 'arrow' || k === 'callout' || k === 'leader'
@@ -57,6 +59,11 @@
 
 {#if sel}
 	<hr class="border-zinc-200" />
+	{#if annLayers.length > 1}
+		<PropSelect label="Layer" value={sel.layerId ?? 'annotations'} onchange={(e: Event) => editor.setSelLayer(val(e))}>
+			{#each annLayers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+		</PropSelect>
+	{/if}
 	{#if hasText(sel.kind)}
 		<PropTextarea label="Text" rows={2} bind:element={textEl} value={sel.text ?? ''} oninput={(e: Event) => editor.setSel({ text: val(e) })} />
 		<div class="flex items-center justify-between gap-2">

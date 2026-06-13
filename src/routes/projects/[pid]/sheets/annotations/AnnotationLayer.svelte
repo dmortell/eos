@@ -11,11 +11,15 @@
 	import TransformBox from '../edit/TransformBox.svelte'
 	import PointHandles from '../edit/PointHandles.svelte'
 
-	let { editor, interactive = false, locked = false, den = 1 }: { editor: AnnotationEditor; interactive?: boolean; locked?: boolean; den?: number } = $props()
+	// `hidden` / `locked` are the viewport's off-layer id lists; each annotation is filtered by its
+	// own layer (custom or the default 'annotations'), so annotations on different layers toggle
+	// independently.
+	let { editor, interactive = false, hidden = [], locked = [], den = 1 }: { editor: AnnotationEditor; interactive?: boolean; hidden?: string[]; locked?: string[]; den?: number } = $props()
 
 	const HL = '#06b6d4'
 	const mid = `mk-${Math.random().toString(36).slice(2, 7)}`
-	let pe = $derived(interactive && !locked ? 'auto' : 'none')
+	const lyrOf = (a: Annotation) => a.layerId ?? 'annotations'
+	const isLocked = (a: Annotation) => locked.includes(lyrOf(a))
 
 	const BOX = new Set(['text', 'rect', 'ellipse', 'cloud', 'symbol', 'callout', 'leader'])
 	const POINTER = new Set(['callout', 'leader']) // box kinds that also have a pointer target
@@ -23,11 +27,11 @@
 	const isBoxKind = (a: Annotation) => BOX.has(a.kind)
 
 	function down(a: Annotation, e: MouseEvent, movePointer = true) {
-		if (!interactive || locked || e.button !== 0) return
+		if (!interactive || isLocked(a) || e.button !== 0) return
 		e.stopPropagation(); editor.move(a, e, movePointer)
 	}
 	function dbl(a: Annotation, e: MouseEvent) {
-		if (!interactive || locked) return
+		if (!interactive || isLocked(a)) return
 		e.stopPropagation(); editor.requestTextFocus(a)
 	}
 	const HAS_TEXT = new Set(['text', 'callout', 'leader'])
@@ -45,6 +49,9 @@
 </defs>
 
 {#each editor.annotations as a (a.id)}
+	{@const lyr = lyrOf(a)}
+	{#if !hidden.includes(lyr)}
+	{@const pe = interactive && !locked.includes(lyr) ? 'auto' : 'none'}
 	{@const sel = interactive && editor.isSel('ann', a.id)}
 	{@const multi = interactive && editor.selAnns.includes(a.id)}
 	{@const color = a.color ?? '#dc2626'}
@@ -161,5 +168,6 @@
 		{:else}
 			<PointHandles {editor} points={[{ x: a.x, y: a.y }, { x: a.x2 ?? a.x, y: a.y2 ?? a.y }]} onmove={(i, x, y) => editor.movePoint(a, i, x, y)} />
 		{/if}
+	{/if}
 	{/if}
 {/each}

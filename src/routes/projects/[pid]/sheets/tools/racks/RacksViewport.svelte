@@ -14,7 +14,7 @@
 	import { RacksEditor } from './racks-editor.svelte'
 	import { buildElevation, rackAtX, slotAtY } from './rack-layout'
 	import { useViewportEditing } from '../../edit/editing.svelte'
-	import { layerBlockReason } from '../../layers/layers'
+	import { layerBlockReason, annTargetLayer } from '../../layers/layers'
 	import { toast } from 'svelte-sonner'
 
 	let { vp, vps, zoom = 1, active = false, view = null, onview, hidden = [], locked = [] }: {
@@ -32,10 +32,10 @@
 	let tool = $state('select')
 	let viewDen = $state(1)
 	let showLibrary = $state(false)
-	let annLocked = $derived(locked.includes('annotations'))
-	let annHidden = $derived(hidden.includes('annotations'))
+	let annTarget = $derived(annTargetLayer(vps.activeLayerId, vps.allLayers))
+	let annOff = $derived(hidden.includes(annTarget) || locked.includes(annTarget))
 	function blocked(id: string): boolean {
-		const reason = layerBlockReason(id, hidden, locked)
+		const reason = layerBlockReason(id, hidden, locked, vps.allLayers)
 		if (reason) { toast.warning(reason); return true }
 		return false
 	}
@@ -100,8 +100,8 @@
 		onview={(v) => { viewDen = v.den || 1; onview?.(v) }}
 		onsvg={(el) => { editor.svg = el; annEditor.svg = el }}>
 		{#if active}
-			<EditBackground {tool} {annEditor} toolEditor={editor} annLocked={annLocked || annHidden}
-				onblocked={() => blocked('annotations')}
+			<EditBackground {tool} {annEditor} toolEditor={editor} annLocked={annOff}
+				onblocked={() => blocked(annTarget)}
 				onadd={(t, w) => {
 					if (t !== 'device' || src.face === 'plan' || blocked('devices')) return false
 					const scoped = src.rowId ? editor.racks.filter(r => r.rowId === src.rowId) : editor.racks
@@ -111,9 +111,7 @@
 				}} />
 			<RacksEditLayer {editor} face={src.face} rowId={src.rowId} interactive={tool === 'select'} {hidden} {locked} />
 		{/if}
-		{#if !annHidden}
-			<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} locked={annLocked} den={viewDen} />
-		{/if}
+		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} {hidden} {locked} den={viewDen} />
 	</RacksRender>
 	{#if active}
 		<RacksEditPanel {editor} bind:tool {annEditor} face={src.face} libraryOpen={showLibrary} ondevices={() => { showLibrary = !showLibrary }} />
