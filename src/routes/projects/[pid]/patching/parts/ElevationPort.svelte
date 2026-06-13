@@ -12,6 +12,7 @@
 		customCableTypes = [],
 		selected = false,
 		isConnectSource = false,
+		endpoint = null,
 		onclick,
 	}: {
 		portIndex: number
@@ -21,6 +22,8 @@
 		customCableTypes?: any[]
 		selected?: boolean
 		isConnectSource?: boolean
+		/** When this port is an endpoint of the selected connection: 'from' / 'to' (badge + ring). */
+		endpoint?: 'from' | 'to' | null
 		onclick?: (portIndex: number) => void
 	} = $props()
 
@@ -78,7 +81,7 @@
 	class="relative flex items-center justify-center rounded-sm border transition-all select-none shrink-0
 		{unlabeled && !connection ? 'border-dashed border-gray-200 cursor-not-allowed' : 'cursor-pointer'}
 		{isDuplicate ? 'border-red-400' : connection ? 'border-gray-300' : unlabeled ? 'border-gray-200' : 'border-gray-200'}
-		{isConnectSource ? 'ring-2 ring-green-400 z-10' : selected ? 'ring-2 ring-blue-400 z-10' : (unlabeled && !connection ? '' : 'hover:border-blue-300')}"
+		{isConnectSource ? 'ring-2 ring-green-400 z-10' : endpoint === 'from' ? 'ring-2 ring-amber-500 z-10' : endpoint === 'to' ? 'ring-2 ring-violet-500 z-10' : selected ? 'ring-2 ring-blue-400 z-10' : (unlabeled && !connection ? '' : 'hover:border-blue-300')}"
 	style:width="{PORT_CELL_W}px"
 	style:height="{PORT_CELL_H}px"
 	style:background={bgColor ? bgColor + '30' : connection ? '#f9fafb' : '#ffffff'}
@@ -88,6 +91,12 @@
 >
 	<!-- Port number -->
 	<span class="text-[7px] font-mono leading-none" style:color={textColor}>{portIndex}</span>
+
+	<!-- From / To endpoint badge for the selected connection (matches the re-route buttons). -->
+	{#if endpoint}
+		<span class="absolute -top-1 -left-1 z-20 flex h-2.5 w-2.5 items-center justify-center rounded-full text-[6px] font-bold leading-none text-white {endpoint === 'from' ? 'bg-amber-500' : 'bg-violet-500'}"
+			title={endpoint === 'from' ? 'FROM endpoint (use “Re-route From”)' : 'TO endpoint (use “Re-route To”)'}>{endpoint === 'from' ? 'F' : 'T'}</span>
+	{/if}
 
 	<!-- Connection/duplicate indicator dot (center-bottom), 70% opacity -->
 	{#if showDot}

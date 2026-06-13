@@ -260,6 +260,13 @@
 
 	// ── Selected connection details ──
 	let selectedConn = $derived(selectedConnectionId ? connections.find(c => c.id === selectedConnectionId) : null)
+	// Port keys of the selected connection's two ends, so the elevation can badge them F / T.
+	let endpointKeys = $derived.by(() => {
+		const c = selectedConn
+		if (!c) return { fromKey: null as string | null, toKey: null as string | null }
+		const key = (r: { deviceId: string; portIndex: number }) => r && r.portIndex > 0 ? `${r.deviceId}:${r.portIndex}` : null
+		return { fromKey: key(c.fromPortRef), toKey: key(c.toPortRef) }
+	})
 
 	function refreshSelectedLength() {
 		if (!selectedConnectionId || !onupdateconnection) return
@@ -328,6 +335,8 @@
 						{customCableTypes}
 						{selectedPortKey}
 						{connectFromKey}
+						fromKey={endpointKeys.fromKey}
+						toKey={endpointKeys.toKey}
 						onportclick={handlePortClick}
 					/>
 				</div>
@@ -408,15 +417,15 @@
 					onclick={refreshSelectedLength}
 				></Button>
 				<button
-					class="h-5 px-1.5 rounded text-[10px] font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
-					title="Click then pick a new port for the FROM endpoint"
+					class="flex h-5 items-center gap-1 rounded px-1.5 text-[10px] font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
+					title="Click then pick a new port for the FROM endpoint (the F-marked port)"
 					onclick={() => { rerouteState = { connectionId: selectedConn!.id, side: 'from' }; connectFromKey = null }}
-				>Re-route From</button>
+				><span class="flex h-2.5 w-2.5 items-center justify-center rounded-full bg-amber-500 text-[6px] font-bold text-white">F</span>Re-route From</button>
 				<button
-					class="h-5 px-1.5 rounded text-[10px] font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
-					title="Click then pick a new port for the TO endpoint"
+					class="flex h-5 items-center gap-1 rounded px-1.5 text-[10px] font-medium bg-violet-50 text-violet-700 hover:bg-violet-100 transition-colors"
+					title="Click then pick a new port for the TO endpoint (the T-marked port)"
 					onclick={() => { rerouteState = { connectionId: selectedConn!.id, side: 'to' }; connectFromKey = null }}
-				>Re-route To</button>
+				><span class="flex h-2.5 w-2.5 items-center justify-center rounded-full bg-violet-500 text-[6px] font-bold text-white">T</span>Re-route To</button>
 				<button
 					class="h-5 px-1.5 rounded text-[10px] font-medium bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
 					title="Delete this connection (Del)"

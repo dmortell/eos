@@ -198,7 +198,9 @@ the cheap alternative to rendering tables to PDF (see 5h2 MAYBE).
 12. Markup
 * For marking up a drawing, user should add a layer for the markup. Use Hotkeys to add clouds, text-callouts, arrow-lines
 
-13. In original patching tool, when a patched port is selected, mark the ports at each end as either from or to, to make it easier to identify which button (reoute from or reroute to) in the toolbar we should use for repatching
+13. In original patching tool, when a patched port is selected, mark the ports at each end as either from or to, to make it easier to identify which button (reoute from or reroute to) in the toolbar we should use for repatching   ✅
+    Selecting a cable badges its endpoints: amber "F" on the FROM port, violet "T" on the TO port
+    (with matching ring colours), and the Re-route From / Re-route To buttons carry the same F/T dots.
 
 14. Wall elevations
 * allow adding wall-mount-panels (plain rects will do), vertical conduits, cutouts, outlets, trunks

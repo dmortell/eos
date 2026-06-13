@@ -17,6 +17,8 @@
 		customCableTypes = [],
 		selectedPortKey = null,
 		connectFromKey = null,
+		fromKey = null,
+		toKey = null,
 		onportclick,
 	}: {
 		rack: any
@@ -27,6 +29,8 @@
 		customCableTypes: CustomCableType[]
 		selectedPortKey?: string | null
 		connectFromKey?: string | null
+		fromKey?: string | null    // selected connection's FROM endpoint port key
+		toKey?: string | null      // selected connection's TO endpoint port key
 		onportclick?: (deviceId: string, portIndex: number) => void
 	} = $props()
 
@@ -121,6 +125,7 @@
 										{customCableTypes}
 										selected={selectedPortKey === connKey}
 										isConnectSource={connectFromKey === connKey}
+										endpoint={connKey === fromKey ? 'from' : connKey === toKey ? 'to' : null}
 										onclick={() => onportclick?.(device.id, pIdx)}
 									/>
 								{/each}
