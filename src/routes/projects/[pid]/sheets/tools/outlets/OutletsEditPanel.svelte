@@ -28,11 +28,11 @@
 </script>
 
 <div use:portal>
-<Window title="Edit" name="outlets-edit" left={10} top={72} open class="w-60 p-2 text-zinc-700">
+<Window title="Edit" name="outlets-edit" left={10} top={72} open class="w-64 p-2 text-zinc-700">
 	<div class="space-y-2" use:formNav>
 	<div class="flex flex-wrap gap-1">
 		{#each objTools as t (t.id)}
-			<button class={cls(tool === t.id)} onclick={() => pick(t.id)}>{t.label}</button>
+			<button class={cls(tool === t.id)} title={t.id === 'select' ? 'Select / edit' : `Insert ${t.label}`} onclick={() => pick(t.id)}>{t.id === 'select' ? t.label : `+ ${t.label}`}</button>
 		{/each}
 	</div>
 	<AnnotationControls bind:tool editor={annEditor} />

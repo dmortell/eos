@@ -20,7 +20,7 @@
 	<div class="space-y-2" use:formNav>
 	<div class="flex flex-wrap gap-1">
 		{#each objTools as [id, label] (id)}
-			<button class={cls(tool === id)} onclick={() => (tool = id)}>{label}</button>
+			<button class={cls(tool === id)} title={id === 'select' ? 'Select / edit' : `Insert ${label}`} onclick={() => (tool = id)}>{id === 'select' ? label : `+ ${label}`}</button>
 		{/each}
 		<button class="rounded border px-1.5 py-0.5 text-xs hover:bg-slate-100" onclick={() => { tool = 'select'; editor.addCable() }}>+ Cable</button>
 	</div>

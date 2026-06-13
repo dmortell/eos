@@ -9,6 +9,9 @@ export type AnnTool = 'select' | AnnotationKind
 // Kinds placed by a single click (a default-sized box); the rest are dragged out.
 const CLICK_KINDS = new Set<AnnotationKind>(['text', 'symbol', 'callout', 'leader'])
 const BOX_DRAG = new Set<AnnotationKind>(['rect', 'ellipse', 'cloud', 'image'])
+// Minimum drawn size (world-mm) for box-drag kinds, so a click / tiny drag still yields a usable
+// shape rather than a near-zero one.
+const MIN_BOX: Partial<Record<AnnotationKind, number>> = { cloud: 50 }
 
 // Module-level clipboard so annotations copy/paste between viewports (and sheets, same session).
 let clipboard: Annotation[] = []
@@ -72,7 +75,11 @@ export class AnnotationEditor extends SurfaceEditor {
 			const w = this.toWorld(e); if (!w) return
 			if (boxDrag) { a.x = Math.min(p.x, w.x); a.y = Math.min(p.y, w.y); a.w = Math.max(1, Math.abs(w.x - p.x)); a.h = Math.max(1, Math.abs(w.y - p.y)) }
 			else { a.x2 = w.x; a.y2 = w.y }
-		}, () => { this.tool = 'select'; this.notify(); this.onPlaced?.() })
+		}, () => {
+			const min = MIN_BOX[a.kind]
+			if (min) { if ((a.w ?? 0) < min) a.w = min; if ((a.h ?? 0) < min) a.h = min }
+			this.tool = 'select'; this.notify(); this.onPlaced?.()
+		})
 	}
 	/** Route an add by the active tool (called from EditBackground). */
 	place(p: Point) { if (CLICK_KINDS.has(this.tool as AnnotationKind)) this.click(p); else this.startShape(p) }
