@@ -19,24 +19,29 @@ export interface PanZoomAdapterOptions {
 	isMacLike?: boolean
 }
 
-function isMacLikePlatform(): boolean {
+export function isMacLikePlatform(): boolean {
 	if (typeof navigator === 'undefined') return false
 	const ua = navigator.userAgent || ''
 	const platform = navigator.platform || ''
 	return /Mac|iPhone|iPad|iPod/i.test(`${platform} ${ua}`)
 }
 
-function clamp(value: number, min: number, max: number): number {
+export function clamp(value: number, min: number, max: number): number {
 	return Math.min(max, Math.max(min, value))
 }
 
-function normalizeWheelToPixels(e: WheelEvent): PanZoomPoint {
+export function normalizeWheelToPixels(e: WheelEvent): PanZoomPoint {
 	const linePx = 16
 	const pagePx = typeof window !== 'undefined' ? window.innerHeight : 800
 	let scale = 1
 	if (e.deltaMode === 1) scale = linePx
 	else if (e.deltaMode === 2) scale = pagePx
 	return { x: e.deltaX * scale, y: e.deltaY * scale }
+}
+
+export function wheelZoomFactorFromEvent(e: WheelEvent, speed: number, minFactor = 0.7, maxFactor = 1.45): number {
+	const { y } = normalizeWheelToPixels(e)
+	return clamp(Math.exp(-y * speed), minFactor, maxFactor)
 }
 
 export class PanZoomInputAdapter {

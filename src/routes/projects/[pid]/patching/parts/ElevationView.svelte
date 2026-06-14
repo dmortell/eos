@@ -9,6 +9,7 @@
 	import ElevationRack from './ElevationRack.svelte'
 	import CableOverlay from './CableOverlay.svelte'
     import { Button } from '$lib';
+	import { isMacLikePlatform, normalizeWheelToPixels, wheelZoomFactorFromEvent } from '$lib/ui/panzoom-controller'
 
 	let {
 		connections = [],
@@ -127,6 +128,10 @@
 
 	// ── Pan/zoom handlers ──
 	let isPanning = $state(false)
+	let lastPanClient: { x: number; y: number } | null = null
+	const IS_MAC = isMacLikePlatform()
+	const WHEEL_PAN_SPEED = IS_MAC ? 0.4 : 0.9
+	const WHEEL_ZOOM_SPEED = IS_MAC ? 0.0038 : 0.0025
 
 	$effect(() => {
 		container?.addEventListener('wheel', onwheel, { passive: false })
@@ -134,9 +139,9 @@
 	})
 
 	function onwheel(e: WheelEvent) {
+		e.preventDefault()
 		if (e.ctrlKey || e.altKey || e.metaKey || e.buttons === 2) {
-			e.preventDefault()
-			const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15
+			const factor = wheelZoomFactorFromEvent(e, WHEEL_ZOOM_SPEED)
 			const newZoom = Math.min(4, Math.max(0.2, zoom * factor))
 			const rect = container!.getBoundingClientRect()
 			const mx = e.clientX - rect.left
@@ -145,9 +150,14 @@
 			panY = my - (my - panY) * (newZoom / zoom)
 			zoom = newZoom
 		} else {
-			e.preventDefault()
-			panX -= e.deltaX
-			panY -= e.deltaY
+			const delta = normalizeWheelToPixels(e)
+			if (e.shiftKey) {
+				const xDelta = Math.abs(delta.x) > 0.01 ? delta.x : delta.y
+				panX -= xDelta * WHEEL_PAN_SPEED
+				return
+			}
+			panX -= delta.x * WHEEL_PAN_SPEED
+			panY -= delta.y * WHEEL_PAN_SPEED
 		}
 	}
 
@@ -155,20 +165,28 @@
 		if (e.button === 1 || e.button === 2) {
 			e.preventDefault()
 			isPanning = true
+			lastPanClient = { x: e.clientX, y: e.clientY }
 			document.addEventListener('mousemove', onmousemove)
 			document.addEventListener('mouseup', onmouseup)
 		}
 	}
 
 	function onmousemove(e: MouseEvent) {
-		if (isPanning) {
-			panX += e.movementX
-			panY += e.movementY
+		if (!isPanning) return
+		if (!lastPanClient) {
+			lastPanClient = { x: e.clientX, y: e.clientY }
+			return
 		}
+		const dx = e.clientX - lastPanClient.x
+		const dy = e.clientY - lastPanClient.y
+		lastPanClient = { x: e.clientX, y: e.clientY }
+		panX += dx
+		panY += dy
 	}
 
 	function onmouseup() {
 		isPanning = false
+		lastPanClient = null
 		document.removeEventListener('mousemove', onmousemove)
 		document.removeEventListener('mouseup', onmouseup)
 	}

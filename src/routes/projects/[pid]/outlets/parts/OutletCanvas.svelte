@@ -15,6 +15,7 @@
 	import OutletRack from './OutletRack.svelte'
 	import type TrunkPalette from '../trunks/TrunkPalette.svelte'
 	import { PrintToolbar, triggerPrint, updatePrintStyles, removePrintStyles, paperDimsMm, type PrintSettings, DEFAULT_PRINT_SETTINGS } from '$lib/ui/print'
+	import { isMacLikePlatform, wheelZoomFactorFromEvent } from '$lib/ui/panzoom-controller'
 
 	let { file, page = 1, viewKey = '', calibration, outlets, selectedIds, activeTool=$bindable(), sidebarTab = 'outlets',
 		rackPlacements = [], rackConfigs = [], selectedRackIds = new Set(),
@@ -359,6 +360,9 @@
 	let dropTarget = $state(false)
 	let legendDragging = $state(false)
 	let legendDragStart: { x: number; y: number; startX: number; startY: number } | null = null
+	let lastPanClient: { x: number; y: number } | null = null
+	const IS_MAC = isMacLikePlatform()
+	const WHEEL_ZOOM_SPEED = IS_MAC ? 0.0038 : 0.0025
 
 	// Track current file URL to detect changes
 	let currentUrl = ''
@@ -660,7 +664,7 @@
 		const rect = containerEl.getBoundingClientRect()
 		const mx = e.clientX - rect.left
 		const my = e.clientY - rect.top
-		const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15
+		const factor = wheelZoomFactorFromEvent(e, WHEEL_ZOOM_SPEED)
 		const newZoom = Math.min(8, Math.max(0.05, zoom * factor))
 		const s = newZoom / zoom
 		vx = mx - (mx - vx) * s
@@ -696,6 +700,7 @@
 		if (e.button === 1 || e.button === 2) {
 			panning = true
 			panMoved = false
+			lastPanClient = { x: e.clientX, y: e.clientY }
 			document.addEventListener('mousemove', onPanMove)
 			document.addEventListener('mouseup', onPanUp)
 			return
@@ -853,13 +858,21 @@
 
 	// Pan
 	function onPanMove(e: MouseEvent) {
-		if (e.movementX || e.movementY) panMoved = true
-		vx += e.movementX
-		vy += e.movementY
+		if (!lastPanClient) {
+			lastPanClient = { x: e.clientX, y: e.clientY }
+			return
+		}
+		const dx = e.clientX - lastPanClient.x
+		const dy = e.clientY - lastPanClient.y
+		lastPanClient = { x: e.clientX, y: e.clientY }
+		if (dx || dy) panMoved = true
+		vx += dx
+		vy += dy
 	}
 
 	function onPanUp() {
 		panning = false
+		lastPanClient = null
 		document.removeEventListener('mousemove', onPanMove)
 		document.removeEventListener('mouseup', onPanUp)
 	}
