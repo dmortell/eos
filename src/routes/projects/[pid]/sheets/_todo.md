@@ -112,9 +112,9 @@ The sheets list should show the latest version by default, but maybe a dropdown 
        viewport rotate handle. Corners still resize.
   5e3. Number viewports when a sheet has more than one; renumber on reorder/move (how?); include the
        number in the label when one is defined. (for references)   ✅
-       Numbered by viewport order (stable under move, renumbers on add/delete) — shown before any
-       text label, in the editor and in package print. (Order-based; a stored stable id can come
-       later if references must survive reordering.)
+       Numbered top-down then left-to-right by viewport position (reading order; row tolerance 15mm)
+       via numberViewports() — shared by the editor and package print. Renumbers when viewports move.
+       (Spatial; a stored stable id can come later if references must survive repositioning.)
   5e4. AutoCAD-style vp controls on the vp toolbar: scale down-triangle (pick scale).   ✅
        Scale <select> on the frame toolbar (when selected/active) → vps.setScale. (The "square
        control" is still TBD — wasn't sure of its purpose.)
@@ -178,7 +178,7 @@ The sheets list should show the latest version by default, but maybe a dropdown 
 6a. The rows in the sheets list should be draggable, like the lists in the Packages tab.   ✅
     Drag a row (grip in the # column) to reorder; sortOrder is renumbered to the new positions.
 
-6b. Categorize the sheet list into: Outlet plans, Trunk plans, Risers, Elevations, Patch Lists, etc
+6b. (low priority) Categorize the sheet list into: Outlet plans, Trunk plans, Risers, Elevations, Patch Lists, etc
 
 6c. We will want to be able to add fill rate drawings to sheets. As these are essentially cross-sections of a trunk, they could be considered elevations (although some of them may be x-sections of a vertical riser). We could put them one per elevation vp.   ✅
     New viewport Type "Fill rate" → pick a section from the Fill rates tool (project doc

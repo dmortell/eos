@@ -14,7 +14,7 @@
 	import { DEFAULT_PRINT_SETTINGS, paperDimsMm, type PrintSettings } from '$lib/ui/print/types'
 	import type { SheetDoc, SheetPackage, TitleBlockConfig } from '../../../types'
 	import { subscribeSheets, subscribeSheetPackages } from '../../../data'
-	import { ViewportEditor } from '../../../viewports.svelte'
+	import { ViewportEditor, numberViewports } from '../../../viewports.svelte'
 	import Viewport from '../../../Viewport.svelte'
 	import TitleBlock, { type TitleBlockProjectDefaults } from '../../../parts/TitleBlock.svelte'
 
@@ -130,6 +130,7 @@
 			{@const paper = paperOf(sheet)}
 			{@const paperMm = paperDimsMm(paper)}
 			{@const tbCfg = titleBlockOf(sheet, paperMm)}
+			{@const vpNums = numberViewports(sheet.viewports ?? [])}
 			<div class="sheet-wrap mx-auto my-4 bg-white shadow-md {sizeClass(paper)}" style:width="{paperMm.w}px" style:height="{paperMm.h}px">
 				<div class="sheet-content cad-thin relative" style:width="{paperMm.w}px" style:height="{paperMm.h}px" style:--screen-scale="1">
 					{#if paper.margins > 0}
@@ -147,7 +148,7 @@
 						</div>
 					{/if}
 					{#each sheet.viewports ?? [] as vp, i (vp.id)}
-						<Viewport {vps} {vp} zoom={1} num={i + 1} total={(sheet.viewports ?? []).length} />
+						<Viewport {vps} {vp} zoom={1} num={vpNums.get(vp.id) ?? i + 1} total={(sheet.viewports ?? []).length} />
 					{/each}
 					{#if tbCfg}
 						<TitleBlock config={tbCfg} {project} drawingTitle={sheet.title} drawingNumber={sheet.drawingNumber}

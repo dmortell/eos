@@ -112,27 +112,9 @@
 		confirmDeleteId = null
 	}
 
-	// ── Drag-reorder (persists sortOrder) ──
-	let dragId = $state<string | null>(null)
-	async function dropOnRow(targetId: string) {
-		const d = dragId; dragId = null
-		if (!d || d === targetId) return
-		const ids = sheets.map(s => s.id)
-		const from = ids.indexOf(d), to = ids.indexOf(targetId)
-		if (from < 0 || to < 0) return
-		const without = ids.filter(x => x !== d)
-		let at = without.indexOf(targetId)
-		if (from < to) at += 1                 // dragging downward → drop after the target row
-		without.splice(at, 0, d)
-		// Renumber sortOrder to the new positions; only write rows that actually moved.
-		await Promise.all(without.map((id, i) => {
-			const s = sheets.find(x => x.id === id)
-			return s && s.sortOrder !== i ? updateSheet(db, projectId, id, { sortOrder: i }) : null
-		}).filter(Boolean) as Promise<void>[])
-	}
-
 	// ── Multi-select + renumber ──
 	let selected = $state<Set<string>>(new Set())
+	let lastClickedIdx = $state<number | null>(null) // anchor for shift-click range selection
 	let menuOpen = $state(false)
 	let allSelected = $derived(sheets.length > 0 && sheets.every(s => selected.has(s.id)))
 	function toggleSel(id: string) {
@@ -140,7 +122,49 @@
 		n.has(id) ? n.delete(id) : n.add(id)
 		selected = n
 	}
-	function toggleAll() { selected = allSelected ? new Set() : new Set(sheets.map(s => s.id)) }
+	// Checkbox click: shift-click selects/deselects the whole range from the last-clicked row.
+	function onRowCheck(e: MouseEvent, idx: number) {
+		e.preventDefault() // we drive `checked` from state, so don't let the native toggle race us
+		const id = sheets[idx].id
+		if (e.shiftKey && lastClickedIdx !== null && lastClickedIdx < sheets.length) {
+			const want = !selected.has(id) // apply the clicked row's new state across the range
+			const [a, b] = lastClickedIdx <= idx ? [lastClickedIdx, idx] : [idx, lastClickedIdx]
+			const n = new Set(selected)
+			for (let i = a; i <= b; i++) want ? n.add(sheets[i].id) : n.delete(sheets[i].id)
+			selected = n
+		} else {
+			toggleSel(id)
+		}
+		lastClickedIdx = idx
+	}
+	function toggleAll() { selected = allSelected ? new Set() : new Set(sheets.map(s => s.id)); lastClickedIdx = null }
+
+	// ── Drag-reorder (persists sortOrder); a selected row drags the whole selection as a block ──
+	let dragId = $state<string | null>(null)
+	// Rows that move with the current drag: the selection (if the dragged row is part of it) else just it.
+	let dragMoving = $derived.by(() => {
+		if (!dragId) return new Set<string>()
+		return selected.has(dragId) && selected.size > 1 ? new Set(selected) : new Set([dragId])
+	})
+	async function dropOnRow(targetId: string) {
+		const d = dragId; dragId = null
+		if (!d) return
+		const ids = sheets.map(s => s.id)
+		const moving = selected.has(d) && selected.size > 1 ? ids.filter(id => selected.has(id)) : [d]
+		if (moving.includes(targetId)) return // dropping onto a moving row = no-op
+		const targetFrom = ids.indexOf(targetId)
+		const firstFrom = ids.indexOf(moving[0])
+		if (targetFrom < 0 || firstFrom < 0) return
+		const without = ids.filter(id => !moving.includes(id))
+		let at = without.indexOf(targetId)
+		if (firstFrom < targetFrom) at += 1    // moving down → drop after the target row
+		without.splice(at, 0, ...moving)
+		// Renumber sortOrder to the new positions; only write rows that actually moved.
+		await Promise.all(without.map((id, i) => {
+			const s = sheets.find(x => x.id === id)
+			return s && s.sortOrder !== i ? updateSheet(db, projectId, id, { sortOrder: i }) : null
+		}).filter(Boolean) as Promise<void>[])
+	}
 	async function renumberSelected() {
 		menuOpen = false
 		const chosen = sheets.filter(s => selected.has(s.id)) // already in list order
@@ -207,7 +231,7 @@
 			</div>
 		</div>
 
-		<p class="my-2 text-xs text-zinc-400">Click a row to open the sheet. Pencil = edit fields inline. Tick rows then ⋮ ▸ Renumber to renumber them sequentially (prefix preserved).</p>
+		<p class="my-2 text-xs text-zinc-400">Click a row to open the sheet. Pencil = edit fields inline. Tick rows (shift-click for a range) then ⋮ ▸ Renumber, or drag a selected row to move them all.</p>
 
 		<div class="rounded-lg border border-zinc-200 dark:border-zinc-800">
 			<table class="w-full text-sm border-collapse">
@@ -228,7 +252,7 @@
 						{@const isRowEditing = rowEditingId === sheet.id}
 						{@const ftool = sheet.link ? fileTool(sheet.link.tool) : null}
 						<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-						<tr class="border-t border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors {dragId === sheet.id ? 'opacity-40' : ''}"
+						<tr class="border-t border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors {dragMoving.has(sheet.id) ? 'opacity-40' : ''} {selected.has(sheet.id) ? 'bg-blue-50/60 dark:bg-blue-950/30' : ''}"
 							class:cursor-pointer={!isRowEditing}
 							draggable={!isRowEditing}
 							ondragstart={() => dragId = sheet.id}
@@ -236,7 +260,8 @@
 							ondrop={e => { e.preventDefault(); dropOnRow(sheet.id) }}
 							onclick={() => { if (!isRowEditing) openSheet(sheet) }}>
 							<td class="px-2 py-1.5 text-center" onclick={e => e.stopPropagation()}>
-								<input type="checkbox" checked={selected.has(sheet.id)} onchange={() => toggleSel(sheet.id)} />
+								<input type="checkbox" checked={selected.has(sheet.id)} title="Shift-click to select a range"
+									onclick={e => onRowCheck(e, idx)} />
 							</td>
 							<td class="px-3 py-1.5 text-zinc-400 tabular-nums">
 								<span class="inline-flex items-center gap-1"><Icon name="grip" size={12} class="cursor-grab text-zinc-300" />{idx + 1}</span>

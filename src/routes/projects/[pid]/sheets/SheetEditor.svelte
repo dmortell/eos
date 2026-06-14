@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { untrack, setContext } from "svelte";
 	import { DEFAULT_PRINT_SETTINGS, paperDimsMm, type PrintSettings } from '$lib/ui/print/types'
-	import { ViewportEditor } from "./viewports.svelte";
+	import { ViewportEditor, numberViewports } from "./viewports.svelte";
 	import { updateSheet, subscribeSheets } from "./data";
 	import type { SheetDoc, SheetViewport, TitleBlockConfig } from "./types";
 	import type { Firestore } from "$lib/db.svelte";
@@ -78,6 +78,7 @@
 	// Model mode: when set, that viewport's content fills the content area (paper hidden).
 	let modelVpId = $state<string | null>(null)
 	let modelVp = $derived(modelVpId ? vps.viewports.find(v => v.id === modelVpId) ?? null : null)
+	let vpNums = $derived(numberViewports(vps.viewports)) // top-down, reading-order viewport numbers
 	let mainZoom = $state(1)              // outer Canvas zoom — counter-scales viewport handles
 	let mainPanX = $state(0)             // outer Canvas pan (px) — for the status-bar readout
 	let mainPanY = $state(0)
@@ -239,7 +240,7 @@
 				{/if}
 
 				{#each vps.viewports as vp, i (vp.id)}
-					<Viewport {vps} {vp} zoom={mainZoom} num={i + 1} total={vps.viewports.length} onmodel={(id) => { vps.deactivate(); modelVpId = id }} />
+					<Viewport {vps} {vp} zoom={mainZoom} num={vpNums.get(vp.id) ?? i + 1} total={vps.viewports.length} onmodel={(id) => { vps.deactivate(); modelVpId = id }} />
 				{/each}
 
 				<!-- Insert drag-out preview -->

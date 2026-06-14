@@ -137,6 +137,10 @@ export class RacksEditor extends SurfaceEditor {
 	/** Add a custom device template to the persisted library. */
 	addLibraryDevice(t: DeviceTemplate) { this.library = [...this.library, { ...t, id: t.id || this.uid('tpl') }]; this.notify() }
 	removeLibraryDevice(id: string) { this.library = this.library.filter(t => t.id !== id); this.notify() }
+	/** Edit an existing custom library device in place. */
+	updateLibraryDevice(id: string, patch: Partial<DeviceTemplate>) {
+		this.library = this.library.map(t => t.id === id ? { ...t, ...patch, id } : t); this.notify()
+	}
 	/** Duplicate a device (same rack/U); returns the new reactive proxy so it can be dragged. */
 	duplicateDevice(d: DeviceConfig): DeviceConfig {
 		this.devices.push({ ...d, id: this.uid('D') })
