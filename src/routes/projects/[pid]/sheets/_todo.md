@@ -240,4 +240,7 @@ the cheap alternative to rendering tables to PDF (see 5h2 MAYBE).
       pattern, mm-space print, Firestore/URL reactivity, runes discipline, …; plus MCP ideas — a
       Firestore read/query MCP is the big one).
 
-18. Fix ugly vp scale dropdown, invisible scale value, and tiny font in scales list
+18. Fix ugly vp scale dropdown, invisible scale value, and tiny font in scales list   ✅
+    Replaced the native <select> with a compact scale button (shows the current scale) that opens a
+    <Dialog> — a grid of preset scales + a "Custom 1:" number input. The dialog is portalled out of
+    the zoomed canvas so it reads at normal font size (the old <select> options were tiny/invisible).

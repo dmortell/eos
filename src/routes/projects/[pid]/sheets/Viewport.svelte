@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { ViewportEditor } from "./viewports.svelte";
 	import type { SheetViewport } from "./types";
+	import { Dialog, Icon } from "$lib";
+	import { portal } from "./edit/portal";
 	import ViewportContent from "./ViewportContent.svelte";
 
 	// Model-driven: the controller owns position/selection/active state; this component renders
@@ -91,9 +93,24 @@
 	// so the readout can show the computed scale even in Fit mode, and pan/zoom can seed from it.
 	let lastView = $state<{ x: number; y: number; w: number; h: number; den: number } | null>(null)
 	let scaleText = $derived(
-		vp.scale && vp.scale > 0 ? `1:${Math.round(vp.scale)}`
+		vp.scale && vp.scale > 0 ? `1:${Math.round(vp.scale*100)/100}`
 			: lastView ? `1:${Math.round(lastView.den)} (fit)` : 'Fit'
 	)
+
+	// ── Scale picker dialog (a Dialog renders outside the zoomed canvas, so the list reads at normal
+	// font size; the native <select> was tiny/invisible at the toolbar's counter-scaled font). ──
+	let scaleDialogOpen = $state(false)
+	let customScale = $state('')
+	function openScaleDialog() {
+		const cur = vp.scale ?? 0
+		customScale = cur > 0 && !VP_SCALES.some(s => s.value === cur) ? String(cur) : ''
+		scaleDialogOpen = true
+	}
+	function pickScale(v: number) { vps.setScale(vp.id, v); scaleDialogOpen = false }
+	function applyCustom() {
+		const n = Number(customScale)
+		if (Number.isFinite(n) && n > 0) { vps.setScale(vp.id, n); scaleDialogOpen = false }
+	}
 
 	// ── Content pan / zoom (only when this viewport is active) ──
 	// Pan adjusts contentOffsetMm; wheel adjusts scale around the cursor. Both lock the viewport
@@ -166,6 +183,8 @@
 			window.removeEventListener('mouseup', contentUp)
 		}
 	})
+
+	let scaleListOpen = $state(true)
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -219,17 +238,13 @@
 		style:pointer-events={selected || active ? 'auto' : 'none'}
 	>
 		{#if selected || active}
-			<!-- Scale picker (AutoCAD-style): change the viewport scale without opening the props window.
-			     appearance-none + a tiny ▾ so it stays compact at the toolbar's font size. -->
-			<span class="relative inline-flex items-center">
-				<select class="appearance-none bg-transparent tabular-nums leading-none cursor-pointer text-zinc-600" title="Scale — {scaleText}"
-					style:font-size="inherit" style:padding="0 1.1em 0 0.25em"
-					value={String(vp.scale ?? 0)} onmousedown={e => e.stopPropagation()}
-					onchange={e => { e.stopPropagation(); vps.setScale(vp.id, Number((e.currentTarget as HTMLSelectElement).value)) }}>
-					{#each VP_SCALES as s (s.value)}<option value={String(s.value)}>{s.label}</option>{/each}
-				</select>
-				<span class="pointer-events-none absolute right-[0.2em] leading-none text-zinc-500">▾</span>
-			</span>
+			<!-- Scale: opens a Dialog (list + custom input). A dialog reads at normal font size, unlike
+			     the old native <select> which was tiny/invisible at the toolbar's counter-scaled font. -->
+			<button class="flex items-center gap-[0.2em] rounded px-[0.3em] text-zinc-600 hover:bg-zinc-100" title="Set viewport scale"
+				onmousedown={e => e.stopPropagation()} onclick={e => { e.stopPropagation(); openScaleDialog() }}>
+				{scaleText}
+				<Icon size={8} name="chevronDown" />
+			</button>
 		{:else}
 			<span class="text-zinc-400 tabular-nums">{scaleText}</span>
 		{/if}
@@ -243,6 +258,26 @@
 			{/if}
 		{/if}
 	</div>
+
+	{#if selected || active}
+		<!-- Scale dialog (portalled out of the zoomed canvas so it renders at normal size). -->
+		<div use:portal>
+			<Dialog title="Viewport scale" bind:open={scaleDialogOpen}>
+				<div class="grid grid-cols-3 gap-2">
+					{#each VP_SCALES as s (s.value)}
+						<button class="rounded border px-2 py-1.5 text-sm {(vp.scale ?? 0) === s.value ? 'border-blue-600 bg-blue-600 text-white' : 'border-zinc-300 hover:bg-slate-100'}" onclick={() => pickScale(s.value)}>{s.label}</button>
+					{/each}
+				</div>
+				<div class="mt-4 flex items-center gap-2">
+					<span class="shrink-0 text-sm text-zinc-600">Custom 1:</span>
+					<input type="number" min="1" step="any" class="w-28 rounded border border-zinc-300 px-2 py-1 text-sm" placeholder="e.g. 75"
+						bind:value={customScale} onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter') applyCustom() }} />
+					<button class="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-500" onclick={applyCustom}>Set</button>
+				</div>
+				<p class="mt-2 text-xs text-zinc-400">Fit = auto-fit the content to the viewport.</p>
+			</Dialog>
+		</div>
+	{/if}
 
 	{#if !active}
 		<!-- Clickable frame: four thin edge strips so the interior stays click-through. Click selects;
