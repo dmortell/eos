@@ -134,7 +134,10 @@
 	// Capture phase so we run before the Canvas/viewport handlers call stopPropagation.
 	$effect(() => {
 		const el = (t: EventTarget | null) => t as Element | null
-		const inMenu = (t: EventTarget | null) => !!el(t)?.closest?.('.dwg-menubar, .ctx-menu, .fp-toolbar, .gui, [data-slot="menubar-content"]')
+		// `#sheet-portal-root` holds the portalled floating UI (panels, the scale Dialog, colour/annote
+		// popovers) — clicks there must not start a canvas marquee (which would clear the selection and
+		// unmount a `selected`-gated dialog mid-click).
+		const inMenu = (t: EventTarget | null) => !!el(t)?.closest?.('.dwg-menubar, .ctx-menu, .fp-toolbar, .gui, [data-slot="menubar-content"], #sheet-portal-root')
 		const inViewport = (t: EventTarget | null) => !!el(t)?.closest?.('.vp')
 		const isField = (t: EventTarget | null) => !!el(t)?.closest?.('input, select, textarea, [contenteditable]')
 		let dragging = false
