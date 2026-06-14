@@ -5,10 +5,14 @@
 	import { portal } from '../../edit/portal'
 	import type { RacksEditor } from './racks-editor.svelte'
 
-	let { editor, onclose }: { editor: RacksEditor; onclose: () => void } = $props()
+	// `rowId` scopes the list (and Add) to the viewport's row, matching the elevation. When the
+	// viewport shows all rows (no rowId), list everything in the room's racks doc.
+	let { editor, rowId, onclose }: { editor: RacksEditor; rowId?: string; onclose: () => void } = $props()
 
-	let firstRow = $derived(editor.rows[0]?.id ?? '')
-	let ordered = $derived([...editor.racks].sort((a, b) => a.order - b.order))
+	let targetRow = $derived(rowId || editor.rows[0]?.id || '')
+	let ordered = $derived(
+		[...editor.racks].filter(r => !rowId || r.rowId === rowId).sort((a, b) => a.order - b.order)
+	)
 
 	let dragId = $state<string | null>(null)
 	function dropOn(targetId: string) {
@@ -46,7 +50,7 @@
 		</div>
 
 		<button class="flex w-full items-center justify-center gap-1 rounded border px-1 py-0.5 text-xs hover:bg-slate-100 disabled:opacity-40"
-			disabled={!firstRow} title="Add a rack" onclick={() => editor.addRack(editor.selRack?.rowId ?? firstRow)}>
+			disabled={!targetRow} title="Add a rack" onclick={() => editor.addRack(targetRow)}>
 			<Icon name="plus" size={13} /> Add rack
 		</button>
 		<button class="w-full rounded border px-1 py-0.5 text-[11px] text-zinc-500 hover:bg-slate-100" onclick={onclose}>Close</button>

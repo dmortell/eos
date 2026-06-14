@@ -1,5 +1,5 @@
 import type { SheetViewport } from './types'
-import { LAYERS, CUSTOM_LAYER_COLORS, type LayerDef } from './layers/layers'
+import { LAYERS, CUSTOM_LAYER_COLORS, layerCategory, type LayerDef } from './layers/layers'
 
 export type InsertKind = 'viewport'
 type Rect = { x: number; y: number; w: number; h: number }
@@ -148,8 +148,9 @@ export class ViewportEditor {
 	// ── custom-layer CRUD (persisted project-wide via onLayersChange) ──
 	notifyLayers() { this.onLayersChange?.() }
 	setActiveLayer(id: string) { this.activeLayerId = id }
-	/** Create a custom layer filed under a default layer (`base`); returns its id. */
-	addCustomLayer(base = 'annotations', name = 'New layer'): string {
+	/** Create a custom layer filed under a default layer (`base`). Defaults to the active layer's
+	 *  category, so a new layer lands in the group you're working in (not always Annotations). */
+	addCustomLayer(base = layerCategory(this.activeLayerId, this.allLayers), name = 'New layer'): string {
 		const id = this.uid('L')
 		const color = CUSTOM_LAYER_COLORS[this.customLayers.length % CUSTOM_LAYER_COLORS.length]
 		this.customLayers = [...this.customLayers, { id, name, color, base, custom: true }]

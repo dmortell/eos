@@ -124,7 +124,7 @@
 			<DeviceLibrary {editor} ondrop={placeFromDrop} onclose={() => { showLibrary = false }} />
 			{/if}
 			{#if showRacks}
-				<RacksWindow {editor} onclose={() => { showRacks = false }} />
+				<RacksWindow {editor} rowId={src.rowId} onclose={() => { showRacks = false }} />
 		{/if}
 	{/if}
 {:else}

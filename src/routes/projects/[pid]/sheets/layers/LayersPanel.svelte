@@ -32,7 +32,7 @@
 			<div class="mb-1 flex items-center justify-between">
 				<span class="truncate text-[11px] text-zinc-500">New objects → <span class="font-medium text-zinc-700">{activeName}</span></span>
 				<button class="flex items-center gap-0.5 rounded border border-zinc-300 px-1 py-0.5 text-[11px] hover:bg-zinc-100"
-					title="Add a custom layer" onclick={() => startRename(vps.addCustomLayer('annotations'), 'New layer')}>
+					title="Add a custom layer (under the active layer's group)" onclick={() => startRename(vps.addCustomLayer(), 'New layer')}>
 					<Icon name="plus" size={11} /> Layer
 				</button>
 			</div>
