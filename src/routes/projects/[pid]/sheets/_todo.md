@@ -41,7 +41,10 @@ The sheets list should show the latest version by default, but maybe a dropdown 
   5a4. Move selected object(s) to another layer.   ✅ (annotations — props "Layer" dropdown)
   5a5. Wrong-category handling: falls back to the default layer + info toast.   ✅
   5a6. TODO: extend layerId + per-object layer visibility to tool objects (outlets/trunks/racks/
-       devices/rooms/ladders), and a move-to-layer in their property editors. Add Layer should add the new layer under the currently selected default layer group, not the bottom of the list.
+       devices/rooms/ladders), and a move-to-layer in their property editors. Add Layer adds the new
+       layer under the active layer's group.   ✅ (active-group default)
+  5a7. (low priority) Drag a custom layer onto another group header to recategorise it
+       (setLayerBase already exists — just needs drag handles in the Layers panel).
 
 5b. Outlets   (largest item — split across several PRs)
   5b1. PDF floorplan: upload / insert a PDF as a floorplan background in the outlets viewport
