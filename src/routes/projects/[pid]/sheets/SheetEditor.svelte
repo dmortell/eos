@@ -253,8 +253,8 @@
 					</svg>
 				{/if}
 
-				{#each vps.viewports as vp, i (vp.id)}
-					<Viewport {vps} {vp} zoom={mainZoom} {snap} num={vpNums.get(vp.id) ?? i + 1} total={vps.viewports.length} onmodel={(id) => { vps.deactivate(); modelVpId = id }} />
+				{#each vps.viewports as vp (vp.id)}
+					<Viewport {vps} {vp} zoom={mainZoom} {snap} num={vpNums.get(vp.id) ?? 0} total={vps.viewports.length} onmodel={(id) => { vps.deactivate(); modelVpId = id }} />
 				{/each}
 
 				<!-- Insert drag-out preview -->

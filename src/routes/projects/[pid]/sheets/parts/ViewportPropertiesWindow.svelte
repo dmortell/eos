@@ -45,7 +45,7 @@
 	// Editable mirror, re-synced when the selected viewport changes. Handlers write back to the
 	// reactive viewport object and call vps.notify() (→ debounced save in SheetEditor).
 	let form = $state({
-		kind: 'empty', label: '', scale: '0', border: 'thin', text: '', fontSizePt: '6',
+		kind: 'empty', label: '', number: '', scale: '0', border: 'thin', text: '', fontSizePt: '6',
 		outletsDocId: '',
 		racksDocId: '', racksFace: 'front' as RackFace, racksRowId: '', racksShowWalls: false, racksColorDevices: true,
 		risersFrom: 0, risersTo: 0,
@@ -62,6 +62,7 @@
 			form = {
 				kind: s.kind,
 				label: vp!.label ?? '',
+				number: vp!.number ? String(vp!.number) : '',
 				scale: String(vp!.scale ?? 0),
 				border: vp!.border ?? 'thin',
 				text: s.kind === 'text' ? s.content : '',
@@ -101,6 +102,7 @@
 		const v = vps.selectedViewport ?? vps.activeViewport
 		if (!v) return
 		v.label = form.label.trim() || undefined
+		v.number = Number(form.number) > 0 ? Number(form.number) : undefined
 		v.scale = Number(form.scale) || 0
 		v.border = form.border as 'none' | 'thin'
 		v.source = buildSource()
@@ -138,6 +140,7 @@
 			<option value="fillrate">Fill rate</option>
 		</PropSelect>
 		<PropText label="Label" bind:value={form.label} oninput={apply} />
+		<PropText label="Number" type="number" min="1" step="1" bind:value={form.number} oninput={apply} placeholder="auto" />
 		<PropSelect label="Scale" bind:value={form.scale} onchange={apply}>
 			{#each VP_SCALES as o (o.value)}
 				<option value={String(o.value)}>{o.label}</option>

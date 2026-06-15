@@ -61,6 +61,8 @@ export interface SheetViewport {
 	id: string
 	x: number; y: number; w: number; h: number   // mm on the paper
 	label?: string
+	/** Manual viewport number (for cross-references). Overrides the auto spatial number. */
+	number?: number
 	source: ViewportSource
 	scale?: number                // 1:N denominator; 0 / undefined = fit-to-viewport
 	contentOffsetMm?: Point       // pan offset of source content within the viewport

@@ -151,8 +151,8 @@
 							</div>
 						</div>
 					{/if}
-					{#each sheet.viewports ?? [] as vp, i (vp.id)}
-						<Viewport {vps} {vp} zoom={1} num={vpNums.get(vp.id) ?? i + 1} total={(sheet.viewports ?? []).length} />
+					{#each sheet.viewports ?? [] as vp (vp.id)}
+						<Viewport {vps} {vp} zoom={1} num={vpNums.get(vp.id) ?? 0} total={(sheet.viewports ?? []).length} />
 					{/each}
 					{#if tbCfg}
 						<TitleBlock config={tbCfg} {project} drawingTitle={sheet.title} drawingNumber={sheet.drawingNumber}

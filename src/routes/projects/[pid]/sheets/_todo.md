@@ -267,6 +267,10 @@ the cheap alternative to rendering tables to PDF (see 5h2 MAYBE).
        the title-block edges, and a 5mm grid (SheetEditor passes a `snap` rect to Viewport; tol 6px;
        hold Alt to disable).
 
-  19e. Viewport numbering: best to let user enter VP numbers. References from other sheets should use id to lookup the number. We could return 0 for number if <2 vp on page, as number does not need to be displayed in this case.
+  19e. Viewport numbering: best to let user enter VP numbers. References from other sheets should use id to lookup the number. We could return 0 for number if <2 vp on page, as number does not need to be displayed in this case.   ✅
+       Viewport props gain a "Number" field (blank = auto). numberViewports() keys by viewport id,
+       lets a manual `number` override the auto spatial position, and returns an empty map (→ 0,
+       not displayed) when a sheet has <2 viewports. References (item 7) should store the target
+       viewport id and resolve the current number via numberViewports() — the id→number map is ready.
 
 

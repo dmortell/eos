@@ -12,8 +12,13 @@ const MIN_VP = 20 // smallest viewport you can drag out (mm)
  * matching how a drawing is read. Viewports whose tops sit within `rowTol` mm count as one row
  * (so a row of side-by-side viewports numbers left→right, not by a 1mm top difference).
  * Returns a map of viewport id → number. Renumbers when viewports are moved.
+ *
+ * A viewport's manual `number` overrides its auto position. A sheet with fewer than 2 viewports
+ * gets no numbers (a lone viewport needs no number) — the map is empty, so refs resolve to 0 (19e).
  */
 export function numberViewports(viewports: SheetViewport[], rowTol = 15): Map<string, number> {
+	const m = new Map<string, number>()
+	if (viewports.length < 2) return m
 	const byY = [...viewports].sort((a, b) => a.y - b.y)
 	const rows: SheetViewport[][] = []
 	for (const v of byY) {
@@ -21,9 +26,10 @@ export function numberViewports(viewports: SheetViewport[], rowTol = 15): Map<st
 		if (row && v.y - row[0].y <= rowTol) row.push(v)
 		else rows.push([v])
 	}
-	const m = new Map<string, number>()
 	let n = 0
 	for (const row of rows) { row.sort((a, b) => a.x - b.x); for (const v of row) m.set(v.id, ++n) }
+	// Manual numbers win over the auto position.
+	for (const v of viewports) if (typeof v.number === 'number' && v.number > 0) m.set(v.id, v.number)
 	return m
 }
 
