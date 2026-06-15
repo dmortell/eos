@@ -9,8 +9,16 @@
 		name?: string
 		author?: string
 		address?: string
-		logoUrl?: string
+		logoUrl?: string        // client logo
 		client?: string
+		// Our own company block (19b)
+		companyName?: string
+		companyLogoUrl?: string
+		companyAddress?: string
+		companyContact?: string
+		/** Per-section include toggles (absent / true = shown). Keys: company, client, site,
+		 *  revisions, approvals, scaleSize. */
+		sections?: Record<string, boolean>
 	}
 
 	let {
@@ -66,6 +74,20 @@
 	let fScale       = $derived(field('scale', `1:${scaleDenominator}`, ''))
 	let fPaper       = $derived(field('paper', paperSize, ''))
 	let fLogo        = $derived(config.fields?.logoUrl ?? project.logoUrl ?? '')
+	// Our company block
+	let fCoName     = $derived(field('companyName', project.companyName, ''))
+	let fCoAddress  = $derived(field('companyAddress', project.companyAddress, ''))
+	let fCoContact  = $derived(field('companyContact', project.companyContact, ''))
+	let fCoLogo     = $derived(config.fields?.companyLogoUrl ?? project.companyLogoUrl ?? '')
+
+	// Per-section include toggles (absent / true = shown). The company block also needs content.
+	let sec = $derived(project.sections ?? {})
+	let showCompany   = $derived(sec.company !== false && !!(fCoName || fCoLogo || fCoAddress || fCoContact))
+	let showClient    = $derived(sec.client !== false)
+	let showSite      = $derived(sec.site !== false)
+	let showRevisions = $derived(sec.revisions !== false)
+	let showApprovals = $derived(sec.approvals !== false)
+	let showScaleSize = $derived(sec.scaleSize !== false)
 
 	// ── Programmable section layout ──
 	// Each section has a label + value (or `cols` of label/value cells, or `logo`). `h` is a
@@ -73,24 +95,25 @@
 	// fixed sections). One array drives the text grid AND the SVG divider lines, so the
 	// borders always match the section boundaries.
 	type Cell = { label?: string; value?: string; w?: number; mono?: boolean; big?: boolean }
-	type Section = Cell & { h: number; cols?: Cell[]; logo?: boolean; revs?: boolean }
+	type Section = Cell & { h: number; cols?: Cell[]; logo?: boolean; revs?: boolean; company?: boolean }
 
 	let sections = $derived<Section[]>([
+		...(showCompany ? [{ company: true, h: 16 } as Section] : []),
 		{ logo: true, h: 15 },
 		{ label: 'Drawing', value: fTitle || '—', h: 12 },
-		{ label: 'Site', value: fAddress || '—', h: 0 }, // grows
-		// Revision history (only when present) — grows with the number of entries.
-		...(revisions.length ? [{ revs: true, h: 3 + revisions.length * 3 } as Section] : []),
+		...(showSite ? [{ label: 'Site', value: fAddress || '—', h: 0 } as Section] : []), // grows
+		// Revision history (only when present + enabled) — grows with the number of entries.
+		...(showRevisions && revisions.length ? [{ revs: true, h: 3 + revisions.length * 3 } as Section] : []),
 		{ label: 'Date', value: fDate, h: 5, mono: true },
-		{ h: 5, cols: [
+		...(showApprovals ? [{ h: 5, cols: [
 			{ label: 'Drawn', value: fDrawnBy || '—', mono: true },
 			{ label: 'Chk', value: fCheckedBy || '—', mono: true },
 			{ label: 'App', value: fApprovedBy || '—', mono: true },
-		] },
-		{ h: 5, cols: [
+		] } as Section] : []),
+		...(showScaleSize ? [{ h: 5, cols: [
 			{ label: 'Scale', value: fScale, w: 2, mono: true },
 			{ label: 'Size', value: fPaper, w: 1, mono: true },
-		] },
+		] } as Section] : []),
 		{ h: 5, cols: [
 			{ label: 'Drawing No', value: fNumber || '—', w: 2, mono: true, big: true },
 			{ label: 'Rev.', value: fRevision, w: 1, mono: true, big: true },
@@ -191,14 +214,24 @@
 >
 	<div class="tb-grid" style:grid-template-rows={gridRows}>
 		{#each sections as s, i (i)}
-			{#if s.logo}
-				<!-- Logo / project name -->
+			{#if s.company}
+				<!-- Our company block: logo / name / address / contact -->
 				<div class="p-1 flex flex-col items-center gap-0.5 overflow-hidden">
-					{#if fLogo}
+					{#if fCoLogo}
+						<img src={fCoLogo} alt="company logo" class="max-h-8 w-auto object-contain" draggable="false" />
+					{/if}
+					{#if fCoName}<div class="text-[3pt] font-bold uppercase tracking-wider text-center leading-tight">{fCoName}</div>{/if}
+					{#if fCoAddress}<div class="text-[1.8pt] text-zinc-600 text-center leading-tight">{fCoAddress}</div>{/if}
+					{#if fCoContact}<div class="text-[1.8pt] text-zinc-600 text-center leading-tight">{fCoContact}</div>{/if}
+				</div>
+			{:else if s.logo}
+				<!-- Client logo / project name -->
+				<div class="p-1 flex flex-col items-center gap-0.5 overflow-hidden">
+					{#if showClient && fLogo}
 						<img src={fLogo} alt="logo" class="max-h-8 w-auto object-contain" draggable="false" />
 					{/if}
 					<div class="text-[3pt] font-bold uppercase tracking-wider text-center leading-tight">{fProjectName || '—'}</div>
-					{#if fClient}<div class="text-[2pt] text-zinc-600 text-center">{fClient}</div>{/if}
+					{#if showClient && fClient}<div class="text-[2pt] text-zinc-600 text-center">{fClient}</div>{/if}
 				</div>
 			{:else if s.revs}
 				<!-- Revision history table (code · date · note) -->

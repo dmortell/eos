@@ -34,7 +34,11 @@
 		if (!pid) return
 		const u = db.subscribeOne('projects', pid, (d: any) => {
 			projectName = d?.name ?? ''
-			project = { name: d?.name, author: d?.author, address: d?.address, logoUrl: d?.logoUrl, client: d?.client }
+			project = {
+				name: d?.name, author: d?.author, address: d?.address, logoUrl: d?.logoUrl, client: d?.client,
+				companyName: d?.companyName, companyLogoUrl: d?.companyLogoUrl, companyAddress: d?.companyAddress,
+				companyContact: d?.companyContact, sections: d?.titleBlockSections,
+			}
 		})
 		return () => u?.()
 	})

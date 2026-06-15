@@ -247,3 +247,23 @@ the cheap alternative to rendering tables to PDF (see 5h2 MAYBE).
     Replaced the native <select> with a compact scale button (shows the current scale) that opens a
     <Dialog> — a grid of preset scales + a "Custom 1:" number input. The dialog is portalled out of
     the zoomed canvas so it reads at normal font size (the old <select> options were tiny/invisible).
+
+19. Titleblock
+
+  19a. In Sheets, do we have any way to edit titleblock project scope details (logo)   ✅
+       Sheet menubar ▸ File ▸ "Project details…" opens the existing ProjectSettingsDialog
+       (client logo/name, address, author) — previously only reachable from the projects list.
+
+  19b. We have a slot for the clients logo in titleblock, we need our own company logo and details (name, logo, address, contact info). Best to allow editing in the project details, then have checkboxes to indicate which sections to include or leave out of the titleblocks. Allow opening a project details dialog from the menubar?   ✅
+       Added a "Your company" block to Project Settings (name / contact / address / logo via
+       ProjectLogoField) stored per-project on the project doc, plus "Include sections" checkboxes
+       (company / client / site / revisions / approvals / scale-size). TitleBlock renders the
+       company block at the top and honours the toggles; defaults (absent) keep every section on.
+
+  19c. Logos in titleblock should be resizable (re-use our resize action/wrapper)
+
+  19d. Viewport frames should snap to page margins, titleblock edge, and maybe a 5mm grid on the paper page.
+
+  19e. Viewport numbering: best to let user enter VP numbers. References from other sheets should use id to lookup the number. We could return 0 for number if <2 vp on page, as number does not need to be displayed in this case.
+
+

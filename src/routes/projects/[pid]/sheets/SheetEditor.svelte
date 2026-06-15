@@ -16,6 +16,7 @@
 	import ModelView from "./edit/ModelView.svelte";
 	import LayersPanel from "./layers/LayersPanel.svelte";
 	import RevisionsPanel from "./revisions/RevisionsPanel.svelte";
+	import ProjectSettingsDialog, { type Project } from "../../ProjectSettingsDialog.svelte";
 
 	let { sheet, project = {}, floors = [], db, pid }: {
 		sheet: SheetDoc
@@ -120,9 +121,12 @@
 
 	// ── Custom layers (project-wide) ── load from the project doc and persist edits back to it.
 	// Layer definitions are shared across all sheets (per-viewport hidden/locked stays on the sheet).
+	let projectDoc = $state<Project | null>(null) // full project doc, for the Project-details dialog
+	let settingsOpen = $state(false)
 	$effect(() => {
 		if (!pid) return
 		const unsub = db.subscribeOne('projects', pid, (data: any) => {
+			projectDoc = data ? { ...(data as Project), id: pid } : null
 			const next = Array.isArray(data?.sheetLayers) ? data.sheetLayers : []
 			// Skip no-op echoes (our own writes round-trip) so an in-progress rename isn't clobbered.
 			if (JSON.stringify(next) !== JSON.stringify($state.snapshot(vps.customLayers))) vps.customLayers = next
@@ -198,7 +202,8 @@
 	})
 </script>
 
-<SheetMenubar {vps} />
+<SheetMenubar {vps} onsettings={() => (settingsOpen = true)} />
+<ProjectSettingsDialog bind:open={settingsOpen} mode="edit" project={projectDoc} />
 
 <!-- Flex row: a flex-1 cell that the canvas fills. The `relative` cell is the canvas's
      positioning context; Canvas measures it via ResizeObserver, so it adapts to the

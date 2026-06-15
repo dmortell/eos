@@ -20,10 +20,25 @@
 		address?: string
 		author?: string
 		logoUrl?: string
+		companyName?: string
+		companyLogoUrl?: string
+		companyAddress?: string
+		companyContact?: string
+		titleBlockSections?: Record<string, boolean>
 		members?: string[]
 		ownerId?: string
 		deleted?: boolean
 	}
+
+	// Title-block sections the user can include/exclude (absent / true = shown).
+	const TB_SECTIONS: { key: string; label: string }[] = [
+		{ key: 'company', label: 'Company block' },
+		{ key: 'client', label: 'Client logo / name' },
+		{ key: 'site', label: 'Site / address' },
+		{ key: 'revisions', label: 'Revision history' },
+		{ key: 'approvals', label: 'Drawn / Chk / App' },
+		{ key: 'scaleSize', label: 'Scale / Size' },
+	]
 
 	let {
 		open = $bindable(false),
@@ -54,6 +69,11 @@
 	let draftAddress = $state('')
 	let draftAuthor = $state('')
 	let draftLogoUrl = $state('')
+	let draftCompanyName = $state('')
+	let draftCompanyLogoUrl = $state('')
+	let draftCompanyAddress = $state('')
+	let draftCompanyContact = $state('')
+	let draftSections = $state<Record<string, boolean>>({})
 	let draftMembers = $state<string[]>([])
 	let memberSearch = $state('')
 
@@ -85,6 +105,11 @@
 				draftAddress = ''
 				draftAuthor = ''
 				draftLogoUrl = ''
+				draftCompanyName = ''
+				draftCompanyLogoUrl = ''
+				draftCompanyAddress = ''
+				draftCompanyContact = ''
+				draftSections = {}
 				draftMembers = session?.user?.uid ? [session.user.uid] : []
 			} else {
 				draftName = project?.name || ''
@@ -95,6 +120,11 @@
 				draftAddress = project?.address || ''
 				draftAuthor = project?.author || ''
 				draftLogoUrl = project?.logoUrl || ''
+				draftCompanyName = project?.companyName || ''
+				draftCompanyLogoUrl = project?.companyLogoUrl || ''
+				draftCompanyAddress = project?.companyAddress || ''
+				draftCompanyContact = project?.companyContact || ''
+				draftSections = { ...(project?.titleBlockSections ?? {}) }
 				draftMembers = [...(project?.members ?? [])]
 			}
 			memberSearch = ''
@@ -173,6 +203,11 @@
 				address: draftAddress.trim() || '',
 				author: draftAuthor.trim() || '',
 				logoUrl: draftLogoUrl.trim() || '',
+				companyName: draftCompanyName.trim() || '',
+				companyLogoUrl: draftCompanyLogoUrl.trim() || '',
+				companyAddress: draftCompanyAddress.trim() || '',
+				companyContact: draftCompanyContact.trim() || '',
+				titleBlockSections: { ...draftSections },
 				members: draftMembers,
 				ownerId: session?.user?.uid,
 				createdAt: now,
@@ -191,6 +226,11 @@
 				address: draftAddress.trim() || '',
 				author: draftAuthor.trim() || '',
 				logoUrl: draftLogoUrl.trim() || '',
+				companyName: draftCompanyName.trim() || '',
+				companyLogoUrl: draftCompanyLogoUrl.trim() || '',
+				companyAddress: draftCompanyAddress.trim() || '',
+				companyContact: draftCompanyContact.trim() || '',
+				titleBlockSections: { ...draftSections },
 				members: draftMembers,
 				updatedAt: now,
 			})
@@ -254,8 +294,45 @@
 				<input class="w-full border rounded px-2 py-1 text-sm" bind:value={draftAddress} placeholder="Site / project address" />
 			</div>
 			<div>
-				<div class="text-xs text-gray-700">Logo</div>
+				<div class="text-xs text-gray-700">Client logo</div>
 				<ProjectLogoField bind:value={draftLogoUrl} projectId={project?.id ?? ''} />
+			</div>
+
+			<!-- Our company block -->
+			<div class="rounded border border-gray-200 bg-white p-2 space-y-2">
+				<div class="text-[11px] font-medium uppercase tracking-wider text-gray-400">Your company</div>
+				<div class="grid grid-cols-2 gap-2">
+					<div>
+						<div class="text-xs text-gray-700">Company name</div>
+						<input class="w-full border rounded px-2 py-1 text-sm" bind:value={draftCompanyName} placeholder="Your company" />
+					</div>
+					<div>
+						<div class="text-xs text-gray-700">Contact</div>
+						<input class="w-full border rounded px-2 py-1 text-sm" bind:value={draftCompanyContact} placeholder="Tel / email / web" />
+					</div>
+				</div>
+				<div>
+					<div class="text-xs text-gray-700">Company address</div>
+					<input class="w-full border rounded px-2 py-1 text-sm" bind:value={draftCompanyAddress} placeholder="Company address" />
+				</div>
+				<div>
+					<div class="text-xs text-gray-700">Company logo</div>
+					<ProjectLogoField bind:value={draftCompanyLogoUrl} projectId={project?.id ?? ''} />
+				</div>
+			</div>
+
+			<!-- Section include toggles -->
+			<div>
+				<div class="text-[11px] font-medium uppercase tracking-wider text-gray-400 mb-1">Include sections</div>
+				<div class="grid grid-cols-2 gap-x-3 gap-y-1">
+					{#each TB_SECTIONS as s (s.key)}
+						<label class="flex items-center gap-1.5 text-xs text-gray-700">
+							<input type="checkbox" checked={draftSections[s.key] !== false}
+								onchange={(e) => draftSections = { ...draftSections, [s.key]: (e.currentTarget as HTMLInputElement).checked }} />
+							{s.label}
+						</label>
+					{/each}
+				</div>
 			</div>
 		</div>
 

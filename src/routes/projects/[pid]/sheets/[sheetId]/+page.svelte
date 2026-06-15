@@ -37,6 +37,11 @@
 				address: data?.address,
 				logoUrl: data?.logoUrl,
 				client: data?.client,
+				companyName: data?.companyName,
+				companyLogoUrl: data?.companyLogoUrl,
+				companyAddress: data?.companyAddress,
+				companyContact: data?.companyContact,
+				sections: data?.titleBlockSections,
 			}
 			floors = Array.isArray(data?.floors) && data.floors.length ? data.floors : [{ number: 1 }]
 		})
