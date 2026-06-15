@@ -41,6 +41,8 @@
 				companyLogoUrl: data?.companyLogoUrl,
 				companyAddress: data?.companyAddress,
 				companyContact: data?.companyContact,
+				logoHeightMm: data?.logoHeightMm,
+				companyLogoHeightMm: data?.companyLogoHeightMm,
 				sections: data?.titleBlockSections,
 			}
 			floors = Array.isArray(data?.floors) && data.floors.length ? data.floors : [{ number: 1 }]

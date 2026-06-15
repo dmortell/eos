@@ -283,7 +283,8 @@
 						revisions={sheet.revisions ?? []}
 						paperSize={page.paper.paperSize}
 						scaleDenominator={page.paper.scale || 100}
-						pxPerMm={1}
+						pxPerMm={mainZoom}
+						onlogoresize={(which, h) => { if (pid) db.save('projects', { id: pid, [which === 'company' ? 'companyLogoHeightMm' : 'logoHeightMm']: h }) }}
 					/>
 				{/if}
 			</div>

@@ -38,6 +38,7 @@
 				name: d?.name, author: d?.author, address: d?.address, logoUrl: d?.logoUrl, client: d?.client,
 				companyName: d?.companyName, companyLogoUrl: d?.companyLogoUrl, companyAddress: d?.companyAddress,
 				companyContact: d?.companyContact, sections: d?.titleBlockSections,
+				logoHeightMm: d?.logoHeightMm, companyLogoHeightMm: d?.companyLogoHeightMm,
 			}
 		})
 		return () => u?.()

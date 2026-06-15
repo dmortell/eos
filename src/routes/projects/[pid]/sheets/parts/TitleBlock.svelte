@@ -16,6 +16,9 @@
 		companyLogoUrl?: string
 		companyAddress?: string
 		companyContact?: string
+		/** Logo heights (mm); 0 / absent = auto (max-h-8). Resizable in the editor (19c). */
+		logoHeightMm?: number
+		companyLogoHeightMm?: number
 		/** Per-section include toggles (absent / true = shown). Keys: company, client, site,
 		 *  revisions, approvals, scaleSize. */
 		sections?: Record<string, boolean>
@@ -32,6 +35,7 @@
 		scaleDenominator,
 		pxPerMm,
 		onupdate,
+		onlogoresize,
 	}: {
 		config: TitleBlockConfig
 		project?: TitleBlockProjectDefaults
@@ -45,6 +49,8 @@
 		pxPerMm: number
 		/** Optional callback to persist layout changes (position, size, template). */
 		onupdate?: (patch: Partial<TitleBlockConfig>) => void
+		/** Optional: persist a resized logo height (mm). When provided, logos show a resize grip. */
+		onlogoresize?: (which: 'logo' | 'company', heightMm: number) => void
 	} = $props()
 
 	/** Default bottom-right placement is computed by the canvas; here we just consume it. */
@@ -188,6 +194,38 @@
 		window.removeEventListener('mousemove', onMouseMove)
 		window.removeEventListener('mouseup', onMouseUp)
 	}
+
+	// ── Resizable logos (19c) ── drag the grip to set a logo's height (mm), persisted per-project.
+	// A live override previews the new height during the drag (the stored value round-trips on up).
+	let logoHOverride = $state<{ logo?: number; company?: number }>({})
+	let hLogo = $derived(logoHOverride.logo ?? (project.logoHeightMm || 0))
+	let hCompany = $derived(logoHOverride.company ?? (project.companyLogoHeightMm || 0))
+	let gripMm = $derived(8 / (pxPerMm || 1)) // ~8 screen px regardless of zoom
+	let logoDrag: { which: 'logo' | 'company'; startH: number; mouseY: number } | null = null
+	let clientImg = $state<HTMLImageElement>()
+	let coImg = $state<HTMLImageElement>()
+
+	function startLogoResize(which: 'logo' | 'company', e: MouseEvent, img: HTMLImageElement) {
+		if (e.button !== 0 || !onlogoresize) return
+		e.stopPropagation(); e.preventDefault()
+		const cur = which === 'company' ? hCompany : hLogo
+		const startH = cur || img.offsetHeight || 24
+		logoDrag = { which, startH, mouseY: e.clientY }
+		window.addEventListener('mousemove', onLogoMove)
+		window.addEventListener('mouseup', onLogoUp)
+	}
+	function onLogoMove(e: MouseEvent) {
+		if (!logoDrag) return
+		const dMm = (e.clientY - logoDrag.mouseY) / (pxPerMm || 1)
+		const h = Math.max(4, Math.round(logoDrag.startH + dMm))
+		logoHOverride = { ...logoHOverride, [logoDrag.which]: h }
+	}
+	function onLogoUp() {
+		if (logoDrag) { const h = logoHOverride[logoDrag.which]; if (h) onlogoresize?.(logoDrag.which, h) }
+		logoDrag = null
+		window.removeEventListener('mousemove', onLogoMove)
+		window.removeEventListener('mouseup', onLogoUp)
+	}
 </script>
 
 {#snippet cell(c: Cell)}
@@ -218,7 +256,15 @@
 				<!-- Our company block: logo / name / address / contact -->
 				<div class="p-1 flex flex-col items-center gap-0.5 overflow-hidden">
 					{#if fCoLogo}
-						<img src={fCoLogo} alt="company logo" class="max-h-8 w-auto object-contain" draggable="false" />
+						{@const ch = hCompany}
+						<div class="relative inline-block">
+							<img bind:this={coImg} src={fCoLogo} alt="company logo" class="w-auto object-contain {ch ? '' : 'max-h-8'}" style:height={ch ? `${ch}px` : undefined} draggable="false" />
+							{#if onlogoresize}
+								<!-- svelte-ignore a11y_no_static_element_interactions -->
+								<div class="absolute bg-cyan-500/80" style:width="{gripMm}px" style:height="{gripMm}px" style:right="0px" style:bottom="0px" style:cursor="ns-resize"
+									onmousedown={(e: MouseEvent) => coImg && startLogoResize('company', e, coImg)}></div>
+							{/if}
+						</div>
 					{/if}
 					{#if fCoName}<div class="text-[3pt] font-bold uppercase tracking-wider text-center leading-tight">{fCoName}</div>{/if}
 					{#if fCoAddress}<div class="text-[1.8pt] text-zinc-600 text-center leading-tight">{fCoAddress}</div>{/if}
@@ -228,7 +274,15 @@
 				<!-- Client logo / project name -->
 				<div class="p-1 flex flex-col items-center gap-0.5 overflow-hidden">
 					{#if showClient && fLogo}
-						<img src={fLogo} alt="logo" class="max-h-8 w-auto object-contain" draggable="false" />
+						{@const lh = hLogo}
+						<div class="relative inline-block">
+							<img bind:this={clientImg} src={fLogo} alt="logo" class="w-auto object-contain {lh ? '' : 'max-h-8'}" style:height={lh ? `${lh}px` : undefined} draggable="false" />
+							{#if onlogoresize}
+								<!-- svelte-ignore a11y_no_static_element_interactions -->
+								<div class="absolute bg-cyan-500/80" style:width="{gripMm}px" style:height="{gripMm}px" style:right="0px" style:bottom="0px" style:cursor="ns-resize"
+									onmousedown={(e: MouseEvent) => clientImg && startLogoResize('logo', e, clientImg)}></div>
+							{/if}
+						</div>
 					{/if}
 					<div class="text-[3pt] font-bold uppercase tracking-wider text-center leading-tight">{fProjectName || '—'}</div>
 					{#if showClient && fClient}<div class="text-[2pt] text-zinc-600 text-center">{fClient}</div>{/if}

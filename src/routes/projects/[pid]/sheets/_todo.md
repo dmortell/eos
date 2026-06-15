@@ -260,7 +260,11 @@ the cheap alternative to rendering tables to PDF (see 5h2 MAYBE).
        (company / client / site / revisions / approvals / scale-size). TitleBlock renders the
        company block at the top and honours the toggles; defaults (absent) keep every section on.
 
-  19c. Logos in titleblock should be resizable (re-use our resize action/wrapper)
+  19c. Logos in titleblock should be resizable (re-use our resize action/wrapper)   ✅
+       Both logos (client + company) show a resize grip in the editor; dragging sets the logo
+       height (mm), persisted per-project (logoHeightMm / companyLogoHeightMm) so it's consistent
+       across sheets and in print. Uses the TitleBlock's pxPerMm drag (TransformBox is SVG-bound,
+       so it doesn't fit the HTML title block); a live override previews during the drag.
 
   19d. Viewport frames should snap to page margins, titleblock edge, and maybe a 5mm grid on the paper page.   ✅
        Dragging/resizing a viewport frame snaps its edges to: paper edges, the printable margin,
