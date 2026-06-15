@@ -88,6 +88,7 @@
 	// Model mode: when set, that viewport's content fills the content area (paper hidden).
 	let modelVpId = $state<string | null>(null)
 	let modelVp = $derived(modelVpId ? vps.viewports.find(v => v.id === modelVpId) ?? null : null)
+	let canvasComp = $state<{ fitToPaper: () => void } | undefined>() // for the menubar "Fit" reset
 	let vpNums = $derived(numberViewports(vps.viewports)) // top-down, reading-order viewport numbers
 	let mainZoom = $state(1)              // outer Canvas zoom — counter-scales viewport handles
 	let mainPanX = $state(0)             // outer Canvas pan (px) — for the status-bar readout
@@ -211,7 +212,7 @@
 	})
 </script>
 
-<SheetMenubar {vps} onsettings={() => (settingsOpen = true)} />
+<SheetMenubar {vps} onsettings={() => (settingsOpen = true)} onfit={() => canvasComp?.fitToPaper()} />
 <ProjectSettingsDialog bind:open={settingsOpen} mode="edit" project={projectDoc} />
 
 <!-- Flex row: a flex-1 cell that the canvas fills. The `relative` cell is the canvas's
@@ -222,7 +223,7 @@
 		<!-- Canvas owns pan/zoom; everything below is drawn in mm (world units) inside its
 		     transform group. The paper sheet is the positioning context for the margin guide
 		     and title block. -->
-		<Canvas paper={page.paper} viewKey={`sheet-${sheet.id}`} bind:zoom={mainZoom} bind:panX={mainPanX} bind:panY={mainPanY} cursor={vps.insertMode ? 'crosshair' : ''}>
+		<Canvas bind:this={canvasComp} paper={page.paper} viewKey={`sheet-${sheet.id}`} bind:zoom={mainZoom} bind:panX={mainPanX} bind:panY={mainPanY} cursor={vps.insertMode ? 'crosshair' : ''}>
 			<!-- Paper sheet (cad-thin → drawing borders render as hairlines, not 1mm) -->
 			<div
 				bind:this={paperEl}

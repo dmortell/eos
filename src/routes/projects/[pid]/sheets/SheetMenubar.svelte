@@ -5,7 +5,7 @@
 	import { page } from "$app/state";
 	import type { ViewportEditor } from "./viewports.svelte";
 
-	let { vps, onsettings }: { vps: ViewportEditor; onsettings?: () => void } = $props()
+	let { vps, onsettings, onfit }: { vps: ViewportEditor; onsettings?: () => void; onfit?: () => void } = $props()
 	let pid = $derived(page.params.pid)
 
 	// Quick navigation to the other project tools.
@@ -51,7 +51,11 @@
 		</Menubar.Menu>
 	</Menubar.Root>
 
-	<button class="ml-auto flex items-center gap-1 rounded px-2 py-0.5 text-sm hover:bg-slate-100" onclick={print}>
+	<button class="ml-auto flex items-center gap-1 rounded px-2 py-0.5 text-sm hover:bg-slate-100" title="Fit the sheet to the view (reset pan/zoom)" onclick={() => onfit?.()}>
+		<Icon name="scan" size={14} />
+		Fit
+	</button>
+	<button class="flex items-center gap-1 rounded px-2 py-0.5 text-sm hover:bg-slate-100" onclick={print}>
 		<Icon name="print" size={14} />
 		Print
 	</button>

@@ -135,6 +135,19 @@
 
 	function pan(dx: number, dy: number) { view.x += dx; view.y += dy }
 
+	/** Fit the paper sheet to the canvas and centre it (menubar "Fit" / view reset). */
+	export function fitToPaper() {
+		if (!canvas) return
+		const { w, h } = paperDimsMm(paper) // mm = world units; paper sits at world (0,0)
+		const cw = canvas.offsetWidth, ch = canvas.offsetHeight
+		if (!w || !h || !cw || !ch) return
+		const z = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.min(cw / w, ch / h) * 0.92))
+		view.zoom = z
+		view.x = (cw - w * z) / 2
+		view.y = (ch - h * z) / 2
+		zoomTarget = z
+	}
+
 	function onmousedown(e: MouseEvent) {
 		if (!interactive) return // let the press bubble to the parent canvas
 		e.preventDefault()
@@ -187,14 +200,16 @@
 			const [a, b] = e.touches
 			const newMid = { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 }
 			const dist = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY)
-			view.x -= (newMid.x - lastPanMid.x) / view.zoom
-			view.y -= (newMid.y - lastPanMid.y) / view.zoom
+			const rect = canvas!.getBoundingClientRect()
+			const s = rect.width / (canvas!.offsetWidth || rect.width) // undo ancestor scale → local px
+			// Two-finger pan: move the content WITH the fingers (same sense + units as a mouse drag).
+			pan((newMid.x - lastPanMid.x) / s, (newMid.y - lastPanMid.y) / s)
 			lastPanMid = newMid
+			// Pinch zoom about the finger midpoint (centre in canvas-local px, like mouseOffset).
 			const scaleFactor = dist / pinchLastDist
 			pinchLastDist = dist
 			zoomTarget = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoomTarget * scaleFactor))
-			const rect = (e.target as HTMLElement).getBoundingClientRect()
-			startZoomAnimation({ x: (newMid.x - rect.left) / view.zoom + view.x, y: (newMid.y - rect.top) / view.zoom + view.y })
+			startZoomAnimation({ x: (newMid.x - rect.left) / s, y: (newMid.y - rect.top) / s })
 		}
 	}
 
