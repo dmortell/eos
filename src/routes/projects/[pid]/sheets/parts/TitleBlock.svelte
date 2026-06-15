@@ -261,7 +261,7 @@
 							<img bind:this={coImg} src={fCoLogo} alt="company logo" class="w-auto object-contain {ch ? '' : 'max-h-8'}" style:height={ch ? `${ch}px` : undefined} draggable="false" />
 							{#if onlogoresize}
 								<!-- svelte-ignore a11y_no_static_element_interactions -->
-								<div class="absolute bg-cyan-500/80" style:width="{gripMm}px" style:height="{gripMm}px" style:right="0px" style:bottom="0px" style:cursor="ns-resize"
+								<div class="tb-logo-grip pointer-events-auto absolute bg-cyan-500/80" style:width="{gripMm}px" style:height="{gripMm}px" style:right="0px" style:bottom="0px" style:cursor="ns-resize"
 									onmousedown={(e: MouseEvent) => coImg && startLogoResize('company', e, coImg)}></div>
 							{/if}
 						</div>
@@ -279,7 +279,7 @@
 							<img bind:this={clientImg} src={fLogo} alt="logo" class="w-auto object-contain {lh ? '' : 'max-h-8'}" style:height={lh ? `${lh}px` : undefined} draggable="false" />
 							{#if onlogoresize}
 								<!-- svelte-ignore a11y_no_static_element_interactions -->
-								<div class="absolute bg-cyan-500/80" style:width="{gripMm}px" style:height="{gripMm}px" style:right="0px" style:bottom="0px" style:cursor="ns-resize"
+								<div class="tb-logo-grip pointer-events-auto absolute bg-cyan-500/80" style:width="{gripMm}px" style:height="{gripMm}px" style:right="0px" style:bottom="0px" style:cursor="ns-resize"
 									onmousedown={(e: MouseEvent) => clientImg && startLogoResize('logo', e, clientImg)}></div>
 							{/if}
 						</div>
