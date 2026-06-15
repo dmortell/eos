@@ -8,7 +8,8 @@
 	// Model-driven: the controller owns position/selection/active state; this component renders
 	// one viewport and reports frame-clicks / handle-drags back. AutoCAD-style selection — you
 	// pick a viewport by its FRAME or a marquee box, never by clicking the inactive interior.
-	let { vps, vp, zoom = 1, num = 0, total = 1, onmodel }: { vps: ViewportEditor; vp: SheetViewport; zoom?: number; num?: number; total?: number; onmodel?: (id: string) => void } = $props()
+	type Snap = { w: number; h: number; margins: number; grid?: number; tb?: { x: number; y: number; w: number; h: number } | null }
+	let { vps, vp, zoom = 1, snap, num = 0, total = 1, onmodel }: { vps: ViewportEditor; vp: SheetViewport; zoom?: number; snap?: Snap; num?: number; total?: number; onmodel?: (id: string) => void } = $props()
 
 	let selected = $derived(vps.isSelected(vp.id))
 	let active = $derived(vps.activeId === vp.id)
@@ -19,11 +20,12 @@
 
 	const MIN = 20 // min viewport size (mm)
 	const THRESHOLD = 4 // screen px before a move commits (anti-nudge)
+	const SNAP_TOL = 6 // screen px within which a frame edge snaps to a guide (19d; Alt disables)
 	// Scale choices for the frame-toolbar picker (mirrors the Viewport properties window). 0 = Fit.
 	const VP_SCALES = [
 		{ label: 'Fit', value: 0 }, { label: '1:2', value: 2 }, { label: '1:5', value: 5 }, { label: '1:10', value: 10 },
 		{ label: '1:15', value: 15 }, { label: '1:20', value: 20 }, { label: '1:25', value: 25 }, { label: '1:50', value: 50 },
-		{ label: '1:100', value: 100 }, { label: '1:200', value: 200 }, { label: '1:500', value: 500 },
+		{ label: '1:100', value: 100 }, { label: '1:150', value: 150 }, { label: '1:200', value: 200 }, { label: '1:500', value: 500 },
 	]
 
 	let el: HTMLDivElement
@@ -56,6 +58,30 @@
 		window.addEventListener('mousemove', onMove)
 		window.addEventListener('mouseup', onUp)
 	}
+	// ── Snap (19d): paper edges / printable margin / title-block edges / 5mm grid. Alt disables. ──
+	function xLines(): number[] {
+		if (!snap) return []
+		const L = [0, snap.margins, snap.w - snap.margins, snap.w]
+		if (snap.tb) L.push(snap.tb.x, snap.tb.x + snap.tb.w)
+		return L
+	}
+	function yLines(): number[] {
+		if (!snap) return []
+		const L = [0, snap.margins, snap.h - snap.margins, snap.h]
+		if (snap.tb) L.push(snap.tb.y, snap.tb.y + snap.tb.h)
+		return L
+	}
+	/** Smallest delta (mm) to add so one of `edges` lands on a guide line or grid multiple; 0 if none within tol. */
+	function snapDelta(edges: number[], lines: number[], tolMm: number): number {
+		const grid = snap?.grid ?? 0
+		let best = 0, bestAbs = tolMm
+		for (const e of edges) {
+			for (const ln of lines) { const d = ln - e; if (Math.abs(d) < bestAbs) { bestAbs = Math.abs(d); best = d } }
+			if (grid > 0) { const d = Math.round(e / grid) * grid - e; if (Math.abs(d) < bestAbs) { bestAbs = Math.abs(d); best = d } }
+		}
+		return best
+	}
+
 	function onMove(e: MouseEvent) {
 		if (!drag) return
 		if (!drag.moved) {
@@ -63,7 +89,13 @@
 			drag.moved = true
 		}
 		const dx = (e.clientX - drag.mx) / drag.scale, dy = (e.clientY - drag.my) / drag.scale
-		if (drag.mode === 'move') { vps.setRect(vp.id, { x: drag.x0 + dx, y: drag.y0 + dy, w: vp.w, h: vp.h }); return }
+		const doSnap = !!snap && !e.altKey
+		const tolMm = SNAP_TOL / drag.scale
+		if (drag.mode === 'move') {
+			let x = drag.x0 + dx, y = drag.y0 + dy
+			if (doSnap) { x += snapDelta([x, x + vp.w], xLines(), tolMm); y += snapDelta([y, y + vp.h], yLines(), tolMm) }
+			vps.setRect(vp.id, { x, y, w: vp.w, h: vp.h }); return
+		}
 		const left = drag.mode === 'nw' || drag.mode === 'sw'
 		const top = drag.mode === 'nw' || drag.mode === 'ne'
 		let nx = drag.x0, ny = drag.y0
@@ -71,6 +103,13 @@
 		let nh = top ? drag.h0 - dy : drag.h0 + dy
 		if (left) nx = drag.x0 + dx
 		if (top) ny = drag.y0 + dy
+		if (doSnap) {
+			// Snap only the edge(s) being dragged.
+			if (left) { const d = snapDelta([nx], xLines(), tolMm); nx += d; nw -= d }
+			else { const d = snapDelta([nx + nw], xLines(), tolMm); nw += d }
+			if (top) { const d = snapDelta([ny], yLines(), tolMm); ny += d; nh -= d }
+			else { const d = snapDelta([ny + nh], yLines(), tolMm); nh += d }
+		}
 		if (nw < MIN) { if (left) nx = drag.x0 + (drag.w0 - MIN); nw = MIN }
 		if (nh < MIN) { if (top) ny = drag.y0 + (drag.h0 - MIN); nh = MIN }
 		vps.setRect(vp.id, { x: nx, y: ny, w: nw, h: nh })
@@ -222,18 +261,9 @@
 	<!-- Frame toolbar (top-right corner of the frame): scale readout + (when active) a content
 	     pan/zoom toggle and the model-mode button. Sizes counter-scale via the container font-size
 	     so the whole toolbar stays a steady on-screen size at any canvas zoom. -->
-
-<!--
-	<div class={['absolute right-2 flex items-center gap-[0.3em] whitespace-nowrap leading-none print:hidden',
-			selected || active ? 'rounded bg-white/90 px-[0.4em] pt-[0.8em] shadow-sm xxborder ring-1 ring-zinc-300' : '']}
-		style:top="{26 / zoom}px" style:font-size="{12 / zoom}px"
-		style:pointer-events={selected || active ? 'auto' : 'none'}
-		onmousedown={e => e.stopPropagation()}>
-
--->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class={["absolute right-1 top-0.5 px-1 text-[6px] flex gap-1 items-center whitespace-nowrap print:hidden ",
-		(selected || active) && "rounded border border-slate-400 shadow-sm"
+		(selected || active) && "bg-white rounded border border-slate-400 shadow-sm"
 	]}
 		style:pointer-events={selected || active ? 'auto' : 'none'}
 	>
@@ -250,7 +280,7 @@
 		{/if}
 		{#if active}
 			<button class={['rounded px-[0.3em] xxpy-[0.1em]', navContent ? 'bg-blue-600 text-white' : 'text-zinc-600 hover:bg-zinc-100']}
-				title="Pan/zoom viewport content (middle/right-drag + wheel). Off = pan/zoom the sheet."
+				title="Pan/zoom viewport content (middle/right-drag + wheel)"
 				onclick={e => { e.stopPropagation(); navContent = !navContent }}>✥</button>
 			{#if onmodel}
 				<button class="rounded px-[0.3em] py-[0.1em] text-blue-600 hover:bg-zinc-100" title="Open in model mode"

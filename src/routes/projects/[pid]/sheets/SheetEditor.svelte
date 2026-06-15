@@ -74,6 +74,15 @@
 		}
 	})
 
+	// Snap targets for dragging/resizing viewport frames (19d): paper edges, the printable margin,
+	// the title-block edges, and a 5mm grid on the page.
+	let snap = $derived({
+		w: paperMm.w, h: paperMm.h, margins: page.paper.margins, grid: 5,
+		tb: titleBlockCfg
+			? { x: titleBlockCfg.positionMm?.x ?? 0, y: titleBlockCfg.positionMm?.y ?? 0, w: titleBlockCfg.widthMm ?? 0, h: titleBlockCfg.heightMm ?? 0 }
+			: null,
+	})
+
 	// ── Viewports ──
 	const vps = new ViewportEditor()
 	// Model mode: when set, that viewport's content fills the content area (paper hidden).
@@ -245,7 +254,7 @@
 				{/if}
 
 				{#each vps.viewports as vp, i (vp.id)}
-					<Viewport {vps} {vp} zoom={mainZoom} num={vpNums.get(vp.id) ?? i + 1} total={vps.viewports.length} onmodel={(id) => { vps.deactivate(); modelVpId = id }} />
+					<Viewport {vps} {vp} zoom={mainZoom} {snap} num={vpNums.get(vp.id) ?? i + 1} total={vps.viewports.length} onmodel={(id) => { vps.deactivate(); modelVpId = id }} />
 				{/each}
 
 				<!-- Insert drag-out preview -->

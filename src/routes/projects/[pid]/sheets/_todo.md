@@ -262,7 +262,10 @@ the cheap alternative to rendering tables to PDF (see 5h2 MAYBE).
 
   19c. Logos in titleblock should be resizable (re-use our resize action/wrapper)
 
-  19d. Viewport frames should snap to page margins, titleblock edge, and maybe a 5mm grid on the paper page.
+  19d. Viewport frames should snap to page margins, titleblock edge, and maybe a 5mm grid on the paper page.   ✅
+       Dragging/resizing a viewport frame snaps its edges to: paper edges, the printable margin,
+       the title-block edges, and a 5mm grid (SheetEditor passes a `snap` rect to Viewport; tol 6px;
+       hold Alt to disable).
 
   19e. Viewport numbering: best to let user enter VP numbers. References from other sheets should use id to lookup the number. We could return 0 for number if <2 vp on page, as number does not need to be displayed in this case.
 
