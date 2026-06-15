@@ -104,6 +104,14 @@ To recreate this project from scratch with the same configuration:
 pnpm dlx sv@0.12.4 create --template minimal --types ts --add vitest="usages:unit,component" tailwindcss="plugins:none" sveltekit-adapter="adapter:vercel" devtools-json --install pnpm .
 ```
 
+## Install Firebase MCP for development with Claude Code
+
+```
+claude plugin marketplace add firebase/firebase-tools
+claude plugin install firebase@firebase
+claude plugin marketplace list
+```
+
 ## Disable auto HMR when editing markdown files
 
 Add this to vite.config.ts
