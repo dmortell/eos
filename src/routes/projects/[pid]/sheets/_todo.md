@@ -44,7 +44,9 @@ The sheets list should show the latest version by default, but maybe a dropdown 
        devices/rooms/ladders), and a move-to-layer in their property editors. Add Layer adds the new
        layer under the active layer's group.   ✅ (active-group default)
   5a7. (low priority) Drag a custom layer onto another group header to recategorise it
-       (setLayerBase already exists — just needs drag handles in the Layers panel).
+       (setLayerBase already exists — just needs drag handles in the Layers panel).   ✅
+       Custom layer rows have a grip + are draggable; dropping on any default-layer header
+       (highlighted green on hover) re-files the layer under it via setLayerBase.
 
 5b. Outlets   (largest item — split across several PRs)
   5b1. PDF floorplan: upload / insert a PDF as a floorplan background in the outlets viewport

@@ -23,6 +23,14 @@
 	function startRename(id: string, name: string) { editingId = id; nameBuf = name }
 	function commitRename() { if (editingId) { vps.renameLayer(editingId, nameBuf.trim() || 'Layer'); editingId = null } }
 	let confirmDelete = $state<string | null>(null)
+
+	// Drag a custom layer onto a default-layer header to recategorise it (5a7).
+	let dragId = $state<string | null>(null)
+	let dragOverBase = $state<string | null>(null)
+	function dropOnBase(base: string) {
+		if (dragId) vps.setLayerBase(dragId, base)
+		dragId = null; dragOverBase = null
+	}
 </script>
 
 {#if vp}
@@ -40,7 +48,11 @@
 			{#each LAYERS as l (l.id)}
 				{@const ov = v.layerOverrides?.[l.id] ?? {}}
 				{@const active = vps.activeLayerId === l.id}
-				<div class="flex items-center gap-1.5 py-0.5 text-xs {active ? 'rounded bg-blue-50' : ''}">
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<div class="flex items-center gap-1.5 py-0.5 text-xs {dragOverBase === l.id ? 'rounded bg-emerald-100 ring-1 ring-emerald-400' : active ? 'rounded bg-blue-50' : ''}"
+					ondragover={(e: DragEvent) => { if (dragId) { e.preventDefault(); dragOverBase = l.id } }}
+					ondragleave={() => { if (dragOverBase === l.id) dragOverBase = null }}
+					ondrop={(e: DragEvent) => { e.preventDefault(); dropOnBase(l.id) }}>
 					<span class="inline-block h-3 w-3 shrink-0 rounded-sm" style:background={l.color}></span>
 					<button class="flex-1 truncate text-left {ov.hidden ? 'opacity-40' : ''}" title="Make active layer (new objects go here)" onclick={() => vps.setActiveLayer(l.id)}>{l.name}</button>
 					{#if active}<span class="text-[9px] font-semibold text-blue-600">ACTIVE</span>{/if}
@@ -51,8 +63,12 @@
 				{#each customByBase[l.id] ?? [] as c (c.id)}
 					{@const cov = v.layerOverrides?.[c.id] ?? {}}
 					{@const cactive = vps.activeLayerId === c.id}
-					<div class="flex items-center gap-1.5 py-0.5 pl-3 text-xs {cactive ? 'rounded bg-blue-50' : ''}">
-						<span class="text-zinc-300">↳</span>
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div class="flex items-center gap-1.5 py-0.5 pl-3 text-xs {cactive ? 'rounded bg-blue-50' : ''} {dragId === c.id ? 'opacity-40' : ''}"
+						draggable={editingId !== c.id}
+						ondragstart={() => (dragId = c.id)}
+						ondragend={() => { dragId = null; dragOverBase = null }}>
+						<Icon name="grip" size={11} class="shrink-0 cursor-grab text-zinc-300" />
 						<span class="inline-block h-3 w-3 shrink-0 rounded-sm" style:background={c.color}></span>
 						{#if editingId === c.id}
 							<input class="min-w-0 flex-1 rounded border border-blue-400 bg-white px-1 py-0.5 text-xs"
