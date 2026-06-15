@@ -205,6 +205,41 @@
 		if (contentPanning) { cpx = e.clientX; cpy = e.clientY; cden = den1; cox = offset.x; coy = offset.y }
 	}
 
+	// ── Touch content pan/zoom (iPad) ── two fingers pan the content + pinch zooms about the
+	// midpoint, mirroring the mouse-drag pan and wheel zoom above. stopPropagation keeps the outer
+	// sheet Canvas from also pan/zooming.
+	let ctDist: number | null = null
+	let ctMid: { x: number; y: number } | null = null
+	function contentTouchStart(e: TouchEvent) {
+		if (e.touches.length !== 2 || !lastView) return
+		e.stopPropagation()
+		const [a, b] = e.touches
+		ctDist = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY)
+		ctMid = { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 }
+	}
+	function contentTouchMove(e: TouchEvent) {
+		if (e.touches.length !== 2 || !ctMid || !ctDist || !lastView || !contentEl) return
+		e.preventDefault(); e.stopPropagation()
+		const [a, b] = e.touches
+		const newMid = { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 }
+		const dist = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY)
+		const den0 = curDen(), o = curOffset()
+		const rect = contentEl.getBoundingClientRect()
+		// Pan by the midpoint delta (real-mm = screen px × den/zoom), same sense as the mouse drag.
+		const f = den0 / zoom
+		const offX = o.x - (newMid.x - ctMid.x) * f
+		const offY = o.y - (newMid.y - ctMid.y) * f
+		// Pinch zoom about the midpoint: spread (scaleFactor>1) ⇒ smaller denominator ⇒ zoom in.
+		const den1 = Math.min(100000, Math.max(0.5, den0 / (dist / ctDist)))
+		const px = newMid.x - rect.left, py = newMid.y - rect.top
+		const mmX = offX + px * den0 / zoom, mmY = offY + py * den0 / zoom // mm under the fingers (post-pan)
+		vps.setContentView(vp.id, den1, { x: mmX - px * den1 / zoom, y: mmY - py * den1 / zoom })
+		ctMid = newMid; ctDist = dist
+	}
+	function contentTouchEnd(e: TouchEvent) {
+		if (e.touches.length < 2 && (ctMid || ctDist)) { ctMid = null; ctDist = null; vps.notify() }
+	}
+
 	// Attach content gestures non-passively while active (so preventDefault works and the outer
 	// Canvas doesn't also pan/zoom).
 	$effect(() => {
@@ -214,10 +249,16 @@
 		elc.addEventListener('wheel', contentWheel, { passive: false })
 		elc.addEventListener('mousedown', contentDown)
 		elc.addEventListener('contextmenu', noctx)
+		elc.addEventListener('touchstart', contentTouchStart, { passive: false })
+		elc.addEventListener('touchmove', contentTouchMove, { passive: false })
+		elc.addEventListener('touchend', contentTouchEnd)
 		return () => {
 			elc.removeEventListener('wheel', contentWheel)
 			elc.removeEventListener('mousedown', contentDown)
 			elc.removeEventListener('contextmenu', noctx)
+			elc.removeEventListener('touchstart', contentTouchStart)
+			elc.removeEventListener('touchmove', contentTouchMove)
+			elc.removeEventListener('touchend', contentTouchEnd)
 			window.removeEventListener('mousemove', contentMove)
 			window.removeEventListener('mouseup', contentUp)
 		}
@@ -245,6 +286,7 @@
 >
 	<div bind:this={contentEl} class="absolute inset-0 overflow-hidden"
 		style:pointer-events={active ? 'auto' : 'none'}
+		style:touch-action={active && navContent ? 'none' : null}
 		style:cursor={active && navContent ? (contentPanning ? 'grabbing' : 'grab') : null}>
 		<ViewportContent {vp} {vps} {zoom} {active} onview={(v) => lastView = v} />
 	</div>
