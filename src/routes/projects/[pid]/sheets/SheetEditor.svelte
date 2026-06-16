@@ -89,6 +89,15 @@
 	let modelVpId = $state<string | null>(null)
 	let modelVp = $derived(modelVpId ? vps.viewports.find(v => v.id === modelVpId) ?? null : null)
 	let canvasComp = $state<{ fitToPaper: () => void } | undefined>() // for the menubar "Fit" reset
+
+	// True when a touch lands on empty, pannable paper — not a menu/portal, a viewport, or the
+	// title-block grip. Drives single-finger touch panning (objects keep synthesized-mouse drag).
+	function isPannableBackground(t: EventTarget | null): boolean {
+		const el = t as Element | null
+		if (!el?.closest) return true
+		if (el.closest('.dwg-menubar, .ctx-menu, .fp-toolbar, .gui, [data-slot="menubar-content"], #sheet-portal-root, .tb-logo-grip')) return false
+		return !el.closest('.vp')
+	}
 	let vpNums = $derived(numberViewports(vps.viewports)) // top-down, reading-order viewport numbers
 	let mainZoom = $state(1)              // outer Canvas zoom — counter-scales viewport handles
 	let mainPanX = $state(0)             // outer Canvas pan (px) — for the status-bar readout
@@ -223,7 +232,8 @@
 		<!-- Canvas owns pan/zoom; everything below is drawn in mm (world units) inside its
 		     transform group. The paper sheet is the positioning context for the margin guide
 		     and title block. -->
-		<Canvas bind:this={canvasComp} paper={page.paper} viewKey={`sheet-${sheet.id}`} bind:zoom={mainZoom} bind:panX={mainPanX} bind:panY={mainPanY} cursor={vps.insertMode ? 'crosshair' : ''}>
+		<Canvas bind:this={canvasComp} paper={page.paper} viewKey={`sheet-${sheet.id}`} bind:zoom={mainZoom} bind:panX={mainPanX} bind:panY={mainPanY} cursor={vps.insertMode ? 'crosshair' : ''}
+			singleTouchPan={!modelVpId && !vps.insertMode} canPanAt={isPannableBackground} onBackgroundTap={() => { vps.deactivate(); vps.clearSel() }}>
 			<!-- Paper sheet (cad-thin → drawing borders render as hairlines, not 1mm) -->
 			<div
 				bind:this={paperEl}

@@ -14,6 +14,9 @@
 		panX = $bindable(0),
 		panY = $bindable(0),
 		cursor = '',
+		singleTouchPan = false,
+		canPanAt,
+		onBackgroundTap,
 	}: {
 		children?: any
 		/** Print/paper settings — drives @page size and how content fills the printed page. */
@@ -44,6 +47,17 @@
 		panY?: number
 		/** CSS cursor for the canvas surface (e.g. 'crosshair' while placing). Empty = default. */
 		cursor?: string
+		/**
+		 * Enable single-finger touch panning (iPad). A 1-finger drag that starts on empty background
+		 * (per `canPanAt`) pans the canvas; a 1-finger tap there fires `onBackgroundTap`. Touches that
+		 * start on an object are left to the browser's synthesized mouse events (so drag/select still
+		 * work). Two-finger pan/pinch is unaffected. Off by default (other canvases keep mouse-only).
+		 */
+		singleTouchPan?: boolean
+		/** True if a touch at this target is on empty, pannable background (not an object/menu). */
+		canPanAt?: (t: EventTarget | null) => boolean
+		/** Called when a single-finger tap (no drag) lands on empty background — e.g. to deselect. */
+		onBackgroundTap?: () => void
 	} = $props()
 
 	// Zoom limits (shared by wheel + pinch). Lower MIN_ZOOM to zoom further out.
@@ -183,13 +197,25 @@
 	// Touch support
 	let pinchLastDist: number | null = null
 	let lastPanMid: { x: number; y: number } | null = null
+	// Single-finger pan (iPad): tracked only when the touch starts on empty background.
+	const TAP_SLOP = 8 // px of movement before a 1-finger touch becomes a pan (else it's a tap)
+	let t1: { x: number; y: number; sx: number; sy: number; panning: boolean } | null = null
 
 	function ontouchstart(e: TouchEvent) {
 		if (e.touches.length === 2) {
 			e.stopPropagation()
+			t1 = null // a second finger supersedes a pending 1-finger pan
 			const [a, b] = e.touches
 			pinchLastDist = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY)
 			lastPanMid = { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 }
+			return
+		}
+		if (e.touches.length === 1 && singleTouchPan) {
+			if (canPanAt && !canPanAt(e.target)) { t1 = null; return } // on an object → let synthesized mouse drag/select
+			// preventDefault suppresses the synthesized mouse events (so no marquee); we own pan + tap.
+			e.preventDefault()
+			const t = e.touches[0]
+			t1 = { x: t.clientX, y: t.clientY, sx: t.clientX, sy: t.clientY, panning: false }
 		}
 	}
 
@@ -210,11 +236,28 @@
 			pinchLastDist = dist
 			zoomTarget = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoomTarget * scaleFactor))
 			startZoomAnimation({ x: (newMid.x - rect.left) / s, y: (newMid.y - rect.top) / s })
+			return
+		}
+		if (e.touches.length === 1 && t1) {
+			const t = e.touches[0]
+			if (!t1.panning && Math.hypot(t.clientX - t1.sx, t.clientY - t1.sy) >= TAP_SLOP) {
+				t1.panning = true; t1.x = t.clientX; t1.y = t.clientY // begin panning here (drop the slop)
+			}
+			if (t1.panning) {
+				e.preventDefault()
+				const s = ancestorScale()
+				pan((t.clientX - t1.x) / s, (t.clientY - t1.y) / s)
+				t1.x = t.clientX; t1.y = t.clientY
+			}
 		}
 	}
 
 	function ontouchend(e: TouchEvent) {
 		if (e.touches.length < 2) { pinchLastDist = null; lastPanMid = null }
+		if (e.touches.length === 0 && t1) {
+			if (!t1.panning) onBackgroundTap?.() // a tap (no drag) on empty background → deselect
+			t1 = null
+		}
 	}
 
 	function doZoom(e: WheelEvent) {
