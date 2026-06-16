@@ -2,11 +2,19 @@
 	import { isMacLikePlatform, normalizeWheelToPixels, wheelZoomFactorFromEvent } from '$lib/ui/panzoom-controller'
 	import type { ViewState } from './types'
 
-	let { view = $bindable(), width, height, children }: {
+	let { view = $bindable(), width, height, children, singleTouchPan = false, canPanAt, onBackgroundTap }: {
 		view: ViewState
 		width: number
 		height: number
 		children?: any
+		/** Enable single-finger touch panning (iPad). A 1-finger drag on empty background pans; a
+		 *  1-finger tap there fires onBackgroundTap. Touches on objects (e.g. draggable devices,
+		 *  which stopPropagation) never reach here, so device dragging is unaffected. */
+		singleTouchPan?: boolean
+		/** True if a touch at this target is empty, pannable background (not a draggable object). */
+		canPanAt?: (t: EventTarget | null) => boolean
+		/** Called on a single-finger tap (no drag) on empty background — e.g. to clear selection. */
+		onBackgroundTap?: () => void
 	} = $props()
 
 	// `$state()` so bind:this triggers the $effect that attaches the wheel
@@ -23,9 +31,22 @@
 	const WHEEL_PAN_SPEED = IS_MAC ? 0.4 : 0.9
 	const WHEEL_ZOOM_SPEED = IS_MAC ? 0.0038 : 0.0025
 
+	// Attach wheel + touch listeners non-passively so preventDefault() works (declarative on:touch
+	// handlers are registered passive by Svelte, which silently ignored preventDefault — letting the
+	// browser pan/pinch the page instead of the canvas).
 	$effect(() => {
-		canvas?.addEventListener('wheel', onwheel, { passive: false })
-		return () => { canvas?.removeEventListener('wheel', onwheel) }
+		const el = canvas
+		if (!el) return
+		el.addEventListener('wheel', onwheel, { passive: false })
+		el.addEventListener('touchstart', ontouchstart, { passive: false })
+		el.addEventListener('touchmove', ontouchmove, { passive: false })
+		el.addEventListener('touchend', ontouchend)
+		return () => {
+			el.removeEventListener('wheel', onwheel)
+			el.removeEventListener('touchstart', ontouchstart)
+			el.removeEventListener('touchmove', ontouchmove)
+			el.removeEventListener('touchend', ontouchend)
+		}
 	})
 
 	function onwheel(e: WheelEvent) {
@@ -86,12 +107,22 @@
 	// Touch support
 	let pinchLastDist: number | null = null
 	let lastPanMid: { x: number; y: number } | null = null
+	const TAP_SLOP = 8 // px of movement before a 1-finger touch becomes a pan (else it's a tap)
+	let t1: { x: number; y: number; sx: number; sy: number; panning: boolean } | null = null
 
 	function ontouchstart(e: TouchEvent) {
 		if (e.touches.length === 2) {
+			t1 = null
 			const [a, b] = e.touches
 			pinchLastDist = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY)
 			lastPanMid = { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 }
+			return
+		}
+		if (e.touches.length === 1 && singleTouchPan) {
+			if (canPanAt && !canPanAt(e.target)) { t1 = null; return } // on a device → its own drag handles it
+			e.preventDefault() // own this touch: suppress synthesized mouse (no stray click); drive pan/tap
+			const t = e.touches[0]
+			t1 = { x: t.clientX, y: t.clientY, sx: t.clientX, sy: t.clientY, panning: false }
 		}
 	}
 
@@ -101,19 +132,32 @@
 			const [a, b] = e.touches
 			const newMid = { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 }
 			const dist = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY)
-			view.x -= (newMid.x - lastPanMid.x) / view.zoom
-			view.y -= (newMid.y - lastPanMid.y) / view.zoom
+			// Two-finger pan: move the content WITH the fingers (raw px, same as the mouse drag).
+			pan(newMid.x - lastPanMid.x, newMid.y - lastPanMid.y)
 			lastPanMid = newMid
 			const scaleFactor = dist / pinchLastDist
 			pinchLastDist = dist
 			zoomTarget = Math.min(5, Math.max(0.1, zoomTarget * scaleFactor))
-			const rect = (e.target as HTMLElement).getBoundingClientRect()
-			startZoomAnimation({ x: (newMid.x - rect.left) / view.zoom + view.x, y: (newMid.y - rect.top) / view.zoom + view.y })
+			// Zoom about the finger midpoint (centre in canvas-local px, like mouseOffset).
+			const rect = canvas!.getBoundingClientRect()
+			startZoomAnimation({ x: newMid.x - rect.left, y: newMid.y - rect.top })
+			return
+		}
+		if (e.touches.length === 1 && t1) {
+			const t = e.touches[0]
+			if (!t1.panning && Math.hypot(t.clientX - t1.sx, t.clientY - t1.sy) >= TAP_SLOP) {
+				t1.panning = true; t1.x = t.clientX; t1.y = t.clientY
+			}
+			if (t1.panning) { e.preventDefault(); pan(t.clientX - t1.x, t.clientY - t1.y); t1.x = t.clientX; t1.y = t.clientY }
 		}
 	}
 
 	function ontouchend(e: TouchEvent) {
 		if (e.touches.length < 2) { pinchLastDist = null; lastPanMid = null }
+		if (e.touches.length === 0 && t1) {
+			if (!t1.panning) onBackgroundTap?.() // a tap (no drag) on empty background → e.g. deselect
+			t1 = null
+		}
 	}
 
 	function doZoom(e: WheelEvent) {
@@ -148,7 +192,7 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div {onmousedown} {oncontextmenu} {ontouchstart} {ontouchmove} {ontouchend}
+<div {onmousedown} {oncontextmenu}
 	bind:this={canvas} class="panzoom"
 	style="width:{width}px; height:{height}px; background-size:{gw}px {gw}px; background-position:left {gx}px top {gy}px">
 	<div style:transform="translate({view.x}px, {view.y}px) scale({view.zoom})" style:transform-origin="0 0">
@@ -160,6 +204,8 @@
 	.panzoom {
 		overflow: hidden;
 		position: relative;
+		/* Drive pan/pinch from JS — stop the browser intercepting the gesture (page zoom/scroll). */
+		touch-action: none;
 		background-image: linear-gradient(to right, #eee 1px, transparent 1px), linear-gradient(to bottom, #eee 1px, transparent 1px);
 	}
 	@media print {

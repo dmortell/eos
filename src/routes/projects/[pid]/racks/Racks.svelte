@@ -1075,7 +1075,9 @@
 				{#if canvasView === 'plan'}
 					<PlanToolbar mode={planMode} onchange={m => planMode = m} />
 				{/if}
-				<Canvas bind:view width={canvasWidth} height={canvasHeight}>
+				<Canvas bind:view width={canvasWidth} height={canvasHeight}
+					singleTouchPan canPanAt={(t) => !(t as Element | null)?.closest?.('.drag')}
+					onBackgroundTap={() => { if (!view.dragging) selectedIds = new Set() }}>
 					{#if canvasView === 'front' || canvasView === 'rear'}
 						<RackElevationRenderer {view} {settings} {activeRacks} {rearRacks} face={canvasView} {devices} {selectedIds} {dropGhost} {rackOverlaps} {editingLine}
 							floorLabel={fmt(floor)} roomLabel={roomLabel(room)}
