@@ -280,3 +280,67 @@ the cheap alternative to rendering tables to PDF (see 5h2 MAYBE).
        viewport id and resolve the current number via numberViewports() — the id→number map is ready.
 
 
+20. Risers
+
+Merge the sheets Riser renderer with our original risers tool renderer, they should both work the same way.
+
+Original tool looks better overall, with better riser handles. The thin borders on risers/cables/rooms look good. Cables can be selected by clicking on the cable. The sidebar with the room editor and cable list is clear.
+
+Sheets version allows dragging rooms to other floors and dragging to resize rooms which is good, but I dont like the circle handle for dragging the room, just make the whole room draggable.  The Edit window order of buttons is odd, with annotes between the edit cable select and the room editing form, this UX needs to be improved. The cable route hops works better than the original tool route editor.
+
+  20b. Need a tool (dialog box) for editing all floors of a building. To init the floors, the user should enter then number of floors above ground and below ground. Allow selection of the labeling format (L01 or 1F or 01F or others). User can then select which floors do not physically exist in the building (some countries do not use 4F or 13F - superstition). Then in riser viewports, user can select which floors to include, with unused/hidden floors represented with break lines/cut lines (https://graphicdesign.stackexchange.com/questions/45929/what-is-this-design-pattern-called-continuation-wave).
+
+  20c. Rare, but may need to support two or more buildings in one project. Example, we have a client with offices in two towers, with some neighboring floors connected by knocking down the connecting wall between them.
+
+
+21. Touch support for tools
+
+│                │ Has touch, but it's the old buggy version — the exact bugs I fixed in Sheets (2-finger │
+│ Racks          │  pan reversed + scaled by zoom, pinch not centred on the fingers) and no 1-finger pan. │
+│                │  (That's exactly what you're seeing.)                                                  │
+├────────────────┼────────────────────────────────────────────────────────────────────────────────────────┤
+│ Outlets        │ Same old buggy two-finger code (OutletCanvas.svelte).                                  │
+├────────────────┼────────────────────────────────────────────────────────────────────────────────────────┤
+│ Uploads        │ Same, in the PDF viewer.                                                               │
+├────────────────┼────────────────────────────────────────────────────────────────────────────────────────┤
+│ Frames /       │ No touch at all — mouse + wheel only, so nothing on iPad and the browser pinch-zooms   │
+│ Patching /     │ the whole page.                                                                        │
+│ Risers         │                                                                                        │
+├────────────────┼────────────────────────────────────────────────────────────────────────────────────────┤
+│ Surveys        │ The touch code there is the separate public /survey share feature, not the project     │
+│                │ tool.
+
+The two-finger pan/pinch bug fix is quick and identical across racks/outlets/uploads (they share the broken code). But 1-finger pan is per-tool: each needs its own "drag empty space = pan, drag an object = move" hit-test, and racks in particular drags devices via real touch handlers (Draggable.svelte), so I have to make sure 1-finger pan doesn't fight device dragging. So I'd do it tool-by-tool, not in one sweep.
+
+Note that the frames tool doesnt use pan/zoom.
+
+The racks Canvas has two extra problems vs Sheets: its touch handlers are declarative ({ontouchstart}), which Svelte registers as passive — so their e.preventDefault() is silently ignored — and .panzoom here has no touch-action: none, so the browser hijacks the gesture.
+Devices (.drag) call stopPropagation on touchstart, so device touches won't reach the Canvas — good, one-finger pan won't steal them.
+
+21a.
+  1. Racks only (first)
+     Fix racks now: correct the two-finger pan/pinch (same fix as Sheets) and add one-finger pan + tap-to-select / drag-to-move, taking care not to break device dragging. You reported this one; good pilot before touching the others.
+  2. Racks + Outlets + Uploads
+     All three canvases that already carry the buggy two-finger code. Two-finger fix is shared/quick; one-finger pan done per-tool with each tool's object hit-test. Larger, and untestable here — you'd verify each on the iPad.
+  3. All original tools
+     Above plus add touch from scratch to Frames / Patching / Risers (currently mouse-only). Biggest scope; several tools I can't verify on a device.
+  4. Just two-finger fix everywhere
+     Only correct the reversed/off-centre two-finger pan/pinch on racks/outlets/uploads (quick, low-risk, shared bug). Skip one-finger pan for now — revisit after you confirm two-finger feels right on the iPad.
+
+
+22. Rack elevations viewport
+
+The original racks tool looks better than the sheets viewport renderer.
+
+Racks tool - good features to replicate in viewport:
+* tick marks for RU labels
+* neat thin blue selection border (racks and devices) looks better than the thick border in VP
+* gray background fill of devices (when "color devices" is off)
+* Floor and ceiling heights should be constrained to intervals of 10mm
+* Enable rack selection by clicking the rack label. Maybe implement dragging to add space between racks (not intuitive?)
+* Sidebar rack list is good for selecting, dragging/re-ordering and deleting racks. Multi-select works
+* Row builder is useful (although difficult for new users to notice). But needs more options for rack heights (RU) and depths. Maybe move it out of sidebar, into a menu item.
+
+
+Racks viewport:
+* right-drag should not drag devices, it is for pan/zoom
