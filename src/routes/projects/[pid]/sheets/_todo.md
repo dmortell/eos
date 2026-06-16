@@ -372,10 +372,13 @@ What we tried (all pushed, still broken on device):
   - Added a main-thread polyfill (src/lib/url-parse-polyfill.ts, imported by src/hooks.client.ts
     and PdfState) — got getDocument() past its URL check.
   - pdfjs parses in a Web Worker (separate global). pdf.worker.mjs also calls URL.parse
-    (createValidAbsoluteUrl, lines ~397/401), so added a worker shim (src/lib/pdf-worker.ts) that
-    polyfills URL.parse in the worker then loads the stock worker, wired via
-    GlobalWorkerOptions.workerPort (one shared worker). Production build verified.
-  → After deploy, PDFs STILL don't display on the device.
+    (createValidAbsoluteUrl, lines ~397/401), so tried a worker shim that polyfills URL.parse in the
+    worker then loads the stock worker, wired via GlobalWorkerOptions.workerPort (one shared worker).
+  → REVERTED: workerPort has NO fake-worker fallback, so when that worker fails to init the PDF just
+    spins forever (seen on device, and a desktop risk). Back to stock GlobalWorkerOptions.workerSrc.
+    The main-thread polyfill (hooks.client + PdfState import) stays. iPad worker URL.parse unsolved.
+  → After deploy, PDFs STILL don't display on the device (with the stock worker: original URL.parse-
+    in-worker failure on old Safari).
 
 Next debugging ideas (need a real iPad + remote Safari Web Inspector from a Mac to see the console):
   - Confirm whether the polyfill actually runs on device (log in hooks.client / worker shim) and

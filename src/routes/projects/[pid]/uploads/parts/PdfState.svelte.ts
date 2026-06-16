@@ -2,10 +2,9 @@
 import '$lib/url-parse-polyfill' // main-thread URL.parse polyfill (old iPad Safari) — before pdfjs loads
 // @ts-ignore - pdfjs-dist has non-standard build paths
 let pdfjs: any = null
-// Our worker shim (polyfills URL.parse in the worker global, then loads the stock pdfjs worker).
-// @ts-ignore - Vite ?worker import
-import PdfWorker from '$lib/pdf-worker?worker'
-let workerPort: Worker | null = null
+// Vite resolves this to a hashed URL at build time - no manual /static copy needed
+// @ts-ignore
+import pdfjsWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
 export class PdfState {
 	pdfDoc = $state<any>(null)
@@ -21,8 +20,7 @@ export class PdfState {
 	async load(url: string) {
 		// @ts-ignore - pdfjs-dist uses non-standard build path
 		if (!pdfjs) pdfjs = await import('pdfjs-dist/build/pdf')
-		// Use our shim worker (one shared instance) so URL.parse is polyfilled inside the worker too.
-		if (!workerPort) { workerPort = new PdfWorker(); pdfjs.GlobalWorkerOptions.workerPort = workerPort }
+		pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl
 		this.pdfDoc = await pdfjs.getDocument({ cMapUrl: 'pdfjs-dist/cmaps/', cMapPacked: true, url }).promise
 		this.totalPages = this.pdfDoc.numPages
 		if (this.pageNum < 1 || this.pageNum > this.totalPages) this.pageNum = 1
