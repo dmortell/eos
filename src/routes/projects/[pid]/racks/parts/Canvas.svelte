@@ -138,9 +138,12 @@
 			const scaleFactor = dist / pinchLastDist
 			pinchLastDist = dist
 			zoomTarget = Math.min(5, Math.max(0.1, zoomTarget * scaleFactor))
-			// Zoom about the finger midpoint (centre in canvas-local px, like mouseOffset).
+			// Zoom about the finger midpoint (centre in canvas-local px, like mouseOffset). Apply
+			// INSTANTLY — the eased rAF animation, re-triggered every touchmove, makes pinch jump.
 			const rect = canvas!.getBoundingClientRect()
-			startZoomAnimation({ x: newMid.x - rect.left, y: newMid.y - rect.top })
+			if (zoomAnimation) { cancelAnimationFrame(zoomAnimation); zoomAnimation = null }
+			applyZoom(zoomTarget, { x: newMid.x - rect.left, y: newMid.y - rect.top })
+			view.zoom = zoomTarget
 			return
 		}
 		if (e.touches.length === 1 && t1) {
