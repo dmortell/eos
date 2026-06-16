@@ -99,7 +99,12 @@
 			fitToView()
 			loading = false
 			await tick()
+			// Non-passive so onTouchMove's preventDefault() works (declarative on:touch is passive,
+			// which silently ignored it — letting the browser pinch-zoom/scroll the page).
 			containerEl?.addEventListener('wheel', onWheel, { passive: false })
+			containerEl?.addEventListener('touchstart', onTouchStart, { passive: false })
+			containerEl?.addEventListener('touchmove', onTouchMove, { passive: false })
+			containerEl?.addEventListener('touchend', onTouchEnd)
 			if (canvasEl) await pdf.render({ canvas: canvasEl, page: 1, scale: RENDER_SCALE })
 			if (initialTool === 'origin' || initialTool === 'scale' || initialTool === 'crop') {
 				await tick()
@@ -113,6 +118,9 @@
 
 	onDestroy(() => {
 		containerEl?.removeEventListener('wheel', onWheel)
+		containerEl?.removeEventListener('touchstart', onTouchStart)
+		containerEl?.removeEventListener('touchmove', onTouchMove)
+		containerEl?.removeEventListener('touchend', onTouchEnd)
 		pdf?.destroy()
 	})
 
@@ -412,7 +420,9 @@
 			const [a, b] = e.touches
 			pinchLastDist = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY)
 			lastPanMid = { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 }
-		} else if (e.touches.length === 1) {
+		} else if (e.touches.length === 1 && !activeTool) {
+			// One-finger pans only when no calibration tool is active; with a tool active, one finger
+			// places/drags via synthesized mouse (origin/scale/crop handles).
 			panning = true
 			lastPanMid = { x: e.touches[0].clientX, y: e.touches[0].clientY }
 		}
@@ -439,6 +449,7 @@
 			vy = my - (my - vy) * s
 			zoom = newZoom
 		} else if (e.touches.length === 1 && panning && lastPanMid) {
+			e.preventDefault()
 			const t = e.touches[0]
 			vx += t.clientX - lastPanMid.x
 			vy += t.clientY - lastPanMid.y
@@ -639,10 +650,8 @@
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div bind:this={containerEl}
 			class="flex-1 overflow-hidden {activeTool ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}"
-			onmousedown={onMouseDown}
-			ontouchstart={onTouchStart}
-			ontouchmove={onTouchMove}
-			ontouchend={onTouchEnd}>
+			style:touch-action="none"
+			onmousedown={onMouseDown}>
 			<div style:transform="translate({vx}px, {vy}px) scale({zoom})" style:transform-origin="0 0" class="relative">
 				<canvas bind:this={canvasEl} class="shadow-2xl" style:filter={grayscale ? 'grayscale(0.8)' : 'none'}></canvas>
 

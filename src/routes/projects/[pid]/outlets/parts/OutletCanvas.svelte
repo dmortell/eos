@@ -372,13 +372,24 @@
 	$effect(() => {
 		if (containerEl && containerEl !== prevContainer) {
 			prevContainer?.removeEventListener('wheel', onWheel)
+			prevContainer?.removeEventListener('touchstart', onTouchStart)
+			prevContainer?.removeEventListener('touchmove', onTouchMove)
+			prevContainer?.removeEventListener('touchend', onTouchEnd)
+			// Non-passive so onTouchMove's preventDefault() works (declarative on:touch is passive,
+			// which silently ignored it — letting the browser pinch-zoom/scroll the page).
 			containerEl.addEventListener('wheel', onWheel, { passive: false })
+			containerEl.addEventListener('touchstart', onTouchStart, { passive: false })
+			containerEl.addEventListener('touchmove', onTouchMove, { passive: false })
+			containerEl.addEventListener('touchend', onTouchEnd)
 			prevContainer = containerEl
 		}
 	})
 
 	onDestroy(() => {
 		prevContainer?.removeEventListener('wheel', onWheel)
+		prevContainer?.removeEventListener('touchstart', onTouchStart)
+		prevContainer?.removeEventListener('touchmove', onTouchMove)
+		prevContainer?.removeEventListener('touchend', onTouchEnd)
 		document.removeEventListener('mousemove', onLegendDragMove)
 		document.removeEventListener('mouseup', onLegendDragUp)
 		document.removeEventListener('mousemove', onPaperDragMove)
@@ -1097,13 +1108,12 @@
 	let lastPanMid: { x: number; y: number } | null = null
 
 	function onTouchStart(e: TouchEvent) {
+		// Two-finger only: pan + pinch. One finger is left to synthesized mouse events so outlet/trunk
+		// selection and dragging keep working on touch (per-tool one-finger pan can come later).
 		if (e.touches.length === 2) {
 			const [a, b] = e.touches
 			pinchLastDist = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY)
 			lastPanMid = { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 }
-		} else if (e.touches.length === 1) {
-			panning = true
-			lastPanMid = { x: e.touches[0].clientX, y: e.touches[0].clientY }
 		}
 	}
 
@@ -1127,17 +1137,11 @@
 			vx = mx - (mx - vx) * s
 			vy = my - (my - vy) * s
 			zoom = newZoom
-		} else if (e.touches.length === 1 && panning && lastPanMid) {
-			const t = e.touches[0]
-			vx += t.clientX - lastPanMid.x
-			vy += t.clientY - lastPanMid.y
-			lastPanMid = { x: t.clientX, y: t.clientY }
 		}
 	}
 
 	function onTouchEnd(e: TouchEvent) {
-		if (e.touches.length < 2) pinchLastDist = null
-		if (e.touches.length === 0) { panning = false; lastPanMid = null }
+		if (e.touches.length < 2) { pinchLastDist = null; lastPanMid = null }
 	}
 
 	// ── Trunk drawing state ──
@@ -1658,13 +1662,11 @@
 		class="relative flex-1 overflow-hidden bg-gray-100 print-canvas-container print:overflow-visible print:bg-white
 			{(activeTool === 'outlet' && calibration && sidebarTab === 'outlets') || (activeTool === 'trunk' && calibration && sidebarTab === 'trunks') ? 'cursor-crosshair' : panning ? 'cursor-grabbing' : 'cursor-default'}
 			{dropTarget ? 'ring-2 ring-inset ring-blue-400 bg-blue-50/20' : ''}"
+		style:touch-action="none"
 		onmousedown={onMouseDown}
 		onmousemove={e => { if (activeTool === 'trunk' && drawingNodes.length > 0) handleTrunkMouseMove(e) }}
 		oncontextmenu={onTrunkContextMenu}
 		ondblclick={onCanvasDblClick}
-		ontouchstart={onTouchStart}
-		ontouchmove={onTouchMove}
-		ontouchend={onTouchEnd}
 		ondrop={onDrop}
 		ondragover={onDragOver}
 		ondragleave={onDragLeave}>

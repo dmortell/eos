@@ -295,6 +295,12 @@ Sheets version allows dragging rooms to other floors and dragging to resize room
 
 21. Touch support for tools
 
+STATUS: Racks ✅ (full: 2-finger pan/pinch + 1-finger pan/tap). Outlets ✅ + Uploads ✅ (2-finger
+pan/pinch fixed: non-passive listeners + touch-action:none; Uploads keeps 1-finger pan when no
+calibration tool active; Outlets is 2-finger-only — 1-finger left for outlet select/drag). Sheets ✅.
+TODO: Frames/Patching have no pan-zoom canvas (frames doesn't pan/zoom); Risers (sheets viewport) —
+revisit if needed. Per-tool 1-finger pan for outlets could follow later.
+
 │                │ Has touch, but it's the old buggy version — the exact bugs I fixed in Sheets (2-finger │
 │ Racks          │  pan reversed + scaled by zoom, pinch not centred on the fingers) and no 1-finger pan. │
 │                │  (That's exactly what you're seeing.)                                                  │
