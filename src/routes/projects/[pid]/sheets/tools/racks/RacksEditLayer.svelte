@@ -6,11 +6,13 @@
 	// is required because this layer is hosted via the render's {@render children} slot, which
 	// otherwise compiles these elements in the HTML namespace (inert, zero-size).
 	import { buildElevation, deviceBox, slotAtY, rackAtX } from './rack-layout'
+	import { RU_HEIGHT_MM } from './colors'
 	import type { RacksEditor } from './racks-editor.svelte'
-	import type { RackFace, DeviceConfig } from './types'
+	import type { RackFace, DeviceConfig, RackConfig } from './types'
 	let { editor, face, rowId = undefined, interactive = false, hidden = [], locked = [] }: { editor: RacksEditor; face: RackFace; rowId?: string; interactive?: boolean; hidden?: string[]; locked?: string[] } = $props()
 
 	const HL = '#06b6d4'
+	const SEL = '#3b82f6' // thin blue selection outline (matches the original racks tool)
 	// Devices live on the 'devices' layer; racks/rows on 'racks'. A hidden or locked layer is
 	// non-interactive (hidden objects aren't drawn, so they must not be selectable).
 	let offDevices = $derived(hidden.includes('devices') || locked.includes('devices'))
@@ -26,6 +28,7 @@
 	$effect(() => { editor.layout = { face, boxes: offDevices ? [] : boxes.map(b => ({ id: b.d.id, box: b.box })) } })
 
 	function dragDevice(d: DeviceConfig, e0: MouseEvent) {
+		if (e0.button !== 0) return // right/middle is pan/zoom — let it bubble to the canvas
 		e0.stopPropagation()
 		if (e0.ctrlKey || e0.metaKey) d = editor.duplicateDevice(d) // Ctrl-drag duplicates
 		else if (editor.inDeviceMulti(d.id)) { dragDeviceGroup(d, e0); return } // grabbed a marquee item
@@ -50,9 +53,18 @@
 	}
 
 	function downRow(row: { id: string }, e: MouseEvent, drag: (e: MouseEvent) => void) {
+		if (e.button !== 0) return // right/middle is pan/zoom
 		e.stopPropagation()
 		if (editor.inRowMulti(row.id)) { editor.beginGroupDrag(e); return }
 		editor.clearMulti(); editor.peer?.clearMulti(); drag(e)
+	}
+
+	const rackLabelMm = RU_HEIGHT_MM * 0.8 // matches the label size in RacksRender
+	function selectRack(rack: RackConfig, e: MouseEvent) {
+		if (e.button !== 0) return
+		e.stopPropagation()
+		editor.clearMulti(); editor.peer?.clearMulti()
+		editor.selectRack(rack.id)
 	}
 </script>
 
@@ -73,13 +85,23 @@
 {:else}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<g class="print:hidden">
+		{#each elev?.placements ?? [] as { rack, x, z } (rack.id)}
+			{#if !offRows}
+				<!-- Label band above the rack frame — click to select the rack (syncs the Racks window). -->
+				<rect x={x} y={elev!.Y(z + rack.heightMm) - rackLabelMm * 1.3} width={rack.widthMm} height={rackLabelMm * 1.3}
+					fill="transparent" style:pointer-events={rpe} style:cursor="pointer" onmousedown={(e: MouseEvent) => selectRack(rack, e)} />
+				{#if editor.selRack?.id === rack.id}
+					<rect x={x} y={elev!.Y(z + rack.heightMm)} width={rack.widthMm} height={rack.heightMm} fill="none" stroke={SEL} stroke-width="1" vector-effect="non-scaling-stroke" style:pointer-events="none" />
+				{/if}
+			{/if}
+		{/each}
 		{#each boxes as { d, box } (d.id)}
 			{#if !offDevices}
 				<rect x={box.x} y={box.y} width={box.w} height={box.h} fill="transparent"
 					style:pointer-events={dpe} style:cursor="move" onmousedown={(e: MouseEvent) => dragDevice(d, e)} />
 			{/if}
 			{#if (editor.selDeviceId === d.id || editor.inDeviceMulti(d.id)) && !offDevices}
-				<rect x={box.x} y={box.y} width={box.w} height={box.h} fill={editor.inDeviceMulti(d.id) ? `${HL}22` : 'none'} stroke={HL} stroke-width="1.5" vector-effect="non-scaling-stroke" style:pointer-events="none" />
+				<rect x={box.x} y={box.y} width={box.w} height={box.h} fill={editor.inDeviceMulti(d.id) ? `${SEL}1a` : 'none'} stroke={SEL} stroke-width="1" vector-effect="non-scaling-stroke" style:pointer-events="none" />
 			{/if}
 		{/each}
 	</g>

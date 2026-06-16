@@ -176,6 +176,9 @@
 				{#each Array.from({ length: rack.heightU }) as _, i (i)}
 					{@const u = i + 1}
 					{@const yc = Y(z + u * RU_HEIGHT_MM + RU_HEIGHT_MM / 2)}
+					<!-- RU tick marks beside the numbers (ruler-style, like the original racks tool) -->
+					<line x1={innerX - 20} y1={yc} x2={innerX - 8} y2={yc} stroke="#cbd5e1" stroke-width="0.3" vector-effect="non-scaling-stroke" />
+					<line x1={innerX + RACK_19IN_INNER + 8} y1={yc} x2={innerX + RACK_19IN_INNER + 20} y2={yc} stroke="#cbd5e1" stroke-width="0.3" vector-effect="non-scaling-stroke" />
 					<text x={innerX - 25} y={yc} text-anchor="end" dominant-baseline="middle" font-size={ruLabelMm} fill="#aaa" font-family="monospace">{u}</text>
 					<text x={innerX + RACK_19IN_INNER + 25} y={yc} text-anchor="start" dominant-baseline="middle" font-size={ruLabelMm} fill="#aaa" font-family="monospace">{u}</text>
 				{/each}
@@ -202,7 +205,7 @@
 					{#if colorDevices}
 						<rect x={dx} y={dyTop} width={devW} height={dh} fill="{color}33" stroke={color} stroke-width="0.5" vector-effect="non-scaling-stroke" />
 					{:else}
-						<rect x={dx} y={dyTop} width={devW} height={dh} fill="white" stroke="#888" stroke-width="0.4" vector-effect="non-scaling-stroke" />
+						<rect x={dx} y={dyTop} width={devW} height={dh} fill="#d8d8d8" stroke="#888" stroke-width="0.4" vector-effect="non-scaling-stroke" />
 					{/if}
 					{#if rotated}
 						<!-- Narrow devices (PDUs etc.): label runs bottom-to-top so it fits. -->

@@ -336,6 +336,14 @@ Devices (.drag) call stopPropagation on touchstart, so device touches won't reac
 
 22. Rack elevations viewport
 
+DONE (this pass): RU tick marks beside the numbers; thin BLUE selection border for devices (was thick
+cyan); grey device fill (#d8d8d8) when "color devices" is off; right/middle-drag no longer drags a
+device (it pans — guarded button!==0 in RacksEditLayer); rack selection by clicking the rack label
+(thin blue outline + syncs the Racks window).
+STILL TODO: floor/ceiling heights constrained to 10mm intervals (lives in the racks editor, not the
+sheets viewport); row builder more options + move out of sidebar to a menu; dragging to add space
+between racks. (These are original-racks-tool/editor changes, not the sheets viewport renderer.)
+
 The original racks tool looks better than the sheets viewport renderer.
 
 Racks tool - good features to replicate in viewport:
