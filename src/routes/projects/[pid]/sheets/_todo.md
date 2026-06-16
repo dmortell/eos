@@ -344,3 +344,32 @@ Racks tool - good features to replicate in viewport:
 
 Racks viewport:
 * right-drag should not drag devices, it is for pan/zoom
+
+
+23. PDFs do not display on iPad (real device) — STILL BROKEN, revisit
+
+Symptom: PDFs render fine in Chrome dev-tools "iPad Pro" mode but show nothing on a real iPad
+(uploads tool PDF viewer + outlet floorplan background, which both use uploads/parts/PdfState).
+Originally surfaced as "URL.parse is not a function".
+
+What we tried (all pushed, still broken on device):
+  - URL.parse is a 2024 static method missing on older iPad/iOS Safari/WebKit; Chrome device-mode
+    uses the desktop engine so it only fails on real hardware.
+  - Added a main-thread polyfill (src/lib/url-parse-polyfill.ts, imported by src/hooks.client.ts
+    and PdfState) — got getDocument() past its URL check.
+  - pdfjs parses in a Web Worker (separate global). pdf.worker.mjs also calls URL.parse
+    (createValidAbsoluteUrl, lines ~397/401), so added a worker shim (src/lib/pdf-worker.ts) that
+    polyfills URL.parse in the worker then loads the stock worker, wired via
+    GlobalWorkerOptions.workerPort (one shared worker). Production build verified.
+  → After deploy, PDFs STILL don't display on the device.
+
+Next debugging ideas (need a real iPad + remote Safari Web Inspector from a Mac to see the console):
+  - Confirm whether the polyfill actually runs on device (log in hooks.client / worker shim) and
+    whether the error is now gone or changed (could be a different missing API, not URL.parse).
+  - Check if the ?worker shim is even being used (workerPort path) vs a cached old bundle; verify
+    the deployed bundle hash changed.
+  - Suspect other modern-API gaps in pdfjs for that Safari version (e.g. Array.fromAsync,
+    structuredClone, OffscreenCanvas, ReadableStream BYOB) — pin the pdfjs-dist version vs the
+    iOS version; consider the pdfjs `legacy` build (targets older browsers) for the worker+main.
+  - Consider canvas/createImageBitmap or CORS/range-request issues fetching the PDF URL on device.
+  - As a fallback, try the legacy build: import 'pdfjs-dist/legacy/build/pdf' + legacy worker.
