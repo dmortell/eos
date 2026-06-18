@@ -1,5 +1,5 @@
 import { tick } from 'svelte'
-import { BASIS, PAPER, MIN_FRAME, type Axis, type Cuboid, type View } from './types'
+import { BASIS, PAPER, MIN_FRAME, type Axis, type Conduit, type Prism, type View } from './types'
 import { moveAlong, roundObj } from './projection'
 import { models as initialModels, initialViews } from './data'
 
@@ -27,6 +27,7 @@ export class Sheet {
 	activeId = $state<number | null>(null) // view whose contents are interactive (dblclick)
 	panViewId = $state<number | null>(null) // view in content pan/zoom mode
 	selectedObj = $state<{ viewId: number; index: number } | null>(null)
+	selectedVertex = $state<{ viewId: number; index: number; vi: number } | null>(null) // conduit path point
 	maximizedId = $state<number | null>(null) // view filling the whole content area
 
 	// Transient maximize camera.
@@ -58,6 +59,7 @@ export class Sheet {
 			this.selectedId = null
 			this.panViewId = null
 			this.selectedObj = null
+			this.selectedVertex = null
 		}
 		this.maybePanPage(e)
 	}
@@ -154,6 +156,7 @@ export class Sheet {
 		e.stopPropagation()
 		e.preventDefault()
 		this.selectedObj = { viewId: v.id, index }
+		this.selectedVertex = null
 		const o = this.modelFor(v)?.objects[index]
 		if (!o) return
 		const b = BASIS[v.direction]
@@ -185,18 +188,89 @@ export class Sheet {
 			const c = this.drawingAt(ev, v)
 			const ch = c.u * b.hs, cv = c.vv * b.vs // cursor in model-axis coords
 
-			if (o.type === 'polygon' && handle === 'radius') {
-				if (v.direction === 'plan') o.r = Math.max(MIN, Math.hypot(c.u - o.x, c.vv - o.y))
-				else o.h = Math.max(MIN, cv - o.z) // elevation: top handle edits height
-			} else if (o.type === 'wall' && handle.startsWith('p')) {
+			if (o.type === 'wall' && handle.startsWith('p')) {
 				if (v.direction === 'plan') { const k = +handle.slice(1); o.pts[k].x = c.u; o.pts[k].y = c.vv }
 				else o.h = Math.max(MIN, cv - o.z)
-			} else if (o.type === 'cuboid') {
+			} else if (o.type === 'prism') {
 				resizeBoxAxis(o, b.h, handle.includes('h1'), ch, MIN)
 				resizeBoxAxis(o, b.v, handle.includes('v1'), cv, MIN)
 			}
 			roundObj(o)
 		})
+	}
+
+	// ---- Conduit path editing ------------------------------------------
+	// Drag a path point along the two visible axes (depth unchanged).
+	private dragVertex(o: Conduit, vi: number, v: View) {
+		const b = BASIS[v.direction]
+		onDrag((ev) => {
+			const c = this.drawingAt(ev, v)
+			o.path[vi][b.h] = Math.round(c.u * b.hs)
+			o.path[vi][b.v] = Math.round(c.vv * b.vs)
+		})
+	}
+
+	startConduitVertex = (e: PointerEvent, v: View, index: number, vi: number) => {
+		if (e.button !== 0) return
+		e.stopPropagation()
+		e.preventDefault()
+		this.selectedObj = { viewId: v.id, index }
+		this.selectedVertex = { viewId: v.id, index, vi }
+		const o = this.modelFor(v)?.objects[index]
+		if (o?.type === 'conduit') this.dragVertex(o, vi, v)
+	}
+
+	// Insert a vertex at a segment midpoint, then drag it.
+	startInsert = (e: PointerEvent, v: View, index: number, seg: number) => {
+		if (e.button !== 0) return
+		e.stopPropagation()
+		e.preventDefault()
+		const o = this.modelFor(v)?.objects[index]
+		if (o?.type !== 'conduit') return
+		const a = o.path[seg], b2 = o.path[seg + 1]
+		o.path.splice(seg + 1, 0, {
+			x: Math.round((a.x + b2.x) / 2), y: Math.round((a.y + b2.y) / 2), z: Math.round((a.z + b2.z) / 2),
+		})
+		this.selectedObj = { viewId: v.id, index }
+		this.selectedVertex = { viewId: v.id, index, vi: seg + 1 }
+		this.dragVertex(o, seg + 1, v)
+	}
+
+	// Extend a new segment from an end vertex, then drag the new point.
+	startExtend = (e: PointerEvent, v: View, index: number, end: 'start' | 'end') => {
+		if (e.button !== 0) return
+		e.stopPropagation()
+		e.preventDefault()
+		const o = this.modelFor(v)?.objects[index]
+		if (o?.type !== 'conduit') return
+		const vi = end === 'end' ? o.path.length : 0
+		o.path.splice(vi, 0, { ...o.path[end === 'end' ? o.path.length - 1 : 0] })
+		this.selectedObj = { viewId: v.id, index }
+		this.selectedVertex = { viewId: v.id, index, vi }
+		this.dragVertex(o, vi, v)
+	}
+
+	deleteSelectedVertex = () => {
+		const sv = this.selectedVertex
+		if (!sv) return
+		const view = this.views.find((x) => x.id === sv.viewId)
+		const o = view && this.modelFor(view)?.objects[sv.index]
+		if (o?.type === 'conduit' && o.path.length > 2) {
+			o.path.splice(sv.vi, 1)
+			this.selectedVertex = null
+		}
+	}
+
+	isVertexSelected = (v: View, index: number, vi: number) =>
+		this.selectedVertex?.viewId === v.id && this.selectedVertex?.index === index && this.selectedVertex?.vi === vi
+
+	onKeyDown = (e: KeyboardEvent) => {
+		const t = e.target as HTMLElement | null
+		if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return
+		if ((e.key === 'Delete' || e.key === 'Backspace') && this.selectedVertex) {
+			e.preventDefault()
+			this.deleteSelectedVertex()
+		}
 	}
 
 	// ---- Move / resize the frame ---------------------------------------
@@ -296,7 +370,7 @@ export class Sheet {
 // Resize a cuboid along one model axis by dragging its near (far=false) or
 // far (far=true) edge to `cursor`; the opposite edge stays put.
 const BOX_DIM: Record<Axis, 'w' | 'd' | 'h'> = { x: 'w', y: 'd', z: 'h' }
-function resizeBoxAxis(o: Cuboid, axis: Axis, far: boolean, cursor: number, min: number) {
+function resizeBoxAxis(o: Prism, axis: Axis, far: boolean, cursor: number, min: number) {
 	const dimKey = BOX_DIM[axis]
 	let lo = o[axis], hi = o[axis] + o[dimKey]
 	if (far) hi = Math.max(cursor, lo + min)

@@ -4,10 +4,11 @@
 export type Pt = { x: number; y: number }
 export type Axis = 'x' | 'y' | 'z'
 
-// rect -> cuboid: an n-gon prism inscribed in the w×d footprint, extruded up
-// by h. With 4 edges it is the axis-aligned box; 16/24 read as a cylinder.
-export type Cuboid = {
-	type: 'cuboid'
+// Prism: an n-gon footprint inscribed in the w×d box [x..x+w]×[y..y+d],
+// extruded up from z by height h. 4 edges = axis-aligned box; 16/24 read as
+// a cylinder; non-square w/d give an elliptical/stadium prism.
+export type Prism = {
+	type: 'prism'
 	x: number; y: number; z: number
 	w: number; h: number; d: number
 	edges: number // 3..24
@@ -20,16 +21,16 @@ export type Wall = {
 	pts: Pt[]
 }
 
-// circle -> polygon: an n-gon footprint (center x,y, radius r) extruded
-// up from z by height h. 16/24 edges read as a cylinder; 4 as a cuboid.
-export type Polygon = {
-	type: 'polygon'
-	x: number; y: number; z: number
-	r: number; h: number
+// Conduit (sweep): an n-gon cross-section (w×h, edges) swept along a polyline
+// path. Axis-aligned segments. 4 edges = rectangular trunk; 16/24 = round pipe.
+export type Conduit = {
+	type: 'conduit'
+	path: { x: number; y: number; z: number }[]
+	w: number; h: number
 	edges: number // 3..24
 }
 
-export type Obj = Cuboid | Wall | Polygon
+export type Obj = Prism | Wall | Conduit
 export type Model = { id: number; name: string; objects: Obj[] }
 
 // ---- Views ------------------------------------------------------------

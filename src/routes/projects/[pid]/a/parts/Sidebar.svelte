@@ -9,7 +9,7 @@
 	{#if sheet.selectedObject}
 		{@const o = sheet.selectedObject.obj}
 		<h2 class="mb-2 font-semibold">Object — {o.type}</h2>
-		{#if o.type === 'cuboid'}
+		{#if o.type === 'prism'}
 			<div class="grid grid-cols-3 gap-2">
 				<label class="block"><span class="text-xs text-gray-500">X</span>
 					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.x} /></label>
@@ -23,21 +23,6 @@
 					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.h} /></label>
 				<label class="block"><span class="text-xs text-gray-500">D</span>
 					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.d} /></label>
-				<label class="block"><span class="text-xs text-gray-500">Edges</span>
-					<input type="number" min="3" max="24" class="w-full rounded border px-2 py-1" bind:value={o.edges} /></label>
-			</div>
-		{:else if o.type === 'polygon'}
-			<div class="grid grid-cols-3 gap-2">
-				<label class="block"><span class="text-xs text-gray-500">X</span>
-					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.x} /></label>
-				<label class="block"><span class="text-xs text-gray-500">Y</span>
-					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.y} /></label>
-				<label class="block"><span class="text-xs text-gray-500">Z</span>
-					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.z} /></label>
-				<label class="block"><span class="text-xs text-gray-500">Radius</span>
-					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.r} /></label>
-				<label class="block"><span class="text-xs text-gray-500">Height</span>
-					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.h} /></label>
 				<label class="block"><span class="text-xs text-gray-500">Edges</span>
 					<input type="number" min="3" max="24" class="w-full rounded border px-2 py-1" bind:value={o.edges} /></label>
 			</div>
@@ -55,6 +40,26 @@
 						<input type="number" class="w-full rounded border px-2 py-1" bind:value={p.x} /></label>
 					<label class="block"><span class="text-xs text-gray-500">Y{i + 1}</span>
 						<input type="number" class="w-full rounded border px-2 py-1" bind:value={p.y} /></label>
+				</div>
+			{/each}
+		{:else if o.type === 'conduit'}
+			<div class="mb-2 grid grid-cols-3 gap-2">
+				<label class="block"><span class="text-xs text-gray-500">W</span>
+					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.w} /></label>
+				<label class="block"><span class="text-xs text-gray-500">H</span>
+					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.h} /></label>
+				<label class="block"><span class="text-xs text-gray-500">Edges</span>
+					<input type="number" min="3" max="24" class="w-full rounded border px-2 py-1" bind:value={o.edges} /></label>
+			</div>
+			<p class="mb-1 text-xs text-gray-500">{o.path.length} points · Delete key removes the selected point</p>
+			{#each o.path as p, i (i)}
+				<div class="mb-1 grid grid-cols-3 gap-1">
+					<label class="block"><span class="text-xs text-gray-500">X{i + 1}</span>
+						<input type="number" class="w-full rounded border px-1 py-1" bind:value={p.x} /></label>
+					<label class="block"><span class="text-xs text-gray-500">Y{i + 1}</span>
+						<input type="number" class="w-full rounded border px-1 py-1" bind:value={p.y} /></label>
+					<label class="block"><span class="text-xs text-gray-500">Z{i + 1}</span>
+						<input type="number" class="w-full rounded border px-1 py-1" bind:value={p.z} /></label>
 				</div>
 			{/each}
 		{/if}

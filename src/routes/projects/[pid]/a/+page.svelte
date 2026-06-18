@@ -8,6 +8,8 @@
 	const sheet = new Sheet()
 </script>
 
+<svelte:window onkeydown={sheet.onKeyDown} />
+
 <div class="flex h-screen flex-col">
 	<div class="flex items-center gap-3 border-b px-3 py-2 print:hidden">
 		<h1 class="font-semibold">Sheet — A3 Landscape</h1>
