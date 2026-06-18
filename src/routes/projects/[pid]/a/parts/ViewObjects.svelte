@@ -2,7 +2,8 @@
 
 <script lang="ts">
 	import type { Sheet } from './sheet.svelte'
-	import { mx2paper, my2paper, type Obj, type View } from './types'
+	import { BASIS, u2paper, v2paper, type Obj, type View } from './types'
+	import { project, posAlong, sizeAlong } from './projection'
 
 	let { sheet, view, clickable }: { sheet: Sheet; view: View; clickable: boolean } = $props()
 
@@ -16,23 +17,44 @@
 
 	const HS = 2 // edit-handle size, paper mm
 
-	// Edit handles (paper coords) for the selected object, by type.
+	const px = (u: number, vv: number) => `${u2paper(view, u)},${v2paper(view, vv)}`
+
+	// Edit handles for the selected object, projected to paper coords.
 	type Handle = { hx: number; hy: number; cur: string; handle: string }
 	function handlesFor(o: Obj): Handle[] {
-		if (o.type === 'rect') {
-			return [
-				{ handle: 'nw', cur: 'nwse-resize', hx: o.x, hy: o.y },
-				{ handle: 'ne', cur: 'nesw-resize', hx: o.x + o.w, hy: o.y },
-				{ handle: 'sw', cur: 'nesw-resize', hx: o.x, hy: o.y + o.h },
-				{ handle: 'se', cur: 'nwse-resize', hx: o.x + o.w, hy: o.y + o.h },
-			].map((h) => ({ ...h, hx: mx2paper(view, h.hx), hy: my2paper(view, h.hy) }))
+		const b = BASIS[view.direction]
+		const dir = view.direction
+		const toPaper = (u: number, vv: number, cur: string, handle: string): Handle => ({
+			hx: u2paper(view, u), hy: v2paper(view, vv), cur, handle,
+		})
+
+		if (o.type === 'cuboid') {
+			const posH = posAlong(o, b.h), dimH = sizeAlong(o, b.h)
+			const posV = posAlong(o, b.v), dimV = sizeAlong(o, b.v)
+			const out: Handle[] = []
+			for (const h1 of [false, true]) for (const v1 of [false, true]) {
+				const u = b.hs * (posH + (h1 ? dimH : 0))
+				const vv = b.vs * (posV + (v1 ? dimV : 0))
+				const right = b.hs > 0 ? h1 : !h1
+				const top = v1 // vs is always +1
+				const cur = top === right ? 'nesw-resize' : 'nwse-resize'
+				out.push(toPaper(u, vv, cur, `box:${h1 ? 'h1' : 'h0'}:${v1 ? 'v1' : 'v0'}`))
+			}
+			return out
 		}
-		if (o.type === 'circle') {
-			return [{ handle: 'radius', cur: 'ew-resize', hx: mx2paper(view, o.x + o.r), hy: my2paper(view, o.y) }]
+
+		if (o.type === 'polygon') {
+			if (dir === 'plan') return [toPaper(b.hs * (o.x + o.r), b.vs * o.y, 'ew-resize', 'radius')]
+			// Elevation: a top handle that edits height.
+			const u = b.hs * (b.h === 'x' ? o.x : o.y)
+			return [toPaper(u, b.vs * (o.z + o.h), 'ns-resize', 'radius')]
 		}
-		return o.points.map((p, k) => ({
-			handle: `p${k}`, cur: 'move', hx: mx2paper(view, p.x), hy: my2paper(view, p.y),
-		}))
+
+		// wall
+		if (dir === 'plan') return o.pts.map((p, k) => toPaper(b.hs * p.x, b.vs * p.y, 'move', `p${k}`))
+		const f = o.pts[0]
+		const u = b.hs * (b.h === 'x' ? f.x : f.y)
+		return [toPaper(u, b.vs * (o.z + o.h), 'ns-resize', 'p0')]
 	}
 </script>
 
@@ -41,31 +63,27 @@
 		{@const sel = sheet.isObjectSelected(view, i)}
 		{@const stroke = sel ? '#2563eb' : '#000000'}
 		{@const sw = sel ? 0.8 : 0.4}
-		{#if o.type === 'line'}
-			<polyline
-				points={o.points.map((p) => `${mx2paper(view, p.x)},${my2paper(view, p.y)}`).join(' ')}
-				fill="none" {stroke} stroke-width={sw}
-				style="pointer-events:{pe};cursor:move"
-				role="button" tabindex="-1" aria-label="object"
-				onpointerdown={(e) => sheet.startObjectMove(e, view, i)}
-			/>
-		{:else if o.type === 'rect'}
-			<rect
-				x={mx2paper(view, o.x)} y={my2paper(view, o.y)}
-				width={o.w * view.scale} height={o.h * view.scale}
-				fill="none" {stroke} stroke-width={sw}
-				style="pointer-events:{pe};cursor:move"
-				role="button" tabindex="-1" aria-label="object"
-				onpointerdown={(e) => sheet.startObjectMove(e, view, i)}
-			/>
-		{:else if o.type === 'circle'}
-			<circle cx={mx2paper(view, o.x)} cy={my2paper(view, o.y)} r={o.r * view.scale}
-				fill="none" {stroke} stroke-width={sw}
-				style="pointer-events:{pe};cursor:move"
-				role="button" tabindex="-1" aria-label="object"
-				onpointerdown={(e) => sheet.startObjectMove(e, view, i)}
-			/>
-		{/if}
+		<g
+			role="button" tabindex="-1" aria-label="object"
+			style="cursor:move"
+			onpointerdown={(e) => sheet.startObjectMove(e, view, i)}
+		>
+			{#each project(o, view.direction) as s, si (si)}
+				{#if s.closed}
+					<polygon
+						points={s.pts.map((p) => px(p.u, p.v)).join(' ')}
+						fill="none" {stroke} stroke-width={sw}
+						style="pointer-events:{pe}"
+					/>
+				{:else}
+					<polyline
+						points={s.pts.map((p) => px(p.u, p.v)).join(' ')}
+						fill="none" {stroke} stroke-width={sw}
+						style="pointer-events:{pe}"
+					/>
+				{/if}
+			{/each}
+		</g>
 	{/each}
 
 	{#if selIdx !== null && m.objects[selIdx]}

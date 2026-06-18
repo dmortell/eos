@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Sheet } from './sheet.svelte'
+	import { DIRECTIONS } from './types'
 
 	let { sheet }: { sheet: Sheet } = $props()
 </script>
@@ -8,29 +9,45 @@
 	{#if sheet.selectedObject}
 		{@const o = sheet.selectedObject.obj}
 		<h2 class="mb-2 font-semibold">Object — {o.type}</h2>
-		{#if o.type === 'circle'}
-			<div class="grid grid-cols-2 gap-2">
+		{#if o.type === 'cuboid'}
+			<div class="grid grid-cols-3 gap-2">
 				<label class="block"><span class="text-xs text-gray-500">X</span>
 					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.x} /></label>
 				<label class="block"><span class="text-xs text-gray-500">Y</span>
 					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.y} /></label>
+				<label class="block"><span class="text-xs text-gray-500">Z</span>
+					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.z} /></label>
+				<label class="block"><span class="text-xs text-gray-500">W</span>
+					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.w} /></label>
+				<label class="block"><span class="text-xs text-gray-500">H</span>
+					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.h} /></label>
+				<label class="block"><span class="text-xs text-gray-500">D</span>
+					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.d} /></label>
+			</div>
+		{:else if o.type === 'polygon'}
+			<div class="grid grid-cols-3 gap-2">
+				<label class="block"><span class="text-xs text-gray-500">X</span>
+					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.x} /></label>
+				<label class="block"><span class="text-xs text-gray-500">Y</span>
+					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.y} /></label>
+				<label class="block"><span class="text-xs text-gray-500">Z</span>
+					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.z} /></label>
 				<label class="block"><span class="text-xs text-gray-500">Radius</span>
 					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.r} /></label>
+				<label class="block"><span class="text-xs text-gray-500">Height</span>
+					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.h} /></label>
+				<label class="block"><span class="text-xs text-gray-500">Edges</span>
+					<input type="number" min="3" max="24" class="w-full rounded border px-2 py-1" bind:value={o.edges} /></label>
 			</div>
-		{:else if o.type === 'rect'}
-			<div class="grid grid-cols-2 gap-2">
-				<label class="block"><span class="text-xs text-gray-500">X</span>
-					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.x} /></label>
-				<label class="block"><span class="text-xs text-gray-500">Y</span>
-					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.y} /></label>
-				<label class="block"><span class="text-xs text-gray-500">Width</span>
-					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.w} /></label>
+		{:else if o.type === 'wall'}
+			<div class="mb-2 grid grid-cols-2 gap-2">
+				<label class="block"><span class="text-xs text-gray-500">Base Z</span>
+					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.z} /></label>
 				<label class="block"><span class="text-xs text-gray-500">Height</span>
 					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.h} /></label>
 			</div>
-		{:else if o.type === 'line'}
-			<p class="mb-2 text-xs text-gray-500">{o.points.length} points</p>
-			{#each o.points as p, i (i)}
+			<p class="mb-1 text-xs text-gray-500">{o.pts.length} points</p>
+			{#each o.pts as p, i (i)}
 				<div class="mb-1 grid grid-cols-2 gap-2">
 					<label class="block"><span class="text-xs text-gray-500">X{i + 1}</span>
 						<input type="number" class="w-full rounded border px-2 py-1" bind:value={p.x} /></label>
@@ -39,7 +56,6 @@
 				</div>
 			{/each}
 		{/if}
-		<!-- <button class="mt-3 rounded border px-2 py-1 text-xs hover:bg-gray-100" onclick={() => (sheet.selectedObj = null)} >← Back to view</button> -->
 	{:else if sheet.selected}
 		{@const sel = sheet.selected}
 		{@const m = sheet.modelFor(sel)}
@@ -53,6 +69,14 @@
 			<select class="w-full rounded border px-2 py-1" bind:value={sel.modelId}>
 				{#each sheet.models as md (md.id)}
 					<option value={md.id}>{md.name}</option>
+				{/each}
+			</select>
+		</label>
+		<label class="mb-2 block">
+			<span class="text-xs text-gray-500">Direction</span>
+			<select class="w-full rounded border px-2 py-1 capitalize" bind:value={sel.direction}>
+				{#each DIRECTIONS as d (d)}
+					<option value={d}>{d}</option>
 				{/each}
 			</select>
 		</label>

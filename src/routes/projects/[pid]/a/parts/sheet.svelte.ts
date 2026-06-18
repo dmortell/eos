@@ -1,5 +1,6 @@
 import { tick } from 'svelte'
-import { PAPER, MIN_FRAME, type View } from './types'
+import { BASIS, PAPER, MIN_FRAME, type Axis, type Cuboid, type View } from './types'
+import { moveAlong } from './projection'
 import { models as initialModels, initialViews } from './data'
 
 /**
@@ -122,22 +123,32 @@ export class Sheet {
 	isObjectSelected = (v: View, index: number) =>
 		this.selectedObj?.viewId === v.id && this.selectedObj?.index === index
 
-	// Model coordinate under the cursor, for either the paper canvas or the
-	// maximized overlay (which uses the transient mtx/mty/mzoom camera).
-	private cursorModel(e: PointerEvent, v: View) {
+	// Paper coordinate under the cursor (paper canvas or maximized overlay).
+	private paperPoint(e: PointerEvent | WheelEvent, v: View) {
 		const rect = this.viewport!.getBoundingClientRect()
-		let paperX: number, paperY: number
 		if (this.maximizedId === v.id) {
-			paperX = v.fx + (e.clientX - rect.left - this.mtx) / this.mzoom
-			paperY = v.fy + (e.clientY - rect.top - this.mty) / this.mzoom
-		} else {
-			paperX = (e.clientX - rect.left - this.tx) / this.zoom
-			paperY = (e.clientY - rect.top - this.ty) / this.zoom
+			return {
+				x: v.fx + (e.clientX - rect.left - this.mtx) / this.mzoom,
+				y: v.fy + (e.clientY - rect.top - this.mty) / this.mzoom,
+			}
 		}
-		return { x: v.mx + (paperX - v.fx) / v.scale, y: v.my + (paperY - v.fy) / v.scale }
+		return {
+			x: (e.clientX - rect.left - this.tx) / this.zoom,
+			y: (e.clientY - rect.top - this.ty) / this.zoom,
+		}
 	}
 
-	// Click selects; drag moves the object within model space.
+	// Drawing-plane (u,v) coordinate under the cursor (v points up).
+	private drawingAt(e: PointerEvent | WheelEvent, v: View) {
+		const p = this.paperPoint(e, v)
+		return {
+			u: v.mx + (p.x - v.fx) / v.scale,
+			vv: v.my + (v.fy + v.fh - p.y) / v.scale,
+		}
+	}
+
+	// Click selects; drag moves the object in the projected plane. Horizontal
+	// drag edits the model axis shown horizontally, vertical the one shown up.
 	startObjectMove = (e: PointerEvent, v: View, index: number) => {
 		if (e.button !== 0) return
 		e.stopPropagation()
@@ -145,21 +156,19 @@ export class Sheet {
 		this.selectedObj = { viewId: v.id, index }
 		const o = this.modelFor(v)?.objects[index]
 		if (!o) return
-		const start = this.cursorModel(e, v)
-		const snap = structuredClone($state.snapshot(o))
+		const b = BASIS[v.direction]
+		const s = this.drawingAt(e, v)
+		let pu = s.u, pv = s.vv
 		onDrag((ev) => {
-			const cur = this.cursorModel(ev, v)
-			const dx = cur.x - start.x, dy = cur.y - start.y
-			if (snap.type === 'line' && o.type === 'line') {
-				o.points.forEach((p, k) => { p.x = snap.points[k].x + dx; p.y = snap.points[k].y + dy })
-			} else if (snap.type !== 'line' && o.type !== 'line') {
-				o.x = snap.x + dx; o.y = snap.y + dy
-			}
+			const c = this.drawingAt(ev, v)
+			moveAlong(o, b.h, (c.u - pu) * b.hs)
+			moveAlong(o, b.v, (c.vv - pv) * b.vs)
+			pu = c.u; pv = c.vv
 		})
 	}
 
-	// Drag an object handle to resize/reshape it. `handle` encodes the part:
-	// rect corners 'nw'|'ne'|'sw'|'se', circle 'radius', line points 'p<n>'.
+	// Drag an object handle. Handles live in the projected plane; `handle`:
+	// box corners 'box:<h0|h1>:<v0|v1>', polygon 'radius', wall vertex 'p<n>'.
 	startObjectResize = (e: PointerEvent, v: View, index: number, handle: string) => {
 		if (e.button !== 0) return
 		e.stopPropagation()
@@ -167,22 +176,21 @@ export class Sheet {
 		this.selectedObj = { viewId: v.id, index }
 		const o = this.modelFor(v)?.objects[index]
 		if (!o) return
+		const b = BASIS[v.direction]
 		const MIN = 1 // model mm
-		const r0 = o.type === 'rect' ? { l: o.x, t: o.y, r: o.x + o.w, b: o.y + o.h } : null
 		onDrag((ev) => {
-			const c = this.cursorModel(ev, v)
-			if (o.type === 'circle' && handle === 'radius') {
-				o.r = Math.max(MIN / 2, Math.hypot(c.x - o.x, c.y - o.y))
-			} else if (o.type === 'line' && handle.startsWith('p')) {
-				const k = +handle.slice(1)
-				o.points[k].x = c.x; o.points[k].y = c.y
-			} else if (o.type === 'rect' && r0) {
-				let { l, t, r, b } = r0
-				if (handle.includes('w')) l = Math.min(c.x, r - MIN)
-				if (handle.includes('e')) r = Math.max(c.x, l + MIN)
-				if (handle.includes('n')) t = Math.min(c.y, b - MIN)
-				if (handle.includes('s')) b = Math.max(c.y, t + MIN)
-				o.x = l; o.y = t; o.w = r - l; o.h = b - t
+			const c = this.drawingAt(ev, v)
+			const ch = c.u * b.hs, cv = c.vv * b.vs // cursor in model-axis coords
+
+			if (o.type === 'polygon' && handle === 'radius') {
+				if (v.direction === 'plan') o.r = Math.max(MIN, Math.hypot(c.u - o.x, c.vv - o.y))
+				else o.h = Math.max(MIN, cv - o.z) // elevation: top handle edits height
+			} else if (o.type === 'wall' && handle.startsWith('p')) {
+				if (v.direction === 'plan') { const k = +handle.slice(1); o.pts[k].x = c.u; o.pts[k].y = c.vv }
+				else o.h = Math.max(MIN, cv - o.z)
+			} else if (o.type === 'cuboid') {
+				resizeBoxAxis(o, b.h, handle.includes('h1'), ch, MIN)
+				resizeBoxAxis(o, b.v, handle.includes('v1'), cv, MIN)
 			}
 		})
 	}
@@ -219,38 +227,25 @@ export class Sheet {
 	}
 
 	// ---- In-frame content pan/zoom (edits the view's stored viewport) ---
-	// Paper coord under the cursor + screen-px-per-model-unit factor `k`.
-	private paperAt(e: PointerEvent | WheelEvent, v: View) {
-		const rect = this.viewport!.getBoundingClientRect()
-		return {
-			pxPaper: (e.clientX - rect.left - this.tx) / this.zoom,
-			pyPaper: (e.clientY - rect.top - this.ty) / this.zoom,
-			k: this.zoom * v.scale,
-		}
-	}
-
 	startContentPan = (e: PointerEvent, v: View) => {
 		if (e.button !== 0) return
 		e.stopPropagation()
 		e.preventDefault()
-		const omx = v.mx, omy = v.my
-		const sx = e.clientX, sy = e.clientY
-		const { k } = this.paperAt(e, v)
-		dragAbs(sx, sy, (tdx, tdy) => {
-			v.mx = omx - tdx / k
-			v.my = omy - tdy / k
+		const k = this.zoom * v.scale // screen px per drawing unit
+		drag(e, (dx, dy) => {
+			v.mx -= dx / k // pan horizontally
+			v.my += dy / k // y-up: dragging down increases my
 		})
 	}
 
 	contentZoom = (e: WheelEvent, v: View) => {
 		e.preventDefault()
 		e.stopPropagation()
-		const { pxPaper, pyPaper } = this.paperAt(e, v)
-		const mxAt = v.mx + (pxPaper - v.fx) / v.scale
-		const myAt = v.my + (pyPaper - v.fy) / v.scale
+		const at = this.drawingAt(e, v) // drawing coord under cursor (kept fixed)
+		const p = this.paperPoint(e, v)
 		v.scale = clamp(v.scale * wheelFactor(e), 0.05, 50)
-		v.mx = mxAt - (pxPaper - v.fx) / v.scale
-		v.my = myAt - (pyPaper - v.fy) / v.scale
+		v.mx = at.u - (p.x - v.fx) / v.scale
+		v.my = at.vv - (v.fy + v.fh - p.y) / v.scale
 	}
 
 	// ---- Maximize (transient model-space camera) -----------------------
@@ -294,6 +289,18 @@ export class Sheet {
 }
 
 // ---- Small shared helpers ----------------------------------------------
+// Resize a cuboid along one model axis by dragging its near (far=false) or
+// far (far=true) edge to `cursor`; the opposite edge stays put.
+const BOX_DIM: Record<Axis, 'w' | 'd' | 'h'> = { x: 'w', y: 'd', z: 'h' }
+function resizeBoxAxis(o: Cuboid, axis: Axis, far: boolean, cursor: number, min: number) {
+	const dimKey = BOX_DIM[axis]
+	let lo = o[axis], hi = o[axis] + o[dimKey]
+	if (far) hi = Math.max(cursor, lo + min)
+	else lo = Math.min(cursor, hi - min)
+	o[axis] = lo
+	o[dimKey] = hi - lo
+}
+
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n))
 const wheelFactor = (e: WheelEvent) => (e.deltaY < 0 ? 1.1 : 1 / 1.1)
 
