@@ -73,8 +73,50 @@ function bboxRect(pts: { u: number; v: number }[]): Shape {
 	}
 }
 
+// Isometric projection (z up). Maps a 3D point to drawing-plane (u, v-up).
+const ISO_C = Math.cos(Math.PI / 6), ISO_S = Math.sin(Math.PI / 6)
+const iso = (p: P3) => ({ u: ISO_C * (p.x - p.y), v: p.z - ISO_S * (p.x + p.y) })
+
+type Seg = [P3, P3]
+const ringEdges = (ring: P3[]): Seg[] => ring.map((p, i) => [p, ring[(i + 1) % ring.length]])
+
+// 3D wireframe edges of an object (for the isometric view).
+function edges3d(o: Obj): Seg[] {
+	if (o.type === 'prism') {
+		const bot = boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z)
+		const top = boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z + o.h)
+		const segs: Seg[] = [...ringEdges(bot), ...ringEdges(top)]
+		for (let i = 0; i < bot.length; i++) segs.push([bot[i], top[i]])
+		return segs
+	}
+	if (o.type === 'wall') {
+		const base = o.pts.map((p) => ({ x: p.x, y: p.y, z: o.z }))
+		const top = o.pts.map((p) => ({ x: p.x, y: p.y, z: o.z + o.h }))
+		const segs: Seg[] = []
+		for (let i = 0; i < base.length - 1; i++) { segs.push([base[i], base[i + 1]]); segs.push([top[i], top[i + 1]]) }
+		for (let i = 0; i < base.length; i++) segs.push([base[i], top[i]])
+		return segs
+	}
+	// conduit: a tube wireframe per segment (cross-section rings + connectors)
+	const segs: Seg[] = []
+	const cs = crossSection(o.w, o.h, o.edges)
+	for (let i = 0; i < o.path.length - 1; i++) {
+		const p1 = o.path[i], p2 = o.path[i + 1]
+		const [pa, pb] = PERP[dominantAxis(p1, p2)]
+		const ring = (p: P3) => cs.map((c) => { const w3: P3 = { x: p.x, y: p.y, z: p.z }; w3[pa] += c.da; w3[pb] += c.db; return w3 })
+		const r1 = ring(p1), r2 = ring(p2)
+		segs.push(...ringEdges(r1), ...ringEdges(r2))
+		for (let k = 0; k < r1.length; k++) segs.push([r1[k], r2[k]])
+	}
+	return segs
+}
+
 // Project an object to one or more drawing-plane outlines for the direction.
 export function project(o: Obj, dir: Dir): Shape[] {
+	if (dir === 'iso') {
+		return edges3d(o).map((s) => ({ closed: false, pts: [iso(s[0]), iso(s[1])] }))
+	}
+
 	if (o.type === 'prism') {
 		if (dir === 'plan') {
 			return [{ closed: true, pts: boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z).map((p) => proj(dir, p)) }]

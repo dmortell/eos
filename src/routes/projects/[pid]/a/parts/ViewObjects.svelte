@@ -8,12 +8,14 @@
 	let { sheet, view, clickable }: { sheet: Sheet; view: View; clickable: boolean } = $props()
 
 	const m = $derived(sheet.modelFor(view))
-	const pe = $derived(clickable ? 'stroke' : 'none')
+	// The 3D (iso) view is display-only — no in-plane object editing.
+	const editable = $derived(clickable && view.direction !== 'iso')
+	const pe = $derived(editable ? 'stroke' : 'none')
 	const b = $derived(BASIS[view.direction])
 
-	// Index of the selected object in this view (editable only while clickable).
+	// Index of the selected object in this view (editable only while editable).
 	const selIdx = $derived(
-		clickable && sheet.selectedObj?.viewId === view.id ? sheet.selectedObj.index : null,
+		editable && sheet.selectedObj?.viewId === view.id ? sheet.selectedObj.index : null,
 	)
 
 	const HS = 2 // edit-handle size, paper mm

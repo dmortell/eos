@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Sheet } from './sheet.svelte'
-	import { DIRECTIONS } from './types'
+	import { DIRECTIONS, DIR_LABEL } from './types'
 
 	let { sheet }: { sheet: Sheet } = $props()
 </script>
@@ -86,7 +86,7 @@
 					<button
 						class="rounded border px-2 py-1 text-xs capitalize {sel.direction === d ? 'border-blue-600 bg-blue-600 text-white' : 'hover:bg-gray-100'}"
 						onclick={() => (sel.direction = d)}
-					>{d}</button>
+					>{DIR_LABEL[d]}</button>
 				{/each}
 			</div>
 		</div>
