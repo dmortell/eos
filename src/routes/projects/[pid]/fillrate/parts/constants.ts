@@ -11,9 +11,13 @@ export interface Section {
 	diameter: number
 	width: number
 	height: number
+	thickness: number  // wall thickness (mm) — subtracted from width/height to get usable inner area (rectangular only)
 	calcMethod: 'rectangular' | 'circular'
 	cables: Cable[]
 }
+
+// Default wall thickness (mm) for rectangular containment when a section predates the field.
+export const DEFAULT_THICKNESS = 3
 
 export interface FillRateData {
 	id: string
@@ -31,6 +35,7 @@ export function createSection(label: string): Section {
 		diameter: 50,
 		width: 50,
 		height: 30,
+		thickness: DEFAULT_THICKNESS,
 		calcMethod: 'rectangular',
 		cables: [
 			{ id: '1', diameter: 8, quantity: 10 },
@@ -45,10 +50,15 @@ export function formatLabel(n: number): string {
 
 export function calcFillRate(section: Section): number {
 	const { containmentType, diameter, width, height, calcMethod, cables } = section
-	const r = diameter / 2
-	const containmentArea = containmentType === 'round'
-		? Math.PI * r * r
-		: width * height
+	let containmentArea: number
+	if (containmentType === 'round') {
+		const r = diameter / 2
+		containmentArea = Math.PI * r * r
+	} else {
+		// Rectangular: subtract the wall thickness from each side to get the usable inner area.
+		const t = section.thickness ?? DEFAULT_THICKNESS
+		containmentArea = Math.max(0, width - 2 * t) * Math.max(0, height - 2 * t)
+	}
 
 	const cablesArea = cables.reduce((sum, cable) => {
 		if (calcMethod === 'rectangular') {

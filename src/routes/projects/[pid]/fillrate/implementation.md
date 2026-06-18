@@ -67,8 +67,9 @@ interface Section {
   label: string            // e.g. "FR-001", user-editable
   containmentType: 'rectangular' | 'round'
   diameter: number         // mm (round)
-  width: number            // mm (rectangular)
-  height: number           // mm (rectangular)
+  width: number            // mm (rectangular, outer)
+  height: number           // mm (rectangular, outer)
+  thickness: number        // mm wall thickness (rectangular) — subtracted from each side for usable inner area
   calcMethod: 'rectangular' | 'circular'
   cables: Cable[]
 }

@@ -16,7 +16,8 @@
       "Bash(git commit -m ' *)",
       "Bash(git switch *)",
       "Bash(git merge *)",
-      "Bash(git branch *)"
+      "Bash(git branch *)",
+      "PowerShell(pnpm check 2>&1)"
     ]
   }
 }

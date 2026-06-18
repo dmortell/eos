@@ -70,7 +70,8 @@
 			{#if packed.shape === 'round'}
 				<circle cx="0" cy="0" r={packed.radius} fill="#eff6ff" stroke="#1e40af" stroke-width="0.6" vector-effect="non-scaling-stroke" />
 			{:else}
-				<rect x={-packed.width / 2} y={-packed.height / 2} width={packed.width} height={packed.height} fill="#eff6ff" stroke="#1e40af" stroke-width="0.6" vector-effect="non-scaling-stroke" />
+				<rect x={-packed.width / 2} y={-packed.height / 2} width={packed.width} height={packed.height} fill="#dbeafe" stroke="#1e40af" stroke-width="0.6" vector-effect="non-scaling-stroke" />
+				<rect x={-packed.innerWidth / 2} y={-packed.innerHeight / 2} width={packed.innerWidth} height={packed.innerHeight} fill="#eff6ff" stroke="#60a5fa" stroke-width="0.4" vector-effect="non-scaling-stroke" />
 			{/if}
 			{#each packed.cables as c, i (i)}
 				<circle cx={c.x} cy={c.y} r={c.r} fill={fillCableColor(packed.fillRate)} stroke="#000" stroke-width="0.3" vector-effect="non-scaling-stroke" />

@@ -2,7 +2,7 @@
 	import { Button } from '$lib'
 	import { formNav } from '$lib/formNav'
 	import type { Section } from './constants'
-	import { calcFillRate, fillColor, fillStatus } from './constants'
+	import { calcFillRate, fillColor, fillStatus, DEFAULT_THICKNESS } from './constants'
 
 	let { section, canMoveUp = false, canMoveDown = false, onchange, onmoveup, onmovedown }: {
 		section: Section
@@ -72,6 +72,11 @@
 			<label class="text-xs text-gray-500">
 				Height (mm)
 				<input type="number" min="1" bind:value={section.height} oninput={changed} />
+			</label>
+			<label class="text-xs text-gray-500" title="Wall thickness — subtracted from each side to get the usable inner area">
+				Wall (mm)
+				<input type="number" min="0" step="0.5" value={section.thickness ?? DEFAULT_THICKNESS}
+					oninput={e => { section.thickness = +e.currentTarget.value; changed() }} />
 			</label>
 		</div>
 	{/if}

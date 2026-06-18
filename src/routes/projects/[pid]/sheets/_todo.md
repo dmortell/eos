@@ -390,3 +390,31 @@ Next debugging ideas (need a real iPad + remote Safari Web Inspector from a Mac 
     iOS version; consider the pdfjs `legacy` build (targets older browsers) for the worker+main.
   - Consider canvas/createImageBitmap or CORS/range-request issues fetching the PDF URL on device.
   - As a fallback, try the legacy build: import 'pdfjs-dist/legacy/build/pdf' + legacy worker.
+
+
+
+Risers
+
+20b — Building floors setup dialog (medium, high value)
+A dialog to define the building's floors: enter # of floors above/below ground, pick a label format (L01 / 1F / 01F / …), mark floors that don't physically exist (e.g. no 4F/13F), then per riser viewport choose which floors to include — with hidden floors shown as break/cut lines. Self-contained dialog + a floor model on the project doc; unblocks proper riser drawings.
+
+Surveys
+
+9 — Surveys photo/marker UX (large, distinct area)
+Rework the non-intuitive survey flow: on user enter a description and markposition + direction on an expandable floorplan minimap (selectable floors), and reorder photos for the
+report. Biggest of these and its own domf.
+
+Outlets
+                                                                                                             5b3 — Outlets list + Excel export (mediu
+Bring the outlets list + Excel export into Sheets as a sidebar/menu (explicitly not in the viewport). Reuses the existing standalone tool's export lort a usable data view.
+
+Elevations
+
+5d5 — Draw trunks in elevations (medium)
+Let the user draw horizontal + vertical trunks in a rack elevation to add detail to the floorplan trunks.
+Extends the racks elevation editor with
+
+Shared / refactor
+
+5b6 — Unify the rack property editors (m
+Fold the three rack property editors (Sheets viewport / outlets tool / racks tool) into one shared component, keeping all advanced functionality. Cutss the racks-viewport parity work (item22) you're doing.  

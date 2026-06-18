@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Section } from './constants'
-	import { calcFillRate } from './constants'
+	import { calcFillRate, DEFAULT_THICKNESS } from './constants'
 
 	let { section, size = 400 }: { section: Section; size?: number } = $props()
 
@@ -9,7 +9,7 @@
 
 	$effect(() => {
 		// Track all reactive deps
-		const { containmentType, diameter, width, height, cables, calcMethod } = section
+		const { containmentType, diameter, width, height, thickness, cables, calcMethod } = section
 		if (containmentType && cables && canvas) draw()
 	})
 
@@ -55,18 +55,31 @@
 			ctx.fill()
 
 			ctx.fillStyle = '#374151'
-			ctx.fillText(`\u00D8 ${section.diameter}mm`, centerX - 130, canvas.height - 20)
+			ctx.fillText(`\u00D8 ${section.diameter}mm`, centerX - 130, canvas.height - 25)
 			ctx.fillText(`Fill: ${fillRate.toFixed(1)}%`, centerX + 130, canvas.height - 20)
 		} else {
+			const t = section.thickness ?? DEFAULT_THICKNESS
 			const w = containmentWidth * scaleFactor
 			const h = containmentHeight * scaleFactor
-			ctx.fillStyle = '#eff6ff'
+			const iw = Math.max(0, containmentWidth - 2 * t) * scaleFactor
+			const ih = Math.max(0, containmentHeight - 2 * t) * scaleFactor
+
+			// Outer wall
+			ctx.fillStyle = '#dbeafe'
 			ctx.fillRect(centerX - w / 2, centerY - h / 2, w, h)
 			ctx.strokeRect(centerX - w / 2, centerY - h / 2, w, h)
+			// Inner usable area
+			ctx.fillStyle = '#eff6ff'
+			ctx.fillRect(centerX - iw / 2, centerY - ih / 2, iw, ih)
+			ctx.save()
+			ctx.lineWidth = 1
+			ctx.strokeStyle = '#60a5fa'
+			ctx.strokeRect(centerX - iw / 2, centerY - ih / 2, iw, ih)
+			ctx.restore()
 
 			ctx.fillStyle = '#374151'
-			ctx.fillText(`${section.width} \u00D7 ${section.height}mm`, centerX - w / 2 + 50, centerY + h / 2 + 20)
-			ctx.fillText(`Fill: ${fillRate.toFixed(1)}%`,               centerX + w / 2 - 50, centerY + h / 2 + 20)
+			ctx.fillText(`${section.width} \u00D7 ${section.height}mm (t${t})`, centerX - w / 2 + 55, centerY + h / 2 + 15)
+			ctx.fillText(`Fill: ${fillRate.toFixed(1)}%`,                        centerX + w / 2 - 50, centerY + h / 2 + 15)
 		}
 
 		// Build individual cable instances
@@ -112,12 +125,13 @@
 					}
 				}
 			} else {
-				const w = containmentWidth * scaleFactor
-				const h = containmentHeight * scaleFactor
-				const left = centerX - w / 2
-				const right = centerX + w / 2
-				const bottom = centerY + h / 2
-				const top = centerY - h / 2
+				const t = section.thickness ?? DEFAULT_THICKNESS
+				const iw = Math.max(0, containmentWidth - 2 * t) * scaleFactor
+				const ih = Math.max(0, containmentHeight - 2 * t) * scaleFactor
+				const left = centerX - iw / 2
+				const right = centerX + iw / 2
+				const bottom = centerY + ih / 2
+				const top = centerY - ih / 2
 				const groundY = bottom - radius
 				for (let testY = groundY; testY >= top + radius && !placed; testY -= 0.5) {
 					for (let testX = left + radius; testX <= right - radius; testX += 1) {
