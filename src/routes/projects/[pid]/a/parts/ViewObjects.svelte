@@ -3,7 +3,7 @@
 <script lang="ts">
 	import type { Sheet } from './sheet.svelte'
 	import { BASIS, u2paper, v2paper, type Conduit, type Obj, type View } from './types'
-	import { project, posAlong, sizeAlong } from './projection'
+	import { project, posAlong, sizeAlong, faces3d, isoR, isoDepthR, xyCenter } from './projection'
 
 	let { sheet, view, clickable }: { sheet: Sheet; view: View; clickable: boolean } = $props()
 
@@ -18,8 +18,19 @@
 		editable && sheet.selectedObj?.viewId === view.id ? sheet.selectedObj.index : null,
 	)
 
-	const HS = 2 // edit-handle size, paper mm
+	// Effective px-per-paper-unit (paper canvas vs maximized overlay), so hit
+	// areas and handles can be sized in screen pixels regardless of zoom.
+	const ppu = $derived(sheet.maximizedId === view.id ? sheet.mzoom : sheet.zoom)
+	const HS = $derived(7 / ppu) // handle square ≈ 7px
+	const HSW = $derived(1 / ppu) // handle stroke ≈ 1px
+	const HIT = $derived(10 / ppu) // line hit-area ≈ 10px wide
+	const RI = $derived(2 / ppu) // insert handle radius
+	const RE = $derived(2.4 / ppu) // extend handle radius
 	const ENDS = ['start', 'end'] as const
+
+	// Iso orbit: yaw angle + pivot (model x-y center).
+	const yaw = $derived(view.yaw ?? 0)
+	const pivot = $derived(m ? xyCenter(m.objects) : { cx: 0, cy: 0 })
 
 	const px = (u: number, vv: number) => `${u2paper(view, u)},${v2paper(view, vv)}`
 
@@ -31,6 +42,22 @@
 	const mid3 = (a: { x: number; y: number; z: number }, c: typeof a) => ({
 		x: (a.x + c.x) / 2, y: (a.y + c.y) / 2, z: (a.z + c.z) / 2,
 	})
+	// Iso hidden-line render: all model faces, sorted far→near (painter's),
+	// drawn opaque so nearer faces occlude hidden edges behind them.
+	const isoFaces = $derived.by(() => {
+		if (!m) return []
+		const out: { pts: string; depth: number }[] = []
+		for (const o of m.objects) for (const f of faces3d(o)) {
+			out.push({
+				pts: f.pts.map((p) => { const q = isoR(p, yaw, pivot.cx, pivot.cy); return px(q.u, q.v) }).join(' '),
+				// Sort by the farthest vertex (not centroid): a big flat face then
+				// can't wrongly occlude a small object sitting on/above it.
+				depth: Math.max(...f.pts.map((p) => isoDepthR(p, yaw, pivot.cx, pivot.cy))),
+			})
+		}
+		return out.sort((a, b) => b.depth - a.depth)
+	})
+
 	// "+" extend handle just beyond an end vertex, along the end segment.
 	function extendPaper(o: Conduit, end: 'start' | 'end') {
 		const n = o.path.length
@@ -75,6 +102,12 @@
 </script>
 
 {#if m}
+	{#if view.direction === 'iso' && sheet.hiddenLines}
+		<!-- hidden-line view: opaque faces, far→near -->
+		{#each isoFaces as f, i (i)}
+			<polygon points={f.pts} fill="#ffffff" stroke="#000000" stroke-width="0.4" style="pointer-events:none" />
+		{/each}
+	{:else}
 	{#each m.objects as o, i (i)}
 		{@const sel = sheet.isObjectSelected(view, i)}
 		{@const stroke = sel ? '#2563eb' : '#000000'}
@@ -84,19 +117,17 @@
 			style="cursor:move"
 			onpointerdown={(e) => sheet.startObjectMove(e, view, i)}
 		>
-			{#each project(o, view.direction) as s, si (si)}
+			{#each project(o, view.direction, yaw, pivot.cx, pivot.cy) as s, si (si)}
+				{@const pts = s.pts.map((p) => px(p.u, p.v)).join(' ')}
 				{#if s.closed}
-					<polygon
-						points={s.pts.map((p) => px(p.u, p.v)).join(' ')}
-						fill="none" {stroke} stroke-width={sw}
-						style="pointer-events:{pe}"
-					/>
+					<!-- wide transparent hit area so thin lines are easy to click -->
+					<polygon points={pts} fill="none" stroke="transparent" stroke-width={HIT}
+						stroke-linejoin="round" style="pointer-events:{pe}" />
+					<polygon points={pts} fill="none" {stroke} stroke-width={sw} style="pointer-events:none" />
 				{:else}
-					<polyline
-						points={s.pts.map((p) => px(p.u, p.v)).join(' ')}
-						fill="none" {stroke} stroke-width={sw}
-						style="pointer-events:{pe}"
-					/>
+					<polyline points={pts} fill="none" stroke="transparent" stroke-width={HIT}
+						stroke-linejoin="round" stroke-linecap="round" style="pointer-events:{pe}" />
+					<polyline points={pts} fill="none" {stroke} stroke-width={sw} style="pointer-events:none" />
 				{/if}
 			{/each}
 		</g>
@@ -109,8 +140,8 @@
 			{#each so.path.slice(0, -1) as _p, si (si)}
 				{@const mp = projPaper(mid3(so.path[si], so.path[si + 1]))}
 				<circle
-					class="ihandle" cx={mp.hx} cy={mp.hy} r="1.2"
-					style="pointer-events:all;cursor:copy"
+					class="ihandle" cx={mp.hx} cy={mp.hy} r={RI}
+					style="pointer-events:all;cursor:copy;stroke-width:{HSW}"
 					role="button" tabindex="-1" aria-label="insert point"
 					onpointerdown={(e) => sheet.startInsert(e, view, selIdx, si)}
 				/>
@@ -119,8 +150,8 @@
 			{#each ENDS as end (end)}
 				{@const ep = extendPaper(so, end)}
 				<circle
-					class="ehandle" cx={ep.hx} cy={ep.hy} r="1.5"
-					style="pointer-events:all;cursor:crosshair"
+					class="ehandle" cx={ep.hx} cy={ep.hy} r={RE}
+					style="pointer-events:all;cursor:crosshair;stroke-width:{HSW}"
 					role="button" tabindex="-1" aria-label="extend"
 					onpointerdown={(e) => sheet.startExtend(e, view, selIdx, end)}
 				/>
@@ -131,7 +162,7 @@
 				<rect
 					class="vhandle {sheet.isVertexSelected(view, selIdx, vi) ? 'sel' : ''}"
 					x={pp.hx - HS / 2} y={pp.hy - HS / 2} width={HS} height={HS}
-					style="pointer-events:all;cursor:move"
+					style="pointer-events:all;cursor:move;stroke-width:{HSW}"
 					role="button" tabindex="-1" aria-label="vertex"
 					onpointerdown={(e) => sheet.startConduitVertex(e, view, selIdx, vi)}
 				/>
@@ -141,12 +172,13 @@
 				<rect
 					class="ohandle"
 					x={h.hx - HS / 2} y={h.hy - HS / 2} width={HS} height={HS}
-					style="pointer-events:all;cursor:{h.cur}"
+					style="pointer-events:all;cursor:{h.cur};stroke-width:{HSW}"
 					role="button" tabindex="-1" aria-label="resize"
 					onpointerdown={(e) => sheet.startObjectResize(e, view, selIdx, h.handle)}
 				/>
 			{/each}
 		{/if}
+	{/if}
 	{/if}
 {/if}
 

@@ -23,6 +23,7 @@
 	ondblclick={() => { if (!active) sheet.activate(view) }}
 	onpointerdown={(e) => {
 		if (panMode) { sheet.startContentPan(e, view); return }
+		if (view.direction === 'iso' && e.button === 0) { sheet.startIsoRotate(e, view); return }
 		if (active && e.button === 0) { e.stopPropagation(); sheet.selectedObj = null }
 	}}
 	onwheel={(e) => { if (panMode) sheet.contentZoom(e, view) }}

@@ -51,6 +51,7 @@ export type View = {
 	direction: Dir
 	fx: number; fy: number; fw: number; fh: number
 	mx: number; my: number; scale: number
+	yaw?: number // iso view: orbit angle around the vertical axis (radians)
 }
 
 // View basis: which model axis maps to screen-horizontal (u) and

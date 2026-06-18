@@ -17,7 +17,13 @@
       "Bash(git switch *)",
       "Bash(git merge *)",
       "Bash(git branch *)",
-      "PowerShell(pnpm check 2>&1)"
+      "PowerShell(pnpm check 2>&1)",
+      "mcp__playwright__browser_resize",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_console_messages",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_evaluate"
     ]
   }
 }

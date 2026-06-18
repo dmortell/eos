@@ -30,6 +30,8 @@ export class Sheet {
 	selectedVertex = $state<{ viewId: number; index: number; vi: number } | null>(null) // conduit path point
 	maximizedId = $state<number | null>(null) // view filling the whole content area
 
+	hiddenLines = $state(false) // iso view: occlude hidden edges (painter's algorithm)
+
 	// Transient maximize camera.
 	mtx = $state(0)
 	mty = $state(0)
@@ -324,6 +326,15 @@ export class Sheet {
 		v.scale = clamp(v.scale * wheelFactor(e), 0.05, 50)
 		v.mx = at.u - (p.x - v.fx) / v.scale
 		v.my = at.vv - (v.fy + v.fh - p.y) / v.scale
+	}
+
+	// Drag the iso view to orbit the model around its vertical (z) axis.
+	startIsoRotate = (e: PointerEvent, v: View) => {
+		if (e.button !== 0) return
+		e.stopPropagation()
+		e.preventDefault()
+		this.selectedId = v.id
+		drag(e, (dx) => { v.yaw = (v.yaw ?? 0) + dx * 0.01 })
 	}
 
 	// ---- Maximize (transient model-space camera) -----------------------

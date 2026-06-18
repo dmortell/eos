@@ -73,9 +73,36 @@ function bboxRect(pts: { u: number; v: number }[]): Shape {
 	}
 }
 
-// Isometric projection (z up). Maps a 3D point to drawing-plane (u, v-up).
+// Isometric projection (z up, bird's-eye: +x and +y recede upward). Maps a
+// 3D point to drawing-plane (u, v-up).
 const ISO_C = Math.cos(Math.PI / 6), ISO_S = Math.sin(Math.PI / 6)
-const iso = (p: P3) => ({ u: ISO_C * (p.x - p.y), v: p.z - ISO_S * (p.x + p.y) })
+export const iso = (p: P3) => ({ u: ISO_C * (p.x - p.y), v: p.z + ISO_S * (p.x + p.y) })
+
+// Painter's-algorithm depth key: smaller = nearer the viewer (draw last/on top).
+export const isoDepth = (p: P3) => p.x + p.y - p.z
+
+// Rotate a point around the vertical (z) axis through (cx,cy) by `yaw`, then
+// iso-project — i.e. orbit the camera around the vertical axis.
+function rotZ(p: P3, yaw: number, cx: number, cy: number): P3 {
+	const c = Math.cos(yaw), s = Math.sin(yaw)
+	const dx = p.x - cx, dy = p.y - cy
+	return { x: cx + dx * c - dy * s, y: cy + dx * s + dy * c, z: p.z }
+}
+export const isoR = (p: P3, yaw: number, cx: number, cy: number) => iso(rotZ(p, yaw, cx, cy))
+export const isoDepthR = (p: P3, yaw: number, cx: number, cy: number) => isoDepth(rotZ(p, yaw, cx, cy))
+
+// Center of all objects' x-y bounding box (the orbit pivot).
+export function xyCenter(objects: Obj[]) {
+	let minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity
+	const ext = (x: number, y: number) => { minx = Math.min(minx, x); maxx = Math.max(maxx, x); miny = Math.min(miny, y); maxy = Math.max(maxy, y) }
+	for (const o of objects) {
+		if (o.type === 'prism') { ext(o.x, o.y); ext(o.x + o.w, o.y + o.d) }
+		else if (o.type === 'wall') o.pts.forEach((p) => ext(p.x, p.y))
+		else o.path.forEach((p) => ext(p.x, p.y))
+	}
+	if (minx === Infinity) return { cx: 0, cy: 0 }
+	return { cx: (minx + maxx) / 2, cy: (miny + maxy) / 2 }
+}
 
 type Seg = [P3, P3]
 const ringEdges = (ring: P3[]): Seg[] => ring.map((p, i) => [p, ring[(i + 1) % ring.length]])
@@ -111,10 +138,48 @@ function edges3d(o: Obj): Seg[] {
 	return segs
 }
 
+// 3D faces of an object (for hidden-line / solid rendering in the iso view).
+export type Face = { pts: P3[] }
+export function faces3d(o: Obj): Face[] {
+	if (o.type === 'prism') {
+		const bot = boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z)
+		const top = boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z + o.h)
+		const faces: Face[] = [{ pts: bot }, { pts: [...top].reverse() }]
+		for (let i = 0; i < bot.length; i++) { const j = (i + 1) % bot.length; faces.push({ pts: [bot[i], bot[j], top[j], top[i]] }) }
+		return faces
+	}
+	if (o.type === 'wall') {
+		const faces: Face[] = []
+		for (let i = 0; i < o.pts.length - 1; i++) {
+			const a = o.pts[i], b = o.pts[i + 1]
+			faces.push({ pts: [
+				{ x: a.x, y: a.y, z: o.z }, { x: b.x, y: b.y, z: o.z },
+				{ x: b.x, y: b.y, z: o.z + o.h }, { x: a.x, y: a.y, z: o.z + o.h },
+			] })
+		}
+		return faces
+	}
+	// conduit: tube side faces per segment + end caps
+	const faces: Face[] = []
+	const cs = crossSection(o.w, o.h, o.edges)
+	const last = o.path.length - 2
+	for (let s = 0; s < o.path.length - 1; s++) {
+		const p1 = o.path[s], p2 = o.path[s + 1]
+		const [pa, pb] = PERP[dominantAxis(p1, p2)]
+		const ring = (p: P3) => cs.map((c) => { const w3: P3 = { x: p.x, y: p.y, z: p.z }; w3[pa] += c.da; w3[pb] += c.db; return w3 })
+		const r1 = ring(p1), r2 = ring(p2)
+		for (let i = 0; i < r1.length; i++) { const j = (i + 1) % r1.length; faces.push({ pts: [r1[i], r1[j], r2[j], r2[i]] }) }
+		if (s === 0) faces.push({ pts: [...r1].reverse() })
+		if (s === last) faces.push({ pts: r2 })
+	}
+	return faces
+}
+
 // Project an object to one or more drawing-plane outlines for the direction.
-export function project(o: Obj, dir: Dir): Shape[] {
+// For iso, `yaw`/`cx`/`cy` orbit the model around the vertical axis.
+export function project(o: Obj, dir: Dir, yaw = 0, cx = 0, cy = 0): Shape[] {
 	if (dir === 'iso') {
-		return edges3d(o).map((s) => ({ closed: false, pts: [iso(s[0]), iso(s[1])] }))
+		return edges3d(o).map((s) => ({ closed: false, pts: [isoR(s[0], yaw, cx, cy), isoR(s[1], yaw, cx, cy)] }))
 	}
 
 	if (o.type === 'prism') {

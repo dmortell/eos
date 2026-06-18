@@ -11,7 +11,9 @@ export const models: Model[] = [
 			{ type: 'wall', z: 0, h: 30, pts: [{ x: 80, y: 40 }, { x: 80, y: 140 }] },
 			{ type: 'prism', x: 125, y: 65, z: 0, w: 50, d: 50, h: 40, edges: 16 },
 			{ type: 'conduit', w: 10, h: 10, edges: 16, path: [
-				{ x: 10, y: 110, z: 25 }, { x: 120, y: 110, z: 25 }, { x: 120, y: 110, z: 5 },
+				{ x: 10, y: 60, z: 60 }, { x: 120, y: 60, z: 60 },
+				{ x: 120, y: 60, z: 80},
+				{ x: 120, y: 160, z: 80},
 			] },
 		],
 	},
@@ -26,7 +28,7 @@ export const models: Model[] = [
 ]
 
 export const initialViews: View[] = [
-	{ id: 1, modelId: 1, name: '33F plan', direction: 'plan', fx: 20, fy: 20, fw: 240, fh: 95, mx: -10, my: -10, scale: 1 },
+	{ id: 1, modelId: 1, name: '33F plan', direction: 'plan', fx: 20, fy: 20, fw: 240, fh: 125, mx: -10, my: 5, scale: .8 },
 	{ id: 2, modelId: 1, name: '33F — 3D', direction: 'iso', fx: 290, fy: 20, fw: 110, fh: 257, mx: -160, my: -210, scale: 0.3 },
-	{ id: 3, modelId: 1, name: '33F front', direction: 'front', fx: 20, fy: 125, fw: 240, fh: 95, mx: -10, my: -10, scale: 1 },
+	{ id: 3, modelId: 1, name: '33F front', direction: 'front', fx: 20, fy: 155, fw: 240, fh: 125, mx: -10, my: -10, scale: 1 },
 ]
