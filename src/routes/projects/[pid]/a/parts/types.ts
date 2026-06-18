@@ -4,11 +4,13 @@
 export type Pt = { x: number; y: number }
 export type Axis = 'x' | 'y' | 'z'
 
-// rect -> cuboid (axis-aligned box).
+// rect -> cuboid: an n-gon prism inscribed in the w×d footprint, extruded up
+// by h. With 4 edges it is the axis-aligned box; 16/24 read as a cylinder.
 export type Cuboid = {
 	type: 'cuboid'
 	x: number; y: number; z: number
 	w: number; h: number; d: number
+	edges: number // 3..24
 }
 
 // line -> wall: a base polyline (x,y) extruded up from z by height h.

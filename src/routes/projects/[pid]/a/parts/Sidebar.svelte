@@ -23,6 +23,8 @@
 					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.h} /></label>
 				<label class="block"><span class="text-xs text-gray-500">D</span>
 					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.d} /></label>
+				<label class="block"><span class="text-xs text-gray-500">Edges</span>
+					<input type="number" min="3" max="24" class="w-full rounded border px-2 py-1" bind:value={o.edges} /></label>
 			</div>
 		{:else if o.type === 'polygon'}
 			<div class="grid grid-cols-3 gap-2">
@@ -72,14 +74,17 @@
 				{/each}
 			</select>
 		</label>
-		<label class="mb-2 block">
+		<div class="mb-2 block">
 			<span class="text-xs text-gray-500">Direction</span>
-			<select class="w-full rounded border px-2 py-1 capitalize" bind:value={sel.direction}>
+			<div class="mt-1 flex flex-wrap gap-1">
 				{#each DIRECTIONS as d (d)}
-					<option value={d}>{d}</option>
+					<button
+						class="rounded border px-2 py-1 text-xs capitalize {sel.direction === d ? 'border-blue-600 bg-blue-600 text-white' : 'hover:bg-gray-100'}"
+						onclick={() => (sel.direction = d)}
+					>{d}</button>
 				{/each}
-			</select>
-		</label>
+			</div>
+		</div>
 		<label class="mb-2 block">
 			<span class="text-xs text-gray-500">Scale (px/mm)</span>
 			<input type="number" step="0.1" class="w-full rounded border px-2 py-1" bind:value={sel.scale} />

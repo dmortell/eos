@@ -1,6 +1,6 @@
 import { tick } from 'svelte'
 import { BASIS, PAPER, MIN_FRAME, type Axis, type Cuboid, type View } from './types'
-import { moveAlong } from './projection'
+import { moveAlong, roundObj } from './projection'
 import { models as initialModels, initialViews } from './data'
 
 /**
@@ -157,13 +157,16 @@ export class Sheet {
 		const o = this.modelFor(v)?.objects[index]
 		if (!o) return
 		const b = BASIS[v.direction]
-		const s = this.drawingAt(e, v)
-		let pu = s.u, pv = s.vv
+		const start = this.drawingAt(e, v)
+		// Apply whole-mm steps relative to the start so a slow drag never stalls.
+		let appliedH = 0, appliedV = 0
 		onDrag((ev) => {
 			const c = this.drawingAt(ev, v)
-			moveAlong(o, b.h, (c.u - pu) * b.hs)
-			moveAlong(o, b.v, (c.vv - pv) * b.vs)
-			pu = c.u; pv = c.vv
+			const dh = Math.round((c.u - start.u) * b.hs)
+			const dv = Math.round((c.vv - start.vv) * b.vs)
+			moveAlong(o, b.h, dh - appliedH)
+			moveAlong(o, b.v, dv - appliedV)
+			appliedH = dh; appliedV = dv
 		})
 	}
 
@@ -192,6 +195,7 @@ export class Sheet {
 				resizeBoxAxis(o, b.h, handle.includes('h1'), ch, MIN)
 				resizeBoxAxis(o, b.v, handle.includes('v1'), cv, MIN)
 			}
+			roundObj(o)
 		})
 	}
 
