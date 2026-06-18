@@ -39,10 +39,7 @@
 				</div>
 			{/each}
 		{/if}
-		<button
-			class="mt-3 rounded border px-2 py-1 text-xs hover:bg-gray-100"
-			onclick={() => (sheet.selectedObj = null)}
-		>← Back to view</button>
+		<!-- <button class="mt-3 rounded border px-2 py-1 text-xs hover:bg-gray-100" onclick={() => (sheet.selectedObj = null)} >← Back to view</button> -->
 	{:else if sheet.selected}
 		{@const sel = sheet.selected}
 		{@const m = sheet.modelFor(sel)}

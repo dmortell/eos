@@ -52,12 +52,27 @@ export class Sheet {
 	// ---- Page canvas ----------------------------------------------------
 	onCanvasPointerDown = (e: PointerEvent) => {
 		if (e.button === 0) {
+			// A single click outside deselects, but keeps any active view active —
+			// only a double-click outside (below) deactivates it.
 			this.selectedId = null
-			this.activeId = null
 			this.panViewId = null
 			this.selectedObj = null
 		}
 		this.maybePanPage(e)
+	}
+
+	// Double-clicking outside the active view's frame deactivates it.
+	onCanvasDblClick = (e: MouseEvent) => {
+		const v = this.views.find((vw) => vw.id === this.activeId)
+		if (!v || !this.viewport) return
+		const rect = this.viewport.getBoundingClientRect()
+		const px = (e.clientX - rect.left - this.tx) / this.zoom
+		const py = (e.clientY - rect.top - this.ty) / this.zoom
+		const inside = px >= v.fx && px <= v.fx + v.fw && py >= v.fy && py <= v.fy + v.fh
+		if (!inside) {
+			this.activeId = null
+			this.selectedObj = null
+		}
 	}
 
 	// Pan the page with right/middle button. Tracks incrementally so a
@@ -104,14 +119,73 @@ export class Sheet {
 		this.selectedObj = null
 	}
 
-	selectObject = (e: PointerEvent, v: View, index: number) => {
-		if (e.button !== 0) return
-		e.stopPropagation()
-		this.selectedObj = { viewId: v.id, index }
-	}
-
 	isObjectSelected = (v: View, index: number) =>
 		this.selectedObj?.viewId === v.id && this.selectedObj?.index === index
+
+	// Model coordinate under the cursor, for either the paper canvas or the
+	// maximized overlay (which uses the transient mtx/mty/mzoom camera).
+	private cursorModel(e: PointerEvent, v: View) {
+		const rect = this.viewport!.getBoundingClientRect()
+		let paperX: number, paperY: number
+		if (this.maximizedId === v.id) {
+			paperX = v.fx + (e.clientX - rect.left - this.mtx) / this.mzoom
+			paperY = v.fy + (e.clientY - rect.top - this.mty) / this.mzoom
+		} else {
+			paperX = (e.clientX - rect.left - this.tx) / this.zoom
+			paperY = (e.clientY - rect.top - this.ty) / this.zoom
+		}
+		return { x: v.mx + (paperX - v.fx) / v.scale, y: v.my + (paperY - v.fy) / v.scale }
+	}
+
+	// Click selects; drag moves the object within model space.
+	startObjectMove = (e: PointerEvent, v: View, index: number) => {
+		if (e.button !== 0) return
+		e.stopPropagation()
+		e.preventDefault()
+		this.selectedObj = { viewId: v.id, index }
+		const o = this.modelFor(v)?.objects[index]
+		if (!o) return
+		const start = this.cursorModel(e, v)
+		const snap = structuredClone($state.snapshot(o))
+		onDrag((ev) => {
+			const cur = this.cursorModel(ev, v)
+			const dx = cur.x - start.x, dy = cur.y - start.y
+			if (snap.type === 'line' && o.type === 'line') {
+				o.points.forEach((p, k) => { p.x = snap.points[k].x + dx; p.y = snap.points[k].y + dy })
+			} else if (snap.type !== 'line' && o.type !== 'line') {
+				o.x = snap.x + dx; o.y = snap.y + dy
+			}
+		})
+	}
+
+	// Drag an object handle to resize/reshape it. `handle` encodes the part:
+	// rect corners 'nw'|'ne'|'sw'|'se', circle 'radius', line points 'p<n>'.
+	startObjectResize = (e: PointerEvent, v: View, index: number, handle: string) => {
+		if (e.button !== 0) return
+		e.stopPropagation()
+		e.preventDefault()
+		this.selectedObj = { viewId: v.id, index }
+		const o = this.modelFor(v)?.objects[index]
+		if (!o) return
+		const MIN = 1 // model mm
+		const r0 = o.type === 'rect' ? { l: o.x, t: o.y, r: o.x + o.w, b: o.y + o.h } : null
+		onDrag((ev) => {
+			const c = this.cursorModel(ev, v)
+			if (o.type === 'circle' && handle === 'radius') {
+				o.r = Math.max(MIN / 2, Math.hypot(c.x - o.x, c.y - o.y))
+			} else if (o.type === 'line' && handle.startsWith('p')) {
+				const k = +handle.slice(1)
+				o.points[k].x = c.x; o.points[k].y = c.y
+			} else if (o.type === 'rect' && r0) {
+				let { l, t, r, b } = r0
+				if (handle.includes('w')) l = Math.min(c.x, r - MIN)
+				if (handle.includes('e')) r = Math.max(c.x, l + MIN)
+				if (handle.includes('n')) t = Math.min(c.y, b - MIN)
+				if (handle.includes('s')) b = Math.max(c.y, t + MIN)
+				o.x = l; o.y = t; o.w = r - l; o.h = b - t
+			}
+		})
+	}
 
 	// ---- Move / resize the frame ---------------------------------------
 	startFrameMove = (e: PointerEvent, v: View) => {
@@ -242,6 +316,17 @@ function drag(e: PointerEvent, onMove: (dx: number, dy: number) => void) {
 // Absolute pointer drag: calls `onMove` with total screen deltas from the start.
 function dragAbs(sx: number, sy: number, onMove: (dx: number, dy: number) => void) {
 	const move = (ev: PointerEvent) => onMove(ev.clientX - sx, ev.clientY - sy)
+	const up = () => {
+		window.removeEventListener('pointermove', move)
+		window.removeEventListener('pointerup', up)
+	}
+	window.addEventListener('pointermove', move)
+	window.addEventListener('pointerup', up)
+}
+
+// Pointer drag passing the raw move event (for callers that re-map coordinates).
+function onDrag(onMove: (ev: PointerEvent) => void) {
+	const move = (ev: PointerEvent) => onMove(ev)
 	const up = () => {
 		window.removeEventListener('pointermove', move)
 		window.removeEventListener('pointerup', up)

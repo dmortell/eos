@@ -22,8 +22,9 @@
 		<div
 			bind:this={sheet.viewport}
 			role="application"
-			class="relative min-w-0 flex-1 overflow-hidden bg-gray-200 print:overflow-visible print:bg-white"
+			class="relative min-w-0 flex-1 select-none overflow-hidden bg-gray-200 print:overflow-visible print:bg-white"
 			onpointerdown={sheet.onCanvasPointerDown}
+			ondblclick={sheet.onCanvasDblClick}
 			onwheel={sheet.onWheel}
 			oncontextmenu={(e) => e.preventDefault()}
 		>
