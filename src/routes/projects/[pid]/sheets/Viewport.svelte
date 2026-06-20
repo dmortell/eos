@@ -301,39 +301,35 @@
 		</div>
 	{/if}
 	<!-- Frame toolbar (top-right corner of the frame): scale readout + (when active) a content
-	     pan/zoom toggle and the model-mode button. Everything is sized in `em` off one
-	     counter-scaled font-size (and a 1/zoom border) so the whole control stays a constant
-	     on-screen size and alignment at any canvas zoom — no reflow, hairline border. -->
+	     pan/zoom toggle and the model-mode button. Rendered at NATURAL size and scaled by 1/zoom
+	     (transform-origin top-right) to neutralise the canvas's scale(zoom): the browser rasterises
+	     at full resolution, so the control is crisp and constant on-screen at any zoom. -->
 	{#if selected || active}
-		{@const ic = 13 / zoom}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="absolute right-1 top-1 flex items-stretch overflow-hidden rounded-[0.42em] border-slate-300 bg-white/95 print:hidden"
-			style:pointer-events="auto"
-			style:font-size="{11 / zoom}px"
-			style:border-width="{1 / zoom}px"
-			style:height="{22 / zoom}px"
-		>
-			<!-- Scale: opens a Dialog (reads at normal font size, unlike a counter-scaled native select). -->
-			<button class="flex items-center gap-[0.3em] px-[0.55em] font-medium text-zinc-700 hover:bg-zinc-100" title="Set viewport scale"
-				onmousedown={e => e.stopPropagation()} onclick={e => { e.stopPropagation(); openScaleDialog() }}>
-				<span class="tabular-nums">{scaleText}</span>
-				<Icon size={ic * 0.85} name="chevronDown" />
-			</button>
-			{#if active}
-				<span class="my-[0.25em] w-0 self-stretch border-l border-slate-200" style:border-left-width="{1 / zoom}px"></span>
-				<button class={['flex items-center px-[0.5em]', navContent ? 'bg-blue-600 text-white' : 'text-zinc-600 hover:bg-zinc-100']}
-					title="Pan/zoom viewport content (middle/right-drag + wheel)"
-					onclick={e => { e.stopPropagation(); navContent = !navContent }}><Icon size={ic} name="move" /></button>
-				{#if onmodel}
-					<span class="my-[0.25em] w-0 self-stretch border-l border-slate-200" style:border-left-width="{1 / zoom}px"></span>
-					<button class="flex items-center px-[0.5em] text-blue-600 hover:bg-zinc-100" title="Open in model mode"
-						onclick={e => { e.stopPropagation(); onmodel?.(vp.id) }}><Icon size={ic} name="expand" /></button>
+		<div class="absolute right-0 top-0 origin-top-right print:hidden" style:transform="scale({1 / zoom})" style:pointer-events="auto">
+			<div class="m-1 flex items-stretch overflow-hidden rounded-md border border-slate-300 bg-white/95 text-xs shadow-sm">
+				<!-- Scale: opens a Dialog (list + custom input). -->
+				<button class="flex items-center gap-1 px-2 py-1 font-medium text-zinc-700 hover:bg-zinc-100" title="Set viewport scale"
+					onmousedown={e => e.stopPropagation()} onclick={e => { e.stopPropagation(); openScaleDialog() }}>
+					<span class="tabular-nums">{scaleText}</span>
+					<Icon size={12} name="chevronDown" />
+				</button>
+				{#if active}
+					<button class={['flex items-center border-l border-slate-200 px-2', navContent ? 'bg-blue-600 text-white' : 'text-zinc-600 hover:bg-zinc-100']}
+						title="Pan/zoom viewport content (middle/right-drag + wheel)"
+						onclick={e => { e.stopPropagation(); navContent = !navContent }}><Icon size={15} name="move" /></button>
+					{#if onmodel}
+						<button class="flex items-center border-l border-slate-200 px-2 text-blue-600 hover:bg-zinc-100" title="Open in model mode"
+							onclick={e => { e.stopPropagation(); onmodel?.(vp.id) }}><Icon size={15} name="expand" /></button>
+					{/if}
 				{/if}
-			{/if}
+			</div>
 		</div>
 	{:else}
-		<!-- idle: faint scale label only (constant on-screen size, no chrome) -->
-		<span class="absolute right-1 top-1 tabular-nums text-zinc-400 print:hidden" style:font-size="{11 / zoom}px" style:pointer-events="none">{scaleText}</span>
+		<!-- idle: faint scale label only (natural size, scaled to constant on-screen) -->
+		<div class="absolute right-0 top-0 origin-top-right print:hidden" style:transform="scale({1 / zoom})" style:pointer-events="none">
+			<span class="m-1 block tabular-nums text-xs text-zinc-400">{scaleText}</span>
+		</div>
 	{/if}
 
 	{#if selected || active}
