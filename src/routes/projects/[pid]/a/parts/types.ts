@@ -38,9 +38,7 @@ export type Model = { id: number; name: string; objects: Obj[] }
 // View projection. Five orthographic directions + an isometric 3D view.
 export type Dir = 'plan' | 'front' | 'rear' | 'left' | 'right' | 'iso'
 export const DIRECTIONS: Dir[] = ['plan', 'front', 'rear', 'left', 'right', 'iso']
-export const DIR_LABEL: Record<Dir, string> = {
-	plan: 'plan', front: 'front', rear: 'rear', left: 'left', right: 'right', iso: '3D',
-}
+export const DIR_LABEL: Record<Dir, string> = { plan: 'plan', front: 'front', rear: 'rear', left: 'left', right: 'right', iso: 'ISO', }
 
 // A view is a window on the paper page that looks into a model from a
 // direction. Frame (fx,fy,fw,fh) is in paper mm; pan (mx,my) + scale map

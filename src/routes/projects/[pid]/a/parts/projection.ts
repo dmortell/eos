@@ -183,15 +183,41 @@ type Seg = [P3, P3]
 export type Face = { pts: P3[] }
 const ringEdges = (ring: P3[]): Seg[] => ring.map((p, i) => [p, ring[(i + 1) % ring.length]])
 
-// Thick-wall segment footprint: 4 xy corners offset ±t/2 perpendicular to the run.
-function wallQuad(a: { x: number; y: number }, b: { x: number; y: number }, t: number) {
-	let dx = b.x - a.x, dy = b.y - a.y
-	const len = Math.hypot(dx, dy) || 1
-	const nx = (-dy / len) * (t / 2), ny = (dx / len) * (t / 2)
-	return [
-		{ x: a.x + nx, y: a.y + ny }, { x: b.x + nx, y: b.y + ny },
-		{ x: b.x - nx, y: b.y - ny }, { x: a.x - nx, y: a.y - ny },
-	]
+// Mitred ±t/2 offset points along a wall centerline (one per pts index). At
+// interior/closed corners the offset is the bisector intersection, so adjacent
+// segments share exact corner points and join cleanly (no overlap).
+type V2 = { x: number; y: number }
+function wallOffsets(pts: V2[], t: number): { left: V2[]; right: V2[] } {
+	const n = pts.length
+	const closed = n > 2 && pts[0].x === pts[n - 1].x && pts[0].y === pts[n - 1].y
+	const V = closed ? pts.slice(0, n - 1) : pts // unique vertices
+	const m = V.length
+	const half = t / 2
+	const norm = (x: number, y: number) => { const l = Math.hypot(x, y) || 1; return { x: x / l, y: y / l } }
+	const dir = (i: number, j: number) => norm(V[j].x - V[i].x, V[j].y - V[i].y)
+
+	const L: V2[] = [], R: V2[] = []
+	for (let i = 0; i < m; i++) {
+		const din = closed || i > 0 ? dir((i - 1 + m) % m, i) : null
+		const dout = closed || i < m - 1 ? dir(i, (i + 1) % m) : null
+		let mx: number, my: number, len = half
+		if (din && dout) {
+			const nIn = { x: -din.y, y: din.x }, nOut = { x: -dout.y, y: dout.x }
+			let bx = nIn.x + nOut.x, by = nIn.y + nOut.y
+			const bl = Math.hypot(bx, by)
+			if (bl < 1e-6) { mx = nIn.x; my = nIn.y } // straight / reversal
+			else { bx /= bl; by /= bl; mx = bx; my = by; len = half / Math.max(0.2, bx * nIn.x + by * nIn.y) }
+		} else {
+			const d = (din ?? dout)!
+			mx = -d.y; my = d.x
+		}
+		L.push({ x: V[i].x + mx * len, y: V[i].y + my * len })
+		R.push({ x: V[i].x - mx * len, y: V[i].y - my * len })
+	}
+	// Re-align to the original pts indices (closed loop repeats vertex 0 at the end).
+	const left = pts.map((_, i) => L[i % m])
+	const right = pts.map((_, i) => R[i % m])
+	return { left, right }
 }
 // Wireframe edges of a prism (bottom ring + top ring + verticals).
 const ringSolidEdges = (bot: P3[], top: P3[]): Seg[] => {
@@ -205,11 +231,12 @@ const ringSolidFaces = (bot: P3[], top: P3[]): Face[] => {
 	for (let i = 0; i < bot.length; i++) { const j = (i + 1) % bot.length; faces.push({ pts: [bot[i], bot[j], top[j], top[i]] }) }
 	return faces
 }
-// Per-segment box rings (bot/top) for a thick wall.
-function wallBoxes(o: { z: number; h: number; thickness: number; pts: { x: number; y: number }[] }) {
+// Per-segment box rings (bot/top) for a thick wall, with mitred corners.
+function wallBoxes(o: { z: number; h: number; thickness: number; pts: V2[] }) {
+	const { left, right } = wallOffsets(o.pts, o.thickness)
 	const boxes: { bot: P3[]; top: P3[] }[] = []
 	for (let i = 0; i < o.pts.length - 1; i++) {
-		const q = wallQuad(o.pts[i], o.pts[i + 1], o.thickness)
+		const q = [left[i], left[i + 1], right[i + 1], right[i]] // mitred segment footprint
 		boxes.push({
 			bot: q.map((p) => ({ x: p.x, y: p.y, z: o.z })),
 			top: q.map((p) => ({ x: p.x, y: p.y, z: o.z + o.h })),

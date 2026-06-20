@@ -6,11 +6,8 @@
 	import PaperView from './parts/PaperView.svelte'
 	import MaximizedView from './parts/MaximizedView.svelte'
 	import Titleblock from './parts/Titleblock.svelte'
-
 	const sheet = new Sheet()
-
 	const blockW = 50 // titleblock width
-
 	// Fit the sheet to the viewport on load (it starts small otherwise).
 	onMount(() => sheet.zoomToFit())
 </script>

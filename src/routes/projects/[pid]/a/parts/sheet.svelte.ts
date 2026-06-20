@@ -29,7 +29,6 @@ export class Sheet {
 	selectedObj = $state<{ viewId: number; index: number } | null>(null)
 	selectedVertex = $state<{ viewId: number; index: number; vi: number } | null>(null) // conduit path point
 	maximizedId = $state<number | null>(null) // view filling the whole content area
-
 	hiddenLines = $state(true) // iso view: occlude hidden edges (painter's algorithm)
 
 	// Transient maximize camera.

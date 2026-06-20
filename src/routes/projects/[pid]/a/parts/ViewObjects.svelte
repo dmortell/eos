@@ -9,11 +9,11 @@
 
 	let { sheet, view, clickable }: { sheet: Sheet; view: View; clickable: boolean } = $props()
 
-	const m = $derived(sheet.modelFor(view))
 	// The 3D (iso) view is display-only — no in-plane object editing.
 	const editable = $derived(clickable && view.direction !== 'iso')
-	const pe = $derived(editable ? 'stroke' : 'none')
+	const m = $derived(sheet.modelFor(view))
 	const b = $derived(BASIS[view.direction])
+	const pe = $derived(editable ? 'stroke' : 'none')
 	const selIdx = $derived(editable && sheet.selectedObj?.viewId === view.id ? sheet.selectedObj.index : null)
 
 	// Sizes in screen px regardless of zoom (paper canvas vs maximized overlay).

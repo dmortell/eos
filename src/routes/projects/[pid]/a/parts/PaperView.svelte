@@ -16,10 +16,8 @@
 </script>
 
 <!-- interior interaction layer (below objects so empty space is hit) -->
-<rect
+<rect fill="transparent" style="pointer-events:all" role="button" tabindex="-1" aria-label={view.name}
 	x={view.fx} y={view.fy} width={view.fw} height={view.fh}
-	fill="transparent" style="pointer-events:all"
-	role="button" tabindex="-1" aria-label={view.name}
 	ondblclick={() => { if (!active) sheet.activate(view) }}
 	onpointerdown={(e) => {
 		if (panMode) { sheet.startContentPan(e, view); return }
@@ -31,48 +29,39 @@
 
 <g clip-path="url(#clip-{view.id})">
 	<defs>
-		<clipPath id="clip-{view.id}">
-			<rect x={view.fx} y={view.fy} width={view.fw} height={view.fh} />
-		</clipPath>
+		<clipPath id="clip-{view.id}"><rect x={view.fx} y={view.fy} width={view.fw} height={view.fh} /></clipPath>
 	</defs>
 	<ViewObjects {sheet} {view} clickable={objectsClickable} />
 </g>
 
 <!-- visual frame (non-interactive): gray, or blue when selected -->
-<rect
-	class="frame {selected ? 'sel' : ''}"
+<rect fill="none" style="pointer-events:none" class="frame {selected ? 'sel' : ''}"
 	x={view.fx} y={view.fy} width={view.fw} height={view.fh}
-	fill="none" style="pointer-events:none"
 	stroke={selected ? '#2563eb' : '#cbd5e1'}
 	stroke-width={selected ? 0.8 : 0.3}
 />
 
 {#if active}
 	<!-- active view: thicker black border (non-printing, non-interactive) -->
-	<rect
-		class="active-border"
+	<rect class="active-border"
 		x={view.fx} y={view.fy} width={view.fw} height={view.fh}
 		fill="none" stroke="#000000" stroke-width="1" style="pointer-events:none"
 	/>
 {:else}
 	<!-- frame border hit target: click to select, drag to reposition -->
-	<rect
+	<rect fill="none" stroke="transparent" stroke-width="3" role="button" tabindex="0"
 		x={view.fx} y={view.fy} width={view.fw} height={view.fh}
-		fill="none" stroke="transparent" stroke-width="3"
 		style="pointer-events:stroke;cursor:{selected ? 'move' : 'pointer'}"
-		role="button" tabindex="0"
 		ondblclick={() => sheet.activate(view)}
 		onpointerdown={(e) => e.button === 0 ? sheet.startFrameMove(e, view) : sheet.maybePanPage(e)}
 	/>
 	{#if selected}
 		<!-- corner resize handles -->
 		{#each HANDLES as h (h.corner)}
-			<rect
-				class="handle"
+			<rect class="handle" role="button" tabindex="-1" aria-label="resize {h.corner}"
 				x={view.fx + h.dx * view.fw - HS / 2} y={view.fy + h.dy * view.fh - HS / 2}
 				width={HS} height={HS}
 				style="pointer-events:all;cursor:{h.cur}-resize"
-				role="button" tabindex="-1" aria-label="resize {h.corner}"
 				onpointerdown={(e) => sheet.startResize(e, view, h.corner)}
 			/>
 		{/each}
@@ -85,14 +74,11 @@
 	<!-- per-view toolbar, top-right inside the frame -->
 	<foreignObject x={view.fx + view.fw - 17} y={view.fy + 1} width="16" height="8">
 		<div xmlns="http://www.w3.org/1999/xhtml" class="vtools">
-			<button
-				class:on={panMode}
-				title="Pan/zoom view contents"
+			<button title="Pan/zoom view contents" class:on={panMode}
 				onpointerdown={(e) => e.stopPropagation()}
 				onclick={() => sheet.togglePan(view)}
 			>✋</button>
-			<button
-				title="Maximize view"
+			<button title="Maximize view"
 				onpointerdown={(e) => e.stopPropagation()}
 				onclick={() => sheet.toggleMax(view)}
 			>⤢</button>

@@ -54,6 +54,6 @@ export const models: Model[] = [
 
 export const initialViews: View[] = [
 	{ id: 1, modelId: 1, name: '33F plan', direction: 'plan', fx: 20, fy: 20, fw: 240, fh: 125, mx: -1000, my: -150, scale: .028 },
-	{ id: 2, modelId: 1, name: '33F — 3D', direction: 'iso', fx: 265, fy: 20, fw: 140, fh: 140, mx: -4300, my: -1300, scale: .013 },
+	{ id: 2, modelId: 1, name: '33F — 3D', direction: 'iso', fx: 265, fy: 20, fw: 140, fh: 140, mx: -5000, my: -4100, scale: .013 },
 	{ id: 3, modelId: 1, name: '33F front', direction: 'front', fx: 20, fy: 155, fw: 240, fh: 125, mx: -1000, my: -200, scale: .028 },
 ]
