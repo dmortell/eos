@@ -323,7 +323,7 @@ export class Sheet {
 		e.stopPropagation()
 		const at = this.drawingAt(e, v) // drawing coord under cursor (kept fixed)
 		const p = this.paperPoint(e, v)
-		v.scale = clamp(v.scale * wheelFactor(e), 0.05, 50)
+		v.scale = clamp(v.scale * wheelFactor(e), 0.002, 50)
 		v.mx = at.u - (p.x - v.fx) / v.scale
 		v.my = at.vv - (v.fy + v.fh - p.y) / v.scale
 	}
@@ -374,7 +374,7 @@ export class Sheet {
 		const r = this.viewport!.getBoundingClientRect()
 		const px = e.clientX - r.left
 		const py = e.clientY - r.top
-		const nz = clamp(this.mzoom * wheelFactor(e), 0.05, 40)
+		const nz = clamp(this.mzoom * wheelFactor(e), 0.002, 40)
 		this.mtx = px - (px - this.mtx) * (nz / this.mzoom)
 		this.mty = py - (py - this.mty) * (nz / this.mzoom)
 		this.mzoom = nz

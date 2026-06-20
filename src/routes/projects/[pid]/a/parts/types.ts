@@ -14,10 +14,11 @@ export type Prism = {
 	edges: number // 3..24
 }
 
-// line -> wall: a base polyline (x,y) extruded up from z by height h.
+// line -> wall: a base polyline (x,y) of `thickness`, extruded up from z by
+// height h. (Effectively a rectangular sweep — like a conduit laid flat.)
 export type Wall = {
 	type: 'wall'
-	z: number; h: number
+	z: number; h: number; thickness: number
 	pts: Pt[]
 }
 

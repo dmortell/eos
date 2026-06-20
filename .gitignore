@@ -39,3 +39,4 @@ src/routes/rack0
 src/lib/ui/combo
 
 src-sample/
+.playwright-mcp/

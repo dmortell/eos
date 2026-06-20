@@ -180,7 +180,43 @@ export function xyCenter(objects: Obj[]) {
 }
 
 type Seg = [P3, P3]
+export type Face = { pts: P3[] }
 const ringEdges = (ring: P3[]): Seg[] => ring.map((p, i) => [p, ring[(i + 1) % ring.length]])
+
+// Thick-wall segment footprint: 4 xy corners offset ±t/2 perpendicular to the run.
+function wallQuad(a: { x: number; y: number }, b: { x: number; y: number }, t: number) {
+	let dx = b.x - a.x, dy = b.y - a.y
+	const len = Math.hypot(dx, dy) || 1
+	const nx = (-dy / len) * (t / 2), ny = (dx / len) * (t / 2)
+	return [
+		{ x: a.x + nx, y: a.y + ny }, { x: b.x + nx, y: b.y + ny },
+		{ x: b.x - nx, y: b.y - ny }, { x: a.x - nx, y: a.y - ny },
+	]
+}
+// Wireframe edges of a prism (bottom ring + top ring + verticals).
+const ringSolidEdges = (bot: P3[], top: P3[]): Seg[] => {
+	const segs: Seg[] = [...ringEdges(bot), ...ringEdges(top)]
+	for (let i = 0; i < bot.length; i++) segs.push([bot[i], top[i]])
+	return segs
+}
+// Faces of a prism (bottom, top, and one quad per side).
+const ringSolidFaces = (bot: P3[], top: P3[]): Face[] => {
+	const faces: Face[] = [{ pts: bot }, { pts: [...top].reverse() }]
+	for (let i = 0; i < bot.length; i++) { const j = (i + 1) % bot.length; faces.push({ pts: [bot[i], bot[j], top[j], top[i]] }) }
+	return faces
+}
+// Per-segment box rings (bot/top) for a thick wall.
+function wallBoxes(o: { z: number; h: number; thickness: number; pts: { x: number; y: number }[] }) {
+	const boxes: { bot: P3[]; top: P3[] }[] = []
+	for (let i = 0; i < o.pts.length - 1; i++) {
+		const q = wallQuad(o.pts[i], o.pts[i + 1], o.thickness)
+		boxes.push({
+			bot: q.map((p) => ({ x: p.x, y: p.y, z: o.z })),
+			top: q.map((p) => ({ x: p.x, y: p.y, z: o.z + o.h })),
+		})
+	}
+	return boxes
+}
 
 // 3D wireframe edges of an object (for the isometric view).
 function edges3d(o: Obj): Seg[] {
@@ -192,12 +228,7 @@ function edges3d(o: Obj): Seg[] {
 		return segs
 	}
 	if (o.type === 'wall') {
-		const base = o.pts.map((p) => ({ x: p.x, y: p.y, z: o.z }))
-		const top = o.pts.map((p) => ({ x: p.x, y: p.y, z: o.z + o.h }))
-		const segs: Seg[] = []
-		for (let i = 0; i < base.length - 1; i++) { segs.push([base[i], base[i + 1]]); segs.push([top[i], top[i + 1]]) }
-		for (let i = 0; i < base.length; i++) segs.push([base[i], top[i]])
-		return segs
+		return wallBoxes(o).flatMap((b) => ringSolidEdges(b.bot, b.top))
 	}
 	// conduit: mitered tube wireframe (one ring per vertex + connectors)
 	const rings = conduitRings(o)
@@ -209,7 +240,6 @@ function edges3d(o: Obj): Seg[] {
 }
 
 // 3D faces of an object (for hidden-line / solid rendering in the iso view).
-export type Face = { pts: P3[] }
 export function faces3d(o: Obj): Face[] {
 	if (o.type === 'prism') {
 		const bot = boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z)
@@ -219,15 +249,7 @@ export function faces3d(o: Obj): Face[] {
 		return faces
 	}
 	if (o.type === 'wall') {
-		const faces: Face[] = []
-		for (let i = 0; i < o.pts.length - 1; i++) {
-			const a = o.pts[i], b = o.pts[i + 1]
-			faces.push({ pts: [
-				{ x: a.x, y: a.y, z: o.z }, { x: b.x, y: b.y, z: o.z },
-				{ x: b.x, y: b.y, z: o.z + o.h }, { x: a.x, y: a.y, z: o.z + o.h },
-			] })
-		}
-		return faces
+		return wallBoxes(o).flatMap((b) => ringSolidFaces(b.bot, b.top))
 	}
 	// conduit: mitered tube side faces (ring strips) + end caps
 	const rings = conduitRings(o)
@@ -271,25 +293,12 @@ export function project(o: Obj, dir: Dir, yaw = DEFAULT_YAW, pitch = DEFAULT_PIT
 		return shapes
 	}
 
-	// wall
-	if (dir === 'plan') {
-		return [{ closed: false, pts: o.pts.map((p) => proj(dir, { x: p.x, y: p.y, z: o.z })) }]
-	}
-	// Elevation: one quad per segment (base z .. z+h).
-	const shapes: Shape[] = []
-	for (let i = 0; i < o.pts.length - 1; i++) {
-		const a = o.pts[i], b = o.pts[i + 1]
-		shapes.push({
-			closed: true,
-			pts: [
-				proj(dir, { x: a.x, y: a.y, z: o.z }),
-				proj(dir, { x: b.x, y: b.y, z: o.z }),
-				proj(dir, { x: b.x, y: b.y, z: o.z + o.h }),
-				proj(dir, { x: a.x, y: a.y, z: o.z + o.h }),
-			],
-		})
-	}
-	return shapes
+	// wall (thick): one box per segment.
+	return wallBoxes(o).map((b) =>
+		dir === 'plan'
+			? { closed: true, pts: b.bot.map((p) => proj(dir, p)) }
+			: bboxRect([...b.bot, ...b.top].map((p) => proj(dir, p))),
+	)
 }
 
 // ---- Axis accessors (for editing in the projected plane) ---------------
@@ -308,7 +317,7 @@ export const sizeAlong = (o: Obj, a: Axis): number =>
 export function roundObj(o: Obj) {
 	const R = Math.round
 	if (o.type === 'wall') {
-		o.z = R(o.z); o.h = R(o.h)
+		o.z = R(o.z); o.h = R(o.h); o.thickness = R(o.thickness)
 		o.pts.forEach((p) => { p.x = R(p.x); p.y = R(p.y) })
 	} else if (o.type === 'conduit') {
 		o.w = R(o.w); o.h = R(o.h)

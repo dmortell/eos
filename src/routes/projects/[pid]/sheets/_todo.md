@@ -417,4 +417,4 @@ Extends the racks elevation editor with
 Shared / refactor
 
 5b6 — Unify the rack property editors (m
-Fold the three rack property editors (Sheets viewport / outlets tool / racks tool) into one shared component, keeping all advanced functionality. Cutss the racks-viewport parity work (item22) you're doing.  
+Fold the three rack property editors (Sheets viewport / outlets tool / racks tool) into one shared component, keeping all advanced functionality. Cuts the racks-viewport parity work (item22) you're doing.

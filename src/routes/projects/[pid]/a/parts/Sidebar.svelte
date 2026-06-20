@@ -27,11 +27,13 @@
 					<input type="number" min="3" max="24" class="w-full rounded border px-2 py-1" bind:value={o.edges} /></label>
 			</div>
 		{:else if o.type === 'wall'}
-			<div class="mb-2 grid grid-cols-2 gap-2">
+			<div class="mb-2 grid grid-cols-3 gap-2">
 				<label class="block"><span class="text-xs text-gray-500">Base Z</span>
 					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.z} /></label>
 				<label class="block"><span class="text-xs text-gray-500">Height</span>
 					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.h} /></label>
+				<label class="block"><span class="text-xs text-gray-500">Thick</span>
+					<input type="number" class="w-full rounded border px-2 py-1" bind:value={o.thickness} /></label>
 			</div>
 			<p class="mb-1 text-xs text-gray-500">{o.pts.length} points</p>
 			{#each o.pts as p, i (i)}

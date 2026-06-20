@@ -59,7 +59,7 @@
 						<!-- <rect x="0" y="0" width={PAPER.w} height={PAPER.h} fill="none" stroke="#000000" stroke-width="1" style="pointer-events:none" /> -->
 
 						<!-- Titleblock -->
-						<Titleblock width={blockW} />
+						<!-- <Titleblock width={blockW} /> -->
 					</svg>
 				</div>
 			{/if}
