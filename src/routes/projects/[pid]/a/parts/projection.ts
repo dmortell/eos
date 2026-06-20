@@ -46,6 +46,76 @@ export function dominantAxis(p1: P3, p2: P3): Axis {
 	return dy >= dx ? 'y' : 'x'
 }
 
+// ---- small 3D vector helpers (conduit miters) --------------------------
+const vsub = (a: P3, b: P3): P3 => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z })
+const vadd = (a: P3, b: P3): P3 => ({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z })
+const vscale = (a: P3, s: number): P3 => ({ x: a.x * s, y: a.y * s, z: a.z * s })
+const vdot = (a: P3, b: P3) => a.x * b.x + a.y * b.y + a.z * b.z
+const vcross = (a: P3, b: P3): P3 => ({ x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x })
+const vlen = (a: P3) => Math.hypot(a.x, a.y, a.z)
+const vnorm = (a: P3): P3 => { const l = vlen(a) || 1; return vscale(a, 1 / l) }
+const AXVEC: Record<Axis, P3> = { x: { x: 1, y: 0, z: 0 }, y: { x: 0, y: 1, z: 0 }, z: { x: 0, y: 0, z: 1 } }
+// Rotate v around unit axis k by angle (Rodrigues).
+function vrot(v: P3, k: P3, ang: number): P3 {
+	const c = Math.cos(ang), s = Math.sin(ang)
+	return vadd(vadd(vscale(v, c), vscale(vcross(k, v), s)), vscale(k, vdot(k, v) * (1 - c)))
+}
+
+// Orthonormal cross-section frame (e1=w-axis, e2=h-axis) perpendicular to a
+// segment direction. Axis-aligned segments use the PERP convention.
+function perpFrame(d: P3): { e1: P3; e2: P3 } {
+	const ax: Axis = Math.abs(d.x) >= Math.abs(d.y) && Math.abs(d.x) >= Math.abs(d.z) ? 'x' : Math.abs(d.y) >= Math.abs(d.z) ? 'y' : 'z'
+	const [pa, pb] = PERP[ax]
+	return { e1: AXVEC[pa], e2: AXVEC[pb] }
+}
+
+// One cross-section ring per path vertex, mitered at interior joints so
+// adjacent segments share a ring (no corner gap). The cross-section frame is
+// parallel-transported along the path, so ring vertices correspond 1:1 and the
+// tube surface doesn't twist. End vertices get a perpendicular cap ring.
+function conduitRings(o: { w: number; h: number; edges: number; path: P3[] }): P3[][] {
+	// drop consecutive duplicate points (degenerate zero-length segments)
+	const path: P3[] = []
+	for (const p of o.path) {
+		const last = path[path.length - 1]
+		if (!last || last.x !== p.x || last.y !== p.y || last.z !== p.z) path.push(p)
+	}
+	const S = path.length - 1
+	if (S < 1) return []
+
+	const dirs = Array.from({ length: S }, (_, s) => vnorm(vsub(path[s + 1], path[s])))
+	const cs = crossSection(o.w, o.h, o.edges)
+
+	// Frames per segment, parallel-transported from the first.
+	const frames: { e1: P3; e2: P3 }[] = [perpFrame(dirs[0])]
+	for (let s = 1; s < S; s++) {
+		const axis = vcross(dirs[s - 1], dirs[s])
+		const al = vlen(axis)
+		if (al < 1e-6) { frames.push(frames[s - 1]); continue } // collinear
+		const k = vscale(axis, 1 / al)
+		const ang = Math.acos(Math.max(-1, Math.min(1, vdot(dirs[s - 1], dirs[s]))))
+		frames.push({ e1: vrot(frames[s - 1].e1, k, ang), e2: vrot(frames[s - 1].e2, k, ang) })
+	}
+
+	// Per-segment 3D offset vectors for each ring vertex.
+	const offs = frames.map((f) => cs.map((c) => vadd(vscale(f.e1, c.da), vscale(f.e2, c.db))))
+
+	const rings: P3[][] = []
+	rings.push(offs[0].map((off) => vadd(path[0], off))) // start cap (perpendicular)
+	for (let k = 1; k < S; k++) {
+		const din = dirs[k - 1], dout = dirs[k]
+		const m = vnorm(vadd(din, dout)) // miter-plane normal (bisector)
+		const denom = vdot(din, m)
+		const V = path[k]
+		rings.push(offs[k - 1].map((off) => {
+			const t = denom !== 0 ? -vdot(off, m) / denom : 0
+			return vadd(V, vadd(off, vscale(din, t)))
+		}))
+	}
+	rings.push(offs[S - 1].map((off) => vadd(path[S], off))) // end cap (perpendicular)
+	return rings
+}
+
 // Convex hull (monotone chain) of 2D points — the silhouette of a swept segment.
 function hull(pts: { u: number; v: number }[]) {
 	const p = pts.slice().sort((a, b) => a.u - b.u || a.v - b.v)
@@ -73,23 +143,28 @@ function bboxRect(pts: { u: number; v: number }[]): Shape {
 	}
 }
 
-// Isometric projection (z up, bird's-eye: +x and +y recede upward). Maps a
-// 3D point to drawing-plane (u, v-up).
-const ISO_C = Math.cos(Math.PI / 6), ISO_S = Math.sin(Math.PI / 6)
-export const iso = (p: P3) => ({ u: ISO_C * (p.x - p.y), v: p.z + ISO_S * (p.x + p.y) })
+// Default orbit camera: 45° yaw + ~35.26° pitch == the classic isometric view.
+export const DEFAULT_YAW = Math.PI / 4
+export const DEFAULT_PITCH = Math.atan(1 / Math.SQRT2)
 
-// Painter's-algorithm depth key: smaller = nearer the viewer (draw last/on top).
-export const isoDepth = (p: P3) => p.x + p.y - p.z
-
-// Rotate a point around the vertical (z) axis through (cx,cy) by `yaw`, then
-// iso-project — i.e. orbit the camera around the vertical axis.
-function rotZ(p: P3, yaw: number, cx: number, cy: number): P3 {
-	const c = Math.cos(yaw), s = Math.sin(yaw)
-	const dx = p.x - cx, dy = p.y - cy
-	return { x: cx + dx * c - dy * s, y: cy + dx * s + dy * c, z: p.z }
+// Orbit camera: yaw around the vertical (z) axis, pitch (elevation, 0=side,
+// π/2=top-down), centered on the ground pivot (cx,cy,0). Parallel (orthographic)
+// projection: u right, v up, depth into screen.
+function cam(p: P3, yaw: number, pitch: number, cx: number, cy: number) {
+	const dx = p.x - cx, dy = p.y - cy, dz = p.z
+	const cyw = Math.cos(yaw), syw = Math.sin(yaw)
+	const x1 = dx * cyw - dy * syw
+	const y1 = dx * syw + dy * cyw
+	const cp = Math.cos(pitch), sp = Math.sin(pitch)
+	return { u: x1, v: y1 * sp + dz * cp, depth: y1 * cp - dz * sp }
 }
-export const isoR = (p: P3, yaw: number, cx: number, cy: number) => iso(rotZ(p, yaw, cx, cy))
-export const isoDepthR = (p: P3, yaw: number, cx: number, cy: number) => isoDepth(rotZ(p, yaw, cx, cy))
+export const isoR = (p: P3, yaw: number, pitch: number, cx: number, cy: number) => {
+	const c = cam(p, yaw, pitch, cx, cy)
+	return { u: c.u, v: c.v }
+}
+// Painter's-algorithm depth: larger = farther (draw first).
+export const isoDepthR = (p: P3, yaw: number, pitch: number, cx: number, cy: number) =>
+	cam(p, yaw, pitch, cx, cy).depth
 
 // Center of all objects' x-y bounding box (the orbit pivot).
 export function xyCenter(objects: Obj[]) {
@@ -124,17 +199,12 @@ function edges3d(o: Obj): Seg[] {
 		for (let i = 0; i < base.length; i++) segs.push([base[i], top[i]])
 		return segs
 	}
-	// conduit: a tube wireframe per segment (cross-section rings + connectors)
+	// conduit: mitered tube wireframe (one ring per vertex + connectors)
+	const rings = conduitRings(o)
 	const segs: Seg[] = []
-	const cs = crossSection(o.w, o.h, o.edges)
-	for (let i = 0; i < o.path.length - 1; i++) {
-		const p1 = o.path[i], p2 = o.path[i + 1]
-		const [pa, pb] = PERP[dominantAxis(p1, p2)]
-		const ring = (p: P3) => cs.map((c) => { const w3: P3 = { x: p.x, y: p.y, z: p.z }; w3[pa] += c.da; w3[pb] += c.db; return w3 })
-		const r1 = ring(p1), r2 = ring(p2)
-		segs.push(...ringEdges(r1), ...ringEdges(r2))
-		for (let k = 0; k < r1.length; k++) segs.push([r1[k], r2[k]])
-	}
+	for (const ring of rings) segs.push(...ringEdges(ring))
+	for (let s = 0; s < rings.length - 1; s++)
+		for (let i = 0; i < rings[s].length; i++) segs.push([rings[s][i], rings[s + 1][i]])
 	return segs
 }
 
@@ -159,27 +229,24 @@ export function faces3d(o: Obj): Face[] {
 		}
 		return faces
 	}
-	// conduit: tube side faces per segment + end caps
+	// conduit: mitered tube side faces (ring strips) + end caps
+	const rings = conduitRings(o)
+	if (!rings.length) return []
 	const faces: Face[] = []
-	const cs = crossSection(o.w, o.h, o.edges)
-	const last = o.path.length - 2
-	for (let s = 0; s < o.path.length - 1; s++) {
-		const p1 = o.path[s], p2 = o.path[s + 1]
-		const [pa, pb] = PERP[dominantAxis(p1, p2)]
-		const ring = (p: P3) => cs.map((c) => { const w3: P3 = { x: p.x, y: p.y, z: p.z }; w3[pa] += c.da; w3[pb] += c.db; return w3 })
-		const r1 = ring(p1), r2 = ring(p2)
+	for (let s = 0; s < rings.length - 1; s++) {
+		const r1 = rings[s], r2 = rings[s + 1]
 		for (let i = 0; i < r1.length; i++) { const j = (i + 1) % r1.length; faces.push({ pts: [r1[i], r1[j], r2[j], r2[i]] }) }
-		if (s === 0) faces.push({ pts: [...r1].reverse() })
-		if (s === last) faces.push({ pts: r2 })
 	}
+	faces.push({ pts: [...rings[0]].reverse() })
+	faces.push({ pts: rings[rings.length - 1] })
 	return faces
 }
 
 // Project an object to one or more drawing-plane outlines for the direction.
 // For iso, `yaw`/`cx`/`cy` orbit the model around the vertical axis.
-export function project(o: Obj, dir: Dir, yaw = 0, cx = 0, cy = 0): Shape[] {
+export function project(o: Obj, dir: Dir, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, cx = 0, cy = 0): Shape[] {
 	if (dir === 'iso') {
-		return edges3d(o).map((s) => ({ closed: false, pts: [isoR(s[0], yaw, cx, cy), isoR(s[1], yaw, cx, cy)] }))
+		return edges3d(o).map((s) => ({ closed: false, pts: [isoR(s[0], yaw, pitch, cx, cy), isoR(s[1], yaw, pitch, cx, cy)] }))
 	}
 
 	if (o.type === 'prism') {
@@ -195,18 +262,10 @@ export function project(o: Obj, dir: Dir, yaw = 0, cx = 0, cy = 0): Shape[] {
 	}
 
 	if (o.type === 'conduit') {
+		const rings = conduitRings(o)
 		const shapes: Shape[] = []
-		const cs = crossSection(o.w, o.h, o.edges)
-		for (let i = 0; i < o.path.length - 1; i++) {
-			const p1 = o.path[i], p2 = o.path[i + 1]
-			const [pa, pb] = PERP[dominantAxis(p1, p2)]
-			const verts: { u: number; v: number }[] = []
-			for (const end of [p1, p2]) for (const c of cs) {
-				const w3: P3 = { x: end.x, y: end.y, z: end.z }
-				w3[pa] += c.da; w3[pb] += c.db
-				verts.push(proj(dir, w3))
-			}
-			const h = hull(verts)
+		for (let s = 0; s < rings.length - 1; s++) {
+			const h = hull([...rings[s], ...rings[s + 1]].map((p) => proj(dir, p)))
 			if (h.length >= 2) shapes.push({ closed: true, pts: h })
 		}
 		return shapes

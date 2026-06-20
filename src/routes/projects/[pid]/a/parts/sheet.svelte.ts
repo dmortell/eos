@@ -1,6 +1,6 @@
 import { tick } from 'svelte'
 import { BASIS, PAPER, MIN_FRAME, type Axis, type Conduit, type Prism, type View } from './types'
-import { moveAlong, roundObj } from './projection'
+import { moveAlong, roundObj, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 import { models as initialModels, initialViews } from './data'
 
 /**
@@ -30,7 +30,7 @@ export class Sheet {
 	selectedVertex = $state<{ viewId: number; index: number; vi: number } | null>(null) // conduit path point
 	maximizedId = $state<number | null>(null) // view filling the whole content area
 
-	hiddenLines = $state(false) // iso view: occlude hidden edges (painter's algorithm)
+	hiddenLines = $state(true) // iso view: occlude hidden edges (painter's algorithm)
 
 	// Transient maximize camera.
 	mtx = $state(0)
@@ -328,13 +328,17 @@ export class Sheet {
 		v.my = at.vv - (v.fy + v.fh - p.y) / v.scale
 	}
 
-	// Drag the iso view to orbit the model around its vertical (z) axis.
+	// Drag the iso view to orbit: horizontal = yaw (around vertical axis),
+	// vertical = pitch (elevation). Pitch clamped to avoid flipping over.
 	startIsoRotate = (e: PointerEvent, v: View) => {
 		if (e.button !== 0) return
 		e.stopPropagation()
 		e.preventDefault()
 		this.selectedId = v.id
-		drag(e, (dx) => { v.yaw = (v.yaw ?? 0) + dx * 0.01 })
+		drag(e, (dx, dy) => {
+			v.yaw = (v.yaw ?? DEFAULT_YAW) + dx * 0.01
+			v.pitch = clamp((v.pitch ?? DEFAULT_PITCH) + dy * 0.01, 0.05, Math.PI / 2)
+		})
 	}
 
 	// ---- Maximize (transient model-space camera) -----------------------

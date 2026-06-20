@@ -13,7 +13,7 @@ export const models: Model[] = [
 			{ type: 'conduit', w: 10, h: 10, edges: 16, path: [
 				{ x: 10, y: 60, z: 60 }, { x: 120, y: 60, z: 60 },
 				{ x: 120, y: 60, z: 80},
-				{ x: 120, y: 160, z: 80},
+				{ x: 120, y: 120, z: 80},
 			] },
 		],
 	},
@@ -29,6 +29,6 @@ export const models: Model[] = [
 
 export const initialViews: View[] = [
 	{ id: 1, modelId: 1, name: '33F plan', direction: 'plan', fx: 20, fy: 20, fw: 240, fh: 125, mx: -10, my: 5, scale: .8 },
-	{ id: 2, modelId: 1, name: '33F — 3D', direction: 'iso', fx: 290, fy: 20, fw: 110, fh: 257, mx: -160, my: -210, scale: 0.3 },
+	{ id: 2, modelId: 1, name: '33F — 3D', direction: 'iso', fx: 265, fy: 20, fw: 140, fh: 140, mx: -130, my: -140, scale: .5 },
 	{ id: 3, modelId: 1, name: '33F front', direction: 'front', fx: 20, fy: 155, fw: 240, fh: 125, mx: -10, my: -10, scale: 1 },
 ]

@@ -5,8 +5,11 @@
 	import Sidebar from './parts/Sidebar.svelte'
 	import PaperView from './parts/PaperView.svelte'
 	import MaximizedView from './parts/MaximizedView.svelte'
+	import Titleblock from './parts/Titleblock.svelte'
 
 	const sheet = new Sheet()
+
+	const blockW = 50 // titleblock width
 
 	// Fit the sheet to the viewport on load (it starts small otherwise).
 	onMount(() => sheet.zoomToFit())
@@ -38,19 +41,29 @@
 			onwheel={sheet.onWheel}
 			oncontextmenu={(e) => e.preventDefault()}
 		>
-			<!-- Paper -->
-			<div
-				class="paper absolute origin-top-left bg-white shadow-lg print:shadow-none"
-				style="left:0; top:0; width:{PAPER.w}px; height:{PAPER.h}px; transform: translate({sheet.tx}px,{sheet.ty}px) scale({sheet.zoom});"
-			>
-				<svg class="absolute inset-0 block" width="100%" height="100%" viewBox="0 0 {PAPER.w} {PAPER.h}">
-					{#each sheet.views as v (v.id)}
-						<PaperView {sheet} view={v} />
-					{/each}
-				</svg>
-			</div>
 
-			<MaximizedView {sheet} />
+			{#if sheet.maxView}
+				<MaximizedView {sheet} />
+			{:else}
+				<!-- Paper -->
+				<div
+					class="paper absolute origin-top-left bg-white shadow-lg print:shadow-none"
+					style="left:0; top:0; width:{PAPER.w}px; height:{PAPER.h}px; transform: translate({sheet.tx}px,{sheet.ty}px) scale({sheet.zoom});"
+				>
+					<svg class="absolute inset-0 block" width="100%" height="100%" viewBox="0 0 {PAPER.w} {PAPER.h}">
+						{#each sheet.views as v (v.id)}
+							<PaperView {sheet} view={v} />
+						{/each}
+
+						<!-- Paper border -->
+						<!-- <rect x="0" y="0" width={PAPER.w} height={PAPER.h} fill="none" stroke="#000000" stroke-width="1" style="pointer-events:none" /> -->
+
+						<!-- Titleblock -->
+						<Titleblock width={blockW} />
+					</svg>
+				</div>
+			{/if}
+
 		</div>
 	</div>
 </div>
