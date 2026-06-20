@@ -2,6 +2,9 @@ import { SurfaceEditor } from '../../edit/surface.svelte'
 import { BASIS, type Conduit, type Dir, type Model, type Obj, type Prism, type Wall } from './types'
 import { moveAlong, roundObj, project, xyCenter, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 import { newId } from './graph'
+import { polyToGraph } from './migrate'
+
+type P3 = { x: number; y: number; z: number }
 
 const MIN = 1 // model mm
 
@@ -235,6 +238,48 @@ export class Model3dEditor extends SurfaceEditor {
 		else this.multi = clones.map((_, k) => base + k)
 		this.notify()
 	}
+	// ── object creation (place-tool; tap-to-place, plan view only for now) ──
+	// `placing.pts` accumulates clicked points for a wall/conduit path; `cursor`
+	// is the live point for the rubber-band preview. Prisms place on first click.
+	placing = $state<{ kind: 'prism' | 'wall' | 'conduit'; pts: P3[]; cursor: P3 | null } | null>(null)
+	activeLayer: string | undefined = undefined // layer for new objects (else first)
+	private layerForNew() { return this.activeLayer ?? this.model?.layers?.[0]?.id }
+	private modelPt(e: MouseEvent): P3 | null { const c = this.at(e); return c ? { x: Math.round(c.ch), y: Math.round(c.cv), z: 0 } : null }
+
+	startPlacing(kind: 'prism' | 'wall' | 'conduit') {
+		if (this.direction !== 'plan') return // creation is planar for now
+		this.clearSel()
+		this.placing = { kind, pts: [], cursor: null }
+	}
+	cancelPlacing = () => { this.placing = null }
+	placeMove = (e: MouseEvent) => { if (this.placing) { const p = this.modelPt(e); if (p) this.placing.cursor = p } }
+	placeClick = (e: MouseEvent) => {
+		if (e.button !== 0 || !this.placing || !this.model) return
+		e.stopPropagation()
+		const p = this.modelPt(e); if (!p) return
+		if (this.placing.kind === 'prism') {
+			this.objects.push({ type: 'prism', layer: this.layerForNew(), x: p.x - 500, y: p.y - 300, z: 0, w: 1000, d: 600, h: 750, edges: 4 })
+			this.placing = null
+			this.selectObj(this.objects.length - 1)
+			this.notify()
+		} else {
+			this.placing.pts.push(p) // wall/conduit: collect path points
+		}
+	}
+	finishPlacing = () => {
+		const pl = this.placing
+		if (!pl || !this.model) { this.placing = null; return }
+		if ((pl.kind === 'wall' || pl.kind === 'conduit') && pl.pts.length >= 2) {
+			const g = polyToGraph(pl.pts)
+			this.objects.push(pl.kind === 'wall'
+				? { type: 'wall', layer: this.layerForNew(), h: 2800, thickness: 100, ...g }
+				: { type: 'conduit', layer: this.layerForNew(), w: 80, h: 80, edges: 16, ...g })
+			this.placing = null
+			this.selectObj(this.objects.length - 1)
+			this.notify()
+		} else { this.placing = null }
+	}
+
 	duplicateSel = () => { const idxs = this.selIdxs(); if (idxs.length) this.addClones(idxs.map((i) => $state.snapshot(this.objects[i]) as Obj), 200) }
 	copySel = () => { this.clipboard = this.selIdxs().map((i) => structuredClone($state.snapshot(this.objects[i])) as Obj) }
 	cutSel = () => { if (this.selIdxs().length) { this.copySel(); this.deleteSel() } }

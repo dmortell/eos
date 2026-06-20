@@ -41,7 +41,7 @@
 	// In-viewport geometry editor — operates on the shared model, persists via the store.
 	const editor = new Model3dEditor()
 	$effect(() => { editor.model = model; editor.direction = src?.direction ?? 'plan'; editor.layerOverrides = vp.layerOverrides ?? {} })
-	$effect(() => { if (!active) editor.clearSel() })
+	$effect(() => { if (!active) { editor.clearSel(); editor.cancelPlacing() } })
 
 	// Undo/redo over the model *geometry* only (objects). Layer definitions and
 	// underlays are edited through other save paths (Layers window / properties),
@@ -65,6 +65,10 @@
 		if (!active) return
 		const onKey = (e: KeyboardEvent) => {
 			if ((e.target as Element)?.closest?.('input, textarea, select, [contenteditable]')) return
+			if (editor.placing) {
+				if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); editor.finishPlacing(); return }
+				if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); editor.cancelPlacing(); return }
+			}
 			const mod = e.ctrlKey || e.metaKey
 			if (mod && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); e.stopPropagation(); if (e.shiftKey) history.redo(); else history.undo(); return }
 			if (mod && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); e.stopPropagation(); history.redo(); return }

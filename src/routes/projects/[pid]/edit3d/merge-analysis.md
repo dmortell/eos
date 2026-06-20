@@ -180,9 +180,12 @@ edit3d's Insert palette (`parts/insert.ts`) listed these but most were `todo:tru
 stubs — never built. So they're gaps in BOTH tools, now tracked for model3d:
 
 **Object creation (Insert palette)** — biggest gap. You can edit/duplicate/branch
-existing objects but can't *originate* a new prism/wall/conduit from scratch.
-Needs: a place-tool (click/drag to draw a wall/conduit path; click to drop a
-prism) feeding the editor. Touch: tap-to-place.
+existing objects but can't *originate* a new prism/wall/conduit. ✅ v1 DONE:
+place-tool in the object panel (plan view) — +Prism click-to-place; +Wall/+Conduit
+click points, ⏎/double-click to finish (Esc cancels), rubber-band preview; new
+object auto-selected. Follow-ups: an "active layer" for new objects (currently the
+model's first layer — reassign via the Layer dropdown), placing in elevation, and
+click-drag to size a prism footprint.
 
 **Sections / clip → cropped elevation** — `Clip` type exists; no UI. A section box
 in plan → auto-framed cropped elevation/section viewport (cull via `inClip`).

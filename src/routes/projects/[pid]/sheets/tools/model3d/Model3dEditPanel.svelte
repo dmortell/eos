@@ -18,6 +18,24 @@
 </script>
 
 <Window title="Object" name="model3d-object" right={10} top={10} open class="w-56 p-2 text-zinc-700">
+	<!-- Insert / place-tool (plan view only) -->
+	{#if editor.direction === 'plan'}
+		{#if editor.placing}
+			<div class="mb-1 flex items-center gap-1 rounded bg-blue-50 px-1 py-1 text-xs">
+				<span class="flex-1 text-blue-700">{editor.placing.kind === 'prism' ? 'Click to place' : 'Click points · ⏎/dbl-click to finish'}</span>
+				{#if editor.placing.kind !== 'prism'}<button class="rounded border px-1 py-0.5 hover:bg-white" onclick={() => editor.finishPlacing()}>Finish</button>{/if}
+				<button class="rounded border px-1 py-0.5 hover:bg-white" onclick={() => editor.cancelPlacing()}>Cancel</button>
+			</div>
+		{:else}
+			<div class="mb-1 flex items-center gap-1 text-xs">
+				<span class="text-zinc-400">Insert</span>
+				<button class="rounded border px-1.5 py-0.5 hover:bg-slate-100" onclick={() => editor.startPlacing('prism')}>＋Prism</button>
+				<button class="rounded border px-1.5 py-0.5 hover:bg-slate-100" onclick={() => editor.startPlacing('wall')}>＋Wall</button>
+				<button class="rounded border px-1.5 py-0.5 hover:bg-slate-100" onclick={() => editor.startPlacing('conduit')}>＋Conduit</button>
+			</div>
+		{/if}
+		<hr class="mb-1 border-zinc-200" />
+	{/if}
 	{#if obj}
 		<div class="space-y-1 text-xs">
 			<div class="mb-1 font-semibold capitalize">{obj.type}</div>

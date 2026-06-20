@@ -178,4 +178,24 @@
 		<rect x={m.x} y={m.y} width={m.w} height={m.h} fill="#3b82f6" fill-opacity="0.08"
 			stroke="#3b82f6" stroke-width="0.75" vector-effect="non-scaling-stroke" stroke-dasharray="4 3" style:pointer-events="none" />
 	{/if}
+
+	<!-- object placement: capture clicks/moves + draw the rubber-band preview -->
+	{#if editable && editor.placing}
+		{@const pl = editor.placing}
+		<rect x="-1000000" y="-1000000" width="2000000" height="2000000" fill="transparent"
+			style:pointer-events="auto" style:cursor="crosshair"
+			onmousedown={editor.placeClick} onmousemove={editor.placeMove} ondblclick={editor.finishPlacing} />
+		{#if pl.kind === 'prism' && pl.cursor}
+			{@const c = W3(pl.cursor)}
+			<rect x={c.x - 500} y={c.y - 300} width={1000} height={600} fill="#3b82f6" fill-opacity="0.15"
+				stroke="#3b82f6" stroke-width="1" vector-effect="non-scaling-stroke" style:pointer-events="none" />
+		{:else if pl.pts.length}
+			<polyline points={[...pl.pts, ...(pl.cursor ? [pl.cursor] : [])].map((p) => { const w = W3(p); return `${w.x},${w.y}` }).join(' ')}
+				fill="none" stroke="#3b82f6" stroke-width="1" vector-effect="non-scaling-stroke" stroke-dasharray="5 3" style:pointer-events="none" />
+			{#each pl.pts as p, pi (pi)}
+				{@const w = W3(p)}
+				<circle cx={w.x} cy={w.y} r={HR} fill="#3b82f6" stroke="#fff" stroke-width="0.75" vector-effect="non-scaling-stroke" style:pointer-events="none" />
+			{/each}
+		{/if}
+	{/if}
 </g>
