@@ -1,6 +1,6 @@
 import { SurfaceEditor } from '../../edit/surface.svelte'
 import { BASIS, type Conduit, type Dir, type Model, type Obj, type Prism, type Wall } from './types'
-import { moveAlong, objBounds, roundObj } from './projection'
+import { moveAlong, roundObj, project, xyCenter, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 
 const MIN = 1 // model mm
 
@@ -199,23 +199,11 @@ export class Model3dEditor extends SurfaceEditor {
 	hasMultiSel() { return this.multi.length > 0 }
 	clearMulti() { this.multi = [] }
 
-	// World-mm bounding box of an object's projected extent (for marquee hit-test).
-	private worldBounds(o: Obj) {
-		const b = BASIS[this.direction], bb = objBounds(o)
-		let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity
-		for (const x of [bb.x0, bb.x1]) for (const y of [bb.y0, bb.y1]) for (const z of [bb.z0, bb.z1]) {
-			const p = { x, y, z }, wx = b.hs * p[b.h], wy = -(b.vs * p[b.v])
-			x0 = Math.min(x0, wx); x1 = Math.max(x1, wx); y0 = Math.min(y0, wy); y1 = Math.max(y1, wy)
-		}
-		return { x0, y0, x1, y1 }
-	}
 	marqueeCollect(r: { x: number; y: number; w: number; h: number }): void {
 		super.clearSel(); this.vsel = null; this.usel = null // a marquee (or empty click) drops the single selection
+		const piv = xyCenter(this.objects)
 		const hit: number[] = []
-		this.objects.forEach((o, i) => {
-			const wb = this.worldBounds(o)
-			if (wb.x1 >= r.x && wb.x0 <= r.x + r.w && wb.y1 >= r.y && wb.y0 <= r.y + r.h) hit.push(i)
-		})
+		this.objects.forEach((o, i) => { if (marqueeHits(o, this.direction, piv, r)) hit.push(i) })
 		this.multi = hit
 	}
 	private groupSnap: Map<number, Obj> | null = null
@@ -236,6 +224,42 @@ export class Model3dEditor extends SurfaceEditor {
 	}
 
 	clearSel() { super.clearSel(); this.vsel = null; this.usel = null; this.multi = [] }
+}
+
+// Precise marquee hit-test: an object is selected when one of its *projected
+// outline shapes* actually touches the rect (a vertex inside, an edge crossing,
+// or the rect sitting inside a closed shape) — not merely a bbox overlap, so a
+// small box on a conduit segment no longer catches a huge wall whose bbox spans
+// the whole room.
+type V2 = { x: number; y: number }
+function marqueeHits(o: Obj, dir: Dir, piv: { cx: number; cy: number }, r: { x: number; y: number; w: number; h: number }) {
+	const shapes = project(o, dir, DEFAULT_YAW, DEFAULT_PITCH, piv.cx, piv.cy)
+	for (const s of shapes as { pts: { u: number; v: number }[]; closed: boolean }[]) {
+		const pts = s.pts.map((p) => ({ x: p.u, y: -p.v }))
+		if (rectHitsPoly(pts, s.closed, r)) return true
+	}
+	return false
+}
+function rectHitsPoly(pts: V2[], closed: boolean, r: { x: number; y: number; w: number; h: number }) {
+	const x0 = r.x, y0 = r.y, x1 = r.x + r.w, y1 = r.y + r.h
+	for (const p of pts) if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1) return true // a vertex inside
+	const rc: V2[] = [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }]
+	const n = pts.length, lim = closed ? n : n - 1
+	for (let i = 0; i < lim; i++) { const a = pts[i], b = pts[(i + 1) % n]; for (let k = 0; k < 4; k++) if (segInt(a, b, rc[k], rc[(k + 1) % 4])) return true }
+	return closed && pointInPoly(rc[0], pts) // rect sits inside a closed shape
+}
+function cross(o: V2, a: V2, b: V2) { return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x) }
+function segInt(a: V2, b: V2, c: V2, d: V2) {
+	const d1 = cross(c, d, a), d2 = cross(c, d, b), d3 = cross(a, b, c), d4 = cross(a, b, d)
+	return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))
+}
+function pointInPoly(pt: V2, pts: V2[]) {
+	let inside = false
+	for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+		const xi = pts[i].x, yi = pts[i].y, xj = pts[j].x, yj = pts[j].y
+		if ((yi > pt.y) !== (yj > pt.y) && pt.x < ((xj - xi) * (pt.y - yi)) / (yj - yi) + xi) inside = !inside
+	}
+	return inside
 }
 
 // Reset an object's position to a snapshot (before applying a group translate).
