@@ -16,6 +16,7 @@
 	import PropCheck from '../parts/PropCheck.svelte'
 	import PropColor from '../parts/PropColor.svelte'
 	import { SYMBOLS, symbolDef } from '../annotations/symbols/registry'
+	import { OUTLET_USAGE, OUTLET_CABLE, OUTLET_MOUNT } from '../annotations/outlet'
 	import { portal } from './portal'
 	import { HOTKEY_OF } from './hotkeys'
 	import type { AnnotationEditor } from '../annotations/annotations.svelte'
@@ -35,9 +36,13 @@
 		['ellipse', 'Ellipse'], ['cloud', 'Cloud'],
 		['callout', 'Callout'], ['dimension', 'Dim'],
 		['image', 'Image'],
+		['outlet', 'Outlet'],
 		['symbol', 'Symbol'],
 	]
 	const labelOf = (id: string) => annTools.find(t => t[0] === id)?.[1] ?? id
+	// 'outlet' is a quick alias for the outlet symbol (kind:symbol, symbol:outlet).
+	const applyTool = (id: string) => { if (id === 'outlet') { editor.symbol = 'outlet'; return 'symbol' } return id }
+	const isActive = (id: string) => id === 'outlet' ? (tool === 'symbol' && editor.symbol === 'outlet') : tool === id
 	// The picker menu is portalled to a fixed overlay (the Edit window clips/scrolls its content),
 	// positioned under the chevron from its on-screen rect.
 	let menuOpen = $state(false)
@@ -49,9 +54,9 @@
 	}
 	// Quick buttons stay put when clicked. Picking from the dropdown drops it into the LAST quick
 	// slot (so the first two stay stable), unless it's already one of the others.
-	function selectTool(id: string) { tool = id; menuOpen = false }
+	function selectTool(id: string) { tool = applyTool(id); menuOpen = false }
 	function pickFromMenu(id: string) {
-		tool = id
+		tool = applyTool(id)
 		menuOpen = false
 		if (!mru.slice(0, mru.length - 1).includes(id)) mru = [...mru.slice(0, mru.length - 1), id]
 	}
@@ -96,7 +101,7 @@
 <div class="flex flex-wrap items-center gap-1">
 	{#if showSelect}<button class={cls(tool === 'select')} onclick={() => (tool = 'select')}>Select</button>{/if}
 	{#each quick as id (id)}
-		<button class={cls(tool === id)} title="Insert {labelOf(id)}{HOTKEY_OF[id] ? ` (${HOTKEY_OF[id]})` : ''}" onclick={() => selectTool(id)}>+{labelOf(id)}</button>
+		<button class={cls(isActive(id))} title="Insert {labelOf(id)}{HOTKEY_OF[id] ? ` (${HOTKEY_OF[id]})` : ''}" onclick={() => selectTool(id)}>+{labelOf(id)}</button>
 	{/each}
 	{#if !toolsOverride}
 		<button bind:this={chevronEl} class={cls(!!tool && tool !== 'select' && !mru.includes(tool))} title="More annotations" aria-label="More annotations" onclick={toggleMenu}>▾</button>
@@ -179,6 +184,30 @@
 		</PropSelect>
 		{#if sel.symbol === 'door'}
 			<PropCheck label="Flip" value={!!sel.flip} onchange={(e: Event) => editor.setSel({ flip: (e.currentTarget as HTMLInputElement).checked })} />
+		{/if}
+		{#if sel.symbol === 'outlet'}
+			{@const o = sel.outlet ?? {}}
+			{@const setO = (p: Record<string, unknown>) => editor.setSel({ outlet: { ...o, ...p } })}
+			<PropText label="Label" value={o.label ?? ''} oninput={(e: Event) => setO({ label: val(e) })} />
+			<div class="grid grid-cols-2 gap-1">
+				<label class="block text-xs"><span class="text-zinc-400">Ports</span>
+					<input type="number" min="1" max="24" class="w-full rounded border px-1 py-0.5" value={o.ports ?? 2} oninput={(e) => setO({ ports: Number((e.currentTarget as HTMLInputElement).value) || 1 })} /></label>
+				<label class="block text-xs"><span class="text-zinc-400">Level</span>
+					<select class="w-full rounded border px-1 py-0.5" value={o.level ?? 'low'} onchange={(e) => setO({ level: val(e) })}>
+						<option value="low">Low (floor)</option><option value="high">High (ceiling)</option>
+					</select></label>
+				<label class="block text-xs"><span class="text-zinc-400">Mount</span>
+					<select class="w-full rounded border px-1 py-0.5" value={o.mount ?? 'box'} onchange={(e) => setO({ mount: val(e) })}>
+						{#each OUTLET_MOUNT as m (m.value)}<option value={m.value}>{m.label}</option>{/each}
+					</select></label>
+				<label class="block text-xs"><span class="text-zinc-400">Cable</span>
+					<input class="w-full rounded border px-1 py-0.5" list="outlet-cables" value={o.cable ?? 'cat6a'} oninput={(e: Event) => setO({ cable: val(e) })} />
+					<datalist id="outlet-cables">{#each OUTLET_CABLE as c (c.value)}<option value={c.value}>{c.label}</option>{/each}</datalist></label>
+			</div>
+			<label class="block text-xs"><span class="text-zinc-400">Usage</span>
+				<input class="w-full rounded border px-1 py-0.5" list="outlet-usages" value={o.usage ?? 'network'} oninput={(e: Event) => setO({ usage: val(e) })} />
+				<datalist id="outlet-usages">{#each OUTLET_USAGE as u (u.value)}<option value={u.value}>{u.label}</option>{/each}</datalist></label>
+			<PropText label="Room" value={o.room ?? ''} oninput={(e: Event) => setO({ room: val(e) })} />
 		{/if}
 		{#if sel.symbol === 'elevation'}
 			<!-- up to 4 directional arrows (one per wall); tick to add, type its viewport ref -->

@@ -3,6 +3,7 @@ import type { Point } from '$lib/ui/print/types'
 import type { Annotation, AnnotationKind } from '../types'
 import type { Box } from '../edit/transform'
 import type { LayerDef } from '../layers/layers'
+import { OUTLET_DEFAULTS } from './outlet'
 
 export type AnnTool = 'select' | AnnotationKind
 
@@ -32,7 +33,7 @@ function defaults(kind: AnnotationKind, symbol: string): Partial<Annotation> {
 	switch (kind) {
 		case 'text': return { text: 'Text', fontPt: 8, align: 'left' }
 		case 'callout': return { text: 'Note', fontPt: 8, align: 'left', w: 4000, h: 1400, end: 'arrow', border: 'none' }
-		case 'symbol': return { symbol }
+		case 'symbol': return symbol === 'outlet' ? { symbol, outlet: { ...OUTLET_DEFAULTS } } : { symbol }
 		case 'rect': case 'ellipse': case 'cloud': return {}
 		case 'image': return { src: '' }
 		case 'line': return { start: 'none', end: 'none', dash: 'solid' }

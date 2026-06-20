@@ -133,6 +133,22 @@ export interface Annotation {
 	// key shows that arrow with its viewport ref/letter; the centre circle shows
 	// the drawing no. (link.ref). `null`/absent = no arrow that way.
 	arms?: { n?: string | null; e?: string | null; s?: string | null; w?: string | null }
+	// Outlet symbol data (kind:'symbol', symbol:'outlet'). Drawn as a triangle
+	// (wallmount) / triangle-in-square (floorbox) / triangle-in-circle (rosette),
+	// ports in the triangle, label above, usage abbrev below (unless 'network').
+	outlet?: OutletProps
+}
+
+export type OutletLevel = 'low' | 'high'
+export type OutletMount = 'wall' | 'floor' | 'box' // Wallmount / Floorbox / Rosette
+export interface OutletProps {
+	label?: string
+	ports?: number
+	level?: OutletLevel
+	usage?: string // a default code or free text (customizable)
+	mount?: OutletMount
+	cable?: string
+	room?: string
 }
 
 export interface TitleBlockConfig {
