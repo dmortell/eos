@@ -139,3 +139,35 @@ Merging `sheets` → `edit3d` (a as host) only makes sense if you intend to **re
 ## 7. One-line summary
 
 > Treat `edit3d` as **model space** and `sheets` as **paper space**: port `edit3d`'s pure projection engine and model editing into `sheets` as a `model3d` viewport source, retire `edit3d`'s duplicate paper-space shell, and lift `edit3d`'s cleaner module boundaries into `sheets` as you touch it.
+
+---
+
+## 8. Editor unification plan (wall / conduit / outlets-trunk)
+
+**Insight:** wall, conduit, and the outlets *trunk* are the same primitive — a
+cross-section profile swept along a polyline path. Only the profile differs:
+
+| | path | profile |
+|---|---|---|
+| conduit | 3D polyline | n-gon `w × h` (round pipe / rect trunk) |
+| wall | 2D polyline @ base z | rectangle `thickness × height` |
+| outlets trunk | 2D polyline | width |
+
+So the *path-editing operations* are identical (vertex insert / move / delete,
+endpoint extend, segment select / delete, per-segment properties); the geometry
+is the only variable.
+
+**Done (stepping stone):** walls now reuse the conduit path logic in
+`model3d-editor` — `startVertex` / `startInsert` / `startExtend` / `deleteSel`
+and the edit-layer handles branch on `conduit || (wall && plan)` and operate on
+`o.path` (conduit) or `o.pts` (wall). Wall path editing is plan-only; elevations
+keep the single height handle.
+
+**Next (deliberate, needs a data change):**
+1. Extract a shared **swept-path editor** that owns path topology + handles; each
+   tool supplies its profile + the property fields it exposes.
+2. Add **segment selection** + **per-segment properties** (a wall/conduit whose
+   thickness/height varies per run) — this changes the data model from one
+   profile per object to an optional per-segment profile. The outlets trunk
+   editor is the reference for segment-select + add-point-on-segment + branch.
+3. Fold the outlets trunk onto the same editor once 1–2 land.

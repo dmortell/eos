@@ -1,6 +1,6 @@
 import { SurfaceEditor } from '../../edit/surface.svelte'
-import { BASIS, type Conduit, type Dir, type Model, type Obj, type Prism } from './types'
-import { moveAlong, roundObj } from './projection'
+import { BASIS, type Conduit, type Dir, type Model, type Obj, type Prism, type Wall } from './types'
+import { moveAlong, objBounds, roundObj } from './projection'
 
 const MIN = 1 // model mm
 
@@ -30,7 +30,7 @@ export class Model3dEditor extends SurfaceEditor {
 	get objects(): Obj[] { return this.model?.objects ?? [] }
 	get selIndex(): number | null { return this.sel?.kind === 'obj' ? +this.sel.id : null }
 	isObj(i: number) { return this.sel?.kind === 'obj' && +this.sel.id === i }
-	selectObj(i: number) { this.select('obj', String(i)); this.usel = null }
+	selectObj(i: number) { this.select('obj', String(i)); this.usel = null; this.multi = [] }
 
 	// Conduit path point selection (for Delete / highlight).
 	vsel = $state<{ index: number; vi: number } | null>(null)
@@ -88,6 +88,7 @@ export class Model3dEditor extends SurfaceEditor {
 		e.stopPropagation()
 		const o = this.objects[index]
 		if (!o || this.locked(o)) return
+		if (this.inMulti(index)) { this.beginGroupDrag(e); return } // drag the whole marquee group
 		this.selectObj(index); this.vsel = null
 		const b = BASIS[this.direction]
 		const s = this.at(e); if (!s) return
@@ -121,48 +122,70 @@ export class Model3dEditor extends SurfaceEditor {
 		}, () => this.notify())
 	}
 
-	// ── conduit path editing ──
-	private dragVertex(o: Conduit, vi: number) {
+	// ── shared path editing for conduits (3D path) and walls (2D pts, plan only) ──
+	// Walls reuse the same insert/extend/delete logic as conduits — a wall is just
+	// a flat swept polyline (see merge-analysis.md: wall/conduit/trunk unification).
+	private pathEditable(o: Obj | undefined): o is Conduit | Wall {
+		return !!o && !this.locked(o) && (o.type === 'conduit' || (o.type === 'wall' && this.direction === 'plan'))
+	}
+	private setPathPoint(o: Conduit | Wall, vi: number, ch: number, cv: number) {
 		const b = BASIS[this.direction]
-		this.startDrag((ev) => {
-			const c = this.at(ev); if (!c) return
-			o.path[vi][b.h] = Math.round(c.ch); o.path[vi][b.v] = Math.round(c.cv)
-		}, () => this.notify())
+		if (o.type === 'conduit') { o.path[vi][b.h] = Math.round(ch); o.path[vi][b.v] = Math.round(cv) }
+		else { o.pts[vi].x = Math.round(ch); o.pts[vi].y = Math.round(cv) } // wall, plan: ch=x, cv=y
+	}
+	private dragPathPoint(o: Conduit | Wall, vi: number) {
+		this.startDrag((ev) => { const c = this.at(ev); if (c) this.setPathPoint(o, vi, c.ch, c.cv) }, () => this.notify())
 	}
 	startVertex = (e: MouseEvent, index: number, vi: number) => {
 		if (e.button !== 0) return // right/middle bubble up so the canvas pans
 		e.stopPropagation()
 		const o = this.objects[index]
-		if (o?.type !== 'conduit' || this.locked(o)) return
+		if (!this.pathEditable(o)) return
 		this.selectObj(index); this.vsel = { index, vi }
-		this.dragVertex(o, vi)
+		this.dragPathPoint(o, vi)
 	}
 	startInsert = (e: MouseEvent, index: number, seg: number) => {
 		if (e.button !== 0) return // right/middle bubble up so the canvas pans
 		e.stopPropagation()
 		const o = this.objects[index]
-		if (o?.type !== 'conduit' || this.locked(o)) return
-		const a = o.path[seg], b2 = o.path[seg + 1]
-		o.path.splice(seg + 1, 0, { x: Math.round((a.x + b2.x) / 2), y: Math.round((a.y + b2.y) / 2), z: Math.round((a.z + b2.z) / 2) })
+		if (!this.pathEditable(o)) return
+		if (o.type === 'conduit') {
+			const a = o.path[seg], b2 = o.path[seg + 1]
+			o.path.splice(seg + 1, 0, { x: Math.round((a.x + b2.x) / 2), y: Math.round((a.y + b2.y) / 2), z: Math.round((a.z + b2.z) / 2) })
+		} else {
+			const a = o.pts[seg], b2 = o.pts[seg + 1]
+			o.pts.splice(seg + 1, 0, { x: Math.round((a.x + b2.x) / 2), y: Math.round((a.y + b2.y) / 2) })
+		}
 		this.selectObj(index); this.vsel = { index, vi: seg + 1 }
-		this.dragVertex(o, seg + 1)
+		this.dragPathPoint(o, seg + 1)
 	}
 	startExtend = (e: MouseEvent, index: number, end: 'start' | 'end') => {
 		if (e.button !== 0) return // right/middle bubble up so the canvas pans
 		e.stopPropagation()
 		const o = this.objects[index]
-		if (o?.type !== 'conduit' || this.locked(o)) return
-		const vi = end === 'end' ? o.path.length : 0
-		o.path.splice(vi, 0, { ...o.path[end === 'end' ? o.path.length - 1 : 0] })
-		this.selectObj(index); this.vsel = { index, vi }
-		this.dragVertex(o, vi)
+		if (!this.pathEditable(o)) return
+		if (o.type === 'conduit') {
+			const vi = end === 'end' ? o.path.length : 0
+			o.path.splice(vi, 0, { ...o.path[end === 'end' ? o.path.length - 1 : 0] })
+			this.selectObj(index); this.vsel = { index, vi }; this.dragPathPoint(o, vi)
+		} else {
+			const vi = end === 'end' ? o.pts.length : 0
+			o.pts.splice(vi, 0, { ...o.pts[end === 'end' ? o.pts.length - 1 : 0] })
+			this.selectObj(index); this.vsel = { index, vi }; this.dragPathPoint(o, vi)
+		}
 	}
 
-	// ── delete: selected conduit vertex first, else the selected object ──
+	// ── delete: multi-selection, then a selected path vertex, then the object ──
 	deleteSel = () => {
+		if (this.multi.length) {
+			const del = new Set(this.multi)
+			if (this.model) this.model.objects = this.objects.filter((o, i) => del.has(i) ? this.locked(o) : true)
+			this.multi = []; this.clearSel(); this.notify(); return
+		}
 		if (this.vsel) {
 			const o = this.objects[this.vsel.index]
 			if (o?.type === 'conduit' && o.path.length > 2) { o.path.splice(this.vsel.vi, 1); this.vsel = null; this.notify(); return }
+			if (o?.type === 'wall' && o.pts.length > 2) { o.pts.splice(this.vsel.vi, 1); this.vsel = null; this.notify(); return }
 		}
 		const i = this.selIndex
 		if (i !== null && this.objects[i] && !this.locked(this.objects[i])) {
@@ -170,5 +193,54 @@ export class Model3dEditor extends SurfaceEditor {
 		}
 	}
 
-	clearSel() { super.clearSel(); this.vsel = null; this.usel = null }
+	// ── marquee multi-select + group move (overrides SurfaceEditor hooks) ──
+	multi = $state<number[]>([])
+	inMulti(i: number) { return this.multi.includes(i) }
+	hasMultiSel() { return this.multi.length > 0 }
+	clearMulti() { this.multi = [] }
+
+	// World-mm bounding box of an object's projected extent (for marquee hit-test).
+	private worldBounds(o: Obj) {
+		const b = BASIS[this.direction], bb = objBounds(o)
+		let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity
+		for (const x of [bb.x0, bb.x1]) for (const y of [bb.y0, bb.y1]) for (const z of [bb.z0, bb.z1]) {
+			const p = { x, y, z }, wx = b.hs * p[b.h], wy = -(b.vs * p[b.v])
+			x0 = Math.min(x0, wx); x1 = Math.max(x1, wx); y0 = Math.min(y0, wy); y1 = Math.max(y1, wy)
+		}
+		return { x0, y0, x1, y1 }
+	}
+	marqueeCollect(r: { x: number; y: number; w: number; h: number }): void {
+		super.clearSel(); this.vsel = null; this.usel = null // a marquee (or empty click) drops the single selection
+		const hit: number[] = []
+		this.objects.forEach((o, i) => {
+			const wb = this.worldBounds(o)
+			if (wb.x1 >= r.x && wb.x0 <= r.x + r.w && wb.y1 >= r.y && wb.y0 <= r.y + r.h) hit.push(i)
+		})
+		this.multi = hit
+	}
+	private groupSnap: Map<number, Obj> | null = null
+	beginGroupTranslate(): void {
+		this.groupSnap = new Map()
+		for (const i of this.multi) this.groupSnap.set(i, structuredClone($state.snapshot(this.objects[i])) as Obj)
+	}
+	applyGroupTranslate(dwx: number, dwy: number): void {
+		if (!this.groupSnap) return
+		const b = BASIS[this.direction]
+		const dch = Math.round(dwx * b.hs), dcv = Math.round(-dwy * b.vs)
+		for (const i of this.multi) {
+			const o = this.objects[i], snap = this.groupSnap.get(i)
+			if (!o || !snap || this.locked(o)) continue
+			restorePos(o, snap)
+			moveAlong(o, b.h, dch); moveAlong(o, b.v, dcv)
+		}
+	}
+
+	clearSel() { super.clearSel(); this.vsel = null; this.usel = null; this.multi = [] }
+}
+
+// Reset an object's position to a snapshot (before applying a group translate).
+function restorePos(o: Obj, s: any) {
+	if (o.type === 'prism') { o.x = s.x; o.y = s.y; o.z = s.z }
+	else if (o.type === 'wall') { o.z = s.z; o.pts.forEach((p, k) => { p.x = s.pts[k].x; p.y = s.pts[k].y }) }
+	else o.path.forEach((p, k) => { p.x = s.path[k].x; p.y = s.path[k].y; p.z = s.path[k].z })
 }

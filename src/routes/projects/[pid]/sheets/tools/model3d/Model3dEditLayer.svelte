@@ -5,7 +5,7 @@
 	// {@render children} slot (so it shares the real-mm viewBox). namespace="svg"
 	// is required or these elements compile in the HTML namespace (inert).
 	import type { Model3dEditor } from './model3d-editor.svelte'
-	import { BASIS, type Conduit, type Dir, type Model, type Obj, type Prism, type Wall } from './types'
+	import { BASIS, type Dir, type Model, type Obj, type Wall } from './types'
 	import { project, posAlong, sizeAlong, xyCenter, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 
 	let { editor, model, direction, interactive = false, zoom = 1 }: {
@@ -55,22 +55,23 @@
 			}
 			return out
 		}
-		if (o.type === 'wall') {
-			if (direction === 'plan') return o.pts.map((pt, k): H => { const p = W3({ x: pt.x, y: pt.y, z: o.z }); return { round: false, x: p.x, y: p.y, cur: 'move', act: (e) => editor.startResize(e, i, `p${k}`) } })
+		// wall in an elevation view: only the height edge is editable here
+		if (o.type === 'wall' && direction !== 'plan') {
 			const f = o.pts[0]; const p = Whv(b.h === 'x' ? f.x : f.y, o.z + o.h)
 			return [{ round: false, x: p.x, y: p.y, cur: 'ns-resize', act: (e) => editor.startResize(e, i, 'p0') }]
 		}
-		// conduit: vertices + insert midpoints + extend ends
-		const c = o as Conduit
-		const out: H[] = c.path.map((pt, vi): H => { const p = W3(pt); return { round: false, x: p.x, y: p.y, cur: 'move', sel: editor.isVertex(i, vi), act: (e) => editor.startVertex(e, i, vi) } })
-		for (let s = 0; s < c.path.length - 1; s++) { const p = W3(mid(c.path[s], c.path[s + 1])); out.push({ round: true, x: p.x, y: p.y, cur: 'copy', act: (e) => editor.startInsert(e, i, s) }) }
+		// conduit, or wall in plan — same swept-path handles: vertices + insert
+		// midpoints + extend ends (walls reuse the conduit path logic).
+		const path = o.type === 'conduit' ? o.path : (o as Wall).pts.map((p) => ({ x: p.x, y: p.y, z: o.z }))
+		const out: H[] = path.map((pt, vi): H => { const p = W3(pt); return { round: false, x: p.x, y: p.y, cur: 'move', sel: editor.isVertex(i, vi), act: (e) => editor.startVertex(e, i, vi) } })
+		for (let s = 0; s < path.length - 1; s++) { const p = W3(mid(path[s], path[s + 1])); out.push({ round: true, x: p.x, y: p.y, cur: 'copy', act: (e) => editor.startInsert(e, i, s) }) }
 		// Extend handles sit just *beyond* each end vertex (along the end segment) so
 		// they don't overlap the vertex handle and block dragging it.
-		const n = c.path.length
+		const n = path.length
 		for (const end of ['start', 'end'] as const) {
 			const i0 = end === 'end' ? n - 1 : 0
 			const i1 = Math.max(0, Math.min(n - 1, end === 'end' ? n - 2 : 1))
-			const a = W3(c.path[i0]), bb = W3(c.path[i1])
+			const a = W3(path[i0]), bb = W3(path[i1])
 			const dx = a.x - bb.x, dy = a.y - bb.y, len = Math.hypot(dx, dy) || 1
 			out.push({ round: true, x: a.x + (dx / len) * GAP, y: a.y + (dy / len) * GAP, cur: 'crosshair', act: (e) => editor.startExtend(e, i, end) })
 		}
@@ -80,13 +81,13 @@
 
 <g class="print:hidden">
 	{#if editable}
-		<!-- empty-space click clears selection (behind the object hit shapes) -->
+		<!-- empty-space drag draws a marquee (and a plain click clears selection) -->
 		<rect x="-1000000" y="-1000000" width="2000000" height="2000000" fill="transparent"
-			style:pointer-events="auto" onmousedown={(e: MouseEvent) => { if (e.button === 0) editor.clearSel() }} />
+			style:pointer-events="auto" onmousedown={(e: MouseEvent) => { if (e.button === 0) editor.beginMarquee(e) }} />
 	{/if}
 
 	{#each model.objects as o, i (i)}
-		{@const selected = editor.isObj(i)}
+		{@const selected = editor.isObj(i) || editor.inMulti(i)}
 		{#each shapesOf(o) as s, si (si)}
 			<!-- fat transparent hit line for select/move -->
 			<polyline points={shapePts(s)} fill="none" stroke="transparent" stroke-width={HIT}
@@ -135,5 +136,12 @@
 				{/if}
 			{/if}
 		{/each}
+	{/if}
+
+	<!-- marquee selection box -->
+	{#if editable && editor.marquee}
+		{@const m = editor.marquee}
+		<rect x={m.x} y={m.y} width={m.w} height={m.h} fill="#3b82f6" fill-opacity="0.08"
+			stroke="#3b82f6" stroke-width="0.75" vector-effect="non-scaling-stroke" stroke-dasharray="4 3" style:pointer-events="none" />
 	{/if}
 </g>
