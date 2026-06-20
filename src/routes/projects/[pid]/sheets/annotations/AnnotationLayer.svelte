@@ -101,6 +101,7 @@
 				<text x={cx} y={cy - R} font-size={R} fill={color} text-anchor="middle">N</text>
 			{:else if a.symbol === 'outlet'}
 				{@const o = a.outlet ?? {}}
+				{@const oc = a.color ?? editor.layers.find((l) => l.id === lyr)?.color ?? color}
 				{@const mt = o.mount ?? 'box'}
 				{@const low = (o.level ?? 'low') === 'low'}
 				{@const sw = low ? 0.5 : 1}
@@ -112,17 +113,17 @@
 				{@const hw = tR * 0.866}
 				{@const tri = `M${cx},${cy + tR} L${cx - hw},${cy - tR * 0.5} L${cx + hw},${cy - tR * 0.5} Z`}
 				{#if mt === 'floor'}
-					<rect x={cx - hw} y={cy + tR * 0.25 - hw} width={hw * 2} height={hw * 2} fill={color} fill-opacity={low ? 0.85 : 0.4} stroke={color} stroke-width={sw} vector-effect="non-scaling-stroke" />
+					<rect x={cx - hw} y={cy + tR * 0.25 - hw} width={hw * 2} height={hw * 2} fill={oc} fill-opacity={low ? 0.85 : 0.4} stroke={oc} stroke-width={sw} vector-effect="non-scaling-stroke" />
 				{:else if mt === 'box'}
-					<circle cx={cx} cy={cy} r={tR} fill={color} fill-opacity={low ? 0.85 : 0.4} stroke={color} stroke-width={sw} vector-effect="non-scaling-stroke" />
+					<circle cx={cx} cy={cy} r={tR} fill={oc} fill-opacity={low ? 0.85 : 0.4} stroke={oc} stroke-width={sw} vector-effect="non-scaling-stroke" />
 				{/if}
-				<path d={tri} fill={color} stroke="#000" stroke-width={sw * 0.45} vector-effect="non-scaling-stroke" stroke-linejoin="round" />
+				<path d={tri} fill={oc} stroke="#000" stroke-width={sw * 0.45} vector-effect="non-scaling-stroke" stroke-linejoin="round" />
 				<!-- ports count, in the (wide, upper) part of the down-triangle -->
 				<text x={cx} y={cy - tR * 0.1} font-size={tR * 0.66} fill="white" text-anchor="middle" dominant-baseline="middle" font-weight="600">{o.ports ?? 2}</text>
 				<!-- label above -->
-				{#if o.label}<text x={cx} y={cy - R * 0.92} font-size={R * 0.5} fill={color} text-anchor="middle">{o.label}</text>{/if}
+				{#if o.label}<text x={cx} y={cy - R * 0.92} font-size={R * 0.5} fill={oc} text-anchor="middle">{o.label}</text>{/if}
 				<!-- usage abbrev below (blank for network) -->
-				{#if usageAbbr(o.usage)}<text x={cx} y={cy + R * 0.92} font-size={R * 0.45} fill={color} text-anchor="middle">{usageAbbr(o.usage)}</text>{/if}
+				{#if usageAbbr(o.usage)}<text x={cx} y={cy + R * 0.92} font-size={R * 0.45} fill={oc} text-anchor="middle">{usageAbbr(o.usage)}</text>{/if}
 			{:else if a.symbol === 'faceplate'}
 				{@const pw = b.w * 0.6}{@const ph = b.h * 0.85}{@const ps = pw * 0.32}
 				<rect x={cx - pw / 2} y={cy - ph / 2} width={pw} height={ph} rx={pw * 0.08} fill={a.fill ?? 'white'} stroke={color} stroke-width=".5" vector-effect="non-scaling-stroke" />

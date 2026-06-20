@@ -104,9 +104,20 @@
 	let tool = $state('select')
 	let viewDen = $state(1)
 	let elevDir = $state<Dir>('front') // direction for the floating elevation preview
+	// Unified layer list for symbols: this model's layers (so an outlet can file onto
+	// Walls/Furniture/etc — base:'annotations' makes them annotation-assignable) plus the
+	// sheet's annotation-category layers. Both share vp.layerOverrides for hide/lock.
+	const annLayerDefs = $derived([
+		...(model?.layers ?? []).map((l) => ({ id: l.id, name: l.name, color: l.color, base: 'annotations' })),
+		...vps.allLayers.filter((l) => l.id === 'annotations' || l.base === 'annotations'),
+	])
+	// Hide/lock lists for annotations must also cover model layers (per-viewport overrides).
+	const annHidden = $derived([...hidden, ...(model?.layers ?? []).filter((l) => vp.layerOverrides?.[l.id]?.hidden).map((l) => l.id)])
+	const annLocked = $derived([...locked, ...(model?.layers ?? []).filter((l) => vp.layerOverrides?.[l.id]?.locked).map((l) => l.id)])
+
 	// History is created first so the annotation editor can touch() it after each change.
 	const history = new History()
-	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor, afterChange: () => history.touch() })
+	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor, afterChange: () => history.touch(), layers: () => annLayerDefs, activeLayer: () => src?.activeLayer })
 	annEditor.onPlaced = () => (tool = 'select') // back to Select so the new annote shows handles
 	$effect(() => { if (!active) { annEditor.clearSel(); tool = 'select' } })
 
@@ -189,7 +200,7 @@
 			<Model3dEditLayer {editor} {model} direction={src.direction} interactive={tool === 'select'} {zoom} />
 		{/if}
 		<!-- annotations render in real-mm; interactive (select/move) only in Select mode -->
-		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} {hidden} {locked} den={viewDen} {zoom} />
+		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} hidden={annHidden} locked={annLocked} den={viewDen} {zoom} />
 	</Model3dRender>
 	{#if active}
 		<!-- portalled out of the zoomed canvas so the panels render at normal size -->

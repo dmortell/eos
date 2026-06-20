@@ -1,6 +1,6 @@
 import { toast } from 'svelte-sonner'
 import { AnnotationEditor } from '../annotations/annotations.svelte'
-import { annTargetLayer, layerCategory } from '../layers/layers'
+import { annTargetLayer, layerCategory, type LayerDef } from '../layers/layers'
 import type { SurfaceEditor } from './surface.svelte'
 import type { ViewportEditor } from '../viewports.svelte'
 import type { SheetViewport } from '../types'
@@ -18,18 +18,24 @@ export function useAnnotations(opts: {
 	toolEditor: SurfaceEditor
 	/** Called after each annotation change persists — e.g. to notify an undo History. */
 	afterChange?: () => void
+	/** Override the layer list (e.g. model3d adds its model layers so symbols can file
+	 *  onto them). Defaults to the project/sheet layers. Also drives the new-annotation
+	 *  active layer when `activeLayer` is given. */
+	layers?: () => LayerDef[]
+	activeLayer?: () => string | undefined
 }): AnnotationEditor {
 	const ed = new AnnotationEditor()
 	ed.peer = opts.toolEditor
 	opts.toolEditor.peer = ed
+	const layerList = () => opts.layers?.() ?? opts.vps.allLayers
 	// Mirror the layer list for the props-panel picker, and resolve the layer new annotations land on.
 	// An active layer from a non-annotation category can't hold annotations → fall back + warn (5a5).
-	$effect(() => { ed.layers = opts.vps.allLayers })
+	$effect(() => { ed.layers = layerList() })
 	ed.nextLayerId = () => {
-		const active = opts.vps.activeLayerId
-		const target = annTargetLayer(active, opts.vps.allLayers)
-		if (target !== active && layerCategory(active, opts.vps.allLayers) !== 'annotations') {
-			const name = opts.vps.allLayers.find(l => l.id === active)?.name ?? active
+		const active = opts.activeLayer?.() ?? opts.vps.activeLayerId
+		const target = annTargetLayer(active, layerList())
+		if (target !== active && layerCategory(active, layerList()) !== 'annotations') {
+			const name = layerList().find(l => l.id === active)?.name ?? active
 			toast.info(`“${name}” isn't an annotation layer — added to Annotations`)
 		}
 		return target
