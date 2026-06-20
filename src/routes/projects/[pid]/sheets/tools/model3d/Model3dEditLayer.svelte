@@ -32,7 +32,7 @@
 	const GAP = $derived(16 / ss) // extend-handle offset beyond the end vertex
 	// Stroke widths: with non-scaling-stroke the value is in SVG-element px, scaled by
 	// the canvas zoom — so divide by zoom for a constant on-screen width at any zoom.
-	const selW = $derived(0.75 / zoom) // thin selection highlight (constant on-screen)
+	const selW = $derived(2.75 / zoom) // thin selection highlight (constant on-screen)
 	const segW = $derived(1.75 / zoom) // selected-segment highlight (a touch bolder)
 
 	// Points string; closed shapes are closed back to the first point so the
@@ -107,9 +107,17 @@
 	{#each model.objects as o, i (i)}
 		{@const selected = editor.isObj(i) || editor.inMulti(i)}
 		{#each shapesOf(o) as s, si (si)}
-			<!-- fat transparent hit line for select/move -->
-			<polyline points={shapePts(s)} fill="none" stroke="transparent" stroke-width={HIT}
-				style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => editor.startObjMove(e, i)} />
+			<!-- hit area for select/move: a FILLED polygon for closed shapes (wall boxes,
+			     conduit hulls, prism footprints) so clicking anywhere on the body selects
+			     it — not just the outline edge — plus a fat stroke so thin/degenerate
+			     shapes stay grabbable. Open shapes fall back to a stroked polyline. -->
+			{#if s.closed}
+				<polygon points={shapePts(s)} fill="transparent" stroke="transparent" stroke-width={HIT}
+					style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => editor.startObjMove(e, i)} />
+			{:else}
+				<polyline points={shapePts(s)} fill="none" stroke="transparent" stroke-width={HIT}
+					style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => editor.startObjMove(e, i)} />
+			{/if}
 			<!-- outline highlight for prisms/walls (a conduit's silhouette would mask its vertex handles) -->
 			{#if selected && o.type !== 'conduit'}
 				<polyline points={shapePts(s)} fill="none" stroke={HL} stroke-width={selW} vector-effect="non-scaling-stroke" style:pointer-events="none" />

@@ -110,7 +110,7 @@ export class Model3dEditor extends SurfaceEditor {
 	private blockedByLock(o: Obj): boolean {
 		if (!this.locked(o)) return false
 		const name = this.model?.layers?.find((l) => l.id === o.layer)?.name ?? o.layer ?? 'layer'
-		toast.info(`Layer “${name}” is locked — unlock it in the Layers window to edit`)
+		toast.warning(`Layer “${name}” is locked — unlock it in the Layers window to edit`)
 		return true
 	}
 
