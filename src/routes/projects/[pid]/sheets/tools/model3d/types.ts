@@ -17,21 +17,29 @@ export type Prism = {
 	edges: number // 3..24
 }
 
-// line -> wall: a base polyline (x,y) of `thickness`, extruded up from z by
-// height h. (Effectively a rectangular sweep — like a conduit laid flat.)
+// Wall + Conduit are swept primitives over a node/segment graph (see graph.ts).
+// `nodes` are the path vertices; `segments` connect them and may carry per-segment
+// profile overrides (falling back to the object's default). Object `h`/thickness/
+// w/edges are the defaults. A node shared by 3+ segments is a branch/junction.
+import type { GNode, GSeg } from './graph'
+
+// Wall: a flat ribbon of `thickness`, extruded up from each node's z by height h.
+export type WallSeg = GSeg & { thickness?: number; h?: number }
 export type Wall = {
 	type: 'wall'
-	z: number; h: number; thickness: number
-	pts: Pt[]
+	h: number; thickness: number
+	nodes: GNode[]
+	segments: WallSeg[]
 }
 
-// Conduit (sweep): an n-gon cross-section (w×h, edges) swept along a polyline
-// path. Axis-aligned segments. 4 edges = rectangular trunk; 16/24 = round pipe.
+// Conduit: an n-gon cross-section (w×h, edges) swept along the path. 4 edges =
+// rectangular trunk; 16/24 = round pipe.
+export type CondSeg = GSeg & { w?: number; h?: number; edges?: number }
 export type Conduit = {
 	type: 'conduit'
-	path: { x: number; y: number; z: number }[]
-	w: number; h: number
-	edges: number // 3..24
+	w: number; h: number; edges: number // 3..24
+	nodes: GNode[]
+	segments: CondSeg[]
 }
 
 // A drawing layer (model-scoped): controls object color, visibility and locking.

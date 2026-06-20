@@ -5,7 +5,7 @@
 	// {@render children} slot (so it shares the real-mm viewBox). namespace="svg"
 	// is required or these elements compile in the HTML namespace (inert).
 	import type { Model3dEditor } from './model3d-editor.svelte'
-	import { BASIS, type Dir, type Model, type Obj, type Wall } from './types'
+	import { BASIS, type Conduit, type Dir, type Model, type Obj, type Wall } from './types'
 	import { project, posAlong, sizeAlong, xyCenter, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 
 	let { editor, model, direction, interactive = false, zoom = 1 }: {
@@ -57,23 +57,28 @@
 		}
 		// wall in an elevation view: only the height edge is editable here
 		if (o.type === 'wall' && direction !== 'plan') {
-			const f = o.pts[0]; const p = Whv(b.h === 'x' ? f.x : f.y, o.z + o.h)
+			const f = o.nodes[0]; const p = Whv(b.h === 'x' ? f.x : f.y, f.z + o.h)
 			return [{ round: false, x: p.x, y: p.y, cur: 'ns-resize', act: (e) => editor.startResize(e, i, 'p0') }]
 		}
-		// conduit, or wall in plan — same swept-path handles: vertices + insert
-		// midpoints + extend ends (walls reuse the conduit path logic).
-		const path = o.type === 'conduit' ? o.path : (o as Wall).pts.map((p) => ({ x: p.x, y: p.y, z: o.z }))
-		const out: H[] = path.map((pt, vi): H => { const p = W3(pt); return { round: false, x: p.x, y: p.y, cur: 'move', sel: editor.isVertex(i, vi), act: (e) => editor.startVertex(e, i, vi) } })
-		for (let s = 0; s < path.length - 1; s++) { const p = W3(mid(path[s], path[s + 1])); out.push({ round: true, x: p.x, y: p.y, cur: 'copy', act: (e) => editor.startInsert(e, i, s) }) }
-		// Extend handles sit just *beyond* each end vertex (along the end segment) so
-		// they don't overlap the vertex handle and block dragging it.
-		const n = path.length
-		for (const end of ['start', 'end'] as const) {
-			const i0 = end === 'end' ? n - 1 : 0
-			const i1 = Math.max(0, Math.min(n - 1, end === 'end' ? n - 2 : 1))
-			const a = W3(path[i0]), bb = W3(path[i1])
+		// conduit, or wall in plan — graph handles: a vertex per node, an insert
+		// midpoint per segment, an extend handle per endpoint (degree-1 node).
+		const sw = o as Conduit | Wall
+		const nm = new Map(sw.nodes.map((n) => [n.id, n]))
+		const deg = (id: string) => sw.segments.filter((s) => s.a === id || s.b === id).length
+		const out: H[] = sw.nodes.map((nd): H => { const p = W3(nd); return { round: false, x: p.x, y: p.y, cur: 'move', sel: editor.isVertex(i, nd.id), act: (e) => editor.startVertex(e, i, nd.id) } })
+		for (const s of sw.segments) {
+			const a = nm.get(s.a), c = nm.get(s.b); if (!a || !c) continue
+			const p = W3(mid(a, c)); out.push({ round: true, x: p.x, y: p.y, cur: 'copy', act: (e) => editor.startInsert(e, i, s.id) })
+		}
+		// Extend handle sits just *beyond* each endpoint (along its only segment) so
+		// it doesn't overlap the vertex handle and block dragging it.
+		for (const nd of sw.nodes) {
+			if (deg(nd.id) !== 1) continue
+			const s = sw.segments.find((x) => x.a === nd.id || x.b === nd.id)!
+			const other = nm.get(s.a === nd.id ? s.b : s.a)!
+			const a = W3(nd), bb = W3(other)
 			const dx = a.x - bb.x, dy = a.y - bb.y, len = Math.hypot(dx, dy) || 1
-			out.push({ round: true, x: a.x + (dx / len) * GAP, y: a.y + (dy / len) * GAP, cur: 'crosshair', act: (e) => editor.startExtend(e, i, end) })
+			out.push({ round: true, x: a.x + (dx / len) * GAP, y: a.y + (dy / len) * GAP, cur: 'crosshair', act: (e) => editor.startExtend(e, i, nd.id) })
 		}
 		return out
 	}
@@ -97,10 +102,16 @@
 				<polyline points={shapePts(s)} fill="none" stroke={HL} stroke-width="0.75" vector-effect="non-scaling-stroke" style:pointer-events="none" />
 			{/if}
 		{/each}
-		<!-- conduit: highlight the thin centerline, not the tube silhouette -->
+		<!-- conduit: highlight the thin centerline (per segment), not the tube silhouette -->
 		{#if selected && o.type === 'conduit'}
-			<polyline points={o.path.map((p) => `${b.hs * p[b.h]},${-(b.vs * p[b.v])}`).join(' ')}
-				fill="none" stroke={HL} stroke-width="0.75" vector-effect="non-scaling-stroke" style:pointer-events="none" />
+			{#each o.segments as s (s.id)}
+				{@const a = o.nodes.find((n) => n.id === s.a)}
+				{@const c = o.nodes.find((n) => n.id === s.b)}
+				{#if a && c}
+					<line x1={b.hs * a[b.h]} y1={-(b.vs * a[b.v])} x2={b.hs * c[b.h]} y2={-(b.vs * c[b.v])}
+						stroke={HL} stroke-width="0.75" vector-effect="non-scaling-stroke" style:pointer-events="none" />
+				{/if}
+			{/each}
 		{/if}
 	{/each}
 

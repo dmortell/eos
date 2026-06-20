@@ -1,6 +1,7 @@
 import { SurfaceEditor } from '../../edit/surface.svelte'
 import { BASIS, type Conduit, type Dir, type Model, type Obj, type Prism, type Wall } from './types'
 import { moveAlong, roundObj, project, xyCenter, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
+import { newId } from './graph'
 
 const MIN = 1 // model mm
 
@@ -32,9 +33,9 @@ export class Model3dEditor extends SurfaceEditor {
 	isObj(i: number) { return this.sel?.kind === 'obj' && +this.sel.id === i }
 	selectObj(i: number) { this.select('obj', String(i)); this.usel = null; this.multi = [] }
 
-	// Conduit path point selection (for Delete / highlight).
-	vsel = $state<{ index: number; vi: number } | null>(null)
-	isVertex(i: number, vi: number) { return this.vsel?.index === i && this.vsel?.vi === vi }
+	// Path node selection (for Delete / highlight), by object index + node id.
+	vsel = $state<{ index: number; nodeId: string } | null>(null)
+	isVertex(i: number, nodeId: string) { return this.vsel?.index === i && this.vsel?.nodeId === nodeId }
 
 	// Underlay selection (drag/resize its placement rect).
 	usel = $state<string | null>(null)
@@ -114,9 +115,8 @@ export class Model3dEditor extends SurfaceEditor {
 			if (o.type === 'prism') {
 				resizeBoxAxis(o, b.h, handle.includes('h1'), c.ch, MIN)
 				resizeBoxAxis(o, b.v, handle.includes('v1'), c.cv, MIN)
-			} else if (o.type === 'wall' && handle.startsWith('p')) {
-				if (this.direction === 'plan') { const k = +handle.slice(1); o.pts[k].x = c.u; o.pts[k].y = c.v }
-				else o.h = Math.max(MIN, c.cv - o.z)
+			} else if (o.type === 'wall' && handle === 'p0') {
+				o.h = Math.max(MIN, c.cv - (o.nodes[0]?.z ?? 0)) // elevation: drag the top edge
 			}
 			roundObj(o)
 		}, () => this.notify())
@@ -128,51 +128,46 @@ export class Model3dEditor extends SurfaceEditor {
 	private pathEditable(o: Obj | undefined): o is Conduit | Wall {
 		return !!o && !this.locked(o) && (o.type === 'conduit' || (o.type === 'wall' && this.direction === 'plan'))
 	}
-	private setPathPoint(o: Conduit | Wall, vi: number, ch: number, cv: number) {
-		const b = BASIS[this.direction]
-		if (o.type === 'conduit') { o.path[vi][b.h] = Math.round(ch); o.path[vi][b.v] = Math.round(cv) }
-		else { o.pts[vi].x = Math.round(ch); o.pts[vi].y = Math.round(cv) } // wall, plan: ch=x, cv=y
+	private node(o: Conduit | Wall, id: string) { return o.nodes.find((n) => n.id === id) }
+	private dragNode(o: Conduit | Wall, id: string) {
+		const b = BASIS[this.direction], n = this.node(o, id); if (!n) return
+		this.startDrag((ev) => { const c = this.at(ev); if (c) { n[b.h] = Math.round(c.ch); n[b.v] = Math.round(c.cv) } }, () => this.notify())
 	}
-	private dragPathPoint(o: Conduit | Wall, vi: number) {
-		this.startDrag((ev) => { const c = this.at(ev); if (c) this.setPathPoint(o, vi, c.ch, c.cv) }, () => this.notify())
-	}
-	startVertex = (e: MouseEvent, index: number, vi: number) => {
+	startVertex = (e: MouseEvent, index: number, nodeId: string) => {
 		if (e.button !== 0) return // right/middle bubble up so the canvas pans
 		e.stopPropagation()
 		const o = this.objects[index]
 		if (!this.pathEditable(o)) return
-		this.selectObj(index); this.vsel = { index, vi }
-		this.dragPathPoint(o, vi)
+		this.selectObj(index); this.vsel = { index, nodeId }
+		this.dragNode(o, nodeId)
 	}
-	startInsert = (e: MouseEvent, index: number, seg: number) => {
+	// Insert: split segment `segId` at its midpoint into two segments (carry profile).
+	startInsert = (e: MouseEvent, index: number, segId: string) => {
 		if (e.button !== 0) return // right/middle bubble up so the canvas pans
 		e.stopPropagation()
 		const o = this.objects[index]
 		if (!this.pathEditable(o)) return
-		if (o.type === 'conduit') {
-			const a = o.path[seg], b2 = o.path[seg + 1]
-			o.path.splice(seg + 1, 0, { x: Math.round((a.x + b2.x) / 2), y: Math.round((a.y + b2.y) / 2), z: Math.round((a.z + b2.z) / 2) })
-		} else {
-			const a = o.pts[seg], b2 = o.pts[seg + 1]
-			o.pts.splice(seg + 1, 0, { x: Math.round((a.x + b2.x) / 2), y: Math.round((a.y + b2.y) / 2) })
-		}
-		this.selectObj(index); this.vsel = { index, vi: seg + 1 }
-		this.dragPathPoint(o, seg + 1)
+		const seg = o.segments.find((s) => s.id === segId); if (!seg) return
+		const a = this.node(o, seg.a), b2 = this.node(o, seg.b); if (!a || !b2) return
+		const mid = { id: newId('n'), x: Math.round((a.x + b2.x) / 2), y: Math.round((a.y + b2.y) / 2), z: Math.round((a.z + b2.z) / 2) }
+		o.nodes.push(mid)
+		o.segments.push({ ...seg, id: newId('s'), a: mid.id, b: seg.b })
+		seg.b = mid.id
+		this.selectObj(index); this.vsel = { index, nodeId: mid.id }
+		this.dragNode(o, mid.id)
 	}
-	startExtend = (e: MouseEvent, index: number, end: 'start' | 'end') => {
+	// Extend: pull a new node + segment off endpoint `nodeId`.
+	startExtend = (e: MouseEvent, index: number, nodeId: string) => {
 		if (e.button !== 0) return // right/middle bubble up so the canvas pans
 		e.stopPropagation()
 		const o = this.objects[index]
 		if (!this.pathEditable(o)) return
-		if (o.type === 'conduit') {
-			const vi = end === 'end' ? o.path.length : 0
-			o.path.splice(vi, 0, { ...o.path[end === 'end' ? o.path.length - 1 : 0] })
-			this.selectObj(index); this.vsel = { index, vi }; this.dragPathPoint(o, vi)
-		} else {
-			const vi = end === 'end' ? o.pts.length : 0
-			o.pts.splice(vi, 0, { ...o.pts[end === 'end' ? o.pts.length - 1 : 0] })
-			this.selectObj(index); this.vsel = { index, vi }; this.dragPathPoint(o, vi)
-		}
+		const from = this.node(o, nodeId); if (!from) return
+		const nn = { id: newId('n'), x: from.x, y: from.y, z: from.z }
+		o.nodes.push(nn)
+		o.segments.push({ id: newId('s'), a: nodeId, b: nn.id })
+		this.selectObj(index); this.vsel = { index, nodeId: nn.id }
+		this.dragNode(o, nn.id)
 	}
 
 	// ── delete: multi-selection, then a selected path vertex, then the object ──
@@ -184,8 +179,9 @@ export class Model3dEditor extends SurfaceEditor {
 		}
 		if (this.vsel) {
 			const o = this.objects[this.vsel.index]
-			if (o?.type === 'conduit' && o.path.length > 2) { o.path.splice(this.vsel.vi, 1); this.vsel = null; this.notify(); return }
-			if (o?.type === 'wall' && o.pts.length > 2) { o.pts.splice(this.vsel.vi, 1); this.vsel = null; this.notify(); return }
+			if ((o?.type === 'conduit' || o?.type === 'wall') && o.nodes.length > 2 && deleteNode(o, this.vsel.nodeId)) {
+				this.vsel = null; this.notify(); return
+			}
 		}
 		const i = this.selIndex
 		if (i !== null && this.objects[i] && !this.locked(this.objects[i])) {
@@ -265,6 +261,19 @@ function pointInPoly(pt: V2, pts: V2[]) {
 // Reset an object's position to a snapshot (before applying a group translate).
 function restorePos(o: Obj, s: any) {
 	if (o.type === 'prism') { o.x = s.x; o.y = s.y; o.z = s.z }
-	else if (o.type === 'wall') { o.z = s.z; o.pts.forEach((p, k) => { p.x = s.pts[k].x; p.y = s.pts[k].y }) }
-	else o.path.forEach((p, k) => { p.x = s.path[k].x; p.y = s.path[k].y; p.z = s.path[k].z })
+	else o.nodes.forEach((n, k) => { n.x = s.nodes[k].x; n.y = s.nodes[k].y; n.z = s.nodes[k].z })
+}
+
+// Delete a path node, rejoining its two neighbours (degree-2) so the run stays
+// connected; otherwise just drop its incident segments. Returns false if absent.
+function deleteNode(o: Conduit | Wall, nodeId: string): boolean {
+	if (!o.nodes.some((n) => n.id === nodeId)) return false
+	const inc = o.segments.filter((s) => s.a === nodeId || s.b === nodeId)
+	o.segments = o.segments.filter((s) => !inc.includes(s))
+	if (inc.length === 2) {
+		const ends = inc.map((s) => (s.a === nodeId ? s.b : s.a))
+		if (ends[0] !== ends[1]) o.segments.push({ ...inc[0], id: newId('s'), a: ends[0], b: ends[1] } as typeof o.segments[number])
+	}
+	o.nodes = o.nodes.filter((n) => n.id !== nodeId)
+	return true
 }

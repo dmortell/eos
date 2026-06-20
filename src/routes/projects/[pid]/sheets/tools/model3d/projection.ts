@@ -1,9 +1,29 @@
-import { BASIS, type Axis, type Clip, type Dir, type Obj } from './types'
+import { BASIS, type Axis, type Clip, type Conduit, type Dir, type Obj, type Wall } from './types'
+import { runs as graphRuns, nodeMap } from './graph'
 
 // A projected outline in drawing-plane coords (u right, v up).
 export type Shape = { pts: { u: number; v: number }[]; closed: boolean }
 
 type P3 = { x: number; y: number; z: number }
+
+// Decompose a swept primitive's graph into ordered point runs (chains). Each run
+// feeds the existing per-path sweep; junctions/profile changes break runs (butt
+// joints). A closed run repeats its first point at the end so the sweep closes.
+function runsOf(o: Wall | Conduit): { points: P3[] }[] {
+	if (!o.nodes || !o.segments) return [] // defensive: pre-migration / malformed
+	const nm = nodeMap(o.nodes)
+	return graphRuns(o.nodes, o.segments).map((r) => ({
+		points: r.nodeIds.map((id) => { const n = nm.get(id)!; return { x: n.x, y: n.y, z: n.z } }),
+	}))
+}
+// Per-run mitered tube rings for a conduit (rings only connect within a run).
+function conduitRunsRings(o: Conduit): P3[][][] {
+	return runsOf(o).map((run) => conduitRings({ w: o.w, h: o.h, edges: o.edges, path: run.points }))
+}
+// Per-segment wall boxes across all runs.
+function wallRunBoxes(o: Wall) {
+	return runsOf(o).flatMap((run) => wallBoxes({ z: run.points[0]?.z ?? 0, h: o.h, thickness: o.thickness, pts: run.points }))
+}
 
 const proj = (dir: Dir, p: P3) => {
 	const b = BASIS[dir]
@@ -169,11 +189,8 @@ export const isoDepthR = (p: P3, yaw: number, pitch: number, cx: number, cy: num
 // Axis-aligned model bounds of an object.
 export function objBounds(o: Obj): Clip {
 	if (o.type === 'prism') return { x0: o.x, x1: o.x + o.w, y0: o.y, y1: o.y + o.d, z0: o.z, z1: o.z + o.h }
-	if (o.type === 'wall') {
-		const xs = o.pts.map((p) => p.x), ys = o.pts.map((p) => p.y)
-		return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys), z0: o.z, z1: o.z + o.h }
-	}
-	const xs = o.path.map((p) => p.x), ys = o.path.map((p) => p.y), zs = o.path.map((p) => p.z)
+	const xs = o.nodes.map((p) => p.x), ys = o.nodes.map((p) => p.y), zs = o.nodes.map((p) => p.z)
+	if (o.type === 'wall') return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys), z0: Math.min(...zs), z1: Math.max(...zs) + o.h }
 	return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys), z0: Math.min(...zs), z1: Math.max(...zs) }
 }
 
@@ -209,8 +226,7 @@ export function xyCenter(objects: Obj[]) {
 	const ext = (x: number, y: number) => { minx = Math.min(minx, x); maxx = Math.max(maxx, x); miny = Math.min(miny, y); maxy = Math.max(maxy, y) }
 	for (const o of objects) {
 		if (o.type === 'prism') { ext(o.x, o.y); ext(o.x + o.w, o.y + o.d) }
-		else if (o.type === 'wall') o.pts.forEach((p) => ext(p.x, p.y))
-		else o.path.forEach((p) => ext(p.x, p.y))
+		else o.nodes.forEach((p) => ext(p.x, p.y))
 	}
 	if (minx === Infinity) return { cx: 0, cy: 0 }
 	return { cx: (minx + maxx) / 2, cy: (miny + maxy) / 2 }
@@ -292,14 +308,15 @@ function edges3d(o: Obj): Seg[] {
 		return segs
 	}
 	if (o.type === 'wall') {
-		return wallBoxes(o).flatMap((b) => ringSolidEdges(b.bot, b.top))
+		return wallRunBoxes(o).flatMap((b) => ringSolidEdges(b.bot, b.top))
 	}
-	// conduit: mitered tube wireframe (one ring per vertex + connectors)
-	const rings = conduitRings(o)
+	// conduit: mitered tube wireframe per run (one ring per vertex + connectors)
 	const segs: Seg[] = []
-	for (const ring of rings) segs.push(...ringEdges(ring))
-	for (let s = 0; s < rings.length - 1; s++)
-		for (let i = 0; i < rings[s].length; i++) segs.push([rings[s][i], rings[s + 1][i]])
+	for (const rings of conduitRunsRings(o)) {
+		for (const ring of rings) segs.push(...ringEdges(ring))
+		for (let s = 0; s < rings.length - 1; s++)
+			for (let i = 0; i < rings[s].length; i++) segs.push([rings[s][i], rings[s + 1][i]])
+	}
 	return segs
 }
 
@@ -313,18 +330,19 @@ export function faces3d(o: Obj): Face[] {
 		return faces
 	}
 	if (o.type === 'wall') {
-		return wallBoxes(o).flatMap((b) => ringSolidFaces(b.bot, b.top))
+		return wallRunBoxes(o).flatMap((b) => ringSolidFaces(b.bot, b.top))
 	}
-	// conduit: mitered tube side faces (ring strips) + end caps
-	const rings = conduitRings(o)
-	if (!rings.length) return []
+	// conduit: mitered tube side faces (ring strips) + end caps, per run
 	const faces: Face[] = []
-	for (let s = 0; s < rings.length - 1; s++) {
-		const r1 = rings[s], r2 = rings[s + 1]
-		for (let i = 0; i < r1.length; i++) { const j = (i + 1) % r1.length; faces.push({ pts: [r1[i], r1[j], r2[j], r2[i]] }) }
+	for (const rings of conduitRunsRings(o)) {
+		if (!rings.length) continue
+		for (let s = 0; s < rings.length - 1; s++) {
+			const r1 = rings[s], r2 = rings[s + 1]
+			for (let i = 0; i < r1.length; i++) { const j = (i + 1) % r1.length; faces.push({ pts: [r1[i], r1[j], r2[j], r2[i]] }) }
+		}
+		faces.push({ pts: [...rings[0]].reverse() })
+		faces.push({ pts: rings[rings.length - 1] })
 	}
-	faces.push({ pts: [...rings[0]].reverse() })
-	faces.push({ pts: rings[rings.length - 1] })
 	return faces
 }
 
@@ -348,17 +366,18 @@ export function project(o: Obj, dir: Dir, yaw = DEFAULT_YAW, pitch = DEFAULT_PIT
 	}
 
 	if (o.type === 'conduit') {
-		const rings = conduitRings(o)
 		const shapes: Shape[] = []
-		for (let s = 0; s < rings.length - 1; s++) {
-			const h = hull([...rings[s], ...rings[s + 1]].map((p) => proj(dir, p)))
-			if (h.length >= 2) shapes.push({ closed: true, pts: h })
+		for (const rings of conduitRunsRings(o)) {
+			for (let s = 0; s < rings.length - 1; s++) {
+				const h = hull([...rings[s], ...rings[s + 1]].map((p) => proj(dir, p)))
+				if (h.length >= 2) shapes.push({ closed: true, pts: h })
+			}
 		}
 		return shapes
 	}
 
-	// wall (thick): one box per segment.
-	return wallBoxes(o).map((b) =>
+	// wall (thick): one box per segment across all runs.
+	return wallRunBoxes(o).map((b) =>
 		dir === 'plan'
 			? { closed: true, pts: b.bot.map((p) => proj(dir, p)) }
 			: bboxRect([...b.bot, ...b.top].map((p) => proj(dir, p))),
@@ -370,8 +389,8 @@ export function project(o: Obj, dir: Dir, yaw = DEFAULT_YAW, pitch = DEFAULT_PIT
 // no single box size (handled per-handle), so size returns 0.
 export const posAlong = (o: Obj, a: Axis): number => {
 	if (o.type === 'prism') return o[a]
-	if (o.type === 'wall') return a === 'z' ? o.z : 0
-	return o.path[0]?.[a] ?? 0 // conduit
+	if (o.type === 'wall') return a === 'z' ? (o.nodes[0]?.z ?? 0) : 0
+	return o.nodes[0]?.[a] ?? 0 // conduit
 }
 
 export const sizeAlong = (o: Obj, a: Axis): number =>
@@ -381,11 +400,11 @@ export const sizeAlong = (o: Obj, a: Axis): number =>
 export function roundObj(o: Obj) {
 	const R = Math.round
 	if (o.type === 'wall') {
-		o.z = R(o.z); o.h = R(o.h); o.thickness = R(o.thickness)
-		o.pts.forEach((p) => { p.x = R(p.x); p.y = R(p.y) })
+		o.h = R(o.h); o.thickness = R(o.thickness)
+		o.nodes.forEach((p) => { p.x = R(p.x); p.y = R(p.y); p.z = R(p.z) })
 	} else if (o.type === 'conduit') {
 		o.w = R(o.w); o.h = R(o.h)
-		o.path.forEach((p) => { p.x = R(p.x); p.y = R(p.y); p.z = R(p.z) })
+		o.nodes.forEach((p) => { p.x = R(p.x); p.y = R(p.y); p.z = R(p.z) })
 	} else {
 		o.x = R(o.x); o.y = R(o.y); o.z = R(o.z); o.w = R(o.w); o.h = R(o.h); o.d = R(o.d)
 	}
@@ -393,11 +412,8 @@ export function roundObj(o: Obj) {
 
 // Translate an object along a model axis by `d` mm.
 export function moveAlong(o: Obj, a: Axis, d: number) {
-	if (o.type === 'wall') {
-		if (a === 'z') o.z += d
-		else o.pts.forEach((p) => (p[a as 'x' | 'y'] += d))
-	} else if (o.type === 'conduit') {
-		o.path.forEach((p) => (p[a] += d))
+	if (o.type === 'wall' || o.type === 'conduit') {
+		o.nodes.forEach((p) => (p[a] += d))
 	} else {
 		o[a] += d
 	}

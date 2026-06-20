@@ -28,21 +28,13 @@
 						<input type="number" min="3" max="24" class="w-full rounded border px-1 py-0.5" bind:value={obj.edges} oninput={change} /></label>
 				</div>
 			{:else if obj.type === 'wall'}
-				<div class="grid grid-cols-3 gap-1">
-					<label class="block"><span class="text-zinc-400">Base Z</span>
-						<input type="number" class="w-full rounded border px-1 py-0.5" bind:value={obj.z} oninput={change} /></label>
+				<div class="grid grid-cols-2 gap-1">
 					<label class="block"><span class="text-zinc-400">Height</span>
 						<input type="number" class="w-full rounded border px-1 py-0.5" bind:value={obj.h} oninput={change} /></label>
 					<label class="block"><span class="text-zinc-400">Thick</span>
 						<input type="number" class="w-full rounded border px-1 py-0.5" bind:value={obj.thickness} oninput={change} /></label>
 				</div>
-				<p class="text-zinc-400">{obj.pts.length} points</p>
-				{#each obj.pts as p, i (i)}
-					<div class="grid grid-cols-2 gap-1">
-						<input type="number" class="w-full rounded border px-1 py-0.5" bind:value={p.x} oninput={change} />
-						<input type="number" class="w-full rounded border px-1 py-0.5" bind:value={p.y} oninput={change} />
-					</div>
-				{/each}
+				<p class="text-zinc-400">{obj.nodes.length} nodes · {obj.segments.length} segments</p>
 			{:else if obj.type === 'conduit'}
 				<div class="grid grid-cols-3 gap-1">
 					<label class="block"><span class="text-zinc-400">W</span>
@@ -52,14 +44,7 @@
 					<label class="block"><span class="text-zinc-400">Edges</span>
 						<input type="number" min="3" max="24" class="w-full rounded border px-1 py-0.5" bind:value={obj.edges} oninput={change} /></label>
 				</div>
-				<p class="text-zinc-400">{obj.path.length} points</p>
-				{#each obj.path as p, i (i)}
-					<div class="grid grid-cols-3 gap-1">
-						<input type="number" class="w-full rounded border px-1 py-0.5" bind:value={p.x} oninput={change} />
-						<input type="number" class="w-full rounded border px-1 py-0.5" bind:value={p.y} oninput={change} />
-						<input type="number" class="w-full rounded border px-1 py-0.5" bind:value={p.z} oninput={change} />
-					</div>
-				{/each}
+				<p class="text-zinc-400">{obj.nodes.length} nodes · {obj.segments.length} segments</p>
 			{/if}
 
 			<label class="mt-1 flex items-center justify-between gap-2">

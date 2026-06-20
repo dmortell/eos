@@ -1,6 +1,7 @@
 import type { Firestore } from '$lib/db.svelte'
 import type { Model } from './types'
 import { seedModels } from './data'
+import { migrateModels } from './migrate'
 
 /**
  * Project-shared, reactive store of `model3d` models, synced to `models3d/{pid}`
@@ -37,7 +38,7 @@ export class ModelStore {
 			const json = JSON.stringify(incoming)
 			if (json === this.last) return // our own write echoed back
 			this.last = json
-			this.models = incoming
+			this.models = migrateModels(incoming) // legacy pts/path → node/segment graph
 		})
 	}
 

@@ -1,4 +1,11 @@
-import type { Model } from './types'
+import type { Conduit, Model, Wall } from './types'
+import { polyToGraph } from './migrate'
+
+// Seed builders — author walls/conduits as polylines; stored as node/segment graphs.
+const wall = (pts: { x: number; y: number }[], h: number, thickness: number, layer: string): Wall =>
+	({ type: 'wall', h, thickness, layer, ...polyToGraph(pts.map((p) => ({ x: p.x, y: p.y, z: 0 }))) }) as Wall
+const conduit = (path: { x: number; y: number; z: number }[], w: number, h: number, edges: number, layer: string): Conduit =>
+	({ type: 'conduit', w, h, edges, layer, ...polyToGraph(path) }) as Conduit
 
 // Seed model used when a project has no saved model3d models yet.
 export const seedModels: Model[] = [
@@ -13,10 +20,8 @@ export const seedModels: Model[] = [
 		],
 		// Dimensions in mm. Room 6600 × 4200, 2800 ceiling.
 		objects: [
-			{ type: 'wall', layer: 'walls', z: 0, h: 2800, thickness: 150, pts: [
-				{ x: 0, y: 0 }, { x: 6600, y: 0 }, { x: 6600, y: 4200 }, { x: 0, y: 4200 }, { x: 0, y: 0 },
-			] },
-			{ type: 'wall', layer: 'walls', z: 0, h: 2800, thickness: 100, pts: [{ x: 4500, y: 4200 }, { x: 4500, y: 2700 }, { x: 6600, y: 2700 }] },
+			wall([{ x: 0, y: 0 }, { x: 6600, y: 0 }, { x: 6600, y: 4200 }, { x: 0, y: 4200 }, { x: 0, y: 0 }], 2800, 150, 'walls'),
+			wall([{ x: 4500, y: 4200 }, { x: 4500, y: 2700 }, { x: 6600, y: 2700 }], 2800, 100, 'walls'),
 
 			{ type: 'prism', layer: 'furniture', x: 300, y: 450, z: 0, w: 1500, d: 700, h: 750, edges: 4 },
 			{ type: 'prism', layer: 'furniture', x: 300, y: 1300, z: 0, w: 1500, d: 700, h: 750, edges: 4 },
@@ -29,12 +34,8 @@ export const seedModels: Model[] = [
 			{ type: 'prism', layer: 'furniture', x: 4950, y: 3000, z: 0, w: 1200, d: 900, h: 750, edges: 16 },
 			{ type: 'prism', layer: 'furniture', x: 6550, y: 2750, z: 1400, w: 50, d: 1400, h: 800, edges: 4 },
 
-			{ type: 'conduit', layer: 'services', w: 80, h: 80, edges: 16, path: [
-				{ x: 6600, y: 3450, z: 1800 }, { x: 6600, y: 3450, z: 0 }, { x: 5550, y: 3450, z: 0 },
-			] },
-			{ type: 'conduit', layer: 'services', w: 180, h: 150, edges: 4, path: [
-				{ x: 240, y: 180, z: 2600 }, { x: 6300, y: 180, z: 2600 }, { x: 6300, y: 2400, z: 2600 },
-			] },
+			conduit([{ x: 6600, y: 3450, z: 1800 }, { x: 6600, y: 3450, z: 0 }, { x: 5550, y: 3450, z: 0 }], 80, 80, 16, 'services'),
+			conduit([{ x: 240, y: 180, z: 2600 }, { x: 6300, y: 180, z: 2600 }, { x: 6300, y: 2400, z: 2600 }], 180, 150, 4, 'services'),
 		],
 	},
 	{
