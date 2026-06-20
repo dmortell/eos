@@ -60,6 +60,7 @@
 	// In-viewport geometry editor — operates on the shared model, persists via the store.
 	const editor = new Model3dEditor()
 	$effect(() => { editor.model = model; editor.direction = src?.direction ?? 'plan'; editor.layerOverrides = vp.layerOverrides ?? {} })
+	$effect(() => { editor.activeLayer = src?.activeLayer }) // active layer chosen in the Layers window
 	$effect(() => { if (!active) { editor.clearSel(); editor.cancelPlacing(); editor.cancelSection() } })
 
 	// Section tool: a box drawn on this plan spawns a new clipped FRONT elevation

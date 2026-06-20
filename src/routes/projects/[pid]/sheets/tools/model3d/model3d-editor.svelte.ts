@@ -109,9 +109,18 @@ export class Model3dEditor extends SurfaceEditor {
 	// a click on a locked object explains itself instead of silently doing nothing.
 	private blockedByLock(o: Obj): boolean {
 		if (!this.locked(o)) return false
-		const name = this.model?.layers?.find((l) => l.id === o.layer)?.name ?? o.layer ?? 'layer'
-		toast.warning(`Layer “${name}” is locked — unlock it in the Layers window to edit`)
+		this.lockedToast(o.layer)
 		return true
+	}
+	// Is a layer locked (per-viewport override or model default)?
+	layerLocked(id: string | undefined): boolean {
+		if (!id) return false
+		if (this.layerOverrides[id]?.locked) return true
+		return !!this.model?.layers?.find((l) => l.id === id)?.locked
+	}
+	private lockedToast(id: string | undefined) {
+		const name = this.model?.layers?.find((l) => l.id === id)?.name ?? id ?? 'layer'
+		toast.warning(`Layer “${name}” is locked — unlock it in the Layers window to edit`)
 	}
 
 	// ── object move (drag in the projected plane, whole-mm steps) ──
@@ -399,6 +408,7 @@ export class Model3dEditor extends SurfaceEditor {
 
 	startPlacing(kind: 'prism' | 'wall' | 'conduit') {
 		if (this.direction === 'iso') return // can't place into the non-editable iso
+		if (this.layerLocked(this.layerForNew())) { this.lockedToast(this.layerForNew()); return } // can't add to a locked layer
 		this.clearSel()
 		this.placing = { kind, pts: [], cursor: null }
 	}

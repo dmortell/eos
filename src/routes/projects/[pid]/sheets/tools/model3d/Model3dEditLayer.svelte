@@ -107,7 +107,7 @@
 				const p = W3(sel)
 				out.push({ round: true, x: p.x + GAP, y: p.y - GAP, cur: 'cell', act: (e) => editor.startExtend(e, i, sel.id) })
 				if (deg(sel.id) >= 2) {
-					out.push({ round: true, x: p.x - GAP, y: p.y - GAP, cur: 'no-drop', act: (e) => { e.stopPropagation(); editor.disconnectNode(i, sel.id) } })
+					out.push({ round: true, x: p.x - GAP, y: p.y - GAP, cur: 'no-drop', act: (e) => { if (e.button !== 0) return; e.stopPropagation(); editor.disconnectNode(i, sel.id) } })
 				}
 			}
 		}
@@ -241,7 +241,7 @@
 					style:pointer-events="auto" style:cursor="nwse-resize" onmousedown={(e: MouseEvent) => editor.startSectionResize(e, s.id, xk, yk)} />
 			{/each}
 			<!-- delete (✕) at the top-right corner -->
-			<g transform="translate({x1 + GAP},{y0 - GAP})" style:cursor="pointer" style:pointer-events="auto" onmousedown={(e: MouseEvent) => { e.stopPropagation(); editor.deleteSectionMarker(s.id) }}>
+			<g transform="translate({x1 + GAP},{y0 - GAP})" style:cursor="pointer" style:pointer-events="auto" onmousedown={(e: MouseEvent) => { if (e.button !== 0) return; e.stopPropagation(); editor.deleteSectionMarker(s.id) }}>
 				<circle r={HR * 1.3} fill="#dc2626" stroke="#fff" stroke-width={selW} vector-effect="non-scaling-stroke" />
 					<path d="M{-HR * 0.5},{-HR * 0.5} L{HR * 0.5},{HR * 0.5} M{HR * 0.5},{-HR * 0.5} L{-HR * 0.5},{HR * 0.5}" stroke="#fff" stroke-width={selW * 1.5} vector-effect="non-scaling-stroke" style:pointer-events="none" />
 			</g>

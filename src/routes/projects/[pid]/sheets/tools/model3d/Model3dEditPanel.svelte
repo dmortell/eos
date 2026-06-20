@@ -38,13 +38,7 @@
 			</div>
 		{:else}
 			<div class="mb-1 space-y-1 text-xs">
-				<label class="flex items-center gap-1" title="Layer that newly inserted objects are placed on">
-					<span class="text-zinc-400">New on</span>
-					<select class="min-w-0 flex-1 rounded border px-1 py-0.5"
-						value={editor.activeLayer ?? newLayers[0]?.id ?? ''} onchange={(e) => (editor.activeLayer = (e.currentTarget as HTMLSelectElement).value)}>
-						{#each newLayers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
-					</select>
-				</label>
+				<div class="truncate text-[11px] text-zinc-400" title="Set the active layer in the Layers window">New on <span class="font-medium text-zinc-600">{newLayers.find((l) => l.id === (editor.activeLayer ?? newLayers[0]?.id))?.name ?? '—'}</span></div>
 				<div class="grid grid-cols-3 gap-1">
 					<button class="whitespace-nowrap rounded border px-1 py-0.5 hover:bg-slate-100" onclick={() => editor.startPlacing('prism')}>＋Cuboid</button>
 					{#if editor.direction === 'plan'}<button class="whitespace-nowrap rounded border px-1 py-0.5 hover:bg-slate-100" onclick={() => editor.startPlacing('wall')}>＋Wall</button>{/if}

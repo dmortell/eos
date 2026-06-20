@@ -75,13 +75,18 @@
 				</div>
 				{#each m3dModel.layers ?? [] as l (l.id)}
 					{@const ov = v.layerOverrides?.[l.id] ?? {}}
-					<div class="flex items-center gap-1.5 py-0.5 text-xs">
+					{@const mactive = (m3d.activeLayer ?? m3dModel.layers?.find((x) => x.id !== 'background')?.id) === l.id && l.id !== 'background'}
+					<div class="flex items-center gap-1.5 rounded py-0.5 text-xs {mactive ? 'bg-blue-50' : ''}">
 						<label class="relative inline-block h-3 w-3 shrink-0 cursor-pointer rounded-sm ring-1 ring-zinc-300" style:background={l.color} title="Colour">
 							<input type="color" class="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={l.color}
 								oninput={(e) => { l.color = (e.currentTarget as HTMLInputElement).value; m3dStore?.save() }} />
 						</label>
 						<input class="min-w-0 flex-1 rounded border-transparent bg-transparent px-1 py-0.5 hover:border-zinc-200 focus:border-zinc-300 {ov.hidden ? 'opacity-40' : ''}"
 							value={l.name} oninput={(e) => { l.name = (e.currentTarget as HTMLInputElement).value; m3dStore?.save() }} />
+						{#if l.id !== 'background'}
+							<button class="shrink-0 rounded px-1 text-[9px] font-semibold {mactive ? 'text-blue-600' : 'text-zinc-300 hover:text-blue-500'}" title="Make active layer (new objects go here)"
+								onclick={() => { if (m3d) { m3d.activeLayer = l.id; vps.notify() } }}>{mactive ? 'ACTIVE' : 'SET'}</button>
+						{/if}
 						<button class="shrink-0 rounded p-0.5 {ov.hidden ? 'text-blue-600' : 'text-zinc-600'} hover:bg-zinc-100" title="Show / hide (this view)" onclick={() => vps.setLayerOverride(v.id, l.id, { hidden: !ov.hidden })}>
 							<Icon name={ov.hidden ? 'eyeSlash' : 'eye'} size={14} />
 						</button>
