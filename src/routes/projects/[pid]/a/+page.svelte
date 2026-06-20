@@ -1,13 +1,31 @@
 <script lang="ts">
-	import { onMount } from 'svelte'
+	import { onMount, getContext } from 'svelte'
+	import { page } from '$app/state'
+	import { Firestore, Titlebar } from '$lib'
 	import { Sheet } from './parts/sheet.svelte'
 	import { PAPER } from './parts/types'
 	import Sidebar from './parts/Sidebar.svelte'
 	import PaperView from './parts/PaperView.svelte'
 	import MaximizedView from './parts/MaximizedView.svelte'
 	import Titleblock from './parts/Titleblock.svelte'
+	import Menubar from './parts/Menubar.svelte'
+	import InsertToolbar from './parts/InsertToolbar.svelte'
+	import Panels from './parts/Panels.svelte'
+	import StatusBar from './parts/StatusBar.svelte'
+
 	const sheet = new Sheet()
 	const blockW = 50 // titleblock width
+
+	// Project name for the titlebar.
+	const db = getContext('db') as Firestore
+	let projectName = $state('')
+	$effect(() => {
+		const pid = page.params.pid
+		if (!pid) return
+		const unsub = db.subscribeOne('projects', pid, (data: any) => { if (data?.name) projectName = data.name })
+		return () => unsub?.()
+	})
+
 	// Fit the sheet to the viewport on load (it starts small otherwise).
 	onMount(() => sheet.zoomToFit())
 </script>
@@ -15,15 +33,9 @@
 <svelte:window onkeydown={sheet.onKeyDown} />
 
 <div class="flex h-screen flex-col">
-	<div class="flex items-center gap-3 border-b px-3 py-2 print:hidden">
-		<h1 class="font-semibold">Sheet — A3 Landscape</h1>
-		<button class="rounded border px-2 py-1 text-sm" onclick={sheet.zoomToFit}>Fit</button>
-		<button
-			class="rounded border px-2 py-1 text-sm {sheet.hiddenLines ? 'border-blue-600 bg-blue-600 text-white' : ''}"
-			onclick={() => (sheet.hiddenLines = !sheet.hiddenLines)}
-		>Hidden lines</button>
-		<span class="text-xs text-gray-500">{Math.round(sheet.zoom * 100 / 1.6)}% · {PAPER.w}×{PAPER.h}mm</span>
-	</div>
+	<Titlebar title="{projectName} — Drawing Sheet" height={30} />
+	<Menubar {sheet} />
+	<InsertToolbar {sheet} />
 
 	<div class="flex min-h-0 flex-1">
 		<Sidebar {sheet} />
@@ -38,6 +50,7 @@
 			onwheel={sheet.onWheel}
 			oncontextmenu={(e) => e.preventDefault()}
 		>
+			<Panels {sheet} />
 
 			{#if sheet.maxView}
 				<MaximizedView {sheet} />
@@ -63,6 +76,8 @@
 
 		</div>
 	</div>
+
+	<StatusBar {sheet} />
 </div>
 
 <style>
@@ -74,6 +89,9 @@
 		/* Print only the paper, at true A3 landscape size, no transform. */
 		@page { size: A3 landscape; margin: 0; }
 		:global(html, body) { background: #fff; }
+		/* Hide all app chrome (menubar, insert toolbar, status bar) + any open menu portal. */
+		:global(.a-chrome),
+		:global([data-slot='menubar-content']) { display: none !important; }
 		.paper {
 			position: static !important;
 			transform: none !important;

@@ -1,4 +1,4 @@
-import { BASIS, type Axis, type Dir, type Obj } from './types'
+import { BASIS, type Axis, type Clip, type Dir, type Obj } from './types'
 
 // A projected outline in drawing-plane coords (u right, v up).
 export type Shape = { pts: { u: number; v: number }[]; closed: boolean }
@@ -165,6 +165,43 @@ export const isoR = (p: P3, yaw: number, pitch: number, cx: number, cy: number) 
 // Painter's-algorithm depth: larger = farther (draw first).
 export const isoDepthR = (p: P3, yaw: number, pitch: number, cx: number, cy: number) =>
 	cam(p, yaw, pitch, cx, cy).depth
+
+// Axis-aligned model bounds of an object.
+export function objBounds(o: Obj): Clip {
+	if (o.type === 'prism') return { x0: o.x, x1: o.x + o.w, y0: o.y, y1: o.y + o.d, z0: o.z, z1: o.z + o.h }
+	if (o.type === 'wall') {
+		const xs = o.pts.map((p) => p.x), ys = o.pts.map((p) => p.y)
+		return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys), z0: o.z, z1: o.z + o.h }
+	}
+	const xs = o.path.map((p) => p.x), ys = o.path.map((p) => p.y), zs = o.path.map((p) => p.z)
+	return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys), z0: Math.min(...zs), z1: Math.max(...zs) }
+}
+
+// Does an object overlap a clip box? (Order-independent in each axis.)
+export function inClip(o: Obj, c: Clip): boolean {
+	const b = objBounds(o)
+	const ov = (a0: number, a1: number, b0: number, b1: number) =>
+		Math.max(a0, a1) >= Math.min(b0, b1) && Math.min(a0, a1) <= Math.max(b0, b1)
+	return ov(b.x0, b.x1, c.x0, c.x1) && ov(b.y0, b.y1, c.y0, c.y1) && ov(b.z0, b.z1, c.z0, c.z1)
+}
+
+// Full model z-range (for defaulting a section's vertical extent).
+export function modelZRange(objects: Obj[]) {
+	let z0 = Infinity, z1 = -Infinity
+	for (const o of objects) { const b = objBounds(o); z0 = Math.min(z0, b.z0); z1 = Math.max(z1, b.z1) }
+	return z0 === Infinity ? { z0: 0, z1: 1000 } : { z0, z1 }
+}
+
+// Overall xyz bounds of a model (null if empty).
+export function modelBounds(objects: Obj[]): Clip | null {
+	let r: Clip | null = null
+	for (const o of objects) {
+		const b = objBounds(o)
+		if (!r) r = { ...b }
+		else { r.x0 = Math.min(r.x0, b.x0); r.x1 = Math.max(r.x1, b.x1); r.y0 = Math.min(r.y0, b.y0); r.y1 = Math.max(r.y1, b.y1); r.z0 = Math.min(r.z0, b.z0); r.z1 = Math.max(r.z1, b.z1) }
+	}
+	return r
+}
 
 // Center of all objects' x-y bounding box (the orbit pivot).
 export function xyCenter(objects: Obj[]) {

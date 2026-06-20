@@ -1,7 +1,8 @@
 import { tick } from 'svelte'
-import { BASIS, PAPER, MIN_FRAME, type Axis, type Conduit, type Prism, type View } from './types'
-import { moveAlong, roundObj, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
+import { BASIS, PAPER, MIN_FRAME, type Axis, type Conduit, type Dir, type Prism, type View } from './types'
+import { moveAlong, roundObj, modelZRange, modelBounds, xyCenter, isoR, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 import { models as initialModels, initialViews } from './data'
+import type { Clip } from './types'
 
 /**
  * Reactive state + interaction logic for the A3 sheet.
@@ -31,6 +32,14 @@ export class Sheet {
 	maximizedId = $state<number | null>(null) // view filling the whole content area
 	hiddenLines = $state(true) // iso view: occlude hidden edges (painter's algorithm)
 
+	// Section tool: draw a rectangle on a plan to create a cropped elevation.
+	drawingSection = $state(false)
+	sectionPreview = $state<{ viewId: number; x0: number; y0: number; x1: number; y1: number } | null>(null)
+
+	// Insert palette (which insertable is armed) + floating panels (View menu).
+	insertMode = $state<string | null>(null)
+	panels = $state<{ layers: boolean; outlets: boolean; trunks: boolean }>({ layers: false, outlets: false, trunks: false })
+
 	// Transient maximize camera.
 	mtx = $state(0)
 	mty = $state(0)
@@ -38,6 +47,8 @@ export class Sheet {
 
 	get selected() { return this.views.find((v) => v.id === this.selectedId) ?? null }
 	get maxView() { return this.views.find((v) => v.id === this.maximizedId) ?? null }
+	// The selected view, if it's a clipped section/elevation (shows its marker on plans).
+	get markerView() { const v = this.selected; return v?.clip ? v : null }
 
 	// The currently selected object (only while its view is active), with context.
 	get selectedObject() {
@@ -125,6 +136,137 @@ export class Sheet {
 
 	isObjectSelected = (v: View, index: number) =>
 		this.selectedObj?.viewId === v.id && this.selectedObj?.index === index
+
+	// ---- Insert palette / View panels ----------------------------------
+	// Arm an insertable. Some are immediate (viewport), some are draw modes
+	// (section), the rest are placeholders until implemented.
+	arm = (kind: string) => {
+		if (kind === 'viewport') { this.addViewport(); this.insertMode = null; this.drawingSection = false; return }
+		const next = this.insertMode === kind ? null : kind
+		this.insertMode = next
+		this.drawingSection = next === 'section'
+	}
+
+	togglePanel = (k: 'layers' | 'outlets' | 'trunks') => { this.panels[k] = !this.panels[k] }
+
+	// Insert a new viewport (a plan view of the selected view's model).
+	addViewport = (direction: View['direction'] = 'plan') => {
+		const model = this.selected ? this.modelFor(this.selected) : this.models[0]
+		const modelId = model?.id ?? this.models[0]?.id ?? 1
+		const id = Math.max(0, ...this.views.map((v) => v.id)) + 1
+		const n = this.views.length
+		const v: View = {
+			id, modelId, name: `View ${id}`, direction,
+			fx: 30 + (n % 4) * 8, fy: 30 + (n % 4) * 8, fw: 140, fh: 90, mx: -10, my: -10, scale: 1,
+		}
+		this.views.push(v)
+		this.selectedId = id
+		this.activeId = null
+	}
+
+	// ---- Section / elevation tool --------------------------------------
+	toggleSectionDraw = () => { this.drawingSection = !this.drawingSection }
+
+	// Drag a rectangle on a plan view; on release create a cropped elevation.
+	startSectionDraw = (e: PointerEvent, plan: View) => {
+		if (e.button !== 0) return
+		e.stopPropagation()
+		e.preventDefault()
+		const s = this.drawingAt(e, plan) // plan: u=x, vv=y
+		this.sectionPreview = { viewId: plan.id, x0: s.u, y0: s.vv, x1: s.u, y1: s.vv }
+		onDrag(
+			(ev) => { const c = this.drawingAt(ev, plan); if (this.sectionPreview) { this.sectionPreview.x1 = c.u; this.sectionPreview.y1 = c.vv } },
+			() => {
+				const p = this.sectionPreview
+				this.sectionPreview = null
+				this.drawingSection = false
+				this.insertMode = null
+				if (p && Math.abs(p.x1 - p.x0) > 50 && Math.abs(p.y1 - p.y0) > 50) this.createSectionView(plan, p)
+			},
+		)
+	}
+
+	createSectionView(plan: View, box: { x0: number; y0: number; x1: number; y1: number }) {
+		const model = this.modelFor(plan)
+		if (!model) return
+		const { z0, z1 } = modelZRange(model.objects)
+		const clip: Clip = {
+			x0: Math.round(Math.min(box.x0, box.x1)), x1: Math.round(Math.max(box.x0, box.x1)),
+			y0: Math.round(Math.min(box.y0, box.y1)), y1: Math.round(Math.max(box.y0, box.y1)),
+			z0, z1,
+		}
+		const id = Math.max(0, ...this.views.map((v) => v.id)) + 1
+		const n = this.views.filter((v) => v.clip).length
+		const view: View = {
+			id, modelId: plan.modelId, name: `Section ${id}`, direction: 'front',
+			fx: 265 + n * 6, fy: 170 + n * 6, fw: 140, fh: 75, mx: 0, my: 0, scale: 1, clip,
+		}
+		this.views.push(view)
+		this.fitView(view)
+		this.selectedId = id
+		this.activeId = null
+	}
+
+	// Change a view's projection direction and refit (the old pan/scale frames a
+	// different axis pair, so a section usually lands off-screen otherwise).
+	setDirection = (v: View, dir: Dir) => { v.direction = dir; this.fitView(v) }
+
+	// Fit a view's pan/scale so its content fills the frame: the clip box if it's
+	// a section, otherwise the whole model. Handles ortho and iso projection.
+	fitView = (v: View) => {
+		const model = this.modelFor(v)
+		const bnds = v.clip ?? (model ? modelBounds(model.objects) : null)
+		if (!model || !bnds) return
+		const toUV: (p: { x: number; y: number; z: number }) => { u: number; v: number } =
+			v.direction === 'iso'
+				? (() => {
+					const piv = xyCenter(model.objects)
+					const yaw = v.yaw ?? DEFAULT_YAW, pitch = v.pitch ?? DEFAULT_PITCH
+					return (p) => isoR(p, yaw, pitch, piv.cx, piv.cy)
+				})()
+				: (() => { const b = BASIS[v.direction]; return (p) => ({ u: b.hs * p[b.h], v: b.vs * p[b.v] }) })()
+
+		const us: number[] = [], vs: number[] = []
+		for (const x of [bnds.x0, bnds.x1]) for (const y of [bnds.y0, bnds.y1]) for (const z of [bnds.z0, bnds.z1]) {
+			const q = toUV({ x, y, z }); us.push(q.u); vs.push(q.v)
+		}
+		const uMin = Math.min(...us), uMax = Math.max(...us), vMin = Math.min(...vs), vMax = Math.max(...vs)
+		const scale = Math.min(v.fw / (uMax - uMin || 1), v.fh / (vMax - vMin || 1)) * 0.9
+		v.scale = scale
+		v.mx = (uMin + uMax) / 2 - v.fw / (2 * scale)
+		v.my = (vMin + vMax) / 2 - v.fh / (2 * scale)
+	}
+
+	// Drag the section marker on a plan to move its clip (x,y), re-framing the elevation.
+	startMarkerMove = (e: PointerEvent, plan: View, elev: View) => {
+		if (e.button !== 0 || !elev.clip) return
+		e.stopPropagation()
+		e.preventDefault()
+		this.selectedId = elev.id
+		const c = elev.clip
+		const o = { x0: c.x0, x1: c.x1, y0: c.y0, y1: c.y1 }
+		const s = this.drawingAt(e, plan)
+		onDrag((ev) => {
+			const cur = this.drawingAt(ev, plan)
+			const dx = Math.round(cur.u - s.u), dy = Math.round(cur.vv - s.vv)
+			c.x0 = o.x0 + dx; c.x1 = o.x1 + dx; c.y0 = o.y0 + dy; c.y1 = o.y1 + dy
+			this.fitView(elev)
+		})
+	}
+
+	// Drag a marker corner: `xk`/`yk` say which clip edge moves.
+	startMarkerResize = (e: PointerEvent, plan: View, elev: View, xk: 'x0' | 'x1', yk: 'y0' | 'y1') => {
+		if (e.button !== 0 || !elev.clip) return
+		e.stopPropagation()
+		e.preventDefault()
+		this.selectedId = elev.id
+		const c = elev.clip
+		onDrag((ev) => {
+			const cur = this.drawingAt(ev, plan)
+			c[xk] = Math.round(cur.u); c[yk] = Math.round(cur.vv)
+			this.fitView(elev)
+		})
+	}
 
 	// Paper coordinate under the cursor (paper canvas or maximized overlay).
 	private paperPoint(e: PointerEvent | WheelEvent, v: View) {
@@ -424,11 +566,12 @@ function dragAbs(sx: number, sy: number, onMove: (dx: number, dy: number) => voi
 }
 
 // Pointer drag passing the raw move event (for callers that re-map coordinates).
-function onDrag(onMove: (ev: PointerEvent) => void) {
+function onDrag(onMove: (ev: PointerEvent) => void, onEnd?: () => void) {
 	const move = (ev: PointerEvent) => onMove(ev)
 	const up = () => {
 		window.removeEventListener('pointermove', move)
 		window.removeEventListener('pointerup', up)
+		onEnd?.()
 	}
 	window.addEventListener('pointermove', move)
 	window.addEventListener('pointerup', up)

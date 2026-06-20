@@ -52,7 +52,12 @@ export type View = {
 	mx: number; my: number; scale: number
 	yaw?: number // iso view: orbit angle around the vertical axis (radians)
 	pitch?: number // iso view: elevation angle (radians; 0=side, π/2=top-down)
+	clip?: Clip // section/elevation: only show model geometry inside this box
 }
+
+// Axis-aligned model-space box; a section/elevation crop. Drawn as a marker
+// on the plan, and used to cull (+ auto-frame) what an elevation shows.
+export type Clip = { x0: number; y0: number; z0: number; x1: number; y1: number; z1: number }
 
 // View basis: which model axis maps to screen-horizontal (u) and
 // screen-vertical (v, pointing up), with sign. Origin sits bottom-left.

@@ -3,7 +3,7 @@
 <script lang="ts">
 	import type { Sheet } from './sheet.svelte'
 	import { BASIS, u2paper, v2paper, type Conduit, type Prism, type Wall, type View } from './types'
-	import { project, posAlong, sizeAlong, faces3d, isoR, isoDepthR, xyCenter, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
+	import { project, posAlong, sizeAlong, faces3d, isoR, isoDepthR, xyCenter, inClip, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 
 	type P3 = { x: number; y: number; z: number }
 
@@ -13,6 +13,8 @@
 	const editable = $derived(clickable && view.direction !== 'iso')
 	const m = $derived(sheet.modelFor(view))
 	const b = $derived(BASIS[view.direction])
+	// Section/elevation crop: only show objects overlapping the view's clip box.
+	const shown = (o: Prism | Wall | Conduit) => !view.clip || inClip(o, view.clip)
 	const pe = $derived(editable ? 'stroke' : 'none')
 	const selIdx = $derived(editable && sheet.selectedObj?.viewId === view.id ? sheet.selectedObj.index : null)
 
@@ -39,7 +41,7 @@
 	// big flat face can't wrongly occlude a small object sitting on/above it).
 	const isoFaces = $derived.by(() => {
 		if (!m) return []
-		return m.objects.flatMap((o) => faces3d(o)).map((f) => ({
+		return m.objects.filter(shown).flatMap((o) => faces3d(o)).map((f) => ({
 			pts: f.pts.map((p) => { const q = isoR(p, yaw, pitch, pivot.cx, pivot.cy); return px(q.u, q.v) }).join(' '),
 			depth: Math.max(...f.pts.map((p) => isoDepthR(p, yaw, pitch, pivot.cx, pivot.cy))),
 		})).sort((x, y) => y.depth - x.depth)
@@ -109,6 +111,7 @@
 		{/each}
 	{:else}
 		{#each m.objects as o, i (i)}
+			{#if shown(o)}
 			{@const sel = sheet.isObjectSelected(view, i)}
 			{@const col = sel ? '#2563eb' : '#000000'}
 			{@const sw = sel ? 0.8 : 0.4}
@@ -120,6 +123,7 @@
 					<polyline points={d} fill="none" stroke={col} stroke-width={sw} style="pointer-events:none" />
 				{/each}
 			</g>
+			{/if}
 		{/each}
 		{#each handles as h, i (i)}
 			{#if h.round}

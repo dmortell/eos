@@ -87,7 +87,7 @@
 				{#each DIRECTIONS as d (d)}
 					<button
 						class="rounded border px-2 py-1 text-xs capitalize {sel.direction === d ? 'border-blue-600 bg-blue-600 text-white' : 'hover:bg-gray-100'}"
-						onclick={() => (sel.direction = d)}
+						onclick={() => sheet.setDirection(sel, d)}
 					>{DIR_LABEL[d]}</button>
 				{/each}
 			</div>
