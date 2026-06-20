@@ -215,4 +215,16 @@
 			{/each}
 		{/if}
 	{/if}
+
+	<!-- section tool: a top capture rect (so it works over objects too) + box preview -->
+	{#if editable && editor.sectionMode}
+		<rect x="-1000000" y="-1000000" width="2000000" height="2000000" fill="transparent"
+			style:pointer-events="auto" style:cursor="crosshair" onmousedown={editor.startSectionDraw} />
+		{#if editor.sectionBox}
+			{@const s = editor.sectionBox}
+			<rect x={Math.min(s.x0, s.x1)} y={-Math.max(s.y0, s.y1)} width={Math.abs(s.x1 - s.x0)} height={Math.abs(s.y1 - s.y0)}
+				fill="#2563eb" fill-opacity="0.1" stroke="#2563eb" stroke-width={1 / zoom} vector-effect="non-scaling-stroke"
+				stroke-dasharray="{4 / zoom} {3 / zoom}" style:pointer-events="none" />
+		{/if}
+	{/if}
 </g>

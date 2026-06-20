@@ -305,6 +305,30 @@ export class Model3dEditor extends SurfaceEditor {
 		this.clearSel()
 		this.placing = { kind, pts: [], cursor: null }
 	}
+
+	// ── section tool: drag a rectangle on a plan → a clipped elevation viewport ──
+	// `sectionMode` arms it; `sectionBox` is the live preview (model x,y). On
+	// release the host's `onSection` callback spawns the elevation (it owns the
+	// viewport list); z comes from the model so the cut spans the full height.
+	sectionMode = $state(false)
+	sectionBox = $state<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
+	onSection: ((box: { x0: number; y0: number; x1: number; y1: number }) => void) | null = null
+	startSectionMode() { if (this.direction === 'plan') { this.clearSel(); this.placing = null; this.sectionMode = true } }
+	cancelSection = () => { this.sectionMode = false; this.sectionBox = null }
+	startSectionDraw = (e: MouseEvent) => {
+		if (e.button !== 0 || this.direction !== 'plan') return
+		e.stopPropagation()
+		const p = this.modelPt(e); if (!p) return
+		this.sectionBox = { x0: p.x, y0: p.y, x1: p.x, y1: p.y }
+		this.startDrag(
+			(ev) => { const c = this.modelPt(ev); if (c && this.sectionBox) { this.sectionBox.x1 = c.x; this.sectionBox.y1 = c.y } },
+			() => {
+				const b = this.sectionBox
+				this.sectionBox = null; this.sectionMode = false
+				if (b && Math.abs(b.x1 - b.x0) > 50 && Math.abs(b.y1 - b.y0) > 50) this.onSection?.(b)
+			},
+		)
+	}
 	cancelPlacing = () => { this.placing = null }
 	placeMove = (e: MouseEvent) => { if (this.placing) { const p = this.modelPt(e); if (p) this.placing.cursor = p } }
 	placeClick = (e: MouseEvent) => {

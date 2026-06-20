@@ -31,6 +31,11 @@
 				{#if editor.placing.kind !== 'prism'}<button class="rounded border px-1 py-0.5 hover:bg-white" onclick={() => editor.finishPlacing()}>Finish</button>{/if}
 				<button class="rounded border px-1 py-0.5 hover:bg-white" onclick={() => editor.cancelPlacing()}>Cancel</button>
 			</div>
+		{:else if editor.sectionMode}
+			<div class="mb-1 flex items-center gap-1 rounded bg-blue-50 px-1 py-1 text-xs">
+				<span class="flex-1 text-blue-700">Drag a box on the plan to create an elevation</span>
+				<button class="rounded border px-1 py-0.5 hover:bg-white" onclick={() => editor.cancelSection()}>Cancel</button>
+			</div>
 		{:else}
 			<div class="mb-1 space-y-1 text-xs">
 				<label class="flex items-center gap-1" title="Layer that newly inserted objects are placed on">
@@ -45,6 +50,7 @@
 					<button class="whitespace-nowrap rounded border px-1 py-0.5 hover:bg-slate-100" onclick={() => editor.startPlacing('wall')}>＋Wall</button>
 					<button class="whitespace-nowrap rounded border px-1 py-0.5 hover:bg-slate-100" onclick={() => editor.startPlacing('conduit')}>＋Conduit</button>
 				</div>
+				<button class="w-full whitespace-nowrap rounded border px-1 py-0.5 hover:bg-slate-100" title="Drag a box on the plan to create a clipped elevation viewport" onclick={() => editor.startSectionMode()}>⬚ Section → elevation</button>
 			</div>
 		{/if}
 		<hr class="mb-1 border-zinc-200" />

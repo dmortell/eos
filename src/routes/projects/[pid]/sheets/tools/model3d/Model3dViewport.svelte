@@ -15,6 +15,7 @@
 	import AnnotationLayer from '../../annotations/AnnotationLayer.svelte'
 	import EditBackground from '../../edit/EditBackground.svelte'
 	import { useAnnotations } from '../../edit/annotations.svelte'
+	import { modelZRange } from './projection'
 	// (model layers now live in the shared sheet Layers window)
 
 	const ANN_TOOLS = ['text', 'line', 'rect', 'arrow', 'ellipse', 'cloud', 'symbol', 'callout', 'dimension', 'image']
@@ -46,7 +47,25 @@
 	// In-viewport geometry editor — operates on the shared model, persists via the store.
 	const editor = new Model3dEditor()
 	$effect(() => { editor.model = model; editor.direction = src?.direction ?? 'plan'; editor.layerOverrides = vp.layerOverrides ?? {} })
-	$effect(() => { if (!active) { editor.clearSel(); editor.cancelPlacing() } })
+	$effect(() => { if (!active) { editor.clearSel(); editor.cancelPlacing(); editor.cancelSection() } })
+
+	// Section tool: a box drawn on this plan spawns a new clipped FRONT elevation
+	// viewport on the sheet (z spans the model so the cut is full-height). The user
+	// then sets its View direction / scale and drags it where they want.
+	$effect(() => {
+		editor.onSection = (box) => {
+			if (!model || !src) return
+			const { z0, z1 } = modelZRange(model.objects)
+			const clip = {
+				x0: Math.round(Math.min(box.x0, box.x1)), x1: Math.round(Math.max(box.x0, box.x1)),
+				y0: Math.round(Math.min(box.y0, box.y1)), y1: Math.round(Math.max(box.y0, box.y1)), z0, z1,
+			}
+			const n = vps.viewports.filter((v) => v.source?.kind === 'model3d' && (v.source as any).clip).length
+			vps.addViewport({ x: Math.min(vp.x + 10 + n * 5, 380), y: Math.min(vp.y + vp.h + 8 + n * 5, 250), w: 130, h: 95 })
+			const v = vps.selectedViewport
+			if (v) { v.label = `Section ${n + 1}`; v.source = { kind: 'model3d', modelId: src.modelId, direction: 'front', hiddenLines: true, bw: false, clip }; v.version = 2; vps.notify() }
+		}
+	})
 
 	// Annotations (shared sheet system): text/line/rect to start. Stored on the
 	// viewport (vp.annotations), drawn in the render's real-mm space. `tool` is the
