@@ -197,9 +197,9 @@
 			style:pointer-events="auto" style:cursor="crosshair"
 			onmousedown={editor.placeClick} onmousemove={editor.placeMove} ondblclick={editor.finishPlacing} />
 		{#if pl.kind === 'prism' && pl.cursor}
-			{@const c = W3(pl.cursor)}
-			<rect x={c.x - 500} y={c.y - 300} width={1000} height={600} fill="#3b82f6" fill-opacity="0.15"
-				stroke="#3b82f6" stroke-width={1 / zoom} vector-effect="non-scaling-stroke" style:pointer-events="none" />
+			{@const a = W3(pl.pts[0] ?? pl.cursor)}{@const c = W3(pl.cursor)}
+			<rect x={Math.min(a.x, c.x)} y={Math.min(a.y, c.y)} width={Math.abs(c.x - a.x) || 1} height={Math.abs(c.y - a.y) || 1}
+				fill="#3b82f6" fill-opacity="0.15" stroke="#3b82f6" stroke-width={1 / zoom} vector-effect="non-scaling-stroke" style:pointer-events="none" />
 		{:else if pl.pts.length}
 			<polyline points={[...pl.pts, ...(pl.cursor ? [pl.cursor] : [])].map((p) => { const w = W3(p); return `${w.x},${w.y}` }).join(' ')}
 				fill="none" stroke="#3b82f6" stroke-width={1 / zoom} vector-effect="non-scaling-stroke" stroke-dasharray="5 3" style:pointer-events="none" />

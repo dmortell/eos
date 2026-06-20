@@ -366,10 +366,20 @@ export class Model3dEditor extends SurfaceEditor {
 		e.stopPropagation()
 		const p = this.modelPt(e); if (!p) return
 		if (this.placing.kind === 'prism') {
-			this.objects.push({ type: 'prism', layer: this.layerForNew(), x: p.x - 500, y: p.y - 300, z: 0, w: 1000, d: 600, h: 750, edges: 4 })
-			this.placing = null
-			this.selectObj(this.objects.length - 1)
-			this.notify()
+			// Drag out the footprint: press = first corner, drag to size, release to create.
+			this.placing.pts = [p]; this.placing.cursor = p
+			this.startDrag(
+				(ev) => { const c = this.modelPt(ev); if (c && this.placing) this.placing.cursor = c },
+				() => {
+					const s = this.placing?.pts[0], c = this.placing?.cursor ?? s
+					if (s && c && this.model) {
+						const x0 = Math.min(s.x, c.x), y0 = Math.min(s.y, c.y)
+						const w = Math.max(50, Math.abs(c.x - s.x)), d = Math.max(50, Math.abs(c.y - s.y))
+						this.objects.push({ type: 'prism', layer: this.layerForNew(), x: x0, y: y0, z: 0, w, d, h: 750, edges: 4 })
+						this.placing = null; this.selectObj(this.objects.length - 1); this.notify()
+					} else { this.placing = null }
+				},
+			)
 		} else {
 			this.placing.pts.push(p) // wall/conduit: collect path points
 		}
