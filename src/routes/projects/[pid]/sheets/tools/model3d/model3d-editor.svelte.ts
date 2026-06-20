@@ -31,11 +31,25 @@ export class Model3dEditor extends SurfaceEditor {
 	get objects(): Obj[] { return this.model?.objects ?? [] }
 	get selIndex(): number | null { return this.sel?.kind === 'obj' ? +this.sel.id : null }
 	isObj(i: number) { return this.sel?.kind === 'obj' && +this.sel.id === i }
-	selectObj(i: number) { this.select('obj', String(i)); this.usel = null; this.multi = [] }
+	selectObj(i: number) { this.select('obj', String(i)); this.usel = null; this.multi = []; this.ssel = null }
 
 	// Path node selection (for Delete / highlight), by object index + node id.
 	vsel = $state<{ index: number; nodeId: string } | null>(null)
 	isVertex(i: number, nodeId: string) { return this.vsel?.index === i && this.vsel?.nodeId === nodeId }
+
+	// Segment selection (for the segment list / per-segment properties + highlight).
+	ssel = $state<{ index: number; segId: string } | null>(null)
+	isSegment(i: number, segId: string) { return this.ssel?.index === i && this.ssel?.segId === segId }
+	selectSegment(index: number, segId: string) { this.selectObj(index); this.ssel = { index, segId } }
+	deleteSegment(index: number, segId: string) {
+		const o = this.objects[index]
+		if (!o || (o.type !== 'wall' && o.type !== 'conduit') || this.locked(o)) return
+		o.segments = o.segments.filter((s) => s.id !== segId)
+		const used = new Set(o.segments.flatMap((s) => [s.a, s.b]))
+		o.nodes = o.nodes.filter((n) => used.has(n.id)) // drop orphaned nodes
+		if (this.ssel?.segId === segId) this.ssel = null
+		this.notify()
+	}
 
 	// Underlay selection (drag/resize its placement rect).
 	usel = $state<string | null>(null)
@@ -219,7 +233,7 @@ export class Model3dEditor extends SurfaceEditor {
 		}
 	}
 
-	clearSel() { super.clearSel(); this.vsel = null; this.usel = null; this.multi = [] }
+	clearSel() { super.clearSel(); this.vsel = null; this.usel = null; this.multi = []; this.ssel = null }
 }
 
 // Precise marquee hit-test: an object is selected when one of its *projected

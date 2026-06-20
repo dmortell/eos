@@ -9,20 +9,38 @@ type P3 = { x: number; y: number; z: number }
 // Decompose a swept primitive's graph into ordered point runs (chains). Each run
 // feeds the existing per-path sweep; junctions/profile changes break runs (butt
 // joints). A closed run repeats its first point at the end so the sweep closes.
-function runsOf(o: Wall | Conduit): { points: P3[] }[] {
-	if (!o.nodes || !o.segments) return [] // defensive: pre-migration / malformed
+const ptOf = (nm: Map<string, { x: number; y: number; z: number }>, id: string): P3 => { const n = nm.get(id); return n ? { x: n.x, y: n.y, z: n.z } : { x: 0, y: 0, z: 0 } }
+
+// Profile-aware runs: a run breaks at junctions AND profile changes, so each run
+// sweeps with one uniform profile (per-segment overrides fall back to the object
+// default). Junctions/profile boundaries butt-join.
+function wallRuns(o: Wall): { points: P3[]; thickness: number; h: number }[] {
+	if (!o.nodes || !o.segments) return []
 	const nm = nodeMap(o.nodes)
-	return graphRuns(o.nodes, o.segments).map((r) => ({
-		points: r.nodeIds.map((id) => { const n = nm.get(id)!; return { x: n.x, y: n.y, z: n.z } }),
-	}))
+	const byId = new Map(o.segments.map((s) => [s.id, s]))
+	const key = (id: string) => { const s = byId.get(id); return `${s?.thickness ?? o.thickness}|${s?.h ?? o.h}` }
+	return graphRuns(o.nodes, o.segments, key).map((r) => {
+		const s0 = byId.get(r.segIds[0])
+		return { points: r.nodeIds.map((id) => ptOf(nm, id)), thickness: s0?.thickness ?? o.thickness, h: s0?.h ?? o.h }
+	})
+}
+function conduitRuns(o: Conduit): { points: P3[]; w: number; h: number; edges: number }[] {
+	if (!o.nodes || !o.segments) return []
+	const nm = nodeMap(o.nodes)
+	const byId = new Map(o.segments.map((s) => [s.id, s]))
+	const key = (id: string) => { const s = byId.get(id); return `${s?.w ?? o.w}|${s?.h ?? o.h}|${s?.edges ?? o.edges}` }
+	return graphRuns(o.nodes, o.segments, key).map((r) => {
+		const s0 = byId.get(r.segIds[0])
+		return { points: r.nodeIds.map((id) => ptOf(nm, id)), w: s0?.w ?? o.w, h: s0?.h ?? o.h, edges: s0?.edges ?? o.edges }
+	})
 }
 // Per-run mitered tube rings for a conduit (rings only connect within a run).
 function conduitRunsRings(o: Conduit): P3[][][] {
-	return runsOf(o).map((run) => conduitRings({ w: o.w, h: o.h, edges: o.edges, path: run.points }))
+	return conduitRuns(o).map((run) => conduitRings({ w: run.w, h: run.h, edges: run.edges, path: run.points }))
 }
 // Per-segment wall boxes across all runs.
 function wallRunBoxes(o: Wall) {
-	return runsOf(o).flatMap((run) => wallBoxes({ z: run.points[0]?.z ?? 0, h: o.h, thickness: o.thickness, pts: run.points }))
+	return wallRuns(o).flatMap((run) => wallBoxes({ z: run.points[0]?.z ?? 0, h: run.h, thickness: run.thickness, pts: run.points }))
 }
 
 const proj = (dir: Dir, p: P3) => {

@@ -115,6 +115,20 @@
 		{/if}
 	{/each}
 
+	<!-- selected segment highlight (orange) -->
+	{#if editable && editor.ssel}
+		{@const so = model.objects[editor.ssel.index]}
+		{#if so && (so.type === 'wall' || so.type === 'conduit')}
+			{@const seg = so.segments.find((x) => x.id === editor.ssel?.segId)}
+			{@const a = so.nodes.find((n) => n.id === seg?.a)}
+			{@const c = so.nodes.find((n) => n.id === seg?.b)}
+			{#if a && c}
+				<line x1={b.hs * a[b.h]} y1={-(b.vs * a[b.v])} x2={b.hs * c[b.h]} y2={-(b.vs * c[b.v])}
+					stroke="#f97316" stroke-width="2.25" vector-effect="non-scaling-stroke" style:pointer-events="none" />
+			{/if}
+		{/if}
+	{/if}
+
 	{#if editable && editor.selIndex !== null && model.objects[editor.selIndex]}
 		{#each handles(model.objects[editor.selIndex], editor.selIndex) as h, hi (hi)}
 			{#if h.round}
