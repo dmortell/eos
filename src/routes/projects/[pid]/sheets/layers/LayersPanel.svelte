@@ -30,6 +30,10 @@
 	}
 	function delModelLayer(id: string) { if (m3dModel && m3dStore) { m3dModel.layers = (m3dModel.layers ?? []).filter((l) => l.id !== id); m3dStore.save() } }
 	function toggleBw() { if (vp && vp.source.kind === 'model3d') { vp.source.bw = !vp.source.bw; vps.notify() } }
+	// Sheet annotation layers (Annotations + customs under it) — shared across all
+	// viewports, stored in the sheet doc. Shown read-only in the model3d window so
+	// annotations placed here can be hidden/locked per viewport, alongside model layers.
+	const m3dAnnLayers = $derived(vps.allLayers.filter((l) => l.id === 'annotations' || l.base === 'annotations'))
 
 	// Custom layers grouped under the default layer they're filed below (their category).
 	let customByBase = $derived.by(() => {
@@ -89,6 +93,24 @@
 						</button>
 					</div>
 				{/each}
+
+				<!-- Sheet annotation layers (shared) — visibility/lock per viewport -->
+				{#if m3dAnnLayers.length}
+					<div class="mb-0.5 mt-1.5 border-t border-zinc-100 pt-1 text-[10px] font-medium uppercase tracking-wide text-zinc-400">Annotations</div>
+					{#each m3dAnnLayers as l (l.id)}
+						{@const ov = v.layerOverrides?.[l.id] ?? {}}
+						<div class="flex items-center gap-1.5 py-0.5 text-xs">
+							<span class="inline-block h-3 w-3 shrink-0 rounded-sm ring-1 ring-zinc-300" style:background={l.color}></span>
+							<span class="min-w-0 flex-1 truncate px-1 {ov.hidden ? 'opacity-40' : ''}">{l.name}</span>
+							<button class="shrink-0 rounded p-0.5 {ov.hidden ? 'text-blue-600' : 'text-zinc-600'} hover:bg-zinc-100" title="Show / hide (this view)" onclick={() => vps.setLayerOverride(v.id, l.id, { hidden: !ov.hidden })}>
+								<Icon name={ov.hidden ? 'eyeSlash' : 'eye'} size={14} />
+							</button>
+							<button class="shrink-0 rounded p-0.5 hover:bg-zinc-100 {ov.locked ? 'text-red-600' : 'text-zinc-500'}" title="Lock / unlock (this view)" onclick={() => vps.setLayerOverride(v.id, l.id, { locked: !ov.locked })}>
+								<Icon name={ov.locked ? 'lock' : 'lockOpen'} size={14} />
+							</button>
+						</div>
+					{/each}
+				{/if}
 			{:else}
 			<div class="mb-1 flex items-center justify-between">
 				<span class="truncate text-[11px] text-zinc-500">New objects → <span class="font-medium text-zinc-700">{activeName}</span></span>

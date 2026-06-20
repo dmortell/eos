@@ -30,6 +30,10 @@
 	const HR = $derived(5 / ss) // round handle radius (≈ 10px diameter)
 	const HIT = $derived(12 / ss) // line hit width
 	const GAP = $derived(16 / ss) // extend-handle offset beyond the end vertex
+	// Stroke widths: with non-scaling-stroke the value is in SVG-element px, scaled by
+	// the canvas zoom — so divide by zoom for a constant on-screen width at any zoom.
+	const selW = $derived(0.75 / zoom) // thin selection highlight (constant on-screen)
+	const segW = $derived(1.75 / zoom) // selected-segment highlight (a touch bolder)
 
 	// Points string; closed shapes are closed back to the first point so the
 	// final edge is drawn (and stays selectable).
@@ -108,7 +112,7 @@
 				style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => editor.startObjMove(e, i)} />
 			<!-- outline highlight for prisms/walls (a conduit's silhouette would mask its vertex handles) -->
 			{#if selected && o.type !== 'conduit'}
-				<polyline points={shapePts(s)} fill="none" stroke={HL} stroke-width="0.75" vector-effect="non-scaling-stroke" style:pointer-events="none" />
+				<polyline points={shapePts(s)} fill="none" stroke={HL} stroke-width={selW} vector-effect="non-scaling-stroke" style:pointer-events="none" />
 			{/if}
 		{/each}
 		<!-- conduit: highlight the thin centerline (per segment), not the tube silhouette -->
@@ -118,7 +122,7 @@
 				{@const c = o.nodes.find((n) => n.id === s.b)}
 				{#if a && c}
 					<line x1={b.hs * a[b.h]} y1={-(b.vs * a[b.v])} x2={b.hs * c[b.h]} y2={-(b.vs * c[b.v])}
-						stroke={HL} stroke-width="0.75" vector-effect="non-scaling-stroke" style:pointer-events="none" />
+						stroke={HL} stroke-width={selW} vector-effect="non-scaling-stroke" style:pointer-events="none" />
 				{/if}
 			{/each}
 		{/if}
@@ -133,7 +137,7 @@
 			{@const c = so.nodes.find((n) => n.id === seg?.b)}
 			{#if a && c}
 				<line x1={b.hs * a[b.h]} y1={-(b.vs * a[b.v])} x2={b.hs * c[b.h]} y2={-(b.vs * c[b.v])}
-					stroke="#f97316" stroke-width="2.25" vector-effect="non-scaling-stroke" style:pointer-events="none" />
+					stroke="#f97316" stroke-width={segW} vector-effect="non-scaling-stroke" style:pointer-events="none" />
 			{/if}
 		{/if}
 	{/if}
@@ -144,9 +148,9 @@
 				<!-- insert (copy) = solid green; extend (crosshair) = hollow green; branch (cell) = violet -->
 				<circle cx={h.x} cy={h.y} r={h.cur === 'cell' ? HR * 1.2 : HR}
 					fill={h.cur === 'crosshair' ? '#fff' : h.cur === 'cell' ? '#7c3aed' : '#16a34a'} stroke={h.cur === 'crosshair' ? '#16a34a' : '#fff'}
-					stroke-width="0.75" vector-effect="non-scaling-stroke" style:pointer-events="auto" style:cursor={h.cur} onmousedown={h.act} />
+					stroke-width={selW} vector-effect="non-scaling-stroke" style:pointer-events="auto" style:cursor={h.cur} onmousedown={h.act} />
 			{:else}
-				<rect x={h.x - HS / 2} y={h.y - HS / 2} width={HS} height={HS} fill={h.sel ? HL : '#fff'} stroke={HL} stroke-width="0.75" vector-effect="non-scaling-stroke"
+				<rect x={h.x - HS / 2} y={h.y - HS / 2} width={HS} height={HS} fill={h.sel ? HL : '#fff'} stroke={HL} stroke-width={selW} vector-effect="non-scaling-stroke"
 					style:pointer-events="auto" style:cursor={h.cur} onmousedown={h.act} />
 			{/if}
 		{/each}
@@ -160,11 +164,11 @@
 				{@const r = u.rect}
 				{@const sel = editor.isUnderlay(u.id)}
 				<rect x={r.x} y={r.y} width={r.w} height={r.h} fill="transparent" stroke="#9333ea" stroke-opacity={sel ? 1 : 0.4}
-					stroke-width="0.75" vector-effect="non-scaling-stroke" stroke-dasharray="4 3"
+					stroke-width={selW} vector-effect="non-scaling-stroke" stroke-dasharray="4 3"
 					style:pointer-events="stroke" style:cursor="move" onmousedown={(e: MouseEvent) => editor.startUnderlayMove(e, u.id)} />
 				{#if sel}
 					{#each [['nw', r.x, r.y], ['ne', r.x + r.w, r.y], ['sw', r.x, r.y + r.h], ['se', r.x + r.w, r.y + r.h]] as const as [c, hx, hy] (c)}
-						<rect x={hx - HS / 2} y={hy - HS / 2} width={HS} height={HS} fill="#fff" stroke="#9333ea" stroke-width="0.75" vector-effect="non-scaling-stroke"
+						<rect x={hx - HS / 2} y={hy - HS / 2} width={HS} height={HS} fill="#fff" stroke="#9333ea" stroke-width={selW} vector-effect="non-scaling-stroke"
 							style:pointer-events="auto" style:cursor={c === 'nw' || c === 'se' ? 'nwse-resize' : 'nesw-resize'}
 							onmousedown={(e: MouseEvent) => editor.startUnderlayResize(e, u.id, c)} />
 					{/each}
@@ -177,7 +181,7 @@
 	{#if editable && editor.marquee}
 		{@const m = editor.marquee}
 		<rect x={m.x} y={m.y} width={m.w} height={m.h} fill="#3b82f6" fill-opacity="0.08"
-			stroke="#3b82f6" stroke-width="0.75" vector-effect="non-scaling-stroke" stroke-dasharray="4 3" style:pointer-events="none" />
+			stroke="#3b82f6" stroke-width={selW} vector-effect="non-scaling-stroke" stroke-dasharray="4 3" style:pointer-events="none" />
 	{/if}
 
 	<!-- object placement: capture clicks/moves + draw the rubber-band preview -->
@@ -189,13 +193,13 @@
 		{#if pl.kind === 'prism' && pl.cursor}
 			{@const c = W3(pl.cursor)}
 			<rect x={c.x - 500} y={c.y - 300} width={1000} height={600} fill="#3b82f6" fill-opacity="0.15"
-				stroke="#3b82f6" stroke-width="1" vector-effect="non-scaling-stroke" style:pointer-events="none" />
+				stroke="#3b82f6" stroke-width={1 / zoom} vector-effect="non-scaling-stroke" style:pointer-events="none" />
 		{:else if pl.pts.length}
 			<polyline points={[...pl.pts, ...(pl.cursor ? [pl.cursor] : [])].map((p) => { const w = W3(p); return `${w.x},${w.y}` }).join(' ')}
-				fill="none" stroke="#3b82f6" stroke-width="1" vector-effect="non-scaling-stroke" stroke-dasharray="5 3" style:pointer-events="none" />
+				fill="none" stroke="#3b82f6" stroke-width={1 / zoom} vector-effect="non-scaling-stroke" stroke-dasharray="5 3" style:pointer-events="none" />
 			{#each pl.pts as p, pi (pi)}
 				{@const w = W3(p)}
-				<circle cx={w.x} cy={w.y} r={HR} fill="#3b82f6" stroke="#fff" stroke-width="0.75" vector-effect="non-scaling-stroke" style:pointer-events="none" />
+				<circle cx={w.x} cy={w.y} r={HR} fill="#3b82f6" stroke="#fff" stroke-width={selW} vector-effect="non-scaling-stroke" style:pointer-events="none" />
 			{/each}
 		{/if}
 	{/if}

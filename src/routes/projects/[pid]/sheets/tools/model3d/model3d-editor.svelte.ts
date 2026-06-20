@@ -1,3 +1,4 @@
+import { toast } from 'svelte-sonner'
 import { SurfaceEditor } from '../../edit/surface.svelte'
 import { BASIS, type Conduit, type Dir, type Model, type Obj, type Prism, type Wall } from './types'
 import { moveAlong, roundObj, project, xyCenter, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
@@ -104,13 +105,22 @@ export class Model3dEditor extends SurfaceEditor {
 		const l = this.model?.layers?.find((x) => x.id === o.layer)
 		return !!l?.locked
 	}
+	// Locked-layer guard for interactions: returns true (blocked) and toasts why, so
+	// a click on a locked object explains itself instead of silently doing nothing.
+	private blockedByLock(o: Obj): boolean {
+		if (!this.locked(o)) return false
+		const name = this.model?.layers?.find((l) => l.id === o.layer)?.name ?? o.layer ?? 'layer'
+		toast.info(`Layer “${name}” is locked — unlock it in the Layers window to edit`)
+		return true
+	}
 
 	// ── object move (drag in the projected plane, whole-mm steps) ──
 	startObjMove = (e: MouseEvent, index: number) => {
 		if (e.button !== 0) return // right/middle bubble up so the canvas pans
 		e.stopPropagation()
 		const o = this.objects[index]
-		if (!o || this.locked(o)) return
+		if (!o) return
+		if (this.blockedByLock(o)) return
 		const dup = e.ctrlKey || e.metaKey // ctrl/⌘-drag duplicates the selection
 		if (this.inMulti(index)) {
 			if (dup) this.duplicateMulti()
