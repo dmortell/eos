@@ -132,7 +132,7 @@
 	// so the readout can show the computed scale even in Fit mode, and pan/zoom can seed from it.
 	let lastView = $state<{ x: number; y: number; w: number; h: number; den: number } | null>(null)
 	let scaleText = $derived(
-		vp.scale && vp.scale > 0 ? `1:${Math.round(vp.scale*100)/100}`
+		vp.scale && vp.scale > 0 ? `1:${Math.round(vp.scale)}`
 			: lastView ? `1:${Math.round(lastView.den)} (fit)` : 'Fit'
 	)
 
@@ -304,10 +304,11 @@
 	     pan/zoom toggle and the model-mode button. Sizes counter-scale via the container font-size
 	     so the whole toolbar stays a steady on-screen size at any canvas zoom. -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class={["absolute right-1 top-0.5 px-1 text-[6px] flex gap-1 items-center whitespace-nowrap print:hidden ",
+	<div class={["absolute right-1 top-0.5 px-1 flex gap-1 items-center whitespace-nowrap print:hidden ",
 		(selected || active) && "bg-white rounded border border-slate-400 shadow-sm"
 	]}
 		style:pointer-events={selected || active ? 'auto' : 'none'}
+		style:font-size="{6 / zoom}px"
 	>
 		{#if selected || active}
 			<!-- Scale: opens a Dialog (list + custom input). A dialog reads at normal font size, unlike
@@ -315,7 +316,7 @@
 			<button class="flex items-center gap-[0.2em] rounded px-[0.3em] text-zinc-600 hover:bg-zinc-100" title="Set viewport scale"
 				onmousedown={e => e.stopPropagation()} onclick={e => { e.stopPropagation(); openScaleDialog() }}>
 				{scaleText}
-				<Icon size={8} name="chevronDown" />
+				<Icon size={8 / zoom} name="chevronDown" />
 			</button>
 		{:else}
 			<span class="text-zinc-400 tabular-nums">{scaleText}</span>

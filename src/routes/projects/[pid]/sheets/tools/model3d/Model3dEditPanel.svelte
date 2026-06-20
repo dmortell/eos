@@ -19,7 +19,7 @@
 	const newLayers = $derived((model.layers ?? []).filter((l) => l.id !== 'background'))
 </script>
 
-<Window title="Object" name="model3d-object" right={10} top={10} open class="w-56 p-2 text-zinc-700">
+<Window title="Object" name="model3d-object" right={10} top={10} open class="w-64 p-2 text-zinc-700">
 	<!-- Insert / place-tool (plan view only) -->
 	{#if editor.direction === 'plan'}
 		{#if editor.placing}
@@ -30,18 +30,17 @@
 			</div>
 		{:else}
 			<div class="mb-1 space-y-1 text-xs">
-				<div class="flex items-center gap-1">
+				<label class="flex items-center gap-1" title="Layer that newly inserted objects are placed on">
 					<span class="text-zinc-400">New on</span>
 					<select class="min-w-0 flex-1 rounded border px-1 py-0.5"
 						value={editor.activeLayer ?? newLayers[0]?.id ?? ''} onchange={(e) => (editor.activeLayer = (e.currentTarget as HTMLSelectElement).value)}>
 						{#each newLayers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
 					</select>
-				</div>
-				<div class="flex items-center gap-1">
-					<span class="text-zinc-400">Insert</span>
-					<button class="rounded border px-1.5 py-0.5 hover:bg-slate-100" onclick={() => editor.startPlacing('prism')}>＋Prism</button>
-					<button class="rounded border px-1.5 py-0.5 hover:bg-slate-100" onclick={() => editor.startPlacing('wall')}>＋Wall</button>
-					<button class="rounded border px-1.5 py-0.5 hover:bg-slate-100" onclick={() => editor.startPlacing('conduit')}>＋Conduit</button>
+				</label>
+				<div class="grid grid-cols-3 gap-1">
+					<button class="whitespace-nowrap rounded border px-1 py-0.5 hover:bg-slate-100" onclick={() => editor.startPlacing('prism')}>＋Prism</button>
+					<button class="whitespace-nowrap rounded border px-1 py-0.5 hover:bg-slate-100" onclick={() => editor.startPlacing('wall')}>＋Wall</button>
+					<button class="whitespace-nowrap rounded border px-1 py-0.5 hover:bg-slate-100" onclick={() => editor.startPlacing('conduit')}>＋Conduit</button>
 				</div>
 			</div>
 		{/if}

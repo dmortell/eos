@@ -91,7 +91,7 @@
 		pitch={src.pitch}
 		hiddenLines={src.hiddenLines ?? true}
 		bw={src.bw ?? false}
-		{vp} {view} {onview}
+		{zoom} {vp} {view} {onview}
 		onsvg={(el) => (editor.svg = el)}
 	>
 		{#snippet pre()}

@@ -7,13 +7,14 @@
 	// the viewport's scale (1:N) prints true to size — same contract as the other
 	// tool renders (compute content `bounds`, derive viewBox from vp.scale /
 	// contentOffsetMm, report the effective view + scale denominator via `onview`).
-	let { model, direction, yaw, pitch, hiddenLines = true, bw = false, vp, view = null, onview, onsvg, pre, children }: {
+	let { model, direction, yaw, pitch, hiddenLines = true, bw = false, zoom = 1, vp, view = null, onview, onsvg, pre, children }: {
 		model: Model
 		direction: Dir
 		yaw?: number
 		pitch?: number
 		hiddenLines?: boolean
 		bw?: boolean
+		zoom?: number
 		vp: SheetViewport
 		view?: { x: number; y: number; w: number; h: number } | null
 		onview?: (v: { x: number; y: number; w: number; h: number; den: number }) => void
@@ -28,6 +29,11 @@
 
 	// Drawing-plane (u, v-up) → SVG (x, y-down): flip v.
 	const xy = (p: { u: number; v: number }) => `${p.u},${-p.v}`
+
+	// Hairline stroke: non-scaling-stroke keeps the width in SVG-element px, but the
+	// canvas CSS-scales the <svg> by `zoom`, so divide by zoom for a constant ~0.8px
+	// on-screen line at any zoom (AutoCAD-style — lines never thicken when you zoom).
+	const sw = $derived(0.8 / zoom)
 
 	const layerColor = (o: Obj) => bw ? '#000000' : (model.layers?.find((l) => l.id === o.layer)?.color ?? '#111827')
 	// Visibility is per-viewport (layerOverrides), so the same model can show
@@ -82,15 +88,15 @@
 	{@render pre?.()}
 	{#if isoMode}
 		{#each faces as f, i (i)}
-			<polygon points={f.pts} fill="#ffffff" stroke={f.color} stroke-width="0.6" vector-effect="non-scaling-stroke" stroke-linejoin="round" />
+			<polygon points={f.pts} fill="#ffffff" stroke={f.color} stroke-width={sw} vector-effect="non-scaling-stroke" stroke-linejoin="round" />
 		{/each}
 	{:else}
 		{#each drawn as d, di (di)}
 			{#each d.shapes as s, si (si)}
 				{#if s.closed}
-					<polygon points={pts(s)} fill="none" stroke={d.color} stroke-width="0.6" vector-effect="non-scaling-stroke" stroke-linejoin="round" />
+					<polygon points={pts(s)} fill="none" stroke={d.color} stroke-width={sw} vector-effect="non-scaling-stroke" stroke-linejoin="round" />
 				{:else}
-					<polyline points={pts(s)} fill="none" stroke={d.color} stroke-width="0.6" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" />
+					<polyline points={pts(s)} fill="none" stroke={d.color} stroke-width={sw} vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" />
 				{/if}
 			{/each}
 		{/each}
