@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { SheetViewport } from '../../types'
-	import type { Clip, Dir, Model, Obj } from './types'
+	import { BASIS, type Clip, type Dir, type Model, type Obj } from './types'
 	import { project, faces3d, isoR, isoDepthR, xyCenter, trimToClip, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 
 	// Read-only projection of a 3D model into a sheet viewport, drawn in real mm so
@@ -103,10 +103,29 @@
 	$effect(() => { if (svgEl) onsvg?.(svgEl) })
 
 	const pts = (s: { pts: { u: number; v: number }[] }) => s.pts.map(xy).join(' ')
+
+	// Building level datum lines — elevation views only (v axis = z). Each level's
+	// SVG y = -(vs·z); the line spans the view width. Drawn as muted dashed datums.
+	const isElevation = $derived(direction !== 'plan' && direction !== 'iso')
+	const bE = $derived(BASIS[direction])
+	const levelLines = $derived.by(() => {
+		const L = model.levels
+		if (!isElevation || !L) return []
+		const items: [string, number | undefined, string][] = [
+			['floorSlab', L.floorSlab, 'SLAB'], ['raisedFloor', L.raisedFloor, 'FFL'],
+			['ceilingTile', L.ceilingTile, 'CL'], ['ceilingSlab', L.ceilingSlab, 'SOFFIT'],
+		]
+		return items.filter((it) => it[1] != null).map(([k, z, label]) => ({ k, y: -bE.vs * (z as number), z: z as number, label }))
+	})
 </script>
 
 <svg bind:this={svgEl} class="h-full w-full" {viewBox} preserveAspectRatio={par} style:overflow="hidden">
 	{@render pre?.()}
+	<!-- level datum lines (elevations): horizontal dashed line + label per level -->
+	{#each levelLines as ln (ln.k)}
+		<line x1={vb.x} y1={ln.y} x2={vb.x + vb.w} y2={ln.y} stroke="#94a3b8" stroke-width={sw} stroke-dasharray="6 3" vector-effect="non-scaling-stroke" />
+		<text x={vb.x + vb.w} y={ln.y} dx={-1} dy={-1.5} font-size={Math.max(8, vb.h * 0.022)} fill="#64748b" text-anchor="end">{ln.label} {ln.z >= 0 ? '+' : ''}{ln.z}</text>
+	{/each}
 	{#if isoMode}
 		{#each faces as f, i (i)}
 			<polygon points={f.pts} fill="#ffffff" stroke={f.color} stroke-width={sw} vector-effect="non-scaling-stroke" stroke-linejoin="round" />

@@ -65,7 +65,12 @@ export type Underlay = {
 	flip?: boolean
 	rect?: UnderlayRect
 }
-export type Model = { id: number; name: string; objects: Obj[]; layers?: Layer[]; underlays?: Underlay[] }
+// Building levels (z heights, model mm) drawn as horizontal datum lines in
+// elevation views only — not as real objects. Shared model defaults; any can be
+// omitted to hide that line. Order low→high: structural floor slab, raised/access
+// floor (FFL), suspended ceiling tile, structural ceiling slab/soffit.
+export type Levels = { floorSlab?: number; raisedFloor?: number; ceilingTile?: number; ceilingSlab?: number }
+export type Model = { id: number; name: string; objects: Obj[]; layers?: Layer[]; underlays?: Underlay[]; levels?: Levels }
 
 // Projection direction: five orthographic + an isometric 3D view.
 export type Dir = 'plan' | 'front' | 'rear' | 'left' | 'right' | 'iso'

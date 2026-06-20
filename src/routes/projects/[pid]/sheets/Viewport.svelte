@@ -353,15 +353,11 @@
 	{/if}
 
 	{#if !active}
-		<!-- Clickable frame: four thin edge strips so the interior stays click-through. Click selects;
-		     drag moves (no separate grip — keeps the top-centre clear for a future rotate handle). -->
+		<!-- Whole interior is a select/move target (click selects, drag moves) so a viewport
+		     is easy to pick + Delete. Double-click still activates; marquee-select still works
+		     from empty sheet space. (Was four thin edge strips with a click-through interior.) -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="vp-frame absolute" style:inset="0" style:pointer-events="none">
-			<div class="absolute left-0 right-0 top-0" style:height="{FRAME}px" style:pointer-events="auto" style:cursor="move" onmousedown={frameDown}></div>
-			<div class="absolute left-0 right-0 bottom-0" style:height="{FRAME}px" style:pointer-events="auto" style:cursor="move" onmousedown={frameDown}></div>
-			<div class="absolute top-0 bottom-0 left-0" style:width="{FRAME}px" style:pointer-events="auto" style:cursor="move" onmousedown={frameDown}></div>
-			<div class="absolute top-0 bottom-0 right-0" style:width="{FRAME}px" style:pointer-events="auto" style:cursor="move" onmousedown={frameDown}></div>
-		</div>
+		<div class="vp-frame absolute" style:inset="0" style:pointer-events="auto" style:cursor="move" onmousedown={frameDown}></div>
 	{/if}
 
 	{#if selected && !active}

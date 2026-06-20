@@ -15,8 +15,18 @@
 	import AnnotationLayer from '../../annotations/AnnotationLayer.svelte'
 	import EditBackground from '../../edit/EditBackground.svelte'
 	import { useAnnotations } from '../../edit/annotations.svelte'
-	import { modelZRange } from './projection'
+	import { modelZRange, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 	import { toast } from 'svelte-sonner'
+
+	// Iso orbit: drag updates the source yaw/pitch (pitch clamped to avoid flip-over).
+	function startOrbit(e: MouseEvent) {
+		if (e.button !== 0 || !src) return
+		e.stopPropagation()
+		const sx = e.clientX, sy = e.clientY, yaw0 = src.yaw ?? DEFAULT_YAW, pitch0 = src.pitch ?? DEFAULT_PITCH
+		const move = (ev: MouseEvent) => { if (!src) return; src.yaw = yaw0 + (ev.clientX - sx) * 0.01; src.pitch = Math.max(0.05, Math.min(Math.PI / 2, pitch0 + (ev.clientY - sy) * 0.01)); vps.notify() }
+		const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up) }
+		window.addEventListener('mousemove', move); window.addEventListener('mouseup', up)
+	}
 	// (model layers now live in the shared sheet Layers window)
 
 	const ANN_TOOLS = ['text', 'line', 'rect', 'arrow', 'ellipse', 'cloud', 'symbol', 'callout', 'dimension', 'image']
@@ -164,6 +174,11 @@
 		{#if active && ANN_TOOLS.includes(tool)}
 			<!-- annotation draw-capture (only while an annotation tool is armed) -->
 			<EditBackground {tool} {annEditor} toolEditor={editor} />
+		{/if}
+		{#if active && src.direction === 'iso' && tool === 'select'}
+			<!-- iso orbit: drag to rotate (horizontal = yaw, vertical = pitch) -->
+			<rect x="-1000000" y="-1000000" width="2000000" height="2000000" fill="transparent"
+				style:pointer-events="auto" style:cursor="grab" onmousedown={startOrbit} />
 		{/if}
 		{#if active}
 			<Model3dEditLayer {editor} {model} direction={src.direction} interactive={tool === 'select'} {zoom} />

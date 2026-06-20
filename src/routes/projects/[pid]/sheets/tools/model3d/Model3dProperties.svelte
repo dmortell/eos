@@ -22,6 +22,16 @@
 
 	const emit = () => onchange({ modelId, direction, hiddenLines, bw })
 
+	// Building level datum lines (model-wide; shown in elevation views).
+	const LEVELS = [['floorSlab', 'Floor slab'], ['raisedFloor', 'Raised floor (FFL)'], ['ceilingTile', 'Ceiling tile'], ['ceilingSlab', 'Ceiling slab']] as const
+	function setLevel(k: string, v: string) {
+		if (!current) return
+		current.levels ??= {}
+		const n = Number(v)
+		if (v === '' || Number.isNaN(n)) delete (current.levels as any)[k]; else (current.levels as any)[k] = n
+		store.save()
+	}
+
 	function newModel() { const m = store.add(); modelId = m.id; emit() }
 	function deleteModel() {
 		if (!current || store.models.length <= 1) return
@@ -83,6 +93,22 @@
 <PropSelect label="View" bind:value={direction} onchange={emit}>
 	{#each DIRECTIONS as d (d)}<option value={d}>{DIR_LABEL[d]}</option>{/each}
 </PropSelect>
+
+{#if current}
+	<!-- Building levels (mm): datum lines drawn in elevation views. Blank = hidden. -->
+	<details class="text-xs">
+		<summary class="cursor-pointer text-zinc-500">Levels (elevation datums)</summary>
+		<div class="mt-1 space-y-1">
+			{#each LEVELS as [k, lbl] (k)}
+				<label class="flex items-center justify-between gap-2">
+					<span class="text-zinc-500">{lbl}</span>
+					<input type="number" class="w-20 rounded border px-1 py-0.5" placeholder="—"
+						value={(current.levels as any)?.[k] ?? ''} oninput={(e) => setLevel(k, (e.currentTarget as HTMLInputElement).value)} />
+				</label>
+			{/each}
+		</div>
+	</details>
+{/if}
 
 {#if direction === 'iso'}
 	<PropCheck label="Hidden lines" value={hiddenLines}

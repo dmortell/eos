@@ -12,6 +12,7 @@ export const seedModels: Model[] = [
 	{
 		id: 1,
 		name: '33F office',
+		levels: { floorSlab: 0, raisedFloor: 150, ceilingTile: 2700, ceilingSlab: 2800 },
 		layers: [
 			{ id: 'walls', name: 'Walls', color: '#475569', visible: true, locked: false },
 			{ id: 'furniture', name: 'Furniture', color: '#9a3412', visible: true, locked: false },
