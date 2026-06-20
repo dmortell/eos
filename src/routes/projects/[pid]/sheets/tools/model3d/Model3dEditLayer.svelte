@@ -84,13 +84,17 @@
 			const dx = a.x - bb.x, dy = a.y - bb.y, len = Math.hypot(dx, dy) || 1
 			out.push({ round: true, x: a.x + (dx / len) * GAP, y: a.y + (dy / len) * GAP, cur: 'crosshair', act: (e) => editor.startExtend(e, i, nd.id) })
 		}
-		// Branch handle on the selected *interior* node (degree ≥ 2): drag to pull a
-		// new segment off it (a tee/junction). Touch-friendly — no modifier key.
+		// On the selected node: a branch handle (drag → new segment) and, for a
+		// junction (degree ≥ 2), a disconnect handle (tap → split into separate ends).
+		// Both touch-friendly — no modifier key.
 		if (editor.vsel?.index === i) {
 			const sel = sw.nodes.find((n) => n.id === editor.vsel!.nodeId)
-			if (sel && deg(sel.id) >= 2) {
+			if (sel) {
 				const p = W3(sel)
 				out.push({ round: true, x: p.x + GAP, y: p.y - GAP, cur: 'cell', act: (e) => editor.startExtend(e, i, sel.id) })
+				if (deg(sel.id) >= 2) {
+					out.push({ round: true, x: p.x - GAP, y: p.y - GAP, cur: 'no-drop', act: (e) => { e.stopPropagation(); editor.disconnectNode(i, sel.id) } })
+				}
 			}
 		}
 		return out
@@ -153,9 +157,9 @@
 	{#if editable && editor.selIndex !== null && model.objects[editor.selIndex]}
 		{#each handles(model.objects[editor.selIndex], editor.selIndex) as h, hi (hi)}
 			{#if h.round}
-				<!-- insert (copy) = solid green; extend (crosshair) = hollow green; branch (cell) = violet -->
-				<circle cx={h.x} cy={h.y} r={h.cur === 'cell' ? HR * 1.2 : HR}
-					fill={h.cur === 'crosshair' ? '#fff' : h.cur === 'cell' ? '#7c3aed' : '#16a34a'} stroke={h.cur === 'crosshair' ? '#16a34a' : '#fff'}
+				<!-- insert (copy)=solid green · extend (crosshair)=hollow green · branch (cell)=violet · disconnect (no-drop)=red -->
+				<circle cx={h.x} cy={h.y} r={h.cur === 'cell' || h.cur === 'no-drop' ? HR * 1.2 : HR}
+					fill={h.cur === 'crosshair' ? '#fff' : h.cur === 'cell' ? '#7c3aed' : h.cur === 'no-drop' ? '#dc2626' : '#16a34a'} stroke={h.cur === 'crosshair' ? '#16a34a' : '#fff'}
 					stroke-width={selW} vector-effect="non-scaling-stroke" style:pointer-events="auto" style:cursor={h.cur} onmousedown={h.act} />
 			{:else}
 				<rect x={h.x - HS / 2} y={h.y - HS / 2} width={HS} height={HS} fill={h.sel ? HL : '#fff'} stroke={HL} stroke-width={selW} vector-effect="non-scaling-stroke"
@@ -185,11 +189,11 @@
 		{/each}
 	{/if}
 
-	<!-- marquee selection box -->
+	<!-- marquee selection box: thin, zoom-constant stroke + dash -->
 	{#if editable && editor.marquee}
 		{@const m = editor.marquee}
 		<rect x={m.x} y={m.y} width={m.w} height={m.h} fill="#3b82f6" fill-opacity="0.08"
-			stroke="#3b82f6" stroke-width={selW} vector-effect="non-scaling-stroke" stroke-dasharray="4 3" style:pointer-events="none" />
+			stroke="#3b82f6" stroke-width={1 / zoom} vector-effect="non-scaling-stroke" stroke-dasharray="{4 / zoom} {3 / zoom}" style:pointer-events="none" />
 	{/if}
 
 	<!-- object placement: capture clicks/moves + draw the rubber-band preview -->

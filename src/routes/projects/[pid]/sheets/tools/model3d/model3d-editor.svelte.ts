@@ -168,7 +168,38 @@ export class Model3dEditor extends SurfaceEditor {
 	private node(o: Conduit | Wall, id: string) { return o.nodes.find((n) => n.id === id) }
 	private dragNode(o: Conduit | Wall, id: string, onEnd?: () => void) {
 		const b = BASIS[this.direction], n = this.node(o, id); if (!n) return
-		this.startDrag((ev) => { const c = this.at(ev); if (c) { n[b.h] = Math.round(c.ch); n[b.v] = Math.round(c.cv) } }, () => { onEnd?.(); this.notify() })
+		this.startDrag((ev) => { const c = this.at(ev); if (c) { n[b.h] = Math.round(c.ch); n[b.v] = Math.round(c.cv) } }, () => { this.joinOnDrop(o, id); onEnd?.(); this.notify() })
+	}
+	// Join: if a dragged node is released on top of another node of the same object
+	// (within a screen-distance snap), merge it into that node — reconnecting its
+	// segments to form a junction (and dropping any self-loops / duplicate edges).
+	private joinOnDrop(o: Conduit | Wall, id: string) {
+		const n = this.node(o, id); if (!n) return
+		const thr = 12 / (this.screenScale() || 1) // ~12px in world-mm
+		const t = o.nodes.find((x) => x.id !== id && Math.hypot(x.x - n.x, x.y - n.y, x.z - n.z) <= thr)
+		if (!t) return
+		for (const s of o.segments) { if (s.a === id) s.a = t.id; if (s.b === id) s.b = t.id }
+		o.segments = o.segments.filter((s) => s.a !== s.b) // drop collapsed self-loops
+		const seen = new Set<string>() // drop duplicate edges
+		o.segments = o.segments.filter((s) => { const k = [s.a, s.b].sort().join('|'); if (seen.has(k)) return false; seen.add(k); return true })
+		o.nodes = o.nodes.filter((x) => x.id !== id)
+		if (this.vsel?.nodeId === id) this.vsel = { index: this.vsel.index, nodeId: t.id }
+	}
+	// Disconnect a junction node (degree ≥ 2): give every incident segment past the
+	// first its own copy of the node, offset so they're separately draggable. Splits
+	// a tee/cross back into independent ends. Touch-friendly (a handle tap).
+	disconnectNode = (index: number, nodeId: string) => {
+		const o = this.objects[index]
+		if (!o || (o.type !== 'wall' && o.type !== 'conduit') || this.locked(o)) return
+		const orig = this.node(o, nodeId); if (!orig) return
+		const inc = o.segments.filter((s) => s.a === nodeId || s.b === nodeId)
+		if (inc.length < 2) return
+		inc.slice(1).forEach((s, k) => {
+			const copy = { id: newId('n'), x: orig.x + (k + 1) * 150, y: orig.y + (k + 1) * 150, z: orig.z }
+			o.nodes.push(copy)
+			if (s.a === nodeId) s.a = copy.id; else s.b = copy.id
+		})
+		this.notify()
 	}
 	startVertex = (e: MouseEvent, index: number, nodeId: string) => {
 		if (e.button !== 0) return // right/middle bubble up so the canvas pans
