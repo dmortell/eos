@@ -33,7 +33,7 @@
 
 	// Fit box: the selection's projected bounds, extended to include the level datums
 	// so you can drag against FFL / ceiling.
-	const view = $derived.by(() => {
+	const autoView = $derived.by(() => {
 		if (!sel) return null
 		const b = BASIS[direction], piv = xyCenter(model.objects)
 		let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity
@@ -45,6 +45,29 @@
 		const padX = (x1 - x0) * 0.15 + 100, padY = (y1 - y0) * 0.12 + 150
 		return { x: x0 - padX, y: y0 - padY, w: (x1 - x0) + 2 * padX, h: (y1 - y0) + 2 * padY }
 	})
+
+	// Manual pan/zoom overrides the auto-fit until the selection or direction changes.
+	let manual = $state<{ x: number; y: number; w: number; h: number } | null>(null)
+	$effect(() => { selIndex; direction; manual = null })
+	const view = $derived(manual ?? autoView)
+	let boxEl = $state<HTMLDivElement>()
+	function onWheel(e: WheelEvent) {
+		if (!view) return
+		e.preventDefault()
+		const r = boxEl!.getBoundingClientRect()
+		const fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height
+		const k = e.deltaY > 0 ? 1.15 : 1 / 1.15 // wheel down = zoom out
+		const w = view.w * k, h = view.h * k
+		manual = { x: view.x + (view.w - w) * fx, y: view.y + (view.h - h) * fy, w, h }
+	}
+	function onPan(e: MouseEvent) {
+		if (e.button === 0 || !view) return // left = edit; middle/right = pan
+		e.preventDefault(); e.stopPropagation()
+		const r = boxEl!.getBoundingClientRect(), v0 = { ...view }, sx = e.clientX, sy = e.clientY
+		const mv = (ev: MouseEvent) => { manual = { ...v0, x: v0.x - (ev.clientX - sx) / r.width * v0.w, y: v0.y - (ev.clientY - sy) / r.height * v0.h } }
+		const up = () => { window.removeEventListener('mousemove', mv); window.removeEventListener('mouseup', up) }
+		window.addEventListener('mousemove', mv); window.addEventListener('mouseup', up)
+	}
 
 	// Minimal viewport for Model3dRender — `view` overrides the viewBox; all layers shown.
 	const fakeVp = { id: 'elev-preview', x: 0, y: 0, w: 100, h: 80, layerOverrides: {}, source: { kind: 'model3d' } } as any
@@ -58,13 +81,16 @@
 					onclick={() => (direction = d)}>{DIR_LABEL[d]}</button>
 			{/each}
 		</div>
-		<div class="relative h-44 w-full overflow-hidden rounded border border-zinc-200 bg-white">
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div bind:this={boxEl} class="relative w-full overflow-hidden rounded border border-zinc-200 bg-white"
+			style:height="180px" style:resize="vertical" style:min-height="120px"
+			onwheel={onWheel} onmousedown={onPan} oncontextmenu={(e) => e.preventDefault()}>
 			<Model3dRender {model} {direction} {view} clip={depthClip} vp={fakeVp} hiddenLines={direction === 'iso'} bw={false} onsvg={(el) => (ed.svg = el)}>
 				{#if direction !== 'iso'}
 					<Model3dEditLayer editor={ed} {model} {direction} interactive={true} zoom={1} />
 				{/if}
 			</Model3dRender>
 		</div>
-		<p class="mt-1 text-[10px] text-zinc-400">Drag the top edge to set height. Datums = floor/ceiling levels.</p>
+		<p class="mt-1 text-[10px] text-zinc-400">Drag top edge = height · wheel = zoom · right-drag = pan · ⤢ corner = resize.</p>
 	</Window>
 {/if}
