@@ -18,6 +18,8 @@
 	let { editor, interactive = false, hidden = [], locked = [], den = 1, zoom = 1 }: { editor: AnnotationEditor; interactive?: boolean; hidden?: string[]; locked?: string[]; den?: number; zoom?: number } = $props()
 
 	const HL = '#06b6d4'
+	// Zoom-counter-scaled stroke so the multi-select box matches TransformBox exactly.
+	const ss = $derived((zoom, editor.screenScale()) || 1)
 	const mid = `mk-${Math.random().toString(36).slice(2, 7)}`
 	const lyrOf = (a: Annotation) => a.layerId ?? 'annotations'
 	const isLocked = (a: Annotation) => locked.includes(lyrOf(a))
@@ -114,7 +116,7 @@
 				{:else if mt === 'box'}
 					<circle cx={cx} cy={cy} r={tR} fill={color} fill-opacity={low ? 0.85 : 0.4} stroke={color} stroke-width={sw} vector-effect="non-scaling-stroke" />
 				{/if}
-				<path d={tri} fill={color} stroke="white" stroke-width={sw} vector-effect="non-scaling-stroke" stroke-linejoin="round" />
+				<path d={tri} fill={color} stroke="#000" stroke-width={sw * 0.45} vector-effect="non-scaling-stroke" stroke-linejoin="round" />
 				<!-- ports count, in the (wide, upper) part of the down-triangle -->
 				<text x={cx} y={cy - tR * 0.1} font-size={tR * 0.66} fill="white" text-anchor="middle" dominant-baseline="middle" font-weight="600">{o.ports ?? 2}</text>
 				<!-- label above -->
@@ -213,7 +215,7 @@
 
 	<!-- marquee multi-select highlight (a plain outline; full transform handles are single-select) -->
 	{#if multi && !sel}
-		<rect x={b.x} y={b.y} width={b.w} height={b.h} transform={rot} fill="none" stroke={HL} stroke-width=".5" stroke-dasharray="6 4" vector-effect="non-scaling-stroke" style:pointer-events="none" />
+		<rect x={b.x} y={b.y} width={b.w} height={b.h} transform={rot} fill="none" stroke={HL} stroke-width={1 / ss} stroke-dasharray="{4 / ss} {3 / ss}" style:pointer-events="none" />
 	{/if}
 
 	<!-- selection handles -->

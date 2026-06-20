@@ -566,7 +566,7 @@ export class Model3dEditor extends SurfaceEditor {
 		super.clearSel(); this.vsel = null; this.usel = null // a marquee (or empty click) drops the single selection
 		const piv = xyCenter(this.objects)
 		const hit: number[] = []
-		this.objects.forEach((o, i) => { if (marqueeHits(o, this.direction, piv, r)) hit.push(i) })
+		this.objects.forEach((o, i) => { if (!this.locked(o) && marqueeHits(o, this.direction, piv, r)) hit.push(i) }) // locked layers aren't selectable
 		// Exactly one → single-select it (full handles + property editor); else multi.
 		if (hit.length === 1) this.selectObj(hit[0]); else this.multi = hit
 	}

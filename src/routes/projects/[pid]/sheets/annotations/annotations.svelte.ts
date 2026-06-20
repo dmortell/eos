@@ -159,6 +159,17 @@ export class AnnotationEditor extends SurfaceEditor {
 		}, () => this.notify())
 	}
 
+	/** The selected annotations (multi set, else the single selection). */
+	selectedAnnList(): Annotation[] {
+		const ids = new Set(this.selAnns.length ? this.selAnns : this.selAnn ? [this.selAnn.id] : [])
+		return this.annotations.filter((a) => ids.has(a.id))
+	}
+	/** Apply an outlet-prop patch to every selected outlet symbol (multi-edit). */
+	setOutletAll(patch: Record<string, unknown>) {
+		for (const a of this.selectedAnnList()) if (a.symbol === 'outlet') a.outlet = { ...(a.outlet ?? {}), ...patch }
+		this.notify()
+	}
+
 	/** Selected annotation's text edit focus signal — bumped to ask the props panel to focus. */
 	textFocusNonce = $state(0)
 	requestTextFocus(a: Annotation) { this.select('ann', a.id); this.textFocusNonce++ }

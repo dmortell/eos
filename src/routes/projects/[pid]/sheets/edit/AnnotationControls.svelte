@@ -130,7 +130,33 @@
 	</PropSelect>
 {/if}
 
-{#if sel}
+{#if editor.selAnns.length > 1}
+	{@const anns = editor.selectedAnnList()}
+	{@const outs = anns.filter((a) => a.symbol === 'outlet')}
+	<hr class="border-zinc-200" />
+	<div class="text-xs font-medium text-zinc-600">{editor.selAnns.length} selected{outs.length ? ` · ${outs.length} outlet${outs.length > 1 ? 's' : ''}` : ''}</div>
+	{#if outs.length}
+		{@const co = (k) => { const v = outs.map((a) => (a.outlet ?? {})[k]); return v.every((x) => x === v[0]) ? v[0] : undefined }}
+		<div class="grid grid-cols-2 gap-1">
+			<label class="block text-xs"><span class="text-zinc-400">Ports</span>
+				<input type="number" min="1" max="24" class="w-full rounded border px-1 py-0.5" placeholder="mixed" value={co('ports') ?? ''} oninput={(e) => editor.setOutletAll({ ports: Number((e.currentTarget as HTMLInputElement).value) || 1 })} /></label>
+			<label class="block text-xs"><span class="text-zinc-400">Level</span>
+				<select class="w-full rounded border px-1 py-0.5" value={co('level') ?? ''} onchange={(e) => editor.setOutletAll({ level: val(e) })}>
+					<option value="" disabled>mixed</option><option value="low">Low (floor)</option><option value="high">High (ceiling)</option>
+				</select></label>
+			<label class="block text-xs"><span class="text-zinc-400">Mount</span>
+				<select class="w-full rounded border px-1 py-0.5" value={co('mount') ?? ''} onchange={(e) => editor.setOutletAll({ mount: val(e) })}>
+					<option value="" disabled>mixed</option>{#each OUTLET_MOUNT as m (m.value)}<option value={m.value}>{m.label}</option>{/each}
+				</select></label>
+			<label class="block text-xs"><span class="text-zinc-400">Cable</span>
+				<input class="w-full rounded border px-1 py-0.5" list="outlet-cables" placeholder="mixed" value={co('cable') ?? ''} oninput={(e: Event) => editor.setOutletAll({ cable: val(e) })} />
+				<datalist id="outlet-cables">{#each OUTLET_CABLE as c (c.value)}<option value={c.value}>{c.label}</option>{/each}</datalist></label>
+		</div>
+		<label class="block text-xs"><span class="text-zinc-400">Usage</span>
+			<input class="w-full rounded border px-1 py-0.5" list="outlet-usages" placeholder="mixed" value={co('usage') ?? ''} oninput={(e: Event) => editor.setOutletAll({ usage: val(e) })} />
+			<datalist id="outlet-usages">{#each OUTLET_USAGE as u (u.value)}<option value={u.value}>{u.label}</option>{/each}</datalist></label>
+	{/if}
+{:else if sel}
 	<hr class="border-zinc-200" />
 	{#if annLayers.length > 1}
 		<PropSelect label="Layer" value={sel.layerId ?? 'annotations'} onchange={(e: Event) => editor.setSelLayer(val(e))}>
