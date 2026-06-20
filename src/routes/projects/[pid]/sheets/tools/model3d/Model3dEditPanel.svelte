@@ -50,8 +50,9 @@
 		<hr class="mb-1 border-zinc-200" />
 	{/if}
 
-	<!-- Annotations: shared toolbar (Select / +Text / +Line / +Rect …) + property editor -->
-	<AnnotationControls bind:tool editor={annEditor} showSelect={true} />
+	<!-- Annotations: live kinds as direct buttons + the shared property editor -->
+	<AnnotationControls bind:tool editor={annEditor} showSelect={true}
+		tools={['text', 'line', 'rect', 'arrow', 'ellipse', 'cloud', 'callout', 'dimension', 'symbol']} />
 	<hr class="my-1 border-zinc-200" />
 
 	{#if obj}

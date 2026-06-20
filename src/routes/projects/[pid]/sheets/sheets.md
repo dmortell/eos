@@ -145,3 +145,24 @@ Keep pan/zoom as is in model mode. Show a toolbar inside the top right corner of
 
 * Add Wall outlets/faceplates shapes for elevations.
 Add a Library for such shapes, and saving user drawn shapes (see original outlets tool).
+
+## Rendering note: constant-size overlays inside the zoomed canvas
+
+HTML overlays inside the pan/zoom Canvas (`transform: scale(zoom)`) that must stay a
+constant on-screen size — e.g. the per-viewport frame toolbar in `Viewport.svelte` —
+must NOT counter-scale their `font-size` to `k/zoom`. At high zoom the browser
+rasterises text at the tiny pre-transform size and the parent `scale(zoom)` upscales
+that raster, giving a cramped/blurry, unusable control.
+
+Instead, render at natural size (normal `text-xs`/`border`/`px-2`/icon sizes) and
+neutralise the zoom on the overlay itself:
+
+```svelte
+<div class="absolute right-0 top-0 origin-top-right" style:transform="scale({1 / zoom})">
+  <div class="m-1 …natural sizes…">…</div>
+</div>
+```
+
+The scales cancel (`zoom × 1/zoom = 1`) so the browser rasterises at full resolution —
+crisp and constant at any zoom, glued to the corner via `transform-origin`. For
+free-floating panels, portal out of the canvas instead (`edit/portal.ts`). (commit c2d4fdc)

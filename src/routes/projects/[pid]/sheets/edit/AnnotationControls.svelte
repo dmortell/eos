@@ -21,7 +21,11 @@
 	import type { AnnotationEditor } from '../annotations/annotations.svelte'
 
 	type Opt = { id: string; label: string }
-	let { tool = $bindable(), editor, showSelect = false }: { tool: string; editor: AnnotationEditor; showSelect?: boolean } = $props()
+	// `tools`: when given, these annotation kinds render as direct buttons (and the
+	// "▾" picker is hidden) — used by model3d to surface its full live set. Default
+	// keeps the shared MRU + picker used by outlets/racks/risers.
+	let { tool = $bindable(), editor, showSelect = false, tools: toolsOverride }: { tool: string; editor: AnnotationEditor; showSelect?: boolean; tools?: string[] } = $props()
+	const quick = $derived(toolsOverride ?? mru)
 	const links = getContext<{ sheets?: Opt[]; surveys?: Opt[]; photos?: (surveyId?: string) => Opt[] }>('annLinks')
 
 	const annTools: [string, string][] = [
@@ -91,10 +95,12 @@
 <!-- Consolidated annote toolbar: Select + a few recently-used annotes + a "▾" picker for the rest. -->
 <div class="flex flex-wrap items-center gap-1">
 	{#if showSelect}<button class={cls(tool === 'select')} onclick={() => (tool = 'select')}>Select</button>{/if}
-	{#each mru as id (id)}
+	{#each quick as id (id)}
 		<button class={cls(tool === id)} title="Insert {labelOf(id)}{HOTKEY_OF[id] ? ` (${HOTKEY_OF[id]})` : ''}" onclick={() => selectTool(id)}>+{labelOf(id)}</button>
 	{/each}
-	<button bind:this={chevronEl} class={cls(!!tool && tool !== 'select' && !mru.includes(tool))} title="More annotations" aria-label="More annotations" onclick={toggleMenu}>▾</button>
+	{#if !toolsOverride}
+		<button bind:this={chevronEl} class={cls(!!tool && tool !== 'select' && !mru.includes(tool))} title="More annotations" aria-label="More annotations" onclick={toggleMenu}>▾</button>
+	{/if}
 </div>
 
 {#if menuOpen}
