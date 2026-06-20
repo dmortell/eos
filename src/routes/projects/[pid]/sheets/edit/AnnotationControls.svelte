@@ -130,7 +130,7 @@
 	</PropSelect>
 {/if}
 
-{#if editor.selAnns.length > 1}
+{#if editor.selAnns.length > 1 && editor.selectedAnnList().length}
 	{@const anns = editor.selectedAnnList()}
 	{@const outs = anns.filter((a) => a.symbol === 'outlet')}
 	<hr class="border-zinc-200" />
