@@ -171,3 +171,31 @@ keep the single height handle.
    profile per object to an optional per-segment profile. The outlets trunk
    editor is the reference for segment-select + add-point-on-segment + branch.
 3. Fold the outlets trunk onto the same editor once 1–2 land.
+
+---
+
+## 9. model3d backlog (gaps vs edit3d + new asks)
+
+edit3d's Insert palette (`parts/insert.ts`) listed these but most were `todo:true`
+stubs — never built. So they're gaps in BOTH tools, now tracked for model3d:
+
+**Object creation (Insert palette)** — biggest gap. You can edit/duplicate/branch
+existing objects but can't *originate* a new prism/wall/conduit from scratch.
+Needs: a place-tool (click/drag to draw a wall/conduit path; click to drop a
+prism) feeding the editor. Touch: tap-to-place.
+
+**Sections / clip → cropped elevation** — `Clip` type exists; no UI. A section box
+in plan → auto-framed cropped elevation/section viewport (cull via `inClip`).
+
+**Annotations** (new ask) — none yet:
+- **Legend** — keyed list of layers/symbols with swatches (auto from model layers).
+- Dimensions (linear/aligned), text labels, leaders/callouts, symbols/tags.
+- These likely belong to the sheet annotation layer, not the model.
+
+**Iso orbit-by-drag** — yaw/pitch are fixed source params; add drag-to-orbit.
+
+**Grid / snapping** — snap to grid + endpoints/midpoints while editing (precision).
+
+**Done since this doc:** graph model + branching (§8), per-segment props, layers
+merged into the sheet Layers window (per-viewport), underlays, undo/redo,
+duplicate/copy/paste (ctrl-drag, Ctrl+D/C/X/V, touch buttons).

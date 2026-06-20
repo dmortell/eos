@@ -43,12 +43,13 @@
 	$effect(() => { editor.model = model; editor.direction = src?.direction ?? 'plan'; editor.layerOverrides = vp.layerOverrides ?? {} })
 	$effect(() => { if (!active) editor.clearSel() })
 
-	// Undo/redo over the whole model (objects + layers + underlays), driven off the
-	// editor's change flow (touch coalesces a burst into one step).
+	// Undo/redo over the model *geometry* only (objects). Layer definitions and
+	// underlays are edited through other save paths (Layers window / properties),
+	// so keeping them out of the snapshot avoids geometry-undo clobbering them.
 	const history = new History()
 	const snap = {
-		snapshot: () => model ? $state.snapshot({ name: model.name, objects: model.objects, layers: model.layers, underlays: model.underlays }) : {},
-		seed: (s: any) => { if (!model) return; model.objects = s.objects ?? []; model.layers = s.layers; model.underlays = s.underlays; if (s.name != null) model.name = s.name },
+		snapshot: () => model ? $state.snapshot({ objects: model.objects }) : {},
+		seed: (s: any) => { if (model) model.objects = s.objects ?? [] },
 		notify: () => store.save(),
 	}
 	history.register(snap)
@@ -67,6 +68,10 @@
 			const mod = e.ctrlKey || e.metaKey
 			if (mod && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); e.stopPropagation(); if (e.shiftKey) history.redo(); else history.undo(); return }
 			if (mod && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); e.stopPropagation(); history.redo(); return }
+			if (mod && (e.key === 'd' || e.key === 'D')) { e.preventDefault(); e.stopPropagation(); editor.duplicateSel(); return }
+			if (mod && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); e.stopPropagation(); editor.copySel(); return }
+			if (mod && (e.key === 'x' || e.key === 'X')) { e.preventDefault(); e.stopPropagation(); editor.cutSel(); return }
+			if (mod && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); e.stopPropagation(); editor.paste(); return }
 			if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); e.stopPropagation(); editor.deleteSel() }
 		}
 		window.addEventListener('keydown', onKey, true)

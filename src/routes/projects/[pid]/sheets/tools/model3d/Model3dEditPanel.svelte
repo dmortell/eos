@@ -21,6 +21,13 @@
 	{#if obj}
 		<div class="space-y-1 text-xs">
 			<div class="mb-1 font-semibold capitalize">{obj.type}</div>
+			<!-- touch-friendly actions (mouse also has ctrl-drag + Ctrl+D/C/X/V) -->
+			<div class="mb-1 flex flex-wrap gap-1">
+				<button class="rounded border px-1.5 py-0.5 hover:bg-slate-100" title="Duplicate (Ctrl+D)" onclick={() => editor.duplicateSel()}>Duplicate</button>
+				<button class="rounded border px-1.5 py-0.5 hover:bg-slate-100" title="Copy (Ctrl+C)" onclick={() => editor.copySel()}>Copy</button>
+				<button class="rounded border px-1.5 py-0.5 hover:bg-slate-100" title="Paste (Ctrl+V)" onclick={() => editor.paste()}>Paste</button>
+				<button class="rounded border border-red-300 px-1.5 py-0.5 text-red-600 hover:bg-red-50" title="Delete (Del)" onclick={() => editor.deleteSel()}>Delete</button>
+			</div>
 
 			{#if obj.type === 'prism'}
 				<div class="grid grid-cols-3 gap-1">

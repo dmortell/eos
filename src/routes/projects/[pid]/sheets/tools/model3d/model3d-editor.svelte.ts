@@ -106,7 +106,12 @@ export class Model3dEditor extends SurfaceEditor {
 		e.stopPropagation()
 		const o = this.objects[index]
 		if (!o || this.locked(o)) return
-		if (this.inMulti(index)) { this.beginGroupDrag(e); return } // drag the whole marquee group
+		const dup = e.ctrlKey || e.metaKey // ctrl/⌘-drag duplicates the selection
+		if (this.inMulti(index)) {
+			if (dup) this.duplicateMulti()
+			this.beginGroupDrag(e); return // drag the (possibly cloned) marquee group
+		}
+		if (dup) index = this.duplicateOne(index)
 		this.selectObj(index); this.vsel = null
 		const b = BASIS[this.direction]
 		const s = this.at(e); if (!s) return
@@ -206,6 +211,35 @@ export class Model3dEditor extends SurfaceEditor {
 		}
 	}
 
+	// ── duplicate / copy / paste (ctrl-drag, Ctrl+D/C/V, or panel buttons for touch) ──
+	clipboard: Obj[] = []
+	private selIdxs() { return this.multi.length ? [...this.multi] : this.selIndex !== null ? [this.selIndex] : [] }
+	// Clone in place for a ctrl-drag (caller then drags the clones).
+	private duplicateOne(index: number): number {
+		this.objects.push(structuredClone($state.snapshot(this.objects[index])) as Obj)
+		return this.objects.length - 1
+	}
+	private duplicateMulti() {
+		const clones = this.multi.map((i) => structuredClone($state.snapshot(this.objects[i])) as Obj)
+		const base = this.objects.length
+		this.objects.push(...clones)
+		this.multi = clones.map((_, k) => base + k)
+	}
+	// Add clones offset by `d` mm and select them (for Duplicate / Paste).
+	private addClones(src: Obj[], d: number) {
+		const clones = src.map((o) => { const c = structuredClone(o) as Obj; offsetObj(c, d); return c })
+		const base = this.objects.length
+		this.objects.push(...clones)
+		this.clearSel()
+		if (clones.length === 1) this.selectObj(base)
+		else this.multi = clones.map((_, k) => base + k)
+		this.notify()
+	}
+	duplicateSel = () => { const idxs = this.selIdxs(); if (idxs.length) this.addClones(idxs.map((i) => $state.snapshot(this.objects[i]) as Obj), 200) }
+	copySel = () => { this.clipboard = this.selIdxs().map((i) => structuredClone($state.snapshot(this.objects[i])) as Obj) }
+	cutSel = () => { if (this.selIdxs().length) { this.copySel(); this.deleteSel() } }
+	paste = () => { if (this.clipboard.length) this.addClones(this.clipboard, 200) }
+
 	// ── marquee multi-select + group move (overrides SurfaceEditor hooks) ──
 	multi = $state<number[]>([])
 	inMulti(i: number) { return this.multi.includes(i) }
@@ -274,6 +308,9 @@ function pointInPoly(pt: V2, pts: V2[]) {
 	}
 	return inside
 }
+
+// Offset an object by `d` mm in x and y (for duplicate/paste so copies are visible).
+function offsetObj(o: Obj, d: number) { moveAlong(o, 'x', d); moveAlong(o, 'y', d) }
 
 // Reset an object's position to a snapshot (before applying a group translate).
 function restorePos(o: Obj, s: any) {

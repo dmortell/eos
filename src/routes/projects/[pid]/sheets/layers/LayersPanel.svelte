@@ -78,7 +78,7 @@
 						</label>
 						<input class="min-w-0 flex-1 rounded border-transparent bg-transparent px-1 py-0.5 hover:border-zinc-200 focus:border-zinc-300 {ov.hidden ? 'opacity-40' : ''}"
 							value={l.name} oninput={(e) => { l.name = (e.currentTarget as HTMLInputElement).value; m3dStore?.save() }} />
-						<button class="shrink-0 rounded p-0.5 text-zinc-600 hover:bg-zinc-100 {ov.hidden ? 'opacity-30' : ''}" title="Show / hide (this view)" onclick={() => vps.setLayerOverride(v.id, l.id, { hidden: !ov.hidden })}>
+						<button class="shrink-0 rounded p-0.5 {ov.hidden ? 'text-blue-600' : 'text-zinc-600'} hover:bg-zinc-100" title="Show / hide (this view)" onclick={() => vps.setLayerOverride(v.id, l.id, { hidden: !ov.hidden })}>
 							<Icon name={ov.hidden ? 'eyeSlash' : 'eye'} size={14} />
 						</button>
 						<button class="shrink-0 rounded p-0.5 hover:bg-zinc-100 {ov.locked ? 'text-red-600' : 'text-zinc-500'}" title="Lock / unlock (this view)" onclick={() => vps.setLayerOverride(v.id, l.id, { locked: !ov.locked })}>
