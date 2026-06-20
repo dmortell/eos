@@ -40,7 +40,24 @@ export type Layer = { id: string; name: string; color: string; visible: boolean;
 // Every object may belong to a layer (by id); unassigned objects fall back to
 // the model's first layer.
 export type Obj = (Prism | Wall | Conduit) & { layer?: string }
-export type Model = { id: number; name: string; objects: Obj[]; layers?: Layer[] }
+
+// A PDF/image underlay placed in one projection plane (e.g. a floorplan under
+// the plan view). A model can hold several per direction; array order is the
+// z-order (later = on top). Initial position/size come from the file's per-page
+// calibration (origin/scale, like the outlets floorplan); `rect` (world-mm) is
+// the explicit placement once moved/resized (clear it to reset to calibration).
+// `flip` mirrors the image vertically to align a y-down floorplan to model y-up.
+export type UnderlayRect = { x: number; y: number; w: number; h: number }
+export type Underlay = {
+	id: string
+	dir: Dir
+	fileId: string
+	pageNum?: number
+	opacity?: number
+	flip?: boolean
+	rect?: UnderlayRect
+}
+export type Model = { id: number; name: string; objects: Obj[]; layers?: Layer[]; underlays?: Underlay[] }
 
 // Projection direction: five orthographic + an isometric 3D view.
 export type Dir = 'plan' | 'front' | 'rear' | 'left' | 'right' | 'iso'

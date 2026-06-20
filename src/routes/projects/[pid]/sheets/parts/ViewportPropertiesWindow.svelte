@@ -52,7 +52,7 @@
 		racksDocId: '', racksFace: 'front' as RackFace, racksRowId: '', racksShowWalls: false, racksColorDevices: true,
 		risersFrom: 0, risersTo: 0,
 		fillrateSectionId: '',
-		modelId: 1, modelDir: 'plan' as Dir, modelHidden: true,
+		modelId: 1, modelDir: 'plan' as Dir, modelHidden: true, modelBw: false,
 	})
 	let syncedId: string | null = null
 	$effect(() => {
@@ -82,6 +82,7 @@
 				modelId: s.kind === 'model3d' ? s.modelId : 1,
 				modelDir: s.kind === 'model3d' ? s.direction : 'plan',
 				modelHidden: s.kind === 'model3d' ? (s.hiddenLines ?? true) : true,
+				modelBw: s.kind === 'model3d' ? (s.bw ?? false) : false,
 			}
 		})
 	})
@@ -130,7 +131,7 @@
 		}
 		if (form.kind === 'risers') return { kind: 'risers', risersDocId: pid, fromFloor: form.risersFrom, toFloor: form.risersTo }
 		if (form.kind === 'fillrate') return { kind: 'fillrate', sectionId: form.fillrateSectionId }
-		if (form.kind === 'model3d') return { kind: 'model3d', modelId: form.modelId, direction: form.modelDir, hiddenLines: form.modelHidden }
+		if (form.kind === 'model3d') return { kind: 'model3d', modelId: form.modelId, direction: form.modelDir, hiddenLines: form.modelHidden, bw: form.modelBw }
 		return { kind: 'empty' }
 	}
 </script>
@@ -179,8 +180,8 @@
 				onchange={(p) => { form.risersFrom = p.fromFloor; form.risersTo = p.toFloor; apply() }} />
 		{:else if form.kind === 'model3d'}
 				<hr class="border-zinc-200" />
-				<Model3dProperties {pid} modelId={form.modelId} direction={form.modelDir} hiddenLines={form.modelHidden}
-					onchange={(p) => { form.modelId = p.modelId; form.modelDir = p.direction; form.modelHidden = p.hiddenLines; apply() }} />
+				<Model3dProperties {pid} modelId={form.modelId} direction={form.modelDir} hiddenLines={form.modelHidden} bw={form.modelBw}
+					onchange={(p) => { form.modelId = p.modelId; form.modelDir = p.direction; form.modelHidden = p.hiddenLines; form.modelBw = p.bw; apply() }} />
 			{:else if form.kind === 'fillrate'}
 			<hr class="border-zinc-200" />
 			{#if fillrateSections.length}

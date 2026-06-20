@@ -7,17 +7,19 @@
 	// the viewport's scale (1:N) prints true to size — same contract as the other
 	// tool renders (compute content `bounds`, derive viewBox from vp.scale /
 	// contentOffsetMm, report the effective view + scale denominator via `onview`).
-	let { model, direction, yaw, pitch, hiddenLines = true, vp, view = null, onview, onsvg, children }: {
+	let { model, direction, yaw, pitch, hiddenLines = true, bw = false, vp, view = null, onview, onsvg, pre, children }: {
 		model: Model
 		direction: Dir
 		yaw?: number
 		pitch?: number
 		hiddenLines?: boolean
+		bw?: boolean
 		vp: SheetViewport
 		view?: { x: number; y: number; w: number; h: number } | null
 		onview?: (v: { x: number; y: number; w: number; h: number; den: number }) => void
 		onsvg?: (el: SVGSVGElement) => void
-		children?: any
+		pre?: any      // drawn first (behind geometry) — underlay images
+		children?: any // drawn last (on top) — edit handles
 	} = $props()
 
 	const yawE = $derived(yaw ?? DEFAULT_YAW)
@@ -27,7 +29,7 @@
 	// Drawing-plane (u, v-up) → SVG (x, y-down): flip v.
 	const xy = (p: { u: number; v: number }) => `${p.u},${-p.v}`
 
-	const layerColor = (o: Obj) => model.layers?.find((l) => l.id === o.layer)?.color ?? '#111827'
+	const layerColor = (o: Obj) => bw ? '#000000' : (model.layers?.find((l) => l.id === o.layer)?.color ?? '#111827')
 	const isVisible = (o: Obj) => {
 		const l = model.layers?.find((x) => x.id === o.layer)
 		return !l || l.visible
@@ -78,6 +80,7 @@
 </script>
 
 <svg bind:this={svgEl} class="h-full w-full" {viewBox} preserveAspectRatio={par} style:overflow="hidden">
+	{@render pre?.()}
 	{#if isoMode}
 		{#each faces as f, i (i)}
 			<polygon points={f.pts} fill="#ffffff" stroke={f.color} stroke-width="0.6" vector-effect="non-scaling-stroke" stroke-linejoin="round" />

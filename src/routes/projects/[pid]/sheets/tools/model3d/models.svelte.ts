@@ -11,7 +11,7 @@ import { seedModels } from './data'
  * Geometry editing (the edit layer) mutates `store.models` and calls `save()`;
  * saves are debounced + de-duped by JSON so remote loads don't echo back.
  */
-class ModelStore {
+export class ModelStore {
 	models = $state<Model[]>([])
 	loaded = $state(false)
 
