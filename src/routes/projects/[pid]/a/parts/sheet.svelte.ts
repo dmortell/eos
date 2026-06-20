@@ -24,7 +24,8 @@ export class Sheet {
 	viewport = $state<HTMLDivElement>()
 
 	// Selection / interaction state.
-	selectedId = $state<number | null>(1)
+	selectedIds = $state<number[]>([1]) // selected viewport ids (supports multi-select)
+	marquee = $state<{ x0: number; y0: number; x1: number; y1: number } | null>(null) // rubber-band box (paper mm)
 	activeId = $state<number | null>(null) // view whose contents are interactive (dblclick)
 	panViewId = $state<number | null>(null) // view in content pan/zoom mode
 	selectedObj = $state<{ viewId: number; index: number } | null>(null)
@@ -40,10 +41,20 @@ export class Sheet {
 	insertMode = $state<string | null>(null)
 	panels = $state<{ layers: boolean; outlets: boolean; trunks: boolean }>({ layers: false, outlets: false, trunks: false })
 
+	// Firestore: shared models live at drawings/{pid}; views live per named sheet
+	// at drawings/{pid}/sheets/{id}. (Wired in parts/persist.svelte.ts.)
+	currentSheetId = $state<string>('')
+	sheetName = $state<string>('')
+	sheetList = $state<{ id: string; name: string }[]>([])
+
 	// Transient maximize camera.
 	mtx = $state(0)
 	mty = $state(0)
 	mzoom = $state(1)
+
+	// Single-selection convenience: reads/writes the multi-select set.
+	get selectedId() { return this.selectedIds.length === 1 ? this.selectedIds[0] : null }
+	set selectedId(v: number | null) { this.selectedIds = v == null ? [] : [v] }
 
 	get selected() { return this.views.find((v) => v.id === this.selectedId) ?? null }
 	get maxView() { return this.views.find((v) => v.id === this.maximizedId) ?? null }
@@ -59,21 +70,48 @@ export class Sheet {
 	}
 
 	modelFor = (v: View) => this.models.find((m) => m.id === v.modelId)
-	isSelected = (v: View) => v.id === this.selectedId
+	isSelected = (v: View) => this.selectedIds.includes(v.id)
+	isOnlySelected = (v: View) => this.selectedIds.length === 1 && this.selectedIds[0] === v.id
 	isActive = (v: View) => v.id === this.activeId
 	isPanMode = (v: View) => v.id === this.panViewId
 
 	// ---- Page canvas ----------------------------------------------------
 	onCanvasPointerDown = (e: PointerEvent) => {
-		if (e.button === 0) {
-			// A single click outside deselects, but keeps any active view active —
-			// only a double-click outside (below) deactivates it.
-			this.selectedId = null
-			this.panViewId = null
-			this.selectedObj = null
-			this.selectedVertex = null
-		}
+		if (e.button === 0) { this.startMarquee(e); return }
 		this.maybePanPage(e)
+	}
+
+	// Left-drag on empty paper rubber-band-selects viewports; a plain click clears.
+	startMarquee = (e: PointerEvent) => {
+		const rect = this.viewport!.getBoundingClientRect()
+		const toPaper = (ev: PointerEvent) => ({
+			x: (ev.clientX - rect.left - this.tx) / this.zoom,
+			y: (ev.clientY - rect.top - this.ty) / this.zoom,
+		})
+		const s = toPaper(e)
+		this.panViewId = null
+		this.selectedObj = null
+		this.selectedVertex = null
+		this.marquee = { x0: s.x, y0: s.y, x1: s.x, y1: s.y }
+		let moved = false
+		onDrag(
+			(ev) => {
+				const p = toPaper(ev)
+				if (this.marquee) { this.marquee.x1 = p.x; this.marquee.y1 = p.y }
+				if (Math.abs(p.x - s.x) * this.zoom > 3 || Math.abs(p.y - s.y) * this.zoom > 3) moved = true
+			},
+			() => {
+				const m = this.marquee
+				this.marquee = null
+				this.activeId = null
+				if (!moved || !m) { this.selectedIds = []; return }
+				const x0 = Math.min(m.x0, m.x1), x1 = Math.max(m.x0, m.x1)
+				const y0 = Math.min(m.y0, m.y1), y1 = Math.max(m.y0, m.y1)
+				this.selectedIds = this.views
+					.filter((v) => v.fx <= x1 && v.fx + v.fw >= x0 && v.fy <= y1 && v.fy + v.fh >= y0)
+					.map((v) => v.id)
+			},
+		)
 	}
 
 	// Double-clicking outside the active view's frame deactivates it.
@@ -410,10 +448,33 @@ export class Sheet {
 	onKeyDown = (e: KeyboardEvent) => {
 		const t = e.target as HTMLElement | null
 		if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return
-		if ((e.key === 'Delete' || e.key === 'Backspace') && this.selectedVertex) {
-			e.preventDefault()
-			this.deleteSelectedVertex()
-		}
+		if (e.key !== 'Delete' && e.key !== 'Backspace') return
+		// Most-specific selection first: conduit vertex, then object, then viewports.
+		if (this.selectedVertex) { e.preventDefault(); this.deleteSelectedVertex(); return }
+		if (this.selectedObject) { e.preventDefault(); this.deleteSelectedObject(); return }
+		if (this.selectedIds.length) { e.preventDefault(); this.deleteSelectedViews() }
+	}
+
+	// Delete the active view's selected object from its model.
+	deleteSelectedObject = () => {
+		const sel = this.selectedObject
+		if (!sel) return
+		const model = this.modelFor(sel.view)
+		model?.objects.splice(sel.index, 1)
+		this.selectedObj = null
+		this.selectedVertex = null
+	}
+
+	// Delete the selected viewport(s) from the sheet.
+	deleteSelectedViews = () => {
+		if (!this.selectedIds.length) return
+		const del = new Set(this.selectedIds)
+		this.views = this.views.filter((v) => !del.has(v.id))
+		if (this.maximizedId != null && del.has(this.maximizedId)) this.maximizedId = null
+		if (this.activeId != null && del.has(this.activeId)) this.activeId = null
+		this.selectedIds = []
+		this.selectedObj = null
+		this.selectedVertex = null
 	}
 
 	// ---- Move / resize the frame ---------------------------------------

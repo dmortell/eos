@@ -30,6 +30,10 @@
 </script>
 
 <g style="pointer-events:none" font-family="sans-serif">
+
+	<!-- Paper border -->
+	<rect x="0" y="0" width={PAPER.w} height={PAPER.h} fill="none" stroke="#000000" stroke-width=".4" style="pointer-events:none" />
+
 	<rect {x} y="0" width={width} height={PAPER.h} fill="white" stroke="#000000" stroke-width=".4" />
 
 	<!-- Company header -->

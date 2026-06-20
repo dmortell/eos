@@ -12,6 +12,7 @@
 	import InsertToolbar from './parts/InsertToolbar.svelte'
 	import Panels from './parts/Panels.svelte'
 	import StatusBar from './parts/StatusBar.svelte'
+	import { connectFirestore, createSheet, deleteSheet } from './parts/persist.svelte'
 
 	const sheet = new Sheet()
 	const blockW = 50 // titleblock width
@@ -26,8 +27,14 @@
 		return () => unsub?.()
 	})
 
-	// Fit the sheet to the viewport on load (it starts small otherwise).
-	onMount(() => sheet.zoomToFit())
+	// Connect models/views to Firestore (shared models + per-sheet views).
+	onMount(() => {
+		sheet.zoomToFit() // fit the sheet to the viewport on load (it starts small otherwise)
+		const pid = page.params.pid
+		if (!pid) return
+		const dispose = connectFirestore(sheet, db, pid)
+		return dispose
+	})
 </script>
 
 <svelte:window onkeydown={sheet.onKeyDown} />
@@ -36,6 +43,21 @@
 	<Titlebar title="{projectName} — Drawing Sheet" height={30} />
 	<Menubar {sheet} />
 	<InsertToolbar {sheet} />
+
+	<!-- Sheet tabs: pick / rename / add named sheets (views per sheet, models shared) -->
+	<div class="a-chrome flex items-center gap-2 border-b px-3 py-1 text-sm">
+		<span class="text-xs text-gray-500">Sheet</span>
+		<select class="rounded border px-2 py-0.5" value={sheet.currentSheetId} onchange={(e) => (sheet.currentSheetId = e.currentTarget.value)}>
+			{#each sheet.sheetList as s (s.id)}
+				<option value={s.id}>{s.name}</option>
+			{/each}
+		</select>
+		<input class="w-40 rounded border px-2 py-0.5" placeholder="Sheet name" bind:value={sheet.sheetName} />
+		<button class="rounded border px-2 py-0.5 hover:bg-gray-100" onclick={() => createSheet(sheet, db, page.params.pid!)}>＋ New sheet</button>
+		{#if sheet.sheetList.length > 1}
+			<button class="rounded border border-red-300 px-2 py-0.5 text-red-600 hover:bg-red-50" onclick={() => deleteSheet(sheet, db, page.params.pid!)}>Delete sheet</button>
+		{/if}
+	</div>
 
 	<div class="flex min-h-0 flex-1">
 		<Sidebar {sheet} />
@@ -52,6 +74,14 @@
 		>
 			<Panels {sheet} />
 
+			<!-- rubber-band multi-select box (screen px from paper-mm) -->
+			{#if sheet.marquee}
+				{@const m = sheet.marquee}
+				<div class="marquee"
+					style="left:{sheet.tx + Math.min(m.x0, m.x1) * sheet.zoom}px; top:{sheet.ty + Math.min(m.y0, m.y1) * sheet.zoom}px; width:{Math.abs(m.x1 - m.x0) * sheet.zoom}px; height:{Math.abs(m.y1 - m.y0) * sheet.zoom}px;"
+				></div>
+			{/if}
+
 			{#if sheet.maxView}
 				<MaximizedView {sheet} />
 			{:else}
@@ -65,11 +95,8 @@
 							<PaperView {sheet} view={v} />
 						{/each}
 
-						<!-- Paper border -->
-						<!-- <rect x="0" y="0" width={PAPER.w} height={PAPER.h} fill="none" stroke="#000000" stroke-width="1" style="pointer-events:none" /> -->
-
 						<!-- Titleblock -->
-						<!-- <Titleblock width={blockW} /> -->
+						<Titleblock width={blockW} />
 					</svg>
 				</div>
 			{/if}
@@ -84,6 +111,15 @@
 	/* Kill the browser focus outline on focusable SVG hit targets (views/objects). */
 	:global(svg :focus),
 	:global(svg :focus-visible) { outline: none; }
+
+	/* Rubber-band multi-select box. */
+	.marquee {
+		position: absolute;
+		z-index: 10;
+		border: 1px dashed #2563eb;
+		background: rgba(37, 99, 235, 0.08);
+		pointer-events: none;
+	}
 
 	@media print {
 		/* Print only the paper, at true A3 landscape size, no transform. */

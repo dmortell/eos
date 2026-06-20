@@ -103,6 +103,11 @@
 				<input type="number" class="w-full rounded border px-2 py-1" bind:value={sel.my} /></label>
 		</div>
 		<p class="mt-3 text-xs text-gray-500">Frame {Math.round(sel.fw)}×{Math.round(sel.fh)}mm · {m?.objects.length ?? 0} objects</p>
+		<button class="mt-3 w-full rounded border border-red-300 px-2 py-1 text-sm text-red-600 hover:bg-red-50" onclick={sheet.deleteSelectedViews}>Delete viewport</button>
+	{:else if sheet.selectedIds.length > 1}
+		<h2 class="mb-2 font-semibold">{sheet.selectedIds.length} viewports selected</h2>
+		<p class="mb-3 text-xs text-gray-500">Drag a box on empty paper to select · Delete key removes them.</p>
+		<button class="w-full rounded border border-red-300 px-2 py-1 text-sm text-red-600 hover:bg-red-50" onclick={sheet.deleteSelectedViews}>Delete {sheet.selectedIds.length} viewports</button>
 	{:else}
 		<h2 class="mb-2 font-semibold">Views</h2>
 		<ul class="space-y-1">

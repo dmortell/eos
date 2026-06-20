@@ -9,6 +9,7 @@
 
 	const active = $derived(sheet.isActive(view))
 	const selected = $derived(sheet.isSelected(view))
+	const single = $derived(sheet.isOnlySelected(view)) // sole selection → show handles/toolbar
 	const panMode = $derived(sheet.isPanMode(view))
 	const objectsClickable = $derived(active && !panMode)
 
@@ -90,11 +91,11 @@
 	<!-- frame border hit target: click to select, drag to reposition -->
 	<rect fill="none" stroke="transparent" stroke-width="3" role="button" tabindex="0"
 		x={view.fx} y={view.fy} width={view.fw} height={view.fh}
-		style="pointer-events:stroke;cursor:{selected ? 'move' : 'pointer'}"
+		style="pointer-events:stroke;cursor:{single ? 'move' : 'pointer'}"
 		ondblclick={() => sheet.activate(view)}
 		onpointerdown={(e) => e.button === 0 ? sheet.startFrameMove(e, view) : sheet.maybePanPage(e)}
 	/>
-	{#if selected}
+	{#if single}
 		<!-- corner resize handles -->
 		{#each HANDLES as h (h.corner)}
 			<rect class="handle" role="button" tabindex="-1" aria-label="resize {h.corner}"
@@ -109,7 +110,7 @@
 
 <text x={view.fx + 1} y={view.fy - 1} font-size="3" fill="#64748b" style="pointer-events:none">{view.name}</text>
 
-{#if selected || active}
+{#if single || active}
 	<!-- per-view toolbar, top-right inside the frame -->
 	<foreignObject x={view.fx + view.fw - 17} y={view.fy + 1} width="16" height="8">
 		<div xmlns="http://www.w3.org/1999/xhtml" class="vtools">
