@@ -129,20 +129,23 @@ export class AnnotationEditor extends SurfaceEditor {
 	move(a: Annotation, e0: MouseEvent, movePointer = true) {
 		if (e0.ctrlKey || e0.metaKey) {
 			// Defer: a real drag duplicates (ctrl-drag); a click that doesn't move toggles selection.
+			// When dragging a multi-selection, duplicate ALL selected and drag the clones as a group.
 			const sx = e0.clientX, sy = e0.clientY
+			const multi = this.selAnns.length > 1 && this.selAnns.includes(a.id)
 			let ann = a, started = false, w0 = this.toWorld(e0)
 			let o = { x: a.x, y: a.y, x2: a.x2, y2: a.y2 }
 			this.startDrag(e => {
 				if (!started) {
 					if (Math.hypot(e.clientX - sx, e.clientY - sy) < 3) return
 					started = true
-					ann = this.push({ ...a, id: this.uid('a') }); this.select('ann', ann.id) // duplicate the proxy
-					o = { x: ann.x, y: ann.y, x2: ann.x2, y2: ann.y2 }; w0 = this.toWorld(e0)
+					if (multi) { this.duplicateMultiAnns(); this.beginGroupTranslate() }
+					else { ann = this.push({ ...a, id: this.uid('a') }); this.select('ann', ann.id); o = { x: ann.x, y: ann.y, x2: ann.x2, y2: ann.y2 } }
+					w0 = this.toWorld(e0)
 				}
 				const w = this.toWorld(e); if (!w || !w0) return
 				const dx = w.x - w0.x, dy = w.y - w0.y
-				ann.x = o.x + dx; ann.y = o.y + dy
-				if (movePointer && o.x2 != null) { ann.x2 = o.x2 + dx; ann.y2 = (o.y2 ?? 0) + dy }
+				if (multi) this.applyGroupTranslate(dx, dy)
+				else { ann.x = o.x + dx; ann.y = o.y + dy; if (movePointer && o.x2 != null) { ann.x2 = o.x2 + dx; ann.y2 = (o.y2 ?? 0) + dy } }
 			}, () => { if (!started) this.toggleAnnSel(a.id); this.notify() })
 			return
 		}
@@ -186,6 +189,13 @@ export class AnnotationEditor extends SurfaceEditor {
 		if (a.x2 != null) a.x2 += dx
 		if (a.y2 != null) a.y2 += dy
 		this.notify()
+	}
+	/** Clone every marquee-selected annotation in place; selection moves to the clones. */
+	duplicateMultiAnns() {
+		const ids = new Set(this.selAnns)
+		const copies = this.annotations.filter((a) => ids.has(a.id)).map((a) => ({ ...(structuredClone($state.snapshot(a)) as Annotation), id: this.uid('a') }))
+		for (const c of copies) this.annotations.push(c)
+		this.clearSel(); this.selAnns = copies.map((c) => c.id)
 	}
 	duplicateSel() {
 		const a = this.selAnn; if (!a) return

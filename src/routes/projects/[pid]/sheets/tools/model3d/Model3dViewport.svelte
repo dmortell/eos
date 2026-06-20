@@ -104,18 +104,19 @@
 	let tool = $state('select')
 	let viewDen = $state(1)
 	let elevDir = $state<Dir>('front') // direction for the floating elevation preview
-	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor })
+	// History is created first so the annotation editor can touch() it after each change.
+	const history = new History()
+	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor, afterChange: () => history.touch() })
 	annEditor.onPlaced = () => (tool = 'select') // back to Select so the new annote shows handles
 	$effect(() => { if (!active) { annEditor.clearSel(); tool = 'select' } })
 
-	// Undo/redo over the model *geometry* only (objects). Layer definitions and
-	// underlays are edited through other save paths (Layers window / properties),
-	// so keeping them out of the snapshot avoids geometry-undo clobbering them.
-	const history = new History()
+	// Undo/redo over the model geometry (objects) AND this viewport's annotations, so a
+	// drag / ctrl-drag of either is undoable. Layer defs + underlays are edited through
+	// other save paths, so they stay out of the snapshot.
 	const snap = {
-		snapshot: () => model ? $state.snapshot({ objects: model.objects }) : {},
-		seed: (s: any) => { if (model) model.objects = s.objects ?? [] },
-		notify: () => store.save(),
+		snapshot: () => ({ objects: model ? $state.snapshot(model.objects) : [], annotations: annEditor.snapshot() }),
+		seed: (s: any) => { if (model) model.objects = s.objects ?? []; annEditor.seed(s.annotations ?? []) },
+		notify: () => { store.save(); annEditor.notify() },
 	}
 	history.register(snap)
 	$effect(() => { editor.onChange = () => { store.save(); history.touch() } })

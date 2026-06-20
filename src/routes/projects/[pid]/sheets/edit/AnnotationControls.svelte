@@ -135,6 +135,13 @@
 	{@const outs = anns.filter((a) => a.symbol === 'outlet')}
 	<hr class="border-zinc-200" />
 	<div class="text-xs font-medium text-zinc-600">{editor.selAnns.length} selected{outs.length ? ` · ${outs.length} outlet${outs.length > 1 ? 's' : ''}` : ''}</div>
+	{#if annLayers.length > 1}
+		{@const lyr = anns.every((a) => a.layerId === anns[0].layerId) ? (anns[0].layerId ?? 'annotations') : ''}
+		<PropSelect label="Layer" value={lyr} onchange={(e: Event) => editor.setSelLayer(val(e))}>
+			{#if !lyr}<option value="" disabled>mixed</option>{/if}
+			{#each annLayers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+		</PropSelect>
+	{/if}
 	{#if outs.length}
 		{@const co = (k) => { const v = outs.map((a) => (a.outlet ?? {})[k]); return v.every((x) => x === v[0]) ? v[0] : undefined }}
 		<div class="grid grid-cols-2 gap-1">
