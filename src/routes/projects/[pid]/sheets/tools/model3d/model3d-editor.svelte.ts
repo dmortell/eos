@@ -269,6 +269,20 @@ export class Model3dEditor extends SurfaceEditor {
 	// ── duplicate / copy / paste (ctrl-drag, Ctrl+D/C/V, or panel buttons for touch) ──
 	clipboard: Obj[] = []
 	private selIdxs() { return this.multi.length ? [...this.multi] : this.selIndex !== null ? [this.selIndex] : [] }
+
+	// ── multi-select common-property editing ──
+	get multiObjs(): Obj[] { return this.multi.map((i) => this.objects[i]).filter(Boolean) }
+	// A value shared by all selected objects, else undefined (mixed → blank input).
+	common<T>(read: (o: Obj) => T | undefined): T | undefined {
+		const os = this.multiObjs; if (!os.length) return undefined
+		const v = read(os[0]); return os.every((o) => read(o) === v) ? v : undefined
+	}
+	setMultiLayer(layer: string | undefined) { for (const o of this.multiObjs) if (!this.locked(o)) o.layer = layer; this.notify() }
+	setMultiHeight(h: number) { for (const o of this.multiObjs) if (!this.locked(o) && 'h' in o) (o as any).h = h; this.notify() }
+	setMultiBaseZ(z: number) {
+		for (const o of this.multiObjs) { if (this.locked(o)) continue; if (o.type === 'prism') o.z = z; else o.nodes.forEach((n) => (n.z = z)) }
+		this.notify()
+	}
 	// Clone in place for a ctrl-drag (caller then drags the clones).
 	private duplicateOne(index: number): number {
 		this.objects.push(structuredClone($state.snapshot(this.objects[index])) as Obj)
@@ -414,7 +428,8 @@ export class Model3dEditor extends SurfaceEditor {
 		const piv = xyCenter(this.objects)
 		const hit: number[] = []
 		this.objects.forEach((o, i) => { if (marqueeHits(o, this.direction, piv, r)) hit.push(i) })
-		this.multi = hit
+		// Exactly one → single-select it (full handles + property editor); else multi.
+		if (hit.length === 1) this.selectObj(hit[0]); else this.multi = hit
 	}
 	private groupSnap: Map<number, Obj> | null = null
 	beginGroupTranslate(): void {

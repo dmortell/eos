@@ -61,7 +61,33 @@
 		tools={['text', 'line', 'rect', 'arrow', 'ellipse', 'cloud', 'callout', 'dimension', 'symbol']} />
 	<hr class="my-1 border-zinc-200" />
 
-	{#if obj}
+	{#if editor.multi.length > 1}
+		<!-- multi-select: edit common props on all selected objects at once -->
+		<div class="space-y-1 text-xs">
+			<div class="mb-1 font-semibold">{editor.multi.length} objects</div>
+			<div class="mb-1 flex flex-wrap gap-1">
+				<button class="rounded border px-1.5 py-0.5 hover:bg-slate-100" title="Duplicate (Ctrl+D)" onclick={() => editor.duplicateSel()}>Duplicate</button>
+				<button class="rounded border px-1.5 py-0.5 hover:bg-slate-100" title="Copy (Ctrl+C)" onclick={() => editor.copySel()}>Copy</button>
+				<button class="rounded border border-red-300 px-1.5 py-0.5 text-red-600 hover:bg-red-50" title="Delete (Del)" onclick={() => editor.deleteSel()}>Delete</button>
+			</div>
+			<div class="grid grid-cols-2 gap-1">
+				<label class="block"><span class="text-zinc-400">Height</span>
+					<input type="number" class="w-full rounded border px-1 py-0.5" placeholder="mixed"
+						value={editor.common((o) => ('h' in o ? (o as any).h : undefined)) ?? ''} oninput={(e) => editor.setMultiHeight(num(e))} /></label>
+				<label class="block"><span class="text-zinc-400">Base Z</span>
+					<input type="number" class="w-full rounded border px-1 py-0.5" placeholder="mixed"
+						value={editor.common((o) => (o.type === 'prism' ? o.z : o.nodes[0]?.z)) ?? ''} oninput={(e) => editor.setMultiBaseZ(num(e))} /></label>
+			</div>
+			<label class="flex items-center justify-between gap-2">
+				<span class="text-zinc-400">Layer</span>
+				<select class="w-32 rounded border px-1 py-0.5" value={editor.common((o) => o.layer ?? '') ?? ''}
+					onchange={(e) => editor.setMultiLayer((e.currentTarget as HTMLSelectElement).value || undefined)}>
+					<option value="">{editor.common((o) => o.layer) === undefined ? '— mixed —' : '—'}</option>
+					{#each layers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+				</select>
+			</label>
+		</div>
+	{:else if obj}
 		<div class="space-y-1 text-xs">
 			<div class="mb-1 font-semibold capitalize">{obj.type === 'prism' ? 'Cuboid' : obj.type}</div>
 			<!-- touch-friendly actions (mouse also has ctrl-drag + Ctrl+D/C/X/V) -->
