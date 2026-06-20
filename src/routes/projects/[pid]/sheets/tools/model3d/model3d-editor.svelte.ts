@@ -133,7 +133,8 @@ export class Model3dEditor extends SurfaceEditor {
 		let ah = 0, av = 0
 		this.startDrag((ev) => {
 			const c = this.at(ev); if (!c) return
-			const dh = Math.round(c.ch - s.ch), dv = Math.round(c.cv - s.cv)
+			let dh = Math.round(c.ch - s.ch), dv = Math.round(c.cv - s.cv)
+			if (ev.shiftKey) { if (Math.abs(dh) >= Math.abs(dv)) dv = 0; else dh = 0 } // Shift = lock to horizontal / vertical
 			moveAlong(o, b.h, dh - ah); moveAlong(o, b.v, dv - av)
 			ah = dh; av = dv
 		}, () => this.notify())
@@ -186,24 +187,75 @@ export class Model3dEditor extends SurfaceEditor {
 		return !!o && !this.locked(o) && (o.type === 'conduit' || (o.type === 'wall' && this.direction === 'plan'))
 	}
 	private node(o: Conduit | Wall, id: string) { return o.nodes.find((n) => n.id === id) }
+	// Snap a projected point (h,v model-axis coords) to the nearest OTHER wall/conduit
+	// node within a screen-distance threshold. `skip` excludes the node being dragged.
+	private snapToNode(h: number, v: number, skip?: { o: Conduit | Wall; id: string }) {
+		const b = BASIS[this.direction], thr = 12 / (this.screenScale() || 1)
+		let best: { h: number; v: number } | null = null, bestD = thr
+		for (const obj of this.objects) {
+			if (obj.type !== 'wall' && obj.type !== 'conduit') continue
+			for (const nd of obj.nodes) {
+				if (skip && obj === skip.o && nd.id === skip.id) continue
+				const d = Math.hypot((nd as any)[b.h] - h, (nd as any)[b.v] - v)
+				if (d < bestD) { bestD = d; best = { h: (nd as any)[b.h], v: (nd as any)[b.v] } }
+			}
+		}
+		return best
+	}
+	// Constrain a point so the segment from `(oh,ov)` to it is on a 15° multiple, keeping length.
+	private snap15(oh: number, ov: number, h: number, v: number) {
+		const dh = h - oh, dv = v - ov, len = Math.hypot(dh, dv); if (len < 1) return { h, v }
+		const step = Math.PI / 12, ang = Math.round(Math.atan2(dv, dh) / step) * step
+		return { h: oh + len * Math.cos(ang), v: ov + len * Math.sin(ang) }
+	}
 	private dragNode(o: Conduit | Wall, id: string, onEnd?: () => void) {
 		const b = BASIS[this.direction], n = this.node(o, id); if (!n) return
-		this.startDrag((ev) => { const c = this.at(ev); if (c) { n[b.h] = Math.round(c.ch); n[b.v] = Math.round(c.cv) } }, () => { this.joinOnDrop(o, id); onEnd?.(); this.notify() })
+		// A neighbour for the 15° angle constraint (Shift), if any.
+		const nbrSeg = o.segments.find((s) => s.a === id || s.b === id)
+		const nbr = nbrSeg ? this.node(o, nbrSeg.a === id ? nbrSeg.b : nbrSeg.a) : null
+		this.startDrag((ev) => {
+			const c = this.at(ev); if (!c) return
+			let h = c.ch, v = c.cv
+			if (ev.shiftKey && nbr) ({ h, v } = this.snap15((nbr as any)[b.h], (nbr as any)[b.v], h, v)) // Shift = 15° angle
+			else { const s = this.snapToNode(h, v, { o, id }); if (s) ({ h, v } = s) }            // else snap to other nodes
+			n[b.h] = Math.round(h); n[b.v] = Math.round(v)
+		}, () => { this.joinOnDrop(o, id); onEnd?.(); this.notify() })
 	}
-	// Join: if a dragged node is released on top of another node of the same object
-	// (within a screen-distance snap), merge it into that node — reconnecting its
-	// segments to form a junction (and dropping any self-loops / duplicate edges).
-	private joinOnDrop(o: Conduit | Wall, id: string) {
-		const n = this.node(o, id); if (!n) return
-		const thr = 12 / (this.screenScale() || 1) // ~12px in world-mm
-		const t = o.nodes.find((x) => x.id !== id && Math.hypot(x.x - n.x, x.y - n.y, x.z - n.z) <= thr)
-		if (!t) return
-		for (const s of o.segments) { if (s.a === id) s.a = t.id; if (s.b === id) s.b = t.id }
+	private dedupeSegs(o: Conduit | Wall) {
 		o.segments = o.segments.filter((s) => s.a !== s.b) // drop collapsed self-loops
-		const seen = new Set<string>() // drop duplicate edges
+		const seen = new Set<string>()
 		o.segments = o.segments.filter((s) => { const k = [s.a, s.b].sort().join('|'); if (seen.has(k)) return false; seen.add(k); return true })
-		o.nodes = o.nodes.filter((x) => x.id !== id)
-		if (this.vsel?.nodeId === id) this.vsel = { index: this.vsel.index, nodeId: t.id }
+	}
+	// Join on drop: if a dragged node lands on another node (within a screen snap),
+	// merge them. Same object → form a junction. Another SAME-TYPE object → merge the
+	// two objects into one continuous graph (carrying the other's profile per segment).
+	private joinOnDrop(o: Conduit | Wall, id: string) {
+		const b = BASIS[this.direction], n = this.node(o, id); if (!n) return
+		const thr = 12 / (this.screenScale() || 1)
+		const near = (nd: any) => Math.hypot(nd[b.h] - (n as any)[b.h], nd[b.v] - (n as any)[b.v]) <= thr
+		// 1. same-object junction
+		const t = o.nodes.find((x) => x.id !== id && near(x))
+		if (t) {
+			for (const s of o.segments) { if (s.a === id) s.a = t.id; if (s.b === id) s.b = t.id }
+			o.nodes = o.nodes.filter((x) => x.id !== id); this.dedupeSegs(o)
+			if (this.vsel?.nodeId === id) this.vsel = { index: this.vsel.index, nodeId: t.id }
+			return
+		}
+		// 2. cross-object merge (same type): absorb `obj` into `o`
+		for (const obj of this.objects as (Conduit | Wall)[]) {
+			if (obj === o || obj.type !== o.type) continue
+			const tn = obj.nodes.find(near); if (!tn) continue
+			// keep the other object's appearance by baking its default profile onto its segments
+			const segs = obj.segments.map((s) => o.type === 'wall'
+				? { ...s, thickness: (s as any).thickness ?? (obj as any).thickness, h: (s as any).h ?? (obj as any).h }
+				: { ...s, w: (s as any).w ?? (obj as any).w, h: (s as any).h ?? (obj as any).h, edges: (s as any).edges ?? (obj as any).edges })
+			const remap = (nid: string) => (nid === tn.id ? id : nid) // its merged node → our dragged node
+			o.nodes.push(...obj.nodes.filter((x) => x.id !== tn.id))
+			o.segments.push(...segs.map((s) => ({ ...s, a: remap(s.a), b: remap(s.b) })) as any)
+			this.dedupeSegs(o)
+			this.model!.objects = this.objects.filter((x) => x !== obj) // remove the absorbed object
+			return
+		}
 	}
 	// Disconnect a junction node (degree ≥ 2): give every incident segment past the
 	// first its own copy of the node, offset so they're separately draggable. Splits
@@ -332,10 +384,21 @@ export class Model3dEditor extends SurfaceEditor {
 	private layerForNew() { return this.activeLayer ?? this.model?.layers?.find((l) => l.id !== 'background')?.id ?? this.model?.layers?.[0]?.id }
 	get bgLocked() { return !!this.layerOverrides['background']?.locked }
 	get bgHidden() { return !!this.layerOverrides['background']?.hidden }
-	private modelPt(e: MouseEvent): P3 | null { const c = this.at(e); return c ? { x: Math.round(c.ch), y: Math.round(c.cv), z: 0 } : null }
+	// Cursor → model point. The two in-plane axes (b.h, b.v) come from the cursor;
+	// the depth axis (the third) defaults to the model's centre along it, so an item
+	// placed in an elevation sits mid-depth rather than on a hidden plane at 0.
+	private modelPt(e: MouseEvent): P3 | null {
+		const c = this.at(e); if (!c) return null
+		const b = BASIS[this.direction]
+		const p: P3 = { x: 0, y: 0, z: 0 }
+		;(p as any)[b.h] = Math.round(c.ch); (p as any)[b.v] = Math.round(c.cv)
+		const depth = (['x', 'y', 'z'] as const).find((a) => a !== b.h && a !== b.v)
+		if (depth && depth !== 'z') { const ctr = xyCenter(this.objects); (p as any)[depth] = Math.round(depth === 'x' ? ctr.cx : ctr.cy) || 0 }
+		return p
+	}
 
 	startPlacing(kind: 'prism' | 'wall' | 'conduit') {
-		if (this.direction !== 'plan') return // creation is planar for now
+		if (this.direction === 'iso') return // can't place into the non-editable iso
 		this.clearSel()
 		this.placing = { kind, pts: [], cursor: null }
 	}
@@ -394,22 +457,39 @@ export class Model3dEditor extends SurfaceEditor {
 		)
 	}
 	cancelPlacing = () => { this.placing = null }
-	placeMove = (e: MouseEvent) => { if (this.placing) { const p = this.modelPt(e); if (p) this.placing.cursor = p } }
+	placeMove = (e: MouseEvent) => {
+		if (!this.placing) return
+		const p = this.modelPt(e); if (!p) return
+		// Shift while drawing a wall/conduit: constrain the new segment to 15°.
+		const last = this.placing.pts[this.placing.pts.length - 1]
+		if (e.shiftKey && last && this.placing.kind !== 'prism') {
+			const b = BASIS[this.direction], s = this.snap15((last as any)[b.h], (last as any)[b.v], (p as any)[b.h], (p as any)[b.v])
+			;(p as any)[b.h] = Math.round(s.h); (p as any)[b.v] = Math.round(s.v)
+		}
+		this.placing.cursor = p
+	}
 	placeClick = (e: MouseEvent) => {
 		if (e.button !== 0 || !this.placing || !this.model) return
 		e.stopPropagation()
-		const p = this.modelPt(e); if (!p) return
+		const p = this.placing.cursor ?? this.modelPt(e); if (!p) return // honour the 15°-constrained preview point
 		if (this.placing.kind === 'prism') {
-			// Drag out the footprint: press = first corner, drag to size, release to create.
+			// Drag out the box: press = first corner, drag to size, release to create. The
+			// two in-plane axes (b.h/b.v) take their size from the drag; the depth axis a default.
 			this.placing.pts = [p]; this.placing.cursor = p
 			this.startDrag(
 				(ev) => { const c = this.modelPt(ev); if (c && this.placing) this.placing.cursor = c },
 				() => {
 					const s = this.placing?.pts[0], c = this.placing?.cursor ?? s
 					if (s && c && this.model) {
-						const x0 = Math.min(s.x, c.x), y0 = Math.min(s.y, c.y)
-						const w = Math.max(50, Math.abs(c.x - s.x)), d = Math.max(50, Math.abs(c.y - s.y))
-						this.objects.push({ type: 'prism', layer: this.layerForNew(), x: x0, y: y0, z: 0, w, d, h: 750, edges: 4 })
+						const b = BASIS[this.direction]
+						const lo = (a: 'x' | 'y' | 'z') => Math.min((s as any)[a], (c as any)[a])
+						const sz = (a: 'x' | 'y' | 'z') => Math.max(50, Math.abs((c as any)[a] - (s as any)[a]))
+						const depth = (['x', 'y', 'z'] as const).find((a) => a !== b.h && a !== b.v)!
+						const dim: any = { x: 'w', y: 'd', z: 'h' }
+						const o: any = { type: 'prism', layer: this.layerForNew(), x: 0, y: 0, z: 0, w: 600, d: 600, h: 750, edges: 4 }
+						for (const a of [b.h, b.v] as const) { o[a] = lo(a); o[dim[a]] = sz(a) }
+						o[depth] = Math.round((s as any)[depth] - (depth === 'z' ? 0 : (o[dim[depth]] / 2))) // centre the default depth on the cursor (floor for z)
+						this.objects.push(o)
 						this.placing = null; this.selectObj(this.objects.length - 1); this.notify()
 					} else { this.placing = null }
 				},

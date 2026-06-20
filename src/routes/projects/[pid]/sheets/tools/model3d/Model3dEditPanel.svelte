@@ -23,11 +23,11 @@
 </script>
 
 <Window title="Object" name="model3d-object" right={10} top={10} open class="w-64 p-2 text-zinc-700">
-	<!-- Insert / place-tool (plan view only) -->
-	{#if editor.direction === 'plan'}
+	<!-- Insert / place-tool — plan + elevations (Wall/Section stay plan-only) -->
+	{#if editor.direction !== 'iso'}
 		{#if editor.placing}
 			<div class="mb-1 flex items-center gap-1 rounded bg-blue-50 px-1 py-1 text-xs">
-				<span class="flex-1 text-blue-700">{editor.placing.kind === 'prism' ? 'Click to place' : 'Click points · ⏎/dbl-click to finish'}</span>
+				<span class="flex-1 text-blue-700">{editor.placing.kind === 'prism' ? 'Drag out the box (Shift = 15° while drawing lines)' : 'Click points · Shift = 15° · ⏎/dbl-click to finish'}</span>
 				{#if editor.placing.kind !== 'prism'}<button class="rounded border px-1 py-0.5 hover:bg-white" onclick={() => editor.finishPlacing()}>Finish</button>{/if}
 				<button class="rounded border px-1 py-0.5 hover:bg-white" onclick={() => editor.cancelPlacing()}>Cancel</button>
 			</div>
@@ -47,10 +47,12 @@
 				</label>
 				<div class="grid grid-cols-3 gap-1">
 					<button class="whitespace-nowrap rounded border px-1 py-0.5 hover:bg-slate-100" onclick={() => editor.startPlacing('prism')}>＋Cuboid</button>
-					<button class="whitespace-nowrap rounded border px-1 py-0.5 hover:bg-slate-100" onclick={() => editor.startPlacing('wall')}>＋Wall</button>
+					{#if editor.direction === 'plan'}<button class="whitespace-nowrap rounded border px-1 py-0.5 hover:bg-slate-100" onclick={() => editor.startPlacing('wall')}>＋Wall</button>{/if}
 					<button class="whitespace-nowrap rounded border px-1 py-0.5 hover:bg-slate-100" onclick={() => editor.startPlacing('conduit')}>＋Conduit</button>
 				</div>
-				<button class="w-full whitespace-nowrap rounded border px-1 py-0.5 hover:bg-slate-100" title="Drag a box on the plan to create a clipped elevation viewport" onclick={() => editor.startSectionMode()}>⬚ Section → elevation</button>
+				{#if editor.direction === 'plan'}
+					<button class="w-full whitespace-nowrap rounded border px-1 py-0.5 hover:bg-slate-100" title="Drag a box on the plan to create a clipped elevation viewport" onclick={() => editor.startSectionMode()}>⬚ Section → elevation</button>
+				{/if}
 			</div>
 		{/if}
 		<hr class="mb-1 border-zinc-200" />

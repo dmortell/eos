@@ -51,20 +51,29 @@
 	$effect(() => { selIndex; direction; manual = null })
 	const view = $derived(manual ?? autoView)
 	let boxEl = $state<HTMLDivElement>()
+	// preserveAspectRatio="meet" letterboxes the viewBox, so px↔mm is a single
+	// uniform scale (max of the two ratios) with a centring offset. Cursor (px) →
+	// view (mm) must use both, or pan/zoom drift (esp. the non-fitting axis).
+	const scaleOf = (v: { w: number; h: number }, r: DOMRect) => Math.max(v.w / r.width, v.h / r.height)
+	const toMm = (cxp: number, cyp: number, v: { x: number; y: number; w: number; h: number }, r: DOMRect) => {
+		const s = scaleOf(v, r), ox = (r.width - v.w / s) / 2, oy = (r.height - v.h / s) / 2
+		return { x: v.x + (cxp - r.left - ox) * s, y: v.y + (cyp - r.top - oy) * s }
+	}
 	function onWheel(e: WheelEvent) {
 		if (!view) return
 		e.preventDefault()
 		const r = boxEl!.getBoundingClientRect()
-		const fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height
+		const m = toMm(e.clientX, e.clientY, view, r) // keep this point fixed
 		const k = e.deltaY > 0 ? 1.15 : 1 / 1.15 // wheel down = zoom out
 		const w = view.w * k, h = view.h * k
-		manual = { x: view.x + (view.w - w) * fx, y: view.y + (view.h - h) * fy, w, h }
+		const s = Math.max(w / r.width, h / r.height), ox = (r.width - w / s) / 2, oy = (r.height - h / s) / 2
+		manual = { x: m.x - (e.clientX - r.left - ox) * s, y: m.y - (e.clientY - r.top - oy) * s, w, h }
 	}
 	function onPan(e: MouseEvent) {
 		if (e.button === 0 || !view) return // left = edit; middle/right = pan
 		e.preventDefault(); e.stopPropagation()
-		const r = boxEl!.getBoundingClientRect(), v0 = { ...view }, sx = e.clientX, sy = e.clientY
-		const mv = (ev: MouseEvent) => { manual = { ...v0, x: v0.x - (ev.clientX - sx) / r.width * v0.w, y: v0.y - (ev.clientY - sy) / r.height * v0.h } }
+		const r = boxEl!.getBoundingClientRect(), v0 = { ...view }, s = scaleOf(v0, r), sx = e.clientX, sy = e.clientY
+		const mv = (ev: MouseEvent) => { manual = { ...v0, x: v0.x - (ev.clientX - sx) * s, y: v0.y - (ev.clientY - sy) * s } }
 		const up = () => { window.removeEventListener('mousemove', mv); window.removeEventListener('mouseup', up) }
 		window.addEventListener('mousemove', mv); window.addEventListener('mouseup', up)
 	}
