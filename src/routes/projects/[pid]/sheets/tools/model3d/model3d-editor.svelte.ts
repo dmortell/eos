@@ -43,6 +43,7 @@ export class Model3dEditor extends SurfaceEditor {
 	selectUnderlay(id: string) { this.usel = id; super.clearSel(); this.vsel = null }
 
 	startUnderlayMove = (e: MouseEvent, id: string) => {
+		if (e.button !== 0) return // right/middle bubble up so the canvas pans
 		e.stopPropagation()
 		const u = this.underlay(id); if (!u?.rect) return
 		this.selectUnderlay(id)
@@ -51,6 +52,7 @@ export class Model3dEditor extends SurfaceEditor {
 		this.startDrag((ev) => { const w = this.toWorld(ev); if (!w || !u.rect) return; u.rect.x = r0.x + (w.x - w0.x); u.rect.y = r0.y + (w.y - w0.y) }, () => this.notify())
 	}
 	startUnderlayResize = (e: MouseEvent, id: string, corner: string) => {
+		if (e.button !== 0) return // right/middle bubble up so the canvas pans
 		e.stopPropagation()
 		const u = this.underlay(id); if (!u?.rect) return
 		this.selectUnderlay(id)
@@ -82,6 +84,7 @@ export class Model3dEditor extends SurfaceEditor {
 
 	// ── object move (drag in the projected plane, whole-mm steps) ──
 	startObjMove = (e: MouseEvent, index: number) => {
+		if (e.button !== 0) return // right/middle bubble up so the canvas pans
 		e.stopPropagation()
 		const o = this.objects[index]
 		if (!o || this.locked(o)) return
@@ -99,6 +102,7 @@ export class Model3dEditor extends SurfaceEditor {
 
 	// ── prism corner / wall vertex+height resize ──
 	startResize = (e: MouseEvent, index: number, handle: string) => {
+		if (e.button !== 0) return // right/middle bubble up so the canvas pans
 		e.stopPropagation()
 		const o = this.objects[index]
 		if (!o || this.locked(o)) return
@@ -126,6 +130,7 @@ export class Model3dEditor extends SurfaceEditor {
 		}, () => this.notify())
 	}
 	startVertex = (e: MouseEvent, index: number, vi: number) => {
+		if (e.button !== 0) return // right/middle bubble up so the canvas pans
 		e.stopPropagation()
 		const o = this.objects[index]
 		if (o?.type !== 'conduit' || this.locked(o)) return
@@ -133,6 +138,7 @@ export class Model3dEditor extends SurfaceEditor {
 		this.dragVertex(o, vi)
 	}
 	startInsert = (e: MouseEvent, index: number, seg: number) => {
+		if (e.button !== 0) return // right/middle bubble up so the canvas pans
 		e.stopPropagation()
 		const o = this.objects[index]
 		if (o?.type !== 'conduit' || this.locked(o)) return
@@ -142,6 +148,7 @@ export class Model3dEditor extends SurfaceEditor {
 		this.dragVertex(o, seg + 1)
 	}
 	startExtend = (e: MouseEvent, index: number, end: 'start' | 'end') => {
+		if (e.button !== 0) return // right/middle bubble up so the canvas pans
 		e.stopPropagation()
 		const o = this.objects[index]
 		if (o?.type !== 'conduit' || this.locked(o)) return
