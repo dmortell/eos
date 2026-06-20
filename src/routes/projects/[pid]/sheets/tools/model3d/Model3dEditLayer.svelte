@@ -111,17 +111,11 @@
 	{#each model.objects as o, i (i)}
 		{@const selected = editor.isObj(i) || editor.inMulti(i)}
 		{#each shapesOf(o) as s, si (si)}
-			<!-- hit area for select/move: a FILLED polygon for closed shapes (wall boxes,
-			     conduit hulls, prism footprints) so clicking anywhere on the body selects
-			     it — not just the outline edge — plus a fat stroke so thin/degenerate
-			     shapes stay grabbable. Open shapes fall back to a stroked polyline. -->
-			{#if s.closed}
-				<polygon points={shapePts(s)} fill="transparent" stroke="transparent" stroke-width={HIT}
-					style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => editor.startObjMove(e, i)} />
-			{:else}
-				<polyline points={shapePts(s)} fill="none" stroke="transparent" stroke-width={HIT}
-					style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => editor.startObjMove(e, i)} />
-			{/if}
+			<!-- hit area for select/move: a fat transparent OUTLINE stroke (the shape's edge),
+			     so you select by clicking the border, not the body — avoids grabbing/dragging
+			     a wall by mistake when its interior overlaps the work area (esp. elevations). -->
+			<polyline points={shapePts(s)} fill="none" stroke="transparent" stroke-width={HIT}
+				style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => editor.startObjMove(e, i)} />
 			<!-- outline highlight for prisms/walls (a conduit's silhouette would mask its vertex handles) -->
 			{#if selected && o.type !== 'conduit'}
 				<polyline points={shapePts(s)} fill="none" stroke={HL} stroke-width={selW} vector-effect="non-scaling-stroke" style:pointer-events="none" />
