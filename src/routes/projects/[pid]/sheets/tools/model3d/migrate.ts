@@ -29,11 +29,19 @@ function migrateObj(o: any): Obj {
 	return o as Obj
 }
 
+// The reserved layer that PDF/image underlays sit on, so they can be hidden /
+// locked per viewport from the Layers window like any other layer.
+export const BACKGROUND_LAYER = { id: 'background', name: 'Background', color: '#9ca3af', visible: true, locked: false }
+
 export function migrateModels(models: Model[]): Model[] {
 	let changed = false
 	const out = models.map((m) => {
-		const objects = m.objects.map((o) => { const n = migrateObj(o); if (n !== o) changed = true; return n })
-		return changed ? { ...m, objects } : m
+		let mc = false
+		const objects = m.objects.map((o) => { const n = migrateObj(o); if (n !== o) mc = true; return n })
+		let layers = m.layers ?? []
+		if (!layers.some((l) => l.id === 'background')) { layers = [...layers, { ...BACKGROUND_LAYER }]; mc = true }
+		if (mc) changed = true
+		return mc ? { ...m, objects, layers } : m
 	})
 	return changed ? out : models
 }

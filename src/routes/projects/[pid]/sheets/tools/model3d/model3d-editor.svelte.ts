@@ -65,6 +65,7 @@ export class Model3dEditor extends SurfaceEditor {
 	startUnderlayMove = (e: MouseEvent, id: string) => {
 		if (e.button !== 0) return // right/middle bubble up so the canvas pans
 		e.stopPropagation()
+		if (this.bgLocked) return // Background layer locked
 		const u = this.underlay(id); if (!u?.rect) return
 		this.selectUnderlay(id)
 		const w0 = this.toWorld(e); if (!w0) return
@@ -74,6 +75,7 @@ export class Model3dEditor extends SurfaceEditor {
 	startUnderlayResize = (e: MouseEvent, id: string, corner: string) => {
 		if (e.button !== 0) return // right/middle bubble up so the canvas pans
 		e.stopPropagation()
+		if (this.bgLocked) return // Background layer locked
 		const u = this.underlay(id); if (!u?.rect) return
 		this.selectUnderlay(id)
 		const r0 = { ...u.rect }, MINU = 10
@@ -251,8 +253,10 @@ export class Model3dEditor extends SurfaceEditor {
 	// `placing.pts` accumulates clicked points for a wall/conduit path; `cursor`
 	// is the live point for the rubber-band preview. Prisms place on first click.
 	placing = $state<{ kind: 'prism' | 'wall' | 'conduit'; pts: P3[]; cursor: P3 | null } | null>(null)
-	activeLayer: string | undefined = undefined // layer for new objects (else first)
-	private layerForNew() { return this.activeLayer ?? this.model?.layers?.[0]?.id }
+	activeLayer = $state<string | undefined>(undefined) // layer for new objects (else first non-background)
+	private layerForNew() { return this.activeLayer ?? this.model?.layers?.find((l) => l.id !== 'background')?.id ?? this.model?.layers?.[0]?.id }
+	get bgLocked() { return !!this.layerOverrides['background']?.locked }
+	get bgHidden() { return !!this.layerOverrides['background']?.hidden }
 	private modelPt(e: MouseEvent): P3 | null { const c = this.at(e); return c ? { x: Math.round(c.ch), y: Math.round(c.cv), z: 0 } : null }
 
 	startPlacing(kind: 'prism' | 'wall' | 'conduit') {

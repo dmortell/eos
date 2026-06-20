@@ -152,8 +152,9 @@
 		{/each}
 	{/if}
 
-	<!-- underlays: drag a border to select + move; corners (when selected) resize -->
-	{#if editable}
+	<!-- underlays: drag a border to select + move; corners (when selected) resize.
+	     Hidden when the Background layer is hidden or locked. -->
+	{#if editable && !editor.bgHidden && !editor.bgLocked}
 		{#each underlays as u (u.id)}
 			{#if u.rect}
 				{@const r = u.rect}

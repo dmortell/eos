@@ -95,9 +95,11 @@
 		onsvg={(el) => (editor.svg = el)}
 	>
 		{#snippet pre()}
-			{#each underlays as u (u.id)}
-				<Model3dUnderlayImage underlay={u} {store} />
-			{/each}
+			{#if !(vp.layerOverrides?.['background']?.hidden)}
+				{#each underlays as u (u.id)}
+					<Model3dUnderlayImage underlay={u} {store} />
+				{/each}
+			{/if}
 		{/snippet}
 		{#if active}
 			<Model3dEditLayer {editor} {model} direction={src.direction} interactive={true} {zoom} />

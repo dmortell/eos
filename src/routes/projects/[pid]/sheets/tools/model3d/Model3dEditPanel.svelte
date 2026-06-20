@@ -15,6 +15,8 @@
 	const num = (e: Event) => Number((e.currentTarget as HTMLInputElement).value)
 	const wallOverride = (s: WallSeg) => s.thickness != null || s.h != null
 	const condOverride = (s: CondSeg) => s.w != null || s.h != null || s.edges != null
+	// Layers a new object can be created on (all except the reserved Background).
+	const newLayers = $derived((model.layers ?? []).filter((l) => l.id !== 'background'))
 </script>
 
 <Window title="Object" name="model3d-object" right={10} top={10} open class="w-56 p-2 text-zinc-700">
@@ -27,11 +29,20 @@
 				<button class="rounded border px-1 py-0.5 hover:bg-white" onclick={() => editor.cancelPlacing()}>Cancel</button>
 			</div>
 		{:else}
-			<div class="mb-1 flex items-center gap-1 text-xs">
-				<span class="text-zinc-400">Insert</span>
-				<button class="rounded border px-1.5 py-0.5 hover:bg-slate-100" onclick={() => editor.startPlacing('prism')}>＋Prism</button>
-				<button class="rounded border px-1.5 py-0.5 hover:bg-slate-100" onclick={() => editor.startPlacing('wall')}>＋Wall</button>
-				<button class="rounded border px-1.5 py-0.5 hover:bg-slate-100" onclick={() => editor.startPlacing('conduit')}>＋Conduit</button>
+			<div class="mb-1 space-y-1 text-xs">
+				<div class="flex items-center gap-1">
+					<span class="text-zinc-400">New on</span>
+					<select class="min-w-0 flex-1 rounded border px-1 py-0.5"
+						value={editor.activeLayer ?? newLayers[0]?.id ?? ''} onchange={(e) => (editor.activeLayer = (e.currentTarget as HTMLSelectElement).value)}>
+						{#each newLayers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+					</select>
+				</div>
+				<div class="flex items-center gap-1">
+					<span class="text-zinc-400">Insert</span>
+					<button class="rounded border px-1.5 py-0.5 hover:bg-slate-100" onclick={() => editor.startPlacing('prism')}>＋Prism</button>
+					<button class="rounded border px-1.5 py-0.5 hover:bg-slate-100" onclick={() => editor.startPlacing('wall')}>＋Wall</button>
+					<button class="rounded border px-1.5 py-0.5 hover:bg-slate-100" onclick={() => editor.startPlacing('conduit')}>＋Conduit</button>
+				</div>
 			</div>
 		{/if}
 		<hr class="mb-1 border-zinc-200" />
