@@ -80,6 +80,15 @@
 			const dx = a.x - bb.x, dy = a.y - bb.y, len = Math.hypot(dx, dy) || 1
 			out.push({ round: true, x: a.x + (dx / len) * GAP, y: a.y + (dy / len) * GAP, cur: 'crosshair', act: (e) => editor.startExtend(e, i, nd.id) })
 		}
+		// Branch handle on the selected *interior* node (degree ≥ 2): drag to pull a
+		// new segment off it (a tee/junction). Touch-friendly — no modifier key.
+		if (editor.vsel?.index === i) {
+			const sel = sw.nodes.find((n) => n.id === editor.vsel!.nodeId)
+			if (sel && deg(sel.id) >= 2) {
+				const p = W3(sel)
+				out.push({ round: true, x: p.x + GAP, y: p.y - GAP, cur: 'cell', act: (e) => editor.startExtend(e, i, sel.id) })
+			}
+		}
 		return out
 	}
 </script>
@@ -132,9 +141,9 @@
 	{#if editable && editor.selIndex !== null && model.objects[editor.selIndex]}
 		{#each handles(model.objects[editor.selIndex], editor.selIndex) as h, hi (hi)}
 			{#if h.round}
-				<!-- insert (copy) = solid green; extend (crosshair) = hollow green -->
-				<circle cx={h.x} cy={h.y} r={HR}
-					fill={h.cur === 'crosshair' ? '#fff' : '#16a34a'} stroke={h.cur === 'crosshair' ? '#16a34a' : '#fff'}
+				<!-- insert (copy) = solid green; extend (crosshair) = hollow green; branch (cell) = violet -->
+				<circle cx={h.x} cy={h.y} r={h.cur === 'cell' ? HR * 1.2 : HR}
+					fill={h.cur === 'crosshair' ? '#fff' : h.cur === 'cell' ? '#7c3aed' : '#16a34a'} stroke={h.cur === 'crosshair' ? '#16a34a' : '#fff'}
 					stroke-width="0.75" vector-effect="non-scaling-stroke" style:pointer-events="auto" style:cursor={h.cur} onmousedown={h.act} />
 			{:else}
 				<rect x={h.x - HS / 2} y={h.y - HS / 2} width={HS} height={HS} fill={h.sel ? HL : '#fff'} stroke={HL} stroke-width="0.75" vector-effect="non-scaling-stroke"
