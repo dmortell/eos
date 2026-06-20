@@ -121,7 +121,7 @@
 			{@const locked = !!m && sheet.isLocked(m, o)}
 				{@const col = sel ? '#2563eb' : (m ? sheet.colorOf(m, o) : '#000000')}
 				{@const objPe = editable && !locked ? 'stroke' : 'none'}
-			{@const sw = sel ? 0.8 : 0.4}
+			{@const sw = sel ? 0.6 : 0.4}
 			<g role="button" tabindex="-1" aria-label="object" style="cursor:move" onpointerdown={(e) => sheet.startObjectMove(e, view, i)}>
 				{#each project(o, view.direction, yaw, pitch, pivot.cx, pivot.cy) as s, si (si)}
 					{@const d = polyPoints(s)}

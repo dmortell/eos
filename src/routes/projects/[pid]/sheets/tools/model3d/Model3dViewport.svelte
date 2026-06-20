@@ -12,7 +12,7 @@
 	import Model3dEditLayer from './Model3dEditLayer.svelte'
 	import Model3dUnderlayImage from './Model3dUnderlayImage.svelte'
 	import Model3dEditPanel from './Model3dEditPanel.svelte'
-	import Model3dLayersPanel from './Model3dLayersPanel.svelte'
+	// (model layers now live in the shared sheet Layers window)
 
 	// Host for a `model3d` viewport source: resolves the referenced 3D model and
 	// renders its projection; when active, mounts the geometry edit layer.
@@ -40,7 +40,7 @@
 
 	// In-viewport geometry editor — operates on the shared model, persists via the store.
 	const editor = new Model3dEditor()
-	$effect(() => { editor.model = model; editor.direction = src?.direction ?? 'plan' })
+	$effect(() => { editor.model = model; editor.direction = src?.direction ?? 'plan'; editor.layerOverrides = vp.layerOverrides ?? {} })
 	$effect(() => { if (!active) editor.clearSel() })
 
 	// Undo/redo over the whole model (objects + layers + underlays), driven off the
@@ -97,7 +97,6 @@
 	{#if active}
 		<!-- portalled out of the zoomed canvas so the panels render at normal size -->
 		<div use:portal><Model3dEditPanel {editor} {model} /></div>
-		<div use:portal><Model3dLayersPanel {editor} {model} /></div>
 	{/if}
 {:else}
 	<div class="flex h-full w-full items-center justify-center text-zinc-400 print:hidden" style:font-size="{14 / zoom}px">

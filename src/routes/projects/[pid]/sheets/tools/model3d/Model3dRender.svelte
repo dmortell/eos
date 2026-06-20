@@ -30,10 +30,9 @@
 	const xy = (p: { u: number; v: number }) => `${p.u},${-p.v}`
 
 	const layerColor = (o: Obj) => bw ? '#000000' : (model.layers?.find((l) => l.id === o.layer)?.color ?? '#111827')
-	const isVisible = (o: Obj) => {
-		const l = model.layers?.find((x) => x.id === o.layer)
-		return !l || l.visible
-	}
+	// Visibility is per-viewport (layerOverrides), so the same model can show
+	// different layers in different viewports (plan vs elevation, etc.).
+	const isVisible = (o: Obj) => !(vp.layerOverrides?.[o.layer ?? '']?.hidden)
 	const shown = $derived(model.objects.filter(isVisible))
 
 	// Per-object projected outlines (used in every mode + for bounds).

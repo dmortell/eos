@@ -1,13 +1,35 @@
 <script lang="ts">
+	import { getContext } from 'svelte'
+	import { page } from '$app/state'
 	import { Window, Icon } from '$lib'
+	import type { Firestore } from '$lib/db.svelte'
 	import { portal } from '../edit/portal'
 	import { LAYERS } from './layers'
+	import { modelStore } from '../tools/model3d/models.svelte'
 	import type { ViewportEditor } from '../viewports.svelte'
 	import type { SheetViewport } from '../types'
 
 	let { vps, vp: vpOverride = null }: { vps: ViewportEditor; vp?: SheetViewport | null } = $props()
 	// Layers act on the given viewport (model mode) or the active/single-selected one.
 	let vp = $derived(vpOverride ?? vps.activeViewport ?? vps.selectedViewport)
+
+	// ── model3d viewport: show the *model's* layers (names/colours owned by the
+	// model) with per-viewport visibility/lock (stored as viewport layerOverrides,
+	// like AutoCAD layer state per layout). B/W = a monochrome display toggle.
+	const db = getContext('db') as Firestore
+	const pid = $derived(page.params.pid ?? '')
+	const m3d = $derived(vp?.source.kind === 'model3d' ? vp.source : null)
+	const m3dStore = $derived(m3d ? modelStore(db, pid) : null)
+	const m3dModel = $derived(m3d && m3dStore ? m3dStore.models.find((x) => x.id === m3d.modelId) ?? null : null)
+	const mUid = () => `L${Math.random().toString(36).slice(2, 8)}`
+	function addModelLayer() {
+		if (!m3dModel || !m3dStore) return
+		m3dModel.layers ??= []
+		m3dModel.layers.push({ id: mUid(), name: `Layer ${m3dModel.layers.length + 1}`, color: '#888888', visible: true, locked: false })
+		m3dStore.save()
+	}
+	function delModelLayer(id: string) { if (m3dModel && m3dStore) { m3dModel.layers = (m3dModel.layers ?? []).filter((l) => l.id !== id); m3dStore.save() } }
+	function toggleBw() { if (vp && vp.source.kind === 'model3d') { vp.source.bw = !vp.source.bw; vps.notify() } }
 
 	// Custom layers grouped under the default layer they're filed below (their category).
 	let customByBase = $derived.by(() => {
@@ -37,6 +59,37 @@
 	{@const v = vp}
 	<div use:portal>
 		<Window title="Layers" name="sheet-layers" right={10} top={72} open class="w-64 p-2 text-zinc-700">
+			{#if m3d && m3dModel}
+				<!-- Model3d: model layers, per-viewport visibility/lock -->
+				<div class="mb-1 flex items-center justify-between gap-2">
+					<label class="flex items-center gap-1 text-[11px] text-zinc-600" title="Render this view in black & white (like a monochrome plot style)">
+						<input type="checkbox" checked={m3d.bw ?? false} onchange={toggleBw} /> B / W
+					</label>
+					<button class="flex items-center gap-0.5 rounded border border-zinc-300 px-1 py-0.5 text-[11px] hover:bg-zinc-100" title="Add a model layer" onclick={addModelLayer}>
+						<Icon name="plus" size={11} /> Layer
+					</button>
+				</div>
+				{#each m3dModel.layers ?? [] as l (l.id)}
+					{@const ov = v.layerOverrides?.[l.id] ?? {}}
+					<div class="flex items-center gap-1.5 py-0.5 text-xs">
+						<label class="relative inline-block h-3 w-3 shrink-0 cursor-pointer rounded-sm ring-1 ring-zinc-300" style:background={l.color} title="Colour">
+							<input type="color" class="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={l.color}
+								oninput={(e) => { l.color = (e.currentTarget as HTMLInputElement).value; m3dStore?.save() }} />
+						</label>
+						<input class="min-w-0 flex-1 rounded border-transparent bg-transparent px-1 py-0.5 hover:border-zinc-200 focus:border-zinc-300 {ov.hidden ? 'opacity-40' : ''}"
+							value={l.name} oninput={(e) => { l.name = (e.currentTarget as HTMLInputElement).value; m3dStore?.save() }} />
+						<button class="shrink-0 rounded p-0.5 text-zinc-600 hover:bg-zinc-100 {ov.hidden ? 'opacity-30' : ''}" title="Show / hide (this view)" onclick={() => vps.setLayerOverride(v.id, l.id, { hidden: !ov.hidden })}>
+							<Icon name={ov.hidden ? 'eyeSlash' : 'eye'} size={14} />
+						</button>
+						<button class="shrink-0 rounded p-0.5 hover:bg-zinc-100 {ov.locked ? 'text-red-600' : 'text-zinc-500'}" title="Lock / unlock (this view)" onclick={() => vps.setLayerOverride(v.id, l.id, { locked: !ov.locked })}>
+							<Icon name={ov.locked ? 'lock' : 'lockOpen'} size={14} />
+						</button>
+						<button class="shrink-0 text-zinc-300 hover:text-red-500 disabled:opacity-30" title="Delete layer" disabled={(m3dModel.layers?.length ?? 0) <= 1} onclick={() => delModelLayer(l.id)}>
+							<Icon name="trash" size={12} />
+						</button>
+					</div>
+				{/each}
+			{:else}
 			<div class="mb-1 flex items-center justify-between">
 				<span class="truncate text-[11px] text-zinc-500">New objects → <span class="font-medium text-zinc-700">{activeName}</span></span>
 				<button class="flex items-center gap-0.5 rounded border border-zinc-300 px-1 py-0.5 text-[11px] hover:bg-zinc-100"
@@ -97,6 +150,7 @@
 					</div>
 				{/each}
 			{/each}
+			{/if}
 		</Window>
 	</div>
 {/if}

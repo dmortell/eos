@@ -27,6 +27,8 @@ function resizeBoxAxis(o: Prism, axis: 'x' | 'y' | 'z', far: boolean, cursor: nu
 export class Model3dEditor extends SurfaceEditor {
 	model: Model | null = null
 	direction: Dir = 'plan'
+	// Per-viewport layer visibility/lock (mirrors the host viewport's overrides).
+	layerOverrides: Record<string, { hidden?: boolean; locked?: boolean }> = {}
 
 	get objects(): Obj[] { return this.model?.objects ?? [] }
 	get selIndex(): number | null { return this.sel?.kind === 'obj' ? +this.sel.id : null }
@@ -93,6 +95,7 @@ export class Model3dEditor extends SurfaceEditor {
 	}
 
 	private locked(o: Obj) {
+		if (this.layerOverrides[o.layer ?? '']?.locked) return true // per-viewport lock
 		const l = this.model?.layers?.find((x) => x.id === o.layer)
 		return !!l?.locked
 	}
