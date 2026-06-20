@@ -225,6 +225,9 @@
 			<rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} fill="#2563eb" fill-opacity="0.06"
 				stroke="#2563eb" stroke-width={1 / zoom} vector-effect="non-scaling-stroke" stroke-dasharray="{5 / zoom} {3 / zoom}"
 				style:pointer-events="stroke" style:cursor="move" onmousedown={(e: MouseEvent) => editor.startSectionMove(e, s.id)} />
+			{#if s.label}
+				<text x={x0} y={y0} dy={-4 / zoom} font-size={11 / zoom} fill="#2563eb" style:pointer-events="none">{s.label}</text>
+			{/if}
 			{#each [['x0', 'y0'], ['x1', 'y0'], ['x0', 'y1'], ['x1', 'y1']] as const as [xk, yk] (xk + yk)}
 				<rect x={s.clip[xk] - HS / 2} y={-s.clip[yk] - HS / 2} width={HS} height={HS} fill="#fff" stroke="#2563eb" stroke-width={selW} vector-effect="non-scaling-stroke"
 					style:pointer-events="auto" style:cursor="nwse-resize" onmousedown={(e: MouseEvent) => editor.startSectionResize(e, s.id, xk, yk)} />

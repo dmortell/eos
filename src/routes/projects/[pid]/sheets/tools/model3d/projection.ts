@@ -215,6 +215,35 @@ export function objBounds(o: Obj): Clip {
 	return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys), z0: Math.min(...zs), z1: Math.max(...zs) }
 }
 
+// Trim an object to a section clip box. Prisms pass through whole (returns null
+// if outside). Walls/conduits keep only segments that intersect the box (and the
+// nodes they use) — so a section elevation shows just the cut run, not the whole
+// perimeter. `h` (wall height) is carried so the z-extent test still works.
+const ptIn = (p: P3, c: Clip) => p.x >= c.x0 && p.x <= c.x1 && p.y >= c.y0 && p.y <= c.y1 && p.z >= c.z0 && p.z <= c.z1
+function segIn(a: P3, b: P3, c: Clip): boolean {
+	if (ptIn(a, c) || ptIn(b, c)) return true
+	let t0 = 0, t1 = 1 // slab clip of the 3D segment against the AABB
+	for (const k of ['x', 'y', 'z'] as const) {
+		const lo = c[`${k}0`] as number, hi = c[`${k}1`] as number, d = b[k] - a[k]
+		if (Math.abs(d) < 1e-9) { if (a[k] < lo || a[k] > hi) return false }
+		else { let ta = (lo - a[k]) / d, tb = (hi - a[k]) / d; if (ta > tb) [ta, tb] = [tb, ta]; t0 = Math.max(t0, ta); t1 = Math.min(t1, tb); if (t0 > t1) return false }
+	}
+	return true
+}
+export function trimToClip(o: Obj, c: Clip): Obj | null {
+	if (o.type === 'prism') return inClip(o, c) ? o : null
+	const nm = nodeMap(o.nodes)
+	// walls span z0..z0+h; test the segment at both base and top so a low box still hits it.
+	const top = o.type === 'wall' ? o.h : 0
+	const keep = o.segments.filter((s) => {
+		const a = nm.get(s.a), b = nm.get(s.b); if (!a || !b) return false
+		return segIn(a, b, c) || (top > 0 && segIn({ ...a, z: a.z + top }, { ...b, z: b.z + top }, c))
+	})
+	if (!keep.length) return null
+	const used = new Set(keep.flatMap((s) => [s.a, s.b]))
+	return { ...o, nodes: o.nodes.filter((n) => used.has(n.id)), segments: keep } as Obj
+}
+
 // Does an object overlap a clip box? (Order-independent in each axis.)
 export function inClip(o: Obj, c: Clip): boolean {
 	const b = objBounds(o)

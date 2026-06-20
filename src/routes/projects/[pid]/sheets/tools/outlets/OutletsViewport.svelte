@@ -195,7 +195,7 @@
 				ondbl={() => { if (tool === 'trunk') { editor.finishDraw(); tool = 'select' } }} />
 			<OutletsEditLayer {editor} interactive={tool === 'select'} {locked} {hidden} {racksById} />
 		{/if}
-		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} {hidden} {locked} den={viewDen} />
+		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} {hidden} {locked} den={viewDen} {zoom} />
 	</OutletsRender>
 	{#if active}
 		<OutletsEditPanel {editor} bind:tool {annEditor} />

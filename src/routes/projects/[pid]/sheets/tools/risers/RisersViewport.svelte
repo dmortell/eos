@@ -99,7 +99,7 @@
 				}} />
 			<RisersEditLayer {editor} {fromFloor} {toFloor} interactive={tool === 'select'} {hidden} {locked} />
 		{/if}
-		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} {hidden} {locked} den={viewDen} />
+		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} {hidden} {locked} den={viewDen} {zoom} />
 	</RisersRender>
 	{#if active}
 		<RisersEditPanel {editor} bind:tool {annEditor} {fromFloor} {toFloor} />

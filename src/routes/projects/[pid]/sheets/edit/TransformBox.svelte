@@ -7,11 +7,11 @@
 	import { boxHandles, resizeBox, angleDeg, type Box } from './transform'
 	import type { SurfaceEditor } from './surface.svelte'
 
-	let { editor, box, rotation = 0, hMm = 120, onresize, onrotate }: {
+	let { editor, box, rotation = 0, zoom = 1, onresize, onrotate }: {
 		editor: SurfaceEditor
 		box: Box
 		rotation?: number
-		hMm?: number
+		zoom?: number
 		onresize: (handle: number, b: Box) => void
 		onrotate: (deg: number) => void
 	} = $props()
@@ -19,6 +19,12 @@
 	const HL = '#06b6d4'
 	let cx = $derived(box.x + box.w / 2), cy = $derived(box.y + box.h / 2)
 	let handles = $derived(boxHandles(box))
+	// world-mm sizes counter-scaled to a steady on-screen size (dep on zoom → re-read CTM)
+	const ss = $derived((zoom, editor.screenScale()) || 1)
+	const HSZ = $derived(8 / ss)  // resize handle square ≈ 8px
+	const RR = $derived(5 / ss)   // rotate handle radius
+	const ARM = $derived(26 / ss) // rotate arm length
+	const SW = $derived(1 / ss)   // stroke ≈ 1px
 
 	function startResize(handle: number, e: MouseEvent) {
 		if (e.button !== 0) return
@@ -47,10 +53,10 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <g transform={rotation ? `rotate(${rotation} ${cx} ${cy})` : undefined}>
-	<rect x={box.x} y={box.y} width={box.w} height={box.h} fill="none" stroke={HL} stroke-width="1" stroke-dasharray="5 4" vector-effect="non-scaling-stroke" style:pointer-events="none" />
-	<line x1={cx} y1={box.y} x2={cx} y2={box.y - hMm * 2.2} stroke={HL} stroke-width="1" vector-effect="non-scaling-stroke" style:pointer-events="none" />
-	<circle cx={cx} cy={box.y - hMm * 2.2} r={hMm * 0.6} fill="white" stroke={HL} stroke-width="1.5" vector-effect="non-scaling-stroke" style:cursor="grab" style:pointer-events="auto" onmousedown={startRotate} />
+	<rect x={box.x} y={box.y} width={box.w} height={box.h} fill="none" stroke={HL} stroke-width={SW} stroke-dasharray="{4 / ss} {3 / ss}" style:pointer-events="none" />
+	<line x1={cx} y1={box.y} x2={cx} y2={box.y - ARM} stroke={HL} stroke-width={SW} style:pointer-events="none" />
+	<circle cx={cx} cy={box.y - ARM} r={RR} fill="white" stroke={HL} stroke-width={SW} style:cursor="grab" style:pointer-events="auto" onmousedown={startRotate} />
 	{#each handles as h (h.handle)}
-		<rect x={h.x - hMm / 2} y={h.y - hMm / 2} width={hMm} height={hMm} fill="white" stroke={HL} stroke-width="1.5" vector-effect="non-scaling-stroke" style:cursor={h.cursor} style:pointer-events="auto" onmousedown={(e: MouseEvent) => startResize(h.handle, e)} />
+		<rect x={h.x - HSZ / 2} y={h.y - HSZ / 2} width={HSZ} height={HSZ} fill="white" stroke={HL} stroke-width={SW} style:cursor={h.cursor} style:pointer-events="auto" onmousedown={(e: MouseEvent) => startResize(h.handle, e)} />
 	{/each}
 </g>

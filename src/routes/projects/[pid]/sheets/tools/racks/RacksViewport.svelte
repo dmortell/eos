@@ -116,7 +116,7 @@
 				}} />
 			<RacksEditLayer {editor} face={src.face} rowId={src.rowId} interactive={tool === 'select'} {hidden} {locked} />
 		{/if}
-		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} {hidden} {locked} den={viewDen} />
+		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} {hidden} {locked} den={viewDen} {zoom} />
 	</RacksRender>
 	{#if active}
 		<RacksEditPanel {editor} bind:tool {annEditor} face={src.face} libraryOpen={showLibrary} racksOpen={showRacks} ondevices={() => { showLibrary = !showLibrary }} onracks={() => { showRacks = !showRacks }} />

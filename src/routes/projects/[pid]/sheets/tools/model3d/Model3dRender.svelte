@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { SheetViewport } from '../../types'
 	import type { Clip, Dir, Model, Obj } from './types'
-	import { project, faces3d, isoR, isoDepthR, xyCenter, inClip, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
+	import { project, faces3d, isoR, isoDepthR, xyCenter, trimToClip, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 
 	// Read-only projection of a 3D model into a sheet viewport, drawn in real mm so
 	// the viewport's scale (1:N) prints true to size — same contract as the other
@@ -39,8 +39,14 @@
 	const layerColor = (o: Obj) => bw ? '#000000' : (model.layers?.find((l) => l.id === o.layer)?.color ?? '#111827')
 	// Visibility is per-viewport (layerOverrides), so the same model can show
 	// different layers in different viewports (plan vs elevation, etc.).
-	const isVisible = (o: Obj) => !(vp.layerOverrides?.[o.layer ?? '']?.hidden) && (!clip || inClip(o, clip))
-	const shown = $derived(model.objects.filter(isVisible))
+	const layerVisible = (o: Obj) => !(vp.layerOverrides?.[o.layer ?? '']?.hidden)
+	// With a section clip, trim each object to the box (walls/conduits keep only the
+	// segments that cross it) instead of culling whole objects by bounding box.
+	const shown = $derived(model.objects.filter(layerVisible).flatMap((o) => {
+		if (!clip) return [o]
+		const t = trimToClip(o, clip)
+		return t ? [t] : []
+	}))
 
 	// Section framing: project the clip box's 8 corners so the elevation frames to
 	// the cut region (consistent front/side framing), not just the objects in it.

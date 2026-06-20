@@ -118,15 +118,15 @@ export class Model3dEditor extends SurfaceEditor {
 	startObjMove = (e: MouseEvent, index: number) => {
 		if (e.button !== 0) return // right/middle bubble up so the canvas pans
 		e.stopPropagation()
-		const o = this.objects[index]
-		if (!o) return
-		if (this.blockedByLock(o)) return
+		if (!this.objects[index]) return
+		if (this.blockedByLock(this.objects[index])) return
 		const dup = e.ctrlKey || e.metaKey // ctrl/⌘-drag duplicates the selection
 		if (this.inMulti(index)) {
 			if (dup) this.duplicateMulti()
 			this.beginGroupDrag(e); return // drag the (possibly cloned) marquee group
 		}
-		if (dup) index = this.duplicateOne(index)
+		if (dup) index = this.duplicateOne(index) // drag the CLONE, leaving the original
+		const o = this.objects[index] // re-fetch after a possible duplicate
 		this.selectObj(index); this.vsel = null
 		const b = BASIS[this.direction]
 		const s = this.at(e); if (!s) return
