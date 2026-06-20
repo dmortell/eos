@@ -67,6 +67,17 @@
 		}
 	})
 
+	// Editable section markers on the plan: surface every OTHER clipped model3d
+	// viewport of the same model as a draggable/resizable box; edits write back to
+	// that viewport's clip; delete removes the elevation viewport.
+	$effect(() => {
+		editor.sectionsProvider = () => vps.viewports
+			.filter((v) => v.id !== vp.id && v.source?.kind === 'model3d' && (v.source as any).modelId === src?.modelId && (v.source as any).clip)
+			.map((v) => ({ id: v.id, clip: (v.source as any).clip, label: v.label || (v.source as any).direction }))
+		editor.onSectionChange = (id, clip) => { const v = vps.viewports.find((x) => x.id === id); if (v && v.source.kind === 'model3d') { v.source.clip = clip; vps.notify() } }
+		editor.onSectionDelete = (id) => { vps.viewports = vps.viewports.filter((v) => v.id !== id); vps.notify() }
+	})
+
 	// Annotations (shared sheet system): text/line/rect to start. Stored on the
 	// viewport (vp.annotations), drawn in the render's real-mm space. `tool` is the
 	// unified mode — 'select' lets the geometry editor work; an annotation tool

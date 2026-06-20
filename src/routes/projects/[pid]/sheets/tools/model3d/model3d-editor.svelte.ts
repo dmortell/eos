@@ -1,6 +1,6 @@
 import { toast } from 'svelte-sonner'
 import { SurfaceEditor } from '../../edit/surface.svelte'
-import { BASIS, type Conduit, type Dir, type Model, type Obj, type Prism, type Wall } from './types'
+import { BASIS, type Clip, type Conduit, type Dir, type Model, type Obj, type Prism, type Wall } from './types'
 import { moveAlong, roundObj, project, xyCenter, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 import { newId } from './graph'
 import { polyToGraph } from './migrate'
@@ -315,6 +315,36 @@ export class Model3dEditor extends SurfaceEditor {
 	onSection: ((box: { x0: number; y0: number; x1: number; y1: number }) => void) | null = null
 	startSectionMode() { if (this.direction === 'plan') { this.clearSel(); this.placing = null; this.sectionMode = true } }
 	cancelSection = () => { this.sectionMode = false; this.sectionBox = null }
+
+	// ── editable section markers on the plan (other viewports' clip boxes) ──
+	// The host (plan viewport) supplies the sections + applies edits, since the
+	// clip lives on *another* viewport's source.
+	sectionsProvider: (() => { id: string; clip: Clip; label?: string }[]) | null = null
+	onSectionChange: ((id: string, clip: Clip) => void) | null = null
+	onSectionDelete: ((id: string) => void) | null = null
+	get sections() { return this.direction === 'plan' ? (this.sectionsProvider?.() ?? []) : [] }
+	startSectionMove = (e: MouseEvent, id: string) => {
+		if (e.button !== 0) return
+		e.stopPropagation()
+		const s = this.sections.find((x) => x.id === id); if (!s) return
+		const c0 = { ...s.clip }, w0 = this.modelPt(e); if (!w0) return
+		this.startDrag((ev) => {
+			const w = this.modelPt(ev); if (!w) return
+			const dx = w.x - w0.x, dy = w.y - w0.y
+			this.onSectionChange?.(id, { ...c0, x0: Math.round(c0.x0 + dx), x1: Math.round(c0.x1 + dx), y0: Math.round(c0.y0 + dy), y1: Math.round(c0.y1 + dy) })
+		})
+	}
+	startSectionResize = (e: MouseEvent, id: string, xk: 'x0' | 'x1', yk: 'y0' | 'y1') => {
+		if (e.button !== 0) return
+		e.stopPropagation()
+		const s = this.sections.find((x) => x.id === id); if (!s) return
+		const c0 = { ...s.clip }
+		this.startDrag((ev) => {
+			const w = this.modelPt(ev); if (!w) return
+			this.onSectionChange?.(id, { ...c0, [xk]: Math.round(w.x), [yk]: Math.round(w.y) })
+		})
+	}
+	deleteSectionMarker = (id: string) => this.onSectionDelete?.(id)
 	startSectionDraw = (e: MouseEvent) => {
 		if (e.button !== 0 || this.direction !== 'plan') return
 		e.stopPropagation()

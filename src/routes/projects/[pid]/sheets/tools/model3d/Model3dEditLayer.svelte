@@ -216,6 +216,26 @@
 		{/if}
 	{/if}
 
+	<!-- editable section markers: each clipped elevation's box, on the plan.
+	     Drag the border to move, corners to resize, ✕ to delete the elevation. -->
+	{#if editable && direction === 'plan' && !editor.sectionMode}
+		{#each editor.sections as s (s.id)}
+			{@const x0 = Math.min(s.clip.x0, s.clip.x1)}{@const x1 = Math.max(s.clip.x0, s.clip.x1)}
+			{@const y0 = -Math.max(s.clip.y0, s.clip.y1)}{@const y1 = -Math.min(s.clip.y0, s.clip.y1)}
+			<rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} fill="#2563eb" fill-opacity="0.06"
+				stroke="#2563eb" stroke-width={1 / zoom} vector-effect="non-scaling-stroke" stroke-dasharray="{5 / zoom} {3 / zoom}"
+				style:pointer-events="stroke" style:cursor="move" onmousedown={(e: MouseEvent) => editor.startSectionMove(e, s.id)} />
+			{#each [['x0', 'y0'], ['x1', 'y0'], ['x0', 'y1'], ['x1', 'y1']] as const as [xk, yk] (xk + yk)}
+				<rect x={s.clip[xk] - HS / 2} y={-s.clip[yk] - HS / 2} width={HS} height={HS} fill="#fff" stroke="#2563eb" stroke-width={selW} vector-effect="non-scaling-stroke"
+					style:pointer-events="auto" style:cursor="nwse-resize" onmousedown={(e: MouseEvent) => editor.startSectionResize(e, s.id, xk, yk)} />
+			{/each}
+			<!-- delete (✕) at the top-right corner -->
+			<g transform="translate({x1},{y0})" style:cursor="pointer" style:pointer-events="auto" onmousedown={(e: MouseEvent) => { e.stopPropagation(); editor.deleteSectionMarker(s.id) }}>
+				<circle r={HR * 1.2} fill="#dc2626" stroke="#fff" stroke-width={selW} vector-effect="non-scaling-stroke" />
+			</g>
+		{/each}
+	{/if}
+
 	<!-- section tool: a top capture rect (so it works over objects too) + box preview -->
 	{#if editable && editor.sectionMode}
 		<rect x="-1000000" y="-1000000" width="2000000" height="2000000" fill="transparent"
