@@ -230,8 +230,9 @@
 					style:pointer-events="auto" style:cursor="nwse-resize" onmousedown={(e: MouseEvent) => editor.startSectionResize(e, s.id, xk, yk)} />
 			{/each}
 			<!-- delete (✕) at the top-right corner -->
-			<g transform="translate({x1},{y0})" style:cursor="pointer" style:pointer-events="auto" onmousedown={(e: MouseEvent) => { e.stopPropagation(); editor.deleteSectionMarker(s.id) }}>
-				<circle r={HR * 1.2} fill="#dc2626" stroke="#fff" stroke-width={selW} vector-effect="non-scaling-stroke" />
+			<g transform="translate({x1 + GAP},{y0 - GAP})" style:cursor="pointer" style:pointer-events="auto" onmousedown={(e: MouseEvent) => { e.stopPropagation(); editor.deleteSectionMarker(s.id) }}>
+				<circle r={HR * 1.3} fill="#dc2626" stroke="#fff" stroke-width={selW} vector-effect="non-scaling-stroke" />
+					<path d="M{-HR * 0.5},{-HR * 0.5} L{HR * 0.5},{HR * 0.5} M{HR * 0.5},{-HR * 0.5} L{-HR * 0.5},{HR * 0.5}" stroke="#fff" stroke-width={selW * 1.5} vector-effect="non-scaling-stroke" style:pointer-events="none" />
 			</g>
 		{/each}
 	{/if}
