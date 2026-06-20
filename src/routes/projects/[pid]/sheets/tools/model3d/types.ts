@@ -15,6 +15,7 @@ export type Prism = {
 	x: number; y: number; z: number
 	w: number; h: number; d: number
 	edges: number // 3..24
+	rot?: number  // rotation about the vertical (z) axis, degrees, about the footprint centre
 }
 
 // Wall + Conduit are swept primitives over a node/segment graph (see graph.ts).

@@ -106,6 +106,8 @@
 					{/each}
 					<label class="block"><span class="text-zinc-400">Edges</span>
 						<input type="number" min="3" max="24" class="w-full rounded border px-1 py-0.5" bind:value={obj.edges} oninput={change} /></label>
+					<label class="block"><span class="text-zinc-400">Rot°</span>
+						<input type="number" class="w-full rounded border px-1 py-0.5" value={obj.rot ?? 0} oninput={(e) => { obj.rot = num(e); change() }} /></label>
 				</div>
 			{:else if obj.type === 'wall'}
 				<div class="grid grid-cols-2 gap-1">

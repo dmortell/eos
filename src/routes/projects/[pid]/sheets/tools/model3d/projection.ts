@@ -56,17 +56,18 @@ const clampEdges = (e: number) => Math.max(3, Math.min(24, Math.round(e)))
 // n-gon footprint inscribed in the w×d box [x..x+w]×[y..y+d] at height z.
 // Normalized so its bounding box exactly fills the box for any edge count —
 // so 4 edges reproduce the rectangle, higher counts fill it like an ellipse.
-export function boxFootprint(x: number, y: number, w: number, d: number, edges: number, z: number): P3[] {
+export function boxFootprint(x: number, y: number, w: number, d: number, edges: number, z: number, rot = 0): P3[] {
 	const n = clampEdges(edges)
 	const cx = x + w / 2, cy = y + d / 2
 	const angs = Array.from({ length: n }, (_, k) => Math.PI / n + (k * 2 * Math.PI) / n)
 	const maxc = Math.max(...angs.map((a) => Math.abs(Math.cos(a))))
 	const maxs = Math.max(...angs.map((a) => Math.abs(Math.sin(a))))
-	return angs.map((a) => ({
-		x: cx + (w / 2) * (Math.cos(a) / maxc),
-		y: cy + (d / 2) * (Math.sin(a) / maxs),
-		z,
-	}))
+	const r = (rot * Math.PI) / 180, cr = Math.cos(r), sr = Math.sin(r)
+	return angs.map((a) => {
+		const px = cx + (w / 2) * (Math.cos(a) / maxc), py = cy + (d / 2) * (Math.sin(a) / maxs)
+		if (!rot) return { x: px, y: py, z }
+		return { x: cx + (px - cx) * cr - (py - cy) * sr, y: cy + (px - cx) * sr + (py - cy) * cr, z } // rotate about z (footprint centre)
+	})
 }
 
 // 2D cross-section n-gon offsets inscribed in w×h, normalized like boxFootprint.
@@ -351,8 +352,8 @@ function wallBoxes(o: { z: number; h: number; thickness: number; pts: V2[] }) {
 // 3D wireframe edges of an object (for the isometric view).
 function edges3d(o: Obj): Seg[] {
 	if (o.type === 'prism') {
-		const bot = boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z)
-		const top = boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z + o.h)
+		const bot = boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z, o.rot)
+		const top = boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z + o.h, o.rot)
 		const segs: Seg[] = [...ringEdges(bot), ...ringEdges(top)]
 		for (let i = 0; i < bot.length; i++) segs.push([bot[i], top[i]])
 		return segs
@@ -373,8 +374,8 @@ function edges3d(o: Obj): Seg[] {
 // 3D faces of an object (for hidden-line / solid rendering in the iso view).
 export function faces3d(o: Obj): Face[] {
 	if (o.type === 'prism') {
-		const bot = boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z)
-		const top = boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z + o.h)
+		const bot = boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z, o.rot)
+		const top = boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z + o.h, o.rot)
 		const faces: Face[] = [{ pts: bot }, { pts: [...top].reverse() }]
 		for (let i = 0; i < bot.length; i++) { const j = (i + 1) % bot.length; faces.push({ pts: [bot[i], bot[j], top[j], top[i]] }) }
 		return faces
@@ -405,12 +406,12 @@ export function project(o: Obj, dir: Dir, yaw = DEFAULT_YAW, pitch = DEFAULT_PIT
 
 	if (o.type === 'prism') {
 		if (dir === 'plan') {
-			return [{ closed: true, pts: boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z).map((p) => proj(dir, p)) }]
+			return [{ closed: true, pts: boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z, o.rot).map((p) => proj(dir, p)) }]
 		}
 		// Elevation: silhouette rectangle of the extruded footprint.
 		const all = [
-			...boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z),
-			...boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z + o.h),
+			...boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z, o.rot),
+			...boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z + o.h, o.rot),
 		]
 		return [bboxRect(all.map((p) => proj(dir, p)))]
 	}

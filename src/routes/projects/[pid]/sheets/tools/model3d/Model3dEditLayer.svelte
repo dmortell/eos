@@ -49,13 +49,27 @@
 	type H = { round: boolean; x: number; y: number; cur: string; act: (e: MouseEvent) => void; sel?: boolean }
 	function handles(o: Obj, i: number): H[] {
 		if (o.type === 'prism') {
-			const posH = posAlong(o, b.h), dimH = sizeAlong(o, b.h)
-			const posV = posAlong(o, b.v), dimV = sizeAlong(o, b.v)
 			const out: H[] = []
-			for (const h1 of [false, true]) for (const v1 of [false, true]) {
-				const p = Whv(posH + (h1 ? dimH : 0), posV + (v1 ? dimV : 0))
-				const right = b.hs > 0 ? h1 : !h1
-				out.push({ round: false, x: p.x, y: p.y, cur: v1 === right ? 'nesw-resize' : 'nwse-resize', act: (e) => editor.startResize(e, i, `box:${h1 ? 'h1' : 'h0'}:${v1 ? 'v1' : 'v0'}`) })
+			const rot = o.rot ?? 0
+			// Corner resize handles — only when axis-aligned (or in an elevation, where
+			// rotation about z doesn't affect this view's box). When rotated in plan,
+			// resize via the W/D fields and use the rotate handle to spin.
+			if (Math.abs(rot) < 0.5 || direction !== 'plan') {
+				const posH = posAlong(o, b.h), dimH = sizeAlong(o, b.h)
+				const posV = posAlong(o, b.v), dimV = sizeAlong(o, b.v)
+				for (const h1 of [false, true]) for (const v1 of [false, true]) {
+					const p = Whv(posH + (h1 ? dimH : 0), posV + (v1 ? dimV : 0))
+					const right = b.hs > 0 ? h1 : !h1
+					out.push({ round: false, x: p.x, y: p.y, cur: v1 === right ? 'nesw-resize' : 'nwse-resize', act: (e) => editor.startResize(e, i, `box:${h1 ? 'h1' : 'h0'}:${v1 ? 'v1' : 'v0'}`) })
+				}
+			}
+			// Rotate handle (plan only): just beyond the footprint top, along +d rotated.
+			if (direction === 'plan') {
+				const cxm = o.x + o.w / 2, cym = o.y + o.d / 2, r = (rot * Math.PI) / 180
+				const top = W3({ x: cxm - Math.sin(r) * (o.d / 2), y: cym + Math.cos(r) * (o.d / 2), z: o.z })
+				const cen = W3({ x: cxm, y: cym, z: o.z })
+				const dx = top.x - cen.x, dy = top.y - cen.y, len = Math.hypot(dx, dy) || 1
+				out.push({ round: true, x: top.x + (dx / len) * GAP, y: top.y + (dy / len) * GAP, cur: 'grab', act: (e) => editor.startRotatePrism(e, i) })
 			}
 			return out
 		}
@@ -151,9 +165,9 @@
 	{#if editable && editor.selIndex !== null && model.objects[editor.selIndex]}
 		{#each handles(model.objects[editor.selIndex], editor.selIndex) as h, hi (hi)}
 			{#if h.round}
-				<!-- insert (copy)=solid green · extend (crosshair)=hollow green · branch (cell)=violet · disconnect (no-drop)=red -->
-				<circle cx={h.x} cy={h.y} r={h.cur === 'cell' || h.cur === 'no-drop' ? HR * 1.2 : HR}
-					fill={h.cur === 'crosshair' ? '#fff' : h.cur === 'cell' ? '#7c3aed' : h.cur === 'no-drop' ? '#dc2626' : '#16a34a'} stroke={h.cur === 'crosshair' ? '#16a34a' : '#fff'}
+				<!-- insert (copy)=green · extend (crosshair)=hollow green · branch (cell)=violet · disconnect (no-drop)=red · rotate (grab)=cyan -->
+				<circle cx={h.x} cy={h.y} r={h.cur === 'cell' || h.cur === 'no-drop' || h.cur === 'grab' ? HR * 1.2 : HR}
+					fill={h.cur === 'crosshair' ? '#fff' : h.cur === 'cell' ? '#7c3aed' : h.cur === 'no-drop' ? '#dc2626' : h.cur === 'grab' ? '#06b6d4' : '#16a34a'} stroke={h.cur === 'crosshair' ? '#16a34a' : '#fff'}
 					stroke-width={selW} vector-effect="non-scaling-stroke" style:pointer-events="auto" style:cursor={h.cur} onmousedown={h.act} />
 			{:else}
 				<rect x={h.x - HS / 2} y={h.y - HS / 2} width={HS} height={HS} fill={h.sel ? HL : '#fff'} stroke={HL} stroke-width={selW} vector-effect="non-scaling-stroke"

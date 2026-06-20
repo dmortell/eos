@@ -159,6 +159,26 @@ export class Model3dEditor extends SurfaceEditor {
 		}, () => this.notify())
 	}
 
+	// Rotate a cuboid about z (plan view): drag the handle around the footprint
+	// centre. Snaps to 15° (hold Shift for free rotation).
+	startRotatePrism = (e: MouseEvent, index: number) => {
+		if (e.button !== 0) return
+		e.stopPropagation()
+		const o = this.objects[index]
+		if (o?.type !== 'prism' || this.locked(o)) return
+		this.selectObj(index)
+		const cx = o.x + o.w / 2, cy = o.y + o.d / 2
+		const ang = (p: { ch: number; cv: number }) => (Math.atan2(p.cv - cy, p.ch - cx) * 180) / Math.PI
+		const s = this.at(e); if (!s) return
+		const start = ang(s), rot0 = o.rot ?? 0
+		this.startDrag((ev) => {
+			const c = this.at(ev); if (!c) return
+			let r = rot0 + (ang(c) - start)
+			if (!ev.shiftKey) r = Math.round(r / 15) * 15
+			o.rot = ((Math.round(r) % 360) + 360) % 360
+		}, () => this.notify())
+	}
+
 	// ── shared path editing for conduits (3D path) and walls (2D pts, plan only) ──
 	// Walls reuse the same insert/extend/delete logic as conduits — a wall is just
 	// a flat swept polyline (see merge-analysis.md: wall/conduit/trunk unification).
