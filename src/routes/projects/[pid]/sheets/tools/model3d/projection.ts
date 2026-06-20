@@ -10,6 +10,9 @@ type P3 = { x: number; y: number; z: number }
 // feeds the existing per-path sweep; junctions/profile changes break runs (butt
 // joints). A closed run repeats its first point at the end so the sweep closes.
 const ptOf = (nm: Map<string, { x: number; y: number; z: number }>, id: string): P3 => { const n = nm.get(id); return n ? { x: n.x, y: n.y, z: n.z } : { x: 0, y: 0, z: 0 } }
+// Drop consecutive coincident points so a zero-length segment doesn't produce a
+// degenerate (triangular) box or corrupt its neighbour's miter.
+const dedupe = (pts: P3[]): P3[] => pts.filter((p, i) => i === 0 || p.x !== pts[i - 1].x || p.y !== pts[i - 1].y || p.z !== pts[i - 1].z)
 
 // Profile-aware runs: a run breaks at junctions AND profile changes, so each run
 // sweeps with one uniform profile (per-segment overrides fall back to the object
@@ -21,8 +24,8 @@ function wallRuns(o: Wall): { points: P3[]; thickness: number; h: number }[] {
 	const key = (id: string) => { const s = byId.get(id); return `${s?.thickness ?? o.thickness}|${s?.h ?? o.h}` }
 	return graphRuns(o.nodes, o.segments, key).map((r) => {
 		const s0 = byId.get(r.segIds[0])
-		return { points: r.nodeIds.map((id) => ptOf(nm, id)), thickness: s0?.thickness ?? o.thickness, h: s0?.h ?? o.h }
-	})
+		return { points: dedupe(r.nodeIds.map((id) => ptOf(nm, id))), thickness: s0?.thickness ?? o.thickness, h: s0?.h ?? o.h }
+	}).filter((r) => r.points.length >= 2)
 }
 function conduitRuns(o: Conduit): { points: P3[]; w: number; h: number; edges: number }[] {
 	if (!o.nodes || !o.segments) return []

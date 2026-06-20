@@ -154,9 +154,9 @@ export class Model3dEditor extends SurfaceEditor {
 		return !!o && !this.locked(o) && (o.type === 'conduit' || (o.type === 'wall' && this.direction === 'plan'))
 	}
 	private node(o: Conduit | Wall, id: string) { return o.nodes.find((n) => n.id === id) }
-	private dragNode(o: Conduit | Wall, id: string) {
+	private dragNode(o: Conduit | Wall, id: string, onEnd?: () => void) {
 		const b = BASIS[this.direction], n = this.node(o, id); if (!n) return
-		this.startDrag((ev) => { const c = this.at(ev); if (c) { n[b.h] = Math.round(c.ch); n[b.v] = Math.round(c.cv) } }, () => this.notify())
+		this.startDrag((ev) => { const c = this.at(ev); if (c) { n[b.h] = Math.round(c.ch); n[b.v] = Math.round(c.cv) } }, () => { onEnd?.(); this.notify() })
 	}
 	startVertex = (e: MouseEvent, index: number, nodeId: string) => {
 		if (e.button !== 0) return // right/middle bubble up so the canvas pans
@@ -189,10 +189,19 @@ export class Model3dEditor extends SurfaceEditor {
 		if (!this.pathEditable(o)) return
 		const from = this.node(o, nodeId); if (!from) return
 		const nn = { id: newId('n'), x: from.x, y: from.y, z: from.z }
+		const segId = newId('s')
 		o.nodes.push(nn)
-		o.segments.push({ id: newId('s'), a: nodeId, b: nn.id })
+		o.segments.push({ id: segId, a: nodeId, b: nn.id })
 		this.selectObj(index); this.vsel = { index, nodeId: nn.id }
-		this.dragNode(o, nn.id)
+		// Discard the new node+segment if released without moving (zero-length).
+		this.dragNode(o, nn.id, () => {
+			const a = this.node(o, nodeId), b = this.node(o, nn.id)
+			if (a && b && a.x === b.x && a.y === b.y && a.z === b.z) {
+				o.segments = o.segments.filter((s) => s.id !== segId)
+				o.nodes = o.nodes.filter((n) => n.id !== nn.id)
+				this.vsel = null; this.selectObj(index)
+			}
+		})
 	}
 
 	// ── delete: multi-selection, then a selected path vertex, then the object ──
