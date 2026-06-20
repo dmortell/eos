@@ -2,7 +2,7 @@
 
 <script lang="ts">
 	import type { Sheet } from './sheet.svelte'
-	import { BASIS, u2paper, v2paper, type Conduit, type Prism, type Wall, type View } from './types'
+	import { BASIS, u2paper, v2paper, type Conduit, type Obj, type Prism, type Wall, type View } from './types'
 	import { project, posAlong, sizeAlong, faces3d, isoR, isoDepthR, xyCenter, inClip, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 
 	type P3 = { x: number; y: number; z: number }
@@ -13,10 +13,15 @@
 	const editable = $derived(clickable && view.direction !== 'iso')
 	const m = $derived(sheet.modelFor(view))
 	const b = $derived(BASIS[view.direction])
-	// Section/elevation crop: only show objects overlapping the view's clip box.
-	const shown = (o: Prism | Wall | Conduit) => !view.clip || inClip(o, view.clip)
-	const pe = $derived(editable ? 'stroke' : 'none')
-	const selIdx = $derived(editable && sheet.selectedObj?.viewId === view.id ? sheet.selectedObj.index : null)
+	// Visible if it overlaps the section clip AND its layer isn't hidden.
+	const shown = (o: Obj) => (!view.clip || inClip(o, view.clip)) && !(m && sheet.isHidden(m, o))
+	// Index of the selected object — but not while its layer is locked (no handles).
+	const selIdx = $derived.by(() => {
+		if (!editable || sheet.selectedObj?.viewId !== view.id) return null
+		const i = sheet.selectedObj.index
+		const o = m?.objects[i]
+		return o && m && sheet.isLocked(m, o) ? null : i
+	})
 
 	// Sizes in screen px regardless of zoom (paper canvas vs maximized overlay).
 	const ppu = $derived(sheet.maximizedId === view.id ? sheet.mzoom : sheet.zoom)
@@ -113,13 +118,15 @@
 		{#each m.objects as o, i (i)}
 			{#if shown(o)}
 			{@const sel = sheet.isObjectSelected(view, i)}
-			{@const col = sel ? '#2563eb' : '#000000'}
+			{@const locked = !!m && sheet.isLocked(m, o)}
+				{@const col = sel ? '#2563eb' : (m ? sheet.colorOf(m, o) : '#000000')}
+				{@const objPe = editable && !locked ? 'stroke' : 'none'}
 			{@const sw = sel ? 0.8 : 0.4}
 			<g role="button" tabindex="-1" aria-label="object" style="cursor:move" onpointerdown={(e) => sheet.startObjectMove(e, view, i)}>
 				{#each project(o, view.direction, yaw, pitch, pivot.cx, pivot.cy) as s, si (si)}
 					{@const d = polyPoints(s)}
 					<!-- wide transparent hit area so thin lines are easy to click, then the visible line -->
-					<polyline points={d} fill="none" stroke="transparent" stroke-width={HIT} stroke-linejoin="round" stroke-linecap="round" style="pointer-events:{pe}" />
+					<polyline points={d} fill="none" stroke="transparent" stroke-width={HIT} stroke-linejoin="round" stroke-linecap="round" style="pointer-events:{objPe}" />
 					<polyline points={d} fill="none" stroke={col} stroke-width={sw} style="pointer-events:none" />
 				{/each}
 			</g>

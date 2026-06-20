@@ -4,6 +4,7 @@
 	import RacksViewport from './tools/racks/RacksViewport.svelte'
 	import RisersViewport from './tools/risers/RisersViewport.svelte'
 	import FillrateViewport from './tools/fillrate/FillrateViewport.svelte'
+	import Model3dViewport from './tools/model3d/Model3dViewport.svelte'
 	import { effectiveLayers } from './layers/layers'
 	import type { SheetViewport } from './types'
 	import type { ViewportEditor } from './viewports.svelte'
@@ -33,4 +34,6 @@
 	<RisersViewport {vp} {vps} {zoom} {active} {view} {onview} hidden={layers.hidden} locked={layers.locked} />
 {:else if vp.source.kind === 'fillrate'}
 	<FillrateViewport {vp} {view} {onview} />
+{:else if vp.source.kind === 'model3d'}
+	<Model3dViewport {vp} {vps} {zoom} {active} {view} {onview} hidden={layers.hidden} locked={layers.locked} />
 {/if}

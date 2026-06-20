@@ -1,4 +1,5 @@
 import type { PrintSettings, Point } from '$lib/ui/print/types'
+import type { Dir, Clip } from './tools/model3d/types'
 
 /**
  * A sheet = one sheet of paper (default A3 landscape) with a title block and a set of
@@ -90,6 +91,7 @@ export type ViewportSource =
 	| { kind: 'racks'; racksDocId: string; face: 'front' | 'rear' | 'plan'; rowId?: string; showWalls?: boolean; colorDevices?: boolean }
 	| { kind: 'risers'; risersDocId: string; fromFloor?: number; toFloor?: number }
 	| { kind: 'fillrate'; sectionId: string }   // a trunk cross-section from the fill-rate tool
+	| { kind: 'model3d'; modelId: number; direction: Dir; yaw?: number; pitch?: number; hiddenLines?: boolean; clip?: Clip }   // a projected 3D model
 
 /** A model-space annotation in the viewport's real-mm space.
  *  - Box kinds (text/rect/cloud/symbol/callout): x,y = top-left, w,h = size, rotation° about centre.

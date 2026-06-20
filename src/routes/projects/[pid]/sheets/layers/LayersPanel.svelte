@@ -56,8 +56,12 @@
 					<span class="inline-block h-3 w-3 shrink-0 rounded-sm" style:background={l.color}></span>
 					<button class="flex-1 truncate text-left {ov.hidden ? 'opacity-40' : ''}" title="Make active layer (new objects go here)" onclick={() => vps.setActiveLayer(l.id)}>{l.name}</button>
 					{#if active}<span class="text-[9px] font-semibold text-blue-600">ACTIVE</span>{/if}
-					<button class="px-0.5 leading-none {ov.hidden ? 'opacity-30' : ''}" title="Show / hide" onclick={() => vps.setLayerOverride(v.id, l.id, { hidden: !ov.hidden })}>👁</button>
-					<button class="px-0.5 leading-none {ov.locked ? 'text-red-600' : 'text-zinc-400'}" title="Lock / unlock" onclick={() => vps.setLayerOverride(v.id, l.id, { locked: !ov.locked })}>{ov.locked ? '🔒' : '🔓'}</button>
+					<button class="shrink-0 rounded p-0.5 text-zinc-600 hover:bg-zinc-100 {ov.hidden ? 'opacity-30' : ''}" title="Show / hide" onclick={() => vps.setLayerOverride(v.id, l.id, { hidden: !ov.hidden })}>
+						<Icon name={ov.hidden ? 'eyeSlash' : 'eye'} size={14} />
+					</button>
+					<button class="shrink-0 rounded p-0.5 hover:bg-zinc-100 {ov.locked ? 'text-red-600' : 'text-zinc-500'}" title="Lock / unlock" onclick={() => vps.setLayerOverride(v.id, l.id, { locked: !ov.locked })}>
+						<Icon name={ov.locked ? 'lock' : 'lockOpen'} size={14} />
+					</button>
 				</div>
 
 				{#each customByBase[l.id] ?? [] as c (c.id)}
@@ -83,8 +87,12 @@
 							{:else}
 								<button class="text-zinc-300 hover:text-red-500" title="Delete layer" onclick={() => confirmDelete = c.id}><Icon name="trash" size={11} /></button>
 							{/if}
-							<button class="px-0.5 leading-none {cov.hidden ? 'opacity-30' : ''}" title="Show / hide" onclick={() => vps.setLayerOverride(v.id, c.id, { hidden: !cov.hidden })}>👁</button>
-							<button class="px-0.5 leading-none {cov.locked ? 'text-red-600' : 'text-zinc-400'}" title="Lock / unlock" onclick={() => vps.setLayerOverride(v.id, c.id, { locked: !cov.locked })}>{cov.locked ? '🔒' : '🔓'}</button>
+							<button class="shrink-0 rounded p-0.5 text-zinc-600 hover:bg-zinc-100 {cov.hidden ? 'opacity-30' : ''}" title="Show / hide" onclick={() => vps.setLayerOverride(v.id, c.id, { hidden: !cov.hidden })}>
+								<Icon name={cov.hidden ? 'eyeSlash' : 'eye'} size={14} />
+							</button>
+							<button class="shrink-0 rounded p-0.5 hover:bg-zinc-100 {cov.locked ? 'text-red-600' : 'text-zinc-500'}" title="Lock / unlock" onclick={() => vps.setLayerOverride(v.id, c.id, { locked: !cov.locked })}>
+								<Icon name={cov.locked ? 'lock' : 'lockOpen'} size={14} />
+							</button>
 						{/if}
 					</div>
 				{/each}

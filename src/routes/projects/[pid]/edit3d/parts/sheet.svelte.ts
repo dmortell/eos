@@ -1,8 +1,9 @@
 import { tick } from 'svelte'
+import { nanoid } from 'nanoid'
 import { BASIS, PAPER, MIN_FRAME, type Axis, type Conduit, type Dir, type Prism, type View } from './types'
 import { moveAlong, roundObj, modelZRange, modelBounds, xyCenter, isoR, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 import { models as initialModels, initialViews } from './data'
-import type { Clip } from './types'
+import type { Clip, Layer, Model, Obj } from './types'
 
 /**
  * Reactive state + interaction logic for the A3 sheet.
@@ -186,6 +187,43 @@ export class Sheet {
 	}
 
 	togglePanel = (k: 'layers' | 'outlets' | 'trunks') => { this.panels[k] = !this.panels[k] }
+
+	// ---- Layers (model-scoped: color / visibility / lock) --------------
+	// The model whose layers the Layers panel edits (selected view's, else first).
+	get layerModel(): Model | null {
+		return (this.selected && this.modelFor(this.selected)) ?? this.models[0] ?? null
+	}
+
+	// The layer an object belongs to (falls back to the model's first layer).
+	objLayer(model: Model, o: Obj): Layer | null {
+		const ls = model.layers
+		if (!ls?.length) return null
+		return ls.find((l) => l.id === o.layer) ?? ls[0]
+	}
+	isHidden = (model: Model, o: Obj) => this.objLayer(model, o)?.visible === false
+	isLocked = (model: Model, o: Obj) => this.objLayer(model, o)?.locked === true
+	colorOf = (model: Model, o: Obj) => this.objLayer(model, o)?.color ?? '#000000'
+
+	addLayer = () => {
+		const m = this.layerModel
+		if (!m) return
+		m.layers ??= []
+		m.layers.push({ id: nanoid(6), name: `Layer ${m.layers.length + 1}`, color: '#111827', visible: true, locked: false })
+	}
+
+	removeLayer = (id: string) => {
+		const m = this.layerModel
+		if (!m?.layers || m.layers.length <= 1) return
+		m.layers = m.layers.filter((l) => l.id !== id)
+		const first = m.layers[0].id
+		m.objects.forEach((o) => { if (o.layer === id) o.layer = first }) // reassign orphans
+	}
+
+	// Assign the selected object (and any object selected in an active view) to a layer.
+	assignSelectedToLayer = (id: string) => {
+		const sel = this.selectedObject
+		if (sel) sel.obj.layer = id
+	}
 
 	// Insert a new viewport (a plan view of the selected view's model).
 	addViewport = (direction: View['direction'] = 'plan') => {

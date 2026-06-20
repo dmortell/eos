@@ -2,6 +2,10 @@ import { nanoid } from 'nanoid'
 import type { Firestore } from '$lib'
 import type { Sheet } from './sheet.svelte'
 import type { Model, View } from './types'
+import { models as defaultModels } from './data'
+
+// Bump when the seeded model schema changes; older docs get reseeded once.
+const SCHEMA = 2
 
 /**
  * Wire a Sheet to Firestore.
@@ -26,12 +30,12 @@ export function connectFirestore(sheet: Sheet, db: Firestore, pid: string) {
 			}
 			modelsLoaded = true
 		})
-		// Seed defaults only if the doc truly has none (server check, not cache).
+		// Seed (or migrate) defaults if the doc has none or predates the current
+		// schema. Reseeds from data.ts (server check, not cache).
 		db.getOne('drawings', pid).then((doc: any) => {
-			if (!doc?.models) {
-				const seed = $state.snapshot(sheet.models)
-				lastModels = JSON.stringify(seed)
-				db.save('drawings', { id: pid, models: seed })
+			if (!doc?.models || (doc.schemaVersion ?? 0) < SCHEMA) {
+				lastModels = JSON.stringify(defaultModels)
+				db.save('drawings', { id: pid, models: defaultModels, schemaVersion: SCHEMA })
 			}
 		})
 

@@ -31,8 +31,13 @@ export type Conduit = {
 	edges: number // 3..24
 }
 
-export type Obj = Prism | Wall | Conduit
-export type Model = { id: number; name: string; objects: Obj[] }
+// A drawing layer (model-scoped): controls object color, visibility and locking.
+export type Layer = { id: string; name: string; color: string; visible: boolean; locked: boolean }
+
+// Every object may belong to a layer (by id); unassigned objects fall back to
+// the model's first layer.
+export type Obj = (Prism | Wall | Conduit) & { layer?: string }
+export type Model = { id: number; name: string; objects: Obj[]; layers?: Layer[] }
 
 // ---- Views ------------------------------------------------------------
 // View projection. Five orthographic directions + an isometric 3D view.
