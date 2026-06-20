@@ -46,7 +46,7 @@
 					</select>
 				</label>
 				<div class="grid grid-cols-3 gap-1">
-					<button class="whitespace-nowrap rounded border px-1 py-0.5 hover:bg-slate-100" onclick={() => editor.startPlacing('prism')}>＋Prism</button>
+					<button class="whitespace-nowrap rounded border px-1 py-0.5 hover:bg-slate-100" onclick={() => editor.startPlacing('prism')}>＋Cuboid</button>
 					<button class="whitespace-nowrap rounded border px-1 py-0.5 hover:bg-slate-100" onclick={() => editor.startPlacing('wall')}>＋Wall</button>
 					<button class="whitespace-nowrap rounded border px-1 py-0.5 hover:bg-slate-100" onclick={() => editor.startPlacing('conduit')}>＋Conduit</button>
 				</div>
@@ -63,7 +63,7 @@
 
 	{#if obj}
 		<div class="space-y-1 text-xs">
-			<div class="mb-1 font-semibold capitalize">{obj.type}</div>
+			<div class="mb-1 font-semibold capitalize">{obj.type === 'prism' ? 'Cuboid' : obj.type}</div>
 			<!-- touch-friendly actions (mouse also has ctrl-drag + Ctrl+D/C/X/V) -->
 			<div class="mb-1 flex flex-wrap gap-1">
 				<button class="rounded border px-1.5 py-0.5 hover:bg-slate-100" title="Duplicate (Ctrl+D)" onclick={() => editor.duplicateSel()}>Duplicate</button>

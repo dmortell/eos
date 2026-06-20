@@ -3,7 +3,7 @@
 	import Model3dRender from './Model3dRender.svelte'
 	import Model3dEditLayer from './Model3dEditLayer.svelte'
 	import { Model3dEditor } from './model3d-editor.svelte'
-	import { project, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
+	import { project, objBounds, xyCenter, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 	import { BASIS, DIR_LABEL, type Dir, type Model } from './types'
 	import type { ModelStore } from './models.svelte'
 
@@ -14,8 +14,18 @@
 		model: Model; store: ModelStore; selIndex: number | null; direction?: Dir
 	} = $props()
 
-	const ELEV: Dir[] = ['front', 'rear', 'left', 'right']
+	const ELEV: Dir[] = ['front', 'rear', 'left', 'right', 'iso']
 	const sel = $derived(selIndex !== null ? model.objects[selIndex] ?? null : null)
+
+	// Depth cull: only render objects within a band around the selection's depth, so
+	// items far in front of / behind the selection don't clutter the elevation. The
+	// in-plane axes are unbounded (huge); the depth axis is the selection ± margin.
+	const depthClip = $derived.by(() => {
+		if (!sel || direction === 'iso') return null
+		const bb = objBounds(sel), M = 600, BIG = 1e7
+		if (direction === 'front' || direction === 'rear') return { x0: -BIG, x1: BIG, y0: bb.y0 - M, y1: bb.y1 + M, z0: -BIG, z1: BIG }
+		return { x0: bb.x0 - M, x1: bb.x1 + M, y0: -BIG, y1: BIG, z0: -BIG, z1: BIG } // left/right: depth = x
+	})
 
 	const ed = new Model3dEditor()
 	$effect(() => { ed.model = model; ed.direction = direction; ed.onChange = () => store.save() })
@@ -25,9 +35,9 @@
 	// so you can drag against FFL / ceiling.
 	const view = $derived.by(() => {
 		if (!sel) return null
-		const b = BASIS[direction]
+		const b = BASIS[direction], piv = xyCenter(model.objects)
 		let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity
-		for (const s of project(sel, direction, DEFAULT_YAW, DEFAULT_PITCH, 0, 0))
+		for (const s of project(sel, direction, DEFAULT_YAW, DEFAULT_PITCH, piv.cx, piv.cy))
 			for (const p of s.pts) { x0 = Math.min(x0, p.u); x1 = Math.max(x1, p.u); y0 = Math.min(y0, -p.v); y1 = Math.max(y1, -p.v) }
 		if (x0 === Infinity) return null
 		const lv = model.levels ? Object.values(model.levels).filter((z): z is number => z != null) : []
@@ -49,8 +59,10 @@
 			{/each}
 		</div>
 		<div class="relative h-44 w-full overflow-hidden rounded border border-zinc-200 bg-white">
-			<Model3dRender {model} {direction} {view} vp={fakeVp} hiddenLines={false} bw={false} onsvg={(el) => (ed.svg = el)}>
-				<Model3dEditLayer editor={ed} {model} {direction} interactive={true} zoom={1} />
+			<Model3dRender {model} {direction} {view} clip={depthClip} vp={fakeVp} hiddenLines={direction === 'iso'} bw={false} onsvg={(el) => (ed.svg = el)}>
+				{#if direction !== 'iso'}
+					<Model3dEditLayer editor={ed} {model} {direction} interactive={true} zoom={1} />
+				{/if}
 			</Model3dRender>
 		</div>
 		<p class="mt-1 text-[10px] text-zinc-400">Drag the top edge to set height. Datums = floor/ceiling levels.</p>
