@@ -33,7 +33,7 @@
 	// Hairline stroke: non-scaling-stroke keeps the width in SVG-element px, but the
 	// canvas CSS-scales the <svg> by `zoom`, so divide by zoom for a constant ~0.8px
 	// on-screen line at any zoom (AutoCAD-style — lines never thicken when you zoom).
-	const sw = $derived(0.8 / zoom)
+	const sw = $derived(1.6 / zoom)
 
 	const layerColor = (o: Obj) => bw ? '#000000' : (model.layers?.find((l) => l.id === o.layer)?.color ?? '#111827')
 	// Visibility is per-viewport (layerOverrides), so the same model can show

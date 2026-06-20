@@ -2,11 +2,14 @@
 	import { Window, Icon } from '$lib'
 	import type { Model3dEditor } from './model3d-editor.svelte'
 	import type { CondSeg, Model, WallSeg } from './types'
+	import type { AnnotationEditor } from '../../annotations/annotations.svelte'
+	import AnnotationControls from '../../edit/AnnotationControls.svelte'
 
 	// Floating editor for the selected object in an active model3d viewport:
 	// numeric properties, a per-segment list (walls/conduits), and layer
 	// assignment. Edits go through editor.notify() so they persist + record undo.
-	let { editor, model }: { editor: Model3dEditor; model: Model } = $props()
+	// `annEditor`/`tool` add the shared annotation toolbar + property editor.
+	let { editor, model, annEditor, tool = $bindable('select') }: { editor: Model3dEditor; model: Model; annEditor: AnnotationEditor; tool?: string } = $props()
 
 	const obj = $derived(editor.selIndex !== null ? model.objects[editor.selIndex] ?? null : null)
 	const idx = $derived(editor.selIndex ?? 0)
@@ -46,6 +49,11 @@
 		{/if}
 		<hr class="mb-1 border-zinc-200" />
 	{/if}
+
+	<!-- Annotations: shared toolbar (Select / +Text / +Line / +Rect …) + property editor -->
+	<AnnotationControls bind:tool editor={annEditor} showSelect={true} />
+	<hr class="my-1 border-zinc-200" />
+
 	{#if obj}
 		<div class="space-y-1 text-xs">
 			<div class="mb-1 font-semibold capitalize">{obj.type}</div>

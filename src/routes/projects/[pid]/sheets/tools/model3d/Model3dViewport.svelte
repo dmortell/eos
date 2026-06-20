@@ -12,7 +12,12 @@
 	import Model3dEditLayer from './Model3dEditLayer.svelte'
 	import Model3dUnderlayImage from './Model3dUnderlayImage.svelte'
 	import Model3dEditPanel from './Model3dEditPanel.svelte'
+	import AnnotationLayer from '../../annotations/AnnotationLayer.svelte'
+	import EditBackground from '../../edit/EditBackground.svelte'
+	import { useAnnotations } from '../../edit/annotations.svelte'
 	// (model layers now live in the shared sheet Layers window)
+
+	const ANN_TOOLS = ['text', 'line', 'rect', 'arrow', 'ellipse', 'cloud', 'symbol', 'callout', 'dimension', 'image']
 
 	// Host for a `model3d` viewport source: resolves the referenced 3D model and
 	// renders its projection; when active, mounts the geometry edit layer.
@@ -43,6 +48,16 @@
 	$effect(() => { editor.model = model; editor.direction = src?.direction ?? 'plan'; editor.layerOverrides = vp.layerOverrides ?? {} })
 	$effect(() => { if (!active) { editor.clearSel(); editor.cancelPlacing() } })
 
+	// Annotations (shared sheet system): text/line/rect to start. Stored on the
+	// viewport (vp.annotations), drawn in the render's real-mm space. `tool` is the
+	// unified mode — 'select' lets the geometry editor work; an annotation tool
+	// routes clicks to placement via EditBackground.
+	let tool = $state('select')
+	let viewDen = $state(1)
+	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor })
+	annEditor.onPlaced = () => (tool = 'select') // back to Select so the new annote shows handles
+	$effect(() => { if (!active) { annEditor.clearSel(); tool = 'select' } })
+
 	// Undo/redo over the model *geometry* only (objects). Layer definitions and
 	// underlays are edited through other save paths (Layers window / properties),
 	// so keeping them out of the snapshot avoids geometry-undo clobbering them.
@@ -72,11 +87,19 @@
 			const mod = e.ctrlKey || e.metaKey
 			if (mod && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); e.stopPropagation(); if (e.shiftKey) history.redo(); else history.undo(); return }
 			if (mod && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); e.stopPropagation(); history.redo(); return }
+			// Annotation selection takes precedence for clipboard/delete when one is selected.
+			const annSel = annEditor.selAnn || annEditor.hasMultiSel()
+			if (mod && (e.key === 'c' || e.key === 'C') && annSel) { e.preventDefault(); e.stopPropagation(); annEditor.copySel(); return }
+			if (mod && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); e.stopPropagation(); annEditor.paste(); return }
+			if (mod && (e.key === 'd' || e.key === 'D') && annSel) { e.preventDefault(); e.stopPropagation(); annEditor.duplicateSel(); return }
 			if (mod && (e.key === 'd' || e.key === 'D')) { e.preventDefault(); e.stopPropagation(); editor.duplicateSel(); return }
 			if (mod && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); e.stopPropagation(); editor.copySel(); return }
 			if (mod && (e.key === 'x' || e.key === 'X')) { e.preventDefault(); e.stopPropagation(); editor.cutSel(); return }
-			if (mod && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); e.stopPropagation(); editor.paste(); return }
-			if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); e.stopPropagation(); editor.deleteSel() }
+			if (e.key === 'Escape' && tool !== 'select') { e.preventDefault(); e.stopPropagation(); tool = 'select'; return }
+			if (e.key === 'Delete' || e.key === 'Backspace') {
+				e.preventDefault(); e.stopPropagation()
+				if (annSel) annEditor.deleteSel(); else editor.deleteSel()
+			}
 		}
 		window.addEventListener('keydown', onKey, true)
 		return () => window.removeEventListener('keydown', onKey, true)
@@ -91,8 +114,8 @@
 		pitch={src.pitch}
 		hiddenLines={src.hiddenLines ?? true}
 		bw={src.bw ?? false}
-		{zoom} {vp} {view} {onview}
-		onsvg={(el) => (editor.svg = el)}
+		{zoom} {vp} {view} onview={(v) => { viewDen = v.den || 1; onview?.(v) }}
+		onsvg={(el) => { editor.svg = el; annEditor.svg = el }}
 	>
 		{#snippet pre()}
 			{#if !(vp.layerOverrides?.['background']?.hidden)}
@@ -101,13 +124,19 @@
 				{/each}
 			{/if}
 		{/snippet}
-		{#if active}
-			<Model3dEditLayer {editor} {model} direction={src.direction} interactive={true} {zoom} />
+		{#if active && ANN_TOOLS.includes(tool)}
+			<!-- annotation draw-capture (only while an annotation tool is armed) -->
+			<EditBackground {tool} {annEditor} toolEditor={editor} />
 		{/if}
+		{#if active}
+			<Model3dEditLayer {editor} {model} direction={src.direction} interactive={tool === 'select'} {zoom} />
+		{/if}
+		<!-- annotations render in real-mm; interactive (select/move) only in Select mode -->
+		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} {hidden} {locked} den={viewDen} />
 	</Model3dRender>
 	{#if active}
 		<!-- portalled out of the zoomed canvas so the panels render at normal size -->
-		<div use:portal><Model3dEditPanel {editor} {model} /></div>
+		<div use:portal><Model3dEditPanel {editor} {model} {annEditor} bind:tool /></div>
 	{/if}
 {:else}
 	<div class="flex h-full w-full items-center justify-center text-zinc-400 print:hidden" style:font-size="{14 / zoom}px">
