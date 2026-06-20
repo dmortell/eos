@@ -117,10 +117,37 @@ export class AnnotationEditor extends SurfaceEditor {
 	 *   false → move only the box, leaving the arrow tip anchored — used when grabbing the box.
 	 * For line kinds (line/arrow/dimension) x2,y2 are the far end, so they always travel.
 	 */
+	// Ctrl/⌘-click toggles an annotation in/out of the selection; 1 left → single select.
+	toggleAnnSel(id: string) {
+		const cur = new Set(this.selAnns.length ? this.selAnns : this.selAnn ? [this.selAnn.id] : [])
+		if (cur.has(id)) cur.delete(id); else cur.add(id)
+		const arr = [...cur]
+		if (arr.length <= 1) { this.selAnns = []; if (arr.length) this.select('ann', arr[0]); else this.clearSel() }
+		else { this.clearSel(); this.selAnns = arr }
+		this.notify()
+	}
 	move(a: Annotation, e0: MouseEvent, movePointer = true) {
-		if (e0.ctrlKey || e0.metaKey) a = this.push({ ...a, id: this.uid('a') }) // duplicate the proxy
-		else if (this.selAnns.includes(a.id)) { this.beginGroupDrag(e0); return } // part of a marquee → move whole group
-		else { this.clearMulti(); this.peer?.clearMulti() }
+		if (e0.ctrlKey || e0.metaKey) {
+			// Defer: a real drag duplicates (ctrl-drag); a click that doesn't move toggles selection.
+			const sx = e0.clientX, sy = e0.clientY
+			let ann = a, started = false, w0 = this.toWorld(e0)
+			let o = { x: a.x, y: a.y, x2: a.x2, y2: a.y2 }
+			this.startDrag(e => {
+				if (!started) {
+					if (Math.hypot(e.clientX - sx, e.clientY - sy) < 3) return
+					started = true
+					ann = this.push({ ...a, id: this.uid('a') }); this.select('ann', ann.id) // duplicate the proxy
+					o = { x: ann.x, y: ann.y, x2: ann.x2, y2: ann.y2 }; w0 = this.toWorld(e0)
+				}
+				const w = this.toWorld(e); if (!w || !w0) return
+				const dx = w.x - w0.x, dy = w.y - w0.y
+				ann.x = o.x + dx; ann.y = o.y + dy
+				if (movePointer && o.x2 != null) { ann.x2 = o.x2 + dx; ann.y2 = (o.y2 ?? 0) + dy }
+			}, () => { if (!started) this.toggleAnnSel(a.id); this.notify() })
+			return
+		}
+		if (this.selAnns.includes(a.id)) { this.beginGroupDrag(e0); return } // part of a marquee → move whole group
+		this.clearMulti(); this.peer?.clearMulti()
 		this.select('ann', a.id)
 		const w0 = this.toWorld(e0); if (!w0) return
 		const o = { x: a.x, y: a.y, x2: a.x2, y2: a.y2 }

@@ -102,20 +102,21 @@
 				{@const mt = o.mount ?? 'box'}
 				{@const low = (o.level ?? 'low') === 'low'}
 				{@const sw = low ? 0.5 : 1}
-				<!-- equilateral triangle, circumradius tR (~20% smaller than before). The
-				     circle is its circumcircle and the square wraps its width, so both
-				     containers touch the triangle's vertices. -->
+				<!-- equilateral triangle pointing DOWN, circumradius tR (~20% smaller). The
+				     circle is its circumcircle and the square wraps its width. Container +
+				     triangle are filled with the layer colour; the triangle keeps a white
+				     edge + white port count so it stays legible on the filled container. -->
 				{@const tR = R * 0.62}
 				{@const hw = tR * 0.866}
-				{@const tri = `M${cx},${cy - tR} L${cx - hw},${cy + tR * 0.5} L${cx + hw},${cy + tR * 0.5} Z`}
+				{@const tri = `M${cx},${cy + tR} L${cx - hw},${cy - tR * 0.5} L${cx + hw},${cy - tR * 0.5} Z`}
 				{#if mt === 'floor'}
-					<rect x={cx - hw} y={cy - tR * 0.25 - hw} width={hw * 2} height={hw * 2} fill={low ? 'white' : 'none'} stroke={color} stroke-width={sw} vector-effect="non-scaling-stroke" />
+					<rect x={cx - hw} y={cy + tR * 0.25 - hw} width={hw * 2} height={hw * 2} fill={color} fill-opacity={low ? 0.85 : 0.4} stroke={color} stroke-width={sw} vector-effect="non-scaling-stroke" />
 				{:else if mt === 'box'}
-					<circle cx={cx} cy={cy} r={tR} fill={low ? 'white' : 'none'} stroke={color} stroke-width={sw} vector-effect="non-scaling-stroke" />
+					<circle cx={cx} cy={cy} r={tR} fill={color} fill-opacity={low ? 0.85 : 0.4} stroke={color} stroke-width={sw} vector-effect="non-scaling-stroke" />
 				{/if}
-				<path d={tri} fill={low ? color : 'none'} fill-opacity={low ? 0.18 : undefined} stroke={color} stroke-width={sw} vector-effect="non-scaling-stroke" stroke-linejoin="round" />
-				<!-- ports count, in the triangle -->
-				<text x={cx} y={cy + tR * 0.15} font-size={tR * 0.7} fill={color} text-anchor="middle" dominant-baseline="middle" font-weight="600">{o.ports ?? 2}</text>
+				<path d={tri} fill={color} stroke="white" stroke-width={sw} vector-effect="non-scaling-stroke" stroke-linejoin="round" />
+				<!-- ports count, in the (wide, upper) part of the down-triangle -->
+				<text x={cx} y={cy - tR * 0.1} font-size={tR * 0.66} fill="white" text-anchor="middle" dominant-baseline="middle" font-weight="600">{o.ports ?? 2}</text>
 				<!-- label above -->
 				{#if o.label}<text x={cx} y={cy - R * 0.92} font-size={R * 0.5} fill={color} text-anchor="middle">{o.label}</text>{/if}
 				<!-- usage abbrev below (blank for network) -->

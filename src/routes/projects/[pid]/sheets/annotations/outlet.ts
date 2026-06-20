@@ -1,34 +1,22 @@
-// Outlet-annotation option lists + defaults (ported from the Outlets tool). The
-// usage/cable lists are defaults; the controls also allow free text so they're
-// effectively user-customizable per outlet. `abbr` is the code drawn below the
-// symbol (empty for 'network', which stays unlabelled).
-export const OUTLET_USAGE = [
-	{ value: 'network', label: 'Network', abbr: '' },
-	{ value: 'phone', label: 'Phone', abbr: 'TEL' },
-	{ value: 'av', label: 'TV / AV', abbr: 'AV' },
-	{ value: 'printer', label: 'Printer', abbr: 'PRT' },
-	{ value: 'security', label: 'Security', abbr: 'SEC' },
-	{ value: 'ap', label: 'WiFi AP', abbr: 'AP' },
-	{ value: 'rb', label: 'Room Booking', abbr: 'RB' },
-	{ value: 'mep', label: 'MEP / BMS', abbr: 'MEP' },
-	{ value: 'new', label: 'New', abbr: 'NEW' },
-]
-export const OUTLET_CABLE = [
-	{ value: 'cat6a', label: 'Cat6a' }, { value: 'cat6', label: 'Cat6' }, { value: 'cat5e', label: 'Cat5e' },
-	{ value: 'fiber-sm', label: 'Fibre (SM)' }, { value: 'fiber-mm', label: 'Fibre (MM)' },
-]
-export const OUTLET_MOUNT = [
-	{ value: 'box', label: 'Rosette' }, { value: 'wall', label: 'Wallmount' }, { value: 'floor', label: 'Floorbox' },
-] as const
+// Outlet-annotation option lists + defaults, derived from the Outlets tool's
+// canonical constants (single source of truth) so usage/cable/mount stay in sync.
+// The controls render these as datalists, so they're also free-text (customizable).
+import { USAGE_COLORS, CABLE_COLORS, MOUNT_LABELS, OUTLET_DEFAULTS as OD } from '../../outlets/parts/constants'
+
+export const OUTLET_USAGE = Object.entries(USAGE_COLORS).map(([value, v]) => ({ value, label: v.label }))
+export const OUTLET_CABLE = Object.entries(CABLE_COLORS).map(([value, v]) => ({ value, label: v.label }))
+export const OUTLET_MOUNT = Object.entries(MOUNT_LABELS).map(([value, label]) => ({ value, label }))
 
 // Usage abbreviation drawn below the symbol; '' (network) draws nothing.
+const USAGE_ABBR: Record<string, string> = {
+	network: '', new: 'NEW', phone: 'TEL', av: 'AV', printer: 'PRT', security: 'SEC', mep: 'MEP', ap: 'AP', rb: 'RB',
+}
 export const usageAbbr = (v?: string) => {
-	const found = OUTLET_USAGE.find((u) => u.value === v)
-	if (found) return found.abbr
-	return v && v !== 'network' ? v.toUpperCase().slice(0, 4) : ''
+	if (!v || v === 'network') return ''
+	return USAGE_ABBR[v] ?? v.toUpperCase().slice(0, 4)
 }
 
-export const OUTLET_DEFAULTS = { ports: 2, level: 'low' as const, usage: 'network', mount: 'box' as const, cable: 'cat6a' }
+export const OUTLET_DEFAULTS = { ports: OD.portCount, level: OD.level, usage: OD.usage, mount: OD.mountType, cable: OD.cableType }
 
 // Default layer (by level) an outlet annotation files under.
 export const outletLayerName = (level?: string) => (level === 'high' ? 'Outlets High' : 'Outlets Low')

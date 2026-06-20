@@ -123,25 +123,54 @@ export class Model3dEditor extends SurfaceEditor {
 		toast.warning(`Layer “${name}” is locked — unlock it in the Layers window to edit`)
 	}
 
+	// Ctrl/⌘-click toggles an object in/out of the selection set. A 1-item result
+	// becomes a normal single selection (handles + property editor).
+	toggleMulti(i: number) {
+		const set = new Set(this.multi.length ? this.multi : this.selIndex !== null ? [this.selIndex] : [])
+		if (set.has(i)) set.delete(i); else set.add(i)
+		const arr = [...set]
+		super.clearSel(); this.vsel = null; this.usel = null
+		if (arr.length === 1) this.selectObj(arr[0]); else this.multi = arr
+	}
+
 	// ── object move (drag in the projected plane, whole-mm steps) ──
 	startObjMove = (e: MouseEvent, index: number) => {
 		if (e.button !== 0) return // right/middle bubble up so the canvas pans
 		e.stopPropagation()
 		if (!this.objects[index]) return
 		if (this.blockedByLock(this.objects[index])) return
-		const dup = e.ctrlKey || e.metaKey // ctrl/⌘-drag duplicates the selection
-		if (this.inMulti(index)) {
-			if (dup) this.duplicateMulti()
-			this.beginGroupDrag(e); return // drag the (possibly cloned) marquee group
-		}
-		if (dup) index = this.duplicateOne(index) // drag the CLONE, leaving the original
-		const o = this.objects[index] // re-fetch after a possible duplicate
-		this.selectObj(index); this.vsel = null
 		const b = BASIS[this.direction]
 		const s = this.at(e); if (!s) return
+
+		if (e.ctrlKey || e.metaKey) {
+			// Defer the decision: a real drag duplicates (ctrl-drag); a click that doesn't
+			// move toggles this object in/out of the selection (ctrl-click).
+			const w0 = this.toWorld(e), sx = e.clientX, sy = e.clientY
+			let phase: 'pending' | 'group' | 'single' = 'pending'
+			let o: Obj | null = null, idx = index, ah = 0, av = 0
+			this.startDrag((ev) => {
+				if (phase === 'pending') {
+					if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < 3) return
+					if (this.inMulti(idx)) { this.duplicateMulti(); this.beginGroupTranslate(); phase = 'group' }
+					else { idx = this.duplicateOne(idx); o = this.objects[idx]; this.selectObj(idx); this.vsel = null; phase = 'single' }
+				}
+				if (phase === 'group') { const w = this.toWorld(ev); if (w && w0) this.applyGroupTranslate(w.x - w0.x, w.y - w0.y) }
+				else if (o) {
+					const c = this.at(ev); if (!c) return
+					let dh = Math.round(c.ch - s.ch), dv = Math.round(c.cv - s.cv)
+					if (ev.shiftKey) { if (Math.abs(dh) >= Math.abs(dv)) dv = 0; else dh = 0 }
+					moveAlong(o, b.h, dh - ah); moveAlong(o, b.v, dv - av); ah = dh; av = dv
+				}
+			}, () => { if (phase === 'pending') this.toggleMulti(index); this.notify() })
+			return
+		}
+
+		if (this.inMulti(index)) { this.beginGroupDrag(e); return } // drag the marquee group
+		this.selectObj(index); this.vsel = null
 		let ah = 0, av = 0
 		this.startDrag((ev) => {
 			const c = this.at(ev); if (!c) return
+			const o = this.objects[index]
 			let dh = Math.round(c.ch - s.ch), dv = Math.round(c.cv - s.cv)
 			if (ev.shiftKey) { if (Math.abs(dh) >= Math.abs(dv)) dv = 0; else dh = 0 } // Shift = lock to horizontal / vertical
 			moveAlong(o, b.h, dh - ah); moveAlong(o, b.v, dv - av)
