@@ -180,8 +180,12 @@
 		{#if sel.symbol === 'door'}
 			<PropCheck label="Flip" value={!!sel.flip} onchange={(e: Event) => editor.setSel({ flip: (e.currentTarget as HTMLInputElement).checked })} />
 		{/if}
+		{#if sel.symbol === 'elevation'}
+			<!-- viewport no./letter shown in the pointer; rotate the tag to aim it -->
+			<PropText label="Viewport" value={sel.text ?? ''} oninput={(e: Event) => editor.setSel({ text: val(e) })} />
+		{/if}
 		{#if def?.linkable === 'drawing'}
-			<PropText label="Ref" value={sel.link?.ref ?? ''} oninput={(e: Event) => editor.setLink({ kind: 'drawing', ref: val(e) })} />
+			<PropText label={sel.symbol === 'elevation' ? 'Drawing no.' : 'Ref'} value={sel.link?.ref ?? ''} oninput={(e: Event) => editor.setLink({ kind: 'drawing', ref: val(e) })} />
 			{#if links?.sheets?.length}
 				<PropSelect label="Sheet" value={sel.link?.sheetId ?? ''} onchange={(e: Event) => editor.setLink({ kind: 'drawing', sheetId: val(e) })}>
 					<option value="">— sheet —</option>
