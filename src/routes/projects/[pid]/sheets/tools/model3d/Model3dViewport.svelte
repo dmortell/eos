@@ -114,6 +114,7 @@
 		pitch={src.pitch}
 		hiddenLines={src.hiddenLines ?? true}
 		bw={src.bw ?? false}
+		clip={src.clip ?? null}
 		{zoom} {vp} {view} onview={(v) => { viewDen = v.den || 1; onview?.(v) }}
 		onsvg={(el) => { editor.svg = el; annEditor.svg = el }}
 	>

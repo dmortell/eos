@@ -1,19 +1,20 @@
 <script lang="ts">
 	import type { SheetViewport } from '../../types'
-	import type { Dir, Model, Obj } from './types'
-	import { project, faces3d, isoR, isoDepthR, xyCenter, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
+	import type { Clip, Dir, Model, Obj } from './types'
+	import { project, faces3d, isoR, isoDepthR, xyCenter, inClip, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 
 	// Read-only projection of a 3D model into a sheet viewport, drawn in real mm so
 	// the viewport's scale (1:N) prints true to size — same contract as the other
 	// tool renders (compute content `bounds`, derive viewBox from vp.scale /
 	// contentOffsetMm, report the effective view + scale denominator via `onview`).
-	let { model, direction, yaw, pitch, hiddenLines = true, bw = false, zoom = 1, vp, view = null, onview, onsvg, pre, children }: {
+	let { model, direction, yaw, pitch, hiddenLines = true, bw = false, clip = null, zoom = 1, vp, view = null, onview, onsvg, pre, children }: {
 		model: Model
 		direction: Dir
 		yaw?: number
 		pitch?: number
 		hiddenLines?: boolean
 		bw?: boolean
+		clip?: Clip | null // section box: cull objects outside it + frame to it
 		zoom?: number
 		vp: SheetViewport
 		view?: { x: number; y: number; w: number; h: number } | null
@@ -38,8 +39,21 @@
 	const layerColor = (o: Obj) => bw ? '#000000' : (model.layers?.find((l) => l.id === o.layer)?.color ?? '#111827')
 	// Visibility is per-viewport (layerOverrides), so the same model can show
 	// different layers in different viewports (plan vs elevation, etc.).
-	const isVisible = (o: Obj) => !(vp.layerOverrides?.[o.layer ?? '']?.hidden)
+	const isVisible = (o: Obj) => !(vp.layerOverrides?.[o.layer ?? '']?.hidden) && (!clip || inClip(o, clip))
 	const shown = $derived(model.objects.filter(isVisible))
+
+	// Section framing: project the clip box's 8 corners so the elevation frames to
+	// the cut region (consistent front/side framing), not just the objects in it.
+	const clipBounds = $derived.by(() => {
+		if (!clip) return null
+		const xs = [clip.x0, clip.x1], ys = [clip.y0, clip.y1], zs = [clip.z0, clip.z1]
+		let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity
+		for (const x of xs) for (const y of ys) for (const z of zs) {
+			const [s] = project({ type: 'prism', x, y, z, w: 0, d: 0, h: 0, edges: 4 } as Obj, direction, yawE, pitchE, pivot.cx, pivot.cy)
+			for (const p of s.pts) { x0 = Math.min(x0, p.u); x1 = Math.max(x1, p.u); y0 = Math.min(y0, -p.v); y1 = Math.max(y1, -p.v) }
+		}
+		return { x0, x1, y0, y1 }
+	})
 
 	// Per-object projected outlines (used in every mode + for bounds).
 	const drawn = $derived(shown.map((o) => ({ color: layerColor(o), shapes: project(o, direction, yawE, pitchE, pivot.cx, pivot.cy) })))
@@ -58,7 +72,8 @@
 	// Content bounds (mm) from all projected points, in SVG (x, -v) space.
 	const bounds = $derived.by(() => {
 		let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity
-		for (const d of drawn) for (const s of d.shapes) for (const p of s.pts) {
+		if (clipBounds) ({ x0, x1, y0, y1 } = clipBounds) // frame to the section box
+		else for (const d of drawn) for (const s of d.shapes) for (const p of s.pts) {
 			x0 = Math.min(x0, p.u); x1 = Math.max(x1, p.u)
 			y0 = Math.min(y0, -p.v); y1 = Math.max(y1, -p.v)
 		}

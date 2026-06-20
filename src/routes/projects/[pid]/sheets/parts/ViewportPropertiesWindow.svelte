@@ -14,7 +14,9 @@
 	import RisersProperties from '../tools/risers/RisersProperties.svelte'
 	import Model3dProperties from '../tools/model3d/Model3dProperties.svelte'
 	import type { RackFace } from '../tools/racks/types'
-	import type { Dir } from '../tools/model3d/types'
+	import type { Dir, Clip } from '../tools/model3d/types'
+	import { modelStore } from '../tools/model3d/models.svelte'
+	import { modelBounds } from '../tools/model3d/projection'
 
 	let { vps, floors = [], pid }: {
 		vps: ViewportEditor
@@ -52,7 +54,7 @@
 		racksDocId: '', racksFace: 'front' as RackFace, racksRowId: '', racksShowWalls: false, racksColorDevices: true,
 		risersFrom: 0, risersTo: 0,
 		fillrateSectionId: '',
-		modelId: 1, modelDir: 'plan' as Dir, modelHidden: true, modelBw: false,
+		modelId: 1, modelDir: 'plan' as Dir, modelHidden: true, modelBw: false, modelClip: null as Clip | null,
 	})
 	let syncedId: string | null = null
 	$effect(() => {
@@ -83,6 +85,7 @@
 				modelDir: s.kind === 'model3d' ? s.direction : 'plan',
 				modelHidden: s.kind === 'model3d' ? (s.hiddenLines ?? true) : true,
 				modelBw: s.kind === 'model3d' ? (s.bw ?? false) : false,
+				modelClip: s.kind === 'model3d' ? (s.clip ?? null) : null,
 			}
 		})
 	})
@@ -118,6 +121,14 @@
 		vps.notify()
 	}
 
+	// Default section box = the current model's full bounds (a touch padded), so the
+	// user starts from the whole model and shrinks the box around the area of interest.
+	function modelClipDefault(): Clip {
+		const m = modelStore(db, pid).models.find((x) => x.id === form.modelId)
+		const b = m ? modelBounds(m.objects) : null
+		return b ?? { x0: 0, y0: 0, z0: 0, x1: 1000, y1: 1000, z1: 1000 }
+	}
+
 	function buildSource(): ViewportSource {
 		if (form.kind === 'text') return { kind: 'text', content: form.text, fontSizePt: Number(form.fontSizePt) || 6 }
 		if (form.kind === 'outlets') {
@@ -131,7 +142,7 @@
 		}
 		if (form.kind === 'risers') return { kind: 'risers', risersDocId: pid, fromFloor: form.risersFrom, toFloor: form.risersTo }
 		if (form.kind === 'fillrate') return { kind: 'fillrate', sectionId: form.fillrateSectionId }
-		if (form.kind === 'model3d') return { kind: 'model3d', modelId: form.modelId, direction: form.modelDir, hiddenLines: form.modelHidden, bw: form.modelBw }
+		if (form.kind === 'model3d') return { kind: 'model3d', modelId: form.modelId, direction: form.modelDir, hiddenLines: form.modelHidden, bw: form.modelBw, clip: form.modelClip ?? undefined }
 		return { kind: 'empty' }
 	}
 </script>
@@ -182,6 +193,21 @@
 				<hr class="border-zinc-200" />
 				<Model3dProperties {pid} modelId={form.modelId} direction={form.modelDir} hiddenLines={form.modelHidden} bw={form.modelBw}
 					onchange={(p) => { form.modelId = p.modelId; form.modelDir = p.direction; form.modelHidden = p.hiddenLines; form.modelBw = p.bw; apply() }} />
+				<!-- Section: clip the model to a box (cull outside + frame to it) for cropped elevations -->
+				<hr class="border-zinc-200" />
+				<PropCheck label="Section" value={!!form.modelClip}
+					onchange={(e: Event) => { form.modelClip = (e.currentTarget as HTMLInputElement).checked ? (form.modelClip ?? modelClipDefault()) : null; apply() }} />
+				{#if form.modelClip}
+					{@const c = form.modelClip}
+					<div class="grid grid-cols-2 gap-1 text-xs">
+						{#each [['x0','X min'],['x1','X max'],['y0','Y min'],['y1','Y max'],['z0','Z min'],['z1','Z max']] as const as [k, lbl] (k)}
+							<label class="flex items-center gap-1"><span class="w-10 text-zinc-400">{lbl}</span>
+								<input type="number" class="w-full rounded border px-1 py-0.5" value={c[k]}
+									oninput={(e) => { form.modelClip = { ...c, [k]: Number((e.currentTarget as HTMLInputElement).value) }; apply() }} /></label>
+						{/each}
+					</div>
+					<button class="rounded border px-1.5 py-0.5 text-xs hover:bg-slate-100" onclick={() => { form.modelClip = modelClipDefault(); apply() }}>Reset to model bounds</button>
+				{/if}
 			{:else if form.kind === 'fillrate'}
 			<hr class="border-zinc-200" />
 			{#if fillrateSections.length}
