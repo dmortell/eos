@@ -104,15 +104,24 @@
 				<rect x={cx - ps / 2} y={cy - ph * 0.3} width={ps} height={ps} fill={color} fill-opacity="0.55" stroke={color} stroke-width=".1" vector-effect="non-scaling-stroke" />
 				<rect x={cx - ps / 2} y={cy + ph * 0.3 - ps} width={ps} height={ps} fill={color} fill-opacity="0.55" stroke={color} stroke-width=".1" vector-effect="non-scaling-stroke" />
 			{:else if a.symbol === 'elevation'}
-				<!-- elevation/section tag: circle = drawing no. (link.ref); a pointer
-				     triangle gives the view direction (rotate the symbol to aim it) and
-				     carries the viewport no./letter (a.text). -->
-				{@const cr = R * 0.62}{@const ccy = cy - R * 0.32}
-				<path d="M{cx - cr * 0.72},{ccy + cr * 0.55} L{cx + cr * 0.72},{ccy + cr * 0.55} L{cx},{cy + R} Z"
-					fill={a.fill ?? 'white'} stroke={color} stroke-width=".5" vector-effect="non-scaling-stroke" />
-				<circle cx={cx} cy={ccy} r={cr} fill={a.fill ?? 'white'} stroke={color} stroke-width=".5" vector-effect="non-scaling-stroke" />
-				<text x={cx} y={ccy} font-size={cr} fill={color} text-anchor="middle" dominant-baseline="middle">{a.link?.ref ?? '?'}</text>
-				<text x={cx} y={cy + R * 0.5} font-size={R * 0.42} fill={color} text-anchor="middle" dominant-baseline="middle">{a.text || '–'}</text>
+				<!-- elevation/section tag: centre circle = drawing no. (link.ref). Up to 4
+				     directional arrows (a.arms n/e/s/w), each a triangle pointing outward
+				     with its viewport ref. Defaults to a single south arrow (a.text) when
+				     no arms are set, so existing tags keep working. -->
+				{@const cr = R * 0.5}
+				{@const arms = a.arms ?? (a.text ? { s: a.text } : { s: '' })}
+				{@const DIRS = [['n', 0, -1], ['e', 1, 0], ['s', 0, 1], ['w', -1, 0]] as const}
+				{#each DIRS as [d, ux, uy] (d)}
+					{#if (arms as any)[d] != null}
+						{@const tip = R}{@const baseR = cr * 1.02}{@const halfW = cr * 0.6}
+						<!-- triangle: base at the circle edge, tip at radius R; perpendicular = (-uy, ux) -->
+						<path d="M{cx + ux * baseR - uy * halfW},{cy + uy * baseR + ux * halfW} L{cx + ux * baseR + uy * halfW},{cy + uy * baseR - ux * halfW} L{cx + ux * tip},{cy + uy * tip} Z"
+							fill={a.fill ?? 'white'} stroke={color} stroke-width=".5" vector-effect="non-scaling-stroke" />
+						<text x={cx + ux * (R + 4)} y={cy + uy * (R + 4)} font-size={R * 0.34} fill={color} text-anchor="middle" dominant-baseline="middle">{(arms as any)[d] || '–'}</text>
+					{/if}
+				{/each}
+				<circle cx={cx} cy={cy} r={cr} fill={a.fill ?? 'white'} stroke={color} stroke-width=".5" vector-effect="non-scaling-stroke" />
+				<text x={cx} y={cy} font-size={cr * 0.95} fill={color} text-anchor="middle" dominant-baseline="middle">{a.link?.ref ?? '?'}</text>
 			{:else if a.symbol === 'door'}
 				{@const dir = a.flip ? -1 : 1}{@const hx = a.flip ? b.x + b.w : b.x}{@const hy = b.y + b.h}
 				<line x1={hx} y1={hy} x2={hx} y2={b.y} stroke={color} stroke-width="1.2" vector-effect="non-scaling-stroke" />

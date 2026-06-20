@@ -181,8 +181,17 @@
 			<PropCheck label="Flip" value={!!sel.flip} onchange={(e: Event) => editor.setSel({ flip: (e.currentTarget as HTMLInputElement).checked })} />
 		{/if}
 		{#if sel.symbol === 'elevation'}
-			<!-- viewport no./letter shown in the pointer; rotate the tag to aim it -->
-			<PropText label="Viewport" value={sel.text ?? ''} oninput={(e: Event) => editor.setSel({ text: val(e) })} />
+			<!-- up to 4 directional arrows (one per wall); tick to add, type its viewport ref -->
+			{@const arms = sel.arms ?? (sel.text ? { s: sel.text } : { s: '' })}
+			<div class="text-xs text-zinc-500">Arrows (viewport ref per direction)</div>
+			{#each [['n', 'Up'], ['e', 'Right'], ['s', 'Down'], ['w', 'Left']] as const as [d, lbl] (d)}
+				{@const on = (arms as any)[d] != null}
+				<label class="flex items-center gap-1 text-xs">
+					<input type="checkbox" checked={on} onchange={(e) => editor.setSel({ arms: { ...arms, [d]: (e.currentTarget as HTMLInputElement).checked ? ((arms as any)[d] ?? '') : null }, text: undefined })} />
+					<span class="w-12 text-zinc-500">{lbl}</span>
+					{#if on}<input class="min-w-0 flex-1 rounded border px-1 py-0.5" value={(arms as any)[d] ?? ''} oninput={(e) => editor.setSel({ arms: { ...arms, [d]: val(e) }, text: undefined })} />{/if}
+				</label>
+			{/each}
 		{/if}
 		{#if def?.linkable === 'drawing'}
 			<PropText label={sel.symbol === 'elevation' ? 'Drawing no.' : 'Ref'} value={sel.link?.ref ?? ''} oninput={(e: Event) => editor.setLink({ kind: 'drawing', ref: val(e) })} />

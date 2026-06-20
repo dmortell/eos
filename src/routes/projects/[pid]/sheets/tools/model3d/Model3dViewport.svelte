@@ -16,6 +16,7 @@
 	import EditBackground from '../../edit/EditBackground.svelte'
 	import { useAnnotations } from '../../edit/annotations.svelte'
 	import { modelZRange } from './projection'
+	import { toast } from 'svelte-sonner'
 	// (model layers now live in the shared sheet Layers window)
 
 	const ANN_TOOLS = ['text', 'line', 'rect', 'arrow', 'ellipse', 'cloud', 'symbol', 'callout', 'dimension', 'image']
@@ -75,7 +76,12 @@
 			.filter((v) => v.id !== vp.id && v.source?.kind === 'model3d' && (v.source as any).modelId === src?.modelId && (v.source as any).clip)
 			.map((v) => ({ id: v.id, clip: (v.source as any).clip, label: v.label || (v.source as any).direction }))
 		editor.onSectionChange = (id, clip) => { const v = vps.viewports.find((x) => x.id === id); if (v && v.source.kind === 'model3d') { v.source.clip = clip; vps.notify() } }
-		editor.onSectionDelete = (id) => { vps.viewports = vps.viewports.filter((v) => v.id !== id); vps.notify() }
+		editor.onSectionDelete = (id) => {
+			const removed = vps.viewports.find((v) => v.id === id); if (!removed) return
+			const snap = $state.snapshot(removed)
+			vps.viewports = vps.viewports.filter((v) => v.id !== id); vps.notify()
+			toast('Section deleted', { action: { label: 'Undo', onClick: () => { vps.viewports = [...vps.viewports, snap as any]; vps.notify() } } })
+		}
 	})
 
 	// Annotations (shared sheet system): text/line/rect to start. Stored on the

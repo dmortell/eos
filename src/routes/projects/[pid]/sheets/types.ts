@@ -129,6 +129,10 @@ export interface Annotation {
 	link?: AnnotationLink
 	layerId?: string
 	src?: string                  // image annotation source (http(s) URL or data: URL)
+	// Elevation/section tag: up to 4 directional arrows (one per wall). A present
+	// key shows that arrow with its viewport ref/letter; the centre circle shows
+	// the drawing no. (link.ref). `null`/absent = no arrow that way.
+	arms?: { n?: string | null; e?: string | null; s?: string | null; w?: string | null }
 }
 
 export interface TitleBlockConfig {
