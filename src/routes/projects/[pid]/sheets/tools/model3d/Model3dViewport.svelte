@@ -12,6 +12,8 @@
 	import Model3dEditLayer from './Model3dEditLayer.svelte'
 	import Model3dUnderlayImage from './Model3dUnderlayImage.svelte'
 	import Model3dEditPanel from './Model3dEditPanel.svelte'
+	import Model3dElevationPreview from './Model3dElevationPreview.svelte'
+	import type { Dir } from './types'
 	import AnnotationLayer from '../../annotations/AnnotationLayer.svelte'
 	import EditBackground from '../../edit/EditBackground.svelte'
 	import { useAnnotations } from '../../edit/annotations.svelte'
@@ -100,6 +102,7 @@
 	// routes clicks to placement via EditBackground.
 	let tool = $state('select')
 	let viewDen = $state(1)
+	let elevDir = $state<Dir>('front') // direction for the floating elevation preview
 	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor })
 	annEditor.onPlaced = () => (tool = 'select') // back to Select so the new annote shows handles
 	$effect(() => { if (!active) { annEditor.clearSel(); tool = 'select' } })
@@ -189,6 +192,10 @@
 	{#if active}
 		<!-- portalled out of the zoomed canvas so the panels render at normal size -->
 		<div use:portal><Model3dEditPanel {editor} {model} {annEditor} bind:tool /></div>
+		<!-- floating auto-fit elevation of the plan selection (drag top edge = height) -->
+		{#if src.direction === 'plan' && model && editor.selIndex !== null}
+			<div use:portal><Model3dElevationPreview {model} store={store} selIndex={editor.selIndex} bind:direction={elevDir} /></div>
+		{/if}
 	{/if}
 {:else}
 	<div class="flex h-full w-full items-center justify-center text-zinc-400 print:hidden" style:font-size="{14 / zoom}px">
