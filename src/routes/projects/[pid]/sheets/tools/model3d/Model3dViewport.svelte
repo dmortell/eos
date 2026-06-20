@@ -12,6 +12,7 @@
 	import Model3dEditLayer from './Model3dEditLayer.svelte'
 	import Model3dUnderlayImage from './Model3dUnderlayImage.svelte'
 	import Model3dEditPanel from './Model3dEditPanel.svelte'
+	import Model3dLayersPanel from './Model3dLayersPanel.svelte'
 
 	// Host for a `model3d` viewport source: resolves the referenced 3D model and
 	// renders its projection; when active, mounts the geometry edit layer.
@@ -94,8 +95,9 @@
 		{/if}
 	</Model3dRender>
 	{#if active}
-		<!-- portalled out of the zoomed canvas so the panel renders at normal size -->
+		<!-- portalled out of the zoomed canvas so the panels render at normal size -->
 		<div use:portal><Model3dEditPanel {editor} {model} /></div>
+		<div use:portal><Model3dLayersPanel {editor} {model} /></div>
 	{/if}
 {:else}
 	<div class="flex h-full w-full items-center justify-center text-zinc-400 print:hidden" style:font-size="{14 / zoom}px">
