@@ -171,12 +171,14 @@
 					<option value="" disabled>mixed</option>{#each OUTLET_MOUNT as m (m.value)}<option value={m.value}>{m.label}</option>{/each}
 				</select></label>
 			<label class="block text-xs"><span class="text-zinc-400">Cable</span>
-				<input class="w-full rounded border px-1 py-0.5" list="outlet-cables" placeholder="mixed" value={co('cable') ?? ''} oninput={(e: Event) => editor.setOutletAll({ cable: val(e) })} />
-				<datalist id="outlet-cables">{#each OUTLET_CABLE as c (c.value)}<option value={c.value}>{c.label}</option>{/each}</datalist></label>
+				<select class="w-full rounded border px-1 py-0.5" value={co('cable') ?? ''} onchange={(e: Event) => editor.setOutletAll({ cable: val(e) })}>
+					<option value="" disabled>mixed</option>{#each OUTLET_CABLE as c (c.value)}<option value={c.value}>{c.label}</option>{/each}
+				</select></label>
 		</div>
 		<label class="block text-xs"><span class="text-zinc-400">Usage</span>
-			<input class="w-full rounded border px-1 py-0.5" list="outlet-usages" placeholder="mixed" value={co('usage') ?? ''} oninput={(e: Event) => editor.setOutletAll({ usage: val(e) })} />
-			<datalist id="outlet-usages">{#each OUTLET_USAGE as u (u.value)}<option value={u.value}>{u.label}</option>{/each}</datalist></label>
+			<select class="w-full rounded border px-1 py-0.5" value={co('usage') ?? ''} onchange={(e: Event) => editor.setOutletAll({ usage: val(e) })}>
+				<option value="" disabled>mixed</option>{#each OUTLET_USAGE as u (u.value)}<option value={u.value}>{u.label}</option>{/each}
+			</select></label>
 	{/if}
 {:else if sel}
 	<hr class="border-zinc-200" />
@@ -268,12 +270,14 @@
 						{#each OUTLET_MOUNT as m (m.value)}<option value={m.value}>{m.label}</option>{/each}
 					</select></label>
 				<label class="block text-xs"><span class="text-zinc-400">Cable</span>
-					<input class="w-full rounded border px-1 py-0.5" list="outlet-cables" value={o.cable ?? 'cat6a'} oninput={(e: Event) => setO({ cable: val(e) })} />
-					<datalist id="outlet-cables">{#each OUTLET_CABLE as c (c.value)}<option value={c.value}>{c.label}</option>{/each}</datalist></label>
+					<select class="w-full rounded border px-1 py-0.5" value={o.cable ?? 'cat6a'} onchange={(e: Event) => setO({ cable: val(e) })}>
+						{#each OUTLET_CABLE as c (c.value)}<option value={c.value}>{c.label}</option>{/each}
+					</select></label>
 			</div>
 			<label class="block text-xs"><span class="text-zinc-400">Usage</span>
-				<input class="w-full rounded border px-1 py-0.5" list="outlet-usages" value={o.usage ?? 'network'} oninput={(e: Event) => setO({ usage: val(e) })} />
-				<datalist id="outlet-usages">{#each OUTLET_USAGE as u (u.value)}<option value={u.value}>{u.label}</option>{/each}</datalist></label>
+				<select class="w-full rounded border px-1 py-0.5" value={o.usage ?? 'network'} onchange={(e: Event) => setO({ usage: val(e) })}>
+					{#each OUTLET_USAGE as u (u.value)}<option value={u.value}>{u.label}</option>{/each}
+				</select></label>
 			<PropText label="Room" value={o.room ?? ''} oninput={(e: Event) => setO({ room: val(e) })} />
 		{/if}
 		{#if sel.symbol === 'elevation'}

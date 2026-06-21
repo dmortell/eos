@@ -294,8 +294,8 @@
 	<!-- Label (prints at point size, above the frame). Viewports are numbered (by order) when a sheet
 	     has more than one, for section/elevation references — number shown before any text label. -->
 	{#if (total > 1 && num) || vp.label}
-		<div class="absolute left-0 flex items-center gap-[0.4em] whitespace-nowrap leading-none text-zinc-700 pointer-events-none"
-			style:top="{-labelMm * 1.4}px" style:font-size="{labelMm}px">
+		<div class="absolute left-[0.5em] flex items-center gap-[0.4em] whitespace-nowrap leading-none text-zinc-700 pointer-events-none"
+			style:top="{.2}px" style:font-size="{labelMm}px">
 			{#if total > 1 && num}<span class="font-semibold">{num}</span>{/if}
 			{#if vp.label}<span>{vp.label}</span>{/if}
 		</div>
