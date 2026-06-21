@@ -13,11 +13,11 @@
 		onmove: (index: number, x: number, y: number) => void
 	} = $props()
 
-	const HL = '#06b6d4'
+	const HL = '#2563eb' // blue, matching object selection
 	// world-mm sizes counter-scaled to a steady on-screen size (dep on zoom → re-read CTM)
 	const ss = $derived((zoom, editor.screenScale()) || 1)
 	const R = $derived(4.5 / ss) // point handle radius ≈ 4.5px
-	const SW = $derived(1 / ss)  // stroke ≈ 1px
+	const SW = $derived(1.75 / ss)  // stroke (thicker, matching object select)
 	function startDragPt(i: number, e: MouseEvent) {
 		if (e.button !== 0) return
 		e.stopPropagation(); e.preventDefault()

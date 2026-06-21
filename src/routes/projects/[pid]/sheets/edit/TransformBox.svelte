@@ -16,7 +16,7 @@
 		onrotate: (deg: number) => void
 	} = $props()
 
-	const HL = '#06b6d4'
+	const HL = '#2563eb' // blue, matching object selection
 	let cx = $derived(box.x + box.w / 2), cy = $derived(box.y + box.h / 2)
 	let handles = $derived(boxHandles(box))
 	// world-mm sizes counter-scaled to a steady on-screen size (dep on zoom → re-read CTM)
@@ -24,7 +24,7 @@
 	const HSZ = $derived(8 / ss)  // resize handle square ≈ 8px
 	const RR = $derived(5 / ss)   // rotate handle radius
 	const ARM = $derived(26 / ss) // rotate arm length
-	const SW = $derived(1 / ss)   // stroke ≈ 1px
+	const SW = $derived(1.75 / ss)   // stroke (thicker, matching object select)
 
 	function startResize(handle: number, e: MouseEvent) {
 		if (e.button !== 0) return

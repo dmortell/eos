@@ -418,3 +418,25 @@ Shared / refactor
 
 5b6 — Unify the rack property editors (m
 Fold the three rack property editors (Sheets viewport / outlets tool / racks tool) into one shared component, keeping all advanced functionality. Cuts the racks-viewport parity work (item22) you're doing.
+
+24. Outstanding from the selection / model3d refactor work (deferred by decision)
+
+24a. Section clip checkbox — currently commented out in ViewportPropertiesWindow with a REVIEW LATER
+     note (form.modelClip still flows through buildSource so existing clips work). Decide: delete it,
+     or keep as the manual clip editor alongside the "Section → elevation" tool.
+
+24b. Section ↔ elevation linking: auto-link a section tag to its elevation viewport (auto-fill
+     drawing/viewport no. from sheet placement, Revit-style) + a plan↔elevation jump button. (Was
+     marked TODO when the section tool was built.)
+
+24c. Outlet auto-layer: file new outlet annotations onto an "Outlets Low"/"Outlets High" layer by
+     level automatically (outletLayerName helper exists; not wired). Currently land on the active
+     layer — works, since per-model Outlets Low/High layers can be created manually.
+
+24d. Selection refactor step 3 (tidy): retire the now-thin aliases (duplicateMulti/duplicateMultiAnns,
+     deleteMany, cutSel) once nothing calls them; optionally move selection STATE fully behind the
+     SelectionCoordinator. Pure cleanup — bugs are fixed.
+
+24e. Ctrl+D / Ctrl+X on a MIXED (object+annotation) selection can create two undo steps instead of
+     one (each editor checkpoints via beforeMutate). Centralise the checkpoint in the coordinator if
+     it becomes annoying.

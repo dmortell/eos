@@ -17,7 +17,7 @@
 	// independently.
 	let { editor, interactive = false, hidden = [], locked = [], den = 1, zoom = 1 }: { editor: AnnotationEditor; interactive?: boolean; hidden?: string[]; locked?: string[]; den?: number; zoom?: number } = $props()
 
-	const HL = '#06b6d4'
+	const HL = '#2563eb' // blue, matching object selection
 	// Zoom-counter-scaled stroke so the multi-select box matches TransformBox exactly.
 	const ss = $derived((zoom, editor.screenScale()) || 1)
 	const mid = `mk-${Math.random().toString(36).slice(2, 7)}`
@@ -216,7 +216,7 @@
 
 	<!-- marquee multi-select highlight (a plain outline; full transform handles are single-select) -->
 	{#if multi && !sel}
-		<rect x={b.x} y={b.y} width={b.w} height={b.h} transform={rot} fill="none" stroke={HL} stroke-width={1 / ss} stroke-dasharray="{4 / ss} {3 / ss}" style:pointer-events="none" />
+		<rect x={b.x} y={b.y} width={b.w} height={b.h} transform={rot} fill="none" stroke={HL} stroke-width={1.75 / ss} stroke-dasharray="{4 / ss} {3 / ss}" style:pointer-events="none" />
 	{/if}
 
 	<!-- selection handles -->

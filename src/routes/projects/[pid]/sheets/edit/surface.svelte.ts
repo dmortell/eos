@@ -88,8 +88,12 @@ export class SurfaceEditor {
 		const s = new Set(multi.length ? multi : primaryId ? [primaryId] : [])
 		if (s.has(id)) s.delete(id); else s.add(id)
 		const arr = [...s]
-		if (arr.length === 1) set({ kind: this.selKind, id: arr[0] }, [])
-		else set(null, arr) // 0 → cleared; 2+ → multi
+		// A lone remaining item becomes a single selection (with handles) ONLY if the peer has nothing
+		// selected; in a MIXED selection it stays a multi-style highlight (no handles) so the two
+		// editors read as one group.
+		const peerSel = (this.peer?.selectedIds().length ?? 0) > 0
+		if (arr.length === 1 && !peerSel) set({ kind: this.selKind, id: arr[0] }, [])
+		else set(null, arr) // 0 → cleared; 2+ (or 1-in-mixed) → multi
 	}
 
 	// ── marquee multi-selection + group translate ──
