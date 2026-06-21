@@ -56,6 +56,19 @@ export class SurfaceEditor {
 	selectionState(): { sel: Sel; multi: string[] } { return { sel: this.sel ? { ...this.sel } : null, multi: [...this.currentMulti()] } }
 	restoreSelection(s?: { sel: Sel; multi: string[] }) { if (!s) return; this.sel = s.sel ?? null; this.setMulti(s.multi ?? []) }
 
+	// ── item primitives by id (each editor implements; let generic ops below serve single + multi) ──
+	protected clearAux(): void {} // clear editor-specific aux selection (object vsel/usel/ssel)
+	removeItems(_ids: string[]): void {}
+	/** Clone the items by id (fresh ids), offset by `d` mm; return the new ids. */
+	cloneItems(_ids: string[], _d?: number): string[] { return [] }
+
+	/** Select exactly these ids on this editor (1 → single, else multi). */
+	selectIds(ids: string[]) { if (ids.length === 1) { this.sel = { kind: this.selKind, id: ids[0] }; this.setMulti([]) } else { this.sel = null; this.setMulti(ids) } }
+	/** Delete the whole selection (multi-set, else single as array-of-1) — one path for both. */
+	deleteSelection() { const ids = this.selectedIds(); if (!ids.length) return; this.removeItems(ids); this.sel = null; this.clearMulti(); this.clearAux(); this.notify() }
+	/** Ctrl+D / panel duplicate: clone the selection offset by `d`, select the clones. */
+	duplicateSelection(d = 500) { const ids = this.cloneItems(this.selectedIds(), d); if (ids.length) { this.selectIds(ids); this.notify() } }
+
 	/**
 	 * Shared Ctrl-click toggle algorithm: add/remove `id` in the combined (single + multi)
 	 * selection, then write it back via `set` WITHOUT clearing the peer (so mixed object+
@@ -102,9 +115,9 @@ export class SurfaceEditor {
 	clearMulti(): void {}
 	/** Whether a marquee multi-selection exists on this editor. */
 	hasMultiSel(): boolean { return false }
-	/** Clone this editor's multi-selection in place; the selection moves to the clones.
-	 *  Overridden per editor — used to duplicate a peer's share of a mixed ctrl-drag. */
-	duplicateSelectionInPlace(): void {}
+	/** Clone this editor's multi-selection in place (no offset); selection moves to the clones.
+	 *  Used to duplicate a peer's share of a mixed ctrl-drag. Generic over cloneItems. */
+	duplicateSelectionInPlace(): void { const m = this.currentMulti(); if (m.length) this.setMulti(this.cloneItems(m)) }
 
 	/** Shift = lock a drag to the dominant axis (horizontal or vertical). Shared by every
 	 *  drag path so the constraint behaves identically for objects, annotations and groups. */

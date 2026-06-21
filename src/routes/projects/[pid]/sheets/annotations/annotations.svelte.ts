@@ -199,20 +199,9 @@ export class AnnotationEditor extends SurfaceEditor {
 		if (a.y2 != null) a.y2 += dy
 		this.notify()
 	}
-	/** Clone every marquee-selected annotation in place; selection moves to the clones. */
-	duplicateMultiAnns() {
-		const ids = new Set(this.selAnns)
-		const copies = this.annotations.filter((a) => ids.has(a.id)).map((a) => ({ ...(structuredClone($state.snapshot(a)) as Annotation), id: this.uid('a') }))
-		for (const c of copies) this.annotations.push(c)
-		this.clearSel(); this.selAnns = copies.map((c) => c.id)
-	}
-	duplicateSel() {
-		const a = this.selAnn; if (!a) return
-		const copy: Annotation = { ...a, id: this.uid('a'), x: a.x + 500, y: a.y + 500 }
-		if (a.x2 != null) copy.x2 = a.x2 + 500
-		if (a.y2 != null) copy.y2 = a.y2 + 500
-		this.annotations.push(copy); this.select('ann', copy.id); this.notify()
-	}
+	/** Ctrl-drag clone (in place); selection moves to the clones. Generic via cloneItems. */
+	duplicateMultiAnns() { this.duplicateSelectionInPlace() }
+	duplicateSel() { this.duplicateSelection(500) } // Ctrl+D / panel: offset copy of the selection
 	setSel(patch: Partial<Annotation>) { const a = this.selAnn; if (!a) return; Object.assign(a, patch); this.notify() }
 	/** Move the selected annotation(s) to a layer — the marquee set if any, else the single selection. */
 	setSelLayer(layerId: string) {
@@ -246,11 +235,16 @@ export class AnnotationEditor extends SurfaceEditor {
 	hasMultiSel() { return this.selAnns.length > 0 }
 	protected currentMulti() { return this.selAnns }
 	protected setMulti(ids: string[]) { this.selAnns = ids }
-	/** Delete the whole selection — the multi-set if any, else the single (array-of-1). One path. */
-	deleteSelection() {
-		const ids = new Set(this.selectedIds()); if (!ids.size) return
-		this.annotations = this.annotations.filter(a => !ids.has(a.id))
-		this.clearMulti(); this.clearSel(); this.notify()
+	// Item primitives (by id) — the base's generic deleteSelection/duplicate* run over these.
+	removeItems(ids: string[]) { const s = new Set(ids); this.annotations = this.annotations.filter(a => !s.has(a.id)) }
+	cloneItems(ids: string[], d = 0): string[] {
+		const s = new Set(ids)
+		const copies = this.annotations.filter(a => s.has(a.id)).map(a => {
+			const c = { ...(structuredClone($state.snapshot(a)) as Annotation), id: this.uid('a'), x: a.x + d, y: a.y + d }
+			if (a.x2 != null) c.x2 = a.x2 + d; if (a.y2 != null) c.y2 = a.y2 + d
+			return c
+		})
+		this.annotations.push(...copies); return copies.map(c => c.id)
 	}
 	/** Select annotations whose anchor or pointer endpoint falls inside the world-mm rect. */
 	marqueeCollect(m: { x: number; y: number; w: number; h: number }) {

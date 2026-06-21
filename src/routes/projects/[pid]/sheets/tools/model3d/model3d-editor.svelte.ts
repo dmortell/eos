@@ -341,21 +341,12 @@ export class Model3dEditor extends SurfaceEditor {
 
 	// ── delete: multi-selection, then a selected path vertex, then the object ──
 	deleteSel = () => {
-		if (this.multi.length) {
-			const del = new Set(this.multi)
-			if (this.model) this.model.objects = this.objects.filter((o) => del.has(o.id ?? '') ? this.locked(o) : true)
-			this.multi = []; this.clearSel(); this.notify(); return
-		}
-		if (this.vsel) {
+		// A selected path node deletes just that node (not the whole object) when it's safe to.
+		if (!this.multi.length && this.vsel) {
 			const o = this.objects[this.vsel.index]
-			if ((o?.type === 'conduit' || o?.type === 'wall') && o.nodes.length > 2 && deleteNode(o, this.vsel.nodeId)) {
-				this.vsel = null; this.notify(); return
-			}
+			if ((o?.type === 'conduit' || o?.type === 'wall') && o.nodes.length > 2 && deleteNode(o, this.vsel.nodeId)) { this.vsel = null; this.notify(); return }
 		}
-		const i = this.selIndex
-		if (i !== null && this.objects[i] && !this.locked(this.objects[i])) {
-			this.objects.splice(i, 1); this.clearSel(); this.vsel = null; this.notify()
-		}
+		this.deleteSelection() // base: removeItems(selectedIds) respecting lock + clear (single or multi)
 	}
 
 	// ── duplicate / copy / paste (ctrl-drag, Ctrl+D/C/V, or panel buttons for touch) ──
@@ -383,11 +374,7 @@ export class Model3dEditor extends SurfaceEditor {
 		this.objects.push(this.cloneObj(this.objects[index]))
 		return this.objects.length - 1
 	}
-	private duplicateMulti() {
-		const clones = this.multiObjs.map((o) => this.cloneObj(o))
-		this.objects.push(...clones)
-		this.multi = clones.map((c) => c.id!)
-	}
+	private duplicateMulti() { this.duplicateSelectionInPlace() } // base: cloneItems(multi) → select clones
 	// Add clones offset by `d` mm and select them (for Duplicate / Paste).
 	private addClones(src: Obj[], d: number) {
 		const clones = src.map((o) => { const c = this.cloneObj(o); offsetObj(c, d); return c })
@@ -535,7 +522,7 @@ export class Model3dEditor extends SurfaceEditor {
 		} else { this.placing = null }
 	}
 
-	duplicateSel = () => { const idxs = this.selIdxs(); if (idxs.length) this.addClones(idxs.map((i) => $state.snapshot(this.objects[i]) as Obj), 200) }
+	duplicateSel = () => this.duplicateSelection(200) // Ctrl+D / panel: offset copy of the selection
 	copySel = () => { this.clipboard = this.selIdxs().map((i) => structuredClone($state.snapshot(this.objects[i])) as Obj) }
 	cutSel = () => { if (this.selIdxs().length) { this.copySel(); this.deleteSel() } }
 	paste = () => { if (this.clipboard.length) this.addClones(this.clipboard, 200) }
@@ -547,6 +534,13 @@ export class Model3dEditor extends SurfaceEditor {
 	clearMulti() { this.multi = [] }
 	protected currentMulti() { return this.multi }
 	protected setMulti(ids: string[]) { this.multi = ids }
+	protected clearAux() { this.vsel = null; this.usel = null; this.ssel = null }
+	// Item primitives (by id) — the base's generic deleteSelection/duplicate* run over these.
+	removeItems(ids: string[]) { const del = new Set(ids); if (this.model) this.model.objects = this.objects.filter((o) => del.has(o.id ?? '') ? this.locked(o) : true) }
+	cloneItems(ids: string[], d = 0): string[] {
+		const clones = ids.map((id) => this.byId(id)).filter(Boolean).map((o) => { const c = this.cloneObj(o as Obj); if (d) offsetObj(c, d); return c })
+		this.objects.push(...clones); return clones.map((c) => c.id!)
+	}
 	/** Drop selection referencing objects that no longer exist (e.g. after an undo). */
 	pruneSelection() { this.multi = this.multi.filter((id) => this.byId(id)); if (this.selObjId && !this.byId(this.selObjId)) super.clearSel() }
 
