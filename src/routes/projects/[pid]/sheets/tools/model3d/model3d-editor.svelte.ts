@@ -545,6 +545,10 @@ export class Model3dEditor extends SurfaceEditor {
 	inMulti(i: number) { return this.multi.includes(this.oid(i)) }
 	hasMultiSel() { return this.multi.length > 0 }
 	clearMulti() { this.multi = [] }
+	protected currentMulti() { return this.multi }
+	protected setMulti(ids: string[]) { this.multi = ids }
+	/** Drop selection referencing objects that no longer exist (e.g. after an undo). */
+	pruneSelection() { this.multi = this.multi.filter((id) => this.byId(id)); if (this.selObjId && !this.byId(this.selObjId)) super.clearSel() }
 
 	marqueeCollect(r: { x: number; y: number; w: number; h: number }): void {
 		super.clearSel(); this.vsel = null; this.usel = null // a marquee (or empty click) drops the single selection

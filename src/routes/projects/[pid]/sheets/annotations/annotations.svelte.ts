@@ -248,6 +248,8 @@ export class AnnotationEditor extends SurfaceEditor {
 		this.clearMulti(); this.notify(); return true
 	}
 	hasMultiSel() { return this.selAnns.length > 0 }
+	protected currentMulti() { return this.selAnns }
+	protected setMulti(ids: string[]) { this.selAnns = ids }
 	/** Delete whatever is selected — the marquee/ctrl-click multi-set if any, else the single. */
 	deleteSelection() { if (this.selAnns.length) this.deleteMany(); else this.deleteSel() }
 	/** Select annotations whose anchor or pointer endpoint falls inside the world-mm rect. */

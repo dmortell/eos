@@ -129,8 +129,15 @@
 	// drag / ctrl-drag of either is undoable. Layer defs + underlays are edited through
 	// other save paths, so they stay out of the snapshot.
 	const snap = {
-		snapshot: () => ({ objects: model ? $state.snapshot(model.objects) : [], annotations: annEditor.snapshot() }),
-		seed: (s: any) => { if (model) model.objects = s.objects ?? []; annEditor.seed(s.annotations ?? []); annEditor.pruneSelection() },
+		// Selection is in the snapshot so undo re-selects what was selected (e.g. the originals
+		// after undoing a ctrl-drag copy), not the now-deleted clones.
+		snapshot: () => ({ objects: model ? $state.snapshot(model.objects) : [], annotations: annEditor.snapshot(), objSel: editor.selectionState(), annSel: annEditor.selectionState() }),
+		seed: (s: any) => {
+			if (model) model.objects = s.objects ?? []
+			annEditor.seed(s.annotations ?? [])
+			editor.restoreSelection(s.objSel); annEditor.restoreSelection(s.annSel)
+			editor.pruneSelection(); annEditor.pruneSelection()
+		},
 		notify: () => { store.save(); annEditor.notify() },
 	}
 	history.register(snap)

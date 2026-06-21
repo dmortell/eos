@@ -46,6 +46,16 @@ export class SurfaceEditor {
 	isSel(kind: string, id: string) { return this.sel?.kind === kind && this.sel.id === id }
 	clearSel() { this.sel = null }
 
+	/** The editor's multi-selection id list (Model3dEditor → multi; AnnotationEditor → selAnns). */
+	protected currentMulti(): string[] { return [] }
+	protected setMulti(_ids: string[]): void {}
+	get primarySelId(): string | null { return this.sel?.kind === this.selKind ? this.sel.id : null }
+	/** All selected ids — the multi-set if any, else the single selection (the array-of-1). */
+	selectedIds(): string[] { const m = this.currentMulti(); return m.length ? m : this.primarySelId ? [this.primarySelId] : [] }
+	/** Capture / restore selection (for the undo history, so undo re-selects what was selected). */
+	selectionState(): { sel: Sel; multi: string[] } { return { sel: this.sel ? { ...this.sel } : null, multi: [...this.currentMulti()] } }
+	restoreSelection(s?: { sel: Sel; multi: string[] }) { if (!s) return; this.sel = s.sel ?? null; this.setMulti(s.multi ?? []) }
+
 	/**
 	 * Shared Ctrl-click toggle algorithm: add/remove `id` in the combined (single + multi)
 	 * selection, then write it back via `set` WITHOUT clearing the peer (so mixed object+
