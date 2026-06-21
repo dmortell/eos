@@ -12,14 +12,22 @@
 
 	type BB = { x0: number; y0: number; x1: number; y1: number }
 	let drag = $state<{ bb: BB; rot: number } | null>(null) // active rotate gesture: freeze box + show rotation
-	const live = $derived(selection.groupBounds())
-	const bb = $derived<BB | null>(drag?.bb ?? live)
 
 	const ss = $derived((zoom, editor.screenScale()) || 1)
 	const HS = $derived(8 / ss)   // handle square ≈ 8px
 	const GAP = $derived(22 / ss) // rotate-handle offset above the box
+	const PAD = $derived(5 / ss)  // small gap between the items' extents and the box
 	const SW = $derived(1.5 / zoom)
 	const HL = '#2563eb'
+
+	const live = $derived(selection.groupBounds())
+	// During a rotate gesture the box is frozen (already padded); otherwise pad the tight extents
+	// a little so the box sits just outside the items.
+	const bb = $derived.by<BB | null>(() => {
+		if (drag) return drag.bb // frozen, already padded
+		if (!live) return null
+		return { x0: live.x0 - PAD, y0: live.y0 - PAD, x1: live.x1 + PAD, y1: live.y1 + PAD }
+	})
 
 	const handlesOf = (b: BB) => {
 		const mx = (b.x0 + b.x1) / 2, my = (b.y0 + b.y1) / 2
