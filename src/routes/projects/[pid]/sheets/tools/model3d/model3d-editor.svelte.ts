@@ -34,6 +34,7 @@ export class Model3dEditor extends SurfaceEditor {
 	// Per-viewport layer visibility/lock (mirrors the host viewport's overrides).
 	layerOverrides: Record<string, { hidden?: boolean; locked?: boolean }> = {}
 
+	protected selKind = 'obj'
 	get objects(): Obj[] { return this.model?.objects ?? [] }
 	// ── identity: selection is keyed by object id, not array index, so it survives reorder ──
 	private oid(i: number): string { return this.objects[i]?.id ?? '' }
@@ -132,13 +133,8 @@ export class Model3dEditor extends SurfaceEditor {
 	// becomes a normal single selection (handles + property editor).
 	toggleMulti(i: number) {
 		const id = this.oid(i); if (!id) return
-		const set = new Set(this.multi.length ? this.multi : this.selObjId ? [this.selObjId] : [])
-		if (set.has(id)) set.delete(id); else set.add(id)
-		const arr = [...set]
 		this.vsel = null; this.usel = null; this.ssel = null
-		// Set selection DIRECTLY (not selectObj/select) so a mixed annotation peer selection survives.
-		if (arr.length === 1) { this.sel = { kind: 'obj', id: arr[0] }; this.multi = [] }
-		else { this.sel = null; this.multi = arr }
+		this.applyToggle(this.multi, this.selObjId, id, (sel, multi) => { this.sel = sel; this.multi = multi })
 	}
 	duplicateSelectionInPlace() { if (this.multi.length) this.duplicateMulti() }
 

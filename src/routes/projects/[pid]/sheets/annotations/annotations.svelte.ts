@@ -46,6 +46,7 @@ function defaults(kind: AnnotationKind, symbol: string): Partial<Annotation> {
 
 /** Editor for a viewport's model-space annotations. */
 export class AnnotationEditor extends SurfaceEditor {
+	protected selKind = 'ann'
 	annotations = $state<Annotation[]>([])
 	tool = $state<AnnTool>('select')
 	symbol = $state('section')
@@ -143,12 +144,7 @@ export class AnnotationEditor extends SurfaceEditor {
 	 */
 	// Ctrl/⌘-click toggles an annotation in/out of the selection; 1 left → single select.
 	toggleAnnSel(id: string) {
-		const cur = new Set(this.selAnns.length ? this.selAnns : this.selAnn ? [this.selAnn.id] : [])
-		if (cur.has(id)) cur.delete(id); else cur.add(id)
-		const arr = [...cur]
-		// Set selection DIRECTLY (not select()/clearSel) so a mixed object peer selection survives.
-		if (arr.length <= 1) { this.selAnns = []; this.sel = arr.length ? { kind: 'ann', id: arr[0] } : null }
-		else { this.sel = null; this.selAnns = arr }
+		this.applyToggle(this.selAnns, this.selAnn?.id ?? null, id, (sel, multi) => { this.sel = sel; this.selAnns = multi })
 		this.notify()
 	}
 	duplicateSelectionInPlace() { if (this.selAnns.length) this.duplicateMultiAnns() }

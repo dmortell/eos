@@ -40,9 +40,25 @@ export class SurfaceEditor {
 	}
 
 	// ── selection ──
+	/** This editor's selection kind ('obj' | 'ann') — set by the subclass. */
+	protected selKind = ''
 	select(kind: string, id: string) { this.sel = { kind, id }; this.peer?.clearSel() }
 	isSel(kind: string, id: string) { return this.sel?.kind === kind && this.sel.id === id }
 	clearSel() { this.sel = null }
+
+	/**
+	 * Shared Ctrl-click toggle algorithm: add/remove `id` in the combined (single + multi)
+	 * selection, then write it back via `set` WITHOUT clearing the peer (so mixed object+
+	 * annotation selections survive toggling one out). Result of 1 → single sel; else multi.
+	 * The duplicated per-editor toggle used to live in both Model3dEditor and AnnotationEditor.
+	 */
+	protected applyToggle(multi: string[], primaryId: string | null, id: string, set: (sel: Sel, multi: string[]) => void) {
+		const s = new Set(multi.length ? multi : primaryId ? [primaryId] : [])
+		if (s.has(id)) s.delete(id); else s.add(id)
+		const arr = [...s]
+		if (arr.length === 1) set({ kind: this.selKind, id: arr[0] }, [])
+		else set(null, arr) // 0 → cleared; 2+ → multi
+	}
 
 	// ── marquee multi-selection + group translate ──
 	// Editors that support marquee override these to act on their own data slices. A marquee or a
