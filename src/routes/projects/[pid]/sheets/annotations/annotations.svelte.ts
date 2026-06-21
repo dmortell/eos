@@ -269,6 +269,9 @@ export class AnnotationEditor extends SurfaceEditor {
 		for (const a of list) { const b = bounds(a, 1); x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h) }
 		return { x0, y0, x1, y1 }
 	}
+	selAngles() {
+		return this.selectedAnnList().filter((a) => a.kind !== 'line' && a.kind !== 'arrow' && a.kind !== 'dimension').map((a) => a.rotation ?? 0)
+	}
 	selWorldPoints() {
 		const pts: { x: number; y: number }[] = []
 		for (const a of this.selectedAnnList()) {

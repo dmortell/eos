@@ -262,9 +262,9 @@
 	     endpoint handles). Box kinds keep the dashed bbox outline for marquee-select. -->
 	{#if (sel || multi) && LINE.has(a.kind)}
 		{@const ex = a.x2 ?? a.x}{@const ey = a.y2 ?? a.y}
-		<line x1={a.x} y1={a.y} x2={ex} y2={ey} stroke={HL} stroke-width={1.75 / ss} style:pointer-events="none" />
+		<line x1={a.x} y1={a.y} x2={ex} y2={ey} stroke={HL} stroke-opacity={a.groupId ? 0.4 : 1} stroke-width={1.75 / ss} style:pointer-events="none" />
 	{:else if multi && !sel}
-		<rect x={b.x} y={b.y} width={b.w} height={b.h} transform={rot} fill="none" stroke={HL} stroke-width={1.75 / ss} stroke-dasharray="{4 / ss} {3 / ss}" style:pointer-events="none" />
+		<rect x={b.x} y={b.y} width={b.w} height={b.h} transform={rot} fill="none" stroke={HL} stroke-opacity={a.groupId ? 0.4 : 1} stroke-width={1.75 / ss} stroke-dasharray="{4 / ss} {3 / ss}" style:pointer-events="none" />
 	{/if}
 
 	<!-- selection handles -->

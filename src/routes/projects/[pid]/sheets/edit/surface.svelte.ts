@@ -113,6 +113,8 @@ export class SurfaceEditor {
 	selWorldBounds(): { x0: number; y0: number; x1: number; y1: number } | null { return null }
 	/** Corner points (SVG world) of every selected item — for a tight ORIENTED bounding box. */
 	selWorldPoints(): { x: number; y: number }[] { return [] }
+	/** SVG rotation (deg) of each selected box-like item — to recover a group's box angle on re-select. */
+	selAngles(): number[] { return [] }
 	/** Oriented box (SVG world) of a SINGLE box-like selection — for the unified transform box on a
 	 *  rotated item. Null when not exactly one box-like item (lines/graphs/multi). */
 	singleBox(): { cx: number; cy: number; hw: number; hh: number; angle: number } | null { return null }
@@ -162,10 +164,24 @@ export class SurfaceEditor {
 			const m = this.marquee; this.marquee = null
 			if (!m || (m.w < 100 && m.h < 100)) return // tiny = treat as a click → stay deselected
 			this.marqueeCollect(m); this.peer?.marqueeCollect(m)
+			this.expandMarqueeGroups() // touching any group member selects the whole group (like click)
 		})
 	}
 	/** Select this editor's items whose position falls inside the world-mm rect. */
 	marqueeCollect(_rect: { x: number; y: number; w: number; h: number }): void {}
+	/** After a marquee, pull in every member of any group a selected item belongs to (both editors). */
+	protected expandMarqueeGroups() {
+		const gids = new Set<string>()
+		const scan = (e: SurfaceEditor) => { for (const id of e.selectedIds()) { const g = e.groupOf(id); if (g) gids.add(g) } }
+		scan(this); if (this.peer) scan(this.peer)
+		if (!gids.size) return
+		const apply = (e: SurfaceEditor) => {
+			const set = new Set(e.selectedIds())
+			for (const g of gids) for (const id of e.idsInGroup(g)) set.add(id)
+			e.sel = null; e.setMulti([...set])
+		}
+		apply(this); if (this.peer) apply(this.peer)
+	}
 	/** Snapshot the current multi-selection's positions ahead of a group drag. */
 	beginGroupTranslate(): void {}
 	/** Offset every multi-selected item by (dx,dy) from the snapshot taken in beginGroupTranslate. */

@@ -131,15 +131,17 @@
 	{#each model.objects as o, i (i)}
 		{#if inView(o)}
 		{@const selected = editor.isObj(i) || editor.inMulti(i)}
+		{@const selOp = o.groupId ? 0.4 : 1}
 		{#each shapesOf(o) as s, si (si)}
 			<!-- hit area for select/move: a fat transparent OUTLINE stroke (the shape's edge),
 			     so you select by clicking the border, not the body — avoids grabbing/dragging
 			     a wall by mistake when its interior overlaps the work area (esp. elevations). -->
 			<polyline points={shapePts(s)} fill="none" stroke="transparent" stroke-width={HIT}
 				style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => editor.startObjMove(e, i)} />
-			<!-- outline highlight for prisms/walls (a conduit's silhouette would mask its vertex handles) -->
+			<!-- outline highlight for prisms/walls (a conduit's silhouette would mask its vertex handles).
+			     Grouped items fade so the group transform box reads as the primary indicator. -->
 			{#if selected && o.type !== 'conduit'}
-				<polyline points={shapePts(s)} fill="none" stroke={HL} stroke-width={selW} vector-effect="non-scaling-stroke" style:pointer-events="none" />
+				<polyline points={shapePts(s)} fill="none" stroke={HL} stroke-opacity={selOp} stroke-width={selW} vector-effect="non-scaling-stroke" style:pointer-events="none" />
 			{/if}
 		{/each}
 		<!-- conduit: highlight the thin centerline (per segment), not the tube silhouette -->
@@ -149,7 +151,7 @@
 				{@const c = o.nodes.find((n) => n.id === s.b)}
 				{#if a && c}
 					<line x1={b.hs * a[b.h]} y1={-(b.vs * a[b.v])} x2={b.hs * c[b.h]} y2={-(b.vs * c[b.v])}
-						stroke={HL} stroke-width={selW} vector-effect="non-scaling-stroke" style:pointer-events="none" />
+						stroke={HL} stroke-opacity={selOp} stroke-width={selW} vector-effect="non-scaling-stroke" style:pointer-events="none" />
 				{/if}
 			{/each}
 		{/if}
