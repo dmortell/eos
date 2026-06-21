@@ -155,17 +155,18 @@
 		{/if}
 	{/each}
 
-	<!-- selected segment highlight (orange) -->
+	<!-- selected segment highlight (orange) — every segment in the selection set -->
 	{#if editable && editor.ssel}
 		{@const so = model.objects[editor.ssel.index]}
 		{#if so && (so.type === 'wall' || so.type === 'conduit')}
-			{@const seg = so.segments.find((x) => x.id === editor.ssel?.segId)}
-			{@const a = so.nodes.find((n) => n.id === seg?.a)}
-			{@const c = so.nodes.find((n) => n.id === seg?.b)}
-			{#if a && c}
-				<line x1={b.hs * a[b.h]} y1={-(b.vs * a[b.v])} x2={b.hs * c[b.h]} y2={-(b.vs * c[b.v])}
-					stroke="#f97316" stroke-width={segW} vector-effect="non-scaling-stroke" style:pointer-events="none" />
-			{/if}
+			{#each so.segments.filter((x) => editor.ssel?.segs.includes(x.id)) as seg (seg.id)}
+				{@const a = so.nodes.find((n) => n.id === seg.a)}
+				{@const c = so.nodes.find((n) => n.id === seg.b)}
+				{#if a && c}
+					<line x1={b.hs * a[b.h]} y1={-(b.vs * a[b.v])} x2={b.hs * c[b.h]} y2={-(b.vs * c[b.v])}
+						stroke="#f97316" stroke-width={segW} vector-effect="non-scaling-stroke" style:pointer-events="none" />
+				{/if}
+			{/each}
 		{/if}
 	{/if}
 

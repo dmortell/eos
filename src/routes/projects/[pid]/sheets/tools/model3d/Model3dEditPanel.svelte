@@ -112,14 +112,20 @@
 					<label class="block"><span class="text-zinc-400">Thick</span>
 						<input type="number" class="w-full rounded border px-1 py-0.5" bind:value={obj.thickness} oninput={change} /></label>
 				</div>
-				<p class="mt-1 text-zinc-400">Segments — defaults above; click to override</p>
+				<div class="mt-1 flex items-center justify-between">
+					<span class="text-zinc-400">Segments — Ctrl/Shift-click to multi-select</span>
+					<div class="flex gap-1">
+						<button class="rounded border px-1 hover:bg-slate-100" title="Select whole trunk" onclick={() => editor.selectAllSegments(idx)}>All</button>
+						{#if editor.segCount() > 1}<button class="rounded border border-red-300 px-1 text-red-600 hover:bg-red-50" onclick={() => editor.deleteSelectedSegments()}>Delete {editor.segCount()}</button>{/if}
+					</div>
+				</div>
 				{#each obj.segments as s, si (s.id)}
 					<div class="flex items-center gap-1">
 						<button class="flex-1 rounded px-1 py-0.5 text-left {editor.isSegment(idx, s.id) ? 'bg-blue-100' : 'hover:bg-zinc-100'}"
-							onclick={() => editor.selectSegment(idx, s.id)}>Seg {si + 1}{#if wallOverride(s)} <span class="text-amber-600">●</span>{/if}</button>
+							onclick={(e) => editor.selectSegment(idx, s.id, e.ctrlKey || e.shiftKey || e.metaKey)}>Seg {si + 1}{#if wallOverride(s)} <span class="text-amber-600">●</span>{/if}</button>
 						<button class="text-zinc-300 hover:text-red-500 disabled:opacity-30" title="Delete segment" disabled={obj.segments.length <= 1} onclick={() => editor.deleteSegment(idx, s.id)}><Icon name="trash" size={11} /></button>
 					</div>
-					{#if editor.isSegment(idx, s.id)}
+					{#if editor.isSegment(idx, s.id) && editor.segCount() === 1}
 						<div class="grid grid-cols-2 gap-1 pl-2">
 							<label class="block"><span class="text-zinc-400">Thick</span>
 								<input type="number" class="w-full rounded border px-1 py-0.5" value={s.thickness ?? obj.thickness} oninput={(e) => { s.thickness = num(e); change() }} /></label>
@@ -129,6 +135,16 @@
 						{#if wallOverride(s)}<button class="pl-2 text-left text-zinc-400 hover:text-blue-600" onclick={() => { s.thickness = undefined; s.h = undefined; change() }}>↺ use wall default</button>{/if}
 					{/if}
 				{/each}
+				{#if editor.segCount() > 1}
+					<!-- shared override for the selected segments -->
+					<div class="grid grid-cols-2 gap-1 pl-2">
+						<label class="block"><span class="text-zinc-400">Thick (all)</span>
+							<input type="number" class="w-full rounded border px-1 py-0.5" placeholder="mixed" oninput={(e) => editor.setSegAll({ thickness: num(e) })} /></label>
+						<label class="block"><span class="text-zinc-400">Height (all)</span>
+							<input type="number" class="w-full rounded border px-1 py-0.5" placeholder="mixed" oninput={(e) => editor.setSegAll({ h: num(e) })} /></label>
+					</div>
+					<button class="pl-2 text-left text-zinc-400 hover:text-blue-600" onclick={() => editor.setSegAll({ thickness: undefined, h: undefined })}>↺ use wall default</button>
+				{/if}
 			{:else if obj.type === 'conduit'}
 				<div class="grid grid-cols-3 gap-1">
 					<label class="block"><span class="text-zinc-400">W</span>
@@ -138,14 +154,20 @@
 					<label class="block"><span class="text-zinc-400">Edges</span>
 						<input type="number" min="3" max="24" class="w-full rounded border px-1 py-0.5" bind:value={obj.edges} oninput={change} /></label>
 				</div>
-				<p class="mt-1 text-zinc-400">Segments — defaults above; click to override</p>
+				<div class="mt-1 flex items-center justify-between">
+					<span class="text-zinc-400">Segments — Ctrl/Shift-click to multi-select</span>
+					<div class="flex gap-1">
+						<button class="rounded border px-1 hover:bg-slate-100" title="Select whole trunk" onclick={() => editor.selectAllSegments(idx)}>All</button>
+						{#if editor.segCount() > 1}<button class="rounded border border-red-300 px-1 text-red-600 hover:bg-red-50" onclick={() => editor.deleteSelectedSegments()}>Delete {editor.segCount()}</button>{/if}
+					</div>
+				</div>
 				{#each obj.segments as s, si (s.id)}
 					<div class="flex items-center gap-1">
 						<button class="flex-1 rounded px-1 py-0.5 text-left {editor.isSegment(idx, s.id) ? 'bg-blue-100' : 'hover:bg-zinc-100'}"
-							onclick={() => editor.selectSegment(idx, s.id)}>Seg {si + 1}{#if condOverride(s)} <span class="text-amber-600">●</span>{/if}</button>
+							onclick={(e) => editor.selectSegment(idx, s.id, e.ctrlKey || e.shiftKey || e.metaKey)}>Seg {si + 1}{#if condOverride(s)} <span class="text-amber-600">●</span>{/if}</button>
 						<button class="text-zinc-300 hover:text-red-500 disabled:opacity-30" title="Delete segment" disabled={obj.segments.length <= 1} onclick={() => editor.deleteSegment(idx, s.id)}><Icon name="trash" size={11} /></button>
 					</div>
-					{#if editor.isSegment(idx, s.id)}
+					{#if editor.isSegment(idx, s.id) && editor.segCount() === 1}
 						<div class="grid grid-cols-3 gap-1 pl-2">
 							<label class="block"><span class="text-zinc-400">W</span>
 								<input type="number" class="w-full rounded border px-1 py-0.5" value={s.w ?? obj.w} oninput={(e) => { s.w = num(e); change() }} /></label>
@@ -157,6 +179,18 @@
 						{#if condOverride(s)}<button class="pl-2 text-left text-zinc-400 hover:text-blue-600" onclick={() => { s.w = undefined; s.h = undefined; s.edges = undefined; change() }}>↺ use conduit default</button>{/if}
 					{/if}
 				{/each}
+				{#if editor.segCount() > 1}
+					<!-- shared override for the selected segments -->
+					<div class="grid grid-cols-3 gap-1 pl-2">
+						<label class="block"><span class="text-zinc-400">W (all)</span>
+							<input type="number" class="w-full rounded border px-1 py-0.5" placeholder="mixed" oninput={(e) => editor.setSegAll({ w: num(e) })} /></label>
+						<label class="block"><span class="text-zinc-400">H (all)</span>
+							<input type="number" class="w-full rounded border px-1 py-0.5" placeholder="mixed" oninput={(e) => editor.setSegAll({ h: num(e) })} /></label>
+						<label class="block"><span class="text-zinc-400">Edges</span>
+							<input type="number" min="3" max="24" class="w-full rounded border px-1 py-0.5" placeholder="mixed" oninput={(e) => editor.setSegAll({ edges: num(e) })} /></label>
+					</div>
+					<button class="pl-2 text-left text-zinc-400 hover:text-blue-600" onclick={() => editor.setSegAll({ w: undefined, h: undefined, edges: undefined })}>↺ use conduit default</button>
+				{/if}
 			{/if}
 
 			<label class="mt-1 flex items-center justify-between gap-2">

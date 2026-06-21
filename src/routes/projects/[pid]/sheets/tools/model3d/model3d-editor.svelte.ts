@@ -49,17 +49,50 @@ export class Model3dEditor extends SurfaceEditor {
 	vsel = $state<{ index: number; nodeId: string } | null>(null)
 	isVertex(i: number, nodeId: string) { return this.vsel?.index === i && this.vsel?.nodeId === nodeId }
 
-	// Segment selection (for the segment list / per-segment properties + highlight).
-	ssel = $state<{ index: number; segId: string } | null>(null)
-	isSegment(i: number, segId: string) { return this.ssel?.index === i && this.ssel?.segId === segId }
-	selectSegment(index: number, segId: string) { this.selectObj(index); this.ssel = { index, segId } }
+	// Segment selection (for the segment list / per-segment properties + highlight). A SET of
+	// segIds within ONE wall/conduit — multi-select segments (Ctrl/Shift-click) to edit or delete
+	// several at once; selectAllSegments selects the whole trunk.
+	ssel = $state<{ index: number; segs: string[] } | null>(null)
+	isSegment(i: number, segId: string) { return this.ssel?.index === i && this.ssel.segs.includes(segId) }
+	segCount() { return this.ssel?.segs.length ?? 0 }
+	selectSegment(index: number, segId: string, additive = false) {
+		if (additive && this.ssel?.index === index) {
+			const segs = this.ssel.segs.includes(segId) ? this.ssel.segs.filter((s) => s !== segId) : [...this.ssel.segs, segId]
+			this.ssel = segs.length ? { index, segs } : null
+		} else { this.selectObj(index); this.ssel = { index, segs: [segId] } }
+	}
+	/** Select every segment of a wall/conduit — the whole trunk, at segment level. */
+	selectAllSegments(index: number) {
+		const o = this.objects[index]; if (!o || (o.type !== 'wall' && o.type !== 'conduit')) return
+		this.selectObj(index); this.ssel = { index, segs: o.segments.map((s) => s.id) }
+	}
+	/** Apply a per-segment override patch (thickness/h/w/edges) to every selected segment. */
+	setSegAll(patch: Record<string, number | undefined>) {
+		if (!this.ssel) return
+		const o = this.objects[this.ssel.index]; if (!o || (o.type !== 'wall' && o.type !== 'conduit') || this.locked(o)) return
+		for (const s of o.segments) if (this.ssel.segs.includes(s.id)) Object.assign(s, patch)
+		this.notify()
+	}
 	deleteSegment(index: number, segId: string) {
 		const o = this.objects[index]
-		if (!o || (o.type !== 'wall' && o.type !== 'conduit') || this.locked(o)) return
+		if (!o || (o.type !== 'wall' && o.type !== 'conduit') || this.locked(o) || o.segments.length <= 1) return
 		o.segments = o.segments.filter((s) => s.id !== segId)
 		const used = new Set(o.segments.flatMap((s) => [s.a, s.b]))
 		o.nodes = o.nodes.filter((n) => used.has(n.id)) // drop orphaned nodes
-		if (this.ssel?.segId === segId) this.ssel = null
+		if (this.ssel?.index === index) { const segs = this.ssel.segs.filter((s) => s !== segId); this.ssel = segs.length ? { index, segs } : null }
+		this.notify()
+	}
+	/** Delete all selected segments (keeps at least one). */
+	deleteSelectedSegments() {
+		if (!this.ssel) return
+		const { index, segs } = this.ssel, o = this.objects[index]
+		if (!o || (o.type !== 'wall' && o.type !== 'conduit') || this.locked(o)) return
+		const keep = o.segments.filter((s) => !segs.includes(s.id))
+		if (!keep.length) return // never delete the whole trunk this way
+		o.segments = keep
+		const used = new Set(o.segments.flatMap((s) => [s.a, s.b]))
+		o.nodes = o.nodes.filter((n) => used.has(n.id))
+		this.ssel = null
 		this.notify()
 	}
 
