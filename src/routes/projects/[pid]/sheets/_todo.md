@@ -519,3 +519,17 @@ Fix: switched the sheet load to the same JSON-echo guard — skip our own write,
      * prefer grid to use layer color? Or color from props?
 
 
+29. When a layer is changed to hidden or locked, any selected items on that layer should be removed from the selection list (otherwsie their selection box remains visible)
+
+29a. When walls layer is hidden, walls are still selectable in floorplans
+
+29b. Document all annote & symbol props
+
+What should the section tag show + reference?
+
+  1. Elevation no. + sheet ref
+     A symbol with the elevation viewport's number and the sheet it lives on (resolved via the existing viewport-numbering/reference system), e.g. 2 / A-301. True drawing cross-reference.
+❯ 2. Just the section label
+     Show the existing s.label (e.g. “Section 1”) as an editable text tag for now; wire the sheet/viewport-number resolution as a follow-up. Faster first cut.
+  3. Direction arrow + label
+     A section-line style tag: a short arrow showing the view direction + the label. More like a building section mark than an area/detail callout.

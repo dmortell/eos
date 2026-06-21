@@ -231,26 +231,36 @@
 		{/if}
 	{/if}
 
-	<!-- editable section markers: each clipped elevation's box, on the plan.
-	     Drag the border to move, corners to resize, ✕ to delete the elevation. -->
+	<!-- section markers: each clipped elevation shows a compact label TAG by default (click to select
+	     + drag to move). Selecting reveals the editable clip box (dashed border move, corner resize,
+	     ✕ delete), so the plan stays uncluttered. -->
 	{#if editable && direction === 'plan' && !editor.sectionMode}
 		{#each editor.sections as s (s.id)}
 			{@const x0 = Math.min(s.clip.x0, s.clip.x1)}{@const x1 = Math.max(s.clip.x0, s.clip.x1)}
 			{@const y0 = -Math.max(s.clip.y0, s.clip.y1)}{@const y1 = -Math.min(s.clip.y0, s.clip.y1)}
-			<rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} fill="#2563eb" fill-opacity="0.06"
-				stroke="#2563eb" stroke-width={1 / zoom} vector-effect="non-scaling-stroke" stroke-dasharray="{5 / zoom} {3 / zoom}"
-				style:pointer-events="stroke" style:cursor="move" onmousedown={(e: MouseEvent) => editor.startSectionMove(e, s.id)} />
-			{#if s.label}
-				<text x={x0} y={y0} dy={-4 / zoom} font-size={11 / zoom} fill="#2563eb" style:pointer-events="none">{s.label}</text>
-			{/if}
-			{#each [['x0', 'y0'], ['x1', 'y0'], ['x0', 'y1'], ['x1', 'y1']] as const as [xk, yk] (xk + yk)}
-				<rect x={s.clip[xk] - HS / 2} y={-s.clip[yk] - HS / 2} width={HS} height={HS} fill="#fff" stroke="#2563eb" stroke-width={selW} vector-effect="non-scaling-stroke"
-					style:pointer-events="auto" style:cursor="nwse-resize" onmousedown={(e: MouseEvent) => editor.startSectionResize(e, s.id, xk, yk)} />
-			{/each}
-			<!-- delete (✕) at the top-right corner -->
-			<g transform="translate({x1 + GAP},{y0 - GAP})" style:cursor="pointer" style:pointer-events="auto" onmousedown={(e: MouseEvent) => { if (e.button !== 0) return; e.stopPropagation(); editor.deleteSectionMarker(s.id) }}>
-				<circle r={HR * 1.7} fill="#dc2626" stroke="#fff" stroke-width={selW} vector-effect="non-scaling-stroke" />
+			{@const open = editor.selSection === s.id}
+			{#if open}
+				<rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} fill="#2563eb" fill-opacity="0.06"
+					stroke="#2563eb" stroke-width={1 / zoom} vector-effect="non-scaling-stroke" stroke-dasharray="{5 / zoom} {3 / zoom}"
+					style:pointer-events="stroke" style:cursor="move" onmousedown={(e: MouseEvent) => editor.startSectionMove(e, s.id)} />
+				{#each [['x0', 'y0'], ['x1', 'y0'], ['x0', 'y1'], ['x1', 'y1']] as const as [xk, yk] (xk + yk)}
+					<rect x={s.clip[xk] - HS / 2} y={-s.clip[yk] - HS / 2} width={HS} height={HS} fill="#fff" stroke="#2563eb" stroke-width={selW} vector-effect="non-scaling-stroke"
+						style:pointer-events="auto" style:cursor="nwse-resize" onmousedown={(e: MouseEvent) => editor.startSectionResize(e, s.id, xk, yk)} />
+				{/each}
+				<!-- delete (✕) at the top-right corner -->
+				<g transform="translate({x1 + GAP},{y0 - GAP})" style:cursor="pointer" style:pointer-events="auto" onmousedown={(e: MouseEvent) => { if (e.button !== 0) return; e.stopPropagation(); editor.deleteSectionMarker(s.id) }}>
+					<circle r={HR * 1.7} fill="#dc2626" stroke="#fff" stroke-width={selW} vector-effect="non-scaling-stroke" />
 					<path d="M{-HR * 0.85},{-HR * 0.85} L{HR * 0.85},{HR * 0.85} M{HR * 0.85},{-HR * 0.85} L{-HR * 0.85},{HR * 0.85}" stroke="#fff" stroke-width={selW} stroke-linecap="round" vector-effect="non-scaling-stroke" style:pointer-events="none" />
+				</g>
+			{/if}
+			<!-- label tag (always): centred; click selects, drag moves the section -->
+			{@const cx = (x0 + x1) / 2}{@const cy = (y0 + y1) / 2}
+			{@const label = s.label || 'Section'}
+			{@const tw = (label.length * 6.5 + 14) / zoom}
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<g style:cursor="move" style:pointer-events="auto" onmousedown={(e: MouseEvent) => { if (e.button !== 0) return; editor.selectSection(s.id); editor.startSectionMove(e, s.id) }}>
+				<rect x={cx - tw / 2} y={cy - 9 / zoom} width={tw} height={18 / zoom} rx={9 / zoom} fill={open ? '#2563eb' : '#fff'} fill-opacity={open ? 1 : 0.92} stroke="#2563eb" stroke-width={1 / zoom} vector-effect="non-scaling-stroke" />
+				<text x={cx} y={cy} font-size={11 / zoom} fill={open ? '#fff' : '#2563eb'} text-anchor="middle" dominant-baseline="central" style:pointer-events="none">{label}</text>
 			</g>
 		{/each}
 	{/if}

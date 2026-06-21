@@ -43,7 +43,7 @@ export class Model3dEditor extends SurfaceEditor {
 	get selObjId(): string | null { return this.sel?.kind === 'obj' ? this.sel.id : null }
 	get selIndex(): number | null { const id = this.selObjId; if (id === null) return null; const i = this.idxOf(id); return i < 0 ? null : i }
 	isObj(i: number) { return this.selObjId !== null && this.selObjId === this.oid(i) }
-	selectObj(i: number) { this.select('obj', this.oid(i)); this.usel = null; this.multi = []; this.ssel = null }
+	selectObj(i: number) { this.select('obj', this.oid(i)); this.usel = null; this.multi = []; this.ssel = null; this.selSection = null }
 
 	// Path node selection (for Delete / highlight), by object index + node id.
 	vsel = $state<{ index: number; nodeId: string } | null>(null)
@@ -470,6 +470,10 @@ export class Model3dEditor extends SurfaceEditor {
 	onSectionChange: ((id: string, clip: Clip) => void) | null = null
 	onSectionDelete: ((id: string) => void) | null = null
 	get sections() { return this.direction === 'plan' ? (this.sectionsProvider?.() ?? []) : [] }
+	// Which section's clip box is open for editing. By default sections show only a small label tag;
+	// clicking the tag selects it → reveals the editable box + handles, decluttering the plan.
+	selSection = $state<string | null>(null)
+	selectSection(id: string) { this.clearSel(); this.selSection = id }
 	startSectionMove = (e: MouseEvent, id: string) => {
 		if (e.button !== 0) return
 		e.stopPropagation()
@@ -686,7 +690,7 @@ export class Model3dEditor extends SurfaceEditor {
 	pruneSelection() { this.multi = this.multi.filter((id) => this.byId(id)); if (this.selObjId && !this.byId(this.selObjId)) super.clearSel() }
 
 	marqueeCollect(r: { x: number; y: number; w: number; h: number }): void {
-		super.clearSel(); this.vsel = null; this.usel = null // a marquee (or empty click) drops the single selection
+		super.clearSel(); this.vsel = null; this.usel = null; this.selSection = null // a marquee (or empty click) drops the single selection
 		const piv = xyCenter(this.objects)
 		const hit: number[] = []
 		this.objects.forEach((o, i) => { if (!this.locked(o) && !this.hidden(o) && marqueeHits(o, this.direction, piv, r)) hit.push(i) }) // hidden/locked layers aren't selectable
@@ -711,7 +715,7 @@ export class Model3dEditor extends SurfaceEditor {
 		}
 	}
 
-	clearSel() { super.clearSel(); this.vsel = null; this.usel = null; this.multi = []; this.ssel = null }
+	clearSel() { super.clearSel(); this.vsel = null; this.usel = null; this.multi = []; this.ssel = null; this.selSection = null }
 }
 
 // Precise marquee hit-test: an object is selected when one of its *projected
