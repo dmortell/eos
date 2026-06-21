@@ -12,6 +12,7 @@
 	import { Model3dEditor } from './model3d-editor.svelte'
 	import Model3dRender from './Model3dRender.svelte'
 	import Model3dEditLayer from './Model3dEditLayer.svelte'
+	import MarqueeOverlay from './MarqueeOverlay.svelte'
 	import Model3dUnderlayImage from './Model3dUnderlayImage.svelte'
 	import Model3dEditPanel from './Model3dEditPanel.svelte'
 	import Model3dElevationPreview from './Model3dElevationPreview.svelte'
@@ -235,6 +236,8 @@
 		{/if}
 		<!-- annotations render in real-mm; interactive (select/move) only in Select mode -->
 		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} hidden={annHidden} locked={annLocked} den={viewDen} {zoom} />
+		<!-- marquee on top of everything (objects + annotations/symbols) -->
+		{#if active && src.direction !== 'iso'}<MarqueeOverlay marquee={editor.marquee} {zoom} />{/if}
 	</Model3dRender>
 	{#if active}
 		<!-- portalled out of the zoomed canvas so the panels render at normal size -->

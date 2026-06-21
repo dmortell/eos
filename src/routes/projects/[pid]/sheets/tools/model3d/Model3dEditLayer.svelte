@@ -205,12 +205,8 @@
 		{/each}
 	{/if}
 
-	<!-- marquee selection box: thin, zoom-constant stroke + dash -->
-	{#if editable && editor.marquee}
-		{@const m = editor.marquee}
-		<rect x={m.x} y={m.y} width={m.w} height={m.h} fill="#3b82f6" fill-opacity="0.08"
-			stroke="#3b82f6" stroke-width={1 / zoom} vector-effect="non-scaling-stroke" stroke-dasharray="{4 / zoom} {3 / zoom}" style:pointer-events="none" />
-	{/if}
+	<!-- marquee selection box is rendered by MarqueeOverlay AFTER the annotation layer, so it
+	     draws above objects + symbols (see Model3dViewport). -->
 
 	<!-- object placement: capture clicks/moves + draw the rubber-band preview -->
 	{#if editable && editor.placing}
