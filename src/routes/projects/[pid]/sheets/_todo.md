@@ -1,7 +1,11 @@
 
 ## ⭐ HIGH PRIORITY (model3d / sheets editing)
 
-H1. Multi-select for conduit and wall segments, like trunks in the outlets tool — plus allow
+STATUS: H1–H10, H12, H13 ✅ DONE. Remaining: H11 (snap line endpoints — deferred), H14 (auto-hide
+section boxes). H9 grew into a unified group/single transform box (oriented BB, rotate-snap 5°/15°,
+move/resize/rotate, group-aware marquee + faded outlines).
+
+H1. ✅ Multi-select for conduit and wall segments, like trunks in the outlets tool — plus allow
     selecting the whole trunk.
 
 H2. Floor grid annote to show floor tiles, with editable size (500mm by default) and X/Y offsets
