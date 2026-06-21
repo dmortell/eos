@@ -62,7 +62,7 @@
 
 	// Zoom limits (shared by wheel + pinch). Lower MIN_ZOOM to zoom further out.
 	const MIN_ZOOM = 0.05
-	const MAX_ZOOM = 20
+	const MAX_ZOOM = 80 // 8000%
 	const GRID = 50 // grid spacing in world units
 
 	// View state — restore pan/zoom from localStorage (keyed by the `viewKey` prop)

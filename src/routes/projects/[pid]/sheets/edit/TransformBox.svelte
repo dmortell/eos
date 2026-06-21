@@ -4,7 +4,7 @@
 	// Reusable resize + rotate handles for a box, rendered inside a render <svg> (real-mm). Generic
 	// over any SurfaceEditor (annotations, racks, …): the parent supplies the current box/rotation
 	// and applies changes via onresize/onrotate. `namespace="svg"` — see OutletsEditLayer.
-	import { boxHandles, resizeBox, angleDeg, type Box } from './transform'
+	import { boxHandles, resizeBox, squareBox, angleDeg, type Box } from './transform'
 	import type { SurfaceEditor } from './surface.svelte'
 
 	let { editor, box, rotation = 0, zoom = 1, onresize, onrotate }: {
@@ -35,7 +35,9 @@
 			const w = editor.toWorld(ev); if (!w) return
 			let dx = w.x - w0.x, dy = w.y - w0.y
 			if (rotation) { const lx = dx * c - dy * s, ly = dx * s + dy * c; dx = lx; dy = ly } // into box-local frame
-			onresize(handle, resizeBox(b0, handle, dx, dy))
+			let nb = resizeBox(b0, handle, dx, dy)
+			if (ev.shiftKey) nb = squareBox(nb, handle) // Shift = square (→ circles for ellipses)
+			onresize(handle, nb)
 		}, () => editor.notify())
 	}
 	function startRotate(e: MouseEvent) {

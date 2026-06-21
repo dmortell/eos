@@ -173,6 +173,14 @@ export class Model3dEditor extends SurfaceEditor {
 			if (o.type === 'prism') {
 				resizeBoxAxis(o, b.h, handle.includes('h1'), c.ch, MIN)
 				resizeBoxAxis(o, b.v, handle.includes('v1'), c.cv, MIN)
+				if (ev.shiftKey) { // Shift = square footprint (equal in-plane dims, keep the anchored corner)
+					const dim: any = { x: 'w', y: 'd', z: 'h' }, oo = o as any
+					const s = Math.max(oo[dim[b.h]], oo[dim[b.v]])
+					if (!handle.includes('h1')) oo[b.h] = oo[b.h] + oo[dim[b.h]] - s
+					oo[dim[b.h]] = s
+					if (!handle.includes('v1')) oo[b.v] = oo[b.v] + oo[dim[b.v]] - s
+					oo[dim[b.v]] = s
+				}
 			} else if (o.type === 'wall' && handle === 'p0') {
 				o.h = Math.max(MIN, c.cv - (o.nodes[0]?.z ?? 0)) // elevation: drag the top edge
 			}

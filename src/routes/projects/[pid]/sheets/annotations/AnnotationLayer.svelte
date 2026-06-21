@@ -184,7 +184,7 @@
 			{@const mx = (a.x + x2) / 2}{@const my = (a.y + y2) / 2}
 			{@const ang = (Math.atan2(y2 - a.y, x2 - a.x) * 180) / Math.PI}
 			{@const f = fontMmOf(a, den)}
-			<line x1={a.x} y1={a.y} x2={x2} y2={y2} stroke={color} style:color={color} stroke-width=".5" vector-effect="non-scaling-stroke" marker-start="url(#{mid}-arrow)" marker-end="url(#{mid}-arrow)" />
+			<line x1={a.x} y1={a.y} x2={x2} y2={y2} stroke={color} style:color={color} stroke-width=".5" vector-effect="non-scaling-stroke" marker-start={mk(a.start ?? 'arrow')} marker-end={mk(a.end ?? 'arrow')} />
 			<text x={mx} y={my} transform="rotate({ang} {mx} {my})" dy={-f * 0.4} font-size={f} fill={color} text-anchor="middle">{dist}mm</text>
 		{:else}
 			<line x1={a.x} y1={a.y} x2={x2} y2={y2} stroke={color} style:color={color} stroke-width=".5" stroke-dasharray={dashArray(a.dash)} vector-effect="non-scaling-stroke" marker-start={mk(a.start)} marker-end={mk(a.end)} />

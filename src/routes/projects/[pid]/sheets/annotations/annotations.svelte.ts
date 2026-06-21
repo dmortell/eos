@@ -203,6 +203,13 @@ export class AnnotationEditor extends SurfaceEditor {
 	duplicateMultiAnns() { this.duplicateSelectionInPlace() }
 	duplicateSel() { this.duplicateSelection(500) } // Ctrl+D / panel: offset copy of the selection
 	setSel(patch: Partial<Annotation>) { const a = this.selAnn; if (!a) return; Object.assign(a, patch); this.notify() }
+	/** Set a line/dimension's length (mm), keeping its start point + angle. */
+	setSelLength(len: number) {
+		const a = this.selAnn; if (!a || a.x2 == null) return
+		const ang = Math.atan2((a.y2 ?? a.y) - a.y, a.x2 - a.x)
+		a.x2 = Math.round(a.x + len * Math.cos(ang)); a.y2 = Math.round(a.y + len * Math.sin(ang))
+		this.notify()
+	}
 	/** Move the selected annotation(s) to a layer — the marquee set if any, else the single selection. */
 	setSelLayer(layerId: string) {
 		const ids = new Set(this.selAnns.length ? this.selAnns : this.selAnn ? [this.selAnn.id] : [])

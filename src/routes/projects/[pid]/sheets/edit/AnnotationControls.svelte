@@ -92,7 +92,7 @@
 	let annLayers = $derived(editor.layers.filter(l => l.id === 'annotations' || l.base === 'annotations'))
 	const cls = (active: boolean) => ['rounded border px-1.5 py-0.5 text-xs', active ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-slate-100']
 	const hasText = (k?: string) => k === 'text' || k === 'callout'
-	const hasLine = (k?: string) => k === 'line' || k === 'arrow' || k === 'callout'
+	const hasLine = (k?: string) => k === 'line' || k === 'arrow' || k === 'callout' || k === 'dimension'
 	const CALLOUT_BORDERS: [string, string][] = [['none', 'None'], ['underline', 'Underline'], ['box', 'Border']]
 	const hasFill = (k?: string) => k === 'rect' || k === 'ellipse' || k === 'cloud' || k === 'callout' || k === 'symbol'
 </script>
@@ -211,11 +211,16 @@
 		{/if}
 	{/if}
 
+	{#if sel.kind === 'dimension'}
+		<PropText label="Length (mm)" type="number" min="0" value={String(Math.round(Math.hypot((sel.x2 ?? sel.x) - sel.x, (sel.y2 ?? sel.y) - sel.y)))} oninput={(e: Event) => editor.setSelLength(Number(val(e)) || 0)} />
+		<PropText label="Font (pt)" type="number" min="2" value={String(sel.fontPt ?? 8)} oninput={(e: Event) => editor.setSel({ fontPt: Number(val(e)) || 8 })} />
+	{/if}
 	{#if hasLine(sel.kind)}
-		<PropSelect label="Start" value={sel.start ?? 'none'} onchange={(e: Event) => editor.setSel({ start: val(e) as any })}>
+		{@const headDflt = sel.kind === 'dimension' ? 'arrow' : 'none'}
+		<PropSelect label="Start" value={sel.start ?? headDflt} onchange={(e: Event) => editor.setSel({ start: val(e) as any })}>
 			{#each HEADS as [v, l] (v)}<option value={v}>{l}</option>{/each}
 		</PropSelect>
-		<PropSelect label="End" value={sel.end ?? 'none'} onchange={(e: Event) => editor.setSel({ end: val(e) as any })}>
+		<PropSelect label="End" value={sel.end ?? headDflt} onchange={(e: Event) => editor.setSel({ end: val(e) as any })}>
 			{#each HEADS as [v, l] (v)}<option value={v}>{l}</option>{/each}
 		</PropSelect>
 	{/if}
