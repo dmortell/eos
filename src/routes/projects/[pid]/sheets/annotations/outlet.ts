@@ -10,7 +10,7 @@ export const OUTLET_MOUNT = Object.entries(MOUNT_LABELS).map(([value, label]) =>
 
 // Usage abbreviation drawn below the symbol; '' (network) draws nothing.
 const USAGE_ABBR: Record<string, string> = {
-	network: '', new: 'NEW', phone: 'TEL', av: 'AV', printer: 'PRT', security: 'SEC', mep: 'MEP', ap: 'AP', rb: 'RB',
+	network: '', new: 'NEW', phone: 'TEL', av: 'AV', printer: 'PRT', security: 'SEC', cctv: 'CCTV', mep: 'MEP', ap: 'AP', rb: 'RB',
 }
 export const usageAbbr = (v?: string) => {
 	if (!v || v === 'network') return ''

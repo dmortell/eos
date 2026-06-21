@@ -7,7 +7,7 @@ export interface Point { x: number; y: number }
 export type OutletLevel = 'low' | 'high'
 export type CableType = 'cat5e' | 'cat6' | 'cat6a' | 'fiber-sm' | 'fiber-mm'
 export type MountType = 'wall' | 'floor' | 'box'
-export type OutletUsage = 'network' | 'phone' | 'av' | 'printer' | 'security' | 'ap' | 'rb' | 'new' | 'mep'
+export type OutletUsage = 'network' | 'phone' | 'av' | 'printer' | 'security' | 'cctv' | 'ap' | 'rb' | 'new' | 'mep'
 
 export interface OutletConfig {
 	id: string

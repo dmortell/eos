@@ -16,6 +16,7 @@ export const USAGE_COLORS: Record<OutletUsage, { fill: string; stroke: string; l
 	av:       { fill: '#ec4899', stroke: '#db2777', label: 'TV/AV' },
 	printer:  { fill: '#f97316', stroke: '#ea580c', label: 'Printer' },
 	security: { fill: '#ef4444', stroke: '#dc2626', label: 'Security' },
+	cctv:     { fill: '#0d9488', stroke: '#0f766e', label: 'CCTV' },
 	mep:      { fill: '#78716c', stroke: '#57534e', label: 'MEP/BMS' },
 	ap:       { fill: '#10b981', stroke: '#059669', label: 'AP' },
 	rb:       { fill: '#06b6d4', stroke: '#0891b2', label: 'Room Booking' },
