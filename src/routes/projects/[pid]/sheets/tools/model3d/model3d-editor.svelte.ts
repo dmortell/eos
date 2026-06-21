@@ -35,9 +35,14 @@ export class Model3dEditor extends SurfaceEditor {
 	layerOverrides: Record<string, { hidden?: boolean; locked?: boolean }> = {}
 
 	get objects(): Obj[] { return this.model?.objects ?? [] }
-	get selIndex(): number | null { return this.sel?.kind === 'obj' ? +this.sel.id : null }
-	isObj(i: number) { return this.sel?.kind === 'obj' && +this.sel.id === i }
-	selectObj(i: number) { this.select('obj', String(i)); this.usel = null; this.multi = []; this.ssel = null }
+	// ── identity: selection is keyed by object id, not array index, so it survives reorder ──
+	private oid(i: number): string { return this.objects[i]?.id ?? '' }
+	byId(id: string): Obj | undefined { return this.objects.find((o) => o.id === id) }
+	private idxOf(id: string): number { return this.objects.findIndex((o) => o.id === id) }
+	get selObjId(): string | null { return this.sel?.kind === 'obj' ? this.sel.id : null }
+	get selIndex(): number | null { const id = this.selObjId; if (id === null) return null; const i = this.idxOf(id); return i < 0 ? null : i }
+	isObj(i: number) { return this.selObjId !== null && this.selObjId === this.oid(i) }
+	selectObj(i: number) { this.select('obj', this.oid(i)); this.usel = null; this.multi = []; this.ssel = null }
 
 	// Path node selection (for Delete / highlight), by object index + node id.
 	vsel = $state<{ index: number; nodeId: string } | null>(null)
@@ -126,12 +131,13 @@ export class Model3dEditor extends SurfaceEditor {
 	// Ctrl/⌘-click toggles an object in/out of the selection set. A 1-item result
 	// becomes a normal single selection (handles + property editor).
 	toggleMulti(i: number) {
-		const set = new Set(this.multi.length ? this.multi : this.selIndex !== null ? [this.selIndex] : [])
-		if (set.has(i)) set.delete(i); else set.add(i)
+		const id = this.oid(i); if (!id) return
+		const set = new Set(this.multi.length ? this.multi : this.selObjId ? [this.selObjId] : [])
+		if (set.has(id)) set.delete(id); else set.add(id)
 		const arr = [...set]
 		this.vsel = null; this.usel = null; this.ssel = null
 		// Set selection DIRECTLY (not selectObj/select) so a mixed annotation peer selection survives.
-		if (arr.length === 1) { this.sel = { kind: 'obj', id: String(arr[0]) }; this.multi = [] }
+		if (arr.length === 1) { this.sel = { kind: 'obj', id: arr[0] }; this.multi = [] }
 		else { this.sel = null; this.multi = arr }
 	}
 	duplicateSelectionInPlace() { if (this.multi.length) this.duplicateMulti() }
@@ -341,7 +347,7 @@ export class Model3dEditor extends SurfaceEditor {
 	deleteSel = () => {
 		if (this.multi.length) {
 			const del = new Set(this.multi)
-			if (this.model) this.model.objects = this.objects.filter((o, i) => del.has(i) ? this.locked(o) : true)
+			if (this.model) this.model.objects = this.objects.filter((o) => del.has(o.id ?? '') ? this.locked(o) : true)
 			this.multi = []; this.clearSel(); this.notify(); return
 		}
 		if (this.vsel) {
@@ -358,10 +364,11 @@ export class Model3dEditor extends SurfaceEditor {
 
 	// ── duplicate / copy / paste (ctrl-drag, Ctrl+D/C/V, or panel buttons for touch) ──
 	clipboard: Obj[] = []
-	private selIdxs() { return this.multi.length ? [...this.multi] : this.selIndex !== null ? [this.selIndex] : [] }
+	private dragIds(): string[] { return this.multi.length ? this.multi : this.selObjId ? [this.selObjId] : [] }
+	private selIdxs() { return this.dragIds().map((id) => this.idxOf(id)).filter((i) => i >= 0) }
 
 	// ── multi-select common-property editing ──
-	get multiObjs(): Obj[] { return this.multi.map((i) => this.objects[i]).filter(Boolean) }
+	get multiObjs(): Obj[] { return this.multi.map((id) => this.byId(id)).filter(Boolean) as Obj[] }
 	// A value shared by all selected objects, else undefined (mixed → blank input).
 	common<T>(read: (o: Obj) => T | undefined): T | undefined {
 		const os = this.multiObjs; if (!os.length) return undefined
@@ -373,25 +380,26 @@ export class Model3dEditor extends SurfaceEditor {
 		for (const o of this.multiObjs) { if (this.locked(o)) continue; if (o.type === 'prism') o.z = z; else o.nodes.forEach((n) => (n.z = z)) }
 		this.notify()
 	}
+	// Clone an object with a FRESH id (clones must never share an id with the source).
+	private cloneObj(o: Obj): Obj { const c = structuredClone($state.snapshot(o)) as Obj; c.id = newId('o'); return c }
 	// Clone in place for a ctrl-drag (caller then drags the clones).
 	private duplicateOne(index: number): number {
-		this.objects.push(structuredClone($state.snapshot(this.objects[index])) as Obj)
+		this.objects.push(this.cloneObj(this.objects[index]))
 		return this.objects.length - 1
 	}
 	private duplicateMulti() {
-		const clones = this.multi.map((i) => structuredClone($state.snapshot(this.objects[i])) as Obj)
-		const base = this.objects.length
+		const clones = this.multiObjs.map((o) => this.cloneObj(o))
 		this.objects.push(...clones)
-		this.multi = clones.map((_, k) => base + k)
+		this.multi = clones.map((c) => c.id!)
 	}
 	// Add clones offset by `d` mm and select them (for Duplicate / Paste).
 	private addClones(src: Obj[], d: number) {
-		const clones = src.map((o) => { const c = structuredClone(o) as Obj; offsetObj(c, d); return c })
+		const clones = src.map((o) => { const c = this.cloneObj(o); offsetObj(c, d); return c })
 		const base = this.objects.length
 		this.objects.push(...clones)
 		this.clearSel()
 		if (clones.length === 1) this.selectObj(base)
-		else this.multi = clones.map((_, k) => base + k)
+		else this.multi = clones.map((c) => c.id!)
 		this.notify()
 	}
 	// ── object creation (place-tool; tap-to-place, plan view only for now) ──
@@ -505,7 +513,7 @@ export class Model3dEditor extends SurfaceEditor {
 						const sz = (a: 'x' | 'y' | 'z') => Math.max(50, Math.abs((c as any)[a] - (s as any)[a]))
 						const depth = (['x', 'y', 'z'] as const).find((a) => a !== b.h && a !== b.v)!
 						const dim: any = { x: 'w', y: 'd', z: 'h' }
-						const o: any = { type: 'prism', layer: this.layerForNew(), x: 0, y: 0, z: 0, w: 600, d: 600, h: 750, edges: 4 }
+						const o: any = { type: 'prism', id: newId('o'), layer: this.layerForNew(), x: 0, y: 0, z: 0, w: 600, d: 600, h: 750, edges: 4 }
 						for (const a of [b.h, b.v] as const) { o[a] = lo(a); o[dim[a]] = sz(a) }
 						o[depth] = Math.round((s as any)[depth] - (depth === 'z' ? 0 : (o[dim[depth]] / 2))) // centre the default depth on the cursor (floor for z)
 						this.objects.push(o)
@@ -523,8 +531,8 @@ export class Model3dEditor extends SurfaceEditor {
 		if ((pl.kind === 'wall' || pl.kind === 'conduit') && pl.pts.length >= 2) {
 			const g = polyToGraph(pl.pts)
 			this.objects.push(pl.kind === 'wall'
-				? { type: 'wall', layer: this.layerForNew(), h: 2800, thickness: 100, ...g }
-				: { type: 'conduit', layer: this.layerForNew(), w: 80, h: 80, edges: 16, ...g })
+				? { type: 'wall', id: newId('o'), layer: this.layerForNew(), h: 2800, thickness: 100, ...g }
+				: { type: 'conduit', id: newId('o'), layer: this.layerForNew(), w: 80, h: 80, edges: 16, ...g })
 			this.placing = null
 			this.selectObj(this.objects.length - 1)
 			this.notify()
@@ -537,8 +545,8 @@ export class Model3dEditor extends SurfaceEditor {
 	paste = () => { if (this.clipboard.length) this.addClones(this.clipboard, 200) }
 
 	// ── marquee multi-select + group move (overrides SurfaceEditor hooks) ──
-	multi = $state<number[]>([])
-	inMulti(i: number) { return this.multi.includes(i) }
+	multi = $state<string[]>([]) // selected object IDs
+	inMulti(i: number) { return this.multi.includes(this.oid(i)) }
 	hasMultiSel() { return this.multi.length > 0 }
 	clearMulti() { this.multi = [] }
 
@@ -547,23 +555,21 @@ export class Model3dEditor extends SurfaceEditor {
 		const piv = xyCenter(this.objects)
 		const hit: number[] = []
 		this.objects.forEach((o, i) => { if (!this.locked(o) && marqueeHits(o, this.direction, piv, r)) hit.push(i) }) // locked layers aren't selectable
-		// Exactly one → single-select it (full handles + property editor); else multi.
-		if (hit.length === 1) this.selectObj(hit[0]); else this.multi = hit
+		// Exactly one → single-select it (full handles + property editor); else multi (by id).
+		if (hit.length === 1) this.selectObj(hit[0]); else this.multi = hit.map((i) => this.oid(i))
 	}
-	// The set being dragged: the marquee multi-selection if any, else the single selection.
-	// Lets one snapshot/translate path serve both single and group drags.
-	private dragIdxs(): number[] { return this.multi.length ? this.multi : this.selIndex !== null ? [this.selIndex] : [] }
-	private groupSnap: Map<number, Obj> | null = null
+	// Drag set keyed by id, so single + group drags share one snapshot/translate path.
+	private groupSnap: Map<string, Obj> | null = null
 	beginGroupTranslate(): void {
 		this.groupSnap = new Map()
-		for (const i of this.dragIdxs()) this.groupSnap.set(i, structuredClone($state.snapshot(this.objects[i])) as Obj)
+		for (const id of this.dragIds()) { const o = this.byId(id); if (o) this.groupSnap.set(id, structuredClone($state.snapshot(o)) as Obj) }
 	}
 	applyGroupTranslate(dwx: number, dwy: number): void {
 		if (!this.groupSnap) return
 		const b = BASIS[this.direction]
 		const dch = Math.round(dwx * b.hs), dcv = Math.round(-dwy * b.vs)
-		for (const i of this.dragIdxs()) {
-			const o = this.objects[i], snap = this.groupSnap.get(i)
+		for (const id of this.dragIds()) {
+			const o = this.byId(id), snap = this.groupSnap.get(id)
 			if (!o || !snap || this.locked(o)) continue
 			restorePos(o, snap)
 			moveAlong(o, b.h, dch); moveAlong(o, b.v, dcv)

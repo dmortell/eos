@@ -48,7 +48,9 @@ export type Layer = { id: string; name: string; color: string; visible: boolean;
 
 // Every object may belong to a layer (by id); unassigned objects fall back to
 // the model's first layer.
-export type Obj = (Prism | Wall | Conduit) & { layer?: string }
+// `id` is a stable per-object identity (assigned on create, backfilled by migrate).
+// Selection is keyed by id, not array index, so it survives reordering/insert/delete.
+export type Obj = (Prism | Wall | Conduit) & { layer?: string; id?: string }
 
 // A PDF/image underlay placed in one projection plane (e.g. a floorplan under
 // the plan view). A model can hold several per direction; array order is the

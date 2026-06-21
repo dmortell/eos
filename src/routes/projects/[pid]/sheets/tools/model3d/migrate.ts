@@ -37,7 +37,11 @@ export function migrateModels(models: Model[]): Model[] {
 	let changed = false
 	const out = models.map((m) => {
 		let mc = false
-		const objects = m.objects.map((o) => { const n = migrateObj(o); if (n !== o) mc = true; return n })
+		const objects = m.objects.map((o) => {
+			let n = migrateObj(o); if (n !== o) mc = true
+			if (!n.id) { n = { ...n, id: newId('o') }; mc = true } // stable per-object id (id-based selection)
+			return n
+		})
 		let layers = m.layers ?? []
 		if (!layers.some((l) => l.id === 'background')) { layers = [...layers, { ...BACKGROUND_LAYER }]; mc = true }
 		if (mc) changed = true

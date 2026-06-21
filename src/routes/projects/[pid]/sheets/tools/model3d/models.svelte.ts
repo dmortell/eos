@@ -27,7 +27,7 @@ export class ModelStore {
 			if (this.seeded || this.last) return
 			if (!d || !Array.isArray(d.models) || !d.models.length) {
 				this.seeded = true
-				this.models = structuredClone(seedModels)
+				this.models = migrateModels(structuredClone(seedModels)) // assign object ids + reserved layers
 				this.flush()
 			}
 		})
