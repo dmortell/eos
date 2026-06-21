@@ -284,11 +284,29 @@ export class AnnotationEditor extends SurfaceEditor {
 		}
 		this.notify()
 	}
-	scaleSelection(sx: number, sy: number, ax: number, ay: number) {
+	/** Oriented box of a single selected box-kind annotation (for the unified transform box). */
+	singleBox() {
+		const list = this.selectedAnnList(); if (list.length !== 1) return null
+		const a = list[0]
+		if (a.kind === 'line' || a.kind === 'arrow' || a.kind === 'dimension') return null // lines use endpoints
+		const b = bounds(a, 1)
+		return { cx: b.x + b.w / 2, cy: b.y + b.h / 2, hw: b.w / 2, hh: b.h / 2, angle: a.rotation ?? 0 }
+	}
+	scaleSelection(sx: number, sy: number, ax: number, ay: number, angle = 0) {
+		const r = (-angle * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r), rr = (angle * Math.PI) / 180, rc = Math.cos(rr), rs = Math.sin(rr)
+		const sp = (px: number, py: number) => { // scale a point about (ax,ay) in the frame rotated by `angle`
+			const dx = px - ax, dy = py - ay, lx = dx * c - dy * s, ly = dx * s + dy * c, qx = lx * sx, qy = ly * sy
+			return { x: ax + qx * rc - qy * rs, y: ay + qx * rs + qy * rc }
+		}
 		for (const a of this.selectedAnnList()) {
-			a.x = ax + (a.x - ax) * sx; a.y = ay + (a.y - ay) * sy
-			if (a.x2 != null) { a.x2 = ax + (a.x2 - ax) * sx; a.y2 = ay + ((a.y2 ?? a.y) - ay) * sy }
-			if (a.w != null) a.w = Math.max(1, a.w * sx); if (a.h != null) a.h = Math.max(1, a.h * sy)
+			const isLine = a.kind === 'line' || a.kind === 'arrow' || a.kind === 'dimension'
+			if (isLine) { const p1 = sp(a.x, a.y); a.x = p1.x; a.y = p1.y; if (a.x2 != null) { const p2 = sp(a.x2, a.y2 ?? a.y); a.x2 = p2.x; a.y2 = p2.y } }
+			else {
+				const b = bounds(a, 1), nc = sp(b.x + b.w / 2, b.y + b.h / 2)
+				a.x += nc.x - (b.x + b.w / 2); a.y += nc.y - (b.y + b.h / 2)
+				if (a.w != null) a.w = Math.max(1, a.w * sx); if (a.h != null) a.h = Math.max(1, a.h * sy)
+				if (a.x2 != null) { const p = sp(a.x2, a.y2 ?? a.y); a.x2 = p.x; a.y2 = p.y } // callout pointer
+			}
 		}
 		this.notify()
 	}

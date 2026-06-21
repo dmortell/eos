@@ -65,7 +65,18 @@ export class SelectionCoordinator {
 		}
 		return b
 	}
+	/** The transform box: a SINGLE box-like item gives an oriented box (its angle); 2+ give an AABB
+	 *  (angle 0). Null → nothing, or a single line/graph item that keeps its own endpoint handles. */
+	orientedBox(): { cx: number; cy: number; hw: number; hh: number; angle: number; single: boolean } | null {
+		const total = this.count()
+		if (total === 1) { const sb = this.active()[0]?.singleBox(); return sb ? { ...sb, single: true } : null }
+		if (total >= 2) {
+			const bb = this.groupBounds(); if (!bb) return null
+			return { cx: (bb.x0 + bb.x1) / 2, cy: (bb.y0 + bb.y1) / 2, hw: (bb.x1 - bb.x0) / 2, hh: (bb.y1 - bb.y0) / 2, angle: 0, single: false }
+		}
+		return null
+	}
 	moveGroup(dx: number, dy: number) { for (const e of this.active()) e.nudgeSelection(dx, dy) }
 	rotateGroup(deg: number, cx: number, cy: number) { for (const e of this.active()) e.rotateSelection(deg, cx, cy) }
-	scaleGroup(sx: number, sy: number, ax: number, ay: number) { for (const e of this.active()) e.scaleSelection(sx, sy, ax, ay) }
+	scaleGroup(sx: number, sy: number, ax: number, ay: number, angle = 0) { for (const e of this.active()) e.scaleSelection(sx, sy, ax, ay, angle) }
 }

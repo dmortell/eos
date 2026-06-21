@@ -15,7 +15,7 @@
 	// `hidden` / `locked` are the viewport's off-layer id lists; each annotation is filtered by its
 	// own layer (custom or the default 'annotations'), so annotations on different layers toggle
 	// independently.
-	let { editor, interactive = false, hidden = [], locked = [], den = 1, zoom = 1 }: { editor: AnnotationEditor; interactive?: boolean; hidden?: string[]; locked?: string[]; den?: number; zoom?: number } = $props()
+	let { editor, interactive = false, hidden = [], locked = [], groupBox = false, den = 1, zoom = 1 }: { editor: AnnotationEditor; interactive?: boolean; hidden?: string[]; locked?: string[]; groupBox?: boolean; den?: number; zoom?: number } = $props()
 
 	const HL = '#2563eb' // blue, matching object selection
 	// Zoom-counter-scaled stroke so the multi-select box matches TransformBox exactly.
@@ -270,8 +270,11 @@
 	<!-- selection handles -->
 	{#if sel}
 		{#if isBoxKind(a)}
-			<TransformBox {editor} {zoom} box={box(a, den)} rotation={a.rotation ?? 0}
-				onresize={(_h, nb) => editor.setBox(a, nb)} onrotate={(d) => editor.setRotation(a, d)} />
+			<!-- groupBox: the host shows a unified transform box for this single item → skip the per-item box -->
+			{#if !groupBox}
+				<TransformBox {editor} {zoom} box={box(a, den)} rotation={a.rotation ?? 0}
+					onresize={(_h, nb) => editor.setBox(a, nb)} onrotate={(d) => editor.setRotation(a, d)} />
+			{/if}
 			{#if POINTER.has(a.kind) && a.x2 != null}
 				<PointHandles {editor} {zoom} anchor={{ x: cx, y: cy }} points={[{ x: a.x2, y: a.y2 ?? a.y }]} onmove={(_i, x, y) => editor.movePoint(a, 1, x, y)} />
 			{/if}

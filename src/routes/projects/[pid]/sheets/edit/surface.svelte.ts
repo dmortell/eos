@@ -111,10 +111,14 @@ export class SurfaceEditor {
 	// ── group transform (H9): SVG-world primitives the GroupTransformBox drives (plan view) ──
 	/** AABB of the selection in SVG world coords, or null if nothing selected. */
 	selWorldBounds(): { x0: number; y0: number; x1: number; y1: number } | null { return null }
+	/** Oriented box (SVG world) of a SINGLE box-like selection — for the unified transform box on a
+	 *  rotated item. Null when not exactly one box-like item (lines/graphs/multi). */
+	singleBox(): { cx: number; cy: number; hw: number; hh: number; angle: number } | null { return null }
 	/** Rotate the selection `deg` about (cx,cy): rotate each item's position + add deg to its own angle. */
 	rotateSelection(_deg: number, _cx: number, _cy: number): void {}
-	/** Scale the selection about anchor (ax,ay) by (sx,sy): scale each item's position + size. */
-	scaleSelection(_sx: number, _sy: number, _ax: number, _ay: number): void {}
+	/** Scale the selection about anchor (ax,ay) by (sx,sy), in the frame rotated by `angle` (deg).
+	 *  angle=0 → axis-aligned (multi); angle=item angle → resize a rotated single item in its frame. */
+	scaleSelection(_sx: number, _sy: number, _ax: number, _ay: number, _angle?: number): void {}
 	/** Ctrl+D / panel duplicate: clone the selection offset by `d`, select the clones. */
 	duplicateSelection(d = 500) { const ids = this.cloneItems(this.selectedIds(), d); if (ids.length) { this.selectIds(ids); this.notify() } }
 

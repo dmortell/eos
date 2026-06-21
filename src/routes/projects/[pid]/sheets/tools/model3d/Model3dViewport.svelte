@@ -130,6 +130,9 @@
 	$effect(() => { if (!active) { annEditor.clearSel(); tool = 'select' } })
 	// Cross-editor selection actions (delete / duplicate over a mixed object+annotation selection).
 	const selection = new SelectionCoordinator([editor, annEditor])
+	// The unified transform box (plan, select mode): single box-like item (oriented) or multi (AABB).
+	// When shown, the redundant per-item handles (annotation TransformBox / prism corners) are hidden.
+	const showGroupBox = $derived(active && tool === 'select' && src?.direction === 'plan' && !!selection.orientedBox())
 
 	// Undo/redo over the model geometry (objects) AND this viewport's annotations, so a
 	// drag / ctrl-drag of either is undoable. Layer defs + underlays are edited through
@@ -234,12 +237,12 @@
 				style:pointer-events="auto" style:cursor="grab" onmousedown={startOrbit} />
 		{/if}
 		{#if active}
-			<Model3dEditLayer {editor} {model} direction={src.direction} clip={src.clip ?? null} interactive={tool === 'select'} {zoom} />
+			<Model3dEditLayer {editor} {model} direction={src.direction} clip={src.clip ?? null} interactive={tool === 'select'} groupBox={showGroupBox} {zoom} />
 		{/if}
 		<!-- annotations render in real-mm; interactive (select/move) only in Select mode -->
-		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} hidden={annHidden} locked={annLocked} den={viewDen} {zoom} />
+		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} hidden={annHidden} locked={annLocked} groupBox={showGroupBox} den={viewDen} {zoom} />
 		<!-- group transform box: move/resize/rotate a multi-selection or group as one (plan view) -->
-		{#if active && tool === 'select' && src.direction === 'plan' && selection.count() >= 2}
+		{#if showGroupBox}
 			<GroupTransformBox {editor} {selection} {zoom} />
 		{/if}
 		<!-- marquee on top of everything (objects + annotations/symbols) -->

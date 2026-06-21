@@ -618,16 +618,28 @@ export class Model3dEditor extends SurfaceEditor {
 		}
 		this.notify()
 	}
-	scaleSelection(sx: number, sy: number, ax: number, ay: number) {
+	/** Oriented box of a single selected prism (for the unified transform box / rotated resize). */
+	singleBox() {
+		if (this.direction !== 'plan') return null
+		const ids = this.selectedIds(); if (ids.length !== 1) return null
+		const o = this.byId(ids[0]); if (!o || o.type !== 'prism') return null
+		return { cx: o.x + o.w / 2, cy: -(o.y + o.d / 2), hw: o.w / 2, hh: o.d / 2, angle: -(o.rot ?? 0) } // svg angle = -model rot
+	}
+	scaleSelection(sx: number, sy: number, ax: number, ay: number, angle = 0) {
 		if (this.direction !== 'plan') return
+		const r = (-angle * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r), rr = (angle * Math.PI) / 180, rc = Math.cos(rr), rs = Math.sin(rr)
+		const sp = (px: number, py: number) => { // scale about (ax,ay) in the frame rotated by `angle`
+			const dx = px - ax, dy = py - ay, lx = dx * c - dy * s, ly = dx * s + dy * c, qx = lx * sx, qy = ly * sy
+			return { x: ax + qx * rc - qy * rs, y: ay + qx * rs + qy * rc }
+		}
 		for (const id of this.selectedIds()) {
 			const o = this.byId(id); if (!o || this.locked(o)) continue
 			if (o.type === 'prism') {
-				const ncxs = ax + (o.x + o.w / 2 - ax) * sx, ncys = ay + (-(o.y + o.d / 2) - ay) * sy
+				const nc = sp(o.x + o.w / 2, -(o.y + o.d / 2))
 				o.w = Math.max(MIN, o.w * sx); o.d = Math.max(MIN, o.d * sy)
-				o.x = ncxs - o.w / 2; o.y = -ncys - o.d / 2
+				o.x = nc.x - o.w / 2; o.y = -nc.y - o.d / 2
 			} else if (o.type === 'wall' || o.type === 'conduit') {
-				for (const n of o.nodes) { n.x = ax + (n.x - ax) * sx; n.y = -(ay + (-n.y - ay) * sy) }
+				for (const n of o.nodes) { const np = sp(n.x, -n.y); n.x = np.x; n.y = -np.y }
 			}
 		}
 		this.notify()

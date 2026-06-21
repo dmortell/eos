@@ -8,12 +8,13 @@
 	import { BASIS, type Clip, type Conduit, type Dir, type Model, type Obj, type Wall } from './types'
 	import { project, posAlong, sizeAlong, xyCenter, trimToClip, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 
-	let { editor, model, direction, clip = null, interactive = false, zoom = 1 }: {
+	let { editor, model, direction, clip = null, interactive = false, groupBox = false, zoom = 1 }: {
 		editor: Model3dEditor
 		model: Model
 		direction: Dir
 		clip?: Clip | null
 		interactive?: boolean
+		groupBox?: boolean // host shows a unified transform box for a single prism → skip its corner handles
 		zoom?: number
 	} = $props()
 
@@ -170,7 +171,7 @@
 		{/if}
 	{/if}
 
-	{#if editable && editor.selIndex !== null && model.objects[editor.selIndex]}
+	{#if editable && editor.selIndex !== null && model.objects[editor.selIndex] && !(groupBox && model.objects[editor.selIndex].type === 'prism')}
 		{#each handles(model.objects[editor.selIndex], editor.selIndex) as h, hi (hi)}
 			{#if h.round}
 				<!-- insert (copy)=green · extend (crosshair)=hollow green · branch (cell)=violet · disconnect (no-drop)=red · rotate (grab)=cyan -->
