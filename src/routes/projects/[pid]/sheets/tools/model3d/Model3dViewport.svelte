@@ -126,7 +126,7 @@
 	// other save paths, so they stay out of the snapshot.
 	const snap = {
 		snapshot: () => ({ objects: model ? $state.snapshot(model.objects) : [], annotations: annEditor.snapshot() }),
-		seed: (s: any) => { if (model) model.objects = s.objects ?? []; annEditor.seed(s.annotations ?? []) },
+		seed: (s: any) => { if (model) model.objects = s.objects ?? []; annEditor.seed(s.annotations ?? []); annEditor.pruneSelection() },
 		notify: () => { store.save(); annEditor.notify() },
 	}
 	history.register(snap)

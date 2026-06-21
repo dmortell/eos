@@ -58,10 +58,11 @@ export class AnnotationEditor extends SurfaceEditor {
 	selAnns = $state<string[]>([])
 	#gbAnns = new Map<string, { x: number; y: number; x2?: number; y2?: number }>()
 
-	seed(a: Annotation[] | undefined) {
-		this.annotations = (a ?? []).map(x => migrate({ ...x }))
-		// Drop selection referencing annotations that no longer exist (e.g. after an undo
-		// that removed ctrl-drag clones), so the props panel doesn't read a dangling id.
+	seed(a: Annotation[] | undefined) { this.annotations = (a ?? []).map(x => migrate({ ...x })) }
+	/** Drop selection referencing annotations that no longer exist (e.g. after an undo
+	 *  that removed ctrl-drag clones). Call OUTSIDE a tracking $effect (it writes the
+	 *  selection it reads) — e.g. from the history seed path. */
+	pruneSelection() {
 		const ids = new Set(this.annotations.map(x => x.id))
 		this.selAnns = this.selAnns.filter(id => ids.has(id))
 		if (this.sel?.kind === 'ann' && !ids.has(this.sel.id)) this.sel = null
