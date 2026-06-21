@@ -114,6 +114,8 @@
 	// unified mode — 'select' lets the geometry editor work; an annotation tool
 	// routes clicks to placement via EditBackground.
 	let tool = $state('select')
+	let ctxMenu = $state<{ x: number; y: number } | null>(null) // right-click context menu (group/ungroup/…)
+	const newGid = () => 'g' + Math.random().toString(36).slice(2, 9)
 	let viewDen = $state(1)
 	let elevDir = $state<Dir>('front') // direction for the floating elevation preview
 	// Layers a symbol can file onto, PER-MODEL (per floor): this model's own layers
@@ -218,8 +220,30 @@
 				if (armed) { e.preventDefault(); e.stopPropagation(); if (armed.symbol) annEditor.symbol = armed.symbol; tool = armed.tool; return }
 			}
 		}
+		// Right-click context menu (Group/Ungroup/…). Distinguish a click from a right-drag pan by
+		// movement; suppress over UI panels.
+		let rightStart: { x: number; y: number } | null = null
+		const onDown = (e: MouseEvent) => { if (e.button === 2) rightStart = { x: e.clientX, y: e.clientY } }
+		const onCtx = (e: MouseEvent) => {
+			if (!active) return
+			if ((e.target as HTMLElement)?.closest?.('input, textarea, select, button, .gui, [data-slot], #sheet-portal-root, .dwg-menubar')) return
+			const moved = rightStart && Math.hypot(e.clientX - rightStart.x, e.clientY - rightStart.y) > 5
+			rightStart = null
+			if (moved) return // it was a pan, not a click
+			e.preventDefault(); e.stopPropagation()
+			ctxMenu = { x: e.clientX, y: e.clientY }
+		}
+		const onAnyDown = (e: MouseEvent) => { if (ctxMenu && !(e.target as HTMLElement)?.closest?.('.ctx-menu')) ctxMenu = null }
 		window.addEventListener('keydown', onKey, true)
-		return () => window.removeEventListener('keydown', onKey, true)
+		window.addEventListener('mousedown', onDown, true)
+		window.addEventListener('contextmenu', onCtx, true)
+		window.addEventListener('mousedown', onAnyDown)
+		return () => {
+			window.removeEventListener('keydown', onKey, true)
+			window.removeEventListener('mousedown', onDown, true)
+			window.removeEventListener('contextmenu', onCtx, true)
+			window.removeEventListener('mousedown', onAnyDown)
+		}
 	})
 </script>
 
@@ -266,6 +290,21 @@
 	{#if active}
 		<!-- portalled out of the zoomed canvas so the panels render at normal size -->
 		<div use:portal><Model3dEditPanel {editor} {model} {annEditor} bind:tool /></div>
+		{#if ctxMenu}
+			{@const n = selection.count()}
+			{@const item = 'block w-full px-3 py-1 text-left hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent'}
+			<!-- right-click context menu -->
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div use:portal class="ctx-menu fixed z-50 min-w-32 rounded border border-zinc-200 bg-white py-1 text-xs text-zinc-700 shadow-lg" style:left="{ctxMenu.x}px" style:top="{ctxMenu.y}px" oncontextmenu={(e) => e.preventDefault()}>
+				<button class={item} disabled={n < 2} onclick={() => { selection.group(newGid); ctxMenu = null }}>Group</button>
+				<button class={item} disabled={!selection.isGrouped()} onclick={() => { selection.ungroup(); ctxMenu = null }}>Ungroup</button>
+				<div class="my-1 border-t border-zinc-100"></div>
+				<button class={item} disabled={!n} onclick={() => { selection.duplicateSelection(); ctxMenu = null }}>Duplicate</button>
+				<button class={item} disabled={!n} onclick={() => { selection.copySelection(); ctxMenu = null }}>Copy</button>
+				<button class={item} onclick={() => { selection.paste(); ctxMenu = null }}>Paste</button>
+				<button class="{item} text-red-600" disabled={!n} onclick={() => { selection.deleteSelection(); ctxMenu = null }}>Delete</button>
+			</div>
+		{/if}
 		<!-- floating auto-fit elevation of the plan selection (drag top edge = height) -->
 		{#if src.direction === 'plan' && model && editor.selIndex !== null}
 			<div use:portal><Model3dElevationPreview {model} store={store} selIndex={editor.selIndex} bind:direction={elevDir} /></div>
