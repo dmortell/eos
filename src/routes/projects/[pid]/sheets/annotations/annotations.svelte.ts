@@ -147,7 +147,7 @@ export class AnnotationEditor extends SurfaceEditor {
 		this.applyToggle(this.selAnns, this.selAnn?.id ?? null, id, (sel, multi) => { this.sel = sel; this.selAnns = multi })
 		this.notify()
 	}
-	duplicateSelectionInPlace() { if (this.selAnns.length) this.duplicateMultiAnns() }
+	// (duplicateSelectionInPlace is inherited from SurfaceEditor — cloneItems(selAnns) → select clones)
 	move(a: Annotation, e0: MouseEvent, movePointer = true) {
 		this.dragMovePointer = movePointer // single callout box-grab leaves the leader tip
 		if (e0.ctrlKey || e0.metaKey) {

@@ -136,7 +136,7 @@ export class Model3dEditor extends SurfaceEditor {
 		this.vsel = null; this.usel = null; this.ssel = null
 		this.applyToggle(this.multi, this.selObjId, id, (sel, multi) => { this.sel = sel; this.multi = multi })
 	}
-	duplicateSelectionInPlace() { if (this.multi.length) this.duplicateMulti() }
+	// (duplicateSelectionInPlace is inherited from SurfaceEditor — cloneItems(multi) → select clones)
 
 	// ── object move (drag in the projected plane) — uses the shared gesture drivers ──
 	startObjMove = (e: MouseEvent, index: number) => {
