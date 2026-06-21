@@ -24,7 +24,7 @@
 	const lyrOf = (a: Annotation) => a.layerId ?? 'annotations'
 	const isLocked = (a: Annotation) => locked.includes(lyrOf(a))
 
-	const BOX = new Set(['text', 'rect', 'ellipse', 'cloud', 'symbol', 'callout', 'image'])
+	const BOX = new Set(['text', 'rect', 'ellipse', 'cloud', 'symbol', 'callout', 'image', 'grid'])
 	const POINTER = new Set(['callout']) // box kinds that also have a pointer target
 	const LINE = new Set(['line', 'arrow', 'dimension'])
 	const isBoxKind = (a: Annotation) => BOX.has(a.kind)

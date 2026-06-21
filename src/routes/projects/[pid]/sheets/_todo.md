@@ -495,3 +495,8 @@ Fold the three rack property editors (Sheets viewport / outlets tool / racks too
 
 
 24g. Allow the size of line endpoints (arrows, dots, ticks) to be specified for all line types in props and project defaults.
+
+25. Context menu for objects/annotes.
+     * group (enabled if multi selected)/ungroup (enabled if grouped) items
+
+26. Add a polygon annote for drawing regular and irregular polygons. Consider making it like walls/conduits/trunks, for nodes with multiple edges. Or keep it simple, 

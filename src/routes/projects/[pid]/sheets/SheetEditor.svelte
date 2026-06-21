@@ -106,18 +106,23 @@
 	let paperEl = $state<HTMLDivElement>()
 	$effect(() => { vps.paper = paperEl ?? null }) // paper sheet → client px ↔ paper mm mapping
 
-	// Load the embedded viewport array when the sheet IDENTITY changes (not on every snapshot).
-	// The `lastLoadedId` guard means our own save round-trips (same id, new object) don't reset
-	// the working set or clear the current selection.
+	// Load the embedded viewport array. A JSON-echo guard (like ModelStore) skips our OWN save
+	// round-trips but DOES apply REMOTE changes from other windows — so annotation edits sync live
+	// (objects already sync via the separate models3d doc). On a brand-new sheet id we also reset
+	// the view; on a remote edit we keep the current selection/active viewport so it isn't jarring.
 	let lastLoadedId: string | null = null
+	let lastViewportsJson = ''
 	$effect(() => {
 		const id = sheet?.id
-		if (!id || id === lastLoadedId) return
+		if (!id) return
+		const incoming = JSON.stringify(sheet.viewports ?? [])
+		if (incoming === lastViewportsJson) return // our own write echoed back
+		const fresh = id !== lastLoadedId
 		lastLoadedId = id
+		lastViewportsJson = incoming
 		untrack(() => {
 			vps.viewports = (sheet.viewports ?? []).map(v => ({ ...v }))
-			vps.clearSel()
-			vps.deactivate()
+			if (fresh) { vps.clearSel(); vps.deactivate() }
 		})
 	})
 
@@ -133,6 +138,7 @@
 			saveTimer = null
 			if (!sheet?.id) return
 			const viewports = $state.snapshot(vps.viewports) as SheetViewport[]
+			lastViewportsJson = JSON.stringify(viewports) // mark as our own write so the echo is skipped
 			updateSheet(db, pid, sheet.id, { viewports })
 		}, 400)
 	}
