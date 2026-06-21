@@ -41,6 +41,22 @@ export class SurfaceEditor {
 		const r = this.svg?.getBoundingClientRect()
 		return (r && this.toWorldXY(r.left + r.width / 2, r.top + r.height / 2)) || { x: 0, y: 0 }
 	}
+	/** The visible region in world-mm (the svg's on-screen rect mapped back to world). */
+	viewBounds(): { x: number; y: number; w: number; h: number } | null {
+		const r = this.svg?.getBoundingClientRect(); if (!r) return null
+		const a = this.toWorldXY(r.left, r.top), b = this.toWorldXY(r.right, r.bottom)
+		if (!a || !b) return null
+		return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(b.x - a.x), h: Math.abs(b.y - a.y) }
+	}
+	/** Offset to place pasted items: the small `gap` if their bbox is already on-screen, else
+	 *  shift so the bbox centre lands at the view centre (so cross-view pastes don't vanish). */
+	pasteShift(bbox: { x: number; y: number; w: number; h: number }, gap: number): { dx: number; dy: number } {
+		const vb = this.viewBounds(); if (!vb) return { dx: gap, dy: gap }
+		const inView = bbox.x < vb.x + vb.w && bbox.x + bbox.w > vb.x && bbox.y < vb.y + vb.h && bbox.y + bbox.h > vb.y
+		if (inView) return { dx: gap, dy: gap }
+		const c = this.viewCenter()
+		return { dx: Math.round(c.x - (bbox.x + bbox.w / 2)), dy: Math.round(c.y - (bbox.y + bbox.h / 2)) }
+	}
 
 	// ── selection ──
 	/** This editor's selection kind ('obj' | 'ann') — set by the subclass. */

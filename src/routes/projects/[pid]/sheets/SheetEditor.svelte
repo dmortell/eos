@@ -191,6 +191,10 @@
 			if (hit) vps.activate(hit.id); else vps.deactivate()
 		}
 		function onKey(e: KeyboardEvent) {
+			// Page Up/Down pan the sheet page vertically (horizontally with Shift) — works at any time.
+			if ((e.key === 'PageUp' || e.key === 'PageDown') && !isField(e.target)) {
+				e.preventDefault(); canvasComp?.panByPage(e.shiftKey, e.key === 'PageUp'); return
+			}
 			if (modelVpId) { if (e.key === 'Escape') { const id = modelVpId; modelVpId = null; vps.activate(id) } return }
 				// Sheet-level viewport clipboard — only when no viewport is active (active viewports own
 				// Ctrl-C/V for their own annotations). Cut/Copy/Duplicate need a selection; Paste doesn't.

@@ -232,8 +232,15 @@ export class AnnotationEditor extends SurfaceEditor {
 	/** Paste the clipboard into this viewport (new ids, offset so the copies are visible). */
 	paste() {
 		if (!clipboard.length) return
-		const D = 500
-		const copies = clipboard.map(a => ({ ...structuredClone(a), id: this.uid('a'), x: a.x + D, y: a.y + D, x2: a.x2 != null ? a.x2 + D : undefined, y2: a.y2 != null ? a.y2 + D : undefined }))
+		// Bbox of the clipboard; if it's off-screen (e.g. pasted into another view) centre it.
+		let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+		for (const a of clipboard) {
+			for (const x of [a.x, a.x2].filter((v): v is number => v != null)) { x0 = Math.min(x0, x); x1 = Math.max(x1, x) }
+			for (const y of [a.y, a.y2].filter((v): v is number => v != null)) { y0 = Math.min(y0, y); y1 = Math.max(y1, y) }
+			if (a.w) x1 = Math.max(x1, a.x + a.w); if (a.h) y1 = Math.max(y1, a.y + a.h)
+		}
+		const { dx, dy } = this.pasteShift({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, 500)
+		const copies = clipboard.map(a => ({ ...structuredClone(a), id: this.uid('a'), x: a.x + dx, y: a.y + dy, x2: a.x2 != null ? a.x2 + dx : undefined, y2: a.y2 != null ? a.y2 + dy : undefined }))
 		for (const c of copies) this.annotations.push(c)
 		this.clearSel(); this.selAnns = copies.map(c => c.id)
 		this.notify()

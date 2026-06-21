@@ -150,6 +150,12 @@
 	function pan(dx: number, dy: number) { view.x += dx; view.y += dy }
 
 	/** Fit the paper sheet to the canvas and centre it (menubar "Fit" / view reset). */
+	/** Page-pan: shift the view by ~85% of the visible extent (PageUp/Down → vertical, Shift → horizontal). */
+	export function panByPage(horizontal: boolean, positive: boolean) {
+		if (!canvas) return
+		const amt = (horizontal ? canvas.offsetWidth : canvas.offsetHeight) * 0.85 * (positive ? 1 : -1)
+		if (horizontal) pan(amt, 0); else pan(0, amt)
+	}
 	export function fitToPaper() {
 		if (!canvas) return
 		const { w, h } = paperDimsMm(paper) // mm = world units; paper sits at world (0,0)

@@ -1,7 +1,7 @@
 import { toast } from 'svelte-sonner'
 import { SurfaceEditor } from '../../edit/surface.svelte'
 import { BASIS, type Clip, type Conduit, type Dir, type Model, type Obj, type Prism, type Wall } from './types'
-import { moveAlong, roundObj, project, xyCenter, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
+import { moveAlong, roundObj, project, xyCenter, objBounds, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 import { newId } from './graph'
 import { polyToGraph } from './migrate'
 
@@ -378,16 +378,6 @@ export class Model3dEditor extends SurfaceEditor {
 		return this.objects.length - 1
 	}
 	private duplicateMulti() { this.duplicateSelectionInPlace() } // base: cloneItems(multi) → select clones
-	// Add clones offset by `d` mm and select them (for Duplicate / Paste).
-	private addClones(src: Obj[], d: number) {
-		const clones = src.map((o) => { const c = this.cloneObj(o); offsetObj(c, d); return c })
-		const base = this.objects.length
-		this.objects.push(...clones)
-		this.clearSel()
-		if (clones.length === 1) this.selectObj(base)
-		else this.multi = clones.map((c) => c.id!)
-		this.notify()
-	}
 	// ── object creation (place-tool; tap-to-place, plan view only for now) ──
 	// `placing.pts` accumulates clicked points for a wall/conduit path; `cursor`
 	// is the live point for the rubber-band preview. Prisms place on first click.
@@ -528,7 +518,22 @@ export class Model3dEditor extends SurfaceEditor {
 	duplicateSel = () => this.duplicateSelection(200) // Ctrl+D / panel: offset copy of the selection
 	copySel = () => { this.clipboard = this.selIdxs().map((i) => structuredClone($state.snapshot(this.objects[i])) as Obj) }
 	cutSel = () => { if (this.selIdxs().length) { this.copySel(); this.deleteSel() } }
-	paste = () => { if (this.clipboard.length) this.addClones(this.clipboard, 200) }
+	paste = () => {
+		if (!this.clipboard.length) return
+		const b = BASIS[this.direction]
+		// projected (view-space) bbox of the clipboard → centre it if it's off-screen.
+		let mh0 = Infinity, mh1 = -Infinity, mv0 = Infinity, mv1 = -Infinity
+		for (const o of this.clipboard) { const bb = objBounds(o) as any; mh0 = Math.min(mh0, bb[b.h + '0']); mh1 = Math.max(mh1, bb[b.h + '1']); mv0 = Math.min(mv0, bb[b.v + '0']); mv1 = Math.max(mv1, bb[b.v + '1']) }
+		const xs = [b.hs * mh0, b.hs * mh1], ys = [-(b.vs * mv0), -(b.vs * mv1)]
+		const bbox = { x: Math.min(...xs), y: Math.min(...ys), w: Math.abs(xs[1] - xs[0]), h: Math.abs(ys[1] - ys[0]) }
+		const { dx, dy } = this.pasteShift(bbox, 200)
+		const dch = Math.round(dx * b.hs), dcv = Math.round(-dy * b.vs)
+		const clones = this.clipboard.map((o) => { const c = this.cloneObj(o); moveAlong(c, b.h, dch); moveAlong(c, b.v, dcv); return c })
+		this.objects.push(...clones)
+		this.clearSel()
+		if (clones.length === 1) this.selectObj(this.objects.length - 1); else this.multi = clones.map((c) => c.id!)
+		this.notify()
+	}
 	clearClipboard() { this.clipboard = [] }
 	hasClipboard() { return this.clipboard.length > 0 }
 	// Arrow-key nudge (world Δ → projected axes) / resize of the selected objects.
