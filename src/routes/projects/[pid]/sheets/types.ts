@@ -108,6 +108,16 @@ export interface AnnotationLink {
 	surveyId?: string
 	photoId?: string
 }
+/** Project-wide annotation defaults (new annotations inherit these; `dimUnit` formats every
+ *  dimension's auto-label). Persisted on the project doc as `annotationDefaults`. */
+export interface AnnotationDefaults {
+	color?: string
+	fontPt?: number
+	lineStart?: ArrowHead; lineEnd?: ArrowHead   // default heads for line/arrow
+	dimStart?: ArrowHead; dimEnd?: ArrowHead       // default heads for dimension
+	dash?: DashStyle
+	dimUnit?: 'mm' | 'm' | 'km' | 'none'           // unit shown on dimension labels (default mm)
+}
 export interface Annotation {
 	id: string
 	kind: AnnotationKind

@@ -17,6 +17,7 @@
 	import LayersPanel from "./layers/LayersPanel.svelte";
 	import RevisionsPanel from "./revisions/RevisionsPanel.svelte";
 	import ProjectSettingsDialog, { type Project } from "../../ProjectSettingsDialog.svelte";
+	import DrawingDefaultsDialog from "./DrawingDefaultsDialog.svelte";
 
 	let { sheet, project = {}, floors = [], db, pid }: {
 		sheet: SheetDoc
@@ -142,6 +143,7 @@
 	// Layer definitions are shared across all sheets (per-viewport hidden/locked stays on the sheet).
 	let projectDoc = $state<Project | null>(null) // full project doc, for the Project-details dialog
 	let settingsOpen = $state(false)
+	let defaultsOpen = $state(false)
 	$effect(() => {
 		if (!pid) return
 		const unsub = db.subscribeOne('projects', pid, (data: any) => {
@@ -149,10 +151,13 @@
 			const next = Array.isArray(data?.sheetLayers) ? data.sheetLayers : []
 			// Skip no-op echoes (our own writes round-trip) so an in-progress rename isn't clobbered.
 			if (JSON.stringify(next) !== JSON.stringify($state.snapshot(vps.customLayers))) vps.customLayers = next
+			const def = data?.annotationDefaults && typeof data.annotationDefaults === 'object' ? data.annotationDefaults : {}
+			if (JSON.stringify(def) !== JSON.stringify($state.snapshot(vps.annoDefaults))) vps.annoDefaults = def
 		})
 		return () => { unsub?.() }
 	})
 	vps.onLayersChange = () => { if (pid) db.save('projects', { id: pid, sheetLayers: $state.snapshot(vps.customLayers) }) }
+	vps.onDefaultsChange = () => { if (pid) db.save('projects', { id: pid, annotationDefaults: $state.snapshot(vps.annoDefaults) }) }
 
 	// Window-level gestures: Insert drag-out, marquee select, double-click activate, delete/esc.
 	// Capture phase so we run before the Canvas/viewport handlers call stopPropagation.
@@ -225,8 +230,9 @@
 	})
 </script>
 
-<SheetMenubar {vps} onsettings={() => (settingsOpen = true)} onfit={() => canvasComp?.fitToPaper()} />
+<SheetMenubar {vps} onsettings={() => (settingsOpen = true)} ondefaults={() => (defaultsOpen = true)} onfit={() => canvasComp?.fitToPaper()} />
 <ProjectSettingsDialog bind:open={settingsOpen} mode="edit" project={projectDoc} />
+<DrawingDefaultsDialog {vps} bind:open={defaultsOpen} />
 
 <!-- Flex row: a flex-1 cell that the canvas fills. The `relative` cell is the canvas's
      positioning context; Canvas measures it via ResizeObserver, so it adapts to the

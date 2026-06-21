@@ -5,7 +5,7 @@
 	import { page } from "$app/state";
 	import type { ViewportEditor } from "./viewports.svelte";
 
-	let { vps, onsettings, onfit }: { vps: ViewportEditor; onsettings?: () => void; onfit?: () => void } = $props()
+	let { vps, onsettings, ondefaults, onfit }: { vps: ViewportEditor; onsettings?: () => void; ondefaults?: () => void; onfit?: () => void } = $props()
 	let pid = $derived(page.params.pid)
 
 	// Quick navigation to the other project tools.
@@ -30,6 +30,7 @@
 			<Menubar.Trigger class="cursor-pointer px-2 py-0.5 text-sm font-normal">File</Menubar.Trigger>
 			<Menubar.Content align="start">
 				<Menubar.Item class="cursor-pointer" onSelect={() => onsettings?.()}>Project details…</Menubar.Item>
+				<Menubar.Item class="cursor-pointer" onSelect={() => ondefaults?.()}>Drawing defaults…</Menubar.Item>
 				<Menubar.Item class="cursor-pointer" onSelect={print}>Print</Menubar.Item>
 			</Menubar.Content>
 		</Menubar.Menu>

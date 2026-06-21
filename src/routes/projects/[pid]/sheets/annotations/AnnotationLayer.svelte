@@ -44,6 +44,14 @@
 	}
 	const HAS_TEXT = new Set(['text', 'callout'])
 	const mk = (h?: string) => (h && h !== 'none' ? `url(#${mid}-${h})` : undefined)
+	// Dimension label text in the project's unit (mm/m/km/none).
+	const fmtDim = (mm: number) => {
+		const u = editor.annoDefaults?.dimUnit ?? 'mm'
+		if (u === 'none') return `${Math.round(mm)}`
+		if (u === 'm') return `${(mm / 1000).toFixed(2)}m`
+		if (u === 'km') return `${(mm / 1e6).toFixed(3)}km`
+		return `${Math.round(mm)}mm`
+	}
 	const nearestCorner = (b: { x: number; y: number; w: number; h: number }, tx: number, ty: number) => {
 		const cs = [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]]
 		return cs.reduce((best, c) => (Math.hypot(c[0] - tx, c[1] - ty) < Math.hypot(best[0] - tx, best[1] - ty) ? c : best))
@@ -195,7 +203,7 @@
 		<line x1={a.x} y1={a.y} x2={x2} y2={y2} stroke={color} style:color={color} stroke-width=".5"
 			stroke-dasharray={isDim ? undefined : dashArray(a.dash)} vector-effect="non-scaling-stroke"
 			marker-start={mk(a.start ?? hd)} marker-end={mk(a.end ?? hd)} />
-		{@const lbl = isDim ? `${Math.round(Math.hypot(x2 - a.x, y2 - a.y))}mm` : (a.text ?? '')}
+		{@const lbl = isDim ? fmtDim(Math.hypot(x2 - a.x, y2 - a.y)) : (a.text ?? '')}
 		{#if lbl}
 			{@const t = a.labelPos === 'start' ? 0.15 : a.labelPos === 'end' ? 0.85 : 0.5}
 			{@const lx = a.x + (x2 - a.x) * t}{@const ly = a.y + (y2 - a.y) * t}

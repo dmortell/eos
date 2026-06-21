@@ -1,7 +1,7 @@
 import { toast } from 'svelte-sonner'
 import { SurfaceEditor } from '../edit/surface.svelte'
 import type { Point } from '$lib/ui/print/types'
-import type { Annotation, AnnotationKind } from '../types'
+import type { Annotation, AnnotationKind, AnnotationDefaults } from '../types'
 import type { Box } from '../edit/transform'
 import type { LayerDef } from '../layers/layers'
 import { OUTLET_DEFAULTS } from './outlet'
@@ -30,19 +30,29 @@ function migrate(a: Annotation): Annotation {
 // Module-level clipboard so annotations copy/paste between viewports (and sheets, same session).
 let clipboard: Annotation[] = []
 
-/** Default fields for a freshly created annotation of a given kind. */
-function defaults(kind: AnnotationKind, symbol: string): Partial<Annotation> {
-	switch (kind) {
-		case 'text': return { text: 'Text', fontPt: 8, align: 'left' }
-		case 'callout': return { text: 'Note', fontPt: 8, align: 'left', end: 'arrow', border: 'none' } // no w/h → auto-size to text
-		case 'symbol': return symbol === 'outlet' ? { symbol, outlet: { ...OUTLET_DEFAULTS } } : { symbol }
-		case 'rect': case 'ellipse': case 'cloud': return {}
-		case 'image': return { src: '' }
-		case 'line': return { start: 'none', end: 'none', dash: 'solid' }
-		case 'arrow': return { start: 'none', end: 'arrow', dash: 'solid' }
-		case 'dimension': return {}
-		default: return {}
-	}
+/** Default fields for a freshly created annotation of a given kind, overlaid with the
+ *  project-wide annotation defaults (colour / font / heads / dash) where they apply. */
+function defaults(kind: AnnotationKind, symbol: string, proj: AnnotationDefaults = {}): Partial<Annotation> {
+	const base: Partial<Annotation> = (() => {
+		switch (kind) {
+			case 'text': return { text: 'Text', fontPt: 8, align: 'left' }
+			case 'callout': return { text: 'Note', fontPt: 8, align: 'left', end: 'arrow', border: 'none' } // no w/h → auto-size to text
+			case 'symbol': return symbol === 'outlet' ? { symbol, outlet: { ...OUTLET_DEFAULTS } } : { symbol }
+			case 'rect': case 'ellipse': case 'cloud': return {}
+			case 'image': return { src: '' }
+			case 'line': return { start: 'none', end: 'none', dash: 'solid' }
+			case 'arrow': return { start: 'none', end: 'arrow', dash: 'solid' }
+			case 'dimension': return {}
+			default: return {}
+		}
+	})()
+	const p: Partial<Annotation> = {}
+	if (proj.color) p.color = proj.color
+	if (proj.fontPt && (kind === 'text' || kind === 'callout')) p.fontPt = proj.fontPt
+	if (proj.dash && (kind === 'line' || kind === 'arrow' || kind === 'rect' || kind === 'ellipse')) p.dash = proj.dash
+	if (kind === 'line' || kind === 'arrow') { if (proj.lineStart) p.start = proj.lineStart; if (proj.lineEnd) p.end = proj.lineEnd }
+	if (kind === 'dimension') { if (proj.dimStart) p.start = proj.dimStart; if (proj.dimEnd) p.end = proj.dimEnd }
+	return { ...base, ...p }
 }
 
 /** Editor for a viewport's model-space annotations. */
@@ -51,6 +61,9 @@ export class AnnotationEditor extends SurfaceEditor {
 	annotations = $state<Annotation[]>([])
 	tool = $state<AnnTool>('select')
 	symbol = $state('section')
+	/** Project-wide defaults new annotations inherit + the dimension unit (set by useAnnotations).
+	 *  $state so the dimension label re-renders when the unit changes. */
+	annoDefaults = $state<AnnotationDefaults>({})
 	/** Called after an annotation is placed (host returns the unified tool to Select). */
 	onPlaced: (() => void) | null = null
 	/** Layer this viewport's new annotations land on (resolved from the active layer by the host). */
@@ -95,7 +108,7 @@ export class AnnotationEditor extends SurfaceEditor {
 	click(p: Point) {
 		const t = this.tool; if (t === 'select') return
 		const layer = this.targetLayerOrBlock(); if (layer === null) { this.tool = 'select'; this.onPlaced?.(); return }
-		const a = this.push({ id: this.uid('a'), kind: t, x: p.x, y: p.y, layerId: layer, ...defaults(t, this.symbol) })
+		const a = this.push({ id: this.uid('a'), kind: t, x: p.x, y: p.y, layerId: layer, ...defaults(t, this.symbol, this.annoDefaults) })
 		if (t === 'symbol') { a.w = 1000; a.h = 1000; a.x = p.x - 500; a.y = p.y - 500 } // centre the marker on the click
 		this.select('ann', a.id); this.notify(); this.onPlaced?.()
 	}
@@ -106,7 +119,7 @@ export class AnnotationEditor extends SurfaceEditor {
 	 */
 	startCallout(p: Point) {
 		const layer = this.targetLayerOrBlock(); if (layer === null) { this.tool = 'select'; this.onPlaced?.(); return }
-		const a = this.push({ id: this.uid('a'), kind: 'callout', x: p.x, y: p.y, x2: p.x, y2: p.y, layerId: layer, ...defaults('callout', this.symbol) })
+		const a = this.push({ id: this.uid('a'), kind: 'callout', x: p.x, y: p.y, x2: p.x, y2: p.y, layerId: layer, ...defaults('callout', this.symbol, this.annoDefaults) })
 		this.select('ann', a.id)
 		this.startDrag(e => { const w = this.toWorld(e); if (!w) return; a.x = w.x; a.y = w.y }, () => {
 			if (Math.abs(a.x - (a.x2 ?? a.x)) < 1 && Math.abs(a.y - (a.y2 ?? a.y)) < 1) { a.x = (a.x2 ?? a.x) + 1500; a.y = (a.y2 ?? a.y) - 1500 }
@@ -118,7 +131,7 @@ export class AnnotationEditor extends SurfaceEditor {
 		const t = this.tool; if (t === 'select') return
 		const layer = this.targetLayerOrBlock(); if (layer === null) { this.tool = 'select'; this.onPlaced?.(); return }
 		const boxDrag = BOX_DRAG.has(t)
-		const a = this.push({ id: this.uid('a'), kind: t, x: p.x, y: p.y, layerId: layer, ...defaults(t, this.symbol), ...(boxDrag ? { w: 1, h: 1 } : { x2: p.x, y2: p.y }) })
+		const a = this.push({ id: this.uid('a'), kind: t, x: p.x, y: p.y, layerId: layer, ...defaults(t, this.symbol, this.annoDefaults), ...(boxDrag ? { w: 1, h: 1 } : { x2: p.x, y2: p.y }) })
 		this.select('ann', a.id)
 		this.startDrag(e => {
 			const w = this.toWorld(e); if (!w) return

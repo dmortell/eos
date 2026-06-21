@@ -1,4 +1,4 @@
-import type { SheetViewport } from './types'
+import type { SheetViewport, AnnotationDefaults } from './types'
 import { LAYERS, CUSTOM_LAYER_COLORS, layerCategory, type LayerDef } from './layers/layers'
 
 export type InsertKind = 'viewport'
@@ -61,10 +61,16 @@ export class ViewportEditor {
 	activeLayerId = $state<string>('annotations')
 	allLayers = $derived<LayerDef[]>([...LAYERS, ...this.customLayers])
 
+	/** Project-wide annotation defaults (new annotations inherit; dimension unit). */
+	annoDefaults = $state<AnnotationDefaults>({})
+	setDefaults(patch: Partial<AnnotationDefaults>) { this.annoDefaults = { ...this.annoDefaults, ...patch }; this.onDefaultsChange?.() }
+
 	/** Called after a mutation that should be persisted (add / delete / geometry change). */
 	onChange: (() => void) | null = null
 	/** Called after the custom-layer list changes (SheetEditor persists it to the project doc). */
 	onLayersChange: (() => void) | null = null
+	/** Called after the annotation defaults change (SheetEditor persists to the project doc). */
+	onDefaultsChange: (() => void) | null = null
 
 	/** Paper-sheet element, set by SheetEditor; used to map client px → paper mm. */
 	paper: HTMLElement | null = null
