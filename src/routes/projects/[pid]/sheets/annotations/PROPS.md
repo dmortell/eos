@@ -4,24 +4,33 @@ One `Annotation` interface (`types.ts`) backs every annotation `kind` and every
 `symbol`. Most fields are optional and only meaningful for some kinds — this maps
 which kind/symbol actually *uses* each field, to find overlaps worth merging.
 
+Kinds: `text · line · rect · ellipse · cloud · symbol · callout · dimension · arrow · image · grid`.
+
 ## Always used
-`id` · `kind` · `x,y` · `rotation` · `color` · `layerId`
+`id` · `kind` · `x,y` · `rotation` · `color` · `layerId` · `groupId?` (grouping — items with the
+same id select/move/transform together)
 
 ## Fields by `kind`
-| field | text | callout | dimension | line | arrow | rect | ellipse | cloud | image | symbol |
-|---|---|---|---|---|---|---|---|---|---|---|
-| `x2,y2` (end / pointer) | – | ✓ pointer tip | ✓ end | ✓ end | ✓ end | – | – | – | – | – |
-| `w,h` (box) | ✓ | ✓ | – | – | – | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `text` | ✓ body | ✓ body | – (auto `{len}mm`) | – | – | – | – | – | – | (elevation legacy) |
-| `fontPt` | ✓ | ✓ | ✓ | – | – | – | – | – | – | – |
-| `align` | ✓ | ✓ | – | – | – | – | – | – | – | – |
-| `border` | – | ✓ none/underline/box | – | – | – | – | – | – | – | – |
-| `start,end` (heads) | – | ✓ (end) | ✓ (dflt arrow) | ✓ | ✓ | – | – | – | – | – |
-| `dash` | – | ✓ | – | ✓ | ✓ | ✓ | ✓ | – | – | – |
-| `fill` | – | ✓ | – | – | – | ✓ | ✓ | ✓ | – | ✓ |
-| `src` | – | – | – | – | – | – | – | – | ✓ | – |
-| `link` | – | – | – | – | – | – | – | – | – | ✓ (drawing/photo) |
-| `symbol` | – | – | – | – | – | – | – | – | – | ✓ |
+| field | text | callout | dimension | line | arrow | rect | ellipse | cloud | image | grid | symbol |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `x2,y2` (end / pointer) | – | ✓ pointer tip | ✓ end | ✓ end | ✓ end | – | – | – | – | – | – |
+| `w,h` (box) | auto | auto | – | – | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `text` | ✓ body | ✓ body | – (auto `{len}` + unit) | ✓ label (H5) | ✓ label | – | – | – | – | – | (elevation legacy) |
+| `fontPt` | ✓ | ✓ | ✓ | ✓ (if label) | ✓ | – | – | – | – | – | – |
+| `align` | ✓ | ✓ | – | – | – | – | – | – | – | – | – |
+| `labelPos` (start/mid/end) | – | – | ✓ | ✓ | ✓ | – | – | – | – | – | – |
+| `border` | – | ✓ none/underline/box | – | – | – | – | – | – | – | – | – |
+| `start,end` (heads) | – | ✓ (end) | ✓ (dflt arrow) | ✓ | ✓ | – | – | – | – | – | – |
+| `dash` | – | ✓ | – | ✓ | ✓ | ✓ | ✓ | – | – | – | – |
+| `fill` | – | ✓ | – | – | – | ✓ | ✓ | ✓ | – | – | ✓ |
+| `src` | – | – | – | – | – | – | – | – | ✓ | – | – |
+| `grid` `{size,ox,oy}` | – | – | – | – | – | – | – | – | – | ✓ | – |
+| `link` | – | – | – | – | – | – | – | – | – | – | ✓ (drawing/photo) |
+| `symbol` | – | – | – | – | – | – | – | – | – | – | ✓ |
+
+Dimension unit (mm/m/km/none) is a project-wide default (`AnnotationDefaults.dimUnit`), not per-item;
+text/callout `w,h` auto-size from the text until a resize sets them explicitly. `grid` = floor tiles
+of `size` mm aligned to the building origin + `ox/oy` offsets.
 
 ## Fields by `symbol` (kind = 'symbol')
 | symbol | uses | drawn-text source |
