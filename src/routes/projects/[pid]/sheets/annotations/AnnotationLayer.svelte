@@ -219,8 +219,13 @@
 		<line x1={a.x} y1={a.y} x2={x2} y2={y2} stroke="transparent" stroke-width="240" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} />
 	{/if}
 
-	<!-- marquee multi-select highlight (a plain outline; full transform handles are single-select) -->
-	{#if multi && !sel}
+	<!-- selection highlight. Line kinds (line/arrow/dimension) get a solid thin blue line along
+	     the segment for BOTH click- and marquee-select (so they look the same; click just adds the
+	     endpoint handles). Box kinds keep the dashed bbox outline for marquee-select. -->
+	{#if (sel || multi) && LINE.has(a.kind)}
+		{@const ex = a.x2 ?? a.x}{@const ey = a.y2 ?? a.y}
+		<line x1={a.x} y1={a.y} x2={ex} y2={ey} stroke={HL} stroke-width={1.75 / ss} vector-effect="non-scaling-stroke" style:pointer-events="none" />
+	{:else if multi && !sel}
 		<rect x={b.x} y={b.y} width={b.w} height={b.h} transform={rot} fill="none" stroke={HL} stroke-width={1.75 / ss} stroke-dasharray="{4 / ss} {3 / ss}" style:pointer-events="none" />
 	{/if}
 
