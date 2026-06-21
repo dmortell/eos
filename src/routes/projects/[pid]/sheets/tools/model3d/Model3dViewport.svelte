@@ -117,7 +117,7 @@
 
 	// History is created first so the annotation editor can touch() it after each change.
 	const history = new History()
-	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor, afterChange: () => history.touch(), layers: () => annLayerDefs, activeLayer: () => src?.activeLayer })
+	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor, afterChange: () => history.touch(), layers: () => annLayerDefs, activeLayer: () => src?.activeLayer, locked: () => annLocked })
 	annEditor.onPlaced = () => (tool = 'select') // back to Select so the new annote shows handles
 	$effect(() => { if (!active) { annEditor.clearSel(); tool = 'select' } })
 

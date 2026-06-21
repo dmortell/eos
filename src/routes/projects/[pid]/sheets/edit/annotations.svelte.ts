@@ -1,6 +1,6 @@
 import { toast } from 'svelte-sonner'
 import { AnnotationEditor } from '../annotations/annotations.svelte'
-import { annTargetLayer, layerCategory, type LayerDef } from '../layers/layers'
+import { annTargetLayer, layerCategory, effectiveLayers, type LayerDef } from '../layers/layers'
 import type { SurfaceEditor } from './surface.svelte'
 import type { ViewportEditor } from '../viewports.svelte'
 import type { SheetViewport } from '../types'
@@ -23,11 +23,15 @@ export function useAnnotations(opts: {
 	 *  active layer when `activeLayer` is given. */
 	layers?: () => LayerDef[]
 	activeLayer?: () => string | undefined
+	/** Locked layer ids for this viewport (model3d adds its model layers). Defaults to
+	 *  the viewport's locked sheet layers. Blocks adding annotations to a locked layer. */
+	locked?: () => string[]
 }): AnnotationEditor {
 	const ed = new AnnotationEditor()
 	ed.peer = opts.toolEditor
 	opts.toolEditor.peer = ed
 	const layerList = () => opts.layers?.() ?? opts.vps.allLayers
+	ed.isLayerLocked = (id) => (opts.locked?.() ?? effectiveLayers(opts.vp(), opts.vps.allLayers).locked).includes(id)
 	// Mirror the layer list for the props-panel picker, and resolve the layer new annotations land on.
 	// An active layer from a non-annotation category can't hold annotations → fall back + warn (5a5).
 	$effect(() => { ed.layers = layerList() })

@@ -1,3 +1,4 @@
+import { toast } from 'svelte-sonner'
 import { SurfaceEditor } from '../edit/surface.svelte'
 import type { Point } from '$lib/ui/print/types'
 import type { Annotation, AnnotationKind } from '../types'
@@ -52,6 +53,18 @@ export class AnnotationEditor extends SurfaceEditor {
 	onPlaced: (() => void) | null = null
 	/** Layer this viewport's new annotations land on (resolved from the active layer by the host). */
 	nextLayerId: () => string = () => 'annotations'
+	/** Per-viewport check: is a layer locked? (set by useAnnotations.) */
+	isLayerLocked: (id: string) => boolean = () => false
+	/** The layer a new annotation lands on, or null + a toast if that layer is locked. */
+	private targetLayerOrBlock(): string | null {
+		const id = this.nextLayerId()
+		if (this.isLayerLocked(id)) {
+			const name = this.layers.find((l) => l.id === id)?.name ?? id
+			toast.warning(`Layer “${name}” is locked — unlock it to add annotations`)
+			return null
+		}
+		return id
+	}
 	/** All layers (defaults + custom), mirrored from the ViewportEditor for the props-panel picker. */
 	layers = $state<LayerDef[]>([])
 	/** Marquee multi-selection (annotation ids) + position snapshot for a group drag. */
@@ -79,7 +92,8 @@ export class AnnotationEditor extends SurfaceEditor {
 	/** Click placement: a default box at p (text / symbol). */
 	click(p: Point) {
 		const t = this.tool; if (t === 'select') return
-		const a = this.push({ id: this.uid('a'), kind: t, x: p.x, y: p.y, layerId: this.nextLayerId(), ...defaults(t, this.symbol) })
+		const layer = this.targetLayerOrBlock(); if (layer === null) { this.tool = 'select'; this.onPlaced?.(); return }
+		const a = this.push({ id: this.uid('a'), kind: t, x: p.x, y: p.y, layerId: layer, ...defaults(t, this.symbol) })
 		if (t === 'symbol') { a.w = 1000; a.h = 1000; a.x = p.x - 500; a.y = p.y - 500 } // centre the marker on the click
 		this.select('ann', a.id); this.notify(); this.onPlaced?.()
 	}
@@ -89,7 +103,8 @@ export class AnnotationEditor extends SurfaceEditor {
 	 * (no drag) drops the box at a default offset so the leader isn't zero-length.
 	 */
 	startCallout(p: Point) {
-		const a = this.push({ id: this.uid('a'), kind: 'callout', x: p.x, y: p.y, x2: p.x, y2: p.y, layerId: this.nextLayerId(), ...defaults('callout', this.symbol) })
+		const layer = this.targetLayerOrBlock(); if (layer === null) { this.tool = 'select'; this.onPlaced?.(); return }
+		const a = this.push({ id: this.uid('a'), kind: 'callout', x: p.x, y: p.y, x2: p.x, y2: p.y, layerId: layer, ...defaults('callout', this.symbol) })
 		this.select('ann', a.id)
 		this.startDrag(e => { const w = this.toWorld(e); if (!w) return; a.x = w.x; a.y = w.y }, () => {
 			if (Math.abs(a.x - (a.x2 ?? a.x)) < 1 && Math.abs(a.y - (a.y2 ?? a.y)) < 1) { a.x = (a.x2 ?? a.x) + 1500; a.y = (a.y2 ?? a.y) - 1500 }
@@ -99,8 +114,9 @@ export class AnnotationEditor extends SurfaceEditor {
 	/** Drag placement: box (rect/cloud → w,h) or line (line/arrow/dimension → x2,y2). */
 	startShape(p: Point) {
 		const t = this.tool; if (t === 'select') return
+		const layer = this.targetLayerOrBlock(); if (layer === null) { this.tool = 'select'; this.onPlaced?.(); return }
 		const boxDrag = BOX_DRAG.has(t)
-		const a = this.push({ id: this.uid('a'), kind: t, x: p.x, y: p.y, layerId: this.nextLayerId(), ...defaults(t, this.symbol), ...(boxDrag ? { w: 1, h: 1 } : { x2: p.x, y2: p.y }) })
+		const a = this.push({ id: this.uid('a'), kind: t, x: p.x, y: p.y, layerId: layer, ...defaults(t, this.symbol), ...(boxDrag ? { w: 1, h: 1 } : { x2: p.x, y2: p.y }) })
 		this.select('ann', a.id)
 		this.startDrag(e => {
 			const w = this.toWorld(e); if (!w) return

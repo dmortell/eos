@@ -109,7 +109,7 @@
 				     circle is its circumcircle and the square wraps its width. Container +
 				     triangle are filled with the layer colour; the triangle keeps a white
 				     edge + white port count so it stays legible on the filled container. -->
-				{@const tR = R * 0.62}
+				{@const tR = R * 0.52}
 				{@const hw = tR * 0.866}
 				{@const tri = `M${cx},${cy + tR} L${cx - hw},${cy - tR * 0.5} L${cx + hw},${cy - tR * 0.5} Z`}
 				{#if mt === 'floor'}
@@ -119,11 +119,11 @@
 				{/if}
 				<path d={tri} fill={oc} stroke="#000" stroke-width={sw * 0.45} vector-effect="non-scaling-stroke" stroke-linejoin="round" />
 				<!-- ports count, in the (wide, upper) part of the down-triangle -->
-				<text x={cx} y={cy - tR * 0.1} font-size={tR * 0.66} fill="white" text-anchor="middle" dominant-baseline="middle" font-weight="600">{o.ports ?? 2}</text>
+				<text x={cx} y={cy + tR * 0.1} font-size={tR * 1.2} fill="white" text-anchor="middle" dominant-baseline="middle" font-weight="600">{o.ports ?? 2}</text>
 				<!-- label above -->
-				{#if o.label}<text x={cx} y={cy - R * 0.92} font-size={R * 0.5} fill={oc} text-anchor="middle">{o.label}</text>{/if}
+				{#if o.label}<text x={cx} y={cy - R * 0.42} font-size={R * 0.5} fill={oc} text-anchor="middle">{o.label}</text>{/if}
 				<!-- usage abbrev below (blank for network) -->
-				{#if usageAbbr(o.usage)}<text x={cx} y={cy + R * 0.92} font-size={R * 0.45} fill={oc} text-anchor="middle">{usageAbbr(o.usage)}</text>{/if}
+				{#if usageAbbr(o.usage)}<text x={cx} y={cy + R * 0.94} font-size={R * 0.45} fill={oc} text-anchor="middle">{usageAbbr(o.usage)}</text>{/if}
 			{:else if a.symbol === 'faceplate'}
 				{@const pw = b.w * 0.6}{@const ph = b.h * 0.85}{@const ps = pw * 0.32}
 				<rect x={cx - pw / 2} y={cy - ph / 2} width={pw} height={ph} rx={pw * 0.08} fill={a.fill ?? 'white'} stroke={color} stroke-width=".5" vector-effect="non-scaling-stroke" />
