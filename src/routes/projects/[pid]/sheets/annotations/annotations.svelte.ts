@@ -155,7 +155,7 @@ export class AnnotationEditor extends SurfaceEditor {
 			// Ctrl-drag duplicates (single or whole multi) + drags the clones; ctrl-click toggles.
 			this.driveCtrlDrag(e0, {
 				duplicate: () => {
-					if (this.selAnns.length > 1 && this.selAnns.includes(a.id)) this.duplicateMultiAnns()
+					if (this.selAnns.length > 1 && this.selAnns.includes(a.id)) this.duplicateSelectionInPlace()
 					else this.select('ann', this.push({ ...a, id: this.uid('a') }).id)
 				},
 				snapshot: () => this.beginGroupTranslate(),
@@ -200,8 +200,6 @@ export class AnnotationEditor extends SurfaceEditor {
 		if (a.y2 != null) a.y2 += dy
 		this.notify()
 	}
-	/** Ctrl-drag clone (in place); selection moves to the clones. Generic via cloneItems. */
-	duplicateMultiAnns() { this.duplicateSelectionInPlace() }
 	duplicateSel() { this.duplicateSelection(500) } // Ctrl+D / panel: offset copy of the selection
 	setSel(patch: Partial<Annotation>) { const a = this.selAnn; if (!a) return; Object.assign(a, patch); this.notify() }
 	/** Set a line/dimension's length (mm), keeping its start point + angle. */

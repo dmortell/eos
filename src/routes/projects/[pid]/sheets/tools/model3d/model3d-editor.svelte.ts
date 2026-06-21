@@ -148,7 +148,7 @@ export class Model3dEditor extends SurfaceEditor {
 		if (e.ctrlKey || e.metaKey) {
 			// Ctrl-drag duplicates (single or whole multi) + drags the clones; ctrl-click toggles.
 			this.driveCtrlDrag(e, {
-				duplicate: () => { if (this.inMulti(index)) this.duplicateMulti(); else { this.selectObj(this.duplicateOne(index)); this.vsel = null } },
+				duplicate: () => { if (this.inMulti(index)) this.duplicateSelectionInPlace(); else { this.selectObj(this.duplicateOne(index)); this.vsel = null } },
 				snapshot: () => this.beginGroupTranslate(),
 				apply: (dx, dy) => this.applyGroupTranslate(dx, dy),
 				toggle: () => this.toggleMulti(index),
@@ -385,7 +385,6 @@ export class Model3dEditor extends SurfaceEditor {
 		this.objects.push(this.cloneObj(this.objects[index]))
 		return this.objects.length - 1
 	}
-	private duplicateMulti() { this.duplicateSelectionInPlace() } // base: cloneItems(multi) → select clones
 	// ── object creation (place-tool; tap-to-place, plan view only for now) ──
 	// `placing.pts` accumulates clicked points for a wall/conduit path; `cursor`
 	// is the live point for the rubber-band preview. Prisms place on first click.
@@ -525,7 +524,6 @@ export class Model3dEditor extends SurfaceEditor {
 
 	duplicateSel = () => this.duplicateSelection(200) // Ctrl+D / panel: offset copy of the selection
 	copySel = () => { this.clipboard = this.selIdxs().map((i) => structuredClone($state.snapshot(this.objects[i])) as Obj) }
-	cutSel = () => { if (this.selIdxs().length) { this.copySel(); this.deleteSel() } }
 	paste = () => {
 		if (!this.clipboard.length) return
 		const b = BASIS[this.direction]
