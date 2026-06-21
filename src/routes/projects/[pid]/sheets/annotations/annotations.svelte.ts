@@ -167,7 +167,8 @@ export class AnnotationEditor extends SurfaceEditor {
 					w0 = this.toWorld(e0)
 				}
 				const w = this.toWorld(e); if (!w || !w0) return
-				const dx = w.x - w0.x, dy = w.y - w0.y
+				let dx = w.x - w0.x, dy = w.y - w0.y
+				if (e.shiftKey) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 } // Shift = lock horizontal / vertical
 				if (multi) this.applyGroupTranslate(dx, dy)
 				else { ann.x = o.x + dx; ann.y = o.y + dy; if (movePointer && o.x2 != null) { ann.x2 = o.x2 + dx; ann.y2 = (o.y2 ?? 0) + dy } }
 			}, () => { if (!started) this.toggleAnnSel(a.id); this.notify() })
@@ -180,7 +181,8 @@ export class AnnotationEditor extends SurfaceEditor {
 		const o = { x: a.x, y: a.y, x2: a.x2, y2: a.y2 }
 		this.startDrag(e => {
 			const w = this.toWorld(e); if (!w) return
-			const dx = w.x - w0.x, dy = w.y - w0.y
+			let dx = w.x - w0.x, dy = w.y - w0.y
+			if (e.shiftKey) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 } // Shift = lock horizontal / vertical
 			a.x = o.x + dx; a.y = o.y + dy
 			if (movePointer && o.x2 != null) { a.x2 = o.x2 + dx; a.y2 = (o.y2 ?? 0) + dy }
 		}, () => this.notify())

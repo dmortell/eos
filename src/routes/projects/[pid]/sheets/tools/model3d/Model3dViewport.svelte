@@ -104,12 +104,16 @@
 	let tool = $state('select')
 	let viewDen = $state(1)
 	let elevDir = $state<Dir>('front') // direction for the floating elevation preview
-	// Unified layer list for symbols: this model's layers (so an outlet can file onto
-	// Walls/Furniture/etc — base:'annotations' makes them annotation-assignable) plus the
-	// sheet's annotation-category layers. Both share vp.layerOverrides for hide/lock.
+	// Layers a symbol can file onto, PER-MODEL (per floor): this model's own layers
+	// (base:'annotations' makes them annotation-assignable) + the un-deletable global
+	// 'annotations' default. Project-wide CUSTOM layers are NOT offered here (creating/
+	// deleting them is project-wide — the footgun); add a model layer instead. Existing
+	// annotations already on a project custom keep it selectable (transitional) so they
+	// don't orphan. Both share vp.layerOverrides for per-viewport hide/lock.
+	const usedAnnLayers = $derived(new Set((vp.annotations ?? []).map((a) => a.layerId).filter(Boolean)))
 	const annLayerDefs = $derived([
 		...(model?.layers ?? []).map((l) => ({ id: l.id, name: l.name, color: l.color, base: 'annotations' })),
-		...vps.allLayers.filter((l) => l.id === 'annotations' || l.base === 'annotations'),
+		...vps.allLayers.filter((l) => l.id === 'annotations' || (l.base === 'annotations' && usedAnnLayers.has(l.id))),
 	])
 	// Hide/lock lists for annotations must also cover model layers (per-viewport overrides).
 	const annHidden = $derived([...hidden, ...(model?.layers ?? []).filter((l) => vp.layerOverrides?.[l.id]?.hidden).map((l) => l.id)])
