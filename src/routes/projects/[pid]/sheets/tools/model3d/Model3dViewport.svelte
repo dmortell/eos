@@ -16,6 +16,7 @@
 	import GroupTransformBox from './GroupTransformBox.svelte'
 	import Model3dUnderlayImage from './Model3dUnderlayImage.svelte'
 	import Model3dEditPanel from './Model3dEditPanel.svelte'
+	import RenumberDialog from './RenumberDialog.svelte'
 	import Model3dElevationPreview from './Model3dElevationPreview.svelte'
 	import type { Dir } from './types'
 	import AnnotationLayer from '../../annotations/AnnotationLayer.svelte'
@@ -115,6 +116,7 @@
 	// routes clicks to placement via EditBackground.
 	let tool = $state('select')
 	let ctxMenu = $state<{ x: number; y: number } | null>(null) // right-click context menu (group/ungroup/…)
+	let renumberOpen = $state(false)
 	const newGid = () => 'g' + Math.random().toString(36).slice(2, 9)
 	let viewDen = $state(1)
 	let elevDir = $state<Dir>('front') // direction for the floating elevation preview
@@ -290,6 +292,7 @@
 	{#if active}
 		<!-- portalled out of the zoomed canvas so the panels render at normal size -->
 		<div use:portal><Model3dEditPanel {editor} {model} {annEditor} bind:tool /></div>
+		<div use:portal><RenumberDialog editor={annEditor} bind:open={renumberOpen} /></div>
 		{#if ctxMenu}
 			{@const n = selection.count()}
 			{@const item = 'block w-full px-3 py-1 text-left hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent'}
@@ -298,6 +301,8 @@
 			<div use:portal class="ctx-menu fixed z-50 min-w-32 rounded border border-zinc-200 bg-white py-1 text-xs text-zinc-700 shadow-lg" style:left="{ctxMenu.x}px" style:top="{ctxMenu.y}px" oncontextmenu={(e) => e.preventDefault()}>
 				<button class={item} disabled={n < 2} onclick={() => { selection.group(newGid); ctxMenu = null }}>Group</button>
 				<button class={item} disabled={!selection.isGrouped()} onclick={() => { selection.ungroup(); ctxMenu = null }}>Ungroup</button>
+				<div class="my-1 border-t border-zinc-100"></div>
+				<button class={item} disabled={!annEditor.selAnns.length} onclick={() => { renumberOpen = true; ctxMenu = null }}>Auto number…</button>
 				<div class="my-1 border-t border-zinc-100"></div>
 				<button class={item} disabled={!n} onclick={() => { selection.duplicateSelection(); ctxMenu = null }}>Duplicate</button>
 				<button class={item} disabled={!n} onclick={() => { selection.copySelection(); ctxMenu = null }}>Copy</button>

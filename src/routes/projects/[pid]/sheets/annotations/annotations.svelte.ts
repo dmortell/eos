@@ -250,6 +250,26 @@ export class AnnotationEditor extends SurfaceEditor {
 	}
 	clearClipboard() { clipboard = [] }
 	hasClipboard() { return clipboard.length > 0 }
+	/** Auto-number the selected labelled annotations (outlets → outlet.label, text/callout → text).
+	 *  Returns how many were renumbered. One undo step (via notify). */
+	renumber(opts: { start: number; step: number; mode: 'overwrite' | 'prefix' | 'suffix' | 'replace'; replaceChar?: string; order: 'index' | 'value' | 'xy' | 'yx' }): number {
+		const get = (a: Annotation) => (a.symbol === 'outlet' ? (a.outlet?.label ?? '') : (a.text ?? ''))
+		const set = (a: Annotation, v: string) => { if (a.symbol === 'outlet') a.outlet = { ...(a.outlet ?? {}), label: v }; else a.text = v }
+		const numOf = (a: Annotation) => { const m = get(a).match(/\d+/); return m ? +m[0] : 0 }
+		let items = this.selectedAnnList().filter((a) => a.symbol === 'outlet' || a.kind === 'text' || a.kind === 'callout')
+		if (opts.order === 'xy') items = [...items].sort((a, b) => a.x - b.x || a.y - b.y)
+		else if (opts.order === 'yx') items = [...items].sort((a, b) => a.y - b.y || a.x - b.x)
+		else if (opts.order === 'value') items = [...items].sort((a, b) => numOf(a) - numOf(b))
+		let n = opts.start
+		for (const a of items) {
+			const cur = get(a), ns = String(n)
+			set(a, opts.mode === 'overwrite' ? ns : opts.mode === 'prefix' ? ns + cur : opts.mode === 'suffix' ? cur + ns
+				: opts.replaceChar ? cur.split(opts.replaceChar).join(ns) : ns)
+			n += opts.step
+		}
+		if (items.length) this.notify()
+		return items.length
+	}
 	selectAllVisible() {
 		const ids = this.annotations.filter((a) => { const l = a.layerId ?? 'annotations'; return !this.isLayerHidden(l) && !this.isLayerLocked(l) }).map((a) => a.id)
 		this.sel = null; this.setMulti(ids)
