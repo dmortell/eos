@@ -253,14 +253,15 @@
 					<path d="M{-HR * 0.85},{-HR * 0.85} L{HR * 0.85},{HR * 0.85} M{HR * 0.85},{-HR * 0.85} L{-HR * 0.85},{HR * 0.85}" stroke="#fff" stroke-width={selW} stroke-linecap="round" vector-effect="non-scaling-stroke" style:pointer-events="none" />
 				</g>
 			{/if}
-			<!-- label tag (always): centred; click selects, drag moves the section -->
+			<!-- label tag (always): centred; click selects, drag moves the section. Sized in /ss
+			     (true screen px) like the handles, so it stays a readable constant size at any zoom. -->
 			{@const cx = (x0 + x1) / 2}{@const cy = (y0 + y1) / 2}
 			{@const label = s.label || 'Section'}
-			{@const tw = (label.length * 6.5 + 14) / zoom}
+			{@const fs = 14 / ss}{@const th = 22 / ss}{@const tw = (label.length * 8 + 20) / ss}
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<g style:cursor="move" style:pointer-events="auto" onmousedown={(e: MouseEvent) => { if (e.button !== 0) return; editor.selectSection(s.id); editor.startSectionMove(e, s.id) }}>
-				<rect x={cx - tw / 2} y={cy - 9 / zoom} width={tw} height={18 / zoom} rx={9 / zoom} fill={open ? '#2563eb' : '#fff'} fill-opacity={open ? 1 : 0.92} stroke="#2563eb" stroke-width={1 / zoom} vector-effect="non-scaling-stroke" />
-				<text x={cx} y={cy} font-size={11 / zoom} fill={open ? '#fff' : '#2563eb'} text-anchor="middle" dominant-baseline="central" style:pointer-events="none">{label}</text>
+				<rect x={cx - tw / 2} y={cy - th / 2} width={tw} height={th} rx={th / 2} fill={open ? '#2563eb' : '#fff'} fill-opacity={open ? 1 : 0.95} stroke="#2563eb" stroke-width={selW} vector-effect="non-scaling-stroke" />
+				<text x={cx} y={cy} font-size={fs} fill={open ? '#fff' : '#2563eb'} text-anchor="middle" dominant-baseline="central" style:pointer-events="none">{label}</text>
 			</g>
 		{/each}
 	{/if}

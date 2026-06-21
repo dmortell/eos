@@ -525,6 +525,11 @@ Fix: switched the sheet load to the same JSON-echo guard — skip our own write,
 
 29b. Document all annote & symbol props
 
+29c. ctrl-a to select all (unlocked and visible items only)
+
+29d. Logo image resize handles difficult to see, implement a selection box with full handles when selected
+
+
 What should the section tag show + reference?
 
   1. Elevation no. + sheet ref
