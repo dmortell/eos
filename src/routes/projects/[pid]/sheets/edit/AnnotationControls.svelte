@@ -229,6 +229,15 @@
 			{#each DASHES as [v, l] (v)}<option value={v}>{l}</option>{/each}
 		</PropSelect>
 	{/if}
+	{#if sel.kind === 'line' || sel.kind === 'arrow'}
+		<PropText label="Label" value={sel.text ?? ''} oninput={(e: Event) => editor.setSel({ text: val(e) })} />
+		{#if sel.text}<PropText label="Font (pt)" type="number" min="2" value={String(sel.fontPt ?? 8)} oninput={(e: Event) => editor.setSel({ fontPt: Number(val(e)) || 8 })} />{/if}
+	{/if}
+	{#if (sel.kind === 'line' || sel.kind === 'arrow') && sel.text || sel.kind === 'dimension'}
+		<PropSelect label="Label at" value={sel.labelPos ?? 'mid'} onchange={(e: Event) => editor.setSel({ labelPos: val(e) as any })}>
+			<option value="start">Start</option><option value="mid">Middle</option><option value="end">End</option>
+		</PropSelect>
+	{/if}
 
 	{#if sel.kind === 'symbol'}
 		<PropSelect label="Symbol" value={sel.symbol ?? 'section'} onchange={(e: Event) => editor.setSel({ symbol: val(e) })}>

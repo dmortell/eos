@@ -115,9 +115,10 @@ export interface Annotation {
 	x2?: number; y2?: number      // line end, or callout/leader pointer target
 	w?: number; h?: number        // box size (text/rect/cloud/symbol/callout)
 	rotation?: number             // degrees, about the box centre
-	text?: string                 // may contain newlines (multi-line)
+	text?: string                 // may contain newlines (multi-line). Line/arrow: optional label.
 	fontPt?: number
 	align?: TextAlign
+	labelPos?: 'start' | 'mid' | 'end'  // where a line/arrow label sits along the segment (default mid)
 	border?: 'none' | 'underline' | 'box'   // callout text decoration (none = leader-style)
 	symbol?: string               // symbol registry id
 	flip?: boolean                // mirror the symbol horizontally (e.g. door hinge side)

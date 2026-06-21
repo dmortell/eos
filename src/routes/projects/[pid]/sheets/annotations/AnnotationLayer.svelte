@@ -186,18 +186,22 @@
 		<line x1={c[0]} y1={c[1]} x2={a.x2} y2={a.y2} stroke="transparent" stroke-width="200" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e, true)} />
 	{/if}
 
-	<!-- line / arrow / dimension -->
+	<!-- line / arrow / dimension — one path. Dimension auto-labels its length (+arrow heads by
+	     default); line/arrow show the optional user label (a.text) along the segment. -->
 	{#if LINE.has(a.kind)}
 		{@const x2 = a.x2 ?? a.x}{@const y2 = a.y2 ?? a.y}
-		{#if a.kind === 'dimension'}
-			{@const dist = Math.round(Math.hypot(x2 - a.x, y2 - a.y))}
-			{@const mx = (a.x + x2) / 2}{@const my = (a.y + y2) / 2}
+		{@const isDim = a.kind === 'dimension'}
+		{@const hd = isDim ? 'arrow' : 'none'}
+		<line x1={a.x} y1={a.y} x2={x2} y2={y2} stroke={color} style:color={color} stroke-width=".5"
+			stroke-dasharray={isDim ? undefined : dashArray(a.dash)} vector-effect="non-scaling-stroke"
+			marker-start={mk(a.start ?? hd)} marker-end={mk(a.end ?? hd)} />
+		{@const lbl = isDim ? `${Math.round(Math.hypot(x2 - a.x, y2 - a.y))}mm` : (a.text ?? '')}
+		{#if lbl}
+			{@const t = a.labelPos === 'start' ? 0.15 : a.labelPos === 'end' ? 0.85 : 0.5}
+			{@const lx = a.x + (x2 - a.x) * t}{@const ly = a.y + (y2 - a.y) * t}
 			{@const ang = (Math.atan2(y2 - a.y, x2 - a.x) * 180) / Math.PI}
 			{@const f = fontMmOf(a, den)}
-			<line x1={a.x} y1={a.y} x2={x2} y2={y2} stroke={color} style:color={color} stroke-width=".5" vector-effect="non-scaling-stroke" marker-start={mk(a.start ?? 'arrow')} marker-end={mk(a.end ?? 'arrow')} />
-			{@render caption({ x: mx, y: my, dy: -f * 0.4, size: f, fill: color, transform: `rotate(${ang} ${mx} ${my})`, text: `${dist}mm` })}
-		{:else}
-			<line x1={a.x} y1={a.y} x2={x2} y2={y2} stroke={color} style:color={color} stroke-width=".5" stroke-dasharray={dashArray(a.dash)} vector-effect="non-scaling-stroke" marker-start={mk(a.start)} marker-end={mk(a.end)} />
+			{@render caption({ x: lx, y: ly, dy: -f * 0.4, size: f, fill: color, transform: `rotate(${ang} ${lx} ${ly})`, text: lbl })}
 		{/if}
 	{/if}
 
