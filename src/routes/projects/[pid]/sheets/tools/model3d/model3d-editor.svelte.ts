@@ -129,9 +129,12 @@ export class Model3dEditor extends SurfaceEditor {
 		const set = new Set(this.multi.length ? this.multi : this.selIndex !== null ? [this.selIndex] : [])
 		if (set.has(i)) set.delete(i); else set.add(i)
 		const arr = [...set]
-		super.clearSel(); this.vsel = null; this.usel = null
-		if (arr.length === 1) this.selectObj(arr[0]); else this.multi = arr
+		this.vsel = null; this.usel = null; this.ssel = null
+		// Set selection DIRECTLY (not selectObj/select) so a mixed annotation peer selection survives.
+		if (arr.length === 1) { this.sel = { kind: 'obj', id: String(arr[0]) }; this.multi = [] }
+		else { this.sel = null; this.multi = arr }
 	}
+	duplicateSelectionInPlace() { if (this.multi.length) this.duplicateMulti() }
 
 	// ── object move (drag in the projected plane) — uses the shared gesture drivers ──
 	startObjMove = (e: MouseEvent, index: number) => {

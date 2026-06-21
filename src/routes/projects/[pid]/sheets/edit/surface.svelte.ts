@@ -76,6 +76,9 @@ export class SurfaceEditor {
 	clearMulti(): void {}
 	/** Whether a marquee multi-selection exists on this editor. */
 	hasMultiSel(): boolean { return false }
+	/** Clone this editor's multi-selection in place; the selection moves to the clones.
+	 *  Overridden per editor — used to duplicate a peer's share of a mixed ctrl-drag. */
+	duplicateSelectionInPlace(): void {}
 
 	/** Shift = lock a drag to the dominant axis (horizontal or vertical). Shared by every
 	 *  drag path so the constraint behaves identically for objects, annotations and groups. */
@@ -113,15 +116,21 @@ export class SurfaceEditor {
 	driveCtrlDrag(e0: MouseEvent, h: { duplicate: () => void; snapshot: () => void; apply: (dx: number, dy: number) => void; toggle: () => void }) {
 		const w0 = this.toWorld(e0); if (!w0) return
 		const sx = e0.clientX, sy = e0.clientY
+		// Drive the peer too only when it's part of a MULTI selection (a mixed marquee group),
+		// so a single object/annotation drag doesn't drag a singly-selected peer along.
+		const drivePeer = !!this.peer?.hasMultiSel()
 		let started = false
 		this.startDrag(e => {
 			if (!started) {
 				if (Math.hypot(e.clientX - sx, e.clientY - sy) < 3) return
-				started = true; h.duplicate(); h.snapshot()
+				started = true
+				h.duplicate(); h.snapshot()
+				if (drivePeer) { this.peer!.duplicateSelectionInPlace(); this.peer!.beginGroupTranslate() }
 			}
 			const w = this.toWorld(e); if (!w) return
 			const [dx, dy] = this.constrain(w.x - w0.x, w.y - w0.y, e.shiftKey)
 			h.apply(dx, dy)
+			if (drivePeer) this.peer!.applyGroupTranslate(dx, dy)
 		}, () => { if (!started) h.toggle(); this.notify(); this.peer?.notify() })
 	}
 

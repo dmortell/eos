@@ -146,10 +146,12 @@ export class AnnotationEditor extends SurfaceEditor {
 		const cur = new Set(this.selAnns.length ? this.selAnns : this.selAnn ? [this.selAnn.id] : [])
 		if (cur.has(id)) cur.delete(id); else cur.add(id)
 		const arr = [...cur]
-		if (arr.length <= 1) { this.selAnns = []; if (arr.length) this.select('ann', arr[0]); else this.clearSel() }
-		else { this.clearSel(); this.selAnns = arr }
+		// Set selection DIRECTLY (not select()/clearSel) so a mixed object peer selection survives.
+		if (arr.length <= 1) { this.selAnns = []; this.sel = arr.length ? { kind: 'ann', id: arr[0] } : null }
+		else { this.sel = null; this.selAnns = arr }
 		this.notify()
 	}
+	duplicateSelectionInPlace() { if (this.selAnns.length) this.duplicateMultiAnns() }
 	move(a: Annotation, e0: MouseEvent, movePointer = true) {
 		this.dragMovePointer = movePointer // single callout box-grab leaves the leader tip
 		if (e0.ctrlKey || e0.metaKey) {
