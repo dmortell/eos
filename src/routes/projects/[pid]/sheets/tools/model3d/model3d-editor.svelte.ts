@@ -340,14 +340,17 @@ export class Model3dEditor extends SurfaceEditor {
 	}
 
 	// ── delete: multi-selection, then a selected path vertex, then the object ──
-	deleteSel = () => {
-		// A selected path node deletes just that node (not the whole object) when it's safe to.
+	// A selected path node deletes just that node (not the whole object) when it's safe to;
+	// otherwise the base removes the selected objects (single or multi). Override so the
+	// SelectionCoordinator can call deleteSelection() uniformly across editors.
+	deleteSelection() {
 		if (!this.multi.length && this.vsel) {
 			const o = this.objects[this.vsel.index]
 			if ((o?.type === 'conduit' || o?.type === 'wall') && o.nodes.length > 2 && deleteNode(o, this.vsel.nodeId)) { this.vsel = null; this.notify(); return }
 		}
-		this.deleteSelection() // base: removeItems(selectedIds) respecting lock + clear (single or multi)
+		super.deleteSelection()
 	}
+	deleteSel = () => this.deleteSelection()
 
 	// ── duplicate / copy / paste (ctrl-drag, Ctrl+D/C/V, or panel buttons for touch) ──
 	clipboard: Obj[] = []

@@ -5,6 +5,7 @@
 	import type { SheetViewport } from '../../types'
 	import type { ViewportEditor } from '../../viewports.svelte'
 	import { History } from '../../edit/history.svelte'
+	import { SelectionCoordinator } from '../../edit/selection'
 	import { portal } from '../../edit/portal'
 	import { modelStore } from './models.svelte'
 	import { Model3dEditor } from './model3d-editor.svelte'
@@ -124,6 +125,8 @@
 	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor, afterChange: () => history.touch(), layers: () => annLayerDefs, activeLayer: () => src?.activeLayer, locked: () => annLocked })
 	annEditor.onPlaced = () => (tool = 'select') // back to Select so the new annote shows handles
 	$effect(() => { if (!active) { annEditor.clearSel(); tool = 'select' } })
+	// Cross-editor selection actions (delete / duplicate over a mixed object+annotation selection).
+	const selection = new SelectionCoordinator([editor, annEditor])
 
 	// Undo/redo over the model geometry (objects) AND this viewport's annotations, so a
 	// drag / ctrl-drag of either is undoable. Layer defs + underlays are edited through
@@ -164,15 +167,13 @@
 			const annSel = annEditor.selAnn || annEditor.hasMultiSel()
 			if (mod && (e.key === 'c' || e.key === 'C') && annSel) { e.preventDefault(); e.stopPropagation(); annEditor.copySel(); return }
 			if (mod && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); e.stopPropagation(); annEditor.paste(); return }
-			if (mod && (e.key === 'd' || e.key === 'D') && annSel) { e.preventDefault(); e.stopPropagation(); annEditor.duplicateSel(); return }
-			if (mod && (e.key === 'd' || e.key === 'D')) { e.preventDefault(); e.stopPropagation(); editor.duplicateSel(); return }
+			if (mod && (e.key === 'd' || e.key === 'D')) { e.preventDefault(); e.stopPropagation(); selection.duplicateSelection(); return }
 			if (mod && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); e.stopPropagation(); editor.copySel(); return }
 			if (mod && (e.key === 'x' || e.key === 'X')) { e.preventDefault(); e.stopPropagation(); editor.cutSel(); return }
 			if (e.key === 'Escape' && tool !== 'select') { e.preventDefault(); e.stopPropagation(); tool = 'select'; return }
 			if (e.key === 'Delete' || e.key === 'Backspace') {
 				e.preventDefault(); e.stopPropagation()
-				// Delete whatever's selected in EITHER editor (multi-aware) so mixed + multi-annote work.
-				annEditor.deleteSelection(); editor.deleteSel()
+				selection.deleteSelection() // combined object + annotation selection (multi-aware)
 			}
 		}
 		window.addEventListener('keydown', onKey, true)
