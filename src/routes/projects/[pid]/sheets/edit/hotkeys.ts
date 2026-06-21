@@ -15,6 +15,7 @@ export const MARKUP_HOTKEYS: Record<string, AnnotationKind> = {
 	d: 'dimension',   // dimension
 	r: 'rect',        // rectangle (highlight a region)
 	e: 'ellipse',     // ellipse
+	g: 'grid',        // floor-tile grid
 }
 
 /** Popular symbols get plain-key hotkeys too (kind = 'symbol', symbol = id). Keys avoid the

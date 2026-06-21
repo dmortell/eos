@@ -492,3 +492,6 @@ Fold the three rack property editors (Sheets viewport / outlets tool / racks too
      text/font/align props; the rendering (AnnotationLayer text vs callout branches) and the
      controls still duplicate. Extract a shared text-block render + a shared props group; callout
      adds the leader pointer + border toggle on top. (See PROPS.md merge note.)
+
+
+24g. Allow the size of line endpoints (arrows, dots, ticks) to be specified for all line types in props and project defaults.

@@ -44,6 +44,13 @@
 	}
 	const HAS_TEXT = new Set(['text', 'callout'])
 	const mk = (h?: string) => (h && h !== 'none' ? `url(#${mid}-${h})` : undefined)
+	// Grid line positions: multiples of `size` (+ offset, aligned to the building origin) inside [start, start+len].
+	const gridLines = (start: number, len: number, size: number, off: number) => {
+		const out: number[] = []
+		if (size <= 0) return out
+		for (let g = Math.ceil((start - off) / size) * size + off; g <= start + len + 0.001; g += size) out.push(g)
+		return out
+	}
 	// Dimension label text in the project's unit (mm/m/km/none).
 	const fmtDim = (mm: number) => {
 		const u = editor.annoDefaults?.dimUnit ?? 'mm'
@@ -102,6 +109,15 @@
 			{#if cb === 'underline'}
 				<line x1={tb.x} y1={tb.y + tb.h} x2={tb.x + tb.w} y2={tb.y + tb.h} stroke={color} stroke-width=".3" vector-effect="non-scaling-stroke" />
 			{/if}
+		{:else if a.kind === 'grid'}
+			{@const gs = a.grid?.size || 500}
+			<rect x={b.x} y={b.y} width={b.w} height={b.h} fill={a.fill ?? 'none'} stroke={color} stroke-width=".5" vector-effect="non-scaling-stroke" />
+			{#each gridLines(b.x, b.w, gs, a.grid?.ox ?? 0) as gx (gx)}
+				<line x1={gx} y1={b.y} x2={gx} y2={b.y + b.h} stroke={color} stroke-width=".25" vector-effect="non-scaling-stroke" />
+			{/each}
+			{#each gridLines(b.y, b.h, gs, a.grid?.oy ?? 0) as gy (gy)}
+				<line x1={b.x} y1={gy} x2={b.x + b.w} y2={gy} stroke={color} stroke-width=".25" vector-effect="non-scaling-stroke" />
+			{/each}
 		{:else if a.kind === 'rect'}
 			<rect x={b.x} y={b.y} width={b.w} height={b.h} fill={a.fill ?? 'none'} stroke={color} stroke-width=".5" stroke-dasharray={dashArray(a.dash)} vector-effect="non-scaling-stroke" />
 		{:else if a.kind === 'ellipse'}
@@ -219,7 +235,7 @@
 		{@const r = Math.max(150, Math.min(b.w, b.h) / 6)}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<g transform={rot}><path d={cloudPath(b.x, b.y, b.w, b.h, r)} fill="none" stroke="transparent" stroke-width="300" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} /></g>
-	{:else if a.kind === 'rect'}
+	{:else if a.kind === 'rect' || a.kind === 'grid'}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<g transform={rot}><rect x={b.x} y={b.y} width={b.w} height={b.h} fill="none" stroke="transparent" stroke-width="300" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} /></g>
 	{:else if a.kind === 'ellipse'}

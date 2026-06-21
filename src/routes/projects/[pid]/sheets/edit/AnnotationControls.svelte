@@ -36,6 +36,7 @@
 		['ellipse', 'Ellipse'], ['cloud', 'Cloud'],
 		['callout', 'Callout'], ['dimension', 'Dim'],
 		['image', 'Image'],
+		['grid', 'Grid'],
 		['outlet', 'Outlet'],
 		['symbol', 'Symbol'],
 	]
@@ -214,6 +215,11 @@
 	{#if sel.kind === 'dimension'}
 		<PropText label="Length (mm)" type="number" min="0" value={String(Math.round(Math.hypot((sel.x2 ?? sel.x) - sel.x, (sel.y2 ?? sel.y) - sel.y)))} oninput={(e: Event) => editor.setSelLength(Number(val(e)) || 0)} />
 		<PropText label="Font (pt)" type="number" min="2" value={String(sel.fontPt ?? 8)} oninput={(e: Event) => editor.setSel({ fontPt: Number(val(e)) || 8 })} />
+	{/if}
+	{#if sel.kind === 'grid'}
+		<PropText label="Tile size (mm)" type="number" min="1" value={String(sel.grid?.size ?? 500)} oninput={(e: Event) => editor.setGrid({ size: Number(val(e)) || 500 })} />
+		<PropText label="Offset X (mm)" type="number" value={String(sel.grid?.ox ?? 0)} oninput={(e: Event) => editor.setGrid({ ox: Number(val(e)) || 0 })} />
+		<PropText label="Offset Y (mm)" type="number" value={String(sel.grid?.oy ?? 0)} oninput={(e: Event) => editor.setGrid({ oy: Number(val(e)) || 0 })} />
 	{/if}
 	{#if hasLine(sel.kind)}
 		{@const headDflt = sel.kind === 'dimension' ? 'arrow' : 'none'}

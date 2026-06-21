@@ -34,7 +34,7 @@
 	}
 	// (model layers now live in the shared sheet Layers window)
 
-	const ANN_TOOLS = ['text', 'line', 'rect', 'arrow', 'ellipse', 'cloud', 'symbol', 'callout', 'dimension', 'image']
+	const ANN_TOOLS = ['text', 'line', 'rect', 'arrow', 'ellipse', 'cloud', 'symbol', 'callout', 'dimension', 'image', 'grid']
 
 	// Host for a `model3d` viewport source: resolves the referenced 3D model and
 	// renders its projection; when active, mounts the geometry edit layer.

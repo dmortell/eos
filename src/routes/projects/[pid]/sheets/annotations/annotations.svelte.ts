@@ -11,7 +11,7 @@ export type AnnTool = 'select' | AnnotationKind
 
 // Kinds placed by a single click (a default-sized box); the rest are dragged out.
 const CLICK_KINDS = new Set<AnnotationKind>(['text', 'symbol'])
-const BOX_DRAG = new Set<AnnotationKind>(['rect', 'ellipse', 'cloud', 'image'])
+const BOX_DRAG = new Set<AnnotationKind>(['rect', 'ellipse', 'cloud', 'image', 'grid'])
 // Minimum drawn size (world-mm) for box-drag kinds, so a click / tiny drag still yields a usable
 // shape rather than a near-zero one.
 const MIN_BOX: Partial<Record<AnnotationKind, number>> = { cloud: 500 }
@@ -39,6 +39,7 @@ function defaults(kind: AnnotationKind, symbol: string, proj: AnnotationDefaults
 			case 'callout': return { text: 'Note', fontPt: 8, align: 'left', end: 'arrow', border: 'none' } // no w/h → auto-size to text
 			case 'symbol': return symbol === 'outlet' ? { symbol, outlet: { ...OUTLET_DEFAULTS } } : { symbol }
 			case 'rect': case 'ellipse': case 'cloud': return {}
+			case 'grid': return { grid: { size: 500 } }
 			case 'image': return { src: '' }
 			case 'line': return { start: 'none', end: 'none', dash: 'solid' }
 			case 'arrow': return { start: 'none', end: 'arrow', dash: 'solid' }
@@ -215,6 +216,12 @@ export class AnnotationEditor extends SurfaceEditor {
 	}
 	duplicateSel() { this.duplicateSelection(500) } // Ctrl+D / panel: offset copy of the selection
 	setSel(patch: Partial<Annotation>) { const a = this.selAnn; if (!a) return; Object.assign(a, patch); this.notify() }
+	/** Merge-patch the selected grid annotation's tile settings (size / offsets). */
+	setGrid(patch: Partial<{ size: number; ox: number; oy: number }>) {
+		const a = this.selAnn; if (!a) return
+		a.grid = { size: 500, ...a.grid, ...patch }
+		this.notify()
+	}
 	/** Set a line/dimension's length (mm), keeping its start point + angle. */
 	setSelLength(len: number) {
 		const a = this.selAnn; if (!a || a.x2 == null) return
