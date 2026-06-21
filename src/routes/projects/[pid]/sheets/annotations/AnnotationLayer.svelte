@@ -56,6 +56,18 @@
 	<marker id="{mid}-tick" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M2,8 L8,2" stroke="context-stroke" stroke-width="1.6" /></marker>
 </defs>
 
+<!-- Shared text renderers: `caption` = one-line label (dimension value, symbol labels/refs),
+     `textBlock` = the multi-line text body (text + callout). One code path, many callers. -->
+{#snippet caption(p: { x: number; y: number; size: number; fill: string; text: string | number; anchor?: string; baseline?: string; dy?: number; weight?: number; transform?: string })}
+	<text x={p.x} y={p.y} dy={p.dy} font-size={p.size} fill={p.fill} text-anchor={p.anchor ?? 'middle'}
+		dominant-baseline={p.baseline} font-weight={p.weight} transform={p.transform} style:pointer-events="none">{p.text}</text>
+{/snippet}
+{#snippet textBlock(x: number, topY: number, m: { fontMm: number; lineH: number; lines: string[] }, fill: string, anchor: string)}
+	<text {x} y={topY + m.fontMm} font-size={m.fontMm} {fill} text-anchor={anchor}>
+		{#each m.lines as ln, i (i)}<tspan {x} dy={i === 0 ? 0 : m.lineH}>{ln || ' '}</tspan>{/each}
+	</text>
+{/snippet}
+
 {#each editor.annotations as a (a.id)}
 	{@const lyr = lyrOf(a)}
 	{#if !hidden.includes(lyr)}
@@ -78,9 +90,7 @@
 			{#if cb === 'box'}
 				<rect x={tb.x} y={tb.y} width={tb.w} height={tb.h} fill={a.fill ?? 'white'} fill-opacity={a.fill ? undefined : 0.6} stroke={color} stroke-width=".2" vector-effect="non-scaling-stroke" />
 			{/if}
-			<text x={ax} y={tb.y + m.fontMm} font-size={m.fontMm} fill={color} text-anchor={anchor}>
-				{#each m.lines as ln, i (i)}<tspan x={ax} dy={i === 0 ? 0 : m.lineH}>{ln || ' '}</tspan>{/each}
-			</text>
+			{@render textBlock(ax, tb.y, m, color, anchor)}
 			{#if cb === 'underline'}
 				<line x1={tb.x} y1={tb.y + tb.h} x2={tb.x + tb.w} y2={tb.y + tb.h} stroke={color} stroke-width=".3" vector-effect="non-scaling-stroke" />
 			{/if}
@@ -98,7 +108,7 @@
 				<circle cx={cx} cy={cy - R * 0.1} r={R * 0.18} fill={color} />
 			{:else if a.symbol === 'north'}
 				<line x1={cx} y1={cy + R} x2={cx} y2={cy - R} stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" marker-end="url(#{mid}-arrow)" />
-				<text x={cx} y={cy - R} font-size={R} fill={color} text-anchor="middle">N</text>
+				{@render caption({ x: cx, y: cy - R, size: R, fill: color, text: 'N' })}
 			{:else if a.symbol === 'outlet'}
 				{@const o = a.outlet ?? {}}
 				{@const oc = a.color ?? editor.layers.find((l) => l.id === lyr)?.color ?? color}
@@ -119,11 +129,11 @@
 				{/if}
 				<path d={tri} fill={oc} stroke="#000" stroke-width={sw * 0.45} vector-effect="non-scaling-stroke" stroke-linejoin="round" />
 				<!-- ports count, in the (wide, upper) part of the down-triangle -->
-				<text x={cx} y={cy + tR * 0.1} font-size={tR * 1.2} fill="white" text-anchor="middle" dominant-baseline="middle" font-weight="600">{o.ports ?? 2}</text>
+				{@render caption({ x: cx, y: cy + tR * 0.1, size: tR * 1.2, fill: 'white', baseline: 'middle', weight: 600, text: o.ports ?? 2 })}
 				<!-- label above -->
-				{#if o.label}<text x={cx} y={cy - R * 0.42} font-size={R * 0.5} fill={oc} text-anchor="middle">{o.label}</text>{/if}
+				{#if o.label}{@render caption({ x: cx, y: cy - R * 0.42, size: R * 0.5, fill: oc, text: o.label })}{/if}
 				<!-- usage abbrev below (blank for network) -->
-				{#if usageAbbr(o.usage)}<text x={cx} y={cy + R * 0.94} font-size={R * 0.45} fill={oc} text-anchor="middle">{usageAbbr(o.usage)}</text>{/if}
+				{#if usageAbbr(o.usage)}{@render caption({ x: cx, y: cy + R * 0.94, size: R * 0.45, fill: oc, text: usageAbbr(o.usage) })}{/if}
 			{:else if a.symbol === 'faceplate'}
 				{@const pw = b.w * 0.6}{@const ph = b.h * 0.85}{@const ps = pw * 0.32}
 				<rect x={cx - pw / 2} y={cy - ph / 2} width={pw} height={ph} rx={pw * 0.08} fill={a.fill ?? 'white'} stroke={color} stroke-width=".5" vector-effect="non-scaling-stroke" />
@@ -144,25 +154,25 @@
 						<path d="M{cx + ux * baseR - uy * halfW},{cy + uy * baseR + ux * halfW} L{cx + ux * baseR + uy * halfW},{cy + uy * baseR - ux * halfW} L{cx + ux * tip},{cy + uy * tip} Z"
 							fill={a.fill ?? 'white'} stroke={color} stroke-width=".5" vector-effect="non-scaling-stroke" />
 						<!-- ref label centred inside the triangle (toward the base) -->
-						<text x={cx + ux * (baseR + (tip - baseR) * 0.42)} y={cy + uy * (baseR + (tip - baseR) * 0.42)} font-size={cr * 0.62} fill={color} text-anchor="middle" dominant-baseline="central">{(arms as any)[d] || '–'}</text>
+						{@render caption({ x: cx + ux * (baseR + (tip - baseR) * 0.42), y: cy + uy * (baseR + (tip - baseR) * 0.42), size: cr * 0.62, fill: color, baseline: 'central', text: (arms as any)[d] || '–' })}
 					{/if}
 				{/each}
 				<circle cx={cx} cy={cy} r={cr} fill={a.fill ?? 'white'} stroke={color} stroke-width=".5" vector-effect="non-scaling-stroke" />
-				<text x={cx} y={cy} font-size={cr * 0.95} fill={color} text-anchor="middle" dominant-baseline="middle">{a.link?.ref ?? '?'}</text>
+				{@render caption({ x: cx, y: cy, size: cr * 0.95, fill: color, baseline: 'middle', text: a.link?.ref ?? '?' })}
 			{:else if a.symbol === 'door'}
 				{@const dir = a.flip ? -1 : 1}{@const hx = a.flip ? b.x + b.w : b.x}{@const hy = b.y + b.h}
 				<line x1={hx} y1={hy} x2={hx} y2={b.y} stroke={color} stroke-width="1.2" vector-effect="non-scaling-stroke" />
 				<path d="M{hx},{b.y} A {b.h},{b.h} 0 0 {a.flip ? 0 : 1} {hx + dir * b.h},{hy}" fill="none" stroke={color} stroke-width="0.5" stroke-dasharray="20 12" vector-effect="non-scaling-stroke" />
 			{:else}
 				<circle cx={cx} cy={cy} r={R} fill={a.fill ?? 'white'} stroke={color} stroke-width=".5" vector-effect="non-scaling-stroke" stroke-dasharray={a.symbol === 'detail' ? '40 24' : undefined} />
-				<text x={cx} y={cy} font-size={R * 0.9} fill={color} text-anchor="middle" dominant-baseline="middle">{a.link?.ref ?? '?'}</text>
+				{@render caption({ x: cx, y: cy, size: R * 0.9, fill: color, baseline: 'middle', text: a.link?.ref ?? '?' })}
 			{/if}
 		{:else if a.kind === 'image'}
 			{#if a.src}
 				<image href={a.src} x={b.x} y={b.y} width={b.w} height={b.h} preserveAspectRatio="xMidYMid meet" />
 			{:else}
 				<rect x={b.x} y={b.y} width={b.w} height={b.h} fill="#f8fafc" stroke={color} stroke-width=".5" stroke-dasharray="8 5" vector-effect="non-scaling-stroke" />
-				<text x={cx} y={cy} font-size={Math.min(b.w, b.h) / 6} fill="#94a3b8" text-anchor="middle" dominant-baseline="central">image — set URL</text>
+				{@render caption({ x: cx, y: cy, size: Math.min(b.w, b.h) / 6, fill: '#94a3b8', baseline: 'central', text: 'image — set URL' })}
 			{/if}
 		{/if}
 	</g>
@@ -185,7 +195,7 @@
 			{@const ang = (Math.atan2(y2 - a.y, x2 - a.x) * 180) / Math.PI}
 			{@const f = fontMmOf(a, den)}
 			<line x1={a.x} y1={a.y} x2={x2} y2={y2} stroke={color} style:color={color} stroke-width=".5" vector-effect="non-scaling-stroke" marker-start={mk(a.start ?? 'arrow')} marker-end={mk(a.end ?? 'arrow')} />
-			<text x={mx} y={my} transform="rotate({ang} {mx} {my})" dy={-f * 0.4} font-size={f} fill={color} text-anchor="middle">{dist}mm</text>
+			{@render caption({ x: mx, y: my, dy: -f * 0.4, size: f, fill: color, transform: `rotate(${ang} ${mx} ${my})`, text: `${dist}mm` })}
 		{:else}
 			<line x1={a.x} y1={a.y} x2={x2} y2={y2} stroke={color} style:color={color} stroke-width=".5" stroke-dasharray={dashArray(a.dash)} vector-effect="non-scaling-stroke" marker-start={mk(a.start)} marker-end={mk(a.end)} />
 		{/if}
