@@ -151,41 +151,24 @@ export class AnnotationEditor extends SurfaceEditor {
 		this.notify()
 	}
 	move(a: Annotation, e0: MouseEvent, movePointer = true) {
+		this.dragMovePointer = movePointer // single callout box-grab leaves the leader tip
 		if (e0.ctrlKey || e0.metaKey) {
-			// Defer: a real drag duplicates (ctrl-drag); a click that doesn't move toggles selection.
-			// When dragging a multi-selection, duplicate ALL selected and drag the clones as a group.
-			const sx = e0.clientX, sy = e0.clientY
-			const multi = this.selAnns.length > 1 && this.selAnns.includes(a.id)
-			let ann = a, started = false, w0 = this.toWorld(e0)
-			let o = { x: a.x, y: a.y, x2: a.x2, y2: a.y2 }
-			this.startDrag(e => {
-				if (!started) {
-					if (Math.hypot(e.clientX - sx, e.clientY - sy) < 3) return
-					started = true
-					if (multi) { this.duplicateMultiAnns(); this.beginGroupTranslate() }
-					else { ann = this.push({ ...a, id: this.uid('a') }); this.select('ann', ann.id); o = { x: ann.x, y: ann.y, x2: ann.x2, y2: ann.y2 } }
-					w0 = this.toWorld(e0)
-				}
-				const w = this.toWorld(e); if (!w || !w0) return
-				let dx = w.x - w0.x, dy = w.y - w0.y
-				if (e.shiftKey) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 } // Shift = lock horizontal / vertical
-				if (multi) this.applyGroupTranslate(dx, dy)
-				else { ann.x = o.x + dx; ann.y = o.y + dy; if (movePointer && o.x2 != null) { ann.x2 = o.x2 + dx; ann.y2 = (o.y2 ?? 0) + dy } }
-			}, () => { if (!started) this.toggleAnnSel(a.id); this.notify() })
+			// Ctrl-drag duplicates (single or whole multi) + drags the clones; ctrl-click toggles.
+			this.driveCtrlDrag(e0, {
+				duplicate: () => {
+					if (this.selAnns.length > 1 && this.selAnns.includes(a.id)) this.duplicateMultiAnns()
+					else this.select('ann', this.push({ ...a, id: this.uid('a') }).id)
+				},
+				snapshot: () => this.beginGroupTranslate(),
+				apply: (dx, dy) => this.applyGroupTranslate(dx, dy),
+				toggle: () => this.toggleAnnSel(a.id),
+			})
 			return
 		}
-		if (this.selAnns.includes(a.id)) { this.beginGroupDrag(e0); return } // part of a marquee → move whole group
+		if (this.selAnns.includes(a.id)) { this.beginGroupDrag(e0); return } // marquee group (this + peer)
 		this.clearMulti(); this.peer?.clearMulti()
 		this.select('ann', a.id)
-		const w0 = this.toWorld(e0); if (!w0) return
-		const o = { x: a.x, y: a.y, x2: a.x2, y2: a.y2 }
-		this.startDrag(e => {
-			const w = this.toWorld(e); if (!w) return
-			let dx = w.x - w0.x, dy = w.y - w0.y
-			if (e.shiftKey) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 } // Shift = lock horizontal / vertical
-			a.x = o.x + dx; a.y = o.y + dy
-			if (movePointer && o.x2 != null) { a.x2 = o.x2 + dx; a.y2 = (o.y2 ?? 0) + dy }
-		}, () => this.notify())
+		this.beginItemDrag(e0) // single: snapshot + shift-constrained translate (honours dragMovePointer)
 	}
 
 	/** The selected annotations (multi set, else the single selection). */
@@ -272,16 +255,22 @@ export class AnnotationEditor extends SurfaceEditor {
 		const inR = (x: number, y: number) => x >= m.x && x <= m.x + m.w && y >= m.y && y <= m.y + m.h
 		this.selAnns = this.annotations.filter(a => inR(a.x, a.y) || (a.x2 != null && inR(a.x2, a.y2 ?? a.y))).map(a => a.id)
 	}
+	// The set being dragged: the marquee multi-selection if any, else the single selection —
+	// so one snapshot/translate path serves both single and group drags.
+	private dragAnnIds(): string[] { return this.selAnns.length ? this.selAnns : this.selAnn ? [this.selAnn.id] : [] }
+	/** For a single callout/leader BOX grab, false leaves the pointer tip (x2,y2) anchored. */
+	dragMovePointer = true
 	beginGroupTranslate() {
 		this.#gbAnns.clear()
-		const ids = new Set(this.selAnns)
+		const ids = new Set(this.dragAnnIds())
 		for (const a of this.annotations) if (ids.has(a.id)) this.#gbAnns.set(a.id, { x: a.x, y: a.y, x2: a.x2, y2: a.y2 })
 	}
 	applyGroupTranslate(dx: number, dy: number) {
+		const single = this.#gbAnns.size === 1 // honour dragMovePointer only for a single grab
 		for (const a of this.annotations) {
 			const b = this.#gbAnns.get(a.id); if (!b) continue
 			a.x = b.x + dx; a.y = b.y + dy
-			if (b.x2 != null) { a.x2 = b.x2 + dx; a.y2 = (b.y2 ?? 0) + dy }
+			if (b.x2 != null && (!single || this.dragMovePointer)) { a.x2 = b.x2 + dx; a.y2 = (b.y2 ?? 0) + dy }
 		}
 	}
 }

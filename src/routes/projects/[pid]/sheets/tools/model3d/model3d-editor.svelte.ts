@@ -133,49 +133,26 @@ export class Model3dEditor extends SurfaceEditor {
 		if (arr.length === 1) this.selectObj(arr[0]); else this.multi = arr
 	}
 
-	// ── object move (drag in the projected plane, whole-mm steps) ──
+	// ── object move (drag in the projected plane) — uses the shared gesture drivers ──
 	startObjMove = (e: MouseEvent, index: number) => {
 		if (e.button !== 0) return // right/middle bubble up so the canvas pans
 		e.stopPropagation()
 		if (!this.objects[index]) return
 		if (this.blockedByLock(this.objects[index])) return
-		const b = BASIS[this.direction]
-		const s = this.at(e); if (!s) return
 
 		if (e.ctrlKey || e.metaKey) {
-			// Defer the decision: a real drag duplicates (ctrl-drag); a click that doesn't
-			// move toggles this object in/out of the selection (ctrl-click).
-			const w0 = this.toWorld(e), sx = e.clientX, sy = e.clientY
-			let phase: 'pending' | 'group' | 'single' = 'pending'
-			let o: Obj | null = null, idx = index, ah = 0, av = 0
-			this.startDrag((ev) => {
-				if (phase === 'pending') {
-					if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < 3) return
-					if (this.inMulti(idx)) { this.duplicateMulti(); this.beginGroupTranslate(); phase = 'group' }
-					else { idx = this.duplicateOne(idx); o = this.objects[idx]; this.selectObj(idx); this.vsel = null; phase = 'single' }
-				}
-				if (phase === 'group') { const w = this.toWorld(ev); if (w && w0) this.applyGroupTranslate(w.x - w0.x, w.y - w0.y) }
-				else if (o) {
-					const c = this.at(ev); if (!c) return
-					let dh = Math.round(c.ch - s.ch), dv = Math.round(c.cv - s.cv)
-					if (ev.shiftKey) { if (Math.abs(dh) >= Math.abs(dv)) dv = 0; else dh = 0 }
-					moveAlong(o, b.h, dh - ah); moveAlong(o, b.v, dv - av); ah = dh; av = dv
-				}
-			}, () => { if (phase === 'pending') this.toggleMulti(index); this.notify() })
+			// Ctrl-drag duplicates (single or whole multi) + drags the clones; ctrl-click toggles.
+			this.driveCtrlDrag(e, {
+				duplicate: () => { if (this.inMulti(index)) this.duplicateMulti(); else { this.selectObj(this.duplicateOne(index)); this.vsel = null } },
+				snapshot: () => this.beginGroupTranslate(),
+				apply: (dx, dy) => this.applyGroupTranslate(dx, dy),
+				toggle: () => this.toggleMulti(index),
+			})
 			return
 		}
-
-		if (this.inMulti(index)) { this.beginGroupDrag(e); return } // drag the marquee group
+		if (this.inMulti(index)) { this.beginGroupDrag(e); return } // marquee group (this + annotation peer)
 		this.selectObj(index); this.vsel = null
-		let ah = 0, av = 0
-		this.startDrag((ev) => {
-			const c = this.at(ev); if (!c) return
-			const o = this.objects[index]
-			let dh = Math.round(c.ch - s.ch), dv = Math.round(c.cv - s.cv)
-			if (ev.shiftKey) { if (Math.abs(dh) >= Math.abs(dv)) dv = 0; else dh = 0 } // Shift = lock to horizontal / vertical
-			moveAlong(o, b.h, dh - ah); moveAlong(o, b.v, dv - av)
-			ah = dh; av = dv
-		}, () => this.notify())
+		this.beginItemDrag(e) // single: snapshot + shift-constrained translate
 	}
 
 	// ── prism corner / wall vertex+height resize ──
@@ -570,16 +547,19 @@ export class Model3dEditor extends SurfaceEditor {
 		// Exactly one → single-select it (full handles + property editor); else multi.
 		if (hit.length === 1) this.selectObj(hit[0]); else this.multi = hit
 	}
+	// The set being dragged: the marquee multi-selection if any, else the single selection.
+	// Lets one snapshot/translate path serve both single and group drags.
+	private dragIdxs(): number[] { return this.multi.length ? this.multi : this.selIndex !== null ? [this.selIndex] : [] }
 	private groupSnap: Map<number, Obj> | null = null
 	beginGroupTranslate(): void {
 		this.groupSnap = new Map()
-		for (const i of this.multi) this.groupSnap.set(i, structuredClone($state.snapshot(this.objects[i])) as Obj)
+		for (const i of this.dragIdxs()) this.groupSnap.set(i, structuredClone($state.snapshot(this.objects[i])) as Obj)
 	}
 	applyGroupTranslate(dwx: number, dwy: number): void {
 		if (!this.groupSnap) return
 		const b = BASIS[this.direction]
 		const dch = Math.round(dwx * b.hs), dcv = Math.round(-dwy * b.vs)
-		for (const i of this.multi) {
+		for (const i of this.dragIdxs()) {
 			const o = this.objects[i], snap = this.groupSnap.get(i)
 			if (!o || !snap || this.locked(o)) continue
 			restorePos(o, snap)

@@ -77,15 +77,52 @@ export class SurfaceEditor {
 	/** Whether a marquee multi-selection exists on this editor. */
 	hasMultiSel(): boolean { return false }
 
+	/** Shift = lock a drag to the dominant axis (horizontal or vertical). Shared by every
+	 *  drag path so the constraint behaves identically for objects, annotations and groups. */
+	constrain(dx: number, dy: number, shift: boolean): [number, number] {
+		if (shift) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 }
+		return [dx, dy]
+	}
+
 	/** Drag the whole multi-selection (this editor + its peer) by the cursor delta. */
 	beginGroupDrag(e0: MouseEvent) {
 		const w0 = this.toWorld(e0); if (!w0) return
 		this.beginGroupTranslate(); this.peer?.beginGroupTranslate()
 		this.startDrag(e => {
 			const w = this.toWorld(e); if (!w) return
-			this.applyGroupTranslate(w.x - w0.x, w.y - w0.y)
-			this.peer?.applyGroupTranslate(w.x - w0.x, w.y - w0.y)
+			const [dx, dy] = this.constrain(w.x - w0.x, w.y - w0.y, e.shiftKey)
+			this.applyGroupTranslate(dx, dy)
+			this.peer?.applyGroupTranslate(dx, dy)
 		}, () => { this.notify(); this.peer?.notify() })
+	}
+
+	/** Shared single-item drag: snapshot, then move by the (shift-constrained) world delta. */
+	beginItemDrag(e0: MouseEvent) {
+		const w0 = this.toWorld(e0); if (!w0) return
+		this.beginGroupTranslate()
+		this.startDrag(e => {
+			const w = this.toWorld(e); if (!w) return
+			const [dx, dy] = this.constrain(w.x - w0.x, w.y - w0.y, e.shiftKey)
+			this.applyGroupTranslate(dx, dy)
+		}, () => this.notify())
+	}
+
+	/** Deferred Ctrl/⌘ gesture: a real drag (>3px) duplicates then drags the clones; a click
+	 *  with no movement toggles the selection. Shift-constrained. Shared by object + annotation
+	 *  pointer entry points so the gesture stays identical and lives in one place. */
+	driveCtrlDrag(e0: MouseEvent, h: { duplicate: () => void; snapshot: () => void; apply: (dx: number, dy: number) => void; toggle: () => void }) {
+		const w0 = this.toWorld(e0); if (!w0) return
+		const sx = e0.clientX, sy = e0.clientY
+		let started = false
+		this.startDrag(e => {
+			if (!started) {
+				if (Math.hypot(e.clientX - sx, e.clientY - sy) < 3) return
+				started = true; h.duplicate(); h.snapshot()
+			}
+			const w = this.toWorld(e); if (!w) return
+			const [dx, dy] = this.constrain(w.x - w0.x, w.y - w0.y, e.shiftKey)
+			h.apply(dx, dy)
+		}, () => { if (!started) h.toggle(); this.notify(); this.peer?.notify() })
 	}
 
 	// ── drag: window-level listeners with auto-cleanup ──
