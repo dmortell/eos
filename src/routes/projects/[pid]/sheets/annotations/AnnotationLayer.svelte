@@ -203,6 +203,11 @@
 	{:else if a.kind === 'ellipse'}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<g transform={rot}><ellipse cx={cx} cy={cy} rx={b.w / 2} ry={b.h / 2} fill="none" stroke="transparent" stroke-width="300" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} /></g>
+	{:else if a.kind === 'symbol' && a.symbol === 'outlet'}
+		<!-- tight hit on the outlet body (circle + triangle), NOT the full 1000mm symbol box -->
+		{@const R = Math.min(b.w, b.h) / 2}
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<circle cx={cx} cy={cy} r={R * 0.66} fill="transparent" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} />
 	{:else if isBoxKind(a)}
 		<!-- For callout/leader, dragging the box moves only the box (arrow tip stays put);
 		     double-click jumps focus to the text field in the properties panel. -->

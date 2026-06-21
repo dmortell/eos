@@ -5,6 +5,7 @@ import type { Annotation, AnnotationKind } from '../types'
 import type { Box } from '../edit/transform'
 import type { LayerDef } from '../layers/layers'
 import { OUTLET_DEFAULTS } from './outlet'
+import { bounds } from './geometry'
 
 export type AnnTool = 'select' | AnnotationKind
 
@@ -272,13 +273,16 @@ export class AnnotationEditor extends SurfaceEditor {
 	}
 	/** Select annotations whose anchor or pointer endpoint falls inside the world-mm rect. */
 	marqueeCollect(m: { x: number; y: number; w: number; h: number }) {
-		// Crossing selection (like objects): the annotation's bbox just has to TOUCH the marquee,
-		// so dragging a box through a symbol selects it (was: only its anchor point inside).
+		// Crossing selection (like objects): the annotation's visual bbox just has to TOUCH the
+		// marquee. Uses bounds() so symbols (no explicit w/h) get their real box, not a zero-size
+		// point at the offset anchor; outlets use a tight core box (matching their click hit).
 		const hits = (a: Annotation) => {
-			let x0: number, y0: number, x1: number, y1: number
-			if (a.x2 != null) { x0 = Math.min(a.x, a.x2); x1 = Math.max(a.x, a.x2); y0 = Math.min(a.y, a.y2 ?? a.y); y1 = Math.max(a.y, a.y2 ?? a.y) } // line
-			else { x0 = a.x; y0 = a.y; x1 = a.x + (a.w ?? 0); y1 = a.y + (a.h ?? 0) } // box (symbol/rect/…)
-			return x0 <= m.x + m.w && x1 >= m.x && y0 <= m.y + m.h && y1 >= m.y
+			let bx = bounds(a, 1)
+			if (a.kind === 'symbol' && a.symbol === 'outlet') {
+				const r = (Math.min(bx.w, bx.h) / 2) * 0.66
+				bx = { x: bx.x + bx.w / 2 - r, y: bx.y + bx.h / 2 - r, w: 2 * r, h: 2 * r }
+			}
+			return bx.x <= m.x + m.w && bx.x + bx.w >= m.x && bx.y <= m.y + m.h && bx.y + bx.h >= m.y
 		}
 		this.selAnns = this.annotations.filter(hits).map(a => a.id)
 	}
