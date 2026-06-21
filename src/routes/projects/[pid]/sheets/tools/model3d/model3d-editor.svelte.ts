@@ -580,6 +580,52 @@ export class Model3dEditor extends SurfaceEditor {
 	groupOf(id: string) { return this.byId(id)?.groupId }
 	idsInGroup(gid: string) { return this.objects.filter((o) => o.groupId === gid && o.id).map((o) => o.id!) }
 	setGroup(ids: string[], gid: string | undefined) { const s = new Set(ids); for (const o of this.objects) if (o.id && s.has(o.id)) o.groupId = gid; this.notify() }
+
+	// ── group transform (H9) — plan view only; SVG world = (model.x, -model.y) ──
+	private footprintSvg(o: Obj): { x: number; y: number }[] {
+		if (o.type === 'prism') {
+			const cx = o.x + o.w / 2, cy = o.y + o.d / 2, r = ((o.rot ?? 0) * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r)
+			return ([[o.x, o.y], [o.x + o.w, o.y], [o.x + o.w, o.y + o.d], [o.x, o.y + o.d]] as [number, number][])
+				.map(([px, py]) => { const dx = px - cx, dy = py - cy; return { x: cx + dx * c - dy * s, y: -(cy + dx * s + dy * c) } })
+		}
+		return (o.type === 'wall' || o.type === 'conduit' ? o.nodes : []).map((n) => ({ x: n.x, y: -n.y }))
+	}
+	selWorldBounds() {
+		if (this.direction !== 'plan') return null
+		const ids = this.selectedIds(); if (!ids.length) return null
+		let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+		for (const id of ids) { const o = this.byId(id); if (!o) continue; for (const p of this.footprintSvg(o)) { x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y) } }
+		return x0 === Infinity ? null : { x0, y0, x1, y1 }
+	}
+	rotateSelection(deg: number, cx: number, cy: number) {
+		if (this.direction !== 'plan') return
+		const r = (deg * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r)
+		const rotS = (px: number, py: number) => { const dx = px - cx, dy = py - cy; return { x: cx + dx * c - dy * s, y: cy + dx * s + dy * c } }
+		for (const id of this.selectedIds()) {
+			const o = this.byId(id); if (!o || this.locked(o)) continue
+			if (o.type === 'prism') {
+				const nc = rotS(o.x + o.w / 2, -(o.y + o.d / 2))
+				o.x = nc.x - o.w / 2; o.y = -nc.y - o.d / 2; o.rot = (o.rot ?? 0) - deg // svg→model y-flip
+			} else if (o.type === 'wall' || o.type === 'conduit') {
+				for (const n of o.nodes) { const ns = rotS(n.x, -n.y); n.x = ns.x; n.y = -ns.y }
+			}
+		}
+		this.notify()
+	}
+	scaleSelection(sx: number, sy: number, ax: number, ay: number) {
+		if (this.direction !== 'plan') return
+		for (const id of this.selectedIds()) {
+			const o = this.byId(id); if (!o || this.locked(o)) continue
+			if (o.type === 'prism') {
+				const ncxs = ax + (o.x + o.w / 2 - ax) * sx, ncys = ay + (-(o.y + o.d / 2) - ay) * sy
+				o.w = Math.max(MIN, o.w * sx); o.d = Math.max(MIN, o.d * sy)
+				o.x = ncxs - o.w / 2; o.y = -ncys - o.d / 2
+			} else if (o.type === 'wall' || o.type === 'conduit') {
+				for (const n of o.nodes) { n.x = ax + (n.x - ax) * sx; n.y = -(ay + (-n.y - ay) * sy) }
+			}
+		}
+		this.notify()
+	}
 	// Arrow-key nudge (world Δ → projected axes) / resize of the selected objects.
 	nudgeSelection(dwx: number, dwy: number) {
 		const b = BASIS[this.direction], dch = Math.round(dwx * b.hs), dcv = Math.round(-dwy * b.vs)

@@ -499,4 +499,19 @@ Fold the three rack property editors (Sheets viewport / outlets tool / racks too
 25. Context menu for objects/annotes.
      * group (enabled if multi selected)/ungroup (enabled if grouped) items
 
-26. Add a polygon annote for drawing regular and irregular polygons. Consider making it like walls/conduits/trunks, for nodes with multiple edges. Or keep it simple, 
+26. Add a polygon annote for drawing regular and irregular polygons. Consider making it like walls/conduits/trunks, for nodes with multiple edges. Or keep it simple, with regular polygons? Or allow nodes of regular polygons to be dragged to new positions?
+
+27. Is json-guard really necessary? I thought firestore already has local first updates, so round-trips just return the same data and dont cause another update.
+
+Guards were added because Root cause: SheetEditor only reloaded the viewport array when the sheet id changed — a guard meant to ignore its own save round-trips, but it also dropped remote edits (same id, new data). Objects were unaffected because they live in a separate models3d doc that already uses a JSON-echo guard.
+
+Fix: switched the sheet load to the same JSON-echo guard — skip our own write, apply anything different (i.e. remote edits). On a remote edit it keeps your current selection/active viewport (only a brand-new sheet resets the view); non-active viewports re-seed their annotation editor so the change shows up.
+
+- One intentional nuance: if you're actively editing a viewport, that viewport's editor won't re-seed mid-edit (so your in-progress work isn't clobbered) — remote changes to that viewport appear once you deactivate it. Other viewports update live. This is the standard last-writer-wins for the one you're editing.
+
+
+28. Make grid a polygon with clipping path so it can cover a floorplan? Grids are difficult to select, may need to lock walls. Allow grids to be rotated? (maybe not, no floorplans with 45 degree tiles so far)
+
+     * prefer grid to use layer color? Or color from props?
+
+

@@ -107,6 +107,14 @@ export class SurfaceEditor {
 	/** Arrow-key nudge (world-mm) / resize (Δw,Δh) of the whole selection. */
 	nudgeSelection(_dx: number, _dy: number): void {}
 	resizeSelection(_dw: number, _dh: number): void {}
+
+	// ── group transform (H9): SVG-world primitives the GroupTransformBox drives (plan view) ──
+	/** AABB of the selection in SVG world coords, or null if nothing selected. */
+	selWorldBounds(): { x0: number; y0: number; x1: number; y1: number } | null { return null }
+	/** Rotate the selection `deg` about (cx,cy): rotate each item's position + add deg to its own angle. */
+	rotateSelection(_deg: number, _cx: number, _cy: number): void {}
+	/** Scale the selection about anchor (ax,ay) by (sx,sy): scale each item's position + size. */
+	scaleSelection(_sx: number, _sy: number, _ax: number, _ay: number): void {}
 	/** Ctrl+D / panel duplicate: clone the selection offset by `d`, select the clones. */
 	duplicateSelection(d = 500) { const ids = this.cloneItems(this.selectedIds(), d); if (ids.length) { this.selectIds(ids); this.notify() } }
 

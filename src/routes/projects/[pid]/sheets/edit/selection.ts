@@ -53,4 +53,19 @@ export class SelectionCoordinator {
 		this.beforeMutate?.()
 		for (const e of this.active()) e.setGroup(e.selectedIds(), undefined)
 	}
+
+	// ── group transform box (H9): combined SVG-world bounds + move/rotate/scale of the selection ──
+	count2() { return this.count() } // alias for readability at call sites
+	/** Combined AABB (SVG world) of the whole selection across both editors, or null. */
+	groupBounds() {
+		let b: { x0: number; y0: number; x1: number; y1: number } | null = null
+		for (const e of this.editors) {
+			const eb = e.selWorldBounds(); if (!eb) continue
+			b = b ? { x0: Math.min(b.x0, eb.x0), y0: Math.min(b.y0, eb.y0), x1: Math.max(b.x1, eb.x1), y1: Math.max(b.y1, eb.y1) } : eb
+		}
+		return b
+	}
+	moveGroup(dx: number, dy: number) { for (const e of this.active()) e.nudgeSelection(dx, dy) }
+	rotateGroup(deg: number, cx: number, cy: number) { for (const e of this.active()) e.rotateSelection(deg, cx, cy) }
+	scaleGroup(sx: number, sy: number, ax: number, ay: number) { for (const e of this.active()) e.scaleSelection(sx, sy, ax, ay) }
 }
