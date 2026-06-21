@@ -250,6 +250,16 @@ export class AnnotationEditor extends SurfaceEditor {
 	}
 	clearClipboard() { clipboard = [] }
 	hasClipboard() { return clipboard.length > 0 }
+	selectAllVisible() {
+		const ids = this.annotations.filter((a) => { const l = a.layerId ?? 'annotations'; return !this.isLayerHidden(l) && !this.isLayerLocked(l) }).map((a) => a.id)
+		this.sel = null; this.setMulti(ids)
+	}
+	/** Drop selected annotations whose layer just became hidden or locked. Call OUTSIDE an effect. */
+	pruneSelectionVisibility() {
+		const ok = (a: Annotation | undefined) => { if (!a) return false; const l = a.layerId ?? 'annotations'; return !this.isLayerHidden(l) && !this.isLayerLocked(l) }
+		this.selAnns = this.selAnns.filter((id) => ok(this.annotations.find((a) => a.id === id)))
+		if (this.selAnn && !ok(this.selAnn)) this.clearSel()
+	}
 	// grouping (H12)
 	groupOf(id: string) { return this.annotations.find((a) => a.id === id)?.groupId }
 	idsInGroup(gid: string) { return this.annotations.filter((a) => a.groupId === gid).map((a) => a.id) }

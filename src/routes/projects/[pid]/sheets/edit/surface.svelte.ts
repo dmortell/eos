@@ -83,6 +83,8 @@ export class SurfaceEditor {
 
 	/** Select exactly these ids on this editor (1 → single, else multi). */
 	selectIds(ids: string[]) { if (ids.length === 1) { this.sel = { kind: this.selKind, id: ids[0] }; this.setMulti([]) } else { this.sel = null; this.setMulti(ids) } }
+	/** Select every visible + unlocked item of this editor (Ctrl+A). Doesn't clear the peer. */
+	selectAllVisible(): void {}
 
 	// ── grouping (H12): items sharing a groupId select/move together ──
 	groupOf(_id: string): string | undefined { return undefined }      // an item's group id

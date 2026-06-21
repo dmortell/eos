@@ -598,6 +598,18 @@ export class Model3dEditor extends SurfaceEditor {
 	}
 	clearClipboard() { this.clipboard = [] }
 	hasClipboard() { return this.clipboard.length > 0 }
+	selectAllVisible() {
+		const ids = this.objects.filter((o) => o.id && !this.layerHidden(o.layer) && !this.locked(o)).map((o) => o.id!)
+		this.sel = null; this.clearAux(); this.setMulti(ids)
+	}
+	/** Drop selected objects whose layer just became hidden or locked (so a stale selection box
+	 *  doesn't linger over hidden geometry). Call OUTSIDE a tracking effect. */
+	pruneSelectionVisibility() {
+		const ok = (o: Obj | null | undefined) => !!o && !this.layerHidden(o.layer) && !this.locked(o)
+		this.multi = this.multi.filter((id) => ok(this.byId(id)))
+		if (this.selObjId && !ok(this.byId(this.selObjId))) super.clearSel()
+		if (this.selSection) { /* sections aren't layer-pruned here */ }
+	}
 	// grouping (H12)
 	groupOf(id: string) { return this.byId(id)?.groupId }
 	idsInGroup(gid: string) { return this.objects.filter((o) => o.groupId === gid && o.id).map((o) => o.id!) }

@@ -24,6 +24,8 @@ export class SelectionCoordinator {
 
 	/** Drop every editor's selection (single + multi). */
 	clear() { for (const e of this.editors) { e.clearSel(); e.clearMulti() } }
+	/** Ctrl+A — select every visible + unlocked item across all editors. */
+	selectAll() { for (const e of this.editors) e.selectAllVisible() }
 	/** Delete the whole combined selection (each editor keeps its own delete semantics). */
 	deleteSelection() { for (const e of this.active()) e.deleteSelection() }
 	/** Ctrl+D / panel: offset-duplicate the combined selection, selecting the clones. */

@@ -549,3 +549,15 @@ What should the section tag show + reference?
      Show the existing s.label (e.g. “Section 1”) as an editable text tag for now; wire the sheet/viewport-number resolution as a follow-up. Faster first cut.
   3. Direction arrow + label
      A section-line style tag: a short arrow showing the view direction + the label. More like a building section mark than an area/detail callout.
+
+
+30. Tool to renumber outlets and other items (objects/annotes)
+
+Workflow to renumber items:
+* Select all objects to be renumbered
+* Select Auto Number from Tools menu, this opens a floating window with an input
+     (and list of items selected?)
+* Enter the first number in the input, and set the increment
+* Select overwrite, prefix or suffix, or a char to replace
+* Select the order of the items to be renumbered: by value, by index, by x then y, by y then x
+* Click apply. Items are renumbered (with undo), toast shows results, and window closes

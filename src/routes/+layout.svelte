@@ -34,7 +34,7 @@
   <link rel="icon" href={favicon} />
 </svelte:head>
 
-<Toaster />
+<Toaster position="top-center" richColors closeButton />
 
 {#if session.user===undefined || (session.user===null && !showLogin)}
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getContext } from 'svelte'
+	import { getContext, untrack } from 'svelte'
 	import { page } from '$app/state'
 	import type { Firestore } from '$lib/db.svelte'
 	import type { SheetViewport } from '../../types'
@@ -130,6 +130,12 @@
 	// Hide/lock lists for annotations must also cover model layers (per-viewport overrides).
 	const annHidden = $derived([...hidden, ...(model?.layers ?? []).filter((l) => vp.layerOverrides?.[l.id]?.hidden).map((l) => l.id)])
 	const annLocked = $derived([...locked, ...(model?.layers ?? []).filter((l) => vp.layerOverrides?.[l.id]?.locked).map((l) => l.id)])
+	// 29: when a layer becomes hidden/locked, drop any selected items on it (stale boxes lingering).
+	$effect(() => {
+		const sig = annHidden.join() + '|' + annLocked.join() + '|' + (model?.layers ?? []).map((l) => `${+l.visible}${+!!l.locked}`).join()
+		void sig
+		untrack(() => { editor.pruneSelectionVisibility(); annEditor.pruneSelectionVisibility() })
+	})
 
 	// History is created first so the annotation editor can touch() it after each change.
 	const history = new History()
@@ -188,6 +194,7 @@
 			if (mod && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); e.stopPropagation(); selection.paste(); return }
 			if (mod && (e.key === 'x' || e.key === 'X')) { e.preventDefault(); e.stopPropagation(); selection.cutSelection(); return }
 			if (mod && (e.key === 'd' || e.key === 'D')) { e.preventDefault(); e.stopPropagation(); selection.duplicateSelection(); return }
+			if (mod && (e.key === 'a' || e.key === 'A')) { e.preventDefault(); e.stopPropagation(); selection.selectAll(); return }
 			if (mod && (e.key === 'g' || e.key === 'G')) { e.preventDefault(); e.stopPropagation(); if (e.shiftKey) selection.ungroup(); else selection.group(() => 'g' + Math.random().toString(36).slice(2, 9)); return }
 			if (e.key === 'Escape' && tool !== 'select') { e.preventDefault(); e.stopPropagation(); tool = 'select'; return }
 			// Escape from inside a field (nothing armed): just blur it — don't deactivate the viewport.

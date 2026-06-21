@@ -132,7 +132,7 @@
 	{/if}
 
 	{#each model.objects as o, i (i)}
-		{#if inView(o)}
+		{#if inView(o) && !editor.layerHidden(o.layer)}
 		{@const selected = editor.isObj(i) || editor.inMulti(i)}
 		{@const selOp = o.groupId ? 0.4 : 1}
 		{#each shapesOf(o) as s, si (si)}
