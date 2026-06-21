@@ -164,7 +164,8 @@
 			if (e.key === 'Escape' && tool !== 'select') { e.preventDefault(); e.stopPropagation(); tool = 'select'; return }
 			if (e.key === 'Delete' || e.key === 'Backspace') {
 				e.preventDefault(); e.stopPropagation()
-				if (annSel) annEditor.deleteSel(); else editor.deleteSel()
+				// Delete whatever's selected in EITHER editor (multi-aware) so mixed + multi-annote work.
+				annEditor.deleteSelection(); editor.deleteSel()
 			}
 		}
 		window.addEventListener('keydown', onKey, true)

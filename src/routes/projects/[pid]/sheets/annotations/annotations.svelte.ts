@@ -252,6 +252,8 @@ export class AnnotationEditor extends SurfaceEditor {
 		this.clearMulti(); this.notify(); return true
 	}
 	hasMultiSel() { return this.selAnns.length > 0 }
+	/** Delete whatever is selected — the marquee/ctrl-click multi-set if any, else the single. */
+	deleteSelection() { if (this.selAnns.length) this.deleteMany(); else this.deleteSel() }
 	/** Select annotations whose anchor or pointer endpoint falls inside the world-mm rect. */
 	marqueeCollect(m: { x: number; y: number; w: number; h: number }) {
 		const inR = (x: number, y: number) => x >= m.x && x <= m.x + m.w && y >= m.y && y <= m.y + m.h
