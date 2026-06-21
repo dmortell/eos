@@ -144,6 +144,12 @@ export class Model3dEditor extends SurfaceEditor {
 		const l = this.model?.layers?.find((x) => x.id === o.layer)
 		return !!l?.locked
 	}
+	// Is an object on a hidden layer? Hidden items aren't rendered, so they mustn't be selectable.
+	private hidden(o: Obj) {
+		if (this.layerOverrides[o.layer ?? '']?.hidden) return true // per-viewport hide
+		const l = this.model?.layers?.find((x) => x.id === o.layer)
+		return l ? !l.visible : false
+	}
 	// Locked-layer guard for interactions: returns true (blocked) and toasts why, so
 	// a click on a locked object explains itself instead of silently doing nothing.
 	private blockedByLock(o: Obj): boolean {
@@ -663,7 +669,7 @@ export class Model3dEditor extends SurfaceEditor {
 		super.clearSel(); this.vsel = null; this.usel = null // a marquee (or empty click) drops the single selection
 		const piv = xyCenter(this.objects)
 		const hit: number[] = []
-		this.objects.forEach((o, i) => { if (!this.locked(o) && marqueeHits(o, this.direction, piv, r)) hit.push(i) }) // locked layers aren't selectable
+		this.objects.forEach((o, i) => { if (!this.locked(o) && !this.hidden(o) && marqueeHits(o, this.direction, piv, r)) hit.push(i) }) // hidden/locked layers aren't selectable
 		// Exactly one → single-select it (full handles + property editor); else multi (by id).
 		if (hit.length === 1) this.selectObj(hit[0]); else this.multi = hit.map((i) => this.oid(i))
 	}

@@ -71,6 +71,8 @@ export class AnnotationEditor extends SurfaceEditor {
 	nextLayerId: () => string = () => 'annotations'
 	/** Per-viewport check: is a layer locked? (set by useAnnotations.) */
 	isLayerLocked: (id: string) => boolean = () => false
+	/** Per-viewport check: is a layer hidden? Hidden annotations aren't selectable. (set by useAnnotations.) */
+	isLayerHidden: (id: string) => boolean = () => false
 	/** The layer a new annotation lands on, or null + a toast if that layer is locked. */
 	private targetLayerOrBlock(): string | null {
 		const id = this.nextLayerId()
@@ -330,6 +332,8 @@ export class AnnotationEditor extends SurfaceEditor {
 		// marquee. Uses bounds() so symbols (no explicit w/h) get their real box, not a zero-size
 		// point at the offset anchor; outlets use a tight core box (matching their click hit).
 		const hits = (a: Annotation) => {
+			const lyr = a.layerId ?? 'annotations'
+			if (this.isLayerHidden(lyr) || this.isLayerLocked(lyr)) return false // hidden/locked aren't selectable
 			let bx = bounds(a, 1)
 			if (a.kind === 'symbol' && a.symbol === 'outlet') {
 				const r = (Math.min(bx.w, bx.h) / 2) * 0.66
