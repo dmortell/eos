@@ -40,6 +40,9 @@
 	// the canvas zoom — so divide by zoom for a constant on-screen width at any zoom.
 	const selW = $derived(2.75 / zoom) // thin selection highlight (constant on-screen)
 	const segW = $derived(1.75 / zoom) // selected-segment highlight (a touch bolder)
+	// Section label font: same drawing size as a section-symbol's ref text (≈ the "005" label).
+	// A symbol ref is ~0.45 × its box half-size; a standard 1000mm symbol → ~190mm.
+	const SECTION_TAG_MM = 190
 
 	// Points string; closed shapes are closed back to the first point so the
 	// final edge is drawn (and stays selectable).
@@ -253,11 +256,12 @@
 					<path d="M{-HR * 0.85},{-HR * 0.85} L{HR * 0.85},{HR * 0.85} M{HR * 0.85},{-HR * 0.85} L{-HR * 0.85},{HR * 0.85}" stroke="#fff" stroke-width={selW} stroke-linecap="round" vector-effect="non-scaling-stroke" style:pointer-events="none" />
 				</g>
 			{/if}
-			<!-- label tag (always): centred; click selects, drag moves the section. Sized in /ss
-			     (true screen px) like the handles, so it stays a readable constant size at any zoom. -->
+			<!-- label tag (always): centred; click selects, drag moves the section. Sized in WORLD-mm
+			     (a fixed DRAWING size, independent of the view zoom), to read like the ref text in a
+			     section symbol. SECTION_TAG_MM ≈ that ref size — tweak to taste. -->
 			{@const cx = (x0 + x1) / 2}{@const cy = (y0 + y1) / 2}
 			{@const label = s.label || 'Section'}
-			{@const fs = 14 / ss}{@const th = 22 / ss}{@const tw = (label.length * 8 + 20) / ss}
+			{@const fs = SECTION_TAG_MM}{@const th = fs * 1.5}{@const tw = label.length * fs * 0.62 + fs * 1.3}
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<g style:cursor="move" style:pointer-events="auto" onmousedown={(e: MouseEvent) => { if (e.button !== 0) return; editor.selectSection(s.id); editor.startSectionMove(e, s.id) }}>
 				<rect x={cx - tw / 2} y={cy - th / 2} width={tw} height={th} rx={th / 2} fill={open ? '#2563eb' : '#fff'} fill-opacity={open ? 1 : 0.95} stroke="#2563eb" stroke-width={selW} vector-effect="non-scaling-stroke" />
