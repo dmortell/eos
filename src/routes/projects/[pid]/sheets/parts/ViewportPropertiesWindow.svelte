@@ -193,7 +193,11 @@
 				<hr class="border-zinc-200" />
 				<Model3dProperties {pid} modelId={form.modelId} direction={form.modelDir} hiddenLines={form.modelHidden} bw={form.modelBw}
 					onchange={(p) => { form.modelId = p.modelId; form.modelDir = p.direction; form.modelHidden = p.hiddenLines; form.modelBw = p.bw; apply() }} />
-				<!-- Section: clip the model to a box (cull outside + frame to it) for cropped elevations -->
+				<!-- REVIEW LATER: manual Section clip editor — commented out (suspected unneeded;
+				     the "Section → elevation" tool creates clipped elevations interactively).
+				     `form.modelClip` is still plumbed through buildSource, so existing clips are
+				     preserved; re-enable this block if a manual clip editor is wanted. -->
+				<!--
 				<hr class="border-zinc-200" />
 				<PropCheck label="Section" value={!!form.modelClip}
 					onchange={(e: Event) => { form.modelClip = (e.currentTarget as HTMLInputElement).checked ? (form.modelClip ?? modelClipDefault()) : null; apply() }} />
@@ -208,6 +212,7 @@
 					</div>
 					<button class="rounded border px-1.5 py-0.5 text-xs hover:bg-slate-100" onclick={() => { form.modelClip = modelClipDefault(); apply() }}>Reset to model bounds</button>
 				{/if}
+				-->
 			{:else if form.kind === 'fillrate'}
 			<hr class="border-zinc-200" />
 			{#if fillrateSections.length}
