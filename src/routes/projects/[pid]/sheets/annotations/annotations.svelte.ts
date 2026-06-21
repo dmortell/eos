@@ -175,6 +175,8 @@ export class AnnotationEditor extends SurfaceEditor {
 		return this.annotations.filter((a) => ids.has(a.id))
 	}
 	/** Apply an outlet-prop patch to every selected outlet symbol (multi-edit). */
+	/** Apply a property patch to every selected annotation (multi common-prop edit). */
+	setSelAll(patch: Partial<Annotation>) { for (const a of this.selectedAnnList()) Object.assign(a, patch); this.notify() }
 	setOutletAll(patch: Record<string, unknown>) {
 		for (const a of this.selectedAnnList()) if (a.symbol === 'outlet') a.outlet = { ...(a.outlet ?? {}), ...patch }
 		this.notify()
@@ -220,7 +222,7 @@ export class AnnotationEditor extends SurfaceEditor {
 		this.notify()
 	}
 	setLink(patch: Partial<NonNullable<Annotation['link']>>) { const a = this.selAnn; if (!a) return; a.link = { kind: 'drawing', ...(a.link ?? {}), ...patch } as any; this.notify() }
-	deleteSel() { const a = this.selAnn; if (!a) return; this.annotations = this.annotations.filter(x => x.id !== a.id); this.clearSel(); this.notify() }
+	deleteSel() { this.deleteSelection() } // alias — delete works on the selection set (1 or many)
 
 	/** Copy the current annotation selection (multi or single) to the shared clipboard. */
 	copySel() {
@@ -240,18 +242,16 @@ export class AnnotationEditor extends SurfaceEditor {
 
 	// ── marquee multi-selection (driven by the tool editor's marquee via the peer link) ──
 	clearMulti() { this.selAnns = [] }
-	/** Delete every marquee-selected annotation. Returns true if any were removed. */
-	deleteMany() {
-		if (!this.selAnns.length) return false
-		const ids = new Set(this.selAnns)
-		this.annotations = this.annotations.filter(a => !ids.has(a.id))
-		this.clearMulti(); this.notify(); return true
-	}
+	deleteMany() { const had = this.selAnns.length > 0; this.deleteSelection(); return had } // alias
 	hasMultiSel() { return this.selAnns.length > 0 }
 	protected currentMulti() { return this.selAnns }
 	protected setMulti(ids: string[]) { this.selAnns = ids }
-	/** Delete whatever is selected — the marquee/ctrl-click multi-set if any, else the single. */
-	deleteSelection() { if (this.selAnns.length) this.deleteMany(); else this.deleteSel() }
+	/** Delete the whole selection — the multi-set if any, else the single (array-of-1). One path. */
+	deleteSelection() {
+		const ids = new Set(this.selectedIds()); if (!ids.size) return
+		this.annotations = this.annotations.filter(a => !ids.has(a.id))
+		this.clearMulti(); this.clearSel(); this.notify()
+	}
 	/** Select annotations whose anchor or pointer endpoint falls inside the world-mm rect. */
 	marqueeCollect(m: { x: number; y: number; w: number; h: number }) {
 		const inR = (x: number, y: number) => x >= m.x && x <= m.x + m.w && y >= m.y && y <= m.y + m.h

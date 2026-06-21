@@ -142,6 +142,20 @@
 			{#each annLayers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
 		</PropSelect>
 	{/if}
+	{@const cc = (k: keyof typeof anns[0]) => { const v = anns.map((a) => a[k]); return v.every((x) => x === v[0]) ? v[0] : undefined }}
+	{@const textKinds = anns.filter((a) => a.kind === 'text' || a.kind === 'callout')}
+	<div class="grid grid-cols-2 gap-1">
+		<label class="block text-xs"><span class="text-zinc-400">Colour</span>
+			<input type="color" class="h-6 w-full rounded border" value={(cc('color') as string) ?? '#dc2626'} oninput={(e: Event) => editor.setSelAll({ color: val(e) })} /></label>
+		{#if textKinds.length}
+			<label class="block text-xs"><span class="text-zinc-400">Font pt</span>
+				<input type="number" min="4" max="48" class="w-full rounded border px-1 py-0.5" placeholder="mixed" value={(cc('fontPt') as number) ?? ''} oninput={(e) => editor.setSelAll({ fontPt: Number((e.currentTarget as HTMLInputElement).value) || 8 })} /></label>
+		{/if}
+	</div>
+	{#if textKinds.length}
+		<label class="block text-xs"><span class="text-zinc-400">Text (sets all)</span>
+			<input class="w-full rounded border px-1 py-0.5" placeholder="mixed" value={(cc('text') as string) ?? ''} oninput={(e: Event) => editor.setSelAll({ text: val(e) })} /></label>
+	{/if}
 	{#if outs.length}
 		{@const co = (k) => { const v = outs.map((a) => (a.outlet ?? {})[k]); return v.every((x) => x === v[0]) ? v[0] : undefined }}
 		<div class="grid grid-cols-2 gap-1">
