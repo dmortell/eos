@@ -231,7 +231,7 @@
 				style:pointer-events="auto" style:cursor="grab" onmousedown={startOrbit} />
 		{/if}
 		{#if active}
-			<Model3dEditLayer {editor} {model} direction={src.direction} interactive={tool === 'select'} {zoom} />
+			<Model3dEditLayer {editor} {model} direction={src.direction} clip={src.clip ?? null} interactive={tool === 'select'} {zoom} />
 		{/if}
 		<!-- annotations render in real-mm; interactive (select/move) only in Select mode -->
 		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} hidden={annHidden} locked={annLocked} den={viewDen} {zoom} />

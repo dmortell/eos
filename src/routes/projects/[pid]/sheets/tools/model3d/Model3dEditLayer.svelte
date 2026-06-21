@@ -5,16 +5,21 @@
 	// {@render children} slot (so it shares the real-mm viewBox). namespace="svg"
 	// is required or these elements compile in the HTML namespace (inert).
 	import type { Model3dEditor } from './model3d-editor.svelte'
-	import { BASIS, type Conduit, type Dir, type Model, type Obj, type Wall } from './types'
-	import { project, posAlong, sizeAlong, xyCenter, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
+	import { BASIS, type Clip, type Conduit, type Dir, type Model, type Obj, type Wall } from './types'
+	import { project, posAlong, sizeAlong, xyCenter, trimToClip, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 
-	let { editor, model, direction, interactive = false, zoom = 1 }: {
+	let { editor, model, direction, clip = null, interactive = false, zoom = 1 }: {
 		editor: Model3dEditor
 		model: Model
 		direction: Dir
+		clip?: Clip | null
 		interactive?: boolean
 		zoom?: number
 	} = $props()
+
+	// In a section/elevation, only objects that survive the clip are editable — so a far
+	// off-section object behind the cut isn't click-selectable (matches the render's culling).
+	const inView = (o: Obj) => !clip || trimToClip(o, clip) != null
 
 	const HL = '#2563eb'
 	const editable = $derived(interactive && direction !== 'iso')
@@ -123,6 +128,7 @@
 	{/if}
 
 	{#each model.objects as o, i (i)}
+		{#if inView(o)}
 		{@const selected = editor.isObj(i) || editor.inMulti(i)}
 		{#each shapesOf(o) as s, si (si)}
 			<!-- hit area for select/move: a fat transparent OUTLINE stroke (the shape's edge),
@@ -145,6 +151,7 @@
 						stroke={HL} stroke-width={selW} vector-effect="non-scaling-stroke" style:pointer-events="none" />
 				{/if}
 			{/each}
+		{/if}
 		{/if}
 	{/each}
 
