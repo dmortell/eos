@@ -47,7 +47,18 @@ H12. Grouping / ungrouping items (objects and annotes).
 
 H13. Resize for rotated cuboids.
 
-H14. Auto-hide section boxes when not needed — they make the view look untidy.
+H14. ✅ Auto-hide section boxes — sections now show a small drawing-size label tag (sized like a
+     section symbol's ref text); clicking it opens the editable clip box (move/resize/delete).
+     Follow-up — section discoverability (for discussion):
+       a) Clamp an off-screen section tag to the nearest visible plan edge so it's always reachable
+          (a tag sits at the clip centre, which can be scrolled out of frame).
+       b) A "Sections" list in a panel (like the wall/conduit segment list) — click a row to
+          select / zoom-to that section regardless of where its clip is.
+       c) After creating a section, keep the PLAN active (don't jump focus to the new elevation)
+          and select the new section so its box is open immediately.
+       d) Section props in the Object window (in progress): layer, label, view direction, scale, …
+       e) Resolve the tag/ref to the elevation's viewport number + sheet (5e3/19e/7) so it reads as
+          a real cross-reference, and make it print (move out of the edit-only layer).
 
 
 1. Package sheets into drawing sets  ✅ DONE

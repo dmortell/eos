@@ -83,6 +83,11 @@ export const DIR_LABEL: Record<Dir, string> = { plan: 'Plan', front: 'Front', re
 // Axis-aligned model-space box; a section/elevation crop (cull + auto-frame).
 export type Clip = { x0: number; y0: number; z0: number; x1: number; y1: number; z1: number }
 
+// A section marker on the plan = another viewport's clip + its editable properties. The plan
+// editor reads these via sectionsProvider and edits them via onSectionUpdate (host applies to
+// the elevation viewport). `layer` files the marker so it can be hidden with that layer.
+export type SectionInfo = { id: string; clip: Clip; label?: string; direction?: Dir; scale?: number; layer?: string; hiddenLines?: boolean; bw?: boolean }
+
 // View basis: which model axis maps to drawing-plane horizontal (u) and
 // vertical (v, pointing up), with sign. Origin sits bottom-left.
 export const BASIS: Record<Dir, { h: Axis; hs: number; v: Axis; vs: number }> = {

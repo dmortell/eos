@@ -202,6 +202,31 @@
 				</select>
 			</label>
 		</div>
+	{:else if editor.selSectionInfo}
+		{@const s = editor.selSectionInfo}
+		<div class="space-y-1 text-xs">
+			<div class="mb-1 flex items-center justify-between">
+				<span class="font-semibold">Section / elevation</span>
+				<button class="rounded border border-red-300 px-1.5 py-0.5 text-red-600 hover:bg-red-50" title="Delete the elevation" onclick={() => editor.deleteSectionMarker(s.id)}>Delete</button>
+			</div>
+			<label class="block"><span class="text-zinc-400">Label</span>
+				<input class="w-full rounded border px-1 py-0.5" value={s.label ?? ''} oninput={(e) => editor.updateSection(s.id, { label: (e.currentTarget as HTMLInputElement).value })} /></label>
+			<label class="flex items-center justify-between gap-2"><span class="text-zinc-400">View</span>
+				<select class="w-32 rounded border px-1 py-0.5" value={s.direction ?? 'front'} onchange={(e) => editor.updateSection(s.id, { direction: (e.currentTarget as HTMLSelectElement).value as any })}>
+					{#each ['front', 'rear', 'left', 'right'] as d (d)}<option value={d}>{d}</option>{/each}
+				</select></label>
+			<label class="flex items-center justify-between gap-2"><span class="text-zinc-400">Scale 1:</span>
+				<input type="number" min="1" class="w-20 rounded border px-1 py-0.5" placeholder="fit" value={s.scale ?? ''} oninput={(e) => editor.updateSection(s.id, { scale: num(e) })} /></label>
+			<label class="flex items-center justify-between gap-2"><span class="text-zinc-400">Layer</span>
+				<select class="w-32 rounded border px-1 py-0.5" value={s.layer ?? ''} onchange={(e) => editor.updateSection(s.id, { layer: (e.currentTarget as HTMLSelectElement).value || undefined })}>
+					<option value="">—</option>
+					{#each layers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+				</select></label>
+			<label class="flex items-center justify-between gap-2"><span class="text-zinc-400">Hidden lines</span>
+				<input type="checkbox" checked={s.hiddenLines ?? false} onchange={(e) => editor.updateSection(s.id, { hiddenLines: (e.currentTarget as HTMLInputElement).checked })} /></label>
+			<label class="flex items-center justify-between gap-2"><span class="text-zinc-400">B / W</span>
+				<input type="checkbox" checked={s.bw ?? false} onchange={(e) => editor.updateSection(s.id, { bw: (e.currentTarget as HTMLInputElement).checked })} /></label>
+		</div>
 	{:else}
 		<p class="text-xs text-zinc-400">Select an object to edit its properties.</p>
 	{/if}

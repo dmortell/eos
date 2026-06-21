@@ -242,6 +242,7 @@
 			{@const x0 = Math.min(s.clip.x0, s.clip.x1)}{@const x1 = Math.max(s.clip.x0, s.clip.x1)}
 			{@const y0 = -Math.max(s.clip.y0, s.clip.y1)}{@const y1 = -Math.min(s.clip.y0, s.clip.y1)}
 			{@const open = editor.selSection === s.id}
+			{#if !editor.layerHidden(s.layer)}
 			{#if open}
 				<rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} fill="#2563eb" fill-opacity="0.06"
 					stroke="#2563eb" stroke-width={1 / zoom} vector-effect="non-scaling-stroke" stroke-dasharray="{5 / zoom} {3 / zoom}"
@@ -267,6 +268,7 @@
 				<rect x={cx - tw / 2} y={cy - th / 2} width={tw} height={th} rx={th / 2} fill={open ? '#2563eb' : '#fff'} fill-opacity={open ? 1 : 0.95} stroke="#2563eb" stroke-width={selW} vector-effect="non-scaling-stroke" />
 				<text x={cx} y={cy} font-size={fs} fill={open ? '#fff' : '#2563eb'} text-anchor="middle" dominant-baseline="central" style:pointer-events="none">{label}</text>
 			</g>
+			{/if}
 		{/each}
 	{/if}
 

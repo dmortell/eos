@@ -91,8 +91,16 @@
 	$effect(() => {
 		editor.sectionsProvider = () => vps.viewports
 			.filter((v) => v.id !== vp.id && v.source?.kind === 'model3d' && (v.source as any).modelId === src?.modelId && (v.source as any).clip)
-			.map((v) => ({ id: v.id, clip: (v.source as any).clip, label: v.label || (v.source as any).direction }))
+			.map((v) => { const s = v.source as any; return { id: v.id, clip: s.clip, label: v.label || s.direction, direction: s.direction, scale: v.scale, layer: s.layer, hiddenLines: s.hiddenLines, bw: s.bw } })
 		editor.onSectionChange = (id, clip) => { const v = vps.viewports.find((x) => x.id === id); if (v && v.source.kind === 'model3d') { v.source.clip = clip; vps.notify() } }
+		editor.onSectionUpdate = (id, patch) => {
+			const v = vps.viewports.find((x) => x.id === id); if (!v || v.source.kind !== 'model3d') return
+			if (patch.label !== undefined) v.label = patch.label
+			if (patch.scale !== undefined) v.scale = patch.scale
+			const s = v.source as any
+			for (const k of ['direction', 'layer', 'hiddenLines', 'bw'] as const) if (patch[k] !== undefined) s[k] = patch[k]
+			vps.notify()
+		}
 		editor.onSectionDelete = (id) => {
 			const removed = vps.viewports.find((v) => v.id === id); if (!removed) return
 			const snap = $state.snapshot(removed)

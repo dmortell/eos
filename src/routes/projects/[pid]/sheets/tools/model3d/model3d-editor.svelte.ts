@@ -1,6 +1,6 @@
 import { toast } from 'svelte-sonner'
 import { SurfaceEditor } from '../../edit/surface.svelte'
-import { BASIS, type Clip, type Conduit, type Dir, type Model, type Obj, type Prism, type Wall } from './types'
+import { BASIS, type Clip, type Conduit, type Dir, type Model, type Obj, type Prism, type SectionInfo, type Wall } from './types'
 import { moveAlong, roundObj, project, xyCenter, objBounds, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 import { newId } from './graph'
 import { polyToGraph } from './migrate'
@@ -466,14 +466,26 @@ export class Model3dEditor extends SurfaceEditor {
 	// ── editable section markers on the plan (other viewports' clip boxes) ──
 	// The host (plan viewport) supplies the sections + applies edits, since the
 	// clip lives on *another* viewport's source.
-	sectionsProvider: (() => { id: string; clip: Clip; label?: string }[]) | null = null
+	sectionsProvider: (() => SectionInfo[]) | null = null
 	onSectionChange: ((id: string, clip: Clip) => void) | null = null
 	onSectionDelete: ((id: string) => void) | null = null
+	/** Apply a property edit (label / direction / scale / layer / hidden lines / b&w) to a section's
+	 *  underlying elevation viewport. */
+	onSectionUpdate: ((id: string, patch: Partial<SectionInfo>) => void) | null = null
+	updateSection(id: string, patch: Partial<SectionInfo>) { this.onSectionUpdate?.(id, patch) }
 	get sections() { return this.direction === 'plan' ? (this.sectionsProvider?.() ?? []) : [] }
+	get selSectionInfo() { return this.selSection ? this.sections.find((s) => s.id === this.selSection) ?? null : null }
 	// Which section's clip box is open for editing. By default sections show only a small label tag;
 	// clicking the tag selects it → reveals the editable box + handles, decluttering the plan.
 	selSection = $state<string | null>(null)
 	selectSection(id: string) { this.clearSel(); this.selSection = id }
+	/** Is a layer hidden (per-viewport override or model default)? — used to hide section markers. */
+	layerHidden(id: string | undefined): boolean {
+		if (!id) return false
+		if (this.layerOverrides[id]?.hidden) return true
+		const l = this.model?.layers?.find((x) => x.id === id)
+		return l ? !l.visible : false
+	}
 	startSectionMove = (e: MouseEvent, id: string) => {
 		if (e.button !== 0) return
 		e.stopPropagation()
