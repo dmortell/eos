@@ -158,7 +158,11 @@
 	$effect(() => {
 		if (!active) return
 		const onKey = (e: KeyboardEvent) => {
-			if ((e.target as Element)?.closest?.('input, textarea, select, [contenteditable]')) return
+			// Let Escape through even from a form control (e.g. the Symbol select) so it can revert
+			// an armed insert tool; other keys are ignored while typing.
+			const el = e.target as HTMLElement
+			const inField = !!el?.closest?.('input, textarea, select, [contenteditable]')
+			if (inField && e.key !== 'Escape') return
 			if (editor.placing) {
 				if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); editor.finishPlacing(); return }
 				if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); editor.cancelPlacing(); return }
@@ -172,6 +176,8 @@
 			if (mod && (e.key === 'x' || e.key === 'X')) { e.preventDefault(); e.stopPropagation(); selection.cutSelection(); return }
 			if (mod && (e.key === 'd' || e.key === 'D')) { e.preventDefault(); e.stopPropagation(); selection.duplicateSelection(); return }
 			if (e.key === 'Escape' && tool !== 'select') { e.preventDefault(); e.stopPropagation(); tool = 'select'; return }
+			// Escape from inside a field (nothing armed): just blur it — don't deactivate the viewport.
+			if (inField && e.key === 'Escape') { el?.blur?.(); e.stopPropagation(); return }
 			if (e.key === 'Delete' || e.key === 'Backspace') {
 				e.preventDefault(); e.stopPropagation()
 				selection.deleteSelection() // combined object + annotation selection (multi-aware)

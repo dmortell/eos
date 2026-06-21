@@ -1,4 +1,51 @@
 
+## ⭐ HIGH PRIORITY (model3d / sheets editing)
+
+H1. Multi-select for conduit and wall segments, like trunks in the outlets tool — plus allow
+    selecting the whole trunk.
+
+H2. Floor grid annote to show floor tiles, with editable size (500mm by default) and X/Y offsets
+    to align with the building's floor tiles.
+
+H3. Remove unused per-editor single/multi variants (deleteSel / deleteMany / duplicateMultiAnns /
+    duplicateSel …) that are now thin aliases. (see also 24d)
+
+H4. Project-wide annot/object defaults (arrow/dim/line arrow types & size, font sizes, colors, …) —
+    set via a toolbar like our old CAD app, or a dialog/window. Include a setting to display
+    mm / m / km or none in dimensions.
+
+H5. Refactor lines / dims / arrows / callout lines to share code? A dim is just a line with an
+    auto-label; lines could support user labels; callouts are lines with a label at one end.
+    Consider supporting labels at both ends and at the midpoint.
+
+H6. Refactor all text boxes (callouts and other annotes/symbols with text/labels) to share code.
+
+H7. Symbol selection box should be blue. Outlet hitbox is far too big — dragging a selection marquee
+    through outlets doesn't select as expected (user has to draw a rect surrounding the oversized
+    hitbox). Tighten the hitbox and fix marquee selection.
+
+H8. View 2 (3303 4PAX), active mode: clicking just below the TV (just left of centerline) selects an
+    object (the counter in the BREAK AREA) that isn't visible and is >10m away. Filter these out so
+    far/off-view objects aren't selected by mistake.
+
+H9. Multi-select group transform: show a selection rect with resize/rotate handles to resize and
+    rotate multiple items as a group around the rect's center.
+
+H10. Selected lines/dims need a stronger selection line — make it solid blue. Also: why does the
+     selection line differ between marquee-select and click-select? They should match. Keep the
+     endpoint handles from click-select, and add the solid thin blue line.
+
+H11. (later) Snap line endpoints to other line endpoints. Our old CAD allowed connection-points on
+     shapes/annotes/objects that lines could attach to, so lines moved with the shapes — powerful but
+     complex; consider later.
+
+H12. Grouping / ungrouping items (objects and annotes).
+
+H13. Resize for rotated cuboids.
+
+H14. Auto-hide section boxes when not needed — they make the view look untidy.
+
+
 1. Package sheets into drawing sets  ✅ DONE
    Sheets/Packages toggle on the list; PackageManager with two-list membership (add/remove/reorder by
    buttons or drag); per-package Print → /sheets/packages/[pkgId]/print renders every sheet one per
@@ -440,3 +487,8 @@ Fold the three rack property editors (Sheets viewport / outlets tool / racks too
 24e. Ctrl+D / Ctrl+X on a MIXED (object+annotation) selection can create two undo steps instead of
      one (each editor checkpoints via beforeMutate). Centralise the checkpoint in the coordinator if
      it becomes annoying.
+
+24f. Refactor text box + callout to share code. They now both auto-size (geometry.box) and share
+     text/font/align props; the rendering (AnnotationLayer text vs callout branches) and the
+     controls still duplicate. Extract a shared text-block render + a shared props group; callout
+     adds the leader pointer + border toggle on top. (See PROPS.md merge note.)
