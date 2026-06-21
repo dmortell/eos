@@ -33,7 +33,7 @@ let clipboard: Annotation[] = []
 function defaults(kind: AnnotationKind, symbol: string): Partial<Annotation> {
 	switch (kind) {
 		case 'text': return { text: 'Text', fontPt: 8, align: 'left' }
-		case 'callout': return { text: 'Note', fontPt: 8, align: 'left', w: 4000, h: 1400, end: 'arrow', border: 'none' }
+		case 'callout': return { text: 'Note', fontPt: 8, align: 'left', end: 'arrow', border: 'none' } // no w/h → auto-size to text
 		case 'symbol': return symbol === 'outlet' ? { symbol, outlet: { ...OUTLET_DEFAULTS } } : { symbol }
 		case 'rect': case 'ellipse': case 'cloud': return {}
 		case 'image': return { src: '' }
@@ -272,8 +272,15 @@ export class AnnotationEditor extends SurfaceEditor {
 	}
 	/** Select annotations whose anchor or pointer endpoint falls inside the world-mm rect. */
 	marqueeCollect(m: { x: number; y: number; w: number; h: number }) {
-		const inR = (x: number, y: number) => x >= m.x && x <= m.x + m.w && y >= m.y && y <= m.y + m.h
-		this.selAnns = this.annotations.filter(a => inR(a.x, a.y) || (a.x2 != null && inR(a.x2, a.y2 ?? a.y))).map(a => a.id)
+		// Crossing selection (like objects): the annotation's bbox just has to TOUCH the marquee,
+		// so dragging a box through a symbol selects it (was: only its anchor point inside).
+		const hits = (a: Annotation) => {
+			let x0: number, y0: number, x1: number, y1: number
+			if (a.x2 != null) { x0 = Math.min(a.x, a.x2); x1 = Math.max(a.x, a.x2); y0 = Math.min(a.y, a.y2 ?? a.y); y1 = Math.max(a.y, a.y2 ?? a.y) } // line
+			else { x0 = a.x; y0 = a.y; x1 = a.x + (a.w ?? 0); y1 = a.y + (a.h ?? 0) } // box (symbol/rect/…)
+			return x0 <= m.x + m.w && x1 >= m.x && y0 <= m.y + m.h && y1 >= m.y
+		}
+		this.selAnns = this.annotations.filter(hits).map(a => a.id)
 	}
 	// The set being dragged: the marquee multi-selection if any, else the single selection —
 	// so one snapshot/translate path serves both single and group drags.

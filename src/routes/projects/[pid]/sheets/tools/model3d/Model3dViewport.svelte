@@ -7,6 +7,7 @@
 	import { History } from '../../edit/history.svelte'
 	import { SelectionCoordinator } from '../../edit/selection'
 	import { portal } from '../../edit/portal'
+	import { armHotkey } from '../../edit/hotkeys'
 	import { modelStore } from './models.svelte'
 	import { Model3dEditor } from './model3d-editor.svelte'
 	import Model3dRender from './Model3dRender.svelte'
@@ -182,6 +183,12 @@
 				e.preventDefault(); e.stopPropagation()
 				const [ux, uy] = arrow[e.key], step = e.shiftKey ? 10 : 1
 				if (mod) selection.resize(ux * step, uy * step); else selection.nudge(ux * step, uy * step)
+				return
+			}
+			// Plain-key markup / symbol hotkeys → arm that annotation tool (e.g. C cloud, O outlet, S section).
+			if (!mod && !e.altKey && active && !editor.placing) {
+				const armed = armHotkey(e)
+				if (armed) { e.preventDefault(); e.stopPropagation(); if (armed.symbol) annEditor.symbol = armed.symbol; tool = armed.tool; return }
 			}
 		}
 		window.addEventListener('keydown', onKey, true)

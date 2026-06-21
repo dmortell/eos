@@ -6,9 +6,12 @@
 	// via onmove(index, x, y). `namespace="svg"` — see OutletsEditLayer.
 	import type { SurfaceEditor } from './surface.svelte'
 
-	let { editor, points, zoom = 1, onmove }: {
+	let { editor, points, anchor = null, zoom = 1, onmove }: {
 		editor: SurfaceEditor
 		points: { x: number; y: number }[]
+		/** Reference point for the Shift angle-snap when there's only ONE handle (e.g. a
+		 *  callout's pointer tip — anchor = the box). 2-point lines use the other endpoint. */
+		anchor?: { x: number; y: number } | null
 		zoom?: number
 		onmove: (index: number, x: number, y: number) => void
 	} = $props()
@@ -21,7 +24,19 @@
 	function startDragPt(i: number, e: MouseEvent) {
 		if (e.button !== 0) return
 		e.stopPropagation(); e.preventDefault()
-		editor.startDrag(ev => { const w = editor.toWorld(ev); if (w) onmove(i, w.x, w.y) }, () => editor.notify())
+		// Shift snaps the dragged endpoint to a 15° angle about its anchor (the other endpoint, or
+		// the supplied anchor for a lone handle), keeping its distance.
+		const ref = points.length === 2 ? { ...points[1 - i] } : anchor
+		editor.startDrag(ev => {
+			const w = editor.toWorld(ev); if (!w) return
+			let { x, y } = w
+			if (ev.shiftKey && ref) {
+				const dx = x - ref.x, dy = y - ref.y, len = Math.hypot(dx, dy), step = Math.PI / 12
+				const a = Math.round(Math.atan2(dy, dx) / step) * step
+				x = ref.x + len * Math.cos(a); y = ref.y + len * Math.sin(a)
+			}
+			onmove(i, x, y)
+		}, () => editor.notify())
 	}
 </script>
 

@@ -225,7 +225,7 @@
 			<TransformBox {editor} {zoom} box={box(a, den)} rotation={a.rotation ?? 0}
 				onresize={(_h, nb) => editor.setBox(a, nb)} onrotate={(d) => editor.setRotation(a, d)} />
 			{#if POINTER.has(a.kind) && a.x2 != null}
-				<PointHandles {editor} {zoom} points={[{ x: a.x2, y: a.y2 ?? a.y }]} onmove={(_i, x, y) => editor.movePoint(a, 1, x, y)} />
+				<PointHandles {editor} {zoom} anchor={{ x: cx, y: cy }} points={[{ x: a.x2, y: a.y2 ?? a.y }]} onmove={(_i, x, y) => editor.movePoint(a, 1, x, y)} />
 			{/if}
 		{:else}
 			<PointHandles {editor} {zoom} points={[{ x: a.x, y: a.y }, { x: a.x2 ?? a.x, y: a.y2 ?? a.y }]} onmove={(i, x, y) => editor.movePoint(a, i, x, y)} />

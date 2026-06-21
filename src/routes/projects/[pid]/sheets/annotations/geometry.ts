@@ -34,7 +34,8 @@ export function defaultBox(kind: string, fontMm: number): { w: number; h: number
 
 /** Normalised box (top-left + size) for a box annotation. */
 export function box(a: Annotation, den = 1): Box {
-	if (a.kind === 'text') { const m = textMetrics(a, den); return { x: a.x, y: a.y, w: m.w, h: m.h } }
+	// text + callout auto-size to their content (until a resize sets explicit w/h).
+	if (a.kind === 'text' || a.kind === 'callout') { const m = textMetrics(a, den); return { x: a.x, y: a.y, w: m.w, h: m.h } }
 	const d = defaultBox(a.kind, fontMmOf(a, den))
 	return { x: a.x, y: a.y, w: a.w ?? d.w, h: a.h ?? d.h }
 }
