@@ -69,6 +69,12 @@ export class SurfaceEditor {
 	selectIds(ids: string[]) { if (ids.length === 1) { this.sel = { kind: this.selKind, id: ids[0] }; this.setMulti([]) } else { this.sel = null; this.setMulti(ids) } }
 	/** Delete the whole selection (multi-set, else single as array-of-1) — one path for both. */
 	deleteSelection() { const ids = this.selectedIds(); if (!ids.length) return; this.removeItems(ids); this.sel = null; this.clearMulti(); this.clearAux(); this.notify() }
+
+	// ── clipboard (per editor; the SelectionCoordinator copies/cuts/pastes across both) ──
+	copySel(): void {}        // copy this editor's selection to its clipboard
+	paste(): void {}          // paste this editor's clipboard (offset)
+	clearClipboard(): void {} // drop this editor's clipboard
+	hasClipboard(): boolean { return false }
 	/** Ctrl+D / panel duplicate: clone the selection offset by `d`, select the clones. */
 	duplicateSelection(d = 500) { const ids = this.cloneItems(this.selectedIds(), d); if (ids.length) { this.selectIds(ids); this.notify() } }
 

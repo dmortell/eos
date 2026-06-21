@@ -529,6 +529,8 @@ export class Model3dEditor extends SurfaceEditor {
 	copySel = () => { this.clipboard = this.selIdxs().map((i) => structuredClone($state.snapshot(this.objects[i])) as Obj) }
 	cutSel = () => { if (this.selIdxs().length) { this.copySel(); this.deleteSel() } }
 	paste = () => { if (this.clipboard.length) this.addClones(this.clipboard, 200) }
+	clearClipboard() { this.clipboard = [] }
+	hasClipboard() { return this.clipboard.length > 0 }
 
 	// ── marquee multi-select + group move (overrides SurfaceEditor hooks) ──
 	multi = $state<string[]>([]) // selected object IDs

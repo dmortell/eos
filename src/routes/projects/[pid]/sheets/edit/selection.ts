@@ -13,6 +13,8 @@ import type { SurfaceEditor } from './surface.svelte'
  */
 export class SelectionCoordinator {
 	constructor(private editors: SurfaceEditor[]) {}
+	/** Host hook: checkpoint the pre-mutate state into undo (so undo of a cut re-selects). */
+	beforeMutate: (() => void) | null = null
 
 	/** Editors that currently have a selection. */
 	private active() { return this.editors.filter((e) => e.selectedIds().length > 0) }
@@ -26,4 +28,13 @@ export class SelectionCoordinator {
 	deleteSelection() { for (const e of this.active()) e.deleteSelection() }
 	/** Ctrl+D / panel: offset-duplicate the combined selection, selecting the clones. */
 	duplicateSelection(d = 500) { for (const e of this.active()) e.duplicateSelection(d) }
+
+	// ── clipboard: copy / cut / paste span objects AND annotations ──
+	/** Copy the combined selection. Clears all clipboards first so only the current selection
+	 *  (whichever editors it spans) ends up on the clipboard. */
+	copySelection() { for (const e of this.editors) e.clearClipboard(); for (const e of this.active()) e.copySel() }
+	/** Cut = copy + delete, checkpointed so undo restores + re-selects the originals. */
+	cutSelection() { this.beforeMutate?.(); for (const e of this.editors) e.clearClipboard(); for (const e of this.active()) { e.copySel(); e.deleteSelection() } }
+	/** Paste every editor's clipboard (only the editors that were copied have content). */
+	paste() { for (const e of this.editors) e.paste() }
 }

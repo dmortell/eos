@@ -215,10 +215,12 @@ export class AnnotationEditor extends SurfaceEditor {
 
 	/** Copy the current annotation selection (multi or single) to the shared clipboard. */
 	copySel() {
-		const ids = new Set(this.selAnns.length ? this.selAnns : this.selAnn ? [this.selAnn.id] : [])
+		const ids = new Set(this.selectedIds())
 		if (!ids.size) return
 		clipboard = this.annotations.filter(a => ids.has(a.id)).map(a => structuredClone($state.snapshot(a)) as Annotation)
 	}
+	clearClipboard() { clipboard = [] }
+	hasClipboard() { return clipboard.length > 0 }
 	/** Paste the clipboard into this viewport (new ids, offset so the copies are visible). */
 	paste() {
 		if (!clipboard.length) return

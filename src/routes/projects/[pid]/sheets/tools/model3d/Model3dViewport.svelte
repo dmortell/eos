@@ -146,7 +146,7 @@
 	history.register(snap)
 	$effect(() => { editor.onChange = () => { store.save(); history.touch() } })
 	// Checkpoint the pre-gesture state (e.g. originals before a ctrl-drag copy) so undo re-selects them.
-	editor.beforeMutate = annEditor.beforeMutate = () => history.commit()
+	editor.beforeMutate = annEditor.beforeMutate = selection.beforeMutate = () => history.commit()
 	// Baseline once when the viewport becomes active (and the model is loaded).
 	let baselined = false
 	$effect(() => {
@@ -165,13 +165,11 @@
 			const mod = e.ctrlKey || e.metaKey
 			if (mod && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); e.stopPropagation(); if (e.shiftKey) history.redo(); else history.undo(); return }
 			if (mod && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); e.stopPropagation(); history.redo(); return }
-			// Annotation selection takes precedence for clipboard/delete when one is selected.
-			const annSel = annEditor.selAnn || annEditor.hasMultiSel()
-			if (mod && (e.key === 'c' || e.key === 'C') && annSel) { e.preventDefault(); e.stopPropagation(); annEditor.copySel(); return }
-			if (mod && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); e.stopPropagation(); annEditor.paste(); return }
+			// Clipboard / duplicate over the combined object + annotation selection.
+			if (mod && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); e.stopPropagation(); selection.copySelection(); return }
+			if (mod && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); e.stopPropagation(); selection.paste(); return }
+			if (mod && (e.key === 'x' || e.key === 'X')) { e.preventDefault(); e.stopPropagation(); selection.cutSelection(); return }
 			if (mod && (e.key === 'd' || e.key === 'D')) { e.preventDefault(); e.stopPropagation(); selection.duplicateSelection(); return }
-			if (mod && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); e.stopPropagation(); editor.copySel(); return }
-			if (mod && (e.key === 'x' || e.key === 'X')) { e.preventDefault(); e.stopPropagation(); editor.cutSel(); return }
 			if (e.key === 'Escape' && tool !== 'select') { e.preventDefault(); e.stopPropagation(); tool = 'select'; return }
 			if (e.key === 'Delete' || e.key === 'Backspace') {
 				e.preventDefault(); e.stopPropagation()
