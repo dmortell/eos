@@ -250,11 +250,18 @@ export class AnnotationEditor extends SurfaceEditor {
 	}
 	clearClipboard() { clipboard = [] }
 	hasClipboard() { return clipboard.length > 0 }
+	/** Render number `n` as a token from `format`: the first run of `#` becomes the number padded to
+	 *  the run length ("###" → 005, "A-###" → A-005); no `#` → format + number. */
+	static numToken(format: string, n: number): string {
+		const h = format.match(/#+/)
+		const num = (pad: number) => (n >= 0 ? String(n).padStart(pad, '0') : String(n))
+		return h ? format.replace(/#+/, num(h[0].length)) : format + num(0)
+	}
 	/** Auto-number the selected labelled annotations (outlets → outlet.label, text/callout → text).
-	 *  `format` is a template where the first run of `#` is the number, padded to the run's length:
-	 *  "33F-###" + 5 → "33F-005", "A###" + 12 → "A012". No `#` → the number is appended.
-	 *  Returns how many were renumbered. One undo step. */
-	renumber(opts: { start: number; step: number; format: string; order: 'index' | 'value' | 'xy' | 'yx' }): number {
+	 *  `format` renders the number token (padding via `#`); `mode` says how it combines with the
+	 *  EXISTING label — overwrite / prefix / suffix, or `replace` to fill a `#` placeholder already in
+	 *  the label. Returns how many were renumbered. One undo step. */
+	renumber(opts: { start: number; step: number; format: string; mode: 'overwrite' | 'prefix' | 'suffix' | 'replace'; order: 'index' | 'value' | 'xy' | 'yx' }): number {
 		const get = (a: Annotation) => (a.symbol === 'outlet' ? (a.outlet?.label ?? '') : (a.text ?? ''))
 		const set = (a: Annotation, v: string) => { if (a.symbol === 'outlet') a.outlet = { ...(a.outlet ?? {}), label: v }; else a.text = v }
 		const numOf = (a: Annotation) => { const m = get(a).match(/\d+/); return m ? +m[0] : 0 }
@@ -262,11 +269,15 @@ export class AnnotationEditor extends SurfaceEditor {
 		if (opts.order === 'xy') items = [...items].sort((a, b) => a.x - b.x || a.y - b.y)
 		else if (opts.order === 'yx') items = [...items].sort((a, b) => a.y - b.y || a.x - b.x)
 		else if (opts.order === 'value') items = [...items].sort((a, b) => numOf(a) - numOf(b))
-		const hash = opts.format.match(/#+/), pad = hash ? hash[0].length : 0
 		let n = opts.start
 		for (const a of items) {
-			const ns = n >= 0 ? String(n).padStart(pad, '0') : String(n)
-			set(a, hash ? opts.format.replace(/#+/, ns) : opts.format + ns)
+			const cur = get(a), tok = AnnotationEditor.numToken(opts.format, n)
+			let label: string
+			if (opts.mode === 'prefix') label = tok + cur
+			else if (opts.mode === 'suffix') label = cur + tok
+			else if (opts.mode === 'replace') { const h = cur.match(/#+/); label = h ? cur.replace(/#+/, n >= 0 ? String(n).padStart(h[0].length, '0') : String(n)) : cur + tok }
+			else label = tok
+			set(a, label)
 			n += opts.step
 		}
 		if (items.length) this.notify()
