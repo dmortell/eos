@@ -7,16 +7,22 @@
 
 	let start = $state(1)
 	let step = $state(1)
-	let mode = $state<'overwrite' | 'prefix' | 'suffix' | 'replace'>('overwrite')
-	let replaceChar = $state('#')
+	let format = $state('###')
 	let order = $state<'index' | 'value' | 'xy' | 'yx'>('index')
 
 	// Count the labelled items in the selection (outlets + text/callout) — what renumber will touch.
 	const count = $derived(editor.selectedAnnList().filter((a) => a.symbol === 'outlet' || a.kind === 'text' || a.kind === 'callout').length)
 	const fld = 'h-7 w-full rounded border border-zinc-300 px-1.5 text-sm'
 
+	// Live preview of the first two labels for the current format/start/pad.
+	const preview = $derived.by(() => {
+		const h = format.match(/#+/), pad = h ? h[0].length : 0
+		const fmt = (n: number) => (h ? format.replace(/#+/, String(n).padStart(pad, '0')) : format + n)
+		return `${fmt(start)}, ${fmt(start + step)}, …`
+	})
+
 	function apply() {
-		const n = editor.renumber({ start, step, mode, replaceChar, order })
+		const n = editor.renumber({ start, step, format, order })
 		toast.success(`Renumbered ${n} item${n === 1 ? '' : 's'}`)
 		open = false
 	}
@@ -29,17 +35,9 @@
 			<input type="number" class={fld} bind:value={start} /></label>
 		<label class="text-zinc-500">Increment
 			<input type="number" class={fld} bind:value={step} /></label>
-		<label class="col-span-2 text-zinc-500">Mode
-			<select class={fld} bind:value={mode}>
-				<option value="overwrite">Overwrite label</option>
-				<option value="prefix">Prefix to label</option>
-				<option value="suffix">Suffix to label</option>
-				<option value="replace">Replace a character</option>
-			</select></label>
-		{#if mode === 'replace'}
-			<label class="col-span-2 text-zinc-500">Character to replace (e.g. # in “OL-#”)
-				<input class={fld} maxlength="3" bind:value={replaceChar} /></label>
-		{/if}
+		<label class="col-span-2 text-zinc-500">Format
+			<input class={fld} bind:value={format} placeholder="e.g. 33F-### or A###" /></label>
+		<p class="col-span-2 -mt-1 text-[11px] text-zinc-400"><code>#</code>s = the number; their count sets zero-padding. Preview: <span class="font-medium text-zinc-600">{preview}</span></p>
 		<label class="col-span-2 text-zinc-500">Order
 			<select class={fld} bind:value={order}>
 				<option value="index">Selection order</option>

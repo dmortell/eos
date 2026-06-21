@@ -251,8 +251,10 @@ export class AnnotationEditor extends SurfaceEditor {
 	clearClipboard() { clipboard = [] }
 	hasClipboard() { return clipboard.length > 0 }
 	/** Auto-number the selected labelled annotations (outlets → outlet.label, text/callout → text).
-	 *  Returns how many were renumbered. One undo step (via notify). */
-	renumber(opts: { start: number; step: number; mode: 'overwrite' | 'prefix' | 'suffix' | 'replace'; replaceChar?: string; order: 'index' | 'value' | 'xy' | 'yx' }): number {
+	 *  `format` is a template where the first run of `#` is the number, padded to the run's length:
+	 *  "33F-###" + 5 → "33F-005", "A###" + 12 → "A012". No `#` → the number is appended.
+	 *  Returns how many were renumbered. One undo step. */
+	renumber(opts: { start: number; step: number; format: string; order: 'index' | 'value' | 'xy' | 'yx' }): number {
 		const get = (a: Annotation) => (a.symbol === 'outlet' ? (a.outlet?.label ?? '') : (a.text ?? ''))
 		const set = (a: Annotation, v: string) => { if (a.symbol === 'outlet') a.outlet = { ...(a.outlet ?? {}), label: v }; else a.text = v }
 		const numOf = (a: Annotation) => { const m = get(a).match(/\d+/); return m ? +m[0] : 0 }
@@ -260,11 +262,11 @@ export class AnnotationEditor extends SurfaceEditor {
 		if (opts.order === 'xy') items = [...items].sort((a, b) => a.x - b.x || a.y - b.y)
 		else if (opts.order === 'yx') items = [...items].sort((a, b) => a.y - b.y || a.x - b.x)
 		else if (opts.order === 'value') items = [...items].sort((a, b) => numOf(a) - numOf(b))
+		const hash = opts.format.match(/#+/), pad = hash ? hash[0].length : 0
 		let n = opts.start
 		for (const a of items) {
-			const cur = get(a), ns = String(n)
-			set(a, opts.mode === 'overwrite' ? ns : opts.mode === 'prefix' ? ns + cur : opts.mode === 'suffix' ? cur + ns
-				: opts.replaceChar ? cur.split(opts.replaceChar).join(ns) : ns)
+			const ns = n >= 0 ? String(n).padStart(pad, '0') : String(n)
+			set(a, hash ? opts.format.replace(/#+/, ns) : opts.format + ns)
 			n += opts.step
 		}
 		if (items.length) this.notify()

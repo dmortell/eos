@@ -561,3 +561,6 @@ Workflow to renumber items:
 * Select overwrite, prefix or suffix, or a char to replace
 * Select the order of the items to be renumbered: by value, by index, by x then y, by y then x
 * Click apply. Items are renumbered (with undo), toast shows results, and window closes
+
+
+31. As noted in PROPS.md, migrate outlet.label 'label' field to 'text' field

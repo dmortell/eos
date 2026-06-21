@@ -232,19 +232,22 @@
 			const moved = rightStart && Math.hypot(e.clientX - rightStart.x, e.clientY - rightStart.y) > 5
 			rightStart = null
 			if (moved) return // it was a pan, not a click
+			if (selection.count() === 0) { ctxMenu = null; return } // only over a selection, not empty canvas
 			e.preventDefault(); e.stopPropagation()
 			ctxMenu = { x: e.clientX, y: e.clientY }
 		}
-		const onAnyDown = (e: MouseEvent) => { if (ctxMenu && !(e.target as HTMLElement)?.closest?.('.ctx-menu')) ctxMenu = null }
+		// Close on any left-press outside the menu. CAPTURE — objects/annotations stopPropagation on
+		// mousedown, so a bubble-phase listener would never see it.
+		const onAnyDown = (e: MouseEvent) => { if (ctxMenu && e.button !== 2 && !(e.target as HTMLElement)?.closest?.('.ctx-menu')) ctxMenu = null }
 		window.addEventListener('keydown', onKey, true)
 		window.addEventListener('mousedown', onDown, true)
 		window.addEventListener('contextmenu', onCtx, true)
-		window.addEventListener('mousedown', onAnyDown)
+		window.addEventListener('mousedown', onAnyDown, true)
 		return () => {
 			window.removeEventListener('keydown', onKey, true)
 			window.removeEventListener('mousedown', onDown, true)
 			window.removeEventListener('contextmenu', onCtx, true)
-			window.removeEventListener('mousedown', onAnyDown)
+			window.removeEventListener('mousedown', onAnyDown, true)
 		}
 	})
 </script>

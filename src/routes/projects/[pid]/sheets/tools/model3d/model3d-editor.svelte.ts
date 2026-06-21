@@ -32,7 +32,9 @@ export class Model3dEditor extends SurfaceEditor {
 	model: Model | null = null
 	direction: Dir = 'plan'
 	// Per-viewport layer visibility/lock (mirrors the host viewport's overrides).
-	layerOverrides: Record<string, { hidden?: boolean; locked?: boolean }> = {}
+	// $state so layerHidden/locked re-evaluate live in the edit layer when a layer is toggled
+	// (otherwise a just-unhidden wall stays non-selectable until a refresh).
+	layerOverrides = $state<Record<string, { hidden?: boolean; locked?: boolean }>>({})
 
 	protected selKind = 'obj'
 	get objects(): Obj[] { return this.model?.objects ?? [] }
