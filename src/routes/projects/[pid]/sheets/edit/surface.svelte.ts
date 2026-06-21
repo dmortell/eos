@@ -17,6 +17,9 @@ export class SurfaceEditor {
 	onChange: (() => void) | null = null
 	/** Sibling editor sharing this surface (object ↔ annotation); selecting here clears it there. */
 	peer: SurfaceEditor | null = null
+	/** Host hook: checkpoint the current state into the undo history *before* a gesture mutates
+	 *  (so undo of a ctrl-drag copy lands on the pre-duplicate state — the originals, selected). */
+	beforeMutate: (() => void) | null = null
 
 	#move: ((e: MouseEvent) => void) | null = null
 	#up: (() => void) | null = null
@@ -163,6 +166,7 @@ export class SurfaceEditor {
 			if (!started) {
 				if (Math.hypot(e.clientX - sx, e.clientY - sy) < 3) return
 				started = true
+				this.beforeMutate?.() // checkpoint the originals-selected state so undo re-selects them
 				h.duplicate(); h.snapshot()
 				if (drivePeer) { this.peer!.duplicateSelectionInPlace(); this.peer!.beginGroupTranslate() }
 			}

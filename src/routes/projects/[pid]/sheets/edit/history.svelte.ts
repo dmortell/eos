@@ -40,6 +40,9 @@ export class History {
 		this.#cancel()
 		this.#t = setTimeout(() => { this.#t = null; this.#commit() }, this.#delay)
 	}
+	/** Force an immediate commit of the current state (e.g. checkpoint the pre-duplicate
+	 *  selection before a ctrl-drag clone, so undo lands on the originals — selection and all). */
+	commit() { if (this.#restoring) return; this.#cancel(); this.#commit() }
 	#commit() {
 		if (!this.#base) return
 		const cur = this.#capture()

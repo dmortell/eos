@@ -145,6 +145,8 @@
 	}
 	history.register(snap)
 	$effect(() => { editor.onChange = () => { store.save(); history.touch() } })
+	// Checkpoint the pre-gesture state (e.g. originals before a ctrl-drag copy) so undo re-selects them.
+	editor.beforeMutate = annEditor.beforeMutate = () => history.commit()
 	// Baseline once when the viewport becomes active (and the model is loaded).
 	let baselined = false
 	$effect(() => {
