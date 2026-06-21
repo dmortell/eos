@@ -80,8 +80,8 @@
 		drag = { box: b0, rot: 0 }
 		editor.startDrag((ev) => {
 			const w = editor.toWorld(ev); if (!w) return
-			let a = ang(w) - a0
-			if (ev.shiftKey) a = Math.round(a / 15) * 15 // Shift snaps 15°
+			const step = ev.shiftKey ? 15 : 5 // snap rotation to 5° (15° with Shift)
+			let a = Math.round((ang(w) - a0) / step) * step
 			selection.rotateGroup(a - last, b0.cx, b0.cy)
 			last = a
 			if (drag) drag.rot = a
