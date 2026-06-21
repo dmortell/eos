@@ -176,6 +176,7 @@
 			if (mod && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); e.stopPropagation(); selection.paste(); return }
 			if (mod && (e.key === 'x' || e.key === 'X')) { e.preventDefault(); e.stopPropagation(); selection.cutSelection(); return }
 			if (mod && (e.key === 'd' || e.key === 'D')) { e.preventDefault(); e.stopPropagation(); selection.duplicateSelection(); return }
+			if (mod && (e.key === 'g' || e.key === 'G')) { e.preventDefault(); e.stopPropagation(); if (e.shiftKey) selection.ungroup(); else selection.group(() => 'g' + Math.random().toString(36).slice(2, 9)); return }
 			if (e.key === 'Escape' && tool !== 'select') { e.preventDefault(); e.stopPropagation(); tool = 'select'; return }
 			// Escape from inside a field (nothing armed): just blur it — don't deactivate the viewport.
 			if (inField && e.key === 'Escape') { el?.blur?.(); e.stopPropagation(); return }

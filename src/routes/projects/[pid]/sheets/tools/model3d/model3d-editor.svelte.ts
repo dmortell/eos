@@ -189,6 +189,7 @@ export class Model3dEditor extends SurfaceEditor {
 			return
 		}
 		if (this.inMulti(index)) { this.beginGroupDrag(e); return } // marquee group (this + annotation peer)
+		if (this.selectGroup(this.oid(index))) { this.beginGroupDrag(e); return } // grouped → select + drag whole group
 		this.selectObj(index); this.vsel = null
 		this.beginItemDrag(e) // single: snapshot + shift-constrained translate
 	}
@@ -575,6 +576,10 @@ export class Model3dEditor extends SurfaceEditor {
 	}
 	clearClipboard() { this.clipboard = [] }
 	hasClipboard() { return this.clipboard.length > 0 }
+	// grouping (H12)
+	groupOf(id: string) { return this.byId(id)?.groupId }
+	idsInGroup(gid: string) { return this.objects.filter((o) => o.groupId === gid && o.id).map((o) => o.id!) }
+	setGroup(ids: string[], gid: string | undefined) { const s = new Set(ids); for (const o of this.objects) if (o.id && s.has(o.id)) o.groupId = gid; this.notify() }
 	// Arrow-key nudge (world Δ → projected axes) / resize of the selected objects.
 	nudgeSelection(dwx: number, dwy: number) {
 		const b = BASIS[this.direction], dch = Math.round(dwx * b.hs), dcv = Math.round(-dwy * b.vs)

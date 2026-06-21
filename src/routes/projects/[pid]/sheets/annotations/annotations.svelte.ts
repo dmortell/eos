@@ -179,6 +179,7 @@ export class AnnotationEditor extends SurfaceEditor {
 			return
 		}
 		if (this.selAnns.includes(a.id)) { this.beginGroupDrag(e0); return } // marquee group (this + peer)
+		if (this.selectGroup(a.id)) { this.beginGroupDrag(e0); return } // grouped → select + drag whole group
 		this.clearMulti(); this.peer?.clearMulti()
 		this.select('ann', a.id)
 		this.beginItemDrag(e0) // single: snapshot + shift-constrained translate (honours dragMovePointer)
@@ -247,6 +248,10 @@ export class AnnotationEditor extends SurfaceEditor {
 	}
 	clearClipboard() { clipboard = [] }
 	hasClipboard() { return clipboard.length > 0 }
+	// grouping (H12)
+	groupOf(id: string) { return this.annotations.find((a) => a.id === id)?.groupId }
+	idsInGroup(gid: string) { return this.annotations.filter((a) => a.groupId === gid).map((a) => a.id) }
+	setGroup(ids: string[], gid: string | undefined) { const s = new Set(ids); for (const a of this.annotations) if (s.has(a.id)) a.groupId = gid; this.notify() }
 	nudgeSelection(dx: number, dy: number) {
 		for (const a of this.selectedAnnList()) { a.x += dx; a.y += dy; if (a.x2 != null) a.x2 += dx; if (a.y2 != null) a.y2 += dy }
 		this.notify()

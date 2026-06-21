@@ -139,6 +139,7 @@ export interface Annotation {
 	fill?: string                 // shape fill (rect/cloud/callout/symbol); 'none' = unfilled
 	link?: AnnotationLink
 	layerId?: string
+	groupId?: string              // members of a group select/move together (H12)
 	src?: string                  // image annotation source (http(s) URL or data: URL)
 	// Elevation/section tag: up to 4 directional arrows (one per wall). A present
 	// key shows that arrow with its viewport ref/letter; the centre circle shows

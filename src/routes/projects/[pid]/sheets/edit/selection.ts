@@ -41,4 +41,16 @@ export class SelectionCoordinator {
 	// ── arrow-key nudge / resize over the combined selection (history coalesces via touch) ──
 	nudge(dx: number, dy: number) { for (const e of this.active()) e.nudgeSelection(dx, dy) }
 	resize(dw: number, dh: number) { for (const e of this.active()) e.resizeSelection(dw, dh) }
+
+	// ── grouping (H12): tag the combined selection with one group id so they move/select together ──
+	group(makeId: () => string) {
+		if (this.count() < 2) return // need ≥2 items to form a group
+		this.beforeMutate?.()
+		const gid = makeId()
+		for (const e of this.active()) e.setGroup(e.selectedIds(), gid)
+	}
+	ungroup() {
+		this.beforeMutate?.()
+		for (const e of this.active()) e.setGroup(e.selectedIds(), undefined)
+	}
 }

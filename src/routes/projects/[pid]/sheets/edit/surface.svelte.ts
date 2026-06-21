@@ -83,6 +83,19 @@ export class SurfaceEditor {
 
 	/** Select exactly these ids on this editor (1 → single, else multi). */
 	selectIds(ids: string[]) { if (ids.length === 1) { this.sel = { kind: this.selKind, id: ids[0] }; this.setMulti([]) } else { this.sel = null; this.setMulti(ids) } }
+
+	// ── grouping (H12): items sharing a groupId select/move together ──
+	groupOf(_id: string): string | undefined { return undefined }      // an item's group id
+	idsInGroup(_gid: string): string[] { return [] }                   // this editor's members of a group
+	setGroup(_ids: string[], _gid: string | undefined): void {}        // assign/clear groupId on items
+	/** If `id` is grouped, select all of this editor's members + the peer's members. Returns true
+	 *  if a group was selected (caller then does a group drag instead of a single-item drag). */
+	selectGroup(id: string): boolean {
+		const gid = this.groupOf(id); if (!gid) return false
+		this.sel = null; this.clearAux(); this.setMulti(this.idsInGroup(gid))
+		if (this.peer) { this.peer.sel = null; this.peer.clearAux(); this.peer.setMulti(this.peer.idsInGroup(gid)) }
+		return true
+	}
 	/** Delete the whole selection (multi-set, else single as array-of-1) — one path for both. */
 	deleteSelection() { const ids = this.selectedIds(); if (!ids.length) return; this.removeItems(ids); this.sel = null; this.clearMulti(); this.clearAux(); this.notify() }
 
