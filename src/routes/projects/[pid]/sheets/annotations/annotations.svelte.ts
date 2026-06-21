@@ -221,6 +221,14 @@ export class AnnotationEditor extends SurfaceEditor {
 	}
 	clearClipboard() { clipboard = [] }
 	hasClipboard() { return clipboard.length > 0 }
+	nudgeSelection(dx: number, dy: number) {
+		for (const a of this.selectedAnnList()) { a.x += dx; a.y += dy; if (a.x2 != null) a.x2 += dx; if (a.y2 != null) a.y2 += dy }
+		this.notify()
+	}
+	resizeSelection(dw: number, dh: number) {
+		for (const a of this.selectedAnnList()) { if (a.w != null) a.w = Math.max(1, a.w + dw); if (a.h != null) a.h = Math.max(1, a.h + dh) }
+		this.notify()
+	}
 	/** Paste the clipboard into this viewport (new ids, offset so the copies are visible). */
 	paste() {
 		if (!clipboard.length) return

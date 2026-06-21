@@ -37,4 +37,8 @@ export class SelectionCoordinator {
 	cutSelection() { this.beforeMutate?.(); for (const e of this.editors) e.clearClipboard(); for (const e of this.active()) { e.copySel(); e.deleteSelection() } }
 	/** Paste every editor's clipboard (only the editors that were copied have content). */
 	paste() { for (const e of this.editors) e.paste() }
+
+	// ── arrow-key nudge / resize over the combined selection (history coalesces via touch) ──
+	nudge(dx: number, dy: number) { for (const e of this.active()) e.nudgeSelection(dx, dy) }
+	resize(dw: number, dh: number) { for (const e of this.active()) e.resizeSelection(dw, dh) }
 }

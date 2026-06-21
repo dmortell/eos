@@ -531,6 +531,21 @@ export class Model3dEditor extends SurfaceEditor {
 	paste = () => { if (this.clipboard.length) this.addClones(this.clipboard, 200) }
 	clearClipboard() { this.clipboard = [] }
 	hasClipboard() { return this.clipboard.length > 0 }
+	// Arrow-key nudge (world Δ → projected axes) / resize of the selected objects.
+	nudgeSelection(dwx: number, dwy: number) {
+		const b = BASIS[this.direction], dch = Math.round(dwx * b.hs), dcv = Math.round(-dwy * b.vs)
+		for (const id of this.selectedIds()) { const o = this.byId(id); if (o && !this.locked(o)) { moveAlong(o, b.h, dch); moveAlong(o, b.v, dcv) } }
+		this.notify()
+	}
+	resizeSelection(dw: number, dh: number) {
+		const b = BASIS[this.direction] // Δw along the view's horizontal axis, Δh along its vertical
+		for (const id of this.selectedIds()) {
+			const o = this.byId(id); if (!o || o.type !== 'prism' || this.locked(o)) continue
+			const dimH: any = { x: 'w', y: 'd', z: 'h' }[b.h], dimV: any = { x: 'w', y: 'd', z: 'h' }[b.v]
+			;(o as any)[dimH] = Math.max(MIN, (o as any)[dimH] + dw); (o as any)[dimV] = Math.max(MIN, (o as any)[dimV] + dh)
+		}
+		this.notify()
+	}
 
 	// ── marquee multi-select + group move (overrides SurfaceEditor hooks) ──
 	multi = $state<string[]>([]) // selected object IDs

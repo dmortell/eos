@@ -75,6 +75,9 @@ export class SurfaceEditor {
 	paste(): void {}          // paste this editor's clipboard (offset)
 	clearClipboard(): void {} // drop this editor's clipboard
 	hasClipboard(): boolean { return false }
+	/** Arrow-key nudge (world-mm) / resize (Δw,Δh) of the whole selection. */
+	nudgeSelection(_dx: number, _dy: number): void {}
+	resizeSelection(_dw: number, _dh: number): void {}
 	/** Ctrl+D / panel duplicate: clone the selection offset by `d`, select the clones. */
 	duplicateSelection(d = 500) { const ids = this.cloneItems(this.selectedIds(), d); if (ids.length) { this.selectIds(ids); this.notify() } }
 

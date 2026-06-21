@@ -174,6 +174,14 @@
 			if (e.key === 'Delete' || e.key === 'Backspace') {
 				e.preventDefault(); e.stopPropagation()
 				selection.deleteSelection() // combined object + annotation selection (multi-aware)
+				return
+			}
+			// Arrow keys: nudge the selection 1mm (10mm with Shift); Ctrl = resize W/H instead.
+			const arrow: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }
+			if (arrow[e.key] && selection.hasSelection()) {
+				e.preventDefault(); e.stopPropagation()
+				const [ux, uy] = arrow[e.key], step = e.shiftKey ? 10 : 1
+				if (mod) selection.resize(ux * step, uy * step); else selection.nudge(ux * step, uy * step)
 			}
 		}
 		window.addEventListener('keydown', onKey, true)
