@@ -111,6 +111,8 @@ export class SurfaceEditor {
 	// ── group transform (H9): SVG-world primitives the GroupTransformBox drives (plan view) ──
 	/** AABB of the selection in SVG world coords, or null if nothing selected. */
 	selWorldBounds(): { x0: number; y0: number; x1: number; y1: number } | null { return null }
+	/** Corner points (SVG world) of every selected item — for a tight ORIENTED bounding box. */
+	selWorldPoints(): { x: number; y: number }[] { return [] }
 	/** Oriented box (SVG world) of a SINGLE box-like selection — for the unified transform box on a
 	 *  rotated item. Null when not exactly one box-like item (lines/graphs/multi). */
 	singleBox(): { cx: number; cy: number; hw: number; hh: number; angle: number } | null { return null }

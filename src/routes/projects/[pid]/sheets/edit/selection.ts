@@ -65,18 +65,27 @@ export class SelectionCoordinator {
 		}
 		return b
 	}
-	/** The transform box: a SINGLE box-like item gives an oriented box (its angle); 2+ give an AABB
-	 *  (angle 0). Null → nothing, or a single line/graph item that keeps its own endpoint handles. */
+	// Persistent rotation of the MULTI box: a rotated group keeps its orientation (instead of
+	// snapping back to a fresh AABB) until the selection set changes. Reset lazily in orientedBox().
+	private groupAngle = 0
+	private lastSelKey = ''
+	/** The transform box: a SINGLE box-like item gives an oriented box (its angle); 2+ give a tight
+	 *  oriented box at the accumulated group angle. Null → nothing, or a single line/graph item. */
 	orientedBox(): { cx: number; cy: number; hw: number; hh: number; angle: number; single: boolean } | null {
+		const key = this.editors.map((e) => e.selectedIds().join(',')).join('|')
+		if (key !== this.lastSelKey) { this.lastSelKey = key; this.groupAngle = 0 } // selection changed → upright box
 		const total = this.count()
 		if (total === 1) { const sb = this.active()[0]?.singleBox(); return sb ? { ...sb, single: true } : null }
-		if (total >= 2) {
-			const bb = this.groupBounds(); if (!bb) return null
-			return { cx: (bb.x0 + bb.x1) / 2, cy: (bb.y0 + bb.y1) / 2, hw: (bb.x1 - bb.x0) / 2, hh: (bb.y1 - bb.y0) / 2, angle: 0, single: false }
-		}
-		return null
+		if (total < 2) return null
+		const pts = this.editors.flatMap((e) => e.selWorldPoints())
+		if (pts.length < 2) return null
+		const a = this.groupAngle, r = (-a * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r)
+		let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity // AABB in the rotated frame
+		for (const p of pts) { const lx = p.x * c - p.y * s, ly = p.x * s + p.y * c; minx = Math.min(minx, lx); miny = Math.min(miny, ly); maxx = Math.max(maxx, lx); maxy = Math.max(maxy, ly) }
+		const lcx = (minx + maxx) / 2, lcy = (miny + maxy) / 2, rr = (a * Math.PI) / 180, rc = Math.cos(rr), rs = Math.sin(rr)
+		return { cx: lcx * rc - lcy * rs, cy: lcx * rs + lcy * rc, hw: (maxx - minx) / 2, hh: (maxy - miny) / 2, angle: a, single: false }
 	}
 	moveGroup(dx: number, dy: number) { for (const e of this.active()) e.nudgeSelection(dx, dy) }
-	rotateGroup(deg: number, cx: number, cy: number) { for (const e of this.active()) e.rotateSelection(deg, cx, cy) }
+	rotateGroup(deg: number, cx: number, cy: number) { this.groupAngle += deg; for (const e of this.active()) e.rotateSelection(deg, cx, cy) }
 	scaleGroup(sx: number, sy: number, ax: number, ay: number, angle = 0) { for (const e of this.active()) e.scaleSelection(sx, sy, ax, ay, angle) }
 }

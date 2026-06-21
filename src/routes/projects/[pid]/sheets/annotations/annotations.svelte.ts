@@ -269,6 +269,16 @@ export class AnnotationEditor extends SurfaceEditor {
 		for (const a of list) { const b = bounds(a, 1); x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h) }
 		return { x0, y0, x1, y1 }
 	}
+	selWorldPoints() {
+		const pts: { x: number; y: number }[] = []
+		for (const a of this.selectedAnnList()) {
+			if (a.kind === 'line' || a.kind === 'arrow' || a.kind === 'dimension') { pts.push({ x: a.x, y: a.y }, { x: a.x2 ?? a.x, y: a.y2 ?? a.y }); continue }
+			const b = bounds(a, 1), cx = b.x + b.w / 2, cy = b.y + b.h / 2, r = (a.rotation ?? 0) * Math.PI / 180, c = Math.cos(r), s = Math.sin(r)
+			for (const [lx, ly] of [[-b.w / 2, -b.h / 2], [b.w / 2, -b.h / 2], [b.w / 2, b.h / 2], [-b.w / 2, b.h / 2]] as [number, number][])
+				pts.push({ x: cx + lx * c - ly * s, y: cy + lx * s + ly * c })
+		}
+		return pts
+	}
 	rotateSelection(deg: number, cx: number, cy: number) {
 		const r = (deg * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r)
 		const rot = (px: number, py: number) => { const dx = px - cx, dy = py - cy; return { x: cx + dx * c - dy * s, y: cy + dx * s + dy * c } }

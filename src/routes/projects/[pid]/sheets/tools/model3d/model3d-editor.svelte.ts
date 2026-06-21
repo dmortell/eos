@@ -603,6 +603,10 @@ export class Model3dEditor extends SurfaceEditor {
 		for (const id of ids) { const o = this.byId(id); if (!o) continue; for (const p of this.footprintSvg(o)) { x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y) } }
 		return x0 === Infinity ? null : { x0, y0, x1, y1 }
 	}
+	selWorldPoints() {
+		if (this.direction !== 'plan') return []
+		return this.selectedIds().flatMap((id) => { const o = this.byId(id); return o ? this.footprintSvg(o) : [] })
+	}
 	rotateSelection(deg: number, cx: number, cy: number) {
 		if (this.direction !== 'plan') return
 		const r = (deg * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r)
