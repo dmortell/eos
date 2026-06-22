@@ -127,7 +127,7 @@
 <g class="print:hidden">
 	{#if editable}
 		<!-- empty-space drag draws a marquee (and a plain click clears selection) -->
-		<rect x="-1000000" y="-1000000" width="2000000" height="2000000" fill="transparent"
+		<rect class="ctx-empty" x="-1000000" y="-1000000" width="2000000" height="2000000" fill="transparent"
 			style:pointer-events="auto" onmousedown={(e: MouseEvent) => { if (e.button === 0) editor.beginMarquee(e) }} />
 	{/if}
 

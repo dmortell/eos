@@ -229,6 +229,8 @@
 		const onCtx = (e: MouseEvent) => {
 			if (!active) return
 			if ((e.target as HTMLElement)?.closest?.('input, textarea, select, button, .gui, [data-slot], #sheet-portal-root, .dwg-menubar')) return
+			// On empty canvas (the marquee backdrop) → no menu, even if something elsewhere is selected.
+			if ((e.target as HTMLElement)?.closest?.('.ctx-empty')) { ctxMenu = null; return }
 			const moved = rightStart && Math.hypot(e.clientX - rightStart.x, e.clientY - rightStart.y) > 5
 			rightStart = null
 			if (moved) return // it was a pan, not a click

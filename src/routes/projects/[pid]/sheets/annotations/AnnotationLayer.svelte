@@ -35,7 +35,14 @@
 	}
 
 	function down(a: Annotation, e: MouseEvent, movePointer = true) {
-		if (!interactive || isLocked(a) || e.button !== 0) return
+		if (!interactive || isLocked(a)) return
+		if (e.button === 2) {
+			// Right-click selects this annotation (so the context menu acts on what you clicked) unless
+			// it's already selected. No stopProp → empty-area right-drag still pans.
+			if (!editor.selAnns.includes(a.id) && !editor.isSel('ann', a.id)) { editor.select('ann', a.id); editor.clearMulti(); editor.peer?.clearMulti() }
+			return
+		}
+		if (e.button !== 0) return
 		e.stopPropagation(); editor.move(a, e, movePointer)
 	}
 	function dbl(a: Annotation, e: MouseEvent) {

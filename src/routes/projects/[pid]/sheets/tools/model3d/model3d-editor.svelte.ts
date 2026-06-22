@@ -181,7 +181,14 @@ export class Model3dEditor extends SurfaceEditor {
 
 	// ── object move (drag in the projected plane) — uses the shared gesture drivers ──
 	startObjMove = (e: MouseEvent, index: number) => {
-		if (e.button !== 0) return // right/middle bubble up so the canvas pans
+		if (e.button === 2) {
+			// Right-click selects the clicked object (so the context menu acts on what you clicked, not a
+			// previously-selected item) — unless it's already in the selection. No stopProp, so an empty-
+			// area right-drag still pans.
+			if (!this.inMulti(index) && this.selObjId !== this.oid(index) && !this.blockedByLock(this.objects[index])) { this.selectObj(index); this.peer?.clearSel(); this.peer?.clearMulti() }
+			return
+		}
+		if (e.button !== 0) return // middle bubbles up so the canvas pans
 		e.stopPropagation()
 		if (!this.objects[index]) return
 		if (this.blockedByLock(this.objects[index])) return
