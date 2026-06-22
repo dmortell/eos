@@ -17,7 +17,8 @@
 	const db = getContext('db') as Firestore
 	let custom = $state<LibraryShape[]>([])
 	$effect(() => {
-		const u = db.subscribeMany('library', (d) => (custom = d as unknown as LibraryShape[]))
+		// guard against malformed docs (no items array) so a bad row can't crash the panel
+		const u = db.subscribeMany('library', (d) => (custom = (d as unknown as LibraryShape[]).filter((s) => Array.isArray(s?.items) && s.items.length)))
 		return () => u?.()
 	})
 
@@ -59,7 +60,7 @@
 	function del(id: string) { db.delete('library', id) }
 
 	// a tiny representative preview per shape (first item's kind/symbol)
-	const preview = (s: LibraryShape) => s.items[0]?.symbol ?? s.items[0]?.kind ?? 'rect'
+	const preview = (s: LibraryShape) => s.items?.[0]?.symbol ?? s.items?.[0]?.kind ?? 'rect'
 </script>
 
 <div use:portal>

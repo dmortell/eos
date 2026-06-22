@@ -161,6 +161,7 @@ export class AnnotationEditor extends SurfaceEditor {
 	/** Drop a library shape at world point `p` — clone each item with new ids, offset to `p`, and a
 	 *  shared groupId when it's a multi-item shape. Selects the placed shape. */
 	placeLibraryShape(p: Point, shape: LibraryShape) {
+		if (!shape.items?.length) return
 		const layer = this.targetLayerOrBlock(); if (layer === null) { this.onPlaced?.(); return }
 		const gid = shape.items.length > 1 ? this.uid('g') : undefined
 		const ids: string[] = []
