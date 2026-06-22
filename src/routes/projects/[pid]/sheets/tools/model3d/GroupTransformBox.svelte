@@ -23,10 +23,12 @@
 	// Directional resize cursors per handle (un-rotated direction), like the standard TransformBox.
 	const CURS: Record<string, string> = { nw: 'nwse-resize', se: 'nwse-resize', ne: 'nesw-resize', sw: 'nesw-resize', n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize' }
 
+	const MINH = $derived(14 / ss) // min half-extent (≈14px screen) so handles stay usable on tiny shapes (text/callout)
 	const live = $derived(selection.orientedBox())
-	// Padded oriented box. During a rotate gesture the box is frozen (already padded).
+	// Padded oriented box, never smaller than MINH so the handles don't collapse onto each other.
+	// During a rotate gesture the box is frozen (already padded).
 	const box = $derived<(OBox & { single: boolean }) | null>(
-		drag ? { ...drag.box, single: true } : live ? { ...live, hw: live.hw + PAD, hh: live.hh + PAD } : null,
+		drag ? { ...drag.box, single: true } : live ? { ...live, hw: Math.max(live.hw + PAD, MINH), hh: Math.max(live.hh + PAD, MINH) } : null,
 	)
 	const gAngle = $derived(box ? (drag ? drag.box.angle + drag.rot : box.angle) : 0)
 

@@ -164,14 +164,16 @@ export class AnnotationEditor extends SurfaceEditor {
 		if (!shape.items?.length) return
 		const layer = this.targetLayerOrBlock(); if (layer === null) { this.onPlaced?.(); return }
 		const gid = shape.items.length > 1 ? this.uid('g') : undefined
+		// Offset so the shape's bbox CENTRE lands at the pointer (not the top-left corner).
+		const ox = p.x - (shape.w ?? 0) / 2, oy = p.y - (shape.h ?? 0) / 2
 		const ids: string[] = []
 		for (const item of shape.items) {
 			const k = (item.kind ?? 'rect') as AnnotationKind
 			const a = { ...defaults(k, item.symbol ?? '', this.annoDefaults), ...item, id: this.uid('a'), kind: k, layerId: item.layerId ?? layer } as Annotation
 			if (gid) a.groupId = gid
-			a.x = (item.x ?? 0) + p.x; a.y = (item.y ?? 0) + p.y
-			if (item.x2 != null) a.x2 = item.x2 + p.x
-			if (item.y2 != null) a.y2 = item.y2 + p.y
+			a.x = (item.x ?? 0) + ox; a.y = (item.y ?? 0) + oy
+			if (item.x2 != null) a.x2 = item.x2 + ox
+			if (item.y2 != null) a.y2 = item.y2 + oy
 			this.push(a); ids.push(a.id)
 		}
 		this.selectIds(ids); this.tool = 'select'; this.notify(); this.onPlaced?.()
