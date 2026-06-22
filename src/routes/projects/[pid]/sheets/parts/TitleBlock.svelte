@@ -285,7 +285,7 @@
 					{#if fCoLogo}
 						{@const ch = hCompany}
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
-						<div class="tb-logo relative inline-block" style:cursor={onlogoresize ? 'pointer' : undefined}
+						<div class="tb-logo pointer-events-auto relative inline-block" style:cursor={onlogoresize ? 'pointer' : undefined}
 							onmousedown={(e: MouseEvent) => { if (onlogoresize) { e.stopPropagation(); logoSel = 'company' } }}>
 							<img bind:this={coImg} src={fCoLogo} alt="company logo" class="w-auto object-contain {ch ? '' : 'max-h-8'}" style:height={ch ? `${ch}px` : undefined} draggable="false" />
 							{@render logoSelOverlay('company', () => coImg)}
@@ -301,7 +301,7 @@
 					{#if showClient && fLogo}
 						{@const lh = hLogo}
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
-						<div class="tb-logo relative inline-block" style:cursor={onlogoresize ? 'pointer' : undefined}
+						<div class="tb-logo pointer-events-auto relative inline-block" style:cursor={onlogoresize ? 'pointer' : undefined}
 							onmousedown={(e: MouseEvent) => { if (onlogoresize) { e.stopPropagation(); logoSel = 'logo' } }}>
 							<img bind:this={clientImg} src={fLogo} alt="logo" class="w-auto object-contain {lh ? '' : 'max-h-8'}" style:height={lh ? `${lh}px` : undefined} draggable="false" />
 							{@render logoSelOverlay('logo', () => clientImg)}
