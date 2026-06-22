@@ -29,6 +29,7 @@
 		m3dStore.save()
 	}
 	function delModelLayer(id: string) { if (m3dModel && m3dStore) { m3dModel.layers = (m3dModel.layers ?? []).filter((l) => l.id !== id); m3dStore.save() } }
+	const objCountOnLayer = (id: string) => (m3dModel?.objects ?? []).filter((o) => (o.layer ?? '') === id).length
 	function toggleBw() { if (vp && vp.source.kind === 'model3d') { vp.source.bw = !vp.source.bw; vps.notify() } }
 	// Sheet annotation layers (Annotations + customs under it) — shared across all
 	// viewports, stored in the sheet doc. Shown read-only in the model3d window so
@@ -93,9 +94,16 @@
 						<button class="shrink-0 rounded p-0.5 hover:bg-zinc-100 {ov.locked ? 'text-red-600' : 'text-zinc-500'}" title="Lock / unlock (this view)" onclick={() => vps.setLayerOverride(v.id, l.id, { locked: !ov.locked })}>
 							<Icon name={ov.locked ? 'lock' : 'lockOpen'} size={14} />
 						</button>
-						<button class="shrink-0 text-zinc-300 hover:text-red-500 disabled:opacity-30" title="Delete layer" disabled={(m3dModel.layers?.length ?? 0) <= 1} onclick={() => delModelLayer(l.id)}>
-							<Icon name="trash" size={12} />
-						</button>
+						{#if confirmDelete === l.id}
+							{@const n = objCountOnLayer(l.id)}
+							<span class="shrink-0 text-[10px] font-medium text-red-600">Delete{n ? ` ${n} obj` : ''}?</span>
+							<button class="shrink-0 rounded bg-red-600 px-1 text-[10px] leading-tight text-white" title="Confirm delete" onclick={() => { delModelLayer(l.id); confirmDelete = null }}>Yes</button>
+							<button class="shrink-0 px-0.5 text-[10px] text-zinc-500 hover:text-zinc-800" onclick={() => (confirmDelete = null)}>No</button>
+						{:else}
+							<button class="shrink-0 text-red-400 hover:text-red-600 disabled:text-zinc-300" title="Delete layer" disabled={(m3dModel.layers?.length ?? 0) <= 1} onclick={() => (confirmDelete = l.id)}>
+								<Icon name="trash" size={12} />
+							</button>
+						{/if}
 					</div>
 				{/each}
 
@@ -165,7 +173,7 @@
 							{#if confirmDelete === c.id}
 								<button class="rounded bg-red-600 px-1 text-[10px] leading-tight text-white" title="Confirm delete" onclick={() => { vps.deleteLayer(c.id); confirmDelete = null }}>Del</button>
 							{:else}
-								<button class="text-zinc-300 hover:text-red-500" title="Delete layer" onclick={() => confirmDelete = c.id}><Icon name="trash" size={11} /></button>
+								<button class="text-red-400 hover:text-red-600" title="Delete layer" onclick={() => confirmDelete = c.id}><Icon name="trash" size={11} /></button>
 							{/if}
 							<button class="shrink-0 rounded p-0.5 text-zinc-600 hover:bg-zinc-100 {cov.hidden ? 'opacity-30' : ''}" title="Show / hide" onclick={() => vps.setLayerOverride(v.id, c.id, { hidden: !cov.hidden })}>
 								<Icon name={cov.hidden ? 'eyeSlash' : 'eye'} size={14} />

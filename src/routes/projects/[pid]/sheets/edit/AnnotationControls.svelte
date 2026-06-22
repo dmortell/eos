@@ -62,7 +62,7 @@
 		if (!mru.slice(0, mru.length - 1).includes(id)) mru = [...mru.slice(0, mru.length - 1), id]
 	}
 	const HEADS: [string, string][] = [['none', 'None'], ['arrow', 'Arrow'], ['dot', 'Dot'], ['tick', 'Tick']]
-	const DASHES: [string, string][] = [['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted']]
+	const DASHES: [string, string][] = [['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted'], ['dashdot', 'Dash-dot']]
 	const val = (e: Event) => (e.currentTarget as HTMLInputElement | HTMLSelectElement).value
 	let sel = $derived(editor.selAnn)
 	// Double-clicking a text/callout/leader on the canvas bumps textFocusNonce; jump focus
