@@ -111,12 +111,14 @@
 			{/if}
 		{:else if a.kind === 'grid'}
 			{@const gs = a.grid?.size || 500}
-			<rect x={b.x} y={b.y} width={b.w} height={b.h} fill={a.fill ?? 'none'} stroke={color} stroke-width=".5" vector-effect="non-scaling-stroke" />
+			<!-- 28a: a floor grid takes its colour from its LAYER (not a props colour). -->
+			{@const gc = editor.layers.find((l) => l.id === lyr)?.color ?? '#9ca3af'}
+			<rect x={b.x} y={b.y} width={b.w} height={b.h} fill={a.fill ?? 'none'} stroke={gc} stroke-width=".5" vector-effect="non-scaling-stroke" />
 			{#each gridLines(b.x, b.w, gs, a.grid?.ox ?? 0) as gx (gx)}
-				<line x1={gx} y1={b.y} x2={gx} y2={b.y + b.h} stroke={color} stroke-width=".25" vector-effect="non-scaling-stroke" />
+				<line x1={gx} y1={b.y} x2={gx} y2={b.y + b.h} stroke={gc} stroke-width=".25" vector-effect="non-scaling-stroke" />
 			{/each}
 			{#each gridLines(b.y, b.h, gs, a.grid?.oy ?? 0) as gy (gy)}
-				<line x1={b.x} y1={gy} x2={b.x + b.w} y2={gy} stroke={color} stroke-width=".25" vector-effect="non-scaling-stroke" />
+				<line x1={b.x} y1={gy} x2={b.x + b.w} y2={gy} stroke={gc} stroke-width=".25" vector-effect="non-scaling-stroke" />
 			{/each}
 		{:else if a.kind === 'rect'}
 			<rect x={b.x} y={b.y} width={b.w} height={b.h} fill={a.fill ?? 'none'} stroke={color} stroke-width=".5" stroke-dasharray={dashArray(a.dash)} vector-effect="non-scaling-stroke" />

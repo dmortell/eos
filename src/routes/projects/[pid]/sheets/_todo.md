@@ -527,16 +527,19 @@ Fix: switched the sheet load to the same JSON-echo guard — skip our own write,
 
 28. Make grid a polygon with clipping path so it can cover a floorplan? Grids are difficult to select, may need to lock walls. Allow grids to be rotated? (maybe not, no floorplans with 45 degree tiles so far)
 
-     * prefer grid to use layer color? Or color from props?
+     28a. ✅ Grid draws in its LAYER's colour (AnnotationLayer), and the props colour control is
+          hidden for grids — the bespoke props colour is gone.
 
 
-29. When a layer is changed to hidden or locked, any selected items on that layer should be removed from the selection list (otherwsie their selection box remains visible)
+29. ✅ When a layer is hidden/locked, selected items on it are removed from the selection (reactive
+    prune via pruneSelectionVisibility, driven untracked when layer state changes).
 
-29a. When walls layer is hidden, walls are still selectable in floorplans
+29a. ✅ Hidden-layer walls/objects no longer click/marquee-selectable (edit layer skips hidden), and
+     the toggle is live (editor.layerOverrides is $state).
 
-29b. Document all annote & symbol props
+29b. ✅ Documented all annote & symbol props (annotations/PROPS.md).
 
-29c. ctrl-a to select all (unlocked and visible items only)
+29c. ✅ Ctrl+A selects all visible + unlocked items (SurfaceEditor.selectAllVisible → coordinator).
 
 29d. Logo image resize handles difficult to see, implement a selection box with full handles when selected
 
@@ -551,21 +554,15 @@ What should the section tag show + reference?
      A section-line style tag: a short arrow showing the view direction + the label. More like a building section mark than an area/detail callout.
 
 
-30. Tool to renumber outlets and other items (objects/annotes)
+30. ✅ Renumber tool — right-click ▸ "Auto number…" (annotations selected) opens a dialog: Start,
+    Increment, number Format (### → padding), Apply mode (overwrite / prefix / suffix / fill-# in
+    label), Order (selection / by existing number / X-then-Y / Y-then-X). One undo step + toast.
 
-Workflow to renumber items:
-* Select all objects to be renumbered
-* Select Auto Number from Tools menu, this opens a floating window with an input
-     (and list of items selected?)
-* Enter the first number in the input, and set the increment
-* Select overwrite, prefix or suffix, or a char to replace
-* Select the order of the items to be renumbered: by value, by index, by x then y, by y then x
-* Click apply. Items are renumbered (with undo), toast shows results, and window closes
+31. ✅ Migrated outlet.label → shared `text` field (migrate() on load; render + props + auto-number
+    use `text`; OutletProps.label removed) so the standard font/text controls apply.
 
-
-31. As noted in PROPS.md, migrate outlet.label 'label' field to 'text' field
-
-32. 3d views in sheets tool also need to be able to toggle visibility of layers
+32. ✅ 3D (iso) views toggle layer visibility — iso render already honours per-viewport
+    vp.layerOverrides; activating the 3D viewport shows the Layers window targeting it.
 
 33. ✅ PDF renderings in floorplans crop the drawings as defined in the upload tool.
     model3d underlays now clip to the page crop (Model3dUnderlayImage), matching the outlets
