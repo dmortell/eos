@@ -6,6 +6,7 @@ import type { Box } from '../edit/transform'
 import type { LayerDef } from '../layers/layers'
 import { OUTLET_DEFAULTS } from './outlet'
 import { bounds } from './geometry'
+import type { LibraryShape } from './shapes/library'
 
 export type AnnTool = 'select' | AnnotationKind
 
@@ -155,6 +156,38 @@ export class AnnotationEditor extends SurfaceEditor {
 		if (this.tool === 'callout') this.startCallout(p)
 		else if (CLICK_KINDS.has(this.tool as AnnotationKind)) this.click(p)
 		else this.startShape(p)
+	}
+
+	/** Drop a library shape at world point `p` — clone each item with new ids, offset to `p`, and a
+	 *  shared groupId when it's a multi-item shape. Selects the placed shape. */
+	placeLibraryShape(p: Point, shape: LibraryShape) {
+		const layer = this.targetLayerOrBlock(); if (layer === null) { this.onPlaced?.(); return }
+		const gid = shape.items.length > 1 ? this.uid('g') : undefined
+		const ids: string[] = []
+		for (const item of shape.items) {
+			const k = (item.kind ?? 'rect') as AnnotationKind
+			const a = { ...defaults(k, item.symbol ?? '', this.annoDefaults), ...item, id: this.uid('a'), kind: k, layerId: item.layerId ?? layer } as Annotation
+			if (gid) a.groupId = gid
+			a.x = (item.x ?? 0) + p.x; a.y = (item.y ?? 0) + p.y
+			if (item.x2 != null) a.x2 = item.x2 + p.x
+			if (item.y2 != null) a.y2 = item.y2 + p.y
+			this.push(a); ids.push(a.id)
+		}
+		this.selectIds(ids); this.tool = 'select'; this.notify(); this.onPlaced?.()
+	}
+
+	/** Snapshot the current selection into a LibraryShape (coords normalised to the bbox origin). */
+	shapeFromSelection(name: string, category = 'Custom'): LibraryShape | null {
+		const list = this.selectedAnnList(); if (!list.length) return null
+		const bb = this.selWorldBounds(); if (!bb) return null
+		const items = list.map((a) => {
+			const s = $state.snapshot(a) as Partial<Annotation> & { id?: string }
+			delete s.id; delete s.groupId
+			s.x = (s.x ?? 0) - bb.x0; s.y = (s.y ?? 0) - bb.y0
+			if (s.x2 != null) s.x2 -= bb.x0; if (s.y2 != null) s.y2 -= bb.y0
+			return s as Partial<Annotation>
+		})
+		return { id: '', name, category, items, w: bb.x1 - bb.x0, h: bb.y1 - bb.y0 }
 	}
 
 	/**

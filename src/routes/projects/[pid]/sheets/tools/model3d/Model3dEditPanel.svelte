@@ -9,7 +9,7 @@
 	// numeric properties, a per-segment list (walls/conduits), and layer
 	// assignment. Edits go through editor.notify() so they persist + record undo.
 	// `annEditor`/`tool` add the shared annotation toolbar + property editor.
-	let { editor, model, annEditor, tool = $bindable('select') }: { editor: Model3dEditor; model: Model; annEditor: AnnotationEditor; tool?: string } = $props()
+	let { editor, model, annEditor, tool = $bindable('select'), shapesOpen = $bindable(false) }: { editor: Model3dEditor; model: Model; annEditor: AnnotationEditor; tool?: string; shapesOpen?: boolean } = $props()
 
 	const obj = $derived(editor.selIndex !== null ? model.objects[editor.selIndex] ?? null : null)
 	const idx = $derived(editor.selIndex ?? 0)
@@ -55,6 +55,8 @@
 	<!-- Annotations: live kinds as direct buttons + the shared property editor -->
 	<AnnotationControls bind:tool editor={annEditor} showSelect={true}
 		tools={['text', 'line', 'rect', 'arrow', 'ellipse', 'outlet', 'cloud', 'callout', 'dimension', 'grid', 'legend', 'symbol']} />
+	<button class="mt-1 flex w-full items-center justify-center gap-1 rounded border px-1 py-0.5 text-xs hover:bg-slate-100 {shapesOpen ? 'border-blue-500 text-blue-600' : 'border-zinc-300'}"
+		title="Shape library — drag shapes onto the view" onclick={() => (shapesOpen = !shapesOpen)}><Icon name="square" size={12} /> Shapes</button>
 	<hr class="my-1 border-zinc-200" />
 
 	{#if editor.multi.length > 1}

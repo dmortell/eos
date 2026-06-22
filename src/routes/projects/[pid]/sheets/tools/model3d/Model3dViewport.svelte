@@ -17,6 +17,7 @@
 	import Model3dUnderlayImage from './Model3dUnderlayImage.svelte'
 	import Model3dEditPanel from './Model3dEditPanel.svelte'
 	import RenumberDialog from './RenumberDialog.svelte'
+	import ShapeLibrary from '../../annotations/ShapeLibrary.svelte'
 	import Model3dElevationPreview from './Model3dElevationPreview.svelte'
 	import type { Dir } from './types'
 	import AnnotationLayer from '../../annotations/AnnotationLayer.svelte'
@@ -117,6 +118,12 @@
 	let tool = $state('select')
 	let ctxMenu = $state<{ x: number; y: number } | null>(null) // right-click context menu (group/ungroup/…)
 	let renumberOpen = $state(false)
+	let shapesOpen = $state(false)
+	// Drop a library shape: client point → world-mm in this viewport → place into the annotation layer.
+	function placeShapeDrop(shape: import('../../annotations/shapes/library').LibraryShape, cx: number, cy: number) {
+		const w = annEditor.toWorldXY(cx, cy); if (!w) return
+		annEditor.placeLibraryShape(w, shape)
+	}
 	const newGid = () => 'g' + Math.random().toString(36).slice(2, 9)
 	let viewDen = $state(1)
 	let elevDir = $state<Dir>('front') // direction for the floating elevation preview
@@ -297,7 +304,8 @@
 	</Model3dRender>
 	{#if active}
 		<!-- portalled out of the zoomed canvas so the panels render at normal size -->
-		<div use:portal><Model3dEditPanel {editor} {model} {annEditor} bind:tool /></div>
+		<div use:portal><Model3dEditPanel {editor} {model} {annEditor} bind:tool bind:shapesOpen /></div>
+		{#if shapesOpen}<ShapeLibrary editor={annEditor} bind:open={shapesOpen} ondrop={placeShapeDrop} />{/if}
 		<div use:portal><RenumberDialog editor={annEditor} bind:open={renumberOpen} /></div>
 		{#if ctxMenu}
 			{@const n = selection.count()}
