@@ -244,6 +244,7 @@
 			{@const open = editor.selSection === s.id}
 			{#if !editor.layerHidden(s.layer)}
 			{#if open}
+				<!-- Section box and handles -->
 				<rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} fill="#2563eb" fill-opacity="0.06"
 					stroke="#2563eb" stroke-width={1 / zoom} vector-effect="non-scaling-stroke" stroke-dasharray="{5 / zoom} {3 / zoom}"
 					style:pointer-events="stroke" style:cursor="move" onmousedown={(e: MouseEvent) => editor.startSectionMove(e, s.id)} />

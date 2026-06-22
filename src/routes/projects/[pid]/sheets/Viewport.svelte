@@ -277,7 +277,9 @@
 		// Screen editing affordance: blue when active/selected; otherwise reflect vp.border.
 		active ? 'border border-blue-600 ring-2 ring-inset ring-blue-500/40'
 			: selected ? 'border border-blue-500'
-			: vp.border === 'none' ? '' : 'border border-black',
+			// Always reserve a 1px border (transparent when borderless) so selecting doesn't reflow the
+			// content — box-border makes a newly-added border eat into the content otherwise.
+			: vp.border === 'none' ? 'border border-transparent' : 'border border-black',
 		// Printed frame reflects vp.border only (nothing is selected/active when printing).
 		vp.border === 'none' ? 'print:border-0' : 'print:border print:border-black',
 	]}

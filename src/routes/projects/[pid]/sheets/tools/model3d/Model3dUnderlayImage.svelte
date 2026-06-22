@@ -3,8 +3,8 @@
 <script lang="ts">
 	import { getContext } from 'svelte'
 	import { page } from '$app/state'
-	import type { Firestore } from '$lib/db.svelte'
 	import { PdfState } from '../../../uploads/parts/PdfState.svelte'
+	import type { Firestore } from '$lib/db.svelte'
 	import type { Underlay } from './types'
 	import type { ModelStore } from './models.svelte'
 

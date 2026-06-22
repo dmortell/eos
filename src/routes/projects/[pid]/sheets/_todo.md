@@ -564,3 +564,9 @@ Workflow to renumber items:
 
 
 31. As noted in PROPS.md, migrate outlet.label 'label' field to 'text' field
+
+32. 3d views in sheets tool also need to be able to toggle visibility of layers
+
+33. PDF renderings in floorplans should crop the drawings as defined in the upload tool.
+Or else implement PDF/image cropping in the floorplan/viewports.
+

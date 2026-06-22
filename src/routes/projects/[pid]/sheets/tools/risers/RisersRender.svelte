@@ -90,9 +90,9 @@
 		<rect x="0" y={b.topMm} width={buildingWidthMm} height={b.plenumBottomMm - b.topMm} fill="rgba(120,130,160,0.08)" stroke="rgba(120,130,160,0.3)" stroke-width="0.4" vector-effect="non-scaling-stroke" />
 		<line x1="0" y1={b.plenumBottomMm} x2={buildingWidthMm} y2={b.plenumBottomMm} stroke="rgba(80,90,110,0.6)" stroke-width="0.5" vector-effect="non-scaling-stroke" />
 		{#if b.heights.raisedFloorMm > 0}
-			<rect x="0" y={b.raisedFloorTopMm} width={buildingWidthMm} height={b.slabTopMm - b.raisedFloorTopMm} fill="rgba(160,140,100,0.1)" stroke="rgba(160,140,100,0.3)" stroke-width="0.4" vector-effect="non-scaling-stroke" />
+			<rect x="0" y={b.raisedFloorTopMm} width={buildingWidthMm} height={b.slabTopMm - b.raisedFloorTopMm} fill="rgba(160,140,100,0.0)" stroke="rgba(160,140,100,0.3)" stroke-width="0.4" vector-effect="non-scaling-stroke" />
 		{/if}
-		<rect x="0" y={b.slabTopMm} width={buildingWidthMm} height={b.slabBottomMm - b.slabTopMm} fill="rgba(60,60,70,0.85)" stroke="rgba(20,20,30,0.95)" stroke-width="0.4" vector-effect="non-scaling-stroke" />
+		<rect x="0" y={b.slabTopMm} width={buildingWidthMm} height={b.slabBottomMm - b.slabTopMm} fill="rgba(60,60,70,0.25)" stroke="rgba(20,20,30,0.95)" stroke-width="0.2" vector-effect="non-scaling-stroke" />
 		<text x="-200" y={(b.raisedFloorTopMm + b.plenumBottomMm) / 2} text-anchor="end" dominant-baseline="middle" font-size="280" font-weight="600" fill="#3f3f46">{b.floor}F</text>
 	{/each}
 
@@ -103,9 +103,9 @@
 		{@const w = l.widthMm ?? 450}
 		{@const xLeft = l.xMm - w / 2}
 		{@const stroke = l.color ?? 'rgb(100,70,140)'}
-		<rect x={xLeft} y={span.top} width={w} height={Math.max(100, span.bot - span.top)} fill={hexToRgba(l.color, 0.12)} {stroke} stroke-width="0.6" vector-effect="non-scaling-stroke" />
+		<rect x={xLeft} y={span.top} width={w} height={Math.max(100, span.bot - span.top)} fill={hexToRgba(l.color, 0.12)} {stroke} stroke-width="0.3" vector-effect="non-scaling-stroke" />
 		{#each breaks.filter(br => br.yMm > span.top && br.yMm < span.bot) as br (br.yMm)}
-			<line x1={l.xMm - w / 2 - 80} y1={br.yMm + 180} x2={l.xMm + w / 2 + 80} y2={br.yMm - 180} {stroke} stroke-width="0.6" vector-effect="non-scaling-stroke" />
+			<line x1={l.xMm - w / 2 - 80} y1={br.yMm + 180} x2={l.xMm + w / 2 + 80} y2={br.yMm - 180} {stroke} stroke-width="0.3" vector-effect="non-scaling-stroke" />
 		{/each}
 		<text x={l.xMm} y={span.top - 120} text-anchor="middle" font-size="220" font-weight="700" fill={stroke}>{l.label}</text>
 		{#if l.level !== 'both'}
@@ -121,7 +121,7 @@
 		{#if points}
 			{@const stroke = cableColor(c)}
 			{@const lp = labelPos(points)}
-			<polyline {points} fill="none" {stroke} stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" />
+			<polyline {points} fill="none" {stroke} stroke-width=".6" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" />
 			{#if lp}
 				<text x={lp.x} y={lp.y - 40} text-anchor="middle" font-size="180" font-weight="600" fill={stroke} paint-order="stroke" stroke="rgba(255,255,255,0.85)" stroke-width="60">{c.label || c.type}</text>
 			{/if}
@@ -139,7 +139,7 @@
 			{@const height = Math.max(200, yBot - yTop)}
 			{@const xLeft = room.xMm - room.widthMm / 2}
 			{@const base = room.color ?? (room.kind === 'server' ? '#285aa0' : '#a06e1e')}
-			<rect x={xLeft} y={yTop} width={room.widthMm} {height} fill={hexToRgba(base, 0.18)} stroke={base} stroke-width="0.8" vector-effect="non-scaling-stroke" />
+			<rect x={xLeft} y={yTop} width={room.widthMm} {height} fill={hexToRgba(base, 0.18)} stroke={base} stroke-width="0.4" vector-effect="non-scaling-stroke" />
 			<text x={xLeft + 80} y={yTop + 240} font-size="220" font-weight="700" fill={base} opacity="0.6">{room.kind === 'server' ? 'SER' : 'EPS'}</text>
 			<text x={room.xMm} y={(yTop + yBot) / 2} text-anchor="middle" dominant-baseline="middle" font-size="280" font-weight="700" fill={base}>{room.label}</text>
 		{/if}

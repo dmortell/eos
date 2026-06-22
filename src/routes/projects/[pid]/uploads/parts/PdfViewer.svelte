@@ -718,7 +718,7 @@
 						{@const c = (fileDoc?.pages ?? {})[pageNum]?.crop}
 						{#if c}
 							<rect x={c.x} y={c.y} width={c.width} height={c.height}
-								fill="none" stroke="#3b82f6" stroke-width={1 / zoom} stroke-dasharray="{4 / zoom} {3 / zoom}" opacity="0.5" />
+								fill="none" stroke="#3b82f6" stroke-width={2 / zoom} stroke-dasharray="{4 / zoom} {3 / zoom}" opacity="1" />
 						{/if}
 					{/if}
 				</svg>

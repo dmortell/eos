@@ -35,13 +35,14 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <g class="print:hidden">
+	<!-- handles -->
 	{#each editor.rooms as room (room.id)}
 		{@const b = bandForFloor(bands, room.floor)}
 		{#if b && !offRooms}
 			{@const cy = roomCentreYMm(b)}
 			{@const sel = editor.isSel('room', room.id) || editor.inRoomMulti(room.id)}
 			<!-- centre handle: move (drag between floors / horizontally) -->
-			<circle cx={room.xMm} cy={cy} r={250} fill={sel ? HL : '#2563eb'} fill-opacity="0.55" stroke="#1d4ed8" stroke-width="1" vector-effect="non-scaling-stroke"
+			<circle cx={room.xMm} cy={cy} r={250} fill={sel ? HL : '#2563eb'} fill-opacity="0.55" stroke="#1d4ed8" stroke-width=".2" vector-effect="non-scaling-stroke"
 				style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => downRoom(room, e)} />
 			{#if editor.isSel('room', room.id)}
 				<!-- edge handles: resize width (single selection only) -->
@@ -55,7 +56,7 @@
 	{#each editor.ladders as l (l.id)}
 		{@const b = bandForFloor(bands, Math.max(l.fromFloor, l.toFloor)) ?? bands[0]}
 		{#if b && !offLadders}
-			<circle cx={l.xMm} cy={b.topMm + 200} r={250} fill={editor.isSel('ladder', l.id) || editor.inLadderMulti(l.id) ? HL : '#64468c'} fill-opacity="0.55" stroke="#4c3370" stroke-width="1" vector-effect="non-scaling-stroke"
+			<circle cx={l.xMm} cy={b.topMm + 200} r={250} fill={editor.isSel('ladder', l.id) || editor.inLadderMulti(l.id) ? HL : '#64468c'} fill-opacity="0.55" stroke="#4c3370" stroke-width=".2" vector-effect="non-scaling-stroke"
 				style:pointer-events={pe} style:cursor="ew-resize" onmousedown={(e: MouseEvent) => downLadder(l, e)} />
 		{/if}
 	{/each}
