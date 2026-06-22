@@ -45,6 +45,13 @@
 		if (n) { toast.warning(`Layer "${name}" has ${n} item${n === 1 ? '' : 's'} — move or delete them first.`); return }
 		confirmDelete = id
 	}
+	// Same guard for custom (sheet annotation) layers, keyed on the annotation active layer.
+	function requestDelCustomLayer(id: string, name: string) {
+		if (vps.activeLayerId === id) { toast.error(`Can't delete the active layer "${name}" — make another layer active first.`); return }
+		const n = itemsOnLayer(id)
+		if (n) { toast.warning(`Layer "${name}" has ${n} item${n === 1 ? '' : 's'} — move or delete them first.`); return }
+		confirmDelete = id
+	}
 	function delModelLayer(id: string) {
 		if (!m3dModel || !m3dStore) return
 		m3dModel.layers = (m3dModel.layers ?? []).filter((l) => l.id !== id)
@@ -192,7 +199,7 @@
 							{#if confirmDelete === c.id}
 								<button class="rounded bg-red-600 px-1 text-[10px] leading-tight text-white" title="Confirm delete" onclick={() => { vps.deleteLayer(c.id); confirmDelete = null }}>Del</button>
 							{:else}
-								<button class="text-red-400 hover:text-red-600" title="Delete layer" onclick={() => confirmDelete = c.id}><Icon name="trash" size={11} /></button>
+								<button class="text-red-400 hover:text-red-600" title="Delete layer" onclick={() => requestDelCustomLayer(c.id, c.name)}><Icon name="trash" size={11} /></button>
 							{/if}
 							<button class="shrink-0 rounded p-0.5 text-zinc-600 hover:bg-zinc-100 {cov.hidden ? 'opacity-30' : ''}" title="Show / hide" onclick={() => vps.setLayerOverride(v.id, c.id, { hidden: !cov.hidden })}>
 								<Icon name={cov.hidden ? 'eyeSlash' : 'eye'} size={14} />
