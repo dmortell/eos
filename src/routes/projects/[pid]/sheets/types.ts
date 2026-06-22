@@ -134,7 +134,8 @@ export interface Annotation {
 	flip?: boolean                // mirror the symbol horizontally (e.g. door hinge side)
 	start?: ArrowHead             // line start head
 	end?: ArrowHead               // line end head
-	dash?: DashStyle              // line style
+	dash?: DashStyle              // line style (line/arrow/dimension/rect/ellipse)
+	strokeWidth?: number          // stroke/border weight in drawing-mm (default 0.5); line/arrow/dim/rect/ellipse
 	color?: string                // stroke / border / text color
 	fill?: string                 // shape fill (rect/cloud/callout/symbol); 'none' = unfilled
 	link?: AnnotationLink

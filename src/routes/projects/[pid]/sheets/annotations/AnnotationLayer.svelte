@@ -128,9 +128,9 @@
 				<line x1={b.x} y1={gy} x2={b.x + b.w} y2={gy} stroke={gc} stroke-width=".25" vector-effect="non-scaling-stroke" />
 			{/each}
 		{:else if a.kind === 'rect'}
-			<rect x={b.x} y={b.y} width={b.w} height={b.h} fill={a.fill ?? 'none'} stroke={color} stroke-width=".5" stroke-dasharray={dashArray(a.dash)} vector-effect="non-scaling-stroke" />
+			<rect x={b.x} y={b.y} width={b.w} height={b.h} fill={a.fill ?? 'none'} stroke={color} stroke-width={a.strokeWidth ?? 0.5} stroke-dasharray={dashArray(a.dash)} vector-effect="non-scaling-stroke" />
 		{:else if a.kind === 'ellipse'}
-			<ellipse cx={cx} cy={cy} rx={b.w / 2} ry={b.h / 2} fill={a.fill ?? 'none'} stroke={color} stroke-width=".5" stroke-dasharray={dashArray(a.dash)} vector-effect="non-scaling-stroke" />
+			<ellipse cx={cx} cy={cy} rx={b.w / 2} ry={b.h / 2} fill={a.fill ?? 'none'} stroke={color} stroke-width={a.strokeWidth ?? 0.5} stroke-dasharray={dashArray(a.dash)} vector-effect="non-scaling-stroke" />
 		{:else if a.kind === 'cloud'}
 			{@const r = Math.max(150, Math.min(b.w, b.h) / 6)}
 			<path d={cloudPath(b.x, b.y, b.w, b.h, r)} fill={a.fill ?? 'none'} stroke={color} stroke-width=".5" vector-effect="non-scaling-stroke" />
@@ -214,7 +214,7 @@
 	     dragging the line moves the whole callout (box + arrow tip) together. -->
 	{#if POINTER.has(a.kind) && a.x2 != null}
 		{@const tb = box(a, den)}{@const c = nearestCorner(tb, a.x2, a.y2 ?? a.y)}
-		<line x1={c[0]} y1={c[1]} x2={a.x2} y2={a.y2} stroke={color} style:color={color} stroke-width=".5" stroke-dasharray={dashArray(a.dash)} vector-effect="non-scaling-stroke" marker-end={mk(a.end ?? 'arrow')} />
+		<line x1={c[0]} y1={c[1]} x2={a.x2} y2={a.y2} stroke={color} style:color={color} stroke-width={a.strokeWidth ?? 0.5} stroke-dasharray={dashArray(a.dash)} vector-effect="non-scaling-stroke" marker-end={mk(a.end ?? 'arrow')} />
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<line x1={c[0]} y1={c[1]} x2={a.x2} y2={a.y2} stroke="transparent" stroke-width="200" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e, true)} />
 	{/if}
@@ -225,8 +225,8 @@
 		{@const x2 = a.x2 ?? a.x}{@const y2 = a.y2 ?? a.y}
 		{@const isDim = a.kind === 'dimension'}
 		{@const hd = isDim ? 'arrow' : 'none'}
-		<line x1={a.x} y1={a.y} x2={x2} y2={y2} stroke={color} style:color={color} stroke-width=".5"
-			stroke-dasharray={isDim ? undefined : dashArray(a.dash)} vector-effect="non-scaling-stroke"
+		<line x1={a.x} y1={a.y} x2={x2} y2={y2} stroke={color} style:color={color} stroke-width={a.strokeWidth ?? 0.5}
+			stroke-dasharray={dashArray(a.dash)} vector-effect="non-scaling-stroke"
 			marker-start={mk(a.start ?? hd)} marker-end={mk(a.end ?? hd)} />
 		{@const lbl = isDim ? fmtDim(Math.hypot(x2 - a.x, y2 - a.y)) : (a.text ?? '')}
 		{#if lbl}

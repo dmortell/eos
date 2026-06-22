@@ -233,6 +233,7 @@
 		</PropSelect>
 	{/if}
 	{#if hasLine(sel.kind) || sel.kind === 'rect' || sel.kind === 'ellipse'}
+		<PropText label="Stroke (mm)" type="number" min="0.1" step="0.1" value={String(sel.strokeWidth ?? 0.5)} oninput={(e: Event) => editor.setSel({ strokeWidth: Number(val(e)) || 0.5 })} />
 		<PropSelect label="Dash" value={sel.dash ?? 'solid'} onchange={(e: Event) => editor.setSel({ dash: val(e) as any })}>
 			{#each DASHES as [v, l] (v)}<option value={v}>{l}</option>{/each}
 		</PropSelect>
