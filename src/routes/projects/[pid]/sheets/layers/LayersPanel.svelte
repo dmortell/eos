@@ -81,10 +81,10 @@
 							<input type="color" class="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={l.color}
 								oninput={(e) => { l.color = (e.currentTarget as HTMLInputElement).value; m3dStore?.save() }} />
 						</label>
-						<input class="min-w-0 flex-1 rounded border-transparent bg-transparent px-1 py-0.5 hover:border-zinc-200 focus:border-zinc-300 {ov.hidden ? 'opacity-40' : ''}"
+						<input class="min-w-0 flex-1 rounded border-transparent bg-transparent px-1 py-0.5 hover:border-zinc-200 focus:border-zinc-300"
 							value={l.name} oninput={(e) => { l.name = (e.currentTarget as HTMLInputElement).value; m3dStore?.save() }} />
 						{#if l.id !== 'background'}
-							<button class="shrink-0 rounded px-1 text-[9px] font-semibold {mactive ? 'text-blue-600' : 'text-zinc-300 hover:text-blue-500'}" title="Make active layer (new objects go here)"
+							<button class="shrink-0 rounded px-1 text-[9px] font-semibold {mactive ? 'text-blue-600' : 'text-zinc-600 hover:text-blue-600'}" title="Make active layer (new objects go here)"
 								onclick={() => { if (m3d) { m3d.activeLayer = l.id; vps.notify() } }}>{mactive ? 'ACTIVE' : 'SET'}</button>
 						{/if}
 						<button class="shrink-0 rounded p-0.5 {ov.hidden ? 'text-blue-600' : 'text-zinc-600'} hover:bg-zinc-100" title="Show / hide (this view)" onclick={() => vps.setLayerOverride(v.id, l.id, { hidden: !ov.hidden })}>
@@ -106,7 +106,7 @@
 						{@const ov = v.layerOverrides?.[l.id] ?? {}}
 						<div class="flex items-center gap-1.5 py-0.5 text-xs">
 							<span class="inline-block h-3 w-3 shrink-0 rounded-sm ring-1 ring-zinc-300" style:background={l.color}></span>
-							<span class="min-w-0 flex-1 truncate px-1 {ov.hidden ? 'opacity-40' : ''}">{l.name}</span>
+							<span class="min-w-0 flex-1 truncate px-1">{l.name}</span>
 							<button class="shrink-0 rounded p-0.5 {ov.hidden ? 'text-blue-600' : 'text-zinc-600'} hover:bg-zinc-100" title="Show / hide (this view)" onclick={() => vps.setLayerOverride(v.id, l.id, { hidden: !ov.hidden })}>
 								<Icon name={ov.hidden ? 'eyeSlash' : 'eye'} size={14} />
 							</button>
@@ -134,7 +134,7 @@
 					ondragleave={() => { if (dragOverBase === l.id) dragOverBase = null }}
 					ondrop={(e: DragEvent) => { e.preventDefault(); dropOnBase(l.id) }}>
 					<span class="inline-block h-3 w-3 shrink-0 rounded-sm" style:background={l.color}></span>
-					<button class="flex-1 truncate text-left {ov.hidden ? 'opacity-40' : ''}" title="Make active layer (new objects go here)" onclick={() => vps.setActiveLayer(l.id)}>{l.name}</button>
+					<button class="flex-1 truncate text-left" title="Make active layer (new objects go here)" onclick={() => vps.setActiveLayer(l.id)}>{l.name}</button>
 					{#if active}<span class="text-[9px] font-semibold text-blue-600">ACTIVE</span>{/if}
 					<button class="shrink-0 rounded p-0.5 text-zinc-600 hover:bg-zinc-100 {ov.hidden ? 'opacity-30' : ''}" title="Show / hide" onclick={() => vps.setLayerOverride(v.id, l.id, { hidden: !ov.hidden })}>
 						<Icon name={ov.hidden ? 'eyeSlash' : 'eye'} size={14} />
@@ -159,7 +159,7 @@
 								bind:value={nameBuf} onkeydown={e => { if (e.key === 'Enter') commitRename(); else if (e.key === 'Escape') editingId = null }}
 								onblur={commitRename} />
 						{:else}
-							<button class="min-w-0 flex-1 truncate text-left {cov.hidden ? 'opacity-40' : ''}" title="Make active layer" onclick={() => vps.setActiveLayer(c.id)}>{c.name}</button>
+							<button class="min-w-0 flex-1 truncate text-left" title="Make active layer" onclick={() => vps.setActiveLayer(c.id)}>{c.name}</button>
 							{#if cactive}<span class="text-[9px] font-semibold text-blue-600">ACTIVE</span>{/if}
 							<button class="text-zinc-400 hover:text-blue-600" title="Rename" onclick={() => startRename(c.id, c.name)}><Icon name="edit" size={11} /></button>
 							{#if confirmDelete === c.id}
