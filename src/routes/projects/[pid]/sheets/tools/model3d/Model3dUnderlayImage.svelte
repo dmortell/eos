@@ -63,9 +63,25 @@
 	const rect = $derived(underlay.rect ?? defRect)
 	// Mirror vertically within the rect (file y-down → model y-up).
 	const tf = $derived(rect && underlay.flip ? `matrix(1 0 0 -1 0 ${2 * rect.y + rect.h})` : '')
+
+	// Crop defined in the uploads tool (PDF-point/natural-px space). Expressed as a fraction of the
+	// placed rect so it follows any move/resize of the underlay. Clip the image to it (matching the
+	// outlets floorplan). Computed in the pre-flip space so the clip + image mirror together.
+	const cid = $derived('uclip-' + underlay.id)
+	const cropRect = $derived.by(() => {
+		const c = fileDoc?.pages?.[pageNum]?.crop
+		if (!c || !rect || !pw || !ph) return null
+		return { x: rect.x + (c.x / pw) * rect.w, y: rect.y + (c.y / ph) * rect.h, w: (c.width / pw) * rect.w, h: (c.height / ph) * rect.h }
+	})
 </script>
 
 {#if url && rect}
-	<image href={url} x={rect.x} y={rect.y} width={rect.w} height={rect.h} transform={tf}
-		opacity={underlay.opacity ?? 0.5} preserveAspectRatio="none" style:pointer-events="none" />
+	{#if cropRect}<clipPath id={cid}><rect x={cropRect.x} y={cropRect.y} width={cropRect.w} height={cropRect.h} /></clipPath>{/if}
+	<!-- flip wraps the clipped image so the crop mirrors with it (clip is in pre-flip space) -->
+	<g transform={tf || undefined}>
+		<g clip-path={cropRect ? `url(#${cid})` : undefined}>
+			<image href={url} x={rect.x} y={rect.y} width={rect.w} height={rect.h}
+				opacity={underlay.opacity ?? 0.5} preserveAspectRatio="none" style:pointer-events="none" />
+		</g>
+	</g>
 {/if}

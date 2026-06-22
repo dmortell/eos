@@ -567,6 +567,7 @@ Workflow to renumber items:
 
 32. 3d views in sheets tool also need to be able to toggle visibility of layers
 
-33. PDF renderings in floorplans should crop the drawings as defined in the upload tool.
-Or else implement PDF/image cropping in the floorplan/viewports.
-
+33. ✅ PDF renderings in floorplans crop the drawings as defined in the upload tool.
+    model3d underlays now clip to the page crop (Model3dUnderlayImage), matching the outlets
+    floorplan. Crop is taken as a fraction of the placed rect so it follows move/resize, and the
+    clip is applied in pre-flip space so it mirrors with a flipped underlay.
