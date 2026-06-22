@@ -286,7 +286,8 @@
 			<Model3dEditLayer {editor} {model} direction={src.direction} clip={src.clip ?? null} interactive={tool === 'select'} groupBox={showGroupBox} {zoom} />
 		{/if}
 		<!-- annotations render in real-mm; interactive (select/move) only in Select mode -->
-		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} hidden={annHidden} locked={annLocked} groupBox={showGroupBox} den={viewDen} {zoom} />
+		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} hidden={annHidden} locked={annLocked} groupBox={showGroupBox} den={viewDen} {zoom}
+			objCount={(id) => { const def = model?.layers?.[0]?.id; return (model?.objects ?? []).filter((o) => (o.layer ?? def) === id).length }} />
 		<!-- group transform box: move/resize/rotate a multi-selection or group as one (plan view) -->
 		{#if showGroupBox}
 			<GroupTransformBox {editor} {selection} {zoom} />

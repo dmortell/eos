@@ -43,7 +43,7 @@ function defaults(kind: AnnotationKind, symbol: string, proj: AnnotationDefaults
 			case 'symbol': return symbol === 'outlet' ? { symbol, outlet: { ...OUTLET_DEFAULTS } } : { symbol }
 			case 'rect': case 'ellipse': case 'cloud': return {}
 			case 'grid': return { grid: { size: 500 } }
-			case 'legend': return { legend: { title: 'Legend', showCount: false }, fontPt: 7 }
+			case 'legend': return { legend: { title: 'Legend', showCount: true }, fontPt: 7 }
 			case 'image': return { src: '' }
 			case 'line': return { start: 'none', end: 'none', dash: 'solid' }
 			case 'arrow': return { start: 'none', end: 'arrow', dash: 'solid' }
@@ -363,8 +363,13 @@ export class AnnotationEditor extends SurfaceEditor {
 			if (isLine) { const p1 = sp(a.x, a.y); a.x = p1.x; a.y = p1.y; if (a.x2 != null) { const p2 = sp(a.x2, a.y2 ?? a.y); a.x2 = p2.x; a.y2 = p2.y } }
 			else {
 				const b = bounds(a, 1), nc = sp(b.x + b.w / 2, b.y + b.h / 2)
-				a.x += nc.x - (b.x + b.w / 2); a.y += nc.y - (b.y + b.h / 2)
-				if (a.w != null) a.w = Math.max(1, a.w * sx); if (a.h != null) a.h = Math.max(1, a.h * sy)
+				// New size first, then place the top-left from the scaled CENTRE + new size — otherwise the
+				// anchored (opposite) corner drifts because the centre shift ignores the size change.
+				const nw = a.w != null ? Math.max(1, a.w * sx) : b.w
+				const nh = a.h != null ? Math.max(1, a.h * sy) : b.h
+				if (a.w != null) a.w = nw
+				if (a.h != null) a.h = nh
+				a.x = nc.x - nw / 2; a.y = nc.y - nh / 2
 				if (a.x2 != null) { const p = sp(a.x2, a.y2 ?? a.y); a.x2 = p.x; a.y2 = p.y } // callout pointer
 			}
 		}

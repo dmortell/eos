@@ -15,7 +15,7 @@
 	// `hidden` / `locked` are the viewport's off-layer id lists; each annotation is filtered by its
 	// own layer (custom or the default 'annotations'), so annotations on different layers toggle
 	// independently.
-	let { editor, interactive = false, hidden = [], locked = [], groupBox = false, den = 1, zoom = 1 }: { editor: AnnotationEditor; interactive?: boolean; hidden?: string[]; locked?: string[]; groupBox?: boolean; den?: number; zoom?: number } = $props()
+	let { editor, interactive = false, hidden = [], locked = [], groupBox = false, den = 1, zoom = 1, objCount }: { editor: AnnotationEditor; interactive?: boolean; hidden?: string[]; locked?: string[]; groupBox?: boolean; den?: number; zoom?: number; objCount?: (layerId: string) => number } = $props()
 
 	const HL = '#2563eb' // blue, matching object selection
 	// Zoom-counter-scaled stroke so the multi-select box matches TransformBox exactly.
@@ -137,11 +137,11 @@
 			{@const pad = fm * 0.6}{@const rh = fm * 1.5}
 			{@const maxRows = Math.max(0, Math.floor((b.h - pad - rh) / rh))}
 			<rect x={b.x} y={b.y} width={b.w} height={b.h} fill={a.fill ?? 'white'} fill-opacity={a.fill ? undefined : 0.92} stroke={color} stroke-width={a.strokeWidth ?? 0.5} vector-effect="non-scaling-stroke" />
-			{@render caption({ x: b.x + pad, y: b.y + pad + fm * 0.95, size: fm * 1.1, fill: color, weight: 700, text: lg.title || 'Legend' })}
+			{@render caption({ x: b.x + pad, y: b.y + pad + fm * 0.95, size: fm * 1.1, fill: color, weight: 700, anchor: 'start', text: lg.title || 'Legend' })}
 			{#each rows.slice(0, maxRows) as l, i (l.id)}
 				{@const ry = b.y + pad + rh * (i + 1)}
 				<rect x={b.x + pad} y={ry + rh * 0.1} width={fm} height={fm} fill={l.color} stroke={color} stroke-width=".2" vector-effect="non-scaling-stroke" />
-				{@render caption({ x: b.x + pad + fm * 1.6, y: ry + fm, size: fm, fill: color, text: lg.showCount ? `${l.name} (${lyrCount(l.id)})` : l.name })}
+				{@render caption({ x: b.x + pad + fm * 1.6, y: ry + fm, size: fm, fill: color, anchor: 'start', text: lg.showCount === false ? l.name : `${l.name} (${(objCount?.(l.id) ?? 0) + lyrCount(l.id)})` })}
 			{/each}
 		{:else if a.kind === 'rect'}
 			<rect x={b.x} y={b.y} width={b.w} height={b.h} fill={a.fill ?? 'none'} stroke={color} stroke-width={a.strokeWidth ?? 0.5} stroke-dasharray={dashArray(a.dash)} stroke-linecap={dashCap(a.dash)} vector-effect="non-scaling-stroke" />
