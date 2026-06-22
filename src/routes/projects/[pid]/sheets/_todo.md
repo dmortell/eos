@@ -488,7 +488,7 @@ Fold the three rack property editors (Sheets viewport / outlets tool / racks too
      note (form.modelClip still flows through buildSource so existing clips work). Decide: delete it,
      or keep as the manual clip editor alongside the "Section → elevation" tool.
 
-24b. Section ↔ elevation linking: auto-link a section tag to its elevation viewport (auto-fill drawing/viewport no. from sheet placement, Revit-style) + a plan↔elevation jump button. (Was marked TODO when the section tool was built.)
+24b. ❌ CLOSED (not required) — Section ↔ elevation auto-linking / jump button.
 
 24c. Outlet auto-layer: file new outlet annotations onto an "Outlets Low"/"Outlets High" layer by
      level automatically (outletLayerName helper exists; not wired). Currently land on the active
@@ -502,10 +502,7 @@ Fold the three rack property editors (Sheets viewport / outlets tool / racks too
      one (each editor checkpoints via beforeMutate). Centralise the checkpoint in the coordinator if
      it becomes annoying.
 
-24f. Refactor text box + callout to share code. They now both auto-size (geometry.box) and share
-     text/font/align props; the rendering (AnnotationLayer text vs callout branches) and the
-     controls still duplicate. Extract a shared text-block render + a shared props group; callout
-     adds the leader pointer + border toggle on top. (See PROPS.md merge note.)
+24f. ✅ Refactored text box + callout to share code (shared text-block render + props group).
 
 
 24g. Allow the size of line endpoints (arrows, dots, ticks) to be specified for all line types in props and project defaults.
@@ -570,8 +567,8 @@ What should the section tag show + reference?
     floorplan. Crop is taken as a fraction of the placed rect so it follows move/resize, and the
     clip is applied in pre-flip space so it mirrors with a flipped underlay.
 
-34. Dash/dot strokes to be view scale dependent.
-Options are to scale by drawing units (print correct), screen-constant density, or drawing units + width-proportional.
+34. ✅ Dash/dot stroke scaling decided — drawing units (print-correct); dashes magnify with zoom,
+    consistent on the printed sheet. (Chose this over screen-constant / width-proportional.)
 
 35. Need a legend annote.
 Can it be auto populated based on the layers/symbols in the drawing? With visibiility toggles for user to select ones to hide/show. And options to show the items count.
@@ -580,4 +577,43 @@ Can it be auto populated based on the layers/symbols in the drawing? With visibi
 
 User should be able to drag shapes from the library to the view.
 User should be able to drag a grouped shape from the view to the library (or use a context menu), and enter a name for the shape.
-We might want to tag or categorize shapes into groups (network, cabling, racks, furniture, etc) for when the list grows long. And a search
+We might want to tag or categorize shapes into groups (network, cabling, racks, furniture, etc) for when the list grows long. And a search.
+Needs to handle both objects and annotes.
+
+37. Add a table annote
+Needs insert/delete rows/cols.
+Need to be able to merge/unmerge rows/cols.
+Needs a cell editor to edit text in cells.
+Can it be done in markdown with a markdown renderer? Or do we need a full excel-like editor?
+
+
+
+Here are the outstanding todos (the H-list is mostly done — only H11 remains; these are the open numbered items):
+
+Quick / standalone
+
+- 24b — Section ↔ elevation linking: auto-fill the section tag's drawing/viewport number from sheet placement (Revit-style) + a plan↔elevation jump button.
+- 24f — Refactor text-box + callout to share render + controls code (they already share auto-size + props).
+- 24g — Let line endpoint sizes (arrows, dots, ticks) be set in props + project defaults.
+- 35 — Legend annotation.
+- 34 — "Dash/dot strokes view-scale dependent" — note this contradicts the drawing-units choice you just made; probably close it or redefine.
+- 27 — Investigate whether the JSON echo-guard is still necessary (Firestore is local-first).
+- H11 — Snap line endpoints to other endpoints / connection points (deferred, complex).
+
+Medium features
+
+- 26 — Polygon annotation (regular + node-based irregular, like walls/conduits).
+- 28 — Grid as a clip-path polygon so it can cover a floorplan; allow rotation.
+- 36 — Build a shape library (you mentioned you have reference code for Firestore storage).
+- 3 — Revisions: track published packages + revision history on the sheet list.
+- 4 — Copy/paste viewports from other projects / browser tabs.
+- 14 — Wall elevations.
+
+Section references (item 7)
+
+- 7a — Circular section marker with up to 4 directional triangles carrying sheet-vp references.
+- 7b — Section line with perpendicular arrow ticks (view width/direction) + non-printing horizon backplane.
+
+Large integration work (item 5 — original tools → Sheets)
+
+- 5b Outlets, 5c Trunks, 5d Elevations, 5e Viewports polish, 5g Frames (port-label integration), 5h Patching, plus 5a6 (tool objects get per-object layerId/visibility).

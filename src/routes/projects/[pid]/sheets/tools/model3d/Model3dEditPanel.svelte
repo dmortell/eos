@@ -54,7 +54,7 @@
 
 	<!-- Annotations: live kinds as direct buttons + the shared property editor -->
 	<AnnotationControls bind:tool editor={annEditor} showSelect={true}
-		tools={['text', 'line', 'rect', 'arrow', 'ellipse', 'outlet', 'cloud', 'callout', 'dimension', 'grid', 'symbol']} />
+		tools={['text', 'line', 'rect', 'arrow', 'ellipse', 'outlet', 'cloud', 'callout', 'dimension', 'grid', 'legend', 'symbol']} />
 	<hr class="my-1 border-zinc-200" />
 
 	{#if editor.multi.length > 1}

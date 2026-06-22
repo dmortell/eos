@@ -7,7 +7,7 @@ export const PT = 25.4 / 72
 export type Box = { x: number; y: number; w: number; h: number }
 
 /** Box-shaped kinds carry x,y (top-left) + w,h; line kinds use x,y + x2,y2. */
-export const BOX_KINDS = new Set(['text', 'rect', 'ellipse', 'cloud', 'symbol', 'callout', 'image', 'grid'])
+export const BOX_KINDS = new Set(['text', 'rect', 'ellipse', 'cloud', 'symbol', 'callout', 'image', 'grid', 'legend'])
 export const isBox = (a: Annotation) => BOX_KINDS.has(a.kind)
 export const fontMmOf = (a: Annotation, den: number) => (a.fontPt ?? 8) * PT * (den || 1)
 

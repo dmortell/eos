@@ -37,6 +37,7 @@
 		['callout', 'Callout'], ['dimension', 'Dim'],
 		['image', 'Image'],
 		['grid', 'Grid'],
+		['legend', 'Legend'],
 		['outlet', 'Outlet'],
 		['symbol', 'Symbol'],
 	]
@@ -222,6 +223,23 @@
 		<PropText label="Tile size (mm)" type="number" min="1" value={String(sel.grid?.size ?? 500)} oninput={(e: Event) => editor.setGrid({ size: Number(val(e)) || 500 })} />
 		<PropText label="Offset X (mm)" type="number" value={String(sel.grid?.ox ?? 0)} oninput={(e: Event) => editor.setGrid({ ox: Number(val(e)) || 0 })} />
 		<PropText label="Offset Y (mm)" type="number" value={String(sel.grid?.oy ?? 0)} oninput={(e: Event) => editor.setGrid({ oy: Number(val(e)) || 0 })} />
+	{/if}
+	{#if sel.kind === 'legend'}
+		{@const lg = sel.legend ?? {}}
+		{@const exc = new Set(lg.exclude ?? [])}
+		{@const setLg = (p: Record<string, unknown>) => editor.setSel({ legend: { ...lg, ...p } })}
+		<PropText label="Title" value={lg.title ?? 'Legend'} oninput={(e: Event) => setLg({ title: val(e) })} />
+		<PropCheck label="Show counts" value={!!lg.showCount} onchange={(e: Event) => setLg({ showCount: (e.currentTarget as HTMLInputElement).checked })} />
+		<div class="mt-1 text-[11px] text-zinc-400">Layers shown (auto)</div>
+		<div class="max-h-40 overflow-auto rounded border border-zinc-200">
+			{#each editor.layers as l (l.id)}
+				<label class="flex items-center gap-1.5 px-1 py-0.5 text-xs hover:bg-slate-50">
+					<input type="checkbox" checked={!exc.has(l.id)} onchange={(e: Event) => { const s = new Set(lg.exclude ?? []); if ((e.currentTarget as HTMLInputElement).checked) s.delete(l.id); else s.add(l.id); setLg({ exclude: [...s] }) }} />
+					<span class="inline-block h-2.5 w-2.5 shrink-0 rounded-sm ring-1 ring-zinc-300" style:background={l.color}></span>
+					<span class="truncate">{l.name}</span>
+				</label>
+			{/each}
+		</div>
 	{/if}
 	{#if hasLine(sel.kind)}
 		{@const headDflt = sel.kind === 'dimension' ? 'arrow' : 'none'}

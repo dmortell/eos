@@ -97,7 +97,7 @@ export type ViewportSource =
  *  - Box kinds (text/rect/cloud/symbol/callout): x,y = top-left, w,h = size, rotation° about centre.
  *  - Line kinds (line/dimension/leader, legacy arrow): x,y = start, x2,y2 = end.
  *  - Callout/leader also use x2,y2 as the pointer target. */
-export type AnnotationKind = 'text' | 'line' | 'rect' | 'ellipse' | 'cloud' | 'symbol' | 'callout' | 'dimension' | 'arrow' | 'image' | 'grid'
+export type AnnotationKind = 'text' | 'line' | 'rect' | 'ellipse' | 'cloud' | 'symbol' | 'callout' | 'dimension' | 'arrow' | 'image' | 'grid' | 'legend'
 export type ArrowHead = 'none' | 'arrow' | 'dot' | 'tick'
 export type DashStyle = 'solid' | 'dashed' | 'dotted' | 'dashdot'
 export type TextAlign = 'left' | 'center' | 'right'
@@ -153,6 +153,9 @@ export interface Annotation {
 	// Floor-grid (kind:'grid'): tiles of `size` mm filling the box, aligned to the building
 	// origin shifted by ox/oy so the grid lines up with the real floor tiles.
 	grid?: { size: number; ox?: number; oy?: number }
+	// Legend (kind:'legend'): a titled box that auto-lists the drawing's layers (colour swatch +
+	// name). `exclude` drops layer ids from the list; `showCount` appends each layer's item count.
+	legend?: { title?: string; exclude?: string[]; showCount?: boolean }
 }
 
 export type OutletLevel = 'low' | 'high'

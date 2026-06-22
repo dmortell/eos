@@ -24,7 +24,7 @@
 	const lyrOf = (a: Annotation) => a.layerId ?? 'annotations'
 	const isLocked = (a: Annotation) => locked.includes(lyrOf(a))
 
-	const BOX = new Set(['text', 'rect', 'ellipse', 'cloud', 'symbol', 'callout', 'image', 'grid'])
+	const BOX = new Set(['text', 'rect', 'ellipse', 'cloud', 'symbol', 'callout', 'image', 'grid', 'legend'])
 	const POINTER = new Set(['callout']) // box kinds that also have a pointer target
 	const LINE = new Set(['line', 'arrow', 'dimension'])
 	const isBoxKind = (a: Annotation) => BOX.has(a.kind)
@@ -50,6 +50,8 @@
 		e.stopPropagation(); editor.requestTextFocus(a)
 	}
 	const HAS_TEXT = new Set(['text', 'callout'])
+	// Legend (kind:'legend'): auto-rows from the layers; count = annotations filed on each layer.
+	const lyrCount = (id: string) => editor.annotations.filter((x) => (x.layerId ?? 'annotations') === id).length
 	const mk = (h?: string) => (h && h !== 'none' ? `url(#${mid}-${h})` : undefined)
 	// Grid line positions: multiples of `size` (+ offset, aligned to the building origin) inside [start, start+len].
 	const gridLines = (start: number, len: number, size: number, off: number) => {
@@ -126,6 +128,20 @@
 			{/each}
 			{#each gridLines(b.y, b.h, gs, a.grid?.oy ?? 0) as gy (gy)}
 				<line x1={b.x} y1={gy} x2={b.x + b.w} y2={gy} stroke={gc} stroke-width=".25" vector-effect="non-scaling-stroke" />
+			{/each}
+		{:else if a.kind === 'legend'}
+			{@const lg = a.legend ?? {}}
+			{@const exc = new Set(lg.exclude ?? [])}
+			{@const rows = editor.layers.filter((l) => !exc.has(l.id))}
+			{@const fm = fontMmOf(a, den)}
+			{@const pad = fm * 0.6}{@const rh = fm * 1.5}
+			{@const maxRows = Math.max(0, Math.floor((b.h - pad - rh) / rh))}
+			<rect x={b.x} y={b.y} width={b.w} height={b.h} fill={a.fill ?? 'white'} fill-opacity={a.fill ? undefined : 0.92} stroke={color} stroke-width={a.strokeWidth ?? 0.5} vector-effect="non-scaling-stroke" />
+			{@render caption({ x: b.x + pad, y: b.y + pad + fm * 0.95, size: fm * 1.1, fill: color, weight: 700, text: lg.title || 'Legend' })}
+			{#each rows.slice(0, maxRows) as l, i (l.id)}
+				{@const ry = b.y + pad + rh * (i + 1)}
+				<rect x={b.x + pad} y={ry + rh * 0.1} width={fm} height={fm} fill={l.color} stroke={color} stroke-width=".2" vector-effect="non-scaling-stroke" />
+				{@render caption({ x: b.x + pad + fm * 1.6, y: ry + fm, size: fm, fill: color, text: lg.showCount ? `${l.name} (${lyrCount(l.id)})` : l.name })}
 			{/each}
 		{:else if a.kind === 'rect'}
 			<rect x={b.x} y={b.y} width={b.w} height={b.h} fill={a.fill ?? 'none'} stroke={color} stroke-width={a.strokeWidth ?? 0.5} stroke-dasharray={dashArray(a.dash)} stroke-linecap={dashCap(a.dash)} vector-effect="non-scaling-stroke" />

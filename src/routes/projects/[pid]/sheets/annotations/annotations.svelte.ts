@@ -11,7 +11,7 @@ export type AnnTool = 'select' | AnnotationKind
 
 // Kinds placed by a single click (a default-sized box); the rest are dragged out.
 const CLICK_KINDS = new Set<AnnotationKind>(['text', 'symbol'])
-const BOX_DRAG = new Set<AnnotationKind>(['rect', 'ellipse', 'cloud', 'image', 'grid'])
+const BOX_DRAG = new Set<AnnotationKind>(['rect', 'ellipse', 'cloud', 'image', 'grid', 'legend'])
 // Minimum drawn size (world-mm) for box-drag kinds, so a click / tiny drag still yields a usable
 // shape rather than a near-zero one.
 const MIN_BOX: Partial<Record<AnnotationKind, number>> = { cloud: 500 }
@@ -43,6 +43,7 @@ function defaults(kind: AnnotationKind, symbol: string, proj: AnnotationDefaults
 			case 'symbol': return symbol === 'outlet' ? { symbol, outlet: { ...OUTLET_DEFAULTS } } : { symbol }
 			case 'rect': case 'ellipse': case 'cloud': return {}
 			case 'grid': return { grid: { size: 500 } }
+			case 'legend': return { legend: { title: 'Legend', showCount: false }, fontPt: 7 }
 			case 'image': return { src: '' }
 			case 'line': return { start: 'none', end: 'none', dash: 'solid' }
 			case 'arrow': return { start: 'none', end: 'arrow', dash: 'solid' }
