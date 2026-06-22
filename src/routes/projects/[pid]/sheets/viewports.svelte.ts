@@ -86,6 +86,26 @@ export class ViewportEditor {
 	/** Notify the host that the model changed (debounced-save lives in SheetEditor). */
 	notify() { this.onChange?.() }
 
+	// ── sheet-level undo/redo for viewport geometry + add/delete/paste/duplicate ──
+	// (the per-viewport tool history handles content edits inside an ACTIVE viewport instead).
+	#undo: string[] = []
+	#redo: string[] = []
+	#vpSnap() { return JSON.stringify($state.snapshot(this.viewports)) }
+	/** Snapshot the current viewports BEFORE a mutation (move/resize/add/delete/…). */
+	checkpoint() { this.#undo.push(this.#vpSnap()); if (this.#undo.length > 80) this.#undo.shift(); this.#redo = [] }
+	/** Undo a checkpoint that turned out to be a no-op (e.g. a click that didn't drag). */
+	cancelCheckpoint() { this.#undo.pop() }
+	canUndo() { return this.#undo.length > 0 }
+	canRedo() { return this.#redo.length > 0 }
+	undo() { if (!this.#undo.length) return; this.#redo.push(this.#vpSnap()); this.#applyVpSnap(this.#undo.pop()!) }
+	redo() { if (!this.#redo.length) return; this.#undo.push(this.#vpSnap()); this.#applyVpSnap(this.#redo.pop()!) }
+	#applyVpSnap(json: string) {
+		this.viewports = JSON.parse(json)
+		this.activeId = null
+		this.selectedIds = this.selectedIds.filter((id) => this.viewports.some((v) => v.id === id))
+		this.notify(); this.notifyLayers?.()
+	}
+
 	// ── client px → paper mm (paper child coords = mm; Canvas world unit = 1mm) ──
 	toPaper(cx: number, cy: number): Pt | null {
 		const el = this.paper; if (!el) return null
@@ -106,6 +126,8 @@ export class ViewportEditor {
 	}
 	clearSel() { this.selectedIds = [] }
 	deleteSelected() {
+		if (!this.selectedIds.length) return
+		this.checkpoint()
 		const gone = new Set(this.selectedIds)
 		this.viewports = this.viewports.filter(v => !gone.has(v.id))
 		if (this.activeId && gone.has(this.activeId)) this.activeId = null
@@ -154,6 +176,7 @@ export class ViewportEditor {
 	/** Set a viewport's paper scale (0 = Fit). Used by the frame toolbar's scale picker. */
 	setScale(id: string, scale: number) {
 		const v = this.viewports.find(x => x.id === id); if (!v) return
+		this.checkpoint()
 		v.scale = scale || 0
 		this.notify()
 	}
@@ -218,6 +241,7 @@ export class ViewportEditor {
 	/** Paste the clipboard viewports into this sheet (new ids, nudged so they're visible). */
 	pasteClipboard() {
 		if (!vpClipboard.length) return
+		this.checkpoint()
 		const D = 10
 		const copies = vpClipboard.map(v => ({ ...structuredClone(v), id: this.uid('V'), x: v.x + D, y: v.y + D }))
 		this.viewports.push(...copies)
@@ -228,6 +252,7 @@ export class ViewportEditor {
 	duplicateSelected() {
 		const sel = this.viewports.filter(v => this.selectedIds.includes(v.id))
 		if (!sel.length) return
+		this.checkpoint()
 		const D = 10
 		const copies = sel.map(v => ({ ...structuredClone($state.snapshot(v)) as SheetViewport, id: this.uid('V'), x: v.x + D, y: v.y + D }))
 		this.viewports.push(...copies)
@@ -236,6 +261,7 @@ export class ViewportEditor {
 	}
 
 	addViewport(r: Rect) {
+		this.checkpoint()
 		// New viewports start as an (empty) text note — they show the "Empty — choose source"
 		// placeholder until the user types or picks a real source from the Type dropdown.
 		const v: SheetViewport = { id: this.uid('V'), ...r, source: { kind: 'text', content: '' }, border: 'thin', version: 2 }

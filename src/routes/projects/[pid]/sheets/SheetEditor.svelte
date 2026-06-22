@@ -211,6 +211,9 @@
 				// Ctrl-C/V for their own annotations). Cut/Copy/Duplicate need a selection; Paste doesn't.
 				if ((e.ctrlKey || e.metaKey) && !isField(e.target) && !vps.activeId) {
 					const k = e.key.toLowerCase()
+					// Undo/redo of sheet-level viewport geometry (move/resize/add/delete/paste/dup).
+					if (k === 'z') { e.preventDefault(); if (e.shiftKey) vps.redo(); else vps.undo(); return }
+					if (k === 'y') { e.preventDefault(); vps.redo(); return }
 					if (k === 'c' && vps.selectedIds.length) { e.preventDefault(); vps.copySelected(); return }
 					if (k === 'x' && vps.selectedIds.length) { e.preventDefault(); vps.cutSelected(); return }
 					if (k === 'v') { e.preventDefault(); vps.pasteClipboard(); return }

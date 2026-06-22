@@ -55,6 +55,7 @@
 		vps.select(vp.id)
 		const rect = el.getBoundingClientRect()
 		drag = { mode, mx: e.clientX, my: e.clientY, x0: vp.x, y0: vp.y, w0: vp.w, h0: vp.h, scale: vp.w > 0 ? rect.width / vp.w : 1, moved: mode !== 'move' }
+		vps.checkpoint() // snapshot for undo; cancelled in onUp if the gesture didn't actually change anything
 		window.addEventListener('mousemove', onMove)
 		window.addEventListener('mouseup', onUp)
 	}
@@ -120,6 +121,7 @@
 		window.removeEventListener('mousemove', onMove)
 		window.removeEventListener('mouseup', onUp)
 		if (moved) vps.notify() // geometry changed → persist (Stage C)
+		else vps.cancelCheckpoint() // no real move (e.g. a click) → drop the undo snapshot
 	}
 	$effect(() => () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) })
 
