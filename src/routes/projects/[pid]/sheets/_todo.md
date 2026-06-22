@@ -457,7 +457,7 @@ Next debugging ideas (need a real iPad + remote Safari Web Inspector from a Mac 
 
 Risers
 
-20b — Building floors setup dialog (medium, high value)
+20b. Building floors setup dialog (medium, high value)
 A dialog to define the building's floors: enter # of floors above/below ground, pick a label format (L01 / 1F / 01F / …), mark floors that don't physically exist (e.g. no 4F/13F), then per riser viewport choose which floors to include — with hidden floors shown as break/cut lines. Self-contained dialog + a floor model on the project doc; unblocks proper riser drawings.
 
 Surveys
@@ -467,18 +467,19 @@ Rework the non-intuitive survey flow: on user enter a description and markpositi
 report. Biggest of these and its own domf.
 
 Outlets
-                                                                                                             5b3 — Outlets list + Excel export (mediu
+
+5b3. Outlets list + Excel export (medium)
 Bring the outlets list + Excel export into Sheets as a sidebar/menu (explicitly not in the viewport). Reuses the existing standalone tool's export lort a usable data view.
 
 Elevations
 
-5d5 — Draw trunks in elevations (medium)
+5d5. Draw trunks in elevations (medium)
 Let the user draw horizontal + vertical trunks in a rack elevation to add detail to the floorplan trunks.
 Extends the racks elevation editor with
 
 Shared / refactor
 
-5b6 — Unify the rack property editors (m
+5b6. Unify the rack property editors
 Fold the three rack property editors (Sheets viewport / outlets tool / racks tool) into one shared component, keeping all advanced functionality. Cuts the racks-viewport parity work (item22) you're doing.
 
 24. Outstanding from the selection / model3d refactor work (deferred by decision)
@@ -487,9 +488,7 @@ Fold the three rack property editors (Sheets viewport / outlets tool / racks too
      note (form.modelClip still flows through buildSource so existing clips work). Decide: delete it,
      or keep as the manual clip editor alongside the "Section → elevation" tool.
 
-24b. Section ↔ elevation linking: auto-link a section tag to its elevation viewport (auto-fill
-     drawing/viewport no. from sheet placement, Revit-style) + a plan↔elevation jump button. (Was
-     marked TODO when the section tool was built.)
+24b. Section ↔ elevation linking: auto-link a section tag to its elevation viewport (auto-fill drawing/viewport no. from sheet placement, Revit-style) + a plan↔elevation jump button. (Was marked TODO when the section tool was built.)
 
 24c. Outlet auto-layer: file new outlet annotations onto an "Outlets Low"/"Outlets High" layer by
      level automatically (outletLayerName helper exists; not wired). Currently land on the active
@@ -541,7 +540,9 @@ Fix: switched the sheet load to the same JSON-echo guard — skip our own write,
 
 29c. ✅ Ctrl+A selects all visible + unlocked items (SurfaceEditor.selectAllVisible → coordinator).
 
-29d. Logo image resize handles difficult to see, implement a selection box with full handles when selected
+29d. ✅ Logo resize — click a title-block logo to select it → blue selection box + 8 handles
+     (replacing the tiny corner grip). Height-only/aspect-locked, so any handle drags vertically;
+     click outside to deselect; selection chrome is print:hidden. (TitleBlock.svelte)
 
 
 What should the section tag show + reference?
@@ -568,3 +569,15 @@ What should the section tag show + reference?
     model3d underlays now clip to the page crop (Model3dUnderlayImage), matching the outlets
     floorplan. Crop is taken as a fraction of the placed rect so it follows move/resize, and the
     clip is applied in pre-flip space so it mirrors with a flipped underlay.
+
+34. Dash/dot strokes to be view scale dependent.
+Options are to scale by drawing units (print correct), screen-constant density, or drawing units + width-proportional.
+
+35. Need a legend annote.
+Can it be auto populated based on the layers/symbols in the drawing? With visibiility toggles for user to select ones to hide/show. And options to show the items count.
+
+36. Build a library of shapes (do we have one already? if not let me know, I have reference code somewhere with details on how they are stored in firestore)
+
+User should be able to drag shapes from the library to the view.
+User should be able to drag a grouped shape from the view to the library (or use a context menu), and enter a name for the shape.
+We might want to tag or categorize shapes into groups (network, cabling, racks, furniture, etc) for when the list grows long. And a search
