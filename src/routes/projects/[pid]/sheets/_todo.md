@@ -253,7 +253,8 @@ The sheets list should show the latest version by default, but maybe a dropdown 
 
 7. Implement section references as annotes.
 I've seen two types:
-7a. Circles with up to 4 triangles (north, south, east, west) with a sheet-vp number indicating the sheet and vp to refer to. I dont remember if one number pre triangle (will it fit?)
+7a. ✅ Circular section/elevation marker with up to 4 directional triangles (N/S/E/W), each carrying
+    a sheet-vp reference number.
 7b. A line with two perpendicular arrowheaded ticks indicating the viewpoint width and direction on a floorplan. A non-printing dotted backplane indicates the horizon, how far away from the line objects will be rendered in the elevation/section. The line is labeled with sheet-vp number of the section rendering.
 
 8. Copy/cut & paste viewports to other sheets (or duplicate on current sheet)   ✅
