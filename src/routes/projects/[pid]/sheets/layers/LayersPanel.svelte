@@ -29,14 +29,20 @@
 		m3dModel.layers.push({ id: mUid(), name: `Layer ${m3dModel.layers.length + 1}`, color: '#888888', visible: true, locked: false })
 		m3dStore.save()
 	}
-	const objCountOnLayer = (id: string) => (m3dModel?.objects ?? []).filter((o) => (o.layer ?? '') === id).length
+	// Count everything filed on a layer: model objects + annotations (lines/dims/etc. across every
+	// viewport — annotations can be assigned to a model layer via their Layer dropdown).
+	const itemsOnLayer = (id: string) => {
+		const objs = (m3dModel?.objects ?? []).filter((o) => (o.layer ?? '') === id).length
+		const anns = (vps.viewports ?? []).reduce((n, v) => n + (v.annotations ?? []).filter((a) => a.layerId === id).length, 0)
+		return objs + anns
+	}
 	const effectiveActiveLayer = () => m3d?.activeLayer ?? m3dModel?.layers?.find((x) => x.id !== 'background')?.id
 	// Click the trash → guard, then reveal the inline confirm only if the layer is actually deletable.
 	function requestDelModelLayer(id: string, name: string) {
 		if ((m3dModel?.layers?.length ?? 0) <= 1) return
 		if (id === effectiveActiveLayer()) { toast.error(`Can't delete the active layer "${name}" — make another layer active first.`); return }
-		const n = objCountOnLayer(id)
-		if (n) { toast.warning(`Layer "${name}" has ${n} object${n === 1 ? '' : 's'} — move or delete them first.`); return }
+		const n = itemsOnLayer(id)
+		if (n) { toast.warning(`Layer "${name}" has ${n} item${n === 1 ? '' : 's'} — move or delete them first.`); return }
 		confirmDelete = id
 	}
 	function delModelLayer(id: string) {
