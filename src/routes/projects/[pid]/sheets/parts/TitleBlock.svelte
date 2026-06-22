@@ -226,7 +226,34 @@
 		window.removeEventListener('mousemove', onLogoMove)
 		window.removeEventListener('mouseup', onLogoUp)
 	}
+
+	// 29d: click a logo to select it → show a selection box with full handles (height resize, aspect
+	// locked, so any handle drags vertically). Much clearer than the old tiny corner grip.
+	let logoSel = $state<'logo' | 'company' | null>(null)
+	const LOGO_HANDLES = [
+		{ x: '0%', y: '0%', cur: 'nwse-resize' }, { x: '50%', y: '0%', cur: 'ns-resize' }, { x: '100%', y: '0%', cur: 'nesw-resize' },
+		{ x: '0%', y: '50%', cur: 'ew-resize' }, { x: '100%', y: '50%', cur: 'ew-resize' },
+		{ x: '0%', y: '100%', cur: 'nesw-resize' }, { x: '50%', y: '100%', cur: 'ns-resize' }, { x: '100%', y: '100%', cur: 'nwse-resize' },
+	]
+	$effect(() => {
+		if (!logoSel) return
+		const onDown = (e: MouseEvent) => { if (!(e.target as HTMLElement)?.closest?.('.tb-logo')) logoSel = null }
+		window.addEventListener('mousedown', onDown, true)
+		return () => window.removeEventListener('mousedown', onDown, true)
+	})
 </script>
+
+{#snippet logoSelOverlay(which: 'logo' | 'company', getImg: () => HTMLImageElement | undefined)}
+	{#if onlogoresize && logoSel === which}
+		<div class="pointer-events-none absolute inset-0 z-10 border border-blue-500 print:hidden"></div>
+		{#each LOGO_HANDLES as h (h.x + h.y)}
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div class="pointer-events-auto absolute z-10 -translate-x-1/2 -translate-y-1/2 border border-blue-500 bg-white print:hidden"
+				style:width="{gripMm}px" style:height="{gripMm}px" style:left={h.x} style:top={h.y} style:cursor={h.cur}
+				onmousedown={(e: MouseEvent) => { const img = getImg(); if (img) startLogoResize(which, e, img) }}></div>
+		{/each}
+	{/if}
+{/snippet}
 
 {#snippet cell(c: Cell)}
 	<div class="p-1 flex flex-col min-w-0 overflow-hidden">
@@ -257,13 +284,11 @@
 				<div class="p-1 flex flex-col items-center gap-0.5 overflow-hidden">
 					{#if fCoLogo}
 						{@const ch = hCompany}
-						<div class="relative inline-block">
+						<!-- svelte-ignore a11y_no_static_element_interactions -->
+						<div class="tb-logo relative inline-block" style:cursor={onlogoresize ? 'pointer' : undefined}
+							onmousedown={(e: MouseEvent) => { if (onlogoresize) { e.stopPropagation(); logoSel = 'company' } }}>
 							<img bind:this={coImg} src={fCoLogo} alt="company logo" class="w-auto object-contain {ch ? '' : 'max-h-8'}" style:height={ch ? `${ch}px` : undefined} draggable="false" />
-							{#if onlogoresize}
-								<!-- svelte-ignore a11y_no_static_element_interactions -->
-								<div class="tb-logo-grip pointer-events-auto absolute bg-cyan-500/80" style:width="{gripMm}px" style:height="{gripMm}px" style:right="0px" style:bottom="0px" style:cursor="ns-resize"
-									onmousedown={(e: MouseEvent) => coImg && startLogoResize('company', e, coImg)}></div>
-							{/if}
+							{@render logoSelOverlay('company', () => coImg)}
 						</div>
 					{/if}
 					{#if fCoName}<div class="text-[3pt] font-bold uppercase tracking-wider text-center leading-tight">{fCoName}</div>{/if}
@@ -275,13 +300,11 @@
 				<div class="p-1 flex flex-col items-center gap-0.5 overflow-hidden">
 					{#if showClient && fLogo}
 						{@const lh = hLogo}
-						<div class="relative inline-block">
+						<!-- svelte-ignore a11y_no_static_element_interactions -->
+						<div class="tb-logo relative inline-block" style:cursor={onlogoresize ? 'pointer' : undefined}
+							onmousedown={(e: MouseEvent) => { if (onlogoresize) { e.stopPropagation(); logoSel = 'logo' } }}>
 							<img bind:this={clientImg} src={fLogo} alt="logo" class="w-auto object-contain {lh ? '' : 'max-h-8'}" style:height={lh ? `${lh}px` : undefined} draggable="false" />
-							{#if onlogoresize}
-								<!-- svelte-ignore a11y_no_static_element_interactions -->
-								<div class="tb-logo-grip pointer-events-auto absolute bg-cyan-500/80" style:width="{gripMm}px" style:height="{gripMm}px" style:right="0px" style:bottom="0px" style:cursor="ns-resize"
-									onmousedown={(e: MouseEvent) => clientImg && startLogoResize('logo', e, clientImg)}></div>
-							{/if}
+							{@render logoSelOverlay('logo', () => clientImg)}
 						</div>
 					{/if}
 					<div class="text-[3pt] font-bold uppercase tracking-wider text-center leading-tight">{fProjectName || '—'}</div>
