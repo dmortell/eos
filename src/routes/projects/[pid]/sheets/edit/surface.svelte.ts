@@ -119,7 +119,7 @@ export class SurfaceEditor {
 	selAngles(): number[] { return [] }
 	/** Oriented box (SVG world) of a SINGLE box-like selection — for the unified transform box on a
 	 *  rotated item. Null when not exactly one box-like item (lines/graphs/multi). */
-	singleBox(): { cx: number; cy: number; hw: number; hh: number; angle: number } | null { return null }
+	singleBox(): { cx: number; cy: number; hw: number; hh: number; angle: number; noResize?: boolean } | null { return null }
 	/** Rotate the selection `deg` about (cx,cy): rotate each item's position + add deg to its own angle. */
 	rotateSelection(_deg: number, _cx: number, _cy: number): void {}
 	/** Scale the selection about anchor (ax,ay) by (sx,sy), in the frame rotated by `angle` (deg).

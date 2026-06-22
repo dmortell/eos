@@ -101,9 +101,11 @@
 		<line x1={box.cx} y1={box.cy - box.hh} x2={box.cx} y2={box.cy - box.hh - GAP} stroke={HL} stroke-width={SW} vector-effect="non-scaling-stroke" style:pointer-events="none" />
 		<circle cx={box.cx} cy={box.cy - box.hh - GAP} r={HS / 1.4} fill="#22c55e" stroke="#fff" stroke-width={SW}
 			vector-effect="non-scaling-stroke" style:cursor="crosshair" style:pointer-events="auto" onmousedown={startRotate} />
-		{#each handlesOf(box) as h (h.k)}
-			<rect x={box.cx + h.x - HS / 2} y={box.cy + h.y - HS / 2} width={HS} height={HS} fill="#fff" stroke={HL}
-				stroke-width={SW} vector-effect="non-scaling-stroke" style:cursor={CURS[h.k] ?? 'move'} style:pointer-events="auto" onmousedown={(e) => startScale(h.k, e)} />
-		{/each}
+		{#if !box.noResize}
+			{#each handlesOf(box) as h (h.k)}
+				<rect x={box.cx + h.x - HS / 2} y={box.cy + h.y - HS / 2} width={HS} height={HS} fill="#fff" stroke={HL}
+					stroke-width={SW} vector-effect="non-scaling-stroke" style:cursor={CURS[h.k] ?? 'move'} style:pointer-events="auto" onmousedown={(e) => startScale(h.k, e)} />
+			{/each}
+		{/if}
 	</g>
 {/if}

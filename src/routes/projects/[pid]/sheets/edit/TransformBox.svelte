@@ -7,11 +7,12 @@
 	import { boxHandles, resizeBox, squareBox, angleDeg, type Box } from './transform'
 	import type { SurfaceEditor } from './surface.svelte'
 
-	let { editor, box, rotation = 0, zoom = 1, onresize, onrotate }: {
+	let { editor, box, rotation = 0, zoom = 1, resizable = true, onresize, onrotate }: {
 		editor: SurfaceEditor
 		box: Box
 		rotation?: number
 		zoom?: number
+		resizable?: boolean
 		onresize: (handle: number, b: Box) => void
 		onrotate: (deg: number) => void
 	} = $props()
@@ -62,7 +63,9 @@
 	<rect x={dbox.x} y={dbox.y} width={dbox.w} height={dbox.h} fill="none" stroke={HL} stroke-width={SW} stroke-dasharray="{4 / ss} {3 / ss}" style:pointer-events="none" />
 	<line x1={cx} y1={dbox.y} x2={cx} y2={dbox.y - ARM} stroke={HL} stroke-width={SW} style:pointer-events="none" />
 	<circle cx={cx} cy={dbox.y - ARM} r={RR} fill="white" stroke={HL} stroke-width={SW} style:cursor="grab" style:pointer-events="auto" onmousedown={startRotate} />
-	{#each handles as h (h.handle)}
-		<rect x={h.x - HSZ / 2} y={h.y - HSZ / 2} width={HSZ} height={HSZ} fill="white" stroke={HL} stroke-width={SW} style:cursor={h.cursor} style:pointer-events="auto" onmousedown={(e: MouseEvent) => startResize(h.handle, e)} />
-	{/each}
+	{#if resizable}
+		{#each handles as h (h.handle)}
+			<rect x={h.x - HSZ / 2} y={h.y - HSZ / 2} width={HSZ} height={HSZ} fill="white" stroke={HL} stroke-width={SW} style:cursor={h.cursor} style:pointer-events="auto" onmousedown={(e: MouseEvent) => startResize(h.handle, e)} />
+		{/each}
+	{/if}
 </g>

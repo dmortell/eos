@@ -298,7 +298,7 @@
 			<!-- groupBox: the host shows a unified transform box for this single item → skip the per-item box -->
 			{#if !groupBox}
 				<TransformBox {editor} {zoom} box={box(a, den)} rotation={a.rotation ?? 0}
-					onresize={(_h, nb) => editor.setBox(a, nb)} onrotate={(d) => editor.setRotation(a, d)} />
+					resizable={a.kind !== 'text' && a.kind !== 'callout'} onresize={(_h, nb) => editor.setBox(a, nb)} onrotate={(d) => editor.setRotation(a, d)} />
 			{/if}
 			{#if POINTER.has(a.kind) && a.x2 != null}
 				<PointHandles {editor} {zoom} anchor={{ x: cx, y: cy }} points={[{ x: a.x2, y: a.y2 ?? a.y }]} onmove={(_i, x, y) => editor.movePoint(a, 1, x, y)} />

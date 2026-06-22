@@ -386,7 +386,10 @@ export class AnnotationEditor extends SurfaceEditor {
 		const a = list[0]
 		if (a.kind === 'line' || a.kind === 'arrow' || a.kind === 'dimension') return null // lines use endpoints
 		const b = bounds(a, 1)
-		return { cx: b.x + b.w / 2, cy: b.y + b.h / 2, hw: b.w / 2, hh: b.h / 2, angle: a.rotation ?? 0 }
+		// text/callout auto-size to their content, so resize handles do nothing (and on a callout they'd
+		// drag the leader). Flag them so the transform box shows move + rotate only.
+		const noResize = a.kind === 'text' || a.kind === 'callout'
+		return { cx: b.x + b.w / 2, cy: b.y + b.h / 2, hw: b.w / 2, hh: b.h / 2, angle: a.rotation ?? 0, noResize }
 	}
 	scaleSelection(sx: number, sy: number, ax: number, ay: number, angle = 0) {
 		const r = (-angle * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r), rr = (angle * Math.PI) / 180, rc = Math.cos(rr), rs = Math.sin(rr)

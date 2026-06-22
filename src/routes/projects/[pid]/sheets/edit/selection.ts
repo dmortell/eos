@@ -81,7 +81,7 @@ export class SelectionCoordinator {
 	}
 	/** The transform box: a SINGLE box-like item gives an oriented box (its angle); 2+ give a tight
 	 *  oriented box at the items' common angle. Null → nothing, or a single line/graph item. */
-	orientedBox(): { cx: number; cy: number; hw: number; hh: number; angle: number; single: boolean } | null {
+	orientedBox(): { cx: number; cy: number; hw: number; hh: number; angle: number; single: boolean; noResize?: boolean } | null {
 		const total = this.count()
 		if (total === 1) { const sb = this.active()[0]?.singleBox(); return sb ? { ...sb, single: true } : null }
 		if (total < 2) return null
