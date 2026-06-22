@@ -20,6 +20,8 @@
 	const SW = $derived(1.5 / zoom)
 	const HL = '#2563eb'
 	const RAD = Math.PI / 180
+	// Directional resize cursors per handle (un-rotated direction), like the standard TransformBox.
+	const CURS: Record<string, string> = { nw: 'nwse-resize', se: 'nwse-resize', ne: 'nesw-resize', sw: 'nesw-resize', n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize' }
 
 	const live = $derived(selection.orientedBox())
 	// Padded oriented box. During a rotate gesture the box is frozen (already padded).
@@ -99,7 +101,7 @@
 			vector-effect="non-scaling-stroke" style:cursor="crosshair" style:pointer-events="auto" onmousedown={startRotate} />
 		{#each handlesOf(box) as h (h.k)}
 			<rect x={box.cx + h.x - HS / 2} y={box.cy + h.y - HS / 2} width={HS} height={HS} fill="#fff" stroke={HL}
-				stroke-width={SW} vector-effect="non-scaling-stroke" style:cursor="pointer" style:pointer-events="auto" onmousedown={(e) => startScale(h.k, e)} />
+				stroke-width={SW} vector-effect="non-scaling-stroke" style:cursor={CURS[h.k] ?? 'move'} style:pointer-events="auto" onmousedown={(e) => startScale(h.k, e)} />
 		{/each}
 	</g>
 {/if}
