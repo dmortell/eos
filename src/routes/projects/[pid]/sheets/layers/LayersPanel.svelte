@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { getContext } from 'svelte'
+	import { toast } from 'svelte-sonner'
 	import { page } from '$app/state'
 	import { Window, Icon } from '$lib'
 	import type { Firestore } from '$lib/db.svelte'
@@ -29,17 +30,19 @@
 		m3dStore.save()
 	}
 	const objCountOnLayer = (id: string) => (m3dModel?.objects ?? []).filter((o) => (o.layer ?? '') === id).length
+	const effectiveActiveLayer = () => m3d?.activeLayer ?? m3dModel?.layers?.find((x) => x.id !== 'background')?.id
+	// Click the trash → guard, then reveal the inline confirm only if the layer is actually deletable.
+	function requestDelModelLayer(id: string, name: string) {
+		if ((m3dModel?.layers?.length ?? 0) <= 1) return
+		if (id === effectiveActiveLayer()) { toast.error(`Can't delete the active layer "${name}" — make another layer active first.`); return }
+		const n = objCountOnLayer(id)
+		if (n) { toast.warning(`Layer "${name}" has ${n} object${n === 1 ? '' : 's'} — move or delete them first.`); return }
+		confirmDelete = id
+	}
 	function delModelLayer(id: string) {
 		if (!m3dModel || !m3dStore) return
-		const remaining = (m3dModel.layers ?? []).filter((l) => l.id !== id)
-		if (!remaining.length) return // never delete the last layer
-		const fallback = remaining[0].id
-		// Reassign objects on the deleted layer so none are left with a dangling/undefined layer.
-		for (const o of m3dModel.objects ?? []) if ((o.layer ?? '') === id) o.layer = fallback
-		m3dModel.layers = remaining
-		// If the deleted layer was active, move active to the first non-background layer.
-		if (m3d && m3d.activeLayer === id) m3d.activeLayer = remaining.find((l) => l.id !== 'background')?.id
-		m3dStore.save(); vps.notify()
+		m3dModel.layers = (m3dModel.layers ?? []).filter((l) => l.id !== id)
+		m3dStore.save()
 	}
 	function toggleBw() { if (vp && vp.source.kind === 'model3d') { vp.source.bw = !vp.source.bw; vps.notify() } }
 	// Sheet annotation layers (Annotations + customs under it) — shared across all
@@ -106,12 +109,11 @@
 							<Icon name={ov.locked ? 'lock' : 'lockOpen'} size={14} />
 						</button>
 						{#if confirmDelete === l.id}
-							{@const n = objCountOnLayer(l.id)}
-							<span class="shrink-0 text-[10px] font-medium text-red-600">Delete{n ? ` ${n} obj` : ''}?</span>
+							<span class="shrink-0 text-[10px] font-medium text-red-600">Delete?</span>
 							<button class="shrink-0 rounded bg-red-600 px-1 text-[10px] leading-tight text-white" title="Confirm delete" onclick={() => { delModelLayer(l.id); confirmDelete = null }}>Yes</button>
 							<button class="shrink-0 px-0.5 text-[10px] text-zinc-500 hover:text-zinc-800" onclick={() => (confirmDelete = null)}>No</button>
 						{:else}
-							<button class="shrink-0 text-red-400 hover:text-red-600 disabled:text-zinc-300" title="Delete layer" disabled={(m3dModel.layers?.length ?? 0) <= 1} onclick={() => (confirmDelete = l.id)}>
+							<button class="shrink-0 text-red-400 hover:text-red-600 disabled:text-zinc-300" title="Delete layer" disabled={(m3dModel.layers?.length ?? 0) <= 1} onclick={() => requestDelModelLayer(l.id, l.name)}>
 								<Icon name="trash" size={12} />
 							</button>
 						{/if}
