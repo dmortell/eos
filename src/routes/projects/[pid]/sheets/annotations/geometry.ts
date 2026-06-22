@@ -50,8 +50,8 @@ export function bounds(a: Annotation, den = 1): Box {
 
 /** SVG dash-array (drawing-mm) for a dash style. Dotted / dash-dot use a ~zero-length dash + round
  *  cap (see dashCap) so the dots render round, with tight gaps so they read as a dotted line. */
-export const dashArray = (d?: string) => (d === 'dashed' ? '6 4' : d === 'dotted' ? '0.01 2' : d === 'dashdot' ? '6 2.5 0.01 2.5' : undefined)
-/** Round caps turn the ~zero-length dashes of dotted / dash-dot into round dots. */
+export const dashArray = (d?: string) => (d === 'dashed' ? '6 4' : d === 'dotted' ? '1 2.5' : d === 'dashdot' ? '6 2.5 1 2.5' : undefined)
+/** Round caps round the short dot-dashes of dotted / dash-dot so they read as dots. */
 export const dashCap = (d?: string) => (d === 'dotted' || d === 'dashdot' ? 'round' : undefined)
 
 /** Revision-cloud path: outward semicircular bumps around a rectangle. */

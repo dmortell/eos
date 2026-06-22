@@ -28,8 +28,19 @@
 		m3dModel.layers.push({ id: mUid(), name: `Layer ${m3dModel.layers.length + 1}`, color: '#888888', visible: true, locked: false })
 		m3dStore.save()
 	}
-	function delModelLayer(id: string) { if (m3dModel && m3dStore) { m3dModel.layers = (m3dModel.layers ?? []).filter((l) => l.id !== id); m3dStore.save() } }
 	const objCountOnLayer = (id: string) => (m3dModel?.objects ?? []).filter((o) => (o.layer ?? '') === id).length
+	function delModelLayer(id: string) {
+		if (!m3dModel || !m3dStore) return
+		const remaining = (m3dModel.layers ?? []).filter((l) => l.id !== id)
+		if (!remaining.length) return // never delete the last layer
+		const fallback = remaining[0].id
+		// Reassign objects on the deleted layer so none are left with a dangling/undefined layer.
+		for (const o of m3dModel.objects ?? []) if ((o.layer ?? '') === id) o.layer = fallback
+		m3dModel.layers = remaining
+		// If the deleted layer was active, move active to the first non-background layer.
+		if (m3d && m3d.activeLayer === id) m3d.activeLayer = remaining.find((l) => l.id !== 'background')?.id
+		m3dStore.save(); vps.notify()
+	}
 	function toggleBw() { if (vp && vp.source.kind === 'model3d') { vp.source.bw = !vp.source.bw; vps.notify() } }
 	// Sheet annotation layers (Annotations + customs under it) — shared across all
 	// viewports, stored in the sheet doc. Shown read-only in the model3d window so
