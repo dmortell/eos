@@ -157,7 +157,8 @@ export interface Annotation {
 export type OutletLevel = 'low' | 'high'
 export type OutletMount = 'wall' | 'floor' | 'box' // Wallmount / Floorbox / Rosette
 export interface OutletProps {
-	label?: string
+	// NB: the outlet's label now lives on the annotation's shared `text` field (migrated from the
+	// old `outlet.label`), so the standard font/text controls apply to it.
 	ports?: number
 	level?: OutletLevel
 	usage?: string // a default code or free text (customizable)

@@ -257,7 +257,7 @@
 		{#if sel.symbol === 'outlet'}
 			{@const o = sel.outlet ?? {}}
 			{@const setO = (p: Record<string, unknown>) => editor.setSel({ outlet: { ...o, ...p } })}
-			<PropText label="Label" value={o.label ?? ''} oninput={(e: Event) => setO({ label: val(e) })} />
+			<PropText label="Label" value={sel.text ?? ''} oninput={(e: Event) => editor.setSel({ text: val(e) })} />
 			<div class="grid grid-cols-2 gap-1">
 				<label class="block text-xs"><span class="text-zinc-400">Ports</span>
 					<input type="number" min="1" max="24" class="w-full rounded border px-1 py-0.5" value={o.ports ?? 2} oninput={(e) => setO({ ports: Number((e.currentTarget as HTMLInputElement).value) || 1 })} /></label>

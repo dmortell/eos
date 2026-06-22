@@ -24,6 +24,9 @@ function migrate(a: Annotation): Annotation {
 	const b = a.border as unknown
 	if ((a.kind as string) === 'leader') a.kind = 'callout'
 	if (a.kind === 'callout') a.border = (b === true || b === 'box') ? 'box' : (b === 'underline' ? 'underline' : 'none')
+	// Outlet labels folded into the shared `text` field (so font/text controls apply, one less field).
+	const ol = (a.outlet as { label?: string } | undefined)?.label
+	if (ol !== undefined) { if (!a.text) a.text = ol; delete (a.outlet as { label?: string }).label }
 	return a
 }
 
@@ -257,13 +260,13 @@ export class AnnotationEditor extends SurfaceEditor {
 		const num = (pad: number) => (n >= 0 ? String(n).padStart(pad, '0') : String(n))
 		return h ? format.replace(/#+/, num(h[0].length)) : format + num(0)
 	}
-	/** Auto-number the selected labelled annotations (outlets → outlet.label, text/callout → text).
+	/** Auto-number the selected labelled annotations (outlets + text/callout all use the `text` field).
 	 *  `format` renders the number token (padding via `#`); `mode` says how it combines with the
 	 *  EXISTING label — overwrite / prefix / suffix, or `replace` to fill a `#` placeholder already in
 	 *  the label. Returns how many were renumbered. One undo step. */
 	renumber(opts: { start: number; step: number; format: string; mode: 'overwrite' | 'prefix' | 'suffix' | 'replace'; order: 'index' | 'value' | 'xy' | 'yx' }): number {
-		const get = (a: Annotation) => (a.symbol === 'outlet' ? (a.outlet?.label ?? '') : (a.text ?? ''))
-		const set = (a: Annotation, v: string) => { if (a.symbol === 'outlet') a.outlet = { ...(a.outlet ?? {}), label: v }; else a.text = v }
+		const get = (a: Annotation) => a.text ?? ''
+		const set = (a: Annotation, v: string) => { a.text = v }
 		const numOf = (a: Annotation) => { const m = get(a).match(/\d+/); return m ? +m[0] : 0 }
 		let items = this.selectedAnnList().filter((a) => a.symbol === 'outlet' || a.kind === 'text' || a.kind === 'callout')
 		if (opts.order === 'xy') items = [...items].sort((a, b) => a.x - b.x || a.y - b.y)

@@ -41,13 +41,13 @@ of `size` mm aligned to the building origin + `ox/oy` offsets.
 | north | `color` | "N" (literal) |
 | door | `flip`, `w/h` | — |
 | faceplate | `fill` | — |
-| outlet | **`outlet{label,ports,level,usage,mount,cable,room}`** | `outlet.label` above, ports in triangle |
+| outlet | shared **`text`** (label) + `outlet{ports,level,usage,mount,cable,room}` | `text` above, ports in triangle |
 
 ## Overlap / merge candidates
-1. **`outlet.label` ↔ `text`** (the one you flagged). The outlet's label is just a text
-   label — folding it into the shared `text` field would let the existing Font (pt) / text
-   controls apply, and drop a bespoke field. (Keep the other `outlet.*` data fields.) Same
-   logic for any future symbol that shows a caption — use `text`, not a new `*.label`.
+1. ✅ **`outlet.label` → `text`** (done). The outlet label now lives on the shared `text` field
+   (migrated on load in `migrate()`), so the standard Font (pt) / text controls apply and the
+   bespoke `outlet.label` field is gone. Same logic for any future symbol that shows a caption —
+   use `text`, not a new `*.label`.
 2. **`link.ref` ↔ a symbol caption.** section/detail/elevation show `link.ref` (the target
    drawing no.). That's a *link*, not free text — correct as-is, but note it's the de-facto
    "label" for those symbols, so don't also add a `text`/`label` to them.

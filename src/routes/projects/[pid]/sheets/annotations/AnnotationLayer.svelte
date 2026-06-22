@@ -155,7 +155,7 @@
 				<!-- ports count, in the (wide, upper) part of the down-triangle -->
 				{@render caption({ x: cx, y: cy + tR * 0.1, size: tR * 1.2, fill: 'white', baseline: 'middle', weight: 600, text: o.ports ?? 2 })}
 				<!-- label above -->
-				{#if o.label}{@render caption({ x: cx, y: cy - R * 0.42, size: R * 0.5, fill: oc, text: o.label })}{/if}
+				{#if a.text}{@render caption({ x: cx, y: cy - R * 0.42, size: R * 0.5, fill: oc, text: a.text })}{/if}
 				<!-- usage abbrev below (blank for network) -->
 				{#if usageAbbr(o.usage)}{@render caption({ x: cx, y: cy + R * 0.94, size: R * 0.45, fill: oc, text: usageAbbr(o.usage) })}{/if}
 			{:else if a.symbol === 'faceplate'}
