@@ -574,7 +574,11 @@ What should the section tag show + reference?
 35. Need a legend annote.
 Can it be auto populated based on the layers/symbols in the drawing? With visibiility toggles for user to select ones to hide/show. And options to show the items count.
 
-36. Build a library of shapes (do we have one already? if not let me know, I have reference code somewhere with details on how they are stored in firestore)
+36. ✅ Shape library — "Shapes" panel (toggle in the Object window): built-in shapes (Basic kinds,
+    Symbols, outlet-per-usage) + custom shapes stored GLOBALLY in the Firestore `library` collection.
+    Drag a row onto the active viewport to place; "Save selection as shape" stores the selection
+    (coords normalised to bbox origin); custom rows deletable. (annotations/ShapeLibrary.svelte +
+    shapes/library.ts; placeLibraryShape/shapeFromSelection on AnnotationEditor.)
 
 User should be able to drag shapes from the library to the view.
 User should be able to drag a grouped shape from the view to the library (or use a context menu), and enter a name for the shape.
