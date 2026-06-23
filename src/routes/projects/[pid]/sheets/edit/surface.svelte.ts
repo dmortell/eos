@@ -61,7 +61,11 @@ export class SurfaceEditor {
 	// ── selection ──
 	/** This editor's selection kind ('obj' | 'ann') — set by the subclass. */
 	protected selKind = ''
-	select(kind: string, id: string) { this.sel = { kind, id }; this.peer?.clearSel() }
+	// Exclusive single-select: this item becomes the WHOLE selection — drop this editor's multi and
+	// the peer's selection (single + multi) too. Multi-select is built via applyToggle / setMulti,
+	// which don't route through here. (Without clearing multi, creating/selecting a new item left a
+	// prior multi-selection still highlighted.)
+	select(kind: string, id: string) { this.sel = { kind, id }; this.clearMulti(); this.peer?.clearSel(); this.peer?.clearMulti() }
 	isSel(kind: string, id: string) { return this.sel?.kind === kind && this.sel.id === id }
 	clearSel() { this.sel = null }
 
