@@ -1,3 +1,4 @@
+import { untrack } from 'svelte'
 import { toast } from 'svelte-sonner'
 import { AnnotationEditor } from '../annotations/annotations.svelte'
 import { annTargetLayer, layerCategory, effectiveLayers, type LayerDef } from '../layers/layers'
@@ -49,11 +50,22 @@ export function useAnnotations(opts: {
 		}
 		return target
 	}
+	// Seed from vp.annotations, and apply REMOTE changes live (even while this viewport is active) so
+	// edits sync across tabs. Skips our own echo + defers only while a gesture or a text field is in
+	// progress (so a remote update can't clobber an in-flight edit).
 	let seeded = false
 	$effect(() => {
-		const a = opts.vp().annotations
-		if (!opts.active()) { ed.seed(a); seeded = true; return }
-		if (!seeded) { ed.seed(a); seeded = true }
+		const a = opts.vp().annotations // tracked: fires on local + remote annotation changes
+		untrack(() => {
+			if (!seeded) { ed.seed(a); seeded = true; return }
+			if (JSON.stringify(a ?? []) === JSON.stringify(ed.snapshot())) return // our own write, already applied
+			if (ed.isDragging) return // mid-gesture — don't clobber; the result will persist on mouseup
+			const ae = typeof document !== 'undefined' ? (document.activeElement as HTMLElement | null) : null
+			if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return // user is typing in a field
+			const keep = ed.selectedAnnList().map((x) => x.id) // preserve the selection across the re-seed
+			ed.seed(a)
+			ed.selectIds(keep.filter((id) => (a ?? []).some((x: { id: string }) => x.id === id)))
+		})
 	})
 	$effect(() => {
 		ed.onChange = () => { opts.vps.setAnnotations(opts.vp().id, ed.snapshot()); opts.afterChange?.() }

@@ -264,6 +264,8 @@ export class SurfaceEditor {
 		if (this.#up) window.removeEventListener('mouseup', this.#up)
 		this.#move = this.#up = null
 	}
+	/** A gesture (move/resize/rotate/marquee) is in progress — used to defer a remote re-seed. */
+	get isDragging() { return this.#move != null }
 }
 
 const sub = (a: Point, b: Point): Point => ({ x: a.x - b.x, y: a.y - b.y })
