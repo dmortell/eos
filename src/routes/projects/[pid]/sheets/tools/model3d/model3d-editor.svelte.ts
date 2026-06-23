@@ -648,7 +648,7 @@ export class Model3dEditor extends SurfaceEditor {
 		if (this.direction !== 'plan') return []
 		return this.selectedIds().map((id) => this.byId(id)).filter((o): o is Obj => o?.type === 'prism').map((o) => -((o as any).rot ?? 0)) // svg angle = -rot
 	}
-	rotateSelection(deg: number, cx: number, cy: number) {
+	rotateSelection(deg: number, cx: number, cy: number, _den = 1) {
 		if (this.direction !== 'plan') return
 		const r = (deg * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r)
 		const rotS = (px: number, py: number) => { const dx = px - cx, dy = py - cy; return { x: cx + dx * c - dy * s, y: cy + dx * s + dy * c } }

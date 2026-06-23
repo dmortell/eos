@@ -121,7 +121,7 @@ export class SurfaceEditor {
 	 *  rotated item. Null when not exactly one box-like item (lines/graphs/multi). */
 	singleBox(_den = 1): { cx: number; cy: number; hw: number; hh: number; angle: number; noResize?: boolean } | null { return null }
 	/** Rotate the selection `deg` about (cx,cy): rotate each item's position + add deg to its own angle. */
-	rotateSelection(_deg: number, _cx: number, _cy: number): void {}
+	rotateSelection(_deg: number, _cx: number, _cy: number, _den = 1): void {}
 	/** Scale the selection about anchor (ax,ay) by (sx,sy), in the frame rotated by `angle` (deg).
 	 *  angle=0 → axis-aligned (multi); angle=item angle → resize a rotated single item in its frame. */
 	scaleSelection(_sx: number, _sy: number, _ax: number, _ay: number, _angle?: number): void {}

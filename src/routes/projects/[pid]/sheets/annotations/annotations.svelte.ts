@@ -365,14 +365,14 @@ export class AnnotationEditor extends SurfaceEditor {
 		}
 		return pts
 	}
-	rotateSelection(deg: number, cx: number, cy: number) {
+	rotateSelection(deg: number, cx: number, cy: number, den = 1) {
 		const r = (deg * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r)
 		const rot = (px: number, py: number) => { const dx = px - cx, dy = py - cy; return { x: cx + dx * c - dy * s, y: cy + dx * s + dy * c } }
 		for (const a of this.selectedAnnList()) {
 			const isLine = a.kind === 'line' || a.kind === 'arrow' || a.kind === 'dimension'
 			if (isLine) { const p1 = rot(a.x, a.y), p2 = rot(a.x2 ?? a.x, a.y2 ?? a.y); a.x = p1.x; a.y = p1.y; a.x2 = p2.x; a.y2 = p2.y }
 			else {
-				const b = bounds(a, 1), nc = rot(b.x + b.w / 2, b.y + b.h / 2)
+				const b = bounds(a, den), nc = rot(b.x + b.w / 2, b.y + b.h / 2) // den so font-sized centres match the box
 				a.x += nc.x - (b.x + b.w / 2); a.y += nc.y - (b.y + b.h / 2)
 				a.rotation = (a.rotation ?? 0) + deg
 				if (a.x2 != null) { const p = rot(a.x2, a.y2 ?? a.y); a.x2 = p.x; a.y2 = p.y } // callout pointer

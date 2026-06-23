@@ -92,7 +92,7 @@
 			const w = editor.toWorld(ev); if (!w) return
 			const step = ev.shiftKey ? 15 : 5 // snap rotation to 5° (15° with Shift)
 			let a = Math.round((ang(w) - a0) / step) * step
-			selection.rotateGroup(a - last, b0.cx, b0.cy)
+			selection.rotateGroup(a - last, b0.cx, b0.cy, den)
 			last = a
 			if (drag) drag.rot = a
 		}, () => { drag = null; editor.notify() })

@@ -94,6 +94,6 @@ export class SelectionCoordinator {
 		return { cx: lcx * rc - lcy * rs, cy: lcx * rs + lcy * rc, hw: (maxx - minx) / 2, hh: (maxy - miny) / 2, angle: a, single: false }
 	}
 	moveGroup(dx: number, dy: number) { for (const e of this.active()) e.nudgeSelection(dx, dy) }
-	rotateGroup(deg: number, cx: number, cy: number) { for (const e of this.active()) e.rotateSelection(deg, cx, cy) }
+	rotateGroup(deg: number, cx: number, cy: number, den = 1) { for (const e of this.active()) e.rotateSelection(deg, cx, cy, den) }
 	scaleGroup(sx: number, sy: number, ax: number, ay: number, angle = 0) { for (const e of this.active()) e.scaleSelection(sx, sy, ax, ay, angle) }
 }
