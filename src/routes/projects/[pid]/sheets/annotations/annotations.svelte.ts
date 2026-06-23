@@ -13,9 +13,11 @@ export type AnnTool = 'select' | AnnotationKind
 // Kinds placed by a single click (a default-sized box); the rest are dragged out.
 const CLICK_KINDS = new Set<AnnotationKind>(['text', 'symbol'])
 const BOX_DRAG = new Set<AnnotationKind>(['rect', 'ellipse', 'cloud', 'image', 'grid', 'legend'])
-// Minimum drawn size (world-mm) for box-drag kinds, so a click / tiny drag still yields a usable
-// shape rather than a near-zero one.
-const MIN_BOX: Partial<Record<AnnotationKind, number>> = { cloud: 500 }
+// Minimum drawn size (world-mm) for box-drag kinds, so a tiny drag still yields a usable shape
+// rather than a near-zero one (resize MULTIPLIES the width, so a ~0 box can never grow).
+const MIN_BOX: Partial<Record<AnnotationKind, number>> = { rect: 200, ellipse: 200, cloud: 500, image: 300, grid: 1000, legend: 800 }
+// A click with no drag → drop a comfortable default-sized box centred on the click.
+const DEFAULT_BOX = 1500
 
 /**
  * Normalise an annotation on load: the old 'leader' kind is folded into 'callout' (a callout with
@@ -146,8 +148,13 @@ export class AnnotationEditor extends SurfaceEditor {
 			if (boxDrag) { a.x = Math.min(p.x, w.x); a.y = Math.min(p.y, w.y); a.w = Math.max(1, Math.abs(w.x - p.x)); a.h = Math.max(1, Math.abs(w.y - p.y)) }
 			else { a.x2 = w.x; a.y2 = w.y }
 		}, () => {
-			const min = MIN_BOX[a.kind]
-			if (min) { if ((a.w ?? 0) < min) a.w = min; if ((a.h ?? 0) < min) a.h = min }
+			if (boxDrag && (a.w ?? 0) <= 2 && (a.h ?? 0) <= 2) {
+				// click without a drag → comfortable default box centred on the click point
+				a.w = a.h = DEFAULT_BOX; a.x = p.x - DEFAULT_BOX / 2; a.y = p.y - DEFAULT_BOX / 2
+			} else {
+				const min = MIN_BOX[a.kind]
+				if (min) { if ((a.w ?? 0) < min) a.w = min; if ((a.h ?? 0) < min) a.h = min }
+			}
 			this.tool = 'select'; this.notify(); this.onPlaced?.()
 		})
 	}
@@ -404,8 +411,11 @@ export class AnnotationEditor extends SurfaceEditor {
 				const b = bounds(a, 1), nc = sp(b.x + b.w / 2, b.y + b.h / 2)
 				// New size first, then place the top-left from the scaled CENTRE + new size — otherwise the
 				// anchored (opposite) corner drifts because the centre shift ignores the size change.
-				const nw = a.w != null ? Math.max(1, a.w * sx) : b.w
-				const nh = a.h != null ? Math.max(1, a.h * sy) : b.h
+				// Floor at the kind's minimum: scaling MULTIPLIES width, so a near-zero box could never
+				// grow back — keep it at a recoverable, grabbable size.
+				const fmin = MIN_BOX[a.kind] ?? 100
+				const nw = a.w != null ? Math.max(fmin, a.w * sx) : b.w
+				const nh = a.h != null ? Math.max(fmin, a.h * sy) : b.h
 				if (a.w != null) a.w = nw
 				if (a.h != null) a.h = nh
 				a.x = nc.x - nw / 2; a.y = nc.y - nh / 2
