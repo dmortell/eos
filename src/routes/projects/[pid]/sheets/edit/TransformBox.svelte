@@ -22,7 +22,11 @@
 	// Min on-screen box so handles stay usable on tiny shapes (text/callout); resize still uses the
 	// real `box`, only the drawn outline + handle positions use this inflated `dbox`.
 	const MINSZ = $derived(28 / (editor.screenScale() || 1))
-	const dbox = $derived({ x: cx - Math.max(box.w, MINSZ) / 2, y: cy - Math.max(box.h, MINSZ) / 2, w: Math.max(box.w, MINSZ), h: Math.max(box.h, MINSZ) })
+	// Min size only when resizable (room for handles); non-resizable (text/callout) hug the content
+	// so the box auto-sizes as you type.
+	const dbox = $derived(resizable
+		? { x: cx - Math.max(box.w, MINSZ) / 2, y: cy - Math.max(box.h, MINSZ) / 2, w: Math.max(box.w, MINSZ), h: Math.max(box.h, MINSZ) }
+		: { x: box.x, y: box.y, w: box.w, h: box.h })
 	let handles = $derived(boxHandles(dbox))
 	// world-mm sizes counter-scaled to a steady on-screen size (dep on zoom → re-read CTM)
 	const ss = $derived((zoom, editor.screenScale()) || 1)

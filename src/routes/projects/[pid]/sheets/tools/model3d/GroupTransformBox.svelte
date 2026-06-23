@@ -27,8 +27,14 @@
 	const live = $derived(selection.orientedBox())
 	// Padded oriented box, never smaller than MINH so the handles don't collapse onto each other.
 	// During a rotate gesture the box is frozen (already padded).
-	const box = $derived<(OBox & { single: boolean }) | null>(
-		drag ? { ...drag.box, single: true } : live ? { ...live, hw: Math.max(live.hw + PAD, MINH), hh: Math.max(live.hh + PAD, MINH) } : null,
+	const box = $derived<(OBox & { single: boolean; noResize?: boolean }) | null>(
+		drag ? { ...drag.box, single: true } : live ? {
+			...live,
+			// Only enforce the minimum when there are resize handles to fit; text/callout (noResize)
+			// hug the content so the box auto-sizes as you type.
+			hw: live.noResize ? live.hw + PAD : Math.max(live.hw + PAD, MINH),
+			hh: live.noResize ? live.hh + PAD : Math.max(live.hh + PAD, MINH),
+		} : null,
 	)
 	const gAngle = $derived(box ? (drag ? drag.box.angle + drag.rot : box.angle) : 0)
 
