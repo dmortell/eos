@@ -8,7 +8,7 @@
 	import type { SurfaceEditor } from '../../edit/surface.svelte'
 	import type { SelectionCoordinator } from '../../edit/selection'
 
-	let { editor, selection, zoom = 1 }: { editor: SurfaceEditor; selection: SelectionCoordinator; zoom?: number } = $props()
+	let { editor, selection, zoom = 1, den = 1 }: { editor: SurfaceEditor; selection: SelectionCoordinator; zoom?: number; den?: number } = $props()
 
 	type OBox = { cx: number; cy: number; hw: number; hh: number; angle: number }
 	let drag = $state<{ box: OBox; rot: number } | null>(null) // rotate gesture: freeze box + show rotation
@@ -24,7 +24,7 @@
 	const CURS: Record<string, string> = { nw: 'nwse-resize', se: 'nwse-resize', ne: 'nesw-resize', sw: 'nesw-resize', n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize' }
 
 	const MINH = $derived(14 / ss) // min half-extent (≈14px screen) so handles stay usable on tiny shapes (text/callout)
-	const live = $derived(selection.orientedBox())
+	const live = $derived(selection.orientedBox(den))
 	// Padded oriented box, never smaller than MINH so the handles don't collapse onto each other.
 	// During a rotate gesture the box is frozen (already padded).
 	const box = $derived<(OBox & { single: boolean; noResize?: boolean }) | null>(

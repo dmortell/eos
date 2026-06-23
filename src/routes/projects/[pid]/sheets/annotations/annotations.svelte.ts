@@ -355,11 +355,11 @@ export class AnnotationEditor extends SurfaceEditor {
 	selAngles() {
 		return this.selectedAnnList().filter((a) => a.kind !== 'line' && a.kind !== 'arrow' && a.kind !== 'dimension').map((a) => a.rotation ?? 0)
 	}
-	selWorldPoints() {
+	selWorldPoints(den = 1) {
 		const pts: { x: number; y: number }[] = []
 		for (const a of this.selectedAnnList()) {
 			if (a.kind === 'line' || a.kind === 'arrow' || a.kind === 'dimension') { pts.push({ x: a.x, y: a.y }, { x: a.x2 ?? a.x, y: a.y2 ?? a.y }); continue }
-			const b = bounds(a, 1), cx = b.x + b.w / 2, cy = b.y + b.h / 2, r = (a.rotation ?? 0) * Math.PI / 180, c = Math.cos(r), s = Math.sin(r)
+			const b = bounds(a, den), cx = b.x + b.w / 2, cy = b.y + b.h / 2, r = (a.rotation ?? 0) * Math.PI / 180, c = Math.cos(r), s = Math.sin(r)
 			for (const [lx, ly] of [[-b.w / 2, -b.h / 2], [b.w / 2, -b.h / 2], [b.w / 2, b.h / 2], [-b.w / 2, b.h / 2]] as [number, number][])
 				pts.push({ x: cx + lx * c - ly * s, y: cy + lx * s + ly * c })
 		}
@@ -381,11 +381,11 @@ export class AnnotationEditor extends SurfaceEditor {
 		this.notify()
 	}
 	/** Oriented box of a single selected box-kind annotation (for the unified transform box). */
-	singleBox() {
+	singleBox(den = 1) {
 		const list = this.selectedAnnList(); if (list.length !== 1) return null
 		const a = list[0]
 		if (a.kind === 'line' || a.kind === 'arrow' || a.kind === 'dimension') return null // lines use endpoints
-		const b = bounds(a, 1)
+		const b = bounds(a, den) // den so font-sized (text/callout) boxes match the render scale
 		// text/callout auto-size to their content, so resize handles do nothing (and on a callout they'd
 		// drag the leader). Flag them so the transform box shows move + rotate only.
 		const noResize = a.kind === 'text' || a.kind === 'callout'

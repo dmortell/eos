@@ -297,7 +297,7 @@
 			objCount={(id) => { const def = model?.layers?.[0]?.id; return (model?.objects ?? []).filter((o) => (o.layer ?? def) === id).length }} />
 		<!-- group transform box: move/resize/rotate a multi-selection or group as one (plan view) -->
 		{#if showGroupBox}
-			<GroupTransformBox {editor} {selection} {zoom} />
+			<GroupTransformBox {editor} {selection} {zoom} den={viewDen} />
 		{/if}
 		<!-- marquee on top of everything (objects + annotations/symbols) -->
 		{#if active && src.direction !== 'iso'}<MarqueeOverlay marquee={editor.marquee} {zoom} />{/if}
