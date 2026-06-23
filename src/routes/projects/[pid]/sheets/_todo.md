@@ -499,25 +499,48 @@ Fold the three rack property editors (Sheets viewport / outlets tool / racks too
      deleteMany, cutSel) once nothing calls them; optionally move selection STATE fully behind the
      SelectionCoordinator. Pure cleanup — bugs are fixed.
 
-24e. Ctrl+D / Ctrl+X on a MIXED (object+annotation) selection can create two undo steps instead of
-     one (each editor checkpoints via beforeMutate). Centralise the checkpoint in the coordinator if
-     it becomes annoying.
+24e. ✅ (resolved in passing) — cutSelection now centralises beforeMutate in the SelectionCoordinator
+     (a single checkpoint), and duplicateSelection no longer checkpoints at all (it relies on the
+     debounced history.touch), so a MIXED Ctrl+X / Ctrl+D is one undo step. No double-commit path
+     remains. (Not separately stress-tested; flag if you ever see two undo steps.)
 
 24f. ✅ Refactored text box + callout to share code (shared text-block render + props group).
 
 
 24g. Allow the size of line endpoints (arrows, dots, ticks) to be specified for all line types in props and project defaults.
 
-25. Context menu for objects/annotes.
-     * group (enabled if multi selected)/ungroup (enabled if grouped) items
+25. ✅ Context menu for objects/annotes — right-click shows Group (≥2 selected) / Ungroup (when
+    grouped) / Auto-number… / Duplicate / Copy / Paste / Delete. Right-click selects the clicked
+    item first (so it acts on what you clicked); only opens on a selection; closes on outside click;
+    distinguishes a click from a right-drag pan.
 
 26. Add a polygon annote for drawing regular and irregular polygons. Consider making it like walls/conduits/trunks, for nodes with multiple edges. Or keep it simple, with regular polygons? Or allow nodes of regular polygons to be dragged to new positions?
 
-27. Is json-guard really necessary? I thought firestore already has local first updates, so round-trips just return the same data and dont cause another update.
+27. ✅ FIXED — annotation edits now sync live across browser tabs, INCLUDING the actively-edited
+    viewport. Verified live: edit a text in one tab → appears in the other tab's active viewport (~1s).
 
-Guards were added because Root cause: SheetEditor only reloaded the viewport array when the sheet id changed — a guard meant to ignore its own save round-trips, but it also dropped remote edits (same id, new data). Objects were unaffected because they live in a separate models3d doc that already uses a JSON-echo guard.
+    The json-guard IS still needed and is NOT the blocker. Firestore is local-first: your own save
+    fires the onSnapshot listener straight back with your own data. The guard (lastViewportsJson in
+    SheetEditor) compares the incoming viewports JSON to what this tab last wrote — identical = own
+    echo (skip, so it doesn't needlessly rebuild vps.viewports / reset state on every keystroke);
+    different = a real remote edit (apply). So it filters self-echoes only; remote edits always pass.
 
-Fix: switched the sheet load to the same JSON-echo guard — skip our own write, apply anything different (i.e. remote edits). On a remote edit it keeps your current selection/active viewport (only a brand-new sheet resets the view); non-active viewports re-seed their annotation editor so the change shows up.
+    The actual gap was the annotation seed effect (edit/annotations.svelte.ts): it re-seeded only
+    NON-active viewports, so the viewport you were editing in never picked up remote changes. Fix:
+    it now applies remote vp.annotations changes even while ACTIVE — skipping its own echo
+    (incoming JSON === editor snapshot), deferring only while a gesture is in progress (ed.isDragging)
+    or a text field is focused, and preserving the selection by id across the re-seed.
+    (Commits: 8edaed7 active-viewport sync; the json-guard work was the earlier #27 groundwork.)
+
+    Potential issues to watch:
+      - Concurrent edits to the SAME annotation are last-writer-wins (no merge/OT). A remote change
+        arriving while you type/drag that item is deferred and your next save overwrites it.
+      - A remote change that lands DURING your drag / text-focus is skipped; it catches up on the
+        next vp.annotations change or when you deselect (re-seed). If it ever looks stale, click off.
+      - The re-seed JSON.stringify-compares the annotation array each change — fine now, but a
+        viewport holding thousands of annotations may want a cheaper dirty check.
+      - OBJECT (model3d) edits sync via the separate models3d doc + its own echo guard — that path
+        is unchanged; this fix was annotation-only.
 
 - One intentional nuance: if you're actively editing a viewport, that viewport's editor won't re-seed mid-edit (so your in-progress work isn't clobbered) — remote changes to that viewport appear once you deactivate it. Other viewports update live. This is the standard last-writer-wins for the one you're editing.
 
@@ -591,6 +614,9 @@ Need to be able to merge/unmerge rows/cols.
 Needs a cell editor to edit text in cells.
 Can it be done in markdown with a markdown renderer? Or do we need a full excel-like editor?
 
+38. Make the content of titleblock user-editable
+* Allow user to add/remove/hide/show sections shown in titleblock, and specify the height of each and enter section titles and text for custom items
+* If user adds annote images (for additional logos), will they be visible? Or will they be hidden under the titleblock?
 
 
 Here are the outstanding todos (the H-list is mostly done — only H11 remains; these are the open numbered items):
