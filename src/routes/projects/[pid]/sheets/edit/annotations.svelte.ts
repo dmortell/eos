@@ -30,6 +30,9 @@ export function useAnnotations(opts: {
 	/** Hidden layer ids for this viewport (model3d adds its model layers). Defaults to the
 	 *  viewport's hidden sheet layers. Hidden annotations aren't marquee-selectable. */
 	hidden?: () => string[]
+	/** Current view scale denominator (e.g. 100 for 1:100) — sizes click-placed/min boxes to the
+	 *  drawing scale so a 1:10 detail gets small defaults and a 1:100 plan gets large ones. */
+	den?: () => number
 }): AnnotationEditor {
 	const ed = new AnnotationEditor()
 	ed.peer = opts.toolEditor
@@ -37,6 +40,7 @@ export function useAnnotations(opts: {
 	const layerList = () => opts.layers?.() ?? opts.vps.allLayers
 	ed.isLayerLocked = (id) => (opts.locked?.() ?? effectiveLayers(opts.vp(), opts.vps.allLayers).locked).includes(id)
 	ed.isLayerHidden = (id) => (opts.hidden?.() ?? effectiveLayers(opts.vp(), opts.vps.allLayers).hidden).includes(id)
+	if (opts.den) ed.viewDen = opts.den
 	// Mirror the layer list for the props-panel picker, and resolve the layer new annotations land on.
 	// An active layer from a non-annotation category can't hold annotations → fall back + warn (5a5).
 	$effect(() => { ed.layers = layerList() })

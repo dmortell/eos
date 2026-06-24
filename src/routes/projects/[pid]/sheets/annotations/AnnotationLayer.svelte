@@ -211,7 +211,7 @@
 			{:else if a.symbol === 'door'}
 				{@const dir = a.flip ? -1 : 1}{@const hx = a.flip ? b.x + b.w : b.x}{@const hy = b.y + b.h}
 				<line x1={hx} y1={hy} x2={hx} y2={b.y} stroke={color} stroke-width="1.2" vector-effect="non-scaling-stroke" />
-				<path d="M{hx},{b.y} A {b.h},{b.h} 0 0 {a.flip ? 0 : 1} {hx + dir * b.h},{hy}" fill="none" stroke={color} stroke-width="0.5" stroke-dasharray="20 12" vector-effect="non-scaling-stroke" />
+				<path d="M{hx},{b.y} A {b.h},{b.h} 0 0 {a.flip ? 0 : 1} {hx + dir * b.h},{hy}" fill="none" stroke={color} stroke-width="0.5" vector-effect="non-scaling-stroke" />
 			{:else}
 				<circle cx={cx} cy={cy} r={R} fill={a.fill ?? 'white'} stroke={color} stroke-width=".5" vector-effect="non-scaling-stroke" stroke-dasharray={a.symbol === 'detail' ? '40 24' : undefined} />
 				{@render caption({ x: cx, y: cy, size: R * 0.9, fill: color, baseline: 'middle', text: a.link?.ref ?? '?' })}

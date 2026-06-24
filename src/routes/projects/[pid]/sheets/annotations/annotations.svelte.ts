@@ -80,6 +80,11 @@ export class AnnotationEditor extends SurfaceEditor {
 	isLayerLocked: (id: string) => boolean = () => false
 	/** Per-viewport check: is a layer hidden? Hidden annotations aren't selectable. (set by useAnnotations.) */
 	isLayerHidden: (id: string) => boolean = () => false
+	/** Current view scale denominator (100 = 1:100; set by useAnnotations). Sizes click-placed +
+	 *  minimum boxes to the drawing scale, relative to a 1:100 reference. */
+	viewDen: () => number = () => 100
+	/** World-mm sizing factor relative to the 1:100 reference the box sizes were tuned at. */
+	private boxFactor() { return (this.viewDen() || 100) / 100 }
 	/** The layer a new annotation lands on, or null + a toast if that layer is locked. */
 	private targetLayerOrBlock(): string | null {
 		const id = this.nextLayerId()
@@ -148,12 +153,13 @@ export class AnnotationEditor extends SurfaceEditor {
 			if (boxDrag) { a.x = Math.min(p.x, w.x); a.y = Math.min(p.y, w.y); a.w = Math.max(1, Math.abs(w.x - p.x)); a.h = Math.max(1, Math.abs(w.y - p.y)) }
 			else { a.x2 = w.x; a.y2 = w.y }
 		}, () => {
+			const f = this.boxFactor() // scale defaults/mins to the drawing scale (small for details, big for plans)
 			if (boxDrag && (a.w ?? 0) <= 2 && (a.h ?? 0) <= 2) {
 				// click without a drag → comfortable default box centred on the click point
-				a.w = a.h = DEFAULT_BOX; a.x = p.x - DEFAULT_BOX / 2; a.y = p.y - DEFAULT_BOX / 2
+				const d = DEFAULT_BOX * f; a.w = a.h = d; a.x = p.x - d / 2; a.y = p.y - d / 2
 			} else {
 				const min = MIN_BOX[a.kind]
-				if (min) { if ((a.w ?? 0) < min) a.w = min; if ((a.h ?? 0) < min) a.h = min }
+				if (min) { const m = min * f; if ((a.w ?? 0) < m) a.w = m; if ((a.h ?? 0) < m) a.h = m }
 			}
 			this.tool = 'select'; this.notify(); this.onPlaced?.()
 		})
@@ -413,7 +419,7 @@ export class AnnotationEditor extends SurfaceEditor {
 				// anchored (opposite) corner drifts because the centre shift ignores the size change.
 				// Floor at the kind's minimum: scaling MULTIPLIES width, so a near-zero box could never
 				// grow back — keep it at a recoverable, grabbable size.
-				const fmin = MIN_BOX[a.kind] ?? 100
+				const fmin = (MIN_BOX[a.kind] ?? 100) * this.boxFactor()
 				const nw = a.w != null ? Math.max(fmin, a.w * sx) : b.w
 				const nh = a.h != null ? Math.max(fmin, a.h * sy) : b.h
 				if (a.w != null) a.w = nw

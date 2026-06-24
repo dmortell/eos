@@ -618,6 +618,23 @@ Can it be done in markdown with a markdown renderer? Or do we need a full excel-
 * Allow user to add/remove/hide/show sections shown in titleblock, and specify the height of each and enter section titles and text for custom items
 * If user adds annote images (for additional logos), will they be visible? Or will they be hidden under the titleblock?
 
+39. Add full formatting to text/callout: font? border stroke color/width, fill color.
+Support markdown and rendering.
+
+40. ✅ Turn off dashed line in door annote — the swing arc is now solid (was stroke-dasharray "20 12").
+
+41. ✅ Title in sheet titlebar now includes the project name: "<project> — <sheet title>"
+    (falls back to "Sheet — <title>" when the project has no name). [sheetId]/+page.svelte.
+
+Recently-fixed bugs (ad-hoc, from testing):
+- ✅ Creating/selecting an item left a prior multi-selection highlighted — select() now does an
+  exclusive single-select (clears this editor's multi + the peer's sel+multi). Covers objects too.
+- ✅ Box annotes could get stuck at ~0 size (resize MULTIPLIES width). A click with no drag now drops
+  a comfortable default box; all box kinds have a MIN_BOX; plan resize floors at that min. The default
+  + min now SCALE with the view's drawing scale (den/100): small on 1:10 details, large on 1:100 plans.
+  Other viewport types (outlets/racks via editing.svelte.ts) still default to 1:100 sizing — wire their
+  den into useAnnotations if they need scale-correct defaults.
+- ✅ Annotation edits now sync live across tabs incl. the active viewport (see 27).
 
 Here are the outstanding todos (the H-list is mostly done — only H11 remains; these are the open numbered items):
 

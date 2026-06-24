@@ -150,7 +150,7 @@
 
 	// History is created first so the annotation editor can touch() it after each change.
 	const history = new History()
-	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor, afterChange: () => history.touch(), layers: () => annLayerDefs, activeLayer: () => src?.activeLayer, locked: () => annLocked, hidden: () => annHidden })
+	const annEditor = useAnnotations({ vp: () => vp, active: () => active, vps, toolEditor: editor, afterChange: () => history.touch(), layers: () => annLayerDefs, activeLayer: () => src?.activeLayer, locked: () => annLocked, hidden: () => annHidden, den: () => viewDen })
 	annEditor.onPlaced = () => (tool = 'select') // back to Select so the new annote shows handles
 	$effect(() => { if (!active) { annEditor.clearSel(); tool = 'select' } })
 	// Cross-editor selection actions (delete / duplicate over a mixed object+annotation selection).
