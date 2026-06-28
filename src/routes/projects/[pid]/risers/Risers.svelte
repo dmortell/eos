@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getContext } from 'svelte'
+	import { getContext, untrack } from 'svelte'
 	import { Titlebar } from '$lib'
 	import type { FloorConfig } from '$lib/types/project'
 	import type { Firestore } from '$lib/db.svelte'
@@ -236,11 +236,68 @@
 		pendingChanges.push(cleaned)
 	}
 
+	// ── Cross-tab live sync ──
+	// Local $state is seeded from `data` once at construction; without this it
+	// never re-applies remote snapshots, so edits made in other tabs (adds,
+	// drags, resizes) wouldn't appear. We re-seed when the incoming doc differs
+	// from what we last synced/saved. A JSON-echo guard (`lastSyncJson`, like
+	// SheetEditor) skips our OWN write round-trips while applying genuine remote
+	// changes, and the same value guards `scheduleSave` so applying a remote
+	// frame doesn't trigger a redundant write-back loop.
+	function persistedSnapshot(src: {
+		fromFloor?: number; toFloor?: number; floorHeights?: any; hiddenFloors?: any
+		settings?: any; rooms?: any; ladders?: any; cables?: any; labels?: any
+	}) {
+		return JSON.stringify({
+			fromFloor: src.fromFloor,
+			toFloor: src.toFloor,
+			floorHeights: src.floorHeights ?? {},
+			hiddenFloors: src.hiddenFloors ?? [],
+			settings: src.settings ?? DEFAULT_RISER_SETTINGS,
+			rooms: src.rooms ?? [],
+			ladders: src.ladders ?? [],
+			cables: src.cables ?? [],
+			labels: src.labels ?? [],
+		})
+	}
+	function currentSnapshot() {
+		return persistedSnapshot($state.snapshot({
+			fromFloor, toFloor, floorHeights, hiddenFloors, settings, rooms, ladders, cables, labels,
+		}) as any)
+	}
+	let lastSyncJson = data ? persistedSnapshot(data) : ''
+
+	$effect(() => {
+		const d = data
+		if (!d) return
+		const incoming = persistedSnapshot(d)
+		if (incoming === lastSyncJson) return // our own echo, or unchanged
+		untrack(() => {
+			// Mark as seen so we don't reprocess this frame. While a drag gesture
+			// is in flight, the active editor wins: keep local and drop the remote
+			// frame (the next local save will reconcile).
+			lastSyncJson = incoming
+			if (drag) return
+			fromFloor = d.fromFloor ?? fromFloor
+			toFloor = d.toFloor ?? toFloor
+			hiddenFloors = [...(d.hiddenFloors ?? [])]
+			floorHeights = { ...(d.floorHeights ?? {}) }
+			settings = { ...(d.settings ?? DEFAULT_RISER_SETTINGS) }
+			rooms = (d.rooms ?? []).map((r) => ({ ...r }))
+			ladders = (d.ladders ?? []).map((l) => ({ ...l }))
+			cables = (d.cables ?? []).map((c) => ({ ...c }))
+			labels = (d.labels ?? []).map((l) => ({ ...l }))
+			initialised = true
+		})
+	})
+
 	function scheduleSave() {
 		if (saveTimer) clearTimeout(saveTimer)
 		saveTimer = setTimeout(() => {
 			const changes = pendingChanges
 			pendingChanges = []
+			// Record the snapshot we're about to persist so the echo is skipped.
+			lastSyncJson = currentSnapshot()
 			onsave(
 				{
 					fromFloor,
@@ -269,7 +326,11 @@
 		void cables
 		void labels
 		void hiddenFloors
-		if (initialised) scheduleSave()
+		if (!initialised) return
+		// Skip when state already matches the last synced/saved value — e.g. we
+		// just applied a remote frame — so re-seeding never loops into a write.
+		if (currentSnapshot() === lastSyncJson) return
+		scheduleSave()
 	})
 
 	// ────────────────────────────────────────────────────────────────────
@@ -281,7 +342,7 @@
 	// Drag state for moving rooms / ladders horizontally
 	type DragState =
 		| null
-		| { kind: 'room'; id: string; startMmX: number; itemStartX: number; moved: boolean }
+		| { kind: 'room'; id: string; startMmX: number; itemStartX: number; itemStartFloor: number; moved: boolean }
 		| { kind: 'ladder'; id: string; startMmX: number; itemStartX: number; moved: boolean }
 		| { kind: 'ladderResize'; id: string; edge: 'high' | 'low'; moved: boolean }
 		| { kind: 'ladderDraft'; startMmX: number; startFloor: number; currentFloor: number; currentMmX: number }
@@ -496,7 +557,7 @@
 		const room = rooms.find((r) => r.id === roomId)
 		if (!room) return
 		const start = clientToMm(e)
-		drag = { kind: 'room', id: roomId, startMmX: start.x, itemStartX: room.xMm, moved: false }
+		drag = { kind: 'room', id: roomId, startMmX: start.x, itemStartX: room.xMm, itemStartFloor: room.floor, moved: false }
 		document.addEventListener('mousemove', onDragMove)
 		document.addEventListener('mouseup', onDragEnd)
 	}
@@ -623,7 +684,11 @@
 			const newX = Math.round(
 				Math.max(100, Math.min(buildingWidthMm - 100, d.itemStartX + (p.x - d.startMmX))),
 			)
-			rooms[idx] = { ...rooms[idx], xMm: newX }
+			// Relocate to the floor band under the cursor so rooms/EPS can be
+			// dragged vertically between floors (RoomBox derives its Y from the band).
+			const band = bandAtY(bands, p.y)
+			const newFloor = band ? band.floor : rooms[idx].floor
+			rooms[idx] = { ...rooms[idx], xMm: newX, floor: newFloor }
 			d.moved = true
 		} else if (d.kind === 'ladder') {
 			const idx = ladders.findIndex((l) => l.id === d.id)
@@ -710,7 +775,12 @@
 
 		if (d.kind === 'room' && d.moved) {
 			const r = rooms.find((x) => x.id === d.id)
-			if (r) logChange({ action: 'update', field: 'room.xMm', to: r.xMm, details: r.label })
+			if (r) {
+				logChange({ action: 'update', field: 'room.xMm', to: r.xMm, details: r.label })
+				if (r.floor !== d.itemStartFloor) {
+					logChange({ action: 'update', field: 'room.floor', from: d.itemStartFloor, to: r.floor, details: r.label })
+				}
+			}
 		} else if (d.kind === 'ladder' && d.moved) {
 			const l = ladders.find((x) => x.id === d.id)
 			if (l) logChange({ action: 'update', field: 'ladder.xMm', to: l.xMm, details: l.label })
