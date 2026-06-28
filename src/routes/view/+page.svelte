@@ -111,9 +111,9 @@
 			if (!ctx) throw new Error('no 2d context')
 			canvas.width = Math.floor(viewport.width)
 			canvas.height = Math.floor(viewport.height)
-			// Logical size = canvas / appliedScale, so clamping only drops resolution.
-			canvas.style.width = Math.floor(viewport.width / safe) + 'px'
-			canvas.style.height = Math.floor(viewport.height / safe) + 'px'
+			// Don't set inline width/height — let CSS (`max-width:100%; height:auto`)
+			// scale from the canvas's intrinsic attributes so the aspect ratio is
+			// preserved on a narrow screen (inline height + max-width:100% stretched it).
 			canvasW = canvas.width
 			canvasH = canvas.height
 			await page.render({ canvasContext: ctx, viewport }).promise
