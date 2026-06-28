@@ -29,7 +29,8 @@ export class PdfState {
 		this.pdfDoc = null
 	}
 
-	async load(url: string) {
+	async load(url: string, onStep?: (step: string) => void) {
+		onStep?.('init pdfjs')
 		// @ts-ignore - pdfjs-dist uses non-standard build path
 		if (!pdfjs) pdfjs = await import('pdfjs-dist/build/pdf')
 		pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl
@@ -37,9 +38,11 @@ export class PdfState {
 		// stream: iOS Safari can hang indefinitely on the worker's ranged/streamed
 		// requests. A plain main-thread fetch uses normal CORS (proven to work on
 		// desktop) and sidesteps that.
+		onStep?.('fetching PDF')
 		const resp = await fetch(url)
 		if (!resp.ok) throw new Error(`Failed to fetch PDF (${resp.status})`)
 		const data = await resp.arrayBuffer()
+		onStep?.('parsing PDF')
 		this.pdfDoc = await pdfjs.getDocument({ cMapUrl: 'pdfjs-dist/cmaps/', cMapPacked: true, data }).promise
 		this.totalPages = this.pdfDoc.numPages
 		if (this.pageNum < 1 || this.pageNum > this.totalPages) this.pageNum = 1

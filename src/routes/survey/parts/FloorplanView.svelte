@@ -48,7 +48,7 @@
 		const timer = setTimeout(() => {
 			if (!cancelled && !loaded) loadError = `Timed out while: ${step}`
 		}, 20000)
-		pdf.load(floorplan.url).then(async () => {
+		pdf.load(floorplan.url, (s) => { step = s }).then(async () => {
 			if (cancelled) return
 			step = 'rendering page'
 			const { objectUrl, width, height } = await pdf.renderToObjectUrl(1, 2)
