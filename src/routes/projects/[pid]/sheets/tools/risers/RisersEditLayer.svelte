@@ -23,11 +23,13 @@
 	// Grabbing a marquee-selected item drags the whole group; otherwise clear the marquee + single-drag.
 	function downRoom(room: { id: string }, e: MouseEvent) {
 		e.stopPropagation()
+		if (e.shiftKey) { editor.toggleRoomSel(room.id); return } // shift-click → additive multi-pick
 		if (editor.inRoomMulti(room.id)) { editor.beginGroupDrag(e); return }
 		editor.clearMulti(); editor.peer?.clearMulti(); editor.dragRoom(room as any, e, fromFloor, toFloor)
 	}
 	function downLadder(l: { id: string }, e: MouseEvent) {
 		e.stopPropagation()
+		if (e.shiftKey) { editor.toggleLadderSel(l.id); return } // shift-click → additive multi-pick
 		if (editor.inLadderMulti(l.id)) { editor.beginGroupDrag(e); return }
 		editor.clearMulti(); editor.peer?.clearMulti(); editor.dragLadderX(l as any, e)
 	}

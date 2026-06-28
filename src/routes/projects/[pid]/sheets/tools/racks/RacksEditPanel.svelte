@@ -79,6 +79,20 @@
 			</PropSelect>
 			<button class="w-full rounded bg-red-600 px-1 py-0.5 text-xs text-white hover:bg-red-500" onclick={() => editor.deleteDevice()}>Delete device</button>
 		{/if}
+	{:else if editor.hasMultiSel()}
+		<hr class="border-zinc-200" />
+		<p class="text-xs text-zinc-500">{editor.selDevices.length} device{editor.selDevices.length === 1 ? '' : 's'} selected</p>
+		{#if layers.length > 1}
+			<PropSelect label="Layer" value="" onchange={(e: Event) => { if (val(e)) editor.setSelLayer(val(e)) }}>
+				<option value="" disabled>— set layer —</option>
+				{#each layers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+			</PropSelect>
+		{/if}
+		<PropSelect label="Type" value="" onchange={(e: Event) => { if (val(e)) editor.setDeviceMany({ type: val(e) as any }) }}>
+			<option value="" disabled>— set type —</option>
+			{#each DEVICE_TYPES as t (t)}<option value={t}>{t}</option>{/each}
+		</PropSelect>
+		<button class="w-full rounded bg-red-600 px-1 py-0.5 text-xs text-white hover:bg-red-500" onclick={() => editor.deleteMany()}>Delete selection</button>
 	{:else}
 		<p class="text-xs text-zinc-400">Select a rack (or drag a row in plan view).</p>
 	{/if}

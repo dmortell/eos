@@ -30,6 +30,7 @@
 	function dragDevice(d: DeviceConfig, e0: MouseEvent) {
 		if (e0.button !== 0) return // right/middle is pan/zoom — let it bubble to the canvas
 		e0.stopPropagation()
+		if (e0.shiftKey) { editor.toggleDeviceSel(d.id); return } // shift-click → additive multi-pick
 		if (e0.ctrlKey || e0.metaKey) d = editor.duplicateDevice(d) // Ctrl-drag duplicates
 		else if (editor.inDeviceMulti(d.id)) { dragDeviceGroup(d, e0); return } // grabbed a marquee item
 		else { editor.clearMulti(); editor.peer?.clearMulti() }

@@ -108,6 +108,24 @@ export class OutletsEditor extends SurfaceEditor {
 		this.notify()
 	}
 
+	/** Shift-click additive pick: toggle an outlet in/out of the multi-selection
+	 *  (promotes the current single selection in first). Lets you build a sparse
+	 *  selection — e.g. alternate desks — then mass-edit. */
+	toggleOutletSel(id: string) {
+		const cur = new Set(this.selOutlets)
+		if (!cur.size && !this.selRacks.length && this.selOutlet) cur.add(this.selOutlet.id)
+		cur.has(id) ? cur.delete(id) : cur.add(id)
+		this.selOutlets = [...cur]
+		this.sel = null; this.menu = null
+	}
+	toggleRackSel(id: string) {
+		const cur = new Set(this.selRacks)
+		if (!cur.size && !this.selOutlets.length && this.selRackPlacement) cur.add(this.selRackPlacement.rackId)
+		cur.has(id) ? cur.delete(id) : cur.add(id)
+		this.selRacks = [...cur]
+		this.sel = null; this.menu = null
+	}
+
 	/** Assign the selection (single or marquee multi: outlets + racks) to a sheet layer. */
 	setSelLayer(layerId: string) {
 		let any = false
@@ -178,6 +196,7 @@ export class OutletsEditor extends SurfaceEditor {
 		this.outlets.push(o); this.select('outlet', o.id); this.notify()
 	}
 	dragOutlet(o: OutletConfig, e0: MouseEvent) {
+		if (e0.shiftKey) { this.toggleOutletSel(o.id); return } // shift-click → additive multi-pick
 		// Ctrl/Cmd-drag duplicates: drag a fresh copy, leaving the original in place. Re-fetch the
 		// pushed item from the array — $state stores a proxy, and mutating the raw object we pushed
 		// would not be reactive (the rendered copy would never move).
@@ -454,6 +473,7 @@ export class OutletsEditor extends SurfaceEditor {
 		}, () => { this.notify(); onDone?.() })
 	}
 	dragRack(rp: RackPlacement, e0: MouseEvent) {
+		if (e0.shiftKey) { this.toggleRackSel(rp.rackId); return } // shift-click → additive multi-pick
 		if (e0.ctrlKey || e0.metaKey) { this.rackPlacements.push({ ...rp, rackId: this.uid('FR'), position: { ...rp.position } }); rp = this.rackPlacements[this.rackPlacements.length - 1] }
 		else if (this.inMulti('rack', rp.rackId)) { this.beginGroupDrag(e0); return }
 		else { this.clearMulti(); this.peer?.clearMulti() }

@@ -152,6 +152,20 @@ export class RisersEditor extends SurfaceEditor {
 	setLadder(patch: Partial<Ladder>) { const l = this.selLadder; if (!l) return; Object.assign(l, patch); this.notify() }
 	setCable(patch: Partial<Cable>) { const c = this.selCable; if (!c) return; Object.assign(c, patch); this.notify() }
 
+	/** Shift-click additive pick: toggle a room/ladder in/out of the multi-selection. */
+	toggleRoomSel(id: string) {
+		const cur = new Set(this.selRooms)
+		if (!cur.size && !this.selLadders.length && this.selRoom) cur.add(this.selRoom.id)
+		cur.has(id) ? cur.delete(id) : cur.add(id)
+		this.selRooms = [...cur]; this.sel = null
+	}
+	toggleLadderSel(id: string) {
+		const cur = new Set(this.selLadders)
+		if (!cur.size && !this.selRooms.length && this.selLadder) cur.add(this.selLadder.id)
+		cur.has(id) ? cur.delete(id) : cur.add(id)
+		this.selLadders = [...cur]; this.sel = null
+	}
+
 	/** Assign the selection (single or marquee multi: rooms + ladders) to a sheet layer. */
 	setSelLayer(layerId: string) {
 		let any = false

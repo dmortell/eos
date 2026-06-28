@@ -149,6 +149,21 @@ export class RacksEditor extends SurfaceEditor {
 		return c
 	}
 	setDevice(patch: Partial<DeviceConfig>) { const d = this.selDevice; if (!d) return; Object.assign(d, patch); this.notify() }
+	/** Apply a patch to every multi-selected device (mass edit). */
+	setDeviceMany(patch: Partial<DeviceConfig>) {
+		const ids = new Set(this.selDevices); if (!ids.size) return
+		for (const d of this.devices) if (ids.has(d.id)) Object.assign(d, patch)
+		this.notify()
+	}
+
+	/** Shift-click additive pick: toggle a device in/out of the multi-selection. */
+	toggleDeviceSel(id: string) {
+		const cur = new Set(this.selDevices)
+		if (!cur.size && this.selDevice) cur.add(this.selDevice.id)
+		cur.has(id) ? cur.delete(id) : cur.add(id)
+		this.selDevices = [...cur]
+		this.sel = null; this.selDeviceId = null
+	}
 
 	/** Assign the selection (single rack/device, or marquee-multi devices) to a sheet layer. */
 	setSelLayer(layerId: string) {
