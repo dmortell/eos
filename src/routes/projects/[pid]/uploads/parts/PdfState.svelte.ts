@@ -6,6 +6,18 @@ let pdfjs: any = null
 // @ts-ignore
 import pdfjsWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
+// Mobile Safari (iPad/iPhone) silently renders a blank canvas once it exceeds
+// its size limits — ~16.7M px total area and ~4096px per side. Clamp the render
+// scale so a full-page render never trips this (it would otherwise show nothing).
+const MAX_CANVAS_AREA = 16_777_216
+const MAX_CANVAS_SIDE = 4096
+
+function safeCanvasScale(pageWidth: number, pageHeight: number, requestedScale: number): number {
+	const areaScale = Math.sqrt(MAX_CANVAS_AREA / (pageWidth * pageHeight))
+	const sideScale = MAX_CANVAS_SIDE / Math.max(pageWidth, pageHeight)
+	return Math.max(0.01, Math.min(requestedScale, areaScale, sideScale))
+}
+
 export class PdfState {
 	pdfDoc = $state<any>(null)
 	pageNum = $state(1)
@@ -40,34 +52,35 @@ export class PdfState {
 		if (this.rendering === canvas) return { width: 0, height: 0 }
 		this.rendering = canvas
 		const pdfPage = await this.pdfDoc.getPage(page)
-		const viewport = pdfPage.getViewport({ scale, rotation })
+		// Clamp to mobile-Safari canvas limits so large pages don't render blank.
+		const base = pdfPage.getViewport({ scale: 1, rotation })
+		const safeScale = safeCanvasScale(base.width, base.height, scale)
+		const viewport = pdfPage.getViewport({ scale: safeScale, rotation })
 		canvas.width = Math.floor(viewport.width)
-		canvas.style.width = Math.floor(viewport.width / scale) + 'px'
+		// Logical (CSS / points) size is the canvas divided by the *actual* scale,
+		// so clamping only lowers resolution — never the displayed/layout size.
+		canvas.style.width = Math.floor(viewport.width / safeScale) + 'px'
 		canvas.height = Math.floor(viewport.height)
-		canvas.style.height = Math.floor(viewport.height / scale) + 'px'
+		canvas.style.height = Math.floor(viewport.height / safeScale) + 'px'
 		await pdfPage.render({ canvasContext: canvas.getContext('2d'), viewport }).promise
 		this.rendering = null
 		pdfPage.cleanup()
-		return viewport
+		return { width: Math.floor(viewport.width / safeScale), height: Math.floor(viewport.height / safeScale) }
 	}
 
 	/** Render a page to a data URL for use as an image source */
 	async renderToDataUrl(page: number, scale = 2): Promise<{ dataUrl: string; width: number; height: number }> {
 		const canvas = document.createElement('canvas')
-		const viewport = await this.render({ canvas, page, scale })
+		const { width, height } = await this.render({ canvas, page, scale })
 		const dataUrl = canvas.toDataURL('image/png')
-		return {
-			dataUrl,
-			width: Math.floor(viewport.width / scale),
-			height: Math.floor(viewport.height / scale)
-		}
+		return { dataUrl, width, height }
 	}
 
 	/** Render a page to an object URL (faster than data URL, less memory) */
 	async renderToObjectUrl(page: number, scale = 2, signal?: AbortSignal): Promise<{ objectUrl: string; width: number; height: number; byteSize: number }> {
 		if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
 		const canvas = document.createElement('canvas')
-		const viewport = await this.render({ canvas, page, scale })
+		const { width, height } = await this.render({ canvas, page, scale })
 		if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
 		const blob = await new Promise<Blob>((resolve, reject) => {
 			canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/png')
@@ -76,12 +89,7 @@ export class PdfState {
 			throw new DOMException('Aborted', 'AbortError')
 		}
 		const objectUrl = URL.createObjectURL(blob)
-		return {
-			objectUrl,
-			width: Math.floor(viewport.width / scale),
-			height: Math.floor(viewport.height / scale),
-			byteSize: blob.size
-		}
+		return { objectUrl, width, height, byteSize: blob.size }
 	}
 
 	/**
