@@ -4,6 +4,7 @@
 	import { trunkWidthMm } from './types'
 	import { generateTrunkPolygons, polygonToRoundedPath } from './geometry'
 	import { USAGE_COLORS, ROOM_COLORS, OUTLET_RADIUS_MM, INNER_CORNER_RADIUS_MM } from './colors'
+	import { objLayerOf, objLayerColor } from '../../layers/layers'
 
 	type RackCfg = { widthMm: number; depthMm: number; label?: string; heightU?: number }
 
@@ -22,6 +23,7 @@
 		onsvg,
 		children,
 		hidden = [],
+		layers = [],
 	}: {
 		outlets?: OutletConfig[]
 		trunks?: TrunkConfig[]
@@ -37,8 +39,10 @@
 		view?: { x: number; y: number; w: number; h: number } | null
 		onsvg?: (el: SVGSVGElement) => void
 		children?: any
-		/** Hidden layer ids (groups skipped). */
+		/** Hidden layer ids (per-object: an object hides when its effective layer is here). */
 		hidden?: string[]
+		/** All sheet layers (defaults + customs) — for per-object layer + colour resolution. */
+		layers?: import('../../layers/layers').LayerDef[]
 	} = $props()
 
 	// NOTE: outlet/trunk data is y-down (legacy convention → SheetViewport.version === 1). The
@@ -130,25 +134,25 @@
 	{/if}
 
 	<!-- Trunks -->
-	{#if !hidden.includes('trunks')}
 	{#each trunks as t (t.id)}
-		{#if t.visible !== false && t.nodes.length >= 2}
-			{@const color = t.color ?? '#000000'}
+		{@const eff = objLayerOf(t.layerId, 'trunks', layers)}
+		{#if t.visible !== false && t.nodes.length >= 2 && !hidden.includes(eff)}
+			{@const color = objLayerColor(eff, layers) ?? t.color ?? '#000000'}
 			<path d={trunkPath(t)} fill="{color}33" stroke={color} stroke-width="0.5" vector-effect="non-scaling-stroke"
 				fill-rule="evenodd" opacity={t.isPrimary ? 0.85 : 0.5}
 				stroke-dasharray={isCeiling(t) ? '4 3' : undefined} />
 		{/if}
 	{/each}
-	{/if}
 
 	<!-- Racks -->
-	{#if !hidden.includes('racks')}
 	{#each rackPlacements as p, i (p.rackId + ':' + i)}
+		{@const eff = objLayerOf(p.layerId, 'racks', layers)}
+		{#if !hidden.includes(eff)}
 		{@const cfg = racksById[p.rackId]}
 		{@const w = cfg?.widthMm ?? p.widthMm ?? 600}
 		{@const h = cfg?.depthMm ?? p.depthMm ?? 1000}
 		{@const label = cfg?.label ?? p.label}
-		{@const color = ROOM_COLORS[p.room] ?? '#64748b'}
+		{@const color = objLayerColor(eff, layers) ?? ROOM_COLORS[p.room] ?? '#64748b'}
 		{@const cx = p.position.x + w / 2}
 		{@const cy = p.position.y + h / 2}
 		<g transform="rotate({p.rotation} {cx} {cy})">
@@ -159,31 +163,35 @@
 				<text x={cx} y={cy} font-size={Math.min(w, h) * 0.18} text-anchor="middle" dominant-baseline="middle" fill="#333" font-weight="bold">{label}</text>
 			{/if}
 		</g>
+		{/if}
 	{/each}
-	{/if}
 
 	<!-- Outlets -->
-	{#if !hidden.includes('outlets')}
 	{#each outlets as o (o.id)}
+		{@const eff = objLayerOf(o.layerId, 'outlets', layers)}
+		{#if !hidden.includes(eff)}
 		{@const c = USAGE_COLORS[o.usage] ?? USAGE_COLORS.network}
+		{@const lc = objLayerColor(eff, layers)}
+		{@const stroke = lc ?? c.stroke}
+		{@const fillC = lc ?? c.fill}
 		{@const low = o.level === 'low'}
 		{@const x = o.position.x}
 		{@const y = o.position.y}
 		<g>
 			{#if o.mountType === 'wall'}
-				<polygon points={triangle(x, y, R)} fill={low ? c.fill : 'none'} stroke={c.stroke} stroke-width={low ? 0.5 : 0.7} vector-effect="non-scaling-stroke" opacity="0.9" />
+				<polygon points={triangle(x, y, R)} fill={low ? fillC : 'none'} stroke={stroke} stroke-width={low ? 0.5 : 0.7} vector-effect="non-scaling-stroke" opacity="0.9" />
 			{:else if o.mountType === 'floor'}
-				<polygon points={square(x, y, R * 1.2)} fill={low ? c.fill : 'none'} stroke={c.stroke} stroke-width={low ? 0.5 : 0.7} vector-effect="non-scaling-stroke" opacity="0.9" />
+				<polygon points={square(x, y, R * 1.2)} fill={low ? fillC : 'none'} stroke={stroke} stroke-width={low ? 0.5 : 0.7} vector-effect="non-scaling-stroke" opacity="0.9" />
 			{:else}
-				<circle cx={x} cy={y} r={R * 0.9} fill={low ? c.fill : 'none'} stroke={c.stroke} stroke-width={low ? 0.5 : 0.7} vector-effect="non-scaling-stroke" opacity="0.9" />
+				<circle cx={x} cy={y} r={R * 0.9} fill={low ? fillC : 'none'} stroke={stroke} stroke-width={low ? 0.5 : 0.7} vector-effect="non-scaling-stroke" opacity="0.9" />
 			{/if}
-			<text x={x} y={y + R * 0.35} font-size={R * 0.9} text-anchor="middle" font-weight="bold" fill={low ? 'white' : c.stroke}>{o.portCount}</text>
+			<text x={x} y={y + R * 0.35} font-size={R * 0.9} text-anchor="middle" font-weight="bold" fill={low ? 'white' : stroke}>{o.portCount}</text>
 			{#if o.label}
 				<text x={x} y={y - R * 1.3} font-size={R * 0.6} text-anchor="middle" fill="#374151">{o.label}</text>
 			{/if}
 		</g>
+		{/if}
 	{/each}
-	{/if}
 
 	{@render children?.()}
 </svg>

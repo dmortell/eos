@@ -179,7 +179,7 @@
 		{racksById}
 		{calibration}
 		{pdfUrl} {pageW} {pageH}
-		{vp} {view} {hidden}
+		{vp} {view} {hidden} layers={vps.allLayers}
 		onview={(v) => { viewDen = v.den || 1; onview?.(v) }}
 		onsvg={(el) => { editor.svg = el; annEditor.svg = el }}>
 		{#if active}
@@ -198,7 +198,7 @@
 		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} {hidden} {locked} den={viewDen} {zoom} />
 	</OutletsRender>
 	{#if active}
-		<OutletsEditPanel {editor} bind:tool {annEditor} />
+		<OutletsEditPanel {editor} bind:tool {annEditor} layers={vps.allLayers} />
 		<OutletsContextMenu {editor} />
 	{/if}
 {:else}

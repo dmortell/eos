@@ -50,6 +50,19 @@ export function annLayerOf(layerId: string | undefined, layers: LayerDef[] = LAY
 	return layerId && layers.some(l => l.id === layerId) ? layerId : 'annotations'
 }
 
+/** Effective layer id for a tool object: its explicit `layerId` if that layer still
+ *  exists, else the object kind's default layer (e.g. 'outlets', 'rooms'). */
+export function objLayerOf(layerId: string | undefined, kindDefault: string, layers: LayerDef[] = LAYERS): string {
+	return layerId && layers.some(l => l.id === layerId) ? layerId : kindDefault
+}
+
+/** Colour to render a tool object in when it sits on a CUSTOM layer, so the grouping
+ *  is visible; null → keep the object's own/semantic colour (default layers don't override). */
+export function objLayerColor(effLayerId: string, layers: LayerDef[] = LAYERS): string | null {
+	const l = layers.find(x => x.id === effLayerId)
+	return l?.custom ? l.color : null
+}
+
 /** Why a layer can't receive new objects, as a user-facing message — or null if it can. */
 export function layerBlockReason(id: string, hidden: string[], locked: string[], layers: LayerDef[] = LAYERS): string | null {
 	const h = hidden.includes(id), l = locked.includes(id)

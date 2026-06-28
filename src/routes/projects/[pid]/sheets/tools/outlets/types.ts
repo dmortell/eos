@@ -22,6 +22,8 @@ export interface OutletConfig {
 	rotation?: number
 	roomNumber?: string
 	locked?: boolean
+	/** Sheet layer this outlet is assigned to (any layer). Absent → 'outlets'. */
+	layerId?: string
 }
 
 // ── Trunks ──
@@ -58,6 +60,8 @@ export interface TrunkConfig {
 	isPrimary: boolean
 	visible?: boolean
 	bendRadiusMm?: number   // corner rounding (mm); falls back to INNER_CORNER_RADIUS_MM
+	/** Sheet layer this trunk is assigned to (any layer). Absent → 'trunks'. */
+	layerId?: string
 }
 
 /** Trunk "Type" presets (catalog → dimensions), mirrored from the outlets tool's Trunk tab. */
@@ -106,6 +110,8 @@ export interface RackPlacement {
 	type?: RackType
 	maker?: string
 	model?: string
+	/** Sheet layer this rack is assigned to (any layer). Absent → 'racks'. */
+	layerId?: string
 }
 
 /** Calibration from files/{id}.pages[pageNum]. */

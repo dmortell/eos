@@ -8,9 +8,10 @@
 	import { formNav } from '$lib/formNav'
 	import type { OutletsEditor } from './outlets-editor.svelte'
 	import type { AnnotationEditor } from '../../annotations/annotations.svelte'
+	import type { LayerDef } from '../../layers/layers'
 	import { PIPE_CATALOG, RECT_CATALOG } from './types'
 
-	let { editor, tool = $bindable(), annEditor }: { editor: OutletsEditor; tool: string; annEditor: AnnotationEditor } = $props()
+	let { editor, tool = $bindable(), annEditor, layers = [] }: { editor: OutletsEditor; tool: string; annEditor: AnnotationEditor; layers?: LayerDef[] } = $props()
 
 	const objTools = [
 		{ id: 'select', label: 'Select' },
@@ -55,6 +56,12 @@
 		{@const n = editor.selOutlets.length}
 		<hr class="border-zinc-200" />
 		<p class="text-xs text-zinc-500">{n} outlet{n === 1 ? '' : 's'}{editor.selRacks.length ? ` · ${editor.selRacks.length} rack${editor.selRacks.length === 1 ? '' : 's'}` : ''} selected</p>
+		{#if layers.length > 1}
+			<PropSelect label="Layer" value="" onchange={(e: Event) => { if (val(e)) editor.setSelLayer(val(e)) }}>
+				<option value="" disabled>— set layer —</option>
+				{#each layers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+			</PropSelect>
+		{/if}
 		{#if n}
 			<div class="flex items-center justify-between gap-2">
 				<span class="w-24 shrink-0 text-xs text-zinc-500">Level</span>
@@ -81,6 +88,11 @@
 	{:else if editor.selOutlet}
 		{@const o = editor.selOutlet}
 		<hr class="border-zinc-200" />
+		{#if layers.length > 1}
+			<PropSelect label="Layer" value={o.layerId ?? 'outlets'} onchange={(e: Event) => editor.setSelLayer(val(e))}>
+				{#each layers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+			</PropSelect>
+		{/if}
 		<PropText label="Label" value={o.label ?? ''} oninput={(e: Event) => editor.setOutlet({ label: val(e) })} />
 		<div class="flex items-center justify-between gap-2">
 			<span class="w-24 shrink-0 text-xs text-zinc-500">Level</span>
@@ -105,6 +117,11 @@
 	{:else if editor.selTrunk}
 		{@const t = editor.selTrunk}
 		<hr class="border-zinc-200" />
+		{#if layers.length > 1}
+			<PropSelect label="Layer" value={t.layerId ?? 'trunks'} onchange={(e: Event) => editor.setSelLayer(val(e))}>
+				{#each layers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+			</PropSelect>
+		{/if}
 		<PropText label="Label" value={t.label ?? ''} oninput={(e: Event) => editor.setTrunk({ label: val(e) || undefined })} />
 		<div class="flex items-center justify-between gap-2">
 			<span class="w-24 shrink-0 text-xs text-zinc-500">Shape</span>
@@ -140,6 +157,11 @@
 	{:else if editor.selRackPlacement}
 		{@const r = editor.selRackPlacement}
 		<hr class="border-zinc-200" />
+		{#if layers.length > 1}
+			<PropSelect label="Layer" value={r.layerId ?? 'racks'} onchange={(e: Event) => editor.setSelLayer(val(e))}>
+				{#each layers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+			</PropSelect>
+		{/if}
 		<PropText label="Label" value={r.label ?? ''} oninput={(e: Event) => editor.setRackPlacement({ label: val(e) })} />
 		<PropText label="Width (mm)" type="number" min="100" value={String(r.widthMm ?? 600)} oninput={(e: Event) => editor.setRackPlacement({ widthMm: Number(val(e)) || 600 })} />
 		<PropText label="Depth (mm)" type="number" min="100" value={String(r.depthMm ?? 1000)} oninput={(e: Event) => editor.setRackPlacement({ depthMm: Number(val(e)) || 1000 })} />

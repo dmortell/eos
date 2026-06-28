@@ -108,6 +108,19 @@ export class OutletsEditor extends SurfaceEditor {
 		this.notify()
 	}
 
+	/** Assign the selection (single or marquee multi: outlets + racks) to a sheet layer. */
+	setSelLayer(layerId: string) {
+		let any = false
+		if (this.hasMultiSel()) {
+			const os = new Set(this.selOutlets), rs = new Set(this.selRacks)
+			for (const o of this.outlets) if (os.has(o.id)) { o.layerId = layerId; any = true }
+			for (const r of this.rackPlacements) if (rs.has(r.rackId)) { r.layerId = layerId; any = true }
+		} else if (this.selOutlet) { this.selOutlet.layerId = layerId; any = true }
+		else if (this.selTrunk) { this.selTrunk.layerId = layerId; any = true }
+		else if (this.selRackPlacement) { this.selRackPlacement.layerId = layerId; any = true }
+		if (any) this.notify()
+	}
+
 	// ── helpers ──
 	nodeById = (t: TrunkConfig, id: string) => t.nodes.find(n => n.id === id)
 	nodePos = (t: TrunkConfig, id: string) => this.nodeById(t, id)?.position
