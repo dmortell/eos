@@ -6,7 +6,9 @@
       "mcp__svelte__svelte-autofixer",
       "Read(//m/dev/eos2/src/routes/projects/[pid]/drawings/**)",
       "mcp__playwright__browser_select_option",
-      "mcp__playwright__browser_run_code_unsafe"
+      "mcp__playwright__browser_run_code_unsafe",
+      "PowerShell(pnpm check 2>&1)",
+      "Bash(pnpm check *)"
     ],
     "additionalDirectories": [
       "M:\\dev\\eos",

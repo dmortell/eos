@@ -3,22 +3,29 @@
 	export type { FloorConfig } from '$lib/types/project'
 	import type { FloorConfig } from '$lib/types/project'
 
-	let { open = false, floors, floorFormat = 'L01', onclose, onupdate, ondelete }: {
+	let { open = false, floors, floorFormat = 'L01', buildingFloors, skippedFloors = [], onclose, onupdate, ondelete, onupdatebuilding, onupdateskipped }: {
 		open: boolean
 		floors: FloorConfig[]
 		floorFormat?: string
+		/** Physical building extent (basements → roof). Editable only when
+		 *  `onupdatebuilding` is also supplied. */
+		buildingFloors?: { bottom: number; top: number }
+		/** Floors within the extent that don't physically exist (e.g. no 4th floor). */
+		skippedFloors?: number[]
 		onclose: () => void
 		onupdate: (floors: FloorConfig[]) => void
 		ondelete: (floorNumber: number) => void
+		onupdatebuilding?: (ext: { bottom: number; top: number }) => void
+		onupdateskipped?: (skipped: number[]) => void
 	} = $props()
 
 	let newFloorNumber = $state(1)
 	let newRoomCount = $state(1)
 	let confirmingDelete = $state<number | null>(null)
-	let editingRoomNames = $state<number | null>(null)
-	let editingAreas = $state<number | null>(null)
 	let editingLabel = $state<number | null>(null)
 	let editingNumber = $state<number | null>(null)
+	/** Floor whose details panel (room count / names / tenant areas) is expanded. */
+	let openDetails = $state<number | null>(null)
 	let error = $state('')
 
 	// Reset form when dialog opens
@@ -30,13 +37,54 @@
 			confirmingDelete = null
 			editingLabel = null
 			editingNumber = null
-			editingAreas = null
+			openDetails = null
 			error = ''
 		}
 	})
 
 	/** Local shorthand: format a floor number using this dialog's floorFormat + floors */
 	const fmt = (fl: number) => fmtFloor(fl, floorFormat, floors)
+
+	// ── Building extent (physical floor stack, basements → roof) ──
+	// Falls back to the min/max of configured floors when no extent is stored.
+	const fallbackBottom = $derived(floors.length ? Math.min(...floors.map(f => f.number)) : 1)
+	const fallbackTop = $derived(floors.length ? Math.max(...floors.map(f => f.number)) : 1)
+	let bottomInput = $state(0)
+	let topInput = $state(0)
+	$effect(() => {
+		if (open) {
+			bottomInput = buildingFloors?.bottom ?? fallbackBottom
+			topInput = buildingFloors?.top ?? fallbackTop
+		}
+	})
+	function commitBuilding() {
+		if (!onupdatebuilding) return
+		let bottom = Math.max(-99, Math.min(9999, Math.round(Number(bottomInput)) || 0))
+		let top = Math.max(-99, Math.min(9999, Math.round(Number(topInput)) || 0))
+		if (top < bottom) [bottom, top] = [top, bottom]
+		bottomInput = bottom
+		topInput = top
+		onupdatebuilding({ bottom, top })
+	}
+
+	// Every integer floor in the extent (highest first), for the exists/skip grid.
+	const extentFloors = $derived.by(() => {
+		const bottom = buildingFloors?.bottom ?? fallbackBottom
+		const top = buildingFloors?.top ?? fallbackTop
+		const out: number[] = []
+		for (let f = top; f >= bottom; f--) out.push(f)
+		return out
+	})
+	const skippedSet = $derived(new Set(skippedFloors))
+	/** Toggle whether a floor physically exists. Skipped floors are removed from
+	 *  the building stack entirely (no band, no gap). */
+	function toggleFloorExists(f: number) {
+		if (!onupdateskipped) return
+		const set = new Set(skippedFloors)
+		if (set.has(f)) set.delete(f)
+		else set.add(f)
+		onupdateskipped([...set].sort((a, b) => a - b))
+	}
 
 	function addFloor() {
 		const num = Math.max(-9, Math.min(9999, Math.round(newFloorNumber) || 1))
@@ -160,8 +208,47 @@
 					<button class="h-6 px-2 text-[11px] rounded border border-gray-200 bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-800 transition-colors" onclick={onclose}>Close</button>
 				</div>
 
-				<!-- Add floor form -->
-				<div class="flex items-end gap-2">
+				{#if onupdatebuilding}
+					<!-- 1 · Building extent — full physical stack (basements → roof),
+					     then mark any floors that don't physically exist. -->
+					<div class="space-y-2">
+						<div class="flex items-end gap-2">
+							<span class="text-[10px] font-semibold text-gray-600 uppercase tracking-wider pb-1.5 w-16">Building</span>
+							<label class="text-[10px] text-gray-500 uppercase tracking-wider">Lowest floor
+								<input bind:value={bottomInput} type="number" min="-99" max="9999"
+									class="w-16 h-7 px-2 text-xs font-mono bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
+									onkeydown={e => e.key === 'Enter' && commitBuilding()}
+									onblur={commitBuilding}
+								/>
+							</label>
+							<label class="text-[10px] text-gray-500 uppercase tracking-wider">Top floor
+								<input bind:value={topInput} type="number" min="-99" max="9999"
+									class="w-16 h-7 px-2 text-xs font-mono bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
+									onkeydown={e => e.key === 'Enter' && commitBuilding()}
+									onblur={commitBuilding}
+								/>
+							</label>
+							<span class="text-[10px] text-gray-400 pb-1.5">{fmt(bottomInput)}–{fmt(topInput)} (basements = negative)</span>
+						</div>
+						{#if onupdateskipped}
+							<p class="text-[10px] text-gray-400">Click a floor to toggle whether it physically exists (e.g. no 4th floor). Struck-through = doesn't exist.</p>
+							<div class="flex flex-wrap gap-1">
+								{#each extentFloors as f (f)}
+									{@const exists = !skippedSet.has(f)}
+									<button type="button"
+										class="h-6 min-w-9 px-1.5 text-[10px] font-mono rounded border transition-colors {exists ? 'bg-white border-gray-200 text-gray-600 hover:bg-gray-100' : 'bg-gray-100 border-gray-200 text-gray-300 line-through'}"
+										title={exists ? 'Exists — click to mark as non-existent' : 'Does not exist — click to restore'}
+										onclick={() => toggleFloorExists(f)}
+									>{fmt(f)}</button>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				{/if}
+
+				<!-- 2 · Add floor -->
+				<div class="flex items-end gap-2 pt-2 border-t border-gray-100">
+					<span class="text-[10px] font-semibold text-gray-600 uppercase tracking-wider pb-1.5 w-16">Add floor</span>
 					<label class="text-[10px] text-gray-500 uppercase tracking-wider">Floor #
 						<input bind:value={newFloorNumber} type="number" min="-9" max="9999"
 							class="w-16 h-7 px-2 text-xs font-mono bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
@@ -177,19 +264,20 @@
 					<button class="h-7 px-3 text-[11px] bg-blue-600 text-white rounded hover:bg-blue-500 transition-colors" onclick={addFloor}>Add</button>
 				</div>
 				{#if error}
-					<p class="text-[10px] text-red-500 -mt-2">{error}</p>
+					<p class="text-[10px] text-red-500">{error}</p>
 				{/if}
 			</div>
 
-			<div class="flex-1 overflow-y-auto p-4 space-y-4">
-				<!-- Floor list -->
+			<div class="flex-1 overflow-y-auto p-4">
+				<!-- 3 · Per-floor editors -->
 				{#if floors.length === 0}
 					<p class="text-xs text-gray-400 text-center py-4">No floors yet. Add one above.</p>
 				{:else}
 					<div class="space-y-0.5">
 						{#each [...floors].sort((a, b) => a.number - b.number) as fl (fl.number)}
 							<div class="rounded bg-gray-50 border border-gray-100">
-								<div class="flex items-center gap-3 px-3 py-2">
+								<!-- Compact row: floor # | label | room count | areas | details | delete -->
+								<div class="flex items-center gap-2 px-3 py-1.5">
 									<!-- Floor number (editable) -->
 									{#if editingNumber === fl.number}
 										<!-- svelte-ignore a11y_autofocus -->
@@ -200,112 +288,105 @@
 											onblur={e => updateFloorNumber(fl.number, e.currentTarget.value)}
 										/>
 									{:else}
-										<button class="font-mono text-xs font-semibold text-blue-600 w-10 shrink-0 text-left hover:underline" title="Edit floor number"
+										<button class="font-mono text-xs font-semibold text-blue-600 w-12 shrink-0 text-left hover:underline" title="Edit floor number"
 											onclick={() => { editingNumber = fl.number; error = '' }}>{fmt(fl.number)}</button>
 									{/if}
+
+									<!-- Label (editable) — fills remaining width -->
 									{#if editingLabel === fl.number}
-										<input class="w-24 h-5 px-1 text-[10px] border border-blue-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+										<!-- svelte-ignore a11y_autofocus -->
+										<input autofocus class="flex-1 min-w-0 h-6 px-1 text-[11px] border border-blue-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
 											value={fl.label ?? ''}
-											placeholder="Label"
+											placeholder="Label (optional)"
 											onkeydown={e => { if (e.key === 'Enter') updateFloorLabel(fl.number, e.currentTarget.value.trim()); if (e.key === 'Escape') editingLabel = null }}
 											onblur={e => updateFloorLabel(fl.number, e.currentTarget.value.trim())}
 										/>
-									{:else if fl.label}
-										<span class="text-[10px] text-gray-600 font-medium">{fl.label}</span>
-										<button class="p-0.5 rounded text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors" title="Edit floor label"
-											onclick={() => editingLabel = fl.number}>
-											<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-										</button>
 									{:else}
-										<button class="text-[10px] text-gray-300 hover:text-blue-500 transition-colors" title="Add floor label"
-											onclick={() => editingLabel = fl.number}>rename</button>
+										<button class="flex-1 min-w-0 text-left text-[11px] truncate {fl.label ? 'text-gray-700 font-medium' : 'text-gray-300'} hover:text-blue-500 transition-colors"
+											title="Edit floor label" onclick={() => editingLabel = fl.number}>{fl.label || 'add label…'}</button>
 									{/if}
 
-									<!-- Room count buttons -->
-									<div class="flex items-center gap-1.5">
-										<span class="text-[10px] text-gray-400">Rooms:</span>
-										<div class="flex">
-											{#each [1, 2, 3, 4] as n}
-												<button
-													class="h-6 w-6 text-[10px] font-mono border -ml-px first:ml-0 first:rounded-l last:rounded-r transition-colors
-														{fl.serverRoomCount === n ? 'bg-blue-100 border-blue-300 text-blue-700 z-10' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-100'}"
-													onclick={() => updateRoomCount(fl.number, n)}
-												>{n}</button>
-											{/each}
-										</div>
-										<span class="text-[10px] text-gray-500 ml-1">
-											({['A', 'B', 'C', 'D'].slice(0, fl.serverRoomCount).map(r => getRoomLabel(fl, r)).join(', ')})
-										</span>
-										<button class="p-0.5 rounded text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors" title="Edit room names"
-											onclick={() => editingRoomNames = editingRoomNames === fl.number ? null : fl.number}>
-											<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-										</button>
-									</div>
+									<!-- Room count summary -->
+									<span class="text-[10px] text-gray-500 tabular-nums shrink-0">{fl.serverRoomCount} room{fl.serverRoomCount === 1 ? '' : 's'}</span>
 
-									<!-- Tenant areas (separate outlets floorplans on one floor) -->
-									<button class="flex items-center gap-1 text-[10px] text-gray-400 hover:text-emerald-600 transition-colors" title="Tenant areas — separate outlets floorplans on one floor"
-										onclick={() => editingAreas = editingAreas === fl.number ? null : fl.number}>
-										<span>Areas:</span>
-										<span class="font-medium {fl.areas?.length ? 'text-emerald-600' : ''}">{fl.areas?.length ? fl.areas.map(a => a.label).join(', ') : '—'}</span>
-									</button>
+									<!-- Areas badge (only when present) -->
+									{#if fl.areas?.length}
+										<span class="text-[10px] text-emerald-600 font-medium shrink-0" title={fl.areas.map(a => a.label).join(', ')}>{fl.areas.length} area{fl.areas.length === 1 ? '' : 's'}</span>
+									{/if}
 
-									<div class="flex-1"></div>
+									<!-- Details toggle (room count / names / tenant areas) -->
+									<button class="px-1 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors text-sm leading-none shrink-0 {openDetails === fl.number ? 'bg-blue-50 text-blue-600' : ''}"
+										title="Rooms, room names & tenant areas"
+										onclick={() => openDetails = openDetails === fl.number ? null : fl.number}>⋯</button>
 
 									<!-- Delete -->
 									{#if confirmingDelete === fl.number}
-										<div class="flex items-center gap-1 text-[10px]">
+										<div class="flex items-center gap-1 text-[10px] shrink-0">
 											<span class="text-red-600 font-medium">Delete all data?</span>
 											<button class="px-1.5 py-0.5 bg-red-600 text-white rounded text-[10px] hover:bg-red-700" onclick={() => doDelete(fl.number)}>Yes</button>
 											<button class="px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded text-[10px] hover:bg-gray-300" onclick={() => confirmingDelete = null}>No</button>
 										</div>
 									{:else}
-										<button
-											class="text-gray-300 hover:text-red-500 transition-colors"
-											title="Delete floor"
-											onclick={() => confirmingDelete = fl.number}
-										>&times;</button>
+										<button class="text-gray-300 hover:text-red-500 transition-colors shrink-0" title="Delete floor"
+											onclick={() => confirmingDelete = fl.number}>&times;</button>
 									{/if}
 								</div>
 
-								<!-- Room name editor (expandable) -->
-								{#if editingRoomNames === fl.number}
-									<div class="flex items-center gap-2 px-3 pb-2 pt-0.5 border-t border-gray-100">
-										{#each ['A', 'B', 'C', 'D'].slice(0, fl.serverRoomCount) as room}
-											<label class="flex items-center gap-0.5 text-[10px] text-gray-400">
-												<span class="font-mono font-medium">{room}:</span>
-												<input class="w-20 h-5 px-1 text-[10px] border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-													value={fl.roomNames?.[room] ?? ''}
-													placeholder={room}
-													onchange={e => updateRoomName(fl.number, room, e.currentTarget.value.trim())} />
-											</label>
-										{/each}
-									</div>
-								{/if}
-
-								<!-- Tenant area editor (expandable) -->
-								{#if editingAreas === fl.number}
-									<div class="flex flex-wrap items-center gap-2 px-3 pb-2 pt-0.5 border-t border-gray-100">
-										{#each fl.areas ?? [] as area (area.id)}
-											<div class="flex items-center gap-0.5 rounded {area.primary ? 'ring-1 ring-emerald-300 bg-emerald-50/50 px-1' : ''}">
-												<button class="shrink-0 transition-colors {area.primary ? 'text-emerald-500' : 'text-gray-300 hover:text-emerald-400'}"
-													title={area.primary ? 'Primary (default) space' : 'Make primary'}
-													onclick={() => setPrimaryArea(fl.number, area.id)} aria-label="Set primary">
-													<svg width="11" height="11" viewBox="0 0 24 24" fill={area.primary ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2l3 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.9 21l1.2-6.8-5-4.9 6.9-1z"/></svg>
-												</button>
-												<input class="w-24 h-5 px-1 text-[10px] border border-emerald-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-emerald-400"
-													value={area.label}
-													placeholder="Area label"
-													onchange={e => updateAreaLabel(fl.number, area.id, e.currentTarget.value.trim())} />
-												{#if area.legacy}<span class="text-[8px] text-gray-400 uppercase tracking-wide" title="Holds the floor's original floorplan data">orig</span>{/if}
-												<button class="text-gray-300 hover:text-red-500 transition-colors text-xs leading-none" title="Delete area"
-													onclick={() => deleteArea(fl.number, area.id)}>&times;</button>
+								<!-- Expandable details -->
+								{#if openDetails === fl.number}
+									<div class="px-3 pb-2.5 pt-1 border-t border-gray-100 space-y-2.5">
+										<!-- Room count -->
+										<div class="flex items-center gap-2">
+											<span class="text-[10px] text-gray-400 uppercase tracking-wider w-14 shrink-0">Rooms</span>
+											<div class="flex">
+												{#each [1, 2, 3, 4] as n}
+													<button class="h-6 w-6 text-[10px] font-mono border -ml-px first:ml-0 first:rounded-l last:rounded-r transition-colors {fl.serverRoomCount === n ? 'bg-blue-100 border-blue-300 text-blue-700 z-10' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-100'}"
+														onclick={() => updateRoomCount(fl.number, n)}>{n}</button>
+												{/each}
 											</div>
-										{/each}
-										<button class="h-5 px-2 text-[10px] bg-emerald-600 text-white rounded hover:bg-emerald-500 transition-colors"
-											onclick={() => addArea(fl.number)}>+ Area</button>
-										{#if !(fl.areas?.length)}
-											<span class="text-[10px] text-gray-400">No areas — one floorplan for the floor. Add areas to split it per tenant space.</span>
-										{/if}
+										</div>
+										<!-- Room names -->
+										<div class="flex items-start gap-2">
+											<span class="text-[10px] text-gray-400 uppercase tracking-wider w-14 shrink-0 pt-1">Names</span>
+											<div class="flex flex-wrap gap-2">
+												{#each ['A', 'B', 'C', 'D'].slice(0, fl.serverRoomCount) as room}
+													<label class="flex items-center gap-0.5 text-[10px] text-gray-400">
+														<span class="font-mono font-medium">{room}:</span>
+														<input class="w-20 h-5 px-1 text-[10px] border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+															value={fl.roomNames?.[room] ?? ''}
+															placeholder={getRoomLabel(fl, room)}
+															onchange={e => updateRoomName(fl.number, room, e.currentTarget.value.trim())} />
+													</label>
+												{/each}
+											</div>
+										</div>
+										<!-- Tenant areas -->
+										<div class="flex items-start gap-2">
+											<span class="text-[10px] text-gray-400 uppercase tracking-wider w-14 shrink-0 pt-1" title="Separate outlets floorplans on one floor">Areas</span>
+											<div class="flex flex-wrap items-center gap-2">
+												{#each fl.areas ?? [] as area (area.id)}
+													<div class="flex items-center gap-0.5 rounded {area.primary ? 'ring-1 ring-emerald-300 bg-emerald-50/50 px-1' : ''}">
+														<button class="shrink-0 transition-colors {area.primary ? 'text-emerald-500' : 'text-gray-300 hover:text-emerald-400'}"
+															title={area.primary ? 'Primary (default) space' : 'Make primary'}
+															onclick={() => setPrimaryArea(fl.number, area.id)} aria-label="Set primary">
+															<svg width="11" height="11" viewBox="0 0 24 24" fill={area.primary ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2l3 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.9 21l1.2-6.8-5-4.9 6.9-1z"/></svg>
+														</button>
+														<input class="w-24 h-5 px-1 text-[10px] border border-emerald-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-emerald-400"
+															value={area.label}
+															placeholder="Area label"
+															onchange={e => updateAreaLabel(fl.number, area.id, e.currentTarget.value.trim())} />
+														{#if area.legacy}<span class="text-[8px] text-gray-400 uppercase tracking-wide" title="Holds the floor's original floorplan data">orig</span>{/if}
+														<button class="text-gray-300 hover:text-red-500 transition-colors text-xs leading-none" title="Delete area"
+															onclick={() => deleteArea(fl.number, area.id)}>&times;</button>
+													</div>
+												{/each}
+												<button class="h-5 px-2 text-[10px] bg-emerald-600 text-white rounded hover:bg-emerald-500 transition-colors"
+													onclick={() => addArea(fl.number)}>+ Area</button>
+												{#if !(fl.areas?.length)}
+													<span class="text-[10px] text-gray-400">One floorplan for the floor. Add areas to split it per tenant space.</span>
+												{/if}
+											</div>
+										</div>
 									</div>
 								{/if}
 							</div>

@@ -6,7 +6,7 @@
 	import { writeLog } from '$lib/logger'
 	import type { ChangeDetail } from '$lib/logger'
 	import type { FloorConfig } from '$lib/types/project'
-	import { migrateFloors, updateFloors as _updateFloors, deleteFloor as _deleteFloor } from '$lib/utils/floor'
+	import { migrateFloors, updateFloors as _updateFloors, deleteFloor as _deleteFloor, updateBuildingFloors as _updateBuildingFloors, updateSkippedFloors as _updateSkippedFloors } from '$lib/utils/floor'
 	import { findOrCreateDrawing } from '$lib/versioning/service'
 	import Risers from './Risers.svelte'
 	import type { RiserDocData } from './parts/types'
@@ -15,6 +15,8 @@
 	let session = getContext('session') as Session
 	let riserData: RiserDocData | null = $state(null)
 	let floors = $state<FloorConfig[]>([{ number: 1, serverRoomCount: 1 }])
+	let buildingFloors = $state<{ bottom: number; top: number } | undefined>(undefined)
+	let skippedFloors = $state<number[]>([])
 	let loading = $state(true)
 	let projectName = $state('')
 	let floorFormat = $state('L01')
@@ -50,6 +52,8 @@
 		const unsub = db.subscribeOne('projects', pid, (data: Record<string, any>) => {
 			if (data?.name) projectName = data.name
 			if (Array.isArray(data?.floors) && data.floors.length) floors = migrateFloors(data.floors)
+			buildingFloors = data?.buildingFloors ?? undefined
+			skippedFloors = Array.isArray(data?.skippedFloors) ? data.skippedFloors : []
 		})
 		return () => { unsub?.() }
 	})
@@ -156,6 +160,20 @@
 		_updateFloors(db, pid, updated, updated[0]?.number ?? 1)
 	}
 
+	function updateBuilding(ext: { bottom: number; top: number }) {
+		const pid = page.params.pid
+		if (!pid) return
+		buildingFloors = ext
+		_updateBuildingFloors(db, pid, ext)
+	}
+
+	function updateSkipped(skipped: number[]) {
+		const pid = page.params.pid
+		if (!pid) return
+		skippedFloors = skipped
+		_updateSkippedFloors(db, pid, skipped)
+	}
+
 	async function deleteFloor(fl: number) {
 		const pid = page.params.pid
 		if (!pid) return
@@ -172,6 +190,8 @@
 	<Risers
 		data={riserData}
 		{floors}
+		{buildingFloors}
+		{skippedFloors}
 		projectId={page.params.pid}
 		{projectName}
 		{floorFormat}
@@ -186,6 +206,8 @@
 		onDeleteDrawing={deleteDrawing}
 		onsave={save}
 		onupdatefloors={updateFloors}
+		onupdatebuilding={updateBuilding}
+		onupdateskipped={updateSkipped}
 		ondeletefloor={deleteFloor}
 	/>
 {/if}

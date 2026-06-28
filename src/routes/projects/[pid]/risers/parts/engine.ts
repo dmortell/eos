@@ -46,6 +46,9 @@ export interface FloorYBand {
 	slabTopMm: number
 	slabBottomMm: number   // = top of the floor below (or stack bottom)
 	heights: FloorHeights
+	/** Physical gap inserted ABOVE this band's top (mm) to represent hidden
+	 *  floors between it and the visible floor above. 0 when contiguous. */
+	gapAboveMm?: number
 }
 
 /**
@@ -61,16 +64,33 @@ export function buildFloorBands(
 	doc: Pick<RiserDocData, 'floorHeights' | 'settings' | 'hiddenFloors'>,
 	from: number,
 	to: number,
+	skippedFloors: number[] = [],
 ): FloorYBand[] {
 	const lo = Math.min(from, to)
 	const hi = Math.max(from, to)
 	const hidden = new Set(doc.hiddenFloors ?? [])
+	const skipped = new Set(skippedFloors)
 	const bands: FloorYBand[] = []
 	let cursor = 0
+	let prevFloor: number | null = null
 	// Highest floor first → top of canvas
 	for (let f = hi; f >= lo; f--) {
+		if (skipped.has(f)) continue // floor doesn't physically exist
 		if (hidden.has(f)) continue
 		const h = heightsFor(f, doc)
+		// When EXISTING floors were hidden between the previous visible floor and
+		// this one, insert a physical gap — half a floor's height — so the break
+		// reads as a real spacer block. Non-existent (skipped) floors don't count:
+		// the floors either side of them are physically adjacent.
+		let gapAboveMm = 0
+		if (prevFloor !== null) {
+			let hiddenBetween = 0
+			for (let g = prevFloor - 1; g > f; g--) if (!skipped.has(g)) hiddenBetween++
+			if (hiddenBetween > 0) {
+				gapAboveMm = Math.round(totalFloorHeightMm(h) / 2)
+				cursor += gapAboveMm
+			}
+		}
 		const topMm = cursor
 		const plenumBottomMm = topMm + h.plenumMm
 		const raisedFloorTopMm = plenumBottomMm + h.clearHeightMm
@@ -84,8 +104,10 @@ export function buildFloorBands(
 			slabTopMm,
 			slabBottomMm,
 			heights: h,
+			gapAboveMm,
 		})
 		cursor = slabBottomMm
+		prevFloor = f
 	}
 	return bands
 }
@@ -96,15 +118,19 @@ export function buildFloorBands(
  * { yMm, hiddenFloors } where yMm is the boundary between the higher band's
  * slab-bottom and the lower band's top.
  */
-export function compressionBreaks(bands: FloorYBand[]): Array<{ yMm: number; hiddenFloors: number[] }> {
+export function compressionBreaks(
+	bands: FloorYBand[],
+	skippedFloors: number[] = [],
+): Array<{ yMm: number; hiddenFloors: number[] }> {
+	const skipped = new Set(skippedFloors)
 	const out: Array<{ yMm: number; hiddenFloors: number[] }> = []
 	for (let i = 0; i < bands.length - 1; i++) {
 		const upper = bands[i]
 		const lower = bands[i + 1]
-		const gap = upper.floor - lower.floor - 1
-		if (gap >= 1) {
-			const hidden: number[] = []
-			for (let f = upper.floor - 1; f > lower.floor; f--) hidden.push(f)
+		// Only EXISTING (non-skipped) floors between the two count as hidden.
+		const hidden: number[] = []
+		for (let f = upper.floor - 1; f > lower.floor; f--) if (!skipped.has(f)) hidden.push(f)
+		if (hidden.length >= 1) {
 			out.push({ yMm: upper.slabBottomMm, hiddenFloors: hidden })
 		}
 	}

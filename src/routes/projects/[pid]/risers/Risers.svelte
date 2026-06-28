@@ -48,7 +48,11 @@
 		db: _db,
 		uid: _uid = '',
 		onsave,
+		buildingFloors = undefined,
+		skippedFloors = [],
 		onupdatefloors: _onupdatefloors,
+		onupdatebuilding: _onupdatebuilding,
+		onupdateskipped: _onupdateskipped,
 		ondeletefloor: _ondeletefloor,
 		/** Multiple riser drawings per project (standalone page only). */
 		drawings = [],
@@ -79,7 +83,11 @@
 		db: Firestore
 		uid?: string
 		onsave: (payload: Partial<RiserDocData>, changes: any[]) => void
+		buildingFloors?: { bottom: number; top: number }
+		skippedFloors?: number[]
 		onupdatefloors?: (updated: FloorConfig[]) => void
+		onupdatebuilding?: (ext: { bottom: number; top: number }) => void
+		onupdateskipped?: (skipped: number[]) => void
 		ondeletefloor?: (fl: number) => void
 		drawings?: { id: string; name?: string }[]
 		activeDrawingId?: string
@@ -98,8 +106,28 @@
 	// Doc state — defaults applied when no Firestore doc exists yet.
 	// ────────────────────────────────────────────────────────────────────
 	const floorNumbers = $derived(floors.map((f) => f.number))
-	const defaultFrom = $derived(Math.min(...(floorNumbers.length ? floorNumbers : [1])))
-	const defaultTo = $derived(Math.max(...(floorNumbers.length ? floorNumbers : [1])))
+	// Prefer the full physical building extent (basements → roof) so a fresh
+	// drawing spans every floor; fall back to the configured floors' min/max.
+	const defaultFrom = $derived(
+		buildingFloors?.bottom ?? Math.min(...(floorNumbers.length ? floorNumbers : [1])),
+	)
+	const defaultTo = $derived(
+		buildingFloors?.top ?? Math.max(...(floorNumbers.length ? floorNumbers : [1])),
+	)
+	// The full set of selectable floors — the contiguous building stack when an
+	// extent is set, otherwise just the configured floors. Used to clamp the
+	// view range so the user can scroll basements/roof even with no rooms there.
+	const availableFloors = $derived.by(() => {
+		const skip = new Set(skippedFloors)
+		if (buildingFloors) {
+			const out: number[] = []
+			for (let f = buildingFloors.bottom; f <= buildingFloors.top; f++) {
+				if (!skip.has(f)) out.push(f)
+			}
+			return out
+		}
+		return floorNumbers.filter((f) => !skip.has(f))
+	})
 
 	let floorHeights = $state<Record<number, any>>(data?.floorHeights ?? {})
 	let settings = $state(data?.settings ?? DEFAULT_RISER_SETTINGS)
@@ -109,6 +137,12 @@
 	let labels = $state<TextLabel[]>(data?.labels ?? [])
 	let initialised = $state(!!data)
 	let floorMgrOpen = $state(false)
+
+	/** Floors that contain at least one server room — used by the toolbar's
+	 *  "hide empty floors" toggle. */
+	const serverFloors = $derived([
+		...new Set(rooms.filter((r) => r.kind === 'server').map((r) => r.floor)),
+	])
 
 	/** When embedded in the workspace, RisersView sets a `risers-bridge`
 	 *  context object that the right panel (RisersInspector) reads. We mirror
@@ -127,7 +161,7 @@
 
 	// Keep range valid as floors change.
 	$effect(() => {
-		const r = clampRange(fromFloor, toFloor, floorNumbers)
+		const r = clampRange(fromFloor, toFloor, availableFloors)
 		if (r.from !== fromFloor) fromFloor = r.from
 		if (r.to !== toFloor) toFloor = r.to
 	})
@@ -148,8 +182,27 @@
 		labels,
 	} as RiserDocData)
 
-	const bands = $derived(buildFloorBands(doc, fromFloor, toFloor))
-	const breaks = $derived(compressionBreaks(bands))
+	const bands = $derived(buildFloorBands(doc, fromFloor, toFloor, skippedFloors))
+	const breaks = $derived(compressionBreaks(bands, skippedFloors))
+	// Physical gap blocks between non-contiguous visible floors (hidden floors
+	// between them). Half a floor tall — drawn as a hatched spacer.
+	const floorGaps = $derived(
+		bands
+			.map((b, i) => ({ b, above: bands[i - 1] }))
+			.filter(({ b }) => (b.gapAboveMm ?? 0) > 0)
+			.map(({ b, above }) => {
+				const gapMm = b.gapAboveMm ?? 0
+				// The ceiling slab of the floor below the gap occupies the bottom of
+				// the gap; the hatch fills the remaining space above it.
+				const slabMm = b.heights.slabMm
+				const hMm = Math.max(0, gapMm - slabMm)
+				// Count only EXISTING (non-skipped) floors in the gap.
+				const skip = new Set(skippedFloors)
+				let count = 0
+				if (above) for (let g = above.floor - 1; g > b.floor; g--) if (!skip.has(g)) count++
+				return { yMm: b.topMm - gapMm, hMm, count }
+			}),
+	)
 	const stackHeightMm = $derived(totalStackHeightMm(bands))
 	const buildingWidthMm = $derived(settings.widthMm)
 	const wallY = $derived(bands[0]?.topMm ?? 0)
@@ -1000,7 +1053,10 @@
 			bind:toFloor
 			bind:mode
 			bind:hiddenFloors
+			{serverFloors}
 			{floors}
+			{buildingFloors}
+			{skippedFloors}
 			{floorFormat}
 			onZoomIn={zoomIn}
 			onZoomOut={zoomOut}
@@ -1056,6 +1112,35 @@
 					{#each bands as band (band.floor)}
 						<FloorBand {band} widthMm={buildingWidthMm} {floors} {floorFormat} />
 					{/each}
+
+					<!-- Hidden-floor gap blocks (half-height spacer between
+					     non-contiguous visible floors) -->
+					{#if floorGaps.length}
+						<defs>
+							<pattern
+								id="riser-gap-hatch"
+								width="600"
+								height="600"
+								patternUnits="userSpaceOnUse"
+								patternTransform="rotate(45)"
+							>
+								<rect width="600" height="600" fill="rgba(120,120,140,0.06)" />
+								<line x1="0" y1="0" x2="0" y2="600" stroke="rgba(120,120,140,0.35)" stroke-width="60" />
+							</pattern>
+						</defs>
+						{#each floorGaps as gap, i (i)}
+							<g class="floor-gap">
+								<rect x={0} y={gap.yMm} width={buildingWidthMm} height={gap.hMm} fill="url(#riser-gap-hatch)" class="floor-gap-rect" />
+								<text
+									x={buildingWidthMm / 2}
+									y={gap.yMm + gap.hMm / 2}
+									class="floor-gap-label"
+									text-anchor="middle"
+									dominant-baseline="middle"
+								>{gap.count} floor{gap.count === 1 ? '' : 's'} hidden</text>
+							</g>
+						{/each}
+					{/if}
 
 					<!-- Building walls (draggable) -->
 					<g
@@ -1209,8 +1294,12 @@
 			open={floorMgrOpen}
 			{floors}
 			{floorFormat}
+			{buildingFloors}
+			{skippedFloors}
 			onclose={() => (floorMgrOpen = false)}
 			onupdate={_onupdatefloors}
+			onupdatebuilding={_onupdatebuilding}
+			onupdateskipped={_onupdateskipped}
 			ondelete={(fl) => _ondeletefloor?.(fl)}
 		/>
 	{/if}
@@ -1243,6 +1332,22 @@
 	.elevation-svg {
 		display: block;
 		user-select: none;
+	}
+	.floor-gap-rect {
+		stroke: rgba(120, 120, 140, 0.4);
+		stroke-width: 2;
+		stroke-dasharray: 24 16;
+		vector-effect: non-scaling-stroke;
+	}
+	.floor-gap-label {
+		font-family: ui-sans-serif, system-ui, sans-serif;
+		font-size: 560px;
+		font-weight: 500;
+		fill: rgb(113, 113, 122);
+		pointer-events: none;
+	}
+	:global(.dark) .floor-gap-label {
+		fill: rgb(161, 161, 170);
 	}
 	.draft-ladder {
 		fill: rgba(100, 70, 140, 0.3);

@@ -114,6 +114,31 @@ export function updateFloors(
 }
 
 /**
+ * Persist the building's physical floor extent (basements → roof) to the
+ * project doc. Shared by tools that let the user edit it (e.g. the Floor
+ * Manager in the risers tool).
+ */
+export function updateBuildingFloors(
+  db: FloorDb,
+  projectId: string,
+  buildingFloors: { bottom: number; top: number },
+): void {
+  db.save('projects', { id: projectId, buildingFloors })
+}
+
+/**
+ * Persist the set of non-existent floors (floors within the building extent that
+ * the building physically skips, e.g. no 4th floor) to the project doc.
+ */
+export function updateSkippedFloors(
+  db: FloorDb,
+  projectId: string,
+  skippedFloors: number[],
+): void {
+  db.save('projects', { id: projectId, skippedFloors: [...skippedFloors].sort((a, b) => a - b) })
+}
+
+/**
  * Delete a floor and all its tool documents (frames, racks rooms, outlets).
  * Returns the new active floor.
  */

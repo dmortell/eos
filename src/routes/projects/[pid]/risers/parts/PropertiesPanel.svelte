@@ -30,7 +30,6 @@
 		{@const r = selectedRoom}
 		<header>
 			<span class="kind">{r.kind === 'server' ? 'Server Room' : 'EPS Room'}</span>
-			<button type="button" class="del" onclick={() => onDelete()} title="Delete">✕</button>
 		</header>
 		<label>
 			<span>Label</span>
@@ -85,7 +84,6 @@
 		{@const l = selectedLadder}
 		<header>
 			<span class="kind">Ladder</span>
-			<button type="button" class="del" onclick={() => onDelete()} title="Delete">✕</button>
 		</header>
 		<label>
 			<span>Label</span>
@@ -152,6 +150,13 @@
 	{:else}
 		<div class="empty">No selection.</div>
 	{/if}
+
+	{#if selectedRoom || selectedLadder}
+		<button type="button" class="del-btn" onclick={() => onDelete()}>
+			<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+			Delete {selectedRoom ? (selectedRoom.kind === 'server' ? 'server room' : 'EPS room') : 'ladder'}
+		</button>
+	{/if}
 </aside>
 
 <style>
@@ -187,17 +192,32 @@
 	:global(.dark) .kind {
 		color: rgb(161, 161, 170);
 	}
-	.del {
-		background: none;
-		border: 1px solid rgb(228, 228, 231);
-		border-radius: 0.25rem;
-		padding: 0.05rem 0.4rem;
-		cursor: pointer;
+	.del-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.4rem;
+		width: 100%;
+		margin-top: 0.5rem;
+		padding: 0.45rem 0.5rem;
+		border: 1px solid rgb(220, 38, 38);
+		border-radius: 0.35rem;
+		background: rgb(239, 68, 68);
+		color: white;
 		font-size: 0.8rem;
-		color: rgb(120, 30, 30);
+		font-weight: 600;
+		cursor: pointer;
+		transition: background 0.12s;
 	}
-	.del:hover {
-		background: rgba(220, 60, 60, 0.1);
+	.del-btn:hover {
+		background: rgb(220, 38, 38);
+	}
+	:global(.dark) .del-btn {
+		background: rgb(220, 38, 38);
+		border-color: rgb(248, 113, 113);
+	}
+	:global(.dark) .del-btn:hover {
+		background: rgb(185, 28, 28);
 	}
 	label {
 		display: flex;

@@ -19,6 +19,18 @@
 </script>
 
 <g class="floor-band" data-floor={band.floor}>
+	<!-- Ceiling slab — when this floor sits directly under a gap of hidden
+	     floors, its ceiling (the slab of the floor above) would otherwise be
+	     missing. Render it at the bottom of the gap, on top of the plenum. -->
+	{#if (band.gapAboveMm ?? 0) > 0}
+		<rect
+			x="0"
+			y={band.topMm - band.heights.slabMm}
+			width={widthMm}
+			height={band.heights.slabMm}
+			class="slab"
+		/>
+	{/if}
 	<!-- Plenum void -->
 	<rect
 		x="0"
@@ -84,29 +96,32 @@
 	}
 	.raised-floor {
 		fill: rgba(160, 140, 100, 0.1);
-		stroke: rgba(160, 140, 100, 0.3);
-		stroke-width: 1;
+		/* stroke: rgba(160, 140, 100, 0.3); */
+		stroke: black;
+		stroke-width: 5;
 		vector-effect: non-scaling-stroke;
 	}
 	.slab {
-		fill: rgba(60, 60, 70, 0.85);
+		fill: rgba(60, 60, 70, 0.45);
 		stroke: rgba(20, 20, 30, 0.95);
 		stroke-width: 1;
 		vector-effect: non-scaling-stroke;
 	}
 	.ceiling {
-		stroke: rgba(80, 90, 110, 0.6);
-		stroke-width: 1.5;
+		/* stroke: rgba(80, 90, 110, 0.6); */
+		stroke: rgba(0, 0, 0, 1);
+		stroke-width: 5.5;
 		vector-effect: non-scaling-stroke;
 	}
 	.raised-floor-top {
-		stroke: rgba(90, 80, 50, 0.7);
-		stroke-width: 1.5;
+		/* stroke: rgba(90, 80, 50, 0.7); */
+		stroke: black;
+		stroke-width: 5;
 		vector-effect: non-scaling-stroke;
 	}
 	.floor-label {
 		font-family: ui-sans-serif, system-ui, sans-serif;
-		font-size: 280px;
+		font-size: 560px;
 		font-weight: 600;
 		fill: rgb(63, 63, 70);
 	}

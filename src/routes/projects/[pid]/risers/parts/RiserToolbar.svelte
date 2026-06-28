@@ -9,7 +9,10 @@
 		toFloor = $bindable<number | undefined>(undefined),
 		mode = $bindable<RiserMode>('select'),
 		hiddenFloors = $bindable<number[] | undefined>(undefined),
+		serverFloors = [],
 		floors,
+		buildingFloors = undefined,
+		skippedFloors = [],
 		floorFormat = 'L01',
 		onZoomIn,
 		onZoomOut,
@@ -23,7 +26,13 @@
 		toFloor?: number
 		mode: RiserMode
 		hiddenFloors?: number[]
+		/** Floor numbers that contain at least one server room. */
+		serverFloors?: number[]
 		floors?: FloorConfig[]
+		/** Physical building extent — drives the From/To range options. */
+		buildingFloors?: { bottom: number; top: number }
+		/** Floors that don't physically exist — excluded from all floor lists. */
+		skippedFloors?: number[]
 		floorFormat?: string
 		onZoomIn?: () => void
 		onZoomOut?: () => void
@@ -43,23 +52,91 @@
 		[...(floors ?? [])].sort((a, b) => a.number - b.number).map((f) => f.number),
 	)
 
-	function rangeFloors(): number[] {
+	/** Floors selectable in the From/To dropdowns — the full physical building
+	 *  stack when an extent is set, else just the configured floors. */
+	const selectableFloors = $derived.by(() => {
+		const skip = new Set(skippedFloors)
+		if (buildingFloors) {
+			const out: number[] = []
+			for (let f = buildingFloors.bottom; f <= buildingFloors.top; f++) {
+				if (!skip.has(f)) out.push(f)
+			}
+			return out
+		}
+		return sortedFloors.filter((f) => !skip.has(f))
+	})
+
+	/** Every integer floor in the visible From–To range, highest first (matching
+	 *  the elevation). The canvas draws all integers in range, not just the
+	 *  configured floors, so the visibility list must cover them too. */
+	const rangeFloors = $derived.by(() => {
 		if (fromFloor === undefined || toFloor === undefined) return []
 		const lo = Math.min(fromFloor, toFloor)
 		const hi = Math.max(fromFloor, toFloor)
-		return sortedFloors.filter((f) => f >= lo && f <= hi)
-	}
+		const skip = new Set(skippedFloors)
+		const out: number[] = []
+		for (let f = hi; f >= lo; f--) if (!skip.has(f)) out.push(f)
+		return out
+	})
 
-	function toggleFloorHidden(f: number) {
+	/** Floor of the last visibility checkbox clicked — anchors shift-click ranges. */
+	let lastToggled = $state<number | null>(null)
+
+	/** Set the visibility of one or more floors. `visible` true → ensure shown
+	 *  (remove from hiddenFloors); false → ensure hidden. */
+	function setFloorsVisible(targets: number[], visible: boolean) {
 		if (!hiddenFloors) return
 		const set = new Set(hiddenFloors)
-		if (set.has(f)) set.delete(f)
-		else set.add(f)
+		for (const f of targets) {
+			if (visible) set.delete(f)
+			else set.add(f)
+		}
 		hiddenFloors = [...set].sort((a, b) => a - b)
 	}
 
+	/** Handle a click on a floor's visibility checkbox. Shift-click extends the
+	 *  toggle across every floor between the last click and this one (multi-select
+	 *  list behaviour), all set to the clicked checkbox's new state. */
+	function onFloorClick(f: number, e: MouseEvent & { currentTarget: HTMLInputElement }) {
+		const visible = e.currentTarget.checked
+		if (e.shiftKey && lastToggled !== null && lastToggled !== f) {
+			const lo = Math.min(lastToggled, f)
+			const hi = Math.max(lastToggled, f)
+			setFloorsVisible(rangeFloors.filter((x) => x >= lo && x <= hi), visible)
+		} else {
+			setFloorsVisible([f], visible)
+		}
+		lastToggled = f
+	}
+
+	/** Floors currently shown (not in hiddenFloors) within the view range. */
+	const shownCount = $derived(
+		rangeFloors.filter((f) => !(hiddenFloors ?? []).includes(f)).length,
+	)
+
 	function showAllFloors() {
 		hiddenFloors = []
+	}
+
+	/** In-range floors with no server room. */
+	const emptyFloors = $derived(rangeFloors.filter((f) => !serverFloors.includes(f)))
+	/** True when every empty floor is currently hidden (and there's something to
+	 *  hide) — drives the toggle's on/off state. */
+	const emptyFloorsHidden = $derived(
+		emptyFloors.length > 0 && emptyFloors.every((f) => (hiddenFloors ?? []).includes(f)),
+	)
+
+	function toggleEmptyFloors() {
+		if (!hiddenFloors) return
+		if (emptyFloorsHidden) {
+			// Show the empty floors again, leaving any other manual hides intact.
+			const empty = new Set(emptyFloors)
+			hiddenFloors = hiddenFloors.filter((f) => !empty.has(f))
+		} else {
+			const set = new Set(hiddenFloors)
+			for (const f of emptyFloors) set.add(f)
+			hiddenFloors = [...set].sort((a, b) => a - b)
+		}
 	}
 
 	function setMode(m: RiserMode) {
@@ -72,14 +149,14 @@
 		<div class="group">
 			<label class="lbl">From
 				<select bind:value={fromFloor}>
-					{#each sortedFloors as f}
+					{#each selectableFloors as f}
 						<option value={f}>{fmtFloor(f, floorFormat, floors)}</option>
 					{/each}
 				</select>
 			</label>
 			<label class="lbl">To
 				<select bind:value={toFloor}>
-					{#each sortedFloors as f}
+					{#each selectableFloors as f}
 						<option value={f}>{fmtFloor(f, floorFormat, floors)}</option>
 					{/each}
 				</select>
@@ -89,34 +166,41 @@
 				bind:this={visMenuEl}
 				bind:open={visMenuOpen}
 			>
-				<summary>
-					{#if hiddenFloors && hiddenFloors.length}
-						Hide ({hiddenFloors.length})
-					{:else}
-						Hide…
-					{/if}
+				<summary title="Show / hide floors in view">
+					Visible {shownCount}/{rangeFloors.length}
 				</summary>
 				<div class="vis-pop">
 					<div class="vis-head">
-						<span>Hide floors</span>
-						{#if hiddenFloors && hiddenFloors.length}
-							<button type="button" onclick={showAllFloors}>Show all</button>
-						{/if}
+						<span>Show floors</span>
+						<div class="vis-actions">
+							<button
+								type="button"
+								onclick={toggleEmptyFloors}
+								disabled={emptyFloors.length === 0}
+							>{emptyFloorsHidden ? 'Show empty' : 'Hide empty'}</button>
+							{#if hiddenFloors && hiddenFloors.length}
+								<button type="button" onclick={showAllFloors}>Show all</button>
+							{/if}
+						</div>
 					</div>
 					<ul>
-						{#each rangeFloors() as f}
+						{#each rangeFloors as f}
 							<li>
 								<label>
 									<input
 										type="checkbox"
-										checked={(hiddenFloors ?? []).includes(f)}
-										onchange={() => toggleFloorHidden(f)}
+										checked={!(hiddenFloors ?? []).includes(f)}
+										onclick={(e) => onFloorClick(f, e)}
 									/>
 									{fmtFloor(f, floorFormat, floors ?? [])}
+									{#if !serverFloors.includes(f)}
+										<span class="empty-tag">empty</span>
+									{/if}
 								</label>
 							</li>
 						{/each}
 					</ul>
+					<p class="vis-hint">Shift-click to toggle a range</p>
 				</div>
 			</details>
 		</div>
@@ -198,8 +282,10 @@
 		color: rgb(212, 212, 216);
 	}
 	select {
+		height: 1.75rem;
+		box-sizing: border-box;
 		font-size: 0.85rem;
-		padding: 0.15rem 0.35rem;
+		padding: 0 0.35rem;
 		border: 1px solid rgb(212, 212, 216);
 		border-radius: 0.25rem;
 		background: white;
@@ -213,10 +299,14 @@
 		position: relative;
 	}
 	.vis-menu > summary {
+		display: inline-flex;
+		align-items: center;
+		height: 1.75rem;
+		box-sizing: border-box;
 		list-style: none;
 		cursor: pointer;
 		font-size: 0.8rem;
-		padding: 0.15rem 0.5rem;
+		padding: 0 0.5rem;
 		border: 1px solid rgb(212, 212, 216);
 		border-radius: 0.25rem;
 		background: white;
@@ -242,6 +332,7 @@
 		border-radius: 0.35rem;
 		background: white;
 		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+		user-select: none;
 	}
 	:global(.dark) .vis-pop {
 		background: rgb(24, 24, 27);
@@ -264,6 +355,10 @@
 		color: rgb(161, 161, 170);
 		border-bottom-color: rgb(39, 39, 42);
 	}
+	.vis-actions {
+		display: flex;
+		gap: 0.4rem;
+	}
 	.vis-head button {
 		background: none;
 		border: none;
@@ -273,6 +368,27 @@
 		padding: 0 0.2rem;
 		text-transform: none;
 		letter-spacing: 0;
+	}
+	.vis-head button:disabled {
+		color: rgb(161, 161, 170);
+		cursor: default;
+	}
+	.vis-hint {
+		margin: 0.35rem 0.2rem 0;
+		padding-top: 0.3rem;
+		border-top: 1px solid rgb(228, 228, 231);
+		font-size: 0.65rem;
+		color: rgb(161, 161, 170);
+	}
+	:global(.dark) .vis-hint {
+		border-top-color: rgb(39, 39, 42);
+	}
+	.empty-tag {
+		margin-left: auto;
+		font-size: 0.65rem;
+		color: rgb(161, 161, 170);
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
 	}
 	.vis-pop ul {
 		list-style: none;

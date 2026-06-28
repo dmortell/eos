@@ -47,7 +47,7 @@
 				? '#285aa0'
 				: '#a06e1e',
 	)
-	const fill = $derived(hexToRgba(baseColor, 0.18))
+	const fill = $derived(hexToRgba(baseColor, 0.06))
 	const stroke = $derived(baseColor)
 	const badge = $derived(room.kind === 'server' ? 'SER' : 'EPS')
 </script>
@@ -69,7 +69,7 @@
 		vector-effect="non-scaling-stroke"
 	/>
 	<!-- Kind badge (top-left corner) -->
-	<text
+	<!-- <text
 		x={xLeft + 80}
 		y={yTop + 240}
 		class="badge"
@@ -77,7 +77,7 @@
 		text-anchor="start"
 	>
 		{badge}
-	</text>
+	</text> -->
 	<!-- Room label, centered -->
 	<text
 		x={room.xMm}

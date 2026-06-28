@@ -38,6 +38,17 @@ export interface Project {
   name: string
   description?: string
   floors: FloorConfig[]
+  /** Physical building extent — the full floor stack (basements → roof) even
+   *  where the client only uses some floors. Lets tools list/show every floor
+   *  independently of which ones have server rooms or data. Contiguous: every
+   *  integer between `bottom` and `top` exists. e.g. { bottom: -3, top: 33 }.
+   *  Falls back to the min/max of `floors` when absent. */
+  buildingFloors?: { bottom: number; top: number }
+  /** Floor numbers within `buildingFloors` that DON'T physically exist — e.g.
+   *  buildings that skip an unlucky floor (no 4th floor / no ground floor /
+   *  no 13th). These are removed from the stack entirely (not just hidden):
+   *  no band, no gap block, floors above/below are physically adjacent. */
+  skippedFloors?: number[]
   ownerId?: string
   deleted?: boolean
 }
