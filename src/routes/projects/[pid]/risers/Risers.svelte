@@ -15,6 +15,7 @@
 	import RisersSidebar from './parts/RisersSidebar.svelte'
 	import RiserToolbar from './parts/RiserToolbar.svelte'
 	import DrawingPicker from './parts/DrawingPicker.svelte'
+	import FloorManagerDialog from '$lib/components/FloorManagerDialog.svelte'
 	import {
 		DEFAULT_RISER_SETTINGS,
 		type Cable,
@@ -107,6 +108,7 @@
 	let cables = $state(data?.cables ?? [])
 	let labels = $state<TextLabel[]>(data?.labels ?? [])
 	let initialised = $state(!!data)
+	let floorMgrOpen = $state(false)
 
 	/** When embedded in the workspace, RisersView sets a `risers-bridge`
 	 *  context object that the right panel (RisersInspector) reads. We mirror
@@ -154,7 +156,7 @@
 	const wallH = $derived(stackHeightMm)
 
 	// SVG viewBox includes a left margin for the floor labels.
-	const LEFT_MARGIN_MM = 1500
+	const LEFT_MARGIN_MM = 5000
 	const RIGHT_MARGIN_MM = 500
 	const TOP_MARGIN_MM = 500
 	const BOTTOM_MARGIN_MM = 500
@@ -1006,6 +1008,7 @@
 				userInteracted = false
 				zoomFit()
 			}}
+			onFloors={_onupdatefloors ? () => (floorMgrOpen = true) : undefined}
 		/>
 	{/if}
 
@@ -1199,6 +1202,17 @@
 			</button>
 		</span>
 	</div>
+	{/if}
+
+	{#if !bare && _onupdatefloors}
+		<FloorManagerDialog
+			open={floorMgrOpen}
+			{floors}
+			{floorFormat}
+			onclose={() => (floorMgrOpen = false)}
+			onupdate={_onupdatefloors}
+			ondelete={(fl) => _ondeletefloor?.(fl)}
+		/>
 	{/if}
 </div>
 

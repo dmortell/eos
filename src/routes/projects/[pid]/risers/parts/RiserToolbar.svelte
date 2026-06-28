@@ -15,6 +15,7 @@
 		onZoomOut,
 		onZoomFit,
 		onSettings,
+		onFloors,
 	}: {
 		/** Floor range / hide controls are optional — the workspace lifts them
 		 *  into its right panel and only the mode + zoom buttons live here. */
@@ -28,6 +29,7 @@
 		onZoomOut?: () => void
 		onZoomFit?: () => void
 		onSettings?: () => void
+		onFloors?: () => void
 	} = $props()
 
 	let visMenuOpen = $state(false)
@@ -147,6 +149,9 @@
 
 	<div class="grow"></div>
 
+	{#if onFloors}
+		<Button size="sm" variant="ghost" icon="layers" onclick={() => onFloors?.()} title="Manage floors">Floors</Button>
+	{/if}
 	{#if onSettings}
 		<Button size="sm" variant="ghost" icon="settings" onclick={() => onSettings?.()} title="Settings" />
 	{/if}

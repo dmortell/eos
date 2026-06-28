@@ -17,6 +17,7 @@
 	let confirmingDelete = $state<number | null>(null)
 	let editingRoomNames = $state<number | null>(null)
 	let editingLabel = $state<number | null>(null)
+	let editingNumber = $state<number | null>(null)
 	let error = $state('')
 
 	// Reset form when dialog opens
@@ -27,6 +28,7 @@
 			newRoomCount = 1
 			confirmingDelete = null
 			editingLabel = null
+			editingNumber = null
 			error = ''
 		}
 	})
@@ -67,6 +69,22 @@
 		const updated = floors.map(f => f.number === floorNumber ? { ...f, label: label || undefined } : f)
 		onupdate(updated)
 		editingLabel = null
+	}
+
+	/** Renumber an existing floor. The number drives the building stack / floor
+	 *  range (risers, rack/frame doc ids), so a typo here (e.g. 200 instead of 33)
+	 *  inflates the whole stack — this lets you correct it without delete + re-add. */
+	function updateFloorNumber(oldNumber: number, raw: string | number) {
+		const num = Math.round(Number(raw))
+		editingNumber = null
+		if (!Number.isFinite(num) || num === oldNumber) { error = ''; return }
+		if (num < -9 || num > 9999) { error = `Floor number must be between -9 and 9999`; return }
+		if (floors.find(f => f.number === num)) { error = `Floor ${fmt(num)} already exists`; return }
+		error = ''
+		const updated = floors
+			.map(f => f.number === oldNumber ? { ...f, number: num } : f)
+			.sort((a, b) => a.number - b.number)
+		onupdate(updated)
 	}
 
 	function getRoomLabel(fl: FloorConfig, room: string): string {
@@ -124,8 +142,19 @@
 						{#each [...floors].sort((a, b) => a.number - b.number) as fl (fl.number)}
 							<div class="rounded bg-gray-50 border border-gray-100">
 								<div class="flex items-center gap-3 px-3 py-2">
-									<!-- Floor label -->
-									<span class="font-mono text-xs font-semibold text-blue-600 w-10 shrink-0">{fmt(fl.number)}</span>
+									<!-- Floor number (editable) -->
+									{#if editingNumber === fl.number}
+										<!-- svelte-ignore a11y_autofocus -->
+										<input type="number" min="-9" max="9999" autofocus
+											class="w-14 h-6 px-1 text-xs font-mono font-semibold text-blue-600 border border-blue-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 shrink-0"
+											value={fl.number}
+											onkeydown={e => { if (e.key === 'Enter') updateFloorNumber(fl.number, e.currentTarget.value); if (e.key === 'Escape') editingNumber = null }}
+											onblur={e => updateFloorNumber(fl.number, e.currentTarget.value)}
+										/>
+									{:else}
+										<button class="font-mono text-xs font-semibold text-blue-600 w-10 shrink-0 text-left hover:underline" title="Edit floor number"
+											onclick={() => { editingNumber = fl.number; error = '' }}>{fmt(fl.number)}</button>
+									{/if}
 									{#if editingLabel === fl.number}
 										<input class="w-24 h-5 px-1 text-[10px] border border-blue-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
 											value={fl.label ?? ''}
