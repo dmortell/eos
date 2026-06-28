@@ -40,3 +40,5 @@ src/lib/ui/combo
 
 src-sample/
 .playwright-mcp/
+sample-pdf-viewer/
+svelte-pdf-master.zip
