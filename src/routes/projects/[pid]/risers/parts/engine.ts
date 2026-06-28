@@ -524,10 +524,17 @@ export function cablePolylinePoints(
 		const exitLaneOffset = (exitRun?.lane ?? 0) * LANE_SPACING_MM
 		const entryLaneOffset = (entryRun?.lane ?? 0) * LANE_SPACING_MM
 		const ladderWidth = ladder.widthMm ?? 450
-		const vLaneOffset = ((vRun?.lane ?? 0) - 0) * LANE_SPACING_MM
-		const ladderInnerXMax = ladderWidth / 2 - LANE_SPACING_MM
-		const clampedVOffset = Math.max(-ladderInnerXMax, Math.min(ladderInnerXMax, vLaneOffset))
-		const ladderX = ladder.xMm + clampedVOffset
+		// Vertical riser bundle: centre the lanes symmetrically about the ladder axis and
+		// shrink the per-lane spacing if the full-width bundle wouldn't fit, so 3+ cables
+		// sharing a riser never collapse onto each other (the old one-sided stack hit the
+		// clamp and overlapped). Keep a small margin off the ladder edges.
+		const vCount = vRun?.laneCount ?? 1
+		const ladderInnerXMax = Math.max(0, ladderWidth / 2 - 50)
+		const vSpacing = vCount > 1
+			? Math.min(LANE_SPACING_MM, (2 * ladderInnerXMax) / (vCount - 1))
+			: LANE_SPACING_MM
+		const vCenteredLane = (vRun?.lane ?? 0) - (vCount - 1) / 2
+		const ladderX = ladder.xMm + vCenteredLane * vSpacing
 
 		const yExit = baseYA + exitLaneOffset
 		const yEntry = baseYB + entryLaneOffset

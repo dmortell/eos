@@ -104,6 +104,8 @@ export interface CableRun {
 	ladderId?: string
 	roomId?: string
 	lane: number
+	/** Total lanes in this run's channel (second-pass) — lets the renderer centre the bundle. */
+	laneCount?: number
 }
 
 export function buildCableRuns(cable: Cable, ctx: { rooms: RiserRoom[]; ladders: Ladder[] }): CableRun[] {
@@ -174,6 +176,15 @@ export function computeCableLanes(cables: Cable[], ctx: { rooms: RiserRoom[]; la
 			}
 		}
 		out.set(cable.id, runs)
+	}
+	// Second pass: stamp each run with its channel's final lane count so the renderer
+	// can centre the bundle (and scale spacing to fit a ladder).
+	for (const runs of out.values()) {
+		for (const r of runs) {
+			r.laneCount = r.type === 'rv'
+				? pointChannels.get(r.channelKey)?.size ?? 1
+				: channels.get(r.channelKey)?.length ?? 1
+		}
 	}
 	return out
 }
@@ -259,10 +270,15 @@ export function cablePolylinePoints(
 		const exitLaneOffset = (exitRun?.lane ?? 0) * LANE_SPACING_MM
 		const entryLaneOffset = (entryRun?.lane ?? 0) * LANE_SPACING_MM
 		const ladderWidth = ladder.widthMm ?? 450
-		const vLaneOffset = ((vRun?.lane ?? 0) - 0) * LANE_SPACING_MM
-		const ladderInnerXMax = ladderWidth / 2 - LANE_SPACING_MM
-		const clampedVOffset = Math.max(-ladderInnerXMax, Math.min(ladderInnerXMax, vLaneOffset))
-		const ladderX = ladder.xMm + clampedVOffset
+		// Centre the vertical riser bundle about the ladder axis and shrink per-lane
+		// spacing to fit, so 3+ cables sharing a riser don't collapse onto each other.
+		const vCount = vRun?.laneCount ?? 1
+		const ladderInnerXMax = Math.max(0, ladderWidth / 2 - 50)
+		const vSpacing = vCount > 1
+			? Math.min(LANE_SPACING_MM, (2 * ladderInnerXMax) / (vCount - 1))
+			: LANE_SPACING_MM
+		const vCenteredLane = (vRun?.lane ?? 0) - (vCount - 1) / 2
+		const ladderX = ladder.xMm + vCenteredLane * vSpacing
 
 		const yExit = baseYA + exitLaneOffset
 		const yEntry = baseYB + entryLaneOffset
