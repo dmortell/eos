@@ -55,6 +55,23 @@ export function floorDocId(projectId: string, floor: number, areaId?: string): s
 }
 
 /**
+ * Doc ID for a floor's tool data accounting for tenant areas, where the FIRST
+ * area is the "primary" and reuses the legacy unsuffixed key. This means a floor
+ * that started single (`_F33`) can gain a second tenant space with NO migration:
+ * the original office stays at `_F33` (area 1), the new space lands at
+ * `_F33__{areaId}` (area 2+). Floors with no areas also map to the plain key.
+ */
+export function floorAreaDocId(
+  projectId: string,
+  floor: number,
+  areas: { id: string }[] | undefined,
+  areaId: string | undefined,
+): string {
+  const isPrimary = !areas?.length || !areaId || areaId === areas[0].id
+  return floorDocId(projectId, floor, isPrimary ? undefined : areaId)
+}
+
+/**
  * Build a Firestore document ID for a floor + room-scoped document.
  * Pattern: `{projectId}_F{floor}_R{room}` e.g. `abc123_F01_RA`
  */

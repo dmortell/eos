@@ -4,7 +4,7 @@
 	import { getContext } from 'svelte';
 	import { Firestore, Spinner, Session } from '$lib';
 	import type { FloorConfig } from '$lib/types/project';
-	import { updateFloors as _updateFloors, deleteFloor as _deleteFloor, floorDocId } from '$lib/utils/floor';
+	import { updateFloors as _updateFloors, deleteFloor as _deleteFloor, floorDocId, floorAreaDocId } from '$lib/utils/floor';
 	import { findOrCreateDrawing } from '$lib/versioning/service';
 	import Outlets from './Outlets.svelte';
 
@@ -68,9 +68,12 @@
 	});
 
 	/** Firestore doc ID for outlets on a given floor + area. Outlets is the only
-	 *  per-floor tool split by tenant area; frames/racks stay per-floor/room. */
+	 *  per-floor tool split by tenant area; frames/racks stay per-floor/room.
+	 *  The first/primary area reuses the legacy unsuffixed key, so a floor can
+	 *  gain a second tenant space with no migration of the existing one. */
 	function docId(floor = activeFloor, area = activeArea) {
-		return floorDocId(page.params.pid ?? '', floor, area || undefined);
+		const areas = floors.find(f => f.number === floor)?.areas;
+		return floorAreaDocId(page.params.pid ?? '', floor, areas, area || undefined);
 	}
 	/** Per-floor key for frames/links (no area suffix). */
 	function floorKey(floor = activeFloor) {
