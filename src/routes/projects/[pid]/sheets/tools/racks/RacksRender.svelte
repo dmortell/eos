@@ -3,10 +3,11 @@
 	import type { RackConfig, DeviceConfig, RackSettings, RoomObject, RackRow, RackFace } from './types'
 	import { RU_HEIGHT_MM, RACK_19IN_MM, RACK_19IN_INNER, RACK_GAP_MM, DEVICE_TYPE_COLORS, DEFAULT_SETTINGS } from './colors'
 	import { buildElevation, deviceBox } from './rack-layout'
+	import { objLayerOf, objLayerColor } from '../../layers/layers'
 
 	let {
 		racks = [], devices = [], settings = null, roomObjects = [], rows = [], face = 'front',
-		rowId = undefined, showWalls = false, colorDevices = true, vp, onview, view = null, onsvg, children, hidden = [],
+		rowId = undefined, showWalls = false, colorDevices = true, vp, onview, view = null, onsvg, children, hidden = [], layers = [],
 	}: {
 		racks?: RackConfig[]
 		devices?: DeviceConfig[]
@@ -23,6 +24,7 @@
 		onsvg?: (el: SVGSVGElement) => void
 		children?: any
 		hidden?: string[]
+		layers?: import('../../layers/layers').LayerDef[]
 	} = $props()
 
 	const PT_TO_MM = 25.4 / 72
@@ -133,21 +135,23 @@
 			{/if}
 		{/each}
 
-		{#if !hidden.includes('racks')}
 		{#each planRows as pr (pr.row.id)}
 			<g transform="translate({pr.origin.x} {pr.origin.y}) rotate({pr.rot})">
 				{#each pr.placed as { rack, x, y } (rack.id)}
+					{@const eff = objLayerOf(rack.layerId, 'racks', layers)}
+					{#if !hidden.includes(eff)}
+					{@const lc = objLayerColor(eff, layers)}
 					<g>
-						<rect {x} {y} width={rack.widthMm} height={rack.depthMm} fill="white" stroke="#333" stroke-width="0.4" vector-effect="non-scaling-stroke" stroke-dasharray={rack.type === 'vcm' ? '20 12' : undefined} />
-						<text x={x + rack.widthMm / 2} y={y + rack.depthMm / 2} text-anchor="middle" dominant-baseline="middle" font-size={planLabelMm} fill="#333">{rack.label}</text>
+						<rect {x} {y} width={rack.widthMm} height={rack.depthMm} fill="white" stroke={lc ?? '#333'} stroke-width="0.4" vector-effect="non-scaling-stroke" stroke-dasharray={rack.type === 'vcm' ? '20 12' : undefined} />
+						<text x={x + rack.widthMm / 2} y={y + rack.depthMm / 2} text-anchor="middle" dominant-baseline="middle" font-size={planLabelMm} fill={lc ?? '#333'}>{rack.label}</text>
 					</g>
+					{/if}
 				{/each}
 				{#if pr.width > 0}
 					<line x1="0" y1={pr.depth} x2={pr.width} y2={pr.depth} stroke="#555" stroke-width="0.4" vector-effect="non-scaling-stroke" />
 				{/if}
 			</g>
 		{/each}
-		{/if}
 	{:else}
 		<!-- Room shell (slab / ceiling / walls) when enabled -->
 		{#if showWalls}
@@ -167,10 +171,12 @@
 		<line x1={bounds.x} y1={Y(cfg.ceilingLevel)} x2={bounds.x + bounds.w} y2={Y(cfg.ceilingLevel)} stroke="#cbd5e1" stroke-width="0.5" stroke-dasharray="6 4" vector-effect="non-scaling-stroke" />
 
 		<!-- Rack frames + RU numbers -->
-		{#if !hidden.includes('racks')}
 		{#each elevRacks as { rack, x, z } (rack.id)}
+			{@const eff = objLayerOf(rack.layerId, 'racks', layers)}
+			{#if !hidden.includes(eff)}
+			{@const lc = objLayerColor(eff, layers)}
 			{@const innerX = x + (rack.widthMm - RACK_19IN_INNER) / 2}
-			<rect {x} y={Y(z + rack.heightMm)} width={rack.widthMm} height={rack.heightMm} fill="white" stroke="#333" stroke-width="0.4" vector-effect="non-scaling-stroke" />
+			<rect {x} y={Y(z + rack.heightMm)} width={rack.widthMm} height={rack.heightMm} fill="white" stroke={lc ?? '#333'} stroke-width="0.4" vector-effect="non-scaling-stroke" />
 			{#if hasRU(rack.type)}
 				<rect x={innerX} y={Y(z + (rack.heightU + 1) * RU_HEIGHT_MM)} width={RACK_19IN_INNER} height={rack.heightU * RU_HEIGHT_MM} fill="none" stroke="#bbb" stroke-width="0.3" vector-effect="non-scaling-stroke" />
 				{#each Array.from({ length: rack.heightU }) as _, i (i)}
@@ -183,20 +189,21 @@
 					<text x={innerX + RACK_19IN_INNER + 25} y={yc} text-anchor="start" dominant-baseline="middle" font-size={ruLabelMm} fill="#aaa" font-family="monospace">{u}</text>
 				{/each}
 			{/if}
-			<text x={x + rack.widthMm / 2} y={Y(z + rack.heightMm) - rackLabelMm * 0.4} text-anchor="middle" font-size={rackLabelMm} fill="#333" font-weight="bold">{rack.label}</text>
+			<text x={x + rack.widthMm / 2} y={Y(z + rack.heightMm) - rackLabelMm * 0.4} text-anchor="middle" font-size={rackLabelMm} fill={lc ?? '#333'} font-weight="bold">{rack.label}</text>
+			{/if}
 		{/each}
-		{/if}
 
 		<!-- Devices -->
-		{#if !hidden.includes('devices')}
 		{#each devices as d (d.id)}
+			{@const eff = objLayerOf(d.layerId, 'devices', layers)}
+			{#if !hidden.includes(eff)}
 			{@const box = deviceBox(d, elev, face)}
 			{#if box}
 				{@const devW = box.w}
 				{@const dx = box.x}
 				{@const dyTop = box.y}
 				{@const dh = box.h}
-				{@const color = d.color ?? DEVICE_TYPE_COLORS[d.type] ?? '#6b7280'}
+				{@const color = objLayerColor(eff, layers) ?? d.color ?? DEVICE_TYPE_COLORS[d.type] ?? '#6b7280'}
 				{@const cx = dx + devW / 2}
 				{@const cy = dyTop + dh / 2}
 				{@const rotated = d.type === 'pdu' || (d.widthMm ?? RACK_19IN_MM) <= 150}
@@ -215,8 +222,8 @@
 					{/if}
 				</g>
 			{/if}
+			{/if}
 		{/each}
-		{/if}
 	{/if}
 
 	{@render children?.()}

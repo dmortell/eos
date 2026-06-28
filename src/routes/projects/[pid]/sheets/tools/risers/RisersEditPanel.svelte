@@ -7,8 +7,9 @@
 	import { formNav } from '$lib/formNav'
 	import { RisersEditor, LEVELS, LADDER_LEVELS } from './risers-editor.svelte'
 	import type { AnnotationEditor } from '../../annotations/annotations.svelte'
+	import type { LayerDef } from '../../layers/layers'
 
-	let { editor, tool = $bindable(), annEditor, fromFloor, toFloor }: { editor: RisersEditor; tool: string; annEditor: AnnotationEditor; fromFloor: number; toFloor: number } = $props()
+	let { editor, tool = $bindable(), annEditor, fromFloor, toFloor, layers = [] }: { editor: RisersEditor; tool: string; annEditor: AnnotationEditor; fromFloor: number; toFloor: number; layers?: LayerDef[] } = $props()
 	const val = (e: Event) => (e.currentTarget as HTMLInputElement | HTMLSelectElement).value
 	let floorOpts = $derived.by(() => { const a: number[] = []; for (let f = Math.max(fromFloor, toFloor); f >= Math.min(fromFloor, toFloor); f--) a.push(f); return a })
 	const objTools = [['select', 'Select'], ['room', 'Room'], ['riser', 'Riser']] as const
@@ -37,6 +38,11 @@
 	{#if editor.selRoom}
 		{@const r = editor.selRoom}
 		<hr class="border-zinc-200" />
+		{#if layers.length > 1}
+			<PropSelect label="Layer" value={r.layerId ?? 'rooms'} onchange={(e: Event) => editor.setSelLayer(val(e))}>
+				{#each layers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+			</PropSelect>
+		{/if}
 		<PropText label="Label" value={r.label} oninput={(e: Event) => editor.setRoom({ label: val(e) })} />
 		<PropSelect label="Type" value={r.kind} onchange={(e: Event) => editor.setRoom({ kind: val(e) as any })}>
 			<option value="server">Server</option><option value="eps">EPS</option>
@@ -49,6 +55,11 @@
 	{:else if editor.selLadder}
 		{@const l = editor.selLadder}
 		<hr class="border-zinc-200" />
+		{#if layers.length > 1}
+			<PropSelect label="Layer" value={l.layerId ?? 'ladders'} onchange={(e: Event) => editor.setSelLayer(val(e))}>
+				{#each layers as ly (ly.id)}<option value={ly.id}>{ly.name}</option>{/each}
+			</PropSelect>
+		{/if}
 		<PropText label="Label" value={l.label} oninput={(e: Event) => editor.setLadder({ label: val(e) })} />
 		<PropSelect label="From" value={String(l.fromFloor)} onchange={(e: Event) => editor.setLadder({ fromFloor: Number(val(e)) })}>
 			{#each floorOpts as f (f)}<option value={String(f)}>{f}F</option>{/each}
@@ -63,6 +74,11 @@
 	{:else if editor.selCable}
 		{@const c = editor.selCable}
 		<hr class="border-zinc-200" />
+		{#if layers.length > 1}
+			<PropSelect label="Layer" value={c.layerId ?? 'cables'} onchange={(e: Event) => editor.setSelLayer(val(e))}>
+				{#each layers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+			</PropSelect>
+		{/if}
 		<PropText label="Type" value={c.type} oninput={(e: Event) => editor.setCable({ type: val(e) })} />
 		<PropSelect label="Media" value={c.media ?? 'copper'} onchange={(e: Event) => editor.setCable({ media: val(e) as any })}>
 			<option value="copper">Copper</option><option value="fiber">Fiber</option>
@@ -85,6 +101,15 @@
 		{/each}
 		<button class="w-full rounded border px-1 py-0.5 text-xs hover:bg-slate-100" onclick={() => editor.addSegment()}>+ Hop</button>
 		<button class="w-full rounded bg-red-600 px-1 py-0.5 text-xs text-white hover:bg-red-500" onclick={() => editor.deleteSel()}>Delete cable</button>
+	{:else if editor.hasMultiSel()}
+		<hr class="border-zinc-200" />
+		<p class="text-xs text-zinc-500">{editor.selRooms.length + editor.selLadders.length} selected</p>
+		{#if layers.length > 1}
+			<PropSelect label="Layer" value="" onchange={(e: Event) => { if (val(e)) editor.setSelLayer(val(e)) }}>
+				<option value="" disabled>— set layer —</option>
+				{#each layers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+			</PropSelect>
+		{/if}
 	{:else}
 		<p class="text-xs text-zinc-400">Add or drag a room / riser, or pick a cable to route.</p>
 	{/if}

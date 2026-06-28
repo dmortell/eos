@@ -85,7 +85,7 @@
 		floorHeights={editor.floorHeights}
 		settings={editor.settings}
 		hiddenFloors={editor.hiddenFloors}
-		{fromFloor} {toFloor} {vp} {view} {hidden}
+		{fromFloor} {toFloor} {vp} {view} {hidden} layers={vps.allLayers}
 		onview={(v) => { viewDen = v.den || 1; onview?.(v) }}
 		onsvg={(el) => { editor.svg = el; annEditor.svg = el }}>
 		{#if active}
@@ -102,7 +102,7 @@
 		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} {hidden} {locked} den={viewDen} {zoom} />
 	</RisersRender>
 	{#if active}
-		<RisersEditPanel {editor} bind:tool {annEditor} {fromFloor} {toFloor} />
+		<RisersEditPanel {editor} bind:tool {annEditor} {fromFloor} {toFloor} layers={vps.allLayers} />
 	{/if}
 {:else}
 	<div class="flex h-full w-full items-center justify-center text-zinc-400 print:hidden" style:font-size="{14 / zoom}px">No risers data</div>

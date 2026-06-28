@@ -149,6 +149,17 @@ export class RacksEditor extends SurfaceEditor {
 		return c
 	}
 	setDevice(patch: Partial<DeviceConfig>) { const d = this.selDevice; if (!d) return; Object.assign(d, patch); this.notify() }
+
+	/** Assign the selection (single rack/device, or marquee-multi devices) to a sheet layer. */
+	setSelLayer(layerId: string) {
+		let any = false
+		if (this.selDevices.length) {
+			const ids = new Set(this.selDevices)
+			for (const d of this.devices) if (ids.has(d.id)) { d.layerId = layerId; any = true }
+		} else if (this.selDevice) { this.selDevice.layerId = layerId; any = true }
+		else if (this.selRack) { this.selRack.layerId = layerId; any = true }
+		if (any) this.notify()
+	}
 	deleteDevice() { const d = this.selDevice; if (!d) return; this.devices = this.devices.filter(x => x.id !== d.id); this.selDeviceId = null; this.notify() }
 	/** Live U reposition during an elevation drag (caller supplies the snapped U). */
 	moveDeviceU(d: DeviceConfig, positionU: number) { if (d.positionU !== positionU) { d.positionU = positionU; this.notify() } }

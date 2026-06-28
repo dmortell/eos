@@ -3,10 +3,11 @@
 	import type { RiserRoom, Ladder, Cable, TextLabel, FloorHeights, RiserSettings } from './types'
 	import { DEFAULT_RISER_SETTINGS } from './types'
 	import { buildFloorBands, compressionBreaks, computeCableLanes, cablePolylinePoints, totalStackHeightMm, bandForFloor } from './engine'
+	import { objLayerOf, objLayerColor } from '../../layers/layers'
 
 	let {
 		rooms = [], ladders = [], cables = [], labels = [], floorHeights = {}, settings = null,
-		hiddenFloors = [], fromFloor, toFloor, vp, onview, view = null, onsvg, children, hidden = [],
+		hiddenFloors = [], fromFloor, toFloor, vp, onview, view = null, onsvg, children, hidden = [], layers = [],
 	}: {
 		rooms?: RiserRoom[]
 		ladders?: Ladder[]
@@ -23,6 +24,7 @@
 		onsvg?: (el: SVGSVGElement) => void
 		children?: any
 		hidden?: string[]
+		layers?: import('../../layers/layers').LayerDef[]
 	} = $props()
 
 	const LEFT = 1500, RIGHT = 500, TOP = 500, BOTTOM = 500
@@ -130,13 +132,15 @@
 	{/each}
 
 	<!-- Ladders -->
-	{#if !hidden.includes('ladders')}
 	{#each visibleLadders as l (l.id)}
+		{@const eff = objLayerOf(l.layerId, 'ladders', layers)}
+		{#if !hidden.includes(eff)}
+		{@const lc = objLayerColor(eff, layers)}
 		{@const span = ladderSpan(l)}
 		{@const w = l.widthMm ?? 450}
 		{@const xLeft = l.xMm - w / 2}
-		{@const stroke = l.color ?? 'rgb(100,70,140)'}
-		<rect x={xLeft} y={span.top} width={w} height={Math.max(100, span.bot - span.top)} fill={hexToRgba(l.color, 0.12)} {stroke} stroke-width="0.3" vector-effect="non-scaling-stroke" />
+		{@const stroke = lc ?? l.color ?? 'rgb(100,70,140)'}
+		<rect x={xLeft} y={span.top} width={w} height={Math.max(100, span.bot - span.top)} fill={hexToRgba(lc ?? l.color, 0.12)} {stroke} stroke-width="0.3" vector-effect="non-scaling-stroke" />
 		{#each breaks.filter(br => br.yMm > span.top && br.yMm < span.bot) as br (br.yMm)}
 			<line x1={l.xMm - w / 2 - 120} y1={br.yMm + 480} x2={l.xMm + w / 2 + 120} y2={br.yMm + 80} {stroke} stroke-width="0.3" vector-effect="non-scaling-stroke" />
 		{/each}
@@ -144,40 +148,44 @@
 		{#if l.level !== 'both'}
 			<text x={l.xMm} y={span.bot + 220} text-anchor="middle" font-size="180" font-weight="600" fill={stroke} opacity="0.7">{l.level === 'high' ? 'HIGH' : 'LOW'}</text>
 		{/if}
+		{/if}
 	{/each}
-	{/if}
 
 	<!-- Cables -->
-	{#if !hidden.includes('cables')}
 	{#each cables as c (c.id)}
+		{@const eff = objLayerOf(c.layerId, 'cables', layers)}
+		{#if !hidden.includes(eff)}
 		{@const points = cablePolylinePoints(c, runsByCable.get(c.id) ?? [], { rooms, ladders, bands })}
 		{#if points}
-			{@const stroke = cableColor(c)}
+			{@const lc = objLayerColor(eff, layers)}
+			{@const stroke = lc ?? cableColor(c)}
 			{@const lp = labelPos(points)}
 			<polyline {points} fill="none" {stroke} stroke-width=".6" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" />
 			{#if lp}
 				<text x={lp.x} y={lp.y - 40} text-anchor="middle" font-size="180" font-weight="600" fill={stroke} paint-order="stroke" stroke="rgba(255,255,255,0.85)" stroke-width="60">{c.label || c.type}</text>
 			{/if}
 		{/if}
+		{/if}
 	{/each}
-	{/if}
 
 	<!-- Rooms -->
-	{#if !hidden.includes('rooms')}
 	{#each visibleRooms as room (room.id)}
+		{@const eff = objLayerOf(room.layerId, 'rooms', layers)}
+		{#if !hidden.includes(eff)}
 		{@const band = bandForFloor(bands, room.floor)}
 		{#if band}
+			{@const lc = objLayerColor(eff, layers)}
 			{@const yTop = band.topMm + 50}
 			{@const yBot = band.slabTopMm - 50}
 			{@const height = Math.max(200, yBot - yTop)}
 			{@const xLeft = room.xMm - room.widthMm / 2}
-			{@const base = room.color ?? (room.kind === 'server' ? '#285aa0' : '#a06e1e')}
+			{@const base = lc ?? room.color ?? (room.kind === 'server' ? '#285aa0' : '#a06e1e')}
 			<rect x={xLeft} y={yTop} width={room.widthMm} {height} fill={hexToRgba(base, 0.18)} stroke={base} stroke-width="0.4" vector-effect="non-scaling-stroke" />
 			<text x={xLeft + 80} y={yTop + 240} font-size="220" font-weight="700" fill={base} opacity="0.6">{room.kind === 'server' ? 'SER' : 'EPS'}</text>
 			<text x={room.xMm} y={(yTop + yBot) / 2} text-anchor="middle" dominant-baseline="middle" font-size="280" font-weight="700" fill={base}>{room.label}</text>
 		{/if}
+		{/if}
 	{/each}
-	{/if}
 
 	<!-- Free-form labels -->
 	{#if !hidden.includes('annotations')}

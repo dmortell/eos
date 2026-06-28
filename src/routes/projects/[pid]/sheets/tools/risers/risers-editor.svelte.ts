@@ -152,6 +152,19 @@ export class RisersEditor extends SurfaceEditor {
 	setLadder(patch: Partial<Ladder>) { const l = this.selLadder; if (!l) return; Object.assign(l, patch); this.notify() }
 	setCable(patch: Partial<Cable>) { const c = this.selCable; if (!c) return; Object.assign(c, patch); this.notify() }
 
+	/** Assign the selection (single or marquee multi: rooms + ladders) to a sheet layer. */
+	setSelLayer(layerId: string) {
+		let any = false
+		if (this.hasMultiSel()) {
+			const rs = new Set(this.selRooms), ls = new Set(this.selLadders)
+			for (const r of this.rooms) if (rs.has(r.id)) { r.layerId = layerId; any = true }
+			for (const l of this.ladders) if (ls.has(l.id)) { l.layerId = layerId; any = true }
+		} else if (this.selRoom) { this.selRoom.layerId = layerId; any = true }
+		else if (this.selLadder) { this.selLadder.layerId = layerId; any = true }
+		else if (this.selCable) { this.selCable.layerId = layerId; any = true }
+		if (any) this.notify()
+	}
+
 	deleteSel() {
 		const s = this.sel; if (!s) return
 		if (s.kind === 'room') this.rooms = this.rooms.filter(r => r.id !== s.id)

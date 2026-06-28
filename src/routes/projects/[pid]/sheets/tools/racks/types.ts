@@ -23,6 +23,8 @@ export interface RackConfig {
 	type: RackType
 	color?: string
 	frontProtrusionMm?: number
+	/** Sheet layer (any layer). Absent → 'racks'. */
+	layerId?: string
 }
 
 export interface DeviceConfig {
@@ -38,6 +40,8 @@ export interface DeviceConfig {
 	depthMm?: number
 	mounting?: MountingPosition
 	offsetX?: number
+	/** Sheet layer (any layer). Absent → 'devices'. */
+	layerId?: string
 }
 
 export interface RackSettings {

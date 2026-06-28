@@ -10,7 +10,7 @@
 
 	import type { RackFace } from './types'
 
-	let { editor, tool = $bindable(), annEditor, face = 'front', libraryOpen = false, racksOpen = false, ondevices, onracks }: { editor: RacksEditor; tool: string; annEditor: AnnotationEditor; face?: RackFace; libraryOpen?: boolean; racksOpen?: boolean; ondevices?: () => void; onracks?: () => void } = $props()
+	let { editor, tool = $bindable(), annEditor, face = 'front', libraryOpen = false, racksOpen = false, layers = [], ondevices, onracks }: { editor: RacksEditor; tool: string; annEditor: AnnotationEditor; face?: RackFace; libraryOpen?: boolean; racksOpen?: boolean; layers?: import('../../layers/layers').LayerDef[]; ondevices?: () => void; onracks?: () => void } = $props()
 	const val = (e: Event) => (e.currentTarget as HTMLInputElement | HTMLSelectElement).value
 	let firstRow = $derived(editor.rows[0]?.id ?? '')
 	const cls = (active: boolean) => ['rounded border px-1.5 py-0.5 text-xs', active ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-slate-100']
@@ -38,6 +38,11 @@
 
 	{#if editor.selRack}
 		{@const r = editor.selRack}
+		{#if layers.length > 1}
+			<PropSelect label="Layer" value={r.layerId ?? 'racks'} onchange={(e: Event) => editor.setSelLayer(val(e))}>
+				{#each layers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+			</PropSelect>
+		{/if}
 		<PropText label="Label" value={r.label} oninput={(e: Event) => editor.setRack({ label: val(e) })} />
 		<PropText label="Height (U)" type="number" min="1" max="58" value={String(r.heightU)} oninput={(e: Event) => editor.setRack({ heightU: Number(val(e)) || 1 })} />
 		<PropText label="Width (mm)" type="number" min="100" value={String(r.widthMm)} oninput={(e: Event) => editor.setRack({ widthMm: Number(val(e)) || 600 })} />
@@ -58,6 +63,11 @@
 		</div>
 		{#if editor.selDevice}
 			{@const d = editor.selDevice}
+			{#if layers.length > 1}
+				<PropSelect label="Layer" value={d.layerId ?? 'devices'} onchange={(e: Event) => editor.setSelLayer(val(e))}>
+					{#each layers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+				</PropSelect>
+			{/if}
 			<PropText label="Label" value={d.label} oninput={(e: Event) => editor.setDevice({ label: val(e) })} />
 			<PropSelect label="Type" value={d.type} onchange={(e: Event) => editor.setDevice({ type: val(e) as any })}>
 				{#each DEVICE_TYPES as t (t)}<option value={t}>{t}</option>{/each}

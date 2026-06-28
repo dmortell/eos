@@ -23,6 +23,8 @@ export interface RiserRoom {
 	serverRoomKey?: string
 	label: string
 	color?: string
+	/** Sheet layer (any layer). Absent → 'rooms'. */
+	layerId?: string
 }
 
 export type LadderLevel = 'high' | 'low' | 'both'
@@ -35,6 +37,8 @@ export interface Ladder {
 	level: LadderLevel
 	widthMm?: number
 	color?: string
+	/** Sheet layer (any layer). Absent → 'ladders'. */
+	layerId?: string
 }
 
 export type CableMedia = 'copper' | 'fiber'
@@ -59,6 +63,8 @@ export interface Cable {
 	segments: CableSegment[]
 	color?: string
 	notes?: string
+	/** Sheet layer (any layer). Absent → 'cables'. */
+	layerId?: string
 }
 
 export interface TextLabel {
