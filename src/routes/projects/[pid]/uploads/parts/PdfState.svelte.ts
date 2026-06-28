@@ -4,7 +4,9 @@ import '$lib/url-parse-polyfill' // main-thread URL.parse polyfill (old iPad Saf
 let pdfjs: any = null
 // Vite resolves this to a hashed URL at build time - no manual /static copy needed
 // @ts-ignore
-import pdfjsWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+// Legacy build: transpiled for older browsers (e.g. iPadOS 17.6 Safari, where the
+// default v5 build's modern JS hangs pdf.js during parsing).
+import pdfjsWorkerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'
 
 /**
  * iOS/iPadOS Safari (seen on iPadOS 17.6.1) can spawn pdf.js's module worker but
@@ -23,7 +25,8 @@ function isIOS(): boolean {
 let mainThreadWorkerReady: Promise<void> | null = null
 function ensureMainThreadWorker(): Promise<void> {
 	if (!mainThreadWorkerReady) {
-		mainThreadWorkerReady = import('pdfjs-dist/build/pdf.worker.min.mjs').then((mod) => {
+		// @ts-ignore - pdfjs-dist worker build has no type declarations
+		mainThreadWorkerReady = import('pdfjs-dist/legacy/build/pdf.worker.min.mjs').then((mod) => {
 			;(globalThis as any).pdfjsWorker = mod
 		})
 	}
@@ -56,7 +59,7 @@ export class PdfState {
 	async load(url: string, onStep?: (step: string) => void) {
 		onStep?.('init pdfjs')
 		// @ts-ignore - pdfjs-dist uses non-standard build path
-		if (!pdfjs) pdfjs = await import('pdfjs-dist/build/pdf')
+		if (!pdfjs) pdfjs = await import('pdfjs-dist/legacy/build/pdf')
 		pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl
 		// On iOS the real worker hangs; run pdf.js on the main thread there.
 		if (isIOS()) await ensureMainThreadWorker()

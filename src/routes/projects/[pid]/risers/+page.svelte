@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state'
+	import { replaceState } from '$app/navigation'
 	import { getContext } from 'svelte'
 	import { Firestore, Spinner, Session } from '$lib'
 	import { writeLog } from '$lib/logger'
@@ -19,6 +20,20 @@
 	let floorFormat = $state('L01')
 	let drawingId = $state('')
 
+	// ── Multiple riser drawings per project ──────────────────────────────────
+	// Riser content lives in the flat top-level `risers` collection, one doc per
+	// drawing, each tagged with `projectId`. The legacy doc keeps id === pid so
+	// existing projects keep working with no migration; it becomes the default
+	// drawing. The active drawing id is mirrored in the URL (?d=) so it's
+	// shareable and survives reload; absent param → the default (pid).
+	let drawings = $state<{ id: string; name?: string }[]>([])
+	const pidParam = $derived(page.params.pid ?? '')
+	const activeId = $derived(page.url.searchParams.get('d') || pidParam)
+	// Always surface at least the default entry, even before its doc exists.
+	const drawingList = $derived(
+		drawings.length ? drawings : pidParam ? [{ id: pidParam, name: projectName || 'Riser 1' }] : [],
+	)
+
 	// Subscribe to the project doc — supplies the floor list and project name.
 	$effect(() => {
 		const pid = page.params.pid
@@ -30,17 +45,63 @@
 		return () => { unsub?.() }
 	})
 
-	// Subscribe to the riser doc (one per project).
+	// Subscribe to the list of riser drawings for this project.
 	$effect(() => {
 		const pid = page.params.pid
 		if (!pid) return
-		loading = true
-		const unsub = db.subscribeOne('risers', pid, (data: Record<string, any> | null) => {
+		const unsub = db.subscribeWhere('risers', 'projectId', pid, (docs: Record<string, any>[]) => {
+			drawings = docs
+				.map((d) => ({ id: d.id as string, name: d.name as string | undefined }))
+				.sort((a, b) => (a.id === pid ? -1 : b.id === pid ? 1 : (a.name ?? '').localeCompare(b.name ?? '')))
+		})
+		return () => { unsub?.() }
+	})
+
+	// Subscribe to the active riser drawing's content. `loading` gates only the
+	// FIRST load — switching drawings keeps <Risers> mounted (no spinner flicker);
+	// the new doc flows in via the `data` prop and the editor re-seeds.
+	$effect(() => {
+		const id = activeId
+		if (!id) return
+		const unsub = db.subscribeOne('risers', id, (data: Record<string, any> | null) => {
 			riserData = (data as RiserDocData) ?? null
 			loading = false
 		})
 		return () => { unsub?.() }
 	})
+
+	function selectDrawing(id: string) {
+		if (id === activeId) return
+		replaceState(`?d=${encodeURIComponent(id)}`, page.state ?? {})
+	}
+
+	function newDrawing() {
+		const pid = page.params.pid
+		if (!pid) return
+		const id = crypto.randomUUID().slice(0, 12)
+		const n = drawingList.length + 1
+		const nums = floors.map((f) => f.number)
+		const from = nums.length ? Math.min(...nums) : 1
+		const to = nums.length ? Math.max(...nums) : 1
+		db.save('risers', { id, projectId: pid, name: `Riser ${n}`, fromFloor: from, toFloor: to })
+		selectDrawing(id)
+	}
+
+	function renameDrawing(id: string, name: string) {
+		const pid = page.params.pid
+		if (!pid) return
+		// Ensure projectId is set so a freshly-named default doc appears in the list.
+		db.save('risers', { id, projectId: pid, name })
+	}
+
+	async function deleteDrawing(id: string) {
+		if (drawingList.length <= 1) return
+		if (id === activeId) {
+			const other = drawingList.find((d) => d.id !== id)
+			if (other) selectDrawing(other.id)
+		}
+		await db.delete('risers', id)
+	}
 
 	// Use floor 1's frames doc (if any) for the floorFormat preference — keeps
 	// labelling consistent across tools.
@@ -69,8 +130,9 @@
 
 	function save(payload: Partial<RiserDocData>, changes: ChangeDetail[]) {
 		const pid = page.params.pid
-		if (!pid) return
-		db.save('risers', { id: pid, projectId: pid, ...payload })
+		if (!pid || !activeId) return
+		// Persist to the ACTIVE drawing's doc (merge keeps its `name`/`projectId`).
+		db.save('risers', { id: activeId, projectId: pid, ...payload })
 		if (changes?.length) {
 			const uid = session?.user?.uid ?? 'unknown'
 			writeLog(pid, 'risers', uid, changes)
@@ -106,6 +168,12 @@
 		{drawingId}
 		{db}
 		uid={session.user?.uid ?? ''}
+		drawings={drawingList}
+		activeDrawingId={activeId}
+		onSelectDrawing={selectDrawing}
+		onNewDrawing={newDrawing}
+		onRenameDrawing={renameDrawing}
+		onDeleteDrawing={deleteDrawing}
 		onsave={save}
 		onupdatefloors={updateFloors}
 		ondeletefloor={deleteFloor}

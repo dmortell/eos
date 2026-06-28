@@ -14,6 +14,7 @@
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
 	import RisersSidebar from './parts/RisersSidebar.svelte'
 	import RiserToolbar from './parts/RiserToolbar.svelte'
+	import DrawingPicker from './parts/DrawingPicker.svelte'
 	import {
 		DEFAULT_RISER_SETTINGS,
 		type Cable,
@@ -48,6 +49,13 @@
 		onsave,
 		onupdatefloors: _onupdatefloors,
 		ondeletefloor: _ondeletefloor,
+		/** Multiple riser drawings per project (standalone page only). */
+		drawings = [],
+		activeDrawingId = '',
+		onSelectDrawing,
+		onNewDrawing,
+		onRenameDrawing,
+		onDeleteDrawing,
 		/** When true, omit the standalone-page chrome (Titlebar + full-viewport
 		 *  height) and the inline RiserToolbar. Used when embedded inside the
 		 *  workspace canvas — the workspace renders its own toolbar bound to
@@ -72,6 +80,12 @@
 		onsave: (payload: Partial<RiserDocData>, changes: any[]) => void
 		onupdatefloors?: (updated: FloorConfig[]) => void
 		ondeletefloor?: (fl: number) => void
+		drawings?: { id: string; name?: string }[]
+		activeDrawingId?: string
+		onSelectDrawing?: (id: string) => void
+		onNewDrawing?: () => void
+		onRenameDrawing?: (id: string, name: string) => void
+		onDeleteDrawing?: (id: string) => void
 		bare?: boolean
 		fromFloor?: number
 		toFloor?: number
@@ -219,6 +233,15 @@
 	$effect(() => {
 		// Mark interaction on any pan / explicit zoom.
 		if (view.panning) userInteracted = true
+	})
+
+	// Re-fit the canvas when the user switches to a different drawing.
+	let lastDrawingId = activeDrawingId
+	$effect(() => {
+		if (activeDrawingId !== lastDrawingId) {
+			lastDrawingId = activeDrawingId
+			userInteracted = false
+		}
 	})
 
 	// ────────────────────────────────────────────────────────────────────
@@ -955,7 +978,18 @@
 
 <div class="page" class:bare>
 	{#if !bare}
-		<Titlebar title={projectName ? `Risers — ${projectName}` : 'Risers'} menu />
+		<Titlebar title={projectName ? `Risers — ${projectName}` : 'Risers'} menu>
+			{#if onSelectDrawing}
+				<DrawingPicker
+					{drawings}
+					activeId={activeDrawingId}
+					onSelect={onSelectDrawing}
+					onNew={onNewDrawing}
+					onRename={onRenameDrawing}
+					onDelete={onDeleteDrawing}
+				/>
+			{/if}
+		</Titlebar>
 	{/if}
 
 	{#if !bare}
