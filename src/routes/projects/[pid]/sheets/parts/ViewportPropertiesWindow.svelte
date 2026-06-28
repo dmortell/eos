@@ -32,6 +32,18 @@
 		const unsub = db.subscribeOne('fillrate', pid, (d: any) => { fillrateSections = Array.isArray(d?.sections) ? d.sections : [] })
 		return () => unsub?.()
 	})
+	// Riser drawings for this project (legacy doc id === pid is the default).
+	let riserDrawings = $state<{ id: string; name?: string }[]>([])
+	$effect(() => {
+		if (!pid) return
+		const unsub = db.subscribeWhere('risers', 'projectId', pid, (docs: any[]) => {
+			riserDrawings = docs
+				.map((d) => ({ id: d.id as string, name: d.name as string | undefined }))
+				.sort((a, b) => (a.id === pid ? -1 : b.id === pid ? 1 : (a.name ?? '').localeCompare(b.name ?? '')))
+		})
+		return () => unsub?.()
+	})
+	const riserName = (d: { id: string; name?: string }) => d.name?.trim() || (d.id === pid ? 'Default' : d.id.slice(0, 8))
 
 	// Show for the selected viewport, or for the active one (activating clears the frame selection
 	// to hide resize handles, but we still want this panel available to edit type/scale/source).
@@ -52,7 +64,7 @@
 		kind: 'empty', label: '', number: '', scale: '0', border: 'thin', text: '', fontSizePt: '6',
 		outletsDocId: '',
 		racksDocId: '', racksFace: 'front' as RackFace, racksRowId: '', racksShowWalls: false, racksColorDevices: true,
-		risersFrom: 0, risersTo: 0,
+		risersFrom: 0, risersTo: 0, risersDocId: '',
 		fillrateSectionId: '',
 		modelId: 1, modelDir: 'plan' as Dir, modelHidden: true, modelBw: false, modelClip: null as Clip | null,
 	})
@@ -80,6 +92,7 @@
 				racksColorDevices: s.kind === 'racks' ? (s.colorDevices ?? true) : true,
 				risersFrom: s.kind === 'risers' ? (s.fromFloor ?? floorMin()) : floorMin(),
 				risersTo: s.kind === 'risers' ? (s.toFloor ?? floorMax()) : floorMax(),
+				risersDocId: s.kind === 'risers' ? (s.risersDocId ?? pid) : pid,
 				fillrateSectionId: s.kind === 'fillrate' ? s.sectionId : '',
 				modelId: s.kind === 'model3d' ? s.modelId : 1,
 				modelDir: s.kind === 'model3d' ? s.direction : 'plan',
@@ -140,7 +153,7 @@
 			kind: 'racks', racksDocId: form.racksDocId, face: form.racksFace,
 			rowId: form.racksRowId || undefined, showWalls: form.racksShowWalls, colorDevices: form.racksColorDevices,
 		}
-		if (form.kind === 'risers') return { kind: 'risers', risersDocId: pid, fromFloor: form.risersFrom, toFloor: form.risersTo }
+		if (form.kind === 'risers') return { kind: 'risers', risersDocId: form.risersDocId || pid, fromFloor: form.risersFrom, toFloor: form.risersTo }
 		if (form.kind === 'fillrate') return { kind: 'fillrate', sectionId: form.fillrateSectionId }
 		if (form.kind === 'model3d') return { kind: 'model3d', modelId: form.modelId, direction: form.modelDir, hiddenLines: form.modelHidden, bw: form.modelBw, clip: form.modelClip ?? undefined }
 		return { kind: 'empty' }
@@ -187,6 +200,11 @@
 				}} />
 		{:else if form.kind === 'risers'}
 			<hr class="border-zinc-200" />
+			{#if riserDrawings.length > 1}
+				<PropSelect label="Drawing" bind:value={form.risersDocId} onchange={apply}>
+					{#each riserDrawings as d (d.id)}<option value={d.id}>{riserName(d)}</option>{/each}
+				</PropSelect>
+			{/if}
 			<RisersProperties {floors} fromFloor={form.risersFrom} toFloor={form.risersTo}
 				onchange={(p) => { form.risersFrom = p.fromFloor; form.risersTo = p.toFloor; apply() }} />
 		{:else if form.kind === 'model3d'}

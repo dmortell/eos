@@ -106,14 +106,16 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 0.35rem;
-		padding: 0.2rem 0.5rem;
+		padding: 0.2rem 0.6rem;
 		border: 1px solid rgb(212, 212, 216);
 		border-radius: 0.375rem;
 		background: white;
+		color: rgb(24, 24, 27);
 		cursor: pointer;
 		list-style: none;
 		max-width: 16rem;
 	}
+	summary:hover { background: rgb(244, 244, 245); }
 	summary::-webkit-details-marker { display: none; }
 	.name {
 		max-width: 11rem;
@@ -134,6 +136,7 @@
 		z-index: 40;
 		min-width: 14rem;
 		background: white;
+		color: rgb(24, 24, 27);
 		border: 1px solid rgb(212, 212, 216);
 		border-radius: 0.5rem;
 		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
@@ -141,6 +144,7 @@
 	}
 	:global(.dark) .pop {
 		background: rgb(24, 24, 27);
+		color: rgb(228, 228, 231);
 		border-color: rgb(63, 63, 70);
 	}
 	ul { list-style: none; margin: 0; padding: 0; }

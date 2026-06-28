@@ -53,6 +53,7 @@
 	let surveyMode = $state<'album' | 'single'>('album')
 	let text = $state('Note')
 	let url = $state('')
+	let risersDocId = $state('')
 
 	// Reset whenever the dialog transitions closed → open.
 	let prevOpen = false
@@ -76,6 +77,7 @@
 		surveyMode = 'album'
 		text = 'Note'
 		url = ''
+		risersDocId = projectId
 		if (initialKind) { kind = initialKind; step = 'source' }
 		else { kind = null; step = 'type' }
 	}
@@ -91,6 +93,19 @@
 		})
 		return () => unsub?.()
 	})
+
+	// Riser drawings for this project (the legacy doc id === projectId is the default).
+	type RiserDrawing = { id: string; name?: string }
+	let riserDrawings = $state<RiserDrawing[]>([])
+	$effect(() => {
+		const unsub = db.subscribeWhere('risers', 'projectId', projectId, (docs) => {
+			riserDrawings = (docs as unknown as RiserDrawing[])
+				.map((d) => ({ id: d.id, name: d.name }))
+				.sort((a, b) => (a.id === projectId ? -1 : b.id === projectId ? 1 : (a.name ?? '').localeCompare(b.name ?? '')))
+		})
+		return () => unsub?.()
+	})
+	const riserName = (d: RiserDrawing) => d.name?.trim() || (d.id === projectId ? 'Default' : d.id.slice(0, 8))
 
 	const pad = (n: number) => String(n).padStart(2, '0')
 	const rackDocId = (fl: number, rm: string) => `${projectId}_F${pad(fl)}_R${rm}`
@@ -110,7 +125,7 @@
 			case 'floorplan':      return { kind, fileId, pageNum: pageNum || 1 }
 			case 'outlets':        return { kind, outletsDocId: `${projectId}_F${pad(floor)}`, showOutlets, showTrunks }
 			case 'patching':       return { kind, patchDocId: rackDocId(floor, room) }
-			case 'risers':         return { kind, risersDocId: projectId }
+			case 'risers':         return { kind, risersDocId: risersDocId || projectId }
 			case 'survey':         return { kind, surveyId: surveyId.trim(), mode: surveyMode }
 			case 'text':           return { kind, content: text }
 			case 'image':          return { kind, url: url.trim() }
@@ -220,6 +235,11 @@
 				<div class="text-[11px] text-zinc-500">Shows this project's fill-rate diagram. No further options.</div>
 
 			{:else if kind === 'risers'}
+				{#if riserDrawings.length > 1}
+					<Select label="Drawing" size="sm" value={risersDocId} onchange={(e: Event) => risersDocId = inputVal(e)}>
+						{#each riserDrawings as d (d.id)}<option value={d.id}>{riserName(d)}</option>{/each}
+					</Select>
+				{/if}
 				<div class="text-[11px] text-zinc-500">Adds a risers elevation for the whole building. Adjust floor range in the sidebar after adding.</div>
 			{/if}
 
