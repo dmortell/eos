@@ -26,6 +26,7 @@
 	let imgW = $state(0)
 	let imgH = $state(0)
 	let loaded = $state(false)
+	let loadError = $state<string | null>(null)
 
 	// PDF rendering — convert PDF page to an image URL
 	let isPdf = $derived(floorplan.name?.toLowerCase().endsWith('.pdf') || floorplan.url?.includes('.pdf'))
@@ -38,10 +39,18 @@
 	$effect(() => {
 		if (!isPdf) return
 		let cancelled = false
+		loadError = null
 		const pdf = new PdfState()
 		pdfState = pdf
+		// Surface a hung load (e.g. iOS worker never resolving) instead of an
+		// infinite spinner, and stamp each step so we can see where it dies.
+		let step = 'loading PDF'
+		const timer = setTimeout(() => {
+			if (!cancelled && !loaded) loadError = `Timed out while: ${step}`
+		}, 20000)
 		pdf.load(floorplan.url).then(async () => {
 			if (cancelled) return
+			step = 'rendering page'
 			const { objectUrl, width, height } = await pdf.renderToObjectUrl(1, 2)
 			if (cancelled) { URL.revokeObjectURL(objectUrl); return }
 			resolvedUrl = objectUrl
@@ -49,8 +58,11 @@
 			imgH = height
 			loaded = true
 			fitToView()
-		}).catch(() => {})
+		}).catch((e) => {
+			if (!cancelled) loadError = `${step}: ${e?.message ?? e}`
+		}).finally(() => clearTimeout(timer))
 		return () => {
+			clearTimeout(timer)
 			cancelled = true
 			pdf.destroy()
 			if (resolvedUrl !== floorplan.url) URL.revokeObjectURL(resolvedUrl)
@@ -415,7 +427,13 @@
 		ontouchmove={onTouchMove}
 		ontouchend={onTouchEnd}
 	>
-		{#if !loaded}
+		{#if loadError}
+			<div class="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
+				<Icon name="warning" size={28} />
+				<p class="text-sm font-medium text-red-600">Couldn't load floorplan</p>
+				<p class="max-w-xs break-words text-xs text-gray-500">{loadError}</p>
+			</div>
+		{:else if !loaded}
 			<div class="flex h-full items-center justify-center"><Spinner /></div>
 		{/if}
 
