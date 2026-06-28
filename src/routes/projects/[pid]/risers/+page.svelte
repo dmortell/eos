@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state'
 	import { replaceState } from '$app/navigation'
-	import { getContext } from 'svelte'
+	import { getContext, untrack } from 'svelte'
 	import { Firestore, Spinner, Session } from '$lib'
 	import { writeLog } from '$lib/logger'
 	import type { ChangeDetail } from '$lib/logger'
@@ -28,7 +28,16 @@
 	// shareable and survives reload; absent param → the default (pid).
 	let drawings = $state<{ id: string; name?: string }[]>([])
 	const pidParam = $derived(page.params.pid ?? '')
-	const activeId = $derived(page.url.searchParams.get('d') || pidParam)
+	// `activeId` is real state (not a pure URL-derived) so a click switches the
+	// drawing immediately: replaceState updates the address bar but does NOT
+	// reliably re-run a $derived(page.url…), which left selection stuck. We still
+	// mirror it to the URL for shareability and follow the URL on load /
+	// back-forward via the effect below.
+	let activeId = $state('')
+	$effect(() => {
+		const fromUrl = page.url.searchParams.get('d') || pidParam
+		untrack(() => { if (fromUrl && fromUrl !== activeId) activeId = fromUrl })
+	})
 	// Always surface at least the default entry, even before its doc exists.
 	const drawingList = $derived(
 		drawings.length ? drawings : pidParam ? [{ id: pidParam, name: projectName || 'Riser 1' }] : [],
@@ -72,6 +81,7 @@
 
 	function selectDrawing(id: string) {
 		if (id === activeId) return
+		activeId = id
 		replaceState(`?d=${encodeURIComponent(id)}`, page.state ?? {})
 	}
 
