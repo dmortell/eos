@@ -44,8 +44,8 @@
 		room.color
 			? room.color
 			: room.kind === 'server'
-				? '#285aa0'
-				: '#a06e1e',
+				? '#000000'			// '#285aa0'
+				: '#806020',		// '#a06e1e'
 	)
 	const fill = $derived(hexToRgba(baseColor, 0.06))
 	const stroke = $derived(baseColor)

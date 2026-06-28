@@ -357,6 +357,18 @@
 					{/if}
 				</tbody>
 			</table>
+
+						<ul class="text-sm p-2 xxtext-zinc-400 xxmt-2">
+							<li>Outlet plans: Low level / high level / both</li>
+							<li>Cable route plans: low level / high level / risers / fill rates</li>
+							<li>Server room plans / wall elevations</li>
+							<li>Rack elevations / Patch frames / Patch Lists</li>
+							<li>Meeting room plans / elevations</li>
+							<li>Construction drawings / Markups / Power / Conduits / Penetrations</li>
+							<li>Cabling Bill of Materials / RFP Documentation</li>
+							<li>Project Schedule / Construction Schedule</li>
+						</ul>
+
 		</div>
 	</div>
 </div>

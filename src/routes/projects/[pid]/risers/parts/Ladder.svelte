@@ -86,8 +86,8 @@
 
 	<!-- Compression breaks (double slanted lines indicating hidden floors) -->
 	{#each ladderBreaks as br (br.yMm)}
-		{@const slashY = br.yMm}
-		{@const halfW = width / 2 + 80}
+		{@const slashY = br.yMm + 150}
+		{@const halfW = width / 2 + 160}
 		{@const slashHalf = 180}
 		<g class="break" pointer-events="none">
 			<line

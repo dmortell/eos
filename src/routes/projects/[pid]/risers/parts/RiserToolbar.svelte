@@ -3,6 +3,7 @@
 	import type { FloorConfig } from '$lib/types/project'
 	import { fmtFloor } from '$lib/utils/floor'
 	import type { RiserMode } from './types'
+	import DrawingPicker from './DrawingPicker.svelte'
 
 	let {
 		fromFloor = $bindable<number | undefined>(undefined),
@@ -14,8 +15,12 @@
 		buildingFloors = undefined,
 		skippedFloors = [],
 		floorFormat = 'L01',
-		onZoomIn,
-		onZoomOut,
+		drawings = [],
+		activeDrawingId = '',
+		onSelectDrawing,
+		onNewDrawing,
+		onRenameDrawing,
+		onDeleteDrawing,
 		onZoomFit,
 		onSettings,
 		onFloors,
@@ -34,8 +39,14 @@
 		/** Floors that don't physically exist — excluded from all floor lists. */
 		skippedFloors?: number[]
 		floorFormat?: string
-		onZoomIn?: () => void
-		onZoomOut?: () => void
+		/** Riser drawing switcher — rendered at the far left when `onSelectDrawing`
+		 *  is supplied (standalone page only; the workspace omits it). */
+		drawings?: { id: string; name?: string }[]
+		activeDrawingId?: string
+		onSelectDrawing?: (id: string) => void
+		onNewDrawing?: () => void
+		onRenameDrawing?: (id: string, name: string) => void
+		onDeleteDrawing?: (id: string) => void
 		onZoomFit?: () => void
 		onSettings?: () => void
 		onFloors?: () => void
@@ -145,6 +156,19 @@
 </script>
 
 <div class="riser-toolbar">
+	{#if onSelectDrawing}
+		<div class="group">
+			<DrawingPicker
+				{drawings}
+				activeId={activeDrawingId}
+				onSelect={onSelectDrawing}
+				onNew={onNewDrawing}
+				onRename={onRenameDrawing}
+				onDelete={onDeleteDrawing}
+			/>
+		</div>
+		<div class="sep"></div>
+	{/if}
 	{#if showFloorControls}
 		<div class="group">
 			<label class="lbl">From
@@ -226,8 +250,6 @@
 	<div class="sep"></div>
 
 	<div class="group">
-		<Button size="sm" variant="ghost" icon="plus" onclick={() => onZoomIn?.()} title="Zoom in" />
-		<Button size="sm" variant="ghost" icon="close" onclick={() => onZoomOut?.()} title="Zoom out" />
 		<Button size="sm" variant="ghost" icon="expand" onclick={() => onZoomFit?.()} title="Fit to view">Fit</Button>
 	</div>
 

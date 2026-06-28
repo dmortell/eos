@@ -21,6 +21,9 @@ export interface FloorYBand {
 	slabTopMm: number
 	slabBottomMm: number
 	heights: FloorHeights
+	/** Physical gap inserted ABOVE this band's top (mm) to represent hidden
+	 *  floors between it and the visible floor above. 0 when contiguous. */
+	gapAboveMm?: number
 }
 
 export function buildFloorBands(
@@ -33,16 +36,25 @@ export function buildFloorBands(
 	const hidden = new Set(doc.hiddenFloors ?? [])
 	const bands: FloorYBand[] = []
 	let cursor = 0
+	let prevFloor: number | null = null
 	for (let f = hi; f >= lo; f--) {
 		if (hidden.has(f)) continue
 		const h = heightsFor(f, doc)
+		// Hidden floors between the previous visible floor and this one → insert a
+		// physical gap (half a floor tall) so the break reads as a real spacer.
+		let gapAboveMm = 0
+		if (prevFloor !== null && prevFloor - f > 1) {
+			gapAboveMm = Math.round(totalFloorHeightMm(h) / 2)
+			cursor += gapAboveMm
+		}
 		const topMm = cursor
 		const plenumBottomMm = topMm + h.plenumMm
 		const raisedFloorTopMm = plenumBottomMm + h.clearHeightMm
 		const slabTopMm = raisedFloorTopMm + h.raisedFloorMm
 		const slabBottomMm = slabTopMm + h.slabMm
-		bands.push({ floor: f, topMm, plenumBottomMm, raisedFloorTopMm, slabTopMm, slabBottomMm, heights: h })
+		bands.push({ floor: f, topMm, plenumBottomMm, raisedFloorTopMm, slabTopMm, slabBottomMm, heights: h, gapAboveMm })
 		cursor = slabBottomMm
+		prevFloor = f
 	}
 	return bands
 }

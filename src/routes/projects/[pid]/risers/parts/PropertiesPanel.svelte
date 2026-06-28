@@ -94,7 +94,8 @@
 			/>
 		</label>
 		<label>
-			<span>Level</span>
+			<span>Exit Level</span>
+			<!-- Adds a label indicating whether that riser/trunk serves only the high path (above-ceiling plenum), only the low path (under raised floor), or the full shaft. -->
 			<select
 				value={l.level}
 				onchange={(e) => onUpdateLadder(l.id, { level: (e.target as HTMLSelectElement).value as LadderLevel })}

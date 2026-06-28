@@ -30,6 +30,24 @@
 	let cfg = $derived(settings ?? DEFAULT_RISER_SETTINGS)
 	let bands = $derived(buildFloorBands({ floorHeights, settings: cfg, hiddenFloors }, fromFloor, toFloor))
 	let breaks = $derived(compressionBreaks(bands))
+	// Hidden-floor gaps: half-height hatched spacer + the ceiling slab of the
+	// floor directly below the gap (its ceiling = the hidden floor's slab).
+	let floorGaps = $derived(
+		bands
+			.map((b, i) => ({ b, above: bands[i - 1] }))
+			.filter(({ b }) => (b.gapAboveMm ?? 0) > 0)
+			.map(({ b, above }) => {
+				const gapMm = b.gapAboveMm ?? 0
+				const slabMm = b.heights.slabMm
+				return {
+					yMm: b.topMm - gapMm,
+					hMm: Math.max(0, gapMm - slabMm),
+					slabY: b.topMm - slabMm,
+					slabMm,
+					count: above ? above.floor - b.floor - 1 : 0,
+				}
+			}),
+	)
 	let runsByCable = $derived(computeCableLanes(cables, { rooms, ladders }))
 	let stackH = $derived(totalStackHeightMm(bands))
 	let buildingWidthMm = $derived(cfg.widthMm)
@@ -85,6 +103,14 @@
 </script>
 
 <svg bind:this={svgEl} class="h-full w-full" {viewBox} preserveAspectRatio={par} style:overflow="hidden">
+	{#if floorGaps.length}
+		<defs>
+			<pattern id="sheet-riser-gap" width="600" height="600" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+				<rect width="600" height="600" fill="rgba(120,120,140,0.06)" />
+				<line x1="0" y1="0" x2="0" y2="600" stroke="rgba(120,120,140,0.35)" stroke-width="60" />
+			</pattern>
+		</defs>
+	{/if}
 	<!-- Floor bands -->
 	{#each bands as b (b.floor)}
 		<rect x="0" y={b.topMm} width={buildingWidthMm} height={b.plenumBottomMm - b.topMm} fill="rgba(120,130,160,0.08)" stroke="rgba(120,130,160,0.3)" stroke-width="0.4" vector-effect="non-scaling-stroke" />
@@ -93,7 +119,14 @@
 			<rect x="0" y={b.raisedFloorTopMm} width={buildingWidthMm} height={b.slabTopMm - b.raisedFloorTopMm} fill="rgba(160,140,100,0.0)" stroke="rgba(160,140,100,0.3)" stroke-width="0.4" vector-effect="non-scaling-stroke" />
 		{/if}
 		<rect x="0" y={b.slabTopMm} width={buildingWidthMm} height={b.slabBottomMm - b.slabTopMm} fill="rgba(60,60,70,0.25)" stroke="rgba(20,20,30,0.95)" stroke-width="0.2" vector-effect="non-scaling-stroke" />
-		<text x="-200" y={(b.raisedFloorTopMm + b.plenumBottomMm) / 2} text-anchor="end" dominant-baseline="middle" font-size="280" font-weight="600" fill="#3f3f46">{b.floor}F</text>
+		<text x="-200" y={(b.raisedFloorTopMm + b.plenumBottomMm) / 2} text-anchor="end" dominant-baseline="middle" font-size="560" font-weight="600" fill="#3f3f46">{b.floor}F</text>
+	{/each}
+
+	<!-- Hidden-floor gap blocks (hatched spacer + ceiling slab of the floor below) -->
+	{#each floorGaps as g (g.yMm)}
+		<rect x="0" y={g.yMm} width={buildingWidthMm} height={g.hMm} fill="url(#sheet-riser-gap)" stroke="rgba(120,120,140,0.4)" stroke-width="0.3" stroke-dasharray="120 80" vector-effect="non-scaling-stroke" />
+		<rect x="0" y={g.slabY} width={buildingWidthMm} height={g.slabMm} fill="rgba(60,60,70,0.25)" stroke="rgba(20,20,30,0.95)" stroke-width="0.2" vector-effect="non-scaling-stroke" />
+		<text x={buildingWidthMm / 2} y={g.yMm + g.hMm / 2} text-anchor="middle" dominant-baseline="middle" font-size="280" font-weight="500" fill="#71717a">{g.count} floor{g.count === 1 ? '' : 's'} hidden</text>
 	{/each}
 
 	<!-- Ladders -->
@@ -105,7 +138,7 @@
 		{@const stroke = l.color ?? 'rgb(100,70,140)'}
 		<rect x={xLeft} y={span.top} width={w} height={Math.max(100, span.bot - span.top)} fill={hexToRgba(l.color, 0.12)} {stroke} stroke-width="0.3" vector-effect="non-scaling-stroke" />
 		{#each breaks.filter(br => br.yMm > span.top && br.yMm < span.bot) as br (br.yMm)}
-			<line x1={l.xMm - w / 2 - 80} y1={br.yMm + 180} x2={l.xMm + w / 2 + 80} y2={br.yMm - 180} {stroke} stroke-width="0.3" vector-effect="non-scaling-stroke" />
+			<line x1={l.xMm - w / 2 - 120} y1={br.yMm + 480} x2={l.xMm + w / 2 + 120} y2={br.yMm + 80} {stroke} stroke-width="0.3" vector-effect="non-scaling-stroke" />
 		{/each}
 		<text x={l.xMm} y={span.top - 120} text-anchor="middle" font-size="220" font-weight="700" fill={stroke}>{l.label}</text>
 		{#if l.level !== 'both'}

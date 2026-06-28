@@ -140,8 +140,6 @@
 		<div class="border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
 			<RiserToolbar
 				bind:mode
-				onZoomIn={() => risersRef?.zoomIn?.()}
-				onZoomOut={() => risersRef?.zoomOut?.()}
 				onZoomFit={() => risersRef?.zoomFit?.()}
 			/>
 		</div>

@@ -14,7 +14,6 @@
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
 	import RisersSidebar from './parts/RisersSidebar.svelte'
 	import RiserToolbar from './parts/RiserToolbar.svelte'
-	import DrawingPicker from './parts/DrawingPicker.svelte'
 	import FloorManagerDialog from '$lib/components/FloorManagerDialog.svelte'
 	import {
 		DEFAULT_RISER_SETTINGS,
@@ -564,8 +563,10 @@
 			if (awaitingLadder) {
 				if (lastRoom && lastRoom.floor === newRoom.floor) {
 					d.segments = [...d.segments, { roomId: pick.roomId, level: 'high', entryLevel: prevLevel }]
-					awaitingLadder = true
 					cableDraft = { ...d }
+					// Reaching the second room completes a point-to-point route —
+					// commit automatically so the user needn't press Enter.
+					commitCableDraft()
 				}
 				return
 			}
@@ -574,8 +575,9 @@
 			// Default entryLevel to the prev hop's exit level (cable rides the ladder
 			// at that level and arrives at the same level). User can change in editor.
 			d.segments = [...d.segments, { roomId: pick.roomId, level: 'high', entryLevel: prevLevel }]
-			awaitingLadder = true
 			cableDraft = { ...d }
+			// Second room reached → finish the route automatically (no Enter needed).
+			commitCableDraft()
 		} else if (pick.ladderId) {
 			if (d.segments.length === 0 || !awaitingLadder) return
 			const last = d.segments[d.segments.length - 1]
@@ -1033,18 +1035,7 @@
 
 <div class="page" class:bare>
 	{#if !bare}
-		<Titlebar title={projectName ? `Risers — ${projectName}` : 'Risers'} menu>
-			{#if onSelectDrawing}
-				<DrawingPicker
-					{drawings}
-					activeId={activeDrawingId}
-					onSelect={onSelectDrawing}
-					onNew={onNewDrawing}
-					onRename={onRenameDrawing}
-					onDelete={onDeleteDrawing}
-				/>
-			{/if}
-		</Titlebar>
+		<Titlebar title={projectName ? `Risers — ${projectName}` : 'Risers'} menu />
 	{/if}
 
 	{#if !bare}
@@ -1058,8 +1049,12 @@
 			{buildingFloors}
 			{skippedFloors}
 			{floorFormat}
-			onZoomIn={zoomIn}
-			onZoomOut={zoomOut}
+			{drawings}
+			{activeDrawingId}
+			{onSelectDrawing}
+			{onNewDrawing}
+			{onRenameDrawing}
+			{onDeleteDrawing}
 			onZoomFit={() => {
 				userInteracted = false
 				zoomFit()
@@ -1109,8 +1104,8 @@
 					{/if}
 
 					<!-- Floor bands -->
-					{#each bands as band (band.floor)}
-						<FloorBand {band} widthMm={buildingWidthMm} {floors} {floorFormat} />
+					{#each bands as band, i (band.floor)}
+						<FloorBand {band} widthMm={buildingWidthMm} {floors} {floorFormat} roof={i === 0} />
 					{/each}
 
 					<!-- Hidden-floor gap blocks (half-height spacer between
@@ -1260,11 +1255,11 @@
 			<span class="status-sep">·</span>
 			<span class="status-item hint">
 				{#if !cableDraft || cableDraft.segments.length === 0}
-					Click a room to start the route
+					Click the first room to start the route
 				{:else if awaitingLadder}
-					Click a ladder, or a room to finish · Enter = save · Esc = cancel
+					Click a ladder, then the second room to finish · Esc = cancel
 				{:else}
-					Click the next room · Enter = save · Esc = cancel
+					Click the second room to finish · Esc = cancel
 				{/if}
 			</span>
 		{:else if selection?.kind === 'ladder'}

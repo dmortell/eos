@@ -8,11 +8,14 @@
 		widthMm,
 		floors = [],
 		floorFormat = 'L01',
+		roof = false,
 	}: {
 		band: FloorYBand
 		widthMm: number
 		floors?: FloorConfig[]
 		floorFormat?: string
+		/** Topmost displayed floor — draw a ceiling (roof) slab above its plenum. */
+		roof?: boolean
 	} = $props()
 
 	const labelX = $derived(-200)
@@ -22,7 +25,7 @@
 	<!-- Ceiling slab — when this floor sits directly under a gap of hidden
 	     floors, its ceiling (the slab of the floor above) would otherwise be
 	     missing. Render it at the bottom of the gap, on top of the plenum. -->
-	{#if (band.gapAboveMm ?? 0) > 0}
+	{#if (band.gapAboveMm ?? 0) > 0 || roof}
 		<rect
 			x="0"
 			y={band.topMm - band.heights.slabMm}
