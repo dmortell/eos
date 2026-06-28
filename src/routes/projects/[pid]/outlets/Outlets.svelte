@@ -23,13 +23,16 @@
 	import { exportOutletsToExcel } from './parts/exportExcel'
   import { toast } from 'svelte-sonner';
 
-	let { data = null, files = [], floors = [], frameData = null, racksData = {}, floor, projectId = '', projectName = '', drawingId = '', db = new Firestore(), uid = '', initialLayers, onsave, onfloorchange, onupdatefloors, ondeletefloor, onsaverack, bare = false }: {
+	let { data = null, files = [], floors = [], frameData = null, racksData = {}, floor, areas = [], activeArea = '', projectId = '', projectName = '', drawingId = '', db = new Firestore(), uid = '', initialLayers, onsave, onfloorchange, onareachange, onupdatefloors, ondeletefloor, onsaverack, bare = false }: {
 		data?: any
 		files?: any[]
 		floors?: FloorConfig[]
 		frameData?: any
 		racksData?: Record<string, any>
 		floor: number
+		/** Tenant areas on this floor (outlets only). Empty → single floorplan. */
+		areas?: { id: string; label: string }[]
+		activeArea?: string
 		projectId?: string
 		projectName?: string
 		drawingId?: string
@@ -38,6 +41,7 @@
 		initialLayers?: Record<string, boolean>
 		onsave?: (payload: any) => void
 		onfloorchange?: (floor: number) => void
+		onareachange?: (areaId: string) => void
 		onupdatefloors?: (floors: FloorConfig[]) => void
 		ondeletefloor?: (floor: number) => void
 		onsaverack?: (room: string, rackId: string, updates: Partial<RackConfig>) => void
@@ -1663,6 +1667,18 @@
 						title="Manage floors"
 						onclick={() => floorManagerOpen = true}
 					><Icon name="ellipsis" size={12} /></button>
+					{#if areas.length > 1}
+						<!-- Tenant area tabs (e.g. 3303 / 3307 on floor 33) -->
+						<div class="flex items-stretch gap-0 border-l border-gray-300 ml-1 pl-1" title="Tenant area">
+							{#each areas as area (area.id)}
+								<button
+									class="px-3 text-[11px] font-medium border-r border-gray-200 transition-colors
+										{activeArea === area.id ? 'bg-white text-emerald-600 border-t-2 border-t-emerald-500' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 border-t-2 border-t-transparent'}"
+									onclick={() => onareachange?.(area.id)}
+								>{area.label}</button>
+							{/each}
+						</div>
+					{/if}
 				</div>
 				{:else}
 				<div class="flex items-center gap-2 px-3 text-[11px] text-gray-500">

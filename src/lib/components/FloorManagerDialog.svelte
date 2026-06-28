@@ -16,6 +16,7 @@
 	let newRoomCount = $state(1)
 	let confirmingDelete = $state<number | null>(null)
 	let editingRoomNames = $state<number | null>(null)
+	let editingAreas = $state<number | null>(null)
 	let editingLabel = $state<number | null>(null)
 	let editingNumber = $state<number | null>(null)
 	let error = $state('')
@@ -29,6 +30,7 @@
 			confirmingDelete = null
 			editingLabel = null
 			editingNumber = null
+			editingAreas = null
 			error = ''
 		}
 	})
@@ -89,6 +91,31 @@
 
 	function getRoomLabel(fl: FloorConfig, room: string): string {
 		return fl.roomNames?.[room] || room
+	}
+
+	// ── Tenant areas (outlets floorplans split per leased space) ──
+	function addArea(floorNumber: number) {
+		const id = crypto.randomUUID().slice(0, 8)
+		const updated = floors.map(f => {
+			if (f.number !== floorNumber) return f
+			const areas = [...(f.areas ?? []), { id, label: `Area ${(f.areas?.length ?? 0) + 1}` }]
+			return { ...f, areas }
+		})
+		onupdate(updated)
+	}
+	function updateAreaLabel(floorNumber: number, areaId: string, label: string) {
+		const updated = floors.map(f => f.number === floorNumber
+			? { ...f, areas: (f.areas ?? []).map(a => a.id === areaId ? { ...a, label: label || a.label } : a) }
+			: f)
+		onupdate(updated)
+	}
+	function deleteArea(floorNumber: number, areaId: string) {
+		const updated = floors.map(f => {
+			if (f.number !== floorNumber) return f
+			const areas = (f.areas ?? []).filter(a => a.id !== areaId)
+			return { ...f, areas: areas.length ? areas : undefined }
+		})
+		onupdate(updated)
 	}
 
 	function doDelete(floorNumber: number) {
@@ -194,6 +221,13 @@
 										</button>
 									</div>
 
+									<!-- Tenant areas (separate outlets floorplans on one floor) -->
+									<button class="flex items-center gap-1 text-[10px] text-gray-400 hover:text-emerald-600 transition-colors" title="Tenant areas — separate outlets floorplans on one floor"
+										onclick={() => editingAreas = editingAreas === fl.number ? null : fl.number}>
+										<span>Areas:</span>
+										<span class="font-medium {fl.areas?.length ? 'text-emerald-600' : ''}">{fl.areas?.length ? fl.areas.map(a => a.label).join(', ') : '—'}</span>
+									</button>
+
 									<div class="flex-1"></div>
 
 									<!-- Delete -->
@@ -224,6 +258,27 @@
 													onchange={e => updateRoomName(fl.number, room, e.currentTarget.value.trim())} />
 											</label>
 										{/each}
+									</div>
+								{/if}
+
+								<!-- Tenant area editor (expandable) -->
+								{#if editingAreas === fl.number}
+									<div class="flex flex-wrap items-center gap-2 px-3 pb-2 pt-0.5 border-t border-gray-100">
+										{#each fl.areas ?? [] as area (area.id)}
+											<div class="flex items-center gap-0.5">
+												<input class="w-24 h-5 px-1 text-[10px] border border-emerald-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-emerald-400"
+													value={area.label}
+													placeholder="Area label"
+													onchange={e => updateAreaLabel(fl.number, area.id, e.currentTarget.value.trim())} />
+												<button class="text-gray-300 hover:text-red-500 transition-colors text-xs leading-none" title="Delete area"
+													onclick={() => deleteArea(fl.number, area.id)}>&times;</button>
+											</div>
+										{/each}
+										<button class="h-5 px-2 text-[10px] bg-emerald-600 text-white rounded hover:bg-emerald-500 transition-colors"
+											onclick={() => addArea(fl.number)}>+ Area</button>
+										{#if !(fl.areas?.length)}
+											<span class="text-[10px] text-gray-400">No areas — one floorplan for the floor. Add areas to split it per tenant space.</span>
+										{/if}
 									</div>
 								{/if}
 							</div>

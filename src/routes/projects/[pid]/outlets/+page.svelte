@@ -4,7 +4,7 @@
 	import { getContext } from 'svelte';
 	import { Firestore, Spinner, Session } from '$lib';
 	import type { FloorConfig } from '$lib/types/project';
-	import { updateFloors as _updateFloors, deleteFloor as _deleteFloor } from '$lib/utils/floor';
+	import { updateFloors as _updateFloors, deleteFloor as _deleteFloor, floorDocId } from '$lib/utils/floor';
 	import { findOrCreateDrawing } from '$lib/versioning/service';
 	import Outlets from './Outlets.svelte';
 
@@ -17,8 +17,19 @@
 	let racksData: Record<string, any> = $state({});
 	let loading = $state(true);
 	let activeFloor = $state(Number(page.url.searchParams.get('floor')) || 1);
+	// Active tenant area within the floor (outlets only). '' = the floor has no
+	// areas (legacy single-floorplan behaviour, unsuffixed doc key).
+	let activeArea = $state(page.url.searchParams.get('area') ?? '');
 	let projectName = $state('');
 	let drawingId = $state('');
+
+	const currentAreas = $derived(floors.find(f => f.number === activeFloor)?.areas ?? []);
+	// Keep activeArea valid as the floor / its areas change.
+	$effect(() => {
+		const areas = currentAreas;
+		if (!areas.length) { if (activeArea) activeArea = ''; return; }
+		if (!areas.find(a => a.id === activeArea)) activeArea = areas[0].id;
+	});
 
 	// Parse initial view layer params from URL (e.g. ?lowOutlets=1&highTrunks=0)
 	const _sp = page.url.searchParams;
@@ -56,17 +67,23 @@
 		return () => { unsub?.(); };
 	});
 
-	/** Firestore doc ID for outlets on a given floor */
-	function docId(floor = activeFloor) {
-		return `${page.params.pid}_F${String(floor).padStart(2, '0')}`;
+	/** Firestore doc ID for outlets on a given floor + area. Outlets is the only
+	 *  per-floor tool split by tenant area; frames/racks stay per-floor/room. */
+	function docId(floor = activeFloor, area = activeArea) {
+		return floorDocId(page.params.pid ?? '', floor, area || undefined);
+	}
+	/** Per-floor key for frames/links (no area suffix). */
+	function floorKey(floor = activeFloor) {
+		return floorDocId(page.params.pid ?? '', floor);
 	}
 
-	// Subscribe to outlets doc for active floor
+	// Subscribe to outlets doc for active floor + area
 	$effect(() => {
 		const pid = page.params.pid;
 		if (!pid) return;
+		const id = docId(activeFloor, activeArea);
 		loading = true;
-		const unsub = db.subscribeOne('outlets', docId(), data => {
+		const unsub = db.subscribeOne('outlets', id, data => {
 			outletsData = data;
 			loading = false;
 		});
@@ -77,7 +94,7 @@
 	$effect(() => {
 		const pid = page.params.pid;
 		if (!pid) return;
-		const unsub = db.subscribeOne('frames', docId(), data => {
+		const unsub = db.subscribeOne('frames', floorKey(), data => {
 			frameData = data;
 		});
 		return () => { unsub?.(); };
@@ -103,28 +120,36 @@
 	$effect(() => {
 		const pid = page.params.pid;
 		const fl = activeFloor;
+		const area = activeArea;
 		const uid = session?.user?.uid;
 		if (!pid || !uid) return;
-		const sourceDocId = docId(fl);
+		const sourceDocId = docId(fl, area);
+		const areaLabel = currentAreas.find(a => a.id === area)?.label;
 		findOrCreateDrawing(db, {
 			projectId: pid,
 			toolType: 'outlets',
 			sourceDocId,
-			title: `Outlets ${fl}F`,
+			title: `Outlets ${fl}F${areaLabel ? ` · ${areaLabel}` : ''}`,
 			uid,
 		}).then(id => { drawingId = id });
 	});
 
-	// Sync floor to URL so tool menu links carry context across tools
+	// Sync floor + area to URL so tool menu links carry context across tools
 	$effect(() => {
 		const url = new URL(window.location.href);
 		url.searchParams.set('floor', String(activeFloor));
+		if (activeArea) url.searchParams.set('area', activeArea); else url.searchParams.delete('area');
 		replaceState(url, page.state);
 	});
 
 	function changeFloor(newFloor: number) {
 		if (newFloor === activeFloor) return;
 		activeFloor = newFloor;
+	}
+
+	function changeArea(areaId: string) {
+		if (areaId === activeArea) return;
+		activeArea = areaId;
 	}
 
 	function updateFloors(updated: import('$lib/types/project').FloorConfig[]) {
@@ -165,7 +190,7 @@
 		<Spinner>Loading outlets...</Spinner>
 	</div>
 {:else}
-	{#key activeFloor}
+	{#key `${activeFloor}_${activeArea}`}
 		<Outlets
 			data={outletsData}
 			{files}
@@ -173,6 +198,8 @@
 			{frameData}
 			{racksData}
 			floor={activeFloor}
+			areas={currentAreas}
+			activeArea={activeArea}
 			projectId={page.params.pid}
 			{projectName}
 			{drawingId}
@@ -182,6 +209,7 @@
 			onsave={save}
 			onsaverack={saveRack}
 			onfloorchange={changeFloor}
+			onareachange={changeArea}
 			onupdatefloors={updateFloors}
 			ondeletefloor={deleteFloor}
 		/>

@@ -45,10 +45,13 @@ export function fmtFloor(
 
 /**
  * Build a Firestore document ID for a floor-scoped tool document.
- * Pattern: `{projectId}_F{floor}` e.g. `abc123_F01`
+ * Pattern: `{projectId}_F{floor}` e.g. `abc123_F01`, or, when the floor is split
+ * into tenant areas, `{projectId}_F{floor}__{areaId}` e.g. `abc123_F33__3307`.
+ * Passing no `areaId` (a floor with no areas) keeps the legacy unsuffixed key.
  */
-export function floorDocId(projectId: string, floor: number): string {
-  return `${projectId}_F${String(floor).padStart(2, '0')}`
+export function floorDocId(projectId: string, floor: number, areaId?: string): string {
+  const base = `${projectId}_F${String(floor).padStart(2, '0')}`
+  return areaId ? `${base}__${areaId}` : base
 }
 
 /**
