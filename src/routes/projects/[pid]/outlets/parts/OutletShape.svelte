@@ -22,8 +22,14 @@
 
 	const colors = $derived(USAGE_COLORS[outlet.usage])
 
-	/** Calculate equilateral triangle vertices centered at (cx, cy) with circumradius r */
+	/**
+	 * Equilateral-triangle vertices whose *bounding box* is centered on (cx, cy)
+	 * with circumradius r. The centroid sits r/4 above the bbox center, so we
+	 * shift the centroid down by r/4 — this keeps the triangle visually centered
+	 * inside the surrounding circle/square at any scale (no fixed-pixel nudges).
+	 */
 	function trianglePoints(cx: number, cy: number, r: number): string {
+		cy = cy - r * 0.25
 		const angle1 = Math.PI / 2
 		const angle2 = Math.PI / 2 + (2 * Math.PI) / 3
 		const angle3 = Math.PI / 2 + (4 * Math.PI) / 3
@@ -57,7 +63,7 @@
 	{#if outlet.mountType === 'wall'}
 		<!-- Wall: Equilateral triangle -->
 		<polygon
-			points={trianglePoints(px.x, px.y-1, radiusPx*0.9)}
+			points={trianglePoints(px.x, px.y, radiusPx*0.9)}
 			fill={outlet.level === 'low' ? colors.fill : 'none'}
 			stroke={colors.stroke}
 			stroke-width={outlet.level === 'low' ? 1.5 / zoom : 1.5 / zoom}
@@ -66,7 +72,7 @@
 	{:else if outlet.mountType === 'floor'}
 		<!-- Floor: Square with triangle inside -->
 		<polygon
-			points={squarePoints(px.x, px.y+2, radiusPx * 1.0)}
+			points={squarePoints(px.x, px.y, radiusPx * 1.0)}
 			fill={outlet.level === 'low' ? colors.fill : 'none'}
 			stroke={colors.stroke}
 			stroke-width={outlet.level === 'low' ? 1.5 / zoom : 1.5 / zoom}
@@ -74,7 +80,7 @@
 		/>
 		<!-- Inner triangle (same size) -->
 		<polygon
-			points={trianglePoints(px.x, px.y - 0.5, radiusPx * 0.8)}
+			points={trianglePoints(px.x, px.y, radiusPx * 0.8)}
 			fill="none"
 			stroke={colors.stroke}
 			stroke-width={1.5 / zoom}
@@ -84,7 +90,7 @@
 		<!-- Box / other: Circle with inner triangle -->
 		<circle
 			cx={px.x}
-			cy={px.y + 2}
+			cy={px.y}
 			r={radiusPx * 0.75}
 			fill={outlet.level === 'low' ? colors.fill : 'none'}
 			stroke={colors.stroke}
@@ -93,7 +99,7 @@
 		/>
 		<!-- Inner triangle (inscribed in circle) -->
 		<polygon
-			points={trianglePoints(px.x, px.y+2, radiusPx * 0.75)}
+			points={trianglePoints(px.x, px.y, radiusPx * 0.75)}
 			fill="none"
 			stroke={colors.stroke}
 			stroke-width={1.5 / zoom}
@@ -102,13 +108,13 @@
 	{/if}
 
 	<!-- Port count -->
-	<text x={px.x} y={px.y + radiusPx * 0.4} font-size={radiusPx * 0.9}
+	<text x={px.x} y={px.y + radiusPx * 0.3} font-size={radiusPx * 0.9}
 		font-weight="bold" text-anchor="middle" fill={outlet.level === 'low' ? 'white' : colors.stroke}
 		class="select-none pointer-events-none">{outlet.portCount}</text>
 
 	<!-- Label -->
 	{#if outlet.label}
-		<text x={px.x} y={px.y - radiusPx*0.6} font-size={radiusPx * 0.6}
+		<text x={px.x} y={px.y - radiusPx*0.8} font-size={radiusPx * 0.6}
 			text-anchor="middle" fill="#374151"
 			class="select-none pointer-events-none">{outlet.label}</text>
 	{/if}

@@ -56,7 +56,7 @@
 		const user = session?.user
 		if (!user) { loading = false; surveys = []; return }
 		loading = true
-		const unsub = subscribeSurveys(user.uid, (data) => {
+		const unsub = subscribeSurveys((data) => {
 			surveys = data
 			if (currentSurvey) {
 				const updated = data.find((s) => s.id === currentSurvey!.id)

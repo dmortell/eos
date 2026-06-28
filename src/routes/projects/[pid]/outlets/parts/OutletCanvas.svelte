@@ -676,7 +676,7 @@
 		const mx = e.clientX - rect.left
 		const my = e.clientY - rect.top
 		const factor = wheelZoomFactorFromEvent(e, WHEEL_ZOOM_SPEED)
-		const newZoom = Math.min(8, Math.max(0.05, zoom * factor))
+		const newZoom = Math.min(20, Math.max(0.05, zoom * factor))
 		const s = newZoom / zoom
 		vx = mx - (mx - vx) * s
 		vy = my - (my - vy) * s
@@ -685,7 +685,7 @@
 
 	export function zoomIn() {
 		const cx = cw / 2, cy = ch / 2
-		const newZoom = Math.min(8, zoom * 1.3)
+		const newZoom = Math.min(20, zoom * 1.3)
 		const s = newZoom / zoom
 		vx = cx - (cx - vx) * s
 		vy = cy - (cy - vy) * s
@@ -1128,7 +1128,7 @@
 			lastPanMid = newMid
 			const scaleFactor = dist / pinchLastDist
 			pinchLastDist = dist
-			const newZoom = Math.min(8, Math.max(0.05, zoom * scaleFactor))
+			const newZoom = Math.min(20, Math.max(0.05, zoom * scaleFactor))
 			const rect = containerEl?.getBoundingClientRect()
 			if (!rect) return
 			const mx = newMid.x - rect.left

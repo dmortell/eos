@@ -4,8 +4,8 @@ import type { Survey, SurveyPhoto, SurveyFloorplan } from './types'
 
 const db = new Firestore()
 
-export function subscribeSurveys(ownerId: string, callback: (surveys: Survey[]) => void) {
-	return db.subscribeWhere('surveys', 'ownerId', ownerId, (docs) => {
+export function subscribeSurveys(callback: (surveys: Survey[]) => void) {
+	return db.subscribeMany('surveys', (docs) => {
 		const surveys = (docs as unknown as Survey[]).sort((a, b) => {
 			const da = a.createdAt && 'toMillis' in a.createdAt ? a.createdAt.toMillis() : new Date(a.createdAt as any).getTime()
 			const db2 = b.createdAt && 'toMillis' in b.createdAt ? b.createdAt.toMillis() : new Date(b.createdAt as any).getTime()
