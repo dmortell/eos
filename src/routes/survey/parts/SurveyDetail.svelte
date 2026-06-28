@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button, Icon, Spinner } from '$lib'
+	import { Button, Icon, Spinner, Titlebar } from '$lib'
 	import PhotoGrid from './PhotoGrid.svelte'
 	import AlbumView from './AlbumView.svelte'
 	import FloorplanTab from './FloorplanTab.svelte'
@@ -148,7 +148,9 @@
 	}
 </script>
 
-<div class="mx-auto flex h-dvh max-w-lg flex-col lg:max-w-4xl xl:max-w-6xl print:h-auto print:max-w-none">
+<div class="flex h-dvh flex-col print:h-auto">
+	<Titlebar />
+	<div class="mx-auto flex w-full min-h-0 max-w-lg flex-1 flex-col lg:max-w-4xl xl:max-w-6xl print:h-auto print:max-w-none">
 	<!-- Header -->
 	<div class="flex items-center gap-2 border-b px-3 py-2 print:hidden">
 		<button type="button" class="flex h-10 w-10 items-center justify-center rounded-lg active:bg-gray-100" onclick={onback}>
@@ -256,6 +258,7 @@
 	{:else}
 		<FloorplanTab surveyId={survey.id} onselect={(plan) => { activeFloorplan = plan }} />
 	{/if}
+	</div>
 </div>
 
 {#if activeFloorplan}
