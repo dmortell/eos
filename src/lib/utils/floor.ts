@@ -64,11 +64,18 @@ export function floorDocId(projectId: string, floor: number, areaId?: string): s
 export function floorAreaDocId(
   projectId: string,
   floor: number,
-  areas: { id: string }[] | undefined,
+  areas: { id: string; legacy?: boolean }[] | undefined,
   areaId: string | undefined,
 ): string {
-  const isPrimary = !areas?.length || !areaId || areaId === areas[0].id
-  return floorDocId(projectId, floor, isPrimary ? undefined : areaId)
+  if (!areas?.length || !areaId) return floorDocId(projectId, floor)
+  // The legacy area (explicit flag) owns the unsuffixed key — IMMUTABLE, never
+  // inferred from position. Once a floor uses explicit flags, deleting the legacy
+  // area leaves NO area on the unsuffixed key (its doc just orphans); survivors
+  // keep their own `_F{NN}__{id}` keys, so nothing silently inherits `_F{NN}`.
+  // Floors whose areas predate the flag fall back to the first area (back-compat).
+  const hasExplicit = areas.some((a) => a.legacy !== undefined)
+  const legacy = hasExplicit ? areas.find((a) => a.legacy === true) : areas[0]
+  return floorDocId(projectId, floor, legacy && areaId === legacy.id ? undefined : areaId)
 }
 
 /**

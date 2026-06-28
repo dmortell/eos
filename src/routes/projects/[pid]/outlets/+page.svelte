@@ -28,7 +28,7 @@
 	$effect(() => {
 		const areas = currentAreas;
 		if (!areas.length) { if (activeArea) activeArea = ''; return; }
-		if (!areas.find(a => a.id === activeArea)) activeArea = areas[0].id;
+		if (!areas.find(a => a.id === activeArea)) activeArea = (areas.find(a => a.primary) ?? areas[0]).id;
 	});
 
 	// Parse initial view layer params from URL (e.g. ?lowOutlets=1&highTrunks=0)

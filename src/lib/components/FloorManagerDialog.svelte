@@ -94,12 +94,19 @@
 	}
 
 	// ── Tenant areas (outlets floorplans split per leased space) ──
+	// `legacy` (immutable) marks the area that owns the floor's existing unsuffixed
+	// doc — set on the first area so the original office needs no migration.
+	// `primary` (editable) is just the default/featured space.
 	function addArea(floorNumber: number) {
 		const id = crypto.randomUUID().slice(0, 8)
 		const updated = floors.map(f => {
 			if (f.number !== floorNumber) return f
-			const areas = [...(f.areas ?? []), { id, label: `Area ${(f.areas?.length ?? 0) + 1}` }]
-			return { ...f, areas }
+			const existing = f.areas ?? []
+			const first = existing.length === 0
+			const area = first
+				? { id, label: f.label || 'Area 1', legacy: true, primary: true }
+				: { id, label: `Area ${existing.length + 1}`, legacy: false }
+			return { ...f, areas: [...existing, area] }
 		})
 		onupdate(updated)
 	}
@@ -109,10 +116,24 @@
 			: f)
 		onupdate(updated)
 	}
+	/** Editable: re-point the default/featured space. Never touches `legacy`, so
+	 *  no data moves (safe even when a tenant moves between offices). */
+	function setPrimaryArea(floorNumber: number, areaId: string) {
+		const updated = floors.map(f => f.number === floorNumber
+			? { ...f, areas: (f.areas ?? []).map(a => ({ ...a, primary: a.id === areaId })) }
+			: f)
+		onupdate(updated)
+	}
 	function deleteArea(floorNumber: number, areaId: string) {
 		const updated = floors.map(f => {
 			if (f.number !== floorNumber) return f
-			const areas = (f.areas ?? []).filter(a => a.id !== areaId)
+			let areas = (f.areas ?? []).filter(a => a.id !== areaId)
+			// Promote a new primary if we removed it. `legacy` is deliberately NOT
+			// reassigned — the deleted area's `_F{NN}` doc just orphans; survivors
+			// keep their own keys.
+			if (areas.length && !areas.some(a => a.primary)) {
+				areas = areas.map((a, i) => ({ ...a, primary: i === 0 }))
+			}
 			return { ...f, areas: areas.length ? areas : undefined }
 		})
 		onupdate(updated)
@@ -265,11 +286,17 @@
 								{#if editingAreas === fl.number}
 									<div class="flex flex-wrap items-center gap-2 px-3 pb-2 pt-0.5 border-t border-gray-100">
 										{#each fl.areas ?? [] as area (area.id)}
-											<div class="flex items-center gap-0.5">
+											<div class="flex items-center gap-0.5 rounded {area.primary ? 'ring-1 ring-emerald-300 bg-emerald-50/50 px-1' : ''}">
+												<button class="shrink-0 transition-colors {area.primary ? 'text-emerald-500' : 'text-gray-300 hover:text-emerald-400'}"
+													title={area.primary ? 'Primary (default) space' : 'Make primary'}
+													onclick={() => setPrimaryArea(fl.number, area.id)} aria-label="Set primary">
+													<svg width="11" height="11" viewBox="0 0 24 24" fill={area.primary ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2l3 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.9 21l1.2-6.8-5-4.9 6.9-1z"/></svg>
+												</button>
 												<input class="w-24 h-5 px-1 text-[10px] border border-emerald-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-emerald-400"
 													value={area.label}
 													placeholder="Area label"
 													onchange={e => updateAreaLabel(fl.number, area.id, e.currentTarget.value.trim())} />
+												{#if area.legacy}<span class="text-[8px] text-gray-400 uppercase tracking-wide" title="Holds the floor's original floorplan data">orig</span>{/if}
 												<button class="text-gray-300 hover:text-red-500 transition-colors text-xs leading-none" title="Delete area"
 													onclick={() => deleteArea(fl.number, area.id)}>&times;</button>
 											</div>
