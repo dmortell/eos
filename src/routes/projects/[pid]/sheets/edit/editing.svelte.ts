@@ -41,7 +41,13 @@ export function useViewportEditing(opts: {
 	let seeded = false
 	let lastSyncJson = ''
 	const rebase = () => untrack(() => { history.register(editor, annEditor); history.reset() })
-	const applySeed = (d: any) => { editor.seed(d); lastSyncJson = JSON.stringify(editor.snapshot()); rebase() }
+	// seed() WRITES editor state; snapshot()/rebase() READ it. Keep the reads untracked
+	// so this never runs inside a tracking context that would depend on what seed just
+	// wrote (that self-dependency is an effect_update_depth_exceeded loop).
+	const applySeed = (d: any) => {
+		editor.seed(d)
+		untrack(() => { lastSyncJson = JSON.stringify(editor.snapshot()); rebase() })
+	}
 	// Pull just the persisted (snapshot) fields out of a raw doc so it compares apples-to-apples
 	// against editor.snapshot(); array fields default to [] to match the editor's seed normalisation.
 	const pickSnapshot = (d: any, ref: any) => {
