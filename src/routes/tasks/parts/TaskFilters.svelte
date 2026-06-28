@@ -41,7 +41,7 @@
 </script>
 
 <div class="flex flex-wrap items-center gap-2 border rounded-md bg-white p-1">
-	<Search bind:value={filters.search} class="h-6 text-xs" />
+	<Search bind:value={filters.search} />
 
 	<Select bind:value={filters.projectId} title="Project">
 		<option value="all">All Projects</option>
@@ -58,15 +58,6 @@
 		{/each}
 	</Select>
 
-	<!-- {#each allStatuses as status}
-		<button
-			class={`text-xs border rounded px-1.5 py-0.5 ${filters.showStatuses.includes(status) ? 'bg-blue-100 border-blue-300' : 'bg-white'}`}
-			onclick={() => toggleStatus(status)}
-		>
-			{status}
-		</button>
-	{/each} -->
-
 	<div>
 	{#each allStatuses as status}
 		<Button variant="toggle" group active={filters.showStatuses.includes(status)} onclick={() => toggleStatus(status)} >
@@ -77,16 +68,9 @@
 
 	<div>
 	{#each allPriorities as priority}
-		<button
-			class={`text-xs border rounded px-1.5 py-0.5 ${filters.priorities.includes(priority) ? 'bg-amber-100 border-amber-300' : 'bg-white'}`}
-			onclick={() => togglePriority(priority)}
-			title="Priority filter"
-		>
+		<Button variant="toggle2" group active={filters.priorities.includes(priority)} onclick={() => togglePriority(priority)} title="Priority filter">
 			p:{priority}
-		</button>
-		<!-- <Button variant="toggle2" group active={filters.priorities.includes(priority)} onclick={() => togglePriority(priority)} title="Priority filter">
-			p:{priority}
-		</Button> -->
+		</Button>
 	{/each}
 	</div>
 

@@ -43,28 +43,28 @@
 	});
 </script>
 
-		<div class="flex items-center justify-between gap-2 flex-wrap">
-			<h1>Task Dashboard</h1>
-			<div class="flex items-center gap-2">
-				<Checkbox label="All Tasks" bind:value={showAllTasks}/>
-				<Button variant="primary" href="/tasks">Open Task Board</Button>
-			</div>
-		</div>
-		<div class="grid grid-cols-1 min-[900px]:grid-cols-3 gap-2 items-start">
-			<div class="space-y-1">
-				<h3>Overview</h3>
-				<TaskSummary tasks={filteredTasks} />
-				<details class="space-y-1 pt-1">
-					<summary class="text-xs font-semibold text-gray-700 cursor-pointer select-none">Recent Activity</summary>
-					<RecentActivity tasks={filteredTasks} />
-				</details>
-			</div>
-				<div class="space-y-1">
-					<h3>By User</h3>
-					<UserTaskList tasks={filteredTasks} />
-				</div>
-				<div class="space-y-1">
-					<h3>By Project</h3>
-					<ProjectTaskList tasks={filteredTasks} {projects} />
-				</div>
-		</div>
+<div class="flex items-center justify-between gap-2 flex-wrap">
+	<h1>Task Dashboard</h1>
+	<div class="flex items-center gap-2">
+		<Checkbox label="All Tasks" bind:value={showAllTasks}/>
+		<Button variant="primary" href="/tasks">Open Task Board</Button>
+	</div>
+</div>
+<div class="grid grid-cols-1 min-[900px]:grid-cols-3 gap-2 items-start">
+	<div class="space-y-1">
+		<h3>Overview</h3>
+		<TaskSummary tasks={filteredTasks} />
+		<!-- <details class="space-y-1 pt-1">
+			<summary class="text-xs font-semibold text-gray-700 cursor-pointer select-none">Recent Activity</summary>
+			<RecentActivity tasks={filteredTasks} />
+		</details> -->
+	</div>
+	<!-- <div class="space-y-1">
+		<h3>By User</h3>
+		<UserTaskList tasks={filteredTasks} />
+	</div> -->
+	<!-- <div class="space-y-1">
+		<h3>By Project</h3>
+		<ProjectTaskList tasks={filteredTasks} {projects} />
+	</div> -->
+</div>

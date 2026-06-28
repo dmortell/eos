@@ -16,11 +16,24 @@
 	let selectedOutlets = $derived(outlets.filter(o => selectedIds.has(o.id)))
 	let singleOutlet = $derived(selectedOutlets.length === 1 ? selectedOutlets[0] : null)
 
+	// Capture the edit target when a text/number field gains focus, so that a
+	// commit fired on blur (e.g. clicking away to another outlet) writes to the
+	// outlet that was being edited — not whatever is selected by the time blur
+	// fires. `editOutlet === null` while editing means a multi-selection edit.
+	let editOutlet = $state<OutletConfig | null>(null)
+	function captureTarget() { editOutlet = singleOutlet }
+
 	function sharedOutlet<K extends keyof OutletConfig>(key: K): OutletConfig[K] | undefined {
 		const vals = selectedOutlets.map(o => o[key])
 		const first = vals[0]
 		return vals.every(v => v === first) ? first : undefined
 	}
+
+	// Recreate the property inputs whenever the selection changes. Without this,
+	// Svelte's one-way `value={...}` only writes to the DOM when the expression
+	// itself changes — so switching between two outlets that share a value (e.g.
+	// both have an empty Room) leaves stale, uncommitted text in the input.
+	let selKey = $derived([...selectedIds].sort().join(','))
 </script>
 
 <Window title="Outlet Properties" open={true} right={16} top={selectedRackIds.size > 0 ? 320 : 48} class="p-3 space-y-1.5 text-xs w-56">
@@ -28,15 +41,18 @@
 		{singleOutlet ? (singleOutlet.label ?? singleOutlet.id.slice(0, 8)) : `${selectedIds.size} outlets`}
 	</div>
 
+	{#key selKey}
 	{#if singleOutlet}
 		<label class="flex items-center gap-2">
 			<span class="text-gray-500 w-12 shrink-0">Label</span>
 			<input type="text" class="flex-1 h-5 px-1.5 text-xs font-mono border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
 				value={singleOutlet.label ?? ''}
+				onfocus={captureTarget}
 				onchange={e => {
+					const o = editOutlet ?? singleOutlet!
 					const newLabel = e.currentTarget.value || undefined
-					const portLabels = derivePortLabels(newLabel, singleOutlet!.portCount, singleOutlet!.portLabels)
-					onupdate(singleOutlet!.id, { label: newLabel, portLabels })
+					const portLabels = derivePortLabels(newLabel, o.portCount, o.portLabels)
+					onupdate(o.id, { label: newLabel, portLabels })
 				}} />
 		</label>
 		{#if singleOutlet.portCount > 1 && singleOutlet.label}
@@ -52,11 +68,12 @@
 			class="w-14 h-5 px-1.5 text-xs font-mono border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
 			value={singleOutlet ? singleOutlet.portCount : (sharedOutlet('portCount') ?? '')}
 			placeholder="—"
+			onfocus={captureTarget}
 			onchange={e => {
 				const v = parseInt(e.currentTarget.value) || 2
-				if (singleOutlet) {
-					const portLabels = derivePortLabels(singleOutlet.label, v, singleOutlet.portLabels)
-					onupdate(singleOutlet.id, { portCount: v, portLabels })
+				if (editOutlet) {
+					const portLabels = derivePortLabels(editOutlet.label, v, editOutlet.portLabels)
+					onupdate(editOutlet.id, { portCount: v, portLabels })
 				} else {
 					onupdateselected({ portCount: v })
 				}
@@ -131,9 +148,10 @@
 		<input type="text" class="w-20 h-5 px-1.5 text-xs font-mono border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
 			value={singleOutlet ? (singleOutlet.roomNumber ?? '') : (sharedOutlet('roomNumber') ?? '')}
 			placeholder={!singleOutlet && sharedOutlet('roomNumber') === undefined ? '— mixed —' : '—'}
+			onfocus={captureTarget}
 			onchange={e => {
 				const v = e.currentTarget.value || undefined
-				if (singleOutlet) onupdate(singleOutlet.id, { roomNumber: v })
+				if (editOutlet) onupdate(editOutlet.id, { roomNumber: v })
 				else onupdateselected({ roomNumber: v })
 			}} />
 	</label>
@@ -144,6 +162,7 @@
 			<span class="font-mono text-[10px]">{Math.round(singleOutlet.position.x)}, {Math.round(singleOutlet.position.y)} mm</span>
 		</div>
 	{/if}
+	{/key}
 
 	<div class="flex items-center gap-1 pt-1 border-t border-gray-100">
 		<button class="flex items-center gap-1 px-1.5 py-0.5 text-[10px] text-red-500 border border-red-200 rounded hover:bg-red-50 transition-colors"

@@ -27,14 +27,14 @@
 		...props
 	} = $props()
 
-	let hasLabel = $derived(Boolean(label) || children !== null)
+	let hasLabel = $derived(Boolean(label))
 	let effectiveState = $derived((error ? 'error' : state) as SelectState)
 	let describedBy = $derived(id ? `${id}-hint` : undefined)
 
 	const sizeClasses: Record<SelectSize, string> = {
 		xs: 'h-6 px-1.5 pr-6 text-xs rounded',
-		sm: 'h-7 px-2 pr-7 text-xs rounded',
-		md: 'h-8 px-3 pr-8 text-sm rounded',
+		sm: 'h-6 px-2 pr-7 text-xs rounded',
+		md: 'h-7 px-2 py-1 pr-8 text-sm rounded',
 		lg: 'h-10 px-3.5 pr-9 text-sm rounded-md'
 	}
 
@@ -73,10 +73,7 @@
 	{#if hasLabel}
 		<span class={labelClasses}>
 			{label}
-			<!-- {@render children?.()} -->
-			{#if required}
-				<span class="ml-1 text-red-600">*</span>
-			{/if}
+			{#if required}<span class="ml-1 text-red-600">*</span>{/if}
 		</span>
 	{/if}
 

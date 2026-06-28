@@ -17,6 +17,7 @@
 	// independently.
 	let { editor, interactive = false, hidden = [], locked = [], groupBox = false, den = 1, zoom = 1, objCount }: { editor: AnnotationEditor; interactive?: boolean; hidden?: string[]; locked?: string[]; groupBox?: boolean; den?: number; zoom?: number; objCount?: (layerId: string) => number } = $props()
 
+	const SW = 0.1;		// default stroke width
 	const HL = '#2563eb' // blue, matching object selection
 	// Zoom-counter-scaled stroke so the multi-select box matches TransformBox exactly.
 	const ss = $derived((zoom, editor.screenScale()) || 1)
@@ -112,11 +113,11 @@
 			{@const anchor = a.align === 'center' ? 'middle' : a.align === 'right' ? 'end' : 'start'}
 			{@const cb = a.kind === 'callout' ? calloutBorder(a) : 'none'}
 			{#if cb === 'box'}
-				<rect x={tb.x} y={tb.y} width={tb.w} height={tb.h} fill={a.fill ?? 'white'} fill-opacity={a.fill ? undefined : 0.6} stroke={color} stroke-width=".2" vector-effect="non-scaling-stroke" />
+				<rect x={tb.x} y={tb.y} width={tb.w} height={tb.h} fill={a.fill ?? 'white'} fill-opacity={a.fill ? undefined : 0.6} stroke={color} stroke-width={SW} vector-effect="non-scaling-stroke" />
 			{/if}
 			{@render textBlock(ax, tb.y, m, color, anchor)}
 			{#if cb === 'underline'}
-				<line x1={tb.x} y1={tb.y + tb.h} x2={tb.x + tb.w} y2={tb.y + tb.h} stroke={color} stroke-width=".3" vector-effect="non-scaling-stroke" />
+				<line x1={tb.x} y1={tb.y + tb.h} x2={tb.x + tb.w} y2={tb.y + tb.h} stroke={color} stroke-width={SW} vector-effect="non-scaling-stroke" />
 			{/if}
 		{:else if a.kind === 'grid'}
 			{@const gs = a.grid?.size || 500}
@@ -144,19 +145,19 @@
 				{@render caption({ x: b.x + pad + fm * 1.6, y: ry + fm, size: fm, fill: color, anchor: 'start', text: lg.showCount === false ? l.name : `${l.name} (${(objCount?.(l.id) ?? 0) + lyrCount(l.id)})` })}
 			{/each}
 		{:else if a.kind === 'rect'}
-			<rect x={b.x} y={b.y} width={b.w} height={b.h} fill={a.fill ?? 'none'} stroke={color} stroke-width={a.strokeWidth ?? 0.5} stroke-dasharray={dashArray(a.dash)} stroke-linecap={dashCap(a.dash)} vector-effect="non-scaling-stroke" />
+			<rect x={b.x} y={b.y} width={b.w} height={b.h} fill={a.fill ?? 'none'} stroke={color} stroke-width={a.strokeWidth ?? SW} stroke-dasharray={dashArray(a.dash)} stroke-linecap={dashCap(a.dash)} vector-effect="non-scaling-stroke" />
 		{:else if a.kind === 'ellipse'}
-			<ellipse cx={cx} cy={cy} rx={b.w / 2} ry={b.h / 2} fill={a.fill ?? 'none'} stroke={color} stroke-width={a.strokeWidth ?? 0.5} stroke-dasharray={dashArray(a.dash)} stroke-linecap={dashCap(a.dash)} vector-effect="non-scaling-stroke" />
+			<ellipse cx={cx} cy={cy} rx={b.w / 2} ry={b.h / 2} fill={a.fill ?? 'none'} stroke={color} stroke-width={a.strokeWidth ?? SW} stroke-dasharray={dashArray(a.dash)} stroke-linecap={dashCap(a.dash)} vector-effect="non-scaling-stroke" />
 		{:else if a.kind === 'cloud'}
 			{@const r = Math.max(150, Math.min(b.w, b.h) / 6)}
-			<path d={cloudPath(b.x, b.y, b.w, b.h, r)} fill={a.fill ?? 'none'} stroke={color} stroke-width=".5" vector-effect="non-scaling-stroke" />
+			<path d={cloudPath(b.x, b.y, b.w, b.h, r)} fill={a.fill ?? 'none'} stroke={color} stroke-width={SW*2} vector-effect="non-scaling-stroke" />
 		{:else if a.kind === 'symbol'}
 			{@const R = Math.min(b.w, b.h) / 2}
 			{#if a.symbol === 'photo'}
-				<path d="M{cx},{cy - R} L{cx - R * 0.8},{cy + R * 0.7} L{cx + R * 0.8},{cy + R * 0.7} Z" fill={a.fill ?? color} fill-opacity={a.fill ? undefined : 0.13} stroke={color} stroke-width=".5" vector-effect="non-scaling-stroke" />
+				<path d="M{cx},{cy - R} L{cx - R * 0.8},{cy + R * 0.7} L{cx + R * 0.8},{cy + R * 0.7} Z" fill={a.fill ?? color} fill-opacity={a.fill ? undefined : 0.13} stroke={color} stroke-width={SW} vector-effect="non-scaling-stroke" />
 				<circle cx={cx} cy={cy - R * 0.1} r={R * 0.18} fill={color} />
 			{:else if a.symbol === 'north'}
-				<line x1={cx} y1={cy + R} x2={cx} y2={cy - R} stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" marker-end="url(#{mid}-arrow)" />
+				<line x1={cx} y1={cy + R} x2={cx} y2={cy - R} stroke={color} stroke-width={SW} vector-effect="non-scaling-stroke" marker-end="url(#{mid}-arrow)" />
 				{@render caption({ x: cx, y: cy - R, size: R, fill: color, text: 'N' })}
 			{:else if a.symbol === 'outlet'}
 				{@const o = a.outlet ?? {}}
@@ -185,33 +186,36 @@
 				{#if usageAbbr(o.usage)}{@render caption({ x: cx, y: cy + R * 0.94, size: R * 0.45, fill: oc, text: usageAbbr(o.usage) })}{/if}
 			{:else if a.symbol === 'faceplate'}
 				{@const pw = b.w * 0.6}{@const ph = b.h * 0.85}{@const ps = pw * 0.32}
-				<rect x={cx - pw / 2} y={cy - ph / 2} width={pw} height={ph} rx={pw * 0.08} fill={a.fill ?? 'white'} stroke={color} stroke-width=".5" vector-effect="non-scaling-stroke" />
-				<rect x={cx - ps / 2} y={cy - ph * 0.3} width={ps} height={ps} fill={color} fill-opacity="0.55" stroke={color} stroke-width=".1" vector-effect="non-scaling-stroke" />
-				<rect x={cx - ps / 2} y={cy + ph * 0.3 - ps} width={ps} height={ps} fill={color} fill-opacity="0.55" stroke={color} stroke-width=".1" vector-effect="non-scaling-stroke" />
+				<rect x={cx - pw / 2} y={cy - ph / 2} width={pw} height={ph} rx={pw * 0.0} fill={a.fill ?? 'white'} stroke={color} stroke-width={SW} vector-effect="non-scaling-stroke" />
+				<rect x={cx - ps / 2} y={cy - ph * 0.3} width={ps} height={ps} fill={color} fill-opacity="0.55" stroke={color} stroke-width={SW} vector-effect="non-scaling-stroke" />
+				<rect x={cx - ps / 2} y={cy + ph * 0.3 - ps} width={ps} height={ps} fill={color} fill-opacity="0.55" stroke={color} stroke-width={SW} vector-effect="non-scaling-stroke" />
 			{:else if a.symbol === 'elevation'}
 				<!-- elevation/section tag: centre circle = drawing no. (link.ref). Up to 4
-				     directional arrows (a.arms n/e/s/w), each a triangle pointing outward
-				     with its viewport ref. Defaults to a single south arrow (a.text) when
-				     no arms are set, so existing tags keep working. -->
+				     directional arrows (a.arms n/e/s/w). Each arm is a 45°/45°/90° corner of
+				     a square (rotated 45°) circumscribing the circle: tip on the cardinal axis
+				     at cr·√2, the two 45° sides running down to the circle's tangent points
+				     (at the diagonals), no base. Defaults to a single south arrow (a.text)
+				     when no arms are set, so existing tags keep working. -->
 				{@const cr = R * 0.5}
+				{@const t = cr / Math.SQRT2}
+				{@const d = cr * Math.SQRT2}
 				{@const arms = a.arms ?? (a.text ? { s: a.text } : { s: '' })}
 				{@const DIRS = [['n', 0, -1], ['e', 1, 0], ['s', 0, 1], ['w', -1, 0]] as const}
-				{#each DIRS as [d, ux, uy] (d)}
-					{#if (arms as any)[d] != null}
-						{@const tip = R * 1.35}{@const baseR = cr * 1.0}{@const halfW = cr * 0.72}
-						<!-- triangle: base at the circle edge, tip beyond R; perpendicular = (-uy, ux) -->
-						<path d="M{cx + ux * baseR - uy * halfW},{cy + uy * baseR + ux * halfW} L{cx + ux * baseR + uy * halfW},{cy + uy * baseR - ux * halfW} L{cx + ux * tip},{cy + uy * tip} Z"
-							fill={a.fill ?? 'white'} stroke={color} stroke-width=".5" vector-effect="non-scaling-stroke" />
-						<!-- ref label centred inside the triangle (toward the base) -->
-						{@render caption({ x: cx + ux * (baseR + (tip - baseR) * 0.42), y: cy + uy * (baseR + (tip - baseR) * 0.42), size: cr * 0.62, fill: color, baseline: 'central', text: (arms as any)[d] || '–' })}
+				{#each DIRS as [dir, ux, uy] (dir)}
+					{#if (arms as any)[dir] != null}
+						<!-- tangent corner → tip → tangent corner; two 45° sides only, no base -->
+						<path d="M{cx + (ux - uy) * t},{cy + (ux + uy) * t} L{cx + ux * d},{cy + uy * d} L{cx + (ux + uy) * t},{cy + (uy - ux) * t}"
+							fill="none" stroke={color} stroke-width={SW} vector-effect="non-scaling-stroke" stroke-linejoin="round" />
+						<!-- ref label between circle edge and tip -->
+						{@render caption({ x: cx + ux * cr * 1.18, y: cy + uy * cr * 1.18, size: cr * 0.5, fill: color, baseline: 'central', text: (arms as any)[dir] || '–' })}
 					{/if}
 				{/each}
-				<circle cx={cx} cy={cy} r={cr} fill={a.fill ?? 'white'} stroke={color} stroke-width=".5" vector-effect="non-scaling-stroke" />
+				<circle cx={cx} cy={cy} r={cr} fill={a.fill ?? 'white'} stroke={color} stroke-width={SW} vector-effect="non-scaling-stroke" />
 				{@render caption({ x: cx, y: cy, size: cr * 0.95, fill: color, baseline: 'middle', text: a.link?.ref ?? '?' })}
 			{:else if a.symbol === 'door'}
 				{@const dir = a.flip ? -1 : 1}{@const hx = a.flip ? b.x + b.w : b.x}{@const hy = b.y + b.h}
-				<line x1={hx} y1={hy} x2={hx} y2={b.y} stroke={color} stroke-width="1.2" vector-effect="non-scaling-stroke" />
-				<path d="M{hx},{b.y} A {b.h},{b.h} 0 0 {a.flip ? 0 : 1} {hx + dir * b.h},{hy}" fill="none" stroke={color} stroke-width="0.5" vector-effect="non-scaling-stroke" />
+				<line x1={hx} y1={hy} x2={hx} y2={b.y} stroke={color} stroke-width={SW} vector-effect="non-scaling-stroke" />
+				<path d="M{hx},{b.y} A {b.h},{b.h} 0 0 {a.flip ? 0 : 1} {hx + dir * b.h},{hy}" fill="none" stroke={color} stroke-width={SW} vector-effect="non-scaling-stroke" />
 			{:else}
 				<circle cx={cx} cy={cy} r={R} fill={a.fill ?? 'white'} stroke={color} stroke-width=".5" vector-effect="non-scaling-stroke" stroke-dasharray={a.symbol === 'detail' ? '40 24' : undefined} />
 				{@render caption({ x: cx, y: cy, size: R * 0.9, fill: color, baseline: 'middle', text: a.link?.ref ?? '?' })}
@@ -220,7 +224,7 @@
 			{#if a.src}
 				<image href={a.src} x={b.x} y={b.y} width={b.w} height={b.h} preserveAspectRatio="xMidYMid meet" />
 			{:else}
-				<rect x={b.x} y={b.y} width={b.w} height={b.h} fill="#f8fafc" stroke={color} stroke-width=".5" stroke-dasharray="8 5" vector-effect="non-scaling-stroke" />
+				<rect x={b.x} y={b.y} width={b.w} height={b.h} fill="#f8fafc" stroke={color} stroke-width={SW} stroke-dasharray="8 5" vector-effect="non-scaling-stroke" />
 				{@render caption({ x: cx, y: cy, size: Math.min(b.w, b.h) / 6, fill: '#94a3b8', baseline: 'central', text: 'image — set URL' })}
 			{/if}
 		{/if}
@@ -230,7 +234,7 @@
 	     dragging the line moves the whole callout (box + arrow tip) together. -->
 	{#if POINTER.has(a.kind) && a.x2 != null}
 		{@const tb = box(a, den)}{@const c = nearestCorner(tb, a.x2, a.y2 ?? a.y)}
-		<line x1={c[0]} y1={c[1]} x2={a.x2} y2={a.y2} stroke={color} style:color={color} stroke-width={a.strokeWidth ?? 0.5} stroke-dasharray={dashArray(a.dash)} stroke-linecap={dashCap(a.dash)} vector-effect="non-scaling-stroke" marker-end={mk(a.end ?? 'arrow')} />
+		<line x1={c[0]} y1={c[1]} x2={a.x2} y2={a.y2} stroke={color} style:color={color} stroke-width={a.strokeWidth ?? SW*2} stroke-dasharray={dashArray(a.dash)} stroke-linecap={dashCap(a.dash)} vector-effect="non-scaling-stroke" marker-end={mk(a.end ?? 'arrow')} />
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<line x1={c[0]} y1={c[1]} x2={a.x2} y2={a.y2} stroke="transparent" stroke-width="200" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e, true)} />
 	{/if}
@@ -241,7 +245,7 @@
 		{@const x2 = a.x2 ?? a.x}{@const y2 = a.y2 ?? a.y}
 		{@const isDim = a.kind === 'dimension'}
 		{@const hd = isDim ? 'arrow' : 'none'}
-		<line x1={a.x} y1={a.y} x2={x2} y2={y2} stroke={color} style:color={color} stroke-width={a.strokeWidth ?? 0.5}
+		<line x1={a.x} y1={a.y} x2={x2} y2={y2} stroke={color} style:color={color} stroke-width={a.strokeWidth ?? SW}
 			stroke-dasharray={dashArray(a.dash)} stroke-linecap={dashCap(a.dash)} vector-effect="non-scaling-stroke"
 			marker-start={mk(a.start ?? hd)} marker-end={mk(a.end ?? hd)} />
 		{@const lbl = isDim ? fmtDim(Math.hypot(x2 - a.x, y2 - a.y)) : (a.text ?? '')}

@@ -373,7 +373,7 @@
 		<div class="flex justify-between gap-2 pt-1">
 			<div>
 				{#if mode === 'edit' && project && canEditProject(project)}
-					<Button variant="outline" onclick={() => confirmOpen = true}>Archive Project</Button>
+					<Button variant="danger" onclick={() => confirmOpen = true}>Archive Project</Button>
 				{/if}
 			</div>
 			<div class="flex gap-2">

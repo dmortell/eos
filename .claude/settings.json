@@ -4,7 +4,9 @@
       "Bash(git commit -m ' *)",
       "Bash(mkdir src\\\\routes\\\\projects\\\\[pid]\\\\risers)",
       "mcp__svelte__svelte-autofixer",
-      "Read(//m/dev/eos2/src/routes/projects/[pid]/drawings/**)"
+      "Read(//m/dev/eos2/src/routes/projects/[pid]/drawings/**)",
+      "mcp__playwright__browser_select_option",
+      "mcp__playwright__browser_run_code_unsafe"
     ],
     "additionalDirectories": [
       "M:\\dev\\eos",

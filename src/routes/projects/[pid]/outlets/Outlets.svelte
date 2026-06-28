@@ -1356,6 +1356,12 @@
 	// ── Floor format shorthand ──
 	const fmt = (fl: number) => fmtFloor(fl, floorFormat, floors)
 
+	// ── Floor tabs: first 3 as buttons, rest in a select ──
+	const FLOOR_TAB_LIMIT = 5
+	let visibleFloors = $derived(floors.slice(0, FLOOR_TAB_LIMIT))
+	let overflowFloors = $derived(floors.slice(FLOOR_TAB_LIMIT))
+	let activeInOverflow = $derived(overflowFloors.some((fl) => fl.number === floor))
+
 	// ── Keyboard shortcuts ──
 	function onKeyDown(e: KeyboardEvent) {
 		if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); history.undo(); return }
@@ -1455,8 +1461,8 @@
 					<div class="p-3 space-y-1.5 text-xs">
 						<div class="flex items-center gap-2 justify-between">
 							<div class="text-[10px] text-gray-400 uppercase tracking-wider font-medium">Floorplan</div>
-							<a href="/projects/{projectId}/uploads" class="flex gap-1 items-center border rounded shrink-0 px-2 py-1 text-gray-400 hover:text-blue-600 transition-colors" title="Upload floorplans">
-								<Icon name="upload" size={14} /> Upload
+							<a href="/projects/{projectId}/uploads" class="flex gap-1 items-center border rounded shrink-0 px-2 py-1 text-gray-500 hover:text-blue-600 transition-colors" title="Manage floorplans">
+								<Icon name="upload" size={14} /> Files
 							</a>
 						</div>
 						<Select size="sm" bind:value={selectedFileId} placeholder="— Select file —" onchange={() => selectedPage = 1} class="w-full">
@@ -1470,7 +1476,7 @@
 								<span class="text-gray-400">Page</span>
 								<Select size="xs" value={String(selectedPage)} onchange={(e: any) => selectedPage = +e.currentTarget.value}>
 									{#each Array.from({ length: selectedFile.pageCount }, (_, i) => i + 1) as p}
-										<option value={p} disabled={!isPageCalibrated(selectedFile, p)}>
+										<option value={String(p)} disabled={!isPageCalibrated(selectedFile, p)}>
 											{p} {isPageCalibrated(selectedFile, p) ? '' : '(not calibrated)'}
 										</option>
 									{/each}
@@ -1631,19 +1637,32 @@
 			<!-- Status bar with floor tabs -->
 			<div class="h-7 flex items-stretch border-t border-gray-200 bg-gray-50 shrink-0 relative z-10 print:hidden">
 				{#if !bare}
-				<div class="flex items-stretch gap-0 overflow-x-auto">
-					{#each floors as fl (fl.number)}
+				<div class="flex items-stretch gap-0">
+					{#each visibleFloors as fl (fl.number)}
 						<button
 							class="px-3 text-[11px] font-mono font-medium border-r border-gray-200 transition-colors
 								{floor === fl.number ? 'bg-white text-blue-600 border-t-2 border-t-blue-500' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 border-t-2 border-t-transparent'}"
 							onclick={() => onfloorchange?.(fl.number)}
 						>{fmt(fl.number)}</button>
 					{/each}
+					{#if overflowFloors.length}
+						<select
+							class="px-2 text-[11px] font-mono font-medium border-r border-gray-200 bg-transparent cursor-pointer transition-colors border-t-2
+								{activeInOverflow ? 'bg-white text-blue-600 border-t-blue-500' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 border-t-transparent'}"
+							value={activeInOverflow ? String(floor) : ''}
+							onchange={(e) => onfloorchange?.(+e.currentTarget.value)}
+						>
+							<option value="" disabled>More…</option>
+							{#each overflowFloors as fl (fl.number)}
+								<option value={String(fl.number)}>{fmt(fl.number)}</option>
+							{/each}
+						</select>
+					{/if}
 					<button
-						class="px-2 text-gray-300 hover:text-gray-500 transition-colors"
+						class="px-2 xxtext-gray-300 hover:text-gray-500 transition-colors"
 						title="Manage floors"
 						onclick={() => floorManagerOpen = true}
-					><Icon name="plus" size={12} /></button>
+					><Icon name="ellipsis" size={12} /></button>
 				</div>
 				{:else}
 				<div class="flex items-center gap-2 px-3 text-[11px] text-gray-500">
@@ -1655,7 +1674,7 @@
 					{#if selectedFile?.pageCount && selectedFile.pageCount > 1}
 						<Select size="xs" value={String(selectedPage)} onchange={(e: any) => selectedPage = +e.currentTarget.value}>
 							{#each Array.from({ length: selectedFile.pageCount }, (_, i) => i + 1) as p}
-								<option value={p} disabled={!isPageCalibrated(selectedFile, p)}>
+								<option value={String(p)} disabled={!isPageCalibrated(selectedFile, p)}>
 									p{p}{isPageCalibrated(selectedFile, p) ? '' : ' (not calibrated)'}
 								</option>
 							{/each}
