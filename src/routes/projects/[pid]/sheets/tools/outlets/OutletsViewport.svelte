@@ -13,7 +13,7 @@
 	import AnnotationLayer from '../../annotations/AnnotationLayer.svelte'
 	import { useViewportEditing } from '../../edit/editing.svelte'
 	import type { ViewportEditor } from '../../viewports.svelte'
-	import { layerBlockReason, annTargetLayer } from '../../layers/layers'
+	import { layerBlockReason, annTargetLayer, objLayerOf } from '../../layers/layers'
 	import { markupHotkey } from '../../edit/hotkeys'
 	import { toast } from 'svelte-sonner'
 
@@ -195,7 +195,15 @@
 				ondbl={() => { if (tool === 'trunk') { editor.finishDraw(); tool = 'select' } }} />
 			<OutletsEditLayer {editor} interactive={tool === 'select'} {locked} {hidden} {racksById} />
 		{/if}
-		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} {hidden} {locked} den={viewDen} {zoom} />
+		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} {hidden} {locked} den={viewDen} {zoom}
+			objCount={(id) => {
+				const ls = vps.allLayers
+				let n = 0
+				for (const o of editor.outlets) if (objLayerOf(o.layerId, 'outlets', ls) === id) n++
+				for (const t of editor.trunks) if (objLayerOf(t.layerId, 'trunks', ls) === id) n++
+				for (const r of editor.rackPlacements) if (objLayerOf(r.layerId, 'racks', ls) === id) n++
+				return n
+			}} />
 	</OutletsRender>
 	{#if active}
 		<OutletsEditPanel {editor} bind:tool {annEditor} layers={vps.allLayers} />

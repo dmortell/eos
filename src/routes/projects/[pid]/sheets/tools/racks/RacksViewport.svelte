@@ -15,7 +15,7 @@
 	import { RacksEditor } from './racks-editor.svelte'
 	import { buildElevation, rackAtX, slotAtY } from './rack-layout'
 	import { useViewportEditing } from '../../edit/editing.svelte'
-	import { layerBlockReason, annTargetLayer } from '../../layers/layers'
+	import { layerBlockReason, annTargetLayer, objLayerOf } from '../../layers/layers'
 	import { markupHotkey } from '../../edit/hotkeys'
 	import { toast } from 'svelte-sonner'
 
@@ -116,7 +116,14 @@
 				}} />
 			<RacksEditLayer {editor} face={src.face} rowId={src.rowId} interactive={tool === 'select'} {hidden} {locked} />
 		{/if}
-		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} {hidden} {locked} den={viewDen} {zoom} />
+		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} {hidden} {locked} den={viewDen} {zoom}
+			objCount={(id) => {
+				const ls = vps.allLayers
+				let n = 0
+				for (const r of editor.racks) if (objLayerOf(r.layerId, 'racks', ls) === id) n++
+				for (const d of editor.devices) if (objLayerOf(d.layerId, 'devices', ls) === id) n++
+				return n
+			}} />
 	</RacksRender>
 	{#if active}
 		<RacksEditPanel {editor} bind:tool {annEditor} face={src.face} libraryOpen={showLibrary} racksOpen={showRacks} layers={vps.allLayers} ondevices={() => { showLibrary = !showLibrary }} onracks={() => { showRacks = !showRacks }} />

@@ -11,7 +11,7 @@
 	import AnnotationLayer from '../../annotations/AnnotationLayer.svelte'
 	import { useViewportEditing } from '../../edit/editing.svelte'
 	import type { ViewportEditor } from '../../viewports.svelte'
-	import { layerBlockReason, annTargetLayer } from '../../layers/layers'
+	import { layerBlockReason, annTargetLayer, objLayerOf } from '../../layers/layers'
 	import { markupHotkey } from '../../edit/hotkeys'
 	import { toast } from 'svelte-sonner'
 
@@ -99,7 +99,15 @@
 				}} />
 			<RisersEditLayer {editor} {fromFloor} {toFloor} interactive={tool === 'select'} {hidden} {locked} />
 		{/if}
-		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} {hidden} {locked} den={viewDen} {zoom} />
+		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} {hidden} {locked} den={viewDen} {zoom}
+			objCount={(id) => {
+				const ls = vps.allLayers
+				let n = 0
+				for (const room of editor.rooms) if (objLayerOf(room.layerId, 'rooms', ls) === id) n++
+				for (const l of editor.ladders) if (objLayerOf(l.layerId, 'ladders', ls) === id) n++
+				for (const c of editor.cables) if (objLayerOf(c.layerId, 'cables', ls) === id) n++
+				return n
+			}} />
 	</RisersRender>
 	{#if active}
 		<RisersEditPanel {editor} bind:tool {annEditor} {fromFloor} {toFloor} layers={vps.allLayers} />
