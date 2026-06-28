@@ -31,22 +31,46 @@ export function useViewportEditing(opts: {
 	const history = new History()
 	const annEditor = useAnnotations({ vp: opts.vp, active: opts.active, vps: opts.vps, toolEditor: editor, afterChange: () => history.touch() })
 
-	// Mirror the doc into the editor while idle; once active, the editor owns the data (seed once
-	// even if mounted active, for model mode). Rebaseline undo after each (re)seed — untracked, so
-	// reading the editor snapshot doesn't re-fire this effect.
+	// Mirror the doc into the editor. While idle the editor follows the doc verbatim. While ACTIVE
+	// it owns the data, but we still apply genuine REMOTE changes (edits from other tabs/viewports
+	// or the standalone tool) so the view stays live — Firestore is local-first, so our own writes
+	// echo straight back into the subscription; a JSON-echo guard (`lastSyncJson`, like SheetEditor)
+	// distinguishes those self-echoes (identical snapshot → skip) from real remote frames (different
+	// snapshot → apply). An in-flight drag is never clobbered: the active editor wins until mouse-up.
+	// Rebaseline undo after each (re)seed — untracked, so reading the snapshot doesn't re-fire this.
 	let seeded = false
+	let lastSyncJson = ''
 	const rebase = () => untrack(() => { history.register(editor, annEditor); history.reset() })
+	const applySeed = (d: any) => { editor.seed(d); lastSyncJson = JSON.stringify(editor.snapshot()); rebase() }
+	// Pull just the persisted (snapshot) fields out of a raw doc so it compares apples-to-apples
+	// against editor.snapshot(); array fields default to [] to match the editor's seed normalisation.
+	const pickSnapshot = (d: any, ref: any) => {
+		const out: any = {}
+		for (const k of Object.keys(ref)) out[k] = d?.[k] ?? (Array.isArray(ref[k]) ? [] : ref[k] ?? null)
+		return out
+	}
 	$effect(() => {
 		const d = opts.doc()
-		if (!opts.active()) { editor.seed(d); seeded = !!d; rebase(); return }
-		if (!seeded && d) { editor.seed(d); seeded = true; rebase() }
+		if (!opts.active()) { applySeed(d); seeded = !!d; return }
+		if (!seeded) { if (d) { applySeed(d); seeded = true } return }
+		// Active + already seeded: apply remote frames, skip self-echoes and mid-drag.
+		if (!d) return
+		if (editor.isDragging) return
+		const incoming = JSON.stringify(pickSnapshot(d, untrack(() => editor.snapshot())))
+		if (incoming === lastSyncJson) return
+		untrack(() => applySeed(d))
 	})
 	// Persist edits (debounced) to the source doc; tap the undo history on every change.
 	$effect(() => {
 		const id = opts.docId()
 		if (!id) { editor.onChange = null; return }
 		const saver = docSaver(opts.db, opts.collection, id)
-		editor.onChange = () => { saver.save(editor.snapshot()); history.touch() }
+		editor.onChange = () => {
+			const snap = editor.snapshot()
+			lastSyncJson = JSON.stringify(snap) // mark our own write so the echo is skipped
+			saver.save(snap)
+			history.touch()
+		}
 		return () => { saver.flush(); editor.onChange = null }
 	})
 

@@ -273,6 +273,10 @@ export interface CableRun {
 	roomId?: string
 	/** Assigned lane index — set after interval scheduling. */
 	lane: number
+	/** Total lanes in this run's channel — set in a second pass so the renderer can
+	 *  centre the bundle symmetrically (and fit it inside a ladder) rather than stack
+	 *  one-sided. Defaults to 1 until stamped. */
+	laneCount?: number
 }
 
 /**
@@ -401,6 +405,15 @@ export function computeCableLanes(
 			}
 		}
 		out.set(cable.id, runs)
+	}
+	// Second pass: stamp each run with the final lane count of its channel so the
+	// renderer can centre the bundle (and scale spacing to fit a ladder).
+	for (const runs of out.values()) {
+		for (const r of runs) {
+			r.laneCount = r.type === 'rv'
+				? pointChannels.get(r.channelKey)?.size ?? 1
+				: channels.get(r.channelKey)?.length ?? 1
+		}
 	}
 	return out
 }

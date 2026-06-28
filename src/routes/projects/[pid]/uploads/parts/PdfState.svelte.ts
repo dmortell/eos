@@ -6,6 +6,30 @@ let pdfjs: any = null
 // @ts-ignore
 import pdfjsWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
+/**
+ * iOS/iPadOS Safari (seen on iPadOS 17.6.1) can spawn pdf.js's module worker but
+ * the handshake never completes and no `error` event fires — so pdf.js's own
+ * fallback never kicks in and getDocument() hangs forever. Detect iOS and run
+ * pdf.js on the main thread instead (registering the worker module globally makes
+ * pdf.js use a same-thread "fake worker" rather than a real Worker).
+ */
+function isIOS(): boolean {
+	if (typeof navigator === 'undefined') return false
+	return /iP(hone|ad|od)/.test(navigator.userAgent) ||
+		// iPadOS reports as desktop Safari ("Macintosh") but has touch points.
+		(navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+}
+
+let mainThreadWorkerReady: Promise<void> | null = null
+function ensureMainThreadWorker(): Promise<void> {
+	if (!mainThreadWorkerReady) {
+		mainThreadWorkerReady = import('pdfjs-dist/build/pdf.worker.min.mjs').then((mod) => {
+			;(globalThis as any).pdfjsWorker = mod
+		})
+	}
+	return mainThreadWorkerReady
+}
+
 // Mobile Safari (iPad/iPhone) silently renders a blank canvas once it exceeds
 // its size limits — ~16.7M px total area and ~4096px per side. Clamp the render
 // scale so a full-page render never trips this (it would otherwise show nothing).
@@ -34,6 +58,8 @@ export class PdfState {
 		// @ts-ignore - pdfjs-dist uses non-standard build path
 		if (!pdfjs) pdfjs = await import('pdfjs-dist/build/pdf')
 		pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl
+		// On iOS the real worker hangs; run pdf.js on the main thread there.
+		if (isIOS()) await ensureMainThreadWorker()
 		// Fetch the bytes on the main thread rather than handing pdf.js a `url` to
 		// stream: iOS Safari can hang indefinitely on the worker's ranged/streamed
 		// requests. A plain main-thread fetch uses normal CORS (proven to work on
