@@ -212,11 +212,22 @@
 		document.removeEventListener('mouseup', onPanUp)
 	}
 
+	// iOS Safari fires its own `gesture*` (pinch) events in ADDITION to two-finger
+	// touch events; left alone they zoom the page on top of our handler — the source
+	// of the jitter / over-sensitivity. Swallow them so only our pinch math runs.
+	const onGesture = (e: Event) => e.preventDefault()
+
 	onMount(() => {
 		if (!containerEl) return
 		containerEl.addEventListener('wheel', onWheel, { passive: false })
+		containerEl.addEventListener('gesturestart', onGesture, { passive: false })
+		containerEl.addEventListener('gesturechange', onGesture, { passive: false })
+		containerEl.addEventListener('gestureend', onGesture, { passive: false })
 		return () => {
 			containerEl?.removeEventListener('wheel', onWheel)
+			containerEl?.removeEventListener('gesturestart', onGesture)
+			containerEl?.removeEventListener('gesturechange', onGesture)
+			containerEl?.removeEventListener('gestureend', onGesture)
 		}
 	})
 
@@ -419,7 +430,7 @@
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<div
 		bind:this={containerEl}
-		class="flex-1 cursor-grab overflow-hidden active:cursor-grabbing"
+		class="flex-1 cursor-grab touch-none overscroll-none overflow-hidden active:cursor-grabbing"
 		oncontextmenu={onContextMenu}
 		onmousedown={onMouseDown}
 		onclick={handleFloorplanClick}
