@@ -87,7 +87,10 @@
 	}
 
 	function addFloor() {
-		const num = Math.max(-9, Math.min(9999, Math.round(newFloorNumber) || 1))
+		// NB: `|| 1` would turn a legitimate floor 0 (ground floor) into 1 (0 is falsy),
+		// so coerce explicitly and only fall back to 1 for a non-numeric entry.
+		const n = Math.round(Number(newFloorNumber))
+		const num = Math.max(-9, Math.min(9999, Number.isFinite(n) ? n : 1))
 		if (floors.find(f => f.number === num)) {
 			error = `Floor ${fmt(num)} already exists`
 			return
