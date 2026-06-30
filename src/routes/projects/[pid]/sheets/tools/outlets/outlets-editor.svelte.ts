@@ -196,6 +196,8 @@ export class OutletsEditor extends SurfaceEditor {
 		this.outlets.push(o); this.select('outlet', o.id); this.notify()
 	}
 	dragOutlet(o: OutletConfig, e0: MouseEvent) {
+		if (e0.button !== 0) return // right/middle is pan/zoom — let it bubble to the canvas
+		e0.stopPropagation()
 		if (e0.shiftKey) { this.toggleOutletSel(o.id); return } // shift-click → additive multi-pick
 		// Ctrl/Cmd-drag duplicates: drag a fresh copy, leaving the original in place. Re-fetch the
 		// pushed item from the array — $state stores a proxy, and mutating the raw object we pushed
@@ -473,6 +475,8 @@ export class OutletsEditor extends SurfaceEditor {
 		}, () => { this.notify(); onDone?.() })
 	}
 	dragRack(rp: RackPlacement, e0: MouseEvent) {
+		if (e0.button !== 0) return // right/middle is pan/zoom — let it bubble to the canvas
+		e0.stopPropagation()
 		if (e0.shiftKey) { this.toggleRackSel(rp.rackId); return } // shift-click → additive multi-pick
 		if (e0.ctrlKey || e0.metaKey) { this.rackPlacements.push({ ...rp, rackId: this.uid('FR'), position: { ...rp.position } }); rp = this.rackPlacements[this.rackPlacements.length - 1] }
 		else if (this.inMulti('rack', rp.rackId)) { this.beginGroupDrag(e0); return }

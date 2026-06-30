@@ -12,7 +12,7 @@
 	let { editor, fromFloor, toFloor, interactive = false, hidden = [], locked = [] }: { editor: RisersEditor; fromFloor: number; toFloor: number; interactive?: boolean; hidden?: string[]; locked?: string[] } = $props()
 	let bands = $derived(buildFloorBands({ floorHeights: editor.floorHeights, settings: editor.settings ?? DEFAULT_RISER_SETTINGS, hiddenFloors: editor.hiddenFloors }, fromFloor, toFloor))
 	const pe = $derived(interactive ? 'auto' : 'none')
-	const HL = '#06b6d4'
+	const HL = '#2563eb'
 	// Hidden or locked layers are non-interactive — skip their handles entirely.
 	let offRooms = $derived(hidden.includes('rooms') || locked.includes('rooms'))
 	let offLadders = $derived(hidden.includes('ladders') || locked.includes('ladders'))
@@ -22,12 +22,14 @@
 
 	// Grabbing a marquee-selected item drags the whole group; otherwise clear the marquee + single-drag.
 	function downRoom(room: { id: string }, e: MouseEvent) {
+		if (e.button !== 0) return // right/middle is pan/zoom — let it bubble to the canvas
 		e.stopPropagation()
 		if (e.shiftKey) { editor.toggleRoomSel(room.id); return } // shift-click → additive multi-pick
 		if (editor.inRoomMulti(room.id)) { editor.beginGroupDrag(e); return }
 		editor.clearMulti(); editor.peer?.clearMulti(); editor.dragRoom(room as any, e, fromFloor, toFloor)
 	}
 	function downLadder(l: { id: string }, e: MouseEvent) {
+		if (e.button !== 0) return // right/middle is pan/zoom — let it bubble to the canvas
 		e.stopPropagation()
 		if (e.shiftKey) { editor.toggleLadderSel(l.id); return } // shift-click → additive multi-pick
 		if (editor.inLadderMulti(l.id)) { editor.beginGroupDrag(e); return }

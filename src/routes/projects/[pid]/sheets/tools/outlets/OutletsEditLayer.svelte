@@ -13,7 +13,7 @@
 	let { editor, interactive = false, locked = [], hidden = [], racksById = {} }: { editor: OutletsEditor; interactive?: boolean; locked?: string[]; hidden?: string[]; racksById?: Record<string, RackCfg> } = $props()
 
 	const HM = 70 // node handle radius (mm)
-	const HL = '#06b6d4'
+	const HL = '#2563eb'
 	// A layer that's hidden OR locked is non-interactive: skip its handles/hit targets entirely
 	// (hidden objects aren't drawn, so they must not be selectable; locked objects can't be edited).
 	let offO = $derived(hidden.includes('outlets') || locked.includes('outlets'))
@@ -34,7 +34,7 @@
 			{@const b = editor.nodePos(t, s.nodes[1])}
 			{#if a && b}
 				{#if editor.tsegs.includes(s.id) || (editor.selNodes.includes(s.nodes[0]) && editor.selNodes.includes(s.nodes[1]))}
-					<line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={HL} stroke-width="2" vector-effect="non-scaling-stroke" style:pointer-events="none" />
+					<line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={HL} stroke-width="1.25" vector-effect="non-scaling-stroke" style:pointer-events="none" />
 				{/if}
 				<line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="transparent" stroke-width={260}
 					style:pointer-events={interactive && !offT ? 'stroke' : 'none'} style:cursor="move"
@@ -76,9 +76,9 @@
 		{#each editor.outlets as o (o.id)}
 			<circle cx={o.position.x} cy={o.position.y} r={260} fill="transparent"
 				style:pointer-events={interactive ? 'auto' : 'none'} style:cursor="move"
-				onmousedown={(e: MouseEvent) => { e.stopPropagation(); editor.dragOutlet(o, e) }} />
+				onmousedown={(e: MouseEvent) => editor.dragOutlet(o, e)} />
 			{#if editor.isSel('outlet', o.id) || editor.selOutlets.includes(o.id)}
-				<circle cx={o.position.x} cy={o.position.y} r={300} fill="none" stroke={HL} stroke-width="1.5" vector-effect="non-scaling-stroke" style:pointer-events="none" />
+				<circle cx={o.position.x} cy={o.position.y} r={300} fill="none" stroke={HL} stroke-width="1" vector-effect="non-scaling-stroke" style:pointer-events="none" />
 			{/if}
 		{/each}
 	{/if}
@@ -92,9 +92,9 @@
 			<g transform="rotate({rp.rotation} {cx} {cy})">
 				<rect x={rp.position.x} y={rp.position.y} width={d.w} height={d.h} fill="transparent"
 					style:pointer-events={interactive ? 'auto' : 'none'} style:cursor="move"
-					onmousedown={(e: MouseEvent) => { e.stopPropagation(); editor.dragRack(rp, e) }} />
+					onmousedown={(e: MouseEvent) => editor.dragRack(rp, e)} />
 				{#if editor.isSel('rack', rp.rackId) || editor.selRacks.includes(rp.rackId)}
-					<rect x={rp.position.x} y={rp.position.y} width={d.w} height={d.h} fill="none" stroke={HL} stroke-width="1.5" vector-effect="non-scaling-stroke" style:pointer-events="none" />
+					<rect x={rp.position.x} y={rp.position.y} width={d.w} height={d.h} fill="none" stroke={HL} stroke-width="1" vector-effect="non-scaling-stroke" style:pointer-events="none" />
 				{/if}
 			</g>
 		{/each}

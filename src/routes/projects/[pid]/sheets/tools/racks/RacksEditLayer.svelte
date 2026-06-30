@@ -11,7 +11,7 @@
 	import type { RackFace, DeviceConfig, RackConfig } from './types'
 	let { editor, face, rowId = undefined, interactive = false, hidden = [], locked = [] }: { editor: RacksEditor; face: RackFace; rowId?: string; interactive?: boolean; hidden?: string[]; locked?: string[] } = $props()
 
-	const HL = '#06b6d4'
+	const HL = '#2563eb'
 	const SEL = '#3b82f6' // thin blue selection outline (matches the original racks tool)
 	// Devices live on the 'devices' layer; racks/rows on 'racks'. A hidden or locked layer is
 	// non-interactive (hidden objects aren't drawn, so they must not be selectable).
@@ -75,7 +75,7 @@
 		{#each editor.rows as row (row.id)}
 			{@const o = row.plan?.originMm ?? { x: 0, y: 0 }}
 			{#if editor.inRowMulti(row.id) && !offRows}
-				<circle cx={o.x} cy={o.y} r={360} fill="none" stroke={HL} stroke-width="1.5" vector-effect="non-scaling-stroke" style:pointer-events="none" />
+				<circle cx={o.x} cy={o.y} r={360} fill="none" stroke={HL} stroke-width="1" vector-effect="non-scaling-stroke" style:pointer-events="none" />
 			{/if}
 			{#if !offRows}
 				<circle cx={o.x} cy={o.y} r={250} fill="#2563eb" fill-opacity="0.55" stroke="#1d4ed8" stroke-width="1" vector-effect="non-scaling-stroke"
