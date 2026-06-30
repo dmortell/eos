@@ -138,9 +138,10 @@
 		{@const eff = objLayerOf(t.layerId, 'trunks', layers)}
 		{#if t.visible !== false && t.nodes.length >= 2 && !hidden.includes(eff)}
 			{@const color = objLayerColor(eff, layers) ?? t.color ?? '#000000'}
-			<path d={trunkPath(t)} fill="{color}33" stroke={color} stroke-width="0.5" vector-effect="non-scaling-stroke"
+			<path d={trunkPath(t)} fill="{color}33" stroke={color} stroke-width="0.2" vector-effect="non-scaling-stroke"
 				fill-rule="evenodd" opacity={t.isPrimary ? 0.85 : 0.5}
-				stroke-dasharray={isCeiling(t) ? '4 3' : undefined} />
+				/>
+				<!-- stroke-dasharray={isCeiling(t) ? '8 1' : undefined} -->
 		{/if}
 	{/each}
 
@@ -187,7 +188,10 @@
 			{/if}
 			<text x={x} y={y + R * 0.35} font-size={R * 0.9} text-anchor="middle" font-weight="bold" fill={low ? 'white' : stroke}>{o.portCount}</text>
 			{#if o.label}
-				<text x={x} y={y - R * 1.3} font-size={R * 0.6} text-anchor="middle" fill="#374151">{o.label}</text>
+				<text x={x} y={y - R * 1.1} font-size={R * 0.6} text-anchor="middle" fill="#374151">{o.label}</text>
+			{/if}
+			{#if o.roomNumber}
+				<text x={x} y={y + R * 1.5} font-size={R * 0.6} text-anchor="middle" fill="#374151">{o.roomNumber}</text>
 			{/if}
 		</g>
 		{/if}

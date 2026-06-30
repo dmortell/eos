@@ -78,7 +78,7 @@
 				style:pointer-events={interactive ? 'auto' : 'none'} style:cursor="move"
 				onmousedown={(e: MouseEvent) => editor.dragOutlet(o, e)} />
 			{#if editor.isSel('outlet', o.id) || editor.selOutlets.includes(o.id)}
-				<circle cx={o.position.x} cy={o.position.y} r={300} fill="none" stroke={HL} stroke-width="1" vector-effect="non-scaling-stroke" style:pointer-events="none" />
+				<circle cx={o.position.x} cy={o.position.y} r={210} fill="none" stroke={HL} stroke-width=".5" vector-effect="non-scaling-stroke" style:pointer-events="none" />
 			{/if}
 		{/each}
 	{/if}
