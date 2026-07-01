@@ -2,6 +2,7 @@
 	import { untrack, setContext } from "svelte";
 	import { DEFAULT_PRINT_SETTINGS, paperDimsMm, type PrintSettings } from '$lib/ui/print/types'
 	import { ViewportEditor, numberViewports } from "./viewports.svelte";
+	import { modelStore } from "./tools/model3d/models.svelte";
 	import { updateSheet, subscribeSheets } from "./data";
 	import type { SheetDoc, SheetViewport, TitleBlockConfig } from "./types";
 	import type { Firestore } from "$lib/db.svelte";
@@ -164,6 +165,11 @@
 	})
 	vps.onLayersChange = () => { if (pid) db.save('projects', { id: pid, sheetLayers: $state.snapshot(vps.customLayers) }) }
 	vps.onDefaultsChange = () => { if (pid) db.save('projects', { id: pid, annotationDefaults: $state.snapshot(vps.annoDefaults) }) }
+	// model3d cross-project copy bridge: capture a model payload at copy, import it at paste
+	// (so a model3d viewport pasted into a DIFFERENT project brings its model along).
+	vps.projectId = pid
+	vps.captureModel = (modelId: number) => { const m = modelStore(db, pid).get(modelId); return m ? structuredClone($state.snapshot(m)) : null }
+	vps.importModel = (model: any) => modelStore(db, pid).importModel(model)
 
 	// Window-level gestures: Insert drag-out, marquee select, double-click activate, delete/esc.
 	// Capture phase so we run before the Canvas/viewport handlers call stopPropagation.

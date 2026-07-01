@@ -33,8 +33,20 @@ export function numberViewports(viewports: SheetViewport[], rowTol = 15): Map<st
 	return m
 }
 
-// Module-level so copied viewports paste across sheets (same session).
-let vpClipboard: SheetViewport[] = []
+// The viewport clipboard is persisted to localStorage (not just a module var) so a copy
+// survives a full reload / a fresh tab — cross-project paste usually means opening the
+// target project separately. Carries the source project + any referenced model3d model
+// payloads so a model3d viewport can be pasted into ANOTHER project (its model is
+// auto-imported there — see pasteClipboard).
+type VpClipboard = { viewports: SheetViewport[]; projectId: string; models: Record<number, any> }
+const CLIP_KEY = 'eos.sheets.vpClipboard'
+function writeClipboard(c: VpClipboard) {
+	try { localStorage.setItem(CLIP_KEY, JSON.stringify(c)) } catch { /* ignore quota/SSR */ }
+}
+function readClipboard(): VpClipboard {
+	try { const c = JSON.parse(localStorage.getItem(CLIP_KEY) || 'null'); if (c?.viewports) return c } catch { /* ignore */ }
+	return { viewports: [], projectId: '', models: {} }
+}
 
 /**
  * Headless controller for a sheet's viewports. Owns the viewport list, selection /
@@ -71,6 +83,14 @@ export class ViewportEditor {
 	onLayersChange: (() => void) | null = null
 	/** Called after the annotation defaults change (SheetEditor persists to the project doc). */
 	onDefaultsChange: (() => void) | null = null
+
+	// ── model3d cross-project copy bridge (set by SheetEditor, which owns db + pid) ──
+	/** Current project id — lets paste detect a cross-project source. */
+	projectId = ''
+	/** Snapshot a model3d model payload by id (for the clipboard at copy time). */
+	captureModel: ((modelId: number) => any | null) | null = null
+	/** Import a model payload into THIS project's store; returns its new local id. */
+	importModel: ((model: any) => number) | null = null
 
 	/** Paper-sheet element, set by SheetEditor; used to map client px → paper mm. */
 	paper: HTMLElement | null = null
@@ -235,15 +255,41 @@ export class ViewportEditor {
 
 	// ── copy / cut / paste / duplicate (clipboard is module-level, so it survives sheet navigation) ──
 	copySelected() {
-		vpClipboard = this.viewports.filter(v => this.selectedIds.includes(v.id)).map(v => structuredClone($state.snapshot(v)) as SheetViewport)
+		const viewports = this.viewports.filter(v => this.selectedIds.includes(v.id)).map(v => structuredClone($state.snapshot(v)) as SheetViewport)
+		// Stash the referenced model3d models so the viewport can paste into another project.
+		const models: Record<number, any> = {}
+		for (const v of viewports) {
+			if (v.source?.kind === 'model3d' && this.captureModel) {
+				const m = this.captureModel(v.source.modelId)
+				if (m) models[v.source.modelId] = m
+			}
+		}
+		writeClipboard({ viewports, projectId: this.projectId, models })
 	}
 	cutSelected() { this.copySelected(); this.deleteSelected() }
-	/** Paste the clipboard viewports into this sheet (new ids, nudged so they're visible). */
+	/** Paste the clipboard viewports into this sheet (new ids, nudged so they're visible). When the
+	 *  clipboard came from a DIFFERENT project, any model3d model is imported into this project and
+	 *  the pasted viewport is repointed at the new local id. */
 	pasteClipboard() {
-		if (!vpClipboard.length) return
+		const clip = readClipboard()
+		if (!clip.viewports.length) return
 		this.checkpoint()
 		const D = 10
-		const copies = vpClipboard.map(v => ({ ...structuredClone(v), id: this.uid('V'), x: v.x + D, y: v.y + D }))
+		const crossProject = clip.projectId !== this.projectId
+		const idMap = new Map<number, number>() // old modelId → new local id (dedupe multi-refs)
+		const copies = clip.viewports.map(v => {
+			const c = { ...structuredClone(v), id: this.uid('V'), x: v.x + D, y: v.y + D } as SheetViewport
+			if (crossProject && c.source?.kind === 'model3d' && this.importModel) {
+				const oldId = c.source.modelId
+				let newId = idMap.get(oldId)
+				if (newId == null) {
+					const payload = clip.models[oldId]
+					if (payload) { newId = this.importModel(payload); idMap.set(oldId, newId) }
+				}
+				if (newId != null) c.source = { ...c.source, modelId: newId }
+			}
+			return c
+		})
 		this.viewports.push(...copies)
 		this.selectedIds = copies.map(c => c.id); this.activeId = null
 		this.notify()

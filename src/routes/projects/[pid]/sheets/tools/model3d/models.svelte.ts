@@ -70,6 +70,15 @@ export class ModelStore {
 	}
 	rename(id: number, name: string) { const m = this.get(id); if (m) { m.name = name; this.save() } }
 	remove(id: number) { this.models = this.models.filter((m) => m.id !== id); this.save() }
+
+	/** Import a full model payload (e.g. pasted from another project) under a fresh
+	 *  local id. Returns the new id so the caller can repoint the viewport at it. */
+	importModel(model: Model): number {
+		const id = Math.max(0, ...this.models.map((m) => m.id)) + 1
+		this.models.push({ ...structuredClone(model), id })
+		this.save()
+		return id
+	}
 }
 
 // One store per project, shared by all model3d viewports + the properties window.
