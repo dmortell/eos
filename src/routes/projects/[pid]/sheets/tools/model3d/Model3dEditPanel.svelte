@@ -219,6 +219,15 @@
 				</select></label>
 			<label class="flex items-center justify-between gap-2"><span class="text-zinc-400">Scale 1:</span>
 				<input type="number" min="1" class="w-20 rounded border px-1 py-0.5" placeholder="fit" value={s.scale ?? ''} oninput={(e) => editor.updateSection(s.id, { scale: num(e) })} /></label>
+			<!-- Cut height (z limits): objects outside this band are clipped away. Grow it to give
+			     plenum headroom for ceiling-void conduits. -->
+			<div class="grid grid-cols-2 gap-1">
+				<label class="block"><span class="text-zinc-400">Bottom Z</span>
+					<input type="number" class="w-full rounded border px-1 py-0.5" value={Math.round(s.clip.z0)} oninput={(e) => editor.setSectionClip(s.id, { z0: num(e) })} /></label>
+				<label class="block"><span class="text-zinc-400">Top Z</span>
+					<input type="number" class="w-full rounded border px-1 py-0.5" value={Math.round(s.clip.z1)} oninput={(e) => editor.setSectionClip(s.id, { z1: num(e) })} /></label>
+			</div>
+			<button class="rounded border px-1.5 py-0.5 text-left hover:bg-slate-100" title="Grow the cut to the floor → ceiling structural slabs" onclick={() => editor.fitSectionToSlabs(s.id)}>Fit height to slabs</button>
 			<label class="flex items-center justify-between gap-2"><span class="text-zinc-400">Layer</span>
 				<select class="w-32 rounded border px-1 py-0.5" value={s.layer ?? ''} onchange={(e) => editor.updateSection(s.id, { layer: (e.currentTarget as HTMLSelectElement).value || undefined })}>
 					<option value="">—</option>

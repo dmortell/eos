@@ -75,7 +75,13 @@
 	$effect(() => {
 		editor.onSection = (box) => {
 			if (!model || !src) return
-			const { z0, z1 } = modelZRange(model.objects)
+			// z spans the model's objects, expanded to the structural slab levels (if set) so
+			// there's plenum headroom above the ceiling tile — a conduit run in the ceiling void
+			// isn't clipped away. Object bounds are kept so nothing already drawn is cut off.
+			let { z0, z1 } = modelZRange(model.objects)
+			const lv = model.levels
+			if (lv?.floorSlab != null) z0 = Math.min(z0, lv.floorSlab)
+			if (lv?.ceilingSlab != null) z1 = Math.max(z1, lv.ceilingSlab)
 			const clip = {
 				x0: Math.round(Math.min(box.x0, box.x1)), x1: Math.round(Math.max(box.x0, box.x1)),
 				y0: Math.round(Math.min(box.y0, box.y1)), y1: Math.round(Math.max(box.y0, box.y1)), z0, z1,

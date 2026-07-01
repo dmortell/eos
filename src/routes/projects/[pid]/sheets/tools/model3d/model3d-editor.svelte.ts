@@ -493,6 +493,24 @@ export class Model3dEditor extends SurfaceEditor {
 	 *  underlying elevation viewport. */
 	onSectionUpdate: ((id: string, patch: Partial<SectionInfo>) => void) | null = null
 	updateSection(id: string, patch: Partial<SectionInfo>) { this.onSectionUpdate?.(id, patch) }
+	/** Edit a section's clip box (e.g. its z limits — the cut height). */
+	setSectionClip(id: string, patch: Partial<Clip>) {
+		const s = this.sections.find((x) => x.id === id); if (!s) return
+		this.onSectionChange?.(id, { ...s.clip, ...patch })
+	}
+	/** Grow a section's cut height to the model's structural slabs (floor → ceiling slab),
+	 *  falling back to the object z-range when a level isn't set. Gives plenum headroom so
+	 *  ceiling-void conduits aren't clipped away. */
+	fitSectionToSlabs(id: string) {
+		const s = this.sections.find((x) => x.id === id); if (!s || !this.model) return
+		let z0 = Infinity, z1 = -Infinity
+		for (const o of this.model.objects) { const b = objBounds(o); z0 = Math.min(z0, b.z0); z1 = Math.max(z1, b.z1) }
+		if (z0 === Infinity) { z0 = 0; z1 = 3000 }
+		const lv = this.model.levels
+		if (lv?.floorSlab != null) z0 = Math.min(z0, lv.floorSlab)
+		if (lv?.ceilingSlab != null) z1 = Math.max(z1, lv.ceilingSlab)
+		this.setSectionClip(id, { z0: Math.round(z0), z1: Math.round(z1) })
+	}
 	get sections() { return this.direction === 'plan' ? (this.sectionsProvider?.() ?? []) : [] }
 	get selSectionInfo() { return this.selSection ? this.sections.find((s) => s.id === this.selSection) ?? null : null }
 	// Which section's clip box is open for editing. By default sections show only a small label tag;
