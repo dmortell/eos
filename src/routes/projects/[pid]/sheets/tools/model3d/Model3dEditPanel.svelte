@@ -229,6 +229,25 @@
 			<label class="flex items-center justify-between gap-2"><span class="text-zinc-400">B / W</span>
 				<input type="checkbox" checked={s.bw ?? false} onchange={(e) => editor.updateSection(s.id, { bw: (e.currentTarget as HTMLInputElement).checked })} /></label>
 		</div>
+	{:else if editor.selUnderlay}
+		{@const u = editor.selUnderlay}
+		<div class="space-y-1 text-xs">
+			<div class="mb-1 flex items-center justify-between">
+				<span class="font-semibold">Floorplan underlay</span>
+				<button class="rounded border border-red-300 px-1.5 py-0.5 text-red-600 hover:bg-red-50" title="Remove this underlay" onclick={() => editor.removeUnderlay()}>Remove</button>
+			</div>
+			<label class="flex items-center justify-between gap-2"><span class="text-zinc-400">Opacity</span>
+				<input type="range" min="0.1" max="1" step="0.05" class="w-32" value={u.opacity ?? 0.5}
+					oninput={(e) => editor.setUnderlay({ opacity: Number((e.currentTarget as HTMLInputElement).value) })} /></label>
+			<label class="flex items-center justify-between gap-2"><span class="text-zinc-400">Page</span>
+				<input type="number" min="1" class="w-20 rounded border px-1 py-0.5" value={u.pageNum ?? 1}
+					oninput={(e) => editor.setUnderlay({ pageNum: Math.max(1, num(e) || 1) })} /></label>
+			<label class="flex items-center justify-between gap-2"><span class="text-zinc-400">Flip (mirror)</span>
+				<input type="checkbox" checked={u.flip ?? false}
+					onchange={(e) => editor.setUnderlay({ flip: (e.currentTarget as HTMLInputElement).checked })} /></label>
+			<button class="rounded border px-1.5 py-0.5 hover:bg-slate-100" title="Reset to the default fit position" onclick={() => editor.resetUnderlay(u.id)}>Reset position</button>
+			<p class="text-[10px] text-zinc-400">Drag the border to move, corners to resize (Ctrl+Z to undo). Lock the Background layer to prevent accidental moves.</p>
+		</div>
 	{:else}
 		<p class="text-xs text-zinc-400">Select an object to edit its properties.</p>
 	{/if}

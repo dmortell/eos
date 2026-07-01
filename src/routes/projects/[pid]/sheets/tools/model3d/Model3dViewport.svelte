@@ -159,15 +159,15 @@
 	// When shown, the redundant per-item handles (annotation TransformBox / prism corners) are hidden.
 	const showGroupBox = $derived(active && tool === 'select' && src?.direction === 'plan' && !!selection.orientedBox())
 
-	// Undo/redo over the model geometry (objects) AND this viewport's annotations, so a
-	// drag / ctrl-drag of either is undoable. Layer defs + underlays are edited through
-	// other save paths, so they stay out of the snapshot.
+	// Undo/redo over the model geometry (objects), the floorplan UNDERLAYS (move/resize/
+	// opacity/flip/reset), AND this viewport's annotations, so a drag / ctrl-drag of any is
+	// undoable. Layer defs are edited through other save paths, so they stay out of the snapshot.
 	const snap = {
 		// Selection is in the snapshot so undo re-selects what was selected (e.g. the originals
 		// after undoing a ctrl-drag copy), not the now-deleted clones.
-		snapshot: () => ({ objects: model ? $state.snapshot(model.objects) : [], annotations: annEditor.snapshot(), objSel: editor.selectionState(), annSel: annEditor.selectionState() }),
+		snapshot: () => ({ objects: model ? $state.snapshot(model.objects) : [], underlays: model ? $state.snapshot(model.underlays ?? []) : [], annotations: annEditor.snapshot(), objSel: editor.selectionState(), annSel: annEditor.selectionState() }),
 		seed: (s: any) => {
-			if (model) model.objects = s.objects ?? []
+			if (model) { model.objects = s.objects ?? []; if (s.underlays !== undefined) model.underlays = s.underlays }
 			annEditor.seed(s.annotations ?? [])
 			editor.restoreSelection(s.objSel); annEditor.restoreSelection(s.annSel)
 			editor.pruneSelection(); annEditor.pruneSelection()

@@ -1,6 +1,6 @@
 import { toast } from 'svelte-sonner'
 import { SurfaceEditor } from '../../edit/surface.svelte'
-import { BASIS, type Clip, type Conduit, type Dir, type Model, type Obj, type Prism, type SectionInfo, type Wall } from './types'
+import { BASIS, type Clip, type Conduit, type Dir, type Model, type Obj, type Prism, type SectionInfo, type Underlay, type Wall } from './types'
 import { moveAlong, roundObj, project, xyCenter, objBounds, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 import { newId } from './graph'
 import { polyToGraph } from './migrate'
@@ -131,6 +131,17 @@ export class Model3dEditor extends SurfaceEditor {
 		}, () => this.notify())
 	}
 	resetUnderlay = (id: string) => { const u = this.underlay(id); if (u) { u.rect = undefined; this.notify() } }
+	/** The currently-selected underlay (floorplan image), or null. */
+	get selUnderlay(): Underlay | null { return this.usel ? this.underlay(this.usel) : null }
+	/** Patch the selected underlay (opacity / flip / pageNum). Persisted + undoable. */
+	setUnderlay(patch: Partial<Underlay>) { const u = this.selUnderlay; if (!u) return; Object.assign(u, patch); this.notify() }
+	/** Remove the selected underlay from the model. */
+	removeUnderlay(id: string | null = this.usel) {
+		if (!id || !this.model) return
+		this.model.underlays = (this.model.underlays ?? []).filter((u) => u.id !== id)
+		if (this.usel === id) this.usel = null
+		this.notify()
+	}
 
 	// Cursor → model-axis coords for the current view. u = world.x, v = -world.y.
 	private at(e: MouseEvent) {
