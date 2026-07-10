@@ -4,6 +4,7 @@
 	import type { CondSeg, Model, WallSeg } from './types'
 	import type { AnnotationEditor } from '../../annotations/annotations.svelte'
 	import AnnotationControls from '../../edit/AnnotationControls.svelte'
+	import { downloadModelDxf } from './dxfExport'
 
 	// Floating editor for the selected object in an active model3d viewport:
 	// numeric properties, a per-segment list (walls/conduits), and layer
@@ -23,6 +24,11 @@
 </script>
 
 <Window title="Object" name="model3d-object" right={10} top={10} open class="w-64 p-2 text-zinc-700">
+	<div class="mb-1 flex items-center justify-end">
+		<button class="rounded border px-1.5 py-0.5 text-[11px] hover:bg-slate-100"
+			title="Export this model to DXF (real-world mm, plan) — opens in AutoCAD as editable geometry"
+			onclick={() => downloadModelDxf(model, { direction: 'plan' })}><Icon name="download" size={11} /> DXF</button>
+	</div>
 	<!-- Insert / place-tool — plan + elevations (Wall/Section stay plan-only) -->
 	{#if editor.direction !== 'iso'}
 		{#if editor.placing}
