@@ -10,8 +10,15 @@
 	import type { AnnotationEditor } from '../../annotations/annotations.svelte'
 	import type { LayerDef } from '../../layers/layers'
 	import { PIPE_CATALOG, RECT_CATALOG } from './types'
+	import { outletsToDxf } from '../../dxf/outlets'
+	import { downloadDxf } from '../../dxf/dxf'
 
-	let { editor, tool = $bindable(), annEditor, layers = [] }: { editor: OutletsEditor; tool: string; annEditor: AnnotationEditor; layers?: LayerDef[] } = $props()
+	let { editor, tool = $bindable(), annEditor, layers = [], racksById = {} }: { editor: OutletsEditor; tool: string; annEditor: AnnotationEditor; layers?: LayerDef[]; racksById?: Record<string, { widthMm: number; depthMm: number; label?: string }> } = $props()
+
+	function exportDxf() {
+		const dxf = outletsToDxf({ outlets: editor.outlets, trunks: editor.trunks, rackPlacements: editor.rackPlacements, racksById }, layers)
+		downloadDxf(dxf, 'outlets-floorplan')
+	}
 
 	const objTools = [
 		{ id: 'select', label: 'Select' },
@@ -31,10 +38,11 @@
 <div use:portal>
 <Window title="Edit" name="outlets-edit" left={10} top={72} open class="w-64 p-2 text-zinc-700">
 	<div class="space-y-2" use:formNav>
-	<div class="flex flex-wrap gap-1">
+	<div class="flex flex-wrap items-center gap-1">
 		{#each objTools as t (t.id)}
 			<button class={cls(tool === t.id)} title={t.id === 'select' ? 'Select / edit' : `Insert ${t.label}`} onclick={() => pick(t.id)}>{t.id === 'select' ? t.label : `+ ${t.label}`}</button>
 		{/each}
+		<button class="rounded border px-1.5 py-0.5 text-xs hover:bg-slate-100" title="Export this floorplan to DXF (real-world mm) for AutoCAD" onclick={exportDxf}>⬇ DXF</button>
 	</div>
 	<AnnotationControls bind:tool editor={annEditor} />
 	{#if editor.draw}

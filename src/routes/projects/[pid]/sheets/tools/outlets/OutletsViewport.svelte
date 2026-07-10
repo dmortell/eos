@@ -206,7 +206,7 @@
 			}} />
 	</OutletsRender>
 	{#if active}
-		<OutletsEditPanel {editor} bind:tool {annEditor} layers={vps.allLayers} />
+		<OutletsEditPanel {editor} bind:tool {annEditor} layers={vps.allLayers} {racksById} />
 		<OutletsContextMenu {editor} />
 	{/if}
 {:else}
