@@ -257,6 +257,26 @@
 			<button class="rounded border px-1.5 py-0.5 hover:bg-slate-100" title="Reset to the default fit position" onclick={() => editor.resetUnderlay(u.id)}>Reset position</button>
 			<p class="text-[10px] text-zinc-400">Drag the border to move, corners to resize (Ctrl+Z to undo). Lock the Background layer to prevent accidental moves.</p>
 		</div>
+	{:else if editor.direction === 'plan'}
+		<!-- Plan cut: the plan viewport's own z-clip. Objects outside the band are hidden. -->
+		<div class="space-y-1 text-xs">
+			<div class="mb-1 font-semibold">Plan cut</div>
+			{#if editor.planClip}
+				{@const c = editor.planClip}
+				<div class="grid grid-cols-2 gap-1">
+					<label class="block"><span class="text-zinc-400">Bottom Z</span>
+						<input type="number" class="w-full rounded border px-1 py-0.5" value={Math.round(c.z0)} oninput={(e) => editor.setPlanClipZ({ z0: num(e) })} /></label>
+					<label class="block"><span class="text-zinc-400">Top Z</span>
+						<input type="number" class="w-full rounded border px-1 py-0.5" value={Math.round(c.z1)} oninput={(e) => editor.setPlanClipZ({ z1: num(e) })} /></label>
+				</div>
+				<button class="rounded border px-1.5 py-0.5 text-left hover:bg-slate-100" title="Grow the cut to the floor → ceiling structural slabs" onclick={() => editor.fitPlanClipToSlabs()}>Fit height to slabs</button>
+				<button class="rounded border px-1.5 py-0.5 text-left hover:bg-slate-100" onclick={() => editor.togglePlanClip()}>Remove cut (show whole model)</button>
+				<p class="text-[10px] text-zinc-400">Objects outside this z-band are hidden. Raise Top Z (or Fit to slabs) to show ceiling-void services.</p>
+			{:else}
+				<button class="rounded border px-1.5 py-0.5 text-left hover:bg-slate-100" onclick={() => editor.togglePlanClip()}>Add cut plane…</button>
+				<p class="text-[10px] text-zinc-400">The whole model shows. Add a cut to clip the plan to a z-band (e.g. floor → ceiling), then set Top / Bottom Z.</p>
+			{/if}
+		</div>
 	{:else}
 		<p class="text-xs text-zinc-400">Select an object to edit its properties.</p>
 	{/if}

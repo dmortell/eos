@@ -1,7 +1,7 @@
 import { toast } from 'svelte-sonner'
 import { SurfaceEditor } from '../../edit/surface.svelte'
 import { BASIS, type Clip, type Conduit, type Dir, type Model, type Obj, type Prism, type SectionInfo, type Underlay, type Wall } from './types'
-import { moveAlong, roundObj, project, xyCenter, objBounds, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
+import { moveAlong, roundObj, project, xyCenter, objBounds, modelBounds, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 import { newId } from './graph'
 import { polyToGraph } from './migrate'
 
@@ -498,18 +498,44 @@ export class Model3dEditor extends SurfaceEditor {
 		const s = this.sections.find((x) => x.id === id); if (!s) return
 		this.onSectionChange?.(id, { ...s.clip, ...patch })
 	}
+	/** z-range covering the model's objects, grown to the structural slabs (floor → ceiling
+	 *  slab) when those levels are set — the "full-height" cut band with plenum headroom. */
+	private slabZRange(): { z0: number; z1: number } {
+		let z0 = Infinity, z1 = -Infinity
+		for (const o of this.model?.objects ?? []) { const b = objBounds(o); z0 = Math.min(z0, b.z0); z1 = Math.max(z1, b.z1) }
+		if (z0 === Infinity) { z0 = 0; z1 = 3000 }
+		const lv = this.model?.levels
+		if (lv?.floorSlab != null) z0 = Math.min(z0, lv.floorSlab)
+		if (lv?.ceilingSlab != null) z1 = Math.max(z1, lv.ceilingSlab)
+		return { z0: Math.round(z0), z1: Math.round(z1) }
+	}
 	/** Grow a section's cut height to the model's structural slabs (floor → ceiling slab),
 	 *  falling back to the object z-range when a level isn't set. Gives plenum headroom so
 	 *  ceiling-void conduits aren't clipped away. */
 	fitSectionToSlabs(id: string) {
 		const s = this.sections.find((x) => x.id === id); if (!s || !this.model) return
-		let z0 = Infinity, z1 = -Infinity
-		for (const o of this.model.objects) { const b = objBounds(o); z0 = Math.min(z0, b.z0); z1 = Math.max(z1, b.z1) }
-		if (z0 === Infinity) { z0 = 0; z1 = 3000 }
-		const lv = this.model.levels
-		if (lv?.floorSlab != null) z0 = Math.min(z0, lv.floorSlab)
-		if (lv?.ceilingSlab != null) z1 = Math.max(z1, lv.ceilingSlab)
-		this.setSectionClip(id, { z0: Math.round(z0), z1: Math.round(z1) })
+		this.setSectionClip(id, this.slabZRange())
+	}
+
+	// ── the PLAN viewport's own cut clip (a z-band that hides above/below-cut objects) ──
+	// Lives on the plan viewport's `source.clip`; the host wires these so the panel can edit it.
+	planClipProvider: (() => Clip | null) | null = null
+	onPlanClip: ((clip: Clip | null) => void) | null = null
+	get planClip(): Clip | null { return this.direction === 'plan' ? (this.planClipProvider?.() ?? null) : null }
+	setPlanClipZ(patch: Partial<Clip>) { const c = this.planClip; if (c) this.onPlanClip?.({ ...c, ...patch }) }
+	fitPlanClipToSlabs() { const c = this.planClip; if (c) this.onPlanClip?.({ ...c, ...this.slabZRange() }) }
+	/** Add a full-extent cut (x/y over the whole model, z to the slabs) that the user then
+	 *  lowers, or remove the cut entirely (show the whole model). */
+	togglePlanClip() {
+		if (this.planClip) { this.onPlanClip?.(null); return }
+		const b = modelBounds(this.model?.objects ?? [])
+		const { z0, z1 } = this.slabZRange()
+		const pad = 500
+		this.onPlanClip?.({
+			x0: Math.round((b?.x0 ?? -1000) - pad), x1: Math.round((b?.x1 ?? 1000) + pad),
+			y0: Math.round((b?.y0 ?? -1000) - pad), y1: Math.round((b?.y1 ?? 1000) + pad),
+			z0, z1,
+		})
 	}
 	get sections() { return this.direction === 'plan' ? (this.sectionsProvider?.() ?? []) : [] }
 	get selSectionInfo() { return this.selSection ? this.sections.find((s) => s.id === this.selSection) ?? null : null }

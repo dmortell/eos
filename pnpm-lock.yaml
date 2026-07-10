@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@tarikjabiri/dxf':
+        specifier: ^2.8.9
+        version: 2.8.9
       '@uploadthing/svelte':
         specifier: ^7.3.3
         version: 7.3.3(svelte@5.53.6)(uploadthing@7.7.4(tailwindcss@4.2.1))
@@ -80,7 +83,7 @@ importers:
         version: 5.53.6
       svelte-check:
         specifier: ^4.4.2
-        version: 4.4.4(picomatch@4.0.3)(svelte@5.53.6)(typescript@5.9.3)
+        version: 4.4.4(picomatch@4.0.4)(svelte@5.53.6)(typescript@5.9.3)
       svelte-sonner:
         specifier: ^1.0.8
         version: 1.0.8(svelte@5.53.6)
@@ -1177,6 +1180,10 @@ packages:
     resolution: {integrity: sha512-TBf2sJjYeb28jD2U/OhwdW0bbOsxkWPwQ7SrqGf9sVcoYwZj7rkXljroBO9wKBut9XnmQLXanuDUeqQK0lGg/w==}
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7
+
+  '@tarikjabiri/dxf@2.8.9':
+    resolution: {integrity: sha512-ckBkEsWdlFTvqm2ARm23xX3EVouYsnNuZWS7P/oec1WCGTjzdd9jhmtQqyhh7TQSvQo4HunbDv4Vxiv07/8zsQ==}
+    engines: {node: '>=16', pnpm: '>=8'}
 
   '@testing-library/svelte-core@1.0.0':
     resolution: {integrity: sha512-VkUePoLV6oOYwSUvX6ShA8KLnJqZiYMIbP2JW2t0GLWLkJxKGvuH5qrrZBV/X7cXFnLGuFQEC7RheYiZOW68KQ==}
@@ -3788,6 +3795,8 @@ snapshots:
       tailwindcss: 4.2.1
       vite: 7.3.1(@types/node@25.3.3)(jiti@2.6.1)(lightningcss@1.31.1)
 
+  '@tarikjabiri/dxf@2.8.9': {}
+
   '@testing-library/svelte-core@1.0.0(svelte@5.53.6)':
     dependencies:
       svelte: 5.53.6
@@ -5334,11 +5343,11 @@ snapshots:
     dependencies:
       inline-style-parser: 0.2.7
 
-  svelte-check@4.4.4(picomatch@4.0.3)(svelte@5.53.6)(typescript@5.9.3):
+  svelte-check@4.4.4(picomatch@4.0.4)(svelte@5.53.6)(typescript@5.9.3):
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
       chokidar: 4.0.3
-      fdir: 6.5.0(picomatch@4.0.3)
+      fdir: 6.5.0(picomatch@4.0.4)
       picocolors: 1.1.1
       sade: 1.8.1
       svelte: 5.53.6

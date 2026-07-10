@@ -115,6 +115,14 @@
 			vps.viewports = vps.viewports.filter((v) => v.id !== id); vps.notify()
 			toast('Section deleted', { action: { label: 'Undo', onClick: () => { vps.viewports = [...vps.viewports, snap as any]; vps.notify() } } })
 		}
+		// The PLAN viewport's own cut clip (edited from the Object panel when nothing is selected).
+		editor.planClipProvider = () => (src?.clip ?? null)
+		editor.onPlanClip = (clip) => {
+			if (!src || vp.source.kind !== 'model3d') return
+			if (clip) vp.source.clip = clip
+			else delete (vp.source as any).clip
+			vps.notify()
+		}
 	})
 
 	// Annotations (shared sheet system): text/line/rect to start. Stored on the
