@@ -5,6 +5,7 @@
  * (outlets/racks/risers) and model3d. See sheets/dxf-export-plan.md.
  */
 import { DxfWriter, LWPolylineFlags, Units, point2d, point3d } from '@tarikjabiri/dxf'
+import { objLayerOf, type LayerDef } from '../layers/layers'
 
 /** AutoCAD rejects these in layer names. Empty → the built-in layer '0'. */
 export function sanitizeLayer(name: string): string {
@@ -77,6 +78,13 @@ export class DxfDoc {
 		this.w.addText(point3d(at[0], at[1], 0), Math.max(1, height), value, { layerName: layer })
 	}
 	stringify(): string { return this.w.stringify() }
+}
+
+/** Resolve + ensure the DXF layer for a tool object (its per-object layerId, else the kind default). */
+export function objLayer(doc: DxfDoc, layerId: string | undefined, kind: string, layers: LayerDef[]): string {
+	const id = objLayerOf(layerId, kind, layers)
+	const l = layers.find((x) => x.id === id)
+	return doc.layer(l?.name ?? kind, l?.color)
 }
 
 /** Trigger a browser download of DXF text. */

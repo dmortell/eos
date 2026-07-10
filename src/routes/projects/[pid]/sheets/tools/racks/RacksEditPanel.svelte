@@ -7,11 +7,18 @@
 	import { formNav } from '$lib/formNav'
 	import { RacksEditor, DEVICE_TYPES } from './racks-editor.svelte'
 	import type { AnnotationEditor } from '../../annotations/annotations.svelte'
+	import { racksToDxf } from '../../dxf/racks'
+	import { downloadDxf } from '../../dxf/dxf'
 
 	import type { RackFace } from './types'
 
 	let { editor, tool = $bindable(), annEditor, face = 'front', libraryOpen = false, racksOpen = false, layers = [], ondevices, onracks }: { editor: RacksEditor; tool: string; annEditor: AnnotationEditor; face?: RackFace; libraryOpen?: boolean; racksOpen?: boolean; layers?: import('../../layers/layers').LayerDef[]; ondevices?: () => void; onracks?: () => void } = $props()
 	const val = (e: Event) => (e.currentTarget as HTMLInputElement | HTMLSelectElement).value
+
+	function exportDxf() {
+		const dxf = racksToDxf({ racks: editor.racks, devices: editor.devices, settings: editor.settings, face }, layers)
+		downloadDxf(dxf, `racks-${face}`)
+	}
 	let firstRow = $derived(editor.rows[0]?.id ?? '')
 	const cls = (active: boolean) => ['rounded border px-1.5 py-0.5 text-xs', active ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-slate-100']
 </script>
@@ -23,6 +30,7 @@
 		<button class={cls(tool === 'select')} onclick={() => (tool = 'select')}>Select</button>
 		<button class={cls(racksOpen)} onclick={() => onracks?.()}>Racks</button>
 		{#if face !== 'plan'}<button class={cls(libraryOpen)} onclick={() => ondevices?.()}>Devices</button>{/if}
+		<button class="rounded border px-1.5 py-0.5 text-xs hover:bg-slate-100" title="Export this rack elevation to DXF (real-world mm) for AutoCAD" onclick={exportDxf}>⬇ DXF</button>
 	</div>
 	<AnnotationControls bind:tool editor={annEditor} />
 	<hr class="border-zinc-200" />

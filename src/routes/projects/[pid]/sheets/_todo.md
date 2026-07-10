@@ -626,6 +626,21 @@ Support markdown and rendering.
 41. ✅ Title in sheet titlebar now includes the project name: "<project> — <sheet title>"
     (falls back to "Sheet — <title>" when the project has no name). [sheetId]/+page.svelte.
 
+42. (potential) Multi-floor elevations in model3d — draw an elevation/section that spans TWO OR MORE
+    floors, like the Risers tool stacks floors. Today a model3d model is generally one floor and a
+    section's clip is a single-floor z-band (floor→ceiling slab; see the "Fit height to slabs" work).
+    For a multi-storey elevation we'd need to stack per-floor models (or one tall model) with floor
+    datum lines between them, and a section cut whose z-range covers the chosen floor range — reusing
+    the riser's floor model (building floors, hidden/skipped floors, break/cut lines; see 20b/20c).
+    Open questions: one tall model vs linked per-floor models; how floor slabs/plenums repeat; whether
+    the riser floor-band engine can drive the elevation z-layout. Decide if this is wanted before building.
+
+43. DXF export UI polish — the "⬇ DXF" button + the Object Properties / Edit panel are getting
+    cramped and ugly as options accumulate (per-tool export lives in each *EditPanel; model3d has its
+    own DXF section). Consolidate into a proper export affordance (a small menu / dialog with
+    direction, layer, and scope options) instead of a bare button crammed into the tool row, and tidy
+    the panels generally. Cosmetic — do after the DXF feature set stabilises.
+
 Recently-fixed bugs (ad-hoc, from testing):
 - ✅ Creating/selecting an item left a prior multi-selection highlighted — select() now does an
   exclusive single-select (clears this editor's multi + the peer's sel+multi). Covers objects too.
