@@ -1,5 +1,17 @@
 # DXF Export — plan
 
+## Reference implementation (proven — read first)
+`M:\dev\autocad\docs\dxf-export.md` — the user's other CAD app (OpenCAD) already ships DXF export
+with the **same library and the same real-mm / y-up / 1:1 model-space approach**, verified by
+round-tripping its own output through `dxf-parser`. Reuse its mapping decisions + gotchas (below);
+its `src/lib/dxfExport.ts` (`modelToDxf(model)` sync + `modelToDxfBundle(model)` async) is the shape
+to mirror. It proved:
+- The **mapping layer (our shapes → DXF entities) is the real work and is library-agnostic** — the
+  writer choice is cheap to change later.
+- `@tarikjabiri/dxf` **has NO VIEWPORT entity** (only `addPaperSpace()` without viewports) → a real
+  paper-space sheet layout at scale is **blocked** with this lib. This *confirms* our headline =
+  model-space export; a paper "as-drawn" DXF (Phase 3) would need geometry flattening or a lib fork.
+
 ## Goal (decided)
 Export **real-world model geometry** as a DXF that a draftsman can **open in AutoCAD as a model**
 (model space, true millimetres) and keep working on. This is the headline mode — NOT a
@@ -52,6 +64,45 @@ emit each entity on that layer. Hidden layers are skipped (or exported frozen �
 | text / labels | `TEXT` |
 | PDF underlay | **omitted** |
 | title block | omitted in model mode |
+
+## Proven details & gotchas (from the OpenCAD reference)
+- **Coordinates:** real-mm, y-up → **1:1, no transforms**. Set `Units.Millimeters`. Put each shape's
+  height in the **z** coordinate (harmless in 2D, meaningful in 3D viewers). (For our y-down v1
+  outlets, flip y first.)
+- **Layers:** sanitise names (AutoCAD rejects ``<>/\":;?*|=` ,``); map our default layer onto DXF's
+  built-in layer **`0`** (don't redefine it); **skip hidden layers entirely**.
+- **Colours:** layers use **ACI indices (1–255), not RGB** — nearest-match a small curated palette;
+  map near-white → **7** (AutoCAD auto-inverts 7 for the background). Per-shape override via
+  `colorNumber`, or `trueColor` if exact colour matters.
+- **Linetypes:** `addLType(name, preview, dashElements)` **before** use; gaps negative; ~2.5 mm
+  dashes read well.
+- **Smooth/rounded polylines (trunk corners, clouds):** `SPLINE` needs **≥ 4 control points**
+  (degree 3). For 3-point curves, export a **sampled Catmull-Rom as LWPOLYLINE** instead. Simplest:
+  approximate all rounded corners as short polyline segments for MVP.
+- **Rotated rects:** precompute rotated corners into a closed LWPOLYLINE (don't use rotation attrs).
+- **Walls (model3d):** a **centreline `LWPOLYLINE` with `constantWidth: thickness`** renders a solid
+  wall band and stays editable — far simpler than outline polygons. Openings: split the centreline +
+  jamb `LINE`s; door = leaf `LINE` + quarter `ARC` at the hinge.
+- **Ellipse:** centre + **major-axis endpoint as a relative vector** + minor/major ratio (≤1).
+- **Text:** DXF `TEXT` is single-line → one `TEXT` per line, step down `1.4 × size`; matches on-screen
+  layout better than `MTEXT`.
+- **Dimensions:** `addLinearDim(a, b, { angle, offset })` emits a **real associative DIMENSION**
+  (library builds the geometry block); flip `offset` sign for the other side.
+- **Symbols (highest value):** one **`BLOCK` per symbol type** (draw at a canonical size, e.g. 100 mm
+  half-height) + **`INSERT`** per instance with `rotationAngle` + `scaleFactor` — so recipients can
+  count/filter blocks and their schedules work.
+- **Underlays (later):** DXF references rasters **by file path** (`IMAGEDEF`) — decode data-URL →
+  `underlay-N.png`, insertion = bottom-left after rotation, scale = realWidthMm/pixelWidth, then ship
+  a **zip** (`fflate`) of dxf + images. (Omitted for now.)
+
+## Verification (don't skip — caught real bugs in OpenCAD)
+Add `pnpm add -D dxf-parser`. A **dev-only** module (`src/lib/dev/dxfVerify.ts`, imported only from
+the browser console so it's excluded from the bundle) round-trips our output:
+1. Parse our DXF; assert layer names, `$INSUNITS`, block names, entity-type counts.
+2. **Spot-assert exact geometry** with known fixtures (a line at x=40000, a wall width 150, an INSERT
+   at 45°/scale 1.5) — this is what caught the SPLINE-min-points crash and sign conventions.
+3. `dxf-parser` silently skips IMAGE — regex the raw text for `^IMAGE$`/`^IMAGEDEF$`.
+4. Final eyeball in LibreCAD / DWG TrueView / sharecad.org (text anchoring + linetype scale).
 
 ## Phasing
 1. **MVP — model3d → DXF (real-world mm, model space).** Add `@tarikjabiri/dxf`; a `toDxf(model,
