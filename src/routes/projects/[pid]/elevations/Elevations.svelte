@@ -670,14 +670,13 @@
 							ondelete={async (id: string) => { await deleteCustomProduct(db, id) }} />
 					{:else if sidebarTab === 'locations'}
 						<div class="p-2 space-y-2">
-							<div class="flex items-center gap-1.5 text-[11px] text-gray-500">
+							<div class="relative flex items-center gap-1.5 text-[11px] text-gray-500 whitespace-nowrap">
 								<span class="font-semibold uppercase tracking-wide">Zone locations</span>
-								<span class="text-gray-300">·</span>
-								<span>labels feed the panel ports</span>
 								<div class="flex-1"></div>
-								<span class="text-[10px] {editor.framesAutosave.status === 'saved' ? 'text-gray-300' : 'text-amber-500'}">
-									{editor.framesAutosave.status === 'saved' ? '' : 'Unsaved'}
-								</span>
+								<!-- Absolute: appearing/disappearing must never reflow the list -->
+								{#if editor.framesAutosave.status !== 'saved'}
+									<span class="absolute right-12 top-1/2 -translate-y-1/2 text-[10px] text-amber-500 bg-white/90 px-1 rounded pointer-events-none">Unsaved</span>
+								{/if}
 								<button class="px-1.5 h-5 rounded border border-gray-200 bg-white hover:bg-gray-100 text-[10px] text-gray-600"
 									title="Export panel label sheets to Excel (Frames format)"
 									onclick={exportLabelSheets}>Export</button>
