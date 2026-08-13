@@ -11,15 +11,17 @@
  */
 import { HistoryStore } from '$lib/history/HistoryStore.svelte'
 import { AutoSave } from '$lib/autosave/AutoSave.svelte'
+import { buildPortInfoMap, buildReservationMap } from '$lib/elevation/portmap'
 import type {
 	RackConfig, DeviceConfig, DeviceTemplate, RackRow, RackSettings, RoomObject, ViewState, ElevationFace,
 } from '../racks/parts/types'
+import type { LocationConfig, LocType } from '../frames/parts/types'
 import { DEFAULT_SETTINGS, SCALE, RU_HEIGHT_MM, RACK_GAP_PX, rackHeightMm } from '../racks/parts/constants'
 import { rackFromCatalog } from '$lib/catalog/service'
 import type { CatalogProduct } from '$lib/catalog/types'
 import type { ChangeDetail } from '$lib/logger'
 
-export type SidebarTab = 'racks' | 'devices' | 'library' | 'catalog' | 'bom'
+export type SidebarTab = 'racks' | 'devices' | 'library' | 'catalog' | 'locations' | 'bom'
 
 const isRUType = (t: string) => t !== 'desk' && t !== 'shelf' && t !== 'vcm'
 const hydrateRack = (r: any): RackConfig => ({
@@ -29,6 +31,8 @@ const hydrateRack = (r: any): RackConfig => ({
 
 export interface EditorCallbacks {
 	onsave?: (payload: any, changes: ChangeDetail[]) => void
+	/** Saves location edits back to the frames doc (merge — only zoneLocations). */
+	onsaveframes?: (payload: any, changes: ChangeDetail[]) => void
 }
 
 export class ElevationsEditor {
@@ -46,9 +50,25 @@ export class ElevationsEditor {
 	roomObjects = $state<RoomObject[]>([])
 	catalog = $state<CatalogProduct[]>([])
 
+	// ── Frames doc (labels + locations) ──
+	/** Raw frames doc — labelFormat, portReservations, customLocationTypes, etc. */
+	framesData = $state<any>(null)
+	/** Locally-editable copy of zoneLocations (the Locations tab edits this). */
+	zoneLocations = $state<Record<string, LocationConfig[]>>({})
+	activeZone = $state('A')
+	floorFormat = $state('L01')
+	/** Authoritative per-floor server-room count (projects.floors). */
+	serverRoomCountCfg = $state(1)
+
 	// ── UI state ──
 	face = $state<ElevationFace>('front')
 	activeRowId = $state('default')
+	/** Focus navigation stack level: the rack(s) the viewport is framed on. */
+	focus = $state<{ rackIds: string[] } | null>(null)
+	/** Selected port (panel device + 1-based index) — separate from the rack/device set. */
+	selectedPort = $state<{ deviceId: string; portIndex: number } | null>(null)
+	locationSelection = $state<Set<string>>(new Set())
+	private lastLocationKey: string | null = null
 	/** One selection set for racks + devices; the `rack-`/`dev-` id prefixes keep kinds distinct. */
 	selection = $state(new Set<string>())
 	view = $state<ViewState>({
@@ -62,10 +82,17 @@ export class ElevationsEditor {
 	readonly autosave: AutoSave
 	private pendingChanges: ChangeDetail[] = []
 
+	readonly framesAutosave: AutoSave
+	private pendingFramesChanges: ChangeDetail[] = []
+
 	constructor(private callbacks: EditorCallbacks = {}) {
 		this.autosave = new AutoSave((payload) => {
 			this.callbacks.onsave?.(payload, this.pendingChanges)
 			this.pendingChanges = []
+		})
+		this.framesAutosave = new AutoSave((payload) => {
+			this.callbacks.onsaveframes?.(payload, this.pendingFramesChanges)
+			this.pendingFramesChanges = []
 		})
 	}
 
@@ -97,6 +124,18 @@ export class ElevationsEditor {
 
 	selectedRacks = $derived(this.racks.filter(r => this.selection.has(r.id)))
 	selectedDevices = $derived(this.devices.filter(d => this.selection.has(d.id)))
+
+	/** Canonical port labels: `deviceId:portIndex` → { label, locationType }. */
+	portInfo = $derived.by(() => {
+		const frameData = this.framesData
+			? { ...this.framesData, zoneLocations: this.zoneLocations }
+			: (Object.keys(this.zoneLocations).length ? { zoneLocations: this.zoneLocations } : null)
+		return buildPortInfoMap(frameData, this.room, this.devices, this.racks, this.floor, this.serverRoomCountCfg, this.floorFormat)
+	})
+
+	reservationMap = $derived(buildReservationMap(this.framesData?.portReservations))
+
+	focusedRackIds = $derived(new Set(this.focus?.rackIds ?? []))
 
 	/** Per-rack RU positions occupied by >1 device on the same rail (front/rear). */
 	rackOverlaps = $derived.by(() => {
@@ -181,6 +220,9 @@ export class ElevationsEditor {
 		this.room = room
 		if (changed) {
 			this.selection = new Set()
+			this.selectedPort = null
+			this.focus = null
+			this.locationSelection = new Set()
 			this.history.clear()
 		}
 	}
@@ -235,6 +277,7 @@ export class ElevationsEditor {
 	// ── Selection ──
 
 	select(id: string, multi = false) {
+		this.selectedPort = null
 		if (multi) {
 			const next = new Set(this.selection)
 			next.has(id) ? next.delete(id) : next.add(id)
@@ -250,7 +293,7 @@ export class ElevationsEditor {
 		this.selection = next
 	}
 
-	clearSelection() { this.selection = new Set() }
+	clearSelection() { this.selection = new Set(); this.selectedPort = null }
 
 	private deselect(id: string) {
 		if (!this.selection.has(id)) return
@@ -436,6 +479,188 @@ export class ElevationsEditor {
 			redo: () => { (this.settings[field] as number) = afterValue; this.logChange('undo/redo', undefined, label) },
 		})
 		this.logChange('update', 'settings', field)
+	}
+
+	// ── Frames doc (labels + locations) ──
+
+	logFramesChange(action: string, field?: string, details?: string) {
+		const detail: ChangeDetail = { action }
+		if (field !== undefined) detail.field = field
+		if (details !== undefined) detail.details = details
+		this.pendingFramesChanges.push(detail)
+		this.framesAutosave.schedule(() => ({ zoneLocations: $state.snapshot(this.zoneLocations) }))
+	}
+
+	/** Apply a remote frames-doc snapshot (also the initial load). */
+	syncFrames(data: any) {
+		this.framesData = data
+		if (!data) return
+		if (data.floorFormat) this.floorFormat = data.floorFormat
+		if (!this.framesAutosave.shouldApplyRemote({ zoneLocations: data.zoneLocations ?? {} })) return
+		this.zoneLocations = data.zoneLocations ?? {}
+		const zones = Object.keys(this.zoneLocations).filter(z => this.zoneLocations[z]?.length > 0).sort()
+		if (zones.length && !zones.includes(this.activeZone)) this.activeZone = zones[0]
+	}
+
+	private mutateLocations(action: string, details: string | undefined, fn: () => void) {
+		const before = $state.snapshot(this.zoneLocations)
+		fn()
+		const after = $state.snapshot(this.zoneLocations)
+		const label = `${action} locations${details ? `: ${details}` : ''}`
+		this.history.record({
+			label,
+			undo: () => { this.zoneLocations = before as any; this.logFramesChange('undo/redo', undefined, label) },
+			redo: () => { this.zoneLocations = after as any; this.logFramesChange('undo/redo', undefined, label) },
+		})
+		this.logFramesChange(action, 'locations', details)
+	}
+
+	setActiveZone(zone: string) {
+		this.activeZone = zone
+		this.locationSelection = new Set()
+		this.lastLocationKey = null
+	}
+
+	/** Generate/extend the active zone's location list, preserving existing rows. */
+	generateLocations(count: number) {
+		const existing = this.zoneLocations[this.activeZone] ?? []
+		const locs: LocationConfig[] = Array.from({ length: count }, (_, i) => {
+			if (i < existing.length) return existing[i]
+			return {
+				locationNumber: i + 1,
+				portCount: 2,
+				serverRoomAssignment: ['A', 'A'],
+				locationType: 'desk' as LocType,
+			}
+		})
+		this.mutateLocations('generate', `zone ${this.activeZone}: ${count}`, () => {
+			this.zoneLocations = { ...this.zoneLocations, [this.activeZone]: locs }
+		})
+	}
+
+	/** Update one location row; a multi-selection applies the changed fields to all selected. */
+	updateLocation(index: number, loc: LocationConfig) {
+		const zone = this.activeZone
+		const list = this.zoneLocations[zone] ?? []
+		const original = list[index]
+		if (!original) return
+
+		const changedFields: Partial<LocationConfig> = {}
+		if (loc.portCount !== original.portCount) changedFields.portCount = loc.portCount
+		if (loc.locationType !== original.locationType) changedFields.locationType = loc.locationType
+		if (loc.isHighLevel !== original.isHighLevel) changedFields.isHighLevel = loc.isHighLevel
+		if (loc.roomNumber !== original.roomNumber) changedFields.roomNumber = loc.roomNumber
+		if (JSON.stringify(loc.serverRoomAssignment) !== JSON.stringify(original.serverRoomAssignment)) {
+			changedFields.serverRoomAssignment = loc.serverRoomAssignment
+		}
+
+		const editedKey = `${zone}-${original.locationNumber}`
+		const applyToAll = this.locationSelection.size > 1 && this.locationSelection.has(editedKey)
+			&& Object.keys(changedFields).length > 0
+
+		this.mutateLocations('update', `zone ${zone} #${original.locationNumber}`, () => {
+			if (applyToAll) {
+				const locs = list.map(l => {
+					const key = `${zone}-${l.locationNumber}`
+					if (!this.locationSelection.has(key)) return l
+					const updated = { ...l, ...changedFields }
+					if ('portCount' in changedFields) {
+						updated.serverRoomAssignment = Array.from({ length: changedFields.portCount! }, (_, j) =>
+							l.serverRoomAssignment[j] || 'A')
+					}
+					return updated
+				})
+				this.zoneLocations = { ...this.zoneLocations, [zone]: locs }
+			} else {
+				const locs = [...list]
+				locs[index] = loc
+				this.zoneLocations = { ...this.zoneLocations, [zone]: locs }
+			}
+		})
+	}
+
+	selectLocation(key: string, e: MouseEvent | KeyboardEvent) {
+		const keys = (this.zoneLocations[this.activeZone] ?? []).map(l => `${this.activeZone}-${l.locationNumber}`)
+		if (e.shiftKey && this.lastLocationKey) {
+			const startIdx = keys.indexOf(this.lastLocationKey)
+			const endIdx = keys.indexOf(key)
+			if (startIdx >= 0 && endIdx >= 0) {
+				const range = keys.slice(Math.min(startIdx, endIdx), Math.max(startIdx, endIdx) + 1)
+				this.locationSelection = new Set([...this.locationSelection, ...range])
+			}
+		} else if (e.ctrlKey || e.metaKey) {
+			const next = new Set(this.locationSelection)
+			next.has(key) ? next.delete(key) : next.add(key)
+			this.locationSelection = next
+			this.lastLocationKey = key
+		} else {
+			if (this.locationSelection.size === 1 && this.locationSelection.has(key)) {
+				this.locationSelection = new Set()
+				this.lastLocationKey = null
+			} else {
+				this.locationSelection = new Set([key])
+				this.lastLocationKey = key
+			}
+		}
+	}
+
+	// ── Port selection ──
+
+	selectPort(deviceId: string, portIndex: number) {
+		this.selectedPort = { deviceId, portIndex }
+		this.selection = new Set()
+	}
+
+	clearPortSelection() { this.selectedPort = null }
+
+	// ── Focus navigation ──
+
+	focusRack(rackId: string, add = false) {
+		if (add && this.focus) {
+			if (!this.focus.rackIds.includes(rackId)) {
+				this.focus = { rackIds: [...this.focus.rackIds, rackId] }
+			}
+		} else {
+			this.focus = { rackIds: [rackId] }
+		}
+	}
+
+	unfocusRack(rackId: string) {
+		if (!this.focus) return
+		const rackIds = this.focus.rackIds.filter(id => id !== rackId)
+		this.focus = rackIds.length ? { rackIds } : null
+	}
+
+	popFocus() { this.focus = null }
+
+	// ── Viewport fit / animation ──
+
+	private viewAnim: number | null = null
+
+	animateViewTo(target: { x: number; y: number; zoom: number }, duration = 220) {
+		if (this.viewAnim) cancelAnimationFrame(this.viewAnim)
+		const from = { x: this.view.x, y: this.view.y, zoom: this.view.zoom }
+		const t0 = performance.now()
+		const step = (now: number) => {
+			const t = Math.min(1, (now - t0) / duration)
+			const e = 1 - Math.pow(1 - t, 3) // ease-out cubic
+			this.view.x = from.x + (target.x - from.x) * e
+			this.view.y = from.y + (target.y - from.y) * e
+			this.view.zoom = from.zoom + (target.zoom - from.zoom) * e
+			this.viewAnim = t < 1 ? requestAnimationFrame(step) : null
+		}
+		this.viewAnim = requestAnimationFrame(step)
+	}
+
+	/** Animate the viewport to frame a rect (in unscaled canvas px). */
+	fitRect(r: { left: number; top: number; width: number; height: number }, vpW: number, vpH: number, padPx = 40) {
+		if (r.width <= 0 || r.height <= 0 || vpW <= 0 || vpH <= 0) return
+		const zoom = Math.min(5, Math.max(0.1, Math.min((vpW - 2 * padPx) / r.width, (vpH - 2 * padPx) / r.height)))
+		this.animateViewTo({
+			x: (vpW - r.width * zoom) / 2 - r.left * zoom,
+			y: (vpH - r.height * zoom) / 2 - r.top * zoom,
+			zoom,
+		})
 	}
 
 	// ── Row management ──

@@ -23,6 +23,7 @@
 		{ detail:0, href: 'drawings', icon: 'list',  label: 'Drawing List', description: 'Master drawing register with revision history and Excel export.', },
 		{ detail:0, href: 'packages', icon: 'layers', label: 'Drawing Packages', description: 'Assemble and publish drawing revision packages for vendors and clients.', },
 		{ detail:1, href: 'outlets', icon: 'route',  label: 'Outlets and Routes', description: 'Draw racks, outlets, and cable routes on the floorplan.', },
+		{ detail:1, href: 'elevations', icon: 'server', label: 'Elevations', description: 'Unified rack elevations: racks, devices, port labels — patching coming soon.', },
 		{ detail:1, href: 'racks',   icon: 'server', label: 'Rack Elevations', description: 'Manage server rooms, racks, and devices in elevation.' },
 		{ detail:1, href: 'frames',  icon: 'rows',   label: 'Patch Frames', description: 'Assign floor ports and rack panels.', },
 		{ detail:1, href: 'patching', icon: 'cable', label: 'Patching', description: 'Manage patch cord connections and cable schedules.', },

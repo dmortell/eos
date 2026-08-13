@@ -58,12 +58,17 @@
 		return () => { unsub?.() }
 	})
 
-	// Frames doc → floorFormat
+	// Frames doc → port labels, locations, floorFormat
+	let framesData: any = $state(null)
+	function framesDocId(fl = activeFloor) {
+		return `${page.params.pid}_F${String(fl).padStart(2, '0')}`
+	}
 	$effect(() => {
 		const pid = page.params.pid
 		const fl = activeFloor
 		if (!pid) return
-		const unsub = db.subscribeOne('frames', `${pid}_F${String(fl).padStart(2, '0')}`, (data: Record<string, any>) => {
+		const unsub = db.subscribeOne('frames', framesDocId(fl), (data: Record<string, any>) => {
+			framesData = data
 			if (data?.floorFormat) floorFormat = data.floorFormat
 		})
 		return () => { unsub?.() }
@@ -153,6 +158,17 @@
 		if (!pid) return
 		db.save('racks', { id: `${pid}_library`, templates })
 	}
+
+	/** Location edits → frames doc (merge, so labelFormat/reservations/etc. are preserved). */
+	function saveFrames(payload: any, changes: import('$lib/logger').ChangeDetail[]) {
+		const pid = page.params.pid
+		if (!pid) return
+		db.save('frames', { id: framesDocId(), ...payload, floor: activeFloor })
+		if (changes?.length) {
+			const uid = session?.user?.uid ?? 'unknown'
+			writeLog(pid, 'frames', uid, changes, { floor: activeFloor })
+		}
+	}
 </script>
 
 {#if loading}
@@ -160,8 +176,8 @@
 		<Spinner>Loading elevations...</Spinner>
 	</div>
 {:else}
-	<Elevations data={rackData} {library} floor={activeFloor} room={activeRoom} {floors} projectId={page.params.pid} {floorFormat} {projectName}
+	<Elevations data={rackData} {framesData} {library} floor={activeFloor} room={activeRoom} {floors} projectId={page.params.pid} {floorFormat} {projectName}
 		{drawingId} {db} uid={session.user?.uid ?? ''}
-		onsave={save} onlibrarychange={saveLibrary} onfloorchange={changeFloor} onroomchange={changeRoom}
+		onsave={save} onsaveframes={saveFrames} onlibrarychange={saveLibrary} onfloorchange={changeFloor} onroomchange={changeRoom}
 		onupdatefloors={updateFloors} ondeletefloor={deleteFloor} />
 {/if}

@@ -409,7 +409,7 @@ hit-testing, DXF and print consume identical numbers (the sheets fork proved why
    *(Each is small; ship as one "patching/frames bugfixes" commit — immediate relief for
    the patch-list workflow even before Elevations exists.)*
 
-### Phase 1 — Route + row elevation with editing parity *(the big lift; ~4–6 sessions)*
+### Phase 1 — Route + row elevation with editing parity ✅ (done 2026-08-14, commit fdeee51)
 - `elevations/` route, `ElevationsEditor`, shell layout (toolbar/left panel/statusbar).
 - Canvas = `RackElevationRenderer` internals rebuilt against `editor.layout` (front/rear,
   walls/floor/ceiling/slab, reference-line drag), palette/catalog drag-drop, rack CRUD,
@@ -417,7 +417,8 @@ hit-testing, DXF and print consume identical numbers (the sheets fork proved why
 - Exit criteria: everything the Racks tool does in front/rear views works here (plan view
   explicitly excluded), with one selection model and the docked inspector.
 
-### Phase 2 — Ports layer + focus navigation *(~2–3 sessions)*
+### Phase 2 — Ports layer + focus navigation ✅ (done 2026-08-14; label-rendering
+settings toggles + "all zones" location view deferred)
 - `PortsLayer` with LOD thresholds + stacked labels (§3.3), fed by shared portmap; usage
   tints, tooltips, reservation top-bars. **Panel detail strip** (readability guarantee).
 - Focus model + breadcrumb + zoom presets + dimming; double-click/Esc/Shift-dbl-click.

@@ -21,6 +21,10 @@
 	import FloorTabs from '../racks/parts/FloorTabs.svelte'
 	import PanZoomCanvas from '$lib/panzoom/PanZoomCanvas.svelte'
 	import Inspector from './parts/Inspector.svelte'
+	import PortsLayer from './parts/PortsLayer.svelte'
+	import PanelDetailStrip from './parts/PanelDetailStrip.svelte'
+	import ConfigPanel from '../frames/parts/ConfigPanel.svelte'
+	import LocationList from '../frames/parts/LocationList.svelte'
 	import { ElevationsEditor, type SidebarTab } from './editor.svelte'
 	import { subscribeCatalog, saveCustomProduct, deleteCustomProduct } from '$lib/catalog/service'
 	import type { CatalogProduct } from '$lib/catalog/types'
@@ -28,8 +32,9 @@
 	import { fmtFloor } from '$lib/utils/floor'
 	import type { FloorConfig } from '$lib/types/project'
 
-	let { data = null, library = [], floor, room, floors = [], projectId = '', projectName = '', floorFormat = 'L01', drawingId = '', db = new Firestore(), uid = '', onsave, onlibrarychange, onfloorchange, onroomchange, onupdatefloors, ondeletefloor, bare = false }: {
+	let { data = null, framesData = null, library = [], floor, room, floors = [], projectId = '', projectName = '', floorFormat = 'L01', drawingId = '', db = new Firestore(), uid = '', onsave, onsaveframes, onlibrarychange, onfloorchange, onroomchange, onupdatefloors, ondeletefloor, bare = false }: {
 		data?: any
+		framesData?: any
 		library?: DeviceTemplate[]
 		floor: number
 		room: string
@@ -41,6 +46,7 @@
 		db?: Firestore
 		uid?: string
 		onsave?: (payload: any, changes: ChangeDetail[]) => void
+		onsaveframes?: (payload: any, changes: ChangeDetail[]) => void
 		onlibrarychange?: (templates: DeviceTemplate[]) => void
 		onfloorchange?: (floor: number) => void
 		onroomchange?: (room: string) => void
@@ -50,7 +56,10 @@
 		bare?: boolean
 	} = $props()
 
-	const editor = new ElevationsEditor({ onsave: (payload, changes) => onsave?.(payload, changes) })
+	const editor = new ElevationsEditor({
+		onsave: (payload, changes) => onsave?.(payload, changes),
+		onsaveframes: (payload, changes) => onsaveframes?.(payload, changes),
+	})
 
 	// Keep editor context + remote data in sync. Track only the props — the
 	// editor methods read AND write their own $state, which inside a tracking
@@ -62,6 +71,15 @@
 	$effect(() => {
 		const d = data
 		untrack(() => editor.sync(d))
+	})
+	$effect(() => {
+		const fd = framesData
+		untrack(() => editor.syncFrames(fd))
+	})
+	$effect(() => {
+		const cfg = floors.find(f => f.number === floor)?.serverRoomCount ?? 1
+		const ff = floorFormat
+		untrack(() => { editor.serverRoomCountCfg = cfg; editor.floorFormat = ff })
 	})
 	$effect(() => {
 		const unsub = subscribeCatalog(db, list => { editor.catalog = list })
@@ -94,13 +112,17 @@
 	let viewKey = $derived(`elevations-view-${projectId}-F${floor}-R${room}`)
 	$effect(() => {
 		const key = viewKey
-		try {
-			const saved = localStorage.getItem(key)
-			if (saved) {
-				const { x, y, zoom } = JSON.parse(saved)
-				editor.view.x = x; editor.view.y = y; editor.view.zoom = zoom
-			}
-		} catch {}
+		untrack(() => {
+			try {
+				const saved = localStorage.getItem(key)
+				if (saved) {
+					const { x, y, zoom, focus } = JSON.parse(saved)
+					editor.view.x = x; editor.view.y = y; editor.view.zoom = zoom
+					// Restore the last focus so switching tools returns to the same rack view
+					editor.focus = Array.isArray(focus) && focus.length ? { rackIds: focus } : null
+				}
+			} catch {}
+		})
 	})
 	$effect(() => {
 		editor.view.bottom = Math.max(editor.settings.ceilingLevel + 500, editor.maxRackHeight + 500)
@@ -108,12 +130,47 @@
 	let viewSaveTimer: ReturnType<typeof setTimeout> | null = null
 	$effect(() => {
 		const { x, y, zoom } = editor.view
+		const focus = editor.focus?.rackIds ?? []
 		const key = viewKey
 		if (viewSaveTimer) clearTimeout(viewSaveTimer)
 		viewSaveTimer = setTimeout(() => {
-			try { localStorage.setItem(key, JSON.stringify({ x, y, zoom })) } catch {}
+			try { localStorage.setItem(key, JSON.stringify({ x, y, zoom, focus })) } catch {}
 		}, 300)
 	})
+
+	// ── Focus navigation ──
+	let faceRacks = $derived(editor.face === 'rear' ? editor.rearRacks : editor.activeRacks)
+
+	function unionRect(racks: { _x: number; _z: number; widthMm: number; heightMm: number }[]) {
+		if (!racks.length) return null
+		let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity
+		for (const r of racks) {
+			const rr = screenRect(r)
+			left = Math.min(left, rr.left); top = Math.min(top, rr.top)
+			right = Math.max(right, rr.left + rr.width); bottom = Math.max(bottom, rr.top + rr.height)
+		}
+		return { left, top, width: right - left, height: bottom - top }
+	}
+
+	function fitRow() {
+		const r = unionRect(faceRacks)
+		if (r) editor.fitRect({ ...r, top: r.top - 100, height: r.height + 150 }, canvasWidth, canvasHeight)
+	}
+
+	function fitFocus() {
+		if (!editor.focus) return
+		const focused = faceRacks.filter(r => editor.focusedRackIds.has(r.id))
+		const r = unionRect(focused)
+		if (r) editor.fitRect(r, canvasWidth, canvasHeight, 30)
+	}
+
+	function onCanvasDblClick(e: MouseEvent) {
+		const hit = hitTestRack(e.clientX, e.clientY, 1)
+		if (hit) {
+			editor.focusRack(hit.rack.id, e.shiftKey)
+			fitFocus()
+		}
+	}
 
 	const fmt = (fl: number) => fmtFloor(fl, floorFormat, floors)
 	function roomLabel(rm: string): string {
@@ -322,8 +379,11 @@
 		}
 		if (e.key === 'f' || e.key === 'F') {
 			editor.face = editor.face === 'front' ? 'rear' : 'front'
+			if (editor.focus) fitFocus()
 			return
 		}
+		if (e.key === '1') { fitRow(); return }
+		if (e.key === '2') { if (editor.focus) fitFocus(); return }
 		if (e.key === 'Delete' || e.key === 'Backspace') {
 			if (editor.selectedRacks.length > 0) {
 				// Racks cascade their devices — confirm first.
@@ -334,8 +394,10 @@
 			return
 		}
 		if (e.key === 'Escape') {
+			// Cascade: dialog → selection/port → focus (back to row view)
 			if (confirmingDeleteRacks) { confirmingDeleteRacks = false; return }
-			editor.clearSelection()
+			if (editor.selection.size > 0 || editor.selectedPort) { editor.clearSelection(); return }
+			if (editor.focus) { editor.popFocus(); fitRow() }
 		}
 	}
 
@@ -449,7 +511,7 @@
 		<Pane defaultSize={20} minSize={15} maxSize={35}>
 			<div class="h-full border-r border-gray-200 flex flex-col print:hidden">
 				<div class="flex border-b border-gray-200 shrink-0">
-					{#each [['racks', 'Racks'], ['devices', 'Devices'], ['library', 'Library'], ['catalog', 'Catalog'], ['bom', 'BOM']] as [tab, label]}
+					{#each [['racks', 'Racks'], ['devices', 'Devices'], ['library', 'Library'], ['catalog', 'Catalog'], ['locations', 'Locations'], ['bom', 'BOM']] as [tab, label]}
 						<button
 							class="flex-1 py-1.5 text-[11px] font-medium transition-colors
 								{sidebarTab === tab ? 'text-blue-600 border-b-2 border-blue-500 bg-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}"
@@ -501,6 +563,35 @@
 							onadd={p => editor.addRackFromCatalog(p)}
 							onaddcustom={async (product: Omit<CatalogProduct, 'seeded'>) => { await saveCustomProduct(db, product, uid, projectId) }}
 							ondelete={async (id: string) => { await deleteCustomProduct(db, id) }} />
+					{:else if sidebarTab === 'locations'}
+						<div class="p-2 space-y-2">
+							<div class="flex items-center gap-1.5 text-[11px] text-gray-500">
+								<span class="font-semibold uppercase tracking-wide">Zone locations</span>
+								<span class="text-gray-300">·</span>
+								<span>labels feed the panel ports</span>
+								<div class="flex-1"></div>
+								<span class="text-[10px] {editor.framesAutosave.status === 'saved' ? 'text-gray-300' : 'text-amber-500'}">
+									{editor.framesAutosave.status === 'saved' ? '' : 'Unsaved'}
+								</span>
+							</div>
+							<ConfigPanel
+								{floor}
+								serverRoomCount={editor.serverRoomCountCfg}
+								activeZone={editor.activeZone}
+								locations={editor.zoneLocations[editor.activeZone] ?? []}
+								floorLabel={fmt(floor)}
+								onserverrooms={() => {}}
+								onzone={z => editor.setActiveZone(z)}
+								ongenerate={count => editor.generateLocations(count)} />
+							<LocationList
+								locations={editor.zoneLocations[editor.activeZone] ?? []}
+								hasTwoRooms={editor.serverRoomCountCfg > 1}
+								selectedLocations={editor.locationSelection}
+								customTypes={editor.framesData?.customLocationTypes ?? []}
+								zoneForLoc={() => editor.activeZone}
+								onupdate={(i, loc) => editor.updateLocation(i, loc)}
+								onselect={(key, e) => editor.selectLocation(key, e)} />
+						</div>
 					{:else if sidebarTab === 'bom'}
 						<BOMPanel rows={editor.rows} racks={editor.racks} activeRowId={editor.activeRowId} catalog={editor.catalog}
 							{projectName}
@@ -585,10 +676,32 @@
 					</span>
 				</div>
 
+				<!-- Breadcrumb (focus navigation) -->
+				{#if editor.focus}
+					<div class="h-6 px-2 flex items-center gap-1.5 border-b border-gray-200 bg-blue-50/50 text-[11px] shrink-0 print:hidden">
+						<span class="text-gray-500">{roomLabel(room)}</span>
+						<span class="text-gray-300">▸</span>
+						<span class="text-gray-500">{editor.rows.find(r => r.id === editor.activeRowId)?.label ?? ''}</span>
+						<span class="text-gray-300">▸</span>
+						{#each editor.focus.rackIds as rid (rid)}
+							{@const r = editor.racks.find(r => r.id === rid)}
+							<span class="flex items-center gap-0.5 pl-1.5 pr-0.5 h-4.5 rounded bg-blue-100 text-blue-700 font-medium">
+								{r?.label ?? rid}
+								<button class="w-3.5 h-3.5 flex items-center justify-center rounded-full hover:bg-blue-200 leading-none"
+									title="Remove from focus"
+									onclick={() => { editor.unfocusRack(rid); editor.focus ? fitFocus() : fitRow() }}>×</button>
+							</span>
+						{/each}
+						<div class="flex-1"></div>
+						<span class="text-gray-400">Esc: back to row · Shift+dbl-click: add rack</span>
+					</div>
+				{/if}
+
 				<div class="flex-1 min-h-0 flex">
 					<!-- svelte-ignore a11y_click_events_have_key_events -->
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
-					<div class="flex-1 min-w-0 relative" onclick={() => { if (!editor.view.dragging) editor.clearSelection() }} bind:this={canvasEl}>
+					<div class="flex-1 min-w-0 relative" onclick={() => { if (!editor.view.dragging) editor.clearSelection() }}
+						ondblclick={onCanvasDblClick} bind:this={canvasEl}>
 						<PanZoomCanvas bind:view={editor.view} width={canvasWidth} height={canvasHeight}
 							singleTouchPan canPanAt={(t) => !(t as Element | null)?.closest?.('.drag')}
 							onBackgroundTap={() => { if (!editor.view.dragging) editor.clearSelection() }}>
@@ -608,12 +721,27 @@
 								ondevicedrag={onDeviceDrag}
 								ondevicedragged={onDeviceDragged}
 								ondeletedevice={id => editor.deleteDevice(id)}
-								onselectdevice={id => editor.selection = new Set([id])} />
+								onselectdevice={id => editor.select(id)} />
+							<PortsLayer {editor} />
+							<!-- Focus dimming: non-focused racks fade; pointer-events pass through -->
+							{#if editor.focus}
+								{#each faceRacks.filter(r => !editor.focusedRackIds.has(r.id)) as rack (rack.id)}
+									{@const rr = screenRect(rack)}
+									<div class="absolute bg-white/65 pointer-events-none" style:z-index="4"
+										style:left="{rr.left - 2}px" style:top="{rr.top - 26}px"
+										style:width="{rr.width + 4}px" style:height="{rr.height + 28}px"></div>
+								{/each}
+							{/if}
 						</PanZoomCanvas>
 					</div>
 
-					<Inspector {editor} />
+					<Inspector {editor} onopenlocations={zone => {
+						sidebarTab = 'locations'
+						if (zone) editor.setActiveZone(zone)
+					}} />
 				</div>
+
+				<PanelDetailStrip {editor} onclose={() => editor.clearSelection()} />
 
 				<!-- Status bar -->
 				<div class="h-7 flex items-stretch border-t border-gray-200 bg-gray-50 shrink-0 print:hidden">

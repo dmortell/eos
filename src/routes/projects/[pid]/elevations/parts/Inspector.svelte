@@ -8,8 +8,30 @@
 	import { Icon } from '$lib'
 	import type { ElevationsEditor } from '../editor.svelte'
 	import { rackTypes, DEFAULT_SHELF_HEIGHTS, type RackConfig, type DeviceConfig } from '../../racks/parts/types'
+	import { LOC_TYPE_COLORS, LOC_TYPE_LABELS } from '$lib/elevation/loc-colors'
 
-	let { editor }: { editor: ElevationsEditor } = $props()
+	let { editor, onopenlocations }: {
+		editor: ElevationsEditor
+		/** Switch the sidebar to the Locations tab (deep link from an unlabeled port). */
+		onopenlocations?: (zone?: string) => void
+	} = $props()
+
+	// ── Port section data ──
+	let port = $derived(editor.selectedPort)
+	let portDevice = $derived(port ? editor.devices.find(d => d.id === port!.deviceId) ?? null : null)
+	let portRack = $derived(portDevice ? editor.racks.find(r => r.id === portDevice!.rackId) ?? null : null)
+	let portInfoEntry = $derived(port ? editor.portInfo.get(`${port.deviceId}:${port.portIndex}`) ?? null : null)
+	let portReservation = $derived.by(() => {
+		if (!port || !portDevice || !portRack) return undefined
+		const row = port.portIndex <= 24 ? 'top' : 'bottom'
+		const col = (port.portIndex - 1) % 24
+		return editor.reservationMap.get(`${portRack.id}:${portDevice.positionU}:${row}:${col}`)
+	})
+	/** Zone letter parsed from the label (2nd component when zones are included). */
+	let portZone = $derived.by(() => {
+		const parts = portInfoEntry?.label?.split(/[.\-]/)
+		return parts && parts.length >= 3 && /^[A-Z]$/.test(parts[1]) ? parts[1] : undefined
+	})
 
 	let racks = $derived(editor.selectedRacks)
 	let devs = $derived(editor.selectedDevices)
@@ -42,10 +64,44 @@
 </script>
 
 <div class="w-60 shrink-0 border-l border-gray-200 bg-white flex flex-col overflow-y-auto print:hidden">
-	{#if !rack && !device}
+	{#if !rack && !device && !port}
 		<div class="p-4 text-[11px] text-gray-400 leading-relaxed">
 			Select a rack or device to edit its properties.
-			<div class="mt-2 text-gray-300">Drag devices from the Library tab onto a rack. Ctrl+drag copies.</div>
+			<div class="mt-2 text-gray-300">Drag devices from the Library tab onto a rack. Ctrl+drag copies. Zoom into a panel (or double-click a rack) to see port labels.</div>
+		</div>
+	{/if}
+
+	{#if port && portDevice}
+		<div class="border-b border-gray-100">
+			<div class="px-2 py-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-gray-600 bg-gray-50">
+				<Icon name="ellipse" size={12} />
+				Port {port.portIndex}
+			</div>
+			<div class="p-2 space-y-1.5 text-xs">
+				{#if portInfoEntry}
+					<div class="font-mono text-sm text-gray-800 select-text">{portInfoEntry.label}</div>
+					<div class="flex items-center gap-1.5">
+						<span class="w-4 h-4 rounded-sm border {LOC_TYPE_COLORS[portInfoEntry.locationType] ?? 'bg-gray-200'}"></span>
+						<span class="text-gray-600">{LOC_TYPE_LABELS[portInfoEntry.locationType] ?? portInfoEntry.locationType}</span>
+					</div>
+				{:else}
+					<div class="text-gray-400 italic">Unlabeled port</div>
+					<div class="text-[10px] text-gray-400 leading-snug">
+						Labels are allocated from zone locations. Add or extend locations to fill this port.
+					</div>
+				{/if}
+				{#if portReservation}
+					<div class="text-[10px] text-gray-500">Block-reserved: <b>{portReservation}</b></div>
+				{/if}
+				<div class="text-[10px] text-gray-400">
+					{portRack?.label ?? '—'} · {portDevice.label} · U{portDevice.positionU}
+				</div>
+				<button
+					class="flex items-center gap-1 px-2 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 text-[11px] font-medium w-full"
+					onclick={() => onopenlocations?.(portZone)}>
+					<Icon name="mapPin" size={11} /> Open in Locations tab
+				</button>
+			</div>
 		</div>
 	{/if}
 
