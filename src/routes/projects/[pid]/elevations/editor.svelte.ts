@@ -264,6 +264,7 @@ export class ElevationsEditor {
 			this.selectedPort = null
 			this.selectedConnectionId = null
 			this.patchArm = null
+			this.rerouteState = null
 			this.statusHint = null
 			this.focus = null
 			this.locationSelection = new Set()
@@ -343,6 +344,7 @@ export class ElevationsEditor {
 		this.selectedPort = null
 		this.selectedConnectionId = null
 		this.patchArm = null
+		this.rerouteState = null
 		this.statusHint = null
 	}
 
@@ -766,6 +768,94 @@ export class ElevationsEditor {
 	selectConnection(id: string | null) {
 		this.selectedConnectionId = id
 		if (id) { this.selection = new Set(); this.selectedPort = null }
+	}
+
+	/** Re-route: next port click replaces one endpoint of this cord. */
+	rerouteState = $state<{ connectionId: string; side: 'from' | 'to' } | null>(null)
+
+	startReroute(connectionId: string, side: 'from' | 'to') {
+		this.rerouteState = { connectionId, side }
+		this.patchArm = null
+		this.statusHint = `Click a port to re-route the ${side.toUpperCase()} endpoint — Esc to cancel`
+	}
+
+	/** Single port-click entry: re-route → patch mode → select. */
+	handlePortClick(rackId: string, deviceId: string, portIndex: number) {
+		if (this.rerouteState) {
+			const { connectionId, side } = this.rerouteState
+			const ref: PortRef = { rackId, deviceId, portIndex, face: this.face }
+			this.updateConnection(connectionId, side === 'from' ? { fromPortRef: ref } : { toPortRef: ref })
+			this.rerouteState = null
+			this.statusHint = null
+			this.selectConnection(connectionId)
+			return
+		}
+		if (this.mode === 'patch') this.patchPortClick(rackId, deviceId, portIndex)
+		else this.selectPort(deviceId, portIndex)
+	}
+
+	/** Bulk patch: N sequential cords between two panels, skipping occupied ports. */
+	bulkPatch(fromDeviceId: string, toDeviceId: string, fromStart: number, toStart: number, count: number) {
+		const fromDev = this.devices.find(d => d.id === fromDeviceId)
+		const toDev = this.devices.find(d => d.id === toDeviceId)
+		if (!fromDev || !toDev) return 0
+		const used = new Set<string>()
+		for (const c of this.elevationConnections) {
+			used.add(`${c.fromPortRef.deviceId}:${c.fromPortRef.portIndex}`)
+			used.add(`${c.toPortRef.deviceId}:${c.toPortRef.portIndex}`)
+		}
+		const free = (dev: typeof fromDev, start: number) => {
+			const ports: number[] = []
+			for (let p = Math.max(1, start); p <= (dev.portCount ?? 0) && ports.length < count; p++) {
+				if (!used.has(`${dev.id}:${p}`) && this.portLabelOf({ deviceId: dev.id, portIndex: p })) ports.push(p)
+			}
+			return ports
+		}
+		const fromPorts = free(fromDev, fromStart)
+		const toPorts = free(toDev, toStart)
+		const n = Math.min(fromPorts.length, toPorts.length)
+		if (n === 0) return 0
+		const ct = getCableType(this.stickyCable.type, this.customCableTypes)
+		const now = Date.now()
+		const newConns: PatchConnection[] = []
+		for (let i = 0; i < n; i++) {
+			const fromRef: PortRef = { rackId: fromDev.rackId, deviceId: fromDev.id, portIndex: fromPorts[i], face: this.face }
+			const toRef: PortRef = { rackId: toDev.rackId, deviceId: toDev.id, portIndex: toPorts[i], face: this.face }
+			newConns.push({
+				id: `patch-${now}-${Math.random().toString(36).slice(2, 6)}-${i}`,
+				fromPortRef: fromRef, toPortRef: toRef,
+				cableType: this.stickyCable.type, cableColor: ct.color,
+				lengthMeters: calculateCableLength(fromRef, toRef, $state.snapshot(this.racks), $state.snapshot(this.devices)),
+				lengthLocked: false, kind: 'patch', status: this.stickyCable.status,
+			})
+		}
+		this.mutatePatch('add', `${n} bulk connections (${fromDev.label} → ${toDev.label})`, () => {
+			this.connections = [...this.connections, ...newConns]
+		})
+		return n
+	}
+
+	/** Apply imported vendor cord IDs (connection id → cordId). */
+	applyCordIds(cordMap: Map<string, string>): number {
+		let updated = 0
+		this.mutatePatch('import', 'cord IDs', () => {
+			this.connections = this.connections.map(c => {
+				const cordId = cordMap.get(c.id)
+				if (cordId && cordId !== c.cordId) { updated++; return { ...c, cordId } }
+				return c
+			})
+		})
+		return updated
+	}
+
+	saveCustomCableTypes(types: CustomCableType[]) {
+		this.customCableTypes = types
+		this.logPatchChange('update', 'cableTypes', `${types.length} custom type(s)`)
+	}
+
+	savePatchSettings(s: PatchSettings) {
+		this.patchSettings = s
+		this.logPatchChange('update', 'settings')
 	}
 
 	private sameRef(a: PortRef, b: PortRef): boolean {

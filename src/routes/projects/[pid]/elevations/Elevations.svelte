@@ -25,7 +25,9 @@
 	import CordsLayer from './parts/CordsLayer.svelte'
 	import PanelDetailStrip from './parts/PanelDetailStrip.svelte'
 	import PatchListPane from '../patching/parts/PatchListPane.svelte'
+	import PatchSettingsDialog from '../patching/parts/SettingsDialog.svelte'
 	import { CABLE_TYPES } from '../patching/parts/constants'
+	import { exportPatchExcel, importCordIds } from '../patching/parts/exportExcel'
 	import ConfigPanel from '../frames/parts/ConfigPanel.svelte'
 	import LocationList from '../frames/parts/LocationList.svelte'
 	import { ElevationsEditor, type SidebarTab } from './editor.svelte'
@@ -110,6 +112,24 @@
 	let floorManagerOpen = $state(false)
 	let versionPanelOpen = $state(false)
 	let listPaneOpen = $state(false)
+	let patchSettingsOpen = $state(false)
+	let importStatus = $state<string | null>(null)
+	let importInput: HTMLInputElement | undefined = $state()
+
+	async function handleCordIdImport(e: Event) {
+		const input = e.target as HTMLInputElement
+		const file = input.files?.[0]
+		if (!file) return
+		try {
+			const cordMap = await importCordIds(file, $state.snapshot(editor.connections) as any)
+			const updated = cordMap.size ? editor.applyCordIds(cordMap) : 0
+			importStatus = updated ? `Imported ${updated} cord ID${updated !== 1 ? 's' : ''}` : 'No cord IDs found'
+		} catch (err) {
+			importStatus = `Import failed: ${err instanceof Error ? err.message : 'unknown error'}`
+		}
+		input.value = ''
+		setTimeout(() => importStatus = null, 4000)
+	}
 	let confirmingDeleteRow = $state<string | null>(null)
 	let confirmingDeleteRacks = $state(false)
 
@@ -413,7 +433,7 @@
 		if (e.key === 'Escape') {
 			// Cascade: dialog → patch arm → selection/port/cord → focus (row view)
 			if (confirmingDeleteRacks) { confirmingDeleteRacks = false; return }
-			if (editor.patchArm) { editor.patchArm = null; editor.statusHint = null; return }
+			if (editor.patchArm || editor.rerouteState) { editor.patchArm = null; editor.rerouteState = null; editor.statusHint = null; return }
 			if (editor.selection.size > 0 || editor.selectedPort || editor.selectedConnectionId) { editor.clearSelection(); return }
 			if (editor.focus) { editor.popFocus(); fitRow() }
 		}
@@ -810,16 +830,41 @@
 
 				<!-- Patch list (collapsible bottom panel) -->
 				<div class="border-t border-gray-200 bg-white shrink-0 print:hidden">
-					<button class="w-full h-6 px-2 flex items-center gap-2 text-[11px] bg-gray-50 hover:bg-gray-100 transition-colors"
+					<!-- svelte-ignore a11y_click_events_have_key_events -->
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div class="w-full h-6 px-2 flex items-center gap-2 text-[11px] bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer select-none"
 						onclick={() => listPaneOpen = !listPaneOpen}>
 						<Icon name={listPaneOpen ? 'chevronDown' : 'chevronUp'} size={12} />
 						<span class="font-semibold text-gray-600">Patch list</span>
 						<span class="text-gray-400">{editor.connections.length} cord{editor.connections.length !== 1 ? 's' : ''}{editor.removedCount ? ` · ${editor.removedCount} marked remove` : ''}</span>
 						<div class="flex-1"></div>
+						{#if importStatus}
+							<span class="text-blue-500">{importStatus}</span>
+						{/if}
 						{#if editor.orphanedIds.size > 0}
 							<span class="text-amber-500">{editor.orphanedIds.size} orphaned</span>
 						{/if}
-					</button>
+						<span class="flex items-center gap-1.5" onclick={e => e.stopPropagation()}>
+							<button class="px-1.5 h-4.5 rounded border border-gray-200 bg-white hover:bg-gray-100 text-[10px] text-gray-600"
+								title="Export patch schedule + BOM to Excel"
+								onclick={() => exportPatchExcel({
+									connections: $state.snapshot(editor.connections) as any,
+									racks: $state.snapshot(editor.racks),
+									devices: $state.snapshot(editor.devices),
+									customCableTypes: $state.snapshot(editor.customCableTypes) as any,
+									projectName, floor, room,
+									portInfoMap: editor.portInfo,
+								})}>Export</button>
+							<button class="px-1.5 h-4.5 rounded border border-gray-200 bg-white hover:bg-gray-100 text-[10px] text-gray-600"
+								title="Import vendor cord IDs from a returned Excel file"
+								onclick={() => importInput?.click()}>Import IDs</button>
+							<button class="px-1 h-4.5 rounded text-gray-400 hover:bg-gray-100" title="Patching settings & custom cable types"
+								onclick={() => patchSettingsOpen = true}>
+								<Icon name="settings" size={11} />
+							</button>
+						</span>
+					</div>
+					<input type="file" accept=".xlsx" class="hidden" bind:this={importInput} onchange={handleCordIdImport} />
 					{#if listPaneOpen}
 						<div class="h-56 overflow-hidden">
 							<PatchListPane
@@ -870,6 +915,15 @@
 		{draggingTemplate.label} ({draggingTemplate.heightU}U)
 	</div>
 {/if}
+
+<PatchSettingsDialog
+	open={patchSettingsOpen}
+	settings={editor.patchSettings}
+	customCableTypes={editor.customCableTypes}
+	onclose={() => patchSettingsOpen = false}
+	onsavesettings={s => editor.savePatchSettings(s)}
+	onsavecabletypes={types => editor.saveCustomCableTypes(types)}
+/>
 
 <FloorManagerDialog
 	open={floorManagerOpen}

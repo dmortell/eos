@@ -69,7 +69,7 @@
 								{info ? (LOC_TYPE_COLORS[info.locationType] ?? 'bg-blue-500/15 border-blue-500/40 text-blue-600') : (res ? (LOC_TYPE_COLORS[res] ?? '') + ' border-dashed' : 'bg-gray-100 border-gray-200/50 text-gray-300')}
 								{isSel ? 'ring-2 ring-blue-400' : ''}"
 							title={info ? `${info.label}\n${LOC_TYPE_LABELS[info.locationType] ?? info.locationType}${res ? `\nReserved: ${res}` : ''}` : `Port ${p} — unlabeled${res ? `\nReserved: ${res}` : ''}`}
-							onclick={() => editor.selectPort(device!.id, p)}>
+							onclick={() => editor.handlePortClick(rack!.id, device!.id, p)}>
 							<span class="font-mono text-[9px] leading-none select-none whitespace-nowrap overflow-hidden">
 								{info ? info.label.replace(/^[LB]?\d{1,2}F?[.\-]/, '') : (res ?? p)}
 							</span>

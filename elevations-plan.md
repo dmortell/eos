@@ -426,7 +426,9 @@ settings toggles + "all zones" location view deferred)
 - Exit criteria: Frames' *viewing* use-cases covered (see labels on any panel by zooming);
   frames route still owns block-assign for now.
 
-### Phase 3 — Patching *(~3–4 sessions)*
+### Phase 3 — Patching ✅ core done 2026-08-14 (commit 2965fe8; deferred to 3b:
+re-route buttons, bulk add, Excel export/import, custom cable types dialog,
+cord Inspector section)
 - Patch mode: arm/click-click flow, rubber band, sticky defaults, rear-face support,
   port-level gate, cord selection/re-route, status model (add/change/remove/installed,
   soft delete) — all logic ported from `Patching.svelte`, now against mm geometry.
@@ -505,10 +507,63 @@ shell, focus stack, view-state restore) — no extra work needed now beyond mode
 focus as a stack (§3.2). Target: **Phase 6, after the Phase 5 cutover**; the standalone
 `/risers` route keeps working until then.
 
-## 8. Explicitly parked
+## 8. Explicitly parked (pre-existing list)
 
 - Schema changes (structured label parts, per-client label formats — ux-plan item #10).
 - Circuit chains / cross-connect tracing (`kind:'cross-connect'` remains unused).
 - Side view (rack cross-section), CRAC/PDU/cable-tray plan symbols, multi-page drawing
   package export (row-builder M7).
 - Touch/iPad support beyond what PanZoom extraction gives for free.
+
+---
+
+## 9. Bug & TODO tracker (live — update every session)
+
+### Fixed
+| Bug | Fix commit |
+|---|---|
+| Patching honoured reservations wrongly (array passed as Map) — labels diverged from Frames | cb16dad |
+| Drawings viewports dropped rooms B–D labels (unsaved `serverRoomCount`) | cb16dad |
+| Cord-ID Excel import read Cable Type column + wrong row order | cb16dad |
+| Backspace in patch-list inputs soft-deleted the selected cord | cb16dad |
+| Bulk add overflowed portCount / reused occupied ports | cb16dad |
+| Sidebar BOM counted soft-deleted cords | cb16dad |
+| PortCell floor-prefix strip only matched `01` format | cb16dad |
+| `nextReservationId` collided with persisted reservations after reload | cb16dad |
+| Click with stray mousemove committed a 0px device drag instead of selecting (Draggable slop) | fdeee51 |
+| `writeLog` dropped entries containing undefined fields | fdeee51 |
+| First wheel-zoom after focus-fit snapped back (stale zoomTarget) | 7ef0714 |
+| Right-drag pan blocked over patch panels (ports layer swallowed all buttons) | 7ef0714 |
+| Canvas overflowed Inspector/detail strip (window-math sizing → bind:clientWidth) | 7ef0714 |
+
+### Pending bugs
+- [ ] Intermittent ~30s renderer stalls during Chrome automation after selection-heavy
+      interactions (always recovered, console clean). Suspect dev-mode/CDP overhead;
+      if it appears in real use, first perf target = PortsLayer node count (gate
+      tooltips/interactivity harder, virtualize offscreen panels).
+- [ ] Device labels render through port grids at high zoom (~500%) — hide/fade device
+      label when ports layer is at full-label LOD.
+- [ ] `effect_update_depth_exceeded` class of bug: editor methods that read+write own
+      $state must be called via `untrack()` from $effects — audit new effects as added.
+
+### Pending TODOs (near-term)
+- [ ] Focus-pair visible affordance (pin icon / context menu / select-two-then-button)
+      — gesture decision from §3.2; Shift+dbl-click works but is undiscoverable.
+- [ ] Label-rendering settings toggles (lod/tooltip/inspectorAlways etc., ux-plan
+      experiment) — deferred from Phase 2.
+- [ ] "All zones" location list view — deferred from Phase 2.
+- [ ] Phase 3b leftovers (whatever remains after this session — see §5 Phase 3 note).
+- [ ] Rack-level dblclick vs device dblclick: double-clicking a device does not focus
+      its rack (Draggable stops propagation) — decide whether it should.
+- [ ] Migrate racks tool to $lib PanZoomCanvas + AutoSave (kept its own copies for now).
+- [ ] Old tools keep raw history.pushState calls (frames|outlets|patching|racks
+      +page.svelte) — migrate when touched.
+
+### Session追記 (3b)
+- Fixed: PatchListPane `rowRefs` bind:this non-reactive warning (now $state).
+- [ ] **AutoSave echo race (suspected)**: undoing a just-created cord showed 15 locally
+      but the patching doc kept 16 — an in-flight Firestore echo of the previous save may
+      be applied as a "genuine remote change" (shouldApplyRemote only remembers the LAST
+      saved payload). Reproduce: create → save → undo within ~1–2s. Consider keeping a
+      short history of recent saved payload hashes, or verifying with a doc-version field.
+      (One stray test cord "L01.A.007-A02 ↔ U34, U/UTP, add" left in Test Project room A.)

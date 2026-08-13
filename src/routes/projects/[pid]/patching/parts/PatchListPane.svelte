@@ -46,7 +46,8 @@
 	let checkedIds = $state<Set<string>>(new Set())
 	let lastCheckedId = $state<string | null>(null)
 
-	let rowRefs: Record<string, HTMLTableRowElement | undefined> = {}
+	// $state so bind:this into a keyed record is reactive (binding_property_non_reactive)
+	let rowRefs = $state<Record<string, HTMLTableRowElement | undefined>>({})
 
 	function rackLabel(rackId: string): string {
 		return racks.find((r: any) => r.id === rackId)?.label || '—'

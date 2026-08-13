@@ -33,6 +33,24 @@
 		return parts && parts.length >= 3 && /^[A-Z]$/.test(parts[1]) ? parts[1] : undefined
 	})
 
+	// ── Cord section data ──
+	let conn = $derived(editor.selectedConnectionId
+		? editor.connections.find(c => c.id === editor.selectedConnectionId) ?? null : null)
+	function refLabel(ref: { deviceId: string; portIndex: number }): string {
+		return editor.portInfo.get(`${ref.deviceId}:${ref.portIndex}`)?.label
+			?? `${editor.devices.find(d => d.id === ref.deviceId)?.label ?? '?'} : ${ref.portIndex}`
+	}
+
+	// ── Bulk patch (exactly two panels selected) ──
+	let bulkPanels = $derived.by(() => {
+		const panels = editor.selectedDevices.filter(d => d.type === 'panel' && (d.portCount ?? 0) > 0)
+		return panels.length === 2 ? panels : null
+	})
+	let bulkFromStart = $state(1)
+	let bulkToStart = $state(1)
+	let bulkCount = $state(1)
+	let bulkResult = $state<string | null>(null)
+
 	let racks = $derived(editor.selectedRacks)
 	let devs = $derived(editor.selectedDevices)
 	let rack = $derived(racks[0] ?? null)
@@ -68,6 +86,62 @@
 		<div class="p-4 text-[11px] text-gray-400 leading-relaxed">
 			Select a rack or device to edit its properties.
 			<div class="mt-2 text-gray-300">Drag devices from the Library tab onto a rack. Ctrl+drag copies. Zoom into a panel (or double-click a rack) to see port labels.</div>
+		</div>
+	{/if}
+
+	{#if conn}
+		<div class="border-b border-gray-100">
+			<div class="px-2 py-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-gray-600 bg-gray-50">
+				<Icon name="cable" size={12} />
+				Patch cord
+			</div>
+			<div class="p-2 space-y-1.5 text-xs">
+				<div class="font-mono text-[11px] text-gray-800 select-text leading-snug">
+					{refLabel(conn.fromPortRef)}<br /><span class="text-gray-400">↕</span> {refLabel(conn.toPortRef)}
+				</div>
+				<div class="flex items-center gap-1.5 text-[10px]">
+					<span class="w-2.5 h-2.5 rounded-full" style:background={conn.cableColor}></span>
+					<span class="text-gray-600">{conn.cableType}</span>
+					<span class="text-gray-400">· {conn.lengthMeters}m{conn.lengthLocked ? ' 🔒' : ''}</span>
+					<span class="px-1 rounded text-[9px] font-medium
+						{conn.status === 'add' ? 'bg-blue-100 text-blue-700' : conn.status === 'change' ? 'bg-amber-100 text-amber-700' : conn.status === 'installed' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">{conn.status}</span>
+				</div>
+				<div class="flex gap-1">
+					<button class="flex-1 px-1.5 py-1 rounded border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 text-[10px] font-medium"
+						title="Click a port to replace the FROM endpoint"
+						onclick={() => editor.startReroute(conn!.id, 'from')}>Re-route From</button>
+					<button class="flex-1 px-1.5 py-1 rounded border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 text-[10px] font-medium"
+						title="Click a port to replace the TO endpoint"
+						onclick={() => editor.startReroute(conn!.id, 'to')}>Re-route To</button>
+					<button class="px-1.5 py-1 rounded border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 text-[10px] font-medium"
+						title="Delete (Del) — installed cords are marked for removal"
+						onclick={() => editor.deleteConnections([conn!.id])}>Delete</button>
+				</div>
+				<div class="text-[10px] text-gray-400">Full editing in the Patch list panel below.</div>
+			</div>
+		</div>
+	{/if}
+
+	{#if bulkPanels}
+		<div class="border-b border-gray-100">
+			<div class="px-2 py-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-gray-600 bg-gray-50">
+				<Icon name="cable" size={12} />
+				Bulk patch
+			</div>
+			<div class="p-2 space-y-1 text-xs">
+				<div class="text-[10px] text-gray-500 leading-snug">
+					{bulkPanels[0].label} → {bulkPanels[1].label}. Skips occupied and unlabeled ports.
+				</div>
+				{@render NumberField('from port', bulkFromStart, v => bulkFromStart = Math.max(1, v))}
+				{@render NumberField('to port', bulkToStart, v => bulkToStart = Math.max(1, v))}
+				{@render NumberField('count', bulkCount, v => bulkCount = Math.max(1, v))}
+				<button class="w-full px-2 py-1 rounded bg-emerald-500 text-white hover:bg-emerald-600 text-[11px] font-medium"
+					onclick={() => {
+						const n = editor.bulkPatch(bulkPanels![0].id, bulkPanels![1].id, bulkFromStart, bulkToStart, bulkCount)
+						bulkResult = n > 0 ? `${n} cord${n !== 1 ? 's' : ''} created` : 'No free labeled port pairs found'
+					}}>Create {bulkCount} cord{bulkCount !== 1 ? 's' : ''}</button>
+				{#if bulkResult}<div class="text-[10px] text-gray-500">{bulkResult}</div>{/if}
+			</div>
 		</div>
 	{/if}
 

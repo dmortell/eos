@@ -147,8 +147,7 @@
 					onclick={e => {
 						if (!l.interactive) return
 						e.stopPropagation()
-						if (editor.mode === 'patch') editor.patchPortClick(rack.id, device.id, c.index)
-						else editor.selectPort(device.id, c.index)
+						editor.handlePortClick(rack.id, device.id, c.index)
 					}}>
 					<title>{tooltip(c, device)}</title>
 					<rect x={c.x} y={c.y} width={c.w} height={c.h} rx={0.8}
