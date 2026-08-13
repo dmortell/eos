@@ -133,6 +133,12 @@
 			style:z-index="3"
 			style:pointer-events="none"
 			width={rect.width} height={rect.height}>
+			{#if l.labels > 0}
+				<!-- Opaque backdrop once port labels show: hides the big device label
+				     underneath (it read through the translucent tints) and boosts
+				     label contrast. At lower zoom the device label stays visible. -->
+				<rect x="0.5" y="0.5" width={rect.width - 1} height={rect.height - 1} fill="white" opacity="0.94" />
+			{/if}
 			{#each cells as c (c.index)}
 				{@const isSel = selectedKey === `${device.id}:${c.index}`}
 				<!-- svelte-ignore a11y_click_events_have_key_events -->
