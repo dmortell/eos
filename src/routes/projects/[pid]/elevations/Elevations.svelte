@@ -239,6 +239,21 @@
 		}
 	}
 
+	/** Switch face keeping the same physical rack centered: the rear layout is
+	 *  the front layout mirrored around the row extent, so mirror the viewport
+	 *  centre with it. With a focus active, fitFocus recenters exactly. */
+	function toggleFace(to?: 'front' | 'rear') {
+		const list = faceRacks
+		const last = list[list.length - 1]
+		const rowEndPx = last ? (last._x + last.widthMm) * SCALE : 0
+		const cx = (canvasWidth / 2 - editor.view.x) / editor.view.zoom
+		editor.face = to ?? (editor.face === 'front' ? 'rear' : 'front')
+		if (editor.focus) { fitFocus(); return }
+		if (rowEndPx > 0) {
+			editor.view.x = canvasWidth / 2 - (rowEndPx - cx) * editor.view.zoom
+		}
+	}
+
 	const fmt = (fl: number) => fmtFloor(fl, floorFormat, floors)
 	function roomLabel(rm: string): string {
 		const floorCfg = floors.find(f => f.number === floor)
@@ -270,10 +285,11 @@
 		const rect = canvasEl.getBoundingClientRect()
 		const cx = (clientX - rect.left - editor.view.x) / editor.view.zoom
 		const cy = (clientY - rect.top - editor.view.y) / editor.view.zoom
-		const allRacks = [
-			...editor.activeRacks.map(r => ({ rack: r, isRear: false })),
-			...editor.rearRacks.map(r => ({ rack: r, isRear: true })),
-		]
+		// Only the current face's layout — front and rear lists share the same
+		// coordinate space (both start at x=0), so checking both hit the
+		// mirrored rack and dropped devices on the wrong side of the row.
+		const isRear = editor.face === 'rear'
+		const allRacks = (isRear ? editor.rearRacks : editor.activeRacks).map(r => ({ rack: r, isRear }))
 		for (const { rack, isRear } of allRacks) {
 			const rr = screenRect(rack)
 			if (cx >= rr.left && cx <= rr.left + rr.width && cy >= rr.top && cy <= rr.top + rr.height) {
@@ -336,15 +352,12 @@
 	}
 
 	function findDropRack(midX: number, midY: number) {
-		for (const rack of editor.activeRacks) {
+		// Current face only — see hitTestRack comment (mirrored-rack drop bug).
+		const isRear = editor.face === 'rear'
+		for (const rack of (isRear ? editor.rearRacks : editor.activeRacks)) {
 			const rr = screenRect(rack)
 			if (midX >= rr.left && midX <= rr.left + rr.width && midY >= rr.top && midY <= rr.top + rr.height)
-				return { rack, rr, isRear: false }
-		}
-		for (const rack of editor.rearRacks) {
-			const rr = screenRect(rack)
-			if (midX >= rr.left && midX <= rr.left + rr.width && midY >= rr.top && midY <= rr.top + rr.height)
-				return { rack, rr, isRear: true }
+				return { rack, rr, isRear }
 		}
 		return null
 	}
@@ -445,8 +458,7 @@
 			return
 		}
 		if (e.key === 'f' || e.key === 'F') {
-			editor.face = editor.face === 'front' ? 'rear' : 'front'
-			if (editor.focus) fitFocus()
+			toggleFace()
 			return
 		}
 		if (e.key === '1') { fitRow(); return }
@@ -777,7 +789,7 @@
 								class="px-2.5 h-6 text-[11px] font-medium transition-colors
 									{editor.face === f ? 'bg-blue-500 text-white' : 'bg-white text-gray-500 hover:bg-gray-100'}"
 								title="{label} view (F)"
-								onclick={() => editor.face = f as 'front' | 'rear'}
+								onclick={() => { if (editor.face !== f) toggleFace(f as 'front' | 'rear') }}
 							>{label}</button>
 						{/each}
 					</div>
@@ -839,7 +851,7 @@
 						<button class="px-1.5 h-5 rounded border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 text-[10px]"
 							onclick={() => editor.clearPortBlock()}>Deselect</button>
 						<div class="flex-1"></div>
-						<span class="text-purple-300">Ctrl+click ports to add · reservations steer label allocation</span>
+						<span class="text-purple-300">Ctrl+click add · Ctrl+Shift+click range · reservations steer label allocation</span>
 					</div>
 				{/if}
 

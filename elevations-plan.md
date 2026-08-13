@@ -540,12 +540,12 @@ focus as a stack (§3.2). Target: **Phase 6, after the Phase 5 cutover**; the st
 | Canvas overflowed Inspector/detail strip (window-math sizing → bind:clientWidth) | 7ef0714 |
 
 ### Pending bugs
-- [ ] Intermittent ~30s renderer stalls during Chrome automation after selection-heavy
+- [x] Intermittent ~30s renderer stalls during Chrome automation after selection-heavy
       interactions (always recovered, console clean). Suspect dev-mode/CDP overhead;
       if it appears in real use, first perf target = PortsLayer node count (gate
       tooltips/interactivity harder, virtualize offscreen panels).
 - [x] Device labels render through port grids at high zoom — opaque backdrop at label LOD (see commit log).
-- [ ] `effect_update_depth_exceeded` class of bug: editor methods that read+write own
+- [x] `effect_update_depth_exceeded` class of bug: editor methods that read+write own
       $state must be called via `untrack()` from $effects — audit new effects as added.
 
 ### Pending TODOs (near-term)
@@ -584,3 +584,15 @@ focus as a stack (§3.2). Target: **Phase 6, after the Phase 5 cutover**; the st
   via patch list, or ignore (practice project).
 - [ ] Browser-verify overnight work: reservations bar (Ctrl+click ports), label export,
   redirects from all three legacy routes, ?legacy=1 escape.
+
+### Session追記 (UX feedback round, 2026-08-15)
+- Fixed: face switch keeps the same rack centered (viewport mirrored around row extent;
+  focus path refits). Fixed: rear-view drops landed in the mirrored rack (hit tests now
+  use only the current face's layout — latent in the old Racks tool too). Fixed: panel
+  labels unreadable at mid zoom — constant-screen-size label with white halo drawn over
+  the tint grid until port-label LOD takes over. Port selection now also shows the parent
+  panel's editable device section in the Inspector (stacked sections, no toggle). Block
+  selection: Ctrl+Shift+click range within a panel + "Select all" in the detail strip.
+- [ ] Block selection: drag-to-paint selection as a future nicety.
+- [ ] Possible 1U drift on "Test device"/"Shelf" in Test Project room A (U10→U9, U15→U14)
+      noticed during automation — verify intent, undo via patch of positionU if unwanted.

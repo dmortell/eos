@@ -138,6 +138,17 @@
 				     underneath (it read through the translucent tints) and boosts
 				     label contrast. At lower zoom the device label stays visible. -->
 				<rect x="0.5" y="0.5" width={rect.width - 1} height={rect.height - 1} fill="white" opacity="0.94" />
+			{:else}
+				<!-- Mid-zoom (tint-only LOD): the port grid covers the device's own
+				     label, so re-draw the panel label on top at constant screen size
+				     (white halo for contrast over the tints). -->
+				<text x={rect.width / 2} y={rect.height / 2}
+					text-anchor="middle" dominant-baseline="central"
+					font-size={Math.min(11 / zoom, rect.height * 0.7)}
+					font-weight="600" fill="#374151"
+					stroke="white" stroke-width={Math.min(11 / zoom, rect.height * 0.7) * 0.28}
+					paint-order="stroke"
+					style:pointer-events="none">{device.label}{device.portCount ? ` (${device.portCount})` : ''}</text>
 			{/if}
 			{#each cells as c (c.index)}
 				{@const isSel = selectedKey === `${device.id}:${c.index}`}
@@ -154,7 +165,8 @@
 					onclick={e => {
 						if (!l.interactive) return
 						e.stopPropagation()
-						if (e.ctrlKey || e.metaKey) editor.togglePortBlock(rack.id, device.positionU, c.index)
+						if ((e.ctrlKey || e.metaKey) && e.shiftKey) editor.rangePortBlock(rack.id, device.positionU, c.index, device.id)
+						else if (e.ctrlKey || e.metaKey) editor.togglePortBlock(rack.id, device.positionU, c.index, device.id)
 						else editor.handlePortClick(rack.id, device.id, c.index)
 					}}>
 					<title>{tooltip(c, device)}</title>

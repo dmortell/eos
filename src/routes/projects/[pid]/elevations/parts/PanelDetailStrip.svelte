@@ -53,6 +53,9 @@
 			<span class="font-semibold text-gray-700">{device.label}</span>
 			<span class="text-gray-400">{rack.label} · U{device.positionU} · {device.portCount} ports{device.patchLevel === 'high' ? ' · high-level' : ''}</span>
 			<div class="flex-1"></div>
+			<button class="px-1.5 h-4.5 rounded border border-gray-200 bg-white hover:bg-gray-100 text-[10px] text-gray-600"
+				title="Add every port of this panel to the block selection (for reservations)"
+				onclick={() => editor.selectAllPortsOf(rack!.id, device!.positionU, device!.portCount ?? 0)}>Select all</button>
 			<button class="p-0.5 rounded text-gray-400 hover:bg-gray-200" title="Close panel detail" onclick={() => onclose?.()}>
 				<Icon name="x" size={12} />
 			</button>
@@ -71,7 +74,8 @@
 								{isBlk ? 'ring-2 ring-purple-400' : isSel ? 'ring-2 ring-blue-400' : ''}"
 							title={info ? `${info.label}\n${LOC_TYPE_LABELS[info.locationType] ?? info.locationType}${res ? `\nReserved: ${res}` : ''}` : `Port ${p} — unlabeled${res ? `\nReserved: ${res}` : ''}`}
 							onclick={e => {
-								if (e.ctrlKey || e.metaKey) editor.togglePortBlock(rack!.id, device!.positionU, p)
+								if ((e.ctrlKey || e.metaKey) && e.shiftKey) editor.rangePortBlock(rack!.id, device!.positionU, p, device!.id)
+								else if (e.ctrlKey || e.metaKey) editor.togglePortBlock(rack!.id, device!.positionU, p, device!.id)
 								else editor.handlePortClick(rack!.id, device!.id, p)
 							}}>
 							<span class="font-mono text-[9px] leading-none select-none whitespace-nowrap overflow-hidden">

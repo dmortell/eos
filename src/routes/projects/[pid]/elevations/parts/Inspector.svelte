@@ -52,7 +52,11 @@
 	let bulkResult = $state<string | null>(null)
 
 	let racks = $derived(editor.selectedRacks)
-	let devs = $derived(editor.selectedDevices)
+	// A selected port implies its parent panel: show the device section (editable)
+	// below the port section instead of hiding device props behind a toggle.
+	let devs = $derived(editor.selectedDevices.length
+		? editor.selectedDevices
+		: (portDevice ? [portDevice] : []))
 	let rack = $derived(racks[0] ?? null)
 	let device = $derived(devs[0] ?? null)
 	let rackMulti = $derived(racks.length > 1)

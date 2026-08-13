@@ -975,13 +975,41 @@ export class ElevationsEditor {
 		this.logFramesChange(action, 'reservations', details)
 	}
 
-	/** Toggle a port in the block selection. Keys use portPosKey (rackId:ru:row:col). */
-	togglePortBlock(rackId: string, positionU: number, portIndex: number) {
-		const row = portIndex <= 24 ? 'top' as const : 'bottom' as const
+	private lastBlockPort: { rackId: string; positionU: number; deviceId: string; portIndex: number } | null = null
+
+	private blockKey(rackId: string, positionU: number, portIndex: number): string {
+		const row = portIndex <= 24 ? 'top' : 'bottom'
 		const col = (portIndex - 1) % 24
-		const key = portPosKey({ frameId: rackId, ru: positionU, row, col })
+		return `${rackId}:${positionU}:${row}:${col}`
+	}
+
+	/** Toggle a port in the block selection. Keys use portPosKey (rackId:ru:row:col). */
+	togglePortBlock(rackId: string, positionU: number, portIndex: number, deviceId?: string) {
+		const key = this.blockKey(rackId, positionU, portIndex)
 		const next = new Set(this.selectedPorts)
 		next.has(key) ? next.delete(key) : next.add(key)
+		this.selectedPorts = next
+		if (deviceId) this.lastBlockPort = { rackId, positionU, deviceId, portIndex }
+	}
+
+	/** Ctrl+Shift+click: select the whole range from the last Ctrl+clicked port
+	 *  (same panel, row-major). Falls back to a toggle across panels. */
+	rangePortBlock(rackId: string, positionU: number, portIndex: number, deviceId: string) {
+		if (!this.lastBlockPort || this.lastBlockPort.deviceId !== deviceId) {
+			this.togglePortBlock(rackId, positionU, portIndex, deviceId)
+			return
+		}
+		const [a, b] = [this.lastBlockPort.portIndex, portIndex].sort((x, y) => x - y)
+		const next = new Set(this.selectedPorts)
+		for (let p = a; p <= b; p++) next.add(this.blockKey(rackId, positionU, p))
+		this.selectedPorts = next
+		this.lastBlockPort = { rackId, positionU, deviceId, portIndex }
+	}
+
+	/** Select every port of a panel into the block selection. */
+	selectAllPortsOf(rackId: string, positionU: number, portCount: number) {
+		const next = new Set(this.selectedPorts)
+		for (let p = 1; p <= portCount; p++) next.add(this.blockKey(rackId, positionU, p))
 		this.selectedPorts = next
 	}
 
