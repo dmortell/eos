@@ -133,6 +133,7 @@
 	function ontouchstart(e: TouchEvent) {
 		if (e.touches.length === 2) {
 			t1 = null
+			zoomTarget = view.zoom // resync (see doZoom)
 			const [a, b] = e.touches
 			pinchLastDist = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY)
 			lastPanMid = { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 }
@@ -185,6 +186,9 @@
 
 	function doZoom(e: WheelEvent) {
 		const pt = mouseOffset(e)
+		// Resync after external zoom changes (fitRect/animateViewTo write view.zoom
+		// directly) — a stale zoomTarget made the first wheel-zoom snap back.
+		if (zoomAnimation === null) zoomTarget = view.zoom
 		const factor = wheelZoomFactorFromEvent(e, WHEEL_ZOOM_SPEED)
 		zoomTarget = Math.min(5, Math.max(0.1, zoomTarget * factor))
 		startZoomAnimation(pt)

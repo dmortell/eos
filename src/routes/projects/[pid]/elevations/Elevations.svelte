@@ -102,11 +102,13 @@
 	let confirmingDeleteRow = $state<string | null>(null)
 	let confirmingDeleteRacks = $state(false)
 
-	// Window dimensions
+	// Window dimensions (hint text only)
 	let innerWidth = $state(1200)
 	let innerHeight = $state(800)
-	let canvasWidth = $derived(innerWidth - 280 - 240) // sidebar + inspector
-	let canvasHeight = $derived(innerHeight - (bare ? 65 : 95))
+	// Canvas viewport size — measured from the actual flex container, so the
+	// canvas never overflows the Inspector/detail strip when panes resize.
+	let canvasWidth = $state(800)
+	let canvasHeight = $state(600)
 
 	// ── Viewport: restore per floor+room, keep bottom reference in sync ──
 	let viewKey = $derived(`elevations-view-${projectId}-F${floor}-R${room}`)
@@ -700,8 +702,9 @@
 				<div class="flex-1 min-h-0 flex">
 					<!-- svelte-ignore a11y_click_events_have_key_events -->
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
-					<div class="flex-1 min-w-0 relative" onclick={() => { if (!editor.view.dragging) editor.clearSelection() }}
-						ondblclick={onCanvasDblClick} bind:this={canvasEl}>
+					<div class="flex-1 min-w-0 relative overflow-hidden" onclick={() => { if (!editor.view.dragging) editor.clearSelection() }}
+						ondblclick={onCanvasDblClick} bind:this={canvasEl}
+						bind:clientWidth={canvasWidth} bind:clientHeight={canvasHeight}>
 						<PanZoomCanvas bind:view={editor.view} width={canvasWidth} height={canvasHeight}
 							singleTouchPan canPanAt={(t) => !(t as Element | null)?.closest?.('.drag')}
 							onBackgroundTap={() => { if (!editor.view.dragging) editor.clearSelection() }}>

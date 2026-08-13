@@ -140,7 +140,7 @@
 				<g
 					style:pointer-events={l.interactive ? 'all' : 'none'}
 					style:cursor={l.interactive ? 'pointer' : 'default'}
-					onmousedown={e => { if (l.interactive) { e.stopPropagation(); e.preventDefault() } }}
+					onmousedown={e => { if (l.interactive && e.button === 0) { e.stopPropagation(); e.preventDefault() } }}
 					onclick={e => { if (l.interactive) { e.stopPropagation(); editor.selectPort(device.id, c.index) } }}>
 					<title>{tooltip(c, device)}</title>
 					<rect x={c.x} y={c.y} width={c.w} height={c.h} rx={0.8}
