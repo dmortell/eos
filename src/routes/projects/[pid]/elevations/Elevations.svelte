@@ -35,7 +35,11 @@
 	import type { CatalogProduct } from '$lib/catalog/types'
 	import FloorManagerDialog from '$lib/components/FloorManagerDialog.svelte'
 	import { DEFAULT_LOC_TYPES } from '../frames/parts/types'
+	import type { ZoneConfig } from '../frames/parts/types'
 	import { LOC_TYPE_COLORS, LOC_TYPE_LABELS } from '$lib/elevation/loc-colors'
+	import { generatePortLabels, generateRacks } from '../frames/parts/engine'
+	import { deriveFramesFromRacks } from '$lib/elevation/portmap'
+	import { exportToExcel as exportFrameLabels } from '../frames/parts/exportExcel'
 	import { fmtFloor } from '$lib/utils/floor'
 	import type { FloorConfig } from '$lib/types/project'
 
@@ -117,6 +121,34 @@
 	let patchSettingsOpen = $state(false)
 	let importStatus = $state<string | null>(null)
 	let importInput: HTMLInputElement | undefined = $state()
+
+	/** Frames-style panel label sheet export — same pipeline as the port labels. */
+	function exportLabelSheets() {
+		const fd = editor.framesData
+		const labelFormat = fd?.labelFormat
+			? {
+				separator: fd.labelFormat.separator ?? 'legacy',
+				includeZone: fd.labelFormat.includeZone ?? true,
+				includeRoom: fd.labelFormat.includeRoom ?? false,
+			}
+			: undefined
+		const zoneLetters = Object.keys(editor.zoneLocations).filter(z => editor.zoneLocations[z]?.length > 0).sort()
+		const zoneConfigs: ZoneConfig[] = zoneLetters.map(z => ({
+			floor, zone: z, serverRoomCount: editor.serverRoomCountCfg, locations: editor.zoneLocations[z],
+		}))
+		const labels = zoneConfigs.flatMap(zc => generatePortLabels(zc, floorFormat, labelFormat as any))
+		const frames = deriveFramesFromRacks(
+			{ [room]: { racks: $state.snapshot(editor.racks), devices: $state.snapshot(editor.devices) } },
+			'front', fd?.frames,
+		)
+		const racksData = generateRacks(
+			labels, editor.serverRoomCountCfg,
+			frames.length > 0 ? frames : undefined,
+			editor.reservationMap.size > 0 ? editor.reservationMap : undefined,
+		)
+		exportFrameLabels(racksData, zoneConfigs, fd?.excelGroupByRoom ?? true, floorFormat,
+			editor.reservationMap.size > 0 ? editor.reservationMap : undefined)
+	}
 
 	async function handleCordIdImport(e: Event) {
 		const input = e.target as HTMLInputElement
@@ -626,6 +658,9 @@
 								<span class="text-[10px] {editor.framesAutosave.status === 'saved' ? 'text-gray-300' : 'text-amber-500'}">
 									{editor.framesAutosave.status === 'saved' ? '' : 'Unsaved'}
 								</span>
+								<button class="px-1.5 h-5 rounded border border-gray-200 bg-white hover:bg-gray-100 text-[10px] text-gray-600"
+									title="Export panel label sheets to Excel (Frames format)"
+									onclick={exportLabelSheets}>Export</button>
 							</div>
 							<ConfigPanel
 								{floor}
