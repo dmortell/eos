@@ -251,7 +251,7 @@
 				{/if}
 				{@render NumberField('heightU', sharedDev(d => d.heightU), v => updateDevs({ heightU: v }))}
 				{@render NumberField('portCount', sharedDev(d => d.portCount), v => updateDevs({ portCount: v }))}
-				{@render NumberField('widthMm', sharedDev(d => d.widthMm ?? 480), v => updateDevs({ widthMm: v }))}
+				{@render NumberField('widthMm', sharedDev(d => d.widthMm ?? 450), v => updateDevs({ widthMm: v }))}
 				{@render NumberField('depthMm', sharedDev(d => d.depthMm ?? 0), v => updateDevs({ depthMm: v || undefined }))}
 				{@render SelectField('mounting', sharedDev(d => d.mounting ?? 'both') ?? '', [['front', 'Front'], ['rear', 'Rear'], ['both', 'Both'], ['none', 'None']], v => updateDevs({ mounting: v }))}
 				{#if !devMulti}

@@ -8,7 +8,7 @@
 	import type { ChangeDetail } from '$lib/logger'
 	import type { RackConfig, DeviceConfig, DeviceTemplate, RackRow, RackSettings, ViewState, ElevationFace, RoomObject, RackView } from './parts/types'
 	import { RACK_VIEW_DEFAULT } from './parts/types'
-	import { DEFAULT_SETTINGS, SCALE, RU_HEIGHT_MM, RACK_GAP_PX, RACK_19IN_MM, rackHeightMm } from './parts/constants'
+	import { DEFAULT_SETTINGS, SCALE, RU_HEIGHT_MM, RACK_GAP_PX, RACK_19IN_MM, DEVICE_W_MM, rackHeightMm } from './parts/constants'
 	import RackList from './parts/RackList.svelte'
 	import RowEditor from './parts/RowEditor.svelte'
 	import DevicePalette from './parts/DevicePalette.svelte'
@@ -800,7 +800,7 @@
 	function onDeviceDrag(rect: any, _mouse: any, item: any) {
 		const midX = rect.left + rect.width / 2
 		const midY = rect.top + rect.height / 2
-		const devW = (item.widthMm ?? RACK_19IN_MM) * SCALE
+		const devW = (item.widthMm ?? DEVICE_W_MM) * SCALE
 		const hit = findDropRack(midX, midY)
 		if (hit) {
 			const { rack, rr, isRear } = hit
@@ -825,7 +825,7 @@
 
 	function onDeviceDragged(rect: any, device: DeviceConfig, copy?: boolean) {
 		dropGhost = null
-		const devW = (device.widthMm ?? RACK_19IN_MM) * SCALE
+		const devW = (device.widthMm ?? DEVICE_W_MM) * SCALE
 		const midX = rect.left + rect.width / 2
 		const midY = rect.top + rect.height / 2
 		const hit = findDropRack(midX, midY)

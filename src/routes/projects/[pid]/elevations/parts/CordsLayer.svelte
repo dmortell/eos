@@ -10,7 +10,7 @@
 	import type { ElevationsEditor } from '../editor.svelte'
 	import type { PatchConnection, PortRef } from '../../patching/parts/types'
 	import { getCableType } from '../../patching/parts/constants'
-	import { SCALE, RU_HEIGHT_MM, RACK_19IN_MM } from '../../racks/parts/constants'
+	import { SCALE, RU_HEIGHT_MM, DEVICE_W_MM } from '../../racks/parts/constants'
 
 	let { editor }: { editor: ElevationsEditor } = $props()
 
@@ -30,7 +30,7 @@
 		const rackTop = (editor.view.bottom - rack._z - rack.heightMm) * SCALE
 		const rackW = rack.widthMm * SCALE
 		const rackH = rack.heightMm * SCALE
-		const devW = (device.widthMm ?? RACK_19IN_MM) * SCALE
+		const devW = (device.widthMm ?? DEVICE_W_MM) * SCALE
 		const ox = (device.offsetX ?? 0) * SCALE * (editor.face === 'rear' ? -1 : 1)
 		const devLeft = rackLeft + (rackW - devW) / 2 + ox
 		const ruBottom = rackTop + rackH - device.positionU * RU_HEIGHT_MM * SCALE

@@ -74,7 +74,7 @@
 								{isBlk ? 'ring-2 ring-purple-400' : isSel ? 'ring-2 ring-blue-400' : ''}"
 							title={info ? `${info.label}\n${LOC_TYPE_LABELS[info.locationType] ?? info.locationType}${res ? `\nReserved: ${res}` : ''}` : `Port ${p} — unlabeled${res ? `\nReserved: ${res}` : ''}`}
 							onclick={e => {
-								if ((e.ctrlKey || e.metaKey) && e.shiftKey) editor.rangePortBlock(rack!.id, device!.positionU, p, device!.id)
+								if (e.shiftKey) editor.rangePortBlock(rack!.id, device!.positionU, p, device!.id)
 								else if (e.ctrlKey || e.metaKey) editor.togglePortBlock(rack!.id, device!.positionU, p, device!.id)
 								else editor.handlePortClick(rack!.id, device!.id, p)
 							}}>

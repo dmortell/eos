@@ -10,7 +10,7 @@
 	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
 	import type { ChangeDetail } from '$lib/logger'
 	import type { DeviceTemplate, DeviceConfig, RackSettings } from '../racks/parts/types'
-	import { SCALE, RU_HEIGHT_MM, RACK_19IN_MM } from '../racks/parts/constants'
+	import { SCALE, RU_HEIGHT_MM, RACK_19IN_MM, DEVICE_W_MM } from '../racks/parts/constants'
 	import RackList from '../racks/parts/RackList.svelte'
 	import RowEditor from '../racks/parts/RowEditor.svelte'
 	import DevicePalette from '../racks/parts/DevicePalette.svelte'
@@ -364,7 +364,7 @@
 	function onDeviceDrag(rect: any, _mouse: any, item: any) {
 		const midX = rect.left + rect.width / 2
 		const midY = rect.top + rect.height / 2
-		const devW = (item.widthMm ?? RACK_19IN_MM) * SCALE
+		const devW = (item.widthMm ?? DEVICE_W_MM) * SCALE
 		const hit = findDropRack(midX, midY)
 		if (hit) {
 			const { rack, rr, isRear } = hit
@@ -389,7 +389,7 @@
 
 	function onDeviceDragged(rect: any, device: DeviceConfig, copy?: boolean) {
 		dropGhost = null
-		const devW = (device.widthMm ?? RACK_19IN_MM) * SCALE
+		const devW = (device.widthMm ?? DEVICE_W_MM) * SCALE
 		const hit = findDropRack(rect.left + rect.width / 2, rect.top + rect.height / 2)
 		if (!hit) return
 		const { rack, rr, isRear } = hit
@@ -850,7 +850,7 @@
 						<button class="px-1.5 h-5 rounded border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 text-[10px]"
 							onclick={() => editor.clearPortBlock()}>Deselect</button>
 						<div class="flex-1"></div>
-						<span class="text-purple-300">Ctrl+click add · Ctrl+Shift+click range · reservations steer label allocation</span>
+						<span class="text-purple-300">Ctrl+click add · Shift+click range · reservations steer label allocation</span>
 					</div>
 				{/if}
 

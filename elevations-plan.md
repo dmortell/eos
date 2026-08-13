@@ -596,3 +596,15 @@ focus as a stack (§3.2). Target: **Phase 6, after the Phase 5 cutover**; the st
 - [ ] Block selection: drag-to-paint selection as a future nicety.
 - [ ] Possible 1U drift on "Test device"/"Shelf" in Test Project room A (U10→U9, U15→U14)
       noticed during automation — verify intent, undo via patch of positionU if unwanted.
+
+### Session追記 (morning feedback round 2, 2026-08-15)
+- Fixed: block-select modifiers relaxed — Ctrl+click toggle OR Shift+click range (was
+  Ctrl+Shift). Panel labels now readable at every zoom: constant-screen-size centered
+  label at mid zoom (drawn ABOVE cells — all-unlabeled panels like R04 painted over it
+  with opaque gray cells), faded side tag at port-label LOD so hostnames stay visible
+  while patching; off-face panels get a 45%-opacity label. Default device width now
+  DEVICE_W_MM = 450 (palette builder, template fallback, all renderers/hit tests;
+  Inspector shows 450 default). NOTE: devices already stored with explicit 445/480 keep
+  their stored value — multi-select + widthMm in the Inspector to bulk-fix if wanted.
+- Note: long-running Vite dev server can serve stale transforms after sed-based edits
+  (DEVICE_W_MM ReferenceError until files touched) — touch files or restart dev server.

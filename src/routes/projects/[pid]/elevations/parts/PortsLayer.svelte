@@ -4,16 +4,18 @@
 	 * in mm-accurate geometry (elevations-plan.md §3.3). Level of detail keys
 	 * off the on-screen cell width:
 	 *   ≥ 4px   cells + usage tint + reservation bars
-	 *   ≥ 10px  cells become clickable (select port)
+	 *   ≥ 10px  cells become clickable (select/patch/reserve)
 	 *   ≥ 16px  2-line short label   (001 / A01)
 	 *   ≥ 24px  3-line full label    (L01.A / 001 / A01)
-	 * SVG text is vector — crisp at every zoom. Tooltips always carry the
-	 * full label. Cells stopPropagation on mousedown so the panel's Draggable
-	 * underneath doesn't start a drag from a port click.
+	 * The panel's own label is ALWAYS readable: constant-screen-size text over
+	 * the tint grid at mid zoom, and a faded side tag once port labels take
+	 * over (hostnames/panel names stay visible while patching). Panels on the
+	 * opposite face still get a (more faded) label, but no interactive cells.
+	 * Block selection: Ctrl+click toggles a port, Shift+click extends a range.
 	 */
 	import type { ElevationsEditor } from '../editor.svelte'
 	import type { DeviceConfig, RackConfig } from '../../racks/parts/types'
-	import { SCALE, RU_HEIGHT_MM, RACK_19IN_MM } from '../../racks/parts/constants'
+	import { SCALE, RU_HEIGHT_MM, DEVICE_W_MM } from '../../racks/parts/constants'
 	import { matchesFace } from '$lib/elevation/portmap'
 	import { PORT_TYPE_COLORS, LOC_TYPE_LABELS } from '$lib/elevation/loc-colors'
 
@@ -22,12 +24,12 @@
 	let zoom = $derived(editor.view.zoom)
 	let rackList = $derived(editor.face === 'rear' ? editor.rearRacks : editor.activeRacks)
 
-	/** Panels visible on the current face, in racks of the active row. */
+	/** All panels in racks of the active row — off-face ones get a label only. */
 	let panels = $derived.by(() => {
 		const rackById = new Map(rackList.map(r => [r.id, r]))
 		return editor.devices.filter(d =>
-			d.type === 'panel' && (d.portCount ?? 0) > 0 && rackById.has(d.rackId) && matchesFace(d, editor.face)
-		).map(d => ({ device: d, rack: rackById.get(d.rackId)! }))
+			d.type === 'panel' && (d.portCount ?? 0) > 0 && rackById.has(d.rackId)
+		).map(d => ({ device: d, rack: rackById.get(d.rackId)!, onFace: matchesFace(d, editor.face) }))
 	})
 
 	function deviceRect(device: DeviceConfig, rack: RackConfig & { _x: number; _z: number }) {
@@ -35,7 +37,7 @@
 		const rackTop = (editor.view.bottom - rack._z - rack.heightMm) * SCALE
 		const rackW = rack.widthMm * SCALE
 		const rackH = rack.heightMm * SCALE
-		const devW = (device.widthMm ?? RACK_19IN_MM) * SCALE
+		const devW = (device.widthMm ?? DEVICE_W_MM) * SCALE
 		const ox = (device.offsetX ?? 0) * SCALE * (editor.face === 'rear' ? -1 : 1)
 		const ruBottom = rackTop + rackH - device.positionU * RU_HEIGHT_MM * SCALE
 		return {
@@ -67,7 +69,7 @@
 	}
 
 	function cellsFor(device: DeviceConfig, rack: RackConfig): Cell[] {
-		const rect = { w: (device.widthMm ?? RACK_19IN_MM) * SCALE, h: device.heightU * RU_HEIGHT_MM * SCALE }
+		const rect = { w: (device.widthMm ?? DEVICE_W_MM) * SCALE, h: device.heightU * RU_HEIGHT_MM * SCALE }
 		const count = device.portCount ?? 0
 		const rows = count > 24 ? 2 : 1
 		const cols = Math.min(count, 24)
@@ -119,45 +121,33 @@
 	let selectedKey = $derived(editor.selectedPort ? `${editor.selectedPort.deviceId}:${editor.selectedPort.portIndex}` : null)
 </script>
 
-{#if zoom * SCALE * (RACK_19IN_MM / 24) >= 4}
-	{#each panels as { device, rack } (device.id)}
+{#if zoom * SCALE * (DEVICE_W_MM / 24) >= 4}
+	{#each panels as { device, rack, onFace } (device.id)}
 		{@const rect = deviceRect(device, rack)}
-		{@const cells = cellsFor(device, rack)}
-		{@const cw = cells[0]?.w ?? 0}
+		{@const cells = onFace ? cellsFor(device, rack) : []}
+		{@const cw = cells[0]?.w ?? (rect.width - 4) / Math.min(device.portCount ?? 24, 24)}
 		{@const l = lod(cw)}
-		{@const rows = (device.portCount ?? 0) > 24 ? 2 : 1}
-		{@const ch = cells[0]?.h ?? 0}
+		{@const labelFs = Math.min(11 / zoom, rect.height * 0.7)}
 		<svg
 			class="absolute overflow-visible"
 			style:left="{rect.left}px" style:top="{rect.top}px"
 			style:z-index="3"
 			style:pointer-events="none"
 			width={rect.width} height={rect.height}>
-			{#if l.labels > 0}
+			{#if onFace && l.labels > 0}
 				<!-- Opaque backdrop once port labels show: hides the big device label
 				     underneath (it read through the translucent tints) and boosts
-				     label contrast. At lower zoom the device label stays visible. -->
+				     label contrast. -->
 				<rect x="0.5" y="0.5" width={rect.width - 1} height={rect.height - 1} fill="white" opacity="0.94" />
-			{:else}
-				<!-- Mid-zoom (tint-only LOD): the port grid covers the device's own
-				     label, so re-draw the panel label on top at constant screen size
-				     (white halo for contrast over the tints). -->
-				<text x={rect.width / 2} y={rect.height / 2}
-					text-anchor="middle" dominant-baseline="central"
-					font-size={Math.min(11 / zoom, rect.height * 0.7)}
-					font-weight="600" fill="#374151"
-					stroke="white" stroke-width={Math.min(11 / zoom, rect.height * 0.7) * 0.28}
-					paint-order="stroke"
-					style:pointer-events="none">{device.label}{device.portCount ? ` (${device.portCount})` : ''}</text>
 			{/if}
 			{#each cells as c (c.index)}
 				{@const isSel = selectedKey === `${device.id}:${c.index}`}
-				<!-- svelte-ignore a11y_click_events_have_key_events -->
-				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				{@const conn = editor.portConnMap.get(`${device.id}:${c.index}`)}
 				{@const isArmed = editor.patchArm?.deviceId === device.id && editor.patchArm?.portIndex === c.index}
 				{@const isBlk = editor.selectedPorts.size > 0 && editor.isPortBlockSelected(rack.id, device.positionU, c.index)}
 				{@const patchBlocked = editor.mode === 'patch' && !c.label && !conn}
+				<!-- svelte-ignore a11y_click_events_have_key_events -->
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<g
 					style:pointer-events={l.interactive ? 'all' : 'none'}
 					style:cursor={l.interactive ? (patchBlocked ? 'not-allowed' : 'pointer') : 'default'}
@@ -165,7 +155,7 @@
 					onclick={e => {
 						if (!l.interactive) return
 						e.stopPropagation()
-						if ((e.ctrlKey || e.metaKey) && e.shiftKey) editor.rangePortBlock(rack.id, device.positionU, c.index, device.id)
+						if (e.shiftKey) editor.rangePortBlock(rack.id, device.positionU, c.index, device.id)
 						else if (e.ctrlKey || e.metaKey) editor.togglePortBlock(rack.id, device.positionU, c.index, device.id)
 						else editor.handlePortClick(rack.id, device.id, c.index)
 					}}>
@@ -204,11 +194,32 @@
 					{:else if l.labels > 0 && c.reservation}
 						<text x={c.x + c.w / 2} y={c.y + c.h / 2 + 2}
 							text-anchor="middle" font-family="ui-monospace, monospace"
-							font-size={Math.min(c.w / 2, ch / 2.5)} fill="#6b7280" opacity="0.7"
+							font-size={Math.min(c.w / 2, c.h / 2.5)} fill="#6b7280" opacity="0.7"
 							style:pointer-events="none">{c.reservation}</text>
 					{/if}
 				</g>
 			{/each}
+			<!-- Panel label — drawn ON TOP of the cells so all-unlabeled panels
+			     (opaque gray cells) can't paint over it. -->
+			{#if onFace && l.labels > 0}
+				<!-- Faded side tag: the hostname/panel name stays visible while
+				     patching, tucked over the rail left of the ports. -->
+				<text x={-3} y={rect.height / 2}
+					text-anchor="end" dominant-baseline="central"
+					font-size={10 / zoom} font-weight="600" fill="#374151" opacity="0.6"
+					stroke="white" stroke-width={(10 / zoom) * 0.28} paint-order="stroke"
+					style:pointer-events="none">{device.label}</text>
+			{:else}
+				<!-- Mid-zoom (tint-only LOD) or opposite face: constant screen size,
+				     white halo, semi-transparent so cells stay readable beneath. -->
+				<text x={rect.width / 2} y={rect.height / 2}
+					text-anchor="middle" dominant-baseline="central"
+					font-size={labelFs}
+					font-weight="600" fill="#374151" opacity={onFace ? 0.85 : 0.45}
+					stroke="white" stroke-width={labelFs * 0.28}
+					paint-order="stroke"
+					style:pointer-events="none">{device.label}{device.portCount ? ` (${device.portCount})` : ''}</text>
+			{/if}
 		</svg>
 	{/each}
 {/if}

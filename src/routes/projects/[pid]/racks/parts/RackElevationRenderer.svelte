@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { RackConfig, DeviceConfig, RackSettings, ViewState, ElevationFace } from './types'
-	import { SCALE, RU_HEIGHT_MM, RACK_19IN_MM } from './constants'
+	import { SCALE, RU_HEIGHT_MM, DEVICE_W_MM } from './constants'
 	import RackFrame from './RackFrame.svelte'
 	import Rect from './Rect.svelte'
 	import Draggable from './Draggable.svelte'
@@ -53,7 +53,7 @@
 		const rack = rackList.find(r => r.id === device.rackId)
 		if (!rack) return { left: 0, top: 0, width: 0, height: 0 }
 		const rackRect = screenRect(rack)
-		const devW = (device.widthMm ?? RACK_19IN_MM) * SCALE
+		const devW = (device.widthMm ?? DEVICE_W_MM) * SCALE
 		const ox = (device.offsetX ?? 0) * SCALE * (f === 'rear' ? -1 : 1)
 		const innerLeft = rackRect.left + (rackRect.width - devW) / 2 + ox
 		const ruBottom = rackRect.top + rackRect.height - device.positionU * RU_HEIGHT_MM * SCALE
