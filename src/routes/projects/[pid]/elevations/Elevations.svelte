@@ -239,16 +239,15 @@
 		}
 	}
 
-	/** Switch face keeping the same physical rack centered: the rear layout is
-	 *  the front layout mirrored around the row extent, so mirror the viewport
-	 *  centre with it. With a focus active, fitFocus recenters exactly. */
+	/** Switch face keeping the same physical rack centered at the SAME zoom:
+	 *  the rear layout is the front layout mirrored around the row extent, so
+	 *  mirror the viewport centre with it — pan/zoom otherwise untouched. */
 	function toggleFace(to?: 'front' | 'rear') {
 		const list = faceRacks
 		const last = list[list.length - 1]
 		const rowEndPx = last ? (last._x + last.widthMm) * SCALE : 0
 		const cx = (canvasWidth / 2 - editor.view.x) / editor.view.zoom
 		editor.face = to ?? (editor.face === 'front' ? 'rear' : 'front')
-		if (editor.focus) { fitFocus(); return }
 		if (rowEndPx > 0) {
 			editor.view.x = canvasWidth / 2 - (rowEndPx - cx) * editor.view.zoom
 		}
