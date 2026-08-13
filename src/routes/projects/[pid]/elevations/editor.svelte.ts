@@ -16,6 +16,11 @@ import type {
 	RackConfig, DeviceConfig, DeviceTemplate, RackRow, RackSettings, RoomObject, ViewState, ElevationFace,
 } from '../racks/parts/types'
 import type { LocationConfig, LocType } from '../frames/parts/types'
+import type { PatchConnection, PortRef, CustomCableType, PatchSettings, PatchStatus } from '../patching/parts/types'
+import { DEFAULT_SETTINGS as DEFAULT_PATCH_SETTINGS } from '../patching/parts/types'
+import { getCableType } from '../patching/parts/constants'
+import { calculateCableLength } from '../patching/parts/cableUtils'
+import { buildPortConnectionMap, findDuplicatePorts } from '../patching/parts/elevationUtils'
 import { DEFAULT_SETTINGS, SCALE, RU_HEIGHT_MM, RACK_GAP_PX, rackHeightMm } from '../racks/parts/constants'
 import { rackFromCatalog } from '$lib/catalog/service'
 import type { CatalogProduct } from '$lib/catalog/types'
@@ -33,6 +38,8 @@ export interface EditorCallbacks {
 	onsave?: (payload: any, changes: ChangeDetail[]) => void
 	/** Saves location edits back to the frames doc (merge — only zoneLocations). */
 	onsaveframes?: (payload: any, changes: ChangeDetail[]) => void
+	/** Saves patch connections to the patching doc. */
+	onsavepatching?: (payload: any, changes: ChangeDetail[]) => void
 }
 
 export class ElevationsEditor {
@@ -60,9 +67,24 @@ export class ElevationsEditor {
 	/** Authoritative per-floor server-room count (projects.floors). */
 	serverRoomCountCfg = $state(1)
 
+	// ── Patching doc ──
+	connections = $state<PatchConnection[]>([])
+	customCableTypes = $state<CustomCableType[]>([])
+	patchSettings = $state<PatchSettings>({ ...DEFAULT_PATCH_SETTINGS })
+
 	// ── UI state ──
+	mode = $state<'select' | 'patch'>('select')
 	face = $state<ElevationFace>('front')
 	activeRowId = $state('default')
+	/** Armed first endpoint while click-click patching. */
+	patchArm = $state<PortRef | null>(null)
+	selectedConnectionId = $state<string | null>(null)
+	/** Sticky defaults: each cord edit teaches the next cord. */
+	stickyCable = $state<{ type: string; status: PatchStatus }>({ type: 'uutp', status: 'add' })
+	/** Cursor position in unscaled canvas px (rubber band while armed). */
+	cursor = $state<{ x: number; y: number } | null>(null)
+	/** One-line contextual hint for the status bar (port gate, arm state). */
+	statusHint = $state<string | null>(null)
 	/** Focus navigation stack level: the rack(s) the viewport is framed on. */
 	focus = $state<{ rackIds: string[] } | null>(null)
 	/** Selected port (panel device + 1-based index) — separate from the rack/device set. */
@@ -84,6 +106,8 @@ export class ElevationsEditor {
 
 	readonly framesAutosave: AutoSave
 	private pendingFramesChanges: ChangeDetail[] = []
+	readonly patchAutosave: AutoSave
+	private pendingPatchChanges: ChangeDetail[] = []
 
 	constructor(private callbacks: EditorCallbacks = {}) {
 		this.autosave = new AutoSave((payload) => {
@@ -93,6 +117,10 @@ export class ElevationsEditor {
 		this.framesAutosave = new AutoSave((payload) => {
 			this.callbacks.onsaveframes?.(payload, this.pendingFramesChanges)
 			this.pendingFramesChanges = []
+		})
+		this.patchAutosave = new AutoSave((payload) => {
+			this.callbacks.onsavepatching?.(payload, this.pendingPatchChanges)
+			this.pendingPatchChanges = []
 		})
 	}
 
@@ -136,6 +164,19 @@ export class ElevationsEditor {
 	reservationMap = $derived(buildReservationMap(this.framesData?.portReservations))
 
 	focusedRackIds = $derived(new Set(this.focus?.rackIds ?? []))
+
+	// ── Patching deriveds ──
+	/** Cords shown in the elevation = target state (soft-deleted excluded). */
+	elevationConnections = $derived(this.connections.filter(c => c.status !== 'remove'))
+	removedCount = $derived(this.connections.filter(c => c.status === 'remove').length)
+	portConnMap = $derived(buildPortConnectionMap(this.elevationConnections))
+	duplicatePorts = $derived(findDuplicatePorts(this.elevationConnections))
+	orphanedIds = $derived.by(() => {
+		const rackIds = new Set(this.racks.map(r => r.id))
+		const deviceIds = new Set(this.devices.map(d => d.id))
+		const orphaned = (ref: PortRef) => (!!ref.rackId && !rackIds.has(ref.rackId)) || (!!ref.deviceId && !deviceIds.has(ref.deviceId))
+		return new Set(this.connections.filter(c => orphaned(c.fromPortRef) || orphaned(c.toPortRef)).map(c => c.id))
+	})
 
 	/** Per-rack RU positions occupied by >1 device on the same rail (front/rear). */
 	rackOverlaps = $derived.by(() => {
@@ -221,6 +262,9 @@ export class ElevationsEditor {
 		if (changed) {
 			this.selection = new Set()
 			this.selectedPort = null
+			this.selectedConnectionId = null
+			this.patchArm = null
+			this.statusHint = null
 			this.focus = null
 			this.locationSelection = new Set()
 			this.history.clear()
@@ -278,6 +322,7 @@ export class ElevationsEditor {
 
 	select(id: string, multi = false) {
 		this.selectedPort = null
+		this.selectedConnectionId = null
 		if (multi) {
 			const next = new Set(this.selection)
 			next.has(id) ? next.delete(id) : next.add(id)
@@ -293,7 +338,13 @@ export class ElevationsEditor {
 		this.selection = next
 	}
 
-	clearSelection() { this.selection = new Set(); this.selectedPort = null }
+	clearSelection() {
+		this.selection = new Set()
+		this.selectedPort = null
+		this.selectedConnectionId = null
+		this.patchArm = null
+		this.statusHint = null
+	}
 
 	private deselect(id: string) {
 		if (!this.selection.has(id)) return
@@ -604,11 +655,213 @@ export class ElevationsEditor {
 		}
 	}
 
+	// ── Patching doc persistence ──
+
+	private patchPayload() {
+		return {
+			connections: $state.snapshot(this.connections),
+			customCableTypes: $state.snapshot(this.customCableTypes),
+			settings: $state.snapshot(this.patchSettings),
+		}
+	}
+
+	logPatchChange(action: string, field?: string, details?: string) {
+		const detail: ChangeDetail = { action }
+		if (field !== undefined) detail.field = field
+		if (details !== undefined) detail.details = details
+		this.pendingPatchChanges.push(detail)
+		this.patchAutosave.schedule(() => this.patchPayload())
+	}
+
+	syncPatching(data: any) {
+		if (!data) return
+		const comparable = {
+			connections: data.connections ?? [],
+			customCableTypes: data.customCableTypes ?? [],
+			settings: { ...DEFAULT_PATCH_SETTINGS, ...(data.settings ?? {}) },
+		}
+		if (!this.patchAutosave.shouldApplyRemote(comparable)) return
+		this.connections = data.connections ?? []
+		this.customCableTypes = data.customCableTypes ?? []
+		this.patchSettings = { ...DEFAULT_PATCH_SETTINGS, ...(data.settings ?? {}) }
+	}
+
+	private mutatePatch(action: string, details: string | undefined, fn: () => void) {
+		const before = $state.snapshot(this.connections)
+		fn()
+		const after = $state.snapshot(this.connections)
+		const label = `${action} cord${details ? `: ${details}` : ''}`
+		this.history.record({
+			label,
+			undo: () => { this.connections = before as PatchConnection[]; this.logPatchChange('undo/redo', undefined, label) },
+			redo: () => { this.connections = after as PatchConnection[]; this.logPatchChange('undo/redo', undefined, label) },
+		})
+		this.logPatchChange(action, 'connection', details)
+	}
+
+	// ── Patching flow ──
+
+	private portLabelOf(ref: { deviceId: string; portIndex: number }): string | undefined {
+		return this.portInfo.get(`${ref.deviceId}:${ref.portIndex}`)?.label
+	}
+
+	/** Port click in patch mode: gate → select-existing → arm → connect. */
+	patchPortClick(rackId: string, deviceId: string, portIndex: number) {
+		const key = `${deviceId}:${portIndex}`
+		const existing = this.portConnMap.get(key)
+
+		// Port-level gate: unlabeled ports reject new cords (ux-plan). Selecting
+		// them still works so the inspector can explain what to do.
+		if (!this.portLabelOf({ deviceId, portIndex }) && !existing) {
+			this.selectedPort = { deviceId, portIndex }
+			this.statusHint = 'Unlabeled port — assign a location label before patching (see Inspector)'
+			return
+		}
+
+		if (!this.patchArm) {
+			if (existing) {
+				// Click a patched port → select its cord
+				this.selectConnection(existing.id)
+				return
+			}
+			this.patchArm = { rackId, deviceId, portIndex, face: this.face }
+			this.statusHint = 'Click another port to connect — Esc to cancel'
+			return
+		}
+
+		// Same port again → disarm
+		if (this.patchArm.deviceId === deviceId && this.patchArm.portIndex === portIndex) {
+			this.patchArm = null
+			this.statusHint = null
+			return
+		}
+		if (existing) {
+			this.statusHint = 'Port already patched — pick a free port'
+			return
+		}
+
+		const fromRef = this.patchArm
+		const toRef: PortRef = { rackId, deviceId, portIndex, face: this.face }
+		const ct = getCableType(this.stickyCable.type, this.customCableTypes)
+		const len = calculateCableLength(fromRef, toRef, $state.snapshot(this.racks), $state.snapshot(this.devices))
+		const conn: PatchConnection = {
+			id: `patch-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+			fromPortRef: fromRef,
+			toPortRef: toRef,
+			cableType: this.stickyCable.type,
+			cableColor: ct.color,
+			lengthMeters: len,
+			lengthLocked: false,
+			kind: 'patch',
+			status: this.stickyCable.status,
+		}
+		this.mutatePatch('add', `${this.portLabelOf(fromRef)} ↔ ${this.portLabelOf(toRef)}`, () => {
+			this.connections = [...this.connections, conn]
+		})
+		this.patchArm = null
+		this.statusHint = null
+		this.selectConnection(conn.id)
+	}
+
+	selectConnection(id: string | null) {
+		this.selectedConnectionId = id
+		if (id) { this.selection = new Set(); this.selectedPort = null }
+	}
+
+	private sameRef(a: PortRef, b: PortRef): boolean {
+		return a.rackId === b.rackId && a.deviceId === b.deviceId && a.portIndex === b.portIndex && a.face === b.face
+	}
+
+	/** Update a cord; moving an installed cord's endpoint flips it to 'change' with history. */
+	updateConnection(id: string, updates: Partial<PatchConnection>) {
+		this.mutatePatch('update', id, () => {
+			this.connections = this.connections.map(c => {
+				if (c.id !== id) return c
+				const updated = { ...c, ...updates }
+				const movedFrom = updates.fromPortRef && !this.sameRef(c.fromPortRef, updates.fromPortRef)
+				const movedTo = updates.toPortRef && !this.sameRef(c.toPortRef, updates.toPortRef)
+				if ((movedFrom || movedTo) && c.status === 'installed') {
+					updated.status = 'change'
+					updated.previousFromRef = c.previousFromRef ?? c.fromPortRef
+					updated.previousToRef = c.previousToRef ?? c.toPortRef
+				}
+				if (updated.status === 'change' && updated.previousFromRef && updated.previousToRef
+					&& this.sameRef(updated.fromPortRef, updated.previousFromRef)
+					&& this.sameRef(updated.toPortRef, updated.previousToRef)) {
+					updated.status = 'installed'
+					delete updated.previousFromRef
+					delete updated.previousToRef
+				}
+				if (!updated.lengthLocked && (updates.fromPortRef || updates.toPortRef)) {
+					const len = calculateCableLength(updated.fromPortRef, updated.toPortRef, $state.snapshot(this.racks), $state.snapshot(this.devices))
+					if (len > 0) updated.lengthMeters = len
+				}
+				// Cable-type edits teach the sticky default
+				if (updates.cableType) this.stickyCable = { ...this.stickyCable, type: updates.cableType }
+				return updated
+			})
+		})
+	}
+
+	/** Soft delete: never-installed 'add' cords are removed; others flip to 'remove'. */
+	deleteConnections(ids: string[]) {
+		const idSet = new Set(ids)
+		const purge: string[] = []
+		this.mutatePatch('remove', `${ids.length} connection(s)`, () => {
+			this.connections = this.connections.map(c => {
+				if (!idSet.has(c.id)) return c
+				if (c.status === 'add') { purge.push(c.id); return c }
+				return { ...c, status: 'remove' as const, previousStatus: c.previousStatus ?? c.status }
+			}).filter(c => !purge.includes(c.id))
+		})
+		if (this.selectedConnectionId && idSet.has(this.selectedConnectionId)) this.selectedConnectionId = null
+	}
+
+	restoreConnections(ids: string[]) {
+		const idSet = new Set(ids)
+		this.mutatePatch('restore', `${ids.length} connection(s)`, () => {
+			this.connections = this.connections.map(c => {
+				if (!idSet.has(c.id) || c.status !== 'remove') return c
+				const restored = { ...c, status: c.previousStatus ?? 'installed' }
+				delete restored.previousStatus
+				return restored
+			})
+		})
+	}
+
+	setConnectionStatus(ids: string[], status: PatchStatus) {
+		const idSet = new Set(ids)
+		this.mutatePatch('status', `${ids.length} → ${status}`, () => {
+			this.connections = this.connections.map(c => {
+				if (!idSet.has(c.id)) return c
+				const next: PatchConnection = { ...c, status, previousStatus: status === 'remove' ? (c.previousStatus ?? c.status) : c.previousStatus }
+				if (status === 'installed') {
+					delete next.previousFromRef
+					delete next.previousToRef
+					delete next.previousStatus
+				}
+				return next
+			})
+		})
+		this.stickyCable = { ...this.stickyCable, status: status === 'remove' ? this.stickyCable.status : status }
+	}
+
+	purgeRemoved() {
+		const count = this.removedCount
+		if (count === 0) return
+		this.mutatePatch('purge', `${count} removed`, () => {
+			this.connections = this.connections.filter(c => c.status !== 'remove')
+		})
+	}
+
 	// ── Port selection ──
 
 	selectPort(deviceId: string, portIndex: number) {
 		this.selectedPort = { deviceId, portIndex }
 		this.selection = new Set()
+		// In select mode, clicking a patched port also selects its cord
+		const conn = this.portConnMap.get(`${deviceId}:${portIndex}`)
+		this.selectedConnectionId = conn?.id ?? null
 	}
 
 	clearPortSelection() { this.selectedPort = null }

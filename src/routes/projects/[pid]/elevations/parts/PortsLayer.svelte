@@ -137,17 +137,33 @@
 				{@const isSel = selectedKey === `${device.id}:${c.index}`}
 				<!-- svelte-ignore a11y_click_events_have_key_events -->
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				{@const conn = editor.portConnMap.get(`${device.id}:${c.index}`)}
+				{@const isArmed = editor.patchArm?.deviceId === device.id && editor.patchArm?.portIndex === c.index}
+				{@const patchBlocked = editor.mode === 'patch' && !c.label && !conn}
 				<g
 					style:pointer-events={l.interactive ? 'all' : 'none'}
-					style:cursor={l.interactive ? 'pointer' : 'default'}
+					style:cursor={l.interactive ? (patchBlocked ? 'not-allowed' : 'pointer') : 'default'}
 					onmousedown={e => { if (l.interactive && e.button === 0) { e.stopPropagation(); e.preventDefault() } }}
-					onclick={e => { if (l.interactive) { e.stopPropagation(); editor.selectPort(device.id, c.index) } }}>
+					onclick={e => {
+						if (!l.interactive) return
+						e.stopPropagation()
+						if (editor.mode === 'patch') editor.patchPortClick(rack.id, device.id, c.index)
+						else editor.selectPort(device.id, c.index)
+					}}>
 					<title>{tooltip(c, device)}</title>
 					<rect x={c.x} y={c.y} width={c.w} height={c.h} rx={0.8}
 						fill={cellFill(c)}
-						stroke={isSel ? '#3b82f6' : c.label ? '#9ca3af80' : '#d1d5db'}
-						stroke-width={isSel ? 2 / zoom : 0.5 / zoom}
+						fill-opacity={patchBlocked ? 0.35 : 1}
+						stroke={isArmed ? '#22c55e' : isSel ? '#3b82f6' : c.label ? '#9ca3af80' : '#d1d5db'}
+						stroke-width={isArmed || isSel ? 2 / zoom : 0.5 / zoom}
 						stroke-dasharray={!c.label && c.reservation ? '2 1.5' : undefined} />
+					{#if conn}
+						<circle cx={c.x + c.w / 2} cy={c.y + c.h - Math.min(2, c.h * 0.15)}
+							r={Math.min(1.6, c.w * 0.12)}
+							fill={conn.cableColor || '#3b82f6'}
+							stroke={editor.duplicatePorts.has(`${device.id}:${c.index}`) ? '#ef4444' : 'white'}
+							stroke-width={0.4} />
+					{/if}
 					{#if c.reservation && c.label}
 						<rect x={c.x} y={c.y} width={c.w} height={Math.min(1.5, c.h * 0.12)}
 							fill={PORT_TYPE_COLORS[c.reservation] ?? '#9ca3af'} />

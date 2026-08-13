@@ -22,7 +22,10 @@
 	import PanZoomCanvas from '$lib/panzoom/PanZoomCanvas.svelte'
 	import Inspector from './parts/Inspector.svelte'
 	import PortsLayer from './parts/PortsLayer.svelte'
+	import CordsLayer from './parts/CordsLayer.svelte'
 	import PanelDetailStrip from './parts/PanelDetailStrip.svelte'
+	import PatchListPane from '../patching/parts/PatchListPane.svelte'
+	import { CABLE_TYPES } from '../patching/parts/constants'
 	import ConfigPanel from '../frames/parts/ConfigPanel.svelte'
 	import LocationList from '../frames/parts/LocationList.svelte'
 	import { ElevationsEditor, type SidebarTab } from './editor.svelte'
@@ -32,9 +35,10 @@
 	import { fmtFloor } from '$lib/utils/floor'
 	import type { FloorConfig } from '$lib/types/project'
 
-	let { data = null, framesData = null, library = [], floor, room, floors = [], projectId = '', projectName = '', floorFormat = 'L01', drawingId = '', db = new Firestore(), uid = '', onsave, onsaveframes, onlibrarychange, onfloorchange, onroomchange, onupdatefloors, ondeletefloor, bare = false }: {
+	let { data = null, framesData = null, patchingData = null, library = [], floor, room, floors = [], projectId = '', projectName = '', floorFormat = 'L01', drawingId = '', db = new Firestore(), uid = '', onsave, onsaveframes, onsavepatching, onlibrarychange, onfloorchange, onroomchange, onupdatefloors, ondeletefloor, bare = false }: {
 		data?: any
 		framesData?: any
+		patchingData?: any
 		library?: DeviceTemplate[]
 		floor: number
 		room: string
@@ -47,6 +51,7 @@
 		uid?: string
 		onsave?: (payload: any, changes: ChangeDetail[]) => void
 		onsaveframes?: (payload: any, changes: ChangeDetail[]) => void
+		onsavepatching?: (payload: any, changes: ChangeDetail[]) => void
 		onlibrarychange?: (templates: DeviceTemplate[]) => void
 		onfloorchange?: (floor: number) => void
 		onroomchange?: (room: string) => void
@@ -59,6 +64,7 @@
 	const editor = new ElevationsEditor({
 		onsave: (payload, changes) => onsave?.(payload, changes),
 		onsaveframes: (payload, changes) => onsaveframes?.(payload, changes),
+		onsavepatching: (payload, changes) => onsavepatching?.(payload, changes),
 	})
 
 	// Keep editor context + remote data in sync. Track only the props — the
@@ -75,6 +81,10 @@
 	$effect(() => {
 		const fd = framesData
 		untrack(() => editor.syncFrames(fd))
+	})
+	$effect(() => {
+		const pd = patchingData
+		untrack(() => editor.syncPatching(pd))
 	})
 	$effect(() => {
 		const cfg = floors.find(f => f.number === floor)?.serverRoomCount ?? 1
@@ -99,6 +109,7 @@
 	})
 	let floorManagerOpen = $state(false)
 	let versionPanelOpen = $state(false)
+	let listPaneOpen = $state(false)
 	let confirmingDeleteRow = $state<string | null>(null)
 	let confirmingDeleteRacks = $state(false)
 
@@ -386,8 +397,12 @@
 		}
 		if (e.key === '1') { fitRow(); return }
 		if (e.key === '2') { if (editor.focus) fitFocus(); return }
+		if (e.key === 'p' || e.key === 'P') { editor.mode = 'patch'; return }
+		if (e.key === 'v' || e.key === 'V') { editor.mode = 'select'; editor.patchArm = null; editor.statusHint = null; return }
 		if (e.key === 'Delete' || e.key === 'Backspace') {
-			if (editor.selectedRacks.length > 0) {
+			if (editor.selectedConnectionId) {
+				editor.deleteConnections([editor.selectedConnectionId])
+			} else if (editor.selectedRacks.length > 0) {
 				// Racks cascade their devices — confirm first.
 				confirmingDeleteRacks = true
 			} else if (editor.selectedDevices.length > 0) {
@@ -396,10 +411,21 @@
 			return
 		}
 		if (e.key === 'Escape') {
-			// Cascade: dialog → selection/port → focus (back to row view)
+			// Cascade: dialog → patch arm → selection/port/cord → focus (row view)
 			if (confirmingDeleteRacks) { confirmingDeleteRacks = false; return }
-			if (editor.selection.size > 0 || editor.selectedPort) { editor.clearSelection(); return }
+			if (editor.patchArm) { editor.patchArm = null; editor.statusHint = null; return }
+			if (editor.selection.size > 0 || editor.selectedPort || editor.selectedConnectionId) { editor.clearSelection(); return }
 			if (editor.focus) { editor.popFocus(); fitRow() }
+		}
+	}
+
+	/** Track cursor in unscaled canvas coords for the patch rubber band. */
+	function onCanvasMouseMove(e: MouseEvent) {
+		if (!editor.patchArm || !canvasEl) return
+		const rect = canvasEl.getBoundingClientRect()
+		editor.cursor = {
+			x: (e.clientX - rect.left - editor.view.x) / editor.view.zoom,
+			y: (e.clientY - rect.top - editor.view.y) / editor.view.zoom,
 		}
 	}
 
@@ -647,6 +673,41 @@
 						</button>
 					</div>
 
+					<div class="w-px h-4 bg-gray-200"></div>
+
+					<!-- Mode -->
+					<div class="flex rounded border border-gray-200 overflow-hidden" role="radiogroup" aria-label="Mode">
+						{#each [['select', 'Select', 'V'], ['patch', 'Patch', 'P']] as [m, label, key]}
+							<button
+								class="px-2.5 h-6 text-[11px] font-medium transition-colors
+									{editor.mode === m ? (m === 'patch' ? 'bg-emerald-500 text-white' : 'bg-blue-500 text-white') : 'bg-white text-gray-500 hover:bg-gray-100'}"
+								title="{label} mode ({key})"
+								onclick={() => { editor.mode = m as 'select' | 'patch'; editor.patchArm = null; editor.statusHint = null }}
+							>{label}</button>
+						{/each}
+					</div>
+
+					{#if editor.mode === 'patch'}
+						<select class="h-6 px-1 text-[11px] border border-gray-200 rounded bg-white max-w-32"
+							title="Cable type for new cords"
+							value={editor.stickyCable.type}
+							onchange={e => editor.stickyCable = { ...editor.stickyCable, type: e.currentTarget.value }}>
+							{#each CABLE_TYPES as ct}
+								<option value={ct.id}>{ct.label}</option>
+							{/each}
+							{#each editor.customCableTypes as ct}
+								<option value={ct.id}>{ct.label}</option>
+							{/each}
+						</select>
+						<select class="h-6 px-1 text-[11px] border border-gray-200 rounded bg-white"
+							title="Status for new cords"
+							value={editor.stickyCable.status}
+							onchange={e => editor.stickyCable = { ...editor.stickyCable, status: e.currentTarget.value as any }}>
+							<option value="add">Add</option>
+							<option value="installed">Installed</option>
+						</select>
+					{/if}
+
 					<div class="flex-1"></div>
 
 					<!-- Face toggle -->
@@ -703,7 +764,7 @@
 					<!-- svelte-ignore a11y_click_events_have_key_events -->
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<div class="flex-1 min-w-0 relative overflow-hidden" onclick={() => { if (!editor.view.dragging) editor.clearSelection() }}
-						ondblclick={onCanvasDblClick} bind:this={canvasEl}
+						ondblclick={onCanvasDblClick} onmousemove={onCanvasMouseMove} bind:this={canvasEl}
 						bind:clientWidth={canvasWidth} bind:clientHeight={canvasHeight}>
 						<PanZoomCanvas bind:view={editor.view} width={canvasWidth} height={canvasHeight}
 							singleTouchPan canPanAt={(t) => !(t as Element | null)?.closest?.('.drag')}
@@ -726,6 +787,7 @@
 								ondeletedevice={id => editor.deleteDevice(id)}
 								onselectdevice={id => editor.select(id)} />
 							<PortsLayer {editor} />
+							<CordsLayer {editor} />
 							<!-- Focus dimming: non-focused racks fade; pointer-events pass through -->
 							{#if editor.focus}
 								{#each faceRacks.filter(r => !editor.focusedRackIds.has(r.id)) as rack (rack.id)}
@@ -746,13 +808,51 @@
 
 				<PanelDetailStrip {editor} onclose={() => editor.clearSelection()} />
 
+				<!-- Patch list (collapsible bottom panel) -->
+				<div class="border-t border-gray-200 bg-white shrink-0 print:hidden">
+					<button class="w-full h-6 px-2 flex items-center gap-2 text-[11px] bg-gray-50 hover:bg-gray-100 transition-colors"
+						onclick={() => listPaneOpen = !listPaneOpen}>
+						<Icon name={listPaneOpen ? 'chevronDown' : 'chevronUp'} size={12} />
+						<span class="font-semibold text-gray-600">Patch list</span>
+						<span class="text-gray-400">{editor.connections.length} cord{editor.connections.length !== 1 ? 's' : ''}{editor.removedCount ? ` · ${editor.removedCount} marked remove` : ''}</span>
+						<div class="flex-1"></div>
+						{#if editor.orphanedIds.size > 0}
+							<span class="text-amber-500">{editor.orphanedIds.size} orphaned</span>
+						{/if}
+					</button>
+					{#if listPaneOpen}
+						<div class="h-56 overflow-hidden">
+							<PatchListPane
+								connections={editor.connections}
+								racks={editor.racks}
+								devices={editor.devices}
+								customCableTypes={editor.customCableTypes}
+								orphanedIds={editor.orphanedIds}
+								selectedConnectionId={editor.selectedConnectionId}
+								removedCount={editor.removedCount}
+								portInfoMap={editor.portInfo}
+								onselect={id => editor.selectConnection(id)}
+								ontoggle={() => listPaneOpen = false}
+								onsetstatus={(ids, s) => editor.setConnectionStatus(ids, s)}
+								ondelete={ids => editor.deleteConnections(ids)}
+								onrestore={ids => editor.restoreConnections(ids)}
+								onpurge={() => editor.purgeRemoved()}
+								onupdate={(id, u) => editor.updateConnection(id, u)} />
+						</div>
+					{/if}
+				</div>
+
 				<!-- Status bar -->
 				<div class="h-7 flex items-stretch border-t border-gray-200 bg-gray-50 shrink-0 print:hidden">
 					<FloorTabs {floors} {floor} {floorFormat} {onfloorchange} onmanage={() => floorManagerOpen = true} />
 					<div class="flex-1"></div>
 					<div class="flex items-center gap-4 px-3 text-[10px] text-gray-400">
-						{#if innerWidth > 1200}
-							<span class="text-gray-500">Ctrl+Scroll zoom · Right-drag pan · F front/rear · Ctrl+drag copies</span>
+						{#if editor.statusHint}
+							<span class="text-emerald-600 font-medium">{editor.statusHint}</span>
+						{:else if editor.mode === 'patch'}
+							<span class="text-emerald-600">Patch mode — click two labeled ports to connect · Esc to exit</span>
+						{:else if innerWidth > 1200}
+							<span class="text-gray-500">Ctrl+Scroll zoom · Right-drag pan · F front/rear · P patch mode · Ctrl+drag copies</span>
 						{/if}
 						<span>{editor.activeRacks.length} rack{editor.activeRacks.length !== 1 ? 's' : ''} · {editor.devices.length} device{editor.devices.length !== 1 ? 's' : ''}</span>
 						<span>Zoom: {Math.round(editor.view.zoom * 100)}%</span>

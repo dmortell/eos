@@ -74,6 +74,19 @@
 		return () => { unsub?.() }
 	})
 
+	// Patching doc for the active floor+room (same doc the Patching tool edits)
+	let patchingData: any = $state(null)
+	$effect(() => {
+		const pid = page.params.pid
+		const fl = activeFloor
+		const rm = activeRoom
+		if (!pid) return
+		const unsub = db.subscribeOne('patching', docId(fl, rm), (data: any) => {
+			patchingData = data
+		})
+		return () => { unsub?.() }
+	})
+
 	// Project-level device library (shared with the Racks tool)
 	$effect(() => {
 		const pid = page.params.pid
@@ -159,6 +172,17 @@
 		db.save('racks', { id: `${pid}_library`, templates })
 	}
 
+	/** Patch cord edits → patching doc. */
+	function savePatching(payload: any, changes: import('$lib/logger').ChangeDetail[]) {
+		const pid = page.params.pid
+		if (!pid) return
+		db.save('patching', { id: docId(), ...payload, floor: activeFloor, room: activeRoom })
+		if (changes?.length) {
+			const uid = session?.user?.uid ?? 'unknown'
+			writeLog(pid, 'patching', uid, changes, { floor: activeFloor, room: activeRoom })
+		}
+	}
+
 	/** Location edits → frames doc (merge, so labelFormat/reservations/etc. are preserved). */
 	function saveFrames(payload: any, changes: import('$lib/logger').ChangeDetail[]) {
 		const pid = page.params.pid
@@ -176,8 +200,8 @@
 		<Spinner>Loading elevations...</Spinner>
 	</div>
 {:else}
-	<Elevations data={rackData} {framesData} {library} floor={activeFloor} room={activeRoom} {floors} projectId={page.params.pid} {floorFormat} {projectName}
+	<Elevations data={rackData} {framesData} {patchingData} {library} floor={activeFloor} room={activeRoom} {floors} projectId={page.params.pid} {floorFormat} {projectName}
 		{drawingId} {db} uid={session.user?.uid ?? ''}
-		onsave={save} onsaveframes={saveFrames} onlibrarychange={saveLibrary} onfloorchange={changeFloor} onroomchange={changeRoom}
+		onsave={save} onsaveframes={saveFrames} onsavepatching={savePatching} onlibrarychange={saveLibrary} onfloorchange={changeFloor} onroomchange={changeRoom}
 		onupdatefloors={updateFloors} ondeletefloor={deleteFloor} />
 {/if}
