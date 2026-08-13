@@ -1,7 +1,13 @@
 # Plan: Racks Tool — Rack Elevation & Device Placement
 
 ## Context
-The Frames tool handles port labeling and patch panel allocation. The Racks tool is the visual companion: interactive rack elevation drawings where users place devices (patch panels, switches, servers, cable managers) into racks, configure device properties, and visualize server room layouts. It also supports desk elevations for trading desks. Sample components already exist in `racks/sample-parts/` and provide a working foundation for Panzoom, Draggable, RackFrameSvg, Device, and Sidebar.
+The Frames tool (src\routes\projects\[pid]\frames) handles port labeling and patch panel port allocations. Patch panel ports can be linked to floor outlet boxes (usually matching outlet labels on project floorplans in the Outlets tool) or panels in other racks. Network/server and other devices can optionally have their ports labelled and re-ordered to match the physical device.
+
+The Patching tool (src\routes\projects\[pid]\patching) is a visual tool to create patch lists of patch cords between network/server devices and patch panels.
+
+The Outlets tool (src\routes\projects\[pid]\outlets) allows placing copper/fiber LAN outlets on floorplans and defining the cable and outlets types and number of ports required. Cable trunk routes can be defined for routing the cables back to various server room racks and patch panels.
+
+The Racks tool (src\routes\projects\[pid]\racks) is the visual companion: interactive rack elevation drawings where users place devices (patch panels, switches, servers, cable managers) into racks, configure device properties, and visualize server room layouts. It also supports desk elevations for user desks and shelves. Sample components already exist in `racks/sample-parts/` and provide a working foundation for Panzoom, Draggable, RackFrameSvg, Device, and Sidebar.
 
 ## Scope
 - Floor → server room → row → rack hierarchy

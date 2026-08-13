@@ -1,5 +1,5 @@
 import { collection, doc, setDoc, getDocs, query, orderBy, limit as fbLimit, serverTimestamp, type DocumentData, type Timestamp } from 'firebase/firestore'
-import { firestore } from './db.svelte'
+import { firestore, sanitizeFirestoreData } from './db.svelte'
 
 export interface LogEntry {
 	id?: string
@@ -27,13 +27,15 @@ export interface ChangeDetail {
 export async function writeLog(projectId: string, tool: string, uid: string, changes: ChangeDetail[], extra?: Record<string, unknown>) {
 	if (!changes.length) return
 	const colRef = collection(firestore, 'logs', projectId, tool)
-	const entry: DocumentData = {
+	// Firestore rejects undefined field values — sanitize like db.save() does,
+	// so a caller passing e.g. `{ field: undefined }` doesn't lose the log entry.
+	const entry: DocumentData = sanitizeFirestoreData({
 		timestamp: serverTimestamp(),
 		uid,
 		tool,
 		changes,
 		...extra,
-	}
+	})
 	await setDoc(doc(colRef), entry).catch(err => console.warn('Log write failed:', err))
 }
 

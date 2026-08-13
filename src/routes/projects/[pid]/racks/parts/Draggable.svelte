@@ -45,9 +45,12 @@
 	function onMouseMove(ev: MouseEvent | TouchEvent) {
 		if (!start) return
 		const p = getPoint(ev)
+		if ('ctrlKey' in ev) ctrlHeld = ev.ctrlKey
+		// Click slop: ignore sub-3px jitter so a click with a stray mousemove
+		// (trackpad twitch, synthetic events) stays a click, not a 0px drag-commit.
+		if (!dragging && Math.abs(p.x - start.x) < 3 && Math.abs(p.y - start.y) < 3) return
 		dx = (p.x - start.x) / zoom
 		dy = (p.y - start.y) / zoom
-		if ('ctrlKey' in ev) ctrlHeld = ev.ctrlKey
 		dragging = true
 		onDrag?.(rect, p, item)
 	}

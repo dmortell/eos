@@ -641,6 +641,9 @@ Support markdown and rendering.
     direction, layer, and scope options) instead of a bare button crammed into the tool row, and tidy
     the panels generally. Cosmetic — do after the DXF feature set stabilises.
 
+44. Consolidate Racks, Frames, Patching tools (and Outlets) into a new Elevations tool
+ This project includes 3 tools, Frames, Patching and Racks, primarily for allowing project managers and network engineers to design and manage server room racks and patch frames and all cabling and patch connections. after trying to prepare a simple patch list, I noticed some bugs and difficulty using the tools. First, with 3 separate tools, it requires a lot of switching back and forth between the different tools to set up devices and patch panels, label ports, then visually add patch cords. I really want to simplify these into one tool (lets call it the Elevations tool), that first shows the racks in a row allowing placing devices, then zooming into one rack to focus on detailed edits, and also allowing patching between devices in one or two selected racks. Analyse these tools as well as the Outlets tool and develop a detailed implementation plan for the new Elevations tool, focusing on good UX and UI. There are multiple markdown files in each folder providing additional information and ideas, but as each tools was developed indepentently, they are currently inconsistent (rack & device drawing styles, menus and toolbars, etc). let me know if any questions
+
 Recently-fixed bugs (ad-hoc, from testing):
 - ✅ Creating/selecting an item left a prior multi-selection highlighted — select() now does an
   exclusive single-select (clears this editor's multi + the peer's sel+multi). Covers objects too.

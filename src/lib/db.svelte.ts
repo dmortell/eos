@@ -104,7 +104,7 @@ function isPlainObject(obj: any): boolean {
  * intact — otherwise a Timestamp would be flattened into a bare `{seconds, nanoseconds}`
  * map (losing `.toDate()`) and serverTimestamp() into an empty `{}`.
  */
-function sanitizeFirestoreData(obj: any): any {
+export function sanitizeFirestoreData(obj: any): any {
     if (Array.isArray(obj)) return obj.map(sanitizeFirestoreData)
     if (isPlainObject(obj)) {
         const out: any = {}
