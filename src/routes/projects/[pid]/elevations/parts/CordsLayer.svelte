@@ -12,9 +12,14 @@
 	import { getCableType } from '../../patching/parts/constants'
 	import { SCALE, RU_HEIGHT_MM, DEVICE_W_MM } from '../../racks/parts/constants'
 
-	let { editor }: { editor: ElevationsEditor } = $props()
+	let { editor, visible = true }: { editor: ElevationsEditor; visible?: boolean } = $props()
 
 	let zoom = $derived(editor.view.zoom)
+	/** Hidden cords still render the selected one so patch-list → canvas
+	 *  navigation works with the toggle off. */
+	let shownConnections = $derived(visible
+		? editor.elevationConnections
+		: editor.elevationConnections.filter(c => c.id === editor.selectedConnectionId))
 	let rackList = $derived(editor.face === 'rear' ? editor.rearRacks : editor.activeRacks)
 	let rackById = $derived(new Map(rackList.map(r => [r.id, r])))
 	let deviceById = $derived(new Map(editor.devices.map(d => [d.id, d])))
@@ -89,7 +94,7 @@
 
 <svg class="absolute inset-0 overflow-visible" style:z-index="5" style:pointer-events="none"
 	width={editor.view.width} height={editor.view.height}>
-	{#each editor.elevationConnections as c (c.id)}
+	{#each shownConnections as c (c.id)}
 		{@const d = route(c)}
 		{#if d}
 			{@const selected = editor.selectedConnectionId === c.id}

@@ -118,6 +118,15 @@
 	let floorManagerOpen = $state(false)
 	let versionPanelOpen = $state(false)
 	let listPaneOpen = $state(false)
+	/** Cords visibility toggle — Patch mode always shows them regardless. */
+	let showCords = $state(true)
+	onMount(() => {
+		try { showCords = localStorage.getItem(`elevations-cords-${projectId}`) !== '0' } catch {}
+	})
+	$effect(() => {
+		try { localStorage.setItem(`elevations-cords-${projectId}`, showCords ? '1' : '0') } catch {}
+	})
+	let cordsVisible = $derived(showCords || editor.mode === 'patch')
 	let patchSettingsOpen = $state(false)
 	let importStatus = $state<string | null>(null)
 	let importInput: HTMLInputElement | undefined = $state()
@@ -795,6 +804,14 @@
 
 					<div class="w-px h-4 bg-gray-200"></div>
 
+					<button class="p-1 rounded transition-colors {cordsVisible ? 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100' : 'text-gray-400 hover:bg-gray-200'}"
+						title={editor.mode === 'patch'
+							? 'Patch cords (always shown in Patch mode)'
+							: showCords ? 'Hide patch cords' : 'Show patch cords'}
+						onclick={() => showCords = !showCords}>
+						<Icon name="cable" size={14} />
+					</button>
+
 					<button class="p-1 rounded text-gray-500 hover:bg-gray-200 disabled:opacity-30 disabled:hover:bg-transparent"
 						disabled={!editor.history.canUndo} title="Undo (Ctrl+Z)" onclick={() => editor.undo()}>
 						<Icon name="undo" size={14} />
@@ -881,7 +898,7 @@
 								ondeletedevice={id => editor.deleteDevice(id)}
 								onselectdevice={id => editor.select(id)} />
 							<PortsLayer {editor} />
-							<CordsLayer {editor} />
+							<CordsLayer {editor} visible={cordsVisible} />
 							<!-- Focus dimming: non-focused racks fade; pointer-events pass through -->
 							{#if editor.focus}
 								{#each faceRacks.filter(r => !editor.focusedRackIds.has(r.id)) as rack (rack.id)}
