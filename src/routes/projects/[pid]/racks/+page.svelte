@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { replaceState } from '$app/navigation';
+	import { replaceState, goto } from '$app/navigation';
 	import { getContext } from 'svelte';
 	import { Firestore, Spinner, Session } from '$lib';
 	import { writeLog } from '$lib/logger';
@@ -9,6 +9,19 @@
 	import { RACK_VIEWS, RACK_VIEW_DEFAULT, viewFromMask, type RackView } from './parts/types';
 	import { findOrCreateDrawing } from '$lib/versioning/service';
 	import Racks from './Racks.svelte';
+
+	// Phase 5 cutover (elevations-plan.md): the Elevations tool supersedes this
+	// one for front/rear editing. Plan view is not ported yet, so ?view=plan
+	// stays here; ?legacy=1 keeps the old tool reachable during the soak period.
+	{
+		const sp = page.url.searchParams
+		if (sp.get('legacy') !== '1' && sp.get('view') !== 'plan') {
+			const q = new URLSearchParams()
+			if (sp.get('floor')) q.set('floor', sp.get('floor')!)
+			if (sp.get('room')) q.set('room', sp.get('room')!)
+			goto(`/projects/${page.params.pid}/elevations${q.size ? `?${q}` : ''}`, { replaceState: true })
+		}
+	}
 
 	let db = new Firestore();
 	let session = getContext('session') as Session;

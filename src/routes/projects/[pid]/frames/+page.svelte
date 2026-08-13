@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { replaceState } from '$app/navigation';
+	import { replaceState, goto } from '$app/navigation';
 	import { getContext } from 'svelte';
 	import { Firestore, Spinner, Session } from '$lib';
 	import { writeLog } from '$lib/logger';
@@ -9,6 +9,17 @@
 	import { migrateFloors, updateFloors as _updateFloors, deleteFloor as _deleteFloor } from '$lib/utils/floor';
 	import { findOrCreateDrawing } from '$lib/versioning/service';
 	import Frames from './Frames.svelte';
+
+	// Phase 5 cutover (elevations-plan.md): Elevations covers frame viewing,
+	// locations and reservations. ?legacy=1 keeps this tool reachable (soak).
+	{
+		const sp = page.url.searchParams
+		if (sp.get('legacy') !== '1') {
+			const q = new URLSearchParams()
+			if (sp.get('floor')) q.set('floor', sp.get('floor')!)
+			goto(`/projects/${page.params.pid}/elevations${q.size ? `?${q}` : ''}`, { replaceState: true })
+		}
+	}
 
 	let db = new Firestore();
 	let session = getContext('session') as Session;

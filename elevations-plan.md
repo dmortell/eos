@@ -438,7 +438,9 @@ cord Inspector section)
 - Exit criteria: a full patch list can be built without ever leaving the tool — the
   original complaint resolved.
 
-### Phase 4 — Label & reservation tools + print/export *(~3–4 sessions)*
+### Phase 4 — Label & reservation tools + print/export ✅ core done 2026-08-15
+(commits b62b82a, af29388; deferred: §3.7 assign dialogs, sticky portAssignments,
+label-format template, DXF — see tracker)
 - Block-select ports → assign toolbar (§3.7): auto-generate / assign-to-location / manual /
   clear — Frames' drag-select logic ported to the LOD grid + panel detail strip.
 - **Sticky allocation**: `portAssignments` map in the frames doc; generation fills only
@@ -450,7 +452,8 @@ cord Inspector section)
   export button here.
 - Excel exports: frames-style panel labels export + rack BOM (reuse existing exporters).
 
-### Phase 5 — Cutover *(~1 session + soak)*
+### Phase 5 — Cutover ✅ soft cutover done 2026-08-15 (legacy routes redirect
+with ?legacy=1 escape; racks keeps ?view=plan; no code deleted yet — soak first)
 - `/racks`, `/frames`, `/patching` routes redirect to `/elevations?…` (racks' plan view
   keeps a temporary `/racks?view=plan` escape hatch until the outlets-floorplan migration).
 - Workspace views swap to embedding `Elevations bare` (or are removed).
@@ -560,9 +563,24 @@ focus as a stack (§3.2). Target: **Phase 6, after the Phase 5 cutover**; the st
 
 ### Session追記 (3b)
 - Fixed: PatchListPane `rowRefs` bind:this non-reactive warning (now $state).
-- [ ] **AutoSave echo race (suspected)**: undoing a just-created cord showed 15 locally
+- [x] **AutoSave echo race** — fixed dcac466 (echo ring of last 8 saves). Was:: undoing a just-created cord showed 15 locally
       but the patching doc kept 16 — an in-flight Firestore echo of the previous save may
       be applied as a "genuine remote change" (shouldApplyRemote only remembers the LAST
       saved payload). Reproduce: create → save → undo within ~1–2s. Consider keeping a
       short history of recent saved payload hashes, or verifying with a doc-version field.
       (One stray test cord "L01.A.007-A02 ↔ U34, U/UTP, add" left in Test Project room A.)
+
+### Session追記 (overnight run, 2026-08-15)
+- Fixed: AutoSave echo race (dcac466). Phase 4a reservations/block-select (b62b82a).
+  Phase 4b label-sheet Excel export in Locations tab (af29388). Phase 5 soft cutover:
+  /racks (except ?view=plan), /frames, /patching redirect to /elevations; ?legacy=1
+  escape hatch; tools list marks legacy entries.
+- [ ] Sticky allocation (`portAssignments`) + §3.7 assign/auto-generate dialogs — the
+  remaining Phase 4 items; next major work.
+- [ ] Label-format template (per-project), DXF export (needs sheets rack-layout unfork).
+- [ ] Old-tool cross-links (e.g. "Open in Frames tool") now land on /elevations without
+  frame context — wire ?frame= to focus the rack + open Locations.
+- [ ] Stray test cord in Test Project room A (L01.A.007-A02 ↔ U34, U/UTP, add) — delete
+  via patch list, or ignore (practice project).
+- [ ] Browser-verify overnight work: reservations bar (Ctrl+click ports), label export,
+  redirects from all three legacy routes, ?legacy=1 escape.
