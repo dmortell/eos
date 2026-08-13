@@ -34,6 +34,8 @@
 	import { subscribeCatalog, saveCustomProduct, deleteCustomProduct } from '$lib/catalog/service'
 	import type { CatalogProduct } from '$lib/catalog/types'
 	import FloorManagerDialog from '$lib/components/FloorManagerDialog.svelte'
+	import { DEFAULT_LOC_TYPES } from '../frames/parts/types'
+	import { LOC_TYPE_COLORS, LOC_TYPE_LABELS } from '$lib/elevation/loc-colors'
 	import { fmtFloor } from '$lib/utils/floor'
 	import type { FloorConfig } from '$lib/types/project'
 
@@ -420,7 +422,9 @@
 		if (e.key === 'p' || e.key === 'P') { editor.mode = 'patch'; return }
 		if (e.key === 'v' || e.key === 'V') { editor.mode = 'select'; editor.patchArm = null; editor.statusHint = null; return }
 		if (e.key === 'Delete' || e.key === 'Backspace') {
-			if (editor.selectedConnectionId) {
+			if (editor.selectedPorts.size > 0) {
+				editor.removeReservation()
+			} else if (editor.selectedConnectionId) {
 				editor.deleteConnections([editor.selectedConnectionId])
 			} else if (editor.selectedRacks.length > 0) {
 				// Racks cascade their devices — confirm first.
@@ -434,6 +438,7 @@
 			// Cascade: dialog → patch arm → selection/port/cord → focus (row view)
 			if (confirmingDeleteRacks) { confirmingDeleteRacks = false; return }
 			if (editor.patchArm || editor.rerouteState) { editor.patchArm = null; editor.rerouteState = null; editor.statusHint = null; return }
+			if (editor.selectedPorts.size > 0) { editor.clearPortBlock(); return }
 			if (editor.selection.size > 0 || editor.selectedPort || editor.selectedConnectionId) { editor.clearSelection(); return }
 			if (editor.focus) { editor.popFocus(); fitRow() }
 		}
@@ -777,6 +782,29 @@
 						{/each}
 						<div class="flex-1"></div>
 						<span class="text-gray-400">Esc: back to row · Shift+dbl-click: add rack</span>
+					</div>
+				{/if}
+
+				<!-- Block-assign bar: appears while ports are multi-selected (Ctrl+click) -->
+				{#if editor.selectedPorts.size > 0}
+					<div class="h-7 px-2 flex items-center gap-1.5 border-b border-purple-200 bg-purple-50 text-[11px] shrink-0 print:hidden">
+						<span class="font-semibold text-purple-700">{editor.selectedPorts.size} port{editor.selectedPorts.size !== 1 ? 's' : ''}</span>
+						<span class="text-purple-400">reserve as:</span>
+						{#each [...DEFAULT_LOC_TYPES.filter(t => t !== 'N/A'), ...(editor.framesData?.customLocationTypes ?? [])] as t}
+							<button
+								class="px-1.5 h-5 rounded border text-[10px] font-mono {LOC_TYPE_COLORS[t] ?? 'bg-gray-100 border-gray-200 text-gray-600'} hover:brightness-95"
+								title={LOC_TYPE_LABELS[t] ?? t}
+								onclick={() => editor.assignReservation(t)}
+							>{t}</button>
+						{/each}
+						<div class="w-px h-4 bg-purple-200"></div>
+						<button class="px-1.5 h-5 rounded border border-red-200 bg-white text-red-600 hover:bg-red-50 text-[10px]"
+							title="Remove reservation from selected ports (Del)"
+							onclick={() => editor.removeReservation()}>Remove</button>
+						<button class="px-1.5 h-5 rounded border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 text-[10px]"
+							onclick={() => editor.clearPortBlock()}>Deselect</button>
+						<div class="flex-1"></div>
+						<span class="text-purple-300">Ctrl+click ports to add · reservations steer label allocation</span>
 					</div>
 				{/if}
 

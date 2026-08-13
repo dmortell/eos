@@ -145,6 +145,7 @@
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				{@const conn = editor.portConnMap.get(`${device.id}:${c.index}`)}
 				{@const isArmed = editor.patchArm?.deviceId === device.id && editor.patchArm?.portIndex === c.index}
+				{@const isBlk = editor.selectedPorts.size > 0 && editor.isPortBlockSelected(rack.id, device.positionU, c.index)}
 				{@const patchBlocked = editor.mode === 'patch' && !c.label && !conn}
 				<g
 					style:pointer-events={l.interactive ? 'all' : 'none'}
@@ -153,14 +154,15 @@
 					onclick={e => {
 						if (!l.interactive) return
 						e.stopPropagation()
-						editor.handlePortClick(rack.id, device.id, c.index)
+						if (e.ctrlKey || e.metaKey) editor.togglePortBlock(rack.id, device.positionU, c.index)
+						else editor.handlePortClick(rack.id, device.id, c.index)
 					}}>
 					<title>{tooltip(c, device)}</title>
 					<rect x={c.x} y={c.y} width={c.w} height={c.h} rx={0.8}
 						fill={cellFill(c)}
 						fill-opacity={patchBlocked ? 0.35 : 1}
-						stroke={isArmed ? '#22c55e' : isSel ? '#3b82f6' : c.label ? '#9ca3af80' : '#d1d5db'}
-						stroke-width={isArmed || isSel ? 2 / zoom : 0.5 / zoom}
+						stroke={isArmed ? '#22c55e' : isBlk ? '#a855f7' : isSel ? '#3b82f6' : c.label ? '#9ca3af80' : '#d1d5db'}
+						stroke-width={isArmed || isSel || isBlk ? 2 / zoom : 0.5 / zoom}
 						stroke-dasharray={!c.label && c.reservation ? '2 1.5' : undefined} />
 					{#if conn}
 						<circle cx={c.x + c.w / 2} cy={c.y + c.h - Math.min(2, c.h * 0.15)}

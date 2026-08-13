@@ -15,7 +15,8 @@ import { buildPortInfoMap, buildReservationMap } from '$lib/elevation/portmap'
 import type {
 	RackConfig, DeviceConfig, DeviceTemplate, RackRow, RackSettings, RoomObject, ViewState, ElevationFace,
 } from '../racks/parts/types'
-import type { LocationConfig, LocType } from '../frames/parts/types'
+import type { LocationConfig, LocType, PortReservation } from '../frames/parts/types'
+import { portPosKey } from '../frames/parts/types'
 import type { PatchConnection, PortRef, CustomCableType, PatchSettings, PatchStatus } from '../patching/parts/types'
 import { DEFAULT_SETTINGS as DEFAULT_PATCH_SETTINGS } from '../patching/parts/types'
 import { getCableType } from '../patching/parts/constants'
@@ -62,6 +63,11 @@ export class ElevationsEditor {
 	framesData = $state<any>(null)
 	/** Locally-editable copy of zoneLocations (the Locations tab edits this). */
 	zoneLocations = $state<Record<string, LocationConfig[]>>({})
+	/** Locally-editable block reservations (frames doc). */
+	portReservations = $state<PortReservation[]>([])
+	private nextReservationId = 1
+	/** Multi-selected ports for block operations — keys are portPosKey (rackId:ru:row:col). */
+	selectedPorts = $state<Set<string>>(new Set())
 	activeZone = $state('A')
 	floorFormat = $state('L01')
 	/** Authoritative per-floor server-room count (projects.floors). */
@@ -161,7 +167,7 @@ export class ElevationsEditor {
 		return buildPortInfoMap(frameData, this.room, this.devices, this.racks, this.floor, this.serverRoomCountCfg, this.floorFormat)
 	})
 
-	reservationMap = $derived(buildReservationMap(this.framesData?.portReservations))
+	reservationMap = $derived(buildReservationMap(this.portReservations))
 
 	focusedRackIds = $derived(new Set(this.focus?.rackIds ?? []))
 
@@ -536,12 +542,19 @@ export class ElevationsEditor {
 
 	// ── Frames doc (labels + locations) ──
 
+	private framesPayload() {
+		return {
+			zoneLocations: $state.snapshot(this.zoneLocations),
+			portReservations: $state.snapshot(this.portReservations),
+		}
+	}
+
 	logFramesChange(action: string, field?: string, details?: string) {
 		const detail: ChangeDetail = { action }
 		if (field !== undefined) detail.field = field
 		if (details !== undefined) detail.details = details
 		this.pendingFramesChanges.push(detail)
-		this.framesAutosave.schedule(() => ({ zoneLocations: $state.snapshot(this.zoneLocations) }))
+		this.framesAutosave.schedule(() => this.framesPayload())
 	}
 
 	/** Apply a remote frames-doc snapshot (also the initial load). */
@@ -549,8 +562,11 @@ export class ElevationsEditor {
 		this.framesData = data
 		if (!data) return
 		if (data.floorFormat) this.floorFormat = data.floorFormat
-		if (!this.framesAutosave.shouldApplyRemote({ zoneLocations: data.zoneLocations ?? {} })) return
+		const comparable = { zoneLocations: data.zoneLocations ?? {}, portReservations: data.portReservations ?? [] }
+		if (!this.framesAutosave.shouldApplyRemote(comparable)) return
 		this.zoneLocations = data.zoneLocations ?? {}
+		this.portReservations = data.portReservations ?? []
+		this.nextReservationId = this.portReservations.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0) + 1
 		const zones = Object.keys(this.zoneLocations).filter(z => this.zoneLocations[z]?.length > 0).sort()
 		if (zones.length && !zones.includes(this.activeZone)) this.activeZone = zones[0]
 	}
@@ -942,6 +958,66 @@ export class ElevationsEditor {
 		this.mutatePatch('purge', `${count} removed`, () => {
 			this.connections = this.connections.filter(c => c.status !== 'remove')
 		})
+	}
+
+	// ── Block reservations (frames doc) ──
+
+	private mutateReservations(action: string, details: string | undefined, fn: () => void) {
+		const before = $state.snapshot(this.portReservations)
+		fn()
+		const after = $state.snapshot(this.portReservations)
+		const label = `${action} reservations${details ? `: ${details}` : ''}`
+		this.history.record({
+			label,
+			undo: () => { this.portReservations = before as PortReservation[]; this.logFramesChange('undo/redo', undefined, label) },
+			redo: () => { this.portReservations = after as PortReservation[]; this.logFramesChange('undo/redo', undefined, label) },
+		})
+		this.logFramesChange(action, 'reservations', details)
+	}
+
+	/** Toggle a port in the block selection. Keys use portPosKey (rackId:ru:row:col). */
+	togglePortBlock(rackId: string, positionU: number, portIndex: number) {
+		const row = portIndex <= 24 ? 'top' as const : 'bottom' as const
+		const col = (portIndex - 1) % 24
+		const key = portPosKey({ frameId: rackId, ru: positionU, row, col })
+		const next = new Set(this.selectedPorts)
+		next.has(key) ? next.delete(key) : next.add(key)
+		this.selectedPorts = next
+	}
+
+	isPortBlockSelected(rackId: string, positionU: number, portIndex: number): boolean {
+		const row = portIndex <= 24 ? 'top' : 'bottom'
+		const col = (portIndex - 1) % 24
+		return this.selectedPorts.has(`${rackId}:${positionU}:${row}:${col}`)
+	}
+
+	clearPortBlock() { this.selectedPorts = new Set() }
+
+	/** Reserve the selected ports for a location type (steers label allocation). */
+	assignReservation(type: LocType) {
+		const positions = [...this.selectedPorts].map(k => {
+			const [frameId, ru, row, col] = k.split(':')
+			return { frameId, ru: Number(ru), row: row as 'top' | 'bottom', col: Number(col) }
+		})
+		this.mutateReservations('assign', `${positions.length} port(s) → ${type}`, () => {
+			let updated = this.portReservations.map(r => ({
+				...r,
+				ports: r.ports.filter(p => !this.selectedPorts.has(portPosKey(p))),
+			})).filter(r => r.ports.length > 0)
+			updated.push({ id: String(this.nextReservationId++), type, ports: positions })
+			this.portReservations = updated
+		})
+		this.selectedPorts = new Set()
+	}
+
+	removeReservation() {
+		this.mutateReservations('remove', `${this.selectedPorts.size} port(s)`, () => {
+			this.portReservations = this.portReservations.map(r => ({
+				...r,
+				ports: r.ports.filter(p => !this.selectedPorts.has(portPosKey(p))),
+			})).filter(r => r.ports.length > 0)
+		})
+		this.selectedPorts = new Set()
 	}
 
 	// ── Port selection ──
