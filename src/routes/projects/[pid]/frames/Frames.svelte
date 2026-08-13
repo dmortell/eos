@@ -6,6 +6,7 @@
 	import VersionPanel from '../parts/VersionPanel.svelte'
 	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
 	import { generatePortLabels, generateRacks } from './parts/engine'
+	import { deriveFramesFromRacks, matchesFace, buildReservationMap } from '$lib/elevation/portmap'
 	import { exportToExcel } from './parts/exportExcel'
 	import ConfigPanel from './parts/ConfigPanel.svelte'
 	import LocationList from './parts/LocationList.svelte'
@@ -58,60 +59,6 @@
 			includeRoom: s.labelFormat.includeRoom ?? false,
 		}
 		if (s.portReservations) portReservations = s.portReservations
-	}
-
-	/** Check if a device matches the selected face view */
-	function matchesFace(dev: any, face: 'front' | 'rear'): boolean {
-		const m = dev.mounting ?? 'both'
-		return m === 'both' || m === 'none' || m === face
-	}
-
-	/** Derive FrameConfig[] from Racks tool data. Falls back to legacy frames if no racks data. */
-	function deriveFramesFromRacks(rData: Record<string, any>, face: 'front' | 'rear', legacyFrames?: FrameConfig[]): FrameConfig[] {
-		const derived: FrameConfig[] = []
-		for (const [rm, doc] of Object.entries(rData)) {
-			if (!doc?.racks) continue
-			for (const rack of doc.racks as any[]) {
-				if (!rack.serverRoom) continue
-				if (rack.type === 'desk' || rack.type === 'shelf' || rack.type === 'vcm') continue
-				const rackDevices = ((doc.devices ?? []) as any[]).filter((d: any) => d.rackId === rack.id && matchesFace(d, face))
-				// All non-copper-panel devices are slots (occupy RU space, no copper ports)
-				// This includes enclosures (fiber), switches, servers, managers, etc.
-				// PDUs excluded — their 0U rendering is broken (see implementation.md TODO).
-				const slots: import('./parts/types').FrameSlot[] = []
-				for (const dev of rackDevices) {
-					if (dev.type !== 'panel' && dev.type !== 'pdu') {
-						slots.push({ ru: dev.positionU, type: dev.type, height: dev.heightU, label: dev.label })
-					}
-				}
-				// Only copper patch panels ('panel') get ports assigned by the engine
-				const copperPanels = rackDevices.filter((d: any) => d.type === 'panel')
-				const floorPanels = copperPanels.filter((d: any) => d.patchLevel !== 'high')
-				const highPanels = copperPanels.filter((d: any) => d.patchLevel === 'high')
-
-				// Build panelDevices with actual RU positions and port counts
-				const panelDevices: import('./parts/types').PanelDevice[] = copperPanels.map((d: any) => ({
-					ru: d.positionU as number,
-					portCount: (d.portCount as number) || 48,
-					isHighLevel: d.patchLevel === 'high',
-				}))
-
-				derived.push({
-					id: rack.id,
-					name: rack.label,
-					serverRoom: rack.serverRoom,
-					totalRU: rack.heightU ?? 42,
-					panelStartRU: floorPanels.length ? Math.min(...floorPanels.map((d: any) => d.positionU)) : 1,
-					panelEndRU: floorPanels.length ? Math.max(...floorPanels.map((d: any) => d.positionU + d.heightU - 1)) : rack.heightU ?? 42,
-					hlPanelStartRU: highPanels.length ? Math.min(...highPanels.map((d: any) => d.positionU)) : undefined,
-					hlPanelEndRU: highPanels.length ? Math.max(...highPanels.map((d: any) => d.positionU + d.heightU - 1)) : undefined,
-					slots,
-					panelDevices,
-				})
-			}
-		}
-		// Fall back to legacy frames if no racks data produced any frames
-		return derived.length > 0 ? derived : (legacyFrames ?? [])
 	}
 
 	// ── State: global settings ──
@@ -171,14 +118,11 @@
 	// ── Block assign: port-level reservations ──
 	let selectedPorts = $state<Set<string>>(new Set())
 	let portReservations = $state<PortReservation[]>(data?.portReservations ?? [])
-	let reservationMap = $derived<Map<string, LocType>>(
-		new Map(
-			portReservations.flatMap(r =>
-				r.ports.map(p => [portPosKey(p), r.type] as [string, LocType])
-			)
-		)
+	let reservationMap = $derived<Map<string, LocType>>(buildReservationMap(portReservations))
+	// Seed past the highest persisted id — restarting at 1 collided with saved reservations.
+	let nextReservationId = $state(
+		(data?.portReservations ?? []).reduce((m: number, r: any) => Math.max(m, Number(r.id) || 0), 0) + 1
 	)
-	let nextReservationId = $state(1)
 
 	let saveStatus = $state<'saved' | 'saving' | 'unsaved'>('saved')
 	let viewMode = $state<'sidebar' | 'stacked'>('sidebar')

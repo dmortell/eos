@@ -23,9 +23,11 @@
 		port?.serverRoom === 'B' ? 'ring-1 ring-purple-400/50' : ''
 	)
 
-	/** Display label without floor prefix: Z.NNN-SPP(-H) */
+	/** Display label without floor prefix: Z.NNN-SPP(-H).
+	 *  Floor prefix is `L01` / `01F` / `01` (or `B01`/`B1F` for basements),
+	 *  followed by `.` or `-` depending on the label format. */
 	let shortLabel = $derived(
-		port ? port.label.replace(/^\d{2}\./, '') : ''
+		port ? port.label.replace(/^[LB]?\d{1,2}F?[.\-]/, '') : ''
 	)
 </script>
 

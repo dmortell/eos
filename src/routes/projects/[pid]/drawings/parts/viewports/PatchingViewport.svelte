@@ -15,10 +15,10 @@
 	 */
 	import type { Viewport } from '$lib/types/pages'
 	import type { PatchConnection, PortRef } from '../../../patching/parts/types'
-	import type { RackData, PortLabel, PortReservation, LocType, FrameConfig, ZoneConfig } from '../../../frames/parts/types'
-	import { portPosKey } from '../../../frames/parts/types'
+	import type { RackData, PortLabel, LocType, FrameConfig, ZoneConfig } from '../../../frames/parts/types'
 	import { CABLE_TYPES } from '../../../patching/parts/constants'
-	import { deriveFramesFromRacks, generatePortLabels, generateRacks } from '../../../frames/parts/engine'
+	import { generatePortLabels, generateRacks } from '../../../frames/parts/engine'
+	import { deriveFramesFromRacks, buildReservationMap, deriveServerRoomCount } from '$lib/elevation/portmap'
 	import { Firestore } from '$lib'
 
 	let { viewport, db }: { viewport: Viewport; db: Firestore } = $props()
@@ -60,9 +60,16 @@
 		return () => { unsubs.forEach(u => u?.()) }
 	})
 
-	let serverRoomCount = $derived<number>(framesDoc?.serverRoomCount ?? 1)
 	let floorFormat = $derived<string>(framesDoc?.floorFormat ?? 'L01')
 	let zoneLocations = $derived<Record<string, any[]>>(framesDoc?.zoneLocations ?? {})
+	let derivedFrames = $derived<FrameConfig[]>(
+		deriveFramesFromRacks(racksData, 'front', framesDoc?.frames),
+	)
+	// `framesDoc.serverRoomCount` is no longer written by the Frames tool — derive
+	// from the rooms actually referenced so labels for rooms B–D aren't dropped.
+	let serverRoomCount = $derived<number>(
+		deriveServerRoomCount(zoneLocations, derivedFrames, framesDoc?.serverRoomCount),
+	)
 	let zoneLetters = $derived<string[]>(
 		Object.keys(zoneLocations).filter(k => zoneLocations[k]?.length > 0).sort(),
 	)
@@ -73,16 +80,7 @@
 			framesDoc?.labelFormat,
 		)),
 	)
-	let reservationMap = $derived<Map<string, LocType>>(
-		new Map(
-			((framesDoc?.portReservations ?? []) as PortReservation[]).flatMap(r =>
-				r.ports.map(p => [portPosKey(p), r.type] as [string, LocType]),
-			),
-		),
-	)
-	let derivedFrames = $derived<FrameConfig[]>(
-		deriveFramesFromRacks(racksData, 'front', framesDoc?.frames),
-	)
+	let reservationMap = $derived<Map<string, LocType>>(buildReservationMap(framesDoc?.portReservations))
 	let racks = $derived<RackData[]>(
 		generateRacks(
 			allLabels,

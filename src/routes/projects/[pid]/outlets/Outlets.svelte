@@ -9,7 +9,7 @@
 	import type { RackConfig } from '../racks/parts/types'
 	import { DEFAULT_PRINT_SETTINGS, type PrintSettings } from '$lib/ui/print/types'
 	import { OUTLET_DEFAULTS, type StickyDefaults } from './parts/constants'
-	import { HistoryStore } from './parts/HistoryStore.svelte'
+	import { HistoryStore } from '$lib/history/HistoryStore.svelte'
 	import OutletCanvas from './parts/OutletCanvas.svelte'
 	import OutletPalette from './parts/OutletPalette.svelte'
 	import RackPalette from './parts/RackPalette.svelte'

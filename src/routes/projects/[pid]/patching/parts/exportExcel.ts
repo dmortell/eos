@@ -50,11 +50,22 @@ function portLabel(portInfoMap: Map<string, PortInfo> | undefined, deviceId: str
 }
 
 /**
- * Import cord IDs from a vendor-returned Excel file.
- * Matches rows by row number (column A "#") to connection index.
- * Returns a map of connection index (0-based) → cordId.
+ * The exact row order the Patch Schedule sheet is written in: status-grouped
+ * (remove → change → add → installed), original order within each group.
+ * `importCordIds` maps the sheet's "#" column back through this same ordering —
+ * the two must never diverge.
  */
-export async function importCordIds(file: File): Promise<Map<number, string>> {
+export function orderedForExport(connections: PatchConnection[]): PatchConnection[] {
+	const rank = (c: PatchConnection) => STATUS_ORDER.indexOf(statusKey(c))
+	return [...connections].sort((a, b) => rank(a) - rank(b)) // Array.sort is stable
+}
+
+/**
+ * Import cord IDs from a vendor-returned Excel file.
+ * Matches rows by the "#" column against the export's status-grouped row order.
+ * Returns a map of connection id → cordId.
+ */
+export async function importCordIds(file: File, connections: PatchConnection[]): Promise<Map<string, string>> {
 	const wb = new ExcelJS.Workbook()
 	const buf = await file.arrayBuffer()
 	await wb.xlsx.load(buf)
@@ -62,16 +73,26 @@ export async function importCordIds(file: File): Promise<Map<number, string>> {
 	const ws = wb.getWorksheet('Patch Schedule') || wb.getWorksheet(1)
 	if (!ws) throw new Error('No "Patch Schedule" sheet found')
 
-	const result = new Map<number, string>()
+	// Resolve the Cord ID column from the header row — resilient to column
+	// additions (a hardcoded index silently read Cable Type after the label
+	// columns were added).
+	let cordIdCol = 14
+	ws.getRow(1).eachCell((cell, col) => {
+		if (String(cell.value ?? '').trim().toLowerCase() === 'cord id') cordIdCol = col
+	})
+
+	const ordered = orderedForExport(connections)
+	const result = new Map<string, string>()
 
 	ws.eachRow((row, rowNum) => {
 		if (rowNum <= 1) return  // skip header
-		const idx = row.getCell(1).value  // column A = "#" (1-based row number)
-		const cordId = row.getCell(12).value  // column L = "Cord ID"
+		const idx = row.getCell(1).value  // column A = "#" (1-based export row number)
+		const cordId = row.getCell(cordIdCol).value
 		if (typeof idx === 'number' && cordId) {
 			const val = String(cordId).trim()
-			if (val && val !== '—') {
-				result.set(idx - 1, val)  // convert to 0-based index
+			const conn = ordered[idx - 1]
+			if (val && val !== '—' && conn) {
+				result.set(conn.id, val)
 			}
 		}
 	})

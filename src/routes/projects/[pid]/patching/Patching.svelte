@@ -128,9 +128,11 @@
 	})
 
 	// ── BOM summary (grouped by cable type then length) ──
+	// Soft-deleted (status 'remove') cords are cords being pulled — excluded.
 	let bomGroups = $derived.by(() => {
 		const map = new Map<string, Map<number, number>>()
 		for (const c of connections) {
+			if (c.status === 'remove') continue
 			if (!map.has(c.cableType)) map.set(c.cableType, new Map())
 			const lengths = map.get(c.cableType)!
 			lengths.set(c.lengthMeters, (lengths.get(c.lengthMeters) ?? 0) + 1)
@@ -246,10 +248,28 @@
 	function executeBulk() {
 		if (!bulkFrom || !bulkTo) return
 		const ct = getCableType(bulkCableType, customCableTypes)
+
+		// Walk forward from each start port, skipping already-used ports and
+		// stopping at the device's port count — a naive `start + i` produced
+		// duplicate assignments and port indexes beyond the panel.
+		const availablePorts = (deviceId: string, start: number): number[] => {
+			const dev = devices.find((d: any) => d.id === deviceId)
+			const used = usedPortsForDevice(deviceId)
+			const ports: number[] = []
+			for (let p = Math.max(1, start); p <= (dev?.portCount ?? 0) && ports.length < bulkCount; p++) {
+				if (!used.has(p)) ports.push(p)
+			}
+			return ports
+		}
+		const fromPorts = availablePorts(bulkFrom.deviceId, bulkFromStart)
+		const toPorts = availablePorts(bulkTo.deviceId, bulkToStart)
+		const n = Math.min(fromPorts.length, toPorts.length)
+		if (n === 0) { cancelBulk(); return }
+
 		const newConns: PatchConnection[] = []
-		for (let i = 0; i < bulkCount; i++) {
-			const fromRef = { rackId: bulkFrom.rackId, deviceId: bulkFrom.deviceId, portIndex: bulkFromStart + i, face: 'front' as const }
-			const toRef = { rackId: bulkTo.rackId, deviceId: bulkTo.deviceId, portIndex: bulkToStart + i, face: 'front' as const }
+		for (let i = 0; i < n; i++) {
+			const fromRef = { rackId: bulkFrom.rackId, deviceId: bulkFrom.deviceId, portIndex: fromPorts[i], face: 'front' as const }
+			const toRef = { rackId: bulkTo.rackId, deviceId: bulkTo.deviceId, portIndex: toPorts[i], face: 'front' as const }
 			const len = calculateCableLength(fromRef, toRef, racks, devices)
 			newConns.push({
 				id: `patch-${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${i}`,
@@ -264,7 +284,7 @@
 			})
 		}
 		connections = [...connections, ...newConns]
-		logChange('add', 'connections', `${bulkCount} bulk connections`)
+		logChange('add', 'connections', `${n} bulk connections${n < bulkCount ? ` (${bulkCount - n} skipped — no free ports)` : ''}`)
 		cancelBulk()
 	}
 
@@ -402,14 +422,14 @@
 		const file = input.files?.[0]
 		if (!file) return
 		try {
-			const cordMap = await importCordIds(file)
+			const cordMap = await importCordIds(file, connections)
 			if (cordMap.size === 0) {
 				importStatus = 'No cord IDs found in file'
 				return
 			}
 			let updated = 0
-			connections = connections.map((c, i) => {
-				const cordId = cordMap.get(i)
+			connections = connections.map(c => {
+				const cordId = cordMap.get(c.id)
 				if (cordId && cordId !== c.cordId) {
 					updated++
 					return { ...c, cordId }

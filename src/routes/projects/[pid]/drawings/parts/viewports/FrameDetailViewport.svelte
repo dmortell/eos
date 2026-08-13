@@ -19,9 +19,9 @@
 	 * opposite-face panel hatching etc. — without reimplementing any of it.
 	 */
 	import type { Viewport } from '$lib/types/pages'
-	import type { PortLabel, RackData, PortReservation, LocType, FrameConfig, ZoneConfig } from '../../../frames/parts/types'
-	import { portPosKey } from '../../../frames/parts/types'
-	import { deriveFramesFromRacks, generatePortLabels, generateRacks } from '../../../frames/parts/engine'
+	import type { PortLabel, RackData, LocType, FrameConfig, ZoneConfig } from '../../../frames/parts/types'
+	import { generatePortLabels, generateRacks } from '../../../frames/parts/engine'
+	import { deriveFramesFromRacks, buildReservationMap, deriveServerRoomCount } from '$lib/elevation/portmap'
 	import { Firestore } from '$lib'
 	import FrameDrawing from '../../../frames/parts/FrameDrawing.svelte'
 
@@ -61,9 +61,13 @@
 		deriveFramesFromRacks(racksData, frameFace, framesDoc?.frames),
 	)
 
-	let serverRoomCount = $derived<number>(framesDoc?.serverRoomCount ?? 1)
 	let floorFormat = $derived<string>(framesDoc?.floorFormat ?? 'L01')
 	let zoneLocations = $derived<Record<string, any[]>>(framesDoc?.zoneLocations ?? {})
+	// `framesDoc.serverRoomCount` is no longer written by the Frames tool — derive
+	// from the rooms actually referenced so labels for rooms B–D aren't dropped.
+	let serverRoomCount = $derived<number>(
+		deriveServerRoomCount(zoneLocations, derivedFrames, framesDoc?.serverRoomCount),
+	)
 
 	/**
 	 * Extract the floor number from `frameDocId` ({pid}_F{NN}) so the port-label
@@ -89,13 +93,7 @@
 		)),
 	)
 
-	let reservationMap = $derived<Map<string, LocType>>(
-		new Map(
-			((framesDoc?.portReservations ?? []) as PortReservation[]).flatMap(r =>
-				r.ports.map(p => [portPosKey(p), r.type] as [string, LocType]),
-			),
-		),
-	)
+	let reservationMap = $derived<Map<string, LocType>>(buildReservationMap(framesDoc?.portReservations))
 
 	let racks = $derived<RackData[]>(
 		generateRacks(

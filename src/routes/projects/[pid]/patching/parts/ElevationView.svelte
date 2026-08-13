@@ -460,6 +460,10 @@
 </div>
 
 <svelte:window onkeydown={e => {
+	// Never react to keys typed into form fields — Backspace in the patch-list
+	// notes/cord-id inputs was soft-deleting the selected cord.
+	const t = e.target as HTMLElement | null
+	if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement || t?.isContentEditable) return
 	if (e.key === 'Escape') { connectFromKey = null; rerouteState = null; selectedPortKey = null; setSelected(null) }
 	if ((e.key === 'Delete' || e.key === 'Backspace') && selectedConnectionId && !connectFromKey && !rerouteState) { deleteSelectedConnection() }
 }} />
