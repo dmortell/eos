@@ -541,8 +541,7 @@ focus as a stack (§3.2). Target: **Phase 6, after the Phase 5 cutover**; the st
       interactions (always recovered, console clean). Suspect dev-mode/CDP overhead;
       if it appears in real use, first perf target = PortsLayer node count (gate
       tooltips/interactivity harder, virtualize offscreen panels).
-- [ ] Device labels render through port grids at high zoom (~500%) — hide/fade device
-      label when ports layer is at full-label LOD.
+- [x] Device labels render through port grids at high zoom — opaque backdrop at label LOD (see commit log).
 - [ ] `effect_update_depth_exceeded` class of bug: editor methods that read+write own
       $state must be called via `untrack()` from $effects — audit new effects as added.
 
