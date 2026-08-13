@@ -608,3 +608,14 @@ focus as a stack (§3.2). Target: **Phase 6, after the Phase 5 cutover**; the st
   their stored value — multi-select + widthMm in the Inspector to bulk-fix if wanted.
 - Note: long-running Vite dev server can serve stale transforms after sed-based edits
   (DEVICE_W_MM ReferenceError until files touched) — touch files or restart dev server.
+
+### Session追記 (assign dialogs + patch-list UX, 2026-08-15)
+- §3.7 SHIPPED: block-select → Auto-generate… (new locations pinned to ports) /
+  To location… (pin existing) / Unpin. Sticky `portAssignments` in the frames doc:
+  pinned cells blocked from auto-fill via a sentinel reservation, pinned labels
+  withheld from the engine and overlaid — zone re-generation never moves pins.
+  Pinned cells show a dark corner triangle. Locations "Generate" kept for mass entry.
+- Patch list: row edit panel suppressed (hideEditor) — full cord editing moved to the
+  Inspector (cable/length+lock/cordId/status/notes); list panel height now drag-resizable
+  (strip above header), persisted per project.
+- [ ] Manual label list entry (§3.7 "Manual labels…") still deferred.

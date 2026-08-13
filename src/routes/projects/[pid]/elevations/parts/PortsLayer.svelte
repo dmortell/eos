@@ -66,6 +66,7 @@
 		label?: string
 		locationType?: string
 		reservation?: string
+		pinned?: boolean
 	}
 
 	function cellsFor(device: DeviceConfig, rack: RackConfig): Cell[] {
@@ -90,6 +91,7 @@
 				label: info?.label,
 				locationType: info?.locationType,
 				reservation: editor.reservationMap.get(resKey),
+				pinned: info?.pinned,
 			})
 		}
 		return cells
@@ -176,6 +178,10 @@
 					{#if c.reservation && c.label}
 						<rect x={c.x} y={c.y} width={c.w} height={Math.min(1.5, c.h * 0.12)}
 							fill={PORT_TYPE_COLORS[c.reservation] ?? '#9ca3af'} />
+					{/if}
+					{#if c.pinned}
+						<!-- Sticky-pin marker: dark corner triangle -->
+						<path d="M {c.x} {c.y} l {Math.min(2.4, c.w * 0.2)} 0 l {-Math.min(2.4, c.w * 0.2)} {Math.min(2.4, c.h * 0.2)} z" fill="#475569" />
 					{/if}
 					{#if l.labels > 0 && c.label}
 						{@const parts = stackParts(c.label)}

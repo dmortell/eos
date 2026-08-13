@@ -24,6 +24,7 @@
 	import PortsLayer from './parts/PortsLayer.svelte'
 	import CordsLayer from './parts/CordsLayer.svelte'
 	import PanelDetailStrip from './parts/PanelDetailStrip.svelte'
+	import AssignPortsDialog from './parts/AssignPortsDialog.svelte'
 	import PatchListPane from '../patching/parts/PatchListPane.svelte'
 	import PatchSettingsDialog from '../patching/parts/SettingsDialog.svelte'
 	import { CABLE_TYPES } from '../patching/parts/constants'
@@ -127,6 +128,25 @@
 		try { localStorage.setItem(`elevations-cords-${projectId}`, showCords ? '1' : '0') } catch {}
 	})
 	let cordsVisible = $derived(showCords || editor.mode === 'patch')
+	let assignDialog = $state<'generate' | 'existing' | null>(null)
+
+	// Patch-list panel height (drag the strip above the header to resize)
+	let listPaneHeight = $state(224)
+	onMount(() => {
+		try { const h = Number(localStorage.getItem(`elevations-list-h-${projectId}`)); if (h >= 120) listPaneHeight = h } catch {}
+	})
+	function startListResize(e: MouseEvent) {
+		e.preventDefault()
+		const startY = e.clientY, startH = listPaneHeight
+		const move = (ev: MouseEvent) => { listPaneHeight = Math.min(560, Math.max(120, startH - (ev.clientY - startY))) }
+		const up = () => {
+			document.removeEventListener('mousemove', move)
+			document.removeEventListener('mouseup', up)
+			try { localStorage.setItem(`elevations-list-h-${projectId}`, String(listPaneHeight)) } catch {}
+		}
+		document.addEventListener('mousemove', move)
+		document.addEventListener('mouseup', up)
+	}
 	let patchSettingsOpen = $state(false)
 	let importStatus = $state<string | null>(null)
 	let importInput: HTMLInputElement | undefined = $state()
@@ -863,10 +883,21 @@
 						<button class="px-1.5 h-5 rounded border border-red-200 bg-white text-red-600 hover:bg-red-50 text-[10px]"
 							title="Remove reservation from selected ports (Del)"
 							onclick={() => editor.removeReservation()}>Remove</button>
+						<div class="w-px h-4 bg-purple-200"></div>
+						<span class="text-purple-400">labels:</span>
+						<button class="px-1.5 h-5 rounded border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 text-[10px] font-medium"
+							title="Create new locations and pin their labels to these ports"
+							onclick={() => assignDialog = 'generate'}>Auto-generate…</button>
+						<button class="px-1.5 h-5 rounded border border-blue-200 bg-white text-blue-700 hover:bg-blue-50 text-[10px]"
+							title="Pin an existing location's labels to these ports"
+							onclick={() => assignDialog = 'existing'}>To location…</button>
+						<button class="px-1.5 h-5 rounded border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 text-[10px]"
+							title="Remove sticky pins — labels fall back to auto-allocation"
+							onclick={() => editor.clearPortAssignments()}>Unpin</button>
 						<button class="px-1.5 h-5 rounded border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 text-[10px]"
 							onclick={() => editor.clearPortBlock()}>Deselect</button>
 						<div class="flex-1"></div>
-						<span class="text-purple-300">Ctrl+click add · Shift+click range · reservations steer label allocation</span>
+						<span class="text-purple-300">Ctrl+click add · Shift+click range</span>
 					</div>
 				{/if}
 
@@ -956,8 +987,11 @@
 					</div>
 					<input type="file" accept=".xlsx" class="hidden" bind:this={importInput} onchange={handleCordIdImport} />
 					{#if listPaneOpen}
-						<div class="h-56 overflow-hidden">
+						<!-- svelte-ignore a11y_no_static_element_interactions -->
+						<div class="h-1 -mt-0.5 cursor-ns-resize hover:bg-blue-200 transition-colors" onmousedown={startListResize}></div>
+						<div class="overflow-hidden" style:height="{listPaneHeight}px">
 							<PatchListPane
+								hideEditor
 								connections={editor.connections}
 								racks={editor.racks}
 								devices={editor.devices}
@@ -1004,6 +1038,10 @@
 		style:left={ghostPos.x + 12 + 'px'} style:top={ghostPos.y - 10 + 'px'}>
 		{draggingTemplate.label} ({draggingTemplate.heightU}U)
 	</div>
+{/if}
+
+{#if assignDialog}
+	<AssignPortsDialog {editor} mode={assignDialog} onclose={() => assignDialog = null} />
 {/if}
 
 <PatchSettingsDialog

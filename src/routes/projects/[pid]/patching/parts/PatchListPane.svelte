@@ -12,6 +12,7 @@
 		customCableTypes = [],
 		orphanedIds = new Set<string>(),
 		selectedConnectionId = null,
+		hideEditor = false,
 		removedCount = 0,
 		portInfoMap = new Map<string, PortInfo>(),
 		onselect,
@@ -28,6 +29,8 @@
 		customCableTypes: CustomCableType[]
 		orphanedIds?: Set<string>
 		selectedConnectionId?: string | null
+		/** Suppress the built-in row edit panel (host provides its own editor, e.g. the Elevations Inspector). */
+		hideEditor?: boolean
 		removedCount?: number
 		portInfoMap?: Map<string, PortInfo>
 		onselect?: (id: string | null) => void
@@ -356,7 +359,7 @@
 	</div>
 
 	<!-- Bottom edit panel for the selected row -->
-	{#if selectedConn}
+	{#if selectedConn && !hideEditor}
 		{@const conn = selectedConn}
 		{@const ct = getCableType(conn.cableType, customCableTypes)}
 		<div class="shrink-0 border-t border-gray-200 bg-gray-50/70 px-3 py-2 text-[11px]">

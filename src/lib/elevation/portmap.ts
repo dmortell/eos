@@ -125,7 +125,25 @@ export function deriveServerRoomCount(
 export interface PortInfo {
 	label: string
 	locationType: string
+	/** True when this label is pinned to the port via portAssignments. */
+	pinned?: boolean
 }
+
+/**
+ * Sticky allocation (elevations-plan.md §3.7): pins a specific location port
+ * to a physical panel position. Stored in the frames doc as
+ * `portAssignments: Record<portPosKey, PortAssignment>`. Auto-generation only
+ * fills unpinned cells, so re-generating a zone never moves pinned labels.
+ */
+export interface PortAssignment {
+	zone: string
+	locationNumber: number
+	/** 1-based port index within the location. */
+	port: number
+}
+
+/** Sentinel reservation type: blocks the engine from auto-filling a pinned cell. */
+const PINNED = '__pinned'
 
 /**
  * Build a map of `deviceId:portIndex` → PortInfo by matching racks devices
@@ -157,6 +175,15 @@ export function buildPortInfoMap(
 	const reservations = buildReservationMap(frameData.portReservations)
 	const roomCount = deriveServerRoomCount(zoneLocations, frameConfigs, serverRoomCount)
 
+	// Pinned assignments: block their cells from auto-fill (sentinel reservation
+	// type that never matches a locationType) and withhold their labels from the
+	// engine — they are overlaid onto their pinned positions at the end.
+	const assignments: Record<string, PortAssignment> = frameData.portAssignments ?? {}
+	const pinnedLabelKeys = new Set(Object.values(assignments).map(a => `${a.zone}:${a.locationNumber}:${a.port}`))
+	for (const posKey of Object.keys(assignments)) {
+		if (!reservations.has(posKey)) reservations.set(posKey, PINNED as any)
+	}
+
 	// Project-level label format (separator preset, zone/room inclusion). Falls back
 	// to legacy hybrid format if not set on the frames doc.
 	const labelFormat = frameData.labelFormat
@@ -178,8 +205,14 @@ export function buildPortInfoMap(
 	}
 	if (allLabels.length === 0) return map
 
+	/** Lookup for pinned overlays: zone:loc:port → generated label. */
+	const labelByKey = new Map(allLabels.map(l => [`${l.zone}:${l.locationNumber}:${l.portNumber}`, l]))
+	const freeLabels = pinnedLabelKeys.size
+		? allLabels.filter(l => !pinnedLabelKeys.has(`${l.zone}:${l.locationNumber}:${l.portNumber}`))
+		: allLabels
+
 	const rackDataList = generateRacks(
-		allLabels, roomCount,
+		freeLabels, roomCount,
 		frameConfigs.length > 0 ? frameConfigs : undefined,
 		reservations.size > 0 ? reservations : undefined,
 	)
@@ -200,10 +233,24 @@ export function buildPortInfoMap(
 		if (!device.portCount || device.type !== 'panel') continue
 
 		const labels = ruToLabels.get(device.positionU)
-		if (!labels) continue
 
-		for (let i = 0; i < device.portCount && i < labels.length; i++) {
-			const portLabel = labels[i]
+		for (let i = 0; i < device.portCount; i++) {
+			// Pinned assignment overrides whatever the engine placed here
+			const row = i < 24 ? 'top' : 'bottom'
+			const col = i % 24
+			const assignment = assignments[`${device.rackId}:${device.positionU}:${row}:${col}`]
+			if (assignment) {
+				const pinnedLabel = labelByKey.get(`${assignment.zone}:${assignment.locationNumber}:${assignment.port}`)
+				if (pinnedLabel) {
+					map.set(`${device.id}:${i + 1}`, {
+						label: pinnedLabel.label,
+						locationType: pinnedLabel.locationType,
+						pinned: true,
+					})
+					continue
+				}
+			}
+			const portLabel = labels?.[i]
 			if (portLabel) {
 				map.set(`${device.id}:${i + 1}`, {
 					label: portLabel.label,

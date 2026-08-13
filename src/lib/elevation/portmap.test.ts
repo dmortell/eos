@@ -91,6 +91,24 @@ describe('buildPortInfoMap', () => {
 		expect(map.get('dev-1:3')?.locationType).toBe('desk')
 	})
 
+	it('pins assignments to exact ports and withholds their labels from auto-fill', () => {
+		const withPins = {
+			...frameData,
+			// Pin location 2 (the AP) port 1 to physical cell top:5 → device port 6
+			portAssignments: {
+				'rack-1:10:top:5': { zone: 'A', locationNumber: 2, port: 1 },
+			},
+		}
+		const map = buildPortInfoMap(withPins, 'A', [panel], [rack], 1)
+		expect(map.get('dev-1:6')?.locationType).toBe('AP')
+		expect(map.get('dev-1:6')?.pinned).toBe(true)
+		// The AP label must not ALSO be auto-placed sequentially
+		expect(map.get('dev-1:3')).toBeUndefined()
+		// Desk labels still fill from the start
+		expect(map.get('dev-1:1')?.locationType).toBe('desk')
+		expect(map.get('dev-1:2')?.locationType).toBe('desk')
+	})
+
 	it('keeps room-B labels when serverRoomCount is not stored (viewport regression)', () => {
 		const twoRoom = {
 			zoneLocations: { A: [{ locationNumber: 1, portCount: 1, serverRoomAssignment: ['B'], locationType: 'desk' }] },

@@ -9,6 +9,8 @@
 	import type { ElevationsEditor } from '../editor.svelte'
 	import { rackTypes, DEFAULT_SHELF_HEIGHTS, type RackConfig, type DeviceConfig } from '../../racks/parts/types'
 	import { LOC_TYPE_COLORS, LOC_TYPE_LABELS } from '$lib/elevation/loc-colors'
+	import { CABLE_TYPES } from '../../patching/parts/constants'
+	import type { PatchStatus } from '../../patching/parts/types'
 
 	let { editor, onopenlocations }: {
 		editor: ElevationsEditor
@@ -103,13 +105,43 @@
 				<div class="font-mono text-[11px] text-gray-800 select-text leading-snug">
 					{refLabel(conn.fromPortRef)}<br /><span class="text-gray-400">↕</span> {refLabel(conn.toPortRef)}
 				</div>
-				<div class="flex items-center gap-1.5 text-[10px]">
-					<span class="w-2.5 h-2.5 rounded-full" style:background={conn.cableColor}></span>
-					<span class="text-gray-600">{conn.cableType}</span>
-					<span class="text-gray-400">· {conn.lengthMeters}m{conn.lengthLocked ? ' 🔒' : ''}</span>
-					<span class="px-1 rounded text-[9px] font-medium
-						{conn.status === 'add' ? 'bg-blue-100 text-blue-700' : conn.status === 'change' ? 'bg-amber-100 text-amber-700' : conn.status === 'installed' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">{conn.status}</span>
-				</div>
+				<label class="flex gap-2 items-center">
+					<span class="w-16 text-gray-500 text-[10px] shrink-0">cable</span>
+					<select class="flex-1 min-w-0 h-6 px-1 border-b border-gray-300 text-xs" value={conn.cableType}
+						onchange={e => editor.updateConnection(conn!.id, { cableType: e.currentTarget.value })}>
+						{#each CABLE_TYPES as ct}<option value={ct.id}>{ct.label}</option>{/each}
+						{#each editor.customCableTypes as ct}<option value={ct.id}>{ct.label}</option>{/each}
+					</select>
+					<span class="w-2.5 h-2.5 rounded-full shrink-0" style:background={conn.cableColor}></span>
+				</label>
+				<label class="flex gap-2 items-center">
+					<span class="w-16 text-gray-500 text-[10px] shrink-0">length m</span>
+					<input type="number" step="0.1" class="flex-1 min-w-0 h-6 px-1 border-b border-gray-300 text-xs" value={conn.lengthMeters}
+						onchange={e => editor.updateConnection(conn!.id, { lengthMeters: parseFloat(e.currentTarget.value) || 0, lengthLocked: true })} />
+					<button class="px-1 h-5 rounded text-[10px] {conn.lengthLocked ? 'bg-amber-50 text-amber-600 border border-amber-200' : 'text-gray-400 hover:bg-gray-100'}"
+						title={conn.lengthLocked ? 'Length locked (manual) — click to auto-calculate' : 'Auto-calculated'}
+						onclick={() => editor.updateConnection(conn!.id, { lengthLocked: false, fromPortRef: conn!.fromPortRef, toPortRef: conn!.toPortRef })}>{conn.lengthLocked ? '🔒' : 'auto'}</button>
+				</label>
+				<label class="flex gap-2 items-center">
+					<span class="w-16 text-gray-500 text-[10px] shrink-0">cord ID</span>
+					<input class="flex-1 min-w-0 h-6 px-1 border-b border-gray-300 text-xs" value={conn.cordId ?? ''}
+						onchange={e => editor.updateConnection(conn!.id, { cordId: e.currentTarget.value || undefined })} />
+				</label>
+				<label class="flex gap-2 items-center">
+					<span class="w-16 text-gray-500 text-[10px] shrink-0">status</span>
+					<select class="flex-1 min-w-0 h-6 px-1 border-b border-gray-300 text-xs" value={conn.status}
+						onchange={e => editor.setConnectionStatus([conn!.id], e.currentTarget.value as PatchStatus)}>
+						<option value="add">Add</option>
+						<option value="change">Change</option>
+						<option value="installed">Installed</option>
+						<option value="remove">Remove</option>
+					</select>
+				</label>
+				<label class="flex gap-2 items-start">
+					<span class="w-16 text-gray-500 text-[10px] shrink-0 pt-1">notes</span>
+					<textarea rows="2" class="flex-1 min-w-0 px-1 py-0.5 border border-gray-300 rounded text-xs resize-y" value={conn.notes ?? ''}
+						onchange={e => editor.updateConnection(conn!.id, { notes: e.currentTarget.value || undefined })}></textarea>
+				</label>
 				<div class="flex gap-1">
 					<button class="flex-1 px-1.5 py-1 rounded border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 text-[10px] font-medium"
 						title="Click a port to replace the FROM endpoint"
@@ -121,7 +153,6 @@
 						title="Delete (Del) — installed cords are marked for removal"
 						onclick={() => editor.deleteConnections([conn!.id])}>Delete</button>
 				</div>
-				<div class="text-[10px] text-gray-400">Full editing in the Patch list panel below.</div>
 			</div>
 		</div>
 	{/if}

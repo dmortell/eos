@@ -11,7 +11,7 @@
  */
 import { HistoryStore } from '$lib/history/HistoryStore.svelte'
 import { AutoSave } from '$lib/autosave/AutoSave.svelte'
-import { buildPortInfoMap, buildReservationMap } from '$lib/elevation/portmap'
+import { buildPortInfoMap, buildReservationMap, type PortAssignment } from '$lib/elevation/portmap'
 import type {
 	RackConfig, DeviceConfig, DeviceTemplate, RackRow, RackSettings, RoomObject, ViewState, ElevationFace,
 } from '../racks/parts/types'
@@ -65,6 +65,8 @@ export class ElevationsEditor {
 	zoneLocations = $state<Record<string, LocationConfig[]>>({})
 	/** Locally-editable block reservations (frames doc). */
 	portReservations = $state<PortReservation[]>([])
+	/** Sticky label pins: portPosKey → specific location port (frames doc). */
+	portAssignments = $state<Record<string, PortAssignment>>({})
 	private nextReservationId = 1
 	/** Multi-selected ports for block operations — keys are portPosKey (rackId:ru:row:col). */
 	selectedPorts = $state<Set<string>>(new Set())
@@ -159,11 +161,12 @@ export class ElevationsEditor {
 	selectedRacks = $derived(this.racks.filter(r => this.selection.has(r.id)))
 	selectedDevices = $derived(this.devices.filter(d => this.selection.has(d.id)))
 
-	/** Canonical port labels: `deviceId:portIndex` → { label, locationType }. */
+	/** Canonical port labels: `deviceId:portIndex` → { label, locationType, pinned }. */
 	portInfo = $derived.by(() => {
-		const frameData = this.framesData
-			? { ...this.framesData, zoneLocations: this.zoneLocations }
-			: (Object.keys(this.zoneLocations).length ? { zoneLocations: this.zoneLocations } : null)
+		const frameData = this.framesDataForPipeline
+			?? (Object.keys(this.zoneLocations).length
+				? { zoneLocations: this.zoneLocations, portReservations: this.portReservations, portAssignments: this.portAssignments }
+				: null)
 		return buildPortInfoMap(frameData, this.room, this.devices, this.racks, this.floor, this.serverRoomCountCfg, this.floorFormat)
 	})
 
@@ -546,6 +549,7 @@ export class ElevationsEditor {
 		return {
 			zoneLocations: $state.snapshot(this.zoneLocations),
 			portReservations: $state.snapshot(this.portReservations),
+			portAssignments: $state.snapshot(this.portAssignments),
 		}
 	}
 
@@ -562,10 +566,15 @@ export class ElevationsEditor {
 		this.framesData = data
 		if (!data) return
 		if (data.floorFormat) this.floorFormat = data.floorFormat
-		const comparable = { zoneLocations: data.zoneLocations ?? {}, portReservations: data.portReservations ?? [] }
+		const comparable = {
+			zoneLocations: data.zoneLocations ?? {},
+			portReservations: data.portReservations ?? [],
+			portAssignments: data.portAssignments ?? {},
+		}
 		if (!this.framesAutosave.shouldApplyRemote(comparable)) return
 		this.zoneLocations = data.zoneLocations ?? {}
 		this.portReservations = data.portReservations ?? []
+		this.portAssignments = data.portAssignments ?? {}
 		this.nextReservationId = this.portReservations.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0) + 1
 		const zones = Object.keys(this.zoneLocations).filter(z => this.zoneLocations[z]?.length > 0).sort()
 		if (zones.length && !zones.includes(this.activeZone)) this.activeZone = zones[0]
@@ -1044,6 +1053,119 @@ export class ElevationsEditor {
 				...r,
 				ports: r.ports.filter(p => !this.selectedPorts.has(portPosKey(p))),
 			})).filter(r => r.ports.length > 0)
+		})
+		this.selectedPorts = new Set()
+	}
+
+	// ── Sticky label assignments (§3.7) ──
+
+	/** portInfo must see local assignment edits immediately. */
+	private framesDataForPipeline = $derived(this.framesData
+		? { ...this.framesData, zoneLocations: this.zoneLocations, portReservations: this.portReservations, portAssignments: this.portAssignments }
+		: null)
+
+	private mutateFramesDoc(action: string, details: string | undefined, fn: () => void) {
+		const before = {
+			zl: $state.snapshot(this.zoneLocations),
+			pr: $state.snapshot(this.portReservations),
+			pa: $state.snapshot(this.portAssignments),
+		}
+		fn()
+		const after = {
+			zl: $state.snapshot(this.zoneLocations),
+			pr: $state.snapshot(this.portReservations),
+			pa: $state.snapshot(this.portAssignments),
+		}
+		const label = `${action}${details ? `: ${details}` : ''}`
+		const apply = (s: typeof before) => {
+			this.zoneLocations = s.zl as any
+			this.portReservations = s.pr as any
+			this.portAssignments = s.pa as any
+			this.logFramesChange('undo/redo', undefined, label)
+		}
+		this.history.record({ label, undo: () => apply(before), redo: () => apply(after) })
+		this.logFramesChange(action, 'labels', details)
+	}
+
+	/** Block-selected ports in physical order: rack (row order) → RU top-down → row → col. */
+	orderedSelectedPorts(): { posKey: string; rackId: string; ru: number; row: 'top' | 'bottom'; col: number }[] {
+		const rackOrder = new Map(this.activeRacks.map((r, i) => [r.id, i]))
+		return [...this.selectedPorts].map(k => {
+			const [rackId, ru, row, col] = k.split(':')
+			return { posKey: k, rackId, ru: Number(ru), row: row as 'top' | 'bottom', col: Number(col) }
+		}).sort((a, b) =>
+			(rackOrder.get(a.rackId) ?? 99) - (rackOrder.get(b.rackId) ?? 99)
+			|| b.ru - a.ru
+			|| (a.row === b.row ? 0 : a.row === 'top' ? -1 : 1)
+			|| a.col - b.col)
+	}
+
+	/** Auto-generate: create new locations in a zone and pin them to the selected ports. */
+	assignPortsToNewLocations(opts: { zone: string; startNumber?: number; portsPerLocation: number; locationType: LocType; isHighLevel?: boolean; roomNumber?: string }): number {
+		const ports = this.orderedSelectedPorts()
+		if (ports.length === 0) return 0
+		const existing = this.zoneLocations[opts.zone] ?? []
+		const start = opts.startNumber ?? (existing.reduce((m, l) => Math.max(m, l.locationNumber), 0) + 1)
+		const perLoc = Math.max(1, opts.portsPerLocation)
+		const locCount = Math.ceil(ports.length / perLoc)
+
+		this.mutateFramesDoc('auto-generate', `${locCount} location(s) → ${ports.length} port(s) in zone ${opts.zone}`, () => {
+			const newLocs: LocationConfig[] = []
+			const assignments = { ...this.portAssignments }
+			for (let li = 0; li < locCount; li++) {
+				const slice = ports.slice(li * perLoc, (li + 1) * perLoc)
+				const locationNumber = start + li
+				newLocs.push({
+					locationNumber,
+					portCount: perLoc,
+					serverRoomAssignment: slice.map(p => {
+						const rack = this.racks.find(r => r.id === p.rackId)
+						return rack?.serverRoom ?? this.room
+					}).concat(Array(Math.max(0, perLoc - slice.length)).fill('A')).slice(0, perLoc),
+					locationType: opts.locationType,
+					...(opts.roomNumber ? { roomNumber: opts.roomNumber } : {}),
+					...(opts.isHighLevel ? { isHighLevel: true } : {}),
+				})
+				slice.forEach((p, pi) => {
+					assignments[p.posKey] = { zone: opts.zone, locationNumber, port: pi + 1 }
+				})
+			}
+			this.zoneLocations = { ...this.zoneLocations, [opts.zone]: [...existing, ...newLocs] }
+			this.portAssignments = assignments
+		})
+		this.selectedPorts = new Set()
+		return ports.length
+	}
+
+	/** Pin the selected ports to an existing location's ports (1..portCount). */
+	assignPortsToLocation(zone: string, locationNumber: number): number {
+		const ports = this.orderedSelectedPorts()
+		const loc = (this.zoneLocations[zone] ?? []).find(l => l.locationNumber === locationNumber)
+		if (!loc || ports.length === 0) return 0
+		const n = Math.min(ports.length, loc.portCount)
+		this.mutateFramesDoc('assign', `${n} port(s) → ${zone}-${locationNumber}`, () => {
+			const assignments = { ...this.portAssignments }
+			// Re-pinning a location moves it: drop its previous pins first
+			for (const [k, a] of Object.entries(assignments)) {
+				if (a.zone === zone && a.locationNumber === locationNumber) delete assignments[k]
+			}
+			for (let i = 0; i < n; i++) {
+				assignments[ports[i].posKey] = { zone, locationNumber, port: i + 1 }
+			}
+			this.portAssignments = assignments
+		})
+		this.selectedPorts = new Set()
+		return n
+	}
+
+	/** Remove sticky pins from the selected ports (labels fall back to auto-allocation). */
+	clearPortAssignments() {
+		const keys = [...this.selectedPorts].filter(k => this.portAssignments[k])
+		if (keys.length === 0) { this.selectedPorts = new Set(); return }
+		this.mutateFramesDoc('unpin', `${keys.length} port(s)`, () => {
+			const assignments = { ...this.portAssignments }
+			for (const k of keys) delete assignments[k]
+			this.portAssignments = assignments
 		})
 		this.selectedPorts = new Set()
 	}
