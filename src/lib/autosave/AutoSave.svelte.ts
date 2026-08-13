@@ -19,7 +19,11 @@ export class AutoSave<T = unknown> {
 	status = $state<'saved' | 'saving' | 'unsaved'>('saved')
 
 	private timer: ReturnType<typeof setTimeout> | null = null
-	private lastSavedJson: string | null = null
+	/** Recent saved payloads (newest last). A ring, not a single value: with two
+	 *  saves in quick succession (create → undo), the FIRST save's Firestore echo
+	 *  can arrive after the second save — matching only the last payload made
+	 *  that stale echo look like a genuine remote change and reverted the undo. */
+	private recentSaves: string[] = []
 	private getPayload: (() => T) | null = null
 
 	constructor(
@@ -41,7 +45,8 @@ export class AutoSave<T = unknown> {
 		if (this.timer) { clearTimeout(this.timer); this.timer = null }
 		this.status = 'saving'
 		const payload = this.getPayload()
-		this.lastSavedJson = JSON.stringify(payload)
+		this.recentSaves.push(JSON.stringify(payload))
+		if (this.recentSaves.length > 8) this.recentSaves.shift()
 		this.save(payload)
 		this.status = 'saved'
 	}
@@ -49,7 +54,11 @@ export class AutoSave<T = unknown> {
 	/** Should a remote snapshot be applied over local state? */
 	shouldApplyRemote(remoteComparable: unknown): boolean {
 		if (this.status !== 'saved') return false
-		if (this.lastSavedJson !== null && JSON.stringify(remoteComparable) === this.lastSavedJson) return false
+		if (this.recentSaves.length === 0) return true
+		const json = JSON.stringify(remoteComparable)
+		// Echo of ANY recent save (not just the newest) → nothing to apply.
+		// The newest save always wins locally; stale echoes must never revert it.
+		if (this.recentSaves.includes(json)) return false
 		return true
 	}
 }
