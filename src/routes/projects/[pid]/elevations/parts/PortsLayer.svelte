@@ -24,11 +24,13 @@
 	let zoom = $derived(editor.view.zoom)
 	let rackList = $derived(editor.face === 'rear' ? editor.rearRacks : editor.activeRacks)
 
-	/** All panels in racks of the active row — off-face ones get a label only. */
+	/** All port-bearing devices (panels, switches, servers…) in racks of the
+	 *  active row — off-face ones get a label only. Non-panel ports have no
+	 *  frames labels; they're identified by port number and always patchable. */
 	let panels = $derived.by(() => {
 		const rackById = new Map(rackList.map(r => [r.id, r]))
 		return editor.devices.filter(d =>
-			d.type === 'panel' && (d.portCount ?? 0) > 0 && rackById.has(d.rackId)
+			(d.portCount ?? 0) > 0 && rackById.has(d.rackId)
 		).map(d => ({ device: d, rack: rackById.get(d.rackId)!, onFace: matchesFace(d, editor.face) }))
 	})
 
@@ -106,10 +108,10 @@
 		}
 	}
 
-	function cellFill(c: Cell): string {
+	function cellFill(c: Cell, isPanel: boolean): string {
 		if (c.label) return (PORT_TYPE_COLORS[c.locationType ?? ''] ?? '#9ca3af') + '4D'
 		if (c.reservation) return (PORT_TYPE_COLORS[c.reservation] ?? '#9ca3af') + '33'
-		return '#f3f4f6'
+		return isPanel ? '#f3f4f6' : '#e9eef5'
 	}
 
 	function tooltip(c: Cell, device: DeviceConfig): string {
@@ -147,7 +149,7 @@
 				{@const conn = editor.portConnMap.get(`${device.id}:${c.index}`)}
 				{@const isArmed = editor.patchArm?.deviceId === device.id && editor.patchArm?.portIndex === c.index}
 				{@const isBlk = editor.selectedPorts.size > 0 && editor.isPortBlockSelected(rack.id, device.positionU, c.index)}
-				{@const patchBlocked = editor.mode === 'patch' && !c.label && !conn}
+				{@const patchBlocked = editor.mode === 'patch' && device.type === 'panel' && !c.label && !conn}
 				<!-- svelte-ignore a11y_click_events_have_key_events -->
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<g
@@ -163,7 +165,7 @@
 					}}>
 					<title>{tooltip(c, device)}</title>
 					<rect x={c.x} y={c.y} width={c.w} height={c.h} rx={0.8}
-						fill={cellFill(c)}
+						fill={cellFill(c, device.type === 'panel')}
 						fill-opacity={patchBlocked ? 0.35 : 1}
 						stroke={isArmed ? '#22c55e' : isBlk ? '#a855f7' : isSel ? '#3b82f6' : c.label ? '#9ca3af80' : '#d1d5db'}
 						stroke-width={isArmed || isSel || isBlk ? 2 / zoom : 0.5 / zoom}
@@ -202,6 +204,13 @@
 							text-anchor="middle" font-family="ui-monospace, monospace"
 							font-size={Math.min(c.w / 2, c.h / 2.5)} fill="#6b7280" opacity="0.7"
 							style:pointer-events="none">{c.reservation}</text>
+					{:else if l.labels > 0}
+						<!-- No label (switch ports, unlabeled panel cells): faint port number -->
+						<text x={c.x + c.w / 2} y={c.y + c.h / 2}
+							text-anchor="middle" dominant-baseline="central" font-family="ui-monospace, monospace"
+							font-size={Math.min(c.w / (0.68 * String(c.index).length), c.h / 1.6)}
+							fill="#9ca3af" opacity="0.8"
+							style:pointer-events="none">{c.index}</text>
 					{/if}
 				</g>
 			{/each}

@@ -737,9 +737,11 @@ export class ElevationsEditor {
 		const key = `${deviceId}:${portIndex}`
 		const existing = this.portConnMap.get(key)
 
-		// Port-level gate: unlabeled ports reject new cords (ux-plan). Selecting
-		// them still works so the inspector can explain what to do.
-		if (!this.portLabelOf({ deviceId, portIndex }) && !existing) {
+		// Port-level gate (panels only): unlabeled panel ports reject new cords
+		// (ux-plan). Switch/server/other ports are identified by number and are
+		// always patchable. Selecting still works so the inspector can explain.
+		const dev = this.devices.find(d => d.id === deviceId)
+		if (dev?.type === 'panel' && !this.portLabelOf({ deviceId, portIndex }) && !existing) {
 			this.selectedPort = { deviceId, portIndex }
 			this.statusHint = 'Unlabeled port — assign a location label before patching (see Inspector)'
 			return

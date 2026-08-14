@@ -619,3 +619,9 @@ focus as a stack (§3.2). Target: **Phase 6, after the Phase 5 cutover**; the st
   Inspector (cable/length+lock/cordId/status/notes); list panel height now drag-resizable
   (strip above header), persisted per project.
 - [ ] Manual label list entry (§3.7 "Manual labels…") still deferred.
+
+### Session追記 (device ports, 2026-08-15)
+- Ports now render on ALL port-bearing devices (switches, servers, …), not just panels:
+  slate-tinted cells, faint port numbers at label LOD, same click/patch/block-select
+  interactions. Patch gate applies to panels only — switch ports patch by number
+  (Inspector explains). Panel detail strip accepts any port-bearing device.

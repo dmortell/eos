@@ -683,3 +683,5 @@ Section references (item 7)
 Large integration work (item 5 — original tools → Sheets)
 
 - 5b Outlets, 5c Trunks, 5d Elevations, 5e Viewports polish, 5g Frames (port-label integration), 5h Patching, plus 5a6 (tool objects get per-object layerId/visibility).
+
+

@@ -193,11 +193,15 @@
 						<span class="w-4 h-4 rounded-sm border {LOC_TYPE_COLORS[portInfoEntry.locationType] ?? 'bg-gray-200'}"></span>
 						<span class="text-gray-600">{LOC_TYPE_LABELS[portInfoEntry.locationType] ?? portInfoEntry.locationType}</span>
 					</div>
-				{:else}
+				{:else if portDevice.type === 'panel'}
 					<div class="text-gray-400 italic">Unlabeled port</div>
 					<div class="text-[10px] text-gray-400 leading-snug">
-						Labels are allocated from zone locations. Add or extend locations to fill this port.
+						Labels are allocated from zone locations. Add or extend locations to fill this port,
+						or pin one with Ctrl+click → Auto-generate.
 					</div>
+				{:else}
+					<div class="font-mono text-sm text-gray-800">{portDevice.label} : {port.portIndex}</div>
+					<div class="text-[10px] text-gray-400">{portDevice.type} port — patch by number, no label needed.</div>
 				{/if}
 				{#if portReservation}
 					<div class="text-[10px] text-gray-500">Block-reserved: <b>{portReservation}</b></div>
@@ -205,11 +209,13 @@
 				<div class="text-[10px] text-gray-400">
 					{portRack?.label ?? '—'} · {portDevice.label} · U{portDevice.positionU}
 				</div>
-				<button
-					class="flex items-center gap-1 px-2 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 text-[11px] font-medium w-full"
-					onclick={() => onopenlocations?.(portZone)}>
-					<Icon name="mapPin" size={11} /> Open in Locations tab
-				</button>
+				{#if portDevice.type === 'panel'}
+					<button
+						class="flex items-center gap-1 px-2 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 text-[11px] font-medium w-full"
+						onclick={() => onopenlocations?.(portZone)}>
+						<Icon name="mapPin" size={11} /> Open in Locations tab
+					</button>
+				{/if}
 			</div>
 		</div>
 	{/if}

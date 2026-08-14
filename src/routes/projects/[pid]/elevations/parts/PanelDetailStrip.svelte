@@ -11,13 +11,14 @@
 
 	let { editor, onclose }: { editor: ElevationsEditor; onclose?: () => void } = $props()
 
-	/** The panel to show: the selected panel device, or the selected port's device. */
+	/** The device to show: any selected port-bearing device (panel, switch, …),
+	 *  or the selected port's device. */
 	let device = $derived.by(() => {
-		const selDev = editor.selectedDevices.find(d => d.type === 'panel' && (d.portCount ?? 0) > 0)
+		const selDev = editor.selectedDevices.find(d => (d.portCount ?? 0) > 0)
 		if (selDev) return selDev
 		if (editor.selectedPort) {
 			const d = editor.devices.find(d => d.id === editor.selectedPort!.deviceId)
-			if (d?.type === 'panel') return d
+			if ((d?.portCount ?? 0) > 0) return d
 		}
 		return null
 	})
