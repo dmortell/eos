@@ -1146,12 +1146,14 @@ export class ElevationsEditor {
 		})
 	})
 
-	/** Remove one whole reservation entry (maintenance list). */
-	removeReservationEntry(id: string) {
-		const entry = this.portReservations.find(r => r.id === id)
+	/** Remove one whole reservation entry (maintenance list). Index-based —
+	 *  legacy docs can contain DUPLICATE reservation ids (the pre-fix
+	 *  nextReservationId reset bug), so an id filter would remove both. */
+	removeReservationEntry(index: number) {
+		const entry = this.portReservations[index]
 		if (!entry) return
 		this.mutateReservations('remove', `${entry.type} · ${entry.ports.length} port(s)`, () => {
-			this.portReservations = this.portReservations.filter(r => r.id !== id)
+			this.portReservations = this.portReservations.filter((_, i) => i !== index)
 		})
 	}
 
