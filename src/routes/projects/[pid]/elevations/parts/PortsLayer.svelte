@@ -163,6 +163,8 @@
 		{@const cw = cells[0]?.w ?? (rect.width - 4) / Math.min(device.portCount ?? 24, 24)}
 		{@const l = lod(cw)}
 		{@const labelFs = Math.min(11 / zoom, rect.height * 0.7)}
+		{@const faceNote = onFace ? '' : ` (${device.mounting ?? 'rear'})`}
+		{@const sideTag = device.type === 'panel' ? l.labels > 0 : zoom >= 2}
 		<svg
 			class="absolute overflow-visible"
 			style:left="{rect.left}px" style:top="{rect.top}px"
@@ -253,26 +255,29 @@
 				</g>
 			{/each}
 			<!-- Panel label — drawn ON TOP of the cells so all-unlabeled panels
-			     (opaque gray cells) can't paint over it. -->
-			{#if onFace && l.labels > 0}
-				<!-- Faded side tag: the hostname/panel name stays visible while
-				     patching. Top-aligned with the device (RU numbers sit at row
-				     centre on the rails — top alignment avoids them). -->
+			     (opaque gray cells) can't paint over it. Off-face devices carry a
+			     face indicator so it's obvious why they're inactive. -->
+			{#if onFace && sideTag}
+				<!-- Side-tag LOD (panels: when port labels render; other devices:
+				     flat 200% so few-port devices don't switch at ~50-70%). Faded,
+				     top-aligned with the device (RU numbers sit at row centre on
+				     the rails — top alignment avoids them). -->
 				<text x={-3} y={0.5}
 					text-anchor="end" dominant-baseline="hanging"
 					font-size={20 / zoom} font-weight="600" fill="#374151" opacity="0.6"
 					stroke="white" stroke-width={(20 / zoom) * 0.22} paint-order="stroke"
 					style:pointer-events="none">{device.label}</text>
 			{:else}
-				<!-- Mid-zoom (tint-only LOD) or opposite face: constant screen size,
-				     white halo, semi-transparent so cells stay readable beneath. -->
+				<!-- Below the side-tag threshold, or opposite face: centered,
+				     constant screen size, white halo, semi-transparent so cells
+				     stay readable beneath. -->
 				<text x={rect.width / 2} y={rect.height / 2}
 					text-anchor="middle" dominant-baseline="central"
 					font-size={labelFs}
 					font-weight="600" fill="#374151" opacity={onFace ? 0.85 : 0.45}
 					stroke="white" stroke-width={labelFs * 0.28}
 					paint-order="stroke"
-					style:pointer-events="none">{device.label}{device.portCount ? ` (${device.portCount})` : ''}</text>
+					style:pointer-events="none">{device.label}{device.portCount ? ` (${device.portCount})` : ''}{faceNote}</text>
 			{/if}
 		</svg>
 	{/each}

@@ -99,6 +99,7 @@
 <div
 	class="drag"
 	class:draggable={!disabled}
+	class:disabled
 	class:dragging
 	class:selected
 	class:copying={dragging && ctrlHeld}
@@ -131,6 +132,10 @@
 		box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
 	}
 	.selected { border: 2px solid #3b82f6; }
+	/* Opposite-face devices: dim the box itself (border + fill), not just the
+	   contents — a full-strength border made rear-mounted devices look active
+	   in front view. */
+	.disabled { border-color: #c9ced6; background-color: #eef0f3; }
 	.draggable { cursor: grab; }
 	.dragging { cursor: grabbing; }
 </style>
