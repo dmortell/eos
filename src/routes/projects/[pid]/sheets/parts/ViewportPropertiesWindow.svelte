@@ -63,7 +63,7 @@
 	let form = $state({
 		kind: 'empty', label: '', number: '', scale: '0', border: 'thin', text: '', fontSizePt: '6',
 		outletsDocId: '',
-		racksDocId: '', racksFace: 'front' as RackFace, racksRowId: '', racksShowWalls: false, racksColorDevices: true,
+		racksDocId: '', racksFace: 'front' as RackFace, racksRowId: '', racksShowWalls: false, racksColorDevices: true, racksShowPorts: false, racksShowCords: false,
 		risersFrom: 0, risersTo: 0, risersDocId: '',
 		fillrateSectionId: '',
 		modelId: 1, modelDir: 'plan' as Dir, modelHidden: true, modelBw: false, modelClip: null as Clip | null,
@@ -90,6 +90,8 @@
 				racksRowId: s.kind === 'racks' ? (s.rowId ?? '') : '',
 				racksShowWalls: s.kind === 'racks' ? (s.showWalls ?? false) : false,
 				racksColorDevices: s.kind === 'racks' ? (s.colorDevices ?? true) : true,
+				racksShowPorts: s.kind === 'racks' ? (s.showPorts ?? false) : false,
+				racksShowCords: s.kind === 'racks' ? (s.showCords ?? false) : false,
 				risersFrom: s.kind === 'risers' ? (s.fromFloor ?? floorMin()) : floorMin(),
 				risersTo: s.kind === 'risers' ? (s.toFloor ?? floorMax()) : floorMax(),
 				risersDocId: s.kind === 'risers' ? (s.risersDocId ?? pid) : pid,
@@ -152,6 +154,7 @@
 		if (form.kind === 'racks') return {
 			kind: 'racks', racksDocId: form.racksDocId, face: form.racksFace,
 			rowId: form.racksRowId || undefined, showWalls: form.racksShowWalls, colorDevices: form.racksColorDevices,
+			showPorts: form.racksShowPorts, showCords: form.racksShowCords,
 		}
 		if (form.kind === 'risers') return { kind: 'risers', risersDocId: form.risersDocId || pid, fromFloor: form.risersFrom, toFloor: form.risersTo }
 		if (form.kind === 'fillrate') return { kind: 'fillrate', sectionId: form.fillrateSectionId }
@@ -194,9 +197,11 @@
 			<hr class="border-zinc-200" />
 			<RacksProperties {floors} {pid} racksDocId={form.racksDocId} face={form.racksFace}
 				rowId={form.racksRowId} showWalls={form.racksShowWalls} colorDevices={form.racksColorDevices}
+			showPorts={form.racksShowPorts} showCords={form.racksShowCords}
 				onchange={(p) => {
 					form.racksDocId = p.racksDocId; form.racksFace = p.face; form.racksRowId = p.rowId
-					form.racksShowWalls = p.showWalls; form.racksColorDevices = p.colorDevices; apply()
+					form.racksShowWalls = p.showWalls; form.racksColorDevices = p.colorDevices
+					form.racksShowPorts = p.showPorts; form.racksShowCords = p.showCords; apply()
 				}} />
 		{:else if form.kind === 'risers'}
 			<hr class="border-zinc-200" />

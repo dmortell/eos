@@ -88,7 +88,7 @@ export type ViewportSource =
 	| { kind: 'empty' }
 	| { kind: 'text'; content: string; fontSizePt?: number }
 	| { kind: 'outlets'; outletsDocId: string; fileId?: string; pageNum?: number; showPdf?: boolean }
-	| { kind: 'racks'; racksDocId: string; face: 'front' | 'rear' | 'plan'; rowId?: string; showWalls?: boolean; colorDevices?: boolean }
+	| { kind: 'racks'; racksDocId: string; face: 'front' | 'rear' | 'plan'; rowId?: string; showWalls?: boolean; colorDevices?: boolean; showPorts?: boolean; showCords?: boolean }
 	| { kind: 'risers'; risersDocId: string; fromFloor?: number; toFloor?: number }
 	| { kind: 'fillrate'; sectionId: string }   // a trunk cross-section from the fill-rate tool
 	| { kind: 'model3d'; modelId: number; direction: Dir; yaw?: number; pitch?: number; hiddenLines?: boolean; bw?: boolean; clip?: Clip; activeLayer?: string }   // a projected 3D model

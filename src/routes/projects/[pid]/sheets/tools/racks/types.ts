@@ -35,6 +35,8 @@ export interface DeviceConfig {
 	heightU: number
 	positionU: number       // 1-based from bottom
 	portCount: number
+	/** Placement of the (size-capped) port grid inside the device box. Default 'bl'. */
+	portAlign?: 'tl' | 'tc' | 'tr' | 'bl' | 'bc' | 'br'
 	color?: string
 	widthMm?: number
 	depthMm?: number

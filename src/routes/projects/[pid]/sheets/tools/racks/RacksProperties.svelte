@@ -5,9 +5,9 @@
 	import PropCheck from '../../parts/PropCheck.svelte'
 	import type { RackFace, RackRow } from './types'
 
-	type Settings = { racksDocId: string; face: RackFace; rowId: string; showWalls: boolean; colorDevices: boolean }
+	type Settings = { racksDocId: string; face: RackFace; rowId: string; showWalls: boolean; colorDevices: boolean; showPorts: boolean; showCords: boolean }
 
-	let { floors = [], pid, racksDocId = '', face = 'front', rowId = '', showWalls = false, colorDevices = true, onchange }: {
+	let { floors = [], pid, racksDocId = '', face = 'front', rowId = '', showWalls = false, colorDevices = true, showPorts = false, showCords = false, onchange }: {
 		floors?: { number: number }[]
 		pid: string
 		racksDocId?: string
@@ -15,6 +15,8 @@
 		rowId?: string
 		showWalls?: boolean
 		colorDevices?: boolean
+		showPorts?: boolean
+		showCords?: boolean
 		onchange?: (p: Settings) => void
 	} = $props()
 
@@ -34,7 +36,7 @@
 	})
 
 	function emit(p: Partial<Settings>) {
-		onchange?.({ racksDocId, face, rowId, showWalls, colorDevices, ...p })
+		onchange?.({ racksDocId, face, rowId, showWalls, colorDevices, showPorts, showCords, ...p })
 	}
 	const val = (e: Event) => (e.currentTarget as HTMLSelectElement).value
 	const chk = (e: Event) => (e.currentTarget as HTMLInputElement).checked
@@ -57,3 +59,5 @@
 </PropSelect>
 <PropCheck label="Show walls" value={showWalls} onchange={(e: Event) => emit({ showWalls: chk(e) })} />
 <PropCheck label="Color devices" value={colorDevices} onchange={(e: Event) => emit({ colorDevices: chk(e) })} />
+<PropCheck label="Port labels" value={showPorts} onchange={(e: Event) => emit({ showPorts: chk(e) })} />
+<PropCheck label="Patch cords" value={showCords} onchange={(e: Event) => emit({ showCords: chk(e) })} />

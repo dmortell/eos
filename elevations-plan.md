@@ -680,3 +680,14 @@ Concrete integration points discovered (RacksViewport.svelte is the template):
    the pages tool should link it.
 5. Data for ports/cords: reuse `$lib/elevation/portmap.buildPortInfoMap` directly (no
    editor needed for readonly) + `patching` doc connections for cords.
+
+### Session追記 (sheets viewports shipped, 2026-08-15)
+- §10 SHIPPED (route a): racks viewport gains `showPorts` / `showCords` source options
+  (Viewport properties checkboxes). New sheets/tools/racks/PortsCordsOverlay.svelte
+  renders port grids (mm geometry mirroring portGeometry: capped cells + portAlign,
+  full stacked labels — print scale, no LOD) and patch cords (side-channel routing)
+  inside RacksRender's SVG, under annotations. RacksViewport subscribes frames +
+  patching docs on demand; labels via $lib buildPortInfoMap (no editor needed).
+- Fixed: Locations-tab crash on legacy duplicate reservation ids (index-keyed list).
+- Later: focus/dim options on the viewport; overlay honours device portAlign; the fork's
+  DeviceConfig gained portAlign (portLabels overrides flow through portInfoMap already).

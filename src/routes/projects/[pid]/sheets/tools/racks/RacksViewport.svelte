@@ -6,6 +6,8 @@
 	import type { DeviceTemplate } from './palette'
 	import type { ViewportEditor } from '../../viewports.svelte'
 	import RacksRender from './RacksRender.svelte'
+	import PortsCordsOverlay from './PortsCordsOverlay.svelte'
+	import { buildPortInfoMap } from '$lib/elevation/portmap'
 	import RacksEditLayer from './RacksEditLayer.svelte'
 	import RacksEditPanel from './RacksEditPanel.svelte'
 	import DeviceLibrary from './DeviceLibrary.svelte'
@@ -67,6 +69,30 @@
 		const unsub = db.subscribeOne('racks', id, (d: any) => { doc = d ?? null })
 		return () => unsub?.()
 	})
+
+	// ── Ports + cords data (only when the source enables them) ──
+	// racksDocId is `{pid}_F{NN}_R{X}`; frames doc is floor-scoped, patching room-scoped.
+	let docMatch = $derived(src?.racksDocId?.match(/^(.*)_F(\d+)_R([A-Z])$/) ?? null)
+	let framesDoc = $state<any>(null)
+	$effect(() => {
+		if (!docMatch || !(src?.showPorts || src?.showCords)) { framesDoc = null; return }
+		const unsub = db.subscribeOne('frames', `${docMatch[1]}_F${docMatch[2]}`, (d: any) => { framesDoc = d ?? null })
+		return () => unsub?.()
+	})
+	let patchDoc = $state<any>(null)
+	$effect(() => {
+		const id = src?.racksDocId
+		if (!id || !src?.showCords) { patchDoc = null; return }
+		const unsub = db.subscribeOne('patching', id, (d: any) => { patchDoc = d ?? null })
+		return () => unsub?.()
+	})
+	let portInfoMap = $derived.by(() => {
+		if (!docMatch || !src?.showPorts) return new Map()
+		return buildPortInfoMap(
+			framesDoc, docMatch[3], editor.devices, editor.racks,
+			Number(docMatch[2]), undefined, framesDoc?.floorFormat ?? 'L01',
+		)
+	})
 	$effect(() => {
 		if (!active) return
 		const onKey = (e: KeyboardEvent) => {
@@ -104,6 +130,13 @@
 		{vp} {view} {hidden} layers={vps.allLayers}
 		onview={(v) => { viewDen = v.den || 1; onview?.(v) }}
 		onsvg={(el) => { editor.svg = el; annEditor.svg = el }}>
+		{#if (src.showPorts || src.showCords) && src.face !== 'plan'}
+			<PortsCordsOverlay
+				racks={editor.racks} devices={editor.devices} settings={editor.settings}
+				face={src.face} rowId={src.rowId}
+				{portInfoMap} connections={patchDoc?.connections ?? []}
+				showPorts={src.showPorts ?? false} showCords={src.showCords ?? false} />
+		{/if}
 		{#if active}
 			<EditBackground {tool} {annEditor} toolEditor={editor} annLocked={annOff}
 				onblocked={() => blocked(annTarget)}
