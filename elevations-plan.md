@@ -723,3 +723,21 @@ Concrete integration points discovered (RacksViewport.svelte is the template):
      floorplan and vice versa; row/room membership in elevations should follow.
   4. Sheets: the racks viewport source already has face 'plan' plumbing
      (currently renders nothing) — decide if it renders the shared plan model.
+
+### Session追記 (2026-08-15, later)
+- Fixed: reservation delete (×) buttons in the Locations tab were near-invisible
+  (text-gray-300) → now text-gray-600 with red hover.
+- **TODO — advanced custom label formats.** The current format options (separator +
+  include zone/room) are too rigid. Wanted: an Excel-custom-cell-format-style
+  formatter — a code/template string with tokens and literal separators (e.g.
+  something like `FF.Z.NNN-SPP`, tokens for floor/zone/location/room/port with
+  padding control, arbitrary literal text between) so each client's convention can
+  be expressed. ALSO: formats should NOT be project-wide (current implementation
+  stores one format in the frames doc) — scope TBD (per-panel? per-zone? per
+  generate-run?). Needs a design discussion before building.
+- **TODO — patching to unallocated/unlabelled panel ports.** Currently patchPortClick
+  gates on labeled ports. Allow patching to unlabelled panel ports; the label can be
+  assigned later and the cord keeps pointing at the position. Unassigned ports get a
+  default fallback label of the form `rack-RU#-port#` (e.g. R04-U33-P07) wherever a
+  label is displayed (patch list, inspector, cord tooltips) until a real label is
+  allocated.

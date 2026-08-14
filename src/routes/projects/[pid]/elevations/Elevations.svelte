@@ -754,7 +754,7 @@
 											{#if r.orphanedCount > 0}
 												<span class="text-amber-500 shrink-0" title="Reserved positions with no panel — invisible on the canvas">{r.orphanedCount} orphaned</span>
 											{/if}
-											<button class="w-4 h-4 shrink-0 flex items-center justify-center rounded text-gray-300 hover:text-red-500 hover:bg-red-50"
+											<button class="w-4 h-4 shrink-0 flex items-center justify-center rounded text-gray-600 hover:text-red-600 hover:bg-red-50"
 												title="Remove this reservation" onclick={() => editor.removeReservationEntry(r.id)}>×</button>
 										</div>
 									{/each}
