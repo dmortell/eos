@@ -657,3 +657,26 @@ annotations (PDF deliverables, e.g. highlighting racks of concern).
   so focus does NOT auto-select. Dblclick-to-focus stays. Reservation marks stay
   positional and panel-only (Frames parity); consider a "Reservations" maintenance list
   (incl. orphaned positions with no panel) in the Locations tab later.
+
+### §10 implementation map (explored 2026-08-15 — build next session)
+
+Concrete integration points discovered (RacksViewport.svelte is the template):
+1. `sheets/types.ts:88-94` — add to the source union:
+   `{ kind: 'elevations'; racksDocId: string; face: 'front'|'rear'; focusRackIds?: string[]; showPorts?: boolean; showCords?: boolean; showReservations?: boolean; dimOthers?: boolean }`
+2. New `sheets/tools/elevations/ElevationsViewport.svelte` modeled on
+   `sheets/tools/racks/RacksViewport.svelte` (~140 lines): subscribes racks doc (and
+   frames + patching docs for ports/cords), hosts `AnnotationLayer`, honours the
+   `onview` fit contract (see RacksRender's `onview` → `{x,y,w,h,den}`) and layer
+   visibility (`hidden`/`locked`, `vps.allLayers`).
+3. Rendering: either (a) reuse `sheets/tools/racks/RacksRender.svelte` (fork, SVG in
+   real-mm world space) and ADD ports/cords as SVG children — requires adapting
+   elevations portGeometry (canvas px = mm×SCALE) to mm world space (×2), or
+   (b) mount the elevations PortsLayer/CordsLayer + RackElevationRenderer readonly
+   inside a scaled div (needs editor-lite + zoom=den wiring for LOD). (a) integrates
+   with sheets annotations/print cleanly and is recommended; port label text sizes must
+   use den-based LOD (RacksRender reports viewDen).
+4. Register the new kind wherever `vp.source.kind === 'racks'` is dispatched (grep
+   "kind === 'racks'" under sheets/) + the viewport add-flow picker + publish.ts if
+   the pages tool should link it.
+5. Data for ports/cords: reuse `$lib/elevation/portmap.buildPortInfoMap` directly (no
+   editor needed for readonly) + `patching` doc connections for cords.
