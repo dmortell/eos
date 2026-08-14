@@ -741,3 +741,10 @@ Concrete integration points discovered (RacksViewport.svelte is the template):
   default fallback label of the form `rack-RU#-port#` (e.g. R04-U33-P07) wherever a
   label is displayed (patch list, inspector, cord tooltips) until a real label is
   allocated.
+- **TODO — viewport port-label readability.** Sheets racks viewport with port labels
+  enabled is a key deliverable: contractors receive printed port-labeling
+  instructions from it. Current PortsCordsOverlay labels are very hard to read
+  (tiny stacked text squeezed into cells). Improve for print legibility — ideas:
+  larger min font with cell growth, per-port callout/leader-line mode, tabular
+  port-schedule companion (label list per panel beside the elevation), bolder
+  weight/contrast, wrap vs stack tuning. Treat print output as the acceptance test.
