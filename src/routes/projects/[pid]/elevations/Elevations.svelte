@@ -916,9 +916,11 @@
 					</div>
 				{/if}
 
-				<!-- Block-assign bar: appears while ports are multi-selected (Ctrl+click) -->
-				{#if editor.selectedPorts.size > 0}
-					<div class="h-7 px-2 flex items-center gap-1.5 border-b border-purple-200 bg-purple-50 text-[11px] shrink-0 print:hidden">
+				<!-- Block-assign bar: absolutely overlaid on the canvas so appearing
+				     never reflows the canvas (a layout shift mid-Ctrl+drag broke the
+				     paint selection). -->
+				{#snippet blockAssignBar()}
+					<div class="absolute top-0 left-0 right-0 z-20 h-7 px-2 flex items-center gap-1.5 border-b border-purple-200 bg-purple-50/95 text-[11px] print:hidden">
 						<span class="font-semibold text-purple-700">{editor.selectedPorts.size} port{editor.selectedPorts.size !== 1 ? 's' : ''}</span>
 						<span class="text-purple-400">reserve as:</span>
 						{#each [...DEFAULT_LOC_TYPES.filter(t => t !== 'N/A'), ...(editor.framesData?.customLocationTypes ?? [])] as t}
@@ -948,7 +950,7 @@
 						<div class="flex-1"></div>
 						<span class="text-purple-300">Ctrl+click/drag paint · Shift+click range</span>
 					</div>
-				{/if}
+				{/snippet}
 
 				<div class="flex-1 min-h-0 flex">
 					<!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -988,6 +990,9 @@
 								{/each}
 							{/if}
 						</PanZoomCanvas>
+						{#if editor.selectedPorts.size > 0}
+							{@render blockAssignBar()}
+						{/if}
 					</div>
 
 					<Inspector {editor}

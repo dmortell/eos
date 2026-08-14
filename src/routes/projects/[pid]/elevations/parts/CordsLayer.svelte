@@ -24,7 +24,13 @@
 	let rackById = $derived(new Map(rackList.map(r => [r.id, r])))
 	let deviceById = $derived(new Map(editor.devices.map(d => [d.id, d])))
 
-	const CHANNEL_PX = 6 // channel offset outside the rack edge (canvas px ≈ 12mm)
+	// ── Cord routing tunables (canvas px; 1 px = 2 mm at SCALE 0.5) ──
+	/** Horizontal offset of the vertical cord runs from the rack edge.
+	 *  Larger = further outside the rack (away from rails/RU numbers);
+	 *  negative would run inside the rack frame. */
+	const CHANNEL_PX = 6
+	/** Vertical stub below the port before turning toward the channel. */
+	const DROP_PX = 2.5
 
 	/** Anchor = bottom-center of the port cell, in unscaled canvas px. */
 	function anchor(ref: PortRef) {
@@ -72,7 +78,7 @@
 		const a = anchor(c.fromPortRef)
 		const b = anchor(c.toPortRef)
 		if (!a || !b) return null
-		const drop = 2.5
+		const drop = DROP_PX
 		if (c.fromPortRef.rackId === c.toPortRef.rackId) {
 			// Same rack: out to the nearest shared channel, vertical, back in
 			const ch = channelX(a)

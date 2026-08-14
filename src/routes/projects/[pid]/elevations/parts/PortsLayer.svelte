@@ -246,10 +246,12 @@
 							font-size={Math.min(c.w / 2, c.h / 2.5)} fill="#6b7280" opacity="0.7"
 							style:pointer-events="none">{c.reservation}</text>
 					{:else if l.labels > 0}
-						<!-- No label (switch ports, unlabeled panel cells): faint port number -->
+						<!-- No label (switch ports, unlabeled panel cells): faint port number.
+						     Sized for 2 digits regardless of the actual digit count so ports
+						     1–9 don't render bigger than 10+. -->
 						<text x={c.x + c.w / 2} y={c.y + c.h / 2}
 							text-anchor="middle" dominant-baseline="central" font-family="ui-monospace, monospace"
-							font-size={Math.min(c.w / (0.68 * String(c.index).length), c.h / 1.6)}
+							font-size={Math.min(c.w / (0.68 * 2), c.h / 1.6)}
 							fill="#9ca3af" opacity="0.8"
 							style:pointer-events="none">{c.index}</text>
 					{/if}
@@ -259,11 +261,12 @@
 			     (opaque gray cells) can't paint over it. -->
 			{#if onFace && l.labels > 0}
 				<!-- Faded side tag: the hostname/panel name stays visible while
-				     patching, tucked over the rail left of the ports. -->
-				<text x={-3} y={rect.height / 2}
-					text-anchor="end" dominant-baseline="central"
-					font-size={10 / zoom} font-weight="600" fill="#374151" opacity="0.6"
-					stroke="white" stroke-width={(10 / zoom) * 0.28} paint-order="stroke"
+				     patching. Top-aligned with the device (RU numbers sit at row
+				     centre on the rails — top alignment avoids them). -->
+				<text x={-3} y={0.5}
+					text-anchor="end" dominant-baseline="hanging"
+					font-size={20 / zoom} font-weight="600" fill="#374151" opacity="0.6"
+					stroke="white" stroke-width={(20 / zoom) * 0.22} paint-order="stroke"
 					style:pointer-events="none">{device.label}</text>
 			{:else}
 				<!-- Mid-zoom (tint-only LOD) or opposite face: constant screen size,
