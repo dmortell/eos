@@ -636,3 +636,24 @@ focus as a stack (§3.2). Target: **Phase 6, after the Phase 5 cutover**; the st
   (tl/tc/tr/bl/bc/br, default bottom-left) — 4-port 6U servers no longer stretch ports
   across the box. Shared parts/portGeometry.ts feeds PortsLayer AND CordsLayer anchors.
   Side effect: capped cells also delay the side-tag LOD on low-port devices (~53% now).
+
+## 10. Sheets integration (next major work — design notes, 2026-08-15)
+
+Goal: rack elevations as sheets-tool viewports for printing with title blocks +
+annotations (PDF deliverables, e.g. highlighting racks of concern).
+
+- Elevations is already embed-ready (`bare` prop); the sheets viewport source becomes
+  `{ kind: 'elevations', racksDocId, face, focusRackIds?, viewOpts?, region? }` — the
+  editor's display state (face, focus/dim, View toggles, zoom region) is all
+  serializable, so viewports RETAIN the on-screen look and can re-edit it via a small
+  settings popover on the viewport (reuse the View menu component).
+- Readonly render path: RackElevationRenderer(readonly) + PortsLayer + CordsLayer fed
+  by a lightweight read-only editor (subscriptions only, no CRUD) — avoids forking
+  geometry again (the sheets racks fork is the documented anti-pattern).
+- Highlighting racks of concern: prefer sheet ANNOTATIONS (clouds/arrows) over focus
+  dimming for authored deliverables; focus dimming remains a quick on-screen/print aid.
+- Decisions (2026-08-15): selection (blue ring, Inspector) and focus (frame+dim) stay
+  SEPARATE concepts — focus must print clean without selection chrome (PDF use-case),
+  so focus does NOT auto-select. Dblclick-to-focus stays. Reservation marks stay
+  positional and panel-only (Frames parity); consider a "Reservations" maintenance list
+  (incl. orphaned positions with no panel) in the Locations tab later.
