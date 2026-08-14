@@ -17,6 +17,8 @@
 		if (sp.get('legacy') !== '1') {
 			const q = new URLSearchParams()
 			if (sp.get('floor')) q.set('floor', sp.get('floor')!)
+			// frame.id === rack.id — Elevations focuses the rack
+			if (sp.get('frame')) q.set('frame', sp.get('frame')!)
 			goto(`/projects/${page.params.pid}/elevations${q.size ? `?${q}` : ''}`, { replaceState: true })
 		}
 	}

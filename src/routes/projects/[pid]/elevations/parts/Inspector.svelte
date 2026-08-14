@@ -12,10 +12,12 @@
 	import { CABLE_TYPES } from '../../patching/parts/constants'
 	import type { PatchStatus } from '../../patching/parts/types'
 
-	let { editor, onopenlocations }: {
+	let { editor, onopenlocations, onfocusracks }: {
 		editor: ElevationsEditor
 		/** Switch the sidebar to the Locations tab (deep link from an unlabeled port). */
 		onopenlocations?: (zone?: string) => void
+		/** Focus the selected rack(s) — the visible affordance for focus/focus-pair. */
+		onfocusracks?: () => void
 	} = $props()
 
 	// ── Port section data ──
@@ -251,6 +253,13 @@
 				{#if rack.sku}
 					{@render Field('sku', sharedRack(r => r.sku ?? ''), undefined)}
 				{/if}
+
+				<button
+					class="flex items-center gap-1 px-2 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 text-[11px] font-medium w-full"
+					title="Frame the viewport on the selected rack(s) and dim the rest — select two racks to set up patching (Esc exits)"
+					onclick={() => onfocusracks?.()}>
+					<Icon name="select" size={11} /> Focus {racks.length > 1 ? `${racks.length} racks` : 'rack'}
+				</button>
 
 				{#if !rackMulti && hasDerivedFrame && editor.projectId}
 					<a

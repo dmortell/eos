@@ -44,7 +44,7 @@
 	import { fmtFloor } from '$lib/utils/floor'
 	import type { FloorConfig } from '$lib/types/project'
 
-	let { data = null, framesData = null, patchingData = null, library = [], floor, room, floors = [], projectId = '', projectName = '', floorFormat = 'L01', drawingId = '', db = new Firestore(), uid = '', onsave, onsaveframes, onsavepatching, onlibrarychange, onfloorchange, onroomchange, onupdatefloors, ondeletefloor, bare = false }: {
+	let { data = null, framesData = null, patchingData = null, library = [], floor, room, floors = [], projectId = '', projectName = '', floorFormat = 'L01', drawingId = '', db = new Firestore(), uid = '', onsave, onsaveframes, onsavepatching, onlibrarychange, onfloorchange, onroomchange, onupdatefloors, ondeletefloor, bare = false, initialFocusRackId }: {
 		data?: any
 		framesData?: any
 		patchingData?: any
@@ -68,6 +68,8 @@
 		ondeletefloor?: (floor: number) => void
 		/** When embedded (workspace / sheet viewport), skip standalone chrome. */
 		bare?: boolean
+		/** Focus this rack once its data loads (?frame= deep link). */
+		initialFocusRackId?: string
 	} = $props()
 
 	const editor = new ElevationsEditor({
@@ -129,6 +131,20 @@
 	})
 	let cordsVisible = $derived(showCords || editor.mode === 'patch')
 	let assignDialog = $state<'generate' | 'existing' | null>(null)
+
+	// ?frame= deep link: focus the rack once its data has loaded (overrides
+	// the restored focus — an explicit link wins).
+	let appliedInitialFocus = false
+	$effect(() => {
+		const rid = initialFocusRackId
+		const ready = !!rid && editor.racks.some(r => r.id === rid)
+		if (!rid || appliedInitialFocus || !ready) return
+		untrack(() => {
+			appliedInitialFocus = true
+			editor.focus = { rackIds: [rid] }
+			fitFocus()
+		})
+	})
 
 	// Patch-list panel height (drag the strip above the header to resize)
 	let listPaneHeight = $state(224)
@@ -941,10 +957,15 @@
 						</PanZoomCanvas>
 					</div>
 
-					<Inspector {editor} onopenlocations={zone => {
-						sidebarTab = 'locations'
-						if (zone) editor.setActiveZone(zone)
-					}} />
+					<Inspector {editor}
+						onopenlocations={zone => {
+							sidebarTab = 'locations'
+							if (zone) editor.setActiveZone(zone)
+						}}
+						onfocusracks={() => {
+							const ids = editor.selectedRacks.map(r => r.id)
+							if (ids.length) { editor.focus = { rackIds: ids }; fitFocus() }
+						}} />
 				</div>
 
 				<PanelDetailStrip {editor} onclose={() => editor.clearSelection()} />

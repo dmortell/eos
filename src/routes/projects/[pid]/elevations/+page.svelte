@@ -17,6 +17,8 @@
 	let loading = $state(true)
 	let activeFloor = $state(Number(page.url.searchParams.get('floor')) || 1)
 	let activeRoom = $state(page.url.searchParams.get('room') ?? 'A')
+	/** ?frame= deep link (frame.id === rack.id): focus that rack on load. */
+	const initialFocusRackId = page.url.searchParams.get('frame') ?? undefined
 	let floorFormat = $state('L01')
 	let projectName = $state('')
 	let drawingId = $state('')
@@ -200,7 +202,7 @@
 		<Spinner>Loading elevations...</Spinner>
 	</div>
 {:else}
-	<Elevations data={rackData} {framesData} {patchingData} {library} floor={activeFloor} room={activeRoom} {floors} projectId={page.params.pid} {floorFormat} {projectName}
+	<Elevations data={rackData} {framesData} {patchingData} {library} {initialFocusRackId} floor={activeFloor} room={activeRoom} {floors} projectId={page.params.pid} {floorFormat} {projectName}
 		{drawingId} {db} uid={session.user?.uid ?? ''}
 		onsave={save} onsaveframes={saveFrames} onsavepatching={savePatching} onlibrarychange={saveLibrary} onfloorchange={changeFloor} onroomchange={changeRoom}
 		onupdatefloors={updateFloors} ondeletefloor={deleteFloor} />

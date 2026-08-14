@@ -549,8 +549,8 @@ focus as a stack (§3.2). Target: **Phase 6, after the Phase 5 cutover**; the st
       $state must be called via `untrack()` from $effects — audit new effects as added.
 
 ### Pending TODOs (near-term)
-- [ ] Focus-pair visible affordance (pin icon / context menu / select-two-then-button)
-      — gesture decision from §3.2; Shift+dbl-click works but is undiscoverable.
+- [x] Focus-pair visible affordance — "Focus rack(s)" button in the Inspector rack
+      section (select 1–2 racks in the sidebar → Focus); Shift+dbl-click remains.
 - [ ] Label-rendering settings toggles (lod/tooltip/inspectorAlways etc., ux-plan
       experiment) — deferred from Phase 2.
 - [ ] "All zones" location list view — deferred from Phase 2.
@@ -578,8 +578,8 @@ focus as a stack (§3.2). Target: **Phase 6, after the Phase 5 cutover**; the st
 - [ ] Sticky allocation (`portAssignments`) + §3.7 assign/auto-generate dialogs — the
   remaining Phase 4 items; next major work.
 - [ ] Label-format template (per-project), DXF export (needs sheets rack-layout unfork).
-- [ ] Old-tool cross-links (e.g. "Open in Frames tool") now land on /elevations without
-  frame context — wire ?frame= to focus the rack + open Locations.
+- [x] ?frame= deep link — frames redirect forwards it; Elevations focuses the rack on
+  load (explicit link overrides restored focus).
 - [ ] Stray test cord in Test Project room A (L01.A.007-A02 ↔ U34, U/UTP, add) — delete
   via patch list, or ignore (practice project).
 - [ ] Browser-verify overnight work: reservations bar (Ctrl+click ports), label export,
