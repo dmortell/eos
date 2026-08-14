@@ -1120,6 +1120,41 @@ export class ElevationsEditor {
 		this.selectedPorts = new Set()
 	}
 
+	/** Maintenance view: every reservation entry with occupancy info —
+	 *  positions with no panel present are "orphaned" (invisible on canvas). */
+	reservationSummary = $derived.by(() => {
+		const rackById = new Map(this.racks.map(r => [r.id, r]))
+		const panelAt = (rackId: string, ru: number) =>
+			this.devices.find(d => d.rackId === rackId && d.type === 'panel' && d.positionU === ru)
+		return this.portReservations.map(r => {
+			const spots = new Map<string, { label: string; count: number; orphaned: boolean }>()
+			let orphanedCount = 0
+			for (const p of r.ports) {
+				const rack = rackById.get(p.frameId)
+				const panel = panelAt(p.frameId, p.ru)
+				if (!panel) orphanedCount++
+				const key = `${p.frameId}:${p.ru}`
+				const cur = spots.get(key)
+				if (cur) cur.count++
+				else spots.set(key, {
+					label: `${rack?.label ?? p.frameId} U${p.ru}${panel ? '' : rack ? ' (no panel)' : ' (no rack)'}`,
+					count: 1,
+					orphaned: !panel,
+				})
+			}
+			return { id: r.id, type: r.type, portCount: r.ports.length, orphanedCount, spots: [...spots.values()] }
+		})
+	})
+
+	/** Remove one whole reservation entry (maintenance list). */
+	removeReservationEntry(id: string) {
+		const entry = this.portReservations.find(r => r.id === id)
+		if (!entry) return
+		this.mutateReservations('remove', `${entry.type} · ${entry.ports.length} port(s)`, () => {
+			this.portReservations = this.portReservations.filter(r => r.id !== id)
+		})
+	}
+
 	removeReservation() {
 		this.mutateReservations('remove', `${this.selectedPorts.size} port(s)`, () => {
 			this.portReservations = this.portReservations.map(r => ({
