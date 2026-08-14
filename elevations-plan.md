@@ -703,3 +703,23 @@ Concrete integration points discovered (RacksViewport.svelte is the template):
   Needs user PDF re-test on Vercel.
 - HELD (user): stroke-width rework in the racks viewport (vector-effect
   non-scaling-stroke → real-mm strokes) pending the user's PDF print verdict.
+
+### TODO — racks plan view × Outlets integration (added 2026-08-15)
+- User verdict: vector print fix confirmed good (crisp PDF text).
+- **TODO: implement the plan view for racks** — but design it WITH the Outlets
+  tool/viewports in mind before building. Racks can also be drawn on outlet
+  floorplans, and the two must stay in sync (one source of truth for rack
+  position/rotation on the floor, not two divergent drawings).
+- Design questions to settle first:
+  1. Single source of truth: do rack plan positions live in the racks doc
+     (rooms/rows layout) or as placements on the outlets floorplan — and which
+     view derives from which?
+  2. Prior direction (2026-06-11) was to DROP the separate rack plan view and
+     let the outlets floorplan be the unified plan surface (adding walls/doors
+     there); this TODO supersedes/refines that — a rack plan view is wanted,
+     the open question is whether it renders from the same placement data the
+     outlets floorplan uses (shared model, two views) vs. a separate layout.
+  3. Sync mechanics: moving a rack in plan view should move it on the outlets
+     floorplan and vice versa; row/room membership in elevations should follow.
+  4. Sheets: the racks viewport source already has face 'plan' plumbing
+     (currently renders nothing) — decide if it renders the shared plan model.
