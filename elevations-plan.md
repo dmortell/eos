@@ -691,3 +691,15 @@ Concrete integration points discovered (RacksViewport.svelte is the template):
 - Fixed: Locations-tab crash on legacy duplicate reservation ids (index-keyed list).
 - Later: focus/dim options on the viewport; overlay honours device portAlign; the fork's
   DeviceConfig gained portAlign (portLabels overrides flow through portInfoMap already).
+
+### Session追記 (print quality + RU ticks, 2026-08-15)
+- RU tick marks (sheets RacksRender): moved from slot centers to U-slot BOUNDARIES
+  (ticks between the numbers, numbers centred in their slot; extra tick closes the
+  top of the last slot). Verified in browser at deep zoom.
+- Blurry PDF print (user screenshot): Chromium rasterizes `transform: scale()`d
+  layers at screen resolution when printing → text printed as a low-res bitmap.
+  Fix: the injected print CSS in sheets/parts/Canvas.svelte now uses CSS `zoom`
+  (participates in layout, prints as true vector) instead of `transform: scale`.
+  Needs user PDF re-test on Vercel.
+- HELD (user): stroke-width rework in the racks viewport (vector-effect
+  non-scaling-stroke → real-mm strokes) pending the user's PDF print verdict.

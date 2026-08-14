@@ -182,9 +182,16 @@
 				{#each Array.from({ length: rack.heightU }) as _, i (i)}
 					{@const u = i + 1}
 					{@const yc = Y(z + u * RU_HEIGHT_MM + RU_HEIGHT_MM / 2)}
-					<!-- RU tick marks beside the numbers (ruler-style, like the original racks tool) -->
-					<line x1={innerX - 20} y1={yc} x2={innerX - 8} y2={yc} stroke="#cbd5e1" stroke-width="0.3" vector-effect="non-scaling-stroke" />
-					<line x1={innerX + RACK_19IN_INNER + 8} y1={yc} x2={innerX + RACK_19IN_INNER + 20} y2={yc} stroke="#cbd5e1" stroke-width="0.3" vector-effect="non-scaling-stroke" />
+					{@const yb = Y(z + u * RU_HEIGHT_MM)}
+					<!-- Ticks mark the U-slot BOUNDARIES (between the numbers); the
+					     number sits centred within its slot. -->
+					<line x1={innerX - 20} y1={yb} x2={innerX - 8} y2={yb} stroke="#cbd5e1" stroke-width="0.3" vector-effect="non-scaling-stroke" />
+					<line x1={innerX + RACK_19IN_INNER + 8} y1={yb} x2={innerX + RACK_19IN_INNER + 20} y2={yb} stroke="#cbd5e1" stroke-width="0.3" vector-effect="non-scaling-stroke" />
+					{#if u === rack.heightU}
+						<!-- top boundary of the last slot -->
+						<line x1={innerX - 20} y1={Y(z + (u + 1) * RU_HEIGHT_MM)} x2={innerX - 8} y2={Y(z + (u + 1) * RU_HEIGHT_MM)} stroke="#cbd5e1" stroke-width="0.3" vector-effect="non-scaling-stroke" />
+						<line x1={innerX + RACK_19IN_INNER + 8} y1={Y(z + (u + 1) * RU_HEIGHT_MM)} x2={innerX + RACK_19IN_INNER + 20} y2={Y(z + (u + 1) * RU_HEIGHT_MM)} stroke="#cbd5e1" stroke-width="0.3" vector-effect="non-scaling-stroke" />
+					{/if}
 					<!-- dy-centred: dominant-baseline="middle" is inconsistently honoured
 					     across browsers/fonts, drifting the numbers off the tick marks -->
 					<text x={innerX - 25} y={yc} dy="0.34em" text-anchor="end" font-size={ruLabelMm} fill="#aaa" font-family="monospace">{u}</text>

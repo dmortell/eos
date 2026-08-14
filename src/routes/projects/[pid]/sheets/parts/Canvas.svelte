@@ -322,7 +322,10 @@
 @media print {
 	html, body { margin: 0 !important; padding: 0 !important; }
 	.${PRINT_ROOT_CLASS} { position: fixed !important; inset: 0 !important; width: ${w}mm !important; height: ${h}mm !important; overflow: visible !important; background: white !important; }
-	.${PRINT_ROOT_CLASS} > .panzoom-content { transform: scale(${PX_PER_MM}) !important; transform-origin: 0 0 !important; --screen-scale: ${PX_PER_MM} !important; }
+	/* CSS zoom, not transform: Chromium rasterizes transform-scaled layers at
+	   screen resolution when printing (blurry text in the PDF); zoom re-layouts
+	   and prints as true vector. */
+	.${PRINT_ROOT_CLASS} > .panzoom-content { transform: none !important; zoom: ${PX_PER_MM}; transform-origin: 0 0 !important; --screen-scale: ${PX_PER_MM} !important; }
 }`
 	}
 
