@@ -19,7 +19,7 @@
 			heightU: 1,
 			portCount: 0,
 			portType: null as any,
-			widthMm: 450,		// 445mm for inside of 19" frame, use 460mm for bezel with ears
+			widthMm: 445,		// 445mm for inside of 19" frame, use 460mm for bezel with ears
 			depthMm: 200,
 			maker: '',
 			icon: 'box',
@@ -44,7 +44,7 @@
 			heightU: template.heightU,
 			portCount: template.portCount,
 			portType: template.portType ?? null,
-			widthMm: template.widthMm ?? 450,
+			widthMm: template.widthMm ?? 445,
 			depthMm: template.depthMm ?? 200,
 			maker: template.maker ?? '',
 			icon: template.icon,

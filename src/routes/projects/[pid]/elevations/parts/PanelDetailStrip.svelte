@@ -40,7 +40,8 @@
 	}
 
 	function reservation(portIndex: number): string | undefined {
-		if (!device || !rack) return undefined
+		// Reservations only apply to panels (position-keyed, steer allocation)
+		if (!device || !rack || device.type !== 'panel') return undefined
 		const row = portIndex <= 24 ? 'top' : 'bottom'
 		const col = (portIndex - 1) % 24
 		return editor.reservationMap.get(`${rack.id}:${device.positionU}:${row}:${col}`)

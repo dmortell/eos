@@ -76,6 +76,10 @@
 		const layout = portCellLayout(device)
 		const count = device.portCount ?? 0
 		const cells: Cell[] = []
+		// Reservations are POSITION-keyed (rack:RU:row:col) and only steer panel
+		// label allocation — never show them on non-panel devices (a server moved
+		// onto a previously-reserved RU was rendering stale "desk" marks).
+		const isPanel = device.type === 'panel'
 		for (let i = 0; i < count; i++) {
 			const r = portCellRect(layout, i + 1)
 			const info = editor.portInfo.get(`${device.id}:${i + 1}`)
@@ -87,7 +91,7 @@
 				col: r.col,
 				label: info?.label,
 				locationType: info?.locationType,
-				reservation: editor.reservationMap.get(resKey),
+				reservation: isPanel ? editor.reservationMap.get(resKey) : undefined,
 				pinned: info?.pinned,
 			})
 		}

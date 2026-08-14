@@ -55,14 +55,17 @@
 	let bulkCount = $state(1)
 	let bulkResult = $state<string | null>(null)
 
-	let racks = $derived(editor.selectedRacks)
 	// A selected port implies its parent panel: show the device section (editable)
 	// below the port section instead of hiding device props behind a toggle.
 	let devs = $derived(editor.selectedDevices.length
 		? editor.selectedDevices
 		: (portDevice ? [portDevice] : []))
-	let rack = $derived(racks[0] ?? null)
 	let device = $derived(devs[0] ?? null)
+	// Selecting a device (or port) also surfaces its parent rack (editable) below.
+	let racks = $derived(editor.selectedRacks.length
+		? editor.selectedRacks
+		: (device ? editor.racks.filter(r => r.id === device.rackId) : []))
+	let rack = $derived(racks[0] ?? null)
 	let rackMulti = $derived(racks.length > 1)
 	let devMulti = $derived(devs.length > 1)
 	let allPanels = $derived(devs.length > 0 && devs.every(d => d.type === 'panel'))
@@ -309,7 +312,7 @@
 				{/if}
 				{@render NumberField('heightU', sharedDev(d => d.heightU), v => updateDevs({ heightU: v }))}
 				{@render NumberField('portCount', sharedDev(d => d.portCount), v => updateDevs({ portCount: v }))}
-				{@render NumberField('widthMm', sharedDev(d => d.widthMm ?? 450), v => updateDevs({ widthMm: v }))}
+				{@render NumberField('widthMm', sharedDev(d => d.widthMm ?? 445), v => updateDevs({ widthMm: v }))}
 				{@render NumberField('depthMm', sharedDev(d => d.depthMm ?? 0), v => updateDevs({ depthMm: v || undefined }))}
 				{@render SelectField('mounting', sharedDev(d => d.mounting ?? 'both') ?? '', [['front', 'Front'], ['rear', 'Rear'], ['both', 'Both'], ['none', 'None']], v => updateDevs({ mounting: v }))}
 				{#if devs.some(d => (d.portCount ?? 0) > 0)}
