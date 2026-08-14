@@ -619,10 +619,20 @@ focus as a stack (§3.2). Target: **Phase 6, after the Phase 5 cutover**; the st
 - Patch list: row edit panel suppressed (hideEditor) — full cord editing moved to the
   Inspector (cable/length+lock/cordId/status/notes); list panel height now drag-resizable
   (strip above header), persisted per project.
-- [ ] Manual label list entry (§3.7 "Manual labels…") still deferred.
+- [x] Free-form port label overrides — DeviceConfig.portLabels (Inspector "custom label" field), override canonical labels, work on switches/servers too.
 
 ### Session追記 (device ports, 2026-08-15)
 - Ports now render on ALL port-bearing devices (switches, servers, …), not just panels:
   slate-tinted cells, faint port numbers at label LOD, same click/patch/block-select
   interactions. Patch gate applies to panels only — switch ports patch by number
   (Inspector explains). Panel detail strip accepts any port-bearing device.
+
+### Session追記 (labels + port geometry, 2026-08-15)
+- Free-form label overrides per port (DeviceConfig.portLabels, racks doc — they move
+  with the device); merged over canonical labels in portInfo (override flag, indigo
+  "custom" chip in Inspector). Label format (separator/zone/room) editable from the
+  Auto-generate dialog (project-wide, saved to frames doc, live in pipeline).
+- Port cells capped (MAX_CELL_W 30px / MAX_CELL_H 20px ≈ 1U) + per-device portAlign
+  (tl/tc/tr/bl/bc/br, default bottom-left) — 4-port 6U servers no longer stretch ports
+  across the box. Shared parts/portGeometry.ts feeds PortsLayer AND CordsLayer anchors.
+  Side effect: capped cells also delay the side-tag LOD on low-port devices (~53% now).

@@ -190,11 +190,16 @@
 			</div>
 			<div class="p-2 space-y-1.5 text-xs">
 				{#if portInfoEntry}
-					<div class="font-mono text-sm text-gray-800 select-text">{portInfoEntry.label}</div>
-					<div class="flex items-center gap-1.5">
-						<span class="w-4 h-4 rounded-sm border {LOC_TYPE_COLORS[portInfoEntry.locationType] ?? 'bg-gray-200'}"></span>
-						<span class="text-gray-600">{LOC_TYPE_LABELS[portInfoEntry.locationType] ?? portInfoEntry.locationType}</span>
+					<div class="font-mono text-sm text-gray-800 select-text">
+						{portInfoEntry.label}
+						{#if portInfoEntry.override}<span class="text-[9px] text-indigo-500 font-sans align-middle">custom</span>{/if}
 					</div>
+					{#if !portInfoEntry.override}
+						<div class="flex items-center gap-1.5">
+							<span class="w-4 h-4 rounded-sm border {LOC_TYPE_COLORS[portInfoEntry.locationType] ?? 'bg-gray-200'}"></span>
+							<span class="text-gray-600">{LOC_TYPE_LABELS[portInfoEntry.locationType] ?? portInfoEntry.locationType}</span>
+						</div>
+					{/if}
 				{:else if portDevice.type === 'panel'}
 					<div class="text-gray-400 italic">Unlabeled port</div>
 					<div class="text-[10px] text-gray-400 leading-snug">
@@ -205,6 +210,13 @@
 					<div class="font-mono text-sm text-gray-800">{portDevice.label} : {port.portIndex}</div>
 					<div class="text-[10px] text-gray-400">{portDevice.type} port — patch by number, no label needed.</div>
 				{/if}
+				<label class="flex gap-2 items-center">
+					<span class="w-16 text-gray-500 text-[10px] shrink-0">custom label</span>
+					<input class="flex-1 min-w-0 h-6 px-1 border-b border-gray-300 text-xs font-mono"
+						value={portDevice.portLabels?.[port.portIndex] ?? ''}
+						placeholder={portInfoEntry && !portInfoEntry.override ? 'override…' : 'free-form label'}
+						onchange={e => editor.setPortLabelOverride(portDevice!.id, port!.portIndex, e.currentTarget.value || null)} />
+				</label>
 				{#if portReservation}
 					<div class="text-[10px] text-gray-500">Block-reserved: <b>{portReservation}</b></div>
 				{/if}
@@ -300,6 +312,9 @@
 				{@render NumberField('widthMm', sharedDev(d => d.widthMm ?? 450), v => updateDevs({ widthMm: v }))}
 				{@render NumberField('depthMm', sharedDev(d => d.depthMm ?? 0), v => updateDevs({ depthMm: v || undefined }))}
 				{@render SelectField('mounting', sharedDev(d => d.mounting ?? 'both') ?? '', [['front', 'Front'], ['rear', 'Rear'], ['both', 'Both'], ['none', 'None']], v => updateDevs({ mounting: v }))}
+				{#if devs.some(d => (d.portCount ?? 0) > 0)}
+					{@render SelectField('ports at', sharedDev(d => d.portAlign ?? 'bl') ?? '', [['tl', 'Top left'], ['tc', 'Top center'], ['tr', 'Top right'], ['bl', 'Bottom left'], ['bc', 'Bottom center'], ['br', 'Bottom right']], v => updateDevs({ portAlign: v }))}
+				{/if}
 				{#if !devMulti}
 					{@render NumberField('offsetX', device.offsetX ?? 0, v => editor.updateDevice(device!.id, { offsetX: Math.round(v / 25) * 25 }))}
 				{/if}

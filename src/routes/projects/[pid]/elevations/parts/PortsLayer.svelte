@@ -18,6 +18,7 @@
 	import { SCALE, RU_HEIGHT_MM, DEVICE_W_MM } from '../../racks/parts/constants'
 	import { matchesFace } from '$lib/elevation/portmap'
 	import { PORT_TYPE_COLORS, LOC_TYPE_LABELS } from '$lib/elevation/loc-colors'
+	import { portCellLayout, portCellRect } from './portGeometry'
 
 	let { editor }: { editor: ElevationsEditor } = $props()
 
@@ -72,24 +73,18 @@
 	}
 
 	function cellsFor(device: DeviceConfig, rack: RackConfig): Cell[] {
-		const rect = { w: (device.widthMm ?? DEVICE_W_MM) * SCALE, h: device.heightU * RU_HEIGHT_MM * SCALE }
+		const layout = portCellLayout(device)
 		const count = device.portCount ?? 0
-		const rows = count > 24 ? 2 : 1
-		const cols = Math.min(count, 24)
-		const padX = 2, padY = 1.5
-		const cw = (rect.w - padX * 2) / cols
-		const ch = (rect.h - padY * 2) / rows
 		const cells: Cell[] = []
 		for (let i = 0; i < count; i++) {
-			const row = i < 24 ? 0 : 1
-			const col = i % 24
+			const r = portCellRect(layout, i + 1)
 			const info = editor.portInfo.get(`${device.id}:${i + 1}`)
-			const resKey = `${rack.id}:${device.positionU}:${row === 0 ? 'top' : 'bottom'}:${col}`
+			const resKey = `${rack.id}:${device.positionU}:${r.row === 0 ? 'top' : 'bottom'}:${r.col}`
 			cells.push({
-				x: padX + col * cw, y: padY + row * ch, w: cw - 0.5, h: ch - 0.5,
+				x: r.x, y: r.y, w: r.w, h: r.h,
 				index: i + 1,
-				row: row === 0 ? 'top' : 'bottom',
-				col,
+				row: r.row === 0 ? 'top' : 'bottom',
+				col: r.col,
 				label: info?.label,
 				locationType: info?.locationType,
 				reservation: editor.reservationMap.get(resKey),

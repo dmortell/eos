@@ -11,6 +11,7 @@
 	import type { PatchConnection, PortRef } from '../../patching/parts/types'
 	import { getCableType } from '../../patching/parts/constants'
 	import { SCALE, RU_HEIGHT_MM, DEVICE_W_MM } from '../../racks/parts/constants'
+	import { portCellLayout, portCellRect } from './portGeometry'
 
 	let { editor, visible = true }: { editor: ElevationsEditor; visible?: boolean } = $props()
 
@@ -28,9 +29,9 @@
 	/** Horizontal offset of the vertical cord runs from the rack edge.
 	 *  Larger = further outside the rack (away from rails/RU numbers);
 	 *  negative would run inside the rack frame. */
-	const CHANNEL_PX = 6
+	const CHANNEL_PX = -40
 	/** Vertical stub below the port before turning toward the channel. */
-	const DROP_PX = 2.5
+	const DROP_PX = 1.0
 
 	/** Anchor = bottom-center of the port cell, in unscaled canvas px. */
 	function anchor(ref: PortRef) {
@@ -48,19 +49,12 @@
 		const devTop = ruBottom - device.heightU * RU_HEIGHT_MM * SCALE
 		const devH = device.heightU * RU_HEIGHT_MM * SCALE
 
-		const count = device.portCount ?? 24
-		const rows = count > 24 ? 2 : 1
-		const cols = Math.min(count, 24)
-		const padX = 2, padY = 1.5
-		const cw = (devW - padX * 2) / cols
-		const ch = (devH - padY * 2) / rows
-		const i = ref.portIndex - 1
-		const row = i < 24 ? 0 : 1
-		const col = i % 24
+		const layout = portCellLayout(device)
+		const r = portCellRect(layout, ref.portIndex)
 		return {
-			x: devLeft + padX + col * cw + cw / 2,
-			y: devTop + padY + row * ch + ch - 0.5,
-			col, cols,
+			x: devLeft + r.x + r.w / 2,
+			y: devTop + r.y + r.h,
+			col: r.col, cols: layout.cols,
 			rackLeft, rackRight: rackLeft + rackW, rackBottom: rackTop + rackH,
 		}
 	}

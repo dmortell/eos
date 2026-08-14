@@ -127,6 +127,8 @@ export interface PortInfo {
 	locationType: string
 	/** True when this label is pinned to the port via portAssignments. */
 	pinned?: boolean
+	/** True when the label is a free-form per-device override (DeviceConfig.portLabels). */
+	override?: boolean
 }
 
 /**

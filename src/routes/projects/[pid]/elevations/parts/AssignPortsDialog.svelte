@@ -95,6 +95,28 @@
 					</div>
 				</div>
 				<label class="flex items-center gap-2">
+					<span class="w-24 text-gray-500 shrink-0">Label format</span>
+					<select class="flex-1 h-7 px-1 border border-gray-200 rounded bg-white font-mono text-[11px]"
+						value={editor.labelFormat.separator}
+						onchange={e => editor.updateLabelFormat({ separator: e.currentTarget.value as any })}>
+						<option value="legacy">L01.A.001-A01</option>
+						<option value="period">L01.A.001.A01</option>
+						<option value="hyphen">L01-A-001-A01</option>
+					</select>
+				</label>
+				<div class="flex items-center gap-3">
+					<span class="w-24 shrink-0"></span>
+					<label class="flex items-center gap-1 text-gray-500">
+						<input type="checkbox" checked={editor.labelFormat.includeZone}
+							onchange={e => editor.updateLabelFormat({ includeZone: e.currentTarget.checked })} /> zone
+					</label>
+					<label class="flex items-center gap-1 text-gray-500">
+						<input type="checkbox" checked={editor.labelFormat.includeRoom}
+							onchange={e => editor.updateLabelFormat({ includeRoom: e.currentTarget.checked })} /> room no.
+					</label>
+					<span class="text-[10px] text-gray-400">project-wide setting</span>
+				</div>
+				<label class="flex items-center gap-2">
 					<span class="w-24 text-gray-500 shrink-0">Room no.</span>
 					<input class="flex-1 h-7 px-2 border border-gray-200 rounded" bind:value={roomNumber} maxlength="4" placeholder="optional" />
 					<label class="flex items-center gap-1 text-gray-500">

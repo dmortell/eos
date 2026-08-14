@@ -83,6 +83,10 @@ export interface DeviceConfig {
 	positionU: number // 1-based from bottom of rack
 	portCount: number
 	portType?: PortType
+	/** Free-form per-port label overrides (1-based index → label) — override canonical frames labels. */
+	portLabels?: Record<number, string>
+	/** Placement of the (size-capped) port grid inside the device box. Default 'bl'. */
+	portAlign?: 'tl' | 'tc' | 'tr' | 'bl' | 'bc' | 'br'
 	maker?: string
 	model?: string
 	color?: string

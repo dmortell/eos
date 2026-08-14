@@ -67,6 +67,10 @@ export class ElevationsEditor {
 	portReservations = $state<PortReservation[]>([])
 	/** Sticky label pins: portPosKey → specific location port (frames doc). */
 	portAssignments = $state<Record<string, PortAssignment>>({})
+	/** Project label format (frames doc) — separator + included components. */
+	labelFormat = $state<{ separator: 'legacy' | 'period' | 'hyphen'; includeZone: boolean; includeRoom: boolean }>({
+		separator: 'legacy', includeZone: true, includeRoom: false,
+	})
 	private nextReservationId = 1
 	/** Multi-selected ports for block operations — keys are portPosKey (rackId:ru:row:col). */
 	selectedPorts = $state<Set<string>>(new Set())
@@ -163,13 +167,24 @@ export class ElevationsEditor {
 	selectedRacks = $derived(this.racks.filter(r => this.selection.has(r.id)))
 	selectedDevices = $derived(this.devices.filter(d => this.selection.has(d.id)))
 
-	/** Canonical port labels: `deviceId:portIndex` → { label, locationType, pinned }. */
+	/** Canonical port labels (+ free-form overrides): `deviceId:portIndex` → PortInfo. */
 	portInfo = $derived.by(() => {
 		const frameData = this.framesDataForPipeline
 			?? (Object.keys(this.zoneLocations).length
 				? { zoneLocations: this.zoneLocations, portReservations: this.portReservations, portAssignments: this.portAssignments }
 				: null)
-		return buildPortInfoMap(frameData, this.room, this.devices, this.racks, this.floor, this.serverRoomCountCfg, this.floorFormat)
+		const map = buildPortInfoMap(frameData, this.room, this.devices, this.racks, this.floor, this.serverRoomCountCfg, this.floorFormat)
+		// Free-form overrides (DeviceConfig.portLabels) replace/augment canonical labels
+		for (const d of this.devices) {
+			if (!d.portLabels) continue
+			for (const [idx, label] of Object.entries(d.portLabels)) {
+				if (!label) continue
+				const key = `${d.id}:${idx}`
+				const existing = map.get(key)
+				map.set(key, { label, locationType: existing?.locationType ?? 'N/A', pinned: existing?.pinned, override: true })
+			}
+		}
+		return map
 	})
 
 	reservationMap = $derived(buildReservationMap(this.portReservations))
@@ -552,7 +567,13 @@ export class ElevationsEditor {
 			zoneLocations: $state.snapshot(this.zoneLocations),
 			portReservations: $state.snapshot(this.portReservations),
 			portAssignments: $state.snapshot(this.portAssignments),
+			labelFormat: $state.snapshot(this.labelFormat),
 		}
+	}
+
+	updateLabelFormat(partial: Partial<ElevationsEditor['labelFormat']>) {
+		this.labelFormat = { ...this.labelFormat, ...partial }
+		this.logFramesChange('update', 'labelFormat', JSON.stringify(partial))
 	}
 
 	logFramesChange(action: string, field?: string, details?: string) {
@@ -568,15 +589,22 @@ export class ElevationsEditor {
 		this.framesData = data
 		if (!data) return
 		if (data.floorFormat) this.floorFormat = data.floorFormat
+		const remoteLabelFormat = {
+			separator: data.labelFormat?.separator ?? 'legacy',
+			includeZone: data.labelFormat?.includeZone ?? true,
+			includeRoom: data.labelFormat?.includeRoom ?? false,
+		}
 		const comparable = {
 			zoneLocations: data.zoneLocations ?? {},
 			portReservations: data.portReservations ?? [],
 			portAssignments: data.portAssignments ?? {},
+			labelFormat: remoteLabelFormat,
 		}
 		if (!this.framesAutosave.shouldApplyRemote(comparable)) return
 		this.zoneLocations = data.zoneLocations ?? {}
 		this.portReservations = data.portReservations ?? []
 		this.portAssignments = data.portAssignments ?? {}
+		this.labelFormat = remoteLabelFormat
 		this.nextReservationId = this.portReservations.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0) + 1
 		const zones = Object.keys(this.zoneLocations).filter(z => this.zoneLocations[z]?.length > 0).sort()
 		if (zones.length && !zones.includes(this.activeZone)) this.activeZone = zones[0]
@@ -1102,11 +1130,21 @@ export class ElevationsEditor {
 		this.selectedPorts = new Set()
 	}
 
+	/** Set/clear a free-form label override on a device port (racks doc, undoable). */
+	setPortLabelOverride(deviceId: string, portIndex: number, label: string | null) {
+		const dev = this.devices.find(d => d.id === deviceId)
+		if (!dev) return
+		const overrides: Record<number, string> = { ...(dev.portLabels ?? {}) }
+		if (label) overrides[portIndex] = label
+		else delete overrides[portIndex]
+		this.updateDevice(deviceId, { portLabels: Object.keys(overrides).length ? overrides : undefined })
+	}
+
 	// ── Sticky label assignments (§3.7) ──
 
-	/** portInfo must see local assignment edits immediately. */
+	/** portInfo must see local frames-doc edits immediately. */
 	private framesDataForPipeline = $derived(this.framesData
-		? { ...this.framesData, zoneLocations: this.zoneLocations, portReservations: this.portReservations, portAssignments: this.portAssignments }
+		? { ...this.framesData, zoneLocations: this.zoneLocations, portReservations: this.portReservations, portAssignments: this.portAssignments, labelFormat: this.labelFormat }
 		: null)
 
 	private mutateFramesDoc(action: string, details: string | undefined, fn: () => void) {
