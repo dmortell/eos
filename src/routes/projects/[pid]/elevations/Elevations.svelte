@@ -744,8 +744,8 @@
 											<span class="text-amber-500 normal-case font-normal">· some at positions without a panel</span>
 										{/if}
 									</div>
-									<!-- Keyed by index: legacy docs can contain duplicate reservation ids -->
-									{#each editor.reservationSummary as r, ri (ri)}
+									<!-- Ids are uniqued by the syncFrames repair → safe to key/remove by id -->
+									{#each editor.reservationSummary as r (r.id)}
 										<div class="flex items-center gap-1.5 text-[11px]">
 											<span class="px-1 rounded border font-mono text-[10px] {LOC_TYPE_COLORS[r.type] ?? 'bg-gray-100 border-gray-200 text-gray-600'}">{r.type}</span>
 											<span class="text-gray-600 truncate flex-1" title={r.spots.map(s => `${s.label} × ${s.count}`).join('\n')}>
@@ -755,7 +755,7 @@
 												<span class="text-amber-500 shrink-0" title="Reserved positions with no panel — invisible on the canvas">{r.orphanedCount} orphaned</span>
 											{/if}
 											<button class="w-4 h-4 shrink-0 flex items-center justify-center rounded text-gray-300 hover:text-red-500 hover:bg-red-50"
-												title="Remove this reservation" onclick={() => editor.removeReservationEntry(ri)}>×</button>
+												title="Remove this reservation" onclick={() => editor.removeReservationEntry(r.id)}>×</button>
 										</div>
 									{/each}
 								</div>

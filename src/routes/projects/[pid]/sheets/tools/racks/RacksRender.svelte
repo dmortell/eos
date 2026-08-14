@@ -185,8 +185,10 @@
 					<!-- RU tick marks beside the numbers (ruler-style, like the original racks tool) -->
 					<line x1={innerX - 20} y1={yc} x2={innerX - 8} y2={yc} stroke="#cbd5e1" stroke-width="0.3" vector-effect="non-scaling-stroke" />
 					<line x1={innerX + RACK_19IN_INNER + 8} y1={yc} x2={innerX + RACK_19IN_INNER + 20} y2={yc} stroke="#cbd5e1" stroke-width="0.3" vector-effect="non-scaling-stroke" />
-					<text x={innerX - 25} y={yc} text-anchor="end" dominant-baseline="middle" font-size={ruLabelMm} fill="#aaa" font-family="monospace">{u}</text>
-					<text x={innerX + RACK_19IN_INNER + 25} y={yc} text-anchor="start" dominant-baseline="middle" font-size={ruLabelMm} fill="#aaa" font-family="monospace">{u}</text>
+					<!-- dy-centred: dominant-baseline="middle" is inconsistently honoured
+					     across browsers/fonts, drifting the numbers off the tick marks -->
+					<text x={innerX - 25} y={yc} dy="0.34em" text-anchor="end" font-size={ruLabelMm} fill="#aaa" font-family="monospace">{u}</text>
+					<text x={innerX + RACK_19IN_INNER + 25} y={yc} dy="0.34em" text-anchor="start" font-size={ruLabelMm} fill="#aaa" font-family="monospace">{u}</text>
 				{/each}
 			{/if}
 			<text x={x + rack.widthMm / 2} y={Y(z + rack.heightMm) - rackLabelMm * 0.4} text-anchor="middle" font-size={rackLabelMm} fill={lc ?? '#333'} font-weight="bold">{rack.label}</text>

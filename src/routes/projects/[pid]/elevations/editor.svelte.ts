@@ -602,7 +602,18 @@ export class ElevationsEditor {
 		}
 		if (!this.framesAutosave.shouldApplyRemote(comparable)) return
 		this.zoneLocations = data.zoneLocations ?? {}
-		this.portReservations = data.portReservations ?? []
+		// Repair legacy duplicate reservation ids (pre-fix nextReservationId reset
+		// bug) deterministically — sequential renumber by position, so concurrent
+		// clients converge on the same result. Persisted on the next edit.
+		const rawReservations: PortReservation[] = data.portReservations ?? []
+		const seenIds = new Set<string>()
+		let maxId = rawReservations.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0)
+		this.portReservations = rawReservations.map(r => {
+			if (!seenIds.has(r.id)) { seenIds.add(r.id); return r }
+			const id = String(++maxId)
+			seenIds.add(id)
+			return { ...r, id }
+		})
 		this.portAssignments = data.portAssignments ?? {}
 		this.labelFormat = remoteLabelFormat
 		this.nextReservationId = this.portReservations.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0) + 1
@@ -1146,14 +1157,14 @@ export class ElevationsEditor {
 		})
 	})
 
-	/** Remove one whole reservation entry (maintenance list). Index-based —
-	 *  legacy docs can contain DUPLICATE reservation ids (the pre-fix
-	 *  nextReservationId reset bug), so an id filter would remove both. */
-	removeReservationEntry(index: number) {
-		const entry = this.portReservations[index]
+	/** Remove one whole reservation entry (maintenance list). Id-based — ids are
+	 *  made unique by the syncFrames repair, and an id survives concurrent
+	 *  remote reorders where an index would not. */
+	removeReservationEntry(id: string) {
+		const entry = this.portReservations.find(r => r.id === id)
 		if (!entry) return
 		this.mutateReservations('remove', `${entry.type} · ${entry.ports.length} port(s)`, () => {
-			this.portReservations = this.portReservations.filter((_, i) => i !== index)
+			this.portReservations = this.portReservations.filter(r => r.id !== id)
 		})
 	}
 
