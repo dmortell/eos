@@ -121,15 +121,20 @@
 	let floorManagerOpen = $state(false)
 	let versionPanelOpen = $state(false)
 	let listPaneOpen = $state(false)
-	/** Cords visibility toggle — Patch mode always shows them regardless. */
-	let showCords = $state(true)
+	/** View menu (layer toggles) — Patch mode always shows cords regardless. */
+	let viewMenuOpen = $state(false)
 	onMount(() => {
-		try { showCords = localStorage.getItem(`elevations-cords-${projectId}`) !== '0' } catch {}
+		try {
+			const saved = localStorage.getItem(`elevations-viewopts-${projectId}`)
+			if (saved) editor.viewOpts = { ...editor.viewOpts, ...JSON.parse(saved) }
+			else if (localStorage.getItem(`elevations-cords-${projectId}`) === '0') editor.viewOpts.cords = false
+		} catch {}
 	})
 	$effect(() => {
-		try { localStorage.setItem(`elevations-cords-${projectId}`, showCords ? '1' : '0') } catch {}
+		const opts = $state.snapshot(editor.viewOpts)
+		try { localStorage.setItem(`elevations-viewopts-${projectId}`, JSON.stringify(opts)) } catch {}
 	})
-	let cordsVisible = $derived(showCords || editor.mode === 'patch')
+	let cordsVisible = $derived(editor.viewOpts.cords || editor.mode === 'patch')
 	let assignDialog = $state<'generate' | 'existing' | null>(null)
 
 	// ?frame= deep link: focus the rack once its data has loaded (overrides
@@ -726,12 +731,17 @@
 								onserverrooms={() => {}}
 								onzone={z => editor.setActiveZone(z)}
 								ongenerate={count => editor.generateLocations(count)} />
+							<label class="flex items-center gap-1.5 px-1 text-[11px] text-gray-500 cursor-pointer">
+								<input type="checkbox" checked={editor.showAllZones}
+									onchange={e => { editor.showAllZones = e.currentTarget.checked; editor.locationSelection = new Set() }} />
+								All zones
+							</label>
 							<LocationList
-								locations={editor.zoneLocations[editor.activeZone] ?? []}
+								locations={editor.displayedLocations}
 								hasTwoRooms={editor.serverRoomCountCfg > 1}
 								selectedLocations={editor.locationSelection}
 								customTypes={editor.framesData?.customLocationTypes ?? []}
-								zoneForLoc={() => editor.activeZone}
+								zoneForLoc={i => editor.displayedZoneFor(i)}
 								onupdate={(i, loc) => editor.updateLocation(i, loc)}
 								onselect={(key, e) => editor.selectLocation(key, e)} />
 						</div>
@@ -839,13 +849,36 @@
 
 					<div class="w-px h-4 bg-gray-200"></div>
 
-					<button class="p-1 rounded transition-colors {cordsVisible ? 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100' : 'text-gray-400 hover:bg-gray-200'}"
-						title={editor.mode === 'patch'
-							? 'Patch cords (always shown in Patch mode)'
-							: showCords ? 'Hide patch cords' : 'Show patch cords'}
-						onclick={() => showCords = !showCords}>
-						<Icon name="cable" size={14} />
-					</button>
+					<div class="relative">
+						<button class="px-1.5 h-6 rounded flex items-center gap-1 text-[11px] transition-colors {viewMenuOpen ? 'bg-gray-200 text-gray-700' : 'text-gray-500 hover:bg-gray-200'}"
+							title="Layer visibility" onclick={() => viewMenuOpen = !viewMenuOpen}>
+							<Icon name="layers" size={13} /> View
+						</button>
+						{#if viewMenuOpen}
+							<!-- svelte-ignore a11y_no_static_element_interactions -->
+							<!-- svelte-ignore a11y_click_events_have_key_events -->
+							<div class="fixed inset-0 z-40" onclick={() => viewMenuOpen = false}></div>
+							<div class="absolute right-0 top-7 z-50 w-48 bg-white border border-gray-200 rounded-lg shadow-lg p-1.5 space-y-0.5 text-[11px]">
+								<label class="flex items-center gap-2 px-1.5 py-1 rounded hover:bg-gray-50 cursor-pointer">
+									<input type="checkbox" checked={editor.viewOpts.cords} onchange={e => editor.viewOpts.cords = e.currentTarget.checked} />
+									<span>Patch cords</span>
+									{#if editor.mode === 'patch'}<span class="text-gray-300">(forced in Patch)</span>{/if}
+								</label>
+								<label class="flex items-center gap-2 px-1.5 py-1 rounded hover:bg-gray-50 cursor-pointer">
+									<input type="checkbox" checked={editor.viewOpts.ports} onchange={e => editor.viewOpts.ports = e.currentTarget.checked} />
+									<span>Port grids & labels</span>
+								</label>
+								<label class="flex items-center gap-2 px-1.5 py-1 rounded hover:bg-gray-50 cursor-pointer">
+									<input type="checkbox" checked={editor.viewOpts.reservations} onchange={e => editor.viewOpts.reservations = e.currentTarget.checked} />
+									<span>Reservation marks</span>
+								</label>
+								<label class="flex items-center gap-2 px-1.5 py-1 rounded hover:bg-gray-50 cursor-pointer">
+									<input type="checkbox" checked={editor.viewOpts.dimFocus} onchange={e => editor.viewOpts.dimFocus = e.currentTarget.checked} />
+									<span>Dim others on focus</span>
+								</label>
+							</div>
+						{/if}
+					</div>
 
 					<button class="p-1 rounded text-gray-500 hover:bg-gray-200 disabled:opacity-30 disabled:hover:bg-transparent"
 						disabled={!editor.history.canUndo} title="Undo (Ctrl+Z)" onclick={() => editor.undo()}>
@@ -913,7 +946,7 @@
 						<button class="px-1.5 h-5 rounded border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 text-[10px]"
 							onclick={() => editor.clearPortBlock()}>Deselect</button>
 						<div class="flex-1"></div>
-						<span class="text-purple-300">Ctrl+click add · Shift+click range</span>
+						<span class="text-purple-300">Ctrl+click/drag paint · Shift+click range</span>
 					</div>
 				{/if}
 
@@ -946,7 +979,7 @@
 							<PortsLayer {editor} />
 							<CordsLayer {editor} visible={cordsVisible} />
 							<!-- Focus dimming: non-focused racks fade; pointer-events pass through -->
-							{#if editor.focus}
+							{#if editor.focus && editor.viewOpts.dimFocus}
 								{#each faceRacks.filter(r => !editor.focusedRackIds.has(r.id)) as rack (rack.id)}
 									{@const rr = screenRect(rack)}
 									<div class="absolute bg-white/65 pointer-events-none" style:z-index="4"

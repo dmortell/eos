@@ -93,6 +93,8 @@ export class ElevationsEditor {
 	cursor = $state<{ x: number; y: number } | null>(null)
 	/** One-line contextual hint for the status bar (port gate, arm state). */
 	statusHint = $state<string | null>(null)
+	/** Layer visibility toggles (View menu; persisted by the shell). */
+	viewOpts = $state({ cords: true, ports: true, reservations: true, dimFocus: true })
 	/** Focus navigation stack level: the rack(s) the viewport is framed on. */
 	focus = $state<{ rackIds: string[] } | null>(null)
 	/** Selected port (panel device + 1-based index) — separate from the rack/device set. */
@@ -616,11 +618,31 @@ export class ElevationsEditor {
 		})
 	}
 
-	/** Update one location row; a multi-selection applies the changed fields to all selected. */
+	// ── Locations display: single zone or all zones flattened ──
+	showAllZones = $state(false)
+
+	flatLocations = $derived.by(() => {
+		const locations: LocationConfig[] = []
+		const index: { zone: string; i: number }[] = []
+		const zones = Object.keys(this.zoneLocations).filter(z => this.zoneLocations[z]?.length > 0).sort()
+		for (const z of zones) {
+			this.zoneLocations[z].forEach((l, i) => { locations.push(l); index.push({ zone: z, i }) })
+		}
+		return { locations, index }
+	})
+
+	displayedLocations = $derived(this.showAllZones ? this.flatLocations.locations : (this.zoneLocations[this.activeZone] ?? []))
+
+	displayedZoneFor(index: number): string {
+		return this.showAllZones ? (this.flatLocations.index[index]?.zone ?? this.activeZone) : this.activeZone
+	}
+
+	/** Update one displayed location row; a multi-selection applies the changed
+	 *  fields to all selected rows (across zones in all-zones view). */
 	updateLocation(index: number, loc: LocationConfig) {
-		const zone = this.activeZone
-		const list = this.zoneLocations[zone] ?? []
-		const original = list[index]
+		const zone = this.displayedZoneFor(index)
+		const indexInZone = this.showAllZones ? this.flatLocations.index[index]?.i ?? index : index
+		const original = (this.zoneLocations[zone] ?? [])[indexInZone]
 		if (!original) return
 
 		const changedFields: Partial<LocationConfig> = {}
@@ -638,27 +660,32 @@ export class ElevationsEditor {
 
 		this.mutateLocations('update', `zone ${zone} #${original.locationNumber}`, () => {
 			if (applyToAll) {
-				const locs = list.map(l => {
-					const key = `${zone}-${l.locationNumber}`
-					if (!this.locationSelection.has(key)) return l
-					const updated = { ...l, ...changedFields }
+				let updated = { ...this.zoneLocations }
+				const disp = this.displayedLocations
+				for (let i = 0; i < disp.length; i++) {
+					const z = this.displayedZoneFor(i)
+					if (!this.locationSelection.has(`${z}-${disp[i].locationNumber}`)) continue
+					const iz = this.showAllZones ? this.flatLocations.index[i].i : i
+					const updatedLoc = { ...disp[i], ...changedFields }
 					if ('portCount' in changedFields) {
-						updated.serverRoomAssignment = Array.from({ length: changedFields.portCount! }, (_, j) =>
-							l.serverRoomAssignment[j] || 'A')
+						updatedLoc.serverRoomAssignment = Array.from({ length: changedFields.portCount! }, (_, j) =>
+							disp[i].serverRoomAssignment[j] || 'A')
 					}
-					return updated
-				})
-				this.zoneLocations = { ...this.zoneLocations, [zone]: locs }
+					const arr = [...(updated[z] ?? [])]
+					arr[iz] = updatedLoc
+					updated = { ...updated, [z]: arr }
+				}
+				this.zoneLocations = updated
 			} else {
-				const locs = [...list]
-				locs[index] = loc
-				this.zoneLocations = { ...this.zoneLocations, [zone]: locs }
+				const arr = [...(this.zoneLocations[zone] ?? [])]
+				arr[indexInZone] = loc
+				this.zoneLocations = { ...this.zoneLocations, [zone]: arr }
 			}
 		})
 	}
 
 	selectLocation(key: string, e: MouseEvent | KeyboardEvent) {
-		const keys = (this.zoneLocations[this.activeZone] ?? []).map(l => `${this.activeZone}-${l.locationNumber}`)
+		const keys = this.displayedLocations.map((l, i) => `${this.displayedZoneFor(i)}-${l.locationNumber}`)
 		if (e.shiftKey && this.lastLocationKey) {
 			const startIdx = keys.indexOf(this.lastLocationKey)
 			const endIdx = keys.indexOf(key)
@@ -1031,6 +1058,22 @@ export class ElevationsEditor {
 	}
 
 	clearPortBlock() { this.selectedPorts = new Set() }
+
+	hasPortBlockKey(key: string): boolean { return this.selectedPorts.has(key) }
+
+	addPortBlockKey(key: string) {
+		if (this.selectedPorts.has(key)) return
+		const next = new Set(this.selectedPorts)
+		next.add(key)
+		this.selectedPorts = next
+	}
+
+	removePortBlockKey(key: string) {
+		if (!this.selectedPorts.has(key)) return
+		const next = new Set(this.selectedPorts)
+		next.delete(key)
+		this.selectedPorts = next
+	}
 
 	/** Reserve the selected ports for a location type (steers label allocation). */
 	assignReservation(type: LocType) {

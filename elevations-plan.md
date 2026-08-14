@@ -551,9 +551,10 @@ focus as a stack (§3.2). Target: **Phase 6, after the Phase 5 cutover**; the st
 ### Pending TODOs (near-term)
 - [x] Focus-pair visible affordance — "Focus rack(s)" button in the Inspector rack
       section (select 1–2 racks in the sidebar → Focus); Shift+dbl-click remains.
-- [ ] Label-rendering settings toggles (lod/tooltip/inspectorAlways etc., ux-plan
-      experiment) — deferred from Phase 2.
-- [ ] "All zones" location list view — deferred from Phase 2.
+- [x] View menu (toolbar): Patch cords / Port grids & labels / Reservation marks /
+      Dim on focus — persisted per project. (ux-plan's lod/tooltip experiment is
+      superseded by the working LOD + tooltips.)
+- [x] "All zones" location list view — checkbox in the Locations tab; multi-select edits apply across zones.
 - [ ] Phase 3b leftovers (whatever remains after this session — see §5 Phase 3 note).
 - [ ] Rack-level dblclick vs device dblclick: double-clicking a device does not focus
       its rack (Draggable stops propagation) — decide whether it should.
@@ -593,7 +594,7 @@ focus as a stack (§3.2). Target: **Phase 6, after the Phase 5 cutover**; the st
   the tint grid until port-label LOD takes over. Port selection now also shows the parent
   panel's editable device section in the Inspector (stacked sections, no toggle). Block
   selection: Ctrl+Shift+click range within a panel + "Select all" in the detail strip.
-- [ ] Block selection: drag-to-paint selection as a future nicety.
+- [x] Block selection: Ctrl+drag paints cells (click still toggles).
 - [ ] Possible 1U drift on "Test device"/"Shelf" in Test Project room A (U10→U9, U15→U14)
       noticed during automation — verify intent, undo via patch of positionU if unwanted.
 

@@ -123,10 +123,46 @@
 	}
 
 	let selectedKey = $derived(editor.selectedPort ? `${editor.selectedPort.deviceId}:${editor.selectedPort.portIndex}` : null)
+
+	// ── Ctrl+drag paint-selection across cells ──
+	// mousedown adds the cell; dragging over cells (via data-blk hit) adds them;
+	// a ctrl+click without movement on an already-selected cell removes it
+	// (completing the toggle). The click handler skips its Ctrl branch — paint
+	// owns Ctrl entirely.
+	let paint: { startKey: string; wasSelected: boolean; moved: boolean } | null = null
+
+	function blkKey(rackId: string, ru: number, portIndex: number): string {
+		const row = portIndex <= 24 ? 'top' : 'bottom'
+		return `${rackId}:${ru}:${row}:${(portIndex - 1) % 24}`
+	}
+
+	function beginPaint(rackId: string, ru: number, portIndex: number) {
+		const key = blkKey(rackId, ru, portIndex)
+		paint = { startKey: key, wasSelected: editor.hasPortBlockKey(key), moved: false }
+		editor.addPortBlockKey(key)
+		document.addEventListener('mousemove', paintMove)
+		document.addEventListener('mouseup', paintEnd)
+	}
+
+	function paintMove(e: MouseEvent) {
+		if (!paint) return
+		const el = document.elementFromPoint(e.clientX, e.clientY) as Element | null
+		const key = el?.closest?.('[data-blk]')?.getAttribute('data-blk')
+		if (key && key !== paint.startKey) paint.moved = true
+		if (key) editor.addPortBlockKey(key)
+	}
+
+	function paintEnd() {
+		document.removeEventListener('mousemove', paintMove)
+		document.removeEventListener('mouseup', paintEnd)
+		if (paint && !paint.moved && paint.wasSelected) editor.removePortBlockKey(paint.startKey)
+		paint = null
+	}
 </script>
 
-{#if zoom * SCALE * (DEVICE_W_MM / 24) >= 4}
+{#if editor.viewOpts.ports && zoom * SCALE * (DEVICE_W_MM / 24) >= 4}
 	{#each panels as { device, rack, onFace } (device.id)}
+		{@const showRes = editor.viewOpts.reservations}
 		{@const rect = deviceRect(device, rack)}
 		{@const cells = onFace ? cellsFor(device, rack) : []}
 		{@const cw = cells[0]?.w ?? (rect.width - 4) / Math.min(device.portCount ?? 24, 24)}
@@ -153,23 +189,28 @@
 				<!-- svelte-ignore a11y_click_events_have_key_events -->
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<g
+					data-blk={blkKey(rack.id, device.positionU, c.index)}
 					style:pointer-events={l.interactive ? 'all' : 'none'}
 					style:cursor={l.interactive ? (patchBlocked ? 'not-allowed' : 'pointer') : 'default'}
-					onmousedown={e => { if (l.interactive && e.button === 0) { e.stopPropagation(); e.preventDefault() } }}
+					onmousedown={e => {
+						if (!l.interactive || e.button !== 0) return
+						e.stopPropagation(); e.preventDefault()
+						if (e.ctrlKey || e.metaKey) beginPaint(rack.id, device.positionU, c.index)
+					}}
 					onclick={e => {
 						if (!l.interactive) return
 						e.stopPropagation()
+						if (e.ctrlKey || e.metaKey) return // handled by paint (mousedown/drag)
 						if (e.shiftKey) editor.rangePortBlock(rack.id, device.positionU, c.index, device.id)
-						else if (e.ctrlKey || e.metaKey) editor.togglePortBlock(rack.id, device.positionU, c.index, device.id)
 						else editor.handlePortClick(rack.id, device.id, c.index)
 					}}>
 					<title>{tooltip(c, device)}</title>
 					<rect x={c.x} y={c.y} width={c.w} height={c.h} rx={0.8}
-						fill={cellFill(c, device.type === 'panel')}
+						fill={cellFill(showRes ? c : { ...c, reservation: undefined }, device.type === 'panel')}
 						fill-opacity={patchBlocked ? 0.35 : 1}
 						stroke={isArmed ? '#22c55e' : isBlk ? '#a855f7' : isSel ? '#3b82f6' : c.label ? '#9ca3af80' : '#d1d5db'}
 						stroke-width={isArmed || isSel || isBlk ? 2 / zoom : 0.5 / zoom}
-						stroke-dasharray={!c.label && c.reservation ? '2 1.5' : undefined} />
+						stroke-dasharray={showRes && !c.label && c.reservation ? '2 1.5' : undefined} />
 					{#if conn}
 						<circle cx={c.x + c.w / 2} cy={c.y + c.h - Math.min(2, c.h * 0.15)}
 							r={Math.min(1.6, c.w * 0.12)}
@@ -177,7 +218,7 @@
 							stroke={editor.duplicatePorts.has(`${device.id}:${c.index}`) ? '#ef4444' : 'white'}
 							stroke-width={0.4} />
 					{/if}
-					{#if c.reservation && c.label}
+					{#if showRes && c.reservation && c.label}
 						<rect x={c.x} y={c.y} width={c.w} height={Math.min(1.5, c.h * 0.12)}
 							fill={PORT_TYPE_COLORS[c.reservation] ?? '#9ca3af'} />
 					{/if}
@@ -199,7 +240,7 @@
 								fill="#374151"
 								style:pointer-events="none">{line}</text>
 						{/each}
-					{:else if l.labels > 0 && c.reservation}
+					{:else if showRes && l.labels > 0 && c.reservation}
 						<text x={c.x + c.w / 2} y={c.y + c.h / 2 + 2}
 							text-anchor="middle" font-family="ui-monospace, monospace"
 							font-size={Math.min(c.w / 2, c.h / 2.5)} fill="#6b7280" opacity="0.7"
