@@ -97,6 +97,8 @@ export interface DeviceConfig {
 	// Patch panel fields (only relevant when type === 'panel')
 	patchLevel?: 'floor' | 'high' // floor-level or high-level (ceiling) ports
 	serverRoom?: string // 'A', 'B', 'C', 'D' — which server room this panel serves
+	/** Labels physically printed/installed — Sync warns loudly before re-baking (labels v2). */
+	labelsPrinted?: boolean
 }
 
 export interface DeviceTemplate {

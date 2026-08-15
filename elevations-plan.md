@@ -852,3 +852,13 @@ per-panel printed flag.
   Verified in browser (custom `Z/NNN":"A` → A/023:D, alpha port token).
 - NOTE: Firestore rules must allow the new global `labelFormats` collection
   (same pattern as `catalog`) — verify on Vercel; writes fail silently if not.
+- L2 ✅: baked device-scoped labels. frames doc gains `bakedLabels`
+  (`deviceId:portIndex` → {label, locationId, port}) written at
+  generate/assign time through the effective template (byte-identical legacy
+  mapping); buildPortInfoMap overlays baked strings over engine output
+  (locationType via locationId); labels move with panels. Unassigned-port
+  fallback rack-RU#-port# (portLabelOf); patch gate on unlabeled panel ports
+  REMOVED; DeviceConfig.labelsPrinted + Inspector "printed" checkbox.
+  Fixed: clearing labelFormat.template needs explicit null — merge:true
+  deep-merge resurrected a deleted key (echo loop). Verified in browser:
+  generate → 037-A01 baked chip; undo reverts bake. 25 lib tests.

@@ -40,7 +40,8 @@
 		const p = presets.find(p => p.template === t)
 		return p ? `preset:${p.id}` : 'custom'
 	})
-	let customTemplate = $state('')
+	// Seed from the stored template so reopening the dialog shows it
+	let customTemplate = $state(editor.labelFormat.template ?? '')
 	let presetName = $state('')
 	let effectiveTemplate = $derived(editor.labelFormat.template
 		?? templateForLegacyFormat(editor.labelFormat, editor.floorFormat))

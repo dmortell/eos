@@ -167,6 +167,26 @@ export interface PortInfo {
 	pinned?: boolean
 	/** True when the label is a free-form per-device override (DeviceConfig.portLabels). */
 	override?: boolean
+	/** True when the label is a baked (stored) string, not a live engine derivation. */
+	baked?: boolean
+}
+
+/**
+ * A baked label (labels v2 L2): the stored string is the truth — generation
+ * wrote it once and only an explicit Sync re-bake changes it. Keyed
+ * `deviceId:portIndex` in the frames doc (`bakedLabels`) so labels move with
+ * their panel. locationId/port keep the structural link for sync + divergence.
+ */
+export interface BakedLabel {
+	label: string
+	locationId?: string
+	/** 1-based port index within the location. */
+	port?: number
+}
+
+/** Display fallback for a port with no assigned label (rack-RU#-port#). */
+export function fallbackPortLabel(rackLabel: string, positionU: number, portIndex: number): string {
+	return `${rackLabel}-U${positionU}-P${portIndex}`
 }
 
 /**
@@ -319,6 +339,28 @@ export function buildPortInfoMap(
 					locationType: portLabel.locationType,
 				})
 			}
+		}
+	}
+
+	// Baked labels overlay everything the engine derived: once a label string is
+	// stored it is the truth until an explicit Sync re-bakes it (§11 L2).
+	const bakedLabels: Record<string, BakedLabel> = frameData.bakedLabels ?? {}
+	const bakedKeys = Object.keys(bakedLabels)
+	if (bakedKeys.length) {
+		const deviceIds = new Set(devices.map(d => d.id))
+		const typeById = new Map<string, string>()
+		for (const locs of Object.values(zoneLocations)) {
+			for (const l of locs ?? []) if (l.id) typeById.set(l.id, l.locationType)
+		}
+		for (const key of bakedKeys) {
+			const b = bakedLabels[key]
+			if (!b?.label || !deviceIds.has(key.split(':')[0])) continue
+			map.set(key, {
+				label: b.label,
+				locationType: (b.locationId ? typeById.get(b.locationId) : undefined)
+					?? map.get(key)?.locationType ?? 'N/A',
+				baked: true,
+			})
 		}
 	}
 

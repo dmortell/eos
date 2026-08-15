@@ -141,6 +141,29 @@ describe('buildPortInfoMap', () => {
 		expect(map2.get('dev-1:6')?.pinned).toBe(true)
 	})
 
+	it('baked labels overlay engine labels and resolve locationType by id', () => {
+		const withBaked = {
+			zoneLocations: {
+				A: [
+					{ id: 'LA1', locationNumber: 1, portCount: 2, serverRoomAssignment: ['A', 'A'], locationType: 'desk' },
+					{ id: 'LA2', locationNumber: 2, portCount: 1, serverRoomAssignment: ['A'], locationType: 'AP' },
+				],
+			},
+			bakedLabels: {
+				'dev-1:1': { label: 'CUSTOM-001', locationId: 'LA2', port: 1 },
+				'dev-9:1': { label: 'GHOST', locationId: 'LA1', port: 1 }, // unknown device → ignored
+			},
+		}
+		const map = buildPortInfoMap(withBaked, 'A', [panel], [rack], 1)
+		// Baked string wins over the engine's sequential allocation at port 1
+		expect(map.get('dev-1:1')?.label).toBe('CUSTOM-001')
+		expect(map.get('dev-1:1')?.baked).toBe(true)
+		expect(map.get('dev-1:1')?.locationType).toBe('AP')
+		// Engine labels still fill the rest
+		expect(map.get('dev-1:2')?.label).toBeTruthy()
+		expect(map.get('dev-9:1')).toBeUndefined()
+	})
+
 	it('keeps room-B labels when serverRoomCount is not stored (viewport regression)', () => {
 		const twoRoom = {
 			zoneLocations: { A: [{ locationNumber: 1, portCount: 1, serverRoomAssignment: ['B'], locationType: 'desk' }] },

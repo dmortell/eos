@@ -11,7 +11,8 @@
  */
 import { HistoryStore } from '$lib/history/HistoryStore.svelte'
 import { AutoSave } from '$lib/autosave/AutoSave.svelte'
-import { buildPortInfoMap, buildReservationMap, repairLocationIds, locationIdFor, type PortAssignment } from '$lib/elevation/portmap'
+import { buildPortInfoMap, buildReservationMap, repairLocationIds, locationIdFor, fallbackPortLabel, type PortAssignment, type BakedLabel } from '$lib/elevation/portmap'
+import { renderLabel, templateForLegacyFormat } from '$lib/elevation/labelTemplate'
 import type {
 	RackConfig, DeviceConfig, DeviceTemplate, RackRow, RackSettings, RoomObject, ViewState, ElevationFace,
 } from '../racks/parts/types'
@@ -67,9 +68,14 @@ export class ElevationsEditor {
 	portReservations = $state<PortReservation[]>([])
 	/** Sticky label pins: portPosKey → specific location port (frames doc). */
 	portAssignments = $state<Record<string, PortAssignment>>({})
+	/** Baked label strings `deviceId:portIndex` → BakedLabel (labels v2 L2). */
+	bakedLabels = $state<Record<string, BakedLabel>>({})
 	/** Project label format (frames doc) — separator + included components. */
-	labelFormat = $state<{ separator: 'legacy' | 'period' | 'hyphen'; includeZone: boolean; includeRoom: boolean; template?: string }>({
-		separator: 'legacy', includeZone: true, includeRoom: false,
+	// template is string | null (never undefined/absent): the frames doc is saved
+	// with merge:true, and a deleted key would be resurrected by the deep merge —
+	// an explicit null actually overwrites it.
+	labelFormat = $state<{ separator: 'legacy' | 'period' | 'hyphen'; includeZone: boolean; includeRoom: boolean; template?: string | null }>({
+		separator: 'legacy', includeZone: true, includeRoom: false, template: null,
 	})
 	private nextReservationId = 1
 	/** Multi-selected ports for block operations — keys are portPosKey (rackId:ru:row:col). */
@@ -567,14 +573,15 @@ export class ElevationsEditor {
 			zoneLocations: $state.snapshot(this.zoneLocations),
 			portReservations: $state.snapshot(this.portReservations),
 			portAssignments: $state.snapshot(this.portAssignments),
+			bakedLabels: $state.snapshot(this.bakedLabels),
 			labelFormat: $state.snapshot(this.labelFormat),
 		}
 	}
 
 	updateLabelFormat(partial: Partial<ElevationsEditor['labelFormat']>) {
 		const next = { ...this.labelFormat, ...partial }
-		// Never persist an undefined template key (Firestore rejects undefined)
-		if (!next.template) delete next.template
+		// null (not undefined/absent) — merge:true saves need an explicit value to clear
+		if (!next.template) next.template = null
 		this.labelFormat = next
 		this.logFramesChange('update', 'labelFormat', JSON.stringify(partial))
 	}
@@ -596,12 +603,13 @@ export class ElevationsEditor {
 			separator: data.labelFormat?.separator ?? 'legacy',
 			includeZone: data.labelFormat?.includeZone ?? true,
 			includeRoom: data.labelFormat?.includeRoom ?? false,
-			...(data.labelFormat?.template ? { template: data.labelFormat.template } : {}),
+			template: data.labelFormat?.template ?? null,
 		}
 		const comparable = {
 			zoneLocations: data.zoneLocations ?? {},
 			portReservations: data.portReservations ?? [],
 			portAssignments: data.portAssignments ?? {},
+			bakedLabels: data.bakedLabels ?? {},
 			labelFormat: remoteLabelFormat,
 		}
 		if (!this.framesAutosave.shouldApplyRemote(comparable)) return
@@ -621,6 +629,7 @@ export class ElevationsEditor {
 			return { ...r, id }
 		})
 		this.portAssignments = data.portAssignments ?? {}
+		this.bakedLabels = data.bakedLabels ?? {}
 		this.labelFormat = remoteLabelFormat
 		this.nextReservationId = this.portReservations.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0) + 1
 		const zones = Object.keys(this.zoneLocations).filter(z => this.zoneLocations[z]?.length > 0).sort()
@@ -813,7 +822,13 @@ export class ElevationsEditor {
 	// ── Patching flow ──
 
 	private portLabelOf(ref: { deviceId: string; portIndex: number }): string | undefined {
-		return this.portInfo.get(`${ref.deviceId}:${ref.portIndex}`)?.label
+		const label = this.portInfo.get(`${ref.deviceId}:${ref.portIndex}`)?.label
+		if (label) return label
+		// Unassigned ports display as rack-RU#-port# until a label is allocated
+		const dev = this.devices.find(d => d.id === ref.deviceId)
+		if (!dev) return undefined
+		const rack = this.racks.find(r => r.id === dev.rackId)
+		return fallbackPortLabel(rack?.label ?? dev.rackId, dev.positionU, ref.portIndex)
 	}
 
 	/** Port click in patch mode: gate → select-existing → arm → connect. */
@@ -821,15 +836,9 @@ export class ElevationsEditor {
 		const key = `${deviceId}:${portIndex}`
 		const existing = this.portConnMap.get(key)
 
-		// Port-level gate (panels only): unlabeled panel ports reject new cords
-		// (ux-plan). Switch/server/other ports are identified by number and are
-		// always patchable. Selecting still works so the inspector can explain.
-		const dev = this.devices.find(d => d.id === deviceId)
-		if (dev?.type === 'panel' && !this.portLabelOf({ deviceId, portIndex }) && !existing) {
-			this.selectedPort = { deviceId, portIndex }
-			this.statusHint = 'Unlabeled port — assign a location label before patching (see Inspector)'
-			return
-		}
+		// Unlabeled panel ports ARE patchable (labels v2 L2) — the cord references
+		// device+port, and the label can be assigned later. Displays fall back to
+		// rack-RU#-port# until then.
 
 		if (!this.patchArm) {
 			if (existing) {
@@ -1210,7 +1219,7 @@ export class ElevationsEditor {
 
 	/** portInfo must see local frames-doc edits immediately. */
 	private framesDataForPipeline = $derived(this.framesData
-		? { ...this.framesData, zoneLocations: this.zoneLocations, portReservations: this.portReservations, portAssignments: this.portAssignments, labelFormat: this.labelFormat }
+		? { ...this.framesData, zoneLocations: this.zoneLocations, portReservations: this.portReservations, portAssignments: this.portAssignments, bakedLabels: this.bakedLabels, labelFormat: this.labelFormat }
 		: null)
 
 	private mutateFramesDoc(action: string, details: string | undefined, fn: () => void) {
@@ -1218,22 +1227,55 @@ export class ElevationsEditor {
 			zl: $state.snapshot(this.zoneLocations),
 			pr: $state.snapshot(this.portReservations),
 			pa: $state.snapshot(this.portAssignments),
+			bl: $state.snapshot(this.bakedLabels),
 		}
 		fn()
 		const after = {
 			zl: $state.snapshot(this.zoneLocations),
 			pr: $state.snapshot(this.portReservations),
 			pa: $state.snapshot(this.portAssignments),
+			bl: $state.snapshot(this.bakedLabels),
 		}
 		const label = `${action}${details ? `: ${details}` : ''}`
 		const apply = (s: typeof before) => {
 			this.zoneLocations = s.zl as any
 			this.portReservations = s.pr as any
 			this.portAssignments = s.pa as any
+			this.bakedLabels = s.bl as any
 			this.logFramesChange('undo/redo', undefined, label)
 		}
 		this.history.record({ label, undo: () => apply(before), redo: () => apply(after) })
 		this.logFramesChange(action, 'labels', details)
+	}
+
+	/** The template labels bake through: explicit template, else the legacy options mapped 1:1. */
+	private effectiveTemplate(): string {
+		return this.labelFormat.template ?? templateForLegacyFormat(this.labelFormat, this.floorFormat)
+	}
+
+	/** Panel device sitting at a physical port position (for device-scoped baked keys). */
+	private deviceAtPosition(rackId: string, ru: number): DeviceConfig | undefined {
+		return this.devices.find(d => d.rackId === rackId && d.positionU === ru && d.type === 'panel')
+	}
+
+	/** Bake one location port's label string onto a physical position (mutates the given record). */
+	private bakeAt(
+		baked: Record<string, BakedLabel>,
+		pos: { rackId: string; ru: number; row: 'top' | 'bottom'; col: number },
+		loc: { id?: string; locationNumber: number; roomNumber?: string; isHighLevel?: boolean },
+		zone: string, port: number, serverRoom: string,
+	) {
+		const dev = this.deviceAtPosition(pos.rackId, pos.ru)
+		if (!dev) return
+		const portIndex = (pos.row === 'bottom' ? 24 : 0) + pos.col + 1
+		baked[`${dev.id}:${portIndex}`] = {
+			label: renderLabel(this.effectiveTemplate(), {
+				floor: this.floor, zone, locationNumber: loc.locationNumber,
+				serverRoom, port, roomNumber: loc.roomNumber, isHighLevel: loc.isHighLevel ?? false,
+			}),
+			...(loc.id ? { locationId: loc.id } : {}),
+			port,
+		}
 	}
 
 	/** Block-selected ports in physical order: rack (row order) → RU top-down → row → col. */
@@ -1261,6 +1303,7 @@ export class ElevationsEditor {
 		this.mutateFramesDoc('auto-generate', `${locCount} location(s) → ${ports.length} port(s) in zone ${opts.zone}`, () => {
 			const newLocs: LocationConfig[] = []
 			const assignments = { ...this.portAssignments }
+			const baked = { ...this.bakedLabels }
 			const used = this.usedLocationIds()
 			for (let li = 0; li < locCount; li++) {
 				const slice = ports.slice(li * perLoc, (li + 1) * perLoc)
@@ -1278,13 +1321,16 @@ export class ElevationsEditor {
 					...(opts.roomNumber ? { roomNumber: opts.roomNumber } : {}),
 					...(opts.isHighLevel ? { isHighLevel: true } : {}),
 				})
+				const loc = newLocs[newLocs.length - 1]
 				slice.forEach((p, pi) => {
 					// locationId is the durable link; zone+number kept for mixed-version clients
 					assignments[p.posKey] = { locationId: id, zone: opts.zone, locationNumber, port: pi + 1 }
+					this.bakeAt(baked, p, loc, opts.zone, pi + 1, loc.serverRoomAssignment[pi] || 'A')
 				})
 			}
 			this.zoneLocations = { ...this.zoneLocations, [opts.zone]: [...existing, ...newLocs] }
 			this.portAssignments = assignments
+			this.bakedLabels = baked
 		})
 		this.selectedPorts = new Set()
 		return ports.length
@@ -1298,29 +1344,46 @@ export class ElevationsEditor {
 		const n = Math.min(ports.length, loc.portCount)
 		this.mutateFramesDoc('assign', `${n} port(s) → ${zone}-${locationNumber}`, () => {
 			const assignments = { ...this.portAssignments }
-			// Re-pinning a location moves it: drop its previous pins first
+			const baked = { ...this.bakedLabels }
+			// Re-pinning a location moves it: drop its previous pins + baked strings first
 			for (const [k, a] of Object.entries(assignments)) {
 				const sameLoc = (loc.id && a.locationId === loc.id)
 					|| (a.zone === zone && a.locationNumber === locationNumber)
 				if (sameLoc) delete assignments[k]
 			}
+			if (loc.id) {
+				for (const [k, b] of Object.entries(baked)) {
+					if (b.locationId === loc.id) delete baked[k]
+				}
+			}
 			for (let i = 0; i < n; i++) {
 				assignments[ports[i].posKey] = { ...(loc.id ? { locationId: loc.id } : {}), zone, locationNumber, port: i + 1 }
+				this.bakeAt(baked, ports[i], loc, zone, i + 1, loc.serverRoomAssignment[i] || 'A')
 			}
 			this.portAssignments = assignments
+			this.bakedLabels = baked
 		})
 		this.selectedPorts = new Set()
 		return n
 	}
 
-	/** Remove sticky pins from the selected ports (labels fall back to auto-allocation). */
+	/** Remove sticky pins + baked labels from the selected ports (labels fall back to auto-allocation). */
 	clearPortAssignments() {
-		const keys = [...this.selectedPorts].filter(k => this.portAssignments[k])
-		if (keys.length === 0) { this.selectedPorts = new Set(); return }
-		this.mutateFramesDoc('unpin', `${keys.length} port(s)`, () => {
+		const posKeys = [...this.selectedPorts]
+		const bakedKeys = posKeys.map(k => {
+			const [rackId, ru, row, col] = k.split(':')
+			const dev = this.deviceAtPosition(rackId, Number(ru))
+			return dev ? `${dev.id}:${(row === 'bottom' ? 24 : 0) + Number(col) + 1}` : null
+		}).filter((k): k is string => !!k && !!this.bakedLabels[k])
+		const keys = posKeys.filter(k => this.portAssignments[k])
+		if (keys.length === 0 && bakedKeys.length === 0) { this.selectedPorts = new Set(); return }
+		this.mutateFramesDoc('unpin', `${keys.length || bakedKeys.length} port(s)`, () => {
 			const assignments = { ...this.portAssignments }
 			for (const k of keys) delete assignments[k]
 			this.portAssignments = assignments
+			const baked = { ...this.bakedLabels }
+			for (const k of bakedKeys) delete baked[k]
+			this.bakedLabels = baked
 		})
 		this.selectedPorts = new Set()
 	}

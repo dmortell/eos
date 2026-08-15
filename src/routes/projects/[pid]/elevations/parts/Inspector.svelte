@@ -324,6 +324,12 @@
 				{#if allPanels}
 					{@render SelectField('patchLevel', sharedDev(d => d.patchLevel ?? 'floor') ?? '', [['floor', 'Floor'], ['high', 'High-level']], v => updateDevs({ patchLevel: v }))}
 					{@render SelectField('serverRoom', sharedDev(d => d.serverRoom ?? 'A') ?? '', [['A', 'A'], ['B', 'B'], ['C', 'C'], ['D', 'D']], v => updateDevs({ serverRoom: v }))}
+					<label class="flex gap-2 items-center">
+						<span class="w-16 text-gray-500 text-[10px] shrink-0">printed</span>
+						<input type="checkbox" checked={devs.every(d => d.labelsPrinted)}
+							onchange={e => updateDevs({ labelsPrinted: e.currentTarget.checked || undefined })} />
+						<span class="text-[10px] text-gray-400">labels physically installed — sync will warn</span>
+					</label>
 				{/if}
 				{@render Field('maker', sharedDev(d => d.maker ?? ''), v => updateDevs({ maker: v }))}
 				{@render Field('model', sharedDev(d => d.model ?? ''), v => updateDevs({ model: v }))}
