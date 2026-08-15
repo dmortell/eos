@@ -894,3 +894,22 @@ per-panel printed flag.
   for `labelFormats` (verify on Vercel); renumbering UI for locations (list
   edits numbers indirectly today); outlets-side create-on-plan auto-link
   option; port-label readability TODO (earlier entry) still open.
+
+### Session追記 (2026-08-16 — place-location picker + link guards + sheets link UI)
+- Outlets tool palette gains **Unplaced locations** (frames locations with no
+  linked outlet): click one → click the plan → outlet born linked with the
+  location's identity adopted (label zone.NNN, portCount, level from HL,
+  usage from type, baked port labels). Esc cancels place mode. Verified in
+  browser (A-036 placed linked, no divergence flags).
+- Location dropdown guard: locations already linked to another outlet are
+  disabled + marked "· linked" (both the tool and the sheets panel) so two
+  outlets can't silently share one location.
+- Sheets outlets viewport: subscribes the floor's frames doc (tenant-area
+  suffix stripped) and the edit panel now has the Location row — link picker
+  with guard, linked display with ⚠ ports chip, unlink. Bulk actions
+  (Link all / Sync from locations) intentionally stay in the Outlets tool.
+- TODO (from discussion): moving a location's ports to a different panel is
+  done today by block-selecting target ports → "To location…" (re-pin moves
+  all pins + baked strings). Consider DRAG-to-move for selected port blocks
+  (grab pinned/baked ports, drop on another panel/position, printed-panel
+  warning on drop) — direct-manipulation alternative worth designing.

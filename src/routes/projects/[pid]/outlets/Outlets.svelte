@@ -489,8 +489,14 @@
 	let frameLocations = $derived(repairLocationIds(frameData?.zoneLocations).zoneLocations)
 	/** Flat list for the properties UI. */
 	let locationList = $derived(Object.entries(frameLocations).flatMap(([zone, locs]) =>
-		(locs ?? []).map(l => ({ id: l.id!, zone, locationNumber: l.locationNumber, portCount: l.portCount, locationType: l.locationType }))))
+		(locs ?? []).map(l => ({ id: l.id!, zone, locationNumber: l.locationNumber, portCount: l.portCount, locationType: l.locationType, isHighLevel: l.isHighLevel ?? false, roomNumber: l.roomNumber }))))
 	let locationById = $derived(new Map(locationList.map(l => [l.id, l])))
+	/** Locations already linked to an outlet on this plan (dropdown guard + unplaced list). */
+	let linkedLocationIds = $derived(new Set(outlets.map(o => o.locationId).filter((id): id is string => !!id)))
+	let unplacedLocations = $derived(locationList.filter(l => !linkedLocationIds.has(l.id)))
+	/** "Place location" mode: the next canvas click creates an outlet born linked to this location. */
+	let placingLocationId = $state<string | null>(null)
+	const LOC_TYPE_TO_USAGE: Record<string, OutletConfig['usage']> = { AP: 'ap', PR: 'printer', RS: 'security', TV: 'av' }
 
 	/** Parse an outlet label like "A.042" / "A-042" → { zone, num }. */
 	function parseOutletLabel(label?: string): { zone: string; num: number } | null {
@@ -612,6 +618,41 @@
 	function addOutlet(pagePosPixels: Point) {
 		if (!calibration) return
 		const mm = snapToGrid(toMm(pagePosPixels), gridMm)
+		// Place-location mode: the outlet is born linked, with the location's identity adopted
+		if (placingLocationId) {
+			const loc = locationById.get(placingLocationId)
+			placingLocationId = null
+			activeTool = 'select'
+			if (!loc) return
+			const label = expectedOutletLabel(loc)
+			const baked = bakedByLocation.get(loc.id)
+			const portLabels = baked?.size
+				? Array.from({ length: loc.portCount }, (_, i) => baked.get(i + 1) ?? '')
+				: derivePortLabels(label, loc.portCount)
+			const outlet: OutletConfig = {
+				id: `out-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+				position: mm,
+				label,
+				locationId: loc.id,
+				portCount: loc.portCount,
+				level: loc.isHighLevel ? 'high' : 'low',
+				usage: LOC_TYPE_TO_USAGE[loc.locationType] ?? 'network',
+				cableType: stickyDefaults.cableType,
+				mountType: stickyDefaults.mountType,
+				...(portLabels ? { portLabels } : {}),
+				...(loc.roomNumber ? { roomNumber: loc.roomNumber } : {}),
+			}
+			const prev = outlets
+			outlets = [...outlets, outlet]
+			selectedIds = new Set([outlet.id])
+			toast.success(`Placed ${label} (linked)`)
+			history.record({
+				label: `Place ${label}`,
+				undo: () => { outlets = prev; selectedIds = new Set() },
+				redo: () => { outlets = [...prev, outlet]; selectedIds = new Set([outlet.id]) },
+			})
+			return
+		}
 		const id = `out-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
 
 		const zoneOutlets = outlets.filter(o => o.label?.startsWith(activeZone + '.'))
@@ -1502,9 +1543,10 @@
 		// console.log(e.key)
 
 		if (e.key === 'Escape') {
-			// Cascade: drawing handled by canvas → clear selection → revert to select mode
+			// Cascade: place-location mode → drawing handled by canvas → clear selection → select mode
 			// (If trunk drawing is active, the canvas Escape handler finishes it and
 			//  sets trunkDrawingActive=false via ontrunkdrawingchange. Skip this handler.)
+			if (placingLocationId) { placingLocationId = null; activeTool = 'select'; return }
 			if (trunkDrawingActive) return
 			if (selectedIds.size > 0 || selectedRackIds.size > 0 || selectedTrunkIds.size > 0 || selectedNodeIds.size > 0) {
 				clearSelection()
@@ -1629,6 +1671,12 @@
 						{activeTool}
 						{activeZone}
 						{stickyDefaults}
+						unplaced={unplacedLocations}
+						placingId={placingLocationId}
+						onplace={(id: string | null) => {
+							placingLocationId = id
+							activeTool = id ? 'outlet' : 'select'
+						}}
 						onzonechange={(z: string) => activeZone = z}
 						ontoolchange={(t: ToolMode) => activeTool = t}
 						onselect={selectOutlet}
@@ -1748,6 +1796,7 @@
 						{selectedRackIds}
 						locations={locationList}
 						{bakedByLocation}
+						{linkedLocationIds}
 						onupdate={updateOutlet}
 						onupdateselected={updateSelectedOutlets}
 						ondelete={deleteSelected}

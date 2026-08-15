@@ -15,6 +15,7 @@
 	import type { ViewportEditor } from '../../viewports.svelte'
 	import { layerBlockReason, annTargetLayer, objLayerOf } from '../../layers/layers'
 	import { markupHotkey } from '../../edit/hotkeys'
+	import { repairLocationIds } from '$lib/elevation/portmap'
 	import { toast } from 'svelte-sonner'
 
 	const RENDER_SCALE = 2 // PDF rasterization scale (crispness)
@@ -91,6 +92,21 @@
 		)
 		return () => unsubs.forEach(u => u?.())
 	})
+
+	// ── Frames locations for outlet↔location linking (labels v2) ──
+	// Frames docs are per-floor only: strip any tenant-area suffix (`__{areaId}`).
+	let framesDoc = $state<any>(null)
+	$effect(() => {
+		const base = src?.outletsDocId?.split('__')[0]
+		if (!base || !active) { framesDoc = null; return }
+		const unsub = db.subscribeOne('frames', base, (d: any) => { framesDoc = d ?? null })
+		return () => unsub?.()
+	})
+	let locationList = $derived(Object.entries(repairLocationIds(framesDoc?.zoneLocations).zoneLocations)
+		.flatMap(([zone, locs]) => (locs ?? []).map(l => ({
+			id: l.id!, zone, locationNumber: l.locationNumber, portCount: l.portCount, locationType: l.locationType,
+		}))))
+	let linkedLocationIds = $derived(new Set(editor.outlets.map(o => o.locationId).filter((id): id is string => !!id)))
 
 	let calibration = $derived.by<PageCalibration | null>(() => {
 		const p = fileDoc?.pages?.[pageNum]
@@ -206,7 +222,7 @@
 			}} />
 	</OutletsRender>
 	{#if active}
-		<OutletsEditPanel {editor} bind:tool {annEditor} layers={vps.allLayers} {racksById} />
+		<OutletsEditPanel {editor} bind:tool {annEditor} layers={vps.allLayers} {racksById} locations={locationList} {linkedLocationIds} />
 		<OutletsContextMenu {editor} />
 	{/if}
 {:else}

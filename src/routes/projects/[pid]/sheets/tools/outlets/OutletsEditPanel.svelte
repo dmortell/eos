@@ -13,7 +13,10 @@
 	import { outletsToDxf } from '../../dxf/outlets'
 	import { downloadDxf } from '../../dxf/dxf'
 
-	let { editor, tool = $bindable(), annEditor, layers = [], racksById = {} }: { editor: OutletsEditor; tool: string; annEditor: AnnotationEditor; layers?: LayerDef[]; racksById?: Record<string, { widthMm: number; depthMm: number; label?: string }> } = $props()
+	type LocationRow = { id: string; zone: string; locationNumber: number; portCount: number; locationType: string }
+	let { editor, tool = $bindable(), annEditor, layers = [], racksById = {}, locations = [], linkedLocationIds = new Set() }: { editor: OutletsEditor; tool: string; annEditor: AnnotationEditor; layers?: LayerDef[]; racksById?: Record<string, { widthMm: number; depthMm: number; label?: string }>; locations?: LocationRow[]; linkedLocationIds?: Set<string> } = $props()
+
+	const locLabel = (l: LocationRow) => `${l.zone}-${String(l.locationNumber).padStart(3, '0')}`
 
 	function exportDxf() {
 		const dxf = outletsToDxf({ outlets: editor.outlets, trunks: editor.trunks, rackPlacements: editor.rackPlacements, racksById }, layers)
@@ -102,6 +105,34 @@
 			</PropSelect>
 		{/if}
 		<PropText label="Label" value={o.label ?? ''} oninput={(e: Event) => editor.setOutlet({ label: val(e) })} />
+		{#if locations.length}
+			{@const linked = o.locationId ? locations.find(l => l.id === o.locationId) ?? null : null}
+			{#if o.locationId}
+				<div class="flex items-center justify-between gap-2">
+					<span class="w-24 shrink-0 text-xs text-zinc-500">Location</span>
+					<div class="flex w-full items-center gap-1">
+						{#if linked}
+							<span class="font-mono text-[10px] text-zinc-600 truncate">{locLabel(linked)} · {linked.locationType} · {linked.portCount}p</span>
+							{#if linked.portCount !== o.portCount}
+								<span class="text-[10px] text-amber-500 shrink-0" title="Outlet has {o.portCount} ports but the linked location has {linked.portCount}">⚠</span>
+							{/if}
+						{:else}
+							<span class="text-[10px] text-amber-500">linked location missing</span>
+						{/if}
+						<button class="ml-auto h-4 w-4 shrink-0 rounded text-zinc-600 hover:bg-red-50 hover:text-red-600"
+							title="Unlink from the frames location"
+							onclick={() => editor.setOutlet({ locationId: undefined })}>×</button>
+					</div>
+				</div>
+			{:else}
+				<PropSelect label="Location" value="" onchange={(e: Event) => { if (val(e)) editor.setOutlet({ locationId: val(e) }) }}>
+					<option value="">— not linked —</option>
+					{#each locations as l (l.id)}
+						<option value={l.id} disabled={linkedLocationIds.has(l.id)}>{locLabel(l)} · {l.locationType} · {l.portCount}p{linkedLocationIds.has(l.id) ? ' · linked' : ''}</option>
+					{/each}
+				</PropSelect>
+			{/if}
+		{/if}
 		<div class="flex items-center justify-between gap-2">
 			<span class="w-24 shrink-0 text-xs text-zinc-500">Level</span>
 			<div class="flex w-full gap-0.5">

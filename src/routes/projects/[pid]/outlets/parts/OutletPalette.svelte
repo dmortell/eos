@@ -5,12 +5,18 @@
 
 	import type { StickyDefaults } from './constants'
 
-	let { outlets, selectedIds, activeTool, activeZone, stickyDefaults, onzonechange, ontoolchange, onselect, onrangeselect, ondelete, ondefaultschange }: {
+	type UnplacedLocation = { id: string; zone: string; locationNumber: number; portCount: number; locationType: string }
+
+	let { outlets, selectedIds, activeTool, activeZone, stickyDefaults, unplaced = [], placingId = null, onplace, onzonechange, ontoolchange, onselect, onrangeselect, ondelete, ondefaultschange }: {
 		outlets: OutletConfig[]
 		selectedIds: Set<string>
 		activeTool: ToolMode
 		activeZone: string
 		stickyDefaults: StickyDefaults
+		/** Frames locations with no linked outlet on this plan (labels v2). */
+		unplaced?: UnplacedLocation[]
+		placingId?: string | null
+		onplace?: (locationId: string | null) => void
 		onzonechange: (zone: string) => void
 		ontoolchange: (tool: ToolMode) => void
 		onselect: (id: string, multi: boolean) => void
@@ -103,6 +109,29 @@
 				</select>
 			</label>
 		</div>
+
+	<!-- Unplaced frames locations: click one, then click the plan → outlet born linked -->
+	{#if unplaced.length > 0}
+		<div class="space-y-1 border-t border-gray-200 pt-2">
+			<div class="text-[10px] text-gray-400 uppercase tracking-wider font-medium">
+				Unplaced locations <span class="text-gray-300">({unplaced.length})</span>
+			</div>
+			{#if placingId}
+				<div class="text-[10px] text-blue-600">Click the floorplan to place · Esc to cancel</div>
+			{/if}
+			<div class="max-h-36 overflow-y-auto">
+				{#each unplaced as l (l.id)}
+					<button class="w-full flex items-center gap-1.5 px-1.5 py-0.5 text-left rounded transition-colors
+							{placingId === l.id ? 'bg-blue-600 text-white' : 'hover:bg-gray-50 text-gray-700'}"
+						title="Place this location on the floorplan as a linked outlet"
+						onclick={() => onplace?.(placingId === l.id ? null : l.id)}>
+						<span class="font-mono text-[10px]">{l.zone}-{String(l.locationNumber).padStart(3, '0')}</span>
+						<span class="text-[10px] {placingId === l.id ? 'text-blue-100' : 'text-gray-400'}">{l.locationType} · {l.portCount}p</span>
+					</button>
+				{/each}
+			</div>
+		</div>
+	{/if}
 
 	<!-- Outlet list -->
 	<div class="flex-1 min-h-0 flex flex-col gap-1.5">

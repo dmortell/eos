@@ -6,12 +6,14 @@
 
 	type LocationRow = { id: string; zone: string; locationNumber: number; portCount: number; locationType: string }
 
-	let { outlets, selectedIds, selectedRackIds = new Set(), locations = [], bakedByLocation = new Map(), onupdate, onupdateselected, ondelete, onlinkall, onsyncall, onunlink, oncreatelocation }: {
+	let { outlets, selectedIds, selectedRackIds = new Set(), locations = [], bakedByLocation = new Map(), linkedLocationIds = new Set(), onupdate, onupdateselected, ondelete, onlinkall, onsyncall, onunlink, oncreatelocation }: {
 		outlets: OutletConfig[]
 		selectedIds: Set<string>
 		selectedRackIds?: Set<string>
 		locations?: LocationRow[]
 		bakedByLocation?: Map<string, Map<number, string>>
+		/** Locations already linked to some outlet — guarded in the picker. */
+		linkedLocationIds?: Set<string>
 		onupdate: (id: string, updates: Partial<OutletConfig>) => void
 		onupdateselected: (updates: Partial<OutletConfig>) => void
 		ondelete: () => void
@@ -110,7 +112,9 @@
 					onchange={e => { if (e.currentTarget.value) onupdate(singleOutlet!.id, { locationId: e.currentTarget.value }) }}>
 					<option value="">— not linked —</option>
 					{#each locations as l (l.id)}
-						<option value={l.id}>{l.zone}-{String(l.locationNumber).padStart(3, '0')} · {l.locationType} · {l.portCount}p</option>
+						<option value={l.id} disabled={linkedLocationIds.has(l.id)}>
+							{l.zone}-{String(l.locationNumber).padStart(3, '0')} · {l.locationType} · {l.portCount}p{linkedLocationIds.has(l.id) ? ' · linked' : ''}
+						</option>
 					{/each}
 				</select>
 				<button class="h-5 px-1.5 shrink-0 text-[10px] rounded border border-gray-200 hover:bg-gray-50"
