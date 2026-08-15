@@ -4,17 +4,26 @@
 	import { derivePortLabels } from './types'
 	import { USAGE_COLORS, MOUNT_LABELS, CABLE_COLORS } from './constants'
 
-	let { outlets, selectedIds, selectedRackIds = new Set(), onupdate, onupdateselected, ondelete }: {
+	type LocationRow = { id: string; zone: string; locationNumber: number; portCount: number; locationType: string }
+
+	let { outlets, selectedIds, selectedRackIds = new Set(), locations = [], onupdate, onupdateselected, ondelete, onlinkall, onunlink, oncreatelocation }: {
 		outlets: OutletConfig[]
 		selectedIds: Set<string>
 		selectedRackIds?: Set<string>
+		locations?: LocationRow[]
 		onupdate: (id: string, updates: Partial<OutletConfig>) => void
 		onupdateselected: (updates: Partial<OutletConfig>) => void
 		ondelete: () => void
+		onlinkall?: () => void
+		onunlink?: (id: string) => void
+		oncreatelocation?: (id: string) => void
 	} = $props()
 
 	let selectedOutlets = $derived(outlets.filter(o => selectedIds.has(o.id)))
 	let singleOutlet = $derived(selectedOutlets.length === 1 ? selectedOutlets[0] : null)
+	let linkedLocation = $derived(singleOutlet?.locationId
+		? locations.find(l => l.id === singleOutlet!.locationId) ?? null
+		: null)
 
 	// Capture the edit target when a text/number field gains focus, so that a
 	// commit fired on blur (e.g. clicking away to another outlet) writes to the
@@ -60,6 +69,36 @@
 				ports: {derivePortLabels(singleOutlet.label, singleOutlet.portCount, singleOutlet.portLabels)?.join(', ')}
 			</div>
 		{/if}
+
+		<!-- Frames-location link (labels v2 L3): the location is canonical; divergence is flagged -->
+		<label class="flex items-center gap-2">
+			<span class="text-gray-500 w-12 shrink-0">Location</span>
+			{#if singleOutlet.locationId}
+				{#if linkedLocation}
+					<span class="flex-1 font-mono text-[10px] text-gray-600 truncate">
+						{linkedLocation.zone}-{String(linkedLocation.locationNumber).padStart(3, '0')} · {linkedLocation.locationType} · {linkedLocation.portCount}p
+					</span>
+					{#if linkedLocation.portCount !== singleOutlet.portCount}
+						<span class="text-[10px] text-amber-500 shrink-0" title="Outlet has {singleOutlet.portCount} ports but the linked location has {linkedLocation.portCount} — resolve with Sync (or edit one side)">⚠ ports</span>
+					{/if}
+				{:else}
+					<span class="flex-1 text-[10px] text-amber-500">linked location missing</span>
+				{/if}
+				<button class="w-4 h-4 shrink-0 flex items-center justify-center rounded text-gray-600 hover:text-red-600 hover:bg-red-50"
+					title="Unlink from the frames location" onclick={() => onunlink?.(singleOutlet!.id)}>×</button>
+			{:else}
+				<select class="flex-1 h-5 px-1 text-[10px] border border-gray-200 rounded bg-white"
+					value=""
+					onchange={e => { if (e.currentTarget.value) onupdate(singleOutlet!.id, { locationId: e.currentTarget.value }) }}>
+					<option value="">— not linked —</option>
+					{#each locations as l (l.id)}
+						<option value={l.id}>{l.zone}-{String(l.locationNumber).padStart(3, '0')} · {l.locationType} · {l.portCount}p</option>
+					{/each}
+				</select>
+				<button class="h-5 px-1.5 shrink-0 text-[10px] rounded border border-gray-200 hover:bg-gray-50"
+					title="Create a frames location from this outlet and link it" onclick={() => oncreatelocation?.(singleOutlet!.id)}>create</button>
+			{/if}
+		</label>
 	{/if}
 
 	<label class="flex items-center gap-2">
@@ -169,5 +208,11 @@
 			onclick={ondelete}>
 			<Icon name="trash" size={10} /> Delete {selectedIds.size > 1 ? selectedIds.size : ''}
 		</button>
+		<div class="flex-1"></div>
+		{#if locations.length}
+			<button class="px-1.5 py-0.5 text-[10px] text-gray-500 border border-gray-200 rounded hover:bg-gray-50 transition-colors"
+				title="Link every unlinked outlet whose label matches a frames location (zone+number). Undoable."
+				onclick={() => onlinkall?.()}>Link all by label</button>
+		{/if}
 	</div>
 </Window>

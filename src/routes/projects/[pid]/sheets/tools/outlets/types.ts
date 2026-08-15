@@ -19,6 +19,8 @@ export interface OutletConfig {
 	usage: OutletUsage
 	label?: string
 	portLabels?: string[]
+	/** Stable id of the linked frames location (labels v2 L3). */
+	locationId?: string
 	rotation?: number
 	roomNumber?: string
 	locked?: boolean

@@ -21,6 +21,7 @@
 	import { genId, splitSegment as splitTrunkSeg, snapToGrid, dist, nearestPointOnSegment } from './trunks/geometry'
 	import { SNAP_THRESHOLD_MM } from './trunks/constants'
 	import { exportOutletsToExcel } from './parts/exportExcel'
+	import { repairLocationIds, locationIdFor } from '$lib/elevation/portmap'
   import { toast } from 'svelte-sonner';
 
 	let { data = null, files = [], floors = [], frameData = null, racksData = {}, floor, areas = [], activeArea = '', projectId = '', projectName = '', drawingId = '', db = new Firestore(), uid = '', initialLayers, onsave, onfloorchange, onareachange, onupdatefloors, ondeletefloor, onsaverack, bare = false }: {
@@ -479,6 +480,88 @@
 
 	// ── Sticky defaults ──
 	let stickyDefaults: StickyDefaults = $state({ ...OUTLET_DEFAULTS })
+
+	// ── Outlet ↔ frames-location linking (labels v2 L3) ──
+	// The frames doc is subscribed read-only by +page ("the dead wire", now live).
+	// Locations get deterministic ids via the same repair the elevations tool
+	// persists — so ids agree across tools even before the doc is re-saved.
+	let frameLocations = $derived(repairLocationIds(frameData?.zoneLocations).zoneLocations)
+	/** Flat list for the properties UI. */
+	let locationList = $derived(Object.entries(frameLocations).flatMap(([zone, locs]) =>
+		(locs ?? []).map(l => ({ id: l.id!, zone, locationNumber: l.locationNumber, portCount: l.portCount, locationType: l.locationType }))))
+	let locationById = $derived(new Map(locationList.map(l => [l.id, l])))
+
+	/** Parse an outlet label like "A.042" / "A-042" → { zone, num }. */
+	function parseOutletLabel(label?: string): { zone: string; num: number } | null {
+		const m = label?.trim().match(/^([A-Z])[.\-](\d{1,3})$/i)
+		return m ? { zone: m[1].toUpperCase(), num: parseInt(m[2]) } : null
+	}
+
+	/** Link every unlinked outlet whose label matches a location (zone+number). Undoable. */
+	function linkAllByLabel() {
+		const byZoneNum = new Map(locationList.map(l => [`${l.zone}:${l.locationNumber}`, l.id]))
+		const prev = outlets
+		let n = 0
+		const next = outlets.map(o => {
+			if (o.locationId || !o.label) return o
+			const p = parseOutletLabel(o.label)
+			const id = p ? byZoneNum.get(`${p.zone}:${p.num}`) : undefined
+			if (!id) return o
+			n++
+			return { ...o, locationId: id }
+		})
+		if (n === 0) { toast.info('No unlinked outlets match a location by label'); return }
+		outlets = next
+		history.record({
+			label: `Link ${n} outlet(s)`,
+			undo: () => { outlets = prev },
+			redo: () => { outlets = next },
+		})
+		toast.success(`Linked ${n} outlet(s) to locations by label — undo to revert`)
+	}
+
+	const USAGE_TO_LOC_TYPE: Record<string, string> = { ap: 'AP', printer: 'PR', security: 'RS' }
+
+	/** Create a frames location from an outlet and link it (writes the frames doc directly — not undoable). */
+	function createLocationForOutlet(outletId: string) {
+		const o = outlets.find(x => x.id === outletId)
+		if (!o) return
+		if (!frameData?.id) { toast.error('No frames doc for this floor yet — open the Elevations tool once first'); return }
+		const p = parseOutletLabel(o.label)
+		const zone = p?.zone ?? (activeZone || 'A')
+		const zl: Record<string, any[]> = structuredClone($state.snapshot(frameLocations))
+		const zoneLocs = zl[zone] ?? []
+		// If a location with this number already exists, just link it
+		const num = p?.num ?? (zoneLocs.reduce((m, l) => Math.max(m, l.locationNumber), 0) + 1)
+		const existing = zoneLocs.find(l => l.locationNumber === num)
+		if (existing?.id) { updateOutlet(o.id, { locationId: existing.id }); toast.success(`Linked to existing ${zone}-${num}`); return }
+		const used = new Set<string>(locationList.map(l => l.id))
+		const loc = {
+			id: locationIdFor(zone, num, used),
+			locationNumber: num,
+			portCount: o.portCount,
+			serverRoomAssignment: Array.from({ length: o.portCount }, () => 'A'),
+			locationType: USAGE_TO_LOC_TYPE[o.usage] ?? 'desk',
+			...(o.roomNumber ? { roomNumber: o.roomNumber } : {}),
+			...(o.level === 'high' ? { isHighLevel: true } : {}),
+		}
+		zl[zone] = [...zoneLocs, loc]
+		db.save('frames', { id: frameData.id, zoneLocations: zl })
+		updateOutlet(o.id, { locationId: loc.id })
+		toast.success(`Created location ${zone}-${String(num).padStart(3, '0')} and linked`)
+	}
+
+	/** Remove the location link (drops the key entirely — Firestore rejects undefined). */
+	function unlinkOutlet(outletId: string) {
+		const prev = outlets
+		const next = outlets.map(o => {
+			if (o.id !== outletId) return o
+			const { locationId: _drop, ...rest } = o
+			return rest as OutletConfig
+		})
+		outlets = next
+		history.record({ label: 'Unlink outlet', undo: () => { outlets = prev }, redo: () => { outlets = next } })
+	}
 
 	// ── Outlet CRUD ──
 	function addOutlet(pagePosPixels: Point) {
@@ -1618,9 +1701,13 @@
 						{outlets}
 						{selectedIds}
 						{selectedRackIds}
+						locations={locationList}
 						onupdate={updateOutlet}
 						onupdateselected={updateSelectedOutlets}
 						ondelete={deleteSelected}
+						onlinkall={linkAllByLabel}
+						onunlink={unlinkOutlet}
+						oncreatelocation={createLocationForOutlet}
 					/>
 				{/if}
 

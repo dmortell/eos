@@ -43,6 +43,9 @@ export interface OutletConfig {
 	usage: OutletUsage
 	label?: string               // user-assigned, e.g. "A.042"
 	portLabels?: string[]        // linked frame port labels (FF.Z.NNN-SPP)
+	/** Stable id of the linked frames location (labels v2 L3). The location is
+	 *  canonical for zone/number/ports; divergence is flagged, not prevented. */
+	locationId?: string
 	rotation?: number            // degrees
 	roomNumber?: string
 	locked?: boolean

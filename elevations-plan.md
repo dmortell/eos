@@ -862,3 +862,12 @@ per-panel printed flag.
   Fixed: clearing labelFormat.template needs explicit null — merge:true
   deep-merge resurrected a deleted key (echo loop). Verified in browser:
   generate → 037-A01 baked chip; undo reverts bake. 25 lib tests.
+- L3 ✅: outlet↔location linking. OutletConfig.locationId (+ sheets mirror);
+  the outlets page's dead frameData wire is now consumed — locations get the
+  same deterministic id repair as elevations. OutletProperties gains a
+  Location row (linked: zone-NNN·type·Np + ⚠ ports divergence hint + unlink;
+  unlinked: location select + "create" which writes the frames doc and
+  links), and a "Link all by label" bulk matcher (Z.NNN ↔ zone+number,
+  undoable). Verified in browser: 9/15 test outlets linked, ports-mismatch
+  flag shows on A.001 (6p outlet vs 2p location). Unlink drops the key
+  entirely (Firestore rejects undefined).
