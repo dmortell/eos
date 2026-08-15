@@ -748,3 +748,31 @@ Concrete integration points discovered (RacksViewport.svelte is the template):
   larger min font with cell growth, per-port callout/leader-line mode, tabular
   port-schedule companion (label list per panel beside the elevation), bolder
   weight/contrast, wrap vs stack tuning. Treat print output as the acceptance test.
+
+### Design — label formats + outlet sync (discussion, 2026-08-15)
+Decisions (user):
+- **Baked labels + hybrid presets.** Format presets are a GLOBAL user library
+  (users add formats once, cross-project; new collection e.g. `labelFormats`),
+  projects select the presets they use + a default. Generate-run picks a preset;
+  the rendered strings are stored. No live format bindings — re-styling is an
+  explicit re-bake.
+- **Alpha/numeric port token.** Template tokens: `P`/`PP` numeric port,
+  `A` alpha port (A..D). Same choice applies to outlet-port suffixes
+  (`33-001.A` vs `33-001.1`) — per-client variance already documented.
+- **Labels move with the panel.** Baked labels + assignments must be
+  DEVICE-scoped (`deviceId:portIndex`), not position-keyed. NOTE: current
+  sticky portAssignments are position-keyed — migration needed.
+Proposed sync model (outlets ↔ panel ports), pending user confirmation:
+- **Identity ≠ label.** Every outlet gets a stable immutable id; number, zone,
+  type, port count are mutable attributes. Floorplan placements reference the
+  id. Panel assignments store `{ outletId, outletPort, label }` — the label is
+  baked output; the id+port is the structural link that survives renumbering.
+- Design phase: add/remove/renumber outlets and change port counts freely; a
+  manual **Sync labels** action re-bakes all assignment strings with a diff
+  preview (never silent). Orphans (deleted outlet, shrunk port count) and
+  unassigned new ports surface in a maintenance list like reservations.
+- Printed labels: stop syncing (optional per-panel "printed" flag makes the
+  diff warn). Cords reference device+portIndex so patching is label-agnostic.
+- Open: where the canonical outlet entity lives (frames doc locations vs
+  outlets tool doc) — must audit the current outlets data model + whether a
+  frames↔floorplan link already exists before building.
