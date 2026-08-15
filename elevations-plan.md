@@ -776,3 +776,66 @@ Proposed sync model (outlets ↔ panel ports), pending user confirmation:
 - Open: where the canonical outlet entity lives (frames doc locations vs
   outlets tool doc) — must audit the current outlets data model + whether a
   frames↔floorplan link already exists before building.
+
+## §11 Labels v2 + outlet unification — implementation phases (2026-08-15)
+Decisions locked: baked labels; global preset library selected per-project;
+stable location ids; location-canonical link BUT outlets stay independently
+editable (portCount editable on plans) with divergence FLAGGED, not prevented —
+during design extra ports are simply inserted on panels; after installation,
+added ports may need to land on a DIFFERENT panel, so assignments are per-port
+and a location's ports may span panels. Manual "Sync labels" with diff preview;
+per-panel printed flag.
+
+### Phase L0 — stable location ids + key migration
+- Add `id` to `LocationConfig` via repair-on-load (deterministic, persisted on
+  next edit — mirror the reservation-id repair) in BOTH frames tool and
+  elevations syncFrames.
+- Migrate `portAssignments` pin keys `{zone, locationNumber, port}` →
+  `{locationId, port}` (read legacy, write new). Renumbering stops breaking pins.
+- Fix incidental bug: RenumberDialog.svelte:22 reads removed `outlet.label`.
+- Tests: portmap.test.ts id-repair + pin-migration cases.
+
+### Phase L1 — template engine + global preset library
+- Token engine: `F/Z/N/S/P` (repetition = zero-pad), `A` alpha port, `H`
+  conditional high-level suffix, quoted literals; pure lib + unit tests.
+- New global `labelFormats` collection (user library: id, name, template).
+- Project selects usable presets + default (projects/{pid} field). Built-in
+  presets replicate today's legacy/period/hyphen options.
+- Generate/Assign dialog: preset picker with live example replaces the
+  separator+checkbox controls.
+
+### Phase L2 — baked, device-scoped labels
+- Assignments become device-scoped records `{deviceId, portIndex} → {locationId,
+  port, label}` (label = baked string) stored in the frames doc; labels move
+  with the panel. buildPortInfoMap reads baked strings first, engine fallback
+  during transition.
+- Unassigned-port display fallback `rack-RU#-port#`; patching gate on labeled
+  ports removed (cords are device+port refs already).
+- Per-panel `labelsPrinted` flag (device field) — gates loud warnings in sync.
+
+### Phase L3 — outlet ↔ location linking
+- `OutletConfig.locationId?`; consume the dead `frameData` wire in Outlets.
+- One-time matcher for existing projects: heuristic zone+number ↔ `Z.NNN`
+  label match with a confirm list; manual link/unlink in outlet properties.
+- Create-outlet-on-plan can create a location (batch write outlets + frames
+  docs); delete on either side orphans the other into a maintenance list.
+- Mirror `locationId` into the sheets outlets viewport type copy.
+
+### Phase L4 — divergence flags + Sync labels action
+- Reconciliation engine (lib): linked pairs compared on portCount, zone/number
+  vs outlet label, room; differences FLAGGED in outlet properties + a
+  maintenance list beside reservations (never auto-rewritten).
+- "Sync labels": diff preview (old → new per port) re-baking all assignments
+  from current location data + panel preset; printed panels warn loudly;
+  apply = batch write.
+- New/extra ports of a location surface in an "unassigned ports" work list and
+  can be assigned to ANY panel (post-install case: different panel than the
+  location's original ports).
+- Renumber (Locations tab or plan) edits location attrs; links survive by id;
+  labels go stale until synced.
+
+### Phase L5 — outlet port suffixes + exports read the link
+- Linked outlets: per-port labels/Excel export read the BAKED panel labels
+  (canonical rule: outlets read frames); `derivePortLabels` only for unlinked.
+- Plan/DXF outlet number rendering follows the location number when linked
+  (divergence flagged, not forced).
