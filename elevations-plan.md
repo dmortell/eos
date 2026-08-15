@@ -871,3 +871,14 @@ per-panel printed flag.
   undoable). Verified in browser: 9/15 test outlets linked, ports-mismatch
   flag shows on A.001 (6p outlet vs 2p location). Unlink drops the key
   entirely (Firestore rejects undefined).
+- L4 ✅: divergence + Sync labels. $lib/elevation/reconcile.ts (6 tests):
+  buildSyncPlan diffs every structurally-linked baked label against current
+  location data + effective template (stale / orphaned / out-of-range,
+  printed-panel counts), unbakedLocationPorts lists location ports with no
+  baked position (post-install additions). Elevations Locations tab gains a
+  LABEL SYNC panel (counts + Review & sync…) and an UNASSIGNED LOCATION
+  PORTS work list; SyncLabelsDialog shows per-port old→new rows (stale rows
+  pre-checked EXCEPT printed panels; checked orphans are removed), Apply =
+  editor.applySyncPlan (undoable mutateFramesDoc). Verified in browser:
+  format change → 1 stale → diff L01.037-A01→L01.037.A01 → apply → panel
+  clears; unassigned work list surfaced organically (A-037 port 2).

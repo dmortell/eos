@@ -25,6 +25,7 @@
 	import CordsLayer from './parts/CordsLayer.svelte'
 	import PanelDetailStrip from './parts/PanelDetailStrip.svelte'
 	import AssignPortsDialog from './parts/AssignPortsDialog.svelte'
+	import SyncLabelsDialog from './parts/SyncLabelsDialog.svelte'
 	import PatchListPane from '../patching/parts/PatchListPane.svelte'
 	import PatchSettingsDialog from '../patching/parts/SettingsDialog.svelte'
 	import { CABLE_TYPES } from '../patching/parts/constants'
@@ -136,6 +137,7 @@
 	})
 	let cordsVisible = $derived(editor.viewOpts.cords || editor.mode === 'patch')
 	let assignDialog = $state<'generate' | 'existing' | null>(null)
+	let syncDialogOpen = $state(false)
 
 	// ?frame= deep link: focus the rack once its data has loaded (overrides
 	// the restored focus — an explicit link wins).
@@ -736,6 +738,33 @@
 									onchange={e => { editor.showAllZones = e.currentTarget.checked; editor.locationSelection = new Set() }} />
 								All zones
 							</label>
+							{#if editor.syncPlan.staleCount + editor.syncPlan.orphanCount > 0}
+								<div class="border border-blue-200 bg-blue-50/50 rounded-lg p-2 space-y-1">
+									<div class="flex items-center gap-1.5">
+										<span class="text-[10px] text-blue-500 uppercase tracking-wide font-semibold flex-1">Label sync</span>
+										<button class="h-5 px-2 text-[10px] rounded border border-blue-300 bg-white text-blue-600 hover:bg-blue-50"
+											onclick={() => syncDialogOpen = true}>Review & sync…</button>
+									</div>
+									<div class="text-[11px] text-gray-600">
+										{editor.syncPlan.staleCount} baked label{editor.syncPlan.staleCount !== 1 ? 's' : ''} out of date
+										{#if editor.syncPlan.orphanCount > 0} · {editor.syncPlan.orphanCount} orphaned{/if}
+										{#if editor.syncPlan.printedStaleCount > 0}
+											<span class="text-amber-600 font-medium"> · {editor.syncPlan.printedStaleCount} on printed panels</span>
+										{/if}
+									</div>
+								</div>
+							{/if}
+							{#if editor.unbakedPorts.length > 0}
+								<div class="border border-gray-200 rounded-lg p-2 space-y-1">
+									<div class="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">Unassigned location ports</div>
+									{#each editor.unbakedPorts as u (u.locationId)}
+										<div class="text-[11px] text-gray-600">
+											<span class="font-mono">{u.zone}-{String(u.locationNumber).padStart(3, '0')}</span>
+											· port{u.ports.length !== 1 ? 's' : ''} {u.ports.join(', ')} — block-select free panel ports and use “To location…”
+										</div>
+									{/each}
+								</div>
+							{/if}
 							{#if editor.reservationSummary.length > 0}
 								<div class="border border-gray-200 rounded-lg p-2 space-y-1">
 									<div class="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">
@@ -1125,6 +1154,9 @@
 
 {#if assignDialog}
 	<AssignPortsDialog {editor} {db} mode={assignDialog} onclose={() => assignDialog = null} />
+{/if}
+{#if syncDialogOpen}
+	<SyncLabelsDialog {editor} onclose={() => syncDialogOpen = false} />
 {/if}
 
 <PatchSettingsDialog

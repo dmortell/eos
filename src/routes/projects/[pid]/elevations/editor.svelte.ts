@@ -13,6 +13,7 @@ import { HistoryStore } from '$lib/history/HistoryStore.svelte'
 import { AutoSave } from '$lib/autosave/AutoSave.svelte'
 import { buildPortInfoMap, buildReservationMap, repairLocationIds, locationIdFor, fallbackPortLabel, type PortAssignment, type BakedLabel } from '$lib/elevation/portmap'
 import { renderLabel, templateForLegacyFormat } from '$lib/elevation/labelTemplate'
+import { buildSyncPlan, unbakedLocationPorts } from '$lib/elevation/reconcile'
 import type {
 	RackConfig, DeviceConfig, DeviceTemplate, RackRow, RackSettings, RoomObject, ViewState, ElevationFace,
 } from '../racks/parts/types'
@@ -1221,6 +1222,27 @@ export class ElevationsEditor {
 	private framesDataForPipeline = $derived(this.framesData
 		? { ...this.framesData, zoneLocations: this.zoneLocations, portReservations: this.portReservations, portAssignments: this.portAssignments, bakedLabels: this.bakedLabels, labelFormat: this.labelFormat }
 		: null)
+
+	/** Divergence between baked label strings and current location data (§11 L4). */
+	syncPlan = $derived(buildSyncPlan(this.framesDataForPipeline, this.devices, this.racks, this.floor, this.floorFormat))
+	/** Location ports with no baked position (post-install additions to place). */
+	unbakedPorts = $derived(unbakedLocationPorts(this.framesDataForPipeline))
+
+	/** Apply reviewed sync rows: stale keys re-bake, orphaned/out-of-range keys are removed. */
+	applySyncPlan(keys: string[]) {
+		if (keys.length === 0) return
+		const rowByKey = new Map(this.syncPlan.rows.map(r => [r.key, r]))
+		this.mutateFramesDoc('sync labels', `${keys.length} label(s)`, () => {
+			const baked = { ...this.bakedLabels }
+			for (const k of keys) {
+				const r = rowByKey.get(k)
+				if (!r) continue
+				if (r.reason === 'stale' && r.newLabel) baked[k] = { ...baked[k], label: r.newLabel }
+				else if (r.reason === 'orphaned' || r.reason === 'out-of-range') delete baked[k]
+			}
+			this.bakedLabels = baked
+		})
+	}
 
 	private mutateFramesDoc(action: string, details: string | undefined, fn: () => void) {
 		const before = {
