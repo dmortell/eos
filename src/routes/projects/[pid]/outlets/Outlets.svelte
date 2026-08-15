@@ -6,6 +6,7 @@
 	import FloorManagerDialog from '$lib/components/FloorManagerDialog.svelte'
 	import type { FloorConfig } from '$lib/types/project'
 	import type { OutletConfig, OutletsData, ToolMode, PageCalibration, Point, RackPlacement, SidebarTab } from './parts/types'
+	import { derivePortLabels } from './parts/types'
 	import type { RackConfig } from '../racks/parts/types'
 	import { DEFAULT_PRINT_SETTINGS, type PrintSettings } from '$lib/ui/print/types'
 	import { OUTLET_DEFAULTS, type StickyDefaults } from './parts/constants'
@@ -549,6 +550,50 @@
 		db.save('frames', { id: frameData.id, zoneLocations: zl })
 		updateOutlet(o.id, { locationId: loc.id })
 		toast.success(`Created location ${zone}-${String(num).padStart(3, '0')} and linked`)
+	}
+
+	/** Baked panel port labels by locationId (labels v2 L5): port → label string. */
+	let bakedByLocation = $derived.by(() => {
+		const m = new Map<string, Map<number, string>>()
+		for (const b of Object.values(frameData?.bakedLabels ?? {}) as any[]) {
+			if (!b?.locationId || !b.port) continue
+			if (!m.has(b.locationId)) m.set(b.locationId, new Map())
+			m.get(b.locationId)!.set(b.port, b.label)
+		}
+		return m
+	})
+
+	function expectedOutletLabel(l: { zone: string; locationNumber: number }): string {
+		return `${l.zone}.${String(l.locationNumber).padStart(3, '0')}`
+	}
+
+	/**
+	 * Adopt location truth onto linked outlets (label ← zone.NNN, portCount,
+	 * per-port labels ← baked panel labels where they exist). Explicit + undoable —
+	 * the outlets-side half of "Sync labels" (elevations-plan §11 L5).
+	 */
+	function syncOutletsFromLocations() {
+		const prev = outlets
+		let n = 0
+		const next = outlets.map(o => {
+			if (!o.locationId) return o
+			const loc = locationById.get(o.locationId)
+			if (!loc) return o
+			const label = expectedOutletLabel(loc)
+			const baked = bakedByLocation.get(o.locationId)
+			const portLabels = baked?.size
+				? Array.from({ length: loc.portCount }, (_, i) => baked.get(i + 1) ?? '')
+				: derivePortLabels(label, loc.portCount, o.portLabels)
+			const changed = o.label !== label || o.portCount !== loc.portCount
+				|| JSON.stringify(o.portLabels ?? null) !== JSON.stringify(portLabels ?? null)
+			if (!changed) return o
+			n++
+			return { ...o, label, portCount: loc.portCount, ...(portLabels ? { portLabels } : {}) }
+		})
+		if (n === 0) { toast.info('All linked outlets already match their locations'); return }
+		outlets = next
+		history.record({ label: `Sync ${n} outlet(s)`, undo: () => { outlets = prev }, redo: () => { outlets = next } })
+		toast.success(`Synced ${n} outlet(s) from locations — undo to revert`)
 	}
 
 	/** Remove the location link (drops the key entirely — Firestore rejects undefined). */
@@ -1702,10 +1747,12 @@
 						{selectedIds}
 						{selectedRackIds}
 						locations={locationList}
+						{bakedByLocation}
 						onupdate={updateOutlet}
 						onupdateselected={updateSelectedOutlets}
 						ondelete={deleteSelected}
 						onlinkall={linkAllByLabel}
+						onsyncall={syncOutletsFromLocations}
 						onunlink={unlinkOutlet}
 						oncreatelocation={createLocationForOutlet}
 					/>

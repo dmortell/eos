@@ -6,15 +6,17 @@
 
 	type LocationRow = { id: string; zone: string; locationNumber: number; portCount: number; locationType: string }
 
-	let { outlets, selectedIds, selectedRackIds = new Set(), locations = [], onupdate, onupdateselected, ondelete, onlinkall, onunlink, oncreatelocation }: {
+	let { outlets, selectedIds, selectedRackIds = new Set(), locations = [], bakedByLocation = new Map(), onupdate, onupdateselected, ondelete, onlinkall, onsyncall, onunlink, oncreatelocation }: {
 		outlets: OutletConfig[]
 		selectedIds: Set<string>
 		selectedRackIds?: Set<string>
 		locations?: LocationRow[]
+		bakedByLocation?: Map<string, Map<number, string>>
 		onupdate: (id: string, updates: Partial<OutletConfig>) => void
 		onupdateselected: (updates: Partial<OutletConfig>) => void
 		ondelete: () => void
 		onlinkall?: () => void
+		onsyncall?: () => void
 		onunlink?: (id: string) => void
 		oncreatelocation?: (id: string) => void
 	} = $props()
@@ -24,6 +26,15 @@
 	let linkedLocation = $derived(singleOutlet?.locationId
 		? locations.find(l => l.id === singleOutlet!.locationId) ?? null
 		: null)
+	/** Linked: the BAKED panel labels are the port truth (canonical rule — outlets read frames). */
+	let bakedPortLabels = $derived.by(() => {
+		if (!singleOutlet?.locationId) return null
+		const m = bakedByLocation.get(singleOutlet.locationId)
+		if (!m?.size) return null
+		return Array.from({ length: singleOutlet.portCount }, (_, i) => m.get(i + 1) ?? '—')
+	})
+	let labelDiverges = $derived(!!linkedLocation && !!singleOutlet
+		&& singleOutlet.label !== `${linkedLocation.zone}.${String(linkedLocation.locationNumber).padStart(3, '0')}`)
 
 	// Capture the edit target when a text/number field gains focus, so that a
 	// commit fired on blur (e.g. clicking away to another outlet) writes to the
@@ -64,7 +75,11 @@
 					onupdate(o.id, { label: newLabel, portLabels })
 				}} />
 		</label>
-		{#if singleOutlet.portCount > 1 && singleOutlet.label}
+		{#if bakedPortLabels}
+			<div class="pl-14 text-[10px] text-gray-400 font-mono leading-tight" title="Baked panel labels from the linked location">
+				ports: {bakedPortLabels.join(', ')}
+			</div>
+		{:else if singleOutlet.portCount > 1 && singleOutlet.label}
 			<div class="pl-14 text-[10px] text-gray-400 font-mono leading-tight">
 				ports: {derivePortLabels(singleOutlet.label, singleOutlet.portCount, singleOutlet.portLabels)?.join(', ')}
 			</div>
@@ -80,6 +95,9 @@
 					</span>
 					{#if linkedLocation.portCount !== singleOutlet.portCount}
 						<span class="text-[10px] text-amber-500 shrink-0" title="Outlet has {singleOutlet.portCount} ports but the linked location has {linkedLocation.portCount} — resolve with Sync (or edit one side)">⚠ ports</span>
+					{/if}
+					{#if labelDiverges}
+						<span class="text-[10px] text-amber-500 shrink-0" title="Outlet label doesn't match the location number — use 'Sync from locations' to adopt it">⚠ label</span>
 					{/if}
 				{:else}
 					<span class="flex-1 text-[10px] text-amber-500">linked location missing</span>
@@ -212,7 +230,10 @@
 		{#if locations.length}
 			<button class="px-1.5 py-0.5 text-[10px] text-gray-500 border border-gray-200 rounded hover:bg-gray-50 transition-colors"
 				title="Link every unlinked outlet whose label matches a frames location (zone+number). Undoable."
-				onclick={() => onlinkall?.()}>Link all by label</button>
+				onclick={() => onlinkall?.()}>Link all</button>
+			<button class="px-1.5 py-0.5 text-[10px] text-gray-500 border border-gray-200 rounded hover:bg-gray-50 transition-colors"
+				title="Adopt location truth onto ALL linked outlets: label ← zone.NNN, port count, per-port labels ← baked panel labels. Undoable."
+				onclick={() => onsyncall?.()}>Sync from locations</button>
 		{/if}
 	</div>
 </Window>

@@ -882,3 +882,15 @@ per-panel printed flag.
   editor.applySyncPlan (undoable mutateFramesDoc). Verified in browser:
   format change → 1 stale → diff L01.037-A01→L01.037.A01 → apply → panel
   clears; unassigned work list surfaced organically (A-037 port 2).
+- L5 ✅: outlets read the link. Outlets tool derives bakedByLocation from the
+  frames doc; linked outlets' ports line shows BAKED panel labels when they
+  exist (canonical rule), derivePortLabels only otherwise; ⚠ label divergence
+  chip when o.label ≠ zone.NNN; "Sync from locations" (undoable) adopts
+  location truth onto all linked outlets: label ← zone.NNN, portCount, and
+  portLabels ← baked strings — after which Excel export, plan render, DXF and
+  sheets viewports are correct with no render-path changes. Verified in
+  browser: synced 9 outlets, A.001 6p→4p, flags cleared.
+- Labels v2 (§11) L0–L5 ALL SHIPPED. Remaining follow-ups: Firestore rules
+  for `labelFormats` (verify on Vercel); renumbering UI for locations (list
+  edits numbers indirectly today); outlets-side create-on-plan auto-link
+  option; port-label readability TODO (earlier entry) still open.
