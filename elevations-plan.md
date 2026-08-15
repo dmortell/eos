@@ -839,3 +839,16 @@ per-panel printed flag.
   (canonical rule: outlets read frames); `derivePortLabels` only for unlinked.
 - Plan/DXF outlet number rendering follows the location number when linked
   (divergence flagged, not forced).
+
+### Session追記 (labels v2 L0+L1 shipped, 2026-08-15)
+- L0 ✅: LocationConfig.id (deterministic repair-on-load), id-form pins with
+  legacy fallback in buildPortInfoMap, RenumberDialog preview fix. 14 tests.
+- L1 ✅: $lib/elevation/labelTemplate.ts — Excel-style token engine
+  (F/Z/N/S/P/A/R/H, repeat=pad, "quotes", [conditional groups]), 10 tests;
+  LabelFormat.template (precedence over separator options, byte-identical
+  legacy mapping via templateForLegacyFormat); global `labelFormats`
+  collection as the user preset library; AssignPortsDialog format picker:
+  built-ins + library + Custom with live preview, save-to-library, delete.
+  Verified in browser (custom `Z/NNN":"A` → A/023:D, alpha port token).
+- NOTE: Firestore rules must allow the new global `labelFormats` collection
+  (same pattern as `catalog`) — verify on Vercel; writes fail silently if not.

@@ -68,7 +68,7 @@ export class ElevationsEditor {
 	/** Sticky label pins: portPosKey → specific location port (frames doc). */
 	portAssignments = $state<Record<string, PortAssignment>>({})
 	/** Project label format (frames doc) — separator + included components. */
-	labelFormat = $state<{ separator: 'legacy' | 'period' | 'hyphen'; includeZone: boolean; includeRoom: boolean }>({
+	labelFormat = $state<{ separator: 'legacy' | 'period' | 'hyphen'; includeZone: boolean; includeRoom: boolean; template?: string }>({
 		separator: 'legacy', includeZone: true, includeRoom: false,
 	})
 	private nextReservationId = 1
@@ -572,7 +572,10 @@ export class ElevationsEditor {
 	}
 
 	updateLabelFormat(partial: Partial<ElevationsEditor['labelFormat']>) {
-		this.labelFormat = { ...this.labelFormat, ...partial }
+		const next = { ...this.labelFormat, ...partial }
+		// Never persist an undefined template key (Firestore rejects undefined)
+		if (!next.template) delete next.template
+		this.labelFormat = next
 		this.logFramesChange('update', 'labelFormat', JSON.stringify(partial))
 	}
 
@@ -593,6 +596,7 @@ export class ElevationsEditor {
 			separator: data.labelFormat?.separator ?? 'legacy',
 			includeZone: data.labelFormat?.includeZone ?? true,
 			includeRoom: data.labelFormat?.includeRoom ?? false,
+			...(data.labelFormat?.template ? { template: data.labelFormat.template } : {}),
 		}
 		const comparable = {
 			zoneLocations: data.zoneLocations ?? {},

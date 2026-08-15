@@ -1,5 +1,6 @@
 import type { ZoneConfig, PortLabel, PanelData, PanelDevice, RackData, FrameConfig, LocType, LabelFormat } from './types'
 import { defaultFrameConfig, DEFAULT_LABEL_FORMAT } from './types'
+import { renderLabel } from '$lib/elevation/labelTemplate'
 
 /** Format a floor number according to the floorFormat setting */
 export function formatFloor(fl: number, fmt: string = 'L01'): string {
@@ -54,9 +55,15 @@ export function generatePortLabels(
 		for (let p = 0; p < loc.portCount; p++) {
 			const s = loc.serverRoomAssignment[p] || 'A'
 			const pp = String(p + 1).padStart(2, '0')
+			const label = labelFormat.template
+				? renderLabel(labelFormat.template, {
+					floor: zone.floor, zone: z, locationNumber: loc.locationNumber,
+					serverRoom: s, port: p + 1, roomNumber: loc.roomNumber, isHighLevel: isHL,
+				})
+				: buildLabel(ff, z, loc.roomNumber, nnn, s, pp, isHL, labelFormat)
 
 			labels.push({
-				label: buildLabel(ff, z, loc.roomNumber, nnn, s, pp, isHL, labelFormat),
+				label,
 				...(loc.id ? { locationId: loc.id } : {}),
 				zone: z,
 				serverRoom: s,

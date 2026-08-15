@@ -252,6 +252,7 @@ export function buildPortInfoMap(
 			separator: frameData.labelFormat.separator ?? 'legacy',
 			includeZone: frameData.labelFormat.includeZone ?? true,
 			includeRoom: frameData.labelFormat.includeRoom ?? false,
+			...(frameData.labelFormat.template ? { template: frameData.labelFormat.template } : {}),
 		}
 		: undefined
 

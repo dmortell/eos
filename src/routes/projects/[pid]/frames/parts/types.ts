@@ -90,6 +90,9 @@ export interface LabelFormat {
 	includeZone: boolean
 	/** Include the location's `roomNumber` (if set) as a component between zone and location. */
 	includeRoom: boolean
+	/** Excel-style template ($lib/elevation/labelTemplate). When set it takes
+	 *  precedence over the separator/include options above. */
+	template?: string
 }
 
 export const DEFAULT_LABEL_FORMAT: LabelFormat = {

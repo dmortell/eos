@@ -1124,7 +1124,7 @@
 {/if}
 
 {#if assignDialog}
-	<AssignPortsDialog {editor} mode={assignDialog} onclose={() => assignDialog = null} />
+	<AssignPortsDialog {editor} {db} mode={assignDialog} onclose={() => assignDialog = null} />
 {/if}
 
 <PatchSettingsDialog
