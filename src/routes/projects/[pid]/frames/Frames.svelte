@@ -6,7 +6,7 @@
 	import VersionPanel from '../parts/VersionPanel.svelte'
 	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
 	import { generatePortLabels, generateRacks } from './parts/engine'
-	import { deriveFramesFromRacks, matchesFace, buildReservationMap } from '$lib/elevation/portmap'
+	import { deriveFramesFromRacks, matchesFace, buildReservationMap, locationIdFor } from '$lib/elevation/portmap'
 	import { exportToExcel } from './parts/exportExcel'
 	import ConfigPanel from './parts/ConfigPanel.svelte'
 	import LocationList from './parts/LocationList.svelte'
@@ -285,9 +285,12 @@
 
 	function generateLocations(count: number) {
 		const existing = zoneLocations[activeZone] ?? []
+		const used = new Set<string>()
+		for (const zl of Object.values(zoneLocations)) for (const l of zl ?? []) if (l.id) used.add(l.id)
 		const locs = Array.from({ length: count }, (_, i) => {
 			if (i < existing.length) return existing[i]
 			return {
+				id: locationIdFor(activeZone, i + 1, used),
 				locationNumber: i + 1,
 				portCount: 2,
 				serverRoomAssignment: ['A', 'A'],
@@ -350,11 +353,11 @@
 			if (showAllZones) {
 				const { zone, indexInZone } = allLocationsFlat.index[index]
 				const locs = [...(zoneLocations[zone] ?? [])]
-				locs[indexInZone] = loc
+				locs[indexInZone] = { ...loc, id: loc.id ?? original.id }
 				zoneLocations = { ...zoneLocations, [zone]: locs }
 			} else {
 				const locs = [...activeLocations]
-				locs[index] = loc
+				locs[index] = { ...loc, id: loc.id ?? original.id }
 				zoneLocations = { ...zoneLocations, [activeZone]: locs }
 			}
 		}

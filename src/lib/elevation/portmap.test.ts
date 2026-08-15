@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
 	buildReservationMap, deriveServerRoomCount, deriveFramesFromRacks, buildPortInfoMap, matchesFace,
+	repairLocationIds, locationIdFor,
 } from './portmap'
 import type { PortReservation } from '../../routes/projects/[pid]/frames/parts/types'
 
@@ -109,6 +110,37 @@ describe('buildPortInfoMap', () => {
 		expect(map.get('dev-1:2')?.locationType).toBe('desk')
 	})
 
+	it('resolves id-form pins and keeps them across location renumbering', () => {
+		// The AP location has a stable id; the pin references ONLY the id.
+		const withIds = {
+			zoneLocations: {
+				A: [
+					{ id: 'LA1', locationNumber: 1, portCount: 2, serverRoomAssignment: ['A', 'A'], locationType: 'desk' },
+					{ id: 'LA2', locationNumber: 2, portCount: 1, serverRoomAssignment: ['A'], locationType: 'AP' },
+				],
+			},
+			portAssignments: { 'rack-1:10:top:5': { locationId: 'LA2', port: 1 } },
+		}
+		const map = buildPortInfoMap(withIds, 'A', [panel], [rack], 1)
+		expect(map.get('dev-1:6')?.locationType).toBe('AP')
+		expect(map.get('dev-1:6')?.label).toBe('L01.A.002-A01')
+
+		// Renumber the pinned location 2 → 7: the pin follows the id and the
+		// label reflects the NEW number without touching the assignment.
+		const renumbered = {
+			...withIds,
+			zoneLocations: {
+				A: [
+					withIds.zoneLocations.A[0],
+					{ ...withIds.zoneLocations.A[1], locationNumber: 7 },
+				],
+			},
+		}
+		const map2 = buildPortInfoMap(renumbered, 'A', [panel], [rack], 1)
+		expect(map2.get('dev-1:6')?.label).toBe('L01.A.007-A01')
+		expect(map2.get('dev-1:6')?.pinned).toBe(true)
+	})
+
 	it('keeps room-B labels when serverRoomCount is not stored (viewport regression)', () => {
 		const twoRoom = {
 			zoneLocations: { A: [{ locationNumber: 1, portCount: 1, serverRoomAssignment: ['B'], locationType: 'desk' }] },
@@ -118,5 +150,45 @@ describe('buildPortInfoMap', () => {
 		// serverRoomCount deliberately omitted — must be derived, not defaulted to 1
 		const map = buildPortInfoMap(twoRoom, 'B', [panelB], [rackB], 1)
 		expect(map.get('dev-B:1')?.label).toBe('L01.A.001-B01')
+	})
+})
+
+describe('repairLocationIds', () => {
+	it('fills missing ids deterministically and leaves existing ids alone', () => {
+		const input = {
+			A: [
+				{ locationNumber: 1, portCount: 2, serverRoomAssignment: ['A', 'A'], locationType: 'desk' },
+				{ id: 'custom', locationNumber: 2, portCount: 1, serverRoomAssignment: ['A'], locationType: 'AP' },
+			],
+			B: [{ locationNumber: 1, portCount: 1, serverRoomAssignment: ['A'], locationType: 'desk' }],
+		}
+		const r1 = repairLocationIds(input as any)
+		expect(r1.changed).toBe(true)
+		expect(r1.zoneLocations.A[0].id).toBe('LA1')
+		expect(r1.zoneLocations.A[1].id).toBe('custom')
+		expect(r1.zoneLocations.B[0].id).toBe('LB1')
+		// Deterministic: a second client repairing the same doc converges
+		const r2 = repairLocationIds(input as any)
+		expect(r2.zoneLocations).toEqual(r1.zoneLocations)
+		// Idempotent: repairing repaired data changes nothing
+		const r3 = repairLocationIds(r1.zoneLocations)
+		expect(r3.changed).toBe(false)
+	})
+
+	it('suffixes on collision with persisted ids', () => {
+		const input = {
+			A: [
+				{ id: 'LA1', locationNumber: 5, portCount: 1, serverRoomAssignment: ['A'], locationType: 'desk' },
+				{ locationNumber: 1, portCount: 1, serverRoomAssignment: ['A'], locationType: 'desk' },
+			],
+		}
+		const r = repairLocationIds(input as any)
+		expect(r.zoneLocations.A[1].id).toBe('LA1_2')
+	})
+
+	it('locationIdFor marks generated ids as used', () => {
+		const used = new Set<string>()
+		expect(locationIdFor('A', 3, used)).toBe('LA3')
+		expect(locationIdFor('A', 3, used)).toBe('LA3_2')
 	})
 })

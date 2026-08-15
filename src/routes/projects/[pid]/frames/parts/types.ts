@@ -10,6 +10,10 @@ export { LOC_TYPE_LABELS, LOC_TYPE_COLORS } from '$lib/elevation/loc-colors'
 // ── Location config ──
 
 export interface LocationConfig {
+	/** Stable identity (labels v2, elevations-plan §11). locationNumber/zone are
+	 *  mutable display attributes; links (pins, outlets) reference this id.
+	 *  Optional only for legacy docs — repaired on load (repairLocationIds). */
+	id?: string
 	locationNumber: number
 	portCount: number // 1–99
 	serverRoomAssignment: string[] // per-port: 'A', 'B', 'C', 'D'
@@ -62,6 +66,8 @@ export interface FrameConfig {
 
 export interface PortLabel {
 	label: string // FF.Z.NNN-SPP or FF.Z.NNN-SPP-H (format may vary per LabelFormat settings)
+	/** Stable id of the source location (absent only pre-repair). */
+	locationId?: string
 	zone: string // zone letter
 	serverRoom: string
 	locationNumber: number

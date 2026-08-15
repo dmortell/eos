@@ -11,7 +11,7 @@
  */
 import { HistoryStore } from '$lib/history/HistoryStore.svelte'
 import { AutoSave } from '$lib/autosave/AutoSave.svelte'
-import { buildPortInfoMap, buildReservationMap, type PortAssignment } from '$lib/elevation/portmap'
+import { buildPortInfoMap, buildReservationMap, repairLocationIds, locationIdFor, type PortAssignment } from '$lib/elevation/portmap'
 import type {
 	RackConfig, DeviceConfig, DeviceTemplate, RackRow, RackSettings, RoomObject, ViewState, ElevationFace,
 } from '../racks/parts/types'
@@ -601,7 +601,9 @@ export class ElevationsEditor {
 			labelFormat: remoteLabelFormat,
 		}
 		if (!this.framesAutosave.shouldApplyRemote(comparable)) return
-		this.zoneLocations = data.zoneLocations ?? {}
+		// Fill in missing stable location ids (labels v2 L0) — deterministic, so
+		// concurrent clients converge; persisted on the next edit.
+		this.zoneLocations = repairLocationIds(data.zoneLocations).zoneLocations
 		// Repair legacy duplicate reservation ids (pre-fix nextReservationId reset
 		// bug) deterministically — sequential renumber by position, so concurrent
 		// clients converge on the same result. Persisted on the next edit.
@@ -640,12 +642,23 @@ export class ElevationsEditor {
 		this.lastLocationKey = null
 	}
 
+	/** Ids already in use across all zones (for collision-safe new-location ids). */
+	private usedLocationIds(): Set<string> {
+		const used = new Set<string>()
+		for (const locs of Object.values(this.zoneLocations)) {
+			for (const l of locs ?? []) if (l.id) used.add(l.id)
+		}
+		return used
+	}
+
 	/** Generate/extend the active zone's location list, preserving existing rows. */
 	generateLocations(count: number) {
 		const existing = this.zoneLocations[this.activeZone] ?? []
+		const used = this.usedLocationIds()
 		const locs: LocationConfig[] = Array.from({ length: count }, (_, i) => {
 			if (i < existing.length) return existing[i]
 			return {
+				id: locationIdFor(this.activeZone, i + 1, used),
 				locationNumber: i + 1,
 				portCount: 2,
 				serverRoomAssignment: ['A', 'A'],
@@ -717,7 +730,8 @@ export class ElevationsEditor {
 				this.zoneLocations = updated
 			} else {
 				const arr = [...(this.zoneLocations[zone] ?? [])]
-				arr[indexInZone] = loc
+				// Stable id must survive edits even if the UI rebuilt the object
+				arr[indexInZone] = { ...loc, id: loc.id ?? original.id }
 				this.zoneLocations = { ...this.zoneLocations, [zone]: arr }
 			}
 		})
@@ -1243,10 +1257,13 @@ export class ElevationsEditor {
 		this.mutateFramesDoc('auto-generate', `${locCount} location(s) → ${ports.length} port(s) in zone ${opts.zone}`, () => {
 			const newLocs: LocationConfig[] = []
 			const assignments = { ...this.portAssignments }
+			const used = this.usedLocationIds()
 			for (let li = 0; li < locCount; li++) {
 				const slice = ports.slice(li * perLoc, (li + 1) * perLoc)
 				const locationNumber = start + li
+				const id = locationIdFor(opts.zone, locationNumber, used)
 				newLocs.push({
+					id,
 					locationNumber,
 					portCount: perLoc,
 					serverRoomAssignment: slice.map(p => {
@@ -1258,7 +1275,8 @@ export class ElevationsEditor {
 					...(opts.isHighLevel ? { isHighLevel: true } : {}),
 				})
 				slice.forEach((p, pi) => {
-					assignments[p.posKey] = { zone: opts.zone, locationNumber, port: pi + 1 }
+					// locationId is the durable link; zone+number kept for mixed-version clients
+					assignments[p.posKey] = { locationId: id, zone: opts.zone, locationNumber, port: pi + 1 }
 				})
 			}
 			this.zoneLocations = { ...this.zoneLocations, [opts.zone]: [...existing, ...newLocs] }
@@ -1278,10 +1296,12 @@ export class ElevationsEditor {
 			const assignments = { ...this.portAssignments }
 			// Re-pinning a location moves it: drop its previous pins first
 			for (const [k, a] of Object.entries(assignments)) {
-				if (a.zone === zone && a.locationNumber === locationNumber) delete assignments[k]
+				const sameLoc = (loc.id && a.locationId === loc.id)
+					|| (a.zone === zone && a.locationNumber === locationNumber)
+				if (sameLoc) delete assignments[k]
 			}
 			for (let i = 0; i < n; i++) {
-				assignments[ports[i].posKey] = { zone, locationNumber, port: i + 1 }
+				assignments[ports[i].posKey] = { ...(loc.id ? { locationId: loc.id } : {}), zone, locationNumber, port: i + 1 }
 			}
 			this.portAssignments = assignments
 		})

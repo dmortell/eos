@@ -13,6 +13,7 @@
  */
 import type {
 	FrameConfig, PanelDevice, FrameSlot, PortLabel, LocType, PortReservation,
+	LocationConfig,
 } from '../../routes/projects/[pid]/frames/parts/types'
 import { portPosKey } from '../../routes/projects/[pid]/frames/parts/types'
 import { generatePortLabels, generateRacks } from '../../routes/projects/[pid]/frames/parts/engine'
@@ -93,6 +94,43 @@ export function buildReservationMap(portReservations?: PortReservation[] | null)
 	)
 }
 
+// ── Stable location ids (labels v2, elevations-plan §11 L0) ──
+
+/** Deterministic id for a location that doesn't have one yet: `L{zone}{number}`,
+ *  suffixed `_2`, `_3`… on collision with an already-used id. */
+export function locationIdFor(zone: string, locationNumber: number, used: Set<string>): string {
+	let id = `L${zone}${locationNumber}`
+	for (let n = 2; used.has(id); n++) id = `L${zone}${locationNumber}_${n}`
+	used.add(id)
+	return id
+}
+
+/**
+ * Fill in missing `LocationConfig.id`s deterministically (same input doc →
+ * same ids on every client, so concurrent sessions converge before the repair
+ * is persisted). Mirror of the reservation-id repair. Callers persist the
+ * repaired doc on the next edit; `changed` is false when nothing was missing.
+ */
+export function repairLocationIds(
+	zoneLocations: Record<string, LocationConfig[]> | undefined | null,
+): { zoneLocations: Record<string, LocationConfig[]>; changed: boolean } {
+	const src = zoneLocations ?? {}
+	const used = new Set<string>()
+	for (const locs of Object.values(src)) {
+		for (const l of locs ?? []) if (l.id) used.add(l.id)
+	}
+	let changed = false
+	const out: Record<string, LocationConfig[]> = {}
+	for (const [zone, locs] of Object.entries(src)) {
+		out[zone] = (locs ?? []).map(l => {
+			if (l.id) return l
+			changed = true
+			return { ...l, id: locationIdFor(zone, l.locationNumber, used) }
+		})
+	}
+	return { zoneLocations: out, changed }
+}
+
 const ROOM_LETTERS = ['A', 'B', 'C', 'D']
 
 /**
@@ -138,10 +176,29 @@ export interface PortInfo {
  * fills unpinned cells, so re-generating a zone never moves pinned labels.
  */
 export interface PortAssignment {
-	zone: string
-	locationNumber: number
+	/** Stable location id (L0+) — survives renumbering. New pins always carry it. */
+	locationId?: string
+	/** Legacy identity, kept alongside locationId for mixed-version clients. */
+	zone?: string
+	locationNumber?: number
 	/** 1-based port index within the location. */
 	port: number
+}
+
+/** All lookup keys an assignment can resolve a label by (id form preferred). */
+function assignmentKeys(a: PortAssignment): string[] {
+	const ks: string[] = []
+	if (a.locationId) ks.push(`id:${a.locationId}:${a.port}`)
+	if (a.zone != null && a.locationNumber != null) ks.push(`zl:${a.zone}:${a.locationNumber}:${a.port}`)
+	return ks
+}
+
+/** All keys a generated label can be found under. */
+function labelKeys(l: PortLabel): string[] {
+	const ks: string[] = []
+	if (l.locationId) ks.push(`id:${l.locationId}:${l.portNumber}`)
+	ks.push(`zl:${l.zone}:${l.locationNumber}:${l.portNumber}`)
+	return ks
 }
 
 /** Sentinel reservation type: blocks the engine from auto-filling a pinned cell. */
@@ -169,7 +226,9 @@ export function buildPortInfoMap(
 	const map = new Map<string, PortInfo>()
 	if (!frameData) return map
 
-	const zoneLocations: Record<string, any[]> = frameData.zoneLocations ?? {}
+	// Ensure ids even when the doc predates the L0 repair — deterministic, so
+	// the ids match what syncFrames will persist.
+	const zoneLocations: Record<string, any[]> = repairLocationIds(frameData.zoneLocations).zoneLocations
 	const zoneLetters = Object.keys(zoneLocations).filter(k => zoneLocations[k]?.length > 0).sort()
 	if (zoneLetters.length === 0) return map
 
@@ -181,7 +240,7 @@ export function buildPortInfoMap(
 	// type that never matches a locationType) and withhold their labels from the
 	// engine — they are overlaid onto their pinned positions at the end.
 	const assignments: Record<string, PortAssignment> = frameData.portAssignments ?? {}
-	const pinnedLabelKeys = new Set(Object.values(assignments).map(a => `${a.zone}:${a.locationNumber}:${a.port}`))
+	const pinnedLabelKeys = new Set(Object.values(assignments).flatMap(assignmentKeys))
 	for (const posKey of Object.keys(assignments)) {
 		if (!reservations.has(posKey)) reservations.set(posKey, PINNED as any)
 	}
@@ -207,10 +266,10 @@ export function buildPortInfoMap(
 	}
 	if (allLabels.length === 0) return map
 
-	/** Lookup for pinned overlays: zone:loc:port → generated label. */
-	const labelByKey = new Map(allLabels.map(l => [`${l.zone}:${l.locationNumber}:${l.portNumber}`, l]))
+	/** Lookup for pinned overlays: label findable by id form and legacy form. */
+	const labelByKey = new Map(allLabels.flatMap(l => labelKeys(l).map(k => [k, l] as [string, PortLabel])))
 	const freeLabels = pinnedLabelKeys.size
-		? allLabels.filter(l => !pinnedLabelKeys.has(`${l.zone}:${l.locationNumber}:${l.portNumber}`))
+		? allLabels.filter(l => !labelKeys(l).some(k => pinnedLabelKeys.has(k)))
 		: allLabels
 
 	const rackDataList = generateRacks(
@@ -242,7 +301,7 @@ export function buildPortInfoMap(
 			const col = i % 24
 			const assignment = assignments[`${device.rackId}:${device.positionU}:${row}:${col}`]
 			if (assignment) {
-				const pinnedLabel = labelByKey.get(`${assignment.zone}:${assignment.locationNumber}:${assignment.port}`)
+				const pinnedLabel = assignmentKeys(assignment).map(k => labelByKey.get(k)).find(Boolean)
 				if (pinnedLabel) {
 					map.set(`${device.id}:${i + 1}`, {
 						label: pinnedLabel.label,

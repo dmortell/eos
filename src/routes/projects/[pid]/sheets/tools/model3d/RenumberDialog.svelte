@@ -19,7 +19,8 @@
 	// Live preview of the first two labels, using the first selected item's current label as the
 	// sample so prefix/suffix/replace read realistically.
 	const preview = $derived.by(() => {
-		const sample = (items[0]?.symbol === 'outlet' ? items[0]?.outlet?.label : items[0]?.text) || 'AB'
+		// Outlet labels live in the annotation's shared `text` field (see sheets/types.ts)
+		const sample = items[0]?.text || 'AB'
 		const apply1 = (n: number) => {
 			const tok = AnnotationEditor.numToken(format, n)
 			if (mode === 'prefix') return tok + sample

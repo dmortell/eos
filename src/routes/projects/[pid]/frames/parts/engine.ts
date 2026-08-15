@@ -57,6 +57,7 @@ export function generatePortLabels(
 
 			labels.push({
 				label: buildLabel(ff, z, loc.roomNumber, nnn, s, pp, isHL, labelFormat),
+				...(loc.id ? { locationId: loc.id } : {}),
 				zone: z,
 				serverRoom: s,
 				locationNumber: loc.locationNumber,
