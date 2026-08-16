@@ -913,3 +913,64 @@ per-panel printed flag.
   all pins + baked strings). Consider DRAG-to-move for selected port blocks
   (grab pinned/baked ports, drop on another panel/position, printed-panel
   warning on drop) — direct-manipulation alternative worth designing.
+
+## §12 Direction change (2026-08-16) + triage list before the split
+
+User direction: the unified Elevations tool is trying to do too much. New plan:
+**simplify Elevations to displaying + editing devices/panels**, then design
+dedicated UX for (a) **Patching** — view 2+ switches/devices/panels/ties at
+once, select ports by type/usage/id, patch to a destination port with proper
+connection attributes; and (b) **Frames** — rear-of-panel focus: structured
+cable links to outlets/rack ties in other locations (floorplan/other racks),
+cable types/bundles, automatic/manual port positioning, consistent labels on
+both ends. Current unified code is parked on branch
+`elevations-unified-reference` (pushed) for later reference.
+
+### Triage — pending items to complete or postpone before branching
+Quick fixes / cleanups:
+1. Stray test cord in Test Project room A (L01.A.007-A02 ↔ U34, U/UTP, add) —
+   delete via patch list or ignore (practice data).
+2. Device dblclick doesn't focus its rack (Draggable stops propagation) —
+   decide intended behavior, one-line fix either way.
+3. Test-data leftovers from labels-v2 verification: location A-037 (port 1
+   baked on test rack 1 U33, port 2 unassigned), linked/synced outlets.
+
+Sheets / print deliverables:
+4. Port-label readability in the sheets racks viewport (contractor labeling
+   prints): bigger min fonts, callouts/leader lines, or a tabular port
+   schedule beside the elevation. Print output is the acceptance test.
+5. HELD stroke-width rework (vector-effect → real-mm strokes) — print is now
+   true vector; re-judge line weights on a fresh PDF and decide.
+6. Sheets racks viewport source options: focus/dim rack subset for
+   deliverables.
+7. Racks plan view × Outlets integration (design-first): shared placement
+   model, sync both ways, sheets `face:'plan'` renders it.
+8. DXF export of rack elevations still depends on the sheets fork —
+   rack-layout unfork / renderer unification. (Directly informs how the
+   simplified Elevations renderer should be built — decide before coding.)
+
+Labels v2 follow-ups:
+9. Firestore security rules for the global `labelFormats` collection —
+   verify preset saves on Vercel.
+10. Location renumbering UI (Locations list edits everything but the
+    number; Sync labels exists precisely to absorb renumbers).
+11. Drag-to-move pinned/baked port blocks between/within panels (design
+    discussed 2026-08-16) — natural fit for the NEW Frames editor rather
+    than the current canvas.
+12. Cross-room interconnect traceability: read-only "matching-label pairs"
+    in the patch list (no schema change) — fits the NEW Patching editor.
+13. Outlet create-on-plan auto-link option (place-location picker covers
+    the main flow; optional default remains).
+
+Open design decisions absorbed into the new split:
+14. High-level (-H) panel UI treatment (§6.5) → Frames editor design.
+15. Focus-pair gesture (§6.6) → superseded by Patching editor's
+    multi-device view design.
+16. Elevations LOD/ports/cords rendering on one canvas → becomes
+    display-only in simplified Elevations; heavy interaction moves to the
+    dedicated editors.
+
+Legacy / infra (independent of the split):
+17. Migrate racks tool to $lib PanZoomCanvas + AutoSave; migrate raw
+    history.pushState calls in old +page.svelte files when touched.
+18. Risers as the building level (§7) — unchanged long-term direction.
