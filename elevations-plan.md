@@ -1358,3 +1358,23 @@ Elevations simplification alongside; then Frames F-1→F-4; Patching P-4
   same viewport snippet). Dots keep constant screen size (counter-scaled).
 - Verified in browser: tab order, 2-port AP reserve + hint + undo,
   Auto-terminate (63) offered, floorplan tab with 20 dots + Fit/Enlarge.
+
+### Session追記 (2026-08-16 — frames UX feedback + F-4 checks panel)
+- Selection actions moved OFF the main toolbar to a full-width purple
+  selection bar (own row, flex-wrap) — no more cramped 2-line wrapping.
+- Tie-intent hover messages (user kept creating accidental ties): free
+  chips now say "click: set first port of a link (tie or outlet run)";
+  with a port armed, other free chips say "click: set tie link destination
+  · {armed} ↔ this port · (or pick a location/outlet in the pane)"; the
+  armed chip says "click again to cancel".
+- Block selection: Shift+click extends a RANGE within the same device
+  (anchor = last Ctrl/Shift-clicked port); Ctrl+click still toggles.
+- F-4 checks panel ✅ (partial): third destination tab "Checks" with an
+  amber count badge — Label sync counts (stale/orphaned/printed, apply
+  still in the Elevation view's dialog), Unassigned location ports,
+  Orphaned links (endpoint device/location gone; one-click remove),
+  and an unlinked-locations summary pointing at Auto-terminate.
+- F-4 remaining: drag-to-move terminated port blocks (collision checks +
+  printed warnings). Then Patching P-4 (circuit trace).
+- Verified in browser: range → "8 ports selected" in the new bar,
+  tooltips carry the tie-intent text, Checks badge = 6 real findings.

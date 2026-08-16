@@ -16,6 +16,7 @@ import { AutoSave } from '$lib/autosave/AutoSave.svelte'
 import { buildPortInfoMap, repairLocationIds, fallbackPortLabel, type PortInfo } from '$lib/elevation/portmap'
 import { bootstrapLinks, isLocationEnd, linkIdFor, type StructuredLink, type LinkEnd } from '$lib/elevation/links'
 import type { PortReservation, LocType } from '../../frames/parts/types'
+import { buildSyncPlan, unbakedLocationPorts } from '$lib/elevation/reconcile'
 
 export const ROOMS = ['A', 'B', 'C', 'D'] as const
 
@@ -283,13 +284,33 @@ export class FramesEditor {
 		this.statusHint = null
 	}
 
+	/** Anchor for Shift+click range selection. */
+	lastTermKey = $state<string | null>(null)
+
 	/** Rear-board port click: linked → select link; unlinked → arm, then a second
-	 *  unlinked port completes a TIE (locations complete via the destination pane). */
-	portClickRear(deviceId: string, portIndex: number, ctrl: boolean) {
+	 *  unlinked port completes a TIE (locations complete via the destination pane).
+	 *  Ctrl toggles block selection; Shift extends a range within the same device. */
+	portClickRear(deviceId: string, portIndex: number, ctrl: boolean, shift = false) {
 		const key = `${deviceId}:${portIndex}`
-		if (ctrl) {
+		if (shift && this.lastTermKey) {
+			const { deviceId: lastDev, portIndex: lastPort } = this.parseTermKey(this.lastTermKey)
+			if (lastDev === deviceId) {
+				this.termArm = null
+				const lo = Math.min(lastPort, portIndex), hi = Math.max(lastPort, portIndex)
+				const add: string[] = []
+				for (let p = lo; p <= hi; p++) {
+					const k = `${deviceId}:${p}`
+					if (!this.termSel.includes(k)) add.push(k)
+				}
+				this.termSel = [...this.termSel, ...add]
+				this.lastTermKey = key
+				return
+			}
+		}
+		if (ctrl || shift) {
 			this.termArm = null
 			this.termSel = this.termSel.includes(key) ? this.termSel.filter(k => k !== key) : [...this.termSel, key]
+			this.lastTermKey = key
 			return
 		}
 		const link = this.linkByPortKey.get(key)
@@ -486,6 +507,22 @@ export class FramesEditor {
 		})
 		return additions.length
 	}
+
+	// ── Maintenance checks (§14 F-4): the labels-v2 health panel, floor-wide ──
+	/** Baked-label divergence vs current locations/format (see reconcile.ts). */
+	syncPlan = $derived(buildSyncPlan(this.framesDoc, this.devices, this.racks, this.floor, this.floorFormat))
+	/** Location ports with baked siblings but no baked position themselves. */
+	unbakedPorts = $derived(unbakedLocationPorts(this.framesDoc))
+	/** Links whose panel endpoint no longer exists (device removed). */
+	orphanedLinks = $derived.by(() => {
+		const ids = new Set(this.devices.map(d => d.id))
+		return Object.values(this.links).filter(l =>
+			!ids.has(l.a.deviceId) || (!isLocationEnd(l.b) && !ids.has((l.b as LinkEnd).deviceId))
+			|| (isLocationEnd(l.b) && !this.locationById.has(l.b.locationId)))
+	})
+	/** Locations with NO linked ports at all (nothing terminated yet). */
+	unlinkedLocationCount = $derived(
+		this.locations.filter(l => (this.linkedPortsByLocation.get(l.id) ?? 0) === 0).length)
 
 	// ── F-2: bake current allocation (legacy coverage) ──
 	/** Engine-derived (unbaked) panel-port labels that have a structural source. */

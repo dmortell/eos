@@ -93,8 +93,12 @@
 											{info ? (LOC_TYPE_COLORS[info.locationType] ?? 'bg-blue-500/15 border-blue-500/40 text-blue-600') : (res ? (LOC_TYPE_COLORS[res] ?? 'bg-gray-100 text-gray-500') : 'bg-gray-100 text-gray-400')}
 											{link ? '' : 'border-dashed border-gray-300'}
 											{isArmed ? 'ring-2 ring-amber-500' : selIdx >= 0 ? 'ring-2 ring-purple-400' : isSel ? 'ring-2 ring-blue-400' : isTie ? 'ring-1 ring-violet-400' : ''}"
-										title={`${info?.label ?? fallbackPortLabel(rack.label, d.positionU, p)}${info ? `\n${LOC_TYPE_LABELS[info.locationType] ?? info.locationType}` : ''}${res ? `\nreserved: ${LOC_TYPE_LABELS[res] ?? res}` : ''}${link ? `\n${isTie ? 'tie' : 'outlet run'} → ${editor.endLabel(link)} · ${link.status}` : '\nunterminated — click to pick a destination · Ctrl+click for block ops'}`}
-										onclick={e => editor.portClickRear(d.id, p, e.ctrlKey || e.metaKey)}>
+										title={`${info?.label ?? fallbackPortLabel(rack.label, d.positionU, p)}${info ? `\n${LOC_TYPE_LABELS[info.locationType] ?? info.locationType}` : ''}${res ? `\nreserved: ${LOC_TYPE_LABELS[res] ?? res}` : ''}${
+											link ? `\n${isTie ? 'tie' : 'outlet run'} → ${editor.endLabel(link)} · ${link.status}`
+											: isArmed ? '\narmed — click again to cancel'
+											: editor.termArm ? `\nclick: set tie link destination\n${editor.labelOf(editor.termArm.deviceId, editor.termArm.portIndex)} ↔ this port\n(or pick a location / outlet in the pane instead)`
+											: '\nclick: set first port of a link (tie or outlet run)\nCtrl+click: block select · Shift+click: range'}`}
+										onclick={e => editor.portClickRear(d.id, p, e.ctrlKey || e.metaKey, e.shiftKey)}>
 										<span class="font-mono text-[9px] leading-none select-none whitespace-nowrap overflow-hidden">
 											{info ? shortLabel(info.label) : (link && !isLocationEnd(link.b) ? editor.tieLabels.get(link.id) ?? p : (res ?? p))}
 										</span>

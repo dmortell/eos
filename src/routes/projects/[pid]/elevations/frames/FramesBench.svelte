@@ -57,7 +57,10 @@
 	let benchRacks = $derived(editor.bench.filter(id => editor.rackById.has(id)))
 	let selectedLink = $derived(editor.selectedLinkId ? editor.links[editor.selectedLinkId] ?? null : null)
 	let expandedLoc = $state<string | null>(null)
-	let destTab = $state<'locations' | 'plan'>('locations')
+	let destTab = $state<'locations' | 'plan' | 'checks'>('locations')
+	let checksCount = $derived(
+		editor.syncPlan.staleCount + editor.syncPlan.orphanCount
+		+ editor.unbakedPorts.length + editor.orphanedLinks.length)
 
 	let locTypes = $derived([
 		...DEFAULT_LOC_TYPES.filter(t => t !== 'N/A'),
@@ -107,9 +110,25 @@
 				<option value="os2">OS2 SM</option>
 				<option value="om4">OM4 MM</option>
 			</select>
-			{#if editor.termSel.length > 0}
-				<span class="text-purple-600 font-medium">{editor.termSel.length} selected</span>
-				<!-- Usage assignment: reservations steer the engine (matching type first) -->
+			{#if editor.autoTerminateCount > 0}
+				<button class="h-5 px-2 rounded border border-emerald-200 bg-emerald-50 text-[10px] text-emerald-600 hover:bg-emerald-100"
+					title="Create links for every allocated-but-unlinked panel port ({editor.autoTerminateCount}). The engine assigns usage-reserved ports first, so links follow usage. Undoable."
+					onclick={autoTerm}>Auto-terminate ({editor.autoTerminateCount})</button>
+			{/if}
+			{#if editor.bakeableCount > 0}
+				<button class="h-5 px-2 rounded border border-blue-200 bg-blue-50 text-[10px] text-blue-600 hover:bg-blue-100"
+					title="Store the current engine-allocated labels as baked strings so they become structural links ({editor.bakeableCount} ports). Not undoable — labels stop moving on re-generation."
+					onclick={bakeAll}>Bake allocation ({editor.bakeableCount})</button>
+			{/if}
+			<span class="text-[10px] text-gray-300">{editor.saveStatus === 'Saved' ? '' : 'Unsaved…'}</span>
+			<button class="h-5 px-1.5 rounded text-gray-400 hover:bg-gray-100" title="Undo (Ctrl+Z)" onclick={() => editor.history.undo()}><Icon name="undo" size={12} /></button>
+			<button class="h-5 px-1.5 rounded text-gray-400 hover:bg-gray-100" title="Redo (Ctrl+Y)" onclick={() => editor.history.redo()}><Icon name="redo" size={12} /></button>
+		</div>
+
+		<!-- Selection bar: full-width row so the actions never cramp the main toolbar -->
+		{#if editor.termSel.length > 0}
+			<div class="min-h-7 px-2 py-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 bg-purple-50/70 border-b border-purple-100 text-[11px] shrink-0 print:hidden">
+				<span class="text-purple-700 font-medium">{editor.termSel.length} port{editor.termSel.length !== 1 ? 's' : ''} selected</span>
 				<span class="text-gray-400 text-[10px]">usage:</span>
 				<div class="flex gap-0.5">
 					{#each locTypes as t (t)}
@@ -127,24 +146,12 @@
 						onclick={() => editor.clearSelectedLinks()}>Clear {editor.termSelLinkedCount} link{editor.termSelLinkedCount !== 1 ? 's' : ''}</button>
 				{/if}
 				{#if editor.termSelUnlinkedCount > 0}
-					<span class="text-[10px] text-gray-400">→ location “⇐”</span>
+					<span class="text-[10px] text-gray-500">terminate: click a location's <span class="px-1 rounded bg-purple-500 text-white">⇐ N</span> button in the pane</span>
 				{/if}
-				<button class="h-5 px-1.5 rounded border border-gray-200 text-[10px] text-gray-500 hover:bg-gray-50" onclick={() => editor.cancelTermSel()}>Cancel</button>
-			{/if}
-			{#if editor.autoTerminateCount > 0}
-				<button class="h-5 px-2 rounded border border-emerald-200 bg-emerald-50 text-[10px] text-emerald-600 hover:bg-emerald-100"
-					title="Create links for every allocated-but-unlinked panel port ({editor.autoTerminateCount}). The engine assigns usage-reserved ports first, so links follow usage. Undoable."
-					onclick={autoTerm}>Auto-terminate ({editor.autoTerminateCount})</button>
-			{/if}
-			{#if editor.bakeableCount > 0}
-				<button class="h-5 px-2 rounded border border-blue-200 bg-blue-50 text-[10px] text-blue-600 hover:bg-blue-100"
-					title="Store the current engine-allocated labels as baked strings so they become structural links ({editor.bakeableCount} ports). Not undoable — labels stop moving on re-generation."
-					onclick={bakeAll}>Bake allocation ({editor.bakeableCount})</button>
-			{/if}
-			<span class="text-[10px] text-gray-300">{editor.saveStatus === 'Saved' ? '' : 'Unsaved…'}</span>
-			<button class="h-5 px-1.5 rounded text-gray-400 hover:bg-gray-100" title="Undo (Ctrl+Z)" onclick={() => editor.history.undo()}><Icon name="undo" size={12} /></button>
-			<button class="h-5 px-1.5 rounded text-gray-400 hover:bg-gray-100" title="Redo (Ctrl+Y)" onclick={() => editor.history.redo()}><Icon name="redo" size={12} /></button>
-		</div>
+				<div class="flex-1"></div>
+				<button class="h-5 px-1.5 rounded border border-gray-200 text-[10px] text-gray-500 hover:bg-gray-50" onclick={() => editor.cancelTermSel()}>Cancel (Esc)</button>
+			</div>
+		{/if}
 
 		<div class="flex-1 min-h-0 flex">
 			<!-- Rear boards -->
@@ -171,14 +178,67 @@
 			<!-- Destination pane (§14): Locations list + read-mostly floorplan picker -->
 			<div class="w-64 shrink-0 bg-white border-l border-gray-200 flex flex-col print:hidden">
 				<div class="h-6 px-1 flex items-center gap-0.5 border-b border-gray-100">
-					{#each [['locations', 'Locations'], ['plan', 'Floorplan']] as [key, label] (key)}
-						<button class="px-2 h-5 rounded text-[10px] font-medium
+					{#each [['locations', 'Locations'], ['plan', 'Floorplan'], ['checks', 'Checks']] as [key, label] (key)}
+						<button class="px-2 h-5 rounded text-[10px] font-medium flex items-center gap-1
 								{destTab === key ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:bg-gray-50'}"
-							onclick={() => destTab = key as any}>{label}</button>
+							onclick={() => destTab = key as any}>
+							{label}
+							{#if key === 'checks' && checksCount > 0}
+								<span class="px-1 rounded-full bg-amber-400 text-white text-[9px] leading-3.5">{checksCount}</span>
+							{/if}
+						</button>
 					{/each}
 				</div>
 				{#if destTab === 'plan'}
 					<PlanPicker {db} {pid} {floor} {editor} />
+				{:else if destTab === 'checks'}
+					<div class="flex-1 overflow-y-auto p-2 space-y-2 text-[11px]">
+						{#if checksCount === 0 && editor.unlinkedLocationCount === 0}
+							<div class="text-gray-400">All clear — labels in sync, no orphans, everything terminated.</div>
+						{/if}
+						{#if editor.syncPlan.staleCount + editor.syncPlan.orphanCount > 0}
+							<div class="border border-blue-200 bg-blue-50/50 rounded p-1.5 space-y-0.5">
+								<div class="text-[10px] uppercase tracking-wide font-semibold text-blue-500">Label sync</div>
+								<div class="text-gray-600">
+									{editor.syncPlan.staleCount} baked label{editor.syncPlan.staleCount !== 1 ? 's' : ''} out of date
+									{#if editor.syncPlan.orphanCount > 0} · {editor.syncPlan.orphanCount} orphaned{/if}
+									{#if editor.syncPlan.printedStaleCount > 0}
+										<span class="text-amber-600 font-medium"> · {editor.syncPlan.printedStaleCount} on printed panels</span>
+									{/if}
+								</div>
+								<div class="text-[10px] text-gray-400">Review & apply in the Elevation view → Locations tab → “Review & sync…”.</div>
+							</div>
+						{/if}
+						{#if editor.unbakedPorts.length > 0}
+							<div class="border border-gray-200 rounded p-1.5 space-y-0.5">
+								<div class="text-[10px] uppercase tracking-wide font-semibold text-gray-400">Unassigned location ports</div>
+								{#each editor.unbakedPorts as u (u.locationId)}
+									<div class="text-gray-600">
+										<span class="font-mono">{u.zone}-{String(u.locationNumber).padStart(3, '0')}</span>
+										· port{u.ports.length !== 1 ? 's' : ''} {u.ports.join(', ')}
+									</div>
+								{/each}
+							</div>
+						{/if}
+						{#if editor.orphanedLinks.length > 0}
+							<div class="border border-red-200 bg-red-50/40 rounded p-1.5 space-y-0.5">
+								<div class="text-[10px] uppercase tracking-wide font-semibold text-red-400">Orphaned links</div>
+								{#each editor.orphanedLinks as l (l.id)}
+									<div class="flex items-center gap-1 text-gray-600">
+										<span class="font-mono truncate">{editor.labelOf(l.a.deviceId, l.a.portIndex)} → {editor.endLabel(l)}</span>
+										<button class="ml-auto w-4 h-4 shrink-0 flex items-center justify-center rounded text-gray-600 hover:text-red-600 hover:bg-red-100"
+											title="Remove this orphaned link" onclick={() => editor.removeLink(l.id)}>×</button>
+									</div>
+								{/each}
+							</div>
+						{/if}
+						{#if editor.unlinkedLocationCount > 0}
+							<div class="text-[10px] text-gray-400">
+								{editor.unlinkedLocationCount} location{editor.unlinkedLocationCount !== 1 ? 's have' : ' has'} no terminated ports yet
+								{#if editor.autoTerminateCount > 0} — Auto-terminate covers the allocated ones{/if}.
+							</div>
+						{/if}
+					</div>
 				{:else}
 				<div class="flex-1 overflow-y-auto p-1">
 					{#each editor.locations as l (l.id)}
