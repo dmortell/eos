@@ -1338,3 +1338,23 @@ Elevations simplification alongside; then Frames F-1→F-4; Patching P-4
   armed port to its location's next free port. Full editing stays in the
   Floorplan tool. Verified: tie created via click-click; plan tab rendered
   20 dots on the Test Project floorplan.
+
+### Session追記 (2026-08-16 — usage flow + tab order + floorplan pan/zoom)
+- Tab order swapped to **Elevation | Frames | Patching** (user: the normal
+  flow assigns rear-port usage/terminations first, then patches).
+- USAGE ASSIGNMENT on rear ports (Frames tab): Ctrl+click a block → usage
+  chips in the toolbar (desk/AP/PR/… + project custom types + "none") create/
+  remove PORT RESERVATIONS — the same records the Elevation view edits, saved
+  as a whole-field replace, undoable. Rear chips show the reservation tint +
+  type text on unlabeled cells (mirrors PanelDetailStrip).
+- AUTO-TERMINATE (N): creates outlet-run links for every allocated-but-
+  unlinked panel port, following the engine's allocation — which already
+  fills usage-reserved ports with MATCHING-type locations first, then
+  unreserved ports. This implements the user's flow: reserve usage → outlet
+  ports auto-assign to same-usage panel ports first → links follow. Undoable
+  (unlike Bake, which stores label strings).
+- PlanPicker upgraded: wheel-zoom at cursor + drag pan (any button; dots
+  stay clickable), Fit button, and an Enlarge popout (85vw/85vh overlay,
+  same viewport snippet). Dots keep constant screen size (counter-scaled).
+- Verified in browser: tab order, 2-port AP reserve + hint + undo,
+  Auto-terminate (63) offered, floorplan tab with 20 dots + Fit/Enlarge.

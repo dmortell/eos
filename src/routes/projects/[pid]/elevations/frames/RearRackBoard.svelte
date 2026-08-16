@@ -87,15 +87,16 @@
 									{@const isTie = !!link && !isLocationEnd(link.b)}
 									{@const isArmed = editor.termArm?.deviceId === d.id && editor.termArm?.portIndex === p}
 									{@const selIdx = editor.termSel.indexOf(key)}
+									{@const res = editor.reservationTypeOf(d.id, p)}
 									<button
 										class="relative w-16 h-6.5 rounded-sm border flex items-center justify-center shrink-0
-											{info ? (LOC_TYPE_COLORS[info.locationType] ?? 'bg-blue-500/15 border-blue-500/40 text-blue-600') : 'bg-gray-100 text-gray-400'}
+											{info ? (LOC_TYPE_COLORS[info.locationType] ?? 'bg-blue-500/15 border-blue-500/40 text-blue-600') : (res ? (LOC_TYPE_COLORS[res] ?? 'bg-gray-100 text-gray-500') : 'bg-gray-100 text-gray-400')}
 											{link ? '' : 'border-dashed border-gray-300'}
 											{isArmed ? 'ring-2 ring-amber-500' : selIdx >= 0 ? 'ring-2 ring-purple-400' : isSel ? 'ring-2 ring-blue-400' : isTie ? 'ring-1 ring-violet-400' : ''}"
-										title={`${info?.label ?? fallbackPortLabel(rack.label, d.positionU, p)}${info ? `\n${LOC_TYPE_LABELS[info.locationType] ?? info.locationType}` : ''}${link ? `\n${isTie ? 'tie' : 'outlet run'} → ${editor.endLabel(link)} · ${link.status}` : '\nunterminated — click to pick a destination · Ctrl+click for block ops'}`}
+										title={`${info?.label ?? fallbackPortLabel(rack.label, d.positionU, p)}${info ? `\n${LOC_TYPE_LABELS[info.locationType] ?? info.locationType}` : ''}${res ? `\nreserved: ${LOC_TYPE_LABELS[res] ?? res}` : ''}${link ? `\n${isTie ? 'tie' : 'outlet run'} → ${editor.endLabel(link)} · ${link.status}` : '\nunterminated — click to pick a destination · Ctrl+click for block ops'}`}
 										onclick={e => editor.portClickRear(d.id, p, e.ctrlKey || e.metaKey)}>
 										<span class="font-mono text-[9px] leading-none select-none whitespace-nowrap overflow-hidden">
-											{info ? shortLabel(info.label) : (link && !isLocationEnd(link.b) ? editor.tieLabels.get(link.id) ?? p : p)}
+											{info ? shortLabel(info.label) : (link && !isLocationEnd(link.b) ? editor.tieLabels.get(link.id) ?? p : (res ?? p))}
 										</span>
 										{#if selIdx >= 0}
 											<span class="absolute -top-1 -left-1 min-w-3.5 h-3.5 px-0.5 rounded-full text-[8px] leading-3.5 text-center text-white bg-purple-500">{selIdx + 1}</span>

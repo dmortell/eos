@@ -15,6 +15,7 @@ import { HistoryStore } from '$lib/history/HistoryStore.svelte'
 import { AutoSave } from '$lib/autosave/AutoSave.svelte'
 import { buildPortInfoMap, repairLocationIds, fallbackPortLabel, type PortInfo } from '$lib/elevation/portmap'
 import { bootstrapLinks, isLocationEnd, linkIdFor, type StructuredLink, type LinkEnd } from '$lib/elevation/links'
+import type { PortReservation, LocType } from '../../frames/parts/types'
 
 export const ROOMS = ['A', 'B', 'C', 'D'] as const
 
@@ -65,6 +66,7 @@ export class FramesEditor {
 	syncFrames(doc: any) {
 		this.framesDoc = doc ?? null
 		if (doc?.floorFormat) this.floorFormat = doc.floorFormat
+		this.portReservations = doc?.portReservations ?? []
 		const comparable = { structuredLinks: doc?.structuredLinks ?? {} }
 		if (!this.autosave.shouldApplyRemote(comparable)) return
 		this.links = doc?.structuredLinks ?? {}
@@ -373,6 +375,116 @@ export class FramesEditor {
 		})
 		this.termSel = this.termSel.filter(k => !linked.includes(k))
 		if (this.selectedLinkId && ids.includes(this.selectedLinkId)) this.selectedLinkId = null
+	}
+
+	// ── Usage assignment (reservations) on rear ports ──
+	// Reservations steer the label engine: reserved cells receive locations of
+	// the MATCHING type first — so "assign usage to rear ports, then outlets
+	// auto-assign to same-usage ports" is reservations + the engine + the
+	// auto-terminate action below. Position-keyed (same records the Elevation
+	// view edits); saved as a whole-field replace.
+	portReservations = $state<PortReservation[]>([])
+
+	private posOfKey(key: string): { frameId: string; ru: number; row: 'top' | 'bottom'; col: number } | null {
+		const { deviceId, portIndex } = this.parseTermKey(key)
+		const d = this.devices.find(x => x.id === deviceId)
+		if (!d) return null
+		return { frameId: d.rackId, ru: d.positionU, row: portIndex <= 24 ? 'top' : 'bottom', col: (portIndex - 1) % 24 }
+	}
+	private parseTermKey(key: string): { deviceId: string; portIndex: number } {
+		const i = key.lastIndexOf(':')
+		return { deviceId: key.slice(0, i), portIndex: Number(key.slice(i + 1)) }
+	}
+
+	private reservationByPos = $derived.by(() => {
+		const m = new Map<string, string>()
+		for (const r of this.portReservations) {
+			for (const p of r.ports) m.set(`${p.frameId}:${p.ru}:${p.row}:${p.col}`, r.type)
+		}
+		return m
+	})
+	private deviceById = $derived(new Map(this.devices.map(d => [d.id, d])))
+
+	reservationTypeOf(deviceId: string, portIndex: number): string | undefined {
+		const d = this.deviceById.get(deviceId)
+		if (!d || d.type !== 'panel') return undefined
+		return this.reservationByPos.get(`${d.rackId}:${d.positionU}:${portIndex <= 24 ? 'top' : 'bottom'}:${(portIndex - 1) % 24}`)
+	}
+
+	private saveReservations() {
+		this.db.saveFields('frames', { id: this.framesDocId(), portReservations: $state.snapshot(this.portReservations) })
+	}
+
+	/** Reserve the selected rear ports as a usage type (undoable). */
+	reserveSelection(type: LocType) {
+		const positions = this.termSel.map(k => this.posOfKey(k)).filter((p): p is NonNullable<typeof p> => !!p)
+		if (positions.length === 0) return
+		const before = $state.snapshot(this.portReservations) as PortReservation[]
+		const nextId = String(before.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0) + 1)
+		const after = [...before, { id: nextId, type, ports: positions }]
+		const apply = (rs: PortReservation[]) => { this.portReservations = rs; this.saveReservations() }
+		apply(after)
+		this.history.record({ label: `reserve ${positions.length} as ${type}`, undo: () => apply(before), redo: () => apply(after) })
+		this.termSel = []
+		this.statusHint = `${positions.length} port(s) reserved as ${type} — the engine allocates matching locations there first`
+	}
+
+	/** Remove the selected ports from any reservations (undoable). */
+	unreserveSelection() {
+		const posKeys = new Set(this.termSel.map(k => this.posOfKey(k)).filter(Boolean)
+			.map(p => `${p!.frameId}:${p!.ru}:${p!.row}:${p!.col}`))
+		if (posKeys.size === 0) return
+		const before = $state.snapshot(this.portReservations) as PortReservation[]
+		const after = before
+			.map(r => ({ ...r, ports: r.ports.filter(p => !posKeys.has(`${p.frameId}:${p.ru}:${p.row}:${p.col}`)) }))
+			.filter(r => r.ports.length > 0)
+		const apply = (rs: PortReservation[]) => { this.portReservations = rs; this.saveReservations() }
+		apply(after)
+		this.history.record({ label: 'unreserve port(s)', undo: () => apply(before), redo: () => apply(after) })
+		this.termSel = []
+	}
+
+	// ── Auto-terminate: turn the engine's (reservation-aware) allocation into links ──
+	/** Allocated-but-unlinked panel ports (the engine already honours usage
+	 *  reservations, so links created from it follow usage-first assignment). */
+	autoTerminateCount = $derived.by(() => {
+		let n = 0
+		for (const d of this.devices) {
+			if (d.type !== 'panel') continue
+			for (let p = 1; p <= (d.portCount ?? 0); p++) {
+				const info = this.portInfo.get(`${d.id}:${p}`)
+				if (info?.locationId && info.locationPort && !this.linkByPortKey.has(`${d.id}:${p}`)) n++
+			}
+		}
+		return n
+	})
+
+	autoTerminate(): number {
+		const additions: StructuredLink[] = []
+		const cable = this.stickyLinkCable || undefined
+		for (const d of this.devices) {
+			if (d.type !== 'panel') continue
+			for (let p = 1; p <= (d.portCount ?? 0); p++) {
+				const key = `${d.id}:${p}`
+				const info = this.portInfo.get(key)
+				if (!info?.locationId || !info.locationPort || this.linkByPortKey.has(key)) continue
+				const id = linkIdFor(d.id, p)
+				additions.push({
+					id, kind: 'outlet-run',
+					a: { deviceId: d.id, portIndex: p },
+					b: { locationId: info.locationId, port: info.locationPort },
+					status: 'design',
+					...(cable ? { cableType: cable } : {}),
+				})
+			}
+		}
+		if (additions.length === 0) return 0
+		this.mutateLinks(`auto-terminate ${additions.length} port(s)`, links => {
+			const next = { ...links }
+			for (const l of additions) next[l.id] = l
+			return next
+		})
+		return additions.length
 	}
 
 	// ── F-2: bake current allocation (legacy coverage) ──

@@ -9,7 +9,8 @@
 	import PanelTree from './PanelTree.svelte'
 	import RearRackBoard from './RearRackBoard.svelte'
 	import PlanPicker from './PlanPicker.svelte'
-	import { LOC_TYPE_COLORS } from '$lib/elevation/loc-colors'
+	import { LOC_TYPE_COLORS, LOC_TYPE_LABELS } from '$lib/elevation/loc-colors'
+	import { DEFAULT_LOC_TYPES } from '../../frames/parts/types'
 	import { isLocationEnd } from '$lib/elevation/links'
 
 	let { db, pid, floor }: { db: Firestore; pid: string; floor: number } = $props()
@@ -58,6 +59,17 @@
 	let expandedLoc = $state<string | null>(null)
 	let destTab = $state<'locations' | 'plan'>('locations')
 
+	let locTypes = $derived([
+		...DEFAULT_LOC_TYPES.filter(t => t !== 'N/A'),
+		...(editor.framesDoc?.customLocationTypes ?? []),
+	])
+
+	function autoTerm() {
+		if (!confirm(`Create ${editor.autoTerminateCount} outlet-run link(s) following the current allocation?\n\nThe engine already assigns locations to usage-reserved ports first, so links follow usage. Undoable.`)) return
+		const n = editor.autoTerminate()
+		editor.statusHint = `Auto-terminated ${n} port(s)`
+	}
+
 	function bakeAll() {
 		if (!confirm(`Bake ${editor.bakeableCount} engine-allocated label(s) into stored strings?\n\nBaked labels become the truth: they stop moving on re-generation and become structural links. This is not undoable (clearing a label stays a per-port action in the Elevation view).`)) return
 		const n = editor.bakeAllocation()
@@ -96,16 +108,33 @@
 				<option value="om4">OM4 MM</option>
 			</select>
 			{#if editor.termSel.length > 0}
-				<span class="text-purple-600 font-medium">{editor.termSel.length} selected{editor.termSelLinkedCount ? ` (${editor.termSelLinkedCount} linked)` : ''}</span>
+				<span class="text-purple-600 font-medium">{editor.termSel.length} selected</span>
+				<!-- Usage assignment: reservations steer the engine (matching type first) -->
+				<span class="text-gray-400 text-[10px]">usage:</span>
+				<div class="flex gap-0.5">
+					{#each locTypes as t (t)}
+						<button class="px-1 h-5 rounded border font-mono text-[10px] {LOC_TYPE_COLORS[t] ?? 'bg-gray-100 border-gray-200 text-gray-600'} opacity-80 hover:opacity-100"
+							title="Reserve the selected ports for {LOC_TYPE_LABELS[t] ?? t}"
+							onclick={() => editor.reserveSelection(t)}>{t}</button>
+					{/each}
+					<button class="px-1 h-5 rounded border border-gray-200 text-[10px] text-gray-500 hover:bg-gray-50"
+						title="Remove the selected ports from any usage reservation"
+						onclick={() => editor.unreserveSelection()}>none</button>
+				</div>
 				{#if editor.termSelLinkedCount > 0}
 					<button class="h-5 px-1.5 rounded border border-red-200 text-[10px] text-red-500 hover:bg-red-50"
 						title="Remove the links of the selected linked ports"
 						onclick={() => editor.clearSelectedLinks()}>Clear {editor.termSelLinkedCount} link{editor.termSelLinkedCount !== 1 ? 's' : ''}</button>
 				{/if}
 				{#if editor.termSelUnlinkedCount > 0}
-					<span class="text-[10px] text-gray-400">→ pick a location's “⇐” button</span>
+					<span class="text-[10px] text-gray-400">→ location “⇐”</span>
 				{/if}
 				<button class="h-5 px-1.5 rounded border border-gray-200 text-[10px] text-gray-500 hover:bg-gray-50" onclick={() => editor.cancelTermSel()}>Cancel</button>
+			{/if}
+			{#if editor.autoTerminateCount > 0}
+				<button class="h-5 px-2 rounded border border-emerald-200 bg-emerald-50 text-[10px] text-emerald-600 hover:bg-emerald-100"
+					title="Create links for every allocated-but-unlinked panel port ({editor.autoTerminateCount}). The engine assigns usage-reserved ports first, so links follow usage. Undoable."
+					onclick={autoTerm}>Auto-terminate ({editor.autoTerminateCount})</button>
 			{/if}
 			{#if editor.bakeableCount > 0}
 				<button class="h-5 px-2 rounded border border-blue-200 bg-blue-50 text-[10px] text-blue-600 hover:bg-blue-100"

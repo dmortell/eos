@@ -679,7 +679,8 @@
 
 	<!-- Main view tabs (§13): the canvas or a dedicated editor view -->
 	<div class="h-7 px-2 flex items-end gap-1 bg-slate-700 shrink-0 print:hidden">
-		{#each [['elevation', 'Elevation'], ['patching', 'Patching'], ['frames', 'Frames']] as [key, label] (key)}
+		<!-- Frames before Patching: the normal flow assigns rear-port usage + terminations first -->
+		{#each [['elevation', 'Elevation'], ['frames', 'Frames'], ['patching', 'Patching']] as [key, label] (key)}
 			<button class="px-3 h-6 rounded-t text-[11px] font-medium transition-colors
 					{mainView === key ? 'bg-white text-gray-800' : 'bg-slate-600/60 text-slate-200 hover:bg-slate-600'}"
 				onclick={() => setMainView(key as any)}>{label}</button>
