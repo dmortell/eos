@@ -1083,3 +1083,27 @@ P3. Attribute bar: sticky-per-session (today's behavior) vs per-bench-set
 P4. Should the bench show LIVE rack thumbnails (mini elevation with the
     device highlighted) for spatial orientation, or is text context
     (rack · U· room) enough?
+
+### §13 resolved (user decisions, 2026-08-16)
+- Board unit: **per rack group** — a bench board is a RACK, its port-bearing
+  devices stacked in RU order (top-down), each as a row-group (device header
+  + port grid). Adding a device from the tree/Elevations adds its rack's
+  board scrolled to + highlighting that device; device row-groups are
+  collapsible for tall racks.
+- Trace: chain list in inspector + port highlights on boards (no drawn lines).
+- Attributes: sticky per session (today's behavior).
+- Orientation: text context (rack · room · U range) + jump-to-Elevations link.
+
+### §13 build phases
+- P-1: bench shell at /patching (reclaim redirect): rack boards (readonly),
+  device tree sidebar + search, bench add/remove/reorder/persist,
+  PatchListPane bottom panel wired to existing docs.
+- P-2: patching interactions: click-click arm/complete with sticky
+  attribute bar, filter bar (substring + type/usage chips + free-only,
+  Enter = next match), unlabeled-port fallback labels.
+- P-3: bulk N↔N with mapping preview; multi-room bench (subscribe rooms on
+  demand); "Patch…" entry from Elevations selection.
+- P-4: circuit trace inspector (cords by ref; structured links by id with
+  label-match bootstrap) + saved bench sets.
+- Elevations simplification lands alongside P-1/P-2: patch mode + cords
+  layer become view-only there (edit → Patching), Locations tab stays.
