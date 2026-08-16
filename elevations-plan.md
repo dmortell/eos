@@ -1286,3 +1286,27 @@ Elevations simplification alongside; then Frames F-1→F-4; Patching P-4
   to get full coverage on legacy projects.
 - Next: F-2 (manual terminate flow: rear port → destination via embedded
   floorplan + locations list; block assign/clear; sticky cable attrs).
+
+### Session追記 (2026-08-16 — Frames F-2 shipped)
+- F-2 ✅: manual terminate + block ops + bake-allocation. DESIGN CALL:
+  terminating writes LINKS ONLY — labels stay as-is (baking remains the
+  explicit generate/bake actions' job). This keeps undo clean: undoing a
+  terminate can't be resurrected by the baked-labels bootstrap.
+- PortInfo gained locationId/locationPort (structural source) on all three
+  resolution paths (engine, pinned, baked) — powers bake-allocation and
+  destination pairing.
+- Flows: click an unterminated rear port → armed (amber + hint) → pick a
+  free port chip in the expanded Locations row → outlet-run link with the
+  sticky cable type. Ctrl+click builds a mixed block: "⇐ N" button on each
+  location terminates the unlinked selection to its free ports in order
+  (shortfall keeps the remainder selected); "Clear N links" removes the
+  linked subset. Esc cascade: arm → block → link selection.
+- "Bake allocation (N)": confirm-gated, writes ONLY a bakedLabels patch
+  (deep-merge, add-only, not undoable) + rebootstraps links and persists
+  them. Legacy projects get full link coverage this way.
+- Verified in browser: armed U33-P14 → A-001 p2 link with cat6a sticky
+  cable + fallback panel label; undo removed it (3 links again); bake
+  button showed 63 candidates (not pressed — user's call on the practice
+  data); console clean.
+- Deferred to F-3: embedded read-mostly floorplan destination tab (ties +
+  spatial picking together); tie template labels.

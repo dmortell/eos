@@ -43,7 +43,9 @@
 				e.preventDefault()
 				editor.history.redo()
 			} else if (e.key === 'Escape') {
-				if (editor.selectedLinkId) editor.selectedLinkId = null
+				if (editor.termArm) editor.disarmTerm()
+				else if (editor.termSel.length) editor.cancelTermSel()
+				else if (editor.selectedLinkId) editor.selectedLinkId = null
 			}
 		}
 		window.addEventListener('keydown', onKey)
@@ -52,6 +54,13 @@
 
 	let benchRacks = $derived(editor.bench.filter(id => editor.rackById.has(id)))
 	let selectedLink = $derived(editor.selectedLinkId ? editor.links[editor.selectedLinkId] ?? null : null)
+	let expandedLoc = $state<string | null>(null)
+
+	function bakeAll() {
+		if (!confirm(`Bake ${editor.bakeableCount} engine-allocated label(s) into stored strings?\n\nBaked labels become the truth: they stop moving on re-generation and become structural links. This is not undoable (clearing a label stays a per-port action in the Elevation view).`)) return
+		const n = editor.bakeAllocation()
+		editor.statusHint = `Baked ${n} label(s) — links created`
+	}
 	let linkCounts = $derived.by(() => {
 		const all = Object.values(editor.links)
 		return { total: all.length, ties: all.filter(l => !isLocationEnd(l.b)).length }
@@ -75,6 +84,32 @@
 				<span class="text-amber-600 font-medium truncate">{editor.statusHint}</span>
 			{/if}
 			<div class="flex-1"></div>
+			<span class="text-gray-400">Cable</span>
+			<select class="h-5.5 px-1 border border-gray-200 rounded bg-white text-[11px]" bind:value={editor.stickyLinkCable}>
+				<option value="">—</option>
+				<option value="cat5e">Cat5e</option>
+				<option value="cat6">Cat6</option>
+				<option value="cat6a">Cat6a</option>
+				<option value="os2">OS2 SM</option>
+				<option value="om4">OM4 MM</option>
+			</select>
+			{#if editor.termSel.length > 0}
+				<span class="text-purple-600 font-medium">{editor.termSel.length} selected{editor.termSelLinkedCount ? ` (${editor.termSelLinkedCount} linked)` : ''}</span>
+				{#if editor.termSelLinkedCount > 0}
+					<button class="h-5 px-1.5 rounded border border-red-200 text-[10px] text-red-500 hover:bg-red-50"
+						title="Remove the links of the selected linked ports"
+						onclick={() => editor.clearSelectedLinks()}>Clear {editor.termSelLinkedCount} link{editor.termSelLinkedCount !== 1 ? 's' : ''}</button>
+				{/if}
+				{#if editor.termSelUnlinkedCount > 0}
+					<span class="text-[10px] text-gray-400">→ pick a location's “⇐” button</span>
+				{/if}
+				<button class="h-5 px-1.5 rounded border border-gray-200 text-[10px] text-gray-500 hover:bg-gray-50" onclick={() => editor.cancelTermSel()}>Cancel</button>
+			{/if}
+			{#if editor.bakeableCount > 0}
+				<button class="h-5 px-2 rounded border border-blue-200 bg-blue-50 text-[10px] text-blue-600 hover:bg-blue-100"
+					title="Store the current engine-allocated labels as baked strings so they become structural links ({editor.bakeableCount} ports). Not undoable — labels stop moving on re-generation."
+					onclick={bakeAll}>Bake allocation ({editor.bakeableCount})</button>
+			{/if}
 			<span class="text-[10px] text-gray-300">{editor.saveStatus === 'Saved' ? '' : 'Unsaved…'}</span>
 			<button class="h-5 px-1.5 rounded text-gray-400 hover:bg-gray-100" title="Undo (Ctrl+Z)" onclick={() => editor.history.undo()}><Icon name="undo" size={12} /></button>
 			<button class="h-5 px-1.5 rounded text-gray-400 hover:bg-gray-100" title="Redo (Ctrl+Y)" onclick={() => editor.history.redo()}><Icon name="redo" size={12} /></button>
@@ -111,12 +146,33 @@
 				<div class="flex-1 overflow-y-auto p-1">
 					{#each editor.locations as l (l.id)}
 						{@const linked = editor.linkedPortsByLocation.get(l.id) ?? 0}
-						<div class="flex items-center gap-1.5 px-1.5 py-0.5 text-[11px]">
-							<span class="px-1 rounded border font-mono text-[10px] {LOC_TYPE_COLORS[l.locationType] ?? 'bg-gray-100 border-gray-200 text-gray-600'}">{l.locationType}</span>
-							<span class="font-mono text-gray-700">{l.zone}-{String(l.locationNumber).padStart(3, '0')}</span>
-							<span class="ml-auto text-[10px] {linked >= l.portCount ? 'text-emerald-600' : linked > 0 ? 'text-amber-600' : 'text-gray-300'}">
-								{linked}/{l.portCount}
-							</span>
+						{@const expanded = expandedLoc === l.id}
+						<div>
+							<div class="flex items-center gap-1.5 px-1.5 py-0.5 text-[11px] rounded {editor.termArm || editor.termSelUnlinkedCount ? 'hover:bg-blue-50' : 'hover:bg-gray-50'}">
+								<button class="flex items-center gap-1.5 flex-1 min-w-0 text-left" onclick={() => expandedLoc = expanded ? null : l.id}>
+									<span class="px-1 rounded border font-mono text-[10px] shrink-0 {LOC_TYPE_COLORS[l.locationType] ?? 'bg-gray-100 border-gray-200 text-gray-600'}">{l.locationType}</span>
+									<span class="font-mono text-gray-700">{l.zone}-{String(l.locationNumber).padStart(3, '0')}</span>
+								</button>
+								{#if editor.termSelUnlinkedCount > 0 && linked < l.portCount}
+									<button class="h-4.5 px-1 shrink-0 rounded bg-purple-500 text-white text-[9px] hover:bg-purple-400"
+										title="Terminate the {editor.termSelUnlinkedCount} selected port(s) to this location's free ports, in order"
+										onclick={() => editor.terminateBlockTo(l.id)}>⇐ {Math.min(editor.termSelUnlinkedCount, l.portCount - linked)}</button>
+								{/if}
+								<span class="shrink-0 text-[10px] {linked >= l.portCount ? 'text-emerald-600' : linked > 0 ? 'text-amber-600' : 'text-gray-300'}">
+									{linked}/{l.portCount}
+								</span>
+							</div>
+							{#if expanded}
+								<div class="flex flex-wrap gap-0.5 px-2 pb-1">
+									{#each Array.from({ length: l.portCount }, (_, i) => i + 1) as p (p)}
+										{@const taken = editor.linkedLocPorts.get(l.id)?.has(p)}
+										<button class="w-7 h-5 rounded-sm border text-[9px] font-mono
+												{taken ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : editor.termArm ? 'bg-blue-50 border-blue-300 text-blue-600 hover:bg-blue-100' : 'bg-gray-50 border-gray-200 text-gray-400'}"
+											title={taken ? `Port ${p} — linked` : editor.termArm ? `Terminate ${editor.labelOf(editor.termArm.deviceId, editor.termArm.portIndex)} → ${l.zone}-${String(l.locationNumber).padStart(3, '0')} p${p}` : `Port ${p} — free`}
+											onclick={() => editor.locationPortClick(l.id, p)}>p{p}</button>
+									{/each}
+								</div>
+							{/if}
 						</div>
 					{/each}
 					{#if editor.locations.length === 0}

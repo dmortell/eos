@@ -85,16 +85,21 @@
 									{@const link = editor.linkByPortKey.get(key)}
 									{@const isSel = !!link && editor.selectedLinkId === link.id}
 									{@const isTie = !!link && !isLocationEnd(link.b)}
+									{@const isArmed = editor.termArm?.deviceId === d.id && editor.termArm?.portIndex === p}
+									{@const selIdx = editor.termSel.indexOf(key)}
 									<button
 										class="relative w-16 h-6.5 rounded-sm border flex items-center justify-center shrink-0
 											{info ? (LOC_TYPE_COLORS[info.locationType] ?? 'bg-blue-500/15 border-blue-500/40 text-blue-600') : 'bg-gray-100 text-gray-400'}
 											{link ? '' : 'border-dashed border-gray-300'}
-											{isSel ? 'ring-2 ring-blue-400' : isTie ? 'ring-1 ring-violet-400' : ''}"
-										title={`${info?.label ?? fallbackPortLabel(rack.label, d.positionU, p)}${info ? `\n${LOC_TYPE_LABELS[info.locationType] ?? info.locationType}` : ''}${link ? `\n${isTie ? 'tie' : 'outlet run'} → ${editor.endLabel(link)} · ${link.status}` : '\nunterminated'}`}
-										onclick={() => editor.selectedLinkId = link ? (isSel ? null : link.id) : null}>
+											{isArmed ? 'ring-2 ring-amber-500' : selIdx >= 0 ? 'ring-2 ring-purple-400' : isSel ? 'ring-2 ring-blue-400' : isTie ? 'ring-1 ring-violet-400' : ''}"
+										title={`${info?.label ?? fallbackPortLabel(rack.label, d.positionU, p)}${info ? `\n${LOC_TYPE_LABELS[info.locationType] ?? info.locationType}` : ''}${link ? `\n${isTie ? 'tie' : 'outlet run'} → ${editor.endLabel(link)} · ${link.status}` : '\nunterminated — click to pick a destination · Ctrl+click for block ops'}`}
+										onclick={e => editor.portClickRear(d.id, p, e.ctrlKey || e.metaKey)}>
 										<span class="font-mono text-[9px] leading-none select-none whitespace-nowrap overflow-hidden">
 											{info ? shortLabel(info.label) : p}
 										</span>
+										{#if selIdx >= 0}
+											<span class="absolute -top-1 -left-1 min-w-3.5 h-3.5 px-0.5 rounded-full text-[8px] leading-3.5 text-center text-white bg-purple-500">{selIdx + 1}</span>
+										{/if}
 										{#if link}
 											<span class="absolute bottom-0.5 right-0.5 w-1.5 h-1.5 rounded-full {link.status === 'installed' ? 'bg-emerald-500' : isTie ? 'bg-violet-500' : 'bg-sky-500'}"></span>
 										{/if}

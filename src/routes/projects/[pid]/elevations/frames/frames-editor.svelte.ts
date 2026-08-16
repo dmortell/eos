@@ -102,7 +102,7 @@ export class FramesEditor {
 	locations = $derived.by(() => {
 		const zl = repairLocationIds(this.framesDoc?.zoneLocations).zoneLocations
 		return Object.entries(zl).flatMap(([zone, locs]) =>
-			(locs ?? []).map(l => ({ id: l.id!, zone, locationNumber: l.locationNumber, portCount: l.portCount, locationType: l.locationType })))
+			(locs ?? []).map(l => ({ id: l.id!, zone, locationNumber: l.locationNumber, portCount: l.portCount, locationType: l.locationType, isHighLevel: l.isHighLevel ?? false })))
 	})
 	locationById = $derived(new Map(this.locations.map(l => [l.id, l])))
 
@@ -115,14 +115,18 @@ export class FramesEditor {
 		}
 		return m
 	})
-	/** locationId → linked port count (coverage shown in the Locations pane). */
-	linkedPortsByLocation = $derived.by(() => {
-		const m = new Map<string, number>()
+	/** locationId → set of linked location-port numbers (coverage + free-port picking). */
+	linkedLocPorts = $derived.by(() => {
+		const m = new Map<string, Set<number>>()
 		for (const l of Object.values(this.links)) {
-			if (isLocationEnd(l.b)) m.set(l.b.locationId, (m.get(l.b.locationId) ?? 0) + 1)
+			if (isLocationEnd(l.b)) {
+				if (!m.has(l.b.locationId)) m.set(l.b.locationId, new Set())
+				m.get(l.b.locationId)!.add(l.b.port)
+			}
 		}
 		return m
 	})
+	linkedPortsByLocation = $derived(new Map([...this.linkedLocPorts].map(([id, s]) => [id, s.size])))
 	linkList = $derived(Object.values(this.links).sort((a, b) =>
 		this.labelOf(a.a.deviceId, a.a.portIndex).localeCompare(this.labelOf(b.a.deviceId, b.a.portIndex))))
 
@@ -212,5 +216,149 @@ export class FramesEditor {
 		const link: StructuredLink = { id, kind, a, b, status: 'design', ...(cableType ? { cableType } : {}) }
 		this.mutateLinks(`terminate ${this.labelOf(a.deviceId, a.portIndex)}`, links => ({ ...links, [id]: link }))
 		this.selectedLinkId = id
+	}
+
+	// ── F-2: manual terminate + block flows ──
+	/** Armed rear port waiting for a destination pick. */
+	termArm = $state<LinkEnd | null>(null)
+	/** Ordered Ctrl+click selection of rear ports (mixed linked/unlinked). */
+	termSel = $state<string[]>([])
+	/** Sticky structured-cable type for new links ('' = unspecified). */
+	stickyLinkCable = $state('cat6a')
+
+	disarmTerm() {
+		this.termArm = null
+		this.statusHint = null
+	}
+	cancelTermSel() {
+		this.termSel = []
+		this.statusHint = null
+	}
+
+	/** Rear-board port click: linked → select link; unlinked → arm; Ctrl → block toggle. */
+	portClickRear(deviceId: string, portIndex: number, ctrl: boolean) {
+		const key = `${deviceId}:${portIndex}`
+		if (ctrl) {
+			this.termArm = null
+			this.termSel = this.termSel.includes(key) ? this.termSel.filter(k => k !== key) : [...this.termSel, key]
+			return
+		}
+		const link = this.linkByPortKey.get(key)
+		if (link) {
+			this.selectedLinkId = this.selectedLinkId === link.id ? null : link.id
+			return
+		}
+		if (this.termArm?.deviceId === deviceId && this.termArm?.portIndex === portIndex) { this.disarmTerm(); return }
+		this.termArm = { deviceId, portIndex }
+		this.selectedLinkId = null
+		this.statusHint = `${this.labelOf(deviceId, portIndex)} — pick a destination in the Locations pane · Esc cancels`
+	}
+
+	/** Free (unlinked) 1-based ports of a location, in order. */
+	freePortsOf(locationId: string): number[] {
+		const loc = this.locationById.get(locationId)
+		if (!loc) return []
+		const taken = this.linkedLocPorts.get(locationId)
+		const out: number[] = []
+		for (let p = 1; p <= loc.portCount; p++) if (!taken?.has(p)) out.push(p)
+		return out
+	}
+
+	/** Destination pick from the Locations pane (single armed port → this location port). */
+	locationPortClick(locationId: string, port: number) {
+		if (!this.termArm) return
+		if (this.linkedLocPorts.get(locationId)?.has(port)) {
+			this.statusHint = 'Location port already linked — pick a free one'
+			return
+		}
+		this.terminate(this.termArm, { locationId, port }, 'outlet-run', this.stickyLinkCable || undefined)
+		this.disarmTerm()
+	}
+
+	/** Selected rear ports split by link state. */
+	private termSelSplit() {
+		const linked: string[] = []
+		const unlinked: string[] = []
+		for (const key of this.termSel) (this.linkByPortKey.has(key) ? linked : unlinked).push(key)
+		return { linked, unlinked }
+	}
+	termSelUnlinkedCount = $derived(this.termSel.filter(k => !this.linkByPortKey.has(k)).length)
+	termSelLinkedCount = $derived(this.termSel.length - this.termSelUnlinkedCount)
+
+	/** Block assign: terminate the selected UNLINKED ports to a location's free ports, in order. */
+	terminateBlockTo(locationId: string) {
+		const { unlinked } = this.termSelSplit()
+		if (unlinked.length === 0) return
+		const free = this.freePortsOf(locationId)
+		const n = Math.min(unlinked.length, free.length)
+		if (n === 0) { this.statusHint = 'That location has no free ports'; return }
+		const cable = this.stickyLinkCable || undefined
+		this.mutateLinks(`terminate ${n} port(s) → location`, links => {
+			const next = { ...links }
+			for (let i = 0; i < n; i++) {
+				const idx = unlinked[i].lastIndexOf(':')
+				const a: LinkEnd = { deviceId: unlinked[i].slice(0, idx), portIndex: Number(unlinked[i].slice(idx + 1)) }
+				const id = linkIdFor(a.deviceId, a.portIndex)
+				next[id] = { id, kind: 'outlet-run', a, b: { locationId, port: free[i] }, status: 'design', ...(cable ? { cableType: cable } : {}) }
+			}
+			return next
+		})
+		this.statusHint = n < unlinked.length ? `Only ${n} free port(s) — ${unlinked.length - n} left selected` : null
+		this.termSel = n < unlinked.length ? unlinked.slice(n) : []
+	}
+
+	/** Block clear: remove the links of the selected LINKED ports. */
+	clearSelectedLinks() {
+		const { linked } = this.termSelSplit()
+		if (linked.length === 0) return
+		const ids = linked.map(k => this.linkByPortKey.get(k)!.id)
+		this.mutateLinks(`remove ${ids.length} link(s)`, links => {
+			const next = { ...links }
+			for (const id of ids) delete next[id]
+			return next
+		})
+		this.termSel = this.termSel.filter(k => !linked.includes(k))
+		if (this.selectedLinkId && ids.includes(this.selectedLinkId)) this.selectedLinkId = null
+	}
+
+	// ── F-2: bake current allocation (legacy coverage) ──
+	/** Engine-derived (unbaked) panel-port labels that have a structural source. */
+	bakeableCount = $derived.by(() => {
+		let n = 0
+		for (const d of this.devices) {
+			if (d.type !== 'panel') continue
+			for (let p = 1; p <= (d.portCount ?? 0); p++) {
+				const info = this.portInfo.get(`${d.id}:${p}`)
+				if (info && !info.baked && info.locationId && info.locationPort) n++
+			}
+		}
+		return n
+	})
+
+	/**
+	 * Bake every engine-derived allocation into stored label strings (bakedLabels)
+	 * so links bootstrap for them. Direct merge write (add-only, not undoable —
+	 * clearing labels stays an explicit per-port action in the Elevation view).
+	 */
+	bakeAllocation(): number {
+		const patch: Record<string, { label: string; locationId: string; port: number }> = {}
+		for (const d of this.devices) {
+			if (d.type !== 'panel') continue
+			for (let p = 1; p <= (d.portCount ?? 0); p++) {
+				const info = this.portInfo.get(`${d.id}:${p}`)
+				if (info && !info.baked && info.locationId && info.locationPort) {
+					patch[`${d.id}:${p}`] = { label: info.label, locationId: info.locationId, port: info.locationPort }
+				}
+			}
+		}
+		const n = Object.keys(patch).length
+		if (n === 0) return 0
+		// merge:true deep-merges the bakedLabels map — only these keys are touched
+		this.db.save('frames', { id: this.framesDocId(), bakedLabels: patch })
+		this.framesDoc = { ...this.framesDoc, bakedLabels: { ...(this.framesDoc?.bakedLabels ?? {}), ...patch } }
+		this.rebootstrap()
+		// persist the newly-bootstrapped links right away
+		this.autosave.schedule(() => ({ structuredLinks: $state.snapshot(this.links) }))
+		return n
 	}
 }

@@ -169,6 +169,10 @@ export interface PortInfo {
 	override?: boolean
 	/** True when the label is a baked (stored) string, not a live engine derivation. */
 	baked?: boolean
+	/** Structural source of the label, when known: the location + its port.
+	 *  Present for engine-derived, pinned and baked labels (not overrides). */
+	locationId?: string
+	locationPort?: number
 }
 
 /**
@@ -328,6 +332,7 @@ export function buildPortInfoMap(
 						label: pinnedLabel.label,
 						locationType: pinnedLabel.locationType,
 						pinned: true,
+						...(pinnedLabel.locationId ? { locationId: pinnedLabel.locationId, locationPort: pinnedLabel.portNumber } : {}),
 					})
 					continue
 				}
@@ -337,6 +342,7 @@ export function buildPortInfoMap(
 				map.set(`${device.id}:${i + 1}`, {
 					label: portLabel.label,
 					locationType: portLabel.locationType,
+					...(portLabel.locationId ? { locationId: portLabel.locationId, locationPort: portLabel.portNumber } : {}),
 				})
 			}
 		}
@@ -360,6 +366,7 @@ export function buildPortInfoMap(
 				locationType: (b.locationId ? typeById.get(b.locationId) : undefined)
 					?? map.get(key)?.locationType ?? 'N/A',
 				baked: true,
+				...(b.locationId ? { locationId: b.locationId, locationPort: b.port } : {}),
 			})
 		}
 	}
