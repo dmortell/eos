@@ -1421,3 +1421,35 @@ Elevations simplification alongside; then Frames F-1→F-4; Patching P-4
   view-only), port-label readability on printed sheets, stroke-width
   verdict, plan-view×outlets sync, bundles (on hold), tie-template config,
   legacy migrations.
+
+### Session追記 (2026-08-17 — end-to-end field test on L04 + findings)
+Executed the full workflow on floor 4 (docs/wire-a-floor.md is the write-up):
+cleared old frame data; 72 ports labeled 4A001-01…4A012-06 via ONE
+Auto-generate (custom template FZNNN-PP); 12 outlets placed+linked via the
+place-location picker (Cat6, ports adopted); relabeled outlets 4A001…;
+24 cords in 4 bulk rounds (checkerboard switches, side-separated,
+VLAN ports 1/12/13/24 untouched); circuits trace desk→panel→switch.
+- FIXED during test: patch-bench trace missed links that existed only as
+  the Frames tab's in-memory bootstrap — BenchEditor now runs the same
+  bootstrapLinks over the frames doc.
+- FINDINGS / TODO CANDIDATES:
+  1. Stale-outlet id collision: deleting + regenerating locations reuses
+     deterministic ids, so OLD outlets silently claim the new locations
+     ("unplaced" list wrong). Location delete should unlink referencing
+     outlets, or Checks should flag label/link mismatches on outlets.
+  2. No "clear floor/zone data" action — cleanup = unpin per panel +
+     remove reservations + Generate 0 + delete cords + delete outlets.
+  3. Outlet display-label convention is hardcoded Z.NNN; user wanted
+     4A001 → had to relabel 12 outlets manually AND Sync-from-locations
+     would revert them. Outlet labels should be template-driven.
+  4. Custom-template preview shows sample floor 1 ("1A023-04") — should
+     preview with the ACTIVE floor/zone.
+  5. "Patch by rule" wizard candidate: pattern-based bulk (N ports per
+     outlet, alternate switches, side mapping, skip reserved switch
+     ports) — the checkerboard/side rules were all manual selection.
+  6. Switch-port reservations: reservations only exist on panels; VLAN/
+     uplink switch ports can't be marked reserved — avoided by hand.
+  7. Place-mode could offer "place next in sequence" (auto-arm the next
+     unplaced location after each placement) — halves the clicks.
+  8. Select-all per panel accumulates across panels (good); a rack-level
+     "select all panel ports" would help bigger jobs.

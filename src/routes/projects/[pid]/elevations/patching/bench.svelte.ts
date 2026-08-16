@@ -18,6 +18,7 @@ import { getCableType } from '../../patching/parts/constants'
 import { calculateCableLength } from '../../patching/parts/cableUtils'
 import { walkCircuit, type Circuit, type TraceNode } from '$lib/elevation/trace'
 import { repairLocationIds } from '$lib/elevation/portmap'
+import { bootstrapLinks } from '$lib/elevation/links'
 
 export const ROOMS = ['A', 'B', 'C', 'D'] as const
 
@@ -136,8 +137,10 @@ export class BenchEditor {
 	})
 
 	// ── Circuit trace (§13 P-4): cords + structured links, walked by id ──
-	/** Structured links from the frames doc (created by the Frames tab). */
-	links = $derived((this.framesDoc?.structuredLinks ?? {}) as Record<string, any>)
+	/** Structured links from the frames doc, plus the same deterministic
+	 *  bootstrap the Frames tab applies — so traces resolve outlet runs even
+	 *  before any link edit has persisted the bootstrapped records. */
+	links = $derived(bootstrapLinks(this.framesDoc?.bakedLabels, this.framesDoc?.structuredLinks, this.devices).links)
 	private locationRefById = $derived.by(() => {
 		const zl = repairLocationIds(this.framesDoc?.zoneLocations).zoneLocations
 		const m = new Map<string, { zone: string; locationNumber: number }>()
