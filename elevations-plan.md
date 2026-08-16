@@ -1019,3 +1019,67 @@ Legacy / infra (independent of the split):
   live: preset "Floor-port-alpha" (FFZ.NNNA) appeared in the dropdown via
   the real-time subscription. UX follow-up: make the two-step (apply vs
   save-as-preset) more obvious.
+
+## §13 Patching editor — design proposal (2026-08-16, discussion)
+
+Premise (user): patching is about looking at 2+ specific devices at once and
+connecting ports with the right attributes — not about spatial rack layout.
+The rack drawing is how you FIND devices; the work itself is port-to-port.
+
+### Core concept: the patch bench
+A working set of devices, each shown as a PORT BOARD — a fixed-size, always-
+readable card (the PanelDetailStrip pattern, which already proved constant-
+size beats zoom LOD for this): device name + rack/RU context header, port
+grid with number, label, status color (free/patched/reserved), usage tint,
+cord dot. Boards sit side by side / stacked in a user-arranged bench;
+2-column default, drag to reorder. Bench persists per project/user.
+
+Getting devices onto the bench:
+- Device tree sidebar (room → rack → device, with search) — click to add.
+- From simplified Elevations: select device(s) → "Patch…" → opens Patching
+  with them on the bench (the tool-switching UX: shared context, not a
+  cold start).
+- Recent/named bench sets (e.g. "SW02 ↔ floor panels") for recurring jobs.
+
+### Patch flow
+- Click a free port on board A → armed; click a port on board B → cord
+  created with the sticky attribute bar's values (cable type, status,
+  length auto from rack geometry, cord id, notes) — same interaction as
+  today, but between readable boards.
+- Filter bar (global + per-board): substring on label/id, type/usage chips
+  (desk/AP/…), "free only" toggle — matching ports highlight, rest dim;
+  Enter jumps to next match ("type-to-jump" as the power flow).
+- Bulk: select N ports on A (drag/shift), N on B → "Patch N" with a
+  sequential mapping preview before commit.
+- PatchListPane stays as the bottom panel (bi-directional selection,
+  filters, Excel roundtrip — reuse as-is).
+- Unlabeled ports patchable (L2), display rack-RU#-port# fallback.
+
+### Tracing (§12-expanded, id-based)
+- Selecting any port or cord shows the full CIRCUIT in an inspector panel:
+  every hop across cords (device+port refs) and structured links (id-based
+  link entities from the Frames editor; label-match only as bootstrap).
+  server1-p3 → tie1 p17 → sw02 p3/21 renders as a clickable chain — click
+  a hop to add that device's board to the bench.
+- Optional: highlight lines drawn between bench boards for the SELECTED
+  circuit only (permanent all-cords lines between boards would be noise).
+
+### Data + routing
+- No schema change: patching/{pid}_F{NN}_R{room} connections with PortRefs.
+- Bench may span rooms: editor subscribes each involved room's patching
+  doc; cords stay within their room's doc; cross-room hops are structured
+  links (ties), which is exactly what the trace view shows.
+- Route: /projects/[pid]/patching reclaims its redirect. Tool switching:
+  Elevations ⇄ Patching ⇄ Frames as sibling tools sharing selection
+  context (device/rack ids in the URL), not one mega-canvas.
+
+### Open questions (user)
+P1. Board granularity: one board per device? Or allow a combined board per
+    rack (all its panels stacked) for the "patch a whole rack" case?
+P2. Are selected-circuit highlight lines between boards wanted at all, or
+    is the chain list + port highlighting enough?
+P3. Attribute bar: sticky-per-session (today's behavior) vs per-bench-set
+    remembered defaults (e.g. this bench always Cat6a blue)?
+P4. Should the bench show LIVE rack thumbnails (mini elevation with the
+    device highlighted) for spatial orientation, or is text context
+    (rack · U· room) enough?
