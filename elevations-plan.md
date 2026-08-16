@@ -1378,3 +1378,24 @@ Elevations simplification alongside; then Frames F-1→F-4; Patching P-4
   printed warnings). Then Patching P-4 (circuit trace).
 - Verified in browser: range → "8 ports selected" in the new bar,
   tooltips carry the tie-intent text, Checks badge = 6 real findings.
+
+### Session追記 (2026-08-16 — instant tooltips, no layout shift, P-4 TRACE shipped)
+- Instant tooltips: parts/instantTip.ts — delegated `use:tipHost` container
+  action + singleton fixed div; chips use data-tip (no native-title delay).
+  Applied to both benches' boards + the trace strip. Patch-bench chips also
+  gained intent text ("set first port of a patch cord" / "click: connect
+  A ↔ this port" / "armed — click again to cancel").
+- Frames selection bar is now an ABSOLUTE overlay over the boards area —
+  no more canvas shift when it appears.
+- P-4 ✅ CIRCUIT TRACE: $lib/elevation/trace.ts walkCircuit — alternating
+  cord/link path walker (ports carry ≤1 cord + ≤1 link → circuits are
+  simple paths), id-based, cycle-guarded; 5 tests incl. the user's
+  server→tie→switch example and mid-circuit starts. Patch bench shows a
+  Circuit strip above the patch list for the selected cord: node chips
+  (click → board + highlight) joined by cord/tie/run edge badges; location
+  ends render emerald. Links come free from the already-subscribed frames
+  doc. Verified live: 01A.037B —cord→ 01A-038A —run→ A-038·p1.
+- NOTE: chains extend as links exist — Auto-terminate/Bake give legacy
+  projects full-depth traces.
+- Program status: §13 P-1..P-4 ✅ ALL SHIPPED; §14 F-1..F-3 ✅ + F-4 checks
+  panel ✅ — ONLY remaining item: F-4 drag-to-move terminated port blocks.

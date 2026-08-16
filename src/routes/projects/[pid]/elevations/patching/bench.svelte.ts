@@ -16,6 +16,8 @@ import { buildPortInfoMap, fallbackPortLabel, type PortInfo } from '$lib/elevati
 import { buildPortConnectionMap } from '../../patching/parts/elevationUtils'
 import { getCableType } from '../../patching/parts/constants'
 import { calculateCableLength } from '../../patching/parts/cableUtils'
+import { walkCircuit, type Circuit, type TraceNode } from '$lib/elevation/trace'
+import { repairLocationIds } from '$lib/elevation/portmap'
 
 export const ROOMS = ['A', 'B', 'C', 'D'] as const
 
@@ -132,6 +134,40 @@ export class BenchEditor {
 		}
 		return merged
 	})
+
+	// ── Circuit trace (§13 P-4): cords + structured links, walked by id ──
+	/** Structured links from the frames doc (created by the Frames tab). */
+	links = $derived((this.framesDoc?.structuredLinks ?? {}) as Record<string, any>)
+	private locationRefById = $derived.by(() => {
+		const zl = repairLocationIds(this.framesDoc?.zoneLocations).zoneLocations
+		const m = new Map<string, { zone: string; locationNumber: number }>()
+		for (const [zone, locs] of Object.entries(zl)) {
+			for (const l of locs ?? []) if (l.id) m.set(l.id, { zone, locationNumber: l.locationNumber })
+		}
+		return m
+	})
+	/** Full circuit through the selected cord (null when nothing selected or trivial). */
+	circuit = $derived.by<Circuit | null>(() => {
+		const conn = this.selectedConnectionId
+			? this.connections.find(c => c.id === this.selectedConnectionId) : null
+		const start = conn?.fromPortRef
+		if (!start?.deviceId) return null
+		const c = walkCircuit({ deviceId: start.deviceId, portIndex: start.portIndex }, this.activeConnections, this.links)
+		return c.nodes.length > 1 ? c : null
+	})
+	traceNodeLabel(n: TraceNode): string {
+		if (n.type === 'location') {
+			const loc = this.locationRefById.get(n.locationId)
+			return loc ? `${loc.zone}-${String(loc.locationNumber).padStart(3, '0')} · p${n.port}` : `${n.locationId} · p${n.port}`
+		}
+		return this.labelOf(n.deviceId, n.portIndex)
+	}
+	traceNodeContext(n: TraceNode): string {
+		if (n.type === 'location') return 'location'
+		const d = this.devices.find(x => x.id === n.deviceId)
+		const r = d ? this.rackById.get(d.rackId) : null
+		return d ? `${r?.label ?? ''} · ${d.label} · U${d.positionU}` : n.deviceId
+	}
 
 	activeConnections = $derived(this.connections.filter(c => c.status !== 'remove'))
 	removedCount = $derived(this.connections.filter(c => c.status === 'remove').length)

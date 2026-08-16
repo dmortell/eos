@@ -11,6 +11,7 @@
 	import RackBoard from './RackBoard.svelte'
 	import PatchListPane from '../../patching/parts/PatchListPane.svelte'
 	import { CABLE_TYPES } from '../../patching/parts/constants'
+	import { tipHost } from '../parts/instantTip'
 	import { DEFAULT_LOC_TYPES } from '../../frames/parts/types'
 	import { LOC_TYPE_COLORS, LOC_TYPE_LABELS } from '$lib/elevation/loc-colors'
 
@@ -157,7 +158,7 @@
 			{/if}
 		</div>
 
-		<div class="flex-1 min-h-0 overflow-auto p-3">
+		<div class="flex-1 min-h-0 overflow-auto p-3" use:tipHost>
 			{#if !ready}
 				<div class="h-full flex items-center justify-center"><Spinner /></div>
 			{:else if benchRacks.length === 0}
@@ -176,6 +177,34 @@
 				</div>
 			{/if}
 		</div>
+
+		<!-- Circuit trace (P-4): full id-based chain through the selected cord -->
+		{#if editor.circuit}
+			<div class="shrink-0 border-t border-gray-200 bg-slate-50 px-2 py-1 flex items-center gap-1 overflow-x-auto text-[11px] print:hidden" use:tipHost>
+				<span class="text-[10px] uppercase tracking-wide font-semibold text-gray-400 shrink-0 mr-1">Circuit</span>
+				{#each editor.circuit.nodes as n, i (i)}
+					{#if i > 0}
+						{@const e = editor.circuit.edges[i - 1]}
+						<span class="shrink-0 px-1 rounded text-[9px] border
+								{e.kind === 'cord' ? 'bg-blue-50 border-blue-200 text-blue-600'
+								: e.kind === 'tie' ? 'bg-violet-50 border-violet-200 text-violet-600'
+								: 'bg-sky-50 border-sky-200 text-sky-600'}">
+							{e.kind === 'cord' ? 'cord' : e.kind === 'tie' ? 'tie' : 'run'}
+						</span>
+						<span class="text-gray-300 shrink-0">→</span>
+					{/if}
+					{#if n.type === 'port'}
+						{@const dev = editor.devices.find(d => d.id === n.deviceId)}
+						<button class="shrink-0 px-1.5 py-0.5 rounded border border-gray-200 bg-white font-mono hover:border-blue-300 hover:bg-blue-50"
+							data-tip={editor.traceNodeContext(n) + '\nclick: show this device on the bench'}
+							onclick={() => { if (dev) editor.showDevice(dev) }}>{editor.traceNodeLabel(n)}</button>
+					{:else}
+						<span class="shrink-0 px-1.5 py-0.5 rounded border border-emerald-200 bg-emerald-50 font-mono text-emerald-700"
+							data-tip="outlet / location — the structured run's far end">{editor.traceNodeLabel(n)}</span>
+					{/if}
+				{/each}
+			</div>
+		{/if}
 
 		<!-- Patch list -->
 		<div class="shrink-0 border-t border-gray-200 bg-white {listOpen ? 'h-64' : 'h-8'} print:hidden">

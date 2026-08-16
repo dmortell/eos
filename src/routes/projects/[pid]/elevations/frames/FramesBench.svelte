@@ -12,6 +12,7 @@
 	import { LOC_TYPE_COLORS, LOC_TYPE_LABELS } from '$lib/elevation/loc-colors'
 	import { DEFAULT_LOC_TYPES } from '../../frames/parts/types'
 	import { isLocationEnd } from '$lib/elevation/links'
+	import { tipHost } from '../parts/instantTip'
 
 	let { db, pid, floor }: { db: Firestore; pid: string; floor: number } = $props()
 
@@ -125,9 +126,10 @@
 			<button class="h-5 px-1.5 rounded text-gray-400 hover:bg-gray-100" title="Redo (Ctrl+Y)" onclick={() => editor.history.redo()}><Icon name="redo" size={12} /></button>
 		</div>
 
-		<!-- Selection bar: full-width row so the actions never cramp the main toolbar -->
+		<div class="flex-1 min-h-0 flex relative">
+		<!-- Selection bar: absolute overlay (in-flow would shift the boards down) -->
 		{#if editor.termSel.length > 0}
-			<div class="min-h-7 px-2 py-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 bg-purple-50/70 border-b border-purple-100 text-[11px] shrink-0 print:hidden">
+			<div class="absolute top-0 inset-x-0 z-20 min-h-7 px-2 py-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 bg-purple-50/95 border-b border-purple-200 shadow-sm text-[11px] print:hidden">
 				<span class="text-purple-700 font-medium">{editor.termSel.length} port{editor.termSel.length !== 1 ? 's' : ''} selected</span>
 				<span class="text-gray-400 text-[10px]">usage:</span>
 				<div class="flex gap-0.5">
@@ -153,9 +155,8 @@
 			</div>
 		{/if}
 
-		<div class="flex-1 min-h-0 flex">
 			<!-- Rear boards -->
-			<div class="flex-1 min-w-0 overflow-auto p-3">
+			<div class="flex-1 min-w-0 overflow-auto p-3" use:tipHost>
 				{#if !ready}
 					<div class="h-full flex items-center justify-center"><Spinner /></div>
 				{:else if benchRacks.length === 0}

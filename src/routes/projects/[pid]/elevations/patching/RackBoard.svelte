@@ -106,7 +106,11 @@
 											{info ? (LOC_TYPE_COLORS[info.locationType] ?? 'bg-blue-500/15 border-blue-500/40 text-blue-600') : 'bg-gray-100 border-gray-200/50 text-gray-400'}
 											{isArmed ? 'ring-2 ring-amber-500' : srcIdx >= 0 ? 'ring-2 ring-purple-400' : dstIdx >= 0 ? 'ring-2 ring-teal-400' : isJump ? 'ring-2 ring-amber-400' : isConnSel ? 'ring-2 ring-blue-400' : ''}
 											{dimmed ? 'opacity-25' : ''}"
-										title={`${info?.label ?? fallbackPortLabel(rack.label, d.positionU, p)}${info ? `\n${LOC_TYPE_LABELS[info.locationType] ?? info.locationType}` : ' — unlabeled'}${conn ? '\npatched — click to select the cord' : '\nclick: arm/complete a patch · Ctrl+click: bulk select'}`}
+										data-tip={`${info?.label ?? fallbackPortLabel(rack.label, d.positionU, p)}${info ? `\n${LOC_TYPE_LABELS[info.locationType] ?? info.locationType}` : ' — unlabeled'}${
+											conn ? '\npatched — click to select the cord'
+											: editor.patchArm && !(editor.patchArm.deviceId === d.id && editor.patchArm.portIndex === p) ? `\nclick: connect\n${editor.labelOf(editor.patchArm.deviceId!, editor.patchArm.portIndex)} ↔ this port`
+											: editor.patchArm ? '\narmed — click again to cancel'
+											: '\nclick: set first port of a patch cord\nCtrl+click: bulk select'}`}
 										onclick={e => (e.ctrlKey || e.metaKey) ? editor.bulkToggle(d.id, p) : editor.portClick(rack!.id, d.id, p)}>
 										<span class="font-mono text-[9px] leading-none select-none whitespace-nowrap overflow-hidden">
 											{info ? shortLabel(info.label) : p}
