@@ -10,6 +10,9 @@
 	import DeviceTree from './DeviceTree.svelte'
 	import RackBoard from './RackBoard.svelte'
 	import PatchListPane from '../../patching/parts/PatchListPane.svelte'
+	import { CABLE_TYPES } from '../../patching/parts/constants'
+	import { DEFAULT_LOC_TYPES } from '../../frames/parts/types'
+	import { LOC_TYPE_COLORS, LOC_TYPE_LABELS } from '$lib/elevation/loc-colors'
 
 	let { db, pid, floor }: { db: Firestore; pid: string; floor: number } = $props()
 
@@ -40,7 +43,7 @@
 		return () => unsubs.forEach(u => u?.())
 	})
 
-	// Undo/redo while the tab is mounted (Elevations' handler stands down on this view)
+	// Undo/redo + Esc while the tab is mounted (Elevations' handler stands down on this view)
 	$effect(() => {
 		const onKey = (e: KeyboardEvent) => {
 			const f = (e.target as Element)?.closest?.('input, textarea, select, [contenteditable]')
@@ -51,6 +54,10 @@
 			} else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) {
 				e.preventDefault()
 				editor.history.redo()
+			} else if (e.key === 'Escape') {
+				if (editor.patchArm) editor.disarm()
+				else if (editor.highlightPortKey) editor.highlightPortKey = null
+				else if (editor.selectedConnectionId) editor.selectConnection(null)
 			}
 		}
 		window.addEventListener('keydown', onKey)
@@ -58,6 +65,10 @@
 	})
 
 	let benchRacks = $derived(editor.bench.filter(id => editor.rackById.has(id)))
+	let locTypes = $derived([
+		...DEFAULT_LOC_TYPES.filter(t => t !== 'N/A'),
+		...(editor.framesDoc?.customLocationTypes ?? []),
+	])
 </script>
 
 <div class="flex-1 min-h-0 flex bg-gray-50">
@@ -72,10 +83,52 @@
 			<Icon name="cable" size={12} />
 			<span class="font-semibold text-gray-700">Patch bench</span>
 			<span class="text-gray-400">{editor.activeConnections.length} cords · {benchRacks.length} board{benchRacks.length !== 1 ? 's' : ''}</span>
+			{#if editor.statusHint}
+				<span class="text-amber-600 font-medium truncate">{editor.statusHint}</span>
+			{/if}
 			<div class="flex-1"></div>
 			<span class="text-[10px] text-gray-300">{editor.saveStatus === 'Saved' ? '' : 'Unsaved…'}</span>
 			<button class="h-5 px-1.5 rounded text-gray-400 hover:bg-gray-100" title="Undo (Ctrl+Z)" onclick={() => editor.history.undo()}><Icon name="undo" size={12} /></button>
 			<button class="h-5 px-1.5 rounded text-gray-400 hover:bg-gray-100" title="Redo (Ctrl+Y)" onclick={() => editor.history.redo()}><Icon name="redo" size={12} /></button>
+		</div>
+
+		<!-- Attributes + filter (P-2): sticky cord attributes for the next patch; port filter -->
+		<div class="h-8 px-2 flex items-center gap-2 bg-white border-b border-gray-200 text-[11px] shrink-0 print:hidden">
+			<span class="text-gray-400">Cable</span>
+			<select class="h-5.5 px-1 border border-gray-200 rounded bg-white text-[11px]" bind:value={editor.stickyCable.type}>
+				{#each CABLE_TYPES as t (t.id)}<option value={t.id}>{t.label}</option>{/each}
+				{#each editor.customCableTypes as t (t.id)}<option value={t.id}>{t.label}</option>{/each}
+			</select>
+			<span class="text-gray-400">Status</span>
+			<select class="h-5.5 px-1 border border-gray-200 rounded bg-white text-[11px]" bind:value={editor.stickyCable.status}>
+				<option value="add">Add</option>
+				<option value="change">Change</option>
+				<option value="installed">Installed</option>
+			</select>
+			<div class="w-px h-4 bg-gray-200"></div>
+			<div class="relative">
+				<Icon name="search" size={11} class="absolute left-1.5 top-1/2 -translate-y-1/2 text-gray-300" />
+				<input class="h-5.5 w-44 pl-6 pr-2 border border-gray-200 rounded text-[11px]"
+					placeholder="Filter ports… (Enter = next)"
+					bind:value={editor.filter.q}
+					onkeydown={e => {
+						if (e.key === 'Enter') { e.preventDefault(); editor.jumpNext() }
+						else if (e.key === 'Escape') { e.preventDefault(); editor.clearFilter(); (e.currentTarget as HTMLInputElement).blur() }
+					}} />
+			</div>
+			<div class="flex gap-0.5">
+				{#each locTypes as t (t)}
+					<button class="px-1 h-5 rounded border font-mono text-[10px] {LOC_TYPE_COLORS[t] ?? 'bg-gray-100 border-gray-200 text-gray-600'} {editor.filter.types.includes(t) ? 'ring-2 ring-blue-400' : 'opacity-70 hover:opacity-100'}"
+						title={LOC_TYPE_LABELS[t] ?? t}
+						onclick={() => editor.toggleFilterType(t)}>{t}</button>
+				{/each}
+			</div>
+			<label class="flex items-center gap-1 text-gray-500">
+				<input type="checkbox" bind:checked={editor.filter.freeOnly} /> free only
+			</label>
+			{#if editor.filterActive}
+				<button class="h-5 px-1.5 rounded border border-gray-200 text-[10px] text-gray-500 hover:bg-gray-50" onclick={() => editor.clearFilter()}>Clear</button>
+			{/if}
 		</div>
 
 		<div class="flex-1 min-h-0 overflow-auto p-3">

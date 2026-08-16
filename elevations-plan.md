@@ -1223,3 +1223,21 @@ Elevations simplification alongside; then Frames F-1→F-4; Patching P-4
   /patching redirect → /elevations?view=patching; Titlebar menu back to 3
   items (absolute toolHref fix kept). Verified in browser: tab switch,
   bench restored from localStorage, URL sync, console clean.
+
+### Session追記 (2026-08-16 — Patching P-2 shipped)
+- P-2 ✅: patching interactions on the bench. BenchEditor gains portClick
+  (select-existing → arm → complete; same-room gate with an explanatory
+  hint — cross-room = structured interconnects), sticky {cable, status},
+  cord creation mirroring elevations (getCableType color, auto length via
+  calculateCableLength, kind 'patch'), armed statusHint in the toolbar.
+  Port filter: substring on label/port#, LOC-type chips (incl. project
+  custom types), free-only; non-matching chips dim to 25%; Enter cycles
+  jump-to-next-match (amber ring + scrollIntoView via per-board effect on
+  data-pk attrs); Esc cascade disarm → clear jump → deselect. Attribute +
+  filter bar as a second toolbar row.
+- Verified in browser: arm hint + amber ring, U42/01 ↔ Server U20/1 created
+  with auto 1.5m length and selected in the list editor, filter "031"
+  dimmed all but U35's 01A.031x chips, Enter jumped, undo removed the test
+  cord. (Concurrent user test patch explained a transient count bump.)
+- Next: P-3 (bulk N↔N with mapping preview, Patch… entry from Elevations
+  selection); P-4 trace waits for Frames F-1 links.

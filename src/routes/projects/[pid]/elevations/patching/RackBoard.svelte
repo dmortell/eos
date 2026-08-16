@@ -47,10 +47,20 @@
 			}
 		})
 	}
+
+	/** Scroll the filter-jump target chip into view (board-level, one effect per board). */
+	function scrollToJumpTarget(el: HTMLElement) {
+		$effect(() => {
+			const key = editor.highlightPortKey
+			if (!key) return
+			const chip = el.querySelector(`[data-pk="${CSS.escape(key)}"]`)
+			chip?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
+		})
+	}
 </script>
 
 {#if rack}
-	<div class="border border-gray-200 rounded-lg bg-white shadow-sm min-w-0">
+	<div class="border border-gray-200 rounded-lg bg-white shadow-sm min-w-0" use:scrollToJumpTarget>
 		<div class="h-7 px-2 flex items-center gap-1.5 bg-gray-50 border-b border-gray-200 rounded-t-lg text-[11px]">
 			<Icon name="server" size={12} />
 			<span class="font-semibold text-gray-700 truncate">{rack.label}</span>
@@ -81,15 +91,21 @@
 						{#each rowsFor(d) as ports (ports[0])}
 							<div class="flex gap-px min-w-max">
 								{#each ports as p (p)}
-									{@const info = editor.portInfo.get(`${d.id}:${p}`)}
-									{@const conn = editor.portConnMap.get(`${d.id}:${p}`)}
+									{@const key = `${d.id}:${p}`}
+									{@const info = editor.portInfo.get(key)}
+									{@const conn = editor.portConnMap.get(key)}
 									{@const isConnSel = !!conn && editor.selectedConnectionId === conn.id}
+									{@const isArmed = editor.patchArm?.deviceId === d.id && editor.patchArm?.portIndex === p}
+									{@const dimmed = editor.filterActive && !editor.portMatches(d.id, p)}
+									{@const isJump = editor.highlightPortKey === key}
 									<button
-										class="relative w-16 h-6.5 rounded-sm border flex items-center justify-center shrink-0
-											{info ? (LOC_TYPE_COLORS[info.locationType] ?? 'bg-blue-500/15 border-blue-500/40 text-blue-600') : 'bg-gray-100 border-gray-200/50 text-gray-300'}
-											{isConnSel ? 'ring-2 ring-blue-400' : ''}"
-										title={`${info?.label ?? fallbackPortLabel(rack.label, d.positionU, p)}${info ? `\n${LOC_TYPE_LABELS[info.locationType] ?? info.locationType}` : ' — unlabeled'}${conn ? '\npatched — click to select the cord' : ''}`}
-										onclick={() => { if (conn) editor.selectConnection(isConnSel ? null : conn.id) }}>
+										data-pk={key}
+										class="relative w-16 h-6.5 rounded-sm border flex items-center justify-center shrink-0 transition-opacity
+											{info ? (LOC_TYPE_COLORS[info.locationType] ?? 'bg-blue-500/15 border-blue-500/40 text-blue-600') : 'bg-gray-100 border-gray-200/50 text-gray-400'}
+											{isArmed ? 'ring-2 ring-amber-500' : isJump ? 'ring-2 ring-amber-400' : isConnSel ? 'ring-2 ring-blue-400' : ''}
+											{dimmed ? 'opacity-25' : ''}"
+										title={`${info?.label ?? fallbackPortLabel(rack.label, d.positionU, p)}${info ? `\n${LOC_TYPE_LABELS[info.locationType] ?? info.locationType}` : ' — unlabeled'}${conn ? '\npatched — click to select the cord' : '\nclick to arm / complete a patch'}`}
+										onclick={() => editor.portClick(rack!.id, d.id, p)}>
 										<span class="font-mono text-[9px] leading-none select-none whitespace-nowrap overflow-hidden">
 											{info ? shortLabel(info.label) : p}
 										</span>

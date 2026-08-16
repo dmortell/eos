@@ -9,11 +9,13 @@
  * canvas — no view/zoom state here.
  */
 import type { Firestore } from '$lib/db.svelte'
-import type { PatchConnection, CustomCableType, PatchStatus } from '../../patching/parts/types'
+import type { PatchConnection, CustomCableType, PatchStatus, PortRef } from '../../patching/parts/types'
 import { HistoryStore } from '$lib/history/HistoryStore.svelte'
 import { AutoSave } from '$lib/autosave/AutoSave.svelte'
-import { buildPortInfoMap, type PortInfo } from '$lib/elevation/portmap'
+import { buildPortInfoMap, fallbackPortLabel, type PortInfo } from '$lib/elevation/portmap'
 import { buildPortConnectionMap } from '../../patching/parts/elevationUtils'
+import { getCableType } from '../../patching/parts/constants'
+import { calculateCableLength } from '../../patching/parts/cableUtils'
 
 export const ROOMS = ['A', 'B', 'C', 'D'] as const
 
@@ -177,6 +179,114 @@ export class BenchEditor {
 	showDevice(device: { id: string; rackId: string }) {
 		this.addToBench(device.rackId)
 		this.highlightDeviceId = device.id
+	}
+
+	// ── Patching interactions (§13 P-2) ──
+	patchArm = $state<PortRef | null>(null)
+	stickyCable = $state<{ type: string; status: PatchStatus }>({ type: 'uutp', status: 'add' })
+	statusHint = $state<string | null>(null)
+
+	roomOfRack(rackId: string): string | undefined {
+		return (this.rackById.get(rackId) as any)?._room
+	}
+
+	labelOf(deviceId: string, portIndex: number): string {
+		const info = this.portInfo.get(`${deviceId}:${portIndex}`)
+		if (info) return info.label
+		const d = this.devices.find(x => x.id === deviceId)
+		const r = d ? this.rackById.get(d.rackId) : null
+		return d ? fallbackPortLabel(r?.label ?? d.rackId, d.positionU, portIndex) : `${deviceId}:${portIndex}`
+	}
+
+	disarm() {
+		this.patchArm = null
+		this.statusHint = null
+	}
+
+	/** Board port click: select existing cord → arm → complete (same room only). */
+	portClick(rackId: string, deviceId: string, portIndex: number) {
+		const existing = this.portConnMap.get(`${deviceId}:${portIndex}`)
+		if (!this.patchArm) {
+			if (existing) {
+				this.selectConnection(this.selectedConnectionId === existing.id ? null : existing.id)
+				return
+			}
+			this.patchArm = { rackId, deviceId, portIndex, face: 'front' }
+			this.statusHint = `${this.labelOf(deviceId, portIndex)} armed — click another free port to connect · Esc cancels`
+			return
+		}
+		if (this.patchArm.deviceId === deviceId && this.patchArm.portIndex === portIndex) { this.disarm(); return }
+		if (existing) { this.statusHint = 'Port already patched — pick a free port'; return }
+		const roomA = this.roomOfRack(this.patchArm.rackId)
+		const roomB = this.roomOfRack(rackId)
+		if (!roomA || roomA !== roomB) {
+			this.statusHint = 'Ports are in different rooms — cross-room circuits use structured interconnects (Frames), not patch cords'
+			return
+		}
+		const fromRef = this.patchArm
+		const toRef: PortRef = { rackId, deviceId, portIndex, face: 'front' }
+		const ct = getCableType(this.stickyCable.type, this.customCableTypes)
+		const len = calculateCableLength(fromRef, toRef, $state.snapshot(this.racks), $state.snapshot(this.devices))
+		const conn: PatchConnection = {
+			id: `patch-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+			fromPortRef: fromRef,
+			toPortRef: toRef,
+			cableType: this.stickyCable.type,
+			cableColor: ct.color,
+			lengthMeters: len,
+			lengthLocked: false,
+			kind: 'patch',
+			status: this.stickyCable.status,
+		}
+		this.mutateRoom(roomA, `patch ${this.labelOf(fromRef.deviceId!, fromRef.portIndex)} ↔ ${this.labelOf(deviceId, portIndex)}`,
+			conns => [...conns, conn])
+		this.disarm()
+		this.selectConnection(conn.id)
+	}
+
+	// ── Port filter (§13 P-2): substring + type/usage chips + free-only ──
+	filter = $state<{ q: string; types: string[]; freeOnly: boolean }>({ q: '', types: [], freeOnly: false })
+	filterActive = $derived(!!this.filter.q.trim() || this.filter.types.length > 0 || this.filter.freeOnly)
+
+	portMatches(deviceId: string, portIndex: number): boolean {
+		const key = `${deviceId}:${portIndex}`
+		const info = this.portInfo.get(key)
+		const q = this.filter.q.trim().toLowerCase()
+		if (q && !(info?.label?.toLowerCase().includes(q) || String(portIndex) === q)) return false
+		if (this.filter.types.length && !(info && this.filter.types.includes(info.locationType))) return false
+		if (this.filter.freeOnly && this.portConnMap.has(key)) return false
+		return true
+	}
+
+	toggleFilterType(t: string) {
+		this.filter = {
+			...this.filter,
+			types: this.filter.types.includes(t) ? this.filter.types.filter(x => x !== t) : [...this.filter.types, t],
+		}
+	}
+	clearFilter() {
+		this.filter = { q: '', types: [], freeOnly: false }
+		this.highlightPortKey = null
+	}
+
+	/** Enter = jump to the next matching port across the bench (boards in order, top-down). */
+	highlightPortKey = $state<string | null>(null)
+	jumpNext() {
+		if (!this.filterActive) { this.highlightPortKey = null; return }
+		const keys: string[] = []
+		for (const rackId of this.bench) {
+			const devs = this.devices
+				.filter(d => d.rackId === rackId && (d.portCount ?? 0) > 0)
+				.sort((a, b) => b.positionU - a.positionU)
+			for (const d of devs) {
+				for (let p = 1; p <= (d.portCount ?? 0); p++) {
+					if (this.portMatches(d.id, p)) keys.push(`${d.id}:${p}`)
+				}
+			}
+		}
+		if (keys.length === 0) { this.highlightPortKey = null; return }
+		const cur = this.highlightPortKey ? keys.indexOf(this.highlightPortKey) : -1
+		this.highlightPortKey = keys[(cur + 1) % keys.length]
 	}
 
 	// ── Connection mutations (routed to the owning room's doc, undoable) ──
