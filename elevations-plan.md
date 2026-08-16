@@ -1260,3 +1260,29 @@ Elevations simplification alongside; then Frames F-1→F-4; Patching P-4
   switch. NOTE dev-mode renderer stalls under CDP screenshots recurred
   (known §9 watch item); JS probes used instead.
 - Remaining: P-4 circuit trace (waits for Frames F-1 structured links).
+
+### Session追記 (2026-08-16 — Frames F-1 shipped; bundles ON HOLD)
+- BUNDLES ON HOLD (user): structuredLinks carry NO bundle fields; the
+  tag/color design in §14 is deferred until asked for.
+- F-1 ✅: $lib/elevation/links.ts — StructuredLink {id, kind outlet-run|tie,
+  a: panel port, b: location port | panel port, cableType?, lengthM?,
+  status design|installed, notes?}; deterministic linkIdFor(SL-dev-port);
+  bootstrapLinks generates outlet-runs from bakedLabels (idempotent, never
+  overwrites, skips endpoints covered by ties) — 3 tests. FramesEditor
+  (elevations/frames/): multi-room reads, frames-doc sync echo-gated on
+  {structuredLinks} ONLY (merge-safe vs the elevation editor's fields),
+  in-memory rebootstrap as rooms load (persists on first edit), link CRUD
+  with undo, locations coverage map, own bench (framesbench: key).
+  UI: Frames TAB in Elevations (view=frames) — PanelTree (panels only),
+  RearRackBoard (dashed = unterminated, solid + dot = linked, violet = tie),
+  Locations coverage pane (linked x/N per location), Structured-links table
+  (inline cable/status edit, remove). Legacy /frames redirect → view=frames
+  (?frame= deep-link still goes to elevation-view focus).
+- Verified in browser: 3 links bootstrapped from the Test Project's baked
+  labels (037-A01, 01A-038A, 01A-039.1), board link-states render, console
+  clean.
+- NOTE / F-2 candidate: links only exist for BAKED ports (by design — bake
+  = truth). Engine-allocated ports need a "bake current allocation" action
+  to get full coverage on legacy projects.
+- Next: F-2 (manual terminate flow: rear port → destination via embedded
+  floorplan + locations list; block assign/clear; sticky cable attrs).

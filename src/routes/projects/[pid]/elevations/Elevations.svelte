@@ -28,6 +28,7 @@
 	import AssignPortsDialog from './parts/AssignPortsDialog.svelte'
 	import SyncLabelsDialog from './parts/SyncLabelsDialog.svelte'
 	import PatchBench from './patching/PatchBench.svelte'
+	import FramesBench from './frames/FramesBench.svelte'
 	import PatchListPane from '../patching/parts/PatchListPane.svelte'
 	import PatchSettingsDialog from '../patching/parts/SettingsDialog.svelte'
 	import { CABLE_TYPES } from '../patching/parts/constants'
@@ -141,14 +142,16 @@
 	let assignDialog = $state<'generate' | 'existing' | null>(null)
 	let syncDialogOpen = $state(false)
 
-	// ── Main view tabs: Elevation | Patching (Frames later) — §13 ──
-	let mainView = $state<'elevation' | 'patching'>(
-		!bare && typeof window !== 'undefined'
-			&& new URLSearchParams(window.location.search).get('view') === 'patching'
-			? 'patching' : 'elevation')
+	// ── Main view tabs: Elevation | Patching | Frames — §13/§14 ──
+	type MainView = 'elevation' | 'patching' | 'frames'
+	let mainView = $state<MainView>((() => {
+		if (bare || typeof window === 'undefined') return 'elevation'
+		const v = new URLSearchParams(window.location.search).get('view')
+		return v === 'patching' || v === 'frames' ? v : 'elevation'
+	})())
 	/** One-shot seed for the patching tab (Inspector "Patch…" button). */
 	let benchSeed = $state<{ rackIds: string[]; deviceId?: string; ts: number } | null>(null)
-	function setMainView(v: 'elevation' | 'patching') {
+	function setMainView(v: MainView) {
 		mainView = v
 		if (bare || typeof window === 'undefined') return
 		const url = new URL(window.location.href)
@@ -676,15 +679,19 @@
 
 	<!-- Main view tabs (§13): the canvas or a dedicated editor view -->
 	<div class="h-7 px-2 flex items-end gap-1 bg-slate-700 shrink-0 print:hidden">
-		{#each [['elevation', 'Elevation'], ['patching', 'Patching']] as [key, label] (key)}
+		{#each [['elevation', 'Elevation'], ['patching', 'Patching'], ['frames', 'Frames']] as [key, label] (key)}
 			<button class="px-3 h-6 rounded-t text-[11px] font-medium transition-colors
 					{mainView === key ? 'bg-white text-gray-800' : 'bg-slate-600/60 text-slate-200 hover:bg-slate-600'}"
 				onclick={() => setMainView(key as any)}>{label}</button>
 		{/each}
 	</div>
 
-	{#if mainView === 'patching'}
-		<PatchBench {db} pid={projectId} {floor} seed={benchSeed} />
+	{#if mainView === 'patching' || mainView === 'frames'}
+		{#if mainView === 'patching'}
+			<PatchBench {db} pid={projectId} {floor} seed={benchSeed} />
+		{:else}
+			<FramesBench {db} pid={projectId} {floor} />
+		{/if}
 		<div class="h-7 flex items-stretch border-t border-gray-200 bg-gray-50 shrink-0 print:hidden">
 			<FloorTabs {floors} {floor} {floorFormat} {onfloorchange} onmanage={() => floorManagerOpen = true} />
 			<div class="flex-1"></div>
