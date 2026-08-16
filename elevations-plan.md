@@ -1169,3 +1169,29 @@ F3. Destination floorplan: embedded read-mostly outlets view (recommended)
     vs jumping to the Outlets tool?
 F4. Bundles: first-class entity with per-bundle BOM/exports (recommended)
     vs a plain tag/color on links?
+
+### §14 resolved (user decisions, 2026-08-16)
+- Storage: structuredLinks + bundles as fields on the per-floor frames doc
+  (same autosave/undo/echo machinery). Cross-floor ties → riser story later.
+- Tie labels: template-derived, rendered onto both ends (template engine).
+- Floorplan destination pane: embedded read-mostly outlets view (select
+  outlets/ports, place-location picker; full editing stays in Floorplan tool).
+- Bundles: TAG/COLOR ONLY on links (name+color, no entity, no per-bundle
+  BOM for now — revisit if exports are wanted).
+
+### §14 build phases
+- F-1: structuredLinks schema + bootstrap from existing pins/bakedLabels;
+  rear boards (readonly) + link-state rendering; route /frames reclaims
+  its redirect; Locations tab moves in.
+- F-2: manual terminate flow (rear port → destination) for outlet-runs via
+  embedded floorplan + locations list; sticky cable/bundle-tag attributes;
+  block assign/clear.
+- F-3: ties: other-rack destination boards, tie template + both-ends
+  labels, tie link records.
+- F-4: drag-to-move port blocks (collision + printed warnings, re-bake via
+  sync); maintenance checklists panel (sync/divergence/unassigned).
+
+### Recommended build order across both editors
+Patching P-1→P-3 first (no schema change, fastest value) with the
+Elevations simplification alongside; then Frames F-1→F-4; Patching P-4
+(trace) last, consuming real link records.
