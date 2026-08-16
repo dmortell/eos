@@ -1107,3 +1107,65 @@ P4. Should the bench show LIVE rack thumbnails (mini elevation with the
   label-match bootstrap) + saved bench sets.
 - Elevations simplification lands alongside P-1/P-2: patch mode + cords
   layer become view-only there (edit → Patching), Locations tab stays.
+
+## §14 Frames editor — design proposal (2026-08-16, discussion)
+
+Premise (user): Frames is the REAR side of patch panels — specifying the
+structured cable links from rear ports to far ends that live somewhere else
+entirely (outlets on floorplans, tie panels in other racks), with cable
+types/bundles, auto/manual port positioning, and identical labels on both
+ends. This is the tool that CREATES the links Patching's trace consumes.
+
+### Core concept: the termination map
+The Frames editor answers three questions per rear port: which structured
+cable lands here, where does its other end terminate, and what's the label
+on both ends. Layout = dual pane:
+
+- LEFT — **rear boards**: rack-group boards (same pattern as the patch
+  bench, §13) but rear-focused: each panel a port grid whose cells show
+  the baked/derived label, location type tint, reservation mark, link
+  state (unterminated / outlet-run / tie) and a bundle color band.
+- RIGHT — **destination pane**, tabbed:
+  1. Floorplan (embedded outlets view, read-mostly: select outlets/ports,
+     place-location picker available) — the "far end in another location".
+  2. Locations list (the existing zone/location editor moves here).
+  3. Other racks (tie destinations: another rack's rear boards).
+
+### The structured-link entity (the big schema addition — id-based per the
+§12 decision; Patching traces these by id)
+  structuredLinks: Record<id, {
+    kind: 'outlet-run' | 'tie',
+    a: { deviceId, portIndex },                         // rear panel port
+    b: { locationId, port } | { deviceId, portIndex },  // outlet OR tie end
+    cableType, bundleId?, lengthM?, status, notes?
+  }>
+  bundles: Record<id, { name, cableType, color, notes? }>
+- Existing portAssignments/bakedLabels already encode outlet-runs
+  implicitly — a bootstrap pass generates link records from them (like the
+  outlet label matcher). bakedLabels remains the label store; links add
+  the explicit endpoint + cable/bundle metadata and make ties possible.
+- Tie labels: ONE label rendered on both ends from a tie template
+  (label-template engine reused; e.g. "R01-R03:NN") — consistent-both-ends
+  by construction.
+
+### Flows
+1. Mass allocate: existing auto-generate/assign flows, now also writing
+   link records (outlet-runs).
+2. Manual terminate: click rear port → click destination (outlet on the
+   floorplan / location row / tie port on the other-rack board) → link
+   created with sticky cable/bundle attributes.
+3. Block ops on rear boards: assign-to-location, set bundle, clear, and
+   DRAG-TO-MOVE a block to another position/panel (triage #11) with
+   collision checks + printed-panel warning; labels re-bake via sync.
+4. Maintenance: Label sync, divergence flags, unassigned-ports work list
+   (all already built) become this editor's checklists panel.
+
+### Open questions (user)
+F1. Storage: structuredLinks + bundles as new fields on the per-floor
+    frames doc (same autosave/undo/echo machinery; ties within a floor) —
+    cross-floor ties deferred to the riser story? Or a new collection?
+F2. Tie labels: template-derived both ends (recommended) vs free-form?
+F3. Destination floorplan: embedded read-mostly outlets view (recommended)
+    vs jumping to the Outlets tool?
+F4. Bundles: first-class entity with per-bundle BOM/exports (recommended)
+    vs a plain tag/color on links?
