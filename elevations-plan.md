@@ -1399,3 +1399,25 @@ Elevations simplification alongside; then Frames F-1→F-4; Patching P-4
   projects full-depth traces.
 - Program status: §13 P-1..P-4 ✅ ALL SHIPPED; §14 F-1..F-3 ✅ + F-4 checks
   panel ✅ — ONLY remaining item: F-4 drag-to-move terminated port blocks.
+
+### Session追記 (2026-08-16 — F-4 drag-to-move shipped: §13+§14 PROGRAM COMPLETE)
+- Drag-to-move terminated port blocks ✅: drag any SELECTED rear chip to
+  move the whole selection to a consecutive run starting at the drop anchor
+  (same panel or another). What moves: structured links (endpoints
+  rewritten; bootstrap-derived ids re-derived for determinism), baked
+  labels, and position pins. What stays: patch cords (front-side, physical
+  port) and usage reservations (position semantics). Validity live during
+  drag (emerald/red rings + cursor ghost "N ports · drop here/blocked"):
+  targets must fit the device and be free of links/baked/pins (source
+  ports vacated by the move are fine). Printed panels confirm first.
+  Single undoable step (echo-safe: link autosave pending-status blocks the
+  interim saveFields echo). Fixed en route: rear chips were missing the
+  data-pk attribute the hit-test needs.
+- Verified live (synthetic drag): 2 linked ports moved U32:6,7 → 15,16 —
+  labels traveled, the desk reservation stayed at the old position, one
+  Ctrl+Z restored everything.
+- **STATUS: §13 Patching P-1..P-4 and §14 Frames F-1..F-4 are ALL SHIPPED.**
+  Remaining backlog outside the program: Elevations simplification (cords
+  view-only), port-label readability on printed sheets, stroke-width
+  verdict, plan-view×outlets sync, bundles (on hold), tie-template config,
+  legacy migrations.

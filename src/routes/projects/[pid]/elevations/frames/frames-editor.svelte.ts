@@ -508,6 +508,145 @@ export class FramesEditor {
 		return additions.length
 	}
 
+	// ── Drag-to-move terminated port blocks (§14 F-4 final piece) ──
+	// Moves the CIRCUIT bindings (links + baked labels + pins) to a new run of
+	// ports starting at the drop anchor. Cords and usage reservations stay with
+	// the physical positions. One undoable step; printed panels confirm first.
+	dragMove = $state<{
+		keys: string[]
+		x: number; y: number
+		over: { deviceId: string; portIndex: number } | null
+		targets: string[]
+		valid: boolean
+	} | null>(null)
+
+	beginPortDrag(e: MouseEvent, deviceId: string, portIndex: number) {
+		if (e.button !== 0) return
+		const key = `${deviceId}:${portIndex}`
+		if (!this.termSel.includes(key)) return
+		e.preventDefault()
+		const keys = [...this.termSel]
+		const sx = e.clientX, sy = e.clientY
+		let active = false
+		const onMove = (ev: MouseEvent) => {
+			if (!active && Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) < 4) return
+			active = true
+			const el = (document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null)?.closest?.('[data-pk]') as HTMLElement | null
+			const pk = el?.dataset.pk ?? null
+			let over: { deviceId: string; portIndex: number } | null = null
+			if (pk) {
+				const i = pk.lastIndexOf(':')
+				over = { deviceId: pk.slice(0, i), portIndex: Number(pk.slice(i + 1)) }
+			}
+			const { targets, valid } = this.moveTargets(keys, over)
+			this.dragMove = { keys, x: ev.clientX, y: ev.clientY, over, targets, valid }
+		}
+		const onUp = () => {
+			window.removeEventListener('mousemove', onMove)
+			window.removeEventListener('mouseup', onUp)
+			const d = this.dragMove
+			this.dragMove = null
+			if (active && d?.valid && d.over) this.performMove(d.keys, d.targets)
+		}
+		window.addEventListener('mousemove', onMove)
+		window.addEventListener('mouseup', onUp)
+	}
+
+	/** Consecutive target ports from the anchor, all inside the anchor's device. */
+	private moveTargets(keys: string[], over: { deviceId: string; portIndex: number } | null): { targets: string[]; valid: boolean } {
+		if (!over) return { targets: [], valid: false }
+		const dev = this.deviceById.get(over.deviceId)
+		if (!dev || dev.type !== 'panel') return { targets: [], valid: false }
+		const n = keys.length
+		if (over.portIndex + n - 1 > (dev.portCount ?? 0)) {
+			return { targets: [], valid: false }
+		}
+		const targets: string[] = []
+		const sourceSet = new Set(keys)
+		const baked = this.framesDoc?.bakedLabels ?? {}
+		let valid = true
+		for (let i = 0; i < n; i++) {
+			const k = `${over.deviceId}:${over.portIndex + i}`
+			targets.push(k)
+			if (sourceSet.has(k)) continue // vacated by the move itself
+			if (this.linkByPortKey.has(k) || baked[k]?.label) valid = false
+			else {
+				// pinned position also blocks (a pin binds a location to that cell)
+				const pos = this.posOfKey(k)
+				if (pos && (this.framesDoc?.portAssignments ?? {})[`${pos.frameId}:${pos.ru}:${pos.row}:${pos.col}`]) valid = false
+			}
+		}
+		// no-op drop (same anchor as first source) is not a move
+		if (targets.length && targets[0] === keys[0]) valid = false
+		return { targets, valid }
+	}
+
+	private performMove(sources: string[], targets: string[]) {
+		const anchorDev = this.deviceById.get(this.parseTermKey(targets[0]).deviceId)
+		const sourceDevs = new Set(sources.map(k => this.parseTermKey(k).deviceId))
+		const printed = [...sourceDevs].some(id => this.deviceById.get(id)?.labelsPrinted) || anchorDev?.labelsPrinted
+		if (printed && !confirm('Printed labels are involved — moving these terminations desyncs the physical labels. Move anyway?')) return
+
+		const posKeyOf = (k: string) => {
+			const p = this.posOfKey(k)
+			return p ? `${p.frameId}:${p.ru}:${p.row}:${p.col}` : null
+		}
+		const mapping = new Map(sources.map((s, i) => [s, targets[i]]))
+
+		const before = {
+			links: $state.snapshot(this.links) as Record<string, StructuredLink>,
+			baked: $state.snapshot(this.framesDoc?.bakedLabels ?? {}) as Record<string, any>,
+			pins: $state.snapshot(this.framesDoc?.portAssignments ?? {}) as Record<string, any>,
+		}
+		// links: rewrite endpoints (re-id bootstrap-derived outlet-run ids to stay deterministic)
+		const nextLinks: Record<string, StructuredLink> = {}
+		for (const l of Object.values(before.links)) {
+			let nl = { ...l }
+			const aKey = `${l.a.deviceId}:${l.a.portIndex}`
+			if (mapping.has(aKey)) {
+				const t = this.parseTermKey(mapping.get(aKey)!)
+				nl = { ...nl, a: { deviceId: t.deviceId, portIndex: t.portIndex } }
+				if (l.id === linkIdFor(l.a.deviceId, l.a.portIndex)) nl.id = linkIdFor(t.deviceId, t.portIndex)
+			}
+			if (!isLocationEnd(nl.b)) {
+				const bEnd = nl.b as LinkEnd
+				const bKey = `${bEnd.deviceId}:${bEnd.portIndex}`
+				if (mapping.has(bKey)) {
+					const t = this.parseTermKey(mapping.get(bKey)!)
+					nl = { ...nl, b: { deviceId: t.deviceId, portIndex: t.portIndex } }
+				}
+			}
+			nextLinks[nl.id] = nl
+		}
+		// baked labels: move entries to the new keys
+		const nextBaked: Record<string, any> = { ...before.baked }
+		for (const [s, t] of mapping) {
+			if (nextBaked[s] !== undefined) { const v = nextBaked[s]; delete nextBaked[s]; nextBaked[t] = v }
+		}
+		// pins: move position-keyed assignments with the ports
+		const nextPins: Record<string, any> = { ...before.pins }
+		for (const [s, t] of mapping) {
+			const sp = posKeyOf(s), tp = posKeyOf(t)
+			if (sp && tp && nextPins[sp] !== undefined) { const v = nextPins[sp]; delete nextPins[sp]; nextPins[tp] = v }
+		}
+		const after = { links: nextLinks, baked: nextBaked, pins: nextPins }
+
+		const apply = (s: typeof before, sel: string[]) => {
+			this.links = s.links
+			this.framesDoc = { ...this.framesDoc, bakedLabels: s.baked, portAssignments: s.pins }
+			this.db.saveFields('frames', { id: this.framesDocId(), bakedLabels: s.baked, portAssignments: s.pins })
+			this.autosave.schedule(() => ({ structuredLinks: $state.snapshot(this.links) }))
+			this.termSel = sel
+		}
+		apply(after, targets)
+		this.history.record({
+			label: `move ${sources.length} port(s)`,
+			undo: () => apply(before, sources),
+			redo: () => apply(after, targets),
+		})
+		this.statusHint = `Moved ${sources.length} port(s) — cords and usage reservations stay at the old positions`
+	}
+
 	// ── Maintenance checks (§14 F-4): the labels-v2 health panel, floor-wide ──
 	/** Baked-label divergence vs current locations/format (see reconcile.ts). */
 	syncPlan = $derived(buildSyncPlan(this.framesDoc, this.devices, this.racks, this.floor, this.floorFormat))

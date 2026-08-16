@@ -360,3 +360,13 @@
 		</div>
 	</div>
 </div>
+
+<!-- Drag-move ghost: follows the cursor while dragging a selected block -->
+{#if editor.dragMove}
+	<div class="fixed z-50 pointer-events-none px-2 py-1 rounded text-[10px] font-medium shadow
+			{editor.dragMove.valid ? 'bg-emerald-600 text-white' : 'bg-gray-700 text-white'}"
+		style:left="{editor.dragMove.x + 14}px" style:top="{editor.dragMove.y - 10}px">
+		{editor.dragMove.keys.length} port{editor.dragMove.keys.length !== 1 ? 's' : ''}
+		{editor.dragMove.over ? (editor.dragMove.valid ? '· drop here' : '· blocked') : '· drop on a free run of ports'}
+	</div>
+{/if}

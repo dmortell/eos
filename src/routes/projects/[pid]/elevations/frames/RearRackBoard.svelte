@@ -88,11 +88,15 @@
 									{@const isArmed = editor.termArm?.deviceId === d.id && editor.termArm?.portIndex === p}
 									{@const selIdx = editor.termSel.indexOf(key)}
 									{@const res = editor.reservationTypeOf(d.id, p)}
+									{@const dragTarget = editor.dragMove?.targets.includes(key) ?? false}
 									<button
+										data-pk={key}
 										class="relative w-16 h-6.5 rounded-sm border flex items-center justify-center shrink-0
 											{info ? (LOC_TYPE_COLORS[info.locationType] ?? 'bg-blue-500/15 border-blue-500/40 text-blue-600') : (res ? (LOC_TYPE_COLORS[res] ?? 'bg-gray-100 text-gray-500') : 'bg-gray-100 text-gray-400')}
 											{link ? '' : 'border-dashed border-gray-300'}
-											{isArmed ? 'ring-2 ring-amber-500' : selIdx >= 0 ? 'ring-2 ring-purple-400' : isSel ? 'ring-2 ring-blue-400' : isTie ? 'ring-1 ring-violet-400' : ''}"
+											{selIdx >= 0 ? 'cursor-grab' : ''}
+											{dragTarget ? (editor.dragMove!.valid ? 'ring-2 ring-emerald-500' : 'ring-2 ring-red-400') : isArmed ? 'ring-2 ring-amber-500' : selIdx >= 0 ? 'ring-2 ring-purple-400' : isSel ? 'ring-2 ring-blue-400' : isTie ? 'ring-1 ring-violet-400' : ''}"
+										onmousedown={e => editor.beginPortDrag(e, d.id, p)}
 										data-tip={`${info?.label ?? fallbackPortLabel(rack.label, d.positionU, p)}${info ? `\n${LOC_TYPE_LABELS[info.locationType] ?? info.locationType}` : ''}${res ? `\nreserved: ${LOC_TYPE_LABELS[res] ?? res}` : ''}${
 											link ? `\n${isTie ? 'tie' : 'outlet run'} → ${editor.endLabel(link)} · ${link.status}`
 											: isArmed ? '\narmed — click again to cancel'
