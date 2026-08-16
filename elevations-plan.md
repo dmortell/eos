@@ -1310,3 +1310,31 @@ Elevations simplification alongside; then Frames F-1→F-4; Patching P-4
   data); console clean.
 - Deferred to F-3: embedded read-mostly floorplan destination tab (ties +
   spatial picking together); tie template labels.
+
+### Session追記 (2026-08-16 — Frames F-3 shipped + CRITICAL merge-deletion fix)
+- **CRITICAL FIX — map-field deletions never persisted.** db.save uses
+  setDoc merge:true, which DEEP-MERGES map fields: deleting a key from
+  portAssignments / bakedLabels / structuredLinks wrote a doc without the
+  key, but the merge kept the stored one — the deletion silently resurrected
+  on the next echo/load (observed live: an undone F-2 link came back).
+  Fix: db.saveFields (setDoc with mergeFields = written keys → each listed
+  top-level field REPLACES its stored value; unlisted fields untouched).
+  Switched: elevations saveFrames (portAssignments/bakedLabels deletions)
+  and the FramesEditor links autosave. Array fields (patching connections,
+  racks/devices, outlets) were never affected (arrays replace under merge).
+  bakeAllocation intentionally KEEPS db.save — its partial bakedLabels
+  patch relies on deep-merge. Verified: deleted links stayed deleted across
+  a full reload.
+- F-3 ✅: TIES — with a rear port armed, clicking another unterminated rear
+  port completes a tie (locations still complete via the pane); tie labels
+  are DISPLAY-DERIVED (`RackA~RackB:NN`, NN stable per pair by sorted link
+  ids) so both ends match by construction with nothing stored — the §14
+  "template-derived" intent without label-write coupling (configurable tie
+  template = later polish). Tie chips show the tie label + violet ring.
+- F-3 ✅: FLOORPLAN destination tab (PlanPicker) — read-mostly picker-grade
+  embed: calibrated PDF page as an image + outlet dots positioned from mm
+  coords, colored by the linked location's coverage (emerald full / amber
+  partial / blue pickable when armed); clicking an outlet terminates the
+  armed port to its location's next free port. Full editing stays in the
+  Floorplan tool. Verified: tie created via click-click; plan tab rendered
+  20 dots on the Test Project floorplan.

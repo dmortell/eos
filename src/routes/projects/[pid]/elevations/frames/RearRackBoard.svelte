@@ -95,7 +95,7 @@
 										title={`${info?.label ?? fallbackPortLabel(rack.label, d.positionU, p)}${info ? `\n${LOC_TYPE_LABELS[info.locationType] ?? info.locationType}` : ''}${link ? `\n${isTie ? 'tie' : 'outlet run'} → ${editor.endLabel(link)} · ${link.status}` : '\nunterminated — click to pick a destination · Ctrl+click for block ops'}`}
 										onclick={e => editor.portClickRear(d.id, p, e.ctrlKey || e.metaKey)}>
 										<span class="font-mono text-[9px] leading-none select-none whitespace-nowrap overflow-hidden">
-											{info ? shortLabel(info.label) : p}
+											{info ? shortLabel(info.label) : (link && !isLocationEnd(link.b) ? editor.tieLabels.get(link.id) ?? p : p)}
 										</span>
 										{#if selIdx >= 0}
 											<span class="absolute -top-1 -left-1 min-w-3.5 h-3.5 px-0.5 rounded-full text-[8px] leading-3.5 text-center text-white bg-purple-500">{selIdx + 1}</span>

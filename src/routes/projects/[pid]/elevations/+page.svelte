@@ -185,11 +185,13 @@
 		}
 	}
 
-	/** Location edits → frames doc (merge, so labelFormat/reservations/etc. are preserved). */
+	/** Location edits → frames doc. saveFields: each written field REPLACES the
+	 *  stored one (key deletions in portAssignments/bakedLabels must persist —
+	 *  merge:true would resurrect them); unwritten fields (structuredLinks…) stay. */
 	function saveFrames(payload: any, changes: import('$lib/logger').ChangeDetail[]) {
 		const pid = page.params.pid
 		if (!pid) return
-		db.save('frames', { id: framesDocId(), ...payload, floor: activeFloor })
+		db.saveFields('frames', { id: framesDocId(), ...payload, floor: activeFloor })
 		if (changes?.length) {
 			const uid = session?.user?.uid ?? 'unknown'
 			writeLog(pid, 'frames', uid, changes, { floor: activeFloor })

@@ -8,6 +8,7 @@
 	import { FramesEditor, ROOMS } from './frames-editor.svelte'
 	import PanelTree from './PanelTree.svelte'
 	import RearRackBoard from './RearRackBoard.svelte'
+	import PlanPicker from './PlanPicker.svelte'
 	import { LOC_TYPE_COLORS } from '$lib/elevation/loc-colors'
 	import { isLocationEnd } from '$lib/elevation/links'
 
@@ -55,6 +56,7 @@
 	let benchRacks = $derived(editor.bench.filter(id => editor.rackById.has(id)))
 	let selectedLink = $derived(editor.selectedLinkId ? editor.links[editor.selectedLinkId] ?? null : null)
 	let expandedLoc = $state<string | null>(null)
+	let destTab = $state<'locations' | 'plan'>('locations')
 
 	function bakeAll() {
 		if (!confirm(`Bake ${editor.bakeableCount} engine-allocated label(s) into stored strings?\n\nBaked labels become the truth: they stop moving on re-generation and become structural links. This is not undoable (clearing a label stays a per-port action in the Elevation view).`)) return
@@ -137,12 +139,18 @@
 				{/if}
 			</div>
 
-			<!-- Destination pane (F-1: Locations coverage; F-2 adds floorplan + other racks) -->
+			<!-- Destination pane (§14): Locations list + read-mostly floorplan picker -->
 			<div class="w-64 shrink-0 bg-white border-l border-gray-200 flex flex-col print:hidden">
-				<div class="h-6 px-2 flex items-center gap-2 text-[10px] uppercase tracking-wider text-gray-400 font-medium border-b border-gray-100">
-					Locations
-					<span class="normal-case font-normal">· linked coverage</span>
+				<div class="h-6 px-1 flex items-center gap-0.5 border-b border-gray-100">
+					{#each [['locations', 'Locations'], ['plan', 'Floorplan']] as [key, label] (key)}
+						<button class="px-2 h-5 rounded text-[10px] font-medium
+								{destTab === key ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:bg-gray-50'}"
+							onclick={() => destTab = key as any}>{label}</button>
+					{/each}
 				</div>
+				{#if destTab === 'plan'}
+					<PlanPicker {db} {pid} {floor} {editor} />
+				{:else}
 				<div class="flex-1 overflow-y-auto p-1">
 					{#each editor.locations as l (l.id)}
 						{@const linked = editor.linkedPortsByLocation.get(l.id) ?? 0}
@@ -179,6 +187,7 @@
 						<div class="p-2 text-[11px] text-gray-400">No locations on this floor yet.</div>
 					{/if}
 				</div>
+				{/if}
 			</div>
 		</div>
 

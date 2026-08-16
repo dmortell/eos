@@ -38,8 +38,9 @@ export class FramesEditor {
 
 	constructor(private db: Firestore) {
 		this.autosave = new AutoSave((payload: any) => {
-			// merge:true — only structuredLinks; all other frames-doc fields untouched
-			this.db.save('frames', { id: this.framesDocId(), ...payload })
+			// saveFields: structuredLinks REPLACES the stored map (deletions persist);
+			// all other frames-doc fields untouched
+			this.db.saveFields('frames', { id: this.framesDocId(), ...payload })
 		})
 	}
 
@@ -146,6 +147,51 @@ export class FramesEditor {
 		return this.labelOf((l.b as LinkEnd).deviceId, (l.b as LinkEnd).portIndex)
 	}
 
+	/** Tie labels (§14 resolved: template-derived, both ends): DISPLAY-derived from
+	 *  the link itself — `RackA~RackB:NN` with NN stable per rack pair (sorted link
+	 *  ids) — so both ends always match by construction, nothing stored. */
+	tieLabels = $derived.by(() => {
+		const rackOf = (end: LinkEnd) => {
+			const d = this.devices.find(x => x.id === end.deviceId)
+			return d ? (this.rackById.get(d.rackId)?.label ?? d.rackId) : '?'
+		}
+		const byPair = new Map<string, StructuredLink[]>()
+		for (const l of Object.values(this.links)) {
+			if (isLocationEnd(l.b)) continue
+			const pair = [rackOf(l.a), rackOf(l.b as LinkEnd)].sort().join('~')
+			if (!byPair.has(pair)) byPair.set(pair, [])
+			byPair.get(pair)!.push(l)
+		}
+		const m = new Map<string, string>()
+		for (const [pair, links] of byPair) {
+			links.sort((a, b) => a.id.localeCompare(b.id))
+			links.forEach((l, i) => m.set(l.id, `${pair}:${String(i + 1).padStart(2, '0')}`))
+		}
+		return m
+	})
+
+	/** Chip display label: canonical port label, else the tie label, else the fallback. */
+	chipLabel(deviceId: string, portIndex: number): string {
+		const info = this.portInfo.get(`${deviceId}:${portIndex}`)
+		if (info) return info.label
+		const link = this.linkByPortKey.get(`${deviceId}:${portIndex}`)
+		if (link && !isLocationEnd(link.b)) {
+			const t = this.tieLabels.get(link.id)
+			if (t) return t
+		}
+		return this.labelOf(deviceId, portIndex)
+	}
+
+	/** Floorplan pick: terminate the armed port to the location's next free port. */
+	terminateToLocation(locationId: string): boolean {
+		if (!this.termArm) return false
+		const free = this.freePortsOf(locationId)
+		if (free.length === 0) { this.statusHint = 'That location has no free ports'; return false }
+		this.terminate(this.termArm, { locationId, port: free[0] }, 'outlet-run', this.stickyLinkCable || undefined)
+		this.disarmTerm()
+		return true
+	}
+
 	// ── Bench (persisted per pid+floor, separate key from the patch bench) ──
 	private benchKey(): string {
 		return `framesbench:${this.pid}:F${this.floor}`
@@ -235,7 +281,8 @@ export class FramesEditor {
 		this.statusHint = null
 	}
 
-	/** Rear-board port click: linked → select link; unlinked → arm; Ctrl → block toggle. */
+	/** Rear-board port click: linked → select link; unlinked → arm, then a second
+	 *  unlinked port completes a TIE (locations complete via the destination pane). */
 	portClickRear(deviceId: string, portIndex: number, ctrl: boolean) {
 		const key = `${deviceId}:${portIndex}`
 		if (ctrl) {
@@ -248,10 +295,17 @@ export class FramesEditor {
 			this.selectedLinkId = this.selectedLinkId === link.id ? null : link.id
 			return
 		}
-		if (this.termArm?.deviceId === deviceId && this.termArm?.portIndex === portIndex) { this.disarmTerm(); return }
+		if (this.termArm) {
+			if (this.termArm.deviceId === deviceId && this.termArm.portIndex === portIndex) { this.disarmTerm(); return }
+			// Second unterminated port → rack tie (§14 F-3)
+			const a = this.termArm
+			this.terminate(a, { deviceId, portIndex }, 'tie', this.stickyLinkCable || undefined)
+			this.disarmTerm()
+			return
+		}
 		this.termArm = { deviceId, portIndex }
 		this.selectedLinkId = null
-		this.statusHint = `${this.labelOf(deviceId, portIndex)} — pick a destination in the Locations pane · Esc cancels`
+		this.statusHint = `${this.labelOf(deviceId, portIndex)} — pick a location port, an outlet on the floorplan, or another rear port for a tie · Esc cancels`
 	}
 
 	/** Free (unlinked) 1-based ports of a location, in order. */

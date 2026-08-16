@@ -152,6 +152,19 @@ export class Firestore {
         const clean = sanitizeFirestoreData(data);
         await setDoc(doc(firestore, path, clean.id as string), clean, { merge: true });
     }
+    /**
+     * Like save, but each given top-level field REPLACES the stored field
+     * instead of deep-merging into it. Required for Record-shaped fields whose
+     * key DELETIONS must persist (portAssignments, bakedLabels,
+     * structuredLinks, …): merge:true deep-merges maps, so a removed key would
+     * silently resurrect from the stored doc. Unlisted fields stay untouched.
+     * Top-level field names must not contain dots (mergeFields path syntax).
+     */
+    saveFields = async (path: string, data: DocWithId | DocumentData): Promise<void> => {
+        if (!('id' in data) || !data.id) return await this.create(path, data)
+        const clean = sanitizeFirestoreData(data);
+        await setDoc(doc(firestore, path, clean.id as string), clean, { mergeFields: Object.keys(clean) });
+    }
     async saveBatch(path: string, docs: DocWithId[], callback?: (docs: DocWithId[]) => void): Promise<void> {
         const batch = writeBatch(firestore);
         for (const d of docs) {
