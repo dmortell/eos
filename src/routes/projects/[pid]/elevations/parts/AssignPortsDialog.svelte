@@ -204,7 +204,7 @@
 							</div>
 							<div class="flex items-center gap-1">
 								<input class="flex-1 h-6 px-2 border border-gray-200 rounded text-[11px]" bind:value={presetName} placeholder="preset name" />
-								<button class="px-2 h-6 text-[11px] rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-40"
+								<button class="px-2 h-6 text-[11px] rounded bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-40"
 									disabled={!presetName.trim() || !customTemplate || customIssues.length > 0}
 									onclick={savePreset}>Save to library</button>
 							</div>
