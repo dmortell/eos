@@ -1241,3 +1241,22 @@ Elevations simplification alongside; then Frames F-1→F-4; Patching P-4
   cord. (Concurrent user test patch explained a transient count bump.)
 - Next: P-3 (bulk N↔N with mapping preview, Patch… entry from Elevations
   selection); P-4 trace waits for Frames F-1 links.
+
+### Session追記 (2026-08-16 — Patching P-3 shipped)
+- P-3 ✅: BULK N↔N — Ctrl+click builds an ordered source set (purple rings +
+  order badges), "Patch to…" enters destination-picking (plain or Ctrl click
+  appends, teal badges, x/N hint; occupied ports rejected), auto-opens a
+  mapping preview at N/N (rows src → dst with fallback labels, cross-room
+  rows flagged + skipped), Create writes one undoable mutation per room.
+  Esc cascade: preview → bulk → arm → jump → selection.
+- "Patch…" hand-off from Elevations: Inspector rack section button opens the
+  Patching tab with the selected rack(s) benched + first port-bearing device
+  highlighted (one-shot seed prop, ts-keyed).
+- Multi-room was already structural (P-1 subscribes rooms A–D).
+- Verified in browser (synthetic ctrl+clicks — the automation modifier
+  gotcha, real ctrl+click fine): 3 sources → dest picking correctly
+  rejected an occupied port (2/3) → 3/3 opened preview → Create 3 → 17→20
+  cords → single undo → 17. Hand-off benched Rack 2 + highlighted the 96p
+  switch. NOTE dev-mode renderer stalls under CDP screenshots recurred
+  (known §9 watch item); JS probes used instead.
+- Remaining: P-4 circuit trace (waits for Frames F-1 structured links).

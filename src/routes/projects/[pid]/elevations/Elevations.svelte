@@ -146,6 +146,8 @@
 		!bare && typeof window !== 'undefined'
 			&& new URLSearchParams(window.location.search).get('view') === 'patching'
 			? 'patching' : 'elevation')
+	/** One-shot seed for the patching tab (Inspector "Patch…" button). */
+	let benchSeed = $state<{ rackIds: string[]; deviceId?: string; ts: number } | null>(null)
 	function setMainView(v: 'elevation' | 'patching') {
 		mainView = v
 		if (bare || typeof window === 'undefined') return
@@ -682,7 +684,7 @@
 	</div>
 
 	{#if mainView === 'patching'}
-		<PatchBench {db} pid={projectId} {floor} />
+		<PatchBench {db} pid={projectId} {floor} seed={benchSeed} />
 		<div class="h-7 flex items-stretch border-t border-gray-200 bg-gray-50 shrink-0 print:hidden">
 			<FloorTabs {floors} {floor} {floorFormat} {onfloorchange} onmanage={() => floorManagerOpen = true} />
 			<div class="flex-1"></div>
@@ -1091,6 +1093,10 @@
 						onfocusracks={() => {
 							const ids = editor.selectedRacks.map(r => r.id)
 							if (ids.length) { editor.focus = { rackIds: ids }; fitFocus() }
+						}}
+						onpatch={(rackIds, deviceId) => {
+							benchSeed = { rackIds, deviceId, ts: Date.now() }
+							setMainView('patching')
 						}} />
 				</div>
 

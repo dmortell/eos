@@ -14,7 +14,13 @@
 	import { DEFAULT_LOC_TYPES } from '../../frames/parts/types'
 	import { LOC_TYPE_COLORS, LOC_TYPE_LABELS } from '$lib/elevation/loc-colors'
 
-	let { db, pid, floor }: { db: Firestore; pid: string; floor: number } = $props()
+	let { db, pid, floor, seed = null }: {
+		db: Firestore
+		pid: string
+		floor: number
+		/** One-shot: racks to add to the bench (Inspector "Patch…" hand-off); ts forces reapply. */
+		seed?: { rackIds: string[]; deviceId?: string; ts: number } | null
+	} = $props()
 
 	const editor = new BenchEditor(db)
 	let ready = $state(false)
@@ -43,6 +49,14 @@
 		return () => unsubs.forEach(u => u?.())
 	})
 
+	// Apply the Elevations hand-off (re-applies when its ts changes)
+	$effect(() => {
+		if (!seed) return
+		seed.ts // dependency
+		for (const rackId of seed.rackIds) editor.addToBench(rackId)
+		if (seed.deviceId) editor.highlightDeviceId = seed.deviceId
+	})
+
 	// Undo/redo + Esc while the tab is mounted (Elevations' handler stands down on this view)
 	$effect(() => {
 		const onKey = (e: KeyboardEvent) => {
@@ -55,7 +69,9 @@
 				e.preventDefault()
 				editor.history.redo()
 			} else if (e.key === 'Escape') {
-				if (editor.patchArm) editor.disarm()
+				if (editor.bulkPreviewOpen) editor.bulkPreviewOpen = false
+				else if (editor.bulkDest || editor.bulkSel.length) editor.cancelBulk()
+				else if (editor.patchArm) editor.disarm()
 				else if (editor.highlightPortKey) editor.highlightPortKey = null
 				else if (editor.selectedConnectionId) editor.selectConnection(null)
 			}
@@ -129,6 +145,16 @@
 			{#if editor.filterActive}
 				<button class="h-5 px-1.5 rounded border border-gray-200 text-[10px] text-gray-500 hover:bg-gray-50" onclick={() => editor.clearFilter()}>Clear</button>
 			{/if}
+			<div class="flex-1"></div>
+			<!-- Bulk flow (P-3): Ctrl+click sources → Patch to… → pick destinations → preview -->
+			{#if editor.bulkDest}
+				<span class="text-purple-600 font-medium">{editor.bulkDest.length}/{editor.bulkSel.length} destinations</span>
+				<button class="h-5 px-1.5 rounded border border-gray-200 text-[10px] text-gray-500 hover:bg-gray-50" onclick={() => editor.cancelBulk()}>Cancel</button>
+			{:else if editor.bulkSel.length > 0}
+				<span class="text-purple-600 font-medium">{editor.bulkSel.length} source{editor.bulkSel.length !== 1 ? 's' : ''}</span>
+				<button class="h-5 px-2 rounded bg-blue-600 text-white text-[10px] hover:bg-blue-500" onclick={() => editor.beginBulkDest()}>Patch to…</button>
+				<button class="h-5 px-1.5 rounded border border-gray-200 text-[10px] text-gray-500 hover:bg-gray-50" onclick={() => editor.cancelBulk()}>Clear</button>
+			{/if}
 		</div>
 
 		<div class="flex-1 min-h-0 overflow-auto p-3">
@@ -182,3 +208,41 @@
 		</div>
 	</div>
 </div>
+
+<!-- Bulk mapping preview (P-3): nothing is created until Create -->
+{#if editor.bulkPreviewOpen}
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center print:hidden" onclick={() => editor.bulkPreviewOpen = false}>
+		<div class="bg-white rounded-lg shadow-xl border border-gray-200 p-4 w-[440px] max-h-[70vh] flex flex-col" onclick={e => e.stopPropagation()}>
+			<div class="flex items-center gap-2 mb-2">
+				<Icon name="cable" size={14} />
+				<span class="text-sm font-semibold text-gray-700">Bulk patch — {editor.bulkPairs.length} pair{editor.bulkPairs.length !== 1 ? 's' : ''}</span>
+				<div class="flex-1"></div>
+				<span class="text-[11px] text-gray-400">{editor.stickyCable.type} · {editor.stickyCable.status}</span>
+			</div>
+			<div class="flex-1 overflow-y-auto border border-gray-100 rounded">
+				<table class="w-full text-[11px]">
+					<tbody>
+						{#each editor.bulkPairs as pair, i (pair.src)}
+							<tr class="border-t border-gray-100 first:border-t-0 {pair.crossRoom ? 'bg-amber-50' : ''}">
+								<td class="px-2 py-1 w-6 text-gray-400">{i + 1}</td>
+								<td class="px-2 py-1 font-mono">{pair.srcLabel}</td>
+								<td class="px-1 py-1 text-gray-400">→</td>
+								<td class="px-2 py-1 font-mono">{pair.dstLabel}</td>
+								<td class="px-2 py-1 text-right">
+									{#if pair.crossRoom}<span class="text-[10px] text-amber-600" title="Endpoints are in different rooms — this pair will be skipped">skipped</span>{/if}
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+			<div class="flex gap-2 justify-end mt-3">
+				<button class="px-3 py-1.5 text-xs rounded border border-gray-200 hover:bg-gray-50" onclick={() => editor.cancelBulk()}>Cancel</button>
+				<button class="px-3 py-1.5 text-xs rounded bg-blue-600 text-white hover:bg-blue-500"
+					onclick={() => editor.createBulk()}>Create {editor.bulkPairs.filter(p => !p.crossRoom).length}</button>
+			</div>
+		</div>
+	</div>
+{/if}

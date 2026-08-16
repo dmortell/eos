@@ -98,17 +98,24 @@
 									{@const isArmed = editor.patchArm?.deviceId === d.id && editor.patchArm?.portIndex === p}
 									{@const dimmed = editor.filterActive && !editor.portMatches(d.id, p)}
 									{@const isJump = editor.highlightPortKey === key}
+									{@const srcIdx = editor.bulkSel.indexOf(key)}
+									{@const dstIdx = editor.bulkDest?.indexOf(key) ?? -1}
 									<button
 										data-pk={key}
 										class="relative w-16 h-6.5 rounded-sm border flex items-center justify-center shrink-0 transition-opacity
 											{info ? (LOC_TYPE_COLORS[info.locationType] ?? 'bg-blue-500/15 border-blue-500/40 text-blue-600') : 'bg-gray-100 border-gray-200/50 text-gray-400'}
-											{isArmed ? 'ring-2 ring-amber-500' : isJump ? 'ring-2 ring-amber-400' : isConnSel ? 'ring-2 ring-blue-400' : ''}
+											{isArmed ? 'ring-2 ring-amber-500' : srcIdx >= 0 ? 'ring-2 ring-purple-400' : dstIdx >= 0 ? 'ring-2 ring-teal-400' : isJump ? 'ring-2 ring-amber-400' : isConnSel ? 'ring-2 ring-blue-400' : ''}
 											{dimmed ? 'opacity-25' : ''}"
-										title={`${info?.label ?? fallbackPortLabel(rack.label, d.positionU, p)}${info ? `\n${LOC_TYPE_LABELS[info.locationType] ?? info.locationType}` : ' — unlabeled'}${conn ? '\npatched — click to select the cord' : '\nclick to arm / complete a patch'}`}
-										onclick={() => editor.portClick(rack!.id, d.id, p)}>
+										title={`${info?.label ?? fallbackPortLabel(rack.label, d.positionU, p)}${info ? `\n${LOC_TYPE_LABELS[info.locationType] ?? info.locationType}` : ' — unlabeled'}${conn ? '\npatched — click to select the cord' : '\nclick: arm/complete a patch · Ctrl+click: bulk select'}`}
+										onclick={e => (e.ctrlKey || e.metaKey) ? editor.bulkToggle(d.id, p) : editor.portClick(rack!.id, d.id, p)}>
 										<span class="font-mono text-[9px] leading-none select-none whitespace-nowrap overflow-hidden">
 											{info ? shortLabel(info.label) : p}
 										</span>
+										{#if srcIdx >= 0 || dstIdx >= 0}
+											<span class="absolute -top-1 -left-1 min-w-3.5 h-3.5 px-0.5 rounded-full text-[8px] leading-3.5 text-center text-white {srcIdx >= 0 ? 'bg-purple-500' : 'bg-teal-500'}">
+												{(srcIdx >= 0 ? srcIdx : dstIdx) + 1}
+											</span>
+										{/if}
 										{#if conn}
 											<span class="absolute bottom-0.5 right-0.5 w-1.5 h-1.5 rounded-full {conn.status === 'installed' ? 'bg-emerald-500' : 'bg-blue-500'}"
 												title="patched"></span>

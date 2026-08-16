@@ -12,12 +12,14 @@
 	import { CABLE_TYPES } from '../../patching/parts/constants'
 	import type { PatchStatus } from '../../patching/parts/types'
 
-	let { editor, onopenlocations, onfocusracks }: {
+	let { editor, onopenlocations, onfocusracks, onpatch }: {
 		editor: ElevationsEditor
 		/** Switch the sidebar to the Locations tab (deep link from an unlabeled port). */
 		onopenlocations?: (zone?: string) => void
 		/** Focus the selected rack(s) — the visible affordance for focus/focus-pair. */
 		onfocusracks?: () => void
+		/** Open the Patching tab with these racks on the bench (optionally highlighting one device). */
+		onpatch?: (rackIds: string[], deviceId?: string) => void
 	} = $props()
 
 	// ── Port section data ──
@@ -275,6 +277,14 @@
 					onclick={() => onfocusracks?.()}>
 					<Icon name="select" size={11} /> Focus {racks.length > 1 ? `${racks.length} racks` : 'rack'}
 				</button>
+				{#if onpatch}
+					<button
+						class="flex items-center gap-1 px-2 py-1 mt-1 rounded border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 text-[11px] font-medium w-full"
+						title="Open the Patching tab with the selected rack(s) on the bench"
+						onclick={() => onpatch?.(racks.map(r => r.id), devs.find(d => (d.portCount ?? 0) > 0)?.id)}>
+						<Icon name="cable" size={11} /> Patch{racks.length > 1 ? ` ${racks.length} racks` : ''}…
+					</button>
+				{/if}
 
 				{#if !rackMulti && hasDerivedFrame && editor.projectId}
 					<a

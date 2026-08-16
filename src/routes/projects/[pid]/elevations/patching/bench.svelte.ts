@@ -205,6 +205,8 @@ export class BenchEditor {
 
 	/** Board port click: select existing cord → arm → complete (same room only). */
 	portClick(rackId: string, deviceId: string, portIndex: number) {
+		// While picking bulk destinations, plain clicks append destinations too
+		if (this.bulkDest) { this.bulkToggle(deviceId, portIndex); return }
 		const existing = this.portConnMap.get(`${deviceId}:${portIndex}`)
 		if (!this.patchArm) {
 			if (existing) {
@@ -242,6 +244,115 @@ export class BenchEditor {
 			conns => [...conns, conn])
 		this.disarm()
 		this.selectConnection(conn.id)
+	}
+
+	// ── Bulk patching (§13 P-3): ordered sources → ordered destinations → preview ──
+	/** Ordered SOURCE port keys (`deviceId:portIndex`), built by Ctrl+click. */
+	bulkSel = $state<string[]>([])
+	/** null = not picking destinations; array = ordered DEST keys being collected. */
+	bulkDest = $state<string[] | null>(null)
+	bulkPreviewOpen = $state(false)
+
+	private parseKey(key: string): { deviceId: string; portIndex: number } {
+		const i = key.lastIndexOf(':')
+		return { deviceId: key.slice(0, i), portIndex: Number(key.slice(i + 1)) }
+	}
+	labelOfKey(key: string): string {
+		const { deviceId, portIndex } = this.parseKey(key)
+		return this.labelOf(deviceId, portIndex)
+	}
+	roomOfKey(key: string): string | undefined {
+		const d = this.devices.find(x => x.id === this.parseKey(key).deviceId)
+		return d ? this.roomOfRack(d.rackId) : undefined
+	}
+	private refOfKey(key: string): PortRef {
+		const { deviceId, portIndex } = this.parseKey(key)
+		const d = this.devices.find(x => x.id === deviceId)
+		return { rackId: d?.rackId ?? '', deviceId, portIndex, face: 'front' }
+	}
+
+	/** Ctrl/⌘+click on a chip: toggle a source, or append the next destination while picking. */
+	bulkToggle(deviceId: string, portIndex: number) {
+		const key = `${deviceId}:${portIndex}`
+		if (this.portConnMap.has(key)) { this.statusHint = 'Port already patched — bulk patch uses free ports'; return }
+		if (this.bulkDest) {
+			if (this.bulkSel.includes(key) || this.bulkDest.includes(key)) return
+			if (this.bulkDest.length >= this.bulkSel.length) return
+			this.bulkDest = [...this.bulkDest, key]
+			if (this.bulkDest.length === this.bulkSel.length) {
+				this.bulkPreviewOpen = true
+				this.statusHint = null
+			} else {
+				this.statusHint = `Destination ${this.bulkDest.length + 1} of ${this.bulkSel.length}…`
+			}
+			return
+		}
+		this.patchArm = null
+		this.bulkSel = this.bulkSel.includes(key) ? this.bulkSel.filter(k => k !== key) : [...this.bulkSel, key]
+	}
+
+	beginBulkDest() {
+		if (this.bulkSel.length === 0) return
+		this.patchArm = null
+		this.bulkDest = []
+		this.statusHint = `Pick ${this.bulkSel.length} destination port(s) in order — Esc cancels`
+	}
+	cancelBulk() {
+		this.bulkSel = []
+		this.bulkDest = null
+		this.bulkPreviewOpen = false
+		this.statusHint = null
+	}
+
+	/** Preview rows for the mapping dialog (pairs sources[i] → dests[i]). */
+	bulkPairs = $derived.by(() => {
+		if (!this.bulkDest) return []
+		return this.bulkSel.map((src, i) => {
+			const dst = this.bulkDest![i]
+			const roomA = this.roomOfKey(src)
+			const roomB = dst ? this.roomOfKey(dst) : undefined
+			return {
+				src, dst,
+				srcLabel: this.labelOfKey(src),
+				dstLabel: dst ? this.labelOfKey(dst) : '—',
+				crossRoom: !!dst && (!roomA || roomA !== roomB),
+			}
+		})
+	})
+
+	createBulk() {
+		if (!this.bulkDest || this.bulkDest.length !== this.bulkSel.length || this.bulkSel.length === 0) return
+		const ct = getCableType(this.stickyCable.type, this.customCableTypes)
+		const racksSnap = $state.snapshot(this.racks)
+		const devsSnap = $state.snapshot(this.devices)
+		const byRoom = new Map<string, PatchConnection[]>()
+		let skipped = 0
+		for (let i = 0; i < this.bulkSel.length; i++) {
+			const src = this.bulkSel[i], dst = this.bulkDest[i]
+			const roomA = this.roomOfKey(src), roomB = this.roomOfKey(dst)
+			if (!roomA || roomA !== roomB) { skipped++; continue }
+			const fromRef = this.refOfKey(src), toRef = this.refOfKey(dst)
+			const conn: PatchConnection = {
+				id: `patch-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 6)}`,
+				fromPortRef: fromRef,
+				toPortRef: toRef,
+				cableType: this.stickyCable.type,
+				cableColor: ct.color,
+				lengthMeters: calculateCableLength(fromRef, toRef, racksSnap, devsSnap),
+				lengthLocked: false,
+				kind: 'patch',
+				status: this.stickyCable.status,
+			}
+			if (!byRoom.has(roomA)) byRoom.set(roomA, [])
+			byRoom.get(roomA)!.push(conn)
+		}
+		for (const [room, conns] of byRoom) {
+			this.mutateRoom(room, `bulk patch ${conns.length} cord(s)`, cs => [...cs, ...conns])
+		}
+		this.statusHint = skipped ? `${skipped} pair(s) skipped — endpoints in different rooms` : null
+		this.bulkSel = []
+		this.bulkDest = null
+		this.bulkPreviewOpen = false
 	}
 
 	// ── Port filter (§13 P-2): substring + type/usage chips + free-only ──
