@@ -9,14 +9,14 @@
 	import { migrateFloors, updateFloors as _updateFloors, deleteFloor as _deleteFloor } from '$lib/utils/floor';
 	import Patching from './Patching.svelte';
 
-	// §13: the Patching editor (patch bench) supersedes this tool — it lives at
-	// /elevations/patching. ?legacy=1 keeps this tool reachable during the soak.
+	// §13: the Patching editor (patch bench) supersedes this tool — it is the
+	// Patching TAB of Elevations. ?legacy=1 keeps this tool reachable during the soak.
 	{
 		const sp = page.url.searchParams
 		if (sp.get('legacy') !== '1') {
-			const q = new URLSearchParams()
+			const q = new URLSearchParams({ view: 'patching' })
 			if (sp.get('floor')) q.set('floor', sp.get('floor')!)
-			goto(`/projects/${page.params.pid}/elevations/patching${q.size ? `?${q}` : ''}`, { replaceState: true })
+			goto(`/projects/${page.params.pid}/elevations?${q}`, { replaceState: true })
 		}
 	}
 

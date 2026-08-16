@@ -19,6 +19,7 @@
 	import BOMPanel from '../racks/parts/BOMPanel.svelte'
 	import RackElevationRenderer from '../racks/parts/RackElevationRenderer.svelte'
 	import FloorTabs from '../racks/parts/FloorTabs.svelte'
+	import { replaceState } from '$app/navigation'
 	import PanZoomCanvas from '$lib/panzoom/PanZoomCanvas.svelte'
 	import Inspector from './parts/Inspector.svelte'
 	import PortsLayer from './parts/PortsLayer.svelte'
@@ -26,6 +27,7 @@
 	import PanelDetailStrip from './parts/PanelDetailStrip.svelte'
 	import AssignPortsDialog from './parts/AssignPortsDialog.svelte'
 	import SyncLabelsDialog from './parts/SyncLabelsDialog.svelte'
+	import PatchBench from './patching/PatchBench.svelte'
 	import PatchListPane from '../patching/parts/PatchListPane.svelte'
 	import PatchSettingsDialog from '../patching/parts/SettingsDialog.svelte'
 	import { CABLE_TYPES } from '../patching/parts/constants'
@@ -138,6 +140,20 @@
 	let cordsVisible = $derived(editor.viewOpts.cords || editor.mode === 'patch')
 	let assignDialog = $state<'generate' | 'existing' | null>(null)
 	let syncDialogOpen = $state(false)
+
+	// ── Main view tabs: Elevation | Patching (Frames later) — §13 ──
+	let mainView = $state<'elevation' | 'patching'>(
+		!bare && typeof window !== 'undefined'
+			&& new URLSearchParams(window.location.search).get('view') === 'patching'
+			? 'patching' : 'elevation')
+	function setMainView(v: 'elevation' | 'patching') {
+		mainView = v
+		if (bare || typeof window === 'undefined') return
+		const url = new URL(window.location.href)
+		if (v === 'elevation') url.searchParams.delete('view')
+		else url.searchParams.set('view', v)
+		replaceState(url, {})
+	}
 
 	// ?frame= deep link: focus the rack once its data has loaded (overrides
 	// the restored focus — an explicit link wins).
@@ -496,6 +512,8 @@
 
 	// ── Keyboard ──
 	function onKeydown(e: KeyboardEvent) {
+		// Other main views own their shortcuts (PatchBench registers its own undo/redo)
+		if (mainView !== 'elevation') return
 		const t = e.target as HTMLElement | null
 		if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement || t?.isContentEditable) return
 		if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
@@ -654,6 +672,22 @@
 		</Titlebar>
 	{/if}
 
+	<!-- Main view tabs (§13): the canvas or a dedicated editor view -->
+	<div class="h-7 px-2 flex items-end gap-1 bg-slate-700 shrink-0 print:hidden">
+		{#each [['elevation', 'Elevation'], ['patching', 'Patching']] as [key, label] (key)}
+			<button class="px-3 h-6 rounded-t text-[11px] font-medium transition-colors
+					{mainView === key ? 'bg-white text-gray-800' : 'bg-slate-600/60 text-slate-200 hover:bg-slate-600'}"
+				onclick={() => setMainView(key as any)}>{label}</button>
+		{/each}
+	</div>
+
+	{#if mainView === 'patching'}
+		<PatchBench {db} pid={projectId} {floor} />
+		<div class="h-7 flex items-stretch border-t border-gray-200 bg-gray-50 shrink-0 print:hidden">
+			<FloorTabs {floors} {floor} {floorFormat} {onfloorchange} onmanage={() => floorManagerOpen = true} />
+			<div class="flex-1"></div>
+		</div>
+	{:else}
 	<PaneGroup direction="horizontal" class="flex-1 min-h-0">
 		<!-- Sidebar -->
 		<Pane defaultSize={20} minSize={15} maxSize={35}>
@@ -1143,6 +1177,7 @@
 			</div>
 		</Pane>
 	</PaneGroup>
+	{/if}
 </main>
 
 <!-- Palette drag ghost (follows cursor) -->

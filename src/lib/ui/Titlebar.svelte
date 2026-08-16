@@ -10,7 +10,6 @@
   const menuItems = [
 		{ label: 'Racks', href: 'racks' },
 		{ label: 'Frames', href: 'frames' },
-		{ label: 'Patching', href: 'elevations/patching' },
 		{ label: 'Floorplans', href: 'outlets' },
 	]
 	// Absolute per-project links — relative hrefs break from nested tool routes

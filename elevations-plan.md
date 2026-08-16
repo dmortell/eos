@@ -1214,3 +1214,12 @@ Elevations simplification alongside; then Frames F-1→F-4; Patching P-4
   device-click highlight ring + scroll, chip click selects the cord in the
   list and opens its editor, both cord ends ring.
 - Next: P-2 (click-click patching + sticky attribute bar + filter bar).
+- COURSE CORRECTION (user): not separate tools — the editors are TABS inside
+  Elevations. P-1 converted: PatchBench.svelte is an embedded component;
+  Elevations gains a main-view tab bar (Elevation | Patching, Frames later)
+  under the Titlebar, ?view=patching URL sync (bare-guarded), keydown
+  handler stands down on non-elevation views (bench has its own undo keys),
+  FloorTabs stay visible under the bench. Standalone route deleted; legacy
+  /patching redirect → /elevations?view=patching; Titlebar menu back to 3
+  items (absolute toolHref fix kept). Verified in browser: tab switch,
+  bench restored from localStorage, URL sync, console clean.
