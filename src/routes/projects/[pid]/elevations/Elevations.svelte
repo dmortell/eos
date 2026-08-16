@@ -1030,7 +1030,8 @@
 								ondevicedrag={onDeviceDrag}
 								ondevicedragged={onDeviceDragged}
 								ondeletedevice={id => editor.deleteDevice(id)}
-								onselectdevice={id => editor.select(id)} />
+								onselectdevice={id => editor.select(id)}
+								ondevicedblclick={d => { editor.select(d.id); editor.focusRack(d.rackId, false); fitFocus() }} />
 							<PortsLayer {editor} />
 							<CordsLayer {editor} visible={cordsVisible} />
 							<!-- Focus dimming: non-focused racks fade; pointer-events pass through -->

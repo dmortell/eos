@@ -462,6 +462,15 @@ export class OutletsEditor extends SurfaceEditor {
 	// ── racks (placed on the floorplan) ──
 	selRackPlacement = $derived(this.sel?.kind === 'rack' ? this.rackPlacements.find(r => r.rackId === this.sel!.id) ?? null : null)
 
+	/** Place a REAL rack from the racks doc (labels v2 #7): the placement only
+	 *  stores position/rotation — label + dims stay live from racksById, so
+	 *  elevations and the floorplan can never diverge. */
+	placeRackRef(p: Point, rackId: string, room: string) {
+		this.rackPlacements.push({ rackId, room, position: { ...p }, rotation: 0 })
+		this.select('rack', rackId)
+		this.notify()
+	}
+
 	/** Drag-out a new floorplan rack: place at the click, then size width×depth from the cursor.
 	 *  `onDone` (e.g. switch back to Select) runs on mouse-up so the placed rack is draggable. */
 	addRackAt(p: Point, onDone?: () => void) {

@@ -11,7 +11,7 @@
 		floorLabel, roomLabel,
 		readonly = false,
 		onstarttlinedrag, oneditline, oncleareditline, onsettingchange,
-		ondevicedrag, ondevicedragged, ondeletedevice, onselectdevice,
+		ondevicedrag, ondevicedragged, ondeletedevice, onselectdevice, ondevicedblclick,
 		editingLine = null,
 	}: {
 		view: ViewState
@@ -35,6 +35,8 @@
 		ondevicedragged?: (rect: any, device: DeviceConfig, copy?: boolean) => void
 		ondeletedevice?: (deviceId: string) => void
 		onselectdevice?: (deviceId: string) => void
+		/** Double-click on a device — Elevations focuses its parent rack. */
+		ondevicedblclick?: (device: DeviceConfig) => void
 		editingLine?: string | null
 	} = $props()
 
@@ -221,6 +223,7 @@
 				selected={selectedIds.has(device.id)}
 				disabled={faded}
 				onClick={() => onselectdevice(device.id)}
+				onDblClick={ondevicedblclick ? () => ondevicedblclick(device) : undefined}
 				onDrag={ondevicedrag}
 				onDragged={(rect, _item, copy) => ondevicedragged(rect, device, copy)}>
 				<DeviceView {device} {view} {opacity} ondelete={faded ? undefined : () => ondeletedevice?.(device.id)} />
@@ -247,6 +250,7 @@
 				selected={selectedIds.has(device.id)}
 				disabled={faded}
 				onClick={() => onselectdevice(device.id)}
+				onDblClick={ondevicedblclick ? () => ondevicedblclick(device) : undefined}
 				onDrag={ondevicedrag}
 				onDragged={(rect, _item, copy) => ondevicedragged(rect, device, copy)}>
 				<DeviceView {device} {view} {opacity} ondelete={faded ? undefined : () => ondeletedevice?.(device.id)} />

@@ -996,3 +996,26 @@ Legacy / infra (independent of the split):
   end → cord → device port, over any number of hops. Belongs in the new
   Patching editor (read-only trace view first; selection highlights the
   whole circuit).
+
+### Session追記 (2026-08-16 — quick fixes + rack picker + labelFormats findings)
+- #1 ✅ stray test cord: already gone (patch-list filter 007/U34 → no matches).
+- #2 ✅ device dblclick now focuses its parent rack: Draggable gained an
+  optional onDblClick passthrough; RackElevationRenderer exposes
+  ondevicedblclick; Elevations selects + focuses + fits. Verified in browser.
+- #3 ✅ resolved as KEEP: A-037 + linked outlet A.037 are now coherent linked
+  data (deleting would orphan links); no cleanup needed.
+- #7 ✅ sheets outlets viewport rack picker: "Unplaced racks" list in the
+  edit panel (rooms' racks with no placement, live from racksById which now
+  carries room) → click one, click the plan → placeRackRef stores ONLY
+  {rackId, room, position, rotation} so label/dims stay live-joined from the
+  racks doc — elevations and floorplan cannot diverge. Esc cancels. Free-draw
+  "+ Rack" (self-contained box) unchanged. The standalone Floorplan tool's
+  Racks tab already had drag-to-place for real racks (no change needed).
+- labelFormats mystery EXPLAINED: typing a Custom template applies it
+  project-wide immediately (frames doc labelFormat.template) but is NOT a
+  library preset until a NAME is typed and "Save to library" clicked — only
+  that writes the global `labelFormats` collection (visible in Firebase
+  console as a root collection once the first preset is saved). Verified
+  live: preset "Floor-port-alpha" (FFZ.NNNA) appeared in the dropdown via
+  the real-time subscription. UX follow-up: make the two-step (apply vs
+  save-as-preset) more obvious.

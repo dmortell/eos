@@ -1,13 +1,14 @@
 <script lang="ts">
 	import type { ViewState } from './types'
 
-	let { item, shape = { left: 0, top: 0, width: 100, height: 50 }, view, disabled = false, selected = false, onClick, onDrag, onDragged, children }: {
+	let { item, shape = { left: 0, top: 0, width: 100, height: 50 }, view, disabled = false, selected = false, onClick, onDblClick, onDrag, onDragged, children }: {
 		item: any
 		shape: { left: number; top: number; width: number; height: number }
 		view: ViewState
 		disabled?: boolean
 		selected?: boolean
 		onClick?: (e: MouseEvent) => void
+		onDblClick?: (e: MouseEvent) => void
 		onDrag?: (rect: any, mouse: any, item: any) => void
 		onDragged?: (rect: any, item: any, copy?: boolean) => void
 		children?: any
@@ -106,6 +107,7 @@
 	onmousedown={onMouseDown}
 	ontouchstart={onMouseDown}
 	onclick={e => e.stopPropagation()}
+	ondblclick={e => { if (onDblClick) { e.stopPropagation(); onDblClick(e) } }}
 	style:left={rect.left + 'px'}
 	style:top={rect.top - 1 + 'px'}
 	style:width={rect.width + 'px'}

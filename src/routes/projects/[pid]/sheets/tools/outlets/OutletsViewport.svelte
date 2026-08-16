@@ -57,7 +57,7 @@
 
 	let outletsData = $state<OutletsData | null>(null)
 	let fileDoc = $state<any>(null)
-	let racksById = $state<Record<string, { widthMm: number; depthMm: number; label?: string; heightU?: number }>>({})
+	let racksById = $state<Record<string, { widthMm: number; depthMm: number; label?: string; heightU?: number; room?: string }>>({})
 
 	// outlets doc (outlets / trunks / rackPlacements + default file & page)
 	$effect(() => {
@@ -82,11 +82,11 @@
 	$effect(() => {
 		const base = src?.outletsDocId
 		if (!base) { racksById = {}; return }
-		const map: Record<string, { widthMm: number; depthMm: number; label?: string; heightU?: number }> = {}
+		const map: Record<string, { widthMm: number; depthMm: number; label?: string; heightU?: number; room?: string }> = {}
 		const unsubs = ['A', 'B', 'C', 'D'].map(room =>
 			db.subscribeOne('racks', `${base}_R${room}`, (d: any) => {
 				const racks = Array.isArray(d?.racks) ? d.racks : []
-				for (const r of racks) map[r.id] = { widthMm: r.widthMm, depthMm: r.depthMm, label: r.label, heightU: r.heightU }
+				for (const r of racks) map[r.id] = { widthMm: r.widthMm, depthMm: r.depthMm, label: r.label, heightU: r.heightU, room }
 				racksById = { ...map }
 			})
 		)
@@ -107,6 +107,17 @@
 			id: l.id!, zone, locationNumber: l.locationNumber, portCount: l.portCount, locationType: l.locationType,
 		}))))
 	let linkedLocationIds = $derived(new Set(editor.outlets.map(o => o.locationId).filter((id): id is string => !!id)))
+
+	// ── Unplaced real racks (labels v2 #7): rooms' racks with no placement on this plan ──
+	let unplacedRacks = $derived.by(() => {
+		const placed = new Set(editor.rackPlacements.map(p => p.rackId))
+		return Object.entries(racksById)
+			.filter(([id]) => !placed.has(id))
+			.map(([id, r]) => ({ id, label: r.label ?? id, room: r.room ?? 'A', widthMm: r.widthMm, depthMm: r.depthMm }))
+			.sort((a, b) => a.room.localeCompare(b.room) || a.label.localeCompare(b.label))
+	})
+	/** Rack waiting for a placement click (set from the edit panel). */
+	let pendingRackId = $state<string | null>(null)
 
 	let calibration = $derived.by<PageCalibration | null>(() => {
 		const p = fileDoc?.pages?.[pageNum]
@@ -161,7 +172,8 @@
 				else if (annEditor.selAnn) { e.preventDefault(); e.stopPropagation(); annEditor.deleteSel() }
 				else if (editor.sel) { e.preventDefault(); e.stopPropagation(); editor.deleteSel() }
 			} else if (e.key === 'Escape') {
-					if (editor.draw) { e.preventDefault(); e.stopPropagation(); editor.finishDraw(); tool = 'select' }
+					if (pendingRackId) { e.preventDefault(); e.stopPropagation(); pendingRackId = null; tool = 'select' }
+					else if (editor.draw) { e.preventDefault(); e.stopPropagation(); editor.finishDraw(); tool = 'select' }
 					else if (tool !== 'select') { e.preventDefault(); e.stopPropagation(); tool = 'select' }
 				}
 			else if ((e.key === 'd' || e.key === 'D') && (e.ctrlKey || e.metaKey)) {
@@ -204,7 +216,18 @@
 				onadd={(t, w, shift) => {
 					if (t === 'outlet') { if (blocked('outlets')) return true; editor.addOutlet(w); return true }
 					if (t === 'trunk') { if (blocked('trunks')) return true; editor.drawClick(w, shift); return true }
-					if (t === 'rack') { if (blocked('racks')) return true; editor.addRackAt(w, () => { tool = 'select' }); return true }
+					if (t === 'rack') {
+						if (blocked('racks')) return true
+						if (pendingRackId) {
+							const r = racksById[pendingRackId]
+							editor.placeRackRef(w, pendingRackId, r?.room ?? 'A')
+							pendingRackId = null
+							tool = 'select'
+							return true
+						}
+						editor.addRackAt(w, () => { tool = 'select' })
+						return true
+					}
 					return false
 				}}
 				onmove={(w) => { if (tool === 'trunk' && editor.draw) editor.preview = w }}
@@ -222,7 +245,9 @@
 			}} />
 	</OutletsRender>
 	{#if active}
-		<OutletsEditPanel {editor} bind:tool {annEditor} layers={vps.allLayers} {racksById} locations={locationList} {linkedLocationIds} />
+		<OutletsEditPanel {editor} bind:tool {annEditor} layers={vps.allLayers} {racksById} locations={locationList} {linkedLocationIds}
+			{unplacedRacks} {pendingRackId}
+			onplacerack={(id) => { pendingRackId = id; tool = id ? 'rack' : 'select' }} />
 		<OutletsContextMenu {editor} />
 	{/if}
 {:else}

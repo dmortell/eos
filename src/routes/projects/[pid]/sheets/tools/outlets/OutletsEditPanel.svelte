@@ -14,7 +14,8 @@
 	import { downloadDxf } from '../../dxf/dxf'
 
 	type LocationRow = { id: string; zone: string; locationNumber: number; portCount: number; locationType: string }
-	let { editor, tool = $bindable(), annEditor, layers = [], racksById = {}, locations = [], linkedLocationIds = new Set() }: { editor: OutletsEditor; tool: string; annEditor: AnnotationEditor; layers?: LayerDef[]; racksById?: Record<string, { widthMm: number; depthMm: number; label?: string }>; locations?: LocationRow[]; linkedLocationIds?: Set<string> } = $props()
+	type UnplacedRack = { id: string; label: string; room: string; widthMm: number; depthMm: number }
+	let { editor, tool = $bindable(), annEditor, layers = [], racksById = {}, locations = [], linkedLocationIds = new Set(), unplacedRacks = [], pendingRackId = null, onplacerack }: { editor: OutletsEditor; tool: string; annEditor: AnnotationEditor; layers?: LayerDef[]; racksById?: Record<string, { widthMm: number; depthMm: number; label?: string }>; locations?: LocationRow[]; linkedLocationIds?: Set<string>; unplacedRacks?: UnplacedRack[]; pendingRackId?: string | null; onplacerack?: (rackId: string | null) => void } = $props()
 
 	const locLabel = (l: LocationRow) => `${l.zone}-${String(l.locationNumber).padStart(3, '0')}`
 
@@ -50,6 +51,28 @@
 	<AnnotationControls bind:tool editor={annEditor} />
 	{#if editor.draw}
 		<button class="w-full rounded border px-1 py-0.5 text-xs hover:bg-slate-100" onclick={() => { editor.finishDraw(); tool = 'select' }}>Finish trunk</button>
+	{/if}
+
+	<!-- Unplaced real racks (labels v2 #7): click one, then click the plan — placement stays
+	     linked to the racks doc, so label/dims follow the elevations tool automatically. -->
+	{#if unplacedRacks.length > 0}
+		<div class="space-y-0.5">
+			<div class="text-[10px] uppercase tracking-wider text-zinc-400">Unplaced racks ({unplacedRacks.length})</div>
+			{#if pendingRackId}
+				<div class="text-[10px] text-blue-600">Click the plan to place · Esc to cancel</div>
+			{/if}
+			<div class="max-h-28 overflow-y-auto">
+				{#each unplacedRacks as r (r.id)}
+					<button class="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left text-[11px]
+							{pendingRackId === r.id ? 'bg-blue-600 text-white' : 'text-zinc-600 hover:bg-slate-100'}"
+						title="Place this rack on the floorplan (linked to the racks doc)"
+						onclick={() => onplacerack?.(pendingRackId === r.id ? null : r.id)}>
+						<span class="font-mono truncate">{r.label}</span>
+						<span class="ml-auto shrink-0 text-[10px] {pendingRackId === r.id ? 'text-blue-100' : 'text-zinc-400'}">R{r.room} · {r.widthMm}×{r.depthMm}</span>
+					</button>
+				{/each}
+			</div>
+		</div>
 	{/if}
 
 	<!-- Trunk select-list (5c4): pick a trunk when they overlap on the plan. Visibility is via layers. -->
