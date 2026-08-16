@@ -9,15 +9,14 @@
 	import { migrateFloors, updateFloors as _updateFloors, deleteFloor as _deleteFloor } from '$lib/utils/floor';
 	import Patching from './Patching.svelte';
 
-	// Phase 5 cutover (elevations-plan.md): Elevations has full patching
-	// parity. ?legacy=1 keeps this tool reachable during the soak period.
+	// §13: the Patching editor (patch bench) supersedes this tool — it lives at
+	// /elevations/patching. ?legacy=1 keeps this tool reachable during the soak.
 	{
 		const sp = page.url.searchParams
 		if (sp.get('legacy') !== '1') {
 			const q = new URLSearchParams()
 			if (sp.get('floor')) q.set('floor', sp.get('floor')!)
-			if (sp.get('room')) q.set('room', sp.get('room')!)
-			goto(`/projects/${page.params.pid}/elevations${q.size ? `?${q}` : ''}`, { replaceState: true })
+			goto(`/projects/${page.params.pid}/elevations/patching${q.size ? `?${q}` : ''}`, { replaceState: true })
 		}
 	}
 

@@ -10,8 +10,13 @@
   const menuItems = [
 		{ label: 'Racks', href: 'racks' },
 		{ label: 'Frames', href: 'frames' },
+		{ label: 'Patching', href: 'elevations/patching' },
 		{ label: 'Floorplans', href: 'outlets' },
 	]
+	// Absolute per-project links — relative hrefs break from nested tool routes
+	// like /projects/{pid}/elevations/patching (they'd resolve against the
+	// parent segment, not the project root).
+	const toolHref = (h: string) => page.params.pid ? `/projects/${page.params.pid}/${h}` : h
 	let {title="EOS 0.3", height=null, children=null, menu=null, saveStatus=''}: {
 		title?: string
 		height?: number | null
@@ -52,7 +57,7 @@
 
 	<div class='row'>
 		{#if menu}
-			{#each menuItems as item}<a href={`${item.href}${menuQs}`} class="rounded hover:text-gray-200 px-2">{item.label}</a>{/each}
+			{#each menuItems as item}<a href={`${toolHref(item.href)}${menuQs}`} class="rounded hover:text-gray-200 px-2">{item.label}</a>{/each}
 			&middot;
 		{/if}
 		{#if session.user}

@@ -1195,3 +1195,22 @@ F4. Bundles: first-class entity with per-bundle BOM/exports (recommended)
 Patching P-1→P-3 first (no schema change, fastest value) with the
 Elevations simplification alongside; then Frames F-1→F-4; Patching P-4
 (trace) last, consuming real link records.
+
+### Session追記 (2026-08-16 — Patching P-1 shipped)
+- P-1 ✅ at /projects/[pid]/elevations/patching (user chose subfolders under
+  elevations for the new editors). New files: patching/bench.svelte.ts
+  (BenchEditor: multi-room subscriptions merged via the shared portmap
+  pipeline, per-room AutoSave echo-gating, bench persist per pid+floor in
+  localStorage, connection mutations routed to the owning room's doc with
+  undo), RackBoard.svelte (rack-group board, collapsible device row-groups,
+  constant-size chips: LOC tint, short label, cord dot, click-to-select
+  cord), DeviceTree.svelte (room→rack→device with search; device click
+  adds rack board + highlight/scroll), +page.svelte (floor pills, undo/
+  redo, Elevations link, PatchListPane with its built-in cord editor).
+- Titlebar: menu links now absolute per-project (relative hrefs broke from
+  nested routes) + "Patching" menu item. Old /patching redirect now targets
+  /elevations/patching (?legacy=1 unchanged).
+- Verified in browser: boards render labels/tints/dots (037-A01 visible),
+  device-click highlight ring + scroll, chip click selects the cord in the
+  list and opens its editor, both cord ends ring.
+- Next: P-2 (click-click patching + sticky attribute bar + filter bar).
