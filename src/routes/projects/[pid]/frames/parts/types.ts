@@ -93,6 +93,9 @@ export interface LabelFormat {
 	/** Excel-style template ($lib/elevation/labelTemplate). When set it takes
 	 *  precedence over the separator/include options above. */
 	template?: string
+	/** Template for OUTLET display labels on floorplans (port tokens unused);
+	 *  null/absent → the legacy `Z.NNN` convention. */
+	outletTemplate?: string | null
 }
 
 export const DEFAULT_LABEL_FORMAT: LabelFormat = {

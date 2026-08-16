@@ -104,7 +104,7 @@
 										data-pk={key}
 										class="relative w-16 h-6.5 rounded-sm border flex items-center justify-center shrink-0 transition-opacity
 											{info ? (LOC_TYPE_COLORS[info.locationType] ?? 'bg-blue-500/15 border-blue-500/40 text-blue-600') : 'bg-gray-100 border-gray-200/50 text-gray-400'}
-											{isArmed ? 'ring-2 ring-amber-500' : srcIdx >= 0 ? 'ring-2 ring-purple-400' : dstIdx >= 0 ? 'ring-2 ring-teal-400' : isJump ? 'ring-2 ring-amber-400' : isConnSel ? 'ring-2 ring-blue-400' : ''}
+											{isArmed ? 'ring-2 ring-amber-500' : srcIdx >= 0 ? 'ring-2 ring-purple-400' : dstIdx >= 0 ? 'ring-2 ring-teal-400' : isJump ? 'ring-2 ring-amber-400' : isConnSel ? 'ring-2 ring-red-500' : ''}
 											{dimmed ? 'opacity-25' : ''}"
 										data-tip={`${info?.label ?? fallbackPortLabel(rack.label, d.positionU, p)}${info ? `\n${LOC_TYPE_LABELS[info.locationType] ?? info.locationType}` : ' — unlabeled'}${
 											conn ? '\npatched — click to select the cord'

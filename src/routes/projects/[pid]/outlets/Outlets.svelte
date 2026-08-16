@@ -11,6 +11,7 @@
 	import { DEFAULT_PRINT_SETTINGS, type PrintSettings } from '$lib/ui/print/types'
 	import { OUTLET_DEFAULTS, type StickyDefaults } from './parts/constants'
 	import { HistoryStore } from '$lib/history/HistoryStore.svelte'
+	import { AutoSave } from '$lib/autosave/AutoSave.svelte'
 	import OutletCanvas from './parts/OutletCanvas.svelte'
 	import OutletPalette from './parts/OutletPalette.svelte'
 	import RackPalette from './parts/RackPalette.svelte'
@@ -23,6 +24,7 @@
 	import { SNAP_THRESHOLD_MM } from './trunks/constants'
 	import { exportOutletsToExcel } from './parts/exportExcel'
 	import { repairLocationIds, locationIdFor } from '$lib/elevation/portmap'
+	import { renderLabel } from '$lib/elevation/labelTemplate'
   import { toast } from 'svelte-sonner';
 
 	let { data = null, files = [], floors = [], frameData = null, racksData = {}, floor, areas = [], activeArea = '', projectId = '', projectName = '', drawingId = '', db = new Firestore(), uid = '', initialLayers, onsave, onfloorchange, onareachange, onupdatefloors, ondeletefloor, onsaverack, bare = false }: {
@@ -416,18 +418,27 @@
 			.sort((a: any, b: any) => (a.name ?? a.id).localeCompare(b.name ?? b.id))
 	)
 
-	// ── Sync from remote ──
-	let lastSavedSnapshot = ''
-	let dirty = $state(false)
+	// ── Sync from remote / auto-save ──
+	// $lib AutoSave (echo-ring): the old lastSavedSnapshot/dirty guard silently
+	// DROPPED genuine remote changes that arrived while a save's echo was
+	// pending — another tab's edits never appeared until a full reload.
+	const autosave = new AutoSave((payload: any) => onsave?.(payload), 300)
 
-	function snapshotOf(d: any): string {
-		return JSON.stringify({ outlets: d?.outlets, rackPlacements: d?.rackPlacements, trunks: d?.trunks, selectedFileId: d?.selectedFileId, selectedPage: d?.selectedPage, activeZone: d?.activeZone, legendPos: d?.legendPos, printSettings: d?.printSettings })
+	function payloadOf(): any {
+		return { outlets, rackPlacements, trunks, selectedFileId, selectedPage, activeZone, legendPos, printSettings }
+	}
+	function comparableOf(d: any): any {
+		return {
+			outlets: d?.outlets ?? [], rackPlacements: d?.rackPlacements ?? [], trunks: d?.trunks ?? [],
+			selectedFileId: d?.selectedFileId, selectedPage: d?.selectedPage, activeZone: d?.activeZone,
+			legendPos: d?.legendPos, printSettings: d?.printSettings,
+		}
 	}
 
 	$effect(() => {
 		const d = data
-		if (!d || dirty) return
-		if (lastSavedSnapshot && snapshotOf(d) !== lastSavedSnapshot) return
+		if (!d) return
+		if (!autosave.shouldApplyRemote(comparableOf(d))) return
 		if (d.outlets) outlets = d.outlets
 		if (d.rackPlacements) rackPlacements = d.rackPlacements
 		if (d.trunks) trunks = d.trunks
@@ -436,27 +447,18 @@
 		if (d.activeZone) activeZone = d.activeZone
 		if (d.legendPos) legendPos = d.legendPos
 		if (d.printSettings) printSettings = d.printSettings
-		lastSavedSnapshot = ''
+		// don't schedule a pointless echo-save of the remote data we just applied
+		prevSnapshot = JSON.stringify(payloadOf())
 	})
 
-	// ── Auto-save ──
-	let saveTimer: ReturnType<typeof setTimeout> | null = null
+	// ── Auto-save (schedule on any local change) ──
 	let prevSnapshot = $state('')
-
 	$effect(() => {
-		const snapshot = JSON.stringify({ outlets, rackPlacements, trunks, selectedFileId, selectedPage, activeZone, legendPos, printSettings })
+		const snapshot = JSON.stringify(payloadOf())
 		if (!prevSnapshot) { prevSnapshot = snapshot; return }
 		if (snapshot === prevSnapshot) return
 		prevSnapshot = snapshot
-
-		dirty = true
-		if (saveTimer) clearTimeout(saveTimer)
-		saveTimer = setTimeout(() => {
-			const payload = { outlets, rackPlacements, trunks, selectedFileId, selectedPage, activeZone, legendPos, printSettings }
-			lastSavedSnapshot = JSON.stringify(payload)
-			onsave?.(payload)
-			dirty = false
-		}, 300)
+		autosave.schedule(payloadOf)
 	})
 
 	// ── Coordinate conversion ──
@@ -504,15 +506,17 @@
 		return m ? { zone: m[1].toUpperCase(), num: parseInt(m[2]) } : null
 	}
 
-	/** Link every unlinked outlet whose label matches a location (zone+number). Undoable. */
+	/** Link every unlinked outlet whose label matches a location — by the
+	 *  project's rendered outlet label first, legacy Z.NNN parse as fallback. Undoable. */
 	function linkAllByLabel() {
 		const byZoneNum = new Map(locationList.map(l => [`${l.zone}:${l.locationNumber}`, l.id]))
+		const byRendered = new Map(locationList.map(l => [expectedOutletLabel(l), l.id]))
 		const prev = outlets
 		let n = 0
 		const next = outlets.map(o => {
 			if (o.locationId || !o.label) return o
 			const p = parseOutletLabel(o.label)
-			const id = p ? byZoneNum.get(`${p.zone}:${p.num}`) : undefined
+			const id = byRendered.get(o.label.trim()) ?? (p ? byZoneNum.get(`${p.zone}:${p.num}`) : undefined)
 			if (!id) return o
 			n++
 			return { ...o, locationId: id }
@@ -569,7 +573,13 @@
 		return m
 	})
 
+	/** Outlet display label from the project's outlet template (labelFormat.
+	 *  outletTemplate, e.g. `FZNNN` → "4A001"); legacy `Z.NNN` when unset. */
 	function expectedOutletLabel(l: { zone: string; locationNumber: number }): string {
+		const tpl = frameData?.labelFormat?.outletTemplate
+		if (tpl) {
+			return renderLabel(tpl, { floor, zone: l.zone, locationNumber: l.locationNumber, serverRoom: 'A', port: 1 })
+		}
 		return `${l.zone}.${String(l.locationNumber).padStart(3, '0')}`
 	}
 
@@ -645,12 +655,21 @@
 			const prev = outlets
 			outlets = [...outlets, outlet]
 			selectedIds = new Set([outlet.id])
-			toast.success(`Placed ${label} (linked)`)
 			history.record({
 				label: `Place ${label}`,
 				undo: () => { outlets = prev; selectedIds = new Set() },
 				redo: () => { outlets = [...prev, outlet]; selectedIds = new Set([outlet.id]) },
 			})
+			// Place-next: auto-arm the next unplaced location so a run of desks is
+			// one click each (Esc stops the sequence).
+			const next = unplacedLocations.find(l => l.id !== loc.id)
+			if (next) {
+				placingLocationId = next.id
+				activeTool = 'outlet'
+				toast.success(`Placed ${label} — next: ${next.zone}-${String(next.locationNumber).padStart(3, '0')} (Esc to stop)`)
+			} else {
+				toast.success(`Placed ${label} (linked) — all locations placed`)
+			}
 			return
 		}
 		const id = `out-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`

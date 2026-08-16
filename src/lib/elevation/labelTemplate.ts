@@ -130,11 +130,12 @@ export function templateIssues(tpl: string): string[] {
 }
 
 const EXAMPLE: LabelTemplateData = { floor: 1, zone: 'A', locationNumber: 23, serverRoom: 'B', port: 4, roomNumber: '1201', isHighLevel: false }
-const EXAMPLE_HL: LabelTemplateData = { ...EXAMPLE, isHighLevel: true }
 
-/** Preview strings for pickers: normal + high-level variants. */
-export function templateExample(tpl: string): { normal: string; highLevel: string } {
-	return { normal: renderLabel(tpl, EXAMPLE), highLevel: renderLabel(tpl, EXAMPLE_HL) }
+/** Preview strings for pickers: normal + high-level variants. Pass overrides
+ *  (e.g. the ACTIVE floor/zone) so the preview matches what will be created. */
+export function templateExample(tpl: string, overrides: Partial<LabelTemplateData> = {}): { normal: string; highLevel: string } {
+	const d = { ...EXAMPLE, ...overrides }
+	return { normal: renderLabel(tpl, d), highLevel: renderLabel(tpl, { ...d, isHighLevel: true }) }
 }
 
 /** The floor part of a template for a project floorFormat ('L01' | '01F' | '01'). */

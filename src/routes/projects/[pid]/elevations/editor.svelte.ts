@@ -48,6 +48,8 @@ export interface EditorCallbacks {
 export class ElevationsEditor {
 	// ── Context (set by the shell before/with sync) ──
 	projectId = $state('')
+	/** Firestore handle for cross-doc cleanup (set by the host component). */
+	db: import('$lib/db.svelte').Firestore | null = null
 	floor = $state(1)
 	room = $state('A')
 
@@ -75,8 +77,8 @@ export class ElevationsEditor {
 	// template is string | null (never undefined/absent): the frames doc is saved
 	// with merge:true, and a deleted key would be resurrected by the deep merge —
 	// an explicit null actually overwrites it.
-	labelFormat = $state<{ separator: 'legacy' | 'period' | 'hyphen'; includeZone: boolean; includeRoom: boolean; template?: string | null }>({
-		separator: 'legacy', includeZone: true, includeRoom: false, template: null,
+	labelFormat = $state<{ separator: 'legacy' | 'period' | 'hyphen'; includeZone: boolean; includeRoom: boolean; template?: string | null; outletTemplate?: string | null }>({
+		separator: 'legacy', includeZone: true, includeRoom: false, template: null, outletTemplate: null,
 	})
 	private nextReservationId = 1
 	/** Multi-selected ports for block operations — keys are portPosKey (rackId:ru:row:col). */
@@ -583,6 +585,7 @@ export class ElevationsEditor {
 		const next = { ...this.labelFormat, ...partial }
 		// null (not undefined/absent) — merge:true saves need an explicit value to clear
 		if (!next.template) next.template = null
+		if (!next.outletTemplate) next.outletTemplate = null
 		this.labelFormat = next
 		this.logFramesChange('update', 'labelFormat', JSON.stringify(partial))
 	}
@@ -605,6 +608,7 @@ export class ElevationsEditor {
 			includeZone: data.labelFormat?.includeZone ?? true,
 			includeRoom: data.labelFormat?.includeRoom ?? false,
 			template: data.labelFormat?.template ?? null,
+			outletTemplate: data.labelFormat?.outletTemplate ?? null,
 		}
 		const comparable = {
 			zoneLocations: data.zoneLocations ?? {},
@@ -669,6 +673,7 @@ export class ElevationsEditor {
 	generateLocations(count: number) {
 		const existing = this.zoneLocations[this.activeZone] ?? []
 		const used = this.usedLocationIds()
+		const removed = existing.slice(count).map(l => l.id).filter((id): id is string => !!id)
 		const locs: LocationConfig[] = Array.from({ length: count }, (_, i) => {
 			if (i < existing.length) return existing[i]
 			return {
@@ -682,6 +687,61 @@ export class ElevationsEditor {
 		this.mutateLocations('generate', `zone ${this.activeZone}: ${count}`, () => {
 			this.zoneLocations = { ...this.zoneLocations, [this.activeZone]: locs }
 		})
+		if (removed.length) void this.unlinkOutletsFromLocations(removed)
+	}
+
+	/**
+	 * Deleted locations must release the floorplan outlets that reference them:
+	 * regenerated locations reuse the same deterministic ids, so a stale link
+	 * would silently claim the NEW location (observed: "unplaced" list wrong
+	 * after a floor re-plan). Best-effort cross-doc cleanup of the floor's
+	 * outlets doc(s), including tenant-area variants.
+	 */
+	/**
+	 * Clear ALL frame + patch data for the floor (field-test friction #2):
+	 * locations, reservations, pins and baked labels (undoable together),
+	 * plus structured links and every room's patch cords (direct writes, not
+	 * undoable — the confirm dialog says so). Outlets keep their positions
+	 * but get unlinked via the location-removal hook.
+	 */
+	clearFloorData() {
+		const removedIds = this.usedLocationIds()
+		this.mutateFramesDoc('clear floor', 'locations, reservations, pins, baked labels', () => {
+			this.zoneLocations = {}
+			this.portReservations = []
+			this.portAssignments = {}
+			this.bakedLabels = {}
+		})
+		const base = `${this.projectId}_F${String(this.floor).padStart(2, '0')}`
+		this.db?.saveFields('frames', { id: base, structuredLinks: {} })
+		for (const r of ['A', 'B', 'C', 'D']) {
+			this.db?.saveFields('patching', { id: `${base}_R${r}`, connections: [] })
+		}
+		if (this.framesData) this.framesData = { ...this.framesData, structuredLinks: {} }
+		this.connections = []
+		if (removedIds.size) void this.unlinkOutletsFromLocations([...removedIds])
+	}
+
+	private async unlinkOutletsFromLocations(locationIds: string[]) {
+		if (!this.db) return
+		const dead = new Set(locationIds)
+		const base = `${this.projectId}_F${String(this.floor).padStart(2, '0')}`
+		try {
+			const docs = (await this.db.getMany('outlets')).filter((d: any) =>
+				d.id === base || (typeof d.id === 'string' && d.id.startsWith(`${base}__`)))
+			for (const d of docs) {
+				const outlets = (d as any).outlets as any[] | undefined
+				if (!outlets?.some(o => o.locationId && dead.has(o.locationId))) continue
+				const next = outlets.map(o => {
+					if (!o.locationId || !dead.has(o.locationId)) return o
+					const { locationId: _drop, ...rest } = o
+					return rest
+				})
+				await this.db.saveFields('outlets', { id: d.id, outlets: next })
+			}
+		} catch (e) {
+			console.warn('outlet unlink after location removal failed', e)
+		}
 	}
 
 	// ── Locations display: single zone or all zones flattened ──

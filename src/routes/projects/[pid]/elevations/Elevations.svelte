@@ -81,6 +81,7 @@
 		onsaveframes: (payload, changes) => onsaveframes?.(payload, changes),
 		onsavepatching: (payload, changes) => onsavepatching?.(payload, changes),
 	})
+	editor.db = db
 
 	// Keep editor context + remote data in sync. Track only the props — the
 	// editor methods read AND write their own $state, which inside a tracking
@@ -767,6 +768,11 @@
 								<button class="px-1.5 h-5 rounded border border-gray-200 bg-white hover:bg-gray-100 text-[10px] text-gray-600"
 									title="Export panel label sheets to Excel (Frames format)"
 									onclick={exportLabelSheets}>Export</button>
+								<button class="px-1.5 h-5 rounded border border-red-200 bg-white hover:bg-red-50 text-[10px] text-red-500"
+									title="Clear ALL frame + patch data on this floor: locations, reservations, pins, baked labels (undoable together), plus structured links and every room's patch cords (not undoable). Outlets stay but are unlinked."
+									onclick={() => {
+										if (confirm(`Clear ALL frame + patch data on floor ${floor}?\n\n• locations, reservations, pins, baked labels (one undo step)\n• structured links + patch cords in every room (NOT undoable)\n• floorplan outlets keep their positions but are unlinked`)) editor.clearFloorData()
+									}}>Clear floor…</button>
 							</div>
 							<ConfigPanel
 								{floor}

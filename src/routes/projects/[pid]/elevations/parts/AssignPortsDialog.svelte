@@ -50,7 +50,6 @@
 	let presetName = $state('')
 	let effectiveTemplate = $derived(editor.labelFormat.template
 		?? templateForLegacyFormat(editor.labelFormat, editor.floorFormat))
-	let example = $derived(templateExample(effectiveTemplate))
 	let customIssues = $derived(customTemplate ? templateIssues(customTemplate) : [])
 
 	function pickFormat(v: string) {
@@ -79,6 +78,7 @@
 	const zones = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 	let zone = $state(editor.activeZone)
 	let portCount = $derived(editor.selectedPorts.size)
+	let example = $derived(templateExample(effectiveTemplate, { floor: editor.floor, zone }))
 
 	// generate mode
 	let portsPerLocation = $state(2)
@@ -161,13 +161,13 @@
 						onchange={e => pickFormat(e.currentTarget.value)}>
 						<optgroup label="Built-in">
 							{#each BUILTINS as b (b.key)}
-								<option value={'builtin:' + b.key}>{b.name} · {templateExample(templateForLegacyFormat({ ...editor.labelFormat, separator: b.key }, editor.floorFormat)).normal}</option>
+								<option value={'builtin:' + b.key}>{b.name} · {templateExample(templateForLegacyFormat({ ...editor.labelFormat, separator: b.key }, editor.floorFormat), { floor: editor.floor, zone }).normal}</option>
 							{/each}
 						</optgroup>
 						{#if presets.length}
 							<optgroup label="Library">
 								{#each presets as p (p.id)}
-									<option value={'preset:' + p.id}>{p.name} · {templateExample(p.template).normal}</option>
+									<option value={'preset:' + p.id}>{p.name} · {templateExample(p.template, { floor: editor.floor, zone }).normal}</option>
 								{/each}
 							</optgroup>
 						{/if}
@@ -202,11 +202,21 @@
 							{#if customIssues.length}
 								<div class="text-[10px] text-amber-500">{customIssues.join(' · ')}</div>
 							{:else if customTemplate}
-								<div class="font-mono text-[10px] text-gray-500">{templateExample(customTemplate).normal} <span class="text-gray-400">/ {templateExample(customTemplate).highLevel}</span></div>
+								<div class="font-mono text-[10px] text-gray-500">{templateExample(customTemplate, { floor: editor.floor, zone }).normal} <span class="text-gray-400">/ {templateExample(customTemplate, { floor: editor.floor, zone }).highLevel}</span></div>
 							{/if}
 							<div class="text-[10px] text-gray-400 leading-snug">
 								F floor · Z zone · N location · S room letter · P port · A port as letter · R room no. · H high-level.
 								Repeat = zero-pad (NNN → 001). "quotes" for literal text, [ ] only renders when its tokens have values.
+							</div>
+							<div class="flex items-center gap-1">
+								<span class="text-[10px] text-gray-500 shrink-0 w-20">Outlet label</span>
+								<input class="flex-1 h-6 px-2 border border-gray-200 rounded font-mono text-[11px]"
+									value={editor.labelFormat.outletTemplate ?? ''}
+									placeholder={'e.g. FZNNN → outlets labeled ' + templateExample('FZNNN', { floor: editor.floor, zone }).normal}
+									onchange={e => editor.updateLabelFormat({ outletTemplate: e.currentTarget.value || undefined })} />
+								{#if editor.labelFormat.outletTemplate}
+									<span class="font-mono text-[10px] text-gray-500 shrink-0">{templateExample(editor.labelFormat.outletTemplate, { floor: editor.floor, zone }).normal}</span>
+								{/if}
 							</div>
 							<div class="flex items-center gap-1">
 								<input class="flex-1 h-6 px-2 border border-gray-200 rounded text-[11px]" bind:value={presetName} placeholder="preset name" />
