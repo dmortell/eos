@@ -33,8 +33,13 @@
 
 	// Current selection derived from the stored format: a template matching a
 	// library preset selects it; any other template is "custom"; no template =
-	// the legacy separator built-ins.
+	// the legacy separator built-ins. forceCustom keeps the Custom editor open
+	// even when the template happens to EQUAL a saved preset — without it,
+	// picking "Custom…" would instantly re-derive back to the matching preset
+	// and the template input could never appear.
+	let forceCustom = $state(false)
 	let formatChoice = $derived.by(() => {
+		if (forceCustom) return 'custom'
 		const t = editor.labelFormat.template
 		if (!t) return `builtin:${editor.labelFormat.separator}`
 		const p = presets.find(p => p.template === t)
@@ -49,6 +54,7 @@
 	let customIssues = $derived(customTemplate ? templateIssues(customTemplate) : [])
 
 	function pickFormat(v: string) {
+		forceCustom = v === 'custom'
 		if (v.startsWith('builtin:')) {
 			editor.updateLabelFormat({ separator: v.slice(8) as any, template: undefined })
 		} else if (v.startsWith('preset:')) {
