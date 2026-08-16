@@ -974,3 +974,25 @@ Legacy / infra (independent of the split):
 17. Migrate racks tool to $lib PanZoomCanvas + AutoSave; migrate raw
     history.pushState calls in old +page.svelte files when touched.
 18. Risers as the building level (§7) — unchanged long-term direction.
+
+### Triage refinements (user, 2026-08-16)
+- **#7 KEEP (build):** racks on floorplans stay in sync with elevations racks.
+  Foundation exists: `RackPlacement.rackId` already references the racks doc
+  and the floorplan join (racksById) derives dims/labels live. Work = an
+  "Unplaced racks" picker on the floorplan (rooms' racks with no placement on
+  the floor's plan → click to place, mirroring the place-location picker),
+  two-way position sync question resolved by: racks doc owns rack identity +
+  dims; the outlets doc placement owns position/rotation on the plan.
+- **#9:** security rules confirmed OK by user. Where to edit labelFormats
+  today: Elevations → block-select ports (Ctrl+click) → "Auto-generate…" →
+  Label format select → "Custom…" → template input + "Save to library"
+  (presets list + delete live in the same section). NOTE: buried — a
+  standalone "Manage label formats" entry point is a candidate follow-up.
+- **#12 EXPANDED — multi-hop circuit tracing.** Not just matching-label pairs:
+  trace full chains across patch cords AND structured links, e.g.
+  server1-port3 → (cord) → rack1-rack3 tie port 17 → (tie/structured link,
+  matching labels both ends) → far-end tie port → (cord) → switch02 port 3/21.
+  The trace walks: device port → cord → panel/tie port → label-matched far
+  end → cord → device port, over any number of hops. Belongs in the new
+  Patching editor (read-only trace view first; selection highlights the
+  whole circuit).
