@@ -682,12 +682,15 @@
 		}
 		const id = `out-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
 
-		const zoneOutlets = outlets.filter(o => o.label?.startsWith(activeZone + '.'))
-		const maxNum = zoneOutlets.reduce((max, o) => {
-			const n = parseInt(o.label?.split('.')[1] ?? '0')
-			return n > max ? n : max
-		}, 0)
-		const label = `${activeZone}.${String(maxNum + 1).padStart(3, '0')}`
+		// Next label in the project's outlet format (template-aware): highest n whose
+		// rendered label is already taken, plus one — same max+1 semantics for the
+		// legacy Z.NNN fallback and for labelFormat.outletTemplate (e.g. 4A013).
+		const used = new Set(outlets.map(o => o.label).filter(Boolean))
+		let maxNum = 0
+		for (let n = 1; n <= 999; n++) {
+			if (used.has(expectedOutletLabel({ zone: activeZone, locationNumber: n }))) maxNum = n
+		}
+		const label = expectedOutletLabel({ zone: activeZone, locationNumber: maxNum + 1 })
 
 		const outlet: OutletConfig = {
 			id,
