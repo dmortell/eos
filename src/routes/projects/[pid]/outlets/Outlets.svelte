@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte'
 	import { Button, Icon, Select, Titlebar, Firestore } from '$lib'
 	import VersionPanel from '../parts/VersionPanel.svelte'
 	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
@@ -438,17 +439,24 @@
 	$effect(() => {
 		const d = data
 		if (!d) return
-		if (!autosave.shouldApplyRemote(comparableOf(d))) return
-		if (d.outlets) outlets = d.outlets
-		if (d.rackPlacements) rackPlacements = d.rackPlacements
-		if (d.trunks) trunks = d.trunks
-		if (d.selectedFileId) selectedFileId = d.selectedFileId
-		if (d.selectedPage) selectedPage = d.selectedPage
-		if (d.activeZone) activeZone = d.activeZone
-		if (d.legendPos) legendPos = d.legendPos
-		if (d.printSettings) printSettings = d.printSettings
-		// don't schedule a pointless echo-save of the remote data we just applied
-		prevSnapshot = JSON.stringify(payloadOf())
+		// untrack: this effect must re-run ONLY when the remote doc changes.
+		// shouldApplyRemote reads autosave.status ($state) and the trailing
+		// payloadOf() reads every local — tracked, a local edit re-ran this
+		// effect with the STALE doc still in `data` (the Firestore echo not yet
+		// delivered) and reverted the edit, which then autosaved the revert.
+		untrack(() => {
+			if (!autosave.shouldApplyRemote(comparableOf(d))) return
+			if (d.outlets) outlets = d.outlets
+			if (d.rackPlacements) rackPlacements = d.rackPlacements
+			if (d.trunks) trunks = d.trunks
+			if (d.selectedFileId) selectedFileId = d.selectedFileId
+			if (d.selectedPage) selectedPage = d.selectedPage
+			if (d.activeZone) activeZone = d.activeZone
+			if (d.legendPos) legendPos = d.legendPos
+			if (d.printSettings) printSettings = d.printSettings
+			// don't schedule a pointless echo-save of the remote data we just applied
+			prevSnapshot = JSON.stringify(payloadOf())
+		})
 	})
 
 	// ── Auto-save (schedule on any local change) ──
@@ -1816,6 +1824,7 @@
 						locations={locationList}
 						{bakedByLocation}
 						{linkedLocationIds}
+						expectedLabel={expectedOutletLabel}
 						onupdate={updateOutlet}
 						onupdateselected={updateSelectedOutlets}
 						ondelete={deleteSelected}

@@ -6,7 +6,7 @@
 
 	type LocationRow = { id: string; zone: string; locationNumber: number; portCount: number; locationType: string }
 
-	let { outlets, selectedIds, selectedRackIds = new Set(), locations = [], bakedByLocation = new Map(), linkedLocationIds = new Set(), onupdate, onupdateselected, ondelete, onlinkall, onsyncall, onunlink, oncreatelocation }: {
+	let { outlets, selectedIds, selectedRackIds = new Set(), locations = [], bakedByLocation = new Map(), linkedLocationIds = new Set(), expectedLabel, onupdate, onupdateselected, ondelete, onlinkall, onsyncall, onunlink, oncreatelocation }: {
 		outlets: OutletConfig[]
 		selectedIds: Set<string>
 		selectedRackIds?: Set<string>
@@ -14,6 +14,8 @@
 		bakedByLocation?: Map<string, Map<number, string>>
 		/** Locations already linked to some outlet — guarded in the picker. */
 		linkedLocationIds?: Set<string>
+		/** Template-aware outlet label for a location (labelFormat.outletTemplate). */
+		expectedLabel?: (l: { zone: string; locationNumber: number }) => string
 		onupdate: (id: string, updates: Partial<OutletConfig>) => void
 		onupdateselected: (updates: Partial<OutletConfig>) => void
 		ondelete: () => void
@@ -36,7 +38,9 @@
 		return Array.from({ length: singleOutlet.portCount }, (_, i) => m.get(i + 1) ?? '—')
 	})
 	let labelDiverges = $derived(!!linkedLocation && !!singleOutlet
-		&& singleOutlet.label !== `${linkedLocation.zone}.${String(linkedLocation.locationNumber).padStart(3, '0')}`)
+		&& singleOutlet.label !== (expectedLabel
+			? expectedLabel(linkedLocation)
+			: `${linkedLocation.zone}.${String(linkedLocation.locationNumber).padStart(3, '0')}`))
 
 	// Capture the edit target when a text/number field gains focus, so that a
 	// commit fired on blur (e.g. clicking away to another outlet) writes to the
