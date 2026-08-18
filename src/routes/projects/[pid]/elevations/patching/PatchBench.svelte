@@ -69,6 +69,9 @@
 			} else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) {
 				e.preventDefault()
 				editor.history.redo()
+			} else if ((e.key === 'Delete' || e.key === 'Backspace') && editor.selectedConnectionId) {
+				e.preventDefault()
+				editor.deleteConnections([editor.selectedConnectionId])
 			} else if (e.key === 'Escape') {
 				if (editor.bulkPreviewOpen) editor.bulkPreviewOpen = false
 				else if (editor.bulkDest || editor.bulkSel.length) editor.cancelBulk()
