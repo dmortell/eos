@@ -4,7 +4,7 @@
 	import { getContext } from 'svelte'
 	import { Firestore, Spinner, Session } from '$lib'
 	import { writeLog } from '$lib/logger'
-	import { migrateFloors, updateFloors as _updateFloors, deleteFloor as _deleteFloor } from '$lib/utils/floor'
+	import { migrateFloors, updateFloors as _updateFloors, deleteFloor as _deleteFloor, floorAreaDocId } from '$lib/utils/floor'
 	import type { DeviceTemplate } from '../racks/parts/types'
 	import { findOrCreateDrawing } from '$lib/versioning/service'
 	import Elevations from './Elevations.svelte'
@@ -13,7 +13,7 @@
 	let session = getContext('session') as Session
 	let rackData: any = $state(null)
 	let library: DeviceTemplate[] = $state([])
-	let floors = $state([{ number: 1, serverRoomCount: 1 }])
+	let floors = $state<import('$lib/types/project').FloorConfig[]>([{ number: 1, serverRoomCount: 1 }])
 	let loading = $state(true)
 	let activeFloor = $state(Number(page.url.searchParams.get('floor')) || 1)
 	let activeRoom = $state(page.url.searchParams.get('room') ?? 'A')
@@ -88,6 +88,54 @@
 		})
 		return () => { unsub?.() }
 	})
+
+	// ── Floorplan tab (embedded Outlets editor) — outlets doc, files, all-room racks ──
+	let outletsData: any = $state(null)
+	let files: any[] = $state([])
+	let racksAll: Record<string, any> = $state({})
+	const outletAreas = $derived(floors.find(f => f.number === activeFloor)?.areas ?? [])
+	const outletArea = $derived(outletAreas.length ? (outletAreas.find((a: any) => a.primary) ?? outletAreas[0]).id : '')
+	function outletsDocId(fl = activeFloor, area = outletArea) {
+		return floorAreaDocId(page.params.pid ?? '', fl, outletAreas, area || undefined)
+	}
+	$effect(() => {
+		const pid = page.params.pid
+		if (!pid) return
+		const id = outletsDocId(activeFloor, outletArea)
+		const unsub = db.subscribeOne('outlets', id, (data: any) => { outletsData = data })
+		return () => { unsub?.() }
+	})
+	$effect(() => {
+		const pid = page.params.pid
+		if (!pid) return
+		const unsub = db.subscribeWhere('files', 'projectId', pid, (data: any[]) => { files = data })
+		return () => { unsub?.() }
+	})
+	$effect(() => {
+		const pid = page.params.pid
+		const fl = activeFloor
+		if (!pid) return
+		const floorStr = String(fl).padStart(2, '0')
+		const unsubs = ['A', 'B', 'C', 'D'].map(rm =>
+			db.subscribeOne('racks', `${pid}_F${floorStr}_R${rm}`, (data: any) => {
+				racksAll = { ...racksAll, [rm]: data }
+			}))
+		return () => { unsubs.forEach(u => u?.()) }
+	})
+	function saveOutlets(payload: any) {
+		const pid = page.params.pid
+		if (!pid) return
+		db.save('outlets', { id: outletsDocId(), ...payload, floor: activeFloor })
+	}
+	/** Rack placement edits from the floorplan → that room's racks doc. */
+	function saveRackFromPlan(room: string, rackId: string, updates: Record<string, any>) {
+		const pid = page.params.pid
+		if (!pid) return
+		const rackDoc = racksAll[room]
+		if (!rackDoc?.racks) return
+		const updatedRacks = rackDoc.racks.map((r: any) => r.id === rackId ? { ...r, ...updates } : r)
+		db.save('racks', { id: `${pid}_F${String(activeFloor).padStart(2, '0')}_R${room}`, racks: updatedRacks })
+	}
 
 	// Project-level device library (shared with the Racks tool)
 	$effect(() => {
@@ -206,6 +254,7 @@
 {:else}
 	<Elevations data={rackData} {framesData} {patchingData} {library} {initialFocusRackId} floor={activeFloor} room={activeRoom} {floors} projectId={page.params.pid} {floorFormat} {projectName}
 		{drawingId} {db} uid={session.user?.uid ?? ''}
-		onsave={save} onsaveframes={saveFrames} onsavepatching={savePatching} onlibrarychange={saveLibrary} onfloorchange={changeFloor} onroomchange={changeRoom}
+		{outletsData} {files} {racksAll} {outletAreas} {outletArea}
+		onsave={save} onsaveframes={saveFrames} onsavepatching={savePatching} onsaveoutlets={saveOutlets} onsaverack={saveRackFromPlan} onlibrarychange={saveLibrary} onfloorchange={changeFloor} onroomchange={changeRoom}
 		onupdatefloors={updateFloors} ondeletefloor={deleteFloor} />
 {/if}

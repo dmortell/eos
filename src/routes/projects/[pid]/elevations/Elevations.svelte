@@ -29,6 +29,7 @@
 	import SyncLabelsDialog from './parts/SyncLabelsDialog.svelte'
 	import PatchBench from './patching/PatchBench.svelte'
 	import FramesBench from './frames/FramesBench.svelte'
+	import Outlets from '../outlets/Outlets.svelte'
 	import PatchListPane from '../patching/parts/PatchListPane.svelte'
 	import PatchSettingsDialog from '../patching/parts/SettingsDialog.svelte'
 	import { CABLE_TYPES } from '../patching/parts/constants'
@@ -48,7 +49,7 @@
 	import { fmtFloor } from '$lib/utils/floor'
 	import type { FloorConfig } from '$lib/types/project'
 
-	let { data = null, framesData = null, patchingData = null, library = [], floor, room, floors = [], projectId = '', projectName = '', floorFormat = 'L01', drawingId = '', db = new Firestore(), uid = '', onsave, onsaveframes, onsavepatching, onlibrarychange, onfloorchange, onroomchange, onupdatefloors, ondeletefloor, bare = false, initialFocusRackId }: {
+	let { data = null, framesData = null, patchingData = null, library = [], floor, room, floors = [], projectId = '', projectName = '', floorFormat = 'L01', drawingId = '', db = new Firestore(), uid = '', outletsData = null, files = [], racksAll = {}, outletAreas = [], outletArea = '', onsave, onsaveframes, onsavepatching, onsaveoutlets, onsaverack, onlibrarychange, onfloorchange, onroomchange, onupdatefloors, ondeletefloor, bare = false, initialFocusRackId }: {
 		data?: any
 		framesData?: any
 		patchingData?: any
@@ -62,9 +63,17 @@
 		drawingId?: string
 		db?: Firestore
 		uid?: string
+		/** Floorplan tab (embedded Outlets editor) — doc + files + all-room racks. */
+		outletsData?: any
+		files?: any[]
+		racksAll?: Record<string, any>
+		outletAreas?: any[]
+		outletArea?: string
 		onsave?: (payload: any, changes: ChangeDetail[]) => void
 		onsaveframes?: (payload: any, changes: ChangeDetail[]) => void
 		onsavepatching?: (payload: any, changes: ChangeDetail[]) => void
+		onsaveoutlets?: (payload: any) => void
+		onsaverack?: (room: string, rackId: string, updates: Record<string, any>) => void
 		onlibrarychange?: (templates: DeviceTemplate[]) => void
 		onfloorchange?: (floor: number) => void
 		onroomchange?: (room: string) => void
@@ -143,12 +152,12 @@
 	let assignDialog = $state<'generate' | 'existing' | null>(null)
 	let syncDialogOpen = $state(false)
 
-	// ── Main view tabs: Elevation | Patching | Frames — §13/§14 ──
-	type MainView = 'elevation' | 'patching' | 'frames'
+	// ── Main view tabs: Elevation | Frames | Patching | Floorplan — §13/§14 ──
+	type MainView = 'elevation' | 'patching' | 'frames' | 'floorplan'
 	let mainView = $state<MainView>((() => {
 		if (bare || typeof window === 'undefined') return 'elevation'
 		const v = new URLSearchParams(window.location.search).get('view')
-		return v === 'patching' || v === 'frames' ? v : 'elevation'
+		return v === 'patching' || v === 'frames' || v === 'floorplan' ? v : 'elevation'
 	})())
 	/** One-shot seed for the patching tab (Inspector "Patch…" button). */
 	let benchSeed = $state<{ rackIds: string[]; deviceId?: string; ts: number } | null>(null)
@@ -681,14 +690,25 @@
 	<!-- Main view tabs (§13): the canvas or a dedicated editor view -->
 	<div class="h-7 px-2 flex items-end gap-1 bg-slate-700 shrink-0 print:hidden">
 		<!-- Frames before Patching: the normal flow assigns rear-port usage + terminations first -->
-		{#each [['elevation', 'Elevation'], ['frames', 'Frames'], ['patching', 'Patching']] as [key, label] (key)}
+		{#each [['elevation', 'Elevation'], ['frames', 'Frames'], ['patching', 'Patching'], ['floorplan', 'Floorplan']] as [key, label] (key)}
 			<button class="px-3 h-6 rounded-t text-[11px] font-medium transition-colors
 					{mainView === key ? 'bg-white text-gray-800' : 'bg-slate-600/60 text-slate-200 hover:bg-slate-600'}"
 				onclick={() => setMainView(key as any)}>{label}</button>
 		{/each}
 	</div>
 
-	{#if mainView === 'patching' || mainView === 'frames'}
+	{#if mainView === 'floorplan'}
+		<!-- Embedded Outlets editor: same doc/editor as the standalone Floorplan
+		     tool, so terminate→place→patch is one tab-switch, not a page hop.
+		     Keyed per floor+area — Outlets owns per-mount history/selection. -->
+		<div class="flex-1 min-h-0">
+			{#key `${floor}_${outletArea}`}
+				<Outlets embedded data={outletsData} {files} {floors} frameData={framesData} racksData={racksAll}
+					{floor} areas={outletAreas} activeArea={outletArea} {projectId} {db} {uid}
+					onsave={onsaveoutlets} {onsaverack} {onfloorchange} {onupdatefloors} {ondeletefloor} />
+			{/key}
+		</div>
+	{:else if mainView === 'patching' || mainView === 'frames'}
 		{#if mainView === 'patching'}
 			<PatchBench {db} pid={projectId} {floor} seed={benchSeed} />
 		{:else}

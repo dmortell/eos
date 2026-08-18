@@ -28,7 +28,7 @@
 	import { renderLabel } from '$lib/elevation/labelTemplate'
   import { toast } from 'svelte-sonner';
 
-	let { data = null, files = [], floors = [], frameData = null, racksData = {}, floor, areas = [], activeArea = '', projectId = '', projectName = '', drawingId = '', db = new Firestore(), uid = '', initialLayers, onsave, onfloorchange, onareachange, onupdatefloors, ondeletefloor, onsaverack, bare = false }: {
+	let { data = null, files = [], floors = [], frameData = null, racksData = {}, floor, areas = [], activeArea = '', projectId = '', projectName = '', drawingId = '', db = new Firestore(), uid = '', initialLayers, onsave, onfloorchange, onareachange, onupdatefloors, ondeletefloor, onsaverack, bare = false, embedded = false }: {
 		data?: any
 		files?: any[]
 		floors?: FloorConfig[]
@@ -52,6 +52,9 @@
 		onsaverack?: (room: string, rackId: string, updates: Partial<RackConfig>) => void
 		/** Embed mode (workspace): skip standalone Titlebar, size to container. */
 		bare?: boolean
+		/** Tab-embed mode (Elevations Floorplan tab): full editor UI (sidebar,
+		 *  floor tabs) but no Titlebar, sized to container. */
+		embedded?: boolean
 	} = $props()
 
 	// initialLayers will be used to filter outlet/trunk visibility when layer toggle UI is built
@@ -1614,8 +1617,8 @@
 
 <svelte:window onkeydown={onKeyDown} />
 
-<div class="flex flex-col overflow-hidden" class:h-screen={!bare} class:h-full={bare}>
-{#if !bare}
+<div class="flex flex-col overflow-hidden" class:h-screen={!bare && !embedded} class:h-full={bare || embedded}>
+{#if !bare && !embedded}
 <Titlebar menu={true} title={projectName ? `${projectName} — Floorplan` : 'Floorplan'}>
 	{#if drawingId}
 		<button class="flex items-center gap-1 px-2 py-0.5 rounded text-xs hover:bg-white/20 transition-colors"
