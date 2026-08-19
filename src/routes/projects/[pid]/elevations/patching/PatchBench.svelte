@@ -125,6 +125,10 @@
 				<option value="change">Change</option>
 				<option value="installed">Installed</option>
 			</select>
+			<span class="text-gray-400" title="Alt+click a free port to hold (reserve) it under this label — held ports refuse cords until released">Hold</span>
+			<input class="h-5.5 w-16 px-1.5 border border-amber-200 bg-amber-50/50 rounded text-[11px]"
+				title="Label for new holds (e.g. VLAN, uplink). Alt+click a free port to hold/release it."
+				bind:value={editor.stickyHoldLabel} />
 			<div class="w-px h-4 bg-gray-200"></div>
 			<div class="relative">
 				<Icon name="search" size={11} class="absolute left-1.5 top-1/2 -translate-y-1/2 text-gray-300" />

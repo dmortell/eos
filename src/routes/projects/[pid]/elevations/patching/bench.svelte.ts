@@ -247,6 +247,13 @@ export class BenchEditor {
 		// While picking bulk destinations, plain clicks append destinations too
 		if (this.bulkDest) { this.bulkToggle(deviceId, portIndex); return }
 		const existing = this.portConnMap.get(`${deviceId}:${portIndex}`)
+		{
+			const held = this.holdOf(deviceId, portIndex)
+			if (held && !existing) {
+				this.statusHint = `${this.labelOf(deviceId, portIndex)} is held for ${held} — Alt+click releases the hold`
+				return
+			}
+		}
 		if (!this.patchArm) {
 			if (existing) {
 				this.selectConnection(this.selectedConnectionId === existing.id ? null : existing.id)
@@ -285,6 +292,42 @@ export class BenchEditor {
 		this.selectConnection(conn.id)
 	}
 
+	// ── Port holds: reserve free ports (VLAN / uplink / spare) so patching
+	//    can't take them by accident. Device-keyed (`deviceId:portIndex`) on the
+	//    frames doc — position keys collide past 48 ports, and a hold should
+	//    move with its switch. saveFields: hold releases must persist. ──
+	holds = $derived<Record<string, string>>(this.framesDoc?.portHolds ?? {})
+	stickyHoldLabel = $state('VLAN')
+
+	holdOf(deviceId: string, portIndex: number): string | undefined {
+		return this.holds[`${deviceId}:${portIndex}`]
+	}
+
+	/** Alt+click on a free chip: toggle a hold (undoable; writes only portHolds). */
+	toggleHold(deviceId: string, portIndex: number) {
+		const key = `${deviceId}:${portIndex}`
+		if (this.portConnMap.has(key)) { this.statusHint = 'Port is patched — remove the cord before holding it'; return }
+		const prev = { ...(this.framesDoc?.portHolds ?? {}) }
+		const next = { ...prev }
+		const removing = key in next
+		const label = removing ? next[key] : (this.stickyHoldLabel.trim() || 'hold')
+		if (removing) delete next[key]; else next[key] = label
+		const apply = (holds: Record<string, string>) => {
+			this.framesDoc = { ...(this.framesDoc ?? {}), portHolds: holds }
+			this.db.saveFields('frames', { id: this.framesDocId(), portHolds: holds })
+		}
+		apply(next)
+		const portLabel = this.labelOf(deviceId, portIndex)
+		this.history.record({
+			label: removing ? `release hold on ${portLabel}` : `hold ${portLabel} (${label})`,
+			undo: () => apply(prev),
+			redo: () => apply(next),
+		})
+		this.statusHint = removing
+			? `Hold released on ${portLabel}`
+			: `${portLabel} held for ${label} — Alt+click again to release`
+	}
+
 	// ── Bulk patching (§13 P-3): ordered sources → ordered destinations → preview ──
 	/** Ordered SOURCE port keys (`deviceId:portIndex`), built by Ctrl+click. */
 	bulkSel = $state<string[]>([])
@@ -314,6 +357,10 @@ export class BenchEditor {
 	bulkToggle(deviceId: string, portIndex: number) {
 		const key = `${deviceId}:${portIndex}`
 		if (this.portConnMap.has(key)) { this.statusHint = 'Port already patched — bulk patch uses free ports'; return }
+		{
+			const held = this.holds[key]
+			if (held) { this.statusHint = `${this.labelOf(deviceId, portIndex)} is held for ${held} — skipped (Alt+click releases)`; return }
+		}
 		if (this.bulkDest) {
 			if (this.bulkSel.includes(key) || this.bulkDest.includes(key)) return
 			if (this.bulkDest.length >= this.bulkSel.length) return
@@ -404,7 +451,7 @@ export class BenchEditor {
 		const q = this.filter.q.trim().toLowerCase()
 		if (q && !(info?.label?.toLowerCase().includes(q) || String(portIndex) === q)) return false
 		if (this.filter.types.length && !(info && this.filter.types.includes(info.locationType))) return false
-		if (this.filter.freeOnly && this.portConnMap.has(key)) return false
+		if (this.filter.freeOnly && (this.portConnMap.has(key) || key in this.holds)) return false
 		return true
 	}
 

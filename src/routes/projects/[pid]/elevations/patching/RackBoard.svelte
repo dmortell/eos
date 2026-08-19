@@ -100,21 +100,26 @@
 									{@const isJump = editor.highlightPortKey === key}
 									{@const srcIdx = editor.bulkSel.indexOf(key)}
 									{@const dstIdx = editor.bulkDest?.indexOf(key) ?? -1}
+									{@const held = editor.holdOf(d.id, p)}
 									<button
 										data-pk={key}
 										class="relative w-16 h-6.5 rounded-sm border flex items-center justify-center shrink-0 transition-opacity
-											{info ? (LOC_TYPE_COLORS[info.locationType] ?? 'bg-blue-500/15 border-blue-500/40 text-blue-600') : 'bg-gray-100 border-gray-200/50 text-gray-400'}
+											{held ? 'bg-amber-100 border-amber-400/70 text-amber-700' : info ? (LOC_TYPE_COLORS[info.locationType] ?? 'bg-blue-500/15 border-blue-500/40 text-blue-600') : 'bg-gray-100 border-gray-200/50 text-gray-400'}
 											{isArmed ? 'ring-2 ring-amber-500' : srcIdx >= 0 ? 'ring-2 ring-purple-400' : dstIdx >= 0 ? 'ring-2 ring-teal-400' : isJump ? 'ring-2 ring-amber-400' : isConnSel ? 'ring-2 ring-red-500' : ''}
 											{dimmed ? 'opacity-25' : ''}"
 										data-tip={`${info?.label ?? fallbackPortLabel(rack.label, d.positionU, p)}${info ? `\n${LOC_TYPE_LABELS[info.locationType] ?? info.locationType}` : ' — unlabeled'}${
-											conn ? '\npatched — click to select the cord'
+											held ? `\nheld for ${held} — Alt+click releases`
+											: conn ? '\npatched — click to select the cord'
 											: editor.patchArm && !(editor.patchArm.deviceId === d.id && editor.patchArm.portIndex === p) ? `\nclick: connect\n${editor.labelOf(editor.patchArm.deviceId!, editor.patchArm.portIndex)} ↔ this port`
 											: editor.patchArm ? '\narmed — click again to cancel'
-											: '\nclick: set first port of a patch cord\nCtrl+click: bulk select'}`}
-										onclick={e => (e.ctrlKey || e.metaKey) ? editor.bulkToggle(d.id, p) : editor.portClick(rack!.id, d.id, p)}>
+											: '\nclick: set first port of a patch cord\nCtrl+click: bulk select\nAlt+click: hold (reserve) this port'}`}
+										onclick={e => e.altKey ? editor.toggleHold(d.id, p) : (e.ctrlKey || e.metaKey) ? editor.bulkToggle(d.id, p) : editor.portClick(rack!.id, d.id, p)}>
 										<span class="font-mono text-[9px] leading-none select-none whitespace-nowrap overflow-hidden">
 											{info ? shortLabel(info.label) : p}
 										</span>
+										{#if held}
+											<span class="absolute top-0 left-0 right-0 h-0.5 bg-amber-500 rounded-t-sm"></span>
+										{/if}
 										{#if srcIdx >= 0 || dstIdx >= 0}
 											<span class="absolute -top-1 -left-1 min-w-3.5 h-3.5 px-0.5 rounded-full text-[8px] leading-3.5 text-center text-white {srcIdx >= 0 ? 'bg-purple-500' : 'bg-teal-500'}">
 												{(srcIdx >= 0 ? srcIdx : dstIdx) + 1}
