@@ -25,7 +25,9 @@ Outlets list → **Delete N**.
    detail strip** opens at the bottom.
 2. Click **Select all** in the strip; repeat for each panel, top-down
    (selection accumulates, and allocation follows rack order → RU top-down
-   automatically). Example: U38, U37, U36 = 72 ports.
+   automatically). Example: U38, U37, U36 = 72 ports. To label a whole rack,
+   select the rack instead and use the Inspector's **Select all panel
+   ports** — one click for every panel port (switches excluded).
 3. Click **Auto-generate…** in the block bar:
    - **Zone** (e.g. A), **Ports/location** (6), **Start number** (auto),
      **Type** (desk).
@@ -89,19 +91,29 @@ termination state; the baked allocations from step 1 appear automatically as
 
 1. Add the rack(s) to the **bench** from the tree — each rack is a board of
    port chips (labels, tints, cord dots).
-2. Set the sticky **Cable** and **Status** in the toolbar.
-3. Single cords: click a free port (armed) → click the destination port.
+2. **Hold the reserved ports first**: set the toolbar **Hold** label (e.g.
+   `VLAN`), then Alt+click each reserved switch port (uplinks, VLAN ports).
+   Held chips turn amber and refuse cords — single patching warns, bulk and
+   the rule wizard skip them. Alt+click again releases; holds persist on the
+   floor's frames doc and are undoable.
+3. Set the sticky **Cable** and **Status** in the toolbar.
+4. Single cords: click a free port (armed) → click the destination port.
    Selecting a cord highlights both ends in red; **Delete** removes it.
-4. **Bulk**: Ctrl+click the source ports *in order* (numbered purple
+5. **By rule…** (the fast path): one dialog generates the whole mapping —
+   pick the source panels (location-labeled panels are pre-checked) and the
+   destination switches, set ports/location (2), the left/right range start
+   ports (2 / 14), and keep **checkerboard offset** on. It takes the first N
+   ports of every location, keeps frame sides separate, alternates locations
+   across the switches (right side offset by one → true checkerboard), skips
+   held and patched ports, and opens the result in the bulk preview for
+   confirmation. The whole 24-cord walkthrough below is one Create.
+6. **Bulk** (manual): Ctrl+click the source ports *in order* (numbered purple
    badges) → **Patch to…** → click the destination ports in order (teal) →
    review the mapping table → **Create**. Occupied ports are rejected
    automatically; cross-room pairs are flagged and skipped.
-   - For side-separated cabling, run one bulk round per switch per side
-     (e.g. left-frame outlets → left switch ports 2–11, right-frame →
-     14–23, skipping reserved uplink/VLAN ports).
-5. **Filter bar**: substring, usage chips, free-only; Enter jumps to the
+7. **Filter bar**: substring, usage chips, free-only; Enter jumps to the
    next match.
-6. **Circuit**: selecting any cord shows its full chain —
+8. **Circuit**: selecting any cord shows its full chain —
    `A-001 · p1 —run→ 4A001-01 —cord→ 4AR01-U41-P2` — click a hop to pull
    that device onto the bench.
 

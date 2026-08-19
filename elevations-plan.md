@@ -1511,3 +1511,51 @@ avoid timer-paced loops.
 
 **Findings still open:** #5 patch-by-rule wizard, #6 switch-port
 reservations, #8 rack-level select-all.
+
+### Session追記 (2026-08-20 — findings #5/#6/#8 shipped: holds, rule wizard, rack select-all)
+Overnight loop round 2 — all three remaining field-test findings implemented,
+unit-tested (50/50 incl. 11 new), and browser-verified on L04; committed per
+round.
+
+**`9b8d4a7` (#8)** Inspector "Select all panel ports" for selected rack(s):
+one click block-selects every panel port (switches excluded — position keys
+collide past 48 ports and labeling targets panels). Verified: 288 ports for
+4AR01, block bar w/ Auto-generate opens.
+
+**`fb4d565` (#6)** Port HOLDS: new frames-doc field `portHolds`
+(Record<'deviceId:portIndex', label> — device-keyed on purpose: position keys
+are ambiguous >48p and a hold should move with its switch; saveFields so
+releases persist). Bench: sticky "Hold" label input (default VLAN); Alt+click
+toggles (undoable); amber chips + tooltip; portClick refuses held ports with
+hint; bulkToggle skips; free-only filter excludes. Verified live: 8 VLAN
+holds on U41/U39 ports 1/12/13/24 persisted + click-guarded (left in place —
+they're the scenario's real reservations).
+
+**`b117bda` (#5)** "By rule…" PATCH WIZARD: BenchEditor.buildRulePairs
+computes the entire mapping from a pattern — first N ports of every location
+on chosen panels (via portInfo baked locationId/locationPort), frame sides
+kept separate (left half → switch left range, right half → right range),
+locations alternated across switches with the right side offset by one (true
+checkerboard down columns AND across rows), held/patched ports skipped with
+per-location issues; applyRule feeds the EXISTING bulk preview → Create.
+Dialog: panels with location labels pre-checked, switches picked in order,
+ports/location + range starts + offset toggle. Unit test asserts the exact
+24-cord L04 mapping. Browser-verified: deleted all 24 cords, recreated them
+via the wizard in one Create — Firestore audit EXACT match, circuit trace
+intact, console clean.
+
+**Also fixed en route:** buildPortInfoMap returned early (zone-less doc, or
+engine with nothing to allocate) WITHOUT applying the bakedLabels overlay —
+violating "baked is the truth" for truncated floors. Overlay now applied on
+every return path. And the stray perf-test cord (U38:5→U41:30) from 08-19 was
+found in the audit and removed.
+
+**Automation notes:** Chrome extension lost localhost permission after the
+overnight browser restart (navigations bounced to newtab) — recovered on its
+own later; Playwright browsers needed `pnpm exec playwright install chromium`
+after a version bump; synthetic label-click loops can miss re-rendered
+checkbox nodes — re-query and verify checked state before submitting.
+
+**Remaining backlog (outside the findings):** Elevations simplification
+(cords view-only), sheets port-label readability, plan-view×outlets rack
+sync, bundles (hold), tie-template config, legacy migrations.
