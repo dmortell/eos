@@ -383,6 +383,106 @@ export class BenchEditor {
 		this.bulkDest = []
 		this.statusHint = `Pick ${this.bulkSel.length} destination port(s) in order — Esc cancels`
 	}
+
+	// ── Patch by rule (§13 follow-up, field-test finding #5) ─────────────────
+	// Compute the whole source→destination mapping from a pattern instead of
+	// clicking each port: take the first N ports of every location on the given
+	// panels, keep frame sides separate (left half → the switch's left range,
+	// right half → right range), and alternate LOCATIONS across the switches —
+	// offsetting the right side by one so a 2-column desk bank checkerboards
+	// down the columns AND across the rows. Feeds the existing bulk preview.
+
+	/** Ports (1-based) of a location eligible under the rule, grouped in panel order. */
+	buildRulePairs(cfg: {
+		panelIds: string[]
+		switchIds: string[]
+		portsPerLocation: number
+		leftStart: number
+		rightStart: number
+		offsetRightSide: boolean
+	}): { srcs: string[]; dsts: string[]; issues: string[] } {
+		const issues: string[] = []
+		const S = cfg.switchIds.length
+		if (!S || !cfg.panelIds.length) return { srcs: [], dsts: [], issues: ['Pick at least one panel and one switch'] }
+
+		// 1. Collect eligible source ports per location, in panel/port order.
+		type Loc = { id: string; keys: string[]; side: 'left' | 'right'; dead?: boolean }
+		const locs: Loc[] = []
+		const byId = new Map<string, Loc>()
+		for (const pid of cfg.panelIds) {
+			const d = this.devices.find(x => x.id === pid)
+			for (let p = 1; p <= (d?.portCount ?? 0); p++) {
+				const info = this.portInfo.get(`${pid}:${p}`)
+				if (!info?.locationId || !info.locationPort || info.locationPort > cfg.portsPerLocation) continue
+				const key = `${pid}:${p}`
+				let loc = byId.get(info.locationId)
+				if (!loc) {
+					loc = { id: info.locationId, keys: [], side: (p - 1) % 24 <= 11 ? 'left' : 'right' }
+					byId.set(info.locationId, loc)
+					locs.push(loc)
+				}
+				if (loc.dead) continue
+				if (this.portConnMap.has(key)) {
+					issues.push(`${this.labelOf(pid, p)} already patched — location skipped`)
+					loc.dead = true
+					loc.keys = []
+					continue
+				}
+				loc.keys.push(key)
+			}
+		}
+		const usable = locs.filter(l => !l.dead && l.keys.length > 0)
+		if (!usable.length) return { srcs: [], dsts: [], issues: [...issues, 'No location-labeled free ports match the rule (allocate & bake labels first)'] }
+
+		// 2. Alternate locations across switches, per side; right side offset by one.
+		const sideIdx: Record<'left' | 'right', number> = { left: 0, right: 0 }
+		const assign = new Map<Loc, string>()
+		for (const loc of usable) {
+			const i = sideIdx[loc.side]++
+			const off = loc.side === 'right' && cfg.offsetRightSide ? 1 : 0
+			assign.set(loc, cfg.switchIds[(i + off) % S])
+		}
+
+		// 3. Allocate destination ports: per switch+side cursor, skipping
+		//    patched/held/already-assigned ports.
+		const srcs: string[] = [], dsts: string[] = []
+		const taken = new Set<string>()
+		const cursors = new Map<string, number>() // `${switchId}:${side}` → next port
+		for (const loc of usable) {
+			const swId = assign.get(loc)!
+			const sw = this.devices.find(x => x.id === swId)
+			const swPorts = sw?.portCount ?? 0
+			const side = loc.side
+			const ck = `${swId}:${side}`
+			let cursor = cursors.get(ck) ?? (side === 'left' ? cfg.leftStart : cfg.rightStart)
+			const dstKeys: string[] = []
+			while (dstKeys.length < loc.keys.length && cursor <= swPorts) {
+				const dk = `${swId}:${cursor}`
+				cursor++
+				if (this.portConnMap.has(dk) || this.holds[dk] || taken.has(dk)) continue
+				dstKeys.push(dk)
+			}
+			cursors.set(ck, cursor)
+			if (dstKeys.length < loc.keys.length) {
+				issues.push(`Not enough free ${side}-side ports on ${sw?.label ?? swId} — ${loc.keys.length - dstKeys.length} port(s) unplaced`)
+				continue
+			}
+			dstKeys.forEach(k => taken.add(k))
+			srcs.push(...loc.keys)
+			dsts.push(...dstKeys)
+		}
+		return { srcs, dsts, issues }
+	}
+
+	/** Apply a computed rule mapping to the bulk flow and open the preview. */
+	applyRule(pairs: { srcs: string[]; dsts: string[] }) {
+		if (!pairs.srcs.length || pairs.srcs.length !== pairs.dsts.length) return
+		this.patchArm = null
+		this.bulkSel = pairs.srcs
+		this.bulkDest = pairs.dsts
+		this.bulkPreviewOpen = true
+		this.statusHint = null
+	}
 	cancelBulk() {
 		this.bulkSel = []
 		this.bulkDest = null

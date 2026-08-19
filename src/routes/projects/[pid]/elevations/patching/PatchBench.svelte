@@ -89,6 +89,48 @@
 		...DEFAULT_LOC_TYPES.filter(t => t !== 'N/A'),
 		...(editor.framesDoc?.customLocationTypes ?? []),
 	])
+
+	// ── Patch by rule (finding #5): pattern → full mapping → bulk preview ──
+	let ruleOpen = $state(false)
+	let ruleCfg = $state({ portsPerLocation: 2, leftStart: 2, rightStart: 14, offsetRightSide: true })
+	let rulePanels = $state<Set<string>>(new Set())
+	let ruleSwitches = $state<Set<string>>(new Set())
+	let ruleIssues = $state<string[]>([])
+	/** Port-bearing devices across the benched racks, bench order → RU top-down. */
+	let benchDevices = $derived(benchRacks.flatMap(rackId => editor.devices
+		.filter(d => d.rackId === rackId && (d.portCount ?? 0) > 0)
+		.sort((a, b) => b.positionU - a.positionU)
+		.map(d => ({ ...d, _rackLabel: editor.rackById.get(rackId)?.label ?? rackId }))))
+	let rulePanelChoices = $derived(benchDevices.filter(d => d.type === 'panel'))
+	let ruleSwitchChoices = $derived(benchDevices.filter(d => d.type !== 'panel'))
+
+	function openRule() {
+		// default: every panel that has location-labeled ports; no switches preselected
+		rulePanels = new Set(rulePanelChoices
+			.filter(d => Array.from({ length: d.portCount ?? 0 }, (_, i) => i + 1)
+				.some(p => editor.portInfo.get(`${d.id}:${p}`)?.locationId))
+			.map(d => d.id))
+		ruleSwitches = new Set()
+		ruleIssues = []
+		ruleOpen = true
+	}
+	function toggleIn(set: Set<string>, id: string): Set<string> {
+		const next = new Set(set)
+		next.has(id) ? next.delete(id) : next.add(id)
+		return next
+	}
+	function previewRule() {
+		const pairs = editor.buildRulePairs({
+			panelIds: rulePanelChoices.filter(d => rulePanels.has(d.id)).map(d => d.id),
+			switchIds: ruleSwitchChoices.filter(d => ruleSwitches.has(d.id)).map(d => d.id),
+			...ruleCfg,
+		})
+		ruleIssues = pairs.issues
+		if (pairs.srcs.length) {
+			editor.applyRule(pairs)
+			ruleOpen = false
+		}
+	}
 </script>
 
 <div class="flex-1 min-h-0 flex bg-gray-50">
@@ -162,6 +204,10 @@
 				<span class="text-purple-600 font-medium">{editor.bulkSel.length} source{editor.bulkSel.length !== 1 ? 's' : ''}</span>
 				<button class="h-5 px-2 rounded bg-blue-600 text-white text-[10px] hover:bg-blue-500" onclick={() => editor.beginBulkDest()}>Patch to…</button>
 				<button class="h-5 px-1.5 rounded border border-gray-200 text-[10px] text-gray-500 hover:bg-gray-50" onclick={() => editor.cancelBulk()}>Clear</button>
+			{:else if benchRacks.length > 0}
+				<button class="h-5 px-2 rounded border border-purple-200 bg-purple-50 text-purple-700 text-[10px] hover:bg-purple-100"
+					title="Generate the whole mapping from a pattern: first N ports of every location, sides kept separate, locations alternated across the switches"
+					onclick={openRule}>By rule…</button>
 			{/if}
 		</div>
 
@@ -278,6 +324,79 @@
 				<button class="px-3 py-1.5 text-xs rounded border border-gray-200 hover:bg-gray-50" onclick={() => editor.cancelBulk()}>Cancel</button>
 				<button class="px-3 py-1.5 text-xs rounded bg-blue-600 text-white hover:bg-blue-500"
 					onclick={() => editor.createBulk()}>Create {editor.bulkPairs.filter(p => !p.crossRoom).length}</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Patch by rule (finding #5): compute the whole source→dest mapping from a
+     pattern, then hand it to the normal bulk preview for confirmation. -->
+{#if ruleOpen}
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center print:hidden" onclick={() => ruleOpen = false}>
+		<div class="bg-white rounded-lg shadow-xl border border-gray-200 p-4 w-[460px] max-h-[80vh] flex flex-col gap-2.5 text-xs" onclick={e => e.stopPropagation()}>
+			<div class="flex items-center gap-2">
+				<Icon name="cable" size={14} />
+				<span class="text-sm font-semibold text-gray-700">Patch by rule</span>
+				<div class="flex-1"></div>
+				<span class="text-[11px] text-gray-400">{editor.stickyCable.type} · {editor.stickyCable.status}</span>
+			</div>
+			<p class="text-[11px] text-gray-500">
+				Takes the first <b>N</b> ports of every location on the chosen panels, keeps frame
+				sides separate (left half → the switch's left range, right half → right range) and
+				alternates locations across the switches — the right side offset by one so a
+				two-column desk bank checkerboards down the columns and across the rows.
+				Held and patched ports are skipped. The mapping opens in the bulk preview.
+			</p>
+			<div class="grid grid-cols-2 gap-3 min-h-0">
+				<div class="min-h-0 flex flex-col">
+					<div class="text-[10px] uppercase tracking-wide font-semibold text-gray-400 mb-1">Source panels</div>
+					<div class="flex-1 overflow-y-auto border border-gray-100 rounded p-1 space-y-0.5 max-h-40">
+						{#each rulePanelChoices as d (d.id)}
+							<label class="flex items-center gap-1.5 px-1 py-0.5 rounded hover:bg-gray-50">
+								<input type="checkbox" checked={rulePanels.has(d.id)} onchange={() => rulePanels = toggleIn(rulePanels, d.id)} />
+								<span class="truncate">{d._rackLabel} · U{d.positionU}</span>
+								<span class="ml-auto text-gray-400 shrink-0">{d.portCount}p</span>
+							</label>
+						{/each}
+						{#if rulePanelChoices.length === 0}<div class="p-1 text-gray-400">No panels on the bench.</div>{/if}
+					</div>
+				</div>
+				<div class="min-h-0 flex flex-col">
+					<div class="text-[10px] uppercase tracking-wide font-semibold text-gray-400 mb-1">Destination switches (in order)</div>
+					<div class="flex-1 overflow-y-auto border border-gray-100 rounded p-1 space-y-0.5 max-h-40">
+						{#each ruleSwitchChoices as d (d.id)}
+							<label class="flex items-center gap-1.5 px-1 py-0.5 rounded hover:bg-gray-50">
+								<input type="checkbox" checked={ruleSwitches.has(d.id)} onchange={() => ruleSwitches = toggleIn(ruleSwitches, d.id)} />
+								<span class="truncate">{d._rackLabel} · U{d.positionU} {d.label}</span>
+								<span class="ml-auto text-gray-400 shrink-0">{d.portCount}p</span>
+							</label>
+						{/each}
+						{#if ruleSwitchChoices.length === 0}<div class="p-1 text-gray-400">No switches on the bench.</div>{/if}
+					</div>
+				</div>
+			</div>
+			<div class="flex items-center gap-3 flex-wrap">
+				<label class="flex items-center gap-1 text-gray-500">Ports/location
+					<input type="number" min="1" max="24" class="w-12 h-5.5 px-1 border border-gray-200 rounded" bind:value={ruleCfg.portsPerLocation} /></label>
+				<label class="flex items-center gap-1 text-gray-500">Left start
+					<input type="number" min="1" class="w-12 h-5.5 px-1 border border-gray-200 rounded" bind:value={ruleCfg.leftStart} /></label>
+				<label class="flex items-center gap-1 text-gray-500">Right start
+					<input type="number" min="1" class="w-12 h-5.5 px-1 border border-gray-200 rounded" bind:value={ruleCfg.rightStart} /></label>
+				<label class="flex items-center gap-1 text-gray-500" title="Start the right side on the second switch so column-neighbors and row-neighbors both alternate">
+					<input type="checkbox" bind:checked={ruleCfg.offsetRightSide} /> checkerboard offset</label>
+			</div>
+			{#if ruleIssues.length}
+				<div class="border border-amber-200 bg-amber-50 rounded p-2 space-y-0.5 max-h-24 overflow-y-auto">
+					{#each ruleIssues as issue (issue)}<div class="text-[11px] text-amber-700">{issue}</div>{/each}
+				</div>
+			{/if}
+			<div class="flex gap-2 justify-end">
+				<button class="px-3 py-1.5 text-xs rounded border border-gray-200 hover:bg-gray-50" onclick={() => ruleOpen = false}>Cancel</button>
+				<button class="px-3 py-1.5 text-xs rounded bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-40"
+					disabled={rulePanels.size === 0 || ruleSwitches.size === 0}
+					onclick={previewRule}>Preview mapping</button>
 			</div>
 		</div>
 	</div>

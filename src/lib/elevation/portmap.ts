@@ -254,7 +254,35 @@ export function buildPortInfoMap(
 	// the ids match what syncFrames will persist.
 	const zoneLocations: Record<string, any[]> = repairLocationIds(frameData.zoneLocations).zoneLocations
 	const zoneLetters = Object.keys(zoneLocations).filter(k => zoneLocations[k]?.length > 0).sort()
-	if (zoneLetters.length === 0) return map
+
+	// Baked labels overlay everything the engine derived: once a label string is
+	// stored it is the truth until an explicit Sync re-bakes it (§11 L2). Applied
+	// on EVERY return path — baked labels must survive even when the zone's
+	// locations were truncated or the engine has nothing to allocate.
+	const applyBakedOverlay = (m: Map<string, PortInfo>): Map<string, PortInfo> => {
+		const bakedLabels: Record<string, BakedLabel> = frameData.bakedLabels ?? {}
+		const bakedKeys = Object.keys(bakedLabels)
+		if (!bakedKeys.length) return m
+		const deviceIds = new Set(devices.map(d => d.id))
+		const typeById = new Map<string, string>()
+		for (const locs of Object.values(zoneLocations)) {
+			for (const l of locs ?? []) if (l.id) typeById.set(l.id, l.locationType)
+		}
+		for (const key of bakedKeys) {
+			const b = bakedLabels[key]
+			if (!b?.label || !deviceIds.has(key.split(':')[0])) continue
+			m.set(key, {
+				label: b.label,
+				locationType: (b.locationId ? typeById.get(b.locationId) : undefined)
+					?? m.get(key)?.locationType ?? 'N/A',
+				baked: true,
+				...(b.locationId ? { locationId: b.locationId, locationPort: b.port } : {}),
+			})
+		}
+		return m
+	}
+
+	if (zoneLetters.length === 0) return applyBakedOverlay(map)
 
 	const frameConfigs = deriveFramesFromRacks({ [room]: { racks, devices } }, 'front', frameData.frames)
 	const reservations = buildReservationMap(frameData.portReservations)
@@ -289,7 +317,7 @@ export function buildPortInfoMap(
 			labelFormat as any,
 		))
 	}
-	if (allLabels.length === 0) return map
+	if (allLabels.length === 0) return applyBakedOverlay(map)
 
 	/** Lookup for pinned overlays: label findable by id form and legacy form. */
 	const labelByKey = new Map(allLabels.flatMap(l => labelKeys(l).map(k => [k, l] as [string, PortLabel])))
@@ -348,28 +376,5 @@ export function buildPortInfoMap(
 		}
 	}
 
-	// Baked labels overlay everything the engine derived: once a label string is
-	// stored it is the truth until an explicit Sync re-bakes it (§11 L2).
-	const bakedLabels: Record<string, BakedLabel> = frameData.bakedLabels ?? {}
-	const bakedKeys = Object.keys(bakedLabels)
-	if (bakedKeys.length) {
-		const deviceIds = new Set(devices.map(d => d.id))
-		const typeById = new Map<string, string>()
-		for (const locs of Object.values(zoneLocations)) {
-			for (const l of locs ?? []) if (l.id) typeById.set(l.id, l.locationType)
-		}
-		for (const key of bakedKeys) {
-			const b = bakedLabels[key]
-			if (!b?.label || !deviceIds.has(key.split(':')[0])) continue
-			map.set(key, {
-				label: b.label,
-				locationType: (b.locationId ? typeById.get(b.locationId) : undefined)
-					?? map.get(key)?.locationType ?? 'N/A',
-				baked: true,
-				...(b.locationId ? { locationId: b.locationId, locationPort: b.port } : {}),
-			})
-		}
-	}
-
-	return map
+	return applyBakedOverlay(map)
 }
