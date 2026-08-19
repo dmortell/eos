@@ -1453,3 +1453,61 @@ VLAN ports 1/12/13/24 untouched); circuits trace desk→panel→switch.
      unplaced location after each placement) — halves the clicks.
   8. Select-all per panel accumulates across panels (good); a rack-level
      "select all panel ports" would help bigger jobs.
+
+### Session追記 (2026-08-19 — overnight re-test on L04: 4 fix/feature rounds, all committed)
+Re-ran the full L04 field test with the friction fixes in place, two browser
+tabs (actor + live watcher), fixing every bug found; committed after each
+verified round.
+
+**Round 1 — `5116f4e`** outlets stale-doc revert + template-aware ⚠ label.
+- BUG (critical, found live): "Link all" linked 12 outlets, then silently
+  UNLINKED them. The remote-apply $effect read `autosave.status` ($state) and
+  `payloadOf()` inside its tracking scope, so any local edit re-ran it while
+  `data` still held the pre-save doc → stale doc re-applied → revert
+  autosaved. Fix: wrap the whole apply in `untrack()` — the effect now
+  depends ONLY on the subscribed doc. (Same audit done on the other AutoSave
+  consumers: they call shouldApplyRemote from subscription callbacks, not
+  effects — unaffected.)
+- BUG: OutletProperties flagged correct template labels ("4A001") as
+  "⚠ label" — divergence check was hardcoded legacy Z.NNN. Now uses the
+  template-aware expectedOutletLabel passed from Outlets.
+- Verified: Clear floor → outlets auto-unlinked (finding #1 fix) live in the
+  watcher tab; one Auto-generate re-labeled 72 ports (template FZNNN-PP +
+  outlet template FZNNN persisted; active-floor previews (finding #4 fix)
+  show "4A023"); Link all relinked 12 by rendered label — ZERO manual
+  relabels (finding #3 fixed).
+
+**Round 2 — `3d2ea05`** template-aware default labels for NEW outlets
+(placed junk got "A.001" colliding with the 4A001 convention → now renders
+the outlet template with max-used+1: "4A013"). Live-sync test passed: junk
+outlets created + deleted in one tab appeared/disappeared in the other
+WITHOUT refresh — the originally-reported delete-sync bug is fixed.
+
+**Round 3 — `f33e61d`** corrected checkerboard + Delete-key for cords.
+- 24 cords patched and audited against the Firestore doc (in-page import of
+  db.svelte.ts): exact match. U41 ← outlets 1,5,9 (left, sw 2-7) + 4,8,12
+  (right, sw 14-19); U39 ← 2,6,10 + 3,7,11. Neighbors alternate down both
+  desk columns AND across rows — true checkerboard. VLAN ports untouched.
+- UX: Delete/Backspace now removes the selected cord on the bench (was
+  list-pane-only).
+- Circuit strip re-verified: A-001·p1 → run → 4A001-01 → cord → 4AR01-U41-P2.
+- Red endpoint rings (`ring-red-500`) confirmed visible on from/to chips.
+
+**Round 4 — `4a8ffd0`** Floorplan main-view tab (the answer to "switching
+between Outlets and frames/patching is time consuming"): the FULL Outlets
+editor is embedded as a 4th tab in Elevations via a new `embedded` prop
+(sidebar + floor tabs, no Titlebar). elevations/+page subscribes outlets doc
+(floor+primary area), files, all-room racks. Same doc as the standalone tool
+— edits live-sync both ways (verified). ?view=floorplan deep-links.
+
+**Also verified:** place-next mode (finding #7) — deleted 4A011/4A012,
+re-placed via palette: after each click the next unplaced location auto-arms
+("Placed 4A011 — next: A-012 (Esc to stop)" → "all locations placed").
+
+**Automation note (not an app bug):** cord creation measured at 8–12ms; the
+apparent ~10s/cord during scripted loops was Chrome background-tab timer
+throttling starving awaited setTimeouts — keep the automated tab focused or
+avoid timer-paced loops.
+
+**Findings still open:** #5 patch-by-rule wizard, #6 switch-port
+reservations, #8 rack-level select-all.
