@@ -893,9 +893,22 @@ export class ElevationsEditor {
 	}
 
 	/** Port click in patch mode: gate → select-existing → arm → connect. */
+	/** Hold label for a port (frames-doc `portHolds` — VLAN/uplink reservations
+	 *  managed on the Patching tab; device-keyed so they move with the device). */
+	portHoldOf(deviceId: string, portIndex: number): string | undefined {
+		return this.framesData?.portHolds?.[`${deviceId}:${portIndex}`]
+	}
+
 	patchPortClick(rackId: string, deviceId: string, portIndex: number) {
 		const key = `${deviceId}:${portIndex}`
 		const existing = this.portConnMap.get(key)
+		{
+			const held = this.portHoldOf(deviceId, portIndex)
+			if (held && !existing) {
+				this.statusHint = `Port held for ${held} — release it on the Patching tab (Alt+click)`
+				return
+			}
+		}
 
 		// Unlabeled panel ports ARE patchable (labels v2 L2) — the cord references
 		// device+port, and the label can be assigned later. Displays fall back to
@@ -988,7 +1001,7 @@ export class ElevationsEditor {
 		const free = (dev: typeof fromDev, start: number) => {
 			const ports: number[] = []
 			for (let p = Math.max(1, start); p <= (dev.portCount ?? 0) && ports.length < count; p++) {
-				if (!used.has(`${dev.id}:${p}`) && this.portLabelOf({ deviceId: dev.id, portIndex: p })) ports.push(p)
+				if (!used.has(`${dev.id}:${p}`) && !this.portHoldOf(dev.id, p) && this.portLabelOf({ deviceId: dev.id, portIndex: p })) ports.push(p)
 			}
 			return ports
 		}

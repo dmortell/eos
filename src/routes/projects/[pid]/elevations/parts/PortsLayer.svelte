@@ -69,6 +69,8 @@
 		label?: string
 		locationType?: string
 		reservation?: string
+		/** Hold label (portHolds — VLAN/uplink reservation, device-keyed). */
+		hold?: string
 		pinned?: boolean
 	}
 
@@ -92,6 +94,7 @@
 				label: info?.label,
 				locationType: info?.locationType,
 				reservation: isPanel ? editor.reservationMap.get(resKey) : undefined,
+				hold: editor.portHoldOf(device.id, i + 1),
 				pinned: info?.pinned,
 			})
 		}
@@ -108,6 +111,7 @@
 	}
 
 	function cellFill(c: Cell, isPanel: boolean): string {
+		if (c.hold) return '#f59e0b40' // amber — held (VLAN/uplink), refuses cords
 		if (c.label) return (PORT_TYPE_COLORS[c.locationType ?? ''] ?? '#9ca3af') + '4D'
 		if (c.reservation) return (PORT_TYPE_COLORS[c.reservation] ?? '#9ca3af') + '33'
 		return isPanel ? '#f3f4f6' : '#e9eef5'
@@ -117,6 +121,7 @@
 		const lines = [c.label ?? `Port ${c.index} — unlabeled`]
 		if (c.locationType) lines.push(LOC_TYPE_LABELS[c.locationType] ?? c.locationType)
 		if (c.reservation) lines.push(`Reserved: ${c.reservation}`)
+		if (c.hold) lines.push(`Held: ${c.hold} — release on the Patching tab`)
 		lines.push(`${device.label} · port ${c.index}`)
 		return lines.join('\n')
 	}
