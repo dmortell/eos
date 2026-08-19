@@ -285,6 +285,14 @@
 						<Icon name="cable" size={11} /> Patch{racks.length > 1 ? ` ${racks.length} racks` : ''}…
 					</button>
 				{/if}
+				{#if devs.some(d => d.type === 'panel' && (d.portCount ?? 0) > 0)}
+					<button
+						class="flex items-center gap-1 px-2 py-1 mt-1 rounded border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 text-[11px] font-medium w-full"
+						title="Add every port of every panel in the selected rack(s) to the block selection (for labeling / reservations)"
+						onclick={() => editor.selectAllPanelPorts(racks.map(r => r.id))}>
+						<Icon name="grid" size={11} /> Select all panel ports
+					</button>
+				{/if}
 
 				{#if !rackMulti && hasDerivedFrame && editor.projectId}
 					<a

@@ -1178,6 +1178,18 @@ export class ElevationsEditor {
 		this.selectedPorts = next
 	}
 
+	/** Add every port of every PANEL in the rack(s) to the block selection —
+	 *  one click instead of Select-all per panel on bigger jobs. */
+	selectAllPanelPorts(rackIds: string[]) {
+		const next = new Set(this.selectedPorts)
+		const ids = new Set(rackIds)
+		for (const d of this.devices) {
+			if (d.type !== 'panel' || !ids.has(d.rackId) || !(d.portCount ?? 0)) continue
+			for (let p = 1; p <= (d.portCount ?? 0); p++) next.add(this.blockKey(d.rackId, d.positionU, p))
+		}
+		this.selectedPorts = next
+	}
+
 	isPortBlockSelected(rackId: string, positionU: number, portIndex: number): boolean {
 		const row = portIndex <= 24 ? 'top' : 'bottom'
 		const col = (portIndex - 1) % 24
