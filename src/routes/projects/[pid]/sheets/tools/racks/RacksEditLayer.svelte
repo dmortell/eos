@@ -9,7 +9,11 @@
 	import { RU_HEIGHT_MM } from './colors'
 	import type { RacksEditor } from './racks-editor.svelte'
 	import type { RackFace, DeviceConfig, RackConfig } from './types'
-	let { editor, face, rowId = undefined, interactive = false, hidden = [], locked = [] }: { editor: RacksEditor; face: RackFace; rowId?: string; interactive?: boolean; hidden?: string[]; locked?: string[] } = $props()
+	let { editor, face, rowId = undefined, interactive = false, hidden = [], locked = [], zoom = 1 }: { editor: RacksEditor; face: RackFace; rowId?: string; interactive?: boolean; hidden?: string[]; locked?: string[]; zoom?: number } = $props()
+
+	// Screen-constant handle sizing: px ÷ (px per world-mm). Depend on zoom so
+	// the CTM is re-read after the canvas transform changes.
+	const ss = $derived.by(() => { void zoom; return editor.screenScale() || 1 })
 
 	const HL = '#2563eb'
 	const SEL = '#3b82f6' // thin blue selection outline (matches the original racks tool)
@@ -72,13 +76,15 @@
 {#if face === 'plan'}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<g class="print:hidden">
-		{#each editor.rows as row (row.id)}
+		<!-- Same scoping as RacksRender's plan layout, and only rows that draw
+		     geometry — a handle for a row with no racks floats orphaned. -->
+		{#each (rowId ? editor.rows.filter(r => r.id === rowId) : editor.rows).filter(r => editor.racks.some(k => k.rowId === r.id)) as row (row.id)}
 			{@const o = row.plan?.originMm ?? { x: 0, y: 0 }}
 			{#if editor.inRowMulti(row.id) && !offRows}
-				<circle cx={o.x} cy={o.y} r={360} fill="none" stroke={HL} stroke-width="1" vector-effect="non-scaling-stroke" style:pointer-events="none" />
+				<circle cx={o.x} cy={o.y} r={11 / ss} fill="none" stroke={HL} stroke-width="1" vector-effect="non-scaling-stroke" style:pointer-events="none" />
 			{/if}
 			{#if !offRows}
-				<circle cx={o.x} cy={o.y} r={250} fill="#2563eb" fill-opacity="0.55" stroke="#1d4ed8" stroke-width="1" vector-effect="non-scaling-stroke"
+				<circle cx={o.x} cy={o.y} r={7 / ss} fill="#2563eb" fill-opacity="0.55" stroke="#1d4ed8" stroke-width="1" vector-effect="non-scaling-stroke"
 					style:pointer-events={rpe} style:cursor="move" onmousedown={(e: MouseEvent) => downRow(row, e, (ev) => editor.dragRow(row, ev))} />
 			{/if}
 		{/each}

@@ -58,7 +58,10 @@ export class RacksEditor extends SurfaceEditor {
 	marqueeCollect(m: Rect) {
 		const inRect = (p: Point) => p.x >= m.x && p.x <= m.x + m.w && p.y >= m.y && p.y <= m.y + m.h
 		if (this.layout?.face === 'plan') {
-			this.selRows = this.rows.filter(r => r.plan?.originMm && inRect(r.plan.originMm)).map(r => r.id)
+			// only rows that render geometry (and thus a handle) — see RacksEditLayer
+			this.selRows = this.rows
+				.filter(r => r.plan?.originMm && inRect(r.plan.originMm) && this.racks.some(k => k.rowId === r.id))
+				.map(r => r.id)
 			this.selDevices = []
 		} else {
 			const hit = (b: Rect) => !(b.x + b.w < m.x || b.x > m.x + m.w || b.y + b.h < m.y || b.y > m.y + m.h)
