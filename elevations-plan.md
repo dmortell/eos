@@ -1559,3 +1559,41 @@ checkbox nodes — re-query and verify checked state before submitting.
 **Remaining backlog (outside the findings):** Elevations simplification
 (cords view-only), sheets port-label readability, plan-view×outlets rack
 sync, bundles (hold), tie-template config, legacy migrations.
+
+### Session追記 (2026-08-20, later — racks plan view TODOs + sync design proposal)
+The three outstanding sheets plan-view items are FIXED + verified (`fec04e6`):
+screen-constant 14px row handles (was r=250 world-mm), handles/marquee only
+for rows that render geometry (orphan fixed; rowId scope respected), and
+doors/walls confirmed rendering (the doc simply had no roomObjects — demo
+wall/door/COL fixtures now live on Test Project F01_RA plus a "Plan View
+Test" sheet, id `plan-test`).
+
+**PROPOSAL — plan view × Outlets sync (answers the §"racks plan view ×
+Outlets integration" questions; needs Dave's sign-off before building):**
+
+1. **Single source of truth = `rackPlacements` on the outlets doc** (per-rack
+   `{rackId, room, position mm, rotation}` in the CALIBRATED floorplan
+   space). Rack geometry (width/depth/height, devices) stays on the racks
+   doc; position-in-building lives with the floorplan. Rationale: the
+   floorplan is the only mm-true building space (outlets, trunks, future
+   walls/doors already there); rackId already bridges the two docs; per-rack
+   placement is strictly more expressive than row-origin+order (banks that
+   bend around columns, split rows).
+2. **`rows[].plan` (row origin/rotation in the racks doc) becomes an
+   elevation-era schematic** — kept for the legacy racks tool, no longer the
+   plan truth. One-shot "adopt row layout" can seed missing rackPlacements
+   from it (row origin + accumulated rack offsets), after which edits happen
+   in placement space.
+3. **Sync mechanics:** every plan surface (outlets floorplan incl. the new
+   Elevations Floorplan tab, a future rack plan view, sheets viewports)
+   reads AND writes the same rackPlacements via the outlets doc — no
+   mirroring, so nothing can diverge. Row/room membership remains an
+   elevation concept (ordering in row view), untouched by plan moves.
+4. **Sheets racks viewport `face:'plan'`** then renders from rackPlacements
+   (+ the floorplan underlay + walls/doors once those live on the outlets
+   doc), replacing the current row-schematic drawing; the row-origin handles
+   become per-rack handles. Until approved, the current schematic plan view
+   stays as-is (now bug-free).
+
+Open question for Dave: should the legacy racks tool's plan view become
+read-only once placements are canonical, or write placements too?
