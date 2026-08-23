@@ -3,7 +3,7 @@
 	import type { RackPlacement, PageCalibration } from './types'
 	import type { RackConfig } from '../../racks/parts/types'
 
-	let { rackConfigs, rackPlacements, selectedRackIds, calibration, adoptableRooms = {}, adoptingRoom = null, onplace, onselect, onrangeselect, onremove, onrotate, onadopt }: {
+	let { rackConfigs, rackPlacements, selectedRackIds, calibration, adoptableRooms = {}, adoptingRoom = null, newRackRooms = [], newRackRoom = null, onplace, onselect, onrangeselect, onremove, onrotate, onadopt, onnewrack }: {
 		rackConfigs: (RackConfig & { room: string })[]
 		rackPlacements: RackPlacement[]
 		selectedRackIds: Set<string>
@@ -12,12 +12,17 @@
 		adoptableRooms?: Record<string, number>
 		/** Room currently armed for adopt (next plan click anchors the layout). */
 		adoptingRoom?: string | null
+		/** Rooms offered for the "new rack here" flow (empty → hidden). */
+		newRackRooms?: string[]
+		/** Room currently armed for new-rack (next plan click creates it). */
+		newRackRoom?: string | null
 		onplace: (rackIds: string[], room: string, position: { x: number; y: number }) => void
 		onselect: (rackId: string, multi: boolean) => void
 		onrangeselect?: (ids: string[]) => void
 		onremove: () => void
 		onrotate: () => void
 		onadopt?: (room: string) => void
+		onnewrack?: (room: string) => void
 	} = $props()
 
 	let draggedIds = $state<string[]>([])
@@ -107,9 +112,25 @@
 		</div>
 	{/if}
 
+	<!-- New rack here: create the config in the room's racks doc AND place it
+	     with one plan click — no round-trip through the Elevations tool. -->
+	{#if calibration && onnewrack && newRackRooms.length > 0}
+		<div class="flex items-center gap-1 flex-wrap shrink-0">
+			<span class="text-[10px] text-gray-400 uppercase tracking-wider font-medium">New rack</span>
+			{#each newRackRooms as rm (rm)}
+				<button class="px-1.5 py-px rounded border text-[10px] transition-colors
+						{newRackRoom === rm ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}"
+					title="Create a new rack in Room {rm} — click, then click the plan where it goes (Esc cancels). Set size/label afterwards in Rack Properties."
+					onclick={() => onnewrack(rm)}>
+					{newRackRoom === rm ? 'click the plan…' : `+ Room ${rm}`}
+				</button>
+			{/each}
+		</div>
+	{/if}
+
 	{#if rackConfigs.length === 0}
 		<div class="px-2 py-3 text-center text-gray-400 text-[10px]">
-			No racks defined. Add racks in the Racks tool first.
+			No racks on this floor yet{calibration && onnewrack && newRackRooms.length ? ' — use "New rack" above to create one right here' : '. Add racks in the Elevations tool first'}.
 		</div>
 	{:else}
 		<!-- Toolbar -->

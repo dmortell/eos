@@ -49,7 +49,7 @@
 	import { fmtFloor } from '$lib/utils/floor'
 	import type { FloorConfig } from '$lib/types/project'
 
-	let { data = null, framesData = null, patchingData = null, library = [], floor, room, floors = [], projectId = '', projectName = '', floorFormat = 'L01', drawingId = '', db = new Firestore(), uid = '', outletsData = null, files = [], racksAll = {}, outletAreas = [], outletArea = '', onsave, onsaveframes, onsavepatching, onsaveoutlets, onsaverack, onlibrarychange, onfloorchange, onroomchange, onupdatefloors, ondeletefloor, bare = false, initialFocusRackId }: {
+	let { data = null, framesData = null, patchingData = null, library = [], floor, room, floors = [], projectId = '', projectName = '', floorFormat = 'L01', drawingId = '', db = new Firestore(), uid = '', outletsData = null, files = [], racksAll = {}, outletAreas = [], outletArea = '', onsave, onsaveframes, onsavepatching, onsaveoutlets, onsaverack, oncreaterack, onlibrarychange, onfloorchange, onroomchange, onupdatefloors, ondeletefloor, bare = false, initialFocusRackId }: {
 		data?: any
 		framesData?: any
 		patchingData?: any
@@ -74,6 +74,7 @@
 		onsavepatching?: (payload: any, changes: ChangeDetail[]) => void
 		onsaveoutlets?: (payload: any) => void
 		onsaverack?: (room: string, rackId: string, updates: Record<string, any>) => void
+		oncreaterack?: (room: string, rack: Record<string, any>) => void
 		onlibrarychange?: (templates: DeviceTemplate[]) => void
 		onfloorchange?: (floor: number) => void
 		onroomchange?: (room: string) => void
@@ -705,7 +706,7 @@
 			{#key `${floor}_${outletArea}`}
 				<Outlets embedded data={outletsData} {files} {floors} frameData={framesData} racksData={racksAll}
 					{floor} areas={outletAreas} activeArea={outletArea} {projectId} {db} {uid}
-					onsave={onsaveoutlets} {onsaverack} {onfloorchange} {onupdatefloors} {ondeletefloor} />
+					onsave={onsaveoutlets} {onsaverack} {oncreaterack} {onfloorchange} {onupdatefloors} {ondeletefloor} />
 			{/key}
 		</div>
 	{:else if mainView === 'patching' || mainView === 'frames'}

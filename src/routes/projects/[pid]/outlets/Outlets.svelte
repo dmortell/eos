@@ -29,7 +29,7 @@
 	import { renderLabel } from '$lib/elevation/labelTemplate'
   import { toast } from 'svelte-sonner';
 
-	let { data = null, files = [], floors = [], frameData = null, racksData = {}, floor, areas = [], activeArea = '', projectId = '', projectName = '', drawingId = '', db = new Firestore(), uid = '', initialLayers, onsave, onfloorchange, onareachange, onupdatefloors, ondeletefloor, onsaverack, bare = false, embedded = false }: {
+	let { data = null, files = [], floors = [], frameData = null, racksData = {}, floor, areas = [], activeArea = '', projectId = '', projectName = '', drawingId = '', db = new Firestore(), uid = '', initialLayers, onsave, onfloorchange, onareachange, onupdatefloors, ondeletefloor, onsaverack, oncreaterack, bare = false, embedded = false }: {
 		data?: any
 		files?: any[]
 		floors?: FloorConfig[]
@@ -51,6 +51,8 @@
 		onupdatefloors?: (floors: FloorConfig[]) => void
 		ondeletefloor?: (floor: number) => void
 		onsaverack?: (room: string, rackId: string, updates: Partial<RackConfig>) => void
+		/** Append a NEW rack to the room's racks doc ("new rack here" flow). */
+		oncreaterack?: (room: string, rack: RackConfig) => void
 		/** Embed mode (workspace): skip standalone Titlebar, size to container. */
 		bare?: boolean
 		/** Tab-embed mode (Elevations Floorplan tab): full editor UI (sidebar,
@@ -891,6 +893,48 @@
 		})
 	}
 
+	// ── New rack here (create config + placement in one step) ──
+	/** Armed room: next plan click creates a new rack there. */
+	let newRackRoom = $state<string | null>(null)
+	/** Rooms offered for new racks: A… up to the floor's server-room count. */
+	let availableRooms = $derived.by(() => {
+		const cfg = floors.find(f => f.number === floor)
+		return ['A', 'B', 'C', 'D'].slice(0, cfg?.serverRoomCount ?? 1)
+	})
+
+	/** Create a rack config in the room's racks doc AND place it at the click —
+	 *  no round-trip through the Elevations tool. Undo removes the placement;
+	 *  the config stays (listed as unplaced in the palette / Elevations). */
+	function createRackAt(room: string, posMm: Point) {
+		if (!oncreaterack) return
+		const doc: any = racksData[room]
+		const existing: any[] = doc?.racks ?? []
+		const rowId = (doc?.rows?.[0]?.id as string | undefined) ?? 'default'
+		let n = existing.length + 1
+		const labels = new Set(existing.map(r => r.label))
+		while (labels.has(`R${String(n).padStart(2, '0')}`)) n++
+		const rack: RackConfig = {
+			id: `rack-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+			label: `R${String(n).padStart(2, '0')}`,
+			rowId,
+			order: existing.filter(r => r.rowId === rowId).reduce((m, r) => Math.max(m, (r.order ?? 0) + 1), 0),
+			heightU: 42, heightMm: 42 * 45 + 80, widthMm: 600, depthMm: 1000,
+			type: '4-post', serverRoom: room,
+		}
+		oncreaterack(room, rack)
+		const prev = rackPlacements
+		const placement: RackPlacement = { rackId: rack.id, room, position: snapToGrid(posMm, gridMm), rotation: stickyRotation }
+		rackPlacements = [...rackPlacements, placement]
+		selectedRackIds = new Set([rack.id])
+		selectedIds = new Set()
+		history.record({
+			label: `New rack ${rack.label}`,
+			undo: () => { rackPlacements = prev; selectedRackIds = new Set() },
+			redo: () => { rackPlacements = [...prev, placement]; selectedRackIds = new Set([rack.id]) },
+		})
+		toast.success(`Created ${rack.label} in Room ${room} — set size/label in Rack Properties`)
+	}
+
 	// ── Adopt row layout (plan×outlets sync) ──
 	/** Armed room: next plan click anchors that room's legacy row layout. */
 	let adoptingRoom = $state<string | null>(null)
@@ -1646,7 +1690,7 @@
 		// console.log(e.key)
 
 		if (e.key === 'Escape') {
-			if (adoptingRoom) { adoptingRoom = null; return }
+			if (adoptingRoom || newRackRoom) { adoptingRoom = null; newRackRoom = null; return }
 			// Cascade: place-location mode → drawing handled by canvas → clear selection → select mode
 			// (If trunk drawing is active, the canvas Escape handler finishes it and
 			//  sets trunkDrawingActive=false via ontrunkdrawingchange. Skip this handler.)
@@ -1796,12 +1840,15 @@
 						{calibration}
 						{adoptableRooms}
 						{adoptingRoom}
+						newRackRooms={oncreaterack ? availableRooms : []}
+						{newRackRoom}
 						onplace={placeRacks}
 						onselect={selectRack}
 						onrangeselect={rangeSelectRacks}
 						onremove={removeRackPlacements}
 						onrotate={rotateSelectedRacks}
-						onadopt={(room) => { adoptingRoom = adoptingRoom === room ? null : room }}
+						onadopt={(room) => { newRackRoom = null; adoptingRoom = adoptingRoom === room ? null : room }}
+						onnewrack={(room) => { adoptingRoom = null; newRackRoom = newRackRoom === room ? null : room }}
 					/>
 				{:else}
 					<TrunkPalette
@@ -1843,11 +1890,13 @@
 					{rackPlacements}
 					rackConfigs={allRackConfigs}
 					{selectedRackIds}
-					anchorMode={!!adoptingRoom}
+					anchorMode={!!adoptingRoom || !!newRackRoom}
 					onanchor={(pos: Point) => {
-						const room = adoptingRoom
+						const adopt = adoptingRoom, create = newRackRoom
 						adoptingRoom = null
-						if (room) adoptRowLayout(room, snapToGrid(toMm(pos), gridMm))
+						newRackRoom = null
+						if (adopt) adoptRowLayout(adopt, snapToGrid(toMm(pos), gridMm))
+						else if (create) createRackAt(create, toMm(pos))
 					}}
 					{trunks}
 					{secondaryRoutes}
