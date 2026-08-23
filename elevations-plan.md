@@ -1621,3 +1621,28 @@ Remaining build-out (per approved design, not yet started):
    (per-rack handles) instead of the row schematic.
 3. Walls/doors on the outlets floorplan (then roomObjects editing in the
    legacy tool can go too).
+
+### Session追記 (2026-08-20 — DIRECTION REFINED: no dedicated rack plan view; adopt-row-layout shipped)
+Dave: **"we don't need a dedicated rack plan view. we will just use a
+floorplan view and zoom in on the server room."** So the plan story is now
+simply: the outlets FLOORPLAN is the one plan surface (racks placed via
+rackPlacements, zoom into the server room to work on it). Consequences:
+- The planned "sheets racks viewport face:'plan' renders from rackPlacements"
+  build-out is DROPPED. The sheets schematic plan face is DEPRECATED (kept
+  functional for existing sheets; plan drawings should use an outlets/
+  floorplan viewport instead). TODO(plan-sync) removal list now also covers
+  retiring that face when convenient.
+- Legacy racks plan view stays read-only (flag, previous entry) until removed.
+
+**Shipped: "Adopt row layout" (`rackPlacements` seeding).** Floorplan tool →
+Racks sidebar tab → per-room "Adopt row layout (N)" button (visible when the
+room has unplaced racks belonging to rows and the page is calibrated). Click
+arms it (crosshair, Esc cancels); the next plan click anchors the room's
+whole legacy bank: same geometry as RackPlanRenderer.rowRacks (in-row offsets
++ gap + depth alignment + row rotation, rotation snapped to 90°), rows
+without plan data stack below the planned ones, already-placed racks are
+skipped, grid-snapped, one undoable action, racks land selected for a group
+drag into the server room. OutletCanvas gained a generic `anchorMode`/
+`onanchor` one-shot click hook.
+Verified on F04: Room A "Adopt (13)" → 13 placements in 2 row bands persisted
+to the outlets doc → Ctrl+Z → 0 placements persisted; console clean.

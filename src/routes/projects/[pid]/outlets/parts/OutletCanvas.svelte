@@ -25,6 +25,7 @@
 		printSettings = $bindable({ ...DEFAULT_PRINT_SETTINGS }),
 		projectName = '', floor = 0,
 		gridMm = 0,
+		anchorMode = false, onanchor,
 		toPx, toMm, onadd, onselect, onclear, onmove, onmoveend, ondelete,
 		onselectrack, onmoveracks, onmoveracksend, onplacerack, onremoveracks, onrotateracks,
 		onaddtrunk, ontrunkdrawingchange, onselecttrunk, onselecttrunknode, onmovetrunknodes, onmovetrunknodesend, ondeletetrunks, onsplittrunksegment, ondisconnecttrunknode,
@@ -52,6 +53,9 @@
 		projectName?: string
 		floor?: number
 		gridMm?: number
+		/** One-shot anchor pick: next plan click calls onanchor instead of the tools. */
+		anchorMode?: boolean
+		onanchor?: (pagePosPixels: Point) => void
 		toPx: (mm: Point) => Point
 		toMm: (px: Point) => Point
 		onadd: (pagePosPixels: Point) => void
@@ -720,6 +724,13 @@
 		if (e.button !== 0) return
 
 		const pos = getPagePos(e)
+
+		// Anchor pick (e.g. adopt-row-layout): one click hands the position to
+		// the host and stands down — takes precedence over the active tool.
+		if (anchorMode && calibration && onanchor) {
+			onanchor(pos)
+			return
+		}
 
 		// Outlet tool: place outlet
 		if (activeTool === 'outlet' && calibration && sidebarTab === 'outlets') {
@@ -1660,7 +1671,7 @@
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div bind:this={containerEl}
 		class="relative flex-1 overflow-hidden bg-gray-100 print-canvas-container print:overflow-visible print:bg-white
-			{(activeTool === 'outlet' && calibration && sidebarTab === 'outlets') || (activeTool === 'trunk' && calibration && sidebarTab === 'trunks') ? 'cursor-crosshair' : panning ? 'cursor-grabbing' : 'cursor-default'}
+			{(anchorMode && calibration) || (activeTool === 'outlet' && calibration && sidebarTab === 'outlets') || (activeTool === 'trunk' && calibration && sidebarTab === 'trunks') ? 'cursor-crosshair' : panning ? 'cursor-grabbing' : 'cursor-default'}
 			{dropTarget ? 'ring-2 ring-inset ring-blue-400 bg-blue-50/20' : ''}"
 		style:touch-action="none"
 		onmousedown={onMouseDown}

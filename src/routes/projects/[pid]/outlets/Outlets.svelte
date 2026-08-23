@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte'
 	import { Button, Icon, Select, Titlebar, Firestore } from '$lib'
+	import { SCALE as RACK_SCALE, RACK_GAP_PX } from '../racks/parts/constants'
 	import VersionPanel from '../parts/VersionPanel.svelte'
 	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
 	import { fmtFloor } from '$lib/utils/floor'
@@ -890,6 +891,75 @@
 		})
 	}
 
+	// ── Adopt row layout (plan×outlets sync) ──
+	/** Armed room: next plan click anchors that room's legacy row layout. */
+	let adoptingRoom = $state<string | null>(null)
+
+	/** Rooms with ≥1 unplaced rack that belongs to a row — adoptable via the
+	 *  legacy racks-doc row schematic (rows[].plan). */
+	let adoptableRooms = $derived.by(() => {
+		const placed = new Set(rackPlacements.map(p => p.rackId))
+		const out: Record<string, number> = {}
+		for (const [room, doc] of Object.entries(racksData)) {
+			const rowIds = new Set(((doc as any)?.rows ?? []).map((r: any) => r.id))
+			const n = (((doc as any)?.racks ?? []) as any[]).filter(r => r.rowId && rowIds.has(r.rowId) && !placed.has(r.id)).length
+			if (n > 0) out[room] = n
+		}
+		return out
+	})
+
+	/** One-shot seeding (plan×outlets sync, approved 2026-08-20): place every
+	 *  UNPLACED rack of a room using the legacy racks-doc row schematic
+	 *  (rows[].plan origin/rotation + in-row offsets, same geometry as
+	 *  RackPlanRenderer.rowRacks), anchored so the layout's bounding-box
+	 *  top-left lands at the clicked point. rackPlacements is the plan truth;
+	 *  the schematic is only a seed. Rows without plan data stack below the
+	 *  planned ones. One undoable action. */
+	function adoptRowLayout(room: string, anchorMm: Point) {
+		const doc: any = racksData[room]
+		if (!doc?.racks?.length) return
+		const placed = new Set(rackPlacements.map(p => p.rackId))
+		const GAP = RACK_GAP_PX / RACK_SCALE
+		type Cand = { rackId: string; x: number; y: number; rotation: number }
+		const cands: Cand[] = []
+		let fallbackY = 0 // synthetic origins for rows that never had plan data
+		for (const row of doc.rows ?? []) {
+			const items = (doc.racks as any[]).filter(r => r.rowId === row.id).sort((a, b) => a.order - b.order)
+			if (!items.length) continue
+			const rackItems = items.filter(r => r.type !== 'vcm')
+			const front = (rackItems.length ? rackItems : items).reduce((m, r) => Math.max(m, r.depthMm), 0)
+			const rowDepth = front + items.reduce((m, r) => Math.max(m, r.frontProtrusionMm ?? 0), 0)
+			const o = row.plan?.originMm ?? { x: 0, y: fallbackY }
+			if (!row.plan?.originMm) fallbackY += rowDepth + 600
+			const rotDeg = row.plan?.rotationDeg ?? 0
+			const rot = (((Math.round(rotDeg / 90) * 90) % 360) + 360) % 360
+			const rad = (rotDeg * Math.PI) / 180, cs = Math.cos(rad), sn = Math.sin(rad)
+			let x = 0
+			for (const r of items) {
+				const lx = x, ly = front + (r.frontProtrusionMm ?? 0) - r.depthMm
+				x += r.widthMm + GAP
+				if (placed.has(r.id)) continue
+				cands.push({ rackId: r.id, x: o.x + lx * cs - ly * sn, y: o.y + lx * sn + ly * cs, rotation: rot })
+			}
+		}
+		if (!cands.length) { toast.info('Nothing to adopt — every rack in a row is already placed'); return }
+		const minX = Math.min(...cands.map(c => c.x)), minY = Math.min(...cands.map(c => c.y))
+		const prev = rackPlacements
+		const news: RackPlacement[] = cands.map(c => ({
+			rackId: c.rackId, room, rotation: c.rotation,
+			position: snapToGrid({ x: anchorMm.x + (c.x - minX), y: anchorMm.y + (c.y - minY) }, gridMm),
+		}))
+		rackPlacements = [...rackPlacements, ...news]
+		selectedRackIds = new Set(news.map(n => n.rackId))
+		selectedIds = new Set()
+		history.record({
+			label: `Adopt row layout (${news.length})`,
+			undo: () => { rackPlacements = prev; selectedRackIds = new Set() },
+			redo: () => { rackPlacements = [...prev, ...news]; selectedRackIds = new Set(news.map(n => n.rackId)) },
+		})
+		toast.success(`Placed ${news.length} rack(s) from Room ${room}'s row layout — drag to fine-tune`)
+	}
+
 	function removeRackPlacements() {
 		if (selectedRackIds.size === 0) return
 		const prev = rackPlacements
@@ -1576,6 +1646,7 @@
 		// console.log(e.key)
 
 		if (e.key === 'Escape') {
+			if (adoptingRoom) { adoptingRoom = null; return }
 			// Cascade: place-location mode → drawing handled by canvas → clear selection → select mode
 			// (If trunk drawing is active, the canvas Escape handler finishes it and
 			//  sets trunkDrawingActive=false via ontrunkdrawingchange. Skip this handler.)
@@ -1723,11 +1794,14 @@
 						{rackPlacements}
 						{selectedRackIds}
 						{calibration}
+						{adoptableRooms}
+						{adoptingRoom}
 						onplace={placeRacks}
 						onselect={selectRack}
 						onrangeselect={rangeSelectRacks}
 						onremove={removeRackPlacements}
 						onrotate={rotateSelectedRacks}
+						onadopt={(room) => { adoptingRoom = adoptingRoom === room ? null : room }}
 					/>
 				{:else}
 					<TrunkPalette
@@ -1769,6 +1843,12 @@
 					{rackPlacements}
 					rackConfigs={allRackConfigs}
 					{selectedRackIds}
+					anchorMode={!!adoptingRoom}
+					onanchor={(pos: Point) => {
+						const room = adoptingRoom
+						adoptingRoom = null
+						if (room) adoptRowLayout(room, snapToGrid(toMm(pos), gridMm))
+					}}
 					{trunks}
 					{secondaryRoutes}
 					{nodeFillMap}

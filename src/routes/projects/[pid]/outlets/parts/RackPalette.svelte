@@ -3,16 +3,21 @@
 	import type { RackPlacement, PageCalibration } from './types'
 	import type { RackConfig } from '../../racks/parts/types'
 
-	let { rackConfigs, rackPlacements, selectedRackIds, calibration, onplace, onselect, onrangeselect, onremove, onrotate }: {
+	let { rackConfigs, rackPlacements, selectedRackIds, calibration, adoptableRooms = {}, adoptingRoom = null, onplace, onselect, onrangeselect, onremove, onrotate, onadopt }: {
 		rackConfigs: (RackConfig & { room: string })[]
 		rackPlacements: RackPlacement[]
 		selectedRackIds: Set<string>
 		calibration: PageCalibration | null
+		/** room → count of unplaced racks adoptable from the legacy row layout. */
+		adoptableRooms?: Record<string, number>
+		/** Room currently armed for adopt (next plan click anchors the layout). */
+		adoptingRoom?: string | null
 		onplace: (rackIds: string[], room: string, position: { x: number; y: number }) => void
 		onselect: (rackId: string, multi: boolean) => void
 		onrangeselect?: (ids: string[]) => void
 		onremove: () => void
 		onrotate: () => void
+		onadopt?: (room: string) => void
 	} = $props()
 
 	let draggedIds = $state<string[]>([])
@@ -126,7 +131,17 @@
 			<p>Drag racks to drawing</p>
 			{#each [...racksByRoom.entries()].sort((a, b) => a[0].localeCompare(b[0])) as [room, racks] (room)}
 				<div>
-					<div class="text-[10px] text-gray-400 uppercase tracking-wider font-medium mb-0.5">Room {room}</div>
+					<div class="flex items-center gap-1 mb-0.5">
+						<div class="text-[10px] text-gray-400 uppercase tracking-wider font-medium">Room {room}</div>
+						{#if calibration && onadopt && (adoptableRooms[room] ?? 0) > 0}
+							<button class="ml-auto px-1.5 py-px rounded border text-[10px] transition-colors
+									{adoptingRoom === room ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}"
+								title="Place this room's unplaced racks using the legacy row layout — click, then click the plan where the bank's top-left corner should land (Esc cancels)"
+								onclick={() => onadopt(room)}>
+								{adoptingRoom === room ? 'click the plan…' : `Adopt row layout (${adoptableRooms[room]})`}
+							</button>
+						{/if}
+					</div>
 					{#each racks as rack (rack.id)}
 						{@const placed = isPlaced(rack.id)}
 						{@const selected = selectedRackIds.has(rack.id)}
