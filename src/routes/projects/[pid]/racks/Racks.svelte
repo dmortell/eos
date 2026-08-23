@@ -214,6 +214,16 @@
 	// section label + drawable area live at the top of the canvas.
 	let planTopPx = $state(80)
 
+	/** Rack plan positions are canonical on the OUTLETS doc (`rackPlacements`,
+	 *  calibrated floorplan mm — elevations-plan.md "plan × outlets sync",
+	 *  approved 2026-08-20). This legacy plan view no longer edits placements:
+	 *  row-origin dragging is disabled behind this flag so the schematic
+	 *  rows[].plan data can't diverge from the placement truth.
+	 *  TODO(plan-sync): once the placement-based plan view ships, delete this
+	 *  flag together with moveRow() and RackPlanRenderer's onmoverow/
+	 *  startRowDrag path (rows[].plan then only feeds legacy rendering). */
+	const PLAN_PLACEMENT_EDITING = false
+
 	function moveRow(rowId: string, originMm: { x: number; y: number }) {
 		rows = rows.map(r => r.id === rowId
 			? { ...r, plan: { originMm, rotationDeg: r.plan?.rotationDeg ?? 0 } }
@@ -1074,6 +1084,12 @@
 			<div class="flex-1 min-h-0 relative" onclick={onCanvasClick} bind:this={canvasEl}>
 				{#if canvasView === 'plan'}
 					<PlanToolbar mode={planMode} onchange={m => planMode = m} />
+					{#if !PLAN_PLACEMENT_EDITING}
+						<div class="absolute top-2 right-2 z-10 px-2 py-1 rounded border border-amber-200 bg-amber-50/95 text-[11px] text-amber-700 print:hidden"
+							title="Rack plan positions are canonical on the Floorplan tool's rackPlacements — this schematic view no longer moves them">
+							Rack positions are read-only here — place &amp; move racks on the Floorplan tool
+						</div>
+					{/if}
 				{/if}
 				<Canvas bind:view width={canvasWidth} height={canvasHeight}
 					singleTouchPan canPanAt={(t) => !(t as Element | null)?.closest?.('.drag')}
@@ -1093,7 +1109,7 @@
 					{#if canvasView === 'plan'}
 						<RackPlanRenderer {view} {rows} {racks} {roomObjects} {selectedIds} {activeRowId} {planTopPx}
 							{planMode} {selectedRoomObjectId}
-							onmoverow={moveRow}
+							onmoverow={PLAN_PLACEMENT_EDITING ? moveRow : undefined}
 							onselectrack={selectRack}
 							onselectrow={id => activeRowId = id}
 							onaddroomobject={addRoomObject}

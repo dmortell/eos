@@ -1597,3 +1597,27 @@ Outlets integration" questions; needs Dave's sign-off before building):**
 
 Open question for Dave: should the legacy racks tool's plan view become
 read-only once placements are canonical, or write placements too?
+
+### Session追記 (2026-08-20 — plan×outlets sync APPROVED; legacy plan view read-only)
+Dave approved the proposal: **outlets-doc `rackPlacements` is the single
+source of truth** for rack plan position/rotation, and the legacy racks
+plan-view goes READ-ONLY behind a flag.
+
+Shipped: `PLAN_PLACEMENT_EDITING = false` in Racks.svelte — row-origin
+dragging disabled (onmoverow withheld from RackPlanRenderer, which already
+degrades: no move cursor, no drag), amber notice "Rack positions are
+read-only here — place & move racks on the Floorplan tool". Walls/doors/rects
+(roomObjects) remain editable — they have no floorplan counterpart yet.
+TODO(plan-sync) markers in Racks.svelte + RackPlanRenderer.svelte mark the
+code to DELETE once the placement-based plan view ships (moveRow, the
+onmoverow prop + startRowDrag/onDragMove/onDragEnd path).
+Verified in-browser: drag over a row leaves rows[].plan untouched in the doc;
+wall drawing still works.
+
+Remaining build-out (per approved design, not yet started):
+1. "Adopt row layout" one-shot seeding of missing rackPlacements from
+   rows[].plan.
+2. Sheets racks viewport `face:'plan'` renders from rackPlacements
+   (per-rack handles) instead of the row schematic.
+3. Walls/doors on the outlets floorplan (then roomObjects editing in the
+   legacy tool can go too).

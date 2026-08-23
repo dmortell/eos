@@ -79,6 +79,10 @@
 	let dragStartOrigin: { x: number; y: number } | null = null
 	let dragStartMouse: { x: number; y: number } | null = null
 
+	// TODO(plan-sync): remove this whole row-drag path (startRowDrag/onDragMove/
+	// onDragEnd + the onmoverow prop) once the placement-based plan view ships —
+	// rack plan positions are canonical on the outlets doc's rackPlacements and
+	// the host passes onmoverow=undefined (Racks.svelte PLAN_PLACEMENT_EDITING).
 	function startRowDrag(e: MouseEvent, row: RackRow) {
 		if (e.button !== 0 || !interactive || !onmoverow) return
 		e.preventDefault()
