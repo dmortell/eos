@@ -129,6 +129,14 @@ export class Firestore {
             callback?.(data)
         });
     }
+    /** Like subscribeWhere but matches docs whose array field contains the value. */
+    subscribeWhereContains(path: string, field: string, value: unknown, callback: (data: DocWithId[]) => void): () => void {
+        const q = query(collection(firestore, path), where(field, 'array-contains', value));
+        return onSnapshot(q, (snap) => {
+            const data = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+            callback?.(data)
+        });
+    }
     subscribeMany(path: string, callback: (data: DocWithId[]) => void): () => void {
         const q = query(collection(firestore, path));
         return onSnapshot(q, (snap) => {

@@ -7,6 +7,8 @@
 	import { toast } from 'svelte-sonner'
 	import { createUploadThing } from './uploader'
 	import { providerLabel, inferProvider, type FileProvider } from './provider'
+	import { fileProjectIds, fileInProject, fileIsShared, membershipPayload } from '$lib/files'
+	import { Dialog } from '$lib'
 	import { goto } from '$app/navigation'
 
 	interface FileDoc {
@@ -23,6 +25,8 @@
 		size?: number
 		pageCount?: number
 		projectId?: string
+		/** Project membership; when present it is authoritative and projectId === projectIds[0]. */
+		projectIds?: string[]
 		uploadedAt?: any
 		updatedAt?: any
 		pages?: Record<number, PageInfo>
@@ -96,14 +100,17 @@
 	let totalSize = $derived(filtered.reduce((sum, f) => sum + (f.size ?? 0), 0))
 	let storageFull = $derived(totalSize >= STORAGE_LIMIT * 1024 * 1024)
 
-	// Group filtered files by projectId
+	// Group filtered files by project membership — a shared file appears under
+	// every project it belongs to.
 	let grouped = $derived.by(() => {
 		const groups: { pid: string; name: string; files: FileDoc[] }[] = []
 		const map = new Map<string, FileDoc[]>()
 		for (const f of filtered) {
-			const pid = (f.projectId as string) || ''
-			if (!map.has(pid)) map.set(pid, [])
-			map.get(pid)!.push(f)
+			const members = fileProjectIds(f)
+			for (const pid of members.length ? members : ['']) {
+				if (!map.has(pid)) map.set(pid, [])
+				map.get(pid)!.push(f)
+			}
 		}
 		// Current project first, then others alphabetically
 		if (map.has(projectId)) {
@@ -135,6 +142,7 @@
 						provider: 'uploadthing',
 						size: file.size,
 						projectId,
+						projectIds: [projectId],
 						uploadedAt: new Date(),
 					})
 				}
@@ -215,6 +223,7 @@
 							provider: 'firebase',
 							size: file.size,
 							projectId,
+							projectIds: [projectId],
 							uploadedAt: new Date(),
 						})
 						resolve()
@@ -281,9 +290,63 @@
 		goto(url)
 	}
 
-	function doDelete(file: FileDoc) {
+	/**
+	 * Trash acts relative to the group the row is listed under: if the file
+	 * belongs to other projects too, it is only unlinked from that project (the
+	 * blob and calibration survive); a full delete happens on the last member.
+	 */
+	async function doDelete(file: FileDoc, groupPid: string) {
 		confirmingDelete = null
-		ondelete?.(file)
+		const members = fileProjectIds(file)
+		if (members.length > 1 && members.includes(groupPid)) {
+			try {
+				await db.save('files', membershipPayload(file.id, members.filter(p => p !== groupPid)))
+				toast.success(`Removed from ${projects[groupPid] ?? 'project'} — still used by ${members.length - 1} other project${members.length - 1 === 1 ? '' : 's'}`)
+			} catch (e: any) {
+				toast.error(e?.message ?? 'Remove failed')
+			}
+		} else {
+			ondelete?.(file)
+		}
+	}
+
+	/** Add the current project to a file's membership ("Use in this project"). */
+	async function useHere(file: FileDoc) {
+		const members = fileProjectIds(file)
+		if (members.includes(projectId)) return
+		try {
+			await db.save('files', membershipPayload(file.id, [...members, projectId]))
+			toast.success(`Added to ${projects[projectId] ?? projectName ?? 'this project'}`)
+		} catch (e: any) {
+			toast.error(e?.message ?? 'Failed to add')
+		}
+	}
+
+	// ── Share dialog (per-file project membership checklist) ──
+	let shareFileId = $state<string | null>(null)
+	let shareOpen = $state(false)
+	// Resolve live from `files` so remote/self updates flow into the open dialog.
+	let shareDoc = $derived(shareFileId ? files.find(f => f.id === shareFileId) ?? null : null)
+	let projectChoices = $derived(
+		Object.entries(projects)
+			.map(([pid, name]) => ({ pid, name }))
+			.sort((a, b) => (a.pid === projectId ? -1 : b.pid === projectId ? 1 : a.name.localeCompare(b.name)))
+	)
+
+	function openShare(file: FileDoc) {
+		shareFileId = file.id
+		shareOpen = true
+	}
+
+	async function toggleMembership(file: FileDoc, pid: string) {
+		const members = fileProjectIds(file)
+		const next = members.includes(pid) ? members.filter(p => p !== pid) : [...members, pid]
+		if (!next.length) return // never orphan a file from the dialog
+		try {
+			await db.save('files', membershipPayload(file.id, next))
+		} catch (e: any) {
+			toast.error(e?.message ?? 'Update failed')
+		}
 	}
 
 	function groupSize(files: FileDoc[]): number {
@@ -390,7 +453,7 @@
 
 					<div class="space-y-0.5 mt-1 ml-4">
 						<!-- Header -->
-						<div class="grid gap-2 px-3 py-1 text-[10px] text-gray-400 uppercase tracking-wider font-medium" style="grid-template-columns: 1fr 70px 45px 120px 100px 32px">
+						<div class="grid gap-2 px-3 py-1 text-[10px] text-gray-400 uppercase tracking-wider font-medium" style="grid-template-columns: 1fr 70px 45px 120px 100px 56px">
 							<span>Name</span>
 							<span>Size</span>
 							<span>Pages</span>
@@ -401,7 +464,9 @@
 
 						{#each group.files as file (file.id)}
 							{@const status = fileStatus(file)}
-							<div class="grid gap-2 items-center px-3 py-1 rounded bg-white border border-gray-200 hover:border-gray-400 transition-colors" style="grid-template-columns: 1fr 70px 45px 120px 100px 32px">
+							{@const members = fileProjectIds(file)}
+							{@const confirmKey = `${group.pid}:${file.id}`}
+							<div class="grid gap-2 items-center px-3 py-1 rounded bg-white border border-gray-200 hover:border-gray-400 transition-colors" style="grid-template-columns: 1fr 70px 45px 120px 100px 56px">
 								<!-- Name -->
 								<div class="flex items-center gap-2 min-w-0">
 									<Icon name="fileText" class="h-3.5 w-3.5 text-gray-400 shrink-0" />
@@ -422,6 +487,20 @@
 										title="Stored in {providerLabel(file)}">
 										{providerLabel(file)}
 									</span>
+									{#if fileIsShared(file)}
+										<span class="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium border bg-emerald-50 text-emerald-600 border-emerald-200"
+											title={members.map(p => projects[p] ?? p).join(', ')}>
+											Shared ×{members.length}
+										</span>
+									{/if}
+									{#if projectId && !fileInProject(file, projectId)}
+										<button class="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium border bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100 cursor-pointer flex items-center gap-0.5"
+											title="Add this floorplan to {projects[projectId] ?? projectName ?? 'this project'} — shares the file and its calibration, no re-upload"
+											onclick={() => useHere(file)}>
+											<Icon name="plus" size={9} />
+											Use here
+										</button>
+									{/if}
 								</div>
 
 								<!-- Size -->
@@ -447,18 +526,26 @@
 								<!-- Date -->
 								<span class="text-[11px] text-gray-500">{formatDate(file.uploadedAt)}</span>
 
-								<!-- Delete -->
-								<div class="flex justify-end">
-									{#if confirmingDelete === file.id}
+								<!-- Share / Delete -->
+								<div class="flex justify-end items-center gap-1.5">
+									{#if confirmingDelete === confirmKey}
 										<div class="flex items-center gap-1">
-											<button class="px-1.5 py-0.5 bg-red-600 text-white rounded text-[10px] hover:bg-red-700" onclick={() => doDelete(file)}>Yes</button>
+											<button class="px-1.5 py-0.5 bg-red-600 text-white rounded text-[10px] hover:bg-red-700" onclick={() => doDelete(file, group.pid)}>Yes</button>
 											<button class="px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded text-[10px] hover:bg-gray-300" onclick={() => confirmingDelete = null}>No</button>
 										</div>
 									{:else}
 										<button
+											class="text-gray-300 hover:text-blue-500 transition-colors"
+											title="Share with other projects…"
+											onclick={() => openShare(file)}>
+											<Icon name="share" class="h-3.5 w-3.5" />
+										</button>
+										<button
 											class="text-gray-300 hover:text-red-500 transition-colors"
-											title="Delete file"
-											onclick={() => confirmingDelete = file.id}>
+											title={members.length > 1 && members.includes(group.pid)
+												? `Remove from ${group.name} (stays in ${members.length - 1} other project${members.length - 1 === 1 ? '' : 's'})`
+												: 'Delete file'}
+											onclick={() => confirmingDelete = confirmKey}>
 											<Icon name="trash" class="h-3.5 w-3.5" />
 										</button>
 									{/if}
@@ -471,3 +558,32 @@
 		{/if}
 	</div>
 </div>
+
+<!-- Share dialog: per-file project membership. One file, one blob, one calibration —
+     ticking a project makes the floorplan (and its origin/scale/crop) available there. -->
+<Dialog title="Share floorplan" bind:open={shareOpen}>
+	{#if shareDoc}
+		{@const members = fileProjectIds(shareDoc)}
+		<p class="text-xs text-gray-500 mb-1 truncate" title={shareDoc.name ?? shareDoc.id}>{shareDoc.name ?? shareDoc.id}</p>
+		<p class="text-[11px] text-gray-400 mb-3">
+			Projects share the same file and calibration — no duplicate storage. The file is only deleted when removed from its last project.
+		</p>
+		<div class="space-y-0.5 max-h-72 overflow-y-auto">
+			{#each projectChoices as choice (choice.pid)}
+				{@const isMember = members.includes(choice.pid)}
+				{@const isLastMember = isMember && members.length === 1}
+				<label class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer text-xs text-gray-700 {isLastMember ? 'opacity-60 cursor-not-allowed' : ''}">
+					<input type="checkbox" checked={isMember} disabled={isLastMember}
+						onchange={() => toggleMembership(shareDoc, choice.pid)} />
+					<span class="truncate">{choice.name}</span>
+					{#if choice.pid === projectId}
+						<span class="text-[9px] text-gray-400 uppercase tracking-wider">current</span>
+					{/if}
+					{#if isLastMember}
+						<span class="text-[9px] text-gray-400 ml-auto shrink-0">last project — use Delete instead</span>
+					{/if}
+				</label>
+			{/each}
+		</div>
+	{/if}
+</Dialog>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Firestore, Button, Icon } from '$lib'
+	import { fileInProject } from '$lib/files'
 	import { generateSvelteHelpers } from '@uploadthing/svelte'
 	import type { OurFileRouter } from '../api/uploadthing/uploadthing'
 
@@ -15,6 +16,7 @@
 		name?: string
 		url?: string
 		projectId?: string
+		projectIds?: string[]
 	}
 
 	let db = new Firestore()
@@ -42,8 +44,8 @@
 
 	// Current project's images first, then the rest.
 	let sortedLibrary = $derived.by(() => {
-		const mine = libraryFiles.filter(f => f.projectId === projectId)
-		const others = libraryFiles.filter(f => f.projectId !== projectId)
+		const mine = libraryFiles.filter(f => fileInProject(f, projectId))
+		const others = libraryFiles.filter(f => !fileInProject(f, projectId))
 		return [...mine, ...others]
 	})
 

@@ -7,6 +7,7 @@
 	import { migrateFloors, updateFloors as _updateFloors, deleteFloor as _deleteFloor, floorAreaDocId } from '$lib/utils/floor'
 	import type { DeviceTemplate } from '../racks/parts/types'
 	import { findOrCreateDrawing } from '$lib/versioning/service'
+	import { subscribeProjectFiles } from '$lib/files'
 	import Elevations from './Elevations.svelte'
 
 	let db = new Firestore()
@@ -108,7 +109,7 @@
 	$effect(() => {
 		const pid = page.params.pid
 		if (!pid) return
-		const unsub = db.subscribeWhere('files', 'projectId', pid, (data: any[]) => { files = data })
+		const unsub = subscribeProjectFiles(db, pid, (data: any[]) => { files = data })
 		return () => { unsub?.() }
 	})
 	$effect(() => {
@@ -135,6 +136,15 @@
 		if (!rackDoc?.racks) return
 		const updatedRacks = rackDoc.racks.map((r: any) => r.id === rackId ? { ...r, ...updates } : r)
 		db.save('racks', { id: `${pid}_F${String(activeFloor).padStart(2, '0')}_R${room}`, racks: updatedRacks })
+	}
+	/** "New rack here" from the Floorplan tab: append to the room's racks doc
+	 *  (creating the doc and a default row when the room has neither). */
+	function createRackFromPlan(room: string, rack: Record<string, any>) {
+		const pid = page.params.pid
+		if (!pid) return
+		const doc = racksAll[room]
+		const rows = doc?.rows?.length ? doc.rows : [{ id: rack.rowId, label: 'Row A' }]
+		db.save('racks', { id: `${pid}_F${String(activeFloor).padStart(2, '0')}_R${room}`, racks: [...(doc?.racks ?? []), rack], rows, floor: activeFloor, room })
 	}
 
 	// Project-level device library (shared with the Racks tool)
@@ -255,6 +265,6 @@
 	<Elevations data={rackData} {framesData} {patchingData} {library} {initialFocusRackId} floor={activeFloor} room={activeRoom} {floors} projectId={page.params.pid} {floorFormat} {projectName}
 		{drawingId} {db} uid={session.user?.uid ?? ''}
 		{outletsData} {files} {racksAll} {outletAreas} {outletArea}
-		onsave={save} onsaveframes={saveFrames} onsavepatching={savePatching} onsaveoutlets={saveOutlets} onsaverack={saveRackFromPlan} onlibrarychange={saveLibrary} onfloorchange={changeFloor} onroomchange={changeRoom}
+		onsave={save} onsaveframes={saveFrames} onsavepatching={savePatching} onsaveoutlets={saveOutlets} onsaverack={saveRackFromPlan} oncreaterack={createRackFromPlan} onlibrarychange={saveLibrary} onfloorchange={changeFloor} onroomchange={changeRoom}
 		onupdatefloors={updateFloors} ondeletefloor={deleteFloor} />
 {/if}

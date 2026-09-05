@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Dialog, Button, Icon, Select, Input, Firestore } from '$lib'
+	import { fileProjectIds, fileInProject } from '$lib/files'
 	import type { ViewportSource } from '$lib/types/pages'
 	import type { FloorConfig } from '$lib/types/project'
 
@@ -83,12 +84,12 @@
 	}
 
 	// Uploaded files for the floorplan picker.
-	type FileDoc = { id: string; name?: string; pageCount?: number; projectId?: string }
+	type FileDoc = { id: string; name?: string; pageCount?: number; projectId?: string; projectIds?: string[] }
 	let files = $state<FileDoc[]>([])
 	$effect(() => {
 		const unsub = db.subscribeMany('files', docs => {
 			files = (docs as unknown as FileDoc[])
-				.filter(f => !f.projectId || f.projectId === projectId)
+				.filter(f => !fileProjectIds(f).length || fileInProject(f, projectId))
 				.sort((a, b) => (a.name ?? a.id).localeCompare(b.name ?? b.id))
 		})
 		return () => unsub?.()

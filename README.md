@@ -181,3 +181,7 @@ Value: paste the full json value with no spaces at the end: {"type":....}
 Add Key: UPLOADTHING_TOKEN
 Value: paste your upload thing token
 Click Redeploy
+
+
+TODO:
+- History

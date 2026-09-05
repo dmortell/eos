@@ -4,6 +4,7 @@
 	import { migrateFloors } from '$lib/utils/floor'
 	import type { FloorConfig } from '$lib/types/project'
 	import Outlets from '../../outlets/Outlets.svelte'
+	import { subscribeProjectFiles } from '$lib/files'
 	import { getWorkspace } from '../state.svelte'
 
 	const ws = getWorkspace()
@@ -54,7 +55,7 @@
 
 	$effect(() => {
 		if (!ws?.pid) return
-		const unsub = db.subscribeWhere('files', 'projectId', ws.pid, (data: any[]) => (files = data))
+		const unsub = subscribeProjectFiles(db, ws.pid, (data: any[]) => (files = data))
 		return () => unsub?.()
 	})
 

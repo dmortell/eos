@@ -6,6 +6,7 @@
 	import type { FloorConfig } from '$lib/types/project';
 	import { updateFloors as _updateFloors, deleteFloor as _deleteFloor, floorDocId, floorAreaDocId } from '$lib/utils/floor';
 	import { findOrCreateDrawing } from '$lib/versioning/service';
+	import { subscribeProjectFiles } from '$lib/files';
 	import Outlets from './Outlets.svelte';
 
 	let db = new Firestore();
@@ -63,7 +64,7 @@
 	$effect(() => {
 		const pid = page.params.pid;
 		if (!pid) return;
-		const unsub = db.subscribeWhere('files', 'projectId', pid, data => { files = data; });
+		const unsub = subscribeProjectFiles(db, pid, data => { files = data; });
 		return () => { unsub?.(); };
 	});
 
@@ -186,6 +187,17 @@
 		const updatedRacks = rackDoc.racks.map((r: any) => r.id === rackId ? { ...r, ...updates } : r);
 		db.save('racks', { id: rackDocId, racks: updatedRacks });
 	}
+
+	/** "New rack here": append a rack to the room's racks doc (creating the doc
+	 *  and a default row when the room has neither). */
+	function createRack(room: string, rack: Record<string, any>) {
+		const pid = page.params.pid;
+		if (!pid) return;
+		const rackDocId = `${pid}_F${String(activeFloor).padStart(2, '0')}_R${room}`;
+		const doc = racksData[room];
+		const rows = doc?.rows?.length ? doc.rows : [{ id: rack.rowId, label: 'Row A' }];
+		db.save('racks', { id: rackDocId, racks: [...(doc?.racks ?? []), rack], rows, floor: activeFloor, room });
+	}
 </script>
 
 {#if loading}
@@ -211,6 +223,7 @@
 			{initialLayers}
 			onsave={save}
 			onsaverack={saveRack}
+			oncreaterack={createRack}
 			onfloorchange={changeFloor}
 			onareachange={changeArea}
 			onupdatefloors={updateFloors}

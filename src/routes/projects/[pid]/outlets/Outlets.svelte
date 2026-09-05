@@ -5,6 +5,7 @@
 	import VersionPanel from '../parts/VersionPanel.svelte'
 	import { PaneGroup, Pane, Handle } from '$lib/components/ui/resizable'
 	import { fmtFloor } from '$lib/utils/floor'
+	import { fileInProject } from '$lib/files'
 	import FloorManagerDialog from '$lib/components/FloorManagerDialog.svelte'
 	import type { FloorConfig } from '$lib/types/project'
 	import type { OutletConfig, OutletsData, ToolMode, PageCalibration, Point, RackPlacement, SidebarTab } from './parts/types'
@@ -418,10 +419,10 @@
 		}
 	})
 
-	// Filter files to this project, sorted by name
+	// Filter files to this project (membership-aware — shared files count), sorted by name
 	let projectFiles = $derived(
 		files
-			.filter((f: any) => f.projectId === projectId && f.url)
+			.filter((f: any) => fileInProject(f, projectId) && f.url)
 			.sort((a: any, b: any) => (a.name ?? a.id).localeCompare(b.name ?? b.id))
 	)
 

@@ -4,6 +4,7 @@
 	import { storage } from '$lib/db.svelte';
 	import { ref, deleteObject } from 'firebase/storage';
 	import { isUploadThing } from './provider';
+	import { fileProjectIds, membershipPayload } from '$lib/files';
 	import Uploads from './Uploads.svelte';
 
 	let db = new Firestore();
@@ -29,6 +30,16 @@
 	});
 
 	async function deleteFile(file: DocWithId) {
+		// Safety net: a file still shared with other projects is only unlinked
+		// from this one — the blob and calibration must survive for the others.
+		// (Uploads.svelte normally handles this; guard here too so a full delete
+		// can never destroy a shared file's storage.)
+		const pid = page.params.pid ?? '';
+		const members = fileProjectIds(file);
+		if (members.length > 1) {
+			await db.save('files', membershipPayload(file.id, members.filter(p => p !== pid)));
+			return;
+		}
 		// Remove the stored object first, routed by provider, then drop the Firestore doc.
 		if (isUploadThing(file)) {
 			const utKey = (file.key ?? file.path) as string | undefined;

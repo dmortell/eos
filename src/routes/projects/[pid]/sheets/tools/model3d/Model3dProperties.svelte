@@ -3,6 +3,7 @@
 	import type { Firestore } from '$lib/db.svelte'
 	import PropSelect from '../../parts/PropSelect.svelte'
 	import PropCheck from '../../parts/PropCheck.svelte'
+	import { subscribeProjectFiles } from '$lib/files'
 	import type { Dir, Underlay } from './types'
 	import { DIRECTIONS, DIR_LABEL } from './types'
 	import { modelStore } from './models.svelte'
@@ -42,7 +43,7 @@
 	let files = $state<{ id: string; name?: string; pageCount?: number }[]>([])
 	$effect(() => {
 		if (!pid) return
-		const unsub = db.subscribeWhere('files', 'projectId', pid, (d: any) => (files = d))
+		const unsub = subscribeProjectFiles(db, pid, (d: any) => (files = d))
 		return () => unsub?.()
 	})
 	// Underlays for this direction (array order = z-order; later = on top).
