@@ -62,7 +62,7 @@ Each tool has a `+page.svelte` entry point that subscribes to Firestore, and a m
 - `projects/{pid}` — Project metadata
 - `frames/{pid}` — Single doc with zones, frames, rooms, customLocationTypes
 - `racks/{pid}` — Rack layouts, devices, library
-- `files/{fileId}` — Uploaded file metadata (url, key, size, pageCount, pages with origin/scale/crop per page)
+- `files/{fileId}` — Uploaded file metadata (url, key, size, pageCount, pages with origin/scale/crop/masks per page; doc-level hiddenLayers = PDF OCG ids + hideMarkups flag, applied by PdfState in every tool that renders the PDF)
 - `logs/{projectId}/{tool}` — Change audit logs
 
 ### Pan/Zoom Pattern

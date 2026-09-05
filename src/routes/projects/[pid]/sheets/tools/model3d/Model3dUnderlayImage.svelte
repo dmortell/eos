@@ -37,6 +37,7 @@
 		if (/\.pdf($|\?)/i.test(u) || fileDoc?.pageCount) {
 			let cancelled = false, local: string | null = null
 			const pdf = new PdfState()
+			pdf.applyFileSettings(fileDoc)
 			;(async () => {
 				try {
 					await pdf.load(u); if (cancelled) return

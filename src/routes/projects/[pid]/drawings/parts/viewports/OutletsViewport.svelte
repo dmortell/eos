@@ -77,6 +77,7 @@
 			// @ts-expect-error allowImportingTsExtensions is off in this project
 			const mod: any = await import('../../../uploads/parts/PdfState.svelte.ts')
 			const pdf = new mod.PdfState()
+			pdf.applyFileSettings(fileDoc)
 			try {
 				await pdf.load(url)
 				if (cancelled) return

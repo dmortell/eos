@@ -409,15 +409,20 @@
 		loadPdf(url)
 	})
 
-	// Re-render when page changes
+	// Re-render when the page or the file's layer/markup settings change
+	// (applyFileSettings reads file.hiddenLayers/hideMarkups, tracking them).
 	$effect(() => {
 		const p = page
-		if (pdf?.pdfDoc && p >= 1) renderPage(p)
+		if (pdf?.pdfDoc && p >= 1) {
+			pdf.applyFileSettings(file)
+			renderPage(p)
+		}
 	})
 
 	async function loadPdf(url: string) {
 		pdf?.destroy()
 		pdf = new PdfState()
+		pdf.applyFileSettings(file)
 		try {
 			await pdf.load(url)
 			await renderPage(page)

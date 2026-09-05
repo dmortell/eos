@@ -49,7 +49,7 @@
 	const RENDER_SCALE = 2
 
 	// ── Tool state ──
-	type Tool = null | 'origin' | 'scale' | 'crop'
+	type Tool = null | 'origin' | 'scale' | 'crop' | 'mask'
 	let activeTool = $state<Tool>(null)
 
 	// Origin
@@ -61,6 +61,12 @@
 	let dimLine = $state<any>({ ...defaultDimLine })
 	let loadedDimLine = $state<any>({ ...defaultDimLine })
 	let dimHandle = 0
+
+	// Masks (white-out rects hiding unwanted PDF content, e.g. hatching/rev clouds)
+	type MaskRect = { x: number; y: number; width: number; height: number }
+	let masks = $state<MaskRect[]>([])
+	let maskDraft = $state<MaskRect | null>(null)
+	let maskStart = { x: 0, y: 0 }
 
 	// Crop
 	let cropRect = $state({ x: 0, y: 0, width: 0, height: 0 })
@@ -83,6 +89,106 @@
 	let dirty = $state(false)
 	let grayscale = $state(true)
 
+	// ── PDF layers (OCGs preserved by DWG→PDF export) + markup annotations ──
+	let layers = $state<{ id: string; name: string }[]>([])
+	let hiddenLayers = $state<string[]>([])
+	let hideMarkups = $state(false)
+	let showLayersPanel = $state(false)
+
+	// "What's this?" layer picker — click the drawing, identify which layers paint there
+	let layerPickMode = $state(false)
+	let identifying = $state(false)
+	let identifyRenders = $state(0)
+	let identifyPoint = $state<{ x: number; y: number } | null>(null)
+	let foundLayers = $state<{ id: string; name: string }[]>([])
+	let foundMarkups = $state(false)
+	let identifyRan = $state(false)
+
+	function toggleLayerPickMode() {
+		layerPickMode = !layerPickMode
+		if (layerPickMode) activeTool = null
+		else clearIdentify()
+	}
+
+	function clearIdentify() {
+		identifyPoint = null
+		foundLayers = []
+		foundMarkups = false
+		identifyRan = false
+	}
+
+	async function identifyAt(pos: { x: number; y: number }) {
+		if (!pdf?.pdfDoc || identifying) return
+		identifying = true
+		identifyRenders = 0
+		identifyPoint = pos
+		foundLayers = []
+		foundMarkups = false
+		identifyRan = false
+		try {
+			const res = await pdf.identifyLayersAt(pageNum, pos.x, pos.y, 8, (n: number) => identifyRenders = n)
+			foundLayers = res.layers
+			foundMarkups = res.markups
+			identifyRan = true
+			// Scroll the first match into view in the layer list
+			const first = res.layers[0]
+			if (first) document.getElementById(`pdf-layer-${first.id}`)?.scrollIntoView({ block: 'center' })
+		} finally {
+			identifying = false
+		}
+	}
+
+	let foundLayerIds = $derived(new Set(foundLayers.map(l => l.id)))
+
+	/** Layer names from xrefs look like "UBSLR-…-0501_20260528|X-5F_STRU$0$A-Hatch" — show the part after the xref prefix. */
+	function layerDisplayName(name: string): string {
+		const i = name.lastIndexOf('|')
+		return i >= 0 ? name.slice(i + 1) : name
+	}
+
+	function toggleLayer(id: string) {
+		hiddenLayers = hiddenLayers.includes(id) ? hiddenLayers.filter(l => l !== id) : [...hiddenLayers, id]
+		applyLayerSettings()
+	}
+
+	function toggleMarkups() {
+		hideMarkups = !hideMarkups
+		applyLayerSettings()
+	}
+
+	function showAllLayers() {
+		hiddenLayers = []
+		hideMarkups = false
+		applyLayerSettings()
+	}
+
+	/** Push layer visibility into the renderer, redraw, and persist on the file doc. */
+	function applyLayerSettings() {
+		if (!pdf) return
+		pdf.hiddenLayers = [...hiddenLayers]
+		pdf.hideMarkups = hideMarkups
+		rerenderPage()
+		if (fileDoc?.id) {
+			fileDoc.hiddenLayers = [...hiddenLayers]
+			fileDoc.hideMarkups = hideMarkups
+			db.save('files', { id: fileDoc.id, hiddenLayers: [...hiddenLayers], hideMarkups })
+		}
+	}
+
+	// Serialize redraws so rapid checkbox toggling always ends on the latest state.
+	let rerenderBusy = false
+	let rerenderAgain = false
+	async function rerenderPage() {
+		if (!canvasEl || !pdf?.pdfDoc) return
+		if (rerenderBusy) { rerenderAgain = true; return }
+		rerenderBusy = true
+		do {
+			rerenderAgain = false
+			await pdf.render({ canvas: canvasEl, page: pageNum, scale: RENDER_SCALE })
+		} while (rerenderAgain)
+		rerenderBusy = false
+	}
+
 	onMount(async () => {
 		try {
 			pdf = new PdfState()
@@ -92,6 +198,10 @@
 				fileDoc.pageCount = totalPages
 				db.save('files', { id: fileDoc.id, pageCount: totalPages })
 			}
+			layers = await pdf.getLayers()
+			hiddenLayers = Array.isArray(fileDoc?.hiddenLayers) ? [...fileDoc.hiddenLayers] : []
+			hideMarkups = !!fileDoc?.hideMarkups
+			pdf.applyFileSettings(fileDoc)
 			const dims = await pdf.getPageDimensions(1)
 			pageW = dims.width
 			pageH = dims.height
@@ -139,6 +249,8 @@
 
 		if (p.crop) cropRect = { ...p.crop }
 		else cropRect = { x: 0, y: 0, width: 0, height: 0 }
+		masks = Array.isArray(p.masks) ? p.masks.map((m: MaskRect) => ({ ...m })) : []
+		maskDraft = null
 		dirty = false
 	}
 
@@ -175,6 +287,16 @@
 		if (pixelDist < 1) return
 		dimLine.scale = Math.round(dimLine.distance / pixelDist * 1000) / 1000
 		savePageProp('scale', { ...dimLine })
+	}
+
+	function saveMasks() {
+		savePageProp('masks', masks.map(m => ({
+			x: Math.round(m.x), y: Math.round(m.y),
+			width: Math.round(m.width), height: Math.round(m.height),
+		})))
+		// Bake the saved masks into the canvas render (what every other tool sees).
+		pdf?.applyFileSettings(fileDoc)
+		rerenderPage()
 	}
 
 	function saveCrop() {
@@ -270,6 +392,12 @@
 			return
 		}
 
+		// Layer picker: identify what paints at the clicked point
+		if (layerPickMode && e.button === 0) {
+			identifyAt(getPagePos(e))
+			return
+		}
+
 		// Left click with a tool active
 		if (activeTool && e.button === 0) {
 			const pos = getPagePos(e)
@@ -297,6 +425,21 @@
 					dimHandle = 2 // drag end-point
 				}
 				dirty = true
+				return
+			}
+
+			if (activeTool === 'mask') {
+				const del = (e.target as HTMLElement)?.dataset?.maskDel
+				if (del !== undefined) {
+					masks = masks.filter((_, i) => i !== +del)
+					dirty = true
+					return
+				}
+				const p = getPagePos(e)
+				maskStart = p
+				maskDraft = { x: p.x, y: p.y, width: 0, height: 0 }
+				document.addEventListener('mousemove', onMaskMove)
+				document.addEventListener('mouseup', onMaskUp)
 				return
 			}
 
@@ -411,6 +554,28 @@
 		document.removeEventListener('mouseup', onCropUp)
 	}
 
+	// Mask drag
+	function onMaskMove(e: MouseEvent) {
+		const pos = getPagePos(e)
+		const x = Math.max(0, Math.min(maskStart.x, pos.x))
+		const y = Math.max(0, Math.min(maskStart.y, pos.y))
+		maskDraft = {
+			x, y,
+			width: Math.min(pageW, Math.max(maskStart.x, pos.x)) - x,
+			height: Math.min(pageH, Math.max(maskStart.y, pos.y)) - y,
+		}
+	}
+
+	function onMaskUp() {
+		document.removeEventListener('mousemove', onMaskMove)
+		document.removeEventListener('mouseup', onMaskUp)
+		if (maskDraft && maskDraft.width > 2 && maskDraft.height > 2) {
+			masks = [...masks, maskDraft]
+			dirty = true
+		}
+		maskDraft = null
+	}
+
 	// Touch support
 	let pinchLastDist: number | null = null
 	let lastPanMid: { x: number; y: number } | null = null
@@ -484,7 +649,9 @@
 		const tag = (e.target as HTMLElement).tagName
 		if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return
 		if (e.key === 'Escape') {
-			if (activeTool) { activeTool = null; dirty = false }
+			if (layerPickMode) { layerPickMode = false; clearIdentify() }
+			else if (showLayersPanel) showLayersPanel = false
+			else if (activeTool) { activeTool = null; dirty = false }
 			else onclose()
 		}
 		else if (e.key === 'ArrowLeft' || e.key === 'PageUp') goToPage(pageNum - 1)
@@ -511,6 +678,11 @@
 		const p = (fileDoc?.pages ?? {})[pageNum]
 		return !!p?.crop
 	}
+
+	function hasMasks(): boolean {
+		const p = (fileDoc?.pages ?? {})[pageNum]
+		return !!p?.masks?.length
+	}
 </script>
 
 <svelte:window bind:innerWidth={cw} bind:innerHeight={ch} onkeydown={onKeyDown} />
@@ -518,7 +690,7 @@
 <!-- <Titlebar title={projectName ? `${projectName} — Uploads` : 'Uploads'} /> -->
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="h-screen bg-gray-300 flex flex-col" oncontextmenu={e => e.preventDefault()}>
+<div class="h-screen bg-gray-300 flex flex-col relative" oncontextmenu={e => e.preventDefault()}>
 	<Titlebar title='PDF Viewer' />
 	<!-- Toolbar -->
 	<div class="flex items-center gap-2 px-3 py-1.5 bg-gray-800 border-b border-gray-700 shrink-0">
@@ -556,6 +728,24 @@
 			<Icon name="crop" size={13} />
 			Crop
 			{#if hasCrop() && activeTool !== 'crop'}<span class="w-1.5 h-1.5 rounded-full bg-green-400"></span>{/if}
+		</button>
+
+		<button
+			class="flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors {activeTool === 'mask' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}"
+			onclick={() => setTool('mask')}
+			title="Hide areas — drag boxes over unwanted content (hatching, clouds)">
+			<Icon name="eyeSlash" size={13} />
+			Hide
+			{#if hasMasks() && activeTool !== 'mask'}<span class="w-1.5 h-1.5 rounded-full bg-green-400"></span>{/if}
+		</button>
+
+		<button
+			class="flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors {showLayersPanel ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}"
+			onclick={() => showLayersPanel = !showLayersPanel}
+			title="Show/hide PDF layers and markups">
+			<Icon name="layers" size={13} />
+			Layers
+			{#if (hiddenLayers.length || hideMarkups) && !showLayersPanel}<span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>{/if}
 		</button>
 
 		<!-- Tool-specific controls -->
@@ -599,6 +789,19 @@
 			{:else}
 				<button class="px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-400 hover:bg-gray-600" onclick={saveCrop}>Save</button>
 			{/if}
+
+		{:else if activeTool === 'mask'}
+
+			<div class="w-px h-4 bg-gray-700 mx-1"></div>
+			<span class="text-xs text-gray-400">Drag boxes over content to hide</span>
+			<span class="text-xs text-gray-500 tabular-nums">{masks.length} area{masks.length === 1 ? '' : 's'}</span>
+			<button class="px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-400 hover:bg-gray-600"
+				onclick={() => { masks = []; dirty = true }}>Clear</button>
+			{#if dirty}
+				<MetalButton variant="green" onclick={saveMasks}>Save</MetalButton>
+			{:else}
+				<button class="px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-400 hover:bg-gray-600" onclick={saveMasks}>Save</button>
+			{/if}
 		{/if}
 
 		<div class="flex-1"></div>
@@ -635,6 +838,81 @@
 		</button>
 	</div>
 
+	<!-- Layers panel -->
+	{#if showLayersPanel && !loading && !error}
+		<div class="absolute right-2 top-16 z-20 w-80 max-h-[calc(100vh-5.5rem)] flex flex-col rounded-lg bg-gray-800/95 border border-gray-700 shadow-xl text-xs">
+			<div class="flex items-center justify-between px-3 py-2 border-b border-gray-700 shrink-0">
+				<span class="text-gray-200 font-medium">PDF layers</span>
+				<div class="flex items-center gap-2">
+					<button
+						class="flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors {layerPickMode ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}"
+						onclick={toggleLayerPickMode}
+						title="What's this? — click the drawing to identify which layers paint there">
+						<Icon name="crosshair" size={12} />
+						What's this?
+					</button>
+					{#if hiddenLayers.length || hideMarkups}
+						<button class="text-gray-400 hover:text-white" onclick={showAllLayers}>Show all</button>
+					{/if}
+					<button class="text-gray-400 hover:text-white p-0.5" onclick={() => { showLayersPanel = false; layerPickMode = false; clearIdentify() }} title="Close">
+						<Icon name="x" size={13} />
+					</button>
+				</div>
+			</div>
+
+			<!-- "What's this?" results -->
+			{#if layerPickMode}
+				<div class="px-3 py-2 border-b border-gray-700 bg-gray-900/60 shrink-0">
+					{#if identifying}
+						<div class="flex items-center gap-2 text-gray-400">
+							<Icon name="spinner" size={12} class="animate-spin" />
+							Scanning layers… ({identifyRenders} renders)
+						</div>
+					{:else if identifyRan}
+						{#if foundLayers.length === 0 && !foundMarkups}
+							<div class="text-gray-500">Nothing painted at that point</div>
+						{:else}
+							<div class="text-gray-400 mb-1">At clicked point:</div>
+							{#if foundMarkups}
+								<div class="flex items-center justify-between gap-2 py-0.5">
+									<span class="text-amber-300 truncate">Markup annotations</span>
+									<button class="px-1.5 py-0.5 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 shrink-0" onclick={toggleMarkups}>Hide</button>
+								</div>
+							{/if}
+							{#each foundLayers as layer (layer.id)}
+								<div class="flex items-center justify-between gap-2 py-0.5">
+									<span class="text-amber-300 truncate" title={layer.name}>{layerDisplayName(layer.name)}</span>
+									<button class="px-1.5 py-0.5 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 shrink-0"
+										onclick={() => { toggleLayer(layer.id); foundLayers = foundLayers.filter(l => l.id !== layer.id) }}>Hide</button>
+								</div>
+							{/each}
+						{/if}
+					{:else}
+						<div class="text-gray-500">Click a spot on the drawing…</div>
+					{/if}
+				</div>
+			{/if}
+
+			<div class="overflow-y-auto">
+				<label class="flex items-center gap-2 px-3 py-1.5 text-gray-300 hover:bg-gray-700/50 cursor-pointer border-b border-gray-700 {foundMarkups ? 'bg-amber-500/15' : ''}">
+					<input type="checkbox" checked={!hideMarkups} onchange={toggleMarkups} />
+					<span>Markup annotations (clouds, comments)</span>
+				</label>
+				{#each layers as layer (layer.id)}
+					<label id="pdf-layer-{layer.id}"
+						class="flex items-center gap-2 px-3 py-1 text-gray-300 hover:bg-gray-700/50 cursor-pointer {foundLayerIds.has(layer.id) ? 'bg-amber-500/15' : ''}"
+						title={layer.name}>
+						<input type="checkbox" checked={!hiddenLayers.includes(layer.id)} onchange={() => toggleLayer(layer.id)} />
+						<span class="truncate">{layerDisplayName(layer.name)}</span>
+					</label>
+				{/each}
+				{#if layers.length === 0}
+					<div class="px-3 py-2 text-gray-500">This PDF has no layers</div>
+				{/if}
+			</div>
+		</div>
+	{/if}
+
 	<!-- Canvas -->
 	{#if loading}
 		<div class="flex-1 flex items-center justify-center">
@@ -649,7 +927,7 @@
 	{:else}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div bind:this={containerEl}
-			class="flex-1 overflow-hidden {activeTool ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}"
+			class="flex-1 overflow-hidden {activeTool || layerPickMode ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}"
 			style:touch-action="none"
 			onmousedown={onMouseDown}>
 			<div style:transform="translate({vx}px, {vy}px) scale({zoom})" style:transform-origin="0 0" class="relative">
@@ -720,6 +998,39 @@
 							<rect x={c.x} y={c.y} width={c.width} height={c.height}
 								fill="none" stroke="#3b82f6" stroke-width={2 / zoom} stroke-dasharray="{4 / zoom} {3 / zoom}" opacity="1" />
 						{/if}
+					{/if}
+
+					<!-- "What's this?" clicked-point marker -->
+					{#if layerPickMode && identifyPoint}
+						<circle cx={identifyPoint.x} cy={identifyPoint.y} r={10 / zoom}
+							fill="none" stroke="#f59e0b" stroke-width={2 / zoom} />
+						<circle cx={identifyPoint.x} cy={identifyPoint.y} r={2 / zoom} fill="#f59e0b" />
+					{/if}
+
+					<!-- Hide-area masks -->
+					{#if activeTool === 'mask'}
+						<g class="pointer-events-auto">
+							{#each masks as m, i (i)}
+								<rect x={m.x} y={m.y} width={m.width} height={m.height}
+									fill="white" stroke="#ef4444" stroke-width={1.5 / zoom} stroke-dasharray="{5 / zoom} {3 / zoom}" />
+								<!-- Delete button (top-right corner) -->
+								<circle data-mask-del={i} cx={m.x + m.width} cy={m.y} r={8 / zoom} fill="#ef4444" cursor="pointer" />
+								<line x1={m.x + m.width - 3.5 / zoom} y1={m.y - 3.5 / zoom} x2={m.x + m.width + 3.5 / zoom} y2={m.y + 3.5 / zoom}
+									stroke="white" stroke-width={1.5 / zoom} pointer-events="none" />
+								<line x1={m.x + m.width - 3.5 / zoom} y1={m.y + 3.5 / zoom} x2={m.x + m.width + 3.5 / zoom} y2={m.y - 3.5 / zoom}
+									stroke="white" stroke-width={1.5 / zoom} pointer-events="none" />
+							{/each}
+							{#if maskDraft}
+								<rect x={maskDraft.x} y={maskDraft.y} width={maskDraft.width} height={maskDraft.height}
+									fill="rgba(255,255,255,0.85)" stroke="#ef4444" stroke-width={1.5 / zoom} stroke-dasharray="{5 / zoom} {3 / zoom}" />
+							{/if}
+						</g>
+					{:else}
+						<!-- Saved masks are baked white into the canvas render; show a faint outline so they're findable -->
+						{#each masks as m, i (i)}
+							<rect x={m.x} y={m.y} width={m.width} height={m.height}
+								fill="white" stroke="#3b82f6" stroke-width={1 / zoom} stroke-dasharray="{4 / zoom} {3 / zoom}" opacity="0.9" />
+						{/each}
 					{/if}
 				</svg>
 			</div>

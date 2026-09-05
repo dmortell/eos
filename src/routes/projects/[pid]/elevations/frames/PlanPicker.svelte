@@ -47,6 +47,7 @@
 		let cancelled = false
 		let localUrl: string | null = null
 		const pdf = new PdfState()
+		pdf.applyFileSettings(fileDoc)
 		;(async () => {
 			try {
 				await pdf.load(url)
