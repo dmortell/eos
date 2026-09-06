@@ -13,7 +13,7 @@
 	import AnnotationLayer from '../../annotations/AnnotationLayer.svelte'
 	import { useViewportEditing } from '../../edit/editing.svelte'
 	import type { ViewportEditor } from '../../viewports.svelte'
-	import { layerBlockReason, annTargetLayer, objLayerOf } from '../../layers/layers'
+	import { layerBlockReason, annTargetLayer, objLayerOf, objTargetLayer } from '../../layers/layers'
 	import { markupHotkey } from '../../edit/hotkeys'
 	import { repairLocationIds } from '$lib/elevation/portmap'
 	import { toast } from 'svelte-sonner'
@@ -48,6 +48,14 @@
 	}
 	// ── Editing ── one editor per viewport instance; the source doc is the single source of truth.
 	const editor = new OutletsEditor()
+	// Marquee must skip objects on hidden/locked layers (their hit targets are suppressed in the
+	// edit layer the same way). Plain property + $effect: keeps the editor layer-agnostic.
+	$effect(() => {
+		const ls = vps.allLayers
+		const off = new Set([...hidden, ...locked])
+		const kindDefault = { outlet: 'outlets', trunk: 'trunks', rack: 'racks' } as const
+		editor.layerFilter = (kind, layerId) => !off.has(objLayerOf(layerId, kindDefault[kind], ls))
+	})
 	let src = $derived(vp.source.kind === 'outlets' ? vp.source : null)
 	const { annEditor, history } = useViewportEditing({
 		editor, collection: 'outlets', docId: () => src?.outletsDocId, doc: () => outletsData,
@@ -215,25 +223,39 @@
 			<EditBackground {tool} {annEditor} toolEditor={editor} annLocked={annOff}
 				onblocked={() => blocked(annTarget)}
 				onadd={(t, w, shift) => {
-					if (t === 'outlet') { if (blocked('outlets')) return true; editor.addOutlet(w); return true }
-					if (t === 'trunk') { if (blocked('trunks')) return true; editor.drawClick(w, shift); return true }
+					// New tool objects land on the ACTIVE layer when it belongs to their
+					// category (e.g. a custom "Power" layer under Trunks) — same contract
+					// as annotations. blocked() then checks that actual target layer.
+					const target = (kind: string) => objTargetLayer(vps.activeLayerId, kind, vps.allLayers)
+					const layerArg = (id: string, kind: string) => (id === kind ? undefined : id)
+					if (t === 'outlet') {
+						const id = target('outlets')
+						if (blocked(id)) return true
+						editor.addOutlet(w, layerArg(id, 'outlets')); return true
+					}
+					if (t === 'trunk') {
+						const id = target('trunks')
+						if (blocked(id)) return true
+						editor.drawClick(w, shift, layerArg(id, 'trunks')); return true
+					}
 					if (t === 'rack') {
-						if (blocked('racks')) return true
+						const id = target('racks')
+						if (blocked(id)) return true
 						if (pendingRackId) {
 							const r = racksById[pendingRackId]
-							editor.placeRackRef(w, pendingRackId, r?.room ?? 'A')
+							editor.placeRackRef(w, pendingRackId, r?.room ?? 'A', layerArg(id, 'racks'))
 							pendingRackId = null
 							tool = 'select'
 							return true
 						}
-						editor.addRackAt(w, () => { tool = 'select' })
+						editor.addRackAt(w, () => { tool = 'select' }, layerArg(id, 'racks'))
 						return true
 					}
 					return false
 				}}
 				onmove={(w) => { if (tool === 'trunk' && editor.draw) editor.preview = w }}
 				ondbl={() => { if (tool === 'trunk') { editor.finishDraw(); tool = 'select' } }} />
-			<OutletsEditLayer {editor} interactive={tool === 'select'} {locked} {hidden} {racksById} />
+			<OutletsEditLayer {editor} interactive={tool === 'select'} {locked} {hidden} layers={vps.allLayers} {racksById} />
 		{/if}
 		<AnnotationLayer editor={annEditor} interactive={active && tool === 'select'} {hidden} {locked} den={viewDen} {zoom}
 			objCount={(id) => {

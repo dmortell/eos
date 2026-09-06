@@ -50,6 +50,15 @@ export function annLayerOf(layerId: string | undefined, layers: LayerDef[] = LAY
 	return layerId && layers.some(l => l.id === layerId) ? layerId : 'annotations'
 }
 
+/**
+ * Which layer a *new tool object* of `kindDefault` should land on: the ACTIVE layer when it belongs
+ * to that kind's category (e.g. a custom "Power" layer based under Trunks receives new trunks while
+ * active), else the kind's default layer. The tool-object counterpart of annTargetLayer.
+ */
+export function objTargetLayer(activeId: string, kindDefault: string, layers: LayerDef[] = LAYERS): string {
+	return layerCategory(activeId, layers) === kindDefault ? activeId : kindDefault
+}
+
 /** Effective layer id for a tool object: its explicit `layerId` if that layer still
  *  exists, else the object kind's default layer (e.g. 'outlets', 'rooms'). */
 export function objLayerOf(layerId: string | undefined, kindDefault: string, layers: LayerDef[] = LAYERS): string {

@@ -9,16 +9,18 @@
 	// (HTML) lives in OutletsContextMenu so it isn't forced into the SVG namespace.
 	import type { OutletsEditor } from './outlets-editor.svelte'
 	import type { RackPlacement } from './types'
+	import { objLayerOf, type LayerDef } from '../../layers/layers'
 	type RackCfg = { widthMm: number; depthMm: number }
-	let { editor, interactive = false, locked = [], hidden = [], racksById = {} }: { editor: OutletsEditor; interactive?: boolean; locked?: string[]; hidden?: string[]; racksById?: Record<string, RackCfg> } = $props()
+	let { editor, interactive = false, locked = [], hidden = [], layers = [], racksById = {} }: { editor: OutletsEditor; interactive?: boolean; locked?: string[]; hidden?: string[]; layers?: LayerDef[]; racksById?: Record<string, RackCfg> } = $props()
 
 	const HM = 70 // node handle radius (mm)
 	const HL = '#2563eb'
 	// A layer that's hidden OR locked is non-interactive: skip its handles/hit targets entirely
 	// (hidden objects aren't drawn, so they must not be selectable; locked objects can't be edited).
-	let offO = $derived(hidden.includes('outlets') || locked.includes('outlets'))
-	let offT = $derived(hidden.includes('trunks') || locked.includes('trunks'))
-	let offR = $derived(hidden.includes('racks') || locked.includes('racks'))
+	// Checked per OBJECT via its effective layer — an object on a hidden CUSTOM layer (e.g. a
+	// "Power" layer under Trunks) must be just as untouchable as one on a hidden default layer.
+	let off = $derived(new Set([...hidden, ...locked]))
+	const offObj = (layerId: string | undefined, kind: string) => off.has(objLayerOf(layerId, kind, layers))
 	const rackDims = (rp: RackPlacement) => ({ w: racksById[rp.rackId]?.widthMm ?? rp.widthMm ?? 600, h: racksById[rp.rackId]?.depthMm ?? rp.depthMm ?? 1000 })
 
 	let drawNode = $derived(editor.draw ? editor.trunks.find(t => t.id === editor.draw!.trunkId)?.nodes.find(n => n.id === editor.draw!.lastNodeId) ?? null : null)
@@ -29,6 +31,7 @@
 <g class="print:hidden">
 	<!-- trunks: segment hit lines (+ insert / context); nodes for the selected trunk -->
 	{#each editor.trunks as t (t.id)}
+		{@const offThis = offObj(t.layerId, 'trunks')}
 		{#each t.segments as s (s.id)}
 			{@const a = editor.nodePos(t, s.nodes[0])}
 			{@const b = editor.nodePos(t, s.nodes[1])}
@@ -37,20 +40,20 @@
 					<line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={HL} stroke-width="1.25" vector-effect="non-scaling-stroke" style:pointer-events="none" />
 				{/if}
 				<line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="transparent" stroke-width={260}
-					style:pointer-events={interactive && !offT ? 'stroke' : 'none'} style:cursor="move"
+					style:pointer-events={interactive && !offThis ? 'stroke' : 'none'} style:cursor="move"
 					onmousedown={(e: MouseEvent) => editor.onSegDown(e, t, s)}
 					ondblclick={(e: MouseEvent) => editor.insertNode(e, t, s)}
 					oncontextmenu={(e: MouseEvent) => editor.onSegContext(e, t, s)} />
 			{/if}
 		{/each}
-		{#if selTrunkId === t.id && !offT}
+		{#if selTrunkId === t.id && !offThis}
 			{#each t.nodes as n (n.id)}
 				<circle cx={n.position.x} cy={n.position.y} r={HM} fill={editor.tnode === n.id ? HL : 'white'} stroke={editor.tnode === n.id ? HL : '#0369a1'} stroke-width="1" vector-effect="non-scaling-stroke"
 					style:pointer-events={interactive ? 'auto' : 'none'} style:cursor="grab"
 					onmousedown={(e: MouseEvent) => editor.onNodeDown(e, t, n)}
 					oncontextmenu={(e: MouseEvent) => editor.onNodeContext(e, t, n)} />
 			{/each}
-		{:else if !offT}
+		{:else if !offThis}
 			<!-- marquee-selected nodes (any trunk): grabbable to move the whole group -->
 			{#each t.nodes as n (n.id)}
 				{#if editor.selNodes.includes(n.id)}
@@ -72,20 +75,20 @@
 	{/if}
 
 	<!-- outlets — selectable/draggable in Select mode. -->
-	{#if !offO}
-		{#each editor.outlets as o (o.id)}
+	{#each editor.outlets as o (o.id)}
+		{#if !offObj(o.layerId, 'outlets')}
 			<circle cx={o.position.x} cy={o.position.y} r={260} fill="transparent"
 				style:pointer-events={interactive ? 'auto' : 'none'} style:cursor="move"
 				onmousedown={(e: MouseEvent) => editor.dragOutlet(o, e)} />
 			{#if editor.isSel('outlet', o.id) || editor.selOutlets.includes(o.id)}
 				<circle cx={o.position.x} cy={o.position.y} r={210} fill="none" stroke={HL} stroke-width=".5" vector-effect="non-scaling-stroke" style:pointer-events="none" />
 			{/if}
-		{/each}
-	{/if}
+		{/if}
+	{/each}
 
 	<!-- rack placements: drag the body to move; selection outline; rotate via panel -->
-	{#if !offR}
-		{#each editor.rackPlacements as rp (rp.rackId)}
+	{#each editor.rackPlacements as rp (rp.rackId)}
+		{#if !offObj(rp.layerId, 'racks')}
 			{@const d = rackDims(rp)}
 			{@const cx = rp.position.x + d.w / 2}
 			{@const cy = rp.position.y + d.h / 2}
@@ -97,8 +100,8 @@
 					<rect x={rp.position.x} y={rp.position.y} width={d.w} height={d.h} fill="none" stroke={HL} stroke-width="1" vector-effect="non-scaling-stroke" style:pointer-events="none" />
 				{/if}
 			</g>
-		{/each}
-	{/if}
+		{/if}
+	{/each}
 
 	<!-- marquee multi-select box -->
 	{#if editor.marquee}

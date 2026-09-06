@@ -38,6 +38,12 @@ export class OutletsEditor extends SurfaceEditor {
 	#gbOutlets = new Map<string, Point>()
 	#gbRacks = new Map<string, Point>()
 	#gbNodes = new Map<string, Point>()
+	/** Injected by the viewport: false → the object sits on a hidden/locked layer and the
+	 *  marquee must not collect it (the edit layer suppresses its hit targets the same way). */
+	layerFilter: ((kind: 'outlet' | 'trunk' | 'rack', layerId?: string) => boolean) | null = null
+	#selectable(kind: 'outlet' | 'trunk' | 'rack', layerId?: string): boolean {
+		return this.layerFilter ? this.layerFilter(kind, layerId) : true
+	}
 
 	defaults = $state<{ level: OutletLevel; portCount: number; cableType: CableType; mountType: MountType; usage: OutletUsage }>(
 		{ level: 'low', portCount: 2, cableType: 'cat6a', mountType: 'box', usage: 'network' },
@@ -68,9 +74,10 @@ export class OutletsEditor extends SurfaceEditor {
 	// how segments come along — a segment moves when both its endpoint nodes are selected.)
 	marqueeCollect(m: { x: number; y: number; w: number; h: number }) {
 		const inRect = (p: Point) => p.x >= m.x && p.x <= m.x + m.w && p.y >= m.y && p.y <= m.y + m.h
-		this.selOutlets = this.outlets.filter(o => inRect(o.position)).map(o => o.id)
-		this.selRacks = this.rackPlacements.filter(r => inRect(r.position)).map(r => r.rackId)
-		this.selNodes = this.trunks.flatMap(t => t.nodes.filter(n => inRect(n.position)).map(n => n.id))
+		this.selOutlets = this.outlets.filter(o => inRect(o.position) && this.#selectable('outlet', o.layerId)).map(o => o.id)
+		this.selRacks = this.rackPlacements.filter(r => inRect(r.position) && this.#selectable('rack', r.layerId)).map(r => r.rackId)
+		this.selNodes = this.trunks.filter(t => this.#selectable('trunk', t.layerId))
+			.flatMap(t => t.nodes.filter(n => inRect(n.position)).map(n => n.id))
 	}
 	beginGroupTranslate() {
 		this.#gbOutlets.clear(); this.#gbRacks.clear(); this.#gbNodes.clear()
@@ -190,9 +197,9 @@ export class OutletsEditor extends SurfaceEditor {
 	}
 
 	// ── outlets ──
-	addOutlet(p: Point) {
+	addOutlet(p: Point, layerId?: string) {
 		const d = this.defaults
-		const o: OutletConfig = { id: this.uid('O'), position: p, level: d.level, portCount: d.portCount, cableType: d.cableType, mountType: d.mountType, usage: d.usage }
+		const o: OutletConfig = { id: this.uid('O'), position: p, level: d.level, portCount: d.portCount, cableType: d.cableType, mountType: d.mountType, usage: d.usage, ...(layerId ? { layerId } : {}) }
 		this.outlets.push(o); this.select('outlet', o.id); this.notify()
 	}
 	dragOutlet(o: OutletConfig, e0: MouseEvent) {
@@ -234,15 +241,16 @@ export class OutletsEditor extends SurfaceEditor {
 		for (const t of this.trunks) { const m = /^T(\d+)$/.exec(t.label ?? ''); if (m) max = Math.max(max, parseInt(m[1], 10)) }
 		return `T${max + 1}`
 	}
-	newTrunk(p: Point): TrunkConfig {
+	newTrunk(p: Point, layerId?: string): TrunkConfig {
 		return {
 			id: this.uid('T'), label: this.nextTrunkLabel(), shape: 'rect', location: 'floor', spec: { catalog: 'tray', widthMm: 50, heightMm: 50 },
 			nodes: [{ id: this.uid('n'), position: p, z: 0 }], segments: [], isPrimary: false, visible: true, color: '#0369a1',
+			...(layerId ? { layerId } : {}),
 		}
 	}
 	startDraw() { this.tool = 'trunk'; this.draw = null; this.preview = null; this.clearSel() }
-	drawClick(p: Point, shift = false) {
-		if (!this.draw) { const t = this.newTrunk(p); this.trunks.push(t); this.draw = { trunkId: t.id, lastNodeId: t.nodes[0].id }; this.select('trunk', t.id); return }
+	drawClick(p: Point, shift = false, layerId?: string) {
+		if (!this.draw) { const t = this.newTrunk(p, layerId); this.trunks.push(t); this.draw = { trunkId: t.id, lastNodeId: t.nodes[0].id }; this.select('trunk', t.id); return }
 		const t = this.trunks.find(x => x.id === this.draw!.trunkId); if (!t) return
 		const last = this.nodePos(t, this.draw.lastNodeId)
 		let pos = shift && last ? this.snapAngle(last, p) : p
@@ -331,6 +339,23 @@ export class OutletsEditor extends SurfaceEditor {
 				const dx = w.x - w0.x, dy = w.y - w0.y
 				for (const n of dup.nodes) { const b = bases.get(n.id)!; n.position = { x: b.x + dx, y: b.y + dy } }
 			}, () => { if (!dup) this.toggleSeg(t, seg); else this.notify() })
+			return
+		}
+		// Part of the shift/ctrl-built segment multi-selection → drag the WHOLE selection
+		// (union of the selected segments' nodes), keeping the selection intact.
+		if (this.sel?.kind === 'trunk' && this.sel.id === t.id && this.tsegs.length > 1 && this.tsegs.includes(seg.id)) {
+			const nodeIds = [...new Set(t.segments.filter(s => this.tsegs.includes(s.id)).flatMap(s => s.nodes))]
+			const bases = new Map(nodeIds
+				.map(id => [id, this.nodePos(t, id)] as const)
+				.filter((x): x is readonly [string, Point] => !!x[1])
+				.map(([id, p]) => [id, { ...p }]))
+			const w0 = this.toWorld(e); if (!w0) return
+			this.startDrag(ev => {
+				const w = this.toWorld(ev); if (!w) return
+				let dx = w.x - w0.x, dy = w.y - w0.y
+				if (ev.shiftKey) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 }
+				for (const [id, b] of bases) this.setPos(t, id, { x: b.x + dx, y: b.y + dy })
+			}, () => this.notify())
 			return
 		}
 		this.clearMulti(); this.peer?.clearMulti()
@@ -465,16 +490,16 @@ export class OutletsEditor extends SurfaceEditor {
 	/** Place a REAL rack from the racks doc (labels v2 #7): the placement only
 	 *  stores position/rotation — label + dims stay live from racksById, so
 	 *  elevations and the floorplan can never diverge. */
-	placeRackRef(p: Point, rackId: string, room: string) {
-		this.rackPlacements.push({ rackId, room, position: { ...p }, rotation: 0 })
+	placeRackRef(p: Point, rackId: string, room: string, layerId?: string) {
+		this.rackPlacements.push({ rackId, room, position: { ...p }, rotation: 0, ...(layerId ? { layerId } : {}) })
 		this.select('rack', rackId)
 		this.notify()
 	}
 
 	/** Drag-out a new floorplan rack: place at the click, then size width×depth from the cursor.
 	 *  `onDone` (e.g. switch back to Select) runs on mouse-up so the placed rack is draggable. */
-	addRackAt(p: Point, onDone?: () => void) {
-		this.rackPlacements.push({ rackId: this.uid('FR'), room: 'A', position: { ...p }, rotation: 0, label: 'Rack', widthMm: 600, depthMm: 1000, heightU: 42, heightMm: 42 * 45 + 80, type: '4-post' })
+	addRackAt(p: Point, onDone?: () => void, layerId?: string) {
+		this.rackPlacements.push({ rackId: this.uid('FR'), room: 'A', position: { ...p }, rotation: 0, label: 'Rack', widthMm: 600, depthMm: 1000, heightU: 42, heightMm: 42 * 45 + 80, type: '4-post', ...(layerId ? { layerId } : {}) })
 		const rp = this.rackPlacements[this.rackPlacements.length - 1] // proxy (see dragOutlet note)
 		this.select('rack', rp.rackId)
 		this.startDrag(e => {
