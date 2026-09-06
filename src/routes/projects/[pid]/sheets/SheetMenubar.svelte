@@ -5,7 +5,7 @@
 	import { page } from "$app/state";
 	import type { ViewportEditor } from "./viewports.svelte";
 
-	let { vps, onsettings, ondefaults, onfit }: { vps: ViewportEditor; onsettings?: () => void; ondefaults?: () => void; onfit?: () => void } = $props()
+	let { vps, onsettings, ondefaults, onduplicate, onfit }: { vps: ViewportEditor; onsettings?: () => void; ondefaults?: () => void; onduplicate?: () => void; onfit?: () => void } = $props()
 	let pid = $derived(page.params.pid)
 
 	// Quick navigation to the other project tools.
@@ -31,6 +31,9 @@
 			<Menubar.Content align="start">
 				<Menubar.Item class="cursor-pointer" onSelect={() => onsettings?.()}>Project details…</Menubar.Item>
 				<Menubar.Item class="cursor-pointer" onSelect={() => ondefaults?.()}>Drawing defaults…</Menubar.Item>
+				{#if onduplicate}
+					<Menubar.Item class="cursor-pointer" onSelect={() => onduplicate?.()}>Duplicate sheet</Menubar.Item>
+				{/if}
 				{#if vps.dxfExport}
 					<Menubar.Item class="cursor-pointer" onSelect={() => vps.dxfExport?.run()}>Export DXF — {vps.dxfExport.label}</Menubar.Item>
 				{:else}

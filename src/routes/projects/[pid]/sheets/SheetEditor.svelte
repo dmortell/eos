@@ -1,9 +1,11 @@
 <script lang="ts">
-	import { untrack, setContext } from "svelte";
+	import { untrack, setContext, getContext } from "svelte";
 	import { DEFAULT_PRINT_SETTINGS, paperDimsMm, type PrintSettings } from '$lib/ui/print/types'
 	import { ViewportEditor, numberViewports } from "./viewports.svelte";
 	import { modelStore } from "./tools/model3d/models.svelte";
-	import { updateSheet, subscribeSheets } from "./data";
+	import { updateSheet, subscribeSheets, duplicateSheet } from "./data";
+	import { goto } from "$app/navigation";
+	import type { Session } from "$lib";
 	import type { SheetDoc, SheetViewport, TitleBlockConfig } from "./types";
 	import type { Firestore } from "$lib/db.svelte";
 	import type { TitleBlockProjectDefaults } from "./parts/TitleBlock.svelte";
@@ -27,6 +29,18 @@
 		db: Firestore
 		pid: string
 	} = $props()
+	const session = getContext('session') as Session | undefined
+
+	/** File → Duplicate sheet: copy this sheet and jump into the copy. */
+	let duplicating = false
+	async function duplicateThis() {
+		if (duplicating || !sheet) return
+		duplicating = true
+		try {
+			const id = await duplicateSheet(db, pid, $state.snapshot(sheet) as SheetDoc, session?.user?.uid ?? '')
+			goto(`/projects/${pid}/sheets/${id}`)
+		} finally { duplicating = false }
+	}
 
 	// Link targets for annotation symbol pickers (section/detail → other sheets). Surveys/photos
 	// fall back to free-text in AnnotationControls until wired. Shared via context to avoid drilling.
@@ -245,7 +259,7 @@
 	})
 </script>
 
-<SheetMenubar {vps} onsettings={() => (settingsOpen = true)} ondefaults={() => (defaultsOpen = true)} onfit={() => canvasComp?.fitToPaper()} />
+<SheetMenubar {vps} onsettings={() => (settingsOpen = true)} ondefaults={() => (defaultsOpen = true)} onduplicate={duplicateThis} onfit={() => canvasComp?.fitToPaper()} />
 <ProjectSettingsDialog bind:open={settingsOpen} mode="edit" project={projectDoc} />
 <DrawingDefaultsDialog {vps} bind:open={defaultsOpen} />
 
