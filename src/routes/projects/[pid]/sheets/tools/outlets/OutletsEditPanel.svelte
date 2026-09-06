@@ -205,6 +205,18 @@
 		<PropSelect label="Type" value={(t.spec as any).catalog ?? 'custom'} onchange={(e: Event) => editor.setTrunkCatalog(val(e))}>
 			{#each Object.entries(t.shape === 'pipe' ? PIPE_CATALOG : RECT_CATALOG) as [v, c] (v)}<option value={v}>{c.label}</option>{/each}
 		</PropSelect>
+		<div class="flex items-center justify-between gap-2">
+			<span class="w-24 shrink-0 text-xs text-zinc-500"
+				title="Only outlets whose ports belong to a selected server room can auto-route to this trunk. No rooms selected = any room. Use this to keep data outlets off power/UPS runs.">Rooms</span>
+			<div class="flex w-full gap-0.5">
+				{#each ['A', 'B', 'C', 'D'] as room (room)}
+					{@const active = (t.rooms ?? []).includes(room)}
+					<button class={cls(active)}
+						title={active ? `Stop accepting room-${room} outlets` : `Accept room-${room} outlets`}
+						onclick={() => { const cur = t.rooms ?? []; editor.setTrunk({ rooms: active ? cur.filter(r => r !== room) : [...cur, room] }) }}>{room}</button>
+				{/each}
+			</div>
+		</div>
 		<PropColor label="Color" value={t.color ?? '#0369a1'} allowNone={false} onchange={(c: string) => editor.setTrunk({ color: c })} />
 		<PropText label={t.shape === 'pipe' ? 'Diameter (mm)' : 'Width (mm)'} type="number" min="0" value={String(editor.selTrunkWidth)} oninput={(e: Event) => editor.setTrunkWidth(Number(val(e)) || 0)} />
 		{#if t.shape !== 'pipe'}

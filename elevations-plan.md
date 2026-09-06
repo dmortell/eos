@@ -1646,3 +1646,21 @@ drag into the server room. OutletCanvas gained a generic `anchorMode`/
 `onanchor` one-shot click hook.
 Verified on F04: Room A "Adopt (13)" → 13 placements in 2 row bands persisted
 to the outlets doc → Ctrl+Z → 0 placements persisted; console clean.
+
+### Session追記 (2026-09-07 — trunk split + room-exclusive routing)
+Per Dave's decisions on the two trunk questions:
+- **"Split trunk here"** (option b — width stays per-trunk): node context menu
+  in BOTH the sheets outlets viewport and the main Floorplan tool cuts a
+  trunk into two connected trunks at a node (flood-fill partition from the
+  node's first segment; split node duplicated in place; cycle-safe no-op;
+  same spec/meta copied, fresh T# label; undoable in the main tool).
+  Verified: split a 2-seg trunk → T1 50mm / T2 100mm independently.
+- **Room-exclusive secondary routing**: trunks with `rooms` set now accept
+  ONLY those rooms' outlets — the level-only fallback no longer lands data
+  outlets on a power/UPS run (the reported bug: the fallback used ALL trunks).
+  Candidates per outlet-room = union(room-matched restricted trunks,
+  unrestricted trunks); trunks restricted to other rooms are never eligible.
+  Rooms selector: sheets trunk panel gains the A–D chips (new); the main
+  tool's chips are now clearable back to "any" and both carry tooltips
+  explaining the semantics. Verified live: 9 routes unrestricted → 0 with
+  rooms=['D'] → 9 cleared.

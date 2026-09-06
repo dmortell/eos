@@ -400,6 +400,49 @@ export class OutletsEditor extends SurfaceEditor {
 		if (!t.segments.length) this.trunks = this.trunks.filter(x => x.id !== t.id)
 		this.clearSel(); this.notify()
 	}
+	/** Split the trunk at a node into two connected trunks (same spec/meta, new
+	 *  label): the side reachable from the node's FIRST segment stays in `t`,
+	 *  everything else moves to a new trunk with the split node duplicated in
+	 *  place — so a run can change width/type from that point on while the two
+	 *  halves stay visually joined. No-op when the node isn't a cut point
+	 *  (degree < 2, or a cycle reconnects both sides). */
+	splitTrunkAtNode(t: TrunkConfig, nodeId: string): boolean {
+		const segsAt = this.segsOf(t, nodeId)
+		if (segsAt.length < 2) return false
+		// flood side A from the first incident segment, never expanding THROUGH the split node
+		const inA = new Set<string>([segsAt[0].id])
+		const stack: TrunkSegment[] = [segsAt[0]]
+		const visited = new Set<string>()
+		while (stack.length) {
+			const s = stack.pop()!
+			for (const nid of s.nodes) {
+				if (nid === nodeId || visited.has(nid)) continue
+				visited.add(nid)
+				for (const s2 of this.segsOf(t, nid)) if (!inA.has(s2.id)) { inA.add(s2.id); stack.push(s2) }
+			}
+		}
+		const bSegs = t.segments.filter(s => !inA.has(s.id))
+		if (!bSegs.length) return false // cycle — the node doesn't separate the trunk
+		// nodes for side B; any node also used by side A (incl. the split node) is duplicated
+		const bNodeIds = [...new Set(bSegs.flatMap(s => s.nodes))]
+		const usedByA = new Set(t.segments.filter(s => inA.has(s.id)).flatMap(s => s.nodes))
+		const remap = new Map(bNodeIds.map(nid => [nid, usedByA.has(nid) ? this.uid('n') : nid]))
+		const nt: TrunkConfig = {
+			...t, id: this.uid('T'), label: this.nextTrunkLabel(), spec: JSON.parse(JSON.stringify(this.raw(t.spec))), labels: undefined,
+			nodes: bNodeIds.map(nid => { const n = this.nodeById(t, nid)!; return { ...n, id: remap.get(nid)!, position: { ...n.position } } }),
+			segments: bSegs.map(s => ({ id: this.uid('s'), nodes: [remap.get(s.nodes[0])!, remap.get(s.nodes[1])!] as [string, string] })),
+		}
+		t.segments = t.segments.filter(s => inA.has(s.id))
+		this.pruneOrphans(t)
+		this.trunks.push(nt)
+		this.selectTrunk(this.trunks[this.trunks.length - 1].id)
+		this.menu = null
+		this.notify()
+		return true
+	}
+	/** Unwrap a possibly-reactive value for structured cloning. */
+	private raw<T>(v: T): T { return $state.snapshot(v) as T }
+
 	disconnectNode(t: TrunkConfig, nodeId: string) {
 		const segs = this.segsOf(t, nodeId), orig = this.nodeById(t, nodeId)
 		if (segs.length < 2 || !orig) return

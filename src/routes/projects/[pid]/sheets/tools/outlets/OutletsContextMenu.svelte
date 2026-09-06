@@ -17,6 +17,9 @@
 			<button class="block w-full px-3 py-1 text-left hover:bg-slate-100" onclick={() => { editor.selectTrunk(m.trunk.id) }}>Select trunk</button>
 			{#if m.kind === 'node'}
 				{#if m.canDisconnect}
+					<button class="block w-full px-3 py-1 text-left hover:bg-slate-100"
+						title="Cut the trunk into two connected trunks here — the far side becomes its own trunk so its width/type can differ"
+						onclick={() => { editor.splitTrunkAtNode(m.trunk, m.nodeId) }}>Split trunk here</button>
 					<button class="block w-full px-3 py-1 text-left hover:bg-slate-100" onclick={() => { editor.disconnectNode(m.trunk, m.nodeId) }}>Disconnect</button>
 				{/if}
 				<button class="block w-full px-3 py-1 text-left text-red-600 hover:bg-slate-100" onclick={() => { editor.deleteNode(m.trunk, m.nodeId) }}>Delete node</button>

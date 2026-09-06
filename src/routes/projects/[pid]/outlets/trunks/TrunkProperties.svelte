@@ -181,21 +181,28 @@
 		{/if}
 	</div>
 
-	<!-- Rooms -->
+	<!-- Rooms: which server rooms' outlets may auto-route to this trunk.
+	     None selected = open to any room; selecting rooms makes the trunk
+	     EXCLUSIVE to them (a power run tagged to the UPS room never catches
+	     data outlets). -->
 	{#if singleTrunk}
 		<div class="flex items-center gap-2">
-			<span class="text-gray-500 w-14 shrink-0">Rooms</span>
+			<span class="text-gray-500 w-14 shrink-0"
+				title="Only outlets whose ports belong to a selected server room can auto-route to this trunk. No rooms selected = any room. Use this to keep data outlets off power/UPS runs.">Rooms</span>
 			<div class="flex gap-0.5 flex-1">
 				{#each ['A', 'B', 'C', 'D'] as room}
 					{@const active = (singleTrunk.rooms ?? []).includes(room)}
 					<button class="flex-1 py-0.5 rounded text-[10px] {active ? 'bg-blue-100 text-blue-700 font-medium' : 'text-gray-400 hover:bg-gray-50 border border-gray-200'}"
+						title={active ? `Stop accepting room-${room} outlets` : `Accept room-${room} outlets`}
 						onclick={() => {
 							const current = singleTrunk!.rooms ?? []
-							if (active && current.length > 1) onupdate(singleTrunk!.id, { rooms: current.filter(r => r !== room) })
-							else if (!active) onupdate(singleTrunk!.id, { rooms: [...current, room] })
+							onupdate(singleTrunk!.id, { rooms: active ? current.filter(r => r !== room) : [...current, room] })
 						}}>{room}</button>
 				{/each}
 			</div>
+			{#if (singleTrunk.rooms ?? []).length === 0}
+				<span class="text-[10px] text-gray-400 shrink-0" title="No rooms selected — outlets from any room may route here">any</span>
+			{/if}
 		</div>
 
 		<!-- Stats -->

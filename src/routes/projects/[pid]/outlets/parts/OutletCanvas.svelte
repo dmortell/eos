@@ -28,7 +28,7 @@
 		anchorMode = false, onanchor,
 		toPx, toMm, onadd, onselect, onclear, onmove, onmoveend, ondelete,
 		onselectrack, onmoveracks, onmoveracksend, onplacerack, onremoveracks, onrotateracks,
-		onaddtrunk, ontrunkdrawingchange, onselecttrunk, onselecttrunknode, onmovetrunknodes, onmovetrunknodesend, ondeletetrunks, onsplittrunksegment, ondisconnecttrunknode,
+		onaddtrunk, ontrunkdrawingchange, onselecttrunk, onselecttrunknode, onmovetrunknodes, onmovetrunknodesend, ondeletetrunks, onsplittrunksegment, onsplittrunkatnode, ondisconnecttrunknode,
 		onmarquee, onexport, onzoomchange }: {
 		file: any
 		page: number
@@ -78,6 +78,7 @@
 		onmovetrunknodesend?: (trunkId: string, nodeIds: Set<string>, independent?: boolean) => void
 		ondeletetrunks?: () => void
 		onsplittrunksegment?: (trunkId: string, segmentId: string, point: Point) => void
+		onsplittrunkatnode?: (trunkId: string, nodeId: string) => void
 		ondisconnecttrunknode?: (trunkId: string, nodeId: string, segmentId: string) => string | null
 		onmarquee?: (hits: { outletIds: string[]; rackIds: string[]; trunkIds: string[] }) => void
 		onexport?: () => void
@@ -1928,6 +1929,9 @@
 		style:left="{trunkMenu.x}px" style:top="{trunkMenu.y}px">
 		{#if trunkMenu.kind === 'node'}
 			{#if trunkMenu.canDisconnect}
+				<button class="block w-full text-left px-3 py-1 hover:bg-zinc-100"
+					title="Cut the trunk into two connected trunks here — the far side becomes its own trunk so its width/type can differ"
+					onclick={() => { const m = trunkMenu; trunkMenu = null; if (m?.kind === 'node') onsplittrunkatnode?.(m.trunkId, m.nodeId) }}>Split trunk here</button>
 				<button class="block w-full text-left px-3 py-1 hover:bg-zinc-100" onclick={menuDisconnect}>Disconnect node</button>
 			{/if}
 		{:else}

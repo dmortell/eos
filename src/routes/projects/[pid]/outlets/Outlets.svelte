@@ -172,16 +172,22 @@
 				if (a && b) segs.push({ a, b, trunkId: trunk.id, nodeIds: seg.nodes })
 			}
 			const level = isTrunkHigh(trunk.location) ? 'high' : 'low'
-			if (level === 'high') highSegs.push(...segs)
-			else lowSegs.push(...segs)
-			for (const room of trunk.rooms ?? []) {
+			// Trunks with rooms set are EXCLUSIVE to those rooms (e.g. a power run
+			// tagged to the UPS room must never catch data outlets); only trunks
+			// with no rooms are open to any outlet.
+			const restrictedRooms = trunk.rooms ?? []
+			if (restrictedRooms.length === 0) {
+				if (level === 'high') highSegs.push(...segs)
+				else lowSegs.push(...segs)
+			}
+			for (const room of restrictedRooms) {
 				const key = `${room}:${level}`
 				const existing = segsByRoomLevel.get(key) ?? []
 				existing.push(...segs)
 				segsByRoomLevel.set(key, existing)
 			}
 		}
-		if (highSegs.length === 0 && lowSegs.length === 0) return []
+		if (highSegs.length === 0 && lowSegs.length === 0 && segsByRoomLevel.size === 0) return []
 
 		const findNearest = (pos: Point, segs: TrunkSeg[]): { point: Point; trunkId: string; segNodeIds: [string, string]; t: number } | null => {
 			if (segs.length === 0) return null
@@ -214,9 +220,11 @@
 			const levelSegs = level === 'high' ? highSegs : lowSegs
 
 			for (const [room, count] of roomPortCounts) {
-				// Try room+level match first, then level-only fallback
-				const roomLevelSegs = segsByRoomLevel.get(`${room}:${level}`)
-				const hit = findNearest(outlet.position, roomLevelSegs ?? levelSegs)
+				// Candidates: trunks restricted TO this room plus unrestricted trunks —
+				// nearest of the union wins. Trunks restricted to OTHER rooms are never
+				// candidates (no more level-only fallback onto them).
+				const roomLevelSegs = segsByRoomLevel.get(`${room}:${level}`) ?? []
+				const hit = findNearest(outlet.position, [...roomLevelSegs, ...levelSegs])
 				if (hit) routes.push({
 					outletId: outlet.id, from: outlet.position, to: hit.point,
 					room, color: ROOM_ROUTE_COLORS[room] ?? '#6b7280',
@@ -1658,6 +1666,64 @@
 		return newNodeId
 	}
 
+	/** Split a trunk at a node into two connected trunks (same spec/meta): the
+	 *  side reachable from the node's first segment stays; the rest becomes a
+	 *  new trunk with the split node duplicated in place — so a run can change
+	 *  width/type from that point on. No-op when the node isn't a cut point. */
+	function splitTrunkAtNode(trunkId: string, nodeId: string) {
+		const trunk = trunks.find(t => t.id === trunkId)
+		if (!trunk) return
+		const segsOf = (id: string) => trunk.segments.filter(s => s.nodes.includes(id))
+		const segsAt = segsOf(nodeId)
+		if (segsAt.length < 2) return
+		const inA = new Set<string>([segsAt[0].id])
+		const stack = [segsAt[0]]
+		const visited = new Set<string>()
+		while (stack.length) {
+			const s = stack.pop()!
+			for (const nid of s.nodes) {
+				if (nid === nodeId || visited.has(nid)) continue
+				visited.add(nid)
+				for (const s2 of segsOf(nid)) if (!inA.has(s2.id)) { inA.add(s2.id); stack.push(s2) }
+			}
+		}
+		const bSegs = trunk.segments.filter(s => !inA.has(s.id))
+		if (!bSegs.length) { toast.info('This node does not separate the trunk — nothing to split'); return }
+		const bNodeIds = [...new Set(bSegs.flatMap(s => s.nodes))]
+		const usedByA = new Set(trunk.segments.filter(s => inA.has(s.id)).flatMap(s => s.nodes))
+		const remap = new Map(bNodeIds.map(nid => [nid, usedByA.has(nid) ? genId('tn') : nid]))
+		const nextLabel = (() => {
+			let max = 0
+			for (const t of trunks) { const m = /^T(\d+)$/.exec(t.label ?? ''); if (m) max = Math.max(max, parseInt(m[1], 10)) }
+			return `T${max + 1}`
+		})()
+		const newTrunk: TrunkConfig = {
+			...structuredClone($state.snapshot(trunk)) as TrunkConfig,
+			id: genId('trunk'), label: nextLabel,
+			nodes: bNodeIds.map(nid => { const n = trunk.nodes.find(x => x.id === nid)!; return { ...n, id: remap.get(nid)!, position: { ...n.position } } }),
+			segments: bSegs.map(s => ({ ...s, id: genId('ts'), nodes: [remap.get(s.nodes[0])!, remap.get(s.nodes[1])!] as [string, string] })),
+		}
+		const prev = trunks
+		const keptNodeIds = new Set(trunk.segments.filter(s => inA.has(s.id)).flatMap(s => s.nodes))
+		trunks = [
+			...trunks.map(t => t.id !== trunkId ? t : {
+				...t,
+				segments: t.segments.filter(s => inA.has(s.id)),
+				nodes: t.nodes.filter(n => keptNodeIds.has(n.id)),
+			}),
+			newTrunk,
+		]
+		const final = trunks
+		selectedTrunkIds = new Set([newTrunk.id])
+		selectedNodeIds = new Set()
+		history.record({
+			label: 'Split trunk',
+			undo: () => { trunks = prev; selectedTrunkIds = new Set() },
+			redo: () => { trunks = final; selectedTrunkIds = new Set([newTrunk.id]) },
+		})
+		toast.success(`Split — ${newTrunk.label} is now its own trunk (set its width/type independently)`)
+	}
+
 	function splitTrunkSegment(trunkId: string, segmentId: string, point: Point) {
 		const trunk = trunks.find(t => t.id === trunkId)
 		if (!trunk) return
@@ -1934,6 +2000,7 @@
 					ondeletetrunks={deleteTrunks}
 					onsplittrunksegment={splitTrunkSegment}
 					ondisconnecttrunknode={disconnectTrunkNode}
+					onsplittrunkatnode={splitTrunkAtNode}
 					onmarquee={marqueeSelect}
 					onexport={() => exportOutletsToExcel(outlets, projectName, fmt(floor))}
 					onzoomchange={z => canvasZoom = z}
