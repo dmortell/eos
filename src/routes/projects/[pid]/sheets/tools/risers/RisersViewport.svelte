@@ -110,7 +110,7 @@
 			}} />
 	</RisersRender>
 	{#if active}
-		<RisersEditPanel {editor} bind:tool {annEditor} {fromFloor} {toFloor} layers={vps.allLayers} />
+		<RisersEditPanel {editor} bind:tool {annEditor} {vps} {fromFloor} {toFloor} layers={vps.allLayers} />
 	{/if}
 {:else}
 	<div class="flex h-full w-full items-center justify-center text-zinc-400 print:hidden" style:font-size="{14 / zoom}px">No risers data</div>

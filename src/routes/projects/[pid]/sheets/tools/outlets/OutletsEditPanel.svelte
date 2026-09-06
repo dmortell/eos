@@ -15,7 +15,7 @@
 
 	type LocationRow = { id: string; zone: string; locationNumber: number; portCount: number; locationType: string }
 	type UnplacedRack = { id: string; label: string; room: string; widthMm: number; depthMm: number }
-	let { editor, tool = $bindable(), annEditor, layers = [], racksById = {}, locations = [], linkedLocationIds = new Set(), unplacedRacks = [], pendingRackId = null, onplacerack }: { editor: OutletsEditor; tool: string; annEditor: AnnotationEditor; layers?: LayerDef[]; racksById?: Record<string, { widthMm: number; depthMm: number; label?: string }>; locations?: LocationRow[]; linkedLocationIds?: Set<string>; unplacedRacks?: UnplacedRack[]; pendingRackId?: string | null; onplacerack?: (rackId: string | null) => void } = $props()
+	let { editor, tool = $bindable(), annEditor, vps = null, layers = [], racksById = {}, locations = [], linkedLocationIds = new Set(), unplacedRacks = [], pendingRackId = null, onplacerack }: { editor: OutletsEditor; tool: string; annEditor: AnnotationEditor; vps?: import('../../viewports.svelte').ViewportEditor | null; layers?: LayerDef[]; racksById?: Record<string, { widthMm: number; depthMm: number; label?: string }>; locations?: LocationRow[]; linkedLocationIds?: Set<string>; unplacedRacks?: UnplacedRack[]; pendingRackId?: string | null; onplacerack?: (rackId: string | null) => void } = $props()
 
 	const locLabel = (l: LocationRow) => `${l.zone}-${String(l.locationNumber).padStart(3, '0')}`
 
@@ -23,6 +23,13 @@
 		const dxf = outletsToDxf({ outlets: editor.outlets, trunks: editor.trunks, rackPlacements: editor.rackPlacements, racksById }, layers)
 		downloadDxf(dxf, 'outlets-floorplan')
 	}
+	// This panel exists only while its viewport is active — registering here
+	// scopes the File → Export DXF item to the active viewport automatically.
+	$effect(() => {
+		if (!vps) return
+		vps.dxfExport = { label: 'outlets floorplan', run: exportDxf }
+		return () => { if (vps) vps.dxfExport = null }
+	})
 
 	const objTools = [
 		{ id: 'select', label: 'Select' },
@@ -46,7 +53,6 @@
 		{#each objTools as t (t.id)}
 			<button class={cls(tool === t.id)} title={t.id === 'select' ? 'Select / edit' : `Insert ${t.label}`} onclick={() => pick(t.id)}>{t.id === 'select' ? t.label : `+ ${t.label}`}</button>
 		{/each}
-		<button class="rounded border px-1.5 py-0.5 text-xs hover:bg-slate-100" title="Export this floorplan to DXF (real-world mm) for AutoCAD" onclick={exportDxf}>⬇ DXF</button>
 	</div>
 	<AnnotationControls bind:tool editor={annEditor} />
 	{#if editor.draw}

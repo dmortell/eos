@@ -31,6 +31,11 @@
 			<Menubar.Content align="start">
 				<Menubar.Item class="cursor-pointer" onSelect={() => onsettings?.()}>Project details…</Menubar.Item>
 				<Menubar.Item class="cursor-pointer" onSelect={() => ondefaults?.()}>Drawing defaults…</Menubar.Item>
+				{#if vps.dxfExport}
+					<Menubar.Item class="cursor-pointer" onSelect={() => vps.dxfExport?.run()}>Export DXF — {vps.dxfExport.label}</Menubar.Item>
+				{:else}
+					<Menubar.Item disabled title="Double-click a viewport to activate it, then export its drawing as DXF">Export DXF</Menubar.Item>
+				{/if}
 				<Menubar.Item class="cursor-pointer" onSelect={print}>Print</Menubar.Item>
 			</Menubar.Content>
 		</Menubar.Menu>

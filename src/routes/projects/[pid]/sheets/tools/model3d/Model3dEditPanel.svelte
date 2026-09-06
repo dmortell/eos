@@ -10,7 +10,14 @@
 	// numeric properties, a per-segment list (walls/conduits), and layer
 	// assignment. Edits go through editor.notify() so they persist + record undo.
 	// `annEditor`/`tool` add the shared annotation toolbar + property editor.
-	let { editor, model, annEditor, tool = $bindable('select'), shapesOpen = $bindable(false) }: { editor: Model3dEditor; model: Model; annEditor: AnnotationEditor; tool?: string; shapesOpen?: boolean } = $props()
+	let { editor, model, annEditor, vps = null, tool = $bindable('select'), shapesOpen = $bindable(false) }: { editor: Model3dEditor; model: Model; annEditor: AnnotationEditor; vps?: import('../../viewports.svelte').ViewportEditor | null; tool?: string; shapesOpen?: boolean } = $props()
+
+	// Panel exists only while its viewport is active → File → Export DXF.
+	$effect(() => {
+		if (!vps) return
+		vps.dxfExport = { label: '3D model (plan)', run: () => downloadModelDxf(model, { direction: 'plan' }) }
+		return () => { if (vps) vps.dxfExport = null }
+	})
 
 	const obj = $derived(editor.selIndex !== null ? model.objects[editor.selIndex] ?? null : null)
 	const idx = $derived(editor.selIndex ?? 0)
@@ -24,11 +31,6 @@
 </script>
 
 <Window title="Object" name="model3d-object" right={10} top={10} open class="w-64 p-2 text-zinc-700">
-	<div class="mb-1 flex items-center justify-end">
-		<button class="rounded border px-1.5 py-0.5 text-[11px] hover:bg-slate-100"
-			title="Export this model to DXF (real-world mm, plan) — opens in AutoCAD as editable geometry"
-			onclick={() => downloadModelDxf(model, { direction: 'plan' })}><Icon name="download" size={11} /> DXF</button>
-	</div>
 	<!-- Insert / place-tool — plan + elevations (Wall/Section stay plan-only) -->
 	{#if editor.direction !== 'iso'}
 		{#if editor.placing}

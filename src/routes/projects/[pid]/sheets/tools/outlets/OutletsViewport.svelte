@@ -268,7 +268,7 @@
 			}} />
 	</OutletsRender>
 	{#if active}
-		<OutletsEditPanel {editor} bind:tool {annEditor} layers={vps.allLayers} {racksById} locations={locationList} {linkedLocationIds}
+		<OutletsEditPanel {editor} bind:tool {annEditor} {vps} layers={vps.allLayers} {racksById} locations={locationList} {linkedLocationIds}
 			{unplacedRacks} {pendingRackId}
 			onplacerack={(id) => { pendingRackId = id; tool = id ? 'rack' : 'select' }} />
 		<OutletsContextMenu {editor} />

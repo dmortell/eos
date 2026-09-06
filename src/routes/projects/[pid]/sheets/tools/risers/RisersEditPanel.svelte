@@ -11,7 +11,7 @@
 	import { risersToDxf } from '../../dxf/risers'
 	import { downloadDxf } from '../../dxf/dxf'
 
-	let { editor, tool = $bindable(), annEditor, fromFloor, toFloor, layers = [] }: { editor: RisersEditor; tool: string; annEditor: AnnotationEditor; fromFloor: number; toFloor: number; layers?: LayerDef[] } = $props()
+	let { editor, tool = $bindable(), annEditor, vps = null, fromFloor, toFloor, layers = [] }: { editor: RisersEditor; tool: string; annEditor: AnnotationEditor; vps?: import('../../viewports.svelte').ViewportEditor | null; fromFloor: number; toFloor: number; layers?: LayerDef[] } = $props()
 	const val = (e: Event) => (e.currentTarget as HTMLInputElement | HTMLSelectElement).value
 
 	function exportDxf() {
@@ -22,6 +22,12 @@
 		}, layers)
 		downloadDxf(dxf, 'risers')
 	}
+	// Panel exists only while its viewport is active → File → Export DXF.
+	$effect(() => {
+		if (!vps) return
+		vps.dxfExport = { label: 'riser diagram', run: exportDxf }
+		return () => { if (vps) vps.dxfExport = null }
+	})
 	let floorOpts = $derived.by(() => { const a: number[] = []; for (let f = Math.max(fromFloor, toFloor); f >= Math.min(fromFloor, toFloor); f--) a.push(f); return a })
 	const objTools = [['select', 'Select'], ['room', 'Room'], ['riser', 'Riser']] as const
 	const cls = (active: boolean) => ['rounded border px-1.5 py-0.5 text-xs', active ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-slate-100']
@@ -35,7 +41,6 @@
 			<button class={cls(tool === id)} title={id === 'select' ? 'Select / edit' : `Insert ${label}`} onclick={() => (tool = id)}>{id === 'select' ? label : `+ ${label}`}</button>
 		{/each}
 		<button class="rounded border px-1.5 py-0.5 text-xs hover:bg-slate-100" onclick={() => { tool = 'select'; editor.addCable() }}>+ Cable</button>
-		<button class="rounded border px-1.5 py-0.5 text-xs hover:bg-slate-100" title="Export this riser diagram to DXF (real-world mm) for AutoCAD" onclick={exportDxf}>⬇ DXF</button>
 	</div>
 	<p class="text-[10px] text-zinc-400">Room: drag a box to place &amp; size. Riser: drag floor-to-floor. Drag a room to any floor; drag its edges to resize.</p>
 	{#if editor.cables.length}

@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation'
 	import { paperDimsMm } from '$lib/ui/print/types'
 	import type { SheetDoc } from '../types'
-	import { createSheet, createFileSheet, updateSheet, deleteSheet, planRenumber } from '../data'
+	import { createSheet, createFileSheet, updateSheet, deleteSheet, duplicateSheet, planRenumber } from '../data'
 	import ListTabs from './ListTabs.svelte'
 
 	// Tools a "file" sheet can link to — dense tabular docs exported to Excel/PDF from their own tool.
@@ -110,6 +110,16 @@
 	async function handleDelete(id: string) {
 		await deleteSheet(db, projectId, id)
 		confirmDeleteId = null
+	}
+
+	/** Duplicate a sheet (copies viewports incl. their layer overrides — e.g. a
+	 *  variant showing only one routes layer) and land right after the original. */
+	let duplicating = $state(false)
+	async function handleDuplicate(sheet: (typeof sheets)[number]) {
+		if (duplicating) return
+		duplicating = true
+		try { await duplicateSheet(db, projectId, $state.snapshot(sheet), uid) }
+		finally { duplicating = false }
 	}
 
 	// ── Multi-select + renumber ──
@@ -338,6 +348,10 @@
 									<button class="text-zinc-400 hover:text-blue-600 transition-colors mr-2" title="Edit sheet"
 										onclick={() => startRowEdit(sheet)}>
 										<Icon name="edit" size={13} />
+									</button>
+									<button class="text-zinc-400 hover:text-blue-600 transition-colors mr-2" title="Duplicate sheet (copies viewports + their layer visibility — e.g. a variant showing only one layer)"
+										onclick={() => handleDuplicate(sheet)}>
+										<Icon name="copy" size={13} />
 									</button>
 									<button class="text-zinc-300 hover:text-red-500 transition-colors" title="Delete sheet"
 										onclick={() => confirmDeleteId = sheet.id}>

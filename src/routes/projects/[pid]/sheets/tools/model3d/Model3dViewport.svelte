@@ -318,7 +318,7 @@
 	</Model3dRender>
 	{#if active}
 		<!-- portalled out of the zoomed canvas so the panels render at normal size -->
-		<div use:portal><Model3dEditPanel {editor} {model} {annEditor} bind:tool bind:shapesOpen /></div>
+		<div use:portal><Model3dEditPanel {editor} {model} {annEditor} {vps} bind:tool bind:shapesOpen /></div>
 		{#if shapesOpen}<ShapeLibrary editor={annEditor} bind:open={shapesOpen} ondrop={placeShapeDrop} />{/if}
 		<div use:portal><RenumberDialog editor={annEditor} bind:open={renumberOpen} /></div>
 		{#if ctxMenu}

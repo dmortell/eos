@@ -82,6 +82,37 @@ export async function saveSheet(db: Firestore, pid: string, sheet: SheetDoc): Pr
 	await db.save(sheetsPath(pid), { ...sheet, updatedAt: Date.now() })
 }
 
+/**
+ * Duplicate a sheet: deep-copies paper/title block/viewports (fresh viewport
+ * ids — annotations, layer overrides and revisions travel with the copy) and
+ * inserts it right after the original in sort order. The drawing number is
+ * cleared (numbers should stay unique) and "(copy)" is appended to the title.
+ * Tool CONTENT stays referenced by id, so e.g. hiding layers on the copy's
+ * viewports never affects the original — but a model3d viewport still shares
+ * its model doc with the original. Returns the new sheet id.
+ */
+export async function duplicateSheet(
+	db: Firestore,
+	pid: string,
+	src: SheetDoc,
+	uid: string,
+): Promise<string> {
+	const id = nanoid(8)
+	const clone: SheetDoc = JSON.parse(JSON.stringify(src))
+	const sheet: SheetDoc = {
+		...clone,
+		id,
+		title: `${src.title} (copy)`,
+		drawingNumber: undefined,
+		sortOrder: (src.sortOrder ?? 0) + 0.5, // lands right after the original; renumber normalises later
+		viewports: (clone.viewports ?? []).map(v => ({ ...v, id: nanoid(10) })),
+		updatedAt: Date.now(),
+		updatedBy: uid,
+	}
+	await db.save(sheetsPath(pid), sheet)
+	return id
+}
+
 /** Patch selected fields of a sheet (merge:true keeps the rest). */
 export async function updateSheet(
 	db: Firestore,

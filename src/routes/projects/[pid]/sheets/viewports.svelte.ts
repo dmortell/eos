@@ -70,6 +70,9 @@ export class ViewportEditor {
 	// ── Layers ── user-defined layers (project-wide; loaded/persisted by SheetEditor) plus the
 	// active layer that new objects are created on.
 	customLayers = $state<LayerDef[]>([])
+	/** DXF export for the ACTIVE viewport, registered by its edit panel while
+	 *  mounted (File → Export DXF). null = no active viewport / not exportable. */
+	dxfExport = $state<{ label: string; run: () => void } | null>(null)
 	activeLayerId = $state<string>('annotations')
 	allLayers = $derived<LayerDef[]>([...LAYERS, ...this.customLayers])
 

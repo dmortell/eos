@@ -159,7 +159,7 @@
 			}} />
 	</RacksRender>
 	{#if active}
-		<RacksEditPanel {editor} bind:tool {annEditor} face={src.face} libraryOpen={showLibrary} racksOpen={showRacks} layers={vps.allLayers} ondevices={() => { showLibrary = !showLibrary }} onracks={() => { showRacks = !showRacks }} />
+		<RacksEditPanel {editor} bind:tool {annEditor} {vps} face={src.face} libraryOpen={showLibrary} racksOpen={showRacks} layers={vps.allLayers} ondevices={() => { showLibrary = !showLibrary }} onracks={() => { showRacks = !showRacks }} />
 		{#if showLibrary && src.face !== 'plan'}
 			<DeviceLibrary {editor} ondrop={placeFromDrop} onclose={() => { showLibrary = false }} />
 			{/if}
