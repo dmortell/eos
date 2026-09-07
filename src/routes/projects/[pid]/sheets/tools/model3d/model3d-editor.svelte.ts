@@ -1,7 +1,7 @@
 import { toast } from 'svelte-sonner'
 import { SurfaceEditor } from '../../edit/surface.svelte'
 import { BASIS, type Clip, type Conduit, type Dir, type Model, type Obj, type Prism, type SectionInfo, type Underlay, type Wall } from './types'
-import { moveAlong, roundObj, project, xyCenter, objBounds, modelBounds, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
+import { moveAlong, roundObj, project, xyCenter, objBounds, modelBounds, trimToClip, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 import { newId } from './graph'
 import { polyToGraph } from './migrate'
 
@@ -35,6 +35,9 @@ export class Model3dEditor extends SurfaceEditor {
 	// $state so layerHidden/locked re-evaluate live in the edit layer when a layer is toggled
 	// (otherwise a just-unhidden wall stays non-selectable until a refresh).
 	layerOverrides = $state<Record<string, { hidden?: boolean; locked?: boolean }>>({})
+	/** The viewport's section/plan clip (set by the host). Objects fully outside it are
+	 *  culled from the render — the marquee must not select them either. */
+	clip: Clip | null = null
 
 	protected selKind = 'obj'
 	get objects(): Obj[] { return this.model?.objects ?? [] }
@@ -663,7 +666,9 @@ export class Model3dEditor extends SurfaceEditor {
 	clearClipboard() { this.clipboard = [] }
 	hasClipboard() { return this.clipboard.length > 0 }
 	selectAllVisible() {
-		const ids = this.objects.filter((o) => o.id && !this.layerHidden(o.layer) && !this.locked(o)).map((o) => o.id!)
+		const ids = this.objects
+			.filter((o) => o.id && !this.layerHidden(o.layer) && !this.locked(o) && (!this.clip || trimToClip(o, this.clip) != null))
+			.map((o) => o.id!)
 		this.sel = null; this.clearAux(); this.setMulti(ids)
 	}
 	/** Drop selected objects whose layer just became hidden or locked (so a stale selection box
@@ -781,7 +786,10 @@ export class Model3dEditor extends SurfaceEditor {
 		super.clearSel(); this.vsel = null; this.usel = null; this.selSection = null // a marquee (or empty click) drops the single selection
 		const piv = xyCenter(this.objects)
 		const hit: number[] = []
-		this.objects.forEach((o, i) => { if (!this.locked(o) && !this.hidden(o) && marqueeHits(o, this.direction, piv, r)) hit.push(i) }) // hidden/locked layers aren't selectable
+		// hidden/locked layers aren't selectable; neither is anything culled by the
+		// section clip (a far off-section object behind the cut isn't visible here).
+		const inView = (o: Obj) => !this.clip || trimToClip(o, this.clip) != null
+		this.objects.forEach((o, i) => { if (!this.locked(o) && !this.hidden(o) && inView(o) && marqueeHits(o, this.direction, piv, r)) hit.push(i) })
 		// Exactly one → single-select it (full handles + property editor); else multi (by id).
 		if (hit.length === 1) this.selectObj(hit[0]); else this.multi = hit.map((i) => this.oid(i))
 	}

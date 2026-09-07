@@ -25,10 +25,13 @@
 	const lyrOf = (a: Annotation) => a.layerId ?? 'annotations'
 	const isLocked = (a: Annotation) => locked.includes(lyrOf(a))
 	// Hit-target paint order: biggest footprint first → smallest last (= on top), so the
-	// smallest object under the cursor wins the click. Line kinds count as near-zero area
-	// (thin), keeping them clickable across large boxes.
+	// smallest object under the cursor wins the click. A line's footprint is its actual
+	// hit band (length × screen-constant width) — so a long line still beats the big box
+	// it crosses, but LOSES to a small circle it passes through.
 	const hitArea = (a: Annotation) => {
-		if (LINE.has(a.kind)) return 0
+		if (LINE.has(a.kind)) {
+			return Math.hypot((a.x2 ?? a.x) - a.x, (a.y2 ?? a.y) - a.y) * (14 / ss)
+		}
 		const b = bounds(a, den)
 		return b.w * b.h
 	}
@@ -313,11 +316,15 @@
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<g transform={rot}><path d={cloudPath(b.x, b.y, b.w, b.h, r)} fill="none" stroke="transparent" stroke-width="16" vector-effect="non-scaling-stroke" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} /></g>
 	{:else if a.kind === 'rect' || a.kind === 'grid'}
+		<!-- Outline-only hit so objects INSIDE stay selectable — except when the shape is tiny
+		     on screen (a Ø30 grommet): then the whole interior is the target. -->
+		{@const tinyR = Math.max(b.w, b.h) * ss < 24}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<g transform={rot}><rect x={b.x} y={b.y} width={b.w} height={b.h} fill="none" stroke="transparent" stroke-width="16" vector-effect="non-scaling-stroke" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} /></g>
+		<g transform={rot}><rect x={b.x} y={b.y} width={b.w} height={b.h} fill={tinyR ? 'transparent' : 'none'} stroke="transparent" stroke-width="16" vector-effect="non-scaling-stroke" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} /></g>
 	{:else if a.kind === 'ellipse'}
+		{@const tinyE = Math.max(b.w, b.h) * ss < 24}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<g transform={rot}><ellipse cx={cx} cy={cy} rx={b.w / 2} ry={b.h / 2} fill="none" stroke="transparent" stroke-width="16" vector-effect="non-scaling-stroke" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} /></g>
+		<g transform={rot}><ellipse cx={cx} cy={cy} rx={b.w / 2} ry={b.h / 2} fill={tinyE ? 'transparent' : 'none'} stroke="transparent" stroke-width="16" vector-effect="non-scaling-stroke" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} /></g>
 	{:else if a.kind === 'symbol' && a.symbol === 'outlet'}
 		{@const R = Math.min(b.w, b.h) / 2}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->

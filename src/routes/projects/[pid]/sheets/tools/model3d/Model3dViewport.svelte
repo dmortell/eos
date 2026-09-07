@@ -117,6 +117,8 @@
 		}
 		// The PLAN viewport's own cut clip (edited from the Object panel when nothing is selected).
 		editor.planClipProvider = () => (src?.clip ?? null)
+		// Section/plan clip → editor, so the marquee can't grab objects the render culls.
+		editor.clip = src?.clip ?? null
 		editor.onPlanClip = (clip) => {
 			if (!src || vp.source.kind !== 'model3d') return
 			if (clip) vp.source.clip = clip
