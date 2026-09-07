@@ -7,7 +7,7 @@
 	import { OUTLET_RADIUS_MM, USAGE_COLORS } from './constants'
 	import type { TrunkConfig, TrunkNode, TrunkSegment } from '../trunks/types'
 	import { trunkWidthMm } from '../trunks/types'
-	import { hitTestNode, hitTestSegment, hitTestTrunkBody, constrainAngle, snapNodeAngles, generateTrunkPolygons, genId, snapToNearby, snapToGrid, dist, type SnapTarget } from '../trunks/geometry'
+	import { hitTestNode, hitTestSegment, constrainAngle, snapNodeAngles, genId, snapToNearby, snapToGrid, dist, type SnapTarget } from '../trunks/geometry'
 	import { portal } from '../trunks/portal'
 	import { SNAP_THRESHOLD_MM } from '../trunks/constants'
 	import TrunkRenderer from '../trunks/TrunkRenderer.svelte'
@@ -750,7 +750,32 @@
 			return
 		}
 
-		// Select tool: check trunks (nodes, segments, bodies)
+		// Select tool: outlets FIRST — they're the smallest targets and sit on/inside
+		// trunk runs; the trunk band must not steal their clicks.
+		{
+			const hitId = hitTest(pos)
+			if (hitId) {
+				const alreadySelected = selectedIds.has(hitId)
+				if (e.ctrlKey || e.metaKey) {
+					onselect(hitId, true)
+				} else if (!alreadySelected) {
+					onselect(hitId, false)
+				}
+				dragging = true
+				dragMoved = false
+				dragStart = {
+					x: pos.x, y: pos.y,
+					outletPositions: new Map(
+						outlets.filter(o => selectedIds.has(o.id) || o.id === hitId).map(o => [o.id, { ...o.position }])
+					),
+				}
+				document.addEventListener('mousemove', onDragMove)
+				document.addEventListener('mouseup', onDragUp)
+				return
+			}
+		}
+
+		// Then trunks (nodes, segments)
 		if (calibration && onselecttrunk) {
 			const mmPos = toMm(pos)
 			const hit = hitTestTrunks(mmPos)
@@ -836,30 +861,6 @@
 			rackDragStart = { startX: pos.x, startY: pos.y, originMm }
 			document.addEventListener('mousemove', onRackDragMove)
 			document.addEventListener('mouseup', onRackDragUp)
-			return
-		}
-
-		// Check if clicking an outlet
-		const hitId = hitTest(pos)
-		if (hitId) {
-			const alreadySelected = selectedIds.has(hitId)
-			if (e.ctrlKey || e.metaKey) {
-				onselect(hitId, true)
-			} else if (!alreadySelected) {
-				onselect(hitId, false)
-			}
-
-			// Start drag
-			dragging = true
-			dragMoved = false
-			dragStart = {
-				x: pos.x, y: pos.y,
-				outletPositions: new Map(
-					outlets.filter(o => selectedIds.has(o.id) || o.id === hitId).map(o => [o.id, { ...o.position }])
-				),
-			}
-			document.addEventListener('mousemove', onDragMove)
-			document.addEventListener('mouseup', onDragUp)
 			return
 		}
 
@@ -1166,16 +1167,6 @@
 	let drawingSegments = $state<TrunkSegment[]>([])
 	let rubberBandTarget = $state<Point | null>(null)
 
-	// Precomputed polygons for trunk hit-testing (in mm coords)
-	let trunkPolygonCache = $derived.by(() => {
-		const cache = new Map<string, Point[][]>()
-		for (const trunk of trunks) {
-			if (trunk.visible === false) continue
-			cache.set(trunk.id, generateTrunkPolygons(trunk))
-		}
-		return cache
-	})
-
 	function isDrawingTrunk(): boolean {
 		return activeTool === 'trunk' && drawingNodes.length > 0
 	}
@@ -1352,22 +1343,29 @@
 	let trunkNodeDragMoved = false
 	let trunkNodeDragStart: { startX: number; startY: number; lastX: number; lastY: number; trunkId: string; originMm: Point; neighborMm: Point | null; neighborsMm?: Point[]; forceIndependent?: boolean } | null = null
 
+	/** Is this trunk's layer visible per the View menu? Hidden trunks aren't
+	 *  drawn, so they must not be clickable either. */
+	function trunkLayerVisible(trunk: TrunkConfig): boolean {
+		const high = trunk.location === 'ceiling-plenum' || trunk.location === 'ceiling-tray'
+		return hasViewFlag(high ? VIEW_HIGH_TRUNKS : VIEW_LOW_TRUNKS)
+	}
+
 	function hitTestTrunks(mmPos: Point): { type: 'node' | 'segment' | 'body'; trunkId: string; nodeId?: string; segmentId?: string; t?: number } | null {
-		// Priority: nodes > segments > body
+		// Priority: nodes > segments. Grab margins are SCREEN-scaled (a few px) —
+		// the old fixed 200mm minimums swallowed outlets sitting near a trunk, and
+		// the polygon body test filled a looping trunk's whole INTERIOR (anything
+		// encircled by a ring main became unselectable). Clicking the band itself
+		// still hits via the segment test (half-width + pad).
+		const padMm = 8 * (calibration?.scaleFactor ?? 1) / zoom // ≈ 8 screen px in mm
 		for (const trunk of trunks) {
-			if (trunk.visible === false) continue
-			const nodeHit = hitTestNode(mmPos, trunk.nodes, Math.max(trunkWidthMm(trunk) / 2, 200))
+			if (trunk.visible === false || !trunkLayerVisible(trunk)) continue
+			const nodeHit = hitTestNode(mmPos, trunk.nodes, Math.max(trunkWidthMm(trunk) / 2, padMm * 1.5))
 			if (nodeHit) return { type: 'node', trunkId: trunk.id, nodeId: nodeHit.id }
 		}
 		for (const trunk of trunks) {
-			if (trunk.visible === false) continue
-			const segHit = hitTestSegment(mmPos, trunk.nodes, trunk.segments, trunkWidthMm(trunk))
+			if (trunk.visible === false || !trunkLayerVisible(trunk)) continue
+			const segHit = hitTestSegment(mmPos, trunk.nodes, trunk.segments, trunkWidthMm(trunk), padMm)
 			if (segHit) return { type: 'segment', trunkId: trunk.id, segmentId: segHit.segment.id, t: segHit.t }
-		}
-		for (const trunk of trunks) {
-			if (trunk.visible === false) continue
-			const polys = trunkPolygonCache.get(trunk.id)
-			if (polys && hitTestTrunkBody(mmPos, polys)) return { type: 'body', trunkId: trunk.id }
 		}
 		return null
 	}

@@ -277,9 +277,13 @@ export function hitTestSegment(
 	nodes: TrunkNode[],
 	segments: TrunkSegment[],
 	widthMm: number,
+	/** Extra grab margin beyond the trunk's half-width (mm). Callers should pass a
+	 *  zoom-scaled value (a few screen px) — the old fixed 200mm floor swallowed
+	 *  nearby outlets at working zooms. */
+	padMm = 50,
 ): { segment: TrunkSegment; t: number } | null {
 	const nodeMap = new Map(nodes.map(n => [n.id, n]))
-	const threshold = Math.max(widthMm / 2 + 50, 200) // at least 200mm hit area
+	const threshold = widthMm / 2 + padMm
 
 	let best: { segment: TrunkSegment; t: number; d: number } | null = null
 
