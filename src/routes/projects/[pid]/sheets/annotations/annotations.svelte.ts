@@ -15,7 +15,9 @@ const CLICK_KINDS = new Set<AnnotationKind>(['text', 'symbol'])
 const BOX_DRAG = new Set<AnnotationKind>(['rect', 'ellipse', 'cloud', 'image', 'grid', 'legend'])
 // Minimum drawn size (world-mm) for box-drag kinds, so a tiny drag still yields a usable shape
 // rather than a near-zero one (resize MULTIPLIES the width, so a ~0 box can never grow).
-const MIN_BOX: Partial<Record<AnnotationKind, number>> = { rect: 200, ellipse: 200, cloud: 500, image: 300, grid: 1000, legend: 800 }
+// rect/ellipse stay tiny on purpose: real small parts (a 30mm grommet circle on a detail
+// section) must be drawable — 5mm at the 1:100 reference; W/H are also editable numerically.
+const MIN_BOX: Partial<Record<AnnotationKind, number>> = { rect: 5, ellipse: 5, cloud: 500, image: 300, grid: 1000, legend: 800 }
 // A click with no drag → drop a comfortable default-sized box centred on the click.
 const DEFAULT_BOX = 1500
 

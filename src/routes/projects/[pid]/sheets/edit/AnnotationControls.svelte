@@ -256,6 +256,11 @@
 			{#each DASHES as [v, l] (v)}<option value={v}>{l}</option>{/each}
 		</PropSelect>
 	{/if}
+	{#if sel.w != null && sel.h != null}
+		<!-- Exact size in drawing mm (e.g. a Ø30 grommet circle: 30 × 30) -->
+		<PropText label="Width (mm)" type="number" min="1" step="1" value={String(Math.round(sel.w * 10) / 10)} oninput={(e: Event) => { const v = Number(val(e)); if (v > 0) editor.setSel({ w: v }) }} />
+		<PropText label="Height (mm)" type="number" min="1" step="1" value={String(Math.round(sel.h * 10) / 10)} oninput={(e: Event) => { const v = Number(val(e)); if (v > 0) editor.setSel({ h: v }) }} />
+	{/if}
 	{#if sel.kind === 'line' || sel.kind === 'arrow'}
 		<PropText label="Label" value={sel.text ?? ''} oninput={(e: Event) => editor.setSel({ text: val(e) })} />
 		{#if sel.text}<PropText label="Font (pt)" type="number" min="2" value={String(sel.fontPt ?? 8)} oninput={(e: Event) => editor.setSel({ fontPt: Number(val(e)) || 8 })} />{/if}
