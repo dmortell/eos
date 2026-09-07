@@ -44,7 +44,11 @@ export function useAnnotations(opts: {
 	// Mirror the layer list for the props-panel picker, and resolve the layer new annotations land on.
 	// An active layer from a non-annotation category can't hold annotations → fall back + warn (5a5).
 	$effect(() => { ed.layers = layerList() })
-	$effect(() => { ed.annoDefaults = opts.vps.annoDefaults }) // project-wide defaults + dim unit
+	// project-wide defaults + dim unit; the sheet's dimUnit override (if set) wins
+	$effect(() => {
+		const su = opts.vps.sheetDimUnit
+		ed.annoDefaults = { ...opts.vps.annoDefaults, ...(su ? { dimUnit: su } : {}) }
+	})
 	ed.nextLayerId = () => {
 		const active = opts.activeLayer?.() ?? opts.vps.activeLayerId
 		const target = annTargetLayer(active, layerList())

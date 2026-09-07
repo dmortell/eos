@@ -23,6 +23,9 @@ export interface SheetDoc {
 	 * In a package it's a reminder placeholder (no viewports). Undefined = a normal drawing sheet.
 	 */
 	link?: ExternalLink
+	/** Per-sheet override of the project's dimension unit (Drawing defaults).
+	 *  'none' = numbers only (detail sheets); null/undefined = project default. */
+	dimUnit?: 'mm' | 'm' | 'km' | 'none' | null
 	updatedAt?: number
 	updatedBy?: string
 }

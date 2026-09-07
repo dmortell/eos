@@ -177,6 +177,8 @@
 		})
 		return () => { unsub?.() }
 	})
+	// Per-sheet dimension-unit override (SheetDoc.dimUnit) → merged over the project default.
+	$effect(() => { vps.sheetDimUnit = sheet?.dimUnit ?? null })
 	vps.onLayersChange = () => { if (pid) db.save('projects', { id: pid, sheetLayers: $state.snapshot(vps.customLayers) }) }
 	vps.onDefaultsChange = () => { if (pid) db.save('projects', { id: pid, annotationDefaults: $state.snapshot(vps.annoDefaults) }) }
 	// model3d cross-project copy bridge: capture a model payload at copy, import it at paste

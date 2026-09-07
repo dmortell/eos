@@ -78,6 +78,9 @@ export class ViewportEditor {
 
 	/** Project-wide annotation defaults (new annotations inherit; dimension unit). */
 	annoDefaults = $state<AnnotationDefaults>({})
+	/** Per-SHEET dimension-unit override (SheetDoc.dimUnit) — merged over
+	 *  annoDefaults.dimUnit by consumers; not persisted with the project defaults. */
+	sheetDimUnit = $state<'mm' | 'm' | 'km' | 'none' | null>(null)
 	setDefaults(patch: Partial<AnnotationDefaults>) { this.annoDefaults = { ...this.annoDefaults, ...patch }; this.onDefaultsChange?.() }
 
 	/** Called after a mutation that should be persisted (add / delete / geometry change). */

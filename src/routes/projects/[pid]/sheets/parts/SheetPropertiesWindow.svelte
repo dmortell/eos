@@ -25,6 +25,7 @@
 		title: '', drawingNumber: '',
 		paperSize: 'A3' as PaperSize, orientation: 'landscape' as PaperOrientation,
 		margins: '10', scale: '100',
+		dimUnit: '', // '' = project default (Drawing defaults); 'none' = numbers only
 		tbVisible: true,
 		drawnBy: '', checkedBy: '', approvedBy: '', date: '', client: '',
 	})
@@ -45,6 +46,7 @@
 				orientation: p.orientation ?? 'landscape',
 				margins: String(p.margins ?? 10),
 				scale: String(p.scale ?? 100),
+				dimUnit: sheet.dimUnit ?? '',
 				tbVisible: sheet.titleBlock !== null,
 				drawnBy: f.drawnBy ?? '', checkedBy: f.checkedBy ?? '', approvedBy: f.approvedBy ?? '',
 				date: f.date ?? '', client: f.client ?? '',
@@ -63,6 +65,7 @@
 			updateSheet(db, pid, sheet.id, {
 				title: form.title,
 				drawingNumber: form.drawingNumber,
+				dimUnit: (form.dimUnit || null) as SheetDoc['dimUnit'],
 				paper: {
 					...sheet.paper,
 					paperSize: form.paperSize,
@@ -116,6 +119,15 @@
 		{/each}
 	</PropSelect>
 	<PropText label="Margins (mm)" type="number" min="0" max="30" step="1" bind:value={form.margins} oninput={save} />
+	<!-- Per-sheet dimension-unit override — "Hidden" drops the unit suffix on detail sheets
+	     where "mm" takes too much space; the project default lives in Drawing defaults. -->
+	<PropSelect label="Dim units" bind:value={form.dimUnit} onchange={save}>
+		<option value="">Project default</option>
+		<option value="mm">mm</option>
+		<option value="m">m</option>
+		<option value="km">km</option>
+		<option value="none">Hidden (number only)</option>
+	</PropSelect>
 
 	<hr class="border-zinc-200" />
 

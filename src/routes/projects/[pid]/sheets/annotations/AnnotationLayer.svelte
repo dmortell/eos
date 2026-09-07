@@ -24,6 +24,15 @@
 	const mid = `mk-${Math.random().toString(36).slice(2, 7)}`
 	const lyrOf = (a: Annotation) => a.layerId ?? 'annotations'
 	const isLocked = (a: Annotation) => locked.includes(lyrOf(a))
+	// Hit-target paint order: biggest footprint first → smallest last (= on top), so the
+	// smallest object under the cursor wins the click. Line kinds count as near-zero area
+	// (thin), keeping them clickable across large boxes.
+	const hitArea = (a: Annotation) => {
+		if (LINE.has(a.kind)) return 0
+		const b = bounds(a, den)
+		return b.w * b.h
+	}
+	const hitOrder = $derived([...editor.annotations].sort((x, y) => hitArea(y) - hitArea(x)))
 
 	const BOX = new Set(['text', 'rect', 'ellipse', 'cloud', 'symbol', 'callout', 'image', 'grid', 'legend'])
 	const POINTER = new Set(['callout']) // box kinds that also have a pointer target
@@ -235,8 +244,6 @@
 	{#if POINTER.has(a.kind) && a.x2 != null}
 		{@const tb = box(a, den)}{@const c = nearestCorner(tb, a.x2, a.y2 ?? a.y)}
 		<line x1={c[0]} y1={c[1]} x2={a.x2} y2={a.y2} stroke={color} style:color={color} stroke-width={a.strokeWidth ?? SW*2} stroke-dasharray={dashArray(a.dash)} stroke-linecap={dashCap(a.dash)} vector-effect="non-scaling-stroke" marker-end={mk(a.end ?? 'arrow')} />
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<line x1={c[0]} y1={c[1]} x2={a.x2} y2={a.y2} stroke="transparent" stroke-width="200" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e, true)} />
 	{/if}
 
 	<!-- line / arrow / dimension — one path. Dimension auto-labels its length (+arrow heads by
@@ -256,34 +263,6 @@
 			{@const f = fontMmOf(a, den)}
 			{@render caption({ x: lx, y: ly, dy: -f * 0.4, size: f, fill: color, transform: `rotate(${ang} ${lx} ${ly})`, text: lbl })}
 		{/if}
-	{/if}
-
-	<!-- hit target (move / select). Outline-only for cloud/rect so objects *inside* them stay
-	     selectable; filled box for text/symbol/callout. -->
-	{#if a.kind === 'cloud'}
-		{@const r = Math.max(150, Math.min(b.w, b.h) / 6)}
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<g transform={rot}><path d={cloudPath(b.x, b.y, b.w, b.h, r)} fill="none" stroke="transparent" stroke-width="300" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} /></g>
-	{:else if a.kind === 'rect' || a.kind === 'grid'}
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<g transform={rot}><rect x={b.x} y={b.y} width={b.w} height={b.h} fill="none" stroke="transparent" stroke-width="300" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} /></g>
-	{:else if a.kind === 'ellipse'}
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<g transform={rot}><ellipse cx={cx} cy={cy} rx={b.w / 2} ry={b.h / 2} fill="none" stroke="transparent" stroke-width="300" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} /></g>
-	{:else if a.kind === 'symbol' && a.symbol === 'outlet'}
-		<!-- tight hit on the outlet body (circle + triangle), NOT the full 1000mm symbol box -->
-		{@const R = Math.min(b.w, b.h) / 2}
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<circle cx={cx} cy={cy} r={R * 0.66} fill="transparent" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} />
-	{:else if isBoxKind(a)}
-		<!-- For callout/leader, dragging the box moves only the box (arrow tip stays put);
-		     double-click jumps focus to the text field in the properties panel. -->
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<g transform={rot}><rect x={b.x - 60} y={b.y - 60} width={b.w + 120} height={b.h + 120} fill="transparent" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e, !POINTER.has(a.kind))} ondblclick={HAS_TEXT.has(a.kind) ? (e: MouseEvent) => dbl(a, e) : undefined} /></g>
-	{:else}
-		{@const x2 = a.x2 ?? a.x}{@const y2 = a.y2 ?? a.y}
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<line x1={a.x} y1={a.y} x2={x2} y2={y2} stroke="transparent" stroke-width="240" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} />
 	{/if}
 
 	<!-- selection highlight. Line kinds (line/arrow/dimension) get a solid thin blue line along
@@ -311,5 +290,50 @@
 			<PointHandles {editor} {zoom} points={[{ x: a.x, y: a.y }, { x: a.x2 ?? a.x, y: a.y2 ?? a.y }]} onmove={(i, x, y) => editor.movePoint(a, i, x, y)} />
 		{/if}
 	{/if}
+	{/if}
+{/each}
+
+<!-- Hit targets — a SECOND pass so hit order can differ from draw order: sorted by
+     footprint, biggest first, so the SMALLEST object under the cursor wins the click
+     (a small circle inside a big text/callout box used to be unselectable). Hit
+     strokes are screen-constant (non-scaling, px) — fixed world-mm widths became
+     huge overlapping bands at high zoom. -->
+{#snippet hitTarget(a: Annotation)}
+	{@const pe = interactive && !locked.includes(lyrOf(a)) ? 'auto' : 'none'}
+	{@const b = bounds(a, den)}
+	{@const cx = b.x + b.w / 2}{@const cy = b.y + b.h / 2}
+	{@const rot = a.rotation ? `rotate(${a.rotation} ${cx} ${cy})` : undefined}
+	{#if POINTER.has(a.kind) && a.x2 != null}
+		{@const tb = box(a, den)}{@const c = nearestCorner(tb, a.x2, a.y2 ?? a.y)}
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<line x1={c[0]} y1={c[1]} x2={a.x2} y2={a.y2} stroke="transparent" stroke-width="14" vector-effect="non-scaling-stroke" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e, true)} />
+	{/if}
+	{#if a.kind === 'cloud'}
+		{@const r = Math.max(150, Math.min(b.w, b.h) / 6)}
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<g transform={rot}><path d={cloudPath(b.x, b.y, b.w, b.h, r)} fill="none" stroke="transparent" stroke-width="16" vector-effect="non-scaling-stroke" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} /></g>
+	{:else if a.kind === 'rect' || a.kind === 'grid'}
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<g transform={rot}><rect x={b.x} y={b.y} width={b.w} height={b.h} fill="none" stroke="transparent" stroke-width="16" vector-effect="non-scaling-stroke" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} /></g>
+	{:else if a.kind === 'ellipse'}
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<g transform={rot}><ellipse cx={cx} cy={cy} rx={b.w / 2} ry={b.h / 2} fill="none" stroke="transparent" stroke-width="16" vector-effect="non-scaling-stroke" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} /></g>
+	{:else if a.kind === 'symbol' && a.symbol === 'outlet'}
+		{@const R = Math.min(b.w, b.h) / 2}
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<circle cx={cx} cy={cy} r={R * 0.66} fill="transparent" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} />
+	{:else if isBoxKind(a)}
+		{@const hp = 6 / ss}
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<g transform={rot}><rect x={b.x - hp} y={b.y - hp} width={b.w + hp * 2} height={b.h + hp * 2} fill="transparent" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e, !POINTER.has(a.kind))} ondblclick={HAS_TEXT.has(a.kind) ? (e: MouseEvent) => dbl(a, e) : undefined} /></g>
+	{:else}
+		{@const x2 = a.x2 ?? a.x}{@const y2 = a.y2 ?? a.y}
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<line x1={a.x} y1={a.y} x2={x2} y2={y2} stroke="transparent" stroke-width="14" vector-effect="non-scaling-stroke" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} />
+	{/if}
+{/snippet}
+{#each hitOrder as a (a.id)}
+	{#if !hidden.includes(lyrOf(a))}
+		{@render hitTarget(a)}
 	{/if}
 {/each}
