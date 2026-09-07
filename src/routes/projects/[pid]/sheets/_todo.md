@@ -120,21 +120,12 @@ The sheets list should show the latest version by default, but maybe a dropdown 
        existing T-number), so they never render as the Firestore id in the old tools.
   5b3. Outlets list + Excel export — keep in the existing standalone tool (or a sidebar / menu
        item), NOT in the viewport.
-  5b4. Auto-renumber outlets (after add/remove).
-       ✅ Walk-renumber shipped in the Outlets tool (2026-09-07): select a seed outlet
-          (its label supplies prefix/pad/suffix), "Renumber from here →" in the props
-          panel arms the walk, each plain click assigns the next number (per-click
-          undo rolls the counter back too), Esc/toggle stops. Covers Elevations
-          Floorplan tab + Workspace via the shared Outlets.svelte.
-       Still open:
-       - Same walk-renumber in the SHEETS outlets viewport (separate OutletsEditor —
-         needs its own interception + toggle in OutletsEditPanel).
-       - Duplicate-label handling: bump existing duplicates forward / highlight dupes as errors.
-       - Batch variant from the multi-select list (better for hundreds of outlets).
-       - Canonical path (Hibiya-style renumber, deferred by Dave 2026-09-07): create/renumber
-         FRAMES locations per zone with number ranges (e.g. A→1+, B→301+), set
-         labelFormat.outletTemplate to NNN (zone-less), link outlets by label, then
-         "Sync from locations" — makes frames canonical instead of free labels.
+  5b4. Auto-renumber outlets (after add/remove). UX TBD:
+       - enter the first outlet number, then a button arms "incremental renumber" of the next
+         outlets the user clicks (if the incremented label has an existing duplicate outlet, then increment the existing and all following outlets until there are no duplicates left), OR
+       - drive it from the multi-select list (better for hundreds of outlets).
+       - user-defined prefix for outlet labels.
+       - highlight duplicate outlet numbers as errors.
   5b5. Racks on the floorplan: list racks (from rack elevations); drag a rack onto the floorplan.
        - decide: disable creating new racks in the outlets tool, OR
        - generate a rack elevation by selecting an elevation/section on the floorplan and linking
