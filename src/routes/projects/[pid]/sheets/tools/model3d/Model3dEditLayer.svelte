@@ -34,7 +34,7 @@
 	const ss = $derived((zoom, editor.screenScale()) || 1) // depend on zoom; re-read CTM
 	const HS = $derived(8 / ss) // handle square ≈ 8px
 	const HR = $derived(5 / ss) // round handle radius (≈ 10px diameter)
-	const HIT = $derived(12 / ss) // line hit width
+	const HIT = $derived(8 / ss) // line hit width (~4px each side — tight so neighbours stay clickable)
 	const GAP = $derived(16 / ss) // extend-handle offset beyond the end vertex
 	// Stroke widths: with non-scaling-stroke the value is in SVG-element px, scaled by
 	// the canvas zoom — so divide by zoom for a constant on-screen width at any zoom.

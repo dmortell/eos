@@ -6,7 +6,7 @@
 
 	type LocationRow = { id: string; zone: string; locationNumber: number; portCount: number; locationType: string }
 
-	let { outlets, selectedIds, selectedRackIds = new Set(), locations = [], bakedByLocation = new Map(), linkedLocationIds = new Set(), expectedLabel, onupdate, onupdateselected, ondelete, onlinkall, onsyncall, onunlink, oncreatelocation }: {
+	let { outlets, selectedIds, selectedRackIds = new Set(), locations = [], bakedByLocation = new Map(), linkedLocationIds = new Set(), expectedLabel, renumberActive = false, renumberNext = '', onupdate, onupdateselected, ondelete, onlinkall, onsyncall, onunlink, oncreatelocation, ontogglerenumber }: {
 		outlets: OutletConfig[]
 		selectedIds: Set<string>
 		selectedRackIds?: Set<string>
@@ -16,6 +16,9 @@
 		linkedLocationIds?: Set<string>
 		/** Template-aware outlet label for a location (labelFormat.outletTemplate). */
 		expectedLabel?: (l: { zone: string; locationNumber: number }) => string
+		/** Walk-renumber mode: armed state + the label the next click will assign. */
+		renumberActive?: boolean
+		renumberNext?: string
 		onupdate: (id: string, updates: Partial<OutletConfig>) => void
 		onupdateselected: (updates: Partial<OutletConfig>) => void
 		ondelete: () => void
@@ -23,6 +26,7 @@
 		onsyncall?: () => void
 		onunlink?: (id: string) => void
 		oncreatelocation?: (id: string) => void
+		ontogglerenumber?: () => void
 	} = $props()
 
 	let selectedOutlets = $derived(outlets.filter(o => selectedIds.has(o.id)))
@@ -88,6 +92,19 @@
 		{:else if singleOutlet.portCount > 1 && singleOutlet.label}
 			<div class="pl-14 text-[10px] text-gray-400 font-mono leading-tight">
 				ports: {derivePortLabels(singleOutlet.label, singleOutlet.portCount, singleOutlet.portLabels)?.join(', ')}
+			</div>
+		{/if}
+
+		{#if ontogglerenumber}
+			<div class="pl-14">
+				<button class="px-1.5 py-0.5 text-[10px] rounded border transition-colors
+					{renumberActive ? 'bg-amber-500 border-amber-500 text-white hover:bg-amber-600' : 'text-gray-500 border-gray-200 hover:bg-gray-50'}"
+					title={renumberActive
+						? 'Walk-renumber is on: each outlet you click gets the next number. Click here or press Esc to stop.'
+						: "Walk-renumber: this outlet's number seeds the sequence — then click outlets in order and each gets the next number. Esc to stop."}
+					onclick={() => ontogglerenumber?.()}>
+					{renumberActive ? `Renumbering — next: ${renumberNext}` : 'Renumber from here →'}
+				</button>
 			</div>
 		{/if}
 

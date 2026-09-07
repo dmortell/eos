@@ -1,0 +1,540 @@
+- generic [ref=f1e2]:
+  - region "Notifications alt+T"
+  - generic [ref=f1e3]:
+    - banner [ref=f1e4]:
+      - generic [ref=f1e5]:
+        - button "Back" [ref=f1e6] [cursor=pointer]
+        - link "Hibiya — Floorplan" [ref=f1e8] [cursor=pointer]:
+          - /url: /
+      - button "Versions" [ref=f1e11] [cursor=pointer]
+      - generic [ref=f1e13]:
+        - link "Racks" [ref=f1e14] [cursor=pointer]:
+          - /url: /projects/4Z9WBy4PbwdG5FRQPQnp/racks?floor=33
+        - link "Frames" [ref=f1e15] [cursor=pointer]:
+          - /url: /projects/4Z9WBy4PbwdG5FRQPQnp/frames?floor=33
+        - link "Floorplans" [ref=f1e16] [cursor=pointer]:
+          - /url: /projects/4Z9WBy4PbwdG5FRQPQnp/outlets?floor=33
+        - text: ·
+        - button "Sign Out" [ref=f1e17] [cursor=pointer]
+        - generic [ref=f1e19]:
+          - img "David Mortell" [ref=f1e20]
+          - img "David Mortell" [ref=f1e21]
+    - generic [ref=f1e22]:
+      - generic [ref=f1e24]:
+        - generic [ref=f1e25]:
+          - button "Plan" [ref=f1e26] [cursor=pointer]
+          - button "Outlets" [ref=f1e27] [cursor=pointer]
+          - button "Racks" [ref=f1e28] [cursor=pointer]
+          - button "Trunks" [ref=f1e29] [cursor=pointer]
+        - generic [ref=f1e31]:
+          - generic [ref=f1e32]:
+            - generic [ref=f1e33]: Floorplan
+            - link "Files" [ref=f1e34] [cursor=pointer]:
+              - /url: /projects/4Z9WBy4PbwdG5FRQPQnp/uploads
+          - combobox [ref=f1e38]:
+            - option "— Select file —"
+            - option "3303 Elevations.pdf"
+            - option "Hibiya_12F.pdf"
+            - option "L3303 Plan Clean-EIRE.pdf" [selected]
+            - option "Plan_30F_2019.pdf"
+            - option "Plan_L30.pdf"
+            - option "Plan_L3303.pdf"
+            - option "Plan_L3307.pdf"
+            - option "WeWork-Jefferies-10F.pdf"
+      - separator [ref=f1e39]
+      - generic [ref=f1e43]:
+        - generic [ref=f1e44]:
+          - generic [ref=f1e45]:
+            - button "Select (Esc)" [ref=f1e46] [cursor=pointer]
+            - button "View" [ref=f1e49] [cursor=pointer]
+            - button "Page" [ref=f1e52] [cursor=pointer]
+            - button "Excel" [ref=f1e55] [cursor=pointer]
+            - button "Color" [ref=f1e58] [cursor=pointer]
+          - generic [ref=f1e59]:
+            - generic [ref=f1e60]: A3 landscape 1:100
+            - generic [ref=f1e61]:
+              - img:
+                - generic [ref=f1e64] [cursor=pointer]
+                - generic [ref=f1e65] [cursor=pointer]
+                - generic [ref=f1e66] [cursor=pointer]
+                - generic [ref=f1e67] [cursor=pointer]
+                - generic [ref=f1e68] [cursor=pointer]
+                - generic [ref=f1e69] [cursor=pointer]
+                - generic [ref=f1e70] [cursor=pointer]
+                - generic [ref=f1e71] [cursor=pointer]
+                - generic [ref=f1e72] [cursor=pointer]
+                - generic [ref=f1e73] [cursor=pointer]
+                - generic [ref=f1e74] [cursor=pointer]
+                - generic [ref=f1e78] [cursor=pointer]:
+                  - generic: 33IDF1-R302
+                  - generic: 42U
+                - generic [ref=f1e82] [cursor=pointer]:
+                  - generic: 33IDF1-R301
+                  - generic: 42U
+                - generic [ref=f1e86] [cursor=pointer]:
+                  - generic: 33IDF1-R303
+                  - generic: 42U
+                - generic [ref=f1e90] [cursor=pointer]:
+                  - generic: 33IDF1-P3A
+                  - generic: 45U
+                - generic [ref=f1e94] [cursor=pointer]:
+                  - generic: 33IDF2-R313
+                  - generic: 42U
+                - generic [ref=f1e98] [cursor=pointer]:
+                  - generic: 33IDF2-R312
+                  - generic: 42U
+                - generic [ref=f1e102] [cursor=pointer]:
+                  - generic: 33IDF2-R311
+                  - generic: 42U
+                - generic [ref=f1e106] [cursor=pointer]:
+                  - generic: 33IDF2-P3C
+                  - generic: 45U
+                - generic [ref=f1e107] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.001
+                - generic [ref=f1e111] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.002
+                - generic [ref=f1e115] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.003
+                - generic [ref=f1e119] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.004
+                - generic [ref=f1e123] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.005
+                - generic [ref=f1e127] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.006
+                - generic [ref=f1e131] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.007
+                - generic [ref=f1e135] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.008
+                - generic [ref=f1e139] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.009
+                - generic [ref=f1e143] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.010
+                - generic [ref=f1e147] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.011
+                - generic [ref=f1e151] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.012
+                - generic [ref=f1e155] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.001
+                - generic [ref=f1e159] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.002
+                - generic [ref=f1e163] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.003
+                - generic [ref=f1e167] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.004
+                - generic [ref=f1e171] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.005
+                - generic [ref=f1e175] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.006
+                - generic [ref=f1e179] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.007
+                - generic [ref=f1e183] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.008
+                - generic [ref=f1e187] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.009
+                - generic [ref=f1e191] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.010
+                - generic [ref=f1e195] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.011
+                - generic [ref=f1e199] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.012
+                - generic [ref=f1e203] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.013
+                - generic [ref=f1e207] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.014
+                - generic [ref=f1e211] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.015
+                - generic [ref=f1e215] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.016
+                - generic [ref=f1e219] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.017
+                - generic [ref=f1e223] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.018
+                - generic [ref=f1e227] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.019
+                - generic [ref=f1e231] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.020
+                - generic [ref=f1e235] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.021
+                - generic [ref=f1e239] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.022
+                - generic [ref=f1e243] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.023
+                - generic [ref=f1e247] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.024
+                - generic [ref=f1e251] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.025
+                - generic [ref=f1e255] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.026
+                - generic [ref=f1e259] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.027
+                - generic [ref=f1e263] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.028
+                - generic [ref=f1e267] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.029
+                - generic [ref=f1e271] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.030
+                - generic [ref=f1e275] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.031
+                - generic [ref=f1e279] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.032
+                - generic [ref=f1e283] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.033
+                - generic [ref=f1e287] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.013
+                - generic [ref=f1e291] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.014
+                - generic [ref=f1e295] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.015
+                - generic [ref=f1e299] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.016
+                - generic [ref=f1e303] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.017
+                - generic [ref=f1e307] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.018
+                - generic [ref=f1e311] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.019
+                - generic [ref=f1e315] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.020
+                - generic [ref=f1e319] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.021
+                - generic [ref=f1e323] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.022
+                - generic [ref=f1e327] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.023
+                - generic [ref=f1e331] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.024
+                - generic [ref=f1e335] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.025
+                - generic [ref=f1e339] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.026
+                - generic [ref=f1e343] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.027
+                - generic [ref=f1e347] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.028
+                - generic [ref=f1e351] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.029
+                - generic [ref=f1e355] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.030
+                - generic [ref=f1e359] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.031
+                - generic [ref=f1e363] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.032
+                - generic [ref=f1e367] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.033
+                - generic [ref=f1e371] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.034
+                - generic [ref=f1e375] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.035
+                - generic [ref=f1e379] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.036
+                - generic [ref=f1e383] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.037
+                - generic [ref=f1e387] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.038
+                - generic [ref=f1e391] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.039
+                - generic [ref=f1e395] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.040
+                - generic [ref=f1e399] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.041
+                - generic [ref=f1e403] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.042
+                - generic [ref=f1e407] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.043
+                - generic [ref=f1e411] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: A.034 copy
+                - generic [ref=f1e415] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.035
+                - generic [ref=f1e419] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.036
+                - generic [ref=f1e423] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.038
+                - generic [ref=f1e427] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.039
+                - generic [ref=f1e431] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.040
+                - generic [ref=f1e435] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.042
+                - generic [ref=f1e439] [cursor=pointer]:
+                  - generic: "3"
+                  - generic: B.043
+                - generic [ref=f1e443] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: B.044
+                  - generic: UPS
+                - generic [ref=f1e447] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.044
+                  - generic: PR
+                - generic [ref=f1e451] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.045
+                - generic [ref=f1e455] [cursor=pointer]:
+                  - generic: "4"
+                  - generic: A.046
+                - generic [ref=f1e459] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.047
+                - generic [ref=f1e463] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.048
+                  - generic: UPS
+                - generic [ref=f1e467] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.050
+                  - generic: PR
+                - generic [ref=f1e471] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.051
+                  - generic: PR
+                - generic [ref=f1e475] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.052
+                  - generic: CCTV
+                - generic [ref=f1e479] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.053
+                  - generic: CCTV
+                - generic [ref=f1e483] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.054
+                - generic [ref=f1e487] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.055
+                - generic [ref=f1e491] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.056
+                  - generic: TV
+                - generic [ref=f1e495] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.057
+                  - generic: TV
+                - generic [ref=f1e499] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.058
+                  - generic: ACS
+                - generic [ref=f1e503] [cursor=pointer]:
+                  - generic: "1"
+                  - generic: A.059
+                  - generic: EMS
+                - generic [ref=f1e507] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.060
+                  - generic: RS
+                - generic [ref=f1e511] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.061
+                  - generic: RS
+                - generic [ref=f1e515] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.063
+                  - generic: TV
+                - generic [ref=f1e519] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.064
+                  - generic: TV
+                - generic [ref=f1e523] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: B.046
+                  - generic: CCTV
+                - generic [ref=f1e527] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: B.047
+                  - generic: SPARE
+                - generic [ref=f1e531] [cursor=pointer]:
+                  - generic: "1"
+                  - generic: B.048
+                  - generic: EMS
+                - generic [ref=f1e535] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.049 copy
+                  - generic: TV
+                - generic [ref=f1e539] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: B.050
+                  - generic: AP
+                - generic [ref=f1e543] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: B.051
+                  - generic: CCTV
+                - generic [ref=f1e547] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.052 copy
+                  - generic: TV
+                - generic [ref=f1e551] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.053 copy
+                  - generic: TV
+                - generic [ref=f1e555] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.065
+                  - generic: AP
+                - generic [ref=f1e559] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.066
+                  - generic: TV
+                - generic [ref=f1e563] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.067
+                  - generic: AP
+                - generic [ref=f1e567] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.068
+                  - generic: TEL
+                - generic [ref=f1e571] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.069
+                - generic [ref=f1e575] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.070
+                  - generic: AP
+                - generic [ref=f1e579] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.045-copy
+                - generic [ref=f1e582] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.047-copy
+                - generic [ref=f1e585] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.053
+                  - generic: CCTV
+                - generic [ref=f1e589] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.037
+                - generic [ref=f1e593] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.037
+                - generic [ref=f1e597] [cursor=pointer]:
+                  - generic: "6"
+                  - generic: B.028
+                - generic [ref=f1e601] [cursor=pointer]:
+                  - generic: "2"
+                  - generic: A.071
+                - generic [ref=f1e605]:
+                  - generic [ref=f1e607]: Legend
+                  - generic [ref=f1e609]: "Wall outlet (qty: 2)"
+                  - generic [ref=f1e612]: "Floor outlet (qty: 0)"
+                  - generic [ref=f1e615]: "Box outlet (qty: 123)"
+                  - generic [ref=f1e616]: High level trunk
+                  - generic [ref=f1e617]: Low level trunk
+                - generic:
+                  - generic: Hibiya
+                  - generic: Floor 33
+                  - generic: "REVISIONS:"
+                  - generic: "PROJECT:"
+                  - generic: Hibiya
+                  - generic: "DRAWING:"
+                  - generic: F33 FLOOR CABLING
+                  - generic: "SCALE:"
+                  - generic: 1:100
+                  - generic: "PAPER:"
+                  - generic: A3 landscape
+        - generic [ref=f1e618]:
+          - generic [ref=f1e619]:
+            - button "L10 WeWork" [ref=f1e620] [cursor=pointer]
+            - button "L12" [ref=f1e621] [cursor=pointer]
+            - button "L30" [ref=f1e622] [cursor=pointer]
+            - button "L33" [ref=f1e623] [cursor=pointer]
+            - button "L3307" [ref=f1e624] [cursor=pointer]
+            - button "Manage floors" [ref=f1e625] [cursor=pointer]
+            - generic "Tenant area" [ref=f1e627]:
+              - button "3303" [ref=f1e628] [cursor=pointer]
+              - button "3307" [ref=f1e629] [cursor=pointer]
+          - generic [ref=f1e631]:
+            - generic [ref=f1e632]:
+              - generic [ref=f1e633]: 125 outlets
+              - generic [ref=f1e634]: 8 racks
+              - generic [ref=f1e635]: 11 trunks
+            - generic [ref=f1e636]: "Scale: 1px = 35.3mm"
+            - button "−" [ref=f1e638] [cursor=pointer]
+            - generic [ref=f1e640]: 152%
+            - button "+" [ref=f1e641] [cursor=pointer]
+            - button "Fit" [ref=f1e643] [cursor=pointer]
+            - generic "Grid snap size in mm (0 = off)" [ref=f1e645]:
+              - text: Grid
+              - spinbutton "Grid mm" [ref=f1e646]: "100"
+              - text: mm
+  - generic [ref=f1e647]: EOS
