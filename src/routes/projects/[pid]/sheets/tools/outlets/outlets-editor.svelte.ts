@@ -1,3 +1,4 @@
+import { toast } from 'svelte-sonner'
 import { SurfaceEditor, dist } from '../../edit/surface.svelte'
 import type { Point } from '$lib/ui/print/types'
 import type { OutletConfig, OutletLevel, CableType, MountType, OutletUsage, TrunkConfig, TrunkShape, TrunkNode, TrunkSegment, RackPlacement, OutletsData, PipeCatalog, RectCatalog } from './types'
@@ -238,6 +239,7 @@ export class OutletsEditor extends SurfaceEditor {
 					dup = this.outlets[this.outlets.length - 1]
 					this.select('outlet', dup.id)
 					w0 = this.toWorld(e0); p0 = { ...dup.position }
+					toast.info('Outlet duplicated — Ctrl-drag makes a copy (Ctrl+Z to undo)')
 				}
 				const w = this.toWorld(ev); if (!w || !w0 || !p0) return
 				dup.position = { x: p0.x + (w.x - w0.x), y: p0.y + (w.y - w0.y) }
@@ -558,7 +560,7 @@ export class OutletsEditor extends SurfaceEditor {
 	}
 	duplicateSel() {
 		const o = this.selOutlet
-		if (o) { const c: OutletConfig = { ...o, id: this.uid('O'), position: { x: o.position.x + 300, y: o.position.y + 300 } }; this.outlets.push(c); this.select('outlet', c.id); this.notify() }
+		if (o) { const c: OutletConfig = { ...o, id: this.uid('O'), position: { x: o.position.x + 300, y: o.position.y + 300 } }; this.outlets.push(c); this.select('outlet', c.id); this.notify(); toast.info('Outlet duplicated') }
 	}
 
 	// ── racks (placed on the floorplan) ──
@@ -601,6 +603,7 @@ export class OutletsEditor extends SurfaceEditor {
 					dup = this.rackPlacements[this.rackPlacements.length - 1]
 					this.select('rack', dup.rackId)
 					w0 = this.toWorld(e0); p0 = { ...dup.position }
+					toast.info('Rack duplicated — Ctrl-drag makes a copy (Ctrl+Z to undo)')
 				}
 				const w = this.toWorld(ev); if (!w || !w0 || !p0) return
 				dup.position = { x: p0.x + (w.x - w0.x), y: p0.y + (w.y - w0.y) }
