@@ -278,8 +278,66 @@
 		<rect x={b.x} y={b.y} width={b.w} height={b.h} transform={rot} fill="none" stroke={HL} stroke-opacity={a.groupId ? 0.4 : 1} stroke-width={1.75 / ss} stroke-dasharray="{4 / ss} {3 / ss}" style:pointer-events="none" />
 	{/if}
 
-	<!-- selection handles -->
-	{#if sel}
+	{/if}
+{/each}
+
+<!-- Hit targets — a SECOND pass so hit order can differ from draw order: sorted by
+     footprint, biggest first, so the SMALLEST object under the cursor wins the click
+     (a small circle inside a big text/callout box used to be unselectable). Hit
+     strokes are screen-constant via px/ss in mm — NOT vector-effect, which only
+     cancels the viewBox transform and still scales with the CSS pan/zoom (huge
+     bands zoomed in, slivers zoomed out). -->
+{#snippet hitTarget(a: Annotation)}
+	{@const pe = interactive && !locked.includes(lyrOf(a)) ? 'auto' : 'none'}
+	{@const b = bounds(a, den)}
+	{@const cx = b.x + b.w / 2}{@const cy = b.y + b.h / 2}
+	{@const rot = a.rotation ? `rotate(${a.rotation} ${cx} ${cy})` : undefined}
+	{#if POINTER.has(a.kind) && a.x2 != null}
+		{@const tb = box(a, den)}{@const c = nearestCorner(tb, a.x2, a.y2 ?? a.y)}
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<line x1={c[0]} y1={c[1]} x2={a.x2} y2={a.y2} stroke="transparent" stroke-width={8 / ss} style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e, true)} />
+	{/if}
+	{#if a.kind === 'cloud'}
+		{@const r = Math.max(150, Math.min(b.w, b.h) / 6)}
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<g transform={rot}><path d={cloudPath(b.x, b.y, b.w, b.h, r)} fill="none" stroke="transparent" stroke-width={10 / ss} style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} /></g>
+	{:else if a.kind === 'rect' || a.kind === 'grid'}
+		<!-- Outline-only hit so objects INSIDE stay selectable — except when the shape is tiny
+		     on screen (a Ø30 grommet): then the whole interior is the target. -->
+		{@const tinyR = Math.max(b.w, b.h) * ss < 24}
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<g transform={rot}><rect x={b.x} y={b.y} width={b.w} height={b.h} fill={tinyR ? 'transparent' : 'none'} stroke="transparent" stroke-width={10 / ss} style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} /></g>
+	{:else if a.kind === 'ellipse'}
+		{@const tinyE = Math.max(b.w, b.h) * ss < 24}
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<g transform={rot}><ellipse cx={cx} cy={cy} rx={b.w / 2} ry={b.h / 2} fill={tinyE ? 'transparent' : 'none'} stroke="transparent" stroke-width={10 / ss} style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} /></g>
+	{:else if a.kind === 'symbol' && a.symbol === 'outlet'}
+		{@const R = Math.min(b.w, b.h) / 2}
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<circle cx={cx} cy={cy} r={R * 0.66} fill="transparent" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} />
+	{:else if isBoxKind(a)}
+		{@const hp = 3 / ss}
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<g transform={rot}><rect x={b.x - hp} y={b.y - hp} width={b.w + hp * 2} height={b.h + hp * 2} fill="transparent" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e, !POINTER.has(a.kind))} ondblclick={HAS_TEXT.has(a.kind) ? (e: MouseEvent) => dbl(a, e) : undefined} /></g>
+	{:else}
+		{@const x2 = a.x2 ?? a.x}{@const y2 = a.y2 ?? a.y}
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<line x1={a.x} y1={a.y} x2={x2} y2={y2} stroke="transparent" stroke-width={8 / ss} style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} />
+	{/if}
+{/snippet}
+{#each hitOrder as a (a.id)}
+	{#if !hidden.includes(lyrOf(a))}
+		{@render hitTarget(a)}
+	{/if}
+{/each}
+
+<!-- Selection handles — a THIRD pass so they paint ABOVE the hit targets. A shape's hit
+     stroke traces its outline, exactly where the handles sit; painted below it, every
+     handle mousedown was stolen by the shape (drag-the-shape instead of resize). -->
+{#each editor.annotations as a (a.id)}
+	{#if !hidden.includes(lyrOf(a)) && interactive && editor.isSel('ann', a.id)}
+		{@const b = bounds(a, den)}
+		{@const cx = b.x + b.w / 2}{@const cy = b.y + b.h / 2}
 		{#if isBoxKind(a)}
 			<!-- groupBox: the host shows a unified transform box for this single item → skip the per-item box -->
 			{#if !groupBox}
@@ -292,55 +350,5 @@
 		{:else}
 			<PointHandles {editor} {zoom} points={[{ x: a.x, y: a.y }, { x: a.x2 ?? a.x, y: a.y2 ?? a.y }]} onmove={(i, x, y) => editor.movePoint(a, i, x, y)} />
 		{/if}
-	{/if}
-	{/if}
-{/each}
-
-<!-- Hit targets — a SECOND pass so hit order can differ from draw order: sorted by
-     footprint, biggest first, so the SMALLEST object under the cursor wins the click
-     (a small circle inside a big text/callout box used to be unselectable). Hit
-     strokes are screen-constant (non-scaling, px) — fixed world-mm widths became
-     huge overlapping bands at high zoom. -->
-{#snippet hitTarget(a: Annotation)}
-	{@const pe = interactive && !locked.includes(lyrOf(a)) ? 'auto' : 'none'}
-	{@const b = bounds(a, den)}
-	{@const cx = b.x + b.w / 2}{@const cy = b.y + b.h / 2}
-	{@const rot = a.rotation ? `rotate(${a.rotation} ${cx} ${cy})` : undefined}
-	{#if POINTER.has(a.kind) && a.x2 != null}
-		{@const tb = box(a, den)}{@const c = nearestCorner(tb, a.x2, a.y2 ?? a.y)}
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<line x1={c[0]} y1={c[1]} x2={a.x2} y2={a.y2} stroke="transparent" stroke-width="8" vector-effect="non-scaling-stroke" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e, true)} />
-	{/if}
-	{#if a.kind === 'cloud'}
-		{@const r = Math.max(150, Math.min(b.w, b.h) / 6)}
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<g transform={rot}><path d={cloudPath(b.x, b.y, b.w, b.h, r)} fill="none" stroke="transparent" stroke-width="10" vector-effect="non-scaling-stroke" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} /></g>
-	{:else if a.kind === 'rect' || a.kind === 'grid'}
-		<!-- Outline-only hit so objects INSIDE stay selectable — except when the shape is tiny
-		     on screen (a Ø30 grommet): then the whole interior is the target. -->
-		{@const tinyR = Math.max(b.w, b.h) * ss < 24}
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<g transform={rot}><rect x={b.x} y={b.y} width={b.w} height={b.h} fill={tinyR ? 'transparent' : 'none'} stroke="transparent" stroke-width="10" vector-effect="non-scaling-stroke" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} /></g>
-	{:else if a.kind === 'ellipse'}
-		{@const tinyE = Math.max(b.w, b.h) * ss < 24}
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<g transform={rot}><ellipse cx={cx} cy={cy} rx={b.w / 2} ry={b.h / 2} fill={tinyE ? 'transparent' : 'none'} stroke="transparent" stroke-width="10" vector-effect="non-scaling-stroke" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} /></g>
-	{:else if a.kind === 'symbol' && a.symbol === 'outlet'}
-		{@const R = Math.min(b.w, b.h) / 2}
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<circle cx={cx} cy={cy} r={R * 0.66} fill="transparent" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} />
-	{:else if isBoxKind(a)}
-		{@const hp = 3 / ss}
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<g transform={rot}><rect x={b.x - hp} y={b.y - hp} width={b.w + hp * 2} height={b.h + hp * 2} fill="transparent" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e, !POINTER.has(a.kind))} ondblclick={HAS_TEXT.has(a.kind) ? (e: MouseEvent) => dbl(a, e) : undefined} /></g>
-	{:else}
-		{@const x2 = a.x2 ?? a.x}{@const y2 = a.y2 ?? a.y}
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<line x1={a.x} y1={a.y} x2={x2} y2={y2} stroke="transparent" stroke-width="8" vector-effect="non-scaling-stroke" style:pointer-events={pe} style:cursor="move" onmousedown={(e: MouseEvent) => down(a, e)} />
-	{/if}
-{/snippet}
-{#each hitOrder as a (a.id)}
-	{#if !hidden.includes(lyrOf(a))}
-		{@render hitTarget(a)}
 	{/if}
 {/each}
