@@ -158,23 +158,27 @@ export class SurfaceEditor {
 	marquee = $state<{ x: number; y: number; w: number; h: number } | null>(null)
 
 	/** Empty-space left-drag in Select mode: rubber-band a box, then select inside it (this editor +
-	 *  the annotation peer). Identical across tools, so it lives here; tools only override marqueeCollect. */
+	 *  the annotation peer). Identical across tools, so it lives here; tools only override marqueeCollect.
+	 *  Shift/Ctrl held at the press = ADDITIVE: the existing selection is kept and the box contents
+	 *  merge into it (each editor folds its own single selection into the multi-set). */
 	beginMarquee(e0: MouseEvent) {
+		const additive = e0.shiftKey || e0.ctrlKey || e0.metaKey
 		const w0 = this.toWorld(e0)
-		this.clearSel(); this.peer?.clearSel(); this.peer?.clearMulti()
+		if (!additive) { this.clearSel(); this.peer?.clearSel(); this.peer?.clearMulti() }
 		if (!w0) return
 		this.startDrag(e => {
 			const w = this.toWorld(e); if (!w) return
 			this.marquee = { x: Math.min(w0.x, w.x), y: Math.min(w0.y, w.y), w: Math.abs(w.x - w0.x), h: Math.abs(w.y - w0.y) }
 		}, () => {
 			const m = this.marquee; this.marquee = null
-			if (!m || (m.w < 100 && m.h < 100)) return // tiny = treat as a click → stay deselected
-			this.marqueeCollect(m); this.peer?.marqueeCollect(m)
+			if (!m || (m.w < 100 && m.h < 100)) return // tiny = treat as a click → plain stays deselected, additive keeps
+			this.marqueeCollect(m, additive); this.peer?.marqueeCollect(m, additive)
 			this.expandMarqueeGroups() // touching any group member selects the whole group (like click)
 		})
 	}
-	/** Select this editor's items whose position falls inside the world-mm rect. */
-	marqueeCollect(_rect: { x: number; y: number; w: number; h: number }): void {}
+	/** Select this editor's items whose position falls inside the world-mm rect.
+	 *  `additive` = merge into (rather than replace) the current selection. */
+	marqueeCollect(_rect: { x: number; y: number; w: number; h: number }, _additive = false): void {}
 	/** After a marquee, pull in every member of any group a selected item belongs to (both editors). */
 	protected expandMarqueeGroups() {
 		const gids = new Set<string>()

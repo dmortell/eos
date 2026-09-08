@@ -55,18 +55,22 @@ export class RacksEditor extends SurfaceEditor {
 	inDeviceMulti(id: string) { return this.selDevices.includes(id) }
 	inRowMulti(id: string) { return this.selRows.includes(id) }
 
-	marqueeCollect(m: Rect) {
+	marqueeCollect(m: Rect, additive = false) {
 		const inRect = (p: Point) => p.x >= m.x && p.x <= m.x + m.w && p.y >= m.y && p.y <= m.y + m.h
+		// Additive (shift/ctrl-drag): merge into the existing multi-set (+ the single device sel).
+		const keepD = new Set(additive ? [...this.selDevices, ...(this.selDeviceId ? [this.selDeviceId] : [])] : [])
+		const keepR = new Set(additive ? this.selRows : [])
+		if (additive) this.selDeviceId = null
 		if (this.layout?.face === 'plan') {
 			// only rows that render geometry (and thus a handle) — see RacksEditLayer
 			this.selRows = this.rows
-				.filter(r => r.plan?.originMm && inRect(r.plan.originMm) && this.racks.some(k => k.rowId === r.id))
+				.filter(r => keepR.has(r.id) || (r.plan?.originMm && inRect(r.plan.originMm) && this.racks.some(k => k.rowId === r.id)))
 				.map(r => r.id)
-			this.selDevices = []
+			this.selDevices = [...keepD]
 		} else {
 			const hit = (b: Rect) => !(b.x + b.w < m.x || b.x > m.x + m.w || b.y + b.h < m.y || b.y > m.y + m.h)
-			this.selDevices = (this.layout?.boxes ?? []).filter(b => hit(b.box)).map(b => b.id)
-			this.selRows = []
+			this.selDevices = [...new Set([...keepD, ...(this.layout?.boxes ?? []).filter(b => hit(b.box)).map(b => b.id)])]
+			this.selRows = [...keepR]
 		}
 	}
 	// Rows (plan) move freely → use the shared group-translate protocol (devices use a custom path

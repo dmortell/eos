@@ -35,7 +35,8 @@
 			return
 		}
 		if (tool === 'select') {
-			annEditor.clearSel()
+			// Shift/Ctrl-drag = additive marquee — keep the existing selection (beginMarquee merges).
+			if (!(e.shiftKey || e.ctrlKey || e.metaKey)) annEditor.clearSel()
 			const beginMarquee = (toolEditor as { beginMarquee?: (e: MouseEvent) => void }).beginMarquee
 			if (beginMarquee) beginMarquee.call(toolEditor, e); else toolEditor.clearSel()
 			return

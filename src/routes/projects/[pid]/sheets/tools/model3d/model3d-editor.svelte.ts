@@ -782,7 +782,8 @@ export class Model3dEditor extends SurfaceEditor {
 	/** Drop selection referencing objects that no longer exist (e.g. after an undo). */
 	pruneSelection() { this.multi = this.multi.filter((id) => this.byId(id)); if (this.selObjId && !this.byId(this.selObjId)) super.clearSel() }
 
-	marqueeCollect(r: { x: number; y: number; w: number; h: number }): void {
+	marqueeCollect(r: { x: number; y: number; w: number; h: number }, additive = false): void {
+		const keep = additive ? this.selectedIds() : [] // shift/ctrl-drag merges into the current selection
 		super.clearSel(); this.vsel = null; this.usel = null; this.selSection = null // a marquee (or empty click) drops the single selection
 		const piv = xyCenter(this.objects)
 		const hit: number[] = []
@@ -790,8 +791,9 @@ export class Model3dEditor extends SurfaceEditor {
 		// section clip (a far off-section object behind the cut isn't visible here).
 		const inView = (o: Obj) => !this.clip || trimToClip(o, this.clip) != null
 		this.objects.forEach((o, i) => { if (!this.locked(o) && !this.hidden(o) && inView(o) && marqueeHits(o, this.direction, piv, r)) hit.push(i) })
+		const ids = [...new Set([...keep, ...hit.map((i) => this.oid(i))])]
 		// Exactly one → single-select it (full handles + property editor); else multi (by id).
-		if (hit.length === 1) this.selectObj(hit[0]); else this.multi = hit.map((i) => this.oid(i))
+		if (ids.length === 1) { const i = this.objects.findIndex((o) => (o.id ?? '') === ids[0]); if (i >= 0) this.selectObj(i) } else this.multi = ids
 	}
 	// Drag set keyed by id, so single + group drags share one snapshot/translate path.
 	private groupSnap: Map<string, Obj> | null = null

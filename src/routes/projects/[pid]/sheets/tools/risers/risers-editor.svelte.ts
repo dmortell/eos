@@ -55,14 +55,18 @@ export class RisersEditor extends SurfaceEditor {
 		const r = this.range; if (!r) return []
 		return buildFloorBands({ floorHeights: this.floorHeights, settings: this.settings ?? DEFAULT_RISER_SETTINGS, hiddenFloors: this.hiddenFloors }, r.from, r.to)
 	}
-	marqueeCollect(m: Rect) {
+	marqueeCollect(m: Rect, additive = false) {
 		const bands = this.#bands(); if (!bands.length) return
 		const inX = (x: number) => x >= m.x && x <= m.x + m.w
+		// Additive (shift/ctrl-drag): merge into the existing multi-set.
+		const keepRm = new Set(additive ? this.selRooms : []), keepL = new Set(additive ? this.selLadders : [])
 		this.selRooms = this.rooms.filter(rm => {
+			if (keepRm.has(rm.id)) return true
 			const b = bandForFloor(bands, rm.floor); if (!b) return false
 			const cy = roomCentreYMm(b); return inX(rm.xMm) && cy >= m.y && cy <= m.y + m.h
 		}).map(rm => rm.id)
 		this.selLadders = this.ladders.filter(l => {
+			if (keepL.has(l.id)) return true
 			if (!inX(l.xMm)) return false
 			const bTop = bandForFloor(bands, Math.max(l.fromFloor, l.toFloor)), bBot = bandForFloor(bands, Math.min(l.fromFloor, l.toFloor))
 			if (!bTop || !bBot) return false

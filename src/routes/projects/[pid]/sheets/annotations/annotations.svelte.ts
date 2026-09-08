@@ -466,8 +466,11 @@ export class AnnotationEditor extends SurfaceEditor {
 		})
 		this.annotations.push(...copies); return copies.map(c => c.id)
 	}
-	/** Select annotations whose anchor or pointer endpoint falls inside the world-mm rect. */
-	marqueeCollect(m: { x: number; y: number; w: number; h: number }) {
+	/** Select annotations whose anchor or pointer endpoint falls inside the world-mm rect.
+	 *  Additive (shift/ctrl-drag): keep the current selAnns + fold the single selection in. */
+	marqueeCollect(m: { x: number; y: number; w: number; h: number }, additive = false) {
+		const keep = new Set(additive ? [...this.selAnns, ...(this.selAnn ? [this.selAnn.id] : [])] : [])
+		if (additive && this.sel?.kind === 'ann') this.sel = null
 		// Crossing selection (like objects): the annotation's visual bbox just has to TOUCH the
 		// marquee. Uses bounds() so symbols (no explicit w/h) get their real box, not a zero-size
 		// point at the offset anchor; outlets use a tight core box (matching their click hit).
@@ -481,7 +484,7 @@ export class AnnotationEditor extends SurfaceEditor {
 			}
 			return bx.x <= m.x + m.w && bx.x + bx.w >= m.x && bx.y <= m.y + m.h && bx.y + bx.h >= m.y
 		}
-		this.selAnns = this.annotations.filter(hits).map(a => a.id)
+		this.selAnns = this.annotations.filter(a => keep.has(a.id) || hits(a)).map(a => a.id)
 	}
 	// The set being dragged: the marquee multi-selection if any, else the single selection —
 	// so one snapshot/translate path serves both single and group drags.

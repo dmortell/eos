@@ -72,12 +72,29 @@ export class OutletsEditor extends SurfaceEditor {
 
 	// Outlets/racks/trunk-nodes whose position lies inside the marquee. (Selecting trunk nodes is
 	// how segments come along — a segment moves when both its endpoint nodes are selected.)
-	marqueeCollect(m: { x: number; y: number; w: number; h: number }) {
+	// Additive (shift/ctrl-drag): keep the existing multi-set AND fold the single selection in —
+	// a single-selected outlet/rack joins the lists; a selected trunk contributes its nodes
+	// (whole trunk, or just the selected node/segments) so it moves with the group.
+	marqueeCollect(m: { x: number; y: number; w: number; h: number }, additive = false) {
 		const inRect = (p: Point) => p.x >= m.x && p.x <= m.x + m.w && p.y >= m.y && p.y <= m.y + m.h
-		this.selOutlets = this.outlets.filter(o => inRect(o.position) && this.#selectable('outlet', o.layerId)).map(o => o.id)
-		this.selRacks = this.rackPlacements.filter(r => inRect(r.position) && this.#selectable('rack', r.layerId)).map(r => r.rackId)
-		this.selNodes = this.trunks.filter(t => this.#selectable('trunk', t.layerId))
-			.flatMap(t => t.nodes.filter(n => inRect(n.position)).map(n => n.id))
+		const keepO = new Set(additive ? this.selOutlets : []), keepR = new Set(additive ? this.selRacks : []), keepN = new Set(additive ? this.selNodes : [])
+		if (additive && this.sel) {
+			if (this.sel.kind === 'outlet') keepO.add(this.sel.id)
+			else if (this.sel.kind === 'rack') keepR.add(this.sel.id)
+			else if (this.sel.kind === 'trunk') {
+				const t = this.trunks.find(x => x.id === this.sel!.id)
+				if (t) {
+					if (this.tnode) keepN.add(this.tnode)
+					else for (const s of t.segments) if (!this.tsegs.length || this.tsegs.includes(s.id)) { keepN.add(s.nodes[0]); keepN.add(s.nodes[1]) }
+				}
+			}
+			this.sel = null; this.tnode = null; this.tsegs = []
+		}
+		this.selOutlets = this.outlets.filter(o => keepO.has(o.id) || (inRect(o.position) && this.#selectable('outlet', o.layerId))).map(o => o.id)
+		this.selRacks = this.rackPlacements.filter(r => keepR.has(r.rackId) || (inRect(r.position) && this.#selectable('rack', r.layerId))).map(r => r.rackId)
+		this.selNodes = this.trunks.flatMap(t => this.#selectable('trunk', t.layerId)
+			? t.nodes.filter(n => keepN.has(n.id) || inRect(n.position)).map(n => n.id)
+			: t.nodes.filter(n => keepN.has(n.id)).map(n => n.id))
 	}
 	beginGroupTranslate() {
 		this.#gbOutlets.clear(); this.#gbRacks.clear(); this.#gbNodes.clear()
@@ -206,12 +223,29 @@ export class OutletsEditor extends SurfaceEditor {
 		if (e0.button !== 0) return // right/middle is pan/zoom — let it bubble to the canvas
 		e0.stopPropagation()
 		if (e0.shiftKey) { this.toggleOutletSel(o.id); return } // shift-click → additive multi-pick
-		// Ctrl/Cmd-drag duplicates: drag a fresh copy, leaving the original in place. Re-fetch the
-		// pushed item from the array — $state stores a proxy, and mutating the raw object we pushed
-		// would not be reactive (the rendered copy would never move).
-		if (e0.ctrlKey || e0.metaKey) { this.outlets.push({ ...o, id: this.uid('O'), position: { ...o.position } }); o = this.outlets[this.outlets.length - 1] }
-		else if (this.inMulti('outlet', o.id)) { this.beginGroupDrag(e0); return } // grabbed a marquee item → move the whole group
-		else { this.clearMulti(); this.peer?.clearMulti() }
+		// Ctrl/Cmd: deferred gesture — a real drag (>3px) duplicates and drags the fresh copy;
+		// a click with no movement TOGGLES the outlet in/out of the multi-selection (like shift).
+		// Re-fetch the pushed item from the array — $state stores a proxy, and mutating the raw
+		// object we pushed would not be reactive (the rendered copy would never move).
+		if (e0.ctrlKey || e0.metaKey) {
+			const sx = e0.clientX, sy = e0.clientY
+			let dup: OutletConfig | null = null, w0: Point | null = null, p0: Point | null = null
+			this.startDrag(ev => {
+				if (!dup) {
+					if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < DRAG_PX) return
+					this.beforeMutate?.() // checkpoint so undo lands on the pre-duplicate state
+					this.outlets.push({ ...o, id: this.uid('O'), position: { ...o.position } })
+					dup = this.outlets[this.outlets.length - 1]
+					this.select('outlet', dup.id)
+					w0 = this.toWorld(e0); p0 = { ...dup.position }
+				}
+				const w = this.toWorld(ev); if (!w || !w0 || !p0) return
+				dup.position = { x: p0.x + (w.x - w0.x), y: p0.y + (w.y - w0.y) }
+			}, () => { if (!dup) this.toggleOutletSel(o.id); else this.notify() })
+			return
+		}
+		if (this.inMulti('outlet', o.id)) { this.beginGroupDrag(e0); return } // grabbed a marquee item → move the whole group
+		this.clearMulti(); this.peer?.clearMulti()
 		this.select('outlet', o.id)
 		const w0 = this.toWorld(e0); if (!w0) return
 		const p0 = { ...o.position }
@@ -555,9 +589,26 @@ export class OutletsEditor extends SurfaceEditor {
 		if (e0.button !== 0) return // right/middle is pan/zoom — let it bubble to the canvas
 		e0.stopPropagation()
 		if (e0.shiftKey) { this.toggleRackSel(rp.rackId); return } // shift-click → additive multi-pick
-		if (e0.ctrlKey || e0.metaKey) { this.rackPlacements.push({ ...rp, rackId: this.uid('FR'), position: { ...rp.position } }); rp = this.rackPlacements[this.rackPlacements.length - 1] }
-		else if (this.inMulti('rack', rp.rackId)) { this.beginGroupDrag(e0); return }
-		else { this.clearMulti(); this.peer?.clearMulti() }
+		// Ctrl/Cmd: drag (>3px) duplicates + drags the copy; a still click toggles (see dragOutlet).
+		if (e0.ctrlKey || e0.metaKey) {
+			const sx = e0.clientX, sy = e0.clientY
+			let dup: RackPlacement | null = null, w0: Point | null = null, p0: Point | null = null
+			this.startDrag(ev => {
+				if (!dup) {
+					if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < DRAG_PX) return
+					this.beforeMutate?.()
+					this.rackPlacements.push({ ...rp, rackId: this.uid('FR'), position: { ...rp.position } })
+					dup = this.rackPlacements[this.rackPlacements.length - 1]
+					this.select('rack', dup.rackId)
+					w0 = this.toWorld(e0); p0 = { ...dup.position }
+				}
+				const w = this.toWorld(ev); if (!w || !w0 || !p0) return
+				dup.position = { x: p0.x + (w.x - w0.x), y: p0.y + (w.y - w0.y) }
+			}, () => { if (!dup) this.toggleRackSel(rp.rackId); else this.notify() })
+			return
+		}
+		if (this.inMulti('rack', rp.rackId)) { this.beginGroupDrag(e0); return }
+		this.clearMulti(); this.peer?.clearMulti()
 		this.select('rack', rp.rackId)
 		const w0 = this.toWorld(e0); if (!w0) return
 		const p0 = { ...rp.position }
