@@ -311,17 +311,16 @@
 					{#if showClient && fClient}<div class="text-[2pt] text-zinc-600 text-center">{fClient}</div>{/if}
 				</div>
 			{:else if s.revs}
-				<!-- Revision history table (code · date · note) -->
+				<!-- Revision history table (code · date). Notes are tracked in the Revisions
+				     window only — they never fit the titleblock strip. -->
 				<div class="flex flex-col overflow-hidden">
-					<div class="mt-1 grid border-b border-zinc-300 px-1 text-[1.6pt] uppercase tracking-wider text-zinc-500 leading-none" style:grid-template-columns="1fr 2fr 4fr">
+					<div class="mt-1 grid border-b border-zinc-300 px-1 text-[1.6pt] uppercase tracking-wider text-zinc-500 leading-none" style:grid-template-columns="1fr 2fr">
 						<span>Rev</span><span>Date</span>
-						<span>Description</span>
 					</div>
 					{#each revisions as r (r.code)}
-						<div class="grid items-center border-b border-zinc-200 px-1 text-[2pt] leading-tight" style:grid-template-columns="1fr 2fr 4fr">
+						<div class="grid items-center border-b border-zinc-200 px-1 text-[2pt] leading-tight" style:grid-template-columns="1fr 2fr">
 							<span class="font-mono font-bold">{r.code}</span>
 							<span class="font-mono">{r.date ?? ''}</span>
-							<span class="truncate">{r.note ?? ''}</span>
 						</div>
 					{/each}
 				</div>
