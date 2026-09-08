@@ -817,7 +817,64 @@
 		}
 	}
 
+	// ── Walk renumber (TODO 5b4): arm from a selected seed outlet, then every plain
+	// click assigns the next number in sequence until toggled off / Esc. The seed's
+	// label supplies prefix + pad + suffix (last number run: "A.001" → A. / 001; "301" → 301).
+	let renumber = $state<{ prefix: string; num: number; pad: number; suffix: string; count: number; lastId: string } | null>(null)
+	let renumberNextLabel = $derived(renumber
+		? renumber.prefix + String(renumber.num).padStart(renumber.pad, '0') + renumber.suffix
+		: '')
+
+	function toggleRenumber() {
+		if (renumber) { stopRenumber(); return }
+		const id = [...selectedIds][0]
+		const o = id ? outlets.find(x => x.id === id) : undefined
+		const m = o?.label?.match(/^(.*?)(\d+)(\D*)$/)
+		if (!o || !m) { toast.error('Select an outlet whose label contains a number — it seeds the sequence'); return }
+		renumber = { prefix: m[1], num: +m[2] + 1, pad: m[2].length, suffix: m[3], count: 0, lastId: o.id }
+		toast.success(`Renumbering from ${o.label} — click outlets in order (Esc to stop)`)
+	}
+
+	function stopRenumber() {
+		if (!renumber) return
+		const n = renumber.count
+		renumber = null
+		toast.success(`Renumbering off — ${n} outlet${n === 1 ? '' : 's'} relabelled`)
+	}
+
+	function applyRenumber(id: string) {
+		const re = renumber
+		if (!re || re.lastId === id) return
+		const o = outlets.find(x => x.id === id)
+		if (!o) return
+		const label = renumberNextLabel
+		// Regenerate the derived per-port labels; keep them only if user-customised.
+		const prevDerived = derivePortLabels(o.label, o.portCount) ?? []
+		const custom = (o.portLabels ?? []).some((p, i) => p && p !== prevDerived[i])
+		const portLabels = derivePortLabels(label, o.portCount, custom ? o.portLabels : undefined)
+		const prev = outlets
+		outlets = outlets.map(x => x.id === id ? { ...x, label, ...(portLabels ? { portLabels } : {}) } : x)
+		const next = outlets
+		renumber = { ...re, num: re.num + 1, count: re.count + 1, lastId: id }
+		const reAfter = renumber
+		history.record({
+			label: `Renumber ${label}`,
+			// Roll the walk counter back/forward too (only while still armed) so
+			// undoing a misclick lets the next click reuse that number.
+			undo: () => { outlets = prev; if (renumber) renumber = { ...re } },
+			redo: () => { outlets = next; if (renumber) renumber = { ...reAfter } },
+		})
+	}
+
+	// Disarm when the underlying doc switches (floor/area change) — the walk is per-plan.
+	let renumberDocId = ''
+	$effect(() => {
+		const id = data?.id ?? ''
+		if (id !== renumberDocId) { renumberDocId = id; if (renumber) renumber = null }
+	})
+
 	function selectOutlet(id: string, multi: boolean) {
+		if (renumber && !multi) applyRenumber(id)
 		if (multi) {
 			const next = new Set(selectedIds)
 			if (next.has(id)) next.delete(id)
@@ -830,12 +887,22 @@
 		selectedRackIds = new Set()
 	}
 
+	/** Sidebar list order: natural label sort (A.2 < A.10, 301 < 1002); unlabelled last
+	 *  in insertion order. Display + range-select only — canvas/doc order unchanged. */
+	let sortedOutlets = $derived([...outlets].sort((a, b) => {
+		if (!a.label && !b.label) return 0
+		if (!a.label) return 1
+		if (!b.label) return -1
+		return a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' })
+	}))
+
+	// Palette shift-click ranges index into the SORTED list the user sees.
 	function rangeSelect(fromIndex: number, toIndex: number) {
 		const lo = Math.min(fromIndex, toIndex)
 		const hi = Math.max(fromIndex, toIndex)
 		const next = new Set(selectedIds)
 		for (let i = lo; i <= hi; i++) {
-			if (outlets[i]) next.add(outlets[i].id)
+			if (sortedOutlets[i]) next.add(sortedOutlets[i].id)
 		}
 		selectedIds = next
 	}
@@ -1757,6 +1824,7 @@
 		// console.log(e.key)
 
 		if (e.key === 'Escape') {
+			if (renumber) { stopRenumber(); return }
 			if (adoptingRoom || newRackRoom) { adoptingRoom = null; newRackRoom = null; return }
 			// Cascade: place-location mode → drawing handled by canvas → clear selection → select mode
 			// (If trunk drawing is active, the canvas Escape handler finishes it and
@@ -1881,7 +1949,7 @@
 					</div>
 				{:else if sidebarTab === 'outlets'}
 					<OutletPalette
-						{outlets}
+						outlets={sortedOutlets}
 						{selectedIds}
 						{activeTool}
 						{activeZone}
@@ -2018,6 +2086,13 @@
 					/>
 				{/if}
 
+				<!-- Walk-renumber status pill -->
+				{#if renumber}
+					<div class="fixed top-12 left-1/2 -translate-x-1/2 z-30 px-3 py-1 rounded-full bg-amber-500 text-white text-xs font-medium shadow-lg pointer-events-none">
+						Renumbering — click next outlet: {renumberNextLabel} · Esc to stop
+					</div>
+				{/if}
+
 				<!-- Floating outlet properties window -->
 				{#if selectedIds.size > 0}
 					<OutletProperties
@@ -2028,6 +2103,8 @@
 						{bakedByLocation}
 						{linkedLocationIds}
 						expectedLabel={expectedOutletLabel}
+						renumberActive={!!renumber}
+						renumberNext={renumberNextLabel}
 						onupdate={updateOutlet}
 						onupdateselected={updateSelectedOutlets}
 						ondelete={deleteSelected}
@@ -2035,6 +2112,7 @@
 						onsyncall={syncOutletsFromLocations}
 						onunlink={unlinkOutlet}
 						oncreatelocation={createLocationForOutlet}
+						ontogglerenumber={toggleRenumber}
 					/>
 				{/if}
 

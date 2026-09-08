@@ -130,6 +130,44 @@ for outlets 1–12 laid out in column pairs:
 Neighbors then differ down both columns *and* across each row, so one switch
 failure never takes out two adjacent desks.
 
+## Variant: outlets first (plan drawn before termination)
+
+Sometimes the floorplan comes first: outlets are placed and numbered from the
+design PDFs long before the comms-room racks are planned (e.g. Hibiya L33 —
+125 outlets renumbered to customer format, then terminated onto P3A/P3C).
+The flow is the same pieces in reverse order:
+
+1. **Fix the outlet numbering first (Floorplan tab or Outlets tool).**
+   Select the first outlet, type its correct label (e.g. `001`), then click
+   **Renumber from here →** in the properties window. Every outlet you then
+   click gets the next number (prefix/zero-pad/suffix inferred from the seed:
+   `001` → `002`; `A.001` → `A.002`). Each click is one undo step and undo
+   rewinds the counter; Esc stops. Ctrl+click selects without renumbering.
+   Use separate walks for separate series (e.g. `001…` for Comms Room 1,
+   `301…` for Comms Room 2 — number ranges replace zone prefixes when the
+   customer wants zone-less labels).
+
+2. **Allocate the panel ports (Elevation tab).** Focus the destination rack,
+   select the panels' ports top RU downward (panel detail strip → Select all,
+   per panel — allocation order is rack → RU top-down regardless of click
+   order). Then **Auto-generate…**:
+   - **Start number** = the first outlet's number (e.g. 1, or 301 for the
+     second room's series) — not auto.
+   - **Ports/location** = the outlets' port count. Sanity-check the dialog's
+     "N ports → M locations" math against the outlet count before Assign.
+   - **Label format / Outlet label**: for zone-less customer labels use
+     number-only templates (e.g. panel `NNN-PP` → `001-01`, outlet `NNN` →
+     `001`). The rendered outlet label must equal the drawn outlets' labels
+     exactly — that string match is what Link all uses.
+   - Zone is still required internally; pick one per series (A for room 1,
+     B for room 2) — with number-only templates it never shows in a label.
+
+3. **Link the drawn outlets back (Floorplan tab).** Select any outlet →
+   **Link all** (matches every unlinked outlet to a location by rendered
+   label) → **Sync from locations** to adopt the baked per-port labels onto
+   the outlets. From here on, Frames/Patching work exactly as in the main
+   walkthrough (§3–4).
+
 ## Result for this walkthrough
 
 - 12 locations `4A001…4A012` (6 ports each), 72 panel ports labeled
