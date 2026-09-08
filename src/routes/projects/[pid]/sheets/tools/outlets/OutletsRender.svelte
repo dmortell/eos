@@ -119,6 +119,13 @@
 		return `${cx - half},${cy - half} ${cx + half},${cy - half} ${cx + half},${cy + half} ${cx - half},${cy + half}`
 	}
 	const R = OUTLET_RADIUS_MM
+
+	// Outlet label/room text: paper-constant minimum so labels stay readable on hardcopy.
+	// den = real-mm per paper-mm, so N paper-mm of text = N * den real-mm. At large scales
+	// (zoomed-in viewports) the legacy R-based size already exceeds the floor and wins.
+	const LABEL_PAPER_MM = 2.5
+	let denEff = $derived(view && vp.w > 0 ? view.w / vp.w : den)
+	let labelFs = $derived(Math.max(R * 0.6, LABEL_PAPER_MM * (denEff || 0)))
 </script>
 
 <svg bind:this={svgEl} class="h-full w-full" {viewBox} preserveAspectRatio={par} style:overflow="hidden">
@@ -188,10 +195,10 @@
 			{/if}
 			<text x={x} y={y + R * 0.35} font-size={R * 0.9} text-anchor="middle" font-weight="bold" fill={low ? 'white' : stroke}>{o.portCount}</text>
 			{#if o.label}
-				<text x={x} y={y - R * 1.1} font-size={R * 0.6} text-anchor="middle" fill="#374151">{o.label}</text>
+				<text x={x} y={y - R * 1.1} font-size={labelFs} text-anchor="middle" fill="#374151">{o.label}</text>
 			{/if}
 			{#if o.roomNumber}
-				<text x={x} y={y + R * 1.5} font-size={R * 0.6} text-anchor="middle" fill="#374151">{o.roomNumber}</text>
+				<text x={x} y={y + R * 1.2} font-size={labelFs} text-anchor="middle" dominant-baseline="hanging" fill="#374151">{o.roomNumber}</text>
 			{/if}
 		</g>
 		{/if}
