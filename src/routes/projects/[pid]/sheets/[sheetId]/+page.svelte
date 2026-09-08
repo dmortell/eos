@@ -51,6 +51,12 @@
 	})
 </script>
 
+<svelte:head>
+	<!-- document.title is what Chrome embeds as the PDF Title on print → Save as PDF
+	     (what a reader's tab shows) — without this every exported sheet is titled "EOS". -->
+	{#if sheet?.title}<title>{sheet.title}</title>{/if}
+</svelte:head>
+
 <!-- App shell: a viewport-tall flex column. The titlebar takes its natural height;
      everything below (SheetEditor → menubar / canvas / status bar) flexes to fill the rest. -->
 <div class="flex h-[100dvh] flex-col overflow-hidden">

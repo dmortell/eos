@@ -110,6 +110,11 @@
 	function printNow() { if (printSheets.length) window.print() }
 </script>
 
+<svelte:head>
+	<!-- PDF Title metadata for print → Save as PDF (mirrors the single-sheet page). -->
+	{#if pkg?.name}<title>{pkg.name}</title>{/if}
+</svelte:head>
+
 <div data-no-print><Titlebar title="{projectName} — Print preview" height={30} /></div>
 
 {#if !loaded}
