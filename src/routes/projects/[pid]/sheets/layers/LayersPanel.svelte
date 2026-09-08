@@ -85,7 +85,42 @@
 		if (dragId) vps.setLayerBase(dragId, base)
 		dragId = null; dragOverBase = null
 	}
+
+	// Click a layer's colour dot → swatch-grid popover (custom + model layers; defaults are fixed).
+	let colorPicking = $state<string | null>(null) // layer id the popover is open for
+	const PALETTE = [
+		'#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e', '#10b981', '#14b8a6',
+		'#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899',
+		'#f43f5e', '#a16207', '#78716c', '#6b7280', '#334155', '#0369a1', '#285aa0', '#000000',
+	]
 </script>
+
+<!-- Colour dot that opens a swatch grid; `apply` receives the picked colour. The trailing
+     rainbow cell is a native colour input for anything not in the grid. -->
+{#snippet colorDot(id: string, current: string, apply: (c: string) => void)}
+	<span class="relative inline-block h-3 w-3 shrink-0">
+		<button class="block h-3 w-3 cursor-pointer rounded-sm ring-1 ring-zinc-300" style:background={current} title="Change layer colour"
+			onclick={(e) => { e.stopPropagation(); colorPicking = colorPicking === id ? null : id }}></button>
+		{#if colorPicking === id}
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div class="fixed inset-0 z-40" onmousedown={() => (colorPicking = null)}></div>
+			<div class="absolute left-0 top-4 z-50 w-[124px] rounded border border-zinc-300 bg-white p-1 shadow-lg">
+				<div class="grid grid-cols-6 gap-0.5">
+					{#each PALETTE as c (c)}
+						<button class="h-4 w-4 rounded-sm ring-1 {c === current ? 'ring-2 ring-blue-500' : 'ring-zinc-200'} hover:scale-110" style:background={c}
+							title={c} onclick={(e) => { e.stopPropagation(); apply(c); colorPicking = null }}></button>
+					{/each}
+					<label class="relative h-4 w-4 cursor-pointer rounded-sm ring-1 ring-zinc-200" title="Custom colour…"
+						style:background="conic-gradient(red, yellow, lime, cyan, blue, magenta, red)">
+						<input type="color" class="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={current}
+							oninput={(e) => apply((e.currentTarget as HTMLInputElement).value)}
+							onchange={() => (colorPicking = null)} />
+					</label>
+				</div>
+			</div>
+		{/if}
+	</span>
+{/snippet}
 
 {#if vp}
 	{@const v = vp}
@@ -105,10 +140,7 @@
 					{@const ov = v.layerOverrides?.[l.id] ?? {}}
 					{@const mactive = (m3d.activeLayer ?? m3dModel.layers?.find((x) => x.id !== 'background')?.id) === l.id && l.id !== 'background'}
 					<div class="flex items-center gap-1.5 rounded py-0.5 text-xs {mactive ? 'bg-blue-50' : ''}">
-						<label class="relative inline-block h-3 w-3 shrink-0 cursor-pointer rounded-sm ring-1 ring-zinc-300" style:background={l.color} title="Colour">
-							<input type="color" class="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={l.color}
-								oninput={(e) => { l.color = (e.currentTarget as HTMLInputElement).value; m3dStore?.save() }} />
-						</label>
+						{@render colorDot(l.id, l.color, (c) => { l.color = c; m3dStore?.save() })}
 						<input class="min-w-0 flex-1 rounded border-transparent bg-transparent px-1 py-0.5 hover:border-zinc-200 focus:border-zinc-300"
 							value={l.name} oninput={(e) => { l.name = (e.currentTarget as HTMLInputElement).value; m3dStore?.save() }} />
 						{#if l.id !== 'background'}
@@ -187,7 +219,7 @@
 						ondragstart={() => (dragId = c.id)}
 						ondragend={() => { dragId = null; dragOverBase = null }}>
 						<Icon name="grip" size={11} class="shrink-0 cursor-grab text-zinc-300" />
-						<span class="inline-block h-3 w-3 shrink-0 rounded-sm" style:background={c.color}></span>
+						{@render colorDot(c.id, c.color, (col) => vps.setLayerColor(c.id, col))}
 						{#if editingId === c.id}
 							<input class="min-w-0 flex-1 rounded border border-blue-400 bg-white px-1 py-0.5 text-xs"
 								bind:value={nameBuf} onkeydown={e => { if (e.key === 'Enter') commitRename(); else if (e.key === 'Escape') editingId = null }}
