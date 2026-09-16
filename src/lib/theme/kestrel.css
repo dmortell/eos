@@ -168,3 +168,36 @@
 
 /* Panel shadow — Kestrel's single elevation shadow */
 :root[data-theme^='kestrel'] .shadow-lg { box-shadow: var(--t-shadow); }
+
+/* ── Dark-theme contrast fixes ────────────────────────────────────────────
+   EOS's functional blues assume a light page. On Kestrel Dark:
+   - blue link/title text (text-blue-6/7/800) is unreadable on #18212d → lift
+     to a light link blue;
+   - light-blue selected/active fills (bg-blue-100/200, Button `active`,
+     group hovers) stay light while the text remap turns their labels near
+     white → route them to the dark selection tokens instead.
+   Kestrel Light keeps stock blues — they're fine on its light surfaces.
+   (Canvas content is unaffected: these utilities aren't used inside
+   .technical-drawing-text, whose colors are var-reset anyway.) */
+:root[data-theme='kestrel-dark'] .text-blue-500,
+:root[data-theme='kestrel-dark'] .text-blue-600,
+:root[data-theme='kestrel-dark'] .text-blue-700,
+:root[data-theme='kestrel-dark'] .text-blue-800 { color: #79b8ff; }
+:root[data-theme='kestrel-dark'] .hover\:text-blue-400:hover,
+:root[data-theme='kestrel-dark'] .hover\:text-blue-500:hover,
+:root[data-theme='kestrel-dark'] .hover\:text-blue-600:hover { color: #a8ccf5; }
+:root[data-theme='kestrel-dark'] .bg-blue-100 { background-color: var(--t-sel); }
+:root[data-theme='kestrel-dark'] .bg-blue-200 { background-color: #2b5560; }
+:root[data-theme='kestrel-dark'] .border-blue-300 { border-color: #35707e; }
+:root[data-theme='kestrel-dark'] .hover\:bg-blue-400:hover { background-color: #2b5560; }
+:root[data-theme='kestrel-dark'] .hover\:bg-blue-400\/40\!:hover,
+:root[data-theme='kestrel-dark'] .hover\:bg-blue-400\/40:hover { background-color: #2b5560 !important; }
+/* amber/yellow notice chips sit on light fills too */
+:root[data-theme='kestrel-dark'] .bg-amber-50,
+:root[data-theme='kestrel-dark'] .bg-yellow-50 { background-color: #3a3320; }
+:root[data-theme='kestrel-dark'] .text-amber-700,
+:root[data-theme='kestrel-dark'] .text-amber-800,
+:root[data-theme='kestrel-dark'] .text-yellow-700 { color: #e4c26b; }
+/* red links/labels (delete affordances) drop low on dark too */
+:root[data-theme='kestrel-dark'] .text-red-600,
+:root[data-theme='kestrel-dark'] .text-red-700 { color: #ed8d92; }

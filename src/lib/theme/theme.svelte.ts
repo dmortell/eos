@@ -32,6 +32,10 @@ class ThemeStore {
 		const el = document.documentElement
 		if (this.current === 'eos') delete el.dataset.theme
 		else el.dataset.theme = this.current
+		// Kestrel Dark also enables Tailwind's `dark:` variants — several components
+		// (sheets list menus/headers, etc.) already carry hand-written dark: classes
+		// that are more precise than the generic utility remaps in kestrel.css.
+		el.classList.toggle('dark', this.current === 'kestrel-dark')
 	}
 }
 
