@@ -117,29 +117,34 @@
 :root[data-theme^='kestrel'] .bg-gray-100,
 :root[data-theme^='kestrel'] .bg-slate-100 { background-color: var(--t-surface2); }
 :root[data-theme^='kestrel'] .bg-zinc-200,
-:root[data-theme^='kestrel'] .bg-gray-200 { background-color: var(--t-surface3); }
+:root[data-theme^='kestrel'] .bg-gray-200,
+:root[data-theme^='kestrel'] .bg-slate-200 { background-color: var(--t-surface3); }
 :root[data-theme^='kestrel'] .bg-blue-50 { background-color: var(--t-sel); }
 :root[data-theme^='kestrel'] .hover\:bg-zinc-100:hover,
 :root[data-theme^='kestrel'] .hover\:bg-gray-100:hover,
 :root[data-theme^='kestrel'] .hover\:bg-zinc-50:hover,
-:root[data-theme^='kestrel'] .hover\:bg-gray-50:hover { background-color: var(--t-hover); }
+:root[data-theme^='kestrel'] .hover\:bg-gray-50:hover,
+:root[data-theme^='kestrel'] .hover\:bg-slate-100:hover,
+:root[data-theme^='kestrel'] .hover\:bg-slate-200:hover { background-color: var(--t-hover); }
 
 /* Text */
 :root[data-theme^='kestrel'] .text-black,
-:root[data-theme^='kestrel'] .text-zinc-900, :root[data-theme^='kestrel'] .text-gray-900,
-:root[data-theme^='kestrel'] .text-zinc-800, :root[data-theme^='kestrel'] .text-gray-800,
-:root[data-theme^='kestrel'] .text-zinc-700, :root[data-theme^='kestrel'] .text-gray-700 { color: var(--t-ink); }
-:root[data-theme^='kestrel'] .text-zinc-600, :root[data-theme^='kestrel'] .text-gray-600,
+:root[data-theme^='kestrel'] .text-zinc-900, :root[data-theme^='kestrel'] .text-gray-900, :root[data-theme^='kestrel'] .text-slate-900,
+:root[data-theme^='kestrel'] .text-zinc-800, :root[data-theme^='kestrel'] .text-gray-800, :root[data-theme^='kestrel'] .text-slate-800,
+:root[data-theme^='kestrel'] .text-zinc-700, :root[data-theme^='kestrel'] .text-gray-700, :root[data-theme^='kestrel'] .text-slate-700 { color: var(--t-ink); }
+:root[data-theme^='kestrel'] .text-zinc-600, :root[data-theme^='kestrel'] .text-gray-600, :root[data-theme^='kestrel'] .text-slate-600,
 :root[data-theme^='kestrel'] .text-zinc-500, :root[data-theme^='kestrel'] .text-gray-500,
 :root[data-theme^='kestrel'] .text-slate-500 { color: var(--t-ink2); }
-:root[data-theme^='kestrel'] .text-zinc-400, :root[data-theme^='kestrel'] .text-gray-400,
+:root[data-theme^='kestrel'] .text-zinc-400, :root[data-theme^='kestrel'] .text-gray-400, :root[data-theme^='kestrel'] .text-slate-400,
 :root[data-theme^='kestrel'] .text-zinc-300, :root[data-theme^='kestrel'] .text-gray-300 { color: var(--t-ink3); }
 
 /* Borders */
 :root[data-theme^='kestrel'] .border-zinc-100, :root[data-theme^='kestrel'] .border-gray-100,
 :root[data-theme^='kestrel'] .border-zinc-200, :root[data-theme^='kestrel'] .border-gray-200,
 :root[data-theme^='kestrel'] .border-zinc-300, :root[data-theme^='kestrel'] .border-gray-300,
-:root[data-theme^='kestrel'] .border-slate-200 { border-color: var(--t-edge); }
+:root[data-theme^='kestrel'] .border-slate-200, :root[data-theme^='kestrel'] .border-slate-300 { border-color: var(--t-edge); }
+:root[data-theme^='kestrel'] .hover\:border-slate-400:hover,
+:root[data-theme^='kestrel'] .hover\:border-zinc-400:hover { border-color: var(--t-ink3); }
 :root[data-theme^='kestrel'] .divide-zinc-100 > *, :root[data-theme^='kestrel'] .divide-gray-100 > *,
 :root[data-theme^='kestrel'] .divide-zinc-200 > *, :root[data-theme^='kestrel'] .divide-gray-200 > * { border-color: var(--t-edge-soft); }
 
@@ -168,6 +173,17 @@
 
 /* Panel shadow — Kestrel's single elevation shadow */
 :root[data-theme^='kestrel'] .shadow-lg { box-shadow: var(--t-shadow); }
+
+/* Floating Window chrome (.gui) + .glass surfaces retint to the theme panel.
+   Component-scoped .gui background is var-driven, so setting these is enough. */
+:root[data-theme^='kestrel'] {
+	--gui-bg: var(--t-surface);
+	--gui-fg: var(--t-ink);
+	--gui-border: var(--t-edge);
+	--glass-bg: var(--t-surface);
+	--glass-shadow: var(--t-shadow);
+}
+:root[data-theme='kestrel-dark'] { --glass-opacity: 90%; } /* a touch more opaque on dark for text legibility */
 
 /* ── Dark-theme contrast fixes ────────────────────────────────────────────
    EOS's functional blues assume a light page. On Kestrel Dark:

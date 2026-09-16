@@ -184,23 +184,33 @@
 {/if}
 
 <style>
+	/* Frosted glass (kestrel-adoption A3): translucent + backdrop-blur so the
+	   drawing shows softly through a floating panel. Colours come from vars that
+	   default to the original solid look, so the EOS theme is a subtle frost and
+	   a theme (kestrel.css) can retint the panel. Opaque fallback below. */
 	.gui {
 		position: absolute;
-		border: 1px solid hsl(220 10% 80%); border-radius:4px;
-		color:#606060; background-color:white;
-		box-shadow: 1px 1px 10px hsl(0 0% 0% / 10%);
+		border: 1px solid var(--gui-border, hsl(220 10% 80%)); border-radius:4px;
+		color: var(--gui-fg, #606060);
+		background: color-mix(in srgb, var(--gui-bg, #ffffff) var(--glass-opacity, 88%), transparent);
+		backdrop-filter: blur(var(--glass-blur, 9px));
+		-webkit-backdrop-filter: blur(var(--glass-blur, 9px));
+		box-shadow: var(--glass-shadow, 1px 1px 12px hsl(0 0% 0% / 12%));
 		font-size: 0.8rem;
+	}
+	@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+		.gui { background: var(--gui-bg, #ffffff); }
 	}
 	.open { z-index: 10; }
 	.resize-handle {
 		height: 5px;
 		cursor: ns-resize;
 		background: transparent;
-		border-top: 1px solid hsl(220 10% 85%);
+		border-top: 1px solid var(--gui-border, hsl(220 10% 85%));
 		transition: background 0.15s;
 	}
 	.resize-handle:hover {
-		background: hsl(220 50% 90%);
+		background: color-mix(in srgb, var(--gui-fg, #606060) 12%, transparent);
 	}
 	.dock-context {
 		position: fixed;
@@ -209,8 +219,9 @@
 	}
 	.dock-context-menu {
 		position: fixed;
-		background: white;
-		border: 1px solid hsl(220 10% 80%);
+		background: var(--gui-bg, white);
+		color: var(--gui-fg, #606060);
+		border: 1px solid var(--gui-border, hsl(220 10% 80%));
 		border-radius: 6px;
 		box-shadow: 0 4px 12px hsl(0 0% 0% / 15%);
 		padding: 4px 0;

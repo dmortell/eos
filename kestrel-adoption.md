@@ -27,10 +27,12 @@ Tick what you want; effort is S/M/L per item.
   verbatim and wired into `Icon.svelte`: Lucide still wins name collisions (nothing existing
   changed), Kestrel fills any unmatched name, and a `k-` prefix forces the Kestrel glyph for a
   shadowed name (e.g. `k-line`). Browse them all at `/icons` (click a card to copy its name).
-- [ ] **A3. Glass floating toolbars** — `.floating-toolbar` CSS — **CSS-copy, S**
-  `color-mix(...86%, transparent)` + `backdrop-filter: blur(9px)` + shared `--shadow` pill —
-  the translucent viewport toolbars. Nice for EOS's in-canvas toolbars (outlets Edit window,
-  sheets tool buttons).
+- [x] **A3. Glass floating toolbars** — DONE. Reusable `.glass` utility in `layout.css`
+  (`color-mix` translucency + `backdrop-filter: blur` + shadow, with an opaque `@supports`
+  fallback), and the floating `Window` chrome (Layers/Sheet/Edit/Properties panels across the
+  tools) now frosts over the drawing via the same `--glass-*` vars. Vars default to the original
+  solid look, so EOS light is a subtle frost; Kestrel themes retint the panels. Verified in
+  sheets over the floorplan, light + dark.
 - [ ] **A4. Accent-underline tabs** — ribbon/document-tab CSS — **CSS-copy, S**
   Active tab = 2px accent bar via `:after` (bottom edge for ribbon tabs, top edge for document
   tabs) + tinted bg, instead of boxed tabs. Pairs with C1/C2.

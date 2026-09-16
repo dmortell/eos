@@ -123,6 +123,26 @@ h3 { @apply text-xs text-gray-600; }
   @apply flex items-center gap-2;
 }
 
+/* Frosted-glass surface for floating in-canvas toolbars/panels
+   (kestrel-adoption.md A3). Opt in with class="glass". The floating Window
+   chrome uses the same --glass-* tunables. --glass-bg is the base colour a
+   theme can override; falls back to fully opaque where backdrop-filter is
+   unsupported so content never becomes unreadable. */
+:root {
+  --glass-blur: 9px;
+  --glass-opacity: 88%;
+  --glass-shadow: 0 8px 30px hsl(0 0% 0% / 12%);
+}
+.glass {
+  background: color-mix(in srgb, var(--glass-bg, #ffffff) var(--glass-opacity), transparent);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  box-shadow: var(--glass-shadow);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass { background: var(--glass-bg, #ffffff); }
+}
+
 /* Drawing hairline — used for title-block dividers and the page margin frame.
    Paired with vector-effect="non-scaling-stroke" so it stays a constant crisp
    line at any canvas zoom and in printed PDF. Tune via --dwg-w / --dwg-c. */
