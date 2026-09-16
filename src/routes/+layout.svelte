@@ -1,11 +1,16 @@
 <script lang="ts">
   import './layout.css';
+  import '$lib/theme/kestrel.css';
   import favicon from '$lib/assets/favicon.ico';
   import { Toaster } from '$lib/components/ui/sonner';
   import { Skeleton } from "$lib/components/ui/skeleton/index.js";
   import { Session, Firestore, Titlebar, LoginScreen } from '$lib';
+  import { theme } from '$lib/theme/theme.svelte';
+  import CommandPalette from '$lib/palette/CommandPalette.svelte';
   import { setContext } from 'svelte';
   let { children } = $props();
+
+  $effect(() => { theme.init() })
 
   class App { locale = $state('ja') }
   let settings = new App();
@@ -59,6 +64,7 @@
 
 {:else}
 
+  <CommandPalette {db} />
   {@render children()}
 
 {/if}

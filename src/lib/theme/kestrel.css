@@ -1,0 +1,170 @@
+/*
+ * Kestrel CAD trial themes (kestrel-adoption.md A1). Token values lifted from
+ * M:\dev\KestrelCad2\src\style.css.
+ *
+ * Mechanism: EOS components are styled with raw Tailwind utilities (bg-white,
+ * text-zinc-700, ...), not tokens — so these themes remap the COMMON utilities
+ * through CSS variables under a [data-theme] scope. With no data-theme set
+ * (the default 'eos' theme) every rule here is inert: zero visual change.
+ *
+ * The variable indirection also gives us clean exemptions: the sheets drawing
+ * canvas (.technical-drawing-text — paper, titleblock, viewports) redefines the
+ * variables back to their stock values, so paper stays paper in every theme,
+ * and @media print does the same for hardcopy.
+ */
+
+/* ── Kestrel Dark ─────────────────────────────────────────────────────── */
+:root[data-theme='kestrel-dark'] {
+	--t-page: #18212d;      /* app background        (kestrel --bg)      */
+	--t-titlebar: #131b26;  /* header                (kestrel --title)   */
+	--t-surface: #1b2532;   /* panels / bg-white     (kestrel --panel)   */
+	--t-surface2: #202c3a;  /* subtle fills zinc-50/100 (kestrel --panel2) */
+	--t-surface3: #2c3b4d;  /* stronger fills zinc-200  (kestrel --hover)  */
+	--t-hover: #2c3b4d;
+	--t-sel: #244852;       /* selected rows bg-blue-50 (kestrel --active) */
+	--t-ink: #dce4ed;       /* primary text          (kestrel --text)    */
+	--t-ink2: #8b9aab;      /* secondary text        (kestrel --muted)   */
+	--t-ink3: #63768b;      /* faint text            (kestrel --faint)   */
+	--t-edge: #344151;      /* borders               (kestrel --line)    */
+	--t-edge-soft: #2a3645; /* soft borders          (kestrel --line-soft) */
+	--t-input: #17212e;     /* input fills           (kestrel --input)   */
+	--t-accent: #5ac6d2;
+	--t-shadow: 0 15px 40px #0005;
+
+	/* shadcn token layer (body bg, sonner, shadcn components) */
+	--background: var(--t-page);
+	--foreground: var(--t-ink);
+	--card: var(--t-surface);
+	--card-foreground: var(--t-ink);
+	--popover: var(--t-surface);
+	--popover-foreground: var(--t-ink);
+	--muted: var(--t-surface2);
+	--muted-foreground: var(--t-ink2);
+	--border: var(--t-edge);
+	--input: var(--t-edge);
+	--ring: var(--t-accent);
+	color-scheme: dark;
+}
+
+/* ── Kestrel Light ────────────────────────────────────────────────────── */
+:root[data-theme='kestrel-light'] {
+	--t-page: #e3e9ef;
+	--t-titlebar: #f7f9fb;
+	--t-surface: #f5f7fa;
+	--t-surface2: #edf1f6;
+	--t-surface3: #e3ebf3;
+	--t-hover: #e3ebf3;
+	--t-sel: #d6eef2;
+	--t-ink: #23374a;
+	--t-ink2: #697e91;
+	--t-ink3: #8191a2;
+	--t-edge: #ced8e2;
+	--t-edge-soft: #e0e6ed;
+	--t-input: #ffffff;
+	--t-accent: #157a8b;
+	--t-shadow: 0 15px 40px #203b5525;
+
+	--background: var(--t-page);
+	--foreground: var(--t-ink);
+	--card: var(--t-surface);
+	--card-foreground: var(--t-ink);
+	--popover: var(--t-surface);
+	--popover-foreground: var(--t-ink);
+	--muted: var(--t-surface2);
+	--muted-foreground: var(--t-ink2);
+	--border: var(--t-edge);
+	--input: var(--t-edge);
+	--ring: var(--t-accent);
+}
+
+/* ── Exemptions: drawing canvas + print keep stock (light/paper) values ── */
+:root[data-theme^='kestrel'] .technical-drawing-text {
+	--t-surface: #ffffff;
+	--t-surface2: #fafafa;
+	--t-surface3: #e4e4e7;
+	--t-hover: #f4f4f5;
+	--t-sel: #eff6ff;
+	--t-ink: #3f3f46;
+	--t-ink2: #71717a;
+	--t-ink3: #a1a1aa;
+	--t-edge: #e4e4e7;
+	--t-edge-soft: #f4f4f5;
+	--t-input: #ffffff;
+	color-scheme: light;
+}
+@media print {
+	:root[data-theme^='kestrel'] {
+		--t-page: #fff; --t-titlebar: #fff; --t-surface: #fff; --t-surface2: #fafafa;
+		--t-surface3: #e4e4e7; --t-hover: #f4f4f5; --t-sel: #eff6ff; --t-ink: #18181b;
+		--t-ink2: #52525b; --t-ink3: #a1a1aa; --t-edge: #e4e4e7; --t-edge-soft: #f4f4f5;
+		--t-input: #fff;
+		--background: #fff; --foreground: #18181b;
+		color-scheme: light;
+	}
+}
+
+/* ── Utility remaps (active only when a kestrel theme is set) ─────────── */
+:root[data-theme^='kestrel'] {
+	font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+/* Backgrounds */
+:root[data-theme^='kestrel'] .bg-white { background-color: var(--t-surface); }
+:root[data-theme^='kestrel'] .bg-zinc-50,
+:root[data-theme^='kestrel'] .bg-gray-50,
+:root[data-theme^='kestrel'] .bg-slate-50 { background-color: var(--t-surface2); }
+:root[data-theme^='kestrel'] .bg-zinc-100,
+:root[data-theme^='kestrel'] .bg-gray-100,
+:root[data-theme^='kestrel'] .bg-slate-100 { background-color: var(--t-surface2); }
+:root[data-theme^='kestrel'] .bg-zinc-200,
+:root[data-theme^='kestrel'] .bg-gray-200 { background-color: var(--t-surface3); }
+:root[data-theme^='kestrel'] .bg-blue-50 { background-color: var(--t-sel); }
+:root[data-theme^='kestrel'] .hover\:bg-zinc-100:hover,
+:root[data-theme^='kestrel'] .hover\:bg-gray-100:hover,
+:root[data-theme^='kestrel'] .hover\:bg-zinc-50:hover,
+:root[data-theme^='kestrel'] .hover\:bg-gray-50:hover { background-color: var(--t-hover); }
+
+/* Text */
+:root[data-theme^='kestrel'] .text-black,
+:root[data-theme^='kestrel'] .text-zinc-900, :root[data-theme^='kestrel'] .text-gray-900,
+:root[data-theme^='kestrel'] .text-zinc-800, :root[data-theme^='kestrel'] .text-gray-800,
+:root[data-theme^='kestrel'] .text-zinc-700, :root[data-theme^='kestrel'] .text-gray-700 { color: var(--t-ink); }
+:root[data-theme^='kestrel'] .text-zinc-600, :root[data-theme^='kestrel'] .text-gray-600,
+:root[data-theme^='kestrel'] .text-zinc-500, :root[data-theme^='kestrel'] .text-gray-500,
+:root[data-theme^='kestrel'] .text-slate-500 { color: var(--t-ink2); }
+:root[data-theme^='kestrel'] .text-zinc-400, :root[data-theme^='kestrel'] .text-gray-400,
+:root[data-theme^='kestrel'] .text-zinc-300, :root[data-theme^='kestrel'] .text-gray-300 { color: var(--t-ink3); }
+
+/* Borders */
+:root[data-theme^='kestrel'] .border-zinc-100, :root[data-theme^='kestrel'] .border-gray-100,
+:root[data-theme^='kestrel'] .border-zinc-200, :root[data-theme^='kestrel'] .border-gray-200,
+:root[data-theme^='kestrel'] .border-zinc-300, :root[data-theme^='kestrel'] .border-gray-300,
+:root[data-theme^='kestrel'] .border-slate-200 { border-color: var(--t-edge); }
+:root[data-theme^='kestrel'] .divide-zinc-100 > *, :root[data-theme^='kestrel'] .divide-gray-100 > *,
+:root[data-theme^='kestrel'] .divide-zinc-200 > *, :root[data-theme^='kestrel'] .divide-gray-200 > * { border-color: var(--t-edge-soft); }
+
+/* Form controls — var-driven, so the .technical-drawing-text var reset above
+   automatically keeps controls inside the drawing canvas in stock colours. */
+:root[data-theme^='kestrel'] :where(input, select, textarea) {
+	background-color: var(--t-input);
+	color: var(--t-ink);
+	border-color: var(--t-edge);
+}
+
+/* Titlebar: EOS's header is bg-slate-800/text-white; Kestrel's is its own
+   near-black (dark) or near-white (light) strip. Targeted, not a utility remap,
+   so other slate-800/white usages are untouched. */
+:root[data-theme='kestrel-dark'] header.bg-slate-800 {
+	background-color: var(--t-titlebar);
+	border-bottom: 1px solid var(--t-edge-soft);
+}
+:root[data-theme='kestrel-light'] header.bg-slate-800 {
+	background-color: var(--t-titlebar);
+	color: var(--t-ink);
+	border-bottom: 1px solid var(--t-edge);
+}
+:root[data-theme='kestrel-light'] header.bg-slate-800 .text-white { color: var(--t-ink); }
+:root[data-theme='kestrel-light'] header.bg-slate-800 .hover\:text-gray-200:hover { color: var(--t-accent); }
+
+/* Panel shadow — Kestrel's single elevation shadow */
+:root[data-theme^='kestrel'] .shadow-lg { box-shadow: var(--t-shadow); }

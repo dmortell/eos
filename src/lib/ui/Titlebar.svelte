@@ -6,6 +6,8 @@
   import { updated } from '$app/state';		// For update notifications. Polling interval is set in svelte.config.js
 	import PresenceAvatars from '$lib/presence/PresenceAvatars.svelte'
   import ToggleTheme from './ToggleTheme.svelte';
+  import { theme, THEMES } from '$lib/theme/theme.svelte'
+  import { palette } from '$lib/palette/palette.svelte'
 
   const menuItems = [
 		{ label: 'Racks', href: 'racks' },
@@ -59,6 +61,15 @@
 			{#each menuItems as item}<a href={`${toolHref(item.href)}${menuQs}`} class="rounded hover:text-gray-200 px-2">{item.label}</a>{/each}
 			&middot;
 		{/if}
+		<button class="rounded px-1 hover:text-gray-200" onclick={() => (palette.open = true)} title="Find a sheet, tool or project (Ctrl+K)" aria-label="Find">
+			<Icon name="search" size={15} />
+		</button>
+		<!-- Theme switcher (Kestrel trial themes) — cycles EOS / Kestrel Dark / Kestrel Light -->
+		<button class="rounded px-1 hover:text-gray-200" title="Theme: {THEMES.find(t => t.id === theme.current)?.label} — click to switch"
+			aria-label="Switch theme"
+			onclick={() => { const i = THEMES.findIndex(t => t.id === theme.current); theme.set(THEMES[(i + 1) % THEMES.length].id) }}>
+			<Icon name={theme.current === 'kestrel-dark' ? 'moon' : theme.current === 'kestrel-light' ? 'sun' : 'monitor'} size={15} />
+		</button>
 		{#if session.user}
 			<button class="cursor-pointer rounded hover:text-gray-200 px-2" onclick={session.logout} title='Sign out {session.user.email}'>Sign Out</button>
 			{#if updated.current}<MetalButton onclick={()=>location.reload()} variant="green" title="A new version is available. Click to refresh.">Refresh</MetalButton>{/if}
