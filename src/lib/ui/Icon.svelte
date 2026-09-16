@@ -1,4 +1,4 @@
-<script lang="ts">
+<script module lang="ts">
 import {
 	AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart,
 	ArrowLeft, Box, Cable, Camera, Check, Crosshair, Crop,
@@ -45,10 +45,30 @@ let lucide: Record<string, any> = {
 	polygon: Triangle, warning: TriangleAlert, waypoints: Waypoints, x: X,
 }
 
-let {name, size=14, rotate=0, flip=false, class:className=null, ...props} = $props();
+// Kestrel CAD icon set (kestrel-adoption.md A2): 109 outline glyphs, same visual
+// family as Lucide. Lucide wins name collisions so existing icons don't change;
+// a `k-` prefix (e.g. "k-move") forces the Kestrel glyph for a shadowed name.
+import { KESTREL_ICONS } from './kestrel-icons'
+
+/** All Lucide-mapped names — for the /icons reference page. */
+export const LUCIDE_NAMES = Object.keys(lucide)
 </script>
 
-{#if name && lucide[name]}
+<script lang="ts">
+let {name, size=14, rotate=0, flip=false, class:className=null, ...props} = $props();
+
+let kpath = $derived.by(() => {
+	if (!name) return null
+	if (name.startsWith('k-')) return KESTREL_ICONS[name.slice(2)] ?? null
+	return lucide[name] ? null : KESTREL_ICONS[name] ?? null
+})
+</script>
+
+{#if kpath}
+	<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+		stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+		class={[className]} {...props}><path d={kpath} /></svg>
+{:else if name && lucide[name]}
 	{@const LucideIcon = lucide[name]}
 	<LucideIcon {size} class={[className]} {...props} />
 {:else if name}

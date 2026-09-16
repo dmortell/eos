@@ -23,10 +23,10 @@ Tick what you want; effort is S/M/L per item.
   Font: Inter/Segoe UI at 12px base (chrome runs 8–11px); Consolas mono for coordinates,
   values, ids. Small crisp radii (3-6px). This one item transfers most of the look —
   maps directly onto Tailwind 4 `@theme` variables with the same `data-theme` flip.
-- [ ] **A2. Icon set** — `src/ui.js` (`paths` object) — **CSS-copy, S**
-  ~110 hand-drawn 24×24 stroke icons (Lucide-like, stroke-width 1.5, currentColor). EOS already
-  uses @lucide/svelte, so value is only the CAD-specific glyphs Lucide lacks (drawing tools,
-  view cube, osnap, etc.) — cherry-pick paths into `$lib/ui/Icon.svelte` as extra entries.
+- [x] **A2. Icon set** — DONE (see `$lib/ui/kestrel-icons.ts`). All 109 Kestrel glyphs extracted
+  verbatim and wired into `Icon.svelte`: Lucide still wins name collisions (nothing existing
+  changed), Kestrel fills any unmatched name, and a `k-` prefix forces the Kestrel glyph for a
+  shadowed name (e.g. `k-line`). Browse them all at `/icons` (click a card to copy its name).
 - [ ] **A3. Glass floating toolbars** — `.floating-toolbar` CSS — **CSS-copy, S**
   `color-mix(...86%, transparent)` + `backdrop-filter: blur(9px)` + shared `--shadow` pill —
   the translucent viewport toolbars. Nice for EOS's in-canvas toolbars (outlets Edit window,
