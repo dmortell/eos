@@ -187,6 +187,14 @@
 		{ title: 'Rack B · Elevation', kind: 'elevation' },
 		{ title: 'Riser Diagram', kind: 'sheet' },
 	]
+	// Titles currently open — so the Library can focus an already-open page instead of
+	// opening a duplicate document. (Multiple VIEWS of one page = split, same doc.)
+	let openTitles = $derived(new Set(tabs.map(t => t.title)))
+	function openLibrary(p: { title: string; kind: Kind }) {
+		const existing = tabs.find(t => t.title === p.title)
+		if (existing) openTab(existing.id)
+		else addTab(p.kind, p.title)
+	}
 	// Left · Layers (mock)
 	let layers = $state([
 		{ name: 'Outlets', color: '#3b82f6', on: true, lock: false },
@@ -317,15 +325,16 @@
 					{:else}
 						<div class="grp-label">Open</div>
 						{#each tabs as t (t.id)}
-							<button class="page-row" class:active={t.id === panes[focused]?.activeId} onclick={() => openTab(t.id)}>
-								<Icon name={kindIcon[t.kind]} size={13} /><span class="grow txt">{t.title}</span>
-							</button>
+							<div class="page-row" class:active={t.id === panes[focused]?.activeId}>
+								<button class="row-btn" onclick={() => openTab(t.id)}><Icon name={kindIcon[t.kind]} size={13} /><span class="grow txt">{t.title}</span></button>
+								<button class="mini row-close" title="Close page" aria-label="Close page" onclick={() => closeTab(t.id)}>−</button>
+							</div>
 						{/each}
 						<div class="grp-label">Library</div>
 						{#each libraryPages as p (p.title)}
-							<button class="page-row" onclick={() => addTab(p.kind, p.title)}>
+							<button class="page-row" onclick={() => openLibrary(p)}>
 								<Icon name={kindIcon[p.kind]} size={13} /><span class="grow txt">{p.title}</span>
-								<Icon name="plus" size={12} />
+								{#if openTitles.has(p.title)}<span class="lib-open">open</span>{:else}<Icon name="plus" size={12} />{/if}
 							</button>
 						{/each}
 					{/if}
@@ -394,13 +403,13 @@
 							{/each}
 						</div>
 						{#if a?.kind === 'sheet'}
-							<PaperPage title={a.title} zoom={zoom} active={activeVpPane === pi}
+							<PaperPage title={a.title} zoom={zoom} {tool} active={activeVpPane === pi}
 								onactivate={() => (activeVpPane = pi)}
 								ondeactivate={() => { if (activeVpPane === pi) activeVpPane = null }} />
 						{:else if a}
 							<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 							<div class="vp-fill" onclick={() => { if (activeVpPane === pi) activeVpPane = null }}>
-								<Viewport kind={a.kind === 'elevation' ? 'model' : 'floorplan'} label={a.title}
+								<Viewport kind={a.kind === 'elevation' ? 'model' : 'floorplan'} label={a.title} {tool}
 									active={activeVpPane === pi} onactivate={() => (activeVpPane = pi)} />
 							</div>
 						{:else}
@@ -623,9 +632,13 @@
 	.mini:hover { background:var(--line); color:var(--text); }
 	.mini.off { opacity:.4; } .mini.warn { color:var(--danger); }
 	.grp-label { font-size:9px; text-transform:uppercase; letter-spacing:.1em; color:var(--faint); padding:6px 6px 3px; }
-	.page-row { display:flex; align-items:center; gap:7px; width:100%; padding:5px 6px; border-radius:5px; color:var(--text); background:none; border:none; }
+	.page-row { display:flex; align-items:center; gap:7px; width:100%; padding:5px 6px; border-radius:5px; color:var(--text); background:none; border:none; text-align:left; }
 	.page-row:hover { background:var(--hover); }
 	.page-row.active { background:var(--active); color:var(--text); }
+	.row-btn { display:flex; align-items:center; gap:7px; flex:1; min-width:0; background:none; border:none; color:inherit; text-align:left; padding:0; }
+	.row-btn :global(svg) { flex:0 0 auto; }
+	.row-close { font-size:15px; line-height:1; }
+	.lib-open { font-size:8px; text-transform:uppercase; letter-spacing:.06em; color:var(--faint); border:1px solid var(--line); border-radius:3px; padding:1px 4px; }
 
 	/* Project tree (Project › Building › Floor › Room › Row) */
 	.tree-row { display:flex; align-items:center; gap:5px; padding:4px 6px; border-radius:5px; color:var(--text); cursor:pointer; user-select:none; }

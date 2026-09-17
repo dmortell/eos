@@ -5,15 +5,15 @@
 	// Clicking the viewport activates it; clicking the paper margin deactivates.
 	import Viewport from '../ui/Viewport.svelte'
 
-	let { title = 'Sheet', drawingNo = '001', scale = '1:100', zoom = 100, active = false, onactivate, ondeactivate }:
-		{ title?: string; drawingNo?: string; scale?: string; zoom?: number; active?: boolean; onactivate?: () => void; ondeactivate?: () => void } = $props()
+	let { title = 'Sheet', drawingNo = '001', scale = '1:100', zoom = 100, active = false, tool = 'Select', onactivate, ondeactivate }:
+		{ title?: string; drawingNo?: string; scale?: string; zoom?: number; active?: boolean; tool?: string; onactivate?: () => void; ondeactivate?: () => void } = $props()
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 <div class="paper-wrap" onclick={() => ondeactivate?.()}>
 	<div class="paper" style:transform="scale({zoom / 100})">
 		<div class="paper-vp">
-			<Viewport kind="floorplan" label="Outlets · 33F" {scale} {active} {onactivate} />
+			<Viewport kind="floorplan" label="Outlets · 33F" {scale} {active} {tool} {onactivate} />
 		</div>
 		<!-- titleblock (right vertical strip, like EOS) -->
 		<div class="tb">

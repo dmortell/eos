@@ -6,10 +6,13 @@
 	// parent sizes it. Mock content only — no Firestore.
 	import { Icon } from '$lib'
 
-	let { label = 'Viewport', scale = '', kind = 'floorplan', active = false, onactivate }:
-		{ label?: string; scale?: string; kind?: 'floorplan' | 'model' | 'elevation'; active?: boolean; onactivate?: () => void } = $props()
+	let { label = 'Viewport', scale = '', kind = 'floorplan', active = false, tool = 'Select', onactivate }:
+		{ label?: string; scale?: string; kind?: 'floorplan' | 'model' | 'elevation'; active?: boolean; tool?: string; onactivate?: () => void } = $props()
 
 	const tagIcon: Record<string, string> = { floorplan: 'mapPin', model: 'box', elevation: 'server' }
+	// The active viewport reflects the current tool: draw tools use a crosshair, Select an arrow.
+	const DRAW = new Set(['Line', 'Rectangle', 'Circle', 'Dimension', 'Text'])
+	let cursor = $derived(!active ? 'pointer' : DRAW.has(tool) ? 'crosshair' : 'default')
 
 	// ── floorplan mock: desk pods + outlet dots ──
 	const desks: { x: number; y: number }[] = []
@@ -34,7 +37,7 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="vp" class:active role="button" tabindex="0"
+<div class="vp" class:active role="button" tabindex="0" style:cursor
 	onclick={(e) => { e.stopPropagation(); onactivate?.() }}
 	onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onactivate?.() } }}>
 
@@ -64,7 +67,7 @@
 	{/if}
 
 	<div class="vp-tag"><Icon name={tagIcon[kind]} size={10} /> {label}{#if scale}<span class="vp-scale">{scale}</span>{/if}</div>
-	{#if active}<div class="vp-badge">Active · CAD tools enabled</div>{/if}
+	{#if active}<div class="vp-badge"><span class="vp-dot"></span>{tool} tool</div>{/if}
 </div>
 
 <style>
@@ -80,7 +83,8 @@
 	.vp-tag :global(svg) { color:#94a3b8; }
 	.vp-scale { color:#94a3b8; font-family:Consolas,monospace; }
 	.vp-badge {
-		position:absolute; bottom:6px; left:6px; font-size:8px; letter-spacing:.04em;
+		position:absolute; bottom:6px; left:6px; display:flex; align-items:center; gap:5px; font-size:8px; letter-spacing:.04em;
 		color:#0e5866; background:#5ac6d222; border:1px solid #5ac6d2; border-radius:3px; padding:2px 6px;
 	}
+	.vp-dot { width:5px; height:5px; border-radius:50%; background:#157a8b; }
 </style>
