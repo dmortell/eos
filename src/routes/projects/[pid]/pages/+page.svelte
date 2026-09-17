@@ -266,25 +266,17 @@
 		else p.canvasView = { zoom: 1, x: 0, y: 0 }
 	}
 
-	// ── Print (EOS sheets method) — on Ctrl+P / window.print(), inject an @page-sized
-	// stylesheet that shows ONLY the focused sheet's A3 paper (via visibility), hides
-	// all UI (chrome, tool bars, the viewport tag/badge/frame) and the selection
-	// highlight, then removes it after. Native Ctrl+P fires beforeprint.
+	// ── Print (EOS sheets method) — show ONLY the focused sheet's A3 paper.
+	// The stylesheet (both @page size and the print-only visibility rules) lives in the
+	// document at ALL times: it's inert on screen (@media print) but MUST be present
+	// before the print dialog opens, because Chrome reads the paper size when it builds
+	// the preview — a rule injected on beforeprint arrives too late and the dialog falls
+	// back to the system default (Letter). Named size (A3 landscape), not raw mm, for the
+	// same reason: Chrome's paper selector honors a named size; 420mm×297mm IS A3 landscape.
+	// beforeprint only does the per-print work: mark the focused paper + clear selection.
 	let savedSel: Record<string, string[]> | null = null
 	const PRINT_ID = 'pages-print-style'
-	function applyPrint() {
-		savedSel = { ...docSel }
-		docSel = {}   // selection is screen-only; clear so no highlight prints
-		const target = document.querySelector('.pane.focused .paper')
-			?? document.querySelector('.pane.focused .vp-fill')
-			?? document.querySelector('.pane.focused .vp')
-		target?.classList.add('print-target')
-		let style = document.getElementById(PRINT_ID) as HTMLStyleElement | null
-		if (!style) { style = document.createElement('style'); style.id = PRINT_ID; document.head.appendChild(style) }
-		// Named size (A3 landscape), not raw mm — Chrome's print-preview paper selector
-		// honors a named page size reliably and defaults to it; raw dimensions often fall
-		// back to the system default (Letter). 420mm×297mm IS A3 landscape.
-		style.textContent = `@page { size: A3 landscape; margin: 0; }
+	const PRINT_CSS = `@page { size: A3 landscape; margin: 0; }
 @media print {
 	html, body { margin:0 !important; padding:0 !important; background:#fff !important; }
 	.canvas-content { transform: none !important; }   /* so fixed positions to the page, not a transformed ancestor */
@@ -294,17 +286,32 @@
 	.print-target .vp { border: none !important; box-shadow: none !important; }
 	.print-target .vp-tag, .print-target .vp-badge { display: none !important; }
 }`
+	function applyPrint() {
+		savedSel = { ...docSel }
+		docSel = {}   // selection is screen-only; clear so no highlight prints
+		const target = document.querySelector('.pane.focused .paper')
+			?? document.querySelector('.pane.focused .vp-fill')
+			?? document.querySelector('.pane.focused .vp')
+		target?.classList.add('print-target')
 		flushSync()   // apply the cleared selection to the DOM before the print snapshot
 	}
 	function removePrint() {
 		document.querySelectorAll('.print-target').forEach(el => el.classList.remove('print-target'))
-		document.getElementById(PRINT_ID)?.remove()
 		if (savedSel) { docSel = savedSel; savedSel = null }
 	}
 	$effect(() => {
+		// Persistent stylesheet: present before any print dialog so Chrome picks up A3.
+		let style = document.getElementById(PRINT_ID) as HTMLStyleElement | null
+		if (!style) { style = document.createElement('style'); style.id = PRINT_ID; document.head.appendChild(style) }
+		style.textContent = PRINT_CSS
 		window.addEventListener('beforeprint', applyPrint)
 		window.addEventListener('afterprint', removePrint)
-		return () => { window.removeEventListener('beforeprint', applyPrint); window.removeEventListener('afterprint', removePrint); removePrint() }
+		return () => {
+			window.removeEventListener('beforeprint', applyPrint)
+			window.removeEventListener('afterprint', removePrint)
+			removePrint()
+			document.getElementById(PRINT_ID)?.remove()
+		}
 	})
 
 	// Status bar
