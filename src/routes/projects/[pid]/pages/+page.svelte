@@ -7,7 +7,14 @@
 	// both light/dark regardless of the app theme (toggle in its titlebar).
 	import { Icon } from '$lib'
 	import { page } from '$app/state'
-	import Test from './test.svelte'  // preview: 3-across X/Y/Z inputs
+
+	// Mock Transform inspector (3-across X/Y/Z fields) — styled with the shell tokens.
+	const AXES = ['X', 'Y', 'Z']
+	let xf = $state({
+		position: [-0.7, 1.83, -0.35],
+		rotation: [90, 0, -18],
+		scale: [1, 1, 1],
+	})
 
 	// Canvas documents — the B1 "each tab owns its own view state" pattern (mock).
 	type Kind = 'plan' | 'sheet' | 'elevation'
@@ -315,7 +322,20 @@
 					<div class="side-title">Properties</div>
 				</div>
 				<div class="side-body">
-					<Test />
+					<!-- Transform (3-across X/Y/Z), matched to the sidebar style -->
+					<div class="prop-sec xf-head">Transform<span class="xf-badge">LOCAL</span></div>
+					{#each [['Position', 'position', 0.05], ['Rotation · degrees', 'rotation', 1], ['Scale', 'scale', 0.05]] as [label, key, step] (key)}
+						<div class="xf-sub">{label}</div>
+						<div class="xyz">
+							{#each AXES as ax, i (ax)}
+								<label class="axis"><span>{ax}</span><input type="number" step={step} bind:value={xf[key as 'position'][i]} aria-label="{key} {ax}" /></label>
+							{/each}
+						</div>
+					{/each}
+					<div class="xf-btns">
+						<button class="xf-btn" onclick={() => { xf.position = [0, 0, 0]; xf.rotation = [0, 0, 0]; xf.scale = [1, 1, 1] }}>Reset</button>
+						<button class="xf-btn"><Icon name="fit" size={13} /> Frame</button>
+					</div>
 					<div class="prop-sec">GENERAL</div>
 					<div class="prop"><span>Name</span><input value={active?.title ?? ''} /></div>
 					<div class="prop"><span>Type</span><input value={active?.kind ?? ''} readonly /></div>
@@ -497,6 +517,24 @@
 	.prop input { background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:3px 6px; font-size:11px; font-family:Consolas,monospace; min-width:0; }
 	.prop input:read-only { color:var(--muted); }
 	.prop input:focus { outline:none; border-color:var(--accent); }
+
+	/* Transform inspector — 3-across X/Y/Z, sidebar-token styled */
+	.xf-head { display:flex; align-items:center; justify-content:space-between; }
+	.xf-badge { font-size:8px; font-weight:400; letter-spacing:.06em; color:var(--faint); border:1px solid var(--line); border-radius:2px; padding:1px 4px; }
+	.xf-sub { font-size:9px; color:var(--muted); margin:9px 4px 5px; }
+	.xyz { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; padding:0 4px; }
+	.axis { position:relative; display:flex; align-items:center; min-width:0; }
+	.axis > span { position:absolute; left:7px; font-size:8px; font-weight:600; pointer-events:none; }
+	.axis:nth-child(1) > span { color:#c77b74; }
+	.axis:nth-child(2) > span { color:#7faa83; }
+	.axis:nth-child(3) > span { color:#7c9cc9; }
+	.axis input { width:100%; min-width:0; padding:5px 4px 5px 18px; font-size:11px; font-family:Consolas,monospace;
+		font-variant-numeric:tabular-nums; background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; }
+	.axis input:focus { outline:none; border-color:var(--accent); }
+	.xf-btns { display:flex; gap:6px; padding:0 4px; margin:11px 0 4px; }
+	.xf-btn { flex:1; display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:6px; font-size:11px;
+		border-radius:4px; color:var(--text); background:var(--panel2); border:1px solid var(--line); }
+	.xf-btn:hover { background:var(--hover); }
 
 	/* Status bar */
 	.statusbar { height:26px; flex:0 0 auto; display:flex; align-items:center; gap:2px;
