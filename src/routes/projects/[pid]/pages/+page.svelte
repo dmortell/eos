@@ -16,23 +16,51 @@
 		{ id: 't2', title: '3303 Outlets', kind: 'sheet', dirty: true },
 		{ id: 't3', title: 'Rack A · Elevation', kind: 'elevation', dirty: false },
 	])
-	let activeId = $state('t2')
 	let seq = 3
-	let active = $derived(tabs.find(t => t.id === activeId) ?? null)
 	const kindIcon: Record<Kind, string> = { plan: 'mapPin', sheet: 'fileText', elevation: 'server' }
 
-	function openTab(id: string) { activeId = id }
+	// Editor panes — 1 or 2 side by side (vertical split). Each pane views one open
+	// tab; tabs are shared documents, so the same page can show in both panes and
+	// each pane tracks its own active tab (VS Code-style split).
+	let panes = $state<{ id: string; activeId: string }[]>([{ id: 'p1', activeId: 't2' }])
+	let focused = $state(0)      // which pane new tabs / sidebar actions target
+	let splitFrac = $state(0.5)  // pane 0 width fraction when split
+	let paneSeq = 1
+	let active = $derived(tabs.find(t => t.id === panes[focused]?.activeId) ?? null)
+
+	function openTab(id: string, pane = focused) { if (panes[pane]) { panes[pane].activeId = id; focused = pane } }
 	function addTab(kind: Kind = 'plan', title?: string) {
 		const id = 't' + ++seq
 		tabs = [...tabs, { id, title: title ?? `Untitled ${seq}`, kind, dirty: false }]
-		activeId = id
+		if (panes[focused]) panes[focused].activeId = id
 	}
 	function closeTab(id: string, e?: Event) {
 		e?.stopPropagation()
 		const i = tabs.findIndex(t => t.id === id); if (i < 0) return
 		tabs = tabs.filter(t => t.id !== id)
-		if (!tabs.length) { addTab() ; return }
-		if (activeId === id) activeId = tabs[Math.max(0, i - 1)].id
+		if (!tabs.length) { addTab(); return }
+		const fallback = tabs[Math.max(0, i - 1)].id
+		for (const p of panes) if (p.activeId === id) p.activeId = fallback
+	}
+	// Vertical split: open a second pane showing a different tab; toggle focus if already split.
+	function splitVertical() {
+		if (panes.length >= 2) { focused = 1; return }
+		const cur = panes[0].activeId
+		const other = tabs.find(t => t.id !== cur)?.id ?? cur
+		panes = [...panes, { id: 'p' + ++paneSeq, activeId: other }]
+		focused = 1; splitFrac = 0.5
+	}
+	function closePane(idx: number) {
+		if (panes.length < 2) return
+		panes = panes.filter((_, i) => i !== idx)
+		focused = 0
+	}
+	function startSplitDrag(e: PointerEvent) {
+		e.preventDefault()
+		const area = (e.currentTarget as HTMLElement).parentElement!.getBoundingClientRect()
+		const move = (ev: PointerEvent) => { splitFrac = Math.min(0.8, Math.max(0.2, (ev.clientX - area.left) / area.width)) }
+		const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up) }
+		window.addEventListener('pointermove', move); window.addEventListener('pointerup', up)
 	}
 
 	// Sidebars
@@ -45,7 +73,7 @@
 	const MENUS: Record<string, string[]> = {
 		File: ['New Page', 'Open…', '—', 'Save', 'Export…', '—', 'Print…'],
 		Edit: ['Undo', 'Redo', '—', 'Cut', 'Copy', 'Paste', '—', 'Delete'],
-		View: ['Zoom In', 'Zoom Out', 'Fit', '—', 'Toggle Left Panel', 'Toggle Right Panel'],
+		View: ['Zoom In', 'Zoom Out', 'Fit', '—', 'Split Editor', 'Unsplit', '—', 'Toggle Left Panel', 'Toggle Right Panel'],
 		Insert: ['Outlet', 'Trunk', 'Rack', '—', 'Text', 'Dimension'],
 	}
 	function menuAction(item: string) {
@@ -56,6 +84,8 @@
 		else if (item === 'Fit') zoom = 100
 		else if (item === 'Zoom In') zoom = Math.min(800, zoom + 25)
 		else if (item === 'Zoom Out') zoom = Math.max(10, zoom - 25)
+		else if (item === 'Split Editor') splitVertical()
+		else if (item === 'Unsplit') closePane(1)
 		// everything else is a mock no-op
 	}
 
@@ -142,24 +172,7 @@
 		{/each}
 	</nav>
 
-	<!-- Canvas tabs -->
-	<div class="tabbar">
-		<div class="tabs">
-			{#each tabs as t (t.id)}
-				<div class="tab" class:active={t.id === activeId} onclick={() => openTab(t.id)}
-					role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter') openTab(t.id) }}>
-					<Icon name={kindIcon[t.kind]} size={12} />
-					<span class="tab-name">{t.title}</span>
-					{#if t.dirty}<span class="dirty">•</span>{/if}
-					<button class="tab-x" title="Close" onclick={(e) => closeTab(t.id, e)}><Icon name="close" size={11} /></button>
-				</div>
-			{/each}
-			<button class="tab-add" title="New page" onclick={() => addTab()}><Icon name="plus" size={13} /></button>
-		</div>
-		<div class="tabbar-right">{active?.kind ?? ''}</div>
-	</div>
-
-	<!-- Body: left · canvas · right -->
+	<!-- Body: left · editor-area (1–2 panes) · right -->
 	<div class="body">
 
 		<!-- Left sidebar -->
@@ -185,7 +198,7 @@
 					{:else}
 						<div class="grp-label">Open</div>
 						{#each tabs as t (t.id)}
-							<button class="page-row" class:active={t.id === activeId} onclick={() => openTab(t.id)}>
+							<button class="page-row" class:active={t.id === panes[focused]?.activeId} onclick={() => openTab(t.id)}>
 								<Icon name={kindIcon[t.kind]} size={13} /><span class="grow txt">{t.title}</span>
 							</button>
 						{/each}
@@ -206,30 +219,69 @@
 			</button>
 		{/if}
 
-		<!-- Canvas -->
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<main class="canvas" onpointermove={onCanvasMove}>
-			<div class="floattools glass-bar">
-				{#each TOOLS as t (t.name)}
-					<button class="tool" class:on={tool === t.name} title={t.name} onclick={() => (tool = t.name)}><Icon name={t.icon} size={16} /></button>
-				{/each}
-			</div>
-			<div class="canvas-center">
-				{#if active}
-					<Icon name={kindIcon[active.kind]} size={40} />
-					<div class="cc-title">{active.title}</div>
-					<div class="cc-sub">{active.kind} canvas · {tool} tool · layer “{activeLayer}”</div>
-				{:else}
-					<div class="cc-sub">No page open</div>
+		<!-- Editor area: one pane, or two split vertically -->
+		<div class="editor-area" class:split={panes.length === 2}>
+			{#each panes as p, pi (p.id)}
+				{@const a = tabs.find(t => t.id === p.activeId) ?? null}
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<section class="pane" class:focused={focused === pi}
+					style:flex={panes.length === 1 ? '1 1 0' : `${pi === 0 ? splitFrac : 1 - splitFrac} 1 0`}
+					onpointerdown={() => (focused = pi)}>
+
+					<!-- this pane's tab strip -->
+					<div class="tabbar">
+						<div class="tabs">
+							{#each tabs as t (t.id)}
+								<div class="tab" class:active={t.id === p.activeId} onclick={() => openTab(t.id, pi)}
+									role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter') openTab(t.id, pi) }}>
+									<Icon name={kindIcon[t.kind]} size={12} />
+									<span class="tab-name">{t.title}</span>
+									{#if t.dirty}<span class="dirty">•</span>{/if}
+									<button class="tab-x" title="Close" onclick={(e) => closeTab(t.id, e)}><Icon name="close" size={11} /></button>
+								</div>
+							{/each}
+							<button class="tab-add" title="New page" onclick={() => { focused = pi; addTab() }}><Icon name="plus" size={13} /></button>
+						</div>
+						<div class="tabbar-right">
+							{#if panes.length === 1}
+								<button class="strip-btn" title="Split editor right" onclick={splitVertical}><Icon name="panels" size={14} /></button>
+							{:else}
+								<button class="strip-btn" title="Close this split" onclick={() => closePane(pi)}><Icon name="close" size={14} /></button>
+							{/if}
+						</div>
+					</div>
+
+					<!-- this pane's canvas -->
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<main class="canvas" onpointermove={onCanvasMove}>
+						<div class="floattools glass-bar">
+							{#each TOOLS as t (t.name)}
+								<button class="tool" class:on={tool === t.name} title={t.name} onclick={() => (tool = t.name)}><Icon name={t.icon} size={16} /></button>
+							{/each}
+						</div>
+						<div class="canvas-center">
+							{#if a}
+								<Icon name={kindIcon[a.kind]} size={40} />
+								<div class="cc-title">{a.title}</div>
+								<div class="cc-sub">{a.kind} canvas · {tool} tool · layer “{activeLayer}”</div>
+							{:else}
+								<div class="cc-sub">No page open</div>
+							{/if}
+						</div>
+						<div class="navtools glass-bar">
+							<button class="tool" title="Zoom in" onclick={() => (zoom = Math.min(800, zoom + 25))}><Icon name="zoomin" size={16} /></button>
+							<button class="tool" title="Zoom out" onclick={() => (zoom = Math.max(10, zoom - 25))}><Icon name="zoomout" size={16} /></button>
+							<button class="tool" title="Fit" onclick={() => (zoom = 100)}><Icon name="fit" size={16} /></button>
+							<button class="tool" title="Pan"><Icon name="pan" size={16} /></button>
+						</div>
+					</main>
+				</section>
+				{#if panes.length === 2 && pi === 0}
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div class="vsplitter" title="Drag to resize" onpointerdown={startSplitDrag}></div>
 				{/if}
-			</div>
-			<div class="navtools glass-bar">
-				<button class="tool" title="Zoom in" onclick={() => (zoom = Math.min(800, zoom + 25))}><Icon name="zoomin" size={16} /></button>
-				<button class="tool" title="Zoom out" onclick={() => (zoom = Math.max(10, zoom - 25))}><Icon name="zoomout" size={16} /></button>
-				<button class="tool" title="Fit" onclick={() => (zoom = 100)}><Icon name="fit" size={16} /></button>
-				<button class="tool" title="Pan"><Icon name="pan" size={16} /></button>
-			</div>
-		</main>
+			{/each}
+		</div>
 
 		<!-- Right sidebar -->
 		{#if rightOpen}
@@ -332,19 +384,29 @@
 		background:var(--tabbar); border-bottom:1px solid var(--line); padding:0 6px; }
 	.tabs { display:flex; align-items:stretch; gap:2px; height:100%; overflow-x:auto; }
 	.tab { position:relative; display:flex; align-items:center; gap:6px; padding:0 8px 0 10px; height:100%;
-		border:none; background:none; color:var(--muted); border-top:2px solid transparent; white-space:nowrap; }
+		border:none; background:none; color:var(--muted); border-top:2px solid transparent; white-space:nowrap;
+		cursor:pointer; user-select:none; }
 	.tab:hover { background:var(--hover); color:var(--text); }
 	.tab.active { color:var(--text); background:var(--bg); border-top-color:var(--accent); }
 	.tab-name { font-size:12px; }
 	.dirty { color:var(--accent); font-size:14px; line-height:0; }
 	.tab-x { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:3px; color:var(--faint); background:none; border:none; }
 	.tab-x:hover { background:var(--line); color:var(--text); }
-	.tab-add { display:inline-flex; align-items:center; justify-content:center; width:26px; height:24px; border-radius:4px; color:var(--muted); background:none; border:none; }
+	.tab-add { flex:0 0 auto; align-self:center; display:inline-flex; align-items:center; justify-content:center; width:26px; height:24px; border-radius:4px; color:var(--muted); background:none; border:none; }
 	.tab-add:hover { background:var(--hover); color:var(--text); }
-	.tabbar-right { font-family:Consolas,monospace; font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--faint); }
+	.tabbar-right { display:flex; align-items:center; padding-right:2px; }
+	.strip-btn { display:inline-flex; align-items:center; justify-content:center; width:26px; height:24px; border-radius:4px; color:var(--muted); background:none; border:none; }
+	.strip-btn:hover { background:var(--hover); color:var(--text); }
 
 	/* Body */
 	.body { flex:1 1 auto; display:flex; min-height:0; }
+
+	/* Editor area — 1 pane, or 2 split vertically with a draggable divider */
+	.editor-area { flex:1 1 auto; display:flex; min-width:0; }
+	.pane { display:flex; flex-direction:column; min-width:0; min-height:0; }
+	.editor-area.split .pane.focused .tabbar { box-shadow:inset 0 2px 0 var(--accent); }
+	.vsplitter { flex:0 0 auto; width:5px; cursor:col-resize; background:var(--line); }
+	.vsplitter:hover { background:var(--accent-dim); }
 
 	/* Sidebars */
 	.side { flex:0 0 auto; display:flex; flex-direction:column; background:var(--panel); min-height:0; }
@@ -379,7 +441,7 @@
 	.rail:hover { background:var(--hover); color:var(--text); }
 
 	/* Canvas */
-	.canvas { position:relative; flex:1 1 auto; min-width:0; background:var(--canvas);
+	.canvas { position:relative; flex:1 1 auto; min-width:0; min-height:0; background:var(--canvas);
 		background-image:radial-gradient(var(--line) 1px, transparent 1px); background-size:22px 22px;
 		display:flex; align-items:center; justify-content:center; overflow:hidden; }
 	.canvas-center { display:flex; flex-direction:column; align-items:center; gap:8px; color:var(--faint); pointer-events:none; }
