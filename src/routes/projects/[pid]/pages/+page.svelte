@@ -6,6 +6,7 @@
 	// with Kestrel's own tokens scoped to .shell, so it looks like Kestrel in
 	// both light/dark regardless of the app theme (toggle in its titlebar).
 	import { Icon } from '$lib'
+	import { flushSync } from 'svelte'
 	import { page } from '$app/state'
 	import PaperPage from './parts/PaperPage.svelte'
 	import Viewport from './ui/Viewport.svelte'
@@ -196,6 +197,7 @@
 		else if (item === 'Zoom Out') navZoom(0.8)
 		else if (item === 'Split Editor') splitVertical()
 		else if (item === 'Unsplit') closePane(1)
+		else if (item === 'Print…') window.print()
 		// everything else is a mock no-op
 	}
 
@@ -263,6 +265,47 @@
 		if (activeVpPane === focused) setView(p.activeId, { zoom: 1, x: 0, y: 0 })
 		else p.canvasView = { zoom: 1, x: 0, y: 0 }
 	}
+
+	// ── Print (EOS sheets method) — on Ctrl+P / window.print(), inject an @page-sized
+	// stylesheet that shows ONLY the focused sheet's A3 paper (via visibility), hides
+	// all UI (chrome, tool bars, the viewport tag/badge/frame) and the selection
+	// highlight, then removes it after. Native Ctrl+P fires beforeprint.
+	let savedSel: Record<string, string[]> | null = null
+	const PRINT_ID = 'pages-print-style'
+	function applyPrint() {
+		savedSel = { ...docSel }
+		docSel = {}   // selection is screen-only; clear so no highlight prints
+		const target = document.querySelector('.pane.focused .paper')
+			?? document.querySelector('.pane.focused .vp-fill')
+			?? document.querySelector('.pane.focused .vp')
+		target?.classList.add('print-target')
+		let style = document.getElementById(PRINT_ID) as HTMLStyleElement | null
+		if (!style) { style = document.createElement('style'); style.id = PRINT_ID; document.head.appendChild(style) }
+		// Named size (A3 landscape), not raw mm — Chrome's print-preview paper selector
+		// honors a named page size reliably and defaults to it; raw dimensions often fall
+		// back to the system default (Letter). 420mm×297mm IS A3 landscape.
+		style.textContent = `@page { size: A3 landscape; margin: 0; }
+@media print {
+	html, body { margin:0 !important; padding:0 !important; background:#fff !important; }
+	.canvas-content { transform: none !important; }   /* so fixed positions to the page, not a transformed ancestor */
+	body * { visibility: hidden !important; }
+	.print-target, .print-target * { visibility: visible !important; }
+	.print-target { position: fixed !important; inset: 0 !important; width: 420mm !important; height: 297mm !important; margin: 0 !important; box-shadow: none !important; background:#fff !important; }
+	.print-target .vp { border: none !important; box-shadow: none !important; }
+	.print-target .vp-tag, .print-target .vp-badge { display: none !important; }
+}`
+		flushSync()   // apply the cleared selection to the DOM before the print snapshot
+	}
+	function removePrint() {
+		document.querySelectorAll('.print-target').forEach(el => el.classList.remove('print-target'))
+		document.getElementById(PRINT_ID)?.remove()
+		if (savedSel) { docSel = savedSel; savedSel = null }
+	}
+	$effect(() => {
+		window.addEventListener('beforeprint', applyPrint)
+		window.addEventListener('afterprint', removePrint)
+		return () => { window.removeEventListener('beforeprint', applyPrint); window.removeEventListener('afterprint', removePrint); removePrint() }
+	})
 
 	// Status bar
 	let layout = $state<'model' | 'sheet'>('model')
