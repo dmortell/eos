@@ -412,7 +412,10 @@
 		border:none; background:none; color:var(--muted); border-top:2px solid transparent; white-space:nowrap;
 		cursor:pointer; user-select:none; }
 	.tab:hover { background:var(--hover); color:var(--text); }
-	.tab.active { color:var(--text); background:var(--bg); border-top-color:var(--accent); }
+	.tab.active { color:var(--text); background:var(--bg); border-top-color:var(--accent-dim); }
+	/* The active tab's accent reads bright in the focused pane, dimmed in the other —
+	   so focus shows through the tab indicator itself (no strip-wide bar over it). */
+	.pane.focused .tab.active { border-top-color:var(--accent); }
 	.tab-name { font-size:12px; }
 	.dirty { color:var(--accent); font-size:14px; line-height:0; }
 	.tab-x { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:3px; color:var(--faint); background:none; border:none; }
@@ -433,7 +436,6 @@
 	/* Editor area — 1 pane, or 2 split vertically with a draggable divider */
 	.editor-area { flex:1 1 auto; display:flex; min-width:0; }
 	.pane { display:flex; flex-direction:column; min-width:0; min-height:0; }
-	.editor-area.split .pane.focused .tabbar { box-shadow:inset 0 2px 0 var(--accent); }
 	.vsplitter { flex:0 0 auto; width:5px; cursor:col-resize; background:var(--line); }
 	.vsplitter:hover { background:var(--accent-dim); }
 
