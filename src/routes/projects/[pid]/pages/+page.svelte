@@ -7,6 +7,12 @@
 	// both light/dark regardless of the app theme (toggle in its titlebar).
 	import { Icon } from '$lib'
 	import { page } from '$app/state'
+	import PaperPage from './parts/PaperPage.svelte'
+	import Viewport from './ui/Viewport.svelte'
+
+	// Which pane (if any) has its viewport activated — groundwork for editing/CAD
+	// tools inside a sheet's viewport. Null = no active viewport.
+	let activeVpPane = $state<number | null>(null)
 
 	// Mock Transform inspector (3-across X/Y/Z fields) — styled with the shell tokens.
 	const AXES = ['X', 'Y', 'Z']
@@ -382,20 +388,24 @@
 					<!-- this pane's canvas -->
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<main class="canvas" onpointermove={onCanvasMove}>
-						<div class="floattools glass-bar">
+						<div class="floattools glass-bar" class:dim={a && activeVpPane !== pi}>
 							{#each TOOLS as t (t.name)}
 								<button class="tool" class:on={tool === t.name} title={t.name} onclick={() => (tool = t.name)}><Icon name={t.icon} size={16} /></button>
 							{/each}
 						</div>
-						<div class="canvas-center">
-							{#if a}
-								<Icon name={kindIcon[a.kind]} size={40} />
-								<div class="cc-title">{a.title}</div>
-								<div class="cc-sub">{a.kind} canvas · {tool} tool · layer “{activeLayer}”</div>
-							{:else}
-								<div class="cc-sub">No page open</div>
-							{/if}
-						</div>
+						{#if a?.kind === 'sheet'}
+							<PaperPage title={a.title} zoom={zoom} active={activeVpPane === pi}
+								onactivate={() => (activeVpPane = pi)}
+								ondeactivate={() => { if (activeVpPane === pi) activeVpPane = null }} />
+						{:else if a}
+							<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+							<div class="vp-fill" onclick={() => { if (activeVpPane === pi) activeVpPane = null }}>
+								<Viewport kind={a.kind === 'elevation' ? 'model' : 'floorplan'} label={a.title}
+									active={activeVpPane === pi} onactivate={() => (activeVpPane = pi)} />
+							</div>
+						{:else}
+							<div class="canvas-center"><div class="cc-sub">No page open</div></div>
+						{/if}
 						<div class="navtools glass-bar">
 							<button class="tool" title="Zoom in" onclick={() => (zoom = Math.min(800, zoom + 25))}><Icon name="zoomin" size={16} /></button>
 							<button class="tool" title="Zoom out" onclick={() => (zoom = Math.max(10, zoom - 25))}><Icon name="zoomout" size={16} /></button>
@@ -642,7 +652,10 @@
 	.glass-bar { position:absolute; display:flex; gap:2px; padding:4px; border-radius:8px;
 		background:color-mix(in srgb, var(--panel) 82%, transparent); border:1px solid var(--line-soft);
 		backdrop-filter:blur(9px); -webkit-backdrop-filter:blur(9px); box-shadow:0 8px 30px #0004; }
-	.floattools { top:12px; left:12px; flex-direction:column; }
+	.vp-fill { position:absolute; inset:0; padding:14px; }
+	.floattools { top:12px; left:12px; flex-direction:column; transition:opacity .15s; }
+	.floattools.dim { opacity:.4; }
+	.floattools.dim:hover { opacity:.85; }
 	.navtools { bottom:12px; right:12px; flex-direction:column; }
 	.tool { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; color:var(--muted); background:none; border:none; }
 	.tool:hover { background:var(--hover); color:var(--text); }
