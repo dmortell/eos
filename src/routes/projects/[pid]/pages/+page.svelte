@@ -81,44 +81,76 @@
 	// Sidebars
 	let leftOpen = $state(true)
 	let rightOpen = $state(true)
-	let leftTab = $state<'pages' | 'layers' | 'tree'>('layers')
+	let leftTab = $state<'pages' | 'layers' | 'tree'>('tree')
 
-	// Project navigator tree (mock) — Project › Buildings › Floors › Rooms › Rows
+	// Project navigator tree (mock) — Project › Building › Floor › Zone/Office › Room › Row
 	type TreeNode = { id: string; label: string; kind: string; children?: TreeNode[] }
 	const projectTree: TreeNode[] = [
-		{ id: 'proj', label: 'Hibiya', kind: 'project', children: [
-			{ id: 'b-a', label: 'Tower A', kind: 'building', children: [
+		{ id: 'proj', label: 'Project Journey', kind: 'project', children: [
+			{ id: 'b-a', label: 'Hibiya Midtown', kind: 'building', children: [
 				{ id: 'f33', label: '33F', kind: 'floor', children: [
-					{ id: 'r3303', label: 'Room 3303', kind: 'room', children: [
-						{ id: 'r3303-a', label: 'Row A', kind: 'row' },
-						{ id: 'r3303-b', label: 'Row B', kind: 'row' },
+					{ id: 'r3303', label: 'Zone 3303', kind: 'zone', children: [
+						{ id: 'r3303-a', label: 'IDF1', kind: 'room', children: [
+							{ id: 'r3303-a1', label: 'Row A', kind: 'row' },
+							{ id: 'r3303-b1', label: 'Row B', kind: 'row' },
+						] },
+						{ id: 'r3303-b', label: 'IDF2', kind: 'room', children: [
+							{ id: 'r3303-b-a', label: 'Row A', kind: 'row' },
+							{ id: 'r3303-b-b', label: 'Row B', kind: 'row' },
+						] },
 					] },
-					{ id: 'r3307', label: 'Room 3307', kind: 'room', children: [
-						{ id: 'r3307-a', label: 'Row A', kind: 'row' },
+					{ id: 'r3307', label: 'Zone 3307', kind: 'zone', children: [
+						{ id: 'r3307-a', label: 'IDF1', kind: 'room', children: [
+							{ id: 'r3307-a1', label: 'Row A', kind: 'row' },
+						] },
 					] },
 				] },
 				{ id: 'f30', label: '30F', kind: 'floor', children: [
-					{ id: 'r3001', label: 'Room 3001', kind: 'room', children: [
+					{ id: 'r3001', label: 'Zone 3001', kind: 'zone', children: [
 						{ id: 'r3001-a', label: 'Row A', kind: 'row' },
 					] },
 				] },
 			] },
-			{ id: 'b-b', label: 'Tower B', kind: 'building', children: [
-				{ id: 'f12', label: '12F', kind: 'floor', children: [
-					{ id: 'r1201', label: 'Room 1201', kind: 'room', children: [
+			{ id: 'b-b', label: 'Shinmaru', kind: 'building', children: [
+				{ id: 'f12', label: '18F', kind: 'floor', children: [
+					{ id: 'r1201', label: 'Office 1201', kind: 'zone', children: [
 						{ id: 'r1201-a', label: 'Row A', kind: 'row' },
 					] },
 				] },
 			] },
 		] },
 	]
-	const treeIcon: Record<string, string> = { project: 'folderOpen', building: 'home', floor: 'layers', room: 'server', row: 'rows' }
+	// Distinct icon per hierarchy level (project / building / floor / zone / room / row)
+	const treeIcon: Record<string, string> = { project: 'folderOpen', building: 'home', floor: 'layers', zone: 'crop', room: 'server', row: 'rows' }
 	let expanded = $state(new Set<string>(['proj', 'b-a', 'f33']))
 	let selectedNode = $state<string | null>('r3303')
 	function toggleExpand(id: string) {
 		const s = new Set(expanded)
 		s.has(id) ? s.delete(id) : s.add(id)
 		expanded = s
+	}
+	// Find a node by id (for the right-panel inspector) + mock per-kind properties.
+	function findNode(nodes: TreeNode[], id: string | null): TreeNode | null {
+		if (!id) return null
+		for (const n of nodes) {
+			if (n.id === id) return n
+			if (n.children) { const f = findNode(n.children, id); if (f) return f }
+		}
+		return null
+	}
+	let selNode = $derived(findNode(projectTree, selectedNode))
+	const kindLabel: Record<string, string> = { project: 'Project', building: 'Building', floor: 'Floor', zone: 'Zone / Office', room: 'Room', row: 'Row' }
+	function propsFor(node: TreeNode): { fields: [string, string, boolean?][]; add: string | null } {
+		const n = node.label
+		switch (node.kind) {
+			case 'project': return { fields: [['Name', n], ['Client', 'Journey Inc.'], ['Address', '1-1 Hibiya, Tokyo'], ['Buildings', '2', true], ['Floors', '3', true]], add: 'Add building' }
+			case 'building': return { fields: [['Name', n], ['Address', '—'], ['Floors', '2', true]], add: 'Add floor' }
+			case 'floor': return { fields: [['Name', n], ['Level', '33'], ['Elevation (mm)', '132000'], ['Zones', '2', true]], add: 'Add zone' }
+			case 'zone': return { fields: [['Name', n], ['Type', 'Office'], ['Area (m²)', '420'], ['Rooms', '2', true]], add: 'Add room' }
+			case 'room': return { fields: [['Name', n], ['Type', 'IDF'], ['Racks', '4', true], ['Rows', '2', true]], add: 'Add row' }
+			case 'row': return { fields: [['Name', n], ['Racks', '6', true], ['Position', 'A-01']], add: null }
+			default: return { fields: [['Name', n]], add: null }
+		}
 	}
 
 	// Menubar
@@ -193,8 +225,8 @@
 	<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 	<div class="tree-row" class:sel={selectedNode === node.id} style:padding-left="{depth * 11 + 6}px"
 		role="treeitem" tabindex="0"
-		onclick={() => { selectedNode = node.id; if (kids.length) toggleExpand(node.id) }}
-		onkeydown={(e) => { if (e.key === 'Enter') { selectedNode = node.id; if (kids.length) toggleExpand(node.id) } }}>
+		onclick={() => (selectedNode = node.id)}
+		onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectedNode = node.id } }}>
 		{#if kids.length}
 			<button class="tw-chev" tabindex="-1" aria-label={isExp ? 'Collapse' : 'Expand'} onclick={(e) => { e.stopPropagation(); toggleExpand(node.id) }}>
 				<Icon name={isExp ? 'chevronDown' : 'chevronRight'} size={12} />
@@ -387,6 +419,23 @@
 					<div class="side-title">Properties</div>
 				</div>
 				<div class="side-body">
+					{#if leftTab === 'tree' && selNode}
+						{@const cfg = propsFor(selNode)}
+						<div class="node-head">
+							<span class="node-ic"><Icon name={treeIcon[selNode.kind] ?? 'folder'} size={16} /></span>
+							<div class="node-hd-txt">
+								<input class="node-name" value={selNode.label} />
+								<div class="node-kind">{kindLabel[selNode.kind] ?? selNode.kind}</div>
+							</div>
+						</div>
+						<div class="prop-sec">PROPERTIES</div>
+						{#each cfg.fields as f (f[0])}
+							<div class="prop"><span>{f[0]}</span><input value={f[1]} readonly={!!f[2]} /></div>
+						{/each}
+						{#if cfg.add}
+							<button class="node-add"><Icon name="plus" size={13} /> {cfg.add}</button>
+						{/if}
+					{:else}
 					<!-- Transform (3-across X/Y/Z), matched to the sidebar style -->
 					<div class="prop-sec xf-head">Transform<span class="xf-badge">LOCAL</span></div>
 					{#each [['Position', 'position', 0.05], ['Rotation · degrees', 'rotation', 1], ['Scale', 'scale', 0.05]] as [label, key, step] (key)}
@@ -413,7 +462,7 @@
 					<div class="prop-sec">STYLE</div>
 					<div class="prop"><span>Color</span><input value="ByLayer" readonly /></div>
 					<div class="prop"><span>Line</span><input value="0.25 mm" /></div>
-
+					{/if}
 				</div>
 			</aside>
 		{:else}
@@ -548,7 +597,11 @@
 	.side-title { flex:1; font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
 	.side-collapse { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:4px; color:var(--muted); background:none; border:none; }
 	.side-collapse:hover { background:var(--hover); color:var(--text); }
-	.side-body { flex:1; overflow-y:auto; padding:5px; }
+	.side-body { flex:1; overflow-y:auto; padding:5px; scrollbar-width:thin; scrollbar-color:var(--line) transparent; }
+	.side-body::-webkit-scrollbar { width:9px; }
+	.side-body::-webkit-scrollbar-track { background:transparent; }
+	.side-body::-webkit-scrollbar-thumb { background:var(--line); border-radius:6px; border:3px solid transparent; background-clip:padding-box; }
+	.side-body:hover::-webkit-scrollbar-thumb { background:var(--faint); background-clip:padding-box; }
 	.side-foot { flex:0 0 auto; padding:5px 8px; font-size:10px; color:var(--faint); border-top:1px solid var(--line-soft); background:linear-gradient(145deg,var(--panel2),var(--panel)); }
 
 	.grow { flex:1; } .txt { text-align:left; background:none; border:none; color:inherit; font-size:12px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -602,6 +655,18 @@
 	.prop input { background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:3px 6px; font-size:11px; font-family:Consolas,monospace; min-width:0; }
 	.prop input:read-only { color:var(--muted); }
 	.prop input:focus { outline:none; border-color:var(--accent); }
+
+	/* Tree-node inspector header + add-child button */
+	.node-head { display:flex; align-items:center; gap:9px; padding:10px 4px 8px; }
+	.node-ic { display:flex; align-items:center; justify-content:center; width:30px; height:30px; flex:0 0 auto;
+		border-radius:6px; color:var(--accent); background:var(--active); border:1px solid var(--accent-dim); }
+	.node-hd-txt { min-width:0; }
+	.node-name { width:100%; background:none; border:none; padding:0; color:var(--text); font-size:13px; font-weight:600; }
+	.node-name:focus { outline:none; }
+	.node-kind { font-size:9px; text-transform:uppercase; letter-spacing:.08em; color:var(--faint); margin-top:2px; }
+	.node-add { display:flex; align-items:center; justify-content:center; gap:6px; width:calc(100% - 8px); margin:11px 4px 4px;
+		padding:7px; font-size:11px; border-radius:4px; color:var(--text); background:var(--panel2); border:1px dashed var(--line); }
+	.node-add:hover { background:var(--hover); border-style:solid; border-color:var(--accent-dim); }
 
 	/* Transform inspector — 3-across X/Y/Z, sidebar-token styled */
 	.xf-head { display:flex; align-items:center; justify-content:space-between; }
