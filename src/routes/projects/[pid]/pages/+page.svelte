@@ -7,6 +7,7 @@
 	// both light/dark regardless of the app theme (toggle in its titlebar).
 	import { Icon } from '$lib'
 	import { page } from '$app/state'
+	import Test from './test.svelte'  // preview: 3-across X/Y/Z inputs
 
 	// Canvas documents — the B1 "each tab owns its own view state" pattern (mock).
 	type Kind = 'plan' | 'sheet' | 'elevation'
@@ -314,6 +315,7 @@
 					<div class="side-title">Properties</div>
 				</div>
 				<div class="side-body">
+					<Test />
 					<div class="prop-sec">GENERAL</div>
 					<div class="prop"><span>Name</span><input value={active?.title ?? ''} /></div>
 					<div class="prop"><span>Type</span><input value={active?.kind ?? ''} readonly /></div>
@@ -326,6 +328,7 @@
 					<div class="prop-sec">STYLE</div>
 					<div class="prop"><span>Color</span><input value="ByLayer" readonly /></div>
 					<div class="prop"><span>Line</span><input value="0.25 mm" /></div>
+
 				</div>
 			</aside>
 		{:else}
