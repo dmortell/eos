@@ -63,6 +63,13 @@
 		window.addEventListener('pointermove', move); window.addEventListener('pointerup', up)
 	}
 
+	// Overflow "all pages" dropdown on the tab strip — reaches tabs scrolled off-screen.
+	let tabMenuPane = $state<number | null>(null)
+	function pickFromMenu(id: string, pane: number) {
+		openTab(id, pane); tabMenuPane = null
+		setTimeout(() => document.querySelectorAll('.pane')[pane]?.querySelector('.tab.active')?.scrollIntoView({ inline: 'nearest', block: 'nearest' }), 0)
+	}
+
 	// Sidebars
 	let leftOpen = $state(true)
 	let rightOpen = $state(true)
@@ -135,6 +142,7 @@
 
 <div class="shell" data-mock-theme={mockTheme}>
 	{#if openMenu}<button class="menu-backdrop" aria-label="Close menu" onclick={() => (openMenu = null)}></button>{/if}
+	{#if tabMenuPane !== null}<button class="menu-backdrop" aria-label="Close menu" onclick={() => (tabMenuPane = null)}></button>{/if}
 
 	<!-- Titlebar -->
 	<header class="titlebar">
@@ -230,7 +238,8 @@
 
 					<!-- this pane's tab strip -->
 					<div class="tabbar">
-						<div class="tabs">
+						<!-- svelte-ignore a11y_no_static_element_interactions -->
+						<div class="tabs" onwheel={(e) => { if (e.deltaY) { e.currentTarget.scrollLeft += e.deltaY; e.preventDefault() } }}>
 							{#each tabs as t (t.id)}
 								<div class="tab" class:active={t.id === p.activeId} onclick={() => openTab(t.id, pi)}
 									role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter') openTab(t.id, pi) }}>
@@ -240,13 +249,27 @@
 									<button class="tab-x" title="Close" onclick={(e) => closeTab(t.id, e)}><Icon name="close" size={11} /></button>
 								</div>
 							{/each}
-							<button class="tab-add" title="New page" onclick={() => { focused = pi; addTab() }}><Icon name="plus" size={13} /></button>
 						</div>
 						<div class="tabbar-right">
+							<button class="strip-btn" title="New page" onclick={() => { focused = pi; addTab() }}><Icon name="plus" size={14} /></button>
+							<button class="strip-btn" title="All pages" onclick={(e) => { e.stopPropagation(); focused = pi; tabMenuPane = tabMenuPane === pi ? null : pi }}><Icon name="chevronDown" size={14} /></button>
 							{#if panes.length === 1}
 								<button class="strip-btn" title="Split editor right" onclick={splitVertical}><Icon name="panels" size={14} /></button>
 							{:else}
 								<button class="strip-btn" title="Close this split" onclick={() => closePane(pi)}><Icon name="close" size={14} /></button>
+							{/if}
+							{#if tabMenuPane === pi}
+								<div class="tab-menu">
+									{#each tabs as t (t.id)}
+										<button class="tab-menu-item" class:on={t.id === p.activeId} onclick={() => pickFromMenu(t.id, pi)}>
+											<Icon name={kindIcon[t.kind]} size={13} /><span class="grow txt">{t.title}</span>{#if t.dirty}<span class="dirty">•</span>{/if}
+										</button>
+									{/each}
+									<div class="tab-menu-sep"></div>
+									<button class="tab-menu-item" onclick={() => { tabMenuPane = null; focused = pi; addTab() }}>
+										<Icon name="plus" size={13} /><span class="grow txt">New page</span>
+									</button>
+								</div>
 							{/if}
 						</div>
 					</div>
@@ -382,7 +405,9 @@
 	/* Tab bar */
 	.tabbar { height:34px; flex:0 0 auto; display:flex; align-items:center; justify-content:space-between;
 		background:var(--tabbar); border-bottom:1px solid var(--line); padding:0 6px; }
-	.tabs { display:flex; align-items:stretch; gap:2px; height:100%; overflow-x:auto; }
+	.tabs { flex:1 1 auto; min-width:0; display:flex; align-items:stretch; gap:2px; height:100%;
+		overflow-x:auto; scrollbar-width:none; -ms-overflow-style:none; }
+	.tabs::-webkit-scrollbar { display:none; }
 	.tab { position:relative; display:flex; align-items:center; gap:6px; padding:0 8px 0 10px; height:100%;
 		border:none; background:none; color:var(--muted); border-top:2px solid transparent; white-space:nowrap;
 		cursor:pointer; user-select:none; }
@@ -392,11 +417,15 @@
 	.dirty { color:var(--accent); font-size:14px; line-height:0; }
 	.tab-x { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:3px; color:var(--faint); background:none; border:none; }
 	.tab-x:hover { background:var(--line); color:var(--text); }
-	.tab-add { flex:0 0 auto; align-self:center; display:inline-flex; align-items:center; justify-content:center; width:26px; height:24px; border-radius:4px; color:var(--muted); background:none; border:none; }
-	.tab-add:hover { background:var(--hover); color:var(--text); }
-	.tabbar-right { display:flex; align-items:center; padding-right:2px; }
+	.tabbar-right { position:relative; z-index:46; flex:0 0 auto; display:flex; align-items:center; gap:1px; padding:0 2px; border-left:1px solid var(--line-soft); }
 	.strip-btn { display:inline-flex; align-items:center; justify-content:center; width:26px; height:24px; border-radius:4px; color:var(--muted); background:none; border:none; }
 	.strip-btn:hover { background:var(--hover); color:var(--text); }
+	.tab-menu { position:absolute; top:100%; right:0; z-index:50; margin-top:2px; min-width:190px; max-height:60vh; overflow-y:auto;
+		background:var(--panel); border:1px solid var(--line); border-radius:6px; box-shadow:0 15px 40px #0006; padding:4px; }
+	.tab-menu-item { display:flex; align-items:center; gap:7px; width:100%; padding:5px 8px; border-radius:4px; color:var(--text); background:none; border:none; font-size:12px; text-align:left; }
+	.tab-menu-item:hover { background:var(--hover); }
+	.tab-menu-item.on { background:var(--active); }
+	.tab-menu-sep { height:1px; background:var(--line-soft); margin:4px 6px; }
 
 	/* Body */
 	.body { flex:1 1 auto; display:flex; min-height:0; }
