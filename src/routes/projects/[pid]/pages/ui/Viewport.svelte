@@ -84,7 +84,8 @@
 		draft = []
 	}
 	function onMove(e: MouseEvent) { if (active) cur = toLocal(e) }
-	function onCtx(e: MouseEvent) { if (active && draft.length) { e.preventDefault(); draft = [] } }
+	// Note: right-button is reserved for pan/zoom (incl. mid-draw, to reach a far
+	// endpoint), so it must NOT cancel the draft. Esc cancels an in-progress draw.
 	function onKey(e: KeyboardEvent) { if (active && e.key === 'Escape') { draft = []; onselect?.([]) } }
 
 	// hit-test (topmost first)
@@ -125,7 +126,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="vp" class:active role="button" tabindex="0" style:cursor={cursorStyle}
 	use:panzoom={{ enabled: () => active, onpan: onPan, onzoom: onZoom }}
-	onclick={onClick} onpointermove={onMove} oncontextmenu={onCtx}
+	onclick={onClick} onpointermove={onMove}
 	onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onactivate?.() } }}>
 
 	<svg bind:this={svg} class="vp-svg {kind === 'model' || kind === 'elevation' ? 'model' : ''}" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid meet">
