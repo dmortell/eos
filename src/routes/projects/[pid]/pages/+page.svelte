@@ -81,7 +81,45 @@
 	// Sidebars
 	let leftOpen = $state(true)
 	let rightOpen = $state(true)
-	let leftTab = $state<'pages' | 'layers'>('layers')
+	let leftTab = $state<'pages' | 'layers' | 'tree'>('layers')
+
+	// Project navigator tree (mock) — Project › Buildings › Floors › Rooms › Rows
+	type TreeNode = { id: string; label: string; kind: string; children?: TreeNode[] }
+	const projectTree: TreeNode[] = [
+		{ id: 'proj', label: 'Hibiya', kind: 'project', children: [
+			{ id: 'b-a', label: 'Tower A', kind: 'building', children: [
+				{ id: 'f33', label: '33F', kind: 'floor', children: [
+					{ id: 'r3303', label: 'Room 3303', kind: 'room', children: [
+						{ id: 'r3303-a', label: 'Row A', kind: 'row' },
+						{ id: 'r3303-b', label: 'Row B', kind: 'row' },
+					] },
+					{ id: 'r3307', label: 'Room 3307', kind: 'room', children: [
+						{ id: 'r3307-a', label: 'Row A', kind: 'row' },
+					] },
+				] },
+				{ id: 'f30', label: '30F', kind: 'floor', children: [
+					{ id: 'r3001', label: 'Room 3001', kind: 'room', children: [
+						{ id: 'r3001-a', label: 'Row A', kind: 'row' },
+					] },
+				] },
+			] },
+			{ id: 'b-b', label: 'Tower B', kind: 'building', children: [
+				{ id: 'f12', label: '12F', kind: 'floor', children: [
+					{ id: 'r1201', label: 'Room 1201', kind: 'room', children: [
+						{ id: 'r1201-a', label: 'Row A', kind: 'row' },
+					] },
+				] },
+			] },
+		] },
+	]
+	const treeIcon: Record<string, string> = { project: 'folderOpen', building: 'home', floor: 'layers', room: 'server', row: 'rows' }
+	let expanded = $state(new Set<string>(['proj', 'b-a', 'f33']))
+	let selectedNode = $state<string | null>('r3303')
+	function toggleExpand(id: string) {
+		const s = new Set(expanded)
+		s.has(id) ? s.delete(id) : s.add(id)
+		expanded = s
+	}
 
 	// Menubar
 	let openMenu = $state<string | null>(null)
@@ -148,6 +186,30 @@
 
 <svelte:head><title>EOS — Pages (mockup)</title></svelte:head>
 
+<!-- Recursive project-tree row (Project › Building › Floor › Room › Row) -->
+{#snippet treeRow(node: TreeNode, depth: number)}
+	{@const kids = node.children ?? []}
+	{@const isExp = expanded.has(node.id)}
+	<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+	<div class="tree-row" class:sel={selectedNode === node.id} style:padding-left="{depth * 11 + 6}px"
+		role="treeitem" tabindex="0"
+		onclick={() => { selectedNode = node.id; if (kids.length) toggleExpand(node.id) }}
+		onkeydown={(e) => { if (e.key === 'Enter') { selectedNode = node.id; if (kids.length) toggleExpand(node.id) } }}>
+		{#if kids.length}
+			<button class="tw-chev" tabindex="-1" aria-label={isExp ? 'Collapse' : 'Expand'} onclick={(e) => { e.stopPropagation(); toggleExpand(node.id) }}>
+				<Icon name={isExp ? 'chevronDown' : 'chevronRight'} size={12} />
+			</button>
+		{:else}
+			<span class="tw-spacer"></span>
+		{/if}
+		<Icon name={treeIcon[node.kind] ?? 'folder'} size={13} />
+		<span class="grow txt">{node.label}</span>
+	</div>
+	{#if kids.length && isExp}
+		{#each kids as c (c.id)}{@render treeRow(c, depth + 1)}{/each}
+	{/if}
+{/snippet}
+
 <div class="shell" data-mock-theme={mockTheme}>
 	{#if openMenu}<button class="menu-backdrop" aria-label="Close menu" onclick={() => (openMenu = null)}></button>{/if}
 	{#if tabMenuPane !== null}<button class="menu-backdrop" aria-label="Close menu" onclick={() => (tabMenuPane = null)}></button>{/if}
@@ -196,13 +258,16 @@
 			<aside class="side left">
 				<div class="side-head">
 					<div class="side-tabs">
+						<button class:on={leftTab === 'tree'} onclick={() => (leftTab = 'tree')}>Project</button>
 						<button class:on={leftTab === 'layers'} onclick={() => (leftTab = 'layers')}>Layers</button>
 						<button class:on={leftTab === 'pages'} onclick={() => (leftTab = 'pages')}>Pages</button>
 					</div>
 					<button class="side-collapse" title="Collapse" onclick={() => (leftOpen = false)}><Icon name="chevronLeft" size={13} /></button>
 				</div>
 				<div class="side-body">
-					{#if leftTab === 'layers'}
+					{#if leftTab === 'tree'}
+						{#each projectTree as n (n.id)}{@render treeRow(n, 0)}{/each}
+					{:else if leftTab === 'layers'}
 						{#each layers as l (l.name)}
 							<div class="layer-row" class:active={activeLayer === l.name}>
 								<span class="dot" style:background={l.color}></span>
@@ -412,6 +477,16 @@
 		border:1px solid var(--accent-dim); border-radius:3px; padding:1px 5px; }
 	.tb-title { color:var(--text); font-weight:500; }
 
+	/* Light mode: keep the titlebar dark (like EOS's slate-800 header), with
+	   light text for contrast. Status bar deliberately left as the theme default. */
+	.shell[data-mock-theme='light'] .titlebar { background:#1e293b; border-bottom-color:#0f172a; }
+	.shell[data-mock-theme='light'] .titlebar .tb-icon { color:#94a3b8; }
+	.shell[data-mock-theme='light'] .titlebar .tb-icon:hover { background:#334155; color:#fff; }
+	.shell[data-mock-theme='light'] .titlebar .brand { color:#94a3b8; }
+	.shell[data-mock-theme='light'] .titlebar .brand b { color:#f1f5f9; }
+	.shell[data-mock-theme='light'] .titlebar .tb-title { color:#e2e8f0; }
+	.shell[data-mock-theme='light'] .titlebar .mock-badge { color:#5ac6d2; border-color:#3b556b; }
+
 	/* Menubar */
 	.menubar { position:relative; z-index:45; height:30px; flex:0 0 auto; display:flex; align-items:stretch; gap:1px;
 		background:var(--panel); border-bottom:1px solid var(--line-soft); padding:0 4px; }
@@ -488,6 +563,16 @@
 	.page-row { display:flex; align-items:center; gap:7px; width:100%; padding:5px 6px; border-radius:5px; color:var(--text); background:none; border:none; }
 	.page-row:hover { background:var(--hover); }
 	.page-row.active { background:var(--active); color:var(--text); }
+
+	/* Project tree (Project › Building › Floor › Room › Row) */
+	.tree-row { display:flex; align-items:center; gap:5px; padding:4px 6px; border-radius:5px; color:var(--text); cursor:pointer; user-select:none; }
+	.tree-row:hover { background:var(--hover); }
+	.tree-row.sel { background:var(--active); box-shadow:inset 2px 0 0 var(--accent); }
+	.tree-row :global(svg) { color:var(--muted); flex:0 0 auto; }
+	.tree-row.sel :global(svg) { color:var(--accent); }
+	.tw-chev { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; flex:0 0 auto; border-radius:3px; color:var(--muted); background:none; border:none; }
+	.tw-chev:hover { color:var(--text); background:var(--line); }
+	.tw-spacer { width:16px; flex:0 0 auto; }
 
 	.rail { flex:0 0 auto; width:28px; display:flex; flex-direction:column; align-items:center; gap:10px; padding-top:8px;
 		background:var(--panel); color:var(--muted); border:none; }
