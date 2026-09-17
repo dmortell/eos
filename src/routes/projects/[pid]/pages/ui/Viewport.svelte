@@ -194,6 +194,10 @@
 	.vp.active { border:1.5px solid #157a8b; box-shadow:0 0 0 2px #5ac6d233; cursor:default; }
 	.vp-svg { display:block; width:100%; height:100%; }
 	.vp-svg.model { background:#eef3f8; }
+	/* Lineweights stay constant as the viewport zooms (like Kestrel / real CAD):
+	   the view <g> scales the geometry, non-scaling-stroke keeps stroke thickness
+	   fixed on screen. Fills and text still scale with the drawing. */
+	.vp-svg :where(line, rect, circle, polyline, polygon, path) { vector-effect: non-scaling-stroke; }
 	.vp-tag {
 		position:absolute; top:6px; left:6px; display:flex; align-items:center; gap:5px;
 		font-size:9px; color:#475569; background:#ffffffcc; border:1px solid #e2e8f0; border-radius:3px; padding:2px 6px;
