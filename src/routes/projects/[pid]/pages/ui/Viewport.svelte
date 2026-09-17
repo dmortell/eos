@@ -6,14 +6,16 @@
 	// standalone model view (kind='model'). The parent owns the entities/selection
 	// (so drawing persists per document, tool + selection per view). Fills its parent.
 	import { Icon } from '$lib'
+	import { panzoom } from './panzoom'
 
 	export type Pt = [number, number]
 	export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'dim' | 'text'; a?: Pt; b?: Pt; c?: Pt; r?: number; text?: string }
+	export type View = { zoom: number; x: number; y: number }
 
 	let { label = 'Viewport', scale = '', kind = 'floorplan', active = false, tool = 'Select',
-		entities = [], sel = [], onactivate, onadd, onselect }:
+		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, onadd, onselect, onview }:
 		{ label?: string; scale?: string; kind?: 'floorplan' | 'model' | 'elevation'; active?: boolean; tool?: string;
-			entities?: Ent[]; sel?: string[]; onactivate?: () => void; onadd?: (e: Ent) => void; onselect?: (ids: string[]) => void } = $props()
+			entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; onadd?: (e: Ent) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void } = $props()
 
 	const tagIcon: Record<string, string> = { floorplan: 'mapPin', model: 'box', elevation: 'server' }
 	const DRAW = new Set(['Line', 'Rectangle', 'Circle', 'Dimension', 'Text'])
@@ -40,19 +42,33 @@
 
 	// ── drawing (Kestrel-style) ──
 	const INK = '#475569', SEL = '#0e7490'
-	let drawSvg: SVGSVGElement | undefined = $state()
-	let draft = $state<Pt[]>([])   // in-progress points (per view — this instance)
+	let svg: SVGSVGElement | undefined = $state()   // outer svg (viewBox space)
+	let viewG: SVGGElement | undefined = $state()   // pan/zoom transform group (drawing space)
+	let draft = $state<Pt[]>([])
 	let cur = $state<Pt | null>(null)
 	let seq = 0
 	const uid = () => 'e' + Date.now().toString(36) + (seq++)
 	const dist = (a: Pt, b: Pt) => Math.hypot(a[0] - b[0], a[1] - b[1])
 	const selSet = $derived(new Set(sel))
 
+	// Client → drawing coords (through the view transform), for placing/hit-testing.
 	function toLocal(e: MouseEvent): Pt | null {
-		const m = drawSvg?.getScreenCTM(); if (!m) return null
+		const m = viewG?.getScreenCTM(); if (!m) return null
 		const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse())
 		return [p.x, p.y]
 	}
+	// ── pan/zoom the viewport content (SVG group transform, in viewBox units) ──
+	function onPan(dx: number, dy: number) {
+		const m = svg?.getScreenCTM(); if (!m) return
+		onview?.({ zoom: view.zoom, x: view.x + dx / m.a, y: view.y + dy / m.d })
+	}
+	function onZoom(f: number, cx: number, cy: number) {
+		const m = svg?.getScreenCTM(); if (!m) return
+		const p = new DOMPoint(cx, cy).matrixTransform(m.inverse())   // cursor in viewBox coords
+		const nz = Math.min(8, Math.max(0.25, view.zoom * f)), r = nz / view.zoom
+		onview?.({ zoom: nz, x: p.x - (p.x - view.x) * r, y: p.y - (p.y - view.y) * r })
+	}
+	// panzoom passes its node as a trailing arg (unused here)
 	function onClick(e: MouseEvent) {
 		e.stopPropagation()
 		if (!active) { onactivate?.(); return }
@@ -108,43 +124,41 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="vp" class:active role="button" tabindex="0" style:cursor={cursorStyle}
+	use:panzoom={{ enabled: () => active, onpan: onPan, onzoom: onZoom }}
 	onclick={onClick} onpointermove={onMove} oncontextmenu={onCtx}
 	onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onactivate?.() } }}>
 
-	<!-- background -->
-	{#if kind === 'model' || kind === 'elevation'}
-		<svg class="vp-svg model" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid meet">
-			{#each floorGrid as g (g)}<polyline points={g} fill="none" stroke="#d5deea" stroke-width="0.7" />{/each}
-			{#each racks as b (b.top)}
-				<polygon points={b.left} fill="#8aa0bf" stroke="#5c7396" stroke-width="0.6" />
-				<polygon points={b.right} fill="#6f88ab" stroke="#4a5f7d" stroke-width="0.6" />
-				<polygon points={b.top} fill="#a9bcd6" stroke="#7f95b4" stroke-width="0.6" />
-			{/each}
-		</svg>
-	{:else}
-		<svg class="vp-svg" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid meet">
-			<rect x="8" y="8" width="384" height="234" fill="#ffffff" stroke="#94a3b8" stroke-width="1.4" />
-			{#each Array(19) as _, i (i)}<line x1={8 + i * 20} y1="8" x2={8 + i * 20} y2="242" stroke="#eef2f6" stroke-width="0.6" />{/each}
-			{#each Array(12) as _, i (i)}<line x1="8" y1={8 + i * 20} x2="392" y2={8 + i * 20} stroke="#eef2f6" stroke-width="0.6" />{/each}
-			<line x1="200" y1="8" x2="200" y2="150" stroke="#cbd5e1" stroke-width="1" />
-			<line x1="8" y1="150" x2="392" y2="150" stroke="#cbd5e1" stroke-width="1" />
-			{#each desks as d, i (i)}<rect x={d.x} y={d.y} width={DW} height={DH} rx="2" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="0.7" />{/each}
-			{#each outlets as o, i (i)}
-				<circle cx={o.x} cy={o.y} r="5.5" fill={outletColor[o.k]} opacity="0.9" />
-				<text x={o.x} y={o.y + 2.2} font-size="5.5" text-anchor="middle" fill="#fff" font-weight="700">{o.k === 'p' ? '4' : '6'}</text>
-			{/each}
-			<text x="24" y="230" font-size="9" fill="#64748b" font-weight="600">OFFICE — 33F</text>
-		</svg>
-	{/if}
-
-	<!-- drawn entities + preview (same viewBox → aligned) -->
-	<svg class="draw" bind:this={drawSvg} viewBox="0 0 400 250" preserveAspectRatio="xMidYMid meet">
-		{#each entities as e (e.id)}{@render drawn(e, selSet.has(e.id))}{/each}
-		{#if active && draft.length && cur}{@render preview(draft[0], cur)}{/if}
+	<svg bind:this={svg} class="vp-svg {kind === 'model' || kind === 'elevation' ? 'model' : ''}" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid meet">
+		<g bind:this={viewG} transform="translate({view.x} {view.y}) scale({view.zoom})">
+			<!-- background content -->
+			{#if kind === 'model' || kind === 'elevation'}
+				{#each floorGrid as g (g)}<polyline points={g} fill="none" stroke="#d5deea" stroke-width="0.7" />{/each}
+				{#each racks as b (b.top)}
+					<polygon points={b.left} fill="#8aa0bf" stroke="#5c7396" stroke-width="0.6" />
+					<polygon points={b.right} fill="#6f88ab" stroke="#4a5f7d" stroke-width="0.6" />
+					<polygon points={b.top} fill="#a9bcd6" stroke="#7f95b4" stroke-width="0.6" />
+				{/each}
+			{:else}
+				<rect x="8" y="8" width="384" height="234" fill="#ffffff" stroke="#94a3b8" stroke-width="1.4" />
+				{#each Array(19) as _, i (i)}<line x1={8 + i * 20} y1="8" x2={8 + i * 20} y2="242" stroke="#eef2f6" stroke-width="0.6" />{/each}
+				{#each Array(12) as _, i (i)}<line x1="8" y1={8 + i * 20} x2="392" y2={8 + i * 20} stroke="#eef2f6" stroke-width="0.6" />{/each}
+				<line x1="200" y1="8" x2="200" y2="150" stroke="#cbd5e1" stroke-width="1" />
+				<line x1="8" y1="150" x2="392" y2="150" stroke="#cbd5e1" stroke-width="1" />
+				{#each desks as d, i (i)}<rect x={d.x} y={d.y} width={DW} height={DH} rx="2" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="0.7" />{/each}
+				{#each outlets as o, i (i)}
+					<circle cx={o.x} cy={o.y} r="5.5" fill={outletColor[o.k]} opacity="0.9" />
+					<text x={o.x} y={o.y + 2.2} font-size="5.5" text-anchor="middle" fill="#fff" font-weight="700">{o.k === 'p' ? '4' : '6'}</text>
+				{/each}
+				<text x="24" y="230" font-size="9" fill="#64748b" font-weight="600">OFFICE — 33F</text>
+			{/if}
+			<!-- drawn entities + rubber-band preview -->
+			{#each entities as e (e.id)}{@render drawn(e, selSet.has(e.id))}{/each}
+			{#if active && draft.length && cur}{@render preview(draft[0], cur)}{/if}
+		</g>
 	</svg>
 
 	<div class="vp-tag"><Icon name={tagIcon[kind]} size={10} /> {label}{#if scale}<span class="vp-scale">{scale}</span>{/if}</div>
-	{#if active}<div class="vp-badge"><span class="vp-dot"></span>{tool} · {prompt}</div>{/if}
+	{#if active}<div class="vp-badge"><span class="vp-dot"></span>{tool} · {prompt} · {Math.round(view.zoom * 100)}%</div>{/if}
 </div>
 
 {#snippet drawn(e: Ent, seld: boolean)}
@@ -180,7 +194,6 @@
 	.vp.active { border:1.5px solid #157a8b; box-shadow:0 0 0 2px #5ac6d233; cursor:default; }
 	.vp-svg { display:block; width:100%; height:100%; }
 	.vp-svg.model { background:#eef3f8; }
-	.draw { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
 	.vp-tag {
 		position:absolute; top:6px; left:6px; display:flex; align-items:center; gap:5px;
 		font-size:9px; color:#475569; background:#ffffffcc; border:1px solid #e2e8f0; border-radius:3px; padding:2px 6px;

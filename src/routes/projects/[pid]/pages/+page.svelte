@@ -9,6 +9,7 @@
 	import { page } from '$app/state'
 	import PaperPage from './parts/PaperPage.svelte'
 	import Viewport from './ui/Viewport.svelte'
+	import { panzoom } from './ui/panzoom'
 
 	// Which pane (if any) has its viewport activated — groundwork for editing/CAD
 	// tools inside a sheet's viewport. Null = no active viewport.
@@ -36,23 +37,30 @@
 	// Editor panes — 1 or 2 side by side (vertical split). Each pane views one open
 	// tab; tabs are shared documents, so the same page can show in both panes and
 	// each pane tracks its own active tab (VS Code-style split).
-	// Each pane (view) remembers its own tool + selection; a pane shows one doc at a time.
-	let panes = $state<{ id: string; activeId: string; tool: string; sel: string[] }[]>([{ id: 'p1', activeId: 't2', tool: 'Select', sel: [] }])
+	type View = { zoom: number; x: number; y: number }
+	// Each pane (view) remembers its own tool + its own canvas (paper-space) pan/zoom.
+	let panes = $state<{ id: string; activeId: string; tool: string; canvasView: View }[]>([{ id: 'p1', activeId: 't2', tool: 'Select', canvasView: { zoom: 1, x: 0, y: 0 } }])
 	let focused = $state(0)      // which pane new tabs / sidebar actions target
 	let splitFrac = $state(0.5)  // pane 0 width fraction when split
 	let paneSeq = 1
 	let active = $derived(tabs.find(t => t.id === panes[focused]?.activeId) ?? null)
 
-	// Drawn elements live per DOCUMENT (tab id), so a drawing is the doc's content
-	// (shown wherever the doc is open); tool + selection stay per view (pane).
+	// Per-DOCUMENT state (keyed by tab id): drawn entities, selection, and the
+	// viewport's own pan/zoom — so all three persist across tab switches and show
+	// wherever the doc is open. (Tool + canvas pan/zoom are per view, above.)
 	let docEnts = $state<Record<string, any[]>>({})
+	let docSel = $state<Record<string, string[]>>({})
+	let docView = $state<Record<string, View>>({})
 	const entsOf = (id: string) => docEnts[id] ?? []
+	const selOf = (id: string) => docSel[id] ?? []
+	const viewOf = (id: string) => docView[id] ?? { zoom: 1, x: 0, y: 0 }
 	function addEnt(id: string, e: any) { docEnts = { ...docEnts, [id]: [...(docEnts[id] ?? []), e] } }
+	function setSel(id: string, ids: string[]) { docSel = { ...docSel, [id]: ids } }
+	function setView(id: string, v: View) { docView = { ...docView, [id]: v } }
 
 	function openTab(id: string, pane = focused) {
 		const p = panes[pane]; if (!p) return
-		if (p.activeId !== id) p.sel = []   // selection is per (view, doc) — reset on doc switch
-		p.activeId = id; focused = pane
+		p.activeId = id; focused = pane   // selection now lives per doc, so it's preserved
 	}
 	function addTab(kind: Kind = 'plan', title?: string) {
 		const id = 't' + ++seq
@@ -72,7 +80,7 @@
 		if (panes.length >= 2) { focused = 1; return }
 		const cur = panes[0].activeId
 		const other = tabs.find(t => t.id !== cur)?.id ?? cur
-		panes = [...panes, { id: 'p' + ++paneSeq, activeId: other, tool: 'Select', sel: [] }]
+		panes = [...panes, { id: 'p' + ++paneSeq, activeId: other, tool: 'Select', canvasView: { zoom: 1, x: 0, y: 0 } }]
 		focused = 1; splitFrac = 0.5
 	}
 	function closePane(idx: number) {
@@ -183,9 +191,9 @@
 		if (item === 'New Page') addTab()
 		else if (item === 'Toggle Left Panel') leftOpen = !leftOpen
 		else if (item === 'Toggle Right Panel') rightOpen = !rightOpen
-		else if (item === 'Fit') zoom = 100
-		else if (item === 'Zoom In') zoom = Math.min(800, zoom + 25)
-		else if (item === 'Zoom Out') zoom = Math.max(10, zoom - 25)
+		else if (item === 'Fit') navFit()
+		else if (item === 'Zoom In') navZoom(1.25)
+		else if (item === 'Zoom Out') navZoom(0.8)
 		else if (item === 'Split Editor') splitVertical()
 		else if (item === 'Unsplit') closePane(1)
 		// everything else is a mock no-op
@@ -226,10 +234,34 @@
 		{ icon: 'k-text', name: 'Text' },
 	]
 	let cx = $state(0), cy = $state(0)
-	let zoom = $state(100)
 	function onCanvasMove(e: PointerEvent) {
 		const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
 		cx = Math.round(e.clientX - r.left); cy = Math.round(e.clientY - r.top)
+	}
+
+	// ── canvas (paper-space) pan/zoom — one pane's canvasView, CSS transform ──
+	function canvasPan(pane: { canvasView: View }, dx: number, dy: number) {
+		pane.canvasView.x += dx; pane.canvasView.y += dy
+	}
+	function canvasZoom(pane: { canvasView: View }, el: HTMLElement, f: number, clientX: number, clientY: number) {
+		const r = el.getBoundingClientRect(), mx = clientX - r.left, my = clientY - r.top
+		const v = pane.canvasView, nz = Math.min(8, Math.max(0.1, v.zoom * f)), ratio = nz / v.zoom
+		v.x = mx - (mx - v.x) * ratio; v.y = my - (my - v.y) * ratio; v.zoom = nz
+	}
+	// Nav toolbar / status zoom act on the active viewport if one is active, else the canvas.
+	let dispZoom = $derived.by(() => {
+		const p = panes[focused]; if (!p) return 100
+		return Math.round((activeVpPane === focused ? viewOf(p.activeId).zoom : p.canvasView.zoom) * 100)
+	})
+	function navZoom(f: number) {
+		const p = panes[focused]; if (!p) return
+		if (activeVpPane === focused) { const v = viewOf(p.activeId); setView(p.activeId, { ...v, zoom: Math.min(8, Math.max(0.25, v.zoom * f)) }) }
+		else { const v = p.canvasView; v.zoom = Math.min(8, Math.max(0.1, v.zoom * f)) }
+	}
+	function navFit() {
+		const p = panes[focused]; if (!p) return
+		if (activeVpPane === focused) setView(p.activeId, { zoom: 1, x: 0, y: 0 })
+		else p.canvasView = { zoom: 1, x: 0, y: 0 }
 	}
 
 	// Status bar
@@ -406,34 +438,38 @@
 
 					<!-- this pane's canvas -->
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
-					<main class="canvas" onpointermove={onCanvasMove}>
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<main class="canvas" onpointermove={onCanvasMove}
+						use:panzoom={{ enabled: () => !!a && activeVpPane !== pi, onpan: (dx, dy) => canvasPan(p, dx, dy), onzoom: (f, x, y, node) => canvasZoom(p, node, f, x, y) }}>
 						<div class="floattools glass-bar" class:dim={a && activeVpPane !== pi}>
 							{#each TOOLS as t (t.name)}
 								<button class="tool" class:on={p.tool === t.name} title={t.name} onclick={() => (p.tool = t.name)}><Icon name={t.icon} size={16} /></button>
 							{/each}
 						</div>
 						{#key p.activeId}
-							{#if a?.kind === 'sheet'}
-								<PaperPage title={a.title} zoom={zoom} tool={p.tool} entities={entsOf(a.id)} sel={p.sel} active={activeVpPane === pi}
-									onactivate={() => (activeVpPane = pi)}
-									ondeactivate={() => { if (activeVpPane === pi) activeVpPane = null }}
-									onadd={(e) => addEnt(a.id, e)} onselect={(ids) => (p.sel = ids)} />
-							{:else if a}
-								<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-								<div class="vp-fill" onclick={() => { if (activeVpPane === pi) activeVpPane = null }}>
-									<Viewport kind={a.kind === 'elevation' ? 'model' : 'floorplan'} label={a.title} tool={p.tool} entities={entsOf(a.id)} sel={p.sel}
-										active={activeVpPane === pi} onactivate={() => (activeVpPane = pi)}
-										onadd={(e) => addEnt(a.id, e)} onselect={(ids) => (p.sel = ids)} />
-								</div>
-							{:else}
-								<div class="canvas-center"><div class="cc-sub">No page open</div></div>
-							{/if}
+							<div class="canvas-content" style:transform="translate({p.canvasView.x}px, {p.canvasView.y}px) scale({p.canvasView.zoom})">
+								{#if a?.kind === 'sheet'}
+									<PaperPage title={a.title} tool={p.tool} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={activeVpPane === pi}
+										onactivate={() => (activeVpPane = pi)}
+										ondeactivate={() => { if (activeVpPane === pi) activeVpPane = null }}
+										onadd={(e) => addEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} />
+								{:else if a}
+									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+									<div class="vp-fill" onclick={() => { if (activeVpPane === pi) activeVpPane = null }}>
+										<Viewport kind={a.kind === 'elevation' ? 'model' : 'floorplan'} label={a.title} tool={p.tool} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
+											active={activeVpPane === pi} onactivate={() => (activeVpPane = pi)}
+											onadd={(e) => addEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} />
+									</div>
+								{:else}
+									<div class="canvas-center"><div class="cc-sub">No page open</div></div>
+								{/if}
+							</div>
 						{/key}
 						<div class="navtools glass-bar">
-							<button class="tool" title="Zoom in" onclick={() => (zoom = Math.min(800, zoom + 25))}><Icon name="zoomin" size={16} /></button>
-							<button class="tool" title="Zoom out" onclick={() => (zoom = Math.max(10, zoom - 25))}><Icon name="zoomout" size={16} /></button>
-							<button class="tool" title="Fit" onclick={() => (zoom = 100)}><Icon name="fit" size={16} /></button>
-							<button class="tool" title="Pan"><Icon name="pan" size={16} /></button>
+							<button class="tool" title="Zoom in" onclick={() => navZoom(1.25)}><Icon name="zoomin" size={16} /></button>
+							<button class="tool" title="Zoom out" onclick={() => navZoom(0.8)}><Icon name="zoomout" size={16} /></button>
+							<button class="tool" title="Fit" onclick={() => navFit()}><Icon name="fit" size={16} /></button>
+							<button class="tool" title="Pan (right-drag)"><Icon name="pan" size={16} /></button>
 						</div>
 					</main>
 				</section>
@@ -519,10 +555,10 @@
 		</div>
 		<div class="sb-spacer"></div>
 		<div class="zoom">
-			<button onclick={() => (zoom = Math.max(10, zoom - 25))}>−</button>
-			<span>{zoom}%</span>
-			<button onclick={() => (zoom = Math.min(800, zoom + 25))}>+</button>
-			<button class="fit" onclick={() => (zoom = 100)}>Fit</button>
+			<button onclick={() => navZoom(0.8)}>−</button>
+			<span>{dispZoom}%</span>
+			<button onclick={() => navZoom(1.25)}>+</button>
+			<button class="fit" onclick={() => navFit()}>Fit</button>
 		</div>
 	</footer>
 </div>
@@ -679,6 +715,7 @@
 	.glass-bar { position:absolute; display:flex; gap:2px; padding:4px; border-radius:8px;
 		background:color-mix(in srgb, var(--panel) 82%, transparent); border:1px solid var(--line-soft);
 		backdrop-filter:blur(9px); -webkit-backdrop-filter:blur(9px); box-shadow:0 8px 30px #0004; }
+	.canvas-content { position:absolute; inset:0; transform-origin:0 0; }
 	.vp-fill { position:absolute; inset:0; padding:14px; }
 	/* Tools/nav sit above the paper/viewport regardless of DOM order. */
 	.floattools, .navtools { z-index:5; }

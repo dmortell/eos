@@ -3,19 +3,19 @@
 	// theme) holding one Viewport + a titleblock, like the Sheets tool. The viewport
 	// itself is the reusable ui/Viewport (also used for standalone model views).
 	// Clicking the viewport activates it; clicking the paper margin deactivates.
-	import Viewport, { type Ent } from '../ui/Viewport.svelte'
+	import Viewport, { type Ent, type View } from '../ui/Viewport.svelte'
 
-	let { title = 'Sheet', drawingNo = '001', scale = '1:100', zoom = 100, active = false, tool = 'Select',
-		entities = [], sel = [], onactivate, ondeactivate, onadd, onselect }:
-		{ title?: string; drawingNo?: string; scale?: string; zoom?: number; active?: boolean; tool?: string;
-			entities?: Ent[]; sel?: string[]; onactivate?: () => void; ondeactivate?: () => void; onadd?: (e: Ent) => void; onselect?: (ids: string[]) => void } = $props()
+	let { title = 'Sheet', drawingNo = '001', scale = '1:100', active = false, tool = 'Select',
+		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, ondeactivate, onadd, onselect, onview }:
+		{ title?: string; drawingNo?: string; scale?: string; active?: boolean; tool?: string;
+			entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; ondeactivate?: () => void; onadd?: (e: Ent) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void } = $props()
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 <div class="paper-wrap" onclick={() => ondeactivate?.()}>
-	<div class="paper" style:transform="scale({zoom / 100})">
+	<div class="paper">
 		<div class="paper-vp">
-			<Viewport kind="floorplan" label="Outlets · 33F" {scale} {active} {tool} {entities} {sel} {onactivate} {onadd} {onselect} />
+			<Viewport kind="floorplan" label="Outlets · 33F" {scale} {active} {tool} {entities} {sel} {view} {onactivate} {onadd} {onselect} {onview} />
 		</div>
 		<!-- titleblock (right vertical strip, like EOS) -->
 		<div class="tb">
