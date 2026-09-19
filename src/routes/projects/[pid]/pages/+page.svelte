@@ -511,6 +511,13 @@
 								<button class="tool" class:on={p.tool === t.name} title={t.name} onclick={() => (p.tool = t.name)}><Icon name={t.icon} size={16} /></button>
 							{/each}
 						</div>
+						<!-- Pane-level exit: fixed on screen (outside the zoomed content), so a viewport
+						     can always be left even when zoomed right in and its own corner is off-screen. -->
+						{#if activeVpPane === pi}
+							<button class="vp-exit-pane glass-bar" onclick={() => (activeVpPane = null)} title="Exit viewport (Esc)">
+								<Icon name="chevronLeft" size={14} /> Exit viewport
+							</button>
+						{/if}
 						{#key p.activeId}
 							<div class="canvas-content" style:transform="translate({p.canvasView.x}px, {p.canvasView.y}px) scale({p.canvasView.zoom})">
 								{#if a?.kind === 'sheet'}
@@ -788,6 +795,9 @@
 	.floattools.dim { opacity:.4; }
 	.floattools.dim:hover { opacity:.85; }
 	.navtools { bottom:12px; right:12px; flex-direction:column; }
+	.vp-exit-pane { top:12px; left:50%; transform:translateX(-50%); z-index:6; align-items:center; gap:5px;
+		padding:6px 13px; min-height:34px; font-size:12px; font-weight:600; color:var(--accent); cursor:pointer; }
+	.vp-exit-pane:hover { background:var(--hover); }
 	.tool { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; color:var(--muted); background:none; border:none; }
 	.tool:hover { background:var(--hover); color:var(--text); }
 	.tool.on { background:var(--active); color:var(--accent); }

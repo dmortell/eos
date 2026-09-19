@@ -205,8 +205,32 @@
 	let drag: { id: string; base: Ent; kind: 'grip' | 'move'; gi: number; start: Pt } | null = null
 	let dragged = false        // true once the pointer actually moved during a drag
 	let suppressClick = false  // swallow the click that ends a real drag (avoids re-select)
+	// Track pressed pointers so a second finger (2-finger pan/zoom) aborts an entity drag —
+	// otherwise finger 1 landing on a shape starts a move that the pan then drags around.
+	const pointers = new Set<number>()
+	function cancelPointerDrag() {
+		if (drag) {
+			if (dragged) onupdate?.(drag.base)   // revert any partial move/resize
+			drag = null
+			window.removeEventListener('pointermove', onDragMove)
+			window.removeEventListener('pointerup', onDragUp)
+		}
+		if (marquee) {
+			marquee = null
+			window.removeEventListener('pointermove', onMarqueeMove)
+			window.removeEventListener('pointerup', onMarqueeUp)
+		}
+	}
+	$effect(() => {
+		const up = (e: PointerEvent) => pointers.delete(e.pointerId)
+		window.addEventListener('pointerup', up)
+		window.addEventListener('pointercancel', up)
+		return () => { window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up) }
+	})
 	function onDown(e: PointerEvent) {
 		if (!active || tool !== 'Select' || e.button !== 0) return   // left / primary only
+		pointers.add(e.pointerId)
+		if (pointers.size > 1) { cancelPointerDrag(); return }   // 2nd finger → hand off to pan/zoom
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
 		const hitInfo = pick(e.clientX, e.clientY)
 		if (!hitInfo) {
@@ -347,10 +371,6 @@
 	<div class="vp-tag"><Icon name={tagIcon[kind]} size={10} /> {label}{#if scale}<span class="vp-scale">{scale}</span>{/if}</div>
 	{#if active}
 		<div class="vp-badge"><span class="vp-dot"></span>{tool} · {prompt} · {Math.round(view.zoom * 100)}%</div>
-		<!-- Always-reachable exit, so you can leave the viewport even when zoomed right in. -->
-		<button class="vp-exit" title="Exit viewport (Esc)" onclick={(e) => { e.stopPropagation(); ondeactivate?.() }}>
-			<Icon name="chevronLeft" size={12} /> Exit
-		</button>
 	{/if}
 </div>
 
@@ -407,10 +427,4 @@
 		color:#0e5866; background:#5ac6d222; border:1px solid #5ac6d2; border-radius:3px; padding:2px 6px;
 	}
 	.vp-dot { width:5px; height:5px; border-radius:50%; background:#157a8b; }
-	.vp-exit {
-		position:absolute; top:6px; right:6px; display:flex; align-items:center; gap:3px;
-		font-size:10px; font-weight:600; color:#0e5866; background:#ffffffee; border:1px solid #5ac6d2;
-		border-radius:4px; padding:5px 9px; min-height:28px; cursor:pointer; touch-action:manipulation;
-	}
-	.vp-exit:hover { background:#5ac6d222; }
 </style>

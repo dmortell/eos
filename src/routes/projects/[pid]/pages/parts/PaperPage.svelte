@@ -48,12 +48,15 @@
 		window.addEventListener('pointermove', onDrag)
 		window.addEventListener('pointerup', endDrag)
 	}
+	// Viewports may extend past the sheet (like AutoCAD floating viewports). We only keep a
+	// small sliver grabbable so a frame can't be lost entirely off the paper.
+	const VIS = 40
 	function onDrag(e: PointerEvent) {
 		if (!drag || !sheetEl) return
 		const dx = (e.clientX - drag.sx) / drag.s, dy = (e.clientY - drag.sy) / drag.s
 		const b = drag.base, W = sheetEl.offsetWidth, H = sheetEl.offsetHeight
 		if (drag.mode === 'move') {
-			frame = { w: b.w, h: b.h, x: clamp(b.x + dx, 0, W - b.w), y: clamp(b.y + dy, 0, H - b.h) }
+			frame = { w: b.w, h: b.h, x: clamp(b.x + dx, VIS - b.w, W - VIS), y: clamp(b.y + dy, VIS - b.h, H - VIS) }
 			return
 		}
 		let { x, y, w, h } = b
@@ -63,7 +66,7 @@
 		else if (drag.gi === 3) { x = b.x + dx; w = b.w - dx; h = b.h + dy }                 // BL
 		if (w < MIN) { if (drag.gi === 0 || drag.gi === 3) x = b.x + b.w - MIN; w = MIN }
 		if (h < MIN) { if (drag.gi === 0 || drag.gi === 1) y = b.y + b.h - MIN; h = MIN }
-		frame = { x: clamp(x, 0, W - MIN), y: clamp(y, 0, H - MIN), w: Math.min(w, W - x), h: Math.min(h, H - y) }
+		frame = { x, y, w, h }   // may extend beyond the sheet
 	}
 	function endDrag() {
 		drag = null
