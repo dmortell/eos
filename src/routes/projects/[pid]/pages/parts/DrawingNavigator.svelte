@@ -8,7 +8,7 @@
 	type Node = { id: string; label: string; folder?: string; drawing?: Kind; children?: Node[] }
 
 	let { onopen, oncollapse, onselectnode, activeTitle = '', activeNode = '' }:
-		{ onopen?: (d: { title: string; kind: Kind }) => void; oncollapse?: () => void;
+		{ onopen?: (d: { title: string; kind: Kind; preview: boolean }) => void; oncollapse?: () => void;
 			onselectnode?: (n: { id: string; label: string; kind: string }) => void; activeTitle?: string; activeNode?: string } = $props()
 
 	// Location hierarchy Project › Building › Floor › Zone › Room › Row, with drawing/view
@@ -95,8 +95,10 @@
 		{@const isOpen = expanded.has(n.id) || (!!search && (n.children?.length ?? 0) > 0)}
 		{#if n.drawing}
 			<!-- drawing leaf: opens a tab -->
+			<!-- single-click = preview tab (italic, reused); double-click promotes it to a kept tab -->
 			<button class="dn-row leaf" class:active={activeTitle === n.label} style:padding-left="{depth * 12 + 8}px"
-				onclick={() => onopen?.({ title: n.label, kind: n.drawing! })}>
+				onclick={() => onopen?.({ title: n.label, kind: n.drawing!, preview: true })}
+				ondblclick={() => onopen?.({ title: n.label, kind: n.drawing!, preview: false })}>
 				<span class="dn-chev spacer"></span>
 				<Icon name={drawingIcon[n.drawing]} size={13} />
 				<span class="dn-name">{n.label}</span>

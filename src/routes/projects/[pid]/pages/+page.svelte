@@ -8,7 +8,7 @@
 	import { Icon } from '$lib'
 	import { flushSync, tick } from 'svelte'
 	import { page } from '$app/state'
-	import PaperPage from './parts/PaperPage.svelte'
+	import PaperPage, { type FrameSel } from './parts/PaperPage.svelte'
 	import Viewport, { type Ent } from './ui/Viewport.svelte'
 	import DrawingNavigator from './parts/DrawingNavigator.svelte'
 	import LayersPanel from './parts/LayersPanel.svelte'
@@ -26,7 +26,7 @@
 
 	// Canvas documents — the B1 "each tab owns its own view state" pattern (mock).
 	type Kind = 'plan' | 'sheet' | 'elevation' | 'model'
-	type Tab = { id: string; title: string; kind: Kind; dirty: boolean }
+	type Tab = { id: string; title: string; kind: Kind; dirty: boolean; preview?: boolean }
 	let tabs = $state<Tab[]>([
 		{ id: 't1', title: '3303 Floorplan', kind: 'plan', dirty: false },
 		{ id: 't2', title: '3303 Outlets', kind: 'sheet', dirty: true },
@@ -61,8 +61,8 @@
 	const entsOf = (id: string) => docEnts[id] ?? []
 	const selOf = (id: string) => docSel[id] ?? []
 	const viewOf = (id: string) => docView[id] ?? { zoom: 1, x: 0, y: 0 }
-	function addEnt(id: string, e: Ent) { pushHistory('Add ' + e.type); docEnts = { ...docEnts, [id]: [...(docEnts[id] ?? []), e] } }
-	function updateEnt(id: string, e: Ent) { pushHistory('Edit ' + e.type); docEnts = { ...docEnts, [id]: (docEnts[id] ?? []).map(x => x.id === e.id ? e : x) } }
+	function addEnt(id: string, e: Ent) { promoteTab(id); pushHistory('Add ' + e.type); docEnts = { ...docEnts, [id]: [...(docEnts[id] ?? []), e] } }
+	function updateEnt(id: string, e: Ent) { promoteTab(id); pushHistory('Edit ' + e.type); docEnts = { ...docEnts, [id]: (docEnts[id] ?? []).map(x => x.id === e.id ? e : x) } }
 
 	// ── undo / redo / history / revisions ──
 	type Snap = Record<string, Ent[]>
@@ -118,6 +118,7 @@
 		const i = tabs.findIndex(t => t.id === id); if (i < 0) return
 		tabs = tabs.filter(t => t.id !== id)
 		dropDoc(id)
+		if (previewId === id) previewId = null
 		// Point any pane that showed this tab at a neighbour, or '' → the "No page open"
 		// empty state (don't auto-spawn an Untitled tab on the last close).
 		const fallback = tabs[Math.max(0, i - 1)]?.id ?? ''
@@ -173,16 +174,39 @@
 	}
 
 	// Drawing Navigator (left) → open the picked drawing/view as a tab (focus if already open).
-	function openDrawing(d: { title: string; kind: Kind }) {
+	// VSCode-style preview tabs: a single click opens a shared, italic PREVIEW tab that the next
+	// single click reuses; a double click (or editing the doc) PROMOTES it to a kept tab.
+	let previewId = $state<string | null>(null)
+	function promoteTab(id: string) {
+		const t = tabs.find(x => x.id === id)
+		if (t?.preview) t.preview = false
+		if (previewId === id) previewId = null
+	}
+	function openDrawing(d: { title: string; kind: Kind; preview?: boolean }) {
 		const existing = tabs.find(t => t.title === d.title)
-		if (existing) openTab(existing.id)
-		else addTab(d.kind, d.title)
+		if (existing) { if (!d.preview) promoteTab(existing.id); openTab(existing.id); return }
+		if (d.preview) {
+			const pv = tabs.find(t => t.id === previewId)
+			if (pv) { pv.title = d.title; pv.kind = d.kind; dropDoc(pv.id); openTab(pv.id); return }   // reuse the preview slot
+			const id = 't' + ++seq
+			tabs = [...tabs, { id, title: d.title, kind: d.kind, dirty: false, preview: true }]
+			previewId = id
+			if (panes[focused]) panes[focused].activeId = id
+		} else {
+			addTab(d.kind, d.title)
+		}
 	}
 	// A place/label in the tree (project, building, floor, …) → edit its props in the right panel.
 	let treeNode = $state<{ id: string; label: string; kind: string } | null>(null)
 	function selectNode(n: { id: string; label: string; kind: string }) {
 		if (active) setSel(active.id, [])   // clear entity selection so node props show
 		treeNode = n; rightTab = 'props'; rightOpen = true
+	}
+	// A viewport FRAME selected in paper space (PaperPage) → edit its props in the panel.
+	let viewportSel = $state<FrameSel | null>(null)
+	function onFrame(f: FrameSel | null) {
+		viewportSel = f
+		if (f) { treeNode = null; rightTab = 'props'; rightOpen = true }   // most-recent selection wins
 	}
 
 	// ── top-bar drawing-set selectors (mock) + Ctrl-K command palette ──
@@ -204,7 +228,7 @@
 		{ title: '30F — Floorplan', kind: 'plan', path: 'Hibiya · 30F' },
 		{ title: 'Office 1201 — Outlets', kind: 'sheet', path: 'Shinmaru · 18F' },
 	]
-	function pickPalette(i: PItem) { if (i.kind !== 'place') openDrawing({ title: i.title, kind: i.kind }) }
+	function pickPalette(i: PItem) { if (i.kind !== 'place') openDrawing({ title: i.title, kind: i.kind, preview: false }) }
 	function onGlobalKey(e: KeyboardEvent) {
 		const mod = e.ctrlKey || e.metaKey
 		const tag = (e.target as HTMLElement)?.tagName
@@ -400,7 +424,8 @@
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
 						<div class="tabs" onwheel={(e) => { if (e.deltaY) { e.currentTarget.scrollLeft += e.deltaY; e.preventDefault() } }}>
 							{#each tabs as t (t.id)}
-								<div class="tab" class:active={t.id === p.activeId} onclick={() => openTab(t.id, pi)}
+								<div class="tab" class:active={t.id === p.activeId} class:preview={t.preview} onclick={() => openTab(t.id, pi)}
+									ondblclick={() => promoteTab(t.id)}
 									role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter') openTab(t.id, pi) }}>
 									<Icon name={kindIcon[t.kind]} size={12} />
 									<span class="tab-name">{t.title}</span>
@@ -462,7 +487,7 @@
 									<PaperPage title={a.title} tool={p.tool} acad={acadMode} navContent={navContent} grid={toggles.GRID} lwt={toggles.LWT} canvasZoom={p.canvasView.zoom} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={activeVpPane === pi}
 										onactivate={() => (activeVpPane = pi)}
 										ondeactivate={() => { if (activeVpPane === pi) activeVpPane = null }}
-										onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} />
+										onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} onframe={onFrame} />
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => { if (activeVpPane === pi) activeVpPane = null }}>
@@ -510,7 +535,7 @@
 					<LayersPanel />
 				{:else if rightTab === 'props'}
 					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (active) updateEnt(active.id, e) }}
-						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''} {activeLayer} node={treeNode} />
+						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''} {activeLayer} node={treeNode} viewport={viewportSel} />
 				{:else}
 					<HistoryPanel {history} {revisions} onundo={undo} onredo={redo}
 						onnewrevision={makeRevision} onrestore={(s) => restoreRevision(s)} />
@@ -601,6 +626,8 @@
 	   so focus shows through the tab indicator itself (no strip-wide bar over it). */
 	.pane.focused .tab.active { border-top-color:var(--accent); }
 	.tab-name { font-size:12px; }
+	/* VSCode-style preview tab: italic label until promoted (double-click / edit). */
+	.tab.preview .tab-name { font-style:italic; }
 	.dirty { color:var(--accent); font-size:14px; line-height:0; }
 	.tab-x { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:3px; color:var(--faint); background:none; border:none; }
 	.tab-x:hover { background:var(--line); color:var(--text); }

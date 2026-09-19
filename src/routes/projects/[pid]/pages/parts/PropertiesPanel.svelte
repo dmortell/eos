@@ -5,10 +5,11 @@
 	// when nothing is selected. Geometry is in model units (mock).
 	import { Icon } from '$lib'
 	import type { Ent, Pt } from '../ui/Viewport.svelte'
+	import type { FrameSel } from './PaperPage.svelte'
 
-	let { ents = [], onupdate, pageTitle = '', pageKind = '', activeLayer = '', node = null }:
+	let { ents = [], onupdate, pageTitle = '', pageKind = '', activeLayer = '', node = null, viewport = null }:
 		{ ents?: Ent[]; onupdate?: (e: Ent) => void; pageTitle?: string; pageKind?: string; activeLayer?: string;
-			node?: { id: string; label: string; kind: string } | null } = $props()
+			node?: { id: string; label: string; kind: string } | null; viewport?: FrameSel | null } = $props()
 
 	// Mock property fields per tree-node kind (label → placeholder). Editing is local mock only.
 	const NODE_FIELDS: Record<string, [string, string][]> = {
@@ -67,7 +68,24 @@
 </script>
 
 <div class="pp">
-	{#if ents.length === 0 && node}
+	{#if ents.length === 0 && !node && viewport}
+		<!-- a viewport frame is selected in paper space → its view/content props (mock) -->
+		<div class="prop-sec">VIEWPORT</div>
+		<div class="prop"><span>Name</span><input value={viewport.label} /></div>
+		<div class="prop"><span>Type</span><input value="Viewport" readonly /></div>
+		<div class="prop-sec">FRAME</div>
+		<div class="prop"><span>X</span><input type="number" value={viewport.x} onchange={(e) => viewport?.setRect({ x: num(e) })} /></div>
+		<div class="prop"><span>Y</span><input type="number" value={viewport.y} onchange={(e) => viewport?.setRect({ y: num(e) })} /></div>
+		<div class="prop"><span>Width</span><input type="number" value={viewport.w} onchange={(e) => viewport?.setRect({ w: Math.max(90, num(e)) })} /></div>
+		<div class="prop"><span>Height</span><input type="number" value={viewport.h} onchange={(e) => viewport?.setRect({ h: Math.max(90, num(e)) })} /></div>
+		<div class="prop-sec">STYLE</div>
+		<div class="prop"><span>Border</span>
+			<select value={viewport.border} onchange={(e) => viewport?.setBorder((e.currentTarget as HTMLSelectElement).value as 'dashed' | 'solid' | 'none')}>
+				<option value="dashed">Dashed</option><option value="solid">Solid</option><option value="none">None</option>
+			</select>
+		</div>
+		<div class="pp-hint">Per-view content config (scale / crop / source) comes later — see §5.</div>
+	{:else if ents.length === 0 && node}
 		<!-- a tree node is selected → its place properties (mock) -->
 		<div class="prop-sec">{kindLabel[node.kind] ?? 'ITEM'}</div>
 		<div class="prop"><span>Name</span><input value={node.label} /></div>
@@ -118,8 +136,8 @@
 	.prop { display:grid; grid-template-columns:64px 1fr; align-items:center; gap:6px; padding:2px 4px; }
 	.prop.wide { grid-template-columns:1fr; }
 	.prop span { color:var(--muted); font-size:11px; }
-	.prop input { background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:3px 6px; font-size:11px; font-family:Consolas,monospace; min-width:0; }
+	.prop input, .prop select { background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:3px 6px; font-size:11px; font-family:Consolas,monospace; min-width:0; }
 	.prop input:read-only { color:var(--muted); }
-	.prop input:focus { outline:none; border-color:var(--accent); }
+	.prop input:focus, .prop select:focus { outline:none; border-color:var(--accent); }
 	.pp-hint { font-size:10px; color:var(--faint); padding:10px 6px; line-height:1.4; }
 </style>

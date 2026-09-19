@@ -163,15 +163,35 @@ Sheets' basic version** — see §10.
   routes, penetration & conduit requests (these are the output deliverables).
 
 ## 5. Views  (P2)
+- [x] **Viewport-frame properties** — selecting a viewport frame (paper space) shows its props
+  in the Properties panel: Name, Type, X/Y/W/H (live, editable), and **border style**
+  (dashed / solid / none, applied to the frame). Most-recent selection wins over tree-node props.
+- [ ] **Per-view content config** — the rest of a view's props: source model/floorplan, scale,
+  crop/clip, layer-visibility preset per view. (Frame position/size/border done above.)
 - [ ] **View types like the Sheets tool** — Pages views should support the same set of view
   kinds (list to be confirmed alongside §2a).
 - [ ] Multiple views of one model at different scales/crops on a sheet (viewport frames
   already support this — needs per-view content config).
 
 ## 6. Annotations  (P2)
-- [ ] Annotation objects, with a distinction between **per-view** annotations and ones
-  **promoted to model space** so they appear across multiple views.
-- [ ] Move an annotation view→model (and back).
+- [ ] ◧ **decide / design** — **annotation = object model.** Dave's model: an annotation
+  (callout, cloud, text, dimension…) is the *same kind of thing* as a model object; the only
+  difference is **where it's stored** — in a **layer/paper-space** vs in **model space**. You
+  should be able to draw callouts/clouds/etc in **both** model and views, and **move them
+  between** the two. **Does this conflict with AutoCAD/DXF?** No — it aligns:
+  - AutoCAD already splits **model space** vs **paper-space layouts**; annotations can live in
+    either, and **annotative** objects auto-scale per viewport. DXF stores every entity with a
+    `layer` (group code 8) and a space flag (code 67 = model vs paper), plus per-layout blocks.
+  - So "stored in a layer" and "model vs view" are **orthogonal** in DXF too: an entity has BOTH
+    a layer AND a space. Our model just needs an object to carry `{ layerId, space: 'model' |
+    'view:<id>' }`; moving view→model = flipping `space` (+ reposition). No conflict.
+  - Watch-outs: DXF has no "annotation that appears in several specific views" — that's *model
+    space shown through viewports* (all views) or *paper-space per layout* (one view). Our
+    "promote to a subset of views" is richer than DXF; store it our way and only map to
+    model/paper on DXF export.
+- [ ] Unify annotations with drawn objects (one entity model, `space` + `layerId` fields);
+  per-view vs model-space is the `space` value.
+- [ ] Move an annotation / object view→model (and back) = change its `space`.
 
 ## 7. Properties panel  (P1–P2)
 - [x] **Two-way binding + multi-select editing** — `parts/PropertiesPanel.svelte` edits the
@@ -191,6 +211,9 @@ Sheets' basic version** — see §10.
   Row hierarchy with drawing/view leaves that open tabs.
 - [x] Top-bar **Package / Version / Revision** selectors (mock).
 - [x] **Command palette** (Ctrl-K) — `parts/CommandPalette.svelte`, searches drawings/places.
+- [x] **Preview tabs (VSCode-style)** — single-clicking a drawing in the tree opens it in a shared
+  *italic* preview tab that the next single-click reuses; double-clicking it (or editing the doc)
+  promotes it to a kept tab. Command-palette picks open as kept tabs.
 - [x] **Folders selectable → place properties** — clicking a place (building/floor/zone/room/
   row) shows its props in the right Properties panel (mock fields per kind); the **project
   name is now a label above the tree** (not the tree root) and opens project props on click.
