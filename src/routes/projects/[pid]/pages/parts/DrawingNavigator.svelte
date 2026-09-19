@@ -7,48 +7,49 @@
 	type Kind = 'plan' | 'sheet' | 'elevation'
 	type Node = { id: string; label: string; folder?: string; drawing?: Kind; children?: Node[] }
 
-	let { onopen, oncollapse, activeTitle = '' }:
-		{ onopen?: (d: { title: string; kind: Kind }) => void; oncollapse?: () => void; activeTitle?: string } = $props()
+	let { onopen, oncollapse, onselectnode, activeTitle = '', activeNode = '' }:
+		{ onopen?: (d: { title: string; kind: Kind }) => void; oncollapse?: () => void;
+			onselectnode?: (n: { id: string; label: string; kind: string }) => void; activeTitle?: string; activeNode?: string } = $props()
 
 	// Location hierarchy Project › Building › Floor › Zone › Room › Row, with drawing/view
 	// leaves hung at the level they belong to. Folders expand; drawing leaves open a tab.
+	// Buildings are the top level; the Project sits ABOVE the tree as a label (click → project props).
+	const PROJECT = { id: 'project', label: 'Project Journey', kind: 'project' }
 	const TREE: Node[] = [
-		{ id: 'proj', label: 'Project Journey', folder: 'project', children: [
-			{ id: 'b-hibiya', label: 'Hibiya Midtown', folder: 'building', children: [
-				{ id: 'f33', label: '33F', folder: 'floor', children: [
-					{ id: 'f33-plan', label: '33F — Floorplan', drawing: 'plan' },
-					{ id: 'f33-hlo', label: '33F — High Level Outlets', drawing: 'sheet' },
-					{ id: 'f33-llo', label: '33F — Low Level Outlets', drawing: 'sheet' },
-					{ id: 'f33-tr', label: '33F — Trunk Routes', drawing: 'sheet' },
-					{ id: 'z3303', label: 'Zone 3303', folder: 'zone', children: [
-						{ id: 'z3303-out', label: 'Zone 3303 — Outlets', drawing: 'sheet' },
-						{ id: 'idf1', label: 'IDF1', folder: 'room', children: [
-							{ id: 'idf1-elev', label: 'IDF1 — Rack Elevation', drawing: 'elevation' },
-							{ id: 'idf1-ra', label: 'Row A', folder: 'row' },
-							{ id: 'idf1-rb', label: 'Row B', folder: 'row' },
-						] },
-						{ id: 'idf2', label: 'IDF2', folder: 'room', children: [
-							{ id: 'idf2-ra', label: 'Row A', folder: 'row' },
-							{ id: 'idf2-rb', label: 'Row B', folder: 'row' },
-						] },
+		{ id: 'b-hibiya', label: 'Hibiya Midtown', folder: 'building', children: [
+			{ id: 'f33', label: '33F', folder: 'floor', children: [
+				{ id: 'f33-plan', label: '33F — Floorplan', drawing: 'plan' },
+				{ id: 'f33-hlo', label: '33F — High Level Outlets', drawing: 'sheet' },
+				{ id: 'f33-llo', label: '33F — Low Level Outlets', drawing: 'sheet' },
+				{ id: 'f33-tr', label: '33F — Trunk Routes', drawing: 'sheet' },
+				{ id: 'z3303', label: 'Zone 3303', folder: 'zone', children: [
+					{ id: 'z3303-out', label: 'Zone 3303 — Outlets', drawing: 'sheet' },
+					{ id: 'idf1', label: 'IDF1', folder: 'room', children: [
+						{ id: 'idf1-elev', label: 'IDF1 — Rack Elevation', drawing: 'elevation' },
+						{ id: 'idf1-ra', label: 'Row A', folder: 'row' },
+						{ id: 'idf1-rb', label: 'Row B', folder: 'row' },
 					] },
-					{ id: 'z3307', label: 'Zone 3307', folder: 'zone', children: [
-						{ id: 'z3307-idf1', label: 'IDF1', folder: 'room', children: [
-							{ id: 'z3307-ra', label: 'Row A', folder: 'row' },
-						] },
+					{ id: 'idf2', label: 'IDF2', folder: 'room', children: [
+						{ id: 'idf2-ra', label: 'Row A', folder: 'row' },
+						{ id: 'idf2-rb', label: 'Row B', folder: 'row' },
 					] },
 				] },
-				{ id: 'f30', label: '30F', folder: 'floor', children: [
-					{ id: 'z3001', label: 'Zone 3001', folder: 'zone', children: [
-						{ id: 'z3001-ra', label: 'Row A', folder: 'row' },
+				{ id: 'z3307', label: 'Zone 3307', folder: 'zone', children: [
+					{ id: 'z3307-idf1', label: 'IDF1', folder: 'room', children: [
+						{ id: 'z3307-ra', label: 'Row A', folder: 'row' },
 					] },
 				] },
 			] },
-			{ id: 'b-shinmaru', label: 'Shinmaru', folder: 'building', children: [
-				{ id: 'f18', label: '18F', folder: 'floor', children: [
-					{ id: 'o1201', label: 'Office 1201', folder: 'zone', children: [
-						{ id: 'o1201-ra', label: 'Row A', folder: 'row' },
-					] },
+			{ id: 'f30', label: '30F', folder: 'floor', children: [
+				{ id: 'z3001', label: 'Zone 3001', folder: 'zone', children: [
+					{ id: 'z3001-ra', label: 'Row A', folder: 'row' },
+				] },
+			] },
+		] },
+		{ id: 'b-shinmaru', label: 'Shinmaru', folder: 'building', children: [
+			{ id: 'f18', label: '18F', folder: 'floor', children: [
+				{ id: 'o1201', label: 'Office 1201', folder: 'zone', children: [
+					{ id: 'o1201-ra', label: 'Row A', folder: 'row' },
 				] },
 			] },
 		] },
@@ -58,7 +59,7 @@
 	}
 	const drawingIcon: Record<Kind, string> = { plan: 'mapPin', sheet: 'fileText', elevation: 'box' }
 
-	let expanded = $state(new Set<string>(['proj', 'b-hibiya', 'f33', 'z3303']))
+	let expanded = $state(new Set<string>(['b-hibiya', 'f33', 'z3303']))
 	let search = $state('')
 	function toggle(id: string) { const s = new Set(expanded); s.has(id) ? s.delete(id) : s.add(id); expanded = s }
 	const hit = (s: string) => !search || s.toLowerCase().includes(search.toLowerCase())
@@ -79,6 +80,11 @@
 		<Icon name="search" size={12} />
 		<input placeholder="Search drawings…" bind:value={search} />
 	</div>
+	<button class="dn-project" class:active={activeNode === PROJECT.id} onclick={() => onselectnode?.(PROJECT)}
+		title="Project properties">
+		<Icon name="folderOpen" size={13} />
+		<span class="dn-name">{PROJECT.label}</span>
+	</button>
 	<div class="dn-tree">
 		{#each TREE as n (n.id)}{@render row(n, 0)}{/each}
 	</div>
@@ -96,11 +102,13 @@
 				<span class="dn-name">{n.label}</span>
 			</button>
 		{:else}
-			<!-- location folder: expand/collapse -->
-			<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-			<div class="dn-row folder" style:padding-left="{depth * 12 + 8}px" onclick={() => toggle(n.id)}>
+			<!-- location folder: chevron toggles expand; the row selects it (props in right panel) -->
+			<div class="dn-row folder" class:active={activeNode === n.id} style:padding-left="{depth * 12 + 8}px"
+				onclick={() => onselectnode?.({ id: n.id, label: n.label, kind: n.folder ?? 'folder' })}
+				role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onselectnode?.({ id: n.id, label: n.label, kind: n.folder ?? 'folder' }) } }}>
 				{#if n.children?.length}
-					<span class="dn-chev"><Icon name={isOpen ? 'chevronDown' : 'chevronRight'} size={12} /></span>
+					<button class="dn-chev" title="Expand/collapse" aria-label="Expand/collapse"
+						onclick={(e) => { e.stopPropagation(); toggle(n.id) }}><Icon name={isOpen ? 'chevronDown' : 'chevronRight'} size={12} /></button>
 				{:else}
 					<span class="dn-chev spacer"></span>
 				{/if}
@@ -126,6 +134,12 @@
 	.dn-search input { flex:1; min-width:0; background:none; border:none; color:var(--text); font-size:12px; padding:5px 0; }
 	.dn-search input:focus { outline:none; }
 
+	.dn-project { display:flex; align-items:center; gap:6px; width:auto; margin:0 6px 2px; padding:6px 8px; border-radius:5px;
+		color:var(--text); background:var(--panel2); border:1px solid var(--line); text-align:left; cursor:pointer; }
+	.dn-project:hover { background:var(--hover); }
+	.dn-project.active { background:var(--active); box-shadow:inset 2px 0 0 var(--accent); }
+	.dn-project :global(svg) { color:var(--accent); flex:0 0 auto; }
+	.dn-project .dn-name { font-weight:600; }
 	.dn-tree { flex:1; overflow-y:auto; padding:2px 4px 6px; scrollbar-width:thin; scrollbar-color:var(--line) transparent; }
 	.dn-row { display:flex; align-items:center; gap:5px; width:100%; padding-top:4px; padding-bottom:4px; padding-right:6px;
 		border-radius:5px; color:var(--text); background:none; border:none; text-align:left; cursor:pointer; user-select:none; }
@@ -135,6 +149,7 @@
 	.dn-row.active :global(svg) { color:var(--accent); }
 	.dn-row.folder .dn-name { font-weight:600; }
 	.dn-name { flex:1; min-width:0; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-	.dn-chev { display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; flex:0 0 auto; color:var(--muted); }
+	.dn-chev { display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; flex:0 0 auto; color:var(--muted); padding:0; background:none; border:none; border-radius:3px; }
+	button.dn-chev:hover { background:var(--line); color:var(--text); }
 	.dn-chev.spacer { width:14px; }
 </style>

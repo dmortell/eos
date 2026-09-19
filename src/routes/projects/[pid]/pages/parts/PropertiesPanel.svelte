@@ -6,8 +6,22 @@
 	import { Icon } from '$lib'
 	import type { Ent, Pt } from '../ui/Viewport.svelte'
 
-	let { ents = [], onupdate, pageTitle = '', pageKind = '', activeLayer = '' }:
-		{ ents?: Ent[]; onupdate?: (e: Ent) => void; pageTitle?: string; pageKind?: string; activeLayer?: string } = $props()
+	let { ents = [], onupdate, pageTitle = '', pageKind = '', activeLayer = '', node = null }:
+		{ ents?: Ent[]; onupdate?: (e: Ent) => void; pageTitle?: string; pageKind?: string; activeLayer?: string;
+			node?: { id: string; label: string; kind: string } | null } = $props()
+
+	// Mock property fields per tree-node kind (label → placeholder). Editing is local mock only.
+	const NODE_FIELDS: Record<string, [string, string][]> = {
+		project: [['Client', 'Journey K.K.'], ['Number', 'EOS-2314'], ['Address', 'Chiyoda, Tokyo'], ['Discipline', 'ICT / Structured Cabling']],
+		building: [['Address', '—'], ['Floors', '—']],
+		floor: [['Level', '—'], ['Elevation (mm)', '0']],
+		zone: [['Type', 'Office'], ['Server room', 'IDF1']],
+		room: [['Type', 'IDF'], ['Racks', '2']],
+		row: [['Racks', '4']],
+	}
+	const kindLabel: Record<string, string> = {
+		project: 'PROJECT', building: 'BUILDING', floor: 'FLOOR', zone: 'ZONE', room: 'ROOM', row: 'ROW',
+	}
 
 	function bbox(e: Ent): [number, number, number, number] {
 		if (e.type === 'circle') return [e.c![0] - e.r!, e.c![1] - e.r!, e.c![0] + e.r!, e.c![1] + e.r!]
@@ -52,13 +66,21 @@
 </script>
 
 <div class="pp">
-	{#if ents.length === 0}
+	{#if ents.length === 0 && node}
+		<!-- a tree node is selected → its place properties (mock) -->
+		<div class="prop-sec">{kindLabel[node.kind] ?? 'ITEM'}</div>
+		<div class="prop"><span>Name</span><input value={node.label} /></div>
+		{#each NODE_FIELDS[node.kind] ?? [] as [label, ph] (label)}
+			<div class="prop"><span>{label}</span><input value={ph} /></div>
+		{/each}
+		<div class="pp-hint">Editing these is mock-only for now.</div>
+	{:else if ents.length === 0}
 		<!-- nothing selected → page / general props (mock) -->
 		<div class="prop-sec">PAGE</div>
 		<div class="prop"><span>Name</span><input value={pageTitle} /></div>
 		<div class="prop"><span>Type</span><input value={pageKind} readonly /></div>
 		<div class="prop"><span>Layer</span><input value={activeLayer} readonly /></div>
-		<div class="pp-hint">Select an object to edit its properties.</div>
+		<div class="pp-hint">Select an object to edit its properties, or a place in the tree.</div>
 	{:else}
 		<div class="prop-sec">{ents.length === 1 ? 'OBJECT' : `${ents.length} OBJECTS`}</div>
 		<div class="prop"><span>Type</span><input value={typeLabel} readonly /></div>

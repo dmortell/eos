@@ -21,9 +21,10 @@ after UX settles · **(P3)** later / needs design. `◧ decide` = needs your pic
 ## 1. Interaction parity with the Sheets tool  (P1)
 - [ ] ◧ **decide** — Mouse/touch model: choose whether Pages matches Sheets or keeps its
   current model. **Comparison table below** — mark the column you want per row.
-- [ ] **Shift-key constraints** while drawing (match Sheets): ortho/45° for lines,
-  square for rectangles, from-centre / equal-radius for circles. Wire to a live
-  modifier read during draft + preview.
+- [x] **Shift-key constraints** while drawing: 15° ortho for lines/dims, square for
+  rectangles/ellipses; applied live the instant Shift is pressed/released (not only on the
+  next mouse-move). Also adopted for **moving** (ortho axis-lock), **resizing / handle-drag**
+  (square about opposite corner), and **line-endpoint drag** (15° increments).
 - [ ] Snapping: grid snap + object snap (osnap) driven by the status-bar toggles (see §9).
 
 ### 1a. Mouse / touch: Pages vs Sheets  ◧ decide
@@ -40,10 +41,10 @@ after UX settles · **(P3)** later / needs design. `◧ decide` = needs your pic
 | Add to selection | not yet | **Shift/Ctrl-click, Shift-marquee** | → adopt |
 | Ctrl-drag | not yet | **Duplicate the selection** | → adopt |
 | Shift while **drawing** | ✅ square / 15° ortho | none | ✅ **done (Pages)** |
-| Shift while **moving** | none | **Ortho / axis-lock** | → adopt (§1) |
-| Shift while **resizing** | none | **Square / equal** | → adopt (§1) |
+| Shift while **moving** | ✅ ortho / axis-lock | **Ortho / axis-lock** | ✅ **done (Pages)** |
+| Shift while **resizing** | ✅ square about opposite corner | **Square / equal** | ✅ **done (Pages)** |
 | Rotate | no rotate yet | snaps 15°, Shift = free | → adopt |
-| Line-endpoint drag | free | Shift = 15° increments | → adopt |
+| Line-endpoint drag | ✅ Shift = 15° increments | Shift = 15° increments | ✅ **done (Pages)** |
 | **1-finger touch** | **Draw / select / edit** (never pans) | **Pans** empty bg, else object drag | ✅ **Pages (never pans)** |
 | 2-finger touch | Pan + pinch-zoom | Pan + pinch-zoom | _same_ |
 | Activate a viewport | Double-click | Double-click | _same_ |
@@ -59,11 +60,11 @@ marquee and constant-lineweight draw, but no additive select / duplicate / move-
   Pages (**checklist below**).
 - [x] **Ellipses** — Ellipse tool (Shift = circle); render/hit/grips/Properties.
 - [x] **Edit-in-place text** — double-click a text object opens an inline editor.
-- [ ] **Real drawing scale** — the viewport has **no real-world scale** yet: geometry is in
-  abstract viewBox units (the mock floorplan is 0..400 × 0..250), so an object of "width
-  100" is ¼ of the plan — huge; the "1:100" titleblock text is cosmetic. To make it real:
-  define model units = mm + a scale (e.g. 1 unit = 100 mm ⇒ the 400-unit plan = 40 m at
-  1:100), show/accept mm in Properties, and render true lineweights. Needs your unit/scale call.
+- [ ] **Real drawing scale (mm)** — DECIDED: model units are **millimetres, integers**, scaled
+  the same way as Sheets floorplans. The viewport is still abstract viewBox units (mock plan
+  0..400 × 0..250), so "width 100" reads huge and the "1:100" titleblock text is cosmetic. To
+  make it real: treat model space as mm, apply the plan's mm-per-unit scale, show/accept
+  integer mm in Properties, and render true lineweights. (Implementation pending.)
 - [ ] **Blocks + block library** — define, instance, place; a browsable library panel (P2).
 - [ ] **Trunks & conduits** (from Sheets): node/segment graph with handle editing (drag
   node, dbl-click segment to add a point, Ctrl-drag to branch, Shift = 15°). Sheets stores
@@ -74,6 +75,11 @@ marquee and constant-lineweight draw, but no additive select / duplicate / move-
 - [ ] Section / elevation views generated from floorplans → **objects need 3D data**
   (heights/extrusion) so cuts can be produced (P3).
 - [ ] Kestrel **WCS orientation cube** (liked) (P2).
+- [ ] **Ellipse draw origin** — optional status-bar toggle for centre-out vs corner-to-corner
+  ellipse/circle drawing (AutoCAD ELLIPSE defaults corner/axis, with a `C` Center option).
+  Currently corner-to-corner (Shift = square about opposite corner) (P2).
+- [ ] **Titleblock editing** — edit the titleblock **style** (template/layout) and its
+  **contents** (project/sheet fields, logo, revision table) per sheet / per package (P2).
 - [ ] More Kestrel tools, surfaced through the **menubar** first; move to a **ribbon** only
   if menus get unwieldy (P2).
 - [ ] Optional **Kestrel command line** for AutoCAD users (low priority — Dave doesn't use it) (P3).
@@ -121,6 +127,17 @@ Sheets' basic version** — see §10.
 > swatches. **UI built** (`parts/LayersPanel.svelte`); wiring is the remaining work.
 - [~] Right-side **Layers panel** — nested groups, eye toggles, swatches, View-Preset picker;
   **New Layer, rename (dbl-click), colour picker, add-sub / delete** all work (mock state).
+- [x] **Layer settings dialog** — the colour swatch is now a colour+line button that opens a
+  dialog (name, colour, draw-as fill/line, line type, thickness in mm, **lock**, **delete**).
+- [x] **Lockable layers** — lock toggle on group rows + in the settings dialog (mock).
+- [ ] **Draggable layers** — reorder layers/groups in the manager by dragging (P2).
+- [ ] **Draw order** — bring-forward / send-to-back (and to-front / to-back) so images and
+  solid-filled objects can be stacked/overlapped predictably (P2). Ties into the same
+  ordering used by draggable layers.
+- [ ] **Wire the View-Preset manager button** — the preset picker's manage/gear button is a
+  no-op; make it create / rename / delete presets and save layer-visibility sets.
+- [ ] **Find / identify an object's layer** — select an object → highlight its layer in the
+  panel (and a "select all on layer" / "isolate layer" action).
 - [ ] **Wire to the canvas** — real show/hide/lock, active layer, per-object layer assignment,
   layer of new objects; apply a **View Preset** = a saved set of layer visibilities.
 - [ ] **Background layers** — import one or more PDF / image / DXF files as background
@@ -151,6 +168,8 @@ Sheets' basic version** — see §10.
 - [x] **Two-way binding + multi-select editing** — `parts/PropertiesPanel.svelte` edits the
   focused doc's selected entities (single → X/Y + rect W/H / circle radius / text; several →
   group bbox, X/Y move the whole selection). Nothing selected → page/general props.
+- [x] **Place properties from the tree** — selecting a tree node shows editable place props
+  in this panel (replaces the old tree-label→property links). See §8.
 - [ ] Add layer / colour / line-weight editing once entities carry those props (§3 wiring).
 
 ## 8. Project tree ↔ Pages linkage  (P2)
@@ -163,8 +182,11 @@ Sheets' basic version** — see §10.
   Row hierarchy with drawing/view leaves that open tabs.
 - [x] Top-bar **Package / Version / Revision** selectors (mock).
 - [x] **Command palette** (Ctrl-K) — `parts/CommandPalette.svelte`, searches drawings/places.
+- [x] **Folders selectable → place properties** — clicking a place (building/floor/zone/room/
+  row) shows its props in the right Properties panel (mock fields per kind); the **project
+  name is now a label above the tree** (not the tree root) and opens project props on click.
 - [ ] Wire the tree to real project data + uploaded floorplans (scope a view to a place);
-  make folders selectable → edit place properties (Project props can live here too).
+  persist the place-property edits.
 - [ ] Package **content preview** + **master drawing list** management.
 
 ## 9. Status bar wiring  (P1)
@@ -176,7 +198,7 @@ Sheets' basic version** — see §10.
 ## 10. Undo / redo / history / revisions  (P2)
 - [x] **Undo / redo** (Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z, Edit menu) — snapshot-based, coalesces
   a drag into one step. **Change log** + **revision snapshots** in `parts/HistoryPanel.svelte`
-  (right "History" tab): New revision, restore a revision.
+  (right "History" tab): New revision, restore a revision, **editable description note per revision**.
 - [ ] **Diff between revisions** → generate revision **clouds** from the changes (the real
   payoff; Sheets has only a manual cloud annotation).
 

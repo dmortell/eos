@@ -1,6 +1,10 @@
 <script lang="ts">
-	// Bottom status bar (Pages mockup): Model/Sheet layout, cursor coords, the drafting
+	// Bottom status bar (Pages mockup): full-size toggle, cursor coords, the drafting
 	// toggles (GRID/SNAP/ORTHO/OSNAP/LWT) + the ACAD interaction toggle, and zoom controls.
+	// A page can hold viewports of different models, so there's no page-wide "Model" space —
+	// instead a Full-size toggle makes the drawing fill the pane (off = the A3 sheet layout),
+	// mirroring the Sheets tool's viewport full-size view.
+	import { Icon } from '$lib'
 	let { layout = $bindable('sheet'), toggles = $bindable<Record<string, boolean>>({}), acadMode = $bindable(true),
 		cx = 0, cy = 0, zoom = 100, onzoom, onfit }:
 		{ layout?: 'model' | 'sheet'; toggles?: Record<string, boolean>; acadMode?: boolean;
@@ -9,8 +13,12 @@
 
 <footer class="statusbar">
 	<div class="layout-tabs">
-		<button class:on={layout === 'model'} onclick={() => (layout = 'model')}>Model</button>
-		<button class:on={layout === 'sheet'} onclick={() => (layout = 'sheet')}>Sheet A3</button>
+		<button class="fullsize" class:on={layout === 'model'}
+			title="Full-size: fill the pane with the drawing (off = show the A3 sheet layout)"
+			onclick={() => (layout = layout === 'model' ? 'sheet' : 'model')}>
+			<Icon name={layout === 'model' ? 'panels' : 'expand'} size={13} />
+			{layout === 'model' ? 'Full-size' : 'Sheet A3'}
+		</button>
 	</div>
 	<div class="coords">{cx}, {cy} mm</div>
 	<div class="toggles">
@@ -32,7 +40,8 @@
 	.statusbar { height:26px; flex:0 0 auto; display:flex; align-items:center; gap:2px;
 		background:var(--title); border-top:1px solid var(--line); padding:0 6px; font-size:11px; color:var(--muted); }
 	.layout-tabs { display:flex; gap:2px; }
-	.layout-tabs button { padding:2px 9px; border-radius:4px; color:var(--muted); background:none; border:none; font-size:11px; }
+	.layout-tabs button { display:inline-flex; align-items:center; gap:5px; padding:2px 9px; border-radius:4px; color:var(--muted); background:none; border:none; font-size:11px; }
+	.layout-tabs button :global(svg) { flex:0 0 auto; }
 	.layout-tabs button.on { background:var(--active); color:var(--text); box-shadow:inset 0 -2px 0 var(--accent); }
 	.coords { font-family:Consolas,monospace; padding:0 10px; color:var(--text); min-width:96px; }
 	.toggles { display:flex; gap:2px; }

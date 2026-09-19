@@ -64,7 +64,7 @@
 	let undoStack: Snap[] = []
 	let redoStack: Snap[] = []
 	let history = $state<{ label: string; t: number }[]>([])
-	let revisions = $state<{ name: string; snap: Snap; t: number }[]>([])
+	let revisions = $state<{ name: string; note: string; snap: Snap; t: number }[]>([])
 	let lastPushT = 0
 	const snapEnts = (): Snap => $state.snapshot(docEnts) as Snap
 	// Snapshot the PRE-change state; coalesce a rapid burst (e.g. a drag) into one step.
@@ -80,12 +80,12 @@
 	function redo() { if (!redoStack.length) return; undoStack.push(snapEnts()); docEnts = redoStack.pop()!; lastPushT = 0 }
 	let revSeq = 0
 	function makeRevision() {
-		revisions = [{ name: 'Rev ' + String.fromCharCode(67 + revSeq++), snap: snapEnts(), t: Date.now() }, ...revisions]
+		revisions = [{ name: 'Rev ' + String.fromCharCode(67 + revSeq++), note: '', snap: snapEnts(), t: Date.now() }, ...revisions]
 	}
 	// $state.snapshot unwraps the proxy (the revision snap lives inside the $state revisions
 	// array); structuredClone would throw on that proxy and silently skip the restore.
 	function restoreRevision(snap: Snap) { pushHistory('Restore revision'); docEnts = $state.snapshot(snap) as Snap }
-	function setSel(id: string, ids: string[]) { docSel = { ...docSel, [id]: ids } }
+	function setSel(id: string, ids: string[]) { docSel = { ...docSel, [id]: ids }; if (ids.length) treeNode = null }
 	function setView(id: string, v: View) { docView = { ...docView, [id]: v } }
 	// Selected entities of the focused document (for the Properties panel).
 	let selEnts = $derived.by(() => {
@@ -172,6 +172,12 @@
 		const existing = tabs.find(t => t.title === d.title)
 		if (existing) openTab(existing.id)
 		else addTab(d.kind, d.title)
+	}
+	// A place/label in the tree (project, building, floor, …) → edit its props in the right panel.
+	let treeNode = $state<{ id: string; label: string; kind: string } | null>(null)
+	function selectNode(n: { id: string; label: string; kind: string }) {
+		if (active) setSel(active.id, [])   // clear entity selection so node props show
+		treeNode = n; rightTab = 'props'; rightOpen = true
 	}
 
 	// ── top-bar drawing-set selectors (mock) + Ctrl-K command palette ──
@@ -365,7 +371,8 @@
 		<!-- Left sidebar: Drawing Navigator (location tree → drawings/views) -->
 		{#if leftOpen}
 			<aside class="side left">
-				<DrawingNavigator onopen={openDrawing} oncollapse={() => (leftOpen = false)} activeTitle={active?.title ?? ''} />
+				<DrawingNavigator onopen={openDrawing} oncollapse={() => (leftOpen = false)} onselectnode={selectNode}
+					activeTitle={active?.title ?? ''} activeNode={treeNode?.id ?? ''} />
 			</aside>
 		{:else}
 			<button class="rail left" title="Show panel" onclick={() => (leftOpen = true)}>
@@ -497,7 +504,7 @@
 					<LayersPanel />
 				{:else if rightTab === 'props'}
 					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (active) updateEnt(active.id, e) }}
-						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''} {activeLayer} />
+						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''} {activeLayer} node={treeNode} />
 				{:else}
 					<HistoryPanel {history} {revisions} onundo={undo} onredo={redo}
 						onnewrevision={makeRevision} onrestore={(s) => restoreRevision(s)} />

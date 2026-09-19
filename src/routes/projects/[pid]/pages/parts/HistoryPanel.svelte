@@ -5,7 +5,7 @@
 	import { Icon } from '$lib'
 	type Snap = Record<string, unknown>
 	let { history = [], revisions = [], onundo, onredo, onnewrevision, onrestore }:
-		{ history?: { label: string; t: number }[]; revisions?: { name: string; snap: Snap; t: number }[];
+		{ history?: { label: string; t: number }[]; revisions?: { name: string; note: string; snap: Snap; t: number }[];
 			onundo?: () => void; onredo?: () => void; onnewrevision?: () => void; onrestore?: (s: Snap) => void } = $props()
 
 	function ago(t: number) {
@@ -29,11 +29,15 @@
 	{#if revisions.length}
 		<div class="hp-list">
 			{#each revisions as r (r.name + r.t)}
-				<button class="hp-row rev" onclick={() => onrestore?.(r.snap)} title="Restore this revision">
-					<Icon name="fileText" size={13} />
-					<span class="hp-name">{r.name}</span>
-					<span class="hp-when">{ago(r.t)}</span>
-				</button>
+				<div class="hp-rev">
+					<div class="hp-rev-head">
+						<Icon name="fileText" size={13} />
+						<span class="hp-name">{r.name}</span>
+						<span class="hp-when">{ago(r.t)}</span>
+						<button class="hp-restore" onclick={() => onrestore?.(r.snap)} title="Restore this revision">Restore</button>
+					</div>
+					<input class="hp-note" placeholder="Add a description note…" bind:value={r.note} />
+				</div>
 			{/each}
 		</div>
 	{:else}
@@ -70,6 +74,14 @@
 	.hp-row { display:flex; align-items:center; gap:7px; width:100%; padding:5px 6px; border-radius:5px; color:var(--text); background:none; border:none; text-align:left; }
 	.hp-row.rev:hover { background:var(--hover); }
 	.hp-row :global(svg) { color:var(--muted); flex:0 0 auto; }
+	.hp-rev { padding:5px 6px; border-radius:5px; }
+	.hp-rev:hover { background:var(--hover); }
+	.hp-rev-head { display:flex; align-items:center; gap:7px; }
+	.hp-rev-head :global(svg) { color:var(--muted); flex:0 0 auto; }
+	.hp-restore { flex:0 0 auto; font-size:10px; color:var(--accent); background:none; border:1px solid var(--line); border-radius:4px; padding:1px 7px; }
+	.hp-restore:hover { background:var(--active); }
+	.hp-note { width:100%; margin-top:4px; background:var(--input); color:var(--text); border:1px solid var(--line-soft); border-radius:4px; padding:3px 6px; font-size:11px; }
+	.hp-note:focus { outline:none; border-color:var(--accent); }
 	.hp-name { flex:1; min-width:0; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 	.hp-when { font-size:10px; color:var(--faint); flex:0 0 auto; }
 	.hp-dot { width:6px; height:6px; border-radius:50%; background:var(--line); flex:0 0 auto; margin:0 3px; }
