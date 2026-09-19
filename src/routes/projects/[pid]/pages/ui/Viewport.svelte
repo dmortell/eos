@@ -12,17 +12,23 @@
 	import { BASE, HANDLE_PX } from '../constants'
 
 	export type Pt = [number, number]
-	export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'ellipse' | 'dim' | 'text'; a?: Pt; b?: Pt; c?: Pt; r?: number; text?: string }
+	// 'box' = a mock 3D cuboid: a,b are the footprint corners (plan), h is its height (mm).
+	// It projects differently per view kind (plan footprint / elevation front / model oblique).
+	export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'ellipse' | 'dim' | 'text' | 'box'; a?: Pt; b?: Pt; c?: Pt; r?: number; h?: number; text?: string }
 	export type View = { zoom: number; x: number; y: number }
 
-	let { label = 'Viewport', scale = '', kind = 'floorplan', active = false, tool = 'Select', boxW, boxH, acad = true, navContent = false, grid = true, lwt = true,
+	let { label = 'Viewport', scale = '', kind = 'floorplan', active = false, tool = 'Select', boxW, boxH, acad = true, navContent = false, grid = true, lwt = true, canvasZoom = 1,
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, ondeactivate, onadd, onupdate, onselect, onview }:
-		{ label?: string; scale?: string; kind?: 'floorplan' | 'model' | 'elevation'; active?: boolean; tool?: string; boxW?: number; boxH?: number; acad?: boolean; navContent?: boolean; grid?: boolean; lwt?: boolean;
+		{ label?: string; scale?: string; kind?: 'floorplan' | 'model' | 'elevation'; active?: boolean; tool?: string; boxW?: number; boxH?: number; acad?: boolean; navContent?: boolean; grid?: boolean; lwt?: boolean; canvasZoom?: number;
 			entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; ondeactivate?: () => void; onadd?: (e: Ent) => void; onupdate?: (e: Ent) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void } = $props()
 
 	const tagIcon: Record<string, string> = { floorplan: 'mapPin', model: 'box', elevation: 'server' }
-	const DRAW = new Set(['Line', 'Rectangle', 'Ellipse', 'Dimension', 'Text'])
-	let cursorStyle = $derived(!active ? 'pointer' : DRAW.has(tool) ? 'crosshair' : 'default')
+	const DRAW = new Set(['Line', 'Rectangle', 'Ellipse', 'Dimension', 'Text', 'Box'])
+	const DEFAULT_BOX_H = 45   // mock mm height for a freshly drawn cuboid
+	// Body-hover cursor: 'move' over a shape (drag to move), else default; grips carry their own
+	// crosshair (they render on top, so their cursor wins over the container's).
+	let hoverBody = $state(false)
+	let cursorStyle = $derived(!active ? 'pointer' : DRAW.has(tool) ? 'crosshair' : hoverBody ? 'move' : 'default')
 
 	// ── background mock content ──
 	const desks: { x: number; y: number }[] = []
@@ -106,7 +112,7 @@
 	function constrainPt(a: Pt, p: Pt, shift: boolean): Pt {
 		if (!shift) return p
 		const dx = p[0] - a[0], dy = p[1] - a[1]
-		if (tool === 'Rectangle' || tool === 'Ellipse') {   // Shift → square bbox (a circle for the ellipse)
+		if (tool === 'Rectangle' || tool === 'Ellipse' || tool === 'Box') {   // Shift → square bbox (a circle for the ellipse)
 			const s = Math.max(Math.abs(dx), Math.abs(dy))
 			return [a[0] + (dx < 0 ? -s : s), a[1] + (dy < 0 ? -s : s)]
 		}
@@ -121,6 +127,7 @@
 		if (tool === 'Line') onadd?.({ id: uid(), type: 'line', a, b })
 		else if (tool === 'Rectangle') onadd?.({ id: uid(), type: 'rect', a, b })
 		else if (tool === 'Ellipse') onadd?.({ id: uid(), type: 'ellipse', a, b })
+		else if (tool === 'Box') onadd?.({ id: uid(), type: 'box', a, b, h: DEFAULT_BOX_H })
 		else if (tool === 'Dimension') onadd?.({ id: uid(), type: 'dim', a, b })
 	}
 	function onClick(e: MouseEvent) {
@@ -139,6 +146,11 @@
 	let lastRaw: Pt | null = null   // last UNconstrained pointer during a draft (for re-constraining on Shift)
 	function onMove(e: MouseEvent) {
 		if (active && draft.length) { const p = toLocal(e); if (p) { lastRaw = p; cur = constrainPt(draft[0], p, e.shiftKey) } }
+		// hover feedback for the Select tool: 'move' when over a shape body (a grip shows its own cursor)
+		if (active && tool === 'Select' && !drag && !draft.length && !marquee) {
+			const lp = toLocalXY(e.clientX, e.clientY)
+			hoverBody = !!lp && hit(lp).length > 0
+		} else hoverBody = false
 	}
 	// Re-apply the constraint the instant Shift changes (don't wait for a pointer move) — for
 	// both an in-progress draw and an in-progress move/grip drag.
@@ -191,7 +203,7 @@
 	}
 	function hitEnt(e: Ent, p: Pt, thr: number): boolean {
 		if (e.type === 'line' || e.type === 'dim') return segDist(p, e.a!, e.b!) < thr
-		if (e.type === 'rect') { const x0 = Math.min(e.a![0], e.b![0]), y0 = Math.min(e.a![1], e.b![1]), x1 = Math.max(e.a![0], e.b![0]), y1 = Math.max(e.a![1], e.b![1]); return p[0] >= x0 - thr && p[0] <= x1 + thr && p[1] >= y0 - thr && p[1] <= y1 + thr }
+		if (e.type === 'rect' || e.type === 'box') { const x0 = Math.min(e.a![0], e.b![0]), y0 = Math.min(e.a![1], e.b![1]), x1 = Math.max(e.a![0], e.b![0]), y1 = Math.max(e.a![1], e.b![1]); return p[0] >= x0 - thr && p[0] <= x1 + thr && p[1] >= y0 - thr && p[1] <= y1 + thr }
 		if (e.type === 'circle') return dist(e.c!, p) <= e.r! + thr
 		if (e.type === 'ellipse') {
 			const cx = (e.a![0] + e.b![0]) / 2, cy = (e.a![1] + e.b![1]) / 2
@@ -217,7 +229,7 @@
 			{ x: e.a![0], y: e.a![1], apply: p => ({ ...e, a: p }) },
 			{ x: e.b![0], y: e.b![1], apply: p => ({ ...e, b: p }) },
 		]
-		if (e.type === 'rect' || e.type === 'ellipse') {   // 4 corner grips on the bbox
+		if (e.type === 'rect' || e.type === 'ellipse' || e.type === 'box') {   // 4 corner grips on the footprint/bbox
 			const [ax, ay] = e.a!, [bx, by] = e.b!
 			return [
 				{ x: ax, y: ay, apply: p => ({ ...e, a: p }) },
@@ -241,7 +253,7 @@
 	// endpoint → 15° about the other end. (Circle radius left free.)
 	function constrainGrip(base: Ent, gi: number, p: Pt, shift: boolean): Pt {
 		if (!shift) return p
-		if (base.type === 'rect' || base.type === 'ellipse') {
+		if (base.type === 'rect' || base.type === 'ellipse' || base.type === 'box') {
 			const [ax, ay] = base.a!, [bx, by] = base.b!
 			const an: Pt = gi === 0 ? [bx, by] : gi === 1 ? [ax, ay] : gi === 2 ? [bx, ay] : [ax, by]
 			const s = Math.max(Math.abs(p[0] - an[0]), Math.abs(p[1] - an[1]))
@@ -255,9 +267,11 @@
 		}
 		return p
 	}
-	// gripSize in model units renders to HANDLE_PX·canvasZoom px on screen — the same as the
-	// paper's viewport-frame grips, so every handle looks identical.
-	const gripSize = $derived(HANDLE_PX / BASE / view.zoom)
+	// Grips must be a CONSTANT screen size (Kestrel / Outlets), whatever the zoom. On-screen
+	// px of a model-unit length = length · view.zoom · (BASE · canvasZoom); dividing by both
+	// zooms cancels them so the grip is always HANDLE_PX px — the canvas CSS zoom included
+	// (without canvasZoom the grips grew as you zoomed the canvas in).
+	const gripSize = $derived(HANDLE_PX / BASE / view.zoom / (canvasZoom || 1))
 
 	// What a press at these client coords would grab: a grip of a selected entity, or the
 	// body of any entity (topmost). Drives the pointer-drag start (mouse-left / 1-finger
@@ -415,6 +429,24 @@
 		onselect?.(ids)
 		suppressClick = true   // don't let the ensuing click clear this selection
 	}
+	// ── box (mock 3D cuboid) projection ──
+	// Footprint a..b in drawing coords + height h. Model view = oblique (cabinet) projection:
+	// the top face is the footprint shifted up-right by h·ISO. Elevation = the front face
+	// (footprint width × h). Plan = the footprint rectangle.
+	const ISO = 0.6
+	function boxFaces(e: Ent) {
+		const x0 = Math.min(e.a![0], e.b![0]), y0 = Math.min(e.a![1], e.b![1])
+		const x1 = Math.max(e.a![0], e.b![0]), y1 = Math.max(e.a![1], e.b![1])
+		const h = e.h ?? DEFAULT_BOX_H, ox = h * ISO, oy = -h * ISO
+		const P = (x: number, y: number) => `${x},${y}`
+		return {
+			x0, y0, x1, y1, h,
+			top: `${P(x0 + ox, y0 + oy)} ${P(x1 + ox, y0 + oy)} ${P(x1 + ox, y1 + oy)} ${P(x0 + ox, y1 + oy)}`,
+			right: `${P(x1, y0)} ${P(x1, y1)} ${P(x1 + ox, y1 + oy)} ${P(x1 + ox, y0 + oy)}`,
+			back: `${P(x0, y0)} ${P(x1, y0)} ${P(x1 + ox, y0 + oy)} ${P(x0 + ox, y0 + oy)}`,
+		}
+	}
+
 	// Kestrel-style prompt
 	let prompt = $derived.by(() => {
 		if (!active) return ''
@@ -424,6 +456,7 @@
 			case 'Line': return n ? 'Specify end point' : 'Specify first point'
 			case 'Rectangle': return n ? 'Specify opposite corner' : 'Specify first corner'
 			case 'Ellipse': return n ? 'Specify opposite corner (Shift = circle)' : 'Specify first corner'
+			case 'Box': return n ? 'Specify opposite corner (Shift = square footprint)' : 'Specify first corner'
 			case 'Dimension': return n ? 'Specify second point' : 'Specify first point'
 			case 'Text': return 'Click to place text'
 			default: return tool + ' tool'
@@ -442,13 +475,18 @@
 	<svg bind:this={svg} class="vp-svg {kind === 'model' || kind === 'elevation' ? 'model' : ''}" viewBox="{minX} {minY} {vbW} {vbH}" preserveAspectRatio="xMidYMid meet">
 		<g transform="translate({view.x} {view.y}) scale({view.zoom})">
 			<!-- background content -->
-			{#if kind === 'model' || kind === 'elevation'}
+			{#if kind === 'model'}
 				{#if grid}{#each floorGrid as g (g)}<polyline points={g} fill="none" stroke="#d5deea" stroke-width="0.7" />{/each}{/if}
 				{#each racks as b (b.top)}
 					<polygon points={b.left} fill="#8aa0bf" stroke="#5c7396" stroke-width="0.6" />
 					<polygon points={b.right} fill="#6f88ab" stroke="#4a5f7d" stroke-width="0.6" />
 					<polygon points={b.top} fill="#a9bcd6" stroke="#7f95b4" stroke-width="0.6" />
 				{/each}
+			{:else if kind === 'elevation'}
+				<!-- flat elevation backdrop: a ground line + faint vertical station grid -->
+				{#if grid}{#each Array(19) as _, i (i)}<line x1={8 + i * 20} y1="30" x2={8 + i * 20} y2="200" stroke="#e2e8f0" stroke-width="0.6" />{/each}{/if}
+				<line x1="8" y1="200" x2="392" y2="200" stroke="#94a3b8" stroke-width="1.2" />
+				<text x="12" y="214" font-size="8" fill="#64748b" font-weight="600">ELEVATION</text>
 			{:else}
 				<rect x="8" y="8" width="384" height="234" fill="#ffffff" stroke="#94a3b8" stroke-width="1.4" />
 				{#if grid}
@@ -472,7 +510,7 @@
 				{#each entities as e (e.id)}
 					{#if selSet.has(e.id)}
 						{#each gripsFor(e) as g}
-							<Handle cx={g.x} cy={g.y} size={gripSize} cursor="grab" />
+							<Handle cx={g.x} cy={g.y} size={gripSize} cursor="crosshair" />
 						{/each}
 					{/if}
 				{/each}
@@ -490,6 +528,22 @@
 	{#if active}
 		<div class="vp-badge"><span class="vp-dot"></span>{tool} · {prompt} · {Math.round(view.zoom * 100)}%</div>
 	{/if}
+	<!-- Kestrel-style WCS orientation cube: an oblique reference cube with an X/Y/Z triad; the
+	     face matching the current view (plan → top, elevation → front) is highlighted. -->
+	<div class="vp-wcs" title="World coordinate system — {kind === 'floorplan' ? 'plan (top)' : kind === 'elevation' ? 'front elevation' : '3D model'} view">
+		<svg viewBox="0 0 48 44" width="48" height="44">
+			<polygon points="30,32 30,14 39,7 39,25" fill="#b2c3dc" stroke="#5c7396" stroke-width="0.8" />
+			<polygon points="12,32 30,32 30,14 12,14" fill={kind === 'elevation' ? '#5ac6d2' : '#c8d5e8'} stroke="#5c7396" stroke-width="0.8" />
+			<polygon points="12,14 30,14 39,7 21,7" fill={kind === 'floorplan' ? '#5ac6d2' : '#dce7f5'} stroke="#5c7396" stroke-width="0.8" />
+			<!-- axis triad from the front-bottom-left corner -->
+			<line x1="12" y1="32" x2="31" y2="32" stroke="#d9534f" stroke-width="1.2" />
+			<line x1="12" y1="32" x2="12" y2="13" stroke="#5b8def" stroke-width="1.2" />
+			<line x1="12" y1="32" x2="21" y2="25" stroke="#5cb85c" stroke-width="1.2" />
+			<text x="33" y="35" font-size="6" fill="#d9534f" font-weight="700">x</text>
+			<text x="7" y="12" font-size="6" fill="#5b8def" font-weight="700">z</text>
+			<text x="22" y="26" font-size="6" fill="#4a9d4a" font-weight="700">y</text>
+		</svg>
+	</div>
 	{#if editText}
 		<textarea class="text-edit" bind:this={textInput} bind:value={editText.value} rows="1" spellcheck="false"
 			style="left:{editText.x}px; top:{editText.y - editText.fontPx}px; font-size:{editText.fontPx}px; line-height:{editText.fontPx * 1.18}px"
@@ -517,6 +571,21 @@
 		<text x={e.a![0]} y={e.a![1]} font-size="11" fill={ink} font-weight="600">
 			{#each (e.text ?? '').split('\n') as line, i (i)}<tspan x={e.a![0]} dy={i === 0 ? 0 : 13}>{line}</tspan>{/each}
 		</text>
+	{:else if e.type === 'box'}
+		{@const f = boxFaces(e)}
+		{#if kind === 'model'}
+			<!-- oblique cuboid: base footprint, two side faces, then the raised top -->
+			<rect x={f.x0} y={f.y0} width={f.x1 - f.x0} height={f.y1 - f.y0} fill="none" stroke={ink} stroke-width={w} stroke-dasharray="2 2" opacity="0.5" />
+			<polygon points={f.right} fill="#c2d1e8" stroke={ink} stroke-width={w} />
+			<polygon points={f.back} fill="#b2c3dc" stroke={ink} stroke-width={w} />
+			<polygon points={f.top} fill="#dce7f5" stroke={ink} stroke-width={w} />
+		{:else if kind === 'elevation'}
+			<!-- front elevation face: footprint width × height, standing on the ground line (y=200) -->
+			<rect x={f.x0} y={200 - f.h} width={f.x1 - f.x0} height={f.h} fill="#dce7f5" stroke={ink} stroke-width={w} />
+		{:else}
+			<!-- plan: footprint rectangle -->
+			<rect x={f.x0} y={f.y0} width={f.x1 - f.x0} height={f.y1 - f.y0} fill="#dce7f533" stroke={ink} stroke-width={w} />
+		{/if}
 	{/if}
 {/snippet}
 
@@ -527,6 +596,8 @@
 		<rect x={Math.min(a[0], p[0])} y={Math.min(a[1], p[1])} width={Math.abs(p[0] - a[0])} height={Math.abs(p[1] - a[1])} fill="none" stroke={SEL} stroke-width="1" stroke-dasharray="4 3" />
 	{:else if tool === 'Ellipse'}
 		<ellipse cx={(a[0] + p[0]) / 2} cy={(a[1] + p[1]) / 2} rx={Math.abs(p[0] - a[0]) / 2} ry={Math.abs(p[1] - a[1]) / 2} fill="none" stroke={SEL} stroke-width="1" stroke-dasharray="4 3" />
+	{:else if tool === 'Box'}
+		<rect x={Math.min(a[0], p[0])} y={Math.min(a[1], p[1])} width={Math.abs(p[0] - a[0])} height={Math.abs(p[1] - a[1])} fill="none" stroke={SEL} stroke-width="1" stroke-dasharray="4 3" />
 	{/if}
 {/snippet}
 
@@ -555,6 +626,8 @@
 		color:#0e5866; background:#5ac6d222; border:1px solid #5ac6d2; border-radius:3px; padding:2px 6px;
 	}
 	.vp-dot { width:5px; height:5px; border-radius:50%; background:#157a8b; }
+	.vp-wcs { position:absolute; top:5px; right:5px; padding:1px; background:#ffffffcc; border:1px solid #e2e8f0; border-radius:4px; pointer-events:none; }
+	.vp-wcs :where(polygon, line) { vector-effect:non-scaling-stroke; }
 	.text-edit { position:absolute; z-index:10; min-width:48px; min-height:1.2em; background:#fff; color:#111827; font-weight:600;
 		border:1px solid #0e7490; border-radius:2px; padding:0 2px; font-family:inherit; resize:both; overflow:hidden; white-space:pre; }
 	.text-edit:focus { outline:none; box-shadow:0 0 0 2px #0e749033; }

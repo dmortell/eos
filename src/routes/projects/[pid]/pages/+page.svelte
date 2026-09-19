@@ -25,15 +25,16 @@
 	let activeVpPane = $state<number | null>(null)
 
 	// Canvas documents — the B1 "each tab owns its own view state" pattern (mock).
-	type Kind = 'plan' | 'sheet' | 'elevation'
+	type Kind = 'plan' | 'sheet' | 'elevation' | 'model'
 	type Tab = { id: string; title: string; kind: Kind; dirty: boolean }
 	let tabs = $state<Tab[]>([
 		{ id: 't1', title: '3303 Floorplan', kind: 'plan', dirty: false },
 		{ id: 't2', title: '3303 Outlets', kind: 'sheet', dirty: true },
 		{ id: 't3', title: 'Rack A · Elevation', kind: 'elevation', dirty: false },
+		{ id: 't4', title: 'Rack A · 3D Model', kind: 'model', dirty: false },
 	])
-	let seq = 3
-	const kindIcon: Record<Kind, string> = { plan: 'mapPin', sheet: 'fileText', elevation: 'server' }
+	let seq = 4
+	const kindIcon: Record<Kind, string> = { plan: 'mapPin', sheet: 'fileText', elevation: 'server', model: 'box' }
 
 	// Editor panes — 1 or 2 side by side (vertical split). Each pane views one open
 	// tab; tabs are shared documents, so the same page can show in both panes and
@@ -50,7 +51,11 @@
 	// Per-DOCUMENT state (keyed by tab id): drawn entities, selection, and the
 	// viewport's own pan/zoom — so all three persist across tab switches and show
 	// wherever the doc is open. (Tool + canvas pan/zoom are per view, above.)
-	let docEnts = $state<Record<string, Ent[]>>({})
+	// Seed a demo 3D cuboid (same footprint + height) into the plan, sheet and elevation docs
+	// so the view projections are visible immediately: plan → footprint, elevation → front
+	// face, model → oblique box. (Mock only — remove once real content lands.)
+	const demoBox = (): Ent => ({ id: 'demo-box', type: 'box', a: [150, 95], b: [250, 155], h: 45 })
+	let docEnts = $state<Record<string, Ent[]>>({ t1: [demoBox()], t2: [demoBox()], t3: [demoBox()], t4: [demoBox()] })
 	let docSel = $state<Record<string, string[]>>({})
 	let docView = $state<Record<string, View>>({})
 	const entsOf = (id: string) => docEnts[id] ?? []
@@ -223,6 +228,7 @@
 		{ icon: 'k-line', name: 'Line' },
 		{ icon: 'rectangle', name: 'Rectangle' },
 		{ icon: 'circle', name: 'Ellipse' },
+		{ icon: 'box', name: 'Box' },
 		{ icon: 'dimension', name: 'Dimension' },
 		{ icon: 'k-text', name: 'Text' },
 	]
@@ -453,14 +459,14 @@
 						{#key p.activeId}
 							<div class="canvas-content" style:transform="translate({p.canvasView.x}px, {p.canvasView.y}px) scale({p.canvasView.zoom})">
 								{#if a?.kind === 'sheet' && layout === 'sheet'}
-									<PaperPage title={a.title} tool={p.tool} acad={acadMode} navContent={navContent} grid={toggles.GRID} lwt={toggles.LWT} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={activeVpPane === pi}
+									<PaperPage title={a.title} tool={p.tool} acad={acadMode} navContent={navContent} grid={toggles.GRID} lwt={toggles.LWT} canvasZoom={p.canvasView.zoom} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={activeVpPane === pi}
 										onactivate={() => (activeVpPane = pi)}
 										ondeactivate={() => { if (activeVpPane === pi) activeVpPane = null }}
 										onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} />
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => { if (activeVpPane === pi) activeVpPane = null }}>
-										<Viewport kind={a.kind === 'elevation' ? 'model' : 'floorplan'} label={a.title} tool={p.tool} acad={acadMode} navContent={navContent} grid={toggles.GRID} lwt={toggles.LWT} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
+										<Viewport kind={a.kind === 'elevation' ? 'elevation' : a.kind === 'model' ? 'model' : 'floorplan'} label={a.title} tool={p.tool} acad={acadMode} navContent={navContent} grid={toggles.GRID} lwt={toggles.LWT} canvasZoom={p.canvasView.zoom} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
 											active={activeVpPane === pi} onactivate={() => (activeVpPane = pi)} ondeactivate={() => { if (activeVpPane === pi) activeVpPane = null }}
 											onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} />
 									</div>

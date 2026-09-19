@@ -45,6 +45,8 @@ after UX settles · **(P3)** later / needs design. `◧ decide` = needs your pic
 | Shift while **resizing** | ✅ square about opposite corner | **Square / equal** | ✅ **done (Pages)** |
 | Rotate | no rotate yet | snaps 15°, Shift = free | → adopt |
 | Line-endpoint drag | ✅ Shift = 15° increments | Shift = 15° increments | ✅ **done (Pages)** |
+| Handle screen size | ✅ constant (canvas + view zoom cancelled) | constant | ✅ **done (Pages)** |
+| Handle cursor | ✅ crosshair (grips) vs move (body) | resize/ move | ✅ **done (Pages)** |
 | **1-finger touch** | **Draw / select / edit** (never pans) | **Pans** empty bg, else object drag | ✅ **Pages (never pans)** |
 | 2-finger touch | Pan + pinch-zoom | Pan + pinch-zoom | _same_ |
 | Activate a viewport | Double-click | Double-click | _same_ |
@@ -72,9 +74,16 @@ marquee and constant-lineweight draw, but no additive select / duplicate / move-
   per corner** with handles — that's beyond the 2D outlets trunk, but the model3d **conduit**
   already has per-segment `w/h/edges`, so borrow that model (P2).
 - [ ] **Edit-in-place for text** objects (inline editing, not a dialog) (P1).
-- [ ] Section / elevation views generated from floorplans → **objects need 3D data**
-  (heights/extrusion) so cuts can be produced (P3).
-- [ ] Kestrel **WCS orientation cube** (liked) (P2).
+- [x] **3D cuboid (`box`) + per-view projection** — a Box tool draws a footprint (a,b) + height
+  (mm); it renders per view kind: **plan** = footprint rect, **elevation** = front face standing
+  on the ground line, **model** = oblique (cabinet) cuboid. Grips edit the footprint; Height edits
+  in Properties. A demo box is seeded into the plan/sheet/elevation/model starter tabs to test the
+  views. (Mock oblique projection — not a real 3D engine.)
+- [x] Kestrel **WCS orientation cube** — an oblique reference cube with an x/y/z triad in each
+  viewport's top-right corner; the face matching the view (plan → top, elevation → front) is
+  highlighted. (Static per view kind; no interactive re-orientation yet.)
+- [ ] Section / elevation views generated from floorplans → richer **3D data** (true extrusion,
+  cuts) beyond the mock box (P3).
 - [ ] **Ellipse draw origin** — optional status-bar toggle for centre-out vs corner-to-corner
   ellipse/circle drawing (AutoCAD ELLIPSE defaults corner/axis, with a `C` Center option).
   Currently corner-to-corner (Shift = square about opposite corner) (P2).
@@ -244,3 +253,7 @@ Sheets' basic version** — see §10.
 - [x] Touch: 2-finger navigate / 1-finger draw+edit; 2-finger aborts an entity drag; both
   canvas & viewport zoom live by cursor position.
 - [x] Ctrl+P prints only the focused A3 sheet.
+
+
+
+layer managers? Only Sheets has a full one (sheets/layers/LayersPanel.svelte + layers.ts, 8 default layers with visibility/colour/lock). The others are partial: model3d uses per-model layers for symbols, outlets/model3d tag objects with a layerId, and Uploads only toggles a PDF's built-in OCG layers (hiddenLayers). So Pages would be the second real layer manager in the app, closest in spirit to Sheets
