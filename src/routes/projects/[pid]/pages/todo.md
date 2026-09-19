@@ -33,13 +33,13 @@ after UX settles · **(P3)** later / needs design. `◧ decide` = needs your pic
 
 | Interaction | **Pages (now)** | **Sheets (now)** | Prefer? |
 |---|---|---|---|
-| Wheel (no modifier) | **Zoom** at cursor | **Pan**; zoom needs Ctrl/Alt/Meta or right-btn | ☐ / ☐ |
+| Wheel (no modifier) | **Zoom** at cursor | **Pan**; zoom needs Ctrl/Alt/Meta or right-btn | ✅ **ACAD toggle** picks |
 | Pan (mouse) | Right- or middle-drag | Right- or middle-drag | _same_ |
-| Draw a line/rect/circle | **Two clicks** (start, end) | **One press-drag-release** | ☐ / ☐ |
-| Marquee select | **Window (L→R) vs Crossing (R→L)** | **Always crossing**, direction-agnostic | ☐ / ☐ |
+| Draw a line/rect/circle | **Two clicks** (start, end) | **One press-drag-release** | ✅ **ACAD toggle** picks |
+| Marquee select | **Window (L→R) vs Crossing (R→L)** | **Always crossing**, direction-agnostic | ✅ **Pages (Window/Crossing)** |
 | Add to selection | not yet | **Shift/Ctrl-click, Shift-marquee** | → adopt |
 | Ctrl-drag | not yet | **Duplicate the selection** | → adopt |
-| Shift while **drawing** | none | none | _same (neither constrains)_ |
+| Shift while **drawing** | ✅ square / 15° ortho | none | ✅ **done (Pages)** |
 | Shift while **moving** | none | **Ortho / axis-lock** | → adopt (§1) |
 | Shift while **resizing** | none | **Square / equal** | → adopt (§1) |
 | Rotate | no rotate yet | snaps 15°, Shift = free | → adopt |
@@ -180,14 +180,14 @@ Sheets' basic version** — see §10.
 ## 13. Codebase & repo health  (P1)
 - **Git history is fine** — `.git` is ~9 MiB (packed ~7), no large blobs, so history
   cleanup is **not** the fix. (`node_modules` 732 MiB is the bulk on disk — normal.)
-- [ ] Minor: a couple of stray committed files inflate the tree — `static/3PAGE.pdf`
+- [ ] Minor: a couple of stray committed files inflate the tree — `static/3PAGE.pdf` - ok to leave this
   (~2.6 MiB test PDF) and `src/routes/ui/ChatGPT Image ….png` (~700 KiB, oddly sitting in
-  a **routes** dir). Remove/gitignore if they're not needed.
+  a **routes** dir). Remove/gitignore if they're not needed. Leave this sample UI
 - [ ] **`pnpm check` OOMs** — this is a **Node-heap** issue: svelte-check type-checks
   ~5.7k files and runs out of the default heap, made worse when the dev server is also up.
   Try:
   - `NODE_OPTIONS=--max-old-space-size=6144 pnpm check` (raise the heap).
-  - Run `pnpm check` with the dev server **stopped**.
+  - Run `pnpm check` with the dev server **stopped**. This works.
   - Trim `svelte-check`/`tsconfig` scope (exclude generated dirs / mockup files not meant
     to ship) and consider `svelte-check --threshold`/incremental in CI only.
 - [ ] **VSCode slowness** — likely the TS language server over a big project; check the TS

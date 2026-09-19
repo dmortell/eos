@@ -255,6 +255,8 @@
 	// Status bar
 	let layout = $state<'model' | 'sheet'>('model')
 	let toggles = $state<Record<string, boolean>>({ GRID: true, SNAP: true, ORTHO: false, OSNAP: true, LWT: false })
+	// AutoCAD mode: wheel = zoom, draw = two clicks. Off = EOS: wheel = pan, draw = press-drag.
+	let acadMode = $state(true)
 
 	// Mock theme (scoped to .shell — demos both Kestrel looks, app untouched)
 	let mockTheme = $state<'dark' | 'light'>('dark')
@@ -367,7 +369,7 @@
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<main class="canvas" bind:this={canvasEls[pi]} onpointermove={onCanvasMove}
-						use:panzoom={{ enabled: () => !!a, onpan: (dx, dy) => canvasPan(p, dx, dy), onzoom: (f, x, y, node) => canvasZoom(p, node, f, x, y) }}>
+						use:panzoom={{ enabled: () => !!a, wheelZoom: () => acadMode, onpan: (dx, dy) => canvasPan(p, dx, dy), onzoom: (f, x, y, node) => canvasZoom(p, node, f, x, y) }}>
 						<div class="floattools glass-bar" class:dim={a && activeVpPane !== pi}>
 							{#each TOOLS as t (t.name)}
 								<button class="tool" class:on={p.tool === t.name} title={t.name} onclick={() => (p.tool = t.name)}><Icon name={t.icon} size={16} /></button>
@@ -383,14 +385,14 @@
 						{#key p.activeId}
 							<div class="canvas-content" style:transform="translate({p.canvasView.x}px, {p.canvasView.y}px) scale({p.canvasView.zoom})">
 								{#if a?.kind === 'sheet'}
-									<PaperPage title={a.title} tool={p.tool} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={activeVpPane === pi}
+									<PaperPage title={a.title} tool={p.tool} acad={acadMode} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={activeVpPane === pi}
 										onactivate={() => (activeVpPane = pi)}
 										ondeactivate={() => { if (activeVpPane === pi) activeVpPane = null }}
 										onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} />
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => { if (activeVpPane === pi) activeVpPane = null }}>
-										<Viewport kind={a.kind === 'elevation' ? 'model' : 'floorplan'} label={a.title} tool={p.tool} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
+										<Viewport kind={a.kind === 'elevation' ? 'model' : 'floorplan'} label={a.title} tool={p.tool} acad={acadMode} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
 											active={activeVpPane === pi} onactivate={() => (activeVpPane = pi)} ondeactivate={() => { if (activeVpPane === pi) activeVpPane = null }}
 											onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} />
 									</div>
@@ -480,6 +482,7 @@
 			{#each Object.keys(toggles) as k (k)}
 				<button class:on={toggles[k]} onclick={() => (toggles[k] = !toggles[k])}>{k}</button>
 			{/each}
+			<button class:on={acadMode} title="AutoCAD interactions: wheel zooms, draw with two clicks (off = EOS: wheel pans, press-drag to draw)" onclick={() => (acadMode = !acadMode)}>ACAD</button>
 		</div>
 		<div class="sb-spacer"></div>
 		<div class="zoom">

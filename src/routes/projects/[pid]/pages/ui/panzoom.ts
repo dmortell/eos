@@ -7,6 +7,9 @@
 // Right-drag never opens the context menu.
 export type PanZoomOpts = {
 	enabled?: () => boolean
+	// True → the wheel ZOOMS (AutoCAD-style, the default). False → the wheel PANS (EOS/Sheets
+	// style) and only a modifier key zooms. Evaluated per-event.
+	wheelZoom?: () => boolean
 	onpan: (dx: number, dy: number, node: HTMLElement) => void            // screen-px delta
 	onzoom: (factor: number, clientX: number, clientY: number, node: HTMLElement) => void
 }
@@ -18,9 +21,15 @@ export function panzoom(node: HTMLElement, initial: PanZoomOpts) {
 	function wheel(e: WheelEvent) {
 		if (!on()) return
 		e.preventDefault()
-		e.stopPropagation()   // don't also zoom an enabled panzoom on an ancestor (canvas under a viewport)
-		const factor = Math.exp(-e.deltaY * 0.0015)  // smooth; up = zoom in
-		opts.onzoom(factor, e.clientX, e.clientY, node)
+		e.stopPropagation()   // don't also act on an enabled panzoom ancestor (canvas under a viewport)
+		const zoom = (opts.wheelZoom ? opts.wheelZoom() : true) || e.ctrlKey || e.altKey || e.metaKey
+		if (zoom) {
+			opts.onzoom(Math.exp(-e.deltaY * 0.0015), e.clientX, e.clientY, node)  // up = zoom in
+		} else if (e.shiftKey) {
+			opts.onpan(-e.deltaY, 0, node)              // shift+wheel = horizontal pan (Sheets convention)
+		} else {
+			opts.onpan(-e.deltaX, -e.deltaY, node)      // plain wheel = pan
+		}
 	}
 
 	// right/middle-button drag → pan (window move/up so it survives leaving the node)

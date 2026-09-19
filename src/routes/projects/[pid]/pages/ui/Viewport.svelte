@@ -14,9 +14,9 @@
 	export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'dim' | 'text'; a?: Pt; b?: Pt; c?: Pt; r?: number; text?: string }
 	export type View = { zoom: number; x: number; y: number }
 
-	let { label = 'Viewport', scale = '', kind = 'floorplan', active = false, tool = 'Select', boxW, boxH,
+	let { label = 'Viewport', scale = '', kind = 'floorplan', active = false, tool = 'Select', boxW, boxH, acad = true,
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, ondeactivate, onadd, onupdate, onselect, onview }:
-		{ label?: string; scale?: string; kind?: 'floorplan' | 'model' | 'elevation'; active?: boolean; tool?: string; boxW?: number; boxH?: number;
+		{ label?: string; scale?: string; kind?: 'floorplan' | 'model' | 'elevation'; active?: boolean; tool?: string; boxW?: number; boxH?: number; acad?: boolean;
 			entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; ondeactivate?: () => void; onadd?: (e: Ent) => void; onupdate?: (e: Ent) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void } = $props()
 
 	const tagIcon: Record<string, string> = { floorplan: 'mapPin', model: 'box', elevation: 'server' }
@@ -100,6 +100,28 @@
 		onview?.({ zoom: nz, x: v[0] - (v[0] - view.x) * r, y: v[1] - (v[1] - view.y) * r })
 	}
 	// panzoom passes its node as a trailing arg (unused here)
+	// Shift-constrain the drawing point relative to the start: rectangle → square, line/dim →
+	// 15° angle increments (which includes ortho), circle → free radius.
+	function constrainPt(a: Pt, p: Pt, shift: boolean): Pt {
+		if (!shift) return p
+		const dx = p[0] - a[0], dy = p[1] - a[1]
+		if (tool === 'Rectangle') {
+			const s = Math.max(Math.abs(dx), Math.abs(dy))
+			return [a[0] + (dx < 0 ? -s : s), a[1] + (dy < 0 ? -s : s)]
+		}
+		if (tool === 'Line' || tool === 'Dimension') {
+			const len = Math.hypot(dx, dy), step = Math.PI / 12   // 15°
+			const ang = Math.round(Math.atan2(dy, dx) / step) * step
+			return [a[0] + len * Math.cos(ang), a[1] + len * Math.sin(ang)]
+		}
+		return p
+	}
+	function place(a: Pt, b: Pt) {
+		if (tool === 'Line') onadd?.({ id: uid(), type: 'line', a, b })
+		else if (tool === 'Rectangle') onadd?.({ id: uid(), type: 'rect', a, b })
+		else if (tool === 'Circle') onadd?.({ id: uid(), type: 'circle', c: a, r: Math.max(1, dist(a, b)) })
+		else if (tool === 'Dimension') onadd?.({ id: uid(), type: 'dim', a, b })
+	}
 	function onClick(e: MouseEvent) {
 		e.stopPropagation()
 		if (suppressClick) { suppressClick = false; return }   // this click just ended a drag
@@ -107,15 +129,15 @@
 		const p = toLocal(e); if (!p) return
 		if (tool === 'Select') { onselect?.(hit(p)); return }
 		if (tool === 'Text') { onadd?.({ id: uid(), type: 'text', a: p, text: 'TEXT' }); return }
-		if (!draft.length) { draft = [p]; return }        // first point
-		const a = draft[0]
-		if (tool === 'Line') onadd?.({ id: uid(), type: 'line', a, b: p })
-		else if (tool === 'Rectangle') onadd?.({ id: uid(), type: 'rect', a, b: p })
-		else if (tool === 'Circle') onadd?.({ id: uid(), type: 'circle', c: a, r: Math.max(1, dist(a, p)) })
-		else if (tool === 'Dimension') onadd?.({ id: uid(), type: 'dim', a, b: p })
+		if (!acad) return   // EOS mode: shapes are drawn press-drag (onDown), not by clicking
+		// AutoCAD mode: two clicks — first point, then the (Shift-constrained) opposite point.
+		if (!draft.length) { draft = [p]; return }
+		place(draft[0], constrainPt(draft[0], p, e.shiftKey))
 		draft = []
 	}
-	function onMove(e: MouseEvent) { if (active && draft.length) cur = toLocal(e) }   // only needed for the rubber-band
+	function onMove(e: MouseEvent) {
+		if (active && draft.length) { const p = toLocal(e); if (p) cur = constrainPt(draft[0], p, e.shiftKey) }
+	}
 	// Enter model space with a double-click (AutoCAD-style). In the sheet, the paper-space
 	// cover sits on top and handles this; standalone viewports use it directly.
 	function onDblclick(e: MouseEvent) { e.stopPropagation(); if (!active) onactivate?.() }
@@ -217,6 +239,11 @@
 			window.removeEventListener('pointermove', onMarqueeMove)
 			window.removeEventListener('pointerup', onMarqueeUp)
 		}
+		if (draft.length) {   // abort an in-progress press-drag draw
+			draft = []; cur = null
+			window.removeEventListener('pointermove', onDrawMove)
+			window.removeEventListener('pointerup', onDrawUp)
+		}
 	}
 	$effect(() => {
 		const up = (e: PointerEvent) => pointers.delete(e.pointerId)
@@ -225,10 +252,21 @@
 		return () => { window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up) }
 	})
 	function onDown(e: PointerEvent) {
-		if (!active || tool !== 'Select' || e.button !== 0) return   // left / primary only
+		if (!active || e.button !== 0) return   // left / primary only
 		suppressClick = false   // clear any stale flag from a drag that never got its click
 		pointers.add(e.pointerId)
 		if (pointers.size > 1) { cancelPointerDrag(); return }   // 2nd finger → hand off to pan/zoom
+		// EOS mode: shapes are drawn with a single press-drag-release (not two clicks).
+		if (tool !== 'Select') {
+			if (acad || tool === 'Text') return   // AutoCAD two-click / text single-click via onClick
+			const dp = toLocalXY(e.clientX, e.clientY); if (!dp) return
+			draft = [dp]; cur = dp
+			try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
+			e.preventDefault()
+			window.addEventListener('pointermove', onDrawMove)
+			window.addEventListener('pointerup', onDrawUp)
+			return
+		}
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
 		const hitInfo = pick(e.clientX, e.clientY)
 		if (!hitInfo) {
@@ -263,6 +301,25 @@
 		drag = null
 		window.removeEventListener('pointermove', onDragMove)
 		window.removeEventListener('pointerup', onDragUp)
+	}
+
+	// ── press-drag draw (EOS mode): press = first point, drag (Shift-constrained) = preview,
+	// release = second point. ──
+	function onDrawMove(e: PointerEvent) {
+		if (!draft.length) return
+		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
+		cur = constrainPt(draft[0], p, e.shiftKey)
+	}
+	function onDrawUp(e: PointerEvent) {
+		window.removeEventListener('pointermove', onDrawMove)
+		window.removeEventListener('pointerup', onDrawUp)
+		const a = draft[0]; draft = []; cur = null
+		if (!a) return
+		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
+		const b = constrainPt(a, p, e.shiftKey)
+		if (dist(a, b) < 2) return   // no drag → not a shape (ignore)
+		place(a, b)
+		suppressClick = true   // swallow the click that follows the release
 	}
 
 	// ── selection marquee (Kestrel/AutoCAD): drag L→R = window (enclose fully),
@@ -317,7 +374,7 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="vp" class:active bind:clientWidth={vpW} bind:clientHeight={vpH} role="button" tabindex="0" style:cursor={cursorStyle}
-	use:panzoom={{ enabled: () => active, onpan: onPan, onzoom: onZoom }}
+	use:panzoom={{ enabled: () => active, wheelZoom: () => acad, onpan: onPan, onzoom: onZoom }}
 	onclick={onClick} ondblclick={onDblclick} onpointerdown={onDown} onpointermove={onMove}
 	onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onactivate?.() } }}>
 
