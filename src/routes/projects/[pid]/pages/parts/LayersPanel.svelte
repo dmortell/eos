@@ -8,8 +8,8 @@
 	// Focus + select a rename input once it's in the DOM (a tick after it renders).
 	function focusEdit(node: HTMLInputElement) { tick().then(() => { node.focus(); node.select() }) }
 
-	type Sub = { name: string; on: boolean; swatch: 'color' | 'line'; color?: string; dash?: 'solid' | 'dashed' | 'dotted'; weight?: number }
-	type Group = { name: string; on: boolean; open: boolean; kids: Sub[] }
+	type Sub = { name: string; on: boolean; lock?: boolean; swatch: 'color' | 'line'; color?: string; dash?: 'solid' | 'dashed' | 'dotted'; weight?: number }
+	type Group = { name: string; on: boolean; open: boolean; lock?: boolean; kids: Sub[] }
 
 	const PRESETS = ['High Level Outlets', 'Low Level Outlets', 'Trunk Routes', 'Desk Numbering', 'All Layers']
 	let preset = $state(PRESETS[0])
@@ -61,6 +61,10 @@
 	}
 	function delGroup(gi: number) { groups.splice(gi, 1); editing = null }
 	function commit(e: KeyboardEvent) { if (e.key === 'Enter' || e.key === 'Escape') editing = null }
+	// Layer-settings dialog (opened from a sub-layer's swatch button).
+	let dlg = $state<{ gi: number; si: number } | null>(null)
+	let dlgSub = $derived(dlg ? groups[dlg.gi]?.kids[dlg.si] : null)
+	function delSub() { if (dlg) { groups[dlg.gi].kids.splice(dlg.si, 1); dlg = null } }
 </script>
 
 <div class="lp">
@@ -96,7 +100,8 @@
 						<span class="lg-name" ondblclick={() => (editing = `g${gi}`)}>{g.name}</span>
 					{/if}
 					<button class="lp-mini" title="Add sub-layer" aria-label="Add sub-layer" onclick={() => addSub(gi)}><Icon name="plus" size={12} /></button>
-					<button class="lp-mini" title="Delete layer" aria-label="Delete layer" onclick={() => delGroup(gi)}><Icon name="close" size={12} /></button>
+					<button class="lp-mini" class:on={g.lock} title="Lock layer" aria-label="Lock layer" onclick={() => (g.lock = !g.lock)}><Icon name={g.lock ? 'lock' : 'lockOpen'} size={12} /></button>
+						<button class="lp-mini" title="Delete layer" aria-label="Delete layer" onclick={() => delGroup(gi)}><Icon name="close" size={12} /></button>
 					<button class="lp-check" class:on={g.on} aria-label="Toggle {g.name}" onclick={() => (g.on = !g.on)}></button>
 				</div>
 				{#if g.open}
@@ -112,18 +117,12 @@
 									<!-- svelte-ignore a11y_no_static_element_interactions -->
 									<span class="ly-name" ondblclick={() => (editing = `g${gi}s${si}`)}>{k.name}</span>
 								{/if}
-								{#if k.swatch === 'color'}
-									<input class="sw-color sw-input" type="color" bind:value={k.color} aria-label="Layer colour" title="Colour" />
-								{:else}
-									<!-- line layer: editable colour · line type · thickness (like the trunk layers) -->
-									<input class="sw-color sw-input" type="color" bind:value={k.color} aria-label="Line colour" title="Colour" />
-									<select class="sw-dash" bind:value={k.dash} title="Line type" aria-label="Line type">
-										<option value="solid">──</option>
-										<option value="dashed">- -</option>
-										<option value="dotted">···</option>
-									</select>
-									<input class="sw-wt" type="number" min="0.25" max="6" step="0.25" bind:value={k.weight} title="Thickness (mm)" aria-label="Thickness" />
-								{/if}
+								{#if k.lock}<span class="ly-lock" title="Locked"><Icon name="lock" size={11} /></span>{/if}
+									<!-- a coloured button (with a line inside for line layers) → opens the settings dialog -->
+									<button class="sw-btn" title="Layer settings" aria-label="Edit {k.name}" onclick={() => (dlg = { gi, si })}
+										style:background={k.swatch === 'color' ? k.color : 'var(--input)'}>
+										{#if k.swatch === 'line'}<span class="sw-btn-line" style:border-bottom-color={k.color} style:border-bottom-style={k.dash} style:border-bottom-width="{Math.min(4, Math.max(1, k.weight ?? 1))}px"></span>{/if}
+									</button>
 							</div>
 						{/if}
 					{/each}
@@ -134,6 +133,32 @@
 
 	<button class="lp-new" onclick={newGroup}><Icon name="plus" size={13} /> New Layer</button>
 </div>
+
+{#if dlg && dlgSub}
+	<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+	<div class="lp-dlg-back" onclick={() => (dlg = null)}>
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div class="lp-dlg" onclick={(e) => e.stopPropagation()}>
+			<div class="lp-dlg-head">Layer settings</div>
+			<label class="lp-f"><span>Name</span><input bind:value={dlgSub.name} /></label>
+			<label class="lp-f"><span>Colour</span><input type="color" class="lp-color" bind:value={dlgSub.color} /></label>
+			<label class="lp-f"><span>Draw as</span>
+				<select bind:value={dlgSub.swatch}><option value="color">Fill / symbol</option><option value="line">Line</option></select>
+			</label>
+			{#if dlgSub.swatch === 'line'}
+				<label class="lp-f"><span>Line type</span>
+					<select bind:value={dlgSub.dash}><option value="solid">Solid</option><option value="dashed">Dashed</option><option value="dotted">Dotted</option></select>
+				</label>
+				<label class="lp-f"><span>Thickness</span><input type="number" min="0.25" max="6" step="0.25" bind:value={dlgSub.weight} /><em>mm</em></label>
+			{/if}
+			<label class="lp-f"><span>Locked</span><input type="checkbox" bind:checked={dlgSub.lock} /></label>
+			<div class="lp-dlg-btns">
+				<button class="lp-del" onclick={delSub}><Icon name="close" size={12} /> Delete layer</button>
+				<button class="lp-done" onclick={() => (dlg = null)}>Done</button>
+			</div>
+		</div>
+	</div>
+{/if}
 
 <style>
 	.lp { flex:1; display:flex; flex-direction:column; min-height:0; }
@@ -170,22 +195,34 @@
 	.ly-eye:hover { color:var(--text); background:var(--line); }
 	.ly-name { flex:1; min-width:0; font-size:12px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 	.ly-row.off .ly-name, .ly-row.off .ly-eye { color:var(--faint); }
-	.sw-color { width:22px; height:14px; flex:0 0 auto; border-radius:3px; box-shadow:0 0 0 1px #0002 inset; }
-	.sw-input { -webkit-appearance:none; appearance:none; padding:0; border:none; background:none; cursor:pointer; }
-	.sw-input::-webkit-color-swatch-wrapper { padding:0; }
-	.sw-input::-webkit-color-swatch { border:none; border-radius:3px; }
-	.sw-line { width:24px; height:0; flex:0 0 auto; border-bottom-width:2px; }
-	.sw-dash { -webkit-appearance:none; appearance:none; width:34px; flex:0 0 auto; background:var(--input); color:var(--text);
-		border:1px solid var(--line); border-radius:3px; font-size:11px; padding:1px 2px; text-align:center; }
-	.sw-wt { width:36px; flex:0 0 auto; background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:3px;
-		font-size:10px; padding:2px 3px; font-family:Consolas,monospace; }
-	.sw-dash:focus, .sw-wt:focus { outline:none; border-color:var(--accent); }
+	/* one coloured swatch button (with a line inside for line layers) → opens the dialog */
+	.sw-btn { width:26px; height:15px; flex:0 0 auto; border:1px solid #0003; border-radius:3px; padding:0;
+		display:flex; align-items:center; justify-content:center; overflow:hidden; cursor:pointer; }
+	.sw-btn:hover { border-color:var(--accent); }
+	.sw-btn-line { width:18px; height:0; border-bottom-style:solid; }
+	.ly-lock { color:var(--faint); display:inline-flex; flex:0 0 auto; }
 	.ly-edit { flex:1; min-width:0; background:var(--input); color:var(--text); border:1px solid var(--accent); border-radius:4px; padding:2px 5px; font-size:12px; }
 	.ly-edit:focus { outline:none; }
 	.lp-mini { display:none; align-items:center; justify-content:center; width:18px; height:18px; flex:0 0 auto; border-radius:3px; color:var(--muted); background:none; border:none; }
 	.lg-row:hover .lp-mini { display:inline-flex; }
 	.lp-mini:hover { background:var(--line); color:var(--text); }
-	.ly-row.off .sw-color, .ly-row.off .sw-line { opacity:.4; }
+	.lp-mini.on { color:var(--accent); display:inline-flex; }
+	.ly-row.off .sw-btn { opacity:.4; }
+
+	/* Layer-settings dialog */
+	.lp-dlg-back { position:fixed; inset:0; z-index:120; background:#0006; display:flex; align-items:center; justify-content:center; }
+	.lp-dlg { width:min(300px,92vw); background:var(--panel); border:1px solid var(--line); border-radius:10px; box-shadow:0 20px 60px #0009; padding:12px 14px; }
+	.lp-dlg-head { font-size:13px; font-weight:600; color:var(--text); margin-bottom:8px; }
+	.lp-f { display:grid; grid-template-columns:70px 1fr auto; align-items:center; gap:8px; padding:4px 0; font-size:12px; color:var(--muted); }
+	.lp-f > span { color:var(--muted); }
+	.lp-f input:not([type=color]):not([type=checkbox]), .lp-f select { background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:5px; padding:4px 7px; font-size:12px; }
+	.lp-f input:focus, .lp-f select:focus { outline:none; border-color:var(--accent); }
+	.lp-f em { font-style:normal; color:var(--faint); font-size:11px; }
+	.lp-color { width:100%; height:26px; border:1px solid var(--line); border-radius:5px; padding:0; background:none; }
+	.lp-dlg-btns { display:flex; justify-content:space-between; margin-top:12px; }
+	.lp-del { display:inline-flex; align-items:center; gap:5px; font-size:12px; color:var(--danger); background:none; border:1px solid var(--line); border-radius:6px; padding:6px 11px; }
+	.lp-del:hover { background:var(--hover); }
+	.lp-done { font-size:12px; font-weight:600; color:#06232a; background:var(--accent); border:none; border-radius:6px; padding:6px 16px; }
 
 	.lp-new { flex:0 0 auto; display:flex; align-items:center; justify-content:center; gap:6px; margin:6px; padding:7px;
 		font-size:11px; border-radius:5px; color:var(--text); background:var(--panel2); border:1px dashed var(--line); }
