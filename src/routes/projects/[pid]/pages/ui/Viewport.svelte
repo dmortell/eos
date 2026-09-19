@@ -6,6 +6,7 @@
 	// standalone model view (kind='model'). The parent owns the entities/selection
 	// (so drawing persists per document, tool + selection per view). Fills its parent.
 	import { Icon } from '$lib'
+	import { tick } from 'svelte'
 	import { panzoom } from './panzoom'
 	import Handle from '../parts/Handle.svelte'
 	import { BASE, HANDLE_PX } from '../constants'
@@ -145,9 +146,31 @@
 		if (drag && lastDragRaw) onupdate?.(applyDrag(lastDragRaw, shift))
 		else if (active && draft.length && lastRaw) cur = constrainPt(draft[0], lastRaw, shift)
 	}
-	// Enter model space with a double-click (AutoCAD-style). In the sheet, the paper-space
-	// cover sits on top and handles this; standalone viewports use it directly.
-	function onDblclick(e: MouseEvent) { e.stopPropagation(); if (!active) onactivate?.() }
+	// Double-click: outside a viewport → enter model space; inside an active viewport, on a
+	// TEXT object → edit it in place.
+	function onDblclick(e: MouseEvent) {
+		e.stopPropagation()
+		if (!active) { onactivate?.(); return }
+		const p = toLocal(e); if (!p) return
+		const ent = entities.find(x => x.id === hit(p)[0])
+		if (ent?.type === 'text') startTextEdit(ent)
+	}
+	// ── edit text in place ──
+	let editText = $state<{ id: string; x: number; y: number; fontPx: number; value: string } | null>(null)
+	let textInput: HTMLInputElement | undefined = $state()
+	function startTextEdit(ent: Ent) {
+		const m = vbMap(); const sp = localToClient(ent.a![0], ent.a![1]); const host = svg?.parentElement
+		if (!m || !sp || !host) return
+		const r = host.getBoundingClientRect(), fontPx = 11 * view.zoom * m.scale
+		editText = { id: ent.id, x: sp.x - r.left, y: sp.y - r.top, fontPx, value: ent.text ?? '' }
+		tick().then(() => { textInput?.focus(); textInput?.select() })
+	}
+	function commitText() {
+		if (!editText) return
+		const ent = entities.find(x => x.id === editText!.id)
+		if (ent) onupdate?.({ ...ent, text: editText.value })
+		editText = null
+	}
 	// Note: right-button is reserved for pan/zoom (incl. mid-draw, to reach a far
 	// endpoint), so it must NOT cancel the draft. Esc cancels an in-progress draw.
 	// Esc ladder (CAD-style): cancel an in-progress draw → clear selection → exit viewport.
@@ -467,6 +490,12 @@
 	{#if active}
 		<div class="vp-badge"><span class="vp-dot"></span>{tool} · {prompt} · {Math.round(view.zoom * 100)}%</div>
 	{/if}
+	{#if editText}
+		<input class="text-edit" bind:this={textInput} bind:value={editText.value}
+			style="left:{editText.x}px; top:{editText.y - editText.fontPx * 0.9}px; font-size:{editText.fontPx}px"
+			onblur={commitText}
+			onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitText() } else if (e.key === 'Escape') { e.preventDefault(); editText = null } }} />
+	{/if}
 </div>
 
 {#snippet drawn(e: Ent, seld: boolean)}
@@ -523,4 +552,7 @@
 		color:#0e5866; background:#5ac6d222; border:1px solid #5ac6d2; border-radius:3px; padding:2px 6px;
 	}
 	.vp-dot { width:5px; height:5px; border-radius:50%; background:#157a8b; }
+	.text-edit { position:absolute; z-index:10; min-width:40px; background:#fff; color:#111827; font-weight:600;
+		border:1px solid #0e7490; border-radius:2px; padding:0 3px; line-height:1.15; font-family:inherit; }
+	.text-edit:focus { outline:none; box-shadow:0 0 0 2px #0e749033; }
 </style>
