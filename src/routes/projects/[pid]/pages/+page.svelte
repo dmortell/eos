@@ -328,9 +328,9 @@
 
 <svelte:head><title>EOS — Pages (mockup)</title></svelte:head>
 
-{#if paletteOpen}<CommandPalette items={paletteItems} onpick={pickPalette} onclose={() => (paletteOpen = false)} />{/if}
-
 <div class="shell" data-mock-theme={mockTheme}>
+	<!-- inside .shell so the palette's CSS tokens (var(--panel)/--text/…) resolve -->
+	{#if paletteOpen}<CommandPalette items={paletteItems} onpick={pickPalette} onclose={() => (paletteOpen = false)} />{/if}
 	{#if tabMenuPane !== null}<button class="menu-backdrop" aria-label="Close menu" onclick={() => (tabMenuPane = null)}></button>{/if}
 
 	<!-- Titlebar -->

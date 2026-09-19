@@ -12,8 +12,10 @@
 <rect class="handle" x={cx - size / 2} y={cy - size / 2} width={size} height={size} style:cursor {onpointerdown} />
 
 <style>
+	/* Mostly-transparent fill so the point/endpoint underneath stays visible while dragging. */
 	.handle {
-		fill:#fff; stroke:#0e7490; stroke-width:1.2; vector-effect:non-scaling-stroke;
+		fill:#ffffff2e; stroke:#0e7490; stroke-width:1.2; vector-effect:non-scaling-stroke;
 		pointer-events:auto; touch-action:none;
 	}
+	.handle:hover { fill:#0e749040; }
 </style>

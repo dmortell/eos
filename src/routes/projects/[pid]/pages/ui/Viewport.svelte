@@ -157,7 +157,7 @@
 	}
 	// ── edit text in place ──
 	let editText = $state<{ id: string; x: number; y: number; fontPx: number; value: string } | null>(null)
-	let textInput: HTMLInputElement | undefined = $state()
+	let textInput: HTMLTextAreaElement | undefined = $state()
 	function startTextEdit(ent: Ent) {
 		const m = vbMap(); const sp = localToClient(ent.a![0], ent.a![1]); const host = svg?.parentElement
 		if (!m || !sp || !host) return
@@ -308,7 +308,7 @@
 		return () => { window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up) }
 	})
 	function onDown(e: PointerEvent) {
-		if (!active || e.button !== 0) return   // left / primary only
+		if (editText || !active || e.button !== 0) return   // ignore while editing text in place
 		suppressClick = false   // clear any stale flag from a drag that never got its click
 		pointers.add(e.pointerId)
 		if (pointers.size > 1) { cancelPointerDrag(); return }   // 2nd finger → hand off to pan/zoom
@@ -464,8 +464,8 @@
 				{/each}
 				<text x="24" y="230" font-size="9" fill="#64748b" font-weight="600">OFFICE — 33F</text>
 			{/if}
-			<!-- drawn entities + rubber-band preview -->
-			{#each entities as e (e.id)}{@render drawn(e, selSet.has(e.id))}{/each}
+			<!-- drawn entities + rubber-band preview (hide the text being edited in place) -->
+			{#each entities as e (e.id)}{#if e.id !== editText?.id}{@render drawn(e, selSet.has(e.id))}{/if}{/each}
 			{#if active && draft.length && cur}{@render preview(draft[0], cur)}{/if}
 			<!-- editing handles: square grips at each selected entity's defining points -->
 			{#if active && tool === 'Select'}
@@ -491,10 +491,11 @@
 		<div class="vp-badge"><span class="vp-dot"></span>{tool} · {prompt} · {Math.round(view.zoom * 100)}%</div>
 	{/if}
 	{#if editText}
-		<input class="text-edit" bind:this={textInput} bind:value={editText.value}
-			style="left:{editText.x}px; top:{editText.y - editText.fontPx * 0.9}px; font-size:{editText.fontPx}px"
+		<textarea class="text-edit" bind:this={textInput} bind:value={editText.value} rows="1" spellcheck="false"
+			style="left:{editText.x}px; top:{editText.y - editText.fontPx}px; font-size:{editText.fontPx}px; line-height:{editText.fontPx * 1.18}px"
+			onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()} ondblclick={(e) => e.stopPropagation()}
 			onblur={commitText}
-			onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitText() } else if (e.key === 'Escape') { e.preventDefault(); editText = null } }} />
+			onkeydown={(e) => { if (e.key === 'Escape') { e.preventDefault(); editText = null } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commitText() } }}></textarea>
 	{/if}
 </div>
 
@@ -513,7 +514,9 @@
 		<line x1={e.a![0]} y1={e.a![1]} x2={e.b![0]} y2={e.b![1]} stroke={seld ? SEL : '#0e766e'} stroke-width={w} />
 		<text x={(e.a![0] + e.b![0]) / 2} y={(e.a![1] + e.b![1]) / 2 - 3} font-size="9" fill={seld ? SEL : '#0e766e'} text-anchor="middle">{Math.round(dist(e.a!, e.b!))}</text>
 	{:else if e.type === 'text'}
-		<text x={e.a![0]} y={e.a![1]} font-size="11" fill={ink} font-weight="600">{e.text}</text>
+		<text x={e.a![0]} y={e.a![1]} font-size="11" fill={ink} font-weight="600">
+			{#each (e.text ?? '').split('\n') as line, i (i)}<tspan x={e.a![0]} dy={i === 0 ? 0 : 13}>{line}</tspan>{/each}
+		</text>
 	{/if}
 {/snippet}
 
@@ -552,7 +555,7 @@
 		color:#0e5866; background:#5ac6d222; border:1px solid #5ac6d2; border-radius:3px; padding:2px 6px;
 	}
 	.vp-dot { width:5px; height:5px; border-radius:50%; background:#157a8b; }
-	.text-edit { position:absolute; z-index:10; min-width:40px; background:#fff; color:#111827; font-weight:600;
-		border:1px solid #0e7490; border-radius:2px; padding:0 3px; line-height:1.15; font-family:inherit; }
+	.text-edit { position:absolute; z-index:10; min-width:48px; min-height:1.2em; background:#fff; color:#111827; font-weight:600;
+		border:1px solid #0e7490; border-radius:2px; padding:0 2px; font-family:inherit; resize:both; overflow:hidden; white-space:pre; }
 	.text-edit:focus { outline:none; box-shadow:0 0 0 2px #0e749033; }
 </style>
