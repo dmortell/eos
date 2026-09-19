@@ -216,7 +216,7 @@
 		{ icon: 'k-select', name: 'Select' },
 		{ icon: 'k-line', name: 'Line' },
 		{ icon: 'rectangle', name: 'Rectangle' },
-		{ icon: 'circle', name: 'Circle' },
+		{ icon: 'circle', name: 'Ellipse' },
 		{ icon: 'dimension', name: 'Dimension' },
 		{ icon: 'k-text', name: 'Text' },
 	]

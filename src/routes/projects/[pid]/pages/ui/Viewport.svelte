@@ -11,7 +11,7 @@
 	import { BASE, HANDLE_PX } from '../constants'
 
 	export type Pt = [number, number]
-	export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'dim' | 'text'; a?: Pt; b?: Pt; c?: Pt; r?: number; text?: string }
+	export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'ellipse' | 'dim' | 'text'; a?: Pt; b?: Pt; c?: Pt; r?: number; text?: string }
 	export type View = { zoom: number; x: number; y: number }
 
 	let { label = 'Viewport', scale = '', kind = 'floorplan', active = false, tool = 'Select', boxW, boxH, acad = true, navContent = false, grid = true, lwt = true,
@@ -20,7 +20,7 @@
 			entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; ondeactivate?: () => void; onadd?: (e: Ent) => void; onupdate?: (e: Ent) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void } = $props()
 
 	const tagIcon: Record<string, string> = { floorplan: 'mapPin', model: 'box', elevation: 'server' }
-	const DRAW = new Set(['Line', 'Rectangle', 'Circle', 'Dimension', 'Text'])
+	const DRAW = new Set(['Line', 'Rectangle', 'Ellipse', 'Dimension', 'Text'])
 	let cursorStyle = $derived(!active ? 'pointer' : DRAW.has(tool) ? 'crosshair' : 'default')
 
 	// ── background mock content ──
@@ -105,7 +105,7 @@
 	function constrainPt(a: Pt, p: Pt, shift: boolean): Pt {
 		if (!shift) return p
 		const dx = p[0] - a[0], dy = p[1] - a[1]
-		if (tool === 'Rectangle') {
+		if (tool === 'Rectangle' || tool === 'Ellipse') {   // Shift → square bbox (a circle for the ellipse)
 			const s = Math.max(Math.abs(dx), Math.abs(dy))
 			return [a[0] + (dx < 0 ? -s : s), a[1] + (dy < 0 ? -s : s)]
 		}
@@ -119,7 +119,7 @@
 	function place(a: Pt, b: Pt) {
 		if (tool === 'Line') onadd?.({ id: uid(), type: 'line', a, b })
 		else if (tool === 'Rectangle') onadd?.({ id: uid(), type: 'rect', a, b })
-		else if (tool === 'Circle') onadd?.({ id: uid(), type: 'circle', c: a, r: Math.max(1, dist(a, b)) })
+		else if (tool === 'Ellipse') onadd?.({ id: uid(), type: 'ellipse', a, b })
 		else if (tool === 'Dimension') onadd?.({ id: uid(), type: 'dim', a, b })
 	}
 	function onClick(e: MouseEvent) {
@@ -139,8 +139,12 @@
 	function onMove(e: MouseEvent) {
 		if (active && draft.length) { const p = toLocal(e); if (p) { lastRaw = p; cur = constrainPt(draft[0], p, e.shiftKey) } }
 	}
-	// Re-apply the draft constraint the instant Shift changes (don't wait for a pointer move).
-	function reconstrain(shift: boolean) { if (active && draft.length && lastRaw) cur = constrainPt(draft[0], lastRaw, shift) }
+	// Re-apply the constraint the instant Shift changes (don't wait for a pointer move) — for
+	// both an in-progress draw and an in-progress move/grip drag.
+	function reconstrain(shift: boolean) {
+		if (drag && lastDragRaw) onupdate?.(applyDrag(lastDragRaw, shift))
+		else if (active && draft.length && lastRaw) cur = constrainPt(draft[0], lastRaw, shift)
+	}
 	// Enter model space with a double-click (AutoCAD-style). In the sheet, the paper-space
 	// cover sits on top and handles this; standalone viewports use it directly.
 	function onDblclick(e: MouseEvent) { e.stopPropagation(); if (!active) onactivate?.() }
@@ -166,6 +170,12 @@
 		if (e.type === 'line' || e.type === 'dim') return segDist(p, e.a!, e.b!) < thr
 		if (e.type === 'rect') { const x0 = Math.min(e.a![0], e.b![0]), y0 = Math.min(e.a![1], e.b![1]), x1 = Math.max(e.a![0], e.b![0]), y1 = Math.max(e.a![1], e.b![1]); return p[0] >= x0 - thr && p[0] <= x1 + thr && p[1] >= y0 - thr && p[1] <= y1 + thr }
 		if (e.type === 'circle') return dist(e.c!, p) <= e.r! + thr
+		if (e.type === 'ellipse') {
+			const cx = (e.a![0] + e.b![0]) / 2, cy = (e.a![1] + e.b![1]) / 2
+			const rx = Math.abs(e.b![0] - e.a![0]) / 2 + thr, ry = Math.abs(e.b![1] - e.a![1]) / 2 + thr
+			const nx = (p[0] - cx) / (rx || 1), ny = (p[1] - cy) / (ry || 1)
+			return nx * nx + ny * ny <= 1
+		}
 		if (e.type === 'text') return Math.abs(p[0] - e.a![0]) < 24 && Math.abs(p[1] - e.a![1]) < 10
 		return false
 	}
@@ -184,7 +194,7 @@
 			{ x: e.a![0], y: e.a![1], apply: p => ({ ...e, a: p }) },
 			{ x: e.b![0], y: e.b![1], apply: p => ({ ...e, b: p }) },
 		]
-		if (e.type === 'rect') {
+		if (e.type === 'rect' || e.type === 'ellipse') {   // 4 corner grips on the bbox
 			const [ax, ay] = e.a!, [bx, by] = e.b!
 			return [
 				{ x: ax, y: ay, apply: p => ({ ...e, a: p }) },
@@ -203,6 +213,24 @@
 	function translate(e: Ent, dx: number, dy: number): Ent {
 		const t = (p?: Pt): Pt | undefined => p ? [p[0] + dx, p[1] + dy] : p
 		return { ...e, a: t(e.a), b: t(e.b), c: t(e.c) }
+	}
+	// Shift-constrain a grip drag: box corner → square about the opposite corner; line/dim
+	// endpoint → 15° about the other end. (Circle radius left free.)
+	function constrainGrip(base: Ent, gi: number, p: Pt, shift: boolean): Pt {
+		if (!shift) return p
+		if (base.type === 'rect' || base.type === 'ellipse') {
+			const [ax, ay] = base.a!, [bx, by] = base.b!
+			const an: Pt = gi === 0 ? [bx, by] : gi === 1 ? [ax, ay] : gi === 2 ? [bx, ay] : [ax, by]
+			const s = Math.max(Math.abs(p[0] - an[0]), Math.abs(p[1] - an[1]))
+			return [an[0] + (p[0] < an[0] ? -s : s), an[1] + (p[1] < an[1] ? -s : s)]
+		}
+		if (base.type === 'line' || base.type === 'dim') {
+			const an = gi === 0 ? base.b! : base.a!
+			const dx = p[0] - an[0], dy = p[1] - an[1], len = Math.hypot(dx, dy), step = Math.PI / 12
+			const ang = Math.round(Math.atan2(dy, dx) / step) * step
+			return [an[0] + len * Math.cos(ang), an[1] + len * Math.sin(ang)]
+		}
+		return p
 	}
 	// gripSize in model units renders to HANDLE_PX·canvasZoom px on screen — the same as the
 	// paper's viewport-frame grips, so every handle looks identical.
@@ -292,14 +320,18 @@
 		window.addEventListener('pointermove', onDragMove)
 		window.addEventListener('pointerup', onDragUp)
 	}
+	let lastDragRaw: Pt | null = null   // last UNconstrained pointer during a move/grip drag
+	function applyDrag(p: Pt, shift: boolean): Ent {
+		if (drag!.kind === 'grip') return gripsFor(drag!.base)[drag!.gi].apply(constrainGrip(drag!.base, drag!.gi, p, shift))
+		let dx = p[0] - drag!.start[0], dy = p[1] - drag!.start[1]
+		if (shift) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 }   // ortho / axis-lock
+		return translate(drag!.base, dx, dy)
+	}
 	function onDragMove(e: PointerEvent) {
 		if (!drag) return
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
-		dragged = true
-		const next = drag.kind === 'grip'
-			? gripsFor(drag.base)[drag.gi].apply(p)
-			: translate(drag.base, p[0] - drag.start[0], p[1] - drag.start[1])
-		onupdate?.(next)
+		dragged = true; lastDragRaw = p
+		onupdate?.(applyDrag(p, e.shiftKey))
 	}
 	function onDragUp() {
 		if (dragged) suppressClick = true
@@ -368,7 +400,7 @@
 			case 'Select': return 'Click an element'
 			case 'Line': return n ? 'Specify end point' : 'Specify first point'
 			case 'Rectangle': return n ? 'Specify opposite corner' : 'Specify first corner'
-			case 'Circle': return n ? 'Specify radius' : 'Specify center point'
+			case 'Ellipse': return n ? 'Specify opposite corner (Shift = circle)' : 'Specify first corner'
 			case 'Dimension': return n ? 'Specify second point' : 'Specify first point'
 			case 'Text': return 'Click to place text'
 			default: return tool + ' tool'
@@ -446,6 +478,8 @@
 		<rect x={Math.min(e.a![0], e.b![0])} y={Math.min(e.a![1], e.b![1])} width={Math.abs(e.b![0] - e.a![0])} height={Math.abs(e.b![1] - e.a![1])} fill="none" stroke={ink} stroke-width={w} />
 	{:else if e.type === 'circle'}
 		<circle cx={e.c![0]} cy={e.c![1]} r={e.r} fill="none" stroke={ink} stroke-width={w} />
+	{:else if e.type === 'ellipse'}
+		<ellipse cx={(e.a![0] + e.b![0]) / 2} cy={(e.a![1] + e.b![1]) / 2} rx={Math.abs(e.b![0] - e.a![0]) / 2} ry={Math.abs(e.b![1] - e.a![1]) / 2} fill="none" stroke={ink} stroke-width={w} />
 	{:else if e.type === 'dim'}
 		<line x1={e.a![0]} y1={e.a![1]} x2={e.b![0]} y2={e.b![1]} stroke={seld ? SEL : '#0e766e'} stroke-width={w} />
 		<text x={(e.a![0] + e.b![0]) / 2} y={(e.a![1] + e.b![1]) / 2 - 3} font-size="9" fill={seld ? SEL : '#0e766e'} text-anchor="middle">{Math.round(dist(e.a!, e.b!))}</text>
@@ -459,8 +493,8 @@
 		<line x1={a[0]} y1={a[1]} x2={p[0]} y2={p[1]} stroke={SEL} stroke-width="1" stroke-dasharray="4 3" />
 	{:else if tool === 'Rectangle'}
 		<rect x={Math.min(a[0], p[0])} y={Math.min(a[1], p[1])} width={Math.abs(p[0] - a[0])} height={Math.abs(p[1] - a[1])} fill="none" stroke={SEL} stroke-width="1" stroke-dasharray="4 3" />
-	{:else if tool === 'Circle'}
-		<circle cx={a[0]} cy={a[1]} r={dist(a, p)} fill="none" stroke={SEL} stroke-width="1" stroke-dasharray="4 3" />
+	{:else if tool === 'Ellipse'}
+		<ellipse cx={(a[0] + p[0]) / 2} cy={(a[1] + p[1]) / 2} rx={Math.abs(p[0] - a[0]) / 2} ry={Math.abs(p[1] - a[1]) / 2} fill="none" stroke={SEL} stroke-width="1" stroke-dasharray="4 3" />
 	{/if}
 {/snippet}
 
@@ -473,7 +507,7 @@
 	/* Lineweights stay constant as the viewport zooms (like Kestrel / real CAD):
 	   the view <g> scales the geometry, non-scaling-stroke keeps stroke thickness
 	   fixed on screen. Fills and text still scale with the drawing. */
-	.vp-svg :where(line, rect, circle, polyline, polygon, path) { vector-effect: non-scaling-stroke; }
+	.vp-svg :where(line, rect, circle, ellipse, polyline, polygon, path) { vector-effect: non-scaling-stroke; }
 	/* Kestrel/AutoCAD selection box: window (L→R) solid blue, crossing (R→L) dashed green. */
 	.marquee { pointer-events:none; }
 	.marquee.window { fill:#3b82f61f; stroke:#3b82f6; stroke-width:1; }

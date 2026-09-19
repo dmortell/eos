@@ -35,15 +35,16 @@
 	function setX(v: number) { if (!gb) return; const dx = v - gb.x, snap = [...ents]; for (const e of snap) onupdate?.(translate(e, dx, 0)) }
 	function setY(v: number) { if (!gb) return; const dy = v - gb.y, snap = [...ents]; for (const e of snap) onupdate?.(translate(e, 0, dy)) }
 	// Single-entity size edits (anchored at the top-left / centre).
+	const boxKind = (e?: Ent | null) => e?.type === 'rect' || e?.type === 'ellipse'
 	function setW(v: number) {
-		const e = single; if (!e || e.type !== 'rect') return
-		const x0 = Math.min(e.a![0], e.b![0]), y0 = Math.min(e.a![1], e.b![1]), h = Math.abs(e.b![1] - e.a![1])
-		onupdate?.({ ...e, a: [x0, y0], b: [x0 + Math.max(1, v), y0 + h] })
+		const e = single; if (!boxKind(e)) return
+		const x0 = Math.min(e!.a![0], e!.b![0]), y0 = Math.min(e!.a![1], e!.b![1]), h = Math.abs(e!.b![1] - e!.a![1])
+		onupdate?.({ ...e!, a: [x0, y0], b: [x0 + Math.max(1, v), y0 + h] })
 	}
 	function setH(v: number) {
-		const e = single; if (!e || e.type !== 'rect') return
-		const x0 = Math.min(e.a![0], e.b![0]), y0 = Math.min(e.a![1], e.b![1]), w = Math.abs(e.b![0] - e.a![0])
-		onupdate?.({ ...e, a: [x0, y0], b: [x0 + w, y0 + Math.max(1, v)] })
+		const e = single; if (!boxKind(e)) return
+		const x0 = Math.min(e!.a![0], e!.b![0]), y0 = Math.min(e!.a![1], e!.b![1]), w = Math.abs(e!.b![0] - e!.a![0])
+		onupdate?.({ ...e!, a: [x0, y0], b: [x0 + w, y0 + Math.max(1, v)] })
 	}
 	function setR(v: number) { const e = single; if (e?.type === 'circle') onupdate?.({ ...e, r: Math.max(1, v) }) }
 	function setText(v: string) { const e = single; if (e?.type === 'text') onupdate?.({ ...e, text: v }) }
@@ -64,9 +65,9 @@
 		<div class="prop-sec">GEOMETRY</div>
 		<div class="prop"><span>X</span><input type="number" value={r1(gb!.x)} onchange={(e) => setX(num(e))} /></div>
 		<div class="prop"><span>Y</span><input type="number" value={r1(gb!.y)} onchange={(e) => setY(num(e))} /></div>
-		{#if single?.type === 'rect'}
-			<div class="prop"><span>Width</span><input type="number" value={r1(Math.abs(single.b![0] - single.a![0]))} onchange={(e) => setW(num(e))} /></div>
-			<div class="prop"><span>Height</span><input type="number" value={r1(Math.abs(single.b![1] - single.a![1]))} onchange={(e) => setH(num(e))} /></div>
+		{#if boxKind(single)}
+			<div class="prop"><span>Width</span><input type="number" value={r1(Math.abs(single!.b![0] - single!.a![0]))} onchange={(e) => setW(num(e))} /></div>
+			<div class="prop"><span>Height</span><input type="number" value={r1(Math.abs(single!.b![1] - single!.a![1]))} onchange={(e) => setH(num(e))} /></div>
 		{:else if single?.type === 'circle'}
 			<div class="prop"><span>Radius</span><input type="number" value={r1(single.r!)} onchange={(e) => setR(num(e))} /></div>
 		{:else}
