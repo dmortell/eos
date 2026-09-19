@@ -144,8 +144,10 @@ uid collision, unused CSS, a11y). Suggested order in review.md §7.
 | Pan (mouse) | Right- or middle-drag | Right- or middle-drag | _same_ |
 | Draw a line/rect/circle | **Two clicks** (start, end) | **One press-drag-release** | ✅ **ACAD toggle** picks |
 | Marquee select | **Window (L→R) vs Crossing (R→L)** | **Always crossing**, direction-agnostic | ✅ **Pages (Window/Crossing)** |
-| Add to selection | not yet | **Shift/Ctrl-click, Shift-marquee** | → adopt |
-| Ctrl-drag | not yet | **Duplicate the selection** | → adopt |
+| Add to selection | ✅ Shift/Ctrl-click, Shift/Ctrl-marquee | **Shift/Ctrl-click, Shift-marquee** | ✅ **done (Pages)** |
+| Duplicate | ✅ Ctrl-D (offset +8) | Ctrl-drag | ✅ **done (Pages, via Ctrl-D)** |
+| Group move | ✅ drag any selected → moves all | drag selection | ✅ **done (Pages)** |
+| Select all / nudge | ✅ Ctrl-A, arrow keys (Shift = ×10) | Ctrl-A, arrows | ✅ **done (Pages)** |
 | Shift while **drawing** | ✅ square / 15° ortho | none | ✅ **done (Pages)** |
 | Shift while **moving** | ✅ ortho / axis-lock | **Ortho / axis-lock** | ✅ **done (Pages)** |
 | Shift while **resizing** | ✅ square about opposite corner | **Square / equal** | ✅ **done (Pages)** |

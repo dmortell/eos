@@ -5,6 +5,8 @@
 // ctrl/alt/meta+wheel = zoom at cursor; right- or middle-drag = pan; touch =
 // two-finger pinch-zoom + pan (a single finger is left for drawing/editing).
 // Right-drag never opens the context menu.
+import { normalizeWheelToPixels, wheelZoomFactorFromEvent } from '$lib/ui/panzoom-controller'
+
 export type PanZoomOpts = {
 	enabled?: () => boolean
 	// True → the wheel ZOOMS (AutoCAD-style, the default). False → the wheel PANS (EOS/Sheets
@@ -23,12 +25,15 @@ export function panzoom(node: HTMLElement, initial: PanZoomOpts) {
 		e.preventDefault()
 		e.stopPropagation()   // don't also act on an enabled panzoom ancestor (canvas under a viewport)
 		const zoom = (opts.wheelZoom ? opts.wheelZoom() : true) || e.ctrlKey || e.altKey || e.metaKey || (e.buttons & 2) !== 0
+		// Normalise the wheel to pixels first (Firefox reports line/page deltas), and clamp the zoom
+		// factor per event — shared with the Sheets tool via $lib/ui/panzoom-controller.
+		const { x, y } = normalizeWheelToPixels(e)
 		if (zoom) {
-			opts.onzoom(Math.exp(-e.deltaY * 0.0015), e.clientX, e.clientY, node)  // up = zoom in
+			opts.onzoom(wheelZoomFactorFromEvent(e, 0.0015), e.clientX, e.clientY, node)  // up = zoom in
 		} else if (e.shiftKey) {
-			opts.onpan(-e.deltaY, 0, node)              // shift+wheel = horizontal pan (Sheets convention)
+			opts.onpan(-y, 0, node)              // shift+wheel = horizontal pan (Sheets convention)
 		} else {
-			opts.onpan(-e.deltaX, -e.deltaY, node)      // plain wheel = pan
+			opts.onpan(-x, -y, node)             // plain wheel = pan
 		}
 	}
 
@@ -75,6 +80,7 @@ export function panzoom(node: HTMLElement, initial: PanZoomOpts) {
 	function tend(e: TouchEvent) {
 		if (e.touches.length < 2) mode = 'none'   // ending a pinch; the lone finger doesn't pan
 	}
+	function tcancel() { mode = 'none' }   // a cancelled pinch must not leave mode stuck
 
 	node.addEventListener('wheel', wheel, { passive: false })
 	node.addEventListener('pointerdown', down)
@@ -82,6 +88,7 @@ export function panzoom(node: HTMLElement, initial: PanZoomOpts) {
 	node.addEventListener('touchstart', tstart, { passive: false })
 	node.addEventListener('touchmove', tmove, { passive: false })
 	node.addEventListener('touchend', tend)
+	node.addEventListener('touchcancel', tcancel)
 
 	return {
 		update(next: PanZoomOpts) { opts = next },
@@ -92,6 +99,7 @@ export function panzoom(node: HTMLElement, initial: PanZoomOpts) {
 			node.removeEventListener('touchstart', tstart)
 			node.removeEventListener('touchmove', tmove)
 			node.removeEventListener('touchend', tend)
+			node.removeEventListener('touchcancel', tcancel)
 			up()
 		},
 	}

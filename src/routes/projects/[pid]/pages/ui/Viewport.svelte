@@ -160,7 +160,14 @@
 		e.stopPropagation()
 		if (suppressClick) { suppressClick = false; return }   // this click just ended a drag
 		if (!active) return   // paper space: enter with a double-click (see onDblclick)
-		if (tool === 'Select') { const p = toLocal(e); if (p) onselect?.(hit(p)); return }
+		if (tool === 'Select') {
+			const p = toLocal(e); if (!p) return
+			const ids = hit(p)
+			if (e.shiftKey || e.ctrlKey || e.metaKey) {   // additive: toggle the clicked entity, keep the rest
+				if (ids.length) { const id = ids[0]; onselect?.(selSet.has(id) ? sel.filter(x => x !== id) : [...sel, id]) }
+			} else onselect?.(ids)
+			return
+		}
 		if (tool === 'Text') { const p = drawPoint(e.clientX, e.clientY); if (p) onadd?.({ id: uid(), type: 'text', a: p, text: 'TEXT' }); snapMark = null; return }
 		if (!acad) return   // EOS mode: shapes are drawn press-drag (onDown), not by clicking
 		const sp = drawPoint(e.clientX, e.clientY, draft.at(-1), e.shiftKey); if (!sp) return
@@ -183,8 +190,10 @@
 	// Re-apply the constraint the instant Shift changes (don't wait for a pointer move) — for
 	// both an in-progress draw and an in-progress move/grip drag.
 	function reconstrain(shift: boolean) {
-		if (drag && lastDragRaw) onupdate?.(applyDrag(lastDragRaw, shift))
-		else if (active && draft.length && lastRaw) cur = constrainPt(draft.at(-1)!, lastRaw, shift)
+		if (drag && lastDragRaw) {
+			if (drag.kind === 'grip') onupdate?.(applyDrag(lastDragRaw, shift))
+			else { let dx = lastDragRaw[0] - drag.start[0], dy = lastDragRaw[1] - drag.start[1]; if (shift) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 } for (const b of drag.bases) onupdate?.(moveEnt(b, dx, dy)) }
+		} else if (active && draft.length && lastRaw) cur = constrainPt(draft.at(-1)!, lastRaw, shift)
 	}
 	// Double-click: outside a viewport → enter model space; inside an active viewport, on a
 	// TEXT object → edit it in place.
@@ -220,10 +229,25 @@
 	// endpoint), so it must NOT cancel the draft. Esc cancels an in-progress draw.
 	// Esc ladder (CAD-style): cancel an in-progress draw → clear selection → exit viewport.
 	function onKey(e: KeyboardEvent) {
-		if (!active || !focused) return   // in split view only the focused pane's instance handles keys
+		if (!active || !focused || editText) return   // in split view only the focused pane's instance handles keys
 		if (e.key === 'Shift') { reconstrain(true); return }
 		if (e.key === 'Enter' && tool === 'Line' && draft.length) { e.preventDefault(); finishPolyline(); return }   // finish polyline
-		if ((e.key === 'Delete' || e.key === 'Backspace') && !editText && sel.length && !draft.length) { e.preventDefault(); ondelete?.(sel); return }
+		if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) { e.preventDefault(); onselect?.(entities.map(x => x.id)); return }   // select all
+		if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D') && sel.length) {   // duplicate (offset +8,+8)
+			e.preventDefault()
+			const copies = sel.map(id => entities.find(x => x.id === id)).filter(Boolean).map(en => ({ ...translate(en!, 8, 8), id: uid() }))
+			copies.forEach(c => onadd?.(c)); onselect?.(copies.map(c => c.id))
+			return
+		}
+		if ((e.key === 'Delete' || e.key === 'Backspace') && sel.length && !draft.length) { e.preventDefault(); ondelete?.(sel); return }
+		if (sel.length && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+			e.preventDefault()
+			const s = e.shiftKey ? 10 : 1
+			const dx = e.key === 'ArrowLeft' ? -s : e.key === 'ArrowRight' ? s : 0
+			const dy = e.key === 'ArrowUp' ? -s : e.key === 'ArrowDown' ? s : 0
+			for (const id of sel) { const en = entities.find(x => x.id === id); if (en) onupdate?.(moveEnt(en, dx, dy)) }   // nudge
+			return
+		}
 		if (e.key !== 'Escape') return
 		if (draft.length) { draft = []; cur = null; snapMark = null }
 		else if (sel.length) onselect?.([])
@@ -399,7 +423,9 @@
 	}
 
 	// ── drag to move / edit ──
-	let drag: { id: string; base: Ent; kind: 'grip' | 'move'; gi: number; start: Pt } | null = null
+	// `bases` = the entities a body-move drags (the whole selection when you grab a selected one,
+	// else just the grabbed one). `base`/`gi` drive grip drags (always a single entity).
+	let drag: { id: string; base: Ent; bases: Ent[]; kind: 'grip' | 'move'; gi: number; start: Pt } | null = null
 	let dragged = false        // true once the pointer actually moved during a drag
 	let suppressClick = false  // swallow the click that ends a real drag (avoids re-select)
 	// Track pressed pointers so a second finger (2-finger pan/zoom) aborts an entity drag —
@@ -407,7 +433,7 @@
 	const pointers = new Set<number>()
 	function cancelPointerDrag() {
 		if (drag) {
-			if (dragged) onupdate?.(drag.base)   // revert any partial move/resize
+			if (dragged) for (const b of drag.bases) onupdate?.(b)   // revert any partial move/resize
 			drag = null
 			window.removeEventListener('pointermove', onDragMove)
 			window.removeEventListener('pointerup', onDragUp)
@@ -448,8 +474,8 @@
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
 		const hitInfo = pick(e.clientX, e.clientY)
 		if (!hitInfo) {
-			// empty space → drag a Kestrel-style selection box (window / crossing)
-			marquee = { a: p, b: p }
+			// empty space → drag a Kestrel-style selection box (window / crossing); Shift/Ctrl = additive
+			marquee = { a: p, b: p, add: e.shiftKey || e.ctrlKey || e.metaKey }
 			try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
 			e.preventDefault()
 			window.addEventListener('pointermove', onMarqueeMove)
@@ -457,8 +483,12 @@
 			return
 		}
 		const base = entities.find(x => x.id === hitInfo.id); if (!base) return
-		if (!selSet.has(hitInfo.id)) onselect?.([hitInfo.id])
-		drag = { id: hitInfo.id, base, kind: hitInfo.kind, gi: hitInfo.gi, start: p }
+		const add = e.shiftKey || e.ctrlKey || e.metaKey
+		if (!add && !selSet.has(hitInfo.id)) onselect?.([hitInfo.id])   // plain press on an unselected entity → select it (additive toggles on release)
+		// a body move drags the whole selection when the grabbed entity is part of it, else just it
+		const moveIds = hitInfo.kind === 'move' && selSet.has(hitInfo.id) && sel.length > 1 ? sel : [hitInfo.id]
+		const bases = moveIds.map(id => entities.find(x => x.id === id)).filter(Boolean) as Ent[]
+		drag = { id: hitInfo.id, base, bases, kind: hitInfo.kind, gi: hitInfo.gi, start: p }
 		dragged = false
 		try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic events */ }
 		e.preventDefault()
@@ -466,23 +496,30 @@
 		window.addEventListener('pointerup', onDragUp)
 	}
 	let lastDragRaw: Pt | null = null   // last UNconstrained pointer during a move/grip drag
+	// Move an entity by (dx,dy). A box in ELEVATION moves its x-edges by dx and base elevation by
+	// −dy (screen-down lowers it), keeping the plan depth — everything else translates normally.
+	function moveEnt(en: Ent, dx: number, dy: number): Ent {
+		if (en.type === 'box' && kind === 'elevation') return { ...en, a: [en.a![0] + dx, en.a![1]], b: [en.b![0] + dx, en.b![1]], z0: Math.max(0, (en.z0 ?? 0) - dy) }
+		return translate(en, dx, dy)
+	}
 	function applyDrag(p: Pt, shift: boolean): Ent {
 		if (drag!.kind === 'grip') return gripsFor(drag!.base)[drag!.gi].apply(constrainGrip(drag!.base, drag!.gi, p, shift))
 		let dx = p[0] - drag!.start[0], dy = p[1] - drag!.start[1]
 		if (shift) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 }   // ortho / axis-lock
-		if (drag!.base.type === 'box' && kind === 'elevation') {   // move x-edges by dx, base elevation by −dy (keep plan depth)
-			const b = drag!.base
-			return { ...b, a: [b.a![0] + dx, b.a![1]], b: [b.b![0] + dx, b.b![1]], z0: (b.z0 ?? 0) - dy }
-		}
-		return translate(drag!.base, dx, dy)
+		return moveEnt(drag!.base, dx, dy)
 	}
 	function onDragMove(e: PointerEvent) {
 		if (!drag) return
-		// snap grip endpoints to other entities' snap points (not body moves)
-		const s = drag.kind === 'grip' ? findSnap(e.clientX, e.clientY, drag.id) : null
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
 		dragged = true; lastDragRaw = p
-		onupdate?.(s ? gripsFor(drag.base)[drag.gi].apply(s) : applyDrag(p, e.shiftKey))
+		if (drag.kind === 'grip') {
+			const s = osnap ? findSnap(e.clientX, e.clientY, drag.id) : null
+			onupdate?.(s ? gripsFor(drag.base)[drag.gi].apply(s) : applyDrag(p, e.shiftKey))
+		} else {
+			let dx = p[0] - drag.start[0], dy = p[1] - drag.start[1]
+			if (e.shiftKey) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 }   // ortho / axis-lock
+			for (const b of drag.bases) onupdate?.(moveEnt(b, dx, dy))   // move the whole group
+		}
 	}
 	function onDragUp() {
 		if (dragged) suppressClick = true
@@ -512,7 +549,7 @@
 
 	// ── selection marquee (Kestrel/AutoCAD): drag L→R = window (enclose fully),
 	// R→L = crossing (touch). bbox tests are enough for the mock. ──
-	let marquee = $state<{ a: Pt; b: Pt } | null>(null)
+	let marquee = $state<{ a: Pt; b: Pt; add?: boolean } | null>(null)
 	function bbox(e: Ent): [number, number, number, number] {
 		if (e.type === 'polyline') { const pts = e.pts ?? []; const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] }
 		if (e.type === 'circle') return [e.c![0] - e.r!, e.c![1] - e.r!, e.c![0] + e.r!, e.c![1] + e.r!]
@@ -524,7 +561,7 @@
 	function onMarqueeMove(e: PointerEvent) {
 		if (!marquee) return
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
-		marquee = { a: marquee.a, b: p }
+		marquee = { a: marquee.a, b: p, add: marquee.add }
 	}
 	function onMarqueeUp() {
 		window.removeEventListener('pointermove', onMarqueeMove)
@@ -541,7 +578,7 @@
 				? bx0 <= x1 && bx1 >= x0 && by0 <= y1 && by1 >= y0        // intersects
 				: bx0 >= x0 && bx1 <= x1 && by0 >= y0 && by1 <= y1        // fully enclosed
 		}).map(en => en.id)
-		onselect?.(ids)
+		onselect?.(m.add ? [...new Set([...sel, ...ids])] : ids)   // Shift/Ctrl marquee unions with the current selection
 		suppressClick = true   // don't let the ensuing click clear this selection
 	}
 	// ── box (mock 3D cuboid) projection ──
