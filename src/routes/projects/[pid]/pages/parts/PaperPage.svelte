@@ -11,14 +11,16 @@
 	import Handle from './Handle.svelte'
 	import { HANDLE_PX, PAPER_W, PAPER_H } from '../constants'
 
+	// Paper size in px (default A3 landscape). Driven by the status-bar paper-size / orientation.
+
 	// A selected viewport frame reports its props (position/size/border/type) to the parent so
 	// they can be edited in the Properties panel — with callbacks bound to this component's own
 	// mutators, so the panel can edit without reaching into this child's state.
 	export type FrameSel = { label: string; x: number; y: number; w: number; h: number;
 		border: 'dashed' | 'solid' | 'none'; setBorder: (b: 'dashed' | 'solid' | 'none') => void; setRect: (r: Partial<{ x: number; y: number; w: number; h: number }>) => void }
-	let { title = 'Sheet', drawingNo = '001', scale = '1:100', active = false, tool = 'Select', env = {},
+	let { title = 'Sheet', drawingNo = '001', scale = '1:100', active = false, tool = 'Select', env = {}, pw = PAPER_W, ph = PAPER_H,
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, ondeactivate, onadd, onupdate, onselect, onview, onframe }:
-		{ title?: string; drawingNo?: string; scale?: string; active?: boolean; tool?: string; env?: Env;
+		{ title?: string; drawingNo?: string; scale?: string; active?: boolean; tool?: string; env?: Env; pw?: number; ph?: number;
 			entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; ondeactivate?: () => void; onadd?: (e: Ent) => void; onupdate?: (e: Ent) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void; onframe?: (f: FrameSel | null) => void } = $props()
 	const canvasZoom = $derived(env.canvasZoom ?? 1)
 
@@ -131,7 +133,7 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 <div class="paper-wrap" ondblclick={onWrapDblclick}>
-	<div class="paper" style:width="{PAPER_W}px" style:height="{PAPER_H}px">
+	<div class="paper" style:width="{pw}px" style:height="{ph}px">
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="sheet-area" bind:this={sheetEl} onpointerdown={onSheetDown}>
 			{#if frame}

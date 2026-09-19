@@ -19,7 +19,7 @@
 	import Menubar from './parts/Menubar.svelte'
 	import CommandPalette from './parts/CommandPalette.svelte'
 	import { panzoom } from './ui/panzoom'
-	import { PAPER_W, PAPER_H } from './constants'
+	import { paperDims, type PaperSize } from './constants'
 
 	// Which pane (if any) has its viewport activated — groundwork for editing/CAD
 	// tools inside a sheet's viewport. Null = no active viewport.
@@ -48,14 +48,20 @@
 	type View = { zoom: number; x: number; y: number }
 	// Each pane (view) remembers its own tool + its own canvas (paper-space) pan/zoom.
 	type Proj = 'plan' | 'elevation' | 'right' | 'model'
-	let panes = $state<{ id: string; activeId: string; tool: string; canvasView: View; projection?: Proj }[]>([{ id: 'p1', activeId: 't2', tool: 'Select', canvasView: { zoom: 1, x: 0, y: 0 } }])
-	// A pane's active PROJECTION: its own override (set via the ViewCube) or, by default, the tab's
-	// natural kind. Drives both the Viewport kind and which ViewCube face is lit.
-	function paneProj(pane: { projection?: Proj }, a: Tab | null): Proj {
-		return pane.projection ?? (a?.kind === 'elevation' ? 'elevation' : a?.kind === 'model' ? 'model' : 'plan')
+	let panes = $state<{ id: string; activeId: string; tool: string; canvasView: View }[]>([{ id: 'p1', activeId: 't2', tool: 'Select', canvasView: { zoom: 1, x: 0, y: 0 } }])
+	// A tab's active PROJECTION (keyed by tab id, so it's remembered per view and stays consistent
+	// if the same tab is shown in both split panes): its ViewCube override or the tab's natural kind.
+	let docProj = $state<Record<string, Proj>>({})
+	function projOf(a: Tab | null): Proj {
+		if (!a) return 'plan'
+		return docProj[a.id] ?? (a.kind === 'elevation' ? 'elevation' : a.kind === 'model' ? 'model' : 'plan')
 	}
 	// 'right' is a mock side elevation — same Viewport renderer as 'elevation' for now.
 	const projKind = (p: Proj) => (p === 'plan' ? 'floorplan' : p === 'right' ? 'elevation' : p) as 'floorplan' | 'elevation' | 'model'
+	// Paper size + orientation (chosen in the status bar) → the PaperPage sheet dimensions (px).
+	let paperSize = $state<PaperSize>('A3')
+	let paperLandscape = $state(true)
+	let paper = $derived(paperDims(paperSize, paperLandscape))
 	// The drafting/interaction flags bundle passed to a pane's viewport (one prop instead of six).
 	const envFor = (pane: { canvasView: View }) => ({ acad: acadMode, navContent, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, canvasZoom: pane.canvasView.zoom })
 	let focused = $state(0)      // which pane new tabs / sidebar actions target
@@ -114,9 +120,13 @@
 	function makeRevision() {
 		revisions = [{ name: 'Rev ' + String.fromCharCode(67 + revSeq++), note: '', snap: snapEnts(), t: Date.now() }, ...revisions]
 	}
-	// $state.snapshot unwraps the proxy (the revision snap lives inside the $state revisions
-	// array); structuredClone would throw on that proxy and silently skip the restore.
-	function restoreRevision(snap: Snap) { record('Restore revision', { all: snapEnts() }); docEnts = $state.snapshot(snap) as Snap }
+	// Restore only the CURRENT tab's doc from the revision (not every doc). $state.snapshot unwraps
+	// the proxy (the snap lives inside the $state revisions array); structuredClone would throw on it.
+	function restoreRevision(snap: Snap) {
+		const id = panes[focused]?.activeId; if (!id) return
+		record('Restore revision', { id, ents: snapDoc(id) })
+		docEnts = { ...docEnts, [id]: $state.snapshot(snap[id] ?? []) as Ent[] }
+	}
 	function setSel(id: string, ids: string[]) { docSel = { ...docSel, [id]: ids }; if (ids.length) treeNode = null }
 	function setView(id: string, v: View) { docView = { ...docView, [id]: v } }
 	// Selected entities of the focused document (for the Properties panel).
@@ -158,11 +168,13 @@
 		const other = tabs.find(t => t.id !== cur)?.id ?? cur
 		panes = [...panes, { id: 'p' + ++paneSeq, activeId: other, tool: 'Select', canvasView: { zoom: 1, x: 0, y: 0 } }]
 		focused = 1; splitFrac = 0.5
+		tick().then(() => { fitPane(0); fitPane(1) })   // both panes narrowed → refit their sheets
 	}
 	function closePane(idx: number) {
 		if (panes.length < 2) return
 		panes = panes.filter((_, i) => i !== idx)
 		focused = 0
+		tick().then(() => fitPane(0))
 	}
 	function startSplitDrag(e: PointerEvent) {
 		e.preventDefault()
@@ -308,28 +320,23 @@
 		if (isVpActive(p.activeId)) { const v = viewOf(p.activeId); setView(p.activeId, { ...v, zoom: Math.min(8, Math.max(0.25, v.zoom * f)) }) }
 		else { const v = p.canvasView; v.zoom = Math.min(8, Math.max(0.1, v.zoom * f)) }
 	}
-	function navFit() {
-		const p = panes[focused]; if (!p) return
+	// Fit a specific pane: frame its sheet paper (centred, with margin) or reset a model view.
+	function fitPane(idx: number) {
+		const p = panes[idx]; if (!p) return
 		if (isVpActive(p.activeId)) { setView(p.activeId, { zoom: 1, x: 0, y: 0 }); return }
-		// Frame the fixed-size paper in the pane (transform-origin 0 0, paper centred in the
-		// canvas box): pick a zoom that fits with margin, then translate to re-centre.
 		const a2 = tabs.find(t => t.id === p.activeId)
-		const canvas = canvasEls[focused]
-		if (a2?.kind === 'sheet' && canvas && canvas.clientWidth > 50) {
+		const canvas = canvasEls[idx]
+		if (a2?.kind === 'sheet' && layout === 'sheet' && canvas && canvas.clientWidth > 50) {
 			const r = canvas.getBoundingClientRect()
-			const z = Math.min(r.width / PAPER_W, r.height / PAPER_H) * 0.9
-			p.canvasView = { zoom: z, x: r.width * (1 - z) / 2, y: r.height * (1 - z) / 2 }
+			const z = Math.min(r.width / paper.w, r.height / paper.h) * 0.9
+			p.canvasView = { zoom: z, x: (r.width - paper.w * z) / 2, y: (r.height - paper.h * z) / 2 }
 		} else {
 			p.canvasView = { zoom: 1, x: 0, y: 0 }
 		}
 	}
-	// Fit the sheet once on load so the fixed-size paper starts framed, not clipped.
-	let didFit = false
-	$effect(() => {
-		if (didFit) return
-		didFit = true
-		tick().then(navFit)
-	})
+	function navFit() { fitPane(focused) }
+	// Refit every pane after the paper size/orientation changes (each pane may show a sheet).
+	function refitAll() { tick().then(() => panes.forEach((_, i) => fitPane(i))) }
 
 	// ── Print — on Ctrl+P / window.print(), an @media-print stylesheet shows ONLY the
 	// focused sheet's A3 paper: it hides all UI + the selection highlight and pins the
@@ -378,6 +385,8 @@
 	// Status bar
 	// Model = drawing fills the pane (no paper); Sheet = the A3 paper with the viewport frame.
 	let layout = $state<'model' | 'sheet'>('sheet')
+	// Re-fit every pane when the paper size / orientation / layout changes (declared after `layout`).
+	$effect(() => { paper; layout; refitAll() })
 	let toggles = $state<Record<string, boolean>>({ GRID: true, SNAP: true, ORTHO: false, OSNAP: true, LWT: false })
 	// AutoCAD mode: wheel = zoom, draw = two clicks. Off = EOS: wheel = pan, draw = press-drag.
 	let acadMode = $state(true)
@@ -511,14 +520,14 @@
 						{#key p.activeId}
 							<div class="canvas-content" style:transform="translate({p.canvasView.x}px, {p.canvasView.y}px) scale({p.canvasView.zoom})">
 								{#if a?.kind === 'sheet' && layout === 'sheet'}
-									<PaperPage title={a.title} tool={p.tool} env={envFor(p)} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={isVpActive(a.id)}
+									<PaperPage title={a.title} tool={p.tool} env={envFor(p)} pw={paper.w} ph={paper.h} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={isVpActive(a.id)}
 										onactivate={() => activateVp(a.id)}
 										ondeactivate={() => deactivateVp(a.id)}
 										onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} onframe={onFrame} />
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => deactivateVp(a.id)}>
-										<Viewport kind={projKind(paneProj(p, a))} label={a.title} tool={p.tool} env={envFor(p)} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
+										<Viewport kind={projKind(projOf(a))} label={a.title} tool={p.tool} env={envFor(p)} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
 											active={isVpActive(a.id)} onactivate={() => activateVp(a.id)} ondeactivate={() => deactivateVp(a.id)}
 											onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} />
 									</div>
@@ -540,8 +549,8 @@
 						</div>
 						{#if a}
 							<!-- fixed-size view gizmos (ViewCube + WCS axes), screen space so they don't zoom -->
-							<ViewGizmos projection={paneProj(p, a)}
-								onset={(proj) => { p.projection = proj; if (a.kind === 'sheet' && layout === 'sheet' && proj !== 'plan') layout = 'model' }} />
+							<ViewGizmos projection={projOf(a)}
+								onset={(proj) => { docProj = { ...docProj, [a.id]: proj }; if (a.kind === 'sheet' && layout === 'sheet' && proj !== 'plan') layout = 'model' }} />
 						{/if}
 					</main>
 				</section>
@@ -581,7 +590,7 @@
 	</div>
 
 	<!-- Status bar -->
-	<StatusBar bind:layout bind:toggles bind:acadMode {cx} {cy} zoom={dispZoom} onzoom={navZoom} onfit={navFit} />
+	<StatusBar bind:layout bind:toggles bind:acadMode bind:paperSize bind:paperLandscape {cx} {cy} zoom={dispZoom} onzoom={navZoom} onfit={navFit} />
 </div>
 
 <style>

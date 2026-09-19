@@ -10,6 +10,27 @@ after UX settles · **(P3)** later / needs design. `◧ decide` = needs your pic
 ---
 
 ## 0. Bugs / quick wins  (P1)
+### Reported 2026-09-20 (Dave) — batch 3
+- [x] **Couldn't type newlines in the text editor** — the `.vp`'s own Enter handler was
+  `preventDefault`-ing Enter before the textarea saw it; the editor now `stopPropagation`s keydown.
+  Enter = newline, Ctrl/⌘-Enter or blur commits.
+- [x] **Editor text unreadable / only last line shown / bad overlay** — the editor is now an opaque
+  dark-on-white box that **auto-sizes to its content** (width + height from the value), positioned
+  on the text baseline; SVG text uses the same Inter font for alignment.
+- [x] **Could only double-click the first ~4 chars to edit text** — the text hit-box is now the
+  real text extent (per line width × line count), so a click anywhere on it opens the editor.
+- [x] **Dragging a box vertically in plan moved it in elevation** — see batch-2 `z0`. (Confirmed
+  the elevation face stays put through a plan vertical drag.)
+- [x] **Revision restore reverted ALL docs** — now restores only the **current tab's** doc.
+- [x] **ViewCube state now per tab** (`docProj` keyed by tab id) — remembered per view and shared
+  across split panes; the WCS triad also follows the per-tab projection.
+- [x] **Split-mode paper looked portrait / mis-fit** — `fitPane(idx)` fits each pane's sheet with
+  correct centring from the real paper dims; refit on split/unsplit and on paper change.
+- [x] **Full-size button did nothing** — works (Sheet ↔ full viewport); a status-bar class-name
+  collision (`.paper`) had only fooled testing — renamed to `.paper-sel`.
+- [x] **Paper size + orientation** — status bar now has an A4/A3/A2 selector and a portrait/
+  landscape toggle; the sheet resizes (px from mm) and all panes refit.
+
 ### Reported 2026-09-20 (Dave) — batch 2
 - [x] **Box line thickness changed with zoom** — like the handles, entity strokes now divide by
   `canvasZoom` (with `non-scaling-stroke`) so lineweights stay constant on canvas zoom.

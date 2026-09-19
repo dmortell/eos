@@ -231,6 +231,12 @@
 		let t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L; t = Math.max(0, Math.min(1, t))
 		return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy))
 	}
+	// Text bounding box (drawing units): a[0]/a[1] is the first line's baseline-left; lines run down.
+	function textBox(e: Ent): [number, number, number, number] {
+		const lines = (e.text ?? '').split('\n')
+		const w = Math.max(...lines.map(l => l.length), 1) * 11 * 0.6
+		return [e.a![0], e.a![1] - 10, e.a![0] + w, e.a![1] + (lines.length - 1) * 13 + 3]
+	}
 	function hitEnt(e: Ent, p: Pt, thr: number): boolean {
 		if (e.type === 'polyline') { const pts = e.pts ?? []; for (let i = 0; i + 1 < pts.length; i++) if (segDist(p, pts[i], pts[i + 1]) < thr) return true; return false }
 		if (e.type === 'line' || e.type === 'dim') return segDist(p, e.a!, e.b!) < thr
@@ -243,7 +249,7 @@
 			const nx = (p[0] - cx) / (rx || 1), ny = (p[1] - cy) / (ry || 1)
 			return nx * nx + ny * ny <= 1
 		}
-		if (e.type === 'text') return Math.abs(p[0] - e.a![0]) < 24 && Math.abs(p[1] - e.a![1]) < 10
+		if (e.type === 'text') { const [x0, y0, x1, y1] = textBox(e); return p[0] >= x0 - thr && p[0] <= x1 + thr && p[1] >= y0 - thr && p[1] <= y1 + thr }
 		return false
 	}
 	// Pick tolerance in MODEL units for a target of `px` screen pixels (px of slack around a line
@@ -505,7 +511,7 @@
 	function bbox(e: Ent): [number, number, number, number] {
 		if (e.type === 'polyline') { const pts = e.pts ?? []; const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] }
 		if (e.type === 'circle') return [e.c![0] - e.r!, e.c![1] - e.r!, e.c![0] + e.r!, e.c![1] + e.r!]
-		if (e.type === 'text') return [e.a![0], e.a![1] - 10, e.a![0] + 40, e.a![1]]
+		if (e.type === 'text') return textBox(e)
 		if (e.type === 'box' && kind === 'elevation') { const f = boxElev(e); return [f.x0, f.top, f.x1, f.base] }
 		const xs = [e.a![0], e.b![0]], ys = [e.a![1], e.b![1]]
 		return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
@@ -619,9 +625,8 @@
 				{/each}
 				<text x="24" y="230" font-size="9" fill="#64748b" font-weight="600">OFFICE — 33F</text>
 			{/if}
-			<!-- drawn entities + rubber-band preview. The text being edited stays visible and shows
-			     the LIVE editor value (the transparent textarea over it only supplies the caret). -->
-			{#each entities as e (e.id)}{@render drawn(e.id === editText?.id ? { ...e, text: editText.value } : e, selSet.has(e.id))}{/each}
+			<!-- drawn entities + rubber-band preview (the edited text is hidden; the editor replaces it) -->
+			{#each entities as e (e.id)}{#if e.id !== editText?.id}{@render drawn(e, selSet.has(e.id))}{/if}{/each}
 			{#if active && tool === 'Line' && draft.length}
 				<!-- polyline preview: committed segments + rubber band to the cursor -->
 				<polyline points={draft.map(p => p.join(',')).join(' ')} fill="none" stroke={SEL} stroke-width="1.2" />
@@ -667,11 +672,15 @@
 		<div class="vp-badge"><span class="vp-dot"></span>{tool} · {prompt} · {Math.round(view.zoom * 100)}%</div>
 	{/if}
 	{#if editText}
-		<textarea class="text-edit" bind:this={textInput} bind:value={editText.value} rows="1" spellcheck="false"
-			style="left:{editText.x}px; top:{editText.y - editText.fontPx}px; font-size:{editText.fontPx}px; line-height:{editText.fontPx * 1.18}px"
+		{@const lines = (editText.value || ' ').split('\n')}
+		{@const cols = Math.max(...lines.map(l => l.length), 3)}
+		<!-- Opaque, auto-sizing editor placed over the (hidden) text. Enter = newline (keydown is
+		     stopped so the viewport's own Enter handler can't preempt it); Ctrl/⌘-Enter or blur commits. -->
+		<textarea class="text-edit" bind:this={textInput} bind:value={editText.value} spellcheck="false" wrap="off"
+			style="left:{editText.x}px; top:{editText.y - editText.fontPx * 0.8}px; font-size:{editText.fontPx}px; line-height:{editText.fontPx * 1.2}px; width:{cols * editText.fontPx * 0.62 + 14}px; height:{lines.length * editText.fontPx * 1.2 + 6}px"
 			onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()} ondblclick={(e) => e.stopPropagation()}
 			onblur={commitText}
-			onkeydown={(e) => { if (e.key === 'Escape') { e.preventDefault(); editText = null } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commitText() } }}></textarea>
+			onkeydown={(e) => { e.stopPropagation(); if (e.key === 'Escape') { e.preventDefault(); editText = null } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commitText() } }}></textarea>
 	{/if}
 </div>
 
@@ -738,6 +747,7 @@
 	   the view <g> scales the geometry, non-scaling-stroke keeps stroke thickness
 	   fixed on screen. Fills and text still scale with the drawing. */
 	.vp-svg :where(line, rect, circle, ellipse, polyline, polygon, path) { vector-effect: non-scaling-stroke; }
+	.vp-svg text { font-family:'Inter','Segoe UI',system-ui,sans-serif; }
 	/* Kestrel/AutoCAD selection box: window (L→R) solid blue, crossing (R→L) dashed green. */
 	/* Object-snap marker — amber, constant border, never intercepts pointer events. */
 	.snap { fill:none; stroke:#f59e0b; stroke-width:1.4; vector-effect:non-scaling-stroke; pointer-events:none; }
@@ -755,10 +765,10 @@
 		color:#0e5866; background:#5ac6d222; border:1px solid #5ac6d2; border-radius:3px; padding:2px 6px;
 	}
 	.vp-dot { width:5px; height:5px; border-radius:50%; background:#157a8b; }
-	/* Transparent editor over the live SVG text: the on-canvas text stays visible (and updates as
-	   you type); this only provides the caret + keyboard input, so the text never "disappears". */
-	.text-edit { position:absolute; z-index:10; min-width:48px; min-height:1.2em; background:transparent; color:transparent; caret-color:#0e7490; font-weight:600;
-		border:1px dashed #0e749077; border-radius:2px; padding:0 2px; font-family:inherit; resize:both; overflow:hidden; white-space:pre;
-		user-select:text; -webkit-user-select:text; }
-	.text-edit:focus { outline:none; border-color:#0e7490; }
+	/* Opaque editor over the (hidden) text: dark text on white so it reads on the paper; auto-sized
+	   to the content (width/height set inline from the value) so multi-line shows fully. */
+	.text-edit { position:absolute; z-index:10; background:#fff; color:#111827; font-weight:600;
+		border:1px solid #0e7490; border-radius:2px; padding:0 2px; font-family:inherit; resize:none; overflow:hidden; white-space:pre;
+		box-shadow:0 1px 6px #0003; user-select:text; -webkit-user-select:text; }
+	.text-edit:focus { outline:none; box-shadow:0 0 0 2px #0e749044; }
 </style>
