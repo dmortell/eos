@@ -7,14 +7,15 @@
 	// (so drawing persists per document, tool + selection per view). Fills its parent.
 	import { Icon } from '$lib'
 	import { panzoom } from './panzoom'
+	import Handle from '../parts/Handle.svelte'
 
 	export type Pt = [number, number]
 	export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'dim' | 'text'; a?: Pt; b?: Pt; c?: Pt; r?: number; text?: string }
 	export type View = { zoom: number; x: number; y: number }
 
-	let { label = 'Viewport', scale = '', kind = 'floorplan', active = false, tool = 'Select',
+	let { label = 'Viewport', scale = '', kind = 'floorplan', active = false, tool = 'Select', boxW, boxH,
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, ondeactivate, onadd, onupdate, onselect, onview }:
-		{ label?: string; scale?: string; kind?: 'floorplan' | 'model' | 'elevation'; active?: boolean; tool?: string;
+		{ label?: string; scale?: string; kind?: 'floorplan' | 'model' | 'elevation'; active?: boolean; tool?: string; boxW?: number; boxH?: number;
 			entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; ondeactivate?: () => void; onadd?: (e: Ent) => void; onupdate?: (e: Ent) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void } = $props()
 
 	const tagIcon: Record<string, string> = { floorplan: 'mapPin', model: 'box', elevation: 'server' }
@@ -60,11 +61,12 @@
 	// with a viewBox sized to the rendered frame (÷BASE) and centred on the plan, updated by
 	// a ResizeObserver; the drawing (0..400 × 0..250) sits at that fixed scale within it.
 	const BASE = 1.84, CX = 200, CY = 125
-	// bind:clientWidth/Height reactively tracks the container size (Svelte manages the
-	// ResizeObserver). viewBox extent = size ÷ BASE, so px-per-unit stays constant and
-	// resizing the frame crops/reveals more model instead of rescaling the drawing.
+	// Container size drives the viewBox extent (÷ BASE) so px-per-unit stays constant and
+	// resizing the frame crops/reveals more model instead of rescaling the drawing. The
+	// parent passes boxW/boxH when it owns the size (a paper viewport frame — reliable and
+	// reactive); otherwise we fall back to the measured client size (standalone viewports).
 	let vpW = $state(0), vpH = $state(0)
-	let vbW = $derived((vpW || 400) / BASE), vbH = $derived((vpH || 250) / BASE)
+	let vbW = $derived(((boxW ?? vpW) || 400) / BASE), vbH = $derived(((boxH ?? vpH) || 250) / BASE)
 	let minX = $derived(CX - vbW / 2), minY = $derived(CY - vbH / 2)
 	// viewBox → screen mapping (aspect matches the frame, so no letterboxing).
 	function vbMap(): { scale: number; left: number; top: number } | null {
@@ -176,7 +178,11 @@
 		const t = (p?: Pt): Pt | undefined => p ? [p[0] + dx, p[1] + dy] : p
 		return { ...e, a: t(e.a), b: t(e.b), c: t(e.c) }
 	}
-	const gripSize = $derived(3.5 / view.zoom)   // viewBox units → ~constant on screen (Kestrel-small)
+	// Handle on-screen size shared with the paper's viewport-frame grips (see Handle.svelte /
+	// PaperPage HANDLE_PX): gripSize in model units renders to HANDLE_PX·canvasZoom on screen,
+	// the same as the frame grips — so all handles look identical.
+	const HANDLE_PX = 9
+	const gripSize = $derived(HANDLE_PX / BASE / view.zoom)
 
 	// What a press at these client coords would grab: a grip of a selected entity, or the
 	// body of any entity (topmost). Drives the pointer-drag start (mouse-left / 1-finger
@@ -324,7 +330,7 @@
 				{#each entities as e (e.id)}
 					{#if selSet.has(e.id)}
 						{#each gripsFor(e) as g}
-							<rect class="grip" x={g.x - gripSize / 2} y={g.y - gripSize / 2} width={gripSize} height={gripSize} />
+							<Handle cx={g.x} cy={g.y} size={gripSize} cursor="grab" />
 						{/each}
 					{/if}
 				{/each}
@@ -386,8 +392,6 @@
 	   fixed on screen. Fills and text still scale with the drawing. */
 	.vp-svg :where(line, rect, circle, polyline, polygon, path) { vector-effect: non-scaling-stroke; }
 	/* Editing grips: white squares with a teal border, constant size (÷zoom in markup). */
-	.grip { fill:#fff; stroke:#0e7490; stroke-width:1.2; cursor:grab; }
-	.grip:hover { fill:#cffafe; }
 	/* Kestrel/AutoCAD selection box: window (L→R) solid blue, crossing (R→L) dashed green. */
 	.marquee { pointer-events:none; }
 	.marquee.window { fill:#3b82f61f; stroke:#3b82f6; stroke-width:1; }

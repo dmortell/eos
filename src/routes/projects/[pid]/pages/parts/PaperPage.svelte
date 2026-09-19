@@ -8,6 +8,7 @@
 	//  · Model space (activated): interact with the drawing inside; double-click on the
 	//    paper outside the frame (or Esc / Exit) returns to paper space.
 	import Viewport, { type Ent, type View } from '../ui/Viewport.svelte'
+	import Handle from './Handle.svelte'
 
 	let { title = 'Sheet', drawingNo = '001', scale = '1:100', active = false, tool = 'Select',
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, ondeactivate, onadd, onupdate, onselect, onview }:
@@ -105,6 +106,7 @@
 	}
 	const CORNERS = [[0, 0], [1, 0], [1, 1], [0, 1]] as const   // TL, TR, BR, BL
 	const CURSORS = ['nwse-resize', 'nesw-resize', 'nwse-resize', 'nesw-resize']
+	const HANDLE_PX = 9   // matches the entity grips inside the viewport (Viewport HANDLE_PX)
 	const mq = () => marquee ? { x: Math.min(marquee.x0, marquee.x1), y: Math.min(marquee.y0, marquee.y1), w: Math.abs(marquee.x1 - marquee.x0), h: Math.abs(marquee.y1 - marquee.y0) } : null
 </script>
 
@@ -117,6 +119,7 @@
 				<div class="vp-frame" class:selected={selected && !active} class:active
 					style="left:{frame.x}px; top:{frame.y}px; width:{frame.w}px; height:{frame.h}px">
 					<Viewport kind="floorplan" label="Outlets · 33F" {scale} {active} {tool} {entities} {sel} {view}
+						boxW={frame.w} boxH={frame.h}
 						{onactivate} {ondeactivate} {onadd} {onupdate} {onselect} {onview} />
 					{#if !active}
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -125,10 +128,13 @@
 							<div class="vp-interior" onpointerdown={onInteriorDown} ondblclick={() => onactivate?.()}></div>
 						</div>
 						{#if selected}
-							{#each CORNERS as [cx, cy], i (i)}
-								<div class="vp-grip" style="left:{cx * frame.w}px; top:{cy * frame.h}px; cursor:{CURSORS[i]}"
-									onpointerdown={(e) => startDrag(e, 'grip', i)}></div>
-							{/each}
+							<!-- corner grips as an SVG overlay, sharing Handle.svelte with the entity grips -->
+							<svg class="frame-handles">
+								{#each CORNERS as [cx, cy], i (i)}
+									<Handle cx={cx * frame.w} cy={cy * frame.h} size={HANDLE_PX} cursor={CURSORS[i]}
+										onpointerdown={(e) => startDrag(e, 'grip', i)} />
+								{/each}
+							</svg>
 						{/if}
 					{/if}
 				</div>
@@ -171,11 +177,8 @@
 	/* Border band = the only region that selects/moves the frame; interior stays inert. */
 	.vp-band { position:absolute; inset:0; border:11px solid transparent; box-sizing:border-box; cursor:move; touch-action:none; }
 	.vp-interior { position:absolute; inset:0; cursor:default; touch-action:none; }
-	/* Move/resize grips — same look as the rect-tool grips. */
-	.vp-grip {
-		position:absolute; width:12px; height:12px; transform:translate(-50%,-50%);
-		background:#fff; border:1.5px solid #0e7490; border-radius:2px; touch-action:none; z-index:2;
-	}
+	/* Corner-grip overlay: fills the frame, only the handles catch pointer events. */
+	.frame-handles { position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; z-index:2; }
 	/* Paper-space selection box. */
 	.vp-marquee { position:absolute; background:#3b82f61f; border:1px solid #3b82f6; pointer-events:none; }
 	/* Titleblock */
