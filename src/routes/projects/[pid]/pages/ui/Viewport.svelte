@@ -200,10 +200,14 @@
 	let editText = $state<{ id: string; x: number; y: number; fontPx: number; value: string } | null>(null)
 	let textInput: HTMLTextAreaElement | undefined = $state()
 	function startTextEdit(ent: Ent) {
-		const m = vbMap(); const sp = localToClient(ent.a![0], ent.a![1]); const host = svg?.parentElement
-		if (!m || !sp || !host) return
-		const r = host.getBoundingClientRect(), fontPx = 11 * view.zoom * m.scale
-		editText = { id: ent.id, x: sp.x - r.left, y: sp.y - r.top, fontPx, value: ent.text ?? '' }
+		if (!vpW || !vpH) return
+		// Position + font in .vp-LOCAL px (pre canvas-CSS-transform), so the transform scales the
+		// editor exactly like the SVG text — it stays glued to the object at any zoom/pan (screen-px
+		// math double-applied the canvas zoom, so the box floated off and ballooned when zoomed in).
+		const vbx = view.x + ent.a![0] * view.zoom, vby = view.y + ent.a![1] * view.zoom
+		const x = (vbx - minX) / vbW * vpW, y = (vby - minY) / vbH * vpH
+		const fontPx = 11 * view.zoom * (vpW / vbW)
+		editText = { id: ent.id, x, y, fontPx, value: ent.text ?? '' }
 		tick().then(() => { textInput?.focus(); textInput?.select() })
 	}
 	function commitText() {
@@ -674,13 +678,16 @@
 	{#if editText}
 		{@const lines = (editText.value || ' ').split('\n')}
 		{@const cols = Math.max(...lines.map(l => l.length), 3)}
-		<!-- Opaque, auto-sizing editor placed over the (hidden) text. Enter = newline (keydown is
-		     stopped so the viewport's own Enter handler can't preempt it); Ctrl/⌘-Enter or blur commits. -->
+		{@const w = cols * editText.fontPx * 0.62 + 14}
+		<!-- Opaque, auto-sizing editor placed over the (hidden) text (in .vp-local px so it tracks the
+		     text at any zoom). Enter = newline (keydown is stopped so the viewport's own Enter handler
+		     can't preempt it); Ctrl/⌘-Enter or blur commits; Esc cancels. -->
 		<textarea class="text-edit" bind:this={textInput} bind:value={editText.value} spellcheck="false" wrap="off"
-			style="left:{editText.x}px; top:{editText.y - editText.fontPx * 0.8}px; font-size:{editText.fontPx}px; line-height:{editText.fontPx * 1.2}px; width:{cols * editText.fontPx * 0.62 + 14}px; height:{lines.length * editText.fontPx * 1.2 + 6}px"
+			style="left:{editText.x}px; top:{editText.y - editText.fontPx * 0.8}px; font-size:{editText.fontPx}px; line-height:{editText.fontPx * 1.2}px; width:{w}px; height:{lines.length * editText.fontPx * 1.2 + 6}px"
 			onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()} ondblclick={(e) => e.stopPropagation()}
 			onblur={commitText}
 			onkeydown={(e) => { e.stopPropagation(); if (e.key === 'Escape') { e.preventDefault(); editText = null } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commitText() } }}></textarea>
+		<div class="text-edit-hint">Enter = new line · Ctrl/⌘+Enter = commit · Esc = cancel</div>
 	{/if}
 </div>
 
@@ -701,7 +708,7 @@
 		<line x1={e.a![0]} y1={e.a![1]} x2={e.b![0]} y2={e.b![1]} stroke={seld ? SEL : '#0e766e'} stroke-width={w} />
 		<text x={(e.a![0] + e.b![0]) / 2} y={(e.a![1] + e.b![1]) / 2 - 3} font-size="9" fill={seld ? SEL : '#0e766e'} text-anchor="middle">{Math.round(dist(e.a!, e.b!))}</text>
 	{:else if e.type === 'text'}
-		<text x={e.a![0]} y={e.a![1]} font-size="11" fill={ink} font-weight="600">
+		<text class="anno" x={e.a![0]} y={e.a![1]} font-size="11" fill={ink} font-weight="600">
 			{#each (e.text ?? '').split('\n') as line, i (i)}<tspan x={e.a![0]} dy={i === 0 ? 0 : 13}>{line}</tspan>{/each}
 		</text>
 	{:else if e.type === 'box'}
@@ -748,6 +755,8 @@
 	   fixed on screen. Fills and text still scale with the drawing. */
 	.vp-svg :where(line, rect, circle, ellipse, polyline, polygon, path) { vector-effect: non-scaling-stroke; }
 	.vp-svg text { font-family:'Inter','Segoe UI',system-ui,sans-serif; }
+	/* Text annotations use a monospaced font (matches the Sheets tool). */
+	.vp-svg text.anno { font-family:'Consolas','SF Mono',ui-monospace,'Menlo',monospace; }
 	/* Kestrel/AutoCAD selection box: window (L→R) solid blue, crossing (R→L) dashed green. */
 	/* Object-snap marker — amber, constant border, never intercepts pointer events. */
 	.snap { fill:none; stroke:#f59e0b; stroke-width:1.4; vector-effect:non-scaling-stroke; pointer-events:none; }
@@ -770,5 +779,9 @@
 	.text-edit { position:absolute; z-index:10; background:#fff; color:#111827; font-weight:600;
 		border:1px solid #0e7490; border-radius:2px; padding:0 2px; font-family:inherit; resize:none; overflow:hidden; white-space:pre;
 		box-shadow:0 1px 6px #0003; user-select:text; -webkit-user-select:text; }
+	.text-edit { font-family:'Consolas','SF Mono',ui-monospace,'Menlo',monospace; }
 	.text-edit:focus { outline:none; box-shadow:0 0 0 2px #0e749044; }
+	/* Usage hint pinned to the viewport bottom (not the editor, so it doesn't scale with zoom much). */
+	.text-edit-hint { position:absolute; bottom:6px; left:50%; transform:translateX(-50%); z-index:11; white-space:nowrap;
+		font-size:10px; color:#0e5866; background:#5ac6d2e6; border:1px solid #5ac6d2; border-radius:4px; padding:2px 8px; pointer-events:none; }
 </style>

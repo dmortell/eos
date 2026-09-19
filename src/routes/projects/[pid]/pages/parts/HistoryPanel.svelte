@@ -15,6 +15,8 @@
 		if (s < 3600) return Math.round(s / 60) + 'm ago'
 		return Math.round(s / 3600) + 'h ago'
 	}
+	// Absolute issue date (shown in the row; also feeds the titleblock revision listing).
+	const fmtDate = (t: number) => new Date(t).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 </script>
 
 <div class="hp">
@@ -41,7 +43,7 @@
 					<div class="hp-rev-head">
 						<Icon name="fileText" size={13} />
 						<span class="hp-name">{r.name}</span>
-						<span class="hp-when">{ago(r.t)}</span>
+						<span class="hp-when" title={ago(r.t)}>{fmtDate(r.t)}</span>
 						<button class="hp-restore" onclick={() => onrestore?.(r.snap)} title="Restore this revision">Restore</button>
 					</div>
 					<input class="hp-note" placeholder="Add a description note…" bind:value={r.note} />

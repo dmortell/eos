@@ -18,9 +18,9 @@
 	// mutators, so the panel can edit without reaching into this child's state.
 	export type FrameSel = { label: string; x: number; y: number; w: number; h: number;
 		border: 'dashed' | 'solid' | 'none'; setBorder: (b: 'dashed' | 'solid' | 'none') => void; setRect: (r: Partial<{ x: number; y: number; w: number; h: number }>) => void }
-	let { title = 'Sheet', drawingNo = '001', scale = '1:100', active = false, tool = 'Select', env = {}, pw = PAPER_W, ph = PAPER_H,
+	let { title = 'Sheet', drawingNo = '001', scale = '1:100', active = false, tool = 'Select', env = {}, pw = PAPER_W, ph = PAPER_H, sizeLabel = 'A3', rev = '', revDate = '',
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, ondeactivate, onadd, onupdate, onselect, onview, onframe }:
-		{ title?: string; drawingNo?: string; scale?: string; active?: boolean; tool?: string; env?: Env; pw?: number; ph?: number;
+		{ title?: string; drawingNo?: string; scale?: string; active?: boolean; tool?: string; env?: Env; pw?: number; ph?: number; sizeLabel?: string; rev?: string; revDate?: string;
 			entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; ondeactivate?: () => void; onadd?: (e: Ent) => void; onupdate?: (e: Ent) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void; onframe?: (f: FrameSel | null) => void } = $props()
 	const canvasZoom = $derived(env.canvasZoom ?? 1)
 
@@ -171,7 +171,9 @@
 			<div class="tb-cell"><span>TITLE</span><b>{title}</b></div>
 			<div class="tb-grid">
 				<div class="tb-cell"><span>SCALE</span>{scale}</div>
-				<div class="tb-cell"><span>SIZE</span>A3</div>
+				<div class="tb-cell"><span>SIZE</span>{sizeLabel}</div>
+				<div class="tb-cell"><span>REV</span>{rev || '—'}</div>
+				<div class="tb-cell"><span>DATE</span>{revDate || '—'}</div>
 				<div class="tb-cell"><span>DRAWN</span>DM</div>
 				<div class="tb-cell"><span>DWG №</span>{drawingNo}</div>
 			</div>

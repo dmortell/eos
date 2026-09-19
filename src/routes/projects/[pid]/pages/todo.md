@@ -10,6 +10,23 @@ after UX settles · **(P3)** later / needs design. `◧ decide` = needs your pic
 ---
 
 ## 0. Bugs / quick wins  (P1)
+### Reported 2026-09-20 (Dave) — batch 4
+- [x] **Inline editor floated off the text + ballooned when zoomed in** — it was positioned in
+  SCREEN px inside the CSS-zoomed canvas, so the zoom double-applied. Now positioned + sized in
+  `.vp`-LOCAL px, so the canvas transform scales it exactly like the SVG text (verified: left
+  aligned to 0px, no ballooning).
+- [x] **Text annotations use a monospaced font** (Consolas/mono) like the Sheets tool — render + editor.
+- [x] **Inline-edit usage hint** — a pinned "Enter = new line · Ctrl/⌘+Enter = commit · Esc = cancel"
+  banner shows while editing.
+- [x] **Paper size/orientation is per-tab** (`docPaper` keyed by tab id) and **no longer jumps the
+  view** — the paper rect just resizes in place; only split/unsplit/layout refit. Verified the
+  canvas transform is unchanged across orientation + size changes.
+- [x] **Revisions store + show a date** (dd Mon yyyy) in the History list, and the **titleblock**
+  now shows REV + DATE + the real paper SIZE (e.g. "A3 L").
+- Re: **paper only on the sheet tab** — that's by design: only *sheet*-kind tabs render the paper;
+  plan/elevation/model tabs are model views (no paper). Use **Full-size** to drop the paper on a
+  sheet. (The "resizes with browser" was the tab being in Full-size — confirmed.)
+
 ### Reported 2026-09-20 (Dave) — batch 3
 - [x] **Where do package/version/revision belong?** DECIDED: **Package + Version** are drawing-SET
   context (apply to everything) → stay in the titlebar. The per-drawing **Revision** letter is a
@@ -239,6 +256,18 @@ Sheets' basic version** — see §10.
   routes, penetration & conduit requests (these are the output deliverables).
 
 ## 5. Views  (P2)
+- [ ] ◧ **design — where a model lives + how to pick one per viewport** (Dave's Q, 2026-09-20).
+  **Suggestion:** a project-level **model registry** — each *model* is a coherent source (a floor's
+  plan model, a rack elevation model, a 3D model) holding its own entities/layers/origin/scale,
+  stored separate from pages. A **page** is a sheet of **viewports**, and each viewport references a
+  model by id **+ a view config**: `{ modelId, projection (top/front/right/3D — the ViewCube),
+  scale, crop, layerPreset }`. Selecting the model: when a viewport frame is selected, add a
+  **Model / Source** dropdown to its Properties (next to the border/type fields already there),
+  listing the project's models. This dovetails with the per-viewport props (done) and the ViewCube
+  (done). Alternative considered: "each tab IS a model, viewports reference a tab" — rejected because
+  one sheet needs viewports of *different* models, so an explicit registry is cleaner.
+- [ ] **Wire up model selection** on the viewport once the registry exists (dropdown → re-point the
+  viewport's `modelId`; the ViewCube sets `projection`).
 - [x] **Viewport-frame properties** — selecting a viewport frame (paper space) shows its props
   in the Properties panel: Name, Type, X/Y/W/H (live, editable), and **border style**
   (dashed / solid / none, applied to the frame). Most-recent selection wins over tree-node props.
@@ -286,7 +315,14 @@ Sheets' basic version** — see §10.
 > Ctrl-K command palette.
 - [~] **Drawing Navigator UI** — done, now the Project › Building › Floor › Zone › Room ›
   Row hierarchy with drawing/view leaves that open tabs.
-- [x] Top-bar **Package / Version / Revision** selectors (mock).
+- [x] Top-bar **Package / Version** selectors (mock); the per-drawing Revision moved to History.
+- [ ] **Package / Version switching should show different content** (Dave, 2026-09-20) — Package can
+  operate on all docs, but switching **Version** must let you check different issued packages
+  (version-controlled content per drawing set). Needs versioned storage.
+- [ ] **Per-floor / per-drawing versions + revisions** (Dave, 2026-09-20) — designers send different
+  *versions* of a floorplan per floor, each needing its own *revisions*. So version is not purely
+  set-wide: a drawing may track its own source version + revision chain. Leave for now; revisit with
+  the model registry (§5) and versioned storage.
 - [x] **Command palette** (Ctrl-K) — `parts/CommandPalette.svelte`, searches drawings/places.
 - [x] **Preview tabs (VSCode-style)** — single-clicking a drawing in the tree opens it in a shared
   *italic* preview tab that the next single-click reuses; double-clicking it (or editing the doc)
@@ -310,6 +346,13 @@ Sheets' basic version** — see §10.
   (right "History" tab): New revision, restore a revision, **editable description note per revision**.
 - [ ] **Diff between revisions** → generate revision **clouds** from the changes (the real
   payoff; Sheets has only a manual cloud annotation).
+- [ ] **Reverted revisions are read-only** (Dave, 2026-09-20) — restoring an older revision should
+  NOT make it editable; only the **latest** revision is editable. To edit an old one, the user must
+  **make a copy** (branch) or explicitly unlock it. Needs a revision-state model (latest vs
+  historical) + a lock on the doc when viewing a historical revision.
+- [x] **Each revision saves a date** (shown in History + titleblock; see §0 batch 4).
+- [ ] **Titleblock revision TABLE** — list all revisions (letter · date · note) in the titleblock,
+  not just the current one.
 - **Undo memory** (Dave's Q, 2026-09-20): steps are full state **snapshots, not diffs**. A normal
   edit now snapshots only the ONE doc it changed (per-doc, `snapDoc`); a revision restore snapshots
   all docs. So memory ≈ (entities in the changed doc) × up to 100 steps — fine for the mock, but a

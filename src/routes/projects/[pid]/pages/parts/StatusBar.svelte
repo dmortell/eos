@@ -7,10 +7,10 @@
 	import { Icon } from '$lib'
 	import type { PaperSize } from '../constants'
 	let { layout = $bindable('sheet'), toggles = $bindable<Record<string, boolean>>({}), acadMode = $bindable(true),
-		paperSize = $bindable<PaperSize>('A3'), paperLandscape = $bindable(true),
+		paperSize = 'A3', paperLandscape = true, onpapersize, onorient,
 		cx = 0, cy = 0, zoom = 100, onzoom, onfit }:
 		{ layout?: 'model' | 'sheet'; toggles?: Record<string, boolean>; acadMode?: boolean;
-			paperSize?: PaperSize; paperLandscape?: boolean;
+			paperSize?: PaperSize; paperLandscape?: boolean; onpapersize?: (s: PaperSize) => void; onorient?: (landscape: boolean) => void;
 			cx?: number; cy?: number; zoom?: number; onzoom?: (f: number) => void; onfit?: () => void } = $props()
 </script>
 
@@ -24,11 +24,11 @@
 		</button>
 		<!-- paper size + orientation (only meaningful in Sheet layout) -->
 		<label class="paper-sel" title="Paper size">
-			<select bind:value={paperSize}>
+			<select value={paperSize} onchange={(e) => onpapersize?.((e.currentTarget as HTMLSelectElement).value as PaperSize)}>
 				<option value="A4">A4</option><option value="A3">A3</option><option value="A2">A2</option>
 			</select>
 		</label>
-		<button class="orient" title="Orientation (portrait / landscape)" onclick={() => (paperLandscape = !paperLandscape)}>
+		<button class="orient" title="Orientation (portrait / landscape)" onclick={() => onorient?.(!paperLandscape)}>
 			<span class="orient-glyph" class:portrait={!paperLandscape}></span>
 			{paperLandscape ? 'Landscape' : 'Portrait'}
 		</button>

@@ -58,10 +58,15 @@
 	}
 	// 'right' is a mock side elevation — same Viewport renderer as 'elevation' for now.
 	const projKind = (p: Proj) => (p === 'plan' ? 'floorplan' : p === 'right' ? 'elevation' : p) as 'floorplan' | 'elevation' | 'model'
-	// Paper size + orientation (chosen in the status bar) → the PaperPage sheet dimensions (px).
-	let paperSize = $state<PaperSize>('A3')
-	let paperLandscape = $state(true)
-	let paper = $derived(paperDims(paperSize, paperLandscape))
+	// Paper size + orientation, PER TAB (keyed by tab id), chosen in the status bar. Each sheet
+	// keeps its own paper. Changing it just resizes the paper rect in place — no refit/jump.
+	let docPaper = $state<Record<string, { size: PaperSize; landscape: boolean }>>({})
+	const paperOf = (id?: string) => docPaper[id ?? ''] ?? { size: 'A3' as PaperSize, landscape: true }
+	const paperDimsOf = (id?: string) => { const p = paperOf(id); return paperDims(p.size, p.landscape) }
+	function setPaper(id: string | undefined, patch: Partial<{ size: PaperSize; landscape: boolean }>) {
+		if (!id) return
+		docPaper = { ...docPaper, [id]: { ...paperOf(id), ...patch } }
+	}
 	// The drafting/interaction flags bundle passed to a pane's viewport (one prop instead of six).
 	const envFor = (pane: { canvasView: View }) => ({ acad: acadMode, navContent, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, canvasZoom: pane.canvasView.zoom })
 	let focused = $state(0)      // which pane new tabs / sidebar actions target
@@ -116,6 +121,8 @@
 	}
 	function undo() { if (!undoStack.length) return; redoStack.push(applyUndo(undoStack.pop()!)); lastPushT = 0 }
 	function redo() { if (!redoStack.length) return; undoStack.push(applyUndo(redoStack.pop()!)); lastPushT = 0 }
+	// Absolute date for the titleblock — the latest revision's date, else today (mock).
+	const fmtDate = (t?: number) => new Date(t ?? Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 	let revSeq = 0
 	function makeRevision() {
 		revisions = [{ name: 'Rev ' + String.fromCharCode(67 + revSeq++), note: '', snap: snapEnts(), t: Date.now() }, ...revisions]
@@ -327,9 +334,9 @@
 		const a2 = tabs.find(t => t.id === p.activeId)
 		const canvas = canvasEls[idx]
 		if (a2?.kind === 'sheet' && layout === 'sheet' && canvas && canvas.clientWidth > 50) {
-			const r = canvas.getBoundingClientRect()
-			const z = Math.min(r.width / paper.w, r.height / paper.h) * 0.9
-			p.canvasView = { zoom: z, x: (r.width - paper.w * z) / 2, y: (r.height - paper.h * z) / 2 }
+			const r = canvas.getBoundingClientRect(), pd = paperDimsOf(p.activeId)
+			const z = Math.min(r.width / pd.w, r.height / pd.h) * 0.9
+			p.canvasView = { zoom: z, x: (r.width - pd.w * z) / 2, y: (r.height - pd.h * z) / 2 }
 		} else {
 			p.canvasView = { zoom: 1, x: 0, y: 0 }
 		}
@@ -385,8 +392,9 @@
 	// Status bar
 	// Model = drawing fills the pane (no paper); Sheet = the A3 paper with the viewport frame.
 	let layout = $state<'model' | 'sheet'>('sheet')
-	// Re-fit every pane when the paper size / orientation / layout changes (declared after `layout`).
-	$effect(() => { paper; layout; refitAll() })
+	// Re-fit every pane when the LAYOUT changes (Full-size ↔ Sheet) and once on mount. Paper
+	// size/orientation deliberately does NOT refit — the rect just resizes in place (no jump).
+	$effect(() => { layout; refitAll() })
 	let toggles = $state<Record<string, boolean>>({ GRID: true, SNAP: true, ORTHO: false, OSNAP: true, LWT: false })
 	// AutoCAD mode: wheel = zoom, draw = two clicks. Off = EOS: wheel = pan, draw = press-drag.
 	let acadMode = $state(true)
@@ -521,7 +529,9 @@
 						{#key p.activeId}
 							<div class="canvas-content" style:transform="translate({p.canvasView.x}px, {p.canvasView.y}px) scale({p.canvasView.zoom})">
 								{#if a?.kind === 'sheet' && layout === 'sheet'}
-									<PaperPage title={a.title} tool={p.tool} env={envFor(p)} pw={paper.w} ph={paper.h} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={isVpActive(a.id)}
+									<PaperPage title={a.title} tool={p.tool} env={envFor(p)} pw={paperDimsOf(a.id).w} ph={paperDimsOf(a.id).h}
+										sizeLabel="{paperOf(a.id).size} {paperOf(a.id).landscape ? 'L' : 'P'}" rev={rev} revDate={fmtDate(revisions[0]?.t)}
+										entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={isVpActive(a.id)}
 										onactivate={() => activateVp(a.id)}
 										ondeactivate={() => deactivateVp(a.id)}
 										onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} onframe={onFrame} />
@@ -591,7 +601,11 @@
 	</div>
 
 	<!-- Status bar -->
-	<StatusBar bind:layout bind:toggles bind:acadMode bind:paperSize bind:paperLandscape {cx} {cy} zoom={dispZoom} onzoom={navZoom} onfit={navFit} />
+	<StatusBar bind:layout bind:toggles bind:acadMode
+		paperSize={paperOf(panes[focused]?.activeId).size} paperLandscape={paperOf(panes[focused]?.activeId).landscape}
+		onpapersize={(s) => setPaper(panes[focused]?.activeId, { size: s })}
+		onorient={(l) => setPaper(panes[focused]?.activeId, { landscape: l })}
+		{cx} {cy} zoom={dispZoom} onzoom={navZoom} onfit={navFit} />
 </div>
 
 <style>
