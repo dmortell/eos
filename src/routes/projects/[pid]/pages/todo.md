@@ -11,6 +11,9 @@ after UX settles · **(P3)** later / needs design. `◧ decide` = needs your pic
 
 ## 0. Bugs / quick wins  (P1)
 ### Reported 2026-09-20 (Dave) — batch 3
+- [x] **Where do package/version/revision belong?** DECIDED: **Package + Version** are drawing-SET
+  context (apply to everything) → stay in the titlebar. The per-drawing **Revision** letter is a
+  property of the drawing → moved to the **History panel** header (revisions' natural home).
 - [x] **Couldn't type newlines in the text editor** — the `.vp`'s own Enter handler was
   `preventDefault`-ing Enter before the textarea saw it; the editor now `stopPropagation`s keydown.
   Enter = newline, Ctrl/⌘-Enter or blur commits.

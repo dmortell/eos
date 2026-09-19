@@ -413,10 +413,11 @@
 			<span class="brand">EOS <b>Pages</b></span>
 			<span class="mock-badge">MOCKUP</span>
 		</div>
+		<!-- Package + Version are drawing-SET context (apply to everything) → titlebar. The per-
+		     drawing REVISION lives with the drawing, in the History panel. -->
 		<div class="tb-selectors">
 			<label class="tbsel"><span>PACKAGE</span><select bind:value={pkg}>{#each PACKAGES as p (p)}<option>{p}</option>{/each}</select></label>
 			<label class="tbsel"><span>VERSION</span><select bind:value={ver}>{#each VERSIONS as v (v)}<option>{v}</option>{/each}</select></label>
-			<label class="tbsel"><span>REVISION</span><select bind:value={rev}>{#each REVISIONS as r (r)}<option>{r}</option>{/each}</select></label>
 		</div>
 		<div class="tb-right">
 			<button class="tb-search" title="Search drawings (Ctrl+K)" onclick={() => (paletteOpen = true)}>
@@ -578,8 +579,8 @@
 					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (active) updateEnt(active.id, e) }}
 						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''} {activeLayer} node={treeNode} viewport={viewportSel} />
 				{:else}
-					<HistoryPanel {history} {revisions} onundo={undo} onredo={redo}
-						onnewrevision={makeRevision} onrestore={(s) => restoreRevision(s)} />
+					<HistoryPanel {history} {revisions} rev={rev} revOptions={REVISIONS} onrev={(r) => (rev = r)}
+						onundo={undo} onredo={redo} onnewrevision={makeRevision} onrestore={(s) => restoreRevision(s)} />
 				{/if}
 			</aside>
 		{:else}
