@@ -13,6 +13,7 @@
 	import DrawingNavigator from './parts/DrawingNavigator.svelte'
 	import LayersPanel from './parts/LayersPanel.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
+	import CommandPalette from './parts/CommandPalette.svelte'
 	import { panzoom } from './ui/panzoom'
 	import { PAPER_W, PAPER_H } from './constants'
 
@@ -148,6 +149,30 @@
 		if (existing) openTab(existing.id)
 		else addTab(d.kind, d.title)
 	}
+
+	// ── top-bar drawing-set selectors (mock) + Ctrl-K command palette ──
+	const PACKAGES = ['Concept Design', 'Schematic Design', 'Detailed Design', 'Shop Drawings', 'As Built']
+	const VERSIONS = ['v3', 'v2', 'v1']
+	const REVISIONS = ['A', 'B', 'C', 'D']
+	let pkg = $state('Detailed Design'), ver = $state('v3'), rev = $state('B')
+	let paletteOpen = $state(false)
+	type PItem = { title: string; kind: 'plan' | 'sheet' | 'elevation' | 'place'; path?: string }
+	const paletteItems: PItem[] = [
+		{ title: '33F — Floorplan', kind: 'plan', path: 'Hibiya · 33F' },
+		{ title: '33F — High Level Outlets', kind: 'sheet', path: 'Hibiya · 33F' },
+		{ title: '33F — Low Level Outlets', kind: 'sheet', path: 'Hibiya · 33F' },
+		{ title: '33F — Trunk Routes', kind: 'sheet', path: 'Hibiya · 33F' },
+		{ title: 'Zone 3303 — Outlets', kind: 'sheet', path: 'Hibiya · 33F · Zone 3303' },
+		{ title: 'IDF1 — Rack Elevation', kind: 'elevation', path: 'Hibiya · 33F · Zone 3303' },
+		{ title: 'Zone 3303', kind: 'place', path: 'Hibiya · 33F' },
+		{ title: 'IDF1', kind: 'place', path: 'Hibiya · 33F · Zone 3303' },
+		{ title: '30F — Floorplan', kind: 'plan', path: 'Hibiya · 30F' },
+		{ title: 'Office 1201 — Outlets', kind: 'sheet', path: 'Shinmaru · 18F' },
+	]
+	function pickPalette(i: PItem) { if (i.kind !== 'place') openDrawing({ title: i.title, kind: i.kind }) }
+	function onGlobalKey(e: KeyboardEvent) {
+		if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); paletteOpen = true }
+	}
 	let activeLayer = $state('Annotations')   // shown in the Properties panel (mock)
 
 	// Canvas · tools + pointer + zoom
@@ -267,6 +292,9 @@
 
 <svelte:head><title>EOS — Pages (mockup)</title></svelte:head>
 
+<svelte:window onkeydown={onGlobalKey} />
+{#if paletteOpen}<CommandPalette items={paletteItems} onpick={pickPalette} onclose={() => (paletteOpen = false)} />{/if}
+
 <div class="shell" data-mock-theme={mockTheme}>
 	{#if openMenu}<button class="menu-backdrop" aria-label="Close menu" onclick={() => (openMenu = null)}></button>{/if}
 	{#if tabMenuPane !== null}<button class="menu-backdrop" aria-label="Close menu" onclick={() => (tabMenuPane = null)}></button>{/if}
@@ -279,9 +307,15 @@
 			<span class="brand">EOS <b>Pages</b></span>
 			<span class="mock-badge">MOCKUP</span>
 		</div>
-		<div class="tb-title">{active ? active.title : 'No page'}{active?.dirty ? ' •' : ''}</div>
+		<div class="tb-selectors">
+			<label class="tbsel"><span>PACKAGE</span><select bind:value={pkg}>{#each PACKAGES as p (p)}<option>{p}</option>{/each}</select></label>
+			<label class="tbsel"><span>VERSION</span><select bind:value={ver}>{#each VERSIONS as v (v)}<option>{v}</option>{/each}</select></label>
+			<label class="tbsel"><span>REVISION</span><select bind:value={rev}>{#each REVISIONS as r (r)}<option>{r}</option>{/each}</select></label>
+		</div>
 		<div class="tb-right">
-			<button class="tb-icon" title="Find (mock)"><Icon name="search" size={15} /></button>
+			<button class="tb-search" title="Search drawings (Ctrl+K)" onclick={() => (paletteOpen = true)}>
+				<Icon name="search" size={14} /> <span>Search…</span> <span class="tb-kbd">⌃K</span>
+			</button>
 			<button class="tb-icon" title="Toggle light / dark" onclick={(e) => { e.stopPropagation(); mockTheme = mockTheme === 'dark' ? 'light' : 'dark' }}>
 				<Icon name={mockTheme === 'dark' ? 'moon' : 'sun'} size={15} />
 			</button>
@@ -507,7 +541,19 @@
 	.brand b { color:var(--text); font-weight:600; }
 	.mock-badge { margin-left:8px; font-size:8px; letter-spacing:.1em; color:var(--accent);
 		border:1px solid var(--accent-dim); border-radius:3px; padding:1px 5px; }
-	.tb-title { color:var(--text); font-weight:500; }
+	/* Drawing-set selectors (package / version / revision) */
+	.tb-selectors { display:flex; align-items:center; gap:10px; }
+	.tbsel { display:flex; flex-direction:column; gap:1px; }
+	.tbsel span { font-size:7px; letter-spacing:.1em; color:var(--faint); padding-left:2px; }
+	.tbsel select { background:var(--panel); color:var(--text); border:1px solid var(--line-soft); border-radius:5px;
+		padding:2px 6px; font-size:12px; font-weight:600; }
+	.tbsel select:hover { border-color:var(--line); }
+	.tbsel select:focus { outline:none; border-color:var(--accent); }
+	.tb-search { display:flex; align-items:center; gap:6px; padding:4px 9px; border-radius:6px; color:var(--muted);
+		background:var(--panel); border:1px solid var(--line-soft); font-size:12px; }
+	.tb-search:hover { background:var(--hover); color:var(--text); }
+	.tb-search span:first-of-type { min-width:66px; text-align:left; }
+	.tb-kbd { font-size:9px; color:var(--faint); border:1px solid var(--line); border-radius:3px; padding:0 4px; }
 
 	/* Light mode: keep the titlebar dark (like EOS's slate-800 header), with
 	   light text for contrast. Status bar deliberately left as the theme default. */
@@ -516,8 +562,10 @@
 	.shell[data-mock-theme='light'] .titlebar .tb-icon:hover { background:#334155; color:#fff; }
 	.shell[data-mock-theme='light'] .titlebar .brand { color:#94a3b8; }
 	.shell[data-mock-theme='light'] .titlebar .brand b { color:#f1f5f9; }
-	.shell[data-mock-theme='light'] .titlebar .tb-title { color:#e2e8f0; }
 	.shell[data-mock-theme='light'] .titlebar .mock-badge { color:#5ac6d2; border-color:#3b556b; }
+	.shell[data-mock-theme='light'] .titlebar .tbsel span { color:#64748b; }
+	.shell[data-mock-theme='light'] .titlebar .tbsel select,
+	.shell[data-mock-theme='light'] .titlebar .tb-search { background:#334155; color:#e2e8f0; border-color:#475569; }
 
 	/* Menubar */
 	.menubar { position:relative; z-index:45; height:30px; flex:0 0 auto; display:flex; align-items:stretch; gap:1px;
