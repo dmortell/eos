@@ -138,7 +138,7 @@
 		const t = (p?: Pt): Pt | undefined => p ? [p[0] + dx, p[1] + dy] : p
 		return { ...e, a: t(e.a), b: t(e.b), c: t(e.c) }
 	}
-	const gripSize = $derived(7 / view.zoom)   // viewBox units → ~constant on screen
+	const gripSize = $derived(3.5 / view.zoom)   // viewBox units → ~constant on screen (Kestrel-small)
 
 	// What a press at these client coords would grab: a grip of a selected entity, or the
 	// body of any entity (topmost). Used by both the pointer-drag start and panzoom's
@@ -295,7 +295,7 @@
 	   fixed on screen. Fills and text still scale with the drawing. */
 	.vp-svg :where(line, rect, circle, polyline, polygon, path) { vector-effect: non-scaling-stroke; }
 	/* Editing grips: white squares with a teal border, constant size (÷zoom in markup). */
-	.grip { fill:#fff; stroke:#0e7490; stroke-width:1.4; cursor:grab; }
+	.grip { fill:#fff; stroke:#0e7490; stroke-width:1.2; cursor:grab; }
 	.grip:hover { fill:#cffafe; }
 	.vp-tag {
 		position:absolute; top:6px; left:6px; display:flex; align-items:center; gap:5px;

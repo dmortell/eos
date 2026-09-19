@@ -35,10 +35,13 @@
 <style>
 	.paper-wrap { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; overflow:hidden; }
 	/* Paper is always white/light — it's paper, independent of the app theme. */
+	/* Fixed on-screen size (A3 landscape, 420:297) like a real CAD sheet — you zoom/pan
+	   the canvas over it rather than the paper auto-fitting the window. Fit-to-view (View ›
+	   Fit) frames it. Print overrides these to true A3 mm via the @media-print rules. */
 	.paper {
-		height:86%; aspect-ratio:420/297; max-width:94%;
+		width:960px; height:679px;
 		background:#fff; color:#1f2937; box-shadow:0 10px 40px #0006;
-		display:flex; gap:6px; padding:10px; transform-origin:center;
+		display:flex; gap:6px; padding:10px; transform-origin:center; flex:none;
 	}
 	.paper-vp { flex:1; min-width:0; }
 	/* Titleblock */

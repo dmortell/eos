@@ -6,7 +6,7 @@
 	// with Kestrel's own tokens scoped to .shell, so it looks like Kestrel in
 	// both light/dark regardless of the app theme (toggle in its titlebar).
 	import { Icon } from '$lib'
-	import { flushSync } from 'svelte'
+	import { flushSync, tick } from 'svelte'
 	import { page } from '$app/state'
 	import PaperPage from './parts/PaperPage.svelte'
 	import Viewport from './ui/Viewport.svelte'
@@ -261,11 +261,29 @@
 		if (activeVpPane === focused) { const v = viewOf(p.activeId); setView(p.activeId, { ...v, zoom: Math.min(8, Math.max(0.25, v.zoom * f)) }) }
 		else { const v = p.canvasView; v.zoom = Math.min(8, Math.max(0.1, v.zoom * f)) }
 	}
+	const PAPER_W = 960, PAPER_H = 679   // fixed on-screen sheet size (see PaperPage.svelte)
 	function navFit() {
 		const p = panes[focused]; if (!p) return
-		if (activeVpPane === focused) setView(p.activeId, { zoom: 1, x: 0, y: 0 })
-		else p.canvasView = { zoom: 1, x: 0, y: 0 }
+		if (activeVpPane === focused) { setView(p.activeId, { zoom: 1, x: 0, y: 0 }); return }
+		// Frame the fixed-size paper in the pane (transform-origin 0 0, paper centred in the
+		// canvas box): pick a zoom that fits with margin, then translate to re-centre.
+		const a2 = tabs.find(t => t.id === p.activeId)
+		const canvas = document.querySelectorAll('.canvas')[focused] as HTMLElement | undefined
+		if (a2?.kind === 'sheet' && canvas && canvas.clientWidth > 50) {
+			const r = canvas.getBoundingClientRect()
+			const z = Math.min(r.width / PAPER_W, r.height / PAPER_H) * 0.9
+			p.canvasView = { zoom: z, x: r.width * (1 - z) / 2, y: r.height * (1 - z) / 2 }
+		} else {
+			p.canvasView = { zoom: 1, x: 0, y: 0 }
+		}
 	}
+	// Fit the sheet once on load so the fixed-size paper starts framed, not clipped.
+	let didFit = false
+	$effect(() => {
+		if (didFit) return
+		didFit = true
+		tick().then(navFit)
+	})
 
 	// ── Print — on Ctrl+P / window.print(), an @media-print stylesheet shows ONLY the
 	// focused sheet's A3 paper: it hides all UI + the selection highlight and pins the
