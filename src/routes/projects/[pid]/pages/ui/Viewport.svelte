@@ -10,15 +10,10 @@
 	import { panzoom } from './panzoom'
 	import Handle from '../parts/Handle.svelte'
 	import { BASE, HANDLE_PX } from '../constants'
-
-	export type Pt = [number, number]
-	// 'box' = a mock 3D cuboid: a,b are the footprint corners (plan), h is its height (mm).
-	// It projects differently per view kind (plan footprint / elevation front / model oblique).
-	// box: a,b = plan footprint · h = height · z0 = base elevation (height off the ground). In
-	// elevation the box is placed by x (from the footprint) + z0/h (vertical), so its plan DEPTH
-	// (footprint y) is independent of its elevation position.
-	export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'ellipse' | 'dim' | 'text' | 'box' | 'polyline'; a?: Pt; b?: Pt; c?: Pt; r?: number; h?: number; z0?: number; text?: string; pts?: Pt[] }
-	export type View = { zoom: number; x: number; y: number }
+	import { type Pt, type Ent, type View, DEFAULT_BOX_H, GROUND, dist, segDist, translate, textBox, boxElev, boxElevSet, boxFaces } from './geometry'
+	// Pure geometry now lives in ./geometry (testable, shared with PropertiesPanel); re-export the
+	// entity types so existing `import { type Ent } from './Viewport.svelte'` sites keep working.
+	export type { Pt, Ent, View } from './geometry'
 
 	// Drafting/interaction flags are grouped into one `env` object to keep the prop list small.
 	export type Env = { acad?: boolean; navContent?: boolean; grid?: boolean; lwt?: boolean; osnap?: boolean; canvasZoom?: number }
@@ -35,14 +30,6 @@
 
 	const tagIcon: Record<string, string> = { floorplan: 'mapPin', model: 'box', elevation: 'server' }
 	const DRAW = new Set(['Line', 'Rectangle', 'Ellipse', 'Dimension', 'Text', 'Box'])
-	const DEFAULT_BOX_H = 45   // mock mm height for a freshly drawn cuboid
-	const GROUND = 200         // elevation ground line (drawing units); a box with z0=0 stands on it
-	// Elevation face rect of a box: x0..x1 wide, top at GROUND-z0-h, bottom (baseline) at GROUND-z0.
-	function boxElev(e: Ent) {
-		const x0 = Math.min(e.a![0], e.b![0]), x1 = Math.max(e.a![0], e.b![0])
-		const h = e.h ?? DEFAULT_BOX_H, base = GROUND - (e.z0 ?? 0)
-		return { x0, x1, h, base, top: base - h }
-	}
 	// Body-hover cursor: 'move' over a shape (drag to move), else default; grips carry their own
 	// crosshair (they render on top, so their cursor wins over the container's).
 	let hoverBody = $state(false)
@@ -74,7 +61,6 @@
 	let cur = $state<Pt | null>(null)
 	let seq = 0
 	const uid = () => 'e' + Date.now().toString(36) + (seq++)
-	const dist = (a: Pt, b: Pt) => Math.hypot(a[0] - b[0], a[1] - b[1])
 	const selSet = $derived(new Set(sel))
 
 	// Coordinate mapping uses getBoundingClientRect, NOT getScreenCTM: getScreenCTM ignores CSS
@@ -254,18 +240,7 @@
 		else ondeactivate?.()
 	}
 
-	// hit-test (topmost first)
-	function segDist(p: Pt, a: Pt, b: Pt) {
-		const dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy || 1
-		let t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L; t = Math.max(0, Math.min(1, t))
-		return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy))
-	}
-	// Text bounding box (drawing units): a[0]/a[1] is the first line's baseline-left; lines run down.
-	function textBox(e: Ent): [number, number, number, number] {
-		const lines = (e.text ?? '').split('\n')
-		const w = Math.max(...lines.map(l => l.length), 1) * 11 * 0.6
-		return [e.a![0], e.a![1] - 10, e.a![0] + w, e.a![1] + (lines.length - 1) * 13 + 3]
-	}
+	// hit-test (topmost first). segDist/textBox/boxElev live in ./geometry.
 	function hitEnt(e: Ent, p: Pt, thr: number): boolean {
 		if (e.type === 'polyline') { const pts = e.pts ?? []; for (let i = 0; i + 1 < pts.length; i++) if (segDist(p, pts[i], pts[i + 1]) < thr) return true; return false }
 		if (e.type === 'line' || e.type === 'dim') return segDist(p, e.a!, e.b!) < thr
@@ -371,10 +346,7 @@
 		if (e.type === 'text') return [{ x: e.a![0], y: e.a![1], apply: p => ({ ...e, a: p }) }]
 		return []
 	}
-	function translate(e: Ent, dx: number, dy: number): Ent {
-		const t = (p?: Pt): Pt | undefined => p ? [p[0] + dx, p[1] + dy] : p
-		return { ...e, a: t(e.a), b: t(e.b), c: t(e.c), pts: e.pts?.map(p => [p[0] + dx, p[1] + dy] as Pt) }
-	}
+	// (translate lives in ./geometry)
 	// Shift-constrain a grip drag: box corner → square about the opposite corner; line/dim
 	// endpoint → 15° about the other end. (Circle radius left free.)
 	function constrainGrip(base: Ent, gi: number, p: Pt, shift: boolean): Pt {
@@ -581,34 +553,7 @@
 		onselect?.(m.add ? [...new Set([...sel, ...ids])] : ids)   // Shift/Ctrl marquee unions with the current selection
 		suppressClick = true   // don't let the ensuing click clear this selection
 	}
-	// ── box (mock 3D cuboid) projection ──
-	// Footprint a..b in drawing coords + height h. Model view = oblique (cabinet) projection:
-	// the top face is the footprint shifted up-right by h·ISO. Elevation = the front face
-	// (footprint width × h). Plan = the footprint rectangle.
-	const ISO = 0.6
-	function boxFaces(e: Ent) {
-		const x0 = Math.min(e.a![0], e.b![0]), y0 = Math.min(e.a![1], e.b![1])
-		const x1 = Math.max(e.a![0], e.b![0]), y1 = Math.max(e.a![1], e.b![1])
-		const h = e.h ?? DEFAULT_BOX_H, ox = h * ISO, oy = -h * ISO
-		const P = (x: number, y: number) => `${x},${y}`
-		return {
-			x0, y0, x1, y1, h,
-			top: `${P(x0 + ox, y0 + oy)} ${P(x1 + ox, y0 + oy)} ${P(x1 + ox, y1 + oy)} ${P(x0 + ox, y1 + oy)}`,
-			right: `${P(x1, y0)} ${P(x1, y1)} ${P(x1 + ox, y1 + oy)} ${P(x1 + ox, y0 + oy)}`,
-			back: `${P(x0, y0)} ${P(x1, y0)} ${P(x1 + ox, y0 + oy)} ${P(x0 + ox, y0 + oy)}`,
-		}
-	}
-
-	// Apply an elevation-view edit to a box: change width (x0/x1), baseline (yb — translates the
-	// footprint in y so depth is preserved and the box moves vertically), and/or height (h).
-	// Apply an elevation-view edit to a box: width (x0/x1) keeps the footprint DEPTH (y) and only
-	// moves the x-edges; z0 = base elevation; h = height. Plan depth (y) is never touched here.
-	function boxElevSet(e: Ent, ch: { x0?: number; x1?: number; z0?: number; h?: number }): Ent {
-		const cx0 = Math.min(e.a![0], e.b![0]), cx1 = Math.max(e.a![0], e.b![0])
-		const [ay, by] = [e.a![1], e.b![1]]
-		const nx0 = ch.x0 ?? cx0, nx1 = ch.x1 ?? cx1
-		return { ...e, a: [e.a![0] === cx0 ? nx0 : nx1, ay], b: [e.b![0] === cx0 ? nx0 : nx1, by], z0: Math.max(0, ch.z0 ?? e.z0 ?? 0), h: Math.max(1, ch.h ?? e.h ?? DEFAULT_BOX_H) }
-	}
+	// (box projection helpers boxFaces / boxElevSet live in ./geometry)
 
 	// Kestrel-style prompt
 	let prompt = $derived.by(() => {

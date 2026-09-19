@@ -22,9 +22,12 @@ Also fixed: [x] §2.2 print honours the selected paper size/orientation (`@page`
 tab's paper) and prints at TRUE size — the paper is `zoom`ed by (96/25.4)/PAPER_PX_PER_MM so content
 + titleblock scale together (CSS zoom, vector text); [x] §4.4 shared wheel-normalise/zoom-clamp +
 touchcancel; [x] adopt list — additive select, group move, duplicate (Ctrl-D), select-all, nudge.
+Also fixed: [x] §4.1 (partial) extracted pure geometry to `ui/geometry.ts` (dist/segDist/translate/
+textBox/boxElev/boxElevSet/boxFaces + box constants), shared with Viewport + PropertiesPanel;
+[x] §5 added `ui/geometry.test.ts` (8 Vitest tests, `pnpm test --project=server` green).
 Still open (bigger): [ ] §2.3 full per-doc frame state,
-[ ] §4.1 lift a `DocEditor` headless class, [ ] §4.2 mm world units, [ ] §4.3 reuse Sheets
-`layers.ts`, [ ] §4.4 shared pan/zoom helpers + touchcancel + wheel normalisation,
+[ ] §4.1 full `DocEditor` headless class (geometry.ts done), [ ] §4.2 mm world units, [ ] §4.3 reuse
+Sheets `layers.ts`,
 [ ] §2.8 key tabs by node id (not title), frame drag threshold+undo, z0 clamp mismatch,
 uncontrolled Properties inputs, coalescing merges unrelated edits, outline-only rect hit,
 [ ] §5 snap/hit perf (cache the CTM/bbox), [ ] §6 nits (dead `circle` type, unify line/polyline,

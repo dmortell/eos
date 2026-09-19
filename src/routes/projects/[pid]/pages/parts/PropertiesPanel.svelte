@@ -5,6 +5,7 @@
 	// when nothing is selected. Geometry is in model units (mock).
 	import { Icon } from '$lib'
 	import type { Ent, Pt } from '../ui/Viewport.svelte'
+	import { translate } from '../ui/geometry'
 	import type { FrameSel } from './PaperPage.svelte'
 
 	let { ents = [], onupdate, pageTitle = '', pageKind = '', activeLayer = '', node = null, viewport = null }:
@@ -42,10 +43,7 @@
 	let typeLabel = $derived(ents.length === 0 ? '' : new Set(ents.map(e => e.type)).size === 1 ? ents[0].type : `Mixed (${ents.length})`)
 	const r1 = (n: number) => Math.round(n * 10) / 10
 
-	function translate(e: Ent, dx: number, dy: number): Ent {
-		const t = (p?: Pt): Pt | undefined => p ? [p[0] + dx, p[1] + dy] : p
-		return { ...e, a: t(e.a), b: t(e.b), c: t(e.c), pts: e.pts?.map(p => [p[0] + dx, p[1] + dy] as Pt) }
-	}
+	// (translate lives in ../ui/geometry)
 	// Move the whole selection so the group bbox's corner reaches v. Capture the delta and a
 	// snapshot up front — each onupdate re-derives gb/ents, so reading them mid-loop drifts.
 	function setX(v: number) { if (!gb) return; const dx = v - gb.x, snap = [...ents]; for (const e of snap) onupdate?.(translate(e, dx, 0)) }
