@@ -44,11 +44,11 @@ after UX settles · **(P3)** later / needs design. `◧ decide` = needs your pic
 | Shift while **resizing** | none | **Square / equal** | → adopt (§1) |
 | Rotate | no rotate yet | snaps 15°, Shift = free | → adopt |
 | Line-endpoint drag | free | Shift = 15° increments | → adopt |
-| **1-finger touch** | **Draw / select / edit** (never pans) | **Pans** empty bg, else object drag | ✅ / ☐ |
+| **1-finger touch** | **Draw / select / edit** (never pans) | **Pans** empty bg, else object drag | ✅ **Pages (never pans)** |
 | 2-finger touch | Pan + pinch-zoom | Pan + pinch-zoom | _same_ |
 | Activate a viewport | Double-click | Double-click | _same_ |
 | Pick a viewport frame | Border-click or marquee (not interior) | Border/marquee (not interior) | _same_ |
-| Active-viewport pan/zoom | Both live, by cursor position | **Off by default**, toggled per-viewport | ☐ / ✅ |
+| Active-viewport pan/zoom | ~~Both live~~ → **off by default + "Pan content" toggle** | **Off by default**, toggled per-viewport | ✅ **done (Sheets-style)** |
 
 Notes: Sheets does **not** constrain drawing with Shift (only moving/resizing/rotating),
 and its marquee is always "crossing". Pages currently has the richer window/crossing
@@ -113,9 +113,9 @@ Sheets' basic version** — see §10.
 > Design target: the annotated reference image (`src/routes/ui/ChatGPT Image …png`) —
 > a right-side LAYERS panel with **View Presets**, nested groups, eye toggles, colour/line
 > swatches. **UI built** (`parts/LayersPanel.svelte`); wiring is the remaining work.
-- [~] Right-side **Layers panel UI** — done (nested groups, eye toggles, swatches, View
-  Preset picker, New Layer). Mock state only.
-- [ ] **Wire it up** — real show/hide/lock, active layer, per-object layer assignment,
+- [~] Right-side **Layers panel** — nested groups, eye toggles, swatches, View-Preset picker;
+  **New Layer, rename (dbl-click), colour picker, add-sub / delete** all work (mock state).
+- [ ] **Wire to the canvas** — real show/hide/lock, active layer, per-object layer assignment,
   layer of new objects; apply a **View Preset** = a saved set of layer visibilities.
 - [ ] **Background layers** — import one or more PDF / image / DXF files as background
   layers that can be toggled/swapped (e.g. compare floorplan vs RCP). Replaces the
@@ -142,9 +142,10 @@ Sheets' basic version** — see §10.
 - [ ] Move an annotation view→model (and back).
 
 ## 7. Properties panel  (P1–P2)
-- [ ] **Multi-select editing** — the Properties sidepanel edits the **common props of all
-  selected objects** (mixed values shown appropriately).
-- [ ] Live two-way binding to the selected entities (currently mock inputs).
+- [x] **Two-way binding + multi-select editing** — `parts/PropertiesPanel.svelte` edits the
+  focused doc's selected entities (single → X/Y + rect W/H / circle radius / text; several →
+  group bbox, X/Y move the whole selection). Nothing selected → page/general props.
+- [ ] Add layer / colour / line-weight editing once entities carry those props (§3 wiring).
 
 ## 8. Project tree ↔ Pages linkage  (P2)
 > Design target: the reference image's **Drawing Navigator** (left) — a location tree
@@ -152,22 +153,26 @@ Sheets' basic version** — see §10.
 > as tabs. **UI built** (`parts/DrawingNavigator.svelte`, mock tree; clicking a leaf opens
 > a tab). Also mirrors the reference top bar: Package / Version / Revision selectors + a
 > Ctrl-K command palette.
-- [~] **Drawing Navigator UI** — done (location tree → drawing leaves → open tab).
-- [ ] Wire the tree to real project data + uploaded floorplans (scope a view to a place).
-- [ ] Top-bar **Package / Version / Revision** selectors + package content preview.
-- [ ] **Command palette** (Ctrl-K) — search drawings/floors/rooms/racks.
-- [ ] **Drawing packages** + **master drawing list** management.
+- [~] **Drawing Navigator UI** — done, now the Project › Building › Floor › Zone › Room ›
+  Row hierarchy with drawing/view leaves that open tabs.
+- [x] Top-bar **Package / Version / Revision** selectors (mock).
+- [x] **Command palette** (Ctrl-K) — `parts/CommandPalette.svelte`, searches drawings/places.
+- [ ] Wire the tree to real project data + uploaded floorplans (scope a view to a place);
+  make folders selectable → edit place properties (Project props can live here too).
+- [ ] Package **content preview** + **master drawing list** management.
 
 ## 9. Status bar wiring  (P1)
-- [ ] Wire up **GRID / SNAP / ORTHO / OSNAP / LWT** toggles to real behaviour (grid render,
-  snapping, ortho constraint, lineweight display).
-- [ ] Model / Sheet layout tabs, coord readout already live; hook the rest.
+- [x] **Model / Sheet** views now differ: Sheet = A3 paper + viewport frame; Model = drawing
+  fills the pane (no paper). **GRID** toggle shows/hides the viewport grid.
+- [ ] Wire **SNAP / ORTHO / OSNAP / LWT** to real behaviour (grid snap, ortho constraint,
+  object snap, lineweight display). (ORTHO could reuse the Shift-constrain path.)
 
 ## 10. Undo / redo / history / revisions  (P2)
-- [ ] **Undo / redo** stack.
-- [ ] **Change history** log.
-- [ ] **Revision points** — snapshot all changes so far; **switch between revisions** to see
-  differences (basis for **clouding**). Sheets has a basic version to build on.
+- [x] **Undo / redo** (Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z, Edit menu) — snapshot-based, coalesces
+  a drag into one step. **Change log** + **revision snapshots** in `parts/HistoryPanel.svelte`
+  (right "History" tab): New revision, restore a revision.
+- [ ] **Diff between revisions** → generate revision **clouds** from the changes (the real
+  payoff; Sheets has only a manual cloud annotation).
 
 ## 11. Incorporate the other EOS tools  (P3, needs design)
 - [ ] ◧ **design** — surface **Risers, Rack Elevations, Frames, Patching** within Pages
@@ -192,9 +197,10 @@ Sheets' basic version** — see §10.
     to ship) and consider `svelte-check --threshold`/incremental in CI only.
 - [ ] **VSCode slowness** — likely the TS language server over a big project; check the TS
   server memory setting and `files.watcherExclude` for `.svelte-kit`, `node_modules`.
-- [ ] Split the 860-line `+page.svelte` shell into `parts/` (TreeNavigator, LayersPanel,
-  PropertiesPanel, Menubar) to match the Viewport/PaperPage/Handle componentization —
-  smaller files also ease the editor/type-checker load.
+- [~] **Split `+page.svelte`** — done for the shell: DrawingNavigator, LayersPanel,
+  PropertiesPanel, HistoryPanel, CommandPalette, StatusBar, Menubar are now components;
+  `+page` is ~660 lines (was ~860). The editor-area (panes/tabs/canvas) stays inline as the
+  tightly-coupled core — extract a `Pane`/`Canvas` component when it next grows.
 
 ---
 
