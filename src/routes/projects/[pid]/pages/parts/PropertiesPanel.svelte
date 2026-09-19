@@ -111,7 +111,7 @@
 		{#if single?.type === 'box'}
 			<div class="prop"><span>Width</span><input type="number" value={r1(Math.abs(single.b![0] - single.a![0]))} onchange={(e) => setW(num(e))} /></div>
 			<div class="prop"><span>Depth</span><input type="number" value={r1(Math.abs(single.b![1] - single.a![1]))} onchange={(e) => setH(num(e))} /></div>
-			<div class="prop"><span>Height</span><input type="number" value={Math.round(single.h ?? 0)} onchange={(e) => setBoxH(num(e))} /></div>
+			<div class="prop"><span>Height</span><input type="number" value={Math.round(single.h ?? 45)} onchange={(e) => setBoxH(num(e))} /></div>
 			<div class="prop"><span>Base</span><input type="number" value={Math.round(single.z0 ?? 0)} onchange={(e) => setBoxZ0(num(e))} /></div>
 		{:else if boxKind(single)}
 			<div class="prop"><span>Width</span><input type="number" value={r1(Math.abs(single!.b![0] - single!.a![0]))} onchange={(e) => setW(num(e))} /></div>

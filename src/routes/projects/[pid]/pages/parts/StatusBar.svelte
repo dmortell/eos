@@ -33,7 +33,7 @@
 			{paperLandscape ? 'Landscape' : 'Portrait'}
 		</button>
 	</div>
-	<div class="coords">{cx}, {cy} mm</div>
+	<div class="coords">{cx}, {cy} px</div>
 	<div class="toggles">
 		{#each Object.keys(toggles) as k (k)}
 			<button class:on={toggles[k]} onclick={() => (toggles[k] = !toggles[k])}>{k}</button>

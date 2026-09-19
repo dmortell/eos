@@ -173,7 +173,7 @@
 	let lastRaw: Pt | null = null   // last UNconstrained pointer during a draft (for re-constraining on Shift)
 	function onMove(e: MouseEvent) {
 		if (active && draft.length) { const sp = drawPoint(e.clientX, e.clientY, draft.at(-1), e.shiftKey); if (sp) { lastRaw = toLocalXY(e.clientX, e.clientY); cur = sp } }
-		else if (active && osnap && tool !== 'Select' && DRAW.has(tool)) findSnap(e.clientX, e.clientY)   // show snap marker before the first click
+		else if (active && osnap && DRAW.has(tool)) findSnap(e.clientX, e.clientY)   // show snap marker before the first click (DRAW excludes Select)
 		// hover feedback for the Select tool: 'move' when over a shape body (a grip shows its own cursor)
 		if (active && tool === 'Select' && !drag && !draft.length && !marquee) {
 			const lp = toLocalXY(e.clientX, e.clientY)
@@ -570,7 +570,7 @@
 		const cx0 = Math.min(e.a![0], e.b![0]), cx1 = Math.max(e.a![0], e.b![0])
 		const [ay, by] = [e.a![1], e.b![1]]
 		const nx0 = ch.x0 ?? cx0, nx1 = ch.x1 ?? cx1
-		return { ...e, a: [e.a![0] === cx0 ? nx0 : nx1, ay], b: [e.b![0] === cx0 ? nx0 : nx1, by], z0: ch.z0 ?? e.z0 ?? 0, h: Math.max(1, ch.h ?? e.h ?? DEFAULT_BOX_H) }
+		return { ...e, a: [e.a![0] === cx0 ? nx0 : nx1, ay], b: [e.b![0] === cx0 ? nx0 : nx1, by], z0: Math.max(0, ch.z0 ?? e.z0 ?? 0), h: Math.max(1, ch.h ?? e.h ?? DEFAULT_BOX_H) }
 	}
 
 	// Kestrel-style prompt
