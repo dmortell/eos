@@ -64,6 +64,7 @@
 	}
 	function setR(v: number) { const e = single; if (e?.type === 'circle') onupdate?.({ ...e, r: Math.max(1, v) }) }
 	function setBoxH(v: number) { const e = single; if (e?.type === 'box') onupdate?.({ ...e, h: Math.max(1, Math.round(v)) }) }
+	function setBoxZ0(v: number) { const e = single; if (e?.type === 'box') onupdate?.({ ...e, z0: Math.max(0, Math.round(v)) }) }
 	function setText(v: string) { const e = single; if (e?.type === 'text') onupdate?.({ ...e, text: v }) }
 	const num = (e: Event) => +(e.currentTarget as HTMLInputElement).value
 </script>
@@ -111,6 +112,7 @@
 			<div class="prop"><span>Width</span><input type="number" value={r1(Math.abs(single.b![0] - single.a![0]))} onchange={(e) => setW(num(e))} /></div>
 			<div class="prop"><span>Depth</span><input type="number" value={r1(Math.abs(single.b![1] - single.a![1]))} onchange={(e) => setH(num(e))} /></div>
 			<div class="prop"><span>Height</span><input type="number" value={Math.round(single.h ?? 0)} onchange={(e) => setBoxH(num(e))} /></div>
+			<div class="prop"><span>Base</span><input type="number" value={Math.round(single.z0 ?? 0)} onchange={(e) => setBoxZ0(num(e))} /></div>
 		{:else if boxKind(single)}
 			<div class="prop"><span>Width</span><input type="number" value={r1(Math.abs(single!.b![0] - single!.a![0]))} onchange={(e) => setW(num(e))} /></div>
 			<div class="prop"><span>Height</span><input type="number" value={r1(Math.abs(single!.b![1] - single!.a![1]))} onchange={(e) => setH(num(e))} /></div>

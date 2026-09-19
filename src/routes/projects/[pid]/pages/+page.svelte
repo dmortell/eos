@@ -23,7 +23,12 @@
 
 	// Which pane (if any) has its viewport activated — groundwork for editing/CAD
 	// tools inside a sheet's viewport. Null = no active viewport.
-	let activeVpPane = $state<number | null>(null)
+	// Which TAB docs have their viewport activated (keyed by tab id, not pane) — so activation is
+	// remembered when you switch away and back to a view. Selection is already per-doc (docSel).
+	let activeVps = $state(new Set<string>())
+	const isVpActive = (id?: string) => !!id && activeVps.has(id)
+	function activateVp(id?: string) { if (!id) return; const s = new Set(activeVps); s.add(id); activeVps = s }
+	function deactivateVp(id?: string) { if (!id || !activeVps.has(id)) return; const s = new Set(activeVps); s.delete(id); activeVps = s }
 
 	// Canvas documents — the B1 "each tab owns its own view state" pattern (mock).
 	type Kind = 'plan' | 'sheet' | 'elevation' | 'model'
@@ -42,14 +47,17 @@
 	// each pane tracks its own active tab (VS Code-style split).
 	type View = { zoom: number; x: number; y: number }
 	// Each pane (view) remembers its own tool + its own canvas (paper-space) pan/zoom.
-	type Proj = 'plan' | 'elevation' | 'model'
+	type Proj = 'plan' | 'elevation' | 'right' | 'model'
 	let panes = $state<{ id: string; activeId: string; tool: string; canvasView: View; projection?: Proj }[]>([{ id: 'p1', activeId: 't2', tool: 'Select', canvasView: { zoom: 1, x: 0, y: 0 } }])
 	// A pane's active PROJECTION: its own override (set via the ViewCube) or, by default, the tab's
 	// natural kind. Drives both the Viewport kind and which ViewCube face is lit.
 	function paneProj(pane: { projection?: Proj }, a: Tab | null): Proj {
 		return pane.projection ?? (a?.kind === 'elevation' ? 'elevation' : a?.kind === 'model' ? 'model' : 'plan')
 	}
-	const projKind = (p: Proj) => (p === 'plan' ? 'floorplan' : p) as 'floorplan' | 'elevation' | 'model'
+	// 'right' is a mock side elevation — same Viewport renderer as 'elevation' for now.
+	const projKind = (p: Proj) => (p === 'plan' ? 'floorplan' : p === 'right' ? 'elevation' : p) as 'floorplan' | 'elevation' | 'model'
+	// The drafting/interaction flags bundle passed to a pane's viewport (one prop instead of six).
+	const envFor = (pane: { canvasView: View }) => ({ acad: acadMode, navContent, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, canvasZoom: pane.canvasView.zoom })
 	let focused = $state(0)      // which pane new tabs / sidebar actions target
 	let canvasEls = $state<(HTMLElement | undefined)[]>([])   // each pane's .canvas, for navFit
 	let splitFrac = $state(0.5)  // pane 0 width fraction when split
@@ -69,35 +77,46 @@
 	const entsOf = (id: string) => docEnts[id] ?? []
 	const selOf = (id: string) => docSel[id] ?? []
 	const viewOf = (id: string) => docView[id] ?? { zoom: 1, x: 0, y: 0 }
-	function addEnt(id: string, e: Ent) { promoteTab(id); pushHistory('Add ' + e.type); docEnts = { ...docEnts, [id]: [...(docEnts[id] ?? []), e] } }
-	function updateEnt(id: string, e: Ent) { promoteTab(id); pushHistory('Edit ' + e.type); docEnts = { ...docEnts, [id]: (docEnts[id] ?? []).map(x => x.id === e.id ? e : x) } }
+	function addEnt(id: string, e: Ent) { promoteTab(id); pushHistory(id, 'Add ' + e.type); docEnts = { ...docEnts, [id]: [...(docEnts[id] ?? []), e] } }
+	function updateEnt(id: string, e: Ent) { promoteTab(id); pushHistory(id, 'Edit ' + e.type); docEnts = { ...docEnts, [id]: (docEnts[id] ?? []).map(x => x.id === e.id ? e : x) } }
 
 	// ── undo / redo / history / revisions ──
+	// NOTE: these are full state SNAPSHOTS, not diffs. A normal edit snapshots only the ONE doc it
+	// touched (per-doc, so switching docs doesn't bloat each step); a revision restore snapshots
+	// every doc. Memory ≈ (entities in the changed doc) × (up to 100 steps) — fine for the mock,
+	// but a real tool should be command/inverse-op based (store what changed, not the whole doc).
 	type Snap = Record<string, Ent[]>
-	let undoStack: Snap[] = []
-	let redoStack: Snap[] = []
+	type UndoEntry = { id: string; ents: Ent[] } | { all: Snap }
+	let undoStack: UndoEntry[] = []
+	let redoStack: UndoEntry[] = []
 	let history = $state<{ label: string; t: number }[]>([])
 	let revisions = $state<{ name: string; note: string; snap: Snap; t: number }[]>([])
 	let lastPushT = 0
 	const snapEnts = (): Snap => $state.snapshot(docEnts) as Snap
-	// Snapshot the PRE-change state; coalesce a rapid burst (e.g. a drag) into one step.
-	function pushHistory(label: string) {
+	const snapDoc = (id: string): Ent[] => $state.snapshot(docEnts[id] ?? []) as Ent[]
+	// Record the PRE-change state; coalesce a rapid burst (e.g. a drag) into one step.
+	function record(label: string, entry: UndoEntry) {
 		const now = Date.now()
 		if (now - lastPushT < 450 && undoStack.length) { lastPushT = now; return }
-		undoStack.push(snapEnts()); if (undoStack.length > 100) undoStack.shift()
+		undoStack.push(entry); if (undoStack.length > 100) undoStack.shift()
 		redoStack = []
 		history = [{ label, t: now }, ...history].slice(0, 60)
 		lastPushT = now
 	}
-	function undo() { if (!undoStack.length) return; redoStack.push(snapEnts()); docEnts = undoStack.pop()!; lastPushT = 0 }
-	function redo() { if (!redoStack.length) return; undoStack.push(snapEnts()); docEnts = redoStack.pop()!; lastPushT = 0 }
+	function pushHistory(id: string, label: string) { record(label, { id, ents: snapDoc(id) }) }
+	function applyUndo(entry: UndoEntry): UndoEntry {   // returns the inverse entry for the redo stack
+		if ('all' in entry) { const inv: UndoEntry = { all: snapEnts() }; docEnts = entry.all; return inv }
+		const inv: UndoEntry = { id: entry.id, ents: snapDoc(entry.id) }; docEnts = { ...docEnts, [entry.id]: entry.ents }; return inv
+	}
+	function undo() { if (!undoStack.length) return; redoStack.push(applyUndo(undoStack.pop()!)); lastPushT = 0 }
+	function redo() { if (!redoStack.length) return; undoStack.push(applyUndo(redoStack.pop()!)); lastPushT = 0 }
 	let revSeq = 0
 	function makeRevision() {
 		revisions = [{ name: 'Rev ' + String.fromCharCode(67 + revSeq++), note: '', snap: snapEnts(), t: Date.now() }, ...revisions]
 	}
 	// $state.snapshot unwraps the proxy (the revision snap lives inside the $state revisions
 	// array); structuredClone would throw on that proxy and silently skip the restore.
-	function restoreRevision(snap: Snap) { pushHistory('Restore revision'); docEnts = $state.snapshot(snap) as Snap }
+	function restoreRevision(snap: Snap) { record('Restore revision', { all: snapEnts() }); docEnts = $state.snapshot(snap) as Snap }
 	function setSel(id: string, ids: string[]) { docSel = { ...docSel, [id]: ids }; if (ids.length) treeNode = null }
 	function setView(id: string, v: View) { docView = { ...docView, [id]: v } }
 	// Selected entities of the focused document (for the Properties panel).
@@ -282,16 +301,16 @@
 	// Nav toolbar / status zoom act on the active viewport if one is active, else the canvas.
 	let dispZoom = $derived.by(() => {
 		const p = panes[focused]; if (!p) return 100
-		return Math.round((activeVpPane === focused ? viewOf(p.activeId).zoom : p.canvasView.zoom) * 100)
+		return Math.round((isVpActive(p.activeId) ? viewOf(p.activeId).zoom : p.canvasView.zoom) * 100)
 	})
 	function navZoom(f: number) {
 		const p = panes[focused]; if (!p) return
-		if (activeVpPane === focused) { const v = viewOf(p.activeId); setView(p.activeId, { ...v, zoom: Math.min(8, Math.max(0.25, v.zoom * f)) }) }
+		if (isVpActive(p.activeId)) { const v = viewOf(p.activeId); setView(p.activeId, { ...v, zoom: Math.min(8, Math.max(0.25, v.zoom * f)) }) }
 		else { const v = p.canvasView; v.zoom = Math.min(8, Math.max(0.1, v.zoom * f)) }
 	}
 	function navFit() {
 		const p = panes[focused]; if (!p) return
-		if (activeVpPane === focused) { setView(p.activeId, { zoom: 1, x: 0, y: 0 }); return }
+		if (isVpActive(p.activeId)) { setView(p.activeId, { zoom: 1, x: 0, y: 0 }); return }
 		// Frame the fixed-size paper in the pane (transform-origin 0 0, paper centred in the
 		// canvas box): pick a zoom that fits with margin, then translate to re-centre.
 		const a2 = tabs.find(t => t.id === p.activeId)
@@ -471,16 +490,16 @@
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<main class="canvas" bind:this={canvasEls[pi]} onpointermove={onCanvasMove}
 						use:panzoom={{ enabled: () => !!a, wheelZoom: () => acadMode, onpan: (dx, dy) => canvasPan(p, dx, dy), onzoom: (f, x, y, node) => canvasZoom(p, node, f, x, y) }}>
-						<div class="floattools glass-bar" class:dim={a && activeVpPane !== pi}>
+						<div class="floattools glass-bar" class:dim={a && !isVpActive(a.id)}>
 							{#each TOOLS as t (t.name)}
 								<button class="tool" class:on={p.tool === t.name} title={t.name} onclick={() => (p.tool = t.name)}><Icon name={t.icon} size={16} /></button>
 							{/each}
 						</div>
 						<!-- Pane-level exit: fixed on screen (outside the zoomed content), so a viewport
 						     can always be left even when zoomed right in and its own corner is off-screen. -->
-						{#if activeVpPane === pi}
+						{#if a && isVpActive(a.id)}
 							<div class="vp-active-bar glass-bar">
-								<button class="vab-btn" onclick={() => (activeVpPane = null)} title="Exit viewport (Esc)">
+								<button class="vab-btn" onclick={() => deactivateVp(a.id)} title="Exit viewport (Esc)">
 									<Icon name="chevronLeft" size={14} /> Exit
 								</button>
 								<button class="vab-btn" class:on={navContent} onclick={() => (navContent = !navContent)}
@@ -492,15 +511,15 @@
 						{#key p.activeId}
 							<div class="canvas-content" style:transform="translate({p.canvasView.x}px, {p.canvasView.y}px) scale({p.canvasView.zoom})">
 								{#if a?.kind === 'sheet' && layout === 'sheet'}
-									<PaperPage title={a.title} tool={p.tool} acad={acadMode} navContent={navContent} grid={toggles.GRID} lwt={toggles.LWT} osnap={toggles.OSNAP} canvasZoom={p.canvasView.zoom} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={activeVpPane === pi}
-										onactivate={() => (activeVpPane = pi)}
-										ondeactivate={() => { if (activeVpPane === pi) activeVpPane = null }}
+									<PaperPage title={a.title} tool={p.tool} env={envFor(p)} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={isVpActive(a.id)}
+										onactivate={() => activateVp(a.id)}
+										ondeactivate={() => deactivateVp(a.id)}
 										onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} onframe={onFrame} />
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-									<div class="vp-fill" ondblclick={() => { if (activeVpPane === pi) activeVpPane = null }}>
-										<Viewport kind={projKind(paneProj(p, a))} label={a.title} tool={p.tool} acad={acadMode} navContent={navContent} grid={toggles.GRID} lwt={toggles.LWT} osnap={toggles.OSNAP} canvasZoom={p.canvasView.zoom} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
-											active={activeVpPane === pi} onactivate={() => (activeVpPane = pi)} ondeactivate={() => { if (activeVpPane === pi) activeVpPane = null }}
+									<div class="vp-fill" ondblclick={() => deactivateVp(a.id)}>
+										<Viewport kind={projKind(paneProj(p, a))} label={a.title} tool={p.tool} env={envFor(p)} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
+											active={isVpActive(a.id)} onactivate={() => activateVp(a.id)} ondeactivate={() => deactivateVp(a.id)}
 											onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} />
 									</div>
 								{:else}

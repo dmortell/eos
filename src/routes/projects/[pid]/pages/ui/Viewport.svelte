@@ -14,17 +14,35 @@
 	export type Pt = [number, number]
 	// 'box' = a mock 3D cuboid: a,b are the footprint corners (plan), h is its height (mm).
 	// It projects differently per view kind (plan footprint / elevation front / model oblique).
-	export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'ellipse' | 'dim' | 'text' | 'box' | 'polyline'; a?: Pt; b?: Pt; c?: Pt; r?: number; h?: number; text?: string; pts?: Pt[] }
+	// box: a,b = plan footprint · h = height · z0 = base elevation (height off the ground). In
+	// elevation the box is placed by x (from the footprint) + z0/h (vertical), so its plan DEPTH
+	// (footprint y) is independent of its elevation position.
+	export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'ellipse' | 'dim' | 'text' | 'box' | 'polyline'; a?: Pt; b?: Pt; c?: Pt; r?: number; h?: number; z0?: number; text?: string; pts?: Pt[] }
 	export type View = { zoom: number; x: number; y: number }
 
-	let { label = 'Viewport', scale = '', kind = 'floorplan', active = false, tool = 'Select', boxW, boxH, acad = true, navContent = false, grid = true, lwt = true, canvasZoom = 1, border = 'dashed', osnap = true,
+	// Drafting/interaction flags are grouped into one `env` object to keep the prop list small.
+	export type Env = { acad?: boolean; navContent?: boolean; grid?: boolean; lwt?: boolean; osnap?: boolean; canvasZoom?: number }
+	let { label = 'Viewport', scale = '', kind = 'floorplan', active = false, tool = 'Select', boxW, boxH, border = 'dashed', env = {},
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, ondeactivate, onadd, onupdate, onselect, onview }:
-		{ label?: string; scale?: string; kind?: 'floorplan' | 'model' | 'elevation'; active?: boolean; tool?: string; boxW?: number; boxH?: number; acad?: boolean; navContent?: boolean; grid?: boolean; lwt?: boolean; canvasZoom?: number; border?: 'dashed' | 'solid' | 'none'; osnap?: boolean;
+		{ label?: string; scale?: string; kind?: 'floorplan' | 'model' | 'elevation'; active?: boolean; tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env;
 			entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; ondeactivate?: () => void; onadd?: (e: Ent) => void; onupdate?: (e: Ent) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void } = $props()
+	const acad = $derived(env.acad ?? true)
+	const navContent = $derived(env.navContent ?? false)
+	const grid = $derived(env.grid ?? true)
+	const lwt = $derived(env.lwt ?? true)
+	const osnap = $derived(env.osnap ?? true)
+	const canvasZoom = $derived(env.canvasZoom ?? 1)
 
 	const tagIcon: Record<string, string> = { floorplan: 'mapPin', model: 'box', elevation: 'server' }
 	const DRAW = new Set(['Line', 'Rectangle', 'Ellipse', 'Dimension', 'Text', 'Box'])
 	const DEFAULT_BOX_H = 45   // mock mm height for a freshly drawn cuboid
+	const GROUND = 200         // elevation ground line (drawing units); a box with z0=0 stands on it
+	// Elevation face rect of a box: x0..x1 wide, top at GROUND-z0-h, bottom (baseline) at GROUND-z0.
+	function boxElev(e: Ent) {
+		const x0 = Math.min(e.a![0], e.b![0]), x1 = Math.max(e.a![0], e.b![0])
+		const h = e.h ?? DEFAULT_BOX_H, base = GROUND - (e.z0 ?? 0)
+		return { x0, x1, h, base, top: base - h }
+	}
 	// Body-hover cursor: 'move' over a shape (drag to move), else default; grips carry their own
 	// crosshair (they render on top, so their cursor wins over the container's).
 	let hoverBody = $state(false)
@@ -133,7 +151,9 @@
 	// The Line tool draws a POLYLINE in AutoCAD mode: keep clicking to add segments, Enter /
 	// double-click / right-click to finish (Esc cancels). (EOS press-drag = a single segment.)
 	function finishPolyline() {
-		if (tool === 'Line' && draft.length >= 2) onadd?.({ id: uid(), type: 'polyline', pts: draft.map(p => [...p] as Pt) })
+		let pts = draft
+		while (pts.length >= 2 && dist(pts.at(-1)!, pts.at(-2)!) < 0.01) pts = pts.slice(0, -1)   // drop the double-click's zero-length tail
+		if (tool === 'Line' && pts.length >= 2) onadd?.({ id: uid(), type: 'polyline', pts: pts.map(p => [...p] as Pt) })
 		draft = []; cur = null; snapMark = null
 	}
 	function onClick(e: MouseEvent) {
@@ -144,7 +164,7 @@
 		if (tool === 'Text') { const p = drawPoint(e.clientX, e.clientY); if (p) onadd?.({ id: uid(), type: 'text', a: p, text: 'TEXT' }); snapMark = null; return }
 		if (!acad) return   // EOS mode: shapes are drawn press-drag (onDown), not by clicking
 		const sp = drawPoint(e.clientX, e.clientY, draft.at(-1), e.shiftKey); if (!sp) return
-		if (tool === 'Line') { draft = [...draft, sp]; snapMark = null; return }   // polyline: accumulate
+		if (tool === 'Line') { if (!draft.length || dist(draft.at(-1)!, sp) > 0.01) draft = [...draft, sp]; snapMark = null; return }   // polyline: accumulate (skip dup)
 		// other tools: two clicks — first corner, then the (snapped/Shift-constrained) opposite one.
 		if (!draft.length) { draft = [sp]; snapMark = null; return }
 		place(draft[0], sp)
@@ -214,7 +234,7 @@
 	function hitEnt(e: Ent, p: Pt, thr: number): boolean {
 		if (e.type === 'polyline') { const pts = e.pts ?? []; for (let i = 0; i + 1 < pts.length; i++) if (segDist(p, pts[i], pts[i + 1]) < thr) return true; return false }
 		if (e.type === 'line' || e.type === 'dim') return segDist(p, e.a!, e.b!) < thr
-		if (e.type === 'box' && kind === 'elevation') { const x0 = Math.min(e.a![0], e.b![0]), x1 = Math.max(e.a![0], e.b![0]), y1 = Math.max(e.a![1], e.b![1]), yt = y1 - (e.h ?? DEFAULT_BOX_H); return p[0] >= x0 - thr && p[0] <= x1 + thr && p[1] >= yt - thr && p[1] <= y1 + thr }
+		if (e.type === 'box' && kind === 'elevation') { const f = boxElev(e); return p[0] >= f.x0 - thr && p[0] <= f.x1 + thr && p[1] >= f.top - thr && p[1] <= f.base + thr }
 		if (e.type === 'rect' || e.type === 'box') { const x0 = Math.min(e.a![0], e.b![0]), y0 = Math.min(e.a![1], e.b![1]), x1 = Math.max(e.a![0], e.b![0]), y1 = Math.max(e.a![1], e.b![1]); return p[0] >= x0 - thr && p[0] <= x1 + thr && p[1] >= y0 - thr && p[1] <= y1 + thr }
 		if (e.type === 'circle') return dist(e.c!, p) <= e.r! + thr
 		if (e.type === 'ellipse') {
@@ -292,13 +312,12 @@
 			{ x: e.b![0], y: e.b![1], apply: p => ({ ...e, b: p }) },
 		]
 		if (e.type === 'box' && kind === 'elevation') {   // grips on the FRONT FACE (width × height)
-			const x0 = Math.min(e.a![0], e.b![0]), x1 = Math.max(e.a![0], e.b![0]), y1 = Math.max(e.a![1], e.b![1])
-			const h = e.h ?? DEFAULT_BOX_H, yt = y1 - h
+			const { x0, x1, base, top } = boxElev(e)
 			return [
-				{ x: x0, y: y1, apply: p => boxElevSet(e, { x0: p[0], yb: p[1] }) },       // bottom-left: width + baseline
-				{ x: x1, y: y1, apply: p => boxElevSet(e, { x1: p[0], yb: p[1] }) },       // bottom-right
-				{ x: x0, y: yt, apply: p => boxElevSet(e, { x0: p[0], h: y1 - p[1] }) },   // top-left: width + height
-				{ x: x1, y: yt, apply: p => boxElevSet(e, { x1: p[0], h: y1 - p[1] }) },   // top-right
+				{ x: x0, y: base, apply: p => boxElevSet(e, { x0: p[0], z0: GROUND - p[1] }) },      // bottom-left: width + base elevation
+				{ x: x1, y: base, apply: p => boxElevSet(e, { x1: p[0], z0: GROUND - p[1] }) },      // bottom-right
+				{ x: x0, y: top, apply: p => boxElevSet(e, { x0: p[0], h: base - p[1] }) },          // top-left: width + height
+				{ x: x1, y: top, apply: p => boxElevSet(e, { x1: p[0], h: base - p[1] }) },          // top-right
 			]
 		}
 		if (e.type === 'rect' || e.type === 'ellipse' || e.type === 'box') {   // 4 corner grips on the footprint/bbox
@@ -326,9 +345,8 @@
 	function constrainGrip(base: Ent, gi: number, p: Pt, shift: boolean): Pt {
 		if (!shift) return p
 		if (base.type === 'box' && kind === 'elevation') {   // shift → square FACE about the opposite face corner
-			const x0 = Math.min(base.a![0], base.b![0]), x1 = Math.max(base.a![0], base.b![0])
-			const y1 = Math.max(base.a![1], base.b![1]), yt = y1 - (base.h ?? DEFAULT_BOX_H)
-			const an: Pt = gi === 0 ? [x1, yt] : gi === 1 ? [x0, yt] : gi === 2 ? [x1, y1] : [x0, y1]
+			const f = boxElev(base)
+			const an: Pt = gi === 0 ? [f.x1, f.top] : gi === 1 ? [f.x0, f.top] : gi === 2 ? [f.x1, f.base] : [f.x0, f.base]
 			const s = Math.max(Math.abs(p[0] - an[0]), Math.abs(p[1] - an[1]))
 			return [an[0] + (p[0] < an[0] ? -s : s), an[1] + (p[1] < an[1] ? -s : s)]
 		}
@@ -441,6 +459,10 @@
 		if (drag!.kind === 'grip') return gripsFor(drag!.base)[drag!.gi].apply(constrainGrip(drag!.base, drag!.gi, p, shift))
 		let dx = p[0] - drag!.start[0], dy = p[1] - drag!.start[1]
 		if (shift) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 }   // ortho / axis-lock
+		if (drag!.base.type === 'box' && kind === 'elevation') {   // move x-edges by dx, base elevation by −dy (keep plan depth)
+			const b = drag!.base
+			return { ...b, a: [b.a![0] + dx, b.a![1]], b: [b.b![0] + dx, b.b![1]], z0: (b.z0 ?? 0) - dy }
+		}
 		return translate(drag!.base, dx, dy)
 	}
 	function onDragMove(e: PointerEvent) {
@@ -484,7 +506,7 @@
 		if (e.type === 'polyline') { const pts = e.pts ?? []; const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] }
 		if (e.type === 'circle') return [e.c![0] - e.r!, e.c![1] - e.r!, e.c![0] + e.r!, e.c![1] + e.r!]
 		if (e.type === 'text') return [e.a![0], e.a![1] - 10, e.a![0] + 40, e.a![1]]
-		if (e.type === 'box' && kind === 'elevation') { const y1 = Math.max(e.a![1], e.b![1]); return [Math.min(e.a![0], e.b![0]), y1 - (e.h ?? DEFAULT_BOX_H), Math.max(e.a![0], e.b![0]), y1] }
+		if (e.type === 'box' && kind === 'elevation') { const f = boxElev(e); return [f.x0, f.top, f.x1, f.base] }
 		const xs = [e.a![0], e.b![0]], ys = [e.a![1], e.b![1]]
 		return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
 	}
@@ -531,12 +553,13 @@
 
 	// Apply an elevation-view edit to a box: change width (x0/x1), baseline (yb — translates the
 	// footprint in y so depth is preserved and the box moves vertically), and/or height (h).
-	function boxElevSet(e: Ent, ch: { x0?: number; x1?: number; yb?: number; h?: number }): Ent {
+	// Apply an elevation-view edit to a box: width (x0/x1) keeps the footprint DEPTH (y) and only
+	// moves the x-edges; z0 = base elevation; h = height. Plan depth (y) is never touched here.
+	function boxElevSet(e: Ent, ch: { x0?: number; x1?: number; z0?: number; h?: number }): Ent {
 		const cx0 = Math.min(e.a![0], e.b![0]), cx1 = Math.max(e.a![0], e.b![0])
-		const cy0 = Math.min(e.a![1], e.b![1]), cy1 = Math.max(e.a![1], e.b![1])
-		const nx0 = ch.x0 ?? cx0, nx1 = ch.x1 ?? cx1, depth = cy1 - cy0
-		const ny1 = ch.yb ?? cy1, ny0 = ny1 - depth
-		return { ...e, a: [nx0, ny0], b: [nx1, ny1], h: Math.max(1, ch.h ?? e.h ?? DEFAULT_BOX_H) }
+		const [ay, by] = [e.a![1], e.b![1]]
+		const nx0 = ch.x0 ?? cx0, nx1 = ch.x1 ?? cx1
+		return { ...e, a: [e.a![0] === cx0 ? nx0 : nx1, ay], b: [e.b![0] === cx0 ? nx0 : nx1, by], z0: ch.z0 ?? e.z0 ?? 0, h: Math.max(1, ch.h ?? e.h ?? DEFAULT_BOX_H) }
 	}
 
 	// Kestrel-style prompt
@@ -559,7 +582,9 @@
 <svelte:window onkeydown={onKey} onkeyup={(e) => { if (active && e.key === 'Shift') reconstrain(false) }} />
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="vp" class:active bind:clientWidth={vpW} bind:clientHeight={vpH} role="button" tabindex="0" style:cursor={cursorStyle} style:border-style={active ? 'solid' : border}
+<div class="vp print:!border-transparent" class:active bind:clientWidth={vpW} bind:clientHeight={vpH} role="button" tabindex="0" style:cursor={cursorStyle}
+	style:border-style={active ? 'solid' : border === 'none' ? 'dotted' : border}
+	style:border-color={border === 'none' && !active ? '#94a3b866' : undefined}
 	use:panzoom={{ enabled: () => active && navContent, wheelZoom: () => acad, onpan: onPan, onzoom: onZoom }}
 	onclick={onClick} ondblclick={onDblclick} onpointerdown={onDown} onpointermove={onMove}
 	onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onactivate?.() } }}>
@@ -594,8 +619,9 @@
 				{/each}
 				<text x="24" y="230" font-size="9" fill="#64748b" font-weight="600">OFFICE — 33F</text>
 			{/if}
-			<!-- drawn entities + rubber-band preview (hide the text being edited in place) -->
-			{#each entities as e (e.id)}{#if e.id !== editText?.id}{@render drawn(e, selSet.has(e.id))}{/if}{/each}
+			<!-- drawn entities + rubber-band preview. The text being edited stays visible and shows
+			     the LIVE editor value (the transparent textarea over it only supplies the caret). -->
+			{#each entities as e (e.id)}{@render drawn(e.id === editText?.id ? { ...e, text: editText.value } : e, selSet.has(e.id))}{/each}
 			{#if active && tool === 'Line' && draft.length}
 				<!-- polyline preview: committed segments + rubber band to the cursor -->
 				<polyline points={draft.map(p => p.join(',')).join(' ')} fill="none" stroke={SEL} stroke-width="1.2" />
@@ -640,23 +666,6 @@
 	{#if active}
 		<div class="vp-badge"><span class="vp-dot"></span>{tool} · {prompt} · {Math.round(view.zoom * 100)}%</div>
 	{/if}
-	<!-- Old in-viewport WCS cube — commented out (it scaled with zoom because it lived inside the
-	     zoomed canvas). Replaced by fixed-size PANE-level gizmos in +page (top-right ViewCube +
-	     bottom-left axis triad). Kept here in case we want the in-viewport version back.
-	<div class="vp-wcs" title="WCS — {kind} view">
-		<svg viewBox="0 0 48 44" width="48" height="44">
-			<polygon points="30,32 30,14 39,7 39,25" fill="#b2c3dc" stroke="#5c7396" stroke-width="0.8" />
-			<polygon points="12,32 30,32 30,14 12,14" fill={kind === 'elevation' ? '#5ac6d2' : '#c8d5e8'} stroke="#5c7396" stroke-width="0.8" />
-			<polygon points="12,14 30,14 39,7 21,7" fill={kind === 'floorplan' ? '#5ac6d2' : '#dce7f5'} stroke="#5c7396" stroke-width="0.8" />
-			<line x1="12" y1="32" x2="31" y2="32" stroke="#d9534f" stroke-width="1.2" />
-			<line x1="12" y1="32" x2="12" y2="13" stroke="#5b8def" stroke-width="1.2" />
-			<line x1="12" y1="32" x2="21" y2="25" stroke="#5cb85c" stroke-width="1.2" />
-			<text x="33" y="35" font-size="6" fill="#d9534f" font-weight="700">x</text>
-			<text x="7" y="12" font-size="6" fill="#5b8def" font-weight="700">z</text>
-			<text x="22" y="26" font-size="6" fill="#4a9d4a" font-weight="700">y</text>
-		</svg>
-	</div>
-	-->
 	{#if editText}
 		<textarea class="text-edit" bind:this={textInput} bind:value={editText.value} rows="1" spellcheck="false"
 			style="left:{editText.x}px; top:{editText.y - editText.fontPx}px; font-size:{editText.fontPx}px; line-height:{editText.fontPx * 1.18}px"
@@ -668,7 +677,7 @@
 
 {#snippet drawn(e: Ent, seld: boolean)}
 	{@const ink = seld ? SEL : INK}
-	{@const w = lwt ? (seld ? 2 : 1.2) : 0.5}
+	{@const w = (lwt ? (seld ? 2 : 1.2) : 0.5) / (canvasZoom || 1)}
 	{#if e.type === 'line'}
 		<line x1={e.a![0]} y1={e.a![1]} x2={e.b![0]} y2={e.b![1]} stroke={ink} stroke-width={w} />
 	{:else if e.type === 'polyline'}
@@ -695,9 +704,10 @@
 			<polygon points={f.back} fill="#b2c3dc" stroke={ink} stroke-width={w} />
 			<polygon points={f.top} fill="#dce7f5" stroke={ink} stroke-width={w} />
 		{:else if kind === 'elevation'}
-			<!-- front elevation face: footprint width × height, its base at the footprint's front
-			     edge (f.y1) so dragging the box moves the face vertically with its handles -->
-			<rect x={f.x0} y={f.y1 - f.h} width={f.x1 - f.x0} height={f.h} fill="#dce7f5" stroke={ink} stroke-width={w} />
+			{@const fe = boxElev(e)}
+			<!-- front elevation face: width × height, base at (ground − z0). Vertical position comes
+			     from z0/height, NOT the plan footprint depth — so moving the box in plan won't move it here. -->
+			<rect x={fe.x0} y={fe.top} width={fe.x1 - fe.x0} height={fe.h} fill="#dce7f5" stroke={ink} stroke-width={w} />
 		{:else}
 			<!-- plan: footprint rectangle -->
 			<rect x={f.x0} y={f.y0} width={f.x1 - f.x0} height={f.y1 - f.y0} fill="#dce7f533" stroke={ink} stroke-width={w} />
@@ -745,8 +755,10 @@
 		color:#0e5866; background:#5ac6d222; border:1px solid #5ac6d2; border-radius:3px; padding:2px 6px;
 	}
 	.vp-dot { width:5px; height:5px; border-radius:50%; background:#157a8b; }
-	.text-edit { position:absolute; z-index:10; min-width:48px; min-height:1.2em; background:#fff; color:#111827; font-weight:600;
-		border:1px solid #0e7490; border-radius:2px; padding:0 2px; font-family:inherit; resize:both; overflow:hidden; white-space:pre;
+	/* Transparent editor over the live SVG text: the on-canvas text stays visible (and updates as
+	   you type); this only provides the caret + keyboard input, so the text never "disappears". */
+	.text-edit { position:absolute; z-index:10; min-width:48px; min-height:1.2em; background:transparent; color:transparent; caret-color:#0e7490; font-weight:600;
+		border:1px dashed #0e749077; border-radius:2px; padding:0 2px; font-family:inherit; resize:both; overflow:hidden; white-space:pre;
 		user-select:text; -webkit-user-select:text; }
-	.text-edit:focus { outline:none; box-shadow:0 0 0 2px #0e749033; }
+	.text-edit:focus { outline:none; border-color:#0e7490; }
 </style>

@@ -10,6 +10,29 @@ after UX settles · **(P3)** later / needs design. `◧ decide` = needs your pic
 ---
 
 ## 0. Bugs / quick wins  (P1)
+### Reported 2026-09-20 (Dave) — batch 2
+- [x] **Box line thickness changed with zoom** — like the handles, entity strokes now divide by
+  `canvasZoom` (with `non-scaling-stroke`) so lineweights stay constant on canvas zoom.
+- [x] **Dragging a box vertically in plan moved it in elevation** — box gained a `z0` (base
+  elevation); elevation position is z0/height only, independent of the plan footprint depth (y).
+  Elevation grips edit width + height + base; plan/model keep footprint grips.
+- [x] **Polyline double-click added a zero-length segment** — the dbl-click's two clicks made a
+  duplicate vertex; now deduped on add and the zero-length tail is trimmed on finish.
+- [x] **Inline text editor hid the object text** — the on-canvas text now stays visible and shows
+  the LIVE editor value; the textarea is transparent (caret only) over it. Multi-line works
+  (Enter = newline, rendered as tspans; Ctrl/⌘-Enter or blur commits).
+- [x] **ViewCube 3D-button label unreadable on white paper** — solid panel chip now, readable on
+  any backdrop.
+- [x] **Active view + selection lost on tab switch** — viewport activation is tracked per tab id
+  (`activeVps`), selection was already per-doc; both restore when you return to a view.
+- [x] **Viewport props / ViewCube polish** — ViewCube redesigned (TOP/FRONT/RIGHT faces + a 3D
+  button beneath, shaded darker faces, rotated FRONT/RIGHT labels, no click outline, no panel
+  background); WCS triad also background-free. Old commented-out in-viewport cube deleted.
+- [x] **Border 'none' now shows a faint, non-printing dotted border** so an invisible-bordered
+  viewport is still selectable (`print:!border-transparent`, and the print CSS already drops it).
+- [x] **Prop bloat** — Viewport/PaperPage drafting flags (acad/navContent/grid/lwt/osnap/canvasZoom)
+  collapsed into a single `env` object prop.
+
 ### Reported 2026-09-20 (Dave)
 - [x] **Hit-test radius was huge** — `hit()` used an `8`-*model-unit* tolerance (enormous at scale);
   now a ~7px screen tolerance converted to model units via `hitTol()`.
@@ -263,6 +286,10 @@ Sheets' basic version** — see §10.
   (right "History" tab): New revision, restore a revision, **editable description note per revision**.
 - [ ] **Diff between revisions** → generate revision **clouds** from the changes (the real
   payoff; Sheets has only a manual cloud annotation).
+- **Undo memory** (Dave's Q, 2026-09-20): steps are full state **snapshots, not diffs**. A normal
+  edit now snapshots only the ONE doc it changed (per-doc, `snapDoc`); a revision restore snapshots
+  all docs. So memory ≈ (entities in the changed doc) × up to 100 steps — fine for the mock, but a
+  real tool should be **command/inverse-op based** (store what changed, not the whole doc). [ ] do this.
 
 ## 11. Incorporate the other EOS tools  (P3, needs design)
 - [ ] ◧ **design** — surface **Risers, Rack Elevations, Frames, Patching** within Pages

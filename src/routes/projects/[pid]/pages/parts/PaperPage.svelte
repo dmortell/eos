@@ -7,7 +7,7 @@
 	//    resize (opposite corner fixed, like the rect tool). Double-click enters it.
 	//  · Model space (activated): interact with the drawing inside; double-click on the
 	//    paper outside the frame (or Esc / Exit) returns to paper space.
-	import Viewport, { type Ent, type View } from '../ui/Viewport.svelte'
+	import Viewport, { type Ent, type View, type Env } from '../ui/Viewport.svelte'
 	import Handle from './Handle.svelte'
 	import { HANDLE_PX, PAPER_W, PAPER_H } from '../constants'
 
@@ -16,10 +16,11 @@
 	// mutators, so the panel can edit without reaching into this child's state.
 	export type FrameSel = { label: string; x: number; y: number; w: number; h: number;
 		border: 'dashed' | 'solid' | 'none'; setBorder: (b: 'dashed' | 'solid' | 'none') => void; setRect: (r: Partial<{ x: number; y: number; w: number; h: number }>) => void }
-	let { title = 'Sheet', drawingNo = '001', scale = '1:100', active = false, tool = 'Select', acad = true, navContent = false, grid = true, lwt = true, canvasZoom = 1, osnap = true,
+	let { title = 'Sheet', drawingNo = '001', scale = '1:100', active = false, tool = 'Select', env = {},
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, ondeactivate, onadd, onupdate, onselect, onview, onframe }:
-		{ title?: string; drawingNo?: string; scale?: string; active?: boolean; tool?: string; acad?: boolean; navContent?: boolean; grid?: boolean; lwt?: boolean; canvasZoom?: number; osnap?: boolean;
+		{ title?: string; drawingNo?: string; scale?: string; active?: boolean; tool?: string; env?: Env;
 			entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; ondeactivate?: () => void; onadd?: (e: Ent) => void; onupdate?: (e: Ent) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void; onframe?: (f: FrameSel | null) => void } = $props()
+	const canvasZoom = $derived(env.canvasZoom ?? 1)
 
 	let frameBorder = $state<'dashed' | 'solid' | 'none'>('dashed')
 	// Emit the selection (or null) whenever the frame's selection / geometry / border changes.
@@ -136,7 +137,7 @@
 			{#if frame}
 				<div class="vp-frame" class:selected={selected && !active} class:active
 					style="left:{frame.x}px; top:{frame.y}px; width:{frame.w}px; height:{frame.h}px">
-					<Viewport kind="floorplan" label="Outlets · 33F" {scale} {active} {tool} {acad} {navContent} {grid} {lwt} {canvasZoom} {osnap} border={frameBorder} {entities} {sel} {view}
+					<Viewport kind="floorplan" label="Outlets · 33F" {scale} {active} {tool} {env} border={frameBorder} {entities} {sel} {view}
 						boxW={frame.w} boxH={frame.h}
 						{onactivate} {ondeactivate} {onadd} {onupdate} {onselect} {onview} />
 					{#if !active}

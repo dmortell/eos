@@ -1,49 +1,40 @@
 <script lang="ts">
 	// Fixed-size PANE-level view gizmos (Kestrel-style), drawn in screen space so they never
-	// scale with the canvas zoom (the old in-viewport cube did, because it lived inside the
-	// zoomed canvas). Two pieces, mirroring Kestrel:
-	//  · top-right ViewCube — an isometric cube with TOP / FRONT / RIGHT faces; clicking a face
-	//    switches the pane's projection.
-	//  · bottom-left axis triad (Kestrel's drawUCS) — the x/y/z axes oriented for the current
-	//    view. (Kestrel spins this as you orbit; our mock has fixed projections, so it shows the
-	//    orientation of each.)
-	type Proj = 'plan' | 'elevation' | 'model'
+	// scale with the canvas zoom. Two pieces, mirroring Kestrel:
+	//  · top-right ViewCube — an isometric cube with TOP / FRONT / RIGHT faces + a 3D button
+	//    underneath; each switches the pane's projection.
+	//  · bottom-left axis triad (Kestrel's drawUCS) — the x/y/z axes oriented for the current view.
+	type Proj = 'plan' | 'elevation' | 'right' | 'model'
 	let { projection = 'plan', onset }: { projection?: Proj; onset?: (p: Proj) => void } = $props()
 
 	// Kestrel axis colours (renderer.js drawUCS): X red, Y green, Z blue.
 	const AX = { x: '#d17f88', y: '#79b89e', z: '#7eabdf' }
-	// Axis directions per view, from the triad origin (screen px). A null axis points into/out of
-	// the screen and is drawn as a small ring instead of a line.
 	type Axis = [number, number] | null
 	const TRIAD: Record<Proj, { x: Axis; y: Axis; z: Axis }> = {
-		plan:      { x: [22, 0],  y: [0, -22], z: null },       // top-down: Z toward viewer
-		elevation: { x: [22, 0],  y: null,     z: [0, -22] },   // front: Y into screen
+		plan:      { x: [22, 0],  y: [0, -22],  z: null },      // top-down: Z toward viewer
+		elevation: { x: [22, 0],  y: null,      z: [0, -22] },  // front: Y into screen
+		right:     { x: null,     y: [22, 0],   z: [0, -22] },  // right: X into screen
 		model:     { x: [19, 10], y: [-19, 10], z: [0, -23] },  // iso
 	}
-	const OX = 17, OY = 38   // triad origin within its 54×54 box
+	const OX = 17, OY = 38
 	const tri = $derived(TRIAD[projection])
 </script>
 
-<!-- Top-right ViewCube: clickable TOP / FRONT / RIGHT faces -->
+<!-- Top-right ViewCube -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="vc" role="group" aria-label="View cube" onpointerdown={(e) => e.stopPropagation()}>
-	<svg viewBox="0 0 64 62" width="86" height="82">
-		<!-- TOP face → plan -->
-		<polygon class="face" class:on={projection === 'plan'} points="32,6 58,20 32,34 6,20"
-			role="button" tabindex="0" aria-label="Top view" onclick={() => onset?.('plan')}
-			onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onset?.('plan') } }} />
-		<!-- FRONT face → elevation -->
-		<polygon class="face" class:on={projection === 'elevation'} points="6,20 32,34 32,58 6,44"
-			role="button" tabindex="0" aria-label="Front view" onclick={() => onset?.('elevation')}
-			onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onset?.('elevation') } }} />
-		<!-- RIGHT face → 3D model (mock: no distinct side view yet) -->
-		<polygon class="face" class:on={projection === 'model'} points="32,34 58,20 58,44 32,58"
-			role="button" tabindex="0" aria-label="3D / right view" onclick={() => onset?.('model')}
-			onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onset?.('model') } }} />
+	<svg viewBox="0 0 64 62" width="82" height="80">
+		<polygon class="face top" class:on={projection === 'plan'} points="32,6 58,20 32,34 6,20"
+			role="button" tabindex="-1" aria-label="Top view" onclick={() => onset?.('plan')} />
+		<polygon class="face front" class:on={projection === 'elevation'} points="6,20 32,34 32,58 6,44"
+			role="button" tabindex="-1" aria-label="Front view" onclick={() => onset?.('elevation')} />
+		<polygon class="face right" class:on={projection === 'right'} points="32,34 58,20 58,44 32,58"
+			role="button" tabindex="-1" aria-label="Right view" onclick={() => onset?.('right')} />
 		<text x="32" y="22" class="lbl">TOP</text>
-		<text x="18" y="43" class="lbl side">FRONT</text>
-		<text x="46" y="43" class="lbl side">3D</text>
+		<text x="18" y="40" class="lbl" transform="rotate(28 18 40)">FRONT</text>
+		<text x="46" y="40" class="lbl" transform="rotate(-28 46 40)">RIGHT</text>
 	</svg>
+	<button class="d3" class:on={projection === 'model'} onclick={() => onset?.('model')}>3D</button>
 </div>
 
 <!-- Bottom-left axis triad (WCS) -->
@@ -63,17 +54,21 @@
 </div>
 
 <style>
-	.vc { position:absolute; top:10px; right:10px; z-index:6; pointer-events:auto;
-		background:color-mix(in srgb, var(--panel) 80%, transparent); border:1px solid var(--line-soft);
-		border-radius:8px; padding:2px; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); box-shadow:0 6px 22px #0004; }
-	.face { fill:#c8d5e8; stroke:#5c7396; stroke-width:0.8; cursor:pointer; }
-	.face:hover { fill:#9fb6d6; }
+	/* No panel/background around the gizmos — just the cube + button and the triad. */
+	.vc { position:absolute; top:10px; right:10px; z-index:6; display:flex; flex-direction:column; align-items:center; gap:2px; pointer-events:auto; }
+	.vc svg { filter:drop-shadow(0 2px 4px #0005); }
+	.face { stroke:#3f5570; stroke-width:0.8; cursor:pointer; outline:none; }
+	.face.top { fill:#c2d0e4; } .face.front { fill:#9aacc7; } .face.right { fill:#7f93b2; }
+	.face:hover { fill:#5ac6d2; }
 	.face.on { fill:var(--accent); }
-	.lbl { font-size:7px; fill:#26405a; font-weight:700; text-anchor:middle; pointer-events:none; }
-	.lbl.side { font-size:5px; letter-spacing:-0.2px; }
-	.wcs { position:absolute; bottom:10px; left:10px; z-index:6; pointer-events:none;
-		background:color-mix(in srgb, var(--panel) 72%, transparent); border:1px solid var(--line-soft);
-		border-radius:8px; padding:1px; }
+	.lbl { font-size:6px; fill:#1b2f45; font-weight:700; text-anchor:middle; pointer-events:none; }
+	/* Solid chip so the label reads on any backdrop (white paper included), not just when active. */
+	.d3 { pointer-events:auto; font-size:9px; font-weight:700; letter-spacing:.04em; color:var(--text);
+		background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:2px 10px; box-shadow:0 1px 3px #0004; }
+	.d3:hover { border-color:var(--accent-dim); }
+	.d3.on { color:var(--accent); border-color:var(--accent); background:var(--active); }
+	.wcs { position:absolute; bottom:10px; left:10px; z-index:6; pointer-events:none; }
+	.wcs svg { filter:drop-shadow(0 1px 2px #0006); }
 	.ax { font-size:8px; font-weight:700; }
 	.cap { font-size:7px; fill:var(--faint); font-weight:600; letter-spacing:.06em; }
 </style>
