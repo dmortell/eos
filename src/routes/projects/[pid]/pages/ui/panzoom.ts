@@ -18,6 +18,7 @@ export function panzoom(node: HTMLElement, initial: PanZoomOpts) {
 	function wheel(e: WheelEvent) {
 		if (!on()) return
 		e.preventDefault()
+		e.stopPropagation()   // don't also zoom an enabled panzoom on an ancestor (canvas under a viewport)
 		const factor = Math.exp(-e.deltaY * 0.0015)  // smooth; up = zoom in
 		opts.onzoom(factor, e.clientX, e.clientY, node)
 	}
@@ -28,6 +29,7 @@ export function panzoom(node: HTMLElement, initial: PanZoomOpts) {
 		if (!on() || (e.button !== 2 && e.button !== 1)) return
 		panning = true; lastX = e.clientX; lastY = e.clientY
 		e.preventDefault()
+		e.stopPropagation()   // pan this element, not an enabled panzoom ancestor
 		window.addEventListener('pointermove', move)
 		window.addEventListener('pointerup', up)
 	}
@@ -51,7 +53,7 @@ export function panzoom(node: HTMLElement, initial: PanZoomOpts) {
 	const dst = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY)
 	function tstart(e: TouchEvent) {
 		if (!on()) return
-		if (e.touches.length >= 2) { mode = 'pinch'; pd = dst(e.touches);[pcx, pcy] = mid(e.touches) }
+		if (e.touches.length >= 2) { mode = 'pinch'; pd = dst(e.touches);[pcx, pcy] = mid(e.touches); e.stopPropagation() }
 	}
 	function tmove(e: TouchEvent) {
 		if (mode !== 'pinch' || e.touches.length < 2) return
