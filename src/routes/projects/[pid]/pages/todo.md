@@ -18,7 +18,11 @@ across docs (now per-doc stacks), [x] §2.8 no Delete (Delete/Backspace + Edit m
 [x] §2.8 dropDoc leaked undo/proj/paper/activation, [x] §2.8 dirty never set, [x] §2.8 HistoryPanel
 prop mutation (→ onnote callback), [x] §2.8 titleblock SIZE hardcoded, [x] §2.8 ViewCube→layout
 one-way (TOP now restores Sheet), [x] §2.3 partial (emit onframe(null) on unmount).
-Still open (bigger): [ ] §2.2 print A-size/scale, [ ] §2.3 full per-doc frame state,
+Also fixed: [x] §2.2 print honours the selected paper size/orientation (`@page` from the focused
+tab's paper) and prints at TRUE size — the paper is `zoom`ed by (96/25.4)/PAPER_PX_PER_MM so content
++ titleblock scale together (CSS zoom, vector text); [x] §4.4 shared wheel-normalise/zoom-clamp +
+touchcancel; [x] adopt list — additive select, group move, duplicate (Ctrl-D), select-all, nudge.
+Still open (bigger): [ ] §2.3 full per-doc frame state,
 [ ] §4.1 lift a `DocEditor` headless class, [ ] §4.2 mm world units, [ ] §4.3 reuse Sheets
 `layers.ts`, [ ] §4.4 shared pan/zoom helpers + touchcancel + wheel normalisation,
 [ ] §2.8 key tabs by node id (not title), frame drag threshold+undo, z0 clamp mismatch,

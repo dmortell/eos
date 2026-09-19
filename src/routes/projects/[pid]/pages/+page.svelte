@@ -19,7 +19,7 @@
 	import Menubar from './parts/Menubar.svelte'
 	import CommandPalette from './parts/CommandPalette.svelte'
 	import { panzoom } from './ui/panzoom'
-	import { paperDims, type PaperSize } from './constants'
+	import { paperDims, PAPER_SIZES, PAPER_PX_PER_MM, type PaperSize } from './constants'
 
 	// Which pane (if any) has its viewport activated — groundwork for editing/CAD
 	// tools inside a sheet's viewport. Null = no active viewport.
@@ -364,27 +364,33 @@
 	// Refit every pane after the paper size/orientation changes (each pane may show a sheet).
 	function refitAll() { tick().then(() => panes.forEach((_, i) => fitPane(i))) }
 
-	// ── Print — on Ctrl+P / window.print(), an @media-print stylesheet shows ONLY the
-	// focused sheet's A3 paper: it hides all UI + the selection highlight and pins the
-	// paper to the page. The stylesheet lives in the document at all times (inert on
-	// screen); beforeprint just marks the focused paper and clears the selection.
-	// (Paper size is A3 landscape via @page; the printer's own default paper must be set
-	// to A3 for a physical-printer destination — @page sizes the layout, not the printer.)
+	// ── Print — on Ctrl+P / window.print(), an @media-print stylesheet shows ONLY the focused
+	// sheet's paper at TRUE size: it hides all UI + the selection highlight and pins the paper to
+	// the page. @page size + orientation come from the focused tab's paper; the paper is `zoom`ed by
+	// (96/25.4)/PAPER_PX_PER_MM so its px size (= mm × PAPER_PX_PER_MM) prints at true mm — content
+	// and titleblock scale together (CSS `zoom`, so text stays vector). Built at print time since
+	// paper is per-tab. (The printer's own paper must match for a physical printer.)
 	let savedSel: Record<string, string[]> | null = null
 	const PRINT_ID = 'pages-print-style'
-	const PRINT_CSS = `@page { size: A3 landscape; margin: 0; }
+	function printCss(): string {
+		const p = paperOf(panes[focused]?.activeId), [lw, lh] = PAPER_SIZES[p.size]
+		const [mw, mh] = p.landscape ? [lw, lh] : [lh, lw]
+		const zoom = (96 / 25.4) / PAPER_PX_PER_MM
+		return `@page { size: ${mw}mm ${mh}mm; margin: 0; }
 @media print {
 	html, body { margin:0 !important; padding:0 !important; background:#fff !important; }
-	.canvas-content { transform: none !important; }   /* so fixed positions to the page, not a transformed ancestor */
+	.canvas-content { transform: none !important; }   /* fixed positions to the page, not a transformed ancestor */
 	body * { visibility: hidden !important; }
 	.print-target, .print-target * { visibility: visible !important; }
-	.print-target { position: fixed !important; inset: 0 !important; width: 420mm !important; height: 297mm !important; margin: 0 !important; box-shadow: none !important; background:#fff !important; }
+	.print-target { position: fixed !important; left:0 !important; top:0 !important; zoom:${zoom}; margin:0 !important; box-shadow:none !important; background:#fff !important; }
 	.print-target .vp { border: none !important; box-shadow: none !important; }
 	.print-target .vp-tag, .print-target .vp-badge { display: none !important; }
 }`
+	}
 	function applyPrint() {
 		savedSel = { ...docSel }
 		docSel = {}   // selection is screen-only; clear so no highlight prints
+		const style = document.getElementById(PRINT_ID); if (style) style.textContent = printCss()   // size for the focused paper
 		const target = document.querySelector('.pane.focused .paper')
 			?? document.querySelector('.pane.focused .vp')
 		target?.classList.add('print-target')
@@ -397,7 +403,7 @@
 	$effect(() => {
 		let style = document.getElementById(PRINT_ID) as HTMLStyleElement | null
 		if (!style) { style = document.createElement('style'); style.id = PRINT_ID; document.head.appendChild(style) }
-		style.textContent = PRINT_CSS
+		style.textContent = printCss()   // refreshed for the focused paper at print time (applyPrint)
 		window.addEventListener('beforeprint', applyPrint)
 		window.addEventListener('afterprint', removePrint)
 		return () => {
