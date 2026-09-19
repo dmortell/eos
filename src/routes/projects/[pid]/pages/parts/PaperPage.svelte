@@ -15,7 +15,7 @@
 <div class="paper-wrap" onclick={() => ondeactivate?.()}>
 	<div class="paper">
 		<div class="paper-vp">
-			<Viewport kind="floorplan" label="Outlets · 33F" {scale} {active} {tool} {entities} {sel} {view} {onactivate} {onadd} {onupdate} {onselect} {onview} />
+			<Viewport kind="floorplan" label="Outlets · 33F" {scale} {active} {tool} {entities} {sel} {view} {onactivate} {ondeactivate} {onadd} {onupdate} {onselect} {onview} />
 		</div>
 		<!-- titleblock (right vertical strip, like EOS) -->
 		<div class="tb">

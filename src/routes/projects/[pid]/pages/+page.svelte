@@ -522,7 +522,7 @@
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" onclick={() => { if (activeVpPane === pi) activeVpPane = null }}>
 										<Viewport kind={a.kind === 'elevation' ? 'model' : 'floorplan'} label={a.title} tool={p.tool} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
-											active={activeVpPane === pi} onactivate={() => (activeVpPane = pi)}
+											active={activeVpPane === pi} onactivate={() => (activeVpPane = pi)} ondeactivate={() => { if (activeVpPane === pi) activeVpPane = null }}
 											onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} />
 									</div>
 								{:else}

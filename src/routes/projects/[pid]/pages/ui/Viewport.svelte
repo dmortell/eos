@@ -13,9 +13,9 @@
 	export type View = { zoom: number; x: number; y: number }
 
 	let { label = 'Viewport', scale = '', kind = 'floorplan', active = false, tool = 'Select',
-		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, onadd, onupdate, onselect, onview }:
+		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, ondeactivate, onadd, onupdate, onselect, onview }:
 		{ label?: string; scale?: string; kind?: 'floorplan' | 'model' | 'elevation'; active?: boolean; tool?: string;
-			entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; onadd?: (e: Ent) => void; onupdate?: (e: Ent) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void } = $props()
+			entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; ondeactivate?: () => void; onadd?: (e: Ent) => void; onupdate?: (e: Ent) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void } = $props()
 
 	const tagIcon: Record<string, string> = { floorplan: 'mapPin', model: 'box', elevation: 'server' }
 	const DRAW = new Set(['Line', 'Rectangle', 'Circle', 'Dimension', 'Text'])
@@ -43,7 +43,6 @@
 	// ── drawing (Kestrel-style) ──
 	const INK = '#475569', SEL = '#0e7490'
 	let svg: SVGSVGElement | undefined = $state()   // outer svg (viewBox space)
-	let viewG: SVGGElement | undefined = $state()   // pan/zoom transform group (drawing space)
 	let draft = $state<Pt[]>([])
 	let cur = $state<Pt | null>(null)
 	let seq = 0
@@ -51,23 +50,43 @@
 	const dist = (a: Pt, b: Pt) => Math.hypot(a[0] - b[0], a[1] - b[1])
 	const selSet = $derived(new Set(sel))
 
-	// Client → drawing coords (through the view transform), for placing/hit-testing.
+	// Coordinate mapping — MUST use getBoundingClientRect (not getScreenCTM): getScreenCTM
+	// ignores CSS transforms on HTML ancestors, so it's wrong whenever the canvas is
+	// zoomed (its scale lives in a CSS transform above this SVG). getBoundingClientRect
+	// reflects every ancestor transform, so this stays correct at any canvas/viewport zoom.
+	const VBW = 400, VBH = 250
+	// viewBox → screen mapping for the current rendered size (letterboxed via meet).
+	function vbMap(): { scale: number; offX: number; offY: number; left: number; top: number } | null {
+		if (!svg) return null
+		const r = svg.getBoundingClientRect()
+		const scale = Math.min(r.width / VBW, r.height / VBH)
+		return { scale, offX: (r.width - VBW * scale) / 2, offY: (r.height - VBH * scale) / 2, left: r.left, top: r.top }
+	}
+	function clientToVB(cx: number, cy: number): Pt | null {
+		const m = vbMap(); if (!m) return null
+		return [(cx - m.left - m.offX) / m.scale, (cy - m.top - m.offY) / m.scale]
+	}
+	// Client px → drawing (viewG-local) coords, for placing/hit-testing.
 	function toLocalXY(cx: number, cy: number): Pt | null {
-		const m = viewG?.getScreenCTM(); if (!m) return null
-		const p = new DOMPoint(cx, cy).matrixTransform(m.inverse())
-		return [p.x, p.y]
+		const v = clientToVB(cx, cy); if (!v) return null
+		return [(v[0] - view.x) / view.zoom, (v[1] - view.y) / view.zoom]
 	}
 	function toLocal(e: MouseEvent): Pt | null { return toLocalXY(e.clientX, e.clientY) }
+	// Drawing (viewG-local) coords → client px, for handle hit-testing.
+	function localToClient(x: number, y: number): { x: number; y: number } | null {
+		const m = vbMap(); if (!m) return null
+		const vx = view.x + x * view.zoom, vy = view.y + y * view.zoom
+		return { x: m.left + m.offX + vx * m.scale, y: m.top + m.offY + vy * m.scale }
+	}
 	// ── pan/zoom the viewport content (SVG group transform, in viewBox units) ──
 	function onPan(dx: number, dy: number) {
-		const m = svg?.getScreenCTM(); if (!m) return
-		onview?.({ zoom: view.zoom, x: view.x + dx / m.a, y: view.y + dy / m.d })
+		const m = vbMap(); if (!m) return
+		onview?.({ zoom: view.zoom, x: view.x + dx / m.scale, y: view.y + dy / m.scale })
 	}
 	function onZoom(f: number, cx: number, cy: number) {
-		const m = svg?.getScreenCTM(); if (!m) return
-		const p = new DOMPoint(cx, cy).matrixTransform(m.inverse())   // cursor in viewBox coords
+		const v = clientToVB(cx, cy); if (!v) return   // cursor in viewBox coords
 		const nz = Math.min(8, Math.max(0.25, view.zoom * f)), r = nz / view.zoom
-		onview?.({ zoom: nz, x: p.x - (p.x - view.x) * r, y: p.y - (p.y - view.y) * r })
+		onview?.({ zoom: nz, x: v[0] - (v[0] - view.x) * r, y: v[1] - (v[1] - view.y) * r })
 	}
 	// panzoom passes its node as a trailing arg (unused here)
 	function onClick(e: MouseEvent) {
@@ -88,7 +107,13 @@
 	function onMove(e: MouseEvent) { if (active) cur = toLocal(e) }
 	// Note: right-button is reserved for pan/zoom (incl. mid-draw, to reach a far
 	// endpoint), so it must NOT cancel the draft. Esc cancels an in-progress draw.
-	function onKey(e: KeyboardEvent) { if (active && e.key === 'Escape') { draft = []; onselect?.([]) } }
+	// Esc ladder (CAD-style): cancel an in-progress draw → clear selection → exit viewport.
+	function onKey(e: KeyboardEvent) {
+		if (!active || e.key !== 'Escape') return
+		if (draft.length) draft = []
+		else if (sel.length) onselect?.([])
+		else ondeactivate?.()
+	}
 
 	// hit-test (topmost first)
 	function segDist(p: Pt, a: Pt, b: Pt) {
@@ -144,12 +169,11 @@
 	// body of any entity (topmost). Used by both the pointer-drag start and panzoom's
 	// touch grab-guard, so a 1-finger touch on a handle edits instead of panning.
 	function pick(clientX: number, clientY: number): { kind: 'grip' | 'move'; id: string; gi: number } | null {
-		const m = viewG?.getScreenCTM()
-		if (m) for (const id of sel) {
+		for (const id of sel) {
 			const ent = entities.find(x => x.id === id); if (!ent) continue
 			const gs = gripsFor(ent)
 			for (let i = 0; i < gs.length; i++) {
-				const sp = new DOMPoint(gs[i].x, gs[i].y).matrixTransform(m)
+				const sp = localToClient(gs[i].x, gs[i].y); if (!sp) continue
 				if (Math.hypot(sp.x - clientX, sp.y - clientY) < 14) return { kind: 'grip', id, gi: i }
 			}
 		}
@@ -215,7 +239,7 @@
 	onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onactivate?.() } }}>
 
 	<svg bind:this={svg} class="vp-svg {kind === 'model' || kind === 'elevation' ? 'model' : ''}" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid meet">
-		<g bind:this={viewG} transform="translate({view.x} {view.y}) scale({view.zoom})">
+		<g transform="translate({view.x} {view.y}) scale({view.zoom})">
 			<!-- background content -->
 			{#if kind === 'model' || kind === 'elevation'}
 				{#each floorGrid as g (g)}<polyline points={g} fill="none" stroke="#d5deea" stroke-width="0.7" />{/each}
@@ -254,7 +278,13 @@
 	</svg>
 
 	<div class="vp-tag"><Icon name={tagIcon[kind]} size={10} /> {label}{#if scale}<span class="vp-scale">{scale}</span>{/if}</div>
-	{#if active}<div class="vp-badge"><span class="vp-dot"></span>{tool} · {prompt} · {Math.round(view.zoom * 100)}%</div>{/if}
+	{#if active}
+		<div class="vp-badge"><span class="vp-dot"></span>{tool} · {prompt} · {Math.round(view.zoom * 100)}%</div>
+		<!-- Always-reachable exit, so you can leave the viewport even when zoomed right in. -->
+		<button class="vp-exit" title="Exit viewport (Esc)" onclick={(e) => { e.stopPropagation(); ondeactivate?.() }}>
+			<Icon name="chevronLeft" size={12} /> Exit
+		</button>
+	{/if}
 </div>
 
 {#snippet drawn(e: Ent, seld: boolean)}
@@ -308,4 +338,10 @@
 		color:#0e5866; background:#5ac6d222; border:1px solid #5ac6d2; border-radius:3px; padding:2px 6px;
 	}
 	.vp-dot { width:5px; height:5px; border-radius:50%; background:#157a8b; }
+	.vp-exit {
+		position:absolute; top:6px; right:6px; display:flex; align-items:center; gap:3px;
+		font-size:10px; font-weight:600; color:#0e5866; background:#ffffffee; border:1px solid #5ac6d2;
+		border-radius:4px; padding:5px 9px; min-height:28px; cursor:pointer; touch-action:manipulation;
+	}
+	.vp-exit:hover { background:#5ac6d222; }
 </style>
