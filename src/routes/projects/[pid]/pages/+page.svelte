@@ -56,6 +56,7 @@
 	const selOf = (id: string) => docSel[id] ?? []
 	const viewOf = (id: string) => docView[id] ?? { zoom: 1, x: 0, y: 0 }
 	function addEnt(id: string, e: any) { docEnts = { ...docEnts, [id]: [...(docEnts[id] ?? []), e] } }
+	function updateEnt(id: string, e: any) { docEnts = { ...docEnts, [id]: (docEnts[id] ?? []).map(x => x.id === e.id ? e : x) } }
 	function setSel(id: string, ids: string[]) { docSel = { ...docSel, [id]: ids } }
 	function setView(id: string, v: View) { docView = { ...docView, [id]: v } }
 
@@ -498,13 +499,13 @@
 									<PaperPage title={a.title} tool={p.tool} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={activeVpPane === pi}
 										onactivate={() => (activeVpPane = pi)}
 										ondeactivate={() => { if (activeVpPane === pi) activeVpPane = null }}
-										onadd={(e) => addEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} />
+										onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} />
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" onclick={() => { if (activeVpPane === pi) activeVpPane = null }}>
 										<Viewport kind={a.kind === 'elevation' ? 'model' : 'floorplan'} label={a.title} tool={p.tool} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
 											active={activeVpPane === pi} onactivate={() => (activeVpPane = pi)}
-											onadd={(e) => addEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} />
+											onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} />
 									</div>
 								{:else}
 									<div class="canvas-center"><div class="cc-sub">No page open</div></div>

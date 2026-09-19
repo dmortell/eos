@@ -6,6 +6,10 @@
 // one-finger pan, two-finger pinch-zoom. Right-drag never opens the context menu.
 export type PanZoomOpts = {
 	enabled?: () => boolean
+	// Return true when a gesture starting at these client coords should be left to the
+	// consumer (e.g. a 1-finger touch on an editing handle / selected shape) instead of
+	// panning. Only consulted for single-finger touch; 2-finger pinch always pans/zooms.
+	grab?: (clientX: number, clientY: number) => boolean
 	onpan: (dx: number, dy: number, node: HTMLElement) => void            // screen-px delta
 	onzoom: (factor: number, clientX: number, clientY: number, node: HTMLElement) => void
 }
@@ -49,7 +53,12 @@ export function panzoom(node: HTMLElement, initial: PanZoomOpts) {
 	const dst = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY)
 	function tstart(e: TouchEvent) {
 		if (!on()) return
-		if (e.touches.length === 1) { mode = 'pan'; tx = e.touches[0].clientX; ty = e.touches[0].clientY }
+		if (e.touches.length === 1) {
+			// A 1-finger touch on an editing handle / selected shape belongs to the consumer
+			// (pointer-event drag), not to panning — leave it alone.
+			if (opts.grab && opts.grab(e.touches[0].clientX, e.touches[0].clientY)) { mode = 'none'; return }
+			mode = 'pan'; tx = e.touches[0].clientX; ty = e.touches[0].clientY
+		}
 		else if (e.touches.length >= 2) { mode = 'pinch'; pd = dst(e.touches);[pcx, pcy] = mid(e.touches) }
 	}
 	function tmove(e: TouchEvent) {

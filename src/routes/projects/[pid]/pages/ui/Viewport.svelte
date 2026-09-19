@@ -13,9 +13,9 @@
 	export type View = { zoom: number; x: number; y: number }
 
 	let { label = 'Viewport', scale = '', kind = 'floorplan', active = false, tool = 'Select',
-		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, onadd, onselect, onview }:
+		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, onadd, onupdate, onselect, onview }:
 		{ label?: string; scale?: string; kind?: 'floorplan' | 'model' | 'elevation'; active?: boolean; tool?: string;
-			entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; onadd?: (e: Ent) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void } = $props()
+			entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; onadd?: (e: Ent) => void; onupdate?: (e: Ent) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void } = $props()
 
 	const tagIcon: Record<string, string> = { floorplan: 'mapPin', model: 'box', elevation: 'server' }
 	const DRAW = new Set(['Line', 'Rectangle', 'Circle', 'Dimension', 'Text'])
@@ -52,11 +52,12 @@
 	const selSet = $derived(new Set(sel))
 
 	// Client → drawing coords (through the view transform), for placing/hit-testing.
-	function toLocal(e: MouseEvent): Pt | null {
+	function toLocalXY(cx: number, cy: number): Pt | null {
 		const m = viewG?.getScreenCTM(); if (!m) return null
-		const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse())
+		const p = new DOMPoint(cx, cy).matrixTransform(m.inverse())
 		return [p.x, p.y]
 	}
+	function toLocal(e: MouseEvent): Pt | null { return toLocalXY(e.clientX, e.clientY) }
 	// ── pan/zoom the viewport content (SVG group transform, in viewBox units) ──
 	function onPan(dx: number, dy: number) {
 		const m = svg?.getScreenCTM(); if (!m) return
@@ -71,6 +72,7 @@
 	// panzoom passes its node as a trailing arg (unused here)
 	function onClick(e: MouseEvent) {
 		e.stopPropagation()
+		if (suppressClick) { suppressClick = false; return }   // this click just ended a drag
 		if (!active) { onactivate?.(); return }
 		const p = toLocal(e); if (!p) return
 		if (tool === 'Select') { onselect?.(hit(p)); return }
@@ -105,6 +107,89 @@
 		for (let i = entities.length - 1; i >= 0; i--) if (hitEnt(entities[i], p, 8)) return [entities[i].id]
 		return []
 	}
+
+	// ── editing handles (Kestrel-style grips) ──
+	// Each selected entity shows square grips at its defining points. Dragging a grip edits
+	// that point; dragging the body moves the whole entity. Grips render at a constant
+	// screen size (÷ zoom) so they don't grow as the viewport zooms, like real CAD.
+	type Grip = { x: number; y: number; apply: (p: Pt) => Ent }
+	function gripsFor(e: Ent): Grip[] {
+		if (e.type === 'line' || e.type === 'dim') return [
+			{ x: e.a![0], y: e.a![1], apply: p => ({ ...e, a: p }) },
+			{ x: e.b![0], y: e.b![1], apply: p => ({ ...e, b: p }) },
+		]
+		if (e.type === 'rect') {
+			const [ax, ay] = e.a!, [bx, by] = e.b!
+			return [
+				{ x: ax, y: ay, apply: p => ({ ...e, a: p }) },
+				{ x: bx, y: by, apply: p => ({ ...e, b: p }) },
+				{ x: ax, y: by, apply: p => ({ ...e, a: [p[0], e.a![1]] as Pt, b: [e.b![0], p[1]] as Pt }) },
+				{ x: bx, y: ay, apply: p => ({ ...e, a: [e.a![0], p[1]] as Pt, b: [p[0], e.b![1]] as Pt }) },
+			]
+		}
+		if (e.type === 'circle') return [
+			{ x: e.c![0], y: e.c![1], apply: p => ({ ...e, c: p }) },                       // move centre
+			{ x: e.c![0] + e.r!, y: e.c![1], apply: p => ({ ...e, r: Math.max(1, dist(e.c!, p)) }) }, // radius
+		]
+		if (e.type === 'text') return [{ x: e.a![0], y: e.a![1], apply: p => ({ ...e, a: p }) }]
+		return []
+	}
+	function translate(e: Ent, dx: number, dy: number): Ent {
+		const t = (p?: Pt): Pt | undefined => p ? [p[0] + dx, p[1] + dy] : p
+		return { ...e, a: t(e.a), b: t(e.b), c: t(e.c) }
+	}
+	const gripSize = $derived(7 / view.zoom)   // viewBox units → ~constant on screen
+
+	// What a press at these client coords would grab: a grip of a selected entity, or the
+	// body of any entity (topmost). Used by both the pointer-drag start and panzoom's
+	// touch grab-guard, so a 1-finger touch on a handle edits instead of panning.
+	function pick(clientX: number, clientY: number): { kind: 'grip' | 'move'; id: string; gi: number } | null {
+		const m = viewG?.getScreenCTM()
+		if (m) for (const id of sel) {
+			const ent = entities.find(x => x.id === id); if (!ent) continue
+			const gs = gripsFor(ent)
+			for (let i = 0; i < gs.length; i++) {
+				const sp = new DOMPoint(gs[i].x, gs[i].y).matrixTransform(m)
+				if (Math.hypot(sp.x - clientX, sp.y - clientY) < 14) return { kind: 'grip', id, gi: i }
+			}
+		}
+		const lp = toLocalXY(clientX, clientY)
+		if (lp) { const ids = hit(lp); if (ids.length) return { kind: 'move', id: ids[0], gi: -1 } }
+		return null
+	}
+
+	// ── drag to move / edit ──
+	let drag: { id: string; base: Ent; kind: 'grip' | 'move'; gi: number; start: Pt } | null = null
+	let dragged = false        // true once the pointer actually moved during a drag
+	let suppressClick = false  // swallow the click that ends a real drag (avoids re-select)
+	function onDown(e: PointerEvent) {
+		if (!active || tool !== 'Select' || e.button !== 0) return   // left / primary only
+		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
+		const hitInfo = pick(e.clientX, e.clientY); if (!hitInfo) return   // empty space → let click clear
+		const base = entities.find(x => x.id === hitInfo.id); if (!base) return
+		if (!selSet.has(hitInfo.id)) onselect?.([hitInfo.id])
+		drag = { id: hitInfo.id, base, kind: hitInfo.kind, gi: hitInfo.gi, start: p }
+		dragged = false
+		try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic events */ }
+		e.preventDefault()
+		window.addEventListener('pointermove', onDragMove)
+		window.addEventListener('pointerup', onDragUp)
+	}
+	function onDragMove(e: PointerEvent) {
+		if (!drag) return
+		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
+		dragged = true
+		const next = drag.kind === 'grip'
+			? gripsFor(drag.base)[drag.gi].apply(p)
+			: translate(drag.base, p[0] - drag.start[0], p[1] - drag.start[1])
+		onupdate?.(next)
+	}
+	function onDragUp() {
+		if (dragged) suppressClick = true
+		drag = null
+		window.removeEventListener('pointermove', onDragMove)
+		window.removeEventListener('pointerup', onDragUp)
+	}
 	// Kestrel-style prompt
 	let prompt = $derived.by(() => {
 		if (!active) return ''
@@ -125,8 +210,8 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="vp" class:active role="button" tabindex="0" style:cursor={cursorStyle}
-	use:panzoom={{ enabled: () => active, onpan: onPan, onzoom: onZoom }}
-	onclick={onClick} onpointermove={onMove}
+	use:panzoom={{ enabled: () => active, grab: (cx, cy) => active && tool === 'Select' && !!pick(cx, cy), onpan: onPan, onzoom: onZoom }}
+	onclick={onClick} onpointerdown={onDown} onpointermove={onMove}
 	onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onactivate?.() } }}>
 
 	<svg bind:this={svg} class="vp-svg {kind === 'model' || kind === 'elevation' ? 'model' : ''}" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid meet">
@@ -155,6 +240,16 @@
 			<!-- drawn entities + rubber-band preview -->
 			{#each entities as e (e.id)}{@render drawn(e, selSet.has(e.id))}{/each}
 			{#if active && draft.length && cur}{@render preview(draft[0], cur)}{/if}
+			<!-- editing handles: square grips at each selected entity's defining points -->
+			{#if active && tool === 'Select'}
+				{#each entities as e (e.id)}
+					{#if selSet.has(e.id)}
+						{#each gripsFor(e) as g}
+							<rect class="grip" x={g.x - gripSize / 2} y={g.y - gripSize / 2} width={gripSize} height={gripSize} />
+						{/each}
+					{/if}
+				{/each}
+			{/if}
 		</g>
 	</svg>
 
@@ -190,7 +285,7 @@
 {/snippet}
 
 <style>
-	.vp { position:relative; width:100%; height:100%; border:1.5px dashed #94a3b8; background:#fff; cursor:pointer; overflow:hidden; }
+	.vp { position:relative; width:100%; height:100%; border:1.5px dashed #94a3b8; background:#fff; cursor:pointer; overflow:hidden; touch-action:none; }
 	.vp:hover { border-color:#5ac6d2; }
 	.vp.active { border:1.5px solid #157a8b; box-shadow:0 0 0 2px #5ac6d233; cursor:default; }
 	.vp-svg { display:block; width:100%; height:100%; }
@@ -199,6 +294,9 @@
 	   the view <g> scales the geometry, non-scaling-stroke keeps stroke thickness
 	   fixed on screen. Fills and text still scale with the drawing. */
 	.vp-svg :where(line, rect, circle, polyline, polygon, path) { vector-effect: non-scaling-stroke; }
+	/* Editing grips: white squares with a teal border, constant size (÷zoom in markup). */
+	.grip { fill:#fff; stroke:#0e7490; stroke-width:1.4; cursor:grab; }
+	.grip:hover { fill:#cffafe; }
 	.vp-tag {
 		position:absolute; top:6px; left:6px; display:flex; align-items:center; gap:5px;
 		font-size:9px; color:#475569; background:#ffffffcc; border:1px solid #e2e8f0; border-radius:3px; padding:2px 6px;
