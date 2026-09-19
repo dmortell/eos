@@ -168,8 +168,11 @@ Sheets' basic version** — see §10.
   views, entities, layers, imported files, revisions.
 
 ## 13. Codebase & repo health  (P1)
-- **Git history is fine** — `.git` pack is only ~7 MiB (434 objects, no large blobs), so
-  history cleanup is **not** the fix.
+- **Git history is fine** — `.git` is ~9 MiB (packed ~7), no large blobs, so history
+  cleanup is **not** the fix. (`node_modules` 732 MiB is the bulk on disk — normal.)
+- [ ] Minor: a couple of stray committed files inflate the tree — `static/3PAGE.pdf`
+  (~2.6 MiB test PDF) and `src/routes/ui/ChatGPT Image ….png` (~700 KiB, oddly sitting in
+  a **routes** dir). Remove/gitignore if they're not needed.
 - [ ] **`pnpm check` OOMs** — this is a **Node-heap** issue: svelte-check type-checks
   ~5.7k files and runs out of the default heap, made worse when the dev server is also up.
   Try:
