@@ -13,6 +13,7 @@
 	import DrawingNavigator from './parts/DrawingNavigator.svelte'
 	import LayersPanel from './parts/LayersPanel.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
+	import HistoryPanel from './parts/HistoryPanel.svelte'
 	import CommandPalette from './parts/CommandPalette.svelte'
 	import { panzoom } from './ui/panzoom'
 	import { PAPER_W, PAPER_H } from './constants'
@@ -53,8 +54,33 @@
 	const entsOf = (id: string) => docEnts[id] ?? []
 	const selOf = (id: string) => docSel[id] ?? []
 	const viewOf = (id: string) => docView[id] ?? { zoom: 1, x: 0, y: 0 }
-	function addEnt(id: string, e: Ent) { docEnts = { ...docEnts, [id]: [...(docEnts[id] ?? []), e] } }
-	function updateEnt(id: string, e: Ent) { docEnts = { ...docEnts, [id]: (docEnts[id] ?? []).map(x => x.id === e.id ? e : x) } }
+	function addEnt(id: string, e: Ent) { pushHistory('Add ' + e.type); docEnts = { ...docEnts, [id]: [...(docEnts[id] ?? []), e] } }
+	function updateEnt(id: string, e: Ent) { pushHistory('Edit ' + e.type); docEnts = { ...docEnts, [id]: (docEnts[id] ?? []).map(x => x.id === e.id ? e : x) } }
+
+	// ── undo / redo / history / revisions ──
+	type Snap = Record<string, Ent[]>
+	let undoStack: Snap[] = []
+	let redoStack: Snap[] = []
+	let history = $state<{ label: string; t: number }[]>([])
+	let revisions = $state<{ name: string; snap: Snap; t: number }[]>([])
+	let lastPushT = 0
+	const snapEnts = (): Snap => $state.snapshot(docEnts) as Snap
+	// Snapshot the PRE-change state; coalesce a rapid burst (e.g. a drag) into one step.
+	function pushHistory(label: string) {
+		const now = Date.now()
+		if (now - lastPushT < 450 && undoStack.length) { lastPushT = now; return }
+		undoStack.push(snapEnts()); if (undoStack.length > 100) undoStack.shift()
+		redoStack = []
+		history = [{ label, t: now }, ...history].slice(0, 60)
+		lastPushT = now
+	}
+	function undo() { if (!undoStack.length) return; redoStack.push(snapEnts()); docEnts = undoStack.pop()!; lastPushT = 0 }
+	function redo() { if (!redoStack.length) return; undoStack.push(snapEnts()); docEnts = redoStack.pop()!; lastPushT = 0 }
+	let revSeq = 0
+	function makeRevision() {
+		revisions = [{ name: 'Rev ' + String.fromCharCode(67 + revSeq++), snap: snapEnts(), t: Date.now() }, ...revisions]
+	}
+	function restoreRevision(snap: Snap) { pushHistory('Restore revision'); docEnts = structuredClone(snap) }
 	function setSel(id: string, ids: string[]) { docSel = { ...docSel, [id]: ids } }
 	function setView(id: string, v: View) { docView = { ...docView, [id]: v } }
 	// Selected entities of the focused document (for the Properties panel).
@@ -119,7 +145,7 @@
 	// Sidebars
 	let leftOpen = $state(true)
 	let rightOpen = $state(true)
-	let rightTab = $state<'layers' | 'props'>('layers')   // right sidebar: Layers | Properties (reference layout)
+	let rightTab = $state<'layers' | 'props' | 'history'>('layers')   // right sidebar tabs
 
 	// Menubar
 	let openMenu = $state<string | null>(null)
@@ -140,6 +166,8 @@
 		else if (item === 'Split Editor') splitVertical()
 		else if (item === 'Unsplit') closePane(1)
 		else if (item === 'Print…') window.print()
+		else if (item === 'Undo') undo()
+		else if (item === 'Redo') redo()
 		// everything else is a mock no-op
 	}
 
@@ -171,7 +199,12 @@
 	]
 	function pickPalette(i: PItem) { if (i.kind !== 'place') openDrawing({ title: i.title, kind: i.kind }) }
 	function onGlobalKey(e: KeyboardEvent) {
-		if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); paletteOpen = true }
+		const mod = e.ctrlKey || e.metaKey
+		const tag = (e.target as HTMLElement)?.tagName
+		if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return   // don't hijack field editing
+		if (mod && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); paletteOpen = true }
+		else if (mod && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo() }
+		else if (mod && ((e.shiftKey && (e.key === 'z' || e.key === 'Z')) || e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo() }
 	}
 	let activeLayer = $state('Annotations')   // shown in the Properties panel (mock)
 
@@ -471,14 +504,18 @@
 					<button class="side-collapse" title="Collapse" onclick={() => (rightOpen = false)}><Icon name="chevronRight" size={13} /></button>
 					<div class="side-tabs rt">
 						<button class:on={rightTab === 'layers'} onclick={() => (rightTab = 'layers')}>Layers</button>
-						<button class:on={rightTab === 'props'} onclick={() => (rightTab = 'props')}>Properties</button>
+						<button class:on={rightTab === 'props'} onclick={() => (rightTab = 'props')}>Props</button>
+						<button class:on={rightTab === 'history'} onclick={() => (rightTab = 'history')}>History</button>
 					</div>
 				</div>
 				{#if rightTab === 'layers'}
 					<LayersPanel />
-				{:else}
+				{:else if rightTab === 'props'}
 					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (active) updateEnt(active.id, e) }}
 						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''} {activeLayer} />
+				{:else}
+					<HistoryPanel {history} {revisions} onundo={undo} onredo={redo}
+						onnewrevision={makeRevision} onrestore={(s) => restoreRevision(s)} />
 				{/if}
 			</aside>
 		{:else}
