@@ -51,20 +51,18 @@
 	const dist = (a: Pt, b: Pt) => Math.hypot(a[0] - b[0], a[1] - b[1])
 	const selSet = $derived(new Set(sel))
 
-	// Coordinate mapping — MUST use getBoundingClientRect (not getScreenCTM): getScreenCTM
-	// ignores CSS transforms on HTML ancestors, so it's wrong whenever the canvas is
-	// zoomed (its scale lives in a CSS transform above this SVG). getBoundingClientRect
-	// reflects every ancestor transform, so this stays correct at any canvas/viewport zoom.
-	// A viewport is a fixed-SCALE window into model space (like a CAD/AutoCAD viewport):
-	// BASE px on screen = 1 model unit at zoom 1, regardless of the frame size. So resizing
-	// the frame reveals/crops more model — it does NOT rescale the drawing. We achieve that
-	// with a viewBox sized to the rendered frame (÷BASE) and centred on the plan, updated by
-	// a ResizeObserver; the drawing (0..400 × 0..250) sits at that fixed scale within it.
+	// Coordinate mapping uses getBoundingClientRect, NOT getScreenCTM: getScreenCTM ignores CSS
+	// transforms on HTML ancestors, so it's wrong whenever the canvas is zoomed (its scale lives
+	// in a CSS transform above this SVG). getBoundingClientRect reflects every ancestor transform,
+	// so mapping stays correct at any canvas/viewport zoom.
+	//
+	// A viewport is a fixed-SCALE window into model space (like an AutoCAD viewport): BASE px on
+	// screen = 1 model unit at zoom 1, whatever the frame size — so resizing the frame reveals/
+	// crops more model rather than rescaling the drawing. The viewBox is sized to the container
+	// (÷ BASE) and centred on the plan (CX,CY); the parent passes boxW/boxH when it owns the size
+	// (a paper viewport frame — reliable), else we measure via bind:clientWidth (standalone
+	// viewports). The mock drawing (0..400 × 0..250) sits at that fixed scale.
 	const BASE = 1.84, CX = 200, CY = 125
-	// Container size drives the viewBox extent (÷ BASE) so px-per-unit stays constant and
-	// resizing the frame crops/reveals more model instead of rescaling the drawing. The
-	// parent passes boxW/boxH when it owns the size (a paper viewport frame — reliable and
-	// reactive); otherwise we fall back to the measured client size (standalone viewports).
 	let vpW = $state(0), vpH = $state(0)
 	let vbW = $derived(((boxW ?? vpW) || 400) / BASE), vbH = $derived(((boxH ?? vpH) || 250) / BASE)
 	let minX = $derived(CX - vbW / 2), minY = $derived(CY - vbH / 2)
@@ -116,7 +114,7 @@
 		else if (tool === 'Dimension') onadd?.({ id: uid(), type: 'dim', a, b: p })
 		draft = []
 	}
-	function onMove(e: MouseEvent) { if (active) cur = toLocal(e) }
+	function onMove(e: MouseEvent) { if (active && draft.length) cur = toLocal(e) }   // only needed for the rubber-band
 	// Enter model space with a double-click (AutoCAD-style). In the sheet, the paper-space
 	// cover sits on top and handles this; standalone viewports use it directly.
 	function onDblclick(e: MouseEvent) { e.stopPropagation(); if (!active) onactivate?.() }
@@ -229,6 +227,7 @@
 	})
 	function onDown(e: PointerEvent) {
 		if (!active || tool !== 'Select' || e.button !== 0) return   // left / primary only
+		suppressClick = false   // clear any stale flag from a drag that never got its click
 		pointers.add(e.pointerId)
 		if (pointers.size > 1) { cancelPointerDrag(); return }   // 2nd finger → hand off to pan/zoom
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
@@ -411,7 +410,6 @@
 	   the view <g> scales the geometry, non-scaling-stroke keeps stroke thickness
 	   fixed on screen. Fills and text still scale with the drawing. */
 	.vp-svg :where(line, rect, circle, polyline, polygon, path) { vector-effect: non-scaling-stroke; }
-	/* Editing grips: white squares with a teal border, constant size (÷zoom in markup). */
 	/* Kestrel/AutoCAD selection box: window (L→R) solid blue, crossing (R→L) dashed green. */
 	.marquee { pointer-events:none; }
 	.marquee.window { fill:#3b82f61f; stroke:#3b82f6; stroke-width:1; }

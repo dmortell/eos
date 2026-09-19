@@ -9,7 +9,7 @@
 	import { flushSync, tick } from 'svelte'
 	import { page } from '$app/state'
 	import PaperPage from './parts/PaperPage.svelte'
-	import Viewport from './ui/Viewport.svelte'
+	import Viewport, { type Ent } from './ui/Viewport.svelte'
 	import { panzoom } from './ui/panzoom'
 
 	// Which pane (if any) has its viewport activated — groundwork for editing/CAD
@@ -49,16 +49,21 @@
 	// Per-DOCUMENT state (keyed by tab id): drawn entities, selection, and the
 	// viewport's own pan/zoom — so all three persist across tab switches and show
 	// wherever the doc is open. (Tool + canvas pan/zoom are per view, above.)
-	let docEnts = $state<Record<string, any[]>>({})
+	let docEnts = $state<Record<string, Ent[]>>({})
 	let docSel = $state<Record<string, string[]>>({})
 	let docView = $state<Record<string, View>>({})
 	const entsOf = (id: string) => docEnts[id] ?? []
 	const selOf = (id: string) => docSel[id] ?? []
 	const viewOf = (id: string) => docView[id] ?? { zoom: 1, x: 0, y: 0 }
-	function addEnt(id: string, e: any) { docEnts = { ...docEnts, [id]: [...(docEnts[id] ?? []), e] } }
-	function updateEnt(id: string, e: any) { docEnts = { ...docEnts, [id]: (docEnts[id] ?? []).map(x => x.id === e.id ? e : x) } }
+	function addEnt(id: string, e: Ent) { docEnts = { ...docEnts, [id]: [...(docEnts[id] ?? []), e] } }
+	function updateEnt(id: string, e: Ent) { docEnts = { ...docEnts, [id]: (docEnts[id] ?? []).map(x => x.id === e.id ? e : x) } }
 	function setSel(id: string, ids: string[]) { docSel = { ...docSel, [id]: ids } }
 	function setView(id: string, v: View) { docView = { ...docView, [id]: v } }
+	function dropDoc(id: string) {   // free a closed doc's per-document state
+		const de = { ...docEnts }, ds = { ...docSel }, dv = { ...docView }
+		delete de[id]; delete ds[id]; delete dv[id]
+		docEnts = de; docSel = ds; docView = dv
+	}
 
 	function openTab(id: string, pane = focused) {
 		const p = panes[pane]; if (!p) return
@@ -73,6 +78,7 @@
 		e?.stopPropagation()
 		const i = tabs.findIndex(t => t.id === id); if (i < 0) return
 		tabs = tabs.filter(t => t.id !== id)
+		dropDoc(id)
 		if (!tabs.length) { addTab(); return }
 		const fallback = tabs[Math.max(0, i - 1)].id
 		for (const p of panes) if (p.activeId === id) p.activeId = fallback
@@ -782,7 +788,6 @@
 		background-image:radial-gradient(var(--line) 1px, transparent 1px); background-size:22px 22px;
 		display:flex; align-items:center; justify-content:center; overflow:hidden; }
 	.canvas-center { display:flex; flex-direction:column; align-items:center; gap:8px; color:var(--faint); pointer-events:none; }
-	.cc-title { font-size:18px; color:var(--muted); font-weight:600; }
 	.cc-sub { font-size:12px; color:var(--faint); }
 	.glass-bar { position:absolute; display:flex; gap:2px; padding:4px; border-radius:8px;
 		background:color-mix(in srgb, var(--panel) 82%, transparent); border:1px solid var(--line-soft);

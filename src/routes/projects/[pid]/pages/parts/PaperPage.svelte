@@ -108,7 +108,7 @@
 	const CORNERS = [[0, 0], [1, 0], [1, 1], [0, 1]] as const   // TL, TR, BR, BL
 	const CURSORS = ['nwse-resize', 'nesw-resize', 'nwse-resize', 'nesw-resize']
 	const HANDLE_PX = 9   // matches the entity grips inside the viewport (Viewport HANDLE_PX)
-	const mq = () => marquee ? { x: Math.min(marquee.x0, marquee.x1), y: Math.min(marquee.y0, marquee.y1), w: Math.abs(marquee.x1 - marquee.x0), h: Math.abs(marquee.y1 - marquee.y0) } : null
+	let mq = $derived(marquee ? { x: Math.min(marquee.x0, marquee.x1), y: Math.min(marquee.y0, marquee.y1), w: Math.abs(marquee.x1 - marquee.x0), h: Math.abs(marquee.y1 - marquee.y0) } : null)
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
@@ -140,9 +140,8 @@
 					{/if}
 				</div>
 			{/if}
-			{#if mq()}
-				{@const m = mq()}
-				<div class="vp-marquee" style="left:{m!.x}px; top:{m!.y}px; width:{m!.w}px; height:{m!.h}px"></div>
+			{#if mq}
+				<div class="vp-marquee" style="left:{mq.x}px; top:{mq.y}px; width:{mq.w}px; height:{mq.h}px"></div>
 			{/if}
 		</div>
 		<!-- titleblock (right vertical strip, like EOS) -->
