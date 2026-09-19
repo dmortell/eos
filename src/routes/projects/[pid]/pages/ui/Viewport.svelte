@@ -92,7 +92,7 @@
 	function onClick(e: MouseEvent) {
 		e.stopPropagation()
 		if (suppressClick) { suppressClick = false; return }   // this click just ended a drag
-		if (!active) { onactivate?.(); return }
+		if (!active) return   // paper space: enter with a double-click (see onDblclick)
 		const p = toLocal(e); if (!p) return
 		if (tool === 'Select') { onselect?.(hit(p)); return }
 		if (tool === 'Text') { onadd?.({ id: uid(), type: 'text', a: p, text: 'TEXT' }); return }
@@ -105,6 +105,9 @@
 		draft = []
 	}
 	function onMove(e: MouseEvent) { if (active) cur = toLocal(e) }
+	// Enter model space with a double-click (AutoCAD-style). In the sheet, the paper-space
+	// cover sits on top and handles this; standalone viewports use it directly.
+	function onDblclick(e: MouseEvent) { e.stopPropagation(); if (!active) onactivate?.() }
 	// Note: right-button is reserved for pan/zoom (incl. mid-draw, to reach a far
 	// endpoint), so it must NOT cancel the draft. Esc cancels an in-progress draw.
 	// Esc ladder (CAD-style): cancel an in-progress draw → clear selection → exit viewport.
@@ -235,7 +238,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="vp" class:active role="button" tabindex="0" style:cursor={cursorStyle}
 	use:panzoom={{ enabled: () => active, onpan: onPan, onzoom: onZoom }}
-	onclick={onClick} onpointerdown={onDown} onpointermove={onMove}
+	onclick={onClick} ondblclick={onDblclick} onpointerdown={onDown} onpointermove={onMove}
 	onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onactivate?.() } }}>
 
 	<svg bind:this={svg} class="vp-svg {kind === 'model' || kind === 'elevation' ? 'model' : ''}" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid meet">
