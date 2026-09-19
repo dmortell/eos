@@ -1,9 +1,10 @@
 <script lang="ts">
 	// A sheet tab's paper page: an A3 sheet (fixed size) holding one Viewport + a
 	// titleblock, like the Sheets tool / AutoCAD paper space. Two modes, AutoCAD-style:
-	//  · Paper space (deactivated): the viewport is a floating FRAME you can select
-	//    (click its border), move (drag body) and resize (corner grips — same pattern as
-	//    the rect tool: drag a corner, opposite corner stays put). Double-click enters it.
+	//  · Paper space (deactivated): the viewport is a floating FRAME. Select it by its
+	//    BORDER (click the edge band) or by dragging a selection box across it — NOT by
+	//    clicking the interior. Once selected, drag the border to move or a corner grip to
+	//    resize (opposite corner fixed, like the rect tool). Double-click enters it.
 	//  · Model space (activated): interact with the drawing inside; double-click on the
 	//    paper outside the frame (or Esc / Exit) returns to paper space.
 	import Viewport, { type Ent, type View } from '../ui/Viewport.svelte'
@@ -27,9 +28,13 @@
 	})
 
 	// Paper px per screen px (the canvas CSS zoom lives above this element), from measured
-	// vs layout size — so move/resize track the pointer at any canvas zoom.
+	// vs layout size — so move/resize/marquee track the pointer at any canvas zoom.
 	const scaleOf = () => sheetEl ? sheetEl.getBoundingClientRect().width / sheetEl.offsetWidth : 1
 	const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
+	function toSheet(cx: number, cy: number): { x: number; y: number } {
+		const r = sheetEl!.getBoundingClientRect(), s = scaleOf()
+		return { x: (cx - r.left) / s, y: (cy - r.top) / s }
+	}
 
 	// gi: 0 TL, 1 TR, 2 BR, 3 BL — mirrors the rect-tool corner grips (opposite corner fixed).
 	let drag: { mode: 'move' | 'grip'; gi: number; sx: number; sy: number; base: Frame; s: number } | null = null
@@ -55,7 +60,6 @@
 		else if (drag.gi === 1) { y = b.y + dy; w = b.w + dx; h = b.h - dy }                 // TR
 		else if (drag.gi === 2) { w = b.w + dx; h = b.h + dy }                               // BR
 		else if (drag.gi === 3) { x = b.x + dx; w = b.w - dx; h = b.h + dy }                 // BL
-		// keep a minimum size and hold the opposite edge fixed
 		if (w < MIN) { if (drag.gi === 0 || drag.gi === 3) x = b.x + b.w - MIN; w = MIN }
 		if (h < MIN) { if (drag.gi === 0 || drag.gi === 1) y = b.y + b.h - MIN; h = MIN }
 		frame = { x: clamp(x, 0, W - MIN), y: clamp(y, 0, H - MIN), w: Math.min(w, W - x), h: Math.min(h, H - y) }
@@ -66,38 +70,72 @@
 		window.removeEventListener('pointerup', endDrag)
 	}
 
-	// Paper background: single click deselects the frame; double-click (outside the frame)
-	// while active exits model space.
-	function onPaperDown() { if (!active) selected = false }
-	function onPaperDblclick(e: MouseEvent) {
+	// Selection marquee (paper space): drag a box across empty paper; if it touches the
+	// frame, the frame is selected. This is the touch-friendly alternative to a border click.
+	let marquee = $state<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
+	function onSheetDown(e: PointerEvent) {
+		if (active || e.button !== 0) return
+		selected = false
+		const p = toSheet(e.clientX, e.clientY)
+		marquee = { x0: p.x, y0: p.y, x1: p.x, y1: p.y }
+		window.addEventListener('pointermove', onMarquee)
+		window.addEventListener('pointerup', endMarquee)
+	}
+	function onMarquee(e: PointerEvent) {
+		if (!marquee) return
+		const p = toSheet(e.clientX, e.clientY)
+		marquee = { ...marquee, x1: p.x, y1: p.y }
+	}
+	function endMarquee() {
+		window.removeEventListener('pointermove', onMarquee)
+		window.removeEventListener('pointerup', endMarquee)
+		const m = marquee; marquee = null
+		if (!m || !frame) return
+		const bx0 = Math.min(m.x0, m.x1), by0 = Math.min(m.y0, m.y1), bx1 = Math.max(m.x0, m.x1), by1 = Math.max(m.y0, m.y1)
+		if (bx1 - bx0 < 3 && by1 - by0 < 3) return   // tiny → just a click (already deselected)
+		const touches = bx0 <= frame.x + frame.w && bx1 >= frame.x && by0 <= frame.y + frame.h && by1 >= frame.y
+		if (touches) selected = true
+	}
+
+	// Interior click (paper space) deselects; double-click anywhere on the paper outside the
+	// frame exits model space.
+	function onInteriorDown(e: PointerEvent) { e.stopPropagation(); selected = false }
+	function onWrapDblclick(e: MouseEvent) {
 		if (active && !(e.target as Element).closest?.('.vp-frame')) ondeactivate?.()
 	}
 	const CORNERS = [[0, 0], [1, 0], [1, 1], [0, 1]] as const   // TL, TR, BR, BL
 	const CURSORS = ['nwse-resize', 'nesw-resize', 'nwse-resize', 'nesw-resize']
+	const mq = () => marquee ? { x: Math.min(marquee.x0, marquee.x1), y: Math.min(marquee.y0, marquee.y1), w: Math.abs(marquee.x1 - marquee.x0), h: Math.abs(marquee.y1 - marquee.y0) } : null
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-<div class="paper-wrap">
+<div class="paper-wrap" ondblclick={onWrapDblclick}>
 	<div class="paper">
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="sheet-area" bind:this={sheetEl} onpointerdown={onPaperDown} ondblclick={onPaperDblclick}>
+		<div class="sheet-area" bind:this={sheetEl} onpointerdown={onSheetDown}>
 			{#if frame}
 				<div class="vp-frame" class:selected={selected && !active} class:active
 					style="left:{frame.x}px; top:{frame.y}px; width:{frame.w}px; height:{frame.h}px">
 					<Viewport kind="floorplan" label="Outlets · 33F" {scale} {active} {tool} {entities} {sel} {view}
 						{onactivate} {ondeactivate} {onadd} {onupdate} {onselect} {onview} />
 					{#if !active}
-						<!-- paper-space cover: click selects, drag moves, double-click enters model space -->
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
-						<div class="vp-cover" class:selected onpointerdown={(e) => startDrag(e, 'move')} ondblclick={() => onactivate?.()}></div>
+						<!-- Border band selects + moves; the interior child leaves the middle inert. -->
+						<div class="vp-band" onpointerdown={(e) => startDrag(e, 'move')} ondblclick={() => onactivate?.()}>
+							<div class="vp-interior" onpointerdown={onInteriorDown} ondblclick={() => onactivate?.()}></div>
+						</div>
 						{#if selected}
 							{#each CORNERS as [cx, cy], i (i)}
-								<div class="vp-grip" style="left:{frame.x + cx * frame.w}px; top:{frame.y + cy * frame.h}px; cursor:{CURSORS[i]}"
+								<div class="vp-grip" style="left:{cx * frame.w}px; top:{cy * frame.h}px; cursor:{CURSORS[i]}"
 									onpointerdown={(e) => startDrag(e, 'grip', i)}></div>
 							{/each}
 						{/if}
 					{/if}
 				</div>
+			{/if}
+			{#if mq()}
+				{@const m = mq()}
+				<div class="vp-marquee" style="left:{m!.x}px; top:{m!.y}px; width:{m!.w}px; height:{m!.h}px"></div>
 			{/if}
 		</div>
 		<!-- titleblock (right vertical strip, like EOS) -->
@@ -129,15 +167,17 @@
 	.sheet-area { position:relative; flex:1; min-width:0; }
 	/* The floating viewport frame (paper space). */
 	.vp-frame { position:absolute; }
-	/* Cover intercepts paper-space interaction so the drawing underneath stays inert. */
-	.vp-cover { position:absolute; inset:0; cursor:pointer; touch-action:none; }
-	.vp-cover.selected { cursor:move; }
 	.vp-frame.selected { outline:1.5px solid #0e7490; outline-offset:1px; }
+	/* Border band = the only region that selects/moves the frame; interior stays inert. */
+	.vp-band { position:absolute; inset:0; border:11px solid transparent; box-sizing:border-box; cursor:move; touch-action:none; }
+	.vp-interior { position:absolute; inset:0; cursor:default; touch-action:none; }
 	/* Move/resize grips — same look as the rect-tool grips. */
 	.vp-grip {
 		position:absolute; width:12px; height:12px; transform:translate(-50%,-50%);
 		background:#fff; border:1.5px solid #0e7490; border-radius:2px; touch-action:none; z-index:2;
 	}
+	/* Paper-space selection box. */
+	.vp-marquee { position:absolute; background:#3b82f61f; border:1px solid #3b82f6; pointer-events:none; }
 	/* Titleblock */
 	.tb { width:16%; min-width:78px; display:flex; flex-direction:column; border:1px solid #64748b; }
 	.tb-logo {

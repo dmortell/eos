@@ -54,29 +54,39 @@
 	// ignores CSS transforms on HTML ancestors, so it's wrong whenever the canvas is
 	// zoomed (its scale lives in a CSS transform above this SVG). getBoundingClientRect
 	// reflects every ancestor transform, so this stays correct at any canvas/viewport zoom.
-	const VBW = 400, VBH = 250
-	// viewBox → screen mapping for the current rendered size (letterboxed via meet).
-	function vbMap(): { scale: number; offX: number; offY: number; left: number; top: number } | null {
+	// A viewport is a fixed-SCALE window into model space (like a CAD/AutoCAD viewport):
+	// BASE px on screen = 1 model unit at zoom 1, regardless of the frame size. So resizing
+	// the frame reveals/crops more model — it does NOT rescale the drawing. We achieve that
+	// with a viewBox sized to the rendered frame (÷BASE) and centred on the plan, updated by
+	// a ResizeObserver; the drawing (0..400 × 0..250) sits at that fixed scale within it.
+	const BASE = 1.84, CX = 200, CY = 125
+	// bind:clientWidth/Height reactively tracks the container size (Svelte manages the
+	// ResizeObserver). viewBox extent = size ÷ BASE, so px-per-unit stays constant and
+	// resizing the frame crops/reveals more model instead of rescaling the drawing.
+	let vpW = $state(0), vpH = $state(0)
+	let vbW = $derived((vpW || 400) / BASE), vbH = $derived((vpH || 250) / BASE)
+	let minX = $derived(CX - vbW / 2), minY = $derived(CY - vbH / 2)
+	// viewBox → screen mapping (aspect matches the frame, so no letterboxing).
+	function vbMap(): { scale: number; left: number; top: number } | null {
 		if (!svg) return null
 		const r = svg.getBoundingClientRect()
-		const scale = Math.min(r.width / VBW, r.height / VBH)
-		return { scale, offX: (r.width - VBW * scale) / 2, offY: (r.height - VBH * scale) / 2, left: r.left, top: r.top }
+		return { scale: r.width / vbW, left: r.left, top: r.top }   // px per model unit (incl. canvas zoom)
 	}
 	function clientToVB(cx: number, cy: number): Pt | null {
 		const m = vbMap(); if (!m) return null
-		return [(cx - m.left - m.offX) / m.scale, (cy - m.top - m.offY) / m.scale]
+		return [minX + (cx - m.left) / m.scale, minY + (cy - m.top) / m.scale]
 	}
-	// Client px → drawing (viewG-local) coords, for placing/hit-testing.
+	// Client px → drawing (view-local) coords, for placing/hit-testing.
 	function toLocalXY(cx: number, cy: number): Pt | null {
 		const v = clientToVB(cx, cy); if (!v) return null
 		return [(v[0] - view.x) / view.zoom, (v[1] - view.y) / view.zoom]
 	}
 	function toLocal(e: MouseEvent): Pt | null { return toLocalXY(e.clientX, e.clientY) }
-	// Drawing (viewG-local) coords → client px, for handle hit-testing.
+	// Drawing (view-local) coords → client px, for handle hit-testing.
 	function localToClient(x: number, y: number): { x: number; y: number } | null {
 		const m = vbMap(); if (!m) return null
 		const vx = view.x + x * view.zoom, vy = view.y + y * view.zoom
-		return { x: m.left + m.offX + vx * m.scale, y: m.top + m.offY + vy * m.scale }
+		return { x: m.left + (vx - minX) * m.scale, y: m.top + (vy - minY) * m.scale }
 	}
 	// ── pan/zoom the viewport content (SVG group transform, in viewBox units) ──
 	function onPan(dx: number, dy: number) {
@@ -192,7 +202,16 @@
 	function onDown(e: PointerEvent) {
 		if (!active || tool !== 'Select' || e.button !== 0) return   // left / primary only
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
-		const hitInfo = pick(e.clientX, e.clientY); if (!hitInfo) return   // empty space → let click clear
+		const hitInfo = pick(e.clientX, e.clientY)
+		if (!hitInfo) {
+			// empty space → drag a Kestrel-style selection box (window / crossing)
+			marquee = { a: p, b: p }
+			try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
+			e.preventDefault()
+			window.addEventListener('pointermove', onMarqueeMove)
+			window.addEventListener('pointerup', onMarqueeUp)
+			return
+		}
 		const base = entities.find(x => x.id === hitInfo.id); if (!base) return
 		if (!selSet.has(hitInfo.id)) onselect?.([hitInfo.id])
 		drag = { id: hitInfo.id, base, kind: hitInfo.kind, gi: hitInfo.gi, start: p }
@@ -217,6 +236,39 @@
 		window.removeEventListener('pointermove', onDragMove)
 		window.removeEventListener('pointerup', onDragUp)
 	}
+
+	// ── selection marquee (Kestrel/AutoCAD): drag L→R = window (enclose fully),
+	// R→L = crossing (touch). bbox tests are enough for the mock. ──
+	let marquee = $state<{ a: Pt; b: Pt } | null>(null)
+	function bbox(e: Ent): [number, number, number, number] {
+		if (e.type === 'circle') return [e.c![0] - e.r!, e.c![1] - e.r!, e.c![0] + e.r!, e.c![1] + e.r!]
+		if (e.type === 'text') return [e.a![0], e.a![1] - 10, e.a![0] + 40, e.a![1]]
+		const xs = [e.a![0], e.b![0]], ys = [e.a![1], e.b![1]]
+		return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
+	}
+	function onMarqueeMove(e: PointerEvent) {
+		if (!marquee) return
+		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
+		marquee = { a: marquee.a, b: p }
+	}
+	function onMarqueeUp() {
+		window.removeEventListener('pointermove', onMarqueeMove)
+		window.removeEventListener('pointerup', onMarqueeUp)
+		const m = marquee; marquee = null
+		if (!m) return
+		const x0 = Math.min(m.a[0], m.b[0]), y0 = Math.min(m.a[1], m.b[1])
+		const x1 = Math.max(m.a[0], m.b[0]), y1 = Math.max(m.a[1], m.b[1])
+		if (x1 - x0 < 2 && y1 - y0 < 2) return   // tiny → treat as a click (let onClick clear)
+		const crossing = m.b[0] < m.a[0]   // dragged right→left
+		const ids = entities.filter(en => {
+			const [bx0, by0, bx1, by1] = bbox(en)
+			return crossing
+				? bx0 <= x1 && bx1 >= x0 && by0 <= y1 && by1 >= y0        // intersects
+				: bx0 >= x0 && bx1 <= x1 && by0 >= y0 && by1 <= y1        // fully enclosed
+		}).map(en => en.id)
+		onselect?.(ids)
+		suppressClick = true   // don't let the ensuing click clear this selection
+	}
 	// Kestrel-style prompt
 	let prompt = $derived.by(() => {
 		if (!active) return ''
@@ -236,12 +288,12 @@
 <svelte:window onkeydown={onKey} />
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="vp" class:active role="button" tabindex="0" style:cursor={cursorStyle}
+<div class="vp" class:active bind:clientWidth={vpW} bind:clientHeight={vpH} role="button" tabindex="0" style:cursor={cursorStyle}
 	use:panzoom={{ enabled: () => active, onpan: onPan, onzoom: onZoom }}
 	onclick={onClick} ondblclick={onDblclick} onpointerdown={onDown} onpointermove={onMove}
 	onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onactivate?.() } }}>
 
-	<svg bind:this={svg} class="vp-svg {kind === 'model' || kind === 'elevation' ? 'model' : ''}" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid meet">
+	<svg bind:this={svg} class="vp-svg {kind === 'model' || kind === 'elevation' ? 'model' : ''}" viewBox="{minX} {minY} {vbW} {vbH}" preserveAspectRatio="xMidYMid meet">
 		<g transform="translate({view.x} {view.y}) scale({view.zoom})">
 			<!-- background content -->
 			{#if kind === 'model' || kind === 'elevation'}
@@ -276,6 +328,12 @@
 						{/each}
 					{/if}
 				{/each}
+			{/if}
+			<!-- Kestrel selection box: solid blue = window (enclose), dashed green = crossing -->
+			{#if active && marquee}
+				<rect class="marquee {marquee.b[0] < marquee.a[0] ? 'crossing' : 'window'}"
+					x={Math.min(marquee.a[0], marquee.b[0])} y={Math.min(marquee.a[1], marquee.b[1])}
+					width={Math.abs(marquee.b[0] - marquee.a[0])} height={Math.abs(marquee.b[1] - marquee.a[1])} />
 			{/if}
 		</g>
 	</svg>
@@ -330,6 +388,10 @@
 	/* Editing grips: white squares with a teal border, constant size (÷zoom in markup). */
 	.grip { fill:#fff; stroke:#0e7490; stroke-width:1.2; cursor:grab; }
 	.grip:hover { fill:#cffafe; }
+	/* Kestrel/AutoCAD selection box: window (L→R) solid blue, crossing (R→L) dashed green. */
+	.marquee { pointer-events:none; }
+	.marquee.window { fill:#3b82f61f; stroke:#3b82f6; stroke-width:1; }
+	.marquee.crossing { fill:#10b9811f; stroke:#10b981; stroke-width:1; stroke-dasharray:5 3; }
 	.vp-tag {
 		position:absolute; top:6px; left:6px; display:flex; align-items:center; gap:5px;
 		font-size:9px; color:#475569; background:#ffffffcc; border:1px solid #e2e8f0; border-radius:3px; padding:2px 6px;
