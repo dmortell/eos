@@ -111,8 +111,13 @@ in-session **undo/redo** snapshots — but **no diff/compare between revisions**
 Sheets' basic version** — see §10.
 
 ## 3. Layers  (P1)
-- [ ] **Get Layers working** — the left Layers panel is currently mock. Real
-  show/hide/lock, active layer, per-object layer assignment, layer of new objects.
+> Design target: the annotated reference image (`src/routes/ui/ChatGPT Image …png`) —
+> a right-side LAYERS panel with **View Presets**, nested groups, eye toggles, colour/line
+> swatches. **UI built** (`parts/LayersPanel.svelte`); wiring is the remaining work.
+- [~] Right-side **Layers panel UI** — done (nested groups, eye toggles, swatches, View
+  Preset picker, New Layer). Mock state only.
+- [ ] **Wire it up** — real show/hide/lock, active layer, per-object layer assignment,
+  layer of new objects; apply a **View Preset** = a saved set of layer visibilities.
 - [ ] **Background layers** — import one or more PDF / image / DXF files as background
   layers that can be toggled/swapped (e.g. compare floorplan vs RCP). Replaces the
   Sheets "one background PDF" limitation.
@@ -143,9 +148,15 @@ Sheets' basic version** — see §10.
 - [ ] Live two-way binding to the selected entities (currently mock inputs).
 
 ## 8. Project tree ↔ Pages linkage  (P2)
-- [ ] ◧ **design** — a good model linking the **Project tree** (building/floor/zone/room/row)
-  to **Pages** and to uploaded floorplans, so a page/view is scoped to a place and the
-  right drawings are to hand.
+> Design target: the reference image's **Drawing Navigator** (left) — a location tree
+> (Floors / Server Rooms / Data Center / Racks) whose leaves are drawings/views that open
+> as tabs. **UI built** (`parts/DrawingNavigator.svelte`, mock tree; clicking a leaf opens
+> a tab). Also mirrors the reference top bar: Package / Version / Revision selectors + a
+> Ctrl-K command palette.
+- [~] **Drawing Navigator UI** — done (location tree → drawing leaves → open tab).
+- [ ] Wire the tree to real project data + uploaded floorplans (scope a view to a place).
+- [ ] Top-bar **Package / Version / Revision** selectors + package content preview.
+- [ ] **Command palette** (Ctrl-K) — search drawings/floors/rooms/racks.
 - [ ] **Drawing packages** + **master drawing list** management.
 
 ## 9. Status bar wiring  (P1)

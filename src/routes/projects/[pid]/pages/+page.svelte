@@ -10,6 +10,8 @@
 	import { page } from '$app/state'
 	import PaperPage from './parts/PaperPage.svelte'
 	import Viewport, { type Ent } from './ui/Viewport.svelte'
+	import DrawingNavigator from './parts/DrawingNavigator.svelte'
+	import LayersPanel from './parts/LayersPanel.svelte'
 	import { panzoom } from './ui/panzoom'
 
 	// Which pane (if any) has its viewport activated — groundwork for editing/CAD
@@ -114,77 +116,7 @@
 	// Sidebars
 	let leftOpen = $state(true)
 	let rightOpen = $state(true)
-	let leftTab = $state<'pages' | 'layers' | 'tree'>('tree')
-
-	// Project navigator tree (mock) — Project › Building › Floor › Zone/Office › Room › Row
-	type TreeNode = { id: string; label: string; kind: string; children?: TreeNode[] }
-	const projectTree: TreeNode[] = [
-		{ id: 'proj', label: 'Project Journey', kind: 'project', children: [
-			{ id: 'b-a', label: 'Hibiya Midtown', kind: 'building', children: [
-				{ id: 'f33', label: '33F', kind: 'floor', children: [
-					{ id: 'r3303', label: 'Zone 3303', kind: 'zone', children: [
-						{ id: 'r3303-a', label: 'IDF1', kind: 'room', children: [
-							{ id: 'r3303-a1', label: 'Row A', kind: 'row' },
-							{ id: 'r3303-b1', label: 'Row B', kind: 'row' },
-						] },
-						{ id: 'r3303-b', label: 'IDF2', kind: 'room', children: [
-							{ id: 'r3303-b-a', label: 'Row A', kind: 'row' },
-							{ id: 'r3303-b-b', label: 'Row B', kind: 'row' },
-						] },
-					] },
-					{ id: 'r3307', label: 'Zone 3307', kind: 'zone', children: [
-						{ id: 'r3307-a', label: 'IDF1', kind: 'room', children: [
-							{ id: 'r3307-a1', label: 'Row A', kind: 'row' },
-						] },
-					] },
-				] },
-				{ id: 'f30', label: '30F', kind: 'floor', children: [
-					{ id: 'r3001', label: 'Zone 3001', kind: 'zone', children: [
-						{ id: 'r3001-a', label: 'Row A', kind: 'row' },
-					] },
-				] },
-			] },
-			{ id: 'b-b', label: 'Shinmaru', kind: 'building', children: [
-				{ id: 'f12', label: '18F', kind: 'floor', children: [
-					{ id: 'r1201', label: 'Office 1201', kind: 'zone', children: [
-						{ id: 'r1201-a', label: 'Row A', kind: 'row' },
-					] },
-				] },
-			] },
-		] },
-	]
-	// Distinct icon per hierarchy level (project / building / floor / zone / room / row)
-	const treeIcon: Record<string, string> = { project: 'folderOpen', building: 'home', floor: 'layers', zone: 'crop', room: 'server', row: 'rows' }
-	let expanded = $state(new Set<string>(['proj', 'b-a', 'f33']))
-	let selectedNode = $state<string | null>('r3303')
-	function toggleExpand(id: string) {
-		const s = new Set(expanded)
-		s.has(id) ? s.delete(id) : s.add(id)
-		expanded = s
-	}
-	// Find a node by id (for the right-panel inspector) + mock per-kind properties.
-	function findNode(nodes: TreeNode[], id: string | null): TreeNode | null {
-		if (!id) return null
-		for (const n of nodes) {
-			if (n.id === id) return n
-			if (n.children) { const f = findNode(n.children, id); if (f) return f }
-		}
-		return null
-	}
-	let selNode = $derived(findNode(projectTree, selectedNode))
-	const kindLabel: Record<string, string> = { project: 'Project', building: 'Building', floor: 'Floor', zone: 'Zone / Office', room: 'Room', row: 'Row' }
-	function propsFor(node: TreeNode): { fields: [string, string, boolean?][]; add: string | null } {
-		const n = node.label
-		switch (node.kind) {
-			case 'project': return { fields: [['Name', n], ['Client', 'Journey Inc.'], ['Address', '1-1 Hibiya, Tokyo'], ['Buildings', '2', true], ['Floors', '3', true]], add: 'Add building' }
-			case 'building': return { fields: [['Name', n], ['Address', '—'], ['Floors', '2', true]], add: 'Add floor' }
-			case 'floor': return { fields: [['Name', n], ['Level', '33'], ['Elevation (mm)', '132000'], ['Zones', '2', true]], add: 'Add zone' }
-			case 'zone': return { fields: [['Name', n], ['Type', 'Office'], ['Area (m²)', '420'], ['Rooms', '2', true]], add: 'Add room' }
-			case 'room': return { fields: [['Name', n], ['Type', 'IDF'], ['Racks', '4', true], ['Rows', '2', true]], add: 'Add row' }
-			case 'row': return { fields: [['Name', n], ['Racks', '6', true], ['Position', 'A-01']], add: null }
-			default: return { fields: [['Name', n]], add: null }
-		}
-	}
+	let rightTab = $state<'layers' | 'props'>('layers')   // right sidebar: Layers | Properties (reference layout)
 
 	// Menubar
 	let openMenu = $state<string | null>(null)
@@ -208,30 +140,13 @@
 		// everything else is a mock no-op
 	}
 
-	// Left · Pages list (unopened mock pages you can open into a tab)
-	const libraryPages: { title: string; kind: Kind }[] = [
-		{ title: '3303 Cable Routes', kind: 'sheet' },
-		{ title: '3307 Floorplan', kind: 'plan' },
-		{ title: 'Rack B · Elevation', kind: 'elevation' },
-		{ title: 'Riser Diagram', kind: 'sheet' },
-	]
-	// Titles currently open — so the Library can focus an already-open page instead of
-	// opening a duplicate document. (Multiple VIEWS of one page = split, same doc.)
-	let openTitles = $derived(new Set(tabs.map(t => t.title)))
-	function openLibrary(p: { title: string; kind: Kind }) {
-		const existing = tabs.find(t => t.title === p.title)
+	// Drawing Navigator (left) → open the picked drawing/view as a tab (focus if already open).
+	function openDrawing(d: { title: string; kind: Kind }) {
+		const existing = tabs.find(t => t.title === d.title)
 		if (existing) openTab(existing.id)
-		else addTab(p.kind, p.title)
+		else addTab(d.kind, d.title)
 	}
-	// Left · Layers (mock)
-	let layers = $state([
-		{ name: 'Outlets', color: '#3b82f6', on: true, lock: false },
-		{ name: 'Trunks', color: '#0369a1', on: true, lock: false },
-		{ name: 'Racks', color: '#10b981', on: true, lock: false },
-		{ name: 'Annotations', color: '#ef4444', on: true, lock: false },
-		{ name: 'Dimensions', color: '#8b5cf6', on: false, lock: false },
-	])
-	let activeLayer = $state('Annotations')
+	let activeLayer = $state('Annotations')   // shown in the Properties panel (mock)
 
 	// Canvas · tools + pointer + zoom
 	const TOOLS = [
@@ -345,30 +260,6 @@
 
 <svelte:head><title>EOS — Pages (mockup)</title></svelte:head>
 
-<!-- Recursive project-tree row (Project › Building › Floor › Room › Row) -->
-{#snippet treeRow(node: TreeNode, depth: number)}
-	{@const kids = node.children ?? []}
-	{@const isExp = expanded.has(node.id)}
-	<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-	<div class="tree-row" class:sel={selectedNode === node.id} style:padding-left="{depth * 11 + 6}px"
-		role="treeitem" tabindex="0"
-		onclick={() => (selectedNode = node.id)}
-		onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectedNode = node.id } }}>
-		{#if kids.length}
-			<button class="tw-chev" tabindex="-1" aria-label={isExp ? 'Collapse' : 'Expand'} onclick={(e) => { e.stopPropagation(); toggleExpand(node.id) }}>
-				<Icon name={isExp ? 'chevronDown' : 'chevronRight'} size={12} />
-			</button>
-		{:else}
-			<span class="tw-spacer"></span>
-		{/if}
-		<Icon name={treeIcon[node.kind] ?? 'folder'} size={13} />
-		<span class="grow txt">{node.label}</span>
-	</div>
-	{#if kids.length && isExp}
-		{#each kids as c (c.id)}{@render treeRow(c, depth + 1)}{/each}
-	{/if}
-{/snippet}
-
 <div class="shell" data-mock-theme={mockTheme}>
 	{#if openMenu}<button class="menu-backdrop" aria-label="Close menu" onclick={() => (openMenu = null)}></button>{/if}
 	{#if tabMenuPane !== null}<button class="menu-backdrop" aria-label="Close menu" onclick={() => (tabMenuPane = null)}></button>{/if}
@@ -412,47 +303,10 @@
 	<!-- Body: left · editor-area (1–2 panes) · right -->
 	<div class="body">
 
-		<!-- Left sidebar -->
+		<!-- Left sidebar: Drawing Navigator (location tree → drawings/views) -->
 		{#if leftOpen}
 			<aside class="side left">
-				<div class="side-head">
-					<div class="side-tabs">
-						<button class:on={leftTab === 'tree'} onclick={() => (leftTab = 'tree')}>Project</button>
-						<button class:on={leftTab === 'layers'} onclick={() => (leftTab = 'layers')}>Layers</button>
-						<button class:on={leftTab === 'pages'} onclick={() => (leftTab = 'pages')}>Pages</button>
-					</div>
-					<button class="side-collapse" title="Collapse" onclick={() => (leftOpen = false)}><Icon name="chevronLeft" size={13} /></button>
-				</div>
-				<div class="side-body">
-					{#if leftTab === 'tree'}
-						{#each projectTree as n (n.id)}{@render treeRow(n, 0)}{/each}
-					{:else if leftTab === 'layers'}
-						{#each layers as l (l.name)}
-							<div class="layer-row" class:active={activeLayer === l.name}>
-								<span class="dot" style:background={l.color}></span>
-								<button class="grow txt" onclick={() => (activeLayer = l.name)}>{l.name}</button>
-								<button class="mini" class:off={!l.on} title="Show/hide" onclick={() => (l.on = !l.on)}><Icon name={l.on ? 'eye' : 'eyeSlash'} size={13} /></button>
-								<button class="mini" class:warn={l.lock} title="Lock" onclick={() => (l.lock = !l.lock)}><Icon name={l.lock ? 'lock' : 'lockOpen'} size={13} /></button>
-							</div>
-						{/each}
-					{:else}
-						<div class="grp-label">Open</div>
-						{#each tabs as t (t.id)}
-							<div class="page-row" class:active={t.id === panes[focused]?.activeId}>
-								<button class="row-btn" onclick={() => openTab(t.id)}><Icon name={kindIcon[t.kind]} size={13} /><span class="grow txt">{t.title}</span></button>
-								<button class="mini row-close" title="Close page" aria-label="Close page" onclick={() => closeTab(t.id)}>−</button>
-							</div>
-						{/each}
-						<div class="grp-label">Library</div>
-						{#each libraryPages as p (p.title)}
-							<button class="page-row" onclick={() => openLibrary(p)}>
-								<Icon name={kindIcon[p.kind]} size={13} /><span class="grow txt">{p.title}</span>
-								{#if openTitles.has(p.title)}<span class="lib-open">open</span>{:else}<Icon name="plus" size={12} />{/if}
-							</button>
-						{/each}
-					{/if}
-				</div>
-				<div class="side-foot">{layers.length} layers · {tabs.length} open</div>
+				<DrawingNavigator onopen={openDrawing} oncollapse={() => (leftOpen = false)} activeTitle={active?.title ?? ''} />
 			</aside>
 		{:else}
 			<button class="rail left" title="Show panel" onclick={() => (leftOpen = true)}>
@@ -563,26 +417,15 @@
 			<aside class="side right">
 				<div class="side-head">
 					<button class="side-collapse" title="Collapse" onclick={() => (rightOpen = false)}><Icon name="chevronRight" size={13} /></button>
-					<div class="side-title">Properties</div>
+					<div class="side-tabs rt">
+						<button class:on={rightTab === 'layers'} onclick={() => (rightTab = 'layers')}>Layers</button>
+						<button class:on={rightTab === 'props'} onclick={() => (rightTab = 'props')}>Properties</button>
+					</div>
 				</div>
+				{#if rightTab === 'layers'}
+					<LayersPanel />
+				{:else}
 				<div class="side-body">
-					{#if leftTab === 'tree' && selNode}
-						{@const cfg = propsFor(selNode)}
-						<div class="node-head">
-							<span class="node-ic"><Icon name={treeIcon[selNode.kind] ?? 'folder'} size={16} /></span>
-							<div class="node-hd-txt">
-								<input class="node-name" value={selNode.label} />
-								<div class="node-kind">{kindLabel[selNode.kind] ?? selNode.kind}</div>
-							</div>
-						</div>
-						<div class="prop-sec">PROPERTIES</div>
-						{#each cfg.fields as f (f[0])}
-							<div class="prop"><span>{f[0]}</span><input value={f[1]} readonly={!!f[2]} /></div>
-						{/each}
-						{#if cfg.add}
-							<button class="node-add"><Icon name="plus" size={13} /> {cfg.add}</button>
-						{/if}
-					{:else}
 					<!-- Transform (3-across X/Y/Z), matched to the sidebar style -->
 					<div class="prop-sec xf-head">Transform<span class="xf-badge">LOCAL</span></div>
 					{#each [['Position', 'position', 0.05], ['Rotation · degrees', 'rotation', 1], ['Scale', 'scale', 0.05]] as [label, key, step] (key)}
@@ -609,8 +452,8 @@
 					<div class="prop-sec">STYLE</div>
 					<div class="prop"><span>Color</span><input value="ByLayer" readonly /></div>
 					<div class="prop"><span>Line</span><input value="0.25 mm" /></div>
-					{/if}
 				</div>
+				{/if}
 			</aside>
 		{:else}
 			<button class="rail right" title="Show panel" onclick={() => (rightOpen = true)}>
@@ -741,7 +584,6 @@
 	.side-tabs { display:flex; gap:2px; flex:1; }
 	.side-tabs button { padding:3px 8px; font-size:11px; border-radius:4px; color:var(--muted); background:none; border:none; }
 	.side-tabs button.on { background:var(--active); color:var(--text); }
-	.side-title { flex:1; font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
 	.side-collapse { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:4px; color:var(--muted); background:none; border:none; }
 	.side-collapse:hover { background:var(--hover); color:var(--text); }
 	.side-body { flex:1; overflow-y:auto; padding:5px; scrollbar-width:thin; scrollbar-color:var(--line) transparent; }
@@ -749,34 +591,8 @@
 	.side-body::-webkit-scrollbar-track { background:transparent; }
 	.side-body::-webkit-scrollbar-thumb { background:var(--line); border-radius:6px; border:3px solid transparent; background-clip:padding-box; }
 	.side-body:hover::-webkit-scrollbar-thumb { background:var(--faint); background-clip:padding-box; }
-	.side-foot { flex:0 0 auto; padding:5px 8px; font-size:10px; color:var(--faint); border-top:1px solid var(--line-soft); background:linear-gradient(145deg,var(--panel2),var(--panel)); }
 
 	.grow { flex:1; } .txt { text-align:left; background:none; border:none; color:inherit; font-size:12px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-	.layer-row { display:flex; align-items:center; gap:7px; padding:4px 6px; border-radius:5px; }
-	.layer-row:hover { background:var(--hover); }
-	.layer-row.active { background:var(--active); box-shadow:inset 2px 0 0 var(--accent); }
-	.dot { width:11px; height:11px; border-radius:3px; flex:0 0 auto; box-shadow:0 0 0 1px #0003 inset; }
-	.mini { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:4px; color:var(--muted); background:none; border:none; }
-	.mini:hover { background:var(--line); color:var(--text); }
-	.mini.off { opacity:.4; } .mini.warn { color:var(--danger); }
-	.grp-label { font-size:9px; text-transform:uppercase; letter-spacing:.1em; color:var(--faint); padding:6px 6px 3px; }
-	.page-row { display:flex; align-items:center; gap:7px; width:100%; padding:5px 6px; border-radius:5px; color:var(--text); background:none; border:none; text-align:left; }
-	.page-row:hover { background:var(--hover); }
-	.page-row.active { background:var(--active); color:var(--text); }
-	.row-btn { display:flex; align-items:center; gap:7px; flex:1; min-width:0; background:none; border:none; color:inherit; text-align:left; padding:0; }
-	.row-btn :global(svg) { flex:0 0 auto; }
-	.row-close { font-size:15px; line-height:1; }
-	.lib-open { font-size:8px; text-transform:uppercase; letter-spacing:.06em; color:var(--faint); border:1px solid var(--line); border-radius:3px; padding:1px 4px; }
-
-	/* Project tree (Project › Building › Floor › Zone > Room › Row) */
-	.tree-row { display:flex; align-items:center; gap:5px; padding:4px 6px; border-radius:5px; color:var(--text); cursor:pointer; user-select:none; }
-	.tree-row:hover { background:var(--hover); }
-	.tree-row.sel { background:var(--active); box-shadow:inset 2px 0 0 var(--accent); }
-	.tree-row :global(svg) { color:var(--muted); flex:0 0 auto; }
-	.tree-row.sel :global(svg) { color:var(--accent); }
-	.tw-chev { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; flex:0 0 auto; border-radius:3px; color:var(--muted); background:none; border:none; }
-	.tw-chev:hover { color:var(--text); background:var(--line); }
-	.tw-spacer { width:16px; flex:0 0 auto; }
 
 	.rail { flex:0 0 auto; width:28px; display:flex; flex-direction:column; align-items:center; gap:10px; padding-top:8px;
 		background:var(--panel); color:var(--muted); border:none; }
@@ -814,18 +630,6 @@
 	.prop input { background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:3px 6px; font-size:11px; font-family:Consolas,monospace; min-width:0; }
 	.prop input:read-only { color:var(--muted); }
 	.prop input:focus { outline:none; border-color:var(--accent); }
-
-	/* Tree-node inspector header + add-child button */
-	.node-head { display:flex; align-items:center; gap:9px; padding:10px 4px 8px; }
-	.node-ic { display:flex; align-items:center; justify-content:center; width:30px; height:30px; flex:0 0 auto;
-		border-radius:6px; color:var(--accent); background:var(--active); border:1px solid var(--accent-dim); }
-	.node-hd-txt { min-width:0; }
-	.node-name { width:100%; background:none; border:none; padding:0; color:var(--text); font-size:13px; font-weight:600; }
-	.node-name:focus { outline:none; }
-	.node-kind { font-size:9px; text-transform:uppercase; letter-spacing:.08em; color:var(--faint); margin-top:2px; }
-	.node-add { display:flex; align-items:center; justify-content:center; gap:6px; width:calc(100% - 8px); margin:11px 4px 4px;
-		padding:7px; font-size:11px; border-radius:4px; color:var(--text); background:var(--panel2); border:1px dashed var(--line); }
-	.node-add:hover { background:var(--hover); border-style:solid; border-color:var(--accent-dim); }
 
 	/* Transform inspector — 3-across X/Y/Z, sidebar-token styled */
 	.xf-head { display:flex; align-items:center; justify-content:space-between; }
