@@ -15,6 +15,7 @@
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
 	import HistoryPanel from './parts/HistoryPanel.svelte'
 	import StatusBar from './parts/StatusBar.svelte'
+	import ViewGizmos from './parts/ViewGizmos.svelte'
 	import Menubar from './parts/Menubar.svelte'
 	import CommandPalette from './parts/CommandPalette.svelte'
 	import { panzoom } from './ui/panzoom'
@@ -41,7 +42,14 @@
 	// each pane tracks its own active tab (VS Code-style split).
 	type View = { zoom: number; x: number; y: number }
 	// Each pane (view) remembers its own tool + its own canvas (paper-space) pan/zoom.
-	let panes = $state<{ id: string; activeId: string; tool: string; canvasView: View }[]>([{ id: 'p1', activeId: 't2', tool: 'Select', canvasView: { zoom: 1, x: 0, y: 0 } }])
+	type Proj = 'plan' | 'elevation' | 'model'
+	let panes = $state<{ id: string; activeId: string; tool: string; canvasView: View; projection?: Proj }[]>([{ id: 'p1', activeId: 't2', tool: 'Select', canvasView: { zoom: 1, x: 0, y: 0 } }])
+	// A pane's active PROJECTION: its own override (set via the ViewCube) or, by default, the tab's
+	// natural kind. Drives both the Viewport kind and which ViewCube face is lit.
+	function paneProj(pane: { projection?: Proj }, a: Tab | null): Proj {
+		return pane.projection ?? (a?.kind === 'elevation' ? 'elevation' : a?.kind === 'model' ? 'model' : 'plan')
+	}
+	const projKind = (p: Proj) => (p === 'plan' ? 'floorplan' : p) as 'floorplan' | 'elevation' | 'model'
 	let focused = $state(0)      // which pane new tabs / sidebar actions target
 	let canvasEls = $state<(HTMLElement | undefined)[]>([])   // each pane's .canvas, for navFit
 	let splitFrac = $state(0.5)  // pane 0 width fraction when split
@@ -491,7 +499,7 @@
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => { if (activeVpPane === pi) activeVpPane = null }}>
-										<Viewport kind={a.kind === 'elevation' ? 'elevation' : a.kind === 'model' ? 'model' : 'floorplan'} label={a.title} tool={p.tool} acad={acadMode} navContent={navContent} grid={toggles.GRID} lwt={toggles.LWT} canvasZoom={p.canvasView.zoom} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
+										<Viewport kind={projKind(paneProj(p, a))} label={a.title} tool={p.tool} acad={acadMode} navContent={navContent} grid={toggles.GRID} lwt={toggles.LWT} canvasZoom={p.canvasView.zoom} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
 											active={activeVpPane === pi} onactivate={() => (activeVpPane = pi)} ondeactivate={() => { if (activeVpPane === pi) activeVpPane = null }}
 											onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} />
 									</div>
@@ -511,6 +519,11 @@
 							<button class="tool" title="Fit" onclick={() => navFit()}><Icon name="fit" size={16} /></button>
 							<button class="tool" title="Pan (right-drag)"><Icon name="pan" size={16} /></button>
 						</div>
+						{#if a}
+							<!-- fixed-size view gizmos (ViewCube + WCS axes), screen space so they don't zoom -->
+							<ViewGizmos projection={paneProj(p, a)}
+								onset={(proj) => { p.projection = proj; if (a.kind === 'sheet' && layout === 'sheet' && proj !== 'plan') layout = 'model' }} />
+						{/if}
 					</main>
 				</section>
 				{#if panes.length === 2 && pi === 0}

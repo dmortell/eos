@@ -203,6 +203,7 @@
 	}
 	function hitEnt(e: Ent, p: Pt, thr: number): boolean {
 		if (e.type === 'line' || e.type === 'dim') return segDist(p, e.a!, e.b!) < thr
+		if (e.type === 'box' && kind === 'elevation') { const x0 = Math.min(e.a![0], e.b![0]), x1 = Math.max(e.a![0], e.b![0]), y1 = Math.max(e.a![1], e.b![1]), yt = y1 - (e.h ?? DEFAULT_BOX_H); return p[0] >= x0 - thr && p[0] <= x1 + thr && p[1] >= yt - thr && p[1] <= y1 + thr }
 		if (e.type === 'rect' || e.type === 'box') { const x0 = Math.min(e.a![0], e.b![0]), y0 = Math.min(e.a![1], e.b![1]), x1 = Math.max(e.a![0], e.b![0]), y1 = Math.max(e.a![1], e.b![1]); return p[0] >= x0 - thr && p[0] <= x1 + thr && p[1] >= y0 - thr && p[1] <= y1 + thr }
 		if (e.type === 'circle') return dist(e.c!, p) <= e.r! + thr
 		if (e.type === 'ellipse') {
@@ -214,8 +215,15 @@
 		if (e.type === 'text') return Math.abs(p[0] - e.a![0]) < 24 && Math.abs(p[1] - e.a![1]) < 10
 		return false
 	}
+	// Pick tolerance in MODEL units for a target of `px` screen pixels (px of slack around a line
+	// edge). 8 model units was huge at scale — this keeps it a few px whatever the zoom.
+	function hitTol(px: number): number {
+		const m = vbMap()
+		return m ? px / (view.zoom * m.scale) : px
+	}
 	function hit(p: Pt): string[] {
-		for (let i = entities.length - 1; i >= 0; i--) if (hitEnt(entities[i], p, 8)) return [entities[i].id]
+		const thr = hitTol(7)
+		for (let i = entities.length - 1; i >= 0; i--) if (hitEnt(entities[i], p, thr)) return [entities[i].id]
 		return []
 	}
 
@@ -229,6 +237,16 @@
 			{ x: e.a![0], y: e.a![1], apply: p => ({ ...e, a: p }) },
 			{ x: e.b![0], y: e.b![1], apply: p => ({ ...e, b: p }) },
 		]
+		if (e.type === 'box' && kind === 'elevation') {   // grips on the FRONT FACE (width × height)
+			const x0 = Math.min(e.a![0], e.b![0]), x1 = Math.max(e.a![0], e.b![0]), y1 = Math.max(e.a![1], e.b![1])
+			const h = e.h ?? DEFAULT_BOX_H, yt = y1 - h
+			return [
+				{ x: x0, y: y1, apply: p => boxElevSet(e, { x0: p[0], yb: p[1] }) },       // bottom-left: width + baseline
+				{ x: x1, y: y1, apply: p => boxElevSet(e, { x1: p[0], yb: p[1] }) },       // bottom-right
+				{ x: x0, y: yt, apply: p => boxElevSet(e, { x0: p[0], h: y1 - p[1] }) },   // top-left: width + height
+				{ x: x1, y: yt, apply: p => boxElevSet(e, { x1: p[0], h: y1 - p[1] }) },   // top-right
+			]
+		}
 		if (e.type === 'rect' || e.type === 'ellipse' || e.type === 'box') {   // 4 corner grips on the footprint/bbox
 			const [ax, ay] = e.a!, [bx, by] = e.b!
 			return [
@@ -253,7 +271,7 @@
 	// endpoint → 15° about the other end. (Circle radius left free.)
 	function constrainGrip(base: Ent, gi: number, p: Pt, shift: boolean): Pt {
 		if (!shift) return p
-		if (base.type === 'rect' || base.type === 'ellipse' || base.type === 'box') {
+		if (base.type === 'rect' || base.type === 'ellipse' || (base.type === 'box' && kind !== 'elevation')) {
 			const [ax, ay] = base.a!, [bx, by] = base.b!
 			const an: Pt = gi === 0 ? [bx, by] : gi === 1 ? [ax, ay] : gi === 2 ? [bx, ay] : [ax, by]
 			const s = Math.max(Math.abs(p[0] - an[0]), Math.abs(p[1] - an[1]))
@@ -403,6 +421,7 @@
 	function bbox(e: Ent): [number, number, number, number] {
 		if (e.type === 'circle') return [e.c![0] - e.r!, e.c![1] - e.r!, e.c![0] + e.r!, e.c![1] + e.r!]
 		if (e.type === 'text') return [e.a![0], e.a![1] - 10, e.a![0] + 40, e.a![1]]
+		if (e.type === 'box' && kind === 'elevation') { const y1 = Math.max(e.a![1], e.b![1]); return [Math.min(e.a![0], e.b![0]), y1 - (e.h ?? DEFAULT_BOX_H), Math.max(e.a![0], e.b![0]), y1] }
 		const xs = [e.a![0], e.b![0]], ys = [e.a![1], e.b![1]]
 		return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
 	}
@@ -445,6 +464,16 @@
 			right: `${P(x1, y0)} ${P(x1, y1)} ${P(x1 + ox, y1 + oy)} ${P(x1 + ox, y0 + oy)}`,
 			back: `${P(x0, y0)} ${P(x1, y0)} ${P(x1 + ox, y0 + oy)} ${P(x0 + ox, y0 + oy)}`,
 		}
+	}
+
+	// Apply an elevation-view edit to a box: change width (x0/x1), baseline (yb — translates the
+	// footprint in y so depth is preserved and the box moves vertically), and/or height (h).
+	function boxElevSet(e: Ent, ch: { x0?: number; x1?: number; yb?: number; h?: number }): Ent {
+		const cx0 = Math.min(e.a![0], e.b![0]), cx1 = Math.max(e.a![0], e.b![0])
+		const cy0 = Math.min(e.a![1], e.b![1]), cy1 = Math.max(e.a![1], e.b![1])
+		const nx0 = ch.x0 ?? cx0, nx1 = ch.x1 ?? cx1, depth = cy1 - cy0
+		const ny1 = ch.yb ?? cy1, ny0 = ny1 - depth
+		return { ...e, a: [nx0, ny0], b: [nx1, ny1], h: Math.max(1, ch.h ?? e.h ?? DEFAULT_BOX_H) }
 	}
 
 	// Kestrel-style prompt
@@ -510,7 +539,7 @@
 				{#each entities as e (e.id)}
 					{#if selSet.has(e.id)}
 						{#each gripsFor(e) as g}
-							<Handle cx={g.x} cy={g.y} size={gripSize} cursor="crosshair" />
+							<Handle cx={g.x} cy={g.y} size={gripSize} cursor="crosshair" strokeWidth={1.2 / (canvasZoom || 1)} />
 						{/each}
 					{/if}
 				{/each}
@@ -528,14 +557,14 @@
 	{#if active}
 		<div class="vp-badge"><span class="vp-dot"></span>{tool} · {prompt} · {Math.round(view.zoom * 100)}%</div>
 	{/if}
-	<!-- Kestrel-style WCS orientation cube: an oblique reference cube with an X/Y/Z triad; the
-	     face matching the current view (plan → top, elevation → front) is highlighted. -->
-	<div class="vp-wcs" title="World coordinate system — {kind === 'floorplan' ? 'plan (top)' : kind === 'elevation' ? 'front elevation' : '3D model'} view">
+	<!-- Old in-viewport WCS cube — commented out (it scaled with zoom because it lived inside the
+	     zoomed canvas). Replaced by fixed-size PANE-level gizmos in +page (top-right ViewCube +
+	     bottom-left axis triad). Kept here in case we want the in-viewport version back.
+	<div class="vp-wcs" title="WCS — {kind} view">
 		<svg viewBox="0 0 48 44" width="48" height="44">
 			<polygon points="30,32 30,14 39,7 39,25" fill="#b2c3dc" stroke="#5c7396" stroke-width="0.8" />
 			<polygon points="12,32 30,32 30,14 12,14" fill={kind === 'elevation' ? '#5ac6d2' : '#c8d5e8'} stroke="#5c7396" stroke-width="0.8" />
 			<polygon points="12,14 30,14 39,7 21,7" fill={kind === 'floorplan' ? '#5ac6d2' : '#dce7f5'} stroke="#5c7396" stroke-width="0.8" />
-			<!-- axis triad from the front-bottom-left corner -->
 			<line x1="12" y1="32" x2="31" y2="32" stroke="#d9534f" stroke-width="1.2" />
 			<line x1="12" y1="32" x2="12" y2="13" stroke="#5b8def" stroke-width="1.2" />
 			<line x1="12" y1="32" x2="21" y2="25" stroke="#5cb85c" stroke-width="1.2" />
@@ -544,6 +573,7 @@
 			<text x="22" y="26" font-size="6" fill="#4a9d4a" font-weight="700">y</text>
 		</svg>
 	</div>
+	-->
 	{#if editText}
 		<textarea class="text-edit" bind:this={textInput} bind:value={editText.value} rows="1" spellcheck="false"
 			style="left:{editText.x}px; top:{editText.y - editText.fontPx}px; font-size:{editText.fontPx}px; line-height:{editText.fontPx * 1.18}px"
@@ -580,8 +610,9 @@
 			<polygon points={f.back} fill="#b2c3dc" stroke={ink} stroke-width={w} />
 			<polygon points={f.top} fill="#dce7f5" stroke={ink} stroke-width={w} />
 		{:else if kind === 'elevation'}
-			<!-- front elevation face: footprint width × height, standing on the ground line (y=200) -->
-			<rect x={f.x0} y={200 - f.h} width={f.x1 - f.x0} height={f.h} fill="#dce7f5" stroke={ink} stroke-width={w} />
+			<!-- front elevation face: footprint width × height, its base at the footprint's front
+			     edge (f.y1) so dragging the box moves the face vertically with its handles -->
+			<rect x={f.x0} y={f.y1 - f.h} width={f.x1 - f.x0} height={f.h} fill="#dce7f5" stroke={ink} stroke-width={w} />
 		{:else}
 			<!-- plan: footprint rectangle -->
 			<rect x={f.x0} y={f.y0} width={f.x1 - f.x0} height={f.y1 - f.y0} fill="#dce7f533" stroke={ink} stroke-width={w} />
@@ -626,8 +657,6 @@
 		color:#0e5866; background:#5ac6d222; border:1px solid #5ac6d2; border-radius:3px; padding:2px 6px;
 	}
 	.vp-dot { width:5px; height:5px; border-radius:50%; background:#157a8b; }
-	.vp-wcs { position:absolute; top:5px; right:5px; padding:1px; background:#ffffffcc; border:1px solid #e2e8f0; border-radius:4px; pointer-events:none; }
-	.vp-wcs :where(polygon, line) { vector-effect:non-scaling-stroke; }
 	.text-edit { position:absolute; z-index:10; min-width:48px; min-height:1.2em; background:#fff; color:#111827; font-weight:600;
 		border:1px solid #0e7490; border-radius:2px; padding:0 2px; font-family:inherit; resize:both; overflow:hidden; white-space:pre; }
 	.text-edit:focus { outline:none; box-shadow:0 0 0 2px #0e749033; }

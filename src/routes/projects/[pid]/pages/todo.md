@@ -10,6 +10,27 @@ after UX settles · **(P3)** later / needs design. `◧ decide` = needs your pic
 ---
 
 ## 0. Bugs / quick wins  (P1)
+### Reported 2026-09-20 (Dave)
+- [x] **Hit-test radius was huge** — `hit()` used an `8`-*model-unit* tolerance (enormous at scale);
+  now a ~7px screen tolerance converted to model units via `hitTol()`.
+- [x] **Handle border thickness changed with zoom** — `non-scaling-stroke` cancels SVG-internal
+  transforms but not the ancestor CSS canvas zoom; handles now pass `strokeWidth = 1.2/canvasZoom`
+  (and the paper frame grips also divide their size by canvasZoom).
+- [x] **Elevation box didn't move/resize vertically** — grips sat on the footprint (depth), not the
+  front face. Box grips are now **view-aware**: in elevation they sit on the face corners and edit
+  **width + height** (top grips change height, bottom grips move the baseline); hit-test + marquee
+  bbox use the face too. The face is anchored to the footprint front edge so body-drag moves it too.
+- [x] **WCS cube scaled with zoom** — it lived inside the zoomed canvas. Replaced with fixed-size
+  PANE-level gizmos (`parts/ViewGizmos.svelte`): a **top-right ViewCube** (TOP/FRONT/3D faces →
+  switch the pane's projection) and a **bottom-left x/y/z axis triad** (Kestrel `drawUCS` style,
+  oriented per view). Old in-viewport cube left commented in `Viewport.svelte`.
+- [ ] **Marquee vs disabled-cursor bug** — sometimes after a double-click, dragging a marquee on the
+  page canvas shows a `not-allowed` (disabled) cursor instead of the marquee, and releasing leaves
+  it stuck in a marquee/drag-move state. Repro is intermittent — likely a text-selection/native-drag
+  starting on dblclick, or a pointer-capture not released. (Investigate: `user-select:none`,
+  `preventDefault` on dblclick, ensure marquee pointerup always clears.)
+
+
 - [x] **Closing the last page tab no longer spawns "Untitled"** — panes fall to a "No page
   open" empty state (with an icon + New-page button); open a drawing from the sidebar.
 - [x] `navFit` now uses a **bound per-pane canvas ref** (`canvasEls[pi]`) instead of

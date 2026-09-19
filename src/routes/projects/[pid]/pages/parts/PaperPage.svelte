@@ -147,7 +147,7 @@
 							<!-- corner grips as an SVG overlay, sharing Handle.svelte with the entity grips -->
 							<svg class="frame-handles">
 								{#each CORNERS as [cx, cy], i (i)}
-									<Handle cx={cx * frame.w} cy={cy * frame.h} size={HANDLE_PX} cursor={CURSORS[i]}
+									<Handle cx={cx * frame.w} cy={cy * frame.h} size={HANDLE_PX / (canvasZoom || 1)} cursor={CURSORS[i]} strokeWidth={1.2 / (canvasZoom || 1)}
 										onpointerdown={(e) => startDrag(e, 'grip', i)} />
 								{/each}
 							</svg>
