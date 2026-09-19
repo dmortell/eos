@@ -257,6 +257,9 @@
 	let toggles = $state<Record<string, boolean>>({ GRID: true, SNAP: true, ORTHO: false, OSNAP: true, LWT: false })
 	// AutoCAD mode: wheel = zoom, draw = two clicks. Off = EOS: wheel = pan, draw = press-drag.
 	let acadMode = $state(true)
+	// Active-viewport content pan/zoom (Sheets-style): OFF by default, so wheel/drag over an
+	// active viewport pans/zooms the CANVAS; toggle on to pan/zoom the model inside it.
+	let navContent = $state(false)
 
 	// Mock theme (scoped to .shell — demos both Kestrel looks, app untouched)
 	let mockTheme = $state<'dark' | 'light'>('dark')
@@ -378,21 +381,27 @@
 						<!-- Pane-level exit: fixed on screen (outside the zoomed content), so a viewport
 						     can always be left even when zoomed right in and its own corner is off-screen. -->
 						{#if activeVpPane === pi}
-							<button class="vp-exit-pane glass-bar" onclick={() => (activeVpPane = null)} title="Exit viewport (Esc)">
-								<Icon name="chevronLeft" size={14} /> Exit viewport
-							</button>
+							<div class="vp-active-bar glass-bar">
+								<button class="vab-btn" onclick={() => (activeVpPane = null)} title="Exit viewport (Esc)">
+									<Icon name="chevronLeft" size={14} /> Exit
+								</button>
+								<button class="vab-btn" class:on={navContent} onclick={() => (navContent = !navContent)}
+									title="Pan/zoom the model inside the viewport (off = pan/zoom the sheet)">
+									<Icon name="pan" size={14} /> Pan content
+								</button>
+							</div>
 						{/if}
 						{#key p.activeId}
 							<div class="canvas-content" style:transform="translate({p.canvasView.x}px, {p.canvasView.y}px) scale({p.canvasView.zoom})">
 								{#if a?.kind === 'sheet'}
-									<PaperPage title={a.title} tool={p.tool} acad={acadMode} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={activeVpPane === pi}
+									<PaperPage title={a.title} tool={p.tool} acad={acadMode} navContent={navContent} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={activeVpPane === pi}
 										onactivate={() => (activeVpPane = pi)}
 										ondeactivate={() => { if (activeVpPane === pi) activeVpPane = null }}
 										onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} />
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => { if (activeVpPane === pi) activeVpPane = null }}>
-										<Viewport kind={a.kind === 'elevation' ? 'model' : 'floorplan'} label={a.title} tool={p.tool} acad={acadMode} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
+										<Viewport kind={a.kind === 'elevation' ? 'model' : 'floorplan'} label={a.title} tool={p.tool} acad={acadMode} navContent={navContent} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
 											active={activeVpPane === pi} onactivate={() => (activeVpPane = pi)} ondeactivate={() => { if (activeVpPane === pi) activeVpPane = null }}
 											onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} />
 									</div>
@@ -631,9 +640,11 @@
 	.floattools.dim { opacity:.4; }
 	.floattools.dim:hover { opacity:.85; }
 	.navtools { bottom:12px; right:12px; flex-direction:column; }
-	.vp-exit-pane { top:12px; left:50%; transform:translateX(-50%); z-index:6; align-items:center; gap:5px;
-		padding:6px 13px; min-height:34px; font-size:12px; font-weight:600; color:var(--accent); cursor:pointer; }
-	.vp-exit-pane:hover { background:var(--hover); }
+	.vp-active-bar { top:12px; left:50%; transform:translateX(-50%); z-index:6; align-items:center; gap:2px; padding:3px; }
+	.vab-btn { display:inline-flex; align-items:center; gap:5px; padding:5px 11px; min-height:30px; border-radius:6px;
+		font-size:12px; font-weight:600; color:var(--muted); background:none; border:none; }
+	.vab-btn:hover { background:var(--hover); color:var(--text); }
+	.vab-btn.on { background:var(--active); color:var(--accent); }
 	.tool { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; color:var(--muted); background:none; border:none; }
 	.tool:hover { background:var(--hover); color:var(--text); }
 	.tool.on { background:var(--active); color:var(--accent); }

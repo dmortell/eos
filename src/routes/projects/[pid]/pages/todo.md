@@ -44,11 +44,11 @@ after UX settles · **(P3)** later / needs design. `◧ decide` = needs your pic
 | Shift while **resizing** | none | **Square / equal** | → adopt (§1) |
 | Rotate | no rotate yet | snaps 15°, Shift = free | → adopt |
 | Line-endpoint drag | free | Shift = 15° increments | → adopt |
-| **1-finger touch** | **Draw / select / edit** (never pans) | **Pans** empty bg, else object drag | ☐ / ☐ |
+| **1-finger touch** | **Draw / select / edit** (never pans) | **Pans** empty bg, else object drag | ✅ / ☐ |
 | 2-finger touch | Pan + pinch-zoom | Pan + pinch-zoom | _same_ |
 | Activate a viewport | Double-click | Double-click | _same_ |
 | Pick a viewport frame | Border-click or marquee (not interior) | Border/marquee (not interior) | _same_ |
-| Active-viewport pan/zoom | Both live, by cursor position | **Off by default**, toggled per-viewport | ☐ / ☐ |
+| Active-viewport pan/zoom | Both live, by cursor position | **Off by default**, toggled per-viewport | ☐ / ✅ |
 
 Notes: Sheets does **not** constrain drawing with Shift (only moving/resizing/rotating),
 and its marquee is always "crossing". Pages currently has the richer window/crossing

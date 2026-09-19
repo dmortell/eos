@@ -10,49 +10,55 @@
 	let { onopen, oncollapse, activeTitle = '' }:
 		{ onopen?: (d: { title: string; kind: Kind }) => void; oncollapse?: () => void; activeTitle?: string } = $props()
 
-	// folder = a location group (icon by kind); drawing = a leaf that opens a tab.
+	// Location hierarchy Project › Building › Floor › Zone › Room › Row, with drawing/view
+	// leaves hung at the level they belong to. Folders expand; drawing leaves open a tab.
 	const TREE: Node[] = [
-		{ id: 'floors', label: 'Floors', folder: 'floors', children: [
-			{ id: 'f1', label: 'Floor 1', folder: 'floor', children: [] },
-			{ id: 'f2', label: 'Floor 2', folder: 'floor', children: [] },
-			{ id: 'f3', label: 'Floor 3', folder: 'floor', children: [
-				{ id: 'f3-hlo', label: 'F3 — High Level Outlets', drawing: 'sheet' },
-				{ id: 'f3-llo', label: 'F3 — Low Level Outlets', drawing: 'sheet' },
-				{ id: 'f3-tr', label: 'F3 — Trunk Routes', drawing: 'sheet' },
-				{ id: 'f3-fill', label: 'F3 — Containment Fill Rate', drawing: 'sheet' },
+		{ id: 'proj', label: 'Project Journey', folder: 'project', children: [
+			{ id: 'b-hibiya', label: 'Hibiya Midtown', folder: 'building', children: [
+				{ id: 'f33', label: '33F', folder: 'floor', children: [
+					{ id: 'f33-plan', label: '33F — Floorplan', drawing: 'plan' },
+					{ id: 'f33-hlo', label: '33F — High Level Outlets', drawing: 'sheet' },
+					{ id: 'f33-llo', label: '33F — Low Level Outlets', drawing: 'sheet' },
+					{ id: 'f33-tr', label: '33F — Trunk Routes', drawing: 'sheet' },
+					{ id: 'z3303', label: 'Zone 3303', folder: 'zone', children: [
+						{ id: 'z3303-out', label: 'Zone 3303 — Outlets', drawing: 'sheet' },
+						{ id: 'idf1', label: 'IDF1', folder: 'room', children: [
+							{ id: 'idf1-elev', label: 'IDF1 — Rack Elevation', drawing: 'elevation' },
+							{ id: 'idf1-ra', label: 'Row A', folder: 'row' },
+							{ id: 'idf1-rb', label: 'Row B', folder: 'row' },
+						] },
+						{ id: 'idf2', label: 'IDF2', folder: 'room', children: [
+							{ id: 'idf2-ra', label: 'Row A', folder: 'row' },
+							{ id: 'idf2-rb', label: 'Row B', folder: 'row' },
+						] },
+					] },
+					{ id: 'z3307', label: 'Zone 3307', folder: 'zone', children: [
+						{ id: 'z3307-idf1', label: 'IDF1', folder: 'room', children: [
+							{ id: 'z3307-ra', label: 'Row A', folder: 'row' },
+						] },
+					] },
+				] },
+				{ id: 'f30', label: '30F', folder: 'floor', children: [
+					{ id: 'z3001', label: 'Zone 3001', folder: 'zone', children: [
+						{ id: 'z3001-ra', label: 'Row A', folder: 'row' },
+					] },
+				] },
 			] },
-			{ id: 'f4', label: 'Floor 4', folder: 'floor', children: [] },
-			{ id: 'roof', label: 'Roof', folder: 'floor', children: [] },
-		] },
-		{ id: 'srv', label: 'Server Rooms', folder: 'server', children: [
-			{ id: 'sr1', label: 'SR-01', folder: 'room', children: [
-				{ id: 'sr1-plan', label: 'SR-01 — Plan', drawing: 'plan' },
-				{ id: 'sr1-elev', label: 'SR-01 — Wall Elevation', drawing: 'elevation' },
+			{ id: 'b-shinmaru', label: 'Shinmaru', folder: 'building', children: [
+				{ id: 'f18', label: '18F', folder: 'floor', children: [
+					{ id: 'o1201', label: 'Office 1201', folder: 'zone', children: [
+						{ id: 'o1201-ra', label: 'Row A', folder: 'row' },
+					] },
+				] },
 			] },
-			{ id: 'sr2', label: 'SR-02', folder: 'room', children: [] },
-			{ id: 'sr3', label: 'SR-03', folder: 'room', children: [] },
-		] },
-		{ id: 'dc', label: 'Data Center', folder: 'dc', children: [
-			{ id: 'rowa', label: 'Row A', folder: 'row', children: [
-				{ id: 'rowa-fr', label: 'Row A — Front Elevation', drawing: 'elevation' },
-				{ id: 'rowa-re', label: 'Row A — Rear Elevation', drawing: 'elevation' },
-				{ id: 'rowa-tv', label: 'Row A — Top View', drawing: 'plan' },
-			] },
-			{ id: 'rowb', label: 'Row B', folder: 'row', children: [] },
-		] },
-		{ id: 'racks', label: 'Racks', folder: 'racks', children: [
-			{ id: 'r1', label: 'R-01', folder: 'rack', children: [] },
-			{ id: 'r2', label: 'R-02', folder: 'rack', children: [] },
-			{ id: 'r3', label: 'R-03', folder: 'rack', children: [] },
 		] },
 	]
 	const folderIcon: Record<string, string> = {
-		floors: 'layers', floor: 'mapPin', server: 'server', room: 'server',
-		dc: 'home', row: 'rows', racks: 'server', rack: 'server',
+		project: 'folderOpen', building: 'home', floor: 'layers', zone: 'crop', room: 'server', row: 'rows',
 	}
 	const drawingIcon: Record<Kind, string> = { plan: 'mapPin', sheet: 'fileText', elevation: 'box' }
 
-	let expanded = $state(new Set<string>(['floors', 'f3', 'dc', 'rowa']))
+	let expanded = $state(new Set<string>(['proj', 'b-hibiya', 'f33', 'z3303']))
 	let search = $state('')
 	function toggle(id: string) { const s = new Set(expanded); s.has(id) ? s.delete(id) : s.add(id); expanded = s }
 	const hit = (s: string) => !search || s.toLowerCase().includes(search.toLowerCase())

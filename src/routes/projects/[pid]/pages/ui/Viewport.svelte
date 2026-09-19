@@ -14,9 +14,9 @@
 	export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'dim' | 'text'; a?: Pt; b?: Pt; c?: Pt; r?: number; text?: string }
 	export type View = { zoom: number; x: number; y: number }
 
-	let { label = 'Viewport', scale = '', kind = 'floorplan', active = false, tool = 'Select', boxW, boxH, acad = true,
+	let { label = 'Viewport', scale = '', kind = 'floorplan', active = false, tool = 'Select', boxW, boxH, acad = true, navContent = false,
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, ondeactivate, onadd, onupdate, onselect, onview }:
-		{ label?: string; scale?: string; kind?: 'floorplan' | 'model' | 'elevation'; active?: boolean; tool?: string; boxW?: number; boxH?: number; acad?: boolean;
+		{ label?: string; scale?: string; kind?: 'floorplan' | 'model' | 'elevation'; active?: boolean; tool?: string; boxW?: number; boxH?: number; acad?: boolean; navContent?: boolean;
 			entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; ondeactivate?: () => void; onadd?: (e: Ent) => void; onupdate?: (e: Ent) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void } = $props()
 
 	const tagIcon: Record<string, string> = { floorplan: 'mapPin', model: 'box', elevation: 'server' }
@@ -135,9 +135,12 @@
 		place(draft[0], constrainPt(draft[0], p, e.shiftKey))
 		draft = []
 	}
+	let lastRaw: Pt | null = null   // last UNconstrained pointer during a draft (for re-constraining on Shift)
 	function onMove(e: MouseEvent) {
-		if (active && draft.length) { const p = toLocal(e); if (p) cur = constrainPt(draft[0], p, e.shiftKey) }
+		if (active && draft.length) { const p = toLocal(e); if (p) { lastRaw = p; cur = constrainPt(draft[0], p, e.shiftKey) } }
 	}
+	// Re-apply the draft constraint the instant Shift changes (don't wait for a pointer move).
+	function reconstrain(shift: boolean) { if (active && draft.length && lastRaw) cur = constrainPt(draft[0], lastRaw, shift) }
 	// Enter model space with a double-click (AutoCAD-style). In the sheet, the paper-space
 	// cover sits on top and handles this; standalone viewports use it directly.
 	function onDblclick(e: MouseEvent) { e.stopPropagation(); if (!active) onactivate?.() }
@@ -145,7 +148,9 @@
 	// endpoint), so it must NOT cancel the draft. Esc cancels an in-progress draw.
 	// Esc ladder (CAD-style): cancel an in-progress draw → clear selection → exit viewport.
 	function onKey(e: KeyboardEvent) {
-		if (!active || e.key !== 'Escape') return
+		if (!active) return
+		if (e.key === 'Shift') { reconstrain(true); return }
+		if (e.key !== 'Escape') return
 		if (draft.length) draft = []
 		else if (sel.length) onselect?.([])
 		else ondeactivate?.()
@@ -308,6 +313,7 @@
 	function onDrawMove(e: PointerEvent) {
 		if (!draft.length) return
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
+		lastRaw = p
 		cur = constrainPt(draft[0], p, e.shiftKey)
 	}
 	function onDrawUp(e: PointerEvent) {
@@ -370,11 +376,11 @@
 	})
 </script>
 
-<svelte:window onkeydown={onKey} />
+<svelte:window onkeydown={onKey} onkeyup={(e) => { if (active && e.key === 'Shift') reconstrain(false) }} />
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="vp" class:active bind:clientWidth={vpW} bind:clientHeight={vpH} role="button" tabindex="0" style:cursor={cursorStyle}
-	use:panzoom={{ enabled: () => active, wheelZoom: () => acad, onpan: onPan, onzoom: onZoom }}
+	use:panzoom={{ enabled: () => active && navContent, wheelZoom: () => acad, onpan: onPan, onzoom: onZoom }}
 	onclick={onClick} ondblclick={onDblclick} onpointerdown={onDown} onpointermove={onMove}
 	onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onactivate?.() } }}>
 
