@@ -11,9 +11,9 @@
 	import Handle from './Handle.svelte'
 	import { HANDLE_PX, PAPER_W, PAPER_H } from '../constants'
 
-	let { title = 'Sheet', drawingNo = '001', scale = '1:100', active = false, tool = 'Select', acad = true, navContent = false, grid = true,
+	let { title = 'Sheet', drawingNo = '001', scale = '1:100', active = false, tool = 'Select', acad = true, navContent = false, grid = true, lwt = true,
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, ondeactivate, onadd, onupdate, onselect, onview }:
-		{ title?: string; drawingNo?: string; scale?: string; active?: boolean; tool?: string; acad?: boolean; navContent?: boolean; grid?: boolean;
+		{ title?: string; drawingNo?: string; scale?: string; active?: boolean; tool?: string; acad?: boolean; navContent?: boolean; grid?: boolean; lwt?: boolean;
 			entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; ondeactivate?: () => void; onadd?: (e: Ent) => void; onupdate?: (e: Ent) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void } = $props()
 
 	// The viewport frame in paper (unscaled) px, within the sheet drawing area.
@@ -119,7 +119,7 @@
 			{#if frame}
 				<div class="vp-frame" class:selected={selected && !active} class:active
 					style="left:{frame.x}px; top:{frame.y}px; width:{frame.w}px; height:{frame.h}px">
-					<Viewport kind="floorplan" label="Outlets · 33F" {scale} {active} {tool} {acad} {navContent} {grid} {entities} {sel} {view}
+					<Viewport kind="floorplan" label="Outlets · 33F" {scale} {active} {tool} {acad} {navContent} {grid} {lwt} {entities} {sel} {view}
 						boxW={frame.w} boxH={frame.h}
 						{onactivate} {ondeactivate} {onadd} {onupdate} {onselect} {onview} />
 					{#if !active}

@@ -82,7 +82,9 @@
 	function makeRevision() {
 		revisions = [{ name: 'Rev ' + String.fromCharCode(67 + revSeq++), snap: snapEnts(), t: Date.now() }, ...revisions]
 	}
-	function restoreRevision(snap: Snap) { pushHistory('Restore revision'); docEnts = structuredClone(snap) }
+	// $state.snapshot unwraps the proxy (the revision snap lives inside the $state revisions
+	// array); structuredClone would throw on that proxy and silently skip the restore.
+	function restoreRevision(snap: Snap) { pushHistory('Restore revision'); docEnts = $state.snapshot(snap) as Snap }
 	function setSel(id: string, ids: string[]) { docSel = { ...docSel, [id]: ids } }
 	function setView(id: string, v: View) { docView = { ...docView, [id]: v } }
 	// Selected entities of the focused document (for the Properties panel).
@@ -196,10 +198,17 @@
 		const mod = e.ctrlKey || e.metaKey
 		const tag = (e.target as HTMLElement)?.tagName
 		if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return   // don't hijack field editing
-		if (mod && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); paletteOpen = true }
-		else if (mod && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo() }
+		if (mod && (e.key === 'k' || e.key === 'K')) {
+			// Capture phase + stopImmediatePropagation so the app-wide Ctrl-K palette doesn't
+			// also open on this page (it left a faded backdrop behind ours).
+			e.preventDefault(); e.stopImmediatePropagation(); paletteOpen = true
+		} else if (mod && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo() }
 		else if (mod && ((e.shiftKey && (e.key === 'z' || e.key === 'Z')) || e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo() }
 	}
+	$effect(() => {   // capture phase — beats the +layout command palette on the Ctrl-K shortcut
+		window.addEventListener('keydown', onGlobalKey, true)
+		return () => window.removeEventListener('keydown', onGlobalKey, true)
+	})
 	let activeLayer = $state('Annotations')   // shown in the Properties panel (mock)
 
 	// Canvas · tools + pointer + zoom
@@ -319,7 +328,6 @@
 
 <svelte:head><title>EOS — Pages (mockup)</title></svelte:head>
 
-<svelte:window onkeydown={onGlobalKey} />
 {#if paletteOpen}<CommandPalette items={paletteItems} onpick={pickPalette} onclose={() => (paletteOpen = false)} />{/if}
 
 <div class="shell" data-mock-theme={mockTheme}>
@@ -438,14 +446,14 @@
 						{#key p.activeId}
 							<div class="canvas-content" style:transform="translate({p.canvasView.x}px, {p.canvasView.y}px) scale({p.canvasView.zoom})">
 								{#if a?.kind === 'sheet' && layout === 'sheet'}
-									<PaperPage title={a.title} tool={p.tool} acad={acadMode} navContent={navContent} grid={toggles.GRID} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={activeVpPane === pi}
+									<PaperPage title={a.title} tool={p.tool} acad={acadMode} navContent={navContent} grid={toggles.GRID} lwt={toggles.LWT} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={activeVpPane === pi}
 										onactivate={() => (activeVpPane = pi)}
 										ondeactivate={() => { if (activeVpPane === pi) activeVpPane = null }}
 										onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} />
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => { if (activeVpPane === pi) activeVpPane = null }}>
-										<Viewport kind={a.kind === 'elevation' ? 'model' : 'floorplan'} label={a.title} tool={p.tool} acad={acadMode} navContent={navContent} grid={toggles.GRID} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
+										<Viewport kind={a.kind === 'elevation' ? 'model' : 'floorplan'} label={a.title} tool={p.tool} acad={acadMode} navContent={navContent} grid={toggles.GRID} lwt={toggles.LWT} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
 											active={activeVpPane === pi} onactivate={() => (activeVpPane = pi)} ondeactivate={() => { if (activeVpPane === pi) activeVpPane = null }}
 											onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} />
 									</div>

@@ -4,8 +4,11 @@
 	// layer tree (groups → sub-layers) with eye toggles + colour/line swatches, and
 	// a New-Layer button. Mock data + local state only.
 	import { Icon } from '$lib'
+	import { tick } from 'svelte'
+	// Focus + select a rename input once it's in the DOM (a tick after it renders).
+	function focusEdit(node: HTMLInputElement) { tick().then(() => { node.focus(); node.select() }) }
 
-	type Sub = { name: string; on: boolean; swatch: 'color' | 'line'; color?: string; dash?: 'solid' | 'dashed' | 'dotted' }
+	type Sub = { name: string; on: boolean; swatch: 'color' | 'line'; color?: string; dash?: 'solid' | 'dashed' | 'dotted'; weight?: number }
 	type Group = { name: string; on: boolean; open: boolean; kids: Sub[] }
 
 	const PRESETS = ['High Level Outlets', 'Low Level Outlets', 'Trunk Routes', 'Desk Numbering', 'All Layers']
@@ -23,13 +26,13 @@
 			{ name: 'Power Outlets', on: false, swatch: 'color', color: '#16a34a' },
 		] },
 		{ name: 'Trunk Routes', on: true, open: true, kids: [
-			{ name: 'Copper Trunks', on: true, swatch: 'line', color: '#2563eb', dash: 'dashed' },
-			{ name: 'Fiber Trunks', on: true, swatch: 'line', color: '#2563eb', dash: 'solid' },
-			{ name: 'Conduit', on: false, swatch: 'line', color: '#94a3b8', dash: 'dotted' },
+			{ name: 'Copper Trunks', on: true, swatch: 'line', color: '#2563eb', dash: 'dashed', weight: 1.5 },
+			{ name: 'Fiber Trunks', on: true, swatch: 'line', color: '#2563eb', dash: 'solid', weight: 2 },
+			{ name: 'Conduit', on: false, swatch: 'line', color: '#94a3b8', dash: 'dotted', weight: 1 },
 		] },
 		{ name: 'Walls & Structure', on: false, open: false, kids: [
-			{ name: 'Walls', on: false, swatch: 'line', color: '#334155', dash: 'solid' },
-			{ name: 'Doors', on: false, swatch: 'line', color: '#334155', dash: 'solid' },
+			{ name: 'Walls', on: false, swatch: 'line', color: '#334155', dash: 'solid', weight: 2.5 },
+			{ name: 'Doors', on: false, swatch: 'line', color: '#334155', dash: 'solid', weight: 1.5 },
 		] },
 		{ name: 'Rooms & Labels', on: false, open: false, kids: [
 			{ name: 'Room Fills', on: false, swatch: 'color', color: '#e2e8f0' },
@@ -87,8 +90,7 @@
 						<span class="lg-chev spacer"></span>
 					{/if}
 					{#if editing === `g${gi}`}
-						<!-- svelte-ignore a11y_autofocus -->
-						<input class="ly-edit" bind:value={g.name} autofocus onblur={() => (editing = null)} onkeydown={commit} />
+						<input class="ly-edit" bind:value={g.name} use:focusEdit onblur={() => (editing = null)} onkeydown={commit} />
 					{:else}
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
 						<span class="lg-name" ondblclick={() => (editing = `g${gi}`)}>{g.name}</span>
@@ -105,16 +107,22 @@
 									<Icon name={k.on ? 'eye' : 'eyeSlash'} size={13} />
 								</button>
 								{#if editing === `g${gi}s${si}`}
-									<!-- svelte-ignore a11y_autofocus -->
-									<input class="ly-edit" bind:value={k.name} autofocus onblur={() => (editing = null)} onkeydown={commit} />
+									<input class="ly-edit" bind:value={k.name} use:focusEdit onblur={() => (editing = null)} onkeydown={commit} />
 								{:else}
 									<!-- svelte-ignore a11y_no_static_element_interactions -->
 									<span class="ly-name" ondblclick={() => (editing = `g${gi}s${si}`)}>{k.name}</span>
 								{/if}
 								{#if k.swatch === 'color'}
-									<input class="sw-color sw-input" type="color" bind:value={k.color} aria-label="Layer colour" />
+									<input class="sw-color sw-input" type="color" bind:value={k.color} aria-label="Layer colour" title="Colour" />
 								{:else}
-									<span class="sw-line" style:border-bottom-style={k.dash} style:border-bottom-color={k.color}></span>
+									<!-- line layer: editable colour · line type · thickness (like the trunk layers) -->
+									<input class="sw-color sw-input" type="color" bind:value={k.color} aria-label="Line colour" title="Colour" />
+									<select class="sw-dash" bind:value={k.dash} title="Line type" aria-label="Line type">
+										<option value="solid">──</option>
+										<option value="dashed">- -</option>
+										<option value="dotted">···</option>
+									</select>
+									<input class="sw-wt" type="number" min="0.25" max="6" step="0.25" bind:value={k.weight} title="Thickness (mm)" aria-label="Thickness" />
 								{/if}
 							</div>
 						{/if}
@@ -167,6 +175,11 @@
 	.sw-input::-webkit-color-swatch-wrapper { padding:0; }
 	.sw-input::-webkit-color-swatch { border:none; border-radius:3px; }
 	.sw-line { width:24px; height:0; flex:0 0 auto; border-bottom-width:2px; }
+	.sw-dash { -webkit-appearance:none; appearance:none; width:34px; flex:0 0 auto; background:var(--input); color:var(--text);
+		border:1px solid var(--line); border-radius:3px; font-size:11px; padding:1px 2px; text-align:center; }
+	.sw-wt { width:36px; flex:0 0 auto; background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:3px;
+		font-size:10px; padding:2px 3px; font-family:Consolas,monospace; }
+	.sw-dash:focus, .sw-wt:focus { outline:none; border-color:var(--accent); }
 	.ly-edit { flex:1; min-width:0; background:var(--input); color:var(--text); border:1px solid var(--accent); border-radius:4px; padding:2px 5px; font-size:12px; }
 	.ly-edit:focus { outline:none; }
 	.lp-mini { display:none; align-items:center; justify-content:center; width:18px; height:18px; flex:0 0 auto; border-radius:3px; color:var(--muted); background:none; border:none; }

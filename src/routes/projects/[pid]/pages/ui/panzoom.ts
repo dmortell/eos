@@ -22,7 +22,7 @@ export function panzoom(node: HTMLElement, initial: PanZoomOpts) {
 		if (!on()) return
 		e.preventDefault()
 		e.stopPropagation()   // don't also act on an enabled panzoom ancestor (canvas under a viewport)
-		const zoom = (opts.wheelZoom ? opts.wheelZoom() : true) || e.ctrlKey || e.altKey || e.metaKey
+		const zoom = (opts.wheelZoom ? opts.wheelZoom() : true) || e.ctrlKey || e.altKey || e.metaKey || (e.buttons & 2) !== 0
 		if (zoom) {
 			opts.onzoom(Math.exp(-e.deltaY * 0.0015), e.clientX, e.clientY, node)  // up = zoom in
 		} else if (e.shiftKey) {
