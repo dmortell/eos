@@ -42,6 +42,22 @@
 	])
 	// A group with no children is a single toggleable layer (like Grid).
 	const matches = (s: string) => !search || s.toLowerCase().includes(search.toLowerCase())
+
+	// ── new / edit layers ──
+	const PALETTE = ['#2563eb', '#16a34a', '#9333ea', '#dc2626', '#ea580c', '#0e7490', '#334155', '#64748b']
+	let editing = $state<string | null>(null)   // "g<i>" (group) or "g<i>s<j>" (sub) being renamed
+	function newGroup() {
+		groups.push({ name: 'New Layer', on: true, open: false, kids: [] })
+		editing = `g${groups.length - 1}`
+	}
+	function addSub(gi: number) {
+		const g = groups[gi]
+		g.open = true
+		g.kids.push({ name: 'Sub-layer', on: true, swatch: 'color', color: PALETTE[g.kids.length % PALETTE.length] })
+		editing = `g${gi}s${g.kids.length - 1}`
+	}
+	function delGroup(gi: number) { groups.splice(gi, 1); editing = null }
+	function commit(e: KeyboardEvent) { if (e.key === 'Enter' || e.key === 'Escape') editing = null }
 </script>
 
 <div class="lp">
@@ -60,7 +76,7 @@
 	</div>
 
 	<div class="lp-tree">
-		{#each groups as g (g.name)}
+		{#each groups as g, gi (gi)}
 			{#if matches(g.name) || g.kids.some(k => matches(k.name))}
 				<div class="lg-row" class:off={!g.on}>
 					{#if g.kids.length}
@@ -70,19 +86,33 @@
 					{:else}
 						<span class="lg-chev spacer"></span>
 					{/if}
-					<span class="lg-name">{g.name}</span>
+					{#if editing === `g${gi}`}
+						<!-- svelte-ignore a11y_autofocus -->
+						<input class="ly-edit" bind:value={g.name} autofocus onblur={() => (editing = null)} onkeydown={commit} />
+					{:else}
+						<!-- svelte-ignore a11y_no_static_element_interactions -->
+						<span class="lg-name" ondblclick={() => (editing = `g${gi}`)}>{g.name}</span>
+					{/if}
+					<button class="lp-mini" title="Add sub-layer" aria-label="Add sub-layer" onclick={() => addSub(gi)}><Icon name="plus" size={12} /></button>
+					<button class="lp-mini" title="Delete layer" aria-label="Delete layer" onclick={() => delGroup(gi)}><Icon name="close" size={12} /></button>
 					<button class="lp-check" class:on={g.on} aria-label="Toggle {g.name}" onclick={() => (g.on = !g.on)}></button>
 				</div>
 				{#if g.open}
-					{#each g.kids as k (k.name)}
+					{#each g.kids as k, si (si)}
 						{#if matches(k.name) || matches(g.name)}
 							<div class="ly-row" class:off={!k.on}>
 								<button class="ly-eye" aria-label="Show/hide {k.name}" onclick={() => (k.on = !k.on)}>
 									<Icon name={k.on ? 'eye' : 'eyeSlash'} size={13} />
 								</button>
-								<span class="ly-name">{k.name}</span>
+								{#if editing === `g${gi}s${si}`}
+									<!-- svelte-ignore a11y_autofocus -->
+									<input class="ly-edit" bind:value={k.name} autofocus onblur={() => (editing = null)} onkeydown={commit} />
+								{:else}
+									<!-- svelte-ignore a11y_no_static_element_interactions -->
+									<span class="ly-name" ondblclick={() => (editing = `g${gi}s${si}`)}>{k.name}</span>
+								{/if}
 								{#if k.swatch === 'color'}
-									<span class="sw-color" style:background={k.color}></span>
+									<input class="sw-color sw-input" type="color" bind:value={k.color} aria-label="Layer colour" />
 								{:else}
 									<span class="sw-line" style:border-bottom-style={k.dash} style:border-bottom-color={k.color}></span>
 								{/if}
@@ -94,7 +124,7 @@
 		{/each}
 	</div>
 
-	<button class="lp-new"><Icon name="plus" size={13} /> New Layer</button>
+	<button class="lp-new" onclick={newGroup}><Icon name="plus" size={13} /> New Layer</button>
 </div>
 
 <style>
@@ -132,8 +162,16 @@
 	.ly-eye:hover { color:var(--text); background:var(--line); }
 	.ly-name { flex:1; min-width:0; font-size:12px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 	.ly-row.off .ly-name, .ly-row.off .ly-eye { color:var(--faint); }
-	.sw-color { width:22px; height:13px; flex:0 0 auto; border-radius:3px; box-shadow:0 0 0 1px #0002 inset; }
+	.sw-color { width:22px; height:14px; flex:0 0 auto; border-radius:3px; box-shadow:0 0 0 1px #0002 inset; }
+	.sw-input { -webkit-appearance:none; appearance:none; padding:0; border:none; background:none; cursor:pointer; }
+	.sw-input::-webkit-color-swatch-wrapper { padding:0; }
+	.sw-input::-webkit-color-swatch { border:none; border-radius:3px; }
 	.sw-line { width:24px; height:0; flex:0 0 auto; border-bottom-width:2px; }
+	.ly-edit { flex:1; min-width:0; background:var(--input); color:var(--text); border:1px solid var(--accent); border-radius:4px; padding:2px 5px; font-size:12px; }
+	.ly-edit:focus { outline:none; }
+	.lp-mini { display:none; align-items:center; justify-content:center; width:18px; height:18px; flex:0 0 auto; border-radius:3px; color:var(--muted); background:none; border:none; }
+	.lg-row:hover .lp-mini { display:inline-flex; }
+	.lp-mini:hover { background:var(--line); color:var(--text); }
 	.ly-row.off .sw-color, .ly-row.off .sw-line { opacity:.4; }
 
 	.lp-new { flex:0 0 auto; display:flex; align-items:center; justify-content:center; gap:6px; margin:6px; padding:7px;

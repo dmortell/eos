@@ -253,7 +253,8 @@
 	})
 
 	// Status bar
-	let layout = $state<'model' | 'sheet'>('model')
+	// Model = drawing fills the pane (no paper); Sheet = the A3 paper with the viewport frame.
+	let layout = $state<'model' | 'sheet'>('sheet')
 	let toggles = $state<Record<string, boolean>>({ GRID: true, SNAP: true, ORTHO: false, OSNAP: true, LWT: false })
 	// AutoCAD mode: wheel = zoom, draw = two clicks. Off = EOS: wheel = pan, draw = press-drag.
 	let acadMode = $state(true)
@@ -393,15 +394,15 @@
 						{/if}
 						{#key p.activeId}
 							<div class="canvas-content" style:transform="translate({p.canvasView.x}px, {p.canvasView.y}px) scale({p.canvasView.zoom})">
-								{#if a?.kind === 'sheet'}
-									<PaperPage title={a.title} tool={p.tool} acad={acadMode} navContent={navContent} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={activeVpPane === pi}
+								{#if a?.kind === 'sheet' && layout === 'sheet'}
+									<PaperPage title={a.title} tool={p.tool} acad={acadMode} navContent={navContent} grid={toggles.GRID} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={activeVpPane === pi}
 										onactivate={() => (activeVpPane = pi)}
 										ondeactivate={() => { if (activeVpPane === pi) activeVpPane = null }}
 										onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} />
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => { if (activeVpPane === pi) activeVpPane = null }}>
-										<Viewport kind={a.kind === 'elevation' ? 'model' : 'floorplan'} label={a.title} tool={p.tool} acad={acadMode} navContent={navContent} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
+										<Viewport kind={a.kind === 'elevation' ? 'model' : 'floorplan'} label={a.title} tool={p.tool} acad={acadMode} navContent={navContent} grid={toggles.GRID} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
 											active={activeVpPane === pi} onactivate={() => (activeVpPane = pi)} ondeactivate={() => { if (activeVpPane === pi) activeVpPane = null }}
 											onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} />
 									</div>
