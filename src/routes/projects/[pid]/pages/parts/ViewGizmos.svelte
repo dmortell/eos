@@ -27,7 +27,7 @@
 <!-- Top-right ViewCube: clickable TOP / FRONT / RIGHT faces -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="vc" role="group" aria-label="View cube" onpointerdown={(e) => e.stopPropagation()}>
-	<svg viewBox="0 0 64 62" width="58" height="56">
+	<svg viewBox="0 0 64 62" width="86" height="82">
 		<!-- TOP face → plan -->
 		<polygon class="face" class:on={projection === 'plan'} points="32,6 58,20 32,34 6,20"
 			role="button" tabindex="0" aria-label="Top view" onclick={() => onset?.('plan')}
@@ -41,8 +41,8 @@
 			role="button" tabindex="0" aria-label="3D / right view" onclick={() => onset?.('model')}
 			onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onset?.('model') } }} />
 		<text x="32" y="22" class="lbl">TOP</text>
-		<text x="17" y="47" class="lbl">FR</text>
-		<text x="47" y="47" class="lbl">3D</text>
+		<text x="18" y="43" class="lbl side">FRONT</text>
+		<text x="46" y="43" class="lbl side">3D</text>
 	</svg>
 </div>
 
@@ -69,7 +69,8 @@
 	.face { fill:#c8d5e8; stroke:#5c7396; stroke-width:0.8; cursor:pointer; }
 	.face:hover { fill:#9fb6d6; }
 	.face.on { fill:var(--accent); }
-	.lbl { font-size:6.5px; fill:#26405a; font-weight:700; text-anchor:middle; pointer-events:none; }
+	.lbl { font-size:7px; fill:#26405a; font-weight:700; text-anchor:middle; pointer-events:none; }
+	.lbl.side { font-size:5px; letter-spacing:-0.2px; }
 	.wcs { position:absolute; bottom:10px; left:10px; z-index:6; pointer-events:none;
 		background:color-mix(in srgb, var(--panel) 72%, transparent); border:1px solid var(--line-soft);
 		border-radius:8px; padding:1px; }

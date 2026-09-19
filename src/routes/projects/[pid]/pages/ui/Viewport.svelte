@@ -14,12 +14,12 @@
 	export type Pt = [number, number]
 	// 'box' = a mock 3D cuboid: a,b are the footprint corners (plan), h is its height (mm).
 	// It projects differently per view kind (plan footprint / elevation front / model oblique).
-	export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'ellipse' | 'dim' | 'text' | 'box'; a?: Pt; b?: Pt; c?: Pt; r?: number; h?: number; text?: string }
+	export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'ellipse' | 'dim' | 'text' | 'box' | 'polyline'; a?: Pt; b?: Pt; c?: Pt; r?: number; h?: number; text?: string; pts?: Pt[] }
 	export type View = { zoom: number; x: number; y: number }
 
-	let { label = 'Viewport', scale = '', kind = 'floorplan', active = false, tool = 'Select', boxW, boxH, acad = true, navContent = false, grid = true, lwt = true, canvasZoom = 1, border = 'dashed',
+	let { label = 'Viewport', scale = '', kind = 'floorplan', active = false, tool = 'Select', boxW, boxH, acad = true, navContent = false, grid = true, lwt = true, canvasZoom = 1, border = 'dashed', osnap = true,
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, ondeactivate, onadd, onupdate, onselect, onview }:
-		{ label?: string; scale?: string; kind?: 'floorplan' | 'model' | 'elevation'; active?: boolean; tool?: string; boxW?: number; boxH?: number; acad?: boolean; navContent?: boolean; grid?: boolean; lwt?: boolean; canvasZoom?: number; border?: 'dashed' | 'solid' | 'none';
+		{ label?: string; scale?: string; kind?: 'floorplan' | 'model' | 'elevation'; active?: boolean; tool?: string; boxW?: number; boxH?: number; acad?: boolean; navContent?: boolean; grid?: boolean; lwt?: boolean; canvasZoom?: number; border?: 'dashed' | 'solid' | 'none'; osnap?: boolean;
 			entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; ondeactivate?: () => void; onadd?: (e: Ent) => void; onupdate?: (e: Ent) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void } = $props()
 
 	const tagIcon: Record<string, string> = { floorplan: 'mapPin', model: 'box', elevation: 'server' }
@@ -130,22 +130,30 @@
 		else if (tool === 'Box') onadd?.({ id: uid(), type: 'box', a, b, h: DEFAULT_BOX_H })
 		else if (tool === 'Dimension') onadd?.({ id: uid(), type: 'dim', a, b })
 	}
+	// The Line tool draws a POLYLINE in AutoCAD mode: keep clicking to add segments, Enter /
+	// double-click / right-click to finish (Esc cancels). (EOS press-drag = a single segment.)
+	function finishPolyline() {
+		if (tool === 'Line' && draft.length >= 2) onadd?.({ id: uid(), type: 'polyline', pts: draft.map(p => [...p] as Pt) })
+		draft = []; cur = null; snapMark = null
+	}
 	function onClick(e: MouseEvent) {
 		e.stopPropagation()
 		if (suppressClick) { suppressClick = false; return }   // this click just ended a drag
 		if (!active) return   // paper space: enter with a double-click (see onDblclick)
-		const p = toLocal(e); if (!p) return
-		if (tool === 'Select') { onselect?.(hit(p)); return }
-		if (tool === 'Text') { onadd?.({ id: uid(), type: 'text', a: p, text: 'TEXT' }); return }
+		if (tool === 'Select') { const p = toLocal(e); if (p) onselect?.(hit(p)); return }
+		if (tool === 'Text') { const p = drawPoint(e.clientX, e.clientY); if (p) onadd?.({ id: uid(), type: 'text', a: p, text: 'TEXT' }); snapMark = null; return }
 		if (!acad) return   // EOS mode: shapes are drawn press-drag (onDown), not by clicking
-		// AutoCAD mode: two clicks — first point, then the (Shift-constrained) opposite point.
-		if (!draft.length) { draft = [p]; return }
-		place(draft[0], constrainPt(draft[0], p, e.shiftKey))
-		draft = []
+		const sp = drawPoint(e.clientX, e.clientY, draft.at(-1), e.shiftKey); if (!sp) return
+		if (tool === 'Line') { draft = [...draft, sp]; snapMark = null; return }   // polyline: accumulate
+		// other tools: two clicks — first corner, then the (snapped/Shift-constrained) opposite one.
+		if (!draft.length) { draft = [sp]; snapMark = null; return }
+		place(draft[0], sp)
+		draft = []; snapMark = null
 	}
 	let lastRaw: Pt | null = null   // last UNconstrained pointer during a draft (for re-constraining on Shift)
 	function onMove(e: MouseEvent) {
-		if (active && draft.length) { const p = toLocal(e); if (p) { lastRaw = p; cur = constrainPt(draft[0], p, e.shiftKey) } }
+		if (active && draft.length) { const sp = drawPoint(e.clientX, e.clientY, draft.at(-1), e.shiftKey); if (sp) { lastRaw = toLocalXY(e.clientX, e.clientY); cur = sp } }
+		else if (active && osnap && tool !== 'Select' && DRAW.has(tool)) findSnap(e.clientX, e.clientY)   // show snap marker before the first click
 		// hover feedback for the Select tool: 'move' when over a shape body (a grip shows its own cursor)
 		if (active && tool === 'Select' && !drag && !draft.length && !marquee) {
 			const lp = toLocalXY(e.clientX, e.clientY)
@@ -156,13 +164,14 @@
 	// both an in-progress draw and an in-progress move/grip drag.
 	function reconstrain(shift: boolean) {
 		if (drag && lastDragRaw) onupdate?.(applyDrag(lastDragRaw, shift))
-		else if (active && draft.length && lastRaw) cur = constrainPt(draft[0], lastRaw, shift)
+		else if (active && draft.length && lastRaw) cur = constrainPt(draft.at(-1)!, lastRaw, shift)
 	}
 	// Double-click: outside a viewport → enter model space; inside an active viewport, on a
 	// TEXT object → edit it in place.
 	function onDblclick(e: MouseEvent) {
 		e.stopPropagation()
 		if (!active) { onactivate?.(); return }
+		if (tool === 'Line' && draft.length) { finishPolyline(); return }   // double-click ends a polyline
 		const p = toLocal(e); if (!p) return
 		const ent = entities.find(x => x.id === hit(p)[0])
 		if (ent?.type === 'text') startTextEdit(ent)
@@ -189,8 +198,9 @@
 	function onKey(e: KeyboardEvent) {
 		if (!active) return
 		if (e.key === 'Shift') { reconstrain(true); return }
+		if (e.key === 'Enter' && tool === 'Line' && draft.length) { e.preventDefault(); finishPolyline(); return }   // finish polyline
 		if (e.key !== 'Escape') return
-		if (draft.length) draft = []
+		if (draft.length) { draft = []; cur = null; snapMark = null }
 		else if (sel.length) onselect?.([])
 		else ondeactivate?.()
 	}
@@ -202,6 +212,7 @@
 		return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy))
 	}
 	function hitEnt(e: Ent, p: Pt, thr: number): boolean {
+		if (e.type === 'polyline') { const pts = e.pts ?? []; for (let i = 0; i + 1 < pts.length; i++) if (segDist(p, pts[i], pts[i + 1]) < thr) return true; return false }
 		if (e.type === 'line' || e.type === 'dim') return segDist(p, e.a!, e.b!) < thr
 		if (e.type === 'box' && kind === 'elevation') { const x0 = Math.min(e.a![0], e.b![0]), x1 = Math.max(e.a![0], e.b![0]), y1 = Math.max(e.a![1], e.b![1]), yt = y1 - (e.h ?? DEFAULT_BOX_H); return p[0] >= x0 - thr && p[0] <= x1 + thr && p[1] >= yt - thr && p[1] <= y1 + thr }
 		if (e.type === 'rect' || e.type === 'box') { const x0 = Math.min(e.a![0], e.b![0]), y0 = Math.min(e.a![1], e.b![1]), x1 = Math.max(e.a![0], e.b![0]), y1 = Math.max(e.a![1], e.b![1]); return p[0] >= x0 - thr && p[0] <= x1 + thr && p[1] >= y0 - thr && p[1] <= y1 + thr }
@@ -227,12 +238,55 @@
 		return []
 	}
 
+	// ── object snap (osnap), Kestrel-style ──
+	// Each entity contributes snap points (endpoints, midpoints, centres, quadrants). While
+	// drawing or dragging a grip we find the nearest within ~10px and lock the point to it,
+	// showing a marker. Gated by the OSNAP status-bar toggle.
+	let snapMark = $state<{ p: Pt; type: string } | null>(null)
+	function entSnaps(e: Ent): { point: Pt; type: string }[] {
+		const mid = (a: Pt, b: Pt): Pt => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+		if (e.type === 'polyline') { const pts = e.pts ?? []; const out = pts.map(p => ({ point: p, type: 'end' })); for (let i = 0; i + 1 < pts.length; i++) out.push({ point: mid(pts[i], pts[i + 1]), type: 'mid' }); return out }
+		if (e.type === 'line' || e.type === 'dim') return [{ point: e.a!, type: 'end' }, { point: e.b!, type: 'end' }, { point: mid(e.a!, e.b!), type: 'mid' }]
+		if (e.type === 'rect' || e.type === 'ellipse' || e.type === 'box') {
+			const [x0, y0, x1, y1] = bbox(e)
+			const c: Pt[] = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
+			return [...c.map(p => ({ point: p, type: 'end' })),
+				{ point: mid(c[0], c[1]), type: 'mid' }, { point: mid(c[1], c[2]), type: 'mid' }, { point: mid(c[2], c[3]), type: 'mid' }, { point: mid(c[3], c[0]), type: 'mid' },
+				{ point: [(x0 + x1) / 2, (y0 + y1) / 2] as Pt, type: 'center' }]
+		}
+		if (e.type === 'circle') { const [cx, cy, r] = [e.c![0], e.c![1], e.r!]; return [{ point: e.c!, type: 'center' }, { point: [cx + r, cy], type: 'quad' }, { point: [cx - r, cy], type: 'quad' }, { point: [cx, cy + r], type: 'quad' }, { point: [cx, cy - r], type: 'quad' }] }
+		if (e.type === 'text') return [{ point: e.a!, type: 'end' }]
+		return []
+	}
+	function findSnap(clientX: number, clientY: number, exclude?: string): Pt | null {
+		if (!osnap) { snapMark = null; return null }
+		let best: { p: Pt; type: string; d: number } | null = null
+		for (const e of entities) {
+			if (e.id === exclude || e.id === editText?.id) continue
+			for (const s of entSnaps(e)) {
+				const sp = localToClient(s.point[0], s.point[1]); if (!sp) continue
+				const d = Math.hypot(sp.x - clientX, sp.y - clientY)
+				if (d < 11 && (!best || d < best.d)) best = { p: s.point, type: s.type, d }
+			}
+		}
+		snapMark = best ? { p: best.p, type: best.type } : null
+		return best ? best.p : null
+	}
+	// The point a draw/place should use: snap wins; else the shift-constrained pointer.
+	function drawPoint(clientX: number, clientY: number, base?: Pt, shift = false): Pt | null {
+		const s = findSnap(clientX, clientY)
+		if (s) return s
+		const raw = toLocalXY(clientX, clientY); if (!raw) return null
+		return base ? constrainPt(base, raw, shift) : raw
+	}
+
 	// ── editing handles (Kestrel-style grips) ──
 	// Each selected entity shows square grips at its defining points. Dragging a grip edits
 	// that point; dragging the body moves the whole entity. Grips render at a constant
 	// screen size (÷ zoom) so they don't grow as the viewport zooms, like real CAD.
 	type Grip = { x: number; y: number; apply: (p: Pt) => Ent }
 	function gripsFor(e: Ent): Grip[] {
+		if (e.type === 'polyline') return (e.pts ?? []).map((v, i) => ({ x: v[0], y: v[1], apply: (p: Pt) => ({ ...e, pts: (e.pts ?? []).map((q, j) => j === i ? p : q) }) }))
 		if (e.type === 'line' || e.type === 'dim') return [
 			{ x: e.a![0], y: e.a![1], apply: p => ({ ...e, a: p }) },
 			{ x: e.b![0], y: e.b![1], apply: p => ({ ...e, b: p }) },
@@ -265,12 +319,19 @@
 	}
 	function translate(e: Ent, dx: number, dy: number): Ent {
 		const t = (p?: Pt): Pt | undefined => p ? [p[0] + dx, p[1] + dy] : p
-		return { ...e, a: t(e.a), b: t(e.b), c: t(e.c) }
+		return { ...e, a: t(e.a), b: t(e.b), c: t(e.c), pts: e.pts?.map(p => [p[0] + dx, p[1] + dy] as Pt) }
 	}
 	// Shift-constrain a grip drag: box corner → square about the opposite corner; line/dim
 	// endpoint → 15° about the other end. (Circle radius left free.)
 	function constrainGrip(base: Ent, gi: number, p: Pt, shift: boolean): Pt {
 		if (!shift) return p
+		if (base.type === 'box' && kind === 'elevation') {   // shift → square FACE about the opposite face corner
+			const x0 = Math.min(base.a![0], base.b![0]), x1 = Math.max(base.a![0], base.b![0])
+			const y1 = Math.max(base.a![1], base.b![1]), yt = y1 - (base.h ?? DEFAULT_BOX_H)
+			const an: Pt = gi === 0 ? [x1, yt] : gi === 1 ? [x0, yt] : gi === 2 ? [x1, y1] : [x0, y1]
+			const s = Math.max(Math.abs(p[0] - an[0]), Math.abs(p[1] - an[1]))
+			return [an[0] + (p[0] < an[0] ? -s : s), an[1] + (p[1] < an[1] ? -s : s)]
+		}
 		if (base.type === 'rect' || base.type === 'ellipse' || (base.type === 'box' && kind !== 'elevation')) {
 			const [ax, ay] = base.a!, [bx, by] = base.b!
 			const an: Pt = gi === 0 ? [bx, by] : gi === 1 ? [ax, ay] : gi === 2 ? [bx, ay] : [ax, by]
@@ -328,7 +389,7 @@
 			window.removeEventListener('pointerup', onMarqueeUp)
 		}
 		if (draft.length) {   // abort an in-progress press-drag draw
-			draft = []; cur = null
+			draft = []; cur = null; snapMark = null
 			window.removeEventListener('pointermove', onDrawMove)
 			window.removeEventListener('pointerup', onDrawUp)
 		}
@@ -347,7 +408,7 @@
 		// EOS mode: shapes are drawn with a single press-drag-release (not two clicks).
 		if (tool !== 'Select') {
 			if (acad || tool === 'Text') return   // AutoCAD two-click / text single-click via onClick
-			const dp = toLocalXY(e.clientX, e.clientY); if (!dp) return
+			const dp = drawPoint(e.clientX, e.clientY); if (!dp) return
 			draft = [dp]; cur = dp
 			try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
 			e.preventDefault()
@@ -384,13 +445,15 @@
 	}
 	function onDragMove(e: PointerEvent) {
 		if (!drag) return
+		// snap grip endpoints to other entities' snap points (not body moves)
+		const s = drag.kind === 'grip' ? findSnap(e.clientX, e.clientY, drag.id) : null
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
 		dragged = true; lastDragRaw = p
-		onupdate?.(applyDrag(p, e.shiftKey))
+		onupdate?.(s ? gripsFor(drag.base)[drag.gi].apply(s) : applyDrag(p, e.shiftKey))
 	}
 	function onDragUp() {
 		if (dragged) suppressClick = true
-		drag = null
+		drag = null; snapMark = null
 		window.removeEventListener('pointermove', onDragMove)
 		window.removeEventListener('pointerup', onDragUp)
 	}
@@ -399,17 +462,16 @@
 	// release = second point. ──
 	function onDrawMove(e: PointerEvent) {
 		if (!draft.length) return
-		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
-		lastRaw = p
-		cur = constrainPt(draft[0], p, e.shiftKey)
+		const sp = drawPoint(e.clientX, e.clientY, draft[0], e.shiftKey); if (!sp) return
+		lastRaw = toLocalXY(e.clientX, e.clientY)
+		cur = sp
 	}
 	function onDrawUp(e: PointerEvent) {
 		window.removeEventListener('pointermove', onDrawMove)
 		window.removeEventListener('pointerup', onDrawUp)
 		const a = draft[0]; draft = []; cur = null
-		if (!a) return
-		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
-		const b = constrainPt(a, p, e.shiftKey)
+		const b = drawPoint(e.clientX, e.clientY, a, e.shiftKey); snapMark = null
+		if (!a || !b) return
 		if (dist(a, b) < 2) return   // no drag → not a shape (ignore)
 		place(a, b)
 		suppressClick = true   // swallow the click that follows the release
@@ -419,6 +481,7 @@
 	// R→L = crossing (touch). bbox tests are enough for the mock. ──
 	let marquee = $state<{ a: Pt; b: Pt } | null>(null)
 	function bbox(e: Ent): [number, number, number, number] {
+		if (e.type === 'polyline') { const pts = e.pts ?? []; const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] }
 		if (e.type === 'circle') return [e.c![0] - e.r!, e.c![1] - e.r!, e.c![0] + e.r!, e.c![1] + e.r!]
 		if (e.type === 'text') return [e.a![0], e.a![1] - 10, e.a![0] + 40, e.a![1]]
 		if (e.type === 'box' && kind === 'elevation') { const y1 = Math.max(e.a![1], e.b![1]); return [Math.min(e.a![0], e.b![0]), y1 - (e.h ?? DEFAULT_BOX_H), Math.max(e.a![0], e.b![0]), y1] }
@@ -482,7 +545,7 @@
 		const n = draft.length
 		switch (tool) {
 			case 'Select': return 'Click an element'
-			case 'Line': return n ? 'Specify end point' : 'Specify first point'
+			case 'Line': return n ? 'Specify next point (Enter / double-click to finish)' : 'Specify first point'
 			case 'Rectangle': return n ? 'Specify opposite corner' : 'Specify first corner'
 			case 'Ellipse': return n ? 'Specify opposite corner (Shift = circle)' : 'Specify first corner'
 			case 'Box': return n ? 'Specify opposite corner (Shift = square footprint)' : 'Specify first corner'
@@ -533,7 +596,13 @@
 			{/if}
 			<!-- drawn entities + rubber-band preview (hide the text being edited in place) -->
 			{#each entities as e (e.id)}{#if e.id !== editText?.id}{@render drawn(e, selSet.has(e.id))}{/if}{/each}
-			{#if active && draft.length && cur}{@render preview(draft[0], cur)}{/if}
+			{#if active && tool === 'Line' && draft.length}
+				<!-- polyline preview: committed segments + rubber band to the cursor -->
+				<polyline points={draft.map(p => p.join(',')).join(' ')} fill="none" stroke={SEL} stroke-width="1.2" />
+				{#if cur}<line x1={draft.at(-1)![0]} y1={draft.at(-1)![1]} x2={cur[0]} y2={cur[1]} stroke={SEL} stroke-width="1" stroke-dasharray="4 3" />{/if}
+			{:else if active && draft.length && cur}
+				{@render preview(draft[0], cur)}
+			{/if}
 			<!-- editing handles: square grips at each selected entity's defining points -->
 			{#if active && tool === 'Select'}
 				{#each entities as e (e.id)}
@@ -543,6 +612,20 @@
 						{/each}
 					{/if}
 				{/each}
+			{/if}
+			<!-- object-snap marker (constant screen size): □ endpoint · △ midpoint · ○ centre · ◇ quadrant -->
+			{#if active && snapMark}
+				{@const s = gripSize * 1.5}
+				{@const [mx, my] = snapMark.p}
+				{#if snapMark.type === 'end'}
+					<rect class="snap" x={mx - s / 2} y={my - s / 2} width={s} height={s} />
+				{:else if snapMark.type === 'mid'}
+					<polygon class="snap" points="{mx},{my - s / 2} {mx + s / 2},{my + s / 2} {mx - s / 2},{my + s / 2}" />
+				{:else if snapMark.type === 'center'}
+					<circle class="snap" cx={mx} cy={my} r={s / 2} />
+				{:else}
+					<polygon class="snap" points="{mx},{my - s / 2} {mx + s / 2},{my} {mx},{my + s / 2} {mx - s / 2},{my}" />
+				{/if}
 			{/if}
 			<!-- Kestrel selection box: solid blue = window (enclose), dashed green = crossing -->
 			{#if active && marquee}
@@ -588,6 +671,8 @@
 	{@const w = lwt ? (seld ? 2 : 1.2) : 0.5}
 	{#if e.type === 'line'}
 		<line x1={e.a![0]} y1={e.a![1]} x2={e.b![0]} y2={e.b![1]} stroke={ink} stroke-width={w} />
+	{:else if e.type === 'polyline'}
+		<polyline points={(e.pts ?? []).map(p => p.join(',')).join(' ')} fill="none" stroke={ink} stroke-width={w} stroke-linejoin="round" />
 	{:else if e.type === 'rect'}
 		<rect x={Math.min(e.a![0], e.b![0])} y={Math.min(e.a![1], e.b![1])} width={Math.abs(e.b![0] - e.a![0])} height={Math.abs(e.b![1] - e.a![1])} fill="none" stroke={ink} stroke-width={w} />
 	{:else if e.type === 'circle'}
@@ -643,6 +728,8 @@
 	   fixed on screen. Fills and text still scale with the drawing. */
 	.vp-svg :where(line, rect, circle, ellipse, polyline, polygon, path) { vector-effect: non-scaling-stroke; }
 	/* Kestrel/AutoCAD selection box: window (L→R) solid blue, crossing (R→L) dashed green. */
+	/* Object-snap marker — amber, constant border, never intercepts pointer events. */
+	.snap { fill:none; stroke:#f59e0b; stroke-width:1.4; vector-effect:non-scaling-stroke; pointer-events:none; }
 	.marquee { pointer-events:none; }
 	.marquee.window { fill:#3b82f61f; stroke:#3b82f6; stroke-width:1; }
 	.marquee.crossing { fill:#10b9811f; stroke:#10b981; stroke-width:1; stroke-dasharray:5 3; }

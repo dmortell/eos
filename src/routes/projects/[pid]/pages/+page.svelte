@@ -492,14 +492,14 @@
 						{#key p.activeId}
 							<div class="canvas-content" style:transform="translate({p.canvasView.x}px, {p.canvasView.y}px) scale({p.canvasView.zoom})">
 								{#if a?.kind === 'sheet' && layout === 'sheet'}
-									<PaperPage title={a.title} tool={p.tool} acad={acadMode} navContent={navContent} grid={toggles.GRID} lwt={toggles.LWT} canvasZoom={p.canvasView.zoom} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={activeVpPane === pi}
+									<PaperPage title={a.title} tool={p.tool} acad={acadMode} navContent={navContent} grid={toggles.GRID} lwt={toggles.LWT} osnap={toggles.OSNAP} canvasZoom={p.canvasView.zoom} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={activeVpPane === pi}
 										onactivate={() => (activeVpPane = pi)}
 										ondeactivate={() => { if (activeVpPane === pi) activeVpPane = null }}
 										onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} onframe={onFrame} />
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => { if (activeVpPane === pi) activeVpPane = null }}>
-										<Viewport kind={projKind(paneProj(p, a))} label={a.title} tool={p.tool} acad={acadMode} navContent={navContent} grid={toggles.GRID} lwt={toggles.LWT} canvasZoom={p.canvasView.zoom} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
+										<Viewport kind={projKind(paneProj(p, a))} label={a.title} tool={p.tool} acad={acadMode} navContent={navContent} grid={toggles.GRID} lwt={toggles.LWT} osnap={toggles.OSNAP} canvasZoom={p.canvasView.zoom} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
 											active={activeVpPane === pi} onactivate={() => (activeVpPane = pi)} ondeactivate={() => { if (activeVpPane === pi) activeVpPane = null }}
 											onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} />
 									</div>

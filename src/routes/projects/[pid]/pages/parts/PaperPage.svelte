@@ -16,9 +16,9 @@
 	// mutators, so the panel can edit without reaching into this child's state.
 	export type FrameSel = { label: string; x: number; y: number; w: number; h: number;
 		border: 'dashed' | 'solid' | 'none'; setBorder: (b: 'dashed' | 'solid' | 'none') => void; setRect: (r: Partial<{ x: number; y: number; w: number; h: number }>) => void }
-	let { title = 'Sheet', drawingNo = '001', scale = '1:100', active = false, tool = 'Select', acad = true, navContent = false, grid = true, lwt = true, canvasZoom = 1,
+	let { title = 'Sheet', drawingNo = '001', scale = '1:100', active = false, tool = 'Select', acad = true, navContent = false, grid = true, lwt = true, canvasZoom = 1, osnap = true,
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, ondeactivate, onadd, onupdate, onselect, onview, onframe }:
-		{ title?: string; drawingNo?: string; scale?: string; active?: boolean; tool?: string; acad?: boolean; navContent?: boolean; grid?: boolean; lwt?: boolean; canvasZoom?: number;
+		{ title?: string; drawingNo?: string; scale?: string; active?: boolean; tool?: string; acad?: boolean; navContent?: boolean; grid?: boolean; lwt?: boolean; canvasZoom?: number; osnap?: boolean;
 			entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; ondeactivate?: () => void; onadd?: (e: Ent) => void; onupdate?: (e: Ent) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void; onframe?: (f: FrameSel | null) => void } = $props()
 
 	let frameBorder = $state<'dashed' | 'solid' | 'none'>('dashed')
@@ -134,7 +134,7 @@
 			{#if frame}
 				<div class="vp-frame" class:selected={selected && !active} class:active
 					style="left:{frame.x}px; top:{frame.y}px; width:{frame.w}px; height:{frame.h}px">
-					<Viewport kind="floorplan" label="Outlets · 33F" {scale} {active} {tool} {acad} {navContent} {grid} {lwt} {canvasZoom} border={frameBorder} {entities} {sel} {view}
+					<Viewport kind="floorplan" label="Outlets · 33F" {scale} {active} {tool} {acad} {navContent} {grid} {lwt} {canvasZoom} {osnap} border={frameBorder} {entities} {sel} {view}
 						boxW={frame.w} boxH={frame.h}
 						{onactivate} {ondeactivate} {onadd} {onupdate} {onselect} {onview} />
 					{#if !active}

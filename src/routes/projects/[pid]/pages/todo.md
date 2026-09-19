@@ -20,6 +20,7 @@ after UX settles · **(P3)** later / needs design. `◧ decide` = needs your pic
   front face. Box grips are now **view-aware**: in elevation they sit on the face corners and edit
   **width + height** (top grips change height, bottom grips move the baseline); hit-test + marquee
   bbox use the face too. The face is anchored to the footprint front edge so body-drag moves it too.
+  Shift-constrain works in elevation too (square face about the opposite face corner).
 - [x] **WCS cube scaled with zoom** — it lived inside the zoomed canvas. Replaced with fixed-size
   PANE-level gizmos (`parts/ViewGizmos.svelte`): a **top-right ViewCube** (TOP/FRONT/3D faces →
   switch the pane's projection) and a **bottom-left x/y/z axis triad** (Kestrel `drawUCS` style,
@@ -46,7 +47,11 @@ after UX settles · **(P3)** later / needs design. `◧ decide` = needs your pic
   rectangles/ellipses; applied live the instant Shift is pressed/released (not only on the
   next mouse-move). Also adopted for **moving** (ortho axis-lock), **resizing / handle-drag**
   (square about opposite corner), and **line-endpoint drag** (15° increments).
-- [ ] Snapping: grid snap + object snap (osnap) driven by the status-bar toggles (see §9).
+- [x] **Object snap (osnap)** — Kestrel-style: entities expose snap points (endpoints, midpoints,
+  centres, quadrants; polyline vertices/segment-midpoints); while drawing or dragging a grip the
+  nearest within ~10px wins and the point locks to it, with a marker (□ end · △ mid · ○ centre ·
+  ◇ quad). Gated by the **OSNAP** status-bar toggle.
+- [ ] **Grid snap** — round to a spacing, driven by the SNAP toggle (osnap done above).
 
 ### 1a. Mouse / touch: Pages vs Sheets  ◧ decide
 > From a review of the Sheets tool. Tick the version you want for Pages per row
@@ -82,6 +87,9 @@ marquee and constant-lineweight draw, but no additive select / duplicate / move-
 - [ ] ◧ **decide** — pick which Sheets insertable-object + annotation types to implement in
   Pages (**checklist below**).
 - [x] **Ellipses** — Ellipse tool (Shift = circle); render/hit/grips/Properties.
+- [x] **Polylines** — the Line tool draws a **polyline** in ACAD mode (keep clicking to add
+  segments; Enter / double-click to finish, Esc cancels); EOS press-drag still makes a single
+  segment. New `polyline` entity with per-vertex grips, per-segment hit-test, and snap points.
 - [x] **Edit-in-place text** — double-click a text object opens an inline editor.
 - [ ] **Real drawing scale (mm)** — DECIDED: model units are **millimetres, integers**, scaled
   the same way as Sheets floorplans. The viewport is still abstract viewBox units (mock plan
@@ -206,12 +214,13 @@ Sheets' basic version** — see §10.
   - So "stored in a layer" and "model vs view" are **orthogonal** in DXF too: an entity has BOTH
     a layer AND a space. Our model just needs an object to carry `{ layerId, space: 'model' |
     'view:<id>' }`; moving view→model = flipping `space` (+ reposition). No conflict.
-  - Watch-outs: DXF has no "annotation that appears in several specific views" — that's *model
-    space shown through viewports* (all views) or *paper-space per layout* (one view). Our
-    "promote to a subset of views" is richer than DXF; store it our way and only map to
-    model/paper on DXF export.
-- [ ] Unify annotations with drawn objects (one entity model, `space` + `layerId` fields);
-  per-view vs model-space is the `space` value.
+  - **DECIDED (Dave, 2026-09-20):** a **model-space** annotation just **appears in ALL views of
+    that model** — no "subset of views" needed; if you don't want it in a view, **turn its layer
+    off**. That's exactly DXF's *model-space-shown-through-viewports*, so no conflict and simpler:
+    an object is either **model space** (shown in every view, layer-gated) or **view/paper space**
+    (that one view). No per-view allow-lists.
+- [ ] Unify annotations with drawn objects (one entity model, `space: 'model' | 'view:<id>'` +
+  `layerId`); model-space objects render in every view, hidden per-view only by layer visibility.
 - [ ] Move an annotation / object view→model (and back) = change its `space`.
 
 ## 7. Properties panel  (P1–P2)

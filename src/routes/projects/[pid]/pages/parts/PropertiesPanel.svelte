@@ -25,6 +25,7 @@
 	}
 
 	function bbox(e: Ent): [number, number, number, number] {
+		if (e.type === 'polyline') { const pts = e.pts ?? []; const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] }
 		if (e.type === 'circle') return [e.c![0] - e.r!, e.c![1] - e.r!, e.c![0] + e.r!, e.c![1] + e.r!]
 		if (e.type === 'text') return [e.a![0], e.a![1] - 10, e.a![0] + 40, e.a![1]]
 		const xs = [e.a![0], e.b![0]], ys = [e.a![1], e.b![1]]
@@ -43,7 +44,7 @@
 
 	function translate(e: Ent, dx: number, dy: number): Ent {
 		const t = (p?: Pt): Pt | undefined => p ? [p[0] + dx, p[1] + dy] : p
-		return { ...e, a: t(e.a), b: t(e.b), c: t(e.c) }
+		return { ...e, a: t(e.a), b: t(e.b), c: t(e.c), pts: e.pts?.map(p => [p[0] + dx, p[1] + dy] as Pt) }
 	}
 	// Move the whole selection so the group bbox's corner reaches v. Capture the delta and a
 	// snapshot up front — each onupdate re-derives gb/ents, so reading them mid-loop drifts.
