@@ -22,10 +22,10 @@
 
 	// Drafting/interaction flags are grouped into one `env` object to keep the prop list small.
 	export type Env = { acad?: boolean; navContent?: boolean; grid?: boolean; lwt?: boolean; osnap?: boolean; canvasZoom?: number }
-	let { label = 'Viewport', scale = '', kind = 'floorplan', active = false, tool = 'Select', boxW, boxH, border = 'dashed', env = {},
-		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, ondeactivate, onadd, onupdate, onselect, onview }:
+	let { label = 'Viewport', scale = '', kind = 'floorplan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {},
+		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, ondeactivate, onadd, onupdate, ondelete, onselect, onview }:
 		{ label?: string; scale?: string; kind?: 'floorplan' | 'model' | 'elevation'; active?: boolean; tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env;
-			entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; ondeactivate?: () => void; onadd?: (e: Ent) => void; onupdate?: (e: Ent) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void } = $props()
+			focused?: boolean; entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; ondeactivate?: () => void; onadd?: (e: Ent) => void; onupdate?: (e: Ent) => void; ondelete?: (ids: string[]) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void } = $props()
 	const acad = $derived(env.acad ?? true)
 	const navContent = $derived(env.navContent ?? false)
 	const grid = $derived(env.grid ?? true)
@@ -220,9 +220,10 @@
 	// endpoint), so it must NOT cancel the draft. Esc cancels an in-progress draw.
 	// Esc ladder (CAD-style): cancel an in-progress draw → clear selection → exit viewport.
 	function onKey(e: KeyboardEvent) {
-		if (!active) return
+		if (!active || !focused) return   // in split view only the focused pane's instance handles keys
 		if (e.key === 'Shift') { reconstrain(true); return }
 		if (e.key === 'Enter' && tool === 'Line' && draft.length) { e.preventDefault(); finishPolyline(); return }   // finish polyline
+		if ((e.key === 'Delete' || e.key === 'Backspace') && !editText && sel.length && !draft.length) { e.preventDefault(); ondelete?.(sel); return }
 		if (e.key !== 'Escape') return
 		if (draft.length) { draft = []; cur = null; snapMark = null }
 		else if (sel.length) onselect?.([])
@@ -589,7 +590,7 @@
 	})
 </script>
 
-<svelte:window onkeydown={onKey} onkeyup={(e) => { if (active && e.key === 'Shift') reconstrain(false) }} />
+<svelte:window onkeydown={onKey} onkeyup={(e) => { if (active && focused && e.key === 'Shift') reconstrain(false) }} />
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="vp print:!border-transparent" class:active bind:clientWidth={vpW} bind:clientHeight={vpH} role="button" tabindex="0" style:cursor={cursorStyle}

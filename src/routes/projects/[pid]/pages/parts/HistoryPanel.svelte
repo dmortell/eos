@@ -4,9 +4,9 @@
 	// come from the parent (+page owns the undo/redo stacks and the doc entities).
 	import { Icon } from '$lib'
 	type Snap = Record<string, unknown>
-	let { history = [], revisions = [], rev = '', revOptions = [], onrev, onundo, onredo, onnewrevision, onrestore }:
+	let { history = [], revisions = [], rev = '', revOptions = [], onrev, onnote, onundo, onredo, onnewrevision, onrestore }:
 		{ history?: { label: string; t: number }[]; revisions?: { name: string; note: string; snap: Snap; t: number }[];
-			rev?: string; revOptions?: string[]; onrev?: (r: string) => void;
+			rev?: string; revOptions?: string[]; onrev?: (r: string) => void; onnote?: (i: number, note: string) => void;
 			onundo?: () => void; onredo?: () => void; onnewrevision?: () => void; onrestore?: (s: Snap) => void } = $props()
 
 	function ago(t: number) {
@@ -38,7 +38,7 @@
 	</div>
 	{#if revisions.length}
 		<div class="hp-list">
-			{#each revisions as r (r.name + r.t)}
+			{#each revisions as r, i (r.name + r.t)}
 				<div class="hp-rev">
 					<div class="hp-rev-head">
 						<Icon name="fileText" size={13} />
@@ -46,7 +46,7 @@
 						<span class="hp-when" title={ago(r.t)}>{fmtDate(r.t)}</span>
 						<button class="hp-restore" onclick={() => onrestore?.(r.snap)} title="Restore this revision">Restore</button>
 					</div>
-					<input class="hp-note" placeholder="Add a description note…" bind:value={r.note} />
+					<input class="hp-note" placeholder="Add a description note…" value={r.note} oninput={(e) => onnote?.(i, (e.currentTarget as HTMLInputElement).value)} />
 				</div>
 			{/each}
 		</div>

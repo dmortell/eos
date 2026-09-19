@@ -10,6 +10,22 @@ after UX settles · **(P3)** later / needs design. `◧ decide` = needs your pic
 ---
 
 ## 0. Bugs / quick wins  (P1)
+### Code review follow-ups (see `review.md`, 2026-09-20)
+Fixed from the review: [x] §2.1 fit off-centre (paper pinned at 0,0 — margins now equal),
+[x] §2.4 text-editor zoom double-scale (already fixed batch-4), [x] §2.5 type error (cast),
+[x] §2.6 split-view keys (only the focused pane's viewport handles keys), [x] §2.7 undo global
+across docs (now per-doc stacks), [x] §2.8 no Delete (Delete/Backspace + Edit menu, with undo),
+[x] §2.8 dropDoc leaked undo/proj/paper/activation, [x] §2.8 dirty never set, [x] §2.8 HistoryPanel
+prop mutation (→ onnote callback), [x] §2.8 titleblock SIZE hardcoded, [x] §2.8 ViewCube→layout
+one-way (TOP now restores Sheet), [x] §2.3 partial (emit onframe(null) on unmount).
+Still open (bigger): [ ] §2.2 print A-size/scale, [ ] §2.3 full per-doc frame state,
+[ ] §4.1 lift a `DocEditor` headless class, [ ] §4.2 mm world units, [ ] §4.3 reuse Sheets
+`layers.ts`, [ ] §4.4 shared pan/zoom helpers + touchcancel + wheel normalisation,
+[ ] §2.8 key tabs by node id (not title), frame drag threshold+undo, z0 clamp mismatch,
+uncontrolled Properties inputs, coalescing merges unrelated edits, outline-only rect hit,
+[ ] §5 snap/hit perf (cache the CTM/bbox), [ ] §6 nits (dead `circle` type, unify line/polyline,
+uid collision, unused CSS, a11y). Suggested order in review.md §7.
+
 ### Reported 2026-09-20 (Dave) — batch 4
 - [x] **Inline editor floated off the text + ballooned when zoomed in** — it was positioned in
   SCREEN px inside the CSS-zoomed canvas, so the zoom double-applied. Now positioned + sized in

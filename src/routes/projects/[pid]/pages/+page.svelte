@@ -90,37 +90,50 @@
 	const viewOf = (id: string) => docView[id] ?? { zoom: 1, x: 0, y: 0 }
 	function addEnt(id: string, e: Ent) { promoteTab(id); pushHistory(id, 'Add ' + e.type); docEnts = { ...docEnts, [id]: [...(docEnts[id] ?? []), e] } }
 	function updateEnt(id: string, e: Ent) { promoteTab(id); pushHistory(id, 'Edit ' + e.type); docEnts = { ...docEnts, [id]: (docEnts[id] ?? []).map(x => x.id === e.id ? e : x) } }
+	function deleteEnts(id: string, ids: string[]) {
+		if (!ids.length) return
+		promoteTab(id); pushHistory(id, 'Delete')
+		const rm = new Set(ids)
+		docEnts = { ...docEnts, [id]: (docEnts[id] ?? []).filter(e => !rm.has(e.id)) }
+		setSel(id, [])
+	}
+	function deleteSelection() { const a2 = active; if (a2) deleteEnts(a2.id, selOf(a2.id)) }
 
 	// ── undo / redo / history / revisions ──
-	// NOTE: these are full state SNAPSHOTS, not diffs. A normal edit snapshots only the ONE doc it
-	// touched (per-doc, so switching docs doesn't bloat each step); a revision restore snapshots
-	// every doc. Memory ≈ (entities in the changed doc) × (up to 100 steps) — fine for the mock,
-	// but a real tool should be command/inverse-op based (store what changed, not the whole doc).
+	// State SNAPSHOTS, not diffs, and now scoped PER DOC: each doc has its own undo/redo stack, so
+	// Ctrl-Z only affects the doc you're looking at (a shared stack could revert a different tab's
+	// last edit). Each entry snapshots just that doc's entities. Memory ≈ (entities in the doc) × up
+	// to 100 steps — fine for the mock; a real tool should be command/inverse-op based.
 	type Snap = Record<string, Ent[]>
-	type UndoEntry = { id: string; ents: Ent[] } | { all: Snap }
-	let undoStack: UndoEntry[] = []
-	let redoStack: UndoEntry[] = []
+	let undoStacks: Record<string, Ent[][]> = {}
+	let redoStacks: Record<string, Ent[][]> = {}
 	let history = $state<{ label: string; t: number }[]>([])
 	let revisions = $state<{ name: string; note: string; snap: Snap; t: number }[]>([])
 	let lastPushT = 0
 	const snapEnts = (): Snap => $state.snapshot(docEnts) as Snap
 	const snapDoc = (id: string): Ent[] => $state.snapshot(docEnts[id] ?? []) as Ent[]
-	// Record the PRE-change state; coalesce a rapid burst (e.g. a drag) into one step.
-	function record(label: string, entry: UndoEntry) {
-		const now = Date.now()
-		if (now - lastPushT < 450 && undoStack.length) { lastPushT = now; return }
-		undoStack.push(entry); if (undoStack.length > 100) undoStack.shift()
-		redoStack = []
+	// Record the doc's PRE-change state on its own stack; coalesce a rapid burst (e.g. a drag).
+	function pushHistory(id: string, label: string) {
+		const t = tabs.find(x => x.id === id); if (t && !t.dirty) t.dirty = true   // any edit marks the tab dirty
+		const now = Date.now(), st = undoStacks[id] ?? (undoStacks[id] = [])
+		if (now - lastPushT < 450 && st.length) { lastPushT = now; return }
+		st.push(snapDoc(id)); if (st.length > 100) st.shift()
+		redoStacks[id] = []
 		history = [{ label, t: now }, ...history].slice(0, 60)
 		lastPushT = now
 	}
-	function pushHistory(id: string, label: string) { record(label, { id, ents: snapDoc(id) }) }
-	function applyUndo(entry: UndoEntry): UndoEntry {   // returns the inverse entry for the redo stack
-		if ('all' in entry) { const inv: UndoEntry = { all: snapEnts() }; docEnts = entry.all; return inv }
-		const inv: UndoEntry = { id: entry.id, ents: snapDoc(entry.id) }; docEnts = { ...docEnts, [entry.id]: entry.ents }; return inv
+	function undo() {
+		const id = panes[focused]?.activeId, st = id ? undoStacks[id] : undefined
+		if (!id || !st?.length) return
+		;(redoStacks[id] ??= []).push(snapDoc(id))
+		docEnts = { ...docEnts, [id]: st.pop()! }; lastPushT = 0
 	}
-	function undo() { if (!undoStack.length) return; redoStack.push(applyUndo(undoStack.pop()!)); lastPushT = 0 }
-	function redo() { if (!redoStack.length) return; undoStack.push(applyUndo(redoStack.pop()!)); lastPushT = 0 }
+	function redo() {
+		const id = panes[focused]?.activeId, st = id ? redoStacks[id] : undefined
+		if (!id || !st?.length) return
+		;(undoStacks[id] ??= []).push(snapDoc(id))
+		docEnts = { ...docEnts, [id]: st.pop()! }; lastPushT = 0
+	}
 	// Absolute date for the titleblock — the latest revision's date, else today (mock).
 	const fmtDate = (t?: number) => new Date(t ?? Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 	let revSeq = 0
@@ -131,7 +144,7 @@
 	// the proxy (the snap lives inside the $state revisions array); structuredClone would throw on it.
 	function restoreRevision(snap: Snap) {
 		const id = panes[focused]?.activeId; if (!id) return
-		record('Restore revision', { id, ents: snapDoc(id) })
+		pushHistory(id, 'Restore revision')
 		docEnts = { ...docEnts, [id]: $state.snapshot(snap[id] ?? []) as Ent[] }
 	}
 	function setSel(id: string, ids: string[]) { docSel = { ...docSel, [id]: ids }; if (ids.length) treeNode = null }
@@ -146,6 +159,11 @@
 		const de = { ...docEnts }, ds = { ...docSel }, dv = { ...docView }
 		delete de[id]; delete ds[id]; delete dv[id]
 		docEnts = de; docSel = ds; docView = dv
+		// free the other per-doc state too (was leaking; a reused preview id inherited it)
+		delete undoStacks[id]; delete redoStacks[id]
+		if (docProj[id]) { const dp = { ...docProj }; delete dp[id]; docProj = dp }
+		if (docPaper[id]) { const pp = { ...docPaper }; delete pp[id]; docPaper = pp }
+		if (activeVps.has(id)) deactivateVp(id)
 	}
 
 	function openTab(id: string, pane = focused) {
@@ -216,6 +234,7 @@
 		else if (item === 'Print…') window.print()
 		else if (item === 'Undo') undo()
 		else if (item === 'Redo') redo()
+		else if (item === 'Delete') deleteSelection()
 		// everything else is a mock no-op
 	}
 
@@ -534,13 +553,14 @@
 										entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={isVpActive(a.id)}
 										onactivate={() => activateVp(a.id)}
 										ondeactivate={() => deactivateVp(a.id)}
-										onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} onframe={onFrame} />
+										focused={focused === pi}
+										onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} ondelete={(ids) => deleteEnts(a.id, ids)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} onframe={onFrame} />
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => deactivateVp(a.id)}>
 										<Viewport kind={projKind(projOf(a))} label={a.title} tool={p.tool} env={envFor(p)} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
-											active={isVpActive(a.id)} onactivate={() => activateVp(a.id)} ondeactivate={() => deactivateVp(a.id)}
-											onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} />
+											active={isVpActive(a.id)} focused={focused === pi} onactivate={() => activateVp(a.id)} ondeactivate={() => deactivateVp(a.id)}
+											onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} ondelete={(ids) => deleteEnts(a.id, ids)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} />
 									</div>
 								{:else}
 									<div class="canvas-center">
@@ -561,7 +581,7 @@
 						{#if a}
 							<!-- fixed-size view gizmos (ViewCube + WCS axes), screen space so they don't zoom -->
 							<ViewGizmos projection={projOf(a)}
-								onset={(proj) => { docProj = { ...docProj, [a.id]: proj }; if (a.kind === 'sheet' && layout === 'sheet' && proj !== 'plan') layout = 'model' }} />
+								onset={(proj) => { docProj = { ...docProj, [a.id]: proj }; if (a.kind === 'sheet') layout = proj === 'plan' ? 'sheet' : 'model' }} />
 						{/if}
 					</main>
 				</section>
@@ -590,7 +610,8 @@
 						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''} {activeLayer} node={treeNode} viewport={viewportSel} />
 				{:else}
 					<HistoryPanel {history} {revisions} rev={rev} revOptions={REVISIONS} onrev={(r) => (rev = r)}
-						onundo={undo} onredo={redo} onnewrevision={makeRevision} onrestore={(s) => restoreRevision(s)} />
+						onnote={(i, note) => (revisions[i].note = note)}
+						onundo={undo} onredo={redo} onnewrevision={makeRevision} onrestore={(s) => restoreRevision(s as Snap)} />
 				{/if}
 			</aside>
 		{:else}

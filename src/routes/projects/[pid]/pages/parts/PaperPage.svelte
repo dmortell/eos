@@ -18,10 +18,10 @@
 	// mutators, so the panel can edit without reaching into this child's state.
 	export type FrameSel = { label: string; x: number; y: number; w: number; h: number;
 		border: 'dashed' | 'solid' | 'none'; setBorder: (b: 'dashed' | 'solid' | 'none') => void; setRect: (r: Partial<{ x: number; y: number; w: number; h: number }>) => void }
-	let { title = 'Sheet', drawingNo = '001', scale = '1:100', active = false, tool = 'Select', env = {}, pw = PAPER_W, ph = PAPER_H, sizeLabel = 'A3', rev = '', revDate = '',
-		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, ondeactivate, onadd, onupdate, onselect, onview, onframe }:
-		{ title?: string; drawingNo?: string; scale?: string; active?: boolean; tool?: string; env?: Env; pw?: number; ph?: number; sizeLabel?: string; rev?: string; revDate?: string;
-			entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; ondeactivate?: () => void; onadd?: (e: Ent) => void; onupdate?: (e: Ent) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void; onframe?: (f: FrameSel | null) => void } = $props()
+	let { title = 'Sheet', drawingNo = '001', scale = '1:100', active = false, focused = true, tool = 'Select', env = {}, pw = PAPER_W, ph = PAPER_H, sizeLabel = 'A3', rev = '', revDate = '',
+		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, ondeactivate, onadd, onupdate, ondelete, onselect, onview, onframe }:
+		{ title?: string; drawingNo?: string; scale?: string; active?: boolean; focused?: boolean; tool?: string; env?: Env; pw?: number; ph?: number; sizeLabel?: string; rev?: string; revDate?: string;
+			entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; ondeactivate?: () => void; onadd?: (e: Ent) => void; onupdate?: (e: Ent) => void; ondelete?: (ids: string[]) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void; onframe?: (f: FrameSel | null) => void } = $props()
 	const canvasZoom = $derived(env.canvasZoom ?? 1)
 
 	let frameBorder = $state<'dashed' | 'solid' | 'none'>('dashed')
@@ -33,6 +33,9 @@
 				setRect: (r) => { if (frame) frame = { ...frame, ...r } } }
 			: null)
 	})
+	// Clear the parent's frame handle when this PaperPage unmounts (tab switch remounts it via
+	// {#key}); otherwise the Properties panel keeps a FrameSel whose setters write into a dead component.
+	$effect(() => () => onframe?.(null))
 
 	// The viewport frame in paper (unscaled) px, within the sheet drawing area.
 	type Frame = { x: number; y: number; w: number; h: number }
@@ -139,9 +142,9 @@
 			{#if frame}
 				<div class="vp-frame" class:selected={selected && !active} class:active
 					style="left:{frame.x}px; top:{frame.y}px; width:{frame.w}px; height:{frame.h}px">
-					<Viewport kind="floorplan" label="Outlets · 33F" {scale} {active} {tool} {env} border={frameBorder} {entities} {sel} {view}
+					<Viewport kind="floorplan" label="Outlets · 33F" {scale} {active} {focused} {tool} {env} border={frameBorder} {entities} {sel} {view}
 						boxW={frame.w} boxH={frame.h}
-						{onactivate} {ondeactivate} {onadd} {onupdate} {onselect} {onview} />
+						{onactivate} {ondeactivate} {onadd} {onupdate} {ondelete} {onselect} {onview} />
 					{#if !active}
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
 						<!-- Border band selects + moves; the interior child leaves the middle inert. -->
@@ -185,15 +188,18 @@
 	/* No overflow clip here: the pane (.canvas) already clips at the real screen edge. A clip
 	   on this transformed wrapper would move/scale with the canvas and cut off viewports moved
 	   away from the paper — the canvas is meant to be infinite (pan to follow). */
-	.paper-wrap { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
+	/* Pin the paper at the content origin (0,0) — NOT flex-centred — so fitPane's centring translate
+	   is correct and the world origin is stable when the pane resizes (was double-offset before). */
+	.paper-wrap { position:absolute; inset:0; }
 	/* Paper is always white/light — it's paper, independent of the app theme. */
 	/* Fixed on-screen size (A3 landscape, 420:297) like a real CAD sheet — you zoom/pan
 	   the canvas over it rather than the paper auto-fitting the window. Fit-to-view (View ›
 	   Fit) frames it. Print overrides these to true A3 mm via the @media-print rules. */
 	.paper {
-		/* size set inline from PAPER_W/PAPER_H (../constants); print overrides to A3 mm */
+		/* size set inline from pw/ph; print overrides to true mm. Pinned at (0,0). */
+		position:absolute; left:0; top:0;
 		background:#fff; color:#1f2937; box-shadow:0 10px 40px #0006;
-		display:flex; gap:6px; padding:10px; transform-origin:center; flex:none;
+		display:flex; gap:6px; padding:10px; transform-origin:0 0; flex:none;
 	}
 	.sheet-area { position:relative; flex:1; min-width:0; user-select:none; -webkit-user-select:none; touch-action:none; }
 	/* The floating viewport frame (paper space). */
