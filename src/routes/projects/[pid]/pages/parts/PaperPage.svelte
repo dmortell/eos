@@ -31,7 +31,6 @@
 	// Paper px per screen px (the canvas CSS zoom lives above this element), from measured
 	// vs layout size — so move/resize/marquee track the pointer at any canvas zoom.
 	const scaleOf = () => sheetEl ? sheetEl.getBoundingClientRect().width / sheetEl.offsetWidth : 1
-	const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
 	function toSheet(cx: number, cy: number): { x: number; y: number } {
 		const r = sheetEl!.getBoundingClientRect(), s = scaleOf()
 		return { x: (cx - r.left) / s, y: (cy - r.top) / s }
@@ -48,15 +47,14 @@
 		window.addEventListener('pointermove', onDrag)
 		window.addEventListener('pointerup', endDrag)
 	}
-	// Viewports may extend past the sheet (like AutoCAD floating viewports). We only keep a
-	// small sliver grabbable so a frame can't be lost entirely off the paper.
-	const VIS = 40
+	// Viewports move freely on an infinite canvas — no position clamp; pan to follow one that
+	// has been dragged off the paper.
 	function onDrag(e: PointerEvent) {
-		if (!drag || !sheetEl) return
+		if (!drag) return
 		const dx = (e.clientX - drag.sx) / drag.s, dy = (e.clientY - drag.sy) / drag.s
-		const b = drag.base, W = sheetEl.offsetWidth, H = sheetEl.offsetHeight
+		const b = drag.base
 		if (drag.mode === 'move') {
-			frame = { w: b.w, h: b.h, x: clamp(b.x + dx, VIS - b.w, W - VIS), y: clamp(b.y + dy, VIS - b.h, H - VIS) }
+			frame = { w: b.w, h: b.h, x: b.x + dx, y: b.y + dy }
 			return
 		}
 		let { x, y, w, h } = b
@@ -163,7 +161,10 @@
 </div>
 
 <style>
-	.paper-wrap { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+	/* No overflow clip here: the pane (.canvas) already clips at the real screen edge. A clip
+	   on this transformed wrapper would move/scale with the canvas and cut off viewports moved
+	   away from the paper — the canvas is meant to be infinite (pan to follow). */
+	.paper-wrap { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
 	/* Paper is always white/light — it's paper, independent of the app theme. */
 	/* Fixed on-screen size (A3 landscape, 420:297) like a real CAD sheet — you zoom/pan
 	   the canvas over it rather than the paper auto-fitting the window. Fit-to-view (View ›
