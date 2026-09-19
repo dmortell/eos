@@ -25,11 +25,11 @@ after UX settles · **(P3)** later / needs design. `◧ decide` = needs your pic
   PANE-level gizmos (`parts/ViewGizmos.svelte`): a **top-right ViewCube** (TOP/FRONT/3D faces →
   switch the pane's projection) and a **bottom-left x/y/z axis triad** (Kestrel `drawUCS` style,
   oriented per view). Old in-viewport cube left commented in `Viewport.svelte`.
-- [ ] **Marquee vs disabled-cursor bug** — sometimes after a double-click, dragging a marquee on the
-  page canvas shows a `not-allowed` (disabled) cursor instead of the marquee, and releasing leaves
-  it stuck in a marquee/drag-move state. Repro is intermittent — likely a text-selection/native-drag
-  starting on dblclick, or a pointer-capture not released. (Investigate: `user-select:none`,
-  `preventDefault` on dblclick, ensure marquee pointerup always clears.)
+- [~] **Marquee vs disabled-cursor bug** — after a double-click, dragging a marquee showed a
+  `not-allowed` cursor and left the marquee stuck. Cause: a native text/element-selection drag
+  starting on the dblclick. Fix applied: `user-select:none` on `.canvas` / `.vp` / `.sheet-area`,
+  `preventDefault` + pointer-capture on the paper marquee start (`.text-edit` keeps `user-select`).
+  Intermittent — confirm it's gone in real use on the iPad/desktop.
 
 
 - [x] **Closing the last page tab no longer spawns "Untitled"** — panes fall to a "No page

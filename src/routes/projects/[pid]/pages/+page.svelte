@@ -689,7 +689,8 @@
 	/* Canvas */
 	.canvas { position:relative; flex:1 1 auto; min-width:0; min-height:0; background:var(--canvas);
 		background-image:radial-gradient(var(--line) 1px, transparent 1px); background-size:22px 22px;
-		display:flex; align-items:center; justify-content:center; overflow:hidden; }
+		display:flex; align-items:center; justify-content:center; overflow:hidden;
+		user-select:none; -webkit-user-select:none; }
 	.canvas-center { display:flex; flex-direction:column; align-items:center; gap:6px; color:var(--faint); pointer-events:none; }
 	.canvas-center :global(svg) { color:var(--faint); margin-bottom:2px; }
 	.cc-title { font-size:15px; color:var(--muted); font-weight:600; }

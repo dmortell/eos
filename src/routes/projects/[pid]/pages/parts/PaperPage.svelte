@@ -93,6 +93,8 @@
 	let marquee = $state<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
 	function onSheetDown(e: PointerEvent) {
 		if (active || e.button !== 0) return
+		e.preventDefault()   // stop a native text/element drag starting after a double-click (shows a not-allowed cursor + leaves the marquee stuck)
+		try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
 		selected = false
 		const p = toSheet(e.clientX, e.clientY)
 		marquee = { x0: p.x, y0: p.y, x1: p.x, y1: p.y }
@@ -188,7 +190,7 @@
 		background:#fff; color:#1f2937; box-shadow:0 10px 40px #0006;
 		display:flex; gap:6px; padding:10px; transform-origin:center; flex:none;
 	}
-	.sheet-area { position:relative; flex:1; min-width:0; }
+	.sheet-area { position:relative; flex:1; min-width:0; user-select:none; -webkit-user-select:none; touch-action:none; }
 	/* The floating viewport frame (paper space). */
 	.vp-frame { position:absolute; }
 	.vp-frame.selected { outline:1.5px solid #0e7490; outline-offset:1px; }

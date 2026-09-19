@@ -718,7 +718,8 @@
 {/snippet}
 
 <style>
-	.vp { position:relative; width:100%; height:100%; border:1.5px dashed #94a3b8; background:#fff; cursor:pointer; overflow:hidden; touch-action:none; }
+	.vp { position:relative; width:100%; height:100%; border:1.5px dashed #94a3b8; background:#fff; cursor:pointer; overflow:hidden; touch-action:none;
+		user-select:none; -webkit-user-select:none; }
 	.vp:hover { border-color:#5ac6d2; }
 	.vp.active { border:1.5px solid #157a8b; box-shadow:0 0 0 2px #5ac6d233; cursor:default; }
 	.vp-svg { display:block; width:100%; height:100%; }
@@ -745,6 +746,7 @@
 	}
 	.vp-dot { width:5px; height:5px; border-radius:50%; background:#157a8b; }
 	.text-edit { position:absolute; z-index:10; min-width:48px; min-height:1.2em; background:#fff; color:#111827; font-weight:600;
-		border:1px solid #0e7490; border-radius:2px; padding:0 2px; font-family:inherit; resize:both; overflow:hidden; white-space:pre; }
+		border:1px solid #0e7490; border-radius:2px; padding:0 2px; font-family:inherit; resize:both; overflow:hidden; white-space:pre;
+		user-select:text; -webkit-user-select:text; }
 	.text-edit:focus { outline:none; box-shadow:0 0 0 2px #0e749033; }
 </style>
