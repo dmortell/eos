@@ -166,8 +166,8 @@
 	const gripSize = $derived(3.5 / view.zoom)   // viewBox units → ~constant on screen (Kestrel-small)
 
 	// What a press at these client coords would grab: a grip of a selected entity, or the
-	// body of any entity (topmost). Used by both the pointer-drag start and panzoom's
-	// touch grab-guard, so a 1-finger touch on a handle edits instead of panning.
+	// body of any entity (topmost). Drives the pointer-drag start (mouse-left / 1-finger
+	// touch) — navigation is 2-finger, so a single finger is always free to edit.
 	function pick(clientX: number, clientY: number): { kind: 'grip' | 'move'; id: string; gi: number } | null {
 		for (const id of sel) {
 			const ent = entities.find(x => x.id === id); if (!ent) continue
@@ -234,7 +234,7 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="vp" class:active role="button" tabindex="0" style:cursor={cursorStyle}
-	use:panzoom={{ enabled: () => active, grab: (cx, cy) => active && tool === 'Select' && !!pick(cx, cy), onpan: onPan, onzoom: onZoom }}
+	use:panzoom={{ enabled: () => active, onpan: onPan, onzoom: onZoom }}
 	onclick={onClick} onpointerdown={onDown} onpointermove={onMove}
 	onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onactivate?.() } }}>
 
