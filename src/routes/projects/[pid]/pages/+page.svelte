@@ -197,7 +197,7 @@
 		else if (item === 'Zoom Out') navZoom(0.8)
 		else if (item === 'Split Editor') splitVertical()
 		else if (item === 'Unsplit') closePane(1)
-		else if (item === 'Print…') window.print()
+		else if (item === 'Print…') printSheet()
 		// everything else is a mock no-op
 	}
 
@@ -266,52 +266,61 @@
 		else p.canvasView = { zoom: 1, x: 0, y: 0 }
 	}
 
-	// ── Print (EOS sheets method) — show ONLY the focused sheet's A3 paper.
-	// The stylesheet (both @page size and the print-only visibility rules) lives in the
-	// document at ALL times: it's inert on screen (@media print) but MUST be present
-	// before the print dialog opens, because Chrome reads the paper size when it builds
-	// the preview — a rule injected on beforeprint arrives too late and the dialog falls
-	// back to the system default (Letter). Named size (A3 landscape), not raw mm, for the
-	// same reason: Chrome's paper selector honors a named size; 420mm×297mm IS A3 landscape.
-	// beforeprint only does the per-print work: mark the focused paper + clear selection.
-	let savedSel: Record<string, string[]> | null = null
-	const PRINT_ID = 'pages-print-style'
-	const PRINT_CSS = `@page { size: A3 landscape; margin: 0; }
-@media print {
-	html, body { margin:0 !important; padding:0 !important; background:#fff !important; }
-	.canvas-content { transform: none !important; }   /* so fixed positions to the page, not a transformed ancestor */
-	body * { visibility: hidden !important; }
-	.print-target, .print-target * { visibility: visible !important; }
-	.print-target { position: fixed !important; inset: 0 !important; width: 420mm !important; height: 297mm !important; margin: 0 !important; box-shadow: none !important; background:#fff !important; }
-	.print-target .vp { border: none !important; box-shadow: none !important; }
-	.print-target .vp-tag, .print-target .vp-badge { display: none !important; }
-}`
-	function applyPrint() {
-		savedSel = { ...docSel }
-		docSel = {}   // selection is screen-only; clear so no highlight prints
-		const target = document.querySelector('.pane.focused .paper')
-			?? document.querySelector('.pane.focused .vp-fill')
-			?? document.querySelector('.pane.focused .vp')
-		target?.classList.add('print-target')
-		flushSync()   // apply the cleared selection to the DOM before the print snapshot
-	}
-	function removePrint() {
-		document.querySelectorAll('.print-target').forEach(el => el.classList.remove('print-target'))
-		if (savedSel) { docSel = savedSel; savedSel = null }
+	// ── Print — Ctrl+P opens a dedicated print window holding ONLY the focused sheet's
+	// A3 paper, then prints that. Why a separate window instead of @media-print rules on
+	// this page: the app's transforms / fixed positioning / scoped CSS confuse Chrome's
+	// page-size computation, and a rule injected on beforeprint lands too late. A minimal
+	// standalone doc, present with its @page rule before print() is called, is the cleanest
+	// shot at Chrome honoring A3. NOTE: for a physical-printer destination Chrome still
+	// defaults the paper dropdown to the printer's own default (often Letter) — @page sets
+	// the layout, not the printer's paper. "Save as PDF" honors @page and yields true A3.
+	function printSheet() {
+		const paper = (document.querySelector('.pane.focused .paper')
+			?? document.querySelector('.paper')) as HTMLElement | null
+		if (!paper) return
+		// Clear the (screen-only) selection so no highlight is captured in the clone.
+		const prevSel = { ...docSel }
+		docSel = {}
+		flushSync()
+		const html = paper.outerHTML   // snapshot with drawn entities, no selection
+		docSel = prevSel               // restore screen state immediately
+
+		// Carry over every stylesheet so the paper's scoped Svelte classes render (the
+		// viewport/titleblock use hardcoded colors, no CSS vars — so no .shell needed).
+		const styles = [...document.querySelectorAll('style, link[rel="stylesheet"]')]
+			.map(n => n.outerHTML).join('\n')
+		const w = window.open('', '_blank', 'width=1190,height=842')
+		if (!w) { window.print(); return }   // popup blocked → fall back to inline print
+		w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Print — A3</title>
+${styles}
+<style>
+	@page { size: A3 landscape; margin: 0; }
+	html, body { margin:0; padding:0; background:#fff; }
+	.print-root { width: 420mm; height: 297mm; overflow: hidden; background:#fff; }
+	/* Fill the A3 page; drop the on-screen sizing/shadow and viewport chrome. */
+	.print-root .paper { width:100% !important; height:100% !important; max-width:none !important; aspect-ratio:auto !important; box-shadow:none !important; }
+	.print-root .paper-wrap { position:static !important; }
+	.print-root .vp { border:none !important; box-shadow:none !important; }
+	.print-root .vp-tag, .print-root .vp-badge { display:none !important; }
+</style></head><body><div class="print-root">${html}</div></body></html>`)
+		w.document.close()
+		w.focus()
+		const go = () => { w.focus(); w.print() }
+		// Give styles/layout a beat, then print; close after the dialog resolves.
+		if (w.document.readyState === 'complete') setTimeout(go, 200)
+		else w.addEventListener('load', () => setTimeout(go, 200))
+		w.addEventListener('afterprint', () => w.close())
 	}
 	$effect(() => {
-		// Persistent stylesheet: present before any print dialog so Chrome picks up A3.
-		let style = document.getElementById(PRINT_ID) as HTMLStyleElement | null
-		if (!style) { style = document.createElement('style'); style.id = PRINT_ID; document.head.appendChild(style) }
-		style.textContent = PRINT_CSS
-		window.addEventListener('beforeprint', applyPrint)
-		window.addEventListener('afterprint', removePrint)
-		return () => {
-			window.removeEventListener('beforeprint', applyPrint)
-			window.removeEventListener('afterprint', removePrint)
-			removePrint()
-			document.getElementById(PRINT_ID)?.remove()
+		// Intercept Ctrl/Cmd+P so it prints just the sheet, not the whole app page.
+		const onKey = (e: KeyboardEvent) => {
+			if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
+				e.preventDefault()
+				printSheet()
+			}
 		}
+		window.addEventListener('keydown', onKey)
+		return () => window.removeEventListener('keydown', onKey)
 	})
 
 	// Status bar
@@ -740,7 +749,7 @@
 	.row-close { font-size:15px; line-height:1; }
 	.lib-open { font-size:8px; text-transform:uppercase; letter-spacing:.06em; color:var(--faint); border:1px solid var(--line); border-radius:3px; padding:1px 4px; }
 
-	/* Project tree (Project › Building › Floor › Room › Row) */
+	/* Project tree (Project › Building › Floor › Zone > Room › Row) */
 	.tree-row { display:flex; align-items:center; gap:5px; padding:4px 6px; border-radius:5px; color:var(--text); cursor:pointer; user-select:none; }
 	.tree-row:hover { background:var(--hover); }
 	.tree-row.sel { background:var(--active); box-shadow:inset 2px 0 0 var(--accent); }
