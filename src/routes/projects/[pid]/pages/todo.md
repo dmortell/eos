@@ -10,14 +10,13 @@ after UX settles · **(P3)** later / needs design. `◧ decide` = needs your pic
 ---
 
 ## 0. Bugs / quick wins  (P1)
-- [ ] **Closing the last page tab auto-creates an "Untitled" tab** — in `+page.svelte`
-  `closeTab()` does `if (!tabs.length) { addTab() }`. Clicking `−` on the last page
-  keeps spawning Untitled. → show an empty "No page open" state instead, and let the
-  Library/tree open a page when there are none.
-- [ ] Small: `navFit` and print target find the pane via `document.querySelectorAll('.canvas')[focused]`
-  — brittle DOM-order indexing; bind per-pane refs.
-- [ ] Shared constants (`BASE`, `PAPER_W/H`, `HANDLE_PX`) are duplicated across files
-  linked only by comments — extract to a `constants.ts` before they drift.
+- [x] **Closing the last page tab no longer spawns "Untitled"** — panes fall to a "No page
+  open" empty state (with an icon + New-page button); open a drawing from the sidebar.
+- [x] `navFit` now uses a **bound per-pane canvas ref** (`canvasEls[pi]`) instead of
+  `querySelectorAll('.canvas')[focused]`. (Print still targets `.pane.focused .paper` —
+  class-based, reliable.)
+- [x] Shared constants extracted to **`pages/constants.ts`** (`BASE`, `HANDLE_PX`,
+  `PAPER_W/H`); Viewport/PaperPage/+page import them (paper size now inline-styled).
 
 ## 1. Interaction parity with the Sheets tool  (P1)
 - [ ] ◧ **decide** — Mouse/touch model: choose whether Pages matches Sheets or keeps its

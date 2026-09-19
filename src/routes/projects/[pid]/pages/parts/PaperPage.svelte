@@ -9,6 +9,7 @@
 	//    paper outside the frame (or Esc / Exit) returns to paper space.
 	import Viewport, { type Ent, type View } from '../ui/Viewport.svelte'
 	import Handle from './Handle.svelte'
+	import { HANDLE_PX, PAPER_W, PAPER_H } from '../constants'
 
 	let { title = 'Sheet', drawingNo = '001', scale = '1:100', active = false, tool = 'Select',
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, ondeactivate, onadd, onupdate, onselect, onview }:
@@ -107,13 +108,12 @@
 	}
 	const CORNERS = [[0, 0], [1, 0], [1, 1], [0, 1]] as const   // TL, TR, BR, BL
 	const CURSORS = ['nwse-resize', 'nesw-resize', 'nwse-resize', 'nesw-resize']
-	const HANDLE_PX = 9   // matches the entity grips inside the viewport (Viewport HANDLE_PX)
 	let mq = $derived(marquee ? { x: Math.min(marquee.x0, marquee.x1), y: Math.min(marquee.y0, marquee.y1), w: Math.abs(marquee.x1 - marquee.x0), h: Math.abs(marquee.y1 - marquee.y0) } : null)
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 <div class="paper-wrap" ondblclick={onWrapDblclick}>
-	<div class="paper">
+	<div class="paper" style:width="{PAPER_W}px" style:height="{PAPER_H}px">
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="sheet-area" bind:this={sheetEl} onpointerdown={onSheetDown}>
 			{#if frame}
@@ -169,7 +169,7 @@
 	   the canvas over it rather than the paper auto-fitting the window. Fit-to-view (View ›
 	   Fit) frames it. Print overrides these to true A3 mm via the @media-print rules. */
 	.paper {
-		width:960px; height:679px;
+		/* size set inline from PAPER_W/PAPER_H (../constants); print overrides to A3 mm */
 		background:#fff; color:#1f2937; box-shadow:0 10px 40px #0006;
 		display:flex; gap:6px; padding:10px; transform-origin:center; flex:none;
 	}

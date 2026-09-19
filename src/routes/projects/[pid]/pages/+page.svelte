@@ -13,6 +13,7 @@
 	import DrawingNavigator from './parts/DrawingNavigator.svelte'
 	import LayersPanel from './parts/LayersPanel.svelte'
 	import { panzoom } from './ui/panzoom'
+	import { PAPER_W, PAPER_H } from './constants'
 
 	// Which pane (if any) has its viewport activated — groundwork for editing/CAD
 	// tools inside a sheet's viewport. Null = no active viewport.
@@ -44,6 +45,7 @@
 	// Each pane (view) remembers its own tool + its own canvas (paper-space) pan/zoom.
 	let panes = $state<{ id: string; activeId: string; tool: string; canvasView: View }[]>([{ id: 'p1', activeId: 't2', tool: 'Select', canvasView: { zoom: 1, x: 0, y: 0 } }])
 	let focused = $state(0)      // which pane new tabs / sidebar actions target
+	let canvasEls = $state<(HTMLElement | undefined)[]>([])   // each pane's .canvas, for navFit
 	let splitFrac = $state(0.5)  // pane 0 width fraction when split
 	let paneSeq = 1
 	let active = $derived(tabs.find(t => t.id === panes[focused]?.activeId) ?? null)
@@ -81,8 +83,9 @@
 		const i = tabs.findIndex(t => t.id === id); if (i < 0) return
 		tabs = tabs.filter(t => t.id !== id)
 		dropDoc(id)
-		if (!tabs.length) { addTab(); return }
-		const fallback = tabs[Math.max(0, i - 1)].id
+		// Point any pane that showed this tab at a neighbour, or '' → the "No page open"
+		// empty state (don't auto-spawn an Untitled tab on the last close).
+		const fallback = tabs[Math.max(0, i - 1)]?.id ?? ''
 		for (const p of panes) if (p.activeId === id) p.activeId = fallback
 	}
 	// Vertical split: open a second pane showing a different tab; toggle focus if already split.
@@ -182,14 +185,13 @@
 		if (activeVpPane === focused) { const v = viewOf(p.activeId); setView(p.activeId, { ...v, zoom: Math.min(8, Math.max(0.25, v.zoom * f)) }) }
 		else { const v = p.canvasView; v.zoom = Math.min(8, Math.max(0.1, v.zoom * f)) }
 	}
-	const PAPER_W = 960, PAPER_H = 679   // fixed on-screen sheet size (see PaperPage.svelte)
 	function navFit() {
 		const p = panes[focused]; if (!p) return
 		if (activeVpPane === focused) { setView(p.activeId, { zoom: 1, x: 0, y: 0 }); return }
 		// Frame the fixed-size paper in the pane (transform-origin 0 0, paper centred in the
 		// canvas box): pick a zoom that fits with margin, then translate to re-centre.
 		const a2 = tabs.find(t => t.id === p.activeId)
-		const canvas = document.querySelectorAll('.canvas')[focused] as HTMLElement | undefined
+		const canvas = canvasEls[focused]
 		if (a2?.kind === 'sheet' && canvas && canvas.clientWidth > 50) {
 			const r = canvas.getBoundingClientRect()
 			const z = Math.min(r.width / PAPER_W, r.height / PAPER_H) * 0.9
@@ -364,7 +366,7 @@
 					<!-- this pane's canvas -->
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
-					<main class="canvas" onpointermove={onCanvasMove}
+					<main class="canvas" bind:this={canvasEls[pi]} onpointermove={onCanvasMove}
 						use:panzoom={{ enabled: () => !!a, onpan: (dx, dy) => canvasPan(p, dx, dy), onzoom: (f, x, y, node) => canvasZoom(p, node, f, x, y) }}>
 						<div class="floattools glass-bar" class:dim={a && activeVpPane !== pi}>
 							{#each TOOLS as t (t.name)}
@@ -393,7 +395,12 @@
 											onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} />
 									</div>
 								{:else}
-									<div class="canvas-center"><div class="cc-sub">No page open</div></div>
+									<div class="canvas-center">
+										<Icon name="fileText" size={22} />
+										<div class="cc-title">No page open</div>
+										<div class="cc-sub">Pick a drawing from the sidebar, or</div>
+										<button class="cc-new" onpointerdown={(e) => e.stopPropagation()} onclick={() => { focused = pi; addTab() }}><Icon name="plus" size={13} /> New page</button>
+									</div>
 								{/if}
 							</div>
 						{/key}
@@ -603,8 +610,13 @@
 	.canvas { position:relative; flex:1 1 auto; min-width:0; min-height:0; background:var(--canvas);
 		background-image:radial-gradient(var(--line) 1px, transparent 1px); background-size:22px 22px;
 		display:flex; align-items:center; justify-content:center; overflow:hidden; }
-	.canvas-center { display:flex; flex-direction:column; align-items:center; gap:8px; color:var(--faint); pointer-events:none; }
+	.canvas-center { display:flex; flex-direction:column; align-items:center; gap:6px; color:var(--faint); pointer-events:none; }
+	.canvas-center :global(svg) { color:var(--faint); margin-bottom:2px; }
+	.cc-title { font-size:15px; color:var(--muted); font-weight:600; }
 	.cc-sub { font-size:12px; color:var(--faint); }
+	.cc-new { pointer-events:auto; margin-top:6px; display:inline-flex; align-items:center; gap:6px; padding:6px 12px;
+		font-size:12px; border-radius:6px; color:var(--text); background:var(--panel2); border:1px solid var(--line); }
+	.cc-new:hover { background:var(--hover); border-color:var(--accent-dim); }
 	.glass-bar { position:absolute; display:flex; gap:2px; padding:4px; border-radius:8px;
 		background:color-mix(in srgb, var(--panel) 82%, transparent); border:1px solid var(--line-soft);
 		backdrop-filter:blur(9px); -webkit-backdrop-filter:blur(9px); box-shadow:0 8px 30px #0004; }

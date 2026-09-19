@@ -8,6 +8,7 @@
 	import { Icon } from '$lib'
 	import { panzoom } from './panzoom'
 	import Handle from '../parts/Handle.svelte'
+	import { BASE, HANDLE_PX } from '../constants'
 
 	export type Pt = [number, number]
 	export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'dim' | 'text'; a?: Pt; b?: Pt; c?: Pt; r?: number; text?: string }
@@ -62,7 +63,7 @@
 	// (÷ BASE) and centred on the plan (CX,CY); the parent passes boxW/boxH when it owns the size
 	// (a paper viewport frame — reliable), else we measure via bind:clientWidth (standalone
 	// viewports). The mock drawing (0..400 × 0..250) sits at that fixed scale.
-	const BASE = 1.84, CX = 200, CY = 125
+	const CX = 200, CY = 125   // plan centre (BASE / HANDLE_PX come from ../constants)
 	let vpW = $state(0), vpH = $state(0)
 	let vbW = $derived(((boxW ?? vpW) || 400) / BASE), vbH = $derived(((boxH ?? vpH) || 250) / BASE)
 	let minX = $derived(CX - vbW / 2), minY = $derived(CY - vbH / 2)
@@ -176,10 +177,8 @@
 		const t = (p?: Pt): Pt | undefined => p ? [p[0] + dx, p[1] + dy] : p
 		return { ...e, a: t(e.a), b: t(e.b), c: t(e.c) }
 	}
-	// Handle on-screen size shared with the paper's viewport-frame grips (see Handle.svelte /
-	// PaperPage HANDLE_PX): gripSize in model units renders to HANDLE_PX·canvasZoom on screen,
-	// the same as the frame grips — so all handles look identical.
-	const HANDLE_PX = 9
+	// gripSize in model units renders to HANDLE_PX·canvasZoom px on screen — the same as the
+	// paper's viewport-frame grips, so every handle looks identical.
 	const gripSize = $derived(HANDLE_PX / BASE / view.zoom)
 
 	// What a press at these client coords would grab: a grip of a selected entity, or the
