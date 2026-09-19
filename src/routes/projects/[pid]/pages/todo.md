@@ -57,7 +57,13 @@ marquee and constant-lineweight draw, but no additive select / duplicate / move-
 ## 2. Drawing objects, tools & annotations
 - [ ] ◧ **decide** — pick which Sheets insertable-object + annotation types to implement in
   Pages (**checklist below**).
-- [ ] **Ellipses** (P1).
+- [x] **Ellipses** — Ellipse tool (Shift = circle); render/hit/grips/Properties.
+- [x] **Edit-in-place text** — double-click a text object opens an inline editor.
+- [ ] **Real drawing scale** — the viewport has **no real-world scale** yet: geometry is in
+  abstract viewBox units (the mock floorplan is 0..400 × 0..250), so an object of "width
+  100" is ¼ of the plan — huge; the "1:100" titleblock text is cosmetic. To make it real:
+  define model units = mm + a scale (e.g. 1 unit = 100 mm ⇒ the 400-unit plan = 40 m at
+  1:100), show/accept mm in Properties, and render true lineweights. Needs your unit/scale call.
 - [ ] **Blocks + block library** — define, instance, place; a browsable library panel (P2).
 - [ ] **Trunks & conduits** (from Sheets): node/segment graph with handle editing (drag
   node, dbl-click segment to add a point, Ctrl-drag to branch, Shift = 15°). Sheets stores
