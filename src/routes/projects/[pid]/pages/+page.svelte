@@ -14,6 +14,8 @@
 	import LayersPanel from './parts/LayersPanel.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
 	import HistoryPanel from './parts/HistoryPanel.svelte'
+	import StatusBar from './parts/StatusBar.svelte'
+	import Menubar from './parts/Menubar.svelte'
 	import CommandPalette from './parts/CommandPalette.svelte'
 	import { panzoom } from './ui/panzoom'
 	import { PAPER_W, PAPER_H } from './constants'
@@ -147,16 +149,8 @@
 	let rightOpen = $state(true)
 	let rightTab = $state<'layers' | 'props' | 'history'>('layers')   // right sidebar tabs
 
-	// Menubar
-	let openMenu = $state<string | null>(null)
-	const MENUS: Record<string, string[]> = {
-		File: ['New Page', 'Open…', '—', 'Save', 'Export…', '—', 'Print…'],
-		Edit: ['Undo', 'Redo', '—', 'Cut', 'Copy', 'Paste', '—', 'Delete'],
-		View: ['Zoom In', 'Zoom Out', 'Fit', '—', 'Split Editor', 'Unsplit', '—', 'Toggle Left Panel', 'Toggle Right Panel'],
-		Insert: ['Outlet', 'Trunk', 'Rack', '—', 'Text', 'Dimension'],
-	}
+	// Menubar action (the menu lives in parts/Menubar.svelte)
 	function menuAction(item: string) {
-		openMenu = null
 		if (item === 'New Page') addTab()
 		else if (item === 'Toggle Left Panel') leftOpen = !leftOpen
 		else if (item === 'Toggle Right Panel') rightOpen = !rightOpen
@@ -329,7 +323,6 @@
 {#if paletteOpen}<CommandPalette items={paletteItems} onpick={pickPalette} onclose={() => (paletteOpen = false)} />{/if}
 
 <div class="shell" data-mock-theme={mockTheme}>
-	{#if openMenu}<button class="menu-backdrop" aria-label="Close menu" onclick={() => (openMenu = null)}></button>{/if}
 	{#if tabMenuPane !== null}<button class="menu-backdrop" aria-label="Close menu" onclick={() => (tabMenuPane = null)}></button>{/if}
 
 	<!-- Titlebar -->
@@ -356,23 +349,7 @@
 	</header>
 
 	<!-- Menubar -->
-	<nav class="menubar">
-		{#each Object.keys(MENUS) as m (m)}
-			<div class="menu-wrap">
-				<button class="menu-btn" class:open={openMenu === m} data-menu={m}
-					onclick={(e) => { const n = e.currentTarget.dataset.menu!; openMenu = openMenu === n ? null : n }}
-					onmouseenter={(e) => { if (openMenu) openMenu = e.currentTarget.dataset.menu! }}>{m}</button>
-				{#if openMenu === m}
-					<div class="menu-pop">
-						{#each MENUS[m] as item, i (i)}
-							{#if item === '—'}<div class="menu-sep"></div>
-							{:else}<button class="menu-item" data-item={item} onclick={(e) => menuAction(e.currentTarget.dataset.item!)}>{item}</button>{/if}
-						{/each}
-					</div>
-				{/if}
-			</div>
-		{/each}
-	</nav>
+	<Menubar onaction={menuAction} />
 
 	<!-- Body: left · editor-area (1–2 panes) · right -->
 	<div class="body">
@@ -526,26 +503,7 @@
 	</div>
 
 	<!-- Status bar -->
-	<footer class="statusbar">
-		<div class="layout-tabs">
-			<button class:on={layout === 'model'} onclick={() => (layout = 'model')}>Model</button>
-			<button class:on={layout === 'sheet'} onclick={() => (layout = 'sheet')}>Sheet A3</button>
-		</div>
-		<div class="coords">{cx}, {cy} mm</div>
-		<div class="toggles">
-			{#each Object.keys(toggles) as k (k)}
-				<button class:on={toggles[k]} onclick={() => (toggles[k] = !toggles[k])}>{k}</button>
-			{/each}
-			<button class:on={acadMode} title="AutoCAD interactions: wheel zooms, draw with two clicks (off = EOS: wheel pans, press-drag to draw)" onclick={() => (acadMode = !acadMode)}>ACAD</button>
-		</div>
-		<div class="sb-spacer"></div>
-		<div class="zoom">
-			<button onclick={() => navZoom(0.8)}>−</button>
-			<span>{dispZoom}%</span>
-			<button onclick={() => navZoom(1.25)}>+</button>
-			<button class="fit" onclick={() => navFit()}>Fit</button>
-		</div>
-	</footer>
+	<StatusBar bind:layout bind:toggles bind:acadMode {cx} {cy} zoom={dispZoom} onzoom={navZoom} onfit={navFit} />
 </div>
 
 <style>
@@ -605,17 +563,7 @@
 	.shell[data-mock-theme='light'] .titlebar .tb-search { background:#334155; color:#e2e8f0; border-color:#475569; }
 
 	/* Menubar */
-	.menubar { position:relative; z-index:45; height:30px; flex:0 0 auto; display:flex; align-items:stretch; gap:1px;
-		background:var(--panel); border-bottom:1px solid var(--line-soft); padding:0 4px; }
 	.menu-backdrop { position:fixed; inset:0; z-index:40; background:none; border:none; }
-	.menu-wrap { position:relative; display:flex; align-items:stretch; }
-	.menu-btn { padding:0 10px; font-size:12px; color:var(--text); border-radius:4px; background:none; border:none; }
-	.menu-btn:hover, .menu-btn.open { background:var(--hover); }
-	.menu-pop { position:absolute; top:100%; left:0; min-width:170px; z-index:50; margin-top:2px;
-		background:var(--panel); border:1px solid var(--line); border-radius:6px; box-shadow:0 15px 40px #0006; padding:4px; }
-	.menu-item { display:block; width:100%; text-align:left; padding:5px 9px; font-size:12px; border-radius:4px; background:none; border:none; color:var(--text); }
-	.menu-item:hover { background:var(--active); }
-	.menu-sep { height:1px; background:var(--line-soft); margin:4px 6px; }
 
 	/* Tab bar */
 	.tabbar { height:34px; flex:0 0 auto; display:flex; align-items:center; justify-content:space-between;
@@ -708,21 +656,4 @@
 	.tool:hover { background:var(--hover); color:var(--text); }
 	.tool.on { background:var(--active); color:var(--accent); }
 
-	/* Status bar */
-	.statusbar { height:26px; flex:0 0 auto; display:flex; align-items:center; gap:2px;
-		background:var(--title); border-top:1px solid var(--line); padding:0 6px; font-size:11px; color:var(--muted); }
-	.layout-tabs { display:flex; gap:2px; }
-	.layout-tabs button { padding:2px 9px; border-radius:4px; color:var(--muted); background:none; border:none; font-size:11px; }
-	.layout-tabs button.on { background:var(--active); color:var(--text); box-shadow:inset 0 -2px 0 var(--accent); }
-	.coords { font-family:Consolas,monospace; padding:0 10px; color:var(--text); min-width:96px; }
-	.toggles { display:flex; gap:2px; }
-	.toggles button { padding:2px 7px; border-radius:4px; font-size:10px; letter-spacing:.04em; color:var(--faint); background:none; border:1px solid transparent; }
-	.toggles button:hover { background:var(--hover); }
-	.toggles button.on { color:var(--accent); background:var(--active); border-color:var(--accent-dim); }
-	.sb-spacer { flex:1; }
-	.zoom { display:flex; align-items:center; gap:4px; }
-	.zoom button { width:20px; height:18px; border-radius:4px; color:var(--muted); background:none; border:none; }
-	.zoom button.fit { width:auto; padding:0 7px; }
-	.zoom button:hover { background:var(--hover); color:var(--text); }
-	.zoom span { color:var(--text); min-width:38px; text-align:center; }
 </style>
