@@ -22,7 +22,7 @@
 	import { panzoom } from './ui/panzoom'
 	import { paperDims, PAPER_SIZES, PAPER_PX_PER_MM, type PaperSize } from './constants'
 	import { translate } from './ui/geometry'
-	import { snapModels, setModels } from './3dview/models.svelte'
+	import { models, modelSel, snapModels, setModels } from './3dview/models.svelte'
 	import type { Model } from './3dview/types'
 
 	// Which pane (if any) has its viewport activated — groundwork for editing/CAD
@@ -265,6 +265,17 @@
 		const ids = new Set(docSel[a.id] ?? [])
 		return (docEnts[a.id] ?? []).filter(e => ids.has(e.id))
 	})
+	// The single selected 3D-model object (Properties panel edits it straight on the store, with undo).
+	let selModelObj = $derived(modelSel.length === 1 ? (models[0]?.objects.find(o => o.id === modelSel[0]) ?? null) : null)
+	function updateModelObj(patch: Record<string, unknown>) {
+		const o = selModelObj, id = panes[focused]?.activeId; if (!o || !id) return
+		beginGesture(); Object.assign(o, patch); modelEdit(id); endGesture()   // one undo step (baseline pre-change)
+	}
+	function deleteModelObj() {
+		const o = selModelObj, m = models[0], id = panes[focused]?.activeId; if (!o || !m || !id) return
+		beginGesture(); m.objects = m.objects.filter(x => x.id !== o.id); modelEdit(id); endGesture()
+		modelSel.splice(0, modelSel.length)
+	}
 	function dropDoc(id: string) {   // free a closed doc's per-document state
 		const de = { ...docEnts }, ds = { ...docSel }, dv = { ...docView }
 		delete de[id]; delete ds[id]; delete dv[id]
@@ -741,7 +752,8 @@
 				{:else if rightTab === 'props'}
 					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (active) updateEnt(active.id, e) }}
 						onarrange={(op) => { if (active) reorderEnts(active.id, selOf(active.id), op) }}
-						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''} {activeLayer} node={treeNode} viewport={viewportSel} />
+						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''} {activeLayer} node={treeNode} viewport={viewportSel}
+						modelObj={selModelObj} modelLayers={models[0]?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} />
 				{:else}
 					<HistoryPanel log={changeLog} {revisions}
 						onnote={(i, note) => (revisions[i].note = note)} onjump={jumpHistory}
