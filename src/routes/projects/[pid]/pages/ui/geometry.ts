@@ -6,8 +6,17 @@ export type Pt = [number, number]
 // 'box' = a mock 3D cuboid: a,b = plan footprint · h = height · z0 = base elevation (height off the
 // ground). In elevation the box is placed by x (from the footprint) + z0/h, so its plan DEPTH
 // (footprint y) is independent of its elevation position.
-export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'ellipse' | 'dim' | 'text' | 'box' | 'polyline'; a?: Pt; b?: Pt; c?: Pt; r?: number; h?: number; z0?: number; text?: string; pts?: Pt[]; groupId?: string }
+export type TextAlign = 'left' | 'center' | 'right'
+// Style props mirror the Sheets annotation model (fontPt/align/color/fill/weight) so an object can
+// match Sheets' defaults; all optional → unset falls back to the tool defaults (see STYLE_DEFAULTS).
+export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'ellipse' | 'dim' | 'text' | 'box' | 'polyline'; a?: Pt; b?: Pt; c?: Pt; r?: number; h?: number; z0?: number; text?: string; pts?: Pt[]; groupId?: string;
+	color?: string; fill?: string; weight?: number; fontPt?: number; align?: TextAlign }
 export type View = { zoom: number; x: number; y: number }
+
+// Default object style — matched to the Sheets tool (annotations.svelte.ts: text fontPt 8 / align
+// left; strokeWidth ?? 0.5; fill ?? 'none'). `color` unset = ByLayer/ink (resolved by the renderer).
+export const STYLE_DEFAULTS = { fontPt: 8, align: 'left' as TextAlign, weight: 1.2, fill: 'none' }
+export const PT = 1.375   // drawing units per point (8pt ≈ the previous 11-unit default text height)
 
 export const DEFAULT_BOX_H = 45   // mock mm height for a freshly drawn cuboid
 export const GROUND = 200         // elevation ground line (drawing units); a box with z0=0 stands on it
@@ -71,10 +80,12 @@ export function translate(e: Ent, dx: number, dy: number): Ent {
 }
 
 // Text bounding box (drawing units): a[0]/a[1] is the first line's baseline-left; lines run down.
+// Sizes with the object's font (fontPt → drawing units); the char width ≈ 0.6·em (monospace).
 export function textBox(e: Ent): [number, number, number, number] {
 	const lines = (e.text ?? '').split('\n')
-	const w = Math.max(...lines.map(l => l.length), 1) * 11 * 0.6
-	return [e.a![0], e.a![1] - 10, e.a![0] + w, e.a![1] + (lines.length - 1) * 13 + 3]
+	const fs = (e.fontPt ?? STYLE_DEFAULTS.fontPt) * PT, lh = fs * 1.18
+	const w = Math.max(...lines.map(l => l.length), 1) * fs * 0.6
+	return [e.a![0], e.a![1] - fs * 0.9, e.a![0] + w, e.a![1] + (lines.length - 1) * lh + 3]
 }
 
 // Elevation face of a box in direction `dir` (default front): u0..u1 wide (the projected footprint

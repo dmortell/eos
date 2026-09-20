@@ -31,6 +31,7 @@
 		{ detail:0, href: 'fillrate', icon: 'pile',  label: 'Fill Rates', description: 'Containment fill rates with cross-section diagrams.', },
 		{ detail:0, href: 'uploads', icon: 'upload', label: 'Floorplan Uploads', description: 'Upload and manage floorplan files and pages.', },
 		{ detail:0, href: `/survey?project=${pid}`, icon: 'camera', label: 'Photo Surveys', description: 'Take photos, voice notes, and share survey albums.', absolute: true },
+		{ detail:0, href: 'edit3d', icon: 'panels', label: 'Edit 3D test', description: 'Testing 3d editor.', },
 		{ detail:0, href: 'pages', icon: 'panels', label: 'Pages test', description: 'Testing new look and feel.', },
 	])
 

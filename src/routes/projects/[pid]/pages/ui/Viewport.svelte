@@ -10,7 +10,7 @@
 	import { panzoom } from './panzoom'
 	import Handle from '../parts/Handle.svelte'
 	import { BASE, HANDLE_PX } from '../constants'
-	import { type Pt, type Ent, type View, type ElevDir, DEFAULT_BOX_H, GROUND, ELEV_BASIS, elevU, elevUInv, flatSpan, dist, segDist, translate, textBox, boxElev, boxElevSet, boxFaces } from './geometry'
+	import { type Pt, type Ent, type View, type ElevDir, DEFAULT_BOX_H, GROUND, PT, STYLE_DEFAULTS, ELEV_BASIS, elevU, elevUInv, flatSpan, dist, segDist, translate, textBox, boxElev, boxElevSet, boxFaces } from './geometry'
 	// Pure geometry now lives in ./geometry (testable, shared with PropertiesPanel); re-export the
 	// entity types so existing `import { type Ent } from './Viewport.svelte'` sites keep working.
 	export type { Pt, Ent, View } from './geometry'
@@ -225,7 +225,7 @@
 		// math double-applied the canvas zoom, so the box floated off and ballooned when zoomed in).
 		const vbx = view.x + view.zoom * (CX + dscale * (ent.a![0] - CX)), vby = view.y + view.zoom * (CY + dscale * (ent.a![1] - CY))
 		const x = (vbx - minX) / vbW * vpW, y = (vby - minY) / vbH * vpH
-		const fontPx = 11 * view.zoom * (vpW / vbW) * dscale
+		const fontPx = (ent.fontPt ?? STYLE_DEFAULTS.fontPt) * PT * view.zoom * (vpW / vbW) * dscale
 		editText = { id: ent.id, x, y, fontPx, value: ent.text ?? '' }
 		tick().then(() => { textInput?.focus(); textInput?.select() })
 	}
@@ -763,8 +763,9 @@
 </div>
 
 {#snippet drawn(e: Ent, seld: boolean)}
-	{@const ink = seld ? SEL : INK}
-	{@const w = (lwt ? (seld ? 2 : 1.2) : 0.5) / (canvasZoom || 1)}
+	{@const ink = seld ? SEL : (e.color ?? INK)}
+	{@const w = (lwt ? (seld ? 2 : (e.weight ?? STYLE_DEFAULTS.weight)) : 0.5) / (canvasZoom || 1)}
+	{@const fill = e.fill ?? 'none'}
 	{#if isFlatElev(e)}
 		<!-- any flat (z=0, no height) object seen in elevation is an edge-on line at the ground -->
 		{@const sp = flatXSpan(e)}
@@ -772,19 +773,21 @@
 	{:else if e.type === 'line'}
 		<line x1={e.a![0]} y1={e.a![1]} x2={e.b![0]} y2={e.b![1]} stroke={ink} stroke-width={w} />
 	{:else if e.type === 'polyline'}
-		<polyline points={(e.pts ?? []).map(p => p.join(',')).join(' ')} fill="none" stroke={ink} stroke-width={w} stroke-linejoin="round" />
+		<polyline points={(e.pts ?? []).map(p => p.join(',')).join(' ')} fill={fill} stroke={ink} stroke-width={w} stroke-linejoin="round" />
 	{:else if e.type === 'rect'}
-		<rect x={Math.min(e.a![0], e.b![0])} y={Math.min(e.a![1], e.b![1])} width={Math.abs(e.b![0] - e.a![0])} height={Math.abs(e.b![1] - e.a![1])} fill="none" stroke={ink} stroke-width={w} />
+		<rect x={Math.min(e.a![0], e.b![0])} y={Math.min(e.a![1], e.b![1])} width={Math.abs(e.b![0] - e.a![0])} height={Math.abs(e.b![1] - e.a![1])} fill={fill} stroke={ink} stroke-width={w} />
 	{:else if e.type === 'circle'}
-		<circle cx={e.c![0]} cy={e.c![1]} r={e.r} fill="none" stroke={ink} stroke-width={w} />
+		<circle cx={e.c![0]} cy={e.c![1]} r={e.r} fill={fill} stroke={ink} stroke-width={w} />
 	{:else if e.type === 'ellipse'}
-		<ellipse cx={(e.a![0] + e.b![0]) / 2} cy={(e.a![1] + e.b![1]) / 2} rx={Math.abs(e.b![0] - e.a![0]) / 2} ry={Math.abs(e.b![1] - e.a![1]) / 2} fill="none" stroke={ink} stroke-width={w} />
+		<ellipse cx={(e.a![0] + e.b![0]) / 2} cy={(e.a![1] + e.b![1]) / 2} rx={Math.abs(e.b![0] - e.a![0]) / 2} ry={Math.abs(e.b![1] - e.a![1]) / 2} fill={fill} stroke={ink} stroke-width={w} />
 	{:else if e.type === 'dim'}
-		<line x1={e.a![0]} y1={e.a![1]} x2={e.b![0]} y2={e.b![1]} stroke={seld ? SEL : '#0e766e'} stroke-width={w} />
-		<text x={(e.a![0] + e.b![0]) / 2} y={(e.a![1] + e.b![1]) / 2 - 3} font-size="9" fill={seld ? SEL : '#0e766e'} text-anchor="middle">{Math.round(dist(e.a!, e.b!))}</text>
+		<line x1={e.a![0]} y1={e.a![1]} x2={e.b![0]} y2={e.b![1]} stroke={seld ? SEL : (e.color ?? '#0e766e')} stroke-width={w} />
+		<text x={(e.a![0] + e.b![0]) / 2} y={(e.a![1] + e.b![1]) / 2 - 3} font-size="9" fill={seld ? SEL : (e.color ?? '#0e766e')} text-anchor="middle">{Math.round(dist(e.a!, e.b!))}</text>
 	{:else if e.type === 'text'}
-		<text class="anno" x={e.a![0]} y={e.a![1]} font-size="11" fill={ink} font-weight="600">
-			{#each (e.text ?? '').split('\n') as line, i (i)}<tspan x={e.a![0]} dy={i === 0 ? 0 : 13}>{line}</tspan>{/each}
+		{@const fs = (e.fontPt ?? STYLE_DEFAULTS.fontPt) * PT}
+		{@const anchor = e.align === 'center' ? 'middle' : e.align === 'right' ? 'end' : 'start'}
+		<text class="anno" x={e.a![0]} y={e.a![1]} font-size={fs} fill={ink} font-weight="600" text-anchor={anchor}>
+			{#each (e.text ?? '').split('\n') as line, i (i)}<tspan x={e.a![0]} dy={i === 0 ? 0 : fs * 1.18}>{line}</tspan>{/each}
 		</text>
 	{:else if e.type === 'box'}
 		{@const f = boxFaces(e)}
@@ -798,10 +801,10 @@
 			{@const fe = boxElev(e, elevDir, CX, CY)}
 			<!-- side-elevation face: width (the projected footprint axis: x for front/rear, y for
 			     left/right) × height, base at (ground − z0). Vertical is z0/height, NOT the plan depth. -->
-			<rect x={fe.x0} y={fe.top} width={fe.x1 - fe.x0} height={fe.h} fill="#dce7f5" stroke={ink} stroke-width={w} />
+			<rect x={fe.x0} y={fe.top} width={fe.x1 - fe.x0} height={fe.h} fill={e.fill ?? '#dce7f5'} stroke={ink} stroke-width={w} />
 		{:else}
 			<!-- plan: footprint rectangle -->
-			<rect x={f.x0} y={f.y0} width={f.x1 - f.x0} height={f.y1 - f.y0} fill="#dce7f533" stroke={ink} stroke-width={w} />
+			<rect x={f.x0} y={f.y0} width={f.x1 - f.x0} height={f.y1 - f.y0} fill={e.fill ?? '#dce7f533'} stroke={ink} stroke-width={w} />
 		{/if}
 	{/if}
 {/snippet}

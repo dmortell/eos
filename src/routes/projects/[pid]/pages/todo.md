@@ -13,27 +13,34 @@ Kestrel code is in M:\dev\KestrelCad2
 
 ## 0. Bugs / quick wins  (P1)
 ### Code review follow-ups (see `review.md`, 2026-09-20)
-Fixed from the review: [x] §2.1 fit off-centre (paper pinned at 0,0 — margins now equal),
-[x] §2.4 text-editor zoom double-scale (already fixed batch-4), [x] §2.5 type error (cast),
-[x] §2.6 split-view keys (only the focused pane's viewport handles keys), [x] §2.7 undo global
-across docs (now per-doc stacks), [x] §2.8 no Delete (Delete/Backspace + Edit menu, with undo),
-[x] §2.8 dropDoc leaked undo/proj/paper/activation, [x] §2.8 dirty never set, [x] §2.8 HistoryPanel
-prop mutation (→ onnote callback), [x] §2.8 titleblock SIZE hardcoded, [x] §2.8 ViewCube→layout
-one-way (TOP now restores Sheet), [x] §2.3 partial (emit onframe(null) on unmount).
-Also fixed: [x] §2.2 print honours the selected paper size/orientation (`@page` from the focused
-tab's paper) and prints at TRUE size — the paper is `zoom`ed by (96/25.4)/PAPER_PX_PER_MM so content
-+ titleblock scale together (CSS zoom, vector text); [x] §4.4 shared wheel-normalise/zoom-clamp +
-touchcancel; [x] adopt list — additive select, group move, duplicate (Ctrl-D), select-all, nudge.
-Also fixed: [x] §4.1 (partial) extracted pure geometry to `ui/geometry.ts` (dist/segDist/translate/
-textBox/boxElev/boxElevSet/boxFaces + box constants), shared with Viewport + PropertiesPanel;
-[x] §5 added `ui/geometry.test.ts` (8 Vitest tests, `pnpm test --project=server` green).
-Still open (bigger): [ ] §2.3 full per-doc frame state,
-[ ] §4.1 full `DocEditor` headless class (geometry.ts done), [ ] §4.2 mm world units, [ ] §4.3 reuse
-Sheets `layers.ts`,
-[ ] §2.8 key tabs by node id (not title), frame drag threshold+undo, z0 clamp mismatch,
-uncontrolled Properties inputs, coalescing merges unrelated edits, outline-only rect hit,
-[ ] §5 snap/hit perf (cache the CTM/bbox), [ ] §6 nits (dead `circle` type, unify line/polyline,
-uid collision, unused CSS, a11y). Suggested order in review.md §7.
+Fixed from the review: 
+
+- [x] §2.1 fit off-centre (paper pinned at 0,0 — margins now equal),
+- [x] §2.4 text-editor zoom double-scale (already fixed batch-4), 
+- [x] §2.5 type error (cast),
+- [x] §2.6 split-view keys (only the focused pane's viewport handles keys), 
+- [x] §2.7 undo global across docs (now per-doc stacks)
+- [x] §2.8 no Delete (Delete/Backspace + Edit menu, with undo),
+- [x] §2.8 dropDoc leaked undo/proj/paper/activation, 
+- [x] §2.8 dirty never set, 
+- [x] §2.8 HistoryPanel prop mutation (→ onnote callback), 
+- [x] §2.8 titleblock SIZE hardcoded, 
+- [x] §2.8 ViewCube→layout one-way (TOP now restores Sheet), 
+- [x] §2.3 partial (emit onframe(null) on unmount).
+- [x] §2.2 print honours the selected paper size/orientation (`@page` from the focused tab's paper) and prints at TRUE size — the paper is `zoom`ed by (96/25.4)/PAPER_PX_PER_MM so content + titleblock scale together (CSS zoom, vector text); 
+- [x] §4.4 shared wheel-normalise/zoom-clamp + touchcancel; 
+- [x] adopt list — additive select, group move, duplicate (Ctrl-D), select-all, nudge.
+- [x] §4.1 (partial) extracted pure geometry to `ui/geometry.ts` (dist/segDist/translate/textBox/boxElev/boxElevSet/boxFaces + box constants), shared with Viewport + PropertiesPanel;
+- [x] §5 added `ui/geometry.test.ts` (8 Vitest tests, `pnpm test --project=server` green).
+- [ ] §2.3 full per-doc frame state,
+- [ ] §4.1 full `DocEditor` headless class (geometry.ts done), 
+- [ ] §4.2 mm world units, 
+- [ ] §4.3 reuse Sheets `layers.ts`,
+- [ ] §2.8 key tabs by node id (not title), frame drag threshold+undo, z0 clamp mismatch, uncontrolled Properties inputs, coalescing merges unrelated edits, outline-only rect hit,
+- [ ] §5 snap/hit perf (cache the CTM/bbox), 
+- [ ] §6 nits (dead `circle` type (will be used later), unify line/polyline, uid collision, unused CSS, a11y). 
+
+Suggested order in review.md §7.
 
 ### Reported 2026-09-21 (Dave) — batch 5
 Done:
@@ -111,9 +118,14 @@ New todos (design / bigger):
   useful Kestrel cmd-line commands). (Was P3 "optional"; Dave now wants it.)
 - [ ] **Models: one model per floor**, with **separate stores** for detail views (rack elevations,
   frames, patching). Ties into the model-registry design (§5).
-- [ ] **Object props parity + defaults** — text needs **font size, alignment, colour** (override the
-  layer default); rect/box/etc need **position, size, background colour**; share the common ones.
-  **Take default prop values from the Sheets tool** so a new object matches Sheets' defaults.
+- [x] **Object props parity + defaults** (2026-09-20) — entities gained `color / fill / weight /
+  fontPt / align` (mirrors the Sheets annotation model); the Properties panel STYLE section edits them
+  across the whole selection: Colour (+ ByLayer reset), Weight, Fill (checkbox + colour) for shapes;
+  Font (pt) + L/C/R Align for text. Renderer honours all of them (stroke/fill/lineweight, `fontPt·PT`
+  text with `text-anchor` from align); the inline text editor + `textBox` hit-box size with the font.
+  Unset falls back to `STYLE_DEFAULTS` = **Sheets' defaults** (8pt, left, weight 1.2, fill none), so a
+  new object matches Sheets. Verified in-browser (stroke/fill/weight round-trip; 16pt→22u, centre→
+  text-anchor middle). [ ] Later: real ByLayer colour resolution + mm lineweights (§3/§4.2).
 - [ ] **Callout toggle** — let a text box become a **callout** (leader + box). Seems useful.
 - [ ] **Change-log UX** — indicate which items were undone (fade rows above the current history
   pointer) and **click a row to undo/redo to that point**.
@@ -207,7 +219,7 @@ New todos (design / bigger):
   PANE-level gizmos (`parts/ViewGizmos.svelte`): a **top-right ViewCube** (TOP/FRONT/3D faces →
   switch the pane's projection) and a **bottom-left x/y/z axis triad** (Kestrel `drawUCS` style,
   oriented per view). Old in-viewport cube left commented in `Viewport.svelte`.
-- [~] **Marquee vs disabled-cursor bug** — after a double-click, dragging a marquee showed a
+- [x] **Marquee vs disabled-cursor bug** — after a double-click, dragging a marquee showed a
   `not-allowed` cursor and left the marquee stuck. Cause: a native text/element-selection drag
   starting on the dblclick. Fix applied: `user-select:none` on `.canvas` / `.vp` / `.sheet-area`,
   `preventDefault` + pointer-capture on the paper marquee start (`.text-edit` keeps `user-select`).
@@ -223,7 +235,7 @@ New todos (design / bigger):
   `PAPER_W/H`); Viewport/PaperPage/+page import them (paper size now inline-styled).
 
 ## 1. Interaction parity with the Sheets tool  (P1)
-- [ ] ◧ **decide** — Mouse/touch model: choose whether Pages matches Sheets or keeps its
+- [x] ◧ **decide** — Mouse/touch model: choose whether Pages matches Sheets or keeps its
   current model. **Comparison table below** — mark the column you want per row.
 - [x] **Shift-key constraints** while drawing: 15° ortho for lines/dims, square for
   rectangles/ellipses; applied live the instant Shift is pressed/released (not only on the
@@ -310,14 +322,30 @@ marquee and constant-lineweight draw, but no additive select / duplicate / move-
 > The full Sheets set — tick the ones to bring into Pages. (Pages already has
 > line, rect, circle, dimension, text.)
 
-**Annotation kinds** (Sheets stores these _per-viewport_):
-- [ ] text · [ ] line · [ ] arrow · [ ] rect · [ ] **ellipse** · [ ] **cloud** (revision cloud)
-- [ ] callout (leader + text box) · [ ] dimension · [ ] image (raster) · [ ] **grid** (floor-tile, origin-aligned)
-- [ ] **legend** (auto-lists layers w/ swatches + counts) · [ ] symbol (see below)
+**Annotation kinds** (Sheets stores these _per-viewport_): Annotes are identical to model objects, just stored in 
+- [ ] text 
+- [ ] line 
+- [ ] arrow (add props to line for arrowheads)
+- [ ] rect 
+- [ ] **ellipse** 
+- [ ] **cloud** (revision cloud)
+- [ ] callout (leader + text box) 
+- [ ] dimension 
+- [ ] image (raster) 
+- [ ] **grid** (floor-tile, origin-aligned)
+- [ ] **legend** (auto-lists layers w/ swatches + counts) 
+- [ ] table (see Kestrel)
+- [ ] symbol (see below)
 
 **Symbols** (the `symbol` kind, from the registry):
-- [ ] section marker (linkable to a drawing) · [ ] elevation/section tag (up to 4 arms) · [ ] detail marker
-- [ ] photo marker (linkable to a photo) · [ ] north arrow · [ ] outlet · [ ] faceplate/wall-outlet · [ ] door
+- [ ] section marker (linkable to a drawing) 
+- [ ] elevation/section tag (up to 4 arms) 
+- [ ] detail marker
+- [ ] photo marker (linkable to a photo) 
+- [ ] north arrow 
+- [ ] outlet 
+- [ ] faceplate/wall-outlet 
+- [ ] door
 
 **Tool-objects** (placed inside a source viewport, live in the tool's own data):
 - [ ] outlet · [ ] trunk · [ ] rack · [ ] (racks devices / risers / model3d prisms-walls-conduits render read-only on a sheet)
@@ -531,7 +559,6 @@ layer managers? Only Sheets has a full one (sheets/layers/LayersPanel.svelte + l
 - Print A-size/scaling (§2.2), a DocEditor refactor (§4.1), mm world units (§4.2), reuse Sheets' layer model (§4.3), shared pan/zoom helpers (§4.4), and assorted nits.
 
 These are the ones where I think your input matters more than my guessing:
-- §4.2 mm world units — invasive coordinate change that alters the on-screen scale; you have opinions on scale, so I didn't want to pick without you seeing it.
 - §4.1 full DocEditor class — the geometry is extracted; the full headless-editor refactor of Viewport/+page is large and best reviewed.
 - §4.3 reuse Sheets layers.ts — a real integration (the Pages layer panel is still a mock); ties into the layer-wiring work.
 - §2.3 full per-doc frame state — I did the important partial (no dead Properties handle on unmount); moving frame geometry/border into per-doc state is a moderate PaperPage refactor I'd rather you sign off on.

@@ -5,7 +5,7 @@
 	// when nothing is selected. Geometry is in model units (mock).
 	import { Icon } from '$lib'
 	import type { Ent, Pt } from '../ui/Viewport.svelte'
-	import { translate } from '../ui/geometry'
+	import { translate, STYLE_DEFAULTS, type TextAlign } from '../ui/geometry'
 	import type { FrameSel } from './PaperPage.svelte'
 
 	let { ents = [], onupdate, pageTitle = '', pageKind = '', activeLayer = '', node = null, viewport = null }:
@@ -65,6 +65,21 @@
 	function setBoxZ0(v: number) { const e = single; if (e?.type === 'box') onupdate?.({ ...e, z0: Math.max(0, Math.round(v)) }) }
 	function setText(v: string) { const e = single; if (e?.type === 'text') onupdate?.({ ...e, text: v }) }
 	const num = (e: Event) => +(e.currentTarget as HTMLInputElement).value
+	const strVal = (e: Event) => (e.currentTarget as HTMLInputElement).value
+
+	// ── style (color / fill / weight / font / align) — applies to the whole selection ──
+	const STROKE_TYPES = new Set(['line', 'polyline', 'dim', 'rect', 'ellipse', 'circle', 'box'])
+	const FILL_TYPES = new Set(['rect', 'ellipse', 'circle', 'box', 'polyline'])
+	let anyText = $derived(ents.some((e) => e.type === 'text'))
+	let anyStroke = $derived(ents.some((e) => STROKE_TYPES.has(e.type)))
+	let anyFillable = $derived(ents.some((e) => FILL_TYPES.has(e.type)))
+	// common value across the selection (undefined = mixed / unset)
+	function cc<K extends keyof Ent>(k: K): Ent[K] | undefined { const v = new Set(ents.map((e) => e[k])); return v.size === 1 ? ents[0][k] : undefined }
+	const DEF_INK = '#475569'   // matches the Viewport ink; shown when color is ByLayer/unset
+	let commonColor = $derived((cc('color') as string | undefined) ?? DEF_INK)
+	let hasFill = $derived(ents.some((e) => e.fill && e.fill !== 'none'))
+	let fillColor = $derived(hasFill ? ((cc('fill') as string | undefined) ?? '#dbeafe') : '#dbeafe')
+	function setAll(patch: Partial<Ent>) { const snap = [...ents]; for (const e of snap) onupdate?.({ ...e, ...patch }) }
 </script>
 
 <div class="pp">
@@ -127,8 +142,34 @@
 		{/if}
 		<div class="prop-sec">STYLE</div>
 		<div class="prop"><span>Layer</span><input value={activeLayer} readonly /></div>
-		<div class="prop"><span>Color</span><input value="ByLayer" readonly /></div>
-		<div class="pp-hint">{ents.length > 1 ? 'X / Y move the whole selection.' : 'Editing writes straight to the object.'}</div>
+		<div class="prop"><span>Color</span>
+			<span class="pp-color">
+				<input type="color" value={commonColor} onchange={(e) => setAll({ color: strVal(e) })} title="Object colour" />
+				<button class="pp-mini" class:on={cc('color') === undefined} title="Use the layer colour" onclick={() => setAll({ color: undefined })}>ByLayer</button>
+			</span>
+		</div>
+		{#if anyStroke}
+			<div class="prop"><span>Weight</span><input type="number" min="0.1" step="0.1" value={(cc('weight') as number | undefined) ?? STYLE_DEFAULTS.weight} onchange={(e) => setAll({ weight: Math.max(0.1, num(e)) })} /></div>
+		{/if}
+		{#if anyFillable}
+			<div class="prop"><span>Fill</span>
+				<span class="pp-color">
+					<input type="checkbox" checked={hasFill} onchange={(e) => setAll({ fill: (e.currentTarget as HTMLInputElement).checked ? fillColor : 'none' })} title="Filled" />
+					<input type="color" value={fillColor} disabled={!hasFill} onchange={(e) => setAll({ fill: strVal(e) })} title="Fill colour" />
+				</span>
+			</div>
+		{/if}
+		{#if anyText}
+			<div class="prop"><span>Font (pt)</span><input type="number" min="2" max="96" value={(cc('fontPt') as number | undefined) ?? STYLE_DEFAULTS.fontPt} onchange={(e) => setAll({ fontPt: Math.max(2, Math.round(num(e))) })} /></div>
+			<div class="prop"><span>Align</span>
+				<span class="pp-seg">
+					{#each ['left', 'center', 'right'] as const as al (al)}
+						<button class:on={(cc('align') ?? 'left') === al} title="{al} align" onclick={() => setAll({ align: al as TextAlign })}>{al[0].toUpperCase()}</button>
+					{/each}
+				</span>
+			</div>
+		{/if}
+		<div class="pp-hint">{ents.length > 1 ? 'Style + X / Y apply to the whole selection.' : 'Editing writes straight to the object.'} New objects use Sheets’ defaults ({STYLE_DEFAULTS.fontPt}pt, left).</div>
 	{/if}
 </div>
 
@@ -144,4 +185,17 @@
 	.pp-textarea:focus { outline:none; border-color:var(--accent); }
 	.prop input:focus, .prop select:focus { outline:none; border-color:var(--accent); }
 	.pp-hint { font-size:10px; color:var(--faint); padding:10px 6px; line-height:1.4; }
+	/* colour + fill controls */
+	.pp-color { display:flex; align-items:center; gap:6px; min-width:0; }
+	.pp-color input[type=color] { width:28px; height:22px; padding:0; border:1px solid var(--line); border-radius:4px; background:var(--input); flex:0 0 auto; cursor:pointer; }
+	.pp-color input[type=color]:disabled { opacity:.4; cursor:default; }
+	.pp-color input[type=checkbox] { flex:0 0 auto; accent-color:var(--accent); }
+	.pp-mini { font-size:10px; color:var(--muted); background:var(--input); border:1px solid var(--line); border-radius:4px; padding:2px 6px; white-space:nowrap; }
+	.pp-mini:hover { color:var(--text); border-color:var(--accent-dim); }
+	.pp-mini.on { color:var(--accent); border-color:var(--accent); }
+	/* L/C/R alignment segmented control */
+	.pp-seg { display:flex; gap:2px; }
+	.pp-seg button { flex:1; font-size:11px; font-weight:600; color:var(--muted); background:var(--input); border:1px solid var(--line); border-radius:4px; padding:2px 0; }
+	.pp-seg button:hover { color:var(--text); border-color:var(--accent-dim); }
+	.pp-seg button.on { color:var(--accent); border-color:var(--accent); background:var(--active); }
 </style>
