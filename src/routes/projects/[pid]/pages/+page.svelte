@@ -21,7 +21,7 @@
 	import CommandPalette from './parts/CommandPalette.svelte'
 	import { panzoom } from './ui/panzoom'
 	import { paperDims, PAPER_SIZES, PAPER_PX_PER_MM, type PaperSize } from './constants'
-	import { translate } from './ui/geometry'
+	import { translate, type ElevDir } from './ui/geometry'
 	import { models, modelSel, snapModels, setModels } from './3dview/models.svelte'
 	import { DEFAULT_YAW, DEFAULT_PITCH } from './3dview/projection'
 	import type { Model, Clip } from './3dview/types'
@@ -98,6 +98,7 @@
 		scale: (s: string) => (docScale = { ...docScale, [a.id]: s }),
 		modeledit: () => modelEdit(a.id), section: (clip: Clip) => onSection(clip),
 		orbit: (yaw: number, pitch: number) => setOrbit(pane.id, a.id, yaw, pitch),
+		sectionpick: (id: string) => openSection(id),
 	})
 	// A 3D-model edit (the Viewport mutated the shared `models` store) records a step on THIS doc's
 	// timeline, gesture-folded like an entity edit — so Ctrl+Z restores the model too.
@@ -106,16 +107,25 @@
 	let docOrbit = $state<Record<string, { yaw: number; pitch: number }>>({})
 	const orbitOf = (paneId: string, tabId: string) => docOrbit[paneId + ':' + tabId] ?? { yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH }
 	function setOrbit(paneId: string, tabId: string, yaw: number, pitch: number) { docOrbit = { ...docOrbit, [paneId + ':' + tabId]: { yaw, pitch } } }
-	// A section box drawn on the plan (§4) → spawn a new front-elevation tab clipped to that box.
+	// A section box drawn on the plan (§4) → spawn a new elevation tab clipped to that box, and leave a
+	// persistent MARKER on the plan (box + direction arrow + label) so the cut is visible and clickable.
+	// docClip = the box per elevation tab; docSecDir = the section's viewing direction (drives the marker
+	// arrow AND the elevation's projection). Markers self-clean when their elevation tab is closed.
 	let docClip = $state<Record<string, Clip>>({})
+	let docSecDir = $state<Record<string, ElevDir>>({})
 	let secSeq = 0
 	function onSection(clip: Clip) {
 		const id = 't' + ++seq
 		tabs = [...tabs, { id, title: `Section ${String.fromCharCode(65 + secSeq++)}`, kind: 'elevation', dirty: false }]
 		docClip = { ...docClip, [id]: clip }
+		docSecDir = { ...docSecDir, [id]: 'front' }
 		if (panes[focused]) { panes[focused].activeId = id; panes[focused].layout = 'model' }
 		activateVp(id); tick().then(() => fitPane(focused))
 	}
+	// Every active section as a plan marker: its box, its viewing direction, and the elevation's label.
+	const sectionMarkers = $derived(Object.entries(docClip).map(([tid, clip]) => ({ id: tid, clip, dir: docSecDir[tid] ?? 'front', label: tabs.find((t) => t.id === tid)?.title ?? 'Section' })))
+	// Clicking a marker opens its elevation; deleting it closes that tab (dropDoc clears the clip too).
+	function openSection(id: string) { openTab(id); if (panes[focused]) panes[focused].layout = 'model'; activateVp(id); tick().then(() => fitPane(focused)) }
 	let focused = $state(0)      // which pane new tabs / sidebar actions target
 	let canvasEls = $state<(HTMLElement | undefined)[]>([])   // each pane's .canvas, for navFit
 	let splitFrac = $state(0.5)  // pane 0 width fraction when split
@@ -309,6 +319,9 @@
 		if (docHist[id]) { const dh = { ...docHist }; delete dh[id]; docHist = dh }
 		if (docProj[id]) { const dp = { ...docProj }; delete dp[id]; docProj = dp }
 		if (docPaper[id]) { const pp = { ...docPaper }; delete pp[id]; docPaper = pp }
+		if (docClip[id]) { const dc = { ...docClip }; delete dc[id]; docClip = dc }            // section box → its plan marker vanishes too
+		if (docSecDir[id]) { const dd = { ...docSecDir }; delete dd[id]; docSecDir = dd }
+		{ const doc = { ...docOrbit }; let hit = false; for (const k of Object.keys(doc)) if (k.endsWith(':' + id)) { delete doc[k]; hit = true } if (hit) docOrbit = doc }
 		if (activeVps.has(id)) deactivateVp(id)
 	}
 
@@ -726,12 +739,14 @@
 									<PaperPage title={a.title} tool={p.tool} scale={scaleOf(a.id)} env={envFor(p)} on={vpOn(a, p)} pw={paperDimsOf(a.id).w} ph={paperDimsOf(a.id).h}
 										sizeLabel="{paperOf(a.id).size} {paperOf(a.id).landscape ? 'L' : 'P'}" rev={rev} revDate={fmtDate(revisions[0]?.t)}
 										entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(p.id, a.id)} active={isVpActive(a.id)} focused={focused === pi}
-										kind={projKind(projOf(p, a))} clip={docClip[a.id] ?? null} yaw={orbitOf(p.id, a.id).yaw} pitch={orbitOf(p.id, a.id).pitch} />
+										kind={projKind(projOf(p, a))} clip={docClip[a.id] ?? null} yaw={orbitOf(p.id, a.id).yaw} pitch={orbitOf(p.id, a.id).pitch}
+										sections={projOf(p, a) === 'plan' ? sectionMarkers : []} />
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => deactivateVp(a.id)}>
 										<Viewport kind={projKind(projOf(p, a))} label={a.title} tool={p.tool} scale={scaleOf(a.id)} env={envFor(p)} on={vpOn(a, p)}
-											entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(p.id, a.id)} active={isVpActive(a.id)} focused={focused === pi} clip={docClip[a.id] ?? null} yaw={orbitOf(p.id, a.id).yaw} pitch={orbitOf(p.id, a.id).pitch} />
+											entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(p.id, a.id)} active={isVpActive(a.id)} focused={focused === pi} clip={docClip[a.id] ?? null} yaw={orbitOf(p.id, a.id).yaw} pitch={orbitOf(p.id, a.id).pitch}
+											sections={projOf(p, a) === 'plan' ? sectionMarkers : []} />
 									</div>
 								{:else}
 									<div class="canvas-center">

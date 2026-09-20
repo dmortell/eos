@@ -441,7 +441,16 @@ Symbols are identical to annotes.
 - [ ] symbol (see below)
 
 **Symbols** (the `symbol` kind, from the registry):
-- [ ] section marker (linkable to a drawing) 
+- [~] section marker (linkable to a drawing) — **first pass done 2026-09-20**: a section cut drawn on
+  the plan now leaves a persistent MARKER on the plan (dashed teal box + a direction arrow + the
+  elevation's label), rendered by the Viewport from a `sections` prop (all `docClip` entries, shown only
+  in a plan view). Clicking a marker border opens (re-focuses) its elevation; closing the elevation tab
+  removes the marker (dropDoc clears its clip). Verified in-browser (draw → marker renders → click opens
+  the elevation, no duplicate → close tab → marker gone). **Follow-ups:** move/resize the marker (drag
+  its box → the elevation re-clips live), re-direction (cycle front/rear/left/right + the arrow), and
+  the full symbol-registry form (tag with up to 4 arms). NB: a section-marker BORDER hit needs
+  `hitTol()/dscale` (unscaled model units) — plain `hitTol()` is off by the drawing scale for an
+  edge-distance test (only area/inside tests like `hitModel` get away with raw `hitTol`).
 - [ ] elevation/section tag (up to 4 arms) 
 - [ ] detail marker
 - [ ] photo marker (linkable to a photo) 

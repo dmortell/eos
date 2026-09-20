@@ -20,6 +20,9 @@
 	// Pure geometry now lives in ./geometry (testable, shared with PropertiesPanel); re-export the
 	// entity types so existing `import { type Ent } from './Viewport.svelte'` sites keep working.
 	export type { Pt, Ent, View } from './geometry'
+	// A section cut shown as a marker on the PLAN: its clip box, viewing direction, and the elevation's
+	// label. Clicking the marker opens (or re-focuses) that elevation tab.
+	export type SectionMarker = { id: string; clip: Clip; dir: ElevDir; label: string }
 
 	// Drafting/interaction flags are grouped into one `env` object, and all the event callbacks into
 	// one `on` object, to keep the prop list small (a step toward a headless editor class — see
@@ -33,12 +36,13 @@
 		copy?: (ids: string[]) => void; cut?: (ids: string[]) => void; paste?: () => void;
 		group?: (ids: string[]) => void; ungroup?: (ids: string[]) => void;
 		reorder?: (ids: string[], op: 'front' | 'back' | 'forward' | 'backward') => void;
-		scale?: (s: string) => void; modeledit?: () => void; section?: (clip: Clip) => void; orbit?: (yaw: number, pitch: number) => void
+		scale?: (s: string) => void; modeledit?: () => void; section?: (clip: Clip) => void; orbit?: (yaw: number, pitch: number) => void;
+		sectionpick?: (id: string) => void
 	}
 	let { label = 'Viewport', scale = '1:1', kind = 'floorplan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {},
-		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH }:
+		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, sections = [] }:
 		{ label?: string; scale?: string; kind?: 'floorplan' | 'iso' | ElevDir; active?: boolean; tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env; on?: VpOn;
-			focused?: boolean; entities?: Ent[]; sel?: string[]; view?: View; clip?: Clip | null; yaw?: number; pitch?: number } = $props()
+			focused?: boolean; entities?: Ent[]; sel?: string[]; view?: View; clip?: Clip | null; yaw?: number; pitch?: number; sections?: SectionMarker[] } = $props()
 	// Callbacks are called directly as on.x?.(…) — no aliases (a $derived rename adds nothing for a
 	// function that's only invoked). env flags stay derived because they're read as values.
 	const acad = $derived(env.acad ?? true)
@@ -216,9 +220,10 @@
 			if (e.shiftKey || e.ctrlKey || e.metaKey) {   // additive: toggle the whole group
 				if (g.length) { const allSel = g.every(x => selSet.has(x)); on.select?.(allSel ? sel.filter(x => !g.includes(x)) : [...new Set([...sel, ...g])]) }
 			} else {
-				// entity click wins; else a model object; else clear both (empty click).
+				// entity click wins; else a model object; else a section marker (opens its elevation); else clear.
 				if (g.length) { on.select?.(g); setModelSel([]) }
-				else { const mid = hitModel(p); if (mid) { setModelSel([mid]); on.select?.([]) } else { on.select?.([]); setModelSel([]) } }
+				else { const mid = hitModel(p); if (mid) { setModelSel([mid]); on.select?.([]) }
+					else { const sid = hitSection(p); if (sid) { on.sectionpick?.(sid) } else { on.select?.([]); setModelSel([]) } } }
 			}
 			return
 		}
@@ -479,6 +484,34 @@
 			if (p[0] >= r.x0 - thr && p[0] <= r.x1 + thr && p[1] >= r.y0 - thr && p[1] <= r.y1 + thr) return o.id
 		}
 		return null
+	}
+	// A section marker under p (plan only): its box BORDER within tolerance (the interior stays free for
+	// model/entity picks). Returns the section id, topmost last-drawn first.
+	function hitSection(p: Pt): string | null {
+		if (!isPlan || !sections.length) return null
+		const thr = hitTol(6) / (dscale || 1)   // screen px → UNSCALED model units (border is an edge-distance test)
+		for (let i = sections.length - 1; i >= 0; i--) {
+			const c = sections[i].clip
+			const corners: Pt[] = [[c.x0, c.y0], [c.x1, c.y0], [c.x1, c.y1], [c.x0, c.y1]]
+			for (let k = 0; k < 4; k++) if (segDist(p, corners[k], corners[(k + 1) % 4]) < thr) return sections[i].id
+		}
+		return null
+	}
+	// The section marker's direction arrow (a triangle at the mid of the viewed edge, pointing outward):
+	// front → +x edge, rear → −x, right → +y (plan down), left → −y. Sized in ~screen px (hitTol).
+	function sectionArrowPts(s: SectionMarker): string {
+		const c = s.clip
+		const x0 = Math.min(c.x0, c.x1), x1 = Math.max(c.x0, c.x1), y0 = Math.min(c.y0, c.y1), y1 = Math.max(c.y0, c.y1)
+		const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, a = hitTol(11) / (dscale || 1)   // ~screen px in unscaled model units
+		let base: Pt, dir: Pt
+		if (s.dir === 'front') { base = [x1, cy]; dir = [1, 0] }
+		else if (s.dir === 'rear') { base = [x0, cy]; dir = [-1, 0] }
+		else if (s.dir === 'right') { base = [cx, y1]; dir = [0, 1] }
+		else { base = [cx, y0]; dir = [0, -1] }
+		const perp: Pt = [-dir[1], dir[0]], w = a * 0.8
+		const tip: Pt = [base[0] + dir[0] * a * 1.7, base[1] + dir[1] * a * 1.7]
+		const b1: Pt = [base[0] + perp[0] * w, base[1] + perp[1] * w], b2: Pt = [base[0] - perp[0] * w, base[1] - perp[1] * w]
+		return `${tip[0]},${tip[1]} ${b1[0]},${b1[1]} ${b2[0]},${b2[1]}`
 	}
 	// A body move drag. Absolute from the gesture's start (no drift). A prism moves its position; a
 	// wall/conduit translates ALL its nodes (keeping the graph rigid). In elevation the horizontal drag
@@ -1155,6 +1188,18 @@
 			</g>
 			<!-- P1b: real 3D model in plan + the four elevations + iso. Read-only for now (P2 = editing). -->
 			{#if models[0]}<Model3d model={models[0]} dir={(kind === 'floorplan' ? 'plan' : kind) as 'plan' | ElevDir | 'iso'} cx={CX} cy={CY} ground={GROUND} selIds={modelSel} canvasZoom={canvasZoom} clip={clip} yaw={yaw} pitch={pitch} />{/if}
+			<!-- Section markers (plan only): the cut box + a direction arrow + the elevation's label. Click a
+			     marker border to open its elevation (see onClick / hitSection). -->
+			{#if isPlan}
+				{#each sections as s (s.id)}
+					{@const bx = Math.min(s.clip.x0, s.clip.x1)}
+					{@const by = Math.min(s.clip.y0, s.clip.y1)}
+					<rect class="section-mark" x={bx} y={by} width={Math.abs(s.clip.x1 - s.clip.x0)} height={Math.abs(s.clip.y1 - s.clip.y0)} stroke-width={1.4 / (canvasZoom || 1)} />
+					<polygon class="section-arrow" points={sectionArrowPts(s)} stroke-width={1.4 / (canvasZoom || 1)} />
+					{@const pad = hitTol(6) / (dscale || 1)}
+					<text class="section-label" x={bx + pad} y={by - pad} font-size={hitTol(12) / (dscale || 1)}>{s.label}</text>
+				{/each}
+			{/if}
 			<!-- drawn entities (objects on a hidden layer are skipped; the edited text is hidden too) -->
 			{#each entities as e (e.id)}{#if e.id !== editText?.id && !isLayerHidden(e.layer) && inThisView(e)}{#if e.rot}{@const c = rotCenter(e)}<g transform="rotate({e.rot} {c[0]} {c[1]})">{@render drawn(e, selSet.has(e.id))}</g>{:else}{@render drawn(e, selSet.has(e.id))}{/if}{/if}{/each}
 			{#if active && POLY.has(tool) && draft.length}
@@ -1308,6 +1353,10 @@
 	/* Kestrel/AutoCAD selection box: window (L→R) solid blue, crossing (R→L) dashed green. */
 	/* Object-snap marker — amber, constant border, never intercepts pointer events. */
 	.snap { fill:none; stroke:#f59e0b; stroke-width:1.4; vector-effect:non-scaling-stroke; pointer-events:none; }
+	/* Section marker on the plan: a teal cut box + a direction arrow + the elevation's label. */
+	.section-mark { fill:#0e749010; stroke:#0e7490; stroke-dasharray:7 4; vector-effect:non-scaling-stroke; pointer-events:none; }
+	.section-arrow { fill:#0e7490; stroke:#0e7490; vector-effect:non-scaling-stroke; pointer-events:none; }
+	.section-label { fill:#0e7490; font-weight:700; font-family:Consolas,monospace; pointer-events:none; }
 	.marquee { pointer-events:none; }
 	.marquee.window { fill:#3b82f61f; stroke:#3b82f6; stroke-width:1; }
 	.marquee.crossing { fill:#10b9811f; stroke:#10b981; stroke-width:1; stroke-dasharray:5 3; }
