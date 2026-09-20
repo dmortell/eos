@@ -186,11 +186,13 @@
 		if (tool === 'Text') { const p = drawPoint(e.clientX, e.clientY); if (p) on.add?.({ id: uid(), type: 'text', a: p, text: 'TEXT' }); snapMark = null; return }
 		if (!acad) return   // EOS mode: shapes are drawn press-drag (onDown), not by clicking
 		const sp = drawPoint(e.clientX, e.clientY, draft.at(-1), e.shiftKey); if (!sp) return
-		if (tool === 'Line') { if (!draft.length || dist(draft.at(-1)!, sp) > 0.01) draft = [...draft, sp]; snapMark = null; return }   // polyline: accumulate (skip dup)
+		if (tool === 'Line') { if (!draft.length || dist(draft.at(-1)!, sp) > 0.01) draft = [...draft, sp]; cur = sp; snapMark = null; return }   // polyline: accumulate (skip dup)
 		// other tools: two clicks — first corner, then the (snapped/Shift-constrained) opposite one.
-		if (!draft.length) { draft = [sp]; snapMark = null; return }
+		// Seed `cur` to the first corner so the rubber-band starts zero-size (else it flashes from the
+		// PREVIOUS shape's last point until the next mousemove updates cur).
+		if (!draft.length) { draft = [sp]; cur = sp; snapMark = null; return }
 		place(draft[0], sp)
-		draft = []; snapMark = null
+		draft = []; cur = null; snapMark = null
 	}
 	let lastRaw: Pt | null = null   // last UNconstrained pointer during a draft (for re-constraining on Shift)
 	function onMove(e: MouseEvent) {
