@@ -84,11 +84,11 @@
 	const envFor = (pane: { canvasView: View }) => ({ acad: acadMode, navContent, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, canvasZoom: pane.canvasView.zoom })
 	// All the viewport event callbacks in ONE `on` object (was ~13 separate props). PaperPage also
 	// uses `frame`; the plain Viewport ignores it.
-	const vpOn = (a: Tab, pane: { tool: string }) => ({
+	const vpOn = (a: Tab, pane: { id: string; tool: string }) => ({
 		activate: () => activateVp(a.id), deactivate: () => deactivateVp(a.id),
 		add: (e: Ent) => addEnt(a.id, e), update: (e: Ent) => updateEnt(a.id, e),
 		delete: (ids: string[]) => deleteEnts(a.id, ids), select: (ids: string[]) => setSel(a.id, ids),
-		view: (v: View) => setView(a.id, v), status: (t: string) => (statusText = t),
+		view: (v: View) => setView(pane.id, a.id, v), status: (t: string) => (statusText = t),
 		coords: (x: number, y: number) => (worldXY = { x, y }), beginedit: beginGesture, endedit: endGesture,
 		tool: (t: string) => (pane.tool = t), frame: onFrame as (f: unknown) => void,
 		copy: (ids: string[]) => copyEnts(a.id, ids), cut: (ids: string[]) => cutEnts(a.id, ids), paste: () => pasteEnts(a.id),
@@ -127,7 +127,9 @@
 	let docView = $state<Record<string, View>>({})
 	const entsOf = (id: string) => docEnts[id] ?? []
 	const selOf = (id: string) => docSel[id] ?? []
-	const viewOf = (id: string) => docView[id] ?? { zoom: 1, x: 0, y: 0 }
+	// View (content pan/zoom) is keyed by PANE+tab, so a split showing the same tab in two panes (e.g.
+	// plan in one, elevation in the other via the per-pane ViewCube) pans each independently.
+	const viewOf = (paneId: string, tabId: string) => docView[paneId + ':' + tabId] ?? { zoom: 1, x: 0, y: 0 }
 	// A GESTURE (a drag or a nudge burst) should be ONE undo/history step: while a gesture is open,
 	// only the first mutation snapshots; the rest just update. Viewport signals begin/end.
 	let gestureActive = false, gesturePushed = false
@@ -268,7 +270,7 @@
 		recordEdit(id, 'Restore revision')
 	}
 	function setSel(id: string, ids: string[]) { docSel = { ...docSel, [id]: ids }; if (ids.length) treeNode = null }
-	function setView(id: string, v: View) { docView = { ...docView, [id]: v } }
+	function setView(paneId: string, tabId: string, v: View) { docView = { ...docView, [paneId + ':' + tabId]: v } }
 	// Selected entities of the focused document (for the Properties panel).
 	let selEnts = $derived.by(() => {
 		const a = tabs.find(t => t.id === panes[focused]?.activeId); if (!a) return []
@@ -288,7 +290,8 @@
 	}
 	function dropDoc(id: string) {   // free a closed doc's per-document state
 		const de = { ...docEnts }, ds = { ...docSel }, dv = { ...docView }
-		delete de[id]; delete ds[id]; delete dv[id]
+		delete de[id]; delete ds[id]
+		for (const k of Object.keys(dv)) if (k === id || k.endsWith(':' + id)) delete dv[k]   // view is now pane-keyed
 		docEnts = de; docSel = ds; docView = dv
 		// free the other per-doc state too (was leaking; a reused preview id inherited it)
 		if (docHist[id]) { const dh = { ...docHist }; delete dh[id]; docHist = dh }
@@ -481,17 +484,17 @@
 	const zoomsContent = (id?: string) => isVpActive(id) && navContent
 	let dispZoom = $derived.by(() => {
 		const p = panes[focused]; if (!p) return 100
-		return Math.round((zoomsContent(p.activeId) ? viewOf(p.activeId).zoom : p.canvasView.zoom) * 100)
+		return Math.round((zoomsContent(p.activeId) ? viewOf(p.id, p.activeId).zoom : p.canvasView.zoom) * 100)
 	})
 	function navZoom(f: number) {
 		const p = panes[focused]; if (!p) return
-		if (zoomsContent(p.activeId)) { const v = viewOf(p.activeId); setView(p.activeId, { ...v, zoom: Math.min(8, Math.max(0.25, v.zoom * f)) }) }
+		if (zoomsContent(p.activeId)) { const v = viewOf(p.id, p.activeId); setView(p.id, p.activeId, { ...v, zoom: Math.min(8, Math.max(0.25, v.zoom * f)) }) }
 		else { p.canvasView = { ...p.canvasView, zoom: Math.min(8, Math.max(0.1, p.canvasView.zoom * f)) } }
 	}
 	// Fit a specific pane: frame its sheet paper (centred, with margin) or reset a model view.
 	function fitPane(idx: number) {
 		const p = panes[idx]; if (!p) return
-		if (isVpActive(p.activeId)) { setView(p.activeId, { zoom: 1, x: 0, y: 0 }); return }
+		if (isVpActive(p.activeId)) { setView(p.id, p.activeId, { zoom: 1, x: 0, y: 0 }); return }
 		const a2 = tabs.find(t => t.id === p.activeId)
 		const canvas = canvasEls[idx]
 		if (a2?.kind === 'sheet' && p.layout === 'sheet' && canvas && canvas.clientWidth > 50) {
@@ -709,12 +712,12 @@
 								{#if a?.kind === 'sheet' && p.layout === 'sheet'}
 									<PaperPage title={a.title} tool={p.tool} scale={scaleOf(a.id)} env={envFor(p)} on={vpOn(a, p)} pw={paperDimsOf(a.id).w} ph={paperDimsOf(a.id).h}
 										sizeLabel="{paperOf(a.id).size} {paperOf(a.id).landscape ? 'L' : 'P'}" rev={rev} revDate={fmtDate(revisions[0]?.t)}
-										entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={isVpActive(a.id)} focused={focused === pi} />
+										entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(p.id, a.id)} active={isVpActive(a.id)} focused={focused === pi} />
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => deactivateVp(a.id)}>
 										<Viewport kind={projKind(projOf(p, a))} label={a.title} tool={p.tool} scale={scaleOf(a.id)} env={envFor(p)} on={vpOn(a, p)}
-											entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={isVpActive(a.id)} focused={focused === pi} clip={docClip[a.id] ?? null} />
+											entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(p.id, a.id)} active={isVpActive(a.id)} focused={focused === pi} clip={docClip[a.id] ?? null} />
 									</div>
 								{:else}
 									<div class="canvas-center">
