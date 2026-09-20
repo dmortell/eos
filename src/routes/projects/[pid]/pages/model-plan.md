@@ -18,14 +18,21 @@
 > GROUND), so a prism picks/moves exactly where Model3d draws it: plan = footprint (dx,dy); elevation =
 > the silhouette face, horizontal drag → on-axis position (× sign), vertical drag → z (base elevation,
 > clamped ≥0). Verified in-browser (select in plan + front, move both axes, cross-view via the store,
-> deselect). **Gaps still open in P2:** ⚠️ **undo** — model moves aren't in Pages' per-doc history yet
-> (history snapshots `Ent[]`, not the model); **rotate** prisms; **walls/conduits** graph
+> deselect). **Gaps still open in P2:** **rotate** prisms; **walls/conduits** graph
 > editing (node-drag, junctions, per-seg thickness); **placement** (draw new); **iso** editing (deferred
 > to the 3D camera). **P2c DONE — prism resize grips:** 4 corner Handles on the selected prism (footprint
 > in plan, silhouette face in elevation); dragging a corner resizes about the fixed opposite corner
 > (`applyPrismGrip`, anchor captured at grip-down); plan edits x/y/w/d, elevation edits on-axis size (via
 > projUInv) + z/h. Verified in-browser (plan footprint grew about the top-left corner; elevation top grip
-> raised height with the base anchored on the floor). Next slice: model undo, then walls.
+> raised height with the base anchored on the floor).
+> **P2d DONE — model UNDO/REDO:** model edits now join Pages' per-doc history. Each `HStep` also snapshots
+> the shared model (`snapModels`); a model gesture routes through the active doc's timeline via a new
+> `on.modeledit` callback (begin/modeledit/end folds it into one step), and `beginGesture` seeds the
+> baseline BEFORE the store mutates. `applyPtr` restores the step's model via `setModels`. KEY BUG fixed:
+> `setModels`/`snapModels` must unwrap the stored proxy with `$state.snapshot`, NOT `structuredClone` —
+> the step's model lives inside the `$state` history tree, so it's a Svelte proxy and `structuredClone`
+> throws `DataCloneError` (undo silently no-op'd). Verified in-browser: move a desk → Ctrl+Z restores it.
+> Next slice: walls (graph editing).
 
 
 Goal: in Pages, draw a floor's **model** (walls, openings for doors/windows, furniture as boxes/holes,

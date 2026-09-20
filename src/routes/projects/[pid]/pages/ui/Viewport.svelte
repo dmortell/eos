@@ -31,7 +31,7 @@
 		copy?: (ids: string[]) => void; cut?: (ids: string[]) => void; paste?: () => void;
 		group?: (ids: string[]) => void; ungroup?: (ids: string[]) => void;
 		reorder?: (ids: string[], op: 'front' | 'back' | 'forward' | 'backward') => void;
-		scale?: (s: string) => void
+		scale?: (s: string) => void; modeledit?: () => void
 	}
 	let { label = 'Viewport', scale = '1:1', kind = 'floorplan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {},
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 } }:
@@ -433,10 +433,11 @@
 		} else {
 			o.x = rnd(mDrag.o0.x + dx); o.y = rnd(mDrag.o0.y + dy)
 		}
+		on.modeledit?.()   // fold this move into the open undo step
 	}
 	function onModelDragUp() {
 		if (mDrag?.moved) suppressClick = true
-		mDrag = null
+		mDrag = null; on.endedit?.()   // close the model-move gesture's undo step
 		window.removeEventListener('pointermove', onModelDragMove)
 		window.removeEventListener('pointerup', onModelDragUp)
 	}
@@ -484,10 +485,11 @@
 		const o = mdl.objects.find(x => x.id === mGrip!.id); if (!o || o.type !== 'prism') return
 		mGrip.moved = true
 		applyPrismGrip(o, mGrip.gi, p, mGrip.anchor)
+		on.modeledit?.()   // fold this resize into the open undo step
 	}
 	function onModelGripUp() {
 		if (mGrip?.moved) suppressClick = true
-		mGrip = null
+		mGrip = null; on.endedit?.()   // close the resize gesture's undo step
 		window.removeEventListener('pointermove', onModelGripMove)
 		window.removeEventListener('pointerup', onModelGripUp)
 	}
@@ -670,12 +672,12 @@
 			window.removeEventListener('pointerup', onDrawUp)
 		}
 		if (mDrag) {   // abort an in-progress model-object move (2nd finger → pan/zoom)
-			mDrag = null
+			mDrag = null; on.endedit?.()
 			window.removeEventListener('pointermove', onModelDragMove)
 			window.removeEventListener('pointerup', onModelDragUp)
 		}
 		if (mGrip) {   // abort an in-progress model-object resize
-			mGrip = null
+			mGrip = null; on.endedit?.()
 			window.removeEventListener('pointermove', onModelGripMove)
 			window.removeEventListener('pointerup', onModelGripUp)
 		}
@@ -707,6 +709,7 @@
 			const gi = pickModelGrip(e.clientX, e.clientY)
 			if (gi != null) {
 				mGrip = { id: mSelPrism.id!, gi, anchor: prismCorners(mSelPrism)[(gi + 2) % 4], moved: false }
+				on.beginedit?.()   // one undo step for the whole resize gesture
 				try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
 				e.preventDefault()
 				window.addEventListener('pointermove', onModelGripMove)
@@ -723,6 +726,7 @@
 			if (mo && mo.type === 'prism') {
 				setModelSel([mo.id!]); on.select?.([])   // model selection is exclusive with entity selection
 				mDrag = { id: mo.id!, start: p, o0: { x: mo.x, y: mo.y, z: mo.z }, moved: false }
+				on.beginedit?.()   // one undo step for the whole model-move gesture
 				try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
 				e.preventDefault()
 				window.addEventListener('pointermove', onModelDragMove)

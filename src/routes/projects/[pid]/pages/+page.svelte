@@ -22,6 +22,8 @@
 	import { panzoom } from './ui/panzoom'
 	import { paperDims, PAPER_SIZES, PAPER_PX_PER_MM, type PaperSize } from './constants'
 	import { translate } from './ui/geometry'
+	import { snapModels, setModels } from './3dview/models.svelte'
+	import type { Model } from './3dview/types'
 
 	// Which pane (if any) has its viewport activated — groundwork for editing/CAD
 	// tools inside a sheet's viewport. Null = no active viewport.
@@ -93,7 +95,11 @@
 		group: (ids: string[]) => groupEnts(a.id, ids), ungroup: (ids: string[]) => ungroupEnts(a.id, ids),
 		reorder: (ids: string[], op) => reorderEnts(a.id, ids, op),
 		scale: (s: string) => (docScale = { ...docScale, [a.id]: s }),
+		modeledit: () => modelEdit(a.id),
 	})
+	// A 3D-model edit (the Viewport mutated the shared `models` store) records a step on THIS doc's
+	// timeline, gesture-folded like an entity edit — so Ctrl+Z restores the model too.
+	function modelEdit(id: string) { recordEdit(id, 'Edit model') }
 	let focused = $state(0)      // which pane new tabs / sidebar actions target
 	let canvasEls = $state<(HTMLElement | undefined)[]>([])   // each pane's .canvas, for navFit
 	let splitFrac = $state(0.5)  // pane 0 width fraction when split
@@ -116,7 +122,7 @@
 	// only the first mutation snapshots; the rest just update. Viewport signals begin/end.
 	let gestureActive = false, gesturePushed = false
 	let gestureEndTimer: ReturnType<typeof setTimeout> | null = null
-	function beginGesture() { if (gestureEndTimer) { clearTimeout(gestureEndTimer); gestureEndTimer = null } gestureActive = true }
+	function beginGesture() { if (gestureEndTimer) { clearTimeout(gestureEndTimer); gestureEndTimer = null } gestureActive = true; const id = panes[focused]?.activeId; if (id) ensureHist(id) }
 	function endGesture(debounceMs = 0) {
 		const finish = () => { gestureActive = false; gesturePushed = false; gestureEndTimer = null }
 		if (gestureEndTimer) { clearTimeout(gestureEndTimer); gestureEndTimer = null }
@@ -195,7 +201,12 @@
 	// entities AFTER that edit; ptr = the current step. Memory ≈ entities × up to 100 steps (mock; a
 	// real tool should be command/inverse-op based).
 	type Snap = Record<string, Ent[]>
-	type HStep = { label: string; t: number; snap: Ent[] }
+	// Each step also carries a snapshot of the shared 3D MODEL, so undo/redo restores model edits
+	// (move/resize prisms) alongside entity edits on the same timeline. The model is global (shared
+	// across docs), so it's captured on every step in whatever doc is active — a model edit made in
+	// another tab isn't on this doc's timeline (a known mock limitation; a global model history is the
+	// real fix). Entity-only edits capture the unchanged model, keeping ents + model consistent.
+	type HStep = { label: string; t: number; snap: Ent[]; model: Model[] }
 	let docHist = $state<Record<string, { steps: HStep[]; ptr: number }>>({})
 	let revisions = $state<{ name: string; note: string; snap: Snap; t: number }[]>([])
 	const snapEnts = (): Snap => $state.snapshot(docEnts) as Snap
@@ -203,22 +214,26 @@
 	// Capture the baseline (pre-first-edit) state once, BEFORE the doc is first mutated.
 	function ensureHist(id: string) {
 		if (docHist[id]) return
-		docHist = { ...docHist, [id]: { steps: [{ label: 'Start', t: Date.now(), snap: snapDoc(id) }], ptr: 0 } }
+		docHist = { ...docHist, [id]: { steps: [{ label: 'Start', t: Date.now(), snap: snapDoc(id), model: snapModels() }], ptr: 0 } }
 	}
 	function pushStep(id: string, label: string) {
 		const t = tabs.find(x => x.id === id); if (t && !t.dirty) t.dirty = true   // any edit marks the tab dirty
 		ensureHist(id); const h = docHist[id]
 		const steps = h.steps.slice(0, h.ptr + 1)   // drop the redo tail (a new edit forks the future)
-		steps.push({ label, t: Date.now(), snap: snapDoc(id) })
+		steps.push({ label, t: Date.now(), snap: snapDoc(id), model: snapModels() })
 		while (steps.length > 100) steps.shift()
 		docHist = { ...docHist, [id]: { steps, ptr: steps.length - 1 } }
 	}
 	function updateStep(id: string) {   // fold a gesture's latest state into its already-open step
 		const h = docHist[id]; if (!h) return
-		const steps = h.steps.slice(); steps[h.ptr] = { ...steps[h.ptr], snap: snapDoc(id), t: Date.now() }
+		const steps = h.steps.slice(); steps[h.ptr] = { ...steps[h.ptr], snap: snapDoc(id), model: snapModels(), t: Date.now() }
 		docHist = { ...docHist, [id]: { ...h, steps } }
 	}
-	function applyPtr(id: string) { const h = docHist[id]; if (h) docEnts = { ...docEnts, [id]: $state.snapshot(h.steps[h.ptr].snap) as Ent[] } }
+	function applyPtr(id: string) {
+		const h = docHist[id]; if (!h) return
+		docEnts = { ...docEnts, [id]: $state.snapshot(h.steps[h.ptr].snap) as Ent[] }
+		setModels(h.steps[h.ptr].model)   // restore the model snapshot for this step (undo/redo model edits)
+	}
 	function undo() { const id = panes[focused]?.activeId, h = id ? docHist[id] : undefined; if (!id || !h || h.ptr <= 0) return; docHist = { ...docHist, [id]: { ...h, ptr: h.ptr - 1 } }; applyPtr(id) }
 	function redo() { const id = panes[focused]?.activeId, h = id ? docHist[id] : undefined; if (!id || !h || h.ptr >= h.steps.length - 1) return; docHist = { ...docHist, [id]: { ...h, ptr: h.ptr + 1 } }; applyPtr(id) }
 	function jumpHistory(i: number) { const id = panes[focused]?.activeId, h = id ? docHist[id] : undefined; if (!id || !h || i < 0 || i >= h.steps.length || i === h.ptr) return; docHist = { ...docHist, [id]: { ...h, ptr: i } }; applyPtr(id) }

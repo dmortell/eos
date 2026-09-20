@@ -34,6 +34,12 @@ function demoFloor(): Model {
 
 export const models = $state<Model[]>(migrateModels([demoFloor()]))
 export const modelById = (id?: number) => (id == null ? undefined : models.find((m) => m.id === id))
+// Replace the whole model list in place (keeps the reactive reference) — used by undo/redo to restore a
+// history snapshot. `$state.snapshot` UNWRAPS Svelte proxies to plain data (structuredClone throws on a
+// proxy — and the stored step's model IS a proxy, living inside the $state history tree), giving a deep
+// plain copy so the restored live state never aliases the stored step; splice re-proxies it reactively.
+export const snapModels = (): Model[] => $state.snapshot(models) as Model[]
+export const setModels = (next: Model[]) => { models.splice(0, models.length, ...($state.snapshot(next) as Model[])) }
 
 // Selected MODEL-object ids (P2). Global to the model for now (a pick in any view highlights it in
 // all) — per-view model selection can come with the registry (§5). Mutated in place so importers
