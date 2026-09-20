@@ -397,14 +397,39 @@
 		if (isPlan) return { x0: o.x, y0: o.y, x1: o.x + o.w, y1: o.y + o.d }
 		return null
 	}
-	// Topmost prism under p (drawing coords). Plan honours rot by testing in the un-rotated frame;
-	// elevation uses the projected face AABB.
+	// A graph node (wall/conduit vertex) → drawing coords for the current view (plan x/y; elevation
+	// on-axis via projU + GROUND−z), and the inverse edit (drawing point → node coords).
+	type GN = { id: string; x: number; y: number; z: number }
+	const rndSnap = (v: number) => (snap ? Math.round(v / SNAP_STEP) * SNAP_STEP : v)
+	function graphNodeDraw(n: GN): Pt {
+		if (isElev) { const ax = ELEV_BASIS[elevDir].axis; return [projU(ax === 0 ? n.x : n.y), GROUND - n.z] }
+		return [n.x, n.y]
+	}
+	function graphNodeApply(n: GN, p: Pt) {
+		if (isElev) { const ax = ELEV_BASIS[elevDir].axis; if (ax === 0) n.x = rndSnap(projUInv(p[0])); else n.y = rndSnap(projUInv(p[0])); n.z = Math.max(0, rndSnap(GROUND - p[1])) }
+		else { n.x = rndSnap(p[0]); n.y = rndSnap(p[1]) }
+	}
+	// Any wall/conduit segment under p (drawing coords): distance to the segment's drawn centreline
+	// within the pick tolerance + half the profile width, so clicking anywhere on the ribbon selects.
+	function graphHit(o: Extract<Obj, { type: 'wall' | 'conduit' }>, p: Pt, thr: number): boolean {
+		const nm = new Map((o.nodes as GN[]).map((n) => [n.id, n]))
+		const half = ((o.type === 'wall' ? o.thickness : o.w) ?? 0) / 2
+		for (const s of o.segments as { a: string; b: string }[]) {
+			const a = nm.get(s.a), b = nm.get(s.b); if (!a || !b) continue
+			if (segDist(p, graphNodeDraw(a), graphNodeDraw(b)) < thr + half) return true
+		}
+		return false
+	}
+	// Topmost model object under p (drawing coords): a prism (footprint/face AABB, rot-aware in plan)
+	// or a wall/conduit graph (any segment). Returns its id.
 	function hitModel(p: Pt): string | null {
 		if (!modelEditable || !mdl) return null
 		const thr = hitTol(4)
 		for (let i = mdl.objects.length - 1; i >= 0; i--) {
 			const o = mdl.objects[i]
-			if (o.type !== 'prism' || !o.id || !modelLayerVisible(o)) continue
+			if (!o.id || !modelLayerVisible(o)) continue
+			if (o.type === 'wall' || o.type === 'conduit') { if (graphHit(o, p, thr)) return o.id; continue }
+			if (o.type !== 'prism') continue
 			if (isPlan && o.rot) {
 				const cx = o.x + o.w / 2, cy = o.y + o.d / 2, q = rotatePt(p, [cx, cy], -o.rot)
 				if (q[0] >= o.x - thr && q[0] <= o.x + o.w + thr && q[1] >= o.y - thr && q[1] <= o.y + o.d + thr) return o.id
@@ -415,23 +440,26 @@
 		}
 		return null
 	}
-	// A prism move drag. Absolute from the gesture's start (no drift). In elevation the horizontal drag
-	// maps to the view's on-axis coord (× ELEV_BASIS sign) and the vertical drag changes z (base
-	// elevation, screen-down lowers it, clamped ≥0) — mirroring how an entity box moves in elevation.
-	let mDrag: { id: string; start: Pt; o0: { x: number; y: number; z: number }; moved: boolean } | null = null
+	// A body move drag. Absolute from the gesture's start (no drift). A prism moves its position; a
+	// wall/conduit translates ALL its nodes (keeping the graph rigid). In elevation the horizontal drag
+	// maps to the view's on-axis coord (× ELEV_BASIS sign) and the vertical drag changes z (clamped ≥0).
+	let mDrag: { id: string; start: Pt; o0?: { x: number; y: number; z: number }; n0?: GN[]; moved: boolean } | null = null
 	function onModelDragMove(e: PointerEvent) {
 		if (!mDrag || !mdl) return
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
-		const o = mdl.objects.find(x => x.id === mDrag!.id); if (!o || o.type !== 'prism') return
+		const o = mdl.objects.find(x => x.id === mDrag!.id); if (!o) return
 		mDrag.moved = true
 		const dx = p[0] - mDrag.start[0], dy = p[1] - mDrag.start[1]
-		const rnd = (v: number) => (snap ? Math.round(v / SNAP_STEP) * SNAP_STEP : v)
-		if (isElev) {
-			const { axis, sign } = ELEV_BASIS[elevDir]
-			if (axis === 0) o.x = rnd(mDrag.o0.x + sign * dx); else o.y = rnd(mDrag.o0.y + sign * dx)
-			o.z = Math.max(0, rnd(mDrag.o0.z - dy))
-		} else {
-			o.x = rnd(mDrag.o0.x + dx); o.y = rnd(mDrag.o0.y + dy)
+		const elev = isElev ? ELEV_BASIS[elevDir] : null
+		if (o.type === 'prism' && mDrag.o0) {
+			if (elev) { if (elev.axis === 0) o.x = rndSnap(mDrag.o0.x + elev.sign * dx); else o.y = rndSnap(mDrag.o0.y + elev.sign * dx); o.z = Math.max(0, rndSnap(mDrag.o0.z - dy)) }
+			else { o.x = rndSnap(mDrag.o0.x + dx); o.y = rndSnap(mDrag.o0.y + dy) }
+		} else if ((o.type === 'wall' || o.type === 'conduit') && mDrag.n0) {
+			for (const g of mDrag.n0) {
+				const n = (o.nodes as GN[]).find((x) => x.id === g.id); if (!n) continue
+				if (elev) { if (elev.axis === 0) n.x = rndSnap(g.x + elev.sign * dx); else n.y = rndSnap(g.y + elev.sign * dx); n.z = Math.max(0, rndSnap(g.z - dy)) }
+				else { n.x = rndSnap(g.x + dx); n.y = rndSnap(g.y + dy) }
+			}
 		}
 		on.modeledit?.()   // fold this move into the open undo step
 	}
@@ -442,12 +470,12 @@
 		window.removeEventListener('pointerup', onModelDragUp)
 	}
 
-	// ── prism RESIZE grips (P2b) — corner handles that size the footprint (plan) or the face (elevation) ──
-	// The single selected prism, if it's editable in this view (drives grip render + pick).
-	const mSelPrism = $derived.by(() => {
+	// ── model grips (P2b/P2e) — corner handles that resize a prism, or node handles that reshape a
+	// wall/conduit graph (drag a corner → re-mitred join). Each grip carries its own apply, so a drag
+	// just replays it. The single selected model object drives grip render + pick. ──
+	const mSelObj = $derived.by(() => {
 		if (!modelEditable || modelSel.length !== 1) return null
-		const o = mdl?.objects.find(x => x.id === modelSel[0])
-		return o && o.type === 'prism' ? o : null
+		return mdl?.objects.find((x) => x.id === modelSel[0]) ?? null
 	})
 	// The prism's 4 corner grips in drawing coords, order tl,tr,br,bl (matches prismRect's face / footprint).
 	function prismCorners(o: Obj): Pt[] {
@@ -458,38 +486,48 @@
 	// drawing coords at grip-down) fixed. Plan edits the footprint (x/y/w/d); elevation edits the on-axis
 	// size (w or d, via projUInv) + z/h (base + height from screen-y, base = larger y). Clamped, snappable.
 	function applyPrismGrip(o: Extract<Obj, { type: 'prism' }>, gi: number, p: Pt, anchor: Pt) {
-		const rnd = (v: number) => (snap ? Math.round(v / SNAP_STEP) * SNAP_STEP : v)
 		if (isElev) {
 			const ax = ELEV_BASIS[elevDir].axis
 			const c1 = projUInv(p[0]), c2 = projUInv(anchor[0])   // on-axis model coords (drawing u → coord)
-			const lo = rnd(Math.min(c1, c2)), size = Math.max(1, rnd(Math.abs(c1 - c2)))
+			const lo = rndSnap(Math.min(c1, c2)), size = Math.max(1, rndSnap(Math.abs(c1 - c2)))
 			if (ax === 0) { o.x = lo; o.w = size } else { o.y = lo; o.d = size }
 			const baseY = Math.max(p[1], anchor[1]), topY = Math.min(p[1], anchor[1])
-			o.z = Math.max(0, rnd(GROUND - baseY)); o.h = Math.max(1, rnd(baseY - topY))
+			o.z = Math.max(0, rndSnap(GROUND - baseY)); o.h = Math.max(1, rndSnap(baseY - topY))
 		} else {
-			o.x = rnd(Math.min(p[0], anchor[0])); o.w = Math.max(1, rnd(Math.abs(p[0] - anchor[0])))
-			o.y = rnd(Math.min(p[1], anchor[1])); o.d = Math.max(1, rnd(Math.abs(p[1] - anchor[1])))
+			o.x = rndSnap(Math.min(p[0], anchor[0])); o.w = Math.max(1, rndSnap(Math.abs(p[0] - anchor[0])))
+			o.y = rndSnap(Math.min(p[1], anchor[1])); o.d = Math.max(1, rndSnap(Math.abs(p[1] - anchor[1])))
 		}
 	}
-	// Which corner grip (if any) of the selected prism a press at these client coords grabs.
-	function pickModelGrip(clientX: number, clientY: number): number | null {
-		const o = mSelPrism; if (!o) return null
-		const cs = prismCorners(o)
-		for (let i = 0; i < cs.length; i++) { const sp = localToClient(cs[i][0], cs[i][1]); if (sp && Math.hypot(sp.x - clientX, sp.y - clientY) < 14) return i }
+	// Grips of the selected object: prism = 4 resize corners (about the opposite corner, captured now);
+	// wall/conduit = one move-handle per node. `apply(p)` mutates the store object given a drawing point.
+	type MGrip = { x: number; y: number; apply: (p: Pt) => void }
+	function modelGrips(o: Obj): MGrip[] {
+		if (o.type === 'prism') {
+			const cs = prismCorners(o)
+			return cs.map((c, gi) => ({ x: c[0], y: c[1], apply: (p: Pt) => applyPrismGrip(o, gi, p, cs[(gi + 2) % 4]) }))
+		}
+		if (o.type === 'wall' || o.type === 'conduit') {
+			return (o.nodes as GN[]).map((n) => { const d = graphNodeDraw(n); return { x: d[0], y: d[1], apply: (p: Pt) => graphNodeApply(n, p) } })
+		}
+		return []
+	}
+	// Which grip of the selected object a press grabs (constant screen tolerance), with its apply.
+	function pickModelGrip(clientX: number, clientY: number): ((p: Pt) => void) | null {
+		if (!mSelObj) return null
+		for (const g of modelGrips(mSelObj)) { const sp = localToClient(g.x, g.y); if (sp && Math.hypot(sp.x - clientX, sp.y - clientY) < 14) return g.apply }
 		return null
 	}
-	let mGrip: { id: string; gi: number; anchor: Pt; moved: boolean } | null = null
+	let mGrip: { apply: (p: Pt) => void; moved: boolean } | null = null
 	function onModelGripMove(e: PointerEvent) {
-		if (!mGrip || !mdl) return
+		if (!mGrip) return
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
-		const o = mdl.objects.find(x => x.id === mGrip!.id); if (!o || o.type !== 'prism') return
 		mGrip.moved = true
-		applyPrismGrip(o, mGrip.gi, p, mGrip.anchor)
-		on.modeledit?.()   // fold this resize into the open undo step
+		mGrip.apply(p)
+		on.modeledit?.()   // fold this reshape into the open undo step
 	}
 	function onModelGripUp() {
 		if (mGrip?.moved) suppressClick = true
-		mGrip = null; on.endedit?.()   // close the resize gesture's undo step
+		mGrip = null; on.endedit?.()   // close the gesture's undo step
 		window.removeEventListener('pointermove', onModelGripMove)
 		window.removeEventListener('pointerup', onModelGripUp)
 	}
@@ -704,12 +742,12 @@
 			window.addEventListener('pointerup', onDrawUp)
 			return
 		}
-		// A selected model prism's resize grip wins over everything (like entity grips).
-		if (mSelPrism) {
-			const gi = pickModelGrip(e.clientX, e.clientY)
-			if (gi != null) {
-				mGrip = { id: mSelPrism.id!, gi, anchor: prismCorners(mSelPrism)[(gi + 2) % 4], moved: false }
-				on.beginedit?.()   // one undo step for the whole resize gesture
+		// A selected model object's grip (prism corner / wall node) wins over everything (like entity grips).
+		if (mSelObj) {
+			const apply = pickModelGrip(e.clientX, e.clientY)
+			if (apply) {
+				mGrip = { apply, moved: false }
+				on.beginedit?.()   // one undo step for the whole reshape gesture
 				try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
 				e.preventDefault()
 				window.addEventListener('pointermove', onModelGripMove)
@@ -723,9 +761,13 @@
 			// no entity under the cursor → try a MODEL object (P2a: prisms in plan), else marquee.
 			const mid = hitModel(p)
 			const mo = mid ? mdl?.objects.find(o => o.id === mid) : undefined
-			if (mo && mo.type === 'prism') {
+			if (mo) {
 				setModelSel([mo.id!]); on.select?.([])   // model selection is exclusive with entity selection
-				mDrag = { id: mo.id!, start: p, o0: { x: mo.x, y: mo.y, z: mo.z }, moved: false }
+				mDrag = {
+					id: mo.id!, start: p, moved: false,
+					o0: mo.type === 'prism' ? { x: mo.x, y: mo.y, z: mo.z } : undefined,
+					n0: (mo.type === 'wall' || mo.type === 'conduit') ? (mo.nodes as GN[]).map((n) => ({ id: n.id, x: n.x, y: n.y, z: n.z })) : undefined,
+				}
 				on.beginedit?.()   // one undo step for the whole model-move gesture
 				try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
 				e.preventDefault()
@@ -956,10 +998,10 @@
 					{/if}
 				{/each}
 			{/if}
-			<!-- model-prism resize grips (corners of the selected prism's footprint / elevation face) -->
-			{#if active && tool === 'Select' && mSelPrism}
-				{#each prismCorners(mSelPrism) as c, i (i)}
-					<Handle cx={c[0]} cy={c[1]} size={gripSize} cursor="crosshair" strokeWidth={1.2 / (canvasZoom || 1)} />
+			<!-- model grips: prism resize corners, or wall/conduit node handles (of the selected object) -->
+			{#if active && tool === 'Select' && mSelObj}
+				{#each modelGrips(mSelObj) as g, i (i)}
+					<Handle cx={g.x} cy={g.y} size={gripSize} cursor="crosshair" strokeWidth={1.2 / (canvasZoom || 1)} />
 				{/each}
 			{/if}
 			<!-- object-snap marker (constant screen size): □ endpoint · △ midpoint · ○ centre · ◇ quadrant -->

@@ -18,9 +18,8 @@
 > GROUND), so a prism picks/moves exactly where Model3d draws it: plan = footprint (dx,dy); elevation =
 > the silhouette face, horizontal drag → on-axis position (× sign), vertical drag → z (base elevation,
 > clamped ≥0). Verified in-browser (select in plan + front, move both axes, cross-view via the store,
-> deselect). **Gaps still open in P2:** **rotate** prisms; **walls/conduits** graph
-> editing (node-drag, junctions, per-seg thickness); **placement** (draw new); **iso** editing (deferred
-> to the 3D camera). **P2c DONE — prism resize grips:** 4 corner Handles on the selected prism (footprint
+> deselect). **Gaps still open in P2:** **rotate** prisms; advanced graph ops (insert-node, junctions,
+> per-seg thickness/profile); **placement** (draw new); **iso** editing (deferred to the 3D camera). **P2c DONE — prism resize grips:** 4 corner Handles on the selected prism (footprint
 > in plan, silhouette face in elevation); dragging a corner resizes about the fixed opposite corner
 > (`applyPrismGrip`, anchor captured at grip-down); plan edits x/y/w/d, elevation edits on-axis size (via
 > projUInv) + z/h. Verified in-browser (plan footprint grew about the top-left corner; elevation top grip
@@ -32,7 +31,14 @@
 > `setModels`/`snapModels` must unwrap the stored proxy with `$state.snapshot`, NOT `structuredClone` —
 > the step's model lives inside the `$state` history tree, so it's a Svelte proxy and `structuredClone`
 > throws `DataCloneError` (undo silently no-op'd). Verified in-browser: move a desk → Ctrl+Z restores it.
-> Next slice: walls (graph editing).
+> **P2e DONE — walls/conduits (graph) editing:** the prism-only editing was generalized to graph objects.
+> `hitModel` now selects a wall/conduit by any segment (`graphHit`, segDist to the drawn centreline +
+> half the profile width); the unified `modelGrips` gives a prism its 4 resize corners OR a wall/conduit
+> one move-handle per node; `mDrag` body-move translates a prism's position OR all of a graph's nodes;
+> node grips reshape via `graphNodeDraw`/`graphNodeApply` (plan x/y; elevation on-axis + z). All reuse
+> the same undo hooks. Verified in-browser: click a wall → whole ribbon highlights with corner node
+> grips; drag a corner → both segments follow with clean re-mitred joints; Ctrl+Z restores the rectangle.
+> Next slice: prism rotate, then placement (draw new walls/prisms) + advanced graph ops.
 
 
 Goal: in Pages, draw a floor's **model** (walls, openings for doors/windows, furniture as boxes/holes,
