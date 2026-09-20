@@ -255,9 +255,10 @@
 	// Vertical split: open a second pane showing a different tab; toggle focus if already split.
 	function splitVertical() {
 		if (panes.length >= 2) { focused = 1; return }
-		const cur = panes[0].activeId
-		const other = tabs.find(t => t.id !== cur)?.id ?? cur
-		panes = [...panes, { id: 'p' + ++paneSeq, activeId: other, tool: 'Select', canvasView: { zoom: 1, x: 0, y: 0 }, layout: 'sheet' }]
+		// Mirror the current pane into the split: same active tab + layout, so it opens as a
+		// duplicate view you then diverge (change projection/tab in one side).
+		const src = panes[0]
+		panes = [...panes, { id: 'p' + ++paneSeq, activeId: src.activeId, tool: 'Select', canvasView: { zoom: 1, x: 0, y: 0 }, layout: src.layout }]
 		focused = 1; splitFrac = 0.5
 		tick().then(() => { fitPane(0); fitPane(1) })   // both panes narrowed → refit their sheets
 	}
