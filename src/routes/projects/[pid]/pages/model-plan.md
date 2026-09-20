@@ -48,11 +48,20 @@
 > - **§4 Sections:** Section tool draws a plan clip box → spawns a front elevation tab clipped to it
 >   (`on.section` → `onSection`, `docClip`, Model3d `clip` prop AABB-culls). §5.4 multi-direction =
 >   switch the section tab's ViewCube (clip persists in any direction).
-> - **§5.1 Openings:** Opening tool → prism on the dashed "Openings" layer (`Layer.dash`), reads as an
->   outline-gap cut (no CSG, per plan). §5.2 furniture ✓, §5.3 rect/round ✓, §5.5 vertical ✓.
-> **Remaining refinements:** prism rotate handle; advanced graph ops (disconnect / per-seg profile);
-> section markers on the plan + `trimToClip` (true cut vs AABB cull) + direction fan-out; opening swing
-> arcs / true wall subtraction; **§5.6 blocks** (plan defers to Future). Firestore (§6/P6) still pending.
+> - **§5.1 Openings PROPER:** Opening tool → prism on the "Openings" layer (`Layer.opening`); Model3d
+>   renders it in a 2nd pass as a paper-white fill (masks the wall behind) + a solid frame → a real cut
+>   in plan/elevation/iso (no CSG, like the Sheets white hidden-line faces). §5.2 furniture ✓, §5.3
+>   rect/round ✓, §5.5 vertical ✓.
+> - **Also done:** graph node-insert + delete + node snapping; full **Object prop panel** (prism Shape/
+>   Sides + per-SEGMENT thickness/height overrides for wall/conduit, `updateModelSeg`); elevations
+>   centred (GROUND); per-pane viewport pan; **ORBIT** the 3D view (drag → yaw/pitch, `docOrbit`).
+> **Remaining 3D todos:** prism rotate HANDLE (panel field exists); graph **disconnect** + **branch** a
+> node with ≥2 segments; **insert nodes in elevations**; **section markers** on the plan (edit/move/re-
+> direction) + `trimToClip` (true cut vs AABB cull) + multi-direction fan-out; **opening details** (door
+> swing arc / window sill+head); **iso hidden-line** (white faces vs current wireframe); full cross-view
+> **focal tracking**; ViewCube active-only + no sheet-fullscreen; hide paper+titleblock in fullscreen;
+> orbit RESET / a nav button; **§5.6 blocks/instances**; **Firestore** `models3d/{pid}` (§6/P6) + the
+> per-viewport **model registry/selection** (§5).
 
 
 Goal: in Pages, draw a floor's **model** (walls, openings for doors/windows, furniture as boxes/holes,

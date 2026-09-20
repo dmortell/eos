@@ -574,7 +574,7 @@
 		if (!orbitDrag) return
 		orbitDrag.moved = true
 		const dx = e.clientX - orbitDrag.sx, dy = e.clientY - orbitDrag.sy
-		const ny = orbitDrag.yaw0 - dx * 0.008
+		const ny = orbitDrag.yaw0 + dx * 0.008
 		const np = Math.max(0.06, Math.min(Math.PI / 2 - 0.02, orbitDrag.pitch0 + dy * 0.006))
 		on.orbit?.(ny, np)
 	}
