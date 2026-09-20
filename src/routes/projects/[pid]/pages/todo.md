@@ -158,26 +158,29 @@ New todos (design / bigger):
   drive yet. When the camera lands the button feeds it yaw/pitch (and the ViewCube corners snap to
   named views). Parked here until then rather than shipping a dead icon.
 ### 3D model editing follow-ups (Dave, 2026-09-20)
-- [ ] **Insert nodes in ELEVATION views** — node-insert (dbl-click a wall/conduit segment) is plan-only
-  today (`insertGraphNode` gated to `isPlan`). Allow it in elevations too: the new node's on-axis coord
-  from `projUInv(p[0])` and its z from `GROUND − p[1]` (like `graphNodeApply`), keeping the off-axis
-  coord from the segment.
-- [ ] **Branch a node with 2+ segments** — let a node that already has ≥2 segments sprout a NEW segment
-  (a junction/tee). Needs a "start segment from this node" affordance (e.g. drag off a selected node, or
-  a right-click "extend"), building a new segment + node into the same wall/conduit graph. `graph.ts`
-  already handles junctions in the sweep, so it's mostly the editing gesture.
-- [ ] **Trunk/pipe node SNAP + DISCONNECT** — when dragging a conduit/wall node, snap it to nearby nodes
-  (merge/coincide) so runs join; and provide a way to DISCONNECT a merged/shared node later (split it
-  back into separate nodes per segment). Snap done first pass (2026-09-20); disconnect still to do.
-- [ ] **ViewCube: enable only when a view is ACTIVE; don't fullscreen a sheet** (Dave, 2026-09-20) — on a
-  paper *sheet*, changing the ViewCube to an elevation currently flips the whole tab to fullscreen model
-  layout (`ViewGizmos onset` sets `p.layout='model'` for `kind==='sheet'`). Rethink: there's no point
-  re-orienting a paper sheet, so the cube should be **disabled unless a viewport is active**, and when
-  active it should re-orient the ACTIVE VIEWPORT's content (its `docProj`), NOT switch the tab to
-  fullscreen. Model-layout tabs (plan/elevation/3D) keep the cube enabled (the tab *is* the view).
-- [ ] **Fullscreen (model layout) shows an ugly white paper + titleblock** (Dave, 2026-09-20) — when a
-  sheet goes fullscreen (`layout='model'`), hide the white paper sheet background and the titleblock;
-  the model view should fill the pane cleanly (like the plan/3D/elevation model tabs do).
+- [x] **Insert nodes in ELEVATION views** (2026-09-20) — node-insert (dbl-click a wall/conduit segment)
+  now works in elevations too, not just plan: the new node takes its on-axis coord from `projUInv(p[0])`
+  and z from `GROUND − p[1]`, keeping the off-axis coord of its neighbour. `onDblclick` gate widened
+  `isPlan`→`modelEditable`.
+- [x] **Branch a node with 2+ segments** (2026-09-20) — **Alt-drag a wall/conduit node** sprouts a NEW
+  segment + node (a junction/tee) and drags the new node out; a plain drag still moves the node. Built
+  as `branchNode()` + the Alt path in `onDown`'s grip handler; a no-drag Alt-press cleans up its stray
+  zero-length segment. `graph.ts` handles the junction in its sweep. Verified in-browser (2-node trunk →
+  Alt-drag → 3 nodes, new branch follows the cursor; the tee renders correctly). **Gotcha:** the pushed
+  node must be re-read from the `$state` store (deep-proxied) — mutating the raw literal via the drag
+  closure is a silent no-op. [[svelte-state-proxy]]
+- [x] **Trunk/pipe node SNAP + DISCONNECT** (2026-09-20) — snap done (2026-09-20); DISCONNECT now works:
+  `snapNode` takes the drag `origin` and skips any candidate within a break radius of it, so a node that
+  starts coincident with a partner can be pulled cleanly off it instead of re-snapping forever. (This is
+  also what lets a fresh Alt-branch node separate from the node it sprang from.)
+- [x] **ViewCube: don't fullscreen a sheet; re-orient in place** (2026-09-20) — `ViewGizmos onset` no
+  longer flips a sheet to fullscreen model layout; it just sets `docProj`, so the cube re-orients the
+  view's content in place, INCLUDING a paper sheet's viewport (PaperPage now threads `kind/clip/yaw/
+  pitch` into its Viewport). Full-size button still does fullscreen. Verified in-browser (clicking 3D on
+  the Trunk Routes sheet re-oriented the paper viewport to iso; paper + titleblock stayed).
+- [x] **Fullscreen (model layout) shows an ugly white paper + titleblock** (2026-09-20) — resolved by the
+  ViewCube change above: a sheet only reaches `layout='model'` via the explicit Full-size button, which
+  renders the clean `.vp-fill` Viewport (no paper, no titleblock) — the cube no longer forces it.
 - [ ] **Maintain focus across view switches (full)** — the elevation-centring fix (below) keeps content
   on-screen, but a PANNED focal point doesn't fully carry between projections. Track a 3D focal point and
   re-project it into each view's pan on switch (incl. shifting left↔right so the same point stays centred).

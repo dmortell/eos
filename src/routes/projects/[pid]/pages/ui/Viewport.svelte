@@ -423,23 +423,28 @@
 		return [n.x, n.y]
 	}
 	// Nearest OTHER graph node's drawing position within a screen-tolerance of p (for node-drag snapping),
-	// else null. Snapping coincides the coords so runs join; dragging apart later separates them (disconnect).
-	function snapNode(p: Pt, exclude: GN): Pt | null {
+	// else null. Snapping coincides the coords so runs join. `origin` (the drag's start position) lets a
+	// node be pulled OFF a partner it started coincident with — DISCONNECT: candidates within a break
+	// radius of the origin are skipped, so re-snapping only grabs a genuinely new target.
+	function snapNode(p: Pt, exclude: GN, origin?: Pt): Pt | null {
 		if (!mdl) return null
 		const thr = hitTol(10) / (dscale || 1)   // ~10px in model units
+		const brk = hitTol(8) / (dscale || 1)    // pull-apart radius around the drag origin
 		let best: Pt | null = null, bestD = thr
 		for (const o of mdl.objects) {
 			if ((o.type !== 'wall' && o.type !== 'conduit') || !modelLayerVisible(o)) continue
 			for (const nn of o.nodes as GN[]) {
 				if (nn === exclude) continue
-				const d = graphNodeDraw(nn), dd = Math.hypot(d[0] - p[0], d[1] - p[1])
+				const d = graphNodeDraw(nn)
+				if (origin && Math.hypot(d[0] - origin[0], d[1] - origin[1]) < brk) continue   // don't re-grab the node we're leaving
+				const dd = Math.hypot(d[0] - p[0], d[1] - p[1])
 				if (dd < bestD) { bestD = dd; best = d }
 			}
 		}
 		return best
 	}
-	function graphNodeApply(n: GN, p: Pt) {
-		const q = snapNode(p, n) ?? p   // snap to a nearby node so runs join
+	function graphNodeApply(n: GN, p: Pt, origin?: Pt) {
+		const q = snapNode(p, n, origin) ?? p   // snap to a nearby node so runs join
 		snapMark = q === p ? null : { p: q, type: 'end' }
 		if (isElev) { const ax = ELEV_BASIS[elevDir].axis; if (ax === 0) n.x = rndSnap(projUInv(q[0])); else n.y = rndSnap(projUInv(q[0])); n.z = Math.max(0, rndSnap(GROUND - q[1])) }
 		else { n.x = rndSnap(q[0]); n.y = rndSnap(q[1]) }
@@ -535,9 +540,11 @@
 			o.y = rndSnap(Math.min(p[1], anchor[1])); o.d = Math.max(1, rndSnap(Math.abs(p[1] - anchor[1])))
 		}
 	}
-	// Grips of the selected object: prism = 4 resize corners (about the opposite corner, captured now);
-	// wall/conduit = one move-handle per node. `apply(p)` mutates the store object given a drawing point.
-	type MGrip = { x: number; y: number; apply: (p: Pt) => void }
+	// Grips of the selected object: prism = 4 resize corners (about the opposite corner, captured now)
+	// + a rotate handle; wall/conduit = one move-handle per node. `apply(p, origin)` mutates the store
+	// object given a drawing point (origin = the drag start, so a node grip can be pulled off a partner).
+	// `node`/`obj` are carried on wall/conduit node grips so an Alt-press can BRANCH a new segment.
+	type MGrip = { x: number; y: number; apply: (p: Pt, origin?: Pt) => void; node?: GN; obj?: Obj }
 	function modelGrips(o: Obj): MGrip[] {
 		if (o.type === 'prism') {
 			const cs = prismCorners(o)
@@ -550,26 +557,38 @@
 			return grips
 		}
 		if (o.type === 'wall' || o.type === 'conduit') {
-			return (o.nodes as GN[]).map((n) => { const d = graphNodeDraw(n); return { x: d[0], y: d[1], apply: (p: Pt) => graphNodeApply(n, p) } })
+			return (o.nodes as GN[]).map((n) => { const d = graphNodeDraw(n); return { x: d[0], y: d[1], node: n, obj: o, apply: (p: Pt, origin?: Pt) => graphNodeApply(n, p, origin) } })
 		}
 		return []
 	}
-	// Which grip of the selected object a press grabs (constant screen tolerance), with its apply.
-	function pickModelGrip(clientX: number, clientY: number): ((p: Pt) => void) | null {
+	// Which grip of the selected object a press grabs (constant screen tolerance).
+	function pickModelGrip(clientX: number, clientY: number): MGrip | null {
 		if (!mSelObj) return null
-		for (const g of modelGrips(mSelObj)) { const sp = localToClient(g.x, g.y); if (sp && Math.hypot(sp.x - clientX, sp.y - clientY) < 14) return g.apply }
+		for (const g of modelGrips(mSelObj)) { const sp = localToClient(g.x, g.y); if (sp && Math.hypot(sp.x - clientX, sp.y - clientY) < 14) return g }
 		return null
 	}
-	let mGrip: { apply: (p: Pt) => void; moved: boolean } | null = null
+	// Sprout a NEW segment from an existing node (a junction/tee): add a coincident node + a segment
+	// joining them, and return the new node so the caller can drag it out. graph.ts handles the junction
+	// in its sweep, so this is purely the editing gesture.
+	function branchNode(o: Extract<Obj, { type: 'wall' | 'conduit' }>, from: GN): GN {
+		const nid = mUid('n')
+		;(o.nodes as GN[]).push({ id: nid, x: from.x, y: from.y, z: from.z })
+		;(o.segments as { id: string; a: string; b: string }[]).push({ id: mUid('s'), a: from.id, b: nid })
+		// Return the STORE's node, not the pushed literal: $state deep-proxies array elements, so the
+		// drag closure must mutate the proxy (what the renderer reads) — mutating the raw literal is a no-op.
+		return (o.nodes as GN[])[(o.nodes as GN[]).length - 1]
+	}
+	let mGrip: { grip: MGrip; origin: Pt; moved: boolean; branch?: () => void } | null = null
 	function onModelGripMove(e: PointerEvent) {
 		if (!mGrip) return
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
 		mGrip.moved = true
-		mGrip.apply(p)
+		mGrip.grip.apply(p, mGrip.origin)
 		on.modeledit?.()   // fold this reshape into the open undo step
 	}
 	function onModelGripUp() {
-		if (mGrip?.moved) suppressClick = true
+		if (mGrip?.moved) { suppressClick = true; on.modeledit?.() }
+		else mGrip?.branch?.()   // an Alt-branch press with no drag: drop the stray zero-length segment
 		mGrip = null; snapMark = null; on.endedit?.()   // close the gesture's undo step
 		window.removeEventListener('pointermove', onModelGripMove)
 		window.removeEventListener('pointerup', onModelGripUp)
@@ -887,10 +906,20 @@
 		}
 		// A selected model object's grip (prism corner / wall node) wins over everything (like entity grips).
 		if (mSelObj) {
-			const apply = pickModelGrip(e.clientX, e.clientY)
-			if (apply) {
-				mGrip = { apply, moved: false }
+			const g = pickModelGrip(e.clientX, e.clientY)
+			if (g) {
 				on.beginedit?.()   // one undo step for the whole reshape gesture
+				// Alt-press on a wall/conduit node BRANCHES: sprout a new segment and drag the new node
+				// out (a junction/tee). Plain press moves the node. origin = the grip's start position so
+				// the dragged node can be pulled off any partner it was coincident with (disconnect).
+				let grip = g, origin: Pt = [g.x, g.y], branch: (() => void) | undefined
+				if (e.altKey && g.node && g.obj && (g.obj.type === 'wall' || g.obj.type === 'conduit')) {
+					const obj = g.obj, nn = branchNode(obj, g.node)
+					const d = graphNodeDraw(nn); origin = [d[0], d[1]]
+					grip = { x: d[0], y: d[1], node: nn, obj, apply: (p: Pt, o?: Pt) => graphNodeApply(nn, p, o) }
+					branch = () => { obj.nodes = (obj.nodes as GN[]).filter((x) => x.id !== nn.id); obj.segments = (obj.segments as { id: string; a: string; b: string }[]).filter((s) => s.b !== nn.id && s.a !== nn.id) }
+				}
+				mGrip = { grip, origin, moved: false, branch }
 				try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
 				e.preventDefault()
 				window.addEventListener('pointermove', onModelGripMove)
@@ -1057,7 +1086,7 @@
 		if (!active) return ''
 		const n = draft.length
 		switch (tool) {
-			case 'Select': return 'Click an element'
+			case 'Select': return mSelObj && (mSelObj.type === 'wall' || mSelObj.type === 'conduit') ? 'Drag a node to reshape · Alt-drag a node to branch · double-click a segment to add a node' : 'Click an element'
 			case 'Line': return n ? 'Specify next point (Enter / double-click to finish)' : 'Specify first point'
 			case 'Wall': case 'Trunk': case 'Pipe': return !isPlan ? `Switch to the plan view to draw ${tool.toLowerCase()}s` : (n ? `Specify next ${tool.toLowerCase()} point (Enter / double-click to finish)` : `Specify ${tool.toLowerCase()} start`)
 			case 'Furniture': return isPlan ? (n ? 'Specify opposite corner' : 'Specify furniture footprint corner') : 'Switch to the plan view to place furniture'
