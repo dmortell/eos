@@ -157,6 +157,30 @@ New todos (design / bigger):
   yaw/pitch forward-compat above): today iso is a fixed oblique projection, so orbit has nothing to
   drive yet. When the camera lands the button feeds it yaw/pitch (and the ViewCube corners snap to
   named views). Parked here until then rather than shipping a dead icon.
+### 3D model editing follow-ups (Dave, 2026-09-20)
+- [ ] **Insert nodes in ELEVATION views** — node-insert (dbl-click a wall/conduit segment) is plan-only
+  today (`insertGraphNode` gated to `isPlan`). Allow it in elevations too: the new node's on-axis coord
+  from `projUInv(p[0])` and its z from `GROUND − p[1]` (like `graphNodeApply`), keeping the off-axis
+  coord from the segment.
+- [ ] **Branch a node with 2+ segments** — let a node that already has ≥2 segments sprout a NEW segment
+  (a junction/tee). Needs a "start segment from this node" affordance (e.g. drag off a selected node, or
+  a right-click "extend"), building a new segment + node into the same wall/conduit graph. `graph.ts`
+  already handles junctions in the sweep, so it's mostly the editing gesture.
+- [ ] **Trunk/pipe node SNAP + DISCONNECT** — when dragging a conduit/wall node, snap it to nearby nodes
+  (merge/coincide) so runs join; and provide a way to DISCONNECT a merged/shared node later (split it
+  back into separate nodes per segment). Snap done first pass (2026-09-20); disconnect still to do.
+- [ ] **ViewCube: enable only when a view is ACTIVE; don't fullscreen a sheet** (Dave, 2026-09-20) — on a
+  paper *sheet*, changing the ViewCube to an elevation currently flips the whole tab to fullscreen model
+  layout (`ViewGizmos onset` sets `p.layout='model'` for `kind==='sheet'`). Rethink: there's no point
+  re-orienting a paper sheet, so the cube should be **disabled unless a viewport is active**, and when
+  active it should re-orient the ACTIVE VIEWPORT's content (its `docProj`), NOT switch the tab to
+  fullscreen. Model-layout tabs (plan/elevation/3D) keep the cube enabled (the tab *is* the view).
+- [ ] **Fullscreen (model layout) shows an ugly white paper + titleblock** (Dave, 2026-09-20) — when a
+  sheet goes fullscreen (`layout='model'`), hide the white paper sheet background and the titleblock;
+  the model view should fill the pane cleanly (like the plan/3D/elevation model tabs do).
+- [ ] **Maintain focus across view switches (full)** — the elevation-centring fix (below) keeps content
+  on-screen, but a PANNED focal point doesn't fully carry between projections. Track a 3D focal point and
+  re-project it into each view's pan on switch (incl. shifting left↔right so the same point stays centred).
 - [ ] **Kestrel command line** — implement a command line (enter offsets while drawing, and other
   useful Kestrel cmd-line commands). (Was P3 "optional"; Dave now wants it.)
 - [ ] **Models: one model per floor**, with **separate stores** for detail views (rack elevations,
