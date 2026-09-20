@@ -262,7 +262,7 @@
 		const p = toLocal(e); if (!p) return
 		const ent = entities.find(x => x.id === hit(p)[0])
 		if (ent?.type === 'text') { startTextEdit(ent); return }
-		if (tool === 'Select' && isPlan) insertGraphNode(p)   // dbl-click a wall/conduit segment → add a vertex
+		if (tool === 'Select' && modelEditable) insertGraphNode(p)   // dbl-click a wall/conduit segment → add a vertex (plan or elevation)
 	}
 	// ── edit text in place ──
 	let editText = $state<{ id: string; x: number; y: number; fontPx: number; value: string } | null>(null)
@@ -515,7 +515,9 @@
 	// The prism's 4 corner grips in drawing coords, order tl,tr,br,bl (matches prismRect's face / footprint).
 	function prismCorners(o: Obj): Pt[] {
 		const r = prismRect(o); if (!r) return []
-		return [[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]]
+		let cs: Pt[] = [[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]]
+		if (isPlan && o.type === 'prism' && o.rot) { const c: Pt = [(r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2]; cs = cs.map((p) => rotatePt(p, c, o.rot!)) }   // grips follow the rotation
+		return cs
 	}
 	// Resize the prism by dragging corner `gi` to p, holding the opposite corner (`anchor`, captured in
 	// drawing coords at grip-down) fixed. Plan edits the footprint (x/y/w/d); elevation edits the on-axis
@@ -539,7 +541,13 @@
 	function modelGrips(o: Obj): MGrip[] {
 		if (o.type === 'prism') {
 			const cs = prismCorners(o)
-			return cs.map((c, gi) => ({ x: c[0], y: c[1], apply: (p: Pt) => applyPrismGrip(o, gi, p, cs[(gi + 2) % 4]) }))
+			const grips: MGrip[] = cs.map((c, gi) => ({ x: c[0], y: c[1], apply: (p: Pt) => applyPrismGrip(o, gi, p, cs[(gi + 2) % 4]) }))
+			if (isPlan) {   // rotate handle above the top-centre, following the rotation
+				const cx = o.x + o.w / 2, cy = o.y + o.d / 2, off = o.d / 2 + Math.max(o.w, o.d) * 0.35
+				const hp = o.rot ? rotatePt([cx, cy - off], [cx, cy], o.rot) : [cx, cy - off] as Pt
+				grips.push({ x: hp[0], y: hp[1], apply: (p: Pt) => { o.rot = Math.round(((Math.atan2(p[1] - cy, p[0] - cx) * 180) / Math.PI + 90 + 360) % 360) } })
+			}
+			return grips
 		}
 		if (o.type === 'wall' || o.type === 'conduit') {
 			return (o.nodes as GN[]).map((n) => { const d = graphNodeDraw(n); return { x: d[0], y: d[1], apply: (p: Pt) => graphNodeApply(n, p) } })
@@ -620,7 +628,12 @@
 				if (segDist(p, graphNodeDraw(a), graphNodeDraw(b)) < thr + half) {
 					on.beginedit?.()
 					const nid = mUid('n')
-					;(o.nodes as GN[]).push({ id: nid, x: Math.round(p[0]), y: Math.round(p[1]), z: a.z })
+					// Seed at a's coords, then set its in-view coords from p (no snap): the plan takes x/y,
+					// an elevation takes the on-axis coord + z (keeping a's off-axis coord).
+					const nn: GN = { id: nid, x: a.x, y: a.y, z: a.z }
+					if (isElev) { const ax = ELEV_BASIS[elevDir].axis; if (ax === 0) nn.x = rndSnap(projUInv(p[0])); else nn.y = rndSnap(projUInv(p[0])); nn.z = Math.max(0, rndSnap(GROUND - p[1])) }
+					else { nn.x = rndSnap(p[0]); nn.y = rndSnap(p[1]) }
+					;(o.nodes as GN[]).push(nn)
 					const bId = s.b; s.b = nid
 					;(o.segments as { id: string; a: string; b: string }[]).push({ id: mUid('s'), a: nid, b: bId })
 					on.modeledit?.(); on.endedit?.()

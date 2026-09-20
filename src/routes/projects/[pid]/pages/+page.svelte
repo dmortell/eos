@@ -506,6 +506,7 @@
 	// Fit a specific pane: frame its sheet paper (centred, with margin) or reset a model view.
 	function fitPane(idx: number) {
 		const p = panes[idx]; if (!p) return
+		if (p.activeId) setOrbit(p.id, p.activeId, DEFAULT_YAW, DEFAULT_PITCH)   // Fit also resets the 3D orbit
 		if (isVpActive(p.activeId)) { setView(p.id, p.activeId, { zoom: 1, x: 0, y: 0 }); return }
 		const a2 = tabs.find(t => t.id === p.activeId)
 		const canvas = canvasEls[idx]
@@ -724,7 +725,8 @@
 								{#if a?.kind === 'sheet' && p.layout === 'sheet'}
 									<PaperPage title={a.title} tool={p.tool} scale={scaleOf(a.id)} env={envFor(p)} on={vpOn(a, p)} pw={paperDimsOf(a.id).w} ph={paperDimsOf(a.id).h}
 										sizeLabel="{paperOf(a.id).size} {paperOf(a.id).landscape ? 'L' : 'P'}" rev={rev} revDate={fmtDate(revisions[0]?.t)}
-										entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(p.id, a.id)} active={isVpActive(a.id)} focused={focused === pi} />
+										entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(p.id, a.id)} active={isVpActive(a.id)} focused={focused === pi}
+										kind={projKind(projOf(p, a))} clip={docClip[a.id] ?? null} yaw={orbitOf(p.id, a.id).yaw} pitch={orbitOf(p.id, a.id).pitch} />
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => deactivateVp(a.id)}>
@@ -749,8 +751,10 @@
 						</div>
 						{#if a}
 							<!-- fixed-size view gizmos (ViewCube + WCS axes), screen space so they don't zoom -->
+							<!-- ViewCube re-orients the view's content in place (the sheet's paper viewport too) — it
+							     no longer flips a sheet to fullscreen. Use the Full-size button for that. -->
 							<ViewGizmos projection={projOf(p, a)}
-								onset={(proj) => { docProj = { ...docProj, [projKey(p.id, a)]: proj }; if (a.kind === 'sheet') { p.layout = proj === 'plan' ? 'sheet' : 'model'; tick().then(() => fitPane(pi)) } }} />
+								onset={(proj) => { docProj = { ...docProj, [projKey(p.id, a)]: proj } }} />
 						{/if}
 						<!-- tool prompt / inline-edit help, pinned to the pane bottom-centre (screen space) -->
 						{#if focused === pi && statusText}<div class="pane-status">{statusText}</div>{/if}
