@@ -8,7 +8,7 @@ const LAYERS: Layer[] = [
 	{ id: 'walls', name: 'Walls', color: '#8a7f72', visible: true, locked: false, weight: 1.6 },
 	{ id: 'furniture', name: 'Furniture', color: '#94a58c', visible: true, locked: false, weight: 0.9 },
 	{ id: 'trunks', name: 'Trunks', color: '#0e7490', visible: true, locked: false, weight: 1 },
-	{ id: 'openings', name: 'Openings', color: '#64748b', visible: true, locked: false, weight: 1, dash: true },
+	{ id: 'openings', name: 'Openings', color: '#334155', visible: true, locked: false, weight: 1.2, opening: true },
 ]
 
 let ns = 0

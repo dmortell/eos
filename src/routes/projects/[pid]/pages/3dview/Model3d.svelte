@@ -22,6 +22,7 @@
 
 	const SEL = '#f59e0b'   // selection highlight (amber — distinct from the teal trunk layer)
 	const layerOf = (o: Obj) => model.layers?.find((l) => l.id === o.layer)
+	const isOpening = (o: Obj) => !!layerOf(o)?.opening   // objects on an "opening" layer cut the wall
 	const isSel = (o: Obj) => !!o.id && selIds.includes(o.id)
 	const colorOf = (o: Obj) => (isSel(o) ? SEL : layerOf(o)?.color ?? '#475569')
 	// screen px (non-scaling-stroke cancels SVG transforms; ÷ canvasZoom cancels the ancestor CSS canvas
@@ -54,17 +55,28 @@
 </script>
 
 <g class="m3d" transform={xform}>
+	<!-- Pass 1: everything except openings. -->
 	{#each model.objects as o (o.id)}
-		{#if visible(o) && inClip(o)}
+		{#if visible(o) && inClip(o) && !isOpening(o)}
 			{@const col = colorOf(o)}
 			{@const lw = weightOf(o)}
-			{@const dash = layerOf(o)?.dash ? '7 4' : undefined}
 			{#each project(o, dir, undefined, undefined, cx, cy) as s, i (i)}
 				{#if s.closed}
-					<polygon points={s.pts.map((p) => `${p.u},${p.v}`).join(' ')} fill="none" stroke={col} stroke-width={lw} stroke-dasharray={dash} vector-effect="non-scaling-stroke" />
+					<polygon points={s.pts.map((p) => `${p.u},${p.v}`).join(' ')} fill="none" stroke={col} stroke-width={lw} vector-effect="non-scaling-stroke" />
 				{:else}
-					<polyline points={s.pts.map((p) => `${p.u},${p.v}`).join(' ')} fill="none" stroke={col} stroke-width={lw} stroke-dasharray={dash} vector-effect="non-scaling-stroke" />
+					<polyline points={s.pts.map((p) => `${p.u},${p.v}`).join(' ')} fill="none" stroke={col} stroke-width={lw} vector-effect="non-scaling-stroke" />
 				{/if}
+			{/each}
+		{/if}
+	{/each}
+	<!-- Pass 2: openings ON TOP — a paper-coloured fill masks the wall behind (a real hole), then a
+	     solid frame outlines the door/window. Painted after pass 1 so it cuts through the wall lines. -->
+	{#each model.objects as o (o.id)}
+		{#if visible(o) && inClip(o) && isOpening(o)}
+			{@const col = colorOf(o)}
+			{@const lw = weightOf(o)}
+			{#each project(o, dir, undefined, undefined, cx, cy) as s, i (i)}
+				<polygon points={s.pts.map((p) => `${p.u},${p.v}`).join(' ')} class="hole" stroke={col} stroke-width={lw} vector-effect="non-scaling-stroke" />
 			{/each}
 		{/if}
 	{/each}
@@ -72,4 +84,7 @@
 
 <style>
 	.m3d :global(polygon), .m3d :global(polyline) { stroke-linejoin: round; }
+	/* opening = a real hole: fill with the drawing (paper) colour — white — to erase the wall behind it,
+	   then the frame stroke outlines the door/window. The model always draws on a white surface. */
+	.m3d :global(polygon.hole) { fill: #fff; }
 </style>
