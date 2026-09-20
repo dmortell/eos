@@ -188,6 +188,12 @@ New todos (design / bigger):
 - [ ] **Maintain focus across view switches (full)** — the elevation-centring fix (below) keeps content
   on-screen, but a PANNED focal point doesn't fully carry between projections. Track a 3D focal point and
   re-project it into each view's pan on switch (incl. shifting left↔right so the same point stays centred).
+- [ ] **Structural slabs / floors / ceilings in ELEVATIONS** (Dave, 2026-09-20) — draw the building
+  fabric in elevation (and section) views: **raised floors** (access floor void above the structural
+  slab), the **floor slab** and **ceiling slab**, and **ceiling tiles** (suspended grid below the
+  ceiling slab). `mdl.levels` already carries `ceilingTile` / `ceilingSlab` heights (used for trunk/pipe
+  default z + section z-extent); extend it with floor-slab / raised-floor / structural levels and render
+  the horizontal bands in elevations + sections. Ties into the room/level model.
 - [ ] **Kestrel command line** — implement a command line (enter offsets while drawing, and other
   useful Kestrel cmd-line commands). (Was P3 "optional"; Dave now wants it.)
 - [ ] **Models: one model per floor**, with **separate stores** for detail views (rack elevations,

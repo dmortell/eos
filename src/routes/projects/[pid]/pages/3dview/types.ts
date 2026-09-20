@@ -17,6 +17,12 @@ export type Prism = {
 	w: number; h: number; d: number
 	edges: number // 3..24
 	rot?: number  // rotation about the vertical (z) axis, degrees, about the footprint centre
+	// Opening subtype (only meaningful for a prism on an `opening` layer): 'door' draws a leaf + swing
+	// arc in plan, 'window' draws glazing + sill/head, 'hole' is a plain masked gap. `swing` = door leaf
+	// angle in degrees (default 90), `flip` = hinge side / swing handedness (mirror).
+	open?: 'door' | 'window' | 'hole'
+	swing?: number
+	flip?: boolean
 }
 
 // Wall + Conduit are swept primitives over a node/segment graph (see graph.ts).

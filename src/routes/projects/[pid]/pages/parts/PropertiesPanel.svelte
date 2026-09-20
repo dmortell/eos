@@ -144,6 +144,23 @@
 			</div>
 			<div class="prop"><span>Sides</span><input type="number" min="3" max="24" value={modelObj.edges} onchange={(e) => onmodelupdate?.({ edges: Math.max(3, Math.min(24, Math.round(num(e)))) })} /></div>
 			<div class="prop"><span>Rotation°</span><input type="number" value={modelObj.rot ?? 0} onchange={(e) => onmodelupdate?.({ rot: num(e) })} /></div>
+			{#if modelLayers.find((l) => l.id === modelObj.layer)?.opening}
+				<div class="prop-sec">OPENING</div>
+				<div class="prop"><span>Type</span>
+					<select value={modelObj.open ?? 'hole'} onchange={(e) => onmodelupdate?.({ open: (e.currentTarget as HTMLSelectElement).value })}>
+						<option value="door">Door</option><option value="window">Window</option><option value="hole">Hole</option>
+					</select>
+				</div>
+				{#if (modelObj.open ?? 'hole') === 'door'}
+					<div class="prop"><span>Swing°</span><input type="number" min="0" max="180" value={modelObj.swing ?? 90} onchange={(e) => onmodelupdate?.({ swing: Math.max(0, Math.min(180, Math.round(num(e)))) })} /></div>
+					<div class="prop"><span>Hinge</span>
+						<span class="pp-seg">
+							<button class:on={!modelObj.flip} title="Hinge left" onclick={() => onmodelupdate?.({ flip: false })}>L</button>
+							<button class:on={!!modelObj.flip} title="Hinge right" onclick={() => onmodelupdate?.({ flip: true })}>R</button>
+						</span>
+					</div>
+				{/if}
+			{/if}
 		{:else if modelObj.type === 'wall'}
 			<div class="prop-sec">DEFAULTS</div>
 			<div class="prop"><span>Height</span><input type="number" value={modelObj.h} onchange={(e) => onmodelupdate?.({ h: Math.max(1, num(e)) })} /></div>

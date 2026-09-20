@@ -151,18 +151,10 @@
 		on.view?.({ zoom: view.zoom, x: view.x + dx / m.scale, y: view.y + dy / m.scale })
 	}
 	function onZoom(f: number, cx: number, cy: number) {
-		// Pan-content mode: zooming re-SCALES the view (like a CAD viewport) rather than free-zooming —
-		// fold the zoom into the drawing scale and keep the cursor's model point fixed.
-		if (on.scale) {
-			const p = toLocalXY(cx, cy); if (!p) return
-			const denom = parseInt((scale || '1:1').split(':')[1] || '1') || 1
-			const nd = Math.round(Math.min(2000, Math.max(1, denom / f)))
-			if (nd === denom) return
-			const ods = dscale, nds = 1 / nd
-			on.view?.({ zoom: view.zoom, x: view.x + view.zoom * (ods - nds) * (p[0] - CX), y: view.y + view.zoom * (ods - nds) * (p[1] - CY) })
-			on.scale('1:' + nd)
-			return
-		}
+		// Wheel-zoom always FREE-zooms this viewport's own content view (`on.view`, keyed per pane+tab), so
+		// zooming one split pane never touches the other — even when both show the same tab. (It used to
+		// fold the zoom into the tab-shared drawing `scale`, which re-scaled both panes together.) The
+		// drawing scale stays an explicit property, changed only via the scale selector.
 		const v = clientToVB(cx, cy); if (!v) return   // cursor in viewBox coords
 		const nz = Math.min(8, Math.max(0.25, view.zoom * f)), r = nz / view.zoom
 		on.view?.({ zoom: nz, x: v[0] - (v[0] - view.x) * r, y: v[1] - (v[1] - view.y) * r })
@@ -742,7 +734,9 @@
 		if (!mdl) return
 		const x = Math.round(Math.min(a[0], b[0])), y = Math.round(Math.min(a[1], b[1]))
 		const w = Math.max(1, Math.round(Math.abs(b[0] - a[0]))), d = Math.max(1, Math.round(Math.abs(b[1] - a[1])))
-		addModelObj({ type: 'prism', x, y, z: 0, w, d, h, edges: 4, layer: layerId(layer), id: mUid(tag) })
+		// A new opening defaults to a DOOR (leaf + swing) — the most common; change it in Properties.
+		const extra = layer === 'openings' ? { open: 'door' as const, z: 0, h: 2100 } : {}
+		addModelObj({ type: 'prism', x, y, z: 0, w, d, h, edges: 4, layer: layerId(layer), id: mUid(tag), ...extra })
 	}
 
 	// ── object snap (osnap), Kestrel-style ──

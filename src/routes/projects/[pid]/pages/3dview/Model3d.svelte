@@ -66,6 +66,37 @@
 		out.sort((a, b) => b.depth - a.depth)   // farthest first; nearer faces paint on top
 		return out
 	})
+	// Project a model point for the current dir: plan/elevation via the BASIS table, iso via the orbit
+	// camera. Lets us draw custom opening geometry (door swing / window glazing) the engine's project()
+	// doesn't emit, in the same drawing space as everything else.
+	const projPt = (d: Dir, p: { x: number; y: number; z: number }) =>
+		d === 'iso' ? isoR(p, yaw, pitch, cx, cy) : { u: BASIS[d].hs * p[BASIS[d].h], v: BASIS[d].vs * p[BASIS[d].v] }
+	// A door's leaf + swing arc, or a window's glazing line, as projected polylines. Drawn in PLAN and
+	// ISO (on the floor at the opening's base z); elevation shows only the masked gap. Hinge sits at one
+	// jamb (flipped by `flip`), radius = the door width (the opening's long footprint dimension), swept
+	// from the wall (closed) to `swing`° open. (Mirrors the Sheets door annotation, made parametric.)
+	function openingExtras(o: Obj, d: Dir): { u: number; v: number }[][] {
+		if (o.type !== 'prism' || (o.open !== 'door' && o.open !== 'window') || (d !== 'plan' && d !== 'iso')) return []
+		const cxf = o.x + o.w / 2, cyf = o.y + o.d / 2, z = o.z, alongX = o.w >= o.d
+		const rot = (p: { x: number; y: number; z: number }) => {
+			if (!o.rot) return p
+			const a = (o.rot * Math.PI) / 180, s = Math.sin(a), c = Math.cos(a), dx = p.x - cxf, dy = p.y - cyf
+			return { x: cxf + dx * c - dy * s, y: cyf + dx * s + dy * c, z: p.z }
+		}
+		const P = (x: number, y: number) => projPt(d, rot({ x, y, z }))
+		if (o.open === 'window') {
+			return alongX ? [[P(o.x, cyf), P(o.x + o.w, cyf)]] : [[P(cxf, o.y), P(cxf, o.y + o.d)]]
+		}
+		const L = alongX ? o.w : o.d, swing = (o.swing ?? 90) * Math.PI / 180, s1 = o.flip ? -1 : 1
+		const hinge = alongX ? { x: o.flip ? o.x + o.w : o.x, y: o.y + o.d } : { x: o.x, y: o.flip ? o.y + o.d : o.y }
+		const uw = alongX ? { x: s1, y: 0 } : { x: 0, y: s1 }       // along the wall, toward the far jamb
+		const vs = alongX ? { x: 0, y: -1 } : { x: -1, y: 0 }        // swing perpendicular (into the room)
+		const at = (a: number) => P(hinge.x + L * (Math.cos(a) * uw.x + Math.sin(a) * vs.x), hinge.y + L * (Math.cos(a) * uw.y + Math.sin(a) * vs.y))
+		const leaf = [P(hinge.x, hinge.y), at(swing)]
+		const arc: { u: number; v: number }[] = []
+		for (let i = 0; i <= 12; i++) arc.push(at(swing * (1 - i / 12)))
+		return [leaf, arc]
+	}
 	const xform = $derived.by(() => {
 		if (dir === 'plan') return ''
 		if (dir === 'iso') return `translate(${cx - (isoBox?.icx ?? 0)} ${cy + (isoBox?.icy ?? 0)}) scale(1 -1)`   // centre the iso content bbox on (cx,cy), v-up
@@ -80,6 +111,20 @@
 	<!-- Solid iso (hidden-line): depth-sorted white faces; nearer faces occlude farther ones. -->
 	{#each isoFaces as f, i (i)}
 		<polygon points={f.pts.map((p) => `${p.u},${p.v}`).join(' ')} class="face" stroke={f.col} stroke-width={f.lw} vector-effect="non-scaling-stroke" />
+	{/each}
+	<!-- Openings in 3D: draw the frame outline (on top of the wall face) + a door's floor swing, so a
+	     door/window reads on the model even without a true CSG hole. -->
+	{#each model.objects as o (o.id)}
+		{#if visible(o) && inClip(o) && isOpening(o)}
+			{@const col = colorOf(o)}
+			{@const lw = weightOf(o)}
+			{#each project(o, 'iso', yaw, pitch, cx, cy) as s, i (i)}
+				<polyline points={s.pts.map((p) => `${p.u},${p.v}`).join(' ')} fill="none" stroke={col} stroke-width={lw} vector-effect="non-scaling-stroke" />
+			{/each}
+			{#each openingExtras(o, 'iso') as pl, i (`x${i}`)}
+				<polyline points={pl.map((p) => `${p.u},${p.v}`).join(' ')} fill="none" stroke={col} stroke-width={lw} vector-effect="non-scaling-stroke" />
+			{/each}
+		{/if}
 	{/each}
 	{:else}
 	<!-- Pass 1: everything except openings. Under a section clip each object is TRIMMED to the box (a
@@ -107,6 +152,10 @@
 			{@const lw = weightOf(o)}
 			{#each project(to, dir, yaw, pitch, cx, cy) as s, i (i)}
 				<polygon points={s.pts.map((p) => `${p.u},${p.v}`).join(' ')} class="hole" stroke={col} stroke-width={lw} vector-effect="non-scaling-stroke" />
+			{/each}
+			<!-- Pass 3: door swing / window glazing on top of the gap (plan only; elevation shows the gap). -->
+			{#each openingExtras(to, dir) as pl, i (`x${i}`)}
+				<polyline points={pl.map((p) => `${p.u},${p.v}`).join(' ')} fill="none" stroke={col} stroke-width={lw} vector-effect="non-scaling-stroke" />
 			{/each}
 		{/if}
 	{/each}
