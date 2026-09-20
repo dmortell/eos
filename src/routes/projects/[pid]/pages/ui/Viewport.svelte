@@ -60,7 +60,12 @@
 	// Project a footprint coordinate (along the current dir's axis) to the drawing horizontal, and back.
 	const projU = (coord: number) => elevU(elevDir, coord, CX, CY)
 	const projUInv = (u: number) => elevUInv(elevDir, u, CX, CY)
-	const DRAW = new Set(['Line', 'Rectangle', 'Ellipse', 'Dimension', 'Text', 'Box', 'Wall'])
+	const DRAW = new Set(['Line', 'Rectangle', 'Ellipse', 'Dimension', 'Text', 'Box', 'Wall', 'Furniture', 'Trunk', 'Pipe'])
+	// Polyline-style tools (click points, Enter/dbl-click to finish). Line makes an entity; Wall/Trunk/Pipe
+	// build MODEL graph objects (plan only).
+	const POLY = new Set(['Line', 'Wall', 'Trunk', 'Pipe'])
+	const MODEL_GRAPH = new Set(['Wall', 'Trunk', 'Pipe'])   // build a wall/conduit graph (plan view)
+	const MODEL_TOOL = new Set(['Wall', 'Trunk', 'Pipe', 'Furniture'])   // any tool that places a MODEL object
 	// Body-hover cursor: 'move' over a shape (drag to move), else default; grips carry their own
 	// crosshair (they render on top, so their cursor wins over the container's).
 	let hoverBody = $state(false)
@@ -183,6 +188,7 @@
 		else if (tool === 'Rectangle') on.add?.({ id: uid(), type: 'rect', a, b, space: sp })
 		else if (tool === 'Ellipse') on.add?.({ id: uid(), type: 'ellipse', a, b, space: sp })
 		else if (tool === 'Box') on.add?.({ id: uid(), type: 'box', a, b, h: DEFAULT_BOX_H })
+		else if (tool === 'Furniture' && isPlan) placeFurniture(a, b)   // MODEL prism footprint
 		else if (tool === 'Dimension') on.add?.({ id: uid(), type: 'dim', a, b, space: sp })
 	}
 	// The Line tool draws a POLYLINE in AutoCAD mode: keep clicking to add segments, Enter /
@@ -191,16 +197,7 @@
 		let pts = draft
 		while (pts.length >= 2 && dist(pts.at(-1)!, pts.at(-2)!) < 0.01) pts = pts.slice(0, -1)   // drop the double-click's zero-length tail
 		if (tool === 'Line' && pts.length >= 2) on.add?.({ id: uid(), type: 'polyline', pts: pts.map(p => [...p] as Pt), space: drawSpace() })
-		else if (tool === 'Wall' && pts.length >= 2 && isPlan && mdl) {
-			// Build a MODEL wall from the clicked run (plan x/y, z=0) via the graph builder; default
-			// h=2800 / thickness=100 on the model's walls layer. One undo step (begin captures the
-			// pre-add baseline, modeledit records the add).
-			const { nodes, segments } = polyToGraph(pts.map((p) => ({ x: Math.round(p[0]), y: Math.round(p[1]), z: 0 })))
-			const layer = mdl.layers?.find((l) => l.id === 'walls')?.id ?? mdl.layers?.[0]?.id
-			on.beginedit?.()
-			mdl.objects.push({ type: 'wall', h: 2800, thickness: 100, nodes, segments, layer, id: 'w' + Date.now().toString(36) + (seq++) })
-			on.modeledit?.(); on.endedit?.()
-		}
+		else if (MODEL_GRAPH.has(tool) && pts.length >= 2 && isPlan) placeGraph(pts)   // Wall / Trunk / Pipe
 		draft = []; cur = null; snapMark = null
 	}
 	function onClick(e: MouseEvent) {
@@ -220,10 +217,10 @@
 			return
 		}
 		if (tool === 'Text') { const p = drawPoint(e.clientX, e.clientY); if (p) on.add?.({ id: uid(), type: 'text', a: p, text: 'TEXT', space: drawSpace() }); snapMark = null; return }
-		if (tool === 'Wall' && !isPlan) return   // walls are drawn in the plan view (footprint run)
+		if (MODEL_TOOL.has(tool) && !isPlan) return   // model objects are placed in the plan view
 		if (!acad) return   // EOS mode: shapes are drawn press-drag (onDown), not by clicking
 		const sp = drawPoint(e.clientX, e.clientY, draft.at(-1), e.shiftKey); if (!sp) return
-		if (tool === 'Line' || tool === 'Wall') { if (!draft.length || dist(draft.at(-1)!, sp) > 0.01) draft = [...draft, sp]; cur = sp; snapMark = null; return }   // polyline / wall run: accumulate (skip dup)
+		if (POLY.has(tool)) { if (!draft.length || dist(draft.at(-1)!, sp) > 0.01) draft = [...draft, sp]; cur = sp; snapMark = null; return }   // polyline / wall / trunk / pipe run: accumulate (skip dup)
 		// other tools: two clicks — first corner, then the (snapped/Shift-constrained) opposite one.
 		// Seed `cur` to the first corner so the rubber-band starts zero-size (else it flashes from the
 		// PREVIOUS shape's last point until the next mousemove updates cur).
@@ -255,7 +252,7 @@
 	function onDblclick(e: MouseEvent) {
 		e.stopPropagation()
 		if (!active) { on.activate?.(); return }
-		if ((tool === 'Line' || tool === 'Wall') && draft.length) { finishPolyline(); return }   // double-click ends a polyline / wall
+		if (POLY.has(tool) && draft.length) { finishPolyline(); return }   // double-click ends a polyline / wall / trunk / pipe
 		const p = toLocal(e); if (!p) return
 		const ent = entities.find(x => x.id === hit(p)[0])
 		if (ent?.type === 'text') startTextEdit(ent)
@@ -290,7 +287,7 @@
 		if (!active || !focused || editText) return   // in split view only the focused pane's instance handles keys
 		if (isTypingTarget(e.target) || isTypingTarget(document.activeElement)) return   // typing in a field → let it through
 		if (e.key === 'Shift') { reconstrain(true); return }
-		if (e.key === 'Enter' && (tool === 'Line' || tool === 'Wall') && draft.length) { e.preventDefault(); finishPolyline(); return }   // finish polyline / wall
+		if (e.key === 'Enter' && POLY.has(tool) && draft.length) { e.preventDefault(); finishPolyline(); return }   // finish polyline / wall / trunk / pipe
 		if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) { e.preventDefault(); on.select?.(entities.map(x => x.id)); return }   // select all
 		if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D') && sel.length) {   // duplicate (offset +8,+8)
 			e.preventDefault()
@@ -542,6 +539,34 @@
 		mGrip = null; on.endedit?.()   // close the gesture's undo step
 		window.removeEventListener('pointermove', onModelGripMove)
 		window.removeEventListener('pointerup', onModelGripUp)
+	}
+
+	// ── model PLACEMENT (P2f / §3) — create new model objects on the store, one undo step, select it ──
+	let mSeq = 0
+	const mUid = (p: string) => p + Date.now().toString(36) + (mSeq++)
+	const layerId = (id: string) => mdl?.layers?.find((l) => l.id === id)?.id ?? mdl?.layers?.[0]?.id
+	function addModelObj(o: Obj) {
+		if (!mdl) return
+		on.beginedit?.()          // captures the pre-add baseline
+		mdl.objects.push(o)
+		on.modeledit?.(); on.endedit?.()   // one undo step
+		setModelSel(o.id ? [o.id] : [])
+	}
+	// A clicked run (plan drawing pts) → a wall or conduit graph with the tool's default profile.
+	function placeGraph(pts: Pt[]) {
+		if (!mdl || pts.length < 2) return
+		const nodesZ = tool === 'Wall' ? 0 : (mdl.levels?.ceilingTile ?? 2600)   // trunks/pipes default near the ceiling
+		const { nodes, segments } = polyToGraph(pts.map((p) => ({ x: Math.round(p[0]), y: Math.round(p[1]), z: nodesZ })))
+		if (tool === 'Wall') addModelObj({ type: 'wall', h: 2800, thickness: 100, nodes, segments, layer: layerId('walls'), id: mUid('w') })
+		else if (tool === 'Trunk') addModelObj({ type: 'conduit', w: 300, h: 150, edges: 4, nodes, segments, layer: layerId('trunks'), id: mUid('t') })
+		else if (tool === 'Pipe') addModelObj({ type: 'conduit', w: 80, h: 80, edges: 16, nodes, segments, layer: layerId('trunks'), id: mUid('p') })
+	}
+	// A footprint drag (plan a→b) → a furniture prism (default height 750) on the Furniture layer.
+	function placeFurniture(a: Pt, b: Pt) {
+		if (!mdl) return
+		const x = Math.round(Math.min(a[0], b[0])), y = Math.round(Math.min(a[1], b[1]))
+		const w = Math.max(1, Math.round(Math.abs(b[0] - a[0]))), d = Math.max(1, Math.round(Math.abs(b[1] - a[1])))
+		addModelObj({ type: 'prism', x, y, z: 0, w, d, h: 750, edges: 4, layer: layerId('furniture'), id: mUid('f') })
 	}
 
 	// ── object snap (osnap), Kestrel-style ──
@@ -928,7 +953,8 @@
 		switch (tool) {
 			case 'Select': return 'Click an element'
 			case 'Line': return n ? 'Specify next point (Enter / double-click to finish)' : 'Specify first point'
-			case 'Wall': return isPlan ? (n ? 'Specify next wall point (Enter / double-click to finish)' : 'Specify wall start') : 'Switch to the plan view to draw walls'
+			case 'Wall': case 'Trunk': case 'Pipe': return !isPlan ? `Switch to the plan view to draw ${tool.toLowerCase()}s` : (n ? `Specify next ${tool.toLowerCase()} point (Enter / double-click to finish)` : `Specify ${tool.toLowerCase()} start`)
+			case 'Furniture': return isPlan ? (n ? 'Specify opposite corner' : 'Specify furniture footprint corner') : 'Switch to the plan view to place furniture'
 			case 'Rectangle': return n ? 'Specify opposite corner' : 'Specify first corner'
 			case 'Ellipse': return n ? 'Specify opposite corner (Shift = circle)' : 'Specify first corner'
 			case 'Box': return n ? 'Specify opposite corner (Shift = square footprint)' : 'Specify first corner'
@@ -994,8 +1020,8 @@
 			{#if models[0]}<Model3d model={models[0]} dir={(kind === 'floorplan' ? 'plan' : kind) as 'plan' | ElevDir | 'iso'} cx={CX} cy={CY} ground={GROUND} selIds={modelSel} canvasZoom={canvasZoom} />{/if}
 			<!-- drawn entities (objects on a hidden layer are skipped; the edited text is hidden too) -->
 			{#each entities as e (e.id)}{#if e.id !== editText?.id && !isLayerHidden(e.layer) && inThisView(e)}{#if e.rot}{@const c = rotCenter(e)}<g transform="rotate({e.rot} {c[0]} {c[1]})">{@render drawn(e, selSet.has(e.id))}</g>{:else}{@render drawn(e, selSet.has(e.id))}{/if}{/if}{/each}
-			{#if active && (tool === 'Line' || tool === 'Wall') && draft.length}
-				<!-- polyline / wall preview: committed segments + rubber band to the cursor -->
+			{#if active && POLY.has(tool) && draft.length}
+				<!-- polyline / wall / trunk / pipe preview: committed segments + rubber band to the cursor -->
 				<polyline points={draft.map(p => p.join(',')).join(' ')} fill="none" stroke={SEL} stroke-width="1.2" />
 				{#if cur}<line x1={draft.at(-1)![0]} y1={draft.at(-1)![1]} x2={cur[0]} y2={cur[1]} stroke={SEL} stroke-width="1" stroke-dasharray="4 3" />{/if}
 			{:else if active && draft.length && cur}
@@ -1121,7 +1147,7 @@
 		<rect x={Math.min(a[0], p[0])} y={Math.min(a[1], p[1])} width={Math.abs(p[0] - a[0])} height={Math.abs(p[1] - a[1])} fill="none" stroke={SEL} stroke-width="1" stroke-dasharray="4 3" />
 	{:else if tool === 'Ellipse'}
 		<ellipse cx={(a[0] + p[0]) / 2} cy={(a[1] + p[1]) / 2} rx={Math.abs(p[0] - a[0]) / 2} ry={Math.abs(p[1] - a[1]) / 2} fill="none" stroke={SEL} stroke-width="1" stroke-dasharray="4 3" />
-	{:else if tool === 'Box'}
+	{:else if tool === 'Box' || tool === 'Furniture'}
 		<rect x={Math.min(a[0], p[0])} y={Math.min(a[1], p[1])} width={Math.abs(p[0] - a[0])} height={Math.abs(p[1] - a[1])} fill="none" stroke={SEL} stroke-width="1" stroke-dasharray="4 3" />
 	{/if}
 {/snippet}

@@ -430,6 +430,9 @@
 		{ icon: 'circle', name: 'Ellipse' },
 		{ icon: 'box', name: 'Box' },
 		{ icon: 'waypoints', name: 'Wall' },
+		{ icon: 'square', name: 'Furniture' },
+		{ icon: 'route', name: 'Trunk' },
+		{ icon: 'rows', name: 'Pipe' },
 		{ icon: 'dimension', name: 'Dimension' },
 		{ icon: 'k-text', name: 'Text' },
 	]
