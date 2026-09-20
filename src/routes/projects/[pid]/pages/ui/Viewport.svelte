@@ -14,6 +14,7 @@
 	import { isLayerHidden, isLayerLocked, layerColor } from '../layers.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
 	import { models, modelSel, setModelSel } from '../3dview/models.svelte'
+	import { polyToGraph } from '../3dview/migrate'
 	import type { Obj } from '../3dview/types'
 	// Pure geometry now lives in ./geometry (testable, shared with PropertiesPanel); re-export the
 	// entity types so existing `import { type Ent } from './Viewport.svelte'` sites keep working.
@@ -59,7 +60,7 @@
 	// Project a footprint coordinate (along the current dir's axis) to the drawing horizontal, and back.
 	const projU = (coord: number) => elevU(elevDir, coord, CX, CY)
 	const projUInv = (u: number) => elevUInv(elevDir, u, CX, CY)
-	const DRAW = new Set(['Line', 'Rectangle', 'Ellipse', 'Dimension', 'Text', 'Box'])
+	const DRAW = new Set(['Line', 'Rectangle', 'Ellipse', 'Dimension', 'Text', 'Box', 'Wall'])
 	// Body-hover cursor: 'move' over a shape (drag to move), else default; grips carry their own
 	// crosshair (they render on top, so their cursor wins over the container's).
 	let hoverBody = $state(false)
@@ -190,6 +191,16 @@
 		let pts = draft
 		while (pts.length >= 2 && dist(pts.at(-1)!, pts.at(-2)!) < 0.01) pts = pts.slice(0, -1)   // drop the double-click's zero-length tail
 		if (tool === 'Line' && pts.length >= 2) on.add?.({ id: uid(), type: 'polyline', pts: pts.map(p => [...p] as Pt), space: drawSpace() })
+		else if (tool === 'Wall' && pts.length >= 2 && isPlan && mdl) {
+			// Build a MODEL wall from the clicked run (plan x/y, z=0) via the graph builder; default
+			// h=2800 / thickness=100 on the model's walls layer. One undo step (begin captures the
+			// pre-add baseline, modeledit records the add).
+			const { nodes, segments } = polyToGraph(pts.map((p) => ({ x: Math.round(p[0]), y: Math.round(p[1]), z: 0 })))
+			const layer = mdl.layers?.find((l) => l.id === 'walls')?.id ?? mdl.layers?.[0]?.id
+			on.beginedit?.()
+			mdl.objects.push({ type: 'wall', h: 2800, thickness: 100, nodes, segments, layer, id: 'w' + Date.now().toString(36) + (seq++) })
+			on.modeledit?.(); on.endedit?.()
+		}
 		draft = []; cur = null; snapMark = null
 	}
 	function onClick(e: MouseEvent) {
@@ -209,9 +220,10 @@
 			return
 		}
 		if (tool === 'Text') { const p = drawPoint(e.clientX, e.clientY); if (p) on.add?.({ id: uid(), type: 'text', a: p, text: 'TEXT', space: drawSpace() }); snapMark = null; return }
+		if (tool === 'Wall' && !isPlan) return   // walls are drawn in the plan view (footprint run)
 		if (!acad) return   // EOS mode: shapes are drawn press-drag (onDown), not by clicking
 		const sp = drawPoint(e.clientX, e.clientY, draft.at(-1), e.shiftKey); if (!sp) return
-		if (tool === 'Line') { if (!draft.length || dist(draft.at(-1)!, sp) > 0.01) draft = [...draft, sp]; cur = sp; snapMark = null; return }   // polyline: accumulate (skip dup)
+		if (tool === 'Line' || tool === 'Wall') { if (!draft.length || dist(draft.at(-1)!, sp) > 0.01) draft = [...draft, sp]; cur = sp; snapMark = null; return }   // polyline / wall run: accumulate (skip dup)
 		// other tools: two clicks — first corner, then the (snapped/Shift-constrained) opposite one.
 		// Seed `cur` to the first corner so the rubber-band starts zero-size (else it flashes from the
 		// PREVIOUS shape's last point until the next mousemove updates cur).
@@ -243,7 +255,7 @@
 	function onDblclick(e: MouseEvent) {
 		e.stopPropagation()
 		if (!active) { on.activate?.(); return }
-		if (tool === 'Line' && draft.length) { finishPolyline(); return }   // double-click ends a polyline
+		if ((tool === 'Line' || tool === 'Wall') && draft.length) { finishPolyline(); return }   // double-click ends a polyline / wall
 		const p = toLocal(e); if (!p) return
 		const ent = entities.find(x => x.id === hit(p)[0])
 		if (ent?.type === 'text') startTextEdit(ent)
@@ -278,7 +290,7 @@
 		if (!active || !focused || editText) return   // in split view only the focused pane's instance handles keys
 		if (isTypingTarget(e.target) || isTypingTarget(document.activeElement)) return   // typing in a field → let it through
 		if (e.key === 'Shift') { reconstrain(true); return }
-		if (e.key === 'Enter' && tool === 'Line' && draft.length) { e.preventDefault(); finishPolyline(); return }   // finish polyline
+		if (e.key === 'Enter' && (tool === 'Line' || tool === 'Wall') && draft.length) { e.preventDefault(); finishPolyline(); return }   // finish polyline / wall
 		if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) { e.preventDefault(); on.select?.(entities.map(x => x.id)); return }   // select all
 		if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D') && sel.length) {   // duplicate (offset +8,+8)
 			e.preventDefault()
@@ -916,6 +928,7 @@
 		switch (tool) {
 			case 'Select': return 'Click an element'
 			case 'Line': return n ? 'Specify next point (Enter / double-click to finish)' : 'Specify first point'
+			case 'Wall': return isPlan ? (n ? 'Specify next wall point (Enter / double-click to finish)' : 'Specify wall start') : 'Switch to the plan view to draw walls'
 			case 'Rectangle': return n ? 'Specify opposite corner' : 'Specify first corner'
 			case 'Ellipse': return n ? 'Specify opposite corner (Shift = circle)' : 'Specify first corner'
 			case 'Box': return n ? 'Specify opposite corner (Shift = square footprint)' : 'Specify first corner'
@@ -981,8 +994,8 @@
 			{#if models[0]}<Model3d model={models[0]} dir={(kind === 'floorplan' ? 'plan' : kind) as 'plan' | ElevDir | 'iso'} cx={CX} cy={CY} ground={GROUND} selIds={modelSel} canvasZoom={canvasZoom} />{/if}
 			<!-- drawn entities (objects on a hidden layer are skipped; the edited text is hidden too) -->
 			{#each entities as e (e.id)}{#if e.id !== editText?.id && !isLayerHidden(e.layer) && inThisView(e)}{#if e.rot}{@const c = rotCenter(e)}<g transform="rotate({e.rot} {c[0]} {c[1]})">{@render drawn(e, selSet.has(e.id))}</g>{:else}{@render drawn(e, selSet.has(e.id))}{/if}{/if}{/each}
-			{#if active && tool === 'Line' && draft.length}
-				<!-- polyline preview: committed segments + rubber band to the cursor -->
+			{#if active && (tool === 'Line' || tool === 'Wall') && draft.length}
+				<!-- polyline / wall preview: committed segments + rubber band to the cursor -->
 				<polyline points={draft.map(p => p.join(',')).join(' ')} fill="none" stroke={SEL} stroke-width="1.2" />
 				{#if cur}<line x1={draft.at(-1)![0]} y1={draft.at(-1)![1]} x2={cur[0]} y2={cur[1]} stroke={SEL} stroke-width="1" stroke-dasharray="4 3" />{/if}
 			{:else if active && draft.length && cur}

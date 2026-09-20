@@ -429,6 +429,7 @@
 		{ icon: 'rectangle', name: 'Rectangle' },
 		{ icon: 'circle', name: 'Ellipse' },
 		{ icon: 'box', name: 'Box' },
+		{ icon: 'waypoints', name: 'Wall' },
 		{ icon: 'dimension', name: 'Dimension' },
 		{ icon: 'k-text', name: 'Text' },
 	]
