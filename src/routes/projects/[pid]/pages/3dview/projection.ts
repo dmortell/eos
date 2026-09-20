@@ -194,7 +194,11 @@ export const DEFAULT_PITCH = Math.atan(1 / Math.SQRT2)
 // π/2=top-down), centered on the ground pivot (cx,cy,0). Parallel (orthographic)
 // projection: u right, v up, depth into screen.
 function cam(p: P3, yaw: number, pitch: number, cx: number, cy: number) {
-	const dx = p.x - cx, dy = p.y - cy, dz = p.z
+	// Pages plan is y-DOWN (small y = top/back of the plan); model3d's native iso treats +y as up/back,
+	// which would place plan-top at the iso FRONT (the two conventions disagree on y). cam is used only
+	// by the iso projection, so negate dy here to make iso consistent with Pages' y-down plan (a matching
+	// flip — Pages' plan is itself y-flipped from model3d — so the result is a correct, non-mirrored iso).
+	const dx = p.x - cx, dy = -(p.y - cy), dz = p.z
 	const cyw = Math.cos(yaw), syw = Math.sin(yaw)
 	const x1 = dx * cyw - dy * syw
 	const y1 = dx * syw + dy * cyw
