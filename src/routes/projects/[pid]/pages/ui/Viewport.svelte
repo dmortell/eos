@@ -523,17 +523,18 @@
 		const r = svg.getBoundingClientRect()
 		return { x: sp.x - r.left, y: sp.y - r.top, id: selSectionObj.id, dir: selSectionObj.dir }
 	})
-	// The section marker's direction arrow (a triangle at the mid of the viewed edge, pointing outward):
-	// front → +x edge, rear → −x, right → +y (plan down), left → −y. Sized in ~screen px (hitTol).
+	// The section marker's direction arrow points in the elevation's SIGHT direction (screen-right × up
+	// from ELEV_BASIS): front → up (−y), rear → down (+y), right → right (+x), left → left (−x) — so it
+	// matches the direction dropdown and the elevation actually shown. Sized in ~screen px (hitTol).
 	function sectionArrowPts(s: SectionMarker): string {
 		const c = s.clip
 		const x0 = Math.min(c.x0, c.x1), x1 = Math.max(c.x0, c.x1), y0 = Math.min(c.y0, c.y1), y1 = Math.max(c.y0, c.y1)
 		const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, a = hitTol(11) / (dscale || 1)   // ~screen px in unscaled model units
 		let base: Pt, dir: Pt
-		if (s.dir === 'front') { base = [x1, cy]; dir = [1, 0] }
-		else if (s.dir === 'rear') { base = [x0, cy]; dir = [-1, 0] }
-		else if (s.dir === 'right') { base = [cx, y1]; dir = [0, 1] }
-		else { base = [cx, y0]; dir = [0, -1] }
+		if (s.dir === 'front') { base = [cx, y0]; dir = [0, -1] }        // up
+		else if (s.dir === 'rear') { base = [cx, y1]; dir = [0, 1] }     // down
+		else if (s.dir === 'right') { base = [x1, cy]; dir = [1, 0] }    // right
+		else { base = [x0, cy]; dir = [-1, 0] }                          // left
 		const perp: Pt = [-dir[1], dir[0]], w = a * 0.8
 		const tip: Pt = [base[0] + dir[0] * a * 1.7, base[1] + dir[1] * a * 1.7]
 		const b1: Pt = [base[0] + perp[0] * w, base[1] + perp[1] * w], b2: Pt = [base[0] - perp[0] * w, base[1] - perp[1] * w]
