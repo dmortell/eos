@@ -151,6 +151,12 @@ New todos (design / bigger):
   form of a yaw/pitch camera, so a future free-3D orbit/walk mode drops in without changing the named
   views (see the geometry.ts note). [ ] Still mock: iso is oblique (not a real camera); flats show no
   depth ordering.
+- [ ] **Orbit tool icon in the zoom-tools floating window** (Dave, 2026-09-20) — add an **orbit**
+  button to the bottom-right nav floating window (`navtools` in `+page.svelte`, beside Zoom in/out /
+  Fit / Pan). Drag-orbits the 3D (iso) view. Blocked on the **real 3D orbit camera** (the ELEV_BASIS
+  yaw/pitch forward-compat above): today iso is a fixed oblique projection, so orbit has nothing to
+  drive yet. When the camera lands the button feeds it yaw/pitch (and the ViewCube corners snap to
+  named views). Parked here until then rather than shipping a dead icon.
 - [ ] **Kestrel command line** — implement a command line (enter offsets while drawing, and other
   useful Kestrel cmd-line commands). (Was P3 "optional"; Dave now wants it.)
 - [ ] **Models: one model per floor**, with **separate stores** for detail views (rack elevations,

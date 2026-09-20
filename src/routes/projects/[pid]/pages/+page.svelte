@@ -103,11 +103,10 @@
 	// Per-DOCUMENT state (keyed by tab id): drawn entities, selection, and the
 	// viewport's own pan/zoom — so all three persist across tab switches and show
 	// wherever the doc is open. (Tool + canvas pan/zoom are per view, above.)
-	// Seed a demo 3D cuboid (same footprint + height) into the plan, sheet and elevation docs
-	// so the view projections are visible immediately: plan → footprint, elevation → front
-	// face, model → oblique box. (Mock only — remove once real content lands.)
-	const demoBox = (): Ent => ({ id: 'demo-box', type: 'box', a: [10500, 6650], b: [17500, 10850], h: 3150 })   // mm (≈ 7×4.2 m footprint, 3.15 m tall)
-	let docEnts = $state<Record<string, Ent[]>>({ t1: [demoBox()], t2: [demoBox()], t3: [demoBox()], t4: [demoBox()] })
+	// Starter docs hold only annotations now — the real 3D floor MODEL (walls / furniture / trunk,
+	// see 3dview/) is what renders in every view. The old demo `box` Ent was retired once the model
+	// landed (model-plan.md P1b); the Box tool stays for quick sketches, it's just no longer seeded.
+	let docEnts = $state<Record<string, Ent[]>>({ t1: [], t2: [], t3: [], t4: [] })
 	let docSel = $state<Record<string, string[]>>({})
 	let docView = $state<Record<string, View>>({})
 	const entsOf = (id: string) => docEnts[id] ?? []
