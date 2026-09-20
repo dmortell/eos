@@ -741,7 +741,8 @@
 			<!-- Decorative mock backdrop, authored in legacy abstract units; scale(MMPU) converts it to
 			     the mm model space so it lines up with real-mm entities without renumbering. -->
 			<g transform="scale({MMPU})">
-			{#if kind === 'iso'}
+			{#if false && kind === 'iso'}
+				<!-- OLD mock iso racks/floorGrid — retired now the real model renders in iso. -->
 				{#if grid}{#each floorGrid as g (g)}<polyline points={g} fill="none" stroke="#d5deea" stroke-width="0.7" />{/each}{/if}
 				{#each racks as b (b.top)}
 					<polygon points={b.left} fill="#8aa0bf" stroke="#5c7396" stroke-width="0.6" />
@@ -752,7 +753,9 @@
 				<!-- flat elevation backdrop: just the ground line (the faint vertical mock grid was removed) -->
 				<line x1="8" y1="200" x2="392" y2="200" stroke="#94a3b8" stroke-width="1.2" />
 				<text x="12" y="214" font-size="8" fill="#64748b" font-weight="600">{elevDir.toUpperCase()}</text>
-			{:else}
+			{:else if false}
+				<!-- OLD mock floorplan backdrop — retired now the real 3D model renders (Model3d). Kept
+				     disabled (flip `false`) for reference; the desks/outlets/grid arrays still feed iso. -->
 				<rect x="8" y="8" width="384" height="234" fill="#ffffff" stroke="#94a3b8" stroke-width="1.4" />
 				{#if grid}
 					{#each Array(19) as _, i (i)}<line x1={8 + i * 20} y1="8" x2={8 + i * 20} y2="242" stroke="#eef2f6" stroke-width="0.6" />{/each}
@@ -768,8 +771,8 @@
 				<text x="24" y="230" font-size="9" fill="#64748b" font-weight="600">OFFICE — 33F</text>
 			{/if}
 			</g>
-			<!-- P1: real 3D model (plan view) — see model-plan.md. Read-only for now; elevation/iso next. -->
-			{#if kind === 'floorplan' && models[0]}<Model3d model={models[0]} dir="plan" />{/if}
+			<!-- P1b: real 3D model in plan + the four elevations + iso. Read-only for now (P2 = editing). -->
+			{#if models[0]}<Model3d model={models[0]} dir={(kind === 'floorplan' ? 'plan' : kind) as 'plan' | ElevDir | 'iso'} cx={CX} cy={CY} ground={GROUND} />{/if}
 			<!-- drawn entities (objects on a hidden layer are skipped; the edited text is hidden too) -->
 			{#each entities as e (e.id)}{#if e.id !== editText?.id && !isLayerHidden(e.layer) && inThisView(e)}{#if e.rot}{@const c = rotCenter(e)}<g transform="rotate({e.rot} {c[0]} {c[1]})">{@render drawn(e, selSet.has(e.id))}</g>{:else}{@render drawn(e, selSet.has(e.id))}{/if}{/if}{/each}
 			{#if active && tool === 'Line' && draft.length}

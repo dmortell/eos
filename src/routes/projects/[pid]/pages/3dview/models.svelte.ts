@@ -5,9 +5,9 @@ import type { Model, Obj, Layer } from './types'
 import { migrateModels } from './migrate'
 
 const LAYERS: Layer[] = [
-	{ id: 'walls', name: 'Walls', color: '#8a7f72', visible: true, locked: false },
-	{ id: 'furniture', name: 'Furniture', color: '#94a58c', visible: true, locked: false },
-	{ id: 'trunks', name: 'Trunks', color: '#0e7490', visible: true, locked: false },
+	{ id: 'walls', name: 'Walls', color: '#8a7f72', visible: true, locked: false, weight: 1.6 },
+	{ id: 'furniture', name: 'Furniture', color: '#94a58c', visible: true, locked: false, weight: 0.9 },
+	{ id: 'trunks', name: 'Trunks', color: '#0e7490', visible: true, locked: false, weight: 1 },
 ]
 
 let ns = 0

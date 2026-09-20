@@ -45,7 +45,7 @@ export type Conduit = {
 }
 
 // A drawing layer (model-scoped): controls object color, visibility and locking.
-export type Layer = { id: string; name: string; color: string; visible: boolean; locked: boolean }
+export type Layer = { id: string; name: string; color: string; visible: boolean; locked: boolean; weight?: number }   // weight = non-scaling lineweight (screen px)
 
 // Every object may belong to a layer (by id); unassigned objects fall back to
 // the model's first layer.
