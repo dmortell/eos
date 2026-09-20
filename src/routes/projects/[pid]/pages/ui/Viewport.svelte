@@ -441,6 +441,57 @@
 		window.removeEventListener('pointerup', onModelDragUp)
 	}
 
+	// ── prism RESIZE grips (P2b) — corner handles that size the footprint (plan) or the face (elevation) ──
+	// The single selected prism, if it's editable in this view (drives grip render + pick).
+	const mSelPrism = $derived.by(() => {
+		if (!modelEditable || modelSel.length !== 1) return null
+		const o = mdl?.objects.find(x => x.id === modelSel[0])
+		return o && o.type === 'prism' ? o : null
+	})
+	// The prism's 4 corner grips in drawing coords, order tl,tr,br,bl (matches prismRect's face / footprint).
+	function prismCorners(o: Obj): Pt[] {
+		const r = prismRect(o); if (!r) return []
+		return [[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]]
+	}
+	// Resize the prism by dragging corner `gi` to p, holding the opposite corner (`anchor`, captured in
+	// drawing coords at grip-down) fixed. Plan edits the footprint (x/y/w/d); elevation edits the on-axis
+	// size (w or d, via projUInv) + z/h (base + height from screen-y, base = larger y). Clamped, snappable.
+	function applyPrismGrip(o: Extract<Obj, { type: 'prism' }>, gi: number, p: Pt, anchor: Pt) {
+		const rnd = (v: number) => (snap ? Math.round(v / SNAP_STEP) * SNAP_STEP : v)
+		if (isElev) {
+			const ax = ELEV_BASIS[elevDir].axis
+			const c1 = projUInv(p[0]), c2 = projUInv(anchor[0])   // on-axis model coords (drawing u → coord)
+			const lo = rnd(Math.min(c1, c2)), size = Math.max(1, rnd(Math.abs(c1 - c2)))
+			if (ax === 0) { o.x = lo; o.w = size } else { o.y = lo; o.d = size }
+			const baseY = Math.max(p[1], anchor[1]), topY = Math.min(p[1], anchor[1])
+			o.z = Math.max(0, rnd(GROUND - baseY)); o.h = Math.max(1, rnd(baseY - topY))
+		} else {
+			o.x = rnd(Math.min(p[0], anchor[0])); o.w = Math.max(1, rnd(Math.abs(p[0] - anchor[0])))
+			o.y = rnd(Math.min(p[1], anchor[1])); o.d = Math.max(1, rnd(Math.abs(p[1] - anchor[1])))
+		}
+	}
+	// Which corner grip (if any) of the selected prism a press at these client coords grabs.
+	function pickModelGrip(clientX: number, clientY: number): number | null {
+		const o = mSelPrism; if (!o) return null
+		const cs = prismCorners(o)
+		for (let i = 0; i < cs.length; i++) { const sp = localToClient(cs[i][0], cs[i][1]); if (sp && Math.hypot(sp.x - clientX, sp.y - clientY) < 14) return i }
+		return null
+	}
+	let mGrip: { id: string; gi: number; anchor: Pt; moved: boolean } | null = null
+	function onModelGripMove(e: PointerEvent) {
+		if (!mGrip || !mdl) return
+		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
+		const o = mdl.objects.find(x => x.id === mGrip!.id); if (!o || o.type !== 'prism') return
+		mGrip.moved = true
+		applyPrismGrip(o, mGrip.gi, p, mGrip.anchor)
+	}
+	function onModelGripUp() {
+		if (mGrip?.moved) suppressClick = true
+		mGrip = null
+		window.removeEventListener('pointermove', onModelGripMove)
+		window.removeEventListener('pointerup', onModelGripUp)
+	}
+
 	// ── object snap (osnap), Kestrel-style ──
 	// Each entity contributes snap points (endpoints, midpoints, centres, quadrants). While
 	// drawing or dragging a grip we find the nearest within ~10px and lock the point to it,
@@ -623,6 +674,11 @@
 			window.removeEventListener('pointermove', onModelDragMove)
 			window.removeEventListener('pointerup', onModelDragUp)
 		}
+		if (mGrip) {   // abort an in-progress model-object resize
+			mGrip = null
+			window.removeEventListener('pointermove', onModelGripMove)
+			window.removeEventListener('pointerup', onModelGripUp)
+		}
 	}
 	$effect(() => {
 		const up = (e: PointerEvent) => pointers.delete(e.pointerId)
@@ -645,6 +701,18 @@
 			window.addEventListener('pointermove', onDrawMove)
 			window.addEventListener('pointerup', onDrawUp)
 			return
+		}
+		// A selected model prism's resize grip wins over everything (like entity grips).
+		if (mSelPrism) {
+			const gi = pickModelGrip(e.clientX, e.clientY)
+			if (gi != null) {
+				mGrip = { id: mSelPrism.id!, gi, anchor: prismCorners(mSelPrism)[(gi + 2) % 4], moved: false }
+				try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
+				e.preventDefault()
+				window.addEventListener('pointermove', onModelGripMove)
+				window.addEventListener('pointerup', onModelGripUp)
+				return
+			}
 		}
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
 		const hitInfo = pick(e.clientX, e.clientY)
@@ -882,6 +950,12 @@
 							<Handle cx={g.x} cy={g.y} size={gripSize} cursor="crosshair" strokeWidth={1.2 / (canvasZoom || 1)} />
 						{/each}
 					{/if}
+				{/each}
+			{/if}
+			<!-- model-prism resize grips (corners of the selected prism's footprint / elevation face) -->
+			{#if active && tool === 'Select' && mSelPrism}
+				{#each prismCorners(mSelPrism) as c, i (i)}
+					<Handle cx={c[0]} cy={c[1]} size={gripSize} cursor="crosshair" strokeWidth={1.2 / (canvasZoom || 1)} />
 				{/each}
 			{/if}
 			<!-- object-snap marker (constant screen size): □ endpoint · △ midpoint · ○ centre · ◇ quadrant -->

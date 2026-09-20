@@ -19,9 +19,13 @@
 > the silhouette face, horizontal drag → on-axis position (× sign), vertical drag → z (base elevation,
 > clamped ≥0). Verified in-browser (select in plan + front, move both axes, cross-view via the store,
 > deselect). **Gaps still open in P2:** ⚠️ **undo** — model moves aren't in Pages' per-doc history yet
-> (history snapshots `Ent[]`, not the model); **resize/rotate** prisms (grips); **walls/conduits** graph
+> (history snapshots `Ent[]`, not the model); **rotate** prisms; **walls/conduits** graph
 > editing (node-drag, junctions, per-seg thickness); **placement** (draw new); **iso** editing (deferred
-> to the 3D camera). Next slice: model undo + prism resize grips.
+> to the 3D camera). **P2c DONE — prism resize grips:** 4 corner Handles on the selected prism (footprint
+> in plan, silhouette face in elevation); dragging a corner resizes about the fixed opposite corner
+> (`applyPrismGrip`, anchor captured at grip-down); plan edits x/y/w/d, elevation edits on-axis size (via
+> projUInv) + z/h. Verified in-browser (plan footprint grew about the top-left corner; elevation top grip
+> raised height with the base anchored on the floor). Next slice: model undo, then walls.
 
 
 Goal: in Pages, draw a floor's **model** (walls, openings for doors/windows, furniture as boxes/holes,
