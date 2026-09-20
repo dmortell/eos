@@ -23,6 +23,7 @@
 	import { paperDims, PAPER_SIZES, PAPER_PX_PER_MM, type PaperSize } from './constants'
 	import { translate } from './ui/geometry'
 	import { models, modelSel, snapModels, setModels } from './3dview/models.svelte'
+	import { DEFAULT_YAW, DEFAULT_PITCH } from './3dview/projection'
 	import type { Model, Clip } from './3dview/types'
 
 	// Which pane (if any) has its viewport activated — groundwork for editing/CAD
@@ -96,10 +97,15 @@
 		reorder: (ids: string[], op) => reorderEnts(a.id, ids, op),
 		scale: (s: string) => (docScale = { ...docScale, [a.id]: s }),
 		modeledit: () => modelEdit(a.id), section: (clip: Clip) => onSection(clip),
+		orbit: (yaw: number, pitch: number) => setOrbit(pane.id, a.id, yaw, pitch),
 	})
 	// A 3D-model edit (the Viewport mutated the shared `models` store) records a step on THIS doc's
 	// timeline, gesture-folded like an entity edit — so Ctrl+Z restores the model too.
 	function modelEdit(id: string) { recordEdit(id, 'Edit model') }
+	// Iso ORBIT (yaw/pitch), per pane+tab so split 3D views orbit independently. Drag the iso view to rotate.
+	let docOrbit = $state<Record<string, { yaw: number; pitch: number }>>({})
+	const orbitOf = (paneId: string, tabId: string) => docOrbit[paneId + ':' + tabId] ?? { yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH }
+	function setOrbit(paneId: string, tabId: string, yaw: number, pitch: number) { docOrbit = { ...docOrbit, [paneId + ':' + tabId]: { yaw, pitch } } }
 	// A section box drawn on the plan (§4) → spawn a new front-elevation tab clipped to that box.
 	let docClip = $state<Record<string, Clip>>({})
 	let secSeq = 0
@@ -287,6 +293,12 @@
 		const o = selModelObj, m = models[0], id = panes[focused]?.activeId; if (!o || !m || !id) return
 		beginGesture(); m.objects = m.objects.filter(x => x.id !== o.id); modelEdit(id); endGesture()
 		modelSel.splice(0, modelSel.length)
+	}
+	// Per-segment override edit (wall/conduit) with undo.
+	function updateModelSeg(segIdx: number, patch: Record<string, unknown>) {
+		const o = selModelObj as { segments?: Record<string, unknown>[] } | null, id = panes[focused]?.activeId
+		if (!o?.segments?.[segIdx] || !id) return
+		beginGesture(); Object.assign(o.segments[segIdx], patch); modelEdit(id); endGesture()
 	}
 	function dropDoc(id: string) {   // free a closed doc's per-document state
 		const de = { ...docEnts }, ds = { ...docSel }, dv = { ...docView }
@@ -717,7 +729,7 @@
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => deactivateVp(a.id)}>
 										<Viewport kind={projKind(projOf(p, a))} label={a.title} tool={p.tool} scale={scaleOf(a.id)} env={envFor(p)} on={vpOn(a, p)}
-											entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(p.id, a.id)} active={isVpActive(a.id)} focused={focused === pi} clip={docClip[a.id] ?? null} />
+											entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(p.id, a.id)} active={isVpActive(a.id)} focused={focused === pi} clip={docClip[a.id] ?? null} yaw={orbitOf(p.id, a.id).yaw} pitch={orbitOf(p.id, a.id).pitch} />
 									</div>
 								{:else}
 									<div class="canvas-center">
@@ -768,7 +780,7 @@
 					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (active) updateEnt(active.id, e) }}
 						onarrange={(op) => { if (active) reorderEnts(active.id, selOf(active.id), op) }}
 						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''} {activeLayer} node={treeNode} viewport={viewportSel}
-						modelObj={selModelObj} modelLayers={models[0]?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} />
+						modelObj={selModelObj} modelLayers={models[0]?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} onmodelseg={updateModelSeg} />
 				{:else}
 					<HistoryPanel log={changeLog} {revisions}
 						onnote={(i, note) => (revisions[i].note = note)} onjump={jumpHistory}

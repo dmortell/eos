@@ -10,12 +10,12 @@
 	//   • iso: deferred (P1c) — the viewport keeps the mock iso for now.
 	// Line thickness is NON-SCALING (constant screen px, `vector-effect`) and LAYER-DEFINED (each layer's
 	// `weight`), so lineweight is a paper property independent of the drawing scale/zoom.
-	import { project, objBounds } from './projection'
+	import { project, objBounds, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 	import { BASIS } from './types'
 	import type { Model, Obj, Dir, Clip } from './types'
 
-	let { model, dir = 'plan', cx = 0, cy = 0, ground = 0, defaultWeight = 1, selIds = [], canvasZoom = 1, clip = null }:
-		{ model: Model; dir?: Dir; cx?: number; cy?: number; ground?: number; defaultWeight?: number; selIds?: string[]; canvasZoom?: number; clip?: Clip | null } = $props()
+	let { model, dir = 'plan', cx = 0, cy = 0, ground = 0, defaultWeight = 1, selIds = [], canvasZoom = 1, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH }:
+		{ model: Model; dir?: Dir; cx?: number; cy?: number; ground?: number; defaultWeight?: number; selIds?: string[]; canvasZoom?: number; clip?: Clip | null; yaw?: number; pitch?: number } = $props()
 	// A section clip culls objects whose bounds fall outside the box (x/y in plan; the elevation then
 	// shows only that slice). A simple AABB-overlap cull — true trimToClip is a later refinement.
 	const inClip = (o: Obj) => { if (!clip) return true; const b = objBounds(o); return b.x1 >= clip.x0 && b.x0 <= clip.x1 && b.y1 >= clip.y0 && b.y0 <= clip.y1 }
@@ -38,7 +38,7 @@
 		let minu = Infinity, maxu = -Infinity, minv = Infinity, maxv = -Infinity
 		for (const o of model.objects) {
 			if (!visible(o)) continue
-			for (const s of project(o, 'iso', undefined, undefined, cx, cy)) for (const p of s.pts) {
+			for (const s of project(o, 'iso', yaw, pitch, cx, cy)) for (const p of s.pts) {
 				if (p.u < minu) minu = p.u; if (p.u > maxu) maxu = p.u
 				if (p.v < minv) minv = p.v; if (p.v > maxv) maxv = p.v
 			}
@@ -60,7 +60,7 @@
 		{#if visible(o) && inClip(o) && !isOpening(o)}
 			{@const col = colorOf(o)}
 			{@const lw = weightOf(o)}
-			{#each project(o, dir, undefined, undefined, cx, cy) as s, i (i)}
+			{#each project(o, dir, yaw, pitch, cx, cy) as s, i (i)}
 				{#if s.closed}
 					<polygon points={s.pts.map((p) => `${p.u},${p.v}`).join(' ')} fill="none" stroke={col} stroke-width={lw} vector-effect="non-scaling-stroke" />
 				{:else}
@@ -75,7 +75,7 @@
 		{#if visible(o) && inClip(o) && isOpening(o)}
 			{@const col = colorOf(o)}
 			{@const lw = weightOf(o)}
-			{#each project(o, dir, undefined, undefined, cx, cy) as s, i (i)}
+			{#each project(o, dir, yaw, pitch, cx, cy) as s, i (i)}
 				<polygon points={s.pts.map((p) => `${p.u},${p.v}`).join(' ')} class="hole" stroke={col} stroke-width={lw} vector-effect="non-scaling-stroke" />
 			{/each}
 		{/if}

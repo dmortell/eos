@@ -12,12 +12,14 @@
 	import type { Obj, Layer as MLayer } from '../3dview/types'
 
 	let { ents = [], onupdate, onarrange, pageTitle = '', pageKind = '', activeLayer = '', node = null, viewport = null,
-		modelObj = null, modelLayers = [], onmodelupdate, onmodeldelete }:
+		modelObj = null, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg }:
 		{ ents?: Ent[]; onupdate?: (e: Ent) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void;
 			pageTitle?: string; pageKind?: string; activeLayer?: string;
 			node?: { id: string; label: string; kind: string } | null; viewport?: FrameSel | null;
-			modelObj?: Obj | null; modelLayers?: MLayer[]; onmodelupdate?: (patch: Record<string, unknown>) => void; onmodeldelete?: () => void } = $props()
+			modelObj?: Obj | null; modelLayers?: MLayer[]; onmodelupdate?: (patch: Record<string, unknown>) => void; onmodeldelete?: () => void; onmodelseg?: (segIdx: number, patch: Record<string, unknown>) => void } = $props()
 	const MODEL_TYPE_LABEL: Record<string, string> = { prism: 'Prism', wall: 'Wall', conduit: 'Conduit' }
+	// A prism on an "opening" layer is a door/window/hole; label it as such.
+	const modelTypeLabel = (o: Obj) => (o.type === 'prism' && modelLayers.find((l) => l.id === o.layer)?.opening ? 'Opening' : MODEL_TYPE_LABEL[o.type] ?? 'Object')
 
 	// Mock property fields per tree-node kind (label → placeholder). Editing is local mock only.
 	const NODE_FIELDS: Record<string, [string, string][]> = {
@@ -115,7 +117,7 @@
 <div class="pp">
 	{#if modelObj}
 		<!-- a 3D MODEL object is selected → edit its geometry + layer straight on the store -->
-		<div class="prop-sec">{MODEL_TYPE_LABEL[modelObj.type] ?? 'OBJECT'}</div>
+		<div class="prop-sec">{modelTypeLabel(modelObj)}</div>
 		<div class="prop"><span>Layer</span>
 			<select value={modelObj.layer ?? ''} onchange={(e) => onmodelupdate?.({ layer: (e.currentTarget as HTMLSelectElement).value || undefined })}>
 				{#each modelLayers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
@@ -134,11 +136,27 @@
 				{@render numcell('D', Math.round(modelObj.d), (n) => onmodelupdate?.({ d: Math.max(1, n) }))}
 				{@render numcell('H', Math.round(modelObj.h), (n) => onmodelupdate?.({ h: Math.max(1, n) }))}
 			</div>
+			<div class="prop"><span>Shape</span>
+				<select value={modelObj.edges <= 4 ? '4' : modelObj.edges >= 16 ? '16' : String(modelObj.edges)} onchange={(e) => onmodelupdate?.({ edges: +(e.currentTarget as HTMLSelectElement).value })}>
+					<option value="4">Box</option><option value="16">Cylinder</option>
+					{#if modelObj.edges > 4 && modelObj.edges < 16}<option value={String(modelObj.edges)}>{modelObj.edges}-gon</option>{/if}
+				</select>
+			</div>
+			<div class="prop"><span>Sides</span><input type="number" min="3" max="24" value={modelObj.edges} onchange={(e) => onmodelupdate?.({ edges: Math.max(3, Math.min(24, Math.round(num(e)))) })} /></div>
 			<div class="prop"><span>Rotation°</span><input type="number" value={modelObj.rot ?? 0} onchange={(e) => onmodelupdate?.({ rot: num(e) })} /></div>
 		{:else if modelObj.type === 'wall'}
+			<div class="prop-sec">DEFAULTS</div>
 			<div class="prop"><span>Height</span><input type="number" value={modelObj.h} onchange={(e) => onmodelupdate?.({ h: Math.max(1, num(e)) })} /></div>
 			<div class="prop"><span>Thickness</span><input type="number" value={modelObj.thickness} onchange={(e) => onmodelupdate?.({ thickness: Math.max(1, num(e)) })} /></div>
+			<div class="prop-sec">SEGMENTS ({modelObj.segments.length})</div>
+			{#each modelObj.segments as s, si (s.id)}
+				<div class="seg-row"><em>{si + 1}</em>
+					<label>t<input type="number" value={s.thickness ?? modelObj.thickness} placeholder={String(modelObj.thickness)} onchange={(e) => onmodelseg?.(si, { thickness: Math.max(1, num(e)) })} /></label>
+					<label>h<input type="number" value={s.h ?? modelObj.h} placeholder={String(modelObj.h)} onchange={(e) => onmodelseg?.(si, { h: Math.max(1, num(e)) })} /></label>
+				</div>
+			{/each}
 		{:else if modelObj.type === 'conduit'}
+			<div class="prop-sec">DEFAULTS</div>
 			<div class="prop"><span>Width</span><input type="number" value={modelObj.w} onchange={(e) => onmodelupdate?.({ w: Math.max(1, num(e)) })} /></div>
 			<div class="prop"><span>Height</span><input type="number" value={modelObj.h} onchange={(e) => onmodelupdate?.({ h: Math.max(1, num(e)) })} /></div>
 			<div class="prop"><span>Profile</span>
@@ -146,9 +164,16 @@
 					<option value="4">Rectangular</option><option value="16">Round</option>
 				</select>
 			</div>
+			<div class="prop-sec">SEGMENTS ({modelObj.segments.length})</div>
+			{#each modelObj.segments as s, si (s.id)}
+				<div class="seg-row"><em>{si + 1}</em>
+					<label>w<input type="number" value={s.w ?? modelObj.w} placeholder={String(modelObj.w)} onchange={(e) => onmodelseg?.(si, { w: Math.max(1, num(e)) })} /></label>
+					<label>h<input type="number" value={s.h ?? modelObj.h} placeholder={String(modelObj.h)} onchange={(e) => onmodelseg?.(si, { h: Math.max(1, num(e)) })} /></label>
+				</div>
+			{/each}
 		{/if}
 		<button class="pp-del" onclick={() => onmodeldelete?.()}>Delete object</button>
-		<div class="pp-hint">Editing writes straight to the 3D model.</div>
+		<div class="pp-hint">Editing writes straight to the 3D model. Reshape geometry by dragging its grips.</div>
 	{:else if ents.length === 0 && !node && viewport}
 		<!-- a viewport frame is selected in paper space → its view/content props (mock) -->
 		<div class="prop-sec">VIEWPORT</div>
@@ -275,6 +300,10 @@
 	.pp-textarea:focus { outline:none; border-color:var(--accent); }
 	.prop input:focus, .prop select:focus { outline:none; border-color:var(--accent); }
 	.pp-hint { font-size:10px; color:var(--faint); padding:10px 6px; line-height:1.4; }
+	.seg-row { display:flex; align-items:center; gap:5px; padding:1px 6px; }
+	.seg-row em { width:14px; font-style:normal; color:var(--faint); font-size:10px; text-align:right; }
+	.seg-row label { display:flex; align-items:center; gap:3px; flex:1; font-size:10px; color:var(--faint); }
+	.seg-row input { width:100%; min-width:0; }
 	.pp-del { margin:10px 6px 4px; width:calc(100% - 12px); padding:6px; background:#7f1d1d33; color:#ef4444; border:1px solid #ef444455; border-radius:5px; cursor:pointer; font-size:12px; }
 	.pp-del:hover { background:#7f1d1d55; }
 	/* compact X/Y/Z · W/D/H vector rows */

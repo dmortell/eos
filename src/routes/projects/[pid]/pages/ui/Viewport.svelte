@@ -15,6 +15,7 @@
 	import Model3d from '../3dview/Model3d.svelte'
 	import { models, modelSel, setModelSel } from '../3dview/models.svelte'
 	import { polyToGraph } from '../3dview/migrate'
+	import { DEFAULT_YAW, DEFAULT_PITCH } from '../3dview/projection'
 	import type { Obj, Clip } from '../3dview/types'
 	// Pure geometry now lives in ./geometry (testable, shared with PropertiesPanel); re-export the
 	// entity types so existing `import { type Ent } from './Viewport.svelte'` sites keep working.
@@ -32,12 +33,12 @@
 		copy?: (ids: string[]) => void; cut?: (ids: string[]) => void; paste?: () => void;
 		group?: (ids: string[]) => void; ungroup?: (ids: string[]) => void;
 		reorder?: (ids: string[], op: 'front' | 'back' | 'forward' | 'backward') => void;
-		scale?: (s: string) => void; modeledit?: () => void; section?: (clip: Clip) => void
+		scale?: (s: string) => void; modeledit?: () => void; section?: (clip: Clip) => void; orbit?: (yaw: number, pitch: number) => void
 	}
 	let { label = 'Viewport', scale = '1:1', kind = 'floorplan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {},
-		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, clip = null }:
+		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH }:
 		{ label?: string; scale?: string; kind?: 'floorplan' | 'iso' | ElevDir; active?: boolean; tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env; on?: VpOn;
-			focused?: boolean; entities?: Ent[]; sel?: string[]; view?: View; clip?: Clip | null } = $props()
+			focused?: boolean; entities?: Ent[]; sel?: string[]; view?: View; clip?: Clip | null; yaw?: number; pitch?: number } = $props()
 	// Callbacks are called directly as on.x?.(…) — no aliases (a $derived rename adds nothing for a
 	// function that's only invoked). env flags stay derived because they're read as values.
 	const acad = $derived(env.acad ?? true)
@@ -566,6 +567,24 @@
 		window.removeEventListener('pointerup', onModelGripUp)
 	}
 
+	// ── 3D iso ORBIT — a plain drag in the iso view rotates the camera (yaw/pitch). The projection
+	// already takes yaw/pitch; here we just turn a drag into new angles. Pitch is clamped to (0, 90°).
+	let orbitDrag: { sx: number; sy: number; yaw0: number; pitch0: number; moved: boolean } | null = null
+	function onOrbitMove(e: PointerEvent) {
+		if (!orbitDrag) return
+		orbitDrag.moved = true
+		const dx = e.clientX - orbitDrag.sx, dy = e.clientY - orbitDrag.sy
+		const ny = orbitDrag.yaw0 - dx * 0.008
+		const np = Math.max(0.06, Math.min(Math.PI / 2 - 0.02, orbitDrag.pitch0 + dy * 0.006))
+		on.orbit?.(ny, np)
+	}
+	function onOrbitUp() {
+		if (orbitDrag?.moved) suppressClick = true
+		orbitDrag = null
+		window.removeEventListener('pointermove', onOrbitMove)
+		window.removeEventListener('pointerup', onOrbitUp)
+	}
+
 	// ── model PLACEMENT (P2f / §3) — create new model objects on the store, one undo step, select it ──
 	let mSeq = 0
 	const mUid = (p: string) => p + Date.now().toString(36) + (mSeq++)
@@ -816,6 +835,11 @@
 			window.removeEventListener('pointermove', onModelGripMove)
 			window.removeEventListener('pointerup', onModelGripUp)
 		}
+		if (orbitDrag) {   // abort an in-progress iso orbit
+			orbitDrag = null
+			window.removeEventListener('pointermove', onOrbitMove)
+			window.removeEventListener('pointerup', onOrbitUp)
+		}
 	}
 	$effect(() => {
 		const up = (e: PointerEvent) => pointers.delete(e.pointerId)
@@ -837,6 +861,15 @@
 			e.preventDefault()
 			window.addEventListener('pointermove', onDrawMove)
 			window.addEventListener('pointerup', onDrawUp)
+			return
+		}
+		// 3D iso view: a plain drag orbits the camera (nothing is edited in iso).
+		if (kind === 'iso') {
+			orbitDrag = { sx: e.clientX, sy: e.clientY, yaw0: yaw, pitch0: pitch, moved: false }
+			try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
+			e.preventDefault()
+			window.addEventListener('pointermove', onOrbitMove)
+			window.addEventListener('pointerup', onOrbitUp)
 			return
 		}
 		// A selected model object's grip (prism corner / wall node) wins over everything (like entity grips).
@@ -1079,7 +1112,7 @@
 			{/if}
 			</g>
 			<!-- P1b: real 3D model in plan + the four elevations + iso. Read-only for now (P2 = editing). -->
-			{#if models[0]}<Model3d model={models[0]} dir={(kind === 'floorplan' ? 'plan' : kind) as 'plan' | ElevDir | 'iso'} cx={CX} cy={CY} ground={GROUND} selIds={modelSel} canvasZoom={canvasZoom} clip={clip} />{/if}
+			{#if models[0]}<Model3d model={models[0]} dir={(kind === 'floorplan' ? 'plan' : kind) as 'plan' | ElevDir | 'iso'} cx={CX} cy={CY} ground={GROUND} selIds={modelSel} canvasZoom={canvasZoom} clip={clip} yaw={yaw} pitch={pitch} />{/if}
 			<!-- drawn entities (objects on a hidden layer are skipped; the edited text is hidden too) -->
 			{#each entities as e (e.id)}{#if e.id !== editText?.id && !isLayerHidden(e.layer) && inThisView(e)}{#if e.rot}{@const c = rotCenter(e)}<g transform="rotate({e.rot} {c[0]} {c[1]})">{@render drawn(e, selSet.has(e.id))}</g>{:else}{@render drawn(e, selSet.has(e.id))}{/if}{/if}{/each}
 			{#if active && POLY.has(tool) && draft.length}
