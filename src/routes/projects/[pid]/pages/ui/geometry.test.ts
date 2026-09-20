@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { type Ent, dist, segDist, translate, textBox, boxElev, boxElevSet, boxFaces, elevU, flatSpan, GROUND, DEFAULT_BOX_H } from './geometry'
+import { type Ent, dist, segDist, translate, textBox, boxElev, boxElevSet, boxFaces, elevU, flatSpan, GROUND, DEFAULT_BOX_H, PLAN_CX, PLAN_CY } from './geometry'
 
 const box = (over: Partial<Ent> = {}): Ent => ({ id: 'b', type: 'box', a: [100, 50], b: [200, 150], h: 40, z0: 0, ...over })
 
@@ -65,9 +65,9 @@ describe('boxElevSet', () => {
 describe('elevU — per-direction horizontal projection (Kestrel/Sheets BASIS)', () => {
 	it('front is identity, rear mirrors x, right/left use y (mirrored) about the plan centre', () => {
 		expect(elevU('front', 100)).toBe(100)          // +x, centred at CX=200 → identity
-		expect(elevU('rear', 100)).toBe(300)           // −x mirror about CX: 400-100
-		expect(elevU('right', 50)).toBe(125)           // +y re-centred: 200 + (50-125)
-		expect(elevU('left', 50)).toBe(275)            // −y mirror: 200 - (50-125)
+		expect(elevU('rear', 100)).toBe(2 * PLAN_CX - 100)   // −x mirror about CX
+		expect(elevU('right', 50)).toBe(PLAN_CX + (50 - PLAN_CY))    // +y re-centred about the plan centre
+		expect(elevU('left', 50)).toBe(PLAN_CX - (50 - PLAN_CY))     // −y mirror
 		// mirror is symmetric: rear/left applied twice returns the original
 		expect(elevU('rear', elevU('rear', 137))).toBe(137)
 		expect(elevU('left', elevU('left', 88))).toBe(88)
@@ -88,7 +88,7 @@ describe('boxElev per direction — front/rear use x-extent, left/right use y-ex
 	it('rear mirrors front (same width, mirrored position)', () => {
 		const r = boxElev(b, 'rear')
 		expect(r.x1 - r.x0).toBe(160)
-		expect([r.x0, r.x1]).toEqual([140, 300])       // [400-260, 400-100]
+		expect([r.x0, r.x1]).toEqual([2 * PLAN_CX - 260, 2 * PLAN_CX - 100])   // mirror about CX
 	})
 })
 

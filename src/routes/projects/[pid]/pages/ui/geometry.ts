@@ -27,7 +27,10 @@ export const PT = 96.25   // model mm per point (1.375 × MMPU) — keeps text p
 // fills the view (the whole tool's constants + mock content are sized in mm; MMPU below converts the
 // legacy abstract backdrop). 1 model unit = 1 mm.
 export const DEFAULT_BOX_H = 3150   // mock cuboid height (mm) — ~3.15 m
-export const GROUND = 14000        // elevation ground line (mm, model space); a box with z0=0 stands on it
+// Elevation ground line (mm, model space); a box with z0=0 stands on it. Set ~1500 below the plan
+// centre (PLAN_CY 8750) so a typical ~3 m building's vertical MIDDLE sits on the viewBox centre — then
+// an elevation shows centred (like the plan/iso) instead of dropping off the bottom of the screen.
+export const GROUND = 10250
 export const ISO = 0.6             // oblique (cabinet) projection offset factor for the model view
 export const PLAN_CX = 14000, PLAN_CY = 8750   // plan centre (mm) — the viewBox centre + scale pivot
 export const MMPU = 70             // mm per legacy abstract unit (scales the decorative backdrop to mm)

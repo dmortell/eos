@@ -421,9 +421,27 @@
 		if (isElev) { const ax = ELEV_BASIS[elevDir].axis; return [projU(ax === 0 ? n.x : n.y), GROUND - n.z] }
 		return [n.x, n.y]
 	}
+	// Nearest OTHER graph node's drawing position within a screen-tolerance of p (for node-drag snapping),
+	// else null. Snapping coincides the coords so runs join; dragging apart later separates them (disconnect).
+	function snapNode(p: Pt, exclude: GN): Pt | null {
+		if (!mdl) return null
+		const thr = hitTol(10) / (dscale || 1)   // ~10px in model units
+		let best: Pt | null = null, bestD = thr
+		for (const o of mdl.objects) {
+			if ((o.type !== 'wall' && o.type !== 'conduit') || !modelLayerVisible(o)) continue
+			for (const nn of o.nodes as GN[]) {
+				if (nn === exclude) continue
+				const d = graphNodeDraw(nn), dd = Math.hypot(d[0] - p[0], d[1] - p[1])
+				if (dd < bestD) { bestD = dd; best = d }
+			}
+		}
+		return best
+	}
 	function graphNodeApply(n: GN, p: Pt) {
-		if (isElev) { const ax = ELEV_BASIS[elevDir].axis; if (ax === 0) n.x = rndSnap(projUInv(p[0])); else n.y = rndSnap(projUInv(p[0])); n.z = Math.max(0, rndSnap(GROUND - p[1])) }
-		else { n.x = rndSnap(p[0]); n.y = rndSnap(p[1]) }
+		const q = snapNode(p, n) ?? p   // snap to a nearby node so runs join
+		snapMark = q === p ? null : { p: q, type: 'end' }
+		if (isElev) { const ax = ELEV_BASIS[elevDir].axis; if (ax === 0) n.x = rndSnap(projUInv(q[0])); else n.y = rndSnap(projUInv(q[0])); n.z = Math.max(0, rndSnap(GROUND - q[1])) }
+		else { n.x = rndSnap(q[0]); n.y = rndSnap(q[1]) }
 	}
 	// Any wall/conduit segment under p (drawing coords): distance to the segment's drawn centreline
 	// within the pick tolerance + half the profile width, so clicking anywhere on the ribbon selects.
@@ -543,7 +561,7 @@
 	}
 	function onModelGripUp() {
 		if (mGrip?.moved) suppressClick = true
-		mGrip = null; on.endedit?.()   // close the gesture's undo step
+		mGrip = null; snapMark = null; on.endedit?.()   // close the gesture's undo step
 		window.removeEventListener('pointermove', onModelGripMove)
 		window.removeEventListener('pointerup', onModelGripUp)
 	}
@@ -1039,9 +1057,9 @@
 					<polygon points={b.top} fill="#a9bcd6" stroke="#7f95b4" stroke-width="0.6" />
 				{/each}
 			{:else if isElev}
-				<!-- flat elevation backdrop: just the ground line (the faint vertical mock grid was removed) -->
-				<line x1="8" y1="200" x2="392" y2="200" stroke="#94a3b8" stroke-width="1.2" />
-				<text x="12" y="214" font-size="8" fill="#64748b" font-weight="600">{elevDir.toUpperCase()}</text>
+				<!-- flat elevation backdrop: just the ground line at GROUND (the faint vertical mock grid was removed) -->
+				<line x1="8" y1={GROUND / MMPU} x2="392" y2={GROUND / MMPU} stroke="#94a3b8" stroke-width="1.2" />
+				<text x="12" y={GROUND / MMPU + 14} font-size="8" fill="#64748b" font-weight="600">{elevDir.toUpperCase()}</text>
 			{:else if false}
 				<!-- OLD mock floorplan backdrop — retired now the real 3D model renders (Model3d). Kept
 				     disabled (flip `false`) for reference; the desks/outlets/grid arrays still feed iso. -->
