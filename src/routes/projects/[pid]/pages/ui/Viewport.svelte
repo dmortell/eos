@@ -255,7 +255,8 @@
 		if (POLY.has(tool) && draft.length) { finishPolyline(); return }   // double-click ends a polyline / wall / trunk / pipe
 		const p = toLocal(e); if (!p) return
 		const ent = entities.find(x => x.id === hit(p)[0])
-		if (ent?.type === 'text') startTextEdit(ent)
+		if (ent?.type === 'text') { startTextEdit(ent); return }
+		if (tool === 'Select' && isPlan) insertGraphNode(p)   // dbl-click a wall/conduit segment → add a vertex
 	}
 	// ── edit text in place ──
 	let editText = $state<{ id: string; x: number; y: number; fontPx: number; value: string } | null>(null)
@@ -307,6 +308,7 @@
 			if (k === 'g' && e.shiftKey && sel.length) { e.preventDefault(); on.ungroup?.(sel); return }
 		}
 		if ((e.key === 'Delete' || e.key === 'Backspace') && sel.length && !draft.length) { e.preventDefault(); on.delete?.(sel); return }
+		if ((e.key === 'Delete' || e.key === 'Backspace') && modelSel.length && !draft.length) { e.preventDefault(); deleteModelSel(); return }
 		if (sel.length && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
 			e.preventDefault()
 			const s = e.shiftKey ? 10 : 1
@@ -551,6 +553,40 @@
 		mdl.objects.push(o)
 		on.modeledit?.(); on.endedit?.()   // one undo step
 		setModelSel(o.id ? [o.id] : [])
+	}
+	// Delete the selected model object(s) from the store (one undo step).
+	function deleteModelSel() {
+		if (!mdl || !modelSel.length) return
+		const rm = new Set(modelSel)
+		on.beginedit?.()
+		mdl.objects = mdl.objects.filter((o) => !o.id || !rm.has(o.id))
+		on.modeledit?.(); on.endedit?.()
+		setModelSel([])
+	}
+	// Insert a vertex into a wall/conduit at p by splitting the nearest segment (dbl-click). The new
+	// node inherits the segment's z (keeps the run's height); the new segment inherits object defaults.
+	function insertGraphNode(p: Pt) {
+		if (!mdl) return
+		const thr = hitTol(6) / (dscale || 1)   // screen px → MODEL units (coords are in the ÷dscale space)
+		for (let i = mdl.objects.length - 1; i >= 0; i--) {
+			const o = mdl.objects[i]
+			if ((o.type !== 'wall' && o.type !== 'conduit') || !o.id || !modelLayerVisible(o)) continue
+			const half = ((o.type === 'wall' ? o.thickness : o.w) ?? 0) / 2
+			const nm = new Map((o.nodes as GN[]).map((n) => [n.id, n]))
+			for (const s of o.segments as { id: string; a: string; b: string }[]) {
+				const a = nm.get(s.a), b = nm.get(s.b); if (!a || !b) continue
+				if (segDist(p, graphNodeDraw(a), graphNodeDraw(b)) < thr + half) {
+					on.beginedit?.()
+					const nid = mUid('n')
+					;(o.nodes as GN[]).push({ id: nid, x: Math.round(p[0]), y: Math.round(p[1]), z: a.z })
+					const bId = s.b; s.b = nid
+					;(o.segments as { id: string; a: string; b: string }[]).push({ id: mUid('s'), a: nid, b: bId })
+					on.modeledit?.(); on.endedit?.()
+					setModelSel([o.id])
+					return
+				}
+			}
+		}
 	}
 	// A clicked run (plan drawing pts) → a wall or conduit graph with the tool's default profile.
 	function placeGraph(pts: Pt[]) {
