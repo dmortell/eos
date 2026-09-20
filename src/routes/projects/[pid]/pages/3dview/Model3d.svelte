@@ -10,12 +10,15 @@
 	//   • iso: deferred (P1c) — the viewport keeps the mock iso for now.
 	// Line thickness is NON-SCALING (constant screen px, `vector-effect`) and LAYER-DEFINED (each layer's
 	// `weight`), so lineweight is a paper property independent of the drawing scale/zoom.
-	import { project } from './projection'
+	import { project, objBounds } from './projection'
 	import { BASIS } from './types'
-	import type { Model, Obj, Dir } from './types'
+	import type { Model, Obj, Dir, Clip } from './types'
 
-	let { model, dir = 'plan', cx = 0, cy = 0, ground = 0, defaultWeight = 1, selIds = [], canvasZoom = 1 }:
-		{ model: Model; dir?: Dir; cx?: number; cy?: number; ground?: number; defaultWeight?: number; selIds?: string[]; canvasZoom?: number } = $props()
+	let { model, dir = 'plan', cx = 0, cy = 0, ground = 0, defaultWeight = 1, selIds = [], canvasZoom = 1, clip = null }:
+		{ model: Model; dir?: Dir; cx?: number; cy?: number; ground?: number; defaultWeight?: number; selIds?: string[]; canvasZoom?: number; clip?: Clip | null } = $props()
+	// A section clip culls objects whose bounds fall outside the box (x/y in plan; the elevation then
+	// shows only that slice). A simple AABB-overlap cull — true trimToClip is a later refinement.
+	const inClip = (o: Obj) => { if (!clip) return true; const b = objBounds(o); return b.x1 >= clip.x0 && b.x0 <= clip.x1 && b.y1 >= clip.y0 && b.y0 <= clip.y1 }
 
 	const SEL = '#f59e0b'   // selection highlight (amber — distinct from the teal trunk layer)
 	const layerOf = (o: Obj) => model.layers?.find((l) => l.id === o.layer)
@@ -52,7 +55,7 @@
 
 <g class="m3d" transform={xform}>
 	{#each model.objects as o (o.id)}
-		{#if visible(o)}
+		{#if visible(o) && inClip(o)}
 			{@const col = colorOf(o)}
 			{@const lw = weightOf(o)}
 			{#each project(o, dir, undefined, undefined, cx, cy) as s, i (i)}

@@ -15,7 +15,7 @@
 	import Model3d from '../3dview/Model3d.svelte'
 	import { models, modelSel, setModelSel } from '../3dview/models.svelte'
 	import { polyToGraph } from '../3dview/migrate'
-	import type { Obj } from '../3dview/types'
+	import type { Obj, Clip } from '../3dview/types'
 	// Pure geometry now lives in ./geometry (testable, shared with PropertiesPanel); re-export the
 	// entity types so existing `import { type Ent } from './Viewport.svelte'` sites keep working.
 	export type { Pt, Ent, View } from './geometry'
@@ -32,12 +32,12 @@
 		copy?: (ids: string[]) => void; cut?: (ids: string[]) => void; paste?: () => void;
 		group?: (ids: string[]) => void; ungroup?: (ids: string[]) => void;
 		reorder?: (ids: string[], op: 'front' | 'back' | 'forward' | 'backward') => void;
-		scale?: (s: string) => void; modeledit?: () => void
+		scale?: (s: string) => void; modeledit?: () => void; section?: (clip: Clip) => void
 	}
 	let { label = 'Viewport', scale = '1:1', kind = 'floorplan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {},
-		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 } }:
+		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, clip = null }:
 		{ label?: string; scale?: string; kind?: 'floorplan' | 'iso' | ElevDir; active?: boolean; tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env; on?: VpOn;
-			focused?: boolean; entities?: Ent[]; sel?: string[]; view?: View } = $props()
+			focused?: boolean; entities?: Ent[]; sel?: string[]; view?: View; clip?: Clip | null } = $props()
 	// Callbacks are called directly as on.x?.(…) — no aliases (a $derived rename adds nothing for a
 	// function that's only invoked). env flags stay derived because they're read as values.
 	const acad = $derived(env.acad ?? true)
@@ -60,12 +60,12 @@
 	// Project a footprint coordinate (along the current dir's axis) to the drawing horizontal, and back.
 	const projU = (coord: number) => elevU(elevDir, coord, CX, CY)
 	const projUInv = (u: number) => elevUInv(elevDir, u, CX, CY)
-	const DRAW = new Set(['Line', 'Rectangle', 'Ellipse', 'Dimension', 'Text', 'Box', 'Wall', 'Furniture', 'Trunk', 'Pipe'])
+	const DRAW = new Set(['Line', 'Rectangle', 'Ellipse', 'Dimension', 'Text', 'Box', 'Wall', 'Furniture', 'Trunk', 'Pipe', 'Section'])
 	// Polyline-style tools (click points, Enter/dbl-click to finish). Line makes an entity; Wall/Trunk/Pipe
 	// build MODEL graph objects (plan only).
 	const POLY = new Set(['Line', 'Wall', 'Trunk', 'Pipe'])
 	const MODEL_GRAPH = new Set(['Wall', 'Trunk', 'Pipe'])   // build a wall/conduit graph (plan view)
-	const MODEL_TOOL = new Set(['Wall', 'Trunk', 'Pipe', 'Furniture'])   // any tool that places a MODEL object
+	const MODEL_TOOL = new Set(['Wall', 'Trunk', 'Pipe', 'Furniture', 'Section'])   // plan-only model tools
 	// Body-hover cursor: 'move' over a shape (drag to move), else default; grips carry their own
 	// crosshair (they render on top, so their cursor wins over the container's).
 	let hoverBody = $state(false)
@@ -189,6 +189,10 @@
 		else if (tool === 'Ellipse') on.add?.({ id: uid(), type: 'ellipse', a, b, space: sp })
 		else if (tool === 'Box') on.add?.({ id: uid(), type: 'box', a, b, h: DEFAULT_BOX_H })
 		else if (tool === 'Furniture' && isPlan) placeFurniture(a, b)   // MODEL prism footprint
+		else if (tool === 'Section' && isPlan && mdl) {   // §4 — clip box on the plan → spawn a front elevation
+			on.section?.({ x0: Math.round(Math.min(a[0], b[0])), y0: Math.round(Math.min(a[1], b[1])), z0: 0,
+				x1: Math.round(Math.max(a[0], b[0])), y1: Math.round(Math.max(a[1], b[1])), z1: mdl.levels?.ceilingSlab ?? 3200 })
+		}
 		else if (tool === 'Dimension') on.add?.({ id: uid(), type: 'dim', a, b, space: sp })
 	}
 	// The Line tool draws a POLYLINE in AutoCAD mode: keep clicking to add segments, Enter /
@@ -991,6 +995,7 @@
 			case 'Line': return n ? 'Specify next point (Enter / double-click to finish)' : 'Specify first point'
 			case 'Wall': case 'Trunk': case 'Pipe': return !isPlan ? `Switch to the plan view to draw ${tool.toLowerCase()}s` : (n ? `Specify next ${tool.toLowerCase()} point (Enter / double-click to finish)` : `Specify ${tool.toLowerCase()} start`)
 			case 'Furniture': return isPlan ? (n ? 'Specify opposite corner' : 'Specify furniture footprint corner') : 'Switch to the plan view to place furniture'
+			case 'Section': return isPlan ? (n ? 'Specify opposite corner (→ front elevation)' : 'Specify section box corner') : 'Switch to the plan view to cut a section'
 			case 'Rectangle': return n ? 'Specify opposite corner' : 'Specify first corner'
 			case 'Ellipse': return n ? 'Specify opposite corner (Shift = circle)' : 'Specify first corner'
 			case 'Box': return n ? 'Specify opposite corner (Shift = square footprint)' : 'Specify first corner'
@@ -1053,7 +1058,7 @@
 			{/if}
 			</g>
 			<!-- P1b: real 3D model in plan + the four elevations + iso. Read-only for now (P2 = editing). -->
-			{#if models[0]}<Model3d model={models[0]} dir={(kind === 'floorplan' ? 'plan' : kind) as 'plan' | ElevDir | 'iso'} cx={CX} cy={CY} ground={GROUND} selIds={modelSel} canvasZoom={canvasZoom} />{/if}
+			{#if models[0]}<Model3d model={models[0]} dir={(kind === 'floorplan' ? 'plan' : kind) as 'plan' | ElevDir | 'iso'} cx={CX} cy={CY} ground={GROUND} selIds={modelSel} canvasZoom={canvasZoom} clip={clip} />{/if}
 			<!-- drawn entities (objects on a hidden layer are skipped; the edited text is hidden too) -->
 			{#each entities as e (e.id)}{#if e.id !== editText?.id && !isLayerHidden(e.layer) && inThisView(e)}{#if e.rot}{@const c = rotCenter(e)}<g transform="rotate({e.rot} {c[0]} {c[1]})">{@render drawn(e, selSet.has(e.id))}</g>{:else}{@render drawn(e, selSet.has(e.id))}{/if}{/if}{/each}
 			{#if active && POLY.has(tool) && draft.length}
@@ -1185,6 +1190,8 @@
 		<ellipse cx={(a[0] + p[0]) / 2} cy={(a[1] + p[1]) / 2} rx={Math.abs(p[0] - a[0]) / 2} ry={Math.abs(p[1] - a[1]) / 2} fill="none" stroke={SEL} stroke-width="1" stroke-dasharray="4 3" />
 	{:else if tool === 'Box' || tool === 'Furniture'}
 		<rect x={Math.min(a[0], p[0])} y={Math.min(a[1], p[1])} width={Math.abs(p[0] - a[0])} height={Math.abs(p[1] - a[1])} fill="none" stroke={SEL} stroke-width="1" stroke-dasharray="4 3" />
+	{:else if tool === 'Section'}
+		<rect x={Math.min(a[0], p[0])} y={Math.min(a[1], p[1])} width={Math.abs(p[0] - a[0])} height={Math.abs(p[1] - a[1])} fill="#0e749011" stroke="#0e7490" stroke-width="1.4" vector-effect="non-scaling-stroke" stroke-dasharray="6 3" />
 	{/if}
 {/snippet}
 

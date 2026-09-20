@@ -23,7 +23,7 @@
 	import { paperDims, PAPER_SIZES, PAPER_PX_PER_MM, type PaperSize } from './constants'
 	import { translate } from './ui/geometry'
 	import { models, modelSel, snapModels, setModels } from './3dview/models.svelte'
-	import type { Model } from './3dview/types'
+	import type { Model, Clip } from './3dview/types'
 
 	// Which pane (if any) has its viewport activated — groundwork for editing/CAD
 	// tools inside a sheet's viewport. Null = no active viewport.
@@ -95,11 +95,21 @@
 		group: (ids: string[]) => groupEnts(a.id, ids), ungroup: (ids: string[]) => ungroupEnts(a.id, ids),
 		reorder: (ids: string[], op) => reorderEnts(a.id, ids, op),
 		scale: (s: string) => (docScale = { ...docScale, [a.id]: s }),
-		modeledit: () => modelEdit(a.id),
+		modeledit: () => modelEdit(a.id), section: (clip: Clip) => onSection(clip),
 	})
 	// A 3D-model edit (the Viewport mutated the shared `models` store) records a step on THIS doc's
 	// timeline, gesture-folded like an entity edit — so Ctrl+Z restores the model too.
 	function modelEdit(id: string) { recordEdit(id, 'Edit model') }
+	// A section box drawn on the plan (§4) → spawn a new front-elevation tab clipped to that box.
+	let docClip = $state<Record<string, Clip>>({})
+	let secSeq = 0
+	function onSection(clip: Clip) {
+		const id = 't' + ++seq
+		tabs = [...tabs, { id, title: `Section ${String.fromCharCode(65 + secSeq++)}`, kind: 'elevation', dirty: false }]
+		docClip = { ...docClip, [id]: clip }
+		if (panes[focused]) { panes[focused].activeId = id; panes[focused].layout = 'model' }
+		activateVp(id); tick().then(() => fitPane(focused))
+	}
 	let focused = $state(0)      // which pane new tabs / sidebar actions target
 	let canvasEls = $state<(HTMLElement | undefined)[]>([])   // each pane's .canvas, for navFit
 	let splitFrac = $state(0.5)  // pane 0 width fraction when split
@@ -444,6 +454,7 @@
 		{ icon: 'square', name: 'Furniture' },
 		{ icon: 'route', name: 'Trunk' },
 		{ icon: 'rows', name: 'Pipe' },
+		{ icon: 'scan', name: 'Section' },
 		{ icon: 'dimension', name: 'Dimension' },
 		{ icon: 'k-text', name: 'Text' },
 	]
@@ -702,7 +713,7 @@
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => deactivateVp(a.id)}>
 										<Viewport kind={projKind(projOf(p, a))} label={a.title} tool={p.tool} scale={scaleOf(a.id)} env={envFor(p)} on={vpOn(a, p)}
-											entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={isVpActive(a.id)} focused={focused === pi} />
+											entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={isVpActive(a.id)} focused={focused === pi} clip={docClip[a.id] ?? null} />
 									</div>
 								{:else}
 									<div class="canvas-center">
