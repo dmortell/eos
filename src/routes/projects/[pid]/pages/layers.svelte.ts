@@ -43,6 +43,39 @@ export const layerColor = (id?: string): string | undefined => layerById(id)?.co
 // Distinct group names in declared order.
 export const layerGroups = (): string[] => { const g: string[] = []; for (const l of layers) if (!g.includes(l.group)) g.push(l.group); return g }
 
+// ── View Presets: a named set of visible layer ids (a saved layer state). Applying one shows exactly
+// its layers and hides the rest. ──
+export type Preset = { id: string; name: string; visible: string[] }
+export const presets = $state<Preset[]>([
+	{ id: 'p-hi', name: 'High Level Outlets', visible: ['anno', 'dims', 'data', 'power', 'wireless'] },
+	{ id: 'p-lo', name: 'Low Level Outlets', visible: ['anno', 'dims', 'data', 'power'] },
+	{ id: 'p-trunk', name: 'Trunk Routes', visible: ['anno', 'dims', 'copper', 'fiber'] },
+	{ id: 'p-desk', name: 'Desk Numbering', visible: ['anno', 'dims'] },
+	{ id: 'p-all', name: 'All Layers', visible: layers.map((l) => l.id) },
+])
+export const presetUI = $state<{ active: string }>({ active: 'p-hi' })
+
+export const currentVisibleIds = (): string[] => layers.filter((l) => l.visible).map((l) => l.id)
+// Does the current layer visibility exactly match a preset? (used to flag "modified")
+export function presetMatches(id: string): boolean {
+	const p = presets.find((x) => x.id === id); if (!p) return false
+	const cur = new Set(currentVisibleIds())
+	return p.visible.length === cur.size && p.visible.every((v) => cur.has(v))
+}
+export function applyPreset(id: string) {
+	const p = presets.find((x) => x.id === id); if (!p) return
+	const vis = new Set(p.visible)
+	for (const l of layers) l.visible = vis.has(l.id)
+	presetUI.active = id
+}
+let pseq = 0
+export function savePreset(name = 'New view'): Preset { const p: Preset = { id: 'pv' + Date.now().toString(36) + pseq++, name, visible: currentVisibleIds() }; presets.push(p); presetUI.active = p.id; return p }
+export function updatePreset(id: string) { const p = presets.find((x) => x.id === id); if (p) p.visible = currentVisibleIds() }
+export function renamePreset(id: string, name: string) { const p = presets.find((x) => x.id === id); if (p) p.name = name }
+export function deletePreset(id: string) { const i = presets.findIndex((x) => x.id === id); if (i >= 0) presets.splice(i, 1); if (presetUI.active === id) presetUI.active = presets[0]?.id ?? '' }
+// Apply the initial preset once so the shown preset matches the actual layer visibility.
+applyPreset(presetUI.active)
+
 let seq = 0
 export function addLayer(group = 'General'): PLayer {
 	const l: PLayer = { id: 'ly' + Date.now().toString(36) + seq++, name: 'New Layer', group, color: '#64748b', swatch: 'color', visible: true, locked: false }

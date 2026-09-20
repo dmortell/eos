@@ -404,8 +404,10 @@ Sheets' basic version** — see §10.
 - [ ] **Draw order** — bring-forward / send-to-back (and to-front / to-back) so images and
   solid-filled objects can be stacked/overlapped predictably (P2). Ties into the same
   ordering used by draggable layers.
-- [ ] **Wire the View-Preset manager button** — the preset picker's manage/gear button is a
-  no-op; make it create / rename / delete presets and save layer-visibility sets.
+- [x] **View Presets** (2026-09-20) — a preset is a named set of visible layer ids (`presets` in the
+  store). Selecting one applies it (shows exactly its layers); the ⋮ menu does Re-apply / Update /
+  Save-current-as-new / Rename / Delete; a "• modified" flag shows when visibility drifts from the
+  saved preset. Verified: applying "Trunk Routes" hid the outlet layers and showed the trunks.
 - [ ] **Find / identify an object's layer** — select an object → highlight its layer in the
   panel (and a "select all on layer" / "isolate layer" action).
 - [x] **Wire to the canvas** (2026-09-20) — shared reactive store `layers.svelte.ts` (single source of

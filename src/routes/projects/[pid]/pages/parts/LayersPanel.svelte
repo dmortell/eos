@@ -4,13 +4,17 @@
 	// View-Preset picker + search (cosmetic), per-layer eye/lock/colour and a settings dialog.
 	import { Icon, ColorPicker } from '$lib'
 	import { COLORS } from '../palette'
-	import { layers, layerUI, layerGroups, addLayer, removeLayer } from '../layers.svelte'
+	import { layers, layerUI, layerGroups, addLayer, removeLayer,
+		presets, presetUI, applyPreset, savePreset, updatePreset, renamePreset, deletePreset, presetMatches } from '../layers.svelte'
 	import { tick } from 'svelte'
 	function focusEdit(node: HTMLInputElement) { tick().then(() => { node.focus(); node.select() }) }
 
-	const PRESETS = ['High Level Outlets', 'Low Level Outlets', 'Trunk Routes', 'Desk Numbering', 'All Layers']
-	let preset = $state(PRESETS[0])
 	let search = $state('')
+	// View-preset manage menu + inline rename.
+	let presetMenu = $state(false)
+	let renamingPreset = $state<string | null>(null)
+	const activePreset = $derived(presets.find((p) => p.id === presetUI.active))
+	const modified = $derived(!!presetUI.active && !presetMatches(presetUI.active))
 	const matches = (s: string) => !search || s.toLowerCase().includes(search.toLowerCase())
 
 	// Per-group collapse state (default open). Group visibility = all its layers visible.
@@ -30,12 +34,32 @@
 
 <div class="lp">
 	<div class="lp-head">
-		<div class="lp-lbl">View Preset</div>
+		<div class="lp-lbl">View Preset {#if modified}<span class="lp-mod" title="Layer visibility differs from the saved preset">• modified</span>{/if}</div>
 		<div class="lp-preset">
-			<select bind:value={preset}>
-				{#each PRESETS as p (p)}<option value={p}>{p}</option>{/each}
-			</select>
-			<button class="lp-kebab" title="Manage presets" aria-label="Manage presets">⋮</button>
+			{#if renamingPreset}
+				<input class="lp-rename" value={activePreset?.name ?? ''} use:focusEdit
+					onblur={() => (renamingPreset = null)}
+					onchange={(e) => renamePreset(renamingPreset!, (e.currentTarget as HTMLInputElement).value)}
+					onkeydown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') { renamePreset(renamingPreset!, (e.currentTarget as HTMLInputElement).value); renamingPreset = null } }} />
+			{:else}
+				<select value={presetUI.active} onchange={(e) => applyPreset((e.currentTarget as HTMLSelectElement).value)}>
+					{#each presets as p (p.id)}<option value={p.id}>{p.name}</option>{/each}
+				</select>
+			{/if}
+			<div class="lp-menuwrap">
+				<button class="lp-kebab" title="Manage presets" aria-label="Manage presets" onclick={() => (presetMenu = !presetMenu)}>⋮</button>
+				{#if presetMenu}
+					<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+					<div class="lp-menu-back" onclick={() => (presetMenu = false)}></div>
+					<div class="lp-menu">
+						<button onclick={() => { applyPreset(presetUI.active); presetMenu = false }}>Re-apply</button>
+						<button disabled={!modified} onclick={() => { updatePreset(presetUI.active); presetMenu = false }}>Update ‹{activePreset?.name ?? '—'}›</button>
+						<button onclick={() => { const p = savePreset('New view'); presetMenu = false; renamingPreset = p.id }}>Save current as new…</button>
+						<button onclick={() => { renamingPreset = presetUI.active; presetMenu = false }}>Rename…</button>
+						<button class="danger" disabled={presets.length < 2} onclick={() => { deletePreset(presetUI.active); presetMenu = false }}>Delete</button>
+					</div>
+				{/if}
+			</div>
 		</div>
 		<div class="lp-search">
 			<Icon name="search" size={12} />
@@ -123,8 +147,19 @@
 	.lp-preset select { flex:1; min-width:0; background:var(--input); color:var(--text); border:1px solid var(--line);
 		border-radius:5px; padding:5px 7px; font-size:12px; font-weight:600; }
 	.lp-preset select:focus { outline:none; border-color:var(--accent); }
-	.lp-kebab { width:28px; border:1px solid var(--line); border-radius:5px; color:var(--muted); background:var(--input); font-size:14px; line-height:1; }
+	.lp-kebab { width:28px; height:100%; border:1px solid var(--line); border-radius:5px; color:var(--muted); background:var(--input); font-size:14px; line-height:1; }
 	.lp-kebab:hover { background:var(--hover); color:var(--text); }
+	.lp-mod { color:var(--accent); font-size:9px; font-weight:600; letter-spacing:0; text-transform:none; }
+	.lp-rename { flex:1; min-width:0; background:var(--input); color:var(--text); border:1px solid var(--accent); border-radius:5px; padding:5px 7px; font-size:12px; font-weight:600; }
+	.lp-rename:focus { outline:none; }
+	.lp-menuwrap { position:relative; flex:0 0 auto; }
+	.lp-menu-back { position:fixed; inset:0; z-index:40; }
+	.lp-menu { position:absolute; z-index:41; top:calc(100% + 3px); right:0; min-width:180px; background:var(--panel);
+		border:1px solid var(--line); border-radius:6px; box-shadow:0 10px 30px #0007; padding:4px; display:flex; flex-direction:column; }
+	.lp-menu button { text-align:left; font-size:12px; color:var(--text); background:none; border:none; border-radius:4px; padding:6px 8px; }
+	.lp-menu button:hover:not(:disabled) { background:var(--hover); }
+	.lp-menu button:disabled { color:var(--faint); }
+	.lp-menu button.danger { color:var(--danger); }
 	.lp-search { display:flex; align-items:center; gap:5px; background:var(--input); border:1px solid var(--line); border-radius:5px; padding:0 7px; }
 	.lp-search :global(svg) { color:var(--faint); flex:0 0 auto; }
 	.lp-search input { flex:1; min-width:0; background:none; border:none; color:var(--text); font-size:12px; padding:5px 0; }
