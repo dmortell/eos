@@ -173,6 +173,15 @@ New todos (design / bigger):
   `expandGroup()` so a group selects, marquees, and moves as one. Verified in-browser.
 - [x] **Copy / paste / cut** (Ctrl-C/X/V) — clipboard of entities; paste drops offset copies
   (group ids remapped so a pasted group stays its own group). Verified in-browser.
+- [ ] **System-clipboard copy/paste — items, views & whole pages** (Dave, 2026-09-20) — today the
+  clipboard is an in-memory JS array (one tab, this session only). Back it with the real OS clipboard
+  so you can paste into **another page, another browser tab, or another window** (and survive a
+  reload). Approach: on copy write a JSON payload (with a mime tag, e.g. `web application/eos-pages+json`
+  via the async Clipboard API `ClipboardItem`) AND a plain-text fallback; on paste, read the clipboard,
+  detect our payload, remap ids/groups, and place. Scope grows by unit: **entities** (selection) →
+  **views** (a viewport + its source/scale/crop) → **whole pages** (sheet + viewports + annotations).
+  Watch-outs: clipboard permission prompts, only readable on a user gesture, size limits for big
+  selections, and versioning the payload. Also wire the browser Edit-menu copy/paste, not just Ctrl-C/V.
 - [ ] **Print orientation bug** — printing **landscape** to **PrimoPDF** yields a **portrait PDF
   rotated 90° CCW** even though the print preview is landscape. Dave's workaround (2026-09-21): Ctrl-P
   → **More settings** → **Print using system dialog** → set the orientation there. Fix ideas: try a
