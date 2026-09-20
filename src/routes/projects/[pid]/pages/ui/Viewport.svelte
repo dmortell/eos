@@ -287,7 +287,12 @@
 	const isFlatElev = (e: Ent) => isElev && FLAT.has(e.type)
 	// Horizontal drawing span of a flat object projected onto the ground line for the current side view.
 	function flatXSpan(e: Ent): [number, number] { return flatSpan(e, elevDir, CX, CY) }
+	// Rotation (degrees, about the entity's view-bbox centre): render, hit and grips all honour it.
+	// bbox() returns the UNrotated extent, so its centre is the correct pivot.
+	const rotCenter = (e: Ent): Pt => { const [x0, y0, x1, y1] = bbox(e); return [(x0 + x1) / 2, (y0 + y1) / 2] }
+	function rotatePt(p: Pt, c: Pt, deg: number): Pt { const a = deg * Math.PI / 180, s = Math.sin(a), co = Math.cos(a), dx = p[0] - c[0], dy = p[1] - c[1]; return [c[0] + dx * co - dy * s, c[1] + dx * s + dy * co] }
 	function hitEnt(e: Ent, p: Pt, thr: number): boolean {
+		if (e.rot) p = rotatePt(p, rotCenter(e), -e.rot)   // test in the entity's un-rotated frame
 		if (isFlatElev(e)) { const [x0, x1] = flatXSpan(e); return segDist(p, [x0, GROUND], [x1, GROUND]) < thr }
 		if (e.type === 'polyline') { const pts = e.pts ?? []; for (let i = 0; i + 1 < pts.length; i++) if (segDist(p, pts[i], pts[i + 1]) < thr) return true; return false }
 		if (e.type === 'line' || e.type === 'dim') return segDist(p, e.a!, e.b!) < thr
@@ -383,7 +388,14 @@
 		const setPt = (pt: Pt): Pt => ax === 0 ? [m, pt[1]] : [pt[0], m]
 		return moveA ? { ...e, a: setPt(e.a!) } : { ...e, b: setPt(e.b!) }
 	}
+	// Grips honour rotation: positions rotate into the view; a grip drag un-rotates the pointer first.
 	function gripsFor(e: Ent): Grip[] {
+		const gs = gripsLocal(e)
+		if (!e.rot) return gs
+		const c = rotCenter(e)
+		return gs.map(g => { const rp = rotatePt([g.x, g.y], c, e.rot!); return { x: rp[0], y: rp[1], apply: (p: Pt) => g.apply(rotatePt(p, c, -e.rot!)) } })
+	}
+	function gripsLocal(e: Ent): Grip[] {
 		if (isFlatElev(e)) { const [x0, x1] = flatXSpan(e); return [{ x: x0, y: GROUND, apply: p => setFlatX(e, 'min', p[0]) }, { x: x1, y: GROUND, apply: p => setFlatX(e, 'max', p[0]) }] }
 		if (e.type === 'polyline') return (e.pts ?? []).map((v, i) => ({ x: v[0], y: v[1], apply: (p: Pt) => ({ ...e, pts: (e.pts ?? []).map((q, j) => j === i ? p : q) }) }))
 		if (e.type === 'line' || e.type === 'dim') return [
@@ -711,7 +723,7 @@
 				<text x="24" y="230" font-size="9" fill="#64748b" font-weight="600">OFFICE — 33F</text>
 			{/if}
 			<!-- drawn entities (objects on a hidden layer are skipped; the edited text is hidden too) -->
-			{#each entities as e (e.id)}{#if e.id !== editText?.id && !isLayerHidden(e.layer)}{@render drawn(e, selSet.has(e.id))}{/if}{/each}
+			{#each entities as e (e.id)}{#if e.id !== editText?.id && !isLayerHidden(e.layer)}{#if e.rot}{@const c = rotCenter(e)}<g transform="rotate({e.rot} {c[0]} {c[1]})">{@render drawn(e, selSet.has(e.id))}</g>{:else}{@render drawn(e, selSet.has(e.id))}{/if}{/if}{/each}
 			{#if active && tool === 'Line' && draft.length}
 				<!-- polyline preview: committed segments + rubber band to the cursor -->
 				<polyline points={draft.map(p => p.join(',')).join(' ')} fill="none" stroke={SEL} stroke-width="1.2" />

@@ -11,7 +11,7 @@ export type TextAlign = 'left' | 'center' | 'right'
 // match Sheets' defaults; all optional → unset falls back to the tool defaults (see STYLE_DEFAULTS).
 export type VAlign = 'top' | 'middle' | 'bottom'
 export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'ellipse' | 'dim' | 'text' | 'box' | 'polyline'; a?: Pt; b?: Pt; c?: Pt; r?: number; h?: number; z0?: number; text?: string; pts?: Pt[]; groupId?: string;
-	color?: string; fill?: string; weight?: number; fontPt?: number; align?: TextAlign; valign?: VAlign; layer?: string }
+	color?: string; fill?: string; weight?: number; fontPt?: number; align?: TextAlign; valign?: VAlign; layer?: string; rot?: number }
 export type View = { zoom: number; x: number; y: number }
 
 // Default object style — matched to the Sheets tool (annotations.svelte.ts: text fontPt 8 / align

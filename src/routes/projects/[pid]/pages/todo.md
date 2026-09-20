@@ -74,6 +74,10 @@ Batch-5c done (2026-09-21):
   orientation to PDF (Ctrl-P → More settings → Print using system dialog → orientation). See §10.
 
 Batch-7 done (2026-09-20) — object-style follow-ups:
+- [x] **Object rotation** (`rot`, degrees) — Properties gains a ROTATION · degrees row (Position / Size /
+  Rotation, per Dave's preferred layout from the old Transform mockup). Render wraps the entity in a
+  `rotate(deg, cx, cy)` about its view-bbox centre; hit-test un-rotates the point; grips rotate with it
+  (drag un-rotates the pointer). Verified: 30° rotates the rect + grips, still selectable.
 - [x] **Text vertical align** (top/middle/bottom) added alongside L/C/R; middle uses a central baseline
   so single lines respond, block-offset handles multi-line. `valign` on the entity.
 - [x] **Delete/Backspace in a Properties field no longer deletes the selection** — the viewport's

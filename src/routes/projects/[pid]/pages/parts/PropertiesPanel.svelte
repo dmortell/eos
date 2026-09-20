@@ -66,6 +66,7 @@
 	function setBoxH(v: number) { const e = single; if (e?.type === 'box') onupdate?.({ ...e, h: Math.max(1, Math.round(v)) }) }
 	function setBoxZ0(v: number) { const e = single; if (e?.type === 'box') onupdate?.({ ...e, z0: Math.max(0, Math.round(v)) }) }
 	function setText(v: string) { const e = single; if (e?.type === 'text') onupdate?.({ ...e, text: v }) }
+	function setRot(v: number) { const r = ((Math.round(v) % 360) + 360) % 360; setAll({ rot: r || undefined }) }
 	const num = (e: Event) => +(e.currentTarget as HTMLInputElement).value
 	const strVal = (e: Event) => (e.currentTarget as HTMLInputElement).value
 
@@ -164,6 +165,11 @@
 				{@render numcell('H', r1(gb!.h))}
 			{/if}
 		</div>
+		<div class="prop-sec">ROTATION · degrees</div>
+		<div class="vecrow">
+			{@render numcell('∠', Math.round((cc('rot') as number | undefined) ?? 0), setRot)}
+			<span class="vspacer"></span><span class="vspacer"></span>
+		</div>
 		{#if single?.type === 'text'}
 			<div class="prop-sec">TEXT</div>
 			<div class="prop wide"><textarea class="pp-textarea" use:autoresize value={single.text ?? ''} onchange={(e) => setText((e.currentTarget as HTMLTextAreaElement).value)}></textarea></div>
@@ -226,6 +232,7 @@
 	.vcell input { width:100%; min-width:0; background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:3px 4px; font-size:11px; font-family:Consolas,monospace; }
 	.vcell input:read-only { color:var(--muted); }
 	.vcell input:focus { outline:none; border-color:var(--accent); }
+	.vspacer { flex:1; }
 	/* L/C/R alignment segmented control */
 	.pp-seg { display:flex; gap:2px; }
 	.pp-seg button { flex:1; font-size:11px; font-weight:600; color:var(--muted); background:var(--input); border:1px solid var(--line); border-radius:4px; padding:2px 0; }
