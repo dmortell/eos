@@ -79,7 +79,7 @@
 	let docScale = $state<Record<string, string>>({})
 	const scaleOf = (id?: string) => docScale[id ?? ''] ?? '1:1'   // 1:1 = as-drawn (mock content isn't real mm yet)
 	// The drafting/interaction flags bundle passed to a pane's viewport (one prop instead of six).
-	const envFor = (pane: { canvasView: View }) => ({ acad: acadMode, navContent, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, canvasZoom: pane.canvasView.zoom })
+	const envFor = (pane: { canvasView: View }) => ({ acad: acadMode, navContent, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, canvasZoom: pane.canvasView.zoom })
 	// All the viewport event callbacks in ONE `on` object (was ~13 separate props). PaperPage also
 	// uses `frame`; the plain Viewport ignores it.
 	const vpOn = (a: Tab, pane: { tool: string }) => ({

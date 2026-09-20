@@ -19,7 +19,7 @@
 	// Drafting/interaction flags are grouped into one `env` object, and all the event callbacks into
 	// one `on` object, to keep the prop list small (a step toward a headless editor class — see
 	// review.md §4.1). `frame` is only used by PaperPage; the Viewport ignores it.
-	export type Env = { acad?: boolean; navContent?: boolean; grid?: boolean; lwt?: boolean; osnap?: boolean; canvasZoom?: number }
+	export type Env = { acad?: boolean; navContent?: boolean; grid?: boolean; lwt?: boolean; osnap?: boolean; snap?: boolean; ortho?: boolean; canvasZoom?: number }
 	export type VpOn = {
 		activate?: () => void; deactivate?: () => void; add?: (e: Ent) => void; update?: (e: Ent) => void;
 		delete?: (ids: string[]) => void; select?: (ids: string[]) => void; view?: (v: View) => void;
@@ -39,7 +39,12 @@
 	const grid = $derived(env.grid ?? true)
 	const lwt = $derived(env.lwt ?? true)
 	const osnap = $derived(env.osnap ?? true)
+	const snap = $derived(env.snap ?? false)     // SNAP: round points to the grid step
+	const ortho = $derived(env.ortho ?? false)   // ORTHO: constrain line-draw + move to H/V
 	const canvasZoom = $derived(env.canvasZoom ?? 1)
+	const SNAP_STEP = 10                          // grid snap spacing (drawing units)
+	const snapToGrid = (p: Pt): Pt => [Math.round(p[0] / SNAP_STEP) * SNAP_STEP, Math.round(p[1] / SNAP_STEP) * SNAP_STEP]
+	const orthoPt = (a: Pt, p: Pt): Pt => (Math.abs(p[0] - a[0]) >= Math.abs(p[1] - a[1]) ? [p[0], a[1]] : [a[0], p[1]])
 
 	const tagIcon: Record<string, string> = { floorplan: 'mapPin', iso: 'box', front: 'server', rear: 'server', left: 'server', right: 'server' }
 	// Elevation projection: which side view (front/rear/left/right) and its footprint axis + sign.
@@ -203,7 +208,7 @@
 	function reconstrain(shift: boolean) {
 		if (drag && lastDragRaw) {
 			if (drag.kind === 'grip') on.update?.(applyDrag(lastDragRaw, shift))
-			else { let dx = lastDragRaw[0] - drag.start[0], dy = lastDragRaw[1] - drag.start[1]; if (shift) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 } for (const b of drag.bases) on.update?.(moveEnt(b, dx, dy)) }
+			else { let dx = lastDragRaw[0] - drag.start[0], dy = lastDragRaw[1] - drag.start[1]; if (shift !== ortho) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 } for (const b of drag.bases) on.update?.(moveEnt(b, dx, dy)) }
 		} else if (active && draft.length && lastRaw) cur = constrainPt(draft.at(-1)!, lastRaw, shift)
 	}
 	// Double-click: outside a viewport → enter model space; inside an active viewport, on a
@@ -367,9 +372,15 @@
 	// The point a draw/place should use: snap wins; else the shift-constrained pointer.
 	function drawPoint(clientX: number, clientY: number, base?: Pt, shift = false): Pt | null {
 		const s = findSnap(clientX, clientY)
-		if (s) return s
+		if (s) return s   // object snap wins over grid snap
 		const raw = toLocalXY(clientX, clientY); if (!raw) return null
-		return base ? constrainPt(base, raw, shift) : raw
+		let p = raw
+		if (base) {
+			if (shift) p = constrainPt(base, raw, true)                                          // Shift: 15° / square
+			else if (ortho && (tool === 'Line' || tool === 'Dimension')) p = orthoPt(base, raw)   // ORTHO: H/V
+		}
+		if (snap) p = snapToGrid(p)   // grid snap
+		return p
 	}
 
 	// ── editing handles (Kestrel-style grips) ──
@@ -573,7 +584,7 @@
 	function applyDrag(p: Pt, shift: boolean): Ent {
 		if (drag!.kind === 'grip') return gripsFor(drag!.base)[drag!.gi].apply(constrainGrip(drag!.base, drag!.gi, p, shift))
 		let dx = p[0] - drag!.start[0], dy = p[1] - drag!.start[1]
-		if (shift) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 }   // ortho / axis-lock
+		if (shift !== ortho) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 }   // ortho / axis-lock
 		return moveEnt(drag!.base, dx, dy)
 	}
 	function onDragMove(e: PointerEvent) {
@@ -591,7 +602,7 @@
 				drag.bases = copies; drag.duplicated = true
 			}
 			let dx = p[0] - drag.start[0], dy = p[1] - drag.start[1]
-			if (e.shiftKey) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 }   // ortho / axis-lock
+			if (e.shiftKey !== ortho) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 }   // ortho / axis-lock (Shift toggles)
 			for (const b of drag.bases) on.update?.(moveEnt(b, dx, dy))   // move the whole group (or the copies)
 		}
 	}

@@ -2,6 +2,9 @@
 	// Ctrl-K command palette (Pages mockup): fuzzy-ish search over drawings/rooms/floors;
 	// Enter or click opens the pick. Overlay closes on Esc / backdrop click.
 	import { Icon } from '$lib'
+	import { tick } from 'svelte'
+	// autofocus doesn't fire for a dynamically-mounted node → focus it ourselves once it's in the DOM.
+	function autofocus(node: HTMLInputElement) { tick().then(() => node.focus()) }
 
 	type Item = { title: string; kind: 'plan' | 'sheet' | 'elevation' | 'place'; path?: string }
 	let { items = [], onpick, onclose }:
@@ -33,8 +36,7 @@
 	<div class="cp" onclick={(e) => e.stopPropagation()}>
 		<div class="cp-search">
 			<Icon name="search" size={15} />
-			<!-- svelte-ignore a11y_autofocus -->
-			<input placeholder="Search drawings, floors, rooms…" bind:value={query} autofocus onkeydown={onKey} />
+			<input placeholder="Search drawings, floors, rooms…" bind:value={query} use:autofocus onkeydown={onKey} />
 			<span class="cp-kbd">Esc</span>
 		</div>
 		<div class="cp-list">

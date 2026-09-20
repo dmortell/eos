@@ -39,6 +39,12 @@ Fixed from the review:
 - [ ] §2.8 key tabs by node id (not title), frame drag threshold+undo, z0 clamp mismatch, uncontrolled Properties inputs, coalescing merges unrelated edits, outline-only rect hit,
 - [ ] §5 snap/hit perf (cache the CTM/bbox), 
 - [ ] §6 nits (dead `circle` type (will be used later), unify line/polyline, uid collision, unused CSS, a11y). 
+- [ ] **Rotated-shape resize handles are wonky** (Dave, 2026-09-20) — corner/edge grips on a rotated
+  object don't drag cleanly: the shift-square constrain (`constrainGrip`) still works in WORLD axes, and
+  a corner drag should resize along the object's LOCAL (rotated) axes about the opposite corner. Fix by
+  doing the resize math entirely in the un-rotated local frame (we've solved this in other tools / older
+  CAD — reuse that approach). Likely also wants **per-axis rotation (X/Y/Z°)** for real 3D shapes rather
+  than the single Z angle we have now.
 
 Suggested order in review.md §7.
 
@@ -516,8 +522,11 @@ Sheets' basic version** — see §10.
 ## 9. Status bar wiring  (P1)
 - [x] **Model / Sheet** views now differ: Sheet = A3 paper + viewport frame; Model = drawing
   fills the pane (no paper). **GRID** toggle shows/hides the viewport grid.
-- [ ] Wire **SNAP / ORTHO / OSNAP / LWT** to real behaviour (grid snap, ortho constraint,
-  object snap, lineweight display). (ORTHO could reuse the Shift-constrain path.)
+- [x] Wire **SNAP / ORTHO / OSNAP / LWT** (2026-09-20) — **SNAP** rounds draw points to a 10-unit grid
+  (object snap still wins); **ORTHO** forces line-draw + move to H/V, with **Shift toggling** it
+  (XOR); **OSNAP** + **LWT** were already wired. `snap`/`ortho` flow through `env` from the status
+  toggles. Verified: SNAP on → coords ×10, off → raw; ORTHO → horizontal line (dy=0). Ctrl-K palette
+  now autofocuses its search input (used:action via tick, not the unreliable `autofocus` attr).
 
 ## 10. Undo / redo / history / revisions  (P2)
 - [x] **Undo / redo** (Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z, Edit menu) — snapshot-based, coalesces
