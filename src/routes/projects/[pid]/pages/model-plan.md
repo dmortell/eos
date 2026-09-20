@@ -38,7 +38,21 @@
 > node grips reshape via `graphNodeDraw`/`graphNodeApply` (plan x/y; elevation on-axis + z). All reuse
 > the same undo hooks. Verified in-browser: click a wall → whole ribbon highlights with corner node
 > grips; drag a corner → both segments follow with clean re-mitred joints; Ctrl+Z restores the rectangle.
-> Next slice: prism rotate, then placement (draw new walls/prisms) + advanced graph ops.
+>
+> **§3/§4/§5 FIRST-PASSES DONE (2026-09-20):**
+> - **§3 Placement:** Wall / Furniture / Trunk (rect) / Pipe (round) tools (`placeGraph`/`placePrism`,
+>   `addModelObj`, one undo step, auto-select). §3 selection/handles: move + resize + node-drag +
+>   **node-insert** (dbl-click a segment) + **delete** (Delete key). §3 **Object panel**
+>   (`PropertiesPanel`): prism X/Y/Z·W/D/H·rot / wall h·thickness / conduit w·h·rect-round + layer +
+>   Delete, edits via `updateModelObj` (undo). §3 vertical runs = elevation node-z editing.
+> - **§4 Sections:** Section tool draws a plan clip box → spawns a front elevation tab clipped to it
+>   (`on.section` → `onSection`, `docClip`, Model3d `clip` prop AABB-culls). §5.4 multi-direction =
+>   switch the section tab's ViewCube (clip persists in any direction).
+> - **§5.1 Openings:** Opening tool → prism on the dashed "Openings" layer (`Layer.dash`), reads as an
+>   outline-gap cut (no CSG, per plan). §5.2 furniture ✓, §5.3 rect/round ✓, §5.5 vertical ✓.
+> **Remaining refinements:** prism rotate handle; advanced graph ops (disconnect / per-seg profile);
+> section markers on the plan + `trimToClip` (true cut vs AABB cull) + direction fan-out; opening swing
+> arcs / true wall subtraction; **§5.6 blocks** (plan defers to Future). Firestore (§6/P6) still pending.
 
 
 Goal: in Pages, draw a floor's **model** (walls, openings for doors/windows, furniture as boxes/holes,
