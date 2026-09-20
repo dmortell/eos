@@ -6,7 +6,8 @@
 	import { Icon, ColorPicker } from '$lib'
 	import type { Ent, Pt } from '../ui/Viewport.svelte'
 	import { translate, STYLE_DEFAULTS, type TextAlign, type VAlign } from '../ui/geometry'
-	import { LAYERS, COLORS } from '../palette'
+	import { COLORS } from '../palette'
+	import { layers } from '../layers.svelte'
 	import type { FrameSel } from './PaperPage.svelte'
 
 	let { ents = [], onupdate, pageTitle = '', pageKind = '', activeLayer = '', node = null, viewport = null }:
@@ -170,8 +171,8 @@
 		<div class="prop-sec">STYLE</div>
 		<div class="prop"><span>Layer</span>
 			<select class="navf" value={(cc('layer') as string | undefined) ?? ''} onkeydown={fnav} onchange={(e) => setLayer(strVal(e))}>
-				<option value="">— {activeLayer || 'By tool'} —</option>
-				{#each LAYERS as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+				<option value="">— none —</option>
+				{#each layers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
 			</select>
 		</div>
 		<div class="prop"><span>Color</span>

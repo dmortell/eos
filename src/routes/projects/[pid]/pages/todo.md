@@ -408,8 +408,13 @@ Sheets' basic version** — see §10.
   no-op; make it create / rename / delete presets and save layer-visibility sets.
 - [ ] **Find / identify an object's layer** — select an object → highlight its layer in the
   panel (and a "select all on layer" / "isolate layer" action).
-- [ ] **Wire to the canvas** — real show/hide/lock, active layer, per-object layer assignment,
-  layer of new objects; apply a **View Preset** = a saved set of layer visibilities.
+- [x] **Wire to the canvas** (2026-09-20) — shared reactive store `layers.svelte.ts` (single source of
+  truth). Objects carry `layer`; new objects take the **active layer** (clicked in the panel). The
+  Viewport hides objects on hidden layers, blocks pick/marquee/grips on locked layers, and resolves
+  **ByLayer** colour from the layer. LayersPanel rebuilt on the store (grouped eye/lock/colour, active
+  highlight, settings dialog); Properties Layer dropdown reads it. Verified in-browser (hide→vanish,
+  lock→unselectable, active-switch→new object's ByLayer colour follows). [ ] Still open: **View Preset**
+  = a saved set of layer visibilities (apply/save); per-object → highlight its layer in the panel.
 - [ ] **Background layers** — import one or more PDF / image / DXF files as background
   layers that can be toggled/swapped (e.g. compare floorplan vs RCP). Replaces the
   Sheets "one background PDF" limitation.

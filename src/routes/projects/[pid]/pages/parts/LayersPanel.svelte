@@ -1,80 +1,31 @@
 <script lang="ts">
-	// Right-sidebar LAYERS panel (Pages mockup) — modelled on the reference design:
-	// a View-Presets picker (saved layer states = "views"), a search box, a nested
-	// layer tree (groups → sub-layers) with eye toggles + colour/line swatches, and
-	// a New-Layer button. Mock data + local state only.
+	// Right-sidebar LAYERS panel — now backed by the shared reactive layer store (layers.svelte.ts),
+	// so eye/lock toggles, colours and the active layer really drive the canvas. Grouped tree with a
+	// View-Preset picker + search (cosmetic), per-layer eye/lock/colour and a settings dialog.
 	import { Icon, ColorPicker } from '$lib'
 	import { COLORS } from '../palette'
+	import { layers, layerUI, layerGroups, addLayer, removeLayer } from '../layers.svelte'
 	import { tick } from 'svelte'
-	// Focus + select a rename input once it's in the DOM (a tick after it renders).
 	function focusEdit(node: HTMLInputElement) { tick().then(() => { node.focus(); node.select() }) }
-
-	type Sub = { name: string; on: boolean; lock?: boolean; swatch: 'color' | 'line'; color?: string; dash?: 'solid' | 'dashed' | 'dotted'; weight?: number }
-	type Group = { name: string; on: boolean; open: boolean; lock?: boolean; kids: Sub[] }
 
 	const PRESETS = ['High Level Outlets', 'Low Level Outlets', 'Trunk Routes', 'Desk Numbering', 'All Layers']
 	let preset = $state(PRESETS[0])
 	let search = $state('')
-
-	let groups = $state<Group[]>([
-		{ name: 'Outlets — High', on: true, open: true, kids: [
-			{ name: 'Data Outlets', on: true, swatch: 'color', color: '#2563eb' },
-			{ name: 'Power Outlets', on: true, swatch: 'color', color: '#16a34a' },
-			{ name: 'Wireless', on: true, swatch: 'color', color: '#9333ea' },
-		] },
-		{ name: 'Outlets — Low', on: false, open: false, kids: [
-			{ name: 'Data Outlets', on: false, swatch: 'color', color: '#2563eb' },
-			{ name: 'Power Outlets', on: false, swatch: 'color', color: '#16a34a' },
-		] },
-		{ name: 'Trunk Routes', on: true, open: true, kids: [
-			{ name: 'Copper Trunks', on: true, swatch: 'line', color: '#2563eb', dash: 'dashed', weight: 1.5 },
-			{ name: 'Fiber Trunks', on: true, swatch: 'line', color: '#2563eb', dash: 'solid', weight: 2 },
-			{ name: 'Conduit', on: false, swatch: 'line', color: '#94a3b8', dash: 'dotted', weight: 1 },
-		] },
-		{ name: 'Walls & Structure', on: false, open: false, kids: [
-			{ name: 'Walls', on: false, swatch: 'line', color: '#334155', dash: 'solid', weight: 2.5 },
-			{ name: 'Doors', on: false, swatch: 'line', color: '#334155', dash: 'solid', weight: 1.5 },
-		] },
-		{ name: 'Rooms & Labels', on: false, open: false, kids: [
-			{ name: 'Room Fills', on: false, swatch: 'color', color: '#e2e8f0' },
-			{ name: 'Room Names', on: false, swatch: 'color', color: '#64748b' },
-		] },
-		{ name: 'Dimensions', on: false, open: false, kids: [
-			{ name: 'Linear', on: false, swatch: 'color', color: '#0e7490' },
-		] },
-		{ name: 'Architectural', on: false, open: false, kids: [
-			{ name: 'A-WALL', on: false, swatch: 'line', color: '#8a7f72', dash: 'solid', weight: 2.5 },
-			{ name: 'A-OPENING', on: false, swatch: 'line', color: '#7f9bb0', dash: 'solid', weight: 1.2 },
-			{ name: 'A-DOOR', on: false, swatch: 'line', color: '#a99a80', dash: 'solid', weight: 1.5 },
-			{ name: 'A-GLAZ', on: false, swatch: 'line', color: '#89a0ab', dash: 'solid', weight: 1 },
-			{ name: 'A-FLOR', on: false, swatch: 'color', color: '#b0a596' },
-			{ name: 'A-FURN', on: false, swatch: 'color', color: '#94a58c' },
-			{ name: 'A-CLNG', on: false, swatch: 'line', color: '#a3919c', dash: 'dashed', weight: 1 },
-		] },
-		{ name: 'Grid', on: true, open: false, kids: [] },
-	])
-	// A group with no children is a single toggleable layer (like Grid).
 	const matches = (s: string) => !search || s.toLowerCase().includes(search.toLowerCase())
 
-	// ── new / edit layers ──
-	const PALETTE = ['#2563eb', '#16a34a', '#9333ea', '#dc2626', '#ea580c', '#0e7490', '#334155', '#64748b']
-	let editing = $state<string | null>(null)   // "g<i>" (group) or "g<i>s<j>" (sub) being renamed
-	function newGroup() {
-		groups.push({ name: 'New Layer', on: true, open: false, kids: [] })
-		editing = `g${groups.length - 1}`
-	}
-	function addSub(gi: number) {
-		const g = groups[gi]
-		g.open = true
-		g.kids.push({ name: 'Sub-layer', on: true, swatch: 'color', color: PALETTE[g.kids.length % PALETTE.length] })
-		editing = `g${gi}s${g.kids.length - 1}`
-	}
-	function delGroup(gi: number) { groups.splice(gi, 1); editing = null }
+	// Per-group collapse state (default open). Group visibility = all its layers visible.
+	let openGroups = $state<Record<string, boolean>>({})
+	const isOpen = (g: string) => openGroups[g] !== false
+	const groupOn = (g: string) => layers.filter((l) => l.group === g).every((l) => l.visible)
+	function setGroup(g: string, on: boolean) { for (const l of layers) if (l.group === g) l.visible = on }
+
+	let editing = $state<string | null>(null)   // layer id being renamed
 	function commit(e: KeyboardEvent) { if (e.key === 'Enter' || e.key === 'Escape') editing = null }
-	// Layer-settings dialog (opened from a sub-layer's swatch button).
-	let dlg = $state<{ gi: number; si: number } | null>(null)
-	let dlgSub = $derived(dlg ? groups[dlg.gi]?.kids[dlg.si] : null)
-	function delSub() { if (dlg) { groups[dlg.gi].kids.splice(dlg.si, 1); dlg = null } }
+
+	// Layer-settings dialog (opened from a layer's swatch button).
+	let dlgId = $state<string | null>(null)
+	let dlg = $derived(dlgId ? layers.find((l) => l.id === dlgId) : null)
+	function del() { if (dlgId) { removeLayer(dlgId); dlgId = null } }
 </script>
 
 <div class="lp">
@@ -93,48 +44,40 @@
 	</div>
 
 	<div class="lp-tree">
-		{#each groups as g, gi (gi)}
-			{#if matches(g.name) || g.kids.some(k => matches(k.name))}
-				<div class="lg-row" class:off={!g.on}>
-					{#if g.kids.length}
-						<button class="lg-chev" aria-label={g.open ? 'Collapse' : 'Expand'} onclick={() => (g.open = !g.open)}>
-							<Icon name={g.open ? 'chevronDown' : 'chevronRight'} size={12} />
-						</button>
-					{:else}
-						<span class="lg-chev spacer"></span>
-					{/if}
-					{#if editing === `g${gi}`}
-						<input class="ly-edit" bind:value={g.name} use:focusEdit onblur={() => (editing = null)} onkeydown={commit} />
-					{:else}
-						<!-- svelte-ignore a11y_no_static_element_interactions -->
-						<span class="lg-name" ondblclick={() => (editing = `g${gi}`)}>{g.name}</span>
-					{/if}
-					<button class="lp-mini" title="Add sub-layer" aria-label="Add sub-layer" onclick={() => addSub(gi)}><Icon name="plus" size={12} /></button>
-					<button class="lp-mini" class:on={g.lock} title="Lock layer" aria-label="Lock layer" onclick={() => (g.lock = !g.lock)}><Icon name={g.lock ? 'lock' : 'lockOpen'} size={12} /></button>
-						<button class="lp-mini" title="Delete layer" aria-label="Delete layer" onclick={() => delGroup(gi)}><Icon name="close" size={12} /></button>
-					<button class="lp-check" class:on={g.on} aria-label="Toggle {g.name}" onclick={() => (g.on = !g.on)}></button>
+		{#each layerGroups() as g (g)}
+			{@const kids = layers.filter((l) => l.group === g)}
+			{#if matches(g) || kids.some((k) => matches(k.name))}
+				<div class="lg-row">
+					<button class="lg-chev" aria-label={isOpen(g) ? 'Collapse' : 'Expand'} onclick={() => (openGroups = { ...openGroups, [g]: !isOpen(g) })}>
+						<Icon name={isOpen(g) ? 'chevronDown' : 'chevronRight'} size={12} />
+					</button>
+					<span class="lg-name">{g}</span>
+					<button class="lp-mini" title="Add layer to {g}" aria-label="Add layer" onclick={() => { const l = addLayer(g); openGroups = { ...openGroups, [g]: true }; editing = l.id }}><Icon name="plus" size={12} /></button>
+					<button class="lp-check" class:on={groupOn(g)} aria-label="Toggle {g}" onclick={() => setGroup(g, !groupOn(g))}></button>
 				</div>
-				{#if g.open}
-					{#each g.kids as k, si (si)}
-						{#if matches(k.name) || matches(g.name)}
-							<div class="ly-row" class:off={!k.on}>
-								<button class="ly-eye" aria-label="Show/hide {k.name}" onclick={() => (k.on = !k.on)}>
-									<Icon name={k.on ? 'eye' : 'eyeSlash'} size={13} />
+				{#if isOpen(g)}
+					{#each kids as l (l.id)}
+						{#if matches(l.name) || matches(g)}
+							<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+							<div class="ly-row" class:off={!l.visible} class:active={l.id === layerUI.active} onclick={() => (layerUI.active = l.id)}>
+								<button class="ly-eye" aria-label="Show/hide {l.name}" onclick={(e) => { e.stopPropagation(); l.visible = !l.visible }}>
+									<Icon name={l.visible ? 'eye' : 'eyeSlash'} size={13} />
 								</button>
-								<button class="ly-lock-btn" class:on={k.lock} aria-label="{k.lock ? 'Unlock' : 'Lock'} {k.name}" title="{k.lock ? 'Unlock' : 'Lock'} layer" onclick={() => (k.lock = !k.lock)}>
-									<Icon name={k.lock ? 'lock' : 'lockOpen'} size={12} />
+								<button class="ly-lock-btn" class:on={l.locked} aria-label="{l.locked ? 'Unlock' : 'Lock'} {l.name}" title="{l.locked ? 'Unlock' : 'Lock'} layer" onclick={(e) => { e.stopPropagation(); l.locked = !l.locked }}>
+									<Icon name={l.locked ? 'lock' : 'lockOpen'} size={12} />
 								</button>
-								{#if editing === `g${gi}s${si}`}
-									<input class="ly-edit" bind:value={k.name} use:focusEdit onblur={() => (editing = null)} onkeydown={commit} />
+								{#if editing === l.id}
+									<input class="ly-edit" bind:value={l.name} use:focusEdit onblur={() => (editing = null)} onkeydown={commit} onclick={(e) => e.stopPropagation()} />
 								{:else}
 									<!-- svelte-ignore a11y_no_static_element_interactions -->
-									<span class="ly-name" ondblclick={() => (editing = `g${gi}s${si}`)}>{k.name}</span>
+									<span class="ly-name" title="Click to make active · double-click to rename" ondblclick={() => (editing = l.id)}>{l.name}</span>
 								{/if}
-									<!-- a coloured button (with a line inside for line layers) → opens the settings dialog -->
-									<button class="sw-btn" title="Layer settings" aria-label="Edit {k.name}" onclick={() => (dlg = { gi, si })}
-										style:background={k.swatch === 'color' ? k.color : 'var(--input)'}>
-										{#if k.swatch === 'line'}<span class="sw-btn-line" style:border-bottom-color={k.color} style:border-bottom-style={k.dash} style:border-bottom-width="{Math.min(4, Math.max(1, k.weight ?? 1))}px"></span>{/if}
-									</button>
+								{#if l.id === layerUI.active}<span class="ly-active" title="Active layer">●</span>{/if}
+								<!-- a coloured button (with a line inside for line layers) → opens the settings dialog -->
+								<button class="sw-btn" title="Layer settings" aria-label="Edit {l.name}" onclick={(e) => { e.stopPropagation(); dlgId = l.id }}
+									style:background={l.swatch === 'color' ? l.color : 'var(--input)'}>
+									{#if l.swatch === 'line'}<span class="sw-btn-line" style:border-bottom-color={l.color} style:border-bottom-style={l.dash} style:border-bottom-width="{Math.min(4, Math.max(1, l.weight ?? 1))}px"></span>{/if}
+								</button>
 							</div>
 						{/if}
 					{/each}
@@ -143,30 +86,30 @@
 		{/each}
 	</div>
 
-	<button class="lp-new" onclick={newGroup}><Icon name="plus" size={13} /> New Layer</button>
+	<button class="lp-new" onclick={() => { const l = addLayer(); editing = l.id }}><Icon name="plus" size={13} /> New Layer</button>
 </div>
 
-{#if dlg && dlgSub}
+{#if dlg}
 	<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-	<div class="lp-dlg-back" onclick={() => (dlg = null)}>
+	<div class="lp-dlg-back" onclick={() => (dlgId = null)}>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="lp-dlg" onclick={(e) => e.stopPropagation()}>
 			<div class="lp-dlg-head">Layer settings</div>
-			<label class="lp-f"><span>Name</span><input bind:value={dlgSub.name} /></label>
-			<div class="lp-f"><span>Colour</span><ColorPicker value={dlgSub.color} colors={COLORS} onchange={(v) => { if (dlgSub && v) dlgSub.color = v }} /></div>
+			<label class="lp-f"><span>Name</span><input bind:value={dlg.name} /></label>
+			<div class="lp-f"><span>Colour</span><ColorPicker value={dlg.color} colors={COLORS} onchange={(v) => { if (dlg && v) dlg.color = v }} /></div>
 			<label class="lp-f"><span>Draw as</span>
-				<select bind:value={dlgSub.swatch}><option value="color">Fill / symbol</option><option value="line">Line</option></select>
+				<select bind:value={dlg.swatch}><option value="color">Fill / symbol</option><option value="line">Line</option></select>
 			</label>
-			{#if dlgSub.swatch === 'line'}
+			{#if dlg.swatch === 'line'}
 				<label class="lp-f"><span>Line type</span>
-					<select bind:value={dlgSub.dash}><option value="solid">Solid</option><option value="dashed">Dashed</option><option value="dotted">Dotted</option></select>
+					<select bind:value={dlg.dash}><option value="solid">Solid</option><option value="dashed">Dashed</option><option value="dotted">Dotted</option></select>
 				</label>
-				<label class="lp-f"><span>Thickness</span><input type="number" min="0.25" max="6" step="0.25" bind:value={dlgSub.weight} /><em>mm</em></label>
+				<label class="lp-f"><span>Thickness</span><input type="number" min="0.25" max="6" step="0.25" bind:value={dlg.weight} /><em>mm</em></label>
 			{/if}
-			<label class="lp-f"><span>Locked</span><input type="checkbox" bind:checked={dlgSub.lock} /></label>
+			<label class="lp-f"><span>Locked</span><input type="checkbox" bind:checked={dlg.locked} /></label>
 			<div class="lp-dlg-btns">
-				<button class="lp-del" onclick={delSub}><Icon name="close" size={12} /> Delete layer</button>
-				<button class="lp-done" onclick={() => (dlg = null)}>Done</button>
+				<button class="lp-del" onclick={del}><Icon name="close" size={12} /> Delete layer</button>
+				<button class="lp-done" onclick={() => (dlgId = null)}>Done</button>
 			</div>
 		</div>
 	</div>
@@ -192,17 +135,16 @@
 	.lg-row:hover { background:var(--hover); }
 	.lg-chev { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; flex:0 0 auto;
 		border-radius:3px; color:var(--muted); background:none; border:none; }
-	.lg-chev.spacer { width:16px; }
 	.lg-chev:hover { color:var(--text); background:var(--line); }
 	.lg-name { flex:1; min-width:0; font-size:12px; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-	.lg-row.off .lg-name { color:var(--muted); font-weight:500; }
 	/* group visibility checkbox */
 	.lp-check { width:15px; height:15px; flex:0 0 auto; border:1.5px solid var(--line); border-radius:3px; background:var(--input); position:relative; }
 	.lp-check.on { background:var(--accent); border-color:var(--accent); }
 	.lp-check.on::after { content:''; position:absolute; left:4px; top:1px; width:4px; height:8px; border:solid #06232a; border-width:0 2px 2px 0; transform:rotate(45deg); }
 
-	.ly-row { display:flex; align-items:center; gap:6px; padding:3px 4px 3px 22px; border-radius:5px; }
+	.ly-row { display:flex; align-items:center; gap:6px; padding:3px 4px 3px 22px; border-radius:5px; cursor:default; }
 	.ly-row:hover { background:var(--hover); }
+	.ly-row.active { background:var(--active); }
 	.ly-eye { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; flex:0 0 auto; border-radius:3px; color:var(--muted); background:none; border:none; }
 	.ly-eye:hover { color:var(--text); background:var(--line); }
 	/* lock toggle beside the eye: faint when unlocked, accent when locked */
@@ -210,7 +152,9 @@
 	.ly-lock-btn:hover { color:var(--text); background:var(--line); }
 	.ly-lock-btn.on { color:var(--accent); }
 	.ly-name { flex:1; min-width:0; font-size:12px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+	.ly-row.active .ly-name { color:var(--accent); font-weight:600; }
 	.ly-row.off .ly-name, .ly-row.off .ly-eye { color:var(--faint); }
+	.ly-active { color:var(--accent); font-size:9px; flex:0 0 auto; }
 	/* one coloured swatch button (with a line inside for line layers) → opens the dialog */
 	.sw-btn { width:26px; height:15px; flex:0 0 auto; border:1px solid #0003; border-radius:3px; padding:0;
 		display:flex; align-items:center; justify-content:center; overflow:hidden; cursor:pointer; }
@@ -221,7 +165,6 @@
 	.lp-mini { display:none; align-items:center; justify-content:center; width:18px; height:18px; flex:0 0 auto; border-radius:3px; color:var(--muted); background:none; border:none; }
 	.lg-row:hover .lp-mini { display:inline-flex; }
 	.lp-mini:hover { background:var(--line); color:var(--text); }
-	.lp-mini.on { color:var(--accent); display:inline-flex; }
 	.ly-row.off .sw-btn { opacity:.4; }
 
 	/* Layer-settings dialog */

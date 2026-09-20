@@ -11,6 +11,7 @@
 	import Handle from '../parts/Handle.svelte'
 	import { BASE, HANDLE_PX } from '../constants'
 	import { type Pt, type Ent, type View, type ElevDir, DEFAULT_BOX_H, GROUND, PT, STYLE_DEFAULTS, ELEV_BASIS, elevU, elevUInv, flatSpan, dist, segDist, translate, textBox, boxElev, boxElevSet, boxFaces } from './geometry'
+	import { isLayerHidden, isLayerLocked, layerColor } from '../layers.svelte'
 	// Pure geometry now lives in ./geometry (testable, shared with PropertiesPanel); re-export the
 	// entity types so existing `import { type Ent } from './Viewport.svelte'` sites keep working.
 	export type { Pt, Ent, View } from './geometry'
@@ -308,9 +309,11 @@
 		const m = vbMap()
 		return m ? px / (view.zoom * m.scale) : px
 	}
+	// A hidden or locked layer's objects can't be picked (hidden = invisible, locked = view-only).
+	const pickable = (e: Ent) => !isLayerHidden(e.layer) && !isLayerLocked(e.layer)
 	function hit(p: Pt): string[] {
 		const thr = hitTol(7)
-		for (let i = entities.length - 1; i >= 0; i--) if (hitEnt(entities[i], p, thr)) return [entities[i].id]
+		for (let i = entities.length - 1; i >= 0; i--) if (pickable(entities[i]) && hitEnt(entities[i], p, thr)) return [entities[i].id]
 		return []
 	}
 	// Expand a set of ids to include every member of any group they touch (a group selects as one).
@@ -633,6 +636,7 @@
 		if (x1 - x0 < 2 && y1 - y0 < 2) return   // tiny → treat as a click (let onClick clear)
 		const crossing = m.b[0] < m.a[0]   // dragged right→left
 		const ids = entities.filter(en => {
+			if (!pickable(en)) return false   // hidden/locked layers don't marquee-select
 			const [bx0, by0, bx1, by1] = bbox(en)
 			return crossing
 				? bx0 <= x1 && bx1 >= x0 && by0 <= y1 && by1 >= y0        // intersects
@@ -706,8 +710,8 @@
 				{/each}
 				<text x="24" y="230" font-size="9" fill="#64748b" font-weight="600">OFFICE — 33F</text>
 			{/if}
-			<!-- drawn entities + rubber-band preview (the edited text is hidden; the editor replaces it) -->
-			{#each entities as e (e.id)}{#if e.id !== editText?.id}{@render drawn(e, selSet.has(e.id))}{/if}{/each}
+			<!-- drawn entities (objects on a hidden layer are skipped; the edited text is hidden too) -->
+			{#each entities as e (e.id)}{#if e.id !== editText?.id && !isLayerHidden(e.layer)}{@render drawn(e, selSet.has(e.id))}{/if}{/each}
 			{#if active && tool === 'Line' && draft.length}
 				<!-- polyline preview: committed segments + rubber band to the cursor -->
 				<polyline points={draft.map(p => p.join(',')).join(' ')} fill="none" stroke={SEL} stroke-width="1.2" />
@@ -718,7 +722,7 @@
 			<!-- editing handles: square grips at each selected entity's defining points -->
 			{#if active && tool === 'Select'}
 				{#each entities as e (e.id)}
-					{#if selSet.has(e.id)}
+					{#if selSet.has(e.id) && !isLayerHidden(e.layer) && !isLayerLocked(e.layer)}
 						{#each gripsFor(e) as g}
 							<Handle cx={g.x} cy={g.y} size={gripSize} cursor="crosshair" strokeWidth={1.2 / (canvasZoom || 1)} />
 						{/each}
@@ -769,7 +773,8 @@
 {#snippet drawn(e: Ent, seld: boolean)}
 	<!-- Selection is shown by the grips, NOT by recolouring/thickening the stroke — so colour and
 	     lineweight edits are visible live while the object stays selected. -->
-	{@const ink = e.color ?? INK}
+	<!-- colour resolves ByLayer: explicit object colour → its layer's colour → the tool ink. -->
+	{@const ink = e.color ?? layerColor(e.layer) ?? INK}
 	<!-- An explicit per-object weight ALWAYS renders; LWT only chooses the thickness for objects with
 	     no weight set (on = the default 1.2, off = a thin 0.5 display line). -->
 	{@const w = (e.weight ?? (lwt ? STYLE_DEFAULTS.weight : 0.5)) / (canvasZoom || 1)}

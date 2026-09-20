@@ -13,6 +13,7 @@
 	import DrawingNavigator from './parts/DrawingNavigator.svelte'
 	import LayersPanel from './parts/LayersPanel.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
+	import { layerUI, layerById } from './layers.svelte'
 	import HistoryPanel from './parts/HistoryPanel.svelte'
 	import StatusBar from './parts/StatusBar.svelte'
 	import ViewGizmos from './parts/ViewGizmos.svelte'
@@ -125,7 +126,7 @@
 		if (gestureActive) { if (!gesturePushed) { pushHistory(id, label); gesturePushed = true } }
 		else pushHistory(id, label)
 	}
-	function addEnt(id: string, e: Ent) { recordEdit(id, 'Add ' + e.type); docEnts = { ...docEnts, [id]: [...(docEnts[id] ?? []), e] } }
+	function addEnt(id: string, e: Ent) { const en = e.layer ? e : { ...e, layer: layerUI.active }; recordEdit(id, 'Add ' + en.type); docEnts = { ...docEnts, [id]: [...(docEnts[id] ?? []), en] } }
 	function updateEnt(id: string, e: Ent) { recordEdit(id, 'Edit ' + e.type); docEnts = { ...docEnts, [id]: (docEnts[id] ?? []).map(x => x.id === e.id ? e : x) } }
 	function deleteEnts(id: string, ids: string[]) {
 		if (!ids.length) return
@@ -377,7 +378,7 @@
 		window.addEventListener('keydown', onGlobalKey, true)
 		return () => window.removeEventListener('keydown', onGlobalKey, true)
 	})
-	let activeLayer = $state('Annotations')   // shown in the Properties panel (mock)
+	let activeLayer = $derived(layerById(layerUI.active)?.name ?? '')   // the active layer's name (from the shared store)
 
 	// Canvas · tools + pointer + zoom
 	const TOOLS = [
