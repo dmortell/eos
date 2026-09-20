@@ -461,10 +461,29 @@ Symbols are identical to annotes.
   arrow → cycles front→right→rear→left (the arrow relocates to the viewed edge and the elevation
   re-projects via projOf's `docSecDir` fallback, unless a pane pinned a ViewCube projection). Verified
   in-browser (drag left 120px → box moved, size kept; arrow click front→right → arrow jumps to the
-  bottom edge and the opened elevation reads RIGHT). **Follow-ups:** RESIZE the marker (corner grips, not
-  just move), and the full symbol-registry form (tag with up to 4 arms). NB: a section-marker BORDER hit needs
-  `hitTol()/dscale` (unscaled model units) — plain `hitTol()` is off by the drawing scale for an
-  edge-distance test (only area/inside tests like `hitModel` get away with raw `hitTol`).
+  bottom edge and the opened elevation reads RIGHT). **SELECTION + RESIZE + TOOLBAR done 2026-09-21
+  (Dave's feedback):** a section no longer jumps to its elevation when drawn — it stays on the plan and
+  SELECTS the marker (`selSection`). A selected marker shows corner RESIZE grips, a solid highlight, a
+  status/instructions line, and a floating TOOLBAR: a LINK button opens the elevation (replaces
+  click-to-open), a direction DROPDOWN re-aims the cut (clearer than clicking the arrow), and a delete
+  button (Delete key / Esc-deselect too). Verified (draw → stays on plan, selected; resize grew the box;
+  dropdown → arrow moved; link → opened the elevation). **Follow-ups:** the full symbol-registry tag form
+  (up to 4 arms). NB: a section-marker BORDER hit needs `hitTol()/dscale` (unscaled model units) — plain
+  `hitTol()` is off by the drawing scale for an edge-distance test (only area/inside tests like
+  `hitModel` get away with raw `hitTol`).
+- [ ] **Section elevation → PLACEABLE VIEWPORT on a sheet** (Dave, 2026-09-21; decision: a placeable
+  viewport, not just a tab) — opening a section gives an elevation you can CUT/PASTE onto any sheet page
+  as a drawing viewport (like a real sheet layout). Needs the bigger piece: **multiple viewports per
+  sheet**, each a frame with its own SOURCE CONFIG `{ kind: plan|elevation|section, clip, dir, scale,
+  crop }` (today PaperPage renders ONE hardcoded frame). Steps: (1) generalise the sheet to an array of
+  viewport frames each with a source; (2) a section's elevation becomes a source you can copy; (3)
+  paste it as a new frame on a sheet (ties into the system-clipboard views/pages todo). Until then a
+  section opens as its own elevation tab.
+- [ ] **Door swing SIDE + type parity** (Dave, 2026-09-21) — the door `flip` picks the hinge JAMB;
+  add a toggle for which SIDE of the wall the leaf swings into (in/out), and a swing-angle handle exists
+  (drag the leaf tip). Windows currently draw a single glazing line — add sill/head + mullions in
+  elevation. (Openings now: Type dropdown Door/Window/Hole + Swing° + Hinge in Properties; door
+  leaf+arc in plan; frame+floor-swing in the 3D view — all done 2026-09-21.)
 - [ ] elevation/section tag (up to 4 arms) 
 - [ ] detail marker
 - [ ] photo marker (linkable to a photo) 
