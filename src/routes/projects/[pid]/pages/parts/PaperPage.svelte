@@ -24,6 +24,7 @@
 			entities?: Ent[]; sel?: string[]; view?: View } = $props()
 	const canvasZoom = $derived(env.canvasZoom ?? 1)
 	const onframe = $derived(on.frame as ((f: FrameSel | null) => void) | undefined)
+	const onactivate = $derived(on.activate), ondeactivate = $derived(on.deactivate)
 
 	let frameBorder = $state<'dashed' | 'solid' | 'none'>('dashed')
 	// Emit the selection (or null) whenever the frame's selection / geometry / border changes.

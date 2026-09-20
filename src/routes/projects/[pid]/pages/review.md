@@ -363,3 +363,5 @@ get Vitest unit tests (neither tool has any today; `pnpm test` runs Vitest with 
 /clear to switch to new tasks
 set cheaper model for simpler subagents
 break sessions
+
+Layers need a lock button beside the visibility button. Changing between plan and elevation in a split tab affects the vertical offset of the other tab

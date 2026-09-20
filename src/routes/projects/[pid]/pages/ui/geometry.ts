@@ -6,7 +6,7 @@ export type Pt = [number, number]
 // 'box' = a mock 3D cuboid: a,b = plan footprint · h = height · z0 = base elevation (height off the
 // ground). In elevation the box is placed by x (from the footprint) + z0/h, so its plan DEPTH
 // (footprint y) is independent of its elevation position.
-export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'ellipse' | 'dim' | 'text' | 'box' | 'polyline'; a?: Pt; b?: Pt; c?: Pt; r?: number; h?: number; z0?: number; text?: string; pts?: Pt[] }
+export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'ellipse' | 'dim' | 'text' | 'box' | 'polyline'; a?: Pt; b?: Pt; c?: Pt; r?: number; h?: number; z0?: number; text?: string; pts?: Pt[]; groupId?: string }
 export type View = { zoom: number; x: number; y: number }
 
 export const DEFAULT_BOX_H = 45   // mock mm height for a freshly drawn cuboid

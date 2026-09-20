@@ -111,13 +111,15 @@
 								<button class="ly-eye" aria-label="Show/hide {k.name}" onclick={() => (k.on = !k.on)}>
 									<Icon name={k.on ? 'eye' : 'eyeSlash'} size={13} />
 								</button>
+								<button class="ly-lock-btn" class:on={k.lock} aria-label="{k.lock ? 'Unlock' : 'Lock'} {k.name}" title="{k.lock ? 'Unlock' : 'Lock'} layer" onclick={() => (k.lock = !k.lock)}>
+									<Icon name={k.lock ? 'lock' : 'lockOpen'} size={12} />
+								</button>
 								{#if editing === `g${gi}s${si}`}
 									<input class="ly-edit" bind:value={k.name} use:focusEdit onblur={() => (editing = null)} onkeydown={commit} />
 								{:else}
 									<!-- svelte-ignore a11y_no_static_element_interactions -->
 									<span class="ly-name" ondblclick={() => (editing = `g${gi}s${si}`)}>{k.name}</span>
 								{/if}
-								{#if k.lock}<span class="ly-lock" title="Locked"><Icon name="lock" size={11} /></span>{/if}
 									<!-- a coloured button (with a line inside for line layers) → opens the settings dialog -->
 									<button class="sw-btn" title="Layer settings" aria-label="Edit {k.name}" onclick={() => (dlg = { gi, si })}
 										style:background={k.swatch === 'color' ? k.color : 'var(--input)'}>
@@ -193,6 +195,10 @@
 	.ly-row:hover { background:var(--hover); }
 	.ly-eye { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; flex:0 0 auto; border-radius:3px; color:var(--muted); background:none; border:none; }
 	.ly-eye:hover { color:var(--text); background:var(--line); }
+	/* lock toggle beside the eye: faint when unlocked, accent when locked */
+	.ly-lock-btn { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; flex:0 0 auto; border-radius:3px; color:var(--faint); background:none; border:none; }
+	.ly-lock-btn:hover { color:var(--text); background:var(--line); }
+	.ly-lock-btn.on { color:var(--accent); }
 	.ly-name { flex:1; min-width:0; font-size:12px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 	.ly-row.off .ly-name, .ly-row.off .ly-eye { color:var(--faint); }
 	/* one coloured swatch button (with a line inside for line layers) → opens the dialog */
@@ -200,7 +206,6 @@
 		display:flex; align-items:center; justify-content:center; overflow:hidden; cursor:pointer; }
 	.sw-btn:hover { border-color:var(--accent); }
 	.sw-btn-line { width:18px; height:0; border-bottom-style:solid; }
-	.ly-lock { color:var(--faint); display:inline-flex; flex:0 0 auto; }
 	.ly-edit { flex:1; min-width:0; background:var(--input); color:var(--text); border:1px solid var(--accent); border-radius:4px; padding:2px 5px; font-size:12px; }
 	.ly-edit:focus { outline:none; }
 	.lp-mini { display:none; align-items:center; justify-content:center; width:18px; height:18px; flex:0 0 auto; border-radius:3px; color:var(--muted); background:none; border:none; }

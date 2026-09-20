@@ -23,7 +23,9 @@
 		activate?: () => void; deactivate?: () => void; add?: (e: Ent) => void; update?: (e: Ent) => void;
 		delete?: (ids: string[]) => void; select?: (ids: string[]) => void; view?: (v: View) => void;
 		status?: (text: string) => void; coords?: (x: number, y: number) => void; beginedit?: () => void;
-		endedit?: (debounceMs?: number) => void; tool?: (name: string) => void; frame?: (f: unknown) => void
+		endedit?: (debounceMs?: number) => void; tool?: (name: string) => void; frame?: (f: unknown) => void;
+		copy?: (ids: string[]) => void; cut?: (ids: string[]) => void; paste?: () => void;
+		group?: (ids: string[]) => void; ungroup?: (ids: string[]) => void
 	}
 	let { label = 'Viewport', scale = '1:1', kind = 'floorplan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {},
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 } }:
@@ -165,10 +167,10 @@
 		if (!active) return   // paper space: enter with a double-click (see onDblclick)
 		if (tool === 'Select') {
 			const p = toLocal(e); if (!p) return
-			const ids = hit(p)
-			if (e.shiftKey || e.ctrlKey || e.metaKey) {   // additive: toggle the clicked entity, keep the rest
-				if (ids.length) { const id = ids[0]; onselect?.(selSet.has(id) ? sel.filter(x => x !== id) : [...sel, id]) }
-			} else onselect?.(ids)
+			const g = expandGroup(hit(p))   // the clicked entity + any group it belongs to
+			if (e.shiftKey || e.ctrlKey || e.metaKey) {   // additive: toggle the whole group
+				if (g.length) { const allSel = g.every(x => selSet.has(x)); onselect?.(allSel ? sel.filter(x => !g.includes(x)) : [...new Set([...sel, ...g])]) }
+			} else onselect?.(g)
 			return
 		}
 		if (tool === 'Text') { const p = drawPoint(e.clientX, e.clientY); if (p) onadd?.({ id: uid(), type: 'text', a: p, text: 'TEXT' }); snapMark = null; return }
@@ -243,6 +245,14 @@
 			copies.forEach(c => onadd?.(c)); onselect?.(copies.map(c => c.id))
 			return
 		}
+		if (e.ctrlKey || e.metaKey) {   // clipboard + grouping
+			const k = e.key.toLowerCase()
+			if (k === 'c' && sel.length) { e.preventDefault(); on.copy?.(sel); return }
+			if (k === 'x' && sel.length) { e.preventDefault(); on.cut?.(sel); return }
+			if (k === 'v') { e.preventDefault(); on.paste?.(); return }
+			if (k === 'g' && !e.shiftKey && sel.length) { e.preventDefault(); on.group?.(sel); return }
+			if (k === 'g' && e.shiftKey && sel.length) { e.preventDefault(); on.ungroup?.(sel); return }
+		}
 		if ((e.key === 'Delete' || e.key === 'Backspace') && sel.length && !draft.length) { e.preventDefault(); ondelete?.(sel); return }
 		if (sel.length && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
 			e.preventDefault()
@@ -298,6 +308,14 @@
 		const thr = hitTol(7)
 		for (let i = entities.length - 1; i >= 0; i--) if (hitEnt(entities[i], p, thr)) return [entities[i].id]
 		return []
+	}
+	// Expand a set of ids to include every member of any group they touch (a group selects as one).
+	function expandGroup(ids: string[]): string[] {
+		const gids = new Set(ids.map(id => entities.find(e => e.id === id)?.groupId).filter(Boolean) as string[])
+		if (!gids.size) return ids
+		const out = new Set(ids)
+		for (const e of entities) if (e.groupId && gids.has(e.groupId)) out.add(e.id)
+		return [...out]
 	}
 
 	// ── object snap (osnap), Kestrel-style ──
@@ -497,9 +515,9 @@
 		const base = entities.find(x => x.id === hitInfo.id); if (!base) return
 		// Shift-press on a body is selection-only (toggles on release) — must NOT start a move drag.
 		if (e.shiftKey && hitInfo.kind === 'move') { pointers.delete(e.pointerId); return }
-		if (!(e.ctrlKey || e.metaKey) && !selSet.has(hitInfo.id)) onselect?.([hitInfo.id])   // plain press on an unselected entity → select it
-		// a body move drags the whole selection when the grabbed entity is part of it, else just it
-		const moveIds = hitInfo.kind === 'move' && selSet.has(hitInfo.id) && sel.length > 1 ? sel : [hitInfo.id]
+		if (!(e.ctrlKey || e.metaKey) && !selSet.has(hitInfo.id)) onselect?.(expandGroup([hitInfo.id]))   // plain press on an unselected entity → select it (+ its group)
+		// a body move drags the whole selection when the grabbed entity is part of it, else just it (+ its group)
+		const moveIds = hitInfo.kind === 'move' ? (selSet.has(hitInfo.id) ? sel : expandGroup([hitInfo.id])) : [hitInfo.id]
 		const bases = moveIds.map(id => entities.find(x => x.id === id)).filter(Boolean) as Ent[]
 		// Ctrl/⌘-drag DUPLICATES the selection (copies created on the first move); a Ctrl-CLICK (no
 		// move) instead toggles selection via onClick.
@@ -601,7 +619,8 @@
 				? bx0 <= x1 && bx1 >= x0 && by0 <= y1 && by1 >= y0        // intersects
 				: bx0 >= x0 && bx1 <= x1 && by0 >= y0 && by1 <= y1        // fully enclosed
 		}).map(en => en.id)
-		onselect?.(m.add ? [...new Set([...sel, ...ids])] : ids)   // Shift/Ctrl marquee unions with the current selection
+		const g = expandGroup(ids)   // include whole groups the marquee touched
+		onselect?.(m.add ? [...new Set([...sel, ...g])] : g)   // Shift/Ctrl marquee unions with the current selection
 		suppressClick = true   // don't let the ensuing click clear this selection
 	}
 	// (box projection helpers boxFaces / boxElevSet live in ./geometry)

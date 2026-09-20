@@ -179,3 +179,7 @@ Test data is sparse and disposable — no migration needed for the Patching labe
 - Patch list is a live view, not a saved deliverable.
 - Tree shows only what exists in the project.
 - Label rendering: ship multiple workarounds behind settings, pick a default once we've tried them.
+
+
+TODO
+- Buttons are mistaken for passive badges, make them more obvious, maybe add a subtle border (and chevron if it makes sense)
