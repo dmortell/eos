@@ -162,6 +162,25 @@ New todos (design / bigger):
   drive yet. When the camera lands the button feeds it yaw/pitch (and the ViewCube corners snap to
   named views). Parked here until then rather than shipping a dead icon.
 ### 3D model editing follow-ups (Dave, 2026-09-20)
+- [x] **Select shapes in the 3D (iso) view** (Dave, 2026-09-21) — click a shape in the iso view → it
+  selects (amber) and Properties shows its props. `hitModelIso` reproduces Model3d's iso projection
+  (isoR + shared `isoBounds` centring), point-in-polygon per 3D face, frontmost by TRUE depth AT the
+  click point (affine-interpolated so a big far face can't beat a nearer small one). Model selection now
+  auto-switches the panel to Props. Geometry editing (grips) in iso stays deferred — selection only.
+- [x] **Section arrow ↔ direction dropdown mismatch** (Dave, 2026-09-21) — the arrow was 90° off; it now
+  points along the elevation's sight axis from ELEV_BASIS (front=up, rear=down, right=right, left=left),
+  matching the dropdown and the elevation shown.
+- [ ] **REFACTOR: unify editing across 2D/3D + plan/elevation, and across line/wall/trunk/pipe** (Dave,
+  2026-09-21) — big, deliberate (NOT a rushed change). Today there are ~5 near-duplicate pointer-drag
+  state machines in `Viewport.svelte` (`drag` for entities, `mDrag` model-move, `mGrip` model-resize,
+  `secDrag`/`secResize` sections, `orbitDrag`) each with their own add/remove-listener boilerplate, and
+  two grip systems (`gripsFor` for 2D entities vs `modelGrips` for 3D objects). Plan: (a) one generic
+  `beginPointerDrag({onMove,onUp})` helper to collapse the boilerplate; (b) a `Handle`/grip abstraction
+  shared by entities and model objects (a grip = {pos, apply}); (c) a `line` entity and a wall/trunk/
+  pipe conduit already share node/segment math via `graphNodeApply` — extend so the **Line tool builds a
+  graph too** (drop the separate `polyline` entity path) so add/insert/delete-node/edge is ONE code path
+  for line/wall/trunk/pipe. This is the `DocEditor`-class direction from review.md §4.1 — do it as a
+  focused session, with the geometry already extracted to `ui/geometry.ts` as the seam.
 - [x] **Insert nodes in ELEVATION views** (2026-09-20) — node-insert (dbl-click a wall/conduit segment)
   now works in elevations too, not just plan: the new node takes its on-axis coord from `projUInv(p[0])`
   and z from `GROUND − p[1]`, keeping the off-axis coord of its neighbour. `onDblclick` gate widened
@@ -471,14 +490,18 @@ Symbols are identical to annotes.
   (up to 4 arms). NB: a section-marker BORDER hit needs `hitTol()/dscale` (unscaled model units) — plain
   `hitTol()` is off by the drawing scale for an edge-distance test (only area/inside tests like
   `hitModel` get away with raw `hitTol`).
-- [ ] **Section elevation → PLACEABLE VIEWPORT on a sheet** (Dave, 2026-09-21; decision: a placeable
-  viewport, not just a tab) — opening a section gives an elevation you can CUT/PASTE onto any sheet page
-  as a drawing viewport (like a real sheet layout). Needs the bigger piece: **multiple viewports per
-  sheet**, each a frame with its own SOURCE CONFIG `{ kind: plan|elevation|section, clip, dir, scale,
-  crop }` (today PaperPage renders ONE hardcoded frame). Steps: (1) generalise the sheet to an array of
-  viewport frames each with a source; (2) a section's elevation becomes a source you can copy; (3)
-  paste it as a new frame on a sheet (ties into the system-clipboard views/pages todo). Until then a
-  section opens as its own elevation tab.
+- [x] **Multiple viewports per sheet (AutoCAD paper space)** (Dave, 2026-09-21) — a sheet now holds
+  extra viewport FRAMES besides its primary one, each a window onto the shared model with its own
+  projection + scale + border + geometry. A "Viewport" paper-space tool drags out a frame; select it →
+  Properties VIEWPORT (View plan/front/rear/left/right/3D · Scale · Border · X/Y/W/H · Delete); move by
+  the band, resize by corner grips, double-click to edit inside. Extra frames live per tab (`docFrames`)
+  with view/orbit/activation keyed by the frame id (reusing docView/docOrbit/activeVps); entity edits
+  still target the tab's shared entities. Primary viewport unchanged (tab-keyed) → no regression.
+  Verified in-browser (drag a viewport → renders the model; change View Plan→3D → solid iso; move/
+  resize/activate/delete all work). **Follow-up:** [ ] **Section elevation → drop as a viewport frame**
+  — now that sheets take multiple viewports, a section's clip+dir should be placeable as a frame on the
+  current sheet (source `{ proj: dir, clip }`) instead of only spawning an elevation tab. **Follow-up:**
+  [ ] per-frame CROP + a real source config (drawing id) when Pages gets multiple models/drawings.
 - [ ] **Door swing SIDE + type parity** (Dave, 2026-09-21) — the door `flip` picks the hinge JAMB;
   add a toggle for which SIDE of the wall the leaf swings into (in/out), and a swing-angle handle exists
   (drag the leaf tip). Windows currently draw a single glazing line — add sill/head + mullions in
