@@ -27,7 +27,8 @@
 		endedit?: (debounceMs?: number) => void; tool?: (name: string) => void; frame?: (f: unknown) => void;
 		copy?: (ids: string[]) => void; cut?: (ids: string[]) => void; paste?: () => void;
 		group?: (ids: string[]) => void; ungroup?: (ids: string[]) => void;
-		reorder?: (ids: string[], op: 'front' | 'back' | 'forward' | 'backward') => void
+		reorder?: (ids: string[], op: 'front' | 'back' | 'forward' | 'backward') => void;
+		scale?: (s: string) => void
 	}
 	let { label = 'Viewport', scale = '1:1', kind = 'floorplan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {},
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 } }:
@@ -136,6 +137,18 @@
 		on.view?.({ zoom: view.zoom, x: view.x + dx / m.scale, y: view.y + dy / m.scale })
 	}
 	function onZoom(f: number, cx: number, cy: number) {
+		// Pan-content mode: zooming re-SCALES the view (like a CAD viewport) rather than free-zooming —
+		// fold the zoom into the drawing scale and keep the cursor's model point fixed.
+		if (on.scale) {
+			const p = toLocalXY(cx, cy); if (!p) return
+			const denom = parseInt((scale || '1:1').split(':')[1] || '1') || 1
+			const nd = Math.round(Math.min(2000, Math.max(1, denom / f)))
+			if (nd === denom) return
+			const ods = dscale, nds = 1 / nd
+			on.view?.({ zoom: view.zoom, x: view.x + view.zoom * (ods - nds) * (p[0] - CX), y: view.y + view.zoom * (ods - nds) * (p[1] - CY) })
+			on.scale('1:' + nd)
+			return
+		}
 		const v = clientToVB(cx, cy); if (!v) return   // cursor in viewBox coords
 		const nz = Math.min(8, Math.max(0.25, view.zoom * f)), r = nz / view.zoom
 		on.view?.({ zoom: nz, x: v[0] - (v[0] - view.x) * r, y: v[1] - (v[1] - view.y) * r })

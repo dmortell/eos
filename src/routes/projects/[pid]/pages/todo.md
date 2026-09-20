@@ -53,6 +53,11 @@ Fixed from the review:
 
 Suggested order in review.md §7.
 
+- [x] **Pan-content zoom re-scales the view** (Dave, 2026-09-20) — with a viewport active + "Pan
+  content" on, wheel-zoom now folds into the DRAWING SCALE (like a CAD viewport) instead of a free
+  zoom: the scale label/dropdown update live (e.g. 1:100 → 1:84 → 1:70 zooming in) and the cursor's
+  model point stays fixed. `on.scale` callback + the dropdown tolerates computed 1:N values.
+
 ### Reported 2026-09-21 (Dave) — batch 5
 Done:
 - [x] **Shift-click no longer moves the object** — a Shift body-press is selection-only (never
@@ -385,7 +390,10 @@ Symbols are identical to annotes.
 - [ ] door
 
 **Tool-objects** (placed inside a source viewport, live in the tool's own data):
-- [ ] outlet · [ ] trunk · [ ] rack · [ ] (racks devices / risers / model3d prisms-walls-conduits render read-only on a sheet)
+- [ ] outlet 
+- [ ] trunk  
+- [ ] rack
+- [ ] (racks devices / risers / model3d prisms-walls-conduits render read-only on a sheet)
 
 **Blocks / library:** Sheets has a **Shape Library** — built-in + custom shapes (saved
 globally in Firestore `library`), drag-to-place; it **copies geometry** (no true "block
@@ -393,17 +401,17 @@ instance that updates all copies"). Also a separate **rack device library**.
 - [ ] Shape/annotation library (built-in + custom, drag-to-place)
 - [ ] **True blocks** (instances update together) — *beyond Sheets; your explicit ask*
 
-**Text editing:** Sheets edits annotation text in the **side panel** (double-click / F2
+[x] **Text editing:** Sheets edits annotation text in the **side panel** (double-click / F2
 jumps focus there), *not* in-place. Your ask = **in-place canvas text** → an improvement
 over Sheets.
 
-**Imported backgrounds:** Sheets shows **one** PDF/image page per outlets viewport
+[ ] **Imported backgrounds:** Sheets shows **one** PDF/image page per outlets viewport
 (`fileId`+`pageNum`, with origin/scale/crop from the `files/{id}` doc); model3d supports
 several **underlays** per direction. **No DXF import** (DXF is export-only). Your asks
 (multiple swappable backgrounds; DXF import; set origin/crop in-viewport) are **beyond
 Sheets** — see §3/§4.
 
-**Revisions:** Sheets has a title-block **revision table**, the **cloud** annotation, and
+[ ] **Revisions:** Sheets has a title-block **revision table**, the **cloud** annotation, and
 in-session **undo/redo** snapshots — but **no diff/compare between revisions**. Your ask
 (revision points you can switch between to see differences for clouding) is **beyond
 Sheets' basic version** — see §10.

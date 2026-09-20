@@ -92,6 +92,7 @@
 		copy: (ids: string[]) => copyEnts(a.id, ids), cut: (ids: string[]) => cutEnts(a.id, ids), paste: () => pasteEnts(a.id),
 		group: (ids: string[]) => groupEnts(a.id, ids), ungroup: (ids: string[]) => ungroupEnts(a.id, ids),
 		reorder: (ids: string[], op) => reorderEnts(a.id, ids, op),
+		scale: (s: string) => (docScale = { ...docScale, [a.id]: s }),
 	})
 	let focused = $state(0)      // which pane new tabs / sidebar actions target
 	let canvasEls = $state<(HTMLElement | undefined)[]>([])   // each pane's .canvas, for navFit
@@ -651,6 +652,7 @@
 								<!-- viewport scale (like the Sheets tool's per-view scale) -->
 								<label class="vab-scale" title="Drawing scale">
 									<select value={scaleOf(a.id)} onchange={(e) => (docScale = { ...docScale, [a.id]: (e.currentTarget as HTMLSelectElement).value })}>
+										{#if !SCALES.includes(scaleOf(a.id))}<option value={scaleOf(a.id)}>{scaleOf(a.id)}</option>{/if}
 										{#each SCALES as s (s)}<option value={s}>{s}</option>{/each}
 									</select>
 								</label>
