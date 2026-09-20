@@ -204,7 +204,7 @@
 			} else {
 				// entity click wins; else a model object; else clear both (empty click).
 				if (g.length) { on.select?.(g); setModelSel([]) }
-				else { const mid = hitModelPlan(p); if (mid) { setModelSel([mid]); on.select?.([]) } else { on.select?.([]); setModelSel([]) } }
+				else { const mid = hitModel(p); if (mid) { setModelSel([mid]); on.select?.([]) } else { on.select?.([]); setModelSel([]) } }
 			}
 			return
 		}
@@ -227,7 +227,7 @@
 		// hover feedback for the Select tool: 'move' when over a shape body (a grip shows its own cursor)
 		if (active && tool === 'Select' && !drag && !mDrag && !draft.length && !marquee) {
 			const lp = toLocalXY(e.clientX, e.clientY)
-			hoverBody = !!lp && (hit(lp).length > 0 || !!hitModelPlan(lp))
+			hoverBody = !!lp && (hit(lp).length > 0 || !!hitModel(lp))
 		} else hoverBody = false
 	}
 	// Re-apply the constraint the instant Shift changes (don't wait for a pointer move) — for
@@ -373,36 +373,66 @@
 	}
 
 	// ── 3D MODEL editing (P2) ──
-	// The floor MODEL (walls/prisms/conduits, 3dview/) renders read-mostly via <Model3d>; P2a adds
-	// PICK + MOVE for prisms in the PLAN view (footprint rects). Selection is the shared `modelSel`
-	// (global to the model for now); moves mutate the `models` store directly. Undo integration and
-	// walls/conduits + other-view editing are the next slices — see model-plan.md P2.
+	// The floor MODEL (walls/prisms/conduits, 3dview/) renders read-mostly via <Model3d>; P2a/P2b add
+	// PICK + MOVE for prisms in the PLAN *and* the four ELEVATION views. Selection is the shared
+	// `modelSel` (global to the model for now); moves mutate the `models` store directly. Editing uses
+	// the SAME projection Pages entities use — plan footprint, or elevation via `projU`/ELEV_BASIS +
+	// GROUND — so a prism picks/moves exactly where <Model3d> draws it. (Iso editing + walls/conduits +
+	// undo are the next slices — see model-plan.md P2.)
 	const mdl = $derived(models[0])
 	const isPlan = $derived(kind === 'floorplan')
+	const modelEditable = $derived(isPlan || isElev)   // iso (oblique) editing deferred to the 3D camera
 	const modelLayerVisible = (o: Obj) => { const l = mdl?.layers?.find(x => x.id === o.layer); return !l || l.visible }
-	// Topmost prism whose footprint rect [x..x+w]×[y..y+d] (un-rotated) contains p — plan only, for now.
-	function hitModelPlan(p: Pt): string | null {
-		if (!isPlan || !mdl) return null
+	// A prism's drawing-space AABB in the CURRENT view: plan = footprint [x..x+w]×[y..y+d]; elevation =
+	// silhouette face (its on-axis extent projected via projU, standing on GROUND from z to z+h). Matches
+	// Model3d + the entity-box convention (boxElev). null for non-prisms / non-editable views.
+	function prismRect(o: Obj): { x0: number; y0: number; x1: number; y1: number } | null {
+		if (o.type !== 'prism') return null
+		if (isElev) {
+			const ax = ELEV_BASIS[elevDir].axis
+			const lo = ax === 0 ? o.x : o.y, hi = lo + (ax === 0 ? o.w : o.d)
+			const u0 = projU(lo), u1 = projU(hi), base = GROUND - o.z
+			return { x0: Math.min(u0, u1), y0: base - o.h, x1: Math.max(u0, u1), y1: base }
+		}
+		if (isPlan) return { x0: o.x, y0: o.y, x1: o.x + o.w, y1: o.y + o.d }
+		return null
+	}
+	// Topmost prism under p (drawing coords). Plan honours rot by testing in the un-rotated frame;
+	// elevation uses the projected face AABB.
+	function hitModel(p: Pt): string | null {
+		if (!modelEditable || !mdl) return null
 		const thr = hitTol(4)
 		for (let i = mdl.objects.length - 1; i >= 0; i--) {
 			const o = mdl.objects[i]
 			if (o.type !== 'prism' || !o.id || !modelLayerVisible(o)) continue
-			const cx = o.x + o.w / 2, cy = o.y + o.d / 2
-			const q = o.rot ? rotatePt(p, [cx, cy], -o.rot) : p
-			if (q[0] >= o.x - thr && q[0] <= o.x + o.w + thr && q[1] >= o.y - thr && q[1] <= o.y + o.d + thr) return o.id
+			if (isPlan && o.rot) {
+				const cx = o.x + o.w / 2, cy = o.y + o.d / 2, q = rotatePt(p, [cx, cy], -o.rot)
+				if (q[0] >= o.x - thr && q[0] <= o.x + o.w + thr && q[1] >= o.y - thr && q[1] <= o.y + o.d + thr) return o.id
+				continue
+			}
+			const r = prismRect(o); if (!r) continue
+			if (p[0] >= r.x0 - thr && p[0] <= r.x1 + thr && p[1] >= r.y0 - thr && p[1] <= r.y1 + thr) return o.id
 		}
 		return null
 	}
-	// A prism move drag (plan). Mutates the store object in place (reactive); one gesture.
-	let mDrag: { id: string; start: Pt; ox: number; oy: number; moved: boolean } | null = null
+	// A prism move drag. Absolute from the gesture's start (no drift). In elevation the horizontal drag
+	// maps to the view's on-axis coord (× ELEV_BASIS sign) and the vertical drag changes z (base
+	// elevation, screen-down lowers it, clamped ≥0) — mirroring how an entity box moves in elevation.
+	let mDrag: { id: string; start: Pt; o0: { x: number; y: number; z: number }; moved: boolean } | null = null
 	function onModelDragMove(e: PointerEvent) {
 		if (!mDrag || !mdl) return
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
 		const o = mdl.objects.find(x => x.id === mDrag!.id); if (!o || o.type !== 'prism') return
 		mDrag.moved = true
-		let nx = mDrag.ox + (p[0] - mDrag.start[0]), ny = mDrag.oy + (p[1] - mDrag.start[1])
-		if (snap) { nx = Math.round(nx / SNAP_STEP) * SNAP_STEP; ny = Math.round(ny / SNAP_STEP) * SNAP_STEP }
-		o.x = nx; o.y = ny
+		const dx = p[0] - mDrag.start[0], dy = p[1] - mDrag.start[1]
+		const rnd = (v: number) => (snap ? Math.round(v / SNAP_STEP) * SNAP_STEP : v)
+		if (isElev) {
+			const { axis, sign } = ELEV_BASIS[elevDir]
+			if (axis === 0) o.x = rnd(mDrag.o0.x + sign * dx); else o.y = rnd(mDrag.o0.y + sign * dx)
+			o.z = Math.max(0, rnd(mDrag.o0.z - dy))
+		} else {
+			o.x = rnd(mDrag.o0.x + dx); o.y = rnd(mDrag.o0.y + dy)
+		}
 	}
 	function onModelDragUp() {
 		if (mDrag?.moved) suppressClick = true
@@ -620,11 +650,11 @@
 		const hitInfo = pick(e.clientX, e.clientY)
 		if (!hitInfo) {
 			// no entity under the cursor → try a MODEL object (P2a: prisms in plan), else marquee.
-			const mid = hitModelPlan(p)
+			const mid = hitModel(p)
 			const mo = mid ? mdl?.objects.find(o => o.id === mid) : undefined
 			if (mo && mo.type === 'prism') {
 				setModelSel([mo.id!]); on.select?.([])   // model selection is exclusive with entity selection
-				mDrag = { id: mo.id!, start: p, ox: mo.x, oy: mo.y, moved: false }
+				mDrag = { id: mo.id!, start: p, o0: { x: mo.x, y: mo.y, z: mo.z }, moved: false }
 				try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
 				e.preventDefault()
 				window.addEventListener('pointermove', onModelDragMove)

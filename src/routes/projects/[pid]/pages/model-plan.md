@@ -12,13 +12,16 @@
 > **P1b DONE (commit 7d55bcd):** the model renders in the four elevations + iso via one per-direction
 > group transform (plan identity, elevation `translate(ox,ground) scale(1 -1)`, iso `translate(0,2cy)
 > scale(1 -1)`); lineweight is non-scaling + layer-defined. Mock box retired (commit ab44a31).
-> **P2a IN PROGRESS:** prism **pick + move in the PLAN view** — shared `modelSel` (models.svelte.ts,
-> global to the model), amber highlight in every view (Model3d `selIds`), body-drag mutates the store
-> in place. Verified in-browser (select desk → amber, drag → moves in plan + iso, click-empty →
+> **P2a/P2b DONE:** prism **pick + move in the PLAN *and* the four ELEVATION views** — shared `modelSel`
+> (models.svelte.ts, global to the model), amber highlight in every view (Model3d `selIds`), body-drag
+> mutates the store in place. Editing reuses the SAME projection Pages entities use (`projU`/ELEV_BASIS +
+> GROUND), so a prism picks/moves exactly where Model3d draws it: plan = footprint (dx,dy); elevation =
+> the silhouette face, horizontal drag → on-axis position (× sign), vertical drag → z (base elevation,
+> clamped ≥0). Verified in-browser (select in plan + front, move both axes, cross-view via the store,
 > deselect). **Gaps still open in P2:** ⚠️ **undo** — model moves aren't in Pages' per-doc history yet
-> (history snapshots `Ent[]`, not the model); **resize/rotate** prisms; **walls/conduits** graph editing
-> (node-drag, junctions, per-seg thickness); **placement** (draw new prisms/walls); **other-view**
-> editing (elevations edit z). Next slice: model undo + prism resize.
+> (history snapshots `Ent[]`, not the model); **resize/rotate** prisms (grips); **walls/conduits** graph
+> editing (node-drag, junctions, per-seg thickness); **placement** (draw new); **iso** editing (deferred
+> to the 3D camera). Next slice: model undo + prism resize grips.
 
 
 Goal: in Pages, draw a floor's **model** (walls, openings for doors/windows, furniture as boxes/holes,
