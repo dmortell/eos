@@ -21,9 +21,9 @@
 	export type FrameSel = { label: string; x: number; y: number; w: number; h: number;
 		border: 'dashed' | 'solid' | 'none'; setBorder: (b: 'dashed' | 'solid' | 'none') => void; setRect: (r: Partial<{ x: number; y: number; w: number; h: number }>) => void }
 	let { title = 'Sheet', drawingNo = '001', scale = '1:100', active = false, focused = true, tool = 'Select', env = {}, on = {}, pw = PAPER_W, ph = PAPER_H, sizeLabel = 'A3', rev = '', revDate = '',
-		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, kind = 'floorplan', clip = null, yaw, pitch, sections = [] }:
+		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, kind = 'floorplan', clip = null, yaw, pitch, sections = [], selSection = null }:
 		{ title?: string; drawingNo?: string; scale?: string; active?: boolean; focused?: boolean; tool?: string; env?: Env; on?: VpOn; pw?: number; ph?: number; sizeLabel?: string; rev?: string; revDate?: string;
-			entities?: Ent[]; sel?: string[]; view?: View; kind?: 'floorplan' | 'iso' | ElevDir; clip?: Clip | null; yaw?: number; pitch?: number; sections?: SectionMarker[] } = $props()
+			entities?: Ent[]; sel?: string[]; view?: View; kind?: 'floorplan' | 'iso' | ElevDir; clip?: Clip | null; yaw?: number; pitch?: number; sections?: SectionMarker[]; selSection?: string | null } = $props()
 	const canvasZoom = $derived(env.canvasZoom ?? 1)
 	const onframe = $derived(on.frame as ((f: FrameSel | null) => void) | undefined)
 
@@ -145,7 +145,7 @@
 			{#if frame}
 				<div class="vp-frame" class:selected={selected && !active} class:active
 					style="left:{frame.x}px; top:{frame.y}px; width:{frame.w}px; height:{frame.h}px">
-					<Viewport {kind} label="Outlets · 33F" {scale} {active} {focused} {tool} {env} {on} border={frameBorder} {entities} {sel} {view} {clip} {yaw} {pitch} {sections}
+					<Viewport {kind} label="Outlets · 33F" {scale} {active} {focused} {tool} {env} {on} border={frameBorder} {entities} {sel} {view} {clip} {yaw} {pitch} {sections} {selSection}
 						boxW={frame.w} boxH={frame.h} />
 					{#if !active}
 						<!-- svelte-ignore a11y_no_static_element_interactions -->

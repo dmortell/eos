@@ -98,9 +98,11 @@
 		scale: (s: string) => (docScale = { ...docScale, [a.id]: s }),
 		modeledit: () => modelEdit(a.id), section: (clip: Clip) => onSection(clip),
 		orbit: (yaw: number, pitch: number) => setOrbit(pane.id, a.id, yaw, pitch),
-		sectionpick: (id: string) => openSection(id),
+		sectionselect: (id: string | null) => selectSection(id),
+		sectionopen: (id: string) => openSection(id),
 		sectionmove: (id: string, clip: Clip) => moveSection(id, clip),
-		sectionredir: (id: string) => redirSection(id),
+		sectionsetdir: (id: string, dir: ElevDir) => setSectionDir(id, dir),
+		sectiondelete: (id: string) => deleteSection(id),
 	})
 	// A 3D-model edit (the Viewport mutated the shared `models` store) records a step on THIS doc's
 	// timeline, gesture-folded like an entity edit — so Ctrl+Z restores the model too.
@@ -115,33 +117,31 @@
 	// arrow AND the elevation's projection). Markers self-clean when their elevation tab is closed.
 	let docClip = $state<Record<string, Clip>>({})
 	let docSecDir = $state<Record<string, ElevDir>>({})
+	let selSection = $state<string | null>(null)   // the section marker selected on the plan (shows grips + toolbar)
 	let secSeq = 0
 	function onSection(clip: Clip) {
 		const id = 't' + ++seq
 		tabs = [...tabs, { id, title: `Section ${String.fromCharCode(65 + secSeq++)}`, kind: 'elevation', dirty: false }]
 		docClip = { ...docClip, [id]: clip }
 		docSecDir = { ...docSecDir, [id]: 'front' }
-		if (panes[focused]) { panes[focused].activeId = id; panes[focused].layout = 'model' }
-		activateVp(id); tick().then(() => fitPane(focused))
+		selSection = id   // select the new section (grips + toolbar) but stay on the plan — open it via the link button
 	}
 	// Every active section as a plan marker: its box, its viewing direction, and the elevation's label.
 	const sectionMarkers = $derived(Object.entries(docClip).map(([tid, clip]) => ({ id: tid, clip, dir: docSecDir[tid] ?? 'front', label: tabs.find((t) => t.id === tid)?.title ?? 'Section' })))
-	// Clicking a marker opens its elevation; deleting it closes that tab (dropDoc clears the clip too).
+	// A marker is SELECTED by clicking it (grips + a floating toolbar appear); the toolbar's LINK button
+	// opens its elevation, its direction control re-aims the cut, and corner grips / a body drag resize /
+	// move the box (the linked elevation re-clips live). Deleting closes that tab (dropDoc clears the clip).
 	function openSection(id: string) { openTab(id); if (panes[focused]) panes[focused].layout = 'model'; activateVp(id); tick().then(() => fitPane(focused)) }
-	// Dragging a marker moves the cut → the linked elevation re-clips live. Clicking its arrow cycles the
-	// viewing direction (front→right→rear→left), which drives both the arrow and the elevation projection
-	// (via projOf's docSecDir fallback) — unless a pane pinned a projection with the ViewCube.
 	function moveSection(id: string, clip: Clip) { docClip = { ...docClip, [id]: clip } }
-	const SEC_DIRS: ElevDir[] = ['front', 'right', 'rear', 'left']
-	function redirSection(id: string) {
-		const cur = docSecDir[id] ?? 'front'
-		const next = SEC_DIRS[(SEC_DIRS.indexOf(cur) + 1) % 4]
-		docSecDir = { ...docSecDir, [id]: next }
+	function selectSection(id: string | null) { selSection = id; if (id) setSel(active?.id ?? '', []) }   // section vs entity selection are exclusive
+	function setSectionDir(id: string, dir: ElevDir) {
+		docSecDir = { ...docSecDir, [id]: dir }
 		// Clear any per-pane ViewCube override on this tab so the elevation follows the new section dir.
 		const dp = { ...docProj }; let hit = false
 		for (const k of Object.keys(dp)) if (k.endsWith(':' + id)) { delete dp[k]; hit = true }
 		if (hit) docProj = dp
 	}
+	function deleteSection(id: string) { closeTab(id) }   // closing the elevation tab removes the marker (dropDoc)
 	let focused = $state(0)      // which pane new tabs / sidebar actions target
 	let canvasEls = $state<(HTMLElement | undefined)[]>([])   // each pane's .canvas, for navFit
 	let splitFrac = $state(0.5)  // pane 0 width fraction when split
@@ -337,6 +337,7 @@
 		if (docPaper[id]) { const pp = { ...docPaper }; delete pp[id]; docPaper = pp }
 		if (docClip[id]) { const dc = { ...docClip }; delete dc[id]; docClip = dc }            // section box → its plan marker vanishes too
 		if (docSecDir[id]) { const dd = { ...docSecDir }; delete dd[id]; docSecDir = dd }
+		if (selSection === id) selSection = null
 		{ const doc = { ...docOrbit }; let hit = false; for (const k of Object.keys(doc)) if (k.endsWith(':' + id)) { delete doc[k]; hit = true } if (hit) docOrbit = doc }
 		if (activeVps.has(id)) deactivateVp(id)
 	}
@@ -756,13 +757,13 @@
 										sizeLabel="{paperOf(a.id).size} {paperOf(a.id).landscape ? 'L' : 'P'}" rev={rev} revDate={fmtDate(revisions[0]?.t)}
 										entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(p.id, a.id)} active={isVpActive(a.id)} focused={focused === pi}
 										kind={projKind(projOf(p, a))} clip={docClip[a.id] ?? null} yaw={orbitOf(p.id, a.id).yaw} pitch={orbitOf(p.id, a.id).pitch}
-										sections={projOf(p, a) === 'plan' ? sectionMarkers : []} />
+										sections={projOf(p, a) === 'plan' ? sectionMarkers : []} selSection={selSection} />
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => deactivateVp(a.id)}>
 										<Viewport kind={projKind(projOf(p, a))} label={a.title} tool={p.tool} scale={scaleOf(a.id)} env={envFor(p)} on={vpOn(a, p)}
 											entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(p.id, a.id)} active={isVpActive(a.id)} focused={focused === pi} clip={docClip[a.id] ?? null} yaw={orbitOf(p.id, a.id).yaw} pitch={orbitOf(p.id, a.id).pitch}
-											sections={projOf(p, a) === 'plan' ? sectionMarkers : []} />
+											sections={projOf(p, a) === 'plan' ? sectionMarkers : []} selSection={selSection} />
 									</div>
 								{:else}
 									<div class="canvas-center">

@@ -1,5 +1,5 @@
 // Ported verbatim from sheets/tools/model3d (the mature 3D engine) for the Pages 3D model — see model-plan.md.
-import { BASIS, type Axis, type Clip, type Conduit, type Dir, type Obj, type Wall } from './types'
+import { BASIS, type Axis, type Clip, type Conduit, type Dir, type Obj, type Prism, type Wall } from './types'
 import { runs as graphRuns, nodeMap } from './graph'
 
 // A projected outline in drawing-plane coords (u right, v up).
@@ -400,6 +400,17 @@ export function faces3d(o: Obj): Face[] {
 		faces.push({ pts: rings[rings.length - 1] })
 	}
 	return faces
+}
+
+// Door swing geometry in the PLAN (model x/y): the hinge at one JAMB on the wall centreline, the unit
+// vector along the wall toward the far jamb (u), the unit vector the leaf swings toward (v, perpendicular
+// into the room), and the door width L (= radius). `flip` picks the hinge side. Shared by the Model3d
+// render (leaf + arc) and the Viewport swing grip so they never disagree. The leaf tip at angle a is
+// `hinge + L·(cos a·u + sin a·v)` — a=0 closed (along the wall), a=90° open (perpendicular).
+export function doorGeom(o: Prism) {
+	const alongX = o.w >= o.d, s = o.flip ? -1 : 1
+	if (alongX) return { hx: o.flip ? o.x + o.w : o.x, hy: o.y + o.d / 2, ux: s, uy: 0, vx: 0, vy: -1, L: o.w }
+	return { hx: o.x + o.w / 2, hy: o.flip ? o.y + o.d : o.y, ux: 0, uy: s, vx: -1, vy: 0, L: o.d }
 }
 
 // Project an object to one or more drawing-plane outlines for the direction.

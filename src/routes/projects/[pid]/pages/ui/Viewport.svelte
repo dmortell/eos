@@ -15,7 +15,7 @@
 	import Model3d from '../3dview/Model3d.svelte'
 	import { models, modelSel, setModelSel } from '../3dview/models.svelte'
 	import { polyToGraph } from '../3dview/migrate'
-	import { DEFAULT_YAW, DEFAULT_PITCH } from '../3dview/projection'
+	import { DEFAULT_YAW, DEFAULT_PITCH, doorGeom } from '../3dview/projection'
 	import type { Obj, Clip } from '../3dview/types'
 	// Pure geometry now lives in ./geometry (testable, shared with PropertiesPanel); re-export the
 	// entity types so existing `import { type Ent } from './Viewport.svelte'` sites keep working.
@@ -37,12 +37,13 @@
 		group?: (ids: string[]) => void; ungroup?: (ids: string[]) => void;
 		reorder?: (ids: string[], op: 'front' | 'back' | 'forward' | 'backward') => void;
 		scale?: (s: string) => void; modeledit?: () => void; section?: (clip: Clip) => void; orbit?: (yaw: number, pitch: number) => void;
-		sectionpick?: (id: string) => void; sectionmove?: (id: string, clip: Clip) => void; sectionredir?: (id: string) => void
+		sectionselect?: (id: string | null) => void; sectionopen?: (id: string) => void; sectionmove?: (id: string, clip: Clip) => void;
+		sectionsetdir?: (id: string, dir: ElevDir) => void; sectiondelete?: (id: string) => void
 	}
 	let { label = 'Viewport', scale = '1:1', kind = 'floorplan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {},
-		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, sections = [] }:
+		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, sections = [], selSection = null }:
 		{ label?: string; scale?: string; kind?: 'floorplan' | 'iso' | ElevDir; active?: boolean; tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env; on?: VpOn;
-			focused?: boolean; entities?: Ent[]; sel?: string[]; view?: View; clip?: Clip | null; yaw?: number; pitch?: number; sections?: SectionMarker[] } = $props()
+			focused?: boolean; entities?: Ent[]; sel?: string[]; view?: View; clip?: Clip | null; yaw?: number; pitch?: number; sections?: SectionMarker[]; selSection?: string | null } = $props()
 	// Callbacks are called directly as on.x?.(…) — no aliases (a $derived rename adds nothing for a
 	// function that's only invoked). env flags stay derived because they're read as values.
 	const acad = $derived(env.acad ?? true)
@@ -213,10 +214,10 @@
 				if (g.length) { const allSel = g.every(x => selSet.has(x)); on.select?.(allSel ? sel.filter(x => !g.includes(x)) : [...new Set([...sel, ...g])]) }
 			} else {
 				// entity click wins; else a model object; else a section marker (opens its elevation); else clear.
-				if (g.length) { on.select?.(g); setModelSel([]) }
-				else { const aid = hitSectionArrow(p); if (aid) { on.sectionredir?.(aid) }   // arrow → cycle direction (wins over the model it may overlap)
-					else { const mid = hitModel(p); if (mid) { setModelSel([mid]); on.select?.([]) }
-						else { const sid = hitSection(p); if (sid) { on.sectionpick?.(sid) } else { on.select?.([]); setModelSel([]) } } } }
+				if (g.length) { on.select?.(g); setModelSel([]); on.sectionselect?.(null) }
+				else { const mid = hitModel(p); if (mid) { setModelSel([mid]); on.select?.([]); on.sectionselect?.(null) }
+					else { const sid = hitSection(p); if (sid) { on.sectionselect?.(sid) }   // click a marker border → SELECT it (grips + toolbar); open via the link button
+						else { on.select?.([]); setModelSel([]); on.sectionselect?.(null) } } }
 			}
 			return
 		}
@@ -313,6 +314,7 @@
 		}
 		if ((e.key === 'Delete' || e.key === 'Backspace') && sel.length && !draft.length) { e.preventDefault(); on.delete?.(sel); return }
 		if ((e.key === 'Delete' || e.key === 'Backspace') && modelSel.length && !draft.length) { e.preventDefault(); deleteModelSel(); return }
+		if ((e.key === 'Delete' || e.key === 'Backspace') && selSection && !draft.length) { e.preventDefault(); on.sectiondelete?.(selSection); return }
 		if (sel.length && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
 			e.preventDefault()
 			const s = e.shiftKey ? 10 : 1
@@ -327,6 +329,7 @@
 		// Esc ladder: cancel a draft → switch a drawing tool back to Select → clear selection → exit.
 		if (draft.length) { draft = []; cur = null; snapMark = null }
 		else if (tool !== 'Select') on.tool?.('Select')
+		else if (selSection) on.sectionselect?.(null)
 		else if (sel.length) on.select?.([])
 		else on.deactivate?.()
 	}
@@ -490,21 +493,36 @@
 		}
 		return null
 	}
-	// A section marker's direction ARROW under p (plan only): near the arrow's edge-mid base → its id.
-	// Clicking the arrow cycles the section's viewing direction (front→right→rear→left).
-	function hitSectionArrow(p: Pt): string | null {
-		if (!isPlan || !sections.length) return null
-		const thr = hitTol(22) / (dscale || 1)   // cover the whole triangle (base → tip ≈ 19px)
-		for (let i = sections.length - 1; i >= 0; i--) {
-			const c = sections[i].clip
-			const x0 = Math.min(c.x0, c.x1), x1 = Math.max(c.x0, c.x1), y0 = Math.min(c.y0, c.y1), y1 = Math.max(c.y0, c.y1)
-			const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2
-			const d = sections[i].dir
-			const base: Pt = d === 'front' ? [x1, cy] : d === 'rear' ? [x0, cy] : d === 'right' ? [cx, y1] : [cx, y0]
-			if (Math.hypot(p[0] - base[0], p[1] - base[1]) < thr) return sections[i].id
-		}
+	// The currently-selected section marker (grips + toolbar), if it's shown in this plan view.
+	const selSectionObj = $derived.by(() => (isPlan && selSection ? sections.find((s) => s.id === selSection) ?? null : null))
+	// A section clip's 4 corners in drawing coords, order tl,tr,br,bl (normalised min→max).
+	function sectionCorners(c: Clip): Pt[] {
+		const x0 = Math.min(c.x0, c.x1), x1 = Math.max(c.x0, c.x1), y0 = Math.min(c.y0, c.y1), y1 = Math.max(c.y0, c.y1)
+		return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
+	}
+	// Resize the selected section by dragging corner `gi` to p, holding the opposite corner fixed (x/y
+	// only — z stays the section's cut band). Returns the new clip. `anchor` = the opposite corner.
+	function resizeSectionClip(c: Clip, gi: number, p: Pt, anchor: Pt): Clip {
+		return { ...c, x0: Math.round(Math.min(p[0], anchor[0])), x1: Math.round(Math.max(p[0], anchor[0])), y0: Math.round(Math.min(p[1], anchor[1])), y1: Math.round(Math.max(p[1], anchor[1])) }
+	}
+	// Which corner grip of the selected section a press grabs (constant screen tolerance), with a resize
+	// apply that mutates the clip about the fixed opposite corner. null = no grip under the cursor.
+	function pickSectionGrip(clientX: number, clientY: number): { id: string; apply: (p: Pt) => Clip } | null {
+		if (!selSectionObj) return null
+		const cs = sectionCorners(selSectionObj.clip), id = selSectionObj.id, c0 = { ...selSectionObj.clip }
+		for (let gi = 0; gi < 4; gi++) { const sp = localToClient(cs[gi][0], cs[gi][1]); if (sp && Math.hypot(sp.x - clientX, sp.y - clientY) < 14) return { id, apply: (p: Pt) => resizeSectionClip(c0, gi, p, cs[(gi + 2) % 4]) } }
 		return null
 	}
+	// Screen position (in .vp-local px) for the selected section's floating toolbar — pinned just above
+	// the box's top-left, tracking pan/zoom (reads view/canvasZoom/vpW so it recomputes as they change).
+	const secToolbar = $derived.by(() => {
+		void view; void canvasZoom; void vpW; void vpH   // deps: reposition on pan/zoom/resize
+		if (!active || !selSectionObj || !svg) return null
+		const bx = Math.min(selSectionObj.clip.x0, selSectionObj.clip.x1), by = Math.min(selSectionObj.clip.y0, selSectionObj.clip.y1)
+		const sp = localToClient(bx, by); if (!sp) return null
+		const r = svg.getBoundingClientRect()
+		return { x: sp.x - r.left, y: sp.y - r.top, id: selSectionObj.id, dir: selSectionObj.dir }
+	})
 	// The section marker's direction arrow (a triangle at the mid of the viewed edge, pointing outward):
 	// front → +x edge, rear → −x, right → +y (plan down), left → −y. Sized in ~screen px (hitTol).
 	function sectionArrowPts(s: SectionMarker): string {
@@ -590,10 +608,18 @@
 		if (o.type === 'prism') {
 			const cs = prismCorners(o)
 			const grips: MGrip[] = cs.map((c, gi) => ({ x: c[0], y: c[1], apply: (p: Pt) => applyPrismGrip(o, gi, p, cs[(gi + 2) % 4]) }))
-			if (isPlan) {   // rotate handle above the top-centre, following the rotation
+			if (isPlan && o.open !== 'door') {   // rotate handle above the top-centre, following the rotation
 				const cx = o.x + o.w / 2, cy = o.y + o.d / 2, off = o.d / 2 + Math.max(o.w, o.d) * 0.35
 				const hp = o.rot ? rotatePt([cx, cy - off], [cx, cy], o.rot) : [cx, cy - off] as Pt
 				grips.push({ x: hp[0], y: hp[1], apply: (p: Pt) => { o.rot = Math.round(((Math.atan2(p[1] - cy, p[0] - cx) * 180) / Math.PI + 90 + 360) % 360) } })
+			}
+			if (isPlan && o.open === 'door') {   // door SWING handle at the leaf tip — drag to set the swing angle
+				const g = doorGeom(o), a = (o.swing ?? 90) * Math.PI / 180
+				const tx = g.hx + g.L * (Math.cos(a) * g.ux + Math.sin(a) * g.vx), ty = g.hy + g.L * (Math.cos(a) * g.uy + Math.sin(a) * g.vy)
+				grips.push({ x: tx, y: ty, apply: (p: Pt) => {
+					const ang = Math.atan2((p[0] - g.hx) * g.vx + (p[1] - g.hy) * g.vy, (p[0] - g.hx) * g.ux + (p[1] - g.hy) * g.uy) * 180 / Math.PI
+					o.swing = Math.round(Math.max(0, Math.min(180, ang)))
+				} })
 			}
 			return grips
 		}
@@ -646,10 +672,24 @@
 		on.sectionmove?.(secDrag.id, { ...c, x0: Math.round(c.x0 + dx), x1: Math.round(c.x1 + dx), y0: Math.round(c.y0 + dy), y1: Math.round(c.y1 + dy) })
 	}
 	function onSecDragUp() {
-		if (secDrag?.moved) suppressClick = true   // a real move: don't also open the elevation on click
+		if (secDrag?.moved) suppressClick = true   // a real move: don't also re-select on click
 		secDrag = null
 		window.removeEventListener('pointermove', onSecDragMove)
 		window.removeEventListener('pointerup', onSecDragUp)
+	}
+	// ── section marker RESIZE — drag a corner grip of the SELECTED section (opposite corner fixed). ──
+	let secResize: { id: string; apply: (p: Pt) => Clip; moved: boolean } | null = null
+	function onSecResizeMove(e: PointerEvent) {
+		if (!secResize) return
+		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
+		secResize.moved = true
+		on.sectionmove?.(secResize.id, secResize.apply(p))
+	}
+	function onSecResizeUp() {
+		if (secResize?.moved) suppressClick = true
+		secResize = null
+		window.removeEventListener('pointermove', onSecResizeMove)
+		window.removeEventListener('pointerup', onSecResizeUp)
 	}
 	// ── 3D iso ORBIT — a plain drag in the iso view rotates the camera (yaw/pitch). The projection
 	// already takes yaw/pitch; here we just turn a drag into new angles. Pitch is clamped to (0, 90°).
@@ -936,6 +976,11 @@
 			window.removeEventListener('pointermove', onSecDragMove)
 			window.removeEventListener('pointerup', onSecDragUp)
 		}
+		if (secResize) {   // abort an in-progress section-marker resize
+			secResize = null
+			window.removeEventListener('pointermove', onSecResizeMove)
+			window.removeEventListener('pointerup', onSecResizeUp)
+		}
 	}
 	$effect(() => {
 		const up = (e: PointerEvent) => pointers.delete(e.pointerId)
@@ -991,17 +1036,28 @@
 				return
 			}
 		}
+		// A corner grip of the SELECTED section resizes it (wins over everything, like a model grip).
+		{
+			const g = pickSectionGrip(e.clientX, e.clientY)
+			if (g) {
+				secResize = { ...g, moved: false }
+				try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
+				e.preventDefault()
+				window.addEventListener('pointermove', onSecResizeMove)
+				window.addEventListener('pointerup', onSecResizeUp)
+				return
+			}
+		}
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
 		const hitInfo = pick(e.clientX, e.clientY)
 		if (!hitInfo) {
-			// a section marker ARROW → let the click redirect it (onClick); don't start a drag/select even
-			// though it may overlap the model.
-			if (hitSectionArrow(p)) return
-			// a section marker border → drag to move the cut (a click with no drag opens / redirects it).
+			// a section marker border → SELECT it (grips + toolbar) and start a move drag; a click with no
+			// drag just selects (open / re-aim / delete live in the toolbar).
 			const sid = hitSection(p)
 			if (sid) {
 				const sm = sections.find(s => s.id === sid)
 				if (sm) {
+					if (selSection !== sid) on.sectionselect?.(sid)
 					secDrag = { id: sid, start: p, c0: { ...sm.clip }, moved: false }
 					try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
 					e.preventDefault()
@@ -1184,6 +1240,7 @@
 	// zoomed in — includes the inline-edit key help while editing text.
 	let statusText = $derived(
 		editText ? 'Editing text · Enter = new line · Ctrl/⌘+Enter = commit · Esc = cancel'
+			: active && selSectionObj && tool === 'Select' ? 'Section selected · drag a corner to resize · drag the box to move · toolbar: open / re-aim / delete'
 			: active ? `${tool} · ${prompt}` : '')
 	$effect(() => { if (focused) on.status?.(statusText) })   // only the focused pane drives the shared status
 </script>
@@ -1236,16 +1293,22 @@
 			<!-- P1b: real 3D model in plan + the four elevations + iso. Read-only for now (P2 = editing). -->
 			{#if models[0]}<Model3d model={models[0]} dir={(kind === 'floorplan' ? 'plan' : kind) as 'plan' | ElevDir | 'iso'} cx={CX} cy={CY} ground={GROUND} selIds={modelSel} canvasZoom={canvasZoom} clip={clip} yaw={yaw} pitch={pitch} />{/if}
 			<!-- Section markers (plan only): the cut box + a direction arrow + the elevation's label. Click a
-			     marker border to open its elevation (see onClick / hitSection). -->
+			     marker border to SELECT it (grips + a floating toolbar); the toolbar opens / re-aims / deletes. -->
 			{#if isPlan}
 				{#each sections as s (s.id)}
 					{@const bx = Math.min(s.clip.x0, s.clip.x1)}
 					{@const by = Math.min(s.clip.y0, s.clip.y1)}
-					<rect class="section-mark" x={bx} y={by} width={Math.abs(s.clip.x1 - s.clip.x0)} height={Math.abs(s.clip.y1 - s.clip.y0)} stroke-width={1.4 / (canvasZoom || 1)} />
+					<rect class="section-mark" class:sel={s.id === selSection} x={bx} y={by} width={Math.abs(s.clip.x1 - s.clip.x0)} height={Math.abs(s.clip.y1 - s.clip.y0)} stroke-width={(s.id === selSection ? 2 : 1.4) / (canvasZoom || 1)} />
 					<polygon class="section-arrow" points={sectionArrowPts(s)} stroke-width={1.4 / (canvasZoom || 1)} />
 					{@const pad = hitTol(6) / (dscale || 1)}
 					<text class="section-label" x={bx + pad} y={by - pad} font-size={hitTol(12) / (dscale || 1)}>{s.label}</text>
 				{/each}
+				<!-- resize grips on the selected section's corners -->
+				{#if active && selSectionObj}
+					{#each sectionCorners(selSectionObj.clip) as c (c.join(','))}
+						<Handle cx={c[0]} cy={c[1]} size={gripSize} cursor="crosshair" strokeWidth={1.2 / (canvasZoom || 1)} />
+					{/each}
+				{/if}
 			{/if}
 			<!-- drawn entities (objects on a hidden layer are skipped; the edited text is hidden too) -->
 			{#each entities as e (e.id)}{#if e.id !== editText?.id && !isLayerHidden(e.layer) && inThisView(e)}{#if e.rot}{@const c = rotCenter(e)}<g transform="rotate({e.rot} {c[0]} {c[1]})">{@render drawn(e, selSet.has(e.id))}</g>{:else}{@render drawn(e, selSet.has(e.id))}{/if}{/if}{/each}
@@ -1296,6 +1359,17 @@
 	</svg>
 
 	<div class="vp-tag"><Icon name={tagIcon[kind]} size={10} /> {label}{#if scale}<span class="vp-scale">{scale}</span>{/if}</div>
+	<!-- Selected section's floating toolbar: open its elevation (link), re-aim the cut (direction), delete. -->
+	{#if secToolbar}
+		<div class="section-toolbar" style="left:{secToolbar.x}px; top:{Math.max(2, secToolbar.y - 30)}px"
+			onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()}>
+			<button class="st-btn" title="Open the section elevation" onclick={() => on.sectionopen?.(secToolbar.id)}><Icon name="link" size={13} /></button>
+			<select class="st-dir" title="View direction" value={secToolbar.dir} onchange={(e) => on.sectionsetdir?.(secToolbar.id, (e.currentTarget as HTMLSelectElement).value as ElevDir)}>
+				<option value="front">Front</option><option value="rear">Rear</option><option value="left">Left</option><option value="right">Right</option>
+			</select>
+			<button class="st-btn st-del" title="Delete this section" onclick={() => on.sectiondelete?.(secToolbar.id)}><Icon name="trash" size={13} /></button>
+		</div>
+	{/if}
 	<!-- the tool prompt + inline-edit help now render at the PANE bottom-centre (see +page), so they
 	     stay put and readable when zoomed in -->
 	{#if editText}
@@ -1402,8 +1476,18 @@
 	.snap { fill:none; stroke:#f59e0b; stroke-width:1.4; vector-effect:non-scaling-stroke; pointer-events:none; }
 	/* Section marker on the plan: a teal cut box + a direction arrow + the elevation's label. */
 	.section-mark { fill:#0e749010; stroke:#0e7490; stroke-dasharray:7 4; vector-effect:non-scaling-stroke; pointer-events:none; }
+	.section-mark.sel { fill:#0e749022; stroke-dasharray:none; }
 	.section-arrow { fill:#0e7490; stroke:#0e7490; vector-effect:non-scaling-stroke; pointer-events:none; }
 	.section-label { fill:#0e7490; font-weight:700; font-family:Consolas,monospace; pointer-events:none; }
+	/* Selected-section floating toolbar (screen space, tracks the box): open / re-aim / delete. */
+	.section-toolbar { position:absolute; z-index:12; display:flex; align-items:center; gap:3px; padding:2px;
+		background:#fff; border:1px solid #0e7490; border-radius:6px; box-shadow:0 2px 8px #0003; }
+	.section-toolbar .st-btn { display:flex; align-items:center; justify-content:center; width:22px; height:20px;
+		color:#0e7490; background:transparent; border:none; border-radius:4px; cursor:pointer; }
+	.section-toolbar .st-btn:hover { background:#0e74901a; }
+	.section-toolbar .st-del { color:#dc2626; }
+	.section-toolbar .st-del:hover { background:#dc26261a; }
+	.section-toolbar .st-dir { font-size:11px; color:#0e7490; background:#fff; border:1px solid #cbd5e1; border-radius:4px; padding:1px 3px; font-family:Consolas,monospace; }
 	.marquee { pointer-events:none; }
 	.marquee.window { fill:#3b82f61f; stroke:#3b82f6; stroke-width:1; }
 	.marquee.crossing { fill:#10b9811f; stroke:#10b981; stroke-width:1; stroke-dasharray:5 3; }

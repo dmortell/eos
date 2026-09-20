@@ -10,7 +10,7 @@
 	//   • iso: deferred (P1c) — the viewport keeps the mock iso for now.
 	// Line thickness is NON-SCALING (constant screen px, `vector-effect`) and LAYER-DEFINED (each layer's
 	// `weight`), so lineweight is a paper property independent of the drawing scale/zoom.
-	import { project, objBounds, faces3d, isoR, isoDepthR, trimToClip, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
+	import { project, objBounds, faces3d, isoR, isoDepthR, trimToClip, doorGeom, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 	import { BASIS } from './types'
 	import type { Model, Obj, Dir, Clip } from './types'
 
@@ -87,12 +87,13 @@
 		if (o.open === 'window') {
 			return alongX ? [[P(o.x, cyf), P(o.x + o.w, cyf)]] : [[P(cxf, o.y), P(cxf, o.y + o.d)]]
 		}
-		const L = alongX ? o.w : o.d, swing = (o.swing ?? 90) * Math.PI / 180, s1 = o.flip ? -1 : 1
-		const hinge = alongX ? { x: o.flip ? o.x + o.w : o.x, y: o.y + o.d } : { x: o.x, y: o.flip ? o.y + o.d : o.y }
-		const uw = alongX ? { x: s1, y: 0 } : { x: 0, y: s1 }       // along the wall, toward the far jamb
-		const vs = alongX ? { x: 0, y: -1 } : { x: -1, y: 0 }        // swing perpendicular (into the room)
-		const at = (a: number) => P(hinge.x + L * (Math.cos(a) * uw.x + Math.sin(a) * vs.x), hinge.y + L * (Math.cos(a) * uw.y + Math.sin(a) * vs.y))
-		const leaf = [P(hinge.x, hinge.y), at(swing)]
+		// Door: hinge sits at ONE JAMB on the wall centreline (not a face corner), radius = the door width
+		// (the opening's along-wall span). `flip` = hinge side; the leaf sweeps `swing`° from closed (along
+		// the wall) to open (perpendicular). Keep this convention in sync with Viewport's swing grip.
+		const g = doorGeom(o)
+		const at = (a: number) => P(g.hx + g.L * (Math.cos(a) * g.ux + Math.sin(a) * g.vx), g.hy + g.L * (Math.cos(a) * g.uy + Math.sin(a) * g.vy))
+		const swing = (o.swing ?? 90) * Math.PI / 180
+		const leaf = [P(g.hx, g.hy), at(swing)]
 		const arc: { u: number; v: number }[] = []
 		for (let i = 0; i <= 12; i++) arc.push(at(swing * (1 - i / 12)))
 		return [leaf, arc]
