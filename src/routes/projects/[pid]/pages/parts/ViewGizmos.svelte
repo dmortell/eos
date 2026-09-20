@@ -42,10 +42,10 @@
 	<svg viewBox="0 0 54 54" width="104" height="104">
 		{#each ['z', 'y', 'x'] as const as k (k)}
 			{#if tri[k]}
-				<line x1={OX} y1={OY} x2={OX + tri[k]![0]} y2={OY + tri[k]![1]} stroke={AX[k]} stroke-width="1.7" />
+				<line x1={OX} y1={OY} x2={OX + tri[k]![0]} y2={OY + tri[k]![1]} stroke={AX[k]} stroke-width="0.9" />
 				<text x={OX + tri[k]![0] + (tri[k]![0] < 0 ? -3 : 4)} y={OY + tri[k]![1] + (tri[k]![1] < 0 ? -1 : 6)} class="ax" fill={AX[k]}>{k}</text>
 			{:else}
-				<circle cx={OX} cy={OY} r="3.2" fill="none" stroke={AX[k]} stroke-width="1.4" />
+				<circle cx={OX} cy={OY} r="3.2" fill="none" stroke={AX[k]} stroke-width="0.8" />
 				<text x={OX + 6} y={OY + 3} class="ax" fill={AX[k]}>{k}</text>
 			{/if}
 		{/each}

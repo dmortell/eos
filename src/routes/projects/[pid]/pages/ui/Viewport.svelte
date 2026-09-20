@@ -347,7 +347,15 @@
 	// that point; dragging the body moves the whole entity. Grips render at a constant
 	// screen size (÷ zoom) so they don't grow as the viewport zooms, like real CAD.
 	type Grip = { x: number; y: number; apply: (p: Pt) => Ent }
+	// A flat object in elevation is a ground line; its grips are the two ground-line ends (drag = move
+	// the min/max x-edge, keeping it flat), NOT the plan footprint corners.
+	function setFlatX(e: Ent, edge: 'min' | 'max', x: number): Ent {
+		if (e.type === 'circle' || e.type === 'polyline') return e   // no simple x-edge; leave as-is
+		const aIsMin = e.a![0] <= e.b![0], moveA = (edge === 'min') === aIsMin
+		return moveA ? { ...e, a: [x, e.a![1]] } : { ...e, b: [x, e.b![1]] }
+	}
 	function gripsFor(e: Ent): Grip[] {
+		if (isFlatElev(e)) { const [x0, x1] = flatXSpan(e); return [{ x: x0, y: GROUND, apply: p => setFlatX(e, 'min', p[0]) }, { x: x1, y: GROUND, apply: p => setFlatX(e, 'max', p[0]) }] }
 		if (e.type === 'polyline') return (e.pts ?? []).map((v, i) => ({ x: v[0], y: v[1], apply: (p: Pt) => ({ ...e, pts: (e.pts ?? []).map((q, j) => j === i ? p : q) }) }))
 		if (e.type === 'line' || e.type === 'dim') return [
 			{ x: e.a![0], y: e.a![1], apply: p => ({ ...e, a: p }) },

@@ -357,3 +357,9 @@ get Vitest unit tests (neither tool has any today; `pnpm test` runs Vitest with 
    (this is also where the §2.7/2.8 undo issues resolve).
 4. §4.2 mm world units + shared `PaperSize`, before layers/annotations get real geometry.
 5. §4.3/§4.4 reuse `layers.ts` types and the `$lib` pan/zoom helpers.
+
+
+/compact to flush mcp results and chrome browser results
+/clear to switch to new tasks
+set cheaper model for simpler subagents
+break sessions
