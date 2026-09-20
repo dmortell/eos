@@ -1057,19 +1057,19 @@
 	{#if isFlatElev(e)}
 		<!-- any flat (z=0, no height) object seen in elevation is an edge-on line at the ground -->
 		{@const sp = flatXSpan(e)}
-		<line x1={sp[0]} y1={GROUND} x2={sp[1]} y2={GROUND} stroke={ink} stroke-width={w} />
+		<line x1={sp[0]} y1={GROUND} x2={sp[1]} y2={GROUND} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
 	{:else if e.type === 'line'}
-		<line x1={e.a![0]} y1={e.a![1]} x2={e.b![0]} y2={e.b![1]} stroke={ink} stroke-width={w} />
+		<line x1={e.a![0]} y1={e.a![1]} x2={e.b![0]} y2={e.b![1]} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
 	{:else if e.type === 'polyline'}
-		<polyline points={(e.pts ?? []).map(p => p.join(',')).join(' ')} fill={fill} stroke={ink} stroke-width={w} stroke-linejoin="round" />
+		<polyline points={(e.pts ?? []).map(p => p.join(',')).join(' ')} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" stroke-linejoin="round" />
 	{:else if e.type === 'rect'}
-		<rect x={Math.min(e.a![0], e.b![0])} y={Math.min(e.a![1], e.b![1])} width={Math.abs(e.b![0] - e.a![0])} height={Math.abs(e.b![1] - e.a![1])} fill={fill} stroke={ink} stroke-width={w} />
+		<rect x={Math.min(e.a![0], e.b![0])} y={Math.min(e.a![1], e.b![1])} width={Math.abs(e.b![0] - e.a![0])} height={Math.abs(e.b![1] - e.a![1])} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
 	{:else if e.type === 'circle'}
-		<circle cx={e.c![0]} cy={e.c![1]} r={e.r} fill={fill} stroke={ink} stroke-width={w} />
+		<circle cx={e.c![0]} cy={e.c![1]} r={e.r} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
 	{:else if e.type === 'ellipse'}
-		<ellipse cx={(e.a![0] + e.b![0]) / 2} cy={(e.a![1] + e.b![1]) / 2} rx={Math.abs(e.b![0] - e.a![0]) / 2} ry={Math.abs(e.b![1] - e.a![1]) / 2} fill={fill} stroke={ink} stroke-width={w} />
+		<ellipse cx={(e.a![0] + e.b![0]) / 2} cy={(e.a![1] + e.b![1]) / 2} rx={Math.abs(e.b![0] - e.a![0]) / 2} ry={Math.abs(e.b![1] - e.a![1]) / 2} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
 	{:else if e.type === 'dim'}
-		<line x1={e.a![0]} y1={e.a![1]} x2={e.b![0]} y2={e.b![1]} stroke={seld ? SEL : (e.color ?? '#0e766e')} stroke-width={w} />
+		<line x1={e.a![0]} y1={e.a![1]} x2={e.b![0]} y2={e.b![1]} stroke={seld ? SEL : (e.color ?? '#0e766e')} stroke-width={w} vector-effect="non-scaling-stroke" />
 		<text x={(e.a![0] + e.b![0]) / 2} y={(e.a![1] + e.b![1]) / 2 - 3} font-size="9" fill={seld ? SEL : (e.color ?? '#0e766e')} text-anchor="middle">{Math.round(dist(e.a!, e.b!))}</text>
 	{:else if e.type === 'text'}
 		{@const fs = (e.fontPt ?? STYLE_DEFAULTS.fontPt) * PT}
@@ -1085,18 +1085,18 @@
 		{@const f = boxFaces(e)}
 		{#if kind === 'iso'}
 			<!-- oblique cuboid: base footprint, two side faces, then the raised top -->
-			<rect x={f.x0} y={f.y0} width={f.x1 - f.x0} height={f.y1 - f.y0} fill="none" stroke={ink} stroke-width={w} stroke-dasharray="2 2" opacity="0.5" />
-			<polygon points={f.right} fill="#c2d1e8" stroke={ink} stroke-width={w} />
-			<polygon points={f.back} fill="#b2c3dc" stroke={ink} stroke-width={w} />
-			<polygon points={f.top} fill="#dce7f5" stroke={ink} stroke-width={w} />
+			<rect x={f.x0} y={f.y0} width={f.x1 - f.x0} height={f.y1 - f.y0} fill="none" stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" stroke-dasharray="2 2" opacity="0.5" />
+			<polygon points={f.right} fill="#c2d1e8" stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
+			<polygon points={f.back} fill="#b2c3dc" stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
+			<polygon points={f.top} fill="#dce7f5" stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
 		{:else if isElev}
 			{@const fe = boxElev(e, elevDir, CX, CY)}
 			<!-- side-elevation face: width (the projected footprint axis: x for front/rear, y for
 			     left/right) × height, base at (ground − z0). Vertical is z0/height, NOT the plan depth. -->
-			<rect x={fe.x0} y={fe.top} width={fe.x1 - fe.x0} height={fe.h} fill={e.fill ?? '#dce7f5'} stroke={ink} stroke-width={w} />
+			<rect x={fe.x0} y={fe.top} width={fe.x1 - fe.x0} height={fe.h} fill={e.fill ?? '#dce7f5'} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
 		{:else}
 			<!-- plan: footprint rectangle -->
-			<rect x={f.x0} y={f.y0} width={f.x1 - f.x0} height={f.y1 - f.y0} fill={e.fill ?? '#dce7f533'} stroke={ink} stroke-width={w} />
+			<rect x={f.x0} y={f.y0} width={f.x1 - f.x0} height={f.y1 - f.y0} fill={e.fill ?? '#dce7f533'} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
 		{/if}
 	{/if}
 {/snippet}
