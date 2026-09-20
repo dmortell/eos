@@ -349,6 +349,20 @@ marquee and constant-lineweight draw, but no additive select / duplicate / move-
   highlighted. (Static per view kind; no interactive re-orientation yet.)
 - [ ] Section / elevation views generated from floorplans → richer **3D data** (true extrusion,
   cuts) beyond the mock box (P3).
+- [x] **Draw shapes + annotations directly ON elevations — v1** (2026-09-20) — objects drawn in an
+  elevation view carry `space = that ElevDir` (a wall/rack label, leader, dimension); they render
+  natively there (not collapsed to the ground line), are hit/grip-editable there, and are hidden in
+  other views. Floor/plan objects keep `space` = undefined/'plan' and still project to the ground line
+  in elevations. This matches how the Sheets tool stores annotations **per-viewport** (ref:
+  `sheets/…` sheet with plan + elevation annotes). Verified: a rect drawn in FRONT shows in FRONT,
+  hidden in RIGHT/plan, reappears in FRONT.
+- [ ] **v2 — true 3D construction-plane annotations** (Dave, 2026-09-20) — upgrade v1 so a 2D shape is
+  positioned in 3D (**x/y/z** + size **w/h/d**, with the unused plane dimension = 0) and oriented on a
+  construction plane by rotating about x/y/z. Then each view PROJECTS it: face-on in its own plane's
+  elevation (readable), edge-on (a line) elsewhere, foreshortened in iso — instead of hidden. The
+  projector generalises the current floor→ground-line projection (a `to3`/`proj3` pair: plan-local
+  (u,v) → world → view drawing coords). Scope: render + hit + grips per view; ellipse/circle
+  foreshortening + iso are the hard parts.
 - [ ] **Ellipse draw origin** — optional status-bar toggle for centre-out vs corner-to-corner
   ellipse/circle drawing (AutoCAD ELLIPSE defaults corner/axis, with a `C` Center option).
   Currently corner-to-corner (Shift = square about opposite corner) (P2).

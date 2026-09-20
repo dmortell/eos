@@ -170,19 +170,23 @@
 		}
 		return p
 	}
+	// Objects drawn in an elevation view are NATIVE to that elevation (space = the dir); a box stays
+	// plan-space (it's a 3D footprint) and projects like normal.
+	const drawSpace = () => (isElev ? elevDir : undefined)
 	function place(a: Pt, b: Pt) {
-		if (tool === 'Line') on.add?.({ id: uid(), type: 'line', a, b })
-		else if (tool === 'Rectangle') on.add?.({ id: uid(), type: 'rect', a, b })
-		else if (tool === 'Ellipse') on.add?.({ id: uid(), type: 'ellipse', a, b })
+		const sp = drawSpace()
+		if (tool === 'Line') on.add?.({ id: uid(), type: 'line', a, b, space: sp })
+		else if (tool === 'Rectangle') on.add?.({ id: uid(), type: 'rect', a, b, space: sp })
+		else if (tool === 'Ellipse') on.add?.({ id: uid(), type: 'ellipse', a, b, space: sp })
 		else if (tool === 'Box') on.add?.({ id: uid(), type: 'box', a, b, h: DEFAULT_BOX_H })
-		else if (tool === 'Dimension') on.add?.({ id: uid(), type: 'dim', a, b })
+		else if (tool === 'Dimension') on.add?.({ id: uid(), type: 'dim', a, b, space: sp })
 	}
 	// The Line tool draws a POLYLINE in AutoCAD mode: keep clicking to add segments, Enter /
 	// double-click / right-click to finish (Esc cancels). (EOS press-drag = a single segment.)
 	function finishPolyline() {
 		let pts = draft
 		while (pts.length >= 2 && dist(pts.at(-1)!, pts.at(-2)!) < 0.01) pts = pts.slice(0, -1)   // drop the double-click's zero-length tail
-		if (tool === 'Line' && pts.length >= 2) on.add?.({ id: uid(), type: 'polyline', pts: pts.map(p => [...p] as Pt) })
+		if (tool === 'Line' && pts.length >= 2) on.add?.({ id: uid(), type: 'polyline', pts: pts.map(p => [...p] as Pt), space: drawSpace() })
 		draft = []; cur = null; snapMark = null
 	}
 	function onClick(e: MouseEvent) {
@@ -197,7 +201,7 @@
 			} else on.select?.(g)
 			return
 		}
-		if (tool === 'Text') { const p = drawPoint(e.clientX, e.clientY); if (p) on.add?.({ id: uid(), type: 'text', a: p, text: 'TEXT' }); snapMark = null; return }
+		if (tool === 'Text') { const p = drawPoint(e.clientX, e.clientY); if (p) on.add?.({ id: uid(), type: 'text', a: p, text: 'TEXT', space: drawSpace() }); snapMark = null; return }
 		if (!acad) return   // EOS mode: shapes are drawn press-drag (onDown), not by clicking
 		const sp = drawPoint(e.clientX, e.clientY, draft.at(-1), e.shiftKey); if (!sp) return
 		if (tool === 'Line') { if (!draft.length || dist(draft.at(-1)!, sp) > 0.01) draft = [...draft, sp]; cur = sp; snapMark = null; return }   // polyline: accumulate (skip dup)
@@ -308,7 +312,14 @@
 	// hit-test (topmost first). segDist/textBox/boxElev live in ./geometry.
 	// Flat (z=0, no height) objects that project to an edge-on ground line in elevation.
 	const FLAT = new Set(['line', 'polyline', 'dim', 'rect', 'ellipse', 'circle'])
-	const isFlatElev = (e: Ent) => isElev && FLAT.has(e.type)
+	// Object SPACE (v1 — per-view annotations, like the Sheets tool): 'plan'/undefined = model/plan
+	// space (projected into every elevation, layer-gated); an ElevDir = drawn natively in that
+	// elevation only (a wall/rack label, a leader, a dimension), rendered as-is there and hidden in
+	// other views. The full 3D-position/construction-plane model (project onto x/y/z planes, oriented
+	// per view) is a later upgrade — see todo §2.
+	const isPlanSpace = (e: Ent) => !e.space || e.space === 'plan'
+	const inThisView = (e: Ent) => isPlanSpace(e) || e.space === kind
+	const isFlatElev = (e: Ent) => isElev && FLAT.has(e.type) && isPlanSpace(e)   // only floor flats collapse to the ground line
 	// Horizontal drawing span of a flat object projected onto the ground line for the current side view.
 	function flatXSpan(e: Ent): [number, number] { return flatSpan(e, elevDir, CX, CY) }
 	// Rotation (degrees, about the entity's view-bbox centre): render, hit and grips all honour it.
@@ -338,8 +349,8 @@
 		const m = vbMap()
 		return m ? px / (view.zoom * m.scale) : px
 	}
-	// A hidden or locked layer's objects can't be picked (hidden = invisible, locked = view-only).
-	const pickable = (e: Ent) => !isLayerHidden(e.layer) && !isLayerLocked(e.layer)
+	// A hidden or locked layer's objects can't be picked; nor can objects that don't belong to this view.
+	const pickable = (e: Ent) => inThisView(e) && !isLayerHidden(e.layer) && !isLayerLocked(e.layer)
 	function hit(p: Pt): string[] {
 		const thr = hitTol(7)
 		for (let i = entities.length - 1; i >= 0; i--) if (pickable(entities[i]) && hitEnt(entities[i], p, thr)) return [entities[i].id]
@@ -756,7 +767,7 @@
 			{/if}
 			</g>
 			<!-- drawn entities (objects on a hidden layer are skipped; the edited text is hidden too) -->
-			{#each entities as e (e.id)}{#if e.id !== editText?.id && !isLayerHidden(e.layer)}{#if e.rot}{@const c = rotCenter(e)}<g transform="rotate({e.rot} {c[0]} {c[1]})">{@render drawn(e, selSet.has(e.id))}</g>{:else}{@render drawn(e, selSet.has(e.id))}{/if}{/if}{/each}
+			{#each entities as e (e.id)}{#if e.id !== editText?.id && !isLayerHidden(e.layer) && inThisView(e)}{#if e.rot}{@const c = rotCenter(e)}<g transform="rotate({e.rot} {c[0]} {c[1]})">{@render drawn(e, selSet.has(e.id))}</g>{:else}{@render drawn(e, selSet.has(e.id))}{/if}{/if}{/each}
 			{#if active && tool === 'Line' && draft.length}
 				<!-- polyline preview: committed segments + rubber band to the cursor -->
 				<polyline points={draft.map(p => p.join(',')).join(' ')} fill="none" stroke={SEL} stroke-width="1.2" />
@@ -767,7 +778,7 @@
 			<!-- editing handles: square grips at each selected entity's defining points -->
 			{#if active && tool === 'Select'}
 				{#each entities as e (e.id)}
-					{#if selSet.has(e.id) && !isLayerHidden(e.layer) && !isLayerLocked(e.layer)}
+					{#if selSet.has(e.id) && inThisView(e) && !isLayerHidden(e.layer) && !isLayerLocked(e.layer)}
 						{#each gripsFor(e) as g}
 							<Handle cx={g.x} cy={g.y} size={gripSize} cursor="crosshair" strokeWidth={1.2 / (canvasZoom || 1)} />
 						{/each}
