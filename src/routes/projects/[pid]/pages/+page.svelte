@@ -70,7 +70,7 @@
 	}
 	// Per-view drawing SCALE (mock — shown in the viewport tag + titleblock; chosen in the active-
 	// viewport bar, like the Sheets tool's viewport scale).
-	const SCALES = ['1:20', '1:50', '1:100', '1:200', '1:500']
+	const SCALES = ['1:1', '1:2', '1:5', '1:10', '1:15', '1:20', '1:25', '1:50', '1:100', '1:150', '1:200', '1:500']
 	let docScale = $state<Record<string, string>>({})
 	const scaleOf = (id?: string) => docScale[id ?? ''] ?? '1:100'
 	// The drafting/interaction flags bundle passed to a pane's viewport (one prop instead of six).
@@ -358,14 +358,18 @@
 		v.x = mx - (mx - v.x) * ratio; v.y = my - (my - v.y) * ratio; v.zoom = nz
 	}
 	// Nav toolbar / status zoom act on the active viewport if one is active, else the canvas.
+	// Which zoom the wheel/nav actually acts on: the viewport CONTENT only when a viewport is active
+	// AND "Pan content" is on; otherwise the canvas. (Was always reading the view zoom when active,
+	// so the status bar stuck at 100% while the wheel zoomed the canvas.)
+	const zoomsContent = (id?: string) => isVpActive(id) && navContent
 	let dispZoom = $derived.by(() => {
 		const p = panes[focused]; if (!p) return 100
-		return Math.round((isVpActive(p.activeId) ? viewOf(p.activeId).zoom : p.canvasView.zoom) * 100)
+		return Math.round((zoomsContent(p.activeId) ? viewOf(p.activeId).zoom : p.canvasView.zoom) * 100)
 	})
 	function navZoom(f: number) {
 		const p = panes[focused]; if (!p) return
-		if (isVpActive(p.activeId)) { const v = viewOf(p.activeId); setView(p.activeId, { ...v, zoom: Math.min(8, Math.max(0.25, v.zoom * f)) }) }
-		else { const v = p.canvasView; v.zoom = Math.min(8, Math.max(0.1, v.zoom * f)) }
+		if (zoomsContent(p.activeId)) { const v = viewOf(p.activeId); setView(p.activeId, { ...v, zoom: Math.min(8, Math.max(0.25, v.zoom * f)) }) }
+		else { p.canvasView = { ...p.canvasView, zoom: Math.min(8, Math.max(0.1, p.canvasView.zoom * f)) } }
 	}
 	// Fit a specific pane: frame its sheet paper (centred, with margin) or reset a model view.
 	function fitPane(idx: number) {
@@ -452,7 +456,8 @@
 	let mockTheme = $state<'dark' | 'light'>('dark')
 </script>
 
-<svelte:head><title>EOS - Pages (mockup)</title></svelte:head>
+<!-- Title = the active drawing's name so Save-as-PDF gets a clean filename (no app name / hyphen). -->
+<svelte:head><title>{active?.title ?? 'Pages'}</title></svelte:head>
 
 <div class="shell" data-mock-theme={mockTheme}>
 	<!-- inside .shell so the palette's CSS tokens (var(--panel)/--text/…) resolve -->
@@ -592,13 +597,13 @@
 										onactivate={() => activateVp(a.id)}
 										ondeactivate={() => deactivateVp(a.id)}
 										focused={focused === pi}
-										onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} ondelete={(ids) => deleteEnts(a.id, ids)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} onframe={onFrame} onstatus={(t) => (statusText = t)} oncoords={(x, y) => (worldXY = { x, y })} onbeginedit={beginGesture} onendedit={endGesture} />
+										onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} ondelete={(ids) => deleteEnts(a.id, ids)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} onframe={onFrame} onstatus={(t) => (statusText = t)} oncoords={(x, y) => (worldXY = { x, y })} onbeginedit={beginGesture} onendedit={endGesture} ontool={(t) => (p.tool = t)} />
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => deactivateVp(a.id)}>
 										<Viewport kind={projKind(projOf(p, a))} label={a.title} tool={p.tool} scale={scaleOf(a.id)} env={envFor(p)} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
 											active={isVpActive(a.id)} focused={focused === pi} onactivate={() => activateVp(a.id)} ondeactivate={() => deactivateVp(a.id)}
-											onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} ondelete={(ids) => deleteEnts(a.id, ids)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} onstatus={(t) => (statusText = t)} oncoords={(x, y) => (worldXY = { x, y })} onbeginedit={beginGesture} onendedit={endGesture} />
+											onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} ondelete={(ids) => deleteEnts(a.id, ids)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} onstatus={(t) => (statusText = t)} oncoords={(x, y) => (worldXY = { x, y })} onbeginedit={beginGesture} onendedit={endGesture} ontool={(t) => (p.tool = t)} />
 									</div>
 								{:else}
 									<div class="canvas-center">

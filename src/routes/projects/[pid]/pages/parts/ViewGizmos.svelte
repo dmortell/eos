@@ -59,8 +59,9 @@
 	.vc svg { filter:drop-shadow(0 2px 4px #0005); }
 	.face { stroke:#3f5570; stroke-width:0.8; cursor:pointer; outline:none; }
 	.face.top { fill:#c2d0e4; } .face.front { fill:#9aacc7; } .face.right { fill:#7f93b2; }
-	.face:hover { fill:#5ac6d2; }
 	.face.on { fill:var(--accent); }
+	/*.face.on:hover { fill:var(--accent); }*/
+	.face:hover { fill:#e7b84d; }   /* amber highlight — clearly distinct from the teal selected face */
 	.lbl { font-size:6px; fill:#1b2f45; font-weight:700; text-anchor:middle; pointer-events:none; }
 	/* Solid chip so the label reads on any backdrop (white paper included), not just when active. */
 	.d3 { pointer-events:auto; font-size:9px; font-weight:700; letter-spacing:.04em; color:var(--text);

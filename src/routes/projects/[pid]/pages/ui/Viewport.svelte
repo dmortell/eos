@@ -18,9 +18,9 @@
 	// Drafting/interaction flags are grouped into one `env` object to keep the prop list small.
 	export type Env = { acad?: boolean; navContent?: boolean; grid?: boolean; lwt?: boolean; osnap?: boolean; canvasZoom?: number }
 	let { label = 'Viewport', scale = '', kind = 'floorplan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {},
-		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, ondeactivate, onadd, onupdate, ondelete, onselect, onview, onstatus, oncoords, onbeginedit, onendedit }:
+		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, ondeactivate, onadd, onupdate, ondelete, onselect, onview, onstatus, oncoords, onbeginedit, onendedit, ontool }:
 		{ label?: string; scale?: string; kind?: 'floorplan' | 'model' | 'elevation'; active?: boolean; tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env;
-			focused?: boolean; entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; ondeactivate?: () => void; onadd?: (e: Ent) => void; onupdate?: (e: Ent) => void; ondelete?: (ids: string[]) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void; onstatus?: (text: string) => void; oncoords?: (x: number, y: number) => void; onbeginedit?: () => void; onendedit?: (debounceMs?: number) => void } = $props()
+			focused?: boolean; entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; ondeactivate?: () => void; onadd?: (e: Ent) => void; onupdate?: (e: Ent) => void; ondelete?: (ids: string[]) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void; onstatus?: (text: string) => void; oncoords?: (x: number, y: number) => void; onbeginedit?: () => void; onendedit?: (debounceMs?: number) => void; ontool?: (name: string) => void } = $props()
 	const acad = $derived(env.acad ?? true)
 	const navContent = $derived(env.navContent ?? false)
 	const grid = $derived(env.grid ?? true)
@@ -238,7 +238,9 @@
 			return
 		}
 		if (e.key !== 'Escape') return
+		// Esc ladder: cancel a draft → switch a drawing tool back to Select → clear selection → exit.
 		if (draft.length) { draft = []; cur = null; snapMark = null }
+		else if (tool !== 'Select') ontool?.('Select')
 		else if (sel.length) onselect?.([])
 		else ondeactivate?.()
 	}
@@ -594,7 +596,7 @@
 	// zoomed in — includes the inline-edit key help while editing text.
 	let statusText = $derived(
 		editText ? 'Editing text · Enter = new line · Ctrl/⌘+Enter = commit · Esc = cancel'
-			: active ? `${tool} · ${prompt} · ${Math.round(view.zoom * 100)}%` : '')
+			: active ? `${tool} · ${prompt}` : '')
 	$effect(() => { if (focused) onstatus?.(statusText) })   // only the focused pane drives the shared status
 </script>
 

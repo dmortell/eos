@@ -149,7 +149,7 @@
           <div class="hidden md:flex flex-col justify-center items-center px-12 py-16 bg-linear-to-br from-gray-800/50 to-gray-900/80 border-l border-gray-700 space-y-8">
             <div class="space-y-4 text-center">
               <MetalButton variant="cyan" icon="expand" iconSize={22} onclick={(e) => {}}></MetalButton>
-              <h3 class="text-xl font-semibold text-white">Manage Your Projects</h3>
+              <h3 class="text-xl font-semibold text-slate-100">Manage Your Projects</h3>
               <p class="text-sm text-gray-400">Organize tasks, track progress, and collaborate with your team seamlessly.</p>
             </div>
 
