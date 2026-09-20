@@ -454,6 +454,7 @@
 		{ icon: 'square', name: 'Furniture' },
 		{ icon: 'route', name: 'Trunk' },
 		{ icon: 'rows', name: 'Pipe' },
+		{ icon: 'rect', name: 'Opening' },
 		{ icon: 'scan', name: 'Section' },
 		{ icon: 'dimension', name: 'Dimension' },
 		{ icon: 'k-text', name: 'Text' },

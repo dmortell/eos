@@ -58,11 +58,12 @@
 		{#if visible(o) && inClip(o)}
 			{@const col = colorOf(o)}
 			{@const lw = weightOf(o)}
+			{@const dash = layerOf(o)?.dash ? '7 4' : undefined}
 			{#each project(o, dir, undefined, undefined, cx, cy) as s, i (i)}
 				{#if s.closed}
-					<polygon points={s.pts.map((p) => `${p.u},${p.v}`).join(' ')} fill="none" stroke={col} stroke-width={lw} vector-effect="non-scaling-stroke" />
+					<polygon points={s.pts.map((p) => `${p.u},${p.v}`).join(' ')} fill="none" stroke={col} stroke-width={lw} stroke-dasharray={dash} vector-effect="non-scaling-stroke" />
 				{:else}
-					<polyline points={s.pts.map((p) => `${p.u},${p.v}`).join(' ')} fill="none" stroke={col} stroke-width={lw} vector-effect="non-scaling-stroke" />
+					<polyline points={s.pts.map((p) => `${p.u},${p.v}`).join(' ')} fill="none" stroke={col} stroke-width={lw} stroke-dasharray={dash} vector-effect="non-scaling-stroke" />
 				{/if}
 			{/each}
 		{/if}
