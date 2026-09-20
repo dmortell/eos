@@ -3,9 +3,10 @@
 	// active document with real two-way binding; with several selected it shows the group's
 	// common props (bbox X/Y/W/H) and edits apply to all. Falls back to page/general props
 	// when nothing is selected. Geometry is in model units (mock).
-	import { Icon } from '$lib'
+	import { Icon, ColorPicker } from '$lib'
 	import type { Ent, Pt } from '../ui/Viewport.svelte'
-	import { translate, STYLE_DEFAULTS, type TextAlign } from '../ui/geometry'
+	import { translate, STYLE_DEFAULTS, type TextAlign, type VAlign } from '../ui/geometry'
+	import { LAYERS, COLORS } from '../palette'
 	import type { FrameSel } from './PaperPage.svelte'
 
 	let { ents = [], onupdate, pageTitle = '', pageKind = '', activeLayer = '', node = null, viewport = null }:
@@ -75,12 +76,34 @@
 	let anyFillable = $derived(ents.some((e) => FILL_TYPES.has(e.type)))
 	// common value across the selection (undefined = mixed / unset)
 	function cc<K extends keyof Ent>(k: K): Ent[K] | undefined { const v = new Set(ents.map((e) => e[k])); return v.size === 1 ? ents[0][k] : undefined }
-	const DEF_INK = '#475569'   // matches the Viewport ink; shown when color is ByLayer/unset
-	let commonColor = $derived((cc('color') as string | undefined) ?? DEF_INK)
-	let hasFill = $derived(ents.some((e) => e.fill && e.fill !== 'none'))
-	let fillColor = $derived(hasFill ? ((cc('fill') as string | undefined) ?? '#dbeafe') : '#dbeafe')
+	let mixedColor = $derived(new Set(ents.map((e) => e.color)).size > 1)
+	let mixedFill = $derived(new Set(ents.map((e) => e.fill)).size > 1)
 	function setAll(patch: Partial<Ent>) { const snap = [...ents]; for (const e of snap) onupdate?.({ ...e, ...patch }) }
+	function setLayer(v: string) { setAll({ layer: v || undefined }) }
+	// Enter / Shift-Enter in a field jumps to the next / previous field in the panel (textareas keep
+	// Enter for newlines). Fields opt in with class="navf".
+	function fnav(e: KeyboardEvent) {
+		if (e.key !== 'Enter' || (e.currentTarget as HTMLElement).tagName === 'TEXTAREA') return
+		e.preventDefault()
+		const fields = [...document.querySelectorAll<HTMLElement>('.pp .navf')].filter((el) => !(el as HTMLInputElement).disabled)
+		const i = fields.indexOf(e.currentTarget as HTMLElement)
+		const nx = fields[i + (e.shiftKey ? -1 : 1)]
+		if (nx) { nx.focus(); (nx as HTMLInputElement).select?.() }
+	}
+	// Grow the text textarea to fit its content (and on every input).
+	function autoresize(el: HTMLTextAreaElement) {
+		const grow = () => { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px' }
+		grow(); el.addEventListener('input', grow)
+		return { destroy() { el.removeEventListener('input', grow) } }
+	}
 </script>
+
+<!-- one labelled number cell for the compact X/Y/Z · W/D/H vector rows -->
+{#snippet numcell(k: string, v: number, set?: (n: number) => void)}
+	<label class="vcell"><em>{k}</em>
+		<input class:navf={!!set} type="number" value={v} readonly={!set} onkeydown={set ? fnav : undefined} onchange={(e) => set?.(num(e))} />
+	</label>
+{/snippet}
 
 <div class="pp">
 	{#if ents.length === 0 && !node && viewport}
@@ -118,49 +141,52 @@
 	{:else}
 		<div class="prop-sec">{ents.length === 1 ? 'OBJECT' : `${ents.length} OBJECTS`}</div>
 		<div class="prop"><span>Type</span><input value={typeLabel} readonly /></div>
-		<div class="prop-sec">GEOMETRY</div>
-		<div class="prop"><span>X</span><input type="number" value={r1(gb!.x)} onchange={(e) => setX(num(e))} /></div>
-		<div class="prop"><span>Y</span><input type="number" value={r1(gb!.y)} onchange={(e) => setY(num(e))} /></div>
-		{#if single?.type === 'box'}
-			<div class="prop"><span>Width</span><input type="number" value={r1(Math.abs(single.b![0] - single.a![0]))} onchange={(e) => setW(num(e))} /></div>
-			<div class="prop"><span>Depth</span><input type="number" value={r1(Math.abs(single.b![1] - single.a![1]))} onchange={(e) => setH(num(e))} /></div>
-			<div class="prop"><span>Height</span><input type="number" value={Math.round(single.h ?? 45)} onchange={(e) => setBoxH(num(e))} /></div>
-			<div class="prop"><span>Base</span><input type="number" value={Math.round(single.z0 ?? 0)} onchange={(e) => setBoxZ0(num(e))} /></div>
-		{:else if boxKind(single)}
-			<div class="prop"><span>Width</span><input type="number" value={r1(Math.abs(single!.b![0] - single!.a![0]))} onchange={(e) => setW(num(e))} /></div>
-			<div class="prop"><span>Height</span><input type="number" value={r1(Math.abs(single!.b![1] - single!.a![1]))} onchange={(e) => setH(num(e))} /></div>
-		{:else if single?.type === 'circle'}
-			<div class="prop"><span>Radius</span><input type="number" value={r1(single.r!)} onchange={(e) => setR(num(e))} /></div>
-		{:else}
-			<div class="prop"><span>Width</span><input value={r1(gb!.w)} readonly /></div>
-			<div class="prop"><span>Height</span><input value={r1(gb!.h)} readonly /></div>
-		{/if}
+		<div class="prop-sec">POSITION</div>
+		<div class="vecrow">
+			{@render numcell('X', r1(gb!.x), setX)}
+			{@render numcell('Y', r1(gb!.y), setY)}
+			{#if single?.type === 'box'}{@render numcell('Z', Math.round(single.z0 ?? 0), setBoxZ0)}{/if}
+		</div>
+		<div class="prop-sec">SIZE</div>
+		<div class="vecrow">
+			{#if single?.type === 'box'}
+				{@render numcell('W', r1(Math.abs(single.b![0] - single.a![0])), setW)}
+				{@render numcell('D', r1(Math.abs(single.b![1] - single.a![1])), setH)}
+				{@render numcell('H', Math.round(single.h ?? 45), setBoxH)}
+			{:else if single?.type === 'circle'}
+				{@render numcell('R', r1(single.r!), setR)}
+			{:else if boxKind(single)}
+				{@render numcell('W', r1(Math.abs(single!.b![0] - single!.a![0])), setW)}
+				{@render numcell('H', r1(Math.abs(single!.b![1] - single!.a![1])), setH)}
+			{:else}
+				{@render numcell('W', r1(gb!.w))}
+				{@render numcell('H', r1(gb!.h))}
+			{/if}
+		</div>
 		{#if single?.type === 'text'}
 			<div class="prop-sec">TEXT</div>
-			<div class="prop wide"><textarea class="pp-textarea" rows={Math.min(6, Math.max(2, (single.text ?? '').split('\n').length))}
-				value={single.text ?? ''} onchange={(e) => setText((e.currentTarget as HTMLTextAreaElement).value)}></textarea></div>
+			<div class="prop wide"><textarea class="pp-textarea" use:autoresize value={single.text ?? ''} onchange={(e) => setText((e.currentTarget as HTMLTextAreaElement).value)}></textarea></div>
 		{/if}
 		<div class="prop-sec">STYLE</div>
-		<div class="prop"><span>Layer</span><input value={activeLayer} readonly /></div>
+		<div class="prop"><span>Layer</span>
+			<select class="navf" value={(cc('layer') as string | undefined) ?? ''} onkeydown={fnav} onchange={(e) => setLayer(strVal(e))}>
+				<option value="">— {activeLayer || 'By tool'} —</option>
+				{#each LAYERS as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+			</select>
+		</div>
 		<div class="prop"><span>Color</span>
-			<span class="pp-color">
-				<input type="color" value={commonColor} onchange={(e) => setAll({ color: strVal(e) })} title="Object colour" />
-				<button class="pp-mini" class:on={cc('color') === undefined} title="Use the layer colour" onclick={() => setAll({ color: undefined })}>ByLayer</button>
-			</span>
+			<ColorPicker value={cc('color') as string | undefined} colors={COLORS} allowByLayer mixed={mixedColor} onchange={(v) => setAll({ color: v })} />
 		</div>
 		{#if anyStroke}
-			<div class="prop"><span>Weight</span><input type="number" min="0.1" step="0.1" value={(cc('weight') as number | undefined) ?? STYLE_DEFAULTS.weight} onchange={(e) => setAll({ weight: Math.max(0.1, num(e)) })} /></div>
+			<div class="prop"><span>Weight</span><input class="navf" type="number" min="0.1" step="0.1" value={(cc('weight') as number | undefined) ?? STYLE_DEFAULTS.weight} onkeydown={fnav} onchange={(e) => setAll({ weight: Math.max(0.1, num(e)) })} /></div>
 		{/if}
 		{#if anyFillable}
 			<div class="prop"><span>Fill</span>
-				<span class="pp-color">
-					<input type="checkbox" checked={hasFill} onchange={(e) => setAll({ fill: (e.currentTarget as HTMLInputElement).checked ? fillColor : 'none' })} title="Filled" />
-					<input type="color" value={fillColor} disabled={!hasFill} onchange={(e) => setAll({ fill: strVal(e) })} title="Fill colour" />
-				</span>
+				<ColorPicker value={(cc('fill') as string | undefined) ?? 'none'} colors={COLORS} allowNone mixed={mixedFill} onchange={(v) => setAll({ fill: v ?? 'none' })} />
 			</div>
 		{/if}
 		{#if anyText}
-			<div class="prop"><span>Font (pt)</span><input type="number" min="2" max="96" value={(cc('fontPt') as number | undefined) ?? STYLE_DEFAULTS.fontPt} onchange={(e) => setAll({ fontPt: Math.max(2, Math.round(num(e))) })} /></div>
+			<div class="prop"><span>Font (pt)</span><input class="navf" type="number" min="2" max="96" value={(cc('fontPt') as number | undefined) ?? STYLE_DEFAULTS.fontPt} onkeydown={fnav} onchange={(e) => setAll({ fontPt: Math.max(2, Math.round(num(e))) })} /></div>
 			<div class="prop"><span>Align</span>
 				<span class="pp-seg">
 					{#each ['left', 'center', 'right'] as const as al (al)}
@@ -168,8 +194,15 @@
 					{/each}
 				</span>
 			</div>
+			<div class="prop"><span>V-align</span>
+				<span class="pp-seg">
+					{#each ['top', 'middle', 'bottom'] as const as va (va)}
+						<button class:on={(cc('valign') ?? 'top') === va} title="{va} align" onclick={() => setAll({ valign: va as VAlign })}>{va[0].toUpperCase()}</button>
+					{/each}
+				</span>
+			</div>
 		{/if}
-		<div class="pp-hint">{ents.length > 1 ? 'Style + X / Y apply to the whole selection.' : 'Editing writes straight to the object.'} New objects use Sheets’ defaults ({STYLE_DEFAULTS.fontPt}pt, left).</div>
+		<div class="pp-hint">{ents.length > 1 ? 'Style + position apply to the whole selection.' : 'Editing writes straight to the object.'} New objects use Sheets’ defaults ({STYLE_DEFAULTS.fontPt}pt, left).</div>
 	{/if}
 </div>
 
@@ -181,18 +214,17 @@
 	.prop span { color:var(--muted); font-size:11px; }
 	.prop input, .prop select { background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:3px 6px; font-size:11px; font-family:Consolas,monospace; min-width:0; }
 	.prop input:read-only { color:var(--muted); }
-	.pp-textarea { width:100%; resize:vertical; background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:4px 6px; font-size:11px; font-family:'Consolas','SF Mono',ui-monospace,monospace; }
+	.pp-textarea { width:100%; min-height:32px; resize:vertical; overflow:hidden; background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:4px 6px; font-size:11px; font-family:'Consolas','SF Mono',ui-monospace,monospace; }
 	.pp-textarea:focus { outline:none; border-color:var(--accent); }
 	.prop input:focus, .prop select:focus { outline:none; border-color:var(--accent); }
 	.pp-hint { font-size:10px; color:var(--faint); padding:10px 6px; line-height:1.4; }
-	/* colour + fill controls */
-	.pp-color { display:flex; align-items:center; gap:6px; min-width:0; }
-	.pp-color input[type=color] { width:28px; height:22px; padding:0; border:1px solid var(--line); border-radius:4px; background:var(--input); flex:0 0 auto; cursor:pointer; }
-	.pp-color input[type=color]:disabled { opacity:.4; cursor:default; }
-	.pp-color input[type=checkbox] { flex:0 0 auto; accent-color:var(--accent); }
-	.pp-mini { font-size:10px; color:var(--muted); background:var(--input); border:1px solid var(--line); border-radius:4px; padding:2px 6px; white-space:nowrap; }
-	.pp-mini:hover { color:var(--text); border-color:var(--accent-dim); }
-	.pp-mini.on { color:var(--accent); border-color:var(--accent); }
+	/* compact X/Y/Z · W/D/H vector rows */
+	.vecrow { display:flex; gap:5px; padding:2px 4px; }
+	.vcell { flex:1; min-width:0; display:flex; align-items:center; gap:4px; }
+	.vcell em { font-style:normal; color:var(--faint); font-size:10px; font-weight:600; width:10px; flex:0 0 auto; text-align:center; }
+	.vcell input { width:100%; min-width:0; background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:3px 4px; font-size:11px; font-family:Consolas,monospace; }
+	.vcell input:read-only { color:var(--muted); }
+	.vcell input:focus { outline:none; border-color:var(--accent); }
 	/* L/C/R alignment segmented control */
 	.pp-seg { display:flex; gap:2px; }
 	.pp-seg button { flex:1; font-size:11px; font-weight:600; color:var(--muted); background:var(--input); border:1px solid var(--line); border-radius:4px; padding:2px 0; }

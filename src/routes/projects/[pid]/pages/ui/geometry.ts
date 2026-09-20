@@ -9,8 +9,9 @@ export type Pt = [number, number]
 export type TextAlign = 'left' | 'center' | 'right'
 // Style props mirror the Sheets annotation model (fontPt/align/color/fill/weight) so an object can
 // match Sheets' defaults; all optional → unset falls back to the tool defaults (see STYLE_DEFAULTS).
+export type VAlign = 'top' | 'middle' | 'bottom'
 export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'ellipse' | 'dim' | 'text' | 'box' | 'polyline'; a?: Pt; b?: Pt; c?: Pt; r?: number; h?: number; z0?: number; text?: string; pts?: Pt[]; groupId?: string;
-	color?: string; fill?: string; weight?: number; fontPt?: number; align?: TextAlign }
+	color?: string; fill?: string; weight?: number; fontPt?: number; align?: TextAlign; valign?: VAlign; layer?: string }
 export type View = { zoom: number; x: number; y: number }
 
 // Default object style — matched to the Sheets tool (annotations.svelte.ts: text fontPt 8 / align
@@ -85,7 +86,9 @@ export function textBox(e: Ent): [number, number, number, number] {
 	const lines = (e.text ?? '').split('\n')
 	const fs = (e.fontPt ?? STYLE_DEFAULTS.fontPt) * PT, lh = fs * 1.18
 	const w = Math.max(...lines.map(l => l.length), 1) * fs * 0.6
-	return [e.a![0], e.a![1] - fs * 0.9, e.a![0] + w, e.a![1] + (lines.length - 1) * lh + 3]
+	// vertical-align shifts the whole block about the anchor (matches the Viewport render's oy).
+	const oy = e.valign === 'middle' ? -((lines.length - 1) * lh) / 2 : e.valign === 'bottom' ? -((lines.length - 1) * lh) : 0
+	return [e.a![0], e.a![1] + oy - fs * 0.9, e.a![0] + w, e.a![1] + oy + (lines.length - 1) * lh + 3]
 }
 
 // Elevation face of a box in direction `dir` (default front): u0..u1 wide (the projected footprint

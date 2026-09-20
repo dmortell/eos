@@ -238,8 +238,12 @@
 	// Note: right-button is reserved for pan/zoom (incl. mid-draw, to reach a far
 	// endpoint), so it must NOT cancel the draft. Esc cancels an in-progress draw.
 	// Esc ladder (CAD-style): cancel an in-progress draw → clear selection → exit viewport.
+	// True when the keystroke is going into a form field (sidebar Properties inputs, etc.) — the
+	// viewport must NOT then treat Delete/Backspace/Ctrl-C… as canvas commands and nuke the selection.
+	const isTypingTarget = (el: EventTarget | null) => { const n = el as HTMLElement | null; if (!n?.tagName) return false; const t = n.tagName; return t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT' || n.isContentEditable }
 	function onKey(e: KeyboardEvent) {
 		if (!active || !focused || editText) return   // in split view only the focused pane's instance handles keys
+		if (isTypingTarget(e.target) || isTypingTarget(document.activeElement)) return   // typing in a field → let it through
 		if (e.key === 'Shift') { reconstrain(true); return }
 		if (e.key === 'Enter' && tool === 'Line' && draft.length) { e.preventDefault(); finishPolyline(); return }   // finish polyline
 		if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) { e.preventDefault(); on.select?.(entities.map(x => x.id)); return }   // select all
@@ -763,8 +767,12 @@
 </div>
 
 {#snippet drawn(e: Ent, seld: boolean)}
-	{@const ink = seld ? SEL : (e.color ?? INK)}
-	{@const w = (lwt ? (seld ? 2 : (e.weight ?? STYLE_DEFAULTS.weight)) : 0.5) / (canvasZoom || 1)}
+	<!-- Selection is shown by the grips, NOT by recolouring/thickening the stroke — so colour and
+	     lineweight edits are visible live while the object stays selected. -->
+	{@const ink = e.color ?? INK}
+	<!-- An explicit per-object weight ALWAYS renders; LWT only chooses the thickness for objects with
+	     no weight set (on = the default 1.2, off = a thin 0.5 display line). -->
+	{@const w = (e.weight ?? (lwt ? STYLE_DEFAULTS.weight : 0.5)) / (canvasZoom || 1)}
 	{@const fill = e.fill ?? 'none'}
 	{#if isFlatElev(e)}
 		<!-- any flat (z=0, no height) object seen in elevation is an edge-on line at the ground -->
@@ -786,8 +794,12 @@
 	{:else if e.type === 'text'}
 		{@const fs = (e.fontPt ?? STYLE_DEFAULTS.fontPt) * PT}
 		{@const anchor = e.align === 'center' ? 'middle' : e.align === 'right' ? 'end' : 'start'}
-		<text class="anno" x={e.a![0]} y={e.a![1]} font-size={fs} fill={ink} font-weight="600" text-anchor={anchor}>
-			{#each (e.text ?? '').split('\n') as line, i (i)}<tspan x={e.a![0]} dy={i === 0 ? 0 : fs * 1.18}>{line}</tspan>{/each}
+		{@const lines = (e.text ?? '').split('\n')}
+		{@const lh = fs * 1.18}
+		<!-- vertical align shifts the whole block about the anchor a[1] (top = first baseline here). -->
+		{@const oy = e.valign === 'middle' ? -((lines.length - 1) * lh) / 2 : e.valign === 'bottom' ? -((lines.length - 1) * lh) : 0}
+		<text class="anno" x={e.a![0]} y={e.a![1] + oy} font-size={fs} fill={ink} font-weight="600" text-anchor={anchor} dominant-baseline={e.valign === 'middle' ? 'central' : undefined}>
+			{#each lines as line, i (i)}<tspan x={e.a![0]} dy={i === 0 ? 0 : lh}>{line}</tspan>{/each}
 		</text>
 	{:else if e.type === 'box'}
 		{@const f = boxFaces(e)}

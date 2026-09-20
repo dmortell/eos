@@ -73,6 +73,23 @@ Batch-5c done (2026-09-21):
 - [ ] **Print orientation**: add a **one-time in-app hint** telling the user how to get correct
   orientation to PDF (Ctrl-P → More settings → Print using system dialog → orientation). See §10.
 
+Batch-7 done (2026-09-20) — object-style follow-ups:
+- [x] **Text vertical align** (top/middle/bottom) added alongside L/C/R; middle uses a central baseline
+  so single lines respond, block-offset handles multi-line. `valign` on the entity.
+- [x] **Delete/Backspace in a Properties field no longer deletes the selection** — the viewport's
+  onKey bails when the keystroke targets an input/textarea/select.
+- [x] **Weight now actually affects lines/rect borders** — an explicit weight always renders (was
+  zeroed to 0.5 when the LWT display toggle was off) AND is visible while selected.
+- [x] **Colour/weight visible while an object is selected** — selection is shown by grips, not by
+  recolouring/thickening the stroke (so style edits preview live).
+- [x] **Colour grid picker** — shared **`$lib/ui/ColorPicker.svelte`** (swatch grid + custom + By
+  layer/None) replacing the native colour input; used for object colour, fill, AND layer colours.
+  Palette in `pages/palette.ts` includes Kestrel-style subdued architectural tones (A-WALL … A-CLNG),
+  also added as an "Architectural" layer group.
+- [x] **Object Layer is a dropdown** (from `palette.LAYERS`); **Position/Size are 3D one-row vectors**
+  (X/Y/Z · W/D/H, model3d-panel style); **Enter / Shift-Enter moves to the next/prev prop field**;
+  the text-property **textarea auto-resizes**.
+
 Batch-6 done (2026-09-20):
 - [x] **Copy/paste + group/ungroup** (Ctrl-C/X/V, Ctrl-G / Ctrl-Shift-G) — see §2.
 - [x] **Layer lock beside the eye** on every sub-layer row — see §3.
@@ -322,7 +339,9 @@ marquee and constant-lineweight draw, but no additive select / duplicate / move-
 > The full Sheets set — tick the ones to bring into Pages. (Pages already has
 > line, rect, circle, dimension, text.)
 
-**Annotation kinds** (Sheets stores these _per-viewport_): Annotes are identical to model objects, just stored in 
+**Annotation kinds** (Sheets stores these _per-viewport_): 
+Annotes are identical to model objects, just stored in view instead of model, and can be moved between model and view to make them global or per view.
+Symbols are identical to annotes.
 - [ ] text 
 - [ ] line 
 - [ ] arrow (add props to line for arrowheads)

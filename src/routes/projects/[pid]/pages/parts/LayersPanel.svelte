@@ -3,7 +3,8 @@
 	// a View-Presets picker (saved layer states = "views"), a search box, a nested
 	// layer tree (groups → sub-layers) with eye toggles + colour/line swatches, and
 	// a New-Layer button. Mock data + local state only.
-	import { Icon } from '$lib'
+	import { Icon, ColorPicker } from '$lib'
+	import { COLORS } from '../palette'
 	import { tick } from 'svelte'
 	// Focus + select a rename input once it's in the DOM (a tick after it renders).
 	function focusEdit(node: HTMLInputElement) { tick().then(() => { node.focus(); node.select() }) }
@@ -40,6 +41,15 @@
 		] },
 		{ name: 'Dimensions', on: false, open: false, kids: [
 			{ name: 'Linear', on: false, swatch: 'color', color: '#0e7490' },
+		] },
+		{ name: 'Architectural', on: false, open: false, kids: [
+			{ name: 'A-WALL', on: false, swatch: 'line', color: '#8a7f72', dash: 'solid', weight: 2.5 },
+			{ name: 'A-OPENING', on: false, swatch: 'line', color: '#7f9bb0', dash: 'solid', weight: 1.2 },
+			{ name: 'A-DOOR', on: false, swatch: 'line', color: '#a99a80', dash: 'solid', weight: 1.5 },
+			{ name: 'A-GLAZ', on: false, swatch: 'line', color: '#89a0ab', dash: 'solid', weight: 1 },
+			{ name: 'A-FLOR', on: false, swatch: 'color', color: '#b0a596' },
+			{ name: 'A-FURN', on: false, swatch: 'color', color: '#94a58c' },
+			{ name: 'A-CLNG', on: false, swatch: 'line', color: '#a3919c', dash: 'dashed', weight: 1 },
 		] },
 		{ name: 'Grid', on: true, open: false, kids: [] },
 	])
@@ -143,7 +153,7 @@
 		<div class="lp-dlg" onclick={(e) => e.stopPropagation()}>
 			<div class="lp-dlg-head">Layer settings</div>
 			<label class="lp-f"><span>Name</span><input bind:value={dlgSub.name} /></label>
-			<label class="lp-f"><span>Colour</span><input type="color" class="lp-color" bind:value={dlgSub.color} /></label>
+			<div class="lp-f"><span>Colour</span><ColorPicker value={dlgSub.color} colors={COLORS} onchange={(v) => { if (dlgSub && v) dlgSub.color = v }} /></div>
 			<label class="lp-f"><span>Draw as</span>
 				<select bind:value={dlgSub.swatch}><option value="color">Fill / symbol</option><option value="line">Line</option></select>
 			</label>
@@ -223,7 +233,6 @@
 	.lp-f input:not([type=color]):not([type=checkbox]), .lp-f select { background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:5px; padding:4px 7px; font-size:12px; }
 	.lp-f input:focus, .lp-f select:focus { outline:none; border-color:var(--accent); }
 	.lp-f em { font-style:normal; color:var(--faint); font-size:11px; }
-	.lp-color { width:100%; height:26px; border:1px solid var(--line); border-radius:5px; padding:0; background:none; }
 	.lp-dlg-btns { display:flex; justify-content:space-between; margin-top:12px; }
 	.lp-del { display:inline-flex; align-items:center; gap:5px; font-size:12px; color:var(--danger); background:none; border:1px solid var(--line); border-radius:6px; padding:6px 11px; }
 	.lp-del:hover { background:var(--hover); }
