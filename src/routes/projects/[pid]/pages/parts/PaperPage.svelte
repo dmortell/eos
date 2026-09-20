@@ -24,7 +24,6 @@
 			entities?: Ent[]; sel?: string[]; view?: View } = $props()
 	const canvasZoom = $derived(env.canvasZoom ?? 1)
 	const onframe = $derived(on.frame as ((f: FrameSel | null) => void) | undefined)
-	const onactivate = $derived(on.activate), ondeactivate = $derived(on.deactivate)
 
 	let frameBorder = $state<'dashed' | 'solid' | 'none'>('dashed')
 	// Emit the selection (or null) whenever the frame's selection / geometry / border changes.
@@ -129,7 +128,7 @@
 	// frame exits model space.
 	function onInteriorDown(e: PointerEvent) { e.stopPropagation(); selected = false }
 	function onWrapDblclick(e: MouseEvent) {
-		if (active && !(e.target as Element).closest?.('.vp-frame')) ondeactivate?.()
+		if (active && !(e.target as Element).closest?.('.vp-frame')) on.deactivate?.()
 	}
 	const CORNERS = [[0, 0], [1, 0], [1, 1], [0, 1]] as const   // TL, TR, BR, BL
 	const CURSORS = ['nwse-resize', 'nesw-resize', 'nwse-resize', 'nesw-resize']
@@ -149,8 +148,8 @@
 					{#if !active}
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
 						<!-- Border band selects + moves; the interior child leaves the middle inert. -->
-						<div class="vp-band" onpointerdown={(e) => startDrag(e, 'move')} ondblclick={() => onactivate?.()}>
-							<div class="vp-interior" onpointerdown={onInteriorDown} ondblclick={() => onactivate?.()}></div>
+						<div class="vp-band" onpointerdown={(e) => startDrag(e, 'move')} ondblclick={() => on.activate?.()}>
+							<div class="vp-interior" onpointerdown={onInteriorDown} ondblclick={() => on.activate?.()}></div>
 						</div>
 						{#if selected}
 							<!-- corner grips as an SVG overlay, sharing Handle.svelte with the entity grips -->

@@ -31,11 +31,8 @@
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 } }:
 		{ label?: string; scale?: string; kind?: 'floorplan' | 'model' | 'elevation'; active?: boolean; tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env; on?: VpOn;
 			focused?: boolean; entities?: Ent[]; sel?: string[]; view?: View } = $props()
-	// Local aliases so the body reads the same; derived so inline parent arrows stay reactive.
-	const onactivate = $derived(on.activate), ondeactivate = $derived(on.deactivate), onadd = $derived(on.add)
-	const onupdate = $derived(on.update), ondelete = $derived(on.delete), onselect = $derived(on.select)
-	const onview = $derived(on.view), onstatus = $derived(on.status), oncoords = $derived(on.coords)
-	const onbeginedit = $derived(on.beginedit), onendedit = $derived(on.endedit), ontool = $derived(on.tool)
+	// Callbacks are called directly as on.x?.(…) — no aliases (a $derived rename adds nothing for a
+	// function that's only invoked). env flags stay derived because they're read as values.
 	const acad = $derived(env.acad ?? true)
 	const navContent = $derived(env.navContent ?? false)
 	const grid = $derived(env.grid ?? true)
@@ -122,12 +119,12 @@
 	// ── pan/zoom the viewport content (SVG group transform, in viewBox units) ──
 	function onPan(dx: number, dy: number) {
 		const m = vbMap(); if (!m) return
-		onview?.({ zoom: view.zoom, x: view.x + dx / m.scale, y: view.y + dy / m.scale })
+		on.view?.({ zoom: view.zoom, x: view.x + dx / m.scale, y: view.y + dy / m.scale })
 	}
 	function onZoom(f: number, cx: number, cy: number) {
 		const v = clientToVB(cx, cy); if (!v) return   // cursor in viewBox coords
 		const nz = Math.min(8, Math.max(0.25, view.zoom * f)), r = nz / view.zoom
-		onview?.({ zoom: nz, x: v[0] - (v[0] - view.x) * r, y: v[1] - (v[1] - view.y) * r })
+		on.view?.({ zoom: nz, x: v[0] - (v[0] - view.x) * r, y: v[1] - (v[1] - view.y) * r })
 	}
 	// panzoom passes its node as a trailing arg (unused here)
 	// Shift-constrain the drawing point relative to the start: rectangle → square, line/dim →
@@ -147,18 +144,18 @@
 		return p
 	}
 	function place(a: Pt, b: Pt) {
-		if (tool === 'Line') onadd?.({ id: uid(), type: 'line', a, b })
-		else if (tool === 'Rectangle') onadd?.({ id: uid(), type: 'rect', a, b })
-		else if (tool === 'Ellipse') onadd?.({ id: uid(), type: 'ellipse', a, b })
-		else if (tool === 'Box') onadd?.({ id: uid(), type: 'box', a, b, h: DEFAULT_BOX_H })
-		else if (tool === 'Dimension') onadd?.({ id: uid(), type: 'dim', a, b })
+		if (tool === 'Line') on.add?.({ id: uid(), type: 'line', a, b })
+		else if (tool === 'Rectangle') on.add?.({ id: uid(), type: 'rect', a, b })
+		else if (tool === 'Ellipse') on.add?.({ id: uid(), type: 'ellipse', a, b })
+		else if (tool === 'Box') on.add?.({ id: uid(), type: 'box', a, b, h: DEFAULT_BOX_H })
+		else if (tool === 'Dimension') on.add?.({ id: uid(), type: 'dim', a, b })
 	}
 	// The Line tool draws a POLYLINE in AutoCAD mode: keep clicking to add segments, Enter /
 	// double-click / right-click to finish (Esc cancels). (EOS press-drag = a single segment.)
 	function finishPolyline() {
 		let pts = draft
 		while (pts.length >= 2 && dist(pts.at(-1)!, pts.at(-2)!) < 0.01) pts = pts.slice(0, -1)   // drop the double-click's zero-length tail
-		if (tool === 'Line' && pts.length >= 2) onadd?.({ id: uid(), type: 'polyline', pts: pts.map(p => [...p] as Pt) })
+		if (tool === 'Line' && pts.length >= 2) on.add?.({ id: uid(), type: 'polyline', pts: pts.map(p => [...p] as Pt) })
 		draft = []; cur = null; snapMark = null
 	}
 	function onClick(e: MouseEvent) {
@@ -169,11 +166,11 @@
 			const p = toLocal(e); if (!p) return
 			const g = expandGroup(hit(p))   // the clicked entity + any group it belongs to
 			if (e.shiftKey || e.ctrlKey || e.metaKey) {   // additive: toggle the whole group
-				if (g.length) { const allSel = g.every(x => selSet.has(x)); onselect?.(allSel ? sel.filter(x => !g.includes(x)) : [...new Set([...sel, ...g])]) }
-			} else onselect?.(g)
+				if (g.length) { const allSel = g.every(x => selSet.has(x)); on.select?.(allSel ? sel.filter(x => !g.includes(x)) : [...new Set([...sel, ...g])]) }
+			} else on.select?.(g)
 			return
 		}
-		if (tool === 'Text') { const p = drawPoint(e.clientX, e.clientY); if (p) onadd?.({ id: uid(), type: 'text', a: p, text: 'TEXT' }); snapMark = null; return }
+		if (tool === 'Text') { const p = drawPoint(e.clientX, e.clientY); if (p) on.add?.({ id: uid(), type: 'text', a: p, text: 'TEXT' }); snapMark = null; return }
 		if (!acad) return   // EOS mode: shapes are drawn press-drag (onDown), not by clicking
 		const sp = drawPoint(e.clientX, e.clientY, draft.at(-1), e.shiftKey); if (!sp) return
 		if (tool === 'Line') { if (!draft.length || dist(draft.at(-1)!, sp) > 0.01) draft = [...draft, sp]; snapMark = null; return }   // polyline: accumulate (skip dup)
@@ -184,7 +181,7 @@
 	}
 	let lastRaw: Pt | null = null   // last UNconstrained pointer during a draft (for re-constraining on Shift)
 	function onMove(e: MouseEvent) {
-		if (oncoords) { const wp = toLocalXY(e.clientX, e.clientY); if (wp) oncoords(Math.round(wp[0]), Math.round(wp[1])) }   // world (model-unit) coords for the status bar
+		if (on.coords) { const wp = toLocalXY(e.clientX, e.clientY); if (wp) on.coords(Math.round(wp[0]), Math.round(wp[1])) }   // world (model-unit) coords for the status bar
 		if (active && draft.length) { const sp = drawPoint(e.clientX, e.clientY, draft.at(-1), e.shiftKey); if (sp) { lastRaw = toLocalXY(e.clientX, e.clientY); cur = sp } }
 		else if (active && osnap && DRAW.has(tool)) findSnap(e.clientX, e.clientY)   // show snap marker before the first click (DRAW excludes Select)
 		// hover feedback for the Select tool: 'move' when over a shape body (a grip shows its own cursor)
@@ -197,15 +194,15 @@
 	// both an in-progress draw and an in-progress move/grip drag.
 	function reconstrain(shift: boolean) {
 		if (drag && lastDragRaw) {
-			if (drag.kind === 'grip') onupdate?.(applyDrag(lastDragRaw, shift))
-			else { let dx = lastDragRaw[0] - drag.start[0], dy = lastDragRaw[1] - drag.start[1]; if (shift) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 } for (const b of drag.bases) onupdate?.(moveEnt(b, dx, dy)) }
+			if (drag.kind === 'grip') on.update?.(applyDrag(lastDragRaw, shift))
+			else { let dx = lastDragRaw[0] - drag.start[0], dy = lastDragRaw[1] - drag.start[1]; if (shift) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 } for (const b of drag.bases) on.update?.(moveEnt(b, dx, dy)) }
 		} else if (active && draft.length && lastRaw) cur = constrainPt(draft.at(-1)!, lastRaw, shift)
 	}
 	// Double-click: outside a viewport → enter model space; inside an active viewport, on a
 	// TEXT object → edit it in place.
 	function onDblclick(e: MouseEvent) {
 		e.stopPropagation()
-		if (!active) { onactivate?.(); return }
+		if (!active) { on.activate?.(); return }
 		if (tool === 'Line' && draft.length) { finishPolyline(); return }   // double-click ends a polyline
 		const p = toLocal(e); if (!p) return
 		const ent = entities.find(x => x.id === hit(p)[0])
@@ -228,7 +225,7 @@
 	function commitText() {
 		if (!editText) return
 		const ent = entities.find(x => x.id === editText!.id)
-		if (ent) onupdate?.({ ...ent, text: editText.value })
+		if (ent) on.update?.({ ...ent, text: editText.value })
 		editText = null
 	}
 	// Note: right-button is reserved for pan/zoom (incl. mid-draw, to reach a far
@@ -238,11 +235,11 @@
 		if (!active || !focused || editText) return   // in split view only the focused pane's instance handles keys
 		if (e.key === 'Shift') { reconstrain(true); return }
 		if (e.key === 'Enter' && tool === 'Line' && draft.length) { e.preventDefault(); finishPolyline(); return }   // finish polyline
-		if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) { e.preventDefault(); onselect?.(entities.map(x => x.id)); return }   // select all
+		if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) { e.preventDefault(); on.select?.(entities.map(x => x.id)); return }   // select all
 		if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D') && sel.length) {   // duplicate (offset +8,+8)
 			e.preventDefault()
 			const copies = sel.map(id => entities.find(x => x.id === id)).filter(Boolean).map(en => ({ ...translate(en!, 8, 8), id: uid() }))
-			copies.forEach(c => onadd?.(c)); onselect?.(copies.map(c => c.id))
+			copies.forEach(c => on.add?.(c)); on.select?.(copies.map(c => c.id))
 			return
 		}
 		if (e.ctrlKey || e.metaKey) {   // clipboard + grouping
@@ -253,23 +250,23 @@
 			if (k === 'g' && !e.shiftKey && sel.length) { e.preventDefault(); on.group?.(sel); return }
 			if (k === 'g' && e.shiftKey && sel.length) { e.preventDefault(); on.ungroup?.(sel); return }
 		}
-		if ((e.key === 'Delete' || e.key === 'Backspace') && sel.length && !draft.length) { e.preventDefault(); ondelete?.(sel); return }
+		if ((e.key === 'Delete' || e.key === 'Backspace') && sel.length && !draft.length) { e.preventDefault(); on.delete?.(sel); return }
 		if (sel.length && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
 			e.preventDefault()
 			const s = e.shiftKey ? 10 : 1
 			const dx = e.key === 'ArrowLeft' ? -s : e.key === 'ArrowRight' ? s : 0
 			const dy = e.key === 'ArrowUp' ? -s : e.key === 'ArrowDown' ? s : 0
-			onbeginedit?.()   // coalesce a nudge burst into one history step (closes 600ms after the last)
-			for (const id of sel) { const en = entities.find(x => x.id === id); if (en) onupdate?.(moveEnt(en, dx, dy)) }
-			onendedit?.(600)
+			on.beginedit?.()   // coalesce a nudge burst into one history step (closes 600ms after the last)
+			for (const id of sel) { const en = entities.find(x => x.id === id); if (en) on.update?.(moveEnt(en, dx, dy)) }
+			on.endedit?.(600)
 			return
 		}
 		if (e.key !== 'Escape') return
 		// Esc ladder: cancel a draft → switch a drawing tool back to Select → clear selection → exit.
 		if (draft.length) { draft = []; cur = null; snapMark = null }
-		else if (tool !== 'Select') ontool?.('Select')
-		else if (sel.length) onselect?.([])
-		else ondeactivate?.()
+		else if (tool !== 'Select') on.tool?.('Select')
+		else if (sel.length) on.select?.([])
+		else on.deactivate?.()
 	}
 
 	// hit-test (topmost first). segDist/textBox/boxElev live in ./geometry.
@@ -463,8 +460,8 @@
 	const pointers = new Set<number>()
 	function cancelPointerDrag() {
 		if (drag) {
-			if (dragged) for (const b of drag.bases) onupdate?.(b)   // revert any partial move/resize
-			drag = null; onendedit?.()
+			if (dragged) for (const b of drag.bases) on.update?.(b)   // revert any partial move/resize
+			drag = null; on.endedit?.()
 			window.removeEventListener('pointermove', onDragMove)
 			window.removeEventListener('pointerup', onDragUp)
 		}
@@ -515,7 +512,7 @@
 		const base = entities.find(x => x.id === hitInfo.id); if (!base) return
 		// Shift-press on a body is selection-only (toggles on release) — must NOT start a move drag.
 		if (e.shiftKey && hitInfo.kind === 'move') { pointers.delete(e.pointerId); return }
-		if (!(e.ctrlKey || e.metaKey) && !selSet.has(hitInfo.id)) onselect?.(expandGroup([hitInfo.id]))   // plain press on an unselected entity → select it (+ its group)
+		if (!(e.ctrlKey || e.metaKey) && !selSet.has(hitInfo.id)) on.select?.(expandGroup([hitInfo.id]))   // plain press on an unselected entity → select it (+ its group)
 		// a body move drags the whole selection when the grabbed entity is part of it, else just it (+ its group)
 		const moveIds = hitInfo.kind === 'move' ? (selSet.has(hitInfo.id) ? sel : expandGroup([hitInfo.id])) : [hitInfo.id]
 		const bases = moveIds.map(id => entities.find(x => x.id === id)).filter(Boolean) as Ent[]
@@ -523,7 +520,7 @@
 		// move) instead toggles selection via onClick.
 		drag = { id: hitInfo.id, base, bases, kind: hitInfo.kind, gi: hitInfo.gi, start: p, dup: (e.ctrlKey || e.metaKey) && hitInfo.kind === 'move', duplicated: false }
 		dragged = false
-		onbeginedit?.()   // one history step for the whole drag
+		on.beginedit?.()   // one history step for the whole drag
 		try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic events */ }
 		e.preventDefault()
 		window.addEventListener('pointermove', onDragMove)
@@ -548,22 +545,22 @@
 		dragged = true; lastDragRaw = p
 		if (drag.kind === 'grip') {
 			const s = osnap ? findSnap(e.clientX, e.clientY, drag.id) : null
-			onupdate?.(s ? gripsFor(drag.base)[drag.gi].apply(s) : applyDrag(p, e.shiftKey))
+			on.update?.(s ? gripsFor(drag.base)[drag.gi].apply(s) : applyDrag(p, e.shiftKey))
 		} else {
 			// Ctrl/⌘-drag: on the first real move, drop copies at the originals and drag the copies.
 			if (drag.dup && !drag.duplicated) {
 				const copies = drag.bases.map(b => ({ ...b, id: uid() }))
-				copies.forEach(c => onadd?.(c)); onselect?.(copies.map(c => c.id))
+				copies.forEach(c => on.add?.(c)); on.select?.(copies.map(c => c.id))
 				drag.bases = copies; drag.duplicated = true
 			}
 			let dx = p[0] - drag.start[0], dy = p[1] - drag.start[1]
 			if (e.shiftKey) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 }   // ortho / axis-lock
-			for (const b of drag.bases) onupdate?.(moveEnt(b, dx, dy))   // move the whole group (or the copies)
+			for (const b of drag.bases) on.update?.(moveEnt(b, dx, dy))   // move the whole group (or the copies)
 		}
 	}
 	function onDragUp() {
 		if (dragged) suppressClick = true
-		drag = null; snapMark = null; onendedit?.()   // close the drag's history step
+		drag = null; snapMark = null; on.endedit?.()   // close the drag's history step
 		window.removeEventListener('pointermove', onDragMove)
 		window.removeEventListener('pointerup', onDragUp)
 	}
@@ -620,7 +617,7 @@
 				: bx0 >= x0 && bx1 <= x1 && by0 >= y0 && by1 <= y1        // fully enclosed
 		}).map(en => en.id)
 		const g = expandGroup(ids)   // include whole groups the marquee touched
-		onselect?.(m.add ? [...new Set([...sel, ...g])] : g)   // Shift/Ctrl marquee unions with the current selection
+		on.select?.(m.add ? [...new Set([...sel, ...g])] : g)   // Shift/Ctrl marquee unions with the current selection
 		suppressClick = true   // don't let the ensuing click clear this selection
 	}
 	// (box projection helpers boxFaces / boxElevSet live in ./geometry)
@@ -645,7 +642,7 @@
 	let statusText = $derived(
 		editText ? 'Editing text · Enter = new line · Ctrl/⌘+Enter = commit · Esc = cancel'
 			: active ? `${tool} · ${prompt}` : '')
-	$effect(() => { if (focused) onstatus?.(statusText) })   // only the focused pane drives the shared status
+	$effect(() => { if (focused) on.status?.(statusText) })   // only the focused pane drives the shared status
 </script>
 
 <svelte:window onkeydown={onKey} onkeyup={(e) => { if (active && focused && e.key === 'Shift') reconstrain(false) }} />
@@ -656,7 +653,7 @@
 	style:border-color={border === 'none' && !active ? '#94a3b866' : undefined}
 	use:panzoom={{ enabled: () => active && navContent, wheelZoom: () => acad, onpan: onPan, onzoom: onZoom }}
 	onclick={onClick} ondblclick={onDblclick} onpointerdown={onDown} onpointermove={onMove}
-	onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onactivate?.() } }}>
+	onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); on.activate?.() } }}>
 
 	<svg bind:this={svg} class="vp-svg {kind === 'model' || kind === 'elevation' ? 'model' : ''}" viewBox="{minX} {minY} {vbW} {vbH}" preserveAspectRatio="xMidYMid meet">
 		<g transform="translate({view.x} {view.y}) scale({view.zoom}) translate({CX} {CY}) scale({dscale}) translate({-CX} {-CY})">
