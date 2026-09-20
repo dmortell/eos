@@ -15,12 +15,25 @@
 	// entity types so existing `import { type Ent } from './Viewport.svelte'` sites keep working.
 	export type { Pt, Ent, View } from './geometry'
 
-	// Drafting/interaction flags are grouped into one `env` object to keep the prop list small.
+	// Drafting/interaction flags are grouped into one `env` object, and all the event callbacks into
+	// one `on` object, to keep the prop list small (a step toward a headless editor class — see
+	// review.md §4.1). `frame` is only used by PaperPage; the Viewport ignores it.
 	export type Env = { acad?: boolean; navContent?: boolean; grid?: boolean; lwt?: boolean; osnap?: boolean; canvasZoom?: number }
-	let { label = 'Viewport', scale = '', kind = 'floorplan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {},
-		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, ondeactivate, onadd, onupdate, ondelete, onselect, onview, onstatus, oncoords, onbeginedit, onendedit, ontool }:
-		{ label?: string; scale?: string; kind?: 'floorplan' | 'model' | 'elevation'; active?: boolean; tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env;
-			focused?: boolean; entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; ondeactivate?: () => void; onadd?: (e: Ent) => void; onupdate?: (e: Ent) => void; ondelete?: (ids: string[]) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void; onstatus?: (text: string) => void; oncoords?: (x: number, y: number) => void; onbeginedit?: () => void; onendedit?: (debounceMs?: number) => void; ontool?: (name: string) => void } = $props()
+	export type VpOn = {
+		activate?: () => void; deactivate?: () => void; add?: (e: Ent) => void; update?: (e: Ent) => void;
+		delete?: (ids: string[]) => void; select?: (ids: string[]) => void; view?: (v: View) => void;
+		status?: (text: string) => void; coords?: (x: number, y: number) => void; beginedit?: () => void;
+		endedit?: (debounceMs?: number) => void; tool?: (name: string) => void; frame?: (f: unknown) => void
+	}
+	let { label = 'Viewport', scale = '1:1', kind = 'floorplan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {},
+		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 } }:
+		{ label?: string; scale?: string; kind?: 'floorplan' | 'model' | 'elevation'; active?: boolean; tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env; on?: VpOn;
+			focused?: boolean; entities?: Ent[]; sel?: string[]; view?: View } = $props()
+	// Local aliases so the body reads the same; derived so inline parent arrows stay reactive.
+	const onactivate = $derived(on.activate), ondeactivate = $derived(on.deactivate), onadd = $derived(on.add)
+	const onupdate = $derived(on.update), ondelete = $derived(on.delete), onselect = $derived(on.select)
+	const onview = $derived(on.view), onstatus = $derived(on.status), oncoords = $derived(on.coords)
+	const onbeginedit = $derived(on.beginedit), onendedit = $derived(on.endedit), ontool = $derived(on.tool)
 	const acad = $derived(env.acad ?? true)
 	const navContent = $derived(env.navContent ?? false)
 	const grid = $derived(env.grid ?? true)
@@ -629,8 +642,7 @@
 					<polygon points={b.top} fill="#a9bcd6" stroke="#7f95b4" stroke-width="0.6" />
 				{/each}
 			{:else if kind === 'elevation'}
-				<!-- flat elevation backdrop: a ground line + faint vertical station grid -->
-				{#if grid}{#each Array(19) as _, i (i)}<line x1={8 + i * 20} y1="30" x2={8 + i * 20} y2="200" stroke="#e2e8f0" stroke-width="0.6" />{/each}{/if}
+				<!-- flat elevation backdrop: just the ground line (the faint vertical mock grid was removed) -->
 				<line x1="8" y1="200" x2="392" y2="200" stroke="#94a3b8" stroke-width="1.2" />
 				<text x="12" y="214" font-size="8" fill="#64748b" font-weight="600">ELEVATION</text>
 			{:else}

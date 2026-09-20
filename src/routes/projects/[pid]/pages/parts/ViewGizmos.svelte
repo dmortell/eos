@@ -39,7 +39,7 @@
 
 <!-- Bottom-left axis triad (WCS) -->
 <div class="wcs" title="World coordinate system">
-	<svg viewBox="0 0 54 54" width="52" height="52">
+	<svg viewBox="0 0 54 54" width="104" height="104">
 		{#each ['z', 'y', 'x'] as const as k (k)}
 			{#if tri[k]}
 				<line x1={OX} y1={OY} x2={OX + tri[k]![0]} y2={OY + tri[k]![1]} stroke={AX[k]} stroke-width="1.7" />

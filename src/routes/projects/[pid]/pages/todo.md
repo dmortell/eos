@@ -53,6 +53,17 @@ Done:
 - [x] **Flat objects (rect/ellipse/circle) project as ground lines in elevation** (render+hit+bbox).
 - [x] **Page title uses a standard hyphen** so Save-as-PDF filenames are valid.
 
+Batch-5c done (2026-09-21):
+- [x] **WCS triad gizmo doubled** in size (52→104px).
+- [x] **Removed the faint vertical mock grid** in front/right elevations (kept just the ground line);
+  those lines were decorative mock, not real gridlines.
+- [x] **Bundled the ~13 viewport callbacks into one `on` object** (Viewport/PaperPage) — Dave flagged
+  the prop count creeping up again. This is a step toward the **headless editor class** Dave suggested
+  (`Part`-style `.svelte.ts` with `$state`); the full **DocEditor** (§4.1) is still the end goal and is
+  now Dave-endorsed. env + on together drop the Viewport prop list from ~30 to ~12.
+- [ ] **Print orientation**: add a **one-time in-app hint** telling the user how to get correct
+  orientation to PDF (Ctrl-P → More settings → Print using system dialog → orientation). See §10.
+
 Batch-5b done:
 - [x] **Esc from a drawing tool returns to Select** first (then clears selection, then exits view).
 - [x] **Page title = active drawing name** (clean Save-as-PDF filename), reactive to tab change.
@@ -88,8 +99,11 @@ New todos (design / bigger):
 - [ ] **Group / ungroup** selected shapes.
 - [ ] **Copy / paste / cut** (Ctrl-C/X/V) — clipboard of entities.
 - [ ] **Print orientation bug** — printing **landscape** to **PrimoPDF** yields a **portrait PDF
-  rotated 90° CCW** even though the print preview is landscape. (Likely a `@page size` vs printer
-  interaction; try named sizes / a `@media print` rotation, or document the PrimoPDF setting.)
+  rotated 90° CCW** even though the print preview is landscape. Dave's workaround (2026-09-21): Ctrl-P
+  → **More settings** → **Print using system dialog** → set the orientation there. Fix ideas: try a
+  named `@page size` (e.g. `A3 landscape`) instead of explicit mm, or detect and show a **one-time
+  in-app hint** telling the user to use the system dialog for correct orientation. (Related to the
+  Chrome/@page vs virtual-printer interaction; the in-app print CSS is already correct in preview.)
 
 ### Reported 2026-09-20 (Dave) — batch 4
 - [x] **Inline editor floated off the text + ballooned when zoomed in** — it was positioned in

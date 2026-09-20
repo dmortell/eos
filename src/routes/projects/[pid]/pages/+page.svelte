@@ -75,6 +75,16 @@
 	const scaleOf = (id?: string) => docScale[id ?? ''] ?? '1:1'   // 1:1 = as-drawn (mock content isn't real mm yet)
 	// The drafting/interaction flags bundle passed to a pane's viewport (one prop instead of six).
 	const envFor = (pane: { canvasView: View }) => ({ acad: acadMode, navContent, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, canvasZoom: pane.canvasView.zoom })
+	// All the viewport event callbacks in ONE `on` object (was ~13 separate props). PaperPage also
+	// uses `frame`; the plain Viewport ignores it.
+	const vpOn = (a: Tab, pane: { tool: string }) => ({
+		activate: () => activateVp(a.id), deactivate: () => deactivateVp(a.id),
+		add: (e: Ent) => addEnt(a.id, e), update: (e: Ent) => updateEnt(a.id, e),
+		delete: (ids: string[]) => deleteEnts(a.id, ids), select: (ids: string[]) => setSel(a.id, ids),
+		view: (v: View) => setView(a.id, v), status: (t: string) => (statusText = t),
+		coords: (x: number, y: number) => (worldXY = { x, y }), beginedit: beginGesture, endedit: endGesture,
+		tool: (t: string) => (pane.tool = t), frame: onFrame as (f: unknown) => void,
+	})
 	let focused = $state(0)      // which pane new tabs / sidebar actions target
 	let canvasEls = $state<(HTMLElement | undefined)[]>([])   // each pane's .canvas, for navFit
 	let splitFrac = $state(0.5)  // pane 0 width fraction when split
@@ -591,19 +601,14 @@
 						{#key p.activeId}
 							<div class="canvas-content" style:transform="translate({p.canvasView.x}px, {p.canvasView.y}px) scale({p.canvasView.zoom})">
 								{#if a?.kind === 'sheet' && layout === 'sheet'}
-									<PaperPage title={a.title} tool={p.tool} scale={scaleOf(a.id)} env={envFor(p)} pw={paperDimsOf(a.id).w} ph={paperDimsOf(a.id).h}
+									<PaperPage title={a.title} tool={p.tool} scale={scaleOf(a.id)} env={envFor(p)} on={vpOn(a, p)} pw={paperDimsOf(a.id).w} ph={paperDimsOf(a.id).h}
 										sizeLabel="{paperOf(a.id).size} {paperOf(a.id).landscape ? 'L' : 'P'}" rev={rev} revDate={fmtDate(revisions[0]?.t)}
-										entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={isVpActive(a.id)}
-										onactivate={() => activateVp(a.id)}
-										ondeactivate={() => deactivateVp(a.id)}
-										focused={focused === pi}
-										onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} ondelete={(ids) => deleteEnts(a.id, ids)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} onframe={onFrame} onstatus={(t) => (statusText = t)} oncoords={(x, y) => (worldXY = { x, y })} onbeginedit={beginGesture} onendedit={endGesture} ontool={(t) => (p.tool = t)} />
+										entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={isVpActive(a.id)} focused={focused === pi} />
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => deactivateVp(a.id)}>
-										<Viewport kind={projKind(projOf(p, a))} label={a.title} tool={p.tool} scale={scaleOf(a.id)} env={envFor(p)} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
-											active={isVpActive(a.id)} focused={focused === pi} onactivate={() => activateVp(a.id)} ondeactivate={() => deactivateVp(a.id)}
-											onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} ondelete={(ids) => deleteEnts(a.id, ids)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} onstatus={(t) => (statusText = t)} oncoords={(x, y) => (worldXY = { x, y })} onbeginedit={beginGesture} onendedit={endGesture} ontool={(t) => (p.tool = t)} />
+										<Viewport kind={projKind(projOf(p, a))} label={a.title} tool={p.tool} scale={scaleOf(a.id)} env={envFor(p)} on={vpOn(a, p)}
+											entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={isVpActive(a.id)} focused={focused === pi} />
 									</div>
 								{:else}
 									<div class="canvas-center">
