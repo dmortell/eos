@@ -149,8 +149,12 @@ New todos (design / bigger):
   now projects its x-extent in front/rear and its y-extent in left/right (verified 137px vs 85px in
   the browser). Tests in `geometry.test.ts` (14 total). **Forward-compat:** the BASIS is the discrete
   form of a yaw/pitch camera, so a future free-3D orbit/walk mode drops in without changing the named
-  views (see the geometry.ts note). [ ] Still mock: iso is oblique (not a real camera); flats show no
-  depth ordering.
+  views (see the geometry.ts note). [x] **Iso SOLID / hidden-line render** (2026-09-20) — the iso view
+  now draws depth-sorted opaque white FACES (`faces3d` + `isoDepthR` painter's algorithm) instead of
+  wireframe, so nearer faces occlude farther ones — walls/furniture/trunks read as solid objects.
+  Openings are skipped in iso (a true 3D boolean hole is future work). Verified in-browser (the room
+  renders solid with correct occlusion). [ ] Still: entity flats (lines/rects) show no depth ordering
+  vs the model; per-face shading (light/dark) for a stronger 3D read.
 - [ ] **Orbit tool icon in the zoom-tools floating window** (Dave, 2026-09-20) — add an **orbit**
   button to the bottom-right nav floating window (`navtools` in `+page.svelte`, beside Zoom in/out /
   Fit / Pan). Drag-orbits the 3D (iso) view. Blocked on the **real 3D orbit camera** (the ELEV_BASIS

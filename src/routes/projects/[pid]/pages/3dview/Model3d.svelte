@@ -10,7 +10,7 @@
 	//   • iso: deferred (P1c) — the viewport keeps the mock iso for now.
 	// Line thickness is NON-SCALING (constant screen px, `vector-effect`) and LAYER-DEFINED (each layer's
 	// `weight`), so lineweight is a paper property independent of the drawing scale/zoom.
-	import { project, objBounds, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
+	import { project, objBounds, faces3d, isoR, isoDepthR, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 	import { BASIS } from './types'
 	import type { Model, Obj, Dir, Clip } from './types'
 
@@ -45,6 +45,26 @@
 		}
 		return minu === Infinity ? null : { icx: (minu + maxu) / 2, icy: (minv + maxv) / 2 }
 	})
+	// Iso SOLID / hidden-line render: every visible object's 3D faces, projected and sorted back-to-front
+	// (painter's algorithm) so nearer faces paint over farther ones — a filled white face occludes what's
+	// behind it. Replaces the old wireframe iso. Openings are skipped (a true 3D boolean hole is future
+	// work; in iso the wall reads solid). Selected objects keep their amber stroke.
+	const isoFaces = $derived.by(() => {
+		if (dir !== 'iso') return []
+		const out: { pts: { u: number; v: number }[]; depth: number; col: string; lw: number }[] = []
+		for (const o of model.objects) {
+			if (!visible(o) || !inClip(o) || isOpening(o)) continue
+			const col = colorOf(o), lw = weightOf(o)
+			for (const f of faces3d(o)) {
+				if (f.pts.length < 3) continue
+				let d = 0
+				for (const p of f.pts) d += isoDepthR(p, yaw, pitch, cx, cy)
+				out.push({ pts: f.pts.map((p) => isoR(p, yaw, pitch, cx, cy)), depth: d / f.pts.length, col, lw })
+			}
+		}
+		out.sort((a, b) => b.depth - a.depth)   // farthest first; nearer faces paint on top
+		return out
+	})
 	const xform = $derived.by(() => {
 		if (dir === 'plan') return ''
 		if (dir === 'iso') return `translate(${cx - (isoBox?.icx ?? 0)} ${cy + (isoBox?.icy ?? 0)}) scale(1 -1)`   // centre the iso content bbox on (cx,cy), v-up
@@ -55,6 +75,12 @@
 </script>
 
 <g class="m3d" transform={xform}>
+	{#if dir === 'iso'}
+	<!-- Solid iso (hidden-line): depth-sorted white faces; nearer faces occlude farther ones. -->
+	{#each isoFaces as f, i (i)}
+		<polygon points={f.pts.map((p) => `${p.u},${p.v}`).join(' ')} class="face" stroke={f.col} stroke-width={f.lw} vector-effect="non-scaling-stroke" />
+	{/each}
+	{:else}
 	<!-- Pass 1: everything except openings. -->
 	{#each model.objects as o (o.id)}
 		{#if visible(o) && inClip(o) && !isOpening(o)}
@@ -80,6 +106,7 @@
 			{/each}
 		{/if}
 	{/each}
+	{/if}
 </g>
 
 <style>
@@ -87,4 +114,6 @@
 	/* opening = a real hole: fill with the drawing (paper) colour — white — to erase the wall behind it,
 	   then the frame stroke outlines the door/window. The model always draws on a white surface. */
 	.m3d :global(polygon.hole) { fill: #fff; }
+	/* iso solid faces: opaque white so a nearer face (painted later) hides what's behind it. */
+	.m3d :global(polygon.face) { fill: #fff; }
 </style>
