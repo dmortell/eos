@@ -329,6 +329,11 @@ and its marquee is always "crossing". Pages currently has the richer window/cros
 marquee and constant-lineweight draw, but no additive select / duplicate / move-ortho yet.
 
 ## 2. Drawing objects, tools & annotations
+
+> **Real 3D floor MODEL (walls/openings/furniture/pipes/rect-trunks) + sections → elevations:** see
+> **`model-plan.md`** — a phased port of the mature `sheets/tools/model3d/` engine (projection/graph/
+> types/migrate are pure, drop-in) onto Pages' editor, plus the net-new gaps (doors/windows/openings,
+> multi-direction sections, rect-trunk UX, vertical-run editing). Borrow from model3d, NOT edit3d.
 - [ ] ◧ **decide** — pick which Sheets insertable-object + annotation types to implement in
   Pages (**checklist below**).
 - [x] **Ellipses** — Ellipse tool (Shift = circle); render/hit/grips/Properties.
