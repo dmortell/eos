@@ -18,9 +18,9 @@
 	// Drafting/interaction flags are grouped into one `env` object to keep the prop list small.
 	export type Env = { acad?: boolean; navContent?: boolean; grid?: boolean; lwt?: boolean; osnap?: boolean; canvasZoom?: number }
 	let { label = 'Viewport', scale = '', kind = 'floorplan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {},
-		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, ondeactivate, onadd, onupdate, ondelete, onselect, onview, onstatus, oncoords }:
+		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, ondeactivate, onadd, onupdate, ondelete, onselect, onview, onstatus, oncoords, onbeginedit, onendedit }:
 		{ label?: string; scale?: string; kind?: 'floorplan' | 'model' | 'elevation'; active?: boolean; tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env;
-			focused?: boolean; entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; ondeactivate?: () => void; onadd?: (e: Ent) => void; onupdate?: (e: Ent) => void; ondelete?: (ids: string[]) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void; onstatus?: (text: string) => void; oncoords?: (x: number, y: number) => void } = $props()
+			focused?: boolean; entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; ondeactivate?: () => void; onadd?: (e: Ent) => void; onupdate?: (e: Ent) => void; ondelete?: (ids: string[]) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void; onstatus?: (text: string) => void; oncoords?: (x: number, y: number) => void; onbeginedit?: () => void; onendedit?: (debounceMs?: number) => void } = $props()
 	const acad = $derived(env.acad ?? true)
 	const navContent = $derived(env.navContent ?? false)
 	const grid = $derived(env.grid ?? true)
@@ -232,7 +232,9 @@
 			const s = e.shiftKey ? 10 : 1
 			const dx = e.key === 'ArrowLeft' ? -s : e.key === 'ArrowRight' ? s : 0
 			const dy = e.key === 'ArrowUp' ? -s : e.key === 'ArrowDown' ? s : 0
-			for (const id of sel) { const en = entities.find(x => x.id === id); if (en) onupdate?.(moveEnt(en, dx, dy)) }   // nudge
+			onbeginedit?.()   // coalesce a nudge burst into one history step (closes 600ms after the last)
+			for (const id of sel) { const en = entities.find(x => x.id === id); if (en) onupdate?.(moveEnt(en, dx, dy)) }
+			onendedit?.(600)
 			return
 		}
 		if (e.key !== 'Escape') return
@@ -407,7 +409,7 @@
 	function cancelPointerDrag() {
 		if (drag) {
 			if (dragged) for (const b of drag.bases) onupdate?.(b)   // revert any partial move/resize
-			drag = null
+			drag = null; onendedit?.()
 			window.removeEventListener('pointermove', onDragMove)
 			window.removeEventListener('pointerup', onDragUp)
 		}
@@ -466,6 +468,7 @@
 		// move) instead toggles selection via onClick.
 		drag = { id: hitInfo.id, base, bases, kind: hitInfo.kind, gi: hitInfo.gi, start: p, dup: (e.ctrlKey || e.metaKey) && hitInfo.kind === 'move', duplicated: false }
 		dragged = false
+		onbeginedit?.()   // one history step for the whole drag
 		try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic events */ }
 		e.preventDefault()
 		window.addEventListener('pointermove', onDragMove)
@@ -505,7 +508,7 @@
 	}
 	function onDragUp() {
 		if (dragged) suppressClick = true
-		drag = null; snapMark = null
+		drag = null; snapMark = null; onendedit?.()   // close the drag's history step
 		window.removeEventListener('pointermove', onDragMove)
 		window.removeEventListener('pointerup', onDragUp)
 	}

@@ -122,7 +122,8 @@
 		{/if}
 		{#if single?.type === 'text'}
 			<div class="prop-sec">TEXT</div>
-			<div class="prop wide"><input value={single.text ?? ''} onchange={(e) => setText((e.currentTarget as HTMLInputElement).value)} /></div>
+			<div class="prop wide"><textarea class="pp-textarea" rows={Math.min(6, Math.max(2, (single.text ?? '').split('\n').length))}
+				value={single.text ?? ''} onchange={(e) => setText((e.currentTarget as HTMLTextAreaElement).value)}></textarea></div>
 		{/if}
 		<div class="prop-sec">STYLE</div>
 		<div class="prop"><span>Layer</span><input value={activeLayer} readonly /></div>
@@ -139,6 +140,8 @@
 	.prop span { color:var(--muted); font-size:11px; }
 	.prop input, .prop select { background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:3px 6px; font-size:11px; font-family:Consolas,monospace; min-width:0; }
 	.prop input:read-only { color:var(--muted); }
+	.pp-textarea { width:100%; resize:vertical; background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:4px 6px; font-size:11px; font-family:'Consolas','SF Mono',ui-monospace,monospace; }
+	.pp-textarea:focus { outline:none; border-color:var(--accent); }
 	.prop input:focus, .prop select:focus { outline:none; border-color:var(--accent); }
 	.pp-hint { font-size:10px; color:var(--faint); padding:10px 6px; line-height:1.4; }
 </style>

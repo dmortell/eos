@@ -89,8 +89,23 @@
 	const entsOf = (id: string) => docEnts[id] ?? []
 	const selOf = (id: string) => docSel[id] ?? []
 	const viewOf = (id: string) => docView[id] ?? { zoom: 1, x: 0, y: 0 }
-	function addEnt(id: string, e: Ent) { promoteTab(id); pushHistory(id, 'Add ' + e.type); docEnts = { ...docEnts, [id]: [...(docEnts[id] ?? []), e] } }
-	function updateEnt(id: string, e: Ent) { promoteTab(id); pushHistory(id, 'Edit ' + e.type); docEnts = { ...docEnts, [id]: (docEnts[id] ?? []).map(x => x.id === e.id ? e : x) } }
+	// A GESTURE (a drag or a nudge burst) should be ONE undo/history step: while a gesture is open,
+	// only the first mutation snapshots; the rest just update. Viewport signals begin/end.
+	let gestureActive = false, gesturePushed = false
+	let gestureEndTimer: ReturnType<typeof setTimeout> | null = null
+	function beginGesture() { if (gestureEndTimer) { clearTimeout(gestureEndTimer); gestureEndTimer = null } gestureActive = true }
+	function endGesture(debounceMs = 0) {
+		const finish = () => { gestureActive = false; gesturePushed = false; gestureEndTimer = null }
+		if (gestureEndTimer) { clearTimeout(gestureEndTimer); gestureEndTimer = null }
+		if (debounceMs) gestureEndTimer = setTimeout(finish, debounceMs); else finish()
+	}
+	function recordEdit(id: string, label: string) {
+		promoteTab(id)
+		if (gestureActive) { if (!gesturePushed) { pushHistory(id, label); gesturePushed = true } }
+		else pushHistory(id, label)
+	}
+	function addEnt(id: string, e: Ent) { recordEdit(id, 'Add ' + e.type); docEnts = { ...docEnts, [id]: [...(docEnts[id] ?? []), e] } }
+	function updateEnt(id: string, e: Ent) { recordEdit(id, 'Edit ' + e.type); docEnts = { ...docEnts, [id]: (docEnts[id] ?? []).map(x => x.id === e.id ? e : x) } }
 	function deleteEnts(id: string, ids: string[]) {
 		if (!ids.length) return
 		promoteTab(id); pushHistory(id, 'Delete')
@@ -561,13 +576,13 @@
 										onactivate={() => activateVp(a.id)}
 										ondeactivate={() => deactivateVp(a.id)}
 										focused={focused === pi}
-										onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} ondelete={(ids) => deleteEnts(a.id, ids)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} onframe={onFrame} onstatus={(t) => (statusText = t)} oncoords={(x, y) => (worldXY = { x, y })} />
+										onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} ondelete={(ids) => deleteEnts(a.id, ids)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} onframe={onFrame} onstatus={(t) => (statusText = t)} oncoords={(x, y) => (worldXY = { x, y })} onbeginedit={beginGesture} onendedit={endGesture} />
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => deactivateVp(a.id)}>
 										<Viewport kind={projKind(projOf(p, a))} label={a.title} tool={p.tool} env={envFor(p)} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
 											active={isVpActive(a.id)} focused={focused === pi} onactivate={() => activateVp(a.id)} ondeactivate={() => deactivateVp(a.id)}
-											onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} ondelete={(ids) => deleteEnts(a.id, ids)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} onstatus={(t) => (statusText = t)} oncoords={(x, y) => (worldXY = { x, y })} />
+											onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} ondelete={(ids) => deleteEnts(a.id, ids)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} onstatus={(t) => (statusText = t)} oncoords={(x, y) => (worldXY = { x, y })} onbeginedit={beginGesture} onendedit={endGesture} />
 									</div>
 								{:else}
 									<div class="canvas-center">
