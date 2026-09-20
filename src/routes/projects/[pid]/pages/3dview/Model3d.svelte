@@ -14,14 +14,16 @@
 	import { BASIS } from './types'
 	import type { Model, Obj, Dir } from './types'
 
-	let { model, dir = 'plan', cx = 0, cy = 0, ground = 0, defaultWeight = 1, selIds = [] }:
-		{ model: Model; dir?: Dir; cx?: number; cy?: number; ground?: number; defaultWeight?: number; selIds?: string[] } = $props()
+	let { model, dir = 'plan', cx = 0, cy = 0, ground = 0, defaultWeight = 1, selIds = [], canvasZoom = 1 }:
+		{ model: Model; dir?: Dir; cx?: number; cy?: number; ground?: number; defaultWeight?: number; selIds?: string[]; canvasZoom?: number } = $props()
 
 	const SEL = '#f59e0b'   // selection highlight (amber — distinct from the teal trunk layer)
 	const layerOf = (o: Obj) => model.layers?.find((l) => l.id === o.layer)
 	const isSel = (o: Obj) => !!o.id && selIds.includes(o.id)
 	const colorOf = (o: Obj) => (isSel(o) ? SEL : layerOf(o)?.color ?? '#475569')
-	const weightOf = (o: Obj) => (isSel(o) ? (layerOf(o)?.weight ?? defaultWeight) + 1.2 : layerOf(o)?.weight ?? defaultWeight)   // screen px (non-scaling)
+	// screen px (non-scaling-stroke cancels SVG transforms; ÷ canvasZoom cancels the ancestor CSS canvas
+	// zoom too, so the lineweight is a constant screen-px value — matching how entities render).
+	const weightOf = (o: Obj) => ((isSel(o) ? (layerOf(o)?.weight ?? defaultWeight) + 1.2 : layerOf(o)?.weight ?? defaultWeight) / (canvasZoom || 1))
 	const visible = (o: Obj) => { const l = layerOf(o); return !l || l.visible }
 
 	// Iso projects the model AROUND the ground pivot with a yaw/pitch, so the projected content isn't
