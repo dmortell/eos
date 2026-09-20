@@ -34,7 +34,12 @@ Fixed from the review:
 - [x] §5 added `ui/geometry.test.ts` (8 Vitest tests, `pnpm test --project=server` green).
 - [ ] §2.3 full per-doc frame state,
 - [ ] §4.1 full `DocEditor` headless class (geometry.ts done), 
-- [ ] §4.2 mm world units, 
+- [x] §4.2 **mm world units** (2026-09-20) — model space is now real **millimetres**. Turned out NOT
+  invasive: the mapping already treats `CX,CY` as the model centre + scale pivot, so the equations are
+  unchanged — just scaled the constants (PLAN_CX/CY, GROUND, DEFAULT_BOX_H, PT) to mm, wrapped the
+  decorative backdrop in a `scale(MMPU=70)` group (→ mm, no renumbering), sized the demo box in mm,
+  set grid snap to **100 mm**, and defaulted the scale to **1:100** (fits the ~28 m demo plan). Verified:
+  plan renders at 1:100, drawn rects have mm coords (×100-snapped), selection + elevation all correct.
 - [ ] §4.3 reuse Sheets `layers.ts`,
 - [ ] §2.8 key tabs by node id (not title), frame drag threshold+undo, z0 clamp mismatch, uncontrolled Properties inputs, coalescing merges unrelated edits, outline-only rect hit,
 - [ ] §5 snap/hit perf (cache the CTM/bbox), 

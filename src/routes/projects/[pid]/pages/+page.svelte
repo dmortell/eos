@@ -77,7 +77,7 @@
 	// viewport bar, like the Sheets tool's viewport scale).
 	const SCALES = ['1:1', '1:2', '1:5', '1:10', '1:15', '1:20', '1:25', '1:50', '1:100', '1:150', '1:200', '1:500']
 	let docScale = $state<Record<string, string>>({})
-	const scaleOf = (id?: string) => docScale[id ?? ''] ?? '1:1'   // 1:1 = as-drawn (mock content isn't real mm yet)
+	const scaleOf = (id?: string) => docScale[id ?? ''] ?? '1:100'   // model space is real mm; 1:100 fits the ~28 m demo plan
 	// The drafting/interaction flags bundle passed to a pane's viewport (one prop instead of six).
 	const envFor = (pane: { canvasView: View }) => ({ acad: acadMode, navContent, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, canvasZoom: pane.canvasView.zoom })
 	// All the viewport event callbacks in ONE `on` object (was ~13 separate props). PaperPage also
@@ -105,7 +105,7 @@
 	// Seed a demo 3D cuboid (same footprint + height) into the plan, sheet and elevation docs
 	// so the view projections are visible immediately: plan → footprint, elevation → front
 	// face, model → oblique box. (Mock only — remove once real content lands.)
-	const demoBox = (): Ent => ({ id: 'demo-box', type: 'box', a: [150, 95], b: [250, 155], h: 45 })
+	const demoBox = (): Ent => ({ id: 'demo-box', type: 'box', a: [10500, 6650], b: [17500, 10850], h: 3150 })   // mm (≈ 7×4.2 m footprint, 3.15 m tall)
 	let docEnts = $state<Record<string, Ent[]>>({ t1: [demoBox()], t2: [demoBox()], t3: [demoBox()], t4: [demoBox()] })
 	let docSel = $state<Record<string, string[]>>({})
 	let docView = $state<Record<string, View>>({})

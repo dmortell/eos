@@ -17,12 +17,16 @@ export type View = { zoom: number; x: number; y: number }
 // Default object style — matched to the Sheets tool (annotations.svelte.ts: text fontPt 8 / align
 // left; strokeWidth ?? 0.5; fill ?? 'none'). `color` unset = ByLayer/ink (resolved by the renderer).
 export const STYLE_DEFAULTS = { fontPt: 8, align: 'left' as TextAlign, weight: 1.2, fill: 'none' }
-export const PT = 1.375   // drawing units per point (8pt ≈ the previous 11-unit default text height)
+export const PT = 96.25   // model mm per point (1.375 × MMPU) — keeps text proportional in mm space
 
-export const DEFAULT_BOX_H = 45   // mock mm height for a freshly drawn cuboid
-export const GROUND = 200         // elevation ground line (drawing units); a box with z0=0 stands on it
-export const ISO = 0.6            // oblique (cabinet) projection offset factor for the model view
-export const PLAN_CX = 200, PLAN_CY = 125   // plan centre (matches the Viewport dscale centre)
+// Model space is REAL MILLIMETRES. The demo plan is ~28 m × 17.5 m, so a realistic scale like 1:100
+// fills the view (the whole tool's constants + mock content are sized in mm; MMPU below converts the
+// legacy abstract backdrop). 1 model unit = 1 mm.
+export const DEFAULT_BOX_H = 3150   // mock cuboid height (mm) — ~3.15 m
+export const GROUND = 14000        // elevation ground line (mm, model space); a box with z0=0 stands on it
+export const ISO = 0.6             // oblique (cabinet) projection offset factor for the model view
+export const PLAN_CX = 14000, PLAN_CY = 8750   // plan centre (mm) — the viewBox centre + scale pivot
+export const MMPU = 70             // mm per legacy abstract unit (scales the decorative backdrop to mm)
 
 // ── Orthographic elevation projection (KestrelCad2 camera / Sheets model3d BASIS convention) ──
 // Each side view maps one footprint axis to the drawing's HORIZONTAL (u); the VERTICAL is always z

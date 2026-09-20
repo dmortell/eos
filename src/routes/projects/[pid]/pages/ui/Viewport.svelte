@@ -10,7 +10,7 @@
 	import { panzoom } from './panzoom'
 	import Handle from '../parts/Handle.svelte'
 	import { BASE, HANDLE_PX } from '../constants'
-	import { type Pt, type Ent, type View, type ElevDir, DEFAULT_BOX_H, GROUND, PT, STYLE_DEFAULTS, ELEV_BASIS, elevU, elevUInv, flatSpan, dist, segDist, translate, textBox, boxElev, boxElevSet, boxFaces } from './geometry'
+	import { type Pt, type Ent, type View, type ElevDir, DEFAULT_BOX_H, GROUND, PT, MMPU, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, ELEV_BASIS, elevU, elevUInv, flatSpan, dist, segDist, translate, textBox, boxElev, boxElevSet, boxFaces } from './geometry'
 	import { isLayerHidden, isLayerLocked, layerColor } from '../layers.svelte'
 	// Pure geometry now lives in ./geometry (testable, shared with PropertiesPanel); re-export the
 	// entity types so existing `import { type Ent } from './Viewport.svelte'` sites keep working.
@@ -43,7 +43,7 @@
 	const snap = $derived(env.snap ?? false)     // SNAP: round points to the grid step
 	const ortho = $derived(env.ortho ?? false)   // ORTHO: constrain line-draw + move to H/V
 	const canvasZoom = $derived(env.canvasZoom ?? 1)
-	const SNAP_STEP = 10                          // grid snap spacing (drawing units)
+	const SNAP_STEP = 100                         // grid snap spacing (mm)
 	const snapToGrid = (p: Pt): Pt => [Math.round(p[0] / SNAP_STEP) * SNAP_STEP, Math.round(p[1] / SNAP_STEP) * SNAP_STEP]
 	const orthoPt = (a: Pt, p: Pt): Pt => (Math.abs(p[0] - a[0]) >= Math.abs(p[1] - a[1]) ? [p[0], a[1]] : [a[0], p[1]])
 
@@ -100,7 +100,7 @@
 	// (÷ BASE) and centred on the plan (CX,CY); the parent passes boxW/boxH when it owns the size
 	// (a paper viewport frame — reliable), else we measure via bind:clientWidth (standalone
 	// viewports). The mock drawing (0..400 × 0..250) sits at that fixed scale.
-	const CX = 200, CY = 125   // plan centre (BASE / HANDLE_PX come from ../constants)
+	const CX = PLAN_CX, CY = PLAN_CY   // plan centre in mm (viewBox centre + scale pivot)
 	// Drawing SCALE (1:N) actually scales the content: a 1:10 view draws a 1000-unit object 100 units
 	// wide. Applied about the plan centre so the view stays put. 1:1 = as-drawn (the default), so the
 	// mock content is unaffected until you pick a scale. (Real mm sizing is the §4.2 refactor.)
@@ -712,7 +712,9 @@
 
 	<svg bind:this={svg} class="vp-svg {kind === 'iso' || isElev ? 'model' : ''}" viewBox="{minX} {minY} {vbW} {vbH}" preserveAspectRatio="xMidYMid meet">
 		<g transform="translate({view.x} {view.y}) scale({view.zoom}) translate({CX} {CY}) scale({dscale}) translate({-CX} {-CY})">
-			<!-- background content -->
+			<!-- Decorative mock backdrop, authored in legacy abstract units; scale(MMPU) converts it to
+			     the mm model space so it lines up with real-mm entities without renumbering. -->
+			<g transform="scale({MMPU})">
 			{#if kind === 'iso'}
 				{#if grid}{#each floorGrid as g (g)}<polyline points={g} fill="none" stroke="#d5deea" stroke-width="0.7" />{/each}{/if}
 				{#each racks as b (b.top)}
@@ -739,6 +741,7 @@
 				{/each}
 				<text x="24" y="230" font-size="9" fill="#64748b" font-weight="600">OFFICE — 33F</text>
 			{/if}
+			</g>
 			<!-- drawn entities (objects on a hidden layer are skipped; the edited text is hidden too) -->
 			{#each entities as e (e.id)}{#if e.id !== editText?.id && !isLayerHidden(e.layer)}{#if e.rot}{@const c = rotCenter(e)}<g transform="rotate({e.rot} {c[0]} {c[1]})">{@render drawn(e, selSet.has(e.id))}</g>{:else}{@render drawn(e, selSet.has(e.id))}{/if}{/if}{/each}
 			{#if active && tool === 'Line' && draft.length}
