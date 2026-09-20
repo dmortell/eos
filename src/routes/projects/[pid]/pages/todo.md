@@ -64,6 +64,18 @@ Batch-5c done (2026-09-21):
 - [ ] **Print orientation**: add a **one-time in-app hint** telling the user how to get correct
   orientation to PDF (Ctrl-P → More settings → Print using system dialog → orientation). See §10.
 
+Batch-6 done (2026-09-20):
+- [x] **Copy/paste + group/ungroup** (Ctrl-C/X/V, Ctrl-G / Ctrl-Shift-G) — see §2.
+- [x] **Layer lock beside the eye** on every sub-layer row — see §3.
+- [x] **Per-pane layout** — switching plan/elevation in a split no longer refits/offsets the
+  OTHER pane (layout was global; now per-pane, only the changed pane refits).
+- [x] **Split mirrors the current pane** (same active tab + layout) instead of forcing a
+  different tab.
+- [x] **Fixed dblclick-to-activate regression** — PaperPage's dblclick handlers referenced bare
+  `onactivate`/`ondeactivate` dropped in the callback-bundling refactor; added the `$derived`
+  aliases. (For an event handler, inline `on.activate?.()` would work identically — the alias is
+  just to match the file's existing pattern.)
+
 Batch-5b done:
 - [x] **Esc from a drawing tool returns to Select** first (then clears selection, then exits view).
 - [x] **Page title = active drawing name** (clean Save-as-PDF filename), reactive to tab change.
@@ -96,8 +108,10 @@ New todos (design / bigger):
 - [ ] **Callout toggle** — let a text box become a **callout** (leader + box). Seems useful.
 - [ ] **Change-log UX** — indicate which items were undone (fade rows above the current history
   pointer) and **click a row to undo/redo to that point**.
-- [ ] **Group / ungroup** selected shapes.
-- [ ] **Copy / paste / cut** (Ctrl-C/X/V) — clipboard of entities.
+- [x] **Group / ungroup** selected shapes (Ctrl-G / Ctrl-Shift-G) — `groupId` on entities;
+  `expandGroup()` so a group selects, marquees, and moves as one. Verified in-browser.
+- [x] **Copy / paste / cut** (Ctrl-C/X/V) — clipboard of entities; paste drops offset copies
+  (group ids remapped so a pasted group stays its own group). Verified in-browser.
 - [ ] **Print orientation bug** — printing **landscape** to **PrimoPDF** yields a **portrait PDF
   rotated 90° CCW** even though the print preview is landscape. Dave's workaround (2026-09-21): Ctrl-P
   → **More settings** → **Print using system dialog** → set the orientation there. Fix ideas: try a
@@ -328,7 +342,8 @@ Sheets' basic version** — see §10.
   **New Layer, rename (dbl-click), colour picker, add-sub / delete** all work (mock state).
 - [x] **Layer settings dialog** — the colour swatch is now a colour+line button that opens a
   dialog (name, colour, draw-as fill/line, line type, thickness in mm, **lock**, **delete**).
-- [x] **Lockable layers** — lock toggle on group rows + in the settings dialog (mock).
+- [x] **Lockable layers** — lock toggle on group rows, on **each sub-layer row (beside the eye)**,
+  and in the settings dialog (mock; tinted when locked).
 - [ ] **Draggable layers** — reorder layers/groups in the manager by dragging (P2).
 - [ ] **Draw order** — bring-forward / send-to-back (and to-front / to-back) so images and
   solid-filled objects can be stacked/overlapped predictably (P2). Ties into the same
