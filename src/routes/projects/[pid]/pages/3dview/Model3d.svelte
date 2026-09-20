@@ -10,7 +10,7 @@
 	//   • iso: deferred (P1c) — the viewport keeps the mock iso for now.
 	// Line thickness is NON-SCALING (constant screen px, `vector-effect`) and LAYER-DEFINED (each layer's
 	// `weight`), so lineweight is a paper property independent of the drawing scale/zoom.
-	import { project, objBounds, faces3d, isoR, isoDepthR, trimToClip, doorGeom, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
+	import { project, objBounds, faces3d, isoR, isoDepthR, trimToClip, doorGeom, isoBounds, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 	import { BASIS } from './types'
 	import type { Model, Obj, Dir, Clip } from './types'
 
@@ -34,18 +34,7 @@
 	// Iso projects the model AROUND the ground pivot with a yaw/pitch, so the projected content isn't
 	// symmetric about (0,0) — centring the pivot leaves the room off to one side. Instead centre the
 	// iso content's OWN bounding box on the viewBox centre (cx,cy).
-	const isoBox = $derived.by(() => {
-		if (dir !== 'iso') return null
-		let minu = Infinity, maxu = -Infinity, minv = Infinity, maxv = -Infinity
-		for (const o of model.objects) {
-			if (!visible(o)) continue
-			for (const s of project(o, 'iso', yaw, pitch, cx, cy)) for (const p of s.pts) {
-				if (p.u < minu) minu = p.u; if (p.u > maxu) maxu = p.u
-				if (p.v < minv) minv = p.v; if (p.v > maxv) maxv = p.v
-			}
-		}
-		return minu === Infinity ? null : { icx: (minu + maxu) / 2, icy: (minv + maxv) / 2 }
-	})
+	const isoBox = $derived.by(() => (dir !== 'iso' ? null : isoBounds(model.objects, yaw, pitch, cx, cy, visible)))
 	// Iso SOLID / hidden-line render: every visible object's 3D faces, projected and sorted back-to-front
 	// (painter's algorithm) so nearer faces paint over farther ones — a filled white face occludes what's
 	// behind it. Replaces the old wireframe iso. Openings are skipped (a true 3D boolean hole is future

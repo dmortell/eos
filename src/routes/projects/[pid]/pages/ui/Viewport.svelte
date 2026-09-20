@@ -15,7 +15,7 @@
 	import Model3d from '../3dview/Model3d.svelte'
 	import { models, modelSel, setModelSel } from '../3dview/models.svelte'
 	import { polyToGraph } from '../3dview/migrate'
-	import { DEFAULT_YAW, DEFAULT_PITCH, doorGeom } from '../3dview/projection'
+	import { DEFAULT_YAW, DEFAULT_PITCH, doorGeom, isoBounds, isoR, faces3d, isoDepthR } from '../3dview/projection'
 	import type { Obj, Clip } from '../3dview/types'
 	// Pure geometry now lives in ./geometry (testable, shared with PropertiesPanel); re-export the
 	// entity types so existing `import { type Ent } from './Viewport.svelte'` sites keep working.
@@ -209,6 +209,10 @@
 		if (!active) return   // paper space: enter with a double-click (see onDblclick)
 		if (tool === 'Select') {
 			const p = toLocal(e); if (!p) return
+			if (kind === 'iso') {   // 3D view: click a shape to select it for the Properties panel (no in-view grips yet)
+				const mid = hitModelIso(p); setModelSel(mid ? [mid] : []); on.select?.([])
+				return
+			}
 			const g = expandGroup(hit(p))   // the clicked entity + any group it belongs to
 			if (e.shiftKey || e.ctrlKey || e.metaKey) {   // additive: toggle the whole group
 				if (g.length) { const allSel = g.every(x => selSet.has(x)); on.select?.(allSel ? sel.filter(x => !g.includes(x)) : [...new Set([...sel, ...g])]) }
@@ -480,6 +484,37 @@
 			if (p[0] >= r.x0 - thr && p[0] <= r.x1 + thr && p[1] >= r.y0 - thr && p[1] <= r.y1 + thr) return o.id
 		}
 		return null
+	}
+	// 3D (iso) PICK: the frontmost object whose projected 3D face contains p — so you can click a shape in
+	// the 3D view to select it (edit props in the panel). Reproduces Model3d's iso projection: each face
+	// vertex → isoR → the same centring xform (translate(CX−icx, CY+icy) scale(1 −1)) → drawing coords.
+	// Frontmost = smallest camera depth (isoDepthR: larger = farther). Geometry editing in iso stays
+	// deferred (no grips); this is selection only.
+	function hitModelIso(p: Pt): string | null {
+		if (!mdl) return null
+		const b = isoBounds(mdl.objects, yaw, pitch, CX, CY, modelLayerVisible); if (!b) return null
+		const D = (v: { x: number; y: number; z: number }): Pt => { const q = isoR(v, yaw, pitch, CX, CY); return [q.u + CX - b.icx, -q.v + CY + b.icy] }
+		const inPoly = (pt: Pt, poly: Pt[]) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[i], d = poly[j]; if ((a[1] > pt[1]) !== (d[1] > pt[1]) && pt[0] < ((d[0] - a[0]) * (pt[1] - a[1])) / (d[1] - a[1]) + a[0]) c = !c } return c }
+		let best: string | null = null, bestDepth = Infinity
+		for (const o of mdl.objects) {
+			if (!o.id || !modelLayerVisible(o)) continue
+			for (const f of faces3d(o)) {
+				if (f.pts.length < 3) continue
+				const D3 = f.pts.map(D)
+				if (!inPoly(p, D3)) continue
+				// True depth AT the click point (not the centroid): depth is affine in the projected plane,
+				// so interpolate from the first 3 verts — a big face no longer beats a nearer small one.
+				const d0 = D3[0], d1 = D3[1], d2 = D3[2]
+				const v0x = d1[0] - d0[0], v0y = d1[1] - d0[1], v1x = d2[0] - d0[0], v1y = d2[1] - d0[1]
+				const den = v0x * v1y - v1x * v0y; if (Math.abs(den) < 1e-6) continue
+				const v2x = p[0] - d0[0], v2y = p[1] - d0[1]
+				const bb = (v2x * v1y - v1x * v2y) / den, cc = (v0x * v2y - v2x * v0y) / den
+				const z0 = isoDepthR(f.pts[0], yaw, pitch, CX, CY), z1 = isoDepthR(f.pts[1], yaw, pitch, CX, CY), z2 = isoDepthR(f.pts[2], yaw, pitch, CX, CY)
+				const depth = (1 - bb - cc) * z0 + bb * z1 + cc * z2
+				if (depth < bestDepth) { bestDepth = depth; best = o.id }
+			}
+		}
+		return best
 	}
 	// A section marker under p (plan only): its box BORDER within tolerance (the interior stays free for
 	// model/entity picks). Returns the section id, topmost last-drawn first.

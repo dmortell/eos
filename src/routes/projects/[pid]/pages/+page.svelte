@@ -311,6 +311,8 @@
 	})
 	// The single selected 3D-model object (Properties panel edits it straight on the store, with undo).
 	let selModelObj = $derived(modelSel.length === 1 ? (models[0]?.objects.find(o => o.id === modelSel[0]) ?? null) : null)
+	// Selecting a model object (plan / elevation / 3D pick) shows the Properties tab so its props are visible.
+	$effect(() => { if (modelSel.length) { rightTab = 'props'; rightOpen = true } })
 	function updateModelObj(patch: Record<string, unknown>) {
 		const o = selModelObj, id = panes[focused]?.activeId; if (!o || !id) return
 		beginGesture(); Object.assign(o, patch); modelEdit(id); endGesture()   // one undo step (baseline pre-change)

@@ -402,6 +402,21 @@ export function faces3d(o: Obj): Face[] {
 	return faces
 }
 
+// Centre of the ISO-projected content (drawing-plane u/v bbox centre) — the pivot Model3d uses to keep
+// the oblique model centred, and that a hit-test needs to reproduce the same projection. `visible` lets
+// callers skip hidden-layer objects so the centre matches exactly what's drawn.
+export function isoBounds(objects: Obj[], yaw: number, pitch: number, cx: number, cy: number, visible?: (o: Obj) => boolean) {
+	let minu = Infinity, maxu = -Infinity, minv = Infinity, maxv = -Infinity
+	for (const o of objects) {
+		if (visible && !visible(o)) continue
+		for (const s of project(o, 'iso', yaw, pitch, cx, cy)) for (const p of s.pts) {
+			if (p.u < minu) minu = p.u; if (p.u > maxu) maxu = p.u
+			if (p.v < minv) minv = p.v; if (p.v > maxv) maxv = p.v
+		}
+	}
+	return minu === Infinity ? null : { icx: (minu + maxu) / 2, icy: (minv + maxv) / 2 }
+}
+
 // Door swing geometry in the PLAN (model x/y): the hinge at one JAMB on the wall centreline, the unit
 // vector along the wall toward the far jamb (u), the unit vector the leaf swings toward (v, perpendicular
 // into the room), and the door width L (= radius). `flip` picks the hinge side. Shared by the Model3d
