@@ -33,6 +33,41 @@ uncontrolled Properties inputs, coalescing merges unrelated edits, outline-only 
 [ ] §5 snap/hit perf (cache the CTM/bbox), [ ] §6 nits (dead `circle` type, unify line/polyline,
 uid collision, unused CSS, a11y). Suggested order in review.md §7.
 
+### Reported 2026-09-21 (Dave) — batch 5
+Done:
+- [x] **Shift-click no longer moves the object** — a Shift body-press is selection-only (never
+  starts a move drag); it toggles on release.
+- [x] **Ctrl/⌘-drag duplicates** the selection (copies dropped on first move, then dragged); a
+  Ctrl-click still toggles. ([ ] refine: toggle the duplicate on/off if Ctrl is pressed/released
+  DURING the drag — currently decided at press time.)
+- [x] **ViewCube independent per split pane** (keyed by pane+tab) — plan in one, side in the other.
+- [x] **Status-bar coords are world units (mm)** from the active viewport (not canvas px).
+- [x] **Tool prompt + inline-edit help moved to the PANE bottom-centre** (screen space) so they stay
+  readable when zoomed in (were in the viewport badge/hint that scaled with zoom).
+- [x] **Removed the redundant Revision dropdown from History** (the revisions list covers it).
+- [x] **One history entry per drag/nudge gesture** (Viewport signals begin/end; +page snapshots
+  only the first mutation of an open gesture; nudge bursts coalesce).
+- [x] **Text property is a multiline textarea** in the Properties panel.
+- [x] **Active-viewport bar** gains a **scale dropdown** (1:20..1:500) + **Full-size** button (like
+  Sheets); the **status-bar Full-size toggle is commented out** (paper size/orientation stay).
+- [x] **Flat objects (rect/ellipse/circle) project as ground lines in elevation** (render+hit+bbox).
+- [x] **Page title uses a standard hyphen** so Save-as-PDF filenames are valid.
+
+New todos (design / bigger):
+- [ ] **Models: one model per floor**, with **separate stores** for detail views (rack elevations,
+  frames, patching). Ties into the model-registry design (§5).
+- [ ] **Object props parity + defaults** — text needs **font size, alignment, colour** (override the
+  layer default); rect/box/etc need **position, size, background colour**; share the common ones.
+  **Take default prop values from the Sheets tool** so a new object matches Sheets' defaults.
+- [ ] **Callout toggle** — let a text box become a **callout** (leader + box). Seems useful.
+- [ ] **Change-log UX** — indicate which items were undone (fade rows above the current history
+  pointer) and **click a row to undo/redo to that point**.
+- [ ] **Group / ungroup** selected shapes.
+- [ ] **Copy / paste / cut** (Ctrl-C/X/V) — clipboard of entities.
+- [ ] **Print orientation bug** — printing **landscape** to **PrimoPDF** yields a **portrait PDF
+  rotated 90° CCW** even though the print preview is landscape. (Likely a `@page size` vs printer
+  interaction; try named sizes / a `@media print` rotation, or document the PrimoPDF setting.)
+
 ### Reported 2026-09-20 (Dave) — batch 4
 - [x] **Inline editor floated off the text + ballooned when zoomed in** — it was positioned in
   SCREEN px inside the CSS-zoomed canvas, so the zoom double-applied. Now positioned + sized in
