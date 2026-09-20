@@ -24,9 +24,24 @@
 	const weightOf = (o: Obj) => (isSel(o) ? (layerOf(o)?.weight ?? defaultWeight) + 1.2 : layerOf(o)?.weight ?? defaultWeight)   // screen px (non-scaling)
 	const visible = (o: Obj) => { const l = layerOf(o); return !l || l.visible }
 
+	// Iso projects the model AROUND the ground pivot with a yaw/pitch, so the projected content isn't
+	// symmetric about (0,0) — centring the pivot leaves the room off to one side. Instead centre the
+	// iso content's OWN bounding box on the viewBox centre (cx,cy).
+	const isoBox = $derived.by(() => {
+		if (dir !== 'iso') return null
+		let minu = Infinity, maxu = -Infinity, minv = Infinity, maxv = -Infinity
+		for (const o of model.objects) {
+			if (!visible(o)) continue
+			for (const s of project(o, 'iso', undefined, undefined, cx, cy)) for (const p of s.pts) {
+				if (p.u < minu) minu = p.u; if (p.u > maxu) maxu = p.u
+				if (p.v < minv) minv = p.v; if (p.v > maxv) maxv = p.v
+			}
+		}
+		return minu === Infinity ? null : { icx: (minu + maxu) / 2, icy: (minv + maxv) / 2 }
+	})
 	const xform = $derived.by(() => {
 		if (dir === 'plan') return ''
-		if (dir === 'iso') return `translate(0 ${2 * cy}) scale(1 -1)`   // iso is centred about (cx,cy), v-up
+		if (dir === 'iso') return `translate(${cx - (isoBox?.icx ?? 0)} ${cy + (isoBox?.icy ?? 0)}) scale(1 -1)`   // centre the iso content bbox on (cx,cy), v-up
 		const b = BASIS[dir as 'front' | 'rear' | 'left' | 'right']
 		const ox = cx - b.hs * (b.h === 'x' ? cx : cy)                    // shift onto Pages' elevU centring
 		return `translate(${ox} ${ground}) scale(1 -1)`                   // v-up → GROUND − v

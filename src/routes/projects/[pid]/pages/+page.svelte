@@ -78,7 +78,7 @@
 	// Per-view drawing SCALE (mock — shown in the viewport tag + titleblock; chosen in the active-
 	// viewport bar, like the Sheets tool's viewport scale).
 	const SCALES = ['1:1', '1:2', '1:5', '1:10', '1:15', '1:20', '1:25', '1:50', '1:100', '1:150', '1:200', '1:500']
-	let docScale = $state<Record<string, string>>({})
+	let docScale = $state<Record<string, string>>({ t2: '1:25' })   // 3303 Outlets sheet defaults bigger (1:25)
 	const scaleOf = (id?: string) => docScale[id ?? ''] ?? '1:100'   // model space is real mm; 1:100 fits the ~28 m demo plan
 	// The drafting/interaction flags bundle passed to a pane's viewport (one prop instead of six).
 	const envFor = (pane: { canvasView: View }) => ({ acad: acadMode, navContent, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, canvasZoom: pane.canvasView.zoom })
