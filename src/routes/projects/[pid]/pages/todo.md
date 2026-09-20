@@ -154,8 +154,11 @@ New todos (design / bigger):
   new object matches Sheets. Verified in-browser (stroke/fill/weight round-trip; 16pt→22u, centre→
   text-anchor middle). [ ] Later: real ByLayer colour resolution + mm lineweights (§3/§4.2).
 - [ ] **Callout toggle** — let a text box become a **callout** (leader + box). Seems useful.
-- [ ] **Change-log UX** — indicate which items were undone (fade rows above the current history
-  pointer) and **click a row to undo/redo to that point**.
+- [x] **Change-log UX** (2026-09-20) — refactored undo from two stacks to a **per-doc linear timeline
+  with a pointer** (`docHist`; steps snapshot state AFTER each edit, gesture folds into one step). The
+  History change log lists every step newest-first, highlights the **current** one, **fades future
+  (undone)** steps (strikethrough), and **click any row to jump** (undo or redo to that exact point).
+  Verified: 2 rects → jump back to 1 (top step faded) → click it to redo to 2.
 - [x] **Group / ungroup** selected shapes (Ctrl-G / Ctrl-Shift-G) — `groupId` on entities;
   `expandGroup()` so a group selects, marquees, and moves as one. Verified in-browser.
 - [x] **Copy / paste / cut** (Ctrl-C/X/V) — clipboard of entities; paste drops offset copies

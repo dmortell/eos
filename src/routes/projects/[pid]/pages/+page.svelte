@@ -121,19 +121,22 @@
 		if (gestureEndTimer) { clearTimeout(gestureEndTimer); gestureEndTimer = null }
 		if (debounceMs) gestureEndTimer = setTimeout(finish, debounceMs); else finish()
 	}
+	// recordEdit runs AFTER the mutation and snapshots the new state onto the doc's timeline. During a
+	// gesture only the first mutation adds a step; the rest fold their final state into that step.
 	function recordEdit(id: string, label: string) {
 		promoteTab(id)
-		if (gestureActive) { if (!gesturePushed) { pushHistory(id, label); gesturePushed = true } }
-		else pushHistory(id, label)
+		if (gestureActive) { if (!gesturePushed) { pushStep(id, label); gesturePushed = true } else updateStep(id) }
+		else pushStep(id, label)
 	}
-	function addEnt(id: string, e: Ent) { const en = e.layer ? e : { ...e, layer: layerUI.active }; recordEdit(id, 'Add ' + en.type); docEnts = { ...docEnts, [id]: [...(docEnts[id] ?? []), en] } }
-	function updateEnt(id: string, e: Ent) { recordEdit(id, 'Edit ' + e.type); docEnts = { ...docEnts, [id]: (docEnts[id] ?? []).map(x => x.id === e.id ? e : x) } }
+	function addEnt(id: string, e: Ent) { ensureHist(id); const en = e.layer ? e : { ...e, layer: layerUI.active }; docEnts = { ...docEnts, [id]: [...(docEnts[id] ?? []), en] }; recordEdit(id, 'Add ' + en.type) }
+	function updateEnt(id: string, e: Ent) { ensureHist(id); docEnts = { ...docEnts, [id]: (docEnts[id] ?? []).map(x => x.id === e.id ? e : x) }; recordEdit(id, 'Edit ' + e.type) }
 	function deleteEnts(id: string, ids: string[]) {
 		if (!ids.length) return
-		promoteTab(id); pushHistory(id, 'Delete')
+		ensureHist(id)
 		const rm = new Set(ids)
 		docEnts = { ...docEnts, [id]: (docEnts[id] ?? []).filter(e => !rm.has(e.id)) }
 		setSel(id, [])
+		recordEdit(id, 'Delete')
 	}
 	function deleteSelection() { const a2 = active; if (a2) deleteEnts(a2.id, selOf(a2.id)) }
 
@@ -157,51 +160,55 @@
 	}
 	function groupEnts(id: string, ids: string[]) {
 		if (ids.length < 2) return
-		const gid = newId(), s = new Set(ids)
-		pushHistory(id, 'Group')
+		ensureHist(id); const gid = newId(), s = new Set(ids)
 		docEnts = { ...docEnts, [id]: (docEnts[id] ?? []).map(e => s.has(e.id) ? { ...e, groupId: gid } : e) }
+		recordEdit(id, 'Group')
 	}
 	function ungroupEnts(id: string, ids: string[]) {
-		const s = new Set(ids)
-		pushHistory(id, 'Ungroup')
+		ensureHist(id); const s = new Set(ids)
 		docEnts = { ...docEnts, [id]: (docEnts[id] ?? []).map(e => s.has(e.id) ? { ...e, groupId: undefined } : e) }
+		recordEdit(id, 'Ungroup')
 	}
 
 	// ── undo / redo / history / revisions ──
-	// State SNAPSHOTS, not diffs, and now scoped PER DOC: each doc has its own undo/redo stack, so
-	// Ctrl-Z only affects the doc you're looking at (a shared stack could revert a different tab's
-	// last edit). Each entry snapshots just that doc's entities. Memory ≈ (entities in the doc) × up
-	// to 100 steps — fine for the mock; a real tool should be command/inverse-op based.
+	// Per-doc LINEAR timeline with a pointer (not two stacks) so the change log can show future
+	// (undone) steps and jump to any point. steps[0] is the baseline; each step snapshots the doc's
+	// entities AFTER that edit; ptr = the current step. Memory ≈ entities × up to 100 steps (mock; a
+	// real tool should be command/inverse-op based).
 	type Snap = Record<string, Ent[]>
-	let undoStacks: Record<string, Ent[][]> = {}
-	let redoStacks: Record<string, Ent[][]> = {}
-	let history = $state<{ label: string; t: number }[]>([])
+	type HStep = { label: string; t: number; snap: Ent[] }
+	let docHist = $state<Record<string, { steps: HStep[]; ptr: number }>>({})
 	let revisions = $state<{ name: string; note: string; snap: Snap; t: number }[]>([])
-	let lastPushT = 0
 	const snapEnts = (): Snap => $state.snapshot(docEnts) as Snap
 	const snapDoc = (id: string): Ent[] => $state.snapshot(docEnts[id] ?? []) as Ent[]
-	// Record the doc's PRE-change state on its own stack; coalesce a rapid burst (e.g. a drag).
-	function pushHistory(id: string, label: string) {
+	// Capture the baseline (pre-first-edit) state once, BEFORE the doc is first mutated.
+	function ensureHist(id: string) {
+		if (docHist[id]) return
+		docHist = { ...docHist, [id]: { steps: [{ label: 'Start', t: Date.now(), snap: snapDoc(id) }], ptr: 0 } }
+	}
+	function pushStep(id: string, label: string) {
 		const t = tabs.find(x => x.id === id); if (t && !t.dirty) t.dirty = true   // any edit marks the tab dirty
-		const now = Date.now(), st = undoStacks[id] ?? (undoStacks[id] = [])
-		if (now - lastPushT < 450 && st.length) { lastPushT = now; return }
-		st.push(snapDoc(id)); if (st.length > 100) st.shift()
-		redoStacks[id] = []
-		history = [{ label, t: now }, ...history].slice(0, 60)
-		lastPushT = now
+		ensureHist(id); const h = docHist[id]
+		const steps = h.steps.slice(0, h.ptr + 1)   // drop the redo tail (a new edit forks the future)
+		steps.push({ label, t: Date.now(), snap: snapDoc(id) })
+		while (steps.length > 100) steps.shift()
+		docHist = { ...docHist, [id]: { steps, ptr: steps.length - 1 } }
 	}
-	function undo() {
-		const id = panes[focused]?.activeId, st = id ? undoStacks[id] : undefined
-		if (!id || !st?.length) return
-		;(redoStacks[id] ??= []).push(snapDoc(id))
-		docEnts = { ...docEnts, [id]: st.pop()! }; lastPushT = 0
+	function updateStep(id: string) {   // fold a gesture's latest state into its already-open step
+		const h = docHist[id]; if (!h) return
+		const steps = h.steps.slice(); steps[h.ptr] = { ...steps[h.ptr], snap: snapDoc(id), t: Date.now() }
+		docHist = { ...docHist, [id]: { ...h, steps } }
 	}
-	function redo() {
-		const id = panes[focused]?.activeId, st = id ? redoStacks[id] : undefined
-		if (!id || !st?.length) return
-		;(undoStacks[id] ??= []).push(snapDoc(id))
-		docEnts = { ...docEnts, [id]: st.pop()! }; lastPushT = 0
-	}
+	function applyPtr(id: string) { const h = docHist[id]; if (h) docEnts = { ...docEnts, [id]: $state.snapshot(h.steps[h.ptr].snap) as Ent[] } }
+	function undo() { const id = panes[focused]?.activeId, h = id ? docHist[id] : undefined; if (!id || !h || h.ptr <= 0) return; docHist = { ...docHist, [id]: { ...h, ptr: h.ptr - 1 } }; applyPtr(id) }
+	function redo() { const id = panes[focused]?.activeId, h = id ? docHist[id] : undefined; if (!id || !h || h.ptr >= h.steps.length - 1) return; docHist = { ...docHist, [id]: { ...h, ptr: h.ptr + 1 } }; applyPtr(id) }
+	function jumpHistory(i: number) { const id = panes[focused]?.activeId, h = id ? docHist[id] : undefined; if (!id || !h || i < 0 || i >= h.steps.length || i === h.ptr) return; docHist = { ...docHist, [id]: { ...h, ptr: i } }; applyPtr(id) }
+	// Change log for the focused doc, newest first, tagged past / current / future (undone).
+	let changeLog = $derived.by(() => {
+		const id = panes[focused]?.activeId, h = id ? docHist[id] : undefined
+		if (!h) return [] as { label: string; t: number; i: number; kind: 'past' | 'current' | 'future' }[]
+		return h.steps.map((s, i) => ({ label: s.label, t: s.t, i, kind: (i === h.ptr ? 'current' : i > h.ptr ? 'future' : 'past') as 'past' | 'current' | 'future' })).reverse()
+	})
 	// Absolute date for the titleblock — the latest revision's date, else today (mock).
 	const fmtDate = (t?: number) => new Date(t ?? Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 	let revSeq = 0
@@ -212,8 +219,9 @@
 	// the proxy (the snap lives inside the $state revisions array); structuredClone would throw on it.
 	function restoreRevision(snap: Snap) {
 		const id = panes[focused]?.activeId; if (!id) return
-		pushHistory(id, 'Restore revision')
+		ensureHist(id)
 		docEnts = { ...docEnts, [id]: $state.snapshot(snap[id] ?? []) as Ent[] }
+		recordEdit(id, 'Restore revision')
 	}
 	function setSel(id: string, ids: string[]) { docSel = { ...docSel, [id]: ids }; if (ids.length) treeNode = null }
 	function setView(id: string, v: View) { docView = { ...docView, [id]: v } }
@@ -228,7 +236,7 @@
 		delete de[id]; delete ds[id]; delete dv[id]
 		docEnts = de; docSel = ds; docView = dv
 		// free the other per-doc state too (was leaking; a reused preview id inherited it)
-		delete undoStacks[id]; delete redoStacks[id]
+		if (docHist[id]) { const dh = { ...docHist }; delete dh[id]; docHist = dh }
 		if (docProj[id]) { const dp = { ...docProj }; delete dp[id]; docProj = dp }
 		if (docPaper[id]) { const pp = { ...docPaper }; delete pp[id]; docPaper = pp }
 		if (activeVps.has(id)) deactivateVp(id)
@@ -695,8 +703,8 @@
 					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (active) updateEnt(active.id, e) }}
 						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''} {activeLayer} node={treeNode} viewport={viewportSel} />
 				{:else}
-					<HistoryPanel {history} {revisions}
-						onnote={(i, note) => (revisions[i].note = note)}
+					<HistoryPanel log={changeLog} {revisions}
+						onnote={(i, note) => (revisions[i].note = note)} onjump={jumpHistory}
 						onundo={undo} onredo={redo} onnewrevision={makeRevision} onrestore={(s) => restoreRevision(s as Snap)} />
 				{/if}
 			</aside>

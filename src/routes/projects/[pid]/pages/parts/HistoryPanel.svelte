@@ -4,9 +4,10 @@
 	// come from the parent (+page owns the undo/redo stacks and the doc entities).
 	import { Icon } from '$lib'
 	type Snap = Record<string, unknown>
-	let { history = [], revisions = [], onnote, onundo, onredo, onnewrevision, onrestore }:
-		{ history?: { label: string; t: number }[]; revisions?: { name: string; note: string; snap: Snap; t: number }[];
-			onnote?: (i: number, note: string) => void;
+	type LogRow = { label: string; t: number; i: number; kind: 'past' | 'current' | 'future' }
+	let { log = [], revisions = [], onnote, onjump, onundo, onredo, onnewrevision, onrestore }:
+		{ log?: LogRow[]; revisions?: { name: string; note: string; snap: Snap; t: number }[];
+			onnote?: (i: number, note: string) => void; onjump?: (i: number) => void;
 			onundo?: () => void; onredo?: () => void; onnewrevision?: () => void; onrestore?: (s: Snap) => void } = $props()
 
 	function ago(t: number) {
@@ -47,15 +48,17 @@
 		<div class="hp-empty">No revisions yet — “New” snapshots the current drawing.</div>
 	{/if}
 
-	<div class="hp-sec"><span>CHANGE LOG</span></div>
-	{#if history.length}
+	<div class="hp-sec"><span>CHANGE LOG</span><span class="hp-hint">click a step to jump</span></div>
+	{#if log.length}
 		<div class="hp-list">
-			{#each history as h, i (i)}
-				<div class="hp-row log">
+			{#each log as h (h.i)}
+				<button class="hp-row log" class:current={h.kind === 'current'} class:future={h.kind === 'future'}
+					title={h.kind === 'current' ? 'Current state' : h.kind === 'future' ? 'Redo to here' : 'Undo to here'}
+					onclick={() => onjump?.(h.i)}>
 					<span class="hp-dot"></span>
 					<span class="hp-name">{h.label}</span>
 					<span class="hp-when">{ago(h.t)}</span>
-				</div>
+				</button>
 			{/each}
 		</div>
 	{:else}
@@ -75,8 +78,16 @@
 	.hp-add:hover { color:var(--text); }
 	.hp-list { display:flex; flex-direction:column; gap:1px; }
 	.hp-row { display:flex; align-items:center; gap:7px; width:100%; padding:5px 6px; border-radius:5px; color:var(--text); background:none; border:none; text-align:left; }
+	.hp-row.log { cursor:pointer; }
+	.hp-row.log:hover { background:var(--hover); }
+	.hp-row.log.current { background:var(--active); }
+	.hp-row.log.current .hp-name { color:var(--accent); font-weight:600; }
+	.hp-row.log.current .hp-dot { background:var(--accent); }
+	.hp-row.log.future { opacity:.45; }              /* undone steps you can redo to */
+	.hp-row.log.future .hp-name { text-decoration:line-through; }
 	.hp-row.rev:hover { background:var(--hover); }
 	.hp-row :global(svg) { color:var(--muted); flex:0 0 auto; }
+	.hp-hint { font-size:9px; color:var(--faint); text-transform:none; letter-spacing:0; }
 	.hp-rev { padding:5px 6px; border-radius:5px; }
 	.hp-rev:hover { background:var(--hover); }
 	.hp-rev-head { display:flex; align-items:center; gap:7px; }
