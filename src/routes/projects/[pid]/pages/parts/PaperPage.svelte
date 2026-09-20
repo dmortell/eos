@@ -20,10 +20,18 @@
 	// mutators, so the panel can edit without reaching into this child's state.
 	export type FrameSel = { label: string; x: number; y: number; w: number; h: number;
 		border: 'dashed' | 'solid' | 'none'; setBorder: (b: 'dashed' | 'solid' | 'none') => void; setRect: (r: Partial<{ x: number; y: number; w: number; h: number }>) => void }
+	// An extra viewport frame on the sheet (AutoCAD paper space): its own projection + scale + geometry.
+	type SheetFrame = { id: string; x: number; y: number; w: number; h: number; border: 'dashed' | 'solid' | 'none'; proj: string; scale: string; clip: Clip | null; label: string }
+	type VKind = 'floorplan' | 'iso' | ElevDir
 	let { title = 'Sheet', drawingNo = '001', scale = '1:100', active = false, focused = true, tool = 'Select', env = {}, on = {}, pw = PAPER_W, ph = PAPER_H, sizeLabel = 'A3', rev = '', revDate = '',
-		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, kind = 'floorplan', clip = null, yaw, pitch, sections = [], selSection = null }:
+		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, kind = 'floorplan', clip = null, yaw, pitch, sections = [], selSection = null,
+		extraFrames = [], selFrame = null, frameKind = (p: string) => p as VKind, isFrameActive = () => false, frameView = () => ({ zoom: 1, x: 0, y: 0 }), frameEnv = {},
+		frameOrbit = () => ({ yaw: 0, pitch: 0 }), makeFrameOn = () => ({}), onaddframe, onframegeom, onselectframe }:
 		{ title?: string; drawingNo?: string; scale?: string; active?: boolean; focused?: boolean; tool?: string; env?: Env; on?: VpOn; pw?: number; ph?: number; sizeLabel?: string; rev?: string; revDate?: string;
-			entities?: Ent[]; sel?: string[]; view?: View; kind?: 'floorplan' | 'iso' | ElevDir; clip?: Clip | null; yaw?: number; pitch?: number; sections?: SectionMarker[]; selSection?: string | null } = $props()
+			entities?: Ent[]; sel?: string[]; view?: View; kind?: VKind; clip?: Clip | null; yaw?: number; pitch?: number; sections?: SectionMarker[]; selSection?: string | null;
+			extraFrames?: SheetFrame[]; selFrame?: string | null; frameKind?: (p: string) => VKind; isFrameActive?: (id: string) => boolean; frameView?: (id: string) => View; frameEnv?: Env;
+			frameOrbit?: (id: string) => { yaw: number; pitch: number }; makeFrameOn?: (f: SheetFrame) => VpOn; onaddframe?: (x: number, y: number, w: number, h: number) => void;
+			onframegeom?: (id: string, g: { x: number; y: number; w: number; h: number }) => void; onselectframe?: (id: string | null) => void } = $props()
 	const canvasZoom = $derived(env.canvasZoom ?? 1)
 	const onframe = $derived(on.frame as ((f: FrameSel | null) => void) | undefined)
 
@@ -61,13 +69,13 @@
 		return { x: (cx - r.left) / s, y: (cy - r.top) / s }
 	}
 
-	// gi: 0 TL, 1 TR, 2 BR, 3 BL — mirrors the rect-tool corner grips (opposite corner fixed).
-	let drag: { mode: 'move' | 'grip'; gi: number; sx: number; sy: number; base: Frame; s: number } | null = null
-	function startDrag(e: PointerEvent, mode: 'move' | 'grip', gi = -1) {
+	// gi: 0 TL, 1 TR, 2 BR, 3 BL — mirrors the rect-tool corner grips (opposite corner fixed). `set`
+	// applies the new geometry (to the local primary frame, or up via onframegeom for an extra frame).
+	let drag: { mode: 'move' | 'grip'; gi: number; sx: number; sy: number; base: Frame; s: number; set: (f: Frame) => void } | null = null
+	function startDrag(e: PointerEvent, mode: 'move' | 'grip', gi: number, base: Frame, set: (f: Frame) => void) {
 		e.stopPropagation()
-		if (active || !frame) return
-		selected = true
-		drag = { mode, gi, sx: e.clientX, sy: e.clientY, base: { ...frame }, s: scaleOf() }
+		if (active) return
+		drag = { mode, gi, sx: e.clientX, sy: e.clientY, base: { ...base }, s: scaleOf(), set }
 		try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
 		window.addEventListener('pointermove', onDrag)
 		window.addEventListener('pointerup', endDrag)
@@ -78,10 +86,7 @@
 		if (!drag) return
 		const dx = (e.clientX - drag.sx) / drag.s, dy = (e.clientY - drag.sy) / drag.s
 		const b = drag.base
-		if (drag.mode === 'move') {
-			frame = { w: b.w, h: b.h, x: b.x + dx, y: b.y + dy }
-			return
-		}
+		if (drag.mode === 'move') { drag.set({ w: b.w, h: b.h, x: b.x + dx, y: b.y + dy }); return }
 		let { x, y, w, h } = b
 		if (drag.gi === 0) { x = b.x + dx; y = b.y + dy; w = b.w - dx; h = b.h - dy }       // TL
 		else if (drag.gi === 1) { y = b.y + dy; w = b.w + dx; h = b.h - dy }                 // TR
@@ -89,7 +94,7 @@
 		else if (drag.gi === 3) { x = b.x + dx; w = b.w - dx; h = b.h + dy }                 // BL
 		if (w < MIN) { if (drag.gi === 0 || drag.gi === 3) x = b.x + b.w - MIN; w = MIN }
 		if (h < MIN) { if (drag.gi === 0 || drag.gi === 1) y = b.y + b.h - MIN; h = MIN }
-		frame = { x, y, w, h }   // may extend beyond the sheet
+		drag.set({ x, y, w, h })   // may extend beyond the sheet
 	}
 	function endDrag() {
 		drag = null
@@ -100,11 +105,14 @@
 	// Selection marquee (paper space): drag a box across empty paper; if it touches the
 	// frame, the frame is selected. This is the touch-friendly alternative to a border click.
 	let marquee = $state<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
+	let placingFrame = $state(false)   // dragging out a NEW viewport frame (the Viewport tool)
 	function onSheetDown(e: PointerEvent) {
 		if (active || e.button !== 0) return
 		e.preventDefault()   // stop a native text/element drag starting after a double-click (shows a not-allowed cursor + leaves the marquee stuck)
 		try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
 		selected = false
+		if (tool !== 'Viewport') onselectframe?.(null)   // clicking empty paper deselects any extra frame
+		placingFrame = tool === 'Viewport'
 		const p = toSheet(e.clientX, e.clientY)
 		marquee = { x0: p.x, y0: p.y, x1: p.x, y1: p.y }
 		window.addEventListener('pointermove', onMarquee)
@@ -119,11 +127,19 @@
 		window.removeEventListener('pointermove', onMarquee)
 		window.removeEventListener('pointerup', endMarquee)
 		const m = marquee; marquee = null
-		if (!m || !frame) return
+		const wasPlacing = placingFrame; placingFrame = false
+		if (!m) return
 		const bx0 = Math.min(m.x0, m.x1), by0 = Math.min(m.y0, m.y1), bx1 = Math.max(m.x0, m.x1), by1 = Math.max(m.y0, m.y1)
+		if (wasPlacing) {   // Viewport tool: the marquee box becomes a NEW viewport frame
+			if (bx1 - bx0 > 20 && by1 - by0 > 20) onaddframe?.(bx0, by0, bx1 - bx0, by1 - by0)
+			return
+		}
 		if (bx1 - bx0 < 3 && by1 - by0 < 3) return   // tiny → just a click (already deselected)
-		const touches = bx0 <= frame.x + frame.w && bx1 >= frame.x && by0 <= frame.y + frame.h && by1 >= frame.y
-		if (touches) selected = true
+		// marquee selects the primary frame (if it touches) OR the topmost extra frame it touches
+		const touches = (f: { x: number; y: number; w: number; h: number }) => bx0 <= f.x + f.w && bx1 >= f.x && by0 <= f.y + f.h && by1 >= f.y
+		const ef = [...extraFrames].reverse().find(touches)
+		if (ef) { onselectframe?.(ef.id); selected = false }
+		else if (frame && touches(frame)) { selected = true; onselectframe?.(null) }
 	}
 
 	// Interior click (paper space) deselects; double-click anywhere on the paper outside the
@@ -149,8 +165,9 @@
 						boxW={frame.w} boxH={frame.h} />
 					{#if !active}
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
-						<!-- Border band selects + moves; the interior child leaves the middle inert. -->
-						<div class="vp-band" onpointerdown={(e) => startDrag(e, 'move')} ondblclick={() => on.activate?.()}>
+						<!-- Border band selects + moves; the interior child leaves the middle inert. The Viewport
+						     tool disables the bands so a new frame can be dragged out over an existing one. -->
+						<div class="vp-band" style:pointer-events={tool === 'Viewport' ? 'none' : undefined} onpointerdown={(e) => { selected = true; onselectframe?.(null); startDrag(e, 'move', -1, frame!, (f) => (frame = f)); }} ondblclick={() => on.activate?.()}>
 							<div class="vp-interior" onpointerdown={onInteriorDown} ondblclick={() => on.activate?.()}></div>
 						</div>
 						{#if selected}
@@ -158,13 +175,40 @@
 							<svg class="frame-handles">
 								{#each CORNERS as [cx, cy], i (i)}
 									<Handle cx={cx * frame.w} cy={cy * frame.h} size={HANDLE_PX / (canvasZoom || 1)} cursor={CURSORS[i]} strokeWidth={1.2 / (canvasZoom || 1)}
-										onpointerdown={(e) => startDrag(e, 'grip', i)} />
+										onpointerdown={(e) => startDrag(e, 'grip', i, frame!, (f) => (frame = f))} />
 								{/each}
 							</svg>
 						{/if}
 					{/if}
 				</div>
 			{/if}
+			<!-- EXTRA viewport frames (AutoCAD paper space): each a window onto the model at its own
+			     projection + scale. Same band/grip interaction as the primary, but geometry lives in the
+			     parent (onframegeom) and view/activation are frame-keyed (makeFrameOn). -->
+			{#each extraFrames as f (f.id)}
+				{@const fon = makeFrameOn(f)}
+				{@const fa = isFrameActive(f.id)}
+				<div class="vp-frame" class:selected={selFrame === f.id && !fa} class:active={fa}
+					style="left:{f.x}px; top:{f.y}px; width:{f.w}px; height:{f.h}px">
+					<Viewport kind={frameKind(f.proj)} label={f.label} scale={f.scale} active={fa} {focused} {tool} env={frameEnv} on={fon} border={f.border}
+						{entities} {sel} view={frameView(f.id)} clip={f.clip} yaw={frameOrbit(f.id).yaw} pitch={frameOrbit(f.id).pitch}
+						sections={frameKind(f.proj) === 'floorplan' ? sections : []} {selSection} boxW={f.w} boxH={f.h} />
+					{#if !fa}
+						<!-- svelte-ignore a11y_no_static_element_interactions -->
+						<div class="vp-band" style:pointer-events={tool === 'Viewport' ? 'none' : undefined} onpointerdown={(e) => { onselectframe?.(f.id); startDrag(e, 'move', -1, f, (g) => onframegeom?.(f.id, g)); }} ondblclick={() => fon.activate?.()}>
+							<div class="vp-interior" onpointerdown={(e) => { e.stopPropagation(); onselectframe?.(f.id); }} ondblclick={() => fon.activate?.()}></div>
+						</div>
+						{#if selFrame === f.id}
+							<svg class="frame-handles">
+								{#each CORNERS as [cx, cy], i (i)}
+									<Handle cx={cx * f.w} cy={cy * f.h} size={HANDLE_PX / (canvasZoom || 1)} cursor={CURSORS[i]} strokeWidth={1.2 / (canvasZoom || 1)}
+										onpointerdown={(e) => startDrag(e, 'grip', i, f, (g) => onframegeom?.(f.id, g))} />
+								{/each}
+							</svg>
+						{/if}
+					{/if}
+				</div>
+			{/each}
 			{#if mq}
 				<div class="vp-marquee" style="left:{mq.x}px; top:{mq.y}px; width:{mq.w}px; height:{mq.h}px"></div>
 			{/if}

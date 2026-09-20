@@ -11,12 +11,18 @@
 	import type { FrameSel } from './PaperPage.svelte'
 	import type { Obj, Layer as MLayer } from '../3dview/types'
 
+	// A selected extra sheet viewport frame (AutoCAD paper space): edit its source projection + scale.
+	type SheetFrameProp = { id: string; x: number; y: number; w: number; h: number; border: 'dashed' | 'solid' | 'none'; proj: string; scale: string; label: string }
 	let { ents = [], onupdate, onarrange, pageTitle = '', pageKind = '', activeLayer = '', node = null, viewport = null,
-		modelObj = null, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg }:
+		modelObj = null, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg,
+		frameObj = null, onframeupdate, onframedelete }:
 		{ ents?: Ent[]; onupdate?: (e: Ent) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void;
 			pageTitle?: string; pageKind?: string; activeLayer?: string;
 			node?: { id: string; label: string; kind: string } | null; viewport?: FrameSel | null;
-			modelObj?: Obj | null; modelLayers?: MLayer[]; onmodelupdate?: (patch: Record<string, unknown>) => void; onmodeldelete?: () => void; onmodelseg?: (segIdx: number, patch: Record<string, unknown>) => void } = $props()
+			modelObj?: Obj | null; modelLayers?: MLayer[]; onmodelupdate?: (patch: Record<string, unknown>) => void; onmodeldelete?: () => void; onmodelseg?: (segIdx: number, patch: Record<string, unknown>) => void;
+			frameObj?: SheetFrameProp | null; onframeupdate?: (patch: Partial<SheetFrameProp>) => void; onframedelete?: () => void } = $props()
+	const PROJ_OPTS: [string, string][] = [['plan', 'Plan'], ['front', 'Front'], ['rear', 'Rear'], ['left', 'Left'], ['right', 'Right'], ['iso', '3D']]
+	const SCALE_OPTS = ['1:1', '1:2', '1:5', '1:10', '1:20', '1:25', '1:50', '1:100', '1:200', '1:500']
 	const MODEL_TYPE_LABEL: Record<string, string> = { prism: 'Prism', wall: 'Wall', conduit: 'Conduit' }
 	// A prism on an "opening" layer is a door/window/hole; label it as such.
 	const modelTypeLabel = (o: Obj) => (o.type === 'prism' && modelLayers.find((l) => l.id === o.layer)?.opening ? 'Opening' : MODEL_TYPE_LABEL[o.type] ?? 'Object')
@@ -115,7 +121,37 @@
 {/snippet}
 
 <div class="pp">
-	{#if modelObj}
+	{#if frameObj}
+		<!-- a sheet VIEWPORT FRAME is selected → edit its source view (projection / scale / border) -->
+		<div class="prop-sec">VIEWPORT</div>
+		<div class="prop"><span>View</span>
+			<select value={frameObj.proj} onchange={(e) => onframeupdate?.({ proj: (e.currentTarget as HTMLSelectElement).value, label: PROJ_OPTS.find(([v]) => v === (e.currentTarget as HTMLSelectElement).value)?.[1] })}>
+				{#each PROJ_OPTS as [v, l] (v)}<option value={v}>{l}</option>{/each}
+			</select>
+		</div>
+		<div class="prop"><span>Scale</span>
+			<select value={frameObj.scale} onchange={(e) => onframeupdate?.({ scale: (e.currentTarget as HTMLSelectElement).value })}>
+				{#if !SCALE_OPTS.includes(frameObj.scale)}<option value={frameObj.scale}>{frameObj.scale}</option>{/if}
+				{#each SCALE_OPTS as s (s)}<option value={s}>{s}</option>{/each}
+			</select>
+		</div>
+		<div class="prop"><span>Border</span>
+			<select value={frameObj.border} onchange={(e) => onframeupdate?.({ border: (e.currentTarget as HTMLSelectElement).value as 'dashed' | 'solid' | 'none' })}>
+				<option value="solid">Solid</option><option value="dashed">Dashed</option><option value="none">None</option>
+			</select>
+		</div>
+		<div class="prop-sec">FRAME</div>
+		<div class="vecrow">
+			{@render numcell('X', Math.round(frameObj.x), (n) => onframeupdate?.({ x: Math.round(n) }))}
+			{@render numcell('Y', Math.round(frameObj.y), (n) => onframeupdate?.({ y: Math.round(n) }))}
+		</div>
+		<div class="vecrow">
+			{@render numcell('W', Math.round(frameObj.w), (n) => onframeupdate?.({ w: Math.max(60, Math.round(n)) }))}
+			{@render numcell('H', Math.round(frameObj.h), (n) => onframeupdate?.({ h: Math.max(60, Math.round(n)) }))}
+		</div>
+		<button class="pp-del" onclick={() => onframedelete?.()}>Delete viewport</button>
+		<div class="pp-hint">A viewport is a window onto the model. Double-click it to edit inside; change the view or scale here.</div>
+	{:else if modelObj}
 		<!-- a 3D MODEL object is selected → edit its geometry + layer straight on the store -->
 		<div class="prop-sec">{modelTypeLabel(modelObj)}</div>
 		<div class="prop"><span>Layer</span>

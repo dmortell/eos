@@ -142,6 +142,41 @@
 		if (hit) docProj = dp
 	}
 	function deleteSection(id: string) { closeTab(id) }   // closing the elevation tab removes the marker (dropDoc)
+
+	// ── multi-viewport sheets (AutoCAD paper space) — besides its primary viewport, a sheet can hold
+	// EXTRA viewport FRAMES, each a window onto the shared model at its own projection + scale + clip.
+	// The primary viewport is unchanged (tab-keyed); extra frames live per tab (surviving tab switches)
+	// and their view/orbit/activation reuse docView/docOrbit/activeVps keyed by the FRAME id, while entity
+	// editing still targets the tab's shared entities. A section elevation can be dropped in as one.
+	type SheetFrame = { id: string; x: number; y: number; w: number; h: number; border: 'dashed' | 'solid' | 'none'; proj: Proj; scale: string; clip: Clip | null; label: string }
+	let docFrames = $state<Record<string, SheetFrame[]>>({})
+	const framesOf = (tabId: string) => docFrames[tabId] ?? []
+	function setFrames(tabId: string, frames: SheetFrame[]) { docFrames = { ...docFrames, [tabId]: frames } }
+	function updateFrame(tabId: string, id: string, patch: Partial<SheetFrame>) { setFrames(tabId, framesOf(tabId).map((f) => (f.id === id ? { ...f, ...patch } : f))) }
+	let frameSeq = 0
+	const newFrameId = () => 'vf' + ++frameSeq
+	let selFrame = $state<string | null>(null)   // the extra viewport frame selected in paper space (move/resize/props)
+	// One active extra frame per sheet: activating a frame deactivates its siblings on the same tab.
+	function activateFrame(tabId: string, id: string) { for (const f of framesOf(tabId)) if (f.id !== id) deactivateVp(f.id); activateVp(id) }
+	// A per-frame callback bundle: entity editing keeps the TAB id; view / activation / scale / orbit use
+	// the FRAME id, so each extra viewport pans, activates and re-aims independently of the primary.
+	const vpOnFrame = (a: Tab, pane: { id: string; tool: string }, frame: SheetFrame) => ({
+		...vpOn(a, pane),
+		view: (v: View) => setView(pane.id, frame.id, v),
+		activate: () => activateFrame(a.id, frame.id),
+		deactivate: () => deactivateVp(frame.id),
+		scale: (s: string) => updateFrame(a.id, frame.id, { scale: s }),
+		orbit: (yaw: number, pitch: number) => setOrbit(pane.id, frame.id, yaw, pitch),
+	})
+	// A new viewport frame dragged on the paper (the Viewport tool): defaults to a plan view.
+	function addFrame(tabId: string, x: number, y: number, w: number, h: number) {
+		const id = newFrameId()
+		setFrames(tabId, [...framesOf(tabId), { id, x: Math.round(x), y: Math.round(y), w: Math.max(60, Math.round(w)), h: Math.max(60, Math.round(h)), border: 'solid', proj: 'plan', scale: scaleOf(tabId), clip: null, label: 'Plan' }])
+		selFrame = id
+	}
+	function deleteFrame(tabId: string, id: string) { setFrames(tabId, framesOf(tabId).filter((f) => f.id !== id)); if (selFrame === id) selFrame = null; deactivateVp(id) }
+	const PROJ_LABEL: Record<Proj, string> = { plan: 'Plan', front: 'Front', rear: 'Rear', left: 'Left', right: 'Right', iso: '3D' }
+	let selFrameObj = $derived.by(() => { const t = active; return t && selFrame ? framesOf(t.id).find((f) => f.id === selFrame) ?? null : null })
 	let focused = $state(0)      // which pane new tabs / sidebar actions target
 	let canvasEls = $state<(HTMLElement | undefined)[]>([])   // each pane's .canvas, for navFit
 	let splitFrac = $state(0.5)  // pane 0 width fraction when split
@@ -313,6 +348,8 @@
 	let selModelObj = $derived(modelSel.length === 1 ? (models[0]?.objects.find(o => o.id === modelSel[0]) ?? null) : null)
 	// Selecting a model object (plan / elevation / 3D pick) shows the Properties tab so its props are visible.
 	$effect(() => { if (modelSel.length) { rightTab = 'props'; rightOpen = true } })
+	// Selecting a sheet viewport frame likewise shows its Properties.
+	$effect(() => { if (selFrame) { rightTab = 'props'; rightOpen = true } })
 	function updateModelObj(patch: Record<string, unknown>) {
 		const o = selModelObj, id = panes[focused]?.activeId; if (!o || !id) return
 		beginGesture(); Object.assign(o, patch); modelEdit(id); endGesture()   // one undo step (baseline pre-change)
@@ -340,7 +377,15 @@
 		if (docClip[id]) { const dc = { ...docClip }; delete dc[id]; docClip = dc }            // section box → its plan marker vanishes too
 		if (docSecDir[id]) { const dd = { ...docSecDir }; delete dd[id]; docSecDir = dd }
 		if (selSection === id) selSection = null
-		{ const doc = { ...docOrbit }; let hit = false; for (const k of Object.keys(doc)) if (k.endsWith(':' + id)) { delete doc[k]; hit = true } if (hit) docOrbit = doc }
+		// A sheet's viewport frames + all their per-frame view/orbit/activation state.
+		const frameIds = framesOf(id).map((f) => f.id)
+		if (frameIds.length) {
+			if (docFrames[id]) { const df = { ...docFrames }; delete df[id]; docFrames = df }
+			if (selFrame && frameIds.includes(selFrame)) selFrame = null
+			const fv = { ...docView }; for (const k of Object.keys(fv)) if (frameIds.some((fid) => k.endsWith(':' + fid))) delete fv[k]; docView = fv
+			for (const fid of frameIds) deactivateVp(fid)
+		}
+		{ const doc = { ...docOrbit }; let hit = false; for (const k of Object.keys(doc)) if (k.endsWith(':' + id) || framesOf(id).some((f) => k.endsWith(':' + f.id))) { delete doc[k]; hit = true } if (hit) docOrbit = doc }
 		if (activeVps.has(id)) deactivateVp(id)
 	}
 
@@ -505,6 +550,7 @@
 		{ icon: 'scan', name: 'Section' },
 		{ icon: 'dimension', name: 'Dimension' },
 		{ icon: 'k-text', name: 'Text' },
+		{ icon: 'panels', name: 'Viewport' },   // paper-space: drag on the sheet to add a viewport frame
 	]
 	// World (model-unit) coords under the cursor, from the active viewport (status bar shows mm), and
 	// the focused pane's tool prompt / inline-edit help (rendered at the pane bottom-centre).
@@ -759,7 +805,13 @@
 										sizeLabel="{paperOf(a.id).size} {paperOf(a.id).landscape ? 'L' : 'P'}" rev={rev} revDate={fmtDate(revisions[0]?.t)}
 										entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(p.id, a.id)} active={isVpActive(a.id)} focused={focused === pi}
 										kind={projKind(projOf(p, a))} clip={docClip[a.id] ?? null} yaw={orbitOf(p.id, a.id).yaw} pitch={orbitOf(p.id, a.id).pitch}
-										sections={projOf(p, a) === 'plan' ? sectionMarkers : []} selSection={selSection} />
+										sections={projOf(p, a) === 'plan' ? sectionMarkers : []} selSection={selSection}
+										extraFrames={framesOf(a.id)} selFrame={selFrame} frameKind={(pr) => projKind(pr as Proj)}
+										isFrameActive={(id) => isVpActive(id)} frameView={(id) => viewOf(p.id, id)} frameEnv={envFor(p)}
+										frameOrbit={(id) => orbitOf(p.id, id)} makeFrameOn={(f) => vpOnFrame(a, p, f as SheetFrame)}
+										onaddframe={(x, y, w, h) => addFrame(a.id, x, y, w, h)}
+										onframegeom={(id, g) => updateFrame(a.id, id, g)}
+										onselectframe={(id) => { selFrame = id; if (id) { treeNode = null; rightTab = 'props'; rightOpen = true } }} />
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => deactivateVp(a.id)}>
@@ -818,7 +870,10 @@
 					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (active) updateEnt(active.id, e) }}
 						onarrange={(op) => { if (active) reorderEnts(active.id, selOf(active.id), op) }}
 						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''} {activeLayer} node={treeNode} viewport={viewportSel}
-						modelObj={selModelObj} modelLayers={models[0]?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} onmodelseg={updateModelSeg} />
+						modelObj={selModelObj} modelLayers={models[0]?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} onmodelseg={updateModelSeg}
+						frameObj={selFrameObj}
+						onframeupdate={(patch) => { if (active && selFrame) updateFrame(active.id, selFrame, patch as Partial<SheetFrame>) }}
+						onframedelete={() => { if (active && selFrame) deleteFrame(active.id, selFrame) }} />
 				{:else}
 					<HistoryPanel log={changeLog} {revisions}
 						onnote={(i, note) => (revisions[i].note = note)} onjump={jumpHistory}
