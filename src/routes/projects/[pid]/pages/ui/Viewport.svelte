@@ -13,7 +13,8 @@
 	import { type Pt, type Ent, type View, type ElevDir, DEFAULT_BOX_H, GROUND, PT, MMPU, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, ELEV_BASIS, elevU, elevUInv, flatSpan, dist, segDist, translate, textBox, boxElev, boxElevSet, boxFaces } from './geometry'
 	import { isLayerHidden, isLayerLocked, layerColor } from '../layers.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
-	import { models } from '../3dview/models.svelte'
+	import { models, modelSel, setModelSel } from '../3dview/models.svelte'
+	import type { Obj } from '../3dview/types'
 	// Pure geometry now lives in ./geometry (testable, shared with PropertiesPanel); re-export the
 	// entity types so existing `import { type Ent } from './Viewport.svelte'` sites keep working.
 	export type { Pt, Ent, View } from './geometry'
@@ -200,7 +201,11 @@
 			const g = expandGroup(hit(p))   // the clicked entity + any group it belongs to
 			if (e.shiftKey || e.ctrlKey || e.metaKey) {   // additive: toggle the whole group
 				if (g.length) { const allSel = g.every(x => selSet.has(x)); on.select?.(allSel ? sel.filter(x => !g.includes(x)) : [...new Set([...sel, ...g])]) }
-			} else on.select?.(g)
+			} else {
+				// entity click wins; else a model object; else clear both (empty click).
+				if (g.length) { on.select?.(g); setModelSel([]) }
+				else { const mid = hitModelPlan(p); if (mid) { setModelSel([mid]); on.select?.([]) } else { on.select?.([]); setModelSel([]) } }
+			}
 			return
 		}
 		if (tool === 'Text') { const p = drawPoint(e.clientX, e.clientY); if (p) on.add?.({ id: uid(), type: 'text', a: p, text: 'TEXT', space: drawSpace() }); snapMark = null; return }
@@ -220,9 +225,9 @@
 		if (active && draft.length) { const sp = drawPoint(e.clientX, e.clientY, draft.at(-1), e.shiftKey); if (sp) { lastRaw = toLocalXY(e.clientX, e.clientY); cur = sp } }
 		else if (active && osnap && DRAW.has(tool)) findSnap(e.clientX, e.clientY)   // show snap marker before the first click (DRAW excludes Select)
 		// hover feedback for the Select tool: 'move' when over a shape body (a grip shows its own cursor)
-		if (active && tool === 'Select' && !drag && !draft.length && !marquee) {
+		if (active && tool === 'Select' && !drag && !mDrag && !draft.length && !marquee) {
 			const lp = toLocalXY(e.clientX, e.clientY)
-			hoverBody = !!lp && hit(lp).length > 0
+			hoverBody = !!lp && (hit(lp).length > 0 || !!hitModelPlan(lp))
 		} else hoverBody = false
 	}
 	// Re-apply the constraint the instant Shift changes (don't wait for a pointer move) — for
@@ -365,6 +370,45 @@
 		const out = new Set(ids)
 		for (const e of entities) if (e.groupId && gids.has(e.groupId)) out.add(e.id)
 		return [...out]
+	}
+
+	// ── 3D MODEL editing (P2) ──
+	// The floor MODEL (walls/prisms/conduits, 3dview/) renders read-mostly via <Model3d>; P2a adds
+	// PICK + MOVE for prisms in the PLAN view (footprint rects). Selection is the shared `modelSel`
+	// (global to the model for now); moves mutate the `models` store directly. Undo integration and
+	// walls/conduits + other-view editing are the next slices — see model-plan.md P2.
+	const mdl = $derived(models[0])
+	const isPlan = $derived(kind === 'floorplan')
+	const modelLayerVisible = (o: Obj) => { const l = mdl?.layers?.find(x => x.id === o.layer); return !l || l.visible }
+	// Topmost prism whose footprint rect [x..x+w]×[y..y+d] (un-rotated) contains p — plan only, for now.
+	function hitModelPlan(p: Pt): string | null {
+		if (!isPlan || !mdl) return null
+		const thr = hitTol(4)
+		for (let i = mdl.objects.length - 1; i >= 0; i--) {
+			const o = mdl.objects[i]
+			if (o.type !== 'prism' || !o.id || !modelLayerVisible(o)) continue
+			const cx = o.x + o.w / 2, cy = o.y + o.d / 2
+			const q = o.rot ? rotatePt(p, [cx, cy], -o.rot) : p
+			if (q[0] >= o.x - thr && q[0] <= o.x + o.w + thr && q[1] >= o.y - thr && q[1] <= o.y + o.d + thr) return o.id
+		}
+		return null
+	}
+	// A prism move drag (plan). Mutates the store object in place (reactive); one gesture.
+	let mDrag: { id: string; start: Pt; ox: number; oy: number; moved: boolean } | null = null
+	function onModelDragMove(e: PointerEvent) {
+		if (!mDrag || !mdl) return
+		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
+		const o = mdl.objects.find(x => x.id === mDrag!.id); if (!o || o.type !== 'prism') return
+		mDrag.moved = true
+		let nx = mDrag.ox + (p[0] - mDrag.start[0]), ny = mDrag.oy + (p[1] - mDrag.start[1])
+		if (snap) { nx = Math.round(nx / SNAP_STEP) * SNAP_STEP; ny = Math.round(ny / SNAP_STEP) * SNAP_STEP }
+		o.x = nx; o.y = ny
+	}
+	function onModelDragUp() {
+		if (mDrag?.moved) suppressClick = true
+		mDrag = null
+		window.removeEventListener('pointermove', onModelDragMove)
+		window.removeEventListener('pointerup', onModelDragUp)
 	}
 
 	// ── object snap (osnap), Kestrel-style ──
@@ -544,6 +588,11 @@
 			window.removeEventListener('pointermove', onDrawMove)
 			window.removeEventListener('pointerup', onDrawUp)
 		}
+		if (mDrag) {   // abort an in-progress model-object move (2nd finger → pan/zoom)
+			mDrag = null
+			window.removeEventListener('pointermove', onModelDragMove)
+			window.removeEventListener('pointerup', onModelDragUp)
+		}
 	}
 	$effect(() => {
 		const up = (e: PointerEvent) => pointers.delete(e.pointerId)
@@ -570,6 +619,18 @@
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
 		const hitInfo = pick(e.clientX, e.clientY)
 		if (!hitInfo) {
+			// no entity under the cursor → try a MODEL object (P2a: prisms in plan), else marquee.
+			const mid = hitModelPlan(p)
+			const mo = mid ? mdl?.objects.find(o => o.id === mid) : undefined
+			if (mo && mo.type === 'prism') {
+				setModelSel([mo.id!]); on.select?.([])   // model selection is exclusive with entity selection
+				mDrag = { id: mo.id!, start: p, ox: mo.x, oy: mo.y, moved: false }
+				try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
+				e.preventDefault()
+				window.addEventListener('pointermove', onModelDragMove)
+				window.addEventListener('pointerup', onModelDragUp)
+				return
+			}
 			// empty space → drag a Kestrel-style selection box (window / crossing); Shift/Ctrl = additive
 			marquee = { a: p, b: p, add: e.shiftKey || e.ctrlKey || e.metaKey }
 			try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
@@ -579,6 +640,7 @@
 			return
 		}
 		const base = entities.find(x => x.id === hitInfo.id); if (!base) return
+		setModelSel([])   // grabbing an entity clears any model-object selection (they're exclusive)
 		// Shift-press on a body is selection-only (toggles on release) — must NOT start a move drag.
 		if (e.shiftKey && hitInfo.kind === 'move') { pointers.delete(e.pointerId); return }
 		if (!(e.ctrlKey || e.metaKey) && !selSet.has(hitInfo.id)) on.select?.(expandGroup([hitInfo.id]))   // plain press on an unselected entity → select it (+ its group)
@@ -772,7 +834,7 @@
 			{/if}
 			</g>
 			<!-- P1b: real 3D model in plan + the four elevations + iso. Read-only for now (P2 = editing). -->
-			{#if models[0]}<Model3d model={models[0]} dir={(kind === 'floorplan' ? 'plan' : kind) as 'plan' | ElevDir | 'iso'} cx={CX} cy={CY} ground={GROUND} />{/if}
+			{#if models[0]}<Model3d model={models[0]} dir={(kind === 'floorplan' ? 'plan' : kind) as 'plan' | ElevDir | 'iso'} cx={CX} cy={CY} ground={GROUND} selIds={modelSel} />{/if}
 			<!-- drawn entities (objects on a hidden layer are skipped; the edited text is hidden too) -->
 			{#each entities as e (e.id)}{#if e.id !== editText?.id && !isLayerHidden(e.layer) && inThisView(e)}{#if e.rot}{@const c = rotCenter(e)}<g transform="rotate({e.rot} {c[0]} {c[1]})">{@render drawn(e, selSet.has(e.id))}</g>{:else}{@render drawn(e, selSet.has(e.id))}{/if}{/if}{/each}
 			{#if active && tool === 'Line' && draft.length}

@@ -14,12 +14,14 @@
 	import { BASIS } from './types'
 	import type { Model, Obj, Dir } from './types'
 
-	let { model, dir = 'plan', cx = 0, cy = 0, ground = 0, defaultWeight = 1 }:
-		{ model: Model; dir?: Dir; cx?: number; cy?: number; ground?: number; defaultWeight?: number } = $props()
+	let { model, dir = 'plan', cx = 0, cy = 0, ground = 0, defaultWeight = 1, selIds = [] }:
+		{ model: Model; dir?: Dir; cx?: number; cy?: number; ground?: number; defaultWeight?: number; selIds?: string[] } = $props()
 
+	const SEL = '#f59e0b'   // selection highlight (amber — distinct from the teal trunk layer)
 	const layerOf = (o: Obj) => model.layers?.find((l) => l.id === o.layer)
-	const colorOf = (o: Obj) => layerOf(o)?.color ?? '#475569'
-	const weightOf = (o: Obj) => layerOf(o)?.weight ?? defaultWeight   // screen px (non-scaling)
+	const isSel = (o: Obj) => !!o.id && selIds.includes(o.id)
+	const colorOf = (o: Obj) => (isSel(o) ? SEL : layerOf(o)?.color ?? '#475569')
+	const weightOf = (o: Obj) => (isSel(o) ? (layerOf(o)?.weight ?? defaultWeight) + 1.2 : layerOf(o)?.weight ?? defaultWeight)   // screen px (non-scaling)
 	const visible = (o: Obj) => { const l = layerOf(o); return !l || l.visible }
 
 	const xform = $derived.by(() => {

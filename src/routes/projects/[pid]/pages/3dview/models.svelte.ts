@@ -34,3 +34,9 @@ function demoFloor(): Model {
 
 export const models = $state<Model[]>(migrateModels([demoFloor()]))
 export const modelById = (id?: number) => (id == null ? undefined : models.find((m) => m.id === id))
+
+// Selected MODEL-object ids (P2). Global to the model for now (a pick in any view highlights it in
+// all) — per-view model selection can come with the registry (§5). Mutated in place so importers
+// keep the same reactive reference.
+export const modelSel = $state<string[]>([])
+export const setModelSel = (ids: string[]) => { if (ids.length !== modelSel.length || ids.some((v, i) => v !== modelSel[i])) modelSel.splice(0, modelSel.length, ...ids) }

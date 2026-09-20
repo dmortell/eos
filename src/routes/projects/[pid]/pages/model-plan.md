@@ -8,8 +8,17 @@
 > `models.svelte.ts` (in-memory registry, seeded demo floor = walls + furniture + a rect trunk);
 > `Model3d.svelte` renders a model's projected outlines (per-layer colour) into the viewport. Wired
 > into `ui/Viewport.svelte` for the plan view. Verified in-browser: walls render as a mitred
-> double-line ribbon, furniture + trunk as footprints. **Next: P1b** — elevation/iso coordinate
-> alignment (proj v = height-up vs Pages y-down / GROUND / elevU), then P2 editing + retire the mock box.
+> double-line ribbon, furniture + trunk as footprints.
+> **P1b DONE (commit 7d55bcd):** the model renders in the four elevations + iso via one per-direction
+> group transform (plan identity, elevation `translate(ox,ground) scale(1 -1)`, iso `translate(0,2cy)
+> scale(1 -1)`); lineweight is non-scaling + layer-defined. Mock box retired (commit ab44a31).
+> **P2a IN PROGRESS:** prism **pick + move in the PLAN view** — shared `modelSel` (models.svelte.ts,
+> global to the model), amber highlight in every view (Model3d `selIds`), body-drag mutates the store
+> in place. Verified in-browser (select desk → amber, drag → moves in plan + iso, click-empty →
+> deselect). **Gaps still open in P2:** ⚠️ **undo** — model moves aren't in Pages' per-doc history yet
+> (history snapshots `Ent[]`, not the model); **resize/rotate** prisms; **walls/conduits** graph editing
+> (node-drag, junctions, per-seg thickness); **placement** (draw new prisms/walls); **other-view**
+> editing (elevations edit z). Next slice: model undo + prism resize.
 
 
 Goal: in Pages, draw a floor's **model** (walls, openings for doors/windows, furniture as boxes/holes,
