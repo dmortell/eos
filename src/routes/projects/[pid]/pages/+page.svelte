@@ -68,6 +68,11 @@
 		if (!id) return
 		docPaper = { ...docPaper, [id]: { ...paperOf(id), ...patch } }
 	}
+	// Per-view drawing SCALE (mock — shown in the viewport tag + titleblock; chosen in the active-
+	// viewport bar, like the Sheets tool's viewport scale).
+	const SCALES = ['1:20', '1:50', '1:100', '1:200', '1:500']
+	let docScale = $state<Record<string, string>>({})
+	const scaleOf = (id?: string) => docScale[id ?? ''] ?? '1:100'
 	// The drafting/interaction flags bundle passed to a pane's viewport (one prop instead of six).
 	const envFor = (pane: { canvasView: View }) => ({ acad: acadMode, navContent, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, canvasZoom: pane.canvasView.zoom })
 	let focused = $state(0)      // which pane new tabs / sidebar actions target
@@ -565,12 +570,23 @@
 									title="Pan/zoom the model inside the viewport (off = pan/zoom the sheet)">
 									<Icon name="pan" size={14} /> Pan content
 								</button>
+								<!-- viewport scale (like the Sheets tool's per-view scale) -->
+								<label class="vab-scale" title="Drawing scale">
+									<select value={scaleOf(a.id)} onchange={(e) => (docScale = { ...docScale, [a.id]: (e.currentTarget as HTMLSelectElement).value })}>
+										{#each SCALES as s (s)}<option value={s}>{s}</option>{/each}
+									</select>
+								</label>
+								<!-- full-size: fill the pane with the drawing (drops the paper on a sheet) -->
+								<button class="vab-btn" class:on={layout === 'model'} onclick={() => (layout = layout === 'model' ? 'sheet' : 'model')}
+									title="Full-size: fill the pane with the drawing (off = the paper sheet)">
+									<Icon name={layout === 'model' ? 'panels' : 'expand'} size={14} /> Full-size
+								</button>
 							</div>
 						{/if}
 						{#key p.activeId}
 							<div class="canvas-content" style:transform="translate({p.canvasView.x}px, {p.canvasView.y}px) scale({p.canvasView.zoom})">
 								{#if a?.kind === 'sheet' && layout === 'sheet'}
-									<PaperPage title={a.title} tool={p.tool} env={envFor(p)} pw={paperDimsOf(a.id).w} ph={paperDimsOf(a.id).h}
+									<PaperPage title={a.title} tool={p.tool} scale={scaleOf(a.id)} env={envFor(p)} pw={paperDimsOf(a.id).w} ph={paperDimsOf(a.id).h}
 										sizeLabel="{paperOf(a.id).size} {paperOf(a.id).landscape ? 'L' : 'P'}" rev={rev} revDate={fmtDate(revisions[0]?.t)}
 										entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)} active={isVpActive(a.id)}
 										onactivate={() => activateVp(a.id)}
@@ -580,7 +596,7 @@
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => deactivateVp(a.id)}>
-										<Viewport kind={projKind(projOf(p, a))} label={a.title} tool={p.tool} env={envFor(p)} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
+										<Viewport kind={projKind(projOf(p, a))} label={a.title} tool={p.tool} scale={scaleOf(a.id)} env={envFor(p)} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
 											active={isVpActive(a.id)} focused={focused === pi} onactivate={() => activateVp(a.id)} ondeactivate={() => deactivateVp(a.id)}
 											onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} ondelete={(ids) => deleteEnts(a.id, ids)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} onstatus={(t) => (statusText = t)} oncoords={(x, y) => (worldXY = { x, y })} onbeginedit={beginGesture} onendedit={endGesture} />
 									</div>
@@ -807,6 +823,8 @@
 		font-size:12px; font-weight:600; color:var(--muted); background:none; border:none; }
 	.vab-btn:hover { background:var(--hover); color:var(--text); }
 	.vab-btn.on { background:var(--active); color:var(--accent); }
+	.vab-scale select { background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:5px; padding:3px 6px; font-size:12px; font-weight:600; }
+	.vab-scale select:focus { outline:none; border-color:var(--accent); }
 	.tool { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; color:var(--muted); background:none; border:none; }
 	.tool:hover { background:var(--hover); color:var(--text); }
 	.tool.on { background:var(--active); color:var(--accent); }

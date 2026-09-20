@@ -244,7 +244,13 @@
 	}
 
 	// hit-test (topmost first). segDist/textBox/boxElev live in ./geometry.
+	// x-extent of a flat object (for its elevation ground-line projection).
+	function flatXSpan(e: Ent): [number, number] {
+		if (e.type === 'circle') return [e.c![0] - e.r!, e.c![0] + e.r!]
+		return [Math.min(e.a![0], e.b![0]), Math.max(e.a![0], e.b![0])]
+	}
 	function hitEnt(e: Ent, p: Pt, thr: number): boolean {
+		if (kind === 'elevation' && (e.type === 'rect' || e.type === 'ellipse' || e.type === 'circle')) { const [x0, x1] = flatXSpan(e); return segDist(p, [x0, GROUND], [x1, GROUND]) < thr }
 		if (e.type === 'polyline') { const pts = e.pts ?? []; for (let i = 0; i + 1 < pts.length; i++) if (segDist(p, pts[i], pts[i + 1]) < thr) return true; return false }
 		if (e.type === 'line' || e.type === 'dim') return segDist(p, e.a!, e.b!) < thr
 		if (e.type === 'box' && kind === 'elevation') { const f = boxElev(e); return p[0] >= f.x0 - thr && p[0] <= f.x1 + thr && p[1] >= f.top - thr && p[1] <= f.base + thr }
@@ -536,6 +542,7 @@
 	// R→L = crossing (touch). bbox tests are enough for the mock. ──
 	let marquee = $state<{ a: Pt; b: Pt; add?: boolean } | null>(null)
 	function bbox(e: Ent): [number, number, number, number] {
+		if (kind === 'elevation' && (e.type === 'rect' || e.type === 'ellipse' || e.type === 'circle')) { const [x0, x1] = flatXSpan(e); return [x0, GROUND - 2, x1, GROUND + 2] }
 		if (e.type === 'polyline') { const pts = e.pts ?? []; const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] }
 		if (e.type === 'circle') return [e.c![0] - e.r!, e.c![1] - e.r!, e.c![0] + e.r!, e.c![1] + e.r!]
 		if (e.type === 'text') return textBox(e)
@@ -694,7 +701,12 @@
 {#snippet drawn(e: Ent, seld: boolean)}
 	{@const ink = seld ? SEL : INK}
 	{@const w = (lwt ? (seld ? 2 : 1.2) : 0.5) / (canvasZoom || 1)}
-	{#if e.type === 'line'}
+	{#if kind === 'elevation' && (e.type === 'rect' || e.type === 'ellipse' || e.type === 'circle')}
+		<!-- a flat (z=0, no height) object seen in elevation is an edge-on line at the ground -->
+		{@const x0 = e.type === 'circle' ? e.c![0] - e.r! : Math.min(e.a![0], e.b![0])}
+		{@const x1 = e.type === 'circle' ? e.c![0] + e.r! : Math.max(e.a![0], e.b![0])}
+		<line x1={x0} y1={GROUND} x2={x1} y2={GROUND} stroke={ink} stroke-width={w} />
+	{:else if e.type === 'line'}
 		<line x1={e.a![0]} y1={e.a![1]} x2={e.b![0]} y2={e.b![1]} stroke={ink} stroke-width={w} />
 	{:else if e.type === 'polyline'}
 		<polyline points={(e.pts ?? []).map(p => p.join(',')).join(' ')} fill="none" stroke={ink} stroke-width={w} stroke-linejoin="round" />

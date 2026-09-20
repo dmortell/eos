@@ -16,12 +16,15 @@
 
 <footer class="statusbar">
 	<div class="layout-tabs">
+		<!-- Full-size moved to the active-viewport bar (Dave, 2026-09-21). Kept here, commented, in
+		     case we repurpose it to hide/show the paper + titleblock later.
 		<button class="fullsize" class:on={layout === 'model'}
 			title="Full-size: fill the pane with the drawing (off = show the paper sheet layout)"
 			onclick={() => (layout = layout === 'model' ? 'sheet' : 'model')}>
 			<Icon name={layout === 'model' ? 'panels' : 'expand'} size={13} />
 			{layout === 'model' ? 'Full-size' : 'Sheet'}
 		</button>
+		-->
 		<!-- paper size + orientation (only meaningful in Sheet layout) -->
 		<label class="paper-sel" title="Paper size">
 			<select value={paperSize} onchange={(e) => onpapersize?.((e.currentTarget as HTMLSelectElement).value as PaperSize)}>
