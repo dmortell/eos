@@ -62,7 +62,7 @@
 	const projKey = (paneId: string, a: Tab) => `${paneId}:${a.id}`
 	function projOf(pane: { id: string }, a: Tab | null): Proj {
 		if (!a) return 'plan'
-		return docProj[projKey(pane.id, a)] ?? (a.kind === 'elevation' ? 'front' : a.kind === 'model' ? 'iso' : 'plan')
+		return docProj[projKey(pane.id, a)] ?? (a.kind === 'elevation' ? (docSecDir[a.id] ?? 'front') : a.kind === 'model' ? 'iso' : 'plan')
 	}
 	// Map a projection to the Viewport render kind: plan → floorplan, iso → oblique 3D, the four
 	// elevations pass through as their own kind (the Viewport projects each per ELEV_BASIS).
@@ -99,6 +99,8 @@
 		modeledit: () => modelEdit(a.id), section: (clip: Clip) => onSection(clip),
 		orbit: (yaw: number, pitch: number) => setOrbit(pane.id, a.id, yaw, pitch),
 		sectionpick: (id: string) => openSection(id),
+		sectionmove: (id: string, clip: Clip) => moveSection(id, clip),
+		sectionredir: (id: string) => redirSection(id),
 	})
 	// A 3D-model edit (the Viewport mutated the shared `models` store) records a step on THIS doc's
 	// timeline, gesture-folded like an entity edit — so Ctrl+Z restores the model too.
@@ -126,6 +128,20 @@
 	const sectionMarkers = $derived(Object.entries(docClip).map(([tid, clip]) => ({ id: tid, clip, dir: docSecDir[tid] ?? 'front', label: tabs.find((t) => t.id === tid)?.title ?? 'Section' })))
 	// Clicking a marker opens its elevation; deleting it closes that tab (dropDoc clears the clip too).
 	function openSection(id: string) { openTab(id); if (panes[focused]) panes[focused].layout = 'model'; activateVp(id); tick().then(() => fitPane(focused)) }
+	// Dragging a marker moves the cut → the linked elevation re-clips live. Clicking its arrow cycles the
+	// viewing direction (front→right→rear→left), which drives both the arrow and the elevation projection
+	// (via projOf's docSecDir fallback) — unless a pane pinned a projection with the ViewCube.
+	function moveSection(id: string, clip: Clip) { docClip = { ...docClip, [id]: clip } }
+	const SEC_DIRS: ElevDir[] = ['front', 'right', 'rear', 'left']
+	function redirSection(id: string) {
+		const cur = docSecDir[id] ?? 'front'
+		const next = SEC_DIRS[(SEC_DIRS.indexOf(cur) + 1) % 4]
+		docSecDir = { ...docSecDir, [id]: next }
+		// Clear any per-pane ViewCube override on this tab so the elevation follows the new section dir.
+		const dp = { ...docProj }; let hit = false
+		for (const k of Object.keys(dp)) if (k.endsWith(':' + id)) { delete dp[k]; hit = true }
+		if (hit) docProj = dp
+	}
 	let focused = $state(0)      // which pane new tabs / sidebar actions target
 	let canvasEls = $state<(HTMLElement | undefined)[]>([])   // each pane's .canvas, for navFit
 	let splitFrac = $state(0.5)  // pane 0 width fraction when split

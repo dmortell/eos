@@ -37,7 +37,7 @@
 		group?: (ids: string[]) => void; ungroup?: (ids: string[]) => void;
 		reorder?: (ids: string[], op: 'front' | 'back' | 'forward' | 'backward') => void;
 		scale?: (s: string) => void; modeledit?: () => void; section?: (clip: Clip) => void; orbit?: (yaw: number, pitch: number) => void;
-		sectionpick?: (id: string) => void
+		sectionpick?: (id: string) => void; sectionmove?: (id: string, clip: Clip) => void; sectionredir?: (id: string) => void
 	}
 	let { label = 'Viewport', scale = '1:1', kind = 'floorplan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {},
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, sections = [] }:
@@ -222,8 +222,9 @@
 			} else {
 				// entity click wins; else a model object; else a section marker (opens its elevation); else clear.
 				if (g.length) { on.select?.(g); setModelSel([]) }
-				else { const mid = hitModel(p); if (mid) { setModelSel([mid]); on.select?.([]) }
-					else { const sid = hitSection(p); if (sid) { on.sectionpick?.(sid) } else { on.select?.([]); setModelSel([]) } } }
+				else { const aid = hitSectionArrow(p); if (aid) { on.sectionredir?.(aid) }   // arrow → cycle direction (wins over the model it may overlap)
+					else { const mid = hitModel(p); if (mid) { setModelSel([mid]); on.select?.([]) }
+						else { const sid = hitSection(p); if (sid) { on.sectionpick?.(sid) } else { on.select?.([]); setModelSel([]) } } } }
 			}
 			return
 		}
@@ -497,6 +498,21 @@
 		}
 		return null
 	}
+	// A section marker's direction ARROW under p (plan only): near the arrow's edge-mid base → its id.
+	// Clicking the arrow cycles the section's viewing direction (front→right→rear→left).
+	function hitSectionArrow(p: Pt): string | null {
+		if (!isPlan || !sections.length) return null
+		const thr = hitTol(22) / (dscale || 1)   // cover the whole triangle (base → tip ≈ 19px)
+		for (let i = sections.length - 1; i >= 0; i--) {
+			const c = sections[i].clip
+			const x0 = Math.min(c.x0, c.x1), x1 = Math.max(c.x0, c.x1), y0 = Math.min(c.y0, c.y1), y1 = Math.max(c.y0, c.y1)
+			const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2
+			const d = sections[i].dir
+			const base: Pt = d === 'front' ? [x1, cy] : d === 'rear' ? [x0, cy] : d === 'right' ? [cx, y1] : [cx, y0]
+			if (Math.hypot(p[0] - base[0], p[1] - base[1]) < thr) return sections[i].id
+		}
+		return null
+	}
 	// The section marker's direction arrow (a triangle at the mid of the viewed edge, pointing outward):
 	// front → +x edge, rear → −x, right → +y (plan down), left → −y. Sized in ~screen px (hitTol).
 	function sectionArrowPts(s: SectionMarker): string {
@@ -627,6 +643,22 @@
 		window.removeEventListener('pointerup', onModelGripUp)
 	}
 
+	// ── section marker MOVE — drag a marker's box border to reposition the cut; the linked elevation
+	// re-clips live (Model3d reads the clip reactively). Absolute from the gesture start (no drift). ──
+	let secDrag: { id: string; start: Pt; c0: Clip; moved: boolean } | null = null
+	function onSecDragMove(e: PointerEvent) {
+		if (!secDrag) return
+		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
+		secDrag.moved = true
+		const dx = p[0] - secDrag.start[0], dy = p[1] - secDrag.start[1], c = secDrag.c0
+		on.sectionmove?.(secDrag.id, { ...c, x0: Math.round(c.x0 + dx), x1: Math.round(c.x1 + dx), y0: Math.round(c.y0 + dy), y1: Math.round(c.y1 + dy) })
+	}
+	function onSecDragUp() {
+		if (secDrag?.moved) suppressClick = true   // a real move: don't also open the elevation on click
+		secDrag = null
+		window.removeEventListener('pointermove', onSecDragMove)
+		window.removeEventListener('pointerup', onSecDragUp)
+	}
 	// ── 3D iso ORBIT — a plain drag in the iso view rotates the camera (yaw/pitch). The projection
 	// already takes yaw/pitch; here we just turn a drag into new angles. Pitch is clamped to (0, 90°).
 	let orbitDrag: { sx: number; sy: number; yaw0: number; pitch0: number; moved: boolean } | null = null
@@ -905,6 +937,11 @@
 			window.removeEventListener('pointermove', onOrbitMove)
 			window.removeEventListener('pointerup', onOrbitUp)
 		}
+		if (secDrag) {   // abort an in-progress section-marker move
+			secDrag = null
+			window.removeEventListener('pointermove', onSecDragMove)
+			window.removeEventListener('pointerup', onSecDragUp)
+		}
 	}
 	$effect(() => {
 		const up = (e: PointerEvent) => pointers.delete(e.pointerId)
@@ -963,6 +1000,22 @@
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
 		const hitInfo = pick(e.clientX, e.clientY)
 		if (!hitInfo) {
+			// a section marker ARROW → let the click redirect it (onClick); don't start a drag/select even
+			// though it may overlap the model.
+			if (hitSectionArrow(p)) return
+			// a section marker border → drag to move the cut (a click with no drag opens / redirects it).
+			const sid = hitSection(p)
+			if (sid) {
+				const sm = sections.find(s => s.id === sid)
+				if (sm) {
+					secDrag = { id: sid, start: p, c0: { ...sm.clip }, moved: false }
+					try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
+					e.preventDefault()
+					window.addEventListener('pointermove', onSecDragMove)
+					window.addEventListener('pointerup', onSecDragUp)
+					return
+				}
+			}
 			// no entity under the cursor → try a MODEL object (P2a: prisms in plan), else marquee.
 			const mid = hitModel(p)
 			const mo = mid ? mdl?.objects.find(o => o.id === mid) : undefined

@@ -446,9 +446,13 @@ Symbols are identical to annotes.
   elevation's label), rendered by the Viewport from a `sections` prop (all `docClip` entries, shown only
   in a plan view). Clicking a marker border opens (re-focuses) its elevation; closing the elevation tab
   removes the marker (dropDoc clears its clip). Verified in-browser (draw → marker renders → click opens
-  the elevation, no duplicate → close tab → marker gone). **Follow-ups:** move/resize the marker (drag
-  its box → the elevation re-clips live), re-direction (cycle front/rear/left/right + the arrow), and
-  the full symbol-registry form (tag with up to 4 arms). NB: a section-marker BORDER hit needs
+  the elevation, no duplicate → close tab → marker gone). **MOVE + RE-DIRECTION done 2026-09-20:** drag
+  the marker box border → the cut translates and the linked elevation re-clips live; click the direction
+  arrow → cycles front→right→rear→left (the arrow relocates to the viewed edge and the elevation
+  re-projects via projOf's `docSecDir` fallback, unless a pane pinned a ViewCube projection). Verified
+  in-browser (drag left 120px → box moved, size kept; arrow click front→right → arrow jumps to the
+  bottom edge and the opened elevation reads RIGHT). **Follow-ups:** RESIZE the marker (corner grips, not
+  just move), and the full symbol-registry form (tag with up to 4 arms). NB: a section-marker BORDER hit needs
   `hitTol()/dscale` (unscaled model units) — plain `hitTol()` is off by the drawing scale for an
   edge-distance test (only area/inside tests like `hitModel` get away with raw `hitTol`).
 - [ ] elevation/section tag (up to 4 arms) 
