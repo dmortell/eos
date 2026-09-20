@@ -4,17 +4,24 @@
 	//  · top-right ViewCube — an isometric cube with TOP / FRONT / RIGHT faces + a 3D button
 	//    underneath; each switches the pane's projection.
 	//  · bottom-left axis triad (Kestrel's drawUCS) — the x/y/z axes oriented for the current view.
-	type Proj = 'plan' | 'elevation' | 'right' | 'model'
+	// Kestrel-style named views: 5 orthographic + iso. front/rear share the x axis (mirrored),
+	// left/right share the y axis (mirrored); all elevations have z up. Matches KestrelCad2's
+	// camera.setView and the Sheets model3d BASIS.
+	type Proj = 'plan' | 'front' | 'rear' | 'left' | 'right' | 'iso'
 	let { projection = 'plan', onset }: { projection?: Proj; onset?: (p: Proj) => void } = $props()
 
 	// Kestrel axis colours (renderer.js drawUCS): X red, Y green, Z blue.
 	const AX = { x: '#d17f88', y: '#79b89e', z: '#7eabdf' }
 	type Axis = [number, number] | null
+	// Screen vectors (x-right, y-DOWN) for each world axis per view — an axis edge-on to the viewer is
+	// null (shown as a dot). Derived from Kestrel's drawUCS (horizontal = axis·right, up = axis·up).
 	const TRIAD: Record<Proj, { x: Axis; y: Axis; z: Axis }> = {
-		plan:      { x: [22, 0],  y: [0, -22],  z: null },      // top-down: Z toward viewer
-		elevation: { x: [22, 0],  y: null,      z: [0, -22] },  // front: Y into screen
-		right:     { x: null,     y: [22, 0],   z: [0, -22] },  // right: X into screen
-		model:     { x: [19, 10], y: [-19, 10], z: [0, -23] },  // iso
+		plan:  { x: [22, 0],  y: [0, -22],  z: null },      // top-down: X→right, Y→up, Z toward viewer
+		front: { x: [22, 0],  y: null,      z: [0, -22] },  // +x→right, Z up, Y into screen
+		rear:  { x: [-22, 0], y: null,      z: [0, -22] },  // −x→right (mirror of front)
+		right: { x: null,     y: [22, 0],   z: [0, -22] },  // +y→right, Z up, X into screen
+		left:  { x: null,     y: [-22, 0],  z: [0, -22] },  // −y→right (mirror of right)
+		iso:   { x: [19, 10], y: [-19, 10], z: [0, -23] },  // dimetric
 	}
 	const OX = 17, OY = 38
 	const tri = $derived(TRIAD[projection])
@@ -26,15 +33,21 @@
 	<svg viewBox="0 0 64 62" width="82" height="80">
 		<polygon class="face top" class:on={projection === 'plan'} points="32,6 58,20 32,34 6,20"
 			role="button" tabindex="-1" aria-label="Top view" onclick={() => onset?.('plan')} />
-		<polygon class="face front" class:on={projection === 'elevation'} points="6,20 32,34 32,58 6,44"
-			role="button" tabindex="-1" aria-label="Front view" onclick={() => onset?.('elevation')} />
+		<polygon class="face front" class:on={projection === 'front'} points="6,20 32,34 32,58 6,44"
+			role="button" tabindex="-1" aria-label="Front view" onclick={() => onset?.('front')} />
 		<polygon class="face right" class:on={projection === 'right'} points="32,34 58,20 58,44 32,58"
 			role="button" tabindex="-1" aria-label="Right view" onclick={() => onset?.('right')} />
 		<text x="32" y="22" class="lbl">TOP</text>
 		<text x="18" y="40" class="lbl" transform="rotate(28 18 40)">FRONT</text>
 		<text x="46" y="40" class="lbl" transform="rotate(-28 46 40)">RIGHT</text>
 	</svg>
-	<button class="d3" class:on={projection === 'model'} onclick={() => onset?.('model')}>3D</button>
+	<!-- The cube only shows 3 faces; the opposite two views + 3D get text buttons (a full orbit cube
+	     comes with the real 3D mode). -->
+	<div class="vc-btns">
+		<button class:on={projection === 'rear'} onclick={() => onset?.('rear')} title="Rear view">Rear</button>
+		<button class:on={projection === 'left'} onclick={() => onset?.('left')} title="Left view">Left</button>
+		<button class="d3" class:on={projection === 'iso'} onclick={() => onset?.('iso')} title="3D view">3D</button>
+	</div>
 </div>
 
 <!-- Bottom-left axis triad (WCS) -->
@@ -63,11 +76,13 @@
 	/*.face.on:hover { fill:var(--accent); }*/
 	.face:hover { fill:#e7b84d; }   /* amber highlight — clearly distinct from the teal selected face */
 	.lbl { font-size:6px; fill:#1b2f45; font-weight:700; text-anchor:middle; pointer-events:none; }
-	/* Solid chip so the label reads on any backdrop (white paper included), not just when active. */
-	.d3 { pointer-events:auto; font-size:9px; font-weight:700; letter-spacing:.04em; color:var(--text);
-		background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:2px 10px; box-shadow:0 1px 3px #0004; }
-	.d3:hover { border-color:var(--accent-dim); }
-	.d3.on { color:var(--accent); border-color:var(--accent); background:var(--active); }
+	/* View buttons for the two hidden faces + 3D. Solid chips so labels read on any backdrop. */
+	.vc-btns { display:flex; gap:2px; }
+	.vc-btns button { pointer-events:auto; font-size:9px; font-weight:700; letter-spacing:.02em; color:var(--text);
+		background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:2px 6px; box-shadow:0 1px 3px #0004; }
+	.vc-btns button:hover { border-color:var(--accent-dim); }
+	.vc-btns button.on { color:var(--accent); border-color:var(--accent); background:var(--active); }
+	.d3 { letter-spacing:.04em; }
 	.wcs { position:absolute; bottom:10px; left:10px; z-index:6; pointer-events:none; }
 	.wcs svg { filter:drop-shadow(0 1px 2px #0006); }
 	.ax { font-size:8px; font-weight:700; }

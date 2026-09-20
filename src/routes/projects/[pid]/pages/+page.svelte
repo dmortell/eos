@@ -48,7 +48,7 @@
 	// each pane tracks its own active tab (VS Code-style split).
 	type View = { zoom: number; x: number; y: number }
 	// Each pane (view) remembers its own tool + its own canvas (paper-space) pan/zoom.
-	type Proj = 'plan' | 'elevation' | 'right' | 'model'
+	type Proj = 'plan' | 'front' | 'rear' | 'left' | 'right' | 'iso'
 	// `layout` is PER-PANE ('sheet' = paper + frame, 'model' = drawing fills the pane) so toggling
 	// Full-size (or a projection) in one split pane doesn't disturb the other pane's view.
 	let panes = $state<{ id: string; activeId: string; tool: string; canvasView: View; layout: 'model' | 'sheet' }[]>([{ id: 'p1', activeId: 't2', tool: 'Select', canvasView: { zoom: 1, x: 0, y: 0 }, layout: 'sheet' }])
@@ -58,10 +58,11 @@
 	const projKey = (paneId: string, a: Tab) => `${paneId}:${a.id}`
 	function projOf(pane: { id: string }, a: Tab | null): Proj {
 		if (!a) return 'plan'
-		return docProj[projKey(pane.id, a)] ?? (a.kind === 'elevation' ? 'elevation' : a.kind === 'model' ? 'model' : 'plan')
+		return docProj[projKey(pane.id, a)] ?? (a.kind === 'elevation' ? 'front' : a.kind === 'model' ? 'iso' : 'plan')
 	}
-	// 'right' is a mock side elevation — same Viewport renderer as 'elevation' for now.
-	const projKind = (p: Proj) => (p === 'plan' ? 'floorplan' : p === 'right' ? 'elevation' : p) as 'floorplan' | 'elevation' | 'model'
+	// Map a projection to the Viewport render kind: plan → floorplan, iso → oblique 3D, the four
+	// elevations pass through as their own kind (the Viewport projects each per ELEV_BASIS).
+	const projKind = (p: Proj) => (p === 'plan' ? 'floorplan' : p) as 'floorplan' | 'iso' | 'front' | 'rear' | 'left' | 'right'
 	// Paper size + orientation, PER TAB (keyed by tab id), chosen in the status bar. Each sheet
 	// keeps its own paper. Changing it just resizes the paper rect in place — no refit/jump.
 	let docPaper = $state<Record<string, { size: PaperSize; landscape: boolean }>>({})

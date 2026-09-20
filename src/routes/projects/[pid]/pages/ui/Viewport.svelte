@@ -10,7 +10,7 @@
 	import { panzoom } from './panzoom'
 	import Handle from '../parts/Handle.svelte'
 	import { BASE, HANDLE_PX } from '../constants'
-	import { type Pt, type Ent, type View, DEFAULT_BOX_H, GROUND, dist, segDist, translate, textBox, boxElev, boxElevSet, boxFaces } from './geometry'
+	import { type Pt, type Ent, type View, type ElevDir, DEFAULT_BOX_H, GROUND, ELEV_BASIS, elevU, elevUInv, flatSpan, dist, segDist, translate, textBox, boxElev, boxElevSet, boxFaces } from './geometry'
 	// Pure geometry now lives in ./geometry (testable, shared with PropertiesPanel); re-export the
 	// entity types so existing `import { type Ent } from './Viewport.svelte'` sites keep working.
 	export type { Pt, Ent, View } from './geometry'
@@ -29,7 +29,7 @@
 	}
 	let { label = 'Viewport', scale = '1:1', kind = 'floorplan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {},
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 } }:
-		{ label?: string; scale?: string; kind?: 'floorplan' | 'model' | 'elevation'; active?: boolean; tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env; on?: VpOn;
+		{ label?: string; scale?: string; kind?: 'floorplan' | 'iso' | ElevDir; active?: boolean; tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env; on?: VpOn;
 			focused?: boolean; entities?: Ent[]; sel?: string[]; view?: View } = $props()
 	// Callbacks are called directly as on.x?.(…) — no aliases (a $derived rename adds nothing for a
 	// function that's only invoked). env flags stay derived because they're read as values.
@@ -40,7 +40,14 @@
 	const osnap = $derived(env.osnap ?? true)
 	const canvasZoom = $derived(env.canvasZoom ?? 1)
 
-	const tagIcon: Record<string, string> = { floorplan: 'mapPin', model: 'box', elevation: 'server' }
+	const tagIcon: Record<string, string> = { floorplan: 'mapPin', iso: 'box', front: 'server', rear: 'server', left: 'server', right: 'server' }
+	// Elevation projection: which side view (front/rear/left/right) and its footprint axis + sign.
+	const ELEV = new Set<string>(['front', 'rear', 'left', 'right'])
+	const isElev = $derived(ELEV.has(kind))
+	const elevDir = $derived((isElev ? kind : 'front') as ElevDir)
+	// Project a footprint coordinate (along the current dir's axis) to the drawing horizontal, and back.
+	const projU = (coord: number) => elevU(elevDir, coord, CX, CY)
+	const projUInv = (u: number) => elevUInv(elevDir, u, CX, CY)
 	const DRAW = new Set(['Line', 'Rectangle', 'Ellipse', 'Dimension', 'Text', 'Box'])
 	// Body-hover cursor: 'move' over a shape (drag to move), else default; grips carry their own
 	// crosshair (they render on top, so their cursor wins over the container's).
@@ -272,18 +279,14 @@
 	// hit-test (topmost first). segDist/textBox/boxElev live in ./geometry.
 	// Flat (z=0, no height) objects that project to an edge-on ground line in elevation.
 	const FLAT = new Set(['line', 'polyline', 'dim', 'rect', 'ellipse', 'circle'])
-	const isFlatElev = (e: Ent) => (kind === 'elevation' || kind === 'right') && FLAT.has(e.type)
-	// x-extent of a flat object (for its elevation ground-line projection).
-	function flatXSpan(e: Ent): [number, number] {
-		if (e.type === 'circle') return [e.c![0] - e.r!, e.c![0] + e.r!]
-		if (e.type === 'polyline') { const xs = (e.pts ?? []).map(p => p[0]); return [Math.min(...xs), Math.max(...xs)] }
-		return [Math.min(e.a![0], e.b![0]), Math.max(e.a![0], e.b![0])]
-	}
+	const isFlatElev = (e: Ent) => isElev && FLAT.has(e.type)
+	// Horizontal drawing span of a flat object projected onto the ground line for the current side view.
+	function flatXSpan(e: Ent): [number, number] { return flatSpan(e, elevDir, CX, CY) }
 	function hitEnt(e: Ent, p: Pt, thr: number): boolean {
 		if (isFlatElev(e)) { const [x0, x1] = flatXSpan(e); return segDist(p, [x0, GROUND], [x1, GROUND]) < thr }
 		if (e.type === 'polyline') { const pts = e.pts ?? []; for (let i = 0; i + 1 < pts.length; i++) if (segDist(p, pts[i], pts[i + 1]) < thr) return true; return false }
 		if (e.type === 'line' || e.type === 'dim') return segDist(p, e.a!, e.b!) < thr
-		if (e.type === 'box' && kind === 'elevation') { const f = boxElev(e); return p[0] >= f.x0 - thr && p[0] <= f.x1 + thr && p[1] >= f.top - thr && p[1] <= f.base + thr }
+		if (e.type === 'box' && isElev) { const f = boxElev(e, elevDir, CX, CY); return p[0] >= f.x0 - thr && p[0] <= f.x1 + thr && p[1] >= f.top - thr && p[1] <= f.base + thr }
 		if (e.type === 'rect' || e.type === 'box') { const x0 = Math.min(e.a![0], e.b![0]), y0 = Math.min(e.a![1], e.b![1]), x1 = Math.max(e.a![0], e.b![0]), y1 = Math.max(e.a![1], e.b![1]); return p[0] >= x0 - thr && p[0] <= x1 + thr && p[1] >= y0 - thr && p[1] <= y1 + thr }
 		if (e.type === 'circle') return dist(e.c!, p) <= e.r! + thr
 		if (e.type === 'ellipse') {
@@ -364,10 +367,14 @@
 	type Grip = { x: number; y: number; apply: (p: Pt) => Ent }
 	// A flat object in elevation is a ground line; its grips are the two ground-line ends (drag = move
 	// the min/max x-edge, keeping it flat), NOT the plan footprint corners.
-	function setFlatX(e: Ent, edge: 'min' | 'max', x: number): Ent {
-		if (e.type === 'circle' || e.type === 'polyline') return e   // no simple x-edge; leave as-is
-		const aIsMin = e.a![0] <= e.b![0], moveA = (edge === 'min') === aIsMin
-		return moveA ? { ...e, a: [x, e.a![1]] } : { ...e, b: [x, e.b![1]] }
+	function setFlatX(e: Ent, edge: 'min' | 'max', u: number): Ent {
+		if (e.type === 'circle' || e.type === 'polyline') return e   // no simple edge; leave as-is
+		const ax = ELEV_BASIS[elevDir].axis
+		const ua = projU(e.a![ax]), ub = projU(e.b![ax])   // endpoints projected to the drawing horizontal
+		const aIsMin = ua <= ub, moveA = (edge === 'min') === aIsMin
+		const m = projUInv(u)                              // dragged horizontal → model coord along the axis
+		const setPt = (pt: Pt): Pt => ax === 0 ? [m, pt[1]] : [pt[0], m]
+		return moveA ? { ...e, a: setPt(e.a!) } : { ...e, b: setPt(e.b!) }
 	}
 	function gripsFor(e: Ent): Grip[] {
 		if (isFlatElev(e)) { const [x0, x1] = flatXSpan(e); return [{ x: x0, y: GROUND, apply: p => setFlatX(e, 'min', p[0]) }, { x: x1, y: GROUND, apply: p => setFlatX(e, 'max', p[0]) }] }
@@ -376,13 +383,13 @@
 			{ x: e.a![0], y: e.a![1], apply: p => ({ ...e, a: p }) },
 			{ x: e.b![0], y: e.b![1], apply: p => ({ ...e, b: p }) },
 		]
-		if (e.type === 'box' && kind === 'elevation') {   // grips on the FRONT FACE (width × height)
-			const { x0, x1, base, top } = boxElev(e)
+		if (e.type === 'box' && isElev) {   // grips on the projected FACE (width × height)
+			const { x0, x1, base, top } = boxElev(e, elevDir, CX, CY)
 			return [
-				{ x: x0, y: base, apply: p => boxElevSet(e, { x0: p[0], z0: GROUND - p[1] }) },      // bottom-left: width + base elevation
-				{ x: x1, y: base, apply: p => boxElevSet(e, { x1: p[0], z0: GROUND - p[1] }) },      // bottom-right
-				{ x: x0, y: top, apply: p => boxElevSet(e, { x0: p[0], h: base - p[1] }) },          // top-left: width + height
-				{ x: x1, y: top, apply: p => boxElevSet(e, { x1: p[0], h: base - p[1] }) },          // top-right
+				{ x: x0, y: base, apply: p => boxElevSet(e, { x0: p[0], z0: GROUND - p[1] }, elevDir, CX, CY) },      // bottom-left: width + base elevation
+				{ x: x1, y: base, apply: p => boxElevSet(e, { x1: p[0], z0: GROUND - p[1] }, elevDir, CX, CY) },      // bottom-right
+				{ x: x0, y: top, apply: p => boxElevSet(e, { x0: p[0], h: base - p[1] }, elevDir, CX, CY) },          // top-left: width + height
+				{ x: x1, y: top, apply: p => boxElevSet(e, { x1: p[0], h: base - p[1] }, elevDir, CX, CY) },          // top-right
 			]
 		}
 		if (e.type === 'rect' || e.type === 'ellipse' || e.type === 'box') {   // 4 corner grips on the footprint/bbox
@@ -406,13 +413,13 @@
 	// endpoint → 15° about the other end. (Circle radius left free.)
 	function constrainGrip(base: Ent, gi: number, p: Pt, shift: boolean): Pt {
 		if (!shift) return p
-		if (base.type === 'box' && kind === 'elevation') {   // shift → square FACE about the opposite face corner
-			const f = boxElev(base)
+		if (base.type === 'box' && isElev) {   // shift → square FACE about the opposite face corner
+			const f = boxElev(base, elevDir, CX, CY)
 			const an: Pt = gi === 0 ? [f.x1, f.top] : gi === 1 ? [f.x0, f.top] : gi === 2 ? [f.x1, f.base] : [f.x0, f.base]
 			const s = Math.max(Math.abs(p[0] - an[0]), Math.abs(p[1] - an[1]))
 			return [an[0] + (p[0] < an[0] ? -s : s), an[1] + (p[1] < an[1] ? -s : s)]
 		}
-		if (base.type === 'rect' || base.type === 'ellipse' || (base.type === 'box' && kind !== 'elevation')) {
+		if (base.type === 'rect' || base.type === 'ellipse' || (base.type === 'box' && !isElev)) {
 			const [ax, ay] = base.a!, [bx, by] = base.b!
 			const an: Pt = gi === 0 ? [bx, by] : gi === 1 ? [ax, ay] : gi === 2 ? [bx, ay] : [ax, by]
 			const s = Math.max(Math.abs(p[0] - an[0]), Math.abs(p[1] - an[1]))
@@ -527,10 +534,21 @@
 		window.addEventListener('pointerup', onDragUp)
 	}
 	let lastDragRaw: Pt | null = null   // last UNconstrained pointer during a move/grip drag
-	// Move an entity by (dx,dy). A box in ELEVATION moves its x-edges by dx and base elevation by
-	// −dy (screen-down lowers it), keeping the plan depth — everything else translates normally.
+	// Move an entity by (dx,dy). In an ELEVATION view the horizontal drag maps to the VIEW's footprint
+	// axis (x for front/rear, y for left/right, mirrored by the dir's sign); vertical drag changes a
+	// box's base elevation (screen-down lowers it) and does nothing to a ground-line flat. Plan/iso
+	// translate normally.
 	function moveEnt(en: Ent, dx: number, dy: number): Ent {
-		if (en.type === 'box' && kind === 'elevation') return { ...en, a: [en.a![0] + dx, en.a![1]], b: [en.b![0] + dx, en.b![1]], z0: Math.max(0, (en.z0 ?? 0) - dy) }
+		if (isElev) {
+			const { axis, sign } = ELEV_BASIS[elevDir]
+			const d = sign * dx   // drawing-horizontal delta → model delta along the view axis
+			if (en.type === 'box') {
+				const a: Pt = axis === 0 ? [en.a![0] + d, en.a![1]] : [en.a![0], en.a![1] + d]
+				const b: Pt = axis === 0 ? [en.b![0] + d, en.b![1]] : [en.b![0], en.b![1] + d]
+				return { ...en, a, b, z0: Math.max(0, (en.z0 ?? 0) - dy) }
+			}
+			if (FLAT.has(en.type)) return axis === 0 ? translate(en, d, 0) : translate(en, 0, d)
+		}
 		return translate(en, dx, dy)
 	}
 	function applyDrag(p: Pt, shift: boolean): Ent {
@@ -592,7 +610,7 @@
 		if (e.type === 'polyline') { const pts = e.pts ?? []; const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] }
 		if (e.type === 'circle') return [e.c![0] - e.r!, e.c![1] - e.r!, e.c![0] + e.r!, e.c![1] + e.r!]
 		if (e.type === 'text') return textBox(e)
-		if (e.type === 'box' && kind === 'elevation') { const f = boxElev(e); return [f.x0, f.top, f.x1, f.base] }
+		if (e.type === 'box' && isElev) { const f = boxElev(e, elevDir, CX, CY); return [f.x0, f.top, f.x1, f.base] }
 		const xs = [e.a![0], e.b![0]], ys = [e.a![1], e.b![1]]
 		return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
 	}
@@ -655,20 +673,20 @@
 	onclick={onClick} ondblclick={onDblclick} onpointerdown={onDown} onpointermove={onMove}
 	onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); on.activate?.() } }}>
 
-	<svg bind:this={svg} class="vp-svg {kind === 'model' || kind === 'elevation' ? 'model' : ''}" viewBox="{minX} {minY} {vbW} {vbH}" preserveAspectRatio="xMidYMid meet">
+	<svg bind:this={svg} class="vp-svg {kind === 'iso' || isElev ? 'model' : ''}" viewBox="{minX} {minY} {vbW} {vbH}" preserveAspectRatio="xMidYMid meet">
 		<g transform="translate({view.x} {view.y}) scale({view.zoom}) translate({CX} {CY}) scale({dscale}) translate({-CX} {-CY})">
 			<!-- background content -->
-			{#if kind === 'model'}
+			{#if kind === 'iso'}
 				{#if grid}{#each floorGrid as g (g)}<polyline points={g} fill="none" stroke="#d5deea" stroke-width="0.7" />{/each}{/if}
 				{#each racks as b (b.top)}
 					<polygon points={b.left} fill="#8aa0bf" stroke="#5c7396" stroke-width="0.6" />
 					<polygon points={b.right} fill="#6f88ab" stroke="#4a5f7d" stroke-width="0.6" />
 					<polygon points={b.top} fill="#a9bcd6" stroke="#7f95b4" stroke-width="0.6" />
 				{/each}
-			{:else if kind === 'elevation'}
+			{:else if isElev}
 				<!-- flat elevation backdrop: just the ground line (the faint vertical mock grid was removed) -->
 				<line x1="8" y1="200" x2="392" y2="200" stroke="#94a3b8" stroke-width="1.2" />
-				<text x="12" y="214" font-size="8" fill="#64748b" font-weight="600">ELEVATION</text>
+				<text x="12" y="214" font-size="8" fill="#64748b" font-weight="600">{elevDir.toUpperCase()}</text>
 			{:else}
 				<rect x="8" y="8" width="384" height="234" fill="#ffffff" stroke="#94a3b8" stroke-width="1.4" />
 				{#if grid}
@@ -770,16 +788,16 @@
 		</text>
 	{:else if e.type === 'box'}
 		{@const f = boxFaces(e)}
-		{#if kind === 'model'}
+		{#if kind === 'iso'}
 			<!-- oblique cuboid: base footprint, two side faces, then the raised top -->
 			<rect x={f.x0} y={f.y0} width={f.x1 - f.x0} height={f.y1 - f.y0} fill="none" stroke={ink} stroke-width={w} stroke-dasharray="2 2" opacity="0.5" />
 			<polygon points={f.right} fill="#c2d1e8" stroke={ink} stroke-width={w} />
 			<polygon points={f.back} fill="#b2c3dc" stroke={ink} stroke-width={w} />
 			<polygon points={f.top} fill="#dce7f5" stroke={ink} stroke-width={w} />
-		{:else if kind === 'elevation'}
-			{@const fe = boxElev(e)}
-			<!-- front elevation face: width × height, base at (ground − z0). Vertical position comes
-			     from z0/height, NOT the plan footprint depth — so moving the box in plan won't move it here. -->
+		{:else if isElev}
+			{@const fe = boxElev(e, elevDir, CX, CY)}
+			<!-- side-elevation face: width (the projected footprint axis: x for front/rear, y for
+			     left/right) × height, base at (ground − z0). Vertical is z0/height, NOT the plan depth. -->
 			<rect x={fe.x0} y={fe.top} width={fe.x1 - fe.x0} height={fe.h} fill="#dce7f5" stroke={ink} stroke-width={w} />
 		{:else}
 			<!-- plan: footprint rectangle -->

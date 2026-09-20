@@ -7,6 +7,8 @@ state, no Firestore). This file tracks what's left to reach a real tool.
 Legend: `[ ]` todo · `[~]` partial · `[x]` done · **(P1)** near-term · **(P2)**
 after UX settles · **(P3)** later / needs design. `◧ decide` = needs your pick.
 
+Kestrel code is in M:\dev\KestrelCad2
+
 ---
 
 ## 0. Bugs / quick wins  (P1)
@@ -94,10 +96,17 @@ New todos (design / bigger):
   mock is unaffected until you pick a scale; e.g. at 1:10 a 1000-unit object draws 100 wide (verified
   244px → 24px, still selectable). [ ] **Follow-up (§4.2):** put the demo content in real **mm** so a
   realistic default like 1:100 looks right (right now 1:100 shrinks the abstract-unit demo a lot).
-- [ ] **True RIGHT (side) view** — currently FRONT and RIGHT both project the x-extent to a ground
-  line; a real right view should project the **y-extent** (depth), which needs an axis-swap for
-  render + hit-test + coords (a proper projection, not just a relabel). The ViewCube already exposes
-  a distinct `right` projection.
+- [x] **True FRONT / REAR / LEFT / RIGHT views** (2026-09-20) — real orthographic projection via an
+  `ELEV_BASIS` table in `geometry.ts` (Kestrel `camera.setView` / Sheets model3d `BASIS` convention,
+  cross-checked against `M:\dev\KestrelCad2`): **front +x · rear −x · right +y · left −y**, vertical
+  always +z. `elevU`/`elevUInv` project a footprint coord to the drawing horizontal (mirrored per dir,
+  re-centred on the plan centre); threaded through render, hit-test, grips, marquee bbox, move, and
+  coords. ViewGizmos gains a 6-view triad (computed to match drawUCS) + Rear/Left/3D buttons; a box
+  now projects its x-extent in front/rear and its y-extent in left/right (verified 137px vs 85px in
+  the browser). Tests in `geometry.test.ts` (14 total). **Forward-compat:** the BASIS is the discrete
+  form of a yaw/pitch camera, so a future free-3D orbit/walk mode drops in without changing the named
+  views (see the geometry.ts note). [ ] Still mock: iso is oblique (not a real camera); flats show no
+  depth ordering.
 - [ ] **Kestrel command line** — implement a command line (enter offsets while drawing, and other
   useful Kestrel cmd-line commands). (Was P3 "optional"; Dave now wants it.)
 - [ ] **Models: one model per floor**, with **separate stores** for detail views (rack elevations,

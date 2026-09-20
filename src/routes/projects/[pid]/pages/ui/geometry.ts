@@ -12,6 +12,47 @@ export type View = { zoom: number; x: number; y: number }
 export const DEFAULT_BOX_H = 45   // mock mm height for a freshly drawn cuboid
 export const GROUND = 200         // elevation ground line (drawing units); a box with z0=0 stands on it
 export const ISO = 0.6            // oblique (cabinet) projection offset factor for the model view
+export const PLAN_CX = 200, PLAN_CY = 125   // plan centre (matches the Viewport dscale centre)
+
+// ── Orthographic elevation projection (KestrelCad2 camera / Sheets model3d BASIS convention) ──
+// Each side view maps one footprint axis to the drawing's HORIZONTAL (u); the VERTICAL is always z
+// (height), so a flat z=0 object collapses to the ground line. The sign mirrors rear-from-front and
+// left-from-right. Concretely: front screenX=+x · rear=-x · right screenX=+y · left=-y (all screenY=-z).
+// FORWARD-COMPAT: this table is the DISCRETE form of a yaw/pitch orbit camera (KestrelCad2 math.js
+// `Camera.setView`). A future free 3D view (orbit/walk-through) replaces elevU with a full
+// (x,y,z)→screen camera projection; at the named-view yaw/pitch presets it yields exactly these
+// mappings, so the orthographic views stay identical when the camera lands. Entities already carry
+// enough 3D (box = footprint x/y + base z0 + height h; flats = z0-plane), so no data change is needed.
+export type ElevDir = 'front' | 'rear' | 'left' | 'right'
+export const ELEV_BASIS: Record<ElevDir, { axis: 0 | 1; sign: 1 | -1 }> = {
+	front: { axis: 0, sign:  1 },
+	rear:  { axis: 0, sign: -1 },
+	right: { axis: 1, sign:  1 },
+	left:  { axis: 1, sign: -1 },
+}
+// Project a scalar footprint coordinate (along the dir's axis) to the elevation's horizontal drawing
+// coord, mirrored per dir and re-centred about the plan centre so every view sits centred in the viewBox.
+export function elevU(dir: ElevDir, coord: number, cx = PLAN_CX, cy = PLAN_CY): number {
+	const { axis, sign } = ELEV_BASIS[dir]
+	return cx + sign * (coord - (axis === 0 ? cx : cy))
+}
+// Inverse of elevU (own inverse up to the axis centre): drawing horizontal u → model coord along the axis.
+export function elevUInv(dir: ElevDir, u: number, cx = PLAN_CX, cy = PLAN_CY): number {
+	const { axis, sign } = ELEV_BASIS[dir]
+	return (axis === 0 ? cx : cy) + sign * (u - cx)
+}
+// Project a point's on-axis coordinate for the current dir.
+export const elevH = (dir: ElevDir, p: Pt, cx = PLAN_CX, cy = PLAN_CY): number => elevU(dir, p[ELEV_BASIS[dir].axis], cx, cy)
+// Horizontal drawing span [min,max] of a flat (z=0) object seen edge-on in an elevation dir.
+export function flatSpan(e: Ent, dir: ElevDir, cx = PLAN_CX, cy = PLAN_CY): [number, number] {
+	const ax = ELEV_BASIS[dir].axis
+	let lo: number, hi: number
+	if (e.type === 'circle') { lo = e.c![ax] - e.r!; hi = e.c![ax] + e.r! }
+	else if (e.type === 'polyline') { const cs = (e.pts ?? []).map(p => p[ax]); lo = Math.min(...cs); hi = Math.max(...cs) }
+	else { lo = Math.min(e.a![ax], e.b![ax]); hi = Math.max(e.a![ax], e.b![ax]) }
+	const u0 = elevU(dir, lo, cx, cy), u1 = elevU(dir, hi, cx, cy)
+	return [Math.min(u0, u1), Math.max(u0, u1)]
+}
 
 export const dist = (a: Pt, b: Pt) => Math.hypot(a[0] - b[0], a[1] - b[1])
 
@@ -36,20 +77,28 @@ export function textBox(e: Ent): [number, number, number, number] {
 	return [e.a![0], e.a![1] - 10, e.a![0] + w, e.a![1] + (lines.length - 1) * 13 + 3]
 }
 
-// Elevation FRONT face of a box: x0..x1 wide, top at GROUND-z0-h, bottom (baseline) at GROUND-z0.
-export function boxElev(e: Ent) {
-	const x0 = Math.min(e.a![0], e.b![0]), x1 = Math.max(e.a![0], e.b![0])
+// Elevation face of a box in direction `dir` (default front): u0..u1 wide (the projected footprint
+// axis), top at GROUND-z0-h, baseline at GROUND-z0. front/rear use the x-edges, left/right the y-edges.
+export function boxElev(e: Ent, dir: ElevDir = 'front', cx = PLAN_CX, cy = PLAN_CY) {
+	const u0 = elevU(dir, e.a![ELEV_BASIS[dir].axis], cx, cy), u1 = elevU(dir, e.b![ELEV_BASIS[dir].axis], cx, cy)
+	const x0 = Math.min(u0, u1), x1 = Math.max(u0, u1)
 	const h = e.h ?? DEFAULT_BOX_H, base = GROUND - (e.z0 ?? 0)
 	return { x0, x1, h, base, top: base - h }
 }
 
-// Apply an elevation-view edit to a box: width (x0/x1) keeps the footprint DEPTH (y) and only moves
-// the x-edges; z0 = base elevation; h = height. Plan depth (y) is never touched here.
-export function boxElevSet(e: Ent, ch: { x0?: number; x1?: number; z0?: number; h?: number }): Ent {
-	const cx0 = Math.min(e.a![0], e.b![0]), cx1 = Math.max(e.a![0], e.b![0])
-	const [ay, by] = [e.a![1], e.b![1]]
-	const nx0 = ch.x0 ?? cx0, nx1 = ch.x1 ?? cx1
-	return { ...e, a: [e.a![0] === cx0 ? nx0 : nx1, ay], b: [e.b![0] === cx0 ? nx0 : nx1, by], z0: Math.max(0, ch.z0 ?? e.z0 ?? 0), h: Math.max(1, ch.h ?? e.h ?? DEFAULT_BOX_H) }
+// Apply an elevation-view edit to a box: the width edges (x0/x1, in drawing horizontal) map back onto
+// the dir's footprint axis (inverse-projected), keeping the OTHER footprint axis; z0 = base elevation;
+// h = height. So editing a side view only touches that view's axis + the box height/elevation.
+export function boxElevSet(e: Ent, ch: { x0?: number; x1?: number; z0?: number; h?: number }, dir: ElevDir = 'front', cx = PLAN_CX, cy = PLAN_CY): Ent {
+	const ax = ELEV_BASIS[dir].axis
+	const cu0 = elevU(dir, e.a![ax], cx, cy), cu1 = elevU(dir, e.b![ax], cx, cy)
+	const uMin = Math.min(cu0, cu1), uMax = Math.max(cu0, cu1)
+	const nMin = ch.x0 ?? uMin, nMax = ch.x1 ?? uMax
+	const na = elevUInv(dir, cu0 === uMin ? nMin : nMax, cx, cy)   // new model coord for endpoint a
+	const nb = elevUInv(dir, cu1 === uMin ? nMin : nMax, cx, cy)   // …and endpoint b
+	const a: Pt = ax === 0 ? [na, e.a![1]] : [e.a![0], na]
+	const b: Pt = ax === 0 ? [nb, e.b![1]] : [e.b![0], nb]
+	return { ...e, a, b, z0: Math.max(0, ch.z0 ?? e.z0 ?? 0), h: Math.max(1, ch.h ?? e.h ?? DEFAULT_BOX_H) }
 }
 
 // Model-view oblique (cabinet) cuboid faces: the top face is the footprint shifted up-right by h·ISO.
