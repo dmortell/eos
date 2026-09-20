@@ -26,7 +26,8 @@
 		status?: (text: string) => void; coords?: (x: number, y: number) => void; beginedit?: () => void;
 		endedit?: (debounceMs?: number) => void; tool?: (name: string) => void; frame?: (f: unknown) => void;
 		copy?: (ids: string[]) => void; cut?: (ids: string[]) => void; paste?: () => void;
-		group?: (ids: string[]) => void; ungroup?: (ids: string[]) => void
+		group?: (ids: string[]) => void; ungroup?: (ids: string[]) => void;
+		reorder?: (ids: string[], op: 'front' | 'back' | 'forward' | 'backward') => void
 	}
 	let { label = 'Viewport', scale = '1:1', kind = 'floorplan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {},
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 } }:
@@ -261,7 +262,10 @@
 			copies.forEach(c => on.add?.(c)); on.select?.(copies.map(c => c.id))
 			return
 		}
-		if (e.ctrlKey || e.metaKey) {   // clipboard + grouping
+		if (e.ctrlKey || e.metaKey) {   // clipboard + grouping + draw order
+			// draw order: Ctrl+] forward · Ctrl+[ backward · +Shift = to front / back
+			if ((e.key === ']' || e.key === '}') && sel.length) { e.preventDefault(); on.reorder?.(sel, e.shiftKey ? 'front' : 'forward'); return }
+			if ((e.key === '[' || e.key === '{') && sel.length) { e.preventDefault(); on.reorder?.(sel, e.shiftKey ? 'back' : 'backward'); return }
 			const k = e.key.toLowerCase()
 			if (k === 'c' && sel.length) { e.preventDefault(); on.copy?.(sel); return }
 			if (k === 'x' && sel.length) { e.preventDefault(); on.cut?.(sel); return }

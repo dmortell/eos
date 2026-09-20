@@ -91,6 +91,7 @@
 		tool: (t: string) => (pane.tool = t), frame: onFrame as (f: unknown) => void,
 		copy: (ids: string[]) => copyEnts(a.id, ids), cut: (ids: string[]) => cutEnts(a.id, ids), paste: () => pasteEnts(a.id),
 		group: (ids: string[]) => groupEnts(a.id, ids), ungroup: (ids: string[]) => ungroupEnts(a.id, ids),
+		reorder: (ids: string[], op) => reorderEnts(a.id, ids, op),
 	})
 	let focused = $state(0)      // which pane new tabs / sidebar actions target
 	let canvasEls = $state<(HTMLElement | undefined)[]>([])   // each pane's .canvas, for navFit
@@ -168,6 +169,24 @@
 		ensureHist(id); const s = new Set(ids)
 		docEnts = { ...docEnts, [id]: (docEnts[id] ?? []).map(e => s.has(e.id) ? { ...e, groupId: undefined } : e) }
 		recordEdit(id, 'Ungroup')
+	}
+	// Draw order = array position (later = painted on top). Reorder the selection within the doc's
+	// array; front/back jump to the ends, forward/backward step past one non-selected neighbour.
+	function reorderEnts(id: string, ids: string[], op: 'front' | 'back' | 'forward' | 'backward') {
+		const arr = docEnts[id] ?? [], s = new Set(ids)
+		if (!ids.length || !arr.some(e => s.has(e.id))) return
+		ensureHist(id)
+		let next: Ent[]
+		if (op === 'front' || op === 'back') {
+			const moved = arr.filter(e => s.has(e.id)), rest = arr.filter(e => !s.has(e.id))
+			next = op === 'front' ? [...rest, ...moved] : [...moved, ...rest]
+		} else {
+			next = [...arr]
+			if (op === 'forward') { for (let i = next.length - 2; i >= 0; i--) if (s.has(next[i].id) && !s.has(next[i + 1].id)) [next[i], next[i + 1]] = [next[i + 1], next[i]] }
+			else { for (let i = 1; i < next.length; i++) if (s.has(next[i].id) && !s.has(next[i - 1].id)) [next[i], next[i - 1]] = [next[i - 1], next[i]] }
+		}
+		docEnts = { ...docEnts, [id]: next }
+		recordEdit(id, 'Reorder')
 	}
 
 	// ── undo / redo / history / revisions ──
@@ -701,6 +720,7 @@
 					<LayersPanel />
 				{:else if rightTab === 'props'}
 					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (active) updateEnt(active.id, e) }}
+						onarrange={(op) => { if (active) reorderEnts(active.id, selOf(active.id), op) }}
 						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''} {activeLayer} node={treeNode} viewport={viewportSel} />
 				{:else}
 					<HistoryPanel log={changeLog} {revisions}

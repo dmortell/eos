@@ -414,9 +414,11 @@ Sheets' basic version** — see §10.
 - [x] **Lockable layers** — lock toggle on group rows, on **each sub-layer row (beside the eye)**,
   and in the settings dialog (mock; tinted when locked).
 - [ ] **Draggable layers** — reorder layers/groups in the manager by dragging (P2).
-- [ ] **Draw order** — bring-forward / send-to-back (and to-front / to-back) so images and
-  solid-filled objects can be stacked/overlapped predictably (P2). Ties into the same
-  ordering used by draggable layers.
+- [x] **Draw order** (2026-09-20) — array position = paint order (later = on top). `reorderEnts`
+  moves the selection: front/back jump to the array ends; forward/backward step past one non-selected
+  neighbour (block-safe). Wired to **Ctrl+] / Ctrl+[** (± Shift = to front/back) and a Properties
+  **ARRANGE** row (⤓ ▽ △ ⤒), recorded to history. Verified front/back and forward (A past B).
+  [ ] Later: paint by (layer order, then intra-layer order) once layers get a draw order.
 - [x] **View Presets** (2026-09-20) — a preset is a named set of visible layer ids (`presets` in the
   store). Selecting one applies it (shows exactly its layers); the ⋮ menu does Re-apply / Update /
   Save-current-as-new / Rename / Delete; a "• modified" flag shows when visibility drifts from the

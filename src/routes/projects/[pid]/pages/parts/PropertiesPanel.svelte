@@ -10,8 +10,9 @@
 	import { layers } from '../layers.svelte'
 	import type { FrameSel } from './PaperPage.svelte'
 
-	let { ents = [], onupdate, pageTitle = '', pageKind = '', activeLayer = '', node = null, viewport = null }:
-		{ ents?: Ent[]; onupdate?: (e: Ent) => void; pageTitle?: string; pageKind?: string; activeLayer?: string;
+	let { ents = [], onupdate, onarrange, pageTitle = '', pageKind = '', activeLayer = '', node = null, viewport = null }:
+		{ ents?: Ent[]; onupdate?: (e: Ent) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void;
+			pageTitle?: string; pageKind?: string; activeLayer?: string;
 			node?: { id: string; label: string; kind: string } | null; viewport?: FrameSel | null } = $props()
 
 	// Mock property fields per tree-node kind (label → placeholder). Editing is local mock only.
@@ -169,6 +170,15 @@
 		<div class="vecrow">
 			{@render numcell('∠', Math.round((cc('rot') as number | undefined) ?? 0), setRot)}
 			<span class="vspacer"></span><span class="vspacer"></span>
+		</div>
+		<div class="prop-sec">ARRANGE</div>
+		<div class="prop"><span>Draw order</span>
+			<span class="pp-seg">
+				<button title="Send to back (Ctrl+Shift+[)" onclick={() => onarrange?.('back')}>⤓</button>
+				<button title="Send backward (Ctrl+[)" onclick={() => onarrange?.('backward')}>▽</button>
+				<button title="Bring forward (Ctrl+])" onclick={() => onarrange?.('forward')}>△</button>
+				<button title="Bring to front (Ctrl+Shift+])" onclick={() => onarrange?.('front')}>⤒</button>
+			</span>
 		</div>
 		{#if single?.type === 'text'}
 			<div class="prop-sec">TEXT</div>
