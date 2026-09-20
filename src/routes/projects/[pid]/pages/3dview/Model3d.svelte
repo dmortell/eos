@@ -10,14 +10,15 @@
 	//   • iso: deferred (P1c) — the viewport keeps the mock iso for now.
 	// Line thickness is NON-SCALING (constant screen px, `vector-effect`) and LAYER-DEFINED (each layer's
 	// `weight`), so lineweight is a paper property independent of the drawing scale/zoom.
-	import { project, objBounds, faces3d, isoR, isoDepthR, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
+	import { project, objBounds, faces3d, isoR, isoDepthR, trimToClip, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 	import { BASIS } from './types'
 	import type { Model, Obj, Dir, Clip } from './types'
 
 	let { model, dir = 'plan', cx = 0, cy = 0, ground = 0, defaultWeight = 1, selIds = [], canvasZoom = 1, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH }:
 		{ model: Model; dir?: Dir; cx?: number; cy?: number; ground?: number; defaultWeight?: number; selIds?: string[]; canvasZoom?: number; clip?: Clip | null; yaw?: number; pitch?: number } = $props()
-	// A section clip culls objects whose bounds fall outside the box (x/y in plan; the elevation then
-	// shows only that slice). A simple AABB-overlap cull — true trimToClip is a later refinement.
+	// Plan/elevation use a true section cut (`trimToClip`, applied per object in the render passes below):
+	// walls/conduits keep only the segments inside the box, prisms pass through whole. This AABB-overlap
+	// test is kept only for the iso pass (a quick cull; iso normally has no clip).
 	const inClip = (o: Obj) => { if (!clip) return true; const b = objBounds(o); return b.x1 >= clip.x0 && b.x0 <= clip.x1 && b.y1 >= clip.y0 && b.y0 <= clip.y1 }
 
 	const SEL = '#f59e0b'   // selection highlight (amber — distinct from the teal trunk layer)
@@ -81,12 +82,14 @@
 		<polygon points={f.pts.map((p) => `${p.u},${p.v}`).join(' ')} class="face" stroke={f.col} stroke-width={f.lw} vector-effect="non-scaling-stroke" />
 	{/each}
 	{:else}
-	<!-- Pass 1: everything except openings. -->
+	<!-- Pass 1: everything except openings. Under a section clip each object is TRIMMED to the box (a
+	     true cut — walls/conduits keep only the segments inside), not just AABB-culled. -->
 	{#each model.objects as o (o.id)}
-		{#if visible(o) && inClip(o) && !isOpening(o)}
+		{@const to = clip ? trimToClip(o, clip) : o}
+		{#if to && visible(o) && !isOpening(o)}
 			{@const col = colorOf(o)}
 			{@const lw = weightOf(o)}
-			{#each project(o, dir, yaw, pitch, cx, cy) as s, i (i)}
+			{#each project(to, dir, yaw, pitch, cx, cy) as s, i (i)}
 				{#if s.closed}
 					<polygon points={s.pts.map((p) => `${p.u},${p.v}`).join(' ')} fill="none" stroke={col} stroke-width={lw} vector-effect="non-scaling-stroke" />
 				{:else}
@@ -98,10 +101,11 @@
 	<!-- Pass 2: openings ON TOP — a paper-coloured fill masks the wall behind (a real hole), then a
 	     solid frame outlines the door/window. Painted after pass 1 so it cuts through the wall lines. -->
 	{#each model.objects as o (o.id)}
-		{#if visible(o) && inClip(o) && isOpening(o)}
+		{@const to = clip ? trimToClip(o, clip) : o}
+		{#if to && visible(o) && isOpening(o)}
 			{@const col = colorOf(o)}
 			{@const lw = weightOf(o)}
-			{#each project(o, dir, yaw, pitch, cx, cy) as s, i (i)}
+			{#each project(to, dir, yaw, pitch, cx, cy) as s, i (i)}
 				<polygon points={s.pts.map((p) => `${p.u},${p.v}`).join(' ')} class="hole" stroke={col} stroke-width={lw} vector-effect="non-scaling-stroke" />
 			{/each}
 		{/if}
