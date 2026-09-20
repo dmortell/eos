@@ -53,7 +53,31 @@ Done:
 - [x] **Flat objects (rect/ellipse/circle) project as ground lines in elevation** (render+hit+bbox).
 - [x] **Page title uses a standard hyphen** so Save-as-PDF filenames are valid.
 
+Batch-5b done:
+- [x] **Esc from a drawing tool returns to Select** first (then clears selection, then exits view).
+- [x] **Page title = active drawing name** (clean Save-as-PDF filename), reactive to tab change.
+- [x] **Status-bar zoom updates on wheel** (tracks the canvas zoom when a viewport is active but
+  Pan-content is off; was stuck showing the view zoom / 100%).
+- [x] **ViewCube hover** is a distinct amber (was ~the selected teal).
+- [x] Dropped the redundant **100%** from the pane status.
+- [x] Scale dropdown has the full **1:1 … 1:500** list.
+- [x] **Elevation flattens ALL flat objects** (lines/polylines/dims too, not just rects) to a ground
+  line — "plan lines no longer appear as plan lines in the front view" (verified with a diagonal line).
+
 New todos (design / bigger):
+- [ ] **Make the view SCALE actually render** (Dave, 2026-09-21: "1000-wide object drawn 100 wide at
+  1:10; units are mm"). This is the **mm-world-units** work (§4.2): apply a `drawScale = 1/denom` to
+  the viewport content + the coordinate mapping (toLocalXY/localToClient/grip size/text-edit), and
+  **rescale the mock demo content to realistic mm** so the default scale doesn't render everything
+  tiny. Not done yet because a naive `1/denom` at the current 1:100 default shrinks the abstract-unit
+  demo to ~1px — it needs the content in real mm + a sensible default. **Ask Dave** whether to do the
+  full mm refactor (it reshapes the demo + coordinate system).
+- [ ] **True RIGHT (side) view** — currently FRONT and RIGHT both project the x-extent to a ground
+  line; a real right view should project the **y-extent** (depth), which needs an axis-swap for
+  render + hit-test + coords (a proper projection, not just a relabel). The ViewCube already exposes
+  a distinct `right` projection.
+- [ ] **Kestrel command line** — implement a command line (enter offsets while drawing, and other
+  useful Kestrel cmd-line commands). (Was P3 "optional"; Dave now wants it.)
 - [ ] **Models: one model per floor**, with **separate stores** for detail views (rack elevations,
   frames, patching). Ties into the model-registry design (§5).
 - [ ] **Object props parity + defaults** — text needs **font size, alignment, colour** (override the
