@@ -65,13 +65,12 @@ Batch-5b done:
   line — "plan lines no longer appear as plan lines in the front view" (verified with a diagonal line).
 
 New todos (design / bigger):
-- [ ] **Make the view SCALE actually render** (Dave, 2026-09-21: "1000-wide object drawn 100 wide at
-  1:10; units are mm"). This is the **mm-world-units** work (§4.2): apply a `drawScale = 1/denom` to
-  the viewport content + the coordinate mapping (toLocalXY/localToClient/grip size/text-edit), and
-  **rescale the mock demo content to realistic mm** so the default scale doesn't render everything
-  tiny. Not done yet because a naive `1/denom` at the current 1:100 default shrinks the abstract-unit
-  demo to ~1px — it needs the content in real mm + a sensible default. **Ask Dave** whether to do the
-  full mm refactor (it reshapes the demo + coordinate system).
+- [x] **View SCALE now renders** (Dave, 2026-09-21) — a `dscale = 1/denom` scales the viewport
+  content about the plan centre, threaded through the coordinate mapping (toLocalXY / localToClient /
+  grip size / text-edit) so hit-testing still works. **1:1 is the default** (= as-drawn), so the
+  mock is unaffected until you pick a scale; e.g. at 1:10 a 1000-unit object draws 100 wide (verified
+  244px → 24px, still selectable). [ ] **Follow-up (§4.2):** put the demo content in real **mm** so a
+  realistic default like 1:100 looks right (right now 1:100 shrinks the abstract-unit demo a lot).
 - [ ] **True RIGHT (side) view** — currently FRONT and RIGHT both project the x-extent to a ground
   line; a real right view should project the **y-extent** (depth), which needs an axis-swap for
   render + hit-test + coords (a proper projection, not just a relabel). The ViewCube already exposes

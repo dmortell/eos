@@ -75,6 +75,10 @@
 	// (a paper viewport frame — reliable), else we measure via bind:clientWidth (standalone
 	// viewports). The mock drawing (0..400 × 0..250) sits at that fixed scale.
 	const CX = 200, CY = 125   // plan centre (BASE / HANDLE_PX come from ../constants)
+	// Drawing SCALE (1:N) actually scales the content: a 1:10 view draws a 1000-unit object 100 units
+	// wide. Applied about the plan centre so the view stays put. 1:1 = as-drawn (the default), so the
+	// mock content is unaffected until you pick a scale. (Real mm sizing is the §4.2 refactor.)
+	const dscale = $derived(1 / (parseInt((scale || '1:1').split(':')[1] || '1') || 1))
 	let vpW = $state(0), vpH = $state(0)
 	let vbW = $derived(((boxW ?? vpW) || 400) / BASE), vbH = $derived(((boxH ?? vpH) || 250) / BASE)
 	let minX = $derived(CX - vbW / 2), minY = $derived(CY - vbH / 2)
@@ -91,13 +95,13 @@
 	// Client px → drawing (view-local) coords, for placing/hit-testing.
 	function toLocalXY(cx: number, cy: number): Pt | null {
 		const v = clientToVB(cx, cy); if (!v) return null
-		return [(v[0] - view.x) / view.zoom, (v[1] - view.y) / view.zoom]
+		return [CX + ((v[0] - view.x) / view.zoom - CX) / dscale, CY + ((v[1] - view.y) / view.zoom - CY) / dscale]
 	}
 	function toLocal(e: MouseEvent): Pt | null { return toLocalXY(e.clientX, e.clientY) }
 	// Drawing (view-local) coords → client px, for handle hit-testing.
 	function localToClient(x: number, y: number): { x: number; y: number } | null {
 		const m = vbMap(); if (!m) return null
-		const vx = view.x + x * view.zoom, vy = view.y + y * view.zoom
+		const vx = view.x + view.zoom * (CX + dscale * (x - CX)), vy = view.y + view.zoom * (CY + dscale * (y - CY))
 		return { x: m.left + (vx - minX) * m.scale, y: m.top + (vy - minY) * m.scale }
 	}
 	// ── pan/zoom the viewport content (SVG group transform, in viewBox units) ──
@@ -200,9 +204,9 @@
 		// Position + font in .vp-LOCAL px (pre canvas-CSS-transform), so the transform scales the
 		// editor exactly like the SVG text — it stays glued to the object at any zoom/pan (screen-px
 		// math double-applied the canvas zoom, so the box floated off and ballooned when zoomed in).
-		const vbx = view.x + ent.a![0] * view.zoom, vby = view.y + ent.a![1] * view.zoom
+		const vbx = view.x + view.zoom * (CX + dscale * (ent.a![0] - CX)), vby = view.y + view.zoom * (CY + dscale * (ent.a![1] - CY))
 		const x = (vbx - minX) / vbW * vpW, y = (vby - minY) / vbH * vpH
-		const fontPx = 11 * view.zoom * (vpW / vbW)
+		const fontPx = 11 * view.zoom * (vpW / vbW) * dscale
 		editText = { id: ent.id, x, y, fontPx, value: ent.text ?? '' }
 		tick().then(() => { textInput?.focus(); textInput?.select() })
 	}
@@ -390,7 +394,7 @@
 	// px of a model-unit length = length · view.zoom · (BASE · canvasZoom); dividing by both
 	// zooms cancels them so the grip is always HANDLE_PX px — the canvas CSS zoom included
 	// (without canvasZoom the grips grew as you zoomed the canvas in).
-	const gripSize = $derived(HANDLE_PX / BASE / view.zoom / (canvasZoom || 1))
+	const gripSize = $derived(HANDLE_PX / BASE / view.zoom / (canvasZoom || 1) / (dscale || 1))
 
 	// What a press at these client coords would grab: a grip of a selected entity, or the
 	// body of any entity (topmost). Drives the pointer-drag start (mouse-left / 1-finger
@@ -615,7 +619,7 @@
 	onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onactivate?.() } }}>
 
 	<svg bind:this={svg} class="vp-svg {kind === 'model' || kind === 'elevation' ? 'model' : ''}" viewBox="{minX} {minY} {vbW} {vbH}" preserveAspectRatio="xMidYMid meet">
-		<g transform="translate({view.x} {view.y}) scale({view.zoom})">
+		<g transform="translate({view.x} {view.y}) scale({view.zoom}) translate({CX} {CY}) scale({dscale}) translate({-CX} {-CY})">
 			<!-- background content -->
 			{#if kind === 'model'}
 				{#if grid}{#each floorGrid as g (g)}<polyline points={g} fill="none" stroke="#d5deea" stroke-width="0.7" />{/each}{/if}

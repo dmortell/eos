@@ -72,7 +72,7 @@
 	// viewport bar, like the Sheets tool's viewport scale).
 	const SCALES = ['1:1', '1:2', '1:5', '1:10', '1:15', '1:20', '1:25', '1:50', '1:100', '1:150', '1:200', '1:500']
 	let docScale = $state<Record<string, string>>({})
-	const scaleOf = (id?: string) => docScale[id ?? ''] ?? '1:100'
+	const scaleOf = (id?: string) => docScale[id ?? ''] ?? '1:1'   // 1:1 = as-drawn (mock content isn't real mm yet)
 	// The drafting/interaction flags bundle passed to a pane's viewport (one prop instead of six).
 	const envFor = (pane: { canvasView: View }) => ({ acad: acadMode, navContent, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, canvasZoom: pane.canvasView.zoom })
 	let focused = $state(0)      // which pane new tabs / sidebar actions target
