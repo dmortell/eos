@@ -429,3 +429,13 @@ Sheets' basic version** — see §10.
 
 
 layer managers? Only Sheets has a full one (sheets/layers/LayersPanel.svelte + layers.ts, 8 default layers with visibility/colour/lock). The others are partial: model3d uses per-model layers for symbols, outlets/model3d tag objects with a layerId, and Uploads only toggles a PDF's built-in OCG layers (hiddenLayers). So Pages would be the second real layer manager in the app, closest in spirit to Sheets
+
+- Read-only reverted revisions (only latest editable) — todo added.
+- Package/Version version-switching and per-floor versions+revisions — todos added.
+- Print A-size/scaling (§2.2), a DocEditor refactor (§4.1), mm world units (§4.2), reuse Sheets' layer model (§4.3), shared pan/zoom helpers (§4.4), and assorted nits.
+
+These are the ones where I think your input matters more than my guessing:
+- §4.2 mm world units — invasive coordinate change that alters the on-screen scale; you have opinions on scale, so I didn't want to pick without you seeing it.
+- §4.1 full DocEditor class — the geometry is extracted; the full headless-editor refactor of Viewport/+page is large and best reviewed.
+- §4.3 reuse Sheets layers.ts — a real integration (the Pages layer panel is still a mock); ties into the layer-wiring work.
+- §2.3 full per-doc frame state — I did the important partial (no dead Properties handle on unmount); moving frame geometry/border into per-doc state is a moderate PaperPage refactor I'd rather you sign off on.

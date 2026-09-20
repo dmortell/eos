@@ -49,12 +49,13 @@
 	// Each pane (view) remembers its own tool + its own canvas (paper-space) pan/zoom.
 	type Proj = 'plan' | 'elevation' | 'right' | 'model'
 	let panes = $state<{ id: string; activeId: string; tool: string; canvasView: View }[]>([{ id: 'p1', activeId: 't2', tool: 'Select', canvasView: { zoom: 1, x: 0, y: 0 } }])
-	// A tab's active PROJECTION (keyed by tab id, so it's remembered per view and stays consistent
-	// if the same tab is shown in both split panes): its ViewCube override or the tab's natural kind.
+	// Active PROJECTION keyed by PANE + tab, so each split pane is independent (plan in one, side in
+	// the other) yet each pane remembers a view's projection when you switch tabs within it.
 	let docProj = $state<Record<string, Proj>>({})
-	function projOf(a: Tab | null): Proj {
+	const projKey = (paneId: string, a: Tab) => `${paneId}:${a.id}`
+	function projOf(pane: { id: string }, a: Tab | null): Proj {
 		if (!a) return 'plan'
-		return docProj[a.id] ?? (a.kind === 'elevation' ? 'elevation' : a.kind === 'model' ? 'model' : 'plan')
+		return docProj[projKey(pane.id, a)] ?? (a.kind === 'elevation' ? 'elevation' : a.kind === 'model' ? 'model' : 'plan')
 	}
 	// 'right' is a mock side elevation — same Viewport renderer as 'elevation' for now.
 	const projKind = (p: Proj) => (p === 'plan' ? 'floorplan' : p === 'right' ? 'elevation' : p) as 'floorplan' | 'elevation' | 'model'
@@ -321,11 +322,11 @@
 		{ icon: 'dimension', name: 'Dimension' },
 		{ icon: 'k-text', name: 'Text' },
 	]
-	let cx = $state(0), cy = $state(0)
-	function onCanvasMove(e: PointerEvent) {
-		const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-		cx = Math.round(e.clientX - r.left); cy = Math.round(e.clientY - r.top)
-	}
+	// World (model-unit) coords under the cursor, from the active viewport (status bar shows mm), and
+	// the focused pane's tool prompt / inline-edit help (rendered at the pane bottom-centre).
+	let worldXY = $state<{ x: number; y: number } | null>(null)
+	let statusText = $state('')
+	function onCanvasMove() { /* coords now come from the viewport via oncoords */ }
 
 	// ── canvas (paper-space) pan/zoom — one pane's canvasView, CSS transform ──
 	function canvasPan(pane: { canvasView: View }, dx: number, dy: number) {
@@ -431,7 +432,7 @@
 	let mockTheme = $state<'dark' | 'light'>('dark')
 </script>
 
-<svelte:head><title>EOS — Pages (mockup)</title></svelte:head>
+<svelte:head><title>EOS - Pages (mockup)</title></svelte:head>
 
 <div class="shell" data-mock-theme={mockTheme}>
 	<!-- inside .shell so the palette's CSS tokens (var(--panel)/--text/…) resolve -->
@@ -560,13 +561,13 @@
 										onactivate={() => activateVp(a.id)}
 										ondeactivate={() => deactivateVp(a.id)}
 										focused={focused === pi}
-										onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} ondelete={(ids) => deleteEnts(a.id, ids)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} onframe={onFrame} />
+										onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} ondelete={(ids) => deleteEnts(a.id, ids)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} onframe={onFrame} onstatus={(t) => (statusText = t)} oncoords={(x, y) => (worldXY = { x, y })} />
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => deactivateVp(a.id)}>
-										<Viewport kind={projKind(projOf(a))} label={a.title} tool={p.tool} env={envFor(p)} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
+										<Viewport kind={projKind(projOf(p, a))} label={a.title} tool={p.tool} env={envFor(p)} entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(a.id)}
 											active={isVpActive(a.id)} focused={focused === pi} onactivate={() => activateVp(a.id)} ondeactivate={() => deactivateVp(a.id)}
-											onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} ondelete={(ids) => deleteEnts(a.id, ids)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} />
+											onadd={(e) => addEnt(a.id, e)} onupdate={(e) => updateEnt(a.id, e)} ondelete={(ids) => deleteEnts(a.id, ids)} onselect={(ids) => setSel(a.id, ids)} onview={(v) => setView(a.id, v)} onstatus={(t) => (statusText = t)} oncoords={(x, y) => (worldXY = { x, y })} />
 									</div>
 								{:else}
 									<div class="canvas-center">
@@ -586,9 +587,11 @@
 						</div>
 						{#if a}
 							<!-- fixed-size view gizmos (ViewCube + WCS axes), screen space so they don't zoom -->
-							<ViewGizmos projection={projOf(a)}
-								onset={(proj) => { docProj = { ...docProj, [a.id]: proj }; if (a.kind === 'sheet') layout = proj === 'plan' ? 'sheet' : 'model' }} />
+							<ViewGizmos projection={projOf(p, a)}
+								onset={(proj) => { docProj = { ...docProj, [projKey(p.id, a)]: proj }; if (a.kind === 'sheet') layout = proj === 'plan' ? 'sheet' : 'model' }} />
 						{/if}
+						<!-- tool prompt / inline-edit help, pinned to the pane bottom-centre (screen space) -->
+						{#if focused === pi && statusText}<div class="pane-status">{statusText}</div>{/if}
 					</main>
 				</section>
 				{#if panes.length === 2 && pi === 0}
@@ -615,7 +618,7 @@
 					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (active) updateEnt(active.id, e) }}
 						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''} {activeLayer} node={treeNode} viewport={viewportSel} />
 				{:else}
-					<HistoryPanel {history} {revisions} rev={rev} revOptions={REVISIONS} onrev={(r) => (rev = r)}
+					<HistoryPanel {history} {revisions}
 						onnote={(i, note) => (revisions[i].note = note)}
 						onundo={undo} onredo={redo} onnewrevision={makeRevision} onrestore={(s) => restoreRevision(s as Snap)} />
 				{/if}
@@ -632,7 +635,7 @@
 		paperSize={paperOf(panes[focused]?.activeId).size} paperLandscape={paperOf(panes[focused]?.activeId).landscape}
 		onpapersize={(s) => setPaper(panes[focused]?.activeId, { size: s })}
 		onorient={(l) => setPaper(panes[focused]?.activeId, { landscape: l })}
-		{cx} {cy} zoom={dispZoom} onzoom={navZoom} onfit={navFit} />
+		coords={worldXY} zoom={dispZoom} onzoom={navZoom} onfit={navFit} />
 </div>
 
 <style>
@@ -779,6 +782,11 @@
 	.floattools.dim { opacity:.4; }
 	.floattools.dim:hover { opacity:.85; }
 	.navtools { bottom:12px; right:12px; flex-direction:column; }
+	/* Pane-level status/help chip — screen space, so it stays put & readable at any zoom. */
+	.pane-status { position:absolute; bottom:12px; left:50%; transform:translateX(-50%); z-index:6; white-space:nowrap;
+		font-size:11px; color:var(--text); background:color-mix(in srgb, var(--panel) 88%, transparent);
+		border:1px solid var(--line-soft); border-radius:6px; padding:3px 12px; pointer-events:none;
+		backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); box-shadow:0 4px 16px #0004; }
 	.vp-active-bar { top:12px; left:50%; transform:translateX(-50%); z-index:6; align-items:center; gap:2px; padding:3px; }
 	.vab-btn { display:inline-flex; align-items:center; gap:5px; padding:5px 11px; min-height:30px; border-radius:6px;
 		font-size:12px; font-weight:600; color:var(--muted); background:none; border:none; }

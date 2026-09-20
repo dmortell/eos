@@ -19,9 +19,9 @@
 	export type FrameSel = { label: string; x: number; y: number; w: number; h: number;
 		border: 'dashed' | 'solid' | 'none'; setBorder: (b: 'dashed' | 'solid' | 'none') => void; setRect: (r: Partial<{ x: number; y: number; w: number; h: number }>) => void }
 	let { title = 'Sheet', drawingNo = '001', scale = '1:100', active = false, focused = true, tool = 'Select', env = {}, pw = PAPER_W, ph = PAPER_H, sizeLabel = 'A3', rev = '', revDate = '',
-		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, ondeactivate, onadd, onupdate, ondelete, onselect, onview, onframe }:
+		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, ondeactivate, onadd, onupdate, ondelete, onselect, onview, onframe, onstatus, oncoords }:
 		{ title?: string; drawingNo?: string; scale?: string; active?: boolean; focused?: boolean; tool?: string; env?: Env; pw?: number; ph?: number; sizeLabel?: string; rev?: string; revDate?: string;
-			entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; ondeactivate?: () => void; onadd?: (e: Ent) => void; onupdate?: (e: Ent) => void; ondelete?: (ids: string[]) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void; onframe?: (f: FrameSel | null) => void } = $props()
+			entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; ondeactivate?: () => void; onadd?: (e: Ent) => void; onupdate?: (e: Ent) => void; ondelete?: (ids: string[]) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void; onframe?: (f: FrameSel | null) => void; onstatus?: (t: string) => void; oncoords?: (x: number, y: number) => void } = $props()
 	const canvasZoom = $derived(env.canvasZoom ?? 1)
 
 	let frameBorder = $state<'dashed' | 'solid' | 'none'>('dashed')
@@ -144,7 +144,7 @@
 					style="left:{frame.x}px; top:{frame.y}px; width:{frame.w}px; height:{frame.h}px">
 					<Viewport kind="floorplan" label="Outlets · 33F" {scale} {active} {focused} {tool} {env} border={frameBorder} {entities} {sel} {view}
 						boxW={frame.w} boxH={frame.h}
-						{onactivate} {ondeactivate} {onadd} {onupdate} {ondelete} {onselect} {onview} />
+						{onactivate} {ondeactivate} {onadd} {onupdate} {ondelete} {onselect} {onview} {onstatus} {oncoords} />
 					{#if !active}
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
 						<!-- Border band selects + moves; the interior child leaves the middle inert. -->

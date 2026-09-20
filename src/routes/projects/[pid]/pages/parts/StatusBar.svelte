@@ -8,10 +8,10 @@
 	import type { PaperSize } from '../constants'
 	let { layout = $bindable('sheet'), toggles = $bindable<Record<string, boolean>>({}), acadMode = $bindable(true),
 		paperSize = 'A3', paperLandscape = true, onpapersize, onorient,
-		cx = 0, cy = 0, zoom = 100, onzoom, onfit }:
+		coords = null, zoom = 100, onzoom, onfit }:
 		{ layout?: 'model' | 'sheet'; toggles?: Record<string, boolean>; acadMode?: boolean;
 			paperSize?: PaperSize; paperLandscape?: boolean; onpapersize?: (s: PaperSize) => void; onorient?: (landscape: boolean) => void;
-			cx?: number; cy?: number; zoom?: number; onzoom?: (f: number) => void; onfit?: () => void } = $props()
+			coords?: { x: number; y: number } | null; zoom?: number; onzoom?: (f: number) => void; onfit?: () => void } = $props()
 </script>
 
 <footer class="statusbar">
@@ -33,7 +33,7 @@
 			{paperLandscape ? 'Landscape' : 'Portrait'}
 		</button>
 	</div>
-	<div class="coords">{cx}, {cy} px</div>
+	<div class="coords">{coords ? `${coords.x}, ${coords.y} mm` : '—'}</div>
 	<div class="toggles">
 		{#each Object.keys(toggles) as k (k)}
 			<button class:on={toggles[k]} onclick={() => (toggles[k] = !toggles[k])}>{k}</button>

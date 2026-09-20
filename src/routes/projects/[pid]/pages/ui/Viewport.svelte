@@ -18,9 +18,9 @@
 	// Drafting/interaction flags are grouped into one `env` object to keep the prop list small.
 	export type Env = { acad?: boolean; navContent?: boolean; grid?: boolean; lwt?: boolean; osnap?: boolean; canvasZoom?: number }
 	let { label = 'Viewport', scale = '', kind = 'floorplan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {},
-		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, ondeactivate, onadd, onupdate, ondelete, onselect, onview }:
+		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, onactivate, ondeactivate, onadd, onupdate, ondelete, onselect, onview, onstatus, oncoords }:
 		{ label?: string; scale?: string; kind?: 'floorplan' | 'model' | 'elevation'; active?: boolean; tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env;
-			focused?: boolean; entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; ondeactivate?: () => void; onadd?: (e: Ent) => void; onupdate?: (e: Ent) => void; ondelete?: (ids: string[]) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void } = $props()
+			focused?: boolean; entities?: Ent[]; sel?: string[]; view?: View; onactivate?: () => void; ondeactivate?: () => void; onadd?: (e: Ent) => void; onupdate?: (e: Ent) => void; ondelete?: (ids: string[]) => void; onselect?: (ids: string[]) => void; onview?: (v: View) => void; onstatus?: (text: string) => void; oncoords?: (x: number, y: number) => void } = $props()
 	const acad = $derived(env.acad ?? true)
 	const navContent = $derived(env.navContent ?? false)
 	const grid = $derived(env.grid ?? true)
@@ -165,6 +165,7 @@
 	}
 	let lastRaw: Pt | null = null   // last UNconstrained pointer during a draft (for re-constraining on Shift)
 	function onMove(e: MouseEvent) {
+		if (oncoords) { const wp = toLocalXY(e.clientX, e.clientY); if (wp) oncoords(Math.round(wp[0]), Math.round(wp[1])) }   // world (model-unit) coords for the status bar
 		if (active && draft.length) { const sp = drawPoint(e.clientX, e.clientY, draft.at(-1), e.shiftKey); if (sp) { lastRaw = toLocalXY(e.clientX, e.clientY); cur = sp } }
 		else if (active && osnap && DRAW.has(tool)) findSnap(e.clientX, e.clientY)   // show snap marker before the first click (DRAW excludes Select)
 		// hover feedback for the Select tool: 'move' when over a shape body (a grip shows its own cursor)
@@ -397,7 +398,7 @@
 	// ── drag to move / edit ──
 	// `bases` = the entities a body-move drags (the whole selection when you grab a selected one,
 	// else just the grabbed one). `base`/`gi` drive grip drags (always a single entity).
-	let drag: { id: string; base: Ent; bases: Ent[]; kind: 'grip' | 'move'; gi: number; start: Pt } | null = null
+	let drag: { id: string; base: Ent; bases: Ent[]; kind: 'grip' | 'move'; gi: number; start: Pt; dup?: boolean; duplicated?: boolean } | null = null
 	let dragged = false        // true once the pointer actually moved during a drag
 	let suppressClick = false  // swallow the click that ends a real drag (avoids re-select)
 	// Track pressed pointers so a second finger (2-finger pan/zoom) aborts an entity drag —
@@ -455,12 +456,15 @@
 			return
 		}
 		const base = entities.find(x => x.id === hitInfo.id); if (!base) return
-		const add = e.shiftKey || e.ctrlKey || e.metaKey
-		if (!add && !selSet.has(hitInfo.id)) onselect?.([hitInfo.id])   // plain press on an unselected entity → select it (additive toggles on release)
+		// Shift-press on a body is selection-only (toggles on release) — must NOT start a move drag.
+		if (e.shiftKey && hitInfo.kind === 'move') { pointers.delete(e.pointerId); return }
+		if (!(e.ctrlKey || e.metaKey) && !selSet.has(hitInfo.id)) onselect?.([hitInfo.id])   // plain press on an unselected entity → select it
 		// a body move drags the whole selection when the grabbed entity is part of it, else just it
 		const moveIds = hitInfo.kind === 'move' && selSet.has(hitInfo.id) && sel.length > 1 ? sel : [hitInfo.id]
 		const bases = moveIds.map(id => entities.find(x => x.id === id)).filter(Boolean) as Ent[]
-		drag = { id: hitInfo.id, base, bases, kind: hitInfo.kind, gi: hitInfo.gi, start: p }
+		// Ctrl/⌘-drag DUPLICATES the selection (copies created on the first move); a Ctrl-CLICK (no
+		// move) instead toggles selection via onClick.
+		drag = { id: hitInfo.id, base, bases, kind: hitInfo.kind, gi: hitInfo.gi, start: p, dup: (e.ctrlKey || e.metaKey) && hitInfo.kind === 'move', duplicated: false }
 		dragged = false
 		try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic events */ }
 		e.preventDefault()
@@ -488,9 +492,15 @@
 			const s = osnap ? findSnap(e.clientX, e.clientY, drag.id) : null
 			onupdate?.(s ? gripsFor(drag.base)[drag.gi].apply(s) : applyDrag(p, e.shiftKey))
 		} else {
+			// Ctrl/⌘-drag: on the first real move, drop copies at the originals and drag the copies.
+			if (drag.dup && !drag.duplicated) {
+				const copies = drag.bases.map(b => ({ ...b, id: uid() }))
+				copies.forEach(c => onadd?.(c)); onselect?.(copies.map(c => c.id))
+				drag.bases = copies; drag.duplicated = true
+			}
 			let dx = p[0] - drag.start[0], dy = p[1] - drag.start[1]
 			if (e.shiftKey) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 }   // ortho / axis-lock
-			for (const b of drag.bases) onupdate?.(moveEnt(b, dx, dy))   // move the whole group
+			for (const b of drag.bases) onupdate?.(moveEnt(b, dx, dy))   // move the whole group (or the copies)
 		}
 	}
 	function onDragUp() {
@@ -570,6 +580,12 @@
 			default: return tool + ' tool'
 		}
 	})
+	// Status line shown at the PANE bottom-centre (screen space, +page) so it stays visible when
+	// zoomed in — includes the inline-edit key help while editing text.
+	let statusText = $derived(
+		editText ? 'Editing text · Enter = new line · Ctrl/⌘+Enter = commit · Esc = cancel'
+			: active ? `${tool} · ${prompt} · ${Math.round(view.zoom * 100)}%` : '')
+	$effect(() => { if (focused) onstatus?.(statusText) })   // only the focused pane drives the shared status
 </script>
 
 <svelte:window onkeydown={onKey} onkeyup={(e) => { if (active && focused && e.key === 'Shift') reconstrain(false) }} />
@@ -655,9 +671,8 @@
 	</svg>
 
 	<div class="vp-tag"><Icon name={tagIcon[kind]} size={10} /> {label}{#if scale}<span class="vp-scale">{scale}</span>{/if}</div>
-	{#if active}
-		<div class="vp-badge"><span class="vp-dot"></span>{tool} · {prompt} · {Math.round(view.zoom * 100)}%</div>
-	{/if}
+	<!-- the tool prompt + inline-edit help now render at the PANE bottom-centre (see +page), so they
+	     stay put and readable when zoomed in -->
 	{#if editText}
 		{@const lines = (editText.value || ' ').split('\n')}
 		{@const cols = Math.max(...lines.map(l => l.length), 3)}
@@ -670,7 +685,6 @@
 			onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()} ondblclick={(e) => e.stopPropagation()}
 			onblur={commitText}
 			onkeydown={(e) => { e.stopPropagation(); if (e.key === 'Escape') { e.preventDefault(); editText = null } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commitText() } }}></textarea>
-		<div class="text-edit-hint">Enter = new line · Ctrl/⌘+Enter = commit · Esc = cancel</div>
 	{/if}
 </div>
 
@@ -752,11 +766,6 @@
 	}
 	.vp-tag :global(svg) { color:#94a3b8; }
 	.vp-scale { color:#94a3b8; font-family:Consolas,monospace; }
-	.vp-badge {
-		position:absolute; bottom:6px; left:6px; display:flex; align-items:center; gap:5px; font-size:8px; letter-spacing:.04em;
-		color:#0e5866; background:#5ac6d222; border:1px solid #5ac6d2; border-radius:3px; padding:2px 6px;
-	}
-	.vp-dot { width:5px; height:5px; border-radius:50%; background:#157a8b; }
 	/* Opaque editor over the (hidden) text: dark text on white so it reads on the paper; auto-sized
 	   to the content (width/height set inline from the value) so multi-line shows fully. */
 	.text-edit { position:absolute; z-index:10; background:#fff; color:#111827; font-weight:600;
@@ -764,7 +773,4 @@
 		box-shadow:0 1px 6px #0003; user-select:text; -webkit-user-select:text; }
 	.text-edit { font-family:'Consolas','SF Mono',ui-monospace,'Menlo',monospace; }
 	.text-edit:focus { outline:none; box-shadow:0 0 0 2px #0e749044; }
-	/* Usage hint pinned to the viewport bottom (not the editor, so it doesn't scale with zoom much). */
-	.text-edit-hint { position:absolute; bottom:6px; left:50%; transform:translateX(-50%); z-index:11; white-space:nowrap;
-		font-size:10px; color:#0e5866; background:#5ac6d2e6; border:1px solid #5ac6d2; border-radius:4px; padding:2px 8px; pointer-events:none; }
 </style>

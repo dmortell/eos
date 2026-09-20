@@ -4,9 +4,9 @@
 	// come from the parent (+page owns the undo/redo stacks and the doc entities).
 	import { Icon } from '$lib'
 	type Snap = Record<string, unknown>
-	let { history = [], revisions = [], rev = '', revOptions = [], onrev, onnote, onundo, onredo, onnewrevision, onrestore }:
+	let { history = [], revisions = [], onnote, onundo, onredo, onnewrevision, onrestore }:
 		{ history?: { label: string; t: number }[]; revisions?: { name: string; note: string; snap: Snap; t: number }[];
-			rev?: string; revOptions?: string[]; onrev?: (r: string) => void; onnote?: (i: number, note: string) => void;
+			onnote?: (i: number, note: string) => void;
 			onundo?: () => void; onredo?: () => void; onnewrevision?: () => void; onrestore?: (s: Snap) => void } = $props()
 
 	function ago(t: number) {
@@ -20,13 +20,6 @@
 </script>
 
 <div class="hp">
-	<!-- Current issue revision of this drawing (moved here from the titlebar). -->
-	<div class="hp-rev-head-row">
-		<span>REVISION</span>
-		<select value={rev} onchange={(e) => onrev?.((e.currentTarget as HTMLSelectElement).value)}>
-			{#each revOptions as r (r)}<option value={r}>{r}</option>{/each}
-		</select>
-	</div>
 	<div class="hp-tools">
 		<button onclick={() => onundo?.()} title="Undo (Ctrl+Z)"><Icon name="chevronLeft" size={14} /> Undo</button>
 		<button onclick={() => onredo?.()} title="Redo (Ctrl+Y)">Redo <Icon name="chevronRight" size={14} /></button>
@@ -72,10 +65,6 @@
 
 <style>
 	.hp { flex:1; overflow-y:auto; min-height:0; padding:6px; scrollbar-width:thin; scrollbar-color:var(--line) transparent; }
-	.hp-rev-head-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:2px 4px 8px; }
-	.hp-rev-head-row span { font-size:9px; text-transform:uppercase; letter-spacing:.1em; color:var(--faint); }
-	.hp-rev-head-row select { background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:2px 8px; font-size:12px; font-weight:600; }
-	.hp-rev-head-row select:focus { outline:none; border-color:var(--accent); }
 	.hp-tools { display:flex; gap:5px; padding:2px 2px 6px; }
 	.hp-tools button { flex:1; display:inline-flex; align-items:center; justify-content:center; gap:4px; padding:6px; font-size:11px;
 		border-radius:5px; color:var(--text); background:var(--panel2); border:1px solid var(--line); }
