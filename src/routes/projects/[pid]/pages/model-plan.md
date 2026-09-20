@@ -1,5 +1,17 @@
 # Pages — real 3D floor MODEL + sections plan
 
+> **Decisions (Dave, 2026-09-20):** keep Pages' own editor; import the geometry engine into a new
+> **`pages/3dview/`** subfolder (Decision 1B). Each viewport references the relevant **model** for the
+> floor shown (Decision 2). **Fake outline-gap openings** for now (Decision 3). **Multi-direction
+> sections** yes. The **mock box** (`ui/geometry.ts` `box`) will be retired once the model lands.
+> **P1 DONE (2026-09-20):** ported `types/graph/projection/migrate` into `pages/3dview/`; added
+> `models.svelte.ts` (in-memory registry, seeded demo floor = walls + furniture + a rect trunk);
+> `Model3d.svelte` renders a model's projected outlines (per-layer colour) into the viewport. Wired
+> into `ui/Viewport.svelte` for the plan view. Verified in-browser: walls render as a mitred
+> double-line ribbon, furniture + trunk as footprints. **Next: P1b** — elevation/iso coordinate
+> alignment (proj v = height-up vs Pages y-down / GROUND / elevU), then P2 editing + retire the mock box.
+
+
 Goal: in Pages, draw a floor's **model** (walls, openings for doors/windows, furniture as boxes/holes,
 horizontal + vertical pipes and rectangular trunks), then cut **section boxes** to generate elevation
 views — all from ONE 3D model, projected per view. Most of the engine already exists in

@@ -12,6 +12,8 @@
 	import { BASE, HANDLE_PX } from '../constants'
 	import { type Pt, type Ent, type View, type ElevDir, DEFAULT_BOX_H, GROUND, PT, MMPU, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, ELEV_BASIS, elevU, elevUInv, flatSpan, dist, segDist, translate, textBox, boxElev, boxElevSet, boxFaces } from './geometry'
 	import { isLayerHidden, isLayerLocked, layerColor } from '../layers.svelte'
+	import Model3d from '../3dview/Model3d.svelte'
+	import { models } from '../3dview/models.svelte'
 	// Pure geometry now lives in ./geometry (testable, shared with PropertiesPanel); re-export the
 	// entity types so existing `import { type Ent } from './Viewport.svelte'` sites keep working.
 	export type { Pt, Ent, View } from './geometry'
@@ -766,6 +768,8 @@
 				<text x="24" y="230" font-size="9" fill="#64748b" font-weight="600">OFFICE — 33F</text>
 			{/if}
 			</g>
+			<!-- P1: real 3D model (plan view) — see model-plan.md. Read-only for now; elevation/iso next. -->
+			{#if kind === 'floorplan' && models[0]}<Model3d model={models[0]} dir="plan" />{/if}
 			<!-- drawn entities (objects on a hidden layer are skipped; the edited text is hidden too) -->
 			{#each entities as e (e.id)}{#if e.id !== editText?.id && !isLayerHidden(e.layer) && inThisView(e)}{#if e.rot}{@const c = rotCenter(e)}<g transform="rotate({e.rot} {c[0]} {c[1]})">{@render drawn(e, selSet.has(e.id))}</g>{:else}{@render drawn(e, selSet.has(e.id))}{/if}{/if}{/each}
 			{#if active && tool === 'Line' && draft.length}
