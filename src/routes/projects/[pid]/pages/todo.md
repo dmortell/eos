@@ -214,14 +214,19 @@ New todos (design / bigger):
   `snapNode` takes the drag `origin` and skips any candidate within a break radius of it, so a node that
   starts coincident with a partner can be pulled cleanly off it instead of re-snapping forever. (This is
   also what lets a fresh Alt-branch node separate from the node it sprang from.)
-- [ ] **Select + DELETE graph nodes; Ctrl-drag a node to branch** (Dave, 2026-09-21) — let a single
-  wall/conduit NODE be selected and deleted, with the connected segments handled by degree: **1 segment
-  → delete that segment**; **2 segments → join them into one** (drop the node, merge the two segments);
-  **3+ segments → ?** (undecided — options: refuse/keep the node, or delete all but pick a pass-through
-  pair; discuss). And **Ctrl-drag a node** starts a NEW segment from it. NB: branch-from-node already
-  exists as **Alt-drag** (see above) — reconcile: switch to Ctrl-drag as Dave prefers, or keep Alt and
-  free Ctrl for duplicate/additive (decide the modifier map). Needs a node-level selection (today
-  selection is whole-object; grips are per-node but not individually selectable).
+- [ ] **Select + DELETE graph nodes** (Dave, 2026-09-21) — let a single wall/conduit NODE be selected and
+  deleted, with the connected segments handled by degree: **1 segment → delete that segment**; **2
+  segments → join them into one** (drop the node, merge the two segments); **3+ segments → keep the FIRST
+  TWO segments joined into one and delete the rest** (Dave's spec 2026-09-21). Needs a node-level
+  selection (today selection is whole-object; grips are per-node but not individually selectable).
+  Branch-from-node is now **Ctrl-drag** (done 2026-09-21; was Alt).
+- [ ] **Audit + minimise Alt-key functions** (Dave, 2026-09-21 — rarely uses Alt) — list every Alt-*
+  binding in the Pages tool and move the useful ones to Ctrl/other or a visible control. Known Alt uses:
+  panzoom Alt+wheel = zoom (`ui/panzoom.ts`); (node-branch moved off Alt → Ctrl). Grep `altKey` across
+  `pages/` and decide each.
+- [ ] **Touch: Guide tool button pop-out for H/V** (Dave, 2026-09-21) — on touch there's no Shift to pick
+  vertical, so the Guide toolbar button should pop out an **H / V** selector. Fits the tools-pop-out-groups
+  todo (a tool button that fans out its variants).
 - [ ] **Stable per-DRAWING id for tab dedup + persistence** (Dave, 2026-09-21) — tab ids are an ephemeral
   session counter (`'t'+seq`; the 4 seeded tabs are hardcoded t1–t4, dynamic ones get t5+ by OPEN ORDER),
   and `openDrawing` dedupes by TITLE. So the per-tab localStorage canvas view (and any future per-tab

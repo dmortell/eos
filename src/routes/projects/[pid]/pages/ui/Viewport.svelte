@@ -250,7 +250,7 @@
 	let lastRaw: Pt | null = null   // last UNconstrained pointer during a draft (for re-constraining on Shift)
 	function onMove(e: MouseEvent) {
 		if (on.coords) { const wp = toLocalXY(e.clientX, e.clientY); if (wp) on.coords(Math.round(wp[0]), Math.round(wp[1])) }   // world (model-unit) coords for the status bar
-		if (active && tool === 'Guide' && viewSpace) { const gp = toLocalXY(e.clientX, e.clientY); guideCur = gp ? { orient: e.shiftKey ? 'v' : 'h', pos: e.shiftKey ? gp[0] : gp[1] } : null } else if (guideCur) guideCur = null
+		if (active && tool === 'Guide' && viewSpace) { const gp = toLocalXY(e.clientX, e.clientY); lastGuidePt = gp; guideCur = gp ? { orient: e.shiftKey ? 'v' : 'h', pos: e.shiftKey ? gp[0] : gp[1] } : null } else if (guideCur) { guideCur = null; lastGuidePt = null }
 		if (active && draft.length) { const sp = drawPoint(e.clientX, e.clientY, draft.at(-1), e.shiftKey); if (sp) { lastRaw = toLocalXY(e.clientX, e.clientY); cur = sp } }
 		else if (active && osnap && DRAW.has(tool)) findSnap(e.clientX, e.clientY)   // show snap marker before the first click (DRAW excludes Select)
 		// hover feedback for the Select tool: 'move' when over a shape body (a grip shows its own cursor)
@@ -307,7 +307,7 @@
 	function onKey(e: KeyboardEvent) {
 		if (!active || !focused || editText) return   // in split view only the focused pane's instance handles keys
 		if (isTypingTarget(e.target) || isTypingTarget(document.activeElement)) return   // typing in a field → let it through
-		if (e.key === 'Shift') { reconstrain(true); return }
+		if (e.key === 'Shift') { reconstrain(true); updateGuidePreview(true); return }
 		if (e.key === 'Enter' && POLY.has(tool) && draft.length) { e.preventDefault(); finishPolyline(); return }   // finish polyline / wall / trunk / pipe
 		if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) { e.preventDefault(); on.select?.(entities.map(x => x.id)); return }   // select all
 		if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D') && sel.length) {   // duplicate (offset +8,+8)
@@ -594,6 +594,11 @@
 	// ── alignment GUIDES ── the Guide tool drops a full-view h/v line (Shift = vertical) in this view's
 	// space; a selected PLAN guide then fixes the depth when drawing a conduit in an elevation.
 	let guideCur = $state<{ orient: 'h' | 'v'; pos: number } | null>(null)   // hover preview for the Guide tool
+	let lastGuidePt: Pt | null = null   // last cursor point, so Shift can flip the preview orientation instantly
+	function updateGuidePreview(shift: boolean) {   // re-orient the Guide preview on Shift, without a mousemove
+		if (tool !== 'Guide' || !lastGuidePt) return
+		guideCur = { orient: shift ? 'v' : 'h', pos: shift ? lastGuidePt[0] : lastGuidePt[1] }
+	}
 	function placeGuide(p: Pt, shift: boolean) {
 		if (!viewSpace) return
 		const orient = shift ? 'v' : 'h'
@@ -1098,11 +1103,11 @@
 			const g = pickModelGrip(e.clientX, e.clientY)
 			if (g) {
 				on.beginedit?.()   // one undo step for the whole reshape gesture
-				// Alt-press on a wall/conduit node BRANCHES: sprout a new segment and drag the new node
+				// Ctrl/⌘-press on a wall/conduit node BRANCHES: sprout a new segment and drag the new node
 				// out (a junction/tee). Plain press moves the node. origin = the grip's start position so
 				// the dragged node can be pulled off any partner it was coincident with (disconnect).
 				let grip = g, origin: Pt = [g.x, g.y], branch: (() => void) | undefined
-				if (e.altKey && g.node && g.obj && (g.obj.type === 'wall' || g.obj.type === 'conduit')) {
+				if ((e.ctrlKey || e.metaKey) && g.node && g.obj && (g.obj.type === 'wall' || g.obj.type === 'conduit')) {
 					const obj = g.obj, nn = branchNode(obj, g.node)
 					const d = graphNodeDraw(nn); origin = [d[0], d[1]]
 					grip = { x: d[0], y: d[1], node: nn, obj, apply: (p: Pt, o?: Pt) => graphNodeApply(nn, p, o) }
@@ -1302,7 +1307,7 @@
 		if (!active) return ''
 		const n = draft.length
 		switch (tool) {
-			case 'Select': return mSelObj && (mSelObj.type === 'wall' || mSelObj.type === 'conduit') ? 'Drag a node to reshape · Alt-drag a node to branch · double-click a segment to add a node' : 'Click an element'
+			case 'Select': return mSelObj && (mSelObj.type === 'wall' || mSelObj.type === 'conduit') ? 'Drag a node to reshape · Ctrl-drag a node to branch · double-click a segment to add a node' : 'Click an element'
 			case 'Line': return n ? 'Specify next point (Enter / double-click to finish)' : 'Specify first point'
 			case 'Guide': return viewSpace ? 'Click to drop a horizontal guide · Shift = vertical · select a plan guide to fix the depth for elevation drawing' : 'Guides are placed on a plan or elevation view'
 			case 'Wall': case 'Trunk': case 'Pipe': {
@@ -1330,7 +1335,7 @@
 	$effect(() => { if (focused) on.status?.(statusText) })   // only the focused pane drives the shared status
 </script>
 
-<svelte:window onkeydown={onKey} onkeyup={(e) => { if (active && focused && e.key === 'Shift') reconstrain(false) }} />
+<svelte:window onkeydown={onKey} onkeyup={(e) => { if (active && focused && e.key === 'Shift') { reconstrain(false); updateGuidePreview(false) } }} />
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="vp print:!border-transparent" class:active bind:clientWidth={vpW} bind:clientHeight={vpH} role="button" tabindex="0" style:cursor={cursorStyle}
