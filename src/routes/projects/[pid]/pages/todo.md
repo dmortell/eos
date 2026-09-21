@@ -520,6 +520,38 @@ Symbols are identical to annotes.
   — now that sheets take multiple viewports, a section's clip+dir should be placeable as a frame on the
   current sheet (source `{ proj: dir, clip }`) instead of only spawning an elevation tab. **Follow-up:**
   [ ] per-frame CROP + a real source config (drawing id) when Pages gets multiple models/drawings.
+- [ ] **Unify PRIMARY viewport into the frames array + a PAGE MODEL** (Dave, 2026-09-21) — the sheet
+  currently has a special primary viewport (tab-keyed) PLUS an array of extra frames (`docFrames`). Dave:
+  drop the primary/extra split — just the array. And instead of a separate `docFrames`/`snapFrames`,
+  give each PAGE a **page model** that holds its viewport frames (and later a titleblock + page
+  annotations) as one object, so the whole page is one persisted/undoable unit. This unifies keying
+  (every viewport frame-keyed), fixes the primary-vs-extra behaviour asymmetry at the root, and folds
+  the frame history/persistence into the page model. Was built primary+extras for safety (not to risk
+  the working sheet); now do the real unification. **Blocker to weigh:** the primary is what makes a
+  sheet feel like it has a "main" drawing + a titleblock; with a pure array the default page seeds one
+  full-bleed frame. **Also list + reconcile PaperPage vs Viewport differences** (below) as part of this.
+  - **PaperPage vs Viewport — differences to reconcile** (for the merge): PaperPage works in **paper px**
+    (screen space, `sheetEl.getBoundingClientRect`), Viewport in **model mm** (viewBox + dscale);
+    PaperPage owns frame **geometry/selection/drag** (band + corner grips) while Viewport owns
+    **content pan/zoom + drawing + entity/model grips**; PaperPage's new-frame drag is a **bespoke
+    marquee** vs Viewport's **rect gesture** (ACAD two-click / EOS press-drag) — should be one; PaperPage
+    renders the **titleblock**; both have their own **marquee** + **Handle grips** (share `Handle.svelte`
+    already). A merge = one surface that hosts nested viewports, each a Viewport, with paper-space vs
+    model-space just a coordinate mode.
+- [ ] **Set the DEPTH PLANE when drawing conduits in an elevation** (Dave, 2026-09-21) — today an
+  elevation-drawn wall conduit defaults its off-axis depth to the model centre. Let the user set the
+  work plane before/while drawing, the way CAD does: (a) a **UCS / construction plane** (AutoCAD: set the
+  active plane, all input lands on it; Revit: pick a work plane / a wall's face); (b) **snap onto
+  existing geometry** (draw on a wall's centreline → inherit its depth) — usually the most natural for
+  "conduit on this wall"; (c) a **depth field** on the tool bar / command line (type the offset). Start
+  with (b) snap-to-wall + (c) a depth input; (a) a full UCS is the bigger model.
+- [ ] **RISERS tool** (Dave, 2026-09-21) — like an elevation but spanning **multiple floors** of the
+  building: server / IDF / EPS rooms on each floor, connected by **risers, trunks and cable routes**
+  running vertically between floors. A riser diagram is a multi-floor section: stack each floor's
+  relevant rooms at their true z, draw the vertical backbone conduits + horizontal ties, label
+  floor/room/cable counts. Builds on the model (levels/z, conduit graphs with vertical runs — already
+  supported) + the section/elevation projection; a riser is essentially a tall section clipped to the
+  riser shafts across all floors.
 - [ ] **Door swing SIDE + type parity** (Dave, 2026-09-21) — the door `flip` picks the hinge JAMB;
   add a toggle for which SIDE of the wall the leaf swings into (in/out), and a swing-angle handle exists
   (drag the leaf tip). Windows currently draw a single glazing line — add sill/head + mullions in
