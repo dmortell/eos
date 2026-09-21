@@ -365,3 +365,5 @@ set cheaper model for simpler subagents
 break sessions
 
 Layers need a lock button beside the visibility button. Changing between plan and elevation in a split tab affects the vertical offset of the other tab
+
+Section should open in a view. Should we just link sections to elevations in a book?

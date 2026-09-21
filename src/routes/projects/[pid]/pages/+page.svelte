@@ -55,7 +55,21 @@
 	type Proj = 'plan' | 'front' | 'rear' | 'left' | 'right' | 'iso'
 	// `layout` is PER-PANE ('sheet' = paper + frame, 'model' = drawing fills the pane) so toggling
 	// Full-size (or a projection) in one split pane doesn't disturb the other pane's view.
-	let panes = $state<{ id: string; activeId: string; tool: string; canvasView: View; layout: 'model' | 'sheet' }[]>([{ id: 'p1', activeId: 't2', tool: 'Select', canvasView: { zoom: 1, x: 0, y: 0 }, layout: 'sheet' }])
+	let panes = $state<{ id: string; activeId: string; tool: string; layout: 'model' | 'sheet' }[]>([{ id: 'p1', activeId: 't2', tool: 'Select', layout: 'sheet' }])
+	// Canvas (paper-space) pan/zoom is per PANE + TAB — switching tabs in a pane keeps each tab's own paper
+	// position/zoom (was per-pane, so zooming one tab changed the next). Persisted per tab in localStorage
+	// (a per-user UI convenience); the viewport CONTENT view (docView) is the document-side pan/zoom.
+	let docCanvasView = $state<Record<string, View>>({})   // live per pane+tab (split-independent)
+	let cvCache = $state<Record<string, View>>({})          // per-tab localStorage seed (loaded once, client only)
+	const CV_LS = 'eos.pages.canvasView'
+	const cvKey = (paneId: string, tabId: string) => paneId + ':' + tabId
+	$effect(() => { try { cvCache = JSON.parse(localStorage.getItem(CV_LS) || '{}') } catch { /* private mode */ } })
+	const canvasViewOf = (pane: { id: string; activeId: string }): View => docCanvasView[cvKey(pane.id, pane.activeId)] ?? cvCache[pane.activeId] ?? { zoom: 1, x: 0, y: 0 }
+	function setCanvasView(pane: { id: string; activeId: string }, v: View) {
+		docCanvasView = { ...docCanvasView, [cvKey(pane.id, pane.activeId)]: v }
+		cvCache = { ...cvCache, [pane.activeId]: v }
+		try { localStorage.setItem(CV_LS, JSON.stringify(cvCache)) } catch { /* private mode */ }
+	}
 	// Active PROJECTION keyed by PANE + tab, so each split pane is independent (plan in one, side in
 	// the other) yet each pane remembers a view's projection when you switch tabs within it.
 	let docProj = $state<Record<string, Proj>>({})
@@ -82,7 +96,7 @@
 	let docScale = $state<Record<string, string>>({ t2: '1:25' })   // 3303 Outlets sheet defaults bigger (1:25)
 	const scaleOf = (id?: string) => docScale[id ?? ''] ?? '1:100'   // model space is real mm; 1:100 fits the ~28 m demo plan
 	// The drafting/interaction flags bundle passed to a pane's viewport (one prop instead of six).
-	const envFor = (pane: { canvasView: View }) => ({ acad: acadMode, navContent, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, canvasZoom: pane.canvasView.zoom })
+	const envFor = (pane: { id: string; activeId: string }) => ({ acad: acadMode, navContent, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, canvasZoom: canvasViewOf(pane).zoom })
 	// All the viewport event callbacks in ONE `on` object (was ~13 separate props). PaperPage also
 	// uses `frame`; the plain Viewport ignores it.
 	const vpOn = (a: Tab, pane: { id: string; tool: string }) => ({
@@ -425,7 +439,7 @@
 		// Mirror the current pane into the split: same active tab + layout, so it opens as a
 		// duplicate view you then diverge (change projection/tab in one side).
 		const src = panes[0]
-		panes = [...panes, { id: 'p' + ++paneSeq, activeId: src.activeId, tool: 'Select', canvasView: { zoom: 1, x: 0, y: 0 }, layout: src.layout }]
+		panes = [...panes, { id: 'p' + ++paneSeq, activeId: src.activeId, tool: 'Select', layout: src.layout }]
 		focused = 1; splitFrac = 0.5
 		tick().then(() => { fitPane(0); fitPane(1) })   // both panes narrowed → refit their sheets
 	}
@@ -569,14 +583,14 @@
 	let statusText = $state('')
 	function onCanvasMove() { /* coords now come from the viewport via oncoords */ }
 
-	// ── canvas (paper-space) pan/zoom — one pane's canvasView, CSS transform ──
-	function canvasPan(pane: { canvasView: View }, dx: number, dy: number) {
-		pane.canvasView.x += dx; pane.canvasView.y += dy
+	// ── canvas (paper-space) pan/zoom — this pane+tab's canvas view, CSS transform ──
+	function canvasPan(pane: { id: string; activeId: string }, dx: number, dy: number) {
+		const v = canvasViewOf(pane); setCanvasView(pane, { ...v, x: v.x + dx, y: v.y + dy })
 	}
-	function canvasZoom(pane: { canvasView: View }, el: HTMLElement, f: number, clientX: number, clientY: number) {
+	function canvasZoom(pane: { id: string; activeId: string }, el: HTMLElement, f: number, clientX: number, clientY: number) {
 		const r = el.getBoundingClientRect(), mx = clientX - r.left, my = clientY - r.top
-		const v = pane.canvasView, nz = Math.min(8, Math.max(0.1, v.zoom * f)), ratio = nz / v.zoom
-		v.x = mx - (mx - v.x) * ratio; v.y = my - (my - v.y) * ratio; v.zoom = nz
+		const v = canvasViewOf(pane), nz = Math.min(8, Math.max(0.1, v.zoom * f)), ratio = nz / v.zoom
+		setCanvasView(pane, { x: mx - (mx - v.x) * ratio, y: my - (my - v.y) * ratio, zoom: nz })
 	}
 	// Nav toolbar / status zoom act on the active viewport if one is active, else the canvas.
 	// Which zoom the wheel/nav actually acts on: the viewport CONTENT only when a viewport is active
@@ -585,12 +599,12 @@
 	const zoomsContent = (id?: string) => isVpActive(id) && navContent
 	let dispZoom = $derived.by(() => {
 		const p = panes[focused]; if (!p) return 100
-		return Math.round((zoomsContent(p.activeId) ? viewOf(p.id, p.activeId).zoom : p.canvasView.zoom) * 100)
+		return Math.round((zoomsContent(p.activeId) ? viewOf(p.id, p.activeId).zoom : canvasViewOf(p).zoom) * 100)
 	})
 	function navZoom(f: number) {
 		const p = panes[focused]; if (!p) return
 		if (zoomsContent(p.activeId)) { const v = viewOf(p.id, p.activeId); setView(p.id, p.activeId, { ...v, zoom: Math.min(8, Math.max(0.25, v.zoom * f)) }) }
-		else { p.canvasView = { ...p.canvasView, zoom: Math.min(8, Math.max(0.1, p.canvasView.zoom * f)) } }
+		else { const v = canvasViewOf(p); setCanvasView(p, { ...v, zoom: Math.min(8, Math.max(0.1, v.zoom * f)) }) }
 	}
 	// Fit a specific pane: frame its sheet paper (centred, with margin) or reset a model view.
 	function fitPane(idx: number) {
@@ -602,9 +616,9 @@
 		if (a2?.kind === 'sheet' && p.layout === 'sheet' && canvas && canvas.clientWidth > 50) {
 			const r = canvas.getBoundingClientRect(), pd = paperDimsOf(p.activeId)
 			const z = Math.min(r.width / pd.w, r.height / pd.h) * 0.9
-			p.canvasView = { zoom: z, x: (r.width - pd.w * z) / 2, y: (r.height - pd.h * z) / 2 }
+			setCanvasView(p, { zoom: z, x: (r.width - pd.w * z) / 2, y: (r.height - pd.h * z) / 2 })
 		} else {
-			p.canvasView = { zoom: 1, x: 0, y: 0 }
+			setCanvasView(p, { zoom: 1, x: 0, y: 0 })
 		}
 	}
 	function navFit() { fitPane(focused) }
@@ -778,7 +792,7 @@
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<main class="canvas" bind:this={canvasEls[pi]} onpointermove={onCanvasMove}
-						onpointerdown={(e) => { if (e.button === 0 && a && !(e.target as Element).closest?.('.paper')) { const av = activeVpOf(a.id); if (av) deactivateVp(av); selFrame = null } }}
+						ondblclick={(e) => { if (a && !(e.target as Element).closest?.('.paper, button, .glass-bar, .vp-active-bar, .navtools, .floattools')) { const av = activeVpOf(a.id); if (av) deactivateVp(av); selFrame = null } }}
 						use:panzoom={{ enabled: () => !!a, wheelZoom: () => acadMode, onpan: (dx, dy) => canvasPan(p, dx, dy), onzoom: (f, x, y, node) => canvasZoom(p, node, f, x, y) }}>
 						<div class="floattools glass-bar" class:dim={a && !isVpActive(a.id)}>
 							{#each TOOLS as t (t.name)}
@@ -816,7 +830,8 @@
 							</div>
 						{/if}
 						{#key p.activeId}
-							<div class="canvas-content" style:transform="translate({p.canvasView.x}px, {p.canvasView.y}px) scale({p.canvasView.zoom})">
+							{@const cv = canvasViewOf(p)}
+							<div class="canvas-content" style:transform="translate({cv.x}px, {cv.y}px) scale({cv.zoom})">
 								{#if a?.kind === 'sheet' && p.layout === 'sheet'}
 									<PaperPage title={a.title} tool={p.tool} scale={scaleOf(a.id)} env={envFor(p)} on={vpOn(a, p)} pw={paperDimsOf(a.id).w} ph={paperDimsOf(a.id).h}
 										sizeLabel="{paperOf(a.id).size} {paperOf(a.id).landscape ? 'L' : 'P'}" rev={rev} revDate={fmtDate(revisions[0]?.t)}
