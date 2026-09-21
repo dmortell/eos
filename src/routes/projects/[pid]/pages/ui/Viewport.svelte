@@ -6,6 +6,7 @@
 	// standalone model view (kind='model'). The parent owns the entities/selection
 	// (so drawing persists per document, tool + selection per view). Fills its parent.
 	import { Icon } from '$lib'
+	import { toast } from 'svelte-sonner'
 	import { tick } from 'svelte'
 	import { panzoom } from './panzoom'
 	import Handle from '../parts/Handle.svelte'
@@ -14,6 +15,7 @@
 	import { isLayerHidden, isLayerLocked, layerColor } from '../layers.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
 	import { models, modelSel, setModelSel } from '../3dview/models.svelte'
+	import { guides, guideSel, addGuide, removeGuide, setGuideSel, guideId, selectedPlanGuide, type Guide } from '../guides.svelte'
 	import { polyToGraph } from '../3dview/migrate'
 	import { DEFAULT_YAW, DEFAULT_PITCH, doorGeom, isoBounds, isoR, faces3d, isoDepthR } from '../3dview/projection'
 	import type { Obj, Clip } from '../3dview/types'
@@ -66,7 +68,11 @@
 	// Project a footprint coordinate (along the current dir's axis) to the drawing horizontal, and back.
 	const projU = (coord: number) => elevU(elevDir, coord, CX, CY)
 	const projUInv = (u: number) => elevUInv(elevDir, u, CX, CY)
-	const DRAW = new Set(['Line', 'Rectangle', 'Ellipse', 'Dimension', 'Text', 'Box', 'Wall', 'Furniture', 'Trunk', 'Pipe', 'Section', 'Opening'])
+	const DRAW = new Set(['Line', 'Rectangle', 'Ellipse', 'Dimension', 'Text', 'Box', 'Wall', 'Furniture', 'Trunk', 'Pipe', 'Section', 'Opening', 'Guide'])
+	// Guide lines belong to a drawable VIEW space (plan or an elevation); iso has none.
+	const viewSpace = $derived(kind === 'floorplan' ? 'plan' : isElev ? elevDir : null)
+	const viewGuides = $derived(viewSpace ? guides.filter((g) => g.space === viewSpace) : [])
+	const GUIDE_SPAN = 1e7   // guides render as full-view lines (spanning far past the viewport)
 	// Polyline-style tools (click points, Enter/dbl-click to finish). Line makes an entity; Wall/Trunk/Pipe
 	// build MODEL graph objects (plan only).
 	const POLY = new Set(['Line', 'Wall', 'Trunk', 'Pipe'])
@@ -217,15 +223,17 @@
 			if (e.shiftKey || e.ctrlKey || e.metaKey) {   // additive: toggle the whole group
 				if (g.length) { const allSel = g.every(x => selSet.has(x)); on.select?.(allSel ? sel.filter(x => !g.includes(x)) : [...new Set([...sel, ...g])]) }
 			} else {
-				// entity click wins; else a model object; else a section marker (opens its elevation); else clear.
-				if (g.length) { on.select?.(g); setModelSel([]); on.sectionselect?.(null) }
-				else { const mid = hitModel(p); if (mid) { setModelSel([mid]); on.select?.([]); on.sectionselect?.(null) }
-					else { const sid = hitSection(p); if (sid) { on.sectionselect?.(sid) }   // click a marker border → SELECT it (grips + toolbar); open via the link button
-						else { on.select?.([]); setModelSel([]); on.sectionselect?.(null) } } }
+				// entity click wins; else a model object; else a section marker; else a guide line; else clear.
+				if (g.length) { on.select?.(g); setModelSel([]); on.sectionselect?.(null); setGuideSel([]) }
+				else { const mid = hitModel(p); if (mid) { setModelSel([mid]); on.select?.([]); on.sectionselect?.(null); setGuideSel([]) }
+					else { const sid = hitSection(p); if (sid) { on.sectionselect?.(sid); setGuideSel([]) }   // click a marker border → SELECT it (grips + toolbar); open via the link button
+						else { const gid = hitGuide(p); if (gid) { setGuideSel([gid]); on.select?.([]); setModelSel([]); on.sectionselect?.(null) }
+							else { on.select?.([]); setModelSel([]); on.sectionselect?.(null); setGuideSel([]) } } } }
 			}
 			return
 		}
 		if (tool === 'Text') { const p = drawPoint(e.clientX, e.clientY); if (p) on.add?.({ id: uid(), type: 'text', a: p, text: 'TEXT', space: drawSpace() }); snapMark = null; return }
+		if (tool === 'Guide') { const p = toLocal(e); if (p) placeGuide(p, e.shiftKey); return }   // drop an alignment guide (Shift = vertical)
 		// Model objects are placed in the plan — EXCEPT wall/trunk/pipe graphs, which can also be drawn in
 		// an elevation (a vertical wall conduit). Furniture / Section / Opening stay plan-only.
 		if (MODEL_TOOL.has(tool) && !isPlan && !(MODEL_GRAPH.has(tool) && isElev)) return
@@ -242,6 +250,7 @@
 	let lastRaw: Pt | null = null   // last UNconstrained pointer during a draft (for re-constraining on Shift)
 	function onMove(e: MouseEvent) {
 		if (on.coords) { const wp = toLocalXY(e.clientX, e.clientY); if (wp) on.coords(Math.round(wp[0]), Math.round(wp[1])) }   // world (model-unit) coords for the status bar
+		if (active && tool === 'Guide' && viewSpace) { const gp = toLocalXY(e.clientX, e.clientY); guideCur = gp ? { orient: e.shiftKey ? 'v' : 'h', pos: e.shiftKey ? gp[0] : gp[1] } : null } else if (guideCur) guideCur = null
 		if (active && draft.length) { const sp = drawPoint(e.clientX, e.clientY, draft.at(-1), e.shiftKey); if (sp) { lastRaw = toLocalXY(e.clientX, e.clientY); cur = sp } }
 		else if (active && osnap && DRAW.has(tool)) findSnap(e.clientX, e.clientY)   // show snap marker before the first click (DRAW excludes Select)
 		// hover feedback for the Select tool: 'move' when over a shape body (a grip shows its own cursor)
@@ -321,6 +330,7 @@
 		if ((e.key === 'Delete' || e.key === 'Backspace') && sel.length && !draft.length) { e.preventDefault(); on.delete?.(sel); return }
 		if ((e.key === 'Delete' || e.key === 'Backspace') && modelSel.length && !draft.length) { e.preventDefault(); deleteModelSel(); return }
 		if ((e.key === 'Delete' || e.key === 'Backspace') && selSection && !draft.length) { e.preventDefault(); on.sectiondelete?.(selSection); return }
+		if ((e.key === 'Delete' || e.key === 'Backspace') && guideSel.length && !draft.length) { e.preventDefault(); for (const id of [...guideSel]) removeGuide(id); return }
 		if (sel.length && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
 			e.preventDefault()
 			const s = e.shiftKey ? 10 : 1
@@ -580,6 +590,21 @@
 		return `${tip[0]},${tip[1]} ${b1[0]},${b1[1]} ${b2[0]},${b2[1]}`
 	}
 	const sectionArrowPts = (s: SectionMarker): string => sectionArrowFor(s.clip, s.dir)
+
+	// ── alignment GUIDES ── the Guide tool drops a full-view h/v line (Shift = vertical) in this view's
+	// space; a selected PLAN guide then fixes the depth when drawing a conduit in an elevation.
+	let guideCur = $state<{ orient: 'h' | 'v'; pos: number } | null>(null)   // hover preview for the Guide tool
+	function placeGuide(p: Pt, shift: boolean) {
+		if (!viewSpace) return
+		const orient = shift ? 'v' : 'h'
+		addGuide({ id: guideId(), space: viewSpace, orient, pos: Math.round(orient === 'h' ? p[1] : p[0]) })
+	}
+	function hitGuide(p: Pt): string | null {
+		if (!viewGuides.length) return null
+		const thr = hitTol(6) / (dscale || 1)
+		for (let i = viewGuides.length - 1; i >= 0; i--) { const g = viewGuides[i]; if (Math.abs((g.orient === 'h' ? p[1] : p[0]) - g.pos) < thr) return g.id }
+		return null
+	}
 	// A body move drag. Absolute from the gesture's start (no drift). A prism moves its position; a
 	// wall/conduit translates ALL its nodes (keeping the graph rigid). In elevation the horizontal drag
 	// maps to the view's on-axis coord (× ELEV_BASIS sign) and the vertical drag changes z (clamped ≥0).
@@ -807,10 +832,16 @@
 		// In an ELEVATION the drawn point gives the on-axis coord (projUInv) and z (GROUND − y) — so you can
 		// draw a VERTICAL wall conduit. The off-axis (depth into the view) is unknown, so it defaults to the
 		// plan centre; nudge it in plan afterwards. In plan the point is x/y at the default height.
+		// Depth plane: a selected PLAN guide fixes the off-axis coord (h-guide → y for front/rear, v-guide →
+		// x for left/right). No guide → fall back to the model centre and nudge the user to set one.
+		const ax = isElev ? ELEV_BASIS[elevDir].axis : 0
+		const guide = isElev ? selectedPlanGuide(ax === 0 ? 'h' : 'v') : null
+		if (isElev && !guide) toast('Drawn at the model centre — no depth guide set. Tip: drop/select a guide line on the plan to fix the depth.', { duration: 5000 })
 		const toNode = (p: Pt) => {
 			if (!isElev) return { x: Math.round(p[0]), y: Math.round(p[1]), z: nodesZ }
-			const ax = ELEV_BASIS[elevDir].axis, onAxis = Math.round(projUInv(p[0])), z = Math.max(0, Math.round(GROUND - p[1]))
-			return ax === 0 ? { x: onAxis, y: PLAN_CY, z } : { x: PLAN_CX, y: onAxis, z }
+			const onAxis = Math.round(projUInv(p[0])), z = Math.max(0, Math.round(GROUND - p[1]))
+			const off = guide ? guide.pos : (ax === 0 ? PLAN_CY : PLAN_CX)
+			return ax === 0 ? { x: onAxis, y: off, z } : { x: off, y: onAxis, z }
 		}
 		const { nodes, segments } = polyToGraph(pts.map(toNode))
 		if (tool === 'Wall') addModelObj({ type: 'wall', h: 2800, thickness: 100, nodes, segments, layer: layerId('walls'), id: mUid('w') })
@@ -1044,7 +1075,7 @@
 		if (pointers.size > 1) { cancelPointerDrag(); return }   // 2nd finger → hand off to pan/zoom
 		// EOS mode: shapes are drawn with a single press-drag-release (not two clicks).
 		if (tool !== 'Select') {
-			if (acad || tool === 'Text') return   // AutoCAD two-click / text single-click via onClick
+			if (acad || tool === 'Text' || tool === 'Guide') return   // AutoCAD two-click / text + guide single-click via onClick
 			const dp = drawPoint(e.clientX, e.clientY); if (!dp) return
 			draft = [dp]; cur = dp
 			try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
@@ -1273,7 +1304,12 @@
 		switch (tool) {
 			case 'Select': return mSelObj && (mSelObj.type === 'wall' || mSelObj.type === 'conduit') ? 'Drag a node to reshape · Alt-drag a node to branch · double-click a segment to add a node' : 'Click an element'
 			case 'Line': return n ? 'Specify next point (Enter / double-click to finish)' : 'Specify first point'
-			case 'Wall': case 'Trunk': case 'Pipe': return (!isPlan && !isElev) ? `Switch to a plan or elevation view to draw ${tool.toLowerCase()}s` : (n ? `Specify next ${tool.toLowerCase()} point (Enter / double-click to finish)${isElev ? ' — depth defaults to model centre' : ''}` : `Specify ${tool.toLowerCase()} start`)
+			case 'Guide': return viewSpace ? 'Click to drop a horizontal guide · Shift = vertical · select a plan guide to fix the depth for elevation drawing' : 'Guides are placed on a plan or elevation view'
+			case 'Wall': case 'Trunk': case 'Pipe': {
+				if (!isPlan && !isElev) return `Switch to a plan or elevation view to draw ${tool.toLowerCase()}s`
+				const depthHint = isElev ? (selectedPlanGuide(ELEV_BASIS[elevDir].axis === 0 ? 'h' : 'v') ? ' — depth from the selected plan guide' : ' — no depth guide (uses model centre); select a plan guide') : ''
+				return n ? `Specify next ${tool.toLowerCase()} point (Enter / double-click to finish)${depthHint}` : `Specify ${tool.toLowerCase()} start${depthHint}`
+			}
 			case 'Furniture': return isPlan ? (n ? 'Specify opposite corner' : 'Specify furniture footprint corner') : 'Switch to the plan view to place furniture'
 			case 'Section': return isPlan ? (n ? 'Specify opposite corner (→ front elevation)' : 'Specify section box corner') : 'Switch to the plan view to cut a section'
 			case 'Opening': return isPlan ? (n ? 'Specify opposite corner' : 'Specify opening (door / window / hole) corner') : 'Switch to the plan view to place an opening'
@@ -1341,6 +1377,23 @@
 			</g>
 			<!-- P1b: real 3D model in plan + the four elevations + iso. Read-only for now (P2 = editing). -->
 			{#if models[0]}<Model3d model={models[0]} dir={(kind === 'floorplan' ? 'plan' : kind) as 'plan' | ElevDir | 'iso'} cx={CX} cy={CY} ground={GROUND} selIds={modelSel} canvasZoom={canvasZoom} clip={clip} yaw={yaw} pitch={pitch} />{/if}
+			<!-- Alignment GUIDES (full-view h/v lines) for this view's space + the Guide-tool hover preview. -->
+			{#if viewSpace}
+				{#each viewGuides as gd (gd.id)}
+					{#if gd.orient === 'h'}
+						<line class="guide" class:sel={guideSel.includes(gd.id)} x1={-GUIDE_SPAN} y1={gd.pos} x2={GUIDE_SPAN} y2={gd.pos} stroke-width={1 / (canvasZoom || 1)} />
+					{:else}
+						<line class="guide" class:sel={guideSel.includes(gd.id)} x1={gd.pos} y1={-GUIDE_SPAN} x2={gd.pos} y2={GUIDE_SPAN} stroke-width={1 / (canvasZoom || 1)} />
+					{/if}
+				{/each}
+				{#if active && tool === 'Guide' && guideCur}
+					{#if guideCur.orient === 'h'}
+						<line class="guide preview" x1={-GUIDE_SPAN} y1={guideCur.pos} x2={GUIDE_SPAN} y2={guideCur.pos} stroke-width={1 / (canvasZoom || 1)} />
+					{:else}
+						<line class="guide preview" x1={guideCur.pos} y1={-GUIDE_SPAN} x2={guideCur.pos} y2={GUIDE_SPAN} stroke-width={1 / (canvasZoom || 1)} />
+					{/if}
+				{/if}
+			{/if}
 			<!-- Section markers (plan only): the cut box + a direction arrow + the elevation's label. Click a
 			     marker border to SELECT it (grips + a floating toolbar); the toolbar opens / re-aims / deletes. -->
 			{#if isPlan}
@@ -1524,6 +1577,10 @@
 	/* Object-snap marker — amber, constant border, never intercepts pointer events. */
 	.snap { fill:none; stroke:#f59e0b; stroke-width:1.4; vector-effect:non-scaling-stroke; pointer-events:none; }
 	/* Section marker on the plan: a teal cut box + a direction arrow + the elevation's label. */
+	/* Alignment guide lines (Visio-style): thin magenta dashed, brighter when selected; preview dimmer. */
+	.guide { stroke:#c026d3; stroke-width:1; stroke-dasharray:10 6; vector-effect:non-scaling-stroke; pointer-events:none; opacity:0.7; }
+	.guide.sel { stroke:#e879f9; opacity:1; stroke-dasharray:none; }
+	.guide.preview { opacity:0.4; }
 	.section-mark { fill:#0e749010; stroke:#0e7490; stroke-dasharray:7 4; vector-effect:non-scaling-stroke; pointer-events:none; }
 	.section-mark.sel { fill:#0e749022; stroke-dasharray:none; }
 	.section-arrow { fill:#0e7490; stroke:#0e7490; vector-effect:non-scaling-stroke; pointer-events:none; }

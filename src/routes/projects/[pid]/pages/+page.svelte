@@ -575,6 +575,7 @@
 		{ icon: 'scan', name: 'Section' },
 		{ icon: 'dimension', name: 'Dimension' },
 		{ icon: 'k-text', name: 'Text' },
+		{ icon: 'ruler', name: 'Guide' },       // drop an alignment guide (sets the depth plane across views)
 		{ icon: 'panels', name: 'Viewport' },   // paper-space: drag on the sheet to add a viewport frame
 	]
 	// World (model-unit) coords under the cursor, from the active viewport (status bar shows mm), and
