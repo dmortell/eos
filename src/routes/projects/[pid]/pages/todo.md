@@ -541,16 +541,15 @@ Symbols are identical to annotes.
   — now that sheets take multiple viewports, a section's clip+dir should be placeable as a frame on the
   current sheet (source `{ proj: dir, clip }`) instead of only spawning an elevation tab. **Follow-up:**
   [ ] per-frame CROP + a real source config (drawing id) when Pages gets multiple models/drawings.
-- [ ] **Unify PRIMARY viewport into the frames array + a PAGE MODEL** (Dave, 2026-09-21) — the sheet
-  currently has a special primary viewport (tab-keyed) PLUS an array of extra frames (`docFrames`). Dave:
-  drop the primary/extra split — just the array. And instead of a separate `docFrames`/`snapFrames`,
-  give each PAGE a **page model** that holds its viewport frames (and later a titleblock + page
-  annotations) as one object, so the whole page is one persisted/undoable unit. This unifies keying
-  (every viewport frame-keyed), fixes the primary-vs-extra behaviour asymmetry at the root, and folds
-  the frame history/persistence into the page model. Was built primary+extras for safety (not to risk
-  the working sheet); now do the real unification. **Blocker to weigh:** the primary is what makes a
-  sheet feel like it has a "main" drawing + a titleblock; with a pure array the default page seeds one
-  full-bleed frame. **Also list + reconcile PaperPage vs Viewport differences** (below) as part of this.
+- [~] **Unify PRIMARY viewport into the frames array + a PAGE MODEL** (Dave; core done 2026-09-21) — the
+  sheet is now ONE array of viewport frames (no special primary); the default page seeds a full-bleed
+  frame[0]. Every frame is uniform: frame-keyed view/orbit/activation/proj/scale/geometry, border-select,
+  double-click to edit inside, corner grips resize; the ViewCube re-aims the active frame; frame add/move/
+  resize/delete are on the page history. Verified in-browser. **Still to do:** (a) the true **page MODEL
+  object** (`docFrames` is still a per-tab array — wrap it as a page model that also carries the
+  titleblock + page annotations, persisted/undone as one unit); (b) label frame[0] from the drawing (it
+  reads "Plan" now); (c) minor — ViewCube TOP-face back-to-plan needs a check; (d) the full **PaperPage↔
+  Viewport merge** (below). **Also list + reconcile PaperPage vs Viewport differences** (below) as part of this.
   - **PaperPage vs Viewport — differences to reconcile** (for the merge): PaperPage works in **paper px**
     (screen space, `sheetEl.getBoundingClientRect`), Viewport in **model mm** (viewBox + dscale);
     PaperPage owns frame **geometry/selection/drag** (band + corner grips) while Viewport owns
