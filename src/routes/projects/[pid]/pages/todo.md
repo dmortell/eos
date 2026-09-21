@@ -151,6 +151,15 @@ Done:
 - [x] **Page title uses a standard hyphen** so Save-as-PDF filenames are valid.
 
 Batch-5c done (2026-09-21):
+- [x] **WCS triad rotates WITH the 3D (iso) view** (2026-09-22, Dave asked) — the bottom-left axis
+  triad was a STATIC per-projection lookup (`TRIAD.iso` fixed dimetric); now for the iso view it
+  projects each world axis (x/y/z unit vectors) through the SAME orbit camera the model uses
+  (`isoR(axis, yaw, pitch)`), normalised to a fixed pixel length, so it reorients live as you drag-orbit
+  (an axis edge-on to the viewer → a dot). `ViewGizmos` gained `yaw`/`pitch` props (wired from the active
+  viewport's `orbitOf(...)` in `+page.svelte`); ortho views keep the fixed `TRIAD` table. Verified
+  in-browser: orbiting the Rack A 3D model swung the triad's x/y axes to match (z stays up), read straight
+  off the `.wcs` SVG line coords + a visual. (Svelte flushes the triad async, so a synchronous before/after
+  DOM read in one JS call looks unchanged — read across calls.)
 - [x] **WCS triad gizmo doubled** in size (52→104px).
 - [x] **Removed the faint vertical mock grid** in front/right elevations (kept just the ground line);
   those lines were decorative mock, not real gridlines.

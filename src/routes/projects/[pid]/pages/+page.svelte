@@ -961,7 +961,9 @@
 							<!-- fixed-size view gizmos (ViewCube + WCS axes), screen space so they don't zoom -->
 							<!-- ViewCube re-orients the view's content in place (the sheet's paper viewport too) — it
 							     no longer flips a sheet to fullscreen. Use the Full-size button for that. -->
-							<ViewGizmos projection={gizmoProj(p, a)}
+							{@const gvp = activeVpOf(a.id) ?? a.id}
+							{@const gorb = orbitOf(p.id, gvp, gizmoProj(p, a))}
+							<ViewGizmos projection={gizmoProj(p, a)} yaw={gorb.yaw} pitch={gorb.pitch}
 								onset={(proj) => gizmoSet(p, a, proj)} />
 						{/if}
 						<!-- tool prompt / inline-edit help, pinned to the pane bottom-centre (screen space) -->

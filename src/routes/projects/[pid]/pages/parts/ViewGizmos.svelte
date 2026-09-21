@@ -7,8 +7,12 @@
 	// Kestrel-style named views: 5 orthographic + iso. front/rear share the x axis (mirrored),
 	// left/right share the y axis (mirrored); all elevations have z up. Matches KestrelCad2's
 	// camera.setView and the Sheets model3d BASIS.
+	import { isoR, DEFAULT_YAW, DEFAULT_PITCH } from '../3dview/projection'
 	type Proj = 'plan' | 'front' | 'rear' | 'left' | 'right' | 'iso'
-	let { projection = 'plan', onset }: { projection?: Proj; onset?: (p: Proj) => void } = $props()
+	// yaw/pitch drive the 3D (iso) triad so the WCS axes rotate WITH the orbited view. Ignored for the
+	// orthographic views (their axes are fixed — see TRIAD below).
+	let { projection = 'plan', yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, onset }:
+		{ projection?: Proj; yaw?: number; pitch?: number; onset?: (p: Proj) => void } = $props()
 
 	// Kestrel axis colours (renderer.js drawUCS): X red, Y green, Z blue.
 	const AX = { x: '#d17f88', y: '#79b89e', z: '#7eabdf' }
@@ -24,7 +28,21 @@
 		iso:   { x: [19, 10], y: [-19, 10], z: [0, -23] },  // dimetric
 	}
 	const OX = 17, OY = 38
-	const tri = $derived(TRIAD[projection])
+	// For the iso view, project each WORLD axis (unit vector) through the SAME orbit camera the model uses
+	// (isoR), so the triad rotates live as you drag-orbit. Screen = (u, −v) like the model render; an axis
+	// nearly edge-on to the viewer (tiny screen length) becomes a dot (null). Ortho views keep TRIAD.
+	const AXLEN = 22
+	function isoTriad(y: number, p: number): { x: Axis; y: Axis; z: Axis } {
+		const o = isoR({ x: 0, y: 0, z: 0 }, y, p, 0, 0)
+		// A unit (1mm) world vector projects (parallel/ortho) to a screen magnitude in [0,1] — its
+		// foreshortening. Near-0 ⇒ the axis points at/away from the viewer (edge-on) ⇒ show a dot.
+		const dir = (v: { x: number; y: number; z: number }): Axis => {
+			const q = isoR(v, y, p, 0, 0), sx = q.u - o.u, sy = -(q.v - o.v), len = Math.hypot(sx, sy)
+			return len < 0.12 ? null : [sx / len * AXLEN, sy / len * AXLEN]
+		}
+		return { x: dir({ x: 1, y: 0, z: 0 }), y: dir({ x: 0, y: 1, z: 0 }), z: dir({ x: 0, y: 0, z: 1 }) }
+	}
+	const tri = $derived(projection === 'iso' ? isoTriad(yaw, pitch) : TRIAD[projection])
 </script>
 
 <!-- Top-right ViewCube -->
