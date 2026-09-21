@@ -15,7 +15,7 @@
 	import { isLayerHidden, isLayerLocked, layerColor } from '../layers.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
 	import { models, modelSel, setModelSel } from '../3dview/models.svelte'
-	import { guides, guideSel, addGuide, removeGuide, setGuideSel, guideId, selectedPlanGuide, type Guide } from '../guides.svelte'
+	import { modelGuides, addGuide, guideId, selectedPlanGuide } from '../guides.svelte'
 	import { polyToGraph } from '../3dview/migrate'
 	import { DEFAULT_YAW, DEFAULT_PITCH, doorGeom, isoBounds, isoR, faces3d, isoDepthR } from '../3dview/projection'
 	import type { Obj, Clip } from '../3dview/types'
@@ -38,9 +38,9 @@
 		copy?: (ids: string[]) => void; cut?: (ids: string[]) => void; paste?: () => void;
 		group?: (ids: string[]) => void; ungroup?: (ids: string[]) => void;
 		reorder?: (ids: string[], op: 'front' | 'back' | 'forward' | 'backward') => void;
-		scale?: (s: string) => void; modeledit?: () => void; section?: (clip: Clip) => void; orbit?: (yaw: number, pitch: number) => void;
+		scale?: (s: string) => void; modeledit?: (label?: string) => void; section?: (clip: Clip) => void; orbit?: (yaw: number, pitch: number) => void;
 		sectionselect?: (id: string | null) => void; sectionopen?: (id: string) => void; sectionmove?: (id: string, clip: Clip) => void;
-		sectionsetdir?: (id: string, dir: ElevDir) => void; sectiondelete?: (id: string) => void; guideedit?: (label: string) => void
+		sectionsetdir?: (id: string, dir: ElevDir) => void; sectiondelete?: (id: string) => void
 	}
 	let { label = 'Viewport', scale = '1:1', kind = 'floorplan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {},
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, sections = [], selSection = null }:
@@ -71,7 +71,7 @@
 	const DRAW = new Set(['Line', 'Rectangle', 'Ellipse', 'Dimension', 'Text', 'Box', 'Wall', 'Furniture', 'Trunk', 'Pipe', 'Section', 'Opening', 'Guide'])
 	// Guide lines belong to a drawable VIEW space (plan or an elevation); iso has none.
 	const viewSpace = $derived(kind === 'floorplan' ? 'plan' : isElev ? elevDir : null)
-	const viewGuides = $derived(viewSpace ? guides.filter((g) => g.space === viewSpace) : [])
+	const viewGuides = $derived(viewSpace ? modelGuides().filter((g) => g.space === viewSpace) : [])
 	const GUIDE_SPAN = 1e7   // guides render as full-view lines (spanning far past the viewport)
 	// Polyline-style tools (click points, Enter/dbl-click to finish). Line makes an entity; Wall/Trunk/Pipe
 	// build MODEL graph objects (plan only).
@@ -224,11 +224,11 @@
 				if (g.length) { const allSel = g.every(x => selSet.has(x)); on.select?.(allSel ? sel.filter(x => !g.includes(x)) : [...new Set([...sel, ...g])]) }
 			} else {
 				// entity click wins; else a model object; else a section marker; else a guide line; else clear.
-				if (g.length) { on.select?.(g); setModelSel([]); on.sectionselect?.(null); setGuideSel([]) }
-				else { const mid = hitModel(p); if (mid) { setModelSel([mid]); on.select?.([]); on.sectionselect?.(null); setGuideSel([]) }
-					else { const sid = hitSection(p); if (sid) { on.sectionselect?.(sid); setGuideSel([]) }   // click a marker border → SELECT it (grips + toolbar); open via the link button
-						else { const gid = hitGuide(p); if (gid) { setGuideSel([gid]); on.select?.([]); setModelSel([]); on.sectionselect?.(null) }
-							else { on.select?.([]); setModelSel([]); on.sectionselect?.(null); setGuideSel([]) } } } }
+				if (g.length) { on.select?.(g); setModelSel([]); on.sectionselect?.(null) }
+				else { const mid = hitModel(p); if (mid) { setModelSel([mid]); on.select?.([]); on.sectionselect?.(null) }
+					else { const sid = hitSection(p); if (sid) { on.sectionselect?.(sid); setModelSel([]) }   // click a marker border → SELECT it (grips + toolbar); open via the link button
+						else { const gid = hitGuide(p); if (gid) { setModelSel([gid]); on.select?.([]); on.sectionselect?.(null) }   // guide selection reuses modelSel (it lives in the model now)
+							else { on.select?.([]); setModelSel([]); on.sectionselect?.(null) } } } }
 			}
 			return
 		}
@@ -342,7 +342,6 @@
 		if ((e.key === 'Delete' || e.key === 'Backspace') && sel.length && !draft.length) { e.preventDefault(); on.delete?.(sel); return }
 		if ((e.key === 'Delete' || e.key === 'Backspace') && modelSel.length && !draft.length) { e.preventDefault(); deleteModelSel(); return }
 		if ((e.key === 'Delete' || e.key === 'Backspace') && selSection && !draft.length) { e.preventDefault(); on.sectiondelete?.(selSection); return }
-		if ((e.key === 'Delete' || e.key === 'Backspace') && guideSel.length && !draft.length) { e.preventDefault(); on.beginedit?.(); for (const id of [...guideSel]) removeGuide(id); on.guideedit?.('Delete guide'); on.endedit?.(); return }
 		if (sel.length && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
 			e.preventDefault()
 			const s = e.shiftKey ? 10 : 1
@@ -631,9 +630,9 @@
 	function placeGuide(p: Pt, shift: boolean) {
 		if (!viewSpace) return
 		const orient = shift ? 'v' : 'h'
-		on.beginedit?.()   // capture the pre-add baseline, then fold the add into one undo step
+		on.beginedit?.()   // capture the pre-add baseline, then fold the add into one undo step (model history)
 		addGuide({ id: guideId(), space: viewSpace, orient, pos: Math.round(orient === 'h' ? p[1] : p[0]) })
-		on.guideedit?.('Add guide'); on.endedit?.()
+		on.modeledit?.('Add guide'); on.endedit?.()
 	}
 	function hitGuide(p: Pt): string | null {
 		if (!viewGuides.length) return null
@@ -641,20 +640,20 @@
 		for (let i = viewGuides.length - 1; i >= 0; i--) { const g = viewGuides[i]; if (Math.abs((g.orient === 'h' ? p[1] : p[0]) - g.pos) < thr) return g.id }
 		return null
 	}
-	// DRAG a guide to reposition it — one history gesture (begin → move → 'Move guide' on release). The
-	// guide is a live proxy in the global `guides` array, so mutating `pos` is reactive.
+	// DRAG a guide to reposition it — one history gesture (begin → move → 'Move guide' on release, on the
+	// MODEL history). The guide is a live proxy in the model's `guides` array, so mutating `pos` is reactive.
 	let guideDrag: { id: string; moved: boolean } | null = null
 	function onGuideDragMove(e: PointerEvent) {
 		if (!guideDrag) return
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
-		const g = guides.find((x) => x.id === guideDrag!.id); if (!g) return
+		const g = modelGuides().find((x) => x.id === guideDrag!.id); if (!g) return
 		g.pos = Math.round(g.orient === 'h' ? p[1] : p[0])
 		guideDrag.moved = true
 	}
 	function onGuideDragUp() {
 		window.removeEventListener('pointermove', onGuideDragMove)
 		window.removeEventListener('pointerup', onGuideDragUp)
-		if (guideDrag?.moved) { suppressClick = true; on.guideedit?.('Move guide') }
+		if (guideDrag?.moved) { suppressClick = true; on.modeledit?.('Move guide') }
 		on.endedit?.()
 		guideDrag = null
 	}
@@ -839,13 +838,15 @@
 		on.modeledit?.(); on.endedit?.()   // one undo step
 		setModelSel(o.id ? [o.id] : [])
 	}
-	// Delete the selected model object(s) from the store (one undo step).
+	// Delete the selected model object(s) AND guide(s) from the store (one undo step). Guides share the
+	// modelSel namespace now, so a Delete over a selected guide removes it here too.
 	function deleteModelSel() {
 		if (!mdl || !modelSel.length) return
 		const rm = new Set(modelSel)
 		on.beginedit?.()
 		mdl.objects = mdl.objects.filter((o) => !o.id || !rm.has(o.id))
-		on.modeledit?.(); on.endedit?.()
+		if (mdl.guides) mdl.guides = mdl.guides.filter((g) => !rm.has(g.id))
+		on.modeledit?.('Delete'); on.endedit?.()
 		setModelSel([])
 	}
 	// Insert a vertex into a wall/conduit at p by splitting the nearest segment (dbl-click). The new
@@ -888,7 +889,7 @@
 		// Depth plane: a selected PLAN guide fixes the off-axis coord (h-guide → y for front/rear, v-guide →
 		// x for left/right). No guide → fall back to the model centre and nudge the user to set one.
 		const ax = isElev ? ELEV_BASIS[elevDir].axis : 0
-		const guide = isElev ? selectedPlanGuide(ax === 0 ? 'h' : 'v') : null
+		const guide = isElev ? selectedPlanGuide(modelSel, ax === 0 ? 'h' : 'v') : null
 		if (isElev && !guide) toast('Drawn at the model centre — no depth guide set. Tip: drop/select a guide line on the plan to fix the depth.', { duration: 5000 })
 		const toNode = (p: Pt) => {
 			if (!isElev) return { x: Math.round(p[0]), y: Math.round(p[1]), z: nodesZ }
@@ -1197,8 +1198,7 @@
 			// grips (hitInfo), above sections/model/marquee (a guide is a thin overlay you grab in open space).
 			const gid = hitGuide(p)
 			if (gid) {
-				if (!guideSel.includes(gid)) setGuideSel([gid])
-				on.select?.([]); setModelSel([])   // guide selection is exclusive with entity/model selection
+				setModelSel([gid]); on.select?.([])   // guide selection reuses modelSel (exclusive with entities)
 				guideDrag = { id: gid, moved: false }
 				on.beginedit?.()
 				try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
@@ -1383,7 +1383,7 @@
 			case 'Guide': return viewSpace ? 'Click to drop a horizontal guide · Shift = vertical · select a plan guide to fix the depth for elevation drawing' : 'Guides are placed on a plan or elevation view'
 			case 'Wall': case 'Trunk': case 'Pipe': {
 				if (!isPlan && !isElev) return `Switch to a plan or elevation view to draw ${tool.toLowerCase()}s`
-				const depthHint = isElev ? (selectedPlanGuide(ELEV_BASIS[elevDir].axis === 0 ? 'h' : 'v') ? ' — depth from the selected plan guide' : ' — no depth guide (uses model centre); select a plan guide') : ''
+				const depthHint = isElev ? (selectedPlanGuide(modelSel, ELEV_BASIS[elevDir].axis === 0 ? 'h' : 'v') ? ' — depth from the selected plan guide' : ' — no depth guide (uses model centre); select a plan guide') : ''
 				return n ? `Specify next ${tool.toLowerCase()} point (Enter / double-click to finish)${depthHint}` : `Specify ${tool.toLowerCase()} start${depthHint}`
 			}
 			case 'Furniture': return isPlan ? (n ? 'Specify opposite corner' : 'Specify furniture footprint corner') : 'Switch to the plan view to place furniture'
@@ -1458,9 +1458,9 @@
 			{#if viewSpace}
 				{#each viewGuides as gd (gd.id)}
 					{#if gd.orient === 'h'}
-						<line class="guide" class:sel={guideSel.includes(gd.id)} x1={-GUIDE_SPAN} y1={gd.pos} x2={GUIDE_SPAN} y2={gd.pos} stroke-width={1 / (canvasZoom || 1)} />
+						<line class="guide" class:sel={modelSel.includes(gd.id)} x1={-GUIDE_SPAN} y1={gd.pos} x2={GUIDE_SPAN} y2={gd.pos} stroke-width={1 / (canvasZoom || 1)} />
 					{:else}
-						<line class="guide" class:sel={guideSel.includes(gd.id)} x1={gd.pos} y1={-GUIDE_SPAN} x2={gd.pos} y2={GUIDE_SPAN} stroke-width={1 / (canvasZoom || 1)} />
+						<line class="guide" class:sel={modelSel.includes(gd.id)} x1={gd.pos} y1={-GUIDE_SPAN} x2={gd.pos} y2={GUIDE_SPAN} stroke-width={1 / (canvasZoom || 1)} />
 					{/if}
 				{/each}
 				{#if active && tool === 'Guide' && guideCur}

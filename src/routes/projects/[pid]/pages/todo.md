@@ -60,13 +60,17 @@ Suggested order in review.md §7.
 
 ### Reported 2026-09-21 (Dave) — batch 6
 Done:
-- [x] **Guides get undo/redo** — alignment guides are now snapshotted into each page history step
-  (`snapGuides`/`setGuides` in `guides.svelte`, mirroring models' snap/set). Guide add (Guide tool)
-  and delete (Delete/Backspace) record a step via a new `on.guideedit` callback (begin/edit/end,
-  one step each). Verified: place guide → Ctrl+Z removes it → Ctrl+Shift+Z restores it; guide also
-  falls off correctly in a multi-step undo. *Caveat:* guides are still module-global (shared across
-  docs) while history is per-doc — same known limitation as the global `models` store; fix when
-  guides become per-model.
+- [x] **Guides get undo/redo + moved INTO THE MODEL** (refactored 2026-09-21) — guides now live in
+  `Model.guides` (not a separate global store), so they are model-scoped (shown across every view of the
+  model) and their **undo/redo ride the model history snapshot (`snapModels`) for free** — like
+  walls/prisms. `guides.svelte.ts` is now a thin API over `models[0].guides` (dropped the global `$state`
+  store, `snapGuides`/`setGuides`, `guideSel`, `on.guideedit`, and the `HStep.guides` field). Guide
+  **selection reuses `modelSel`**; add/move/delete record via `on.modeledit(label)` (model history);
+  **delete goes through `deleteModelSel`** (which now also filters `mdl.guides`). Verified in-browser:
+  place → renders; Ctrl+Z/Ctrl+Shift+Z remove/restore (via snapModels); drag repositions + is selected
+  (`sel` class from modelSel); Delete removes + undo restores. Field names kept Firestore-stable
+  (`{id,space,orient,pos}`) — see the schema memory. *This is step 1 of the data-into-model migration
+  (§5/§6); entities (`docEnts` → `Model.ents` with `space:'model'|'view:<frameId>'`) are step 2.*
 - [x] **Polyline/line pick tolerance widened to ~7px total** (~3.5px either side) — `hit()` was
   passing the raw `hitTol(7)` (viewBox-scaled units) to edge-distance tests whose coords live in
   UNSCALED drawing space, so at 1:25 the effective pick band shrank to ~0.3px. Now `hitTol(3.5)/dscale`

@@ -80,7 +80,15 @@ export type Underlay = {
 // omitted to hide that line. Order low→high: structural floor slab, raised/access
 // floor (FFL), suspended ceiling tile, structural ceiling slab/soffit.
 export type Levels = { floorSlab?: number; raisedFloor?: number; ceilingTile?: number; ceilingSlab?: number }
-export type Model = { id: number; name: string; objects: Obj[]; layers?: Layer[]; underlays?: Underlay[]; levels?: Levels }
+
+// Alignment GUIDE (Visio-style): a full-view horizontal/vertical line that sets the DEPTH PLANE for
+// cross-view drawing (a plan guide fixes the off-axis depth when drawing a conduit in an elevation).
+// Model-scoped (lives in the model, shown across its views) — undo/redo ride the model history snapshot.
+// `space` = the view plane it belongs to ('plan' | ElevDir); `pos` is a drawing coord in that space.
+// Field names are Firestore-stable (id/space/orient/pos) — see [[project_pages_firestore_schema]].
+export type Guide = { id: string; space: string; orient: 'h' | 'v'; pos: number }
+
+export type Model = { id: number; name: string; objects: Obj[]; guides?: Guide[]; layers?: Layer[]; underlays?: Underlay[]; levels?: Levels }
 
 // Projection direction: five orthographic + an isometric 3D view.
 export type Dir = 'plan' | 'front' | 'rear' | 'left' | 'right' | 'iso'

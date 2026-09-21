@@ -23,7 +23,6 @@
 	import { paperDims, PAPER_SIZES, PAPER_PX_PER_MM, type PaperSize } from './constants'
 	import { translate, type ElevDir } from './ui/geometry'
 	import { models, modelSel, snapModels, setModels } from './3dview/models.svelte'
-	import { snapGuides, setGuides, type Guide } from './guides.svelte'
 	import { DEFAULT_YAW, DEFAULT_PITCH } from './3dview/projection'
 	import type { Model, Clip } from './3dview/types'
 
@@ -111,18 +110,17 @@
 		group: (ids: string[]) => groupEnts(a.id, ids), ungroup: (ids: string[]) => ungroupEnts(a.id, ids),
 		reorder: (ids: string[], op) => reorderEnts(a.id, ids, op),
 		scale: (s: string) => (docScale = { ...docScale, [a.id]: s }),
-		modeledit: () => modelEdit(a.id), section: (clip: Clip) => onSection(clip),
+		modeledit: (label?: string) => modelEdit(a.id, label), section: (clip: Clip) => onSection(clip),
 		orbit: (yaw: number, pitch: number) => setOrbit(pane.id, a.id, yaw, pitch),
 		sectionselect: (id: string | null) => selectSection(id),
 		sectionopen: (id: string) => openSection(id),
 		sectionmove: (id: string, clip: Clip) => moveSection(id, clip),
 		sectionsetdir: (id: string, dir: ElevDir) => setSectionDir(id, dir),
 		sectiondelete: (id: string) => deleteSection(id),
-		guideedit: (label: string) => recordEdit(a.id, label),
 	})
 	// A 3D-model edit (the Viewport mutated the shared `models` store) records a step on THIS doc's
 	// timeline, gesture-folded like an entity edit — so Ctrl+Z restores the model too.
-	function modelEdit(id: string) { recordEdit(id, 'Edit model') }
+	function modelEdit(id: string, label = 'Edit model') { recordEdit(id, label) }
 	// Iso ORBIT (yaw/pitch), per pane+tab so split 3D views orbit independently. Drag the iso view to rotate.
 	let docOrbit = $state<Record<string, { yaw: number; pitch: number }>>({})
 	const orbitOf = (paneId: string, tabId: string) => docOrbit[paneId + ':' + tabId] ?? { yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH }
@@ -324,7 +322,7 @@
 	// across docs), so it's captured on every step in whatever doc is active — a model edit made in
 	// another tab isn't on this doc's timeline (a known mock limitation; a global model history is the
 	// real fix). Entity-only edits capture the unchanged model, keeping ents + model consistent.
-	type HStep = { label: string; t: number; snap: Ent[]; model: Model[]; frames: SheetFrame[]; guides: Guide[] }
+	type HStep = { label: string; t: number; snap: Ent[]; model: Model[]; frames: SheetFrame[] }   // guides live in `model` now (snapModels)
 	let docHist = $state<Record<string, { steps: HStep[]; ptr: number }>>({})
 	let revisions = $state<{ name: string; note: string; snap: Snap; t: number }[]>([])
 	const snapEnts = (): Snap => $state.snapshot(docEnts) as Snap
@@ -333,19 +331,19 @@
 	// Capture the baseline (pre-first-edit) state once, BEFORE the doc is first mutated.
 	function ensureHist(id: string) {
 		if (docHist[id]) return
-		docHist = { ...docHist, [id]: { steps: [{ label: 'Start', t: Date.now(), snap: snapDoc(id), model: snapModels(), frames: snapFrames(id), guides: snapGuides() }], ptr: 0 } }
+		docHist = { ...docHist, [id]: { steps: [{ label: 'Start', t: Date.now(), snap: snapDoc(id), model: snapModels(), frames: snapFrames(id) }], ptr: 0 } }
 	}
 	function pushStep(id: string, label: string) {
 		const t = tabs.find(x => x.id === id); if (t && !t.dirty) t.dirty = true   // any edit marks the tab dirty
 		ensureHist(id); const h = docHist[id]
 		const steps = h.steps.slice(0, h.ptr + 1)   // drop the redo tail (a new edit forks the future)
-		steps.push({ label, t: Date.now(), snap: snapDoc(id), model: snapModels(), frames: snapFrames(id), guides: snapGuides() })
+		steps.push({ label, t: Date.now(), snap: snapDoc(id), model: snapModels(), frames: snapFrames(id) })
 		while (steps.length > 100) steps.shift()
 		docHist = { ...docHist, [id]: { steps, ptr: steps.length - 1 } }
 	}
 	function updateStep(id: string) {   // fold a gesture's latest state into its already-open step
 		const h = docHist[id]; if (!h) return
-		const steps = h.steps.slice(); steps[h.ptr] = { ...steps[h.ptr], snap: snapDoc(id), model: snapModels(), frames: snapFrames(id), guides: snapGuides(), t: Date.now() }
+		const steps = h.steps.slice(); steps[h.ptr] = { ...steps[h.ptr], snap: snapDoc(id), model: snapModels(), frames: snapFrames(id), t: Date.now() }
 		docHist = { ...docHist, [id]: { ...h, steps } }
 	}
 	function applyPtr(id: string) {
@@ -353,7 +351,6 @@
 		docEnts = { ...docEnts, [id]: $state.snapshot(h.steps[h.ptr].snap) as Ent[] }
 		setModels(h.steps[h.ptr].model)   // restore the model snapshot for this step (undo/redo model edits)
 		docFrames = { ...docFrames, [id]: $state.snapshot(h.steps[h.ptr].frames) as SheetFrame[] }   // restore viewport frames
-		setGuides(h.steps[h.ptr].guides ?? [])   // restore alignment guides (undo/redo guide add/remove/move)
 	}
 	function undo() { const id = panes[focused]?.activeId, h = id ? docHist[id] : undefined; if (!id || !h || h.ptr <= 0) return; docHist = { ...docHist, [id]: { ...h, ptr: h.ptr - 1 } }; applyPtr(id) }
 	function redo() { const id = panes[focused]?.activeId, h = id ? docHist[id] : undefined; if (!id || !h || h.ptr >= h.steps.length - 1) return; docHist = { ...docHist, [id]: { ...h, ptr: h.ptr + 1 } }; applyPtr(id) }
