@@ -1029,7 +1029,19 @@
 	// Each selected entity shows square grips at its defining points. Dragging a grip edits
 	// that point; dragging the body moves the whole entity. Grips render at a constant
 	// screen size (÷ zoom) so they don't grow as the viewport zooms, like real CAD.
-	type Grip = { x: number; y: number; apply: (p: Pt) => Ent }
+	type Grip = { x: number; y: number; apply: (p: Pt) => Ent; rotate?: boolean }
+	// Which entity kinds get a rotate HANDLE (a circle above the bbox top-centre, like the prism's). `rot`
+	// already exists on Ent and render/hit/grips honour it — this just exposes it as a draggable handle.
+	// Excluded: flat-elev floor projections (a ground line) and an image mid-CROP (its grips are the window).
+	const ROTATABLE = new Set(['rect', 'ellipse', 'image', 'line'])
+	const canRotate = (e: Ent) => ROTATABLE.has(e.type) && !isFlatElev(e) && !(e.type === 'image' && imgEdit.mode === 'crop' && imgEdit.id === e.id)
+	// The rotate handle in the entity's LOCAL (un-rotated) frame; gripsFor then rotates its POSITION with the
+	// shape but leaves apply on the RAW pointer (angle from centre + 90°, matching the prism/model handle).
+	function rotGripLocal(e: Ent): Grip {
+		const [x0, y0, x1, y1] = bbox(e)
+		const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, off = (y1 - y0) / 2 + Math.max(x1 - x0, y1 - y0) * 0.35 + gripSize * 2
+		return { x: cx, y: y0 - off, rotate: true, apply: (p: Pt) => ({ ...e, rot: Math.round((Math.atan2(p[1] - cy, p[0] - cx) * 180 / Math.PI + 90 + 360) % 360) }) }
+	}
 	// A flat object in elevation is a ground line; its grips are the two ground-line ends (drag = move
 	// the min/max x-edge, keeping it flat), NOT the plan footprint corners.
 	function setFlatX(e: Ent, edge: 'min' | 'max', u: number): Ent {
@@ -1043,10 +1055,16 @@
 	}
 	// Grips honour rotation: positions rotate into the view; a grip drag un-rotates the pointer first.
 	function gripsFor(e: Ent): Grip[] {
-		const gs = gripsLocal(e)
+		let gs = gripsLocal(e)
+		if (canRotate(e)) gs = [...gs, rotGripLocal(e)]
 		if (!e.rot) return gs
 		const c = rotCenter(e)
-		return gs.map(g => { const rp = rotatePt([g.x, g.y], c, e.rot!); return { x: rp[0], y: rp[1], apply: (p: Pt) => g.apply(rotatePt(p, c, -e.rot!)) } })
+		// A geometry grip works in the local frame → rotate its position AND un-rotate the pointer for apply.
+		// The rotate handle needs the RAW pointer (it computes a world angle), so only its position rotates.
+		return gs.map(g => {
+			const rp = rotatePt([g.x, g.y], c, e.rot!)
+			return g.rotate ? { ...g, x: rp[0], y: rp[1] } : { x: rp[0], y: rp[1], apply: (p: Pt) => g.apply(rotatePt(p, c, -e.rot!)) }
+		})
 	}
 	function gripsLocal(e: Ent): Grip[] {
 		if (isFlatElev(e)) { const [x0, x1] = flatXSpan(e); return [{ x: x0, y: GROUND, apply: p => setFlatX(e, 'min', p[0]) }, { x: x1, y: GROUND, apply: p => setFlatX(e, 'max', p[0]) }] }
@@ -1117,6 +1135,7 @@
 	// endpoint → 15° about the other end. (Circle radius left free.)
 	function constrainGrip(base: Ent, gi: number, p: Pt, shift: boolean): Pt {
 		if (!shift) return p
+		if (gripsFor(base)[gi]?.rotate) return p   // rotate handle: no square/ortho constrain (Shift-free-rotate)
 		if (base.type === 'box' && isElev) {   // shift → square FACE about the opposite face corner
 			const f = boxElev(base, elevDir, CX, CY)
 			const an: Pt = gi === 0 ? [f.x1, f.top] : gi === 1 ? [f.x0, f.top] : gi === 2 ? [f.x1, f.base] : [f.x0, f.base]
@@ -1600,7 +1619,14 @@
 				{#each entities as e (e.id)}
 					{#if selSet.has(e.id) && inThisView(e) && !isLayerHidden(e.layer) && !isLayerLocked(e.layer)}
 						{#each gripsFor(e) as g}
-							<Handle cx={g.x} cy={g.y} size={gripSize} cursor="crosshair" strokeWidth={1.2 / (canvasZoom || 1)} />
+							{#if g.rotate}
+								{@const bc = rotCenter(e)}
+								{@const tc = rotatePt([bc[0], bbox(e)[1]], bc, e.rot ?? 0)}
+								<line x1={tc[0]} y1={tc[1]} x2={g.x} y2={g.y} stroke={SEL} stroke-width={1 / (canvasZoom || 1)} vector-effect="non-scaling-stroke" opacity="0.6" />
+								<circle cx={g.x} cy={g.y} r={gripSize * 0.85} fill="white" stroke={SEL} stroke-width={1.2 / (canvasZoom || 1)} vector-effect="non-scaling-stroke" style="cursor:grab" />
+							{:else}
+								<Handle cx={g.x} cy={g.y} size={gripSize} cursor="crosshair" strokeWidth={1.2 / (canvasZoom || 1)} />
+							{/if}
 						{/each}
 					{/if}
 				{/each}

@@ -796,17 +796,31 @@ Sheets' basic version** — see §10.
   kinds (list to be confirmed alongside §2a).
 - [ ] Multiple views of one model at different scales/crops on a sheet (viewport frames
   already support this — needs per-view content config).
-- [ ] ◧ **Per-viewport pan/zoom(scale) SAVED PER PROJECTION + multi-user** (Dave, 2026-09-21) — each
+- [~] ◧ **Per-viewport pan/zoom(scale) SAVED PER PROJECTION + multi-user** (Dave, 2026-09-21) — each
   viewport should remember its pan/zoom (scale) **per view direction** (plan / front / rear / left /
-  right / 3D), so flipping the ViewCube restores each view's own framing. **Design concern (Dave):** if
-  these live in the backend and one user re-frames a view, it moves for everyone looking at it. Options:
-  (a) a **lock** toggle per viewport (frozen framing vs free-look), (b) a **Save view** button that
-  writes the current framing to the backend (otherwise pan/zoom is local-only per user), (c) per-user
-  view overrides. Today: canvas pan/zoom is per pane+tab in localStorage; a frame's `view` is per
-  pane+frame (docView) — not yet keyed by projection, not yet persisted. Decide the persistence model.
-- [ ] **Rotate handle on ALL shapes** (Dave, 2026-09-21) — furniture prisms have a rotate handle in plan;
-  give rects / ellipses / images / lines the same (`rot` already exists on `Ent` + render/hit honour it —
-  just need the handle in `gripsFor`, like the prism's). Pairs with the rotated-resize-handles fix (§0).
+  right / 3D), so flipping the ViewCube restores each view's own framing. **Per-projection keying DONE
+  (2026-09-22):** content pan/zoom (`docView`) AND iso orbit (`docOrbit`) are now keyed by
+  `paneId:viewId:proj` (new `vkey` helper), threaded through `vpOn` (model-layout tabs, via
+  `projOf`/`activeProj`), `vpOnFrame` (sheet frames, via `frame.proj`), the `frameView`/`frameOrbit`
+  resolvers, and the nav zoom/fit helpers; `dropDoc` cleanup matches keys by their viewId segment.
+  Flipping a viewport's projection now leaves each direction's framing intact instead of carrying one
+  across all. Type-check clean at baseline; projection switch renders with a clean console. NB: this is
+  the **content** view (active vp + "Pan content"); the per-tab CANVAS zoom (`cvCache`, localStorage)
+  is deliberately shared across projections (the paper/canvas isn't a projection). **Still open (the
+  ◧ decision):** the **multi-user persistence model** — if framing lives in the backend and one user
+  re-frames a view it moves for everyone. Options: (a) a **lock** toggle per viewport (frozen vs
+  free-look), (b) a **Save view** button (otherwise pan/zoom stays local per user), (c) per-user view
+  overrides. Today `docView`/`docOrbit` are in-memory only (reset on reload) — decide before persisting.
+- [x] **Rotate handle on ALL shapes** (2026-09-22) — rects / ellipses / images / lines now get a rotate
+  HANDLE (a distinct **circle** above the bbox top-centre with a connector line, vs the square resize
+  grips), like the furniture prism's. `rot` already existed on `Ent` (render/hit/grips honour it) — this
+  exposes it as a draggable handle: `ROTATABLE` set + `canRotate()` (excludes flat-elev floor projections
+  and an image mid-CROP), `rotGripLocal()` (angle-from-centre + 90°, matching the prism/model handle), a
+  `rotate?` flag on `Grip` so `gripsFor` rotates the handle's POSITION with the shape but passes the RAW
+  pointer to its apply, and `constrainGrip` bails on a rotate grip (no square/ortho constrain).
+  **Verified in-browser:** drew a rect on the floorplan → selected → the circle handle renders above it →
+  dragging it rotated the rect ~35° about its centre with the corner grips following, clean console.
+  Pairs with the rotated-resize-handles fix (§0). [ ] Follow-up: also add to `box` (footprint, plan).
 
 ## 6. Annotations  (P2)
 - [ ] ◧ **decide / design** — **annotation = object model.** Dave's model: an annotation
