@@ -739,12 +739,29 @@ Sheets' basic version** — see §10.
   Background 1 flipped the z-order so bg-1's object came on top. Images ride the same `paintEnts` path.
   *Still to browser-test with a real image file + real mouse drag (both blocked in the automated
   browser): the `<image>` render and the native picker path — both code-complete + type-clean.*
+- [x] **Layer drag-reorder direction fix** (Dave, 2026-09-21) — dropping onto a layer inserted BEFORE it,
+  so dragging a layer DOWN onto the next one was a no-op (Dave: "first onto second doesn't change order").
+  Now direction-aware: dragging down drops AFTER the target, up drops BEFORE (with a top/bottom drop line).
+- [ ] **Image resize handles must PRESERVE ASPECT RATIO** (Dave, 2026-09-21) — an image's corner grips
+  currently stretch it. Constrain to the source aspect (Shift = free-stretch, or vice-versa), like most
+  editors. Same likely wanted for the source-calibrated scale.
+- [ ] **Plan images shouldn't appear on ELEVATIONS / 3D** (Dave, 2026-09-21 — "I'll think about this") —
+  an `image` on the plan plane currently follows the "plan projects into every view" rule, so a raster
+  background bleeds into elevations/iso nonsensically. Options: restrict an image to ONLY its own plane's
+  views (plan image → plan only; a `front` image → front only); or a per-image "show in: this view / all"
+  toggle. Decide, then gate `image` in `inThisView`.
 
 ## 4. Imported files / floorplans  (P1–P2)
 - [ ] Upload & manage many floorplan drawings per project — **electrical, furniture, AV,
   etc.**, with **versions / checkbacks** (we receive many revisions).
-- [ ] Set **origin, scale, crop, masks** of an imported file **inside the Pages viewport**
-  (no switch to the Uploads tool).
+- [~] Set **origin, scale, crop, masks** of an imported file **inside the Pages viewport** (2026-09-21) —
+  **origin** = the image's Position, **scale** = its Size (the a→b rect, editable + drag-resize), **crop**
+  = a normalized `{x,y,w,h}` sub-rect of the source (the full image is scaled so its crop region fills the
+  rect, then clipped — per-viewport `clipPath` id so multi-viewport sheets clip independently), plus
+  **opacity** (for tracing). A **Properties → IMAGE** section (Opacity %, Crop X/Y/W/H %, Reset crop)
+  edits them. [ ] still: interactive crop-drag handles, source-calibrated scale (pick 2 points = a known
+  distance), aspect-lock resize (§3), **masks**, and browser-verify the render with a real file. *(Crop
+  render + Properties are code-complete + type-clean; the native file picker can't be automation-driven.)*
 - [ ] Supported inputs: **PDF, image, DXF**.
 - [ ] Produce various floorplan **views**: data-outlet locations, desk numbering, trunk
   routes, penetration & conduit requests (these are the output deliverables).
@@ -769,6 +786,17 @@ Sheets' basic version** — see §10.
   kinds (list to be confirmed alongside §2a).
 - [ ] Multiple views of one model at different scales/crops on a sheet (viewport frames
   already support this — needs per-view content config).
+- [ ] ◧ **Per-viewport pan/zoom(scale) SAVED PER PROJECTION + multi-user** (Dave, 2026-09-21) — each
+  viewport should remember its pan/zoom (scale) **per view direction** (plan / front / rear / left /
+  right / 3D), so flipping the ViewCube restores each view's own framing. **Design concern (Dave):** if
+  these live in the backend and one user re-frames a view, it moves for everyone looking at it. Options:
+  (a) a **lock** toggle per viewport (frozen framing vs free-look), (b) a **Save view** button that
+  writes the current framing to the backend (otherwise pan/zoom is local-only per user), (c) per-user
+  view overrides. Today: canvas pan/zoom is per pane+tab in localStorage; a frame's `view` is per
+  pane+frame (docView) — not yet keyed by projection, not yet persisted. Decide the persistence model.
+- [ ] **Rotate handle on ALL shapes** (Dave, 2026-09-21) — furniture prisms have a rotate handle in plan;
+  give rects / ellipses / images / lines the same (`rot` already exists on `Ent` + render/hit honour it —
+  just need the handle in `gripsFor`, like the prism's). Pairs with the rotated-resize-handles fix (§0).
 
 ## 6. Annotations  (P2)
 - [ ] ◧ **decide / design** — **annotation = object model.** Dave's model: an annotation

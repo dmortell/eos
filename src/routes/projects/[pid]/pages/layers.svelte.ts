@@ -90,13 +90,15 @@ export function addLayer(group = 'General'): PLayer {
 	return l
 }
 export function removeLayer(id: string) { const i = layers.findIndex((l) => l.id === id); if (i >= 0) layers.splice(i, 1); if (layerUI.active === id) layerUI.active = layers[0]?.id ?? '' }
-// Reorder: move layer `id` to just BEFORE `beforeId` (null = to the end). Array order = draw order, so
-// this sets the layer's z-position — dragging a background layer down in the panel puts it on top.
-export function moveLayer(id: string, beforeId: string | null) {
+// Reorder: move layer `id` next to `targetId` (before it, or after it when `after`). `targetId` null =
+// to the end. Array order = draw order, so this sets the layer's z-position. Direction-aware drop (see
+// LayersPanel): dragging a layer DOWN onto the next one inserts AFTER it, so adjacent swaps aren't a no-op.
+export function moveLayer(id: string, targetId: string | null, after = false) {
 	const from = layers.findIndex((l) => l.id === id); if (from < 0) return
-	const [l] = layers.splice(from, 1)
-	let to = beforeId ? layers.findIndex((x) => x.id === beforeId) : layers.length
+	const [l] = layers.splice(from, 1)   // remove first, then find the target index in the shortened array
+	let to = targetId ? layers.findIndex((x) => x.id === targetId) : layers.length
 	if (to < 0) to = layers.length
+	else if (after) to += 1
 	layers.splice(to, 0, l)
 }
 // A layer's DRAW order index (position in the array). Lower = painted first (underneath). Unknown → -1.

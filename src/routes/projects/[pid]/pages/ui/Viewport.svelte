@@ -110,6 +110,7 @@
 	let cur = $state<Pt | null>(null)
 	let seq = 0
 	const uid = () => 'e' + Date.now().toString(36) + (seq++)
+	const clipNs = 'ic' + Math.floor(Math.random() * 1e9).toString(36)   // per-viewport-instance namespace for <clipPath> ids (a sheet renders the same image in several viewports → ids must not collide)
 	const selSet = $derived(new Set(sel))
 
 	// Coordinate mapping uses getBoundingClientRect, NOT getScreenCTM: getScreenCTM ignores CSS
@@ -1596,8 +1597,14 @@
 	{:else if e.type === 'line'}
 		<line x1={e.a![0]} y1={e.a![1]} x2={e.b![0]} y2={e.b![1]} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
 	{:else if e.type === 'image'}
-		<!-- an imported background image, placed in the a→b rect (opacity optional) -->
-		<image href={e.src} x={Math.min(e.a![0], e.b![0])} y={Math.min(e.a![1], e.b![1])} width={Math.abs(e.b![0] - e.a![0])} height={Math.abs(e.b![1] - e.a![1])} opacity={e.opacity ?? 1} preserveAspectRatio="none" />
+		<!-- an imported background image placed in the a→b rect (origin + scale). CROP shows only a sub-rect
+		     of the SOURCE: the full image is scaled so its crop region fills the rect, then clipped to it. -->
+		{@const rx = Math.min(e.a![0], e.b![0])}{@const ry = Math.min(e.a![1], e.b![1])}
+		{@const rw = Math.abs(e.b![0] - e.a![0])}{@const rh = Math.abs(e.b![1] - e.a![1])}
+		{@const cr = e.crop ?? { x: 0, y: 0, w: 1, h: 1 }}
+		{@const fw = rw / (cr.w || 1)}{@const fh = rh / (cr.h || 1)}
+		<clipPath id="{clipNs}-{e.id}"><rect x={rx} y={ry} width={rw} height={rh} /></clipPath>
+		<image href={e.src} x={rx - cr.x * fw} y={ry - cr.y * fh} width={fw} height={fh} opacity={e.opacity ?? 1} clip-path="url(#{clipNs}-{e.id})" preserveAspectRatio="none" />
 	{:else if e.type === 'polyline'}
 		<polyline points={(e.pts ?? []).map(p => p.join(',')).join(' ')} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" stroke-linejoin="round" />
 	{:else if e.type === 'rect'}

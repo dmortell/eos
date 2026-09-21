@@ -96,6 +96,7 @@
 	let mixedFill = $derived(new Set(ents.map((e) => e.fill)).size > 1)
 	function setAll(patch: Partial<Ent>) { const snap = [...ents]; for (const e of snap) onupdate?.({ ...e, ...patch }) }
 	function setLayer(v: string) { setAll({ layer: v || undefined }) }
+	const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
 	// Enter / Shift-Enter in a field jumps to the next / previous field in the panel (textareas keep
 	// Enter for newlines). Fields opt in with class="navf".
 	function fnav(e: KeyboardEvent) {
@@ -310,6 +311,23 @@
 			<div class="prop-sec">TEXT</div>
 			<div class="prop wide"><textarea class="pp-textarea" use:autoresize value={single.text ?? ''} onchange={(e) => setText((e.currentTarget as HTMLTextAreaElement).value)}></textarea></div>
 		{/if}
+		{#if single?.type === 'image'}
+			<!-- imported file: origin = Position, scale = Size (above); here opacity (for tracing) + CROP
+			     (visible sub-rect of the source, as %). Real backend stores these against the fileId (§4). -->
+			{@const cr = single.crop ?? { x: 0, y: 0, w: 1, h: 1 }}
+			<div class="prop-sec">IMAGE</div>
+			<div class="prop"><span>Opacity %</span><input class="navf" type="number" min="10" max="100" step="5" value={Math.round((single.opacity ?? 1) * 100)} onkeydown={fnav} onchange={(e) => setAll({ opacity: Math.max(0.05, Math.min(1, num(e) / 100)) })} /></div>
+			<div class="prop-sec">CROP · %</div>
+			<div class="vecrow">
+				{@render numcell('X', Math.round(cr.x * 100), (n) => setAll({ crop: { ...cr, x: clamp01(n / 100) } }))}
+				{@render numcell('Y', Math.round(cr.y * 100), (n) => setAll({ crop: { ...cr, y: clamp01(n / 100) } }))}
+			</div>
+			<div class="vecrow">
+				{@render numcell('W', Math.round(cr.w * 100), (n) => setAll({ crop: { ...cr, w: Math.max(0.05, clamp01(n / 100)) } }))}
+				{@render numcell('H', Math.round(cr.h * 100), (n) => setAll({ crop: { ...cr, h: Math.max(0.05, clamp01(n / 100)) } }))}
+			</div>
+			<button class="pp-reset" onclick={() => setAll({ crop: undefined })}>Reset crop</button>
+		{/if}
 		<div class="prop-sec">STYLE</div>
 		<div class="prop"><span>Layer</span>
 			<select class="navf" value={(cc('layer') as string | undefined) ?? ''} onkeydown={fnav} onchange={(e) => setLayer(strVal(e))}>
@@ -376,6 +394,8 @@
 	.seg-row input { width:100%; min-width:0; }
 	.pp-del { margin:10px 6px 4px; width:calc(100% - 12px); padding:6px; background:#7f1d1d33; color:#ef4444; border:1px solid #ef444455; border-radius:5px; cursor:pointer; font-size:12px; }
 	.pp-del:hover { background:#7f1d1d55; }
+	.pp-reset { margin:6px 6px 4px; width:calc(100% - 12px); padding:5px; background:var(--panel2); color:var(--muted); border:1px solid var(--line); border-radius:5px; cursor:pointer; font-size:11px; }
+	.pp-reset:hover { background:var(--hover); color:var(--text); }
 	/* compact X/Y/Z · W/D/H vector rows */
 	.vecrow { display:flex; gap:5px; padding:2px 4px; }
 	.vcell { flex:1; min-width:0; display:flex; align-items:center; gap:4px; }

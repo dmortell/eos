@@ -30,7 +30,16 @@
 	// the dragged layer just before it. `dragId` = the layer being dragged; `overId` = the current drop row.
 	let dragId = $state<string | null>(null)
 	let overId = $state<string | null>(null)
-	function onDrop(targetId: string) { if (dragId && dragId !== targetId) moveLayer(dragId, targetId); dragId = null; overId = null }
+	// Direction-aware: dragging a layer DOWN (its index < target's) drops it AFTER the target, else before.
+	// Without this, dropping onto the immediately-next layer would insert before it = no visible change.
+	let overAfter = $state(false)
+	function onDrop(targetId: string) {
+		if (dragId && dragId !== targetId) {
+			const fi = layers.findIndex((l) => l.id === dragId), ti = layers.findIndex((l) => l.id === targetId)
+			moveLayer(dragId, targetId, fi < ti)
+		}
+		dragId = null; overId = null
+	}
 
 	// Layer-settings dialog (opened from a layer's swatch button).
 	let dlgId = $state<string | null>(null)
@@ -89,10 +98,11 @@
 					{#each kids as l (l.id)}
 						{#if matches(l.name) || matches(g)}
 							<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-							<div class="ly-row" class:off={!l.visible} class:active={l.id === layerUI.active} class:dragover={overId === l.id && dragId !== l.id} onclick={() => (layerUI.active = l.id)}
+							<div class="ly-row" class:off={!l.visible} class:active={l.id === layerUI.active}
+								class:dragbefore={overId === l.id && dragId !== l.id && !overAfter} class:dragafter={overId === l.id && dragId !== l.id && overAfter} onclick={() => (layerUI.active = l.id)}
 								draggable="true" title="Drag to reorder (sets draw z-order)"
 								ondragstart={(e) => { dragId = l.id; e.dataTransfer?.setData('text/plain', l.id); if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move' }}
-								ondragover={(e) => { e.preventDefault(); overId = l.id }}
+								ondragover={(e) => { e.preventDefault(); overId = l.id; overAfter = !!dragId && layers.findIndex((x) => x.id === dragId) < layers.findIndex((x) => x.id === l.id) }}
 								ondragleave={() => { if (overId === l.id) overId = null }}
 								ondrop={(e) => { e.preventDefault(); onDrop(l.id) }}
 								ondragend={() => { dragId = null; overId = null }}>
@@ -193,7 +203,8 @@
 	.ly-row:hover { background:var(--hover); }
 	.ly-row.active { background:var(--active); }
 	.ly-row[draggable=true] { cursor:grab; }
-	.ly-row.dragover { box-shadow:inset 0 2px 0 var(--accent); }   /* drop-before indicator */
+	.ly-row.dragbefore { box-shadow:inset 0 2px 0 var(--accent); }   /* insert above the target */
+	.ly-row.dragafter { box-shadow:inset 0 -2px 0 var(--accent); }   /* insert below the target */
 	.ly-eye { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; flex:0 0 auto; border-radius:3px; color:var(--muted); background:none; border:none; }
 	.ly-eye:hover { color:var(--text); background:var(--line); }
 	/* lock toggle beside the eye: faint when unlocked, accent when locked */
