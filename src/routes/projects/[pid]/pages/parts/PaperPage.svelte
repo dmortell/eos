@@ -20,45 +20,31 @@
 	// mutators, so the panel can edit without reaching into this child's state.
 	export type FrameSel = { label: string; x: number; y: number; w: number; h: number;
 		border: 'dashed' | 'solid' | 'none'; setBorder: (b: 'dashed' | 'solid' | 'none') => void; setRect: (r: Partial<{ x: number; y: number; w: number; h: number }>) => void }
-	// An extra viewport frame on the sheet (AutoCAD paper space): its own projection + scale + geometry.
+	// A viewport frame on the sheet (AutoCAD paper space): its own projection + scale + geometry. The sheet
+	// is just an array of these (the page model) — no special "primary"; the default page seeds one.
 	type SheetFrame = { id: string; x: number; y: number; w: number; h: number; border: 'dashed' | 'solid' | 'none'; proj: string; scale: string; clip: Clip | null; label: string }
 	type VKind = 'floorplan' | 'iso' | ElevDir
-	let { title = 'Sheet', drawingNo = '001', scale = '1:100', active = false, focused = true, tool = 'Select', env = {}, on = {}, pw = PAPER_W, ph = PAPER_H, sizeLabel = 'A3', rev = '', revDate = '',
-		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, kind = 'floorplan', clip = null, yaw, pitch, sections = [], selSection = null,
-		extraFrames = [], selFrame = null, frameKind = (p: string) => p as VKind, isFrameActive = () => false, frameView = () => ({ zoom: 1, x: 0, y: 0 }), frameEnv = {},
-		frameOrbit = () => ({ yaw: 0, pitch: 0 }), makeFrameOn = () => ({}), onaddframe, onframegeom, onframecommit, onselectframe }:
-		{ title?: string; drawingNo?: string; scale?: string; active?: boolean; focused?: boolean; tool?: string; env?: Env; on?: VpOn; pw?: number; ph?: number; sizeLabel?: string; rev?: string; revDate?: string;
-			entities?: Ent[]; sel?: string[]; view?: View; kind?: VKind; clip?: Clip | null; yaw?: number; pitch?: number; sections?: SectionMarker[]; selSection?: string | null;
-			extraFrames?: SheetFrame[]; selFrame?: string | null; frameKind?: (p: string) => VKind; isFrameActive?: (id: string) => boolean; frameView?: (id: string) => View; frameEnv?: Env;
-			frameOrbit?: (id: string) => { yaw: number; pitch: number }; makeFrameOn?: (f: SheetFrame) => VpOn; onaddframe?: (x: number, y: number, w: number, h: number) => void;
-			onframegeom?: (id: string, g: { x: number; y: number; w: number; h: number }) => void; onframecommit?: () => void; onselectframe?: (id: string | null) => void } = $props()
+	let { title = 'Sheet', drawingNo = '001', scale = '1:100', focused = true, tool = 'Select', env = {}, pw = PAPER_W, ph = PAPER_H, sizeLabel = 'A3', rev = '', revDate = '',
+		entities = [], sel = [], sections = [], selSection = null,
+		frames = [], selFrame = null, frameKind = (p: string) => p as VKind, isFrameActive = () => false, frameView = () => ({ zoom: 1, x: 0, y: 0 }), frameEnv = {},
+		frameOrbit = () => ({ yaw: 0, pitch: 0 }), makeFrameOn = () => ({}), onseed, onaddframe, onframegeom, onframecommit, onselectframe, ondeactivate }:
+		{ title?: string; drawingNo?: string; scale?: string; focused?: boolean; tool?: string; env?: Env; pw?: number; ph?: number; sizeLabel?: string; rev?: string; revDate?: string;
+			entities?: Ent[]; sel?: string[]; sections?: SectionMarker[]; selSection?: string | null;
+			frames?: SheetFrame[]; selFrame?: string | null; frameKind?: (p: string) => VKind; isFrameActive?: (id: string) => boolean; frameView?: (id: string) => View; frameEnv?: Env;
+			frameOrbit?: (id: string) => { yaw: number; pitch: number }; makeFrameOn?: (f: SheetFrame) => VpOn; onseed?: (x: number, y: number, w: number, h: number) => void; onaddframe?: (x: number, y: number, w: number, h: number) => void;
+			onframegeom?: (id: string, g: { x: number; y: number; w: number; h: number }) => void; onframecommit?: () => void; onselectframe?: (id: string | null) => void; ondeactivate?: () => void } = $props()
 	const canvasZoom = $derived(env.canvasZoom ?? 1)
-	const onframe = $derived(on.frame as ((f: FrameSel | null) => void) | undefined)
 
-	let frameBorder = $state<'dashed' | 'solid' | 'none'>('dashed')
-	// Emit the selection (or null) whenever the frame's selection / geometry / border changes.
-	$effect(() => {
-		onframe?.(selected && frame && !active
-			? { label: 'Outlets · 33F', x: Math.round(frame.x), y: Math.round(frame.y), w: Math.round(frame.w), h: Math.round(frame.h),
-				border: frameBorder, setBorder: (b) => (frameBorder = b),
-				setRect: (r) => { if (frame) frame = { ...frame, ...r } } }
-			: null)
-	})
-	// Clear the parent's frame handle when this PaperPage unmounts (tab switch remounts it via
-	// {#key}); otherwise the Properties panel keeps a FrameSel whose setters write into a dead component.
-	$effect(() => () => onframe?.(null))
-
-	// The viewport frame in paper (unscaled) px, within the sheet drawing area.
+	// Frame geometry in paper (unscaled) px, within the sheet drawing area.
 	type Frame = { x: number; y: number; w: number; h: number }
 	let sheetEl: HTMLDivElement | undefined = $state()
-	let frame = $state<Frame | null>(null)
-	let selected = $state(false)   // frame selected in paper space
 	const MIN = 90
 
-	// Fill the sheet area on first layout (with a small margin), then it's user-movable.
+	// Seed the page's default viewport (fills the sheet, small margin) the first time the sheet is measured
+	// and it has no frames — the parent creates it in the page model.
 	$effect(() => {
-		if (frame || !sheetEl) return
-		frame = { x: 12, y: 12, w: sheetEl.offsetWidth - 24, h: sheetEl.offsetHeight - 24 }
+		if (frames.length || !sheetEl) return
+		onseed?.(12, 12, sheetEl.offsetWidth - 24, sheetEl.offsetHeight - 24)
 	})
 
 	// Paper px per screen px (the canvas CSS zoom lives above this element), from measured
@@ -70,11 +56,10 @@
 	}
 
 	// gi: 0 TL, 1 TR, 2 BR, 3 BL — mirrors the rect-tool corner grips (opposite corner fixed). `set`
-	// applies the new geometry (to the local primary frame, or up via onframegeom for an extra frame).
+	// reports the new geometry up (onframegeom); `commit` records one history step at the end.
 	let drag: { mode: 'move' | 'grip'; gi: number; sx: number; sy: number; base: Frame; s: number; set: (f: Frame) => void; commit?: boolean; moved: boolean } | null = null
 	function startDrag(e: PointerEvent, mode: 'move' | 'grip', gi: number, base: Frame, set: (f: Frame) => void, commit = false) {
 		e.stopPropagation()
-		if (active) return
 		drag = { mode, gi, sx: e.clientX, sy: e.clientY, base: { ...base }, s: scaleOf(), set, commit, moved: false }
 		try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
 		window.addEventListener('pointermove', onDrag)
@@ -109,11 +94,10 @@
 	let marquee = $state<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
 	let placingFrame = $state(false)   // dragging out a NEW viewport frame (the Viewport tool)
 	function onSheetDown(e: PointerEvent) {
-		if (active || e.button !== 0) return
+		if (e.button !== 0) return
 		e.preventDefault()   // stop a native text/element drag starting after a double-click (shows a not-allowed cursor + leaves the marquee stuck)
 		try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
-		selected = false
-		if (tool !== 'Viewport') onselectframe?.(null)   // clicking empty paper deselects any extra frame
+		if (tool !== 'Viewport') onselectframe?.(null)   // clicking empty paper deselects any frame
 		placingFrame = tool === 'Viewport'
 		const p = toSheet(e.clientX, e.clientY)
 		marquee = { x0: p.x, y0: p.y, x1: p.x, y1: p.y }
@@ -137,18 +121,14 @@
 			return
 		}
 		if (bx1 - bx0 < 3 && by1 - by0 < 3) return   // tiny → just a click (already deselected)
-		// marquee selects the primary frame (if it touches) OR the topmost extra frame it touches
+		// marquee selects the topmost frame it touches
 		const touches = (f: { x: number; y: number; w: number; h: number }) => bx0 <= f.x + f.w && bx1 >= f.x && by0 <= f.y + f.h && by1 >= f.y
-		const ef = [...extraFrames].reverse().find(touches)
-		if (ef) { onselectframe?.(ef.id); selected = false }
-		else if (frame && touches(frame)) { selected = true; onselectframe?.(null) }
+		const ef = [...frames].reverse().find(touches)
+		if (ef) onselectframe?.(ef.id)
 	}
-
-	// Interior click (paper space) deselects; double-click anywhere on the paper outside the
-	// frame exits model space.
-	function onInteriorDown(e: PointerEvent) { e.stopPropagation(); selected = false }
+	// Double-click on the paper outside any frame → exit the active viewport + deselect.
 	function onWrapDblclick(e: MouseEvent) {
-		if (active && !(e.target as Element).closest?.('.vp-frame')) on.deactivate?.()
+		if (!(e.target as Element).closest?.('.vp-frame')) { onselectframe?.(null); ondeactivate?.() }
 	}
 	const CORNERS = [[0, 0], [1, 0], [1, 1], [0, 1]] as const   // TL, TR, BR, BL
 	const CURSORS = ['nwse-resize', 'nesw-resize', 'nwse-resize', 'nesw-resize']
@@ -160,34 +140,11 @@
 	<div class="paper" style:width="{pw}px" style:height="{ph}px">
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="sheet-area" bind:this={sheetEl} onpointerdown={onSheetDown}>
-			{#if frame}
-				<div class="vp-frame" class:selected={selected && !active} class:active
-					style="left:{frame.x}px; top:{frame.y}px; width:{frame.w}px; height:{frame.h}px">
-					<Viewport {kind} label="Outlets · 33F" {scale} {active} {focused} {tool} {env} {on} border={frameBorder} {entities} {sel} {view} {clip} {yaw} {pitch} {sections} {selSection}
-						boxW={frame.w} boxH={frame.h} />
-					{#if !active}
-						<!-- svelte-ignore a11y_no_static_element_interactions -->
-						<!-- Border band selects + moves; the interior child leaves the middle inert. The Viewport
-						     tool disables the bands so a new frame can be dragged out over an existing one. -->
-						<div class="vp-band" style:pointer-events={tool === 'Viewport' ? 'none' : undefined} onpointerdown={(e) => { selected = true; onselectframe?.(null); startDrag(e, 'move', -1, frame!, (f) => (frame = f)); }} ondblclick={() => on.activate?.()}>
-							<div class="vp-interior" onpointerdown={onInteriorDown} ondblclick={() => on.activate?.()}></div>
-						</div>
-						{#if selected}
-							<!-- corner grips as an SVG overlay, sharing Handle.svelte with the entity grips -->
-							<svg class="frame-handles">
-								{#each CORNERS as [cx, cy], i (i)}
-									<Handle cx={cx * frame.w} cy={cy * frame.h} size={HANDLE_PX / (canvasZoom || 1)} cursor={CURSORS[i]} strokeWidth={1.2 / (canvasZoom || 1)}
-										onpointerdown={(e) => startDrag(e, 'grip', i, frame!, (f) => (frame = f))} />
-								{/each}
-							</svg>
-						{/if}
-					{/if}
-				</div>
-			{/if}
-			<!-- EXTRA viewport frames (AutoCAD paper space): each a window onto the model at its own
-			     projection + scale. Same band/grip interaction as the primary, but geometry lives in the
-			     parent (onframegeom) and view/activation are frame-keyed (makeFrameOn). -->
-			{#each extraFrames as f (f.id)}
+			<!-- The sheet's viewport frames (the page model). Each is a window onto the model at its own
+			     projection + scale; select by the border band (interior inert), double-click to edit inside,
+			     corner grips resize. The Viewport tool disables the bands so a new frame can be dragged out
+			     over an existing one. Frame[0] is the seeded default; there is no special "primary". -->
+			{#each frames as f (f.id)}
 				{@const fon = makeFrameOn(f)}
 				{@const fa = isFrameActive(f.id)}
 				<div class="vp-frame" class:selected={selFrame === f.id && !fa} class:active={fa}
@@ -198,8 +155,8 @@
 					{#if !fa}
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
 						<div class="vp-band" style:pointer-events={tool === 'Viewport' ? 'none' : undefined} onpointerdown={(e) => { onselectframe?.(f.id); startDrag(e, 'move', -1, f, (g) => onframegeom?.(f.id, g), true); }} ondblclick={() => fon.activate?.()}>
-							<!-- interior is inert (like the primary): select via the border band, double-click to enter -->
-							<div class="vp-interior" onpointerdown={(e) => { e.stopPropagation(); selected = false; onselectframe?.(null); }} ondblclick={() => fon.activate?.()}></div>
+							<!-- interior is inert: select via the border band, double-click to enter -->
+							<div class="vp-interior" onpointerdown={(e) => { e.stopPropagation(); onselectframe?.(null); }} ondblclick={() => fon.activate?.()}></div>
 						</div>
 						{#if selFrame === f.id}
 							<svg class="frame-handles">

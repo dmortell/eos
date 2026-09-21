@@ -100,7 +100,7 @@
 	// All the viewport event callbacks in ONE `on` object (was ~13 separate props). PaperPage also
 	// uses `frame`; the plain Viewport ignores it.
 	const vpOn = (a: Tab, pane: { id: string; tool: string }) => ({
-		activate: () => activatePrimary(a.id), deactivate: () => deactivateVp(a.id),
+		activate: () => activateVp(a.id), deactivate: () => deactivateVp(a.id),
 		add: (e: Ent) => addEnt(a.id, e), update: (e: Ent) => updateEnt(a.id, e),
 		delete: (ids: string[]) => deleteEnts(a.id, ids), select: (ids: string[]) => setSel(a.id, ids),
 		view: (v: View) => setView(pane.id, a.id, v), status: (t: string) => (statusText = t),
@@ -157,11 +157,12 @@
 	}
 	function deleteSection(id: string) { closeTab(id) }   // closing the elevation tab removes the marker (dropDoc)
 
-	// ── multi-viewport sheets (AutoCAD paper space) — besides its primary viewport, a sheet can hold
-	// EXTRA viewport FRAMES, each a window onto the shared model at its own projection + scale + clip.
-	// The primary viewport is unchanged (tab-keyed); extra frames live per tab (surviving tab switches)
-	// and their view/orbit/activation reuse docView/docOrbit/activeVps keyed by the FRAME id, while entity
-	// editing still targets the tab's shared entities. A section elevation can be dropped in as one.
+	// ── multi-viewport sheets (AutoCAD paper space) — a sheet's PAGE MODEL is an array of viewport FRAMES
+	// (no special "primary"; the default page seeds one full-bleed frame). Each frame is a window onto the
+	// shared model at its own projection + scale + clip + geometry; its view/orbit/activation are keyed by
+	// the FRAME id (reusing docView/docOrbit/activeVps), while entity editing targets the tab's shared
+	// entities. Frames live per tab (surviving tab switches) and are undone/persisted with the page.
+	// (Later the page model also carries the titleblock + page annotations.) A section can be dropped in.
 	type SheetFrame = { id: string; x: number; y: number; w: number; h: number; border: 'dashed' | 'solid' | 'none'; proj: Proj; scale: string; clip: Clip | null; label: string }
 	let docFrames = $state<Record<string, SheetFrame[]>>({})
 	const framesOf = (tabId: string) => docFrames[tabId] ?? []
@@ -169,13 +170,11 @@
 	function updateFrame(tabId: string, id: string, patch: Partial<SheetFrame>) { setFrames(tabId, framesOf(tabId).map((f) => (f.id === id ? { ...f, ...patch } : f))) }
 	let frameSeq = 0
 	const newFrameId = () => 'vf' + ++frameSeq
-	let selFrame = $state<string | null>(null)   // the extra viewport frame selected in paper space (move/resize/props)
-	// Exactly one active viewport per sheet: activating an extra frame deactivates the primary + the other
-	// extras; activating the primary (activatePrimary) deactivates every extra frame.
-	function activatePrimary(tabId: string) { for (const f of framesOf(tabId)) deactivateVp(f.id); activateVp(tabId) }
-	function activateFrame(tabId: string, id: string) { deactivateVp(tabId); for (const f of framesOf(tabId)) if (f.id !== id) deactivateVp(f.id); activateVp(id) }
+	let selFrame = $state<string | null>(null)   // the viewport frame selected in paper space (move/resize/props)
+	// Exactly one active viewport per sheet: activating a frame deactivates its siblings.
+	function activateFrame(tabId: string, id: string) { for (const f of framesOf(tabId)) if (f.id !== id) deactivateVp(f.id); activateVp(id) }
 	// A per-frame callback bundle: entity editing keeps the TAB id; view / activation / scale / orbit use
-	// the FRAME id, so each extra viewport pans, activates and re-aims independently of the primary.
+	// the FRAME id, so each viewport pans, activates and re-aims independently.
 	const vpOnFrame = (a: Tab, pane: { id: string; tool: string }, frame: SheetFrame) => ({
 		...vpOn(a, pane),
 		view: (v: View) => setView(pane.id, frame.id, v),
@@ -184,6 +183,12 @@
 		scale: (s: string) => updateFrame(a.id, frame.id, { scale: s }),
 		orbit: (yaw: number, pitch: number) => setOrbit(pane.id, frame.id, yaw, pitch),
 	})
+	// Seed a sheet's DEFAULT viewport (fills the sheet, plan view) the first time PaperPage measures it —
+	// this is the page's baseline, so it's not a recorded edit.
+	function seedFrame(tabId: string, x: number, y: number, w: number, h: number) {
+		if (framesOf(tabId).length) return
+		setFrames(tabId, [{ id: newFrameId(), x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h), border: 'dashed', proj: 'plan', scale: scaleOf(tabId), clip: null, label: 'Plan' }])
+	}
 	// A new viewport frame dragged on the paper (the Viewport tool): defaults to a plan view. Frame edits
 	// (add / move / resize / delete / re-source) record on the page's per-doc history so Ctrl-Z works.
 	function addFrame(tabId: string, x: number, y: number, w: number, h: number) {
@@ -195,8 +200,18 @@
 	}
 	function deleteFrame(tabId: string, id: string) { ensureHist(tabId); setFrames(tabId, framesOf(tabId).filter((f) => f.id !== id)); if (selFrame === id) selFrame = null; deactivateVp(id); recordEdit(tabId, 'Delete viewport') }
 	function commitFrame(tabId: string, label: string) { recordEdit(tabId, label) }   // one history step at a drag/edit end
-	// The active viewport in a tab: the primary (tab id) if active, else whichever extra frame is active.
+	// The active viewport in a tab: the tab id if active (model-layout tabs), else whichever sheet frame is.
 	const activeVpOf = (tabId: string): string | null => (isVpActive(tabId) ? tabId : framesOf(tabId).find((f) => isVpActive(f.id))?.id ?? null)
+	// The ViewCube reflects + re-aims a SHEET's active frame (or its first frame); a model-layout tab uses
+	// the per-pane docProj as before.
+	const gizmoProj = (pane: { id: string }, a: Tab | null): Proj => {
+		if (a?.kind === 'sheet') { const av = activeVpOf(a.id); const f = (av ? framesOf(a.id).find((x) => x.id === av) : null) ?? framesOf(a.id)[0]; return (f?.proj ?? 'plan') as Proj }
+		return projOf(pane, a)
+	}
+	function gizmoSet(pane: { id: string }, a: Tab | null, proj: Proj) {
+		if (a?.kind === 'sheet') { const av = activeVpOf(a.id) ?? framesOf(a.id)[0]?.id; if (av) updateFrame(a.id, av, { proj, label: PROJ_LABEL[proj] }) }
+		else if (a) docProj = { ...docProj, [projKey(pane.id, a)]: proj }
+	}
 	const PROJ_LABEL: Record<Proj, string> = { plan: 'Plan', front: 'Front', rear: 'Rear', left: 'Left', right: 'Right', iso: '3D' }
 	let selFrameObj = $derived.by(() => { const t = active; return t && selFrame ? framesOf(t.id).find((f) => f.id === selFrame) ?? null : null })
 	let focused = $state(0)      // which pane new tabs / sidebar actions target
@@ -834,18 +849,19 @@
 							{@const cv = canvasViewOf(p)}
 							<div class="canvas-content" style:transform="translate({cv.x}px, {cv.y}px) scale({cv.zoom})">
 								{#if a?.kind === 'sheet' && p.layout === 'sheet'}
-									<PaperPage title={a.title} tool={p.tool} scale={scaleOf(a.id)} env={envFor(p)} on={vpOn(a, p)} pw={paperDimsOf(a.id).w} ph={paperDimsOf(a.id).h}
+									<PaperPage title={a.title} tool={p.tool} scale={framesOf(a.id)[0]?.scale ?? scaleOf(a.id)} env={envFor(p)} pw={paperDimsOf(a.id).w} ph={paperDimsOf(a.id).h}
 										sizeLabel="{paperOf(a.id).size} {paperOf(a.id).landscape ? 'L' : 'P'}" rev={rev} revDate={fmtDate(revisions[0]?.t)}
-										entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(p.id, a.id)} active={isVpActive(a.id)} focused={focused === pi}
-										kind={projKind(projOf(p, a))} clip={docClip[a.id] ?? null} yaw={orbitOf(p.id, a.id).yaw} pitch={orbitOf(p.id, a.id).pitch}
-										sections={projOf(p, a) === 'plan' ? sectionMarkers : []} selSection={selSection}
-										extraFrames={framesOf(a.id)} selFrame={selFrame} frameKind={(pr) => projKind(pr as Proj)}
+										entities={entsOf(a.id)} sel={selOf(a.id)} focused={focused === pi}
+										sections={sectionMarkers} selSection={selSection}
+										frames={framesOf(a.id)} selFrame={selFrame} frameKind={(pr) => projKind(pr as Proj)}
 										isFrameActive={(id) => isVpActive(id)} frameView={(id) => viewOf(p.id, id)} frameEnv={envFor(p)}
 										frameOrbit={(id) => orbitOf(p.id, id)} makeFrameOn={(f) => vpOnFrame(a, p, f as SheetFrame)}
+										onseed={(x, y, w, h) => seedFrame(a.id, x, y, w, h)}
 										onaddframe={(x, y, w, h) => addFrame(a.id, x, y, w, h)}
 										onframegeom={(id, g) => updateFrame(a.id, id, g)}
 										onframecommit={() => commitFrame(a.id, 'Move viewport')}
-										onselectframe={(id) => { selFrame = id; if (id) { treeNode = null; rightTab = 'props'; rightOpen = true } }} />
+										onselectframe={(id) => { selFrame = id; if (id) { treeNode = null; rightTab = 'props'; rightOpen = true } }}
+										ondeactivate={() => { const av = activeVpOf(a.id); if (av) deactivateVp(av) }} />
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => deactivateVp(a.id)}>
@@ -873,8 +889,8 @@
 							<!-- fixed-size view gizmos (ViewCube + WCS axes), screen space so they don't zoom -->
 							<!-- ViewCube re-orients the view's content in place (the sheet's paper viewport too) — it
 							     no longer flips a sheet to fullscreen. Use the Full-size button for that. -->
-							<ViewGizmos projection={projOf(p, a)}
-								onset={(proj) => { docProj = { ...docProj, [projKey(p.id, a)]: proj } }} />
+							<ViewGizmos projection={gizmoProj(p, a)}
+								onset={(proj) => gizmoSet(p, a, proj)} />
 						{/if}
 						<!-- tool prompt / inline-edit help, pinned to the pane bottom-centre (screen space) -->
 						{#if focused === pi && statusText}<div class="pane-status">{statusText}</div>{/if}
