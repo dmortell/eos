@@ -700,13 +700,19 @@ Sheets' basic version** — see §10.
   dialog (name, colour, draw-as fill/line, line type, thickness in mm, **lock**, **delete**).
 - [x] **Lockable layers** — lock toggle on group rows, on **each sub-layer row (beside the eye)**,
   and in the settings dialog (mock; tinted when locked).
-- [ ] **Draggable layers** — reorder layers/groups in the manager by dragging. **(P1 — part of the
-  image-import test below; the drag order sets the background draw z-order.)**
+- [x] **Draggable layers** (2026-09-21) — layer rows in the LayersPanel are `draggable`; dropping one
+  onto another reorders the `layers` array (`moveLayer`), which now IS the draw z-order (below). Drop
+  indicator on the target row. Verified via synthetic DnD: dragging Background 2 onto Background 1 swaps
+  their order and restacks their objects.
 - [x] **Draw order** (2026-09-20) — array position = paint order (later = on top). `reorderEnts`
   moves the selection: front/back jump to the array ends; forward/backward step past one non-selected
   neighbour (block-safe). Wired to **Ctrl+] / Ctrl+[** (± Shift = to front/back) and a Properties
   **ARRANGE** row (⤓ ▽ △ ⤒), recorded to history. Verified front/back and forward (A past B).
-  [ ] Later: paint by (layer order, then intra-layer order) once layers get a draw order.
+  [x] **Paint by (layer order, then intra-layer order)** (2026-09-21) — the Viewport now sorts entities
+  by `layerOrder(e.layer)` (array position in the layers store) first, then their own array index. So a
+  layer's z-position drives its objects' draw order; `reorderEnts` still restacks within a layer. No
+  layer / unknown → paints on top (tool default). Verified: red rect (Background 1) vs blue rect
+  (Background 2) — bg-2 on top, then reordering the layers put bg-1 on top.
 - [x] **View Presets** (2026-09-20) — a preset is a named set of visible layer ids (`presets` in the
   store). Selecting one applies it (shows exactly its layers); the ⋮ menu does Re-apply / Update /
   Save-current-as-new / Rename / Delete; a "• modified" flag shows when visibility drifts from the
@@ -720,16 +726,19 @@ Sheets' basic version** — see §10.
   highlight, settings dialog); Properties Layer dropdown reads it. Verified in-browser (hide→vanish,
   lock→unselectable, active-switch→new object's ByLayer colour follows). [ ] Still open: **View Preset**
   = a saved set of layer visibilities (apply/save); per-object → highlight its layer in the panel.
-- [ ] **Background layers** — import one or more PDF / image / DXF files as background
-  layers that can be toggled/swapped (e.g. compare floorplan vs RCP). Replaces the
-  Sheets "one background PDF" limitation.
-- [ ] **HIGH PRIORITY — image-import end-to-end test** (Dave, 2026-09-21) — *do this once the
-  **PaperPage↔Viewport merge** and the **page-MODEL object** (§2) are finished.* Import files
-  (**images first**; PDF/DXF later), **assign each to a layer** (typically grouped under a
-  **Background** layer category), then **drag layers in the Layers list to set the draw z-order**
-  and confirm one background correctly overlaps the other. Depends on **Draggable layers** (§3) +
-  Background layers (above). This is the acceptance test that ties file-import + layers + z-order
-  together.
+- [~] **Background layers** (2026-09-21) — a **Background** layer group (Background 1/2) sits at the top
+  of the layers array (draws first = behind everything), toggled independently of view presets. Import
+  an image onto the active layer via **Insert › Image…** (reads a data-URL; a real backend uploads +
+  stores a fileId — §4). `image` Ent type renders in its a→b rect (selectable/resizable). [ ] still:
+  PDF/DXF import, swap/compare, per-file origin/scale/crop.
+- [x] **HIGH PRIORITY — image-import → layer z-order test** (2026-09-21) — the acceptance mechanism is
+  built + verified: an `image` entity type + **Insert › Image…** (file → data-URL → image on the active
+  layer), a **Background** layer category, **paint-by-layer-order**, and **drag-to-reorder layers**.
+  Verified in-browser (using two filled rects on Background 1/2, since the native file picker + real DnD
+  can't be automation-driven): bg-2's object drew ON TOP of bg-1's, then dragging Background 2 above
+  Background 1 flipped the z-order so bg-1's object came on top. Images ride the same `paintEnts` path.
+  *Still to browser-test with a real image file + real mouse drag (both blocked in the automated
+  browser): the `<image>` render and the native picker path — both code-complete + type-clean.*
 
 ## 4. Imported files / floorplans  (P1–P2)
 - [ ] Upload & manage many floorplan drawings per project — **electrical, furniture, AV,

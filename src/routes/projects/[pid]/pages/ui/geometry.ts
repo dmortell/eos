@@ -10,8 +10,9 @@ export type TextAlign = 'left' | 'center' | 'right'
 // Style props mirror the Sheets annotation model (fontPt/align/color/fill/weight) so an object can
 // match Sheets' defaults; all optional → unset falls back to the tool defaults (see STYLE_DEFAULTS).
 export type VAlign = 'top' | 'middle' | 'bottom'
-export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'ellipse' | 'dim' | 'text' | 'box' | 'polyline'; a?: Pt; b?: Pt; c?: Pt; r?: number; h?: number; z0?: number; text?: string; pts?: Pt[]; groupId?: string;
+export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'ellipse' | 'dim' | 'text' | 'box' | 'polyline' | 'image'; a?: Pt; b?: Pt; c?: Pt; r?: number; h?: number; z0?: number; text?: string; pts?: Pt[]; groupId?: string;
 	color?: string; fill?: string; weight?: number; fontPt?: number; align?: TextAlign; valign?: VAlign; layer?: string; rot?: number;
+	src?: string; opacity?: number;   // 'image' entity (background): src = image URL / data-URL placed in the a→b rect; opacity 0..1
 	// DRAWING PLANE — which projection plane the object's coordinates live in: undefined/'plan' = the
 	// model/plan plane (projected into every elevation as a ground line, layer-gated); an ElevDir = drawn
 	// natively in that elevation plane (a wall/rack label, a leader, a 2D shape/image on an elevation).

@@ -12,7 +12,7 @@
 	import Handle from '../parts/Handle.svelte'
 	import { BASE, HANDLE_PX } from '../constants'
 	import { type Pt, type Ent, type View, type ElevDir, DEFAULT_BOX_H, GROUND, PT, MMPU, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, ELEV_BASIS, elevU, elevUInv, flatSpan, dist, segDist, translate, textBox, boxElev, boxElevSet, boxFaces } from './geometry'
-	import { isLayerHidden, isLayerLocked, layerColor } from '../layers.svelte'
+	import { isLayerHidden, isLayerLocked, layerColor, layerOrder } from '../layers.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
 	import { models, modelById, modelSel, setModelSel } from '../3dview/models.svelte'
 	import { guideId, selectedPlanGuide } from '../guides.svelte'
@@ -401,7 +401,7 @@
 		if (e.type === 'polyline') { const pts = e.pts ?? []; for (let i = 0; i + 1 < pts.length; i++) if (segDist(p, pts[i], pts[i + 1]) < thr) return true; return false }
 		if (e.type === 'line' || e.type === 'dim') return segDist(p, e.a!, e.b!) < thr
 		if (e.type === 'box' && isElev) { const f = boxElev(e, elevDir, CX, CY); return inBox(p, f.x0, f.top, f.x1, f.base, thr, true) }   // elevation box draws a filled face
-		if (e.type === 'rect' || e.type === 'box') { const x0 = Math.min(e.a![0], e.b![0]), y0 = Math.min(e.a![1], e.b![1]), x1 = Math.max(e.a![0], e.b![0]), y1 = Math.max(e.a![1], e.b![1]); return inBox(p, x0, y0, x1, y1, thr, e.type === 'box' || isFilled(e)) }
+		if (e.type === 'rect' || e.type === 'box' || e.type === 'image') { const x0 = Math.min(e.a![0], e.b![0]), y0 = Math.min(e.a![1], e.b![1]), x1 = Math.max(e.a![0], e.b![0]), y1 = Math.max(e.a![1], e.b![1]); return inBox(p, x0, y0, x1, y1, thr, e.type !== 'rect' || isFilled(e)) }   // image/box pick anywhere inside
 		if (e.type === 'circle') { const d = dist(e.c!, p); return isFilled(e) ? d <= e.r! + thr : Math.abs(d - e.r!) <= thr }
 		if (e.type === 'ellipse') {
 			const cx = (e.a![0] + e.b![0]) / 2, cy = (e.a![1] + e.b![1]) / 2
@@ -423,6 +423,15 @@
 	}
 	// A hidden or locked layer's objects can't be picked; nor can objects that don't belong to this view.
 	const pickable = (e: Ent) => inThisView(e) && !isLayerHidden(e.layer) && !isLayerLocked(e.layer)
+	// PAINT ORDER = layer order first (array position in the layers store — earlier layer = underneath),
+	// then the entity's own array position within a layer. So dragging a layer in the panel restacks its
+	// objects (imported backgrounds included). No layer / unknown → paints on top (the tool default).
+	const paintEnts = $derived(
+		entities
+			.map((e, i) => { const lo = layerOrder(e.layer); return { e, i, o: lo < 0 ? 1e9 : lo } })
+			.sort((a, b) => a.o - b.o || a.i - b.i)
+			.map((x) => x.e)
+	)
 	function hit(p: Pt): string[] {
 		// ~3.5px of slack on EITHER side of a line/border (≈7px total pick width) in SCREEN px. Entity
 		// coords + `p` are in unscaled drawing space, so convert screen px → drawing units = hitTol()/dscale
@@ -927,7 +936,7 @@
 		const mid = (a: Pt, b: Pt): Pt => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
 		if (e.type === 'polyline') { const pts = e.pts ?? []; const out = pts.map(p => ({ point: p, type: 'end' })); for (let i = 0; i + 1 < pts.length; i++) out.push({ point: mid(pts[i], pts[i + 1]), type: 'mid' }); return out }
 		if (e.type === 'line' || e.type === 'dim') return [{ point: e.a!, type: 'end' }, { point: e.b!, type: 'end' }, { point: mid(e.a!, e.b!), type: 'mid' }]
-		if (e.type === 'rect' || e.type === 'ellipse' || e.type === 'box') {
+		if (e.type === 'rect' || e.type === 'ellipse' || e.type === 'box' || e.type === 'image') {
 			const [x0, y0, x1, y1] = bbox(e)
 			const c: Pt[] = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
 			return [...c.map(p => ({ point: p, type: 'end' })),
@@ -1005,7 +1014,7 @@
 				{ x: x1, y: top, apply: p => boxElevSet(e, { x1: p[0], h: base - p[1] }, elevDir, CX, CY) },          // top-right
 			]
 		}
-		if (e.type === 'rect' || e.type === 'ellipse' || e.type === 'box') {   // 4 corner grips on the footprint/bbox
+		if (e.type === 'rect' || e.type === 'ellipse' || e.type === 'box' || e.type === 'image') {   // 4 corner grips on the footprint/bbox
 			const [ax, ay] = e.a!, [bx, by] = e.b!
 			return [
 				{ x: ax, y: ay, apply: p => ({ ...e, a: p }) },
@@ -1495,7 +1504,7 @@
 				{/if}
 			{/if}
 			<!-- drawn entities (objects on a hidden layer are skipped; the edited text is hidden too) -->
-			{#each entities as e (e.id)}{#if e.id !== editText?.id && !isLayerHidden(e.layer) && inThisView(e)}{#if e.rot}{@const c = rotCenter(e)}<g transform="rotate({e.rot} {c[0]} {c[1]})">{@render drawn(e, selSet.has(e.id))}</g>{:else}{@render drawn(e, selSet.has(e.id))}{/if}{/if}{/each}
+			{#each paintEnts as e (e.id)}{#if e.id !== editText?.id && !isLayerHidden(e.layer) && inThisView(e)}{#if e.rot}{@const c = rotCenter(e)}<g transform="rotate({e.rot} {c[0]} {c[1]})">{@render drawn(e, selSet.has(e.id))}</g>{:else}{@render drawn(e, selSet.has(e.id))}{/if}{/if}{/each}
 			{#if active && POLY.has(tool) && draft.length}
 				<!-- polyline / wall / trunk / pipe preview: committed segments + rubber band to the cursor -->
 				<polyline points={draft.map(p => p.join(',')).join(' ')} fill="none" stroke={SEL} stroke-width="1.2" />
@@ -1586,6 +1595,9 @@
 		<line x1={sp[0]} y1={GROUND} x2={sp[1]} y2={GROUND} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
 	{:else if e.type === 'line'}
 		<line x1={e.a![0]} y1={e.a![1]} x2={e.b![0]} y2={e.b![1]} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
+	{:else if e.type === 'image'}
+		<!-- an imported background image, placed in the a→b rect (opacity optional) -->
+		<image href={e.src} x={Math.min(e.a![0], e.b![0])} y={Math.min(e.a![1], e.b![1])} width={Math.abs(e.b![0] - e.a![0])} height={Math.abs(e.b![1] - e.a![1])} opacity={e.opacity ?? 1} preserveAspectRatio="none" />
 	{:else if e.type === 'polyline'}
 		<polyline points={(e.pts ?? []).map(p => p.join(',')).join(' ')} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" stroke-linejoin="round" />
 	{:else if e.type === 'rect'}

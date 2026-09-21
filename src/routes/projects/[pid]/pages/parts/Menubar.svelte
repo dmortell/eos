@@ -6,7 +6,7 @@
 		File: ['New Page', 'Open…', '—', 'Save', 'Export…', '—', 'Print…'],
 		Edit: ['Undo', 'Redo', '—', 'Cut', 'Copy', 'Paste', '—', 'Delete'],
 		View: ['Zoom In', 'Zoom Out', 'Fit', '—', 'Split Editor', 'Unsplit', '—', 'Toggle Left Panel', 'Toggle Right Panel'],
-		Insert: ['Outlet', 'Trunk', 'Rack', '—', 'Text', 'Dimension'],
+		Insert: ['Image…', '—', 'Outlet', 'Trunk', 'Rack', '—', 'Text', 'Dimension'],
 	}
 	let openMenu = $state<string | null>(null)
 	function pick(item: string) { openMenu = null; onaction?.(item) }

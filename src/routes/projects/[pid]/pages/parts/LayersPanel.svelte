@@ -4,7 +4,7 @@
 	// View-Preset picker + search (cosmetic), per-layer eye/lock/colour and a settings dialog.
 	import { Icon, ColorPicker } from '$lib'
 	import { COLORS } from '../palette'
-	import { layers, layerUI, layerGroups, addLayer, removeLayer,
+	import { layers, layerUI, layerGroups, addLayer, removeLayer, moveLayer,
 		presets, presetUI, applyPreset, savePreset, updatePreset, renamePreset, deletePreset, presetMatches } from '../layers.svelte'
 	import { tick } from 'svelte'
 	function focusEdit(node: HTMLInputElement) { tick().then(() => { node.focus(); node.select() }) }
@@ -25,6 +25,12 @@
 
 	let editing = $state<string | null>(null)   // layer id being renamed
 	function commit(e: KeyboardEvent) { if (e.key === 'Enter' || e.key === 'Escape') editing = null }
+
+	// DRAG to reorder layers = change draw z-order (array position). Dropping a row onto another inserts
+	// the dragged layer just before it. `dragId` = the layer being dragged; `overId` = the current drop row.
+	let dragId = $state<string | null>(null)
+	let overId = $state<string | null>(null)
+	function onDrop(targetId: string) { if (dragId && dragId !== targetId) moveLayer(dragId, targetId); dragId = null; overId = null }
 
 	// Layer-settings dialog (opened from a layer's swatch button).
 	let dlgId = $state<string | null>(null)
@@ -83,7 +89,13 @@
 					{#each kids as l (l.id)}
 						{#if matches(l.name) || matches(g)}
 							<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-							<div class="ly-row" class:off={!l.visible} class:active={l.id === layerUI.active} onclick={() => (layerUI.active = l.id)}>
+							<div class="ly-row" class:off={!l.visible} class:active={l.id === layerUI.active} class:dragover={overId === l.id && dragId !== l.id} onclick={() => (layerUI.active = l.id)}
+								draggable="true" title="Drag to reorder (sets draw z-order)"
+								ondragstart={(e) => { dragId = l.id; e.dataTransfer?.setData('text/plain', l.id); if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move' }}
+								ondragover={(e) => { e.preventDefault(); overId = l.id }}
+								ondragleave={() => { if (overId === l.id) overId = null }}
+								ondrop={(e) => { e.preventDefault(); onDrop(l.id) }}
+								ondragend={() => { dragId = null; overId = null }}>
 								<button class="ly-eye" aria-label="Show/hide {l.name}" onclick={(e) => { e.stopPropagation(); l.visible = !l.visible }}>
 									<Icon name={l.visible ? 'eye' : 'eyeSlash'} size={13} />
 								</button>
@@ -180,6 +192,8 @@
 	.ly-row { display:flex; align-items:center; gap:6px; padding:3px 4px 3px 22px; border-radius:5px; cursor:default; }
 	.ly-row:hover { background:var(--hover); }
 	.ly-row.active { background:var(--active); }
+	.ly-row[draggable=true] { cursor:grab; }
+	.ly-row.dragover { box-shadow:inset 0 2px 0 var(--accent); }   /* drop-before indicator */
 	.ly-eye { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; flex:0 0 auto; border-radius:3px; color:var(--muted); background:none; border:none; }
 	.ly-eye:hover { color:var(--text); background:var(--line); }
 	/* lock toggle beside the eye: faint when unlocked, accent when locked */

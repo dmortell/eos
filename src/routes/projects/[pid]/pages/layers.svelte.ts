@@ -14,7 +14,12 @@ export type PLayer = {
 	locked: boolean
 }
 
+// NOTE: array ORDER = draw order (earlier = painted first = underneath; later = on top). The Background
+// group sits FIRST so imported PDF/image backgrounds render behind everything; drag layers in the panel
+// to change z-order. New layers append (on top).
 export const layers = $state<PLayer[]>([
+	{ id: 'bg-1', name: 'Background 1', group: 'Background', color: '#64748b', swatch: 'color', visible: true, locked: false },
+	{ id: 'bg-2', name: 'Background 2', group: 'Background', color: '#94a3b8', swatch: 'color', visible: true, locked: false },
 	{ id: 'anno', name: 'Annotations', group: 'General', color: '#dc2626', swatch: 'color', visible: true, locked: false },
 	{ id: 'dims', name: 'Dimensions', group: 'General', color: '#0e7490', swatch: 'color', visible: true, locked: false },
 	{ id: 'data', name: 'Data Outlets', group: 'Outlets', color: '#2563eb', swatch: 'color', visible: true, locked: false },
@@ -55,7 +60,9 @@ export const presets = $state<Preset[]>([
 ])
 export const presetUI = $state<{ active: string }>({ active: 'p-hi' })
 
-export const currentVisibleIds = (): string[] => layers.filter((l) => l.visible).map((l) => l.id)
+// Background layers are toggled independently of view presets (they're imported backdrops), so they're
+// excluded from preset visibility sets + matching.
+export const currentVisibleIds = (): string[] => layers.filter((l) => l.visible && l.group !== 'Background').map((l) => l.id)
 // Does the current layer visibility exactly match a preset? (used to flag "modified")
 export function presetMatches(id: string): boolean {
 	const p = presets.find((x) => x.id === id); if (!p) return false
@@ -65,7 +72,7 @@ export function presetMatches(id: string): boolean {
 export function applyPreset(id: string) {
 	const p = presets.find((x) => x.id === id); if (!p) return
 	const vis = new Set(p.visible)
-	for (const l of layers) l.visible = vis.has(l.id)
+	for (const l of layers) if (l.group !== 'Background') l.visible = vis.has(l.id)   // presets don't touch backgrounds
 	presetUI.active = id
 }
 let pseq = 0
@@ -83,3 +90,14 @@ export function addLayer(group = 'General'): PLayer {
 	return l
 }
 export function removeLayer(id: string) { const i = layers.findIndex((l) => l.id === id); if (i >= 0) layers.splice(i, 1); if (layerUI.active === id) layerUI.active = layers[0]?.id ?? '' }
+// Reorder: move layer `id` to just BEFORE `beforeId` (null = to the end). Array order = draw order, so
+// this sets the layer's z-position — dragging a background layer down in the panel puts it on top.
+export function moveLayer(id: string, beforeId: string | null) {
+	const from = layers.findIndex((l) => l.id === id); if (from < 0) return
+	const [l] = layers.splice(from, 1)
+	let to = beforeId ? layers.findIndex((x) => x.id === beforeId) : layers.length
+	if (to < 0) to = layers.length
+	layers.splice(to, 0, l)
+}
+// A layer's DRAW order index (position in the array). Lower = painted first (underneath). Unknown → -1.
+export const layerOrder = (id?: string): number => (id ? layers.findIndex((l) => l.id === id) : -1)

@@ -13,7 +13,7 @@
 	import DrawingNavigator from './parts/DrawingNavigator.svelte'
 	import LayersPanel from './parts/LayersPanel.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
-	import { layerUI, layerById } from './layers.svelte'
+	import { layerUI, layerById, layers } from './layers.svelte'
 	import HistoryPanel from './parts/HistoryPanel.svelte'
 	import StatusBar from './parts/StatusBar.svelte'
 	import ViewGizmos from './parts/ViewGizmos.svelte'
@@ -513,8 +513,35 @@
 		else if (item === 'Print…') window.print()
 		else if (item === 'Undo') undo()
 		else if (item === 'Redo') redo()
-		else if (item === 'Delete') deleteSelection()
+		else if (item === 'Image…') importImage()
+		else if (item === 'Text') { if (active) focusTool('Text') }
+		else if (item === 'Dimension') { if (active) focusTool('Dimension') }
 		// everything else is a mock no-op
+	}
+	function focusTool(t: string) { const p = panes[focused]; if (p) p.tool = t }
+	// Import an IMAGE as a background: read it as a data-URL, size the placement rect to its aspect ratio,
+	// and add it as an 'image' entity on the ACTIVE layer (select a Background layer first to group it).
+	// Mock: the data-URL lives in the entity; a real backend would upload + store a fileId (§4).
+	function importImage() {
+		const id = panes[focused]?.activeId; if (!id) return
+		const input = document.createElement('input')
+		input.type = 'file'; input.accept = 'image/*'
+		input.onchange = () => {
+			const file = input.files?.[0]; if (!file) return
+			const reader = new FileReader()
+			reader.onload = () => {
+				const src = String(reader.result)
+				const img = new Image()
+				img.onload = () => {
+					const cx = 14000, cy = 8750, w = 9000, h = w * ((img.naturalHeight || 700) / (img.naturalWidth || 1000))
+					addEnt(id, { id: newId(), type: 'image', a: [Math.round(cx - w / 2), Math.round(cy - h / 2)], b: [Math.round(cx + w / 2), Math.round(cy + h / 2)], src, plane: 'plan' })
+				}
+				img.onerror = () => addEnt(id, { id: newId(), type: 'image', a: [9500, 6250], b: [18500, 12550], src, plane: 'plan' })
+				img.src = src
+			}
+			reader.readAsDataURL(file)
+		}
+		input.click()
 	}
 
 	// Drawing Navigator (left) → open the picked drawing/view as a tab (focus if already open).
