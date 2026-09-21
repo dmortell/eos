@@ -292,10 +292,14 @@ New todos (design / bigger):
   TWO segments joined into one and delete the rest** (Dave's spec 2026-09-21). Needs a node-level
   selection (today selection is whole-object; grips are per-node but not individually selectable).
   Branch-from-node is now **Ctrl-drag** (done 2026-09-21; was Alt).
-- [ ] **Audit + minimise Alt-key functions** (Dave, 2026-09-21 — rarely uses Alt) — list every Alt-*
-  binding in the Pages tool and move the useful ones to Ctrl/other or a visible control. Known Alt uses:
-  panzoom Alt+wheel = zoom (`ui/panzoom.ts`); (node-branch moved off Alt → Ctrl). Grep `altKey` across
-  `pages/` and decide each.
+- [x] **Audit + minimise Alt-key functions** (audited 2026-09-22; Dave rarely uses Alt) — grepped
+  `altKey`/`e.alt` across all of `pages/`. **Result: exactly ONE Alt binding remains** — `ui/panzoom.ts`
+  `Alt+wheel = zoom` (in the `zoom = ... || e.ctrlKey || e.altKey || e.metaKey || right-btn` modifier
+  chain). It is **fully redundant**: Ctrl+wheel, Meta+wheel AND right-button+wheel already zoom, so no
+  capability is Alt-only. (The old Alt-drag node-BRANCH is already Ctrl-drag — see the graph-node grip at
+  `Viewport.svelte` ~1289.) So there is nothing that *needs* relocating. **◧ Dave's call:** leave the
+  harmless redundant Alt+wheel in place, or drop `e.altKey` from that OR-chain to make the tool truly
+  Alt-free (zero capability loss)? Not removing it unprompted since it's a UX preference, not a bug.
 - [ ] **Touch: Guide tool button pop-out for H/V** (Dave, 2026-09-21) — on touch there's no Shift to pick
   vertical, so the Guide toolbar button should pop out an **H / V** selector. Fits the tools-pop-out-groups
   todo (a tool button that fans out its variants).
