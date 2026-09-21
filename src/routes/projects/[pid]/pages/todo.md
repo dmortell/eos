@@ -717,8 +717,9 @@ Sheets' basic version** — see §10.
   store). Selecting one applies it (shows exactly its layers); the ⋮ menu does Re-apply / Update /
   Save-current-as-new / Rename / Delete; a "• modified" flag shows when visibility drifts from the
   saved preset. Verified: applying "Trunk Routes" hid the outlet layers and showed the trunks.
-- [ ] **Find / identify an object's layer** — select an object → highlight its layer in the
-  panel (and a "select all on layer" / "isolate layer" action).
+- [~] **Find / identify an object's layer** — the selected object's layer already shows in the Properties
+  **Layer** dropdown (Dave: enough for now). [ ] remaining (lower priority): highlight it in the panel +
+  a "select all on layer" / "isolate layer" action.
 - [x] **Wire to the canvas** (2026-09-20) — shared reactive store `layers.svelte.ts` (single source of
   truth). Objects carry `layer`; new objects take the **active layer** (clicked in the panel). The
   Viewport hides objects on hidden layers, blocks pick/marquee/grips on locked layers, and resolves

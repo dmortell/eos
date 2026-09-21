@@ -18,7 +18,7 @@ export type PLayer = {
 // group sits FIRST so imported PDF/image backgrounds render behind everything; drag layers in the panel
 // to change z-order. New layers append (on top).
 export const layers = $state<PLayer[]>([
-	{ id: 'bg-1', name: 'Background 1', group: 'Background', color: '#64748b', swatch: 'color', visible: true, locked: false },
+	{ id: 'bg-1', name: 'Background 1', group: 'Background', color: '#64748b', swatch: 'color', visible: false, locked: false },
 	{ id: 'bg-2', name: 'Background 2', group: 'Background', color: '#94a3b8', swatch: 'color', visible: true, locked: false },
 	{ id: 'anno', name: 'Annotations', group: 'General', color: '#dc2626', swatch: 'color', visible: true, locked: false },
 	{ id: 'dims', name: 'Dimensions', group: 'General', color: '#0e7490', swatch: 'color', visible: true, locked: false },

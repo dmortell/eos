@@ -51,7 +51,6 @@
 	// function that's only invoked). env flags stay derived because they're read as values.
 	const acad = $derived(env.acad ?? true)
 	const navContent = $derived(env.navContent ?? false)
-	const grid = $derived(env.grid ?? true)
 	const lwt = $derived(env.lwt ?? true)
 	const osnap = $derived(env.osnap ?? true)
 	const snap = $derived(env.snap ?? false)     // SNAP: round points to the grid step
@@ -85,24 +84,6 @@
 	let hoverBody = $state(false)
 	let cursorStyle = $derived(!active ? 'pointer' : DRAW.has(tool) ? 'crosshair' : hoverBody ? 'move' : 'default')
 
-	// ── background mock content ──
-	const desks: { x: number; y: number }[] = []
-	for (let c = 0; c < 4; c++) for (let r = 0; r < 5; r++) desks.push({ x: 54 + c * 82, y: 44 + r * 38 })
-	const DW = 56, DH = 26
-	const outlets = desks.map((d, i) => ({ x: d.x + DW / 2, y: d.y + DH + 7, k: i % 4 === 0 ? 'p' : i % 4 === 2 ? 'a' : 'n' }))
-	const outletColor: Record<string, string> = { p: '#f97316', n: '#3b82f6', a: '#10b981' }
-	const IX = 205, IY = 70, SX = 1.15, SY = 0.58
-	const pt = (x: number, y: number, z: number) => `${IX + (x - z) * SX},${IY + (x + z) * SY - y * 1.1}`
-	function boxF(x: number, z: number, w: number, d: number, h: number) {
-		return {
-			top: `${pt(x, h, z)} ${pt(x + w, h, z)} ${pt(x + w, h, z + d)} ${pt(x, h, z + d)}`,
-			left: `${pt(x, 0, z)} ${pt(x, h, z)} ${pt(x, h, z + d)} ${pt(x, 0, z + d)}`,
-			right: `${pt(x, 0, z + d)} ${pt(x, h, z + d)} ${pt(x + w, h, z + d)} ${pt(x + w, 0, z + d)}`,
-		}
-	}
-	const racks = [boxF(20, 10, 26, 46, 60), boxF(60, 10, 26, 46, 60), boxF(100, 10, 26, 46, 60), boxF(20, 80, 26, 46, 42)]
-	const floorGrid: string[] = []
-	for (let i = 0; i <= 6; i++) { floorGrid.push(`${pt(i * 24, 0, 0)} ${pt(i * 24, 0, 144)}`); floorGrid.push(`${pt(0, 0, i * 24)} ${pt(144, 0, i * 24)}`) }
 
 	// ── drawing (Kestrel-style) ──
 	const INK = '#475569', SEL = '#0e7490'
@@ -111,11 +92,18 @@
 	let cur = $state<Pt | null>(null)
 	let shiftDown = $state(false)   // for aspect-lock override during an image resize
 	let scalePts = $state<Pt[]>([])   // the 2-point measure line while calibrating an image's scale
+	// The image being calibrated is only shown here if its layer is visible AND it belongs to this view;
+	// its overlays (measure line, entry, origin) hide with it.
+	const editImgVisible = $derived.by(() => {
+		if (!imgEdit.id) return false
+		const img = entities.find((e) => e.id === imgEdit.id)
+		return !!img && !isLayerHidden(img.layer) && inThisView(img)
+	})
 	let scaleReal = $state<string | null>(null)   // the user's real-distance entry (null = not calibrating scale)
 	// Position + measured distance of the scale entry are DERIVED from the 2 points (+ pan/zoom), so the box
 	// tracks the line automatically; only `scaleReal` (typed value) is state. null until both points exist.
 	const scaleGeom = $derived.by(() => {
-		if (scalePts.length !== 2 || scaleReal === null || !svg) return null
+		if (scalePts.length !== 2 || scaleReal === null || !svg || !editImgVisible) return null
 		const d = dist(scalePts[0], scalePts[1])
 		const m = localToClient((scalePts[0][0] + scalePts[1][0]) / 2, (scalePts[0][1] + scalePts[1][1]) / 2)
 		if (!m) return null
@@ -448,9 +436,10 @@
 	}
 	// A hidden or locked layer's objects can't be picked; nor can objects that don't belong to this view.
 	const pickable = (e: Ent) => inThisView(e) && !isLayerHidden(e.layer) && !isLayerLocked(e.layer)
-	// The origin anchor of the selected / being-edited image, in model coords (null if none has an origin).
+	// The origin anchor of the selected / being-edited image, in model coords (null if none has an origin,
+	// or its layer is hidden, or it isn't shown in this view — the marker must vanish with the image).
 	const originMark = $derived.by(() => {
-		const img = entities.find((e) => e.type === 'image' && (selSet.has(e.id) || imgEdit.id === e.id) && e.origin)
+		const img = entities.find((e) => e.type === 'image' && e.origin && !isLayerHidden(e.layer) && inThisView(e) && (selSet.has(e.id) || imgEdit.id === e.id))
 		if (!img?.origin) return null
 		const rx = Math.min(img.a![0], img.b![0]), ry = Math.min(img.a![1], img.b![1]), rw = Math.abs(img.b![0] - img.a![0]), rh = Math.abs(img.b![1] - img.a![1])
 		return [rx + img.origin.x * rw, ry + img.origin.y * rh] as Pt
@@ -1543,39 +1532,12 @@
 
 	<svg bind:this={svg} class="vp-svg {kind === 'iso' || isElev ? 'model' : ''}" viewBox="{minX} {minY} {vbW} {vbH}" preserveAspectRatio="xMidYMid meet">
 		<g transform="translate({view.x} {view.y}) scale({view.zoom}) translate({CX} {CY}) scale({dscale}) translate({-CX} {-CY})">
-			<!-- Decorative mock backdrop, authored in legacy abstract units; scale(MMPU) converts it to
-			     the mm model space so it lines up with real-mm entities without renumbering. -->
-			<g transform="scale({MMPU})">
-			{#if false && kind === 'iso'}
-				<!-- OLD mock iso racks/floorGrid — retired now the real model renders in iso. -->
-				{#if grid}{#each floorGrid as g (g)}<polyline points={g} fill="none" stroke="#d5deea" stroke-width="0.7" />{/each}{/if}
-				{#each racks as b (b.top)}
-					<polygon points={b.left} fill="#8aa0bf" stroke="#5c7396" stroke-width="0.6" />
-					<polygon points={b.right} fill="#6f88ab" stroke="#4a5f7d" stroke-width="0.6" />
-					<polygon points={b.top} fill="#a9bcd6" stroke="#7f95b4" stroke-width="0.6" />
-				{/each}
-			{:else if isElev}
-				<!-- flat elevation backdrop: just the ground line at GROUND (the faint vertical mock grid was removed) -->
-				<line x1="8" y1={GROUND / MMPU} x2="392" y2={GROUND / MMPU} stroke="#94a3b8" stroke-width="1.2" />
-				<text x="12" y={GROUND / MMPU + 14} font-size="8" fill="#64748b" font-weight="600">{elevDir.toUpperCase()}</text>
-			{:else if false}
-				<!-- OLD mock floorplan backdrop — retired now the real 3D model renders (Model3d). Kept
-				     disabled (flip `false`) for reference; the desks/outlets/grid arrays still feed iso. -->
-				<rect x="8" y="8" width="384" height="234" fill="#ffffff" stroke="#94a3b8" stroke-width="1.4" />
-				{#if grid}
-					{#each Array(19) as _, i (i)}<line x1={8 + i * 20} y1="8" x2={8 + i * 20} y2="242" stroke="#eef2f6" stroke-width="0.6" />{/each}
-					{#each Array(12) as _, i (i)}<line x1="8" y1={8 + i * 20} x2="392" y2={8 + i * 20} stroke="#eef2f6" stroke-width="0.6" />{/each}
-				{/if}
-				<line x1="200" y1="8" x2="200" y2="150" stroke="#cbd5e1" stroke-width="1" />
-				<line x1="8" y1="150" x2="392" y2="150" stroke="#cbd5e1" stroke-width="1" />
-				{#each desks as d, i (i)}<rect x={d.x} y={d.y} width={DW} height={DH} rx="2" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="0.7" />{/each}
-				{#each outlets as o, i (i)}
-					<circle cx={o.x} cy={o.y} r="5.5" fill={outletColor[o.k]} opacity="0.9" />
-					<text x={o.x} y={o.y + 2.2} font-size="5.5" text-anchor="middle" fill="#fff" font-weight="700">{o.k === 'p' ? '4' : '6'}</text>
-				{/each}
-				<text x="24" y="230" font-size="9" fill="#64748b" font-weight="600">OFFICE — 33F</text>
+			{#if isElev}
+				<!-- flat elevation backdrop: just the ground line at GROUND (in mm; the mock floorplan / iso
+				     backdrops were retired once the real Model3d renders). -->
+				<line x1={8 * MMPU} y1={GROUND} x2={392 * MMPU} y2={GROUND} stroke="#94a3b8" stroke-width="1.2" />
+				<text x={12 * MMPU} y={GROUND + 14 * MMPU} font-size={8 * MMPU} fill="#64748b" font-weight="600">{elevDir.toUpperCase()}</text>
 			{/if}
-			</g>
 			<!-- P1b: real 3D model in plan + the four elevations + iso. Read-only for now (P2 = editing). -->
 			{#if mdl}<Model3d model={mdl} dir={(kind === 'floorplan' ? 'plan' : kind) as 'plan' | ElevDir | 'iso'} cx={CX} cy={CY} ground={GROUND} selIds={modelSel} canvasZoom={canvasZoom} clip={clip} yaw={yaw} pitch={pitch} />{/if}
 			<!-- Alignment GUIDES (full-view h/v lines) for this view's space + the Guide-tool hover preview. -->
@@ -1623,7 +1585,7 @@
 				{@render preview(draft[0], cur)}
 			{/if}
 			<!-- image SCALE calibration: the 2-point measure line -->
-			{#if scalePts.length}
+			{#if scalePts.length && editImgVisible}
 				<polyline points={scalePts.map((p) => p.join(',')).join(' ')} fill="none" stroke={SEL} stroke-width={1.5 / (canvasZoom || 1)} vector-effect="non-scaling-stroke" />
 				{#each scalePts as sp (sp.join(','))}<circle cx={sp[0]} cy={sp[1]} r={gripSize} fill={SEL} />{/each}
 			{/if}
