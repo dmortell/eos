@@ -22,7 +22,7 @@
 	import { panzoom } from './ui/panzoom'
 	import { paperDims, PAPER_SIZES, PAPER_PX_PER_MM, type PaperSize } from './constants'
 	import { translate, type ElevDir } from './ui/geometry'
-	import { models, modelSel, snapModels, setModels } from './3dview/models.svelte'
+	import { models, modelById, FLOOR_MODEL_ID, modelSel, snapModels, setModels } from './3dview/models.svelte'
 	import { DEFAULT_YAW, DEFAULT_PITCH } from './3dview/projection'
 	import type { Model, Clip } from './3dview/types'
 
@@ -37,12 +37,14 @@
 
 	// Canvas documents — the B1 "each tab owns its own view state" pattern (mock).
 	type Kind = 'plan' | 'sheet' | 'elevation' | 'model'
-	type Tab = { id: string; title: string; kind: Kind; dirty: boolean; preview?: boolean }
+	// `modelId` = which registry model this tab views (model-layout tabs); a sheet's frames each carry their
+	// own `modelId`. Defaults to the floor model. (§5 model registry.)
+	type Tab = { id: string; title: string; kind: Kind; dirty: boolean; preview?: boolean; modelId?: number }
 	let tabs = $state<Tab[]>([
-		{ id: 't1', title: '3303 Floorplan', kind: 'plan', dirty: false },
-		{ id: 't2', title: '3303 Outlets', kind: 'sheet', dirty: true },
-		{ id: 't3', title: 'Rack A · Elevation', kind: 'elevation', dirty: false },
-		{ id: 't4', title: 'Rack A · 3D Model', kind: 'model', dirty: false },
+		{ id: 't1', title: '3303 Floorplan', kind: 'plan', dirty: false, modelId: 1 },
+		{ id: 't2', title: '3303 Outlets', kind: 'sheet', dirty: true, modelId: 1 },
+		{ id: 't3', title: 'Rack A · Elevation', kind: 'elevation', dirty: false, modelId: 2 },
+		{ id: 't4', title: 'Rack A · 3D Model', kind: 'model', dirty: false, modelId: 2 },
 	])
 	let seq = 4
 	const kindIcon: Record<Kind, string> = { plan: 'mapPin', sheet: 'fileText', elevation: 'server', model: 'box' }
@@ -163,7 +165,7 @@
 	// the FRAME id (reusing docView/docOrbit/activeVps), while entity editing targets the tab's shared
 	// entities. Frames live per tab (surviving tab switches) and are undone/persisted with the page.
 	// (Later the page model also carries the titleblock + page annotations.) A section can be dropped in.
-	type SheetFrame = { id: string; x: number; y: number; w: number; h: number; border: 'dashed' | 'solid' | 'none'; proj: Proj; scale: string; clip: Clip | null; label: string }
+	type SheetFrame = { id: string; x: number; y: number; w: number; h: number; border: 'dashed' | 'solid' | 'none'; proj: Proj; scale: string; clip: Clip | null; label: string; modelId?: number }
 	let docFrames = $state<Record<string, SheetFrame[]>>({})
 	const framesOf = (tabId: string) => docFrames[tabId] ?? []
 	function setFrames(tabId: string, frames: SheetFrame[]) { docFrames = { ...docFrames, [tabId]: frames } }
@@ -226,15 +228,25 @@
 	// Starter docs hold only annotations now — the real 3D floor MODEL (walls / furniture / trunk,
 	// see 3dview/) is what renders in every view. The old demo `box` Ent was retired once the model
 	// landed (model-plan.md P1b); the Box tool stays for quick sketches, it's just no longer seeded.
-	// Entities (2D annotations) now live IN THE MODEL (`models[0].ents`), not per-tab — so every view of
-	// the floor shares them and their undo/redo ride the model snapshot (like guides). All tabs reference
-	// the single model for now; the `id` args below are the HISTORY key (which tab's timeline records the
-	// edit), while the DATA is the shared model. Viewport filters by plane + scope. (§5/§6 migration.)
-	const mdlEnts = (): Ent[] => models[0]?.ents ?? []
-	const setMdlEnts = (next: Ent[]) => { if (models[0]) models[0].ents = next }
+	// Entities (2D annotations) live IN THE MODEL each viewport references (`Model.ents`). With the model
+	// REGISTRY (§5) a viewport points at a model by id: a sheet FRAME carries `modelId`, a model-layout TAB
+	// carries `modelId`, defaulting to the floor. Editing targets the ACTIVE viewport's model — so the CRUD
+	// takes a tab id (the history key) and resolves the model from whatever viewport is active in it.
+	const entsForModel = (mid?: number): Ent[] => (modelById(mid ?? FLOOR_MODEL_ID)?.ents ?? modelById(FLOOR_MODEL_ID)?.ents ?? [])
+	// The model a tab's ACTIVE viewport edits: the active sheet frame's modelId, else the tab's, else floor.
+	function modelIdOf(tabId: string): number {
+		const av = activeVpOf(tabId)
+		if (av && av !== tabId) { const f = framesOf(tabId).find((x) => x.id === av); if (f?.modelId != null) return f.modelId }
+		return tabs.find((t) => t.id === tabId)?.modelId ?? FLOOR_MODEL_ID
+	}
+	const mdlEntsOf = (mid: number): Ent[] => modelById(mid)?.ents ?? []
+	const setMdlEntsOf = (mid: number, next: Ent[]) => { const m = modelById(mid); if (m) m.ents = next }
+	// The focused doc's active model (for selection / revisions / properties).
+	const activeMid = () => modelIdOf(panes[focused]?.activeId ?? '')
+	const mdlEnts = (): Ent[] => mdlEntsOf(activeMid())
 	let docSel = $state<Record<string, string[]>>({})
 	let docView = $state<Record<string, View>>({})
-	const entsOf = (_id: string) => mdlEnts()
+	const entsOf = (id: string) => entsForModel(tabs.find((t) => t.id === id)?.modelId)   // a tab's model's ents (sheets pass per-frame)
 	const selOf = (id: string) => docSel[id] ?? []
 	// View (content pan/zoom) is keyed by PANE+tab, so a split showing the same tab in two panes (e.g.
 	// plan in one, elevation in the other via the per-pane ViewCube) pans each independently.
@@ -256,13 +268,13 @@
 		if (gestureActive) { if (!gesturePushed) { pushStep(id, label); gesturePushed = true } else updateStep(id) }
 		else pushStep(id, label)
 	}
-	function addEnt(id: string, e: Ent) { ensureHist(id); const en = e.layer ? e : { ...e, layer: layerUI.active }; setMdlEnts([...mdlEnts(), en]); recordEdit(id, 'Add ' + en.type) }
-	function updateEnt(id: string, e: Ent) { ensureHist(id); setMdlEnts(mdlEnts().map(x => x.id === e.id ? e : x)); recordEdit(id, 'Edit ' + e.type) }
+	function addEnt(id: string, e: Ent) { ensureHist(id); const mid = modelIdOf(id); const en = e.layer ? e : { ...e, layer: layerUI.active }; setMdlEntsOf(mid, [...mdlEntsOf(mid), en]); recordEdit(id, 'Add ' + en.type) }
+	function updateEnt(id: string, e: Ent) { ensureHist(id); const mid = modelIdOf(id); setMdlEntsOf(mid, mdlEntsOf(mid).map(x => x.id === e.id ? e : x)); recordEdit(id, 'Edit ' + e.type) }
 	function deleteEnts(id: string, ids: string[]) {
 		if (!ids.length) return
 		ensureHist(id)
-		const rm = new Set(ids)
-		setMdlEnts(mdlEnts().filter(e => !rm.has(e.id)))
+		const mid = modelIdOf(id), rm = new Set(ids)
+		setMdlEntsOf(mid, mdlEntsOf(mid).filter(e => !rm.has(e.id)))
 		setSel(id, [])
 		recordEdit(id, 'Delete')
 	}
@@ -272,7 +284,7 @@
 	let clipboard: Ent[] = []   // snapshots; persists across tabs
 	let pasteN = 0, entSeq = 0
 	const newId = () => 'x' + Date.now().toString(36) + (entSeq++)
-	function copyEnts(_id: string, ids: string[]) { const s = new Set(ids); clipboard = mdlEnts().filter(e => s.has(e.id)).map(e => $state.snapshot(e) as Ent); pasteN = 0 }
+	function copyEnts(id: string, ids: string[]) { const s = new Set(ids); clipboard = mdlEntsOf(modelIdOf(id)).filter(e => s.has(e.id)).map(e => $state.snapshot(e) as Ent); pasteN = 0 }
 	function cutEnts(id: string, ids: string[]) { copyEnts(id, ids); deleteEnts(id, ids) }
 	function pasteEnts(id?: string) {
 		if (!clipboard.length || !id) return
@@ -288,19 +300,19 @@
 	}
 	function groupEnts(id: string, ids: string[]) {
 		if (ids.length < 2) return
-		ensureHist(id); const gid = newId(), s = new Set(ids)
-		setMdlEnts(mdlEnts().map(e => s.has(e.id) ? { ...e, groupId: gid } : e))
+		ensureHist(id); const mid = modelIdOf(id), gid = newId(), s = new Set(ids)
+		setMdlEntsOf(mid, mdlEntsOf(mid).map(e => s.has(e.id) ? { ...e, groupId: gid } : e))
 		recordEdit(id, 'Group')
 	}
 	function ungroupEnts(id: string, ids: string[]) {
-		ensureHist(id); const s = new Set(ids)
-		setMdlEnts(mdlEnts().map(e => s.has(e.id) ? { ...e, groupId: undefined } : e))
+		ensureHist(id); const mid = modelIdOf(id), s = new Set(ids)
+		setMdlEntsOf(mid, mdlEntsOf(mid).map(e => s.has(e.id) ? { ...e, groupId: undefined } : e))
 		recordEdit(id, 'Ungroup')
 	}
 	// Draw order = array position (later = painted on top). Reorder the selection within the doc's
 	// array; front/back jump to the ends, forward/backward step past one non-selected neighbour.
 	function reorderEnts(id: string, ids: string[], op: 'front' | 'back' | 'forward' | 'backward') {
-		const arr = mdlEnts(), s = new Set(ids)
+		const mid = modelIdOf(id), arr = mdlEntsOf(mid), s = new Set(ids)
 		if (!ids.length || !arr.some(e => s.has(e.id))) return
 		ensureHist(id)
 		let next: Ent[]
@@ -312,7 +324,7 @@
 			if (op === 'forward') { for (let i = next.length - 2; i >= 0; i--) if (s.has(next[i].id) && !s.has(next[i + 1].id)) [next[i], next[i + 1]] = [next[i + 1], next[i]] }
 			else { for (let i = 1; i < next.length; i++) if (s.has(next[i].id) && !s.has(next[i - 1].id)) [next[i], next[i - 1]] = [next[i - 1], next[i]] }
 		}
-		setMdlEnts(next)
+		setMdlEntsOf(mid, next)
 		recordEdit(id, 'Reorder')
 	}
 
@@ -376,7 +388,7 @@
 	function restoreRevision(snap: Snap) {
 		const id = panes[focused]?.activeId; if (!id) return
 		ensureHist(id)
-		setMdlEnts($state.snapshot(snap) as Ent[])
+		setMdlEntsOf(modelIdOf(id), $state.snapshot(snap) as Ent[])
 		recordEdit(id, 'Restore revision')
 	}
 	function setSel(id: string, ids: string[]) { docSel = { ...docSel, [id]: ids }; if (ids.length) treeNode = null }
@@ -388,7 +400,7 @@
 		return mdlEnts().filter(e => ids.has(e.id))
 	})
 	// The single selected 3D-model object (Properties panel edits it straight on the store, with undo).
-	let selModelObj = $derived(modelSel.length === 1 ? (models[0]?.objects.find(o => o.id === modelSel[0]) ?? null) : null)
+	let selModelObj = $derived(modelSel.length === 1 ? (modelById(activeMid())?.objects.find(o => o.id === modelSel[0]) ?? null) : null)
 	// Selecting a model object (plan / elevation / 3D pick) shows the Properties tab so its props are visible.
 	$effect(() => { if (modelSel.length) { rightTab = 'props'; rightOpen = true } })
 	// Selecting a sheet viewport frame likewise shows its Properties.
@@ -398,7 +410,7 @@
 		beginGesture(); Object.assign(o, patch); modelEdit(id); endGesture()   // one undo step (baseline pre-change)
 	}
 	function deleteModelObj() {
-		const o = selModelObj, m = models[0], id = panes[focused]?.activeId; if (!o || !m || !id) return
+		const o = selModelObj, id = panes[focused]?.activeId, m = modelById(activeMid()); if (!o || !m || !id) return
 		beginGesture(); m.objects = m.objects.filter(x => x.id !== o.id); modelEdit(id); endGesture()
 		modelSel.splice(0, modelSel.length)
 	}
@@ -856,6 +868,7 @@
 									<PaperPage title={a.title} tool={p.tool} scale={framesOf(a.id)[0]?.scale ?? scaleOf(a.id)} env={envFor(p)} pw={paperDimsOf(a.id).w} ph={paperDimsOf(a.id).h}
 										sizeLabel="{paperOf(a.id).size} {paperOf(a.id).landscape ? 'L' : 'P'}" rev={rev} revDate={fmtDate(revisions[0]?.t)}
 										entities={entsOf(a.id)} sel={selOf(a.id)} focused={focused === pi}
+										entsForModel={entsForModel} tabModelId={a.modelId ?? FLOOR_MODEL_ID}
 										sections={sectionMarkers} selSection={selSection}
 										frames={framesOf(a.id)} selFrame={selFrame} frameKind={(pr) => projKind(pr as Proj)}
 										isFrameActive={(id) => isVpActive(id)} frameView={(id) => viewOf(p.id, id)} frameEnv={envFor(p)}
@@ -869,7 +882,7 @@
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => deactivateVp(a.id)}>
-										<Viewport kind={projKind(projOf(p, a))} label={a.title} tool={p.tool} scale={scaleOf(a.id)} env={envFor(p)} on={vpOn(a, p)}
+										<Viewport kind={projKind(projOf(p, a))} label={a.title} tool={p.tool} scale={scaleOf(a.id)} env={envFor(p)} on={vpOn(a, p)} modelId={a.modelId ?? FLOOR_MODEL_ID}
 											entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(p.id, a.id)} active={isVpActive(a.id)} focused={focused === pi} clip={docClip[a.id] ?? null} yaw={orbitOf(p.id, a.id).yaw} pitch={orbitOf(p.id, a.id).pitch}
 											sections={projOf(p, a) === 'plan' ? sectionMarkers : []} selSection={selSection} />
 									</div>
@@ -929,8 +942,10 @@
 					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (active) updateEnt(active.id, e) }}
 						onarrange={(op) => { if (active) reorderEnts(active.id, selOf(active.id), op) }}
 						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''} {activeLayer} node={treeNode} viewport={viewportSel}
-						modelObj={selModelObj} modelLayers={models[0]?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} onmodelseg={updateModelSeg}
+						modelObj={selModelObj} modelLayers={modelById(activeMid())?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} onmodelseg={updateModelSeg}
 						frameObj={selFrameObj}
+						modelList={models.map((m) => ({ id: m.id, name: m.name }))}
+						activeFrameId={active && activeVpOf(active.id) !== active.id ? (activeVpOf(active.id) ?? undefined) : undefined}
 						onframeupdate={(patch) => { if (active && selFrame) { ensureHist(active.id); updateFrame(active.id, selFrame, patch as Partial<SheetFrame>); commitFrame(active.id, 'Edit viewport') } }}
 						onframedelete={() => { if (active && selFrame) deleteFrame(active.id, selFrame) }} />
 				{:else}

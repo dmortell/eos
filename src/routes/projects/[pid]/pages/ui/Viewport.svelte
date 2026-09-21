@@ -14,8 +14,8 @@
 	import { type Pt, type Ent, type View, type ElevDir, DEFAULT_BOX_H, GROUND, PT, MMPU, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, ELEV_BASIS, elevU, elevUInv, flatSpan, dist, segDist, translate, textBox, boxElev, boxElevSet, boxFaces } from './geometry'
 	import { isLayerHidden, isLayerLocked, layerColor } from '../layers.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
-	import { models, modelSel, setModelSel } from '../3dview/models.svelte'
-	import { modelGuides, addGuide, guideId, selectedPlanGuide } from '../guides.svelte'
+	import { models, modelById, modelSel, setModelSel } from '../3dview/models.svelte'
+	import { guideId, selectedPlanGuide } from '../guides.svelte'
 	import { polyToGraph } from '../3dview/migrate'
 	import { DEFAULT_YAW, DEFAULT_PITCH, doorGeom, isoBounds, isoR, faces3d, isoDepthR } from '../3dview/projection'
 	import type { Obj, Clip } from '../3dview/types'
@@ -42,9 +42,9 @@
 		sectionselect?: (id: string | null) => void; sectionopen?: (id: string) => void; sectionmove?: (id: string, clip: Clip) => void;
 		sectionsetdir?: (id: string, dir: ElevDir) => void; sectiondelete?: (id: string) => void
 	}
-	let { label = 'Viewport', scale = '1:1', kind = 'floorplan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {}, frameId = undefined,
+	let { label = 'Viewport', scale = '1:1', kind = 'floorplan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {}, frameId = undefined, modelId = undefined,
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, sections = [], selSection = null }:
-		{ label?: string; scale?: string; kind?: 'floorplan' | 'iso' | ElevDir; active?: boolean; tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env; on?: VpOn; frameId?: string;
+		{ label?: string; scale?: string; kind?: 'floorplan' | 'iso' | ElevDir; active?: boolean; tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env; on?: VpOn; frameId?: string; modelId?: number;
 			focused?: boolean; entities?: Ent[]; sel?: string[]; view?: View; clip?: Clip | null; yaw?: number; pitch?: number; sections?: SectionMarker[]; selSection?: string | null } = $props()
 	// Callbacks are called directly as on.x?.(…) — no aliases (a $derived rename adds nothing for a
 	// function that's only invoked). env flags stay derived because they're read as values.
@@ -71,7 +71,8 @@
 	const DRAW = new Set(['Line', 'Rectangle', 'Ellipse', 'Dimension', 'Text', 'Box', 'Wall', 'Furniture', 'Trunk', 'Pipe', 'Section', 'Opening', 'Guide'])
 	// Guide lines belong to a drawable VIEW space (plan or an elevation); iso has none.
 	const viewSpace = $derived(kind === 'floorplan' ? 'plan' : isElev ? elevDir : null)
-	const viewGuides = $derived(viewSpace ? modelGuides().filter((g) => g.plane === viewSpace) : [])
+	const mdl = $derived(modelById(modelId) ?? models[0])   // the model this viewport renders/edits (§5 registry)
+	const viewGuides = $derived(viewSpace ? (mdl?.guides ?? []).filter((g) => g.plane === viewSpace) : [])
 	const GUIDE_SPAN = 1e7   // guides render as full-view lines (spanning far past the viewport)
 	// Polyline-style tools (click points, Enter/dbl-click to finish). Line makes an entity; Wall/Trunk/Pipe
 	// build MODEL graph objects (plan only).
@@ -446,7 +447,6 @@
 	// the SAME projection Pages entities use — plan footprint, or elevation via `projU`/ELEV_BASIS +
 	// GROUND — so a prism picks/moves exactly where <Model3d> draws it. (Iso editing + walls/conduits +
 	// undo are the next slices — see model-plan.md P2.)
-	const mdl = $derived(models[0])
 	const isPlan = $derived(kind === 'floorplan')
 	const modelEditable = $derived(isPlan || isElev)   // iso (oblique) editing deferred to the 3D camera
 	const modelLayerVisible = (o: Obj) => { const l = mdl?.layers?.find(x => x.id === o.layer); return !l || l.visible }
@@ -633,10 +633,10 @@
 		guideCur = { orient: shift ? 'v' : 'h', pos: shift ? lastGuidePt[0] : lastGuidePt[1] }
 	}
 	function placeGuide(p: Pt, shift: boolean) {
-		if (!viewSpace) return
+		if (!viewSpace || !mdl) return
 		const orient = shift ? 'v' : 'h'
 		on.beginedit?.()   // capture the pre-add baseline, then fold the add into one undo step (model history)
-		addGuide({ id: guideId(), plane: viewSpace, orient, pos: Math.round(orient === 'h' ? p[1] : p[0]) })
+		;(mdl.guides ??= []).push({ id: guideId(), plane: viewSpace, orient, pos: Math.round(orient === 'h' ? p[1] : p[0]) })
 		on.modeledit?.('Add guide'); on.endedit?.()
 	}
 	function hitGuide(p: Pt): string | null {
@@ -651,7 +651,7 @@
 	function onGuideDragMove(e: PointerEvent) {
 		if (!guideDrag) return
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
-		const g = modelGuides().find((x) => x.id === guideDrag!.id); if (!g) return
+		const g = mdl?.guides?.find((x) => x.id === guideDrag!.id); if (!g) return
 		g.pos = Math.round(g.orient === 'h' ? p[1] : p[0])
 		guideDrag.moved = true
 	}
@@ -894,7 +894,7 @@
 		// Depth plane: a selected PLAN guide fixes the off-axis coord (h-guide → y for front/rear, v-guide →
 		// x for left/right). No guide → fall back to the model centre and nudge the user to set one.
 		const ax = isElev ? ELEV_BASIS[elevDir].axis : 0
-		const guide = isElev ? selectedPlanGuide(modelSel, ax === 0 ? 'h' : 'v') : null
+		const guide = isElev ? selectedPlanGuide(mdl?.guides ?? [], modelSel, ax === 0 ? 'h' : 'v') : null
 		if (isElev && !guide) toast('Drawn at the model centre — no depth guide set. Tip: drop/select a guide line on the plan to fix the depth.', { duration: 5000 })
 		const toNode = (p: Pt) => {
 			if (!isElev) return { x: Math.round(p[0]), y: Math.round(p[1]), z: nodesZ }
@@ -1388,7 +1388,7 @@
 			case 'Guide': return viewSpace ? 'Click to drop a horizontal guide · Shift = vertical · select a plan guide to fix the depth for elevation drawing' : 'Guides are placed on a plan or elevation view'
 			case 'Wall': case 'Trunk': case 'Pipe': {
 				if (!isPlan && !isElev) return `Switch to a plan or elevation view to draw ${tool.toLowerCase()}s`
-				const depthHint = isElev ? (selectedPlanGuide(modelSel, ELEV_BASIS[elevDir].axis === 0 ? 'h' : 'v') ? ' — depth from the selected plan guide' : ' — no depth guide (uses model centre); select a plan guide') : ''
+				const depthHint = isElev ? (selectedPlanGuide(mdl?.guides ?? [], modelSel, ELEV_BASIS[elevDir].axis === 0 ? 'h' : 'v') ? ' — depth from the selected plan guide' : ' — no depth guide (uses model centre); select a plan guide') : ''
 				return n ? `Specify next ${tool.toLowerCase()} point (Enter / double-click to finish)${depthHint}` : `Specify ${tool.toLowerCase()} start${depthHint}`
 			}
 			case 'Furniture': return isPlan ? (n ? 'Specify opposite corner' : 'Specify furniture footprint corner') : 'Switch to the plan view to place furniture'
@@ -1458,7 +1458,7 @@
 			{/if}
 			</g>
 			<!-- P1b: real 3D model in plan + the four elevations + iso. Read-only for now (P2 = editing). -->
-			{#if models[0]}<Model3d model={models[0]} dir={(kind === 'floorplan' ? 'plan' : kind) as 'plan' | ElevDir | 'iso'} cx={CX} cy={CY} ground={GROUND} selIds={modelSel} canvasZoom={canvasZoom} clip={clip} yaw={yaw} pitch={pitch} />{/if}
+			{#if mdl}<Model3d model={mdl} dir={(kind === 'floorplan' ? 'plan' : kind) as 'plan' | ElevDir | 'iso'} cx={CX} cy={CY} ground={GROUND} selIds={modelSel} canvasZoom={canvasZoom} clip={clip} yaw={yaw} pitch={pitch} />{/if}
 			<!-- Alignment GUIDES (full-view h/v lines) for this view's space + the Guide-tool hover preview. -->
 			{#if viewSpace}
 				{#each viewGuides as gd (gd.id)}

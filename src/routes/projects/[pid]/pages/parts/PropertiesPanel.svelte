@@ -12,15 +12,16 @@
 	import type { Obj, Layer as MLayer } from '../3dview/types'
 
 	// A selected extra sheet viewport frame (AutoCAD paper space): edit its source projection + scale.
-	type SheetFrameProp = { id: string; x: number; y: number; w: number; h: number; border: 'dashed' | 'solid' | 'none'; proj: string; scale: string; label: string }
+	type SheetFrameProp = { id: string; x: number; y: number; w: number; h: number; border: 'dashed' | 'solid' | 'none'; proj: string; scale: string; label: string; modelId?: number }
 	let { ents = [], onupdate, onarrange, pageTitle = '', pageKind = '', activeLayer = '', node = null, viewport = null,
 		modelObj = null, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg,
-		frameObj = null, onframeupdate, onframedelete }:
+		frameObj = null, onframeupdate, onframedelete, modelList = [], activeFrameId = undefined }:
 		{ ents?: Ent[]; onupdate?: (e: Ent) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void;
 			pageTitle?: string; pageKind?: string; activeLayer?: string;
 			node?: { id: string; label: string; kind: string } | null; viewport?: FrameSel | null;
 			modelObj?: Obj | null; modelLayers?: MLayer[]; onmodelupdate?: (patch: Record<string, unknown>) => void; onmodeldelete?: () => void; onmodelseg?: (segIdx: number, patch: Record<string, unknown>) => void;
-			frameObj?: SheetFrameProp | null; onframeupdate?: (patch: Partial<SheetFrameProp>) => void; onframedelete?: () => void } = $props()
+			frameObj?: SheetFrameProp | null; onframeupdate?: (patch: Partial<SheetFrameProp>) => void; onframedelete?: () => void;
+			modelList?: { id: number; name: string }[]; activeFrameId?: string } = $props()
 	const PROJ_OPTS: [string, string][] = [['plan', 'Plan'], ['front', 'Front'], ['rear', 'Rear'], ['left', 'Left'], ['right', 'Right'], ['iso', '3D']]
 	const SCALE_OPTS = ['1:1', '1:2', '1:5', '1:10', '1:20', '1:25', '1:50', '1:100', '1:200', '1:500']
 	const MODEL_TYPE_LABEL: Record<string, string> = { prism: 'Prism', wall: 'Wall', conduit: 'Conduit' }
@@ -122,8 +123,15 @@
 
 <div class="pp">
 	{#if frameObj}
-		<!-- a sheet VIEWPORT FRAME is selected → edit its source view (projection / scale / border) -->
+		<!-- a sheet VIEWPORT FRAME is selected → edit its source model + view (projection / scale / border) -->
 		<div class="prop-sec">VIEWPORT</div>
+		{#if modelList.length > 1}
+			<div class="prop"><span>Source</span>
+				<select value={frameObj.modelId ?? modelList[0]?.id} onchange={(e) => onframeupdate?.({ modelId: Number((e.currentTarget as HTMLSelectElement).value) })}>
+					{#each modelList as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
+				</select>
+			</div>
+		{/if}
 		<div class="prop"><span>View</span>
 			<select value={frameObj.proj} onchange={(e) => onframeupdate?.({ proj: (e.currentTarget as HTMLSelectElement).value, label: PROJ_OPTS.find(([v]) => v === (e.currentTarget as HTMLSelectElement).value)?.[1] })}>
 				{#each PROJ_OPTS as [v, l] (v)}<option value={v}>{l}</option>{/each}
@@ -309,6 +317,15 @@
 				{#each layers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
 			</select>
 		</div>
+		{#if activeFrameId}
+			<!-- SCOPE (§6): model-space shows in every view of the model; view-space shows only in this viewport. -->
+			<div class="prop"><span>Scope</span>
+				<select value={(cc('space') as string | undefined)?.startsWith('view:') ? 'view' : 'model'} onchange={(e) => setAll({ space: strVal(e) === 'view' ? 'view:' + activeFrameId : 'model' })}>
+					<option value="model">Model (all views)</option>
+					<option value="view">This viewport only</option>
+				</select>
+			</div>
+		{/if}
 		<div class="prop"><span>Color</span>
 			<ColorPicker value={cc('color') as string | undefined} colors={COLORS} allowByLayer mixed={mixedColor} onchange={(v) => setAll({ color: v })} />
 		</div>

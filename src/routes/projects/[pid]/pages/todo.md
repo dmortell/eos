@@ -741,18 +741,16 @@ Sheets' basic version** — see §10.
   routes, penetration & conduit requests (these are the output deliverables).
 
 ## 5. Views  (P2)
-- [ ] ◧ **design — where a model lives + how to pick one per viewport** (Dave's Q, 2026-09-20).
-  **Suggestion:** a project-level **model registry** — each *model* is a coherent source (a floor's
-  plan model, a rack elevation model, a 3D model) holding its own entities/layers/origin/scale,
-  stored separate from pages. A **page** is a sheet of **viewports**, and each viewport references a
-  model by id **+ a view config**: `{ modelId, projection (top/front/right/3D — the ViewCube),
-  scale, crop, layerPreset }`. Selecting the model: when a viewport frame is selected, add a
-  **Model / Source** dropdown to its Properties (next to the border/type fields already there),
-  listing the project's models. This dovetails with the per-viewport props (done) and the ViewCube
-  (done). Alternative considered: "each tab IS a model, viewports reference a tab" — rejected because
-  one sheet needs viewports of *different* models, so an explicit registry is cleaner.
-- [ ] **Wire up model selection** on the viewport once the registry exists (dropdown → re-point the
-  viewport's `modelId`; the ViewCube sets `projection`).
+- [x] **Model REGISTRY + per-viewport model reference** (2026-09-21) — `models` is now a registry of
+  coherent sources (seeded: **33F** floor + **Rack A** rack). A viewport references a model by id: a
+  sheet FRAME carries `modelId`, a model-layout TAB carries `modelId` (defaults to the floor). `Viewport`
+  gets a `modelId` prop and resolves `mdl = modelById(modelId)`; entities/guides/objects all come from
+  that model; editing targets the ACTIVE viewport's model (`modelIdOf(tabId)` — the active frame's model,
+  else the tab's). PaperPage passes each frame its model's ents via an `entsForModel` resolver. Verified:
+  the Rack A tabs render the rack; a sheet shows floor + rack in two viewports at once.
+- [x] **Wire up model selection** (2026-09-21) — a **Model/Source** dropdown in the selected viewport
+  frame's Properties (lists the registry's models) re-points its `modelId` live. Verified in-browser:
+  switching a frame's Source from 33F → Rack A re-renders it as the rack. (ViewCube still sets projection.)
 - [x] **Viewport-frame properties** — selecting a viewport frame (paper space) shows its props
   in the Properties panel: Name, Type, X/Y/W/H (live, editable), and **border style**
   (dashed / solid / none, applied to the frame). Most-recent selection wins over tree-node props.
@@ -780,9 +778,13 @@ Sheets' basic version** — see §10.
     off**. That's exactly DXF's *model-space-shown-through-viewports*, so no conflict and simpler:
     an object is either **model space** (shown in every view, layer-gated) or **view/paper space**
     (that one view). No per-view allow-lists.
-- [ ] Unify annotations with drawn objects (one entity model, `space: 'model' | 'view:<id>'` +
-  `layerId`); model-space objects render in every view, hidden per-view only by layer visibility.
-- [ ] Move an annotation / object view→model (and back) = change its `space`.
+- [x] **`space: 'model' | 'view:<frameId>'` scope on entities** (2026-09-21) — an entity carries a
+  `space` scope: model-space shows in every view of its model (layer-gated); `view:<frameId>` shows only
+  in that viewport frame. A **Scope** dropdown in the entity Properties (Model / This viewport) sets it.
+  Verified: a rect scoped "This viewport only" shows in its frame but is hidden on another view of the
+  same model. Also carries an orthogonal `plane` (which projection plane its coords live in).
+- [ ] Move an annotation / object view→model (and back) — the Scope dropdown does model↔this-viewport;
+  still to do: an in-canvas "push to model / pull to this view" gesture + moving between two view scopes.
 
 ## 7. Properties panel  (P1–P2)
 - [x] **Two-way binding + multi-select editing** — `parts/PropertiesPanel.svelte` edits the

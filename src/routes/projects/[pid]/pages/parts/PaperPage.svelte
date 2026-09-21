@@ -22,14 +22,14 @@
 		border: 'dashed' | 'solid' | 'none'; setBorder: (b: 'dashed' | 'solid' | 'none') => void; setRect: (r: Partial<{ x: number; y: number; w: number; h: number }>) => void }
 	// A viewport frame on the sheet (AutoCAD paper space): its own projection + scale + geometry. The sheet
 	// is just an array of these (the page model) — no special "primary"; the default page seeds one.
-	type SheetFrame = { id: string; x: number; y: number; w: number; h: number; border: 'dashed' | 'solid' | 'none'; proj: string; scale: string; clip: Clip | null; label: string }
+	type SheetFrame = { id: string; x: number; y: number; w: number; h: number; border: 'dashed' | 'solid' | 'none'; proj: string; scale: string; clip: Clip | null; label: string; modelId?: number }
 	type VKind = 'floorplan' | 'iso' | ElevDir
 	let { title = 'Sheet', drawingNo = '001', scale = '1:100', focused = true, tool = 'Select', env = {}, pw = PAPER_W, ph = PAPER_H, sizeLabel = 'A3', rev = '', revDate = '',
-		entities = [], sel = [], sections = [], selSection = null,
+		entities = [], sel = [], sections = [], selSection = null, entsForModel = undefined, tabModelId = undefined,
 		frames = [], selFrame = null, frameKind = (p: string) => p as VKind, isFrameActive = () => false, frameView = () => ({ zoom: 1, x: 0, y: 0 }), frameEnv = {},
 		frameOrbit = () => ({ yaw: 0, pitch: 0 }), makeFrameOn = () => ({}), onseed, onaddframe, onframegeom, onframecommit, onselectframe, ondeactivate }:
 		{ title?: string; drawingNo?: string; scale?: string; focused?: boolean; tool?: string; env?: Env; pw?: number; ph?: number; sizeLabel?: string; rev?: string; revDate?: string;
-			entities?: Ent[]; sel?: string[]; sections?: SectionMarker[]; selSection?: string | null;
+			entities?: Ent[]; sel?: string[]; sections?: SectionMarker[]; selSection?: string | null; entsForModel?: (mid?: number) => Ent[]; tabModelId?: number;
 			frames?: SheetFrame[]; selFrame?: string | null; frameKind?: (p: string) => VKind; isFrameActive?: (id: string) => boolean; frameView?: (id: string) => View; frameEnv?: Env;
 			frameOrbit?: (id: string) => { yaw: number; pitch: number }; makeFrameOn?: (f: SheetFrame) => VpOn; onseed?: (x: number, y: number, w: number, h: number) => void; onaddframe?: (x: number, y: number, w: number, h: number) => void;
 			onframegeom?: (id: string, g: { x: number; y: number; w: number; h: number }) => void; onframecommit?: () => void; onselectframe?: (id: string | null) => void; ondeactivate?: () => void } = $props()
@@ -153,8 +153,8 @@
 				{@const fa = isFrameActive(f.id)}
 				<div class="vp-frame" class:selected={selFrame === f.id && !fa} class:active={fa}
 					style="left:{f.x}px; top:{f.y}px; width:{f.w}px; height:{f.h}px">
-					<Viewport kind={frameKind(f.proj)} label={f.label} scale={f.scale} active={fa} {focused} {tool} env={frameEnv} on={fon} border={f.border} frameId={f.id}
-						{entities} {sel} view={frameView(f.id)} clip={f.clip} yaw={frameOrbit(f.id).yaw} pitch={frameOrbit(f.id).pitch}
+					<Viewport kind={frameKind(f.proj)} label={f.label} scale={f.scale} active={fa} {focused} {tool} env={frameEnv} on={fon} border={f.border} frameId={f.id} modelId={f.modelId ?? tabModelId}
+						entities={entsForModel ? entsForModel(f.modelId ?? tabModelId) : entities} {sel} view={frameView(f.id)} clip={f.clip} yaw={frameOrbit(f.id).yaw} pitch={frameOrbit(f.id).pitch}
 						sections={frameKind(f.proj) === 'floorplan' ? sections : []} {selSection} boxW={f.w} boxH={f.h} />
 					{#if !fa}
 						<!-- svelte-ignore a11y_no_static_element_interactions -->

@@ -33,7 +33,26 @@ function demoFloor(): Model {
 	}
 }
 
-export const models = $state<Model[]>(migrateModels([demoFloor()]))
+// A second demo model — a server RACK (id 2) — so the model REGISTRY is exercised: a viewport can point
+// at the floor OR the rack via its `modelId`. A tall cabinet (box prism) with a few 1U device slabs, near
+// the plan centre so it frames well in any projection. Distinct layers/name from the floor.
+function demoRack(): Model {
+	const RACK_LAYERS: Layer[] = [
+		{ id: 'cabinet', name: 'Cabinet', color: '#5b6472', visible: true, locked: false, weight: 1.4 },
+		{ id: 'devices', name: 'Devices', color: '#0e7490', visible: true, locked: false, weight: 1 },
+	]
+	const x = 13700, y = 8450, w = 600, d = 1000
+	const cabinet: Obj = { type: 'prism', x, y, z: 0, w, d, h: 2000, edges: 4, layer: 'cabinet', id: 'cab1' }
+	const dev = (i: number): Obj => ({ type: 'prism', x: x + 30, y: y + 40, z: 150 + i * 320, w: w - 60, d: d - 80, h: 180, edges: 4, layer: 'devices', id: 'dev' + i })
+	return {
+		id: 2, name: 'Rack A', layers: RACK_LAYERS,
+		levels: { floorSlab: 0, ceilingSlab: 2100 },
+		objects: [cabinet, dev(0), dev(1), dev(2), dev(3), dev(4)],
+	}
+}
+
+export const FLOOR_MODEL_ID = 1   // the default model a new viewport / tab points at
+export const models = $state<Model[]>(migrateModels([demoFloor(), demoRack()]))
 export const modelById = (id?: number) => (id == null ? undefined : models.find((m) => m.id === id))
 // Replace the whole model list in place (keeps the reactive reference) — used by undo/redo to restore a
 // history snapshot. `$state.snapshot` UNWRAPS Svelte proxies to plain data (structuredClone throws on a
