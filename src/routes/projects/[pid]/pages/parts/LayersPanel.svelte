@@ -2,7 +2,7 @@
 	// Right-sidebar LAYERS panel — now backed by the shared reactive layer store (layers.svelte.ts),
 	// so eye/lock toggles, colours and the active layer really drive the canvas. Grouped tree with a
 	// View-Preset picker + search (cosmetic), per-layer eye/lock/colour and a settings dialog.
-	import { Icon, ColorPicker } from '$lib'
+	import { Icon, ColorPicker, DragReorder } from '$lib'
 	import { COLORS } from '../palette'
 	import { layers, layerUI, layerGroups, addLayer, removeLayer, moveLayer,
 		presets, presetUI, applyPreset, savePreset, updatePreset, renamePreset, deletePreset, presetMatches } from '../layers.svelte'
@@ -26,20 +26,9 @@
 	let editing = $state<string | null>(null)   // layer id being renamed
 	function commit(e: KeyboardEvent) { if (e.key === 'Enter' || e.key === 'Escape') editing = null }
 
-	// DRAG to reorder layers = change draw z-order (array position). Dropping a row onto another inserts
-	// the dragged layer just before it. `dragId` = the layer being dragged; `overId` = the current drop row.
-	let dragId = $state<string | null>(null)
-	let overId = $state<string | null>(null)
-	// Direction-aware: dragging a layer DOWN (its index < target's) drops it AFTER the target, else before.
-	// Without this, dropping onto the immediately-next layer would insert before it = no visible change.
-	let overAfter = $state(false)
-	function onDrop(targetId: string) {
-		if (dragId && dragId !== targetId) {
-			const fi = layers.findIndex((l) => l.id === dragId), ti = layers.findIndex((l) => l.id === targetId)
-			moveLayer(dragId, targetId, fi < ti)
-		}
-		dragId = null; overId = null
-	}
+	// DRAG to reorder layers = change draw z-order (array position). Reusable $lib helper handles the DnD
+	// state + direction-aware drop; `moveLayer` applies it.
+	const dr = new DragReorder(moveLayer, (id) => layers.findIndex((l) => l.id === id))
 
 	// Layer-settings dialog (opened from a layer's swatch button).
 	let dlgId = $state<string | null>(null)
@@ -99,13 +88,8 @@
 						{#if matches(l.name) || matches(g)}
 							<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 							<div class="ly-row" class:off={!l.visible} class:active={l.id === layerUI.active}
-								class:dragbefore={overId === l.id && dragId !== l.id && !overAfter} class:dragafter={overId === l.id && dragId !== l.id && overAfter} onclick={() => (layerUI.active = l.id)}
-								draggable="true" title="Drag to reorder (sets draw z-order)"
-								ondragstart={(e) => { dragId = l.id; e.dataTransfer?.setData('text/plain', l.id); if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move' }}
-								ondragover={(e) => { e.preventDefault(); overId = l.id; overAfter = !!dragId && layers.findIndex((x) => x.id === dragId) < layers.findIndex((x) => x.id === l.id) }}
-								ondragleave={() => { if (overId === l.id) overId = null }}
-								ondrop={(e) => { e.preventDefault(); onDrop(l.id) }}
-								ondragend={() => { dragId = null; overId = null }}>
+								class:dragbefore={dr.isBefore(l.id)} class:dragafter={dr.isAfter(l.id)} title="Drag to reorder (sets draw z-order)"
+								{...dr.row(l.id)} onclick={() => (layerUI.active = l.id)}>
 								<button class="ly-eye" aria-label="Show/hide {l.name}" onclick={(e) => { e.stopPropagation(); l.visible = !l.visible }}>
 									<Icon name={l.visible ? 'eye' : 'eyeSlash'} size={13} />
 								</button>

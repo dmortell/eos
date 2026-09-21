@@ -16,6 +16,10 @@ export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'ellipse' | '
 	// scale). `crop` = the visible sub-rectangle of the SOURCE image, normalized 0..1 (x,y = top-left,
 	// w,h = size); undefined = whole image. `opacity` 0..1 for tracing. Firestore-stable field names.
 	src?: string; opacity?: number; crop?: { x: number; y: number; w: number; h: number };
+	// `origin` = a reference POINT inside the image (normalized 0..1 of the placement rect), like the
+	// Uploads tool — the anchor that scale calibration keeps fixed, and the point to align a re-imported
+	// (differently-cropped) new version by. Undefined → the rect centre.
+	origin?: { x: number; y: number };
 	// DRAWING PLANE — which projection plane the object's coordinates live in: undefined/'plan' = the
 	// model/plan plane (projected into every elevation as a ground line, layer-gated); an ElevDir = drawn
 	// natively in that elevation plane (a wall/rack label, a leader, a 2D shape/image on an elevation).

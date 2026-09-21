@@ -16,6 +16,7 @@
 	import Model3d from '../3dview/Model3d.svelte'
 	import { models, modelById, modelSel, setModelSel } from '../3dview/models.svelte'
 	import { guideId, selectedPlanGuide } from '../guides.svelte'
+	import { imgEdit, clearImgMode } from '../imageEdit.svelte'
 	import { polyToGraph } from '../3dview/migrate'
 	import { DEFAULT_YAW, DEFAULT_PITCH, doorGeom, isoBounds, isoR, faces3d, isoDepthR } from '../3dview/projection'
 	import type { Obj, Clip } from '../3dview/types'
@@ -108,6 +109,8 @@
 	let svg: SVGSVGElement | undefined = $state()   // outer svg (viewBox space)
 	let draft = $state<Pt[]>([])
 	let cur = $state<Pt | null>(null)
+	let scalePts = $state<Pt[]>([])   // the 2-point measure line while calibrating an image's scale
+	let scaleInput = $state<{ x: number; y: number; d: number; val: string } | null>(null)   // inline "real distance" entry after 2 points
 	let seq = 0
 	const uid = () => 'e' + Date.now().toString(36) + (seq++)
 	const clipNs = 'ic' + Math.floor(Math.random() * 1e9).toString(36)   // per-viewport-instance namespace for <clipPath> ids (a sheet renders the same image in several viewports → ids must not collide)
@@ -215,6 +218,14 @@
 		e.stopPropagation()
 		if (suppressClick) { suppressClick = false; return }   // this click just ended a drag
 		if (!active) return   // paper space: enter with a double-click (see onDblclick)
+		// IMAGE calibration modes (Properties › Set scale / Set origin) intercept clicks on the image.
+		if (imgEdit.mode === 'origin' && imgEdit.id) { const p = toLocal(e); if (p) setImageOrigin(imgEdit.id, p); return }
+		if (imgEdit.mode === 'scale' && imgEdit.id && !scaleInput) {
+			const p = toLocal(e); if (!p) return
+			scalePts = [...scalePts, p]
+			if (scalePts.length === 2) { const d = dist(scalePts[0], scalePts[1]); const m = localToClient((scalePts[0][0] + scalePts[1][0]) / 2, (scalePts[0][1] + scalePts[1][1]) / 2); if (m && svg) { const r = svg.getBoundingClientRect(); scaleInput = { x: m.x - r.left, y: m.y - r.top, d, val: String(Math.round(d)) } } }
+			return
+		}
 		if (tool === 'Select') {
 			const p = toLocal(e); if (!p) return
 			if (kind === 'iso') {   // 3D view: click a shape to select it for the Properties panel (no in-view grips yet)
@@ -355,8 +366,9 @@
 			return
 		}
 		if (e.key !== 'Escape') return
-		// Esc ladder: cancel a draft → switch a drawing tool back to Select → clear selection → exit.
-		if (draft.length) { draft = []; cur = null; snapMark = null }
+		// Esc ladder: exit an image-edit mode → cancel a draft → switch a drawing tool back to Select → …
+		if (imgEdit.mode) { clearImgMode(); scalePts = [] }
+		else if (draft.length) { draft = []; cur = null; snapMark = null }
 		else if (tool !== 'Select') on.tool?.('Select')
 		else if (selSection) on.sectionselect?.(null)
 		else if (sel.length) on.select?.([])
@@ -424,6 +436,13 @@
 	}
 	// A hidden or locked layer's objects can't be picked; nor can objects that don't belong to this view.
 	const pickable = (e: Ent) => inThisView(e) && !isLayerHidden(e.layer) && !isLayerLocked(e.layer)
+	// The origin anchor of the selected / being-edited image, in model coords (null if none has an origin).
+	const originMark = $derived.by(() => {
+		const img = entities.find((e) => e.type === 'image' && (selSet.has(e.id) || imgEdit.id === e.id) && e.origin)
+		if (!img?.origin) return null
+		const rx = Math.min(img.a![0], img.b![0]), ry = Math.min(img.a![1], img.b![1]), rw = Math.abs(img.b![0] - img.a![0]), rh = Math.abs(img.b![1] - img.a![1])
+		return [rx + img.origin.x * rw, ry + img.origin.y * rh] as Pt
+	})
 	// PAINT ORDER = layer order first (array position in the layers store — earlier layer = underneath),
 	// then the entity's own array position within a layer. So dragging a layer in the panel restacks its
 	// objects (imported backgrounds included). No layer / unknown → paints on top (the tool default).
@@ -648,6 +667,29 @@
 		on.beginedit?.()   // capture the pre-add baseline, then fold the add into one undo step (model history)
 		;(mdl.guides ??= []).push({ id: guideId(), plane: viewSpace, orient, pos: Math.round(orient === 'h' ? p[1] : p[0]) })
 		on.modeledit?.('Add guide'); on.endedit?.()
+	}
+	// IMAGE calibration (Uploads-tool model). ORIGIN: store the clicked point as a normalized anchor.
+	function setImageOrigin(id: string, p: Pt) {
+		const img = entities.find((x) => x.id === id); if (!img || img.type !== 'image') return
+		const rx = Math.min(img.a![0], img.b![0]), ry = Math.min(img.a![1], img.b![1]), rw = Math.abs(img.b![0] - img.a![0]) || 1, rh = Math.abs(img.b![1] - img.a![1]) || 1
+		on.update?.({ ...img, origin: { x: Math.max(0, Math.min(1, (p[0] - rx) / rw)), y: Math.max(0, Math.min(1, (p[1] - ry) / rh)) } })
+		clearImgMode()
+	}
+	// SCALE: after the 2-point line + a real-world distance, resize the image (a→b) by real/measured about
+	// its origin (or centre), so that measurement is correct in model mm. Keeps the anchor point fixed.
+	function applyScale() {
+		const inp = scaleInput; scaleInput = null; scalePts = []
+		const img = imgEdit.id ? entities.find((x) => x.id === imgEdit.id) : null
+		clearImgMode()
+		if (!inp || !img || img.type !== 'image') return
+		const real = parseFloat(inp.val)
+		if (!(real > 0) || !(inp.d > 0)) return
+		const f = real / inp.d
+		const rx = Math.min(img.a![0], img.b![0]), ry = Math.min(img.a![1], img.b![1]), rw = Math.abs(img.b![0] - img.a![0]), rh = Math.abs(img.b![1] - img.a![1])
+		const ax = img.origin ? rx + img.origin.x * rw : rx + rw / 2, ay = img.origin ? ry + img.origin.y * rh : ry + rh / 2
+		const na: Pt = [ax + (img.a![0] - ax) * f, ay + (img.a![1] - ay) * f]
+		const nb: Pt = [ax + (img.b![0] - ax) * f, ay + (img.b![1] - ay) * f]
+		on.update?.({ ...img, a: na, b: nb })
 	}
 	function hitGuide(p: Pt): string | null {
 		if (!viewGuides.length) return null
@@ -1013,6 +1055,18 @@
 				{ x: x1, y: base, apply: p => boxElevSet(e, { x1: p[0], z0: GROUND - p[1] }, elevDir, CX, CY) },      // bottom-right
 				{ x: x0, y: top, apply: p => boxElevSet(e, { x0: p[0], h: base - p[1] }, elevDir, CX, CY) },          // top-left: width + height
 				{ x: x1, y: top, apply: p => boxElevSet(e, { x1: p[0], h: base - p[1] }, elevDir, CX, CY) },          // top-right
+			]
+		}
+		if (e.type === 'image' && imgEdit.mode === 'crop' && imgEdit.id === e.id) {   // CROP mode: corner grips move the crop WINDOW, not the placement rect
+			const rx = Math.min(e.a![0], e.b![0]), ry = Math.min(e.a![1], e.b![1]), rw = Math.abs(e.b![0] - e.a![0]) || 1, rh = Math.abs(e.b![1] - e.a![1]) || 1
+			const cr = e.crop ?? { x: 0, y: 0, w: 1, h: 1 }, x0 = cr.x, y0 = cr.y, x1 = cr.x + cr.w, y1 = cr.y + cr.h
+			const cl = (v: number) => Math.max(0, Math.min(1, v)), nX = (p: Pt) => cl((p[0] - rx) / rw), nY = (p: Pt) => cl((p[1] - ry) / rh)
+			const set = (nx0: number, ny0: number, nx1: number, ny1: number): Ent => { const ax0 = Math.min(nx0, nx1), ay0 = Math.min(ny0, ny1); return { ...e, crop: { x: ax0, y: ay0, w: Math.max(0.03, Math.abs(nx1 - nx0)), h: Math.max(0.03, Math.abs(ny1 - ny0)) } } }
+			return [
+				{ x: rx + x0 * rw, y: ry + y0 * rh, apply: (p: Pt) => set(nX(p), nY(p), x1, y1) },   // TL
+				{ x: rx + x1 * rw, y: ry + y0 * rh, apply: (p: Pt) => set(x0, nY(p), nX(p), y1) },   // TR
+				{ x: rx + x1 * rw, y: ry + y1 * rh, apply: (p: Pt) => set(x0, y0, nX(p), nY(p)) },   // BR
+				{ x: rx + x0 * rw, y: ry + y1 * rh, apply: (p: Pt) => set(nX(p), y0, x1, nY(p)) },   // BL
 			]
 		}
 		if (e.type === 'rect' || e.type === 'ellipse' || e.type === 'box' || e.type === 'image') {   // 4 corner grips on the footprint/bbox
@@ -1513,6 +1567,17 @@
 			{:else if active && draft.length && cur}
 				{@render preview(draft[0], cur)}
 			{/if}
+			<!-- image SCALE calibration: the 2-point measure line -->
+			{#if scalePts.length}
+				<polyline points={scalePts.map((p) => p.join(',')).join(' ')} fill="none" stroke={SEL} stroke-width={1.5 / (canvasZoom || 1)} vector-effect="non-scaling-stroke" />
+				{#each scalePts as sp (sp.join(','))}<circle cx={sp[0]} cy={sp[1]} r={gripSize} fill={SEL} />{/each}
+			{/if}
+			<!-- image ORIGIN anchor marker (selected image / while editing) -->
+			{#if active && originMark}
+				<circle cx={originMark[0]} cy={originMark[1]} r={gripSize * 1.3} fill="none" stroke={SEL} stroke-width={1.4 / (canvasZoom || 1)} vector-effect="non-scaling-stroke" />
+				<line x1={originMark[0] - gripSize * 2} y1={originMark[1]} x2={originMark[0] + gripSize * 2} y2={originMark[1]} stroke={SEL} stroke-width={1 / (canvasZoom || 1)} vector-effect="non-scaling-stroke" />
+				<line x1={originMark[0]} y1={originMark[1] - gripSize * 2} x2={originMark[0]} y2={originMark[1] + gripSize * 2} stroke={SEL} stroke-width={1 / (canvasZoom || 1)} vector-effect="non-scaling-stroke" />
+			{/if}
 			<!-- editing handles: square grips at each selected entity's defining points -->
 			{#if active && tool === 'Select'}
 				{#each entities as e (e.id)}
@@ -1579,6 +1644,18 @@
 			onblur={commitText}
 			onkeydown={(e) => { e.stopPropagation(); if (e.key === 'Escape') { e.preventDefault(); editText = null } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commitText() } }}></textarea>
 	{/if}
+	<!-- image SCALE: after the 2-point line, an inline entry for the real-world distance → resize. -->
+	{#if scaleInput}
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div class="scale-entry" style="left:{scaleInput.x}px; top:{scaleInput.y}px" onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()}>
+			<span>Real distance</span>
+			<!-- svelte-ignore a11y_autofocus -->
+			<input type="number" min="1" step="1" autofocus bind:value={scaleInput.val}
+				onkeydown={(e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); applyScale() } else if (e.key === 'Escape') { e.preventDefault(); scaleInput = null; scalePts = []; clearImgMode() } }} />
+			<span class="se-unit">mm</span>
+			<button onclick={applyScale}>Set</button>
+		</div>
+	{/if}
 </div>
 
 {#snippet drawn(e: Ent, seld: boolean)}
@@ -1597,14 +1674,16 @@
 	{:else if e.type === 'line'}
 		<line x1={e.a![0]} y1={e.a![1]} x2={e.b![0]} y2={e.b![1]} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
 	{:else if e.type === 'image'}
-		<!-- an imported background image placed in the a→b rect (origin + scale). CROP shows only a sub-rect
-		     of the SOURCE: the full image is scaled so its crop region fills the rect, then clipped to it. -->
+		<!-- an imported background image placed FULL in the a→b rect (origin + scale); CROP is the visible
+		     WINDOW = a normalized sub-rect of that placement (the rest is trimmed away). -->
 		{@const rx = Math.min(e.a![0], e.b![0])}{@const ry = Math.min(e.a![1], e.b![1])}
 		{@const rw = Math.abs(e.b![0] - e.a![0])}{@const rh = Math.abs(e.b![1] - e.a![1])}
 		{@const cr = e.crop ?? { x: 0, y: 0, w: 1, h: 1 }}
-		{@const fw = rw / (cr.w || 1)}{@const fh = rh / (cr.h || 1)}
-		<clipPath id="{clipNs}-{e.id}"><rect x={rx} y={ry} width={rw} height={rh} /></clipPath>
-		<image href={e.src} x={rx - cr.x * fw} y={ry - cr.y * fh} width={fw} height={fh} opacity={e.opacity ?? 1} clip-path="url(#{clipNs}-{e.id})" preserveAspectRatio="none" />
+		{@const cropping = imgEdit.mode === 'crop' && imgEdit.id === e.id}
+		<clipPath id="{clipNs}-{e.id}"><rect x={rx + cr.x * rw} y={ry + cr.y * rh} width={cr.w * rw} height={cr.h * rh} /></clipPath>
+		{#if cropping}<image href={e.src} x={rx} y={ry} width={rw} height={rh} opacity="0.35" preserveAspectRatio="none" />{/if}
+		<image href={e.src} x={rx} y={ry} width={rw} height={rh} opacity={e.opacity ?? 1} clip-path="url(#{clipNs}-{e.id})" preserveAspectRatio="none" />
+		{#if cropping}<rect x={rx + cr.x * rw} y={ry + cr.y * rh} width={cr.w * rw} height={cr.h * rh} fill="none" stroke={SEL} stroke-width={1 / (canvasZoom || 1)} stroke-dasharray="{5 / (canvasZoom || 1)} {3 / (canvasZoom || 1)}" vector-effect="non-scaling-stroke" />{/if}
 	{:else if e.type === 'polyline'}
 		<polyline points={(e.pts ?? []).map(p => p.join(',')).join(' ')} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" stroke-linejoin="round" />
 	{:else if e.type === 'rect'}
@@ -1711,4 +1790,10 @@
 		box-shadow:0 1px 6px #0003; user-select:text; -webkit-user-select:text; }
 	.text-edit { font-family:'Consolas','SF Mono',ui-monospace,'Menlo',monospace; }
 	.text-edit:focus { outline:none; box-shadow:0 0 0 2px #0e749044; }
+	.scale-entry { position:absolute; z-index:12; transform:translate(-50%, -140%); display:flex; align-items:center; gap:5px; white-space:nowrap;
+		background:var(--panel, #fff); color:var(--text, #111827); border:1px solid #0e7490; border-radius:6px; padding:4px 6px; font-size:11px; box-shadow:0 4px 16px #0005; }
+	.scale-entry input { width:64px; background:var(--input, #f1f5f9); color:inherit; border:1px solid var(--line, #cbd5e1); border-radius:4px; padding:2px 5px; font-size:12px; }
+	.scale-entry input:focus { outline:none; border-color:#0e7490; }
+	.scale-entry .se-unit { color:var(--muted, #64748b); }
+	.scale-entry button { background:#0e7490; color:#fff; border:none; border-radius:4px; padding:3px 9px; font-size:11px; font-weight:600; cursor:pointer; }
 </style>

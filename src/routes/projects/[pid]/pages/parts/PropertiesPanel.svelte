@@ -8,6 +8,7 @@
 	import { translate, STYLE_DEFAULTS, type TextAlign, type VAlign } from '../ui/geometry'
 	import { COLORS } from '../palette'
 	import { layers } from '../layers.svelte'
+	import { imgEdit, setImgMode } from '../imageEdit.svelte'
 	import type { FrameSel } from './PaperPage.svelte'
 	import type { Obj, Layer as MLayer } from '../3dview/types'
 
@@ -317,6 +318,14 @@
 			{@const cr = single.crop ?? { x: 0, y: 0, w: 1, h: 1 }}
 			<div class="prop-sec">IMAGE</div>
 			<div class="prop"><span>Opacity %</span><input class="navf" type="number" min="10" max="100" step="5" value={Math.round((single.opacity ?? 1) * 100)} onkeydown={fnav} onchange={(e) => setAll({ opacity: Math.max(0.05, Math.min(1, num(e) / 100)) })} /></div>
+			<!-- calibration modes (Uploads-tool model): each toggles a Viewport interaction on the image. -->
+			<div class="prop"><span>Calibrate</span>
+				<span class="pp-seg wide">
+					<button class:on={imgEdit.mode === 'origin' && imgEdit.id === single.id} title="Click a reference point inside the image" onclick={() => setImgMode('origin', single!.id)}>Origin</button>
+					<button class:on={imgEdit.mode === 'scale' && imgEdit.id === single.id} title="Draw a line across a known distance, then enter it" onclick={() => setImgMode('scale', single!.id)}>Scale</button>
+					<button class:on={imgEdit.mode === 'crop' && imgEdit.id === single.id} title="Drag the corner handles to crop" onclick={() => setImgMode('crop', single!.id)}>Crop</button>
+				</span>
+			</div>
 			<div class="prop-sec">CROP · %</div>
 			<div class="vecrow">
 				{@render numcell('X', Math.round(cr.x * 100), (n) => setAll({ crop: { ...cr, x: clamp01(n / 100) } }))}

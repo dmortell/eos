@@ -6,6 +6,8 @@
 	// with Kestrel's own tokens scoped to .shell, so it looks like Kestrel in
 	// both light/dark regardless of the app theme (toggle in its titlebar).
 	import { Icon } from '$lib'
+	import { toast } from 'svelte-sonner'
+	import { imgEdit, clearImgMode } from './imageEdit.svelte'
 	import { flushSync, tick } from 'svelte'
 	import { page } from '$app/state'
 	import PaperPage, { type FrameSel } from './parts/PaperPage.svelte'
@@ -233,11 +235,13 @@
 	// carries `modelId`, defaulting to the floor. Editing targets the ACTIVE viewport's model — so the CRUD
 	// takes a tab id (the history key) and resolves the model from whatever viewport is active in it.
 	const entsForModel = (mid?: number): Ent[] => (modelById(mid ?? FLOOR_MODEL_ID)?.ents ?? modelById(FLOOR_MODEL_ID)?.ents ?? [])
-	// The model a tab's ACTIVE viewport edits: the active sheet frame's modelId, else the tab's, else floor.
+	// The model a tab's ACTIVE viewport edits: the active sheet frame's model; else (no active frame, e.g.
+	// an image imported without entering a viewport) the FIRST frame's model; else the tab's own model; else
+	// the floor. Drawing needs an active viewport, so the fallbacks only bite for viewport-less actions.
 	function modelIdOf(tabId: string): number {
 		const av = activeVpOf(tabId)
 		if (av && av !== tabId) { const f = framesOf(tabId).find((x) => x.id === av); if (f?.modelId != null) return f.modelId }
-		return tabs.find((t) => t.id === tabId)?.modelId ?? FLOOR_MODEL_ID
+		return framesOf(tabId)[0]?.modelId ?? tabs.find((t) => t.id === tabId)?.modelId ?? FLOOR_MODEL_ID
 	}
 	const mdlEntsOf = (mid: number): Ent[] => modelById(mid)?.ents ?? []
 	const setMdlEntsOf = (mid: number, next: Ent[]) => { const m = modelById(mid); if (m) m.ents = next }
@@ -405,6 +409,8 @@
 	$effect(() => { if (modelSel.length) { rightTab = 'props'; rightOpen = true } })
 	// Selecting a sheet viewport frame likewise shows its Properties.
 	$effect(() => { if (selFrame) { rightTab = 'props'; rightOpen = true } })
+	// Exit an image calibration mode when its image is no longer the (single) selection.
+	$effect(() => { if (imgEdit.id && !(selEnts.length === 1 && selEnts[0].id === imgEdit.id)) clearImgMode() })
 	function updateModelObj(patch: Record<string, unknown>) {
 		const o = selModelObj, id = panes[focused]?.activeId; if (!o || !id) return
 		beginGesture(); Object.assign(o, patch); modelEdit(id); endGesture()   // one undo step (baseline pre-change)
@@ -523,7 +529,8 @@
 	// and add it as an 'image' entity on the ACTIVE layer (select a Background layer first to group it).
 	// Mock: the data-URL lives in the entity; a real backend would upload + store a fileId (§4).
 	function importImage() {
-		const id = panes[focused]?.activeId; if (!id) return
+		const id = panes[focused]?.activeId
+		if (!id) { toast('Open a drawing first, then Insert › Image…'); return }   // no tab → nothing to import into
 		const input = document.createElement('input')
 		input.type = 'file'; input.accept = 'image/*'
 		input.onchange = () => {
@@ -535,6 +542,8 @@
 				img.onload = () => {
 					const cx = 14000, cy = 8750, w = 9000, h = w * ((img.naturalHeight || 700) / (img.naturalWidth || 1000))
 					addEnt(id, { id: newId(), type: 'image', a: [Math.round(cx - w / 2), Math.round(cy - h / 2)], b: [Math.round(cx + w / 2), Math.round(cy + h / 2)], src, plane: 'plan' })
+					const mn = modelById(modelIdOf(id))?.name ?? 'the model'
+					toast(`Image added to ${mn} on layer “${layerById(layerUI.active)?.name ?? '—'}”. Set its scale/crop in Properties.`)
 				}
 				img.onerror = () => addEnt(id, { id: newId(), type: 'image', a: [9500, 6250], b: [18500, 12550], src, plane: 'plan' })
 				img.src = src

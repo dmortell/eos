@@ -754,14 +754,19 @@ Sheets' basic version** — see §10.
 ## 4. Imported files / floorplans  (P1–P2)
 - [ ] Upload & manage many floorplan drawings per project — **electrical, furniture, AV,
   etc.**, with **versions / checkbacks** (we receive many revisions).
-- [~] Set **origin, scale, crop, masks** of an imported file **inside the Pages viewport** (2026-09-21) —
-  **origin** = the image's Position, **scale** = its Size (the a→b rect, editable + drag-resize), **crop**
-  = a normalized `{x,y,w,h}` sub-rect of the source (the full image is scaled so its crop region fills the
-  rect, then clipped — per-viewport `clipPath` id so multi-viewport sheets clip independently), plus
-  **opacity** (for tracing). A **Properties → IMAGE** section (Opacity %, Crop X/Y/W/H %, Reset crop)
-  edits them. [ ] still: interactive crop-drag handles, source-calibrated scale (pick 2 points = a known
-  distance), aspect-lock resize (§3), **masks**, and browser-verify the render with a real file. *(Crop
-  render + Properties are code-complete + type-clean; the native file picker can't be automation-driven.)*
+- [~] Set **origin, scale, crop, masks** of an imported file **inside the Pages viewport** (2026-09-22) —
+  matched the **Uploads-tool model** (Dave). A **Properties → IMAGE › Calibrate** row has three modes that
+  drive Viewport interactions on the selected image:
+  - **Origin** — click a point inside the image → stored normalized on the ent (`origin{x,y}`); shown as a
+    crosshair; it's the anchor scale keeps fixed and (future) the point to align a re-imported version by.
+  - **Scale** — click 2 points across a known distance → an inline "Real distance (mm)" entry → the image
+    (a→b) is resized so that measurement is correct in model mm, scaled **about the origin/centre**.
+  - **Crop** — drag the crop **window's** corner handles (crop = a normalized sub-rect of the placement;
+    the trimmed area dims; per-viewport `clipPath` id so multi-viewport sheets clip independently). Plus
+    Crop X/Y/W/H % fields + Reset, and an **Opacity %** (for tracing).
+  [ ] still: **aspect-lock** resize (§3), **masks**, re-import version alignment by origin, and
+  browser-verify with a real file. *(Code-complete + type-clean; the native file picker + module-injection
+  both dodge automation, so the image render/modes are browser-untested — Dave to drive with a real image.)*
 - [ ] Supported inputs: **PDF, image, DXF**.
 - [ ] Produce various floorplan **views**: data-outlet locations, desk numbering, trunk
   routes, penetration & conduit requests (these are the output deliverables).
