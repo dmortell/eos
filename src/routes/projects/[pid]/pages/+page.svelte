@@ -23,6 +23,7 @@
 	import { paperDims, PAPER_SIZES, PAPER_PX_PER_MM, type PaperSize } from './constants'
 	import { translate, type ElevDir } from './ui/geometry'
 	import { models, modelSel, snapModels, setModels } from './3dview/models.svelte'
+	import { snapGuides, setGuides, type Guide } from './guides.svelte'
 	import { DEFAULT_YAW, DEFAULT_PITCH } from './3dview/projection'
 	import type { Model, Clip } from './3dview/types'
 
@@ -117,6 +118,7 @@
 		sectionmove: (id: string, clip: Clip) => moveSection(id, clip),
 		sectionsetdir: (id: string, dir: ElevDir) => setSectionDir(id, dir),
 		sectiondelete: (id: string) => deleteSection(id),
+		guideedit: (label: string) => recordEdit(a.id, label),
 	})
 	// A 3D-model edit (the Viewport mutated the shared `models` store) records a step on THIS doc's
 	// timeline, gesture-folded like an entity edit — so Ctrl+Z restores the model too.
@@ -322,7 +324,7 @@
 	// across docs), so it's captured on every step in whatever doc is active — a model edit made in
 	// another tab isn't on this doc's timeline (a known mock limitation; a global model history is the
 	// real fix). Entity-only edits capture the unchanged model, keeping ents + model consistent.
-	type HStep = { label: string; t: number; snap: Ent[]; model: Model[]; frames: SheetFrame[] }
+	type HStep = { label: string; t: number; snap: Ent[]; model: Model[]; frames: SheetFrame[]; guides: Guide[] }
 	let docHist = $state<Record<string, { steps: HStep[]; ptr: number }>>({})
 	let revisions = $state<{ name: string; note: string; snap: Snap; t: number }[]>([])
 	const snapEnts = (): Snap => $state.snapshot(docEnts) as Snap
@@ -331,19 +333,19 @@
 	// Capture the baseline (pre-first-edit) state once, BEFORE the doc is first mutated.
 	function ensureHist(id: string) {
 		if (docHist[id]) return
-		docHist = { ...docHist, [id]: { steps: [{ label: 'Start', t: Date.now(), snap: snapDoc(id), model: snapModels(), frames: snapFrames(id) }], ptr: 0 } }
+		docHist = { ...docHist, [id]: { steps: [{ label: 'Start', t: Date.now(), snap: snapDoc(id), model: snapModels(), frames: snapFrames(id), guides: snapGuides() }], ptr: 0 } }
 	}
 	function pushStep(id: string, label: string) {
 		const t = tabs.find(x => x.id === id); if (t && !t.dirty) t.dirty = true   // any edit marks the tab dirty
 		ensureHist(id); const h = docHist[id]
 		const steps = h.steps.slice(0, h.ptr + 1)   // drop the redo tail (a new edit forks the future)
-		steps.push({ label, t: Date.now(), snap: snapDoc(id), model: snapModels(), frames: snapFrames(id) })
+		steps.push({ label, t: Date.now(), snap: snapDoc(id), model: snapModels(), frames: snapFrames(id), guides: snapGuides() })
 		while (steps.length > 100) steps.shift()
 		docHist = { ...docHist, [id]: { steps, ptr: steps.length - 1 } }
 	}
 	function updateStep(id: string) {   // fold a gesture's latest state into its already-open step
 		const h = docHist[id]; if (!h) return
-		const steps = h.steps.slice(); steps[h.ptr] = { ...steps[h.ptr], snap: snapDoc(id), model: snapModels(), frames: snapFrames(id), t: Date.now() }
+		const steps = h.steps.slice(); steps[h.ptr] = { ...steps[h.ptr], snap: snapDoc(id), model: snapModels(), frames: snapFrames(id), guides: snapGuides(), t: Date.now() }
 		docHist = { ...docHist, [id]: { ...h, steps } }
 	}
 	function applyPtr(id: string) {
@@ -351,6 +353,7 @@
 		docEnts = { ...docEnts, [id]: $state.snapshot(h.steps[h.ptr].snap) as Ent[] }
 		setModels(h.steps[h.ptr].model)   // restore the model snapshot for this step (undo/redo model edits)
 		docFrames = { ...docFrames, [id]: $state.snapshot(h.steps[h.ptr].frames) as SheetFrame[] }   // restore viewport frames
+		setGuides(h.steps[h.ptr].guides ?? [])   // restore alignment guides (undo/redo guide add/remove/move)
 	}
 	function undo() { const id = panes[focused]?.activeId, h = id ? docHist[id] : undefined; if (!id || !h || h.ptr <= 0) return; docHist = { ...docHist, [id]: { ...h, ptr: h.ptr - 1 } }; applyPtr(id) }
 	function redo() { const id = panes[focused]?.activeId, h = id ? docHist[id] : undefined; if (!id || !h || h.ptr >= h.steps.length - 1) return; docHist = { ...docHist, [id]: { ...h, ptr: h.ptr + 1 } }; applyPtr(id) }
@@ -879,6 +882,11 @@
 								{/if}
 							</div>
 						{/key}
+						<!-- Model-layout tabs (e.g. "3303 Floorplan", "Rack A Elevation") show the model name at the
+						     top-centre of the canvas. Sheet layout has the titleblock + per-viewport bar instead. -->
+						{#if a && !(a.kind === 'sheet' && p.layout === 'sheet')}
+							<div class="model-name">{a.title}</div>
+						{/if}
 						<div class="navtools glass-bar">
 							<button class="tool" title="Zoom in" onclick={() => navZoom(1.25)}><Icon name="zoomin" size={16} /></button>
 							<button class="tool" title="Zoom out" onclick={() => navZoom(0.8)}><Icon name="zoomout" size={16} /></button>
@@ -1094,6 +1102,9 @@
 		font-size:11px; color:var(--text); background:color-mix(in srgb, var(--panel) 88%, transparent);
 		border:1px solid var(--line-soft); border-radius:6px; padding:3px 12px; pointer-events:none;
 		backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); box-shadow:0 4px 16px #0004; }
+	/* Model name/id, top-centre of a model-layout canvas (screen space, non-interactive). */
+	.model-name { position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:6; white-space:nowrap;
+		font-size:12px; font-weight:600; letter-spacing:.02em; color:var(--muted); pointer-events:none; user-select:none; }
 	.vp-active-bar { top:12px; left:50%; transform:translateX(-50%); z-index:6; align-items:center; gap:2px; padding:3px; }
 	.vab-btn { display:inline-flex; align-items:center; gap:5px; padding:5px 11px; min-height:30px; border-radius:6px;
 		font-size:12px; font-weight:600; color:var(--muted); background:none; border:none; }

@@ -18,6 +18,16 @@ export function removeGuide(id: string) {
 }
 export function setGuideSel(ids: string[]) { guideSel.splice(0, guideSel.length, ...ids) }
 
+// Snapshot / restore for the page undo history (mirrors models' snapModels/setModels). `$state.snapshot`
+// unwraps the proxy so the step holds plain data; restoring re-proxies via splice. Selection is dropped
+// on restore (ids may no longer exist) to keep it consistent with the restored set.
+export const snapGuides = (): Guide[] => $state.snapshot(guides) as Guide[]
+export function setGuides(next: Guide[]) {
+	guides.splice(0, guides.length, ...($state.snapshot(next) as Guide[]))
+	const live = new Set(guides.map((g) => g.id))
+	for (let i = guideSel.length - 1; i >= 0; i--) if (!live.has(guideSel[i])) guideSel.splice(i, 1)
+}
+
 // The currently-selected PLAN guide of a given orientation (h for front/rear depth, v for left/right),
 // used to fix the off-axis depth when drawing a conduit in an elevation. null → no guide chosen.
 export function selectedPlanGuide(orient: 'h' | 'v'): Guide | null {

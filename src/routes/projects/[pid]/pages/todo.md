@@ -58,6 +58,44 @@ Suggested order in review.md §7.
   zoom: the scale label/dropdown update live (e.g. 1:100 → 1:84 → 1:70 zooming in) and the cursor's
   model point stays fixed. `on.scale` callback + the dropdown tolerates computed 1:N values.
 
+### Reported 2026-09-21 (Dave) — batch 6
+Done:
+- [x] **Guides get undo/redo** — alignment guides are now snapshotted into each page history step
+  (`snapGuides`/`setGuides` in `guides.svelte`, mirroring models' snap/set). Guide add (Guide tool)
+  and delete (Delete/Backspace) record a step via a new `on.guideedit` callback (begin/edit/end,
+  one step each). Verified: place guide → Ctrl+Z removes it → Ctrl+Shift+Z restores it; guide also
+  falls off correctly in a multi-step undo. *Caveat:* guides are still module-global (shared across
+  docs) while history is per-doc — same known limitation as the global `models` store; fix when
+  guides become per-model.
+- [x] **Polyline/line pick tolerance widened to ~7px total** (~3.5px either side) — `hit()` was
+  passing the raw `hitTol(7)` (viewBox-scaled units) to edge-distance tests whose coords live in
+  UNSCALED drawing space, so at 1:25 the effective pick band shrank to ~0.3px. Now `hitTol(3.5)/dscale`
+  → a true ~3.5px half-width at any scale. Verified by bracketing: a click ~2px off the line selects,
+  ~5px off does not. (See the hit-tolerance/dscale note — this was exactly that trap in `hit()`.)
+- [x] **Unfilled closed shapes select by their OUTLINE only** (CAD-standard) — rect/ellipse/circle/
+  box-footprint with `fill:none` no longer treat the empty interior as a hitbox; a filled one still
+  picks anywhere inside (new `isFilled`/`inBox` in `hitEnt`). Verified: interior click on an unfilled
+  rect does nothing; a border click selects it. *Note:* the 3D **model prisms** (furniture boxes) are a
+  separate system (`hitModel`) and stay interior-selectable as solids — the border-only rule is for
+  drawn Pages entities, which is what "rect" referred to.
+- [x] **Right-click ends a multi-point draw** — polyline / Wall / Trunk / Pipe now finish on
+  right-click (same as Enter / dbl-click); the browser context menu is only suppressed when a draft
+  is actually consumed, otherwise it passes through. (`onContext` on the `.vp` div.)
+- [x] **Drawing regression fixed** — after the primary-viewport removal, a pointerdown inside an
+  ACTIVE frame bubbled to the sheet and started a paper-space marquee, hijacking the draw (cursor
+  flipped to arrow, no shape/guide created). `onSheetDown` now ignores presses landing inside
+  `.vp.active` (except the Viewport tool, which needs the sheet press to place a new frame).
+- [x] **Model name at top-centre of the canvas** on model-layout tabs (e.g. "3303 Floorplan",
+  "Rack A Elevation") — screen-space, non-interactive label; sheet layout keeps its titleblock.
+- **Decision (frame schema ≈ model-shape schema):** Dave — viewport frames in a page model, though
+  they carry special draw/content-management behaviour, "should be practically identical to shapes
+  in other models in terms of schema." Fold into the **page-MODEL object** work (§2): make a frame
+  just another model entity (id/layer/groupId + geometry) with a `viewport` role, rather than the
+  bespoke `SheetFrame` type. No objection seen.
+- **Decision (seeding):** OK to seed a default full-bleed viewport on new page creation, and equally
+  OK to create pages with NO viewport and let the user draw one. Keep current seed-on-first-measure
+  for now; revisit when the page-model object lands.
+
 ### Reported 2026-09-21 (Dave) — batch 5
 Done:
 - [x] **Shift-click no longer moves the object** — a Shift body-press is selection-only (never
@@ -564,7 +602,9 @@ Symbols are identical to annotes.
   (border-priority) + deletable. Drawing a Wall/Trunk/Pipe in an ELEVATION takes its off-axis **depth
   from the selected PLAN guide** (h→y for front/rear, v→x for left/right); no guide → model centre + a
   toast/instruction-line nudge. Verified: trunk in a Front viewport lands on the selected plan guide.
-  **Follow-ups:** [ ] **DRAG a guide** to reposition (today click-to-place only); [ ] fallback should be
+  **Follow-ups:** [x] **DRAG a guide** to reposition (2026-09-21) — in Select mode, press near a guide to
+  grab + drag it (one history gesture 'Move guide'; hover shows the move cursor; priority below entities/
+  grips, above sections/model/marquee); [ ] fallback should be
   **snap-to-geometry** (draw on a wall centreline → inherit its depth) rather than the model centre; [ ]
   **vice-versa** — an ELEVATION guide fixes the z/height when drawing in the plan; [ ] use guides as a
   general **drawing snap** (not just conduit depth). How CAD frames the same idea: AutoCAD UCS; Revit
@@ -626,7 +666,8 @@ Sheets' basic version** — see §10.
   dialog (name, colour, draw-as fill/line, line type, thickness in mm, **lock**, **delete**).
 - [x] **Lockable layers** — lock toggle on group rows, on **each sub-layer row (beside the eye)**,
   and in the settings dialog (mock; tinted when locked).
-- [ ] **Draggable layers** — reorder layers/groups in the manager by dragging (P2).
+- [ ] **Draggable layers** — reorder layers/groups in the manager by dragging. **(P1 — part of the
+  image-import test below; the drag order sets the background draw z-order.)**
 - [x] **Draw order** (2026-09-20) — array position = paint order (later = on top). `reorderEnts`
   moves the selection: front/back jump to the array ends; forward/backward step past one non-selected
   neighbour (block-safe). Wired to **Ctrl+] / Ctrl+[** (± Shift = to front/back) and a Properties
@@ -648,6 +689,13 @@ Sheets' basic version** — see §10.
 - [ ] **Background layers** — import one or more PDF / image / DXF files as background
   layers that can be toggled/swapped (e.g. compare floorplan vs RCP). Replaces the
   Sheets "one background PDF" limitation.
+- [ ] **HIGH PRIORITY — image-import end-to-end test** (Dave, 2026-09-21) — *do this once the
+  **PaperPage↔Viewport merge** and the **page-MODEL object** (§2) are finished.* Import files
+  (**images first**; PDF/DXF later), **assign each to a layer** (typically grouped under a
+  **Background** layer category), then **drag layers in the Layers list to set the draw z-order**
+  and confirm one background correctly overlaps the other. Depends on **Draggable layers** (§3) +
+  Background layers (above). This is the acceptance test that ties file-import + layers + z-order
+  together.
 
 ## 4. Imported files / floorplans  (P1–P2)
 - [ ] Upload & manage many floorplan drawings per project — **electrical, furniture, AV,

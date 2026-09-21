@@ -40,7 +40,7 @@
 		reorder?: (ids: string[], op: 'front' | 'back' | 'forward' | 'backward') => void;
 		scale?: (s: string) => void; modeledit?: () => void; section?: (clip: Clip) => void; orbit?: (yaw: number, pitch: number) => void;
 		sectionselect?: (id: string | null) => void; sectionopen?: (id: string) => void; sectionmove?: (id: string, clip: Clip) => void;
-		sectionsetdir?: (id: string, dir: ElevDir) => void; sectiondelete?: (id: string) => void
+		sectionsetdir?: (id: string, dir: ElevDir) => void; sectiondelete?: (id: string) => void; guideedit?: (label: string) => void
 	}
 	let { label = 'Viewport', scale = '1:1', kind = 'floorplan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {},
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, sections = [], selSection = null }:
@@ -256,7 +256,7 @@
 		// hover feedback for the Select tool: 'move' when over a shape body (a grip shows its own cursor)
 		if (active && tool === 'Select' && !drag && !mDrag && !draft.length && !marquee) {
 			const lp = toLocalXY(e.clientX, e.clientY)
-			hoverBody = !!lp && (hit(lp).length > 0 || !!hitModel(lp))
+			hoverBody = !!lp && (hit(lp).length > 0 || !!hitModel(lp) || !!hitGuide(lp))   // a guide is draggable → show 'move'
 		} else hoverBody = false
 	}
 	// Re-apply the constraint the instant Shift changes (don't wait for a pointer move) — for
@@ -277,6 +277,11 @@
 		const ent = entities.find(x => x.id === hit(p)[0])
 		if (ent?.type === 'text') { startTextEdit(ent); return }
 		if (tool === 'Select' && modelEditable) insertGraphNode(p)   // dbl-click a wall/conduit segment → add a vertex (plan or elevation)
+	}
+	// Right-click ends an in-progress multi-point draw (polyline / wall / trunk / pipe) — same as Enter /
+	// dbl-click — and otherwise falls through to the browser menu. Only swallow the menu when we consumed it.
+	function onContext(e: MouseEvent) {
+		if (active && POLY.has(tool) && draft.length) { e.preventDefault(); e.stopPropagation(); finishPolyline() }
 	}
 	// ── edit text in place ──
 	let editText = $state<{ id: string; x: number; y: number; fontPx: number; value: string } | null>(null)
@@ -330,7 +335,7 @@
 		if ((e.key === 'Delete' || e.key === 'Backspace') && sel.length && !draft.length) { e.preventDefault(); on.delete?.(sel); return }
 		if ((e.key === 'Delete' || e.key === 'Backspace') && modelSel.length && !draft.length) { e.preventDefault(); deleteModelSel(); return }
 		if ((e.key === 'Delete' || e.key === 'Backspace') && selSection && !draft.length) { e.preventDefault(); on.sectiondelete?.(selSection); return }
-		if ((e.key === 'Delete' || e.key === 'Backspace') && guideSel.length && !draft.length) { e.preventDefault(); for (const id of [...guideSel]) removeGuide(id); return }
+		if ((e.key === 'Delete' || e.key === 'Backspace') && guideSel.length && !draft.length) { e.preventDefault(); on.beginedit?.(); for (const id of [...guideSel]) removeGuide(id); on.guideedit?.('Delete guide'); on.endedit?.(); return }
 		if (sel.length && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
 			e.preventDefault()
 			const s = e.shiftKey ? 10 : 1
@@ -367,19 +372,33 @@
 	// bbox() returns the UNrotated extent, so its centre is the correct pivot.
 	const rotCenter = (e: Ent): Pt => { const [x0, y0, x1, y1] = bbox(e); return [(x0 + x1) / 2, (y0 + y1) / 2] }
 	function rotatePt(p: Pt, c: Pt, deg: number): Pt { const a = deg * Math.PI / 180, s = Math.sin(a), co = Math.cos(a), dx = p[0] - c[0], dy = p[1] - c[1]; return [c[0] + dx * co - dy * s, c[1] + dx * s + dy * co] }
+	// A CLOSED shape (rect/ellipse/circle/box-footprint) with no fill is selected by its OUTLINE only
+	// (like CAD) — the empty interior is not a hitbox; a filled one picks anywhere inside. `thr` is the
+	// pick band half-width (drawing units). `inBox` = point within thr of the rect border, or inside a fill.
+	const isFilled = (e: Ent) => !!e.fill && e.fill !== 'none'
+	function inBox(p: Pt, x0: number, y0: number, x1: number, y1: number, thr: number, filled: boolean): boolean {
+		const outer = p[0] >= x0 - thr && p[0] <= x1 + thr && p[1] >= y0 - thr && p[1] <= y1 + thr
+		if (!outer) return false
+		if (filled) return true
+		const inner = p[0] > x0 + thr && p[0] < x1 - thr && p[1] > y0 + thr && p[1] < y1 - thr
+		return !inner   // within the border band only
+	}
 	function hitEnt(e: Ent, p: Pt, thr: number): boolean {
 		if (e.rot) p = rotatePt(p, rotCenter(e), -e.rot)   // test in the entity's un-rotated frame
 		if (isFlatElev(e)) { const [x0, x1] = flatXSpan(e); return segDist(p, [x0, GROUND], [x1, GROUND]) < thr }
 		if (e.type === 'polyline') { const pts = e.pts ?? []; for (let i = 0; i + 1 < pts.length; i++) if (segDist(p, pts[i], pts[i + 1]) < thr) return true; return false }
 		if (e.type === 'line' || e.type === 'dim') return segDist(p, e.a!, e.b!) < thr
-		if (e.type === 'box' && isElev) { const f = boxElev(e, elevDir, CX, CY); return p[0] >= f.x0 - thr && p[0] <= f.x1 + thr && p[1] >= f.top - thr && p[1] <= f.base + thr }
-		if (e.type === 'rect' || e.type === 'box') { const x0 = Math.min(e.a![0], e.b![0]), y0 = Math.min(e.a![1], e.b![1]), x1 = Math.max(e.a![0], e.b![0]), y1 = Math.max(e.a![1], e.b![1]); return p[0] >= x0 - thr && p[0] <= x1 + thr && p[1] >= y0 - thr && p[1] <= y1 + thr }
-		if (e.type === 'circle') return dist(e.c!, p) <= e.r! + thr
+		if (e.type === 'box' && isElev) { const f = boxElev(e, elevDir, CX, CY); return inBox(p, f.x0, f.top, f.x1, f.base, thr, true) }   // elevation box draws a filled face
+		if (e.type === 'rect' || e.type === 'box') { const x0 = Math.min(e.a![0], e.b![0]), y0 = Math.min(e.a![1], e.b![1]), x1 = Math.max(e.a![0], e.b![0]), y1 = Math.max(e.a![1], e.b![1]); return inBox(p, x0, y0, x1, y1, thr, e.type === 'box' || isFilled(e)) }
+		if (e.type === 'circle') { const d = dist(e.c!, p); return isFilled(e) ? d <= e.r! + thr : Math.abs(d - e.r!) <= thr }
 		if (e.type === 'ellipse') {
 			const cx = (e.a![0] + e.b![0]) / 2, cy = (e.a![1] + e.b![1]) / 2
-			const rx = Math.abs(e.b![0] - e.a![0]) / 2 + thr, ry = Math.abs(e.b![1] - e.a![1]) / 2 + thr
-			const nx = (p[0] - cx) / (rx || 1), ny = (p[1] - cy) / (ry || 1)
-			return nx * nx + ny * ny <= 1
+			const hx = Math.abs(e.b![0] - e.a![0]) / 2, hy = Math.abs(e.b![1] - e.a![1]) / 2
+			const outer = ((p[0] - cx) / ((hx + thr) || 1)) ** 2 + ((p[1] - cy) / ((hy + thr) || 1)) ** 2 <= 1
+			if (!outer) return false
+			if (isFilled(e)) return true
+			const inner = ((p[0] - cx) / ((hx - thr) || 1)) ** 2 + ((p[1] - cy) / ((hy - thr) || 1)) ** 2 < 1
+			return !inner   // ring band around the outline only
 		}
 		if (e.type === 'text') { const [x0, y0, x1, y1] = textBox(e); return p[0] >= x0 - thr && p[0] <= x1 + thr && p[1] >= y0 - thr && p[1] <= y1 + thr }
 		return false
@@ -393,7 +412,10 @@
 	// A hidden or locked layer's objects can't be picked; nor can objects that don't belong to this view.
 	const pickable = (e: Ent) => inThisView(e) && !isLayerHidden(e.layer) && !isLayerLocked(e.layer)
 	function hit(p: Pt): string[] {
-		const thr = hitTol(7)
+		// ~3.5px of slack on EITHER side of a line/border (≈7px total pick width) in SCREEN px. Entity
+		// coords + `p` are in unscaled drawing space, so convert screen px → drawing units = hitTol()/dscale
+		// (hitTol alone is in viewBox-scaled units — the old raw hitTol(7) shrank to sub-pixel at 1:25).
+		const thr = hitTol(3.5) / (dscale || 1)
 		for (let i = entities.length - 1; i >= 0; i--) if (pickable(entities[i]) && hitEnt(entities[i], p, thr)) return [entities[i].id]
 		return []
 	}
@@ -602,13 +624,32 @@
 	function placeGuide(p: Pt, shift: boolean) {
 		if (!viewSpace) return
 		const orient = shift ? 'v' : 'h'
+		on.beginedit?.()   // capture the pre-add baseline, then fold the add into one undo step
 		addGuide({ id: guideId(), space: viewSpace, orient, pos: Math.round(orient === 'h' ? p[1] : p[0]) })
+		on.guideedit?.('Add guide'); on.endedit?.()
 	}
 	function hitGuide(p: Pt): string | null {
 		if (!viewGuides.length) return null
 		const thr = hitTol(6) / (dscale || 1)
 		for (let i = viewGuides.length - 1; i >= 0; i--) { const g = viewGuides[i]; if (Math.abs((g.orient === 'h' ? p[1] : p[0]) - g.pos) < thr) return g.id }
 		return null
+	}
+	// DRAG a guide to reposition it — one history gesture (begin → move → 'Move guide' on release). The
+	// guide is a live proxy in the global `guides` array, so mutating `pos` is reactive.
+	let guideDrag: { id: string; moved: boolean } | null = null
+	function onGuideDragMove(e: PointerEvent) {
+		if (!guideDrag) return
+		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
+		const g = guides.find((x) => x.id === guideDrag!.id); if (!g) return
+		g.pos = Math.round(g.orient === 'h' ? p[1] : p[0])
+		guideDrag.moved = true
+	}
+	function onGuideDragUp() {
+		window.removeEventListener('pointermove', onGuideDragMove)
+		window.removeEventListener('pointerup', onGuideDragUp)
+		if (guideDrag?.moved) { suppressClick = true; on.guideedit?.('Move guide') }
+		on.endedit?.()
+		guideDrag = null
 	}
 	// A body move drag. Absolute from the gesture's start (no drift). A prism moves its position; a
 	// wall/conduit translates ALL its nodes (keeping the graph rigid). In elevation the horizontal drag
@@ -1041,6 +1082,11 @@
 			window.removeEventListener('pointermove', onDrawMove)
 			window.removeEventListener('pointerup', onDrawUp)
 		}
+		if (guideDrag) {   // abort an in-progress guide reposition (2nd finger → pan/zoom)
+			guideDrag = null; on.endedit?.()
+			window.removeEventListener('pointermove', onGuideDragMove)
+			window.removeEventListener('pointerup', onGuideDragUp)
+		}
 		if (mDrag) {   // abort an in-progress model-object move (2nd finger → pan/zoom)
 			mDrag = null; on.endedit?.()
 			window.removeEventListener('pointermove', onModelDragMove)
@@ -1136,6 +1182,20 @@
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
 		const hitInfo = pick(e.clientX, e.clientY)
 		if (!hitInfo) {
+			// an alignment guide under the cursor → select + drag it to reposition. Priority: below entities/
+			// grips (hitInfo), above sections/model/marquee (a guide is a thin overlay you grab in open space).
+			const gid = hitGuide(p)
+			if (gid) {
+				if (!guideSel.includes(gid)) setGuideSel([gid])
+				on.select?.([]); setModelSel([])   // guide selection is exclusive with entity/model selection
+				guideDrag = { id: gid, moved: false }
+				on.beginedit?.()
+				try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
+				e.preventDefault()
+				window.addEventListener('pointermove', onGuideDragMove)
+				window.addEventListener('pointerup', onGuideDragUp)
+				return
+			}
 			// a section marker border → SELECT it (grips + toolbar) and start a move drag; a click with no
 			// drag just selects (open / re-aim / delete live in the toolbar).
 			const sid = hitSection(p)
@@ -1342,7 +1402,7 @@
 	style:border-style={active ? 'solid' : border === 'none' ? 'dotted' : border}
 	style:border-color={border === 'none' && !active ? '#94a3b866' : undefined}
 	use:panzoom={{ enabled: () => active && navContent, wheelZoom: () => acad, onpan: onPan, onzoom: onZoom }}
-	onclick={onClick} ondblclick={onDblclick} onpointerdown={onDown} onpointermove={onMove}
+	onclick={onClick} ondblclick={onDblclick} oncontextmenu={onContext} onpointerdown={onDown} onpointermove={onMove}
 	onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); on.activate?.() } }}>
 
 	<svg bind:this={svg} class="vp-svg {kind === 'iso' || isElev ? 'model' : ''}" viewBox="{minX} {minY} {vbW} {vbH}" preserveAspectRatio="xMidYMid meet">

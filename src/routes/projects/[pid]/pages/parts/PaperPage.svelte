@@ -94,7 +94,11 @@
 	let marquee = $state<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
 	let placingFrame = $state(false)   // dragging out a NEW viewport frame (the Viewport tool)
 	function onSheetDown(e: PointerEvent) {
-		if (e.button !== 0) return
+		// A pointerdown INSIDE an active viewport is that viewport's (drawing/editing) — the sheet must not
+		// also start a paper-space marquee/frame-placement (that hijacked drawing after the primary was
+		// removed). Only handle presses on the bare paper. The Viewport tool disables frame bands, so its
+		// press lands on the sheet and is handled here.
+		if (e.button !== 0 || (tool !== 'Viewport' && (e.target as Element).closest?.('.vp.active'))) return
 		e.preventDefault()   // stop a native text/element drag starting after a double-click (shows a not-allowed cursor + leaves the marquee stuck)
 		try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
 		if (tool !== 'Viewport') onselectframe?.(null)   // clicking empty paper deselects any frame
