@@ -3,7 +3,7 @@
 	// revision snapshots you can restore (basis for clouding diffs later). Data + actions
 	// come from the parent (+page owns the undo/redo stacks and the doc entities).
 	import { Icon } from '$lib'
-	type Snap = Record<string, unknown>
+	type Snap = unknown   // opaque here — the panel only passes it back to onrestore (host owns the shape)
 	type LogRow = { label: string; t: number; i: number; kind: 'past' | 'current' | 'future' }
 	let { log = [], revisions = [], onnote, onjump, onundo, onredo, onnewrevision, onrestore }:
 		{ log?: LogRow[]; revisions?: { name: string; note: string; snap: Snap; t: number }[];

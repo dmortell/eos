@@ -78,8 +78,21 @@ Done:
   (`drawSpace`→`drawPlane`, `isPlanSpace`→`onPlanPlane`, `inThisView` now also checks `inScope`); added
   the `space` scope (default 'model'); `Viewport` gains a `frameId` prop (from the sheet frame) so
   view-scoped filtering works. Guides' plane field also renamed `space`→`plane` for consistency. Field
-  names locked for Firestore. Verified: entities + guides render, clean console. *Step 2b: move the
-  entities themselves `docEnts` → `Model.ents` + route entity history through the model.*
+  names locked for Firestore. Verified: entities + guides render, clean console.
+- [x] **Entities moved INTO THE MODEL** (step 2b, 2026-09-21) — the big one: `docEnts[tabId]` (per-tab) →
+  **`Model.ents`** (shared). Every view of the floor now shares its annotations, and entity undo/redo
+  **rides `snapModels`** — so `HStep.snap`/`snapDoc` are gone (entities are in `HStep.model`). All the
+  CRUD (`addEnt`/`updateEnt`/`deleteEnts`/`group`/`ungroup`/`reorder`/`copy`/`paste`) now go through
+  `mdlEnts()`/`setMdlEnts()`; `entsOf(tab)` returns the model's ents (tab arg is just the history key);
+  revisions snapshot `Model.ents` (Snap = `Ent[]`); `dropDoc` no longer clears ents (they're the
+  model's). `Model.ents: Ent[]` imports `Ent` from geometry (no cycle). **Verified in-browser:** drew a
+  rect on the 3303 Outlets sheet → it ALSO appears on the 3303 Floorplan tab (same model — cross-view
+  sharing, the whole point); Ctrl+Z removes it (model history), Ctrl+Shift+Z restores; border-select +
+  grips work. Clean console. *Known limitation (same as the model objects/guides): history is per-tab
+  while the model is shared, so undo on a different tab won't reach an edit made on another — a global
+  model history is the real fix, deferred with the model registry (§5).* **Next in §5/§6:** the multi-
+  model registry (rack/frame/riser models + a Model/Source picker per viewport), then view-scoped
+  (`space:'view:<frameId>'`) annotations, then the HIGH-PRIORITY image-import test.
 - [x] **Polyline/line pick tolerance widened to ~7px total** (~3.5px either side) — `hit()` was
   passing the raw `hitTol(7)` (viewBox-scaled units) to edge-distance tests whose coords live in
   UNSCALED drawing space, so at 1:25 the effective pick band shrank to ~0.3px. Now `hitTol(3.5)/dscale`

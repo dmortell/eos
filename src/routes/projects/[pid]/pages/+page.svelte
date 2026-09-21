@@ -226,10 +226,15 @@
 	// Starter docs hold only annotations now — the real 3D floor MODEL (walls / furniture / trunk,
 	// see 3dview/) is what renders in every view. The old demo `box` Ent was retired once the model
 	// landed (model-plan.md P1b); the Box tool stays for quick sketches, it's just no longer seeded.
-	let docEnts = $state<Record<string, Ent[]>>({ t1: [], t2: [], t3: [], t4: [] })
+	// Entities (2D annotations) now live IN THE MODEL (`models[0].ents`), not per-tab — so every view of
+	// the floor shares them and their undo/redo ride the model snapshot (like guides). All tabs reference
+	// the single model for now; the `id` args below are the HISTORY key (which tab's timeline records the
+	// edit), while the DATA is the shared model. Viewport filters by plane + scope. (§5/§6 migration.)
+	const mdlEnts = (): Ent[] => models[0]?.ents ?? []
+	const setMdlEnts = (next: Ent[]) => { if (models[0]) models[0].ents = next }
 	let docSel = $state<Record<string, string[]>>({})
 	let docView = $state<Record<string, View>>({})
-	const entsOf = (id: string) => docEnts[id] ?? []
+	const entsOf = (_id: string) => mdlEnts()
 	const selOf = (id: string) => docSel[id] ?? []
 	// View (content pan/zoom) is keyed by PANE+tab, so a split showing the same tab in two panes (e.g.
 	// plan in one, elevation in the other via the per-pane ViewCube) pans each independently.
@@ -251,13 +256,13 @@
 		if (gestureActive) { if (!gesturePushed) { pushStep(id, label); gesturePushed = true } else updateStep(id) }
 		else pushStep(id, label)
 	}
-	function addEnt(id: string, e: Ent) { ensureHist(id); const en = e.layer ? e : { ...e, layer: layerUI.active }; docEnts = { ...docEnts, [id]: [...(docEnts[id] ?? []), en] }; recordEdit(id, 'Add ' + en.type) }
-	function updateEnt(id: string, e: Ent) { ensureHist(id); docEnts = { ...docEnts, [id]: (docEnts[id] ?? []).map(x => x.id === e.id ? e : x) }; recordEdit(id, 'Edit ' + e.type) }
+	function addEnt(id: string, e: Ent) { ensureHist(id); const en = e.layer ? e : { ...e, layer: layerUI.active }; setMdlEnts([...mdlEnts(), en]); recordEdit(id, 'Add ' + en.type) }
+	function updateEnt(id: string, e: Ent) { ensureHist(id); setMdlEnts(mdlEnts().map(x => x.id === e.id ? e : x)); recordEdit(id, 'Edit ' + e.type) }
 	function deleteEnts(id: string, ids: string[]) {
 		if (!ids.length) return
 		ensureHist(id)
 		const rm = new Set(ids)
-		docEnts = { ...docEnts, [id]: (docEnts[id] ?? []).filter(e => !rm.has(e.id)) }
+		setMdlEnts(mdlEnts().filter(e => !rm.has(e.id)))
 		setSel(id, [])
 		recordEdit(id, 'Delete')
 	}
@@ -267,7 +272,7 @@
 	let clipboard: Ent[] = []   // snapshots; persists across tabs
 	let pasteN = 0, entSeq = 0
 	const newId = () => 'x' + Date.now().toString(36) + (entSeq++)
-	function copyEnts(id: string, ids: string[]) { const s = new Set(ids); clipboard = (docEnts[id] ?? []).filter(e => s.has(e.id)).map(e => $state.snapshot(e) as Ent); pasteN = 0 }
+	function copyEnts(_id: string, ids: string[]) { const s = new Set(ids); clipboard = mdlEnts().filter(e => s.has(e.id)).map(e => $state.snapshot(e) as Ent); pasteN = 0 }
 	function cutEnts(id: string, ids: string[]) { copyEnts(id, ids); deleteEnts(id, ids) }
 	function pasteEnts(id?: string) {
 		if (!clipboard.length || !id) return
@@ -284,18 +289,18 @@
 	function groupEnts(id: string, ids: string[]) {
 		if (ids.length < 2) return
 		ensureHist(id); const gid = newId(), s = new Set(ids)
-		docEnts = { ...docEnts, [id]: (docEnts[id] ?? []).map(e => s.has(e.id) ? { ...e, groupId: gid } : e) }
+		setMdlEnts(mdlEnts().map(e => s.has(e.id) ? { ...e, groupId: gid } : e))
 		recordEdit(id, 'Group')
 	}
 	function ungroupEnts(id: string, ids: string[]) {
 		ensureHist(id); const s = new Set(ids)
-		docEnts = { ...docEnts, [id]: (docEnts[id] ?? []).map(e => s.has(e.id) ? { ...e, groupId: undefined } : e) }
+		setMdlEnts(mdlEnts().map(e => s.has(e.id) ? { ...e, groupId: undefined } : e))
 		recordEdit(id, 'Ungroup')
 	}
 	// Draw order = array position (later = painted on top). Reorder the selection within the doc's
 	// array; front/back jump to the ends, forward/backward step past one non-selected neighbour.
 	function reorderEnts(id: string, ids: string[], op: 'front' | 'back' | 'forward' | 'backward') {
-		const arr = docEnts[id] ?? [], s = new Set(ids)
+		const arr = mdlEnts(), s = new Set(ids)
 		if (!ids.length || !arr.some(e => s.has(e.id))) return
 		ensureHist(id)
 		let next: Ent[]
@@ -307,7 +312,7 @@
 			if (op === 'forward') { for (let i = next.length - 2; i >= 0; i--) if (s.has(next[i].id) && !s.has(next[i + 1].id)) [next[i], next[i + 1]] = [next[i + 1], next[i]] }
 			else { for (let i = 1; i < next.length; i++) if (s.has(next[i].id) && !s.has(next[i - 1].id)) [next[i], next[i - 1]] = [next[i - 1], next[i]] }
 		}
-		docEnts = { ...docEnts, [id]: next }
+		setMdlEnts(next)
 		recordEdit(id, 'Reorder')
 	}
 
@@ -316,40 +321,39 @@
 	// (undone) steps and jump to any point. steps[0] is the baseline; each step snapshots the doc's
 	// entities AFTER that edit; ptr = the current step. Memory ≈ entities × up to 100 steps (mock; a
 	// real tool should be command/inverse-op based).
-	type Snap = Record<string, Ent[]>
+	type Snap = Ent[]   // a revision snapshots the model's entities (shared across all views)
 	// Each step also carries a snapshot of the shared 3D MODEL, so undo/redo restores model edits
 	// (move/resize prisms) alongside entity edits on the same timeline. The model is global (shared
 	// across docs), so it's captured on every step in whatever doc is active — a model edit made in
 	// another tab isn't on this doc's timeline (a known mock limitation; a global model history is the
 	// real fix). Entity-only edits capture the unchanged model, keeping ents + model consistent.
-	type HStep = { label: string; t: number; snap: Ent[]; model: Model[]; frames: SheetFrame[] }   // guides live in `model` now (snapModels)
+	// Entities + guides now live in the MODEL, so `model` (snapModels) captures them — no separate `snap`.
+	type HStep = { label: string; t: number; model: Model[]; frames: SheetFrame[] }
 	let docHist = $state<Record<string, { steps: HStep[]; ptr: number }>>({})
 	let revisions = $state<{ name: string; note: string; snap: Snap; t: number }[]>([])
-	const snapEnts = (): Snap => $state.snapshot(docEnts) as Snap
-	const snapDoc = (id: string): Ent[] => $state.snapshot(docEnts[id] ?? []) as Ent[]
+	const snapEnts = (): Snap => $state.snapshot(mdlEnts()) as Snap
 	const snapFrames = (id: string): SheetFrame[] => $state.snapshot(docFrames[id] ?? []) as SheetFrame[]
 	// Capture the baseline (pre-first-edit) state once, BEFORE the doc is first mutated.
 	function ensureHist(id: string) {
 		if (docHist[id]) return
-		docHist = { ...docHist, [id]: { steps: [{ label: 'Start', t: Date.now(), snap: snapDoc(id), model: snapModels(), frames: snapFrames(id) }], ptr: 0 } }
+		docHist = { ...docHist, [id]: { steps: [{ label: 'Start', t: Date.now(), model: snapModels(), frames: snapFrames(id) }], ptr: 0 } }
 	}
 	function pushStep(id: string, label: string) {
 		const t = tabs.find(x => x.id === id); if (t && !t.dirty) t.dirty = true   // any edit marks the tab dirty
 		ensureHist(id); const h = docHist[id]
 		const steps = h.steps.slice(0, h.ptr + 1)   // drop the redo tail (a new edit forks the future)
-		steps.push({ label, t: Date.now(), snap: snapDoc(id), model: snapModels(), frames: snapFrames(id) })
+		steps.push({ label, t: Date.now(), model: snapModels(), frames: snapFrames(id) })
 		while (steps.length > 100) steps.shift()
 		docHist = { ...docHist, [id]: { steps, ptr: steps.length - 1 } }
 	}
 	function updateStep(id: string) {   // fold a gesture's latest state into its already-open step
 		const h = docHist[id]; if (!h) return
-		const steps = h.steps.slice(); steps[h.ptr] = { ...steps[h.ptr], snap: snapDoc(id), model: snapModels(), frames: snapFrames(id), t: Date.now() }
+		const steps = h.steps.slice(); steps[h.ptr] = { ...steps[h.ptr], model: snapModels(), frames: snapFrames(id), t: Date.now() }
 		docHist = { ...docHist, [id]: { ...h, steps } }
 	}
 	function applyPtr(id: string) {
 		const h = docHist[id]; if (!h) return
-		docEnts = { ...docEnts, [id]: $state.snapshot(h.steps[h.ptr].snap) as Ent[] }
-		setModels(h.steps[h.ptr].model)   // restore the model snapshot for this step (undo/redo model edits)
+		setModels(h.steps[h.ptr].model)   // restore the model snapshot (entities + guides + 3D objects) for this step
 		docFrames = { ...docFrames, [id]: $state.snapshot(h.steps[h.ptr].frames) as SheetFrame[] }   // restore viewport frames
 	}
 	function undo() { const id = panes[focused]?.activeId, h = id ? docHist[id] : undefined; if (!id || !h || h.ptr <= 0) return; docHist = { ...docHist, [id]: { ...h, ptr: h.ptr - 1 } }; applyPtr(id) }
@@ -372,7 +376,7 @@
 	function restoreRevision(snap: Snap) {
 		const id = panes[focused]?.activeId; if (!id) return
 		ensureHist(id)
-		docEnts = { ...docEnts, [id]: $state.snapshot(snap[id] ?? []) as Ent[] }
+		setMdlEnts($state.snapshot(snap) as Ent[])
 		recordEdit(id, 'Restore revision')
 	}
 	function setSel(id: string, ids: string[]) { docSel = { ...docSel, [id]: ids }; if (ids.length) treeNode = null }
@@ -381,7 +385,7 @@
 	let selEnts = $derived.by(() => {
 		const a = tabs.find(t => t.id === panes[focused]?.activeId); if (!a) return []
 		const ids = new Set(docSel[a.id] ?? [])
-		return (docEnts[a.id] ?? []).filter(e => ids.has(e.id))
+		return mdlEnts().filter(e => ids.has(e.id))
 	})
 	// The single selected 3D-model object (Properties panel edits it straight on the store, with undo).
 	let selModelObj = $derived(modelSel.length === 1 ? (models[0]?.objects.find(o => o.id === modelSel[0]) ?? null) : null)
@@ -404,11 +408,11 @@
 		if (!o?.segments?.[segIdx] || !id) return
 		beginGesture(); Object.assign(o.segments[segIdx], patch); modelEdit(id); endGesture()
 	}
-	function dropDoc(id: string) {   // free a closed doc's per-document state
-		const de = { ...docEnts }, ds = { ...docSel }, dv = { ...docView }
-		delete de[id]; delete ds[id]
+	function dropDoc(id: string) {   // free a closed doc's per-document state (entities stay — they're the model's)
+		const ds = { ...docSel }, dv = { ...docView }
+		delete ds[id]
 		for (const k of Object.keys(dv)) if (k === id || k.endsWith(':' + id)) delete dv[k]   // view is now pane-keyed
-		docEnts = de; docSel = ds; docView = dv
+		docSel = ds; docView = dv
 		// free the other per-doc state too (was leaking; a reused preview id inherited it)
 		if (docHist[id]) { const dh = { ...docHist }; delete dh[id]; docHist = dh }
 		if (docProj[id]) { const dp = { ...docProj }; delete dp[id]; docProj = dp }

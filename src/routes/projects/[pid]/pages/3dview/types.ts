@@ -5,6 +5,7 @@
 //
 // Coordinates are model mm. Axes: x = width (east), y = depth (north),
 // z = height (up). Object sizes: w along x, d along y, h along z.
+import type { Ent } from '../ui/geometry'   // 2D annotation entity (geometry.ts imports nothing from 3dview → no cycle)
 export type Pt = { x: number; y: number }
 export type Axis = 'x' | 'y' | 'z'
 
@@ -89,7 +90,11 @@ export type Levels = { floorSlab?: number; raisedFloor?: number; ceilingTile?: n
 // (id/plane/orient/pos), matching entities' `plane` — see [[project_pages_firestore_schema]].
 export type Guide = { id: string; plane: string; orient: 'h' | 'v'; pos: number }
 
-export type Model = { id: number; name: string; objects: Obj[]; guides?: Guide[]; layers?: Layer[]; underlays?: Underlay[]; levels?: Levels }
+// `objects` = 3D geometry (walls/prisms/conduits). `ents` = 2D annotations/shapes/text/dims (the drawn
+// `Ent`s from ui/geometry.ts), each tagged with a `plane` + `space` scope. Both belong to the model and
+// are shown across its views (layer- and scope-gated). Guides likewise. `Ent` imports cleanly (geometry.ts
+// imports nothing from 3dview, so no cycle). Field names Firestore-stable — see the schema memory.
+export type Model = { id: number; name: string; objects: Obj[]; ents?: Ent[]; guides?: Guide[]; layers?: Layer[]; underlays?: Underlay[]; levels?: Levels }
 
 // Projection direction: five orthographic + an isometric 3D view.
 export type Dir = 'plan' | 'front' | 'rear' | 'left' | 'right' | 'iso'
