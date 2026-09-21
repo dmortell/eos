@@ -111,7 +111,17 @@
 	let cur = $state<Pt | null>(null)
 	let shiftDown = $state(false)   // for aspect-lock override during an image resize
 	let scalePts = $state<Pt[]>([])   // the 2-point measure line while calibrating an image's scale
-	let scaleInput = $state<{ x: number; y: number; d: number; val: string } | null>(null)   // inline "real distance" entry after 2 points
+	let scaleReal = $state<string | null>(null)   // the user's real-distance entry (null = not calibrating scale)
+	// Position + measured distance of the scale entry are DERIVED from the 2 points (+ pan/zoom), so the box
+	// tracks the line automatically; only `scaleReal` (typed value) is state. null until both points exist.
+	const scaleGeom = $derived.by(() => {
+		if (scalePts.length !== 2 || scaleReal === null || !svg) return null
+		const d = dist(scalePts[0], scalePts[1])
+		const m = localToClient((scalePts[0][0] + scalePts[1][0]) / 2, (scalePts[0][1] + scalePts[1][1]) / 2)
+		if (!m) return null
+		const r = svg.getBoundingClientRect()
+		return { x: m.x - r.left, y: m.y - r.top, d }
+	})
 	let seq = 0
 	const uid = () => 'e' + Date.now().toString(36) + (seq++)
 	const clipNs = 'ic' + Math.floor(Math.random() * 1e9).toString(36)   // per-viewport-instance namespace for <clipPath> ids (a sheet renders the same image in several viewports → ids must not collide)
@@ -221,10 +231,10 @@
 		if (!active) return   // paper space: enter with a double-click (see onDblclick)
 		// IMAGE calibration modes (Properties › Set scale / Set origin) intercept clicks on the image.
 		if (imgEdit.mode === 'origin' && imgEdit.id) { const p = toLocal(e); if (p) setImageOrigin(imgEdit.id, p); return }
-		if (imgEdit.mode === 'scale' && imgEdit.id && !scaleInput) {
+		if (imgEdit.mode === 'scale' && imgEdit.id && scaleReal === null) {
 			const p = toLocal(e); if (!p) return
 			scalePts = [...scalePts, p]
-			if (scalePts.length === 2) { const d = dist(scalePts[0], scalePts[1]); const m = localToClient((scalePts[0][0] + scalePts[1][0]) / 2, (scalePts[0][1] + scalePts[1][1]) / 2); if (m && svg) { const r = svg.getBoundingClientRect(); scaleInput = { x: m.x - r.left, y: m.y - r.top, d, val: String(Math.round(d)) } } }
+			if (scalePts.length === 2) scaleReal = String(Math.round(dist(scalePts[0], scalePts[1])))   // pre-fill with the measurement
 			return
 		}
 		if (tool === 'Select') {
@@ -368,7 +378,7 @@
 		}
 		if (e.key !== 'Escape') return
 		// Esc ladder: exit an image-edit mode → cancel a draft → switch a drawing tool back to Select → …
-		if (imgEdit.mode) { clearImgMode(); scalePts = [] }
+		if (imgEdit.mode) { clearImgMode(); scalePts = []; scaleReal = null }
 		else if (draft.length) { draft = []; cur = null; snapMark = null }
 		else if (tool !== 'Select') on.tool?.('Select')
 		else if (selSection) on.sectionselect?.(null)
@@ -679,30 +689,20 @@
 	}
 	// SCALE: after the 2-point line + a real-world distance, resize the image (a→b) by real/measured about
 	// its origin (or centre), so that measurement is correct in model mm. Keeps the anchor point fixed.
-	// Reposition the inline "real distance" entry at the measure line's midpoint + refresh the measured d.
-	function refreshScaleInput() {
-		if (scalePts.length !== 2 || !svg) return
-		const d = dist(scalePts[0], scalePts[1])
-		const m = localToClient((scalePts[0][0] + scalePts[1][0]) / 2, (scalePts[0][1] + scalePts[1][1]) / 2)
-		if (m) { const r = svg.getBoundingClientRect(); scaleInput = { x: m.x - r.left, y: m.y - r.top, d, val: String(Math.round(d)) } }   // pre-fill with the live measurement (user overwrites with the real distance)
-	}
-	// Drag an endpoint of the measure line to adjust it before entering the distance.
+	// Drag an endpoint of the measure line to adjust it (the geometry + measured distance are derived).
 	let scaleDrag: number | null = null
 	function onScaleDragMove(ev: PointerEvent) {
 		if (scaleDrag == null) return
 		const p = toLocalXY(ev.clientX, ev.clientY); if (!p) return
 		scalePts = scalePts.map((sp, i) => (i === scaleDrag ? p : sp))
-		refreshScaleInput()
 	}
 	function onScaleDragUp() { scaleDrag = null; window.removeEventListener('pointermove', onScaleDragMove); window.removeEventListener('pointerup', onScaleDragUp) }
 	function applyScale() {
-		const inp = scaleInput; scaleInput = null; scalePts = []
+		const d = scaleGeom?.d ?? 0, real = parseFloat(scaleReal ?? '')
 		const img = imgEdit.id ? entities.find((x) => x.id === imgEdit.id) : null
-		clearImgMode()
-		if (!inp || !img || img.type !== 'image') return
-		const real = parseFloat(inp.val)
-		if (!(real > 0) || !(inp.d > 0)) return
-		const f = real / inp.d
+		scaleReal = null; scalePts = []; clearImgMode()
+		if (!img || img.type !== 'image' || !(real > 0) || !(d > 0)) return
+		const f = real / d
 		const rx = Math.min(img.a![0], img.b![0]), ry = Math.min(img.a![1], img.b![1]), rw = Math.abs(img.b![0] - img.a![0]), rh = Math.abs(img.b![1] - img.a![1])
 		const ax = img.origin ? rx + img.origin.x * rw : rx + rw / 2, ay = img.origin ? ry + img.origin.y * rh : ry + rh / 2
 		const na: Pt = [ax + (img.a![0] - ax) * f, ay + (img.a![1] - ay) * f]
@@ -1520,7 +1520,7 @@
 	const imgModeText = $derived(
 		imgEdit.mode === 'origin' ? 'Set origin · click a reference point inside the image · Esc = cancel'
 			: imgEdit.mode === 'crop' ? 'Crop · drag the corner handles to trim the image · Esc = done'
-			: imgEdit.mode === 'scale' ? (scaleInput ? 'Scale · drag either endpoint to adjust, then enter the real distance · Esc = cancel' : scalePts.length === 1 ? 'Scale · click the SECOND point of a known distance' : 'Scale · click the FIRST point of a known distance')
+			: imgEdit.mode === 'scale' ? (scaleReal !== null ? 'Scale · drag either endpoint to adjust, then enter the real distance · Esc = cancel' : scalePts.length === 1 ? 'Scale · click the SECOND point of a known distance' : 'Scale · click the FIRST point of a known distance')
 			: null)
 	let statusText = $derived(
 		editText ? 'Editing text · Enter = new line · Ctrl/⌘+Enter = commit · Esc = cancel'
@@ -1700,13 +1700,13 @@
 			onkeydown={(e) => { e.stopPropagation(); if (e.key === 'Escape') { e.preventDefault(); editText = null } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commitText() } }}></textarea>
 	{/if}
 	<!-- image SCALE: after the 2-point line, an inline entry for the real-world distance → resize. -->
-	{#if scaleInput}
+	{#if scaleGeom}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="scale-entry" style="left:{scaleInput.x}px; top:{scaleInput.y}px" onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()}>
+		<div class="scale-entry" style="left:{scaleGeom.x}px; top:{scaleGeom.y}px" onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()}>
 			<span>Real distance</span>
 			<!-- svelte-ignore a11y_autofocus -->
-			<input type="number" min="1" step="1" autofocus value={scaleInput.val} oninput={(e) => { if (scaleInput) scaleInput.val = (e.currentTarget as HTMLInputElement).value }}
-				onkeydown={(e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); applyScale() } else if (e.key === 'Escape') { e.preventDefault(); scaleInput = null; scalePts = []; clearImgMode() } }} />
+			<input type="number" min="1" step="1" autofocus value={scaleReal} oninput={(e) => { scaleReal = (e.currentTarget as HTMLInputElement).value }}
+				onkeydown={(e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); applyScale() } else if (e.key === 'Escape') { e.preventDefault(); scaleReal = null; scalePts = []; clearImgMode() } }} />
 			<span class="se-unit">mm</span>
 			<button onclick={applyScale}>Set</button>
 		</div>
