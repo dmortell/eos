@@ -24,7 +24,8 @@ export function panzoom(node: HTMLElement, initial: PanZoomOpts) {
 		if (!on()) return
 		e.preventDefault()
 		e.stopPropagation()   // don't also act on an enabled panzoom ancestor (canvas under a viewport)
-		const zoom = (opts.wheelZoom ? opts.wheelZoom() : true) || e.ctrlKey || e.altKey || e.metaKey || (e.buttons & 2) !== 0
+		// Pages is Alt-free (Dave rarely uses Alt) — Ctrl / Meta / right-button+wheel still force zoom.
+		const zoom = (opts.wheelZoom ? opts.wheelZoom() : true) || e.ctrlKey || e.metaKey || (e.buttons & 2) !== 0
 		// Normalise the wheel to pixels first (Firefox reports line/page deltas), and clamp the zoom
 		// factor per event — shared with the Sheets tool via $lib/ui/panzoom-controller.
 		const { x, y } = normalizeWheelToPixels(e)

@@ -297,9 +297,9 @@ New todos (design / bigger):
   `Alt+wheel = zoom` (in the `zoom = ... || e.ctrlKey || e.altKey || e.metaKey || right-btn` modifier
   chain). It is **fully redundant**: Ctrl+wheel, Meta+wheel AND right-button+wheel already zoom, so no
   capability is Alt-only. (The old Alt-drag node-BRANCH is already Ctrl-drag — see the graph-node grip at
-  `Viewport.svelte` ~1289.) So there is nothing that *needs* relocating. **◧ Dave's call:** leave the
-  harmless redundant Alt+wheel in place, or drop `e.altKey` from that OR-chain to make the tool truly
-  Alt-free (zero capability loss)? Not removing it unprompted since it's a UX preference, not a bug.
+  `Viewport.svelte` ~1289.) So there is nothing that *needs* relocating. **Resolved 2026-09-22 (Dave):
+  dropped `e.altKey`** from the panzoom wheel-zoom OR-chain → **Pages is now fully Alt-free**. Ctrl / Meta
+  / right-button+wheel still force zoom, so no capability was lost.
 - [ ] **Touch: Guide tool button pop-out for H/V** (Dave, 2026-09-21) — on touch there's no Shift to pick
   vertical, so the Guide toolbar button should pop out an **H / V** selector. Fits the tools-pop-out-groups
   todo (a tool button that fans out its variants).
