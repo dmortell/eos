@@ -214,6 +214,22 @@ New todos (design / bigger):
   `snapNode` takes the drag `origin` and skips any candidate within a break radius of it, so a node that
   starts coincident with a partner can be pulled cleanly off it instead of re-snapping forever. (This is
   also what lets a fresh Alt-branch node separate from the node it sprang from.)
+- [ ] **Select + DELETE graph nodes; Ctrl-drag a node to branch** (Dave, 2026-09-21) — let a single
+  wall/conduit NODE be selected and deleted, with the connected segments handled by degree: **1 segment
+  → delete that segment**; **2 segments → join them into one** (drop the node, merge the two segments);
+  **3+ segments → ?** (undecided — options: refuse/keep the node, or delete all but pick a pass-through
+  pair; discuss). And **Ctrl-drag a node** starts a NEW segment from it. NB: branch-from-node already
+  exists as **Alt-drag** (see above) — reconcile: switch to Ctrl-drag as Dave prefers, or keep Alt and
+  free Ctrl for duplicate/additive (decide the modifier map). Needs a node-level selection (today
+  selection is whole-object; grips are per-node but not individually selectable).
+- [ ] **Stable per-DRAWING id for tab dedup + persistence** (Dave, 2026-09-21) — tab ids are an ephemeral
+  session counter (`'t'+seq`; the 4 seeded tabs are hardcoded t1–t4, dynamic ones get t5+ by OPEN ORDER),
+  and `openDrawing` dedupes by TITLE. So the per-tab localStorage canvas view (and any future per-tab
+  persisted setting) only recovers reliably for the seeded tabs — a drawing opened as t5 this session may
+  be t7 next session, and same-title drawings collide (review §2.8). Fix: carry a **stable drawingId**
+  (the navigator node id / real document id) on each Tab, dedupe + key persistence by it, not the
+  ephemeral tab id. (Split-pane keys use `paneId` — p1 stable, p2+ depends on split history; the canvas
+  view is really per-drawing, so persist by drawingId and keep paneId only for live split independence.)
 - [x] **ViewCube: don't fullscreen a sheet; re-orient in place** (2026-09-20) — `ViewGizmos onset` no
   longer flips a sheet to fullscreen model layout; it just sets `docProj`, so the cube re-orients the
   view's content in place, INCLUDING a paper sheet's viewport (PaperPage now threads `kind/clip/yaw/
@@ -538,13 +554,16 @@ Symbols are identical to annotes.
     renders the **titleblock**; both have their own **marquee** + **Handle grips** (share `Handle.svelte`
     already). A merge = one surface that hosts nested viewports, each a Viewport, with paper-space vs
     model-space just a coordinate mode.
-- [ ] **Set the DEPTH PLANE when drawing conduits in an elevation** (Dave, 2026-09-21) — today an
-  elevation-drawn wall conduit defaults its off-axis depth to the model centre. Let the user set the
-  work plane before/while drawing, the way CAD does: (a) a **UCS / construction plane** (AutoCAD: set the
-  active plane, all input lands on it; Revit: pick a work plane / a wall's face); (b) **snap onto
-  existing geometry** (draw on a wall's centreline → inherit its depth) — usually the most natural for
-  "conduit on this wall"; (c) a **depth field** on the tool bar / command line (type the offset). Start
-  with (b) snap-to-wall + (c) a depth input; (a) a full UCS is the bigger model.
+- [ ] **Set the DEPTH PLANE via GUIDE LINES** (Dave's design, 2026-09-21) — today an elevation-drawn wall
+  conduit defaults its off-axis depth to the model centre. Plan: let the user draw/drag **vertical &
+  horizontal guide lines** on plans/elevations (Visio-style alignment guides that always extend to the
+  viewport/screen edge). Before drawing a 3D object on an elevation you **select a guide line on the
+  PERPENDICULAR view** (the plan) that fixes the depth; and vice-versa (a plan object picks up its height
+  from an elevation guide). If none is set, fall back to **snap-to-geometry** (draw on a wall centreline
+  → inherit its depth) with a **message in the instruction box + a toast** suggesting the user set/select
+  a guide line on the perpendicular view. Guide lines are a general alignment tool (not just depth) —
+  model them as their own light objects (per-view, orientation, position; selectable/movable/deletable).
+  How CAD frames the same idea: AutoCAD UCS / construction planes; Revit work planes / pick-a-wall-face.
 - [ ] **RISERS tool** (Dave, 2026-09-21) — like an elevation but spanning **multiple floors** of the
   building: server / IDF / EPS rooms on each floor, connected by **risers, trunks and cable routes**
   running vertically between floors. A riser diagram is a multi-floor section: stack each floor's
