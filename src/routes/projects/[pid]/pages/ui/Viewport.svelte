@@ -42,9 +42,9 @@
 		sectionselect?: (id: string | null) => void; sectionopen?: (id: string) => void; sectionmove?: (id: string, clip: Clip) => void;
 		sectionsetdir?: (id: string, dir: ElevDir) => void; sectiondelete?: (id: string) => void
 	}
-	let { label = 'Viewport', scale = '1:1', kind = 'floorplan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {},
+	let { label = 'Viewport', scale = '1:1', kind = 'floorplan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {}, frameId = undefined,
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, sections = [], selSection = null }:
-		{ label?: string; scale?: string; kind?: 'floorplan' | 'iso' | ElevDir; active?: boolean; tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env; on?: VpOn;
+		{ label?: string; scale?: string; kind?: 'floorplan' | 'iso' | ElevDir; active?: boolean; tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env; on?: VpOn; frameId?: string;
 			focused?: boolean; entities?: Ent[]; sel?: string[]; view?: View; clip?: Clip | null; yaw?: number; pitch?: number; sections?: SectionMarker[]; selSection?: string | null } = $props()
 	// Callbacks are called directly as on.x?.(…) — no aliases (a $derived rename adds nothing for a
 	// function that's only invoked). env flags stay derived because they're read as values.
@@ -71,7 +71,7 @@
 	const DRAW = new Set(['Line', 'Rectangle', 'Ellipse', 'Dimension', 'Text', 'Box', 'Wall', 'Furniture', 'Trunk', 'Pipe', 'Section', 'Opening', 'Guide'])
 	// Guide lines belong to a drawable VIEW space (plan or an elevation); iso has none.
 	const viewSpace = $derived(kind === 'floorplan' ? 'plan' : isElev ? elevDir : null)
-	const viewGuides = $derived(viewSpace ? modelGuides().filter((g) => g.space === viewSpace) : [])
+	const viewGuides = $derived(viewSpace ? modelGuides().filter((g) => g.plane === viewSpace) : [])
 	const GUIDE_SPAN = 1e7   // guides render as full-view lines (spanning far past the viewport)
 	// Polyline-style tools (click points, Enter/dbl-click to finish). Line makes an entity; Wall/Trunk/Pipe
 	// build MODEL graph objects (plan only).
@@ -185,12 +185,12 @@
 	}
 	// Objects drawn in an elevation view are NATIVE to that elevation (space = the dir); a box stays
 	// plan-space (it's a 3D footprint) and projects like normal.
-	const drawSpace = () => (isElev ? elevDir : undefined)
+	const drawPlane = () => (isElev ? elevDir : undefined)   // the DRAWING PLANE new geometry lands in (plan or this elevation)
 	function place(a: Pt, b: Pt) {
-		const sp = drawSpace()
-		if (tool === 'Line') on.add?.({ id: uid(), type: 'line', a, b, space: sp })
-		else if (tool === 'Rectangle') on.add?.({ id: uid(), type: 'rect', a, b, space: sp })
-		else if (tool === 'Ellipse') on.add?.({ id: uid(), type: 'ellipse', a, b, space: sp })
+		const sp = drawPlane()
+		if (tool === 'Line') on.add?.({ id: uid(), type: 'line', a, b, plane: sp })
+		else if (tool === 'Rectangle') on.add?.({ id: uid(), type: 'rect', a, b, plane: sp })
+		else if (tool === 'Ellipse') on.add?.({ id: uid(), type: 'ellipse', a, b, plane: sp })
 		else if (tool === 'Box') on.add?.({ id: uid(), type: 'box', a, b, h: DEFAULT_BOX_H })
 		else if (tool === 'Furniture' && isPlan) placePrism(a, b, 'furniture', 750, 'f')   // MODEL prism footprint
 		else if (tool === 'Opening' && isPlan) placePrism(a, b, 'openings', 2100, 'o')      // door/window/hole (dashed outline)
@@ -198,14 +198,14 @@
 			on.section?.({ x0: Math.round(Math.min(a[0], b[0])), y0: Math.round(Math.min(a[1], b[1])), z0: 0,
 				x1: Math.round(Math.max(a[0], b[0])), y1: Math.round(Math.max(a[1], b[1])), z1: mdl.levels?.ceilingSlab ?? 3200 })
 		}
-		else if (tool === 'Dimension') on.add?.({ id: uid(), type: 'dim', a, b, space: sp })
+		else if (tool === 'Dimension') on.add?.({ id: uid(), type: 'dim', a, b, plane: sp })
 	}
 	// The Line tool draws a POLYLINE in AutoCAD mode: keep clicking to add segments, Enter /
 	// double-click / right-click to finish (Esc cancels). (EOS press-drag = a single segment.)
 	function finishPolyline() {
 		let pts = draft
 		while (pts.length >= 2 && dist(pts.at(-1)!, pts.at(-2)!) < 0.01) pts = pts.slice(0, -1)   // drop the double-click's zero-length tail
-		if (tool === 'Line' && pts.length >= 2) on.add?.({ id: uid(), type: 'polyline', pts: pts.map(p => [...p] as Pt), space: drawSpace() })
+		if (tool === 'Line' && pts.length >= 2) on.add?.({ id: uid(), type: 'polyline', pts: pts.map(p => [...p] as Pt), plane: drawPlane() })
 		else if (MODEL_GRAPH.has(tool) && pts.length >= 2 && (isPlan || isElev)) placeGraph(pts)   // Wall / Trunk / Pipe (plan or elevation — vertical runs)
 		draft = []; cur = null; snapMark = null
 	}
@@ -232,7 +232,7 @@
 			}
 			return
 		}
-		if (tool === 'Text') { const p = drawPoint(e.clientX, e.clientY); if (p) on.add?.({ id: uid(), type: 'text', a: p, text: 'TEXT', space: drawSpace() }); snapMark = null; return }
+		if (tool === 'Text') { const p = drawPoint(e.clientX, e.clientY); if (p) on.add?.({ id: uid(), type: 'text', a: p, text: 'TEXT', plane: drawPlane() }); snapMark = null; return }
 		if (tool === 'Guide') { const p = toLocal(e); if (p) placeGuide(p, e.shiftKey); return }   // drop an alignment guide (Shift = vertical)
 		// Model objects are placed in the plan — EXCEPT wall/trunk/pipe graphs, which can also be drawn in
 		// an elevation (a vertical wall conduit). Furniture / Section / Opening stay plan-only.
@@ -369,9 +369,14 @@
 	// elevation only (a wall/rack label, a leader, a dimension), rendered as-is there and hidden in
 	// other views. The full 3D-position/construction-plane model (project onto x/y/z planes, oriented
 	// per view) is a later upgrade — see todo §2.
-	const isPlanSpace = (e: Ent) => !e.space || e.space === 'plan'
-	const inThisView = (e: Ent) => isPlanSpace(e) || e.space === kind
-	const isFlatElev = (e: Ent) => isElev && FLAT.has(e.type) && isPlanSpace(e)   // only floor flats collapse to the ground line
+	const onPlanPlane = (e: Ent) => !e.plane || e.plane === 'plan'
+	// A viewport-local (view:<frameId>) annotation shows only in its own frame; a model-scoped one shows in
+	// every view. `frameId` is this viewport's id (undefined for a model-layout tab → only model-scoped show).
+	const inScope = (e: Ent) => !e.space || e.space === 'model' || e.space === 'view:' + frameId
+	// In-view = the object's DRAWING PLANE matches this view (plan projects into every elevation as a ground
+	// line; an elevation-native object shows only in that elevation) AND its scope includes this frame.
+	const inThisView = (e: Ent) => inScope(e) && (onPlanPlane(e) || e.plane === kind)
+	const isFlatElev = (e: Ent) => isElev && FLAT.has(e.type) && onPlanPlane(e)   // only floor flats collapse to the ground line
 	// Horizontal drawing span of a flat object projected onto the ground line for the current side view.
 	function flatXSpan(e: Ent): [number, number] { return flatSpan(e, elevDir, CX, CY) }
 	// Rotation (degrees, about the entity's view-bbox centre): render, hit and grips all honour it.
@@ -631,7 +636,7 @@
 		if (!viewSpace) return
 		const orient = shift ? 'v' : 'h'
 		on.beginedit?.()   // capture the pre-add baseline, then fold the add into one undo step (model history)
-		addGuide({ id: guideId(), space: viewSpace, orient, pos: Math.round(orient === 'h' ? p[1] : p[0]) })
+		addGuide({ id: guideId(), plane: viewSpace, orient, pos: Math.round(orient === 'h' ? p[1] : p[0]) })
 		on.modeledit?.('Add guide'); on.endedit?.()
 	}
 	function hitGuide(p: Pt): string | null {

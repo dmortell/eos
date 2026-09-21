@@ -153,7 +153,7 @@
 				{@const fa = isFrameActive(f.id)}
 				<div class="vp-frame" class:selected={selFrame === f.id && !fa} class:active={fa}
 					style="left:{f.x}px; top:{f.y}px; width:{f.w}px; height:{f.h}px">
-					<Viewport kind={frameKind(f.proj)} label={f.label} scale={f.scale} active={fa} {focused} {tool} env={frameEnv} on={fon} border={f.border}
+					<Viewport kind={frameKind(f.proj)} label={f.label} scale={f.scale} active={fa} {focused} {tool} env={frameEnv} on={fon} border={f.border} frameId={f.id}
 						{entities} {sel} view={frameView(f.id)} clip={f.clip} yaw={frameOrbit(f.id).yaw} pitch={frameOrbit(f.id).pitch}
 						sections={frameKind(f.proj) === 'floorplan' ? sections : []} {selSection} boxW={f.w} boxH={f.h} />
 					{#if !fa}

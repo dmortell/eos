@@ -32,6 +32,6 @@ export function removeGuide(id: string) {
 // to fix the off-axis depth when drawing a conduit in an elevation. Selection is the shared `modelSel`.
 export function selectedPlanGuide(selIds: string[], orient: 'h' | 'v'): Guide | null {
 	const gs = modelGuides()
-	for (const id of selIds) { const g = gs.find((x) => x.id === id); if (g && g.space === 'plan' && g.orient === orient) return g }
+	for (const id of selIds) { const g = gs.find((x) => x.id === id); if (g && g.plane === 'plan' && g.orient === orient) return g }
 	return null
 }

@@ -69,8 +69,17 @@ Done:
   **delete goes through `deleteModelSel`** (which now also filters `mdl.guides`). Verified in-browser:
   place → renders; Ctrl+Z/Ctrl+Shift+Z remove/restore (via snapModels); drag repositions + is selected
   (`sel` class from modelSel); Delete removes + undo restores. Field names kept Firestore-stable
-  (`{id,space,orient,pos}`) — see the schema memory. *This is step 1 of the data-into-model migration
-  (§5/§6); entities (`docEnts` → `Model.ents` with `space:'model'|'view:<frameId>'`) are step 2.*
+  (`{id,plane,orient,pos}`) — see the schema memory. *This is step 1 of the data-into-model migration (§5/§6).*
+- [x] **Entity schema for data-into-model — `plane` + `space` scope** (step 2a, 2026-09-21) — decided with
+  Dave: an entity carries BOTH a drawing **`plane`** (`'plan'|'front'|'rear'|'left'|'right'` — which
+  projection plane its coords live in; drives projection/view-gating) AND a **`space`** scope
+  (`'model'|'view:<frameId>'` — model-scoped shows in every view, view-scoped shows only in that frame),
+  orthogonal like DXF layer+space. Renamed the old `Ent.space` (which meant the plane) → `Ent.plane`
+  (`drawSpace`→`drawPlane`, `isPlanSpace`→`onPlanPlane`, `inThisView` now also checks `inScope`); added
+  the `space` scope (default 'model'); `Viewport` gains a `frameId` prop (from the sheet frame) so
+  view-scoped filtering works. Guides' plane field also renamed `space`→`plane` for consistency. Field
+  names locked for Firestore. Verified: entities + guides render, clean console. *Step 2b: move the
+  entities themselves `docEnts` → `Model.ents` + route entity history through the model.*
 - [x] **Polyline/line pick tolerance widened to ~7px total** (~3.5px either side) — `hit()` was
   passing the raw `hitTol(7)` (viewBox-scaled units) to edge-distance tests whose coords live in
   UNSCALED drawing space, so at 1:25 the effective pick band shrank to ~0.3px. Now `hitTol(3.5)/dscale`
