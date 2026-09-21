@@ -107,7 +107,7 @@
 		activate: () => activateVp(a.id), deactivate: () => deactivateVp(a.id),
 		add: (e: Ent) => addEnt(a.id, e), update: (e: Ent) => updateEnt(a.id, e),
 		delete: (ids: string[]) => deleteEnts(a.id, ids), select: (ids: string[]) => setSel(a.id, ids),
-		view: (v: View) => setView(pane.id, a.id, v), status: (t: string) => (statusText = t),
+		view: (v: View) => setView(pane.id, a.id, projOf(pane, a), v), status: (t: string) => (statusText = t),
 		coords: (x: number, y: number) => (worldXY = { x, y }), beginedit: beginGesture, endedit: endGesture,
 		tool: (t: string) => (pane.tool = t), frame: onFrame as (f: unknown) => void,
 		copy: (ids: string[]) => copyEnts(a.id, ids), cut: (ids: string[]) => cutEnts(a.id, ids), paste: () => pasteEnts(a.id),
@@ -115,7 +115,7 @@
 		reorder: (ids: string[], op) => reorderEnts(a.id, ids, op),
 		scale: (s: string) => (docScale = { ...docScale, [a.id]: s }),
 		modeledit: (label?: string) => modelEdit(a.id, label), section: (clip: Clip) => onSection(clip),
-		orbit: (yaw: number, pitch: number) => setOrbit(pane.id, a.id, yaw, pitch),
+		orbit: (yaw: number, pitch: number) => setOrbit(pane.id, a.id, projOf(pane, a), yaw, pitch),
 		sectionselect: (id: string | null) => selectSection(id),
 		sectionopen: (id: string) => openSection(id),
 		sectionmove: (id: string, clip: Clip) => moveSection(id, clip),
@@ -127,8 +127,8 @@
 	function modelEdit(id: string, label = 'Edit model') { recordEdit(id, label) }
 	// Iso ORBIT (yaw/pitch), per pane+tab so split 3D views orbit independently. Drag the iso view to rotate.
 	let docOrbit = $state<Record<string, { yaw: number; pitch: number }>>({})
-	const orbitOf = (paneId: string, tabId: string) => docOrbit[paneId + ':' + tabId] ?? { yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH }
-	function setOrbit(paneId: string, tabId: string, yaw: number, pitch: number) { docOrbit = { ...docOrbit, [paneId + ':' + tabId]: { yaw, pitch } } }
+	const orbitOf = (paneId: string, viewId: string, proj: Proj) => docOrbit[vkey(paneId, viewId, proj)] ?? { yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH }
+	function setOrbit(paneId: string, viewId: string, proj: Proj, yaw: number, pitch: number) { docOrbit = { ...docOrbit, [vkey(paneId, viewId, proj)]: { yaw, pitch } } }
 	// A section box drawn on the plan (§4) → spawn a new elevation tab clipped to that box, and leave a
 	// persistent MARKER on the plan (box + direction arrow + label) so the cut is visible and clickable.
 	// docClip = the box per elevation tab; docSecDir = the section's viewing direction (drives the marker
@@ -181,11 +181,11 @@
 	// the FRAME id, so each viewport pans, activates and re-aims independently.
 	const vpOnFrame = (a: Tab, pane: { id: string; tool: string }, frame: SheetFrame) => ({
 		...vpOn(a, pane),
-		view: (v: View) => setView(pane.id, frame.id, v),
+		view: (v: View) => setView(pane.id, frame.id, frame.proj, v),
 		activate: () => activateFrame(a.id, frame.id),
 		deactivate: () => deactivateVp(frame.id),
 		scale: (s: string) => updateFrame(a.id, frame.id, { scale: s }),
-		orbit: (yaw: number, pitch: number) => setOrbit(pane.id, frame.id, yaw, pitch),
+		orbit: (yaw: number, pitch: number) => setOrbit(pane.id, frame.id, frame.proj, yaw, pitch),
 	})
 	// Seed a sheet's DEFAULT viewport (fills the sheet, plan view) the first time PaperPage measures it —
 	// this is the page's baseline, so it's not a recorded edit.
@@ -252,9 +252,11 @@
 	let docView = $state<Record<string, View>>({})
 	const entsOf = (id: string) => entsForModel(tabs.find((t) => t.id === id)?.modelId)   // a tab's model's ents (sheets pass per-frame)
 	const selOf = (id: string) => docSel[id] ?? []
-	// View (content pan/zoom) is keyed by PANE+tab, so a split showing the same tab in two panes (e.g.
-	// plan in one, elevation in the other via the per-pane ViewCube) pans each independently.
-	const viewOf = (paneId: string, tabId: string) => docView[paneId + ':' + tabId] ?? { zoom: 1, x: 0, y: 0 }
+	// View (content pan/zoom) is keyed by PANE + view + PROJECTION, so a split pans each pane independently
+	// AND each projection of a viewport (plan / front / … / 3D) remembers its own framing — flipping the
+	// ViewCube restores that view's pan/zoom instead of carrying one framing across all directions.
+	const vkey = (paneId: string, viewId: string, proj: Proj) => paneId + ':' + viewId + ':' + proj
+	const viewOf = (paneId: string, viewId: string, proj: Proj) => docView[vkey(paneId, viewId, proj)] ?? { zoom: 1, x: 0, y: 0 }
 	// A GESTURE (a drag or a nudge burst) should be ONE undo/history step: while a gesture is open,
 	// only the first mutation snapshots; the rest just update. Viewport signals begin/end.
 	let gestureActive = false, gesturePushed = false
@@ -396,7 +398,7 @@
 		recordEdit(id, 'Restore revision')
 	}
 	function setSel(id: string, ids: string[]) { docSel = { ...docSel, [id]: ids }; if (ids.length) treeNode = null }
-	function setView(paneId: string, tabId: string, v: View) { docView = { ...docView, [paneId + ':' + tabId]: v } }
+	function setView(paneId: string, viewId: string, proj: Proj, v: View) { docView = { ...docView, [vkey(paneId, viewId, proj)]: v } }
 	// Selected entities of the focused document (for the Properties panel).
 	let selEnts = $derived.by(() => {
 		const a = tabs.find(t => t.id === panes[focused]?.activeId); if (!a) return []
@@ -443,10 +445,11 @@
 		if (frameIds.length) {
 			if (docFrames[id]) { const df = { ...docFrames }; delete df[id]; docFrames = df }
 			if (selFrame && frameIds.includes(selFrame)) selFrame = null
-			const fv = { ...docView }; for (const k of Object.keys(fv)) if (frameIds.some((fid) => k.endsWith(':' + fid))) delete fv[k]; docView = fv
+			// keys are paneId:viewId:proj — match the middle (viewId) segment.
+			const fv = { ...docView }; for (const k of Object.keys(fv)) if (frameIds.includes(k.split(':')[1])) delete fv[k]; docView = fv
 			for (const fid of frameIds) deactivateVp(fid)
 		}
-		{ const doc = { ...docOrbit }; let hit = false; for (const k of Object.keys(doc)) if (k.endsWith(':' + id) || framesOf(id).some((f) => k.endsWith(':' + f.id))) { delete doc[k]; hit = true } if (hit) docOrbit = doc }
+		{ const doc = { ...docOrbit }; let hit = false; for (const k of Object.keys(doc)) { const vid = k.split(':')[1]; if (vid === id || frameIds.includes(vid)) { delete doc[k]; hit = true } } if (hit) docOrbit = doc }
 		if (activeVps.has(id)) deactivateVp(id)
 	}
 
@@ -673,20 +676,23 @@
 	// AND "Pan content" is on; otherwise the canvas. (Was always reading the view zoom when active,
 	// so the status bar stuck at 100% while the wheel zoomed the canvas.)
 	const zoomsContent = (id?: string) => isVpActive(id) && navContent
+	// The projection of a pane's active CONTENT view (a model-layout tab; sheets zoom the canvas, not this).
+	const activeProj = (p: { id: string; activeId: string }) => projOf(p, tabs.find((t) => t.id === p.activeId) ?? null)
 	let dispZoom = $derived.by(() => {
 		const p = panes[focused]; if (!p) return 100
-		return Math.round((zoomsContent(p.activeId) ? viewOf(p.id, p.activeId).zoom : canvasViewOf(p).zoom) * 100)
+		return Math.round((zoomsContent(p.activeId) ? viewOf(p.id, p.activeId, activeProj(p)).zoom : canvasViewOf(p).zoom) * 100)
 	})
 	function navZoom(f: number) {
 		const p = panes[focused]; if (!p) return
-		if (zoomsContent(p.activeId)) { const v = viewOf(p.id, p.activeId); setView(p.id, p.activeId, { ...v, zoom: Math.min(8, Math.max(0.25, v.zoom * f)) }) }
+		if (zoomsContent(p.activeId)) { const pr = activeProj(p), v = viewOf(p.id, p.activeId, pr); setView(p.id, p.activeId, pr, { ...v, zoom: Math.min(8, Math.max(0.25, v.zoom * f)) }) }
 		else { const v = canvasViewOf(p); setCanvasView(p, { ...v, zoom: Math.min(8, Math.max(0.1, v.zoom * f)) }) }
 	}
 	// Fit a specific pane: frame its sheet paper (centred, with margin) or reset a model view.
 	function fitPane(idx: number) {
 		const p = panes[idx]; if (!p) return
-		if (p.activeId) setOrbit(p.id, p.activeId, DEFAULT_YAW, DEFAULT_PITCH)   // Fit also resets the 3D orbit
-		if (isVpActive(p.activeId)) { setView(p.id, p.activeId, { zoom: 1, x: 0, y: 0 }); return }
+		const pr = activeProj(p)
+		if (p.activeId) setOrbit(p.id, p.activeId, pr, DEFAULT_YAW, DEFAULT_PITCH)   // Fit also resets the 3D orbit
+		if (isVpActive(p.activeId)) { setView(p.id, p.activeId, pr, { zoom: 1, x: 0, y: 0 }); return }
 		const a2 = tabs.find(t => t.id === p.activeId)
 		const canvas = canvasEls[idx]
 		if (a2?.kind === 'sheet' && p.layout === 'sheet' && canvas && canvas.clientWidth > 50) {
@@ -915,8 +921,8 @@
 										entsForModel={entsForModel} tabModelId={a.modelId ?? FLOOR_MODEL_ID}
 										sections={sectionMarkers} selSection={selSection}
 										frames={framesOf(a.id)} selFrame={selFrame} frameKind={(pr) => projKind(pr as Proj)}
-										isFrameActive={(id) => isVpActive(id)} frameView={(id) => viewOf(p.id, id)} frameEnv={envFor(p)}
-										frameOrbit={(id) => orbitOf(p.id, id)} makeFrameOn={(f) => vpOnFrame(a, p, f as SheetFrame)}
+										isFrameActive={(id) => isVpActive(id)} frameView={(id, proj) => viewOf(p.id, id, proj as Proj)} frameEnv={envFor(p)}
+										frameOrbit={(id, proj) => orbitOf(p.id, id, proj as Proj)} makeFrameOn={(f) => vpOnFrame(a, p, f as SheetFrame)}
 										onseed={(x, y, w, h) => seedFrame(a.id, x, y, w, h)}
 										onaddframe={(x, y, w, h) => addFrame(a.id, x, y, w, h)}
 										onframegeom={(id, g) => updateFrame(a.id, id, g)}
@@ -927,7 +933,7 @@
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => deactivateVp(a.id)}>
 										<Viewport kind={projKind(projOf(p, a))} label={a.title} tool={p.tool} scale={scaleOf(a.id)} env={envFor(p)} on={vpOn(a, p)} modelId={a.modelId ?? FLOOR_MODEL_ID}
-											entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(p.id, a.id)} active={isVpActive(a.id)} focused={focused === pi} clip={docClip[a.id] ?? null} yaw={orbitOf(p.id, a.id).yaw} pitch={orbitOf(p.id, a.id).pitch}
+											entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(p.id, a.id, projOf(p, a))} active={isVpActive(a.id)} focused={focused === pi} clip={docClip[a.id] ?? null} yaw={orbitOf(p.id, a.id, projOf(p, a)).yaw} pitch={orbitOf(p.id, a.id, projOf(p, a)).pitch}
 											sections={projOf(p, a) === 'plan' ? sectionMarkers : []} selSection={selSection} />
 									</div>
 								{:else}

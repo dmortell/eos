@@ -30,8 +30,8 @@
 		frameOrbit = () => ({ yaw: 0, pitch: 0 }), makeFrameOn = () => ({}), onseed, onaddframe, onframegeom, onframecommit, onselectframe, ondeactivate }:
 		{ title?: string; drawingNo?: string; scale?: string; focused?: boolean; tool?: string; env?: Env; pw?: number; ph?: number; sizeLabel?: string; rev?: string; revDate?: string;
 			entities?: Ent[]; sel?: string[]; sections?: SectionMarker[]; selSection?: string | null; entsForModel?: (mid?: number) => Ent[]; tabModelId?: number;
-			frames?: SheetFrame[]; selFrame?: string | null; frameKind?: (p: string) => VKind; isFrameActive?: (id: string) => boolean; frameView?: (id: string) => View; frameEnv?: Env;
-			frameOrbit?: (id: string) => { yaw: number; pitch: number }; makeFrameOn?: (f: SheetFrame) => VpOn; onseed?: (x: number, y: number, w: number, h: number) => void; onaddframe?: (x: number, y: number, w: number, h: number) => void;
+			frames?: SheetFrame[]; selFrame?: string | null; frameKind?: (p: string) => VKind; isFrameActive?: (id: string) => boolean; frameView?: (id: string, proj: string) => View; frameEnv?: Env;
+			frameOrbit?: (id: string, proj: string) => { yaw: number; pitch: number }; makeFrameOn?: (f: SheetFrame) => VpOn; onseed?: (x: number, y: number, w: number, h: number) => void; onaddframe?: (x: number, y: number, w: number, h: number) => void;
 			onframegeom?: (id: string, g: { x: number; y: number; w: number; h: number }) => void; onframecommit?: () => void; onselectframe?: (id: string | null) => void; ondeactivate?: () => void } = $props()
 	const canvasZoom = $derived(env.canvasZoom ?? 1)
 
@@ -154,7 +154,7 @@
 				<div class="vp-frame" class:selected={selFrame === f.id && !fa} class:active={fa}
 					style="left:{f.x}px; top:{f.y}px; width:{f.w}px; height:{f.h}px">
 					<Viewport kind={frameKind(f.proj)} label={f.label} scale={f.scale} active={fa} {focused} {tool} env={frameEnv} on={fon} border={f.border} frameId={f.id} modelId={f.modelId ?? tabModelId}
-						entities={entsForModel ? entsForModel(f.modelId ?? tabModelId) : entities} {sel} view={frameView(f.id)} clip={f.clip} yaw={frameOrbit(f.id).yaw} pitch={frameOrbit(f.id).pitch}
+						entities={entsForModel ? entsForModel(f.modelId ?? tabModelId) : entities} {sel} view={frameView(f.id, f.proj)} clip={f.clip} yaw={frameOrbit(f.id, f.proj).yaw} pitch={frameOrbit(f.id, f.proj).pitch}
 						sections={frameKind(f.proj) === 'floorplan' ? sections : []} {selSection} boxW={f.w} boxH={f.h} />
 					{#if !fa}
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
