@@ -200,7 +200,7 @@
 		let pts = draft
 		while (pts.length >= 2 && dist(pts.at(-1)!, pts.at(-2)!) < 0.01) pts = pts.slice(0, -1)   // drop the double-click's zero-length tail
 		if (tool === 'Line' && pts.length >= 2) on.add?.({ id: uid(), type: 'polyline', pts: pts.map(p => [...p] as Pt), space: drawSpace() })
-		else if (MODEL_GRAPH.has(tool) && pts.length >= 2 && isPlan) placeGraph(pts)   // Wall / Trunk / Pipe
+		else if (MODEL_GRAPH.has(tool) && pts.length >= 2 && (isPlan || isElev)) placeGraph(pts)   // Wall / Trunk / Pipe (plan or elevation — vertical runs)
 		draft = []; cur = null; snapMark = null
 	}
 	function onClick(e: MouseEvent) {
@@ -226,7 +226,9 @@
 			return
 		}
 		if (tool === 'Text') { const p = drawPoint(e.clientX, e.clientY); if (p) on.add?.({ id: uid(), type: 'text', a: p, text: 'TEXT', space: drawSpace() }); snapMark = null; return }
-		if (MODEL_TOOL.has(tool) && !isPlan) return   // model objects are placed in the plan view
+		// Model objects are placed in the plan — EXCEPT wall/trunk/pipe graphs, which can also be drawn in
+		// an elevation (a vertical wall conduit). Furniture / Section / Opening stay plan-only.
+		if (MODEL_TOOL.has(tool) && !isPlan && !(MODEL_GRAPH.has(tool) && isElev)) return
 		if (!acad) return   // EOS mode: shapes are drawn press-drag (onDown), not by clicking
 		const sp = drawPoint(e.clientX, e.clientY, draft.at(-1), e.shiftKey); if (!sp) return
 		if (POLY.has(tool)) { if (!draft.length || dist(draft.at(-1)!, sp) > 0.01) draft = [...draft, sp]; cur = sp; snapMark = null; return }   // polyline / wall / trunk / pipe run: accumulate (skip dup)
@@ -558,23 +560,26 @@
 		const r = svg.getBoundingClientRect()
 		return { x: sp.x - r.left, y: sp.y - r.top, id: selSectionObj.id, dir: selSectionObj.dir }
 	})
-	// The section marker's direction arrow points in the elevation's SIGHT direction (screen-right × up
-	// from ELEV_BASIS): front → up (−y), rear → down (+y), right → right (+x), left → left (−x) — so it
-	// matches the direction dropdown and the elevation actually shown. Sized in ~screen px (hitTol).
-	function sectionArrowPts(s: SectionMarker): string {
-		const c = s.clip
+	// The section marker's direction arrow, drawn INSIDE the rect: the observer stands at one edge and
+	// looks across, so the arrow's TAIL sits just inside the edge OPPOSITE the sight and the tip points
+	// the way the elevation looks — front = tail at the bottom edge pointing up, rear = top edge pointing
+	// down, right = left edge pointing right, left = right edge pointing left (matches the dropdown +
+	// ELEV_BASIS). Sized in ~screen px (hitTol). `dir` is one of front/rear/left/right.
+	function sectionArrowFor(c: Clip, dir: ElevDir): string {
 		const x0 = Math.min(c.x0, c.x1), x1 = Math.max(c.x0, c.x1), y0 = Math.min(c.y0, c.y1), y1 = Math.max(c.y0, c.y1)
 		const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, a = hitTol(11) / (dscale || 1)   // ~screen px in unscaled model units
-		let base: Pt, dir: Pt
-		if (s.dir === 'front') { base = [cx, y0]; dir = [0, -1] }        // up
-		else if (s.dir === 'rear') { base = [cx, y1]; dir = [0, 1] }     // down
-		else if (s.dir === 'right') { base = [x1, cy]; dir = [1, 0] }    // right
-		else { base = [x0, cy]; dir = [-1, 0] }                          // left
-		const perp: Pt = [-dir[1], dir[0]], w = a * 0.8
-		const tip: Pt = [base[0] + dir[0] * a * 1.7, base[1] + dir[1] * a * 1.7]
-		const b1: Pt = [base[0] + perp[0] * w, base[1] + perp[1] * w], b2: Pt = [base[0] - perp[0] * w, base[1] - perp[1] * w]
+		const pad = a * 0.9
+		let tail: Pt, d: Pt
+		if (dir === 'front') { tail = [cx, y1 - pad]; d = [0, -1] }        // bottom edge, look up
+		else if (dir === 'rear') { tail = [cx, y0 + pad]; d = [0, 1] }     // top edge, look down
+		else if (dir === 'right') { tail = [x0 + pad, cy]; d = [1, 0] }    // left edge, look right
+		else { tail = [x1 - pad, cy]; d = [-1, 0] }                        // right edge, look left
+		const perp: Pt = [-d[1], d[0]], w = a * 0.8
+		const tip: Pt = [tail[0] + d[0] * a * 1.8, tail[1] + d[1] * a * 1.8]
+		const b1: Pt = [tail[0] + perp[0] * w, tail[1] + perp[1] * w], b2: Pt = [tail[0] - perp[0] * w, tail[1] - perp[1] * w]
 		return `${tip[0]},${tip[1]} ${b1[0]},${b1[1]} ${b2[0]},${b2[1]}`
 	}
+	const sectionArrowPts = (s: SectionMarker): string => sectionArrowFor(s.clip, s.dir)
 	// A body move drag. Absolute from the gesture's start (no drift). A prism moves its position; a
 	// wall/conduit translates ALL its nodes (keeping the graph rigid). In elevation the horizontal drag
 	// maps to the view's on-axis coord (× ELEV_BASIS sign) and the vertical drag changes z (clamped ≥0).
@@ -798,8 +803,16 @@
 	// A clicked run (plan drawing pts) → a wall or conduit graph with the tool's default profile.
 	function placeGraph(pts: Pt[]) {
 		if (!mdl || pts.length < 2) return
-		const nodesZ = tool === 'Wall' ? 0 : (mdl.levels?.ceilingTile ?? 2600)   // trunks/pipes default near the ceiling
-		const { nodes, segments } = polyToGraph(pts.map((p) => ({ x: Math.round(p[0]), y: Math.round(p[1]), z: nodesZ })))
+		const nodesZ = tool === 'Wall' ? 0 : (mdl.levels?.ceilingTile ?? 2600)   // plan default height (trunks/pipes near the ceiling)
+		// In an ELEVATION the drawn point gives the on-axis coord (projUInv) and z (GROUND − y) — so you can
+		// draw a VERTICAL wall conduit. The off-axis (depth into the view) is unknown, so it defaults to the
+		// plan centre; nudge it in plan afterwards. In plan the point is x/y at the default height.
+		const toNode = (p: Pt) => {
+			if (!isElev) return { x: Math.round(p[0]), y: Math.round(p[1]), z: nodesZ }
+			const ax = ELEV_BASIS[elevDir].axis, onAxis = Math.round(projUInv(p[0])), z = Math.max(0, Math.round(GROUND - p[1]))
+			return ax === 0 ? { x: onAxis, y: PLAN_CY, z } : { x: PLAN_CX, y: onAxis, z }
+		}
+		const { nodes, segments } = polyToGraph(pts.map(toNode))
 		if (tool === 'Wall') addModelObj({ type: 'wall', h: 2800, thickness: 100, nodes, segments, layer: layerId('walls'), id: mUid('w') })
 		else if (tool === 'Trunk') addModelObj({ type: 'conduit', w: 300, h: 150, edges: 4, nodes, segments, layer: layerId('trunks'), id: mUid('t') })
 		else if (tool === 'Pipe') addModelObj({ type: 'conduit', w: 80, h: 80, edges: 16, nodes, segments, layer: layerId('trunks'), id: mUid('p') })
@@ -1260,7 +1273,7 @@
 		switch (tool) {
 			case 'Select': return mSelObj && (mSelObj.type === 'wall' || mSelObj.type === 'conduit') ? 'Drag a node to reshape · Alt-drag a node to branch · double-click a segment to add a node' : 'Click an element'
 			case 'Line': return n ? 'Specify next point (Enter / double-click to finish)' : 'Specify first point'
-			case 'Wall': case 'Trunk': case 'Pipe': return !isPlan ? `Switch to the plan view to draw ${tool.toLowerCase()}s` : (n ? `Specify next ${tool.toLowerCase()} point (Enter / double-click to finish)` : `Specify ${tool.toLowerCase()} start`)
+			case 'Wall': case 'Trunk': case 'Pipe': return (!isPlan && !isElev) ? `Switch to a plan or elevation view to draw ${tool.toLowerCase()}s` : (n ? `Specify next ${tool.toLowerCase()} point (Enter / double-click to finish)${isElev ? ' — depth defaults to model centre' : ''}` : `Specify ${tool.toLowerCase()} start`)
 			case 'Furniture': return isPlan ? (n ? 'Specify opposite corner' : 'Specify furniture footprint corner') : 'Switch to the plan view to place furniture'
 			case 'Section': return isPlan ? (n ? 'Specify opposite corner (→ front elevation)' : 'Specify section box corner') : 'Switch to the plan view to cut a section'
 			case 'Opening': return isPlan ? (n ? 'Specify opposite corner' : 'Specify opening (door / window / hole) corner') : 'Switch to the plan view to place an opening'

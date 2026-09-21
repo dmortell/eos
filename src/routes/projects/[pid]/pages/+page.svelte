@@ -86,7 +86,7 @@
 	// All the viewport event callbacks in ONE `on` object (was ~13 separate props). PaperPage also
 	// uses `frame`; the plain Viewport ignores it.
 	const vpOn = (a: Tab, pane: { id: string; tool: string }) => ({
-		activate: () => activateVp(a.id), deactivate: () => deactivateVp(a.id),
+		activate: () => activatePrimary(a.id), deactivate: () => deactivateVp(a.id),
 		add: (e: Ent) => addEnt(a.id, e), update: (e: Ent) => updateEnt(a.id, e),
 		delete: (ids: string[]) => deleteEnts(a.id, ids), select: (ids: string[]) => setSel(a.id, ids),
 		view: (v: View) => setView(pane.id, a.id, v), status: (t: string) => (statusText = t),
@@ -156,8 +156,10 @@
 	let frameSeq = 0
 	const newFrameId = () => 'vf' + ++frameSeq
 	let selFrame = $state<string | null>(null)   // the extra viewport frame selected in paper space (move/resize/props)
-	// One active extra frame per sheet: activating a frame deactivates its siblings on the same tab.
-	function activateFrame(tabId: string, id: string) { for (const f of framesOf(tabId)) if (f.id !== id) deactivateVp(f.id); activateVp(id) }
+	// Exactly one active viewport per sheet: activating an extra frame deactivates the primary + the other
+	// extras; activating the primary (activatePrimary) deactivates every extra frame.
+	function activatePrimary(tabId: string) { for (const f of framesOf(tabId)) deactivateVp(f.id); activateVp(tabId) }
+	function activateFrame(tabId: string, id: string) { deactivateVp(tabId); for (const f of framesOf(tabId)) if (f.id !== id) deactivateVp(f.id); activateVp(id) }
 	// A per-frame callback bundle: entity editing keeps the TAB id; view / activation / scale / orbit use
 	// the FRAME id, so each extra viewport pans, activates and re-aims independently of the primary.
 	const vpOnFrame = (a: Tab, pane: { id: string; tool: string }, frame: SheetFrame) => ({
@@ -168,13 +170,19 @@
 		scale: (s: string) => updateFrame(a.id, frame.id, { scale: s }),
 		orbit: (yaw: number, pitch: number) => setOrbit(pane.id, frame.id, yaw, pitch),
 	})
-	// A new viewport frame dragged on the paper (the Viewport tool): defaults to a plan view.
+	// A new viewport frame dragged on the paper (the Viewport tool): defaults to a plan view. Frame edits
+	// (add / move / resize / delete / re-source) record on the page's per-doc history so Ctrl-Z works.
 	function addFrame(tabId: string, x: number, y: number, w: number, h: number) {
+		ensureHist(tabId)   // capture the pre-add baseline first
 		const id = newFrameId()
 		setFrames(tabId, [...framesOf(tabId), { id, x: Math.round(x), y: Math.round(y), w: Math.max(60, Math.round(w)), h: Math.max(60, Math.round(h)), border: 'solid', proj: 'plan', scale: scaleOf(tabId), clip: null, label: 'Plan' }])
 		selFrame = id
+		recordEdit(tabId, 'Add viewport')
 	}
-	function deleteFrame(tabId: string, id: string) { setFrames(tabId, framesOf(tabId).filter((f) => f.id !== id)); if (selFrame === id) selFrame = null; deactivateVp(id) }
+	function deleteFrame(tabId: string, id: string) { ensureHist(tabId); setFrames(tabId, framesOf(tabId).filter((f) => f.id !== id)); if (selFrame === id) selFrame = null; deactivateVp(id); recordEdit(tabId, 'Delete viewport') }
+	function commitFrame(tabId: string, label: string) { recordEdit(tabId, label) }   // one history step at a drag/edit end
+	// The active viewport in a tab: the primary (tab id) if active, else whichever extra frame is active.
+	const activeVpOf = (tabId: string): string | null => (isVpActive(tabId) ? tabId : framesOf(tabId).find((f) => isVpActive(f.id))?.id ?? null)
 	const PROJ_LABEL: Record<Proj, string> = { plan: 'Plan', front: 'Front', rear: 'Rear', left: 'Left', right: 'Right', iso: '3D' }
 	let selFrameObj = $derived.by(() => { const t = active; return t && selFrame ? framesOf(t.id).find((f) => f.id === selFrame) ?? null : null })
 	let focused = $state(0)      // which pane new tabs / sidebar actions target
@@ -285,33 +293,35 @@
 	// across docs), so it's captured on every step in whatever doc is active — a model edit made in
 	// another tab isn't on this doc's timeline (a known mock limitation; a global model history is the
 	// real fix). Entity-only edits capture the unchanged model, keeping ents + model consistent.
-	type HStep = { label: string; t: number; snap: Ent[]; model: Model[] }
+	type HStep = { label: string; t: number; snap: Ent[]; model: Model[]; frames: SheetFrame[] }
 	let docHist = $state<Record<string, { steps: HStep[]; ptr: number }>>({})
 	let revisions = $state<{ name: string; note: string; snap: Snap; t: number }[]>([])
 	const snapEnts = (): Snap => $state.snapshot(docEnts) as Snap
 	const snapDoc = (id: string): Ent[] => $state.snapshot(docEnts[id] ?? []) as Ent[]
+	const snapFrames = (id: string): SheetFrame[] => $state.snapshot(docFrames[id] ?? []) as SheetFrame[]
 	// Capture the baseline (pre-first-edit) state once, BEFORE the doc is first mutated.
 	function ensureHist(id: string) {
 		if (docHist[id]) return
-		docHist = { ...docHist, [id]: { steps: [{ label: 'Start', t: Date.now(), snap: snapDoc(id), model: snapModels() }], ptr: 0 } }
+		docHist = { ...docHist, [id]: { steps: [{ label: 'Start', t: Date.now(), snap: snapDoc(id), model: snapModels(), frames: snapFrames(id) }], ptr: 0 } }
 	}
 	function pushStep(id: string, label: string) {
 		const t = tabs.find(x => x.id === id); if (t && !t.dirty) t.dirty = true   // any edit marks the tab dirty
 		ensureHist(id); const h = docHist[id]
 		const steps = h.steps.slice(0, h.ptr + 1)   // drop the redo tail (a new edit forks the future)
-		steps.push({ label, t: Date.now(), snap: snapDoc(id), model: snapModels() })
+		steps.push({ label, t: Date.now(), snap: snapDoc(id), model: snapModels(), frames: snapFrames(id) })
 		while (steps.length > 100) steps.shift()
 		docHist = { ...docHist, [id]: { steps, ptr: steps.length - 1 } }
 	}
 	function updateStep(id: string) {   // fold a gesture's latest state into its already-open step
 		const h = docHist[id]; if (!h) return
-		const steps = h.steps.slice(); steps[h.ptr] = { ...steps[h.ptr], snap: snapDoc(id), model: snapModels(), t: Date.now() }
+		const steps = h.steps.slice(); steps[h.ptr] = { ...steps[h.ptr], snap: snapDoc(id), model: snapModels(), frames: snapFrames(id), t: Date.now() }
 		docHist = { ...docHist, [id]: { ...h, steps } }
 	}
 	function applyPtr(id: string) {
 		const h = docHist[id]; if (!h) return
 		docEnts = { ...docEnts, [id]: $state.snapshot(h.steps[h.ptr].snap) as Ent[] }
 		setModels(h.steps[h.ptr].model)   // restore the model snapshot for this step (undo/redo model edits)
+		docFrames = { ...docFrames, [id]: $state.snapshot(h.steps[h.ptr].frames) as SheetFrame[] }   // restore viewport frames
 	}
 	function undo() { const id = panes[focused]?.activeId, h = id ? docHist[id] : undefined; if (!id || !h || h.ptr <= 0) return; docHist = { ...docHist, [id]: { ...h, ptr: h.ptr - 1 } }; applyPtr(id) }
 	function redo() { const id = panes[focused]?.activeId, h = id ? docHist[id] : undefined; if (!id || !h || h.ptr >= h.steps.length - 1) return; docHist = { ...docHist, [id]: { ...h, ptr: h.ptr + 1 } }; applyPtr(id) }
@@ -528,6 +538,7 @@
 			e.preventDefault(); e.stopImmediatePropagation(); paletteOpen = true
 		} else if (mod && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo() }
 		else if (mod && ((e.shiftKey && (e.key === 'z' || e.key === 'Z')) || e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo() }
+		else if ((e.key === 'Delete' || e.key === 'Backspace') && selFrame && active && !activeVpOf(active.id)) { e.preventDefault(); deleteFrame(active.id, selFrame) }   // delete the selected viewport frame (paper space)
 	}
 	$effect(() => {   // capture phase — beats the +layout command palette on the Ctrl-K shortcut
 		window.addEventListener('keydown', onGlobalKey, true)
@@ -767,6 +778,7 @@
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<main class="canvas" bind:this={canvasEls[pi]} onpointermove={onCanvasMove}
+						onpointerdown={(e) => { if (e.button === 0 && a && !(e.target as Element).closest?.('.paper')) { const av = activeVpOf(a.id); if (av) deactivateVp(av); selFrame = null } }}
 						use:panzoom={{ enabled: () => !!a, wheelZoom: () => acadMode, onpan: (dx, dy) => canvasPan(p, dx, dy), onzoom: (f, x, y, node) => canvasZoom(p, node, f, x, y) }}>
 						<div class="floattools glass-bar" class:dim={a && !isVpActive(a.id)}>
 							{#each TOOLS as t (t.name)}
@@ -775,27 +787,32 @@
 						</div>
 						<!-- Pane-level exit: fixed on screen (outside the zoomed content), so a viewport
 						     can always be left even when zoomed right in and its own corner is off-screen. -->
-						{#if a && isVpActive(a.id)}
+						{#if a && activeVpOf(a.id)}
+							{@const avId = activeVpOf(a.id)!}
+							{@const avFrame = avId === a.id ? null : framesOf(a.id).find((f) => f.id === avId)}
+							{@const avScale = avFrame ? avFrame.scale : scaleOf(a.id)}
 							<div class="vp-active-bar glass-bar">
-								<button class="vab-btn" onclick={() => deactivateVp(a.id)} title="Exit viewport (Esc)">
+								<button class="vab-btn" onclick={() => deactivateVp(avId)} title="Exit viewport (Esc)">
 									<Icon name="chevronLeft" size={14} /> Exit
 								</button>
 								<button class="vab-btn" class:on={navContent} onclick={() => (navContent = !navContent)}
 									title="Pan/zoom the model inside the viewport (off = pan/zoom the sheet)">
 									<Icon name="pan" size={14} /> Pan content
 								</button>
-								<!-- viewport scale (like the Sheets tool's per-view scale) -->
+								<!-- viewport scale (like the Sheets tool's per-view scale) — the primary's tab scale, or the active extra frame's own scale -->
 								<label class="vab-scale" title="Drawing scale">
-									<select value={scaleOf(a.id)} onchange={(e) => (docScale = { ...docScale, [a.id]: (e.currentTarget as HTMLSelectElement).value })}>
-										{#if !SCALES.includes(scaleOf(a.id))}<option value={scaleOf(a.id)}>{scaleOf(a.id)}</option>{/if}
+									<select value={avScale} onchange={(e) => { const s = (e.currentTarget as HTMLSelectElement).value; if (avFrame) updateFrame(a.id, avId, { scale: s }); else docScale = { ...docScale, [a.id]: s }; }}>
+										{#if !SCALES.includes(avScale)}<option value={avScale}>{avScale}</option>{/if}
 										{#each SCALES as s (s)}<option value={s}>{s}</option>{/each}
 									</select>
 								</label>
-								<!-- full-size: fill the pane with the drawing (drops the paper on a sheet) -->
-								<button class="vab-btn" class:on={p.layout === 'model'} onclick={() => { p.layout = p.layout === 'model' ? 'sheet' : 'model'; tick().then(() => fitPane(pi)) }}
-									title="Full-size: fill the pane with the drawing (off = the paper sheet)">
-									<Icon name={p.layout === 'model' ? 'panels' : 'expand'} size={14} /> Full-size
-								</button>
+								<!-- full-size: only the primary viewport fills the pane (an extra frame is a fixed window) -->
+								{#if !avFrame}
+									<button class="vab-btn" class:on={p.layout === 'model'} onclick={() => { p.layout = p.layout === 'model' ? 'sheet' : 'model'; tick().then(() => fitPane(pi)) }}
+										title="Full-size: fill the pane with the drawing (off = the paper sheet)">
+										<Icon name={p.layout === 'model' ? 'panels' : 'expand'} size={14} /> Full-size
+									</button>
+								{/if}
 							</div>
 						{/if}
 						{#key p.activeId}
@@ -811,6 +828,7 @@
 										frameOrbit={(id) => orbitOf(p.id, id)} makeFrameOn={(f) => vpOnFrame(a, p, f as SheetFrame)}
 										onaddframe={(x, y, w, h) => addFrame(a.id, x, y, w, h)}
 										onframegeom={(id, g) => updateFrame(a.id, id, g)}
+										onframecommit={() => commitFrame(a.id, 'Move viewport')}
 										onselectframe={(id) => { selFrame = id; if (id) { treeNode = null; rightTab = 'props'; rightOpen = true } }} />
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
@@ -872,7 +890,7 @@
 						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''} {activeLayer} node={treeNode} viewport={viewportSel}
 						modelObj={selModelObj} modelLayers={models[0]?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} onmodelseg={updateModelSeg}
 						frameObj={selFrameObj}
-						onframeupdate={(patch) => { if (active && selFrame) updateFrame(active.id, selFrame, patch as Partial<SheetFrame>) }}
+						onframeupdate={(patch) => { if (active && selFrame) { ensureHist(active.id); updateFrame(active.id, selFrame, patch as Partial<SheetFrame>); commitFrame(active.id, 'Edit viewport') } }}
 						onframedelete={() => { if (active && selFrame) deleteFrame(active.id, selFrame) }} />
 				{:else}
 					<HistoryPanel log={changeLog} {revisions}

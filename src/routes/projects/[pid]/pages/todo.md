@@ -155,6 +155,11 @@ New todos (design / bigger):
   Openings are skipped in iso (a true 3D boolean hole is future work). Verified in-browser (the room
   renders solid with correct occlusion). [ ] Still: entity flats (lines/rects) show no depth ordering
   vs the model; per-face shading (light/dark) for a stronger 3D read.
+- [ ] **Tools floating window: merge related tools into pop-out groups** (Dave, 2026-09-21) — the tool
+  strip is getting long; group tools that share a mode into ONE button with a fly-out: **conduits**
+  (Wall / Trunk / Pipe — all graph tools), **lines** (Line / Polyline), **2D shapes** (Rectangle /
+  Circle / Ellipse / …). Each group button shows the last-used tool + a pop-out to switch; ties into the
+  editing refactor (these already share code paths).
 - [ ] **Orbit tool icon in the zoom-tools floating window** (Dave, 2026-09-20) — add an **orbit**
   button to the bottom-right nav floating window (`navtools` in `+page.svelte`, beside Zoom in/out /
   Fit / Pan). Drag-orbits the 3D (iso) view. Blocked on the **real 3D orbit camera** (the ELEV_BASIS
@@ -180,7 +185,20 @@ New todos (design / bigger):
   pipe conduit already share node/segment math via `graphNodeApply` — extend so the **Line tool builds a
   graph too** (drop the separate `polyline` entity path) so add/insert/delete-node/edge is ONE code path
   for line/wall/trunk/pipe. This is the `DocEditor`-class direction from review.md §4.1 — do it as a
-  focused session, with the geometry already extracted to `ui/geometry.ts` as the seam.
+  focused session, with the geometry already extracted to `ui/geometry.ts` as the seam. **Include:** the
+  **Viewport-frame creation** (drag a rect on the paper) should reuse the SAME rect-drawing gesture as
+  the Rectangle tool (ACAD two-click / EOS press-drag) instead of PaperPage's bespoke marquee (Dave,
+  2026-09-21) — a paper-space rect is the same primitive.
+- [x] **Draw trunks/pipes/walls in ELEVATIONS** (Dave, 2026-09-21) — needed for vertical wall conduits.
+  Wall/Trunk/Pipe tools now work in elevation views (not just plan): each drawn point → on-axis coord
+  (`projUInv`) + z (`GROUND − y`); the off-axis DEPTH is unknown in an elevation so it defaults to the
+  plan centre (nudge in plan afterwards). Furniture/Section/Opening stay plan-only. [ ] Follow-up: let
+  the user pick the depth (e.g. snap onto a wall) instead of the centre default.
+- [ ] **Multi-direction section (arrows on all 4 sides)** (Dave, 2026-09-21) — a section box could show
+  an arrow on each of its 4 sides, each spawning that direction's elevation (front/rear/left/right from
+  one cut). Today one box = one direction (the dropdown). Arrows now sit INSIDE the rect at the edge the
+  observer looks from (front = bottom edge looking up, etc.) so 4 arrows fit naturally. Needs the section
+  model to carry a set of active directions + one elevation view per direction.
 - [x] **Insert nodes in ELEVATION views** (2026-09-20) — node-insert (dbl-click a wall/conduit segment)
   now works in elevations too, not just plan: the new node takes its on-axis coord from `projUInv(p[0])`
   and z from `GROUND − p[1]`, keeping the off-axis coord of its neighbour. `onDblclick` gate widened

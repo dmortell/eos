@@ -26,12 +26,12 @@
 	let { title = 'Sheet', drawingNo = '001', scale = '1:100', active = false, focused = true, tool = 'Select', env = {}, on = {}, pw = PAPER_W, ph = PAPER_H, sizeLabel = 'A3', rev = '', revDate = '',
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, kind = 'floorplan', clip = null, yaw, pitch, sections = [], selSection = null,
 		extraFrames = [], selFrame = null, frameKind = (p: string) => p as VKind, isFrameActive = () => false, frameView = () => ({ zoom: 1, x: 0, y: 0 }), frameEnv = {},
-		frameOrbit = () => ({ yaw: 0, pitch: 0 }), makeFrameOn = () => ({}), onaddframe, onframegeom, onselectframe }:
+		frameOrbit = () => ({ yaw: 0, pitch: 0 }), makeFrameOn = () => ({}), onaddframe, onframegeom, onframecommit, onselectframe }:
 		{ title?: string; drawingNo?: string; scale?: string; active?: boolean; focused?: boolean; tool?: string; env?: Env; on?: VpOn; pw?: number; ph?: number; sizeLabel?: string; rev?: string; revDate?: string;
 			entities?: Ent[]; sel?: string[]; view?: View; kind?: VKind; clip?: Clip | null; yaw?: number; pitch?: number; sections?: SectionMarker[]; selSection?: string | null;
 			extraFrames?: SheetFrame[]; selFrame?: string | null; frameKind?: (p: string) => VKind; isFrameActive?: (id: string) => boolean; frameView?: (id: string) => View; frameEnv?: Env;
 			frameOrbit?: (id: string) => { yaw: number; pitch: number }; makeFrameOn?: (f: SheetFrame) => VpOn; onaddframe?: (x: number, y: number, w: number, h: number) => void;
-			onframegeom?: (id: string, g: { x: number; y: number; w: number; h: number }) => void; onselectframe?: (id: string | null) => void } = $props()
+			onframegeom?: (id: string, g: { x: number; y: number; w: number; h: number }) => void; onframecommit?: () => void; onselectframe?: (id: string | null) => void } = $props()
 	const canvasZoom = $derived(env.canvasZoom ?? 1)
 	const onframe = $derived(on.frame as ((f: FrameSel | null) => void) | undefined)
 
@@ -71,11 +71,11 @@
 
 	// gi: 0 TL, 1 TR, 2 BR, 3 BL — mirrors the rect-tool corner grips (opposite corner fixed). `set`
 	// applies the new geometry (to the local primary frame, or up via onframegeom for an extra frame).
-	let drag: { mode: 'move' | 'grip'; gi: number; sx: number; sy: number; base: Frame; s: number; set: (f: Frame) => void } | null = null
-	function startDrag(e: PointerEvent, mode: 'move' | 'grip', gi: number, base: Frame, set: (f: Frame) => void) {
+	let drag: { mode: 'move' | 'grip'; gi: number; sx: number; sy: number; base: Frame; s: number; set: (f: Frame) => void; commit?: boolean; moved: boolean } | null = null
+	function startDrag(e: PointerEvent, mode: 'move' | 'grip', gi: number, base: Frame, set: (f: Frame) => void, commit = false) {
 		e.stopPropagation()
 		if (active) return
-		drag = { mode, gi, sx: e.clientX, sy: e.clientY, base: { ...base }, s: scaleOf(), set }
+		drag = { mode, gi, sx: e.clientX, sy: e.clientY, base: { ...base }, s: scaleOf(), set, commit, moved: false }
 		try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
 		window.addEventListener('pointermove', onDrag)
 		window.addEventListener('pointerup', endDrag)
@@ -86,6 +86,7 @@
 		if (!drag) return
 		const dx = (e.clientX - drag.sx) / drag.s, dy = (e.clientY - drag.sy) / drag.s
 		const b = drag.base
+		drag.moved = true
 		if (drag.mode === 'move') { drag.set({ w: b.w, h: b.h, x: b.x + dx, y: b.y + dy }); return }
 		let { x, y, w, h } = b
 		if (drag.gi === 0) { x = b.x + dx; y = b.y + dy; w = b.w - dx; h = b.h - dy }       // TL
@@ -97,6 +98,7 @@
 		drag.set({ x, y, w, h })   // may extend beyond the sheet
 	}
 	function endDrag() {
+		if (drag?.commit && drag.moved) onframecommit?.()   // one history step per extra-frame move/resize
 		drag = null
 		window.removeEventListener('pointermove', onDrag)
 		window.removeEventListener('pointerup', endDrag)
@@ -195,14 +197,15 @@
 						sections={frameKind(f.proj) === 'floorplan' ? sections : []} {selSection} boxW={f.w} boxH={f.h} />
 					{#if !fa}
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
-						<div class="vp-band" style:pointer-events={tool === 'Viewport' ? 'none' : undefined} onpointerdown={(e) => { onselectframe?.(f.id); startDrag(e, 'move', -1, f, (g) => onframegeom?.(f.id, g)); }} ondblclick={() => fon.activate?.()}>
-							<div class="vp-interior" onpointerdown={(e) => { e.stopPropagation(); onselectframe?.(f.id); }} ondblclick={() => fon.activate?.()}></div>
+						<div class="vp-band" style:pointer-events={tool === 'Viewport' ? 'none' : undefined} onpointerdown={(e) => { onselectframe?.(f.id); startDrag(e, 'move', -1, f, (g) => onframegeom?.(f.id, g), true); }} ondblclick={() => fon.activate?.()}>
+							<!-- interior is inert (like the primary): select via the border band, double-click to enter -->
+							<div class="vp-interior" onpointerdown={(e) => { e.stopPropagation(); selected = false; onselectframe?.(null); }} ondblclick={() => fon.activate?.()}></div>
 						</div>
 						{#if selFrame === f.id}
 							<svg class="frame-handles">
 								{#each CORNERS as [cx, cy], i (i)}
 									<Handle cx={cx * f.w} cy={cy * f.h} size={HANDLE_PX / (canvasZoom || 1)} cursor={CURSORS[i]} strokeWidth={1.2 / (canvasZoom || 1)}
-										onpointerdown={(e) => startDrag(e, 'grip', i, f, (g) => onframegeom?.(f.id, g))} />
+										onpointerdown={(e) => startDrag(e, 'grip', i, f, (g) => onframegeom?.(f.id, g), true)} />
 								{/each}
 							</svg>
 						{/if}
