@@ -528,30 +528,38 @@
 	// Import an IMAGE as a background: read it as a data-URL, size the placement rect to its aspect ratio,
 	// and add it as an 'image' entity on the ACTIVE layer (select a Background layer first to group it).
 	// Mock: the data-URL lives in the entity; a real backend would upload + store a fileId (§4).
-	function importImage() {
+	// Place an image (by data-URL or URL) as a background on the active layer, sized to its aspect ratio at
+	// the plan centre; imports default to aspect-locked. Returns false if there's no drawing open.
+	function addImage(src: string): boolean {
 		const id = panes[focused]?.activeId
-		if (!id) { toast('Open a drawing first, then Insert › Image…'); return }   // no tab → nothing to import into
+		if (!id) { toast('Open a drawing first, then Insert › Image…'); return false }
+		const img = new Image()
+		const place = (aspect: number) => {
+			const cx = 14000, cy = 8750, w = 9000, h = w * aspect
+			addEnt(id, { id: newId(), type: 'image', a: [Math.round(cx - w / 2), Math.round(cy - h / 2)], b: [Math.round(cx + w / 2), Math.round(cy + h / 2)], src, plane: 'plan', lockAspect: true })
+			const mn = modelById(modelIdOf(id))?.name ?? 'the model'
+			toast(`Image added to ${mn} on layer “${layerById(layerUI.active)?.name ?? '—'}”. Set its scale/crop in Properties.`)
+		}
+		img.onload = () => place((img.naturalHeight || 700) / (img.naturalWidth || 1000))
+		img.onerror = () => place(0.7)
+		img.src = src
+		return true
+	}
+	function importImage() {
+		if (!panes[focused]?.activeId) { toast('Open a drawing first, then Insert › Image…'); return }
 		const input = document.createElement('input')
 		input.type = 'file'; input.accept = 'image/*'
 		input.onchange = () => {
 			const file = input.files?.[0]; if (!file) return
 			const reader = new FileReader()
-			reader.onload = () => {
-				const src = String(reader.result)
-				const img = new Image()
-				img.onload = () => {
-					const cx = 14000, cy = 8750, w = 9000, h = w * ((img.naturalHeight || 700) / (img.naturalWidth || 1000))
-					addEnt(id, { id: newId(), type: 'image', a: [Math.round(cx - w / 2), Math.round(cy - h / 2)], b: [Math.round(cx + w / 2), Math.round(cy + h / 2)], src, plane: 'plan' })
-					const mn = modelById(modelIdOf(id))?.name ?? 'the model'
-					toast(`Image added to ${mn} on layer “${layerById(layerUI.active)?.name ?? '—'}”. Set its scale/crop in Properties.`)
-				}
-				img.onerror = () => addEnt(id, { id: newId(), type: 'image', a: [9500, 6250], b: [18500, 12550], src, plane: 'plan' })
-				img.src = src
-			}
+			reader.onload = () => addImage(String(reader.result))
 			reader.readAsDataURL(file)
 		}
 		input.click()
 	}
+	// DEV-only test hook: `window.__pagesAddImage('/trump-juvenile.jpg')` injects a real image into the
+	// running app's model (the native file picker can't be automation-driven). Harmless; dev builds only.
+	if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as { __pagesAddImage?: (u: string) => void }).__pagesAddImage = (u: string) => addImage(u)
 
 	// Drawing Navigator (left) → open the picked drawing/view as a tab (focus if already open).
 	// VSCode-style preview tabs: a single click opens a shared, italic PREVIEW tab that the next

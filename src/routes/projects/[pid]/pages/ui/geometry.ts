@@ -20,6 +20,9 @@ export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'ellipse' | '
 	// Uploads tool — the anchor that scale calibration keeps fixed, and the point to align a re-imported
 	// (differently-cropped) new version by. Undefined → the rect centre.
 	origin?: { x: number; y: number };
+	// `lockAspect` (images) — corner-resize keeps the source aspect ratio (default true for imports); Shift
+	// while dragging inverts it (free stretch). Stored so it round-trips.
+	lockAspect?: boolean;
 	// DRAWING PLANE — which projection plane the object's coordinates live in: undefined/'plan' = the
 	// model/plan plane (projected into every elevation as a ground line, layer-gated); an ElevDir = drawn
 	// natively in that elevation plane (a wall/rack label, a leader, a 2D shape/image on an elevation).

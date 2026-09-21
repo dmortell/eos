@@ -109,6 +109,7 @@
 	let svg: SVGSVGElement | undefined = $state()   // outer svg (viewBox space)
 	let draft = $state<Pt[]>([])
 	let cur = $state<Pt | null>(null)
+	let shiftDown = $state(false)   // for aspect-lock override during an image resize
 	let scalePts = $state<Pt[]>([])   // the 2-point measure line while calibrating an image's scale
 	let scaleInput = $state<{ x: number; y: number; d: number; val: string } | null>(null)   // inline "real distance" entry after 2 points
 	let seq = 0
@@ -332,7 +333,7 @@
 	function onKey(e: KeyboardEvent) {
 		if (!active || !focused || editText) return   // in split view only the focused pane's instance handles keys
 		if (isTypingTarget(e.target) || isTypingTarget(document.activeElement)) return   // typing in a field → let it through
-		if (e.key === 'Shift') { reconstrain(true); updateGuidePreview(true); return }
+		if (e.key === 'Shift') { shiftDown = true; reconstrain(true); updateGuidePreview(true); return }
 		if (e.key === 'Enter' && POLY.has(tool) && draft.length) { e.preventDefault(); finishPolyline(); return }   // finish polyline / wall / trunk / pipe
 		if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) { e.preventDefault(); on.select?.(entities.map(x => x.id)); return }   // select all
 		if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D') && sel.length) {   // duplicate (offset +8,+8)
@@ -414,7 +415,8 @@
 		if (e.type === 'polyline') { const pts = e.pts ?? []; for (let i = 0; i + 1 < pts.length; i++) if (segDist(p, pts[i], pts[i + 1]) < thr) return true; return false }
 		if (e.type === 'line' || e.type === 'dim') return segDist(p, e.a!, e.b!) < thr
 		if (e.type === 'box' && isElev) { const f = boxElev(e, elevDir, CX, CY); return inBox(p, f.x0, f.top, f.x1, f.base, thr, true) }   // elevation box draws a filled face
-		if (e.type === 'rect' || e.type === 'box' || e.type === 'image') { const x0 = Math.min(e.a![0], e.b![0]), y0 = Math.min(e.a![1], e.b![1]), x1 = Math.max(e.a![0], e.b![0]), y1 = Math.max(e.a![1], e.b![1]); return inBox(p, x0, y0, x1, y1, thr, e.type !== 'rect' || isFilled(e)) }   // image/box pick anywhere inside
+		if (e.type === 'image') { const [x0, y0, x1, y1] = bbox(e); return inBox(p, x0, y0, x1, y1, thr, true) }   // pick anywhere inside the VISIBLE (crop-window) extent
+		if (e.type === 'rect' || e.type === 'box') { const x0 = Math.min(e.a![0], e.b![0]), y0 = Math.min(e.a![1], e.b![1]), x1 = Math.max(e.a![0], e.b![0]), y1 = Math.max(e.a![1], e.b![1]); return inBox(p, x0, y0, x1, y1, thr, e.type !== 'rect' || isFilled(e)) }   // box picks anywhere inside
 		if (e.type === 'circle') { const d = dist(e.c!, p); return isFilled(e) ? d <= e.r! + thr : Math.abs(d - e.r!) <= thr }
 		if (e.type === 'ellipse') {
 			const cx = (e.a![0] + e.b![0]) / 2, cy = (e.a![1] + e.b![1]) / 2
@@ -677,6 +679,22 @@
 	}
 	// SCALE: after the 2-point line + a real-world distance, resize the image (a→b) by real/measured about
 	// its origin (or centre), so that measurement is correct in model mm. Keeps the anchor point fixed.
+	// Reposition the inline "real distance" entry at the measure line's midpoint + refresh the measured d.
+	function refreshScaleInput() {
+		if (scalePts.length !== 2 || !svg) return
+		const d = dist(scalePts[0], scalePts[1])
+		const m = localToClient((scalePts[0][0] + scalePts[1][0]) / 2, (scalePts[0][1] + scalePts[1][1]) / 2)
+		if (m) { const r = svg.getBoundingClientRect(); scaleInput = { x: m.x - r.left, y: m.y - r.top, d, val: String(Math.round(d)) } }   // pre-fill with the live measurement (user overwrites with the real distance)
+	}
+	// Drag an endpoint of the measure line to adjust it before entering the distance.
+	let scaleDrag: number | null = null
+	function onScaleDragMove(ev: PointerEvent) {
+		if (scaleDrag == null) return
+		const p = toLocalXY(ev.clientX, ev.clientY); if (!p) return
+		scalePts = scalePts.map((sp, i) => (i === scaleDrag ? p : sp))
+		refreshScaleInput()
+	}
+	function onScaleDragUp() { scaleDrag = null; window.removeEventListener('pointermove', onScaleDragMove); window.removeEventListener('pointerup', onScaleDragUp) }
 	function applyScale() {
 		const inp = scaleInput; scaleInput = null; scalePts = []
 		const img = imgEdit.id ? entities.find((x) => x.id === imgEdit.id) : null
@@ -1069,7 +1087,27 @@
 				{ x: rx + x0 * rw, y: ry + y1 * rh, apply: (p: Pt) => set(nX(p), y0, x1, nY(p)) },   // BL
 			]
 		}
-		if (e.type === 'rect' || e.type === 'ellipse' || e.type === 'box' || e.type === 'image') {   // 4 corner grips on the footprint/bbox
+		if (e.type === 'image') {   // resize grips at the VISIBLE (crop-window) corners, so they track the
+			// CROPPED image; dragging scales the full placement so that window corner follows (opposite fixed).
+			const rx = Math.min(e.a![0], e.b![0]), ry = Math.min(e.a![1], e.b![1]), rw = Math.abs(e.b![0] - e.a![0]) || 1, rh = Math.abs(e.b![1] - e.a![1]) || 1
+			const cr = e.crop ?? { x: 0, y: 0, w: 1, h: 1 }, aspect = rh / rw, lock = e.lockAspect !== false
+			const wres = (dnx: number, dny: number, fnx: number, fny: number) => (p: Pt): Ent => {
+				const fx = rx + fnx * rw, fy = ry + fny * rh
+				let RW = dnx - fnx !== 0 ? (p[0] - fx) / (dnx - fnx) : rw
+				let RH = dny - fny !== 0 ? (p[1] - fy) / (dny - fny) : rh
+				if (lock && !shiftDown) RH = (Math.sign(RH) || 1) * Math.abs(RW) * aspect   // keep source aspect (Shift = free stretch)
+				const Ax = fx - fnx * RW, Ay = fy - fny * RH
+				return { ...e, a: [Math.round(Ax), Math.round(Ay)], b: [Math.round(Ax + RW), Math.round(Ay + RH)] }
+			}
+			const x0 = cr.x, y0 = cr.y, x1 = cr.x + cr.w, y1 = cr.y + cr.h
+			return [
+				{ x: rx + x0 * rw, y: ry + y0 * rh, apply: wres(x0, y0, x1, y1) },   // TL — keep BR fixed
+				{ x: rx + x1 * rw, y: ry + y0 * rh, apply: wres(x1, y0, x0, y1) },   // TR — keep BL fixed
+				{ x: rx + x1 * rw, y: ry + y1 * rh, apply: wres(x1, y1, x0, y0) },   // BR — keep TL fixed
+				{ x: rx + x0 * rw, y: ry + y1 * rh, apply: wres(x0, y1, x1, y0) },   // BL — keep TR fixed
+			]
+		}
+		if (e.type === 'rect' || e.type === 'ellipse' || e.type === 'box') {   // 4 corner grips on the footprint/bbox
 			const [ax, ay] = e.a!, [bx, by] = e.b!
 			return [
 				{ x: ax, y: ay, apply: p => ({ ...e, a: p }) },
@@ -1205,6 +1243,12 @@
 		suppressClick = false   // clear any stale flag from a drag that never got its click
 		pointers.add(e.pointerId)
 		if (pointers.size > 1) { cancelPointerDrag(); return }   // 2nd finger → hand off to pan/zoom
+		// While calibrating scale, a press near a placed endpoint drags it (adjust the measure line).
+		if (imgEdit.mode === 'scale' && scalePts.length === 2) {
+			for (let i = 0; i < 2; i++) { const sp = localToClient(scalePts[i][0], scalePts[i][1]); if (sp && Math.hypot(sp.x - e.clientX, sp.y - e.clientY) < 14) { scaleDrag = i; try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ } e.preventDefault(); window.addEventListener('pointermove', onScaleDragMove); window.addEventListener('pointerup', onScaleDragUp); return } }
+		}
+		// In scale/origin PICK modes, don't start a select/move-drag — let onClick place the point.
+		if (imgEdit.mode === 'scale' || imgEdit.mode === 'origin') return
 		// EOS mode: shapes are drawn with a single press-drag-release (not two clicks).
 		if (tool !== 'Select') {
 			if (acad || tool === 'Text' || tool === 'Guide') return   // AutoCAD two-click / text + guide single-click via onClick
@@ -1412,6 +1456,10 @@
 		if (e.type === 'circle') return [e.c![0] - e.r!, e.c![1] - e.r!, e.c![0] + e.r!, e.c![1] + e.r!]
 		if (e.type === 'text') return textBox(e)
 		if (e.type === 'box' && isElev) { const f = boxElev(e, elevDir, CX, CY); return [f.x0, f.top, f.x1, f.base] }
+		if (e.type === 'image' && e.crop) {   // the VISIBLE extent is the crop window, not the full placement
+			const rx = Math.min(e.a![0], e.b![0]), ry = Math.min(e.a![1], e.b![1]), rw = Math.abs(e.b![0] - e.a![0]), rh = Math.abs(e.b![1] - e.a![1])
+			return [rx + e.crop.x * rw, ry + e.crop.y * rh, rx + (e.crop.x + e.crop.w) * rw, ry + (e.crop.y + e.crop.h) * rh]
+		}
 		const xs = [e.a![0], e.b![0]], ys = [e.a![1], e.b![1]]
 		return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
 	}
@@ -1468,14 +1516,21 @@
 	})
 	// Status line shown at the PANE bottom-centre (screen space, +page) so it stays visible when
 	// zoomed in — includes the inline-edit key help while editing text.
+	// Instruction line for the active image-calibration mode.
+	const imgModeText = $derived(
+		imgEdit.mode === 'origin' ? 'Set origin · click a reference point inside the image · Esc = cancel'
+			: imgEdit.mode === 'crop' ? 'Crop · drag the corner handles to trim the image · Esc = done'
+			: imgEdit.mode === 'scale' ? (scaleInput ? 'Scale · drag either endpoint to adjust, then enter the real distance · Esc = cancel' : scalePts.length === 1 ? 'Scale · click the SECOND point of a known distance' : 'Scale · click the FIRST point of a known distance')
+			: null)
 	let statusText = $derived(
 		editText ? 'Editing text · Enter = new line · Ctrl/⌘+Enter = commit · Esc = cancel'
+			: active && imgModeText ? imgModeText
 			: active && selSectionObj && tool === 'Select' ? 'Section selected · drag a corner to resize · drag the box to move · toolbar: open / re-aim / delete'
 			: active ? `${tool} · ${prompt}` : '')
 	$effect(() => { if (focused) on.status?.(statusText) })   // only the focused pane drives the shared status
 </script>
 
-<svelte:window onkeydown={onKey} onkeyup={(e) => { if (active && focused && e.key === 'Shift') { reconstrain(false); updateGuidePreview(false) } }} />
+<svelte:window onkeydown={onKey} onkeyup={(e) => { if (e.key === 'Shift') { shiftDown = false; if (active && focused) { reconstrain(false); updateGuidePreview(false) } } }} />
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="vp print:!border-transparent" class:active bind:clientWidth={vpW} bind:clientHeight={vpH} role="button" tabindex="0" style:cursor={cursorStyle}
@@ -1650,7 +1705,7 @@
 		<div class="scale-entry" style="left:{scaleInput.x}px; top:{scaleInput.y}px" onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()}>
 			<span>Real distance</span>
 			<!-- svelte-ignore a11y_autofocus -->
-			<input type="number" min="1" step="1" autofocus bind:value={scaleInput.val}
+			<input type="number" min="1" step="1" autofocus value={scaleInput.val} oninput={(e) => { if (scaleInput) scaleInput.val = (e.currentTarget as HTMLInputElement).value }}
 				onkeydown={(e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); applyScale() } else if (e.key === 'Escape') { e.preventDefault(); scaleInput = null; scalePts = []; clearImgMode() } }} />
 			<span class="se-unit">mm</span>
 			<button onclick={applyScale}>Set</button>

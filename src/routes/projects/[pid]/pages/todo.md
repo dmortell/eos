@@ -742,9 +742,9 @@ Sheets' basic version** — see §10.
 - [x] **Layer drag-reorder direction fix** (Dave, 2026-09-21) — dropping onto a layer inserted BEFORE it,
   so dragging a layer DOWN onto the next one was a no-op (Dave: "first onto second doesn't change order").
   Now direction-aware: dragging down drops AFTER the target, up drops BEFORE (with a top/bottom drop line).
-- [ ] **Image resize handles must PRESERVE ASPECT RATIO** (Dave, 2026-09-21) — an image's corner grips
-  currently stretch it. Constrain to the source aspect (Shift = free-stretch, or vice-versa), like most
-  editors. Same likely wanted for the source-calibrated scale.
+- [x] **Image resize handles PRESERVE ASPECT RATIO** (2026-09-22) — `lockAspect` prop on the image ent
+  (**true by default** for imports); corner-resize keeps the source aspect, **Shift** = free stretch.
+  Verified with a real image: resizing kept W/H ratio 1.236.
 - [ ] **Plan images shouldn't appear on ELEVATIONS / 3D** (Dave, 2026-09-21 — "I'll think about this") —
   an `image` on the plan plane currently follows the "plan projects into every view" rule, so a raster
   background bleeds into elevations/iso nonsensically. Options: restrict an image to ONLY its own plane's
@@ -764,9 +764,13 @@ Sheets' basic version** — see §10.
   - **Crop** — drag the crop **window's** corner handles (crop = a normalized sub-rect of the placement;
     the trimmed area dims; per-viewport `clipPath` id so multi-viewport sheets clip independently). Plus
     Crop X/Y/W/H % fields + Reset, and an **Opacity %** (for tracing).
-  [ ] still: **aspect-lock** resize (§3), **masks**, re-import version alignment by origin, and
-  browser-verify with a real file. *(Code-complete + type-clean; the native file picker + module-injection
-  both dodge automation, so the image render/modes are browser-untested — Dave to drive with a real image.)*
+  **Now VERIFIED end-to-end with a real image** (2026-09-22, via a dev hook `window.__pagesAddImage(url)`
+  that injects a URL image into the running model, since the native picker can't be automation-driven):
+  the JPG renders; interactive crop trims + dims + updates the % live; **resize handles sit on the CROPPED
+  extent** (was a bug — grips were at the full placement); aspect-lock resize keeps the ratio; scale =
+  instruction line + 2 clicks + **draggable endpoints** + inline "real mm" entry → resized ×1.844 keeping
+  aspect; origin drops a crosshair anchor. [ ] still: **masks**, re-import version alignment by origin,
+  interactive origin/scale on a rotated image, and a nicer scale entry than the inline box.
 - [ ] Supported inputs: **PDF, image, DXF**.
 - [ ] Produce various floorplan **views**: data-outlet locations, desk numbering, trunk
   routes, penetration & conduit requests (these are the output deliverables).
