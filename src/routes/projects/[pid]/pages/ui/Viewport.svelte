@@ -278,10 +278,17 @@
 		if (ent?.type === 'text') { startTextEdit(ent); return }
 		if (tool === 'Select' && modelEditable) insertGraphNode(p)   // dbl-click a wall/conduit segment → add a vertex (plan or elevation)
 	}
-	// Right-click ends an in-progress multi-point draw (polyline / wall / trunk / pipe) — same as Enter /
-	// dbl-click — and otherwise falls through to the browser menu. Only swallow the menu when we consumed it.
+	// Right-click in the viewport (CAD-style): during a multi-point draw it ENDS the draft (= Enter /
+	// dbl-click); with a drawing tool selected and no draft it REVERTS to Select (like Esc — Dave prefers
+	// right-click). A right-DRAG is a pan, so only a genuine click (little movement since right-down)
+	// reverts — `rDownPt` records where the right button went down. Otherwise fall through to the browser
+	// menu (panzoom's own handler suppresses it over an active canvas). Only swallow when we consumed it.
 	function onContext(e: MouseEvent) {
-		if (active && POLY.has(tool) && draft.length) { e.preventDefault(); e.stopPropagation(); finishPolyline() }
+		if (!active) return
+		if (POLY.has(tool) && draft.length) { e.preventDefault(); e.stopPropagation(); finishPolyline(); return }
+		const moved = rDownPt ? Math.hypot(e.clientX - rDownPt.x, e.clientY - rDownPt.y) > 5 : false
+		rDownPt = null
+		if (!moved && tool !== 'Select') { e.preventDefault(); e.stopPropagation(); draft = []; cur = null; snapMark = null; on.tool?.('Select') }
 	}
 	// ── edit text in place ──
 	let editText = $state<{ id: string; x: number; y: number; fontPx: number; value: string } | null>(null)
@@ -1119,6 +1126,10 @@
 		window.addEventListener('pointercancel', up)
 		return () => { window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up) }
 	})
+	// Where the RIGHT button went down, so onContext can tell a genuine click from a pan-drag. Captured in
+	// the CAPTURE phase (see the .vp handler) because panzoom's own pointerdown listener stopPropagation()s
+	// right/middle presses, and Svelte delegates onDown to the root — so a bubble-phase read never sees them.
+	let rDownPt: { x: number; y: number } | null = null
 	function onDown(e: PointerEvent) {
 		if (editText || !active || e.button !== 0) return   // ignore while editing text in place
 		suppressClick = false   // clear any stale flag from a drag that never got its click
@@ -1402,6 +1413,7 @@
 	style:border-style={active ? 'solid' : border === 'none' ? 'dotted' : border}
 	style:border-color={border === 'none' && !active ? '#94a3b866' : undefined}
 	use:panzoom={{ enabled: () => active && navContent, wheelZoom: () => acad, onpan: onPan, onzoom: onZoom }}
+	onpointerdowncapture={(e) => { if (e.button === 2) rDownPt = { x: e.clientX, y: e.clientY } }}
 	onclick={onClick} ondblclick={onDblclick} oncontextmenu={onContext} onpointerdown={onDown} onpointermove={onMove}
 	onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); on.activate?.() } }}>
 

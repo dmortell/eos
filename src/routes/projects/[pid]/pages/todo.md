@@ -78,6 +78,14 @@ Done:
   rect does nothing; a border click selects it. *Note:* the 3D **model prisms** (furniture boxes) are a
   separate system (`hitModel`) and stay interior-selectable as solids — the border-only rule is for
   drawn Pages entities, which is what "rect" referred to.
+- [x] **Right-click also REVERTS a drawing tool to Select** (Dave prefers right-click over Esc) — with a
+  drawing tool selected and NO active draft, a right-CLICK switches back to Select; a right-DRAG still
+  pans (guarded: only reverts when the pointer barely moved since right-down). Kept the tool STICKY after
+  each draw (CAD convention — repeat placement) rather than auto-reverting. *Gotcha found + fixed:* Svelte
+  delegates `pointerdown` to the root, but panzoom's own listener `stopPropagation()`s right/middle presses,
+  so the delegated `onDown` never saw them → `rDownPt` was never set → the guard always reverted (even on a
+  pan). Fix: capture `rDownPt` in the CAPTURE phase (`onpointerdowncapture`). Verified via synthetic events:
+  right-drag keeps the tool, right-click reverts.
 - [x] **Right-click ends a multi-point draw** — polyline / Wall / Trunk / Pipe now finish on
   right-click (same as Enter / dbl-click); the browser context menu is only suppressed when a draft
   is actually consumed, otherwise it passes through. (`onContext` on the `.vp` div.)
