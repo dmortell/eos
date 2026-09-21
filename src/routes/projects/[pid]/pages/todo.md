@@ -554,16 +554,17 @@ Symbols are identical to annotes.
     renders the **titleblock**; both have their own **marquee** + **Handle grips** (share `Handle.svelte`
     already). A merge = one surface that hosts nested viewports, each a Viewport, with paper-space vs
     model-space just a coordinate mode.
-- [ ] **Set the DEPTH PLANE via GUIDE LINES** (Dave's design, 2026-09-21) — today an elevation-drawn wall
-  conduit defaults its off-axis depth to the model centre. Plan: let the user draw/drag **vertical &
-  horizontal guide lines** on plans/elevations (Visio-style alignment guides that always extend to the
-  viewport/screen edge). Before drawing a 3D object on an elevation you **select a guide line on the
-  PERPENDICULAR view** (the plan) that fixes the depth; and vice-versa (a plan object picks up its height
-  from an elevation guide). If none is set, fall back to **snap-to-geometry** (draw on a wall centreline
-  → inherit its depth) with a **message in the instruction box + a toast** suggesting the user set/select
-  a guide line on the perpendicular view. Guide lines are a general alignment tool (not just depth) —
-  model them as their own light objects (per-view, orientation, position; selectable/movable/deletable).
-  How CAD frames the same idea: AutoCAD UCS / construction planes; Revit work planes / pick-a-wall-face.
+- [~] **Set the DEPTH PLANE via GUIDE LINES** (Dave's design; core done 2026-09-21) — guide lines
+  (`guides.svelte.ts`): a **Guide tool** drops a full-view horizontal line (Shift = vertical) in the
+  current view's space (plan or elevation); they render as magenta dashed lines, are selectable
+  (border-priority) + deletable. Drawing a Wall/Trunk/Pipe in an ELEVATION takes its off-axis **depth
+  from the selected PLAN guide** (h→y for front/rear, v→x for left/right); no guide → model centre + a
+  toast/instruction-line nudge. Verified: trunk in a Front viewport lands on the selected plan guide.
+  **Follow-ups:** [ ] **DRAG a guide** to reposition (today click-to-place only); [ ] fallback should be
+  **snap-to-geometry** (draw on a wall centreline → inherit its depth) rather than the model centre; [ ]
+  **vice-versa** — an ELEVATION guide fixes the z/height when drawing in the plan; [ ] use guides as a
+  general **drawing snap** (not just conduit depth). How CAD frames the same idea: AutoCAD UCS; Revit
+  work planes / pick-a-wall-face.
 - [ ] **RISERS tool** (Dave, 2026-09-21) — like an elevation but spanning **multiple floors** of the
   building: server / IDF / EPS rooms on each floor, connected by **risers, trunks and cable routes**
   running vertically between floors. A riser diagram is a multi-floor section: stack each floor's
