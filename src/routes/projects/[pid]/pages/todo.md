@@ -492,7 +492,13 @@ New todos (design / bigger):
   centres, quadrants; polyline vertices/segment-midpoints); while drawing or dragging a grip the
   nearest within ~10px wins and the point locks to it, with a marker (□ end · △ mid · ○ centre ·
   ◇ quad). Gated by the **OSNAP** status-bar toggle.
-- [ ] **Grid snap** — round to a spacing, driven by the SNAP toggle (osnap done above).
+- [x] **Grid snap** (completed 2026-09-22) — round to a spacing (SNAP_STEP = 100 mm), driven by the SNAP
+  status-bar toggle. Was already wired for DRAWING (`drawPoint`→`snapToGrid`) and MODEL objects (`rndSnap`);
+  added the missing ENTITY paths: a grip-resize snaps the (constrained) pointer to grid, and a body/group
+  move snaps via `snapDelta` (rounds the delta so the entity's defining point — a / centre / first vertex —
+  lands on grid, keeping shape; a group snaps rigidly by its first member). Verified in-browser with SNAP
+  on: after a corner-drag the rect read x/y/w/h all exact 100 mm multiples (23600 / −1200 / 6100 / 14100),
+  and a select-move snapped x/y to grid; clean console. Object-snap (OSNAP) was already done.
 
 ### 1a. Mouse / touch: Pages vs Sheets  ◧ decide
 > From a review of the Sheets tool. Tick the version you want for Pages per row

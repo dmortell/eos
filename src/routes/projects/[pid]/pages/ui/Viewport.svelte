@@ -1434,11 +1434,21 @@
 		}
 		return translate(en, dx, dy)
 	}
+	// Grid snap for a MOVE: round the delta so the entity's defining point (a / centre / first vertex)
+	// lands on the grid, keeping its shape — like model-object moves (rndSnap). Off when SNAP is off.
+	function snapDelta(dx: number, dy: number, base: Ent): [number, number] {
+		if (!snap) return [dx, dy]
+		const A = base.a ?? base.c ?? base.pts?.[0]
+		if (!A) return [Math.round(dx / SNAP_STEP) * SNAP_STEP, Math.round(dy / SNAP_STEP) * SNAP_STEP]
+		const g = snapToGrid([A[0] + dx, A[1] + dy])
+		return [g[0] - A[0], g[1] - A[1]]
+	}
 	function applyDrag(p: Pt, shift: boolean): Ent {
-		if (drag!.kind === 'grip') return gripsFor(drag!.base)[drag!.gi].apply(constrainGrip(drag!.base, drag!.gi, p, shift))
+		if (drag!.kind === 'grip') { const cp = constrainGrip(drag!.base, drag!.gi, p, shift); return gripsFor(drag!.base)[drag!.gi].apply(snap ? snapToGrid(cp) : cp) }
 		let dx = p[0] - drag!.start[0], dy = p[1] - drag!.start[1]
 		if (shift !== ortho) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 }   // ortho / axis-lock
-		return moveEnt(drag!.base, dx, dy)
+		const [sdx, sdy] = snapDelta(dx, dy, drag!.base)   // grid snap (SNAP toggle)
+		return moveEnt(drag!.base, sdx, sdy)
 	}
 	function onDragMove(e: PointerEvent) {
 		if (!drag) return
@@ -1456,7 +1466,8 @@
 			}
 			let dx = p[0] - drag.start[0], dy = p[1] - drag.start[1]
 			if (e.shiftKey !== ortho) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 }   // ortho / axis-lock (Shift toggles)
-			for (const b of drag.bases) on.update?.(moveEnt(b, dx, dy))   // move the whole group (or the copies)
+			const [gdx, gdy] = snapDelta(dx, dy, drag.bases[0])   // grid-snap the whole group by its first member (stays rigid)
+			for (const b of drag.bases) on.update?.(moveEnt(b, gdx, gdy))   // move the whole group (or the copies)
 		}
 	}
 	function onDragUp() {
