@@ -4,32 +4,22 @@
 	// A page can hold viewports of different models, so there's no page-wide "Model" space —
 	// instead a Full-size toggle makes the drawing fill the pane (off = the A3 sheet layout),
 	// mirroring the Sheets tool's viewport full-size view.
-	import { Icon } from '$lib'
 	import type { PaperSize } from '../constants'
 	// Tooltips for the terse toggle codes.
 	const TOGGLE_TITLES: Record<string, string> = {
 		GRID: 'Show the reference grid', SNAP: 'Snap points to the grid (100 mm)', ORTHO: 'Constrain draw/move to horizontal/vertical',
 		OSNAP: 'Snap to object points (ends, midpoints, centres)', LWT: 'Show lineweights', CEN: 'Draw rectangles/ellipses centre-out (first click = centre)',
 	}
-	let { layout = $bindable('sheet'), toggles = $bindable<Record<string, boolean>>({}), acadMode = $bindable(true),
+	let { toggles = $bindable<Record<string, boolean>>({}), acadMode = $bindable(true),
 		paperSize = 'A3', paperLandscape = true, onpapersize, onorient,
 		coords = null, zoom = 100, onzoom, onfit }:
-		{ layout?: 'model' | 'sheet'; toggles?: Record<string, boolean>; acadMode?: boolean;
+		{ toggles?: Record<string, boolean>; acadMode?: boolean;
 			paperSize?: PaperSize; paperLandscape?: boolean; onpapersize?: (s: PaperSize) => void; onorient?: (landscape: boolean) => void;
 			coords?: { x: number; y: number } | null; zoom?: number; onzoom?: (f: number) => void; onfit?: () => void } = $props()
 </script>
 
 <footer class="statusbar">
 	<div class="layout-tabs">
-		<!-- Full-size moved to the active-viewport bar (Dave, 2026-09-21). Kept here, commented, in
-		     case we repurpose it to hide/show the paper + titleblock later.
-		<button class="fullsize" class:on={layout === 'model'}
-			title="Full-size: fill the pane with the drawing (off = show the paper sheet layout)"
-			onclick={() => (layout = layout === 'model' ? 'sheet' : 'model')}>
-			<Icon name={layout === 'model' ? 'panels' : 'expand'} size={13} />
-			{layout === 'model' ? 'Full-size' : 'Sheet'}
-		</button>
-		-->
 		<!-- paper size + orientation (only meaningful in Sheet layout) -->
 		<label class="paper-sel" title="Paper size">
 			<select value={paperSize} onchange={(e) => onpapersize?.((e.currentTarget as HTMLSelectElement).value as PaperSize)}>
@@ -63,7 +53,6 @@
 	.layout-tabs { display:flex; gap:2px; }
 	.layout-tabs button { display:inline-flex; align-items:center; gap:5px; padding:2px 9px; border-radius:4px; color:var(--muted); background:none; border:none; font-size:11px; }
 	.layout-tabs button :global(svg) { flex:0 0 auto; }
-	.layout-tabs button.on { background:var(--active); color:var(--text); box-shadow:inset 0 -2px 0 var(--accent); }
 	.paper-sel select { background:var(--panel); color:var(--text); border:1px solid var(--line-soft); border-radius:4px; padding:1px 4px; font-size:11px; }
 	.paper-sel select:focus { outline:none; border-color:var(--accent); }
 	.orient { display:inline-flex; align-items:center; gap:5px; padding:2px 8px; border-radius:4px; color:var(--muted); background:none; border:none; font-size:11px; }

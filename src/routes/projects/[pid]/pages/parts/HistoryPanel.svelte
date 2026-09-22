@@ -85,7 +85,6 @@
 	.hp-row.log.current .hp-dot { background:var(--accent); }
 	.hp-row.log.future { opacity:.45; }              /* undone steps you can redo to */
 	.hp-row.log.future .hp-name { text-decoration:line-through; }
-	.hp-row.rev:hover { background:var(--hover); }
 	.hp-row :global(svg) { color:var(--muted); flex:0 0 auto; }
 	.hp-hint { font-size:9px; color:var(--faint); text-transform:none; letter-spacing:0; }
 	.hp-rev { padding:5px 6px; border-radius:5px; }

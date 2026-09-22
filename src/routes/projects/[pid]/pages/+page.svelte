@@ -1228,11 +1228,6 @@
 	.side-tabs button.on { background:var(--active); color:var(--text); }
 	.side-collapse { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:4px; color:var(--muted); background:none; border:none; }
 	.side-collapse:hover { background:var(--hover); color:var(--text); }
-	.side-body { flex:1; overflow-y:auto; padding:5px; scrollbar-width:thin; scrollbar-color:var(--line) transparent; }
-	.side-body::-webkit-scrollbar { width:9px; }
-	.side-body::-webkit-scrollbar-track { background:transparent; }
-	.side-body::-webkit-scrollbar-thumb { background:var(--line); border-radius:6px; border:3px solid transparent; background-clip:padding-box; }
-	.side-body:hover::-webkit-scrollbar-thumb { background:var(--faint); background-clip:padding-box; }
 
 	.grow { flex:1; } .txt { text-align:left; background:none; border:none; color:inherit; font-size:12px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
