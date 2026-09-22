@@ -4,7 +4,8 @@
 	// common props (bbox X/Y/W/H) and edits apply to all. Falls back to page/general props
 	// when nothing is selected. Geometry is in model units (mock).
 	import { Icon, ColorPicker } from '$lib'
-	import { translate, STYLE_DEFAULTS, type Ent, type Pt, type TextAlign, type VAlign } from '../ui/geometry'
+	import { translate, textBox, STYLE_DEFAULTS, type Ent, type Pt, type TextAlign, type VAlign } from '../ui/geometry'
+	import { PT_MM } from '../constants'
 	import { COLORS } from '../palette'
 	import { layers } from '../layers.svelte'
 	import { imgEdit, setImgMode } from '../imageEdit.svelte'
@@ -14,13 +15,16 @@
 
 	let { ents = [], onupdate, onarrange, pageTitle = '', pageKind = '', activeLayer = '', node = null,
 		modelObj = null, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg,
-		frameObj = null, onframeupdate, onframedelete, modelList = [], activeFrameId = undefined }:
+		frameObj = null, onframeupdate, onframedelete, modelList = [], activeFrameId = undefined, scaleN = 1 }:
 		{ ents?: Ent[]; onupdate?: (e: Ent) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void;
 			pageTitle?: string; pageKind?: string; activeLayer?: string;
 			node?: { id: string; label: string; kind: string } | null;
 			modelObj?: Obj | null; modelLayers?: MLayer[]; onmodelupdate?: (patch: Record<string, unknown>) => void; onmodeldelete?: () => void; onmodelseg?: (segIdx: number, patch: Record<string, unknown>) => void;
 			frameObj?: SheetFrame | null; onframeupdate?: (patch: Partial<SheetFrame>) => void; onframedelete?: () => void;
-			modelList?: { id: number; name: string }[]; activeFrameId?: string } = $props()
+			modelList?: { id: number; name: string }[]; activeFrameId?: string;
+			/** Scale denominator (the N of 1:N) of the viewport the selection is edited in — sizes the
+			 *  annotative text bbox in model mm (B19). */
+			scaleN?: number } = $props()
 	const MODEL_TYPE_LABEL: Record<string, string> = { prism: 'Prism', wall: 'Wall', conduit: 'Conduit' }
 	// A prism on an "opening" layer is a door/window/hole; label it as such.
 	const modelTypeLabel = (o: Obj) => (o.type === 'prism' && modelLayers.find((l) => l.id === o.layer)?.opening ? 'Opening' : MODEL_TYPE_LABEL[o.type] ?? 'Object')
@@ -29,9 +33,11 @@
 		project: 'PROJECT', building: 'BUILDING', floor: 'FLOOR', zone: 'ZONE', room: 'ROOM', row: 'ROW',
 	}
 
+	// View-agnostic unrotated bbox (unlike ui/hit.ts bbox, no elevation collapse / crop window: the panel
+	// shows the PLACEMENT). Text is annotative, so its box is the same one the Viewport draws and hits.
 	function bbox(e: Ent): [number, number, number, number] {
 		if (e.type === 'polyline') { const pts = e.pts ?? []; const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] }
-		if (e.type === 'text') return [e.a![0], e.a![1] - 10, e.a![0] + 40, e.a![1]]
+		if (e.type === 'text') return textBox(e, PT_MM * scaleN)
 		const xs = [e.a![0], e.b![0]], ys = [e.a![1], e.b![1]]
 		return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
 	}

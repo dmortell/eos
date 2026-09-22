@@ -23,6 +23,10 @@ export const PAPER_PX_PER_MM = PAPER_W / 420
 export const modelUnitToPaperMm = (scaleN: number) => 1 / (scaleN || 1)
 /** Paper px that one model unit occupies in a frame at scale 1:N. */
 export const modelUnitToPaperPx = (scaleN: number) => modelUnitToPaperMm(scaleN) * PAPER_PX_PER_MM
+/** The N of a '1:N' scale string (the scale DENOMINATOR); malformed / zero → 1 (1:1). */
+export const scaleDenom = (scale: string | undefined) => parseInt((scale || '1:1').split(':')[1] || '1') || 1
+/** mm per typographic point → fontPt · PT_MM = paper mm; × scaleDenom(scale) = model mm (annotative text). */
+export const PT_MM = 0.352778
 export type PaperSize = 'A4' | 'A3' | 'A2'
 /** ISO A-series paper, landscape [width, height] in mm. */
 export const PAPER_SIZES: Record<PaperSize, [number, number]> = { A4: [297, 210], A3: [420, 297], A2: [594, 420] }

@@ -25,7 +25,7 @@
 	import Menubar from './parts/Menubar.svelte'
 	import CommandPalette from './parts/CommandPalette.svelte'
 	import { panzoom } from './ui/panzoom'
-	import { paperDims, PAPER_SIZES, PAPER_PX_PER_MM, type PaperSize } from './constants'
+	import { paperDims, scaleDenom, PAPER_SIZES, PAPER_PX_PER_MM, type PaperSize } from './constants'
 	import { translate, type Ent, type ElevDir } from './ui/geometry'
 	import { models, modelById, FLOOR_MODEL_ID, modelSel, snapModels, setModels } from './3dview/models.svelte'
 	import { DEFAULT_YAW, DEFAULT_PITCH } from './3dview/projection'
@@ -261,6 +261,13 @@
 		else if (a) docProj = { ...docProj, [projKey(pane.id, a)]: proj }
 	}
 	let selFrameObj = $derived.by(() => { const t = active; return t && selFrame ? framesOf(t.id).find((f) => f.id === selFrame) ?? null : null })
+	// Scale denominator of the viewport the Properties panel edits in: an active extra sheet frame's own
+	// scale, else the tab's (the primary viewport's) — the same choice as the active-viewport bar (B19).
+	let propsScaleN = $derived.by(() => {
+		const t = active; if (!t) return 1
+		const av = activeVpOf(t.id), f = av && av !== t.id ? framesOf(t.id).find((x) => x.id === av) : null
+		return scaleDenom(f?.scale ?? scaleOf(t.id))
+	})
 	let focused = $state(0)      // which pane new tabs / sidebar actions target
 	let canvasEls = $state<(HTMLElement | undefined)[]>([])   // each pane's .canvas, for navFit
 	let splitFrac = $state(0.5)  // pane 0 width fraction when split
@@ -1076,7 +1083,7 @@
 						modelObj={selModelObj} modelLayers={modelById(activeMid())?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} onmodelseg={updateModelSeg}
 						frameObj={selFrameObj}
 						modelList={models.map((m) => ({ id: m.id, name: m.name }))}
-						activeFrameId={active && activeVpOf(active.id) !== active.id ? (activeVpOf(active.id) ?? undefined) : undefined}
+						activeFrameId={active && activeVpOf(active.id) !== active.id ? (activeVpOf(active.id) ?? undefined) : undefined} scaleN={propsScaleN}
 						onframeupdate={(patch) => { if (active && selFrame) { ensureHist(active.id); updateFrame(active.id, selFrame, patch as Partial<SheetFrame>); commitFrame(active.id, 'Edit viewport') } }}
 						onframedelete={() => { if (active && selFrame) deleteFrame(active.id, selFrame) }} />
 				{:else}
