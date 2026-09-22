@@ -195,7 +195,9 @@
 		if (ps && isPlan) { addModelObj(prismObj(ctx, a, b, ps.layer, ps.h, () => mUid(ps.tag))); return }
 		if (tool === 'Section' && isPlan && mdl) {   // §4 / B5 — clip box on the plan → a section marker in the MODEL (one undo step), selected
 			const sec = sectionObj(ctx, a, b, mUid('sec'), sectionName(mdl.sections ?? [])); if (!sec) return
-			on.beginedit?.(); (mdl.sections ??= []).push(sec); on.modeledit?.('Add section'); on.endedit?.()
+			// B26: NOT `(mdl.sections ??= []).push(...)` — `??=` yields the raw [] you assigned, not the $state proxy
+			// now stored on the model, so the push would land behind the proxy (no signal, lost on the next push).
+			on.beginedit?.(); if (!mdl.sections) mdl.sections = []; mdl.sections.push(sec); on.modeledit?.('Add section'); on.endedit?.()
 			on.sectionselect?.(sec.id)   // grips + toolbar; drop its elevations via the arrows
 		}
 	}
@@ -506,7 +508,7 @@
 		if (!mdl) return
 		const g = guideObj(ctx, p, shift, guideId()); if (!g) return   // null in iso (no drawing plane)
 		on.beginedit?.()   // capture the pre-add baseline, then fold the add into one undo step (model history)
-		;(mdl.guides ??= []).push(g)
+		if (!mdl.guides) mdl.guides = []; mdl.guides.push(g)   // B26: re-read through the $state proxy after creating the array (not `??=`)
 		on.modeledit?.('Add guide'); on.endedit?.()
 	}
 	// IMAGE calibration (Uploads-tool model). ORIGIN: store the clicked point as a normalized anchor.
