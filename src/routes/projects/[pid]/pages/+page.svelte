@@ -85,20 +85,26 @@
 	// Map a projection to the Viewport render kind: plan → floorplan, iso → oblique 3D, the four
 	// elevations pass through as their own kind (the Viewport projects each per ELEV_BASIS).
 	const projKind = (p: Proj) => (p === 'plan' ? 'floorplan' : p) as 'floorplan' | 'iso' | 'front' | 'rear' | 'left' | 'right'
-	// Paper size + orientation, PER TAB (keyed by tab id), chosen in the status bar. Each sheet
-	// keeps its own paper. Changing it just resizes the paper rect in place — no refit/jump.
+	// A drawing's DOCUMENT state (paper / scale / viewport frames) is keyed by a stable DRAWING id — the
+	// tab's TITLE — not the ephemeral tab id, so closing a tab (or reusing the preview slot) never destroys
+	// the page, and reopening the same drawing restores it (B6). Titles are unique (named drawings + the
+	// `Untitled N` counter) and openDrawing already dedups by title. Session/VIEW state stays tab/pane-keyed.
+	const didOf = (tabId?: string) => tabs.find((t) => t.id === tabId)?.title ?? tabId ?? ''
+	// Paper size + orientation, per DRAWING (keyed by drawing id). Each sheet keeps its own paper.
+	// Changing it just resizes the paper rect in place — no refit/jump.
 	let docPaper = $state<Record<string, { size: PaperSize; landscape: boolean }>>({})
-	const paperOf = (id?: string) => docPaper[id ?? ''] ?? { size: 'A3' as PaperSize, landscape: true }
+	const paperOf = (id?: string) => docPaper[didOf(id)] ?? { size: 'A3' as PaperSize, landscape: true }
 	const paperDimsOf = (id?: string) => { const p = paperOf(id); return paperDims(p.size, p.landscape) }
 	function setPaper(id: string | undefined, patch: Partial<{ size: PaperSize; landscape: boolean }>) {
 		if (!id) return
-		docPaper = { ...docPaper, [id]: { ...paperOf(id), ...patch } }
+		docPaper = { ...docPaper, [didOf(id)]: { ...paperOf(id), ...patch } }
 	}
-	// Per-view drawing SCALE (mock — shown in the viewport tag + titleblock; chosen in the active-
-	// viewport bar, like the Sheets tool's viewport scale).
+	// Per-drawing SCALE (mock — shown in the viewport tag + titleblock; chosen in the active-viewport bar,
+	// like the Sheets tool's viewport scale). Keyed by drawing id (title) so it survives close/reopen.
 	const SCALES = ['1:1', '1:2', '1:5', '1:10', '1:15', '1:20', '1:25', '1:50', '1:100', '1:150', '1:200', '1:500']
-	let docScale = $state<Record<string, string>>({ t2: '1:25' })   // 3303 Outlets sheet defaults bigger (1:25)
-	const scaleOf = (id?: string) => docScale[id ?? ''] ?? '1:100'   // model space is real mm; 1:100 fits the ~28 m demo plan
+	let docScale = $state<Record<string, string>>({ '3303 Outlets': '1:25' })   // 3303 Outlets sheet defaults bigger (1:25)
+	const scaleOf = (id?: string) => docScale[didOf(id)] ?? '1:100'   // model space is real mm; 1:100 fits the ~28 m demo plan
+	const setScale = (id: string | undefined, s: string) => { if (id) docScale = { ...docScale, [didOf(id)]: s } }
 	// The drafting/interaction flags bundle passed to a pane's viewport (one prop instead of six).
 	let guideVert = $state(false)   // the Guide tool's H/V pop-out base (touch has no Shift); Shift still flips it
 	const envFor = (pane: { id: string; activeId: string }) => ({ acad: acadMode, navContent, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, cen: toggles.CEN, guideVert, canvasZoom: canvasViewOf(pane).zoom })
@@ -114,7 +120,7 @@
 		copy: (ids: string[]) => copyEnts(a.id, ids), cut: (ids: string[]) => cutEnts(a.id, ids), paste: () => pasteEnts(a.id),
 		group: (ids: string[]) => groupEnts(a.id, ids), ungroup: (ids: string[]) => ungroupEnts(a.id, ids),
 		reorder: (ids: string[], op: 'front' | 'back' | 'forward' | 'backward') => reorderEnts(a.id, ids, op),
-		scale: (s: string) => (docScale = { ...docScale, [a.id]: s }),
+		scale: (s: string) => setScale(a.id, s),
 		modeledit: (label?: string) => modelEdit(a.id, label), section: (clip: Clip) => onSection(clip),
 		orbit: (yaw: number, pitch: number) => setOrbit(pane.id, a.id, projOf(pane, a), yaw, pitch),
 		sectionselect: (id: string | null) => selectSection(id),
@@ -205,9 +211,11 @@
 	// entities. Frames live per tab (surviving tab switches) and are undone/persisted with the page.
 	// (Later the page model also carries the titleblock + page annotations.) A section can be dropped in.
 	type SheetFrame = { id: string; x: number; y: number; w: number; h: number; border: 'dashed' | 'solid' | 'none'; proj: Proj; scale: string; clip: Clip | null; label: string; modelId?: number }
+	// Viewport frames = a sheet's page model → DOCUMENT state, keyed by drawing id (title) so they survive
+	// closing/reopening the tab (B6). snapAllFrames/applyPtr operate on the whole map, so history is unaffected.
 	let docFrames = $state<Record<string, SheetFrame[]>>({})
-	const framesOf = (tabId: string) => docFrames[tabId] ?? []
-	function setFrames(tabId: string, frames: SheetFrame[]) { docFrames = { ...docFrames, [tabId]: frames } }
+	const framesOf = (tabId: string) => docFrames[didOf(tabId)] ?? []
+	function setFrames(tabId: string, frames: SheetFrame[]) { docFrames = { ...docFrames, [didOf(tabId)]: frames } }
 	function updateFrame(tabId: string, id: string, patch: Partial<SheetFrame>) { setFrames(tabId, framesOf(tabId).map((f) => (f.id === id ? { ...f, ...patch } : f))) }
 	let frameSeq = 0
 	const newFrameId = () => 'vf' + ++frameSeq
@@ -469,28 +477,20 @@
 		if (!o?.segments?.[segIdx] || !id) return
 		beginGesture(); Object.assign(o.segments[segIdx], patch); modelEdit(id); endGesture()
 	}
-	function dropDoc(id: string) {   // free a closed doc's per-document state (entities stay — they're the model's)
-		const ds = { ...docSel }, dv = { ...docView }
-		delete ds[id]
-		for (const k of Object.keys(dv)) if (k === id || k.endsWith(':' + id)) delete dv[k]   // view is now pane-keyed
-		docSel = ds; docView = dv
-		// free the other per-doc state too (was leaking; a reused preview id inherited it). History is now a
-		// single global timeline (B4) — nothing per-tab to drop here.
-		if (docProj[id]) { const dp = { ...docProj }; delete dp[id]; docProj = dp }
-		if (docPaper[id]) { const pp = { ...docPaper }; delete pp[id]; docPaper = pp }
-		// (sections are standalone markers keyed by 'sec' ids now, not tabs — nothing to clean here)
-		if (selSection === id) selSection = null
-		// A sheet's viewport frames + all their per-frame view/orbit/activation state.
+	// Free only SESSION/VIEW state for a closed or reused TAB. DOCUMENT state (docFrames/docPaper/docScale,
+	// keyed by DRAWING id) is KEPT — so closing a tab never destroys the page and reopening it restores the
+	// frames/paper/scale (B6). Must run while the tab still exists in `tabs` (so framesOf resolves the did).
+	function dropDoc(id: string) {
 		const frameIds = framesOf(id).map((f) => f.id)
-		if (frameIds.length) {
-			if (docFrames[id]) { const df = { ...docFrames }; delete df[id]; docFrames = df }
-			if (selFrame && frameIds.includes(selFrame)) selFrame = null
-			// keys are paneId:viewId:proj — match the middle (viewId) segment.
-			const fv = { ...docView }; for (const k of Object.keys(fv)) if (frameIds.includes(k.split(':')[1])) delete fv[k]; docView = fv
-			for (const fid of frameIds) deactivateVp(fid)
-		}
-		{ const doc = { ...docOrbit }; let hit = false; for (const k of Object.keys(doc)) { const vid = k.split(':')[1]; if (vid === id || frameIds.includes(vid)) { delete doc[k]; hit = true } } if (hit) docOrbit = doc }
-		if (activeVps.has(id)) deactivateVp(id)
+		const ids = new Set<string>([id, ...frameIds])            // this tab + its viewport frames
+		const mine = (k: string) => ids.has(k.split(':')[1])       // key's viewId segment (pane:viewId[:proj]) belongs here
+		const ds = { ...docSel }; delete ds[id]; docSel = ds       // selection (entities per tab)
+		const dv = { ...docView }; for (const k of Object.keys(dv)) if (k === id || mine(k)) delete dv[k]; docView = dv        // pan/zoom
+		const dp = { ...docProj }; for (const k of Object.keys(dp)) if (k === id || mine(k)) delete dp[k]; docProj = dp        // per-pane projection
+		const dorb = { ...docOrbit }; for (const k of Object.keys(dorb)) if (mine(k)) delete dorb[k]; docOrbit = dorb          // iso orbit
+		if (selSection === id) selSection = null
+		if (selFrame && ids.has(selFrame)) selFrame = null
+		deactivateVp(id); for (const fid of frameIds) deactivateVp(fid)   // reopened tab starts deactivated
 	}
 
 	function openTab(id: string, pane = focused) {
@@ -505,8 +505,8 @@
 	function closeTab(id: string, e?: Event) {
 		e?.stopPropagation()
 		const i = tabs.findIndex(t => t.id === id); if (i < 0) return
+		dropDoc(id)   // BEFORE removing the tab, so framesOf resolves its drawing id; document state is kept (B6)
 		tabs = tabs.filter(t => t.id !== id)
-		dropDoc(id)
 		if (previewId === id) previewId = null
 		// Point any pane that showed this tab at a neighbour, or '' → the "No page open"
 		// empty state (don't auto-spawn an Untitled tab on the last close).
@@ -990,7 +990,7 @@
 								</button>
 								<!-- viewport scale (like the Sheets tool's per-view scale) — the primary's tab scale, or the active extra frame's own scale -->
 								<label class="vab-scale" title="Drawing scale">
-									<select value={avScale} onchange={(e) => { const s = (e.currentTarget as HTMLSelectElement).value; if (avFrame) updateFrame(a.id, avId, { scale: s }); else docScale = { ...docScale, [a.id]: s }; }}>
+									<select value={avScale} onchange={(e) => { const s = (e.currentTarget as HTMLSelectElement).value; if (avFrame) updateFrame(a.id, avId, { scale: s }); else setScale(a.id, s); }}>
 										{#if !SCALES.includes(avScale)}<option value={avScale}>{avScale}</option>{/if}
 										{#each SCALES as s (s)}<option value={s}>{s}</option>{/each}
 									</select>
