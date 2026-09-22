@@ -986,6 +986,28 @@
 		return null
 	}
 
+	// What a press grabs, in onDown's priority order (model grip → section grip → entity grip → entity
+	// body → guide → section border → model object → nothing/marquee). A pure DECISION — onDown switches on
+	// it to start the matching gesture. `p` is the model point (toLocalXY). (review.md §R1 pickAt.)
+	type Pick =
+		| { kind: 'mgrip'; grip: MGrip }
+		| { kind: 'sgrip'; sg: { id: string; apply: (p: Pt) => Clip } }
+		| { kind: 'grip'; id: string; gi: number }
+		| { kind: 'ent'; id: string }
+		| { kind: 'guide'; id: string }
+		| { kind: 'section'; id: string }
+		| { kind: 'obj'; id: string }
+		| null
+	function pickAt(clientX: number, clientY: number, p: Pt): Pick {
+		if (mSelObj) { const g = pickModelGrip(clientX, clientY); if (g) return { kind: 'mgrip', grip: g } }
+		const sg = pickSectionGrip(clientX, clientY); if (sg) return { kind: 'sgrip', sg }
+		const hi = pick(clientX, clientY); if (hi) return hi.kind === 'grip' ? { kind: 'grip', id: hi.id, gi: hi.gi } : { kind: 'ent', id: hi.id }
+		const gid = hitGuide(p); if (gid) return { kind: 'guide', id: gid }
+		const sid = hitSection(p); if (sid) return { kind: 'section', id: sid }
+		const mid = hitModel(p); if (mid) return { kind: 'obj', id: mid }
+		return null
+	}
+
 	// ── drag to move / edit ──
 	// `bases` = the entities a body-move drags (the whole selection when you grab a selected one,
 	// else just the grabbed one). `base`/`gi` drive grip drags (always a single entity).
@@ -1088,99 +1110,78 @@
 			window.addEventListener('pointerup', onOrbitUp)
 			return
 		}
+		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
+		const pk = pickAt(e.clientX, e.clientY, p)
 		// A selected model object's grip (prism corner / wall node) wins over everything (like entity grips).
-		if (mSelObj) {
-			const g = pickModelGrip(e.clientX, e.clientY)
-			if (g) {
-				on.beginedit?.()   // one undo step for the whole reshape gesture
-				// Ctrl/⌘-press on a wall/conduit node BRANCHES: sprout a new segment and drag the new node
-				// out (a junction/tee). Plain press moves the node. origin = the grip's start position so
-				// the dragged node can be pulled off any partner it was coincident with (disconnect).
-				let grip = g, origin: Pt = [g.x, g.y], branch: (() => void) | undefined
-				if ((e.ctrlKey || e.metaKey) && g.node && g.obj && (g.obj.type === 'wall' || g.obj.type === 'conduit')) {
-					const obj = g.obj, nn = branchNode(obj, g.node)
-					const d = graphNodeDraw(nn); origin = [d[0], d[1]]
-					grip = { x: d[0], y: d[1], node: nn, obj, apply: (p: Pt, o?: Pt) => graphNodeApply(nn, p, o) }
-					branch = () => { obj.nodes = (obj.nodes as GN[]).filter((x) => x.id !== nn.id); obj.segments = (obj.segments as { id: string; a: string; b: string }[]).filter((s) => s.b !== nn.id && s.a !== nn.id) }
-				}
-				mGrip = { grip, origin, moved: false, branch }
-				try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
-				e.preventDefault()
-				window.addEventListener('pointermove', onModelGripMove)
-				window.addEventListener('pointerup', onModelGripUp)
-				return
+		if (pk?.kind === 'mgrip') {
+			const g = pk.grip
+			on.beginedit?.()   // one undo step for the whole reshape gesture
+			// Ctrl/⌘-press on a wall/conduit node BRANCHES: sprout a new segment + drag the new node out (a
+			// junction/tee). Plain press moves the node. origin = the grip's start (disconnect from a partner).
+			let grip = g, origin: Pt = [g.x, g.y], branch: (() => void) | undefined
+			if ((e.ctrlKey || e.metaKey) && g.node && g.obj && (g.obj.type === 'wall' || g.obj.type === 'conduit')) {
+				const obj = g.obj, nn = branchNode(obj, g.node)
+				const d = graphNodeDraw(nn); origin = [d[0], d[1]]
+				grip = { x: d[0], y: d[1], node: nn, obj, apply: (p: Pt, o?: Pt) => graphNodeApply(nn, p, o) }
+				branch = () => { obj.nodes = (obj.nodes as GN[]).filter((x) => x.id !== nn.id); obj.segments = (obj.segments as { id: string; a: string; b: string }[]).filter((s) => s.b !== nn.id && s.a !== nn.id) }
 			}
+			mGrip = { grip, origin, moved: false, branch }
+			try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
+			e.preventDefault(); window.addEventListener('pointermove', onModelGripMove); window.addEventListener('pointerup', onModelGripUp)
+			return
 		}
 		// A corner grip of the SELECTED section resizes it (wins over everything, like a model grip).
-		{
-			const g = pickSectionGrip(e.clientX, e.clientY)
-			if (g) {
-				on.beginedit?.()   // one undo step for the whole resize gesture (committed on release)
-				secResize = { ...g, moved: false }
-				try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
-				e.preventDefault()
-				window.addEventListener('pointermove', onSecResizeMove)
-				window.addEventListener('pointerup', onSecResizeUp)
-				return
-			}
+		if (pk?.kind === 'sgrip') {
+			on.beginedit?.()   // one undo step for the whole resize gesture (committed on release)
+			secResize = { ...pk.sg, moved: false }
+			try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
+			e.preventDefault(); window.addEventListener('pointermove', onSecResizeMove); window.addEventListener('pointerup', onSecResizeUp)
+			return
 		}
-		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
-		const hitInfo = pick(e.clientX, e.clientY)
-		if (!hitInfo) {
-			// an alignment guide under the cursor → select + drag it to reposition. Priority: below entities/
-			// grips (hitInfo), above sections/model/marquee (a guide is a thin overlay you grab in open space).
-			const gid = hitGuide(p)
-			if (gid) {
-				setModelSel([gid]); on.select?.([])   // guide selection reuses modelSel (exclusive with entities)
-				guideDrag = { id: gid, moved: false }
-				on.beginedit?.()
+		// an alignment guide (below entities/grips, above sections/model/marquee — a thin overlay grabbed in open space).
+		if (pk?.kind === 'guide') {
+			setModelSel([pk.id]); on.select?.([])   // guide selection reuses modelSel (exclusive with entities)
+			guideDrag = { id: pk.id, moved: false }; on.beginedit?.()
+			try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
+			e.preventDefault(); window.addEventListener('pointermove', onGuideDragMove); window.addEventListener('pointerup', onGuideDragUp)
+			return
+		}
+		// a section marker border → SELECT it (grips + toolbar) + start a move drag (a no-move press just selects).
+		if (pk?.kind === 'section') {
+			const sm = sections.find(s => s.id === pk.id)
+			if (sm) {
+				if (selSection !== pk.id) on.sectionselect?.(pk.id)
+				on.beginedit?.()   // one undo step for the whole move gesture (committed on release)
+				secDrag = { id: pk.id, start: p, c0: { ...sm.clip }, moved: false }
 				try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
-				e.preventDefault()
-				window.addEventListener('pointermove', onGuideDragMove)
-				window.addEventListener('pointerup', onGuideDragUp)
-				return
+				e.preventDefault(); window.addEventListener('pointermove', onSecDragMove); window.addEventListener('pointerup', onSecDragUp)
 			}
-			// a section marker border → SELECT it (grips + toolbar) and start a move drag; a click with no
-			// drag just selects (open / re-aim / delete live in the toolbar).
-			const sid = hitSection(p)
-			if (sid) {
-				const sm = sections.find(s => s.id === sid)
-				if (sm) {
-					if (selSection !== sid) on.sectionselect?.(sid)
-					on.beginedit?.()   // one undo step for the whole move gesture (committed on release)
-					secDrag = { id: sid, start: p, c0: { ...sm.clip }, moved: false }
-					try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
-					e.preventDefault()
-					window.addEventListener('pointermove', onSecDragMove)
-					window.addEventListener('pointerup', onSecDragUp)
-					return
-				}
-			}
-			// no entity under the cursor → try a MODEL object (P2a: prisms in plan), else marquee.
-			const mid = hitModel(p)
-			const mo = mid ? mdl?.objects.find(o => o.id === mid) : undefined
+			return
+		}
+		// a MODEL object (P2a: prisms in plan) → select + move (exclusive with entity selection).
+		if (pk?.kind === 'obj') {
+			const mo = mdl?.objects.find(o => o.id === pk.id)
 			if (mo) {
-				setModelSel([mo.id!]); on.select?.([])   // model selection is exclusive with entity selection
-				mDrag = {
-					id: mo.id!, start: p, moved: false,
+				setModelSel([mo.id!]); on.select?.([])
+				mDrag = { id: mo.id!, start: p, moved: false,
 					o0: mo.type === 'prism' ? { x: mo.x, y: mo.y, z: mo.z } : undefined,
 					n0: (mo.type === 'wall' || mo.type === 'conduit') ? (mo.nodes as GN[]).map((n) => ({ id: n.id, x: n.x, y: n.y, z: n.z })) : undefined,
 				}
 				on.beginedit?.()   // one undo step for the whole model-move gesture
 				try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
-				e.preventDefault()
-				window.addEventListener('pointermove', onModelDragMove)
-				window.addEventListener('pointerup', onModelDragUp)
-				return
+				e.preventDefault(); window.addEventListener('pointermove', onModelDragMove); window.addEventListener('pointerup', onModelDragUp)
 			}
-			// empty space → drag a Kestrel-style selection box (window / crossing); Shift/Ctrl = additive
-			marquee = { a: p, b: p, add: e.shiftKey || e.ctrlKey || e.metaKey }
-			try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
-			e.preventDefault()
-			window.addEventListener('pointermove', onMarqueeMove)
-			window.addEventListener('pointerup', onMarqueeUp)
 			return
 		}
+		// empty space → drag a Kestrel-style selection box (window / crossing); Shift/Ctrl = additive.
+		if (!pk) {
+			marquee = { a: p, b: p, add: e.shiftKey || e.ctrlKey || e.metaKey }
+			try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
+			e.preventDefault(); window.addEventListener('pointermove', onMarqueeMove); window.addEventListener('pointerup', onMarqueeUp)
+			return
+		}
+		// pk is an entity grip or body — start the entity drag.
+		const hitInfo = { kind: (pk.kind === 'grip' ? 'grip' : 'move') as 'grip' | 'move', id: pk.id, gi: pk.kind === 'grip' ? pk.gi : -1 }
 		const base = entities.find(x => x.id === hitInfo.id); if (!base) return
 		setModelSel([])   // grabbing an entity clears any model-object selection (they're exclusive)
 		// Shift-press on a body is selection-only (toggles on release) — must NOT start a move drag.
