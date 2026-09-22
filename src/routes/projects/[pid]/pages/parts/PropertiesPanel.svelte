@@ -5,7 +5,7 @@
 	// when nothing is selected. Geometry is in model units (mock).
 	import { Icon, ColorPicker } from '$lib'
 	import type { Ent, Pt } from '../ui/Viewport.svelte'
-	import { translate, STYLE_DEFAULTS, type TextAlign, type VAlign } from '../ui/geometry'
+	import { translate, STYLE_DEFAULTS, PT, type TextAlign, type VAlign } from '../ui/geometry'
 	import { COLORS } from '../palette'
 	import { layers } from '../layers.svelte'
 	import { imgEdit, setImgMode } from '../imageEdit.svelte'
@@ -81,6 +81,13 @@
 	function setBoxH(v: number) { const e = single; if (e?.type === 'box') onupdate?.({ ...e, h: Math.max(1, Math.round(v)) }) }
 	function setBoxZ0(v: number) { const e = single; if (e?.type === 'box') onupdate?.({ ...e, z0: Math.max(0, Math.round(v)) }) }
 	function setText(v: string) { const e = single; if (e?.type === 'text') onupdate?.({ ...e, text: v }) }
+	// Toggle a text box into a CALLOUT (box + leader). Seed the leader tip below-left of the text the
+	// first time; keep it across off/on so re-enabling restores the previous target.
+	function setCallout(on: boolean) {
+		const e = single; if (e?.type !== 'text') return
+		if (on) { const fs = (e.fontPt ?? STYLE_DEFAULTS.fontPt) * PT; onupdate?.({ ...e, callout: true, leader: e.leader ?? [e.a![0] - fs * 3, e.a![1] + fs * 3] }) }
+		else onupdate?.({ ...e, callout: false })
+	}
 	function setRot(v: number) { const r = ((Math.round(v) % 360) + 360) % 360; setAll({ rot: r || undefined }) }
 	const num = (e: Event) => +(e.currentTarget as HTMLInputElement).value
 	const strVal = (e: Event) => (e.currentTarget as HTMLInputElement).value
@@ -311,6 +318,7 @@
 		{#if single?.type === 'text'}
 			<div class="prop-sec">TEXT</div>
 			<div class="prop wide"><textarea class="pp-textarea" use:autoresize value={single.text ?? ''} onchange={(e) => setText((e.currentTarget as HTMLTextAreaElement).value)}></textarea></div>
+			<label class="prop cb"><span>Callout</span><input type="checkbox" checked={!!single.callout} onchange={(e) => setCallout((e.currentTarget as HTMLInputElement).checked)} /></label>
 		{/if}
 		{#if single?.type === 'image'}
 			<!-- imported file: origin = Position, scale = Size (above); here opacity (for tracing) + CROP
@@ -396,6 +404,8 @@
 	.pp-textarea { width:100%; min-height:32px; resize:vertical; overflow:hidden; background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:4px 6px; font-size:11px; font-family:'Consolas','SF Mono',ui-monospace,monospace; }
 	.pp-textarea:focus { outline:none; border-color:var(--accent); }
 	.prop input:focus, .prop select:focus { outline:none; border-color:var(--accent); }
+	.cb { cursor:pointer; }
+	.cb input { width:16px; height:16px; padding:0; justify-self:start; accent-color:var(--accent); }
 	.pp-hint { font-size:10px; color:var(--faint); padding:10px 6px; line-height:1.4; }
 	.seg-row { display:flex; align-items:center; gap:5px; padding:1px 6px; }
 	.seg-row em { width:14px; font-style:normal; color:var(--faint); font-size:10px; text-align:right; }

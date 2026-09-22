@@ -365,7 +365,14 @@ New todos (design / bigger):
   Unset falls back to `STYLE_DEFAULTS` = **Sheets' defaults** (8pt, left, weight 1.2, fill none), so a
   new object matches Sheets. Verified in-browser (stroke/fill/weight round-trip; 16pt→22u, centre→
   text-anchor middle). [ ] Later: real ByLayer colour resolution + mm lineweights (§3/§4.2).
-- [ ] **Callout toggle** — let a text box become a **callout** (leader + box). Seems useful.
+- [x] **Callout toggle** (2026-09-22) — a text box can become a **callout** (boxed text + a leader line to
+  a target). `Ent` gains `callout?: boolean` + `leader?: Pt` (Firestore-stable). Properties (TEXT section)
+  has a **Callout checkbox** that seeds the leader tip below-left on enable and keeps it across off/on. The
+  text render draws a rounded box around `textBox(e)` (padded) + a leader from the box side nearest the tip
+  to `leader`, with a dot at the tip; a leader-tip GRIP (added to the text grips when callout) drags the
+  target. Verified in-browser: toggling on drew the box + leader + tip; dragging the tip grip moved the
+  leader to the target; clean console. (Leader is a single segment for now; a shoulder/arrowhead could come
+  later.)
 - [x] **Change-log UX** (2026-09-20) — refactored undo from two stacks to a **per-doc linear timeline
   with a pointer** (`docHist`; steps snapshot state AFTER each edit, gesture folds into one step). The
   History change log lists every step newest-first, highlights the **current** one, **fades future

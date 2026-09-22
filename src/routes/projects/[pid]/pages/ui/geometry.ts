@@ -30,7 +30,10 @@ export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'ellipse' | '
 	// SCOPE (orthogonal to plane, DXF-style): 'model'/undefined = belongs to the model, shown in every
 	// view of it (layer-gated); 'view:<frameId>' = a viewport-local annotation, shown only in that frame.
 	// Firestore-stable field names ({plane, space}) — see [[project_pages_firestore_schema]].
-	space?: 'model' | string }
+	space?: 'model' | string;
+	// CALLOUT (text only): `callout` boxes the text and draws a leader to `leader` (the tip it points at,
+	// model coords). Toggled in Properties; the leader tip has its own grip. Firestore-stable names.
+	callout?: boolean; leader?: Pt }
 export type View = { zoom: number; x: number; y: number }
 
 // Default object style — matched to the Sheets tool (annotations.svelte.ts: text fontPt 8 / align

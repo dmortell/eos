@@ -1185,7 +1185,14 @@
 			{ x: e.c![0], y: e.c![1], apply: p => ({ ...e, c: p }) },                       // move centre
 			{ x: e.c![0] + e.r!, y: e.c![1], apply: p => ({ ...e, r: Math.max(1, dist(e.c!, p)) }) }, // radius
 		]
-		if (e.type === 'text') return [{ x: e.a![0], y: e.a![1], apply: p => ({ ...e, a: p }) }]
+		if (e.type === 'text') {
+			const gs: Grip[] = [{ x: e.a![0], y: e.a![1], apply: p => ({ ...e, a: p }) }]
+			if (e.callout) {   // leader-tip grip (drag where the callout points)
+				const bb = textBox(e), tfs = (e.fontPt ?? STYLE_DEFAULTS.fontPt) * PT, lp = e.leader ?? ([bb[0] - tfs * 3, bb[3] + tfs * 3] as Pt)
+				gs.push({ x: lp[0], y: lp[1], apply: p => ({ ...e, leader: p }) })
+			}
+			return gs
+		}
 		return []
 	}
 	// (translate lives in ./geometry)
@@ -1820,6 +1827,21 @@
 		{@const lh = fs * 1.18}
 		<!-- vertical align shifts the whole block about the anchor a[1] (top = first baseline here). -->
 		{@const oy = e.valign === 'middle' ? -((lines.length - 1) * lh) / 2 : e.valign === 'bottom' ? -((lines.length - 1) * lh) : 0}
+		{#if e.callout}
+			<!-- callout: a box around the text + a leader line to e.leader (attached to the box side nearest the tip) -->
+			{@const bb = textBox(e)}
+			{@const pad = fs * 0.4}
+			{@const bx0 = bb[0] - pad}
+			{@const by0 = bb[1] - pad}
+			{@const bx1 = bb[2] + pad}
+			{@const by1 = bb[3] + pad}
+			{@const lp = e.leader ?? [bb[0] - fs * 3, bb[3] + fs * 3]}
+			{@const nx = lp[0] < (bx0 + bx1) / 2 ? bx0 : bx1}
+			{@const ny = lp[1] < (by0 + by1) / 2 ? by0 : by1}
+			<rect x={bx0} y={by0} width={bx1 - bx0} height={by1 - by0} rx={fs * 0.3} fill="none" stroke={ink} stroke-width={1.2 / (canvasZoom || 1)} vector-effect="non-scaling-stroke" />
+			<line x1={nx} y1={ny} x2={lp[0]} y2={lp[1]} stroke={ink} stroke-width={1.2 / (canvasZoom || 1)} vector-effect="non-scaling-stroke" />
+			<circle cx={lp[0]} cy={lp[1]} r={fs * 0.22} fill={ink} />
+		{/if}
 		<text class="anno" x={e.a![0]} y={e.a![1] + oy} font-size={fs} fill={ink} font-weight="600" text-anchor={anchor} dominant-baseline={e.valign === 'middle' ? 'central' : undefined}>
 			{#each lines as line, i (i)}<tspan x={e.a![0]} dy={i === 0 ? 0 : lh}>{line}</tspan>{/each}
 		</text>
