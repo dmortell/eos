@@ -14,6 +14,7 @@
 	import { type Pt, type Ent, type View, type ElevDir, GROUND, MMPU, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, ELEV_BASIS, elevU, elevUInv, dist, segDist, translate, textBox } from './geometry'
 	import { makeMapper, type Mapper } from './mapper'
 	import type { ViewCtx } from './view'
+	import { pickSectionGrip as gPickSectionGrip } from './grips'
 	import { rotatePt, inScope as hInScope, inThisView as hInThisView, groundInIso as hGroundInIso, isFlatElev as hIsFlatElev, flatXSpan as hFlatXSpan, rotCenter as hRotCenter, bbox as hBbox, hitEnt as hHitEnt, pickable as hPickable, prismRect as hPrismRect, prismTilted, graphNodeDraw as hGraphNodeDraw, hitModel as hHitModel, hitModelIso as hHitModelIso, sectionCorners, hitSection as hHitSection, hitGuide as hHitGuide, marqueeSelect as hMarqueeSelect, type GN } from './hit'
 	import { isLayerHidden, isLayerLocked, layerColor, layerOrder } from '../layers.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
@@ -513,18 +514,10 @@
 	const hitSection = (p: Pt) => hHitSection(ctx, sections, p, tolMm(6))
 	// The currently-selected section marker (grips + toolbar), if it's shown in this plan view.
 	const selSectionObj = $derived.by(() => (isPlan && selSection ? sections.find((s) => s.id === selSection) ?? null : null))
-	// Resize the selected section by dragging corner `gi` to p, holding the opposite corner fixed (x/y
-	// only — z stays the section's cut band). Returns the new clip. `anchor` = the opposite corner.
-	function resizeSectionClip(c: Clip, gi: number, p: Pt, anchor: Pt): Clip {
-		return { ...c, x0: Math.round(Math.min(p[0], anchor[0])), x1: Math.round(Math.max(p[0], anchor[0])), y0: Math.round(Math.min(p[1], anchor[1])), y1: Math.round(Math.max(p[1], anchor[1])) }
-	}
-	// Which corner grip of the selected section a press grabs (constant screen tolerance), with a resize
-	// apply that mutates the clip about the fixed opposite corner. null = no grip under the cursor.
+	// Section grips live in ui/grips.ts (R1 step 4). The wrapper builds ONE mapper for the press (P1).
 	function pickSectionGrip(clientX: number, clientY: number): { id: string; apply: (p: Pt) => Clip } | null {
-		if (!selSectionObj) return null
-		const cs = sectionCorners(selSectionObj.clip), id = selSectionObj.id, c0 = { ...selSectionObj.clip }
-		for (let gi = 0; gi < 4; gi++) { const sp = localToClient(cs[gi][0], cs[gi][1]); if (sp && Math.hypot(sp.x - clientX, sp.y - clientY) < 14) return { id, apply: (p: Pt) => resizeSectionClip(c0, gi, p, cs[(gi + 2) % 4]) } }
-		return null
+		const m = mapper(); if (!m || !selSectionObj) return null
+		return gPickSectionGrip(m, selSectionObj, clientX, clientY)
 	}
 	// Screen position (in .vp-local px) for the selected section's floating toolbar — pinned just above
 	// the box's top-left, tracking pan/zoom (reads view/canvasZoom/vpW so it recomputes as they change).
