@@ -8,7 +8,7 @@ import type { ViewCtx, MLayers } from './view'
 import type { Mapper } from './mapper'
 import type { Obj } from '../3dview/types'
 import { ELEV_BASIS, elevUInv } from './geometry'
-import { bbox, graphNodeDraw, isFlatElev, flatXSpan, inThisView, prismRect, prismTilted, prismOutline, type GN } from './hit'
+import { bbox, graphNodeDraw, isFlatElev, flatXSpan, inThisView, prismRect, prismTilted, prismOutline, rotatePt, type GN } from './hit'
 import { orthoPt, constrainPt } from './annotations'
 
 export const SNAP_STEP = 100   // grid snap spacing (mm)
@@ -74,18 +74,26 @@ function polySnaps(pts: Pt[]): EntSnap[] {
  *  analogue of `entSnaps`. Nothing in iso (no in-view geometry to snap to there yet) and nothing on a
  *  hidden layer (`ml.visible`; NOT gated on locked — a locked object can still be a snap target, like
  *  a locked entity today). A prism gives its drawn outline's corners + edge midpoints + centre: the AABB
- *  face (`hit.prismRect`) for an upright prism, the true leaning silhouette (`hit.prismOutline`) for a
- *  tilted one (B10) — an upright prism ROTATED about z still uses the AABB here (not its rotated rect),
- *  matching the plan spec as given; flag if the rotated-corner case should snap precisely instead. A wall
- *  or conduit gives every node (`hit.graphNodeDraw`) as 'end' + each segment's midpoint as 'mid' — no
- *  'center' (a graph has no single natural one). NOT yet called from `findSnap` (that wiring, and whether
- *  entity snap always wins over it, is a separate decision — see findSnap's doc comment). */
+ *  face (`hit.prismRect`) for an upright, unrotated prism; a PLAN-view prism rotated about z (o.rot, no
+ *  tilt) instead rotates the AABB corners about the footprint centre with `rotatePt` — the same forward
+ *  rotation `boxFootprint` draws with and the inverse of `hitModel`'s plan rot-hit test — so the points sit
+ *  exactly on the drawn outline; an ELEVATION keeps the AABB face regardless of `rot` (that's what's drawn
+ *  there — z-rotation doesn't change a prism's elevation silhouette). A tilted prism (rotX/rotY, B10) uses
+ *  its true leaning silhouette (`hit.prismOutline`), which already folds in any `rot`. A wall or conduit
+ *  gives every node (`hit.graphNodeDraw`) as 'end' + each segment's midpoint as 'mid' — no 'center' (a
+ *  graph has no single natural one). NOT yet called from `findSnap` (that wiring, and whether entity snap
+ *  always wins over it, is a separate decision — see findSnap's doc comment). */
 export function objSnaps(ctx: ViewCtx, o: Obj, ml: MLayers): EntSnap[] {
 	if (ctx.isIso || !ml.visible(o)) return []
 	if (o.type === 'prism') {
 		if (prismTilted(o)) return polySnaps(prismOutline(ctx, o))
 		const r = prismRect(ctx, o); if (!r) return []
-		return polySnaps([[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]])
+		const corners: Pt[] = [[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]]
+		if (ctx.isPlan && o.rot) {
+			const cx = o.x + o.w / 2, cy = o.y + o.d / 2
+			return polySnaps(corners.map((p) => rotatePt(p, [cx, cy], o.rot!)))
+		}
+		return polySnaps(corners)
 	}
 	if (o.type === 'wall' || o.type === 'conduit') {
 		const nodes = o.nodes as GN[]

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { SNAP_STEP, snapToGrid, rndTo, snapDelta, entSnaps, findSnap, drawPoint, snapNode, graphNodeApply, elevDepthSnap, objSnaps } from './snap'
-import type { GN } from './hit'
+import { rotatePt, type GN } from './hit'
 import type { Model, Obj } from '../3dview/types'
 import type { Mapper } from './mapper'
 import { translate, type Ent, type Pt } from './geometry'
@@ -297,6 +297,25 @@ describe('objSnaps', () => {
 	it('iso: nothing (no in-view geometry to snap to yet)', () => {
 		const isoCtx: ViewCtx = { ...planCtx, dir: 'iso', isPlan: false, isIso: true }
 		expect(objSnaps(withObjs(isoCtx, [prism()]), prism(), shown)).toEqual([])
+	})
+	it('plan: a prism rotated about z (upright, no tilt) snaps to its TRUE rotated corners, not the AABB', () => {
+		const p90 = prism({ x: 0, y: 0, w: 200, d: 100, rot: 90 })
+		const s = objSnaps(withObjs(planCtx, [p90]), p90, shown)
+		// a 200×100 box rotated 90° about its centre (100,50) reads as a 100×200 box about the same centre
+		expect(sortPts(s.filter((x) => x.type === 'end').map((x) => x.point))).toEqual(sortPts([[50, -50], [50, 150], [150, -50], [150, 150]]))
+		expect(s.find((x) => x.type === 'center')?.point).toEqual([100, 50])
+	})
+	it('plan: a 45°-rotated prism has corners at the centre ± the half-extents rotated by rotatePt', () => {
+		const p45 = prism({ x: 0, y: 0, w: 200, d: 100, rot: 45 })
+		const s = objSnaps(withObjs(planCtx, [p45]), p45, shown)
+		const centre: Pt = [100, 50]
+		const expected = sortPts([[-100, -50], [100, -50], [100, 50], [-100, 50]].map((d) => rotatePt([centre[0] + d[0], centre[1] + d[1]], centre, 45)))
+		expect(sortPts(s.filter((x) => x.type === 'end').map((x) => x.point))).toEqual(expected)
+		expect(s.find((x) => x.type === 'center')?.point![0]).toBeCloseTo(100); expect(s.find((x) => x.type === 'center')?.point![1]).toBeCloseTo(50)
+	})
+	it('elevation ignores rot (z-rotation does not change the silhouette): same face as unrotated', () => {
+		const rotated = prism({ rot: 45 }), flat = prism()
+		expect(objSnaps(withObjs(frontCtx, [rotated]), rotated, shown)).toEqual(objSnaps(withObjs(frontCtx, [flat]), flat, shown))
 	})
 	it('a tilted prism uses its true leaning silhouette (prismOutline), not the AABB', () => {
 		const tilted = prism({ rotX: 30 })
