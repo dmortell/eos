@@ -304,17 +304,18 @@
 		if (!moved && tool !== 'Select') { e.preventDefault(); e.stopPropagation(); draft = []; cur = null; snapMark = null; on.tool?.('Select') }
 	}
 	// ── edit text in place ──
-	let editText = $state<{ id: string; x: number; y: number; fontPx: number; value: string } | null>(null)
+	let editText = $state<{ id: string; x: number; y: number; fontPx: number; value: string; align: 'left' | 'center' | 'right'; valign: 'top' | 'middle' | 'bottom'; rot: number; cx: number; cy: number } | null>(null)   // x/y = anchor, cx/cy = rotation centre, all in .vp-local px
 	let textInput: HTMLTextAreaElement | undefined = $state()
 	function startTextEdit(ent: Ent) {
 		if (!vpW || !vpH) return
 		// Position + font in .vp-LOCAL px (pre canvas-CSS-transform), so the transform scales the
 		// editor exactly like the SVG text — it stays glued to the object at any zoom/pan (screen-px
 		// math double-applied the canvas zoom, so the box floated off and ballooned when zoomed in).
-		const vbx = view.x + view.zoom * (CX + dscale * (ent.a![0] - CX)), vby = view.y + view.zoom * (CY + dscale * (ent.a![1] - CY))
-		const x = (vbx - minX) / vbW * vpW, y = (vby - minY) / vbH * vpH
+		const localPx = (q: Pt): Pt => { const vbx = view.x + view.zoom * (CX + dscale * (q[0] - CX)), vby = view.y + view.zoom * (CY + dscale * (q[1] - CY)); return [(vbx - minX) / vbW * vpW, (vby - minY) / vbH * vpH] }
+		const [x, y] = localPx(ent.a!)
+		const [cx, cy] = localPx(rotCenter(ctx, ent))   // B19: the SVG text rotates about its bbox centre — so does the editor
 		const fontPx = (ent.fontPt ?? STYLE_DEFAULTS.fontPt) * PT_MM * view.zoom * (vpW / vbW)   // annotative: paperMm·dscale cancels (B3)
-		editText = { id: ent.id, x, y, fontPx, value: ent.text ?? '' }
+		editText = { id: ent.id, x, y, fontPx, value: ent.text ?? '', align: ent.align ?? 'left', valign: ent.valign ?? 'top', rot: ent.rot ?? 0, cx, cy }
 		tick().then(() => { textInput?.focus(); textInput?.select() })
 	}
 	function commitText() {
@@ -337,7 +338,7 @@
 		if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) { e.preventDefault(); on.select?.(entities.map(x => x.id)); return }   // select all
 		if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D') && sel.length) {   // duplicate (offset +8,+8)
 			e.preventDefault()
-			const copies = sel.map(id => entities.find(x => x.id === id)).filter(Boolean).map(en => ({ ...translate(en!, 8, 8), id: uid() }))
+			const off = 5 * paperMm; const copies = sel.map(id => entities.find(x => x.id === id)).filter(Boolean).map(en => ({ ...translate(en!, off, off), id: uid() }))   // B19: 5 PAPER mm, visible at any scale
 			copies.forEach(c => on.add?.(c)); on.select?.(copies.map(c => c.id))
 			return
 		}
@@ -1266,11 +1267,14 @@
 		{@const lines = (editText.value || ' ').split('\n')}
 		{@const cols = Math.max(...lines.map(l => l.length), 3)}
 		{@const w = cols * editText.fontPx * 0.62 + 14}
+		{@const lh = editText.fontPx * 1.2}
+		{@const left = editText.x - (editText.align === 'center' ? w / 2 : editText.align === 'right' ? w : 0)}
+		{@const top = editText.y - editText.fontPx * 0.8 - (editText.valign === 'middle' ? ((lines.length - 1) * lh) / 2 : editText.valign === 'bottom' ? (lines.length - 1) * lh : 0)}
 		<!-- Opaque, auto-sizing editor placed over the (hidden) text (in .vp-local px so it tracks the
 		     text at any zoom). Enter = newline (keydown is stopped so the viewport's own Enter handler
 		     can't preempt it); Ctrl/⌘-Enter or blur commits; Esc cancels. -->
 		<textarea class="text-edit" bind:this={textInput} bind:value={editText.value} spellcheck="false" wrap="off"
-			style="left:{editText.x}px; top:{editText.y - editText.fontPx * 0.8}px; font-size:{editText.fontPx}px; line-height:{editText.fontPx * 1.2}px; width:{w}px; height:{lines.length * editText.fontPx * 1.2 + 6}px"
+			style="left:{left}px; top:{top}px; font-size:{editText.fontPx}px; line-height:{lh}px; width:{w}px; height:{lines.length * lh + 6}px; text-align:{editText.align}; transform-origin:{editText.cx - left}px {editText.cy - top}px; transform:rotate({editText.rot}deg)"
 			onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()} ondblclick={(e) => e.stopPropagation()}
 			onblur={commitText}
 			onkeydown={(e) => { e.stopPropagation(); if (e.key === 'Escape') { e.preventDefault(); editText = null } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commitText() } }}></textarea>

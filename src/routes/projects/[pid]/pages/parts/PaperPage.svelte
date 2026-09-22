@@ -10,6 +10,7 @@
 	import Viewport, { type Env, type VpOn } from '../ui/Viewport.svelte'
 	import type { Ent, View } from '../ui/geometry'
 	import Handle from './Handle.svelte'
+	import { beginPointerDrag, DragRegistry } from '../ui/gestures'
 	import { HANDLE_PX, PAPER_W, PAPER_H } from '../constants'
 	import type { ElevDir } from '../ui/geometry'
 	import type { SheetFrame } from '../types'
@@ -49,21 +50,20 @@
 
 	// gi: 0 TL, 1 TR, 2 BR, 3 BL — mirrors the rect-tool corner grips (opposite corner fixed). `set`
 	// reports the new geometry up (onframegeom); `commit` records one history step at the end.
-	let drag: { mode: 'move' | 'grip'; gi: number; sx: number; sy: number; base: Frame; s: number; set: (f: Frame) => void; commit?: boolean; moved: boolean } | null = null
+	// beginPointerDrag-managed (ui/gestures.ts) with a 4 px move threshold (B19): a jittery click on a frame
+	// border no longer records a 'Move viewport' step — same threshold the Sheets tool uses.
+	type FrameDrag = { mode: 'move' | 'grip'; gi: number; sx: number; sy: number; base: Frame; s: number; set: (f: Frame) => void; commit?: boolean }
+	const reg = new DragRegistry()
 	function startDrag(e: PointerEvent, mode: 'move' | 'grip', gi: number, base: Frame, set: (f: Frame) => void, commit = false) {
 		e.stopPropagation()
-		drag = { mode, gi, sx: e.clientX, sy: e.clientY, base: { ...base }, s: scaleOf(), set, commit, moved: false }
-		try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
-		window.addEventListener('pointermove', onDrag)
-		window.addEventListener('pointerup', endDrag)
+		beginPointerDrag<FrameDrag>(e, { mode, gi, sx: e.clientX, sy: e.clientY, base: { ...base }, s: scaleOf(), set, commit },
+			{ onMove: onDrag, onUp: (_e, d, moved) => { if (d.commit && moved) onframecommit?.() } }, reg, { thresholdPx: 4 })   // one history step per extra-frame move/resize
 	}
 	// Viewports move freely on an infinite canvas — no position clamp; pan to follow one that
 	// has been dragged off the paper.
-	function onDrag(e: PointerEvent) {
-		if (!drag) return
+	function onDrag(e: PointerEvent, drag: FrameDrag) {
 		const dx = (e.clientX - drag.sx) / drag.s, dy = (e.clientY - drag.sy) / drag.s
 		const b = drag.base
-		drag.moved = true
 		if (drag.mode === 'move') { drag.set({ w: b.w, h: b.h, x: b.x + dx, y: b.y + dy }); return }
 		let { x, y, w, h } = b
 		if (drag.gi === 0) { x = b.x + dx; y = b.y + dy; w = b.w - dx; h = b.h - dy }       // TL
@@ -73,12 +73,6 @@
 		if (w < MIN) { if (drag.gi === 0 || drag.gi === 3) x = b.x + b.w - MIN; w = MIN }
 		if (h < MIN) { if (drag.gi === 0 || drag.gi === 1) y = b.y + b.h - MIN; h = MIN }
 		drag.set({ x, y, w, h })   // may extend beyond the sheet
-	}
-	function endDrag() {
-		if (drag?.commit && drag.moved) onframecommit?.()   // one history step per extra-frame move/resize
-		drag = null
-		window.removeEventListener('pointermove', onDrag)
-		window.removeEventListener('pointerup', endDrag)
 	}
 
 	// Selection marquee (paper space): drag a box across empty paper; if it touches the

@@ -49,6 +49,10 @@
 		return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
 	})
 	let single = $derived(ents.length === 1 ? ents[0] : null)
+	// B19: the inputs are uncontrolled (`value=` + `onchange`), so a half-typed value would survive a selection
+	// change and land on the NEXT selection's first commit. Keying the panel body on WHAT is selected remounts
+	// every input when the selection changes (a value edit keeps the same ids → no remount, focus kept).
+	const selKey = $derived([...ents.map((e) => e.id), modelObj?.id ?? '', frameObj?.id ?? '', node?.id ?? ''].join('|'))
 	let typeLabel = $derived(ents.length === 0 ? '' : new Set(ents.map(e => e.type)).size === 1 ? ents[0].type : `Mixed (${ents.length})`)
 	const r1 = (n: number) => Math.round(n * 10) / 10
 
@@ -119,6 +123,7 @@
 	</label>
 {/snippet}
 
+{#key selKey}
 <div class="pp">
 	{#if frameObj}
 		<!-- a sheet VIEWPORT FRAME is selected → edit its source model + view (projection / scale / border) -->
@@ -375,6 +380,7 @@
 		<div class="pp-hint">{ents.length > 1 ? 'Style + position apply to the whole selection.' : 'Editing writes straight to the object.'} New objects use Sheets’ defaults ({STYLE_DEFAULTS.fontPt}pt, left).</div>
 	{/if}
 </div>
+{/key}
 
 <style>
 	.pp { flex:1; overflow-y:auto; padding:5px; min-height:0; scrollbar-width:thin; scrollbar-color:var(--line) transparent; }

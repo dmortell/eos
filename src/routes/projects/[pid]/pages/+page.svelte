@@ -304,7 +304,7 @@
 	function pasteEnts(id?: string) {
 		if (!clipboard.length || !id) return
 		pasteN++
-		const off = 10 * pasteN, gidMap = new Map<string, string>()
+		const off = 5 * propsScaleN * pasteN, gidMap = new Map<string, string>()   // B19: 5 PAPER mm per paste (model mm = paper mm × scale N), stacking
 		const copies = clipboard.map(e => {
 			let gid = e.groupId
 			if (gid) { if (!gidMap.has(gid)) gidMap.set(gid, newId()); gid = gidMap.get(gid) }
