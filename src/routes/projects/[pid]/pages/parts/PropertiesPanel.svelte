@@ -320,6 +320,10 @@
 			<div class="prop wide"><textarea class="pp-textarea" use:autoresize value={single.text ?? ''} onchange={(e) => setText((e.currentTarget as HTMLTextAreaElement).value)}></textarea></div>
 			<label class="prop cb"><span>Callout</span><input type="checkbox" checked={!!single.callout} onchange={(e) => setCallout((e.currentTarget as HTMLInputElement).checked)} /></label>
 		{/if}
+		{#if single?.type === 'rect'}
+			<div class="prop-sec">RECT</div>
+			<label class="prop cb"><span>Revision cloud</span><input type="checkbox" checked={!!single.cloud} onchange={(e) => setAll({ cloud: (e.currentTarget as HTMLInputElement).checked })} /></label>
+		{/if}
 		{#if single?.type === 'line'}
 			<div class="prop-sec">LINE</div>
 			<div class="prop"><span>Arrows</span>

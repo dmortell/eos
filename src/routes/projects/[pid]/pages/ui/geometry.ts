@@ -35,7 +35,9 @@ export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'ellipse' | '
 	// model coords). Toggled in Properties; the leader tip has its own grip. Firestore-stable names.
 	callout?: boolean; leader?: Pt;
 	// ARROW (line): arrowhead at the start, end, both, or none (default). Firestore-stable.
-	arrow?: 'none' | 'start' | 'end' | 'both' }
+	arrow?: 'none' | 'start' | 'end' | 'both';
+	// CLOUD (rect): render the rectangle outline as a revision cloud (scalloped arcs). Firestore-stable.
+	cloud?: boolean }
 export type View = { zoom: number; x: number; y: number }
 
 // Default object style — matched to the Sheets tool (annotations.svelte.ts: text fontPt 8 / align

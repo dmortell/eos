@@ -1235,6 +1235,21 @@
 		const bx = to[0] - ux * L, by = to[1] - uy * L
 		return `${to[0]},${to[1]} ${bx + vx * HW},${by + vy * HW} ${bx - vx * HW},${by - vy * HW}`
 	}
+	// A REVISION CLOUD outline around the a→b rect: outward semicircle bumps along each edge (SVG path).
+	// Clockwise winding (TL→TR→BR→BL) with sweep-flag 0 keeps every bump on the OUTSIDE; bump size is a
+	// near-constant screen size (gripSize) so it reads as a cloud at any zoom.
+	function cloudPath(a: Pt, b: Pt): string {
+		const x0 = Math.min(a[0], b[0]), y0 = Math.min(a[1], b[1]), x1 = Math.max(a[0], b[0]), y1 = Math.max(a[1], b[1])
+		const D = Math.max(gripSize * 5, 1)   // target bump diameter
+		const edges: [Pt, Pt][] = [[[x0, y0], [x1, y0]], [[x1, y0], [x1, y1]], [[x1, y1], [x0, y1]], [[x0, y1], [x0, y0]]]
+		let d = `M ${x0} ${y0}`
+		for (const [p, q] of edges) {
+			const len = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1, n = Math.max(1, Math.round(len / D)), step = len / n
+			const ux = (q[0] - p[0]) / len, uy = (q[1] - p[1]) / len, r = step / 2
+			for (let i = 0; i < n; i++) { const ex = p[0] + ux * step * (i + 1), ey = p[1] + uy * step * (i + 1); d += ` A ${r} ${r} 0 0 0 ${ex} ${ey}` }
+		}
+		return d + ' Z'
+	}
 
 	// What a press at these client coords would grab: a grip of a selected entity, or the
 	// body of any entity (topmost). Drives the pointer-drag start (mouse-left / 1-finger
@@ -1822,7 +1837,11 @@
 	{:else if e.type === 'polyline'}
 		<polyline points={(e.pts ?? []).map(p => p.join(',')).join(' ')} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" stroke-linejoin="round" />
 	{:else if e.type === 'rect'}
-		<rect x={Math.min(e.a![0], e.b![0])} y={Math.min(e.a![1], e.b![1])} width={Math.abs(e.b![0] - e.a![0])} height={Math.abs(e.b![1] - e.a![1])} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
+		{#if e.cloud}
+			<path d={cloudPath(e.a!, e.b!)} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" stroke-linejoin="round" />
+		{:else}
+			<rect x={Math.min(e.a![0], e.b![0])} y={Math.min(e.a![1], e.b![1])} width={Math.abs(e.b![0] - e.a![0])} height={Math.abs(e.b![1] - e.a![1])} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
+		{/if}
 	{:else if e.type === 'circle'}
 		<circle cx={e.c![0]} cy={e.c![1]} r={e.r} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
 	{:else if e.type === 'ellipse'}

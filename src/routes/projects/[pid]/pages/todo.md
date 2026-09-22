@@ -617,7 +617,11 @@ Symbols are identical to annotes.
   both ends; clean console.
 - [ ] rect 
 - [ ] **ellipse** 
-- [ ] **cloud** (revision cloud)
+- [x] **cloud** (revision cloud) (2026-09-22) — a rect carries `cloud?: boolean`; when set the render
+  draws a scalloped outline (outward semicircle bumps along each edge, CW winding + sweep-flag 0 keeps
+  every bump outside; bump size ~constant on screen via `gripSize`) via `cloudPath()`. Reuses the Rectangle
+  tool's draw/hit/grips — just a Properties (RECT section) "Revision cloud" checkbox. Verified in-browser:
+  toggling it turned the rect into a clean cloud with outward bumps on all edges; clean console.
 - [ ] callout (leader + text box) 
 - [ ] dimension 
 - [ ] image (raster) 
