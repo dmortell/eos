@@ -6,8 +6,9 @@
 import type { Pt, Ent } from './geometry'
 import type { ViewCtx, MLayers } from './view'
 import type { Mapper } from './mapper'
+import type { Obj } from '../3dview/types'
 import { ELEV_BASIS, elevUInv } from './geometry'
-import { bbox, graphNodeDraw, isFlatElev, flatXSpan, inThisView, type GN } from './hit'
+import { bbox, graphNodeDraw, isFlatElev, flatXSpan, inThisView, prismRect, prismTilted, prismOutline, type GN } from './hit'
 import { orthoPt, constrainPt } from './annotations'
 
 export const SNAP_STEP = 100   // grid snap spacing (mm)
@@ -54,6 +55,52 @@ export function entSnaps(ctx: ViewCtx, e: Ent): EntSnap[] {
 	return []
 }
 
+/** Corners + edge midpoints (+ centre, the average of the corners) of a CLOSED drawing-coord outline —
+ *  shared by the prism branches of `objSnaps` below. */
+function polySnaps(pts: Pt[]): EntSnap[] {
+	if (pts.length < 2) return pts.map((p) => ({ point: p, type: 'end' as const }))
+	const out: EntSnap[] = pts.map((p) => ({ point: p, type: 'end' }))
+	let cx = 0, cy = 0
+	for (let i = 0; i < pts.length; i++) {
+		const a = pts[i], b = pts[(i + 1) % pts.length]
+		out.push({ point: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], type: 'mid' })
+		cx += a[0]; cy += a[1]
+	}
+	out.push({ point: [cx / pts.length, cy / pts.length], type: 'center' })
+	return out
+}
+
+/** K5: the object-snap points of a MODEL object (prism / wall / conduit) in the CURRENT view — the model
+ *  analogue of `entSnaps`. Nothing in iso (no in-view geometry to snap to there yet) and nothing on a
+ *  hidden layer (`ml.visible`; NOT gated on locked — a locked object can still be a snap target, like
+ *  a locked entity today). A prism gives its drawn outline's corners + edge midpoints + centre: the AABB
+ *  face (`hit.prismRect`) for an upright prism, the true leaning silhouette (`hit.prismOutline`) for a
+ *  tilted one (B10) — an upright prism ROTATED about z still uses the AABB here (not its rotated rect),
+ *  matching the plan spec as given; flag if the rotated-corner case should snap precisely instead. A wall
+ *  or conduit gives every node (`hit.graphNodeDraw`) as 'end' + each segment's midpoint as 'mid' — no
+ *  'center' (a graph has no single natural one). NOT yet called from `findSnap` (that wiring, and whether
+ *  entity snap always wins over it, is a separate decision — see findSnap's doc comment). */
+export function objSnaps(ctx: ViewCtx, o: Obj, ml: MLayers): EntSnap[] {
+	if (ctx.isIso || !ml.visible(o)) return []
+	if (o.type === 'prism') {
+		if (prismTilted(o)) return polySnaps(prismOutline(ctx, o))
+		const r = prismRect(ctx, o); if (!r) return []
+		return polySnaps([[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]])
+	}
+	if (o.type === 'wall' || o.type === 'conduit') {
+		const nodes = o.nodes as GN[]
+		const nm = new Map(nodes.map((n) => [n.id, n]))
+		const out: EntSnap[] = nodes.map((n) => ({ point: graphNodeDraw(ctx, n), type: 'end' }))
+		for (const s of o.segments as { a: string; b: string }[]) {
+			const a = nm.get(s.a), b = nm.get(s.b); if (!a || !b) continue
+			const pa = graphNodeDraw(ctx, a), pb = graphNodeDraw(ctx, b)
+			out.push({ point: [(pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2], type: 'mid' })
+		}
+		return out
+	}
+	return []
+}
+
 /** A found object snap: the snapped point + its marker kind (□ end · △ mid · ○ center). */
 export type SnapHit = { p: Pt; type: string }
 
@@ -69,7 +116,10 @@ export type SnapOpts = {
 /** The nearest object-snap point (of any entity shown in THIS view) within `radiusPx` of the pointer, or
  *  null. Distances are measured in screen px via ONE mapper for the whole pass (P1: one layout read, not one
  *  per point). Entities native to another plane or scoped to another frame are skipped (B22). The caller
- *  gates on the OSNAP toggle. */
+ *  gates on the OSNAP toggle.
+ *  FUTURE (K5): once model-geometry snapping is wired in, this gains an `objs: Obj[]` (or similar) option so
+ *  `objSnaps(ctx, o, ml)` candidates are searched alongside `entSnaps` — deferred so entity snap behaviour
+ *  is unchanged until that's a deliberate decision. */
 export function findSnap(ctx: ViewCtx, m: Mapper, ents: Ent[], clientX: number, clientY: number, opts: SnapOpts = {}): SnapHit | null {
 	const r = opts.radiusPx ?? 11
 	let best: { p: Pt; type: string; d: number } | null = null

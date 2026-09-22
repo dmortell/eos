@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { SNAP_STEP, snapToGrid, rndTo, snapDelta, entSnaps, findSnap, drawPoint, snapNode, graphNodeApply, elevDepthSnap } from './snap'
+import { SNAP_STEP, snapToGrid, rndTo, snapDelta, entSnaps, findSnap, drawPoint, snapNode, graphNodeApply, elevDepthSnap, objSnaps } from './snap'
 import type { GN } from './hit'
 import type { Model, Obj } from '../3dview/types'
 import type { Mapper } from './mapper'
@@ -273,5 +273,61 @@ describe('elevDepthSnap', () => {
 		const rctx: ViewCtx = withObjs({ ...frontCtx, dir: 'right', elevDir: 'right' }, [trunk])
 		// right: u = cx + (y − cy) = 14000 + 250 = 14250 for both trunk nodes; the segment is a point on-axis
 		expect(elevDepthSnap(rctx, [14250, 7750], 12, shown)?.off).toBe(13000)
+	})
+})
+
+// ── objSnaps (K5 prep) ──
+describe('objSnaps', () => {
+	const prism = (over: Partial<Extract<Obj, { type: 'prism' }>> = {}): Obj =>
+		({ type: 'prism', id: 'p1', x: 100, y: 200, z: 0, w: 400, d: 300, h: 1000, edges: 4, layer: 'furniture', ...over } as Obj)
+
+	it('plan: upright prism → 4 corners + 4 mids + centre (9 points) at the footprint AABB', () => {
+		const s = objSnaps(withObjs(planCtx, [prism()]), prism(), shown)
+		expect(s.length).toBe(9)
+		expect(s.filter((x) => x.type === 'end').map((x) => x.point).sort()).toEqual([[100, 200], [100, 500], [500, 200], [500, 500]].sort())
+		expect(s.filter((x) => x.type === 'mid').length).toBe(4)
+		expect(s.find((x) => x.type === 'center')?.point).toEqual([300, 350])
+	})
+	it('front elevation: upright prism → the drawn FACE rect (x-span × z-height), 9 points', () => {
+		const s = objSnaps(withObjs(frontCtx, [prism()]), prism(), shown)
+		// front: on-axis u = x (identity about cx=14000); z-height base = ground(10250) − z(0) = 10250, top = base − h(1000) = 9250
+		expect(s.filter((x) => x.type === 'end').map((x) => x.point).sort()).toEqual([[100, 9250], [100, 10250], [500, 9250], [500, 10250]].sort())
+		expect(s.find((x) => x.type === 'center')?.point).toEqual([300, 9750])
+	})
+	it('iso: nothing (no in-view geometry to snap to yet)', () => {
+		const isoCtx: ViewCtx = { ...planCtx, dir: 'iso', isPlan: false, isIso: true }
+		expect(objSnaps(withObjs(isoCtx, [prism()]), prism(), shown)).toEqual([])
+	})
+	it('a tilted prism uses its true leaning silhouette (prismOutline), not the AABB', () => {
+		const tilted = prism({ rotX: 30 })
+		const s = objSnaps(withObjs(frontCtx, [tilted]), tilted, shown)
+		expect(s.some((x) => x.type === 'end')).toBe(true)
+		expect(s.some((x) => x.type === 'center')).toBe(true)
+		// the leaning silhouette is taller than the untilted face (9250..10250 = 1000 span)
+		const zs = s.filter((x) => x.type === 'end').map((x) => x.point[1])
+		expect(Math.max(...zs) - Math.min(...zs)).toBeGreaterThan(1000)
+	})
+	it('wall/conduit: every node as "end", each segment midpoint as "mid" — no centre', () => {
+		const a: GN = { id: 'a', x: 0, y: 0, z: 0 }, b: GN = { id: 'b', x: 1000, y: 0, z: 0 }, c: GN = { id: 'c', x: 1000, y: 500, z: 0 }
+		const w = wall('w1', [a, b, c])
+		const s = objSnaps(withObjs(planCtx, [w]), w, shown)
+		expect(s.filter((x) => x.type === 'end').map((x) => x.point)).toEqual([[0, 0], [1000, 0], [1000, 500]])
+		expect(s.filter((x) => x.type === 'mid').map((x) => x.point)).toEqual([[500, 0], [1000, 250]])
+		expect(s.some((x) => x.type === 'center')).toBe(false)
+	})
+	it('wall in an elevation: nodes/mids via graphNodeDraw (on-axis + ground−z)', () => {
+		const a: GN = { id: 'a', x: 100, y: 0, z: 0 }, b: GN = { id: 'b', x: 100, y: 0, z: 2800 }
+		const w = wall('w', [a, b])
+		const s = objSnaps(withObjs(frontCtx, [w]), w, shown)
+		expect(s.filter((x) => x.type === 'end').map((x) => x.point)).toEqual([[100, 10250], [100, 7450]])
+		expect(s.find((x) => x.type === 'mid')?.point).toEqual([100, 8850])
+	})
+	it('a hidden-layer object offers nothing', () => {
+		const p = prism()
+		expect(objSnaps(withObjs(planCtx, [p]), p, { visible: () => false, locked: () => false })).toEqual([])
+	})
+	it('a locked (but visible) object still offers snap points, like a locked entity today', () => {
+		const p = prism()
+		expect(objSnaps(withObjs(planCtx, [p]), p, { visible: () => true, locked: () => true }).length).toBe(9)
 	})
 })
