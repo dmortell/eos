@@ -1236,8 +1236,8 @@
 		return `${to[0]},${to[1]} ${bx + vx * HW},${by + vy * HW} ${bx - vx * HW},${by - vy * HW}`
 	}
 	// A REVISION CLOUD outline around the a→b rect: outward semicircle bumps along each edge (SVG path).
-	// Clockwise winding (TL→TR→BR→BL) with sweep-flag 0 keeps every bump on the OUTSIDE; bump size is a
-	// near-constant screen size (gripSize) so it reads as a cloud at any zoom.
+	// Clockwise winding (TL→TR→BR→BL) with sweep-flag 1 keeps every bump on the OUTSIDE — matching the
+	// proven Sheets `cloudPath` (sheets/annotations/geometry.ts). Bump size ~constant on screen (gripSize).
 	function cloudPath(a: Pt, b: Pt): string {
 		const x0 = Math.min(a[0], b[0]), y0 = Math.min(a[1], b[1]), x1 = Math.max(a[0], b[0]), y1 = Math.max(a[1], b[1])
 		const D = Math.max(gripSize * 5, 1)   // target bump diameter
@@ -1246,7 +1246,7 @@
 		for (const [p, q] of edges) {
 			const len = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1, n = Math.max(1, Math.round(len / D)), step = len / n
 			const ux = (q[0] - p[0]) / len, uy = (q[1] - p[1]) / len, r = step / 2
-			for (let i = 0; i < n; i++) { const ex = p[0] + ux * step * (i + 1), ey = p[1] + uy * step * (i + 1); d += ` A ${r} ${r} 0 0 0 ${ex} ${ey}` }
+			for (let i = 1; i <= n; i++) { const ex = p[0] + ux * step * i, ey = p[1] + uy * step * i; d += ` A ${r} ${r} 0 0 1 ${ex} ${ey}` }
 		}
 		return d + ' Z'
 	}
