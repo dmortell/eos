@@ -610,7 +610,11 @@ Annotes are identical to model objects, just stored in view instead of model, an
 Symbols are identical to annotes.
 - [ ] text 
 - [ ] line 
-- [ ] arrow (add props to line for arrowheads)
+- [x] arrow (2026-09-22) — a line carries `arrow?: 'none'|'start'|'end'|'both'`; the render draws a filled
+  arrowhead triangle (constant screen size via `gripSize`, so it stays an arrow at any zoom) at the chosen
+  end(s). Properties gains a LINE section with an Arrows dropdown. The shared `arrowPts()` helper also
+  replaced the callout leader's dot with a proper arrowhead. Verified in-browser: Arrows=Both drew heads at
+  both ends; clean console.
 - [ ] rect 
 - [ ] **ellipse** 
 - [ ] **cloud** (revision cloud)

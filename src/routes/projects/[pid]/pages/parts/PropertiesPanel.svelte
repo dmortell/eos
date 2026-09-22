@@ -320,6 +320,14 @@
 			<div class="prop wide"><textarea class="pp-textarea" use:autoresize value={single.text ?? ''} onchange={(e) => setText((e.currentTarget as HTMLTextAreaElement).value)}></textarea></div>
 			<label class="prop cb"><span>Callout</span><input type="checkbox" checked={!!single.callout} onchange={(e) => setCallout((e.currentTarget as HTMLInputElement).checked)} /></label>
 		{/if}
+		{#if single?.type === 'line'}
+			<div class="prop-sec">LINE</div>
+			<div class="prop"><span>Arrows</span>
+				<select value={single.arrow ?? 'none'} onchange={(e) => setAll({ arrow: (e.currentTarget as HTMLSelectElement).value as Ent['arrow'] })}>
+					<option value="none">None</option><option value="start">Start</option><option value="end">End</option><option value="both">Both</option>
+				</select>
+			</div>
+		{/if}
 		{#if single?.type === 'image'}
 			<!-- imported file: origin = Position, scale = Size (above); here opacity (for tracing) + CROP
 			     (visible sub-rect of the source, as %). Real backend stores these against the fileId (§4). -->

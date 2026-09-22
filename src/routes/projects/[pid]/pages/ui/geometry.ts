@@ -33,7 +33,9 @@ export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'ellipse' | '
 	space?: 'model' | string;
 	// CALLOUT (text only): `callout` boxes the text and draws a leader to `leader` (the tip it points at,
 	// model coords). Toggled in Properties; the leader tip has its own grip. Firestore-stable names.
-	callout?: boolean; leader?: Pt }
+	callout?: boolean; leader?: Pt;
+	// ARROW (line): arrowhead at the start, end, both, or none (default). Firestore-stable.
+	arrow?: 'none' | 'start' | 'end' | 'both' }
 export type View = { zoom: number; x: number; y: number }
 
 // Default object style — matched to the Sheets tool (annotations.svelte.ts: text fontPt 8 / align

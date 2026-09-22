@@ -1227,6 +1227,14 @@
 	// zooms cancels them so the grip is always HANDLE_PX px — the canvas CSS zoom included
 	// (without canvasZoom the grips grew as you zoomed the canvas in).
 	const gripSize = $derived(HANDLE_PX / BASE / view.zoom / (canvasZoom || 1) / (dscale || 1))
+	// A filled arrowhead triangle AT `to`, pointing away from `from` — constant screen size (via gripSize),
+	// returned as SVG polygon points. Shared by the Line arrow prop and the callout leader tip.
+	function arrowPts(from: Pt, to: Pt): string {
+		const dx = to[0] - from[0], dy = to[1] - from[1], len = Math.hypot(dx, dy) || 1
+		const ux = dx / len, uy = dy / len, vx = -uy, vy = ux, L = gripSize * 3.2, HW = gripSize * 1.4
+		const bx = to[0] - ux * L, by = to[1] - uy * L
+		return `${to[0]},${to[1]} ${bx + vx * HW},${by + vy * HW} ${bx - vx * HW},${by - vy * HW}`
+	}
 
 	// What a press at these client coords would grab: a grip of a selected entity, or the
 	// body of any entity (topmost). Drives the pointer-drag start (mouse-left / 1-finger
@@ -1798,6 +1806,8 @@
 		<line x1={sp[0]} y1={GROUND} x2={sp[1]} y2={GROUND} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
 	{:else if e.type === 'line'}
 		<line x1={e.a![0]} y1={e.a![1]} x2={e.b![0]} y2={e.b![1]} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
+		{#if e.arrow === 'end' || e.arrow === 'both'}<polygon points={arrowPts(e.a!, e.b!)} fill={ink} />{/if}
+		{#if e.arrow === 'start' || e.arrow === 'both'}<polygon points={arrowPts(e.b!, e.a!)} fill={ink} />{/if}
 	{:else if e.type === 'image'}
 		<!-- an imported background image placed FULL in the a→b rect (origin + scale); CROP is the visible
 		     WINDOW = a normalized sub-rect of that placement (the rest is trimmed away). -->
@@ -1840,7 +1850,7 @@
 			{@const ny = lp[1] < (by0 + by1) / 2 ? by0 : by1}
 			<rect x={bx0} y={by0} width={bx1 - bx0} height={by1 - by0} rx={fs * 0.3} fill="none" stroke={ink} stroke-width={1.2 / (canvasZoom || 1)} vector-effect="non-scaling-stroke" />
 			<line x1={nx} y1={ny} x2={lp[0]} y2={lp[1]} stroke={ink} stroke-width={1.2 / (canvasZoom || 1)} vector-effect="non-scaling-stroke" />
-			<circle cx={lp[0]} cy={lp[1]} r={fs * 0.22} fill={ink} />
+			<polygon points={arrowPts([nx, ny] as Pt, lp as Pt)} fill={ink} />
 		{/if}
 		<text class="anno" x={e.a![0]} y={e.a![1] + oy} font-size={fs} fill={ink} font-weight="600" text-anchor={anchor} dominant-baseline={e.valign === 'middle' ? 'central' : undefined}>
 			{#each lines as line, i (i)}<tspan x={e.a![0]} dy={i === 0 ? 0 : lh}>{line}</tspan>{/each}
