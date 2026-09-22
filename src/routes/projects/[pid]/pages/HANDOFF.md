@@ -4,18 +4,20 @@ Working notes for the next session (or a fresh context) picking up the Pages ref
 `refactor-plan.md` (the R1 Viewport split plan) and `review.md` (the standing review, maintained by the
 eos-f8 reviewer session). Delete this file once the queue below is drained.
 
-> **RESUME HERE (fresh session):** R1 (Viewport split) is CLOSED — steps 3–9 + every mop-up landed and
-> reviewer-gated (review.md §0a; close-out with the measured line breakdown in refactor-plan.md §11,
-> `9bb7cff`). The three Dave-approved behaviour changes are on main and GATED PASS (review.md ee61243):
-> **B24** `18ade46` (moveEnt flatness per view), **B25** `07a0195` (Shift-press toggles the pressed id),
-> **K5** `9be21a6` (model corners/nodes are OSNAP targets; odd-edge prisms inherit B21 until it lands).
-> Viewport is 1364 lines (2209 before step 1); the ≤600 target is B5 (sections into the model, ~150 lines) +
-> R6 (editor class; the 318-line event dispatch) — scope R6 from §11's region table, not guesses.
-> Open small items: B19 frame-drag threshold (gestures.ts `thresholdPx` is shipped + tested but unused),
-> B21 odd-edge prisms (engine), B23 wall/conduit pick across the drawn face (R7), the `edit` object seam
-> for the model store mutations (R6). Verify in-browser: the :5173 dev server serves the WORKING TREE
-> (HMR), so keep Viewport.svelte clean while eos-f8 gates; activate a viewport by double-clicking EMPTY
-> space. Test filter: `pnpm vitest run --project=server pages/`.
+> **RESUME HERE (fresh session):** R1 is CLOSED (steps 3–9 + mop-ups, review.md §0a; close-out with the
+> measured line breakdown in refactor-plan.md §11). Landed + gated since: B24 `18ade46`, B25 `07a0195`, K5
+> `9be21a6` (model corners/nodes as OSNAP targets), B5 Viewport side `5db346f` (sections are model edits made
+> in the Viewport; `sections` prop + 3 callbacks gone) + B26 `c4b364c` (the `(x.y ??= []).push()` $state-proxy
+> trap — first section/guide was lost). In eos-f8's gate pass now (all on main, HEAD `7cc3a50`): B23 `2b91b3d`
+> (walls pick across their elevation face), B19 part 2 `7cc3a50` (frame-drag 4 px threshold, Properties
+> remount on selection change, 5-paper-mm duplicate/paste offsets, text editor align/valign/rot), B20
+> `41d12f8` + B21 `b31ec37` (engine, eos-18). Push to origin after that PASS. Then the bug index is EMPTY
+> except: B12's ~10 a11y warnings (deliberate), B16 (two layer systems = R5), B17 (module singletons = R9),
+> B18 (stable per-drawing id). Next structural work is R6 (editor class; the 318-line event dispatch in
+> Viewport, see §11) — Viewport is 1380 lines. Verify in-browser: the :5173 dev server serves the WORKING
+> TREE (HMR), so keep the tree clean while eos-f8 gates; activate a viewport by double-clicking EMPTY space.
+> Test filter: `pnpm vitest run --project=server pages/`. Peers: eos-f8 (VS Code, reviewer/gate), eos-18
+> (Zed, Sonnet 5, takes spec'd tasks in files I'm not editing) — crossSessionInbound=accept, no holds.
 
 ## Where things stand (all on `main` unless noted)
 
