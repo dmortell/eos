@@ -562,9 +562,16 @@
 		else if (item === 'Print…') window.print()
 		else if (item === 'Undo') undo()
 		else if (item === 'Redo') redo()
+		// Edit-menu clipboard/delete (B8) — act on the active tab's selection (the Ctrl-key paths already work).
+		else if (item === 'Cut') { const a = active; if (a) cutEnts(a.id, selOf(a.id)) }
+		else if (item === 'Copy') { const a = active; if (a) copyEnts(a.id, selOf(a.id)) }
+		else if (item === 'Paste') { const a = active; if (a) pasteEnts(a.id) }
+		else if (item === 'Delete') deleteSelection()
 		else if (item === 'Image…') importImage()
 		else if (item === 'Text') { if (active) focusTool('Text') }
 		else if (item === 'Dimension') { if (active) focusTool('Dimension') }
+		// Not-yet-implemented File items: tell the user instead of silently doing nothing (B8).
+		else if (item === 'Open…' || item === 'Save' || item === 'Export…') statusText = `${item.replace('…', '')} isn't wired up yet (mock)`
 		// everything else is a mock no-op
 	}
 	function focusTool(t: string) { const p = panes[focused]; if (p) p.tool = t }
