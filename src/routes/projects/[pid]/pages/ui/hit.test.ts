@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { rotatePt, isFilled, inBox, onPlanPlane, bbox, hitEnt, inThisView, pickable } from './hit'
+import { rotatePt, isFilled, inBox, onPlanPlane, bbox, hitEnt, inThisView, pickable, hitModel } from './hit'
 import type { Ent, Pt } from './geometry'
 import type { ViewCtx } from './view'
+import type { Model, Obj } from '../3dview/types'
 
 const ent = (over: Partial<Ent> = {}): Ent => ({ id: 'e', type: 'rect', a: [0, 0], b: [10, 10], ...over } as Ent)
-const planCtx: ViewCtx = { dir: 'floorplan', isPlan: true, isElev: false, isIso: false, elevDir: 'front', cx: 14000, cy: 8750, ground: 0, frameId: 'f1', paperMm: 1 }
+const planCtx: ViewCtx = { dir: 'floorplan', isPlan: true, isElev: false, isIso: false, elevDir: 'front', cx: 14000, cy: 8750, ground: 0, frameId: 'f1', paperMm: 1, mdl: undefined, yaw: 0, pitch: 0 }
 
 describe('rotatePt', () => {
 	it('rotates 90° CW about a centre', () => {
@@ -86,5 +87,19 @@ describe('inThisView / pickable', () => {
 		expect(pickable(planCtx, ent({}), shown)).toBe(true)
 		expect(pickable(planCtx, ent({}), { hidden: () => true, locked: () => false })).toBe(false)
 		expect(pickable(planCtx, ent({}), { hidden: () => false, locked: () => true })).toBe(false)
+	})
+})
+
+describe('hitModel (plan prism)', () => {
+	const prism: Obj = { type: 'prism', id: 'p1', x: 100, y: 100, w: 200, d: 100, h: 500, z: 0, edges: 4, layer: 'furniture' } as Obj
+	const modelCtx = (objects: Obj[]): ViewCtx => ({ ...planCtx, mdl: { id: 1, name: 'm', layers: [], levels: {}, objects } as Model })
+	const shown = { visible: () => true, locked: () => false }
+	it('picks a prism whose footprint contains p, misses outside', () => {
+		expect(hitModel(modelCtx([prism]), [150, 130], 5, shown)).toBe('p1')   // inside 100..300 × 100..200
+		expect(hitModel(modelCtx([prism]), [400, 400], 5, shown)).toBe(null)   // well outside
+	})
+	it('a hidden or locked model layer is not pickable', () => {
+		expect(hitModel(modelCtx([prism]), [150, 130], 5, { visible: () => false, locked: () => false })).toBe(null)
+		expect(hitModel(modelCtx([prism]), [150, 130], 5, { visible: () => true, locked: () => true })).toBe(null)
 	})
 })

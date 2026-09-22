@@ -14,7 +14,7 @@
 	import { type Pt, type Ent, type View, type ElevDir, GROUND, MMPU, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, ELEV_BASIS, elevU, elevUInv, dist, segDist, translate, textBox } from './geometry'
 	import { makeMapper, type Mapper } from './mapper'
 	import type { ViewCtx } from './view'
-	import { rotatePt, inScope as hInScope, inThisView as hInThisView, groundInIso as hGroundInIso, isFlatElev as hIsFlatElev, flatXSpan as hFlatXSpan, rotCenter as hRotCenter, bbox as hBbox, hitEnt as hHitEnt, pickable as hPickable } from './hit'
+	import { rotatePt, inScope as hInScope, inThisView as hInThisView, groundInIso as hGroundInIso, isFlatElev as hIsFlatElev, flatXSpan as hFlatXSpan, rotCenter as hRotCenter, bbox as hBbox, hitEnt as hHitEnt, pickable as hPickable, prismRect as hPrismRect, prismTilted, graphNodeDraw as hGraphNodeDraw, hitModel as hHitModel, hitModelIso as hHitModelIso, type GN } from './hit'
 	import { isLayerHidden, isLayerLocked, layerColor, layerOrder } from '../layers.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
 	import { models, modelById, modelSel, setModelSel } from '../3dview/models.svelte'
@@ -23,7 +23,7 @@
 	import { guideId, selectedPlanGuide } from '../guides.svelte'
 	import { imgEdit, clearImgMode } from '../imageEdit.svelte'
 	import { polyToGraph } from '../3dview/migrate'
-	import { DEFAULT_YAW, DEFAULT_PITCH, doorGeom, isoBounds, isoR, faces3d, isoDepthR, prismRings } from '../3dview/projection'
+	import { DEFAULT_YAW, DEFAULT_PITCH, doorGeom, isoBounds, isoR } from '../3dview/projection'
 	import type { Obj, Clip } from '../3dview/types'
 	// Pure geometry (Pt/Ent/View + helpers) lives in ./geometry; import those types directly from there.
 	// (svelte-check can't resolve type re-exports from an instance <script>, so we don't re-export them.)
@@ -406,7 +406,7 @@
 	// component state. Viewport builds `ctx` once (a $derived from the view props) and the thin wrappers
 	// below inject it, so existing call sites (bbox(e), hitEnt(e,p,thr), pickable(e), …) stay unchanged.
 	// (`dir: kind` keeps 'floorplan'; the 'floorplan'→'plan' rename is a separate mop-up.)
-	const ctx = $derived<ViewCtx>({ dir: kind, isPlan: kind === 'floorplan', isElev, isIso: kind === 'iso', elevDir, cx: CX, cy: CY, ground: GROUND, frameId, paperMm: 1 / (dscale || 1) })   // paperMm = 1/dscale (declared later; inlined to avoid TDZ)
+	const ctx = $derived<ViewCtx>({ dir: kind, isPlan: kind === 'floorplan', isElev, isIso: kind === 'iso', elevDir, cx: CX, cy: CY, ground: GROUND, frameId, paperMm: 1 / (dscale || 1), mdl, yaw, pitch })   // paperMm = 1/dscale (declared later; inlined to avoid TDZ)
 	const layerPreds = { hidden: isLayerHidden, locked: isLayerLocked }
 	const inScope = (e: Ent) => hInScope(ctx, e)
 	const inThisView = (e: Ent) => hInThisView(ctx, e)
@@ -472,55 +472,12 @@
 	const modelEditable = $derived(isPlan || isElev)   // iso (oblique) editing deferred to the 3D camera
 	const modelLayerVisible = (o: Obj) => { const l = mdl?.layers?.find(x => x.id === o.layer); return !l || l.visible }
 	const modelLayerLocked = (o: Obj) => !!mdl?.layers?.find(x => x.id === o.layer)?.locked   // locked → not pickable (B16)
-	// A prism's drawing-space AABB in the CURRENT view: plan = footprint [x..x+w]×[y..y+d]; elevation =
-	// silhouette face (its on-axis extent projected via projU, standing on GROUND from z to z+h). Matches
-	// Model3d prism-editing target. null for non-prisms / non-editable views.
-	function prismRect(o: Obj): { x0: number; y0: number; x1: number; y1: number } | null {
-		if (o.type !== 'prism') return null
-		if (isElev) {
-			const ax = ELEV_BASIS[elevDir].axis
-			const lo = ax === 0 ? o.x : o.y, hi = lo + (ax === 0 ? o.w : o.d)
-			const u0 = projU(lo), u1 = projU(hi), base = GROUND - o.z
-			return { x0: Math.min(u0, u1), y0: base - o.h, x1: Math.max(u0, u1), y1: base }
-		}
-		if (isPlan) return { x0: o.x, y0: o.y, x1: o.x + o.w, y1: o.y + o.d }
-		return null
-	}
-	// Is a prism tilted out of the vertical (rotX/rotY)? Its plan/elevation silhouette is then a leaning
-	// hull, not the axis-aligned prismRect, so hit-testing + grips must follow the true outline (B10).
-	const prismTilted = (o: Obj) => o.type === 'prism' && !!((o.rotX ?? 0) || (o.rotY ?? 0))
-	// The tilted prism's silhouette in the CURRENT view's DRAWING coords: project every 3D corner (bot+top
-	// rings, tilt applied) the same way the view renders — plan = (x,y); elevation = (projU(on-axis), GROUND−z)
-	// — then take the convex hull. Matches what project()/Model3d draw, so pick + grips sit on the shape.
-	function prismOutline(o: Extract<Obj, { type: 'prism' }>): Pt[] {
-		const { bot, top } = prismRings(o)
-		const ax = isElev ? ELEV_BASIS[elevDir].axis : 0
-		const pts: Pt[] = [...bot, ...top].map((c) => isElev ? [projU(ax === 0 ? c.x : c.y), GROUND - c.z] : [c.x, c.y])
-		return convexHull(pts)
-	}
-	// Convex hull (monotone chain) of drawing-coord points — the silhouette outline.
-	function convexHull(pts: Pt[]): Pt[] {
-		const p = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1])
-		if (p.length < 3) return p
-		const cross = (o: Pt, a: Pt, b: Pt) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
-		const lo: Pt[] = []; for (const q of p) { while (lo.length >= 2 && cross(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q) }
-		const up: Pt[] = []; for (let i = p.length - 1; i >= 0; i--) { const q = p[i]; while (up.length >= 2 && cross(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q) }
-		lo.pop(); up.pop(); return lo.concat(up)
-	}
-	// Point-in-polygon (ray cast), drawing coords.
-	function inPoly(pt: Pt, poly: Pt[]): boolean {
-		let c = false
-		for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[i], b = poly[j]; if ((a[1] > pt[1]) !== (b[1] > pt[1]) && pt[0] < ((b[0] - a[0]) * (pt[1] - a[1])) / (b[1] - a[1]) + a[0]) c = !c }
-		return c
-	}
-	// A graph node (wall/conduit vertex) → drawing coords for the current view (plan x/y; elevation
-	// on-axis via projU + GROUND−z), and the inverse edit (drawing point → node coords).
-	type GN = { id: string; x: number; y: number; z: number }
+	// Model-object hit-testing lives in ui/hit.ts (R1 step 3), taking ctx + the model-layer preds; the thin
+	// wrappers below inject them (prismTilted/prismOutline/convexHull/inPoly/graphHit are now hit.ts-internal).
+	const mlayers = { visible: modelLayerVisible, locked: modelLayerLocked }
+	const prismRect = (o: Obj) => hPrismRect(ctx, o)
+	const graphNodeDraw = (n: GN) => hGraphNodeDraw(ctx, n)
 	const rndSnap = (v: number) => (snap ? Math.round(v / SNAP_STEP) * SNAP_STEP : v)
-	function graphNodeDraw(n: GN): Pt {
-		if (isElev) { const ax = ELEV_BASIS[elevDir].axis; return [projU(ax === 0 ? n.x : n.y), GROUND - n.z] }
-		return [n.x, n.y]
-	}
 	// Nearest OTHER graph node's drawing position within a screen-tolerance of p (for node-drag snapping),
 	// else null. Snapping coincides the coords so runs join. `origin` (the drag's start position) lets a
 	// node be pulled OFF a partner it started coincident with — DISCONNECT: candidates within a break
@@ -548,69 +505,10 @@
 		if (isElev) { const ax = ELEV_BASIS[elevDir].axis; if (ax === 0) n.x = rndSnap(projUInv(q[0])); else n.y = rndSnap(projUInv(q[0])); n.z = Math.max(0, rndSnap(GROUND - q[1])) }
 		else { n.x = rndSnap(q[0]); n.y = rndSnap(q[1]) }
 	}
-	// Any wall/conduit segment under p (drawing coords): distance to the segment's drawn centreline
-	// within the pick tolerance + half the profile width, so clicking anywhere on the ribbon selects.
-	function graphHit(o: Extract<Obj, { type: 'wall' | 'conduit' }>, p: Pt, thr: number): boolean {
-		const nm = new Map((o.nodes as GN[]).map((n) => [n.id, n]))
-		const half = ((o.type === 'wall' ? o.thickness : o.w) ?? 0) / 2
-		for (const s of o.segments as { a: string; b: string }[]) {
-			const a = nm.get(s.a), b = nm.get(s.b); if (!a || !b) continue
-			if (segDist(p, graphNodeDraw(a), graphNodeDraw(b)) < thr + half) return true
-		}
-		return false
-	}
-	// Topmost model object under p (drawing coords): a prism (footprint/face AABB, rot-aware in plan)
-	// or a wall/conduit graph (any segment). Returns its id.
-	function hitModel(p: Pt): string | null {
-		if (!modelEditable || !mdl) return null
-		const thr = tolMm(4)   // B9: model mm (was raw hitTol(4) = viewBox units → 100× too small at 1:100)
-		for (let i = mdl.objects.length - 1; i >= 0; i--) {
-			const o = mdl.objects[i]
-			if (!o.id || !modelLayerVisible(o) || modelLayerLocked(o)) continue
-			if (o.type === 'wall' || o.type === 'conduit') { if (graphHit(o, p, thr)) return o.id; continue }
-			if (o.type !== 'prism') continue
-			if (prismTilted(o)) { if (inPoly(p, prismOutline(o))) return o.id; continue }   // tilted → true silhouette (B10)
-			if (isPlan && o.rot) {
-				const cx = o.x + o.w / 2, cy = o.y + o.d / 2, q = rotatePt(p, [cx, cy], -o.rot)
-				if (q[0] >= o.x - thr && q[0] <= o.x + o.w + thr && q[1] >= o.y - thr && q[1] <= o.y + o.d + thr) return o.id
-				continue
-			}
-			const r = prismRect(o); if (!r) continue
-			if (p[0] >= r.x0 - thr && p[0] <= r.x1 + thr && p[1] >= r.y0 - thr && p[1] <= r.y1 + thr) return o.id
-		}
-		return null
-	}
-	// 3D (iso) PICK: the frontmost object whose projected 3D face contains p — so you can click a shape in
-	// the 3D view to select it (edit props in the panel). Reproduces Model3d's iso projection: each face
-	// vertex → isoR → the same centring xform (translate(CX−icx, CY+icy) scale(1 −1)) → drawing coords.
-	// Frontmost = smallest camera depth (isoDepthR: larger = farther). Geometry editing in iso stays
-	// deferred (no grips); this is selection only.
-	function hitModelIso(p: Pt): string | null {
-		if (!mdl) return null
-		const b = isoBounds(mdl.objects, yaw, pitch, CX, CY, modelLayerVisible); if (!b) return null
-		const D = (v: { x: number; y: number; z: number }): Pt => { const q = isoR(v, yaw, pitch, CX, CY); return [q.u + CX - b.icx, -q.v + CY + b.icy] }
-		const inPoly = (pt: Pt, poly: Pt[]) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[i], d = poly[j]; if ((a[1] > pt[1]) !== (d[1] > pt[1]) && pt[0] < ((d[0] - a[0]) * (pt[1] - a[1])) / (d[1] - a[1]) + a[0]) c = !c } return c }
-		let best: string | null = null, bestDepth = Infinity
-		for (const o of mdl.objects) {
-			if (!o.id || !modelLayerVisible(o) || modelLayerLocked(o)) continue
-			for (const f of faces3d(o)) {
-				if (f.pts.length < 3) continue
-				const D3 = f.pts.map(D)
-				if (!inPoly(p, D3)) continue
-				// True depth AT the click point (not the centroid): depth is affine in the projected plane,
-				// so interpolate from the first 3 verts — a big face no longer beats a nearer small one.
-				const d0 = D3[0], d1 = D3[1], d2 = D3[2]
-				const v0x = d1[0] - d0[0], v0y = d1[1] - d0[1], v1x = d2[0] - d0[0], v1y = d2[1] - d0[1]
-				const den = v0x * v1y - v1x * v0y; if (Math.abs(den) < 1e-6) continue
-				const v2x = p[0] - d0[0], v2y = p[1] - d0[1]
-				const bb = (v2x * v1y - v1x * v2y) / den, cc = (v0x * v2y - v2x * v0y) / den
-				const z0 = isoDepthR(f.pts[0], yaw, pitch, CX, CY), z1 = isoDepthR(f.pts[1], yaw, pitch, CX, CY), z2 = isoDepthR(f.pts[2], yaw, pitch, CX, CY)
-				const depth = (1 - bb - cc) * z0 + bb * z1 + cc * z2
-				if (depth < bestDepth) { bestDepth = depth; best = o.id }
-			}
-		}
-		return best
-	}
+	// hitModel / hitModelIso live in ui/hit.ts (R1 step 3); the wrappers inject ctx + the model-layer preds.
+	// hitModel's pick tolerance (tolMm(4), B9) is passed in. graphHit is now hit.ts-internal.
+	const hitModel = (p: Pt) => hHitModel(ctx, p, tolMm(4), mlayers)
+	const hitModelIso = (p: Pt) => hHitModelIso(ctx, p, mlayers)
 	// A section marker under p (plan only): its box BORDER within tolerance (the interior stays free for
 	// model/entity picks). Returns the section id, topmost last-drawn first.
 	function hitSection(p: Pt): string | null {
