@@ -34,13 +34,15 @@ leave a one-line ctx-injecting wrapper in Viewport so call sites are untouched).
 `pnpm test` per slice. `ViewCtx` already carries `mdl`/`yaw`/`pitch` (added in slice 3); `MLayers` is the
 model-layer pred bundle.
 1. ~~`hitModel` / `hitModelIso`~~ — DONE (slice 3, cb41247).
-2. `hitSection` / `sectionCorners` — section-marker pick. `sections` is a Viewport prop today (B5 moves it
-   to `mdl.sections`); pass the section list as an arg so the fn stays testable.
-3. `hitGuide` — guide pick (guides are a Viewport prop; pass the list as an arg).
-4. `marqueeSelect` — window/crossing decided by `b[0] < a[0]`.
-5. `pickAt` — LAST. The orchestrator encoding onDown's priority order (model grip → section grip →
-   entity grip → entity body → guide → section border → model object). `hoverBody` (P2) becomes
-   `pickAt(...) !== null`.
+2. ~~`hitSection` / `sectionCorners`~~ — DONE (slice 4, a5c6a2a). Passed `sections` as an arg (`SectionLike[]`).
+3. ~~`hitGuide`~~ — DONE (slice 4). Passed `viewGuides` as an arg (`Guide[]`).
+4. ~~`marqueeSelect`~~ — DONE (slice 4). `marqueeSelect(ctx, ents, a, b, isPickable)`; group expansion
+   stays in `onMarqueeUp`.
+5. `pickAt` — the LAST slice, not yet done. The orchestrator encoding onDown's priority order (model grip →
+   section grip → entity grip → entity body → guide → section border → model object). It calls the grip-pick
+   fns (`pickModelGrip`/`pickSectionGrip`/`gripsFor`) which are still in Viewport (step 4 = grips.ts), so
+   either do pickAt AFTER grips.ts, or move it taking those as args. `hoverBody` (P2) becomes
+   `pickAt(...) !== null`. Fold in the grip-loop P1 here (one `mapper()` per press in the grip loops).
 
 Then step 4 = `ui/grips.ts` (unblocked now that `bbox`/`rotCenter`/`hitEnt` take ctx).
 
