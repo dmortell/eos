@@ -18,7 +18,7 @@
 	import { guideId, selectedPlanGuide } from '../guides.svelte'
 	import { imgEdit, clearImgMode } from '../imageEdit.svelte'
 	import { polyToGraph } from '../3dview/migrate'
-	import { DEFAULT_YAW, DEFAULT_PITCH, doorGeom, isoBounds, isoR, faces3d, isoDepthR } from '../3dview/projection'
+	import { DEFAULT_YAW, DEFAULT_PITCH, doorGeom, isoBounds, isoR, faces3d, isoDepthR, prismRings } from '../3dview/projection'
 	import type { Obj, Clip } from '../3dview/types'
 	// Pure geometry (Pt/Ent/View + helpers) lives in ./geometry; import those types directly from there.
 	// (svelte-check can't resolve type re-exports from an instance <script>, so we don't re-export them.)
@@ -476,7 +476,9 @@
 		// coords + `p` are in unscaled drawing space, so convert screen px → drawing units = hitTol()/dscale
 		// (hitTol alone is in viewBox-scaled units — the old raw hitTol(7) shrank to sub-pixel at 1:25).
 		const thr = hitTol(3.5) / (dscale || 1)
-		for (let i = entities.length - 1; i >= 0; i--) if (pickable(entities[i]) && hitEnt(entities[i], p, thr)) return [entities[i].id]
+		// Scan in PAINT order (top-most first), not raw array order (B7): rendering sorts by layer then
+		// array index, so a later-added entity on a lower layer must not win the click over what's drawn on top.
+		for (let i = paintEnts.length - 1; i >= 0; i--) if (pickable(paintEnts[i]) && hitEnt(paintEnts[i], p, thr)) return [paintEnts[i].id]
 		return []
 	}
 	// Expand a set of ids to include every member of any group they touch (a group selects as one).
@@ -511,6 +513,33 @@
 		}
 		if (isPlan) return { x0: o.x, y0: o.y, x1: o.x + o.w, y1: o.y + o.d }
 		return null
+	}
+	// Is a prism tilted out of the vertical (rotX/rotY)? Its plan/elevation silhouette is then a leaning
+	// hull, not the axis-aligned prismRect, so hit-testing + grips must follow the true outline (B10).
+	const prismTilted = (o: Obj) => o.type === 'prism' && !!((o.rotX ?? 0) || (o.rotY ?? 0))
+	// The tilted prism's silhouette in the CURRENT view's DRAWING coords: project every 3D corner (bot+top
+	// rings, tilt applied) the same way the view renders — plan = (x,y); elevation = (projU(on-axis), GROUND−z)
+	// — then take the convex hull. Matches what project()/Model3d draw, so pick + grips sit on the shape.
+	function prismOutline(o: Extract<Obj, { type: 'prism' }>): Pt[] {
+		const { bot, top } = prismRings(o)
+		const ax = isElev ? ELEV_BASIS[elevDir].axis : 0
+		const pts: Pt[] = [...bot, ...top].map((c) => isElev ? [projU(ax === 0 ? c.x : c.y), GROUND - c.z] : [c.x, c.y])
+		return convexHull(pts)
+	}
+	// Convex hull (monotone chain) of drawing-coord points — the silhouette outline.
+	function convexHull(pts: Pt[]): Pt[] {
+		const p = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1])
+		if (p.length < 3) return p
+		const cross = (o: Pt, a: Pt, b: Pt) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+		const lo: Pt[] = []; for (const q of p) { while (lo.length >= 2 && cross(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q) }
+		const up: Pt[] = []; for (let i = p.length - 1; i >= 0; i--) { const q = p[i]; while (up.length >= 2 && cross(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q) }
+		lo.pop(); up.pop(); return lo.concat(up)
+	}
+	// Point-in-polygon (ray cast), drawing coords.
+	function inPoly(pt: Pt, poly: Pt[]): boolean {
+		let c = false
+		for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[i], b = poly[j]; if ((a[1] > pt[1]) !== (b[1] > pt[1]) && pt[0] < ((b[0] - a[0]) * (pt[1] - a[1])) / (b[1] - a[1]) + a[0]) c = !c }
+		return c
 	}
 	// A graph node (wall/conduit vertex) → drawing coords for the current view (plan x/y; elevation
 	// on-axis via projU + GROUND−z), and the inverse edit (drawing point → node coords).
@@ -568,6 +597,7 @@
 			if (!o.id || !modelLayerVisible(o)) continue
 			if (o.type === 'wall' || o.type === 'conduit') { if (graphHit(o, p, thr)) return o.id; continue }
 			if (o.type !== 'prism') continue
+			if (prismTilted(o)) { if (inPoly(p, prismOutline(o))) return o.id; continue }   // tilted → true silhouette (B10)
 			if (isPlan && o.rot) {
 				const cx = o.x + o.w / 2, cy = o.y + o.d / 2, q = rotatePt(p, [cx, cy], -o.rot)
 				if (q[0] >= o.x - thr && q[0] <= o.x + o.w + thr && q[1] >= o.y - thr && q[1] <= o.y + o.d + thr) return o.id
@@ -810,7 +840,10 @@
 	type MGrip = { x: number; y: number; apply: (p: Pt, origin?: Pt) => void; node?: GN; obj?: Obj }
 	function modelGrips(o: Obj): MGrip[] {
 		if (o.type === 'prism') {
-			const cs = prismCorners(o)
+			// A TILTED prism (rotX/rotY) has a leaning silhouette; axis-aligned corner resize is undefined for
+			// it, so we drop the resize corners (edit W/D/H in Properties) and keep only the rotate handle. Its
+			// hit-test uses the true outline (B10). Untilted prisms keep the 4 corners.
+			const cs = prismTilted(o) ? [] : prismCorners(o)
 			const grips: MGrip[] = cs.map((c, gi) => ({ x: c[0], y: c[1], apply: (p: Pt) => applyPrismGrip(o, gi, p, cs[(gi + 2) % 4]) }))
 			if (isPlan && o.open !== 'door') {   // rotate handle above the top-centre, following the rotation
 				const cx = o.x + o.w / 2, cy = o.y + o.d / 2, off = o.d / 2 + Math.max(o.w, o.d) * 0.35
