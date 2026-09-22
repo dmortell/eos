@@ -1,7 +1,8 @@
 // Pure annotation geometry — the first module extracted from ui/Viewport.svelte (review.md §R1, step 1).
 // These take their size as an explicit argument instead of reading the component's `paperMm` closure, so
 // they are unit-testable and shared by the render snippets, PaperPage and (future) print.
-import type { Pt, Ent } from './geometry'
+import type { Pt, Ent, ElevDir } from './geometry'
+import type { Clip } from '../3dview/types'
 
 /** Centre-out draw: given the centre `c` and the dragged corner `p`, the opposite corner is mirrored. */
 export const centerCorners = (c: Pt, p: Pt): [Pt, Pt] => [[2 * c[0] - p[0], 2 * c[1] - p[1]], p]
@@ -50,6 +51,27 @@ export function cloudPath(a: Pt, b: Pt, bump: number): string {
 		for (let i = 1; i <= n; i++) { const ex = p[0] + ux * step * i, ey = p[1] + uy * step * i; d += ` A ${r} ${r} 0 0 1 ${ex} ${ey}` }
 	}
 	return d + ' Z'
+}
+
+/** The section marker's direction arrow, drawn INSIDE the clip rect: the observer stands at one edge and
+ *  looks across, so the arrow's TAIL sits just inside the edge OPPOSITE the sight and the tip points the
+ *  way the elevation looks — front = tail at the bottom edge pointing up, rear = top edge pointing down,
+ *  right = left edge pointing right, left = right edge pointing left (matches the dropdown + ELEV_BASIS).
+ *  `size` = arrow length in MODEL units (callers pass ~tolMm(11), a screen-constant size). Returns SVG
+ *  polygon points (tip, then the two base corners). */
+export function sectionArrowFor(c: Clip, dir: ElevDir, size: number): string {
+	const x0 = Math.min(c.x0, c.x1), x1 = Math.max(c.x0, c.x1), y0 = Math.min(c.y0, c.y1), y1 = Math.max(c.y0, c.y1)
+	const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, a = size
+	const pad = a * 0.9
+	let tail: Pt, d: Pt
+	if (dir === 'front') { tail = [cx, y1 - pad]; d = [0, -1] }        // bottom edge, look up
+	else if (dir === 'rear') { tail = [cx, y0 + pad]; d = [0, 1] }     // top edge, look down
+	else if (dir === 'right') { tail = [x0 + pad, cy]; d = [1, 0] }    // left edge, look right
+	else { tail = [x1 - pad, cy]; d = [-1, 0] }                        // right edge, look left
+	const perp: Pt = [-d[1], d[0]], w = a * 0.8
+	const tip: Pt = [tail[0] + d[0] * a * 1.8, tail[1] + d[1] * a * 1.8]
+	const b1: Pt = [tail[0] + perp[0] * w, tail[1] + perp[1] * w], b2: Pt = [tail[0] - perp[0] * w, tail[1] - perp[1] * w]
+	return `${tip[0]},${tip[1]} ${b1[0]},${b1[1]} ${b2[0]},${b2[1]}`
 }
 
 /** A plan entity's outline points (plan coords) + whether it is a closed shape — for ground projection. */

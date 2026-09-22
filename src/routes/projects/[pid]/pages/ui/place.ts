@@ -9,6 +9,7 @@ import type { Obj, Guide, Model } from '../3dview/types'
 import { ELEV_BASIS, elevUInv, dist, translate } from './geometry'
 import { centerCorners } from './annotations'
 import { polyToGraph } from '../3dview/migrate'
+import { FLAT } from './hit'
 
 /** The DRAWING PLANE new 2D geometry lands in: undefined in plan (= the model/plan plane, see `onPlanPlane`),
  *  the ElevDir when drawn natively in an elevation. (Was Viewport's `drawPlane()`; iso draws nothing.) */
@@ -140,9 +141,6 @@ export function imageScaled(img: Ent, measured: number, real: number): Ent {
 	const nb: Pt = [ax + (img.b[0] - ax) * f, ay + (img.b[1] - ay) * f]
 	return { ...img, a: na, b: nb }
 }
-
-// Flat (z=0, no height) entity kinds — the same set hit.ts keeps privately for isFlatElev.
-const FLAT = new Set(['line', 'polyline', 'dim', 'rect', 'ellipse'])
 
 /** Move an entity by a drawing-space delta. In an ELEVATION the horizontal drag of a FLAT kind maps to the
  *  view's footprint axis (x for front/rear, y for left/right, mirrored by the dir's sign) and the vertical

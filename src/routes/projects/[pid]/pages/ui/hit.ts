@@ -7,10 +7,12 @@ import type { ViewCtx, MLayers } from './view'
 import type { Obj, Clip, Guide } from '../3dview/types'
 import { flatSpan, segDist, textBox, elevU, ELEV_BASIS } from './geometry'
 import { isoBounds, isoR, faces3d, isoDepthR, prismRings } from '../3dview/projection'
+import { PT_MM } from '../constants'
 
-const PT_MM = 0.352778   // mm per typographic point → fontPt · PT_MM = paper mm (matches Viewport/geometry)
-// Flat (z=0, no height) object kinds that project to an edge-on ground line in elevation.
-const FLAT = new Set(['line', 'polyline', 'dim', 'rect', 'ellipse'])
+// Flat (z=0, no height) object kinds that project to an edge-on ground line in elevation. Exported so
+// place.ts (moveEnt) shares this one definition instead of keeping a private copy.
+export const FLAT = new Set(['line', 'polyline', 'dim', 'rect', 'ellipse'])
+export const isFlat = (e: Ent): boolean => FLAT.has(e.type)
 
 /** Rotate `p` about centre `c` by `deg` degrees (CW in screen/plan space, y-down). Pure. */
 export function rotatePt(p: Pt, c: Pt, deg: number): Pt {

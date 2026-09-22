@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { centerCorners, orthoPt, constrainPt, arrowPts, cloudPath, groundPts } from './annotations'
+import { centerCorners, orthoPt, constrainPt, arrowPts, cloudPath, groundPts, sectionArrowFor } from './annotations'
 import type { Ent } from './geometry'
+import type { Clip } from '../3dview/types'
 
 describe('centerCorners', () => {
 	it('mirrors the dragged corner about the centre', () => {
@@ -49,6 +50,42 @@ describe('groundPts', () => {
 		const ell = groundPts({ id: 'e', type: 'ellipse', a: [0, 0], b: [10, 6] })
 		expect(ell.closed).toBe(true)
 		expect(ell.pts.length).toBe(32)
+	})
+})
+
+describe('sectionArrowFor', () => {
+	// x0..x1 = 0..100 (cx=50), y0..y1 = 0..200 (cy=100); size 10 ⇒ pad 9, tip offset 18, half-width 8.
+	const c: Clip = { x0: 0, y0: 0, z0: 0, x1: 100, y1: 200, z1: 0 }
+	const parse = (s: string) => s.split(' ').map((p) => p.split(',').map(Number) as [number, number])
+	it('front: tail inside the BOTTOM edge, tip points UP (toward smaller y)', () => {
+		const [tip, b1, b2] = parse(sectionArrowFor(c, 'front', 10))
+		expect(tip).toEqual([50, 173])
+		expect(b1).toEqual([58, 191]); expect(b2).toEqual([42, 191])   // base straddles the tail, on the bottom edge
+		expect(tip[1]).toBeLessThan(b1[1])   // tip is above (smaller y than) the base — points up
+	})
+	it('rear: tail inside the TOP edge, tip points DOWN (toward larger y)', () => {
+		const [tip, b1, b2] = parse(sectionArrowFor(c, 'rear', 10))
+		expect(tip).toEqual([50, 27])
+		expect(b1).toEqual([42, 9]); expect(b2).toEqual([58, 9])
+		expect(tip[1]).toBeGreaterThan(b1[1])
+	})
+	it('right: tail inside the LEFT edge, tip points RIGHT (toward larger x)', () => {
+		const [tip, b1, b2] = parse(sectionArrowFor(c, 'right', 10))
+		expect(tip).toEqual([27, 100])
+		expect(b1).toEqual([9, 108]); expect(b2).toEqual([9, 92])
+		expect(tip[0]).toBeGreaterThan(b1[0])
+	})
+	it('left: tail inside the RIGHT edge, tip points LEFT (toward smaller x)', () => {
+		const [tip, b1, b2] = parse(sectionArrowFor(c, 'left', 10))
+		expect(tip).toEqual([73, 100])
+		expect(b1).toEqual([91, 92]); expect(b2).toEqual([91, 108])
+		expect(tip[0]).toBeLessThan(b1[0])
+	})
+	it('handles a clip with reversed x0/x1 or y0/y1 (Math.min/max normalise it) and scales with size', () => {
+		const rev: Clip = { x0: 100, y0: 200, z0: 0, x1: 0, y1: 0, z1: 0 }
+		expect(sectionArrowFor(rev, 'front', 10)).toBe(sectionArrowFor(c, 'front', 10))
+		const [tip20] = parse(sectionArrowFor(c, 'front', 20))
+		expect(tip20).toEqual([50, 200 - 18 - 36])   // pad doubles (18), tip offset doubles (36)
 	})
 })
 

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { rotatePt, isFilled, inBox, onPlanPlane, bbox, hitEnt, inThisView, pickable, hitModel, hitSection, hitGuide, marqueeSelect } from './hit'
+import { textBox } from './geometry'
 import type { Ent, Pt } from './geometry'
 import type { ViewCtx } from './view'
 import type { Model, Obj, Guide } from '../3dview/types'
@@ -55,6 +56,13 @@ describe('bbox (plan)', () => {
 	})
 	it('polyline is the min/max of its points', () => {
 		expect(bbox(planCtx, ent({ type: 'polyline', pts: [[0, 0], [5, 9], [3, -1]] }))).toEqual([0, -1, 5, 9])
+	})
+	it('text uses the shared PT_MM (0.352778) unchanged after switching from the private copy', () => {
+		const t = ent({ type: 'text', a: [100, 200], b: undefined, text: 'AB', fontPt: 10 })
+		// PT_MM = 0.352778 exactly (matches geometry.ts / constants.ts); pin the numeric box so a future
+		// accidental swap to a different mm-per-point constant is caught even if textBox() itself is mocked.
+		expect(bbox({ ...planCtx, paperMm: 2 }, t)).toEqual(textBox(t, 0.352778 * 2))
+		expect(bbox({ ...planCtx, paperMm: 2 }, t)).toEqual([100, 193.649996, 108.466672, 203])
 	})
 })
 
