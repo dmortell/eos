@@ -6,7 +6,8 @@ import type { Pt, Ent } from './geometry'
 import type { ViewCtx, MLayers } from './view'
 import type { Obj, Clip, Guide } from '../3dview/types'
 import { flatSpan, segDist, textBox, elevU, ELEV_BASIS } from './geometry'
-import { isoBounds, isoR, faces3d, isoDepthR, prismRings } from '../3dview/projection'
+import { isoBounds, isoR, faces3d, isoDepthR, prismRings, project } from '../3dview/projection'
+import { BASIS } from '../3dview/types'
 import { PT_MM } from '../constants'
 
 // Flat (z=0, no height) object kinds that project to an edge-on ground line in elevation. Exported so
@@ -159,9 +160,18 @@ export function graphNodeDraw(ctx: ViewCtx, n: GN): Pt {
 	return [n.x, n.y]
 }
 
-/** Any wall/conduit segment under p (drawing coords): distance to the drawn centreline within thr + half
- *  the profile width, so clicking anywhere on the ribbon selects. */
+/** Any wall/conduit segment under p (drawing coords). In PLAN: distance to the drawn centreline within
+ *  thr + half the profile width, so clicking anywhere on the ribbon selects. In an ELEVATION (B23) the
+ *  drawn FACE picks: p inside any segment's projected box (the same `project()` outline Model3d draws,
+ *  mapped v-up → ground − v with the elevU centring), so a 2800-tall wall is selectable anywhere on its
+ *  face — the centreline test stays as the fallback for edge-on / thin runs. */
 export function graphHit(ctx: ViewCtx, o: Extract<Obj, { type: 'wall' | 'conduit' }>, p: Pt, thr: number): boolean {
+	if (ctx.isElev) {
+		const b = BASIS[ctx.elevDir], ox = ctx.cx - b.hs * (b.h === 'x' ? ctx.cx : ctx.cy)   // Model3d's elevation xform
+		for (const sh of project(o, ctx.elevDir)) {
+			if (sh.closed && sh.pts.length >= 3 && inPoly(p, sh.pts.map((q) => [q.u + ox, ctx.ground - q.v] as Pt))) return true
+		}
+	}
 	const nm = new Map((o.nodes as GN[]).map((n) => [n.id, n]))
 	const half = ((o.type === 'wall' ? o.thickness : o.w) ?? 0) / 2
 	for (const s of o.segments as { a: string; b: string }[]) {

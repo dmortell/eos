@@ -144,3 +144,22 @@ describe('marqueeSelect', () => {
 		expect(marqueeSelect(planCtx, ents, [100, 100], [0, 0], (e) => e.id !== 'b')).toEqual(['a'])
 	})
 })
+
+describe('hitModel — wall face in an elevation (B23)', () => {
+	const frontCtx: ViewCtx = { ...planCtx, dir: 'front', isPlan: false, isElev: true, elevDir: 'front', ground: 10250 }
+	const wall = { type: 'wall', id: 'w1', h: 2800, thickness: 100, layer: 'walls', nodes: [{ id: 'a', x: 1000, y: 5000, z: 0 }, { id: 'b', x: 3000, y: 5000, z: 0 }], segments: [{ a: 'a', b: 'b' }] } as Obj
+	const ctx: ViewCtx = { ...frontCtx, mdl: { id: 1, name: 'm', layers: [], levels: {}, objects: [wall] } as Model }
+	const shown = { visible: () => true, locked: () => false }
+	it('picks anywhere on the drawn face (x-span × ground−h..ground), not just near the base line', () => {
+		expect(hitModel(ctx, [2000, 10250 - 1500], 5, shown)).toBe('w1')   // mid-face, 1.5 m up
+		expect(hitModel(ctx, [2000, 10250 - 2790], 5, shown)).toBe('w1')   // just under the top
+		expect(hitModel(ctx, [2000, 10250 - 10], 5, shown)).toBe('w1')     // near the base (old behaviour kept)
+		expect(hitModel(ctx, [3500, 10250 - 1500], 5, shown)).toBe(null)   // beyond the end
+		expect(hitModel(ctx, [2000, 10250 - 3000], 5, shown)).toBe(null)   // above the top
+	})
+	it('plan picking is unchanged: the ribbon within thickness/2 + tol', () => {
+		const pctx: ViewCtx = { ...planCtx, mdl: ctx.mdl }
+		expect(hitModel(pctx, [2000, 5040], 5, shown)).toBe('w1')
+		expect(hitModel(pctx, [2000, 5100], 5, shown)).toBe(null)
+	})
+})
