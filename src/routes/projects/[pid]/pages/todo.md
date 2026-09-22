@@ -585,11 +585,15 @@ marquee and constant-lineweight draw, but no additive select / duplicate / move-
   make it real: treat model space as mm, apply the plan's mm-per-unit scale, show/accept
   integer mm in Properties, and render true lineweights. (Implementation pending.)
 - [ ] **Blocks + block library** — define, instance, place; a browsable library panel (P2).
-- [ ] **Trunks & conduits** (from Sheets): node/segment graph with handle editing (drag
-  node, dbl-click segment to add a point, Ctrl-drag to branch, Shift = 15°). Sheets stores
-  **one width + one bend-radius per trunk**; your ask = **width per segment** + **bend radius
-  per corner** with handles — that's beyond the 2D outlets trunk, but the model3d **conduit**
-  already has per-segment `w/h/edges`, so borrow that model (P2).
+- [~] **Trunks & conduits** — node/segment graph with handle editing (drag node, dbl-click segment to add a
+  point, Ctrl-drag to branch, Shift = 15° — all done). **Per-segment WIDTH: done** (the model3d `CondSeg`
+  carries `w?/h?/edges?`, `conduitRuns` renders per-segment profiles, and Properties has per-segment w/h
+  inputs). **[x] Per-corner BEND RADIUS (2026-09-22):** added `bend?` to `GNode` + a `bend?` default on
+  `Conduit`; `roundPath` inserts a short quadratic-bezier fillet at each interior node with a radius (trims
+  both segments, curves through the corner) so the swept tube rounds in EVERY view; a "Bend r" input in the
+  conduit Properties sets the default (a node's own `bend` overrides). Verified in-browser: an S-shaped
+  trunk's two sharp corners rounded smoothly when Bend r was set; clean console. **[ ] Still:** DRAG
+  HANDLES for width (segment midpoint) and per-node bend (today both are Properties number inputs).
 - [ ] **Edit-in-place for text** objects (inline editing, not a dialog) (P1).
 - [x] **3D cuboid (`box`) + per-view projection** — a Box tool draws a footprint (a,b) + height
   (mm); it renders per view kind: **plan** = footprint rect, **elevation** = front face standing

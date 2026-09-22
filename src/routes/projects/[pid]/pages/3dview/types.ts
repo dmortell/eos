@@ -47,6 +47,7 @@ export type CondSeg = GSeg & { w?: number; h?: number; edges?: number }
 export type Conduit = {
 	type: 'conduit'
 	w: number; h: number; edges: number // 3..24
+	bend?: number // default corner fillet radius (mm); a node's own `bend` overrides it
 	nodes: GNode[]
 	segments: CondSeg[]
 }

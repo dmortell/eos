@@ -234,6 +234,7 @@
 					<option value="4">Rectangular</option><option value="16">Round</option>
 				</select>
 			</div>
+			<div class="prop"><span>Bend r</span><input type="number" min="0" value={modelObj.bend ?? 0} title="Corner fillet radius (mm) — rounds all corners" onchange={(e) => onmodelupdate?.({ bend: Math.max(0, num(e)) })} /></div>
 			<div class="prop-sec">SEGMENTS ({modelObj.segments.length})</div>
 			{#each modelObj.segments as s, si (s.id)}
 				<div class="seg-row"><em>{si + 1}</em>

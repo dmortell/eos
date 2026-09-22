@@ -28,6 +28,23 @@ function wallRuns(o: Wall): { points: P3[]; thickness: number; h: number }[] {
 		return { points: dedupe(r.nodeIds.map((id) => ptOf(nm, id))), thickness: s0?.thickness ?? o.thickness, h: s0?.h ?? o.h }
 	}).filter((r) => r.points.length >= 2)
 }
+// Round a run's corners: at each INTERIOR node with a bend radius, replace the sharp corner with a short
+// quadratic-bezier fillet (trimmed along both segments, curving through the corner). Reshapes the path so
+// the swept tube rounds in EVERY view. `bends[i]` = node i's effective radius (its own, else the default).
+function roundPath(pts: P3[], bends: number[]): P3[] {
+	if (pts.length < 3) return pts
+	const out: P3[] = [pts[0]]
+	for (let i = 1; i < pts.length - 1; i++) {
+		const r = bends[i] ?? 0, a = pts[i - 1], c = pts[i], b = pts[i + 1]
+		const din = vsub(c, a), dout = vsub(b, c), t = Math.min(r, 0.45 * vlen(din), 0.45 * vlen(dout))
+		if (t <= 1e-3) { out.push(c); continue }
+		const A = vadd(c, vscale(vnorm(din), -t)), B = vadd(c, vscale(vnorm(dout), t)), N = 6
+		for (let k = 0; k <= N; k++) { const u = k / N, w0 = (1 - u) * (1 - u), w1 = 2 * (1 - u) * u, w2 = u * u
+			out.push({ x: w0 * A.x + w1 * c.x + w2 * B.x, y: w0 * A.y + w1 * c.y + w2 * B.y, z: w0 * A.z + w1 * c.z + w2 * B.z }) }
+	}
+	out.push(pts[pts.length - 1])
+	return out
+}
 function conduitRuns(o: Conduit): { points: P3[]; w: number; h: number; edges: number }[] {
 	if (!o.nodes || !o.segments) return []
 	const nm = nodeMap(o.nodes)
@@ -35,7 +52,9 @@ function conduitRuns(o: Conduit): { points: P3[]; w: number; h: number; edges: n
 	const key = (id: string) => { const s = byId.get(id); return `${s?.w ?? o.w}|${s?.h ?? o.h}|${s?.edges ?? o.edges}` }
 	return graphRuns(o.nodes, o.segments, key).map((r) => {
 		const s0 = byId.get(r.segIds[0])
-		return { points: r.nodeIds.map((id) => ptOf(nm, id)), w: s0?.w ?? o.w, h: s0?.h ?? o.h, edges: s0?.edges ?? o.edges }
+		const pts = r.nodeIds.map((id) => ptOf(nm, id))
+		const bends = r.nodeIds.map((id) => nm.get(id)?.bend ?? o.bend ?? 0)
+		return { points: roundPath(pts, bends), w: s0?.w ?? o.w, h: s0?.h ?? o.h, edges: s0?.edges ?? o.edges }
 	})
 }
 // Per-run mitered tube rings for a conduit (rings only connect within a run).
