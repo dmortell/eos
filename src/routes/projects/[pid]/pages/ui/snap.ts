@@ -119,38 +119,43 @@ export type SnapOpts = {
 	editingId?: string
 	/** Search radius in SCREEN px (default 11). */
 	radiusPx?: number
+	/** K5: MODEL objects to snap to as well (their `objSnaps`: prism corners/mids/centre, wall/conduit nodes +
+	 *  segment mids). Needs `ml` for the layer-visibility gate; omitted → entities only. */
+	objs?: Obj[]
+	ml?: MLayers
 }
 
 /** The nearest object-snap point (of any entity shown in THIS view) within `radiusPx` of the pointer, or
  *  null. Distances are measured in screen px via ONE mapper for the whole pass (P1: one layout read, not one
  *  per point). Entities native to another plane or scoped to another frame are skipped (B22). The caller
- *  gates on the OSNAP toggle.
- *  FUTURE (K5): once model-geometry snapping is wired in, this gains an `objs: Obj[]` (or similar) option so
- *  `objSnaps(ctx, o, ml)` candidates are searched alongside `entSnaps` — deferred so entity snap behaviour
- *  is unchanged until that's a deliberate decision. */
+ *  gates on the OSNAP toggle. With `opts.objs` + `opts.ml` (K5) the model objects' snap points compete on
+ *  the same terms (nearest wins; on a tie the entity found first keeps it). */
 export function findSnap(ctx: ViewCtx, m: Mapper, ents: Ent[], clientX: number, clientY: number, opts: SnapOpts = {}): SnapHit | null {
 	const r = opts.radiusPx ?? 11
-	let best: { p: Pt; type: string; d: number } | null = null
+	type Best = { p: Pt; type: string; d: number }
+	const st: { best: Best | null } = { best: null }   // boxed so the closure's writes are visible to TS at the return
+	const consider = (s: EntSnap) => {
+		const sp = m.toClient(s.point[0], s.point[1])
+		const d = Math.hypot(sp.x - clientX, sp.y - clientY)
+		if (d < r && (!st.best || d < st.best.d)) st.best = { p: s.point, type: s.type, d }
+	}
 	for (const e of ents) {
 		if (e.id === opts.exclude || e.id === opts.editingId || !inThisView(ctx, e)) continue
-		for (const s of entSnaps(ctx, e)) {
-			const sp = m.toClient(s.point[0], s.point[1])
-			const d = Math.hypot(sp.x - clientX, sp.y - clientY)
-			if (d < r && (!best || d < best.d)) best = { p: s.point, type: s.type, d }
-		}
+		for (const s of entSnaps(ctx, e)) consider(s)
 	}
-	return best ? { p: best.p, type: best.type } : null
+	if (opts.objs && opts.ml) for (const o of opts.objs) for (const s of objSnaps(ctx, o, opts.ml)) consider(s)
+	return st.best ? { p: st.best.p, type: st.best.type } : null
 }
 
 /** What drawPoint reads: the OSNAP / SNAP / ORTHO toggles, the active tool, the entities to snap to, and
  *  the inline-edited text id (skipped). */
-export type DrawInputs = { osnap: boolean; snap: boolean; ortho: boolean; tool: string; ents: Ent[]; editingId?: string }
+export type DrawInputs = { osnap: boolean; snap: boolean; ortho: boolean; tool: string; ents: Ent[]; editingId?: string; objs?: Obj[]; ml?: MLayers }
 
 /** The point a draw/place should use, plus the snap mark to show. Object snap wins outright; otherwise
  *  the pointer point, Shift-constrained (square / 15°, per tool) or ORTHO-locked (H/V, Line + Dimension
  *  only) relative to `base`, then grid-snapped when SNAP is on. `mark` is null unless an object snap hit. */
 export function drawPoint(ctx: ViewCtx, m: Mapper, inp: DrawInputs, clientX: number, clientY: number, base?: Pt, shift = false): { p: Pt; mark: SnapHit | null } {
-	const hit = inp.osnap ? findSnap(ctx, m, inp.ents, clientX, clientY, { editingId: inp.editingId }) : null
+	const hit = inp.osnap ? findSnap(ctx, m, inp.ents, clientX, clientY, { editingId: inp.editingId, objs: inp.objs, ml: inp.ml }) : null
 	if (hit) return { p: hit.p, mark: hit }   // object snap wins over grid snap
 	let p = m.toModel(clientX, clientY)
 	if (base) {

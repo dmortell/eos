@@ -61,6 +61,27 @@ describe('findSnap', () => {
 	})
 })
 
+describe('findSnap — K5 model objects', () => {
+	const prism = { type: 'prism', id: 'p1', x: 1000, y: 1000, z: 0, w: 200, d: 100, h: 750, edges: 4, layer: 'furniture' } as Obj
+	const shownL = { visible: () => true, locked: () => false }
+	it('with objs + ml a prism corner / edge-mid / centre snaps like an entity; without objs it does not', () => {
+		expect(findSnap(planCtx, ident, [], 1203, 1002, { objs: [prism], ml: shownL })).toEqual({ p: [1200, 1000], type: 'end' })
+		expect(findSnap(planCtx, ident, [], 1100, 1097, { objs: [prism], ml: shownL })).toEqual({ p: [1100, 1100], type: 'mid' })
+		expect(findSnap(planCtx, ident, [], 1098, 1052, { objs: [prism], ml: shownL })).toEqual({ p: [1100, 1050], type: 'center' })
+		expect(findSnap(planCtx, ident, [], 1203, 1002)).toBe(null)
+		expect(findSnap(planCtx, ident, [], 1203, 1002, { objs: [prism], ml: { visible: () => false, locked: () => false } })).toBe(null)
+	})
+	it('the nearest candidate wins across entities and objects', () => {
+		const line = ent({ id: 'l', type: 'line', a: [1210, 1000], b: [1300, 1000] })   // its end at (1210,1000) is 7px away; the prism corner 3px
+		expect(findSnap(planCtx, ident, [line], 1203, 1000, { objs: [prism], ml: shownL })).toEqual({ p: [1200, 1000], type: 'end' })
+		expect(findSnap(planCtx, ident, [line], 1209, 1000, { objs: [prism], ml: shownL })).toEqual({ p: [1210, 1000], type: 'end' })
+	})
+	it('drawPoint passes objs/ml through', () => {
+		const inp = { osnap: true, snap: false, ortho: false, tool: 'Line', ents: [], objs: [prism], ml: shownL }
+		expect(drawPoint(planCtx, ident, inp, 1203, 1002)).toEqual({ p: [1200, 1000], mark: { p: [1200, 1000], type: 'end' } })
+	})
+})
+
 describe('drawPoint', () => {
 	const ents = [ent({ id: 'r', a: [0, 0], b: [200, 100] })]
 	const inp = { osnap: true, snap: false, ortho: false, tool: 'Line', ents }

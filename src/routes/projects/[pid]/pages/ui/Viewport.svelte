@@ -750,14 +750,14 @@
 	// wrappers build the one-per-pass mapper (P1), pass the drafting flags, and assign `snapMark`.
 	function findSnap(clientX: number, clientY: number, exclude?: string): Pt | null {
 		const m = mapper()
-		const hit = osnap && m ? sFindSnap(ctx, m, entities, clientX, clientY, { exclude, editingId: editText?.id }) : null
+		const hit = osnap && m ? sFindSnap(ctx, m, entities, clientX, clientY, { exclude, editingId: editText?.id, objs: mdl?.objects, ml: mlayers }) : null   // K5: model corners/nodes snap too
 		snapMark = hit
 		return hit ? hit.p : null
 	}
 	// The point a draw/place should use: object snap wins; else the shift/ortho-constrained, grid-snapped pointer.
 	function drawPoint(clientX: number, clientY: number, base?: Pt, shift = false): Pt | null {
 		const m = mapper(); if (!m) { snapMark = null; return null }
-		const r = sDrawPoint(ctx, m, { osnap, snap, ortho, tool, ents: entities, editingId: editText?.id }, clientX, clientY, base, shift)
+		const r = sDrawPoint(ctx, m, { osnap, snap, ortho, tool, ents: entities, editingId: editText?.id, objs: mdl?.objects, ml: mlayers }, clientX, clientY, base, shift)
 		snapMark = r.mark
 		return r.p
 	}
