@@ -10,6 +10,7 @@
 	import { imgEdit, setImgMode } from '../imageEdit.svelte'
 	import type { Obj, Layer as MLayer } from '../3dview/types'
 	import { type SheetFrame, type Proj, PROJ_OPTS, SCALES } from '../types'
+	import { NODE_FIELDS } from '../mock/data'
 
 	let { ents = [], onupdate, onarrange, pageTitle = '', pageKind = '', activeLayer = '', node = null,
 		modelObj = null, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg,
@@ -24,15 +25,6 @@
 	// A prism on an "opening" layer is a door/window/hole; label it as such.
 	const modelTypeLabel = (o: Obj) => (o.type === 'prism' && modelLayers.find((l) => l.id === o.layer)?.opening ? 'Opening' : MODEL_TYPE_LABEL[o.type] ?? 'Object')
 
-	// Mock property fields per tree-node kind (label → placeholder). Editing is local mock only.
-	const NODE_FIELDS: Record<string, [string, string][]> = {
-		project: [['Client', 'Journey K.K.'], ['Number', 'EOS-2314'], ['Address', 'Chiyoda, Tokyo'], ['Discipline', 'ICT / Structured Cabling']],
-		building: [['Address', '—'], ['Floors', '—']],
-		floor: [['Level', '—'], ['Elevation (mm)', '0']],
-		zone: [['Type', 'Office'], ['Server room', 'IDF1']],
-		room: [['Type', 'IDF'], ['Racks', '2']],
-		row: [['Racks', '4']],
-	}
 	const kindLabel: Record<string, string> = {
 		project: 'PROJECT', building: 'BUILDING', floor: 'FLOOR', zone: 'ZONE', room: 'ROOM', row: 'ROW',
 	}

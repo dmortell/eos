@@ -13,6 +13,7 @@
 	import PaperPage from './parts/PaperPage.svelte'
 	import { newId } from './ids'
 	import { type Proj, type SheetFrame, SCALES, DIR_LABEL as PROJ_LABEL } from './types'
+	import { PACKAGES, VERSIONS, REVISIONS, type PItem, PALETTE_ITEMS as paletteItems } from './mock/data'
 	import Viewport, { type SectionMarker } from './ui/Viewport.svelte'
 	import DrawingNavigator from './parts/DrawingNavigator.svelte'
 	import LayersPanel from './parts/LayersPanel.svelte'
@@ -639,25 +640,9 @@
 		treeNode = n; rightTab = 'props'; rightOpen = true
 	}
 
-	// ── top-bar drawing-set selectors (mock) + Ctrl-K command palette ──
-	const PACKAGES = ['Concept Design', 'Schematic Design', 'Detailed Design', 'Shop Drawings', 'As Built']
-	const VERSIONS = ['v3', 'v2', 'v1']
-	const REVISIONS = ['A', 'B', 'C', 'D']
+	// ── top-bar drawing-set selectors + Ctrl-K command palette (mock data → mock/data.ts, R10) ──
 	let pkg = $state('Detailed Design'), ver = $state('v3'), rev = $state('B')
 	let paletteOpen = $state(false)
-	type PItem = { title: string; kind: 'plan' | 'sheet' | 'elevation' | 'place'; path?: string }
-	const paletteItems: PItem[] = [
-		{ title: '33F — Floorplan', kind: 'plan', path: 'Hibiya · 33F' },
-		{ title: '33F — High Level Outlets', kind: 'sheet', path: 'Hibiya · 33F' },
-		{ title: '33F — Low Level Outlets', kind: 'sheet', path: 'Hibiya · 33F' },
-		{ title: '33F — Trunk Routes', kind: 'sheet', path: 'Hibiya · 33F' },
-		{ title: 'Zone 3303 — Outlets', kind: 'sheet', path: 'Hibiya · 33F · Zone 3303' },
-		{ title: 'IDF1 — Rack Elevation', kind: 'elevation', path: 'Hibiya · 33F · Zone 3303' },
-		{ title: 'Zone 3303', kind: 'place', path: 'Hibiya · 33F' },
-		{ title: 'IDF1', kind: 'place', path: 'Hibiya · 33F · Zone 3303' },
-		{ title: '30F — Floorplan', kind: 'plan', path: 'Hibiya · 30F' },
-		{ title: 'Office 1201 — Outlets', kind: 'sheet', path: 'Shinmaru · 18F' },
-	]
 	function pickPalette(i: PItem) { if (i.kind !== 'place') openDrawing({ title: i.title, kind: i.kind, preview: false }) }
 	function onGlobalKey(e: KeyboardEvent) {
 		const mod = e.ctrlKey || e.metaKey
