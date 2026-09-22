@@ -15,6 +15,7 @@
 	import { makeMapper, type Mapper } from './mapper'
 	import type { ViewCtx } from './view'
 	import { pickSectionGrip as gPickSectionGrip, modelGrips as gModelGrips, pickModelGrip as gPickModelGrip, gripsFor as gGripsFor, constrainGrip as gConstrainGrip, type MGrip, type Grip, type GripOpts } from './grips'
+	import { SNAP_STEP, snapToGrid, entSnaps, snapDelta as sSnapDelta } from './snap'
 	import { rotatePt, inScope as hInScope, inThisView as hInThisView, groundInIso as hGroundInIso, isFlatElev as hIsFlatElev, flatXSpan as hFlatXSpan, rotCenter as hRotCenter, bbox as hBbox, hitEnt as hHitEnt, pickable as hPickable, prismRect as hPrismRect, prismTilted, graphNodeDraw as hGraphNodeDraw, hitModel as hHitModel, hitModelIso as hHitModelIso, sectionCorners, hitSection as hHitSection, hitGuide as hHitGuide, marqueeSelect as hMarqueeSelect, type GN } from './hit'
 	import { isLayerHidden, isLayerLocked, layerColor, layerOrder } from '../layers.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
@@ -66,9 +67,7 @@
 	// mouse Shift still flips it and on touch the pop-out picks it. true = vertical.
 	const guideIsVert = (shift: boolean) => (env.guideVert ?? false) !== shift
 	const canvasZoom = $derived(env.canvasZoom ?? 1)
-	// Centre-out corners: the first click `c` is the CENTRE, `p` the drag point → box centred on c.
-	const SNAP_STEP = 100                         // grid snap spacing (mm)
-	const snapToGrid = (p: Pt): Pt => [Math.round(p[0] / SNAP_STEP) * SNAP_STEP, Math.round(p[1] / SNAP_STEP) * SNAP_STEP]
+	// SNAP_STEP / snapToGrid / entSnaps / snapDelta live in ui/snap.ts (R1 step 5).
 
 	const tagIcon: Record<string, string> = { floorplan: 'mapPin', iso: 'box', front: 'server', rear: 'server', left: 'server', right: 'server' }
 	// Elevation projection: which side view (front/rear/left/right) and its footprint axis + sign.
@@ -892,27 +891,14 @@
 		if (!isElev || !active || !cur || !mdl || !(tool === 'Wall' || tool === 'Trunk' || tool === 'Pipe')) return null
 		return elevDepthSnap(cur)
 	})
-	function entSnaps(e: Ent): { point: Pt; type: string }[] {
-		const mid = (a: Pt, b: Pt): Pt => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
-		if (e.type === 'polyline') { const pts = e.pts ?? []; const out = pts.map(p => ({ point: p, type: 'end' })); for (let i = 0; i + 1 < pts.length; i++) out.push({ point: mid(pts[i], pts[i + 1]), type: 'mid' }); return out }
-		if (e.type === 'line' || e.type === 'dim') return [{ point: e.a!, type: 'end' }, { point: e.b!, type: 'end' }, { point: mid(e.a!, e.b!), type: 'mid' }]
-		if (e.type === 'rect' || e.type === 'ellipse' || e.type === 'image') {
-			const [x0, y0, x1, y1] = bbox(e)
-			const c: Pt[] = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
-			return [...c.map(p => ({ point: p, type: 'end' })),
-				{ point: mid(c[0], c[1]), type: 'mid' }, { point: mid(c[1], c[2]), type: 'mid' }, { point: mid(c[2], c[3]), type: 'mid' }, { point: mid(c[3], c[0]), type: 'mid' },
-				{ point: [(x0 + x1) / 2, (y0 + y1) / 2] as Pt, type: 'center' }]
-		}
-		if (e.type === 'text') return [{ point: e.a!, type: 'end' }]
-		return []
-	}
+	// entSnaps lives in ui/snap.ts (R1 step 5). findSnap still writes snapMark here (moves in a later slice).
 	function findSnap(clientX: number, clientY: number, exclude?: string): Pt | null {
 		if (!osnap) { snapMark = null; return null }
 		const m = mapper(); if (!m) { snapMark = null; return null }   // P1: one layout read for the whole pass
 		let best: { p: Pt; type: string; d: number } | null = null
 		for (const e of entities) {
 			if (e.id === exclude || e.id === editText?.id) continue
-			for (const s of entSnaps(e)) {
+			for (const s of entSnaps(ctx, e)) {
 				const sp = m.toClient(s.point[0], s.point[1])
 				const d = Math.hypot(sp.x - clientX, sp.y - clientY)
 				if (d < 11 && (!best || d < best.d)) best = { p: s.point, type: s.type, d }
@@ -1213,15 +1199,8 @@
 		}
 		return translate(en, dx, dy)
 	}
-	// Grid snap for a MOVE: round the delta so the entity's defining point (a / centre / first vertex)
-	// lands on the grid, keeping its shape — like model-object moves (rndSnap). Off when SNAP is off.
-	function snapDelta(dx: number, dy: number, base: Ent): [number, number] {
-		if (!snap) return [dx, dy]
-		const A = base.a ?? base.pts?.[0]
-		if (!A) return [Math.round(dx / SNAP_STEP) * SNAP_STEP, Math.round(dy / SNAP_STEP) * SNAP_STEP]
-		const g = snapToGrid([A[0] + dx, A[1] + dy])
-		return [g[0] - A[0], g[1] - A[1]]
-	}
+	// snapDelta lives in ui/snap.ts (R1 step 5); the wrapper passes the live grid step (0 when SNAP is off).
+	const snapDelta = (dx: number, dy: number, base: Ent): [number, number] => sSnapDelta(dx, dy, base, snap ? SNAP_STEP : 0)
 	function applyDrag(p: Pt, shift: boolean): Ent {
 		if (drag!.kind === 'grip') { const cp = constrainGrip(drag!.base, drag!.gi, p, shift); return gripsFor(drag!.base)[drag!.gi].apply(snap ? snapToGrid(cp) : cp) }
 		let dx = p[0] - drag!.start[0], dy = p[1] - drag!.start[1]
