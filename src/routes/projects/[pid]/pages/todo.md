@@ -13,27 +13,27 @@ Kestrel code is in M:\dev\KestrelCad2
 
 ## 0. Bugs / quick wins  (P1)
 ### Code review follow-ups (see `review.md`, 2026-09-20)
-Fixed from the review: 
+Fixed from the review:
 
 - [x] §2.1 fit off-centre (paper pinned at 0,0 — margins now equal),
-- [x] §2.4 text-editor zoom double-scale (already fixed batch-4), 
+- [x] §2.4 text-editor zoom double-scale (already fixed batch-4),
 - [x] §2.5 type error (cast),
-- [x] §2.6 split-view keys (only the focused pane's viewport handles keys), 
+- [x] §2.6 split-view keys (only the focused pane's viewport handles keys),
 - [x] §2.7 undo global across docs (now per-doc stacks)
 - [x] §2.8 no Delete (Delete/Backspace + Edit menu, with undo),
-- [x] §2.8 dropDoc leaked undo/proj/paper/activation, 
-- [x] §2.8 dirty never set, 
-- [x] §2.8 HistoryPanel prop mutation (→ onnote callback), 
-- [x] §2.8 titleblock SIZE hardcoded, 
-- [x] §2.8 ViewCube→layout one-way (TOP now restores Sheet), 
+- [x] §2.8 dropDoc leaked undo/proj/paper/activation,
+- [x] §2.8 dirty never set,
+- [x] §2.8 HistoryPanel prop mutation (→ onnote callback),
+- [x] §2.8 titleblock SIZE hardcoded,
+- [x] §2.8 ViewCube→layout one-way (TOP now restores Sheet),
 - [x] §2.3 partial (emit onframe(null) on unmount).
-- [x] §2.2 print honours the selected paper size/orientation (`@page` from the focused tab's paper) and prints at TRUE size — the paper is `zoom`ed by (96/25.4)/PAPER_PX_PER_MM so content + titleblock scale together (CSS zoom, vector text); 
-- [x] §4.4 shared wheel-normalise/zoom-clamp + touchcancel; 
+- [x] §2.2 print honours the selected paper size/orientation (`@page` from the focused tab's paper) and prints at TRUE size — the paper is `zoom`ed by (96/25.4)/PAPER_PX_PER_MM so content + titleblock scale together (CSS zoom, vector text);
+- [x] §4.4 shared wheel-normalise/zoom-clamp + touchcancel;
 - [x] adopt list — additive select, group move, duplicate (Ctrl-D), select-all, nudge.
 - [x] §4.1 (partial) extracted pure geometry to `ui/geometry.ts` (dist/segDist/translate/textBox/boxElev/boxElevSet/boxFaces + box constants), shared with Viewport + PropertiesPanel;
 - [x] §5 added `ui/geometry.test.ts` (8 Vitest tests, `pnpm test --project=server` green).
 - [ ] §2.3 full per-doc frame state,
-- [ ] §4.1 full `DocEditor` headless class (geometry.ts done), 
+- [ ] §4.1 full `DocEditor` headless class (geometry.ts done),
 - [x] §4.2 **mm world units** (2026-09-20) — model space is now real **millimetres**. Turned out NOT
   invasive: the mapping already treats `CX,CY` as the model centre + scale pivot, so the equations are
   unchanged — just scaled the constants (PLAN_CX/CY, GROUND, DEFAULT_BOX_H, PT) to mm, wrapped the
@@ -42,8 +42,8 @@ Fixed from the review:
   plan renders at 1:100, drawn rects have mm coords (×100-snapped), selection + elevation all correct.
 - [ ] §4.3 reuse Sheets `layers.ts`,
 - [ ] §2.8 key tabs by node id (not title), frame drag threshold+undo, z0 clamp mismatch, uncontrolled Properties inputs, coalescing merges unrelated edits, outline-only rect hit,
-- [ ] §5 snap/hit perf (cache the CTM/bbox), 
-- [ ] §6 nits (dead `circle` type (will be used later), unify line/polyline, uid collision, unused CSS, a11y). 
+- [ ] §5 snap/hit perf (cache the CTM/bbox),
+- [ ] §6 nits (dead `circle` type (will be used later), unify line/polyline, uid collision, unused CSS, a11y).
 - [x] **Rotated-shape resize handles are wonky** (fixed 2026-09-22) — corner/endpoint grips on a ROTATED
   rect / ellipse / box / line now resize along the object's LOCAL (rotated) axes about the opposite
   corner, which stays world-fixed. A grip carries its opposite corner as `anchor` + a `resize(dragged,
@@ -671,33 +671,33 @@ marquee and constant-lineweight draw, but no additive select / duplicate / move-
 > The full Sheets set — tick the ones to bring into Pages. (Pages already has
 > line, rect, circle, dimension, text.)
 
-**Annotation kinds** (Sheets stores these _per-viewport_): 
+**Annotation kinds** (Sheets stores these _per-viewport_):
 Annotes are identical to model objects, just stored in view instead of model, and can be moved between model and view to make them global or per view.
 Symbols are identical to annotes.
-- [ ] text 
-- [ ] line 
+- [ ] text
+- [ ] line
 - [x] arrow (2026-09-22) — a line carries `arrow?: 'none'|'start'|'end'|'both'`; the render draws a filled
   arrowhead triangle (constant screen size via `gripSize`, so it stays an arrow at any zoom) at the chosen
   end(s). Properties gains a LINE section with an Arrows dropdown. The shared `arrowPts()` helper also
   replaced the callout leader's dot with a proper arrowhead. Verified in-browser: Arrows=Both drew heads at
   both ends; clean console.
-- [ ] rect 
-- [ ] **ellipse** 
+- [ ] rect
+- [ ] **ellipse**
 - [x] **cloud** (revision cloud) (2026-09-22) — a rect carries `cloud?: boolean`; when set the render
   draws a scalloped outline (outward semicircle bumps along each edge, CW winding + **sweep-flag 1** —
   matching the proven Sheets `cloudPath` in `sheets/annotations/geometry.ts`; bump size ~constant on screen
   via `gripSize`) via `cloudPath()`. Reuses the Rectangle tool's draw/hit/grips — just a Properties (RECT
   section) "Revision cloud" checkbox. Verified in-browser: outward bumps on all edges; clean console.
   (First cut used sweep-flag 0 → bumps drew inward; Dave caught it, fixed to match Sheets.)
-- [ ] callout (leader + text box) 
+- [ ] callout (leader + text box)
 - [x] dimension — real measured DIMENSION (2026-09-22): the Dimension tool now renders a proper dim —
   dim line + outward ARROWHEADS (shared `arrowPts`) + perpendicular EXTENSION TICKS at each end + the
   measured length (mm) set above the line, aligned to it (flips when upside-down), at a constant on-screen
   size (`gripSize`-based, not the old tiny 9-unit text). Verified in-browser. [ ] Later: aligned vs H/V
   dims, a settable text offset, unit formatting.
-- [ ] image (raster) 
+- [ ] image (raster)
 - [ ] **grid** (floor-tile, origin-aligned)
-- [ ] **legend** (auto-lists layers w/ swatches + counts) 
+- [ ] **legend** (auto-lists layers w/ swatches + counts)
 - [ ] table (see Kestrel)
 - [ ] symbol (see below)
 
@@ -781,17 +781,17 @@ Symbols are identical to annotes.
   (drag the leaf tip). Windows currently draw a single glazing line — add sill/head + mullions in
   elevation. (Openings now: Type dropdown Door/Window/Hole + Swing° + Hinge in Properties; door
   leaf+arc in plan; frame+floor-swing in the 3D view — all done 2026-09-21.)
-- [ ] elevation/section tag (up to 4 arms) 
+- [ ] elevation/section tag (up to 4 arms)
 - [ ] detail marker
-- [ ] photo marker (linkable to a photo) 
-- [ ] north arrow 
-- [ ] outlet 
-- [ ] faceplate/wall-outlet 
+- [ ] photo marker (linkable to a photo)
+- [ ] north arrow
+- [ ] outlet
+- [ ] faceplate/wall-outlet
 - [ ] door
 
 **Tool-objects** (placed inside a source viewport, live in the tool's own data):
-- [ ] outlet 
-- [ ] trunk  
+- [ ] outlet
+- [ ] trunk
 - [ ] rack
 - [ ] (racks devices / risers / model3d prisms-walls-conduits render read-only on a sheet)
 
@@ -1081,6 +1081,11 @@ Sheets' basic version** — see §10.
 - [x] Touch: 2-finger navigate / 1-finger draw+edit; 2-finger aborts an entity drag; both
   canvas & viewport zoom live by cursor position.
 - [x] Ctrl+P prints only the focused A3 sheet.
+
+### New todos
+- [ ] Implement File > Package Manager which opens a package manager that allows pages and version to be grouped and ordered into a named package that can be printed to hardcopy or pdf for distribution
+- [ ] File > Open should allow user to open & create & delete(archive) Projects
+- [ ] File > Save should work like History save revision, allowing a version/revision point to be saved
 
 
 
