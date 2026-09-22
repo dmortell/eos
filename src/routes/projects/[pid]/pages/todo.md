@@ -44,12 +44,17 @@ Fixed from the review:
 - [ ] §2.8 key tabs by node id (not title), frame drag threshold+undo, z0 clamp mismatch, uncontrolled Properties inputs, coalescing merges unrelated edits, outline-only rect hit,
 - [ ] §5 snap/hit perf (cache the CTM/bbox), 
 - [ ] §6 nits (dead `circle` type (will be used later), unify line/polyline, uid collision, unused CSS, a11y). 
-- [ ] **Rotated-shape resize handles are wonky** (Dave, 2026-09-20) — corner/edge grips on a rotated
-  object don't drag cleanly: the shift-square constrain (`constrainGrip`) still works in WORLD axes, and
-  a corner drag should resize along the object's LOCAL (rotated) axes about the opposite corner. Fix by
-  doing the resize math entirely in the un-rotated local frame (we've solved this in other tools / older
-  CAD — reuse that approach). Likely also wants **per-axis rotation (X/Y/Z°)** for real 3D shapes rather
-  than the single Z angle we have now.
+- [x] **Rotated-shape resize handles are wonky** (fixed 2026-09-22) — corner/endpoint grips on a ROTATED
+  rect / ellipse / box / line now resize along the object's LOCAL (rotated) axes about the opposite
+  corner, which stays world-fixed. A grip carries its opposite corner as `anchor` + a `resize(dragged,
+  anchor)` builder; for a rotated shape `gripsFor` computes the new centre = midpoint(anchorWorld,
+  pointer), un-rotates the pointer about it to get the dragged corner, mirrors to the opposite → the
+  anchor provably stays put (`rotatePt(F, cn, θ) == anchorWorld`). Shift-square is done in the LOCAL frame
+  (square the offset from the anchor before un-rotating), so `constrainGrip` now bypasses its old
+  WORLD-axis square for any rotated shape. **Verified in-browser (quantitative):** a 40°-rotated rect,
+  drag a corner → opposite corner moved **0 px**, corner angle stayed **90°**, opposite sides equal,
+  rotation preserved at 40°; clean console. [ ] Still wanted (separate): **per-axis rotation (X/Y/Z°)**
+  for real 3D shapes rather than the single Z angle.
 
 Suggested order in review.md §7.
 

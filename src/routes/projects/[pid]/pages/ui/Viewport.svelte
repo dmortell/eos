@@ -1029,7 +1029,11 @@
 	// Each selected entity shows square grips at its defining points. Dragging a grip edits
 	// that point; dragging the body moves the whole entity. Grips render at a constant
 	// screen size (÷ zoom) so they don't grow as the viewport zooms, like real CAD.
-	type Grip = { x: number; y: number; apply: (p: Pt) => Ent; rotate?: boolean }
+	// A grip: `apply(p)` handles the UN-rotated (or non-rotated) drag. For a ROTATED shape, `anchor` (the
+	// local coord that must stay put) + `resize(dragged, anchor)` (build from the two diagonal corners)
+	// drive a world-anchored resize instead, so a corner drags about the opposite corner in the shape's own
+	// axes; `square` opts the shift-constrain into that local frame (rects, not lines). `rotate` = the handle.
+	type Grip = { x: number; y: number; apply: (p: Pt) => Ent; rotate?: boolean; anchor?: Pt; resize?: (d: Pt, f: Pt) => Ent; square?: boolean }
 	// Which entity kinds get a rotate HANDLE (a circle above the bbox top-centre, like the prism's). `rot`
 	// already exists on Ent and render/hit/grips honour it — this just exposes it as a draggable handle.
 	// Excluded: flat-elev floor projections (a ground line) and an image mid-CROP (its grips are the window).
@@ -1061,17 +1065,37 @@
 		const c = rotCenter(e)
 		// A geometry grip works in the local frame → rotate its position AND un-rotate the pointer for apply.
 		// The rotate handle needs the RAW pointer (it computes a world angle), so only its position rotates.
+		const rot = e.rot!
 		return gs.map(g => {
-			const rp = rotatePt([g.x, g.y], c, e.rot!)
-			return g.rotate ? { ...g, x: rp[0], y: rp[1] } : { x: rp[0], y: rp[1], apply: (p: Pt) => g.apply(rotatePt(p, c, -e.rot!)) }
+			const rp = rotatePt([g.x, g.y], c, rot)
+			if (g.rotate) return { ...g, x: rp[0], y: rp[1] }
+			// World-anchored resize: keep the opposite corner (anchor) FIXED in world while the dragged
+			// corner follows the pointer, doing all the box math in the shape's un-rotated local frame.
+			if (g.anchor && g.resize) {
+				const Aw = rotatePt(g.anchor, c, rot), resize = g.resize, square = g.square
+				return { x: rp[0], y: rp[1], apply: (P: Pt): Ent => {
+					let Pw = P
+					if (square && shiftDown) {   // shift → square about the anchor, in LOCAL axes
+						const rel = rotatePt(P, Aw, -rot), dx = rel[0] - Aw[0], dy = rel[1] - Aw[1]
+						const s = Math.max(Math.abs(dx), Math.abs(dy)), sq = rotatePt([(dx < 0 ? -s : s), (dy < 0 ? -s : s)], [0, 0], rot)
+						Pw = [Aw[0] + sq[0], Aw[1] + sq[1]]
+					}
+					const cn: Pt = [(Aw[0] + Pw[0]) / 2, (Aw[1] + Pw[1]) / 2]   // new centre = midpoint(anchor, pointer)
+					const D = rotatePt(Pw, cn, -rot)                             // dragged corner, un-rotated
+					const F: Pt = [2 * cn[0] - D[0], 2 * cn[1] - D[1]]           // opposite corner → anchor stays world-fixed
+					return resize(D, F)
+				} }
+			}
+			return { x: rp[0], y: rp[1], apply: (p: Pt) => g.apply(rotatePt(p, c, -rot)) }
 		})
 	}
 	function gripsLocal(e: Ent): Grip[] {
 		if (isFlatElev(e)) { const [x0, x1] = flatXSpan(e); return [{ x: x0, y: GROUND, apply: p => setFlatX(e, 'min', p[0]) }, { x: x1, y: GROUND, apply: p => setFlatX(e, 'max', p[0]) }] }
 		if (e.type === 'polyline') return (e.pts ?? []).map((v, i) => ({ x: v[0], y: v[1], apply: (p: Pt) => ({ ...e, pts: (e.pts ?? []).map((q, j) => j === i ? p : q) }) }))
 		if (e.type === 'line' || e.type === 'dim') return [
-			{ x: e.a![0], y: e.a![1], apply: p => ({ ...e, a: p }) },
-			{ x: e.b![0], y: e.b![1], apply: p => ({ ...e, b: p }) },
+			// Rotated: drag one endpoint (D) keeping the other (anchor F) world-fixed. No square-constrain.
+			{ x: e.a![0], y: e.a![1], anchor: e.b!, resize: (D, F) => ({ ...e, a: D, b: F }), apply: p => ({ ...e, a: p }) },
+			{ x: e.b![0], y: e.b![1], anchor: e.a!, resize: (D, F) => ({ ...e, b: D, a: F }), apply: p => ({ ...e, b: p }) },
 		]
 		if (e.type === 'box' && isElev) {   // grips on the projected FACE (width × height)
 			const { x0, x1, base, top } = boxElev(e, elevDir, CX, CY)
@@ -1116,11 +1140,14 @@
 		}
 		if (e.type === 'rect' || e.type === 'ellipse' || e.type === 'box') {   // 4 corner grips on the footprint/bbox
 			const [ax, ay] = e.a!, [bx, by] = e.b!
+			// When rotated, gripsFor resizes from the two diagonal corners (dragged D + opposite anchor F);
+			// this rebuilds the axis-aligned box from them. Each corner grip carries its opposite as `anchor`.
+			const box = (D: Pt, F: Pt): Ent => ({ ...e, a: [Math.min(D[0], F[0]), Math.min(D[1], F[1])] as Pt, b: [Math.max(D[0], F[0]), Math.max(D[1], F[1])] as Pt })
 			return [
-				{ x: ax, y: ay, apply: p => ({ ...e, a: p }) },
-				{ x: bx, y: by, apply: p => ({ ...e, b: p }) },
-				{ x: ax, y: by, apply: p => ({ ...e, a: [p[0], e.a![1]] as Pt, b: [e.b![0], p[1]] as Pt }) },
-				{ x: bx, y: ay, apply: p => ({ ...e, a: [e.a![0], p[1]] as Pt, b: [p[0], e.b![1]] as Pt }) },
+				{ x: ax, y: ay, anchor: [bx, by], square: true, resize: box, apply: p => ({ ...e, a: p }) },
+				{ x: bx, y: by, anchor: [ax, ay], square: true, resize: box, apply: p => ({ ...e, b: p }) },
+				{ x: ax, y: by, anchor: [bx, ay], square: true, resize: box, apply: p => ({ ...e, a: [p[0], e.a![1]] as Pt, b: [e.b![0], p[1]] as Pt }) },
+				{ x: bx, y: ay, anchor: [ax, by], square: true, resize: box, apply: p => ({ ...e, a: [e.a![0], p[1]] as Pt, b: [p[0], e.b![1]] as Pt }) },
 			]
 		}
 		if (e.type === 'circle') return [
@@ -1136,6 +1163,7 @@
 	function constrainGrip(base: Ent, gi: number, p: Pt, shift: boolean): Pt {
 		if (!shift) return p
 		if (gripsFor(base)[gi]?.rotate) return p   // rotate handle: no square/ortho constrain (Shift-free-rotate)
+		if (base.rot) return p   // rotated shape: the world-anchored resize does its own local-frame square (gripsFor)
 		if (base.type === 'box' && isElev) {   // shift → square FACE about the opposite face corner
 			const f = boxElev(base, elevDir, CX, CY)
 			const an: Pt = gi === 0 ? [f.x1, f.top] : gi === 1 ? [f.x0, f.top] : gi === 2 ? [f.x1, f.base] : [f.x0, f.base]
