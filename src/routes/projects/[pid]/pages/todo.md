@@ -300,11 +300,16 @@ New todos (design / bigger):
   in a FRONT elevation landed at the trunk's y-depth in plan (coincident with the trunk), while a point in
   empty space stayed at centre; clean console. (First cut matched in screen space and missed — model-space
   match fixed it.)
-- [ ] **Multi-direction section (arrows on all 4 sides)** (Dave, 2026-09-21) — a section box could show
-  an arrow on each of its 4 sides, each spawning that direction's elevation (front/rear/left/right from
-  one cut). Today one box = one direction (the dropdown). Arrows now sit INSIDE the rect at the edge the
-  observer looks from (front = bottom edge looking up, etc.) so 4 arrows fit naturally. Needs the section
-  model to carry a set of active directions + one elevation view per direction.
+- [x] **Multi-direction section (arrows on all 4 sides)** (2026-09-22) — a section box can now cut in up to
+  4 directions from ONE box. Each direction is its own elevation tab, but they share a GROUP (`docSecGroup`)
+  so the box moves/resizes together (`moveSection` propagates to every tab in the group; `sectionMarkers`
+  groups by group id → ONE plan marker, so no divergence). The marker shows the 4 directional arrows:
+  ACTIVE (has an elevation) solid → click opens it; when the box is SELECTED the missing directions show
+  faded → click `sectionadddir` spawns that elevation (new tab, same clip+group). Arrows are interactive
+  only in Select mode; `onDown`/`onClick` bail on a `.section-arrow.pick` target (Svelte delegates the SVG
+  pointerdown, so its `stopPropagation` alone didn't stop the section-draw/deselect — same gotcha as the
+  rDownPt one). Verified in-browser: draw → front + 3 faded; select → 4 arrows; clicking a faded arrow
+  created Section B (arrow turned solid) with NO stray section; box stays one marker; clean console.
 - [x] **Insert nodes in ELEVATION views** (2026-09-20) — node-insert (dbl-click a wall/conduit segment)
   now works in elevations too, not just plan: the new node takes its on-axis coord from `projUInv(p[0])`
   and z from `GROUND − p[1]`, keeping the off-axis coord of its neighbour. `onDblclick` gate widened

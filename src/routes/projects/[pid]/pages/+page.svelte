@@ -122,6 +122,7 @@
 		sectionsetdir: (id: string, dir: ElevDir) => setSectionDir(id, dir),
 		sectiondelete: (id: string) => deleteSection(id),
 		sectiondrop: (id: string) => sectionDropAsFrame(id),
+		sectionadddir: (id: string, dir: ElevDir) => addSectionDir(id, dir),
 	})
 	// A 3D-model edit (the Viewport mutated the shared `models` store) records a step on THIS doc's
 	// timeline, gesture-folded like an entity edit — so Ctrl+Z restores the model too.
@@ -136,17 +137,48 @@
 	// arrow AND the elevation's projection). Markers self-clean when their elevation tab is closed.
 	let docClip = $state<Record<string, Clip>>({})
 	let docSecDir = $state<Record<string, ElevDir>>({})
+	// A section can cut in up to 4 directions from ONE box: each direction is its own elevation tab, but they
+	// share a GROUP so the box (docClip, kept per tab and synced) moves/resizes together. docSecGroup maps a
+	// tab → its group id. Ungrouped (legacy) tabs are their own group.
+	let docSecGroup = $state<Record<string, string>>({})
 	let selSection = $state<string | null>(null)   // the section marker selected on the plan (shows grips + toolbar)
-	let secSeq = 0
+	let secSeq = 0, secGroupSeq = 0
 	function onSection(clip: Clip) {
-		const id = 't' + ++seq
+		const id = 't' + ++seq, gid = 'sg' + ++secGroupSeq
 		tabs = [...tabs, { id, title: `Section ${String.fromCharCode(65 + secSeq++)}`, kind: 'elevation', dirty: false }]
 		docClip = { ...docClip, [id]: clip }
 		docSecDir = { ...docSecDir, [id]: 'front' }
+		docSecGroup = { ...docSecGroup, [id]: gid }
 		selSection = id   // select the new section (grips + toolbar) but stay on the plan — open it via the link button
 	}
-	// Every active section as a plan marker: its box, its viewing direction, and the elevation's label.
-	const sectionMarkers = $derived(Object.entries(docClip).map(([tid, clip]) => ({ id: tid, clip, dir: docSecDir[tid] ?? 'front', label: tabs.find((t) => t.id === tid)?.title ?? 'Section' })))
+	const groupOf = (tid: string) => docSecGroup[tid] ?? tid
+	// Every section box as ONE plan marker (grouped): its box, the primary tab's direction (for the toolbar),
+	// its label, and `dirs` = which of the 4 directions are active → their tab ids (drives the 4 arrows).
+	const sectionMarkers = $derived.by(() => {
+		const groups = new Map<string, { clip: Clip; tabs: { id: string; dir: ElevDir }[] }>()
+		for (const [tid, clip] of Object.entries(docClip)) {
+			const g = groupOf(tid)
+			if (!groups.has(g)) groups.set(g, { clip, tabs: [] })
+			groups.get(g)!.tabs.push({ id: tid, dir: docSecDir[tid] ?? 'front' })
+		}
+		return [...groups.values()].map((g) => {
+			const dirs: Partial<Record<ElevDir, string>> = {}
+			for (const t of g.tabs) dirs[t.dir] = t.id
+			const primary = g.tabs[0]
+			return { id: primary.id, clip: g.clip, dir: primary.dir, label: tabs.find((t) => t.id === primary.id)?.title ?? 'Section', dirs }
+		})
+	})
+	// Add a cut DIRECTION to a section's group: a new elevation tab sharing the box, or open it if it exists.
+	function addSectionDir(sectionId: string, dir: ElevDir) {
+		const gid = groupOf(sectionId), clip = docClip[sectionId]; if (!clip) return
+		const existing = Object.keys(docClip).find((t) => groupOf(t) === gid && (docSecDir[t] ?? 'front') === dir)
+		if (existing) { openSection(existing); return }
+		const id = 't' + ++seq
+		tabs = [...tabs, { id, title: `Section ${String.fromCharCode(65 + secSeq++)}`, kind: 'elevation', dirty: false }]
+		docClip = { ...docClip, [id]: { ...clip } }
+		docSecDir = { ...docSecDir, [id]: dir }
+		docSecGroup = { ...docSecGroup, [id]: gid }   // stay on the plan; the now-solid arrow opens it
+	}
 	// A marker is SELECTED by clicking it (grips + a floating toolbar appear); the toolbar's LINK button
 	// opens its elevation, its direction control re-aims the cut, and corner grips / a body drag resize /
 	// move the box (the linked elevation re-clips live). Deleting closes that tab (dropDoc clears the clip).
@@ -171,7 +203,11 @@
 		selFrame = fid
 		recordEdit(sheet.id, 'Drop section viewport')
 	}
-	function moveSection(id: string, clip: Clip) { docClip = { ...docClip, [id]: clip } }
+	function moveSection(id: string, clip: Clip) {   // move/resize the box for EVERY direction in the group
+		const gid = groupOf(id), dc = { ...docClip }
+		for (const t of Object.keys(dc)) if (groupOf(t) === gid) dc[t] = clip
+		docClip = dc
+	}
 	function selectSection(id: string | null) { selSection = id; if (id) setSel(active?.id ?? '', []) }   // section vs entity selection are exclusive
 	function setSectionDir(id: string, dir: ElevDir) {
 		docSecDir = { ...docSecDir, [id]: dir }
@@ -460,6 +496,7 @@
 		if (docPaper[id]) { const pp = { ...docPaper }; delete pp[id]; docPaper = pp }
 		if (docClip[id]) { const dc = { ...docClip }; delete dc[id]; docClip = dc }            // section box → its plan marker vanishes too
 		if (docSecDir[id]) { const dd = { ...docSecDir }; delete dd[id]; docSecDir = dd }
+		if (docSecGroup[id]) { const dg = { ...docSecGroup }; delete dg[id]; docSecGroup = dg }   // leave the group's other directions intact
 		if (selSection === id) selSection = null
 		// A sheet's viewport frames + all their per-frame view/orbit/activation state.
 		const frameIds = framesOf(id).map((f) => f.id)
@@ -708,7 +745,7 @@
 	}
 	function canvasZoom(pane: { id: string; activeId: string }, el: HTMLElement, f: number, clientX: number, clientY: number) {
 		const r = el.getBoundingClientRect(), mx = clientX - r.left, my = clientY - r.top
-		const v = canvasViewOf(pane), nz = Math.min(8, Math.max(0.1, v.zoom * f)), ratio = nz / v.zoom
+		const v = canvasViewOf(pane), nz = Math.min(20, Math.max(0.1, v.zoom * f)), ratio = nz / v.zoom   // up to 2000%
 		setCanvasView(pane, { x: mx - (mx - v.x) * ratio, y: my - (my - v.y) * ratio, zoom: nz })
 	}
 	// Nav toolbar / status zoom act on the active viewport if one is active, else the canvas.
@@ -724,8 +761,8 @@
 	})
 	function navZoom(f: number) {
 		const p = panes[focused]; if (!p) return
-		if (zoomsContent(p.activeId)) { const pr = activeProj(p), v = viewOf(p.id, p.activeId, pr); setView(p.id, p.activeId, pr, { ...v, zoom: Math.min(8, Math.max(0.25, v.zoom * f)) }) }
-		else { const v = canvasViewOf(p); setCanvasView(p, { ...v, zoom: Math.min(8, Math.max(0.1, v.zoom * f)) }) }
+		if (zoomsContent(p.activeId)) { const pr = activeProj(p), v = viewOf(p.id, p.activeId, pr); setView(p.id, p.activeId, pr, { ...v, zoom: Math.min(20, Math.max(0.25, v.zoom * f)) }) }
+		else { const v = canvasViewOf(p); setCanvasView(p, { ...v, zoom: Math.min(20, Math.max(0.1, v.zoom * f)) }) }
 	}
 	// Fit a specific pane: frame its sheet paper (centred, with margin) or reset a model view.
 	function fitPane(idx: number) {

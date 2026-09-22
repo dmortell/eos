@@ -25,7 +25,7 @@
 	export type { Pt, Ent, View } from './geometry'
 	// A section cut shown as a marker on the PLAN: its clip box, viewing direction, and the elevation's
 	// label. Clicking the marker opens (or re-focuses) that elevation tab.
-	export type SectionMarker = { id: string; clip: Clip; dir: ElevDir; label: string }
+	export type SectionMarker = { id: string; clip: Clip; dir: ElevDir; label: string; dirs: Partial<Record<ElevDir, string>> }
 
 	// Drafting/interaction flags are grouped into one `env` object, and all the event callbacks into
 	// one `on` object, to keep the prop list small (a step toward a headless editor class — see
@@ -42,6 +42,7 @@
 		scale?: (s: string) => void; modeledit?: (label?: string) => void; section?: (clip: Clip) => void; orbit?: (yaw: number, pitch: number) => void;
 		sectionselect?: (id: string | null) => void; sectionopen?: (id: string) => void; sectionmove?: (id: string, clip: Clip) => void;
 		sectionsetdir?: (id: string, dir: ElevDir) => void; sectiondelete?: (id: string) => void; sectiondrop?: (id: string) => void
+		sectionadddir?: (id: string, dir: ElevDir) => void
 	}
 	let { label = 'Viewport', scale = '1:1', kind = 'floorplan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {}, frameId = undefined, modelId = undefined,
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, sections = [], selSection = null }:
@@ -72,6 +73,7 @@
 	const projU = (coord: number) => elevU(elevDir, coord, CX, CY)
 	const projUInv = (u: number) => elevUInv(elevDir, u, CX, CY)
 	const DRAW = new Set(['Line', 'Rectangle', 'Ellipse', 'Dimension', 'Text', 'Box', 'Wall', 'Furniture', 'Trunk', 'Pipe', 'Section', 'Opening', 'Guide'])
+	const SECTION_DIRS: ElevDir[] = ['front', 'rear', 'left', 'right']   // the 4 cut directions a section box can spawn
 	// Guide lines belong to a drawable VIEW space (plan or an elevation); iso has none.
 	const viewSpace = $derived(kind === 'floorplan' ? 'plan' : isElev ? elevDir : null)
 	const mdl = $derived(modelById(modelId) ?? models[0])   // the model this viewport renders/edits (§5 registry)
@@ -218,6 +220,7 @@
 	}
 	function onClick(e: MouseEvent) {
 		e.stopPropagation()
+		if ((e.target as Element)?.closest?.('.section-arrow.pick')) return   // handled by the arrow's pointerdown; don't clear the section selection
 		if (suppressClick) { suppressClick = false; return }   // this click just ended a drag
 		if (!active) return   // paper space: enter with a double-click (see onDblclick)
 		// IMAGE calibration modes (Properties › Set scale / Set origin) intercept clicks on the image.
@@ -660,7 +663,6 @@
 		const b1: Pt = [tail[0] + perp[0] * w, tail[1] + perp[1] * w], b2: Pt = [tail[0] - perp[0] * w, tail[1] - perp[1] * w]
 		return `${tip[0]},${tip[1]} ${b1[0]},${b1[1]} ${b2[0]},${b2[1]}`
 	}
-	const sectionArrowPts = (s: SectionMarker): string => sectionArrowFor(s.clip, s.dir)
 
 	// ── alignment GUIDES ── the Guide tool drops a full-view h/v line (Shift = vertical) in this view's
 	// space; a selected PLAN guide then fixes the depth when drawing a conduit in an elevation.
@@ -1384,6 +1386,7 @@
 	let rDownPt: { x: number; y: number } | null = null
 	function onDown(e: PointerEvent) {
 		if (editText || !active || e.button !== 0) return   // ignore while editing text in place
+		if ((e.target as Element)?.closest?.('.section-arrow.pick')) return   // a section-arrow click adds/opens a direction (Svelte delegation ignores its stopPropagation)
 		suppressClick = false   // clear any stale flag from a drag that never got its click
 		nodeSel = null          // a fresh press resets the node selection (re-set on a no-move node-grip click)
 		pointers.add(e.pointerId)
@@ -1732,7 +1735,16 @@
 					{@const bx = Math.min(s.clip.x0, s.clip.x1)}
 					{@const by = Math.min(s.clip.y0, s.clip.y1)}
 					<rect class="section-mark" class:sel={s.id === selSection} x={bx} y={by} width={Math.abs(s.clip.x1 - s.clip.x0)} height={Math.abs(s.clip.y1 - s.clip.y0)} stroke-width={(s.id === selSection ? 2 : 1.4) / (canvasZoom || 1)} />
-					<polygon class="section-arrow" points={sectionArrowPts(s)} stroke-width={1.4 / (canvasZoom || 1)} />
+					<!-- up to 4 directional arrows: active (has an elevation) = solid, opens it; when the box is
+					     SELECTED the missing directions show faded and a click spawns that elevation. -->
+					{#each SECTION_DIRS as d (d)}
+						{@const dtab = s.dirs[d]}
+						{#if dtab || s.id === selSection}
+							{@const pick = tool === 'Select' && (!!dtab || s.id === selSection)}
+							<polygon class="section-arrow" class:inactive={!dtab} class:pick points={sectionArrowFor(s.clip, d)} stroke-width={1.4 / (canvasZoom || 1)}
+								onpointerdown={(e) => { if (!pick) return; e.stopPropagation(); if (dtab) on.sectionopen?.(dtab); else on.sectionadddir?.(s.id, d) }} />
+						{/if}
+					{/each}
 					{@const pad = hitTol(6) / (dscale || 1)}
 					<text class="section-label" x={bx + pad} y={by - pad} font-size={hitTol(12) / (dscale || 1)}>{s.label}</text>
 				{/each}
@@ -2007,6 +2019,9 @@
 	.section-mark { fill:#0e749010; stroke:#0e7490; stroke-dasharray:7 4; vector-effect:non-scaling-stroke; pointer-events:none; }
 	.section-mark.sel { fill:#0e749022; stroke-dasharray:none; }
 	.section-arrow { fill:#0e7490; stroke:#0e7490; vector-effect:non-scaling-stroke; pointer-events:none; }
+	.section-arrow.inactive { fill:#0e749033; stroke:#0e749077; }   /* a direction with no elevation yet — click to add */
+	.section-arrow.pick { pointer-events:auto; cursor:pointer; }
+	.section-arrow.pick:hover { fill:#e0a020; stroke:#e0a020; }
 	.section-label { fill:#0e7490; font-weight:700; font-family:Consolas,monospace; pointer-events:none; }
 	/* Selected-section floating toolbar (screen space, tracks the box): open / re-aim / delete. */
 	.section-toolbar { position:absolute; z-index:12; display:flex; align-items:center; gap:3px; padding:2px;
