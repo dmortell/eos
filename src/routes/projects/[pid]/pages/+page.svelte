@@ -668,7 +668,6 @@
 		{ icon: 'k-line', name: 'Line' },
 		{ icon: 'rectangle', name: 'Rectangle' },
 		{ icon: 'circle', name: 'Ellipse' },
-		{ icon: 'box', name: 'Box' },
 		{ icon: 'waypoints', name: 'Wall' },
 		{ icon: 'square', name: 'Furniture' },
 		{ icon: 'route', name: 'Trunk' },
@@ -687,7 +686,7 @@
 	const STRIP: StripItem[] = [
 		{ tool: 'Select' },
 		{ tool: 'Line' },
-		{ group: 'shapes', label: 'Shapes', members: ['Rectangle', 'Ellipse', 'Box'] },   // 2D/footprint draws
+		{ group: 'shapes', label: 'Shapes', members: ['Rectangle', 'Ellipse'] },   // 2D/footprint draws
 		{ group: 'conduits', label: 'Conduits', members: ['Wall', 'Trunk', 'Pipe'] },      // node/segment graph tools
 		{ tool: 'Furniture' },
 		{ tool: 'Opening' },

@@ -11,7 +11,7 @@
 	import { panzoom } from './panzoom'
 	import Handle from '../parts/Handle.svelte'
 	import { BASE, HANDLE_PX, PAPER_PX_PER_MM } from '../constants'
-	import { type Pt, type Ent, type View, type ElevDir, DEFAULT_BOX_H, GROUND, MMPU, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, ELEV_BASIS, elevU, elevUInv, dist, segDist, translate, textBox, boxElev, boxElevSet, boxFaces } from './geometry'
+	import { type Pt, type Ent, type View, type ElevDir, GROUND, MMPU, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, ELEV_BASIS, elevU, elevUInv, dist, segDist, translate, textBox } from './geometry'
 	import { makeMapper, type Mapper } from './mapper'
 	import type { ViewCtx } from './view'
 	import { rotatePt, inScope as hInScope, inThisView as hInThisView, groundInIso as hGroundInIso, isFlatElev as hIsFlatElev, flatXSpan as hFlatXSpan, rotCenter as hRotCenter, bbox as hBbox, hitEnt as hHitEnt, pickable as hPickable } from './hit'
@@ -77,7 +77,7 @@
 	// Project a footprint coordinate (along the current dir's axis) to the drawing horizontal, and back.
 	const projU = (coord: number) => elevU(elevDir, coord, CX, CY)
 	const projUInv = (u: number) => elevUInv(elevDir, u, CX, CY)
-	const DRAW = new Set(['Line', 'Rectangle', 'Ellipse', 'Dimension', 'Text', 'Box', 'Wall', 'Furniture', 'Trunk', 'Pipe', 'Section', 'Opening', 'Guide'])
+	const DRAW = new Set(['Line', 'Rectangle', 'Ellipse', 'Dimension', 'Text', 'Wall', 'Furniture', 'Trunk', 'Pipe', 'Section', 'Opening', 'Guide'])
 	const SECTION_DIRS: ElevDir[] = ['front', 'rear', 'left', 'right']   // the 4 cut directions a section box can spawn
 	// Guide lines belong to a drawable VIEW space (plan or an elevation); iso has none.
 	const viewSpace = $derived(kind === 'floorplan' ? 'plan' : isElev ? elevDir : null)
@@ -193,7 +193,7 @@
 	function constrainPt(a: Pt, p: Pt, shift: boolean): Pt {
 		if (!shift) return p
 		const dx = p[0] - a[0], dy = p[1] - a[1]
-		if (tool === 'Rectangle' || tool === 'Ellipse' || tool === 'Box') {   // Shift → square bbox (a circle for the ellipse)
+		if (tool === 'Rectangle' || tool === 'Ellipse') {   // Shift → square bbox (a circle for the ellipse)
 			const s = Math.max(Math.abs(dx), Math.abs(dy))
 			return [a[0] + (dx < 0 ? -s : s), a[1] + (dy < 0 ? -s : s)]
 		}
@@ -212,7 +212,6 @@
 		if (tool === 'Line') on.add?.({ id: uid(), type: 'line', a, b, plane: sp })
 		else if (tool === 'Rectangle') { const [ra, rb] = centerDraw ? centerCorners(a, b) : [a, b]; on.add?.({ id: uid(), type: 'rect', a: ra, b: rb, plane: sp }) }
 		else if (tool === 'Ellipse') { const [ra, rb] = centerDraw ? centerCorners(a, b) : [a, b]; on.add?.({ id: uid(), type: 'ellipse', a: ra, b: rb, plane: sp }) }
-		else if (tool === 'Box') on.add?.({ id: uid(), type: 'box', a, b, h: DEFAULT_BOX_H })
 		else if (tool === 'Furniture' && isPlan) placePrism(a, b, 'furniture', 750, 'f')   // MODEL prism footprint
 		else if (tool === 'Opening' && isPlan) placePrism(a, b, 'openings', 2100, 'o')      // door/window/hole (dashed outline)
 		else if (tool === 'Section' && isPlan && mdl) {   // §4 — clip box on the plan → spawn a front elevation
@@ -395,7 +394,7 @@
 		else on.deactivate?.()
 	}
 
-	// hit-test (topmost first). segDist/textBox/boxElev live in ./geometry.
+	// hit-test (topmost first). segDist/textBox live in ./geometry; hit predicates in ./hit.
 	// Flat (z=0, no height) objects that project to an edge-on ground line in elevation.
 	const FLAT = new Set(['line', 'polyline', 'dim', 'rect', 'ellipse'])
 	// Object SPACE (v1 — per-view annotations, like the Sheets tool): 'plan'/undefined = model/plan
@@ -475,7 +474,7 @@
 	const modelLayerLocked = (o: Obj) => !!mdl?.layers?.find(x => x.id === o.layer)?.locked   // locked → not pickable (B16)
 	// A prism's drawing-space AABB in the CURRENT view: plan = footprint [x..x+w]×[y..y+d]; elevation =
 	// silhouette face (its on-axis extent projected via projU, standing on GROUND from z to z+h). Matches
-	// Model3d + the entity-box convention (boxElev). null for non-prisms / non-editable views.
+	// Model3d prism-editing target. null for non-prisms / non-editable views.
 	function prismRect(o: Obj): { x0: number; y0: number; x1: number; y1: number } | null {
 		if (o.type !== 'prism') return null
 		if (isElev) {
@@ -1092,7 +1091,7 @@
 		const mid = (a: Pt, b: Pt): Pt => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
 		if (e.type === 'polyline') { const pts = e.pts ?? []; const out = pts.map(p => ({ point: p, type: 'end' })); for (let i = 0; i + 1 < pts.length; i++) out.push({ point: mid(pts[i], pts[i + 1]), type: 'mid' }); return out }
 		if (e.type === 'line' || e.type === 'dim') return [{ point: e.a!, type: 'end' }, { point: e.b!, type: 'end' }, { point: mid(e.a!, e.b!), type: 'mid' }]
-		if (e.type === 'rect' || e.type === 'ellipse' || e.type === 'box' || e.type === 'image') {
+		if (e.type === 'rect' || e.type === 'ellipse' || e.type === 'image') {
 			const [x0, y0, x1, y1] = bbox(e)
 			const c: Pt[] = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
 			return [...c.map(p => ({ point: p, type: 'end' })),
@@ -1144,8 +1143,7 @@
 	// already exists on Ent and render/hit/grips honour it — this just exposes it as a draggable handle.
 	// Excluded: flat-elev floor projections (a ground line) and an image mid-CROP (its grips are the window).
 	const ROTATABLE = new Set(['rect', 'ellipse', 'image', 'line'])
-	// `box` rotates only in PLAN (its footprint) — in elevation it uses the boxElev face grips instead.
-	const canRotate = (e: Ent) => (ROTATABLE.has(e.type) || (e.type === 'box' && isPlan)) && !isFlatElev(e) && !(e.type === 'image' && imgEdit.mode === 'crop' && imgEdit.id === e.id)
+	const canRotate = (e: Ent) => ROTATABLE.has(e.type) && !isFlatElev(e) && !(e.type === 'image' && imgEdit.mode === 'crop' && imgEdit.id === e.id)
 	// The rotate handle in the entity's LOCAL (un-rotated) frame; gripsFor then rotates its POSITION with the
 	// shape but leaves apply on the RAW pointer (angle from centre + 90°, matching the prism/model handle).
 	function rotGripLocal(e: Ent): Grip {
@@ -1224,15 +1222,6 @@
 			}
 			return gs
 		}
-		if (e.type === 'box' && isElev) {   // grips on the projected FACE (width × height)
-			const { x0, x1, base, top } = boxElev(e, elevDir, CX, CY)
-			return [
-				{ x: x0, y: base, apply: p => boxElevSet(e, { x0: p[0], z0: GROUND - p[1] }, elevDir, CX, CY) },      // bottom-left: width + base elevation
-				{ x: x1, y: base, apply: p => boxElevSet(e, { x1: p[0], z0: GROUND - p[1] }, elevDir, CX, CY) },      // bottom-right
-				{ x: x0, y: top, apply: p => boxElevSet(e, { x0: p[0], h: base - p[1] }, elevDir, CX, CY) },          // top-left: width + height
-				{ x: x1, y: top, apply: p => boxElevSet(e, { x1: p[0], h: base - p[1] }, elevDir, CX, CY) },          // top-right
-			]
-		}
 		if (e.type === 'image' && imgEdit.mode === 'crop' && imgEdit.id === e.id) {   // CROP mode: corner grips move the crop WINDOW, not the placement rect
 			const rx = Math.min(e.a![0], e.b![0]), ry = Math.min(e.a![1], e.b![1]), rw = Math.abs(e.b![0] - e.a![0]) || 1, rh = Math.abs(e.b![1] - e.a![1]) || 1
 			const cr = e.crop ?? { x: 0, y: 0, w: 1, h: 1 }, x0 = cr.x, y0 = cr.y, x1 = cr.x + cr.w, y1 = cr.y + cr.h
@@ -1265,7 +1254,7 @@
 				{ x: rx + x0 * rw, y: ry + y1 * rh, apply: wres(x0, y1, x1, y0) },   // BL — keep TR fixed
 			]
 		}
-		if (e.type === 'rect' || e.type === 'ellipse' || e.type === 'box') {   // 4 corner grips on the footprint/bbox
+		if (e.type === 'rect' || e.type === 'ellipse') {   // 4 corner grips on the footprint/bbox
 			const [ax, ay] = e.a!, [bx, by] = e.b!
 			// When rotated, gripsFor resizes from the two diagonal corners (dragged D + opposite anchor F);
 			// this rebuilds the axis-aligned box from them. Each corner grip carries its opposite as `anchor`.
@@ -1288,19 +1277,13 @@
 		return []
 	}
 	// (translate lives in ./geometry)
-	// Shift-constrain a grip drag: box corner → square about the opposite corner; line/dim
-	// endpoint → 15° about the other end. (Circle radius left free.)
+	// Shift-constrain a grip drag: rect/ellipse corner → square about the opposite corner; line/dim
+	// endpoint → 15° about the other end.
 	function constrainGrip(base: Ent, gi: number, p: Pt, shift: boolean): Pt {
 		if (!shift) return p
 		if (gripsFor(base)[gi]?.rotate) return p   // rotate handle: no square/ortho constrain (Shift-free-rotate)
 		if (base.rot) return p   // rotated shape: the world-anchored resize does its own local-frame square (gripsFor)
-		if (base.type === 'box' && isElev) {   // shift → square FACE about the opposite face corner
-			const f = boxElev(base, elevDir, CX, CY)
-			const an: Pt = gi === 0 ? [f.x1, f.top] : gi === 1 ? [f.x0, f.top] : gi === 2 ? [f.x1, f.base] : [f.x0, f.base]
-			const s = Math.max(Math.abs(p[0] - an[0]), Math.abs(p[1] - an[1]))
-			return [an[0] + (p[0] < an[0] ? -s : s), an[1] + (p[1] < an[1] ? -s : s)]
-		}
-		if (base.type === 'rect' || base.type === 'ellipse' || (base.type === 'box' && !isElev)) {
+		if (base.type === 'rect' || base.type === 'ellipse') {
 			const [ax, ay] = base.a!, [bx, by] = base.b!
 			const an: Pt = gi === 0 ? [bx, by] : gi === 1 ? [ax, ay] : gi === 2 ? [bx, ay] : [ax, by]
 			const s = Math.max(Math.abs(p[0] - an[0]), Math.abs(p[1] - an[1]))
@@ -1575,11 +1558,6 @@
 		if (isElev) {
 			const { axis, sign } = ELEV_BASIS[elevDir]
 			const d = sign * dx   // drawing-horizontal delta → model delta along the view axis
-			if (en.type === 'box') {
-				const a: Pt = axis === 0 ? [en.a![0] + d, en.a![1]] : [en.a![0], en.a![1] + d]
-				const b: Pt = axis === 0 ? [en.b![0] + d, en.b![1]] : [en.b![0], en.b![1] + d]
-				return { ...en, a, b, z0: Math.max(0, (en.z0 ?? 0) - dy) }
-			}
 			if (FLAT.has(en.type)) return axis === 0 ? translate(en, d, 0) : translate(en, 0, d)
 		}
 		return translate(en, dx, dy)
@@ -1675,7 +1653,6 @@
 		on.select?.(m.add ? [...new Set([...sel, ...g])] : g)   // Shift/Ctrl marquee unions with the current selection
 		suppressClick = true   // don't let the ensuing click clear this selection
 	}
-	// (box projection helpers boxFaces / boxElevSet live in ./geometry)
 
 	// Kestrel-style prompt
 	let prompt = $derived.by(() => {
@@ -1702,7 +1679,6 @@
 			case 'Opening': return isPlan ? (n ? 'Specify opposite corner' : 'Specify opening (door / window / hole) corner') : 'Switch to the plan view to place an opening'
 			case 'Rectangle': return n ? 'Specify opposite corner' : 'Specify first corner'
 			case 'Ellipse': return n ? 'Specify opposite corner (Shift = circle)' : 'Specify first corner'
-			case 'Box': return n ? 'Specify opposite corner (Shift = square footprint)' : 'Specify first corner'
 			case 'Dimension': return n ? 'Specify second point' : 'Specify first point'
 			case 'Text': return 'Click to place text'
 			default: return tool + ' tool'
@@ -2013,23 +1989,6 @@
 		<text class="anno" x={e.a![0]} y={e.a![1] + oy} font-size={fs} fill={ink} font-weight="600" text-anchor={anchor} dominant-baseline={e.valign === 'middle' ? 'central' : undefined}>
 			{#each lines as line, i (i)}<tspan x={e.a![0]} dy={i === 0 ? 0 : lh}>{line}</tspan>{/each}
 		</text>
-	{:else if e.type === 'box'}
-		{@const f = boxFaces(e)}
-		{#if kind === 'iso'}
-			<!-- oblique cuboid: base footprint, two side faces, then the raised top -->
-			<rect x={f.x0} y={f.y0} width={f.x1 - f.x0} height={f.y1 - f.y0} fill="none" stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" stroke-dasharray="2 2" opacity="0.5" />
-			<polygon points={f.right} fill="#c2d1e8" stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
-			<polygon points={f.back} fill="#b2c3dc" stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
-			<polygon points={f.top} fill="#dce7f5" stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
-		{:else if isElev}
-			{@const fe = boxElev(e, elevDir, CX, CY)}
-			<!-- side-elevation face: width (the projected footprint axis: x for front/rear, y for
-			     left/right) × height, base at (ground − z0). Vertical is z0/height, NOT the plan depth. -->
-			<rect x={fe.x0} y={fe.top} width={fe.x1 - fe.x0} height={fe.h} fill={e.fill ?? '#dce7f5'} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
-		{:else}
-			<!-- plan: footprint rectangle -->
-			<rect x={f.x0} y={f.y0} width={f.x1 - f.x0} height={f.y1 - f.y0} fill={e.fill ?? '#dce7f533'} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
-		{/if}
 	{/if}
 {/snippet}
 
@@ -2044,7 +2003,7 @@
 		<rect x={Math.min(qa[0], p[0])} y={Math.min(qa[1], p[1])} width={Math.abs(p[0] - qa[0])} height={Math.abs(p[1] - qa[1])} fill="none" stroke={SEL} stroke-width={sw} />
 	{:else if tool === 'Ellipse'}
 		<ellipse cx={(qa[0] + p[0]) / 2} cy={(qa[1] + p[1]) / 2} rx={Math.abs(p[0] - qa[0]) / 2} ry={Math.abs(p[1] - qa[1]) / 2} fill="none" stroke={SEL} stroke-width={sw} />
-	{:else if tool === 'Box' || tool === 'Furniture' || tool === 'Opening'}
+	{:else if tool === 'Furniture' || tool === 'Opening'}
 		<rect x={Math.min(a[0], p[0])} y={Math.min(a[1], p[1])} width={Math.abs(p[0] - a[0])} height={Math.abs(p[1] - a[1])} fill="none" stroke={SEL} stroke-width={sw} />
 	{:else if tool === 'Section'}
 		<rect x={Math.min(a[0], p[0])} y={Math.min(a[1], p[1])} width={Math.abs(p[0] - a[0])} height={Math.abs(p[1] - a[1])} fill="#0e749011" stroke="#0e7490" stroke-width={1.2 * sw} vector-effect="non-scaling-stroke" />

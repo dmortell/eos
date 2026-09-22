@@ -52,7 +52,7 @@
 	function setX(v: number) { if (!gb) return; const dx = v - gb.x, snap = [...ents]; for (const e of snap) onupdate?.(translate(e, dx, 0)) }
 	function setY(v: number) { if (!gb) return; const dy = v - gb.y, snap = [...ents]; for (const e of snap) onupdate?.(translate(e, 0, dy)) }
 	// Single-entity size edits (anchored at the top-left / centre).
-	const boxKind = (e?: Ent | null) => e?.type === 'rect' || e?.type === 'ellipse' || e?.type === 'box'
+	const boxKind = (e?: Ent | null) => e?.type === 'rect' || e?.type === 'ellipse'
 	function setW(v: number) {
 		const e = single; if (!boxKind(e)) return
 		const x0 = Math.min(e!.a![0], e!.b![0]), y0 = Math.min(e!.a![1], e!.b![1]), h = Math.abs(e!.b![1] - e!.a![1])
@@ -63,8 +63,6 @@
 		const x0 = Math.min(e!.a![0], e!.b![0]), y0 = Math.min(e!.a![1], e!.b![1]), w = Math.abs(e!.b![0] - e!.a![0])
 		onupdate?.({ ...e!, a: [x0, y0], b: [x0 + w, y0 + Math.max(1, v)] })
 	}
-	function setBoxH(v: number) { const e = single; if (e?.type === 'box') onupdate?.({ ...e, h: Math.max(1, Math.round(v)) }) }
-	function setBoxZ0(v: number) { const e = single; if (e?.type === 'box') onupdate?.({ ...e, z0: Math.max(0, Math.round(v)) }) }
 	function setText(v: string) { const e = single; if (e?.type === 'text') onupdate?.({ ...e, text: v }) }
 	// Toggle a text box into a CALLOUT (box + leader). Seed the leader tip below-left of the text the
 	// first time; keep it across off/on so re-enabling restores the previous target.
@@ -78,8 +76,8 @@
 	const strVal = (e: Event) => (e.currentTarget as HTMLInputElement).value
 
 	// ── style (color / fill / weight / font / align) — applies to the whole selection ──
-	const STROKE_TYPES = new Set(['line', 'polyline', 'dim', 'rect', 'ellipse', 'box'])
-	const FILL_TYPES = new Set(['rect', 'ellipse', 'box', 'polyline'])
+	const STROKE_TYPES = new Set(['line', 'polyline', 'dim', 'rect', 'ellipse'])
+	const FILL_TYPES = new Set(['rect', 'ellipse', 'polyline'])
 	let anyText = $derived(ents.some((e) => e.type === 'text'))
 	let anyStroke = $derived(ents.some((e) => STROKE_TYPES.has(e.type)))
 	let anyFillable = $derived(ents.some((e) => FILL_TYPES.has(e.type)))
@@ -257,15 +255,10 @@
 		<div class="vecrow">
 			{@render numcell('X', r1(gb!.x), setX)}
 			{@render numcell('Y', r1(gb!.y), setY)}
-			{#if single?.type === 'box'}{@render numcell('Z', Math.round(single.z0 ?? 0), setBoxZ0)}{/if}
 		</div>
 		<div class="prop-sec">SIZE</div>
 		<div class="vecrow">
-			{#if single?.type === 'box'}
-				{@render numcell('W', r1(Math.abs(single.b![0] - single.a![0])), setW)}
-				{@render numcell('D', r1(Math.abs(single.b![1] - single.a![1])), setH)}
-				{@render numcell('H', Math.round(single.h ?? 45), setBoxH)}
-			{:else if boxKind(single)}
+			{#if boxKind(single)}
 				{@render numcell('W', r1(Math.abs(single!.b![0] - single!.a![0])), setW)}
 				{@render numcell('H', r1(Math.abs(single!.b![1] - single!.a![1])), setH)}
 			{:else}

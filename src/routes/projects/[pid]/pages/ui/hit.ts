@@ -4,7 +4,7 @@
 // is unit-testable and shared by hit-testing, grips and the render snippets.
 import type { Pt, Ent } from './geometry'
 import type { ViewCtx } from './view'
-import { flatSpan, segDist, textBox, boxElev } from './geometry'
+import { flatSpan, segDist, textBox } from './geometry'
 
 const PT_MM = 0.352778   // mm per typographic point → fontPt · PT_MM = paper mm (matches Viewport/geometry)
 // Flat (z=0, no height) object kinds that project to an edge-on ground line in elevation.
@@ -45,7 +45,7 @@ export const inThisView = (ctx: ViewCtx, e: Ent): boolean => inScope(ctx, e) && 
 
 /** A plan-plane 2D shape shown in the 3D ISO view is PROJECTED onto the ground plane (z=0); it renders
  *  (foreshortened) but isn't interactive there (edit it in plan/elevation). */
-export const groundInIso = (ctx: ViewCtx, e: Ent): boolean => ctx.isIso && onPlanPlane(e) && e.type !== 'box'
+export const groundInIso = (ctx: ViewCtx, e: Ent): boolean => ctx.isIso && onPlanPlane(e)
 
 /** A flat (z=0) plan object collapses to the ground line in an elevation view. */
 export const isFlatElev = (ctx: ViewCtx, e: Ent): boolean => ctx.isElev && FLAT.has(e.type) && onPlanPlane(e)
@@ -53,13 +53,12 @@ export const isFlatElev = (ctx: ViewCtx, e: Ent): boolean => ctx.isElev && FLAT.
 /** Horizontal drawing span of a flat object projected onto the ground line for the current side view. */
 export function flatXSpan(ctx: ViewCtx, e: Ent): [number, number] { return flatSpan(e, ctx.elevDir, ctx.cx, ctx.cy) }
 
-/** An entity's UNrotated view-bbox (drawing units). Handles elevation ground-line collapse, box elevation
- *  faces, image crop windows, polyline extents and the text box; the a/b default covers line/rect/ellipse. */
+/** An entity's UNrotated view-bbox (drawing units). Handles elevation ground-line collapse, image crop
+ *  windows, polyline extents and the text box; the a/b default covers line/rect/ellipse. */
 export function bbox(ctx: ViewCtx, e: Ent): [number, number, number, number] {
 	if (isFlatElev(ctx, e)) { const [x0, x1] = flatXSpan(ctx, e); return [x0, ctx.ground - 2, x1, ctx.ground + 2] }
 	if (e.type === 'polyline') { const pts = e.pts ?? []; const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] }
 	if (e.type === 'text') return textBox(e, PT_MM * ctx.paperMm)
-	if (e.type === 'box' && ctx.isElev) { const f = boxElev(e, ctx.elevDir, ctx.cx, ctx.cy); return [f.x0, f.top, f.x1, f.base] }
 	if (e.type === 'image' && e.crop) {   // the VISIBLE extent is the crop window, not the full placement
 		const rx = Math.min(e.a![0], e.b![0]), ry = Math.min(e.a![1], e.b![1]), rw = Math.abs(e.b![0] - e.a![0]), rh = Math.abs(e.b![1] - e.a![1])
 		return [rx + e.crop.x * rw, ry + e.crop.y * rh, rx + (e.crop.x + e.crop.w) * rw, ry + (e.crop.y + e.crop.h) * rh]
@@ -72,15 +71,14 @@ export function bbox(ctx: ViewCtx, e: Ent): [number, number, number, number] {
 export const rotCenter = (ctx: ViewCtx, e: Ent): Pt => { const [x0, y0, x1, y1] = bbox(ctx, e); return [(x0 + x1) / 2, (y0 + y1) / 2] }
 
 /** Is point `p` within `thr` (drawing units) of entity `e`? Tests in the entity's un-rotated frame; a
- *  closed unfilled shape hits on its outline only, a filled/box one anywhere inside. */
+ *  closed unfilled shape hits on its outline only, a filled one anywhere inside. */
 export function hitEnt(ctx: ViewCtx, e: Ent, p: Pt, thr: number): boolean {
 	if (e.rot) p = rotatePt(p, rotCenter(ctx, e), -e.rot)   // test in the entity's un-rotated frame
 	if (isFlatElev(ctx, e)) { const [x0, x1] = flatXSpan(ctx, e); return segDist(p, [x0, ctx.ground], [x1, ctx.ground]) < thr }
 	if (e.type === 'polyline') { const pts = e.pts ?? []; for (let i = 0; i + 1 < pts.length; i++) if (segDist(p, pts[i], pts[i + 1]) < thr) return true; return false }
 	if (e.type === 'line' || e.type === 'dim') return segDist(p, e.a!, e.b!) < thr
-	if (e.type === 'box' && ctx.isElev) { const f = boxElev(e, ctx.elevDir, ctx.cx, ctx.cy); return inBox(p, f.x0, f.top, f.x1, f.base, thr, true) }   // elevation box draws a filled face
 	if (e.type === 'image') { const [x0, y0, x1, y1] = bbox(ctx, e); return inBox(p, x0, y0, x1, y1, thr, true) }   // pick anywhere inside the VISIBLE (crop-window) extent
-	if (e.type === 'rect' || e.type === 'box') { const x0 = Math.min(e.a![0], e.b![0]), y0 = Math.min(e.a![1], e.b![1]), x1 = Math.max(e.a![0], e.b![0]), y1 = Math.max(e.a![1], e.b![1]); return inBox(p, x0, y0, x1, y1, thr, e.type !== 'rect' || isFilled(e)) }   // box picks anywhere inside
+	if (e.type === 'rect') { const x0 = Math.min(e.a![0], e.b![0]), y0 = Math.min(e.a![1], e.b![1]), x1 = Math.max(e.a![0], e.b![0]), y1 = Math.max(e.a![1], e.b![1]); return inBox(p, x0, y0, x1, y1, thr, isFilled(e)) }
 	if (e.type === 'ellipse') {
 		const cx = (e.a![0] + e.b![0]) / 2, cy = (e.a![1] + e.b![1]) / 2
 		const hx = Math.abs(e.b![0] - e.a![0]) / 2, hy = Math.abs(e.b![1] - e.a![1]) / 2
