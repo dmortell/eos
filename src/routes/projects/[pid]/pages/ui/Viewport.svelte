@@ -20,9 +20,8 @@
 	import { polyToGraph } from '../3dview/migrate'
 	import { DEFAULT_YAW, DEFAULT_PITCH, doorGeom, isoBounds, isoR, faces3d, isoDepthR } from '../3dview/projection'
 	import type { Obj, Clip } from '../3dview/types'
-	// Pure geometry now lives in ./geometry (testable, shared with PropertiesPanel); re-export the
-	// entity types so existing `import { type Ent } from './Viewport.svelte'` sites keep working.
-	export type { Pt, Ent, View } from './geometry'
+	// Pure geometry (Pt/Ent/View + helpers) lives in ./geometry; import those types directly from there.
+	// (svelte-check can't resolve type re-exports from an instance <script>, so we don't re-export them.)
 	// A section cut shown as a marker on the PLAN: its clip box, viewing direction, and the elevation's
 	// label. Clicking the marker opens (or re-focuses) that elevation tab.
 	export type SectionMarker = { id: string; clip: Clip; dir: ElevDir; label: string }

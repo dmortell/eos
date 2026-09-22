@@ -11,7 +11,7 @@
 	import { flushSync, tick } from 'svelte'
 	import { page } from '$app/state'
 	import PaperPage, { type FrameSel } from './parts/PaperPage.svelte'
-	import Viewport, { type Ent } from './ui/Viewport.svelte'
+	import Viewport from './ui/Viewport.svelte'
 	import DrawingNavigator from './parts/DrawingNavigator.svelte'
 	import LayersPanel from './parts/LayersPanel.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
@@ -23,7 +23,7 @@
 	import CommandPalette from './parts/CommandPalette.svelte'
 	import { panzoom } from './ui/panzoom'
 	import { paperDims, PAPER_SIZES, PAPER_PX_PER_MM, type PaperSize } from './constants'
-	import { translate, type ElevDir } from './ui/geometry'
+	import { translate, type Ent, type ElevDir } from './ui/geometry'
 	import { models, modelById, FLOOR_MODEL_ID, modelSel, snapModels, setModels } from './3dview/models.svelte'
 	import { DEFAULT_YAW, DEFAULT_PITCH } from './3dview/projection'
 	import type { Model, Clip } from './3dview/types'
@@ -113,7 +113,7 @@
 		tool: (t: string) => (pane.tool = t), frame: onFrame as (f: unknown) => void,
 		copy: (ids: string[]) => copyEnts(a.id, ids), cut: (ids: string[]) => cutEnts(a.id, ids), paste: () => pasteEnts(a.id),
 		group: (ids: string[]) => groupEnts(a.id, ids), ungroup: (ids: string[]) => ungroupEnts(a.id, ids),
-		reorder: (ids: string[], op) => reorderEnts(a.id, ids, op),
+		reorder: (ids: string[], op: 'front' | 'back' | 'forward' | 'backward') => reorderEnts(a.id, ids, op),
 		scale: (s: string) => (docScale = { ...docScale, [a.id]: s }),
 		modeledit: (label?: string) => modelEdit(a.id, label), section: (clip: Clip) => onSection(clip),
 		orbit: (yaw: number, pitch: number) => setOrbit(pane.id, a.id, projOf(pane, a), yaw, pitch),

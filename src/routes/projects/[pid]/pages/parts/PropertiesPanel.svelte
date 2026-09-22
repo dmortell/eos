@@ -4,8 +4,7 @@
 	// common props (bbox X/Y/W/H) and edits apply to all. Falls back to page/general props
 	// when nothing is selected. Geometry is in model units (mock).
 	import { Icon, ColorPicker } from '$lib'
-	import type { Ent, Pt } from '../ui/Viewport.svelte'
-	import { translate, STYLE_DEFAULTS, PT, type TextAlign, type VAlign } from '../ui/geometry'
+	import { translate, STYLE_DEFAULTS, PT, type Ent, type Pt, type TextAlign, type VAlign } from '../ui/geometry'
 	import { COLORS } from '../palette'
 	import { layers } from '../layers.svelte'
 	import { imgEdit, setImgMode } from '../imageEdit.svelte'

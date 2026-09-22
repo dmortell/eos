@@ -7,7 +7,8 @@
 	//    resize (opposite corner fixed, like the rect tool). Double-click enters it.
 	//  · Model space (activated): interact with the drawing inside; double-click on the
 	//    paper outside the frame (or Esc / Exit) returns to paper space.
-	import Viewport, { type Ent, type View, type Env, type VpOn, type SectionMarker } from '../ui/Viewport.svelte'
+	import Viewport, { type Env, type VpOn, type SectionMarker } from '../ui/Viewport.svelte'
+	import type { Ent, View } from '../ui/geometry'
 	import Handle from './Handle.svelte'
 	import { HANDLE_PX, PAPER_W, PAPER_H } from '../constants'
 	import type { Clip } from '../3dview/types'
