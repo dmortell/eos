@@ -100,7 +100,7 @@
 	let docScale = $state<Record<string, string>>({ t2: '1:25' })   // 3303 Outlets sheet defaults bigger (1:25)
 	const scaleOf = (id?: string) => docScale[id ?? ''] ?? '1:100'   // model space is real mm; 1:100 fits the ~28 m demo plan
 	// The drafting/interaction flags bundle passed to a pane's viewport (one prop instead of six).
-	const envFor = (pane: { id: string; activeId: string }) => ({ acad: acadMode, navContent, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, canvasZoom: canvasViewOf(pane).zoom })
+	const envFor = (pane: { id: string; activeId: string }) => ({ acad: acadMode, navContent, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, cen: toggles.CEN, canvasZoom: canvasViewOf(pane).zoom })
 	// All the viewport event callbacks in ONE `on` object (was ~13 separate props). PaperPage also
 	// uses `frame`; the plain Viewport ignores it.
 	const vpOn = (a: Tab, pane: { id: string; tool: string }) => ({
@@ -801,7 +801,7 @@
 	// projection changes — see the Full-size button + ViewCube — so the other pane is undisturbed).
 	let mounted = false
 	$effect(() => { if (!mounted) { mounted = true; refitAll() } })
-	let toggles = $state<Record<string, boolean>>({ GRID: true, SNAP: true, ORTHO: false, OSNAP: true, LWT: false })
+	let toggles = $state<Record<string, boolean>>({ GRID: true, SNAP: true, ORTHO: false, OSNAP: true, LWT: false, CEN: false })
 	// AutoCAD mode: wheel = zoom, draw = two clicks. Off = EOS: wheel = pan, draw = press-drag.
 	let acadMode = $state(true)
 	// Active-viewport content pan/zoom (Sheets-style): OFF by default, so wheel/drag over an

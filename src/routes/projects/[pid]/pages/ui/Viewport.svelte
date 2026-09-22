@@ -30,7 +30,7 @@
 	// Drafting/interaction flags are grouped into one `env` object, and all the event callbacks into
 	// one `on` object, to keep the prop list small (a step toward a headless editor class — see
 	// review.md §4.1). `frame` is only used by PaperPage; the Viewport ignores it.
-	export type Env = { acad?: boolean; navContent?: boolean; grid?: boolean; lwt?: boolean; osnap?: boolean; snap?: boolean; ortho?: boolean; canvasZoom?: number }
+	export type Env = { acad?: boolean; navContent?: boolean; grid?: boolean; lwt?: boolean; osnap?: boolean; snap?: boolean; ortho?: boolean; cen?: boolean; canvasZoom?: number }
 	export type VpOn = {
 		activate?: () => void; deactivate?: () => void; add?: (e: Ent) => void; update?: (e: Ent) => void;
 		delete?: (ids: string[]) => void; select?: (ids: string[]) => void; view?: (v: View) => void;
@@ -55,7 +55,10 @@
 	const osnap = $derived(env.osnap ?? true)
 	const snap = $derived(env.snap ?? false)     // SNAP: round points to the grid step
 	const ortho = $derived(env.ortho ?? false)   // ORTHO: constrain line-draw + move to H/V
+	const centerDraw = $derived(env.cen ?? false) // CEN: draw rect/ellipse centre-out (1st point = centre)
 	const canvasZoom = $derived(env.canvasZoom ?? 1)
+	// Centre-out corners: the first click `c` is the CENTRE, `p` the drag point → box centred on c.
+	const centerCorners = (c: Pt, p: Pt): [Pt, Pt] => [[2 * c[0] - p[0], 2 * c[1] - p[1]], p]
 	const SNAP_STEP = 100                         // grid snap spacing (mm)
 	const snapToGrid = (p: Pt): Pt => [Math.round(p[0] / SNAP_STEP) * SNAP_STEP, Math.round(p[1] / SNAP_STEP) * SNAP_STEP]
 	const orthoPt = (a: Pt, p: Pt): Pt => (Math.abs(p[0] - a[0]) >= Math.abs(p[1] - a[1]) ? [p[0], a[1]] : [a[0], p[1]])
@@ -193,8 +196,8 @@
 	function place(a: Pt, b: Pt) {
 		const sp = drawPlane()
 		if (tool === 'Line') on.add?.({ id: uid(), type: 'line', a, b, plane: sp })
-		else if (tool === 'Rectangle') on.add?.({ id: uid(), type: 'rect', a, b, plane: sp })
-		else if (tool === 'Ellipse') on.add?.({ id: uid(), type: 'ellipse', a, b, plane: sp })
+		else if (tool === 'Rectangle') { const [ra, rb] = centerDraw ? centerCorners(a, b) : [a, b]; on.add?.({ id: uid(), type: 'rect', a: ra, b: rb, plane: sp }) }
+		else if (tool === 'Ellipse') { const [ra, rb] = centerDraw ? centerCorners(a, b) : [a, b]; on.add?.({ id: uid(), type: 'ellipse', a: ra, b: rb, plane: sp }) }
 		else if (tool === 'Box') on.add?.({ id: uid(), type: 'box', a, b, h: DEFAULT_BOX_H })
 		else if (tool === 'Furniture' && isPlan) placePrism(a, b, 'furniture', 750, 'f')   // MODEL prism footprint
 		else if (tool === 'Opening' && isPlan) placePrism(a, b, 'openings', 2100, 'o')      // door/window/hole (dashed outline)
@@ -1895,12 +1898,13 @@
 {/snippet}
 
 {#snippet preview(a: Pt, p: Pt)}
+	{@const qa = centerDraw && (tool === 'Rectangle' || tool === 'Ellipse') ? ([2 * a[0] - p[0], 2 * a[1] - p[1]] as Pt) : a}
 	{#if tool === 'Line' || tool === 'Dimension'}
 		<line x1={a[0]} y1={a[1]} x2={p[0]} y2={p[1]} stroke={SEL} stroke-width="1" stroke-dasharray="4 3" />
 	{:else if tool === 'Rectangle'}
-		<rect x={Math.min(a[0], p[0])} y={Math.min(a[1], p[1])} width={Math.abs(p[0] - a[0])} height={Math.abs(p[1] - a[1])} fill="none" stroke={SEL} stroke-width="1" stroke-dasharray="4 3" />
+		<rect x={Math.min(qa[0], p[0])} y={Math.min(qa[1], p[1])} width={Math.abs(p[0] - qa[0])} height={Math.abs(p[1] - qa[1])} fill="none" stroke={SEL} stroke-width="1" stroke-dasharray="4 3" />
 	{:else if tool === 'Ellipse'}
-		<ellipse cx={(a[0] + p[0]) / 2} cy={(a[1] + p[1]) / 2} rx={Math.abs(p[0] - a[0]) / 2} ry={Math.abs(p[1] - a[1]) / 2} fill="none" stroke={SEL} stroke-width="1" stroke-dasharray="4 3" />
+		<ellipse cx={(qa[0] + p[0]) / 2} cy={(qa[1] + p[1]) / 2} rx={Math.abs(p[0] - qa[0]) / 2} ry={Math.abs(p[1] - qa[1]) / 2} fill="none" stroke={SEL} stroke-width="1" stroke-dasharray="4 3" />
 	{:else if tool === 'Box' || tool === 'Furniture' || tool === 'Opening'}
 		<rect x={Math.min(a[0], p[0])} y={Math.min(a[1], p[1])} width={Math.abs(p[0] - a[0])} height={Math.abs(p[1] - a[1])} fill="none" stroke={SEL} stroke-width="1" stroke-dasharray="4 3" />
 	{:else if tool === 'Section'}

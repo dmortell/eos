@@ -6,6 +6,11 @@
 	// mirroring the Sheets tool's viewport full-size view.
 	import { Icon } from '$lib'
 	import type { PaperSize } from '../constants'
+	// Tooltips for the terse toggle codes.
+	const TOGGLE_TITLES: Record<string, string> = {
+		GRID: 'Show the reference grid', SNAP: 'Snap points to the grid (100 mm)', ORTHO: 'Constrain draw/move to horizontal/vertical',
+		OSNAP: 'Snap to object points (ends, midpoints, centres)', LWT: 'Show lineweights', CEN: 'Draw rectangles/ellipses centre-out (first click = centre)',
+	}
 	let { layout = $bindable('sheet'), toggles = $bindable<Record<string, boolean>>({}), acadMode = $bindable(true),
 		paperSize = 'A3', paperLandscape = true, onpapersize, onorient,
 		coords = null, zoom = 100, onzoom, onfit }:
@@ -39,7 +44,7 @@
 	<div class="coords">{coords ? `${coords.x}, ${coords.y} mm` : '—'}</div>
 	<div class="toggles">
 		{#each Object.keys(toggles) as k (k)}
-			<button class:on={toggles[k]} onclick={() => (toggles[k] = !toggles[k])}>{k}</button>
+			<button class:on={toggles[k]} title={TOGGLE_TITLES[k] ?? k} onclick={() => (toggles[k] = !toggles[k])}>{k}</button>
 		{/each}
 		<button class:on={acadMode} title="AutoCAD interactions: wheel zooms, draw with two clicks (off = EOS: wheel pans, press-drag to draw)" onclick={() => (acadMode = !acadMode)}>ACAD</button>
 	</div>

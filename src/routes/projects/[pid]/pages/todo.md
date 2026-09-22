@@ -592,9 +592,12 @@ marquee and constant-lineweight draw, but no additive select / duplicate / move-
   projector generalises the current floor→ground-line projection (a `to3`/`proj3` pair: plan-local
   (u,v) → world → view drawing coords). Scope: render + hit + grips per view; ellipse/circle
   foreshortening + iso are the hard parts.
-- [ ] **Ellipse draw origin** — optional status-bar toggle for centre-out vs corner-to-corner
-  ellipse/circle drawing (AutoCAD ELLIPSE defaults corner/axis, with a `C` Center option).
-  Currently corner-to-corner (Shift = square about opposite corner) (P2).
+- [x] **Ellipse draw origin** (2026-09-22) — a **CEN** status-bar toggle draws rectangles + ellipses
+  **centre-out** (first click = centre; drag = a bbox corner) vs the default corner-to-corner. `env.cen` →
+  `centerDraw`; `place()` and the draw `preview` remap the corners via `centerCorners(c, p) = [2c−p, p]` for
+  Rectangle/Ellipse (other tools unaffected). Also gave every status-bar toggle a tooltip (TOGGLE_TITLES).
+  Verified in-browser: with CEN on, an ellipse's centre mapped exactly to the first click, not the midpoint;
+  clean console. (Shift = square about opposite corner still applies.)
 - [ ] **Titleblock editing** — edit the titleblock **style** (template/layout) and its
   **contents** (project/sheet fields, logo, revision table) per sheet / per package (P2).
 - [ ] More Kestrel tools, surfaced through the **menubar** first; move to a **ribbon** only
