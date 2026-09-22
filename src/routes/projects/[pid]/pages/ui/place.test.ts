@@ -184,10 +184,11 @@ describe('moveEnt', () => {
 		expect(moveEnt(elevCtx('front'), text, 30, 99)).toMatchObject({ a: [40, 109] })
 		expect(moveEnt(elevCtx('rear'), ent({ type: 'image' }), 30, 99)).toMatchObject({ a: [30, 99], b: [230, 199] })
 	})
-	it('PINNED (ported as-is): a rect drawn NATIVELY in an elevation is still treated as flat — dy dropped, rear mirrored', () => {
-		// The Viewport tested FLAT by kind only, not isFlatElev, so a plane:'rear' rect (whose coords are already
-		// drawing coords) cannot be moved vertically and moves the wrong way horizontally. Candidate B-item.
+	it('B24: a rect drawn NATIVELY in an elevation translates freely (its coords ARE drawing coords)', () => {
+		// Flatness is per VIEW (isFlatElev), not per kind: a plane:'rear' rect in the rear view moves with the
+		// pointer in both axes, no mirroring; the same rect seen from the front is not in view at all.
 		const native = ent({ a: [0, 0], b: [200, 100], plane: 'rear' })
-		expect(moveEnt(elevCtx('rear'), native, 30, 99)).toMatchObject({ a: [-30, 0], b: [170, 100] })
+		expect(moveEnt(elevCtx('rear'), native, 30, 99)).toMatchObject({ a: [30, 99], b: [230, 199] })
+		expect(moveEnt(elevCtx('rear'), ent({ type: 'line', a: [0, 0], b: [10, 10], plane: 'rear' }), 30, 99)).toMatchObject({ a: [30, 99], b: [40, 109] })
 	})
 })

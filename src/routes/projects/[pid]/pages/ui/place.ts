@@ -9,7 +9,7 @@ import type { Obj, Guide, Model } from '../3dview/types'
 import { ELEV_BASIS, elevUInv, dist, translate } from './geometry'
 import { centerCorners } from './annotations'
 import { polyToGraph } from '../3dview/migrate'
-import { FLAT } from './hit'
+import { isFlatElev } from './hit'
 
 /** The DRAWING PLANE new 2D geometry lands in: undefined in plan (= the model/plan plane, see `onPlanPlane`),
  *  the ElevDir when drawn natively in an elevation. (Was Viewport's `drawPlane()`; iso draws nothing.) */
@@ -148,7 +148,7 @@ export function imageScaled(img: Ent, measured: number, real: number): Ent {
  *  (Ported as-is: the flat test is by KIND only, not `isFlatElev`, so a rect drawn natively in an elevation
  *  also takes this branch — see the pinned test.) */
 export function moveEnt(ctx: ViewCtx, en: Ent, dx: number, dy: number): Ent {
-	if (ctx.isElev && FLAT.has(en.type)) {
+	if (isFlatElev(ctx, en)) {   // B24: only a PLAN-plane flat is edge-on here; an elevation-native shape translates freely
 		const { axis, sign } = ELEV_BASIS[ctx.elevDir]
 		const d = sign * dx
 		return axis === 0 ? translate(en, d, 0) : translate(en, 0, d)
