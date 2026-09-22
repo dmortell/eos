@@ -196,7 +196,12 @@
 				</select>
 			</div>
 			<div class="prop"><span>Sides</span><input type="number" min="3" max="24" value={modelObj.edges} onchange={(e) => onmodelupdate?.({ edges: Math.max(3, Math.min(24, Math.round(num(e)))) })} /></div>
-			<div class="prop"><span>Rotation°</span><input type="number" value={modelObj.rot ?? 0} onchange={(e) => onmodelupdate?.({ rot: num(e) })} /></div>
+			<div class="prop-sec">ROTATION · degrees</div>
+			<div class="vecrow">
+				{@render numcell('X', Math.round(modelObj.rotX ?? 0), (n) => onmodelupdate?.({ rotX: n || undefined }))}
+				{@render numcell('Y', Math.round(modelObj.rotY ?? 0), (n) => onmodelupdate?.({ rotY: n || undefined }))}
+				{@render numcell('Z', Math.round(modelObj.rot ?? 0), (n) => onmodelupdate?.({ rot: n || undefined }))}
+			</div>
 			{#if modelLayers.find((l) => l.id === modelObj.layer)?.opening}
 				<div class="prop-sec">OPENING</div>
 				<div class="prop"><span>Type</span>

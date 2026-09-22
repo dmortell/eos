@@ -18,6 +18,8 @@ export type Prism = {
 	w: number; h: number; d: number
 	edges: number // 3..24
 	rot?: number  // rotation about the vertical (z) axis, degrees, about the footprint centre
+	rotX?: number // tilt about the model x-axis, degrees, about the box centre (0 = upright)
+	rotY?: number // tilt about the model y-axis, degrees, about the box centre (0 = upright)
 	// Opening subtype (only meaningful for a prism on an `opening` layer): 'door' draws a leaf + swing
 	// arc in plan, 'window' draws glazing + sill/head, 'hole' is a plain masked gap. `swing` = door leaf
 	// angle in degrees (default 90), `flip` = hinge side / swing handedness (mirror).

@@ -90,6 +90,27 @@ export function boxFootprint(x: number, y: number, w: number, d: number, edges: 
 	})
 }
 
+// Tilt a point about (cx,cy,cz): rotate about the model x-axis by rx°, then the y-axis by ry° (degrees).
+// The prism's z-rotation stays folded into boxFootprint's `rot`, so this only adds the out-of-plane tilt.
+function tilt(p: P3, cx: number, cy: number, cz: number, rx: number, ry: number): P3 {
+	let dx = p.x - cx, dy = p.y - cy, dz = p.z - cz
+	if (rx) { const a = (rx * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a), ny = dy * c - dz * s, nz = dy * s + dz * c; dy = ny; dz = nz }
+	if (ry) { const a = (ry * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a), nx = dx * c + dz * s, nz = -dx * s + dz * c; dx = nx; dz = nz }
+	return { x: cx + dx, y: cy + dy, z: cz + dz }
+}
+
+// Bottom + top rings of a prism as 3D points, with the full rotation applied: z about the vertical
+// (via boxFootprint's `rot`), then the x/y tilt about the box centre. Shared by edges3d / faces3d / project
+// so the tilt shows in every view. Untilted prisms return the plain flat rings (byte-identical to before).
+export function prismRings(o: Prism): { bot: P3[]; top: P3[] } {
+	const bot = boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z, o.rot)
+	const top = boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z + o.h, o.rot)
+	const rx = o.rotX ?? 0, ry = o.rotY ?? 0
+	if (!rx && !ry) return { bot, top }
+	const cx = o.x + o.w / 2, cy = o.y + o.d / 2, cz = o.z + o.h / 2
+	return { bot: bot.map((p) => tilt(p, cx, cy, cz, rx, ry)), top: top.map((p) => tilt(p, cx, cy, cz, rx, ry)) }
+}
+
 // 2D cross-section n-gon offsets inscribed in w×h, normalized like boxFootprint.
 function crossSection(w: number, h: number, edges: number) {
 	const n = clampEdges(edges)
@@ -376,11 +397,8 @@ function wallBoxes(o: { z: number; h: number; thickness: number; pts: V2[] }) {
 // 3D wireframe edges of an object (for the isometric view).
 function edges3d(o: Obj): Seg[] {
 	if (o.type === 'prism') {
-		const bot = boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z, o.rot)
-		const top = boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z + o.h, o.rot)
-		const segs: Seg[] = [...ringEdges(bot), ...ringEdges(top)]
-		for (let i = 0; i < bot.length; i++) segs.push([bot[i], top[i]])
-		return segs
+		const { bot, top } = prismRings(o)
+		return ringSolidEdges(bot, top)
 	}
 	if (o.type === 'wall') {
 		return wallRunBoxes(o).flatMap((b) => ringSolidEdges(b.bot, b.top))
@@ -398,11 +416,8 @@ function edges3d(o: Obj): Seg[] {
 // 3D faces of an object (for hidden-line / solid rendering in the iso view).
 export function faces3d(o: Obj): Face[] {
 	if (o.type === 'prism') {
-		const bot = boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z, o.rot)
-		const top = boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z + o.h, o.rot)
-		const faces: Face[] = [{ pts: bot }, { pts: [...top].reverse() }]
-		for (let i = 0; i < bot.length; i++) { const j = (i + 1) % bot.length; faces.push({ pts: [bot[i], bot[j], top[j], top[i]] }) }
-		return faces
+		const { bot, top } = prismRings(o)
+		return ringSolidFaces(bot, top)
 	}
 	if (o.type === 'wall') {
 		return wallRunBoxes(o).flatMap((b) => ringSolidFaces(b.bot, b.top))
@@ -455,15 +470,24 @@ export function project(o: Obj, dir: Dir, yaw = DEFAULT_YAW, pitch = DEFAULT_PIT
 	}
 
 	if (o.type === 'prism') {
+		const tilted = (o.rotX ?? 0) !== 0 || (o.rotY ?? 0) !== 0
 		if (dir === 'plan') {
-			return [{ closed: true, pts: boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z, o.rot).map((p) => proj(dir, p)) }]
+			if (!tilted) return [{ closed: true, pts: boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z, o.rot).map((p) => proj(dir, p)) }]
+			// Tilted: outline (convex hull) of all projected corners — the silhouette from above.
+			const { bot, top } = prismRings(o)
+			return [{ closed: true, pts: hull([...bot, ...top].map((p) => proj(dir, p))) }]
 		}
-		// Elevation: silhouette rectangle of the extruded footprint.
-		const all = [
-			...boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z, o.rot),
-			...boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z + o.h, o.rot),
-		]
-		return [bboxRect(all.map((p) => proj(dir, p)))]
+		// Elevation: silhouette of the extruded footprint — an axis-aligned rectangle when upright,
+		// the projected-corner hull when tilted (so the leaning box reads as a leaning silhouette).
+		if (!tilted) {
+			const all = [
+				...boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z, o.rot),
+				...boxFootprint(o.x, o.y, o.w, o.d, o.edges, o.z + o.h, o.rot),
+			]
+			return [bboxRect(all.map((p) => proj(dir, p)))]
+		}
+		const { bot, top } = prismRings(o)
+		return [{ closed: true, pts: hull([...bot, ...top].map((p) => proj(dir, p))) }]
 	}
 
 	if (o.type === 'conduit') {

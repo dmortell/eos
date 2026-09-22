@@ -53,8 +53,15 @@ Fixed from the review:
   (square the offset from the anchor before un-rotating), so `constrainGrip` now bypasses its old
   WORLD-axis square for any rotated shape. **Verified in-browser (quantitative):** a 40°-rotated rect,
   drag a corner → opposite corner moved **0 px**, corner angle stayed **90°**, opposite sides equal,
-  rotation preserved at 40°; clean console. [ ] Still wanted (separate): **per-axis rotation (X/Y/Z°)**
-  for real 3D shapes rather than the single Z angle.
+  rotation preserved at 40°; clean console. [x] **Per-axis rotation (X/Y/Z°) for real 3D shapes**
+  (2026-09-22) — a prism (furniture / box / opening) now carries `rotX`/`rotY` tilt about the model x/y
+  axes (degrees, about the box centre) alongside the existing `rot` (Z). Properties shows a **ROTATION ·
+  degrees X/Y/Z** vecrow. `prismRings(o)` (projection.ts) builds the bot/top rings with the Z rotation
+  (via `boxFootprint`) then the x/y tilt about the box centre; `edges3d`/`faces3d`/`project` all read it,
+  so the tilt shows in plan (foreshortened footprint = hull of projected corners), elevation (leaning
+  silhouette) and iso (leaning shaded solid). Untilted prisms return the plain flat rings (byte-identical
+  output — no regression). **Verified in-browser:** a Furniture box set to X 35° leant over in the 3D view
+  (correctly shaded, others upright); X 35 + Y 30 compounded; plan footprint foreshortened; clean console.
 
 Suggested order in review.md §7.
 
