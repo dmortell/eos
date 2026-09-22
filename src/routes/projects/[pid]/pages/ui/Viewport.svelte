@@ -10,20 +10,21 @@
 	import { tick } from 'svelte'
 	import { panzoom } from './panzoom'
 	import Handle from '../parts/Handle.svelte'
-	import { BASE, HANDLE_PX, PAPER_PX_PER_MM } from '../constants'
-	import { type Pt, type Ent, type View, type ElevDir, GROUND, MMPU, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, ELEV_BASIS, elevU, elevUInv, dist, segDist, translate, textBox } from './geometry'
+	import EntRender from './render/EntRender.svelte'
+	import { BASE, HANDLE_PX, PAPER_PX_PER_MM, PT_MM } from '../constants'
+	import { type Pt, type Ent, type View, type ElevDir, GROUND, MMPU, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, ELEV_BASIS, elevU, elevUInv, dist, segDist, translate } from './geometry'
 	import { makeMapper, type Mapper } from './mapper'
 	import { beginPointerDrag, DragRegistry } from './gestures'
 	import { drawPlane as pDrawPlane, resolveLayer, buildEnt, PRISM_TOOL, trimTail, polylineEnt, graphObj, prismObj, guideObj, imageWithOrigin, imageScaled, moveEnt as pMoveEnt } from './place'
 	import type { ViewCtx } from './view'
 	import { pickSectionGrip as gPickSectionGrip, modelGrips as gModelGrips, pickModelGrip as gPickModelGrip, gripsFor as gGripsFor, constrainGrip as gConstrainGrip, type MGrip, type Grip, type GripOpts } from './grips'
 	import { SNAP_STEP, snapToGrid, rndTo, snapDelta as sSnapDelta, findSnap as sFindSnap, drawPoint as sDrawPoint, snapNode as sSnapNode, graphNodeApply as sGraphNodeApply, elevDepthSnap as sElevDepthSnap } from './snap'
-	import { rotatePt, inScope as hInScope, inThisView as hInThisView, groundInIso as hGroundInIso, isFlatElev as hIsFlatElev, flatXSpan as hFlatXSpan, rotCenter as hRotCenter, bbox as hBbox, hitEnt as hHitEnt, pickable as hPickable, prismRect as hPrismRect, prismTilted, graphNodeDraw as hGraphNodeDraw, hitModel as hHitModel, hitModelIso as hHitModelIso, sectionCorners, hitSection as hHitSection, hitGuide as hHitGuide, marqueeSelect as hMarqueeSelect, type GN } from './hit'
+	import { rotatePt, inScope as hInScope, inThisView as hInThisView, groundInIso as hGroundInIso, rotCenter as hRotCenter, bbox as hBbox, hitEnt as hHitEnt, pickable as hPickable, prismRect as hPrismRect, prismTilted, graphNodeDraw as hGraphNodeDraw, hitModel as hHitModel, hitModelIso as hHitModelIso, sectionCorners, hitSection as hHitSection, hitGuide as hHitGuide, marqueeSelect as hMarqueeSelect, type GN } from './hit'
 	import { isLayerHidden, isLayerLocked, layerColor, layerOrder } from '../layers.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
 	import { models, modelById, modelSel, setModelSel } from '../3dview/models.svelte'
 	import { newId } from '../ids'
-	import { arrowPts, cloudPath, groundPts, constrainPt as aConstrainPt } from './annotations'
+	import { constrainPt as aConstrainPt } from './annotations'
 	import { guideId, selectedPlanGuide } from '../guides.svelte'
 	import { imgEdit, clearImgMode } from '../imageEdit.svelte'
 	import { DEFAULT_YAW, DEFAULT_PITCH, doorGeom, isoBounds, isoR } from '../3dview/projection'
@@ -392,8 +393,6 @@
 	const inScope = (e: Ent) => hInScope(ctx, e)
 	const inThisView = (e: Ent) => hInThisView(ctx, e)
 	const groundInIso = (e: Ent) => hGroundInIso(ctx, e)
-	const isFlatElev = (e: Ent) => hIsFlatElev(ctx, e)
-	const flatXSpan = (e: Ent): [number, number] => hFlatXSpan(ctx, e)
 	const rotCenter = (e: Ent): Pt => hRotCenter(ctx, e)
 	const bbox = (e: Ent): [number, number, number, number] => hBbox(ctx, e)
 	const hitEnt = (e: Ent, p: Pt, thr: number): boolean => hHitEnt(ctx, e, p, thr)
@@ -812,7 +811,9 @@
 	// stays for grips/handles/snap marks/preview only, which SHOULD be screen-constant.) Fixes: the same
 	// sheet at two content zooms printed different arrowheads, and 8 pt text measured 7.7 mm on paper at 1:100.
 	const paperMm = $derived(1 / (dscale || 1))   // model mm per paper mm
-	const PT_MM = 0.352778   // mm per typographic point → fontPt · PT_MM = paper mm
+	// Everything EntRender (ui/render/EntRender.svelte, R1 step 8) reads from this component's closures, built
+	// ONCE so every entity gets the same reference (one derived, not one object per entity per paint).
+	const entStyle = $derived({ lwt, canvasZoom, paperMm, gripSize, ink: INK, sel: SEL, layerColor })
 	// Project a plan point (x,y,0) to iso DRAWING coords, matching how the model renders (isoR + the same
 	// bounds-centring as Model3d / hitModelIso). Null off iso. Used to lay plan 2D shapes on the ground.
 	const isoGround = $derived.by(() => {
@@ -1181,7 +1182,7 @@
 				{/if}
 			{/if}
 			<!-- drawn entities (objects on a hidden layer are skipped; the edited text is hidden too) -->
-			{#each paintEnts as e (e.id)}{#if e.id !== editText?.id && !isLayerHidden(e.layer) && inThisView(e)}{#if groundInIso(e)}{@render drawnGround(e)}{:else if e.rot}{@const c = rotCenter(e)}<g transform="rotate({e.rot} {c[0]} {c[1]})">{@render drawn(e, selSet.has(e.id))}</g>{:else}{@render drawn(e, selSet.has(e.id))}{/if}{/if}{/each}
+			{#each paintEnts as e (e.id)}{#if e.id !== editText?.id && !isLayerHidden(e.layer) && inThisView(e)}<EntRender {e} {ctx} selected={selSet.has(e.id)} style={entStyle} {isoGround} imgCrop={imgEdit.mode === 'crop' ? imgEdit.id : null} {clipNs} />{/if}{/each}
 			<!-- depth-snap: the wall/conduit whose depth the next elevation point will snap onto (amber) -->
 			{#if depthSnapMark}
 				<line x1={depthSnapMark.a[0]} y1={depthSnapMark.a[1]} x2={depthSnapMark.b[0]} y2={depthSnapMark.b[1]} stroke="#e0a020" stroke-width={2.5 / (canvasZoom || 1)} vector-effect="non-scaling-stroke" stroke-dasharray="{6 / (canvasZoom || 1)} {3 / (canvasZoom || 1)}" />
@@ -1298,113 +1299,6 @@
 		</div>
 	{/if}
 </div>
-
-{#snippet drawnGround(e: Ent)}
-	<!-- a plan 2D shape laid on the GROUND in the iso view: outline points (rotated by e.rot) projected via
-	     isoGround. Text places at its projected anchor; other types draw as a (foreshortened) poly. -->
-	{@const ink = e.color ?? layerColor(e.layer) ?? INK}
-	{@const w = (e.weight ?? (lwt ? STYLE_DEFAULTS.weight : 0.5)) / (canvasZoom || 1)}
-	{#if isoGround}
-		{#if e.type === 'text'}
-			{@const tp = isoGround(e.a![0], e.a![1])}
-			<text class="anno" x={tp[0]} y={tp[1]} font-size={gripSize * 2} fill={ink} text-anchor="start">{(e.text ?? '').split('\n')[0]}</text>
-		{:else}
-			{@const g = groundPts(e)}
-			{@const c = e.rot ? rotCenter(e) : null}
-			{@const pr = g.pts.map((p) => { const q = e.rot && c ? rotatePt(p, c, e.rot) : p; return isoGround!(q[0], q[1]) })}
-			{#if pr.length >= 2}
-				{#if g.closed}<polygon points={pr.map((p) => p.join(',')).join(' ')} fill={e.fill ?? 'none'} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
-				{:else}<polyline points={pr.map((p) => p.join(',')).join(' ')} fill="none" stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />{/if}
-			{/if}
-		{/if}
-	{/if}
-{/snippet}
-{#snippet drawn(e: Ent, seld: boolean)}
-	<!-- Selection is shown by the grips, NOT by recolouring/thickening the stroke — so colour and
-	     lineweight edits are visible live while the object stays selected. -->
-	<!-- colour resolves ByLayer: explicit object colour → its layer's colour → the tool ink. -->
-	{@const ink = e.color ?? layerColor(e.layer) ?? INK}
-	<!-- An explicit per-object weight ALWAYS renders; LWT only chooses the thickness for objects with
-	     no weight set (on = the default 1.2, off = a thin 0.5 display line). -->
-	{@const w = (e.weight ?? (lwt ? STYLE_DEFAULTS.weight : 0.5)) / (canvasZoom || 1)}
-	{@const fill = e.fill ?? 'none'}
-	{#if isFlatElev(e)}
-		<!-- any flat (z=0, no height) object seen in elevation is an edge-on line at the ground -->
-		{@const sp = flatXSpan(e)}
-		<line x1={sp[0]} y1={GROUND} x2={sp[1]} y2={GROUND} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
-	{:else if e.type === 'line'}
-		<line x1={e.a![0]} y1={e.a![1]} x2={e.b![0]} y2={e.b![1]} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
-		{#if e.arrow === 'end' || e.arrow === 'both'}<polygon points={arrowPts(e.a!, e.b!, 3.5 * paperMm)} fill={ink} />{/if}
-		{#if e.arrow === 'start' || e.arrow === 'both'}<polygon points={arrowPts(e.b!, e.a!, 3.5 * paperMm)} fill={ink} />{/if}
-	{:else if e.type === 'image'}
-		<!-- an imported background image placed FULL in the a→b rect (origin + scale); CROP is the visible
-		     WINDOW = a normalized sub-rect of that placement (the rest is trimmed away). -->
-		{@const rx = Math.min(e.a![0], e.b![0])}{@const ry = Math.min(e.a![1], e.b![1])}
-		{@const rw = Math.abs(e.b![0] - e.a![0])}{@const rh = Math.abs(e.b![1] - e.a![1])}
-		{@const cr = e.crop ?? { x: 0, y: 0, w: 1, h: 1 }}
-		{@const cropping = imgEdit.mode === 'crop' && imgEdit.id === e.id}
-		<clipPath id="{clipNs}-{e.id}"><rect x={rx + cr.x * rw} y={ry + cr.y * rh} width={cr.w * rw} height={cr.h * rh} /></clipPath>
-		{#if cropping}<image href={e.src} x={rx} y={ry} width={rw} height={rh} opacity="0.35" preserveAspectRatio="none" />{/if}
-		<image href={e.src} x={rx} y={ry} width={rw} height={rh} opacity={e.opacity ?? 1} clip-path="url(#{clipNs}-{e.id})" preserveAspectRatio="none" />
-		{#if cropping}<rect x={rx + cr.x * rw} y={ry + cr.y * rh} width={cr.w * rw} height={cr.h * rh} fill="none" stroke={SEL} stroke-width={1 / (canvasZoom || 1)} stroke-dasharray="{5 / (canvasZoom || 1)} {3 / (canvasZoom || 1)}" vector-effect="non-scaling-stroke" />{/if}
-	{:else if e.type === 'polyline'}
-		<polyline points={(e.pts ?? []).map(p => p.join(',')).join(' ')} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" stroke-linejoin="round" />
-	{:else if e.type === 'rect'}
-		{#if e.cloud}
-			<path d={cloudPath(e.a!, e.b!, 4 * paperMm)} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" stroke-linejoin="round" />
-		{:else}
-			<rect x={Math.min(e.a![0], e.b![0])} y={Math.min(e.a![1], e.b![1])} width={Math.abs(e.b![0] - e.a![0])} height={Math.abs(e.b![1] - e.a![1])} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
-		{/if}
-	{:else if e.type === 'ellipse'}
-		<ellipse cx={(e.a![0] + e.b![0]) / 2} cy={(e.a![1] + e.b![1]) / 2} rx={Math.abs(e.b![0] - e.a![0]) / 2} ry={Math.abs(e.b![1] - e.a![1]) / 2} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
-	{:else if e.type === 'dim'}
-		<!-- a real dimension: dim line with arrowheads, perpendicular extension ticks, and the measured
-		     length (mm) set above the line, aligned to it, at a constant on-screen size. -->
-		{@const col = seld ? SEL : (e.color ?? '#0e766e')}
-		{@const A = e.a!}{@const B = e.b!}
-		{@const len = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1}
-		{@const ux = (B[0] - A[0]) / len}{@const uy = (B[1] - A[1]) / len}
-		{@const px = -uy}{@const py = ux}
-		{@const tk = 1.5 * paperMm}
-		{@const off = e.dimOff ?? 2.5 * paperMm}
-		{@const t = e.dimT ?? 0.5}
-		{@const mx = A[0] + ux * len * t + px * off}
-		{@const my = A[1] + uy * len * t + py * off}
-		{@const ang = Math.atan2(uy, ux) * 180 / Math.PI}
-		{@const rang = ang > 90 || ang < -90 ? ang + 180 : ang}
-		<line x1={A[0]} y1={A[1]} x2={B[0]} y2={B[1]} stroke={col} stroke-width={w} vector-effect="non-scaling-stroke" />
-		<polygon points={arrowPts(B, A, 3.5 * paperMm)} fill={col} />
-		<polygon points={arrowPts(A, B, 3.5 * paperMm)} fill={col} />
-		<line x1={A[0] - px * tk} y1={A[1] - py * tk} x2={A[0] + px * tk} y2={A[1] + py * tk} stroke={col} stroke-width={w} vector-effect="non-scaling-stroke" />
-		<line x1={B[0] - px * tk} y1={B[1] - py * tk} x2={B[0] + px * tk} y2={B[1] + py * tk} stroke={col} stroke-width={w} vector-effect="non-scaling-stroke" />
-		<text class="anno" x={mx} y={my} font-size={2.5 * paperMm} fill={col} text-anchor="middle" transform="rotate({rang} {mx} {my})">{Math.round(len)}</text>
-	{:else if e.type === 'text'}
-		{@const fs = (e.fontPt ?? STYLE_DEFAULTS.fontPt) * PT_MM * paperMm}
-		{@const anchor = e.align === 'center' ? 'middle' : e.align === 'right' ? 'end' : 'start'}
-		{@const lines = (e.text ?? '').split('\n')}
-		{@const lh = fs * 1.18}
-		<!-- vertical align shifts the whole block about the anchor a[1] (top = first baseline here). -->
-		{@const oy = e.valign === 'middle' ? -((lines.length - 1) * lh) / 2 : e.valign === 'bottom' ? -((lines.length - 1) * lh) : 0}
-		{#if e.callout}
-			<!-- callout: a box around the text + a leader line to e.leader (attached to the box side nearest the tip) -->
-			{@const bb = textBox(e, PT_MM * paperMm)}
-			{@const pad = fs * 0.4}
-			{@const bx0 = bb[0] - pad}
-			{@const by0 = bb[1] - pad}
-			{@const bx1 = bb[2] + pad}
-			{@const by1 = bb[3] + pad}
-			{@const lp = e.leader ?? [bb[0] - fs * 3, bb[3] + fs * 3]}
-			{@const nx = lp[0] < (bx0 + bx1) / 2 ? bx0 : bx1}
-			{@const ny = lp[1] < (by0 + by1) / 2 ? by0 : by1}
-			<rect x={bx0} y={by0} width={bx1 - bx0} height={by1 - by0} rx={fs * 0.3} fill="none" stroke={ink} stroke-width={1.2 / (canvasZoom || 1)} vector-effect="non-scaling-stroke" />
-			<line x1={nx} y1={ny} x2={lp[0]} y2={lp[1]} stroke={ink} stroke-width={1.2 / (canvasZoom || 1)} vector-effect="non-scaling-stroke" />
-			<polygon points={arrowPts([nx, ny] as Pt, lp as Pt, 3.5 * paperMm)} fill={ink} />
-		{/if}
-		<text class="anno" x={e.a![0]} y={e.a![1] + oy} font-size={fs} fill={ink} font-weight="600" text-anchor={anchor} dominant-baseline={e.valign === 'middle' ? 'central' : undefined}>
-			{#each lines as line, i (i)}<tspan x={e.a![0]} dy={i === 0 ? 0 : lh}>{line}</tspan>{/each}
-		</text>
-	{/if}
-{/snippet}
 
 {#snippet preview(a: Pt, p: Pt)}
 	{@const qa = centerDraw && (tool === 'Rectangle' || tool === 'Ellipse') ? ([2 * a[0] - p[0], 2 * a[1] - p[1]] as Pt) : a}
