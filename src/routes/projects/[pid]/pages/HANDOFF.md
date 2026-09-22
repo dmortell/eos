@@ -4,19 +4,21 @@ Working notes for the next session (or a fresh context) picking up the Pages ref
 `refactor-plan.md` (the R1 Viewport split plan) and `review.md` (the standing review, maintained by the
 eos-f8 reviewer session). Delete this file once the queue below is drained.
 
-> **RESUME HERE (fresh session):** R1 steps 3, 4, 5 AND 7 are DONE; step 6's builders are DONE (`56c85ad`,
-> `ui/place.ts`, eos-18) but the Viewport is NOT yet wired onto them — the wiring script is ready (eos-34's
-> scratchpad `w6.py`; re-derive from `place.ts` exports if lost) and lands as ONE commit right after eos-f8's
-> step-7 live gate (hashes d36f5b8 / 72af7b5 / b901686 / f070ffc / d8d8f1c / 200a3e9). Then: **B24** (one-line
-> `place.moveEnt` fix: `ctx.isElev && isFlatElev(ctx, en)` + test flip; eos-f8 gates with a FRONT native-rect
-> vertical drag), step 8 (`ui/render/EntRender.svelte` — eos-18 is writing the component as a NEW file; wire
-> the `drawn`/`drawnGround` snippets after), step 9 (inline the ctx wrappers, re-measure; ids→nanoid is DONE
-> `e55f96d`), plus the mop-ups (floorplan→plan rename, sectionArrowFor→annotations.ts, shared
-> `constants.PT_MM`, export `isFlat`/`FLAT` from hit.ts for place.ts, `hoverBody` P2). B22 (phantom elevation
-> OSNAP points) is FIXED `08512dd` and gated. Deferred behaviour changes: K5 `objSnaps`. Verify each slice
-> in-browser: dev server on :5173 serves the WORKING TREE (HMR), so keep Viewport.svelte clean while eos-f8
-> gates; activate a viewport by double-clicking EMPTY space, then draw/select. Test filter:
-> `pnpm vitest run --project=server pages/` (escape `[]` if you pass a path).
+> **RESUME HERE (fresh session):** R1 steps 3–9 are DONE and reviewer-gated (review.md §0a). Landed since the
+> step-5 handoff: step 7 `gestures.ts` (d36f5b8..200a3e9), step 6 builders `56c85ad` + wiring `806dccd`, step 8
+> `EntRender.svelte` `17b5be8` + wiring `29745b7` (paint diff byte-identical), mop-ups `8564e64`/`6542d5b`
+> (shared FLAT/PT_MM, sectionArrowFor → annotations.ts), B13 ids `e55f96d`, B22 `08512dd`, step 9 part 1
+> `36270d8` (dead wrappers gone, single-call-site wrappers inlined; the 2+-call-site aliases stay on purpose).
+> Viewport is 1365 lines (from 2124 at review time / 1709 at the step-5 handoff); the plan's ≤600 target needs
+> R6 (the editor class) — the remaining bulk is onDown/onClick/keys + the model store mutations, not wrappers.
+> NEXT (in order): the `'floorplan'` → `'plan'` rename (Viewport `kind` prop + `ViewCtx.dir` + `+page`
+> projKind/frameKind + Model3d `dir` mapping; one commit, gate = every view still renders/edits); then the
+> Dave-gated behaviour changes — **B24** (`place.moveEnt`: `ctx.isElev && isFlatElev(ctx, en)`; eos-f8 gates a
+> FRONT native-rect vertical drag), **K5** (wire `snap.objSnaps` — eos-18 is writing the pure function + tests —
+> into `findSnap` via an `objs` option so model corners/nodes are OSNAP targets), **B25** (Shift-press toggle
+> should key off the pressed id on pointerup, not a hit-test at release). Verify in-browser: the :5173 dev
+> server serves the WORKING TREE, so keep Viewport.svelte clean while eos-f8 gates; activate a viewport by
+> double-clicking EMPTY space. Test filter: `pnpm vitest run --project=server pages/`.
 
 ## Where things stand (all on `main` unless noted)
 
@@ -98,7 +100,7 @@ Left in Viewport: only the thin wrappers (`findSnap`/`drawPoint`/`snapNode`/`gra
 draft abort). No hand-rolled `setPointerCapture`/window listener pair remains. Viewport 1635 → 1544 lines.
 `thresholdPx` is the hook for B19's 4 px PaperPage frame-drag threshold (not applied yet).
 
-## place.ts (R1 step 6) — builders DONE (`56c85ad`, eos-18), Viewport wiring PENDING
+## place.ts (R1 step 6) — DONE (builders `56c85ad` eos-18, wiring `806dccd`)
 
 Exports: `drawPlane`, `resolveLayer`, `buildEnt`, `PRISM_TOOL`, `trimTail`, `polylineEnt`, `GRAPH_TOOL`,
 `graphObj`, `prismObj`, `guideObj`, `imageWithOrigin`, `imageScaled`, `moveEnt` (+ 25 tests). Deliberate
@@ -107,6 +109,15 @@ Furniture/Opening/Section/Text (prisms via `PRISM_TOOL` + `prismObj`, Section st
 uids come in as functions; image helpers return the SAME reference when they don't apply. Store mutations
 (`addModelObj`/`deleteModelSel`/`deleteGraphNode`/`insertGraphNode`/`branchNode`) stay in Viewport for now
 (the `edit` object seam is R6's).
+
+## EntRender.svelte (R1 step 8) — DONE (`17b5be8` component, `29745b7` wiring)
+
+`ui/render/EntRender.svelte` (svg namespace) carries the former `drawn`/`drawnGround` snippets + the per-entity
+dispatch; the Viewport's paint loop keeps the filter and passes ONE `entStyle` $derived
+({ lwt, canvasZoom, paperMm, gripSize, ink, sel, layerColor }). `gripSize` in `style` is the B3 paper-mm switch
+point. eos-f8 diffed the serialized `.vp-svg` against a pre-wiring worktree: identical in 5 states.
+
+## Step 9 — part 1 DONE (`36270d8`); ids→nanoid DONE (`e55f96d`)
 
 ## Fold-ins / mop-ups (small, do whenever the relevant lines are touched)
 
