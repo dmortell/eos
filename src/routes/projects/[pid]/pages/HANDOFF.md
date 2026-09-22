@@ -11,10 +11,14 @@ Landed + reviewer-verified this session:
   delegate; `findSnap` builds one mapper per pass = P1).
 - `b7e1158` — R10 part 2: demo model/layer/preset seeds moved to `mock/models.ts` + `mock/layers.ts`.
 - `84c53a0` — R1 step 3 slice 1: `ui/hit.ts` pure primitives (`rotatePt`/`isFilled`/`inBox`/`onPlanPlane`).
-- `530ec40` — R1 step 3 slice 2: `ui/view.ts` (`ViewCtx`) + the view-dependent cluster
+- `530ec40` — R1 step 3 slice 2: `ui/view.ts` (`ViewCtx`) + the entity view-dependent cluster
   (`inScope`/`inThisView`/`groundInIso`/`isFlatElev`/`flatXSpan`/`rotCenter`/`bbox`/`hitEnt`/`pickable`)
   moved into `hit.ts` taking `ctx`; Viewport keeps thin ctx-injecting wrappers (call sites unchanged).
+- `cb41247` — R1 step 3 slice 3: model-object hit-testing (`prismRect`/`prismTilted`/`prismOutline`/
+  `convexHull`/`inPoly`/`graphNodeDraw`/`graphHit`/`hitModel`/`hitModelIso`) moved into `hit.ts`. `ViewCtx`
+  now carries `mdl`/`yaw`/`pitch`; model-layer preds pass as an `MLayers` arg. Wrappers as before.
 - `a9778ab` — R4: the `'box'` Ent type removed (see "R4" below).
+- `7debfb6` — B19 part 1 (eos-12): PropertiesPanel text bbox via `textBox(e, PT_MM·scaleN)`. On main.
 
 On a branch, NOT merged: **B19** — `a4dd452` on `b19-props-textbox` (worktree `M:\dev\eos-b19`, by eos-12).
 Threads the focused viewport's `scaleN` into `PropertiesPanel.svelte` and fixes its text bbox to
@@ -27,10 +31,12 @@ by keeping both (B19's text-bbox change + box-removal's field/tool deletions are
 
 Do each as its own commit; keep the thin-wrapper pattern (move logic to `hit.ts` taking `ctx`/`Mapper`,
 leave a one-line ctx-injecting wrapper in Viewport so call sites are untouched). Verify in-browser +
-`pnpm test` per slice.
-1. `hitModel` / `hitModelIso` — model-object pick (needs `ctx.mdl`, `yaw`, `pitch`; add those to `ViewCtx`).
-2. `hitSection` / `sectionCorners` — section-marker pick (B5: sections live in `mdl.sections`).
-3. `hitGuide` — guide pick.
+`pnpm test` per slice. `ViewCtx` already carries `mdl`/`yaw`/`pitch` (added in slice 3); `MLayers` is the
+model-layer pred bundle.
+1. ~~`hitModel` / `hitModelIso`~~ — DONE (slice 3, cb41247).
+2. `hitSection` / `sectionCorners` — section-marker pick. `sections` is a Viewport prop today (B5 moves it
+   to `mdl.sections`); pass the section list as an arg so the fn stays testable.
+3. `hitGuide` — guide pick (guides are a Viewport prop; pass the list as an arg).
 4. `marqueeSelect` — window/crossing decided by `b[0] < a[0]`.
 5. `pickAt` — LAST. The orchestrator encoding onDown's priority order (model grip → section grip →
    entity grip → entity body → guide → section border → model object). `hoverBody` (P2) becomes
