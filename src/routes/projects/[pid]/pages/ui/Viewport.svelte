@@ -228,7 +228,10 @@
 				const mid = hitModelIso(ctx, p, mlayers); setModelSel(mid ? [mid] : []); on.select?.([])
 				return
 			}
-			const g = expandGroup(hit(p))   // the clicked entity + any group it belongs to
+			// B25: a Shift-press toggles the entity that was PRESSED (recorded in onDown), not whatever sits under
+			// the release point — so a Shift-press that drifts off the shape before release still toggles it.
+			const g = expandGroup(shiftPressId ? [shiftPressId] : hit(p))   // the clicked entity + any group it belongs to
+			shiftPressId = null
 			if (e.shiftKey || e.ctrlKey || e.metaKey) {   // additive: toggle the whole group
 				if (g.length) { const allSel = g.every(x => selSet.has(x)); on.select?.(allSel ? sel.filter(x => !g.includes(x)) : [...new Set([...sel, ...g])]) }
 			} else {
@@ -841,6 +844,7 @@
 	type EntDrag = { id: string; base: Ent; bases: Ent[]; kind: 'grip' | 'move'; gi: number; start: Pt; dup?: boolean; duplicated?: boolean }
 	let drag: EntDrag | null = null
 	let suppressClick = false  // swallow the click that ends a real drag (avoids re-select)
+	let shiftPressId: string | null = null   // the entity a Shift-press landed on (B25: onClick toggles THIS id, not the release-point hit)
 	// The drag registry (ui/gestures.ts, R1 step 7) tracks pressed pointers so a second finger (2-finger
 	// pan/zoom) aborts a drag — otherwise finger 1 landing on a shape starts a move that the pan then drags
 	// around — and holds every live beginPointerDrag so one cancelAll() aborts them all (each gesture's
@@ -864,6 +868,7 @@
 		if (editText || !active || e.button !== 0) return   // ignore while editing text in place
 		if ((e.target as Element)?.closest?.('.section-arrow.pick')) return   // a section-arrow click adds/opens a direction (Svelte delegation ignores its stopPropagation)
 		suppressClick = false   // clear any stale flag from a drag that never got its click
+		shiftPressId = null
 		nodeSel = null          // a fresh press resets the node selection (re-set on a no-move node-grip click)
 		if (reg.noteDown(e)) { cancelPointerDrag(); return }   // 2nd finger → hand off to pan/zoom
 		// While calibrating scale, a press near a placed endpoint drags it (adjust the measure line).
@@ -950,7 +955,7 @@
 		const base = entities.find(x => x.id === hitInfo.id); if (!base) return
 		setModelSel([])   // grabbing an entity clears any model-object selection (they're exclusive)
 		// Shift-press on a body is selection-only (toggles on release) — must NOT start a move drag.
-		if (e.shiftKey && hitInfo.kind === 'move') { reg.forget(e); return }
+		if (e.shiftKey && hitInfo.kind === 'move') { shiftPressId = hitInfo.id; reg.forget(e); return }
 		if (!(e.ctrlKey || e.metaKey) && !selSet.has(hitInfo.id)) on.select?.(expandGroup([hitInfo.id]))   // plain press on an unselected entity → select it (+ its group)
 		// a body move drags the whole selection when the grabbed entity is part of it, else just it (+ its group)
 		const moveIds = hitInfo.kind === 'move' ? (selSet.has(hitInfo.id) ? sel : expandGroup([hitInfo.id])) : [hitInfo.id]
