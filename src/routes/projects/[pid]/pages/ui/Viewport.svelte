@@ -10,7 +10,7 @@
 	import { tick } from 'svelte'
 	import { panzoom } from './panzoom'
 	import Handle from '../parts/Handle.svelte'
-	import { BASE, HANDLE_PX } from '../constants'
+	import { BASE, HANDLE_PX, PAPER_PX_PER_MM } from '../constants'
 	import { type Pt, type Ent, type View, type ElevDir, DEFAULT_BOX_H, GROUND, PT, MMPU, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, ELEV_BASIS, elevU, elevUInv, flatSpan, dist, segDist, translate, textBox, boxElev, boxElevSet, boxFaces } from './geometry'
 	import { isLayerHidden, isLayerLocked, layerColor, layerOrder } from '../layers.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
@@ -139,7 +139,11 @@
 	// mock content is unaffected until you pick a scale. (Real mm sizing is the §4.2 refactor.)
 	const dscale = $derived(1 / (parseInt((scale || '1:1').split(':')[1] || '1') || 1))
 	let vpW = $state(0), vpH = $state(0)
-	let vbW = $derived(((boxW ?? vpW) || 400) / BASE), vbH = $derived(((boxH ?? vpH) || 250) / BASE)
+	// px per model unit for the viewBox basis. A PAPER frame (parent passes boxW/boxH in paper px) uses
+	// PAPER_PX_PER_MM so 1 model unit = 1 paper mm at 1:1 → true 1:N scale (B2). A standalone/full-size
+	// viewport (no boxW; measured on screen) keeps the arbitrary on-screen BASE.
+	const pxPerUnit = $derived(boxW ? PAPER_PX_PER_MM : BASE)
+	let vbW = $derived(((boxW ?? vpW) || 400) / pxPerUnit), vbH = $derived(((boxH ?? vpH) || 250) / pxPerUnit)
 	let minX = $derived(CX - vbW / 2), minY = $derived(CY - vbH / 2)
 	// viewBox → screen mapping (aspect matches the frame, so no letterboxing).
 	function vbMap(): { scale: number; left: number; top: number } | null {
@@ -1308,10 +1312,11 @@
 		return p
 	}
 	// Grips must be a CONSTANT screen size (Kestrel / Outlets), whatever the zoom. On-screen
-	// px of a model-unit length = length · view.zoom · (BASE · canvasZoom); dividing by both
+	// px of a model-unit length = length · view.zoom · (pxPerUnit · canvasZoom); dividing by both
 	// zooms cancels them so the grip is always HANDLE_PX px — the canvas CSS zoom included
-	// (without canvasZoom the grips grew as you zoomed the canvas in).
-	const gripSize = $derived(HANDLE_PX / BASE / view.zoom / (canvasZoom || 1) / (dscale || 1))
+	// (without canvasZoom the grips grew as you zoomed the canvas in). Uses pxPerUnit (not BASE) so
+	// grips/hit-tolerances stay HANDLE_PX on a true-scale paper frame too (B2).
+	const gripSize = $derived(HANDLE_PX / pxPerUnit / view.zoom / (canvasZoom || 1) / (dscale || 1))
 	// Project a plan point (x,y,0) to iso DRAWING coords, matching how the model renders (isoR + the same
 	// bounds-centring as Model3d / hitModelIso). Null off iso. Used to lay plan 2D shapes on the ground.
 	const isoGround = $derived.by(() => {
