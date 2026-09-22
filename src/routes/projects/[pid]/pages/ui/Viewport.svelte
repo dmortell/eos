@@ -893,7 +893,8 @@
 		on.sectionmove?.(secDrag.id, { ...c, x0: Math.round(c.x0 + dx), x1: Math.round(c.x1 + dx), y0: Math.round(c.y0 + dy), y1: Math.round(c.y1 + dy) })
 	}
 	function onSecDragUp() {
-		if (secDrag?.moved) { suppressClick = true; on.modeledit?.('Move section'); on.endedit?.() }   // one undo step for the drag
+		if (secDrag?.moved) { suppressClick = true; on.modeledit?.('Move section') }   // one undo step for the drag
+		on.endedit?.()   // ALWAYS close the gesture opened at drag start (a no-move click must not leave it open)
 		secDrag = null
 		window.removeEventListener('pointermove', onSecDragMove)
 		window.removeEventListener('pointerup', onSecDragUp)
@@ -907,7 +908,8 @@
 		on.sectionmove?.(secResize.id, secResize.apply(p))
 	}
 	function onSecResizeUp() {
-		if (secResize?.moved) { suppressClick = true; on.modeledit?.('Resize section'); on.endedit?.() }   // one undo step for the resize
+		if (secResize?.moved) { suppressClick = true; on.modeledit?.('Resize section') }   // one undo step for the resize
+		on.endedit?.()   // ALWAYS close the gesture opened at drag start (a no-move click must not leave it open)
 		secResize = null
 		window.removeEventListener('pointermove', onSecResizeMove)
 		window.removeEventListener('pointerup', onSecResizeUp)
@@ -1423,11 +1425,13 @@
 		}
 		if (secDrag) {   // abort an in-progress section-marker move
 			secDrag = null
+			on.endedit?.()   // close the gesture opened at drag start
 			window.removeEventListener('pointermove', onSecDragMove)
 			window.removeEventListener('pointerup', onSecDragUp)
 		}
 		if (secResize) {   // abort an in-progress section-marker resize
 			secResize = null
+			on.endedit?.()   // close the gesture opened at drag start
 			window.removeEventListener('pointermove', onSecResizeMove)
 			window.removeEventListener('pointerup', onSecResizeUp)
 		}
