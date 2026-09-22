@@ -34,7 +34,8 @@ is in-memory (Svelte 5 runes), no Firestore yet (§12 in `todo.md`).
 
 ## The other docs
 
-- `todo.md` — open work + decisions (and a large done-log; git history is the real changelog).
+- `todo.md` — open work + decisions (and a large historical done-log).
+- `CHANGELOG.md` — a curated, readable history of the major milestones.
 - `review.md` — the standing code review (`§0a` tracks which items are done); maintained by the review session.
 - `refactor-plan.md` — the step-by-step plan for splitting `ui/Viewport.svelte` (R1).
 - `model-plan.md` — how the 3D engine was ported in.

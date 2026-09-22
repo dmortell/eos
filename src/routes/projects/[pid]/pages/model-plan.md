@@ -1,5 +1,9 @@
 # Pages — real 3D floor MODEL + sections plan
 
+> **STATUS: shipped / historical (R11).** This plan is done — the engine is ported into `3dview/` and
+> the phases below are built. Kept for the rationale + decisions; see `CHANGELOG.md` for what landed and
+> `README.md` for how it's wired today.
+
 > **Decisions (Dave, 2026-09-20):** keep Pages' own editor; import the geometry engine into a new
 > **`pages/3dview/`** subfolder (Decision 1B). Each viewport references the relevant **model** for the
 > floor shown (Decision 2). **Fake outline-gap openings** for now (Decision 3). **Multi-direction
