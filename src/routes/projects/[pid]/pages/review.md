@@ -205,8 +205,12 @@ defaults that are always overridden; `+page.svelte:1204-1208` `.side-body*` CSS;
 ### B13. Six id generators, one of them per-instance  **[verified]**
 `newId` (`+page.svelte:312`), `uid` (`Viewport.svelte:122`, **per viewport instance** — two frames
 of the same model in split view can collide within one ms), `mUid` (`:918`), `guideId`
-(`guides.svelte.ts:13`), `layers.svelte.ts:79,88`, and `graph.ts newId(prefix)` (counter + clock,
-the good one). **Action:** export `newId(prefix)` from one module and use it everywhere.
+(`guides.svelte.ts:13`), `layers.svelte.ts:79,88`, and `graph.ts newId(prefix)` (counter + clock).
+**Action (Dave, 2026-09-22): use `nanoid`** — already a dependency (`package.json`), already what
+`sheets/data.ts` and `uploads` use. One `pages/ids.ts` with `newId = (prefix = '') => prefix +
+nanoid(10)`; replace all six generators, including `graph.ts newId` (keep its `prefix` argument so
+node/segment ids stay readable). Collision-free across viewport instances, sessions and users —
+which the clock+counter schemes are not once Firestore lands.
 
 ### B14. Model-edit gestures started in the unfocused split pane capture the wrong baseline  **[code]**
 `beginGesture` calls `ensureHist(panes[focused].activeId)` (`+page.svelte:284`) but focus only

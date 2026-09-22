@@ -212,7 +212,7 @@ State that stays in Viewport: `snapMark`, `depthSnapMark` (both become
 | `setImageOrigin(id, p)` `:688`, `applyScale()` `:704` | `imageWithOrigin(img, p): Ent`, `imageScaled(img, measured, real): Ent` (pure) |
 | `moveEnt(en, dx, dy)` `:1565` | `moveEnt(ctx, en, dx, dy): Ent` |
 | `applyDrag(p, shift)` `:1587` | stays in Viewport (reads `drag`), calls `grips.constrainGrip` + `snap.snapDelta` |
-| `mUid`, `uid` `:918,:122` | delete; import `newId(prefix)` from `../3dview/graph` (B13) |
+| `mUid`, `uid` `:918,:122` | delete; import `newId(prefix)` from a new `pages/ids.ts` built on **`nanoid`** (B13, Dave's preference) — also replaces `graph.ts newId`, `+page newId`, `guideId`, the `layers.svelte.ts` ids |
 
 **B5 dependency:** `buildEnt` for `tool === 'Section'` currently calls `on.section?.(clip)`; after
 B5 it becomes `sectionObj(ctx, a, b): Section` pushed into `mdl.sections` through the same
@@ -289,7 +289,7 @@ other; 3 → 4 → 5 → 6 are sequential; 8 needs 1 and 3.
 | 6 | `place.ts` | 5, **B5 Section type** | introduce the `edit` object; `on.beginedit/modeledit/endedit` become its three methods |
 | 7 | `gestures.ts` | — | one drag machine per commit in the order of §7; `cancelAll` replaces `cancelPointerDrag` when the last one moves |
 | 8 | `render/EntRender.svelte` | 1, 3, **B3 paperMm** | `svelte-check` will flag every missing prop; namespace `svg` required (memory: SVG gotchas) |
-| 9 | delete wrappers, `uid/mUid` → `newId`, re-measure line count | all | target ≤ 600 lines |
+| 9 | delete wrappers, all id generators → `ids.ts` (`nanoid`), re-measure line count | all | target ≤ 600 lines |
 
 Tests to add per step (P5): `annotations.test.ts` (arrow points, cloud sweep flag = 1, section
 arrow direction per dir), `mapper.test.ts` (round-trip `toModel(toClient(p)) ≈ p` at zoom/dscale
