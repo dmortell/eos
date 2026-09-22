@@ -276,14 +276,36 @@ function segIn(a: P3, b: P3, c: Clip): boolean {
 	}
 	return true
 }
+// 2D (x,y-only) segment-vs-AABB overlap — the XY half of trimToClip's wall "extruded quad" test (B20).
+function segInXY(a: { x: number; y: number }, b: { x: number; y: number }, c: Clip): boolean {
+	const inXY = (p: { x: number; y: number }) => p.x >= c.x0 && p.x <= c.x1 && p.y >= c.y0 && p.y <= c.y1
+	if (inXY(a) || inXY(b)) return true
+	let t0 = 0, t1 = 1
+	for (const k of ['x', 'y'] as const) {
+		const lo = c[`${k}0`] as number, hi = c[`${k}1`] as number, d = b[k] - a[k]
+		if (Math.abs(d) < 1e-9) { if (a[k] < lo || a[k] > hi) return false }
+		else { let ta = (lo - a[k]) / d, tb = (hi - a[k]) / d; if (ta > tb) [ta, tb] = [tb, ta]; t0 = Math.max(t0, ta); t1 = Math.min(t1, tb); if (t0 > t1) return false }
+	}
+	return true
+}
 export function trimToClip(o: Obj, c: Clip): Obj | null {
 	if (o.type === 'prism') return inClip(o, c) ? o : null
 	const nm = nodeMap(o.nodes)
-	// walls span z0..z0+h; test the segment at both base and top so a low box still hits it.
 	const top = o.type === 'wall' ? o.h : 0
 	const keep = o.segments.filter((s) => {
 		const a = nm.get(s.a), b = nm.get(s.b); if (!a || !b) return false
-		return segIn(a, b, c) || (top > 0 && segIn({ ...a, z: a.z + top }, { ...b, z: b.z + top }, c))
+		if (top > 0) {
+			// WALL (B20): the segment's z-extruded FACE is a vertical rectangle whose XY footprint is the
+			// segment itself and whose z-band doesn't depend on where along the segment you are (a flat
+			// wall has a.z === b.z), so the face crosses the clip box iff its XY projection crosses the
+			// clip's XY rectangle AND that z-band overlaps [c.z0, c.z1] — this also catches a clip box that
+			// sits strictly between the wall's base and top, which probing only the base/top LINES missed.
+			// (A sloped wall, a.z !== b.z, over-approximates slightly — safe, only ever adds a match near
+			// the sloped ends, never drops a real one.)
+			const z0 = Math.min(a.z, b.z), z1 = Math.max(a.z, b.z) + top
+			return segInXY(a, b, c) && z1 >= c.z0 && z0 <= c.z1
+		}
+		return segIn(a, b, c)   // CONDUIT: no extrusion — test the real (possibly z-sloped) 3D segment exactly
 	})
 	if (!keep.length) return null
 	const used = new Set(keep.flatMap((s) => [s.a, s.b]))

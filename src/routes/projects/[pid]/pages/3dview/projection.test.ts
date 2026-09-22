@@ -162,12 +162,25 @@ describe('inClip / trimToClip', () => {
 		expect(trimToClip(wall(), high)).not.toBeNull()
 		expect(trimToClip(conduit(), high)).toBeNull()        // a conduit has no height extent
 	})
-	// KNOWN GAP (documented, not fixed here): the wall z-test only probes the base line and the top line,
-	// so a clip box that sits entirely between them (e.g. 1000..2000 on a 3000 wall) misses the wall
-	// although the wall face clearly passes through the box. Flip this to `it` once segIn tests the span.
-	it.fails('a clip box strictly between a wall base and top still catches the wall', () => {
+	it('B20 fixed: a clip box strictly between a wall base and top still catches the wall', () => {
 		const mid: Clip = { ...box, z0: 1000, z1: 2000 }
 		expect(trimToClip(wall(), mid)).not.toBeNull()
+	})
+	it('B20: the z-band test is exact, not just "any overlap of the wall\'s full height" — a clip box entirely above the wall top, or entirely below its base, still misses', () => {
+		expect(trimToClip(wall(), { ...box, z0: 3001, z1: 5000 })).toBeNull()   // just above the 3000 top
+		expect(trimToClip(wall(), { ...box, z0: -500, z1: -1 })).toBeNull()     // just below the 0 base
+	})
+	it('B20: the XY half still gates correctly — a mid-height clip box off to the side of the wall misses', () => {
+		const midBox: Clip = { x0: 5000, x1: 6000, y0: -100, y1: 100, z0: 1000, z1: 2000 }
+		expect(trimToClip(wall(), midBox)).toBeNull()
+	})
+	it('B20 does not change conduit precision: a diagonal-in-z conduit whose XY and Z ranges both overlap the box, but whose true 3D line does not, still misses', () => {
+		// The segment runs from (0,0,0) to (1000,0,1000) — its XY footprint (y=0, x 0..1000) crosses the
+		// box's x/y rect, and its z-range (0..1000) overlaps the box's z-range (0..100), but the actual 3D
+		// line is only within z 0..100 for x in 0..100 — nowhere near the box's x 400..600.
+		const diag = conduit({ nodes: [{ id: 'a', x: 0, y: 0, z: 0 }, { id: 'b', x: 1000, y: 0, z: 1000 }] })
+		const lowSlab: Clip = { x0: 400, x1: 600, y0: -100, y1: 100, z0: 0, z1: 100 }
+		expect(trimToClip(diag, lowSlab)).toBeNull()
 	})
 })
 
