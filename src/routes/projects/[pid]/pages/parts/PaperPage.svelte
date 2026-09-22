@@ -16,11 +16,6 @@
 
 	// Paper size in px (default A3 landscape). Driven by the status-bar paper-size / orientation.
 
-	// A selected viewport frame reports its props (position/size/border/type) to the parent so
-	// they can be edited in the Properties panel — with callbacks bound to this component's own
-	// mutators, so the panel can edit without reaching into this child's state.
-	export type FrameSel = { label: string; x: number; y: number; w: number; h: number;
-		border: 'dashed' | 'solid' | 'none'; setBorder: (b: 'dashed' | 'solid' | 'none') => void; setRect: (r: Partial<{ x: number; y: number; w: number; h: number }>) => void }
 	// A viewport frame on the sheet (AutoCAD paper space): its own projection + scale + geometry. The sheet
 	// is just an array of these (the page model) — no special "primary"; the default page seeds one.
 	type SheetFrame = { id: string; x: number; y: number; w: number; h: number; border: 'dashed' | 'solid' | 'none'; proj: string; scale: string; clip: Clip | null; label: string; modelId?: number }

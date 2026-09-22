@@ -34,7 +34,7 @@
 		activate?: () => void; deactivate?: () => void; add?: (e: Ent) => void; update?: (e: Ent) => void;
 		delete?: (ids: string[]) => void; select?: (ids: string[]) => void; view?: (v: View) => void;
 		status?: (text: string) => void; coords?: (x: number, y: number) => void; beginedit?: () => void;
-		endedit?: (debounceMs?: number) => void; tool?: (name: string) => void; frame?: (f: unknown) => void;
+		endedit?: (debounceMs?: number) => void; tool?: (name: string) => void;
 		copy?: (ids: string[]) => void; cut?: (ids: string[]) => void; paste?: () => void;
 		group?: (ids: string[]) => void; ungroup?: (ids: string[]) => void;
 		reorder?: (ids: string[], op: 'front' | 'back' | 'forward' | 'backward') => void;

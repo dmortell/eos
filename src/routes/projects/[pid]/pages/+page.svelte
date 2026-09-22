@@ -10,7 +10,7 @@
 	import { imgEdit, clearImgMode } from './imageEdit.svelte'
 	import { flushSync, tick } from 'svelte'
 	import { page } from '$app/state'
-	import PaperPage, { type FrameSel } from './parts/PaperPage.svelte'
+	import PaperPage from './parts/PaperPage.svelte'
 	import Viewport, { type SectionMarker } from './ui/Viewport.svelte'
 	import DrawingNavigator from './parts/DrawingNavigator.svelte'
 	import LayersPanel from './parts/LayersPanel.svelte'
@@ -116,7 +116,7 @@
 		delete: (ids: string[]) => deleteEnts(a.id, ids), select: (ids: string[]) => setSel(a.id, ids),
 		view: (v: View) => setView(pane.id, a.id, projOf(pane, a), v), status: (t: string) => (statusText = t),
 		coords: (x: number, y: number) => (worldXY = { x, y }), beginedit: beginGesture, endedit: endGesture,
-		tool: (t: string) => (pane.tool = t), frame: onFrame as (f: unknown) => void,
+		tool: (t: string) => (pane.tool = t),
 		copy: (ids: string[]) => copyEnts(a.id, ids), cut: (ids: string[]) => cutEnts(a.id, ids), paste: () => pasteEnts(a.id),
 		group: (ids: string[]) => groupEnts(a.id, ids), ungroup: (ids: string[]) => ungroupEnts(a.id, ids),
 		reorder: (ids: string[], op: 'front' | 'back' | 'forward' | 'backward') => reorderEnts(a.id, ids, op),
@@ -642,12 +642,6 @@
 		if (active) setSel(active.id, [])   // clear entity selection so node props show
 		treeNode = n; rightTab = 'props'; rightOpen = true
 	}
-	// A viewport FRAME selected in paper space (PaperPage) → edit its props in the panel.
-	let viewportSel = $state<FrameSel | null>(null)
-	function onFrame(f: FrameSel | null) {
-		viewportSel = f
-		if (f) { treeNode = null; rightTab = 'props'; rightOpen = true }   // most-recent selection wins
-	}
 
 	// ── top-bar drawing-set selectors (mock) + Ctrl-K command palette ──
 	const PACKAGES = ['Concept Design', 'Schematic Design', 'Detailed Design', 'Shop Drawings', 'As Built']
@@ -1098,7 +1092,7 @@
 				{:else if rightTab === 'props'}
 					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (active) updateEnt(active.id, e) }}
 						onarrange={(op) => { if (active) reorderEnts(active.id, selOf(active.id), op) }}
-						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''} {activeLayer} node={treeNode} viewport={viewportSel}
+						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''} {activeLayer} node={treeNode}
 						modelObj={selModelObj} modelLayers={modelById(activeMid())?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} onmodelseg={updateModelSeg}
 						frameObj={selFrameObj}
 						modelList={models.map((m) => ({ id: m.id, name: m.name }))}

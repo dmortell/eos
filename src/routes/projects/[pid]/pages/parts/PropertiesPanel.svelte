@@ -8,17 +8,16 @@
 	import { COLORS } from '../palette'
 	import { layers } from '../layers.svelte'
 	import { imgEdit, setImgMode } from '../imageEdit.svelte'
-	import type { FrameSel } from './PaperPage.svelte'
 	import type { Obj, Layer as MLayer } from '../3dview/types'
 
 	// A selected extra sheet viewport frame (AutoCAD paper space): edit its source projection + scale.
 	type SheetFrameProp = { id: string; x: number; y: number; w: number; h: number; border: 'dashed' | 'solid' | 'none'; proj: string; scale: string; label: string; modelId?: number }
-	let { ents = [], onupdate, onarrange, pageTitle = '', pageKind = '', activeLayer = '', node = null, viewport = null,
+	let { ents = [], onupdate, onarrange, pageTitle = '', pageKind = '', activeLayer = '', node = null,
 		modelObj = null, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg,
 		frameObj = null, onframeupdate, onframedelete, modelList = [], activeFrameId = undefined }:
 		{ ents?: Ent[]; onupdate?: (e: Ent) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void;
 			pageTitle?: string; pageKind?: string; activeLayer?: string;
-			node?: { id: string; label: string; kind: string } | null; viewport?: FrameSel | null;
+			node?: { id: string; label: string; kind: string } | null;
 			modelObj?: Obj | null; modelLayers?: MLayer[]; onmodelupdate?: (patch: Record<string, unknown>) => void; onmodeldelete?: () => void; onmodelseg?: (segIdx: number, patch: Record<string, unknown>) => void;
 			frameObj?: SheetFrameProp | null; onframeupdate?: (patch: Partial<SheetFrameProp>) => void; onframedelete?: () => void;
 			modelList?: { id: number; name: string }[]; activeFrameId?: string } = $props()
@@ -249,23 +248,6 @@
 		{/if}
 		<button class="pp-del" onclick={() => onmodeldelete?.()}>Delete object</button>
 		<div class="pp-hint">Editing writes straight to the 3D model. Reshape geometry by dragging its grips.</div>
-	{:else if ents.length === 0 && !node && viewport}
-		<!-- a viewport frame is selected in paper space → its view/content props (mock) -->
-		<div class="prop-sec">VIEWPORT</div>
-		<div class="prop"><span>Name</span><input value={viewport.label} /></div>
-		<div class="prop"><span>Type</span><input value="Viewport" readonly /></div>
-		<div class="prop-sec">FRAME</div>
-		<div class="prop"><span>X</span><input type="number" value={viewport.x} onchange={(e) => viewport?.setRect({ x: num(e) })} /></div>
-		<div class="prop"><span>Y</span><input type="number" value={viewport.y} onchange={(e) => viewport?.setRect({ y: num(e) })} /></div>
-		<div class="prop"><span>Width</span><input type="number" value={viewport.w} onchange={(e) => viewport?.setRect({ w: Math.max(90, num(e)) })} /></div>
-		<div class="prop"><span>Height</span><input type="number" value={viewport.h} onchange={(e) => viewport?.setRect({ h: Math.max(90, num(e)) })} /></div>
-		<div class="prop-sec">STYLE</div>
-		<div class="prop"><span>Border</span>
-			<select value={viewport.border} onchange={(e) => viewport?.setBorder((e.currentTarget as HTMLSelectElement).value as 'dashed' | 'solid' | 'none')}>
-				<option value="dashed">Dashed</option><option value="solid">Solid</option><option value="none">None</option>
-			</select>
-		</div>
-		<div class="pp-hint">Per-view content config (scale / crop / source) comes later — see §5.</div>
 	{:else if ents.length === 0 && node}
 		<!-- a tree node is selected → its place properties (mock) -->
 		<div class="prop-sec">{kindLabel[node.kind] ?? 'ITEM'}</div>
