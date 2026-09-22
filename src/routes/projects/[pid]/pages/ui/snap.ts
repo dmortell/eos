@@ -7,7 +7,7 @@ import type { Pt, Ent } from './geometry'
 import type { ViewCtx, MLayers } from './view'
 import type { Mapper } from './mapper'
 import { ELEV_BASIS, elevUInv } from './geometry'
-import { bbox, graphNodeDraw, type GN } from './hit'
+import { bbox, graphNodeDraw, isFlatElev, flatXSpan, inThisView, type GN } from './hit'
 import { orthoPt, constrainPt } from './annotations'
 
 export const SNAP_STEP = 100   // grid snap spacing (mm)
@@ -32,9 +32,15 @@ export function snapDelta(dx: number, dy: number, base: Ent, step: number): [num
 export type EntSnap = { point: Pt; type: string }
 
 /** The object-snap points of an entity: endpoints + midpoints (+ centre / bbox corners for closed shapes,
- *  via hit.bbox). */
+ *  via hit.bbox). In an ELEVATION a flat plan-plane shape (line/polyline/dim/rect/ellipse) is drawn edge-on
+ *  as a ground line over its x-span (see the isFlatElev render branch + hit.bbox), so it offers exactly that
+ *  line's ends + mid — not its raw plan coords, which would be phantom points off the drawing (B22). */
 export function entSnaps(ctx: ViewCtx, e: Ent): EntSnap[] {
 	const mid = (a: Pt, b: Pt): Pt => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+	if (isFlatElev(ctx, e)) {
+		const [x0, x1] = flatXSpan(ctx, e)
+		return [{ point: [x0, ctx.ground], type: 'end' }, { point: [x1, ctx.ground], type: 'end' }, { point: [(x0 + x1) / 2, ctx.ground], type: 'mid' }]
+	}
 	if (e.type === 'polyline') { const pts = e.pts ?? []; const out = pts.map((p) => ({ point: p, type: 'end' })); for (let i = 0; i + 1 < pts.length; i++) out.push({ point: mid(pts[i], pts[i + 1]), type: 'mid' }); return out }
 	if (e.type === 'line' || e.type === 'dim') return [{ point: e.a!, type: 'end' }, { point: e.b!, type: 'end' }, { point: mid(e.a!, e.b!), type: 'mid' }]
 	if (e.type === 'rect' || e.type === 'ellipse' || e.type === 'image') {
@@ -60,14 +66,15 @@ export type SnapOpts = {
 	radiusPx?: number
 }
 
-/** The nearest object-snap point (of any entity) within `radiusPx` of the pointer, or null. Distances are
- *  measured in screen px via ONE mapper for the whole pass (P1: one layout read, not one per point). The
- *  caller gates on the OSNAP toggle. */
+/** The nearest object-snap point (of any entity shown in THIS view) within `radiusPx` of the pointer, or
+ *  null. Distances are measured in screen px via ONE mapper for the whole pass (P1: one layout read, not one
+ *  per point). Entities native to another plane or scoped to another frame are skipped (B22). The caller
+ *  gates on the OSNAP toggle. */
 export function findSnap(ctx: ViewCtx, m: Mapper, ents: Ent[], clientX: number, clientY: number, opts: SnapOpts = {}): SnapHit | null {
 	const r = opts.radiusPx ?? 11
 	let best: { p: Pt; type: string; d: number } | null = null
 	for (const e of ents) {
-		if (e.id === opts.exclude || e.id === opts.editingId) continue
+		if (e.id === opts.exclude || e.id === opts.editingId || !inThisView(ctx, e)) continue
 		for (const s of entSnaps(ctx, e)) {
 			const sp = m.toClient(s.point[0], s.point[1])
 			const d = Math.hypot(sp.x - clientX, sp.y - clientY)

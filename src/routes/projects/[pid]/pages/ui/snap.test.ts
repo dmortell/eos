@@ -53,6 +53,12 @@ describe('findSnap', () => {
 		expect(findSnap(planCtx, ident, ents, 501, 501, { editingId: 'l' })).toBe(null)
 		expect(findSnap(planCtx, ident, ents, 501, 501)).toEqual({ p: [500, 500], type: 'end' })
 	})
+	it('skips entities not shown in this view: another plane, or another frame view scope (B22)', () => {
+		const front: ViewCtx = { ...planCtx, dir: 'front', isPlan: false, isElev: true, elevDir: 'front' }
+		expect(findSnap(front, ident, [ent({ id: 'x', type: 'line', a: [500, 500], b: [600, 500], plane: 'rear' })], 501, 501)).toBe(null)
+		expect(findSnap(front, ident, [ent({ id: 'x', type: 'line', a: [500, 500], b: [600, 500], plane: 'front' })], 501, 501)).toEqual({ p: [500, 500], type: 'end' })
+		expect(findSnap(planCtx, ident, [ent({ id: 'x', type: 'line', a: [500, 500], b: [600, 500], space: 'view:other' })], 501, 501)).toBe(null)
+	})
 })
 
 describe('drawPoint', () => {
@@ -135,18 +141,16 @@ describe('entSnaps — shape kinds, plan vs elevation ctx', () => {
 		const rev = ent({ a: [200, 100], b: [0, 0] })
 		expect(sortPts(pts(entSnaps(planCtx, rev)))).toEqual(sortPts(pts(entSnaps(planCtx, rect))))
 	})
-	it('in a FRONT elevation a flat rect collapses to the ground line: x-span kept, y = ground ± 2', () => {
-		const es = entSnaps(elevCtx('front'), rect)
-		expect(es.length).toBe(9)
-		expect(es.find((s) => s.type === 'center')?.point).toEqual([100, planCtx.ground])
-		for (const p of pts(es)) { expect(p[0]).toBeGreaterThanOrEqual(0); expect(p[0]).toBeLessThanOrEqual(200); expect(Math.abs(p[1] - planCtx.ground)).toBeLessThanOrEqual(2) }
+	it('in a FRONT elevation a flat rect collapses to the ground line: its x-span ends + mid at y = ground (B22)', () => {
+		expect(entSnaps(elevCtx('front'), rect)).toEqual([
+			{ point: [0, planCtx.ground], type: 'end' }, { point: [200, planCtx.ground], type: 'end' }, { point: [100, planCtx.ground], type: 'mid' },
+		])
 	})
 	it('in a RIGHT elevation the span comes from the plan y-extent, re-centred about the plan centre', () => {
-		const es = entSnaps(elevCtx('right'), rect)
 		const u0 = planCtx.cx + (0 - planCtx.cy), u1 = planCtx.cx + (100 - planCtx.cy)   // elevU('right', y)
-		expect(es.find((s) => s.type === 'center')?.point).toEqual([(u0 + u1) / 2, planCtx.ground])
-		const xs = pts(es).map((p) => p[0])
-		expect(Math.min(...xs)).toBe(u0); expect(Math.max(...xs)).toBe(u1)
+		expect(entSnaps(elevCtx('right'), rect)).toEqual([
+			{ point: [u0, planCtx.ground], type: 'end' }, { point: [u1, planCtx.ground], type: 'end' }, { point: [(u0 + u1) / 2, planCtx.ground], type: 'mid' },
+		])
 	})
 	it('a rect drawn NATIVELY in an elevation (plane = that elevation) keeps its own coords there', () => {
 		const native = ent({ a: [0, 0], b: [200, 100], plane: 'front' })
@@ -171,14 +175,19 @@ describe('entSnaps — shape kinds, plan vs elevation ctx', () => {
 		expect(es.find((s) => s.type === 'center')?.point).toEqual([350, 225])   // bbox [100,100]-[600,350]
 		expect(sortPts(pts(es.filter((s) => s.type === 'end')))).toEqual([[100, 100], [100, 350], [600, 100], [600, 350]])
 	})
-	it('lines and polylines ignore the view ctx: their snap points are the raw plan coords even in an elevation', () => {
-		// NOTE (eos-12): bbox() collapses a flat line to the ground line in an elevation, but entSnaps does not,
-		// so in an elevation a plan-plane line offers snap points at (x, plan-y) — away from where it is drawn.
-		// This pins the CURRENT behaviour; if that is a bug, flip these to expect the ground-line points.
-		const line = ent({ type: 'line', a: [0, 0], b: [10, 20] })
-		const pl = ent({ type: 'polyline', a: undefined, b: undefined, pts: [[0, 0], [100, 0]] })
-		expect(entSnaps(elevCtx('front'), line)).toEqual(entSnaps(planCtx, line))
-		expect(entSnaps(elevCtx('right'), pl)).toEqual(entSnaps(planCtx, pl))
+	it('in an elevation a flat plan line / polyline snaps on the GROUND line: ends + mid of its x-span (B22)', () => {
+		// The render + hit.bbox draw a flat plan-plane line edge-on at y = ground over flatXSpan; the snap
+		// points must sit on that drawn line, not at the raw (x, plan-y) — which would be phantom points.
+		const line = ent({ type: 'line', a: [100, 200], b: [300, 200] })
+		expect(entSnaps(elevCtx('front'), line)).toEqual([
+			{ point: [100, planCtx.ground], type: 'end' }, { point: [300, planCtx.ground], type: 'end' }, { point: [200, planCtx.ground], type: 'mid' },
+		])
+		const pl = ent({ type: 'polyline', a: undefined, b: undefined, pts: [[0, 0], [100, 0], [100, 100]] })
+		const u0 = planCtx.cx + (0 - planCtx.cy), u1 = planCtx.cx + (100 - planCtx.cy)   // right: on-axis = plan y
+		expect(entSnaps(elevCtx('right'), pl)).toEqual([
+			{ point: [u0, planCtx.ground], type: 'end' }, { point: [u1, planCtx.ground], type: 'end' }, { point: [(u0 + u1) / 2, planCtx.ground], type: 'mid' },
+		])
+		expect(entSnaps(elevCtx('front'), ent({ type: 'dim', a: [100, 200], b: [300, 200] }))).toEqual(entSnaps(elevCtx('front'), line))
 	})
 })
 
