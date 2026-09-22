@@ -316,3 +316,122 @@ with/without guide).
   is the only touch point (`begin/mark/end` map onto whatever `+page` exposes after B4).
 - **B1 (type imports)** — every new module imports `Ent/Pt/View/ElevDir` from `./geometry`, never
   from `Viewport.svelte`, so it is compatible with either outcome.
+
+
+---
+
+## 11. R1 close-out (2026-09-23)
+
+Steps 0–9 are done. Commits, oldest first (all on `main`):
+
+| Step | Module | Commits |
+|---|---|---|
+| 0 | `ViewCtx` / `MLayers` shapes (design only, no dedicated commit) | consumed starting step 3 slice 2 (`530ec40`) |
+| 1 | `ui/annotations.ts` | `7562f8c` |
+| 2 | `ui/mapper.ts` | `4ebef85`, `5206eb4` (wiring) |
+| 3 | `ui/hit.ts` (+ `pickAt`) | `84c53a0`, `530ec40`, `cb41247`, `a5c6a2a`, `90373e7` |
+| 4 | `ui/grips.ts` | `55a0742`, `bda942e`, `e694e94` |
+| 5 | `ui/snap.ts` | `bc5615f`, `e4bccb0`, `c0828bd`, `2eda177` |
+| 6 | `ui/place.ts` | `56c85ad` (extraction), `806dccd` (wiring) |
+| 7 | `ui/gestures.ts` | `d36f5b8`, `72af7b5`, `b901686`, `f070ffc`, `d8d8f1c`, `200a3e9` |
+| 8 | `ui/render/EntRender.svelte` | `17b5be8` (extraction), `29745b7` (wiring) |
+| 9 | Wrapper cleanup (dead + single-call-site) | `36270d8` (part 1); mop-ups `8564e64`, `6542d5b` |
+
+Beyond R1 proper, prep work landed in the same stretch: `snap.ts` gained `objSnaps` for K5
+(model-object snapping), unwired — `fa982e7`, `8324721`.
+
+### Deviations from the plan, and why
+
+- **`drawPlane(ctx)` returns `ElevDir | undefined`, not `plan | ElevDir | undefined`.** The
+  Viewport never produced the literal plan string — `undefined` already means plan/model-plane
+  everywhere else (`onPlanPlane`) — so keeping `undefined` made every call site a byte-identical
+  drop-in instead of introducing a second plan sentinel to normalise away.
+- **`buildEnt` doesn't build Furniture/Opening prisms; `PRISM_TOOL` does.** Section 6 described one
+  `buildEnt` covering rect/ellipse/line/dim "with the model tools split out below" — that split
+  became a small lookup table (`PRISM_TOOL: Record<string, {layer, h, tag}>`) the caller reads
+  before calling `prismObj`, rather than a second builder function, since the two prism tools
+  differ only in three data fields.
+- **Builders take `uid` as an injected function, not a name.** `buildEnt`/`polylineEnt`/`prismObj`/
+  `graphObj` all take `uid: () => string` (or, for `graphObj`, `uid(prefix) => string`) instead of
+  reading a module id generator — keeps them pure/deterministic under test and matches how B13
+  centralised id generation in `ids.ts`.
+- **`snapNode`/`graphNodeApply` take explicit `opts` objects, not raw closures.** `graphNodeApply`
+  takes `{ snapNode, rnd }` rather than calling a Viewport-closure `snapNode`/`rndSnap` directly —
+  same shape as passing `uid` to place.ts: the Viewport still owns the tolerances/state, but the
+  pure function only sees the two operations it needs.
+- **`gestures.ts`'s `thresholdPx` exists (per section 7 / the plan's note) but no call site uses a
+  non-zero value yet.** The capability shipped and is tested (`beginPointerDrag` accepts
+  `{ thresholdPx }`), but wiring PaperPage's frame drag onto a 4 px threshold (B19) is still open —
+  it needs a decision on which drags should debounce, not just the mechanism.
+- **Step 9 kept wrappers with 2+ call sites as named aliases; only dead code and single-call-site
+  wrappers were removed/inlined in part 1** (`36270d8`). `hitEnt`, `pickable`, `hitSection`,
+  `snapDelta`, `elevDepthSnap` (2 calls each) and the 3+-call ones (`rndSnap` 15, `drawPoint` 7,
+  `inThisView`/`gripsFor`/`moveEnt` 4, `bbox`/`graphNodeDraw`/`hitModel`/`hitGuide` 3) are still
+  named `const`s in `Viewport.svelte` — full inlining was never the goal past 1-call-site; the
+  point was deleting the two genuinely dead ones (`inScope`, `prismRect`, unused anywhere) and the
+  ones only adding a redirect over a single call.
+
+### Line-count trajectory
+
+| Point | Commit | `Viewport.svelte` lines |
+|---|---|---:|
+| Right before step 1 (R1 start) | `7562f8c^` | 2209 |
+| Step 5 handoff (mid-snap.ts) | `a8edee2` | 1709 |
+| Step 9 part 1 (current close-out point) | `36270d8` | 1365 |
+
+Section 9's table set a **≤ 600 line** target after step 9. Current is **1365 — well above
+target**; step 9 alone was never going to reach it (it only removes wrapper redirects). Getting
+under 600 needs the structural moves section 9's own table already named as blocked on other
+work: **B5** (sections into the model — removes the `sections` prop + `pickSectionGrip`/
+`secToolbar`/`onSecDrag*`/`onSecResize*`, ~150 lines, see region 8 below) and **R6** (shrink
+`VpOn`/the drag-state union, which is most of region 4 + region 8's drag-move/up handlers). R1's
+extraction moved the REUSABLE logic out; what's left is mostly Viewport-specific orchestration
+that R6 is the one to shrink.
+
+### What the remaining 1365 lines ARE (measured, not estimated)
+
+Region boundaries below are exact line ranges in `Viewport.svelte` at `36270d8`/current HEAD
+(`8147fec`); template and CSS totals are exact, the 9 script regions are a partition of all but 2
+of the 1085 script-body lines (the 2 are blank-line/tag-boundary slack, not missing logic):
+
+| # | Region | Lines | % of script |
+|---|---|---:|---:|
+| 1 | Imports, props, env-flag `$derived`, viewBox/canvas state | 152 | 14% |
+| 2 | Coordinate mapping + pan/zoom (`vbMap`…`onZoom`) | 42 | 4% |
+| 3 | Draw/place tool dispatch (`place`, `finishPolyline`) | 17 | 2% |
+| 4 | Pointer + keyboard EVENT HANDLERS (`onClick`/`onMove`/`onDblclick`/`onContext`/`onKey`/`onDown`/`onDragMove-Up-Cancel`/`onDrawMove-Up`/`onMarqueeMove-Up`) | 318 | 29% |
+| 5 | Text-edit (`startTextEdit`/`commitText`) | 24 | 2% |
+| 6 | Hit/pick wrappers + view-state `$derived` (`ctx`, `pickable`/`hit`/`expandGroup`, `isPlan`/`modelEditable`/`mlayers`, `hitModel`/`hitSection`, `pick`/`pickAt`, snap wrappers, `gripsFor`/`entStyle`/`isoGround`) | 216 | 20% |
+| 7 | Model store mutations (`addModelObj`/`deleteModelSel`/`deleteGraphNode`/`insertGraphNode`/`branchNode`/`placeGraph`/`graphNodeApply`) | 100 | 9% |
+| 8 | Section / guide / image-calibration / model-drag / orbit UI (`pickSectionGrip`, `secToolbar`, guide preview+drag, image origin/scale, model body+grip drag, section drag/resize, orbit) | 170 | 16% |
+| 9 | Prompt / status-bar text `$derived` | 44 | 4% |
+|  | **Script subtotal** | **1083** | **100%** |
+|  | Template (`<svg>` markup) | 217 | — |
+|  | `<style>` | 60 | — |
+|  | **File total** | **1364** | — |
+
+Notable for scoping R6/B5 from this data rather than guesses:
+
+- **Region 4 (event handlers, 318 lines / 29%) is the single biggest block** and is exactly what
+  R6 targets — `onDown` alone is ~101 lines because it still dispatches to every drag kind
+  (`scaleDrag`/`guideDrag`/`mDrag`/`mGrip`/`secDrag`/`secResize`/`orbitDrag`/`drag`/`marquee`/
+  press-draw) inline; step 7 moved the drag MECHANICS onto `beginPointerDrag`, but the dispatch
+  switch and each drag's `onMove`/`onUp` callback bodies are still here by design (section 7 said
+  the callback bodies stay in Viewport, just simpler).
+- **Region 6 (216 lines / 20%) is almost entirely thin ctx-injecting wrappers** — the step-9
+  survey (sent to eos-34 separately) has the per-wrapper call-site counts; this is where R6's
+  "shrink `VpOn`" work will read from once the wrapper question is settled per-wrapper rather than
+  in bulk.
+- **Region 8 (170 lines / 16%) is B5's target almost exactly** — section marker UI
+  (`pickSectionGrip`/`secToolbar`/`onSecDrag*`/`onSecResize*`) is ~65 of these 170 lines and
+  disappears once sections live in the model with `Section[]`/`Clip` values instead of
+  Viewport-local state (section 10). The rest (guide/image/model-drag/orbit) is not a B5 concern.
+- **Region 7 (100 lines / 9%) is the "keep as store mutations" list section 6 already named** —
+  `addModelObj`/`deleteModelSel`/`deleteGraphNode`/`insertGraphNode`/`branchNode` — still waiting
+  on the `edit` object (`begin/mark/end`) that would let them move to `place.ts` per section 6's
+  own table; not attempted in R1 since it needs the history/doc-state (B4) decision from section
+  10 first.
+- **Regions 1–3 + 5 + 9 (259 lines / 24% combined) are small, Viewport-specific, and not worth
+  moving** — props/setup, coordinate mapping (already thin — mapper.ts did the real work), the
+  2-line draw dispatch, inline text editing (DOM textarea positioning, inherently component-local),
+  and the status-bar text. R6/B5 have nothing to gain from these.
