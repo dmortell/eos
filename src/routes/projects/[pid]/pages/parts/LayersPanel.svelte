@@ -6,8 +6,16 @@
 	import { COLORS } from '../palette'
 	import { layers, layerUI, layerGroups, addLayer, removeLayer, moveLayer,
 		presets, presetUI, applyPreset, savePreset, updatePreset, renamePreset, deletePreset, presetMatches } from '../layers.svelte'
+	import type { Layer as MLayer } from '../3dview/types'
 	import { tick } from 'svelte'
 	function focusEdit(node: HTMLInputElement) { tick().then(() => { node.focus(); node.select() }) }
+	// The ACTIVE model's object layers (walls / furniture / trunks / openings) — a SEPARATE layer system
+	// from the page layers above (B16). Surfaced here so the model objects can be hidden/locked from the
+	// panel (they couldn't before); toggling mutates the model layer directly, which the canvas reads via
+	// `modelLayerVisible`/`modelLayerLocked`. (Full unification of the two systems is R5.)
+	let { modelLayers = [] }: { modelLayers?: MLayer[] } = $props()
+	let modelOpen = $state(true)
+	const modelAllOn = $derived(modelLayers.length > 0 && modelLayers.every((l) => l.visible))
 
 	let search = $state('')
 	// View-preset manage menu + inline rename.
@@ -72,6 +80,32 @@
 	</div>
 
 	<div class="lp-tree">
+		{#if modelLayers.length}
+			<!-- MODEL object layers (walls/furniture/trunks/openings) — the model's own layer list (B16). -->
+			<div class="lg-row">
+				<button class="lg-chev" aria-label={modelOpen ? 'Collapse' : 'Expand'} onclick={() => (modelOpen = !modelOpen)}>
+					<Icon name={modelOpen ? 'chevronDown' : 'chevronRight'} size={12} />
+				</button>
+				<span class="lg-name" title="The active model's object layers">Model</span>
+				<button class="lp-check" class:on={modelAllOn} aria-label="Toggle model layers" onclick={() => { const on = !modelAllOn; for (const l of modelLayers) l.visible = on }}></button>
+			</div>
+			{#if modelOpen}
+				{#each modelLayers as l (l.id)}
+					{#if matches(l.name)}
+						<div class="ly-row" class:off={!l.visible}>
+							<button class="ly-eye" aria-label="Show/hide {l.name}" onclick={() => (l.visible = !l.visible)}>
+								<Icon name={l.visible ? 'eye' : 'eyeSlash'} size={13} />
+							</button>
+							<button class="ly-lock-btn" class:on={l.locked} aria-label="{l.locked ? 'Unlock' : 'Lock'} {l.name}" title="{l.locked ? 'Unlock' : 'Lock'} layer" onclick={() => (l.locked = !l.locked)}>
+								<Icon name={l.locked ? 'lock' : 'lockOpen'} size={12} />
+							</button>
+							<span class="ly-name" title={l.name}>{l.name}</span>
+							<span class="sw-btn" style:background={l.color} title="Layer colour"></span>
+						</div>
+					{/if}
+				{/each}
+			{/if}
+		{/if}
 		{#each layerGroups() as g (g)}
 			{@const kids = layers.filter((l) => l.group === g)}
 			{#if matches(g) || kids.some((k) => matches(k.name))}

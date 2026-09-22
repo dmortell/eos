@@ -1084,7 +1084,7 @@
 					</div>
 				</div>
 				{#if rightTab === 'layers'}
-					<LayersPanel />
+					<LayersPanel modelLayers={modelById(activeMid())?.layers ?? []} />
 				{:else if rightTab === 'props'}
 					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (active) updateEnt(active.id, e) }}
 						onarrange={(op) => { if (active) reorderEnts(active.id, selOf(active.id), op) }}

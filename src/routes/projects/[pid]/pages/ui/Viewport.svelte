@@ -504,6 +504,7 @@
 	const isPlan = $derived(kind === 'floorplan')
 	const modelEditable = $derived(isPlan || isElev)   // iso (oblique) editing deferred to the 3D camera
 	const modelLayerVisible = (o: Obj) => { const l = mdl?.layers?.find(x => x.id === o.layer); return !l || l.visible }
+	const modelLayerLocked = (o: Obj) => !!mdl?.layers?.find(x => x.id === o.layer)?.locked   // locked → not pickable (B16)
 	// A prism's drawing-space AABB in the CURRENT view: plan = footprint [x..x+w]×[y..y+d]; elevation =
 	// silhouette face (its on-axis extent projected via projU, standing on GROUND from z to z+h). Matches
 	// Model3d + the entity-box convention (boxElev). null for non-prisms / non-editable views.
@@ -598,7 +599,7 @@
 		const thr = tolMm(4)   // B9: model mm (was raw hitTol(4) = viewBox units → 100× too small at 1:100)
 		for (let i = mdl.objects.length - 1; i >= 0; i--) {
 			const o = mdl.objects[i]
-			if (!o.id || !modelLayerVisible(o)) continue
+			if (!o.id || !modelLayerVisible(o) || modelLayerLocked(o)) continue
 			if (o.type === 'wall' || o.type === 'conduit') { if (graphHit(o, p, thr)) return o.id; continue }
 			if (o.type !== 'prism') continue
 			if (prismTilted(o)) { if (inPoly(p, prismOutline(o))) return o.id; continue }   // tilted → true silhouette (B10)
@@ -624,7 +625,7 @@
 		const inPoly = (pt: Pt, poly: Pt[]) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[i], d = poly[j]; if ((a[1] > pt[1]) !== (d[1] > pt[1]) && pt[0] < ((d[0] - a[0]) * (pt[1] - a[1])) / (d[1] - a[1]) + a[0]) c = !c } return c }
 		let best: string | null = null, bestDepth = Infinity
 		for (const o of mdl.objects) {
-			if (!o.id || !modelLayerVisible(o)) continue
+			if (!o.id || !modelLayerVisible(o) || modelLayerLocked(o)) continue
 			for (const f of faces3d(o)) {
 				if (f.pts.length < 3) continue
 				const D3 = f.pts.map(D)
