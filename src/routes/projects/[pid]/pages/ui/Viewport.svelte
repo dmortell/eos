@@ -657,37 +657,30 @@
 	}
 
 	// ── section marker MOVE — drag a marker's box border to reposition the cut; the linked elevation
-	// re-clips live (Model3d reads the clip reactively). Absolute from the gesture start (no drift). ──
-	let secDrag: { id: string; start: Pt; c0: Clip; moved: boolean } | null = null
-	function onSecDragMove(e: PointerEvent) {
-		if (!secDrag) return
+	// re-clips live (Model3d reads the clip reactively). Absolute from the gesture start (no drift).
+	// beginPointerDrag-managed; the gesture's undo step is opened at press and ALWAYS closed on release or
+	// cancel (a no-move click must not leave it open). ──
+	type SecDrag = { id: string; start: Pt; c0: Clip }
+	function onSecDragMove(e: PointerEvent, s: SecDrag) {
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
-		secDrag.moved = true
-		const dx = p[0] - secDrag.start[0], dy = p[1] - secDrag.start[1], c = secDrag.c0
-		on.sectionmove?.(secDrag.id, { ...c, x0: Math.round(c.x0 + dx), x1: Math.round(c.x1 + dx), y0: Math.round(c.y0 + dy), y1: Math.round(c.y1 + dy) })
+		const dx = p[0] - s.start[0], dy = p[1] - s.start[1], c = s.c0
+		on.sectionmove?.(s.id, { ...c, x0: Math.round(c.x0 + dx), x1: Math.round(c.x1 + dx), y0: Math.round(c.y0 + dy), y1: Math.round(c.y1 + dy) })
 	}
-	function onSecDragUp() {
-		if (secDrag?.moved) { suppressClick = true; on.modeledit?.('Move section') }   // one undo step for the drag
-		on.endedit?.()   // ALWAYS close the gesture opened at drag start (a no-move click must not leave it open)
-		secDrag = null
-		window.removeEventListener('pointermove', onSecDragMove)
-		window.removeEventListener('pointerup', onSecDragUp)
+	function onSecDragUp(_e: PointerEvent, _s: SecDrag, moved: boolean) {
+		if (moved) { suppressClick = true; on.modeledit?.('Move section') }   // one undo step for the drag
+		on.endedit?.()
 	}
 	// ── section marker RESIZE — drag a corner grip of the SELECTED section (opposite corner fixed). ──
-	let secResize: { id: string; apply: (p: Pt) => Clip; moved: boolean } | null = null
-	function onSecResizeMove(e: PointerEvent) {
-		if (!secResize) return
+	type SecResize = { id: string; apply: (p: Pt) => Clip }
+	function onSecResizeMove(e: PointerEvent, s: SecResize) {
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
-		secResize.moved = true
-		on.sectionmove?.(secResize.id, secResize.apply(p))
+		on.sectionmove?.(s.id, s.apply(p))
 	}
-	function onSecResizeUp() {
-		if (secResize?.moved) { suppressClick = true; on.modeledit?.('Resize section') }   // one undo step for the resize
-		on.endedit?.()   // ALWAYS close the gesture opened at drag start (a no-move click must not leave it open)
-		secResize = null
-		window.removeEventListener('pointermove', onSecResizeMove)
-		window.removeEventListener('pointerup', onSecResizeUp)
+	function onSecResizeUp(_e: PointerEvent, _s: SecResize, moved: boolean) {
+		if (moved) { suppressClick = true; on.modeledit?.('Resize section') }   // one undo step for the resize
+		on.endedit?.()
 	}
+	const closeEdit = () => on.endedit?.()   // onCancel for the gestures that open an undo step at press
 	// ── 3D iso ORBIT — a plain drag in the iso view rotates the camera (yaw/pitch). The projection
 	// already takes yaw/pitch; here we just turn a drag into new angles. Pitch is clamped to (0, 90°).
 	// Runs on beginPointerDrag (ui/gestures.ts): the drag's start + camera angles ride in the state.
@@ -926,7 +919,7 @@
 	// not yet moved onto it (below) still tear down by hand.
 	const reg = new DragRegistry()
 	function cancelPointerDrag() {
-		reg.cancelAll()   // every beginPointerDrag-managed drag (orbit so far)
+		reg.cancelAll()   // every beginPointerDrag-managed drag (orbit, section move/resize so far)
 		if (drag) {
 			if (dragged) for (const b of drag.bases) on.update?.(b)   // revert any partial move/resize
 			drag = null; on.endedit?.()
@@ -957,18 +950,6 @@
 			mGrip = null; on.endedit?.()
 			window.removeEventListener('pointermove', onModelGripMove)
 			window.removeEventListener('pointerup', onModelGripUp)
-		}
-		if (secDrag) {   // abort an in-progress section-marker move
-			secDrag = null
-			on.endedit?.()   // close the gesture opened at drag start
-			window.removeEventListener('pointermove', onSecDragMove)
-			window.removeEventListener('pointerup', onSecDragUp)
-		}
-		if (secResize) {   // abort an in-progress section-marker resize
-			secResize = null
-			on.endedit?.()   // close the gesture opened at drag start
-			window.removeEventListener('pointermove', onSecResizeMove)
-			window.removeEventListener('pointerup', onSecResizeUp)
 		}
 	}
 	$effect(() => {
@@ -1032,9 +1013,7 @@
 		// A corner grip of the SELECTED section resizes it (wins over everything, like a model grip).
 		if (pk?.kind === 'sgrip') {
 			on.beginedit?.()   // one undo step for the whole resize gesture (committed on release)
-			secResize = { ...pk.sg, moved: false }
-			try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
-			e.preventDefault(); window.addEventListener('pointermove', onSecResizeMove); window.addEventListener('pointerup', onSecResizeUp)
+			beginPointerDrag<SecResize>(e, { ...pk.sg }, { onMove: onSecResizeMove, onUp: onSecResizeUp, onCancel: closeEdit }, reg)
 			return
 		}
 		// an alignment guide (below entities/grips, above sections/model/marquee — a thin overlay grabbed in open space).
@@ -1051,9 +1030,7 @@
 			if (sm) {
 				if (selSection !== pk.id) on.sectionselect?.(pk.id)
 				on.beginedit?.()   // one undo step for the whole move gesture (committed on release)
-				secDrag = { id: pk.id, start: p, c0: { ...sm.clip }, moved: false }
-				try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
-				e.preventDefault(); window.addEventListener('pointermove', onSecDragMove); window.addEventListener('pointerup', onSecDragUp)
+				beginPointerDrag<SecDrag>(e, { id: pk.id, start: p, c0: { ...sm.clip } }, { onMove: onSecDragMove, onUp: onSecDragUp, onCancel: closeEdit }, reg)
 			}
 			return
 		}
