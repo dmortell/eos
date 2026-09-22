@@ -392,7 +392,9 @@
 	const inScope = (e: Ent) => !e.space || e.space === 'model' || e.space === 'view:' + frameId
 	// In-view = the object's DRAWING PLANE matches this view (plan projects into every elevation as a ground
 	// line; an elevation-native object shows only in that elevation) AND its scope includes this frame.
-	const inThisView = (e: Ent) => inScope(e) && (onPlanPlane(e) || e.plane === kind)
+	// In the 3D ISO view, hide flat plan-plane 2D annotations for now (they'd float unprojected) — only the
+	// `box` (a real 3D cuboid) projects; true ground-plane projection of 2D shapes is the v2 work (todo §2).
+	const inThisView = (e: Ent) => inScope(e) && (onPlanPlane(e) || e.plane === kind) && !(kind === 'iso' && onPlanPlane(e) && e.type !== 'box')
 	const isFlatElev = (e: Ent) => isElev && FLAT.has(e.type) && onPlanPlane(e)   // only floor flats collapse to the ground line
 	// Horizontal drawing span of a flat object projected onto the ground line for the current side view.
 	function flatXSpan(e: Ent): [number, number] { return flatSpan(e, elevDir, CX, CY) }

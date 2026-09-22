@@ -595,12 +595,13 @@ marquee and constant-lineweight draw, but no additive select / duplicate / move-
   projector generalises the current floor→ground-line projection (a `to3`/`proj3` pair: plan-local
   (u,v) → world → view drawing coords). Scope: render + hit + grips per view; ellipse/circle
   foreshortening + iso are the hard parts.
-  - [ ] **BUG (Dave, 2026-09-22): plan 2D shapes appear AS-IS (unprojected) in the 3D iso viewport** — a
-    rect/line/text drawn on the plan renders at its raw plan (x,y) coords floating in the iso view, not
-    projected onto the ground plane (foreshortened) nor hidden. In elevations flat plan objects collapse to
-    a ground line (`isFlatElev`); iso has no equivalent. **◧ decide:** quick fix = HIDE plan-plane 2D
-    entities in iso (`inThisView` returns false for `onPlanPlane` flats when `kind==='iso'`); proper fix =
-    project them onto the ground via `isoR` (part of this v2 work). Pick one.
+  - [~] **plan 2D shapes appeared AS-IS (unprojected) in the 3D iso viewport** (Dave, 2026-09-22) — a
+    rect/line/text drawn on the plan floated at its raw plan (x,y) coords in iso. **HIDDEN for now
+    (2026-09-22):** `inThisView` returns false for plan-plane non-`box` entities when `kind==='iso'` (box
+    is a real 3D cuboid and still projects). This gates render + hit + grips + marquee (all use
+    `inThisView`/`pickable`). Verified: a plan rect vanished in the iso view and reappeared in plan (hidden,
+    not deleted). [ ] **Proper fix (v2):** project them onto the ground plane via `isoR` (foreshortened)
+    instead of hiding.
 - [x] **Ellipse draw origin** (2026-09-22) — a **CEN** status-bar toggle draws rectangles + ellipses
   **centre-out** (first click = centre; drag = a bbox corner) vs the default corner-to-corner. `env.cen` →
   `centerDraw`; `place()` and the draw `preview` remap the corners via `centerCorners(c, p) = [2c−p, p]` for
