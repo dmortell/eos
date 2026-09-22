@@ -80,11 +80,18 @@ export function boxFootprint(x: number, y: number, w: number, d: number, edges: 
 	const n = clampEdges(edges)
 	const cx = x + w / 2, cy = y + d / 2
 	const angs = Array.from({ length: n }, (_, k) => Math.PI / n + (k * 2 * Math.PI) / n)
-	const maxc = Math.max(...angs.map((a) => Math.abs(Math.cos(a))))
-	const maxs = Math.max(...angs.map((a) => Math.abs(Math.sin(a))))
+	const rawX = angs.map((a) => Math.cos(a)), rawY = angs.map((a) => Math.sin(a))
+	// Normalise by the polygon's ACTUAL per-axis min/max (translate + scale to the box) — B21: the old
+	// max|cos|/max|sin| normalisation only fills the box for a POINT-SYMMETRIC polygon (every vertex has a
+	// partner exactly π away — true for an even edge count). An odd n-gon (e.g. a triangle) has no such
+	// partner, so dividing by a single max under-fills the opposite side (a 3-gon on a 400-wide box only
+	// reached x 0..300). Min/max-normalising fills the box for ANY n, and is numerically identical to the
+	// old formula whenever the polygon IS point-symmetric (even n: min = −max on each axis).
+	const minX = Math.min(...rawX), maxX = Math.max(...rawX), minY = Math.min(...rawY), maxY = Math.max(...rawY)
+	const sx = w / (maxX - minX || 1), sy = d / (maxY - minY || 1)
 	const r = (rot * Math.PI) / 180, cr = Math.cos(r), sr = Math.sin(r)
-	return angs.map((a) => {
-		const px = cx + (w / 2) * (Math.cos(a) / maxc), py = cy + (d / 2) * (Math.sin(a) / maxs)
+	return angs.map((_, i) => {
+		const px = x + (rawX[i] - minX) * sx, py = y + (rawY[i] - minY) * sy
 		if (!rot) return { x: px, y: py, z }
 		return { x: cx + (px - cx) * cr - (py - cy) * sr, y: cy + (px - cx) * sr + (py - cy) * cr, z } // rotate about z (footprint centre)
 	})

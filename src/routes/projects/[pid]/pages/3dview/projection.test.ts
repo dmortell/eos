@@ -39,13 +39,24 @@ describe('boxFootprint', () => {
 			expect(pts.every((p) => p.z === 7)).toBe(true)
 		}
 	})
-	it('an odd edge count stays inside the box and touches it, but cannot fill both sides of an axis', () => {
-		// The normalisation divides by max|cos| / max|sin|, which only centres a point-symmetric polygon.
-		// A triangle (angles 60°/180°/300°) reaches x = cx − w/2 but only cx + w/4 on the other side.
-		const pts = boxFootprint(0, 0, 400, 300, 3, 0)
-		const [x0, x1] = span(xs(pts)), [y0, y1] = span(ys(pts))
-		expect(x0).toBeCloseTo(0, 6); expect(x1).toBeCloseTo(300, 6)
-		expect(y0).toBeCloseTo(0, 6); expect(y1).toBeCloseTo(300, 6)
+	it('B21 fixed: an odd edge count ALSO fills the bounding box exactly (min/max normalisation, not max|cos|/max|sin|)', () => {
+		for (const n of [3, 5, 7, 9]) {
+			const pts = boxFootprint(0, 0, 400, 300, n, 7)
+			expect(pts).toHaveLength(n)
+			near(span(xs(pts)), [0, 400]); near(span(ys(pts)), [0, 300])
+		}
+	})
+	it('B21: an even edge count is numerically unchanged from the old max|cos|/max|sin| formula (byte-identical to floating-point precision)', () => {
+		const oldBoxFootprint = (x: number, y: number, w: number, d: number, edges: number, z: number) => {
+			const n = edges, cx = x + w / 2, cy = y + d / 2
+			const angs = Array.from({ length: n }, (_, k) => Math.PI / n + (k * 2 * Math.PI) / n)
+			const maxc = Math.max(...angs.map((a) => Math.abs(Math.cos(a)))), maxs = Math.max(...angs.map((a) => Math.abs(Math.sin(a))))
+			return angs.map((a) => ({ x: cx + (w / 2) * (Math.cos(a) / maxc), y: cy + (d / 2) * (Math.sin(a) / maxs), z }))
+		}
+		for (const n of [4, 6, 8, 16, 24]) {
+			const now = boxFootprint(10, 20, 400, 300, n, 7), old = oldBoxFootprint(10, 20, 400, 300, n, 7)
+			now.forEach((p, i) => { expect(p.x).toBeCloseTo(old[i].x, 9); expect(p.y).toBeCloseTo(old[i].y, 9); expect(p.z).toBe(old[i].z) })
+		}
 	})
 	it('clamps the edge count to 3..24', () => {
 		expect(boxFootprint(0, 0, 1, 1, 1, 0)).toHaveLength(3)
