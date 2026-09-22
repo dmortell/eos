@@ -898,22 +898,18 @@
 	// ── drag to move / edit ──
 	// `bases` = the entities a body-move drags (the whole selection when you grab a selected one,
 	// else just the grabbed one). `base`/`gi` drive grip drags (always a single entity).
-	let drag: { id: string; base: Ent; bases: Ent[]; kind: 'grip' | 'move'; gi: number; start: Pt; dup?: boolean; duplicated?: boolean } | null = null
-	let dragged = false        // true once the pointer actually moved during a drag
+	// `drag` stays a component-level variable (not just the gesture's state) because onMove's Shift/ORTHO
+	// re-apply and the hover-cursor guard read it between pointer events.
+	type EntDrag = { id: string; base: Ent; bases: Ent[]; kind: 'grip' | 'move'; gi: number; start: Pt; dup?: boolean; duplicated?: boolean }
+	let drag: EntDrag | null = null
 	let suppressClick = false  // swallow the click that ends a real drag (avoids re-select)
 	// The drag registry (ui/gestures.ts, R1 step 7) tracks pressed pointers so a second finger (2-finger
 	// pan/zoom) aborts a drag — otherwise finger 1 landing on a shape starts a move that the pan then drags
-	// around — and holds every live beginPointerDrag so cancelPointerDrag can abort them all. The machines
-	// not yet moved onto it (below) still tear down by hand.
+	// around — and holds every live beginPointerDrag so one cancelAll() aborts them all (each gesture's
+	// onCancel restores its own state).
 	const reg = new DragRegistry()
 	function cancelPointerDrag() {
-		reg.cancelAll()   // every beginPointerDrag-managed drag (all but the entity drag so far)
-		if (drag) {
-			if (dragged) for (const b of drag.bases) on.update?.(b)   // revert any partial move/resize
-			drag = null; on.endedit?.()
-			window.removeEventListener('pointermove', onDragMove)
-			window.removeEventListener('pointerup', onDragUp)
-		}
+		reg.cancelAll()
 		if (draft.length) { draft = []; cur = null; snapMark = null }   // abort an in-progress draw (press-drag or two-click)
 	}
 	$effect(() => {
@@ -1024,12 +1020,8 @@
 		// Ctrl/⌘-drag DUPLICATES the selection (copies created on the first move); a Ctrl-CLICK (no
 		// move) instead toggles selection via onClick.
 		drag = { id: hitInfo.id, base, bases, kind: hitInfo.kind, gi: hitInfo.gi, start: p, dup: (e.ctrlKey || e.metaKey) && hitInfo.kind === 'move', duplicated: false }
-		dragged = false
 		on.beginedit?.()   // one history step for the whole drag
-		try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic events */ }
-		e.preventDefault()
-		window.addEventListener('pointermove', onDragMove)
-		window.addEventListener('pointerup', onDragUp)
+		beginPointerDrag<EntDrag>(e, drag, { onMove: onDragMove, onUp: onDragUp, onCancel: onDragCancel }, reg)
 	}
 	let lastDragRaw: Pt | null = null   // last UNconstrained pointer during a move/grip drag
 	// Move an entity by (dx,dy). In an ELEVATION view the horizontal drag maps to the VIEW's footprint
@@ -1056,7 +1048,7 @@
 	function onDragMove(e: PointerEvent) {
 		if (!drag) return
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
-		dragged = true; lastDragRaw = p
+		lastDragRaw = p
 		if (drag.kind === 'grip') {
 			const s = osnap ? findSnap(e.clientX, e.clientY, drag.id) : null
 			on.update?.(s ? gripsFor(drag.base)[drag.gi].apply(s) : applyDrag(p, e.shiftKey))
@@ -1073,11 +1065,13 @@
 			for (const b of drag.bases) on.update?.(moveEnt(b, gdx, gdy))   // move the whole group (or the copies)
 		}
 	}
-	function onDragUp() {
-		if (dragged) suppressClick = true
+	function onDragUp(_e: PointerEvent, _s: EntDrag, moved: boolean) {
+		if (moved) suppressClick = true
 		drag = null; snapMark = null; on.endedit?.()   // close the drag's history step
-		window.removeEventListener('pointermove', onDragMove)
-		window.removeEventListener('pointerup', onDragUp)
+	}
+	function onDragCancel(s: EntDrag, moved: boolean) {   // 2nd finger → revert any partial move/resize
+		if (moved) for (const b of s.bases) on.update?.(b)
+		drag = null; snapMark = null; on.endedit?.()
 	}
 
 	// ── press-drag draw (EOS mode): press = first point, drag (Shift-constrained) = preview,
