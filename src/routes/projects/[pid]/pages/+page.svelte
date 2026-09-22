@@ -155,7 +155,7 @@
 		return null
 	}
 	function onSection(clip: Clip) {
-		const id = 'sec' + secSeq
+		const id = newId('sec')   // one nanoid generator for every minted id (B13); secSeq only names the section
 		const tabId = panes[focused]?.activeId ?? '', mid = modelIdOf(tabId)
 		ensureHist(tabId)
 		setMdlSections(mid, [...mdlSectionsOf(mid), { id, clip, dir: 'front', name: `Section ${String.fromCharCode(65 + (secSeq++ % 26))}` }])
@@ -216,8 +216,7 @@
 	const framesOf = (tabId: string) => docFrames[didOf(tabId)] ?? []
 	function setFrames(tabId: string, frames: SheetFrame[]) { docFrames = { ...docFrames, [didOf(tabId)]: frames } }
 	function updateFrame(tabId: string, id: string, patch: Partial<SheetFrame>) { setFrames(tabId, framesOf(tabId).map((f) => (f.id === id ? { ...f, ...patch } : f))) }
-	let frameSeq = 0
-	const newFrameId = () => 'vf' + ++frameSeq
+	const newFrameId = () => newId('vf')
 	let selFrame = $state<string | null>(null)   // the viewport frame selected in paper space (move/resize/props)
 	// Exactly one active viewport per sheet: activating a frame deactivates its siblings.
 	function activateFrame(tabId: string, id: string) { for (const f of framesOf(tabId)) if (f.id !== id) deactivateVp(f.id); activateVp(id) }
@@ -271,7 +270,6 @@
 	let focused = $state(0)      // which pane new tabs / sidebar actions target
 	let canvasEls = $state<(HTMLElement | undefined)[]>([])   // each pane's .canvas, for navFit
 	let splitFrac = $state(0.5)  // pane 0 width fraction when split
-	let paneSeq = 1
 	let active = $derived(tabs.find(t => t.id === panes[focused]?.activeId) ?? null)
 
 	// Per-DOCUMENT state (keyed by tab id): drawn entities, selection, and the
@@ -502,7 +500,7 @@
 		p.activeId = id; focused = pane   // selection now lives per doc, so it's preserved
 	}
 	function addTab(kind: Kind = 'plan', title?: string) {
-		const id = 't' + ++seq
+		const id = newId('t'); ++seq   // seq only numbers 'Untitled N' now (tab ids are nanoid, B13)
 		tabs = [...tabs, { id, title: title ?? `Untitled ${seq}`, kind, dirty: false }]
 		if (panes[focused]) panes[focused].activeId = id
 	}
@@ -523,7 +521,7 @@
 		// Mirror the current pane into the split: same active tab + layout, so it opens as a
 		// duplicate view you then diverge (change projection/tab in one side).
 		const src = panes[0]
-		panes = [...panes, { id: 'p' + ++paneSeq, activeId: src.activeId, tool: 'Select', layout: src.layout }]
+		panes = [...panes, { id: newId('p'), activeId: src.activeId, tool: 'Select', layout: src.layout }]
 		focused = 1; splitFrac = 0.5
 		tick().then(() => { fitPane(0); fitPane(1) })   // both panes narrowed → refit their sheets
 	}
@@ -632,7 +630,7 @@
 			// Reuse the preview slot: free the OLD drawing's session/view state BEFORE retitling, so didOf
 			// still resolves to the old drawing (else dropDoc would free the incoming drawing's state — B6).
 			if (pv) { dropDoc(pv.id); pv.title = d.title; pv.kind = d.kind; openTab(pv.id); return }
-			const id = 't' + ++seq
+			const id = newId('t'); ++seq
 			tabs = [...tabs, { id, title: d.title, kind: d.kind, dirty: false, preview: true }]
 			previewId = id
 			if (panes[focused]) panes[focused].activeId = id
