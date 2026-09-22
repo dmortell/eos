@@ -539,13 +539,10 @@
 	// SCALE: after the 2-point line + a real-world distance, resize the image (a→b) by real/measured about
 	// its origin (or centre), so that measurement is correct in model mm. Keeps the anchor point fixed.
 	// Drag an endpoint of the measure line to adjust it (the geometry + measured distance are derived).
-	let scaleDrag: number | null = null
-	function onScaleDragMove(ev: PointerEvent) {
-		if (scaleDrag == null) return
+	function onScaleDragMove(ev: PointerEvent, i: number) {   // beginPointerDrag-managed; state = the endpoint index
 		const p = toLocalXY(ev.clientX, ev.clientY); if (!p) return
-		scalePts = scalePts.map((sp, i) => (i === scaleDrag ? p : sp))
+		scalePts = scalePts.map((sp, j) => (j === i ? p : sp))
 	}
-	function onScaleDragUp() { scaleDrag = null; window.removeEventListener('pointermove', onScaleDragMove); window.removeEventListener('pointerup', onScaleDragUp) }
 	function applyScale() {
 		const d = scaleGeom?.d ?? 0, real = parseFloat(scaleReal ?? '')
 		const img = imgEdit.id ? entities.find((x) => x.id === imgEdit.id) : null
@@ -562,20 +559,15 @@
 	const hitGuide = (p: Pt) => hHitGuide(viewGuides, p, tolMm(6))
 	// DRAG a guide to reposition it — one history gesture (begin → move → 'Move guide' on release, on the
 	// MODEL history). The guide is a live proxy in the model's `guides` array, so mutating `pos` is reactive.
-	let guideDrag: { id: string; moved: boolean } | null = null
-	function onGuideDragMove(e: PointerEvent) {
-		if (!guideDrag) return
+	// beginPointerDrag-managed; state = the guide id.
+	function onGuideDragMove(e: PointerEvent, id: string) {
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
-		const g = mdl?.guides?.find((x) => x.id === guideDrag!.id); if (!g) return
+		const g = mdl?.guides?.find((x) => x.id === id); if (!g) return
 		g.pos = Math.round(g.orient === 'h' ? p[1] : p[0])
-		guideDrag.moved = true
 	}
-	function onGuideDragUp() {
-		window.removeEventListener('pointermove', onGuideDragMove)
-		window.removeEventListener('pointerup', onGuideDragUp)
-		if (guideDrag?.moved) { suppressClick = true; on.modeledit?.('Move guide') }
+	function onGuideDragUp(_e: PointerEvent, _id: string, moved: boolean) {
+		if (moved) { suppressClick = true; on.modeledit?.('Move guide') }
 		on.endedit?.()
-		guideDrag = null
 	}
 	// A body move drag. Absolute from the gesture's start (no drift). A prism moves its position; a
 	// wall/conduit translates ALL its nodes (keeping the graph rigid). In elevation the horizontal drag
@@ -919,7 +911,7 @@
 	// not yet moved onto it (below) still tear down by hand.
 	const reg = new DragRegistry()
 	function cancelPointerDrag() {
-		reg.cancelAll()   // every beginPointerDrag-managed drag (orbit, section move/resize so far)
+		reg.cancelAll()   // every beginPointerDrag-managed drag (orbit, section move/resize, guide, scale-line so far)
 		if (drag) {
 			if (dragged) for (const b of drag.bases) on.update?.(b)   // revert any partial move/resize
 			drag = null; on.endedit?.()
@@ -935,11 +927,6 @@
 			draft = []; cur = null; snapMark = null
 			window.removeEventListener('pointermove', onDrawMove)
 			window.removeEventListener('pointerup', onDrawUp)
-		}
-		if (guideDrag) {   // abort an in-progress guide reposition (2nd finger → pan/zoom)
-			guideDrag = null; on.endedit?.()
-			window.removeEventListener('pointermove', onGuideDragMove)
-			window.removeEventListener('pointerup', onGuideDragUp)
 		}
 		if (mDrag) {   // abort an in-progress model-object move (2nd finger → pan/zoom)
 			mDrag = null; on.endedit?.()
@@ -970,7 +957,7 @@
 		if (reg.noteDown(e)) { cancelPointerDrag(); return }   // 2nd finger → hand off to pan/zoom
 		// While calibrating scale, a press near a placed endpoint drags it (adjust the measure line).
 		if (imgEdit.mode === 'scale' && scalePts.length === 2) {
-			for (let i = 0; i < 2; i++) { const sp = localToClient(scalePts[i][0], scalePts[i][1]); if (sp && Math.hypot(sp.x - e.clientX, sp.y - e.clientY) < 14) { scaleDrag = i; try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ } e.preventDefault(); window.addEventListener('pointermove', onScaleDragMove); window.addEventListener('pointerup', onScaleDragUp); return } }
+			for (let i = 0; i < 2; i++) { const sp = localToClient(scalePts[i][0], scalePts[i][1]); if (sp && Math.hypot(sp.x - e.clientX, sp.y - e.clientY) < 14) { beginPointerDrag<number>(e, i, { onMove: onScaleDragMove }, reg); return } }
 		}
 		// In scale/origin PICK modes, don't start a select/move-drag — let onClick place the point.
 		if (imgEdit.mode === 'scale' || imgEdit.mode === 'origin') return
@@ -1019,9 +1006,8 @@
 		// an alignment guide (below entities/grips, above sections/model/marquee — a thin overlay grabbed in open space).
 		if (pk?.kind === 'guide') {
 			setModelSel([pk.id]); on.select?.([])   // guide selection reuses modelSel (exclusive with entities)
-			guideDrag = { id: pk.id, moved: false }; on.beginedit?.()
-			try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
-			e.preventDefault(); window.addEventListener('pointermove', onGuideDragMove); window.addEventListener('pointerup', onGuideDragUp)
+			on.beginedit?.()
+			beginPointerDrag<string>(e, pk.id, { onMove: onGuideDragMove, onUp: onGuideDragUp, onCancel: closeEdit }, reg)
 			return
 		}
 		// a section marker border → SELECT it (grips + toolbar) + start a move drag (a no-move press just selects).
