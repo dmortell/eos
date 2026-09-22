@@ -239,8 +239,11 @@ New todos (design / bigger):
   now draws depth-sorted opaque white FACES (`faces3d` + `isoDepthR` painter's algorithm) instead of
   wireframe, so nearer faces occlude farther ones — walls/furniture/trunks read as solid objects.
   Openings are skipped in iso (a true 3D boolean hole is future work). Verified in-browser (the room
-  renders solid with correct occlusion). [ ] Still: entity flats (lines/rects) show no depth ordering
-  vs the model; per-face shading (light/dark) for a stronger 3D read.
+  renders solid with correct occlusion). **[x] per-face shading (2026-09-22)** — iso faces now fill with a
+  two-sided Lambert shade (`faceShade`: world normal · a fixed up-front light, `abs` so it's winding-
+  independent, ambient floor) → tops read lightest, sides darker, via `style:fill` (beats the old CSS
+  `fill:#fff`). Verified: the Rack A 3D model shows a lit top + shaded sides (solid read); clean console.
+  [ ] Still: entity flats (lines/rects) show no depth ordering vs the model.
 - [x] **Tools floating window: merge related tools into pop-out groups** (2026-09-22) — the left tool
   strip now groups tools that share a mode into ONE button with a hover FLY-OUT (15 buttons → 11):
   **Shapes** (Rectangle / Ellipse / Box) and **Conduits** (Wall / Trunk / Pipe — the graph tools). A

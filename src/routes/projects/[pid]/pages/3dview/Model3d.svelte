@@ -39,9 +39,22 @@
 	// (painter's algorithm) so nearer faces paint over farther ones — a filled white face occludes what's
 	// behind it. Replaces the old wireframe iso. Openings are skipped (a true 3D boolean hole is future
 	// work; in iso the wall reads solid). Selected objects keep their amber stroke.
+	// Flat (two-sided Lambert) shade for a face, from its WORLD normal · a fixed up-front light. Top faces
+	// read lightest, sides darker — so the solid iso has depth instead of a flat white silhouette. `abs`
+	// keeps it independent of face winding (faces3d isn't guaranteed outward), with an ambient floor.
+	function faceShade(pts: { x: number; y: number; z: number }[]): string {
+		const a = pts[0], b = pts[1], c = pts[2]
+		let nx = (b.y - a.y) * (c.z - a.z) - (b.z - a.z) * (c.y - a.y)
+		let ny = (b.z - a.z) * (c.x - a.x) - (b.x - a.x) * (c.z - a.z)
+		let nz = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
+		const nl = Math.hypot(nx, ny, nz) || 1; nx /= nl; ny /= nl; nz /= nl
+		const t = Math.abs(nx * 0.32 + ny * -0.32 + nz * 0.89)   // light from up / front — 0..1
+		const L = Math.round(255 * (0.66 + 0.32 * t))            // 0.66 (side) .. 0.98 (top)
+		return `rgb(${L},${L},${L})`
+	}
 	const isoFaces = $derived.by(() => {
 		if (dir !== 'iso') return []
-		const out: { pts: { u: number; v: number }[]; depth: number; col: string; lw: number }[] = []
+		const out: { pts: { u: number; v: number }[]; depth: number; col: string; lw: number; shade: string }[] = []
 		for (const o of model.objects) {
 			if (!visible(o) || !inClip(o) || isOpening(o)) continue
 			const col = colorOf(o), lw = weightOf(o)
@@ -49,7 +62,7 @@
 				if (f.pts.length < 3) continue
 				let d = 0
 				for (const p of f.pts) d += isoDepthR(p, yaw, pitch, cx, cy)
-				out.push({ pts: f.pts.map((p) => isoR(p, yaw, pitch, cx, cy)), depth: d / f.pts.length, col, lw })
+				out.push({ pts: f.pts.map((p) => isoR(p, yaw, pitch, cx, cy)), depth: d / f.pts.length, col, lw, shade: faceShade(f.pts) })
 			}
 		}
 		out.sort((a, b) => b.depth - a.depth)   // farthest first; nearer faces paint on top
@@ -100,7 +113,7 @@
 	{#if dir === 'iso'}
 	<!-- Solid iso (hidden-line): depth-sorted white faces; nearer faces occlude farther ones. -->
 	{#each isoFaces as f, i (i)}
-		<polygon points={f.pts.map((p) => `${p.u},${p.v}`).join(' ')} class="face" stroke={f.col} stroke-width={f.lw} vector-effect="non-scaling-stroke" />
+		<polygon points={f.pts.map((p) => `${p.u},${p.v}`).join(' ')} class="face" style:fill={f.shade} stroke={f.col} stroke-width={f.lw} vector-effect="non-scaling-stroke" />
 	{/each}
 	<!-- Openings in 3D: draw the frame outline (on top of the wall face) + a door's floor swing, so a
 	     door/window reads on the model even without a true CSG hole. -->
