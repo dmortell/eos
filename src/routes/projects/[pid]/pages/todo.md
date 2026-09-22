@@ -257,8 +257,11 @@ New todos (design / bigger):
   Verified in-browser: both groups render with carets, fly-outs reveal on hover, clicking Box highlighted
   the Shapes button + swapped its icon, clean console. (Line stays standalone — there's no separate
   Polyline tool; the Line tool draws polylines in ACAD mode.) Ties into the editing refactor (§ graph
-  tools already share code paths). [ ] Touch follow-up: tap-to-open the fly-out (hover isn't available) —
-  pairs with the "Guide H/V pop-out" touch todo.
+  tools already share code paths). [x] **Touch: tap-to-open the fly-out** (2026-09-22) — a `.grp` button now
+  sets `openGroup` on click so the fly-out stays open without hover (`.flyout.open`), a window
+  pointerdown-capture handler closes it on any press outside a `.grp`, and picking a member selects it +
+  closes. Verified in-browser (click opens + holds after the cursor leaves; member-click closes). Mouse
+  hover still works too.
 - [ ] **Orbit tool icon in the zoom-tools floating window** (Dave, 2026-09-20) — add an **orbit**
   button to the bottom-right nav floating window (`navtools` in `+page.svelte`, beside Zoom in/out /
   Fit / Pan). Drag-orbits the 3D (iso) view. Blocked on the **real 3D orbit camera** (the ELEV_BASIS

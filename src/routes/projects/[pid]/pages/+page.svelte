@@ -693,6 +693,13 @@
 	]
 	// Last-used tool per group (the button re-activates this on a plain click). Seeded to the first member.
 	let groupTool = $state<Record<string, string>>({ shapes: 'Rectangle', conduits: 'Wall' })
+	// Which tool-group fly-out is TAP-opened (touch has no hover). Cleared by a press outside any `.grp`.
+	let openGroup = $state<string | null>(null)
+	$effect(() => {
+		const h = (e: PointerEvent) => { if (!(e.target as Element)?.closest?.('.grp')) openGroup = null }
+		window.addEventListener('pointerdown', h, true)
+		return () => window.removeEventListener('pointerdown', h, true)
+	})
 	// World (model-unit) coords under the cursor, from the active viewport (status bar shows mm), and
 	// the focused pane's tool prompt / inline-edit help (rendered at the pane bottom-centre).
 	let worldXY = $state<{ x: number; y: number } | null>(null)
@@ -922,12 +929,12 @@
 										{@const inGrp = s.members.includes(p.tool)}
 										{@const cur = inGrp ? p.tool : groupTool[s.group]}
 										<div class="grp">
-											<button class="tool grp-btn" class:on={inGrp} title="{s.label} — {cur}" onclick={() => (p.tool = cur)}>
+											<button class="tool grp-btn" class:on={inGrp} title="{s.label} — {cur}" onclick={() => { p.tool = cur; openGroup = s.group }}>
 												<Icon name={iconOf(cur)} size={16} /><span class="grp-caret"></span>
 											</button>
-											<div class="flyout">
+											<div class="flyout" class:open={openGroup === s.group}>
 												{#each s.members as m (m)}
-													<button class="tool" class:on={p.tool === m} title={m} onclick={() => { p.tool = m; groupTool = { ...groupTool, [s.group]: m } }}><Icon name={iconOf(m)} size={16} /></button>
+													<button class="tool" class:on={p.tool === m} title={m} onclick={() => { p.tool = m; groupTool = { ...groupTool, [s.group]: m }; openGroup = null }}><Icon name={iconOf(m)} size={16} /></button>
 												{/each}
 											</div>
 										</div>
@@ -1246,6 +1253,6 @@
 		backdrop-filter:blur(9px); -webkit-backdrop-filter:blur(9px); box-shadow:0 8px 30px #0005; z-index:10; }
 	/* invisible bridge over the gap so moving onto the fly-out doesn't drop the hover */
 	.flyout::before { content:''; position:absolute; left:-8px; top:0; bottom:0; width:8px; }
-	.grp:hover .flyout { display:flex; }
+	.grp:hover .flyout, .flyout.open { display:flex; }   /* hover (mouse) or tap-open (touch) */
 
 </style>
