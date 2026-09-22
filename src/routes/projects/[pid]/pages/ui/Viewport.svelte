@@ -14,7 +14,7 @@
 	import { type Pt, type Ent, type View, type ElevDir, GROUND, MMPU, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, ELEV_BASIS, elevU, elevUInv, dist, segDist, translate, textBox } from './geometry'
 	import { makeMapper, type Mapper } from './mapper'
 	import type { ViewCtx } from './view'
-	import { pickSectionGrip as gPickSectionGrip, modelGrips as gModelGrips, pickModelGrip as gPickModelGrip, type MGrip } from './grips'
+	import { pickSectionGrip as gPickSectionGrip, modelGrips as gModelGrips, pickModelGrip as gPickModelGrip, gripsFor as gGripsFor, constrainGrip as gConstrainGrip, type MGrip, type Grip, type GripOpts } from './grips'
 	import { rotatePt, inScope as hInScope, inThisView as hInThisView, groundInIso as hGroundInIso, isFlatElev as hIsFlatElev, flatXSpan as hFlatXSpan, rotCenter as hRotCenter, bbox as hBbox, hitEnt as hHitEnt, pickable as hPickable, prismRect as hPrismRect, prismTilted, graphNodeDraw as hGraphNodeDraw, hitModel as hHitModel, hitModelIso as hHitModelIso, sectionCorners, hitSection as hHitSection, hitGuide as hHitGuide, marqueeSelect as hMarqueeSelect, type GN } from './hit'
 	import { isLayerHidden, isLayerLocked, layerColor, layerOrder } from '../layers.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
@@ -940,168 +940,13 @@
 	// that point; dragging the body moves the whole entity. Grips render at a constant
 	// screen size (÷ zoom) so they don't grow as the viewport zooms, like real CAD.
 	// A grip: `apply(p)` handles the UN-rotated (or non-rotated) drag. For a ROTATED shape, `anchor` (the
-	// local coord that must stay put) + `resize(dragged, anchor)` (build from the two diagonal corners)
-	// drive a world-anchored resize instead, so a corner drags about the opposite corner in the shape's own
-	// axes; `square` opts the shift-constrain into that local frame (rects, not lines). `rotate` = the handle.
-	type Grip = { x: number; y: number; apply: (p: Pt) => Ent; rotate?: boolean; anchor?: Pt; resize?: (d: Pt, f: Pt) => Ent; square?: boolean }
-	// Which entity kinds get a rotate HANDLE (a circle above the bbox top-centre, like the prism's). `rot`
-	// already exists on Ent and render/hit/grips honour it — this just exposes it as a draggable handle.
-	// Excluded: flat-elev floor projections (a ground line) and an image mid-CROP (its grips are the window).
-	const ROTATABLE = new Set(['rect', 'ellipse', 'image', 'line'])
-	const canRotate = (e: Ent) => ROTATABLE.has(e.type) && !isFlatElev(e) && !(e.type === 'image' && imgEdit.mode === 'crop' && imgEdit.id === e.id)
-	// The rotate handle in the entity's LOCAL (un-rotated) frame; gripsFor then rotates its POSITION with the
-	// shape but leaves apply on the RAW pointer (angle from centre + 90°, matching the prism/model handle).
-	function rotGripLocal(e: Ent): Grip {
-		const [x0, y0, x1, y1] = bbox(e)
-		const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2
-		// A CONSTANT screen gap above the top edge (gripSize is already screen-constant) — the handle stays
-		// attached to the top rather than drifting further out as the object grows. Shift snaps to 15°
-		// (read live from shiftDown, so `reconstrain` re-applies it the instant Shift is pressed/released).
-		return { x: cx, y: y0 - gripSize * 6, rotate: true, apply: (p: Pt) => {
-			let deg = Math.round((Math.atan2(p[1] - cy, p[0] - cx) * 180 / Math.PI + 90 + 360) % 360)
-			if (shiftDown) deg = (Math.round(deg / 15) * 15) % 360
-			return { ...e, rot: deg }
-		} }
-	}
-	// A flat object in elevation is a ground line; its grips are the two ground-line ends (drag = move
-	// the min/max x-edge, keeping it flat), NOT the plan footprint corners.
-	function setFlatX(e: Ent, edge: 'min' | 'max', u: number): Ent {
-		if (e.type === 'polyline') return e   // no simple edge; leave as-is
-		const ax = ELEV_BASIS[elevDir].axis
-		const ua = projU(e.a![ax]), ub = projU(e.b![ax])   // endpoints projected to the drawing horizontal
-		const aIsMin = ua <= ub, moveA = (edge === 'min') === aIsMin
-		const m = projUInv(u)                              // dragged horizontal → model coord along the axis
-		const setPt = (pt: Pt): Pt => ax === 0 ? [m, pt[1]] : [pt[0], m]
-		return moveA ? { ...e, a: setPt(e.a!) } : { ...e, b: setPt(e.b!) }
-	}
-	// Grips honour rotation: positions rotate into the view; a grip drag un-rotates the pointer first.
-	function gripsFor(e: Ent): Grip[] {
-		let gs = gripsLocal(e)
-		if (canRotate(e)) gs = [...gs, rotGripLocal(e)]
-		if (!e.rot) return gs
-		const c = rotCenter(e)
-		// A geometry grip works in the local frame → rotate its position AND un-rotate the pointer for apply.
-		// The rotate handle needs the RAW pointer (it computes a world angle), so only its position rotates.
-		const rot = e.rot!
-		return gs.map(g => {
-			const rp = rotatePt([g.x, g.y], c, rot)
-			if (g.rotate) return { ...g, x: rp[0], y: rp[1] }
-			// World-anchored resize: keep the opposite corner (anchor) FIXED in world while the dragged
-			// corner follows the pointer, doing all the box math in the shape's un-rotated local frame.
-			if (g.anchor && g.resize) {
-				const Aw = rotatePt(g.anchor, c, rot), resize = g.resize, square = g.square
-				return { x: rp[0], y: rp[1], apply: (P: Pt): Ent => {
-					let Pw = P
-					if (square && shiftDown) {   // shift → square about the anchor, in LOCAL axes
-						const rel = rotatePt(P, Aw, -rot), dx = rel[0] - Aw[0], dy = rel[1] - Aw[1]
-						const s = Math.max(Math.abs(dx), Math.abs(dy)), sq = rotatePt([(dx < 0 ? -s : s), (dy < 0 ? -s : s)], [0, 0], rot)
-						Pw = [Aw[0] + sq[0], Aw[1] + sq[1]]
-					}
-					const cn: Pt = [(Aw[0] + Pw[0]) / 2, (Aw[1] + Pw[1]) / 2]   // new centre = midpoint(anchor, pointer)
-					const D = rotatePt(Pw, cn, -rot)                             // dragged corner, un-rotated
-					const F: Pt = [2 * cn[0] - D[0], 2 * cn[1] - D[1]]           // opposite corner → anchor stays world-fixed
-					return resize(D, F)
-				} }
-			}
-			return { x: rp[0], y: rp[1], apply: (p: Pt) => g.apply(rotatePt(p, c, -rot)) }
-		})
-	}
-	function gripsLocal(e: Ent): Grip[] {
-		if (isFlatElev(e)) { const [x0, x1] = flatXSpan(e); return [{ x: x0, y: GROUND, apply: p => setFlatX(e, 'min', p[0]) }, { x: x1, y: GROUND, apply: p => setFlatX(e, 'max', p[0]) }] }
-		if (e.type === 'polyline') return (e.pts ?? []).map((v, i) => ({ x: v[0], y: v[1], apply: (p: Pt) => ({ ...e, pts: (e.pts ?? []).map((q, j) => j === i ? p : q) }) }))
-		if (e.type === 'line' || e.type === 'dim') {
-			// Rotated: drag one endpoint (D) keeping the other (anchor F) world-fixed. No square-constrain.
-			const gs: Grip[] = [
-				{ x: e.a![0], y: e.a![1], anchor: e.b!, resize: (D, F) => ({ ...e, a: D, b: F }), apply: p => ({ ...e, a: p }) },
-				{ x: e.b![0], y: e.b![1], anchor: e.a!, resize: (D, F) => ({ ...e, b: D, a: F }), apply: p => ({ ...e, b: p }) },
-			]
-			if (e.type === 'dim') {   // a grip on the measured-text: drag it ALONG the line (dimT) + perpendicular (dimOff)
-				const a = e.a!, b = e.b!, len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1
-				const ux = (b[0] - a[0]) / len, uy = (b[1] - a[1]) / len, px = -uy, py = ux
-				const off = e.dimOff ?? 2.5 * paperMm, t = e.dimT ?? 0.5
-				gs.push({ x: a[0] + ux * len * t + px * off, y: a[1] + uy * len * t + py * off, apply: (p: Pt) => {
-					const along = (p[0] - a[0]) * ux + (p[1] - a[1]) * uy, perp = (p[0] - a[0]) * px + (p[1] - a[1]) * py
-					const nt = Math.max(0, Math.min(1, Math.round((along / len) * 100) / 100))
-					return { ...e, dimT: nt === 0.5 ? undefined : nt, dimOff: Math.round(perp) }
-				} })
-			}
-			return gs
-		}
-		if (e.type === 'image' && imgEdit.mode === 'crop' && imgEdit.id === e.id) {   // CROP mode: corner grips move the crop WINDOW, not the placement rect
-			const rx = Math.min(e.a![0], e.b![0]), ry = Math.min(e.a![1], e.b![1]), rw = Math.abs(e.b![0] - e.a![0]) || 1, rh = Math.abs(e.b![1] - e.a![1]) || 1
-			const cr = e.crop ?? { x: 0, y: 0, w: 1, h: 1 }, x0 = cr.x, y0 = cr.y, x1 = cr.x + cr.w, y1 = cr.y + cr.h
-			const cl = (v: number) => Math.max(0, Math.min(1, v)), nX = (p: Pt) => cl((p[0] - rx) / rw), nY = (p: Pt) => cl((p[1] - ry) / rh)
-			const set = (nx0: number, ny0: number, nx1: number, ny1: number): Ent => { const ax0 = Math.min(nx0, nx1), ay0 = Math.min(ny0, ny1); return { ...e, crop: { x: ax0, y: ay0, w: Math.max(0.03, Math.abs(nx1 - nx0)), h: Math.max(0.03, Math.abs(ny1 - ny0)) } } }
-			return [
-				{ x: rx + x0 * rw, y: ry + y0 * rh, apply: (p: Pt) => set(nX(p), nY(p), x1, y1) },   // TL
-				{ x: rx + x1 * rw, y: ry + y0 * rh, apply: (p: Pt) => set(x0, nY(p), nX(p), y1) },   // TR
-				{ x: rx + x1 * rw, y: ry + y1 * rh, apply: (p: Pt) => set(x0, y0, nX(p), nY(p)) },   // BR
-				{ x: rx + x0 * rw, y: ry + y1 * rh, apply: (p: Pt) => set(nX(p), y0, x1, nY(p)) },   // BL
-			]
-		}
-		if (e.type === 'image') {   // resize grips at the VISIBLE (crop-window) corners, so they track the
-			// CROPPED image; dragging scales the full placement so that window corner follows (opposite fixed).
-			const rx = Math.min(e.a![0], e.b![0]), ry = Math.min(e.a![1], e.b![1]), rw = Math.abs(e.b![0] - e.a![0]) || 1, rh = Math.abs(e.b![1] - e.a![1]) || 1
-			const cr = e.crop ?? { x: 0, y: 0, w: 1, h: 1 }, aspect = rh / rw, lock = e.lockAspect !== false
-			const wres = (dnx: number, dny: number, fnx: number, fny: number) => (p: Pt): Ent => {
-				const fx = rx + fnx * rw, fy = ry + fny * rh
-				let RW = dnx - fnx !== 0 ? (p[0] - fx) / (dnx - fnx) : rw
-				let RH = dny - fny !== 0 ? (p[1] - fy) / (dny - fny) : rh
-				if (lock && !shiftDown) RH = (Math.sign(RH) || 1) * Math.abs(RW) * aspect   // keep source aspect (Shift = free stretch)
-				const Ax = fx - fnx * RW, Ay = fy - fny * RH
-				return { ...e, a: [Math.round(Ax), Math.round(Ay)], b: [Math.round(Ax + RW), Math.round(Ay + RH)] }
-			}
-			const x0 = cr.x, y0 = cr.y, x1 = cr.x + cr.w, y1 = cr.y + cr.h
-			return [
-				{ x: rx + x0 * rw, y: ry + y0 * rh, apply: wres(x0, y0, x1, y1) },   // TL — keep BR fixed
-				{ x: rx + x1 * rw, y: ry + y0 * rh, apply: wres(x1, y0, x0, y1) },   // TR — keep BL fixed
-				{ x: rx + x1 * rw, y: ry + y1 * rh, apply: wres(x1, y1, x0, y0) },   // BR — keep TL fixed
-				{ x: rx + x0 * rw, y: ry + y1 * rh, apply: wres(x0, y1, x1, y0) },   // BL — keep TR fixed
-			]
-		}
-		if (e.type === 'rect' || e.type === 'ellipse') {   // 4 corner grips on the footprint/bbox
-			const [ax, ay] = e.a!, [bx, by] = e.b!
-			// When rotated, gripsFor resizes from the two diagonal corners (dragged D + opposite anchor F);
-			// this rebuilds the axis-aligned box from them. Each corner grip carries its opposite as `anchor`.
-			const box = (D: Pt, F: Pt): Ent => ({ ...e, a: [Math.min(D[0], F[0]), Math.min(D[1], F[1])] as Pt, b: [Math.max(D[0], F[0]), Math.max(D[1], F[1])] as Pt })
-			return [
-				{ x: ax, y: ay, anchor: [bx, by], square: true, resize: box, apply: p => ({ ...e, a: p }) },
-				{ x: bx, y: by, anchor: [ax, ay], square: true, resize: box, apply: p => ({ ...e, b: p }) },
-				{ x: ax, y: by, anchor: [bx, ay], square: true, resize: box, apply: p => ({ ...e, a: [p[0], e.a![1]] as Pt, b: [e.b![0], p[1]] as Pt }) },
-				{ x: bx, y: ay, anchor: [ax, by], square: true, resize: box, apply: p => ({ ...e, a: [e.a![0], p[1]] as Pt, b: [p[0], e.b![1]] as Pt }) },
-			]
-		}
-		if (e.type === 'text') {
-			const gs: Grip[] = [{ x: e.a![0], y: e.a![1], apply: p => ({ ...e, a: p }) }]
-			if (e.callout) {   // leader-tip grip (drag where the callout points)
-				const bb = textBox(e, PT_MM * paperMm), tfs = (e.fontPt ?? STYLE_DEFAULTS.fontPt) * PT_MM * paperMm, lp = e.leader ?? ([bb[0] - tfs * 3, bb[3] + tfs * 3] as Pt)
-				gs.push({ x: lp[0], y: lp[1], apply: p => ({ ...e, leader: p }) })
-			}
-			return gs
-		}
-		return []
-	}
-	// (translate lives in ./geometry)
-	// Shift-constrain a grip drag: rect/ellipse corner → square about the opposite corner; line/dim
-	// endpoint → 15° about the other end.
-	function constrainGrip(base: Ent, gi: number, p: Pt, shift: boolean): Pt {
-		if (!shift) return p
-		if (gripsFor(base)[gi]?.rotate) return p   // rotate handle: no square/ortho constrain (Shift-free-rotate)
-		if (base.rot) return p   // rotated shape: the world-anchored resize does its own local-frame square (gripsFor)
-		if (base.type === 'rect' || base.type === 'ellipse') {
-			const [ax, ay] = base.a!, [bx, by] = base.b!
-			const an: Pt = gi === 0 ? [bx, by] : gi === 1 ? [ax, ay] : gi === 2 ? [bx, ay] : [ax, by]
-			const s = Math.max(Math.abs(p[0] - an[0]), Math.abs(p[1] - an[1]))
-			return [an[0] + (p[0] < an[0] ? -s : s), an[1] + (p[1] < an[1] ? -s : s)]
-		}
-		if (base.type === 'line' || base.type === 'dim') {
-			const an = gi === 0 ? base.b! : base.a!
-			const dx = p[0] - an[0], dy = p[1] - an[1], len = Math.hypot(dx, dy), step = Math.PI / 12
-			const ang = Math.round(Math.atan2(dy, dx) / step) * step
-			return [an[0] + len * Math.cos(ang), an[1] + len * Math.sin(ang)]
-		}
-		return p
-	}
+	// Entity grips (Grip type, gripsFor/gripsLocal/rotGripLocal/setFlatX/canRotate/constrainGrip) live in
+	// ui/grips.ts (R1 step 4). The wrappers inject ctx + the opts bundle: the screen-constant grip length
+	// (gripSize), a live Shift getter, and the id of any image mid-CROP. Built per call (gripSize is
+	// declared below — a function body defers the read, so no TDZ).
+	const gripOpts = (): GripOpts => ({ gripMm: gripSize, shift: () => shiftDown, imgCropId: imgEdit.mode === 'crop' ? imgEdit.id : null })
+	const gripsFor = (e: Ent): Grip[] => gGripsFor(ctx, e, gripOpts())
+	const constrainGrip = (base: Ent, gi: number, p: Pt, shift: boolean): Pt => gConstrainGrip(ctx, base, gi, p, shift, gripOpts())
 	// Grips must be a CONSTANT screen size (Kestrel / Outlets), whatever the zoom. On-screen
 	// px of a model-unit length = length · view.zoom · (pxPerUnit · canvasZoom); dividing by both
 	// zooms cancels them so the grip is always HANDLE_PX px — the canvas CSS zoom included

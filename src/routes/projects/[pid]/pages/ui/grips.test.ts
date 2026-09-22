@@ -1,8 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { resizeSectionClip, pickSectionGrip, prismCorners } from './grips'
+import { resizeSectionClip, pickSectionGrip, prismCorners, gripsLocal, gripsFor, constrainGrip, canRotate, type GripOpts } from './grips'
 import type { Mapper } from './mapper'
 import type { Clip, Obj } from '../3dview/types'
 import type { ViewCtx } from './view'
+import type { Ent } from './geometry'
+
+const opts: GripOpts = { gripMm: 10, shift: () => false, imgCropId: null }
+const ent = (over: Partial<Ent> = {}): Ent => ({ id: 'e', type: 'rect', a: [0, 0], b: [20, 10], ...over } as Ent)
 
 const clip: Clip = { x0: 0, y0: 0, z0: 0, x1: 100, y1: 100, z1: 10 }
 const planCtx: ViewCtx = { dir: 'floorplan', isPlan: true, isElev: false, isIso: false, elevDir: 'front', cx: 14000, cy: 8750, ground: 10250, frameId: 'f', paperMm: 1, mdl: undefined, yaw: 0, pitch: 0 }
@@ -34,5 +38,35 @@ describe('prismCorners (plan)', () => {
 	})
 	it('is empty for a non-prism', () => {
 		expect(prismCorners(planCtx, { type: 'wall', id: 'w', nodes: [], segments: [], h: 2000, thickness: 100, layer: 'l' } as Obj)).toEqual([])
+	})
+})
+
+describe('entity grips', () => {
+	it('gripsLocal gives a rect its 4 corner grips, a line its 2 ends, text its anchor', () => {
+		expect(gripsLocal(planCtx, ent({ a: [0, 0], b: [20, 10] }), opts).map((g) => [g.x, g.y]))
+			.toEqual([[0, 0], [20, 10], [0, 10], [20, 0]])
+		expect(gripsLocal(planCtx, ent({ type: 'line', a: [1, 2], b: [8, 9] }), opts).map((g) => [g.x, g.y]))
+			.toEqual([[1, 2], [8, 9]])
+		expect(gripsLocal(planCtx, ent({ type: 'text', a: [5, 5], text: 'hi' }), opts).length).toBe(1)
+	})
+	it('a rect corner grip resizes the box', () => {
+		const g = gripsLocal(planCtx, ent({ a: [0, 0], b: [20, 10] }), opts)[1]   // the (20,10) corner
+		expect(g.apply([30, 16])).toMatchObject({ a: [0, 0], b: [30, 16] })
+	})
+	it('gripsFor adds a rotate handle for a rotatable ent', () => {
+		expect(gripsFor(planCtx, ent(), opts).some((g) => g.rotate)).toBe(true)
+		expect(gripsFor(planCtx, ent({ type: 'polyline', pts: [[0, 0], [1, 1]] }), opts).some((g) => g.rotate)).toBe(false)
+	})
+	it('canRotate gates rotatable kinds + excludes an image being cropped', () => {
+		expect(canRotate(planCtx, ent(), null)).toBe(true)
+		expect(canRotate(planCtx, ent({ type: 'dim' }), null)).toBe(false)
+		expect(canRotate(planCtx, ent({ type: 'image', id: 'img' }), 'img')).toBe(false)   // mid-crop
+		expect(canRotate(planCtx, ent({ type: 'image', id: 'img' }), null)).toBe(true)
+	})
+	it('constrainGrip squares a rect corner about its opposite, and no-ops without Shift', () => {
+		const r = ent({ a: [0, 0], b: [20, 10] })
+		expect(constrainGrip(planCtx, r, 1, [26, 30], false, opts)).toEqual([26, 30])   // shift off → unchanged
+		// gi 1 = corner (20,10), opposite anchor (0,0); square about (0,0) with s=max(26,30)=30
+		expect(constrainGrip(planCtx, r, 1, [26, 30], true, opts)).toEqual([30, 30])
 	})
 })
