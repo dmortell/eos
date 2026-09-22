@@ -12,6 +12,7 @@
 	import { page } from '$app/state'
 	import PaperPage from './parts/PaperPage.svelte'
 	import { newId } from './ids'
+	import { type Proj, type SheetFrame, SCALES, DIR_LABEL as PROJ_LABEL } from './types'
 	import Viewport, { type SectionMarker } from './ui/Viewport.svelte'
 	import DrawingNavigator from './parts/DrawingNavigator.svelte'
 	import LayersPanel from './parts/LayersPanel.svelte'
@@ -56,8 +57,6 @@
 	// tab; tabs are shared documents, so the same page can show in both panes and
 	// each pane tracks its own active tab (VS Code-style split).
 	type View = { zoom: number; x: number; y: number }
-	// Each pane (view) remembers its own tool + its own canvas (paper-space) pan/zoom.
-	type Proj = 'plan' | 'front' | 'rear' | 'left' | 'right' | 'iso'
 	// `layout` is PER-PANE ('sheet' = paper + frame, 'model' = drawing fills the pane) so toggling
 	// Full-size (or a projection) in one split pane doesn't disturb the other pane's view.
 	let panes = $state<{ id: string; activeId: string; tool: string; layout: 'model' | 'sheet' }[]>([{ id: 'p1', activeId: 't2', tool: 'Select', layout: 'sheet' }])
@@ -102,7 +101,6 @@
 	}
 	// Per-drawing SCALE (mock — shown in the viewport tag + titleblock; chosen in the active-viewport bar,
 	// like the Sheets tool's viewport scale). Keyed by drawing id (title) so it survives close/reopen.
-	const SCALES = ['1:1', '1:2', '1:5', '1:10', '1:15', '1:20', '1:25', '1:50', '1:100', '1:150', '1:200', '1:500']
 	let docScale = $state<Record<string, string>>({ '3303 Outlets': '1:25' })   // 3303 Outlets sheet defaults bigger (1:25)
 	const scaleOf = (id?: string) => docScale[didOf(id)] ?? '1:100'   // model space is real mm; 1:100 fits the ~28 m demo plan
 	const setScale = (id: string | undefined, s: string) => { if (id) docScale = { ...docScale, [didOf(id)]: s } }
@@ -211,7 +209,6 @@
 	// the FRAME id (reusing docView/docOrbit/activeVps), while entity editing targets the tab's shared
 	// entities. Frames live per tab (surviving tab switches) and are undone/persisted with the page.
 	// (Later the page model also carries the titleblock + page annotations.) A section can be dropped in.
-	type SheetFrame = { id: string; x: number; y: number; w: number; h: number; border: 'dashed' | 'solid' | 'none'; proj: Proj; scale: string; clip: Clip | null; label: string; modelId?: number }
 	// Viewport frames = a sheet's page model → DOCUMENT state, keyed by drawing id (title) so they survive
 	// closing/reopening the tab (B6). snapAllFrames/applyPtr operate on the whole map, so history is unaffected.
 	let docFrames = $state<Record<string, SheetFrame[]>>({})
@@ -262,7 +259,6 @@
 		if (a?.kind === 'sheet') { const av = activeVpOf(a.id) ?? framesOf(a.id)[0]?.id; if (av) updateFrame(a.id, av, { proj, label: PROJ_LABEL[proj] }) }
 		else if (a) docProj = { ...docProj, [projKey(pane.id, a)]: proj }
 	}
-	const PROJ_LABEL: Record<Proj, string> = { plan: 'Plan', front: 'Front', rear: 'Rear', left: 'Left', right: 'Right', iso: '3D' }
 	let selFrameObj = $derived.by(() => { const t = active; return t && selFrame ? framesOf(t.id).find((f) => f.id === selFrame) ?? null : null })
 	let focused = $state(0)      // which pane new tabs / sidebar actions target
 	let canvasEls = $state<(HTMLElement | undefined)[]>([])   // each pane's .canvas, for navFit

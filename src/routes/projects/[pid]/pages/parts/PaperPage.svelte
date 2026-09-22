@@ -11,14 +11,10 @@
 	import type { Ent, View } from '../ui/geometry'
 	import Handle from './Handle.svelte'
 	import { HANDLE_PX, PAPER_W, PAPER_H } from '../constants'
-	import type { Clip } from '../3dview/types'
 	import type { ElevDir } from '../ui/geometry'
+	import type { SheetFrame } from '../types'
 
 	// Paper size in px (default A3 landscape). Driven by the status-bar paper-size / orientation.
-
-	// A viewport frame on the sheet (AutoCAD paper space): its own projection + scale + geometry. The sheet
-	// is just an array of these (the page model) — no special "primary"; the default page seeds one.
-	type SheetFrame = { id: string; x: number; y: number; w: number; h: number; border: 'dashed' | 'solid' | 'none'; proj: string; scale: string; clip: Clip | null; label: string; modelId?: number }
 	type VKind = 'floorplan' | 'iso' | ElevDir
 	let { title = 'Sheet', drawingNo = '001', scale = '1:100', focused = true, tool = 'Select', env = {}, pw = PAPER_W, ph = PAPER_H, sizeLabel = 'A3', rev = '', revDate = '',
 		entities = [], sel = [], sectionsForModel = undefined, selSection = null, entsForModel = undefined, tabModelId = undefined,

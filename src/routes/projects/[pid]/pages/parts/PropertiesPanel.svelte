@@ -9,9 +9,8 @@
 	import { layers } from '../layers.svelte'
 	import { imgEdit, setImgMode } from '../imageEdit.svelte'
 	import type { Obj, Layer as MLayer } from '../3dview/types'
+	import { type SheetFrame, type Proj, PROJ_OPTS, SCALES } from '../types'
 
-	// A selected extra sheet viewport frame (AutoCAD paper space): edit its source projection + scale.
-	type SheetFrameProp = { id: string; x: number; y: number; w: number; h: number; border: 'dashed' | 'solid' | 'none'; proj: string; scale: string; label: string; modelId?: number }
 	let { ents = [], onupdate, onarrange, pageTitle = '', pageKind = '', activeLayer = '', node = null,
 		modelObj = null, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg,
 		frameObj = null, onframeupdate, onframedelete, modelList = [], activeFrameId = undefined }:
@@ -19,10 +18,8 @@
 			pageTitle?: string; pageKind?: string; activeLayer?: string;
 			node?: { id: string; label: string; kind: string } | null;
 			modelObj?: Obj | null; modelLayers?: MLayer[]; onmodelupdate?: (patch: Record<string, unknown>) => void; onmodeldelete?: () => void; onmodelseg?: (segIdx: number, patch: Record<string, unknown>) => void;
-			frameObj?: SheetFrameProp | null; onframeupdate?: (patch: Partial<SheetFrameProp>) => void; onframedelete?: () => void;
+			frameObj?: SheetFrame | null; onframeupdate?: (patch: Partial<SheetFrame>) => void; onframedelete?: () => void;
 			modelList?: { id: number; name: string }[]; activeFrameId?: string } = $props()
-	const PROJ_OPTS: [string, string][] = [['plan', 'Plan'], ['front', 'Front'], ['rear', 'Rear'], ['left', 'Left'], ['right', 'Right'], ['iso', '3D']]
-	const SCALE_OPTS = ['1:1', '1:2', '1:5', '1:10', '1:20', '1:25', '1:50', '1:100', '1:200', '1:500']
 	const MODEL_TYPE_LABEL: Record<string, string> = { prism: 'Prism', wall: 'Wall', conduit: 'Conduit' }
 	// A prism on an "opening" layer is a door/window/hole; label it as such.
 	const modelTypeLabel = (o: Obj) => (o.type === 'prism' && modelLayers.find((l) => l.id === o.layer)?.opening ? 'Opening' : MODEL_TYPE_LABEL[o.type] ?? 'Object')
@@ -140,14 +137,14 @@
 			</div>
 		{/if}
 		<div class="prop"><span>View</span>
-			<select value={frameObj.proj} onchange={(e) => onframeupdate?.({ proj: (e.currentTarget as HTMLSelectElement).value, label: PROJ_OPTS.find(([v]) => v === (e.currentTarget as HTMLSelectElement).value)?.[1] })}>
+			<select value={frameObj.proj} onchange={(e) => { const v = (e.currentTarget as HTMLSelectElement).value as Proj; onframeupdate?.({ proj: v, label: PROJ_OPTS.find(([pv]) => pv === v)?.[1] }) }}>
 				{#each PROJ_OPTS as [v, l] (v)}<option value={v}>{l}</option>{/each}
 			</select>
 		</div>
 		<div class="prop"><span>Scale</span>
 			<select value={frameObj.scale} onchange={(e) => onframeupdate?.({ scale: (e.currentTarget as HTMLSelectElement).value })}>
-				{#if !SCALE_OPTS.includes(frameObj.scale)}<option value={frameObj.scale}>{frameObj.scale}</option>{/if}
-				{#each SCALE_OPTS as s (s)}<option value={s}>{s}</option>{/each}
+				{#if !SCALES.includes(frameObj.scale)}<option value={frameObj.scale}>{frameObj.scale}</option>{/if}
+				{#each SCALES as s (s)}<option value={s}>{s}</option>{/each}
 			</select>
 		</div>
 		<div class="prop"><span>Border</span>
