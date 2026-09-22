@@ -24,7 +24,7 @@
 	import Model3d from '../3dview/Model3d.svelte'
 	import { models, modelById, modelSel, setModelSel } from '../3dview/models.svelte'
 	import { newId } from '../ids'
-	import { constrainPt as aConstrainPt } from './annotations'
+	import { constrainPt as aConstrainPt, sectionArrowFor as aSectionArrowFor } from './annotations'
 	import { guideId, selectedPlanGuide } from '../guides.svelte'
 	import { imgEdit, clearImgMode } from '../imageEdit.svelte'
 	import { DEFAULT_YAW, DEFAULT_PITCH, doorGeom, isoBounds, isoR } from '../3dview/projection'
@@ -486,25 +486,8 @@
 		const r = svg.getBoundingClientRect()
 		return { x: sp.x - r.left, y: sp.y - r.top, id: selSectionObj.id, dir: selSectionObj.dir }
 	})
-	// The section marker's direction arrow, drawn INSIDE the rect: the observer stands at one edge and
-	// looks across, so the arrow's TAIL sits just inside the edge OPPOSITE the sight and the tip points
-	// the way the elevation looks — front = tail at the bottom edge pointing up, rear = top edge pointing
-	// down, right = left edge pointing right, left = right edge pointing left (matches the dropdown +
-	// ELEV_BASIS). Sized in ~screen px (hitTol). `dir` is one of front/rear/left/right.
-	function sectionArrowFor(c: Clip, dir: ElevDir): string {
-		const x0 = Math.min(c.x0, c.x1), x1 = Math.max(c.x0, c.x1), y0 = Math.min(c.y0, c.y1), y1 = Math.max(c.y0, c.y1)
-		const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, a = tolMm(11)   // ~screen px in unscaled model units
-		const pad = a * 0.9
-		let tail: Pt, d: Pt
-		if (dir === 'front') { tail = [cx, y1 - pad]; d = [0, -1] }        // bottom edge, look up
-		else if (dir === 'rear') { tail = [cx, y0 + pad]; d = [0, 1] }     // top edge, look down
-		else if (dir === 'right') { tail = [x0 + pad, cy]; d = [1, 0] }    // left edge, look right
-		else { tail = [x1 - pad, cy]; d = [-1, 0] }                        // right edge, look left
-		const perp: Pt = [-d[1], d[0]], w = a * 0.8
-		const tip: Pt = [tail[0] + d[0] * a * 1.8, tail[1] + d[1] * a * 1.8]
-		const b1: Pt = [tail[0] + perp[0] * w, tail[1] + perp[1] * w], b2: Pt = [tail[0] - perp[0] * w, tail[1] - perp[1] * w]
-		return `${tip[0]},${tip[1]} ${b1[0]},${b1[1]} ${b2[0]},${b2[1]}`
-	}
+	// The section marker's direction arrow (ui/annotations.ts sectionArrowFor); sized ~11 screen px.
+	const sectionArrowFor = (c: Clip, dir: ElevDir): string => aSectionArrowFor(c, dir, tolMm(11))
 
 	// ── alignment GUIDES ── the Guide tool drops a full-view h/v line (Shift = vertical) in this view's
 	// space; a selected PLAN guide then fixes the depth when drawing a conduit in an elevation.
@@ -1341,10 +1324,9 @@
 	/* Lineweights stay constant as the viewport zooms (like Kestrel / real CAD):
 	   the view <g> scales the geometry, non-scaling-stroke keeps stroke thickness
 	   fixed on screen. Fills and text still scale with the drawing. */
-	.vp-svg :where(line, rect, circle, ellipse, polyline, polygon, path) { vector-effect: non-scaling-stroke; }
+	.vp-svg :where(line, rect, circle, ellipse, polyline, polygon) { vector-effect: non-scaling-stroke; }
 	.vp-svg text { font-family:'Inter','Segoe UI',system-ui,sans-serif; }
-	/* Text annotations use a monospaced font (matches the Sheets tool). */
-	.vp-svg text.anno { font-family:'Consolas','SF Mono',ui-monospace,'Menlo',monospace; }
+	/* Text annotations (monospace) are styled inside EntRender — entity paint lives there now. */
 	/* Kestrel/AutoCAD selection box: window (L→R) solid blue, crossing (R→L) dashed green. */
 	/* Object-snap marker — amber, constant border, never intercepts pointer events. */
 	.snap { fill:none; stroke:#f59e0b; stroke-width:1.4; vector-effect:non-scaling-stroke; pointer-events:none; }
