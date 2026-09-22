@@ -14,6 +14,7 @@
 	import { type Pt, type Ent, type View, type ElevDir, GROUND, MMPU, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, ELEV_BASIS, elevU, elevUInv, dist, segDist, translate, textBox } from './geometry'
 	import { makeMapper, type Mapper } from './mapper'
 	import { beginPointerDrag, DragRegistry } from './gestures'
+	import { drawPlane as pDrawPlane, resolveLayer, buildEnt, PRISM_TOOL, trimTail, polylineEnt, graphObj, prismObj, guideObj, imageWithOrigin, imageScaled, moveEnt as pMoveEnt } from './place'
 	import type { ViewCtx } from './view'
 	import { pickSectionGrip as gPickSectionGrip, modelGrips as gModelGrips, pickModelGrip as gPickModelGrip, gripsFor as gGripsFor, constrainGrip as gConstrainGrip, type MGrip, type Grip, type GripOpts } from './grips'
 	import { SNAP_STEP, snapToGrid, rndTo, snapDelta as sSnapDelta, findSnap as sFindSnap, drawPoint as sDrawPoint, snapNode as sSnapNode, graphNodeApply as sGraphNodeApply, elevDepthSnap as sElevDepthSnap } from './snap'
@@ -22,10 +23,9 @@
 	import Model3d from '../3dview/Model3d.svelte'
 	import { models, modelById, modelSel, setModelSel } from '../3dview/models.svelte'
 	import { newId } from '../ids'
-	import { arrowPts, cloudPath, groundPts, centerCorners, constrainPt as aConstrainPt } from './annotations'
+	import { arrowPts, cloudPath, groundPts, constrainPt as aConstrainPt } from './annotations'
 	import { guideId, selectedPlanGuide } from '../guides.svelte'
 	import { imgEdit, clearImgMode } from '../imageEdit.svelte'
-	import { polyToGraph } from '../3dview/migrate'
 	import { DEFAULT_YAW, DEFAULT_PITCH, doorGeom, isoBounds, isoR } from '../3dview/projection'
 	import type { Obj, Clip } from '../3dview/types'
 	// Pure geometry (Pt/Ent/View + helpers) lives in ./geometry; import those types directly from there.
@@ -191,29 +191,24 @@
 	// panzoom passes its node as a trailing arg (unused here)
 	// Shift-constrain the drawing point relative to the start (square / 15°, per tool) — ui/annotations.ts.
 	const constrainPt = (a: Pt, p: Pt, shift: boolean): Pt => aConstrainPt(tool, a, p, shift)
-	// Objects drawn in an elevation view are NATIVE to that elevation (space = the dir); a box stays
-	// plan-space (it's a 3D footprint) and projects like normal.
-	const drawPlane = () => (isElev ? elevDir : undefined)   // the DRAWING PLANE new geometry lands in (plan or this elevation)
+	// The entity / model-object builders live in ui/place.ts (R1 step 6); the Viewport keeps the side
+	// effects (on.add / addModelObj / on.section) and the tool dispatch.
+	const drawPlane = () => pDrawPlane(ctx)   // the DRAWING PLANE new geometry lands in (plan or this elevation)
 	function place(a: Pt, b: Pt) {
-		const sp = drawPlane()
-		if (tool === 'Line') on.add?.({ id: uid(), type: 'line', a, b, plane: sp })
-		else if (tool === 'Rectangle') { const [ra, rb] = centerDraw ? centerCorners(a, b) : [a, b]; on.add?.({ id: uid(), type: 'rect', a: ra, b: rb, plane: sp }) }
-		else if (tool === 'Ellipse') { const [ra, rb] = centerDraw ? centerCorners(a, b) : [a, b]; on.add?.({ id: uid(), type: 'ellipse', a: ra, b: rb, plane: sp }) }
-		else if (tool === 'Furniture' && isPlan) placePrism(a, b, 'furniture', 750, 'f')   // MODEL prism footprint
-		else if (tool === 'Opening' && isPlan) placePrism(a, b, 'openings', 2100, 'o')      // door/window/hole (dashed outline)
-		else if (tool === 'Section' && isPlan && mdl) {   // §4 — clip box on the plan → spawn a front elevation
+		const ent = buildEnt(ctx, tool, a, b, { centerDraw, uid })   // Line / Rectangle / Ellipse / Dimension
+		if (ent) { on.add?.(ent); return }
+		const ps = PRISM_TOOL[tool]   // Furniture / Opening → a MODEL prism footprint (plan only)
+		if (ps && isPlan) { addModelObj(prismObj(ctx, a, b, ps.layer, ps.h, () => mUid(ps.tag))); return }
+		if (tool === 'Section' && isPlan && mdl) {   // §4 — clip box on the plan → spawn a front elevation (B5: stays here until sectionObj lands)
 			on.section?.({ x0: Math.round(Math.min(a[0], b[0])), y0: Math.round(Math.min(a[1], b[1])), z0: 0,
 				x1: Math.round(Math.max(a[0], b[0])), y1: Math.round(Math.max(a[1], b[1])), z1: mdl.levels?.ceilingSlab ?? 3200 })
 		}
-		else if (tool === 'Dimension') on.add?.({ id: uid(), type: 'dim', a, b, plane: sp })
 	}
 	// The Line tool draws a POLYLINE in AutoCAD mode: keep clicking to add segments, Enter /
 	// double-click / right-click to finish (Esc cancels). (EOS press-drag = a single segment.)
 	function finishPolyline() {
-		let pts = draft
-		while (pts.length >= 2 && dist(pts.at(-1)!, pts.at(-2)!) < 0.01) pts = pts.slice(0, -1)   // drop the double-click's zero-length tail
-		if (tool === 'Line' && pts.length >= 2) on.add?.({ id: uid(), type: 'polyline', pts: pts.map(p => [...p] as Pt), plane: drawPlane() })
-		else if (MODEL_GRAPH.has(tool) && pts.length >= 2 && (isPlan || isElev)) placeGraph(pts)   // Wall / Trunk / Pipe (plan or elevation — vertical runs)
+		if (tool === 'Line') { const pl = polylineEnt(ctx, draft, uid); if (pl) on.add?.(pl) }
+		else if (MODEL_GRAPH.has(tool) && (isPlan || isElev)) placeGraph(trimTail(draft))   // Wall / Trunk / Pipe (plan or elevation — vertical runs)
 		draft = []; cur = null; snapMark = null
 	}
 	function onClick(e: MouseEvent) {
@@ -383,7 +378,6 @@
 
 	// hit-test (topmost first). segDist/textBox live in ./geometry; hit predicates in ./hit.
 	// Flat (z=0, no height) objects that project to an edge-on ground line in elevation.
-	const FLAT = new Set(['line', 'polyline', 'dim', 'rect', 'ellipse'])
 	// Object SPACE (v1 — per-view annotations, like the Sheets tool): 'plan'/undefined = model/plan
 	// space (projected into every elevation, layer-gated); an ElevDir = drawn natively in that
 	// elevation only (a wall/rack label, a leader, a dimension), rendered as-is there and hidden in
@@ -523,17 +517,17 @@
 		guideCur = { orient: v ? 'v' : 'h', pos: v ? lastGuidePt[0] : lastGuidePt[1] }
 	}
 	function placeGuide(p: Pt, shift: boolean) {
-		if (!viewSpace || !mdl) return
-		const orient = shift ? 'v' : 'h'
+		if (!mdl) return
+		const g = guideObj(ctx, p, shift, guideId()); if (!g) return   // null in iso (no drawing plane)
 		on.beginedit?.()   // capture the pre-add baseline, then fold the add into one undo step (model history)
-		;(mdl.guides ??= []).push({ id: guideId(), plane: viewSpace, orient, pos: Math.round(orient === 'h' ? p[1] : p[0]) })
+		;(mdl.guides ??= []).push(g)
 		on.modeledit?.('Add guide'); on.endedit?.()
 	}
 	// IMAGE calibration (Uploads-tool model). ORIGIN: store the clicked point as a normalized anchor.
 	function setImageOrigin(id: string, p: Pt) {
-		const img = entities.find((x) => x.id === id); if (!img || img.type !== 'image') return
-		const rx = Math.min(img.a![0], img.b![0]), ry = Math.min(img.a![1], img.b![1]), rw = Math.abs(img.b![0] - img.a![0]) || 1, rh = Math.abs(img.b![1] - img.a![1]) || 1
-		on.update?.({ ...img, origin: { x: Math.max(0, Math.min(1, (p[0] - rx) / rw)), y: Math.max(0, Math.min(1, (p[1] - ry) / rh)) } })
+		const img = entities.find((x) => x.id === id); if (!img) return
+		const next = imageWithOrigin(img, p); if (next === img) return   // not an image
+		on.update?.(next)
 		clearImgMode()
 	}
 	// SCALE: after the 2-point line + a real-world distance, resize the image (a→b) by real/measured about
@@ -547,13 +541,8 @@
 		const d = scaleGeom?.d ?? 0, real = parseFloat(scaleReal ?? '')
 		const img = imgEdit.id ? entities.find((x) => x.id === imgEdit.id) : null
 		scaleReal = null; scalePts = []; clearImgMode()
-		if (!img || img.type !== 'image' || !(real > 0) || !(d > 0)) return
-		const f = real / d
-		const rx = Math.min(img.a![0], img.b![0]), ry = Math.min(img.a![1], img.b![1]), rw = Math.abs(img.b![0] - img.a![0]), rh = Math.abs(img.b![1] - img.a![1])
-		const ax = img.origin ? rx + img.origin.x * rw : rx + rw / 2, ay = img.origin ? ry + img.origin.y * rh : ry + rh / 2
-		const na: Pt = [ax + (img.a![0] - ax) * f, ay + (img.a![1] - ay) * f]
-		const nb: Pt = [ax + (img.b![0] - ax) * f, ay + (img.b![1] - ay) * f]
-		on.update?.({ ...img, a: na, b: nb })
+		if (!img) return
+		const next = imageScaled(img, d, real); if (next !== img) on.update?.(next)   // unchanged when not an image / bad inputs
 	}
 	// hitGuide lives in ui/hit.ts (R1 step 3); the wrapper passes this view's guide list.
 	const hitGuide = (p: Pt) => hHitGuide(viewGuides, p, tolMm(6))
@@ -687,7 +676,7 @@
 
 	// ── model PLACEMENT (P2f / §3) — create new model objects on the store, one undo step, select it ──
 	const mUid = (p: string) => newId(p)
-	const layerId = (id: string) => mdl?.layers?.find((l) => l.id === id)?.id ?? mdl?.layers?.[0]?.id
+	const layerId = (id: string) => resolveLayer(mdl, id)
 	function addModelObj(o: Obj) {
 		if (!mdl) return
 		on.beginedit?.()          // captures the pre-add baseline
@@ -760,39 +749,16 @@
 	// Elevation depth-snap (a drawn point snaps its DEPTH onto the nearest wall/conduit segment) lives in
 	// ui/snap.ts (R1 step 5); the wrapper injects ctx, the ~12px tolerance and the layer preds.
 	const elevDepthSnap = (p: Pt) => sElevDepthSnap(ctx, p, tolMm(12), mlayers)
-	// A clicked run (plan drawing pts) → a wall or conduit graph with the tool's default profile.
+	// A clicked run (drawing pts) → a wall or conduit graph (place.graphObj). In an ELEVATION the depth
+	// (off-axis coord) comes from the SELECTED plan guide, else the depth-snap, else the plan centre —
+	// with a nudge to select a guide when there is none.
 	function placeGraph(pts: Pt[]) {
 		if (!mdl || pts.length < 2) return
-		const nodesZ = tool === 'Wall' ? 0 : (mdl.levels?.ceilingTile ?? 2600)   // plan default height (trunks/pipes near the ceiling)
-		// In an ELEVATION the drawn point gives the on-axis coord (projUInv) and z (GROUND − y) — so you can
-		// draw a VERTICAL wall conduit. The off-axis (depth into the view) is unknown, so it defaults to the
-		// plan centre; nudge it in plan afterwards. In plan the point is x/y at the default height.
-		// Depth plane: a selected PLAN guide fixes the off-axis coord (h-guide → y for front/rear, v-guide →
-		// x for left/right). No guide → fall back to the model centre and nudge the user to set one.
 		const ax = isElev ? ELEV_BASIS[elevDir].axis : 0
-		const guide = isElev ? selectedPlanGuide(mdl?.guides ?? [], modelSel, ax === 0 ? 'h' : 'v') : null
+		const guide = isElev ? selectedPlanGuide(mdl.guides ?? [], modelSel, ax === 0 ? 'h' : 'v') : null
 		if (isElev && !guide) toast('No depth guide — points snap onto nearby walls where possible, else the model centre. Tip: select a plan guide to fix the depth.', { duration: 5000 })
-		const toNode = (p: Pt) => {
-			if (!isElev) return { x: Math.round(p[0]), y: Math.round(p[1]), z: nodesZ }
-			const onAxis = Math.round(projUInv(p[0])), z = Math.max(0, Math.round(GROUND - p[1]))
-			// Depth: an explicitly SELECTED plan guide wins; else SNAP onto a nearby wall/conduit; else the plan centre.
-			const off = guide ? guide.pos : (elevDepthSnap(p)?.off ?? (ax === 0 ? PLAN_CY : PLAN_CX))
-			return ax === 0 ? { x: onAxis, y: off, z } : { x: off, y: onAxis, z }
-		}
-		const { nodes, segments } = polyToGraph(pts.map(toNode))
-		if (tool === 'Wall') addModelObj({ type: 'wall', h: 2800, thickness: 100, nodes, segments, layer: layerId('walls'), id: mUid('w') })
-		else if (tool === 'Trunk') addModelObj({ type: 'conduit', w: 300, h: 150, edges: 4, nodes, segments, layer: layerId('trunks'), id: mUid('t') })
-		else if (tool === 'Pipe') addModelObj({ type: 'conduit', w: 80, h: 80, edges: 16, nodes, segments, layer: layerId('trunks'), id: mUid('p') })
-	}
-	// A footprint drag (plan a→b) → a prism on a layer with a default height. Furniture (h=750) and
-	// Openings (h=2100, on the dashed Openings layer so it reads as a door/window/hole cut) share this.
-	function placePrism(a: Pt, b: Pt, layer: string, h: number, tag: string) {
-		if (!mdl) return
-		const x = Math.round(Math.min(a[0], b[0])), y = Math.round(Math.min(a[1], b[1]))
-		const w = Math.max(1, Math.round(Math.abs(b[0] - a[0]))), d = Math.max(1, Math.round(Math.abs(b[1] - a[1])))
-		// A new opening defaults to a DOOR (leaf + swing) — the most common; change it in Properties.
-		const extra = layer === 'openings' ? { open: 'door' as const, z: 0, h: 2100 } : {}
-		addModelObj({ type: 'prism', x, y, z: 0, w, d, h, edges: 4, layer: layerId(layer), id: mUid(tag), ...extra })
+		const o = graphObj(ctx, tool, pts, { guide, depthSnap: (p) => elevDepthSnap(p)?.off ?? null, uid: mUid, layerId })
+		if (o) addModelObj(o)
 	}
 
 	// ── object snap (osnap), Kestrel-style ──
@@ -1024,18 +990,8 @@
 		beginPointerDrag<EntDrag>(e, drag, { onMove: onDragMove, onUp: onDragUp, onCancel: onDragCancel }, reg)
 	}
 	let lastDragRaw: Pt | null = null   // last UNconstrained pointer during a move/grip drag
-	// Move an entity by (dx,dy). In an ELEVATION view the horizontal drag maps to the VIEW's footprint
-	// axis (x for front/rear, y for left/right, mirrored by the dir's sign); vertical drag changes a
-	// box's base elevation (screen-down lowers it) and does nothing to a ground-line flat. Plan/iso
-	// translate normally.
-	function moveEnt(en: Ent, dx: number, dy: number): Ent {
-		if (isElev) {
-			const { axis, sign } = ELEV_BASIS[elevDir]
-			const d = sign * dx   // drawing-horizontal delta → model delta along the view axis
-			if (FLAT.has(en.type)) return axis === 0 ? translate(en, d, 0) : translate(en, 0, d)
-		}
-		return translate(en, dx, dy)
-	}
+	// Move an entity by (dx,dy) — place.moveEnt (elevation: horizontal drag → the view's footprint axis).
+	const moveEnt = (en: Ent, dx: number, dy: number): Ent => pMoveEnt(ctx, en, dx, dy)
 	// snapDelta lives in ui/snap.ts (R1 step 5); the wrapper passes the live grid step (0 when SNAP is off).
 	const snapDelta = (dx: number, dy: number, base: Ent): [number, number] => sSnapDelta(dx, dy, base, snap ? SNAP_STEP : 0)
 	function applyDrag(p: Pt, shift: boolean): Ent {
