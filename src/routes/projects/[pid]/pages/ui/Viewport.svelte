@@ -452,6 +452,11 @@
 		const m = vbMap()
 		return m ? px / (view.zoom * m.scale) : px
 	}
+	// Pick tolerance in MODEL mm for `px` screen pixels (B9): hitTol() is in viewBox units (dscale-scaled),
+	// but entity/object coords live in the ÷dscale (real-mm) space, so divide by dscale. ONE helper for every
+	// hit + snap test — the old mix of `hitTol(px)/dscale` and a raw `hitTol(px)` (100× too small at 1:100,
+	// so walls/thin pipes were barely pickable) is gone.
+	const tolMm = (px: number) => hitTol(px) / (dscale || 1)
 	// A hidden or locked layer's objects can't be picked; nor can objects that don't belong to this view.
 	const pickable = (e: Ent) => inThisView(e) && !isLayerHidden(e.layer) && !isLayerLocked(e.layer) && !groundInIso(e)
 	// The origin anchor of the selected / being-edited image, in model coords (null if none has an origin,
@@ -475,7 +480,7 @@
 		// ~3.5px of slack on EITHER side of a line/border (≈7px total pick width) in SCREEN px. Entity
 		// coords + `p` are in unscaled drawing space, so convert screen px → drawing units = hitTol()/dscale
 		// (hitTol alone is in viewBox-scaled units — the old raw hitTol(7) shrank to sub-pixel at 1:25).
-		const thr = hitTol(3.5) / (dscale || 1)
+		const thr = tolMm(3.5)
 		// Scan in PAINT order (top-most first), not raw array order (B7): rendering sorts by layer then
 		// array index, so a later-added entity on a lower layer must not win the click over what's drawn on top.
 		for (let i = paintEnts.length - 1; i >= 0; i--) if (pickable(paintEnts[i]) && hitEnt(paintEnts[i], p, thr)) return [paintEnts[i].id]
@@ -555,8 +560,8 @@
 	// radius of the origin are skipped, so re-snapping only grabs a genuinely new target.
 	function snapNode(p: Pt, exclude: GN, origin?: Pt): Pt | null {
 		if (!mdl) return null
-		const thr = hitTol(10) / (dscale || 1)   // ~10px in model units
-		const brk = hitTol(8) / (dscale || 1)    // pull-apart radius around the drag origin
+		const thr = tolMm(10)   // ~10px in model units
+		const brk = tolMm(8)    // pull-apart radius around the drag origin
 		let best: Pt | null = null, bestD = thr
 		for (const o of mdl.objects) {
 			if ((o.type !== 'wall' && o.type !== 'conduit') || !modelLayerVisible(o)) continue
@@ -591,7 +596,7 @@
 	// or a wall/conduit graph (any segment). Returns its id.
 	function hitModel(p: Pt): string | null {
 		if (!modelEditable || !mdl) return null
-		const thr = hitTol(4)
+		const thr = tolMm(4)   // B9: model mm (was raw hitTol(4) = viewBox units → 100× too small at 1:100)
 		for (let i = mdl.objects.length - 1; i >= 0; i--) {
 			const o = mdl.objects[i]
 			if (!o.id || !modelLayerVisible(o)) continue
@@ -643,7 +648,7 @@
 	// model/entity picks). Returns the section id, topmost last-drawn first.
 	function hitSection(p: Pt): string | null {
 		if (!isPlan || !sections.length) return null
-		const thr = hitTol(6) / (dscale || 1)   // screen px → UNSCALED model units (border is an edge-distance test)
+		const thr = tolMm(6)   // screen px → UNSCALED model units (border is an edge-distance test)
 		for (let i = sections.length - 1; i >= 0; i--) {
 			const c = sections[i].clip
 			const corners: Pt[] = [[c.x0, c.y0], [c.x1, c.y0], [c.x1, c.y1], [c.x0, c.y1]]
@@ -688,7 +693,7 @@
 	// ELEV_BASIS). Sized in ~screen px (hitTol). `dir` is one of front/rear/left/right.
 	function sectionArrowFor(c: Clip, dir: ElevDir): string {
 		const x0 = Math.min(c.x0, c.x1), x1 = Math.max(c.x0, c.x1), y0 = Math.min(c.y0, c.y1), y1 = Math.max(c.y0, c.y1)
-		const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, a = hitTol(11) / (dscale || 1)   // ~screen px in unscaled model units
+		const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, a = tolMm(11)   // ~screen px in unscaled model units
 		const pad = a * 0.9
 		let tail: Pt, d: Pt
 		if (dir === 'front') { tail = [cx, y1 - pad]; d = [0, -1] }        // bottom edge, look up
@@ -748,7 +753,7 @@
 	}
 	function hitGuide(p: Pt): string | null {
 		if (!viewGuides.length) return null
-		const thr = hitTol(6) / (dscale || 1)
+		const thr = tolMm(6)
 		for (let i = viewGuides.length - 1; i >= 0; i--) { const g = viewGuides[i]; if (Math.abs((g.orient === 'h' ? p[1] : p[0]) - g.pos) < thr) return g.id }
 		return null
 	}
@@ -1017,7 +1022,7 @@
 	// node inherits the segment's z (keeps the run's height); the new segment inherits object defaults.
 	function insertGraphNode(p: Pt) {
 		if (!mdl) return
-		const thr = hitTol(6) / (dscale || 1)   // screen px → MODEL units (coords are in the ÷dscale space)
+		const thr = tolMm(6)   // screen px → MODEL units (coords are in the ÷dscale space)
 		for (let i = mdl.objects.length - 1; i >= 0; i--) {
 			const o = mdl.objects[i]
 			if ((o.type !== 'wall' && o.type !== 'conduit') || !o.id || !modelLayerVisible(o)) continue
@@ -1055,7 +1060,7 @@
 		// Match in MODEL space (on-axis coord + z) — projUInv/GROUND give the drawn point's model on-axis + z
 		// exactly, so this avoids any screen-projection/centring mismatch with how the model is rendered.
 		const pu = projUInv(p[0]), pz = GROUND - p[1]
-		const tol = hitTol(12) / (dscale || 1)
+		const tol = tolMm(12)
 		let best: { off: number; a: Pt; b: Pt } | null = null, bestD = tol
 		for (const o of mdl.objects) {
 			if ((o.type !== 'wall' && o.type !== 'conduit') || !o.id || !modelLayerVisible(o)) continue
@@ -1849,8 +1854,8 @@
 								onpointerdown={(e) => { if (!pick) return; e.stopPropagation(); on.sectiondropdir?.(s.id, d) }} />
 						{/if}
 					{/each}
-					{@const pad = hitTol(6) / (dscale || 1)}
-					<text class="section-label" x={bx + pad} y={by - pad} font-size={hitTol(12) / (dscale || 1)}>{s.label}</text>
+					{@const pad = tolMm(6)}
+					<text class="section-label" x={bx + pad} y={by - pad} font-size={tolMm(12)}>{s.label}</text>
 				{/each}
 				<!-- resize grips on the selected section's corners -->
 				{#if active && selSectionObj}
