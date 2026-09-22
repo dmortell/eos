@@ -15,7 +15,7 @@
 	import { makeMapper, type Mapper } from './mapper'
 	import type { ViewCtx } from './view'
 	import { pickSectionGrip as gPickSectionGrip, modelGrips as gModelGrips, pickModelGrip as gPickModelGrip, gripsFor as gGripsFor, constrainGrip as gConstrainGrip, type MGrip, type Grip, type GripOpts } from './grips'
-	import { SNAP_STEP, snapToGrid, rndTo, snapDelta as sSnapDelta, findSnap as sFindSnap, drawPoint as sDrawPoint, snapNode as sSnapNode, graphNodeApply as sGraphNodeApply } from './snap'
+	import { SNAP_STEP, snapToGrid, rndTo, snapDelta as sSnapDelta, findSnap as sFindSnap, drawPoint as sDrawPoint, snapNode as sSnapNode, graphNodeApply as sGraphNodeApply, elevDepthSnap as sElevDepthSnap } from './snap'
 	import { rotatePt, inScope as hInScope, inThisView as hInThisView, groundInIso as hGroundInIso, isFlatElev as hIsFlatElev, flatXSpan as hFlatXSpan, rotCenter as hRotCenter, bbox as hBbox, hitEnt as hHitEnt, pickable as hPickable, prismRect as hPrismRect, prismTilted, graphNodeDraw as hGraphNodeDraw, hitModel as hHitModel, hitModelIso as hHitModelIso, sectionCorners, hitSection as hHitSection, hitGuide as hHitGuide, marqueeSelect as hMarqueeSelect, type GN } from './hit'
 	import { isLayerHidden, isLayerLocked, layerColor, layerOrder } from '../layers.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
@@ -782,33 +782,9 @@
 			}
 		}
 	}
-	// In an elevation, find the model wall/conduit SEGMENT whose projected line the drawn point p (drawing
-	// coords) is nearest, and return the off-axis (DEPTH) coord there + the projected endpoints (for a
-	// marker). Lets a conduit point SNAP ONTO a wall's depth instead of the plan-centre default. Null if
-	// nothing is within tolerance. (front/rear: on-axis = x, depth = y; left/right: on-axis = y, depth = x.)
-	function elevDepthSnap(p: Pt): { off: number; a: Pt; b: Pt } | null {
-		if (!isElev || !mdl) return null
-		const ax = ELEV_BASIS[elevDir].axis
-		const onC = (n: GN) => (ax === 0 ? n.x : n.y), offC = (n: GN) => (ax === 0 ? n.y : n.x)
-		const ept = (n: GN): Pt => [elevU(elevDir, onC(n), CX, CY), GROUND - n.z]   // projected endpoints (for the marker)
-		// Match in MODEL space (on-axis coord + z) — projUInv/GROUND give the drawn point's model on-axis + z
-		// exactly, so this avoids any screen-projection/centring mismatch with how the model is rendered.
-		const pu = projUInv(p[0]), pz = GROUND - p[1]
-		const tol = tolMm(12)
-		let best: { off: number; a: Pt; b: Pt } | null = null, bestD = tol
-		for (const o of mdl.objects) {
-			if ((o.type !== 'wall' && o.type !== 'conduit') || !o.id || !modelLayerVisible(o)) continue
-			const nm = new Map((o.nodes as GN[]).map((n) => [n.id, n]))
-			for (const s of o.segments as { a: string; b: string }[]) {
-				const a = nm.get(s.a), b = nm.get(s.b); if (!a || !b) continue
-				const a1 = onC(a), z1 = a.z, dx = onC(b) - a1, dz = b.z - z1, L2 = dx * dx + dz * dz || 1
-				const t = Math.max(0, Math.min(1, ((pu - a1) * dx + (pz - z1) * dz) / L2))
-				const d = Math.hypot(pu - (a1 + dx * t), pz - (z1 + dz * t))
-				if (d < bestD) { bestD = d; best = { off: Math.round(offC(a) * (1 - t) + offC(b) * t), a: ept(a), b: ept(b) } }
-			}
-		}
-		return best
-	}
+	// Elevation depth-snap (a drawn point snaps its DEPTH onto the nearest wall/conduit segment) lives in
+	// ui/snap.ts (R1 step 5); the wrapper injects ctx, the ~12px tolerance and the layer preds.
+	const elevDepthSnap = (p: Pt) => sElevDepthSnap(ctx, p, tolMm(12), mlayers)
 	// A clicked run (plan drawing pts) → a wall or conduit graph with the tool's default profile.
 	function placeGraph(pts: Pt[]) {
 		if (!mdl || pts.length < 2) return

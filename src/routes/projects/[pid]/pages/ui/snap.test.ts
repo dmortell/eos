@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { SNAP_STEP, snapToGrid, rndTo, snapDelta, entSnaps, findSnap, drawPoint, snapNode, graphNodeApply } from './snap'
+import { SNAP_STEP, snapToGrid, rndTo, snapDelta, entSnaps, findSnap, drawPoint, snapNode, graphNodeApply, elevDepthSnap } from './snap'
 import type { GN } from './hit'
 import type { Model, Obj } from '../3dview/types'
 import type { Mapper } from './mapper'
@@ -240,5 +240,29 @@ describe('graphNodeApply', () => {
 		const n: GN = { id: 'n', x: 555, y: 0, z: 0 }
 		graphNodeApply(rctx, n, [14100, 10250], noSnap)   // right: u = cx + (y − cy) → y = cy + 100 = 8850
 		expect([n.x, n.y, n.z]).toEqual([555, 8850, 0])
+	})
+})
+
+describe('elevDepthSnap', () => {
+	// A trunk along x at depth y=9000, z=2500 (front: on-axis = x, depth = y); a wall at depth y=8000.
+	const trunk = { type: 'conduit', id: 't', w: 300, h: 150, edges: 4, layer: 'trunks', nodes: [{ id: 'a', x: 13000, y: 9000, z: 2500 }, { id: 'b', x: 15000, y: 9000, z: 2500 }], segments: [{ a: 'a', b: 'b' }] } as Obj
+	const wallObj = wall('w', [{ id: 'c', x: 13000, y: 8000, z: 0 }, { id: 'd', x: 13000, y: 8000, z: 2800 }])   // vertical post in front view
+	const ctx = withObjs(frontCtx, [trunk, wallObj])
+	it('null outside an elevation, without a model, or beyond tolerance', () => {
+		expect(elevDepthSnap(withObjs(planCtx, [trunk]), [14000, 7750], 12, shown)).toBe(null)
+		expect(elevDepthSnap(frontCtx, [14000, 7750], 12, shown)).toBe(null)
+		expect(elevDepthSnap(ctx, [14000, 7700], 12, shown)).toBe(null)   // 50 mm above the trunk line
+		expect(elevDepthSnap(ctx, [14000, 7745], 12, { visible: () => false, locked: () => false })).toBe(null)
+	})
+	it('near the trunk (drawn y = ground − z = 7750) → its depth y, with the projected endpoints', () => {
+		expect(elevDepthSnap(ctx, [14000, 7745], 12, shown)).toEqual({ off: 9000, a: [13000, 7750], b: [15000, 7750] })
+	})
+	it('near the vertical wall post (x=13000) → the wall depth, clamped to the segment', () => {
+		expect(elevDepthSnap(ctx, [13005, 9000], 12, shown)).toEqual({ off: 8000, a: [13000, 10250], b: [13000, 7450] })
+	})
+	it('right elevation: on-axis = y, depth = x', () => {
+		const rctx: ViewCtx = withObjs({ ...frontCtx, dir: 'right', elevDir: 'right' }, [trunk])
+		// right: u = cx + (y − cy) = 14000 + 250 = 14250 for both trunk nodes; the segment is a point on-axis
+		expect(elevDepthSnap(rctx, [14250, 7750], 12, shown)?.off).toBe(13000)
 	})
 })

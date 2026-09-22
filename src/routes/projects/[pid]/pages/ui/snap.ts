@@ -2,7 +2,7 @@
 // search (findSnap) + the draw-point resolver (drawPoint). No component state: the snappers RETURN the
 // snap mark ({ p, type } | null) and the Viewport assigns its `snapMark` from that. The mapper (one per
 // pass, P1) and the drafting flags come in as arguments. Graph-node snapping (snapNode/graphNodeApply)
-// takes the tolerances in model mm + the model-layer preds; depth snapping follows in the last slice.
+// and the elevation depth snap (elevDepthSnap) take the tolerances in model mm + the model-layer preds.
 import type { Pt, Ent } from './geometry'
 import type { ViewCtx, MLayers } from './view'
 import type { Mapper } from './mapper'
@@ -130,4 +130,35 @@ export function graphNodeApply(ctx: ViewCtx, n: GN, p: Pt, opts: { snapNode: (p:
 		n.z = Math.max(0, opts.rnd(ctx.ground - q[1]))
 	} else { n.x = opts.rnd(q[0]); n.y = opts.rnd(q[1]) }
 	return q === p ? null : { p: q, type: 'end' }
+}
+
+// ── elevation depth snap ──
+
+/** A depth-snap hit: the off-axis (DEPTH) coord to use + the matched segment's projected endpoints (for
+ *  the amber marker). */
+export type DepthSnap = { off: number; a: Pt; b: Pt }
+
+/** In an elevation, the visible wall/conduit SEGMENT whose projected line the drawn point p is nearest
+ *  (within `tolMm`), giving the off-axis (DEPTH) coord there — so a conduit point can SNAP ONTO a wall's
+ *  depth instead of the plan-centre default. Null in plan/iso or when nothing is within tolerance.
+ *  (front/rear: on-axis = x, depth = y; left/right: on-axis = y, depth = x.) The match is done in MODEL
+ *  space (on-axis coord + z), so it can't drift from how the model is rendered. */
+export function elevDepthSnap(ctx: ViewCtx, p: Pt, tolMm: number, ml: MLayers): DepthSnap | null {
+	const mdl = ctx.mdl; if (!ctx.isElev || !mdl) return null
+	const ax = ELEV_BASIS[ctx.elevDir].axis
+	const onC = (n: GN) => (ax === 0 ? n.x : n.y), offC = (n: GN) => (ax === 0 ? n.y : n.x)
+	const pu = elevUInv(ctx.elevDir, p[0], ctx.cx, ctx.cy), pz = ctx.ground - p[1]   // the drawn point's model on-axis + z
+	let best: DepthSnap | null = null, bestD = tolMm
+	for (const o of mdl.objects) {
+		if ((o.type !== 'wall' && o.type !== 'conduit') || !o.id || !ml.visible(o)) continue
+		const nm = new Map((o.nodes as GN[]).map((n) => [n.id, n]))
+		for (const s of o.segments as { a: string; b: string }[]) {
+			const a = nm.get(s.a), b = nm.get(s.b); if (!a || !b) continue
+			const a1 = onC(a), z1 = a.z, dx = onC(b) - a1, dz = b.z - z1, L2 = dx * dx + dz * dz || 1
+			const t = Math.max(0, Math.min(1, ((pu - a1) * dx + (pz - z1) * dz) / L2))
+			const d = Math.hypot(pu - (a1 + dx * t), pz - (z1 + dz * t))
+			if (d < bestD) { bestD = d; best = { off: Math.round(offC(a) * (1 - t) + offC(b) * t), a: graphNodeDraw(ctx, a), b: graphNodeDraw(ctx, b) } }
+		}
+	}
+	return best
 }
