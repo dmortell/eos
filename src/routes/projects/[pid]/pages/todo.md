@@ -307,12 +307,16 @@ New todos (design / bigger):
   `snapNode` takes the drag `origin` and skips any candidate within a break radius of it, so a node that
   starts coincident with a partner can be pulled cleanly off it instead of re-snapping forever. (This is
   also what lets a fresh Alt-branch node separate from the node it sprang from.)
-- [ ] **Select + DELETE graph nodes** (Dave, 2026-09-21) — let a single wall/conduit NODE be selected and
-  deleted, with the connected segments handled by degree: **1 segment → delete that segment**; **2
-  segments → join them into one** (drop the node, merge the two segments); **3+ segments → keep the FIRST
-  TWO segments joined into one and delete the rest** (Dave's spec 2026-09-21). Needs a node-level
-  selection (today selection is whole-object; grips are per-node but not individually selectable).
-  Branch-from-node is now **Ctrl-drag** (done 2026-09-21; was Alt).
+- [x] **Select + DELETE graph nodes** (2026-09-22) — a single wall/conduit NODE can now be selected (click
+  its grip without dragging → teal filled highlight; `nodeSel`, cleared on any fresh press, valid only
+  while its object is selected) and DELETED, with incident segments handled by DEGREE per spec:
+  **1 → delete that segment**; **2 → join into one** (connect the two far ends); **3+ → keep the first two
+  joined, delete the rest**. `deleteGraphNode` rebuilds the segment list, prunes any node left with no
+  segments (the deleted one + orphaned far ends), and removes the whole object if nothing remains (clears
+  selection). One undo step (beginedit/modeledit/endedit, rides snapModels). Delete key checks `nodeSel`
+  before whole-object `deleteModelSel`. **Verified in-browser** on a 4-node/3-seg wall: delete mid node →
+  SEGMENTS 3→2 merged + still connected; delete end node → 2→1; delete last → object removed + selection
+  cleared; clean console. Branch-from-node is Ctrl-drag (done earlier).
 - [x] **Audit + minimise Alt-key functions** (audited 2026-09-22; Dave rarely uses Alt) — grepped
   `altKey`/`e.alt` across all of `pages/`. **Result: exactly ONE Alt binding remains** — `ui/panzoom.ts`
   `Alt+wheel = zoom` (in the `zoom = ... || e.ctrlKey || e.altKey || e.metaKey || right-btn` modifier

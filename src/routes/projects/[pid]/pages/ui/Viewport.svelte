@@ -352,6 +352,7 @@
 			if (k === 'g' && e.shiftKey && sel.length) { e.preventDefault(); on.ungroup?.(sel); return }
 		}
 		if ((e.key === 'Delete' || e.key === 'Backspace') && sel.length && !draft.length) { e.preventDefault(); on.delete?.(sel); return }
+		if ((e.key === 'Delete' || e.key === 'Backspace') && nodeSelValid && !draft.length) { e.preventDefault(); deleteGraphNode(nodeSelValid); nodeSel = null; return }
 		if ((e.key === 'Delete' || e.key === 'Backspace') && modelSel.length && !draft.length) { e.preventDefault(); deleteModelSel(); return }
 		if ((e.key === 'Delete' || e.key === 'Backspace') && selSection && !draft.length) { e.preventDefault(); on.sectiondelete?.(selSection); return }
 		if (sel.length && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
@@ -758,6 +759,10 @@
 		if (!modelEditable || modelSel.length !== 1) return null
 		return mdl?.objects.find((x) => x.id === modelSel[0]) ?? null
 	})
+	// A single wall/conduit NODE selected (by clicking its grip without dragging) — enables node-level
+	// Delete (segments handled by degree). Cleared on any fresh press; only valid while its object is selected.
+	let nodeSel = $state<{ obj: string; node: string } | null>(null)
+	const nodeSelValid = $derived(nodeSel && mSelObj?.id === nodeSel.obj && (mSelObj as { nodes?: GN[] }).nodes?.some((n) => n.id === nodeSel!.node) ? nodeSel : null)
 	// The prism's 4 corner grips in drawing coords, order tl,tr,br,bl (matches prismRect's face / footprint).
 	function prismCorners(o: Obj): Pt[] {
 		const r = prismRect(o); if (!r) return []
@@ -837,7 +842,10 @@
 	}
 	function onModelGripUp() {
 		if (mGrip?.moved) { suppressClick = true; on.modeledit?.() }
-		else mGrip?.branch?.()   // an Alt-branch press with no drag: drop the stray zero-length segment
+		else if (mGrip?.branch) mGrip.branch()   // an Ctrl-branch press with no drag: drop the stray zero-length segment
+		else if (mGrip?.grip.node && mGrip.grip.obj && (mGrip.grip.obj.type === 'wall' || mGrip.grip.obj.type === 'conduit')) {
+			nodeSel = { obj: mGrip.grip.obj.id!, node: mGrip.grip.node.id }   // no-move click on a node grip → select the node
+		}
 		mGrip = null; snapMark = null; on.endedit?.()   // close the gesture's undo step
 		window.removeEventListener('pointermove', onModelGripMove)
 		window.removeEventListener('pointerup', onModelGripUp)
@@ -912,6 +920,27 @@
 		if (mdl.guides) mdl.guides = mdl.guides.filter((g) => !rm.has(g.id))
 		on.modeledit?.('Delete'); on.endedit?.()
 		setModelSel([])
+	}
+	// Delete a single wall/conduit NODE, resolving its incident segments by DEGREE (Dave's spec):
+	//   1 segment  → delete that segment;
+	//   2 segments → join them into one (drop the node, connect the two far ends);
+	//   3+ segments → keep the FIRST TWO joined into one, delete the rest.
+	// Then prune any node left with no segments (the deleted one + orphaned far ends); remove the whole
+	// object if nothing remains. One undo step.
+	function deleteGraphNode(sel: { obj: string; node: string }) {
+		const o = mdl?.objects.find((x) => x.id === sel.obj)
+		if (!mdl || !o || (o.type !== 'wall' && o.type !== 'conduit')) return
+		const segs = o.segments as { id: string; a: string; b: string }[]
+		const inc = segs.filter((s) => s.a === sel.node || s.b === sel.node)
+		const far = (s: { a: string; b: string }) => (s.a === sel.node ? s.b : s.a)
+		const keep = segs.filter((s) => s.a !== sel.node && s.b !== sel.node)   // segments not touching the node
+		if (inc.length >= 2) { const e1 = far(inc[0]), e2 = far(inc[1]); if (e1 !== e2) keep.push({ id: mUid('s'), a: e1, b: e2 }) }   // join first two
+		on.beginedit?.()
+		o.segments = keep
+		const used = new Set<string>(); for (const s of keep) { used.add(s.a); used.add(s.b) }
+		o.nodes = (o.nodes as GN[]).filter((n) => used.has(n.id))   // drop the deleted node + any orphaned far ends
+		if (!keep.length) { mdl.objects = mdl.objects.filter((x) => x.id !== o.id); setModelSel([]) }   // nothing left → remove object
+		on.modeledit?.('Delete node'); on.endedit?.()
 	}
 	// Insert a vertex into a wall/conduit at p by splitting the nearest segment (dbl-click). The new
 	// node inherits the segment's z (keeps the run's height); the new segment inherits object defaults.
@@ -1279,6 +1308,7 @@
 	function onDown(e: PointerEvent) {
 		if (editText || !active || e.button !== 0) return   // ignore while editing text in place
 		suppressClick = false   // clear any stale flag from a drag that never got its click
+		nodeSel = null          // a fresh press resets the node selection (re-set on a no-move node-grip click)
 		pointers.add(e.pointerId)
 		if (pointers.size > 1) { cancelPointerDrag(); return }   // 2nd finger → hand off to pan/zoom
 		// While calibrating scale, a press near a placed endpoint drags it (adjust the measure line).
@@ -1675,6 +1705,9 @@
 			<!-- model grips: prism resize corners, or wall/conduit node handles (of the selected object) -->
 			{#if active && tool === 'Select' && mSelObj}
 				{#each modelGrips(mSelObj) as g, i (i)}
+					{#if g.node && nodeSelValid && g.node.id === nodeSelValid.node}
+						<circle cx={g.x} cy={g.y} r={gripSize * 0.95} fill={SEL} opacity="0.85" />
+					{/if}
 					<Handle cx={g.x} cy={g.y} size={gripSize} cursor="crosshair" strokeWidth={1.2 / (canvasZoom || 1)} />
 				{/each}
 			{/if}
