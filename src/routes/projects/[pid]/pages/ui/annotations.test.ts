@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { centerCorners, orthoPt, arrowPts, cloudPath, groundPts } from './annotations'
+import { centerCorners, orthoPt, constrainPt, arrowPts, cloudPath, groundPts } from './annotations'
 import type { Ent } from './geometry'
 
 describe('centerCorners', () => {
@@ -49,5 +49,20 @@ describe('groundPts', () => {
 		const ell = groundPts({ id: 'e', type: 'ellipse', a: [0, 0], b: [10, 6] })
 		expect(ell.closed).toBe(true)
 		expect(ell.pts.length).toBe(32)
+	})
+})
+
+describe('constrainPt', () => {
+	it('shift off → unchanged; Rectangle/Ellipse → square bbox keeping the drag quadrant', () => {
+		expect(constrainPt('Rectangle', [0, 0], [10, 3], false)).toEqual([10, 3])
+		expect(constrainPt('Rectangle', [0, 0], [10, 3], true)).toEqual([10, 10])
+		expect(constrainPt('Ellipse', [0, 0], [-4, 9], true)).toEqual([-9, 9])
+	})
+	it('Line/Dimension → nearest 15° increment, length kept; other tools → unchanged', () => {
+		const p = constrainPt('Line', [0, 0], [10, 1], true)   // ~5.7° → 0°
+		expect(p[0]).toBeCloseTo(Math.hypot(10, 1)); expect(p[1]).toBeCloseTo(0)
+		const q = constrainPt('Dimension', [0, 0], [10, 4], true)   // ~21.8° → 15°
+		expect(Math.atan2(q[1], q[0]) * 180 / Math.PI).toBeCloseTo(15)
+		expect(constrainPt('Polyline', [0, 0], [10, 3], true)).toEqual([10, 3])
 	})
 })

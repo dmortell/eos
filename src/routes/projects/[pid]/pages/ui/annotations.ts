@@ -9,6 +9,24 @@ export const centerCorners = (c: Pt, p: Pt): [Pt, Pt] => [[2 * c[0] - p[0], 2 * 
 /** Ortho lock: snap `p` to a horizontal or vertical line through `a` (whichever axis it is nearer). */
 export const orthoPt = (a: Pt, p: Pt): Pt => (Math.abs(p[0] - a[0]) >= Math.abs(p[1] - a[1]) ? [p[0], a[1]] : [a[0], p[1]])
 
+/** Shift-constrain a drawing point relative to the start `a`, per tool: Rectangle/Ellipse → square bbox
+ *  (a circle for the ellipse); Line/Dimension → 15° angle increments (which includes ortho); anything
+ *  else (free radius etc.) → unchanged. `shift` false → p unchanged. */
+export function constrainPt(tool: string, a: Pt, p: Pt, shift: boolean): Pt {
+	if (!shift) return p
+	const dx = p[0] - a[0], dy = p[1] - a[1]
+	if (tool === 'Rectangle' || tool === 'Ellipse') {
+		const s = Math.max(Math.abs(dx), Math.abs(dy))
+		return [a[0] + (dx < 0 ? -s : s), a[1] + (dy < 0 ? -s : s)]
+	}
+	if (tool === 'Line' || tool === 'Dimension') {
+		const len = Math.hypot(dx, dy), step = Math.PI / 12   // 15°
+		const ang = Math.round(Math.atan2(dy, dx) / step) * step
+		return [a[0] + len * Math.cos(ang), a[1] + len * Math.sin(ang)]
+	}
+	return p
+}
+
 /** A filled arrowhead triangle AT `to`, pointing away from `from`. `size` = arrow length in MODEL units
  *  (callers pass 3.5·paperMm for annotative sizing, B3). Half-width is 0.4·size. Returns SVG polygon pts. */
 export function arrowPts(from: Pt, to: Pt, size: number): string {

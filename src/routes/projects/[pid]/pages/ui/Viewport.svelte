@@ -15,13 +15,13 @@
 	import { makeMapper, type Mapper } from './mapper'
 	import type { ViewCtx } from './view'
 	import { pickSectionGrip as gPickSectionGrip, modelGrips as gModelGrips, pickModelGrip as gPickModelGrip, gripsFor as gGripsFor, constrainGrip as gConstrainGrip, type MGrip, type Grip, type GripOpts } from './grips'
-	import { SNAP_STEP, snapToGrid, entSnaps, snapDelta as sSnapDelta } from './snap'
+	import { SNAP_STEP, snapToGrid, snapDelta as sSnapDelta, findSnap as sFindSnap, drawPoint as sDrawPoint } from './snap'
 	import { rotatePt, inScope as hInScope, inThisView as hInThisView, groundInIso as hGroundInIso, isFlatElev as hIsFlatElev, flatXSpan as hFlatXSpan, rotCenter as hRotCenter, bbox as hBbox, hitEnt as hHitEnt, pickable as hPickable, prismRect as hPrismRect, prismTilted, graphNodeDraw as hGraphNodeDraw, hitModel as hHitModel, hitModelIso as hHitModelIso, sectionCorners, hitSection as hHitSection, hitGuide as hHitGuide, marqueeSelect as hMarqueeSelect, type GN } from './hit'
 	import { isLayerHidden, isLayerLocked, layerColor, layerOrder } from '../layers.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
 	import { models, modelById, modelSel, setModelSel } from '../3dview/models.svelte'
 	import { newId } from '../ids'
-	import { arrowPts, cloudPath, groundPts, centerCorners, orthoPt } from './annotations'
+	import { arrowPts, cloudPath, groundPts, centerCorners, constrainPt as aConstrainPt } from './annotations'
 	import { guideId, selectedPlanGuide } from '../guides.svelte'
 	import { imgEdit, clearImgMode } from '../imageEdit.svelte'
 	import { polyToGraph } from '../3dview/migrate'
@@ -188,22 +188,8 @@
 		on.view?.({ zoom: nz, x: v[0] - (v[0] - view.x) * r, y: v[1] - (v[1] - view.y) * r })
 	}
 	// panzoom passes its node as a trailing arg (unused here)
-	// Shift-constrain the drawing point relative to the start: rectangle → square, line/dim →
-	// 15° angle increments (which includes ortho), circle → free radius.
-	function constrainPt(a: Pt, p: Pt, shift: boolean): Pt {
-		if (!shift) return p
-		const dx = p[0] - a[0], dy = p[1] - a[1]
-		if (tool === 'Rectangle' || tool === 'Ellipse') {   // Shift → square bbox (a circle for the ellipse)
-			const s = Math.max(Math.abs(dx), Math.abs(dy))
-			return [a[0] + (dx < 0 ? -s : s), a[1] + (dy < 0 ? -s : s)]
-		}
-		if (tool === 'Line' || tool === 'Dimension') {
-			const len = Math.hypot(dx, dy), step = Math.PI / 12   // 15°
-			const ang = Math.round(Math.atan2(dy, dx) / step) * step
-			return [a[0] + len * Math.cos(ang), a[1] + len * Math.sin(ang)]
-		}
-		return p
-	}
+	// Shift-constrain the drawing point relative to the start (square / 15°, per tool) — ui/annotations.ts.
+	const constrainPt = (a: Pt, p: Pt, shift: boolean): Pt => aConstrainPt(tool, a, p, shift)
 	// Objects drawn in an elevation view are NATIVE to that elevation (space = the dir); a box stays
 	// plan-space (it's a 3D footprint) and projects like normal.
 	const drawPlane = () => (isElev ? elevDir : undefined)   // the DRAWING PLANE new geometry lands in (plan or this elevation)
@@ -891,34 +877,20 @@
 		if (!isElev || !active || !cur || !mdl || !(tool === 'Wall' || tool === 'Trunk' || tool === 'Pipe')) return null
 		return elevDepthSnap(cur)
 	})
-	// entSnaps lives in ui/snap.ts (R1 step 5). findSnap still writes snapMark here (moves in a later slice).
+	// entSnaps / findSnap / drawPoint live in ui/snap.ts (R1 step 5). They RETURN the snap mark; these thin
+	// wrappers build the one-per-pass mapper (P1), pass the drafting flags, and assign `snapMark`.
 	function findSnap(clientX: number, clientY: number, exclude?: string): Pt | null {
-		if (!osnap) { snapMark = null; return null }
-		const m = mapper(); if (!m) { snapMark = null; return null }   // P1: one layout read for the whole pass
-		let best: { p: Pt; type: string; d: number } | null = null
-		for (const e of entities) {
-			if (e.id === exclude || e.id === editText?.id) continue
-			for (const s of entSnaps(ctx, e)) {
-				const sp = m.toClient(s.point[0], s.point[1])
-				const d = Math.hypot(sp.x - clientX, sp.y - clientY)
-				if (d < 11 && (!best || d < best.d)) best = { p: s.point, type: s.type, d }
-			}
-		}
-		snapMark = best ? { p: best.p, type: best.type } : null
-		return best ? best.p : null
+		const m = mapper()
+		const hit = osnap && m ? sFindSnap(ctx, m, entities, clientX, clientY, { exclude, editingId: editText?.id }) : null
+		snapMark = hit
+		return hit ? hit.p : null
 	}
-	// The point a draw/place should use: snap wins; else the shift-constrained pointer.
+	// The point a draw/place should use: object snap wins; else the shift/ortho-constrained, grid-snapped pointer.
 	function drawPoint(clientX: number, clientY: number, base?: Pt, shift = false): Pt | null {
-		const s = findSnap(clientX, clientY)
-		if (s) return s   // object snap wins over grid snap
-		const raw = toLocalXY(clientX, clientY); if (!raw) return null
-		let p = raw
-		if (base) {
-			if (shift) p = constrainPt(base, raw, true)                                          // Shift: 15° / square
-			else if (ortho && (tool === 'Line' || tool === 'Dimension')) p = orthoPt(base, raw)   // ORTHO: H/V
-		}
-		if (snap) p = snapToGrid(p)   // grid snap
-		return p
+		const m = mapper(); if (!m) { snapMark = null; return null }
+		const r = sDrawPoint(ctx, m, { osnap, snap, ortho, tool, ents: entities, editingId: editText?.id }, clientX, clientY, base, shift)
+		snapMark = r.mark
+		return r.p
 	}
 
 	// ── editing handles (Kestrel-style grips) ──
