@@ -973,16 +973,16 @@
 	// body of any entity (topmost). Drives the pointer-drag start (mouse-left / 1-finger
 	// touch) — navigation is 2-finger, so a single finger is always free to edit.
 	function pick(clientX: number, clientY: number): { kind: 'grip' | 'move'; id: string; gi: number } | null {
+		const m = mapper(); if (!m) return null   // ONE layout read for the whole grip pass (P1)
 		for (const id of sel) {
 			const ent = entities.find(x => x.id === id); if (!ent) continue
 			const gs = gripsFor(ent)
 			for (let i = 0; i < gs.length; i++) {
-				const sp = localToClient(gs[i].x, gs[i].y); if (!sp) continue
+				const sp = m.toClient(gs[i].x, gs[i].y)
 				if (Math.hypot(sp.x - clientX, sp.y - clientY) < 14) return { kind: 'grip', id, gi: i }
 			}
 		}
-		const lp = toLocalXY(clientX, clientY)
-		if (lp) { const ids = hit(lp); if (ids.length) return { kind: 'move', id: ids[0], gi: -1 } }
+		const ids = hit(m.toModel(clientX, clientY)); if (ids.length) return { kind: 'move', id: ids[0], gi: -1 }
 		return null
 	}
 
