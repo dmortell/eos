@@ -354,6 +354,12 @@ New todos (design / bigger):
   still flips** it and on touch the pop-out picks it. The group button + tool hint show the current
   orientation. Verified in-browser: picking Vertical placed vertical guides (added `moveHorizontal`/
   `moveVertical` to the Icon map). Reuses the tap-to-open fly-out machinery.
+- [ ] **Live spacing readout: distance from the selected guide to the new one** (Dave, 2026-09-22) — while
+  dropping a Guide, if a plan guide of the same orientation is SELECTED, show the perpendicular DISTANCE
+  between it and the guide-preview in the status bar (e.g. `Δ 1200 mm`), so you can drop guides an exact
+  distance apart. Generalise: show a live spacing/delta readout while drawing OTHER shapes too — distance
+  from the drag start (or a selected reference object/edge) to the cursor — since placing things a precise
+  distance apart is a common need. (Builds on the status-bar coords + the guide preview.)
 - [ ] **Stable per-DRAWING id for tab dedup + persistence** (Dave, 2026-09-21) — tab ids are an ephemeral
   session counter (`'t'+seq`; the 4 seeded tabs are hardcoded t1–t4, dynamic ones get t5+ by OPEN ORDER),
   and `openDrawing` dedupes by TITLE. So the per-tab localStorage canvas view (and any future per-tab
@@ -627,8 +633,13 @@ marquee and constant-lineweight draw, but no additive select / duplicate / move-
     (2026-09-22):** `inThisView` returns false for plan-plane non-`box` entities when `kind==='iso'` (box
     is a real 3D cuboid and still projects). This gates render + hit + grips + marquee (all use
     `inThisView`/`pickable`). Verified: a plan rect vanished in the iso view and reappeared in plan (hidden,
-    not deleted). [ ] **Proper fix (v2):** project them onto the ground plane via `isoR` (foreshortened)
-    instead of hiding.
+    not deleted). **[x] Proper fix — PROJECT onto the ground (2026-09-22):** plan-plane 2D shapes now render
+    in iso projected onto the ground plane (z=0) via `isoGround` (isoR + the same bounds-centring the model
+    uses), foreshortened, instead of hidden. `groundInIso(e)` gates it; `drawnGround` projects each type's
+    outline points (rect→quad, ellipse/circle→32-gon, line/dim/polyline→poly, text→placed at its projected
+    anchor; `e.rot` applied first). They render but aren't interactive in iso (edit in plan/elevation), so
+    `pickable`/grips still exclude them. Verified in-browser: a plan rect lay flat on the room floor in 3D,
+    correctly foreshortened; clean console.
 - [x] **Ellipse draw origin** (2026-09-22) — a **CEN** status-bar toggle draws rectangles + ellipses
   **centre-out** (first click = centre; drag = a bbox corner) vs the default corner-to-corner. `env.cen` →
   `centerDraw`; `place()` and the draw `preview` remap the corners via `centerCorners(c, p) = [2c−p, p]` for

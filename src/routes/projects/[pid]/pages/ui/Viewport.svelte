@@ -400,9 +400,10 @@
 	const inScope = (e: Ent) => !e.space || e.space === 'model' || e.space === 'view:' + frameId
 	// In-view = the object's DRAWING PLANE matches this view (plan projects into every elevation as a ground
 	// line; an elevation-native object shows only in that elevation) AND its scope includes this frame.
-	// In the 3D ISO view, hide flat plan-plane 2D annotations for now (they'd float unprojected) — only the
-	// `box` (a real 3D cuboid) projects; true ground-plane projection of 2D shapes is the v2 work (todo §2).
-	const inThisView = (e: Ent) => inScope(e) && (onPlanPlane(e) || e.plane === kind) && !(kind === 'iso' && onPlanPlane(e) && e.type !== 'box')
+	const inThisView = (e: Ent) => inScope(e) && (onPlanPlane(e) || e.plane === kind)
+	// A plan-plane 2D shape shown in the 3D ISO view is PROJECTED onto the ground plane (z=0), not drawn at
+	// its raw coords. It renders (foreshortened) but isn't interactive there (edit it in plan/elevation).
+	const groundInIso = (e: Ent) => kind === 'iso' && onPlanPlane(e) && e.type !== 'box'
 	const isFlatElev = (e: Ent) => isElev && FLAT.has(e.type) && onPlanPlane(e)   // only floor flats collapse to the ground line
 	// Horizontal drawing span of a flat object projected onto the ground line for the current side view.
 	function flatXSpan(e: Ent): [number, number] { return flatSpan(e, elevDir, CX, CY) }
@@ -449,7 +450,7 @@
 		return m ? px / (view.zoom * m.scale) : px
 	}
 	// A hidden or locked layer's objects can't be picked; nor can objects that don't belong to this view.
-	const pickable = (e: Ent) => inThisView(e) && !isLayerHidden(e.layer) && !isLayerLocked(e.layer)
+	const pickable = (e: Ent) => inThisView(e) && !isLayerHidden(e.layer) && !isLayerLocked(e.layer) && !groundInIso(e)
 	// The origin anchor of the selected / being-edited image, in model coords (null if none has an origin,
 	// or its layer is hidden, or it isn't shown in this view — the marker must vanish with the image).
 	const originMark = $derived.by(() => {
@@ -1176,11 +1177,20 @@
 	function gripsLocal(e: Ent): Grip[] {
 		if (isFlatElev(e)) { const [x0, x1] = flatXSpan(e); return [{ x: x0, y: GROUND, apply: p => setFlatX(e, 'min', p[0]) }, { x: x1, y: GROUND, apply: p => setFlatX(e, 'max', p[0]) }] }
 		if (e.type === 'polyline') return (e.pts ?? []).map((v, i) => ({ x: v[0], y: v[1], apply: (p: Pt) => ({ ...e, pts: (e.pts ?? []).map((q, j) => j === i ? p : q) }) }))
-		if (e.type === 'line' || e.type === 'dim') return [
+		if (e.type === 'line' || e.type === 'dim') {
 			// Rotated: drag one endpoint (D) keeping the other (anchor F) world-fixed. No square-constrain.
-			{ x: e.a![0], y: e.a![1], anchor: e.b!, resize: (D, F) => ({ ...e, a: D, b: F }), apply: p => ({ ...e, a: p }) },
-			{ x: e.b![0], y: e.b![1], anchor: e.a!, resize: (D, F) => ({ ...e, b: D, a: F }), apply: p => ({ ...e, b: p }) },
-		]
+			const gs: Grip[] = [
+				{ x: e.a![0], y: e.a![1], anchor: e.b!, resize: (D, F) => ({ ...e, a: D, b: F }), apply: p => ({ ...e, a: p }) },
+				{ x: e.b![0], y: e.b![1], anchor: e.a!, resize: (D, F) => ({ ...e, b: D, a: F }), apply: p => ({ ...e, b: p }) },
+			]
+			if (e.type === 'dim') {   // a grip on the measured-text: drag it to set the perpendicular text offset
+				const a = e.a!, b = e.b!, len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1
+				const px = -(b[1] - a[1]) / len, py = (b[0] - a[0]) / len, off = e.dimOff ?? gripSize * 2
+				const mcx = (a[0] + b[0]) / 2, mcy = (a[1] + b[1]) / 2
+				gs.push({ x: mcx + px * off, y: mcy + py * off, apply: (p: Pt) => ({ ...e, dimOff: Math.round((p[0] - mcx) * px + (p[1] - mcy) * py) }) })
+			}
+			return gs
+		}
 		if (e.type === 'box' && isElev) {   // grips on the projected FACE (width × height)
 			const { x0, x1, base, top } = boxElev(e, elevDir, CX, CY)
 			return [
@@ -1280,6 +1290,23 @@
 	// zooms cancels them so the grip is always HANDLE_PX px — the canvas CSS zoom included
 	// (without canvasZoom the grips grew as you zoomed the canvas in).
 	const gripSize = $derived(HANDLE_PX / BASE / view.zoom / (canvasZoom || 1) / (dscale || 1))
+	// Project a plan point (x,y,0) to iso DRAWING coords, matching how the model renders (isoR + the same
+	// bounds-centring as Model3d / hitModelIso). Null off iso. Used to lay plan 2D shapes on the ground.
+	const isoGround = $derived.by(() => {
+		if (kind !== 'iso' || !mdl) return null
+		const b = isoBounds(mdl.objects, yaw, pitch, CX, CY, modelLayerVisible); if (!b) return null
+		return (x: number, y: number): Pt => { const q = isoR({ x, y, z: 0 }, yaw, pitch, CX, CY); return [q.u + CX - b.icx, -q.v + CY + b.icy] }
+	})
+	// A plan entity's outline points (plan coords) + whether it's a closed shape, for ground projection.
+	function groundPts(e: Ent): { pts: Pt[]; closed: boolean } {
+		const ell = (cx: number, cy: number, rx: number, ry: number): Pt[] => Array.from({ length: 32 }, (_, i) => { const t = (i / 32) * 2 * Math.PI; return [cx + rx * Math.cos(t), cy + ry * Math.sin(t)] as Pt })
+		if (e.type === 'line' || e.type === 'dim') return { pts: [e.a!, e.b!], closed: false }
+		if (e.type === 'polyline') return { pts: e.pts ?? [], closed: false }
+		if (e.type === 'rect') { const [ax, ay] = e.a!, [bx, by] = e.b!; return { pts: [[ax, ay], [bx, ay], [bx, by], [ax, by]], closed: true } }
+		if (e.type === 'ellipse') return { pts: ell((e.a![0] + e.b![0]) / 2, (e.a![1] + e.b![1]) / 2, Math.abs(e.b![0] - e.a![0]) / 2, Math.abs(e.b![1] - e.a![1]) / 2), closed: true }
+		if (e.type === 'circle') return { pts: ell(e.c![0], e.c![1], e.r!, e.r!), closed: true }
+		return { pts: [], closed: false }
+	}
 	// A filled arrowhead triangle AT `to`, pointing away from `from` — constant screen size (via gripSize),
 	// returned as SVG polygon points. Shared by the Line arrow prop and the callout leader tip.
 	function arrowPts(from: Pt, to: Pt): string {
@@ -1760,7 +1787,7 @@
 				{/if}
 			{/if}
 			<!-- drawn entities (objects on a hidden layer are skipped; the edited text is hidden too) -->
-			{#each paintEnts as e (e.id)}{#if e.id !== editText?.id && !isLayerHidden(e.layer) && inThisView(e)}{#if e.rot}{@const c = rotCenter(e)}<g transform="rotate({e.rot} {c[0]} {c[1]})">{@render drawn(e, selSet.has(e.id))}</g>{:else}{@render drawn(e, selSet.has(e.id))}{/if}{/if}{/each}
+			{#each paintEnts as e (e.id)}{#if e.id !== editText?.id && !isLayerHidden(e.layer) && inThisView(e)}{#if groundInIso(e)}{@render drawnGround(e)}{:else if e.rot}{@const c = rotCenter(e)}<g transform="rotate({e.rot} {c[0]} {c[1]})">{@render drawn(e, selSet.has(e.id))}</g>{:else}{@render drawn(e, selSet.has(e.id))}{/if}{/if}{/each}
 			<!-- depth-snap: the wall/conduit whose depth the next elevation point will snap onto (amber) -->
 			{#if depthSnapMark}
 				<line x1={depthSnapMark.a[0]} y1={depthSnapMark.a[1]} x2={depthSnapMark.b[0]} y2={depthSnapMark.b[1]} stroke="#e0a020" stroke-width={2.5 / (canvasZoom || 1)} vector-effect="non-scaling-stroke" stroke-dasharray="{6 / (canvasZoom || 1)} {3 / (canvasZoom || 1)}" />
@@ -1791,7 +1818,7 @@
 			<!-- editing handles: square grips at each selected entity's defining points -->
 			{#if active && tool === 'Select'}
 				{#each entities as e (e.id)}
-					{#if selSet.has(e.id) && inThisView(e) && !isLayerHidden(e.layer) && !isLayerLocked(e.layer)}
+					{#if selSet.has(e.id) && inThisView(e) && !isLayerHidden(e.layer) && !isLayerLocked(e.layer) && !groundInIso(e)}
 						{#each gripsFor(e) as g}
 							{#if g.rotate}
 								{@const bc = rotCenter(e)}
@@ -1878,6 +1905,26 @@
 	{/if}
 </div>
 
+{#snippet drawnGround(e: Ent)}
+	<!-- a plan 2D shape laid on the GROUND in the iso view: outline points (rotated by e.rot) projected via
+	     isoGround. Text places at its projected anchor; other types draw as a (foreshortened) poly. -->
+	{@const ink = e.color ?? layerColor(e.layer) ?? INK}
+	{@const w = (e.weight ?? (lwt ? STYLE_DEFAULTS.weight : 0.5)) / (canvasZoom || 1)}
+	{#if isoGround}
+		{#if e.type === 'text'}
+			{@const tp = isoGround(e.a![0], e.a![1])}
+			<text class="anno" x={tp[0]} y={tp[1]} font-size={gripSize * 2} fill={ink} text-anchor="start">{(e.text ?? '').split('\n')[0]}</text>
+		{:else}
+			{@const g = groundPts(e)}
+			{@const c = e.rot ? rotCenter(e) : null}
+			{@const pr = g.pts.map((p) => { const q = e.rot && c ? rotatePt(p, c, e.rot) : p; return isoGround!(q[0], q[1]) })}
+			{#if pr.length >= 2}
+				{#if g.closed}<polygon points={pr.map((p) => p.join(',')).join(' ')} fill={e.fill ?? 'none'} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
+				{:else}<polyline points={pr.map((p) => p.join(',')).join(' ')} fill="none" stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />{/if}
+			{/if}
+		{/if}
+	{/if}
+{/snippet}
 {#snippet drawn(e: Ent, seld: boolean)}
 	<!-- Selection is shown by the grips, NOT by recolouring/thickening the stroke — so colour and
 	     lineweight edits are visible live while the object stays selected. -->
@@ -1927,8 +1974,9 @@
 		{@const ux = (B[0] - A[0]) / len}{@const uy = (B[1] - A[1]) / len}
 		{@const px = -uy}{@const py = ux}
 		{@const tk = gripSize * 1.3}
-		{@const mx = (A[0] + B[0]) / 2 + px * gripSize * 2}
-		{@const my = (A[1] + B[1]) / 2 + py * gripSize * 2}
+		{@const off = e.dimOff ?? gripSize * 2}
+		{@const mx = (A[0] + B[0]) / 2 + px * off}
+		{@const my = (A[1] + B[1]) / 2 + py * off}
 		{@const ang = Math.atan2(uy, ux) * 180 / Math.PI}
 		{@const rang = ang > 90 || ang < -90 ? ang + 180 : ang}
 		<line x1={A[0]} y1={A[1]} x2={B[0]} y2={B[1]} stroke={col} stroke-width={w} vector-effect="non-scaling-stroke" />
