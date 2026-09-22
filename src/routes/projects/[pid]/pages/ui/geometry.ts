@@ -10,7 +10,7 @@ export type TextAlign = 'left' | 'center' | 'right'
 // Style props mirror the Sheets annotation model (fontPt/align/color/fill/weight) so an object can
 // match Sheets' defaults; all optional → unset falls back to the tool defaults (see STYLE_DEFAULTS).
 export type VAlign = 'top' | 'middle' | 'bottom'
-export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'ellipse' | 'dim' | 'text' | 'box' | 'polyline' | 'image'; a?: Pt; b?: Pt; c?: Pt; r?: number; h?: number; z0?: number; text?: string; pts?: Pt[]; groupId?: string;
+export type Ent = { id: string; type: 'line' | 'rect' | 'ellipse' | 'dim' | 'text' | 'box' | 'polyline' | 'image'; a?: Pt; b?: Pt; h?: number; z0?: number; text?: string; pts?: Pt[]; groupId?: string;
 	color?: string; fill?: string; weight?: number; fontPt?: number; align?: TextAlign; valign?: VAlign; layer?: string; rot?: number;
 	// 'image' entity (imported background): src = image URL / data-URL placed in the a→b rect (origin +
 	// scale). `crop` = the visible sub-rectangle of the SOURCE image, normalized 0..1 (x,y = top-left,
@@ -96,8 +96,7 @@ export const elevH = (dir: ElevDir, p: Pt, cx = PLAN_CX, cy = PLAN_CY): number =
 export function flatSpan(e: Ent, dir: ElevDir, cx = PLAN_CX, cy = PLAN_CY): [number, number] {
 	const ax = ELEV_BASIS[dir].axis
 	let lo: number, hi: number
-	if (e.type === 'circle') { lo = e.c![ax] - e.r!; hi = e.c![ax] + e.r! }
-	else if (e.type === 'polyline') { const cs = (e.pts ?? []).map(p => p[ax]); lo = Math.min(...cs); hi = Math.max(...cs) }
+	if (e.type === 'polyline') { const cs = (e.pts ?? []).map(p => p[ax]); lo = Math.min(...cs); hi = Math.max(...cs) }
 	else { lo = Math.min(e.a![ax], e.b![ax]); hi = Math.max(e.a![ax], e.b![ax]) }
 	const u0 = elevU(dir, lo, cx, cy), u1 = elevU(dir, hi, cx, cy)
 	return [Math.min(u0, u1), Math.max(u0, u1)]
@@ -116,7 +115,7 @@ export function segDist(p: Pt, a: Pt, b: Pt): number {
 // Translate every point of an entity by (dx,dy).
 export function translate(e: Ent, dx: number, dy: number): Ent {
 	const t = (p?: Pt): Pt | undefined => p ? [p[0] + dx, p[1] + dy] : p
-	return { ...e, a: t(e.a), b: t(e.b), c: t(e.c), pts: e.pts?.map(p => [p[0] + dx, p[1] + dy] as Pt) }
+	return { ...e, a: t(e.a), b: t(e.b), pts: e.pts?.map(p => [p[0] + dx, p[1] + dy] as Pt) }
 }
 
 // Text bounding box (drawing units): a[0]/a[1] is the first line's baseline-left; lines run down.

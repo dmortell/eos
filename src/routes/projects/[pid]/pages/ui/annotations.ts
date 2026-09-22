@@ -42,6 +42,5 @@ export function groundPts(e: Ent): { pts: Pt[]; closed: boolean } {
 	if (e.type === 'polyline') return { pts: e.pts ?? [], closed: false }
 	if (e.type === 'rect') { const [ax, ay] = e.a!, [bx, by] = e.b!; return { pts: [[ax, ay], [bx, ay], [bx, by], [ax, by]], closed: true } }
 	if (e.type === 'ellipse') return { pts: ell((e.a![0] + e.b![0]) / 2, (e.a![1] + e.b![1]) / 2, Math.abs(e.b![0] - e.a![0]) / 2, Math.abs(e.b![1] - e.a![1]) / 2), closed: true }
-	if (e.type === 'circle') return { pts: ell(e.c![0], e.c![1], e.r!, e.r!), closed: true }
 	return { pts: [], closed: false }
 }

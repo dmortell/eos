@@ -390,7 +390,7 @@
 
 	// hit-test (topmost first). segDist/textBox/boxElev live in ./geometry.
 	// Flat (z=0, no height) objects that project to an edge-on ground line in elevation.
-	const FLAT = new Set(['line', 'polyline', 'dim', 'rect', 'ellipse', 'circle'])
+	const FLAT = new Set(['line', 'polyline', 'dim', 'rect', 'ellipse'])
 	// Object SPACE (v1 — per-view annotations, like the Sheets tool): 'plan'/undefined = model/plan
 	// space (projected into every elevation, layer-gated); an ElevDir = drawn natively in that
 	// elevation only (a wall/rack label, a leader, a dimension), rendered as-is there and hidden in
@@ -432,7 +432,6 @@
 		if (e.type === 'box' && isElev) { const f = boxElev(e, elevDir, CX, CY); return inBox(p, f.x0, f.top, f.x1, f.base, thr, true) }   // elevation box draws a filled face
 		if (e.type === 'image') { const [x0, y0, x1, y1] = bbox(e); return inBox(p, x0, y0, x1, y1, thr, true) }   // pick anywhere inside the VISIBLE (crop-window) extent
 		if (e.type === 'rect' || e.type === 'box') { const x0 = Math.min(e.a![0], e.b![0]), y0 = Math.min(e.a![1], e.b![1]), x1 = Math.max(e.a![0], e.b![0]), y1 = Math.max(e.a![1], e.b![1]); return inBox(p, x0, y0, x1, y1, thr, e.type !== 'rect' || isFilled(e)) }   // box picks anywhere inside
-		if (e.type === 'circle') { const d = dist(e.c!, p); return isFilled(e) ? d <= e.r! + thr : Math.abs(d - e.r!) <= thr }
 		if (e.type === 'ellipse') {
 			const cx = (e.a![0] + e.b![0]) / 2, cy = (e.a![1] + e.b![1]) / 2
 			const hx = Math.abs(e.b![0] - e.a![0]) / 2, hy = Math.abs(e.b![1] - e.a![1]) / 2
@@ -1131,7 +1130,6 @@
 				{ point: mid(c[0], c[1]), type: 'mid' }, { point: mid(c[1], c[2]), type: 'mid' }, { point: mid(c[2], c[3]), type: 'mid' }, { point: mid(c[3], c[0]), type: 'mid' },
 				{ point: [(x0 + x1) / 2, (y0 + y1) / 2] as Pt, type: 'center' }]
 		}
-		if (e.type === 'circle') { const [cx, cy, r] = [e.c![0], e.c![1], e.r!]; return [{ point: e.c!, type: 'center' }, { point: [cx + r, cy], type: 'quad' }, { point: [cx - r, cy], type: 'quad' }, { point: [cx, cy + r], type: 'quad' }, { point: [cx, cy - r], type: 'quad' }] }
 		if (e.type === 'text') return [{ point: e.a!, type: 'end' }]
 		return []
 	}
@@ -1195,7 +1193,7 @@
 	// A flat object in elevation is a ground line; its grips are the two ground-line ends (drag = move
 	// the min/max x-edge, keeping it flat), NOT the plan footprint corners.
 	function setFlatX(e: Ent, edge: 'min' | 'max', u: number): Ent {
-		if (e.type === 'circle' || e.type === 'polyline') return e   // no simple edge; leave as-is
+		if (e.type === 'polyline') return e   // no simple edge; leave as-is
 		const ax = ELEV_BASIS[elevDir].axis
 		const ua = projU(e.a![ax]), ub = projU(e.b![ax])   // endpoints projected to the drawing horizontal
 		const aIsMin = ua <= ub, moveA = (edge === 'min') === aIsMin
@@ -1309,10 +1307,6 @@
 				{ x: bx, y: ay, anchor: [ax, by], square: true, resize: box, apply: p => ({ ...e, a: [e.a![0], p[1]] as Pt, b: [p[0], e.b![1]] as Pt }) },
 			]
 		}
-		if (e.type === 'circle') return [
-			{ x: e.c![0], y: e.c![1], apply: p => ({ ...e, c: p }) },                       // move centre
-			{ x: e.c![0] + e.r!, y: e.c![1], apply: p => ({ ...e, r: Math.max(1, dist(e.c!, p)) }) }, // radius
-		]
 		if (e.type === 'text') {
 			const gs: Grip[] = [{ x: e.a![0], y: e.a![1], apply: p => ({ ...e, a: p }) }]
 			if (e.callout) {   // leader-tip grip (drag where the callout points)
@@ -1624,7 +1618,7 @@
 	// lands on the grid, keeping its shape — like model-object moves (rndSnap). Off when SNAP is off.
 	function snapDelta(dx: number, dy: number, base: Ent): [number, number] {
 		if (!snap) return [dx, dy]
-		const A = base.a ?? base.c ?? base.pts?.[0]
+		const A = base.a ?? base.pts?.[0]
 		if (!A) return [Math.round(dx / SNAP_STEP) * SNAP_STEP, Math.round(dy / SNAP_STEP) * SNAP_STEP]
 		const g = snapToGrid([A[0] + dx, A[1] + dy])
 		return [g[0] - A[0], g[1] - A[1]]
@@ -1688,7 +1682,6 @@
 	function bbox(e: Ent): [number, number, number, number] {
 		if (isFlatElev(e)) { const [x0, x1] = flatXSpan(e); return [x0, GROUND - 2, x1, GROUND + 2] }
 		if (e.type === 'polyline') { const pts = e.pts ?? []; const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] }
-		if (e.type === 'circle') return [e.c![0] - e.r!, e.c![1] - e.r!, e.c![0] + e.r!, e.c![1] + e.r!]
 		if (e.type === 'text') return textBox(e, PT_MM * paperMm)
 		if (e.type === 'box' && isElev) { const f = boxElev(e, elevDir, CX, CY); return [f.x0, f.top, f.x1, f.base] }
 		if (e.type === 'image' && e.crop) {   // the VISIBLE extent is the crop window, not the full placement
@@ -2013,8 +2006,6 @@
 		{:else}
 			<rect x={Math.min(e.a![0], e.b![0])} y={Math.min(e.a![1], e.b![1])} width={Math.abs(e.b![0] - e.a![0])} height={Math.abs(e.b![1] - e.a![1])} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
 		{/if}
-	{:else if e.type === 'circle'}
-		<circle cx={e.c![0]} cy={e.c![1]} r={e.r} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
 	{:else if e.type === 'ellipse'}
 		<ellipse cx={(e.a![0] + e.b![0]) / 2} cy={(e.a![1] + e.b![1]) / 2} rx={Math.abs(e.b![0] - e.a![0]) / 2} ry={Math.abs(e.b![1] - e.a![1]) / 2} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
 	{:else if e.type === 'dim'}

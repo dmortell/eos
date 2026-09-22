@@ -31,7 +31,6 @@
 
 	function bbox(e: Ent): [number, number, number, number] {
 		if (e.type === 'polyline') { const pts = e.pts ?? []; const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] }
-		if (e.type === 'circle') return [e.c![0] - e.r!, e.c![1] - e.r!, e.c![0] + e.r!, e.c![1] + e.r!]
 		if (e.type === 'text') return [e.a![0], e.a![1] - 10, e.a![0] + 40, e.a![1]]
 		const xs = [e.a![0], e.b![0]], ys = [e.a![1], e.b![1]]
 		return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
@@ -64,7 +63,6 @@
 		const x0 = Math.min(e!.a![0], e!.b![0]), y0 = Math.min(e!.a![1], e!.b![1]), w = Math.abs(e!.b![0] - e!.a![0])
 		onupdate?.({ ...e!, a: [x0, y0], b: [x0 + w, y0 + Math.max(1, v)] })
 	}
-	function setR(v: number) { const e = single; if (e?.type === 'circle') onupdate?.({ ...e, r: Math.max(1, v) }) }
 	function setBoxH(v: number) { const e = single; if (e?.type === 'box') onupdate?.({ ...e, h: Math.max(1, Math.round(v)) }) }
 	function setBoxZ0(v: number) { const e = single; if (e?.type === 'box') onupdate?.({ ...e, z0: Math.max(0, Math.round(v)) }) }
 	function setText(v: string) { const e = single; if (e?.type === 'text') onupdate?.({ ...e, text: v }) }
@@ -80,8 +78,8 @@
 	const strVal = (e: Event) => (e.currentTarget as HTMLInputElement).value
 
 	// ── style (color / fill / weight / font / align) — applies to the whole selection ──
-	const STROKE_TYPES = new Set(['line', 'polyline', 'dim', 'rect', 'ellipse', 'circle', 'box'])
-	const FILL_TYPES = new Set(['rect', 'ellipse', 'circle', 'box', 'polyline'])
+	const STROKE_TYPES = new Set(['line', 'polyline', 'dim', 'rect', 'ellipse', 'box'])
+	const FILL_TYPES = new Set(['rect', 'ellipse', 'box', 'polyline'])
 	let anyText = $derived(ents.some((e) => e.type === 'text'))
 	let anyStroke = $derived(ents.some((e) => STROKE_TYPES.has(e.type)))
 	let anyFillable = $derived(ents.some((e) => FILL_TYPES.has(e.type)))
@@ -267,8 +265,6 @@
 				{@render numcell('W', r1(Math.abs(single.b![0] - single.a![0])), setW)}
 				{@render numcell('D', r1(Math.abs(single.b![1] - single.a![1])), setH)}
 				{@render numcell('H', Math.round(single.h ?? 45), setBoxH)}
-			{:else if single?.type === 'circle'}
-				{@render numcell('R', r1(single.r!), setR)}
 			{:else if boxKind(single)}
 				{@render numcell('W', r1(Math.abs(single!.b![0] - single!.a![0])), setW)}
 				{@render numcell('H', r1(Math.abs(single!.b![1] - single!.a![1])), setH)}
