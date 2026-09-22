@@ -272,7 +272,7 @@
 		else if (active && DRAW.has(tool) && tool !== 'Guide') hoverPt = drawPoint(e.clientX, e.clientY, undefined, e.shiftKey)   // snapped hover point before the first click (crosshair + snap marker)
 		else hoverPt = null
 		// hover feedback for the Select tool: 'move' when over a shape body (a grip shows its own cursor)
-		if (active && tool === 'Select' && !drag && !mDrag && !draft.length && !marquee) {
+		if (active && tool === 'Select' && !drag && !reg.active && !draft.length && !marquee) {
 			const lp = toLocalXY(e.clientX, e.clientY)
 			hoverBody = !!lp && (hit(lp).length > 0 || !!hitModel(lp) || !!hitGuide(lp))   // a guide is draggable → show 'move'
 		} else hoverBody = false
@@ -572,19 +572,19 @@
 	// A body move drag. Absolute from the gesture's start (no drift). A prism moves its position; a
 	// wall/conduit translates ALL its nodes (keeping the graph rigid). In elevation the horizontal drag
 	// maps to the view's on-axis coord (× ELEV_BASIS sign) and the vertical drag changes z (clamped ≥0).
-	let mDrag: { id: string; start: Pt; o0?: { x: number; y: number; z: number }; n0?: GN[]; moved: boolean } | null = null
-	function onModelDragMove(e: PointerEvent) {
-		if (!mDrag || !mdl) return
+	// beginPointerDrag-managed; state = the object id + press point + the object's starting position/nodes.
+	type MDrag = { id: string; start: Pt; o0?: { x: number; y: number; z: number }; n0?: GN[] }
+	function onModelDragMove(e: PointerEvent, s: MDrag) {
+		if (!mdl) return
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
-		const o = mdl.objects.find(x => x.id === mDrag!.id); if (!o) return
-		mDrag.moved = true
-		const dx = p[0] - mDrag.start[0], dy = p[1] - mDrag.start[1]
+		const o = mdl.objects.find(x => x.id === s.id); if (!o) return
+		const dx = p[0] - s.start[0], dy = p[1] - s.start[1]
 		const elev = isElev ? ELEV_BASIS[elevDir] : null
-		if (o.type === 'prism' && mDrag.o0) {
-			if (elev) { if (elev.axis === 0) o.x = rndSnap(mDrag.o0.x + elev.sign * dx); else o.y = rndSnap(mDrag.o0.y + elev.sign * dx); o.z = Math.max(0, rndSnap(mDrag.o0.z - dy)) }
-			else { o.x = rndSnap(mDrag.o0.x + dx); o.y = rndSnap(mDrag.o0.y + dy) }
-		} else if ((o.type === 'wall' || o.type === 'conduit') && mDrag.n0) {
-			for (const g of mDrag.n0) {
+		if (o.type === 'prism' && s.o0) {
+			if (elev) { if (elev.axis === 0) o.x = rndSnap(s.o0.x + elev.sign * dx); else o.y = rndSnap(s.o0.y + elev.sign * dx); o.z = Math.max(0, rndSnap(s.o0.z - dy)) }
+			else { o.x = rndSnap(s.o0.x + dx); o.y = rndSnap(s.o0.y + dy) }
+		} else if ((o.type === 'wall' || o.type === 'conduit') && s.n0) {
+			for (const g of s.n0) {
 				const n = (o.nodes as GN[]).find((x) => x.id === g.id); if (!n) continue
 				if (elev) { if (elev.axis === 0) n.x = rndSnap(g.x + elev.sign * dx); else n.y = rndSnap(g.y + elev.sign * dx); n.z = Math.max(0, rndSnap(g.z - dy)) }
 				else { n.x = rndSnap(g.x + dx); n.y = rndSnap(g.y + dy) }
@@ -592,11 +592,9 @@
 		}
 		on.modeledit?.()   // fold this move into the open undo step
 	}
-	function onModelDragUp() {
-		if (mDrag?.moved) suppressClick = true
-		mDrag = null; on.endedit?.()   // close the model-move gesture's undo step
-		window.removeEventListener('pointermove', onModelDragMove)
-		window.removeEventListener('pointerup', onModelDragUp)
+	function onModelDragUp(_e: PointerEvent, _s: MDrag, moved: boolean) {
+		if (moved) suppressClick = true
+		on.endedit?.()   // close the model-move gesture's undo step
 	}
 
 	// ── model grips (P2b/P2e) — corner handles that resize a prism, or node handles that reshape a
@@ -629,24 +627,22 @@
 		// drag closure must mutate the proxy (what the renderer reads) — mutating the raw literal is a no-op.
 		return (o.nodes as GN[])[(o.nodes as GN[]).length - 1]
 	}
-	let mGrip: { grip: MGrip; origin: Pt; moved: boolean; branch?: () => void } | null = null
-	function onModelGripMove(e: PointerEvent) {
-		if (!mGrip) return
+	// beginPointerDrag-managed; state = the grip, the drag origin (for node disconnect) and the Ctrl-branch undo.
+	type MGripDrag = { grip: MGrip; origin: Pt; branch?: () => void }
+	function onModelGripMove(e: PointerEvent, s: MGripDrag) {
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
-		mGrip.moved = true
-		mGrip.grip.apply(p, mGrip.origin)
+		s.grip.apply(p, s.origin)
 		on.modeledit?.()   // fold this reshape into the open undo step
 	}
-	function onModelGripUp() {
-		if (mGrip?.moved) { suppressClick = true; on.modeledit?.() }
-		else if (mGrip?.branch) mGrip.branch()   // an Ctrl-branch press with no drag: drop the stray zero-length segment
-		else if (mGrip?.grip.node && mGrip.grip.obj && (mGrip.grip.obj.type === 'wall' || mGrip.grip.obj.type === 'conduit')) {
-			nodeSel = { obj: mGrip.grip.obj.id!, node: mGrip.grip.node.id }   // no-move click on a node grip → select the node
+	function onModelGripUp(_e: PointerEvent, s: MGripDrag, moved: boolean) {
+		if (moved) { suppressClick = true; on.modeledit?.() }
+		else if (s.branch) s.branch()   // an Ctrl-branch press with no drag: drop the stray zero-length segment
+		else if (s.grip.node && s.grip.obj && (s.grip.obj.type === 'wall' || s.grip.obj.type === 'conduit')) {
+			nodeSel = { obj: s.grip.obj.id!, node: s.grip.node.id }   // no-move click on a node grip → select the node
 		}
-		mGrip = null; snapMark = null; on.endedit?.()   // close the gesture's undo step
-		window.removeEventListener('pointermove', onModelGripMove)
-		window.removeEventListener('pointerup', onModelGripUp)
+		snapMark = null; on.endedit?.()   // close the gesture's undo step
 	}
+	const onModelGripCancel = () => { snapMark = null; on.endedit?.() }
 
 	// ── section marker MOVE — drag a marker's box border to reposition the cut; the linked elevation
 	// re-clips live (Model3d reads the clip reactively). Absolute from the gesture start (no drift).
@@ -911,7 +907,7 @@
 	// not yet moved onto it (below) still tear down by hand.
 	const reg = new DragRegistry()
 	function cancelPointerDrag() {
-		reg.cancelAll()   // every beginPointerDrag-managed drag (orbit, section move/resize, guide, scale-line so far)
+		reg.cancelAll()   // every beginPointerDrag-managed drag (all but the entity drag / marquee / press-draw so far)
 		if (drag) {
 			if (dragged) for (const b of drag.bases) on.update?.(b)   // revert any partial move/resize
 			drag = null; on.endedit?.()
@@ -927,16 +923,6 @@
 			draft = []; cur = null; snapMark = null
 			window.removeEventListener('pointermove', onDrawMove)
 			window.removeEventListener('pointerup', onDrawUp)
-		}
-		if (mDrag) {   // abort an in-progress model-object move (2nd finger → pan/zoom)
-			mDrag = null; on.endedit?.()
-			window.removeEventListener('pointermove', onModelDragMove)
-			window.removeEventListener('pointerup', onModelDragUp)
-		}
-		if (mGrip) {   // abort an in-progress model-object resize
-			mGrip = null; on.endedit?.()
-			window.removeEventListener('pointermove', onModelGripMove)
-			window.removeEventListener('pointerup', onModelGripUp)
 		}
 	}
 	$effect(() => {
@@ -992,9 +978,7 @@
 				grip = { x: d[0], y: d[1], node: nn, obj, apply: (p: Pt, o?: Pt) => graphNodeApply(nn, p, o) }
 				branch = () => { obj.nodes = (obj.nodes as GN[]).filter((x) => x.id !== nn.id); obj.segments = (obj.segments as { id: string; a: string; b: string }[]).filter((s) => s.b !== nn.id && s.a !== nn.id) }
 			}
-			mGrip = { grip, origin, moved: false, branch }
-			try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
-			e.preventDefault(); window.addEventListener('pointermove', onModelGripMove); window.addEventListener('pointerup', onModelGripUp)
+			beginPointerDrag<MGripDrag>(e, { grip, origin, branch }, { onMove: onModelGripMove, onUp: onModelGripUp, onCancel: onModelGripCancel }, reg)
 			return
 		}
 		// A corner grip of the SELECTED section resizes it (wins over everything, like a model grip).
@@ -1025,13 +1009,11 @@
 			const mo = mdl?.objects.find(o => o.id === pk.id)
 			if (mo) {
 				setModelSel([mo.id!]); on.select?.([])
-				mDrag = { id: mo.id!, start: p, moved: false,
+				on.beginedit?.()   // one undo step for the whole model-move gesture
+				beginPointerDrag<MDrag>(e, { id: mo.id!, start: p,
 					o0: mo.type === 'prism' ? { x: mo.x, y: mo.y, z: mo.z } : undefined,
 					n0: (mo.type === 'wall' || mo.type === 'conduit') ? (mo.nodes as GN[]).map((n) => ({ id: n.id, x: n.x, y: n.y, z: n.z })) : undefined,
-				}
-				on.beginedit?.()   // one undo step for the whole model-move gesture
-				try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
-				e.preventDefault(); window.addEventListener('pointermove', onModelDragMove); window.addEventListener('pointerup', onModelDragUp)
+				}, { onMove: onModelDragMove, onUp: onModelDragUp, onCancel: closeEdit }, reg)
 			}
 			return
 		}
