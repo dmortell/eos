@@ -1915,8 +1915,24 @@
 	{:else if e.type === 'ellipse'}
 		<ellipse cx={(e.a![0] + e.b![0]) / 2} cy={(e.a![1] + e.b![1]) / 2} rx={Math.abs(e.b![0] - e.a![0]) / 2} ry={Math.abs(e.b![1] - e.a![1]) / 2} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
 	{:else if e.type === 'dim'}
-		<line x1={e.a![0]} y1={e.a![1]} x2={e.b![0]} y2={e.b![1]} stroke={seld ? SEL : (e.color ?? '#0e766e')} stroke-width={w} vector-effect="non-scaling-stroke" />
-		<text x={(e.a![0] + e.b![0]) / 2} y={(e.a![1] + e.b![1]) / 2 - 3} font-size="9" fill={seld ? SEL : (e.color ?? '#0e766e')} text-anchor="middle">{Math.round(dist(e.a!, e.b!))}</text>
+		<!-- a real dimension: dim line with arrowheads, perpendicular extension ticks, and the measured
+		     length (mm) set above the line, aligned to it, at a constant on-screen size. -->
+		{@const col = seld ? SEL : (e.color ?? '#0e766e')}
+		{@const A = e.a!}{@const B = e.b!}
+		{@const len = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1}
+		{@const ux = (B[0] - A[0]) / len}{@const uy = (B[1] - A[1]) / len}
+		{@const px = -uy}{@const py = ux}
+		{@const tk = gripSize * 1.3}
+		{@const mx = (A[0] + B[0]) / 2 + px * gripSize * 2}
+		{@const my = (A[1] + B[1]) / 2 + py * gripSize * 2}
+		{@const ang = Math.atan2(uy, ux) * 180 / Math.PI}
+		{@const rang = ang > 90 || ang < -90 ? ang + 180 : ang}
+		<line x1={A[0]} y1={A[1]} x2={B[0]} y2={B[1]} stroke={col} stroke-width={w} vector-effect="non-scaling-stroke" />
+		<polygon points={arrowPts(B, A)} fill={col} />
+		<polygon points={arrowPts(A, B)} fill={col} />
+		<line x1={A[0] - px * tk} y1={A[1] - py * tk} x2={A[0] + px * tk} y2={A[1] + py * tk} stroke={col} stroke-width={w} vector-effect="non-scaling-stroke" />
+		<line x1={B[0] - px * tk} y1={B[1] - py * tk} x2={B[0] + px * tk} y2={B[1] + py * tk} stroke={col} stroke-width={w} vector-effect="non-scaling-stroke" />
+		<text class="anno" x={mx} y={my} font-size={gripSize * 2.2} fill={col} text-anchor="middle" transform="rotate({rang} {mx} {my})">{Math.round(len)}</text>
 	{:else if e.type === 'text'}
 		{@const fs = (e.fontPt ?? STYLE_DEFAULTS.fontPt) * PT}
 		{@const anchor = e.align === 'center' ? 'middle' : e.align === 'right' ? 'end' : 'start'}

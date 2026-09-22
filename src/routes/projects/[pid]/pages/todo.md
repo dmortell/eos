@@ -654,7 +654,11 @@ Symbols are identical to annotes.
   section) "Revision cloud" checkbox. Verified in-browser: outward bumps on all edges; clean console.
   (First cut used sweep-flag 0 → bumps drew inward; Dave caught it, fixed to match Sheets.)
 - [ ] callout (leader + text box) 
-- [ ] dimension 
+- [x] dimension — real measured DIMENSION (2026-09-22): the Dimension tool now renders a proper dim —
+  dim line + outward ARROWHEADS (shared `arrowPts`) + perpendicular EXTENSION TICKS at each end + the
+  measured length (mm) set above the line, aligned to it (flips when upside-down), at a constant on-screen
+  size (`gripSize`-based, not the old tiny 9-unit text). Verified in-browser. [ ] Later: aligned vs H/V
+  dims, a settable text offset, unit formatting.
 - [ ] image (raster) 
 - [ ] **grid** (floor-tile, origin-aligned)
 - [ ] **legend** (auto-lists layers w/ swatches + counts) 
