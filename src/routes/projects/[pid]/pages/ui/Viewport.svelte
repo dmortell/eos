@@ -1043,8 +1043,10 @@
 	// shape but leaves apply on the RAW pointer (angle from centre + 90°, matching the prism/model handle).
 	function rotGripLocal(e: Ent): Grip {
 		const [x0, y0, x1, y1] = bbox(e)
-		const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, off = (y1 - y0) / 2 + Math.max(x1 - x0, y1 - y0) * 0.35 + gripSize * 2
-		return { x: cx, y: y0 - off, rotate: true, apply: (p: Pt) => ({ ...e, rot: Math.round((Math.atan2(p[1] - cy, p[0] - cx) * 180 / Math.PI + 90 + 360) % 360) }) }
+		const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2
+		// A CONSTANT screen gap above the top edge (gripSize is already screen-constant) — the handle stays
+		// attached to the top rather than drifting further out as the object grows.
+		return { x: cx, y: y0 - gripSize * 6, rotate: true, apply: (p: Pt) => ({ ...e, rot: Math.round((Math.atan2(p[1] - cy, p[0] - cx) * 180 / Math.PI + 90 + 360) % 360) }) }
 	}
 	// A flat object in elevation is a ground line; its grips are the two ground-line ends (drag = move
 	// the min/max x-edge, keeping it flat), NOT the plan footprint corners.
