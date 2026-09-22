@@ -298,7 +298,7 @@
 	// only the first mutation snapshots; the rest just update. Viewport signals begin/end.
 	let gestureActive = false, gesturePushed = false
 	let gestureEndTimer: ReturnType<typeof setTimeout> | null = null
-	function beginGesture() { if (gestureEndTimer) { clearTimeout(gestureEndTimer); gestureEndTimer = null } gestureActive = true; const id = panes[focused]?.activeId; if (id) ensureHist(id) }
+	function beginGesture() { if (gestureEndTimer) { clearTimeout(gestureEndTimer); gestureEndTimer = null } gestureActive = true; ensureHist() }
 	function endGesture(debounceMs = 0) {
 		const finish = () => { gestureActive = false; gesturePushed = false; gestureEndTimer = null }
 		if (gestureEndTimer) { clearTimeout(gestureEndTimer); gestureEndTimer = null }
@@ -383,40 +383,44 @@
 	// another tab isn't on this doc's timeline (a known mock limitation; a global model history is the
 	// real fix). Entity-only edits capture the unchanged model, keeping ents + model consistent.
 	// Entities + guides now live in the MODEL, so `model` (snapModels) captures them — no separate `snap`.
-	type HStep = { label: string; t: number; model: Model[]; frames: SheetFrame[] }
-	let docHist = $state<Record<string, { steps: HStep[]; ptr: number }>>({})
+	// ONE global workspace timeline (B4). Entities/objects/guides/sections live in the shared models and
+	// every step snapshots ALL models + ALL tabs' frames, so undo is a single linear stack (AutoCAD/Kestrel
+	// style). Previously history was per-tab yet each step snapshotted all models, so an undo on one tab
+	// silently reverted edits made on another. The `id` args below are kept only to mark that tab dirty.
+	type HStep = { label: string; t: number; model: Model[]; frames: Record<string, SheetFrame[]> }
+	let hist = $state<{ steps: HStep[]; ptr: number } | null>(null)
 	let revisions = $state<{ name: string; note: string; snap: Snap; t: number }[]>([])
 	const snapEnts = (): Snap => $state.snapshot(mdlEnts()) as Snap
-	const snapFrames = (id: string): SheetFrame[] => $state.snapshot(docFrames[id] ?? []) as SheetFrame[]
-	// Capture the baseline (pre-first-edit) state once, BEFORE the doc is first mutated.
-	function ensureHist(id: string) {
-		if (docHist[id]) return
-		docHist = { ...docHist, [id]: { steps: [{ label: 'Start', t: Date.now(), model: snapModels(), frames: snapFrames(id) }], ptr: 0 } }
+	const snapAllFrames = (): Record<string, SheetFrame[]> => $state.snapshot(docFrames) as Record<string, SheetFrame[]>
+	// Capture the baseline (pre-first-edit) state once, BEFORE anything is mutated.
+	function ensureHist(_id?: string) {
+		if (hist) return
+		hist = { steps: [{ label: 'Start', t: Date.now(), model: snapModels(), frames: snapAllFrames() }], ptr: 0 }
 	}
 	function pushStep(id: string, label: string) {
-		const t = tabs.find(x => x.id === id); if (t && !t.dirty) t.dirty = true   // any edit marks the tab dirty
-		ensureHist(id); const h = docHist[id]
+		const t = tabs.find(x => x.id === id); if (t && !t.dirty) t.dirty = true   // any edit marks its tab dirty
+		ensureHist(); const h = hist!
 		const steps = h.steps.slice(0, h.ptr + 1)   // drop the redo tail (a new edit forks the future)
-		steps.push({ label, t: Date.now(), model: snapModels(), frames: snapFrames(id) })
+		steps.push({ label, t: Date.now(), model: snapModels(), frames: snapAllFrames() })
 		while (steps.length > 100) steps.shift()
-		docHist = { ...docHist, [id]: { steps, ptr: steps.length - 1 } }
+		hist = { steps, ptr: steps.length - 1 }
 	}
-	function updateStep(id: string) {   // fold a gesture's latest state into its already-open step
-		const h = docHist[id]; if (!h) return
-		const steps = h.steps.slice(); steps[h.ptr] = { ...steps[h.ptr], model: snapModels(), frames: snapFrames(id), t: Date.now() }
-		docHist = { ...docHist, [id]: { ...h, steps } }
+	function updateStep(_id?: string) {   // fold a gesture's latest state into its already-open step
+		const h = hist; if (!h) return
+		const steps = h.steps.slice(); steps[h.ptr] = { ...steps[h.ptr], model: snapModels(), frames: snapAllFrames(), t: Date.now() }
+		hist = { ...h, steps }
 	}
-	function applyPtr(id: string) {
-		const h = docHist[id]; if (!h) return
-		setModels(h.steps[h.ptr].model)   // restore the model snapshot (entities + guides + 3D objects) for this step
-		docFrames = { ...docFrames, [id]: $state.snapshot(h.steps[h.ptr].frames) as SheetFrame[] }   // restore viewport frames
+	function applyPtr() {
+		const h = hist; if (!h) return
+		setModels(h.steps[h.ptr].model)   // restore all models (entities + guides + sections + 3D objects)
+		docFrames = $state.snapshot(h.steps[h.ptr].frames) as Record<string, SheetFrame[]>   // restore every tab's frames
 	}
-	function undo() { const id = panes[focused]?.activeId, h = id ? docHist[id] : undefined; if (!id || !h || h.ptr <= 0) return; docHist = { ...docHist, [id]: { ...h, ptr: h.ptr - 1 } }; applyPtr(id) }
-	function redo() { const id = panes[focused]?.activeId, h = id ? docHist[id] : undefined; if (!id || !h || h.ptr >= h.steps.length - 1) return; docHist = { ...docHist, [id]: { ...h, ptr: h.ptr + 1 } }; applyPtr(id) }
-	function jumpHistory(i: number) { const id = panes[focused]?.activeId, h = id ? docHist[id] : undefined; if (!id || !h || i < 0 || i >= h.steps.length || i === h.ptr) return; docHist = { ...docHist, [id]: { ...h, ptr: i } }; applyPtr(id) }
-	// Change log for the focused doc, newest first, tagged past / current / future (undone).
+	function undo() { const h = hist; if (!h || h.ptr <= 0) return; hist = { ...h, ptr: h.ptr - 1 }; applyPtr() }
+	function redo() { const h = hist; if (!h || h.ptr >= h.steps.length - 1) return; hist = { ...h, ptr: h.ptr + 1 }; applyPtr() }
+	function jumpHistory(i: number) { const h = hist; if (!h || i < 0 || i >= h.steps.length || i === h.ptr) return; hist = { ...h, ptr: i }; applyPtr() }
+	// Workspace change log, newest first, tagged past / current / future (undone).
 	let changeLog = $derived.by(() => {
-		const id = panes[focused]?.activeId, h = id ? docHist[id] : undefined
+		const h = hist
 		if (!h) return [] as { label: string; t: number; i: number; kind: 'past' | 'current' | 'future' }[]
 		return h.steps.map((s, i) => ({ label: s.label, t: s.t, i, kind: (i === h.ptr ? 'current' : i > h.ptr ? 'future' : 'past') as 'past' | 'current' | 'future' })).reverse()
 	})
@@ -470,8 +474,8 @@
 		delete ds[id]
 		for (const k of Object.keys(dv)) if (k === id || k.endsWith(':' + id)) delete dv[k]   // view is now pane-keyed
 		docSel = ds; docView = dv
-		// free the other per-doc state too (was leaking; a reused preview id inherited it)
-		if (docHist[id]) { const dh = { ...docHist }; delete dh[id]; docHist = dh }
+		// free the other per-doc state too (was leaking; a reused preview id inherited it). History is now a
+		// single global timeline (B4) — nothing per-tab to drop here.
 		if (docProj[id]) { const dp = { ...docProj }; delete dp[id]; docProj = dp }
 		if (docPaper[id]) { const pp = { ...docPaper }; delete pp[id]; docPaper = pp }
 		// (sections are standalone markers keyed by 'sec' ids now, not tabs — nothing to clean here)
