@@ -81,6 +81,14 @@ Suggested order in review.md §7.
   zoom: the scale label/dropdown update live (e.g. 1:100 → 1:84 → 1:70 zooming in) and the cursor's
   model point stays fixed. `on.scale` callback + the dropdown tolerates computed 1:N values.
 
+### Reported 2026-09-22 (Dave)
+Open:
+- [ ] **Model tabs = infinite canvas, no white page** (like AutoCAD model space). Only PAPER tabs (a sheet
+  with a titleblock) should paint the white page background; model-layout tabs (Floorplan / Elevation /
+  3D Model) should show an infinite/borderless canvas with no white "paper" rectangle. (Related: the
+  fullscreen white-paper fix at the bottom removed the paper for the `.vp-fill` Viewport — this extends
+  that so every model tab, not just fullscreen, drops the page background.)
+
 ### Reported 2026-09-21 (Dave) — batch 6
 Done:
 - [x] **Guides get undo/redo + moved INTO THE MODEL** (refactored 2026-09-21) — guides now live in
