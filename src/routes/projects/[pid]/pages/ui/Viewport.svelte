@@ -1106,7 +1106,8 @@
 	// already exists on Ent and render/hit/grips honour it — this just exposes it as a draggable handle.
 	// Excluded: flat-elev floor projections (a ground line) and an image mid-CROP (its grips are the window).
 	const ROTATABLE = new Set(['rect', 'ellipse', 'image', 'line'])
-	const canRotate = (e: Ent) => ROTATABLE.has(e.type) && !isFlatElev(e) && !(e.type === 'image' && imgEdit.mode === 'crop' && imgEdit.id === e.id)
+	// `box` rotates only in PLAN (its footprint) — in elevation it uses the boxElev face grips instead.
+	const canRotate = (e: Ent) => (ROTATABLE.has(e.type) || (e.type === 'box' && isPlan)) && !isFlatElev(e) && !(e.type === 'image' && imgEdit.mode === 'crop' && imgEdit.id === e.id)
 	// The rotate handle in the entity's LOCAL (un-rotated) frame; gripsFor then rotates its POSITION with the
 	// shape but leaves apply on the RAW pointer (angle from centre + 90°, matching the prism/model handle).
 	function rotGripLocal(e: Ent): Grip {

@@ -243,6 +243,9 @@ New todos (design / bigger):
   two-sided Lambert shade (`faceShade`: world normal · a fixed up-front light, `abs` so it's winding-
   independent, ambient floor) → tops read lightest, sides darker, via `style:fill` (beats the old CSS
   `fill:#fff`). Verified: the Rack A 3D model shows a lit top + shaded sides (solid read); clean console.
+  **[x] tinted by layer colour (2026-09-22)** — `faceShade` now mixes a light tint (k=0.2) of the object's
+  layer colour (`hexRgb`) into the shade, so walls read tan / furniture green / trunks teal in iso while
+  keeping the top-light/side-dark modulation. Verified in-browser on the floor iso.
   [ ] Still: entity flats (lines/rects) show no depth ordering vs the model.
 - [x] **Tools floating window: merge related tools into pop-out groups** (2026-09-22) — the left tool
   strip now groups tools that share a mode into ONE button with a hover FLY-OUT (15 buttons → 11):
@@ -899,7 +902,8 @@ Sheets' basic version** — see §10.
   Pairs with the rotated-resize-handles fix (§0). **Shift = snap to 15°** (2026-09-22) — the rotate apply
   reads live `shiftDown`, so pressing/releasing Shift re-snaps in real time via `reconstrain` (no mouse
   move needed), like ortho/square. Verified: a free rotate drag with Shift landed on exactly 75°.
-  [ ] Follow-up: also add to `box` (footprint, plan).
+  [x] **Added to `box`** (2026-09-22) — `canRotate` now includes `box` **in plan** (its footprint; in
+  elevation box keeps its boxElev face grips). Verified: a plan box shows the rotate handle.
 
 ## 6. Annotations  (P2)
 - [ ] ◧ **decide / design** — **annotation = object model.** Dave's model: an annotation

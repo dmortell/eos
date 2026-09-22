@@ -42,15 +42,19 @@
 	// Flat (two-sided Lambert) shade for a face, from its WORLD normal · a fixed up-front light. Top faces
 	// read lightest, sides darker — so the solid iso has depth instead of a flat white silhouette. `abs`
 	// keeps it independent of face winding (faces3d isn't guaranteed outward), with an ambient floor.
-	function faceShade(pts: { x: number; y: number; z: number }[]): string {
+	const hexRgb = (h: string): [number, number, number] | null => { const m = /^#?([0-9a-f]{6})$/i.exec(h || ''); if (!m) return null; const n = parseInt(m[1], 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255] }
+	function faceShade(pts: { x: number; y: number; z: number }[], col: string): string {
 		const a = pts[0], b = pts[1], c = pts[2]
 		let nx = (b.y - a.y) * (c.z - a.z) - (b.z - a.z) * (c.y - a.y)
 		let ny = (b.z - a.z) * (c.x - a.x) - (b.x - a.x) * (c.z - a.z)
 		let nz = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
 		const nl = Math.hypot(nx, ny, nz) || 1; nx /= nl; ny /= nl; nz /= nl
 		const t = Math.abs(nx * 0.32 + ny * -0.32 + nz * 0.89)   // light from up / front — 0..1
-		const L = Math.round(255 * (0.66 + 0.32 * t))            // 0.66 (side) .. 0.98 (top)
-		return `rgb(${L},${L},${L})`
+		const sf = 0.72 + 0.28 * t                               // brightness: side 0.72 .. top 1.0
+		const rgb = hexRgb(col)
+		if (!rgb) { const L = Math.round(255 * (0.66 + 0.32 * t)); return `rgb(${L},${L},${L})` }
+		const k = 0.2, mix = (v: number) => Math.round((v * k + 255 * (1 - k)) * sf)   // a light tint of the layer colour, then shaded
+		return `rgb(${mix(rgb[0])},${mix(rgb[1])},${mix(rgb[2])})`
 	}
 	const isoFaces = $derived.by(() => {
 		if (dir !== 'iso') return []
@@ -62,7 +66,7 @@
 				if (f.pts.length < 3) continue
 				let d = 0
 				for (const p of f.pts) d += isoDepthR(p, yaw, pitch, cx, cy)
-				out.push({ pts: f.pts.map((p) => isoR(p, yaw, pitch, cx, cy)), depth: d / f.pts.length, col, lw, shade: faceShade(f.pts) })
+				out.push({ pts: f.pts.map((p) => isoR(p, yaw, pitch, cx, cy)), depth: d / f.pts.length, col, lw, shade: faceShade(f.pts, col) })
 			}
 		}
 		out.sort((a, b) => b.depth - a.depth)   // farthest first; nearer faces paint on top
