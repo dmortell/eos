@@ -11,11 +11,10 @@ eos-f8 reviewer session). Delete this file once the queue below is drained.
 > `36270d8` (dead wrappers gone, single-call-site wrappers inlined; the 2+-call-site aliases stay on purpose).
 > Viewport is 1365 lines (from 2124 at review time / 1709 at the step-5 handoff); the plan's ≤600 target needs
 > R6 (the editor class) — the remaining bulk is onDown/onClick/keys + the model store mutations, not wrappers.
-> NEXT (in order): the `'floorplan'` → `'plan'` rename (Viewport `kind` prop + `ViewCtx.dir` + `+page`
-> projKind/frameKind + Model3d `dir` mapping; one commit, gate = every view still renders/edits); then the
-> Dave-gated behaviour changes — **B24** (`place.moveEnt`: `ctx.isElev && isFlatElev(ctx, en)`; eos-f8 gates a
-> FRONT native-rect vertical drag), **K5** (wire `snap.objSnaps` — eos-18 is writing the pure function + tests —
-> into `findSnap` via an `objs` option so model corners/nodes are OSNAP targets), **B25** (Shift-press toggle
+> The `'floorplan'` → `'plan'` rename is DONE (`eaaf50b`, gated) — R1's mop-up list is closed; K5's pure
+> `snap.objSnaps` is landed but unwired (`fa982e7`, `8324721`; note: inherits B21 for odd-edge prisms, so
+> wire K5 after B21). NEXT are the Dave-gated behaviour changes — **B24** (`place.moveEnt`: `ctx.isElev && isFlatElev(ctx, en)`; eos-f8 gates a
+> FRONT native-rect vertical drag), **K5** (wire `snap.objSnaps` into `findSnap` via an `objs` option so model corners/nodes are OSNAP targets), **B25** (Shift-press toggle
 > should key off the pressed id on pointerup, not a hit-test at release). Verify in-browser: the :5173 dev
 > server serves the WORKING TREE, so keep Viewport.svelte clean while eos-f8 gates; activate a viewport by
 > double-clicking EMPTY space. Test filter: `pnpm vitest run --project=server pages/`.
