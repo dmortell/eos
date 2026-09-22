@@ -7,7 +7,7 @@
 	//    resize (opposite corner fixed, like the rect tool). Double-click enters it.
 	//  · Model space (activated): interact with the drawing inside; double-click on the
 	//    paper outside the frame (or Esc / Exit) returns to paper space.
-	import Viewport, { type Env, type VpOn, type SectionMarker } from '../ui/Viewport.svelte'
+	import Viewport, { type Env, type VpOn } from '../ui/Viewport.svelte'
 	import type { Ent, View } from '../ui/geometry'
 	import Handle from './Handle.svelte'
 	import { HANDLE_PX, PAPER_W, PAPER_H } from '../constants'
@@ -17,11 +17,11 @@
 	// Paper size in px (default A3 landscape). Driven by the status-bar paper-size / orientation.
 	type VKind = 'plan' | 'iso' | ElevDir
 	let { title = 'Sheet', drawingNo = '001', scale = '1:100', focused = true, tool = 'Select', env = {}, pw = PAPER_W, ph = PAPER_H, sizeLabel = 'A3', rev = '', revDate = '',
-		entities = [], sel = [], sectionsForModel = undefined, selSection = null, entsForModel = undefined, tabModelId = undefined,
+		entities = [], sel = [], selSection = null, entsForModel = undefined, tabModelId = undefined,
 		frames = [], selFrame = null, frameKind = (p: string) => p as VKind, isFrameActive = () => false, frameView = () => ({ zoom: 1, x: 0, y: 0 }), frameEnv = {},
 		frameOrbit = () => ({ yaw: 0, pitch: 0 }), makeFrameOn = () => ({}), onseed, onaddframe, onframegeom, onframecommit, onselectframe, ondeactivate }:
 		{ title?: string; drawingNo?: string; scale?: string; focused?: boolean; tool?: string; env?: Env; pw?: number; ph?: number; sizeLabel?: string; rev?: string; revDate?: string;
-			entities?: Ent[]; sel?: string[]; sectionsForModel?: (mid?: number) => SectionMarker[]; selSection?: string | null; entsForModel?: (mid?: number) => Ent[]; tabModelId?: number;
+			entities?: Ent[]; sel?: string[]; selSection?: string | null; entsForModel?: (mid?: number) => Ent[]; tabModelId?: number;
 			frames?: SheetFrame[]; selFrame?: string | null; frameKind?: (p: string) => VKind; isFrameActive?: (id: string) => boolean; frameView?: (id: string, proj: string) => View; frameEnv?: Env;
 			frameOrbit?: (id: string, proj: string) => { yaw: number; pitch: number }; makeFrameOn?: (f: SheetFrame) => VpOn; onseed?: (x: number, y: number, w: number, h: number) => void; onaddframe?: (x: number, y: number, w: number, h: number) => void;
 			onframegeom?: (id: string, g: { x: number; y: number; w: number; h: number }) => void; onframecommit?: () => void; onselectframe?: (id: string | null) => void; ondeactivate?: () => void } = $props()
@@ -147,7 +147,7 @@
 					style="left:{f.x}px; top:{f.y}px; width:{f.w}px; height:{f.h}px">
 					<Viewport kind={frameKind(f.proj)} label={f.label} scale={f.scale} active={fa} {focused} {tool} env={frameEnv} on={fon} border={f.border} frameId={f.id} modelId={f.modelId ?? tabModelId}
 						entities={entsForModel ? entsForModel(f.modelId ?? tabModelId) : entities} {sel} view={frameView(f.id, f.proj)} clip={f.clip} yaw={frameOrbit(f.id, f.proj).yaw} pitch={frameOrbit(f.id, f.proj).pitch}
-						sections={frameKind(f.proj) === 'plan' && sectionsForModel ? sectionsForModel(f.modelId ?? tabModelId) : []} {selSection} boxW={f.w} boxH={f.h} />
+						{selSection} boxW={f.w} boxH={f.h} />
 					{#if !fa}
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
 						<div class="vp-band" style:pointer-events={tool === 'Viewport' ? 'none' : undefined} onpointerdown={(e) => { onselectframe?.(f.id); startDrag(e, 'move', -1, f, (g) => onframegeom?.(f.id, g), true); }} ondblclick={() => fon.activate?.()}>

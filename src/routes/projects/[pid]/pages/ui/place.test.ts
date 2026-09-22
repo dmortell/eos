@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
 	drawPlane, resolveLayer, buildEnt, PRISM_TOOL, trimTail, polylineEnt, GRAPH_TOOL, graphObj, prismObj, guideObj,
-	imageWithOrigin, imageScaled, moveEnt,
+	imageWithOrigin, imageScaled, moveEnt, sectionObj, sectionName,
 } from './place'
 import type { Ent, Pt } from './geometry'
 import type { ViewCtx } from './view'
@@ -190,5 +190,20 @@ describe('moveEnt', () => {
 		const native = ent({ a: [0, 0], b: [200, 100], plane: 'rear' })
 		expect(moveEnt(elevCtx('rear'), native, 30, 99)).toMatchObject({ a: [30, 99], b: [230, 199] })
 		expect(moveEnt(elevCtx('rear'), ent({ type: 'line', a: [0, 0], b: [10, 10], plane: 'rear' }), 30, 99)).toMatchObject({ a: [30, 99], b: [40, 109] })
+	})
+})
+
+describe('sectionObj / sectionName (B5)', () => {
+	it('a plan drag → a normalised whole-mm clip from the floor to the ceiling slab, sighted front', () => {
+		const withLevels: ViewCtx = { ...planCtx, mdl: { id: 1, name: 'm', layers: [], levels: { ceilingSlab: 2900 }, objects: [] } as unknown as ViewCtx['mdl'] }
+		expect(sectionObj(withLevels, [300.4, 200.6], [100, 400], 'sec1', 'Section A')).toEqual({ id: 'sec1', dir: 'front', name: 'Section A', clip: { x0: 100, y0: 201, z0: 0, x1: 300, y1: 400, z1: 2900 } })
+		expect(sectionObj(planCtx, [0, 0], [10, 10], 's', 'n')?.clip.z1).toBe(3200)   // no levels → default slab
+		expect(sectionObj(elevCtx('front'), [0, 0], [10, 10], 's', 'n')).toBe(null)
+	})
+	it('names the first free letter, re-using a deleted one; numbered past Z', () => {
+		const sec = (name: string) => ({ id: name, clip: { x0: 0, y0: 0, z0: 0, x1: 1, y1: 1, z1: 1 }, dir: 'front' as const, name })
+		expect(sectionName([])).toBe('Section A')
+		expect(sectionName([sec('Section A'), sec('Section C')])).toBe('Section B')
+		expect(sectionName(Array.from({ length: 26 }, (_, i) => sec(`Section ${String.fromCharCode(65 + i)}`)))).toBe('Section 27')
 	})
 })

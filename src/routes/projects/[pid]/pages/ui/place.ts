@@ -5,7 +5,7 @@
 // `sectionObj` lands). Ids come in as functions so the builders stay deterministic under test.
 import type { Pt, Ent, ElevDir } from './geometry'
 import type { ViewCtx } from './view'
-import type { Obj, Guide, Model } from '../3dview/types'
+import type { Obj, Guide, Model, Section, Clip } from '../3dview/types'
 import { ELEV_BASIS, elevUInv, dist, translate } from './geometry'
 import { centerCorners } from './annotations'
 import { polyToGraph } from '../3dview/migrate'
@@ -108,6 +108,24 @@ export function prismObj(ctx: ViewCtx, a: Pt, b: Pt, layer: string, h: number, u
 	const w = Math.max(1, Math.round(Math.abs(b[0] - a[0]))), d = Math.max(1, Math.round(Math.abs(b[1] - a[1])))
 	const opening = layer === 'openings' ? { open: 'door' as const, z: 0, h: 2100 } : {}
 	return { type: 'prism', x, y, z: 0, w, d, h, edges: 4, layer: resolveLayer(ctx.mdl, layer), id: uid(), ...opening, ...extra } as Obj
+}
+
+/** The Section tool's cut box from a plan drag a→b (B5): a whole-mm, normalised clip spanning the floor to
+ *  the model's ceiling slab (default 3200), sighted FRONT by default; re-aim it from the marker toolbar.
+ *  Plan only — null elsewhere. The caller pushes it into `mdl.sections` as one model edit. */
+export function sectionObj(ctx: ViewCtx, a: Pt, b: Pt, id: string, name: string): Section | null {
+	if (!ctx.isPlan) return null
+	const clip: Clip = { x0: Math.round(Math.min(a[0], b[0])), y0: Math.round(Math.min(a[1], b[1])), z0: 0,
+		x1: Math.round(Math.max(a[0], b[0])), y1: Math.round(Math.max(a[1], b[1])), z1: ctx.mdl?.levels?.ceilingSlab ?? 3200 }
+	return { id, clip, dir: 'front', name }
+}
+
+/** 'Section A', 'Section B', … — the first letter not used by the model's existing sections (so deleting
+ *  B and cutting again gives B back); past Z, a numbered fallback. */
+export function sectionName(existing: Section[]): string {
+	const used = new Set(existing.map((s) => s.name))
+	for (let i = 0; i < 26; i++) { const n = `Section ${String.fromCharCode(65 + i)}`; if (!used.has(n)) return n }
+	return `Section ${existing.length + 1}`
 }
 
 /** A guide dropped at `p` in this view: horizontal (constant y) or vertical (constant x), on the view's

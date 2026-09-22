@@ -15,7 +15,7 @@
 	import { type Pt, type Ent, type View, type ElevDir, GROUND, MMPU, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, ELEV_BASIS, elevU, elevUInv, dist, segDist, translate } from './geometry'
 	import { makeMapper, type Mapper } from './mapper'
 	import { beginPointerDrag, DragRegistry } from './gestures'
-	import { drawPlane, buildEnt, PRISM_TOOL, trimTail, polylineEnt, graphObj, prismObj, guideObj, imageWithOrigin, imageScaled, moveEnt as pMoveEnt } from './place'
+	import { drawPlane, buildEnt, sectionObj, sectionName, PRISM_TOOL, trimTail, polylineEnt, graphObj, prismObj, guideObj, imageWithOrigin, imageScaled, moveEnt as pMoveEnt } from './place'
 	import type { ViewCtx } from './view'
 	import { pickSectionGrip as gPickSectionGrip, modelGrips as gModelGrips, pickModelGrip as gPickModelGrip, gripsFor as gGripsFor, constrainGrip, type MGrip, type Grip, type GripOpts } from './grips'
 	import { SNAP_STEP, snapToGrid, rndTo, snapDelta as sSnapDelta, findSnap as sFindSnap, drawPoint as sDrawPoint, snapNode as sSnapNode, graphNodeApply as sGraphNodeApply, elevDepthSnap as sElevDepthSnap } from './snap'
@@ -31,9 +31,6 @@
 	import type { Obj, Clip } from '../3dview/types'
 	// Pure geometry (Pt/Ent/View + helpers) lives in ./geometry; import those types directly from there.
 	// (svelte-check can't resolve type re-exports from an instance <script>, so we don't re-export them.)
-	// A section cut shown as a marker on the PLAN: its clip box, viewing direction, and the elevation's
-	// label. Clicking the marker opens (or re-focuses) that elevation tab.
-	export type SectionMarker = { id: string; clip: Clip; dir: ElevDir; label: string }
 
 	// Drafting/interaction flags are grouped into one `env` object, and all the event callbacks into
 	// one `on` object, to keep the prop list small (a step toward a headless editor class — see
@@ -47,15 +44,14 @@
 		copy?: (ids: string[]) => void; cut?: (ids: string[]) => void; paste?: () => void;
 		group?: (ids: string[]) => void; ungroup?: (ids: string[]) => void;
 		reorder?: (ids: string[], op: 'front' | 'back' | 'forward' | 'backward') => void;
-		scale?: (s: string) => void; modeledit?: (label?: string) => void; section?: (clip: Clip) => void; orbit?: (yaw: number, pitch: number) => void;
-		sectionselect?: (id: string | null) => void; sectionmove?: (id: string, clip: Clip) => void;
-		sectionsetdir?: (id: string, dir: ElevDir) => void; sectiondelete?: (id: string) => void
+		scale?: (s: string) => void; modeledit?: (label?: string) => void; orbit?: (yaw: number, pitch: number) => void;
+		sectionselect?: (id: string | null) => void   // the selected marker is shared workspace state (one per model, across panes) — B5: create/move/re-aim/delete are MODEL edits made here
 		sectiondropdir?: (id: string, dir: ElevDir) => void   // drop this direction's elevation as a viewport frame on the current sheet
 	}
 	let { label = 'Viewport', scale = '1:1', kind = 'plan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {}, frameId = undefined, modelId = undefined,
-		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, sections = [], selSection = null }:
+		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, selSection = null }:
 		{ label?: string; scale?: string; kind?: 'plan' | 'iso' | ElevDir; active?: boolean; tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env; on?: VpOn; frameId?: string; modelId?: number;
-			focused?: boolean; entities?: Ent[]; sel?: string[]; view?: View; clip?: Clip | null; yaw?: number; pitch?: number; sections?: SectionMarker[]; selSection?: string | null } = $props()
+			focused?: boolean; entities?: Ent[]; sel?: string[]; view?: View; clip?: Clip | null; yaw?: number; pitch?: number; selSection?: string | null } = $props()
 	// Callbacks are called directly as on.x?.(…) — no aliases (a $derived rename adds nothing for a
 	// function that's only invoked). env flags stay derived because they're read as values.
 	const acad = $derived(env.acad ?? true)
@@ -197,9 +193,10 @@
 		if (ent) { on.add?.(ent); return }
 		const ps = PRISM_TOOL[tool]   // Furniture / Opening → a MODEL prism footprint (plan only)
 		if (ps && isPlan) { addModelObj(prismObj(ctx, a, b, ps.layer, ps.h, () => mUid(ps.tag))); return }
-		if (tool === 'Section' && isPlan && mdl) {   // §4 — clip box on the plan → spawn a front elevation (B5: stays here until sectionObj lands)
-			on.section?.({ x0: Math.round(Math.min(a[0], b[0])), y0: Math.round(Math.min(a[1], b[1])), z0: 0,
-				x1: Math.round(Math.max(a[0], b[0])), y1: Math.round(Math.max(a[1], b[1])), z1: mdl.levels?.ceilingSlab ?? 3200 })
+		if (tool === 'Section' && isPlan && mdl) {   // §4 / B5 — clip box on the plan → a section marker in the MODEL (one undo step), selected
+			const sec = sectionObj(ctx, a, b, mUid('sec'), sectionName(mdl.sections ?? [])); if (!sec) return
+			on.beginedit?.(); (mdl.sections ??= []).push(sec); on.modeledit?.('Add section'); on.endedit?.()
+			on.sectionselect?.(sec.id)   // grips + toolbar; drop its elevations via the arrows
 		}
 	}
 	// The Line tool draws a POLYLINE in AutoCAD mode: keep clicking to add segments, Enter /
@@ -356,7 +353,7 @@
 		if ((e.key === 'Delete' || e.key === 'Backspace') && sel.length && !draft.length) { e.preventDefault(); on.delete?.(sel); return }
 		if ((e.key === 'Delete' || e.key === 'Backspace') && nodeSelValid && !draft.length) { e.preventDefault(); deleteGraphNode(nodeSelValid); nodeSel = null; return }
 		if ((e.key === 'Delete' || e.key === 'Backspace') && modelSel.length && !draft.length) { e.preventDefault(); deleteModelSel(); return }
-		if ((e.key === 'Delete' || e.key === 'Backspace') && selSection && !draft.length) { e.preventDefault(); on.sectiondelete?.(selSection); return }
+		if ((e.key === 'Delete' || e.key === 'Backspace') && selSection && !draft.length) { e.preventDefault(); deleteSection(selSection); return }
 		if (sel.length && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
 			e.preventDefault()
 			const s = e.shiftKey ? 10 : 1
@@ -462,6 +459,20 @@
 	// hitModel / hitModelIso live in ui/hit.ts (R1 step 3); the wrappers inject ctx + the model-layer preds.
 	// hitModel's pick tolerance (tolMm(4), B9) is passed in. graphHit is now hit.ts-internal.
 	const hitModel = (p: Pt) => hHitModel(ctx, p, tolMm(4), mlayers)
+	// Section markers live in the MODEL (B5): this plan view shows its model's list; edits mutate it in place
+	// (like guides) bracketed by beginedit/modeledit/endedit so they ride the model history.
+	const sections = $derived(isPlan ? (mdl?.sections ?? []) : [])
+	const sectionById = (id: string) => mdl?.sections?.find((s) => s.id === id)
+	const setSectionClip = (id: string, clip: Clip) => { const s = sectionById(id); if (s) s.clip = clip }   // inside a drag gesture (the caller records the step)
+	function setSectionDir(id: string, dir: ElevDir) {
+		const s = sectionById(id); if (!s || s.dir === dir) return
+		on.beginedit?.(); s.dir = dir; on.modeledit?.('Set section direction'); on.endedit?.()
+	}
+	function deleteSection(id: string) {
+		const list = mdl?.sections; if (!mdl || !list?.some((s) => s.id === id)) return
+		on.beginedit?.(); mdl.sections = list.filter((s) => s.id !== id); on.modeledit?.('Delete section'); on.endedit?.()
+		if (selSection === id) on.sectionselect?.(null)
+	}
 	// hitSection / sectionCorners live in ui/hit.ts (R1 step 3); the wrapper injects ctx + the section list.
 	const hitSection = (p: Pt) => hHitSection(ctx, sections, p, tolMm(6))
 	// The currently-selected section marker (grips + toolbar), if it's shown in this plan view.
@@ -616,7 +627,7 @@
 	function onSecDragMove(e: PointerEvent, s: SecDrag) {
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
 		const dx = p[0] - s.start[0], dy = p[1] - s.start[1], c = s.c0
-		on.sectionmove?.(s.id, { ...c, x0: Math.round(c.x0 + dx), x1: Math.round(c.x1 + dx), y0: Math.round(c.y0 + dy), y1: Math.round(c.y1 + dy) })
+		setSectionClip(s.id, { ...c, x0: Math.round(c.x0 + dx), x1: Math.round(c.x1 + dx), y0: Math.round(c.y0 + dy), y1: Math.round(c.y1 + dy) })
 	}
 	function onSecDragUp(_e: PointerEvent, _s: SecDrag, moved: boolean) {
 		if (moved) { suppressClick = true; on.modeledit?.('Move section') }   // one undo step for the drag
@@ -626,7 +637,7 @@
 	type SecResize = { id: string; apply: (p: Pt) => Clip }
 	function onSecResizeMove(e: PointerEvent, s: SecResize) {
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
-		on.sectionmove?.(s.id, s.apply(p))
+		setSectionClip(s.id, s.apply(p))
 	}
 	function onSecResizeUp(_e: PointerEvent, _s: SecResize, moved: boolean) {
 		if (moved) { suppressClick = true; on.modeledit?.('Resize section') }   // one undo step for the resize
@@ -1148,7 +1159,7 @@
 						{/if}
 					{/each}
 					{@const pad = 1.5 * paperMm}
-					<text class="section-label" x={bx + pad} y={by - pad} font-size={3 * paperMm}>{s.label}</text>
+					<text class="section-label" x={bx + pad} y={by - pad} font-size={3 * paperMm}>{s.name ?? 'Section'}</text>
 				{/each}
 				<!-- resize grips on the selected section's corners -->
 				{#if active && selSectionObj}
@@ -1241,10 +1252,10 @@
 		<div class="section-toolbar" style="left:{secToolbar.x}px; top:{Math.max(2, secToolbar.y - 30)}px"
 			onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()}>
 			<button class="st-btn" title="Drop this direction as a viewport on the sheet" onclick={() => on.sectiondropdir?.(secToolbar.id, secToolbar.dir)}><Icon name="panels" size={13} /></button>
-			<select class="st-dir" title="Primary sight direction (arrow on the plan)" value={secToolbar.dir} onchange={(e) => on.sectionsetdir?.(secToolbar.id, (e.currentTarget as HTMLSelectElement).value as ElevDir)}>
+			<select class="st-dir" title="Primary sight direction (arrow on the plan)" value={secToolbar.dir} onchange={(e) => setSectionDir(secToolbar.id, (e.currentTarget as HTMLSelectElement).value as ElevDir)}>
 				<option value="front">Front</option><option value="rear">Rear</option><option value="left">Left</option><option value="right">Right</option>
 			</select>
-			<button class="st-btn st-del" title="Delete this section" onclick={() => on.sectiondelete?.(secToolbar.id)}><Icon name="trash" size={13} /></button>
+			<button class="st-btn st-del" title="Delete this section" onclick={() => deleteSection(secToolbar.id)}><Icon name="trash" size={13} /></button>
 		</div>
 	{/if}
 	<!-- the tool prompt + inline-edit help now render at the PANE bottom-centre (see +page), so they
