@@ -16,6 +16,7 @@
 	import Model3d from '../3dview/Model3d.svelte'
 	import { models, modelById, modelSel, setModelSel } from '../3dview/models.svelte'
 	import { newId } from '../ids'
+	import { arrowPts, cloudPath, groundPts, centerCorners, orthoPt } from './annotations'
 	import { guideId, selectedPlanGuide } from '../guides.svelte'
 	import { imgEdit, clearImgMode } from '../imageEdit.svelte'
 	import { polyToGraph } from '../3dview/migrate'
@@ -62,10 +63,8 @@
 	const guideIsVert = (shift: boolean) => (env.guideVert ?? false) !== shift
 	const canvasZoom = $derived(env.canvasZoom ?? 1)
 	// Centre-out corners: the first click `c` is the CENTRE, `p` the drag point → box centred on c.
-	const centerCorners = (c: Pt, p: Pt): [Pt, Pt] => [[2 * c[0] - p[0], 2 * c[1] - p[1]], p]
 	const SNAP_STEP = 100                         // grid snap spacing (mm)
 	const snapToGrid = (p: Pt): Pt => [Math.round(p[0] / SNAP_STEP) * SNAP_STEP, Math.round(p[1] / SNAP_STEP) * SNAP_STEP]
-	const orthoPt = (a: Pt, p: Pt): Pt => (Math.abs(p[0] - a[0]) >= Math.abs(p[1] - a[1]) ? [p[0], a[1]] : [a[0], p[1]])
 
 	const tagIcon: Record<string, string> = { floorplan: 'mapPin', iso: 'box', front: 'server', rear: 'server', left: 'server', right: 'server' }
 	// Elevation projection: which side view (front/rear/left/right) and its footprint axis + sign.
@@ -1371,38 +1370,6 @@
 		return (x: number, y: number): Pt => { const q = isoR({ x, y, z: 0 }, yaw, pitch, CX, CY); return [q.u + CX - b.icx, -q.v + CY + b.icy] }
 	})
 	// A plan entity's outline points (plan coords) + whether it's a closed shape, for ground projection.
-	function groundPts(e: Ent): { pts: Pt[]; closed: boolean } {
-		const ell = (cx: number, cy: number, rx: number, ry: number): Pt[] => Array.from({ length: 32 }, (_, i) => { const t = (i / 32) * 2 * Math.PI; return [cx + rx * Math.cos(t), cy + ry * Math.sin(t)] as Pt })
-		if (e.type === 'line' || e.type === 'dim') return { pts: [e.a!, e.b!], closed: false }
-		if (e.type === 'polyline') return { pts: e.pts ?? [], closed: false }
-		if (e.type === 'rect') { const [ax, ay] = e.a!, [bx, by] = e.b!; return { pts: [[ax, ay], [bx, ay], [bx, by], [ax, by]], closed: true } }
-		if (e.type === 'ellipse') return { pts: ell((e.a![0] + e.b![0]) / 2, (e.a![1] + e.b![1]) / 2, Math.abs(e.b![0] - e.a![0]) / 2, Math.abs(e.b![1] - e.a![1]) / 2), closed: true }
-		if (e.type === 'circle') return { pts: ell(e.c![0], e.c![1], e.r!, e.r!), closed: true }
-		return { pts: [], closed: false }
-	}
-	// A filled arrowhead triangle AT `to`, pointing away from `from` — a fixed size ON PAPER (via paperMm),
-	// returned as SVG polygon points. Shared by the Line arrow prop, dimensions and the callout leader tip.
-	function arrowPts(from: Pt, to: Pt): string {
-		const dx = to[0] - from[0], dy = to[1] - from[1], len = Math.hypot(dx, dy) || 1
-		const ux = dx / len, uy = dy / len, vx = -uy, vy = ux, L = 3.5 * paperMm, HW = 1.4 * paperMm
-		const bx = to[0] - ux * L, by = to[1] - uy * L
-		return `${to[0]},${to[1]} ${bx + vx * HW},${by + vy * HW} ${bx - vx * HW},${by - vy * HW}`
-	}
-	// A REVISION CLOUD outline around the a→b rect: outward semicircle bumps along each edge (SVG path).
-	// Clockwise winding (TL→TR→BR→BL) with sweep-flag 1 keeps every bump on the OUTSIDE — matching the
-	// proven Sheets `cloudPath` (sheets/annotations/geometry.ts). Bump size fixed on PAPER (paperMm, B3).
-	function cloudPath(a: Pt, b: Pt): string {
-		const x0 = Math.min(a[0], b[0]), y0 = Math.min(a[1], b[1]), x1 = Math.max(a[0], b[0]), y1 = Math.max(a[1], b[1])
-		const D = Math.max(4 * paperMm, 1)   // target bump diameter (~4 paper mm)
-		const edges: [Pt, Pt][] = [[[x0, y0], [x1, y0]], [[x1, y0], [x1, y1]], [[x1, y1], [x0, y1]], [[x0, y1], [x0, y0]]]
-		let d = `M ${x0} ${y0}`
-		for (const [p, q] of edges) {
-			const len = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1, n = Math.max(1, Math.round(len / D)), step = len / n
-			const ux = (q[0] - p[0]) / len, uy = (q[1] - p[1]) / len, r = step / 2
-			for (let i = 1; i <= n; i++) { const ex = p[0] + ux * step * i, ey = p[1] + uy * step * i; d += ` A ${r} ${r} 0 0 1 ${ex} ${ey}` }
-		}
-		return d + ' Z'
-	}
 
 	// What a press at these client coords would grab: a grip of a selected entity, or the
 	// body of any entity (topmost). Drives the pointer-drag start (mouse-left / 1-finger
@@ -2024,8 +1991,8 @@
 		<line x1={sp[0]} y1={GROUND} x2={sp[1]} y2={GROUND} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
 	{:else if e.type === 'line'}
 		<line x1={e.a![0]} y1={e.a![1]} x2={e.b![0]} y2={e.b![1]} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
-		{#if e.arrow === 'end' || e.arrow === 'both'}<polygon points={arrowPts(e.a!, e.b!)} fill={ink} />{/if}
-		{#if e.arrow === 'start' || e.arrow === 'both'}<polygon points={arrowPts(e.b!, e.a!)} fill={ink} />{/if}
+		{#if e.arrow === 'end' || e.arrow === 'both'}<polygon points={arrowPts(e.a!, e.b!, 3.5 * paperMm)} fill={ink} />{/if}
+		{#if e.arrow === 'start' || e.arrow === 'both'}<polygon points={arrowPts(e.b!, e.a!, 3.5 * paperMm)} fill={ink} />{/if}
 	{:else if e.type === 'image'}
 		<!-- an imported background image placed FULL in the a→b rect (origin + scale); CROP is the visible
 		     WINDOW = a normalized sub-rect of that placement (the rest is trimmed away). -->
@@ -2041,7 +2008,7 @@
 		<polyline points={(e.pts ?? []).map(p => p.join(',')).join(' ')} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" stroke-linejoin="round" />
 	{:else if e.type === 'rect'}
 		{#if e.cloud}
-			<path d={cloudPath(e.a!, e.b!)} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" stroke-linejoin="round" />
+			<path d={cloudPath(e.a!, e.b!, 4 * paperMm)} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" stroke-linejoin="round" />
 		{:else}
 			<rect x={Math.min(e.a![0], e.b![0])} y={Math.min(e.a![1], e.b![1])} width={Math.abs(e.b![0] - e.a![0])} height={Math.abs(e.b![1] - e.a![1])} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
 		{/if}
@@ -2065,8 +2032,8 @@
 		{@const ang = Math.atan2(uy, ux) * 180 / Math.PI}
 		{@const rang = ang > 90 || ang < -90 ? ang + 180 : ang}
 		<line x1={A[0]} y1={A[1]} x2={B[0]} y2={B[1]} stroke={col} stroke-width={w} vector-effect="non-scaling-stroke" />
-		<polygon points={arrowPts(B, A)} fill={col} />
-		<polygon points={arrowPts(A, B)} fill={col} />
+		<polygon points={arrowPts(B, A, 3.5 * paperMm)} fill={col} />
+		<polygon points={arrowPts(A, B, 3.5 * paperMm)} fill={col} />
 		<line x1={A[0] - px * tk} y1={A[1] - py * tk} x2={A[0] + px * tk} y2={A[1] + py * tk} stroke={col} stroke-width={w} vector-effect="non-scaling-stroke" />
 		<line x1={B[0] - px * tk} y1={B[1] - py * tk} x2={B[0] + px * tk} y2={B[1] + py * tk} stroke={col} stroke-width={w} vector-effect="non-scaling-stroke" />
 		<text class="anno" x={mx} y={my} font-size={2.5 * paperMm} fill={col} text-anchor="middle" transform="rotate({rang} {mx} {my})">{Math.round(len)}</text>
@@ -2090,7 +2057,7 @@
 			{@const ny = lp[1] < (by0 + by1) / 2 ? by0 : by1}
 			<rect x={bx0} y={by0} width={bx1 - bx0} height={by1 - by0} rx={fs * 0.3} fill="none" stroke={ink} stroke-width={1.2 / (canvasZoom || 1)} vector-effect="non-scaling-stroke" />
 			<line x1={nx} y1={ny} x2={lp[0]} y2={lp[1]} stroke={ink} stroke-width={1.2 / (canvasZoom || 1)} vector-effect="non-scaling-stroke" />
-			<polygon points={arrowPts([nx, ny] as Pt, lp as Pt)} fill={ink} />
+			<polygon points={arrowPts([nx, ny] as Pt, lp as Pt, 3.5 * paperMm)} fill={ink} />
 		{/if}
 		<text class="anno" x={e.a![0]} y={e.a![1] + oy} font-size={fs} fill={ink} font-weight="600" text-anchor={anchor} dominant-baseline={e.valign === 'middle' ? 'central' : undefined}>
 			{#each lines as line, i (i)}<tspan x={e.a![0]} dy={i === 0 ? 0 : lh}>{line}</tspan>{/each}
