@@ -38,16 +38,13 @@ model-layer pred bundle.
 3. ~~`hitGuide`~~ — DONE (slice 4). Passed `viewGuides` as an arg (`Guide[]`).
 4. ~~`marqueeSelect`~~ — DONE (slice 4). `marqueeSelect(ctx, ents, a, b, isPickable)`; group expansion
    stays in `onMarqueeUp`.
-5. `pickAt` — the LAST slice, NOT yet done (the only remaining hit/grips extraction). The orchestrator
-   encoding onDown's priority order (model grip → section grip → entity grip → entity body → guide →
-   section border → model object → marquee), returning the plan §3 `Pick` discriminated union so `onDown`
-   collapses to `switch (pickAt(...))`. `hoverBody` (P2) becomes `pickAt(...) !== null`. The per-picker
-   grip-loop P1 is already done (pickModelGrip/pickSectionGrip/entity `pick` each build one mapper) — pickAt
-   just sequences them. **NEEDS THE BROWSER:** it rewrites the critical pointer-down path (pointer capture +
-   per-gesture window listeners + beginedit side-effects stay in onDown; only the pick DECISION moves into
-   pickAt), so every pick path (grip/section/entity/guide/section-border/model/marquee) must be re-driven
-   interactively. Do it when the Chrome extension is connected. Current onDown priority is at
-   `Viewport.svelte` onDown (~1058); the entity+body picker is `pick` (~975).
+5. ~~`pickAt`~~ — DONE (`90373e7`). onDown's cascade is now `switch (pickAt(clientX, clientY, p))` returning
+   the `Pick` union; gesture-starts transcribed verbatim. eos-f8 gated all 7 pick paths live (pre-commit).
+   `hoverBody` (P2 cursor unification, `hoverBody = pickAt(...) !== null`) was left OUT as a separate
+   behaviour-changing tweak — a small follow-up if wanted.
+
+**hit.ts + grips.ts extraction (R1 steps 3-4) is COMPLETE.** The only hit/grip logic left in Viewport is
+the thin ctx-injecting wrappers (kept so call sites are untouched; they can be inlined at step 9 cleanup).
 
 ## grips.ts (R1 step 4) — DONE (all three slices)
 
