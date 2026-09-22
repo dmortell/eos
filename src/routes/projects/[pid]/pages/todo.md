@@ -236,11 +236,18 @@ New todos (design / bigger):
   Openings are skipped in iso (a true 3D boolean hole is future work). Verified in-browser (the room
   renders solid with correct occlusion). [ ] Still: entity flats (lines/rects) show no depth ordering
   vs the model; per-face shading (light/dark) for a stronger 3D read.
-- [ ] **Tools floating window: merge related tools into pop-out groups** (Dave, 2026-09-21) — the tool
-  strip is getting long; group tools that share a mode into ONE button with a fly-out: **conduits**
-  (Wall / Trunk / Pipe — all graph tools), **lines** (Line / Polyline), **2D shapes** (Rectangle /
-  Circle / Ellipse / …). Each group button shows the last-used tool + a pop-out to switch; ties into the
-  editing refactor (these already share code paths).
+- [x] **Tools floating window: merge related tools into pop-out groups** (2026-09-22) — the left tool
+  strip now groups tools that share a mode into ONE button with a hover FLY-OUT (15 buttons → 11):
+  **Shapes** (Rectangle / Ellipse / Box) and **Conduits** (Wall / Trunk / Pipe — the graph tools). A
+  group button shows + re-activates the group's **last-used** tool (a corner ▟ caret marks it as a
+  group), and hovering pops out the variants to the right (a transparent `::before` bridge spans the gap
+  so the hover doesn't drop); clicking a variant selects it and becomes the new last-used. Driven by a
+  `STRIP` array (single | group) + `groupTool` state + `iconOf(name)`, replacing the flat `{#each TOOLS}`.
+  Verified in-browser: both groups render with carets, fly-outs reveal on hover, clicking Box highlighted
+  the Shapes button + swapped its icon, clean console. (Line stays standalone — there's no separate
+  Polyline tool; the Line tool draws polylines in ACAD mode.) Ties into the editing refactor (§ graph
+  tools already share code paths). [ ] Touch follow-up: tap-to-open the fly-out (hover isn't available) —
+  pairs with the "Guide H/V pop-out" touch todo.
 - [ ] **Orbit tool icon in the zoom-tools floating window** (Dave, 2026-09-20) — add an **orbit**
   button to the bottom-right nav floating window (`navtools` in `+page.svelte`, beside Zoom in/out /
   Fit / Pan). Drag-orbits the 3D (iso) view. Blocked on the **real 3D orbit camera** (the ELEV_BASIS

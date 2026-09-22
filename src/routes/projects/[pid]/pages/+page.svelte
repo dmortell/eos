@@ -656,6 +656,25 @@
 		{ icon: 'ruler', name: 'Guide' },       // drop an alignment guide (sets the depth plane across views)
 		{ icon: 'panels', name: 'Viewport' },   // paper-space: drag on the sheet to add a viewport frame
 	]
+	const iconOf = (name: string) => TOOLS.find((t) => t.name === name)?.icon ?? 'square'
+	// The tool strip groups related tools into ONE button with a fly-out (hover to reveal): the button
+	// shows + re-activates the group's LAST-USED tool, the fly-out switches variants. Singles render as-is.
+	type StripItem = { tool: string } | { group: string; label: string; members: string[] }
+	const STRIP: StripItem[] = [
+		{ tool: 'Select' },
+		{ tool: 'Line' },
+		{ group: 'shapes', label: 'Shapes', members: ['Rectangle', 'Ellipse', 'Box'] },   // 2D/footprint draws
+		{ group: 'conduits', label: 'Conduits', members: ['Wall', 'Trunk', 'Pipe'] },      // node/segment graph tools
+		{ tool: 'Furniture' },
+		{ tool: 'Opening' },
+		{ tool: 'Section' },
+		{ tool: 'Dimension' },
+		{ tool: 'Text' },
+		{ tool: 'Guide' },
+		{ tool: 'Viewport' },
+	]
+	// Last-used tool per group (the button re-activates this on a plain click). Seeded to the first member.
+	let groupTool = $state<Record<string, string>>({ shapes: 'Rectangle', conduits: 'Wall' })
 	// World (model-unit) coords under the cursor, from the active viewport (status bar shows mm), and
 	// the focused pane's tool prompt / inline-edit help (rendered at the pane bottom-centre).
 	let worldXY = $state<{ x: number; y: number } | null>(null)
@@ -877,8 +896,24 @@
 						ondblclick={(e) => { if (a && !(e.target as Element).closest?.('.paper, button, .glass-bar, .vp-active-bar, .navtools, .floattools')) { const av = activeVpOf(a.id); if (av) deactivateVp(av); selFrame = null } }}
 						use:panzoom={{ enabled: () => !!a, wheelZoom: () => acadMode, onpan: (dx, dy) => canvasPan(p, dx, dy), onzoom: (f, x, y, node) => canvasZoom(p, node, f, x, y) }}>
 						<div class="floattools glass-bar" class:dim={a && !isVpActive(a.id)}>
-							{#each TOOLS as t (t.name)}
-								<button class="tool" class:on={p.tool === t.name} title={t.name} onclick={() => (p.tool = t.name)}><Icon name={t.icon} size={16} /></button>
+							{#each STRIP as s (('tool' in s) ? s.tool : s.group)}
+								<!-- strip: single tool, or a grouped fly-out (hover to reveal variants) -->
+									{#if 'tool' in s}
+										<button class="tool" class:on={p.tool === s.tool} title={s.tool} onclick={() => (p.tool = s.tool)}><Icon name={iconOf(s.tool)} size={16} /></button>
+									{:else}
+										{@const inGrp = s.members.includes(p.tool)}
+										{@const cur = inGrp ? p.tool : groupTool[s.group]}
+										<div class="grp">
+											<button class="tool grp-btn" class:on={inGrp} title="{s.label} — {cur}" onclick={() => (p.tool = cur)}>
+												<Icon name={iconOf(cur)} size={16} /><span class="grp-caret"></span>
+											</button>
+											<div class="flyout">
+												{#each s.members as m (m)}
+													<button class="tool" class:on={p.tool === m} title={m} onclick={() => { p.tool = m; groupTool = { ...groupTool, [s.group]: m } }}><Icon name={iconOf(m)} size={16} /></button>
+												{/each}
+											</div>
+										</div>
+									{/if}
 							{/each}
 						</div>
 						<!-- Pane-level exit: fixed on screen (outside the zoomed content), so a viewport
@@ -1183,5 +1218,16 @@
 	.tool { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; color:var(--muted); background:none; border:none; }
 	.tool:hover { background:var(--hover); color:var(--text); }
 	.tool.on { background:var(--active); color:var(--accent); }
+	/* Grouped tool: a button that re-activates the group's last-used tool + a hover fly-out of variants. */
+	.grp { position:relative; display:flex; }
+	.grp-btn { position:relative; }
+	/* corner triangle marking a group (▟), lower-right of the icon */
+	.grp-caret { position:absolute; right:3px; bottom:3px; width:0; height:0; border-left:4px solid transparent; border-top:4px solid transparent; border-right:4px solid currentColor; opacity:.55; }
+	.flyout { position:absolute; left:100%; top:-4px; margin-left:6px; display:none; flex-direction:row; gap:2px; padding:4px;
+		border-radius:8px; background:color-mix(in srgb, var(--panel) 92%, transparent); border:1px solid var(--line-soft);
+		backdrop-filter:blur(9px); -webkit-backdrop-filter:blur(9px); box-shadow:0 8px 30px #0005; z-index:10; }
+	/* invisible bridge over the gap so moving onto the fly-out doesn't drop the hover */
+	.flyout::before { content:''; position:absolute; left:-8px; top:0; bottom:0; width:8px; }
+	.grp:hover .flyout { display:flex; }
 
 </style>
