@@ -12,6 +12,7 @@
 	import Handle from '../parts/Handle.svelte'
 	import { BASE, HANDLE_PX, PAPER_PX_PER_MM } from '../constants'
 	import { type Pt, type Ent, type View, type ElevDir, DEFAULT_BOX_H, GROUND, MMPU, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, ELEV_BASIS, elevU, elevUInv, flatSpan, dist, segDist, translate, textBox, boxElev, boxElevSet, boxFaces } from './geometry'
+	import { makeMapper, type Mapper } from './mapper'
 	import { isLayerHidden, isLayerLocked, layerColor, layerOrder } from '../layers.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
 	import { models, modelById, modelSel, setModelSel } from '../3dview/models.svelte'
@@ -154,17 +155,21 @@
 		const m = vbMap(); if (!m) return null
 		return [minX + (cx - m.left) / m.scale, minY + (cy - m.top) / m.scale]
 	}
+	// The single source of truth for point ↔ screen math (ui/mapper.ts, R1 step 2). Built from ONE
+	// getBoundingClientRect; a hit/snap loop should build it ONCE (below) and reuse `m.toClient` per point
+	// instead of calling localToClient (a layout read) per point — that is the P1 fix.
+	function mapper(): Mapper | null {
+		if (!svg) return null
+		return makeMapper({ rect: svg.getBoundingClientRect(), vbW, minX, minY, cx: CX, cy: CY, view, dscale })
+	}
 	// Client px → drawing (view-local) coords, for placing/hit-testing.
 	function toLocalXY(cx: number, cy: number): Pt | null {
-		const v = clientToVB(cx, cy); if (!v) return null
-		return [CX + ((v[0] - view.x) / view.zoom - CX) / dscale, CY + ((v[1] - view.y) / view.zoom - CY) / dscale]
+		const m = mapper(); return m ? m.toModel(cx, cy) : null
 	}
 	function toLocal(e: MouseEvent): Pt | null { return toLocalXY(e.clientX, e.clientY) }
 	// Drawing (view-local) coords → client px, for handle hit-testing.
 	function localToClient(x: number, y: number): { x: number; y: number } | null {
-		const m = vbMap(); if (!m) return null
-		const vx = view.x + view.zoom * (CX + dscale * (x - CX)), vy = view.y + view.zoom * (CY + dscale * (y - CY))
-		return { x: m.left + (vx - minX) * m.scale, y: m.top + (vy - minY) * m.scale }
+		const m = mapper(); return m ? m.toClient(x, y) : null
 	}
 	// ── pan/zoom the viewport content (SVG group transform, in viewBox units) ──
 	function onPan(dx: number, dy: number) {
@@ -446,15 +451,11 @@
 	}
 	// Pick tolerance in MODEL units for a target of `px` screen pixels (px of slack around a line
 	// edge). 8 model units was huge at scale — this keeps it a few px whatever the zoom.
-	function hitTol(px: number): number {
-		const m = vbMap()
-		return m ? px / (view.zoom * m.scale) : px
-	}
-	// Pick tolerance in MODEL mm for `px` screen pixels (B9): hitTol() is in viewBox units (dscale-scaled),
-	// but entity/object coords live in the ÷dscale (real-mm) space, so divide by dscale. ONE helper for every
-	// hit + snap test — the old mix of `hitTol(px)/dscale` and a raw `hitTol(px)` (100× too small at 1:100,
-	// so walls/thin pipes were barely pickable) is gone.
-	const tolMm = (px: number) => hitTol(px) / (dscale || 1)
+	// Pick tolerance in MODEL mm for `px` screen pixels (B9): screen px → viewBox units (dscale-scaled) ÷
+	// dscale, since entity/object coords live in the ÷dscale (real-mm) space. ONE helper for every hit + snap
+	// test — the old mix of `hitTol(px)/dscale` and a raw `hitTol(px)` (100× too small at 1:100, so walls/thin
+	// pipes were barely pickable) is gone. Delegates to the mapper (ui/mapper.ts) so the math lives in one place.
+	const tolMm = (px: number) => { const m = mapper(); return m ? m.tolMm(px) : px / (dscale || 1) }
 	// A hidden or locked layer's objects can't be picked; nor can objects that don't belong to this view.
 	const pickable = (e: Ent) => inThisView(e) && !isLayerHidden(e.layer) && !isLayerLocked(e.layer) && !groundInIso(e)
 	// The origin anchor of the selected / being-edited image, in model coords (null if none has an origin,
@@ -1135,11 +1136,12 @@
 	}
 	function findSnap(clientX: number, clientY: number, exclude?: string): Pt | null {
 		if (!osnap) { snapMark = null; return null }
+		const m = mapper(); if (!m) { snapMark = null; return null }   // P1: one layout read for the whole pass
 		let best: { p: Pt; type: string; d: number } | null = null
 		for (const e of entities) {
 			if (e.id === exclude || e.id === editText?.id) continue
 			for (const s of entSnaps(e)) {
-				const sp = localToClient(s.point[0], s.point[1]); if (!sp) continue
+				const sp = m.toClient(s.point[0], s.point[1])
 				const d = Math.hypot(sp.x - clientX, sp.y - clientY)
 				if (d < 11 && (!best || d < best.d)) best = { p: s.point, type: s.type, d }
 			}
