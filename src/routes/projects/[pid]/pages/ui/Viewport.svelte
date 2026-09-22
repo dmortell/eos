@@ -893,7 +893,7 @@
 		on.sectionmove?.(secDrag.id, { ...c, x0: Math.round(c.x0 + dx), x1: Math.round(c.x1 + dx), y0: Math.round(c.y0 + dy), y1: Math.round(c.y1 + dy) })
 	}
 	function onSecDragUp() {
-		if (secDrag?.moved) suppressClick = true   // a real move: don't also re-select on click
+		if (secDrag?.moved) { suppressClick = true; on.modeledit?.('Move section'); on.endedit?.() }   // one undo step for the drag
 		secDrag = null
 		window.removeEventListener('pointermove', onSecDragMove)
 		window.removeEventListener('pointerup', onSecDragUp)
@@ -907,7 +907,7 @@
 		on.sectionmove?.(secResize.id, secResize.apply(p))
 	}
 	function onSecResizeUp() {
-		if (secResize?.moved) suppressClick = true
+		if (secResize?.moved) { suppressClick = true; on.modeledit?.('Resize section'); on.endedit?.() }   // one undo step for the resize
 		secResize = null
 		window.removeEventListener('pointermove', onSecResizeMove)
 		window.removeEventListener('pointerup', onSecResizeUp)
@@ -1502,6 +1502,7 @@
 		{
 			const g = pickSectionGrip(e.clientX, e.clientY)
 			if (g) {
+				on.beginedit?.()   // one undo step for the whole resize gesture (committed on release)
 				secResize = { ...g, moved: false }
 				try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
 				e.preventDefault()
@@ -1533,6 +1534,7 @@
 				const sm = sections.find(s => s.id === sid)
 				if (sm) {
 					if (selSection !== sid) on.sectionselect?.(sid)
+					on.beginedit?.()   // one undo step for the whole move gesture (committed on release)
 					secDrag = { id: sid, start: p, c0: { ...sm.clip }, moved: false }
 					try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
 					e.preventDefault()

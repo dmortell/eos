@@ -11,7 +11,7 @@
 	import { flushSync, tick } from 'svelte'
 	import { page } from '$app/state'
 	import PaperPage, { type FrameSel } from './parts/PaperPage.svelte'
-	import Viewport from './ui/Viewport.svelte'
+	import Viewport, { type SectionMarker } from './ui/Viewport.svelte'
 	import DrawingNavigator from './parts/DrawingNavigator.svelte'
 	import LayersPanel from './parts/LayersPanel.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
@@ -26,7 +26,7 @@
 	import { translate, type Ent, type ElevDir } from './ui/geometry'
 	import { models, modelById, FLOOR_MODEL_ID, modelSel, snapModels, setModels } from './3dview/models.svelte'
 	import { DEFAULT_YAW, DEFAULT_PITCH } from './3dview/projection'
-	import type { Model, Clip } from './3dview/types'
+	import type { Model, Clip, Section } from './3dview/types'
 
 	// Which pane (if any) has its viewport activated — groundwork for editing/CAD
 	// tools inside a sheet's viewport. Null = no active viewport.
@@ -80,7 +80,7 @@
 	const projKey = (paneId: string, a: Tab) => `${paneId}:${a.id}`
 	function projOf(pane: { id: string }, a: Tab | null): Proj {
 		if (!a) return 'plan'
-		return docProj[projKey(pane.id, a)] ?? (a.kind === 'elevation' ? (docSecDir[a.id] ?? 'front') : a.kind === 'model' ? 'iso' : 'plan')
+		return docProj[projKey(pane.id, a)] ?? (a.kind === 'elevation' ? 'front' : a.kind === 'model' ? 'iso' : 'plan')
 	}
 	// Map a projection to the Viewport render kind: plan → floorplan, iso → oblique 3D, the four
 	// elevations pass through as their own kind (the Viewport projects each per ELEV_BASIS).
@@ -130,33 +130,37 @@
 	let docOrbit = $state<Record<string, { yaw: number; pitch: number }>>({})
 	const orbitOf = (paneId: string, viewId: string, proj: Proj) => docOrbit[vkey(paneId, viewId, proj)] ?? { yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH }
 	function setOrbit(paneId: string, viewId: string, proj: Proj, yaw: number, pitch: number) { docOrbit = { ...docOrbit, [vkey(paneId, viewId, proj)]: { yaw, pitch } } }
-	// A section box drawn on the plan (§4) → spawn a new elevation tab clipped to that box, and leave a
-	// persistent MARKER on the plan (box + direction arrow + label) so the cut is visible and clickable.
-	// docClip = the box per elevation tab; docSecDir = the section's viewing direction (drives the marker
-	// arrow AND the elevation's projection). Markers self-clean when their elevation tab is closed.
-	// A SECTION is a standalone plan marker (NOT a tab): a box (docClip) + a primary sight direction
-	// (docSecDir) + a name. Its elevations are viewed by DROPPING viewport FRAMES onto the current sheet —
-	// clicking any of the 4 arrows drops that direction's elevation as a frame (Dave, 2026-09-22). Keyed by
-	// a 'sec' id so it never collides with tab ids.
-	let docClip = $state<Record<string, Clip>>({})
-	let docSecDir = $state<Record<string, ElevDir>>({})
-	let docSecName = $state<Record<string, string>>({})
+	// A SECTION is a plan marker (NOT a tab): a clip box + a primary sight direction + a name, stored in the
+	// MODEL (`Model.sections`, B5) so it is model-scoped (a cut on one model's plan doesn't show on another)
+	// and undoable (it rides `snapModels`). Its elevations are viewed by DROPPING viewport FRAMES onto the
+	// current sheet — each of the 4 arrows drops that direction's elevation as a frame (Dave, 2026-09-22).
+	// The 'sec' id keeps it distinct from tab ids.
 	let selSection = $state<string | null>(null)   // the section marker selected on the plan (shows grips + toolbar)
 	let secSeq = 0
+	// Section markers live in the MODEL (B5): model-scoped (a cut on one model's plan doesn't show on
+	// another) + undoable (they ride `snapModels`). These helpers mirror the entity helpers.
+	const mdlSectionsOf = (mid: number): Section[] => modelById(mid)?.sections ?? []
+	const setMdlSections = (mid: number, next: Section[]) => { const m = modelById(mid); if (m) m.sections = next }
+	// A model's section markers in the SectionMarker shape the Viewport draws (name → label).
+	const sectionsForModel = (mid?: number): SectionMarker[] => mdlSectionsOf(mid ?? FLOOR_MODEL_ID).map((s) => ({ id: s.id, clip: s.clip, dir: s.dir, label: s.name ?? 'Section' }))
+	// Locate a section (across models) by id → its model id + the section object. Ids are globally unique.
+	function findSection(id: string): { mid: number; sec: Section } | null {
+		for (const m of models) { const sec = (m.sections ?? []).find((s) => s.id === id); if (sec) return { mid: m.id, sec } }
+		return null
+	}
 	function onSection(clip: Clip) {
 		const id = 'sec' + secSeq
-		docClip = { ...docClip, [id]: clip }
-		docSecDir = { ...docSecDir, [id]: 'front' }
-		docSecName = { ...docSecName, [id]: `Section ${String.fromCharCode(65 + (secSeq++ % 26))}` }
+		const tabId = panes[focused]?.activeId ?? '', mid = modelIdOf(tabId)
+		ensureHist(tabId)
+		setMdlSections(mid, [...mdlSectionsOf(mid), { id, clip, dir: 'front', name: `Section ${String.fromCharCode(65 + (secSeq++ % 26))}` }])
 		selSection = id   // select the new marker (grips + toolbar); drop its elevations via the arrows
+		recordEdit(tabId, 'Add section')
 	}
-	// Every section box as a plan marker: its box, its primary direction (the arrow shown when unselected),
-	// and its label. (When selected the Viewport shows all 4 arrows — each drops that direction's elevation.)
-	const sectionMarkers = $derived(Object.entries(docClip).map(([sid, clip]) => ({ id: sid, clip, dir: docSecDir[sid] ?? 'front', label: docSecName[sid] ?? 'Section' })))
 	// Drop a section's elevation for a direction as a viewport FRAME on the current sheet (focused pane's
 	// sheet, else the first sheet tab); focuses it + selects the new frame. Frame size starts at the clip aspect.
 	function dropSectionDir(id: string, dir: ElevDir) {
-		const clip = docClip[id]; if (!clip) return
+		const found = findSection(id); if (!found) return
+		const clip = found.sec.clip
 		const focusedTab = tabs.find((t) => t.id === panes[focused]?.activeId)
 		const sheet = focusedTab?.kind === 'sheet' ? focusedTab : tabs.find((t) => t.kind === 'sheet')
 		if (!sheet) { statusText = 'Open a sheet first to drop a section viewport'; return }
@@ -171,14 +175,27 @@
 		selFrame = fid
 		recordEdit(sheet.id, 'Drop section viewport')
 	}
-	function moveSection(id: string, clip: Clip) { docClip = { ...docClip, [id]: clip } }
+	// MOVE / RESIZE: mutate the marker in its model. The Viewport brackets a drag with beginedit (start) +
+	// modeledit/endedit (release), so a whole drag folds into one undo step (see the section drag handlers).
+	function moveSection(id: string, clip: Clip) {
+		const found = findSection(id); if (!found) return
+		setMdlSections(found.mid, mdlSectionsOf(found.mid).map((s) => s.id === id ? { ...s, clip } : s))
+	}
 	function selectSection(id: string | null) { selSection = id; if (id) setSel(active?.id ?? '', []) }   // section vs entity selection are exclusive
-	function setSectionDir(id: string, dir: ElevDir) { docSecDir = { ...docSecDir, [id]: dir } }
+	function setSectionDir(id: string, dir: ElevDir) {
+		const found = findSection(id); if (!found) return
+		const tabId = panes[focused]?.activeId ?? ''
+		ensureHist(tabId)
+		setMdlSections(found.mid, mdlSectionsOf(found.mid).map((s) => s.id === id ? { ...s, dir } : s))
+		recordEdit(tabId, 'Set section direction')
+	}
 	function deleteSection(id: string) {
-		const dc = { ...docClip }; delete dc[id]; docClip = dc
-		const dd = { ...docSecDir }; delete dd[id]; docSecDir = dd
-		const dn = { ...docSecName }; delete dn[id]; docSecName = dn
+		const found = findSection(id); if (!found) return
+		const tabId = panes[focused]?.activeId ?? ''
+		ensureHist(tabId)
+		setMdlSections(found.mid, mdlSectionsOf(found.mid).filter((s) => s.id !== id))
 		if (selSection === id) selSection = null
+		recordEdit(tabId, 'Delete section')
 	}
 
 	// ── multi-viewport sheets (AutoCAD paper space) — a sheet's PAGE MODEL is an array of viewport FRAMES
@@ -991,7 +1008,7 @@
 										sizeLabel="{paperOf(a.id).size} {paperOf(a.id).landscape ? 'L' : 'P'}" rev={rev} revDate={fmtDate(revisions[0]?.t)}
 										entities={entsOf(a.id)} sel={selOf(a.id)} focused={focused === pi}
 										entsForModel={entsForModel} tabModelId={a.modelId ?? FLOOR_MODEL_ID}
-										sections={sectionMarkers} selSection={selSection}
+										sectionsForModel={sectionsForModel} selSection={selSection}
 										frames={framesOf(a.id)} selFrame={selFrame} frameKind={(pr) => projKind(pr as Proj)}
 										isFrameActive={(id) => isVpActive(id)} frameView={(id, proj) => viewOf(p.id, id, proj as Proj)} frameEnv={envFor(p)}
 										frameOrbit={(id, proj) => orbitOf(p.id, id, proj as Proj)} makeFrameOn={(f) => vpOnFrame(a, p, f as SheetFrame)}
@@ -1005,8 +1022,8 @@
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => deactivateVp(a.id)}>
 										<Viewport kind={projKind(projOf(p, a))} label={a.title} tool={p.tool} scale={scaleOf(a.id)} env={envFor(p)} on={vpOn(a, p)} modelId={a.modelId ?? FLOOR_MODEL_ID}
-											entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(p.id, a.id, projOf(p, a))} active={isVpActive(a.id)} focused={focused === pi} clip={docClip[a.id] ?? null} yaw={orbitOf(p.id, a.id, projOf(p, a)).yaw} pitch={orbitOf(p.id, a.id, projOf(p, a)).pitch}
-											sections={projOf(p, a) === 'plan' ? sectionMarkers : []} selSection={selSection} />
+											entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(p.id, a.id, projOf(p, a))} active={isVpActive(a.id)} focused={focused === pi} clip={null} yaw={orbitOf(p.id, a.id, projOf(p, a)).yaw} pitch={orbitOf(p.id, a.id, projOf(p, a)).pitch}
+											sections={projOf(p, a) === 'plan' ? sectionsForModel(a.modelId) : []} selSection={selSection} />
 									</div>
 								{:else}
 									<div class="canvas-center">

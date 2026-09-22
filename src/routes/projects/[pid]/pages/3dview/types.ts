@@ -5,7 +5,7 @@
 //
 // Coordinates are model mm. Axes: x = width (east), y = depth (north),
 // z = height (up). Object sizes: w along x, d along y, h along z.
-import type { Ent } from '../ui/geometry'   // 2D annotation entity (geometry.ts imports nothing from 3dview → no cycle)
+import type { Ent, ElevDir } from '../ui/geometry'   // 2D annotation entity + elevation direction (geometry.ts imports nothing from 3dview → no cycle)
 export type Pt = { x: number; y: number }
 export type Axis = 'x' | 'y' | 'z'
 
@@ -93,11 +93,17 @@ export type Levels = { floorSlab?: number; raisedFloor?: number; ceilingTile?: n
 // (id/plane/orient/pos), matching entities' `plane` — see [[project_pages_firestore_schema]].
 export type Guide = { id: string; plane: string; orient: 'h' | 'v'; pos: number }
 
+// A SECTION marker drawn on the plan: a clip box + the primary sight direction (which elevation it cuts)
+// + a display name. Model-scoped (rides the model snapshot → undoable, and a cut on one model's plan does
+// NOT show on another's). Firestore-stable (id/clip/dir/name). Its elevations are dropped onto a sheet as
+// viewport frames; the marker itself just lives here. (B5 — moved out of the +page per-tab maps.)
+export type Section = { id: string; clip: Clip; dir: ElevDir; name?: string }
+
 // `objects` = 3D geometry (walls/prisms/conduits). `ents` = 2D annotations/shapes/text/dims (the drawn
 // `Ent`s from ui/geometry.ts), each tagged with a `plane` + `space` scope. Both belong to the model and
 // are shown across its views (layer- and scope-gated). Guides likewise. `Ent` imports cleanly (geometry.ts
 // imports nothing from 3dview, so no cycle). Field names Firestore-stable — see the schema memory.
-export type Model = { id: number; name: string; objects: Obj[]; ents?: Ent[]; guides?: Guide[]; layers?: Layer[]; underlays?: Underlay[]; levels?: Levels }
+export type Model = { id: number; name: string; objects: Obj[]; ents?: Ent[]; guides?: Guide[]; sections?: Section[]; layers?: Layer[]; underlays?: Underlay[]; levels?: Levels }
 
 // Projection direction: five orthographic + an isometric 3D view.
 export type Dir = 'plan' | 'front' | 'rear' | 'left' | 'right' | 'iso'
