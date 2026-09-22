@@ -39,10 +39,21 @@ model-layer pred bundle.
 4. ~~`marqueeSelect`~~ — DONE (slice 4). `marqueeSelect(ctx, ents, a, b, isPickable)`; group expansion
    stays in `onMarqueeUp`.
 5. `pickAt` — the LAST slice, not yet done. The orchestrator encoding onDown's priority order (model grip →
-   section grip → entity grip → entity body → guide → section border → model object). It calls the grip-pick
-   fns (`pickModelGrip`/`pickSectionGrip`/`gripsFor`) which are still in Viewport (step 4 = grips.ts), so
-   either do pickAt AFTER grips.ts, or move it taking those as args. `hoverBody` (P2) becomes
-   `pickAt(...) !== null`. Fold in the grip-loop P1 here (one `mapper()` per press in the grip loops).
+   section grip → entity grip → entity body → guide → section border → model object). `hoverBody` (P2)
+   becomes `pickAt(...) !== null`. Do it after grips.ts's entity grips land (below).
+
+## grips.ts (R1 step 4) — in progress
+
+- `55a0742` — slice 1: `resizeSectionClip`, `pickSectionGrip` (+ grip-loop P1: one mapper per press).
+- `bda942e` — slice 2: `prismCorners`, `applyPrismGrip`, `modelGrips`, `pickModelGrip`, `MGrip` type.
+  `modelGrips(ctx, o, opts)` takes `rnd`/`applyNode` via opts (store-mutation-in-place kept). Verified with
+  a live grip-drag resize.
+- REMAINING: the **entity grips** — `Grip` type, `ROTATABLE`, `canRotate(ctx, e, imgCropId)`,
+  `rotGripLocal(ctx, e, gripMm, shift)`, `setFlatX(ctx, e, edge, u)`, `gripsLocal(ctx, e, opts)`,
+  `gripsFor(ctx, e, opts)`, `constrainGrip(ctx, base, gi, p, shift, opts)`. These need `gripSize`
+  (screen-constant $derived), `shiftDown` (live, pass as `shift: () => boolean`), `imgEdit.mode/id`
+  (pass as `imgCropId`), `paperMm`/`textBox` (for the dim-text + callout grips). Per plan §4 they take
+  `opts: { gripMm, shift, imgCropId }`. Then `pickAt` last.
 
 Then step 4 = `ui/grips.ts` (unblocked now that `bbox`/`rotCenter`/`hitEnt` take ctx).
 
