@@ -977,6 +977,33 @@
 			}
 		}
 	}
+	// In an elevation, find the model wall/conduit SEGMENT whose projected line the drawn point p (drawing
+	// coords) is nearest, and return the off-axis (DEPTH) coord there + the projected endpoints (for a
+	// marker). Lets a conduit point SNAP ONTO a wall's depth instead of the plan-centre default. Null if
+	// nothing is within tolerance. (front/rear: on-axis = x, depth = y; left/right: on-axis = y, depth = x.)
+	function elevDepthSnap(p: Pt): { off: number; a: Pt; b: Pt } | null {
+		if (!isElev || !mdl) return null
+		const ax = ELEV_BASIS[elevDir].axis
+		const onC = (n: GN) => (ax === 0 ? n.x : n.y), offC = (n: GN) => (ax === 0 ? n.y : n.x)
+		const ept = (n: GN): Pt => [elevU(elevDir, onC(n), CX, CY), GROUND - n.z]   // projected endpoints (for the marker)
+		// Match in MODEL space (on-axis coord + z) — projUInv/GROUND give the drawn point's model on-axis + z
+		// exactly, so this avoids any screen-projection/centring mismatch with how the model is rendered.
+		const pu = projUInv(p[0]), pz = GROUND - p[1]
+		const tol = hitTol(12) / (dscale || 1)
+		let best: { off: number; a: Pt; b: Pt } | null = null, bestD = tol
+		for (const o of mdl.objects) {
+			if ((o.type !== 'wall' && o.type !== 'conduit') || !o.id || !modelLayerVisible(o)) continue
+			const nm = new Map((o.nodes as GN[]).map((n) => [n.id, n]))
+			for (const s of o.segments as { a: string; b: string }[]) {
+				const a = nm.get(s.a), b = nm.get(s.b); if (!a || !b) continue
+				const a1 = onC(a), z1 = a.z, dx = onC(b) - a1, dz = b.z - z1, L2 = dx * dx + dz * dz || 1
+				const t = Math.max(0, Math.min(1, ((pu - a1) * dx + (pz - z1) * dz) / L2))
+				const d = Math.hypot(pu - (a1 + dx * t), pz - (z1 + dz * t))
+				if (d < bestD) { bestD = d; best = { off: Math.round(offC(a) * (1 - t) + offC(b) * t), a: ept(a), b: ept(b) } }
+			}
+		}
+		return best
+	}
 	// A clicked run (plan drawing pts) → a wall or conduit graph with the tool's default profile.
 	function placeGraph(pts: Pt[]) {
 		if (!mdl || pts.length < 2) return
@@ -988,11 +1015,12 @@
 		// x for left/right). No guide → fall back to the model centre and nudge the user to set one.
 		const ax = isElev ? ELEV_BASIS[elevDir].axis : 0
 		const guide = isElev ? selectedPlanGuide(mdl?.guides ?? [], modelSel, ax === 0 ? 'h' : 'v') : null
-		if (isElev && !guide) toast('Drawn at the model centre — no depth guide set. Tip: drop/select a guide line on the plan to fix the depth.', { duration: 5000 })
+		if (isElev && !guide) toast('No depth guide — points snap onto nearby walls where possible, else the model centre. Tip: select a plan guide to fix the depth.', { duration: 5000 })
 		const toNode = (p: Pt) => {
 			if (!isElev) return { x: Math.round(p[0]), y: Math.round(p[1]), z: nodesZ }
 			const onAxis = Math.round(projUInv(p[0])), z = Math.max(0, Math.round(GROUND - p[1]))
-			const off = guide ? guide.pos : (ax === 0 ? PLAN_CY : PLAN_CX)
+			// Depth: an explicitly SELECTED plan guide wins; else SNAP onto a nearby wall/conduit; else the plan centre.
+			const off = guide ? guide.pos : (elevDepthSnap(p)?.off ?? (ax === 0 ? PLAN_CY : PLAN_CX))
 			return ax === 0 ? { x: onAxis, y: off, z } : { x: off, y: onAxis, z }
 		}
 		const { nodes, segments } = polyToGraph(pts.map(toNode))
@@ -1016,6 +1044,12 @@
 	// drawing or dragging a grip we find the nearest within ~10px and lock the point to it,
 	// showing a marker. Gated by the OSNAP status-bar toggle.
 	let snapMark = $state<{ p: Pt; type: string } | null>(null)
+	// While drawing a Wall/Trunk/Pipe in an elevation, the wall segment the NEXT point will snap its depth
+	// onto (highlighted amber) — live feedback for the depth-snap. Only the graph tools, only in elevation.
+	const depthSnapMark = $derived.by(() => {
+		if (!isElev || !active || !cur || !mdl || !(tool === 'Wall' || tool === 'Trunk' || tool === 'Pipe')) return null
+		return elevDepthSnap(cur)
+	})
 	function entSnaps(e: Ent): { point: Pt; type: string }[] {
 		const mid = (a: Pt, b: Pt): Pt => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
 		if (e.type === 'polyline') { const pts = e.pts ?? []; const out = pts.map(p => ({ point: p, type: 'end' })); for (let i = 0; i + 1 < pts.length; i++) out.push({ point: mid(pts[i], pts[i + 1]), type: 'mid' }); return out }
@@ -1707,6 +1741,10 @@
 			{/if}
 			<!-- drawn entities (objects on a hidden layer are skipped; the edited text is hidden too) -->
 			{#each paintEnts as e (e.id)}{#if e.id !== editText?.id && !isLayerHidden(e.layer) && inThisView(e)}{#if e.rot}{@const c = rotCenter(e)}<g transform="rotate({e.rot} {c[0]} {c[1]})">{@render drawn(e, selSet.has(e.id))}</g>{:else}{@render drawn(e, selSet.has(e.id))}{/if}{/if}{/each}
+			<!-- depth-snap: the wall/conduit whose depth the next elevation point will snap onto (amber) -->
+			{#if depthSnapMark}
+				<line x1={depthSnapMark.a[0]} y1={depthSnapMark.a[1]} x2={depthSnapMark.b[0]} y2={depthSnapMark.b[1]} stroke="#e0a020" stroke-width={2.5 / (canvasZoom || 1)} vector-effect="non-scaling-stroke" stroke-dasharray="{6 / (canvasZoom || 1)} {3 / (canvasZoom || 1)}" />
+			{/if}
 			{#if active && POLY.has(tool) && draft.length}
 				<!-- polyline / wall / trunk / pipe preview: committed segments + rubber band to the cursor -->
 				<polyline points={draft.map(p => p.join(',')).join(' ')} fill="none" stroke={SEL} stroke-width="1.2" />

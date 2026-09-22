@@ -288,8 +288,15 @@ New todos (design / bigger):
 - [x] **Draw trunks/pipes/walls in ELEVATIONS** (Dave, 2026-09-21) — needed for vertical wall conduits.
   Wall/Trunk/Pipe tools now work in elevation views (not just plan): each drawn point → on-axis coord
   (`projUInv`) + z (`GROUND − y`); the off-axis DEPTH is unknown in an elevation so it defaults to the
-  plan centre (nudge in plan afterwards). Furniture/Section/Opening stay plan-only. [ ] Follow-up: let
-  the user pick the depth (e.g. snap onto a wall) instead of the centre default.
+  plan centre (nudge in plan afterwards). Furniture/Section/Opening stay plan-only. [x] **Follow-up —
+  depth SNAP onto a wall/conduit (2026-09-22):** `elevDepthSnap(p)` finds the model wall/conduit segment
+  the drawn point is nearest **in MODEL space** (on-axis coord + z, both exact via `projUInv`/`GROUND` — so
+  no screen-projection/centring mismatch) and takes its off-axis coord as the DEPTH. Priority: a selected
+  plan guide (explicit) > wall-snap > plan centre. A live amber marker highlights the segment being snapped
+  onto (`depthSnapMark`, graph tools in elevation). Verified in-browser: a pipe point placed on the trunk
+  in a FRONT elevation landed at the trunk's y-depth in plan (coincident with the trunk), while a point in
+  empty space stayed at centre; clean console. (First cut matched in screen space and missed — model-space
+  match fixed it.)
 - [ ] **Multi-direction section (arrows on all 4 sides)** (Dave, 2026-09-21) — a section box could show
   an arrow on each of its 4 sides, each spawning that direction's elevation (front/rear/left/right from
   one cut). Today one box = one direction (the dropdown). Arrows now sit INSIDE the rect at the edge the
