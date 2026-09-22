@@ -14,7 +14,7 @@
 	import { type Pt, type Ent, type View, type ElevDir, GROUND, MMPU, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, ELEV_BASIS, elevU, elevUInv, dist, segDist, translate, textBox } from './geometry'
 	import { makeMapper, type Mapper } from './mapper'
 	import type { ViewCtx } from './view'
-	import { pickSectionGrip as gPickSectionGrip } from './grips'
+	import { pickSectionGrip as gPickSectionGrip, modelGrips as gModelGrips, pickModelGrip as gPickModelGrip, type MGrip } from './grips'
 	import { rotatePt, inScope as hInScope, inThisView as hInThisView, groundInIso as hGroundInIso, isFlatElev as hIsFlatElev, flatXSpan as hFlatXSpan, rotCenter as hRotCenter, bbox as hBbox, hitEnt as hHitEnt, pickable as hPickable, prismRect as hPrismRect, prismTilted, graphNodeDraw as hGraphNodeDraw, hitModel as hHitModel, hitModelIso as hHitModelIso, sectionCorners, hitSection as hHitSection, hitGuide as hHitGuide, marqueeSelect as hMarqueeSelect, type GN } from './hit'
 	import { isLayerHidden, isLayerLocked, layerColor, layerOrder } from '../layers.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
@@ -654,80 +654,13 @@
 	// Delete (segments handled by degree). Cleared on any fresh press; only valid while its object is selected.
 	let nodeSel = $state<{ obj: string; node: string } | null>(null)
 	const nodeSelValid = $derived(nodeSel && mSelObj?.id === nodeSel.obj && (mSelObj as { nodes?: GN[] }).nodes?.some((n) => n.id === nodeSel!.node) ? nodeSel : null)
-	// The prism's 4 corner grips in drawing coords, order tl,tr,br,bl (matches prismRect's face / footprint).
-	function prismCorners(o: Obj): Pt[] {
-		const r = prismRect(o); if (!r) return []
-		let cs: Pt[] = [[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]]
-		if (isPlan && o.type === 'prism' && o.rot) { const c: Pt = [(r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2]; cs = cs.map((p) => rotatePt(p, c, o.rot!)) }   // grips follow the rotation
-		return cs
-	}
-	// Resize the prism by dragging corner `gi` to p, holding the opposite corner (`anchor`, captured in
-	// drawing coords at grip-down) fixed. Plan edits the footprint (x/y/w/d); elevation edits the on-axis
-	// size (w or d, via projUInv) + z/h (base + height from screen-y, base = larger y). Clamped, snappable.
-	function applyPrismGrip(o: Extract<Obj, { type: 'prism' }>, gi: number, p: Pt, anchor: Pt) {
-		if (isElev) {
-			const ax = ELEV_BASIS[elevDir].axis
-			const c1 = projUInv(p[0]), c2 = projUInv(anchor[0])   // on-axis model coords (drawing u → coord)
-			const lo = rndSnap(Math.min(c1, c2)), size = Math.max(1, rndSnap(Math.abs(c1 - c2)))
-			if (ax === 0) { o.x = lo; o.w = size } else { o.y = lo; o.d = size }
-			const baseY = Math.max(p[1], anchor[1]), topY = Math.min(p[1], anchor[1])
-			o.z = Math.max(0, rndSnap(GROUND - baseY)); o.h = Math.max(1, rndSnap(baseY - topY))
-		} else {
-			o.x = rndSnap(Math.min(p[0], anchor[0])); o.w = Math.max(1, rndSnap(Math.abs(p[0] - anchor[0])))
-			o.y = rndSnap(Math.min(p[1], anchor[1])); o.d = Math.max(1, rndSnap(Math.abs(p[1] - anchor[1])))
-		}
-	}
-	// Grips of the selected object: prism = 4 resize corners (about the opposite corner, captured now)
-	// + a rotate handle; wall/conduit = one move-handle per node. `apply(p, origin)` mutates the store
-	// object given a drawing point (origin = the drag start, so a node grip can be pulled off a partner).
-	// `node`/`obj` are carried on wall/conduit node grips so an Alt-press can BRANCH a new segment.
-	type MGrip = { x: number; y: number; apply: (p: Pt, origin?: Pt) => void; node?: GN; obj?: Obj }
-	function modelGrips(o: Obj): MGrip[] {
-		if (o.type === 'prism') {
-			// A TILTED prism (rotX/rotY) has a leaning silhouette; axis-aligned corner resize is undefined for
-			// it, so we drop the resize corners (edit W/D/H in Properties) and keep only the rotate handle. Its
-			// hit-test uses the true outline (B10). Untilted prisms keep the 4 corners.
-			const cs = prismTilted(o) ? [] : prismCorners(o)
-			const grips: MGrip[] = cs.map((c, gi) => ({ x: c[0], y: c[1], apply: (p: Pt) => applyPrismGrip(o, gi, p, cs[(gi + 2) % 4]) }))
-			if (isPlan && o.open !== 'door') {   // rotate handle above the top-centre, following the rotation
-				const cx = o.x + o.w / 2, cy = o.y + o.d / 2, off = o.d / 2 + Math.max(o.w, o.d) * 0.35
-				const hp = o.rot ? rotatePt([cx, cy - off], [cx, cy], o.rot) : [cx, cy - off] as Pt
-				grips.push({ x: hp[0], y: hp[1], apply: (p: Pt) => { o.rot = Math.round(((Math.atan2(p[1] - cy, p[0] - cx) * 180) / Math.PI + 90 + 360) % 360) } })
-			}
-			// Rotate handle in an ELEVATION → the in-plane tilt: front/rear (x-z plane) drives rotY, left/right
-			// (y-z plane) drives rotX. Same atan2+90 math as the plan handle; the angle IS that tilt axis.
-			if (isElev && !o.open) {
-				const r = prismRect(o)!
-				const C: Pt = [(r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2]
-				const off = (r.y1 - r.y0) / 2 + Math.max(r.x1 - r.x0, r.y1 - r.y0) * 0.35
-				const ax = ELEV_BASIS[elevDir].axis, cur = ax === 0 ? (o.rotY ?? 0) : (o.rotX ?? 0)
-				const hp = cur ? rotatePt([C[0], C[1] - off], C, cur) : [C[0], C[1] - off] as Pt
-				grips.push({ x: hp[0], y: hp[1], apply: (p: Pt) => {
-					let a = Math.round(((Math.atan2(p[1] - C[1], p[0] - C[0]) * 180) / Math.PI + 90 + 360) % 360)
-					if (a > 180) a -= 360   // keep in −180..180 for a natural tilt range
-					if (ax === 0) o.rotY = a || undefined; else o.rotX = a || undefined
-				} })
-			}
-			if (isPlan && o.open === 'door') {   // door SWING handle at the leaf tip — drag to set the swing angle
-				const g = doorGeom(o), a = (o.swing ?? 90) * Math.PI / 180
-				const tx = g.hx + g.L * (Math.cos(a) * g.ux + Math.sin(a) * g.vx), ty = g.hy + g.L * (Math.cos(a) * g.uy + Math.sin(a) * g.vy)
-				grips.push({ x: tx, y: ty, apply: (p: Pt) => {
-					const ang = Math.atan2((p[0] - g.hx) * g.vx + (p[1] - g.hy) * g.vy, (p[0] - g.hx) * g.ux + (p[1] - g.hy) * g.uy) * 180 / Math.PI
-					o.swing = Math.round(Math.max(0, Math.min(180, ang)))
-				} })
-			}
-			return grips
-		}
-		if (o.type === 'wall' || o.type === 'conduit') {
-			return (o.nodes as GN[]).map((n) => { const d = graphNodeDraw(n); return { x: d[0], y: d[1], node: n, obj: o, apply: (p: Pt, origin?: Pt) => graphNodeApply(n, p, origin) } })
-		}
-		return []
-	}
-	// Which grip of the selected object a press grabs (constant screen tolerance).
+	// Model-object grips (prismCorners/applyPrismGrip/modelGrips) live in ui/grips.ts (R1 step 4); MGrip is
+	// imported. The wrapper injects ctx + the grid-snap (rndSnap) and node-apply (graphNodeApply) opts.
+	const modelGrips = (o: Obj): MGrip[] => gModelGrips(ctx, o, { rnd: rndSnap, applyNode: graphNodeApply })
+	// pickModelGrip builds ONE mapper for the press (P1), then tests every grip against it.
 	function pickModelGrip(clientX: number, clientY: number): MGrip | null {
-		if (!mSelObj) return null
-		for (const g of modelGrips(mSelObj)) { const sp = localToClient(g.x, g.y); if (sp && Math.hypot(sp.x - clientX, sp.y - clientY) < 14) return g }
-		return null
+		const m = mapper(); if (!m || !mSelObj) return null
+		return gPickModelGrip(m, modelGrips(mSelObj), clientX, clientY)
 	}
 	// Sprout a NEW segment from an existing node (a junction/tee): add a coincident node + a segment
 	// joining them, and return the new node so the caller can drag it out. graph.ts handles the junction
