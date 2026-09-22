@@ -595,6 +595,12 @@ marquee and constant-lineweight draw, but no additive select / duplicate / move-
   projector generalises the current floor→ground-line projection (a `to3`/`proj3` pair: plan-local
   (u,v) → world → view drawing coords). Scope: render + hit + grips per view; ellipse/circle
   foreshortening + iso are the hard parts.
+  - [ ] **BUG (Dave, 2026-09-22): plan 2D shapes appear AS-IS (unprojected) in the 3D iso viewport** — a
+    rect/line/text drawn on the plan renders at its raw plan (x,y) coords floating in the iso view, not
+    projected onto the ground plane (foreshortened) nor hidden. In elevations flat plan objects collapse to
+    a ground line (`isFlatElev`); iso has no equivalent. **◧ decide:** quick fix = HIDE plan-plane 2D
+    entities in iso (`inThisView` returns false for `onPlanPlane` flats when `kind==='iso'`); proper fix =
+    project them onto the ground via `isoR` (part of this v2 work). Pick one.
 - [x] **Ellipse draw origin** (2026-09-22) — a **CEN** status-bar toggle draws rectangles + ellipses
   **centre-out** (first click = centre; drag = a bbox corner) vs the default corner-to-corner. `env.cen` →
   `centerDraw`; `place()` and the draw `preview` remap the corners via `centerCorners(c, p) = [2c−p, p]` for
@@ -882,7 +888,10 @@ Sheets' basic version** — see §10.
   pointer to its apply, and `constrainGrip` bails on a rotate grip (no square/ortho constrain).
   **Verified in-browser:** drew a rect on the floorplan → selected → the circle handle renders above it →
   dragging it rotated the rect ~35° about its centre with the corner grips following, clean console.
-  Pairs with the rotated-resize-handles fix (§0). [ ] Follow-up: also add to `box` (footprint, plan).
+  Pairs with the rotated-resize-handles fix (§0). **Shift = snap to 15°** (2026-09-22) — the rotate apply
+  reads live `shiftDown`, so pressing/releasing Shift re-snaps in real time via `reconstrain` (no mouse
+  move needed), like ortho/square. Verified: a free rotate drag with Shift landed on exactly 75°.
+  [ ] Follow-up: also add to `box` (footprint, plan).
 
 ## 6. Annotations  (P2)
 - [ ] ◧ **decide / design** — **annotation = object model.** Dave's model: an annotation

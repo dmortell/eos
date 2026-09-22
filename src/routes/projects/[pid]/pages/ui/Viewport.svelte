@@ -1077,8 +1077,13 @@
 		const [x0, y0, x1, y1] = bbox(e)
 		const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2
 		// A CONSTANT screen gap above the top edge (gripSize is already screen-constant) — the handle stays
-		// attached to the top rather than drifting further out as the object grows.
-		return { x: cx, y: y0 - gripSize * 6, rotate: true, apply: (p: Pt) => ({ ...e, rot: Math.round((Math.atan2(p[1] - cy, p[0] - cx) * 180 / Math.PI + 90 + 360) % 360) }) }
+		// attached to the top rather than drifting further out as the object grows. Shift snaps to 15°
+		// (read live from shiftDown, so `reconstrain` re-applies it the instant Shift is pressed/released).
+		return { x: cx, y: y0 - gripSize * 6, rotate: true, apply: (p: Pt) => {
+			let deg = Math.round((Math.atan2(p[1] - cy, p[0] - cx) * 180 / Math.PI + 90 + 360) % 360)
+			if (shiftDown) deg = (Math.round(deg / 15) * 15) % 360
+			return { ...e, rot: deg }
+		} }
 	}
 	// A flat object in elevation is a ground line; its grips are the two ground-line ends (drag = move
 	// the min/max x-edge, keeping it flat), NOT the plan footprint corners.
