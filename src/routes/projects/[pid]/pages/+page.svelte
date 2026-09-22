@@ -618,7 +618,9 @@
 		if (existing) { if (!d.preview) promoteTab(existing.id); openTab(existing.id); return }
 		if (d.preview) {
 			const pv = tabs.find(t => t.id === previewId)
-			if (pv) { pv.title = d.title; pv.kind = d.kind; dropDoc(pv.id); openTab(pv.id); return }   // reuse the preview slot
+			// Reuse the preview slot: free the OLD drawing's session/view state BEFORE retitling, so didOf
+			// still resolves to the old drawing (else dropDoc would free the incoming drawing's state — B6).
+			if (pv) { dropDoc(pv.id); pv.title = d.title; pv.kind = d.kind; openTab(pv.id); return }
 			const id = 't' + ++seq
 			tabs = [...tabs, { id, title: d.title, kind: d.kind, dirty: false, preview: true }]
 			previewId = id
