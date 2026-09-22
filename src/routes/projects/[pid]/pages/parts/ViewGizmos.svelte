@@ -27,7 +27,7 @@
 		left:  { x: null,     y: [-22, 0],  z: [0, -22] },  // −y→right (mirror of right)
 		iso:   { x: [19, 10], y: [-19, 10], z: [0, -23] },  // dimetric
 	}
-	const OX = 17, OY = 38
+	const OX = 22, OY = 38
 	// For the iso view, project each WORLD axis (unit vector) through the SAME orbit camera the model uses
 	// (isoR), so the triad rotates live as you drag-orbit. Screen = (u, −v) like the model render; an axis
 	// nearly edge-on to the viewer (tiny screen length) becomes a dot (null). Ortho views keep TRIAD.
