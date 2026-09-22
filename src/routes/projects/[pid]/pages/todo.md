@@ -644,9 +644,14 @@ Symbols are identical to annotes.
   with view/orbit/activation keyed by the frame id (reusing docView/docOrbit/activeVps); entity edits
   still target the tab's shared entities. Primary viewport unchanged (tab-keyed) → no regression.
   Verified in-browser (drag a viewport → renders the model; change View Plan→3D → solid iso; move/
-  resize/activate/delete all work). **Follow-up:** [ ] **Section elevation → drop as a viewport frame**
-  — now that sheets take multiple viewports, a section's clip+dir should be placeable as a frame on the
-  current sheet (source `{ proj: dir, clip }`) instead of only spawning an elevation tab. **Follow-up:**
+  resize/activate/delete all work). **Follow-up:** [x] **Section elevation → drop as a viewport frame**
+  (2026-09-22) — the selected section's floating toolbar gains a "drop as viewport" button (panels icon)
+  → `on.sectiondrop` → `sectionDropAsFrame`: adds a FRAME (proj = section dir, clip = the section box, a
+  copy) to a sheet — the focused pane's sheet, else the first sheet tab — then focuses that sheet + selects
+  the new frame (sized to the clip aspect) for repositioning; one page-history step. A frame already
+  carried proj + clip, so no schema change. Verified: dropping a Front section switched to 3303 Outlets
+  and made a "Front 1:25" viewport onto the 33F model (Properties: Source 33F / View Front); the sheet's
+  plan frame shows the section marker, staying in sync; clean console. **Follow-up:**
   [ ] per-frame CROP + a real source config (drawing id) when Pages gets multiple models/drawings.
 - [~] **Unify PRIMARY viewport into the frames array + a PAGE MODEL** (Dave; core done 2026-09-21) — the
   sheet is now ONE array of viewport frames (no special primary); the default page seeds a full-bleed

@@ -41,7 +41,7 @@
 		reorder?: (ids: string[], op: 'front' | 'back' | 'forward' | 'backward') => void;
 		scale?: (s: string) => void; modeledit?: (label?: string) => void; section?: (clip: Clip) => void; orbit?: (yaw: number, pitch: number) => void;
 		sectionselect?: (id: string | null) => void; sectionopen?: (id: string) => void; sectionmove?: (id: string, clip: Clip) => void;
-		sectionsetdir?: (id: string, dir: ElevDir) => void; sectiondelete?: (id: string) => void
+		sectionsetdir?: (id: string, dir: ElevDir) => void; sectiondelete?: (id: string) => void; sectiondrop?: (id: string) => void
 	}
 	let { label = 'Viewport', scale = '1:1', kind = 'floorplan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {}, frameId = undefined, modelId = undefined,
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, sections = [], selSection = null }:
@@ -1740,6 +1740,7 @@
 		<div class="section-toolbar" style="left:{secToolbar.x}px; top:{Math.max(2, secToolbar.y - 30)}px"
 			onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()}>
 			<button class="st-btn" title="Open the section elevation" onclick={() => on.sectionopen?.(secToolbar.id)}><Icon name="link" size={13} /></button>
+			<button class="st-btn" title="Drop as a viewport on the sheet" onclick={() => on.sectiondrop?.(secToolbar.id)}><Icon name="panels" size={13} /></button>
 			<select class="st-dir" title="View direction" value={secToolbar.dir} onchange={(e) => on.sectionsetdir?.(secToolbar.id, (e.currentTarget as HTMLSelectElement).value as ElevDir)}>
 				<option value="front">Front</option><option value="rear">Rear</option><option value="left">Left</option><option value="right">Right</option>
 			</select>

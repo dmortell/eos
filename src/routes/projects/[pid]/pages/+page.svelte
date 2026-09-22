@@ -121,6 +121,7 @@
 		sectionmove: (id: string, clip: Clip) => moveSection(id, clip),
 		sectionsetdir: (id: string, dir: ElevDir) => setSectionDir(id, dir),
 		sectiondelete: (id: string) => deleteSection(id),
+		sectiondrop: (id: string) => sectionDropAsFrame(id),
 	})
 	// A 3D-model edit (the Viewport mutated the shared `models` store) records a step on THIS doc's
 	// timeline, gesture-folded like an entity edit — so Ctrl+Z restores the model too.
@@ -150,6 +151,26 @@
 	// opens its elevation, its direction control re-aims the cut, and corner grips / a body drag resize /
 	// move the box (the linked elevation re-clips live). Deleting closes that tab (dropDoc clears the clip).
 	function openSection(id: string) { openTab(id); if (panes[focused]) panes[focused].layout = 'model'; activateVp(id); tick().then(() => fitPane(focused)) }
+	// Drop the section onto a SHEET as a viewport FRAME (it already carries proj + clip) instead of only
+	// opening it as an elevation tab. Targets the focused pane's sheet, else the first sheet tab; focuses
+	// it and selects the new frame so it can be repositioned. Frame size starts at the clip's aspect.
+	function sectionDropAsFrame(id: string) {
+		const clip = docClip[id]; if (!clip) return
+		const dir = (docSecDir[id] ?? 'front') as ElevDir
+		const focusedTab = tabs.find((t) => t.id === panes[focused]?.activeId)
+		const sheet = focusedTab?.kind === 'sheet' ? focusedTab : tabs.find((t) => t.kind === 'sheet')
+		if (!sheet) { statusText = 'Open a sheet first to drop a section viewport'; return }
+		openTab(sheet.id)
+		ensureHist(sheet.id)
+		const fid = newFrameId()
+		const cw = Math.abs(clip.x1 - clip.x0) || 1, ch = Math.abs(clip.y1 - clip.y0) || 1
+		const W = 320, H = Math.max(120, Math.min(460, Math.round((W * ch) / cw)))
+		const n = framesOf(sheet.id).length, ox = 90 + (n % 5) * 24, oy = 90 + (n % 5) * 24
+		setFrames(sheet.id, [...framesOf(sheet.id), { id: fid, x: ox, y: oy, w: W, h: H, border: 'solid', proj: dir, scale: scaleOf(sheet.id), clip: { ...clip }, label: PROJ_LABEL[dir] ?? 'Section' }])
+		if (panes[focused]) { panes[focused].activeId = sheet.id; panes[focused].layout = 'sheet' }
+		selFrame = fid
+		recordEdit(sheet.id, 'Drop section viewport')
+	}
 	function moveSection(id: string, clip: Clip) { docClip = { ...docClip, [id]: clip } }
 	function selectSection(id: string | null) { selSection = id; if (id) setSel(active?.id ?? '', []) }   // section vs entity selection are exclusive
 	function setSectionDir(id: string, dir: ElevDir) {
