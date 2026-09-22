@@ -14,7 +14,7 @@
 	import { type Pt, type Ent, type View, type ElevDir, GROUND, MMPU, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, ELEV_BASIS, elevU, elevUInv, dist, segDist, translate, textBox } from './geometry'
 	import { makeMapper, type Mapper } from './mapper'
 	import type { ViewCtx } from './view'
-	import { rotatePt, inScope as hInScope, inThisView as hInThisView, groundInIso as hGroundInIso, isFlatElev as hIsFlatElev, flatXSpan as hFlatXSpan, rotCenter as hRotCenter, bbox as hBbox, hitEnt as hHitEnt, pickable as hPickable, prismRect as hPrismRect, prismTilted, graphNodeDraw as hGraphNodeDraw, hitModel as hHitModel, hitModelIso as hHitModelIso, type GN } from './hit'
+	import { rotatePt, inScope as hInScope, inThisView as hInThisView, groundInIso as hGroundInIso, isFlatElev as hIsFlatElev, flatXSpan as hFlatXSpan, rotCenter as hRotCenter, bbox as hBbox, hitEnt as hHitEnt, pickable as hPickable, prismRect as hPrismRect, prismTilted, graphNodeDraw as hGraphNodeDraw, hitModel as hHitModel, hitModelIso as hHitModelIso, sectionCorners, hitSection as hHitSection, hitGuide as hHitGuide, marqueeSelect as hMarqueeSelect, type GN } from './hit'
 	import { isLayerHidden, isLayerLocked, layerColor, layerOrder } from '../layers.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
 	import { models, modelById, modelSel, setModelSel } from '../3dview/models.svelte'
@@ -509,25 +509,10 @@
 	// hitModel's pick tolerance (tolMm(4), B9) is passed in. graphHit is now hit.ts-internal.
 	const hitModel = (p: Pt) => hHitModel(ctx, p, tolMm(4), mlayers)
 	const hitModelIso = (p: Pt) => hHitModelIso(ctx, p, mlayers)
-	// A section marker under p (plan only): its box BORDER within tolerance (the interior stays free for
-	// model/entity picks). Returns the section id, topmost last-drawn first.
-	function hitSection(p: Pt): string | null {
-		if (!isPlan || !sections.length) return null
-		const thr = tolMm(6)   // screen px → UNSCALED model units (border is an edge-distance test)
-		for (let i = sections.length - 1; i >= 0; i--) {
-			const c = sections[i].clip
-			const corners: Pt[] = [[c.x0, c.y0], [c.x1, c.y0], [c.x1, c.y1], [c.x0, c.y1]]
-			for (let k = 0; k < 4; k++) if (segDist(p, corners[k], corners[(k + 1) % 4]) < thr) return sections[i].id
-		}
-		return null
-	}
+	// hitSection / sectionCorners live in ui/hit.ts (R1 step 3); the wrapper injects ctx + the section list.
+	const hitSection = (p: Pt) => hHitSection(ctx, sections, p, tolMm(6))
 	// The currently-selected section marker (grips + toolbar), if it's shown in this plan view.
 	const selSectionObj = $derived.by(() => (isPlan && selSection ? sections.find((s) => s.id === selSection) ?? null : null))
-	// A section clip's 4 corners in drawing coords, order tl,tr,br,bl (normalised min→max).
-	function sectionCorners(c: Clip): Pt[] {
-		const x0 = Math.min(c.x0, c.x1), x1 = Math.max(c.x0, c.x1), y0 = Math.min(c.y0, c.y1), y1 = Math.max(c.y0, c.y1)
-		return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
-	}
 	// Resize the selected section by dragging corner `gi` to p, holding the opposite corner fixed (x/y
 	// only — z stays the section's cut band). Returns the new clip. `anchor` = the opposite corner.
 	function resizeSectionClip(c: Clip, gi: number, p: Pt, anchor: Pt): Clip {
@@ -616,12 +601,8 @@
 		const nb: Pt = [ax + (img.b![0] - ax) * f, ay + (img.b![1] - ay) * f]
 		on.update?.({ ...img, a: na, b: nb })
 	}
-	function hitGuide(p: Pt): string | null {
-		if (!viewGuides.length) return null
-		const thr = tolMm(6)
-		for (let i = viewGuides.length - 1; i >= 0; i--) { const g = viewGuides[i]; if (Math.abs((g.orient === 'h' ? p[1] : p[0]) - g.pos) < thr) return g.id }
-		return null
-	}
+	// hitGuide lives in ui/hit.ts (R1 step 3); the wrapper passes this view's guide list.
+	const hitGuide = (p: Pt) => hHitGuide(viewGuides, p, tolMm(6))
 	// DRAG a guide to reposition it — one history gesture (begin → move → 'Move guide' on release, on the
 	// MODEL history). The guide is a live proxy in the model's `guides` array, so mutating `pos` is reactive.
 	let guideDrag: { id: string; moved: boolean } | null = null
@@ -1539,14 +1520,7 @@
 		const x0 = Math.min(m.a[0], m.b[0]), y0 = Math.min(m.a[1], m.b[1])
 		const x1 = Math.max(m.a[0], m.b[0]), y1 = Math.max(m.a[1], m.b[1])
 		if (x1 - x0 < 2 && y1 - y0 < 2) return   // tiny → treat as a click (let onClick clear)
-		const crossing = m.b[0] < m.a[0]   // dragged right→left
-		const ids = entities.filter(en => {
-			if (!pickable(en)) return false   // hidden/locked layers don't marquee-select
-			const [bx0, by0, bx1, by1] = bbox(en)
-			return crossing
-				? bx0 <= x1 && bx1 >= x0 && by0 <= y1 && by1 >= y0        // intersects
-				: bx0 >= x0 && bx1 <= x1 && by0 >= y0 && by1 <= y1        // fully enclosed
-		}).map(en => en.id)
+		const ids = hMarqueeSelect(ctx, entities, m.a, m.b, pickable)   // window (L→R) vs crossing (R→L), layer-gated
 		const g = expandGroup(ids)   // include whole groups the marquee touched
 		on.select?.(m.add ? [...new Set([...sel, ...g])] : g)   // Shift/Ctrl marquee unions with the current selection
 		suppressClick = true   // don't let the ensuing click clear this selection

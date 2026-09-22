@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { rotatePt, isFilled, inBox, onPlanPlane, bbox, hitEnt, inThisView, pickable, hitModel } from './hit'
+import { rotatePt, isFilled, inBox, onPlanPlane, bbox, hitEnt, inThisView, pickable, hitModel, hitSection, hitGuide, marqueeSelect } from './hit'
 import type { Ent, Pt } from './geometry'
 import type { ViewCtx } from './view'
-import type { Model, Obj } from '../3dview/types'
+import type { Model, Obj, Guide } from '../3dview/types'
 
 const ent = (over: Partial<Ent> = {}): Ent => ({ id: 'e', type: 'rect', a: [0, 0], b: [10, 10], ...over } as Ent)
 const planCtx: ViewCtx = { dir: 'floorplan', isPlan: true, isElev: false, isIso: false, elevDir: 'front', cx: 14000, cy: 8750, ground: 0, frameId: 'f1', paperMm: 1, mdl: undefined, yaw: 0, pitch: 0 }
@@ -101,5 +101,38 @@ describe('hitModel (plan prism)', () => {
 	it('a hidden or locked model layer is not pickable', () => {
 		expect(hitModel(modelCtx([prism]), [150, 130], 5, { visible: () => false, locked: () => false })).toBe(null)
 		expect(hitModel(modelCtx([prism]), [150, 130], 5, { visible: () => true, locked: () => true })).toBe(null)
+	})
+})
+
+describe('hitSection', () => {
+	const sections = [{ id: 's1', clip: { x0: 0, y0: 0, z0: 0, x1: 100, y1: 100, z1: 10 } }]
+	it('hits the border, misses the interior, only in plan', () => {
+		expect(hitSection(planCtx, sections, [50, 1], 5)).toBe('s1')     // on the top edge
+		expect(hitSection(planCtx, sections, [50, 50], 5)).toBe(null)    // interior stays free
+		expect(hitSection({ ...planCtx, isPlan: false }, sections, [50, 1], 5)).toBe(null)
+	})
+})
+
+describe('hitGuide', () => {
+	const guides: Guide[] = [{ id: 'g1', plane: 'plan', orient: 'h', pos: 100 }, { id: 'g2', plane: 'plan', orient: 'v', pos: 200 }]
+	it('picks the h guide by y and the v guide by x within tolerance', () => {
+		expect(hitGuide(guides, [40, 102], 5)).toBe('g1')   // near y=100
+		expect(hitGuide(guides, [198, 40], 5)).toBe('g2')   // near x=200
+		expect(hitGuide(guides, [40, 130], 5)).toBe(null)   // far from both
+	})
+})
+
+describe('marqueeSelect', () => {
+	const ents: Ent[] = [
+		{ id: 'a', type: 'rect', a: [10, 10], b: [30, 30] },   // fully inside 0..100
+		{ id: 'b', type: 'rect', a: [90, 90], b: [140, 140] }, // straddles the box edge
+	]
+	const all = () => true
+	it('window (L→R) encloses fully; crossing (R→L) also grabs intersecting', () => {
+		expect(marqueeSelect(planCtx, ents, [0, 0], [100, 100], all)).toEqual(['a'])          // window: only fully-inside
+		expect(marqueeSelect(planCtx, ents, [100, 100], [0, 0], all)).toEqual(['a', 'b'])      // crossing: intersect too
+	})
+	it('respects the pickable gate', () => {
+		expect(marqueeSelect(planCtx, ents, [100, 100], [0, 0], (e) => e.id !== 'b')).toEqual(['a'])
 	})
 })

@@ -4,7 +4,7 @@
 // is unit-testable and shared by hit-testing, grips and the render snippets.
 import type { Pt, Ent } from './geometry'
 import type { ViewCtx, MLayers } from './view'
-import type { Obj } from '../3dview/types'
+import type { Obj, Clip, Guide } from '../3dview/types'
 import { flatSpan, segDist, textBox, elevU, ELEV_BASIS } from './geometry'
 import { isoBounds, isoR, faces3d, isoDepthR, prismRings } from '../3dview/projection'
 
@@ -219,4 +219,46 @@ export function hitModelIso(ctx: ViewCtx, p: Pt, ml: MLayers): string | null {
 		}
 	}
 	return best
+}
+
+// ── section markers, guides, marquee ──
+
+/** A section clip's 4 corners in drawing coords, order tl,tr,br,bl (normalised min→max). */
+export function sectionCorners(c: Clip): Pt[] {
+	const x0 = Math.min(c.x0, c.x1), x1 = Math.max(c.x0, c.x1), y0 = Math.min(c.y0, c.y1), y1 = Math.max(c.y0, c.y1)
+	return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
+}
+
+/** What hitSection needs of a section marker (kept minimal so it is testable with a literal list). */
+export type SectionLike = { id: string; clip: Clip }
+
+/** A section marker under p (plan only): its box BORDER within thrMm (the interior stays free for model/
+ *  entity picks). Returns the section id, topmost (last-drawn) first. */
+export function hitSection(ctx: ViewCtx, sections: SectionLike[], p: Pt, thrMm: number): string | null {
+	if (!ctx.isPlan || !sections.length) return null
+	for (let i = sections.length - 1; i >= 0; i--) {
+		const c = sections[i].clip
+		const corners: Pt[] = [[c.x0, c.y0], [c.x1, c.y0], [c.x1, c.y1], [c.x0, c.y1]]
+		for (let k = 0; k < 4; k++) if (segDist(p, corners[k], corners[(k + 1) % 4]) < thrMm) return sections[i].id
+	}
+	return null
+}
+
+/** A guide under p: within thrMm of its line (h → compare y, v → compare x). Topmost first. */
+export function hitGuide(guides: Guide[], p: Pt, thrMm: number): string | null {
+	for (let i = guides.length - 1; i >= 0; i--) { const g = guides[i]; if (Math.abs((g.orient === 'h' ? p[1] : p[0]) - g.pos) < thrMm) return g.id }
+	return null
+}
+
+/** Marquee selection ids: the a→b box selects entities. A right→left drag (b[0] < a[0]) is CROSSING
+ *  (any intersection); left→right is WINDOW (fully enclosed). `isPickable` gates on layer/view (the
+ *  Viewport's pickable). Group expansion stays with the caller. */
+export function marqueeSelect(ctx: ViewCtx, ents: Ent[], a: Pt, b: Pt, isPickable: (e: Ent) => boolean): string[] {
+	const x0 = Math.min(a[0], b[0]), y0 = Math.min(a[1], b[1]), x1 = Math.max(a[0], b[0]), y1 = Math.max(a[1], b[1])
+	const crossing = b[0] < a[0]
+	return ents.filter((en) => {
+		if (!isPickable(en)) return false
+		const [bx0, by0, bx1, by1] = bbox(ctx, en)
+		return crossing ? bx0 <= x1 && bx1 >= x0 && by0 <= y1 && by1 >= y0 : bx0 >= x0 && bx1 <= x1 && by0 >= y0 && by1 <= y1
+	}).map((en) => en.id)
 }
