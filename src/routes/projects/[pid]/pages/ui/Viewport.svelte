@@ -15,16 +15,16 @@
 	import { type Pt, type Ent, type View, type ElevDir, GROUND, MMPU, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, ELEV_BASIS, elevU, elevUInv, dist, segDist, translate } from './geometry'
 	import { makeMapper, type Mapper } from './mapper'
 	import { beginPointerDrag, DragRegistry } from './gestures'
-	import { drawPlane as pDrawPlane, resolveLayer, buildEnt, PRISM_TOOL, trimTail, polylineEnt, graphObj, prismObj, guideObj, imageWithOrigin, imageScaled, moveEnt as pMoveEnt } from './place'
+	import { drawPlane, buildEnt, PRISM_TOOL, trimTail, polylineEnt, graphObj, prismObj, guideObj, imageWithOrigin, imageScaled, moveEnt as pMoveEnt } from './place'
 	import type { ViewCtx } from './view'
-	import { pickSectionGrip as gPickSectionGrip, modelGrips as gModelGrips, pickModelGrip as gPickModelGrip, gripsFor as gGripsFor, constrainGrip as gConstrainGrip, type MGrip, type Grip, type GripOpts } from './grips'
+	import { pickSectionGrip as gPickSectionGrip, modelGrips as gModelGrips, pickModelGrip as gPickModelGrip, gripsFor as gGripsFor, constrainGrip, type MGrip, type Grip, type GripOpts } from './grips'
 	import { SNAP_STEP, snapToGrid, rndTo, snapDelta as sSnapDelta, findSnap as sFindSnap, drawPoint as sDrawPoint, snapNode as sSnapNode, graphNodeApply as sGraphNodeApply, elevDepthSnap as sElevDepthSnap } from './snap'
-	import { rotatePt, inScope as hInScope, inThisView as hInThisView, groundInIso as hGroundInIso, rotCenter as hRotCenter, bbox as hBbox, hitEnt as hHitEnt, pickable as hPickable, prismRect as hPrismRect, prismTilted, graphNodeDraw as hGraphNodeDraw, hitModel as hHitModel, hitModelIso as hHitModelIso, sectionCorners, hitSection as hHitSection, hitGuide as hHitGuide, marqueeSelect as hMarqueeSelect, type GN } from './hit'
+	import { rotatePt, inThisView as hInThisView, groundInIso, rotCenter, bbox as hBbox, hitEnt as hHitEnt, pickable as hPickable, prismTilted, graphNodeDraw as hGraphNodeDraw, hitModel as hHitModel, hitModelIso, sectionCorners, hitSection as hHitSection, hitGuide as hHitGuide, marqueeSelect as hMarqueeSelect, type GN } from './hit'
 	import { isLayerHidden, isLayerLocked, layerColor, layerOrder } from '../layers.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
 	import { models, modelById, modelSel, setModelSel } from '../3dview/models.svelte'
 	import { newId } from '../ids'
-	import { constrainPt as aConstrainPt, sectionArrowFor as aSectionArrowFor } from './annotations'
+	import { constrainPt, sectionArrowFor } from './annotations'
 	import { guideId, selectedPlanGuide } from '../guides.svelte'
 	import { imgEdit, clearImgMode } from '../imageEdit.svelte'
 	import { DEFAULT_YAW, DEFAULT_PITCH, doorGeom, isoBounds, isoR } from '../3dview/projection'
@@ -190,11 +190,8 @@
 		on.view?.({ zoom: nz, x: v[0] - (v[0] - view.x) * r, y: v[1] - (v[1] - view.y) * r })
 	}
 	// panzoom passes its node as a trailing arg (unused here)
-	// Shift-constrain the drawing point relative to the start (square / 15°, per tool) — ui/annotations.ts.
-	const constrainPt = (a: Pt, p: Pt, shift: boolean): Pt => aConstrainPt(tool, a, p, shift)
 	// The entity / model-object builders live in ui/place.ts (R1 step 6); the Viewport keeps the side
 	// effects (on.add / addModelObj / on.section) and the tool dispatch.
-	const drawPlane = () => pDrawPlane(ctx)   // the DRAWING PLANE new geometry lands in (plan or this elevation)
 	function place(a: Pt, b: Pt) {
 		const ent = buildEnt(ctx, tool, a, b, { centerDraw, uid })   // Line / Rectangle / Ellipse / Dimension
 		if (ent) { on.add?.(ent); return }
@@ -228,7 +225,7 @@
 		if (tool === 'Select') {
 			const p = toLocal(e); if (!p) return
 			if (kind === 'iso') {   // 3D view: click a shape to select it for the Properties panel (no in-view grips yet)
-				const mid = hitModelIso(p); setModelSel(mid ? [mid] : []); on.select?.([])
+				const mid = hitModelIso(ctx, p, mlayers); setModelSel(mid ? [mid] : []); on.select?.([])
 				return
 			}
 			const g = expandGroup(hit(p))   // the clicked entity + any group it belongs to
@@ -244,7 +241,7 @@
 			}
 			return
 		}
-		if (tool === 'Text') { const p = drawPoint(e.clientX, e.clientY); if (p) on.add?.({ id: uid(), type: 'text', a: p, text: 'TEXT', plane: drawPlane() }); snapMark = null; return }
+		if (tool === 'Text') { const p = drawPoint(e.clientX, e.clientY); if (p) on.add?.({ id: uid(), type: 'text', a: p, text: 'TEXT', plane: drawPlane(ctx) }); snapMark = null; return }
 		if (tool === 'Guide') { const p = toLocal(e); if (p) placeGuide(p, guideIsVert(e.shiftKey)); return }   // drop an alignment guide (H/V pop-out, Shift flips)
 		// Model objects are placed in the plan — EXCEPT wall/trunk/pipe graphs, which can also be drawn in
 		// an elevation (a vertical wall conduit). Furniture / Section / Opening stay plan-only.
@@ -279,7 +276,7 @@
 		if (drag && lastDragRaw) {
 			if (drag.kind === 'grip') on.update?.(applyDrag(lastDragRaw, shift))
 			else { let dx = lastDragRaw[0] - drag.start[0], dy = lastDragRaw[1] - drag.start[1]; if (shift !== ortho) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 } for (const b of drag.bases) on.update?.(moveEnt(b, dx, dy)) }
-		} else if (active && draft.length && lastRaw) cur = constrainPt(draft.at(-1)!, lastRaw, shift)
+		} else if (active && draft.length && lastRaw) cur = constrainPt(tool, draft.at(-1)!, lastRaw, shift)   // Shift: square / 15° (ui/annotations.ts)
 	}
 	// Double-click: outside a viewport → enter model space; inside an active viewport, on a
 	// TEXT object → edit it in place.
@@ -390,10 +387,7 @@
 	// (`dir: kind` keeps 'floorplan'; the 'floorplan'→'plan' rename is a separate mop-up.)
 	const ctx = $derived<ViewCtx>({ dir: kind, isPlan: kind === 'floorplan', isElev, isIso: kind === 'iso', elevDir, cx: CX, cy: CY, ground: GROUND, frameId, paperMm: 1 / (dscale || 1), mdl, yaw, pitch })   // paperMm = 1/dscale (declared later; inlined to avoid TDZ)
 	const layerPreds = { hidden: isLayerHidden, locked: isLayerLocked }
-	const inScope = (e: Ent) => hInScope(ctx, e)
 	const inThisView = (e: Ent) => hInThisView(ctx, e)
-	const groundInIso = (e: Ent) => hGroundInIso(ctx, e)
-	const rotCenter = (e: Ent): Pt => hRotCenter(ctx, e)
 	const bbox = (e: Ent): [number, number, number, number] => hBbox(ctx, e)
 	const hitEnt = (e: Ent, p: Pt, thr: number): boolean => hHitEnt(ctx, e, p, thr)
 	// Pick tolerance in MODEL units for a target of `px` screen pixels (px of slack around a line
@@ -455,18 +449,17 @@
 	// Model-object hit-testing lives in ui/hit.ts (R1 step 3), taking ctx + the model-layer preds; the thin
 	// wrappers below inject them (prismTilted/prismOutline/convexHull/inPoly/graphHit are now hit.ts-internal).
 	const mlayers = { visible: modelLayerVisible, locked: modelLayerLocked }
-	const prismRect = (o: Obj) => hPrismRect(ctx, o)
 	const graphNodeDraw = (n: GN) => hGraphNodeDraw(ctx, n)
 	const rndSnap = (v: number) => rndTo(v, snap ? SNAP_STEP : 0)   // grid-round when SNAP is on
 	// snapNode / graphNodeApply live in ui/snap.ts (R1 step 5). The wrappers inject ctx, the tolerances
 	// (~10px snap radius, ~8px pull-apart radius around the drag origin) + the layer preds, and assign
 	// `snapMark` from the returned mark.
-	const snapNode = (p: Pt, exclude: GN, origin?: Pt): Pt | null => sSnapNode(ctx, p, exclude, tolMm(10), tolMm(8), mlayers, origin)
-	function graphNodeApply(n: GN, p: Pt, origin?: Pt) { snapMark = sGraphNodeApply(ctx, n, p, { snapNode, rnd: rndSnap }, origin) }
+	function graphNodeApply(n: GN, p: Pt, origin?: Pt) {
+		snapMark = sGraphNodeApply(ctx, n, p, { snapNode: (q, ex, o) => sSnapNode(ctx, q, ex, tolMm(10), tolMm(8), mlayers, o), rnd: rndSnap }, origin)
+	}
 	// hitModel / hitModelIso live in ui/hit.ts (R1 step 3); the wrappers inject ctx + the model-layer preds.
 	// hitModel's pick tolerance (tolMm(4), B9) is passed in. graphHit is now hit.ts-internal.
 	const hitModel = (p: Pt) => hHitModel(ctx, p, tolMm(4), mlayers)
-	const hitModelIso = (p: Pt) => hHitModelIso(ctx, p, mlayers)
 	// hitSection / sectionCorners live in ui/hit.ts (R1 step 3); the wrapper injects ctx + the section list.
 	const hitSection = (p: Pt) => hHitSection(ctx, sections, p, tolMm(6))
 	// The currently-selected section marker (grips + toolbar), if it's shown in this plan view.
@@ -486,8 +479,6 @@
 		const r = svg.getBoundingClientRect()
 		return { x: sp.x - r.left, y: sp.y - r.top, id: selSectionObj.id, dir: selSectionObj.dir }
 	})
-	// The section marker's direction arrow (ui/annotations.ts sectionArrowFor); sized ~11 screen px.
-	const sectionArrowFor = (c: Clip, dir: ElevDir): string => aSectionArrowFor(c, dir, tolMm(11))
 
 	// ── alignment GUIDES ── the Guide tool drops a full-view h/v line (Shift = vertical) in this view's
 	// space; a selected PLAN guide then fixes the depth when drawing a conduit in an elevation.
@@ -658,7 +649,6 @@
 
 	// ── model PLACEMENT (P2f / §3) — create new model objects on the store, one undo step, select it ──
 	const mUid = (p: string) => newId(p)
-	const layerId = (id: string) => resolveLayer(mdl, id)
 	function addModelObj(o: Obj) {
 		if (!mdl) return
 		on.beginedit?.()          // captures the pre-add baseline
@@ -739,7 +729,7 @@
 		const ax = isElev ? ELEV_BASIS[elevDir].axis : 0
 		const guide = isElev ? selectedPlanGuide(mdl.guides ?? [], modelSel, ax === 0 ? 'h' : 'v') : null
 		if (isElev && !guide) toast('No depth guide — points snap onto nearby walls where possible, else the model centre. Tip: select a plan guide to fix the depth.', { duration: 5000 })
-		const o = graphObj(ctx, tool, pts, { guide, depthSnap: (p) => elevDepthSnap(p)?.off ?? null, uid: mUid, layerId })
+		const o = graphObj(ctx, tool, pts, { guide, depthSnap: (p) => elevDepthSnap(p)?.off ?? null, uid: mUid })   // layer via graphObj's resolveLayer default
 		if (o) addModelObj(o)
 	}
 
@@ -781,7 +771,6 @@
 	// declared below — a function body defers the read, so no TDZ).
 	const gripOpts = (): GripOpts => ({ gripMm: gripSize, shift: () => shiftDown, imgCropId: imgEdit.mode === 'crop' ? imgEdit.id : null })
 	const gripsFor = (e: Ent): Grip[] => gGripsFor(ctx, e, gripOpts())
-	const constrainGrip = (base: Ent, gi: number, p: Pt, shift: boolean): Pt => gConstrainGrip(ctx, base, gi, p, shift, gripOpts())
 	// Grips must be a CONSTANT screen size (Kestrel / Outlets), whatever the zoom. On-screen
 	// px of a model-unit length = length · view.zoom · (pxPerUnit · canvasZoom); dividing by both
 	// zooms cancels them so the grip is always HANDLE_PX px — the canvas CSS zoom included
@@ -979,7 +968,7 @@
 	// snapDelta lives in ui/snap.ts (R1 step 5); the wrapper passes the live grid step (0 when SNAP is off).
 	const snapDelta = (dx: number, dy: number, base: Ent): [number, number] => sSnapDelta(dx, dy, base, snap ? SNAP_STEP : 0)
 	function applyDrag(p: Pt, shift: boolean): Ent {
-		if (drag!.kind === 'grip') { const cp = constrainGrip(drag!.base, drag!.gi, p, shift); return gripsFor(drag!.base)[drag!.gi].apply(snap ? snapToGrid(cp) : cp) }
+		if (drag!.kind === 'grip') { const cp = constrainGrip(ctx, drag!.base, drag!.gi, p, shift, gripOpts()); return gripsFor(drag!.base)[drag!.gi].apply(snap ? snapToGrid(cp) : cp) }
 		let dx = p[0] - drag!.start[0], dy = p[1] - drag!.start[1]
 		if (shift !== ortho) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 }   // ortho / axis-lock
 		const [sdx, sdy] = snapDelta(dx, dy, drag!.base)   // grid snap (SNAP toggle)
@@ -1150,7 +1139,7 @@
 					{#each SECTION_DIRS as d (d)}
 						{#if d === s.dir || s.id === selSection}
 							{@const pick = tool === 'Select' && s.id === selSection}
-							<polygon class="section-arrow" class:inactive={d !== s.dir} class:pick points={sectionArrowFor(s.clip, d)} stroke-width={1.4 / (canvasZoom || 1)}
+							<polygon class="section-arrow" class:inactive={d !== s.dir} class:pick points={sectionArrowFor(s.clip, d, tolMm(11))} stroke-width={1.4 / (canvasZoom || 1)}
 								onpointerdown={(e) => { if (!pick) return; e.stopPropagation(); on.sectiondropdir?.(s.id, d) }} />
 						{/if}
 					{/each}
@@ -1196,10 +1185,10 @@
 			<!-- editing handles: square grips at each selected entity's defining points -->
 			{#if active && tool === 'Select'}
 				{#each entities as e (e.id)}
-					{#if selSet.has(e.id) && inThisView(e) && !isLayerHidden(e.layer) && !isLayerLocked(e.layer) && !groundInIso(e)}
+					{#if selSet.has(e.id) && inThisView(e) && !isLayerHidden(e.layer) && !isLayerLocked(e.layer) && !groundInIso(ctx, e)}
 						{#each gripsFor(e) as g}
 							{#if g.rotate}
-								{@const bc = rotCenter(e)}
+								{@const bc = rotCenter(ctx, e)}
 								{@const tc = rotatePt([bc[0], bbox(e)[1]], bc, e.rot ?? 0)}
 								<line x1={tc[0]} y1={tc[1]} x2={g.x} y2={g.y} stroke={SEL} stroke-width={1 / (canvasZoom || 1)} vector-effect="non-scaling-stroke" opacity="0.6" />
 								<circle cx={g.x} cy={g.y} r={gripSize * 0.85} fill="white" stroke={SEL} stroke-width={1.2 / (canvasZoom || 1)} vector-effect="non-scaling-stroke" style="cursor:grab" />
