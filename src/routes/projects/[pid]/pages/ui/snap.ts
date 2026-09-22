@@ -1,17 +1,22 @@
 // Snapping for the Pages tool (review.md §R1, step 5): grid snap, entity snap points, and the object-snap
 // search (findSnap) + the draw-point resolver (drawPoint). No component state: the snappers RETURN the
 // snap mark ({ p, type } | null) and the Viewport assigns its `snapMark` from that. The mapper (one per
-// pass, P1) and the drafting flags come in as arguments. Node/depth snapping follows in later slices.
+// pass, P1) and the drafting flags come in as arguments. Graph-node snapping (snapNode/graphNodeApply)
+// takes the tolerances in model mm + the model-layer preds; depth snapping follows in the last slice.
 import type { Pt, Ent } from './geometry'
-import type { ViewCtx } from './view'
+import type { ViewCtx, MLayers } from './view'
 import type { Mapper } from './mapper'
-import { bbox } from './hit'
+import { ELEV_BASIS, elevUInv } from './geometry'
+import { bbox, graphNodeDraw, type GN } from './hit'
 import { orthoPt, constrainPt } from './annotations'
 
 export const SNAP_STEP = 100   // grid snap spacing (mm)
 
 /** Round a point to the grid (`step` mm; defaults to SNAP_STEP). */
 export const snapToGrid = (p: Pt, step = SNAP_STEP): Pt => [Math.round(p[0] / step) * step, Math.round(p[1] / step) * step]
+
+/** Round one coordinate to the grid step, or leave it when `step` is 0 (SNAP off). */
+export const rndTo = (v: number, step: number): number => (step ? Math.round(v / step) * step : v)
 
 /** Grid-snap a MOVE delta so the entity's defining point (a / centre / first vertex) lands on the grid,
  *  keeping its shape. `step` = grid spacing, or 0 to disable (SNAP off). */
@@ -89,4 +94,40 @@ export function drawPoint(ctx: ViewCtx, m: Mapper, inp: DrawInputs, clientX: num
 	}
 	if (inp.snap) p = snapToGrid(p)   // grid snap
 	return { p, mark: null }
+}
+
+// ── graph-node snapping (wall / conduit vertices) ──
+
+/** The nearest OTHER visible wall/conduit node's drawn position within `thrMm` of p (for node-drag
+ *  snapping), else null. Snapping coincides the coords so runs join. `origin` (the drag's start position)
+ *  lets a node be pulled OFF a partner it started coincident with — DISCONNECT: candidates within `brkMm`
+ *  of the origin are skipped, so re-snapping only grabs a genuinely new target. */
+export function snapNode(ctx: ViewCtx, p: Pt, exclude: GN, thrMm: number, brkMm: number, ml: MLayers, origin?: Pt): Pt | null {
+	const mdl = ctx.mdl; if (!mdl) return null
+	let best: Pt | null = null, bestD = thrMm
+	for (const o of mdl.objects) {
+		if ((o.type !== 'wall' && o.type !== 'conduit') || !ml.visible(o)) continue
+		for (const nn of o.nodes as GN[]) {
+			if (nn === exclude) continue
+			const d = graphNodeDraw(ctx, nn)
+			if (origin && Math.hypot(d[0] - origin[0], d[1] - origin[1]) < brkMm) continue   // don't re-grab the node we're leaving
+			const dd = Math.hypot(d[0] - p[0], d[1] - p[1])
+			if (dd < bestD) { bestD = dd; best = d }
+		}
+	}
+	return best
+}
+
+/** Move graph node `n` to drawn point p, IN PLACE (store mutation, like the grips): first snap onto a
+ *  nearby node via `opts.snapNode` so runs join, then grid-round each coord via `opts.rnd`. In an
+ *  elevation the drawn point sets the on-axis coord (via elevUInv) + z (GROUND − y); in plan, x/y.
+ *  Returns the snap mark to show — null unless a node snap happened. */
+export function graphNodeApply(ctx: ViewCtx, n: GN, p: Pt, opts: { snapNode: (p: Pt, exclude: GN, origin?: Pt) => Pt | null; rnd: (v: number) => number }, origin?: Pt): SnapHit | null {
+	const q = opts.snapNode(p, n, origin) ?? p   // snap to a nearby node so runs join
+	if (ctx.isElev) {
+		const u = opts.rnd(elevUInv(ctx.elevDir, q[0], ctx.cx, ctx.cy))
+		if (ELEV_BASIS[ctx.elevDir].axis === 0) n.x = u; else n.y = u
+		n.z = Math.max(0, opts.rnd(ctx.ground - q[1]))
+	} else { n.x = opts.rnd(q[0]); n.y = opts.rnd(q[1]) }
+	return q === p ? null : { p: q, type: 'end' }
 }

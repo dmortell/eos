@@ -15,7 +15,7 @@
 	import { makeMapper, type Mapper } from './mapper'
 	import type { ViewCtx } from './view'
 	import { pickSectionGrip as gPickSectionGrip, modelGrips as gModelGrips, pickModelGrip as gPickModelGrip, gripsFor as gGripsFor, constrainGrip as gConstrainGrip, type MGrip, type Grip, type GripOpts } from './grips'
-	import { SNAP_STEP, snapToGrid, snapDelta as sSnapDelta, findSnap as sFindSnap, drawPoint as sDrawPoint } from './snap'
+	import { SNAP_STEP, snapToGrid, rndTo, snapDelta as sSnapDelta, findSnap as sFindSnap, drawPoint as sDrawPoint, snapNode as sSnapNode, graphNodeApply as sGraphNodeApply } from './snap'
 	import { rotatePt, inScope as hInScope, inThisView as hInThisView, groundInIso as hGroundInIso, isFlatElev as hIsFlatElev, flatXSpan as hFlatXSpan, rotCenter as hRotCenter, bbox as hBbox, hitEnt as hHitEnt, pickable as hPickable, prismRect as hPrismRect, prismTilted, graphNodeDraw as hGraphNodeDraw, hitModel as hHitModel, hitModelIso as hHitModelIso, sectionCorners, hitSection as hHitSection, hitGuide as hHitGuide, marqueeSelect as hMarqueeSelect, type GN } from './hit'
 	import { isLayerHidden, isLayerLocked, layerColor, layerOrder } from '../layers.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
@@ -463,34 +463,12 @@
 	const mlayers = { visible: modelLayerVisible, locked: modelLayerLocked }
 	const prismRect = (o: Obj) => hPrismRect(ctx, o)
 	const graphNodeDraw = (n: GN) => hGraphNodeDraw(ctx, n)
-	const rndSnap = (v: number) => (snap ? Math.round(v / SNAP_STEP) * SNAP_STEP : v)
-	// Nearest OTHER graph node's drawing position within a screen-tolerance of p (for node-drag snapping),
-	// else null. Snapping coincides the coords so runs join. `origin` (the drag's start position) lets a
-	// node be pulled OFF a partner it started coincident with — DISCONNECT: candidates within a break
-	// radius of the origin are skipped, so re-snapping only grabs a genuinely new target.
-	function snapNode(p: Pt, exclude: GN, origin?: Pt): Pt | null {
-		if (!mdl) return null
-		const thr = tolMm(10)   // ~10px in model units
-		const brk = tolMm(8)    // pull-apart radius around the drag origin
-		let best: Pt | null = null, bestD = thr
-		for (const o of mdl.objects) {
-			if ((o.type !== 'wall' && o.type !== 'conduit') || !modelLayerVisible(o)) continue
-			for (const nn of o.nodes as GN[]) {
-				if (nn === exclude) continue
-				const d = graphNodeDraw(nn)
-				if (origin && Math.hypot(d[0] - origin[0], d[1] - origin[1]) < brk) continue   // don't re-grab the node we're leaving
-				const dd = Math.hypot(d[0] - p[0], d[1] - p[1])
-				if (dd < bestD) { bestD = dd; best = d }
-			}
-		}
-		return best
-	}
-	function graphNodeApply(n: GN, p: Pt, origin?: Pt) {
-		const q = snapNode(p, n, origin) ?? p   // snap to a nearby node so runs join
-		snapMark = q === p ? null : { p: q, type: 'end' }
-		if (isElev) { const ax = ELEV_BASIS[elevDir].axis; if (ax === 0) n.x = rndSnap(projUInv(q[0])); else n.y = rndSnap(projUInv(q[0])); n.z = Math.max(0, rndSnap(GROUND - q[1])) }
-		else { n.x = rndSnap(q[0]); n.y = rndSnap(q[1]) }
-	}
+	const rndSnap = (v: number) => rndTo(v, snap ? SNAP_STEP : 0)   // grid-round when SNAP is on
+	// snapNode / graphNodeApply live in ui/snap.ts (R1 step 5). The wrappers inject ctx, the tolerances
+	// (~10px snap radius, ~8px pull-apart radius around the drag origin) + the layer preds, and assign
+	// `snapMark` from the returned mark.
+	const snapNode = (p: Pt, exclude: GN, origin?: Pt): Pt | null => sSnapNode(ctx, p, exclude, tolMm(10), tolMm(8), mlayers, origin)
+	function graphNodeApply(n: GN, p: Pt, origin?: Pt) { snapMark = sGraphNodeApply(ctx, n, p, { snapNode, rnd: rndSnap }, origin) }
 	// hitModel / hitModelIso live in ui/hit.ts (R1 step 3); the wrappers inject ctx + the model-layer preds.
 	// hitModel's pick tolerance (tolMm(4), B9) is passed in. graphHit is now hit.ts-internal.
 	const hitModel = (p: Pt) => hHitModel(ctx, p, tolMm(4), mlayers)
