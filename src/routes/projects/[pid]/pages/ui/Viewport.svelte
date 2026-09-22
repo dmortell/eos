@@ -13,6 +13,7 @@
 	import { BASE, HANDLE_PX, PAPER_PX_PER_MM } from '../constants'
 	import { type Pt, type Ent, type View, type ElevDir, DEFAULT_BOX_H, GROUND, MMPU, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, ELEV_BASIS, elevU, elevUInv, flatSpan, dist, segDist, translate, textBox, boxElev, boxElevSet, boxFaces } from './geometry'
 	import { makeMapper, type Mapper } from './mapper'
+	import { rotatePt, isFilled, inBox, onPlanPlane } from './hit'
 	import { isLayerHidden, isLayerLocked, layerColor, layerOrder } from '../layers.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
 	import { models, modelById, modelSel, setModelSel } from '../3dview/models.svelte'
@@ -401,7 +402,7 @@
 	// elevation only (a wall/rack label, a leader, a dimension), rendered as-is there and hidden in
 	// other views. The full 3D-position/construction-plane model (project onto x/y/z planes, oriented
 	// per view) is a later upgrade — see todo §2.
-	const onPlanPlane = (e: Ent) => !e.plane || e.plane === 'plan'
+	// onPlanPlane / rotatePt / isFilled / inBox now live in ui/hit.ts (R1 step 3, pure primitives).
 	// A viewport-local (view:<frameId>) annotation shows only in its own frame; a model-scoped one shows in
 	// every view. `frameId` is this viewport's id (undefined for a model-layout tab → only model-scoped show).
 	const inScope = (e: Ent) => !e.space || e.space === 'model' || e.space === 'view:' + frameId
@@ -417,18 +418,9 @@
 	// Rotation (degrees, about the entity's view-bbox centre): render, hit and grips all honour it.
 	// bbox() returns the UNrotated extent, so its centre is the correct pivot.
 	const rotCenter = (e: Ent): Pt => { const [x0, y0, x1, y1] = bbox(e); return [(x0 + x1) / 2, (y0 + y1) / 2] }
-	function rotatePt(p: Pt, c: Pt, deg: number): Pt { const a = deg * Math.PI / 180, s = Math.sin(a), co = Math.cos(a), dx = p[0] - c[0], dy = p[1] - c[1]; return [c[0] + dx * co - dy * s, c[1] + dx * s + dy * co] }
-	// A CLOSED shape (rect/ellipse/circle/box-footprint) with no fill is selected by its OUTLINE only
-	// (like CAD) — the empty interior is not a hitbox; a filled one picks anywhere inside. `thr` is the
-	// pick band half-width (drawing units). `inBox` = point within thr of the rect border, or inside a fill.
-	const isFilled = (e: Ent) => !!e.fill && e.fill !== 'none'
-	function inBox(p: Pt, x0: number, y0: number, x1: number, y1: number, thr: number, filled: boolean): boolean {
-		const outer = p[0] >= x0 - thr && p[0] <= x1 + thr && p[1] >= y0 - thr && p[1] <= y1 + thr
-		if (!outer) return false
-		if (filled) return true
-		const inner = p[0] > x0 + thr && p[0] < x1 - thr && p[1] > y0 + thr && p[1] < y1 - thr
-		return !inner   // within the border band only
-	}
+	// rotatePt / isFilled / inBox live in ui/hit.ts (R1 step 3). A CLOSED shape (rect/ellipse/box-footprint)
+	// with no fill is selected by its OUTLINE only (like CAD) — the empty interior is not a hitbox; a filled
+	// one picks anywhere inside. `thr` is the pick band half-width (drawing units).
 	function hitEnt(e: Ent, p: Pt, thr: number): boolean {
 		if (e.rot) p = rotatePt(p, rotCenter(e), -e.rot)   // test in the entity's un-rotated frame
 		if (isFlatElev(e)) { const [x0, x1] = flatXSpan(e); return segDist(p, [x0, GROUND], [x1, GROUND]) < thr }
