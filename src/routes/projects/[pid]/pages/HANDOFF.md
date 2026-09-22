@@ -4,20 +4,18 @@ Working notes for the next session (or a fresh context) picking up the Pages ref
 `refactor-plan.md` (the R1 Viewport split plan) and `review.md` (the standing review, maintained by the
 eos-f8 reviewer session). Delete this file once the queue below is drained.
 
-> **RESUME HERE (fresh session):** R1 steps 3–9 are DONE and reviewer-gated (review.md §0a). Landed since the
-> step-5 handoff: step 7 `gestures.ts` (d36f5b8..200a3e9), step 6 builders `56c85ad` + wiring `806dccd`, step 8
-> `EntRender.svelte` `17b5be8` + wiring `29745b7` (paint diff byte-identical), mop-ups `8564e64`/`6542d5b`
-> (shared FLAT/PT_MM, sectionArrowFor → annotations.ts), B13 ids `e55f96d`, B22 `08512dd`, step 9 part 1
-> `36270d8` (dead wrappers gone, single-call-site wrappers inlined; the 2+-call-site aliases stay on purpose).
-> Viewport is 1365 lines (from 2124 at review time / 1709 at the step-5 handoff); the plan's ≤600 target needs
-> R6 (the editor class) — the remaining bulk is onDown/onClick/keys + the model store mutations, not wrappers.
-> The `'floorplan'` → `'plan'` rename is DONE (`eaaf50b`, gated) — R1's mop-up list is closed; K5's pure
-> `snap.objSnaps` is landed but unwired (`fa982e7`, `8324721`; note: inherits B21 for odd-edge prisms, so
-> wire K5 after B21). NEXT are the Dave-gated behaviour changes — **B24** (`place.moveEnt`: `ctx.isElev && isFlatElev(ctx, en)`; eos-f8 gates a
-> FRONT native-rect vertical drag), **K5** (wire `snap.objSnaps` into `findSnap` via an `objs` option so model corners/nodes are OSNAP targets), **B25** (Shift-press toggle
-> should key off the pressed id on pointerup, not a hit-test at release). Verify in-browser: the :5173 dev
-> server serves the WORKING TREE, so keep Viewport.svelte clean while eos-f8 gates; activate a viewport by
-> double-clicking EMPTY space. Test filter: `pnpm vitest run --project=server pages/`.
+> **RESUME HERE (fresh session):** R1 (Viewport split) is CLOSED — steps 3–9 + every mop-up landed and
+> reviewer-gated (review.md §0a; close-out with the measured line breakdown in refactor-plan.md §11,
+> `9bb7cff`). The three Dave-approved behaviour changes are on main and awaiting eos-f8's live gate:
+> **B24** `18ade46` (moveEnt flatness per view), **B25** `07a0195` (Shift-press toggles the pressed id),
+> **K5** `9be21a6` (model corners/nodes are OSNAP targets; odd-edge prisms inherit B21 until it lands).
+> Viewport is 1364 lines (2209 before step 1); the ≤600 target is B5 (sections into the model, ~150 lines) +
+> R6 (editor class; the 318-line event dispatch) — scope R6 from §11's region table, not guesses.
+> Open small items: B19 frame-drag threshold (gestures.ts `thresholdPx` is shipped + tested but unused),
+> B21 odd-edge prisms (engine), B23 wall/conduit pick across the drawn face (R7), the `edit` object seam
+> for the model store mutations (R6). Verify in-browser: the :5173 dev server serves the WORKING TREE
+> (HMR), so keep Viewport.svelte clean while eos-f8 gates; activate a viewport by double-clicking EMPTY
+> space. Test filter: `pnpm vitest run --project=server pages/`.
 
 ## Where things stand (all on `main` unless noted)
 
