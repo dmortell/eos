@@ -4,6 +4,11 @@ Working notes for the Kestrel-style **Pages** workspace mockup
 (`src/routes/projects/[pid]/pages/`). Self-contained mock today (local runes
 state, no Firestore). This file tracks what's left to reach a real tool.
 
+> **Doc map (R11):** `README.md` = the file map + coordinate reference · `review.md` = the standing code
+> review (§0a = done tracker) · `refactor-plan.md` = the Viewport split plan (R1) · `model-plan.md` = the
+> 3D-engine port. This file keeps **open** items + decisions; the long done-log below is historical — the
+> real changelog is `git log`.
+
 Legend: `[ ]` todo · `[~]` partial · `[x]` done · **(P1)** near-term · **(P2)**
 after UX settles · **(P3)** later / needs design. `◧ decide` = needs your pick.
 
