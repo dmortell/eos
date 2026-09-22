@@ -4,7 +4,7 @@
 	// common props (bbox X/Y/W/H) and edits apply to all. Falls back to page/general props
 	// when nothing is selected. Geometry is in model units (mock).
 	import { Icon, ColorPicker } from '$lib'
-	import { translate, STYLE_DEFAULTS, PT, type Ent, type Pt, type TextAlign, type VAlign } from '../ui/geometry'
+	import { translate, STYLE_DEFAULTS, type Ent, type Pt, type TextAlign, type VAlign } from '../ui/geometry'
 	import { COLORS } from '../palette'
 	import { layers } from '../layers.svelte'
 	import { imgEdit, setImgMode } from '../imageEdit.svelte'
@@ -83,7 +83,7 @@
 	// first time; keep it across off/on so re-enabling restores the previous target.
 	function setCallout(on: boolean) {
 		const e = single; if (e?.type !== 'text') return
-		if (on) { const fs = (e.fontPt ?? STYLE_DEFAULTS.fontPt) * PT; onupdate?.({ ...e, callout: true, leader: e.leader ?? [e.a![0] - fs * 3, e.a![1] + fs * 3] }) }
+		if (on) onupdate?.({ ...e, callout: true })   // leave `leader` undefined → the Viewport places its paperMm-based default (B3)
 		else onupdate?.({ ...e, callout: false })
 	}
 	function setRot(v: number) { const r = ((Math.round(v) % 360) + 360) % 360; setAll({ rot: r || undefined }) }
