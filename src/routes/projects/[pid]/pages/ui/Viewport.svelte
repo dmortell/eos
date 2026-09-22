@@ -30,7 +30,7 @@
 	// Drafting/interaction flags are grouped into one `env` object, and all the event callbacks into
 	// one `on` object, to keep the prop list small (a step toward a headless editor class — see
 	// review.md §4.1). `frame` is only used by PaperPage; the Viewport ignores it.
-	export type Env = { acad?: boolean; navContent?: boolean; grid?: boolean; lwt?: boolean; osnap?: boolean; snap?: boolean; ortho?: boolean; cen?: boolean; canvasZoom?: number }
+	export type Env = { acad?: boolean; navContent?: boolean; grid?: boolean; lwt?: boolean; osnap?: boolean; snap?: boolean; ortho?: boolean; cen?: boolean; guideVert?: boolean; canvasZoom?: number }
 	export type VpOn = {
 		activate?: () => void; deactivate?: () => void; add?: (e: Ent) => void; update?: (e: Ent) => void;
 		delete?: (ids: string[]) => void; select?: (ids: string[]) => void; view?: (v: View) => void;
@@ -57,6 +57,9 @@
 	const snap = $derived(env.snap ?? false)     // SNAP: round points to the grid step
 	const ortho = $derived(env.ortho ?? false)   // ORTHO: constrain line-draw + move to H/V
 	const centerDraw = $derived(env.cen ?? false) // CEN: draw rect/ellipse centre-out (1st point = centre)
+	// Guide orientation: a base (set by the Guide tool's H/V pop-out, for touch) XOR the Shift key, so on a
+	// mouse Shift still flips it and on touch the pop-out picks it. true = vertical.
+	const guideIsVert = (shift: boolean) => (env.guideVert ?? false) !== shift
 	const canvasZoom = $derived(env.canvasZoom ?? 1)
 	// Centre-out corners: the first click `c` is the CENTRE, `p` the drag point → box centred on c.
 	const centerCorners = (c: Pt, p: Pt): [Pt, Pt] => [[2 * c[0] - p[0], 2 * c[1] - p[1]], p]
@@ -251,7 +254,7 @@
 			return
 		}
 		if (tool === 'Text') { const p = drawPoint(e.clientX, e.clientY); if (p) on.add?.({ id: uid(), type: 'text', a: p, text: 'TEXT', plane: drawPlane() }); snapMark = null; return }
-		if (tool === 'Guide') { const p = toLocal(e); if (p) placeGuide(p, e.shiftKey); return }   // drop an alignment guide (Shift = vertical)
+		if (tool === 'Guide') { const p = toLocal(e); if (p) placeGuide(p, guideIsVert(e.shiftKey)); return }   // drop an alignment guide (H/V pop-out, Shift flips)
 		// Model objects are placed in the plan — EXCEPT wall/trunk/pipe graphs, which can also be drawn in
 		// an elevation (a vertical wall conduit). Furniture / Section / Opening stay plan-only.
 		if (MODEL_TOOL.has(tool) && !isPlan && !(MODEL_GRAPH.has(tool) && isElev)) return
@@ -269,7 +272,7 @@
 	let hoverPt = $state<Pt | null>(null)   // snapped draw point under the cursor (drives the crosshair, even before the first click)
 	function onMove(e: MouseEvent) {
 		if (on.coords) { const wp = toLocalXY(e.clientX, e.clientY); if (wp) on.coords(Math.round(wp[0]), Math.round(wp[1])) }   // world (model-unit) coords for the status bar
-		if (active && tool === 'Guide' && viewSpace) { const gp = toLocalXY(e.clientX, e.clientY); lastGuidePt = gp; guideCur = gp ? { orient: e.shiftKey ? 'v' : 'h', pos: e.shiftKey ? gp[0] : gp[1] } : null } else if (guideCur) { guideCur = null; lastGuidePt = null }
+		if (active && tool === 'Guide' && viewSpace) { const gp = toLocalXY(e.clientX, e.clientY); lastGuidePt = gp; const v = guideIsVert(e.shiftKey); guideCur = gp ? { orient: v ? 'v' : 'h', pos: v ? gp[0] : gp[1] } : null } else if (guideCur) { guideCur = null; lastGuidePt = null }
 		if (active && draft.length) { const sp = drawPoint(e.clientX, e.clientY, draft.at(-1), e.shiftKey); if (sp) { lastRaw = toLocalXY(e.clientX, e.clientY); cur = sp; hoverPt = sp } }
 		else if (active && DRAW.has(tool) && tool !== 'Guide') hoverPt = drawPoint(e.clientX, e.clientY, undefined, e.shiftKey)   // snapped hover point before the first click (crosshair + snap marker)
 		else hoverPt = null
@@ -670,7 +673,8 @@
 	let lastGuidePt: Pt | null = null   // last cursor point, so Shift can flip the preview orientation instantly
 	function updateGuidePreview(shift: boolean) {   // re-orient the Guide preview on Shift, without a mousemove
 		if (tool !== 'Guide' || !lastGuidePt) return
-		guideCur = { orient: shift ? 'v' : 'h', pos: shift ? lastGuidePt[0] : lastGuidePt[1] }
+		const v = guideIsVert(shift)
+		guideCur = { orient: v ? 'v' : 'h', pos: v ? lastGuidePt[0] : lastGuidePt[1] }
 	}
 	function placeGuide(p: Pt, shift: boolean) {
 		if (!viewSpace || !mdl) return
@@ -1656,7 +1660,7 @@
 		switch (tool) {
 			case 'Select': return mSelObj && (mSelObj.type === 'wall' || mSelObj.type === 'conduit') ? 'Drag a node to reshape · Ctrl-drag a node to branch · double-click a segment to add a node' : 'Click an element'
 			case 'Line': return n ? 'Specify next point (Enter / double-click to finish)' : 'Specify first point'
-			case 'Guide': return viewSpace ? 'Click to drop a horizontal guide · Shift = vertical · select a plan guide to fix the depth for elevation drawing' : 'Guides are placed on a plan or elevation view'
+			case 'Guide': return viewSpace ? `Click to drop a ${guideIsVert(false) ? 'vertical' : 'horizontal'} guide · Shift flips · select a plan guide to fix the depth for elevation drawing` : 'Guides are placed on a plan or elevation view'
 			case 'Wall': case 'Trunk': case 'Pipe': {
 				if (!isPlan && !isElev) return `Switch to a plan or elevation view to draw ${tool.toLowerCase()}s`
 				const depthHint = isElev ? (selectedPlanGuide(mdl?.guides ?? [], modelSel, ELEV_BASIS[elevDir].axis === 0 ? 'h' : 'v') ? ' — depth from the selected plan guide' : ' — no depth guide (uses model centre); select a plan guide') : ''

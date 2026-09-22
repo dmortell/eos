@@ -348,9 +348,12 @@ New todos (design / bigger):
   `Viewport.svelte` ~1289.) So there is nothing that *needs* relocating. **Resolved 2026-09-22 (Dave):
   dropped `e.altKey`** from the panzoom wheel-zoom OR-chain → **Pages is now fully Alt-free**. Ctrl / Meta
   / right-button+wheel still force zoom, so no capability was lost.
-- [ ] **Touch: Guide tool button pop-out for H/V** (Dave, 2026-09-21) — on touch there's no Shift to pick
-  vertical, so the Guide toolbar button should pop out an **H / V** selector. Fits the tools-pop-out-groups
-  todo (a tool button that fans out its variants).
+- [x] **Touch: Guide tool button pop-out for H/V** (2026-09-22) — the Guide strip button is now a group
+  whose fly-out picks **Horizontal / Vertical** (↔ / ↕). A `guideVert` base ($state, in `env`) sets the
+  orientation; the Viewport's `guideIsVert(shift) = guideVert !== shift` uses it, so on a mouse **Shift
+  still flips** it and on touch the pop-out picks it. The group button + tool hint show the current
+  orientation. Verified in-browser: picking Vertical placed vertical guides (added `moveHorizontal`/
+  `moveVertical` to the Icon map). Reuses the tap-to-open fly-out machinery.
 - [ ] **Stable per-DRAWING id for tab dedup + persistence** (Dave, 2026-09-21) — tab ids are an ephemeral
   session counter (`'t'+seq`; the 4 seeded tabs are hardcoded t1–t4, dynamic ones get t5+ by OPEN ORDER),
   and `openDrawing` dedupes by TITLE. So the per-tab localStorage canvas view (and any future per-tab

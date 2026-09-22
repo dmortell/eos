@@ -100,7 +100,8 @@
 	let docScale = $state<Record<string, string>>({ t2: '1:25' })   // 3303 Outlets sheet defaults bigger (1:25)
 	const scaleOf = (id?: string) => docScale[id ?? ''] ?? '1:100'   // model space is real mm; 1:100 fits the ~28 m demo plan
 	// The drafting/interaction flags bundle passed to a pane's viewport (one prop instead of six).
-	const envFor = (pane: { id: string; activeId: string }) => ({ acad: acadMode, navContent, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, cen: toggles.CEN, canvasZoom: canvasViewOf(pane).zoom })
+	let guideVert = $state(false)   // the Guide tool's H/V pop-out base (touch has no Shift); Shift still flips it
+	const envFor = (pane: { id: string; activeId: string }) => ({ acad: acadMode, navContent, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, cen: toggles.CEN, guideVert, canvasZoom: canvasViewOf(pane).zoom })
 	// All the viewport event callbacks in ONE `on` object (was ~13 separate props). PaperPage also
 	// uses `frame`; the plain Viewport ignores it.
 	const vpOn = (a: Tab, pane: { id: string; tool: string }) => ({
@@ -688,7 +689,7 @@
 		{ tool: 'Section' },
 		{ tool: 'Dimension' },
 		{ tool: 'Text' },
-		{ tool: 'Guide' },
+		{ group: 'guide', label: 'Guide', members: [] },   // special: fly-out picks H / V orientation (touch)
 		{ tool: 'Viewport' },
 	]
 	// Last-used tool per group (the button re-activates this on a plain click). Seeded to the first member.
@@ -925,6 +926,17 @@
 								<!-- strip: single tool, or a grouped fly-out (hover to reveal variants) -->
 									{#if 'tool' in s}
 										<button class="tool" class:on={p.tool === s.tool} title={s.tool} onclick={() => (p.tool = s.tool)}><Icon name={iconOf(s.tool)} size={16} /></button>
+									{:else if s.group === 'guide'}
+										<!-- Guide: pick Horizontal / Vertical from the fly-out (touch has no Shift) -->
+										<div class="grp">
+											<button class="tool grp-btn" class:on={p.tool === 'Guide'} title="Guide — {guideVert ? 'vertical' : 'horizontal'}" onclick={() => { p.tool = 'Guide'; openGroup = 'guide' }}>
+												<Icon name={guideVert ? 'moveVertical' : 'moveHorizontal'} size={16} /><span class="grp-caret"></span>
+											</button>
+											<div class="flyout" class:open={openGroup === 'guide'}>
+												<button class="tool" class:on={p.tool === 'Guide' && !guideVert} title="Horizontal guide" onclick={() => { p.tool = 'Guide'; guideVert = false; openGroup = null }}><Icon name="moveHorizontal" size={16} /></button>
+												<button class="tool" class:on={p.tool === 'Guide' && guideVert} title="Vertical guide" onclick={() => { p.tool = 'Guide'; guideVert = true; openGroup = null }}><Icon name="moveVertical" size={16} /></button>
+											</div>
+										</div>
 									{:else}
 										{@const inGrp = s.members.includes(p.tool)}
 										{@const cur = inGrp ? p.tool : groupTool[s.group]}
