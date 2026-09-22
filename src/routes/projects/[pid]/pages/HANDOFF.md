@@ -4,6 +4,16 @@ Working notes for the next session (or a fresh context) picking up the Pages ref
 `refactor-plan.md` (the R1 Viewport split plan) and `review.md` (the standing review, maintained by the
 eos-f8 reviewer session). Delete this file once the queue below is drained.
 
+> **RESUME HERE (fresh session):** hit.ts + grips.ts extraction is DONE + verified (R1 steps 3-4). `snap.ts`
+> (step 5) is STARTED — slice 1 (pure geometry: SNAP_STEP/snapToGrid/snapDelta/entSnaps) is committed
+> (`bc5615f`). NEXT: finish `snap.ts` — `findSnap`/`drawPoint` should RETURN the snap mark (Viewport then
+> assigns `snapMark`), then move `snapNode`/`graphNodeApply` and `elevDepthSnap`. Then steps 6 (`place.ts`),
+> 7 (`gestures.ts`), 8 (`render/EntRender.svelte`), 9 (cleanup: inline the ctx wrappers, ids→nanoid,
+> re-measure), plus the mop-ups (floorplan→plan rename, constrainPt/sectionArrowFor→annotations.ts, shared
+> `constants.PT_MM`, `hoverBody` P2). Verify each slice in-browser: dev server on :5173, activate a viewport
+> by double-clicking EMPTY space, then draw/select. eos-f8 (vscode) can also drive the browser gate if your
+> extension is down — send it the commit hash. Test path: `src/routes/projects/[pid]/pages` (escape `[]`).
+
 ## Where things stand (all on `main` unless noted)
 
 Landed + reviewer-verified this session:
