@@ -38,22 +38,30 @@ model-layer pred bundle.
 3. ~~`hitGuide`~~ — DONE (slice 4). Passed `viewGuides` as an arg (`Guide[]`).
 4. ~~`marqueeSelect`~~ — DONE (slice 4). `marqueeSelect(ctx, ents, a, b, isPickable)`; group expansion
    stays in `onMarqueeUp`.
-5. `pickAt` — the LAST slice, not yet done. The orchestrator encoding onDown's priority order (model grip →
-   section grip → entity grip → entity body → guide → section border → model object). `hoverBody` (P2)
-   becomes `pickAt(...) !== null`. Do it after grips.ts's entity grips land (below).
+5. `pickAt` — the LAST slice, NOT yet done (the only remaining hit/grips extraction). The orchestrator
+   encoding onDown's priority order (model grip → section grip → entity grip → entity body → guide →
+   section border → model object → marquee), returning the plan §3 `Pick` discriminated union so `onDown`
+   collapses to `switch (pickAt(...))`. `hoverBody` (P2) becomes `pickAt(...) !== null`. The per-picker
+   grip-loop P1 is already done (pickModelGrip/pickSectionGrip/entity `pick` each build one mapper) — pickAt
+   just sequences them. **NEEDS THE BROWSER:** it rewrites the critical pointer-down path (pointer capture +
+   per-gesture window listeners + beginedit side-effects stay in onDown; only the pick DECISION moves into
+   pickAt), so every pick path (grip/section/entity/guide/section-border/model/marquee) must be re-driven
+   interactively. Do it when the Chrome extension is connected. Current onDown priority is at
+   `Viewport.svelte` onDown (~1058); the entity+body picker is `pick` (~975).
 
-## grips.ts (R1 step 4) — in progress
+## grips.ts (R1 step 4) — DONE (all three slices)
 
 - `55a0742` — slice 1: `resizeSectionClip`, `pickSectionGrip` (+ grip-loop P1: one mapper per press).
 - `bda942e` — slice 2: `prismCorners`, `applyPrismGrip`, `modelGrips`, `pickModelGrip`, `MGrip` type.
   `modelGrips(ctx, o, opts)` takes `rnd`/`applyNode` via opts (store-mutation-in-place kept). Verified with
   a live grip-drag resize.
-- REMAINING: the **entity grips** — `Grip` type, `ROTATABLE`, `canRotate(ctx, e, imgCropId)`,
-  `rotGripLocal(ctx, e, gripMm, shift)`, `setFlatX(ctx, e, edge, u)`, `gripsLocal(ctx, e, opts)`,
-  `gripsFor(ctx, e, opts)`, `constrainGrip(ctx, base, gi, p, shift, opts)`. These need `gripSize`
-  (screen-constant $derived), `shiftDown` (live, pass as `shift: () => boolean`), `imgEdit.mode/id`
-  (pass as `imgCropId`), `paperMm`/`textBox` (for the dim-text + callout grips). Per plan §4 they take
-  `opts: { gripMm, shift, imgCropId }`. Then `pickAt` last.
+- `e694e94` — slice 3: entity grips — `Grip` type, `ROTATABLE`, `canRotate`, `rotGripLocal`, `setFlatX`,
+  `gripsLocal`, `gripsFor`, `constrainGrip`, taking `ctx` + a `GripOpts { gripMm, shift, imgCropId }` bundle.
+  Wrappers for `gripsFor`/`constrainGrip` in Viewport. Unit-tested; a live entity-grip drag was NOT
+  re-driven (Chrome extension disconnected mid-check) — same machinery as the verified model-grip drag.
+- `9b5c448` — entity `pick` grip-loop P1 fold-in (one mapper per press). Completes P1 across all pickers.
+
+So the only thing left in R1 steps 3-4 is **`pickAt`** (above), which is gated on browser access.
 
 Then step 4 = `ui/grips.ts` (unblocked now that `bbox`/`rotCenter`/`hitEnt` take ctx).
 
