@@ -11,9 +11,10 @@
 	import { panzoom } from './panzoom'
 	import Handle from '../parts/Handle.svelte'
 	import { BASE, HANDLE_PX, PAPER_PX_PER_MM } from '../constants'
-	import { type Pt, type Ent, type View, type ElevDir, DEFAULT_BOX_H, GROUND, MMPU, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, ELEV_BASIS, elevU, elevUInv, flatSpan, dist, segDist, translate, textBox, boxElev, boxElevSet, boxFaces } from './geometry'
+	import { type Pt, type Ent, type View, type ElevDir, DEFAULT_BOX_H, GROUND, MMPU, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, ELEV_BASIS, elevU, elevUInv, dist, segDist, translate, textBox, boxElev, boxElevSet, boxFaces } from './geometry'
 	import { makeMapper, type Mapper } from './mapper'
-	import { rotatePt, isFilled, inBox, onPlanPlane } from './hit'
+	import type { ViewCtx } from './view'
+	import { rotatePt, inScope as hInScope, inThisView as hInThisView, groundInIso as hGroundInIso, isFlatElev as hIsFlatElev, flatXSpan as hFlatXSpan, rotCenter as hRotCenter, bbox as hBbox, hitEnt as hHitEnt, pickable as hPickable } from './hit'
 	import { isLayerHidden, isLayerLocked, layerColor, layerOrder } from '../layers.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
 	import { models, modelById, modelSel, setModelSel } from '../3dview/models.svelte'
@@ -402,45 +403,20 @@
 	// elevation only (a wall/rack label, a leader, a dimension), rendered as-is there and hidden in
 	// other views. The full 3D-position/construction-plane model (project onto x/y/z planes, oriented
 	// per view) is a later upgrade — see todo §2.
-	// onPlanPlane / rotatePt / isFilled / inBox now live in ui/hit.ts (R1 step 3, pure primitives).
-	// A viewport-local (view:<frameId>) annotation shows only in its own frame; a model-scoped one shows in
-	// every view. `frameId` is this viewport's id (undefined for a model-layout tab → only model-scoped show).
-	const inScope = (e: Ent) => !e.space || e.space === 'model' || e.space === 'view:' + frameId
-	// In-view = the object's DRAWING PLANE matches this view (plan projects into every elevation as a ground
-	// line; an elevation-native object shows only in that elevation) AND its scope includes this frame.
-	const inThisView = (e: Ent) => inScope(e) && (onPlanPlane(e) || e.plane === kind)
-	// A plan-plane 2D shape shown in the 3D ISO view is PROJECTED onto the ground plane (z=0), not drawn at
-	// its raw coords. It renders (foreshortened) but isn't interactive there (edit it in plan/elevation).
-	const groundInIso = (e: Ent) => kind === 'iso' && onPlanPlane(e) && e.type !== 'box'
-	const isFlatElev = (e: Ent) => isElev && FLAT.has(e.type) && onPlanPlane(e)   // only floor flats collapse to the ground line
-	// Horizontal drawing span of a flat object projected onto the ground line for the current side view.
-	function flatXSpan(e: Ent): [number, number] { return flatSpan(e, elevDir, CX, CY) }
-	// Rotation (degrees, about the entity's view-bbox centre): render, hit and grips all honour it.
-	// bbox() returns the UNrotated extent, so its centre is the correct pivot.
-	const rotCenter = (e: Ent): Pt => { const [x0, y0, x1, y1] = bbox(e); return [(x0 + x1) / 2, (y0 + y1) / 2] }
-	// rotatePt / isFilled / inBox live in ui/hit.ts (R1 step 3). A CLOSED shape (rect/ellipse/box-footprint)
-	// with no fill is selected by its OUTLINE only (like CAD) — the empty interior is not a hitbox; a filled
-	// one picks anywhere inside. `thr` is the pick band half-width (drawing units).
-	function hitEnt(e: Ent, p: Pt, thr: number): boolean {
-		if (e.rot) p = rotatePt(p, rotCenter(e), -e.rot)   // test in the entity's un-rotated frame
-		if (isFlatElev(e)) { const [x0, x1] = flatXSpan(e); return segDist(p, [x0, GROUND], [x1, GROUND]) < thr }
-		if (e.type === 'polyline') { const pts = e.pts ?? []; for (let i = 0; i + 1 < pts.length; i++) if (segDist(p, pts[i], pts[i + 1]) < thr) return true; return false }
-		if (e.type === 'line' || e.type === 'dim') return segDist(p, e.a!, e.b!) < thr
-		if (e.type === 'box' && isElev) { const f = boxElev(e, elevDir, CX, CY); return inBox(p, f.x0, f.top, f.x1, f.base, thr, true) }   // elevation box draws a filled face
-		if (e.type === 'image') { const [x0, y0, x1, y1] = bbox(e); return inBox(p, x0, y0, x1, y1, thr, true) }   // pick anywhere inside the VISIBLE (crop-window) extent
-		if (e.type === 'rect' || e.type === 'box') { const x0 = Math.min(e.a![0], e.b![0]), y0 = Math.min(e.a![1], e.b![1]), x1 = Math.max(e.a![0], e.b![0]), y1 = Math.max(e.a![1], e.b![1]); return inBox(p, x0, y0, x1, y1, thr, e.type !== 'rect' || isFilled(e)) }   // box picks anywhere inside
-		if (e.type === 'ellipse') {
-			const cx = (e.a![0] + e.b![0]) / 2, cy = (e.a![1] + e.b![1]) / 2
-			const hx = Math.abs(e.b![0] - e.a![0]) / 2, hy = Math.abs(e.b![1] - e.a![1]) / 2
-			const outer = ((p[0] - cx) / ((hx + thr) || 1)) ** 2 + ((p[1] - cy) / ((hy + thr) || 1)) ** 2 <= 1
-			if (!outer) return false
-			if (isFilled(e)) return true
-			const inner = ((p[0] - cx) / ((hx - thr) || 1)) ** 2 + ((p[1] - cy) / ((hy - thr) || 1)) ** 2 < 1
-			return !inner   // ring band around the outline only
-		}
-		if (e.type === 'text') { const [x0, y0, x1, y1] = textBox(e, PT_MM * paperMm); return p[0] >= x0 - thr && p[0] <= x1 + thr && p[1] >= y0 - thr && p[1] <= y1 + thr }
-		return false
-	}
+	// The hit logic lives in ui/hit.ts (R1 step 3); those functions take a ViewCtx so they read no
+	// component state. Viewport builds `ctx` once (a $derived from the view props) and the thin wrappers
+	// below inject it, so existing call sites (bbox(e), hitEnt(e,p,thr), pickable(e), …) stay unchanged.
+	// (`dir: kind` keeps 'floorplan'; the 'floorplan'→'plan' rename is a separate mop-up.)
+	const ctx = $derived<ViewCtx>({ dir: kind, isPlan: kind === 'floorplan', isElev, isIso: kind === 'iso', elevDir, cx: CX, cy: CY, ground: GROUND, frameId, paperMm: 1 / (dscale || 1) })   // paperMm = 1/dscale (declared later; inlined to avoid TDZ)
+	const layerPreds = { hidden: isLayerHidden, locked: isLayerLocked }
+	const inScope = (e: Ent) => hInScope(ctx, e)
+	const inThisView = (e: Ent) => hInThisView(ctx, e)
+	const groundInIso = (e: Ent) => hGroundInIso(ctx, e)
+	const isFlatElev = (e: Ent) => hIsFlatElev(ctx, e)
+	const flatXSpan = (e: Ent): [number, number] => hFlatXSpan(ctx, e)
+	const rotCenter = (e: Ent): Pt => hRotCenter(ctx, e)
+	const bbox = (e: Ent): [number, number, number, number] => hBbox(ctx, e)
+	const hitEnt = (e: Ent, p: Pt, thr: number): boolean => hHitEnt(ctx, e, p, thr)
 	// Pick tolerance in MODEL units for a target of `px` screen pixels (px of slack around a line
 	// edge). 8 model units was huge at scale — this keeps it a few px whatever the zoom.
 	// Pick tolerance in MODEL mm for `px` screen pixels (B9): screen px → viewBox units (dscale-scaled) ÷
@@ -449,7 +425,7 @@
 	// pipes were barely pickable) is gone. Delegates to the mapper (ui/mapper.ts) so the math lives in one place.
 	const tolMm = (px: number) => { const m = mapper(); return m ? m.tolMm(px) : px / (dscale || 1) }
 	// A hidden or locked layer's objects can't be picked; nor can objects that don't belong to this view.
-	const pickable = (e: Ent) => inThisView(e) && !isLayerHidden(e.layer) && !isLayerLocked(e.layer) && !groundInIso(e)
+	const pickable = (e: Ent) => hPickable(ctx, e, layerPreds)
 	// The origin anchor of the selected / being-edited image, in model coords (null if none has an origin,
 	// or its layer is hidden, or it isn't shown in this view — the marker must vanish with the image).
 	const originMark = $derived.by(() => {
@@ -1673,18 +1649,7 @@
 	// ── selection marquee (Kestrel/AutoCAD): drag L→R = window (enclose fully),
 	// R→L = crossing (touch). bbox tests are enough for the mock. ──
 	let marquee = $state<{ a: Pt; b: Pt; add?: boolean } | null>(null)
-	function bbox(e: Ent): [number, number, number, number] {
-		if (isFlatElev(e)) { const [x0, x1] = flatXSpan(e); return [x0, GROUND - 2, x1, GROUND + 2] }
-		if (e.type === 'polyline') { const pts = e.pts ?? []; const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] }
-		if (e.type === 'text') return textBox(e, PT_MM * paperMm)
-		if (e.type === 'box' && isElev) { const f = boxElev(e, elevDir, CX, CY); return [f.x0, f.top, f.x1, f.base] }
-		if (e.type === 'image' && e.crop) {   // the VISIBLE extent is the crop window, not the full placement
-			const rx = Math.min(e.a![0], e.b![0]), ry = Math.min(e.a![1], e.b![1]), rw = Math.abs(e.b![0] - e.a![0]), rh = Math.abs(e.b![1] - e.a![1])
-			return [rx + e.crop.x * rw, ry + e.crop.y * rh, rx + (e.crop.x + e.crop.w) * rw, ry + (e.crop.y + e.crop.h) * rh]
-		}
-		const xs = [e.a![0], e.b![0]], ys = [e.a![1], e.b![1]]
-		return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
-	}
+	// bbox now lives in ui/hit.ts (R1 step 3); the `bbox(e)` wrapper above injects ctx.
 	function onMarqueeMove(e: PointerEvent) {
 		if (!marquee) return
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
