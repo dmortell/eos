@@ -13,6 +13,7 @@
 	import { BASE, HANDLE_PX, PAPER_PX_PER_MM } from '../constants'
 	import { type Pt, type Ent, type View, type ElevDir, GROUND, MMPU, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, ELEV_BASIS, elevU, elevUInv, dist, segDist, translate, textBox } from './geometry'
 	import { makeMapper, type Mapper } from './mapper'
+	import { beginPointerDrag, DragRegistry } from './gestures'
 	import type { ViewCtx } from './view'
 	import { pickSectionGrip as gPickSectionGrip, modelGrips as gModelGrips, pickModelGrip as gPickModelGrip, gripsFor as gGripsFor, constrainGrip as gConstrainGrip, type MGrip, type Grip, type GripOpts } from './grips'
 	import { SNAP_STEP, snapToGrid, rndTo, snapDelta as sSnapDelta, findSnap as sFindSnap, drawPoint as sDrawPoint, snapNode as sSnapNode, graphNodeApply as sGraphNodeApply, elevDepthSnap as sElevDepthSnap } from './snap'
@@ -689,25 +690,18 @@
 	}
 	// ── 3D iso ORBIT — a plain drag in the iso view rotates the camera (yaw/pitch). The projection
 	// already takes yaw/pitch; here we just turn a drag into new angles. Pitch is clamped to (0, 90°).
-	let orbitDrag: { sx: number; sy: number; yaw0: number; pitch0: number; moved: boolean } | null = null
-	function onOrbitMove(e: PointerEvent) {
-		if (!orbitDrag) return
-		orbitDrag.moved = true
-		const dx = e.clientX - orbitDrag.sx, dy = e.clientY - orbitDrag.sy
-		let ny = orbitDrag.yaw0 + dx * 0.008
-		let np = Math.max(0.06, Math.min(Math.PI / 2 - 0.02, orbitDrag.pitch0 + dy * 0.006))
+	// Runs on beginPointerDrag (ui/gestures.ts): the drag's start + camera angles ride in the state.
+	type OrbitDrag = { sx: number; sy: number; yaw0: number; pitch0: number }
+	function onOrbitMove(e: PointerEvent, s: OrbitDrag) {
+		const dx = e.clientX - s.sx, dy = e.clientY - s.sy
+		let ny = s.yaw0 + dx * 0.008
+		let np = Math.max(0.06, Math.min(Math.PI / 2 - 0.02, s.pitch0 + dy * 0.006))
 		if (e.shiftKey) {   // Shift = snap yaw + pitch to 15° increments
 			const S = Math.PI / 12
 			ny = Math.round(ny / S) * S
 			np = Math.max(S, Math.min(Math.PI / 2 - 0.02, Math.round(np / S) * S))
 		}
 		on.orbit?.(ny, np)
-	}
-	function onOrbitUp() {
-		if (orbitDrag?.moved) suppressClick = true
-		orbitDrag = null
-		window.removeEventListener('pointermove', onOrbitMove)
-		window.removeEventListener('pointerup', onOrbitUp)
 	}
 
 	// ── model PLACEMENT (P2f / §3) — create new model objects on the store, one undo step, select it ──
@@ -926,10 +920,13 @@
 	let drag: { id: string; base: Ent; bases: Ent[]; kind: 'grip' | 'move'; gi: number; start: Pt; dup?: boolean; duplicated?: boolean } | null = null
 	let dragged = false        // true once the pointer actually moved during a drag
 	let suppressClick = false  // swallow the click that ends a real drag (avoids re-select)
-	// Track pressed pointers so a second finger (2-finger pan/zoom) aborts an entity drag —
-	// otherwise finger 1 landing on a shape starts a move that the pan then drags around.
-	const pointers = new Set<number>()
+	// The drag registry (ui/gestures.ts, R1 step 7) tracks pressed pointers so a second finger (2-finger
+	// pan/zoom) aborts a drag — otherwise finger 1 landing on a shape starts a move that the pan then drags
+	// around — and holds every live beginPointerDrag so cancelPointerDrag can abort them all. The machines
+	// not yet moved onto it (below) still tear down by hand.
+	const reg = new DragRegistry()
 	function cancelPointerDrag() {
+		reg.cancelAll()   // every beginPointerDrag-managed drag (orbit so far)
 		if (drag) {
 			if (dragged) for (const b of drag.bases) on.update?.(b)   // revert any partial move/resize
 			drag = null; on.endedit?.()
@@ -961,11 +958,6 @@
 			window.removeEventListener('pointermove', onModelGripMove)
 			window.removeEventListener('pointerup', onModelGripUp)
 		}
-		if (orbitDrag) {   // abort an in-progress iso orbit
-			orbitDrag = null
-			window.removeEventListener('pointermove', onOrbitMove)
-			window.removeEventListener('pointerup', onOrbitUp)
-		}
 		if (secDrag) {   // abort an in-progress section-marker move
 			secDrag = null
 			on.endedit?.()   // close the gesture opened at drag start
@@ -980,7 +972,7 @@
 		}
 	}
 	$effect(() => {
-		const up = (e: PointerEvent) => pointers.delete(e.pointerId)
+		const up = (e: PointerEvent) => reg.noteUp(e)
 		window.addEventListener('pointerup', up)
 		window.addEventListener('pointercancel', up)
 		return () => { window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up) }
@@ -994,8 +986,7 @@
 		if ((e.target as Element)?.closest?.('.section-arrow.pick')) return   // a section-arrow click adds/opens a direction (Svelte delegation ignores its stopPropagation)
 		suppressClick = false   // clear any stale flag from a drag that never got its click
 		nodeSel = null          // a fresh press resets the node selection (re-set on a no-move node-grip click)
-		pointers.add(e.pointerId)
-		if (pointers.size > 1) { cancelPointerDrag(); return }   // 2nd finger → hand off to pan/zoom
+		if (reg.noteDown(e)) { cancelPointerDrag(); return }   // 2nd finger → hand off to pan/zoom
 		// While calibrating scale, a press near a placed endpoint drags it (adjust the measure line).
 		if (imgEdit.mode === 'scale' && scalePts.length === 2) {
 			for (let i = 0; i < 2; i++) { const sp = localToClient(scalePts[i][0], scalePts[i][1]); if (sp && Math.hypot(sp.x - e.clientX, sp.y - e.clientY) < 14) { scaleDrag = i; try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ } e.preventDefault(); window.addEventListener('pointermove', onScaleDragMove); window.addEventListener('pointerup', onScaleDragUp); return } }
@@ -1015,11 +1006,7 @@
 		}
 		// 3D iso view: a plain drag orbits the camera (nothing is edited in iso).
 		if (kind === 'iso') {
-			orbitDrag = { sx: e.clientX, sy: e.clientY, yaw0: yaw, pitch0: pitch, moved: false }
-			try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
-			e.preventDefault()
-			window.addEventListener('pointermove', onOrbitMove)
-			window.addEventListener('pointerup', onOrbitUp)
+			beginPointerDrag<OrbitDrag>(e, { sx: e.clientX, sy: e.clientY, yaw0: yaw, pitch0: pitch }, { onMove: onOrbitMove, onUp: (_e, _s, moved) => { if (moved) suppressClick = true } }, reg)
 			return
 		}
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
@@ -1097,7 +1084,7 @@
 		const base = entities.find(x => x.id === hitInfo.id); if (!base) return
 		setModelSel([])   // grabbing an entity clears any model-object selection (they're exclusive)
 		// Shift-press on a body is selection-only (toggles on release) — must NOT start a move drag.
-		if (e.shiftKey && hitInfo.kind === 'move') { pointers.delete(e.pointerId); return }
+		if (e.shiftKey && hitInfo.kind === 'move') { reg.forget(e); return }
 		if (!(e.ctrlKey || e.metaKey) && !selSet.has(hitInfo.id)) on.select?.(expandGroup([hitInfo.id]))   // plain press on an unselected entity → select it (+ its group)
 		// a body move drags the whole selection when the grabbed entity is part of it, else just it (+ its group)
 		const moveIds = hitInfo.kind === 'move' ? (selSet.has(hitInfo.id) ? sel : expandGroup([hitInfo.id])) : [hitInfo.id]
