@@ -300,16 +300,18 @@ New todos (design / bigger):
   in a FRONT elevation landed at the trunk's y-depth in plan (coincident with the trunk), while a point in
   empty space stayed at centre; clean console. (First cut matched in screen space and missed — model-space
   match fixed it.)
-- [x] **Multi-direction section (arrows on all 4 sides)** (2026-09-22) — a section box can now cut in up to
-  4 directions from ONE box. Each direction is its own elevation tab, but they share a GROUP (`docSecGroup`)
-  so the box moves/resizes together (`moveSection` propagates to every tab in the group; `sectionMarkers`
-  groups by group id → ONE plan marker, so no divergence). The marker shows the 4 directional arrows:
-  ACTIVE (has an elevation) solid → click opens it; when the box is SELECTED the missing directions show
-  faded → click `sectionadddir` spawns that elevation (new tab, same clip+group). Arrows are interactive
-  only in Select mode; `onDown`/`onClick` bail on a `.section-arrow.pick` target (Svelte delegates the SVG
-  pointerdown, so its `stopPropagation` alone didn't stop the section-draw/deselect — same gotcha as the
-  rDownPt one). Verified in-browser: draw → front + 3 faded; select → 4 arrows; clicking a faded arrow
-  created Section B (arrow turned solid) with NO stray section; box stays one marker; clean console.
+- [x] **Multi-direction section — arrows on all 4 sides drop onto the current sheet** (2026-09-22, revised
+  per Dave) — a section is now a **standalone plan marker** (`docClip`/`docSecDir`/`docSecName` keyed by a
+  `sec` id — NOT an elevation tab; `onSection` no longer creates a tab). The marker shows its primary
+  sight arrow always; when SELECTED all 4 arrows show, each clickable → **`sectiondropdir` drops that
+  direction's elevation as a viewport FRAME on the current sheet** (focused pane's sheet, else the first
+  sheet), then focuses the sheet + selects the frame. No new tabs per direction (Dave preferred "same
+  sheet"). Toolbar = drop-primary + primary-direction dropdown + delete. Arrows interactive only in Select
+  mode; `onDown`/`onClick` bail on a `.section-arrow.pick` target (Svelte delegates the SVG pointerdown so
+  its `stopPropagation` alone didn't stop the section-draw/deselect — same gotcha as rDownPt). Verified
+  in-browser: draw a section on the plan → NO tab created; clicking the front arrow switched to 3303
+  Outlets and made a "Front 1:25" viewport frame (Source 33F / View Front); the marker also shows on the
+  sheet's plan frame to drop more directions; clean console.
 - [x] **Insert nodes in ELEVATION views** (2026-09-20) — node-insert (dbl-click a wall/conduit segment)
   now works in elevations too, not just plan: the new node takes its on-axis coord from `projUInv(p[0])`
   and z from `GROUND − p[1]`, keeping the off-axis coord of its neighbour. `onDblclick` gate widened

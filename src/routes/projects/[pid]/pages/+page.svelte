@@ -117,12 +117,10 @@
 		modeledit: (label?: string) => modelEdit(a.id, label), section: (clip: Clip) => onSection(clip),
 		orbit: (yaw: number, pitch: number) => setOrbit(pane.id, a.id, projOf(pane, a), yaw, pitch),
 		sectionselect: (id: string | null) => selectSection(id),
-		sectionopen: (id: string) => openSection(id),
 		sectionmove: (id: string, clip: Clip) => moveSection(id, clip),
 		sectionsetdir: (id: string, dir: ElevDir) => setSectionDir(id, dir),
 		sectiondelete: (id: string) => deleteSection(id),
-		sectiondrop: (id: string) => sectionDropAsFrame(id),
-		sectionadddir: (id: string, dir: ElevDir) => addSectionDir(id, dir),
+		sectiondropdir: (id: string, dir: ElevDir) => dropSectionDir(id, dir),
 	})
 	// A 3D-model edit (the Viewport mutated the shared `models` store) records a step on THIS doc's
 	// timeline, gesture-folded like an entity edit — so Ctrl+Z restores the model too.
@@ -135,60 +133,29 @@
 	// persistent MARKER on the plan (box + direction arrow + label) so the cut is visible and clickable.
 	// docClip = the box per elevation tab; docSecDir = the section's viewing direction (drives the marker
 	// arrow AND the elevation's projection). Markers self-clean when their elevation tab is closed.
+	// A SECTION is a standalone plan marker (NOT a tab): a box (docClip) + a primary sight direction
+	// (docSecDir) + a name. Its elevations are viewed by DROPPING viewport FRAMES onto the current sheet —
+	// clicking any of the 4 arrows drops that direction's elevation as a frame (Dave, 2026-09-22). Keyed by
+	// a 'sec' id so it never collides with tab ids.
 	let docClip = $state<Record<string, Clip>>({})
 	let docSecDir = $state<Record<string, ElevDir>>({})
-	// A section can cut in up to 4 directions from ONE box: each direction is its own elevation tab, but they
-	// share a GROUP so the box (docClip, kept per tab and synced) moves/resizes together. docSecGroup maps a
-	// tab → its group id. Ungrouped (legacy) tabs are their own group.
-	let docSecGroup = $state<Record<string, string>>({})
+	let docSecName = $state<Record<string, string>>({})
 	let selSection = $state<string | null>(null)   // the section marker selected on the plan (shows grips + toolbar)
-	let secSeq = 0, secGroupSeq = 0
+	let secSeq = 0
 	function onSection(clip: Clip) {
-		const id = 't' + ++seq, gid = 'sg' + ++secGroupSeq
-		tabs = [...tabs, { id, title: `Section ${String.fromCharCode(65 + secSeq++)}`, kind: 'elevation', dirty: false }]
+		const id = 'sec' + secSeq
 		docClip = { ...docClip, [id]: clip }
 		docSecDir = { ...docSecDir, [id]: 'front' }
-		docSecGroup = { ...docSecGroup, [id]: gid }
-		selSection = id   // select the new section (grips + toolbar) but stay on the plan — open it via the link button
+		docSecName = { ...docSecName, [id]: `Section ${String.fromCharCode(65 + (secSeq++ % 26))}` }
+		selSection = id   // select the new marker (grips + toolbar); drop its elevations via the arrows
 	}
-	const groupOf = (tid: string) => docSecGroup[tid] ?? tid
-	// Every section box as ONE plan marker (grouped): its box, the primary tab's direction (for the toolbar),
-	// its label, and `dirs` = which of the 4 directions are active → their tab ids (drives the 4 arrows).
-	const sectionMarkers = $derived.by(() => {
-		const groups = new Map<string, { clip: Clip; tabs: { id: string; dir: ElevDir }[] }>()
-		for (const [tid, clip] of Object.entries(docClip)) {
-			const g = groupOf(tid)
-			if (!groups.has(g)) groups.set(g, { clip, tabs: [] })
-			groups.get(g)!.tabs.push({ id: tid, dir: docSecDir[tid] ?? 'front' })
-		}
-		return [...groups.values()].map((g) => {
-			const dirs: Partial<Record<ElevDir, string>> = {}
-			for (const t of g.tabs) dirs[t.dir] = t.id
-			const primary = g.tabs[0]
-			return { id: primary.id, clip: g.clip, dir: primary.dir, label: tabs.find((t) => t.id === primary.id)?.title ?? 'Section', dirs }
-		})
-	})
-	// Add a cut DIRECTION to a section's group: a new elevation tab sharing the box, or open it if it exists.
-	function addSectionDir(sectionId: string, dir: ElevDir) {
-		const gid = groupOf(sectionId), clip = docClip[sectionId]; if (!clip) return
-		const existing = Object.keys(docClip).find((t) => groupOf(t) === gid && (docSecDir[t] ?? 'front') === dir)
-		if (existing) { openSection(existing); return }
-		const id = 't' + ++seq
-		tabs = [...tabs, { id, title: `Section ${String.fromCharCode(65 + secSeq++)}`, kind: 'elevation', dirty: false }]
-		docClip = { ...docClip, [id]: { ...clip } }
-		docSecDir = { ...docSecDir, [id]: dir }
-		docSecGroup = { ...docSecGroup, [id]: gid }   // stay on the plan; the now-solid arrow opens it
-	}
-	// A marker is SELECTED by clicking it (grips + a floating toolbar appear); the toolbar's LINK button
-	// opens its elevation, its direction control re-aims the cut, and corner grips / a body drag resize /
-	// move the box (the linked elevation re-clips live). Deleting closes that tab (dropDoc clears the clip).
-	function openSection(id: string) { openTab(id); if (panes[focused]) panes[focused].layout = 'model'; activateVp(id); tick().then(() => fitPane(focused)) }
-	// Drop the section onto a SHEET as a viewport FRAME (it already carries proj + clip) instead of only
-	// opening it as an elevation tab. Targets the focused pane's sheet, else the first sheet tab; focuses
-	// it and selects the new frame so it can be repositioned. Frame size starts at the clip's aspect.
-	function sectionDropAsFrame(id: string) {
+	// Every section box as a plan marker: its box, its primary direction (the arrow shown when unselected),
+	// and its label. (When selected the Viewport shows all 4 arrows — each drops that direction's elevation.)
+	const sectionMarkers = $derived(Object.entries(docClip).map(([sid, clip]) => ({ id: sid, clip, dir: docSecDir[sid] ?? 'front', label: docSecName[sid] ?? 'Section' })))
+	// Drop a section's elevation for a direction as a viewport FRAME on the current sheet (focused pane's
+	// sheet, else the first sheet tab); focuses it + selects the new frame. Frame size starts at the clip aspect.
+	function dropSectionDir(id: string, dir: ElevDir) {
 		const clip = docClip[id]; if (!clip) return
-		const dir = (docSecDir[id] ?? 'front') as ElevDir
 		const focusedTab = tabs.find((t) => t.id === panes[focused]?.activeId)
 		const sheet = focusedTab?.kind === 'sheet' ? focusedTab : tabs.find((t) => t.kind === 'sheet')
 		if (!sheet) { statusText = 'Open a sheet first to drop a section viewport'; return }
@@ -203,20 +170,15 @@
 		selFrame = fid
 		recordEdit(sheet.id, 'Drop section viewport')
 	}
-	function moveSection(id: string, clip: Clip) {   // move/resize the box for EVERY direction in the group
-		const gid = groupOf(id), dc = { ...docClip }
-		for (const t of Object.keys(dc)) if (groupOf(t) === gid) dc[t] = clip
-		docClip = dc
-	}
+	function moveSection(id: string, clip: Clip) { docClip = { ...docClip, [id]: clip } }
 	function selectSection(id: string | null) { selSection = id; if (id) setSel(active?.id ?? '', []) }   // section vs entity selection are exclusive
-	function setSectionDir(id: string, dir: ElevDir) {
-		docSecDir = { ...docSecDir, [id]: dir }
-		// Clear any per-pane ViewCube override on this tab so the elevation follows the new section dir.
-		const dp = { ...docProj }; let hit = false
-		for (const k of Object.keys(dp)) if (k.endsWith(':' + id)) { delete dp[k]; hit = true }
-		if (hit) docProj = dp
+	function setSectionDir(id: string, dir: ElevDir) { docSecDir = { ...docSecDir, [id]: dir } }
+	function deleteSection(id: string) {
+		const dc = { ...docClip }; delete dc[id]; docClip = dc
+		const dd = { ...docSecDir }; delete dd[id]; docSecDir = dd
+		const dn = { ...docSecName }; delete dn[id]; docSecName = dn
+		if (selSection === id) selSection = null
 	}
-	function deleteSection(id: string) { closeTab(id) }   // closing the elevation tab removes the marker (dropDoc)
 
 	// ── multi-viewport sheets (AutoCAD paper space) — a sheet's PAGE MODEL is an array of viewport FRAMES
 	// (no special "primary"; the default page seeds one full-bleed frame). Each frame is a window onto the
@@ -494,9 +456,7 @@
 		if (docHist[id]) { const dh = { ...docHist }; delete dh[id]; docHist = dh }
 		if (docProj[id]) { const dp = { ...docProj }; delete dp[id]; docProj = dp }
 		if (docPaper[id]) { const pp = { ...docPaper }; delete pp[id]; docPaper = pp }
-		if (docClip[id]) { const dc = { ...docClip }; delete dc[id]; docClip = dc }            // section box → its plan marker vanishes too
-		if (docSecDir[id]) { const dd = { ...docSecDir }; delete dd[id]; docSecDir = dd }
-		if (docSecGroup[id]) { const dg = { ...docSecGroup }; delete dg[id]; docSecGroup = dg }   // leave the group's other directions intact
+		// (sections are standalone markers keyed by 'sec' ids now, not tabs — nothing to clean here)
 		if (selSection === id) selSection = null
 		// A sheet's viewport frames + all their per-frame view/orbit/activation state.
 		const frameIds = framesOf(id).map((f) => f.id)

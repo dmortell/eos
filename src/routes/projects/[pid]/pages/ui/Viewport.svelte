@@ -25,7 +25,7 @@
 	export type { Pt, Ent, View } from './geometry'
 	// A section cut shown as a marker on the PLAN: its clip box, viewing direction, and the elevation's
 	// label. Clicking the marker opens (or re-focuses) that elevation tab.
-	export type SectionMarker = { id: string; clip: Clip; dir: ElevDir; label: string; dirs: Partial<Record<ElevDir, string>> }
+	export type SectionMarker = { id: string; clip: Clip; dir: ElevDir; label: string }
 
 	// Drafting/interaction flags are grouped into one `env` object, and all the event callbacks into
 	// one `on` object, to keep the prop list small (a step toward a headless editor class — see
@@ -40,9 +40,9 @@
 		group?: (ids: string[]) => void; ungroup?: (ids: string[]) => void;
 		reorder?: (ids: string[], op: 'front' | 'back' | 'forward' | 'backward') => void;
 		scale?: (s: string) => void; modeledit?: (label?: string) => void; section?: (clip: Clip) => void; orbit?: (yaw: number, pitch: number) => void;
-		sectionselect?: (id: string | null) => void; sectionopen?: (id: string) => void; sectionmove?: (id: string, clip: Clip) => void;
-		sectionsetdir?: (id: string, dir: ElevDir) => void; sectiondelete?: (id: string) => void; sectiondrop?: (id: string) => void
-		sectionadddir?: (id: string, dir: ElevDir) => void
+		sectionselect?: (id: string | null) => void; sectionmove?: (id: string, clip: Clip) => void;
+		sectionsetdir?: (id: string, dir: ElevDir) => void; sectiondelete?: (id: string) => void
+		sectiondropdir?: (id: string, dir: ElevDir) => void   // drop this direction's elevation as a viewport frame on the current sheet
 	}
 	let { label = 'Viewport', scale = '1:1', kind = 'floorplan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {}, frameId = undefined, modelId = undefined,
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, sections = [], selSection = null }:
@@ -1735,14 +1735,14 @@
 					{@const bx = Math.min(s.clip.x0, s.clip.x1)}
 					{@const by = Math.min(s.clip.y0, s.clip.y1)}
 					<rect class="section-mark" class:sel={s.id === selSection} x={bx} y={by} width={Math.abs(s.clip.x1 - s.clip.x0)} height={Math.abs(s.clip.y1 - s.clip.y0)} stroke-width={(s.id === selSection ? 2 : 1.4) / (canvasZoom || 1)} />
-					<!-- up to 4 directional arrows: active (has an elevation) = solid, opens it; when the box is
-					     SELECTED the missing directions show faded and a click spawns that elevation. -->
+					<!-- The primary sight arrow shows always (the cut direction on the plan). When the box is
+					     SELECTED all 4 arrows show + are clickable: each DROPS that direction's elevation as a
+					     viewport frame on the current sheet. -->
 					{#each SECTION_DIRS as d (d)}
-						{@const dtab = s.dirs[d]}
-						{#if dtab || s.id === selSection}
-							{@const pick = tool === 'Select' && (!!dtab || s.id === selSection)}
-							<polygon class="section-arrow" class:inactive={!dtab} class:pick points={sectionArrowFor(s.clip, d)} stroke-width={1.4 / (canvasZoom || 1)}
-								onpointerdown={(e) => { if (!pick) return; e.stopPropagation(); if (dtab) on.sectionopen?.(dtab); else on.sectionadddir?.(s.id, d) }} />
+						{#if d === s.dir || s.id === selSection}
+							{@const pick = tool === 'Select' && s.id === selSection}
+							<polygon class="section-arrow" class:inactive={d !== s.dir} class:pick points={sectionArrowFor(s.clip, d)} stroke-width={1.4 / (canvasZoom || 1)}
+								onpointerdown={(e) => { if (!pick) return; e.stopPropagation(); on.sectiondropdir?.(s.id, d) }} />
 						{/if}
 					{/each}
 					{@const pad = hitTol(6) / (dscale || 1)}
@@ -1838,9 +1838,8 @@
 	{#if secToolbar}
 		<div class="section-toolbar" style="left:{secToolbar.x}px; top:{Math.max(2, secToolbar.y - 30)}px"
 			onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()}>
-			<button class="st-btn" title="Open the section elevation" onclick={() => on.sectionopen?.(secToolbar.id)}><Icon name="link" size={13} /></button>
-			<button class="st-btn" title="Drop as a viewport on the sheet" onclick={() => on.sectiondrop?.(secToolbar.id)}><Icon name="panels" size={13} /></button>
-			<select class="st-dir" title="View direction" value={secToolbar.dir} onchange={(e) => on.sectionsetdir?.(secToolbar.id, (e.currentTarget as HTMLSelectElement).value as ElevDir)}>
+			<button class="st-btn" title="Drop this direction as a viewport on the sheet" onclick={() => on.sectiondropdir?.(secToolbar.id, secToolbar.dir)}><Icon name="panels" size={13} /></button>
+			<select class="st-dir" title="Primary sight direction (arrow on the plan)" value={secToolbar.dir} onchange={(e) => on.sectionsetdir?.(secToolbar.id, (e.currentTarget as HTMLSelectElement).value as ElevDir)}>
 				<option value="front">Front</option><option value="rear">Rear</option><option value="left">Left</option><option value="right">Right</option>
 			</select>
 			<button class="st-btn st-del" title="Delete this section" onclick={() => on.sectiondelete?.(secToolbar.id)}><Icon name="trash" size={13} /></button>
