@@ -907,23 +907,14 @@
 	// not yet moved onto it (below) still tear down by hand.
 	const reg = new DragRegistry()
 	function cancelPointerDrag() {
-		reg.cancelAll()   // every beginPointerDrag-managed drag (all but the entity drag / marquee / press-draw so far)
+		reg.cancelAll()   // every beginPointerDrag-managed drag (all but the entity drag so far)
 		if (drag) {
 			if (dragged) for (const b of drag.bases) on.update?.(b)   // revert any partial move/resize
 			drag = null; on.endedit?.()
 			window.removeEventListener('pointermove', onDragMove)
 			window.removeEventListener('pointerup', onDragUp)
 		}
-		if (marquee) {
-			marquee = null
-			window.removeEventListener('pointermove', onMarqueeMove)
-			window.removeEventListener('pointerup', onMarqueeUp)
-		}
-		if (draft.length) {   // abort an in-progress press-drag draw
-			draft = []; cur = null; snapMark = null
-			window.removeEventListener('pointermove', onDrawMove)
-			window.removeEventListener('pointerup', onDrawUp)
-		}
+		if (draft.length) { draft = []; cur = null; snapMark = null }   // abort an in-progress draw (press-drag or two-click)
 	}
 	$effect(() => {
 		const up = (e: PointerEvent) => reg.noteUp(e)
@@ -952,10 +943,7 @@
 			if (acad || tool === 'Text' || tool === 'Guide') return   // AutoCAD two-click / text + guide single-click via onClick
 			const dp = drawPoint(e.clientX, e.clientY); if (!dp) return
 			draft = [dp]; cur = dp
-			try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
-			e.preventDefault()
-			window.addEventListener('pointermove', onDrawMove)
-			window.addEventListener('pointerup', onDrawUp)
+			beginPointerDrag(e, null, { onMove: onDrawMove, onUp: onDrawUp, onCancel: () => { draft = []; cur = null; snapMark = null } }, reg)
 			return
 		}
 		// 3D iso view: a plain drag orbits the camera (nothing is edited in iso).
@@ -1020,8 +1008,7 @@
 		// empty space → drag a Kestrel-style selection box (window / crossing); Shift/Ctrl = additive.
 		if (!pk) {
 			marquee = { a: p, b: p, add: e.shiftKey || e.ctrlKey || e.metaKey }
-			try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
-			e.preventDefault(); window.addEventListener('pointermove', onMarqueeMove); window.addEventListener('pointerup', onMarqueeUp)
+			beginPointerDrag(e, null, { onMove: onMarqueeMove, onUp: onMarqueeUp, onCancel: () => { marquee = null } }, reg)
 			return
 		}
 		// pk is an entity grip or body — start the entity drag.
@@ -1094,7 +1081,7 @@
 	}
 
 	// ── press-drag draw (EOS mode): press = first point, drag (Shift-constrained) = preview,
-	// release = second point. ──
+	// release = second point. beginPointerDrag-managed; the draft itself is the state (component $state). ──
 	function onDrawMove(e: PointerEvent) {
 		if (!draft.length) return
 		const sp = drawPoint(e.clientX, e.clientY, draft[0], e.shiftKey); if (!sp) return
@@ -1102,8 +1089,6 @@
 		cur = sp
 	}
 	function onDrawUp(e: PointerEvent) {
-		window.removeEventListener('pointermove', onDrawMove)
-		window.removeEventListener('pointerup', onDrawUp)
 		const a = draft[0]; draft = []; cur = null
 		const b = drawPoint(e.clientX, e.clientY, a, e.shiftKey); snapMark = null
 		if (!a || !b) return
@@ -1114,7 +1099,7 @@
 
 	// ── selection marquee (Kestrel/AutoCAD): drag L→R = window (enclose fully),
 	// R→L = crossing (touch). bbox tests are enough for the mock. ──
-	let marquee = $state<{ a: Pt; b: Pt; add?: boolean } | null>(null)
+	let marquee = $state<{ a: Pt; b: Pt; add?: boolean } | null>(null)   // rendered → $state; beginPointerDrag-managed
 	// bbox now lives in ui/hit.ts (R1 step 3); the `bbox(e)` wrapper above injects ctx.
 	function onMarqueeMove(e: PointerEvent) {
 		if (!marquee) return
@@ -1122,8 +1107,6 @@
 		marquee = { a: marquee.a, b: p, add: marquee.add }
 	}
 	function onMarqueeUp() {
-		window.removeEventListener('pointermove', onMarqueeMove)
-		window.removeEventListener('pointerup', onMarqueeUp)
 		const m = marquee; marquee = null
 		if (!m) return
 		const x0 = Math.min(m.a[0], m.b[0]), y0 = Math.min(m.a[1], m.b[1])
