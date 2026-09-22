@@ -6,12 +6,9 @@
 export type GNode = { id: string; x: number; y: number; z: number; bend?: number }   // bend = corner fillet radius (mm) for conduits
 export type GSeg = { id: string; a: string; b: string }
 
-let counter = 0
-/** Short unique id (avoids Math.random collisions by also counting). */
-export function newId(prefix = 'n'): string {
-	counter = (counter + 1) % 1e6
-	return `${prefix}${counter.toString(36)}${Math.round(performance.now()).toString(36).slice(-3)}`
-}
+// Node/segment ids come from the one shared generator (B13); `prefix` defaults to 'n' (node) here.
+import { newId as _newId } from '../ids'
+export const newId = (prefix = 'n'): string => _newId(prefix)
 
 export type Adj = Map<string, { seg: string; other: string }[]>
 export function adjacency(nodes: GNode[], segments: GSeg[]): Adj {

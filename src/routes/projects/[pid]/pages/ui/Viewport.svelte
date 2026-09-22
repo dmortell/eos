@@ -15,6 +15,7 @@
 	import { isLayerHidden, isLayerLocked, layerColor, layerOrder } from '../layers.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
 	import { models, modelById, modelSel, setModelSel } from '../3dview/models.svelte'
+	import { newId } from '../ids'
 	import { guideId, selectedPlanGuide } from '../guides.svelte'
 	import { imgEdit, clearImgMode } from '../imageEdit.svelte'
 	import { polyToGraph } from '../3dview/migrate'
@@ -117,8 +118,7 @@
 		const r = svg.getBoundingClientRect()
 		return { x: m.x - r.left, y: m.y - r.top, d }
 	})
-	let seq = 0
-	const uid = () => 'e' + Date.now().toString(36) + (seq++)
+	const uid = () => newId('e')
 	const clipNs = 'ic' + Math.floor(Math.random() * 1e9).toString(36)   // per-viewport-instance namespace for <clipPath> ids (a sheet renders the same image in several viewports → ids must not collide)
 	const selSet = $derived(new Set(sel))
 
@@ -976,8 +976,7 @@
 	}
 
 	// ── model PLACEMENT (P2f / §3) — create new model objects on the store, one undo step, select it ──
-	let mSeq = 0
-	const mUid = (p: string) => p + Date.now().toString(36) + (mSeq++)
+	const mUid = (p: string) => newId(p)
 	const layerId = (id: string) => mdl?.layers?.find((l) => l.id === id)?.id ?? mdl?.layers?.[0]?.id
 	function addModelObj(o: Obj) {
 		if (!mdl) return

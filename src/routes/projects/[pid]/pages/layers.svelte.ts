@@ -1,6 +1,7 @@
 // Shared, reactive LAYER store for the Pages tool — the single source of truth the LayersPanel,
 // PropertiesPanel and Viewport all read. Module-level $state is a shared singleton, so a toggle in
 // the panel re-renders the canvas. (Mock: not persisted yet — see §12.)
+import { newId } from './ids'
 
 export type PLayer = {
 	id: string
@@ -75,17 +76,15 @@ export function applyPreset(id: string) {
 	for (const l of layers) if (l.group !== 'Background') l.visible = vis.has(l.id)   // presets don't touch backgrounds
 	presetUI.active = id
 }
-let pseq = 0
-export function savePreset(name = 'New view'): Preset { const p: Preset = { id: 'pv' + Date.now().toString(36) + pseq++, name, visible: currentVisibleIds() }; presets.push(p); presetUI.active = p.id; return p }
+export function savePreset(name = 'New view'): Preset { const p: Preset = { id: newId('pv'), name, visible: currentVisibleIds() }; presets.push(p); presetUI.active = p.id; return p }
 export function updatePreset(id: string) { const p = presets.find((x) => x.id === id); if (p) p.visible = currentVisibleIds() }
 export function renamePreset(id: string, name: string) { const p = presets.find((x) => x.id === id); if (p) p.name = name }
 export function deletePreset(id: string) { const i = presets.findIndex((x) => x.id === id); if (i >= 0) presets.splice(i, 1); if (presetUI.active === id) presetUI.active = presets[0]?.id ?? '' }
 // Apply the initial preset once so the shown preset matches the actual layer visibility.
 applyPreset(presetUI.active)
 
-let seq = 0
 export function addLayer(group = 'General'): PLayer {
-	const l: PLayer = { id: 'ly' + Date.now().toString(36) + seq++, name: 'New Layer', group, color: '#64748b', swatch: 'color', visible: true, locked: false }
+	const l: PLayer = { id: newId('ly'), name: 'New Layer', group, color: '#64748b', swatch: 'color', visible: true, locked: false }
 	layers.push(l); layerUI.active = l.id
 	return l
 }

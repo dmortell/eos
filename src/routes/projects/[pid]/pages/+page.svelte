@@ -11,6 +11,7 @@
 	import { flushSync, tick } from 'svelte'
 	import { page } from '$app/state'
 	import PaperPage from './parts/PaperPage.svelte'
+	import { newId } from './ids'
 	import Viewport, { type SectionMarker } from './ui/Viewport.svelte'
 	import DrawingNavigator from './parts/DrawingNavigator.svelte'
 	import LayersPanel from './parts/LayersPanel.svelte'
@@ -333,8 +334,7 @@
 
 	// ── clipboard + grouping ──
 	let clipboard: Ent[] = []   // snapshots; persists across tabs
-	let pasteN = 0, entSeq = 0
-	const newId = () => 'x' + Date.now().toString(36) + (entSeq++)
+	let pasteN = 0
 	function copyEnts(id: string, ids: string[]) { const s = new Set(ids); clipboard = mdlEntsOf(modelIdOf(id)).filter(e => s.has(e.id)).map(e => $state.snapshot(e) as Ent); pasteN = 0 }
 	function cutEnts(id: string, ids: string[]) { copyEnts(id, ids); deleteEnts(id, ids) }
 	function pasteEnts(id?: string) {

@@ -7,10 +7,10 @@
 // model snapshot (`snapModels`) like walls/prisms, selection reusing the shared `modelSel`. This module is
 // now just PURE helpers over a passed guides array (the caller resolves which model, per the §5 registry).
 import type { Guide } from './3dview/types'
+import { newId } from './ids'
 export type { Guide }
 
-let seq = 0
-export const guideId = () => 'g' + Date.now().toString(36) + seq++
+export const guideId = () => newId('g')
 
 // The currently-selected PLAN guide of a given orientation (h → front/rear depth, v → left/right), used
 // to fix the off-axis depth when drawing a conduit in an elevation. `guides` is the model's guide list.
