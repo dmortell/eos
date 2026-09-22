@@ -263,11 +263,13 @@
 		draft = []; cur = null; snapMark = null
 	}
 	let lastRaw: Pt | null = null   // last UNconstrained pointer during a draft (for re-constraining on Shift)
+	let hoverPt = $state<Pt | null>(null)   // snapped draw point under the cursor (drives the crosshair, even before the first click)
 	function onMove(e: MouseEvent) {
 		if (on.coords) { const wp = toLocalXY(e.clientX, e.clientY); if (wp) on.coords(Math.round(wp[0]), Math.round(wp[1])) }   // world (model-unit) coords for the status bar
 		if (active && tool === 'Guide' && viewSpace) { const gp = toLocalXY(e.clientX, e.clientY); lastGuidePt = gp; guideCur = gp ? { orient: e.shiftKey ? 'v' : 'h', pos: e.shiftKey ? gp[0] : gp[1] } : null } else if (guideCur) { guideCur = null; lastGuidePt = null }
-		if (active && draft.length) { const sp = drawPoint(e.clientX, e.clientY, draft.at(-1), e.shiftKey); if (sp) { lastRaw = toLocalXY(e.clientX, e.clientY); cur = sp } }
-		else if (active && osnap && DRAW.has(tool)) findSnap(e.clientX, e.clientY)   // show snap marker before the first click (DRAW excludes Select)
+		if (active && draft.length) { const sp = drawPoint(e.clientX, e.clientY, draft.at(-1), e.shiftKey); if (sp) { lastRaw = toLocalXY(e.clientX, e.clientY); cur = sp; hoverPt = sp } }
+		else if (active && DRAW.has(tool) && tool !== 'Guide') hoverPt = drawPoint(e.clientX, e.clientY, undefined, e.shiftKey)   // snapped hover point before the first click (crosshair + snap marker)
+		else hoverPt = null
 		// hover feedback for the Select tool: 'move' when over a shape body (a grip shows its own cursor)
 		if (active && tool === 'Select' && !drag && !mDrag && !draft.length && !marquee) {
 			const lp = toLocalXY(e.clientX, e.clientY)
@@ -1693,6 +1695,7 @@
 	use:panzoom={{ enabled: () => active && navContent, wheelZoom: () => acad, onpan: onPan, onzoom: onZoom }}
 	onpointerdowncapture={(e) => { if (e.button === 2) rDownPt = { x: e.clientX, y: e.clientY } }}
 	onclick={onClick} ondblclick={onDblclick} oncontextmenu={onContext} onpointerdown={onDown} onpointermove={onMove}
+	onpointerleave={() => { hoverPt = null }}
 	onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); on.activate?.() } }}>
 
 	<svg bind:this={svg} class="vp-svg {kind === 'iso' || isElev ? 'model' : ''}" viewBox="{minX} {minY} {vbW} {vbH}" preserveAspectRatio="xMidYMid meet">
@@ -1747,11 +1750,16 @@
 				<line x1={depthSnapMark.a[0]} y1={depthSnapMark.a[1]} x2={depthSnapMark.b[0]} y2={depthSnapMark.b[1]} stroke="#e0a020" stroke-width={2.5 / (canvasZoom || 1)} vector-effect="non-scaling-stroke" stroke-dasharray="{6 / (canvasZoom || 1)} {3 / (canvasZoom || 1)}" />
 			{/if}
 			{#if active && POLY.has(tool) && draft.length}
-				<!-- polyline / wall / trunk / pipe preview: committed segments + rubber band to the cursor -->
-				<polyline points={draft.map(p => p.join(',')).join(' ')} fill="none" stroke={SEL} stroke-width="1.2" />
-				{#if cur}<line x1={draft.at(-1)![0]} y1={draft.at(-1)![1]} x2={cur[0]} y2={cur[1]} stroke={SEL} stroke-width="1" stroke-dasharray="4 3" />{/if}
+				<!-- polyline / wall / trunk / pipe preview: committed segments (solid) + rubber band to the cursor -->
+				<polyline points={draft.map(p => p.join(',')).join(' ')} fill="none" stroke={SEL} stroke-width={1 / (canvasZoom || 1)} />
+				{#if cur}<line x1={draft.at(-1)![0]} y1={draft.at(-1)![1]} x2={cur[0]} y2={cur[1]} stroke={SEL} stroke-width={1 / (canvasZoom || 1)} />{/if}
 			{:else if active && draft.length && cur}
 				{@render preview(draft[0], cur)}
+			{/if}
+			<!-- cursor crosshair: precise endpoint placement for any draw tool, before + during a draft -->
+			{#if active && DRAW.has(tool) && tool !== 'Guide'}
+				{@const cp = cur ?? hoverPt}
+				{#if cp}{@render crosshair(cp)}{/if}
 			{/if}
 			<!-- image SCALE calibration: the 2-point measure line -->
 			{#if scalePts.length && editImgVisible}
@@ -1945,17 +1953,33 @@
 
 {#snippet preview(a: Pt, p: Pt)}
 	{@const qa = centerDraw && (tool === 'Rectangle' || tool === 'Ellipse') ? ([2 * a[0] - p[0], 2 * a[1] - p[1]] as Pt) : a}
+	<!-- clean, crisp SOLID outline (no chunky dashes); stroke ÷ canvasZoom keeps it ~1px on screen at ANY
+	     zoom (non-scaling-stroke only cancels the SVG-internal transform, not the CSS canvas zoom). -->
+	{@const sw = 1 / (canvasZoom || 1)}
 	{#if tool === 'Line' || tool === 'Dimension'}
-		<line x1={a[0]} y1={a[1]} x2={p[0]} y2={p[1]} stroke={SEL} stroke-width="1" stroke-dasharray="4 3" />
+		<line x1={a[0]} y1={a[1]} x2={p[0]} y2={p[1]} stroke={SEL} stroke-width={sw} />
 	{:else if tool === 'Rectangle'}
-		<rect x={Math.min(qa[0], p[0])} y={Math.min(qa[1], p[1])} width={Math.abs(p[0] - qa[0])} height={Math.abs(p[1] - qa[1])} fill="none" stroke={SEL} stroke-width="1" stroke-dasharray="4 3" />
+		<rect x={Math.min(qa[0], p[0])} y={Math.min(qa[1], p[1])} width={Math.abs(p[0] - qa[0])} height={Math.abs(p[1] - qa[1])} fill="none" stroke={SEL} stroke-width={sw} />
 	{:else if tool === 'Ellipse'}
-		<ellipse cx={(qa[0] + p[0]) / 2} cy={(qa[1] + p[1]) / 2} rx={Math.abs(p[0] - qa[0]) / 2} ry={Math.abs(p[1] - qa[1]) / 2} fill="none" stroke={SEL} stroke-width="1" stroke-dasharray="4 3" />
+		<ellipse cx={(qa[0] + p[0]) / 2} cy={(qa[1] + p[1]) / 2} rx={Math.abs(p[0] - qa[0]) / 2} ry={Math.abs(p[1] - qa[1]) / 2} fill="none" stroke={SEL} stroke-width={sw} />
 	{:else if tool === 'Box' || tool === 'Furniture' || tool === 'Opening'}
-		<rect x={Math.min(a[0], p[0])} y={Math.min(a[1], p[1])} width={Math.abs(p[0] - a[0])} height={Math.abs(p[1] - a[1])} fill="none" stroke={SEL} stroke-width="1" stroke-dasharray="4 3" />
+		<rect x={Math.min(a[0], p[0])} y={Math.min(a[1], p[1])} width={Math.abs(p[0] - a[0])} height={Math.abs(p[1] - a[1])} fill="none" stroke={SEL} stroke-width={sw} />
 	{:else if tool === 'Section'}
-		<rect x={Math.min(a[0], p[0])} y={Math.min(a[1], p[1])} width={Math.abs(p[0] - a[0])} height={Math.abs(p[1] - a[1])} fill="#0e749011" stroke="#0e7490" stroke-width="1.4" vector-effect="non-scaling-stroke" stroke-dasharray="6 3" />
+		<rect x={Math.min(a[0], p[0])} y={Math.min(a[1], p[1])} width={Math.abs(p[0] - a[0])} height={Math.abs(p[1] - a[1])} fill="#0e749011" stroke="#0e7490" stroke-width={1.2 * sw} vector-effect="non-scaling-stroke" />
 	{/if}
+	<!-- the fixed anchor point (first click / centre) as a small hollow square, for precise reference -->
+	{@render drawDot(qa)}
+{/snippet}
+{#snippet drawDot(pt: Pt)}
+	{@const s = gripSize * 1.2}
+	<rect x={pt[0] - s / 2} y={pt[1] - s / 2} width={s} height={s} fill="white" stroke={SEL} stroke-width={1 / (canvasZoom || 1)} />
+{/snippet}
+{#snippet crosshair(pt: Pt)}
+	{@const s = gripSize * 2.4}
+	{@const sw = 1 / (canvasZoom || 1)}
+	<line x1={pt[0] - s} y1={pt[1]} x2={pt[0] + s} y2={pt[1]} stroke={SEL} stroke-width={sw} opacity="0.85" />
+	<line x1={pt[0]} y1={pt[1] - s} x2={pt[0]} y2={pt[1] + s} stroke={SEL} stroke-width={sw} opacity="0.85" />
+	<rect x={pt[0] - s * 0.28} y={pt[1] - s * 0.28} width={s * 0.56} height={s * 0.56} fill="none" stroke={SEL} stroke-width={sw} />
 {/snippet}
 
 <style>
