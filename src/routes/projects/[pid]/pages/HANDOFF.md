@@ -6,7 +6,7 @@ eos-f8 reviewer session). Delete this file once the queue below is drained.
 
 > **RESUME HERE (fresh session):** R1 (Viewport split) is CLOSED — steps 3–9 + every mop-up landed and
 > reviewer-gated (review.md §0a; close-out with the measured line breakdown in refactor-plan.md §11,
-> `9bb7cff`). The three Dave-approved behaviour changes are on main and awaiting eos-f8's live gate:
+> `9bb7cff`). The three Dave-approved behaviour changes are on main and GATED PASS (review.md ee61243):
 > **B24** `18ade46` (moveEnt flatness per view), **B25** `07a0195` (Shift-press toggles the pressed id),
 > **K5** `9be21a6` (model corners/nodes are OSNAP targets; odd-edge prisms inherit B21 until it lands).
 > Viewport is 1364 lines (2209 before step 1); the ≤600 target is B5 (sections into the model, ~150 lines) +
