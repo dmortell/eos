@@ -121,9 +121,11 @@ export function translate(e: Ent, dx: number, dy: number): Ent {
 
 // Text bounding box (drawing units): a[0]/a[1] is the first line's baseline-left; lines run down.
 // Sizes with the object's font (fontPt → drawing units); the char width ≈ 0.6·em (monospace).
-export function textBox(e: Ent): [number, number, number, number] {
+// `mmPerPt` = model units per typographic point. Defaults to PT (world-sized); callers that render text
+// ANNOTATIVELY (a fixed size on paper) pass PT_MM·paperMm so the hit-box/leader match what's drawn (B3).
+export function textBox(e: Ent, mmPerPt = PT): [number, number, number, number] {
 	const lines = (e.text ?? '').split('\n')
-	const fs = (e.fontPt ?? STYLE_DEFAULTS.fontPt) * PT, lh = fs * 1.18
+	const fs = (e.fontPt ?? STYLE_DEFAULTS.fontPt) * mmPerPt, lh = fs * 1.18
 	const w = Math.max(...lines.map(l => l.length), 1) * fs * 0.6
 	// vertical-align shifts the whole block about the anchor (matches the Viewport render's oy).
 	const oy = e.valign === 'middle' ? -((lines.length - 1) * lh) / 2 : e.valign === 'bottom' ? -((lines.length - 1) * lh) : 0
