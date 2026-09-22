@@ -40,7 +40,10 @@ export type Ent = { id: string; type: 'line' | 'rect' | 'circle' | 'ellipse' | '
 	cloud?: boolean;
 	// DIMENSION text offset: signed perpendicular distance (mm) of the measured-length text from the dim
 	// line; undefined = a small auto offset. Draggable via a grip. Firestore-stable.
-	dimOff?: number }
+	dimOff?: number;
+	// DIMENSION text position ALONG the line: 0..1 fraction from start (a) to end (b); undefined = 0.5
+	// (centred). Draggable via the same text grip. Firestore-stable.
+	dimT?: number }
 export type View = { zoom: number; x: number; y: number }
 
 // Default object style — matched to the Sheets tool (annotations.svelte.ts: text fontPt 8 / align

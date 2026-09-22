@@ -1028,6 +1028,9 @@
 							<button class="tool" title="Zoom out" onclick={() => navZoom(0.8)}><Icon name="zoomout" size={16} /></button>
 							<button class="tool" title="Fit" onclick={() => navFit()}><Icon name="fit" size={16} /></button>
 							<button class="tool" title="Pan (right-drag)"><Icon name="pan" size={16} /></button>
+							{#if a && gizmoProj(p, a) === 'iso'}
+								<button class="tool" title="Orbit — drag in the 3D view (Shift = 15° snap)"><Icon name="rotate3d" size={16} /></button>
+							{/if}
 						</div>
 						{#if a}
 							<!-- fixed-size view gizmos (ViewCube + WCS axes), screen space so they don't zoom -->

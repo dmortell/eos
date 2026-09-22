@@ -814,6 +814,20 @@
 				const hp = o.rot ? rotatePt([cx, cy - off], [cx, cy], o.rot) : [cx, cy - off] as Pt
 				grips.push({ x: hp[0], y: hp[1], apply: (p: Pt) => { o.rot = Math.round(((Math.atan2(p[1] - cy, p[0] - cx) * 180) / Math.PI + 90 + 360) % 360) } })
 			}
+			// Rotate handle in an ELEVATION → the in-plane tilt: front/rear (x-z plane) drives rotY, left/right
+			// (y-z plane) drives rotX. Same atan2+90 math as the plan handle; the angle IS that tilt axis.
+			if (isElev && !o.open) {
+				const r = prismRect(o)!
+				const C: Pt = [(r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2]
+				const off = (r.y1 - r.y0) / 2 + Math.max(r.x1 - r.x0, r.y1 - r.y0) * 0.35
+				const ax = ELEV_BASIS[elevDir].axis, cur = ax === 0 ? (o.rotY ?? 0) : (o.rotX ?? 0)
+				const hp = cur ? rotatePt([C[0], C[1] - off], C, cur) : [C[0], C[1] - off] as Pt
+				grips.push({ x: hp[0], y: hp[1], apply: (p: Pt) => {
+					let a = Math.round(((Math.atan2(p[1] - C[1], p[0] - C[0]) * 180) / Math.PI + 90 + 360) % 360)
+					if (a > 180) a -= 360   // keep in −180..180 for a natural tilt range
+					if (ax === 0) o.rotY = a || undefined; else o.rotX = a || undefined
+				} })
+			}
 			if (isPlan && o.open === 'door') {   // door SWING handle at the leaf tip — drag to set the swing angle
 				const g = doorGeom(o), a = (o.swing ?? 90) * Math.PI / 180
 				const tx = g.hx + g.L * (Math.cos(a) * g.ux + Math.sin(a) * g.vx), ty = g.hy + g.L * (Math.cos(a) * g.uy + Math.sin(a) * g.vy)
@@ -902,8 +916,13 @@
 		if (!orbitDrag) return
 		orbitDrag.moved = true
 		const dx = e.clientX - orbitDrag.sx, dy = e.clientY - orbitDrag.sy
-		const ny = orbitDrag.yaw0 + dx * 0.008
-		const np = Math.max(0.06, Math.min(Math.PI / 2 - 0.02, orbitDrag.pitch0 + dy * 0.006))
+		let ny = orbitDrag.yaw0 + dx * 0.008
+		let np = Math.max(0.06, Math.min(Math.PI / 2 - 0.02, orbitDrag.pitch0 + dy * 0.006))
+		if (e.shiftKey) {   // Shift = snap yaw + pitch to 15° increments
+			const S = Math.PI / 12
+			ny = Math.round(ny / S) * S
+			np = Math.max(S, Math.min(Math.PI / 2 - 0.02, Math.round(np / S) * S))
+		}
 		on.orbit?.(ny, np)
 	}
 	function onOrbitUp() {
@@ -1183,11 +1202,15 @@
 				{ x: e.a![0], y: e.a![1], anchor: e.b!, resize: (D, F) => ({ ...e, a: D, b: F }), apply: p => ({ ...e, a: p }) },
 				{ x: e.b![0], y: e.b![1], anchor: e.a!, resize: (D, F) => ({ ...e, b: D, a: F }), apply: p => ({ ...e, b: p }) },
 			]
-			if (e.type === 'dim') {   // a grip on the measured-text: drag it to set the perpendicular text offset
+			if (e.type === 'dim') {   // a grip on the measured-text: drag it ALONG the line (dimT) + perpendicular (dimOff)
 				const a = e.a!, b = e.b!, len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1
-				const px = -(b[1] - a[1]) / len, py = (b[0] - a[0]) / len, off = e.dimOff ?? gripSize * 2
-				const mcx = (a[0] + b[0]) / 2, mcy = (a[1] + b[1]) / 2
-				gs.push({ x: mcx + px * off, y: mcy + py * off, apply: (p: Pt) => ({ ...e, dimOff: Math.round((p[0] - mcx) * px + (p[1] - mcy) * py) }) })
+				const ux = (b[0] - a[0]) / len, uy = (b[1] - a[1]) / len, px = -uy, py = ux
+				const off = e.dimOff ?? gripSize * 2, t = e.dimT ?? 0.5
+				gs.push({ x: a[0] + ux * len * t + px * off, y: a[1] + uy * len * t + py * off, apply: (p: Pt) => {
+					const along = (p[0] - a[0]) * ux + (p[1] - a[1]) * uy, perp = (p[0] - a[0]) * px + (p[1] - a[1]) * py
+					const nt = Math.max(0, Math.min(1, Math.round((along / len) * 100) / 100))
+					return { ...e, dimT: nt === 0.5 ? undefined : nt, dimOff: Math.round(perp) }
+				} })
 			}
 			return gs
 		}
@@ -1687,7 +1710,14 @@
 		switch (tool) {
 			case 'Select': return mSelObj && (mSelObj.type === 'wall' || mSelObj.type === 'conduit') ? 'Drag a node to reshape · Ctrl-drag a node to branch · double-click a segment to add a node' : 'Click an element'
 			case 'Line': return n ? 'Specify next point (Enter / double-click to finish)' : 'Specify first point'
-			case 'Guide': return viewSpace ? `Click to drop a ${guideIsVert(false) ? 'vertical' : 'horizontal'} guide · Shift flips · select a plan guide to fix the depth for elevation drawing` : 'Guides are placed on a plan or elevation view'
+			case 'Guide': {
+				if (!viewSpace) return 'Guides are placed on a plan or elevation view'
+				let s = `Click to drop a ${guideIsVert(false) ? 'vertical' : 'horizontal'} guide · Shift flips · select a plan guide to fix the depth for elevation drawing`
+				// Live spacing readout: if a guide of the SAME orientation is selected, show the perpendicular
+				// distance from it to the drop preview, so you can place guides an exact distance apart.
+				if (guideCur) { const ref = viewGuides.find((g) => modelSel.includes(g.id) && g.orient === guideCur!.orient); if (ref) s += ` · Δ ${Math.round(Math.abs(ref.pos - guideCur.pos))} mm` }
+				return s
+			}
 			case 'Wall': case 'Trunk': case 'Pipe': {
 				if (!isPlan && !isElev) return `Switch to a plan or elevation view to draw ${tool.toLowerCase()}s`
 				const depthHint = isElev ? (selectedPlanGuide(mdl?.guides ?? [], modelSel, ELEV_BASIS[elevDir].axis === 0 ? 'h' : 'v') ? ' — depth from the selected plan guide' : ' — no depth guide (uses model centre); select a plan guide') : ''
@@ -1975,8 +2005,9 @@
 		{@const px = -uy}{@const py = ux}
 		{@const tk = gripSize * 1.3}
 		{@const off = e.dimOff ?? gripSize * 2}
-		{@const mx = (A[0] + B[0]) / 2 + px * off}
-		{@const my = (A[1] + B[1]) / 2 + py * off}
+		{@const t = e.dimT ?? 0.5}
+		{@const mx = A[0] + ux * len * t + px * off}
+		{@const my = A[1] + uy * len * t + py * off}
 		{@const ang = Math.atan2(uy, ux) * 180 / Math.PI}
 		{@const rang = ang > 90 || ang < -90 ? ang + 180 : ang}
 		<line x1={A[0]} y1={A[1]} x2={B[0]} y2={B[1]} stroke={col} stroke-width={w} vector-effect="non-scaling-stroke" />

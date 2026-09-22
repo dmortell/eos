@@ -62,6 +62,12 @@ Fixed from the review:
   silhouette) and iso (leaning shaded solid). Untilted prisms return the plain flat rings (byte-identical
   output — no regression). **Verified in-browser:** a Furniture box set to X 35° leant over in the 3D view
   (correctly shaded, others upright); X 35 + Y 30 compounded; plan footprint foreshortened; clean console.
+  **[x] Rotate HANDLE in elevation views (2026-09-22)** — a prism selected in an elevation now shows a
+  rotate handle (like the plan one): dragging it tilts the object in that view's plane — front/rear (x-z)
+  drives `rotY`, left/right (y-z) drives `rotX` (same atan2+90 math; the in-plane angle IS that tilt axis).
+  Handle sits above the silhouette centre and follows the current tilt. Resize corner grips still track the
+  untilted AABB (silhouette leans past them) — acceptable. Verified: dragging the FRONT-elevation handle set
+  Y 66° and the silhouette + 3D solid both leaned consistently; clean console.
 
 Suggested order in review.md §7.
 
@@ -269,12 +275,13 @@ New todos (design / bigger):
   pointerdown-capture handler closes it on any press outside a `.grp`, and picking a member selects it +
   closes. Verified in-browser (click opens + holds after the cursor leaves; member-click closes). Mouse
   hover still works too.
-- [ ] **Orbit tool icon in the zoom-tools floating window** (Dave, 2026-09-20) — add an **orbit**
-  button to the bottom-right nav floating window (`navtools` in `+page.svelte`, beside Zoom in/out /
-  Fit / Pan). Drag-orbits the 3D (iso) view. Blocked on the **real 3D orbit camera** (the ELEV_BASIS
-  yaw/pitch forward-compat above): today iso is a fixed oblique projection, so orbit has nothing to
-  drive yet. When the camera lands the button feeds it yaw/pitch (and the ViewCube corners snap to
-  named views). Parked here until then rather than shipping a dead icon.
+- [x] **Orbit tool icon in the zoom-tools floating window** (2026-09-22) — the real orbit camera landed
+  (a plain drag in the iso view rotates yaw/pitch), so the `navtools` window now shows an **orbit** button
+  (rotate3d icon) below Pan, only when the active view is `iso`. It's a capability indicator (drag orbits;
+  Shift = 15° snap — see below); the camera is already drag-driven. **Orbit Shift-snap (2026-09-22):**
+  holding Shift while orbit-dragging snaps yaw + pitch to 15° increments (`onOrbitMove`). Verified
+  in-browser: the orbit button appears only in 3D; a Shift-held orbit drag reoriented to a clean angle,
+  clean console.
 ### 3D model editing follow-ups (Dave, 2026-09-20)
 - [x] **Select shapes in the 3D (iso) view** (Dave, 2026-09-21) — click a shape in the iso view → it
   selects (amber) and Properties shows its props. `hitModelIso` reproduces Model3d's iso projection
@@ -361,12 +368,13 @@ New todos (design / bigger):
   still flips** it and on touch the pop-out picks it. The group button + tool hint show the current
   orientation. Verified in-browser: picking Vertical placed vertical guides (added `moveHorizontal`/
   `moveVertical` to the Icon map). Reuses the tap-to-open fly-out machinery.
-- [ ] **Live spacing readout: distance from the selected guide to the new one** (Dave, 2026-09-22) — while
-  dropping a Guide, if a plan guide of the same orientation is SELECTED, show the perpendicular DISTANCE
-  between it and the guide-preview in the status bar (e.g. `Δ 1200 mm`), so you can drop guides an exact
-  distance apart. Generalise: show a live spacing/delta readout while drawing OTHER shapes too — distance
-  from the drag start (or a selected reference object/edge) to the cursor — since placing things a precise
-  distance apart is a common need. (Builds on the status-bar coords + the guide preview.)
+- [x] **Live spacing readout: distance from the selected guide to the new one** (2026-09-22) — while
+  dropping a Guide, if a guide of the SAME orientation in this view is selected, the tool prompt now
+  appends `· Δ <n> mm` = the perpendicular distance from it to the drop preview (`guideCur`), so you can
+  place guides an exact distance apart. Computed live in the `Guide` prompt branch (reactive on
+  `guideCur`/`modelSel`/`guides`). **Verified in-browser** (see below). [ ] Generalise later: a live
+  spacing/delta readout while drawing OTHER shapes too — distance from the drag start (or a selected
+  reference object/edge) to the cursor.
 - [ ] **Stable per-DRAWING id for tab dedup + persistence** (Dave, 2026-09-21) — tab ids are an ephemeral
   session counter (`'t'+seq`; the 4 seeded tabs are hardcoded t1–t4, dynamic ones get t5+ by OPEN ORDER),
   and `openDrawing` dedupes by TITLE. So the per-tab localStorage canvas view (and any future per-tab
