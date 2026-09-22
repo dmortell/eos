@@ -7,7 +7,7 @@ import type { Ent, Pt } from './geometry'
 import type { ViewCtx } from './view'
 import type { Model, Wall, Conduit, Prism } from '../3dview/types'
 
-const planCtx: ViewCtx = { dir: 'floorplan', isPlan: true, isElev: false, isIso: false, elevDir: 'front', cx: 14000, cy: 8750, ground: 10250, frameId: 'f', paperMm: 1, mdl: undefined, yaw: 0, pitch: 0 }
+const planCtx: ViewCtx = { dir: 'plan', isPlan: true, isElev: false, isIso: false, elevDir: 'front', cx: 14000, cy: 8750, ground: 10250, frameId: 'f', paperMm: 1, mdl: undefined, yaw: 0, pitch: 0 }
 const elevCtx = (elevDir: ViewCtx['elevDir'], over: Partial<ViewCtx> = {}): ViewCtx => ({ ...planCtx, dir: elevDir, isPlan: false, isElev: true, elevDir, ...over })
 const isoCtx: ViewCtx = { ...planCtx, dir: 'iso', isPlan: false, isIso: true }
 const mdl = (over: Partial<Model> = {}): Model => ({ id: 1, name: 'm', objects: [], layers: [{ id: 'walls', name: 'Walls', color: '#000', visible: true, locked: false }, { id: 'openings', name: 'Openings', color: '#000', visible: true, locked: false, opening: true }], ...over })

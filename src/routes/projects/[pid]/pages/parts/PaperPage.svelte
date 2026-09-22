@@ -15,7 +15,7 @@
 	import type { SheetFrame } from '../types'
 
 	// Paper size in px (default A3 landscape). Driven by the status-bar paper-size / orientation.
-	type VKind = 'floorplan' | 'iso' | ElevDir
+	type VKind = 'plan' | 'iso' | ElevDir
 	let { title = 'Sheet', drawingNo = '001', scale = '1:100', focused = true, tool = 'Select', env = {}, pw = PAPER_W, ph = PAPER_H, sizeLabel = 'A3', rev = '', revDate = '',
 		entities = [], sel = [], sectionsForModel = undefined, selSection = null, entsForModel = undefined, tabModelId = undefined,
 		frames = [], selFrame = null, frameKind = (p: string) => p as VKind, isFrameActive = () => false, frameView = () => ({ zoom: 1, x: 0, y: 0 }), frameEnv = {},
@@ -147,7 +147,7 @@
 					style="left:{f.x}px; top:{f.y}px; width:{f.w}px; height:{f.h}px">
 					<Viewport kind={frameKind(f.proj)} label={f.label} scale={f.scale} active={fa} {focused} {tool} env={frameEnv} on={fon} border={f.border} frameId={f.id} modelId={f.modelId ?? tabModelId}
 						entities={entsForModel ? entsForModel(f.modelId ?? tabModelId) : entities} {sel} view={frameView(f.id, f.proj)} clip={f.clip} yaw={frameOrbit(f.id, f.proj).yaw} pitch={frameOrbit(f.id, f.proj).pitch}
-						sections={frameKind(f.proj) === 'floorplan' && sectionsForModel ? sectionsForModel(f.modelId ?? tabModelId) : []} {selSection} boxW={f.w} boxH={f.h} />
+						sections={frameKind(f.proj) === 'plan' && sectionsForModel ? sectionsForModel(f.modelId ?? tabModelId) : []} {selSection} boxW={f.w} boxH={f.h} />
 					{#if !fa}
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
 						<div class="vp-band" style:pointer-events={tool === 'Viewport' ? 'none' : undefined} onpointerdown={(e) => { onselectframe?.(f.id); startDrag(e, 'move', -1, f, (g) => onframegeom?.(f.id, g), true); }} ondblclick={() => fon.activate?.()}>

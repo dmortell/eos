@@ -6,9 +6,8 @@ import type { ElevDir } from './geometry'
 import type { Model } from '../3dview/types'
 
 export type ViewCtx = {
-	/** The projection this viewport draws: 'floorplan' (plan), an ElevDir, or 'iso'. (Today Viewport's
-	 *  `kind`; a later mop-up renames 'floorplan' → 'plan'.) */
-	dir: 'floorplan' | 'iso' | ElevDir
+	/** The projection this viewport draws: 'plan', an ElevDir, or 'iso' (= the Viewport's `kind`). */
+	dir: 'plan' | 'iso' | ElevDir
 	isPlan: boolean
 	isElev: boolean
 	isIso: boolean

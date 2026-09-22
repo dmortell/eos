@@ -83,9 +83,9 @@
 		if (!a) return 'plan'
 		return docProj[projKey(pane.id, a)] ?? (a.kind === 'elevation' ? 'front' : a.kind === 'model' ? 'iso' : 'plan')
 	}
-	// Map a projection to the Viewport render kind: plan → floorplan, iso → oblique 3D, the four
+	// Map a projection to the Viewport render kind (same names since the 'floorplan'→'plan' rename): plan, iso → oblique 3D, the four
 	// elevations pass through as their own kind (the Viewport projects each per ELEV_BASIS).
-	const projKind = (p: Proj) => (p === 'plan' ? 'floorplan' : p) as 'floorplan' | 'iso' | 'front' | 'rear' | 'left' | 'right'
+	const projKind = (p: Proj) => p as 'plan' | 'iso' | 'front' | 'rear' | 'left' | 'right'
 	// A drawing's DOCUMENT state (paper / scale / viewport frames) is keyed by a stable DRAWING id — the
 	// tab's TITLE — not the ephemeral tab id, so closing a tab (or reusing the preview slot) never destroys
 	// the page, and reopening the same drawing restores it (B6). Titles are unique (named drawings + the

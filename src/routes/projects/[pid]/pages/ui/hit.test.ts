@@ -6,7 +6,7 @@ import type { ViewCtx } from './view'
 import type { Model, Obj, Guide } from '../3dview/types'
 
 const ent = (over: Partial<Ent> = {}): Ent => ({ id: 'e', type: 'rect', a: [0, 0], b: [10, 10], ...over } as Ent)
-const planCtx: ViewCtx = { dir: 'floorplan', isPlan: true, isElev: false, isIso: false, elevDir: 'front', cx: 14000, cy: 8750, ground: 0, frameId: 'f1', paperMm: 1, mdl: undefined, yaw: 0, pitch: 0 }
+const planCtx: ViewCtx = { dir: 'plan', isPlan: true, isElev: false, isIso: false, elevDir: 'front', cx: 14000, cy: 8750, ground: 0, frameId: 'f1', paperMm: 1, mdl: undefined, yaw: 0, pitch: 0 }
 
 describe('rotatePt', () => {
 	it('rotates 90° CW about a centre', () => {

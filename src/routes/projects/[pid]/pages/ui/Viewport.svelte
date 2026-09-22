@@ -2,7 +2,7 @@
 	// Reusable viewport (kestrel-adoption mockup) with mock CAD drawing modeled on
 	// KestrelCad2 (src/app.js acceptPoint / preview / prompts, src/model.js entity
 	// types): click-to-place tools with a rubber-band preview, and Select-tool
-	// hit-testing. Used inside a sheet's paper page (kind='floorplan') and as a
+	// hit-testing. Used inside a sheet's paper page (kind='plan') and as a
 	// standalone model view (kind='model'). The parent owns the entities/selection
 	// (so drawing persists per document, tool + selection per view). Fills its parent.
 	import { Icon } from '$lib'
@@ -52,9 +52,9 @@
 		sectionsetdir?: (id: string, dir: ElevDir) => void; sectiondelete?: (id: string) => void
 		sectiondropdir?: (id: string, dir: ElevDir) => void   // drop this direction's elevation as a viewport frame on the current sheet
 	}
-	let { label = 'Viewport', scale = '1:1', kind = 'floorplan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {}, frameId = undefined, modelId = undefined,
+	let { label = 'Viewport', scale = '1:1', kind = 'plan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {}, frameId = undefined, modelId = undefined,
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, sections = [], selSection = null }:
-		{ label?: string; scale?: string; kind?: 'floorplan' | 'iso' | ElevDir; active?: boolean; tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env; on?: VpOn; frameId?: string; modelId?: number;
+		{ label?: string; scale?: string; kind?: 'plan' | 'iso' | ElevDir; active?: boolean; tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env; on?: VpOn; frameId?: string; modelId?: number;
 			focused?: boolean; entities?: Ent[]; sel?: string[]; view?: View; clip?: Clip | null; yaw?: number; pitch?: number; sections?: SectionMarker[]; selSection?: string | null } = $props()
 	// Callbacks are called directly as on.x?.(…) — no aliases (a $derived rename adds nothing for a
 	// function that's only invoked). env flags stay derived because they're read as values.
@@ -71,7 +71,7 @@
 	const canvasZoom = $derived(env.canvasZoom ?? 1)
 	// SNAP_STEP / snapToGrid / entSnaps / snapDelta live in ui/snap.ts (R1 step 5).
 
-	const tagIcon: Record<string, string> = { floorplan: 'mapPin', iso: 'box', front: 'server', rear: 'server', left: 'server', right: 'server' }
+	const tagIcon: Record<string, string> = { plan: 'mapPin', iso: 'box', front: 'server', rear: 'server', left: 'server', right: 'server' }
 	// Elevation projection: which side view (front/rear/left/right) and its footprint axis + sign.
 	const ELEV = new Set<string>(['front', 'rear', 'left', 'right'])
 	const isElev = $derived(ELEV.has(kind))
@@ -82,7 +82,7 @@
 	const DRAW = new Set(['Line', 'Rectangle', 'Ellipse', 'Dimension', 'Text', 'Wall', 'Furniture', 'Trunk', 'Pipe', 'Section', 'Opening', 'Guide'])
 	const SECTION_DIRS: ElevDir[] = ['front', 'rear', 'left', 'right']   // the 4 cut directions a section box can spawn
 	// Guide lines belong to a drawable VIEW space (plan or an elevation); iso has none.
-	const viewSpace = $derived(kind === 'floorplan' ? 'plan' : isElev ? elevDir : null)
+	const viewSpace = $derived(kind === 'plan' ? 'plan' : isElev ? elevDir : null)
 	const mdl = $derived(modelById(modelId) ?? models[0])   // the model this viewport renders/edits (§5 registry)
 	const viewGuides = $derived(viewSpace ? (mdl?.guides ?? []).filter((g) => g.plane === viewSpace) : [])
 	const GUIDE_SPAN = 1e7   // guides render as full-view lines (spanning far past the viewport)
@@ -384,8 +384,7 @@
 	// The hit logic lives in ui/hit.ts (R1 step 3); those functions take a ViewCtx so they read no
 	// component state. Viewport builds `ctx` once (a $derived from the view props) and the thin wrappers
 	// below inject it, so existing call sites (bbox(e), hitEnt(e,p,thr), pickable(e), …) stay unchanged.
-	// (`dir: kind` keeps 'floorplan'; the 'floorplan'→'plan' rename is a separate mop-up.)
-	const ctx = $derived<ViewCtx>({ dir: kind, isPlan: kind === 'floorplan', isElev, isIso: kind === 'iso', elevDir, cx: CX, cy: CY, ground: GROUND, frameId, paperMm: 1 / (dscale || 1), mdl, yaw, pitch })   // paperMm = 1/dscale (declared later; inlined to avoid TDZ)
+	const ctx = $derived<ViewCtx>({ dir: kind, isPlan: kind === 'plan', isElev, isIso: kind === 'iso', elevDir, cx: CX, cy: CY, ground: GROUND, frameId, paperMm: 1 / (dscale || 1), mdl, yaw, pitch })   // paperMm = 1/dscale (declared later; inlined to avoid TDZ)
 	const layerPreds = { hidden: isLayerHidden, locked: isLayerLocked }
 	const inThisView = (e: Ent) => hInThisView(ctx, e)
 	const bbox = (e: Ent): [number, number, number, number] => hBbox(ctx, e)
@@ -442,7 +441,7 @@
 	// the SAME projection Pages entities use — plan footprint, or elevation via `projU`/ELEV_BASIS +
 	// GROUND — so a prism picks/moves exactly where <Model3d> draws it. (Iso editing + walls/conduits +
 	// undo are the next slices — see model-plan.md P2.)
-	const isPlan = $derived(kind === 'floorplan')
+	const isPlan = $derived(kind === 'plan')
 	const modelEditable = $derived(isPlan || isElev)   // iso (oblique) editing deferred to the 3D camera
 	const modelLayerVisible = (o: Obj) => { const l = mdl?.layers?.find(x => x.id === o.layer); return !l || l.visible }
 	const modelLayerLocked = (o: Obj) => !!mdl?.layers?.find(x => x.id === o.layer)?.locked   // locked → not pickable (B16)
@@ -1108,7 +1107,7 @@
 				<text x={12 * MMPU} y={GROUND + 14 * MMPU} font-size={8 * MMPU} fill="#64748b" font-weight="600">{elevDir.toUpperCase()}</text>
 			{/if}
 			<!-- P1b: real 3D model in plan + the four elevations + iso. Read-only for now (P2 = editing). -->
-			{#if mdl}<Model3d model={mdl} dir={(kind === 'floorplan' ? 'plan' : kind) as 'plan' | ElevDir | 'iso'} cx={CX} cy={CY} ground={GROUND} selIds={modelSel} canvasZoom={canvasZoom} clip={clip} yaw={yaw} pitch={pitch} />{/if}
+			{#if mdl}<Model3d model={mdl} dir={kind} cx={CX} cy={CY} ground={GROUND} selIds={modelSel} canvasZoom={canvasZoom} clip={clip} yaw={yaw} pitch={pitch} />{/if}
 			<!-- Alignment GUIDES (full-view h/v lines) for this view's space + the Guide-tool hover preview. -->
 			{#if viewSpace}
 				{#each viewGuides as gd (gd.id)}
