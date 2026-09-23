@@ -43,7 +43,8 @@
 	// tools inside a sheet's viewport. Null = no active viewport.
 	// Which TAB docs have their viewport activated (keyed by tab id, not pane) — so activation is
 	// remembered when you switch away and back to a view. Selection is per-VIEWPORT (selStore, R3 2a).
-	const isVpActive = (id?: string) => !!id && session.activeVps.has(id)
+	// B31: a tab shown in a MODEL-layout pane is model space — always active (see `modelLayoutIds`).
+	const isVpActive = (id?: string) => !!id && (session.activeVps.has(id) || modelLayoutIds.has(id))
 	function activateVp(id?: string) { if (!id) return; const s = new Set(session.activeVps); s.add(id); session.activeVps = s }
 	function deactivateVp(id?: string) { if (!id || !session.activeVps.has(id)) return; const s = new Set(session.activeVps); s.delete(id); session.activeVps = s }
 
@@ -83,6 +84,15 @@
 		treeNode: null,
 	})
 	let seq = 4
+	// B31: a pane shows MODEL space when its tab isn't a sheet, or is a sheet in Full-size layout. Model
+	// space is always active (no double-click to enter, no Exit) and has no canvas transform — pan/zoom
+	// act on the Viewport's own view. Only the paper layout keeps canvas pan/zoom + activation.
+	// Same test as Pane.svelte's `modelLayout`.
+	const isModelLayout = (p: { id: string; activeId: string }) => {
+		const t = session.tabs.find((x) => x.id === p.activeId)
+		return !!t && !(t.kind === 'sheet' && session.panes.find((x) => x.id === p.id)?.layout === 'sheet')
+	}
+	const modelLayoutIds = $derived(new Set(session.panes.filter(isModelLayout).map((p) => p.activeId)))
 	const kindIcon: Record<Kind, string> = { plan: 'mapPin', sheet: 'fileText', elevation: 'server', model: 'box' }
 
 	// Editor panes — 1 or 2 side by side (vertical split). Each pane views one open
@@ -123,7 +133,7 @@
 	const setScale = (id: string | undefined, s: string) => { if (id) docs.setScale(didOf(id), s) }
 	// The drafting/interaction flags bundle passed to a pane's viewport (one prop instead of six).
 	let guideVert = $state(false)   // the Guide tool's H/V pop-out base (touch has no Shift); Shift still flips it
-	const envFor = (pane: { id: string; activeId: string }) => ({ acad: acadMode, navContent, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, cen: toggles.CEN, guideVert, canvasZoom: canvasViewOf(pane).zoom })
+	const envFor = (pane: { id: string; activeId: string }) => ({ acad: acadMode, navContent, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, cen: toggles.CEN, guideVert, canvasZoom: isModelLayout(pane) ? 1 : canvasViewOf(pane).zoom })   // B31: model space has no canvas zoom
 	// R6: the Viewport's callback bundle is split in two. `vpView` → `VpOn` (view/camera events only —
 	// still one `on` prop); `vpEditor` → `Editor` (document-mutating ops — entity array, undo-history
 	// bracket, section-marker selection). PaperPage also uses `frame`; the plain Viewport ignores it.
@@ -790,7 +800,7 @@
 	// was never taken on a sheet and `+`/`−`/the status readout always acted on the paper canvas, even
 	// with "Pan content" on.
 	const activeViewportId = (p: { id: string; activeId: string }) => activeVpOf(p.activeId)
-	const zoomsContent = (p: { id: string; activeId: string }) => navContent && !!activeViewportId(p)
+	const zoomsContent = (p: { id: string; activeId: string }) => (navContent || isModelLayout(p)) && !!activeViewportId(p)   // B31: model space always zooms its content
 	// The projection of whatever's ACTIVE in this pane: a sheet's active FRAME's own `.proj` (B28 — was
 	// always `projOf` here, which only resolves a model-layout TAB's projection and silently ignored a
 	// sheet frame's actual proj, e.g. reporting 'plan' while a 'front' elevation frame was active), else

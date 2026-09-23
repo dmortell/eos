@@ -29,6 +29,7 @@
 	import { rotatePt, inThisView as hInThisView, groundInIso, rotCenter, bbox as hBbox, hitEnt as hHitEnt, pickable as hPickable, prismTilted, graphNodeDraw as hGraphNodeDraw, hitModel as hHitModel, hitModelIso, sectionCorners, hitSection as hHitSection, hitGuide as hHitGuide, marqueeSelect as hMarqueeSelect, type GN } from './hit'
 	import { isLayerHidden, isLayerLocked, layerColor, layerOrder } from '../layers.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
+	import { MODEL_SPACE_INK, onDark } from './modelSpace'
 	import { models, modelById } from '../3dview/models.svelte'
 	import { newId } from '../ids'
 	import { constrainPt, sectionArrowFor } from './annotations'
@@ -51,9 +52,12 @@
 		activate?: () => void; deactivate?: () => void; view?: (v: View) => void; orbit?: (yaw: number, pitch: number) => void;
 		scale?: (s: string) => void; status?: (text: string) => void; coords?: (x: number, y: number) => void; tool?: (name: string) => void;
 	}
-	let { label = 'Viewport', scale = '1:1', kind = 'plan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {}, editor = noopEditor, frameId = undefined, modelId = undefined,
+	let { label = 'Viewport', scale = '1:1', kind = 'plan', active = false, modelSpace = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {}, editor = noopEditor, frameId = undefined, modelId = undefined,
 		entities = [], view = { zoom: 1, x: 0, y: 0 }, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH }:
-		{ label?: string; scale?: string; kind?: 'plan' | 'iso' | ElevDir; active?: boolean; tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env; on?: VpOn; editor?: Editor; frameId?: string; modelId?: number;
+		{ label?: string; scale?: string; kind?: 'plan' | 'iso' | ElevDir; active?: boolean;
+			/** B31: this viewport IS a model-layout pane (not a frame on paper) — dark AutoCAD-style model
+			 *  space, and it pans/zooms its own view regardless of "Pan content". */
+			modelSpace?: boolean; tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env; on?: VpOn; editor?: Editor; frameId?: string; modelId?: number;
 			focused?: boolean; entities?: Ent[]; view?: View; clip?: Clip | null; yaw?: number; pitch?: number } = $props()
 	// R3 commits 2a+2b (review.md §R3): every kind of selection now comes from `editor.sel` (the
 	// per-VIEWPORT Selection, ui/selection.ts) instead of a `sel`/`selSection` PROP (was tab-shared docSel /
@@ -775,7 +779,10 @@
 	const paperMm = $derived(1 / (dscale || 1))   // model mm per paper mm
 	// Everything EntRender (ui/render/EntRender.svelte, R1 step 8) reads from this component's closures, built
 	// ONCE so every entity gets the same reference (one derived, not one object per entity per paint).
-	const entStyle = $derived({ lwt, canvasZoom, paperMm, gripSize, ink: INK, sel: SEL, layerColor })
+	// B31: on dark model space the ByLayer ink is light and too-dark colours are lifted (ui/modelSpace.ts).
+	const entStyle = $derived(modelSpace
+		? { lwt, canvasZoom, paperMm, gripSize, ink: MODEL_SPACE_INK, sel: SEL, layerColor, adapt: onDark }
+		: { lwt, canvasZoom, paperMm, gripSize, ink: INK, sel: SEL, layerColor })
 	// Project a plan point (x,y,0) to iso DRAWING coords, matching how the model renders (isoR + the same
 	// bounds-centring as Model3d / hitModelIso). Null off iso. Used to lay plan 2D shapes on the ground.
 	const isoGround = $derived.by(() => {
@@ -1083,10 +1090,10 @@
 <svelte:window onkeydown={onKey} onkeyup={(e) => { if (e.key === 'Shift') { shiftDown = false; if (active && focused) { reconstrain(false); updateGuidePreview(false) } } }} />
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="vp print:!border-transparent" class:active bind:clientWidth={vpW} bind:clientHeight={vpH} role="button" tabindex="0" style:cursor={cursorStyle}
+<div class="vp print:!border-transparent" class:active class:model-space={modelSpace} bind:clientWidth={vpW} bind:clientHeight={vpH} role="button" tabindex="0" style:cursor={cursorStyle}
 	style:border-style={active ? 'solid' : border === 'none' ? 'dotted' : border}
 	style:border-color={border === 'none' && !active ? '#94a3b866' : undefined}
-	use:panzoom={{ enabled: () => active && navContent, wheelZoom: () => acad, onpan: onPan, onzoom: onZoom }}
+	use:panzoom={{ enabled: () => active && (navContent || modelSpace), wheelZoom: () => acad, onpan: onPan, onzoom: onZoom }}
 	onpointerdowncapture={(e) => { if (e.button === 2) rDownPt = { x: e.clientX, y: e.clientY } }}
 	onclick={onClick} ondblclick={onDblclick} oncontextmenu={onContext} onpointerdown={onDown} onpointermove={onMove}
 	onpointerleave={() => { hoverPt = null }}
@@ -1101,7 +1108,7 @@
 				<text x={12 * MMPU} y={GROUND + 14 * MMPU} font-size={8 * MMPU} fill="#64748b" font-weight="600">{elevDir.toUpperCase()}</text>
 			{/if}
 			<!-- P1b: real 3D model in plan + the four elevations + iso. Read-only for now (P2 = editing). -->
-			{#if mdl}<Model3d model={mdl} dir={kind} cx={CX} cy={CY} ground={GROUND} selIds={modelSel} canvasZoom={canvasZoom} clip={clip} yaw={yaw} pitch={pitch} />{/if}
+			{#if mdl}<Model3d model={mdl} adapt={modelSpace ? onDark : undefined} dir={kind} cx={CX} cy={CY} ground={GROUND} selIds={modelSel} canvasZoom={canvasZoom} clip={clip} yaw={yaw} pitch={pitch} />{/if}
 			<!-- Alignment GUIDES (full-view h/v lines) for this view's space + the Guide-tool hover preview. -->
 			{#if viewSpace}
 				{#each viewGuides as gd (gd.id)}
@@ -1224,7 +1231,7 @@
 		</g>
 	</svg>
 
-	<div class="vp-tag"><Icon name={tagIcon[kind]} size={10} /> {label}{#if scale}<span class="vp-scale">{scale}</span>{/if}</div>
+	{#if !modelSpace}<div class="vp-tag"><Icon name={tagIcon[kind]} size={10} /> {label}{#if scale}<span class="vp-scale">{scale}</span>{/if}</div>{/if}   <!-- B31: model space names itself in the pane's bar -->
 	<!-- Selected section's floating toolbar: open its elevation (link), re-aim the cut (direction), delete. -->
 	{#if secToolbar}
 		<div class="section-toolbar" style="left:{secToolbar.x}px; top:{Math.max(2, secToolbar.y - 30)}px"
@@ -1306,6 +1313,10 @@
 	.vp.active { border:1.5px solid #157a8b; box-shadow:0 0 0 2px #5ac6d233; cursor:default; }
 	.vp-svg { display:block; width:100%; height:100%; }
 	.vp-svg.model { background:#eef3f8; }
+	/* B31: model space — AutoCAD-style dark background, edge to edge, no frame border/glow. `--vp-paper`
+	   is the colour an opening's hole / an iso face is filled with to mask what's behind (Model3d). */
+	.vp.model-space { --vp-paper:#212830; background:var(--vp-paper); border-width:0; box-shadow:none; }
+	.vp.model-space .vp-svg.model { background:transparent; }
 	/* Lineweights stay constant as the viewport zooms (like Kestrel / real CAD):
 	   the view <g> scales the geometry, non-scaling-stroke keeps stroke thickness
 	   fixed on screen. Fills and text still scale with the drawing. */

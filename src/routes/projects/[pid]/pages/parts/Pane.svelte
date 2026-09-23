@@ -48,6 +48,10 @@
 
 	const p = $derived(pane)   // local alias — matches the inline block's `p` from `{#each session.panes as p, pi}`
 	const a = $derived(ws.tabs.find((t) => t.id === p.activeId) ?? null)
+	// B31: a MODEL-layout pane (a non-sheet tab, or a sheet in Full-size) is model space: always active,
+	// no canvas transform — pan/zoom act on the Viewport's own view — and dark, like AutoCAD. Only the
+	// paper layout keeps the canvas pan/zoom + activation. Same test as +page's `isModelLayout`.
+	const modelLayout = $derived(!!a && !(a.kind === 'sheet' && p.layout === 'sheet'))
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -90,8 +94,8 @@
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<main class="canvas" bind:this={canvasEl} onpointermove={ws.onCanvasMove}
-		ondblclick={(e) => { if (a && !(e.target as Element).closest?.('.paper, button, .glass-bar, .vp-active-bar, .navtools, .floattools')) { const av = ws.activeVpOf(a.id); if (av) ws.deactivateVp(av); selStore.set(a.id, selClear()) } }}
-		use:panzoom={{ enabled: () => !!a, wheelZoom: () => ws.acadMode, onpan: (dx, dy) => ws.canvasPan(p, dx, dy), onzoom: (f, x, y, node) => ws.canvasZoomFn(p, node, f, x, y) }}>
+		ondblclick={(e) => { if (a && !modelLayout && !(e.target as Element).closest?.('.paper, button, .glass-bar, .vp-active-bar, .navtools, .floattools')) { const av = ws.activeVpOf(a.id); if (av) ws.deactivateVp(av); selStore.set(a.id, selClear()) } }}
+		use:panzoom={{ enabled: () => !!a && !modelLayout, wheelZoom: () => ws.acadMode, onpan: (dx, dy) => ws.canvasPan(p, dx, dy), onzoom: (f, x, y, node) => ws.canvasZoomFn(p, node, f, x, y) }}>
 		<ToolStrip tool={p.tool} onTool={(t) => ws.setPaneTool(pane, t)} dim={!!(a && !ws.isVpActive(a.id))} STRIP={ws.STRIP} iconOf={ws.iconOf} bind:guideVert bind:openGroup bind:groupTool />
 		<!-- Pane-level exit: fixed on screen (outside the zoomed content), so a viewport
 		     can always be left even when zoomed right in and its own corner is off-screen. -->
@@ -100,13 +104,18 @@
 			{@const avFrame = avId === a.id ? null : ws.framesOf(a.id).find((f) => f.id === avId)}
 			{@const avScale = avFrame ? avFrame.scale : ws.scaleOf(a.id)}
 			<div class="vp-active-bar glass-bar">
-				<button class="vab-btn" onclick={() => ws.deactivateVp(avId)} title="Exit viewport (Esc)">
-					<Icon name="chevronLeft" size={14} /> Exit
-				</button>
-				<button class="vab-btn" class:on={navContent} onclick={() => (navContent = !navContent)}
-					title="Pan/zoom the model inside the viewport (off = pan/zoom the sheet)">
-					<Icon name="pan" size={14} /> Pan content
-				</button>
+				<!-- B31: model space is always active and has no sheet to pan — Exit / Pan content are paper-only -->
+				{#if modelLayout}
+					<span class="vab-title">{a.title}</span>
+				{:else}
+					<button class="vab-btn" onclick={() => ws.deactivateVp(avId)} title="Exit viewport (Esc)">
+						<Icon name="chevronLeft" size={14} /> Exit
+					</button>
+					<button class="vab-btn" class:on={navContent} onclick={() => (navContent = !navContent)}
+						title="Pan/zoom the model inside the viewport (off = pan/zoom the sheet)">
+						<Icon name="pan" size={14} /> Pan content
+					</button>
+				{/if}
 				<!-- viewport scale (like the Sheets tool's per-view scale) — the primary's tab scale, or the active extra frame's own scale -->
 				<label class="vab-scale" title="Drawing scale">
 					<select value={avScale} onchange={(e) => { const s = (e.currentTarget as HTMLSelectElement).value; if (avFrame) ws.updateFrame(a.id, avId, { scale: s }); else ws.setScale(a.id, s); }}>
@@ -115,7 +124,7 @@
 					</select>
 				</label>
 				<!-- full-size: only the primary viewport fills the pane (an extra frame is a fixed window) -->
-				{#if !avFrame}
+				{#if !avFrame && a.kind === 'sheet'}
 					<button class="vab-btn" class:on={p.layout === 'model'} onclick={() => { ws.toggleLayout(pane); tick().then(() => ws.fitPane(pi)) }}
 						title="Full-size: fill the pane with the drawing (off = the paper sheet)">
 						<Icon name={p.layout === 'model' ? 'panels' : 'expand'} size={14} /> Full-size
@@ -125,7 +134,8 @@
 		{/if}
 		{#key p.activeId}
 			{@const cv = ws.canvasViewOf(p)}
-			<div class="canvas-content" style:transform="translate({cv.x}px, {cv.y}px) scale({cv.zoom})">
+			<!-- B31: only the paper layout has a canvas transform; model space pans/zooms its own view -->
+			<div class="canvas-content" style:transform={modelLayout ? undefined : `translate(${cv.x}px, ${cv.y}px) scale(${cv.zoom})`}>
 				{#if a?.kind === 'sheet' && p.layout === 'sheet'}
 					<PaperPage title={a.title} tool={p.tool} scale={ws.framesOf(a.id)[0]?.scale ?? ws.scaleOf(a.id)} env={ws.envFor(p)} pw={ws.paperDimsOf(a.id).w} ph={ws.paperDimsOf(a.id).h}
 						sizeLabel="{ws.paperOf(a.id).size} {ws.paperOf(a.id).landscape ? 'L' : 'P'}" rev={ws.rev} revDate={fmtDate(ws.revisions[0]?.t)}
@@ -140,10 +150,9 @@
 						onframecommit={() => ws.commitFrame(a.id, 'Move viewport')}
 						ondeactivate={() => { const av = ws.activeVpOf(a.id); if (av) ws.deactivateVp(av) }} />
 				{:else if a}
-					<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-					<div class="vp-fill" ondblclick={() => ws.deactivateVp(a.id)}>
-						<Viewport kind={projKind(ws.projOf(p, a))} label={a.title} tool={p.tool} scale={ws.scaleOf(a.id)} env={ws.envFor(p)} on={ws.vpView(a, p)} editor={ws.vpEditor(a, a.id)} modelId={a.modelId ?? FLOOR_MODEL_ID}
-							entities={ws.entsOf(a.id)} view={ws.viewOf(p.id, a.id, ws.projOf(p, a))} active={ws.isVpActive(a.id)} {focused} clip={null} yaw={ws.orbitOf(p.id, a.id, ws.projOf(p, a)).yaw} pitch={ws.orbitOf(p.id, a.id, ws.projOf(p, a)).pitch} />
+					<div class="vp-fill">
+						<Viewport modelSpace kind={projKind(ws.projOf(p, a))} label={a.title} tool={p.tool} scale={ws.scaleOf(a.id)} env={ws.envFor(p)} on={ws.vpView(a, p)} editor={ws.vpEditor(a, a.id)} modelId={a.modelId ?? FLOOR_MODEL_ID}
+							entities={ws.entsOf(a.id)} view={ws.viewOf(p.id, a.id, ws.projOf(p, a))} active {focused} clip={null} yaw={ws.orbitOf(p.id, a.id, ws.projOf(p, a)).yaw} pitch={ws.orbitOf(p.id, a.id, ws.projOf(p, a)).pitch} />
 					</div>
 				{:else}
 					<div class="canvas-center">
@@ -155,11 +164,6 @@
 				{/if}
 			</div>
 		{/key}
-		<!-- Model-layout tabs (e.g. "3303 Floorplan", "Rack A Elevation") show the model name at the
-		     top-centre of the canvas. Sheet layout has the titleblock + per-viewport bar instead. -->
-		{#if a && !(a.kind === 'sheet' && p.layout === 'sheet')}
-			<div class="model-name">{a.title}</div>
-		{/if}
 		<div class="navtools glass-bar">
 			<button class="tool" title="Zoom in" onclick={() => ws.navZoom(1.25)}><Icon name="zoomin" size={16} /></button>
 			<button class="tool" title="Zoom out" onclick={() => ws.navZoom(0.8)}><Icon name="zoomout" size={16} /></button>
@@ -227,7 +231,7 @@
 		background:color-mix(in srgb, var(--panel) 82%, transparent); border:1px solid var(--line-soft);
 		backdrop-filter:blur(9px); -webkit-backdrop-filter:blur(9px); box-shadow:0 8px 30px #0004; }
 	.canvas-content { position:absolute; inset:0; transform-origin:0 0; }
-	.vp-fill { position:absolute; inset:0; padding:14px; }
+	.vp-fill { position:absolute; inset:0; }   /* B31: model space fills the pane edge to edge */
 	/* Tools/nav sit above the paper/viewport regardless of DOM order. (.floattools now lives in
 	   ToolStrip.svelte's own scoped styles — R9 commit 2.) */
 	.navtools { bottom:12px; right:12px; flex-direction:column; z-index:5; }
@@ -236,9 +240,8 @@
 		font-size:11px; color:var(--text); background:color-mix(in srgb, var(--panel) 88%, transparent);
 		border:1px solid var(--line-soft); border-radius:6px; padding:3px 12px; pointer-events:none;
 		backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); box-shadow:0 4px 16px #0004; }
-	/* Model name/id, top-centre of a model-layout canvas (screen space, non-interactive). */
-	.model-name { position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:6; white-space:nowrap;
-		font-size:12px; font-weight:600; letter-spacing:.02em; color:var(--muted); pointer-events:none; user-select:none; }
+	/* B31: a model-layout pane names its model at the start of the (always-shown) viewport bar. */
+	.vab-title { padding:0 10px 0 8px; font-size:12px; font-weight:600; letter-spacing:.02em; color:var(--muted); white-space:nowrap; user-select:none; }
 	.vp-active-bar { top:12px; left:50%; transform:translateX(-50%); z-index:6; align-items:center; gap:2px; padding:3px; }
 	.vab-btn { display:inline-flex; align-items:center; gap:5px; padding:5px 11px; min-height:30px; border-radius:6px;
 		font-size:12px; font-weight:600; color:var(--muted); background:none; border:none; }

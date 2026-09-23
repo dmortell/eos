@@ -36,6 +36,8 @@
 			sel: string
 			/** A layer's colour by id (ByLayer resolution: object colour → layer colour → ink). */
 			layerColor: (id?: string) => string | undefined
+			/** B31: dark model space — maps a resolved colour to one that reads on the dark background. */
+			adapt?: (c: string) => string
 		}
 		/** Iso view only: projects a plan point onto the ground plane (drawing coords). Null elsewhere. */
 		isoGround?: ((x: number, y: number) => Pt) | null
@@ -46,7 +48,7 @@
 	} = $props()
 
 	// colour resolves ByLayer: explicit object colour → its layer's colour → the tool ink.
-	const ink = $derived(e.color ?? style.layerColor(e.layer) ?? style.ink)
+	const ink = $derived.by(() => { const c = e.color ?? style.layerColor(e.layer) ?? style.ink; return style.adapt ? style.adapt(c) : c })
 	// An explicit per-object weight ALWAYS renders; LWT only chooses the thickness for objects with no weight
 	// set (on = the default 1.2, off = a thin 0.5 display line).
 	const w = $derived((e.weight ?? (style.lwt ? STYLE_DEFAULTS.weight : 0.5)) / (style.canvasZoom || 1))

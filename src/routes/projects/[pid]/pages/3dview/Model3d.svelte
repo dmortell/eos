@@ -14,8 +14,8 @@
 	import { BASIS } from './types'
 	import type { Model, Obj, Dir, Clip } from './types'
 
-	let { model, dir = 'plan', cx = 0, cy = 0, ground = 0, defaultWeight = 1, selIds = [], canvasZoom = 1, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH }:
-		{ model: Model; dir?: Dir; cx?: number; cy?: number; ground?: number; defaultWeight?: number; selIds?: string[]; canvasZoom?: number; clip?: Clip | null; yaw?: number; pitch?: number } = $props()
+	let { model, adapt, dir = 'plan', cx = 0, cy = 0, ground = 0, defaultWeight = 1, selIds = [], canvasZoom = 1, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH }:
+		{ model: Model; /** B31: dark model space colour mapping (ui/modelSpace.ts `onDark`) */ adapt?: (c: string) => string; dir?: Dir; cx?: number; cy?: number; ground?: number; defaultWeight?: number; selIds?: string[]; canvasZoom?: number; clip?: Clip | null; yaw?: number; pitch?: number } = $props()
 	// Plan/elevation use a true section cut (`trimToClip`, applied per object in the render passes below):
 	// walls/conduits keep only the segments inside the box, prisms pass through whole. This AABB-overlap
 	// test is kept only for the iso pass (a quick cull; iso normally has no clip).
@@ -25,7 +25,7 @@
 	const layerOf = (o: Obj) => model.layers?.find((l) => l.id === o.layer)
 	const isOpening = (o: Obj) => !!layerOf(o)?.opening   // objects on an "opening" layer cut the wall
 	const isSel = (o: Obj) => !!o.id && selIds.includes(o.id)
-	const colorOf = (o: Obj) => (isSel(o) ? SEL : layerOf(o)?.color ?? '#475569')
+	const colorOf = (o: Obj) => { const c = isSel(o) ? SEL : layerOf(o)?.color ?? '#475569'; return adapt ? adapt(c) : c }
 	// screen px (non-scaling-stroke cancels SVG transforms; ÷ canvasZoom cancels the ancestor CSS canvas
 	// zoom too, so the lineweight is a constant screen-px value — matching how entities render).
 	const weightOf = (o: Obj) => ((isSel(o) ? (layerOf(o)?.weight ?? defaultWeight) + 1.2 : layerOf(o)?.weight ?? defaultWeight) / (canvasZoom || 1))
@@ -172,8 +172,8 @@
 <style>
 	.m3d :global(polygon), .m3d :global(polyline) { stroke-linejoin: round; }
 	/* opening = a real hole: fill with the drawing (paper) colour — white — to erase the wall behind it,
-	   then the frame stroke outlines the door/window. The model always draws on a white surface. */
-	.m3d :global(polygon.hole) { fill: #fff; }
-	/* iso solid faces: opaque white so a nearer face (painted later) hides what's behind it. */
-	.m3d :global(polygon.face) { fill: #fff; }
+	   then the frame stroke outlines the door/window. `--vp-paper` = white on a sheet, dark in model space (B31). */
+	.m3d :global(polygon.hole) { fill: var(--vp-paper, #fff); }
+	/* iso solid faces: opaque paper colour so a nearer face (painted later) hides what's behind it. */
+	.m3d :global(polygon.face) { fill: var(--vp-paper, #fff); }
 </style>
