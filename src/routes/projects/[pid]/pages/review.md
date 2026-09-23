@@ -461,6 +461,43 @@ are modules) and B2 (paper px ↔ mm is a known constant), a sheet becomes a Vie
 decision) + page annotations + titleblock cells, and the Viewport tool = the Rectangle gesture.
 Sheets' `Viewport.svelte` frame snap (paper edges/margins/titleblock/5 mm grid, Alt disables) then
 plugs into `snap.ts`.
+**Rescoped to R8-lite (Dave, 2026-09-23, relayed via eos-07)** — the full merge above was rejected
+after review of the first design draft found real gaps: frame-content events bubbling into a
+wrapping paper Viewport, both Viewports reacting to Delete/Esc, double pan/zoom (the pane canvas
+AND a paper-kind Viewport's own view), and Viewport growing past its own line-count target.
+**R8-lite instead**: `PaperPage.svelte` stays the thin per-sheet component it already is; only its
+hand-written hit-test/corner-resize/marquee code is replaced by calls into `hit.ts`/`grips.ts`/
+`snap.ts`. Storage stays `SheetFrame[]` in `PageDoc.frames` — no `Ent` role, no page model; a
+frame becomes a throwaway fake rect `Ent` only at the point a shared function needs one. Plan in
+`refactor-plan.md`'s "R8-lite" section.
+**Closed (eos-18, 2026-09-23; eos-07 diff-reviews only, no live-gate per Dave's process change).**
+4 commits: `cb1c8f8` (`snap.ts` gains `PAPER_SNAP_STEP`/`paperSnapLines`/`frameSnapDelta`, ported
+from `sheets/Viewport.svelte`'s existing snap/Alt convention, +7 unit tests); `3c004ce`
+(`PaperPage`'s border-band pick + marquee reuse `hit.ts`'s `inBox`/`marqueeSelect` over on-the-fly
+fake rect `Ent`s — picking centralizes into `onSheetDown`/`onWrapDblclick`, `.vp-band`/`.vp-interior`
+become purely visual); `3debcb4` (corner resize reuses `grips.ts`'s `gripsLocal` + `constrainGrip`
+via the same fake-`Ent` adapter — also adds Shift-square-constrain, which the old hand-rolled math
+never had); `57b9942` (wires `frameSnapDelta` into move/resize, Alt bypass; also fixed a unit
+mislabel caught mid-slice — frame geometry is PAPER PX not paper mm, `PAPER_SNAP_STEP` converts once
+via `PAPER_PX_PER_MM`). Slice 5 (cleanup) was a no-op: `Handle.svelte` is still used by
+`ui/Viewport.svelte` too, so it stays; nothing else turned out dead. `PaperPage.svelte` 234 → 321
+lines (grew — this slice ADDS shared-module wiring, it doesn't shrink the file; the win is one
+implementation of hit-test/grip/marquee math instead of two). svelte-check 10/130 (baseline)
+and the full suite (352/352, +7 from snap.ts) green on every commit.
+**Two disclosed behaviour changes, not asked for, riding the refactor** — both need live
+confirmation, not just diff review: (1) the marquee is now direction-sensitive (window vs crossing
+by drag direction, matching every other marquee in the app) where the old `touches()` was always
+crossing-style; (2) Shift now square-constrains a corner resize about the fixed opposite corner
+(via `constrainGrip`), which the old math never supported at all. **Genuinely new, untested
+behaviour**: the frame snap itself (paper edges + 5 mm grid, Alt disables) — ported from Sheets but
+this is its first appearance in Pages, no prior version to regress against. **Deliberately
+deferred, not silently dropped**: a snap-mark indicator (Dave: "if that's cheap") — PaperPage has
+no existing SVG-overlay infrastructure to hang one on, and getting a new visual element's position
+right without live testing felt like the wrong place to take that risk.
+**Still owed**: live-testing everything above — see `refactor-plan.md`'s R8-lite §3 for the full
+list (frame select/move/resize, interior click vs dblclick-activate, the Viewport-tool active-frame
+guard, section→viewport drop, undo/redo, Properties round-trip, Ctrl+P print, plus the two
+behaviour changes and the new snap).
 
 ### R9. Split `+page.svelte`  **[design]**
 Extract `parts/Pane.svelte` (tab bar + canvas + tool strip + active-viewport bar + gizmos + status,
