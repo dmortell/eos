@@ -17,12 +17,12 @@
 	import { beginPointerDrag, DragRegistry } from './gestures'
 	import { drawPlane, buildEnt, sectionObj, sectionName, PRISM_TOOL, trimTail, polylineEnt, graphObj, prismObj, guideObj, imageWithOrigin, imageScaled, moveEnt as pMoveEnt } from './place'
 	import {
-		addModelObj as meAddModelObj, deleteGraphNode as meDeleteGraphNode,
+		addModelObj as meAddModelObj,
 		insertGraphNode as meInsertGraphNode, branchNode as meBranchNode, addGuide as meAddGuide, addSection as meAddSection,
 		setSectionDir as meSetSectionDir, deleteSection as meDeleteSection, setSectionClip as meSetSectionClip,
 	} from './modelEdit'
 	import { noopEditor, type Editor } from './editor'
-	import { idsOfKind, type SelItem } from './selection'
+	import { idsOfKind, singleOfKind, type SelItem } from './selection'
 	import type { ViewCtx } from './view'
 	import { pickSectionGrip as gPickSectionGrip, modelGrips as gModelGrips, pickModelGrip as gPickModelGrip, gripsFor as gGripsFor, constrainGrip, type MGrip, type Grip, type GripOpts } from './grips'
 	import { SNAP_STEP, snapToGrid, rndTo, snapDelta as sSnapDelta, findSnap as sFindSnap, drawPoint as sDrawPoint, snapNode as sSnapNode, graphNodeApply as sGraphNodeApply, elevDepthSnap as sElevDepthSnap } from './snap'
@@ -52,24 +52,33 @@
 		scale?: (s: string) => void; status?: (text: string) => void; coords?: (x: number, y: number) => void; tool?: (name: string) => void;
 	}
 	let { label = 'Viewport', scale = '1:1', kind = 'plan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {}, editor = noopEditor, frameId = undefined, modelId = undefined,
-		entities = [], view = { zoom: 1, x: 0, y: 0 }, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, selSection = null }:
+		entities = [], view = { zoom: 1, x: 0, y: 0 }, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH }:
 		{ label?: string; scale?: string; kind?: 'plan' | 'iso' | ElevDir; active?: boolean; tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env; on?: VpOn; editor?: Editor; frameId?: string; modelId?: number;
-			focused?: boolean; entities?: Ent[]; view?: View; clip?: Clip | null; yaw?: number; pitch?: number; selSection?: string | null } = $props()
-	// R3 commit 2a (review.md §R3): entity + model-object/guide selection now come from `editor.sel` (the
-	// per-VIEWPORT Selection, ui/selection.ts) instead of a `sel` PROP (was tab-shared docSel) / the global
-	// `modelSel` store (3dview/models.svelte, was shared across every viewport showing a model). Kept as
-	// LOCAL `sel`/`modelSel` names (derived, read-only) so every existing READ below is unchanged — only the
-	// WRITE call sites (old `setModelSel`/`editor.ents.select`) move to the helpers below. Section/node/frame
-	// selection still use their pre-R3 mechanisms (`selSection` prop, local `nodeSel`, `session.selFrame` in
-	// +page.svelte) — folding those in is R3 commit 2b.
+			focused?: boolean; entities?: Ent[]; view?: View; clip?: Clip | null; yaw?: number; pitch?: number } = $props()
+	// R3 commits 2a+2b (review.md §R3): every kind of selection now comes from `editor.sel` (the
+	// per-VIEWPORT Selection, ui/selection.ts) instead of a `sel`/`selSection` PROP (was tab-shared docSel /
+	// session.selSection) or the global `modelSel` store (3dview/models.svelte, was shared across every
+	// viewport showing a model). Kept as LOCAL `sel`/`modelSel`/`selSection` names (derived, read-only) so
+	// every existing READ below is unchanged — only the WRITE call sites move to the helpers below.
+	// `modelSel` carries obj + guide + node ids together (a node's `.id` is its PARENT object's id) so
+	// `mSelObj`/grips/Model3d highlighting keep working exactly as before when a NODE (not the plain object)
+	// is selected — matches the pre-R3 behaviour where `modelSel` always held the parent regardless of
+	// whether a specific node was also picked.
 	const selection = $derived(editor.sel.get())
 	const sel = $derived(idsOfKind(selection, 'ent'))
-	const modelSel = $derived([...idsOfKind(selection, 'obj'), ...idsOfKind(selection, 'guide')])
+	const modelSel = $derived([...idsOfKind(selection, 'obj'), ...idsOfKind(selection, 'guide'), ...idsOfKind(selection, 'node')])
+	const selSection = $derived(singleOfKind(selection, 'section')?.id ?? null)
 	const selectEnts = (ids: string[]) => editor.sel.only(ids.map((id): SelItem => ({ kind: 'ent', id })))
 	const toggleEnts = (ids: string[]) => editor.sel.toggle(ids.map((id): SelItem => ({ kind: 'ent', id })))
 	const selectObj = (id: string) => editor.sel.only([{ kind: 'obj', id }])
 	const selectGuide = (id: string) => editor.sel.only([{ kind: 'guide', id }])
+	const selectSection = (id: string) => editor.sel.only([{ kind: 'section', id }])
+	const selectNode = (objId: string, nodeId: string) => editor.sel.only([{ kind: 'node', id: objId, sub: nodeId }])
 	const clearSel = () => editor.sel.clear()
+	// A fresh press "forgets" any specific NODE pick, falling back to the plain object it belongs to (still
+	// selected — a node is only ever reachable through its already-selected parent) — matches the pre-R3
+	// `nodeSel = null` reset, which left the independent `modelSel` (parent) untouched.
+	const demoteNodeToObj = () => { const n = singleOfKind(selection, 'node'); if (n) selectObj(n.id) }
 	// VIEW callbacks are called directly as on.x?.(…); EDITOR ops as editor.ents.x(…) / editor.edit.x(…) /
 	// editor.sections.x(…) — no `?.` needed there since `editor` defaults to noopEditor. No aliases either
 	// way (a $derived rename adds nothing for a function that's only invoked). env flags stay derived
@@ -213,7 +222,7 @@
 		if (tool === 'Section' && isPlan && mdl) {   // §4 / B5 — clip box on the plan → a section marker in the MODEL (one undo step), selected
 			const sec = sectionObj(ctx, a, b, mUid('sec'), sectionName(mdl.sections ?? [])); if (!sec) return
 			meAddSection(mdl, editor.edit, sec)
-			editor.sections.select(sec.id)   // grips + toolbar; drop its elevations via the arrows
+			selectSection(sec.id)   // grips + toolbar; drop its elevations via the arrows
 		}
 	}
 	// The Line tool draws a POLYLINE in AutoCAD mode: keep clicking to add segments, Enter /
@@ -250,12 +259,13 @@
 				if (g.length) toggleEnts(g)
 			} else {
 				// entity click wins; else a model object; else a section marker; else a guide line; else clear.
-				// (`select*`/`clearSel` all replace the whole Selection, so the other kinds clear implicitly.)
-				if (g.length) { selectEnts(g); editor.sections.select(null) }
-				else { const mid = hitModel(p); if (mid) { selectObj(mid); editor.sections.select(null) }
-					else { const sid = hitSection(p); if (sid) { editor.sections.select(sid); clearSel() }   // click a marker border → SELECT it (grips + toolbar); open via the link button
-						else { const gid = hitGuide(p); if (gid) { selectGuide(gid); editor.sections.select(null) }   // guide selection shares the model-object kind (it lives in the model now)
-							else { clearSel(); editor.sections.select(null) } } } }
+				// R3 2b: every kind now lives in the ONE Selection, so a single `select*`/`clearSel` call per
+				// branch is enough — it already replaces (and so implicitly clears) whatever the other kinds held.
+				if (g.length) selectEnts(g)
+				else { const mid = hitModel(p); if (mid) selectObj(mid)
+					else { const sid = hitSection(p); if (sid) selectSection(sid)   // click a marker border → SELECT it (grips + toolbar); open via the link button
+						else { const gid = hitGuide(p); if (gid) selectGuide(gid)   // guide selection shares the model-object kind (it lives in the model now)
+							else clearSel() } } }
 			}
 			return
 		}
@@ -369,13 +379,11 @@
 			if (k === 'g' && !e.shiftKey && sel.length) { e.preventDefault(); editor.ents.group(sel); return }
 			if (k === 'g' && e.shiftKey && sel.length) { e.preventDefault(); editor.ents.ungroup(sel); return }
 		}
-		// R3 2a: entity + model-object/guide delete now dispatch through ONE call (`editor.sel.delete()`) —
-		// the two kinds are already mutually exclusive in the Selection, so this is exactly the old
-		// ent-branch / modelSel-branch pair, just routed through the new store. Node/section stay separate
-		// (their own pre-R3 mechanisms; folding them in is R3 commit 2b).
-		if ((e.key === 'Delete' || e.key === 'Backspace') && (sel.length || modelSel.length) && !draft.length) { e.preventDefault(); editor.sel.delete(); return }
-		if ((e.key === 'Delete' || e.key === 'Backspace') && nodeSelValid && !draft.length) { e.preventDefault(); deleteGraphNode(nodeSelValid); nodeSel = null; return }
-		if ((e.key === 'Delete' || e.key === 'Backspace') && selSection && !draft.length) { e.preventDefault(); deleteSection(selSection); return }
+		// R3 2b: every kind's delete now dispatches through ONE call (`editor.sel.delete()`, +page.svelte's
+		// `deleteSelAt`) — every kind is mutually exclusive in the Selection (at most one of `sel`/`modelSel`/
+		// `selSection` is ever non-empty), so this collapses what were 3-4 separate onKey branches with no
+		// change in behaviour or the labels each delete records ('Delete' / 'Delete node' / 'Delete section').
+		if ((e.key === 'Delete' || e.key === 'Backspace') && (sel.length || modelSel.length || selSection) && !draft.length) { e.preventDefault(); editor.sel.delete(); return }
 		if (sel.length && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
 			e.preventDefault()
 			const s = e.shiftKey ? 10 : 1
@@ -391,8 +399,7 @@
 		if (imgEdit.mode) { clearImgMode(); scalePts = []; scaleReal = null }
 		else if (draft.length) { draft = []; cur = null; snapMark = null }
 		else if (tool !== 'Select') on.tool?.('Select')
-		else if (selSection) editor.sections.select(null)
-		else if (sel.length || modelSel.length) clearSel()   // R3 2a: was ent-only (`sel.length`) — obj/guide now clear on Esc too
+		else if (selSection || sel.length || modelSel.length) clearSel()   // R3 2b: every kind clears in one step (was 2 separate rungs)
 		else on.deactivate?.()
 	}
 
@@ -491,7 +498,7 @@
 	}
 	function deleteSection(id: string) {
 		if (!mdl) return
-		if (meDeleteSection(mdl, editor.edit, id) && selSection === id) editor.sections.select(null)
+		if (meDeleteSection(mdl, editor.edit, id) && selSection === id) clearSel()
 	}
 	// hitSection / sectionCorners live in ui/hit.ts (R1 step 3); the wrapper injects ctx + the section list.
 	const hitSection = (p: Pt) => hHitSection(ctx, sections, p, tolMm(6))
@@ -598,9 +605,11 @@
 		return mdl?.objects.find((x) => x.id === modelSel[0]) ?? null
 	})
 	// A single wall/conduit NODE selected (by clicking its grip without dragging) — enables node-level
-	// Delete (segments handled by degree). Cleared on any fresh press; only valid while its object is selected.
-	let nodeSel = $state<{ obj: string; node: string } | null>(null)
-	const nodeSelValid = $derived(nodeSel && mSelObj?.id === nodeSel.obj && (mSelObj as { nodes?: GN[] }).nodes?.some((n) => n.id === nodeSel!.node) ? nodeSel : null)
+	// Delete (segments handled by degree). R3 2b: lives in the Selection now (kind 'node', `.id` = the
+	// parent object's id, `.sub` = the node's own id) — `nodeSelValid` reshapes it back to the `{obj,node}`
+	// pair every existing reader below expects. Only valid while its parent object is (still) selected.
+	const nodeSelItem = $derived(singleOfKind(selection, 'node'))
+	const nodeSelValid = $derived(nodeSelItem && mSelObj?.id === nodeSelItem.id && (mSelObj as { nodes?: GN[] }).nodes?.some((n) => n.id === nodeSelItem!.sub) ? { obj: nodeSelItem.id, node: nodeSelItem.sub! } : null)
 	// Model-object grips (prismCorners/applyPrismGrip/modelGrips) live in ui/grips.ts (R1 step 4); MGrip is
 	// imported. The wrapper injects ctx + the grid-snap (rndSnap) and node-apply (graphNodeApply) opts.
 	const modelGrips = (o: Obj): MGrip[] => gModelGrips(ctx, o, { rnd: rndSnap, applyNode: graphNodeApply })
@@ -626,7 +635,7 @@
 		if (moved) { suppressClick = true; editor.edit.mark() }
 		else if (s.branch) s.branch()   // an Ctrl-branch press with no drag: drop the stray zero-length segment
 		else if (s.grip.node && s.grip.obj && (s.grip.obj.type === 'wall' || s.grip.obj.type === 'conduit')) {
-			nodeSel = { obj: s.grip.obj.id!, node: s.grip.node.id }   // no-move click on a node grip → select the node
+			selectNode(s.grip.obj.id!, s.grip.node.id)   // no-move click on a node grip → select the node
 		}
 		snapMark = null; editor.edit.end()   // close the gesture's undo step
 	}
@@ -683,17 +692,9 @@
 		// Selection model enforces the same one-kind-at-a-time rule used everywhere else).
 		if (id) selectObj(id)
 	}
-	// Delete a single wall/conduit NODE, resolving its incident segments by DEGREE (Dave's spec):
-	//   1 segment  → delete that segment;
-	//   2 segments → join them into one (drop the node, connect the two far ends);
-	//   3+ segments → keep the FIRST TWO joined into one, delete the rest.
-	// Then prune any node left with no segments (the deleted one + orphaned far ends); remove the whole
-	// object if nothing remains. One undo step.
-	function deleteGraphNode(sel: { obj: string; node: string }) {
-		if (!mdl) return
-		const { removedObject } = meDeleteGraphNode(mdl, editor.edit, sel, mUid)
-		if (removedObject) clearSel()
-	}
+	// Node DELETE (degree-based join/prune, Dave's spec) now dispatches through `editor.sel.delete()` →
+	// +page.svelte's `deleteSelAt`, which calls modelEdit.ts's `deleteGraphNode` directly — no local wrapper
+	// needed here any more (this Viewport used to own it; R3 2b moved it alongside the obj/guide delete).
 	// Insert a vertex into a wall/conduit at p by splitting the nearest segment (dbl-click). The new
 	// node inherits the segment's z (keeps the run's height); the new segment inherits object defaults.
 	function insertGraphNode(p: Pt) {
@@ -850,7 +851,7 @@
 		if ((e.target as Element)?.closest?.('.section-arrow.pick')) return   // a section-arrow click adds/opens a direction (Svelte delegation ignores its stopPropagation)
 		suppressClick = false   // clear any stale flag from a drag that never got its click
 		shiftPressId = null
-		nodeSel = null          // a fresh press resets the node selection (re-set on a no-move node-grip click)
+		demoteNodeToObj()       // a fresh press resets the node selection (re-set on a no-move node-grip click)
 		if (reg.noteDown(e)) { cancelPointerDrag(); return }   // 2nd finger → hand off to pan/zoom
 		// While calibrating scale, a press near a placed endpoint drags it (adjust the measure line).
 		if (imgEdit.mode === 'scale' && scalePts.length === 2) {
@@ -906,7 +907,7 @@
 		if (pk?.kind === 'section') {
 			const sm = sections.find(s => s.id === pk.id)
 			if (sm) {
-				if (selSection !== pk.id) editor.sections.select(pk.id)
+				if (selSection !== pk.id) selectSection(pk.id)
 				editor.edit.begin()   // one undo step for the whole move gesture (committed on release)
 				beginPointerDrag<SecDrag>(e, { id: pk.id, start: p, c0: { ...sm.clip } }, { onMove: onSecDragMove, onUp: onSecDragUp, onCancel: closeEdit }, reg)
 			}

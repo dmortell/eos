@@ -20,14 +20,14 @@ describe('noopEditor', () => {
 	it('edit (EditScope) is callable with no throw, in the usual begin→mark→end order', () => {
 		expect(() => { noopEditor.edit.begin(); noopEditor.edit.mark('label'); noopEditor.edit.mark(); noopEditor.edit.end(); noopEditor.edit.end(600) }).not.toThrow()
 	})
-	it('sections methods are callable with no throw', () => {
-		expect(() => noopEditor.sections.select(null)).not.toThrow()
-		expect(() => noopEditor.sections.select('s1')).not.toThrow()
+	it('sections.dropDir is callable with no throw', () => {
 		expect(() => noopEditor.sections.dropDir('s1', 'front')).not.toThrow()
 	})
-	it('sel (R3 commit 2a) methods are callable with no throw; get() reads back an empty Selection', () => {
+	it('sel (R3 commits 2a+2b) methods are callable with no throw for every kind; get() reads back an empty Selection', () => {
 		expect(noopEditor.sel.get()).toEqual([])
 		expect(() => noopEditor.sel.only([{ kind: 'ent', id: 'a' }])).not.toThrow()
+		expect(() => noopEditor.sel.only([{ kind: 'section', id: 's1' }])).not.toThrow()
+		expect(() => noopEditor.sel.only([{ kind: 'node', id: 'o1', sub: 'n1' }])).not.toThrow()
 		expect(() => noopEditor.sel.toggle([{ kind: 'ent', id: 'a' }])).not.toThrow()
 		expect(() => noopEditor.sel.clear()).not.toThrow()
 		expect(() => noopEditor.sel.delete()).not.toThrow()

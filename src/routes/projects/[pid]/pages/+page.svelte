@@ -34,8 +34,8 @@
 	import { DEFAULT_YAW, DEFAULT_PITCH } from './3dview/projection'
 	import type { Model, Section } from './3dview/types'
 	import { selStore } from './selStore.svelte'
-	import { selOnly, selToggle, selClear, idsOfKind, type Selection, type SelItem } from './ui/selection'
-	import { deleteModelSel as meDeleteModelSel } from './ui/modelEdit'
+	import { selOnly, selToggle, selClear, idsOfKind, singleOfKind, type Selection, type SelItem } from './ui/selection'
+	import { deleteModelSel as meDeleteModelSel, deleteGraphNode as meDeleteGraphNode, deleteSection as meDeleteSection } from './ui/modelEdit'
 
 	// Which pane (if any) has its viewport activated — groundwork for editing/CAD
 	// tools inside a sheet's viewport. Null = no active viewport.
@@ -62,12 +62,12 @@
 	//  - `previewId`: the single VSCode-style italic preview tab (single-click reuse; B6).
 	//  - `activeVps`: which TAB/FRAME ids have their viewport activated (editing mode, not just viewing).
 	//  - `selFrame`: the sheet viewport frame selected in paper space (move/resize/props).
-	//  - `selSection`: the section marker selected on the plan (grips + toolbar) — shared across panes;
-	//    create/move/re-aim/delete are MODEL edits (B5), this is only the VIEW-level selection.
 	//  - `treeNode`: a place/label picked in the left tree (project/building/floor/…), for its Properties.
+	// (R3 2b: `selSection` moved into `selStore` — a section marker is just another Selection kind now,
+	// per viewport like every other kind, not a separate session field.)
 	type Session = {
 		tabs: Tab[]; panes: Pane[]; focused: number; previewId: string | null; activeVps: Set<string>
-		selFrame: string | null; selSection: string | null; treeNode: { id: string; label: string; kind: string } | null
+		selFrame: string | null; treeNode: { id: string; label: string; kind: string } | null
 	}
 	let session = $state<Session>({
 		tabs: [
@@ -78,7 +78,7 @@
 		],
 		panes: [{ id: 'p1', activeId: 't2', tool: 'Select', layout: 'sheet' }],
 		focused: 0, previewId: null, activeVps: new Set<string>(),
-		selFrame: null, selSection: null, treeNode: null,
+		selFrame: null, treeNode: null,
 	})
 	let seq = 4
 	const kindIcon: Record<Kind, string> = { plan: 'mapPin', sheet: 'fileText', elevation: 'server', model: 'box' }
@@ -133,11 +133,13 @@
 		tool: (t: string) => (pane.tool = t), scale: (s: string) => setScale(a.id, s),
 		orbit: (yaw: number, pitch: number) => setOrbit(pane.id, a.id, projOf(pane, a), yaw, pitch),
 	})
-	// R3 commit 2a (review.md §R3): `sel` is the per-VIEWPORT Selection (selStore.svelte.ts, keyed by
+	// R3 commits 2a+2b (review.md §R3): `sel` is the per-VIEWPORT Selection (selStore.svelte.ts, keyed by
 	// `viewId` — a sheet FRAME id or a model-layout TAB id acting as its own viewport; NOT the document/tab
 	// id `a.id`, which stays the key for `ents`/`edit` since entity CRUD is per-DOCUMENT, shared by every
-	// frame of a sheet). `deleteSelAt` (below) is shared by `sel.delete()` here and the Edit-menu/keyboard
-	// `deleteSelection()`, so the ent+obj/guide dispatch lives in exactly one place.
+	// frame of a sheet). Covers every kind now — section markers and wall/conduit nodes fold in here too
+	// (`sections` keeps only `dropDir`, the one section action that isn't a selection). `deleteSelAt` (below)
+	// is shared by `sel.delete()` here and the Edit-menu/keyboard `deleteSelection()`, so there is exactly
+	// one dispatch for every kind, each still recording its own label ('Delete' / 'Delete node' / 'Delete section').
 	const vpEditor = (a: Tab, viewId: string): Editor => {
 		const edit = { begin: beginGesture, mark: (label?: string) => modelEdit(a.id, label), end: endGesture }
 		return {
@@ -151,7 +153,7 @@
 				reorder: (ids: string[], op: 'front' | 'back' | 'forward' | 'backward') => reorderEnts(a.id, ids, op),
 			},
 			edit,
-			sections: { select: (id: string | null) => selectSection(id), dropDir: (id: string, dir: ElevDir) => dropSectionDir(id, dir) },
+			sections: { dropDir: (id: string, dir: ElevDir) => dropSectionDir(id, dir) },
 			sel: {
 				get: () => selStore.of(viewId),
 				only: (items: SelItem[]) => selStore.set(viewId, selOnly(items)),
@@ -161,16 +163,26 @@
 			},
 		}
 	}
-	// Delete the ent + obj/guide ids currently selected at `viewId` (one undo step per kind that has a
-	// selection — they're mutually exclusive today, so in practice at most one runs) and clear it
-	// afterwards. Shared by `editor.sel.delete()` (a Viewport's own Delete key) and the Edit-menu/global
-	// keyboard `deleteSelection()` below, so there is exactly one dispatch.
+	// Delete whatever's selected at `viewId` — ent, obj/guide, a wall/conduit node (degree-based join/
+	// prune), or a section marker (they're mutually exclusive today, so in practice exactly one branch
+	// runs) — each recording its own label ('Delete' / 'Delete node' / 'Delete section'). Shared by
+	// `editor.sel.delete()` (a Viewport's own Delete key) and the Edit-menu/global keyboard
+	// `deleteSelection()` below, so there is exactly one dispatch for every kind.
 	function deleteSelAt(tabId: string, viewId: string, edit: { begin(): void; mark(label?: string): void; end(debounceMs?: number): void }) {
 		const s = selStore.of(viewId)
 		const entIds = idsOfKind(s, 'ent'), objGuideIds = [...idsOfKind(s, 'obj'), ...idsOfKind(s, 'guide')]
-		if (entIds.length) deleteEnts(tabId, entIds)
-		if (objGuideIds.length) { const mdl = modelById(modelIdOf(tabId)); if (mdl) meDeleteModelSel(mdl, edit, objGuideIds) }
-		selStore.set(viewId, selClear())
+		const nodeItem = singleOfKind(s, 'node'), sectionItem = singleOfKind(s, 'section')
+		if (entIds.length) { deleteEnts(tabId, entIds); selStore.set(viewId, selClear()); return }
+		if (objGuideIds.length) { const mdl = modelById(modelIdOf(tabId)); if (mdl) meDeleteModelSel(mdl, edit, objGuideIds); selStore.set(viewId, selClear()); return }
+		if (nodeItem) {
+			const mdl = modelById(modelIdOf(tabId))
+			const removedObject = mdl ? meDeleteGraphNode(mdl, edit, { obj: nodeItem.id, node: nodeItem.sub! }, newId).removedObject : true
+			// pre-R3 behaviour: a node delete that only joins/prunes segments (object survives) leaves the
+			// PARENT OBJECT selected (grips shown) — only a fully-removed object clears the selection.
+			selStore.set(viewId, removedObject ? selClear() : selOnly([{ kind: 'obj', id: nodeItem.id }]))
+			return
+		}
+		if (sectionItem) { const mdl = modelById(modelIdOf(tabId)); if (mdl) meDeleteSection(mdl, edit, sectionItem.id); selStore.set(viewId, selClear()); return }
 	}
 	// A 3D-model edit (the Viewport mutated the shared `models` store) records a step on THIS doc's
 	// timeline, gesture-folded like an entity edit — so Ctrl+Z restores the model too.
@@ -208,7 +220,6 @@
 		session.selFrame = fid
 		recordEdit(sheet.id, 'Drop section viewport')
 	}
-	function selectSection(id: string | null) { session.selSection = id; if (id) selStore.set(activeSelViewId(), selClear()) }   // section vs entity selection are exclusive
 
 	// ── multi-viewport sheets (AutoCAD paper space) — a sheet's PAGE MODEL is an array of viewport FRAMES
 	// (no special "primary"; the default page seeds one full-bleed frame). Each frame is a window onto the
@@ -458,7 +469,7 @@
 		recordEdit(id, 'Restore revision')
 	}
 	function setView(paneId: string, viewId: string, proj: Proj, v: View) { viewState.setView(paneId, viewId, proj, v) }
-	// R3 commit 2a: the Properties panel shows whatever's selected in the ACTIVE viewport (whichever
+	// R3 commits 2a+2b: the Properties panel shows whatever's selected in the ACTIVE viewport (whichever
 	// frame/tab is active in the focused pane) — `activeSel` reads it once, `selEnts`/`selModelObj` below
 	// both derive from it.
 	let activeSel = $derived<Selection>(selStore.of(activeSelViewId()))
@@ -466,10 +477,11 @@
 		const ids = new Set(idsOfKind(activeSel, 'ent'))
 		return ids.size ? mdlEnts().filter(e => ids.has(e.id)) : []
 	})
-	// obj + guide ids share one kind-space here, matching the pre-R3 `modelSel`: a selected GUIDE also
-	// lands at length 1 below, and `.objects.find` naturally resolves to null for it (guides live in
-	// `mdl.guides`, not `.objects`) — same behaviour as before, just sourced from the new Selection.
-	let activeModelSel = $derived([...idsOfKind(activeSel, 'obj'), ...idsOfKind(activeSel, 'guide')])
+	// obj + guide + node ids share one kind-space here, matching the pre-R3 `modelSel`: a selected GUIDE
+	// also lands at length 1 below, and `.objects.find` naturally resolves to null for it (guides live in
+	// `mdl.guides`, not `.objects`); a selected NODE's `.id` is its PARENT object's id, so this still
+	// resolves to the parent's props — same behaviour as before, just sourced from the new Selection.
+	let activeModelSel = $derived([...idsOfKind(activeSel, 'obj'), ...idsOfKind(activeSel, 'guide'), ...idsOfKind(activeSel, 'node')])
 	// The single selected 3D-model object (Properties panel edits it straight on the store, with undo).
 	let selModelObj = $derived(activeModelSel.length === 1 ? (modelById(activeMid())?.objects.find(o => o.id === activeModelSel[0]) ?? null) : null)
 	// Selecting a model object (plan / elevation / 3D pick) shows the Properties tab so its props are visible.
@@ -501,9 +513,8 @@
 	function dropDoc(id: string) {
 		const frameIds = framesOf(id).map((f) => f.id)
 		const ids = new Set<string>([id, ...frameIds])            // this tab + its viewport frames
-		selStore.drop([...ids])                                    // selection (per viewport)
+		selStore.drop([...ids])                                    // selection (per viewport, incl. sections/nodes since R3 2b)
 		viewState.drop([...ids], didOf(id))                        // pan/zoom, orbit, per-pane projection + the persisted canvas seed (B27: prune on close)
-		if (session.selSection === id) session.selSection = null
 		if (session.selFrame && ids.has(session.selFrame)) session.selFrame = null
 		deactivateVp(id); for (const fid of frameIds) deactivateVp(fid)   // reopened tab starts deactivated
 	}
@@ -1018,7 +1029,6 @@
 										sizeLabel="{paperOf(a.id).size} {paperOf(a.id).landscape ? 'L' : 'P'}" rev={rev} revDate={fmtDate(revisions[0]?.t)}
 										entities={entsOf(a.id)} focused={session.focused === pi}
 										entsForModel={entsForModel} tabModelId={a.modelId ?? FLOOR_MODEL_ID}
-										selSection={session.selSection}
 										frames={framesOf(a.id)} selFrame={session.selFrame} frameKind={(pr) => projKind(pr as Proj)}
 										isFrameActive={(id) => isVpActive(id)} frameView={(id, proj) => viewOf(p.id, id, proj as Proj)} frameEnv={envFor(p)}
 										frameOrbit={(id, proj) => orbitOf(p.id, id, proj as Proj)} makeFrameOn={(f) => vpFrameView(a, p, f as SheetFrame)} makeFrameEditor={(f) => vpEditor(a, (f as SheetFrame).id)}
@@ -1032,8 +1042,7 @@
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => deactivateVp(a.id)}>
 										<Viewport kind={projKind(projOf(p, a))} label={a.title} tool={p.tool} scale={scaleOf(a.id)} env={envFor(p)} on={vpView(a, p)} editor={vpEditor(a, a.id)} modelId={a.modelId ?? FLOOR_MODEL_ID}
-											entities={entsOf(a.id)} view={viewOf(p.id, a.id, projOf(p, a))} active={isVpActive(a.id)} focused={session.focused === pi} clip={null} yaw={orbitOf(p.id, a.id, projOf(p, a)).yaw} pitch={orbitOf(p.id, a.id, projOf(p, a)).pitch}
-											selSection={session.selSection} />
+											entities={entsOf(a.id)} view={viewOf(p.id, a.id, projOf(p, a))} active={isVpActive(a.id)} focused={session.focused === pi} clip={null} yaw={orbitOf(p.id, a.id, projOf(p, a)).yaw} pitch={orbitOf(p.id, a.id, projOf(p, a)).pitch} />
 									</div>
 								{:else}
 									<div class="canvas-center">
