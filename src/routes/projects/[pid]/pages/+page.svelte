@@ -38,22 +38,45 @@
 	// tools inside a sheet's viewport. Null = no active viewport.
 	// Which TAB docs have their viewport activated (keyed by tab id, not pane) — so activation is
 	// remembered when you switch away and back to a view. Selection is already per-doc (docSel).
-	let activeVps = $state(new Set<string>())
-	const isVpActive = (id?: string) => !!id && activeVps.has(id)
-	function activateVp(id?: string) { if (!id) return; const s = new Set(activeVps); s.add(id); activeVps = s }
-	function deactivateVp(id?: string) { if (!id || !activeVps.has(id)) return; const s = new Set(activeVps); s.delete(id); activeVps = s }
+	const isVpActive = (id?: string) => !!id && session.activeVps.has(id)
+	function activateVp(id?: string) { if (!id) return; const s = new Set(session.activeVps); s.add(id); session.activeVps = s }
+	function deactivateVp(id?: string) { if (!id || !session.activeVps.has(id)) return; const s = new Set(session.activeVps); s.delete(id); session.activeVps = s }
 
 	// Canvas documents — the B1 "each tab owns its own view state" pattern (mock).
 	type Kind = 'plan' | 'sheet' | 'elevation' | 'model'
 	// `modelId` = which registry model this tab views (model-layout tabs); a sheet's frames each carry their
 	// own `modelId`. Defaults to the floor model. (§5 model registry.)
 	type Tab = { id: string; title: string; kind: Kind; dirty: boolean; preview?: boolean; modelId?: number }
-	let tabs = $state<Tab[]>([
-		{ id: 't1', title: '3303 Floorplan', kind: 'plan', dirty: false, modelId: 1 },
-		{ id: 't2', title: '3303 Outlets', kind: 'sheet', dirty: true, modelId: 1 },
-		{ id: 't3', title: 'Rack A · Elevation', kind: 'elevation', dirty: false, modelId: 2 },
-		{ id: 't4', title: 'Rack A · 3D Model', kind: 'model', dirty: false, modelId: 2 },
-	])
+	type Pane = { id: string; activeId: string; tool: string; layout: 'model' | 'sheet' }
+	// SESSION (R2 commit 3, review.md §R2): every piece of per-BROWSER-TAB workspace state that isn't a
+	// document (doc.svelte.ts) or a view's pan/zoom/orbit (viewState.svelte.ts) — grouped into one object
+	// so `dropDoc` and (R3) the selection model have a single, obvious home to read/write. Was 8 separate
+	// top-level `$state`s (`tabs`/`panes`/`focused`/`previewId`/`activeVps`/`selFrame`/`selSection`/
+	// `treeNode`); this commit is a rename, not a behaviour change — every field keeps its old meaning:
+	//  - `tabs`: open documents (shared; the same page can show in both split panes).
+	//  - `panes`: 1 or 2 editor panes; each tracks its own active tab (VS Code-style split).
+	//  - `focused`: which pane new tabs / sidebar actions target.
+	//  - `previewId`: the single VSCode-style italic preview tab (single-click reuse; B6).
+	//  - `activeVps`: which TAB/FRAME ids have their viewport activated (editing mode, not just viewing).
+	//  - `selFrame`: the sheet viewport frame selected in paper space (move/resize/props).
+	//  - `selSection`: the section marker selected on the plan (grips + toolbar) — shared across panes;
+	//    create/move/re-aim/delete are MODEL edits (B5), this is only the VIEW-level selection.
+	//  - `treeNode`: a place/label picked in the left tree (project/building/floor/…), for its Properties.
+	type Session = {
+		tabs: Tab[]; panes: Pane[]; focused: number; previewId: string | null; activeVps: Set<string>
+		selFrame: string | null; selSection: string | null; treeNode: { id: string; label: string; kind: string } | null
+	}
+	let session = $state<Session>({
+		tabs: [
+			{ id: 't1', title: '3303 Floorplan', kind: 'plan', dirty: false, modelId: 1 },
+			{ id: 't2', title: '3303 Outlets', kind: 'sheet', dirty: true, modelId: 1 },
+			{ id: 't3', title: 'Rack A · Elevation', kind: 'elevation', dirty: false, modelId: 2 },
+			{ id: 't4', title: 'Rack A · 3D Model', kind: 'model', dirty: false, modelId: 2 },
+		],
+		panes: [{ id: 'p1', activeId: 't2', tool: 'Select', layout: 'sheet' }],
+		focused: 0, previewId: null, activeVps: new Set<string>(),
+		selFrame: null, selSection: null, treeNode: null,
+	})
 	let seq = 4
 	const kindIcon: Record<Kind, string> = { plan: 'mapPin', sheet: 'fileText', elevation: 'server', model: 'box' }
 
@@ -63,7 +86,6 @@
 	type View = { zoom: number; x: number; y: number }
 	// `layout` is PER-PANE ('sheet' = paper + frame, 'model' = drawing fills the pane) so toggling
 	// Full-size (or a projection) in one split pane doesn't disturb the other pane's view.
-	let panes = $state<{ id: string; activeId: string; tool: string; layout: 'model' | 'sheet' }[]>([{ id: 'p1', activeId: 't2', tool: 'Select', layout: 'sheet' }])
 	// Canvas (paper-space) pan/zoom is per PANE + TAB — switching tabs in a pane keeps each tab's own paper
 	// position/zoom (was per-pane, so zooming one tab changed the next). Persisted per tab in localStorage
 	// (a per-user UI convenience); the viewport CONTENT view (viewState.getView) is the document-side
@@ -84,7 +106,7 @@
 	// tab's TITLE — not the ephemeral tab id, so closing a tab (or reusing the preview slot) never destroys
 	// the page, and reopening the same drawing restores it (B6). Titles are unique (named drawings + the
 	// `Untitled N` counter) and openDrawing already dedups by title. Session/VIEW state stays tab/pane-keyed.
-	const didOf = (tabId?: string) => tabs.find((t) => t.id === tabId)?.title ?? tabId ?? ''
+	const didOf = (tabId?: string) => session.tabs.find((t) => t.id === tabId)?.title ?? tabId ?? ''
 	// Paper / scale / frames now live in the `docs` PageDoc store (doc.svelte.ts, R2 commit 2), keyed by
 	// DRAWING id — thin accessors here resolve the tab id → drawing id first.
 	docs.seed('3303 Outlets', { scale: '1:25' })   // 3303 Outlets sheet defaults bigger (1:25)
@@ -131,7 +153,6 @@
 	// edits itself (it reads `mdl.sections`); the page keeps only the shared SELECTION and the sheet-side
 	// action: each of the 4 arrows drops that direction's elevation as a viewport FRAME on the current sheet
 	// (Dave, 2026-09-22). The 'sec' id prefix keeps them distinct from tab ids.
-	let selSection = $state<string | null>(null)   // the section marker selected on the plan (shows grips + toolbar)
 	// Locate a section (across models) by id → its model id + the section object. Ids are globally unique.
 	function findSection(id: string): { mid: number; sec: Section } | null {
 		for (const m of models) { const sec = (m.sections ?? []).find((s) => s.id === id); if (sec) return { mid: m.id, sec } }
@@ -142,8 +163,8 @@
 	function dropSectionDir(id: string, dir: ElevDir) {
 		const found = findSection(id); if (!found) return
 		const clip = found.sec.clip
-		const focusedTab = tabs.find((t) => t.id === panes[focused]?.activeId)
-		const sheet = focusedTab?.kind === 'sheet' ? focusedTab : tabs.find((t) => t.kind === 'sheet')
+		const focusedTab = session.tabs.find((t) => t.id === session.panes[session.focused]?.activeId)
+		const sheet = focusedTab?.kind === 'sheet' ? focusedTab : session.tabs.find((t) => t.kind === 'sheet')
 		if (!sheet) { statusText = 'Open a sheet first to drop a section viewport'; return }
 		openTab(sheet.id)
 		ensureHist(sheet.id)
@@ -152,11 +173,11 @@
 		const W = 320, H = Math.max(120, Math.min(460, Math.round((W * ch) / cw)))
 		const n = framesOf(sheet.id).length, ox = 90 + (n % 5) * 24, oy = 90 + (n % 5) * 24
 		setFrames(sheet.id, [...framesOf(sheet.id), { id: fid, x: ox, y: oy, w: W, h: H, border: 'solid', proj: dir, scale: scaleOf(sheet.id), clip: { ...clip }, label: PROJ_LABEL[dir] ?? 'Section' }])
-		if (panes[focused]) { panes[focused].activeId = sheet.id; panes[focused].layout = 'sheet' }
-		selFrame = fid
+		if (session.panes[session.focused]) { session.panes[session.focused].activeId = sheet.id; session.panes[session.focused].layout = 'sheet' }
+		session.selFrame = fid
 		recordEdit(sheet.id, 'Drop section viewport')
 	}
-	function selectSection(id: string | null) { selSection = id; if (id) setSel(active?.id ?? '', []) }   // section vs entity selection are exclusive
+	function selectSection(id: string | null) { session.selSection = id; if (id) setSel(active?.id ?? '', []) }   // section vs entity selection are exclusive
 
 	// ── multi-viewport sheets (AutoCAD paper space) — a sheet's PAGE MODEL is an array of viewport FRAMES
 	// (no special "primary"; the default page seeds one full-bleed frame). Each frame is a window onto the
@@ -170,7 +191,6 @@
 	function setFrames(tabId: string, frames: SheetFrame[]) { docs.setFrames(didOf(tabId), frames) }
 	function updateFrame(tabId: string, id: string, patch: Partial<SheetFrame>) { setFrames(tabId, framesOf(tabId).map((f) => (f.id === id ? { ...f, ...patch } : f))) }
 	const newFrameId = () => newId('vf')
-	let selFrame = $state<string | null>(null)   // the viewport frame selected in paper space (move/resize/props)
 	// Exactly one active viewport per sheet: activating a frame deactivates its siblings.
 	function activateFrame(tabId: string, id: string) { for (const f of framesOf(tabId)) if (f.id !== id) deactivateVp(f.id); activateVp(id) }
 	// A per-frame VIEW bundle: entity editing keeps the TAB id (vpEditor is unchanged per frame — same
@@ -196,10 +216,10 @@
 		ensureHist(tabId)   // capture the pre-add baseline first
 		const id = newFrameId()
 		setFrames(tabId, [...framesOf(tabId), { id, x: Math.round(x), y: Math.round(y), w: Math.max(60, Math.round(w)), h: Math.max(60, Math.round(h)), border: 'solid', proj: 'plan', scale: scaleOf(tabId), clip: null, label: 'Plan' }])
-		selFrame = id
+		session.selFrame = id
 		recordEdit(tabId, 'Add viewport')
 	}
-	function deleteFrame(tabId: string, id: string) { ensureHist(tabId); setFrames(tabId, framesOf(tabId).filter((f) => f.id !== id)); if (selFrame === id) selFrame = null; deactivateVp(id); recordEdit(tabId, 'Delete viewport') }
+	function deleteFrame(tabId: string, id: string) { ensureHist(tabId); setFrames(tabId, framesOf(tabId).filter((f) => f.id !== id)); if (session.selFrame === id) session.selFrame = null; deactivateVp(id); recordEdit(tabId, 'Delete viewport') }
 	function commitFrame(tabId: string, label: string) { recordEdit(tabId, label) }   // one history step at a drag/edit end
 	// The active viewport in a tab: the tab id if active (model-layout tabs), else whichever sheet frame is.
 	const activeVpOf = (tabId: string): string | null => (isVpActive(tabId) ? tabId : framesOf(tabId).find((f) => isVpActive(f.id))?.id ?? null)
@@ -213,7 +233,7 @@
 		if (a?.kind === 'sheet') { const av = activeVpOf(a.id) ?? framesOf(a.id)[0]?.id; if (av) updateFrame(a.id, av, { proj, label: PROJ_LABEL[proj] }) }
 		else if (a) viewState.setProj(pane.id, a.id, proj)
 	}
-	let selFrameObj = $derived.by(() => { const t = active; return t && selFrame ? framesOf(t.id).find((f) => f.id === selFrame) ?? null : null })
+	let selFrameObj = $derived.by(() => { const t = active; return t && session.selFrame ? framesOf(t.id).find((f) => f.id === session.selFrame) ?? null : null })
 	// Scale denominator of the viewport the Properties panel edits in: an active extra sheet frame's own
 	// scale, else the tab's (the primary viewport's) — the same choice as the active-viewport bar (B19).
 	let propsScaleN = $derived.by(() => {
@@ -221,10 +241,9 @@
 		const av = activeVpOf(t.id), f = av && av !== t.id ? framesOf(t.id).find((x) => x.id === av) : null
 		return scaleDenom(f?.scale ?? scaleOf(t.id))
 	})
-	let focused = $state(0)      // which pane new tabs / sidebar actions target
 	let canvasEls = $state<(HTMLElement | undefined)[]>([])   // each pane's .canvas, for navFit
 	let splitFrac = $state(0.5)  // pane 0 width fraction when split
-	let active = $derived(tabs.find(t => t.id === panes[focused]?.activeId) ?? null)
+	let active = $derived(session.tabs.find(t => t.id === session.panes[session.focused]?.activeId) ?? null)
 
 	// Per-DOCUMENT state (keyed by tab id): drawn entities, selection, and the
 	// viewport's own pan/zoom — so all three persist across tab switches and show
@@ -243,15 +262,15 @@
 	function modelIdOf(tabId: string): number {
 		const av = activeVpOf(tabId)
 		if (av && av !== tabId) { const f = framesOf(tabId).find((x) => x.id === av); if (f?.modelId != null) return f.modelId }
-		return framesOf(tabId)[0]?.modelId ?? tabs.find((t) => t.id === tabId)?.modelId ?? FLOOR_MODEL_ID
+		return framesOf(tabId)[0]?.modelId ?? session.tabs.find((t) => t.id === tabId)?.modelId ?? FLOOR_MODEL_ID
 	}
 	const mdlEntsOf = (mid: number): Ent[] => modelById(mid)?.ents ?? []
 	const setMdlEntsOf = (mid: number, next: Ent[]) => { const m = modelById(mid); if (m) m.ents = next }
 	// The focused doc's active model (for selection / revisions / properties).
-	const activeMid = () => modelIdOf(panes[focused]?.activeId ?? '')
+	const activeMid = () => modelIdOf(session.panes[session.focused]?.activeId ?? '')
 	const mdlEnts = (): Ent[] => mdlEntsOf(activeMid())
 	let docSel = $state<Record<string, string[]>>({})
-	const entsOf = (id: string) => entsForModel(tabs.find((t) => t.id === id)?.modelId)   // a tab's model's ents (sheets pass per-frame)
+	const entsOf = (id: string) => entsForModel(session.tabs.find((t) => t.id === id)?.modelId)   // a tab's model's ents (sheets pass per-frame)
 	const selOf = (id: string) => docSel[id] ?? []
 	// View (content pan/zoom) is keyed by PANE + view + PROJECTION, so a split pans each pane independently
 	// AND each projection of a viewport (plan / front / … / 3D) remembers its own framing — flipping the
@@ -362,7 +381,7 @@
 		hist = { steps: [{ label: 'Start', t: Date.now(), model: snapModels(), frames: snapAllFrames() }], ptr: 0 }
 	}
 	function pushStep(id: string, label: string) {
-		const t = tabs.find(x => x.id === id); if (t && !t.dirty) t.dirty = true   // any edit marks its tab dirty
+		const t = session.tabs.find(x => x.id === id); if (t && !t.dirty) t.dirty = true   // any edit marks its tab dirty
 		ensureHist(); const h = hist!
 		const steps = h.steps.slice(0, h.ptr + 1)   // drop the redo tail (a new edit forks the future)
 		steps.push({ label, t: Date.now(), model: snapModels(), frames: snapAllFrames() })
@@ -397,16 +416,16 @@
 	// Restore only the CURRENT tab's doc from the revision (not every doc). $state.snapshot unwraps
 	// the proxy (the snap lives inside the $state revisions array); structuredClone would throw on it.
 	function restoreRevision(snap: Snap) {
-		const id = panes[focused]?.activeId; if (!id) return
+		const id = session.panes[session.focused]?.activeId; if (!id) return
 		ensureHist(id)
 		setMdlEntsOf(modelIdOf(id), $state.snapshot(snap) as Ent[])
 		recordEdit(id, 'Restore revision')
 	}
-	function setSel(id: string, ids: string[]) { docSel = { ...docSel, [id]: ids }; if (ids.length) treeNode = null }
+	function setSel(id: string, ids: string[]) { docSel = { ...docSel, [id]: ids }; if (ids.length) session.treeNode = null }
 	function setView(paneId: string, viewId: string, proj: Proj, v: View) { viewState.setView(paneId, viewId, proj, v) }
 	// Selected entities of the focused document (for the Properties panel).
 	let selEnts = $derived.by(() => {
-		const a = tabs.find(t => t.id === panes[focused]?.activeId); if (!a) return []
+		const a = session.tabs.find(t => t.id === session.panes[session.focused]?.activeId); if (!a) return []
 		const ids = new Set(docSel[a.id] ?? [])
 		return mdlEnts().filter(e => ids.has(e.id))
 	})
@@ -415,21 +434,21 @@
 	// Selecting a model object (plan / elevation / 3D pick) shows the Properties tab so its props are visible.
 	$effect(() => { if (modelSel.length) { rightTab = 'props'; rightOpen = true } })
 	// Selecting a sheet viewport frame likewise shows its Properties.
-	$effect(() => { if (selFrame) { rightTab = 'props'; rightOpen = true } })
+	$effect(() => { if (session.selFrame) { rightTab = 'props'; rightOpen = true } })
 	// Exit an image calibration mode when its image is no longer the (single) selection.
 	$effect(() => { if (imgEdit.id && !(selEnts.length === 1 && selEnts[0].id === imgEdit.id)) clearImgMode() })
 	function updateModelObj(patch: Record<string, unknown>) {
-		const o = selModelObj, id = panes[focused]?.activeId; if (!o || !id) return
+		const o = selModelObj, id = session.panes[session.focused]?.activeId; if (!o || !id) return
 		beginGesture(); Object.assign(o, patch); modelEdit(id); endGesture()   // one undo step (baseline pre-change)
 	}
 	function deleteModelObj() {
-		const o = selModelObj, id = panes[focused]?.activeId, m = modelById(activeMid()); if (!o || !m || !id) return
+		const o = selModelObj, id = session.panes[session.focused]?.activeId, m = modelById(activeMid()); if (!o || !m || !id) return
 		beginGesture(); m.objects = m.objects.filter(x => x.id !== o.id); modelEdit(id); endGesture()
 		modelSel.splice(0, modelSel.length)
 	}
 	// Per-segment override edit (wall/conduit) with undo.
 	function updateModelSeg(segIdx: number, patch: Record<string, unknown>) {
-		const o = selModelObj as { segments?: Record<string, unknown>[] } | null, id = panes[focused]?.activeId
+		const o = selModelObj as { segments?: Record<string, unknown>[] } | null, id = session.panes[session.focused]?.activeId
 		if (!o?.segments?.[segIdx] || !id) return
 		beginGesture(); Object.assign(o.segments[segIdx], patch); modelEdit(id); endGesture()
 	}
@@ -441,45 +460,45 @@
 		const ids = new Set<string>([id, ...frameIds])            // this tab + its viewport frames
 		const ds = { ...docSel }; delete ds[id]; docSel = ds       // selection (entities per tab)
 		viewState.drop([...ids], didOf(id))                        // pan/zoom, orbit, per-pane projection + the persisted canvas seed (B27: prune on close)
-		if (selSection === id) selSection = null
-		if (selFrame && ids.has(selFrame)) selFrame = null
+		if (session.selSection === id) session.selSection = null
+		if (session.selFrame && ids.has(session.selFrame)) session.selFrame = null
 		deactivateVp(id); for (const fid of frameIds) deactivateVp(fid)   // reopened tab starts deactivated
 	}
 
-	function openTab(id: string, pane = focused) {
-		const p = panes[pane]; if (!p) return
-		p.activeId = id; focused = pane   // selection now lives per doc, so it's preserved
+	function openTab(id: string, pane = session.focused) {
+		const p = session.panes[pane]; if (!p) return
+		p.activeId = id; session.focused = pane   // selection now lives per doc, so it's preserved
 	}
 	function addTab(kind: Kind = 'plan', title?: string) {
 		const id = newId('t'); ++seq   // seq only numbers 'Untitled N' now (tab ids are nanoid, B13)
-		tabs = [...tabs, { id, title: title ?? `Untitled ${seq}`, kind, dirty: false }]
-		if (panes[focused]) panes[focused].activeId = id
+		session.tabs = [...session.tabs, { id, title: title ?? `Untitled ${seq}`, kind, dirty: false }]
+		if (session.panes[session.focused]) session.panes[session.focused].activeId = id
 	}
 	function closeTab(id: string, e?: Event) {
 		e?.stopPropagation()
-		const i = tabs.findIndex(t => t.id === id); if (i < 0) return
+		const i = session.tabs.findIndex(t => t.id === id); if (i < 0) return
 		dropDoc(id)   // BEFORE removing the tab, so framesOf resolves its drawing id; document state is kept (B6)
-		tabs = tabs.filter(t => t.id !== id)
-		if (previewId === id) previewId = null
+		session.tabs = session.tabs.filter(t => t.id !== id)
+		if (session.previewId === id) session.previewId = null
 		// Point any pane that showed this tab at a neighbour, or '' → the "No page open"
 		// empty state (don't auto-spawn an Untitled tab on the last close).
-		const fallback = tabs[Math.max(0, i - 1)]?.id ?? ''
-		for (const p of panes) if (p.activeId === id) p.activeId = fallback
+		const fallback = session.tabs[Math.max(0, i - 1)]?.id ?? ''
+		for (const p of session.panes) if (p.activeId === id) p.activeId = fallback
 	}
 	// Vertical split: open a second pane showing a different tab; toggle focus if already split.
 	function splitVertical() {
-		if (panes.length >= 2) { focused = 1; return }
+		if (session.panes.length >= 2) { session.focused = 1; return }
 		// Mirror the current pane into the split: same active tab + layout, so it opens as a
 		// duplicate view you then diverge (change projection/tab in one side).
-		const src = panes[0]
-		panes = [...panes, { id: newId('p'), activeId: src.activeId, tool: 'Select', layout: src.layout }]
-		focused = 1; splitFrac = 0.5
+		const src = session.panes[0]
+		session.panes = [...session.panes, { id: newId('p'), activeId: src.activeId, tool: 'Select', layout: src.layout }]
+		session.focused = 1; splitFrac = 0.5
 		tick().then(() => { fitPane(0); fitPane(1) })   // both panes narrowed → refit their sheets
 	}
 	function closePane(idx: number) {
-		if (panes.length < 2) return
-		panes = panes.filter((_, i) => i !== idx)
-		focused = 0
+		if (session.panes.length < 2) return
+		session.panes = session.panes.filter((_, i) => i !== idx)
+		session.focused = 0
 		tick().then(() => fitPane(0))
 	}
 	function startSplitDrag(e: PointerEvent) {
@@ -527,14 +546,14 @@
 		else if (item === 'Open…' || item === 'Save' || item === 'Export…') statusText = `${item.replace('…', '')} isn't wired up yet (mock)`
 		// everything else is a mock no-op
 	}
-	function focusTool(t: string) { const p = panes[focused]; if (p) p.tool = t }
+	function focusTool(t: string) { const p = session.panes[session.focused]; if (p) p.tool = t }
 	// Import an IMAGE as a background: read it as a data-URL, size the placement rect to its aspect ratio,
 	// and add it as an 'image' entity on the ACTIVE layer (select a Background layer first to group it).
 	// Mock: the data-URL lives in the entity; a real backend would upload + store a fileId (§4).
 	// Place an image (by data-URL or URL) as a background on the active layer, sized to its aspect ratio at
 	// the plan centre; imports default to aspect-locked. Returns false if there's no drawing open.
 	function addImage(src: string): boolean {
-		const id = panes[focused]?.activeId
+		const id = session.panes[session.focused]?.activeId
 		if (!id) { toast('Open a drawing first, then Insert › Image…'); return false }
 		const img = new Image()
 		const place = (aspect: number) => {
@@ -549,7 +568,7 @@
 		return true
 	}
 	function importImage() {
-		if (!panes[focused]?.activeId) { toast('Open a drawing first, then Insert › Image…'); return }
+		if (!session.panes[session.focused]?.activeId) { toast('Open a drawing first, then Insert › Image…'); return }
 		const input = document.createElement('input')
 		input.type = 'file'; input.accept = 'image/*'
 		input.onchange = () => {
@@ -567,33 +586,31 @@
 	// Drawing Navigator (left) → open the picked drawing/view as a tab (focus if already open).
 	// VSCode-style preview tabs: a single click opens a shared, italic PREVIEW tab that the next
 	// single click reuses; a double click (or editing the doc) PROMOTES it to a kept tab.
-	let previewId = $state<string | null>(null)
 	function promoteTab(id: string) {
-		const t = tabs.find(x => x.id === id)
+		const t = session.tabs.find(x => x.id === id)
 		if (t?.preview) t.preview = false
-		if (previewId === id) previewId = null
+		if (session.previewId === id) session.previewId = null
 	}
 	function openDrawing(d: { title: string; kind: Kind; preview?: boolean }) {
-		const existing = tabs.find(t => t.title === d.title)
+		const existing = session.tabs.find(t => t.title === d.title)
 		if (existing) { if (!d.preview) promoteTab(existing.id); openTab(existing.id); return }
 		if (d.preview) {
-			const pv = tabs.find(t => t.id === previewId)
+			const pv = session.tabs.find(t => t.id === session.previewId)
 			// Reuse the preview slot: free the OLD drawing's session/view state BEFORE retitling, so didOf
 			// still resolves to the old drawing (else dropDoc would free the incoming drawing's state — B6).
 			if (pv) { dropDoc(pv.id); pv.title = d.title; pv.kind = d.kind; openTab(pv.id); return }
 			const id = newId('t'); ++seq
-			tabs = [...tabs, { id, title: d.title, kind: d.kind, dirty: false, preview: true }]
-			previewId = id
-			if (panes[focused]) panes[focused].activeId = id
+			session.tabs = [...session.tabs, { id, title: d.title, kind: d.kind, dirty: false, preview: true }]
+			session.previewId = id
+			if (session.panes[session.focused]) session.panes[session.focused].activeId = id
 		} else {
 			addTab(d.kind, d.title)
 		}
 	}
 	// A place/label in the tree (project, building, floor, …) → edit its props in the right panel.
-	let treeNode = $state<{ id: string; label: string; kind: string } | null>(null)
 	function selectNode(n: { id: string; label: string; kind: string }) {
 		if (active) setSel(active.id, [])   // clear entity selection so node props show
-		treeNode = n; rightTab = 'props'; rightOpen = true
+		session.treeNode = n; rightTab = 'props'; rightOpen = true
 	}
 
 	// ── top-bar drawing-set selectors + Ctrl-K command palette (mock data → mock/data.ts, R10) ──
@@ -610,7 +627,7 @@
 			e.preventDefault(); e.stopImmediatePropagation(); paletteOpen = true
 		} else if (mod && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo() }
 		else if (mod && ((e.shiftKey && (e.key === 'z' || e.key === 'Z')) || e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo() }
-		else if ((e.key === 'Delete' || e.key === 'Backspace') && selFrame && active && !activeVpOf(active.id)) { e.preventDefault(); deleteFrame(active.id, selFrame) }   // delete the selected viewport frame (paper space)
+		else if ((e.key === 'Delete' || e.key === 'Backspace') && session.selFrame && active && !activeVpOf(active.id)) { e.preventDefault(); deleteFrame(active.id, session.selFrame) }   // delete the selected viewport frame (paper space)
 	}
 	$effect(() => {   // capture phase — beats the +layout command palette on the Ctrl-K shortcut
 		window.addEventListener('keydown', onGlobalKey, true)
@@ -682,19 +699,19 @@
 	// so the status bar stuck at 100% while the wheel zoomed the canvas.)
 	const zoomsContent = (id?: string) => isVpActive(id) && navContent
 	// The projection of a pane's active CONTENT view (a model-layout tab; sheets zoom the canvas, not this).
-	const activeProj = (p: { id: string; activeId: string }) => projOf(p, tabs.find((t) => t.id === p.activeId) ?? null)
+	const activeProj = (p: { id: string; activeId: string }) => projOf(p, session.tabs.find((t) => t.id === p.activeId) ?? null)
 	let dispZoom = $derived.by(() => {
-		const p = panes[focused]; if (!p) return 100
+		const p = session.panes[session.focused]; if (!p) return 100
 		return Math.round((zoomsContent(p.activeId) ? viewOf(p.id, p.activeId, activeProj(p)).zoom : canvasViewOf(p).zoom) * 100)
 	})
 	function navZoom(f: number) {
-		const p = panes[focused]; if (!p) return
+		const p = session.panes[session.focused]; if (!p) return
 		if (zoomsContent(p.activeId)) { const pr = activeProj(p), v = viewOf(p.id, p.activeId, pr); setView(p.id, p.activeId, pr, { ...v, zoom: Math.min(20, Math.max(0.25, v.zoom * f)) }) }
 		else { const v = canvasViewOf(p); setCanvasView(p, { ...v, zoom: Math.min(20, Math.max(0.1, v.zoom * f)) }) }
 	}
 	// Fit a specific pane: frame its sheet paper (centred, with margin) or reset a model view.
 	function fitPane(idx: number, opts: { skipIfPersisted?: boolean } = {}) {
-		const p = panes[idx]; if (!p) return
+		const p = session.panes[idx]; if (!p) return
 		const pr = activeProj(p)
 		if (p.activeId) setOrbit(p.id, p.activeId, pr, DEFAULT_YAW, DEFAULT_PITCH)   // Fit also resets the 3D orbit
 		if (isVpActive(p.activeId)) { setView(p.id, p.activeId, pr, { zoom: 1, x: 0, y: 0 }); return }
@@ -703,7 +720,7 @@
 		// reload. `refitAll` (mount only) passes `skipIfPersisted`; an explicit Fit (menu/button/ViewCube)
 		// still always re-fits.
 		if (opts.skipIfPersisted && p.activeId && viewState.hasCanvas(p.id, p.activeId, didOf(p.activeId))) return
-		const a2 = tabs.find(t => t.id === p.activeId)
+		const a2 = session.tabs.find(t => t.id === p.activeId)
 		const canvas = canvasEls[idx]
 		if (a2?.kind === 'sheet' && p.layout === 'sheet' && canvas && canvas.clientWidth > 50) {
 			const r = canvas.getBoundingClientRect(), pd = paperDimsOf(p.activeId)
@@ -713,11 +730,11 @@
 			setCanvasView(p, { zoom: 1, x: 0, y: 0 })
 		}
 	}
-	function navFit() { fitPane(focused) }
+	function navFit() { fitPane(session.focused) }
 	// Refit every pane after the paper size/orientation changes (each pane may show a sheet). `opts` is
 	// forwarded to `fitPane` — the mount-time caller below passes `skipIfPersisted` (B27); any FUTURE
 	// caller (e.g. after an explicit paper-size change) should NOT, so it always re-fits.
-	function refitAll(opts: { skipIfPersisted?: boolean } = {}) { tick().then(() => panes.forEach((_, i) => fitPane(i, opts))) }
+	function refitAll(opts: { skipIfPersisted?: boolean } = {}) { tick().then(() => session.panes.forEach((_, i) => fitPane(i, opts))) }
 
 	// ── Print — on Ctrl+P / window.print(), an @media-print stylesheet shows ONLY the focused
 	// sheet's paper at TRUE size: it hides all UI + the selection highlight and pins the paper to
@@ -728,7 +745,7 @@
 	let savedSel: Record<string, string[]> | null = null
 	const PRINT_ID = 'pages-print-style'
 	function printCss(): string {
-		const p = paperOf(panes[focused]?.activeId), [lw, lh] = PAPER_SIZES[p.size]
+		const p = paperOf(session.panes[session.focused]?.activeId), [lw, lh] = PAPER_SIZES[p.size]
 		const [mw, mh] = p.landscape ? [lw, lh] : [lh, lw]
 		const zoom = (96 / 25.4) / PAPER_PX_PER_MM
 		return `@page { size: ${mw}mm ${mh}mm; margin: 0; }
@@ -819,14 +836,14 @@
 	<!-- Menubar -->
 	<Menubar onaction={menuAction} />
 
-	<!-- Body: left · editor-area (1–2 panes) · right -->
+	<!-- Body: left · editor-area (1–2 session.panes) · right -->
 	<div class="body">
 
 		<!-- Left sidebar: Drawing Navigator (location tree → drawings/views) -->
 		{#if leftOpen}
 			<aside class="side left">
 				<DrawingNavigator onopen={openDrawing} oncollapse={() => (leftOpen = false)} onselectnode={selectNode}
-					activeTitle={active?.title ?? ''} activeNode={treeNode?.id ?? ''} />
+					activeTitle={active?.title ?? ''} activeNode={session.treeNode?.id ?? ''} />
 			</aside>
 		{:else}
 			<button class="rail left" title="Show panel" onclick={() => (leftOpen = true)}>
@@ -835,19 +852,19 @@
 		{/if}
 
 		<!-- Editor area: one pane, or two split vertically -->
-		<div class="editor-area" class:split={panes.length === 2}>
-			{#each panes as p, pi (p.id)}
-				{@const a = tabs.find(t => t.id === p.activeId) ?? null}
+		<div class="editor-area" class:split={session.panes.length === 2}>
+			{#each session.panes as p, pi (p.id)}
+				{@const a = session.tabs.find(t => t.id === p.activeId) ?? null}
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<section class="pane" class:focused={focused === pi}
-					style:flex={panes.length === 1 ? '1 1 0' : `${pi === 0 ? splitFrac : 1 - splitFrac} 1 0`}
-					onpointerdown={() => (focused = pi)}>
+				<section class="pane" class:focused={session.focused === pi}
+					style:flex={session.panes.length === 1 ? '1 1 0' : `${pi === 0 ? splitFrac : 1 - splitFrac} 1 0`}
+					onpointerdown={() => (session.focused = pi)}>
 
 					<!-- this pane's tab strip -->
 					<div class="tabbar">
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
 						<div class="tabs" onwheel={(e) => { if (e.deltaY) { e.currentTarget.scrollLeft += e.deltaY; e.preventDefault() } }}>
-							{#each tabs as t (t.id)}
+							{#each session.tabs as t (t.id)}
 								<div class="tab" class:active={t.id === p.activeId} class:preview={t.preview} onclick={() => openTab(t.id, pi)}
 									ondblclick={() => promoteTab(t.id)}
 									role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter') openTab(t.id, pi) }}>
@@ -859,22 +876,22 @@
 							{/each}
 						</div>
 						<div class="tabbar-right">
-							<button class="strip-btn" title="New page" onclick={() => { focused = pi; addTab() }}><Icon name="plus" size={14} /></button>
-							<button class="strip-btn" title="All pages" onclick={(e) => { e.stopPropagation(); focused = pi; tabMenuPane = tabMenuPane === pi ? null : pi }}><Icon name="chevronDown" size={14} /></button>
-							{#if panes.length === 1}
+							<button class="strip-btn" title="New page" onclick={() => { session.focused = pi; addTab() }}><Icon name="plus" size={14} /></button>
+							<button class="strip-btn" title="All pages" onclick={(e) => { e.stopPropagation(); session.focused = pi; tabMenuPane = tabMenuPane === pi ? null : pi }}><Icon name="chevronDown" size={14} /></button>
+							{#if session.panes.length === 1}
 								<button class="strip-btn" title="Split editor right" onclick={splitVertical}><Icon name="panels" size={14} /></button>
 							{:else}
 								<button class="strip-btn" title="Close this split" onclick={() => closePane(pi)}><Icon name="close" size={14} /></button>
 							{/if}
 							{#if tabMenuPane === pi}
 								<div class="tab-menu">
-									{#each tabs as t (t.id)}
+									{#each session.tabs as t (t.id)}
 										<button class="tab-menu-item" class:on={t.id === p.activeId} onclick={() => pickFromMenu(t.id, pi)}>
 											<Icon name={kindIcon[t.kind]} size={13} /><span class="grow txt">{t.title}</span>{#if t.dirty}<span class="dirty">•</span>{/if}
 										</button>
 									{/each}
 									<div class="tab-menu-sep"></div>
-									<button class="tab-menu-item" onclick={() => { tabMenuPane = null; focused = pi; addTab() }}>
+									<button class="tab-menu-item" onclick={() => { tabMenuPane = null; session.focused = pi; addTab() }}>
 										<Icon name="plus" size={13} /><span class="grow txt">New page</span>
 									</button>
 								</div>
@@ -886,7 +903,7 @@
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<main class="canvas" bind:this={canvasEls[pi]} onpointermove={onCanvasMove}
-						ondblclick={(e) => { if (a && !(e.target as Element).closest?.('.paper, button, .glass-bar, .vp-active-bar, .navtools, .floattools')) { const av = activeVpOf(a.id); if (av) deactivateVp(av); selFrame = null } }}
+						ondblclick={(e) => { if (a && !(e.target as Element).closest?.('.paper, button, .glass-bar, .vp-active-bar, .navtools, .floattools')) { const av = activeVpOf(a.id); if (av) deactivateVp(av); session.selFrame = null } }}
 						use:panzoom={{ enabled: () => !!a, wheelZoom: () => acadMode, onpan: (dx, dy) => canvasPan(p, dx, dy), onzoom: (f, x, y, node) => canvasZoom(p, node, f, x, y) }}>
 						<div class="floattools glass-bar" class:dim={a && !isVpActive(a.id)}>
 							{#each STRIP as s (('tool' in s) ? s.tool : s.group)}
@@ -956,36 +973,36 @@
 								{#if a?.kind === 'sheet' && p.layout === 'sheet'}
 									<PaperPage title={a.title} tool={p.tool} scale={framesOf(a.id)[0]?.scale ?? scaleOf(a.id)} env={envFor(p)} pw={paperDimsOf(a.id).w} ph={paperDimsOf(a.id).h}
 										sizeLabel="{paperOf(a.id).size} {paperOf(a.id).landscape ? 'L' : 'P'}" rev={rev} revDate={fmtDate(revisions[0]?.t)}
-										entities={entsOf(a.id)} sel={selOf(a.id)} focused={focused === pi}
+										entities={entsOf(a.id)} sel={selOf(a.id)} focused={session.focused === pi}
 										entsForModel={entsForModel} tabModelId={a.modelId ?? FLOOR_MODEL_ID}
-										selSection={selSection}
-										frames={framesOf(a.id)} selFrame={selFrame} frameKind={(pr) => projKind(pr as Proj)}
+										selSection={session.selSection}
+										frames={framesOf(a.id)} selFrame={session.selFrame} frameKind={(pr) => projKind(pr as Proj)}
 										isFrameActive={(id) => isVpActive(id)} frameView={(id, proj) => viewOf(p.id, id, proj as Proj)} frameEnv={envFor(p)}
 										frameOrbit={(id, proj) => orbitOf(p.id, id, proj as Proj)} makeFrameOn={(f) => vpFrameView(a, p, f as SheetFrame)} makeFrameEditor={() => vpEditor(a)}
 										onseed={(x, y, w, h) => seedFrame(a.id, x, y, w, h)}
 										onaddframe={(x, y, w, h) => addFrame(a.id, x, y, w, h)}
 										onframegeom={(id, g) => updateFrame(a.id, id, g)}
 										onframecommit={() => commitFrame(a.id, 'Move viewport')}
-										onselectframe={(id) => { selFrame = id; if (id) { treeNode = null; rightTab = 'props'; rightOpen = true } }}
+										onselectframe={(id) => { session.selFrame = id; if (id) { session.treeNode = null; rightTab = 'props'; rightOpen = true } }}
 										ondeactivate={() => { const av = activeVpOf(a.id); if (av) deactivateVp(av) }} />
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => deactivateVp(a.id)}>
 										<Viewport kind={projKind(projOf(p, a))} label={a.title} tool={p.tool} scale={scaleOf(a.id)} env={envFor(p)} on={vpView(a, p)} editor={vpEditor(a)} modelId={a.modelId ?? FLOOR_MODEL_ID}
-											entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(p.id, a.id, projOf(p, a))} active={isVpActive(a.id)} focused={focused === pi} clip={null} yaw={orbitOf(p.id, a.id, projOf(p, a)).yaw} pitch={orbitOf(p.id, a.id, projOf(p, a)).pitch}
-											selSection={selSection} />
+											entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(p.id, a.id, projOf(p, a))} active={isVpActive(a.id)} focused={session.focused === pi} clip={null} yaw={orbitOf(p.id, a.id, projOf(p, a)).yaw} pitch={orbitOf(p.id, a.id, projOf(p, a)).pitch}
+											selSection={session.selSection} />
 									</div>
 								{:else}
 									<div class="canvas-center">
 										<Icon name="fileText" size={22} />
 										<div class="cc-title">No page open</div>
 										<div class="cc-sub">Pick a drawing from the sidebar, or</div>
-										<button class="cc-new" onpointerdown={(e) => e.stopPropagation()} onclick={() => { focused = pi; addTab() }}><Icon name="plus" size={13} /> New page</button>
+										<button class="cc-new" onpointerdown={(e) => e.stopPropagation()} onclick={() => { session.focused = pi; addTab() }}><Icon name="plus" size={13} /> New page</button>
 									</div>
 								{/if}
 							</div>
 						{/key}
-						<!-- Model-layout tabs (e.g. "3303 Floorplan", "Rack A Elevation") show the model name at the
+						<!-- Model-layout session.tabs (e.g. "3303 Floorplan", "Rack A Elevation") show the model name at the
 						     top-centre of the canvas. Sheet layout has the titleblock + per-viewport bar instead. -->
 						{#if a && !(a.kind === 'sheet' && p.layout === 'sheet')}
 							<div class="model-name">{a.title}</div>
@@ -1009,10 +1026,10 @@
 								onset={(proj) => gizmoSet(p, a, proj)} />
 						{/if}
 						<!-- tool prompt / inline-edit help, pinned to the pane bottom-centre (screen space) -->
-						{#if focused === pi && statusText}<div class="pane-status">{statusText}</div>{/if}
+						{#if session.focused === pi && statusText}<div class="pane-status">{statusText}</div>{/if}
 					</main>
 				</section>
-				{#if panes.length === 2 && pi === 0}
+				{#if session.panes.length === 2 && pi === 0}
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<div class="vsplitter" title="Drag to resize" onpointerdown={startSplitDrag}></div>
 				{/if}
@@ -1035,13 +1052,13 @@
 				{:else if rightTab === 'props'}
 					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (active) updateEnt(active.id, e) }}
 						onarrange={(op) => { if (active) reorderEnts(active.id, selOf(active.id), op) }}
-						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''} {activeLayer} node={treeNode}
+						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''} {activeLayer} node={session.treeNode}
 						modelObj={selModelObj} modelLayers={modelById(activeMid())?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} onmodelseg={updateModelSeg}
 						frameObj={selFrameObj}
 						modelList={models.map((m) => ({ id: m.id, name: m.name }))}
 						activeFrameId={active && activeVpOf(active.id) !== active.id ? (activeVpOf(active.id) ?? undefined) : undefined} scaleN={propsScaleN}
-						onframeupdate={(patch) => { if (active && selFrame) { ensureHist(active.id); updateFrame(active.id, selFrame, patch as Partial<SheetFrame>); commitFrame(active.id, 'Edit viewport') } }}
-						onframedelete={() => { if (active && selFrame) deleteFrame(active.id, selFrame) }} />
+						onframeupdate={(patch) => { if (active && session.selFrame) { ensureHist(active.id); updateFrame(active.id, session.selFrame, patch as Partial<SheetFrame>); commitFrame(active.id, 'Edit viewport') } }}
+						onframedelete={() => { if (active && session.selFrame) deleteFrame(active.id, session.selFrame) }} />
 				{:else}
 					<HistoryPanel log={changeLog} {revisions}
 						onnote={(i, note) => (revisions[i].note = note)} onjump={jumpHistory}
@@ -1057,9 +1074,9 @@
 
 	<!-- Status bar -->
 	<StatusBar bind:toggles bind:acadMode
-		paperSize={paperOf(panes[focused]?.activeId).size} paperLandscape={paperOf(panes[focused]?.activeId).landscape}
-		onpapersize={(s) => setPaper(panes[focused]?.activeId, { size: s })}
-		onorient={(l) => setPaper(panes[focused]?.activeId, { landscape: l })}
+		paperSize={paperOf(session.panes[session.focused]?.activeId).size} paperLandscape={paperOf(session.panes[session.focused]?.activeId).landscape}
+		onpapersize={(s) => setPaper(session.panes[session.focused]?.activeId, { size: s })}
+		onorient={(l) => setPaper(session.panes[session.focused]?.activeId, { landscape: l })}
 		coords={worldXY} zoom={dispZoom} onzoom={navZoom} onfit={navFit} />
 </div>
 
