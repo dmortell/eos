@@ -13,6 +13,8 @@
 	import type { Ent, View } from '../ui/geometry'
 	import Handle from './Handle.svelte'
 	import { beginPointerDrag, DragRegistry } from '../ui/gestures'
+	import { inBox, marqueeSelect } from '../ui/hit'
+	import type { ViewCtx } from '../ui/view'
 	import { HANDLE_PX, PAPER_W, PAPER_H } from '../constants'
 	import type { ElevDir } from '../ui/geometry'
 	import type { SheetFrame } from '../types'
@@ -85,6 +87,37 @@
 		drag.set({ x, y, w, h })   // may extend beyond the sheet
 	}
 
+	// Frame pick + marquee (R8-lite, refactor-plan.md's R8-lite §0/§2): border-band pick and marquee
+	// selection reuse `hit.ts`'s `inBox`/`marqueeSelect` instead of hand-rolled DOM/geometry, so there's one
+	// implementation of each. `PAPER_CTX` is a throwaway `ViewCtx` — the rect-fallback paths of `bbox`/`inBox`
+	// these calls exercise read no `ctx` field (paper space isn't a real model view; none of `ViewCtx`'s
+	// fields apply to it). `frameEnt` builds a bare rect `Ent` on the fly so `marqueeSelect` (which wants
+	// `Ent[]`) can be reused without storing frames that way — storage stays `SheetFrame[]` (Dave's call).
+	const PAPER_CTX: ViewCtx = { dir: 'plan', isPlan: false, isElev: false, isIso: false, elevDir: 'front', cx: 0, cy: 0, ground: 0, mdl: undefined, yaw: 0, pitch: 0, paperMm: 1 }
+	const BAND_MM = 11   // border-band pick width, paper mm — matches the old CSS `border: 11px solid transparent`
+	const frameEnt = (f: SheetFrame): Ent => ({ id: f.id, type: 'rect', a: [f.x, f.y], b: [f.x + f.w, f.y + f.h] })
+	/** Topmost (last-drawn) INACTIVE frame whose border band contains p, or null. An active frame renders
+	 *  its own Viewport, not a hit-testable band/interior overlay (template `{#if !fa}`), so it's excluded —
+	 *  same exclusion the old `.vp-band`/`.vp-interior`-per-inactive-frame DOM achieved implicitly. */
+	function frameBorderHit(p: { x: number; y: number }): SheetFrame | null {
+		for (let i = frames.length - 1; i >= 0; i--) {
+			const f = frames[i]
+			if (isFrameActive(f.id)) continue
+			if (inBox([p.x, p.y], f.x, f.y, f.x + f.w, f.y + f.h, BAND_MM, false)) return f
+		}
+		return null
+	}
+	/** Topmost INACTIVE frame whose outer rect (band OR interior) contains p — used for double-click
+	 *  activation, which fires anywhere in the frame, not just the border. */
+	function frameHit(p: { x: number; y: number }): SheetFrame | null {
+		for (let i = frames.length - 1; i >= 0; i--) {
+			const f = frames[i]
+			if (isFrameActive(f.id)) continue
+			if (p.x >= f.x && p.x <= f.x + f.w && p.y >= f.y && p.y <= f.y + f.h) return f
+		}
+		return null
+	}
+
 	// Selection marquee (paper space): drag a box across empty paper; if it touches the
 	// frame, the frame is selected. This is the touch-friendly alternative to a border click.
 	let marquee = $state<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
@@ -93,13 +126,18 @@
 		// A pointerdown INSIDE an active viewport is that viewport's (drawing/editing) — the sheet must not
 		// also start a paper-space marquee/frame-placement (that hijacked drawing after the primary was
 		// removed). Only handle presses on the bare paper. The Viewport tool disables frame bands, so its
-		// press lands on the sheet and is handled here.
+		// press lands here regardless of position (border test is skipped below).
 		if (e.button !== 0 || (tool !== 'Viewport' && (e.target as Element).closest?.('.vp.active'))) return
 		e.preventDefault()   // stop a native text/element drag starting after a double-click (shows a not-allowed cursor + leaves the marquee stuck)
 		try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
-		if (tool !== 'Viewport') clearFrameSel()   // clicking empty paper deselects any frame
-		placingFrame = tool === 'Viewport'
 		const p = toSheet(e.clientX, e.clientY)
+		if (tool !== 'Viewport') {
+			const border = frameBorderHit(p)
+			if (border) { selectFrame(border.id); startDrag(e, 'move', -1, border, (g) => onframegeom?.(border.id, g), true); return }
+			clearFrameSel()   // clicking empty paper (or a frame's interior) deselects any frame
+			if (frameHit(p)) return   // interior of an inactive frame: deselect only, no marquee (matches the old .vp-interior stopPropagation)
+		}
+		placingFrame = tool === 'Viewport'
 		marquee = { x0: p.x, y0: p.y, x1: p.x, y1: p.y }
 		window.addEventListener('pointermove', onMarquee)
 		window.addEventListener('pointerup', endMarquee)
@@ -121,14 +159,22 @@
 			return
 		}
 		if (bx1 - bx0 < 3 && by1 - by0 < 3) return   // tiny → just a click (already deselected)
-		// marquee selects the topmost frame it touches
-		const touches = (f: { x: number; y: number; w: number; h: number }) => bx0 <= f.x + f.w && bx1 >= f.x && by0 <= f.y + f.h && by1 >= f.y
-		const ef = [...frames].reverse().find(touches)
-		if (ef) selectFrame(ef.id)
+		// marqueeSelect (window vs crossing by drag direction — a BEHAVIOUR CHANGE from the old
+		// always-crossing `touches()`, flagged in refactor-plan.md's R8-lite §0/§3 — matches every other
+		// marquee in the app now, including the entity marquee); take the LAST match = topmost frame,
+		// since `frames` and the built `Ent[]` share index order and 'frame' selection is single-select.
+		const ids = marqueeSelect(PAPER_CTX, frames.map(frameEnt), [m.x0, m.y0], [m.x1, m.y1], () => true)
+		if (ids.length) selectFrame(ids[ids.length - 1])
 	}
-	// Double-click on the paper outside any frame → exit the active viewport + deselect.
+	// Double-click activates the topmost INACTIVE frame under the pointer (band or interior); outside any
+	// frame it exits the active viewport + deselects. A dblclick inside the ACTIVE viewport's own content
+	// (`.vp.active`) is that viewport's own business (e.g. text-edit) — handled there, not here.
 	function onWrapDblclick(e: MouseEvent) {
-		if (!(e.target as Element).closest?.('.vp-frame')) { clearFrameSel(); ondeactivate?.() }
+		if ((e.target as Element).closest?.('.vp.active')) return
+		const p = toSheet(e.clientX, e.clientY)
+		const hit = frameHit(p)
+		if (hit) { makeFrameOn(hit).activate?.(); return }
+		clearFrameSel(); ondeactivate?.()
 	}
 	const CORNERS = [[0, 0], [1, 0], [1, 1], [0, 1]] as const   // TL, TR, BR, BL
 	const CURSORS = ['nwse-resize', 'nesw-resize', 'nwse-resize', 'nesw-resize']
@@ -154,10 +200,11 @@
 						entities={entsForModel ? entsForModel(f.modelId ?? tabModelId) : entities} view={frameView(f.id, f.proj)} clip={f.clip} yaw={frameOrbit(f.id, f.proj).yaw} pitch={frameOrbit(f.id, f.proj).pitch}
 						boxW={f.w} boxH={f.h} />
 					{#if !fa}
-						<!-- svelte-ignore a11y_no_static_element_interactions -->
-						<div class="vp-band" style:pointer-events={tool === 'Viewport' ? 'none' : undefined} onpointerdown={(e) => { selectFrame(f.id); startDrag(e, 'move', -1, f, (g) => onframegeom?.(f.id, g), true); }} ondblclick={() => fon.activate?.()}>
-							<!-- interior is inert: select via the border band, double-click to enter -->
-							<div class="vp-interior" onpointerdown={(e) => { e.stopPropagation(); clearFrameSel(); }} ondblclick={() => fon.activate?.()}></div>
+						<!-- Purely visual now (R8-lite): cursor/outline only, no handlers of their own — picking
+						     (border band vs interior vs corner grip) is centralized in onSheetDown/onWrapDblclick
+						     above via hit.ts's inBox, so a press/dblclick anywhere on these just bubbles there. -->
+						<div class="vp-band" style:pointer-events={tool === 'Viewport' ? 'none' : undefined}>
+							<div class="vp-interior"></div>
 						</div>
 						{#if selFrame === f.id}
 							<svg class="frame-handles">
