@@ -55,6 +55,11 @@ describe('additive (Shift/Ctrl) toggle is ONLY for entities', () => {
 		expect(selToggle([ent('a')], group)).toEqual([ent('a'), ent('b')])       // partial → add the rest (B25 "whole group")
 		expect(selToggle([ent('a'), ent('b')], group)).toEqual([])               // all in → remove both
 	})
+	it('Shift/Ctrl-clicking an entity while a NON-entity is currently selected drops the non-entity (eos-f8 note 3)', () => {
+		expect(selToggle([obj('o1')], [ent('e1')])).toEqual([ent('e1')])
+		expect(selToggle([section('s1')], [ent('e1')])).toEqual([ent('e1')])
+		expect(selToggle([frame('f1')], [ent('e1'), ent('e2')])).toEqual([ent('e1'), ent('e2')])
+	})
 	it('toggling with an existing NON-entity selection still just replaces it (no additive gesture for obj/guide/section/frame/node)', () => {
 		expect(selToggle([obj('o1')], [obj('o2')])).toEqual([obj('o2')])
 		expect(selToggle([section('s1')], [section('s1')])).toEqual([section('s1')])   // "re-toggling" the same single item still just re-selects it (no such gesture exists today)
