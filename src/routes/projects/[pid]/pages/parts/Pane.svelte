@@ -10,34 +10,27 @@
 	import { tick } from 'svelte'
 	import Viewport, { type Env, type VpOn } from '../ui/Viewport.svelte'
 	import PaperPage from './PaperPage.svelte'
+	import ToolStrip from './ToolStrip.svelte'
 	import ViewGizmos from './ViewGizmos.svelte'
 	import { panzoom } from '../ui/panzoom'
 	import type { Editor } from '../ui/editor'
-	import { type Proj, type SheetFrame, SCALES } from '../types'
+	import { type Proj, type SheetFrame, type Kind, type Tab, type WorkPane, type View, type StripItem, SCALES } from '../types'
 	import type { PaperSize } from '../constants'
 	import type { Ent } from '../ui/geometry'
 	import { selStore } from '../selStore.svelte'
 	import { selClear } from '../ui/selection'
 	import { FLOOR_MODEL_ID } from '../3dview/models.svelte'
 
-	// Mirrors +page.svelte's own (unexported) `Kind`/`Tab`/`Pane`/`View` types structurally — not imported
-	// from there (a route's +page.svelte isn't a module other files should import from); duplicating four
-	// tiny aliases here is far lower-risk than relocating them to types.ts for this extraction.
-	type Kind = 'plan' | 'sheet' | 'elevation' | 'model'
-	type Tab = { id: string; title: string; kind: Kind; dirty: boolean; preview?: boolean; modelId?: number }
-	type WorkPane = { id: string; activeId: string; tool: string; layout: 'model' | 'sheet' }
-	type View = { zoom: number; x: number; y: number }
-	type StripItem = { tool: string } | { group: string; label: string; members: string[] }
-
 	let {
 		pane, pi, focused, splitFrac, panesCount, tabs, kindIcon, tabMenuOpen, statusText, acadMode,
 		navContent = $bindable(), guideVert = $bindable(), openGroup = $bindable(), groupTool = $bindable(),
 		STRIP, iconOf,
 		onFocus, onOpenTab, onPromoteTab, onCloseTab, onAddTab, onToggleTabMenu, onPickFromMenu, onSplitRight, onClosePane,
+		onTool, onToggleLayout, onCanvasEl,
 		activeVpOf, isVpActive, deactivateVp, onCanvasMove, canvasPan, canvasZoomFn,
 		framesOf, scaleOf, updateFrame, setScale, fitPane, canvasViewOf, entsOf, entsForModel, paperEditor,
 		viewOf, envFor, orbitOf, vpFrameView, vpEditor, seedFrame, addFrame, commitFrame, paperOf, paperDimsOf,
-		rev, revisions, vpView, projOf, gizmoProj, gizmoSet, navZoom, navFit, canvasEls,
+		rev, revisions, vpView, projOf, gizmoProj, gizmoSet, navZoom, navFit,
 	}: {
 		pane: WorkPane; pi: number; focused: boolean; splitFrac: number; panesCount: number; tabs: Tab[]
 		kindIcon: Record<Kind, string>; tabMenuOpen: boolean; statusText: string; acadMode: boolean
@@ -46,6 +39,11 @@
 		onFocus: () => void; onOpenTab: (id: string, pane: number) => void; onPromoteTab: (id: string) => void
 		onCloseTab: (id: string, e?: Event) => void; onAddTab: () => void; onToggleTabMenu: () => void
 		onPickFromMenu: (id: string, pane: number) => void; onSplitRight: () => void; onClosePane: (idx: number) => void
+		// R9 follow-up (eos-07 review of commit 1): `pane` is a plain (non-bindable) prop — Pane.svelte must
+		// never write through it directly (`pane.tool = …` etc. is an ownership violation Svelte 5 flags at
+		// runtime, even though it "works" via the shared $state proxy). Every write goes back up through a
+		// callback instead, so +page.svelte (the actual owner of `session.panes`) does its own mutation.
+		onTool: (t: string) => void; onToggleLayout: () => void; onCanvasEl: (el: HTMLElement | undefined) => void
 		activeVpOf: (tabId: string) => string | null; isVpActive: (id?: string) => boolean; deactivateVp: (id?: string) => void
 		onCanvasMove: () => void
 		canvasPan: (pane: { id: string; activeId: string }, dx: number, dy: number) => void
@@ -73,8 +71,12 @@
 		gizmoProj: (pane: { id: string }, a: Tab | null) => Proj
 		gizmoSet: (pane: { id: string }, a: Tab | null, proj: Proj) => void
 		navZoom: (f: number) => void; navFit: () => void
-		canvasEls: (HTMLElement | undefined)[]
 	} = $props()
+	// A local mirror of the canvas element — `bind:this` on a PLAIN prop array index (`canvasEls[pi]`) is
+	// the same ownership violation as `pane.tool = …`; mirror it locally and report it up via a callback
+	// instead, so +page.svelte's own `canvasEls` array is the only thing that actually gets written.
+	let canvasEl: HTMLElement | undefined = $state()
+	$effect(() => { onCanvasEl(canvasEl) })
 
 	// Pure, no closure — cheaper to redefine here than to thread through as two more props.
 	const projKind = (p: Proj) => p as 'plan' | 'iso' | 'front' | 'rear' | 'left' | 'right'
@@ -131,41 +133,10 @@
 	<!-- this pane's canvas -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<main class="canvas" bind:this={canvasEls[pi]} onpointermove={onCanvasMove}
+	<main class="canvas" bind:this={canvasEl} onpointermove={onCanvasMove}
 		ondblclick={(e) => { if (a && !(e.target as Element).closest?.('.paper, button, .glass-bar, .vp-active-bar, .navtools, .floattools')) { const av = activeVpOf(a.id); if (av) deactivateVp(av); selStore.set(a.id, selClear()) } }}
 		use:panzoom={{ enabled: () => !!a, wheelZoom: () => acadMode, onpan: (dx, dy) => canvasPan(p, dx, dy), onzoom: (f, x, y, node) => canvasZoomFn(p, node, f, x, y) }}>
-		<div class="floattools glass-bar" class:dim={a && !isVpActive(a.id)}>
-			{#each STRIP as s (('tool' in s) ? s.tool : s.group)}
-				<!-- strip: single tool, or a grouped fly-out (hover to reveal variants) -->
-					{#if 'tool' in s}
-						<button class="tool" class:on={p.tool === s.tool} title={s.tool} onclick={() => (p.tool = s.tool)}><Icon name={iconOf(s.tool)} size={16} /></button>
-					{:else if s.group === 'guide'}
-						<!-- Guide: pick Horizontal / Vertical from the fly-out (touch has no Shift) -->
-						<div class="grp">
-							<button class="tool grp-btn" class:on={p.tool === 'Guide'} title="Guide — {guideVert ? 'vertical' : 'horizontal'}" onclick={() => { p.tool = 'Guide'; openGroup = 'guide' }}>
-								<Icon name={guideVert ? 'moveVertical' : 'moveHorizontal'} size={16} /><span class="grp-caret"></span>
-							</button>
-							<div class="flyout" class:open={openGroup === 'guide'}>
-								<button class="tool" class:on={p.tool === 'Guide' && !guideVert} title="Horizontal guide" onclick={() => { p.tool = 'Guide'; guideVert = false; openGroup = null }}><Icon name="moveHorizontal" size={16} /></button>
-								<button class="tool" class:on={p.tool === 'Guide' && guideVert} title="Vertical guide" onclick={() => { p.tool = 'Guide'; guideVert = true; openGroup = null }}><Icon name="moveVertical" size={16} /></button>
-							</div>
-						</div>
-					{:else}
-						{@const inGrp = s.members.includes(p.tool)}
-						{@const cur = inGrp ? p.tool : groupTool[s.group]}
-						<div class="grp">
-							<button class="tool grp-btn" class:on={inGrp} title="{s.label} — {cur}" onclick={() => { p.tool = cur; openGroup = s.group }}>
-								<Icon name={iconOf(cur)} size={16} /><span class="grp-caret"></span>
-							</button>
-							<div class="flyout" class:open={openGroup === s.group}>
-								{#each s.members as m (m)}
-									<button class="tool" class:on={p.tool === m} title={m} onclick={() => { p.tool = m; groupTool = { ...groupTool, [s.group]: m }; openGroup = null }}><Icon name={iconOf(m)} size={16} /></button>
-								{/each}
-							</div>
-						</div>
-					{/if}
-			{/each}
-		</div>
+		<ToolStrip tool={p.tool} {onTool} dim={!!(a && !isVpActive(a.id))} {STRIP} {iconOf} bind:guideVert bind:openGroup bind:groupTool />
 		<!-- Pane-level exit: fixed on screen (outside the zoomed content), so a viewport
 		     can always be left even when zoomed right in and its own corner is off-screen. -->
 		{#if a && activeVpOf(a.id)}
@@ -189,7 +160,7 @@
 				</label>
 				<!-- full-size: only the primary viewport fills the pane (an extra frame is a fixed window) -->
 				{#if !avFrame}
-					<button class="vab-btn" class:on={p.layout === 'model'} onclick={() => { p.layout = p.layout === 'model' ? 'sheet' : 'model'; tick().then(() => fitPane(pi)) }}
+					<button class="vab-btn" class:on={p.layout === 'model'} onclick={() => { onToggleLayout(); tick().then(() => fitPane(pi)) }}
 						title="Full-size: fill the pane with the drawing (off = the paper sheet)">
 						<Icon name={p.layout === 'model' ? 'panels' : 'expand'} size={14} /> Full-size
 					</button>
@@ -308,12 +279,9 @@
 		backdrop-filter:blur(9px); -webkit-backdrop-filter:blur(9px); box-shadow:0 8px 30px #0004; }
 	.canvas-content { position:absolute; inset:0; transform-origin:0 0; }
 	.vp-fill { position:absolute; inset:0; padding:14px; }
-	/* Tools/nav sit above the paper/viewport regardless of DOM order. */
-	.floattools, .navtools { z-index:5; }
-	.floattools { top:12px; left:12px; flex-direction:column; transition:opacity .15s; }
-	.floattools.dim { opacity:.4; }
-	.floattools.dim:hover { opacity:.85; }
-	.navtools { bottom:12px; right:12px; flex-direction:column; }
+	/* Tools/nav sit above the paper/viewport regardless of DOM order. (.floattools now lives in
+	   ToolStrip.svelte's own scoped styles — R9 commit 2.) */
+	.navtools { bottom:12px; right:12px; flex-direction:column; z-index:5; }
 	/* Pane-level status/help chip — screen space, so it stays put & readable at any zoom. */
 	.pane-status { position:absolute; bottom:12px; left:50%; transform:translateX(-50%); z-index:6; white-space:nowrap;
 		font-size:11px; color:var(--text); background:color-mix(in srgb, var(--panel) 88%, transparent);
@@ -331,16 +299,4 @@
 	.vab-scale select:focus { outline:none; border-color:var(--accent); }
 	.tool { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; color:var(--muted); background:none; border:none; }
 	.tool:hover { background:var(--hover); color:var(--text); }
-	.tool.on { background:var(--active); color:var(--accent); }
-	/* Grouped tool: a button that re-activates the group's last-used tool + a hover fly-out of variants. */
-	.grp { position:relative; display:flex; }
-	.grp-btn { position:relative; }
-	/* corner triangle marking a group (▟), lower-right of the icon */
-	.grp-caret { position:absolute; right:3px; bottom:3px; width:0; height:0; border-left:4px solid transparent; border-top:4px solid transparent; border-right:4px solid currentColor; opacity:.55; }
-	.flyout { position:absolute; left:100%; top:-4px; margin-left:6px; display:none; flex-direction:row; gap:2px; padding:4px;
-		border-radius:8px; background:color-mix(in srgb, var(--panel) 92%, transparent); border:1px solid var(--line-soft);
-		backdrop-filter:blur(9px); -webkit-backdrop-filter:blur(9px); box-shadow:0 8px 30px #0005; z-index:10; }
-	/* invisible bridge over the gap so moving onto the fly-out doesn't drop the hover */
-	.flyout::before { content:''; position:absolute; left:-8px; top:0; bottom:0; width:8px; }
-	.grp:hover .flyout, .flyout.open { display:flex; }   /* hover (mouse) or tap-open (touch) */
 </style>

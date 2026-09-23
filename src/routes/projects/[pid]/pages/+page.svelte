@@ -15,7 +15,7 @@
 	import { newId } from './ids'
 	import { viewState } from './viewState.svelte'
 	import { docs } from './doc.svelte'
-	import { type Proj, type SheetFrame, SCALES, DIR_LABEL as PROJ_LABEL } from './types'
+	import { type Proj, type SheetFrame, type Kind, type Tab, type WorkPane, type View, type StripItem, SCALES, DIR_LABEL as PROJ_LABEL } from './types'
 	import { PACKAGES, VERSIONS, REVISIONS, type PItem, PALETTE_ITEMS as paletteItems } from './mock/data'
 	import Viewport, { type VpOn } from './ui/Viewport.svelte'
 	import type { Editor } from './ui/editor'
@@ -46,12 +46,11 @@
 	function activateVp(id?: string) { if (!id) return; const s = new Set(session.activeVps); s.add(id); session.activeVps = s }
 	function deactivateVp(id?: string) { if (!id || !session.activeVps.has(id)) return; const s = new Set(session.activeVps); s.delete(id); session.activeVps = s }
 
-	// Canvas documents — the B1 "each tab owns its own view state" pattern (mock).
-	type Kind = 'plan' | 'sheet' | 'elevation' | 'model'
-	// `modelId` = which registry model this tab views (model-layout tabs); a sheet's frames each carry their
-	// own `modelId`. Defaults to the floor model. (§5 model registry.)
-	type Tab = { id: string; title: string; kind: Kind; dirty: boolean; preview?: boolean; modelId?: number }
-	type Pane = { id: string; activeId: string; tool: string; layout: 'model' | 'sheet' }
+	// Canvas documents — the B1 "each tab owns its own view state" pattern (mock). `Kind`/`Tab`/`WorkPane`/
+	// `View`/`StripItem` live in types.ts (R9, moved from here — B15 made that file the one owner of shared
+	// Pages types; `Pane` itself is renamed `WorkPane` there so this file can import both the type and the
+	// `Pane` COMPONENT without a name clash). `modelId` = which registry model a tab views (model-layout
+	// tabs); a sheet's frames each carry their own `modelId`. Defaults to the floor model. (§5 model registry.)
 	// SESSION (R2 commit 3, review.md §R2): every piece of per-BROWSER-TAB workspace state that isn't a
 	// document (doc.svelte.ts) or a view's pan/zoom/orbit (viewState.svelte.ts) — grouped into one object
 	// so `dropDoc` and (R3) the selection model have a single, obvious home to read/write. Was 8 separate
@@ -68,7 +67,7 @@
 	// selection is keyed by the TAB id — a page-level editor (PaperPage's new `editor` prop), distinct from
 	// each frame's own per-frame editor which is keyed by the FRAME id.)
 	type Session = {
-		tabs: Tab[]; panes: Pane[]; focused: number; previewId: string | null; activeVps: Set<string>
+		tabs: Tab[]; panes: WorkPane[]; focused: number; previewId: string | null; activeVps: Set<string>
 		treeNode: { id: string; label: string; kind: string } | null
 	}
 	let session = $state<Session>({
@@ -88,7 +87,6 @@
 	// Editor panes — 1 or 2 side by side (vertical split). Each pane views one open
 	// tab; tabs are shared documents, so the same page can show in both panes and
 	// each pane tracks its own active tab (VS Code-style split).
-	type View = { zoom: number; x: number; y: number }
 	// `layout` is PER-PANE ('sheet' = paper + frame, 'model' = drawing fills the pane) so toggling
 	// Full-size (or a projection) in one split pane doesn't disturb the other pane's view.
 	// Canvas (paper-space) pan/zoom is per PANE + TAB — switching tabs in a pane keeps each tab's own paper
@@ -743,7 +741,6 @@
 	const iconOf = (name: string) => TOOLS.find((t) => t.name === name)?.icon ?? 'square'
 	// The tool strip groups related tools into ONE button with a fly-out (hover to reveal): the button
 	// shows + re-activates the group's LAST-USED tool, the fly-out switches variants. Singles render as-is.
-	type StripItem = { tool: string } | { group: string; label: string; members: string[] }
 	const STRIP: StripItem[] = [
 		{ tool: 'Select' },
 		{ tool: 'Line' },
@@ -979,10 +976,11 @@
 					{STRIP} {iconOf}
 					onFocus={() => (session.focused = pi)} onOpenTab={openTab} onPromoteTab={promoteTab} onCloseTab={closeTab} onAddTab={addTab}
 					onToggleTabMenu={() => (tabMenuPane = tabMenuPane === pi ? null : pi)} onPickFromMenu={pickFromMenu} onSplitRight={splitVertical} onClosePane={closePane}
+					onTool={(t) => (p.tool = t)} onToggleLayout={() => (p.layout = p.layout === 'model' ? 'sheet' : 'model')} onCanvasEl={(el) => (canvasEls[pi] = el)}
 					{activeVpOf} {isVpActive} {deactivateVp} {onCanvasMove} {canvasPan} canvasZoomFn={canvasZoom}
 					{framesOf} {scaleOf} {updateFrame} {setScale} {fitPane} {canvasViewOf} {entsOf} {entsForModel} {paperEditor}
 					{viewOf} {envFor} {orbitOf} {vpFrameView} {vpEditor} {seedFrame} {addFrame} {commitFrame} {paperOf} {paperDimsOf}
-					{rev} {revisions} {vpView} {projOf} {gizmoProj} {gizmoSet} {navZoom} {navFit} {canvasEls} />
+					{rev} {revisions} {vpView} {projOf} {gizmoProj} {gizmoSet} {navZoom} {navFit} />
 				{#if session.panes.length === 2 && pi === 0}
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<div class="vsplitter" title="Drag to resize" onpointerdown={startSplitDrag}></div>
