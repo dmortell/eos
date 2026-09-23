@@ -14,8 +14,8 @@
 	import { BASIS } from './types'
 	import type { Model, Obj, Dir, Clip } from './types'
 
-	let { model, adapt, dir = 'plan', cx = 0, cy = 0, ground = 0, defaultWeight = 1, selIds = [], canvasZoom = 1, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH }:
-		{ model: Model; /** B31: dark model space colour mapping (ui/modelSpace.ts `onDark`) */ adapt?: (c: string) => string; dir?: Dir; cx?: number; cy?: number; ground?: number; defaultWeight?: number; selIds?: string[]; canvasZoom?: number; clip?: Clip | null; yaw?: number; pitch?: number } = $props()
+	let { model, adapt, frozen = [], dir = 'plan', cx = 0, cy = 0, ground = 0, defaultWeight = 1, selIds = [], canvasZoom = 1, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH }:
+		{ model: Model; /** B31: dark model space colour mapping (ui/modelSpace.ts `onDark`) */ adapt?: (c: string) => string; /** VP Freeze: layer ids hidden in this viewport only */ frozen?: string[]; dir?: Dir; cx?: number; cy?: number; ground?: number; defaultWeight?: number; selIds?: string[]; canvasZoom?: number; clip?: Clip | null; yaw?: number; pitch?: number } = $props()
 	// Plan/elevation use a true section cut (`trimToClip`, applied per object in the render passes below):
 	// walls/conduits keep only the segments inside the box, prisms pass through whole. This AABB-overlap
 	// test is kept only for the iso pass (a quick cull; iso normally has no clip).
@@ -29,7 +29,7 @@
 	// screen px (non-scaling-stroke cancels SVG transforms; ÷ canvasZoom cancels the ancestor CSS canvas
 	// zoom too, so the lineweight is a constant screen-px value — matching how entities render).
 	const weightOf = (o: Obj) => ((isSel(o) ? (layerOf(o)?.weight ?? defaultWeight) + 1.2 : layerOf(o)?.weight ?? defaultWeight) / (canvasZoom || 1))
-	const visible = (o: Obj) => { const l = layerOf(o); return !l || l.visible }
+	const visible = (o: Obj) => { const l = layerOf(o); return (!l || l.visible) && !(o.layer && frozen.includes(o.layer)) }
 
 	// Iso projects the model AROUND the ground pivot with a yaw/pitch, so the projected content isn't
 	// symmetric about (0,0) — centring the pivot leaves the room off to one side. Instead centre the

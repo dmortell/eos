@@ -13,7 +13,7 @@ import {
 	Plus, PanelRight, Pen, Power, Printer,
 	RefreshCw, RefreshCcw,
 	RotateCcw, RotateCw, Rotate3d, Redo, RectangleHorizontal, RectangleVertical, RouteOff, Route, Ruler,
-	Save, ScrollText, Share2, Square, Slash, Search, Server, Sun, SwitchCamera, ScanBarcode,
+	Save, ScrollText, Share2, Square, Slash, Search, Server, Snowflake, Sun, SwitchCamera, ScanBarcode,
 	Trash2, Triangle, Type, TextAlignStart, TextAlignCenter, TextAlignEnd, TriangleAlert,
 	Scaling, Settings, Star, Undo, Rows3, Waypoints, X,
 } from '@lucide/svelte';
@@ -41,7 +41,7 @@ let lucide: Record<string, any> = {
 	route: Route, routeOff: RouteOff, ruler: Ruler, save: Save, scale: Scaling, scan: ScanBarcode, search: Search,
 	rows: Rows3, scrollText: ScrollText, select: MousePointer2, settings: Settings, share: Share2, sidebar: PanelRight, server: Server, switchCamera: SwitchCamera,
 	spinner: LoaderCircle, square: Square, star: Star, start: TextAlignStart,
-	sun: Sun, text: Type, trash: Trash2, upload: FileUp, undo: Undo, url: Link,
+	snowflake: Snowflake, sun: Sun, text: Type, trash: Trash2, upload: FileUp, undo: Undo, url: Link,
 	polygon: Triangle, warning: TriangleAlert, waypoints: Waypoints, x: X,
 }
 

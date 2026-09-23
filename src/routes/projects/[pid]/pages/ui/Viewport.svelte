@@ -53,12 +53,14 @@
 		activate?: () => void; deactivate?: () => void; view?: (v: View) => void; orbit?: (yaw: number, pitch: number) => void;
 		scale?: (s: string) => void; status?: (text: string) => void; coords?: (x: number, y: number) => void; tool?: (name: string) => void;
 	}
-	let { label = 'Viewport', scale = '1:1', kind = 'plan', active = false, modelSpace = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {}, editor = noopEditor, frameId = undefined, modelId = undefined,
+	let { label = 'Viewport', scale = '1:1', kind = 'plan', active = false, modelSpace = false, frozen = [], focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {}, editor = noopEditor, frameId = undefined, modelId = undefined,
 		entities = [], view = { zoom: 1, x: 0, y: 0 }, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH }:
 		{ label?: string; scale?: string; kind?: 'plan' | 'iso' | ElevDir; active?: boolean;
 			/** B31: this viewport IS a model-layout pane (not a frame on paper) — dark AutoCAD-style model
 			 *  space, and it pans/zooms its own view regardless of "Pan content". */
-			modelSpace?: boolean; tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env; on?: VpOn; editor?: Editor; frameId?: string; modelId?: number;
+			modelSpace?: boolean;
+			/** VP Freeze: layer ids hidden in THIS viewport only (a sheet frame's `frozen`). */
+			frozen?: string[]; tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env; on?: VpOn; editor?: Editor; frameId?: string; modelId?: number;
 			focused?: boolean; entities?: Ent[]; view?: View; clip?: Clip | null; yaw?: number; pitch?: number } = $props()
 	// R3 commits 2a+2b (review.md §R3): every kind of selection now comes from `editor.sel` (the
 	// per-VIEWPORT Selection, ui/selection.ts) instead of a `sel`/`selSection` PROP (was tab-shared docSel /
@@ -115,7 +117,10 @@
 	// R5: ONE layer list per model files both its objects and its entities — hide / lock / colour / draw
 	// order all resolve against the model this viewport shows (was a global page-layer store, B16).
 	const mls = $derived(mdl?.layers ?? [])
-	const isLayerHidden = (id?: string) => lsHidden(mls, id)
+	const frozenSet = $derived(new Set(frozen))
+	// Hidden = the model's layer is off, OR it is frozen in this viewport (VP Freeze). Everything that hides —
+	// entity paint, grips, picking, snapping, the model-object predicates below, Model3d — goes through this.
+	const isLayerHidden = (id?: string) => lsHidden(mls, id) || (!!id && frozenSet.has(id))
 	const isLayerLocked = (id?: string) => lsLocked(mls, id)
 	const layerColor = (id?: string) => lsColor(mls, id)
 	const layerOrder = (id?: string) => lsOrder(mls, id)
@@ -1146,7 +1151,7 @@
 				<text x={12 * MMPU} y={GROUND + 14 * MMPU} font-size={8 * MMPU} fill="#64748b" font-weight="600">{elevDir.toUpperCase()}</text>
 			{/if}
 			<!-- P1b: real 3D model in plan + the four elevations + iso. Read-only for now (P2 = editing). -->
-			{#if mdl}<Model3d model={mdl} adapt={modelSpace ? onDark : undefined} dir={kind} cx={CX} cy={CY} ground={GROUND} selIds={modelSel} canvasZoom={canvasZoom} clip={clip} yaw={yaw} pitch={pitch} />{/if}
+			{#if mdl}<Model3d model={mdl} {frozen} adapt={modelSpace ? onDark : undefined} dir={kind} cx={CX} cy={CY} ground={GROUND} selIds={modelSel} canvasZoom={canvasZoom} clip={clip} yaw={yaw} pitch={pitch} />{/if}
 			<!-- Alignment GUIDES (full-view h/v lines) for this view's space + the Guide-tool hover preview. -->
 			{#if viewSpace}
 				{#each viewGuides as gd (gd.id)}

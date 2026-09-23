@@ -310,6 +310,21 @@
 	// selection, same pattern as deleteEnts/cutEnts since 2a).
 	function deleteFrame(tabId: string, id: string) { ensureHist(tabId); setFrames(tabId, framesOf(tabId).filter((f) => f.id !== id)); deactivateVp(id); recordEdit(tabId, 'Delete viewport') }
 	function commitFrame(tabId: string, label: string) { recordEdit(tabId, label) }   // one history step at a drag/edit end
+	// VP Freeze: the focused pane's ACTIVE sheet frame (null in model space / on bare paper) — the viewport
+	// whose `frozen` list the Layers panel's snowflake column edits.
+	const activeFrame = $derived.by(() => {
+		const p = session.panes[session.focused]; const t = p && session.tabs.find((x) => x.id === p.activeId)
+		if (!p || t?.kind !== 'sheet' || p.layout !== 'sheet') return null
+		const av = activeVpOf(t.id)
+		return av ? framesOf(t.id).find((f) => f.id === av) ?? null : null
+	})
+	function toggleVpFreeze(layerId: string) {
+		const p = session.panes[session.focused], f = activeFrame; if (!p || !f) return
+		ensureHist(p.activeId)
+		const cur = f.frozen ?? [], on = cur.includes(layerId)
+		updateFrame(p.activeId, f.id, { frozen: on ? cur.filter((x) => x !== layerId) : [...cur, layerId] })
+		commitFrame(p.activeId, on ? 'VP thaw layer' : 'VP freeze layer')
+	}
 	// The active viewport in a tab: the tab id if active (model-layout tabs), else whichever sheet frame is.
 	const activeVpOf = (tabId: string): string | null => (isVpActive(tabId) ? tabId : framesOf(tabId).find((f) => isVpActive(f.id))?.id ?? null)
 	// The ViewCube reflects + re-aims a SHEET's active frame (or its first frame); a model-layout tab uses
@@ -1039,7 +1054,7 @@
 					</div>
 				</div>
 				{#if rightTab === 'layers'}
-					<LayersPanel layers={modelById(activeMid())?.layers ?? []} />
+					<LayersPanel layers={modelById(activeMid())?.layers ?? []} frozen={activeFrame?.frozen ?? (activeFrame ? [] : null)} onfreeze={toggleVpFreeze} />
 				{:else if rightTab === 'props'}
 					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (active) updateEnt(active.id, e) }}
 						onarrange={(op) => { if (active) reorderEnts(active.id, activeEntIds(), op) }}
