@@ -1,0 +1,7 @@
+#!/bin/sh
+# Pages tool gate (review.md §P5): when a commit touches src/routes/projects/[pid]/pages/, run its unit
+# tests + a pages-scoped svelte-check (scripts/check-pages.mjs). Other commits are not affected.
+# Enabled per clone with:  git config core.hooksPath .githooks
+if git diff --cached --name-only | grep -q '^src/routes/projects/\[pid\]/pages/'; then
+	pnpm run --silent check:pages || { echo "pre-commit: the Pages gate failed — see above."; exit 1; }
+fi
