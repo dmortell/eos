@@ -435,3 +435,231 @@ Notable for scoping R6/B5 from this data rather than guesses:
   moving** — props/setup, coordinate mapping (already thin — mapper.ts did the real work), the
   2-line draw dispatch, inline text editing (DOM textarea positioning, inherently component-local),
   and the status-bar text. R6/B5 have nothing to gain from these.
+
+---
+
+# R8 — merge `PaperPage` into `Viewport` (review.md §R8) — design plan
+
+Written 2026-09-23 against `PaperPage.svelte` @ `f3424fe` (234 lines) and `Viewport.svelte` @ the
+same revision (1361 lines), after R1 (hit/grips/snap/gestures are modules), R3 (one Selection
+model, `'frame'` is already a `SelKind`), and R9 (Workspace object). **No code was changed for
+this plan — Dave approved R8 as design-first; implementation waits for his explicit go-ahead on
+this document, relayed via eos-07.**
+
+Today a sheet tab renders `PaperPage.svelte`: a bespoke little editor in PAPER px with its own
+hand-rolled hit-test (border-band click), drag machine (move + 4-corner resize, opposite corner
+fixed), marquee (window-select touching a frame) and `<Handle>` corner grips — a second, parallel
+implementation of everything `Viewport.svelte` already does properly (and unit-tests) for
+entities in MODEL mm. The frames it manages are `SheetFrame` records (`types.ts:19-23`) held in
+`PageDoc.frames` (`doc.svelte.ts`), completely separate from the `Ent`/`Model` system entities
+live in. The goal: delete `PaperPage.svelte`'s bespoke geometry/interaction code entirely and
+render a sheet as a `Viewport` whose entities happen to include the frames, reusing R1's modules
+outright instead of maintaining two hit/grip/drag/marquee implementations forever.
+
+## 0. Target shape
+
+- **A sheet tab's paper is a `Viewport` instance** with a new `kind: 'paper'` (today `kind: 'plan'
+  | 'iso' | ElevDir`), sized `boxW/boxH = paperDims(paper.size, paper.landscape)` (`constants.ts`)
+  — exactly the box a frame already sizes itself with, just one level up. `ViewCtx.dir` gains the
+  `'paper'` literal; `isPaper` joins `isPlan/isElev/isIso` (false for the other three on a paper
+  viewport). Unit = **paper mm**, not model mm — `mapper.ts`'s existing `pxPerUnit = boxW ?
+  PAPER_PX_PER_MM : BASE` path already treats a boxed viewport as paper px/mm; a paper-kind
+  viewport just has no OUTER scale factor (`scaleN` = 1 always — "1:1" doesn't apply to the sheet
+  itself, only to what a frame shows).
+- **Frames become entities.** `Ent` (`geometry.ts:14`) gains an optional `role?: 'viewport'`. A
+  role-`viewport` entity reuses `type: 'rect'` (`a`/`b` = the frame's top-left/bottom-right
+  corners in paper mm) so it gets `hit.ts`'s/`grips.ts`'s existing rect bbox/hit/grip machinery
+  for free, plus the frame-specific fields `SheetFrame` already has: `proj: Proj`, `frameScale:
+  string` (renamed from `scale` — `Ent` doesn't otherwise have a `scale` field and `PropertiesPanel`
+  already disambiguates model/frame scale), `clip: Clip | null`, `label: string`, `modelId?:
+  number`, `border: 'dashed' | 'solid' | 'none'`. `SheetFrame` the type is retired; every current
+  reader (`types.ts` `Workspace.framesOf/updateFrame`, `PropertiesPanel`'s frame props,
+  `doc.svelte.ts`) switches to filtering/mapping `Ent[]` by `role === 'viewport'`.
+- **Frames need a model to live in.** `entsForModel`/`Model.ents` (`3dview/types.ts:106`) is the
+  only place `Ent[]` lives today, keyed by 3D model id — there is no per-*document* ents array.
+  Proposal: each `PageDoc` gets a **page model** — a `Model` with `objects: []` (unused) whose
+  `ents` holds the frame-ents + titleblock-ents (§4) + free page annotations, auto-created lazily
+  (id convention `` `page:${docId}` ``, mirroring `FLOOR_MODEL_ID`'s pattern) the first time a
+  sheet is opened, same lifecycle as `docs.seed`. **Open decision for Dave** (flagged, not
+  resolved here): does the page model ride the existing undo history the way a content model's
+  edits already do (`recordEdit`/`snapModels`), or does it stay on `PageDoc`'s own
+  frames-only history slice like today (`doc.svelte.ts`'s `allFrames`/`restoreFrames`)? This plan
+  assumes the latter (least change — frame edits keep exactly today's undo behaviour; only the
+  STORAGE shape changes from `SheetFrame[]` to `Ent[]`), but a real per-doc model would be the more
+  uniform long-term answer once B4 (history) is settled.
+- **A frame's own content is a NESTED `Viewport`**, exactly as today (`PaperPage.svelte:153-155`):
+  unchanged — R8 only replaces the PAPER-space editor, not the per-frame content viewport, which
+  already goes through every R1 module via the normal `Viewport` props.
+
+## 1. PaperPage's drag / marquee / Handles / frame selection → `gestures.ts` / `grips.ts` / `hit.ts` / `selStore`
+
+| PaperPage today | Maps onto |
+|---|---|
+| `startDrag`/`onDrag` move branch (`:67-77`, border-band drag anywhere non-corner) | **New interaction rule**, not a straight port: a role-`viewport` entity's BODY is a drag-to-move handle, unlike a normal entity (which is picked/dragged by its body too, so this part is actually the SAME as today's entity-drag path once picking treats the border band as the pick target — see next row) |
+| `onSheetDown`'s frame hit test via `.vp-band`/`.vp-interior` DOM elements (CSS-based interior/border split) | `hit.ts`'s `hitEnt`/`inBox` gets a `role === 'viewport'` branch: `inBox(p, x0, y0, x1, y1, thr, filled=false)` with `thr` = the 11px band width **converted to paper mm** (not the usual few-mm entity pick tolerance) — the interior stays a hole (unfilled `inBox` already returns `false` inside the inner band), so a press over the interior falls through to the paper background (deactivate) exactly like today's `.vp-interior` `stopPropagation`+`clearFrameSel` |
+| 4-corner resize (`onDrag`'s grip branches, opposite-corner-fixed) | `grips.ts`'s existing `gripsLocal`'s `e.type === 'rect'` branch (`grips.ts:224-232`) already does opposite-corner-fixed box resize with an `anchor`+`resize` closure — a role-`viewport` rect entity gets this for free through the SAME `gripsFor` call every selected entity goes through; frames never rotate (`e.rot` stays `undefined`) so `gripsFor`'s rotation wrapping is a no-op, matching today exactly |
+| `<Handle>` corner-grip rendering (`parts/Handle.svelte`, PaperPage's own template loop `:162-169`) | Deleted — the generic entity-grip overlay Viewport already renders for a selected entity (wherever `gripsFor`'s output is drawn today) covers it; `Handle.svelte` itself may become dead code (check other call sites before deleting) |
+| `onSheetDown`/`onMarquee`/`endMarquee` (paper-space window-select, "touches any frame") | `hit.ts`'s `marqueeSelect` (`hit.ts:269-277`) unchanged — it already does crossing-vs-window by drag direction over an `Ent[]`; frames-as-ents just need to be IN the `ents` array a paper-kind Viewport passes to its own marquee handler. This is the single biggest win: PaperPage's marquee is bespoke code duplicating exactly what `marqueeSelect` already does |
+| `placingFrame`/"Viewport tool" (drag out a NEW frame) | `place.ts`'s `buildEnt` gets a `'Viewport'` tool branch building a role-`viewport` rect ent (parallel to the existing rect-tool branch), replacing `onaddframe`/`addFrame` |
+| Frame selection → `editor.sel.only([{kind:'frame', id}])` | **Unchanged** — R3 commit 3 already wired the page-level `editor.sel` for the `'frame'` kind; R8 only changes how the PICK that feeds `.sel.only(...)` is computed (today PaperPage's own DOM-based hit test; after R8, the same `hitEnts`/`pickAt` pass every other entity pick goes through, filtered/tagged by `role`) |
+| 4px move threshold (B19, `startDrag`'s `beginPointerDrag(..., { thresholdPx: 4 })`) | `gestures.ts` already supports `thresholdPx` per call (shipped in R1, unused until now per refactor-plan.md §11's deviations note) — the frame move-drag becomes the FIRST real non-zero-threshold caller; **note this explicitly in the commit** so a future "why does this drag feel laggy, let's remove the threshold" doesn't undo B19 by accident |
+| Page-level `editor` prop, `paperEditor(a: Tab)` (`+page.svelte:198-209`, the frame-exclusive-with-active-frame-selection logic) | Unchanged — this is Selection-model logic (R3), orthogonal to how the pick/drag/grip geometry is computed |
+
+## 2. Frame snapping → `snap.ts`
+
+PaperPage has **no snapping today** — frames drag/resize freely to any pixel. The design brief
+(review.md §R8) asks for paper-edge, margin, titleblock-edge and 5mm-grid snap with Alt
+disabling it. This is new functionality riding the refactor, not an extraction:
+
+- New `snap.ts` export `frameSnap(ctx, dragged: {x0,y0,x1,y1}, targets: {paper: {w,h}; margin:
+  number; titleblock?: {x0,y0,x1,y1}}, gridMm: number, alt: boolean): {x0,y0,x1,y1}` — snaps
+  each of the 4 edges of the dragged/resized rect independently against the candidate edges
+  (paper 0/w/h, `margin` in from each paper edge, the titleblock's own left edge) within a
+  screen-px tolerance (`Mapper.tolMm`, same pattern `findSnap`'s `radiusPx` uses), falling back to
+  a `gridMm` round (a NEW constant, e.g. `PAPER_SNAP_STEP = 5` in `constants.ts` — paper mm, a
+  different unit/scale than `snap.ts`'s existing `SNAP_STEP = 100` which is model mm) when no edge
+  is close enough. `alt` (from `e.altKey` on the drag's pointer events) bypasses everything and
+  returns `dragged` unchanged.
+- **This is the first Alt-key modifier wired anywhere in Pages** — a repo-wide grep found no
+  existing `altKey` handling to match conventions against (Shift is the only modifier used today,
+  for square/15°-constrain). Flag this as a fresh UI decision, not an established pattern: confirm
+  with Dave that Alt (not e.g. Ctrl, which some OSes/browsers intercept) is still the right choice
+  before wiring it.
+- Wired into the SAME move/resize path §1 already routes through `grips.ts`'s rect resize and the
+  new move-drag: after computing the raw dragged rect, call `frameSnap` before calling `onDrag`'s
+  `.set(...)` (today) / the entity-update callback (after R8) — same shape as `drawPoint`'s
+  `{ p, mark }` return contract, so a snapped edge can show the same kind of snap-mark indicator
+  object-snap already draws.
+- Margin value and titleblock-edge geometry are currently **not modeled anywhere** (PaperPage's
+  titleblock is a fixed 16%-width CSS strip, §4) — `frameSnap`'s `targets` argument needs real
+  numbers once §4 settles how the titleblock is represented; until then this can ship snapping to
+  paper edges + 5mm grid only, with titleblock/margin snap added once §4 lands.
+
+## 3. The nested content `Viewport` inside each frame — activation, "Pan content", print
+
+No behaviour change intended here — this section documents how the existing per-frame content
+`Viewport` continues to work once its PARENT is a `Viewport` instead of a bespoke `PaperPage` div:
+
+- **Activation** (`activateFrame`, `+page.svelte:264`; `vpFrameView`'s `activate`/`deactivate`,
+  `:268-275`) stays exactly as-is — it's keyed by the frame's own id via `activeVps`
+  (`isVpActive`/`activateVp`/`deactivateVp`), independent of how the frame's BORDER is picked.
+  Double-click-to-enter moves from PaperPage's `ondblclick={() => fon.activate?.()}` on `.vp-band`
+  to a dblclick handler on the role-`viewport` entity's pick region (same hit-test as §1's border
+  band) inside the parent Viewport's own `onDblclick`.
+  A subtlety worth flagging: today `.vp-interior`'s own `ondblclick` ALSO activates (so a
+  double-click anywhere in the frame enters it, not just the border) — the merged version needs
+  the same "double-click activates the frame, single-click on the interior does nothing (paper
+  space) / edits (model space)" duality, which means the interior can't be a total hit-testing
+  hole for DBLCLICK even though it is for single-click pick/drag (§1's `inBox(..., filled=false)`
+  suppresses interior SELECT, not necessarily interior DBLCLICK — these need separate hit passes).
+- **"Pan content"** (`env.navContent`, gates whether the ACTIVE frame's own view pans/zooms vs the
+  page canvas) is unchanged — it already lives on `Env` (`Viewport.svelte`'s `Env` type) and B28/
+  B28-follow-up's `zoomsContent`/`activeViewportId`/`fitPane` logic (`+page.svelte:816-848`)
+  already treats a sheet's active frame as "the viewport whose content zoom/fit applies" via
+  `activeVpOf`. Once the sheet itself is a `Viewport`, `fitPane`'s own sheet-branch (`:839-847`,
+  computing a fit-to-pane zoom from `canvasEls[idx]` vs `paperDimsOf`) becomes REDUNDANT — a
+  `Viewport` already knows how to fit its own `boxW/boxH` box within the pane the same way a frame
+  fits within the sheet today (needs confirming which existing Viewport code path that is before
+  deleting `fitPane`'s sheet branch — flagged as a commit-6 task in §5, not assumed here).
+- **Print** (`printing.ts`) targets `.pane.focused .paper` (falling back to `.pane.focused .vp`) —
+  once the sheet's root element is a `Viewport` (which already renders with a `.vp` class, per the
+  fallback selector), the FIRST selector (`.paper`) may stop matching depending on what CSS class
+  a paper-kind Viewport's root gets. This needs a real check against the merged markup, not an
+  assumption — §6 lists it as a risk. The print CSS's `.print-target .vp { border: none !important;
+  … }` rule (hiding the viewport's own border chrome at print time) already anticipates a `.vp`
+  root, which is a good sign the fallback path is the one to keep deliberately.
+
+## 4. The titleblock
+
+Today the titleblock is a hardcoded template in `PaperPage.svelte`'s markup (`:178-190`): a fixed
+16%-width right-hand strip with `PROJECT`/`TITLE`/`SCALE`/`SIZE`/`REV`/`DATE`/`DRAWN`/`DWG №`
+cells, populated from plain props (`title`, `drawingNo`, `scale`, `rev`, `revDate`, `sizeLabel`) —
+not stored as drawable content at all. Folding it into the entity system (per review.md §R8's
+"titleblock cells") is a genuine design choice, not an extraction, with two live options:
+
+- **(a) Keep it a template, not entities.** The paper-kind Viewport renders a fixed titleblock
+  block (same as today, just living in `Viewport.svelte`/a new `TitleblockRender.svelte` instead
+  of `PaperPage.svelte`), driven by the SAME live props (doc title, revision, scale). Simplest;
+  no snap-target ambiguity (§2's `targets.titleblock` is just this block's known rect); no
+  Firestore shape change; loses "the titleblock is user-editable/movable content" as a future
+  feature.
+  **This plan recommends (a) for the first commit slice** — it's the behaviour-preserving option
+  and doesn't block §0-§3 landing; text-editable/moveable titleblock cells (b) can follow later as
+  its own slice once someone actually asks for a non-standard titleblock layout.
+- **(b) Titleblock cells are entities** (`role: 'titleblock'`, `type: 'text'`, bound to a live
+  field like `bind: 'title' | 'rev' | 'scale' | ...` instead of a static `text` string, resolved at
+  render time from the doc) — matches review.md's literal wording ("titleblock cells") and makes
+  the titleblock genuinely editable/movable/restylable like every other entity, at the cost of a
+  live-binding resolution step (`text` vs `bind`) that nothing else in the `Ent` type needs today,
+  and a firestore migration for existing sheets (none exist as real user data yet — this is still
+  a mockup — so migration risk is low, but this needs Dave's call since it's the more invasive
+  option). Flagged for Dave, not decided here.
+
+## 5. Commit slices (behaviour-preserving where possible)
+
+Each commit gets its own `svelte-check`/`vitest` gate, same discipline as R1/R9. Ordered so each
+step leaves the app in a working, testable state — no big-bang rewrite.
+
+| # | Commit | What | Behaviour change? |
+|---|---|---|---|
+| 1 | `geometry.ts` + `types.ts` | Add `Ent.role?: 'viewport'` + the frame fields (`proj`/`frameScale`/`clip`/`label`/`modelId`/`border`) to `Ent`; keep `SheetFrame` as a type ALIAS for the role-narrowed `Ent` shape (not deleted yet) so nothing else needs to change | None (additive) |
+| 2 | `doc.svelte.ts` | `PageDoc.frames: SheetFrame[]` → the page-model `ents: Ent[]` (§0); `framesOf`/`setFrames`/`allFrames`/`restoreFrames` become thin filters over the new storage; a one-time `migrateEnt`-style conversion (matching R4 part 3's `migrateModels` pattern) for any persisted `SheetFrame[]` data | None if migration is exact |
+| 3 | `hit.ts` | `hitEnt`/`inBox` gain the role-`viewport` border-band branch (§1); `pickable` gates it like any entity (layer-hidden/locked don't apply — frames have no layer — so this branch skips that check) | None (new code path, not yet wired to any UI) |
+| 4 | `grips.ts` | Confirm `gripsLocal`'s existing rect branch handles a role-`viewport` ent with no changes (it should — it doesn't inspect `role`); add a regression test pinning this | None (test-only) |
+| 5 | `snap.ts` | `frameSnap` (§2) + `PAPER_SNAP_STEP` constant; unit-tested standalone (not yet wired) | None (new code, unwired) |
+| 6 | `Viewport.svelte` | `kind: 'paper'` + `isPaper`; role-`viewport` entity pick/drag/grip/marquee wiring (§1); frame activation dblclick (§3); frame-move-drag threshold (§1's B19 note); wires `frameSnap` into the drag (§2) | Sheet interaction now goes through Viewport's own pointer pipeline — **first behaviour-risk commit**, see §6 |
+| 7 | Titleblock | Option (a) from §4: a template block in the paper-kind Viewport (or a small `TitleblockRender.svelte`), fed the same props PaperPage took | None if (a); see §4 if (b) is chosen instead |
+| 8 | Wire `+page.svelte` | Replace `<PaperPage ...>` with `<Viewport kind="paper" ...>`; delete `paperEditor`'s now-unneeded wrapping if selection plumbing simplifies; `fitPane`'s sheet branch reassessed (§3) | User-visible: this is the cutover commit |
+| 9 | Delete `PaperPage.svelte`, `Handle.svelte` (if dead), `SheetFrame` type alias, dead `+page.svelte` frame-CRUD wrappers (`seedFrame`/`addFrame`/`deleteFrame`/`commitFrame` if `place.ts`/`modelEdit.ts` now own frame CRUD) | Cleanup | None |
+
+Steps 1-5 and 7 are independent of each other and of step 6 (build/test in isolation); 6 needs
+1+3+4+5; 8 needs 6+7; 9 needs 8. This mirrors R1's "extract the modules first, wire them in one
+focused commit, clean up last" shape.
+
+## 6. Risks, and what must be live-tested
+
+**No live browser testing has been possible this session (no browser tooling available here) —
+every one of the following MUST be clicked through by Dave or eos-f8 before this ships, not just
+diff-reviewed:**
+
+- **Frame select/move/resize by hand** — border-band click-select, drag-move, all 4 corner
+  resizes (opposite corner stays fixed), on a sheet with 2+ frames overlapping.
+- **Marquee select** touching one vs. multiple frames, crossing vs. window direction.
+- **Interior click-through**: clicking inside an inactive frame does nothing (doesn't select,
+  doesn't drag); double-click activates it; double-click on bare paper outside any frame
+  deactivates + deselects.
+- **The new frame snap** (§2): dragging/resizing near a paper edge, a margin, the titleblock edge,
+  and mid-paper (5mm grid) — and that Alt genuinely bypasses all of it. This is BRAND NEW behaviour
+  with no prior version to regress against, so it needs the most scrutiny, not the least.
+  Genuinely open question for Dave: is 5mm/Alt/margin-snap even wanted for v1, or should §2 ship
+  disabled/deferred and this whole slice ship as paper-edge-only snap?
+  Actually the most useful data would be Dave clicking around a real sheet with several frames and
+  saying what snap behaviour he expects — this plan is guessing at AutoCAD-viewport-snap
+  conventions, not confirmed ones.
+- **"Pan content" + Fit/zoom on a sheet frame** — re-verify B28/B28-follow-up's exact scenarios
+  (status-bar zoom, Fit button, automatic refits on mount/split/resize) still behave once
+  `fitPane`'s sheet branch is touched (§3, §5 step 8).
+- **Ctrl+P print** — the `.print-target` selector risk (§3): print a sheet after the merge and
+  confirm the paper (not the wrong element, not nothing) is what prints, at true size, with no UI
+  chrome or selection highlight.
+- **The Viewport tool** (drag out a new frame) — including the existing `tool !== 'Viewport'`
+  guard in `onSheetDown` that stops a press inside an ACTIVE frame from starting a paper-space
+  marquee/frame-placement — this nuance needs to survive the port into Viewport's own `onDown`
+  dispatch.
+- **Section → viewport drop** (`dropSectionDir`, `+page.svelte:229-245`) — creates a frame
+  programmatically (not via drag); confirm it still builds a valid role-`viewport` entity and gets
+  selected/focused correctly after the storage-shape change (step 2).
+- **Undo/redo of frame add/move/resize/delete** — `doc.svelte.ts`'s `allFrames`/`restoreFrames`
+  snapshot contract changes shape (step 2); a stale history entry (recorded before this migration)
+  redoing/undoing across the change is NOT a real scenario (no persisted user data exists yet, per
+  §4), but a normal add→undo→redo cycle within one session must still work.
+- **Touch** (per-tool canvas pan/zoom, memory: "Touch/iPad pan-zoom" — Sheets/Racks already done,
+  Outlets/Uploads buggy, Pages not in that list at all) — a merged sheet-as-Viewport should inherit
+  whatever touch handling Viewport already has, which may be BETTER or WORSE than PaperPage's
+  current touch behaviour (PaperPage was never audited for touch); this needs its own pass, not an
+  assumption either way.
+- **Properties panel** — `selFrameObj`/`onframeupdate`/`onframedelete` (`+page.svelte:1006-1010`)
+  read/write frame fields through the OLD `SheetFrame` shape; confirm every field still round-trips
+  once frames are `Ent`s with extra fields (particularly `frameScale` vs whatever property name
+  Properties currently binds to for a frame's scale, since `Ent` doesn't otherwise have a bare
+  `scale` field the way `SheetFrame` did).
