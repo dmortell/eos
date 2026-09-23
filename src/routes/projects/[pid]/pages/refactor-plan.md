@@ -634,3 +634,31 @@ navigation) is **deferred to X4** (`review.md` §X4, "Persistence pattern for §
 Elevations, not Sheets") rather than tackled standalone — it naturally belongs with whatever
 per-project storage/lifecycle X4 settles, rather than being patched twice. Recorded in `review.md`
 §0a and §8 (see that commit).
+
+---
+
+## 12. R1 remainder — the ≤ 600 target (2026-09-23)
+
+Done: `Viewport.svelte` **1448 → 90 lines**. §11 expected B5/R6 to get there. Instead, the remaining
+orchestration moved out whole, as two classes the component instantiates:
+
+| File | Lines | What |
+|---|---:|---|
+| `ui/Viewport.svelte` | 90 | shell: `$props()` (passed as the proxy, never destructured), DOM event wiring, SVG skeleton |
+| `ui/vpView.svelte.ts` `VpView` | ~345 | view model: prop defaults, env flags, mapping + pan/zoom, `ctx`, layers + VP Freeze, Selection, `hit`/`pickAt`, grips, sections/guides, underlay fit, `entStyle` |
+| `ui/vpInteraction.svelte.ts` `VpInteraction` | ~620 | pointer/key state machine: draft, every `beginPointerDrag` gesture, marquee, text edit, image calibration, prompt/status |
+| `ui/vpPrompt.ts` (+ test) | 65 | pure prompt / image-mode / status text |
+| `ui/vpTypes.ts` | 39 | `Env`, `VpOn`, `VpProps` (imports moved off `Viewport.svelte`) |
+| `render/VpMarks.svelte` | 68 | guides + section markers (under the entities) |
+| `render/VpOverlays.svelte` | 122 | depth-snap, draft preview, crosshair, calibration marks, grips, snap marker, marquee (above) |
+| `render/VpWidgets.svelte` | 74 | HTML: section toolbar, in-place text editor, scale entry |
+
+Notes for the next reader:
+- **TS2729:** a class field `$derived(expr)` counts as an eager initializer for TypeScript. Reading
+  `this.p` / `this.v` directly in one is a "used before initialization" error, even though Svelte evaluates
+  it lazily. Read it through a getter, or use `$derived.by(() => …)`.
+- **Scoped CSS:** Viewport's `.vp-svg :where(line, rect, …)` non-scaling-stroke rule can't reach child
+  components. `VpOverlays` carries its own copy; `VpMarks`' classes set `vector-effect` themselves (EntRender
+  already set it inline).
+- Behaviour-preserving transcription. The only structural simplification: the old `pick()` was folded
+  into `VpView.pickAt` (same cascade, same single mapper).

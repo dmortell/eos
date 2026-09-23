@@ -90,11 +90,11 @@ export type Workspace = {
 	entsOf: (id: string) => import('./ui/geometry').Ent[]
 	entsForModel: (mid?: number) => import('./ui/geometry').Ent[]
 	paperEditor: (a: Tab) => import('./ui/editor').Editor
-	vpFrameView: (a: Tab, pane: { id: string; tool: string }, frame: SheetFrame) => import('./ui/Viewport.svelte').VpOn
+	vpFrameView: (a: Tab, pane: { id: string; tool: string }, frame: SheetFrame) => import('./ui/vpTypes').VpOn
 	vpEditor: (a: Tab, viewId: string) => import('./ui/editor').Editor
-	vpView: (a: Tab, pane: { id: string; tool: string }) => import('./ui/Viewport.svelte').VpOn
+	vpView: (a: Tab, pane: { id: string; tool: string }) => import('./ui/vpTypes').VpOn
 	seedFrame: (tabId: string, x: number, y: number, w: number, h: number) => void
 	addFrame: (tabId: string, x: number, y: number, w: number, h: number) => void
 	commitFrame: (tabId: string, label: string) => void
-	envFor: (pane: { id: string; activeId: string }) => import('./ui/Viewport.svelte').Env
+	envFor: (pane: { id: string; activeId: string }) => import('./ui/vpTypes').Env
 }
