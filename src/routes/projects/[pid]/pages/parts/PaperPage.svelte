@@ -15,8 +15,9 @@
 	import { beginPointerDrag, DragRegistry } from '../ui/gestures'
 	import { inBox, marqueeSelect } from '../ui/hit'
 	import { gripsLocal, constrainGrip } from '../ui/grips'
+	import { PAPER_SNAP_STEP, paperSnapLines, frameSnapDelta } from '../ui/snap'
 	import type { ViewCtx } from '../ui/view'
-	import { HANDLE_PX, PAPER_W, PAPER_H } from '../constants'
+	import { HANDLE_PX, PAPER_W, PAPER_H, PAPER_PX_PER_MM } from '../constants'
 	import type { ElevDir } from '../ui/geometry'
 	import type { SheetFrame } from '../types'
 
@@ -79,12 +80,31 @@
 	const GRIP_IDX = [0, 3, 1, 2]   // PaperPage gi -> grips.ts rect-grip array index
 	const LEFT_GI = new Set([0, 3]), TOP_GI = new Set([0, 1])
 
+	// Frame snap (R8-lite, refactor-plan.md's R8-lite §1), ported from sheets/Viewport.svelte's own
+	// frame-snap/Alt convention per Dave's ask to match it: paper edges + a 5mm grid, Alt disables.
+	// `PAPER_SNAP_STEP` (snap.ts) is real paper mm — GRID_STEP_PX converts it ONCE to paper px (frame
+	// geometry's actual unit, see BAND_PX above). `SNAP_TOL_PX` is SCREEN px (matches Sheets' SNAP_TOL),
+	// converted to paper px per-drag via `drag.s`, same pattern as Sheets' `SNAP_TOL / drag.scale`.
+	// Margin/titleblock snap lines are a later addition (v1 is paper edges only, snap.ts's paperSnapLines).
+	const GRID_STEP_PX = PAPER_SNAP_STEP * PAPER_PX_PER_MM
+	const SNAP_TOL_PX = 6
+	const snapEdge = (v: number, lines: number[], tolPaperPx: number): number => v + frameSnapDelta([v], lines, GRID_STEP_PX, tolPaperPx)
+
 	// Viewports move freely on an infinite canvas — no position clamp; pan to follow one that
 	// has been dragged off the paper.
 	function onDrag(e: PointerEvent, drag: FrameDrag) {
 		const dx = (e.clientX - drag.sx) / drag.s, dy = (e.clientY - drag.sy) / drag.s
 		const b = drag.base
-		if (drag.mode === 'move') { drag.set({ w: b.w, h: b.h, x: b.x + dx, y: b.y + dy }); return }
+		const lines = paperSnapLines(pw, ph)
+		const tol = SNAP_TOL_PX / drag.s
+		if (drag.mode === 'move') {
+			let x = b.x + dx, y = b.y + dy
+			if (!e.altKey) {   // move: both edges of an axis snap together (the whole frame shifts)
+				x += frameSnapDelta([x, x + b.w], lines.x, GRID_STEP_PX, tol)
+				y += frameSnapDelta([y, y + b.h], lines.y, GRID_STEP_PX, tol)
+			}
+			drag.set({ w: b.w, h: b.h, x, y }); return
+		}
 		// Corner resize (opposite corner fixed) + Shift-square constrain reuse grips.ts's rect grip
 		// (R8-lite, refactor-plan.md's R8-lite §0/§2) via a throwaway fake rect `Ent` built from `drag.base`
 		// — storage stays `Frame`/`SheetFrame`, only the resize MATH is shared.
@@ -94,6 +114,7 @@
 		const grip = gripsLocal(PAPER_CTX, baseEnt, opts)[gi]
 		let p: Pt = [toSheet(e.clientX, e.clientY).x, toSheet(e.clientX, e.clientY).y]
 		p = constrainGrip(PAPER_CTX, baseEnt, gi, p, e.shiftKey, opts)
+		if (!e.altKey) p = [snapEdge(p[0], lines.x, tol), snapEdge(p[1], lines.y, tol)]   // resize: only the dragged edge(s) snap
 		const anchor = grip.anchor!   // the opposite corner, held fixed
 		const px = LEFT_GI.has(drag.gi) ? Math.min(p[0], anchor[0] - MIN) : Math.max(p[0], anchor[0] + MIN)
 		const py = TOP_GI.has(drag.gi) ? Math.min(p[1], anchor[1] - MIN) : Math.max(p[1], anchor[1] + MIN)
@@ -109,7 +130,11 @@
 	// fields apply to it). `frameEnt` builds a bare rect `Ent` on the fly so `marqueeSelect` (which wants
 	// `Ent[]`) can be reused without storing frames that way — storage stays `SheetFrame[]` (Dave's call).
 	const PAPER_CTX: ViewCtx = { dir: 'plan', isPlan: false, isElev: false, isIso: false, elevDir: 'front', cx: 0, cy: 0, ground: 0, mdl: undefined, yaw: 0, pitch: 0, paperMm: 1 }
-	const BAND_MM = 11   // border-band pick width, paper mm — matches the old CSS `border: 11px solid transparent`
+	// Frame geometry (f.x/y/w/h, like pw/ph) is in PAPER PX, not real paper mm — BAND_PX is that same
+	// unit, matching the old CSS `border: 11px solid transparent` exactly (not a paper-mm quantity,
+	// fixed from an earlier draft of this comment; see GRID_STEP_PX below for where a real-mm constant
+	// from snap.ts DOES need converting before touching frame geometry).
+	const BAND_PX = 11
 	const frameEnt = (f: SheetFrame): Ent => ({ id: f.id, type: 'rect', a: [f.x, f.y], b: [f.x + f.w, f.y + f.h] })
 	/** Topmost (last-drawn) INACTIVE frame whose border band contains p, or null. An active frame renders
 	 *  its own Viewport, not a hit-testable band/interior overlay (template `{#if !fa}`), so it's excluded —
@@ -118,7 +143,7 @@
 		for (let i = frames.length - 1; i >= 0; i--) {
 			const f = frames[i]
 			if (isFrameActive(f.id)) continue
-			if (inBox([p.x, p.y], f.x, f.y, f.x + f.w, f.y + f.h, BAND_MM, false)) return f
+			if (inBox([p.x, p.y], f.x, f.y, f.x + f.w, f.y + f.h, BAND_PX, false)) return f
 		}
 		return null
 	}
