@@ -635,6 +635,12 @@
 		if (moved) { suppressClick = true; editor.edit.mark() }
 		else if (s.branch) s.branch()   // an Ctrl-branch press with no drag: drop the stray zero-length segment
 		else if (s.grip.node && s.grip.obj && (s.grip.obj.type === 'wall' || s.grip.obj.type === 'conduit')) {
+			// B29: swallow the click that follows this release — else onClick's Select cascade re-runs at the
+			// same point, hits the object's BODY (hitModel), and calls selectObj(mid), REPLACING the 'node'
+			// item just set here with a plain 'obj' one (the two were independent stores pre-R3, so this
+			// didn't matter; now they share one exclusive Selection). Matches every other no-move-vs-moved
+			// gesture here (onDragUp/onSecDragUp/onGuideDragUp/…) already swallowing the trailing click.
+			suppressClick = true
 			selectNode(s.grip.obj.id!, s.grip.node.id)   // no-move click on a node grip → select the node
 		}
 		snapMark = null; editor.edit.end()   // close the gesture's undo step
