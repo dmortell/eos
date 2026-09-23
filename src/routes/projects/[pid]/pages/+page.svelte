@@ -12,6 +12,7 @@
 	import { page } from '$app/state'
 	import PaperPage from './parts/PaperPage.svelte'
 	import { newId } from './ids'
+	import { viewState } from './viewState.svelte'
 	import { type Proj, type SheetFrame, SCALES, DIR_LABEL as PROJ_LABEL } from './types'
 	import { PACKAGES, VERSIONS, REVISIONS, type PItem, PALETTE_ITEMS as paletteItems } from './mock/data'
 	import Viewport, { type VpOn } from './ui/Viewport.svelte'
@@ -64,25 +65,16 @@
 	let panes = $state<{ id: string; activeId: string; tool: string; layout: 'model' | 'sheet' }[]>([{ id: 'p1', activeId: 't2', tool: 'Select', layout: 'sheet' }])
 	// Canvas (paper-space) pan/zoom is per PANE + TAB — switching tabs in a pane keeps each tab's own paper
 	// position/zoom (was per-pane, so zooming one tab changed the next). Persisted per tab in localStorage
-	// (a per-user UI convenience); the viewport CONTENT view (docView) is the document-side pan/zoom.
-	let docCanvasView = $state<Record<string, View>>({})   // live per pane+tab (split-independent)
-	let cvCache = $state<Record<string, View>>({})          // per-tab localStorage seed (loaded once, client only)
-	const CV_LS = 'eos.pages.canvasView'
-	const cvKey = (paneId: string, tabId: string) => paneId + ':' + tabId
-	$effect(() => { try { cvCache = JSON.parse(localStorage.getItem(CV_LS) || '{}') } catch { /* private mode */ } })
-	const canvasViewOf = (pane: { id: string; activeId: string }): View => docCanvasView[cvKey(pane.id, pane.activeId)] ?? cvCache[pane.activeId] ?? { zoom: 1, x: 0, y: 0 }
-	function setCanvasView(pane: { id: string; activeId: string }, v: View) {
-		docCanvasView = { ...docCanvasView, [cvKey(pane.id, pane.activeId)]: v }
-		cvCache = { ...cvCache, [pane.activeId]: v }
-		try { localStorage.setItem(CV_LS, JSON.stringify(cvCache)) } catch { /* private mode */ }
-	}
+	// (a per-user UI convenience); the viewport CONTENT view (viewState.getView) is the document-side
+	// pan/zoom. Backed by viewState.svelte.ts (R2) — same key shapes + localStorage, see that file.
+	$effect(() => viewState.loadPersisted())
+	const canvasViewOf = (pane: { id: string; activeId: string }): View => viewState.getCanvas(pane.id, pane.activeId)
+	function setCanvasView(pane: { id: string; activeId: string }, v: View) { viewState.setCanvas(pane.id, pane.activeId, v) }
 	// Active PROJECTION keyed by PANE + tab, so each split pane is independent (plan in one, side in
 	// the other) yet each pane remembers a view's projection when you switch tabs within it.
-	let docProj = $state<Record<string, Proj>>({})
-	const projKey = (paneId: string, a: Tab) => `${paneId}:${a.id}`
 	function projOf(pane: { id: string }, a: Tab | null): Proj {
 		if (!a) return 'plan'
-		return docProj[projKey(pane.id, a)] ?? (a.kind === 'elevation' ? 'front' : a.kind === 'model' ? 'iso' : 'plan')
+		return viewState.getProj(pane.id, a.id) ?? (a.kind === 'elevation' ? 'front' : a.kind === 'model' ? 'iso' : 'plan')
 	}
 	// Map a projection to the Viewport render kind (same names since the 'floorplan'→'plan' rename): plan, iso → oblique 3D, the four
 	// elevations pass through as their own kind (the Viewport projects each per ELEV_BASIS).
@@ -134,9 +126,8 @@
 	// timeline, gesture-folded like an entity edit — so Ctrl+Z restores the model too.
 	function modelEdit(id: string, label = 'Edit model') { recordEdit(id, label) }
 	// Iso ORBIT (yaw/pitch), per pane+tab so split 3D views orbit independently. Drag the iso view to rotate.
-	let docOrbit = $state<Record<string, { yaw: number; pitch: number }>>({})
-	const orbitOf = (paneId: string, viewId: string, proj: Proj) => docOrbit[vkey(paneId, viewId, proj)] ?? { yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH }
-	function setOrbit(paneId: string, viewId: string, proj: Proj, yaw: number, pitch: number) { docOrbit = { ...docOrbit, [vkey(paneId, viewId, proj)]: { yaw, pitch } } }
+	const orbitOf = (paneId: string, viewId: string, proj: Proj) => viewState.getOrbit(paneId, viewId, proj) ?? { yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH }
+	function setOrbit(paneId: string, viewId: string, proj: Proj, yaw: number, pitch: number) { viewState.setOrbit(paneId, viewId, proj, yaw, pitch) }
 	// A SECTION is a plan marker (NOT a tab): a clip box + a primary sight direction + a name, stored in the
 	// MODEL (`Model.sections`, B5) so it is model-scoped (a cut on one model's plan doesn't show on another)
 	// and undoable (it rides `snapModels`). The Viewport creates / moves / re-aims / deletes markers as model
@@ -173,7 +164,7 @@
 	// ── multi-viewport sheets (AutoCAD paper space) — a sheet's PAGE MODEL is an array of viewport FRAMES
 	// (no special "primary"; the default page seeds one full-bleed frame). Each frame is a window onto the
 	// shared model at its own projection + scale + clip + geometry; its view/orbit/activation are keyed by
-	// the FRAME id (reusing docView/docOrbit/activeVps), while entity editing targets the tab's shared
+	// the FRAME id (reusing viewState/activeVps), while entity editing targets the tab's shared
 	// entities. Frames live per tab (surviving tab switches) and are undone/persisted with the page.
 	// (Later the page model also carries the titleblock + page annotations.) A section can be dropped in.
 	// Viewport frames = a sheet's page model → DOCUMENT state, keyed by drawing id (title) so they survive
@@ -217,14 +208,14 @@
 	// The active viewport in a tab: the tab id if active (model-layout tabs), else whichever sheet frame is.
 	const activeVpOf = (tabId: string): string | null => (isVpActive(tabId) ? tabId : framesOf(tabId).find((f) => isVpActive(f.id))?.id ?? null)
 	// The ViewCube reflects + re-aims a SHEET's active frame (or its first frame); a model-layout tab uses
-	// the per-pane docProj as before.
+	// the per-pane viewState projection as before.
 	const gizmoProj = (pane: { id: string }, a: Tab | null): Proj => {
 		if (a?.kind === 'sheet') { const av = activeVpOf(a.id); const f = (av ? framesOf(a.id).find((x) => x.id === av) : null) ?? framesOf(a.id)[0]; return (f?.proj ?? 'plan') as Proj }
 		return projOf(pane, a)
 	}
 	function gizmoSet(pane: { id: string }, a: Tab | null, proj: Proj) {
 		if (a?.kind === 'sheet') { const av = activeVpOf(a.id) ?? framesOf(a.id)[0]?.id; if (av) updateFrame(a.id, av, { proj, label: PROJ_LABEL[proj] }) }
-		else if (a) docProj = { ...docProj, [projKey(pane.id, a)]: proj }
+		else if (a) viewState.setProj(pane.id, a.id, proj)
 	}
 	let selFrameObj = $derived.by(() => { const t = active; return t && selFrame ? framesOf(t.id).find((f) => f.id === selFrame) ?? null : null })
 	// Scale denominator of the viewport the Properties panel edits in: an active extra sheet frame's own
@@ -264,14 +255,14 @@
 	const activeMid = () => modelIdOf(panes[focused]?.activeId ?? '')
 	const mdlEnts = (): Ent[] => mdlEntsOf(activeMid())
 	let docSel = $state<Record<string, string[]>>({})
-	let docView = $state<Record<string, View>>({})
 	const entsOf = (id: string) => entsForModel(tabs.find((t) => t.id === id)?.modelId)   // a tab's model's ents (sheets pass per-frame)
 	const selOf = (id: string) => docSel[id] ?? []
 	// View (content pan/zoom) is keyed by PANE + view + PROJECTION, so a split pans each pane independently
 	// AND each projection of a viewport (plan / front / … / 3D) remembers its own framing — flipping the
 	// ViewCube restores that view's pan/zoom instead of carrying one framing across all directions.
-	const vkey = (paneId: string, viewId: string, proj: Proj) => paneId + ':' + viewId + ':' + proj
-	const viewOf = (paneId: string, viewId: string, proj: Proj) => docView[vkey(paneId, viewId, proj)] ?? { zoom: 1, x: 0, y: 0 }
+	// Backed by viewState.svelte.ts (R2); `viewKey` re-exported there for anything that still needs the
+	// raw key string.
+	const viewOf = (paneId: string, viewId: string, proj: Proj) => viewState.getView(paneId, viewId, proj)
 	// A GESTURE (a drag or a nudge burst) should be ONE undo/history step: while a gesture is open,
 	// only the first mutation snapshots; the rest just update. Viewport signals begin/end.
 	let gestureActive = false, gesturePushed = false
@@ -416,7 +407,7 @@
 		recordEdit(id, 'Restore revision')
 	}
 	function setSel(id: string, ids: string[]) { docSel = { ...docSel, [id]: ids }; if (ids.length) treeNode = null }
-	function setView(paneId: string, viewId: string, proj: Proj, v: View) { docView = { ...docView, [vkey(paneId, viewId, proj)]: v } }
+	function setView(paneId: string, viewId: string, proj: Proj, v: View) { viewState.setView(paneId, viewId, proj, v) }
 	// Selected entities of the focused document (for the Properties panel).
 	let selEnts = $derived.by(() => {
 		const a = tabs.find(t => t.id === panes[focused]?.activeId); if (!a) return []
@@ -452,11 +443,8 @@
 	function dropDoc(id: string) {
 		const frameIds = framesOf(id).map((f) => f.id)
 		const ids = new Set<string>([id, ...frameIds])            // this tab + its viewport frames
-		const mine = (k: string) => ids.has(k.split(':')[1])       // key's viewId segment (pane:viewId[:proj]) belongs here
 		const ds = { ...docSel }; delete ds[id]; docSel = ds       // selection (entities per tab)
-		const dv = { ...docView }; for (const k of Object.keys(dv)) if (k === id || mine(k)) delete dv[k]; docView = dv        // pan/zoom
-		const dp = { ...docProj }; for (const k of Object.keys(dp)) if (k === id || mine(k)) delete dp[k]; docProj = dp        // per-pane projection
-		const dorb = { ...docOrbit }; for (const k of Object.keys(dorb)) if (mine(k)) delete dorb[k]; docOrbit = dorb          // iso orbit
+		viewState.drop([...ids])                                   // pan/zoom, orbit, per-pane projection
 		if (selSection === id) selSection = null
 		if (selFrame && ids.has(selFrame)) selFrame = null
 		deactivateVp(id); for (const fid of frameIds) deactivateVp(fid)   // reopened tab starts deactivated
