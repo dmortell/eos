@@ -14,10 +14,11 @@ import { orthoPt, constrainPt } from './annotations'
 export const SNAP_STEP = 100   // grid snap spacing (mm)
 
 /** Round a point to the grid (`step` mm; defaults to SNAP_STEP). */
-export const snapToGrid = (p: Pt, step = SNAP_STEP): Pt => [Math.round(p[0] / step) * step, Math.round(p[1] / step) * step]
+export const snapToGrid = (p: Pt, step = SNAP_STEP): Pt => [rndTo(p[0], step), rndTo(p[1], step)]
 
 /** Round one coordinate to the grid step, or leave it when `step` is 0 (SNAP off). */
-export const rndTo = (v: number, step: number): number => (step ? Math.round(v / step) * step : v)
+// A fractional step (1U = 44.45 mm) leaves float noise (38 × 44.45 = 1689.1000000000001): trim to 0.001 mm.
+export const rndTo = (v: number, step: number): number => (step ? Math.round(Math.round(v / step) * step * 1000) / 1000 : v)
 
 /** Grid-snap a MOVE delta so the entity's defining point (a / centre / first vertex) lands on the grid,
  *  keeping its shape. `step` = grid spacing, or 0 to disable (SNAP off). */
@@ -149,7 +150,7 @@ export function findSnap(ctx: ViewCtx, m: Mapper, ents: Ent[], clientX: number, 
 
 /** What drawPoint reads: the OSNAP / SNAP / ORTHO toggles, the active tool, the entities to snap to, and
  *  the inline-edited text id (skipped). */
-export type DrawInputs = { osnap: boolean; snap: boolean; ortho: boolean; tool: string; ents: Ent[]; editingId?: string; objs?: Obj[]; ml?: MLayers }
+export type DrawInputs = { osnap: boolean; snap: boolean; /** grid step, mm (default SNAP_STEP) */ step?: number; ortho: boolean; tool: string; ents: Ent[]; editingId?: string; objs?: Obj[]; ml?: MLayers }
 
 /** The point a draw/place should use, plus the snap mark to show. Object snap wins outright; otherwise
  *  the pointer point, Shift-constrained (square / 15°, per tool) or ORTHO-locked (H/V, Line + Dimension
@@ -162,7 +163,7 @@ export function drawPoint(ctx: ViewCtx, m: Mapper, inp: DrawInputs, clientX: num
 		if (shift) p = constrainPt(inp.tool, base, p, true)                                       // Shift: 15° / square
 		else if (inp.ortho && (inp.tool === 'Line' || inp.tool === 'Dimension')) p = orthoPt(base, p)   // ORTHO: H/V
 	}
-	if (inp.snap) p = snapToGrid(p)   // grid snap
+	if (inp.snap) p = snapToGrid(p, inp.step || SNAP_STEP)   // grid snap
 	return { p, mark: null }
 }
 

@@ -97,6 +97,12 @@ describe('drawPoint', () => {
 		expect(s.p[1]).toBeCloseTo(1000); expect(s.mark).toBe(null)
 		expect(drawPoint(planCtx, ident, { ...inp, snap: true }, 1349, 1051, base)).toEqual({ p: [1300, 1100], mark: null })
 	})
+	it('SNAP uses the status-bar step when given (25 mm, 1U = 44.45 mm)', () => {
+		const base: Pt = [1000, 1000]
+		expect(drawPoint(planCtx, ident, { ...inp, snap: true, step: 25 }, 1349, 1051, base).p).toEqual([1350, 1050])
+		const u = drawPoint(planCtx, ident, { ...inp, snap: true, step: 44.45 }, 1349, 1051, base).p
+		expect(u).toEqual([1333.5, 1066.8])   // 30U / 24U, no float noise
+	})
 })
 
 // ── slice-1 extras (entSnaps / snapDelta / snapToGrid edge cases; written by eos-18) ──────────────────

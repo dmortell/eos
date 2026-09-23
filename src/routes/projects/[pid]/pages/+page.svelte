@@ -125,6 +125,8 @@
 	// Paper / scale / frames now live in the `docs` PageDoc store (doc.svelte.ts, R2 commit 2), keyed by
 	// DRAWING id — thin accessors here resolve the tab id → drawing id first.
 	docs.seed('3303 Outlets', { scale: '1:25' })   // 3303 Outlets sheet defaults bigger (1:25)
+	docs.seed('Rack A · Elevation', { scale: '1:10' })   // a 2 m rack reads at 1:10, not 1:100
+	docs.seed('Rack A · 3D Model', { scale: '1:10' })
 	const paperOf = (id?: string) => docs.paperOf(didOf(id))
 	const paperDimsOf = (id?: string) => { const p = paperOf(id); return paperDims(p.size, p.landscape) }
 	function setPaper(id: string | undefined, patch: Partial<{ size: PaperSize; landscape: boolean }>) { docs.setPaper(id ? didOf(id) : undefined, patch) }
@@ -134,7 +136,7 @@
 	const setScale = (id: string | undefined, s: string) => { if (id) docs.setScale(didOf(id), s) }
 	// The drafting/interaction flags bundle passed to a pane's viewport (one prop instead of six).
 	let guideVert = $state(false)   // the Guide tool's H/V pop-out base (touch has no Shift); Shift still flips it
-	const envFor = (pane: { id: string; activeId: string }) => ({ acad: acadMode, navContent, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, cen: toggles.CEN, guideVert, canvasZoom: isModelLayout(pane) ? 1 : canvasViewOf(pane).zoom })   // B31: model space has no canvas zoom
+	const envFor = (pane: { id: string; activeId: string }) => ({ acad: acadMode, navContent, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, cen: toggles.CEN, snapStep, guideVert, canvasZoom: isModelLayout(pane) ? 1 : canvasViewOf(pane).zoom })   // B31: model space has no canvas zoom
 	// R6: the Viewport's callback bundle is split in two. `vpView` → `VpOn` (view/camera events only —
 	// still one `on` prop); `vpEditor` → `Editor` (document-mutating ops — entity array, undo-history
 	// bracket, section-marker selection). PaperPage also uses `frame`; the plain Viewport ignores it.
@@ -908,6 +910,7 @@
 	let mounted = false
 	$effect(() => { if (!mounted) { mounted = true; refitAll({ skipIfPersisted: true }) } })
 	let toggles = $state<Record<string, boolean>>({ GRID: true, SNAP: true, ORTHO: false, OSNAP: true, LWT: false, CEN: false })
+	let snapStep = $state(100)   // SNAP grid spacing, model mm (status bar; was the fixed SNAP_STEP)
 	// AutoCAD mode: wheel = zoom, draw = two clicks. Off = EOS: wheel = pan, draw = press-drag.
 	let acadMode = $state(true)
 	// Active-viewport content pan/zoom (Sheets-style): OFF by default, so wheel/drag over an
@@ -1052,7 +1055,7 @@
 	</div>
 
 	<!-- Status bar -->
-	<StatusBar bind:toggles bind:acadMode
+	<StatusBar bind:toggles bind:snapStep bind:acadMode
 		paperSize={paperOf(session.panes[session.focused]?.activeId).size} paperLandscape={paperOf(session.panes[session.focused]?.activeId).landscape}
 		onpapersize={(s) => setPaper(session.panes[session.focused]?.activeId, { size: s })}
 		onorient={(l) => setPaper(session.panes[session.focused]?.activeId, { landscape: l })}

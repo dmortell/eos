@@ -208,9 +208,9 @@ export function hitModel(ctx: ViewCtx, p: Pt, thrMm: number, ml: MLayers): strin
 	return null
 }
 
-/** One pickable iso face: its object, its drawing-space polygon and the camera depth of its first three
- *  corners (depth is affine across the face, so these three interpolate it at any point inside). */
-export type IsoPickFace = { id: string; pts: Pt[]; z: [number, number, number] }
+/** One pickable iso face: its object, its drawing-space polygon and its mean camera depth — the key
+ *  Model3d paints by (farthest first), so the face drawn on top is the one with the smallest depth. */
+export type IsoPickFace = { id: string; pts: Pt[]; depth: number }
 
 /** Every pickable (visible, unlocked) object's 3D faces, projected with Model3d's iso mapping (R7
  *  `viewMapOf` — camera + content-box centring). P4: the Viewport computes this ONCE per model / orbit /
@@ -226,25 +226,21 @@ export function isoPickFaces(ctx: ViewCtx, ml: MLayers): IsoPickFace[] {
 		if (!o.id || !ml.visible(o) || ml.locked(o)) continue
 		for (const f of faces3d(o)) {
 			if (f.pts.length < 3) continue
-			out.push({ id: o.id, pts: f.pts.map((v) => vm.toDraw(v)), z: [depth(f.pts[0]), depth(f.pts[1]), depth(f.pts[2])] })
+			out.push({ id: o.id, pts: f.pts.map((v) => vm.toDraw(v)), depth: f.pts.reduce((s, v) => s + depth(v), 0) / f.pts.length })
 		}
 	}
 	return out
 }
 
-/** 3D (iso) PICK over precomputed faces: the frontmost object whose face contains p — the smallest camera
- *  depth AT the click point, so a big face no longer beats a nearer small one. */
+/** 3D (iso) PICK over precomputed faces: the object whose face is PAINTED ON TOP at p — the same mean-depth
+ *  order Model3d's painter's algorithm draws in, so a click selects what you see. (Was the true depth at
+ *  the click point, which let an enclosing box — a rack cabinet — win over the device slabs drawn over
+ *  it, so the devices could never be picked in 3D.) */
 export function hitIsoFaces(faces: IsoPickFace[], p: Pt): string | null {
 	let best: string | null = null, bestDepth = Infinity
 	for (const f of faces) {
-		if (!inPoly(p, f.pts)) continue
-		const d0 = f.pts[0], d1 = f.pts[1], d2 = f.pts[2]
-		const v0x = d1[0] - d0[0], v0y = d1[1] - d0[1], v1x = d2[0] - d0[0], v1y = d2[1] - d0[1]
-		const den = v0x * v1y - v1x * v0y; if (Math.abs(den) < 1e-6) continue
-		const v2x = p[0] - d0[0], v2y = p[1] - d0[1]
-		const bb = (v2x * v1y - v1x * v2y) / den, cc = (v0x * v2y - v2x * v0y) / den
-		const depth = (1 - bb - cc) * f.z[0] + bb * f.z[1] + cc * f.z[2]
-		if (depth < bestDepth) { bestDepth = depth; best = f.id }
+		if (f.depth >= bestDepth || !inPoly(p, f.pts)) continue
+		bestDepth = f.depth; best = f.id
 	}
 	return best
 }

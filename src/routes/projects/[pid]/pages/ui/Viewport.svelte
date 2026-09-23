@@ -47,7 +47,8 @@
 	// (`sections`) — defaulting to `noopEditor` so every call site can read `editor.ents.add(e)` etc.
 	// directly, no `?.`. Drafting/interaction flags stay grouped into one `env` object. `frame` is only
 	// used by PaperPage; the Viewport ignores it.
-	export type Env = { acad?: boolean; navContent?: boolean; grid?: boolean; lwt?: boolean; osnap?: boolean; snap?: boolean; ortho?: boolean; cen?: boolean; guideVert?: boolean; canvasZoom?: number }
+	export type Env = { acad?: boolean; navContent?: boolean; grid?: boolean; lwt?: boolean; osnap?: boolean; snap?: boolean; ortho?: boolean; cen?: boolean; guideVert?: boolean; canvasZoom?: number;
+		/** SNAP grid spacing, model mm (status bar); defaults to SNAP_STEP. */ snapStep?: number }
 	export type VpOn = {
 		activate?: () => void; deactivate?: () => void; view?: (v: View) => void; orbit?: (yaw: number, pitch: number) => void;
 		scale?: (s: string) => void; status?: (text: string) => void; coords?: (x: number, y: number) => void; tool?: (name: string) => void;
@@ -92,6 +93,7 @@
 	const lwt = $derived(env.lwt ?? true)
 	const osnap = $derived(env.osnap ?? true)
 	const snap = $derived(env.snap ?? false)     // SNAP: round points to the grid step
+	const snapStep = $derived(env.snapStep || SNAP_STEP)   // the grid step (mm) — editable in the status bar
 	const ortho = $derived(env.ortho ?? false)   // ORTHO: constrain line-draw + move to H/V
 	const centerDraw = $derived(env.cen ?? false) // CEN: draw rect/ellipse centre-out (1st point = centre)
 	// Guide orientation: a base (set by the Guide tool's H/V pop-out, for touch) XOR the Shift key, so on a
@@ -511,7 +513,7 @@
 	// wrappers below inject them (prismTilted/prismOutline/convexHull/inPoly/graphHit are now hit.ts-internal).
 	const mlayers = { visible: modelLayerVisible, locked: modelLayerLocked }
 	const graphNodeDraw = (n: GN) => hGraphNodeDraw(ctx, n)
-	const rndSnap = (v: number) => rndTo(v, snap ? SNAP_STEP : 0)   // grid-round when SNAP is on
+	const rndSnap = (v: number) => rndTo(v, snap ? snapStep : 0)   // grid-round when SNAP is on
 	// snapNode / graphNodeApply live in ui/snap.ts (R1 step 5). The wrappers inject ctx, the tolerances
 	// (~10px snap radius, ~8px pull-apart radius around the drag origin) + the layer preds, and assign
 	// `snapMark` from the returned mark.
@@ -779,7 +781,7 @@
 	// The point a draw/place should use: object snap wins; else the shift/ortho-constrained, grid-snapped pointer.
 	function drawPoint(clientX: number, clientY: number, base?: Pt, shift = false): Pt | null {
 		const m = mapper(); if (!m) { snapMark = null; return null }
-		const r = sDrawPoint(ctx, m, { osnap, snap, ortho, tool, ents: entities, editingId: editText?.id, objs: mdl?.objects, ml: mlayers }, clientX, clientY, base, shift)
+		const r = sDrawPoint(ctx, m, { osnap, snap, step: snapStep, ortho, tool, ents: entities, editingId: editText?.id, objs: mdl?.objects, ml: mlayers }, clientX, clientY, base, shift)
 		snapMark = r.mark
 		return r.p
 	}
@@ -1002,9 +1004,9 @@
 	// Move an entity by (dx,dy) — place.moveEnt (elevation: horizontal drag → the view's footprint axis).
 	const moveEnt = (en: Ent, dx: number, dy: number): Ent => pMoveEnt(ctx, en, dx, dy)
 	// snapDelta lives in ui/snap.ts (R1 step 5); the wrapper passes the live grid step (0 when SNAP is off).
-	const snapDelta = (dx: number, dy: number, base: Ent): [number, number] => sSnapDelta(dx, dy, base, snap ? SNAP_STEP : 0)
+	const snapDelta = (dx: number, dy: number, base: Ent): [number, number] => sSnapDelta(dx, dy, base, snap ? snapStep : 0)
 	function applyDrag(p: Pt, shift: boolean): Ent {
-		if (drag!.kind === 'grip') { const cp = constrainGrip(ctx, drag!.base, drag!.gi, p, shift, gripOpts()); return gripsFor(drag!.base)[drag!.gi].apply(snap ? snapToGrid(cp) : cp) }
+		if (drag!.kind === 'grip') { const cp = constrainGrip(ctx, drag!.base, drag!.gi, p, shift, gripOpts()); return gripsFor(drag!.base)[drag!.gi].apply(snap ? snapToGrid(cp, snapStep) : cp) }
 		let dx = p[0] - drag!.start[0], dy = p[1] - drag!.start[1]
 		if (shift !== ortho) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 }   // ortho / axis-lock
 		const [sdx, sdy] = snapDelta(dx, dy, drag!.base)   // grid snap (SNAP toggle)

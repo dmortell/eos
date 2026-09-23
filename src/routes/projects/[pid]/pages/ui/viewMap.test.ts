@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest'
 import { viewMap, isoR, isoBounds, DEFAULT_YAW, DEFAULT_PITCH } from '../3dview/projection'
 import { elevU, ELEV_BASIS, type ElevDir } from './geometry'
-import { hitModel, graphNodeDraw, prismOutline, viewMapOf } from './hit'
+import { hitModel, graphNodeDraw, prismOutline, viewMapOf, hitModelIso } from './hit'
 import type { ViewCtx } from './view'
 import type { Model, Obj } from '../3dview/types'
 
@@ -78,6 +78,21 @@ describe('hitModel follows the drawn outline (R7)', () => {
 		const n = { id: 'n', x: 15000, y: 9000, z: 2600 }
 		expect(graphNodeDraw(frontCtx, n)).toEqual(viewMap('front', CX, CY, GROUND).toDraw(n))
 		expect(graphNodeDraw(planCtx, n)).toEqual([n.x, n.y])
+	})
+	it('3D: a device slab INSIDE a cabinet picks (what is painted on top wins), not the cabinet', () => {
+		// The Rack A demo shape: a cabinet box and a thinner device slab inside it near the front.
+		const cab = { type: 'prism', id: 'cab', x: 13700, y: 8450, z: 0, w: 600, d: 1000, h: 2000, edges: 4 } as Obj
+		const dev = { type: 'prism', id: 'dev', x: 13730, y: 8490, z: 1000, w: 540, d: 920, h: 180, edges: 4 } as Obj
+		const ctx = withObjs({ ...planCtx, dir: 'iso', isPlan: false, isIso: true, yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH }, [cab, dev])
+		const b = isoBounds([cab, dev], DEFAULT_YAW, DEFAULT_PITCH, CX, CY)!
+		const vm = viewMap('iso', CX, CY, GROUND, DEFAULT_YAW, DEFAULT_PITCH, b)
+		// Iso paints faces by mean depth (Model3d's painter's algorithm), which draws the slab's TOP face over the
+		// cabinet's sides — the teal bands you see. Wherever that band shows, a click must pick the slab.
+		const hits = new Set<string | null>()
+		for (let i = 0; i <= 8; i++) for (let j = 0; j <= 8; j++) hits.add(hitModelIso(ctx, vm.toDraw({ x: 13730 + 540 * i / 8, y: 8490 + 920 * j / 8, z: 1180 }), shown))
+		expect(hits.has('dev')).toBe(true)
+		const onCab = vm.toDraw({ x: 13700 + 300, y: 8450, z: 300 })     // cabinet face, well below the slab
+		expect(hitModelIso(ctx, onCab, shown)).toBe('cab')
 	})
 	it('isoBounds + viewMap centre an iso model on (cx, cy)', () => {
 		const o = { type: 'prism', id: 'c', x: 13000, y: 8000, w: 2000, d: 1500, h: 1000, z: 0, edges: 4 } as Obj
