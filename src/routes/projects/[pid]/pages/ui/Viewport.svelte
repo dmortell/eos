@@ -646,7 +646,7 @@
 	const nodeSelValid = $derived(nodeSelItem && mSelObj?.id === nodeSelItem.id && (mSelObj as { nodes?: GN[] }).nodes?.some((n) => n.id === nodeSelItem!.sub) ? { obj: nodeSelItem.id, node: nodeSelItem.sub! } : null)
 	// Model-object grips (prismCorners/applyPrismGrip/modelGrips) live in ui/grips.ts (R1 step 4); MGrip is
 	// imported. The wrapper injects ctx + the grid-snap (rndSnap) and node-apply (graphNodeApply) opts.
-	const modelGrips = (o: Obj): MGrip[] => gModelGrips(ctx, o, { rnd: rndSnap, applyNode: graphNodeApply })
+	const modelGrips = (o: Obj): MGrip[] => gModelGrips(ctx, o, { rnd: rndSnap, applyNode: graphNodeApply, shift: () => shiftDown })
 	// P6: the selected model object's grips, once per object / view change — shared by render and pick.
 	const mGrips = $derived(mSelObj ? modelGrips(mSelObj) : [])
 	// pickModelGrip builds ONE mapper for the press (P1), then tests every grip against it.

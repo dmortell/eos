@@ -35,6 +35,20 @@ export function pickSectionGrip(m: Mapper, sel: { id: string; clip: Clip }, clie
 	return null
 }
 
+// ── the ONE rotate-handle rule (entities AND model objects) ──
+/** Shift constrains every rotate handle to 15° steps. */
+export const ROT_SNAP_DEG = 15
+export const snapAngle = (deg: number, shift: boolean): number => (shift ? Math.round(deg / ROT_SNAP_DEG) * ROT_SNAP_DEG : deg)
+/** The angle a rotate handle sets, from the pointer `p` about the centre `c`: 0° = the handle straight
+ *  above the centre (where every rotate handle is drawn), clockwise in y-down drawing space, whole degrees,
+ *  Shift → 15° steps. `signed` gives −180..180 (a tilt) instead of 0..359. Used by the entity rotate handle
+ *  (`rotGripLocal`), the prism rotate handle (plan) and the prism tilt handle (elevation). */
+export function handleAngle(c: Pt, p: Pt, shift: boolean, signed = false): number {
+	let deg = snapAngle(Math.round((Math.atan2(p[1] - c[1], p[0] - c[0]) * 180) / Math.PI + 90), shift)
+	deg = ((deg % 360) + 360) % 360
+	return signed && deg > 180 ? deg - 360 : deg
+}
+
 // ── model-object grips (prism resize/rotate/tilt/swing + wall/conduit node handles) ──
 // The grip `apply` closures MUTATE the store object in place — that is the existing contract with the
 // snapModels undo step (the caller opens/closes the history step around the drag).
@@ -72,15 +86,18 @@ export function applyPrismGrip(ctx: ViewCtx, o: Extract<Obj, { type: 'prism' }>,
 
 /** Grips of the selected model object. prism = 4 resize corners (dropped when tilted) + a rotate handle
  *  (plan) / tilt handle (elevation) / door-swing handle; wall/conduit = one node handle each (drag =
- *  reshape via `opts.applyNode`, i.e. the caller's graphNodeApply). `opts.rnd` grid-snaps prism edits. */
-export function modelGrips(ctx: ViewCtx, o: Obj, opts: { rnd: (v: number) => number; applyNode: (n: GN, p: Pt, origin?: Pt) => void }): MGrip[] {
+ *  reshape via `opts.applyNode`, i.e. the caller's graphNodeApply). `opts.rnd` grid-snaps prism edits;
+ *  `opts.shift` is the live Shift getter — every angle handle snaps to 15° with it (`handleAngle`), the
+ *  same rule as an entity's rotate handle. */
+export function modelGrips(ctx: ViewCtx, o: Obj, opts: { rnd: (v: number) => number; applyNode: (n: GN, p: Pt, origin?: Pt) => void; shift?: () => boolean }): MGrip[] {
+	const shift = () => !!opts.shift?.()
 	if (o.type === 'prism') {
 		const cs = prismTilted(o) ? [] : prismCorners(ctx, o)   // a tilted prism drops its axis-aligned corners (B10)
 		const grips: MGrip[] = cs.map((c, gi) => ({ x: c[0], y: c[1], apply: (p: Pt) => applyPrismGrip(ctx, o, gi, p, cs[(gi + 2) % 4], opts.rnd) }))
 		if (ctx.isPlan && o.open !== 'door') {   // rotate handle above the top-centre, following the rotation
 			const cx = o.x + o.w / 2, cy = o.y + o.d / 2, off = o.d / 2 + Math.max(o.w, o.d) * 0.35
 			const hp = o.rot ? rotatePt([cx, cy - off], [cx, cy], o.rot) : [cx, cy - off] as Pt
-			grips.push({ x: hp[0], y: hp[1], apply: (p: Pt) => { o.rot = Math.round(((Math.atan2(p[1] - cy, p[0] - cx) * 180) / Math.PI + 90 + 360) % 360) } })
+			grips.push({ x: hp[0], y: hp[1], apply: (p: Pt) => { o.rot = handleAngle([cx, cy], p, shift()) } })
 		}
 		if (ctx.isElev && !o.open) {   // elevation rotate handle → in-plane tilt (front/rear → rotY, left/right → rotX)
 			const r = prismRect(ctx, o)!
@@ -89,8 +106,7 @@ export function modelGrips(ctx: ViewCtx, o: Obj, opts: { rnd: (v: number) => num
 			const ax = ELEV_BASIS[ctx.elevDir].axis, cur = ax === 0 ? (o.rotY ?? 0) : (o.rotX ?? 0)
 			const hp = cur ? rotatePt([C[0], C[1] - off], C, cur) : [C[0], C[1] - off] as Pt
 			grips.push({ x: hp[0], y: hp[1], apply: (p: Pt) => {
-				let a = Math.round(((Math.atan2(p[1] - C[1], p[0] - C[0]) * 180) / Math.PI + 90 + 360) % 360)
-				if (a > 180) a -= 360   // keep in −180..180 for a natural tilt range
+				const a = handleAngle(C, p, shift(), true)   // −180..180: a natural tilt range
 				if (ax === 0) o.rotY = a || undefined; else o.rotX = a || undefined
 			} })
 		}
@@ -99,7 +115,7 @@ export function modelGrips(ctx: ViewCtx, o: Obj, opts: { rnd: (v: number) => num
 			const tx = g.hx + g.L * (Math.cos(a) * g.ux + Math.sin(a) * g.vx), ty = g.hy + g.L * (Math.cos(a) * g.uy + Math.sin(a) * g.vy)
 			grips.push({ x: tx, y: ty, apply: (p: Pt) => {
 				const ang = Math.atan2((p[0] - g.hx) * g.vx + (p[1] - g.hy) * g.vy, (p[0] - g.hx) * g.ux + (p[1] - g.hy) * g.uy) * 180 / Math.PI
-				o.swing = Math.round(Math.max(0, Math.min(180, ang)))
+				o.swing = Math.max(0, Math.min(180, snapAngle(Math.round(ang), shift())))   // Shift → 15° like every angle handle
 			} })
 		}
 		return grips
@@ -141,11 +157,7 @@ export const canRotate = (ctx: ViewCtx, e: Ent, imgCropId: string | null): boole
 export function rotGripLocal(ctx: ViewCtx, e: Ent, gripMm: number, shift: () => boolean): Grip {
 	const [x0, y0, x1, y1] = bbox(ctx, e)
 	const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2
-	return { x: cx, y: y0 - gripMm * 6, rotate: true, apply: (p: Pt) => {
-		let deg = Math.round((Math.atan2(p[1] - cy, p[0] - cx) * 180 / Math.PI + 90 + 360) % 360)
-		if (shift()) deg = (Math.round(deg / 15) * 15) % 360
-		return { ...e, rot: deg }
-	} }
+	return { x: cx, y: y0 - gripMm * 6, rotate: true, apply: (p: Pt) => ({ ...e, rot: handleAngle([cx, cy], p, shift()) }) }
 }
 
 /** A flat object in elevation is a ground line; drag its min/max x-edge end (via elevU/elevUInv), keeping

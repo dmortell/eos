@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { resizeSectionClip, pickSectionGrip, prismCorners, gripsLocal, gripsFor, constrainGrip, canRotate, type GripOpts } from './grips'
+import { resizeSectionClip, pickSectionGrip, prismCorners, gripsLocal, gripsFor, constrainGrip, canRotate, handleAngle, modelGrips, type GripOpts } from './grips'
+import { doorGeom } from '../3dview/projection'
 import type { Mapper } from './mapper'
 import type { Clip, Obj } from '../3dview/types'
 import type { ViewCtx } from './view'
@@ -92,5 +93,51 @@ describe('entity grips', () => {
 		const p = ent({ type: 'polyline', pts: [[0, 0], [10, 0]] })
 		const rp = constrainGrip(planCtx, p, 1, [10, 6], true, opts)   // same math, keyed by pts
 		expect(rp[0]).toBeCloseTo(10.0995, 3); expect(rp[1]).toBeCloseTo(5.8310, 3)
+	})
+})
+
+// ── the ONE rotate-handle rule (Dave 2026-09-23: Shift didn't constrain model rotate handles) ──
+describe('handleAngle / every rotate handle snaps to 15° with Shift', () => {
+	const c: [number, number] = [0, 0]
+	const at = (deg: number): [number, number] => { const r = ((deg - 90) * Math.PI) / 180; return [Math.cos(r) * 100, Math.sin(r) * 100] }
+	it('0° = straight above the centre, clockwise; Shift → 15° steps; signed → −180..180', () => {
+		expect(handleAngle(c, at(0), false)).toBe(0)
+		expect(handleAngle(c, at(97), false)).toBe(97)
+		expect(handleAngle(c, at(97), true)).toBe(90)
+		expect(handleAngle(c, at(353), true)).toBe(0)
+		expect(handleAngle(c, at(290), false, true)).toBe(-70)
+		expect(handleAngle(c, at(290), true, true)).toBe(-75)
+	})
+	type Prism = Extract<Obj, { type: 'prism' }>
+	const prism = (over = {}): Prism => ({ type: 'prism', id: 'p', x: 0, y: 0, w: 200, d: 100, h: 500, z: 0, edges: 4, ...over } as Prism)
+	const noop = { rnd: (v: number) => v, applyNode: () => {} }
+	it('the plan prism rotate handle (furniture) honours Shift', () => {
+		const o = prism()
+		const rot = modelGrips(planCtx, o, { ...noop, shift: () => true }).at(-1)!
+		rot.apply([100 + Math.cos((7 * Math.PI) / 180) * 300, 50 + Math.sin((7 * Math.PI) / 180) * 300])   // 97°
+		expect(o.rot).toBe(90)
+		modelGrips(planCtx, o, { ...noop, shift: () => false }).at(-1)!.apply([100 + Math.cos((7 * Math.PI) / 180) * 300, 50 + Math.sin((7 * Math.PI) / 180) * 300])
+		expect(o.rot).toBe(97)
+	})
+	it('the elevation tilt handle (rack devices) honours Shift', () => {
+		const front: ViewCtx = { ...planCtx, dir: 'front', isPlan: false, isElev: true, elevDir: 'front' }
+		const o = prism({ x: 14000, y: 8750 })
+		const grips = modelGrips(front, o, { ...noop, shift: () => true })
+		const tilt = grips.at(-1)!, face = grips.slice(0, 4)   // the tilt handle turns about the face centre
+		const cx = (face[0].x + face[2].x) / 2, cy = (face[0].y + face[2].y) / 2, r = ((22 - 90) * Math.PI) / 180
+		tilt.apply([cx + Math.cos(r) * 400, cy + Math.sin(r) * 400])   // 22° → 15° with Shift
+		expect(o.rotY).toBe(15)
+	})
+	it('the door swing handle honours Shift (and stays within 0..180)', () => {
+		const o = prism({ open: 'door' })
+		const swing = modelGrips(planCtx, o, { ...noop, shift: () => true }).at(-1)!
+		const g = doorGeom(o), a = (52 * Math.PI) / 180
+		swing.apply([g.hx + g.L * (Math.cos(a) * g.ux + Math.sin(a) * g.vx), g.hy + g.L * (Math.cos(a) * g.uy + Math.sin(a) * g.vy)])
+		expect(o.swing).toBe(45)
+	})
+	it('the entity rotate handle uses the same rule', () => {
+		const e = ent({ a: [0, 0], b: [20, 10] })
+		const rot = gripsFor(planCtx, e, { ...opts, shift: () => true }).find((g) => g.rotate)!
+		expect(rot.apply([10 + Math.cos((7 * Math.PI) / 180) * 50, 5 + Math.sin((7 * Math.PI) / 180) * 50]).rot).toBe(90)
 	})
 })
