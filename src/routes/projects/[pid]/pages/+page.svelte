@@ -272,7 +272,10 @@
 	// closing/reopening the tab (B6). snapAllFrames/applyPtr operate on the whole map, so history is unaffected.
 	const framesOf = (tabId: string) => docs.framesOf(didOf(tabId))
 	function setFrames(tabId: string, frames: SheetFrame[]) { docs.setFrames(didOf(tabId), frames) }
-	function updateFrame(tabId: string, id: string, patch: Partial<SheetFrame>) { setFrames(tabId, framesOf(tabId).map((f) => (f.id === id ? { ...f, ...patch } : f))) }
+	// ensureHist FIRST (review 2026-09-23): a frame drag streams geometry through here and only records its
+	// step at the end, so without it the session's baseline ("Start") was captured AFTER the first move and
+	// the first frame move / resize could never be undone.
+	function updateFrame(tabId: string, id: string, patch: Partial<SheetFrame>) { ensureHist(tabId); setFrames(tabId, framesOf(tabId).map((f) => (f.id === id ? { ...f, ...patch } : f))) }
 	const newFrameId = () => newId('vf')
 	// Exactly one active viewport per sheet: activating a frame deactivates its siblings. Entering a frame
 	// also drops its page-level (border) selection — a frame selection is NOT retained across activation
