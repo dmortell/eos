@@ -138,12 +138,19 @@
 	const frameEnt = (f: SheetFrame): Ent => ({ id: f.id, type: 'rect', a: [f.x, f.y], b: [f.x + f.w, f.y + f.h] })
 	/** Topmost (last-drawn) INACTIVE frame whose border band contains p, or null. An active frame renders
 	 *  its own Viewport, not a hit-testable band/interior overlay (template `{#if !fa}`), so it's excluded —
-	 *  same exclusion the old `.vp-band`/`.vp-interior`-per-inactive-frame DOM achieved implicitly. */
+	 *  same exclusion the old `.vp-band`/`.vp-interior`-per-inactive-frame DOM achieved implicitly.
+	 *  `inBox(p, x0, y0, x1, y1, thr, false)` tests a band of ±thr AROUND the given rect (outer = rect
+	 *  grown by thr, inner = rect shrunk by thr) — passing the frame's own bounds straight through would
+	 *  pick up to BAND_PX OUTSIDE the frame too, not just the BAND_PX INSIDE it the old `.vp-band` CSS
+	 *  used (`inset:0; border:11px; box-sizing:border-box` — band is inside only). Insetting the tested
+	 *  rect by BAND_PX/2 (and halving thr to match) shifts inBox's outer edge back to the frame's own
+	 *  bounds, so the resulting band sits entirely inside — eos-07 caught this in review (2026-09-23). */
 	function frameBorderHit(p: { x: number; y: number }): SheetFrame | null {
+		const h = BAND_PX / 2
 		for (let i = frames.length - 1; i >= 0; i--) {
 			const f = frames[i]
 			if (isFrameActive(f.id)) continue
-			if (inBox([p.x, p.y], f.x, f.y, f.x + f.w, f.y + f.h, BAND_PX, false)) return f
+			if (inBox([p.x, p.y], f.x + h, f.y + h, f.x + f.w - h, f.y + f.h - h, h, false)) return f
 		}
 		return null
 	}
