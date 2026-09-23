@@ -260,6 +260,37 @@ export const isoR = (p: P3, yaw: number, pitch: number, cx: number, cy: number) 
 export const isoDepthR = (p: P3, yaw: number, pitch: number, cx: number, cy: number) =>
 	cam(p, yaw, pitch, cx, cy).depth
 
+// ── R7 (review.md §R7): ONE projection path for render and edit ──
+// `project()` / `isoR()` produce engine coords (u right, v UP). Pages draws in model mm with y DOWN,
+// elevations standing on GROUND and re-centred on the plan centre, iso centred on its own content box.
+// That engine→drawing affine used to be written three times (Model3d's group transform, and by hand in
+// hit/grips/snap/Viewport with comments promising they "match"). `viewMap` is the one definition: Model3d
+// renders through `xform`, everything that picks / grips / snaps goes through `toDraw` / `uvToDraw`.
+export type ViewMap = {
+	/** Engine (u, v-up) → drawing [x, y-down]. For shapes from `project()` / `isoR()`. */
+	uvToDraw(q: { u: number; v: number }): [number, number]
+	/** A model point → drawing [x, y] in this view. */
+	toDraw(p: P3): [number, number]
+	/** The same mapping as an SVG transform, for Model3d's `<g>` around engine coords. */
+	xform: string
+}
+/** The drawing-space mapping of view `dir`. `cx`/`cy` = the plan centre (elevation / iso pivot), `ground` =
+ *  the elevation ground line (drawing y of z = 0). Iso also needs the camera (`yaw`/`pitch`) and the content
+ *  box it is centred on (`isoBounds(…)`; null = no content → pivot at the centre). */
+export function viewMap(dir: Dir, cx: number, cy: number, ground: number, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH,
+	isoBox: { icx: number; icy: number } | null = null): ViewMap {
+	if (dir === 'plan') return { uvToDraw: (q) => [q.u, q.v], toDraw: (p) => [p.x, p.y], xform: '' }
+	if (dir === 'iso') {
+		const ix = cx - (isoBox?.icx ?? 0), iy = cy + (isoBox?.icy ?? 0)   // centre the content box on (cx, cy)
+		const uvToDraw = (q: { u: number; v: number }): [number, number] => [q.u + ix, iy - q.v]
+		return { uvToDraw, toDraw: (p) => uvToDraw(isoR(p, yaw, pitch, cx, cy)), xform: `translate(${ix} ${iy}) scale(1 -1)` }
+	}
+	const b = BASIS[dir]
+	const ox = cx - b.hs * (b.h === 'x' ? cx : cy)   // re-centre the on-axis coord about the plan centre (= geometry.elevU)
+	const uvToDraw = (q: { u: number; v: number }): [number, number] => [q.u + ox, ground - q.v]
+	return { uvToDraw, toDraw: (p) => uvToDraw({ u: b.hs * p[b.h], v: b.vs * p[b.v] }), xform: `translate(${ox} ${ground}) scale(1 -1)` }
+}
+
 // Axis-aligned model bounds of an object.
 export function objBounds(o: Obj): Clip {
 	if (o.type === 'prism') return { x0: o.x, x1: o.x + o.w, y0: o.y, y1: o.y + o.d, z0: o.z, z1: o.z + o.h }

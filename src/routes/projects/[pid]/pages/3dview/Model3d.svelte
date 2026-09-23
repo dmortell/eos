@@ -10,7 +10,7 @@
 	//   • iso: deferred (P1c) — the viewport keeps the mock iso for now.
 	// Line thickness is NON-SCALING (constant screen px, `vector-effect`) and LAYER-DEFINED (each layer's
 	// `weight`), so lineweight is a paper property independent of the drawing scale/zoom.
-	import { project, objBounds, faces3d, isoR, isoDepthR, trimToClip, doorGeom, isoBounds, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
+	import { project, objBounds, faces3d, isoR, isoDepthR, trimToClip, doorGeom, isoBounds, viewMap, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 	import { BASIS } from './types'
 	import type { Model, Obj, Dir, Clip } from './types'
 
@@ -104,13 +104,8 @@
 		for (let i = 0; i <= 12; i++) arc.push(at(swing * (1 - i / 12)))
 		return [leaf, arc]
 	}
-	const xform = $derived.by(() => {
-		if (dir === 'plan') return ''
-		if (dir === 'iso') return `translate(${cx - (isoBox?.icx ?? 0)} ${cy + (isoBox?.icy ?? 0)}) scale(1 -1)`   // centre the iso content bbox on (cx,cy), v-up
-		const b = BASIS[dir as 'front' | 'rear' | 'left' | 'right']
-		const ox = cx - b.hs * (b.h === 'x' ? cx : cy)                    // shift onto Pages' elevU centring
-		return `translate(${ox} ${ground}) scale(1 -1)`                   // v-up → GROUND − v
-	})
+	// R7: the engine → drawing mapping is `viewMap` (projection.ts) — the SAME one hit/grips/snap pick with.
+	const xform = $derived(viewMap(dir, cx, cy, ground, yaw, pitch, isoBox).xform)
 </script>
 
 <g class="m3d" transform={xform}>

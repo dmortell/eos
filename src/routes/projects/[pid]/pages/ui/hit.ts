@@ -5,9 +5,8 @@
 import type { Pt, Ent } from './geometry'
 import type { ViewCtx, MLayers } from './view'
 import type { Obj, Clip, Guide } from '../3dview/types'
-import { flatSpan, segDist, textBox, elevU, ELEV_BASIS } from './geometry'
-import { isoBounds, isoR, faces3d, isoDepthR, prismRings, project } from '../3dview/projection'
-import { BASIS } from '../3dview/types'
+import { flatSpan, segDist, textBox } from './geometry'
+import { isoBounds, faces3d, isoDepthR, project, viewMap, type ViewMap } from '../3dview/projection'
 import { PT_MM } from '../constants'
 
 // Flat (z=0, no height) object kinds that project to an edge-on ground line in elevation. Exported so
@@ -106,20 +105,26 @@ export function pickable(ctx: ViewCtx, e: Ent, layers: { hidden(id?: string): bo
 
 // ── model-object hit-testing (prisms + wall/conduit graphs) ──
 // These pick MODEL objects (Obj), not annotation Ents. `ml` carries the model-layer visibility/lock
-// predicates. projU/projUInv (the elevation horizontal projection) are inlined from ctx via elevU.
+// predicates. R7: every model point -> drawing mapping goes through `viewMapOf(ctx)` — the SAME
+// `projection.viewMap` Model3d renders with — and picking tests the `project()` outline Model3d draws.
+
+/** This view's model -> drawing mapping (R7). Iso needs the content box it is centred on (`isoBounds`). */
+export const viewMapOf = (ctx: ViewCtx, isoBox: { icx: number; icy: number } | null = null): ViewMap =>
+	viewMap(ctx.dir, ctx.cx, ctx.cy, ctx.ground, ctx.yaw, ctx.pitch, isoBox)
 
 /** A wall/conduit vertex in model space. */
 export type GN = { id: string; x: number; y: number; z: number }
 
-/** A prism's drawing-space AABB in the CURRENT view: plan = footprint [x..x+w]×[y..y+d]; elevation =
- *  silhouette face (on-axis extent via elevU, standing on GROUND from z to z+h). null off-view/non-prism. */
+/** A prism's drawing-space AABB in the CURRENT view — the box its EDIT grips sit on (unrotated: the
+ *  x/y/w/d/z/h it edits): plan = footprint [x..x+w]×[y..y+d]; elevation = its on-axis extent standing
+ *  from z to z+h, via the view's `viewMap` (R7). null off-view/non-prism. (Picking uses the DRAWN
+ *  outline instead — see `hitModel`.) */
 export function prismRect(ctx: ViewCtx, o: Obj): { x0: number; y0: number; x1: number; y1: number } | null {
 	if (o.type !== 'prism') return null
 	if (ctx.isElev) {
-		const ax = ELEV_BASIS[ctx.elevDir].axis
-		const lo = ax === 0 ? o.x : o.y, hi = lo + (ax === 0 ? o.w : o.d)
-		const u0 = elevU(ctx.elevDir, lo, ctx.cx, ctx.cy), u1 = elevU(ctx.elevDir, hi, ctx.cx, ctx.cy), base = ctx.ground - o.z
-		return { x0: Math.min(u0, u1), y0: base - o.h, x1: Math.max(u0, u1), y1: base }
+		const vm = viewMapOf(ctx)
+		const [u0, y1] = vm.toDraw({ x: o.x, y: o.y, z: o.z }), [u1, y0] = vm.toDraw({ x: o.x + o.w, y: o.y + o.d, z: o.z + o.h })
+		return { x0: Math.min(u0, u1), y0, x1: Math.max(u0, u1), y1 }
 	}
 	if (ctx.isPlan) return { x0: o.x, y0: o.y, x1: o.x + o.w, y1: o.y + o.d }
 	return null
@@ -128,13 +133,12 @@ export function prismRect(ctx: ViewCtx, o: Obj): { x0: number; y0: number; x1: n
 /** Is a prism tilted out of the vertical (rotX/rotY)? Its silhouette is then a leaning hull (B10). */
 export const prismTilted = (o: Obj): boolean => o.type === 'prism' && !!((o.rotX ?? 0) || (o.rotY ?? 0))
 
-/** A tilted prism's silhouette in the CURRENT view's drawing coords (convex hull of the projected 3D
- *  corners) — matches what project()/Model3d draw, so pick + grips sit on the shape. */
+/** A prism's silhouette in the CURRENT view's drawing coords — the outline `project()` gives Model3d
+ *  (the footprint polygon in plan, rot-aware; the face box when upright in an elevation; the leaning hull
+ *  when tilted, B10), mapped through the view's `viewMap` (R7). Plan / elevation only. */
 export function prismOutline(ctx: ViewCtx, o: Extract<Obj, { type: 'prism' }>): Pt[] {
-	const { bot, top } = prismRings(o)
-	const ax = ctx.isElev ? ELEV_BASIS[ctx.elevDir].axis : 0
-	const pts: Pt[] = [...bot, ...top].map((c) => ctx.isElev ? [elevU(ctx.elevDir, ax === 0 ? c.x : c.y, ctx.cx, ctx.cy), ctx.ground - c.z] : [c.x, c.y])
-	return convexHull(pts)
+	const vm = viewMapOf(ctx)
+	return convexHull(project(o, ctx.dir).flatMap((sh) => sh.pts.map((q) => vm.uvToDraw(q) as Pt)))
 }
 
 /** Convex hull (monotone chain) of drawing-coord points — the silhouette outline. */
@@ -153,12 +157,17 @@ function inPoly(pt: Pt, poly: Pt[]): boolean {
 	for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[i], b = poly[j]; if ((a[1] > pt[1]) !== (b[1] > pt[1]) && pt[0] < ((b[0] - a[0]) * (pt[1] - a[1])) / (b[1] - a[1]) + a[0]) c = !c }
 	return c
 }
+/** Inside the polygon, or within `thr` of its outline (so a thin or edge-on shape stays pickable). */
+function nearPoly(pt: Pt, poly: Pt[], thr: number): boolean {
+	if (poly.length >= 3 && inPoly(pt, poly)) return true
+	for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) if (segDist(pt, poly[j], poly[i]) <= thr) return true
+	return false
+}
 
-/** A graph node (wall/conduit vertex) → drawing coords for the current view (plan x/y; elevation on-axis
- *  via elevU + GROUND−z). */
+/** A graph node (wall/conduit vertex) → drawing coords for the current view (plan x/y; elevation the
+ *  re-centred on-axis coord + GROUND − z) — through the view's `viewMap` (R7). Plan / elevation only. */
 export function graphNodeDraw(ctx: ViewCtx, n: GN): Pt {
-	if (ctx.isElev) { const ax = ELEV_BASIS[ctx.elevDir].axis; return [elevU(ctx.elevDir, ax === 0 ? n.x : n.y, ctx.cx, ctx.cy), ctx.ground - n.z] }
-	return [n.x, n.y]
+	return viewMapOf(ctx).toDraw(n)
 }
 
 /** Any wall/conduit segment under p (drawing coords). In PLAN: distance to the drawn centreline within
@@ -168,9 +177,9 @@ export function graphNodeDraw(ctx: ViewCtx, n: GN): Pt {
  *  face — the centreline test stays as the fallback for edge-on / thin runs. */
 export function graphHit(ctx: ViewCtx, o: Extract<Obj, { type: 'wall' | 'conduit' }>, p: Pt, thr: number): boolean {
 	if (ctx.isElev) {
-		const b = BASIS[ctx.elevDir], ox = ctx.cx - b.hs * (b.h === 'x' ? ctx.cx : ctx.cy)   // Model3d's elevation xform
+		const vm = viewMapOf(ctx)   // R7: the same engine -> drawing mapping Model3d renders with
 		for (const sh of project(o, ctx.elevDir)) {
-			if (sh.closed && sh.pts.length >= 3 && inPoly(p, sh.pts.map((q) => [q.u + ox, ctx.ground - q.v] as Pt))) return true
+			if (sh.closed && sh.pts.length >= 3 && inPoly(p, sh.pts.map((q) => vm.uvToDraw(q) as Pt))) return true
 		}
 	}
 	const nm = new Map((o.nodes as GN[]).map((n) => [n.id, n]))
@@ -182,8 +191,9 @@ export function graphHit(ctx: ViewCtx, o: Extract<Obj, { type: 'wall' | 'conduit
 	return false
 }
 
-/** Topmost model object under p (drawing coords): a prism (footprint/face AABB, rot-aware in plan, or the
- *  tilted silhouette) or a wall/conduit graph. `thrMm` = pick tolerance in unscaled model mm. */
+/** Topmost model object under p (drawing coords): a prism whose DRAWN outline (`prismOutline` — the
+ *  `project()` shape Model3d paints, so rotation, tilt and odd edge counts come for free, R7) contains p
+ *  or lies within `thrMm` of it, or a wall/conduit graph. `thrMm` = pick tolerance in unscaled model mm. */
 export function hitModel(ctx: ViewCtx, p: Pt, thrMm: number, ml: MLayers): string | null {
 	const mdl = ctx.mdl
 	if (!(ctx.isPlan || ctx.isElev) || !mdl) return null
@@ -193,14 +203,7 @@ export function hitModel(ctx: ViewCtx, p: Pt, thrMm: number, ml: MLayers): strin
 		if (!o.id || !ml.visible(o) || ml.locked(o)) continue
 		if (o.type === 'wall' || o.type === 'conduit') { if (graphHit(ctx, o, p, thr)) return o.id; continue }
 		if (o.type !== 'prism') continue
-		if (prismTilted(o)) { if (inPoly(p, prismOutline(ctx, o))) return o.id; continue }   // tilted → true silhouette (B10)
-		if (ctx.isPlan && o.rot) {
-			const cx = o.x + o.w / 2, cy = o.y + o.d / 2, q = rotatePt(p, [cx, cy], -o.rot)
-			if (q[0] >= o.x - thr && q[0] <= o.x + o.w + thr && q[1] >= o.y - thr && q[1] <= o.y + o.d + thr) return o.id
-			continue
-		}
-		const r = prismRect(ctx, o); if (!r) continue
-		if (p[0] >= r.x0 - thr && p[0] <= r.x1 + thr && p[1] >= r.y0 - thr && p[1] <= r.y1 + thr) return o.id
+		if (nearPoly(p, prismOutline(ctx, o), thr)) return o.id
 	}
 	return null
 }
@@ -211,7 +214,8 @@ export function hitModelIso(ctx: ViewCtx, p: Pt, ml: MLayers): string | null {
 	const mdl = ctx.mdl
 	if (!mdl) return null
 	const b = isoBounds(mdl.objects, ctx.yaw, ctx.pitch, ctx.cx, ctx.cy, ml.visible); if (!b) return null
-	const D = (v: { x: number; y: number; z: number }): Pt => { const q = isoR(v, ctx.yaw, ctx.pitch, ctx.cx, ctx.cy); return [q.u + ctx.cx - b.icx, -q.v + ctx.cy + b.icy] }
+	const vm = viewMapOf(ctx, b)   // R7: Model3d's iso mapping (camera + content-box centring)
+	const D = (v: { x: number; y: number; z: number }): Pt => vm.toDraw(v)
 	let best: string | null = null, bestDepth = Infinity
 	for (const o of mdl.objects) {
 		if (!o.id || !ml.visible(o) || ml.locked(o)) continue

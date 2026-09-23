@@ -26,7 +26,7 @@
 	import type { ViewCtx } from './view'
 	import { pickSectionGrip as gPickSectionGrip, modelGrips as gModelGrips, pickModelGrip as gPickModelGrip, gripsFor as gGripsFor, constrainGrip, type MGrip, type Grip, type GripOpts } from './grips'
 	import { SNAP_STEP, snapToGrid, rndTo, snapDelta as sSnapDelta, findSnap as sFindSnap, drawPoint as sDrawPoint, snapNode as sSnapNode, graphNodeApply as sGraphNodeApply, elevDepthSnap as sElevDepthSnap } from './snap'
-	import { rotatePt, inThisView as hInThisView, groundInIso, rotCenter, bbox as hBbox, hitEnt as hHitEnt, pickable as hPickable, prismTilted, graphNodeDraw as hGraphNodeDraw, hitModel as hHitModel, hitModelIso, sectionCorners, hitSection as hHitSection, hitGuide as hHitGuide, marqueeSelect as hMarqueeSelect, type GN } from './hit'
+	import { rotatePt, inThisView as hInThisView, groundInIso, rotCenter, bbox as hBbox, hitEnt as hHitEnt, pickable as hPickable, prismTilted, graphNodeDraw as hGraphNodeDraw, hitModel as hHitModel, hitModelIso, viewMapOf as hViewMapOf, sectionCorners, hitSection as hHitSection, hitGuide as hHitGuide, marqueeSelect as hMarqueeSelect, type GN } from './hit'
 	import { isLayerHidden as lsHidden, isLayerLocked as lsLocked, layerColor as lsColor, layerOrder as lsOrder } from '../layers.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
 	import { MODEL_SPACE_INK, onDark } from './modelSpace'
@@ -35,7 +35,7 @@
 	import { constrainPt, sectionArrowFor } from './annotations'
 	import { guideId, selectedPlanGuide } from '../guides.svelte'
 	import { imgEdit, clearImgMode } from '../imageEdit.svelte'
-	import { DEFAULT_YAW, DEFAULT_PITCH, doorGeom, isoBounds, isoR } from '../3dview/projection'
+	import { DEFAULT_YAW, DEFAULT_PITCH, doorGeom, isoBounds } from '../3dview/projection'
 	import type { Obj, Clip } from '../3dview/types'
 	// Pure geometry (Pt/Ent/View + helpers) lives in ./geometry; import those types directly from there.
 	// (svelte-check can't resolve type re-exports from an instance <script>, so we don't re-export them.)
@@ -795,7 +795,8 @@
 	const isoGround = $derived.by(() => {
 		if (kind !== 'iso' || !mdl) return null
 		const b = isoBounds(mdl.objects, yaw, pitch, CX, CY, modelLayerVisible); if (!b) return null
-		return (x: number, y: number): Pt => { const q = isoR({ x, y, z: 0 }, yaw, pitch, CX, CY); return [q.u + CX - b.icx, -q.v + CY + b.icy] }
+		const vm = hViewMapOf(ctx, b)   // R7: Model3d's iso mapping (hit.viewMapOf → projection.viewMap)
+		return (x: number, y: number): Pt => vm.toDraw({ x, y, z: 0 })
 	})
 	// A plan entity's outline points (plan coords) + whether it's a closed shape, for ground projection.
 
