@@ -7,11 +7,9 @@ import type { Pt } from './geometry'
 import type { ViewCtx, MLayers } from './view'
 import type { Model, Obj, Guide, Section, Clip } from '../3dview/types'
 import { ELEV_BASIS, elevUInv, segDist } from './geometry'
-import { graphNodeDraw } from './hit'
+import { graphNodeDraw, type GN } from './hit'
 
-/** A wall/conduit graph node (see hit.ts's GN — duplicated here to avoid a hit.ts→modelEdit.ts import just
- *  for a type; the shape is Firestore-stable and used as a plain value, not a class). */
-export type GN = { id: string; x: number; y: number; z: number }
+export type { GN }
 
 /** The history bracket: today's `on.beginedit?.()` / `on.modeledit?.(label)` / `on.endedit?.(debounceMs)`,
  *  packaged as one object so a store-mutation function takes ONE extra argument instead of three optional

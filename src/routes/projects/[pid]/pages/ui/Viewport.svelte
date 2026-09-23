@@ -12,15 +12,16 @@
 	import Handle from '../parts/Handle.svelte'
 	import EntRender from './render/EntRender.svelte'
 	import { BASE, HANDLE_PX, PAPER_PX_PER_MM, PT_MM } from '../constants'
-	import { type Pt, type Ent, type View, type ElevDir, GROUND, MMPU, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, ELEV_BASIS, elevU, elevUInv, dist, segDist, translate } from './geometry'
+	import { type Pt, type Ent, type View, type ElevDir, GROUND, MMPU, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, ELEV_BASIS, dist, segDist, translate } from './geometry'
 	import { makeMapper, type Mapper } from './mapper'
 	import { beginPointerDrag, DragRegistry } from './gestures'
 	import { drawPlane, buildEnt, sectionObj, sectionName, PRISM_TOOL, trimTail, polylineEnt, graphObj, prismObj, guideObj, imageWithOrigin, imageScaled, moveEnt as pMoveEnt } from './place'
 	import {
 		addModelObj as meAddModelObj, deleteModelSel as meDeleteModelSel, deleteGraphNode as meDeleteGraphNode,
 		insertGraphNode as meInsertGraphNode, branchNode as meBranchNode, addGuide as meAddGuide, addSection as meAddSection,
-		setSectionDir as meSetSectionDir, deleteSection as meDeleteSection, setSectionClip as meSetSectionClip, type EditScope,
+		setSectionDir as meSetSectionDir, deleteSection as meDeleteSection, setSectionClip as meSetSectionClip,
 	} from './modelEdit'
+	import { noopEditor, type Editor } from './editor'
 	import type { ViewCtx } from './view'
 	import { pickSectionGrip as gPickSectionGrip, modelGrips as gModelGrips, pickModelGrip as gPickModelGrip, gripsFor as gGripsFor, constrainGrip, type MGrip, type Grip, type GripOpts } from './grips'
 	import { SNAP_STEP, snapToGrid, rndTo, snapDelta as sSnapDelta, findSnap as sFindSnap, drawPoint as sDrawPoint, snapNode as sSnapNode, graphNodeApply as sGraphNodeApply, elevDepthSnap as sElevDepthSnap } from './snap'
@@ -37,28 +38,26 @@
 	// Pure geometry (Pt/Ent/View + helpers) lives in ./geometry; import those types directly from there.
 	// (svelte-check can't resolve type re-exports from an instance <script>, so we don't re-export them.)
 
-	// Drafting/interaction flags are grouped into one `env` object, and all the event callbacks into
-	// one `on` object, to keep the prop list small (a step toward a headless editor class — see
-	// review.md §4.1). `frame` is only used by PaperPage; the Viewport ignores it.
+	// R6: the callback bundle is split in two. `on` (VpOn) is now VIEW events only — things that happen to
+	// the CAMERA/UI, not the document — so it stays useful even for a read-only/preview Viewport with no
+	// `editor`. `editor` (./editor.ts) carries everything that MUTATES the document: entity ops (`ents`),
+	// the undo-history bracket (`edit`, commit 1's EditScope), and section-marker workspace selection
+	// (`sections`) — defaulting to `noopEditor` so every call site can read `editor.ents.add(e)` etc.
+	// directly, no `?.`. Drafting/interaction flags stay grouped into one `env` object. `frame` is only
+	// used by PaperPage; the Viewport ignores it.
 	export type Env = { acad?: boolean; navContent?: boolean; grid?: boolean; lwt?: boolean; osnap?: boolean; snap?: boolean; ortho?: boolean; cen?: boolean; guideVert?: boolean; canvasZoom?: number }
 	export type VpOn = {
-		activate?: () => void; deactivate?: () => void; add?: (e: Ent) => void; update?: (e: Ent) => void;
-		delete?: (ids: string[]) => void; select?: (ids: string[]) => void; view?: (v: View) => void;
-		status?: (text: string) => void; coords?: (x: number, y: number) => void; beginedit?: () => void;
-		endedit?: (debounceMs?: number) => void; tool?: (name: string) => void;
-		copy?: (ids: string[]) => void; cut?: (ids: string[]) => void; paste?: () => void;
-		group?: (ids: string[]) => void; ungroup?: (ids: string[]) => void;
-		reorder?: (ids: string[], op: 'front' | 'back' | 'forward' | 'backward') => void;
-		scale?: (s: string) => void; modeledit?: (label?: string) => void; orbit?: (yaw: number, pitch: number) => void;
-		sectionselect?: (id: string | null) => void   // the selected marker is shared workspace state (one per model, across panes) — B5: create/move/re-aim/delete are MODEL edits made here
-		sectiondropdir?: (id: string, dir: ElevDir) => void   // drop this direction's elevation as a viewport frame on the current sheet
+		activate?: () => void; deactivate?: () => void; view?: (v: View) => void; orbit?: (yaw: number, pitch: number) => void;
+		scale?: (s: string) => void; status?: (text: string) => void; coords?: (x: number, y: number) => void; tool?: (name: string) => void;
 	}
-	let { label = 'Viewport', scale = '1:1', kind = 'plan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {}, frameId = undefined, modelId = undefined,
+	let { label = 'Viewport', scale = '1:1', kind = 'plan', active = false, focused = true, tool = 'Select', boxW, boxH, border = 'dashed', env = {}, on = {}, editor = noopEditor, frameId = undefined, modelId = undefined,
 		entities = [], sel = [], view = { zoom: 1, x: 0, y: 0 }, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, selSection = null }:
-		{ label?: string; scale?: string; kind?: 'plan' | 'iso' | ElevDir; active?: boolean; tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env; on?: VpOn; frameId?: string; modelId?: number;
+		{ label?: string; scale?: string; kind?: 'plan' | 'iso' | ElevDir; active?: boolean; tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env; on?: VpOn; editor?: Editor; frameId?: string; modelId?: number;
 			focused?: boolean; entities?: Ent[]; sel?: string[]; view?: View; clip?: Clip | null; yaw?: number; pitch?: number; selSection?: string | null } = $props()
-	// Callbacks are called directly as on.x?.(…) — no aliases (a $derived rename adds nothing for a
-	// function that's only invoked). env flags stay derived because they're read as values.
+	// VIEW callbacks are called directly as on.x?.(…); EDITOR ops as editor.ents.x(…) / editor.edit.x(…) /
+	// editor.sections.x(…) — no `?.` needed there since `editor` defaults to noopEditor. No aliases either
+	// way (a $derived rename adds nothing for a function that's only invoked). env flags stay derived
+	// because they're read as values.
 	const acad = $derived(env.acad ?? true)
 	const navContent = $derived(env.navContent ?? false)
 	const lwt = $derived(env.lwt ?? true)
@@ -77,9 +76,6 @@
 	const ELEV = new Set<string>(['front', 'rear', 'left', 'right'])
 	const isElev = $derived(ELEV.has(kind))
 	const elevDir = $derived((isElev ? kind : 'front') as ElevDir)
-	// Project a footprint coordinate (along the current dir's axis) to the drawing horizontal, and back.
-	const projU = (coord: number) => elevU(elevDir, coord, CX, CY)
-	const projUInv = (u: number) => elevUInv(elevDir, u, CX, CY)
 	const DRAW = new Set(['Line', 'Rectangle', 'Ellipse', 'Dimension', 'Text', 'Wall', 'Furniture', 'Trunk', 'Pipe', 'Section', 'Opening', 'Guide'])
 	const SECTION_DIRS: ElevDir[] = ['front', 'rear', 'left', 'right']   // the 4 cut directions a section box can spawn
 	// Guide lines belong to a drawable VIEW space (plan or an elevation); iso has none.
@@ -192,22 +188,22 @@
 	}
 	// panzoom passes its node as a trailing arg (unused here)
 	// The entity / model-object builders live in ui/place.ts (R1 step 6); the Viewport keeps the side
-	// effects (on.add / addModelObj / on.section) and the tool dispatch.
+	// effects (editor.ents.add / addModelObj / meAddSection) and the tool dispatch.
 	function place(a: Pt, b: Pt) {
 		const ent = buildEnt(ctx, tool, a, b, { centerDraw, uid })   // Line / Rectangle / Ellipse / Dimension
-		if (ent) { on.add?.(ent); return }
+		if (ent) { editor.ents.add(ent); return }
 		const ps = PRISM_TOOL[tool]   // Furniture / Opening → a MODEL prism footprint (plan only)
 		if (ps && isPlan) { addModelObj(prismObj(ctx, a, b, ps.layer, ps.h, () => mUid(ps.tag))); return }
 		if (tool === 'Section' && isPlan && mdl) {   // §4 / B5 — clip box on the plan → a section marker in the MODEL (one undo step), selected
 			const sec = sectionObj(ctx, a, b, mUid('sec'), sectionName(mdl.sections ?? [])); if (!sec) return
-			meAddSection(mdl, edit, sec)
-			on.sectionselect?.(sec.id)   // grips + toolbar; drop its elevations via the arrows
+			meAddSection(mdl, editor.edit, sec)
+			editor.sections.select(sec.id)   // grips + toolbar; drop its elevations via the arrows
 		}
 	}
 	// The Line tool draws a POLYLINE in AutoCAD mode: keep clicking to add segments, Enter /
 	// double-click / right-click to finish (Esc cancels). (EOS press-drag = a single segment.)
 	function finishPolyline() {
-		if (tool === 'Line') { const pl = polylineEnt(ctx, draft, uid); if (pl) on.add?.(pl) }
+		if (tool === 'Line') { const pl = polylineEnt(ctx, draft, uid); if (pl) editor.ents.add(pl) }
 		else if (MODEL_GRAPH.has(tool) && (isPlan || isElev)) placeGraph(trimTail(draft))   // Wall / Trunk / Pipe (plan or elevation — vertical runs)
 		draft = []; cur = null; snapMark = null
 	}
@@ -227,7 +223,7 @@
 		if (tool === 'Select') {
 			const p = toLocal(e); if (!p) return
 			if (kind === 'iso') {   // 3D view: click a shape to select it for the Properties panel (no in-view grips yet)
-				const mid = hitModelIso(ctx, p, mlayers); setModelSel(mid ? [mid] : []); on.select?.([])
+				const mid = hitModelIso(ctx, p, mlayers); setModelSel(mid ? [mid] : []); editor.ents.select([])
 				return
 			}
 			// B25: a Shift-press toggles the entity that was PRESSED (recorded in onDown), not whatever sits under
@@ -235,18 +231,18 @@
 			const g = expandGroup(shiftPressId ? [shiftPressId] : hit(p))   // the clicked entity + any group it belongs to
 			shiftPressId = null
 			if (e.shiftKey || e.ctrlKey || e.metaKey) {   // additive: toggle the whole group
-				if (g.length) { const allSel = g.every(x => selSet.has(x)); on.select?.(allSel ? sel.filter(x => !g.includes(x)) : [...new Set([...sel, ...g])]) }
+				if (g.length) { const allSel = g.every(x => selSet.has(x)); editor.ents.select(allSel ? sel.filter(x => !g.includes(x)) : [...new Set([...sel, ...g])]) }
 			} else {
 				// entity click wins; else a model object; else a section marker; else a guide line; else clear.
-				if (g.length) { on.select?.(g); setModelSel([]); on.sectionselect?.(null) }
-				else { const mid = hitModel(p); if (mid) { setModelSel([mid]); on.select?.([]); on.sectionselect?.(null) }
-					else { const sid = hitSection(p); if (sid) { on.sectionselect?.(sid); setModelSel([]) }   // click a marker border → SELECT it (grips + toolbar); open via the link button
-						else { const gid = hitGuide(p); if (gid) { setModelSel([gid]); on.select?.([]); on.sectionselect?.(null) }   // guide selection reuses modelSel (it lives in the model now)
-							else { on.select?.([]); setModelSel([]); on.sectionselect?.(null) } } } }
+				if (g.length) { editor.ents.select(g); setModelSel([]); editor.sections.select(null) }
+				else { const mid = hitModel(p); if (mid) { setModelSel([mid]); editor.ents.select([]); editor.sections.select(null) }
+					else { const sid = hitSection(p); if (sid) { editor.sections.select(sid); setModelSel([]) }   // click a marker border → SELECT it (grips + toolbar); open via the link button
+						else { const gid = hitGuide(p); if (gid) { setModelSel([gid]); editor.ents.select([]); editor.sections.select(null) }   // guide selection reuses modelSel (it lives in the model now)
+							else { editor.ents.select([]); setModelSel([]); editor.sections.select(null) } } } }
 			}
 			return
 		}
-		if (tool === 'Text') { const p = drawPoint(e.clientX, e.clientY); if (p) on.add?.({ id: uid(), type: 'text', a: p, text: 'TEXT', plane: drawPlane(ctx) }); snapMark = null; return }
+		if (tool === 'Text') { const p = drawPoint(e.clientX, e.clientY); if (p) editor.ents.add({ id: uid(), type: 'text', a: p, text: 'TEXT', plane: drawPlane(ctx) }); snapMark = null; return }
 		if (tool === 'Guide') { const p = toLocal(e); if (p) placeGuide(p, guideIsVert(e.shiftKey)); return }   // drop an alignment guide (H/V pop-out, Shift flips)
 		// Model objects are placed in the plan — EXCEPT wall/trunk/pipe graphs, which can also be drawn in
 		// an elevation (a vertical wall conduit). Furniture / Section / Opening stay plan-only.
@@ -279,8 +275,8 @@
 	// both an in-progress draw and an in-progress move/grip drag.
 	function reconstrain(shift: boolean) {
 		if (drag && lastDragRaw) {
-			if (drag.kind === 'grip') on.update?.(applyDrag(lastDragRaw, shift))
-			else { let dx = lastDragRaw[0] - drag.start[0], dy = lastDragRaw[1] - drag.start[1]; if (shift !== ortho) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 } for (const b of drag.bases) on.update?.(moveEnt(b, dx, dy)) }
+			if (drag.kind === 'grip') editor.ents.update(applyDrag(lastDragRaw, shift))
+			else { let dx = lastDragRaw[0] - drag.start[0], dy = lastDragRaw[1] - drag.start[1]; if (shift !== ortho) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 } for (const b of drag.bases) editor.ents.update(moveEnt(b, dx, dy)) }
 		} else if (active && draft.length && lastRaw) cur = constrainPt(tool, draft.at(-1)!, lastRaw, shift)   // Shift: square / 15° (ui/annotations.ts)
 	}
 	// Double-click: outside a viewport → enter model space; inside an active viewport, on a
@@ -324,7 +320,7 @@
 	function commitText() {
 		if (!editText) return
 		const ent = entities.find(x => x.id === editText!.id)
-		if (ent) on.update?.({ ...ent, text: editText.value })
+		if (ent) editor.ents.update({ ...ent, text: editText.value })
 		editText = null
 	}
 	// Note: right-button is reserved for pan/zoom (incl. mid-draw, to reach a far
@@ -338,25 +334,25 @@
 		if (isTypingTarget(e.target) || isTypingTarget(document.activeElement)) return   // typing in a field → let it through
 		if (e.key === 'Shift') { shiftDown = true; reconstrain(true); updateGuidePreview(true); return }
 		if (e.key === 'Enter' && POLY.has(tool) && draft.length) { e.preventDefault(); finishPolyline(); return }   // finish polyline / wall / trunk / pipe
-		if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) { e.preventDefault(); on.select?.(entities.map(x => x.id)); return }   // select all
+		if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) { e.preventDefault(); editor.ents.select(entities.map(x => x.id)); return }   // select all
 		if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D') && sel.length) {   // duplicate (offset +8,+8)
 			e.preventDefault()
 			const off = 5 * paperMm; const copies = sel.map(id => entities.find(x => x.id === id)).filter(Boolean).map(en => ({ ...translate(en!, off, off), id: uid() }))   // B19: 5 PAPER mm, visible at any scale
-			copies.forEach(c => on.add?.(c)); on.select?.(copies.map(c => c.id))
+			copies.forEach(c => editor.ents.add(c)); editor.ents.select(copies.map(c => c.id))
 			return
 		}
 		if (e.ctrlKey || e.metaKey) {   // clipboard + grouping + draw order
 			// draw order: Ctrl+] forward · Ctrl+[ backward · +Shift = to front / back
-			if ((e.key === ']' || e.key === '}') && sel.length) { e.preventDefault(); on.reorder?.(sel, e.shiftKey ? 'front' : 'forward'); return }
-			if ((e.key === '[' || e.key === '{') && sel.length) { e.preventDefault(); on.reorder?.(sel, e.shiftKey ? 'back' : 'backward'); return }
+			if ((e.key === ']' || e.key === '}') && sel.length) { e.preventDefault(); editor.ents.reorder(sel, e.shiftKey ? 'front' : 'forward'); return }
+			if ((e.key === '[' || e.key === '{') && sel.length) { e.preventDefault(); editor.ents.reorder(sel, e.shiftKey ? 'back' : 'backward'); return }
 			const k = e.key.toLowerCase()
-			if (k === 'c' && sel.length) { e.preventDefault(); on.copy?.(sel); return }
-			if (k === 'x' && sel.length) { e.preventDefault(); on.cut?.(sel); return }
-			if (k === 'v') { e.preventDefault(); on.paste?.(); return }
-			if (k === 'g' && !e.shiftKey && sel.length) { e.preventDefault(); on.group?.(sel); return }
-			if (k === 'g' && e.shiftKey && sel.length) { e.preventDefault(); on.ungroup?.(sel); return }
+			if (k === 'c' && sel.length) { e.preventDefault(); editor.ents.copy(sel); return }
+			if (k === 'x' && sel.length) { e.preventDefault(); editor.ents.cut(sel); return }
+			if (k === 'v') { e.preventDefault(); editor.ents.paste(); return }
+			if (k === 'g' && !e.shiftKey && sel.length) { e.preventDefault(); editor.ents.group(sel); return }
+			if (k === 'g' && e.shiftKey && sel.length) { e.preventDefault(); editor.ents.ungroup(sel); return }
 		}
-		if ((e.key === 'Delete' || e.key === 'Backspace') && sel.length && !draft.length) { e.preventDefault(); on.delete?.(sel); return }
+		if ((e.key === 'Delete' || e.key === 'Backspace') && sel.length && !draft.length) { e.preventDefault(); editor.ents.delete(sel); return }
 		if ((e.key === 'Delete' || e.key === 'Backspace') && nodeSelValid && !draft.length) { e.preventDefault(); deleteGraphNode(nodeSelValid); nodeSel = null; return }
 		if ((e.key === 'Delete' || e.key === 'Backspace') && modelSel.length && !draft.length) { e.preventDefault(); deleteModelSel(); return }
 		if ((e.key === 'Delete' || e.key === 'Backspace') && selSection && !draft.length) { e.preventDefault(); deleteSection(selSection); return }
@@ -365,9 +361,9 @@
 			const s = e.shiftKey ? 10 : 1
 			const dx = e.key === 'ArrowLeft' ? -s : e.key === 'ArrowRight' ? s : 0
 			const dy = e.key === 'ArrowUp' ? -s : e.key === 'ArrowDown' ? s : 0
-			on.beginedit?.()   // coalesce a nudge burst into one history step (closes 600ms after the last)
-			for (const id of sel) { const en = entities.find(x => x.id === id); if (en) on.update?.(moveEnt(en, dx, dy)) }
-			on.endedit?.(600)
+			editor.edit.begin()   // coalesce a nudge burst into one history step (closes 600ms after the last)
+			for (const id of sel) { const en = entities.find(x => x.id === id); if (en) editor.ents.update(moveEnt(en, dx, dy)) }
+			editor.edit.end(600)
 			return
 		}
 		if (e.key !== 'Escape') return
@@ -375,8 +371,8 @@
 		if (imgEdit.mode) { clearImgMode(); scalePts = []; scaleReal = null }
 		else if (draft.length) { draft = []; cur = null; snapMark = null }
 		else if (tool !== 'Select') on.tool?.('Select')
-		else if (selSection) on.sectionselect?.(null)
-		else if (sel.length) on.select?.([])
+		else if (selSection) editor.sections.select(null)
+		else if (sel.length) editor.ents.select([])
 		else on.deactivate?.()
 	}
 
@@ -470,11 +466,11 @@
 	const sections = $derived(isPlan ? (mdl?.sections ?? []) : [])
 	const setSectionClip = (id: string, clip: Clip) => { if (mdl) meSetSectionClip(mdl, id, clip) }   // inside a drag gesture (the caller records the step)
 	function setSectionDir(id: string, dir: ElevDir) {
-		if (mdl) meSetSectionDir(mdl, edit, id, dir)
+		if (mdl) meSetSectionDir(mdl, editor.edit, id, dir)
 	}
 	function deleteSection(id: string) {
 		if (!mdl) return
-		if (meDeleteSection(mdl, edit, id) && selSection === id) on.sectionselect?.(null)
+		if (meDeleteSection(mdl, editor.edit, id) && selSection === id) editor.sections.select(null)
 	}
 	// hitSection / sectionCorners live in ui/hit.ts (R1 step 3); the wrapper injects ctx + the section list.
 	const hitSection = (p: Pt) => hHitSection(ctx, sections, p, tolMm(6))
@@ -508,13 +504,13 @@
 	function placeGuide(p: Pt, shift: boolean) {
 		if (!mdl) return
 		const g = guideObj(ctx, p, shift, guideId()); if (!g) return   // null in iso (no drawing plane)
-		meAddGuide(mdl, edit, g)
+		meAddGuide(mdl, editor.edit, g)
 	}
 	// IMAGE calibration (Uploads-tool model). ORIGIN: store the clicked point as a normalized anchor.
 	function setImageOrigin(id: string, p: Pt) {
 		const img = entities.find((x) => x.id === id); if (!img) return
 		const next = imageWithOrigin(img, p); if (next === img) return   // not an image
-		on.update?.(next)
+		editor.ents.update(next)
 		clearImgMode()
 	}
 	// SCALE: after the 2-point line + a real-world distance, resize the image (a→b) by real/measured about
@@ -529,7 +525,7 @@
 		const img = imgEdit.id ? entities.find((x) => x.id === imgEdit.id) : null
 		scaleReal = null; scalePts = []; clearImgMode()
 		if (!img) return
-		const next = imageScaled(img, d, real); if (next !== img) on.update?.(next)   // unchanged when not an image / bad inputs
+		const next = imageScaled(img, d, real); if (next !== img) editor.ents.update(next)   // unchanged when not an image / bad inputs
 	}
 	// hitGuide lives in ui/hit.ts (R1 step 3); the wrapper passes this view's guide list.
 	const hitGuide = (p: Pt) => hHitGuide(viewGuides, p, tolMm(6))
@@ -542,8 +538,8 @@
 		g.pos = Math.round(g.orient === 'h' ? p[1] : p[0])
 	}
 	function onGuideDragUp(_e: PointerEvent, _id: string, moved: boolean) {
-		if (moved) { suppressClick = true; on.modeledit?.('Move guide') }
-		on.endedit?.()
+		if (moved) { suppressClick = true; editor.edit.mark('Move guide') }
+		editor.edit.end()
 	}
 	// A body move drag. Absolute from the gesture's start (no drift). A prism moves its position; a
 	// wall/conduit translates ALL its nodes (keeping the graph rigid). In elevation the horizontal drag
@@ -566,11 +562,11 @@
 				else { n.x = rndSnap(g.x + dx); n.y = rndSnap(g.y + dy) }
 			}
 		}
-		on.modeledit?.()   // fold this move into the open undo step
+		editor.edit.mark()   // fold this move into the open undo step
 	}
 	function onModelDragUp(_e: PointerEvent, _s: MDrag, moved: boolean) {
 		if (moved) suppressClick = true
-		on.endedit?.()   // close the model-move gesture's undo step
+		editor.edit.end()   // close the model-move gesture's undo step
 	}
 
 	// ── model grips (P2b/P2e) — corner handles that resize a prism, or node handles that reshape a
@@ -603,17 +599,17 @@
 	function onModelGripMove(e: PointerEvent, s: MGripDrag) {
 		const p = toLocalXY(e.clientX, e.clientY); if (!p) return
 		s.grip.apply(p, s.origin)
-		on.modeledit?.()   // fold this reshape into the open undo step
+		editor.edit.mark()   // fold this reshape into the open undo step
 	}
 	function onModelGripUp(_e: PointerEvent, s: MGripDrag, moved: boolean) {
-		if (moved) { suppressClick = true; on.modeledit?.() }
+		if (moved) { suppressClick = true; editor.edit.mark() }
 		else if (s.branch) s.branch()   // an Ctrl-branch press with no drag: drop the stray zero-length segment
 		else if (s.grip.node && s.grip.obj && (s.grip.obj.type === 'wall' || s.grip.obj.type === 'conduit')) {
 			nodeSel = { obj: s.grip.obj.id!, node: s.grip.node.id }   // no-move click on a node grip → select the node
 		}
-		snapMark = null; on.endedit?.()   // close the gesture's undo step
+		snapMark = null; editor.edit.end()   // close the gesture's undo step
 	}
-	const onModelGripCancel = () => { snapMark = null; on.endedit?.() }
+	const onModelGripCancel = () => { snapMark = null; editor.edit.end() }
 
 	// ── section marker MOVE — drag a marker's box border to reposition the cut; the linked elevation
 	// re-clips live (Model3d reads the clip reactively). Absolute from the gesture start (no drift).
@@ -626,8 +622,8 @@
 		setSectionClip(s.id, { ...c, x0: Math.round(c.x0 + dx), x1: Math.round(c.x1 + dx), y0: Math.round(c.y0 + dy), y1: Math.round(c.y1 + dy) })
 	}
 	function onSecDragUp(_e: PointerEvent, _s: SecDrag, moved: boolean) {
-		if (moved) { suppressClick = true; on.modeledit?.('Move section') }   // one undo step for the drag
-		on.endedit?.()
+		if (moved) { suppressClick = true; editor.edit.mark('Move section') }   // one undo step for the drag
+		editor.edit.end()
 	}
 	// ── section marker RESIZE — drag a corner grip of the SELECTED section (opposite corner fixed). ──
 	type SecResize = { id: string; apply: (p: Pt) => Clip }
@@ -636,10 +632,10 @@
 		setSectionClip(s.id, s.apply(p))
 	}
 	function onSecResizeUp(_e: PointerEvent, _s: SecResize, moved: boolean) {
-		if (moved) { suppressClick = true; on.modeledit?.('Resize section') }   // one undo step for the resize
-		on.endedit?.()
+		if (moved) { suppressClick = true; editor.edit.mark('Resize section') }   // one undo step for the resize
+		editor.edit.end()
 	}
-	const closeEdit = () => on.endedit?.()   // onCancel for the gestures that open an undo step at press
+	const closeEdit = () => editor.edit.end()   // onCancel for the gestures that open an undo step at press
 	// ── 3D iso ORBIT — a plain drag in the iso view rotates the camera (yaw/pitch). The projection
 	// already takes yaw/pitch; here we just turn a drag into new angles. Pitch is clamped to (0, 90°).
 	// Runs on beginPointerDrag (ui/gestures.ts): the drag's start + camera angles ride in the state.
@@ -657,20 +653,17 @@
 	}
 
 	// ── model PLACEMENT (P2f / §3) — create new model objects on the store, one undo step, select it ──
-	// R6: the history bracket built ONCE, passed to every ui/modelEdit.ts function below instead of each
-	// one reading `on.beginedit/modeledit/endedit` itself — see review.md §R6, modelEdit.ts's EditScope.
-	const edit: EditScope = { begin: () => on.beginedit?.(), mark: (l) => on.modeledit?.(l), end: (ms) => on.endedit?.(ms) }
 	const mUid = (p: string) => newId(p)
 	function addModelObj(o: Obj) {
 		if (!mdl) return
-		const id = meAddModelObj(mdl, edit, o)
+		const id = meAddModelObj(mdl, editor.edit, o)
 		setModelSel(id ? [id] : [])
 	}
 	// Delete the selected model object(s) AND guide(s) from the store (one undo step). Guides share the
 	// modelSel namespace now, so a Delete over a selected guide removes it here too.
 	function deleteModelSel() {
 		if (!mdl || !modelSel.length) return
-		meDeleteModelSel(mdl, edit, modelSel)
+		meDeleteModelSel(mdl, editor.edit, modelSel)
 		setModelSel([])
 	}
 	// Delete a single wall/conduit NODE, resolving its incident segments by DEGREE (Dave's spec):
@@ -681,14 +674,14 @@
 	// object if nothing remains. One undo step.
 	function deleteGraphNode(sel: { obj: string; node: string }) {
 		if (!mdl) return
-		const { removedObject } = meDeleteGraphNode(mdl, edit, sel, mUid)
+		const { removedObject } = meDeleteGraphNode(mdl, editor.edit, sel, mUid)
 		if (removedObject) setModelSel([])
 	}
 	// Insert a vertex into a wall/conduit at p by splitting the nearest segment (dbl-click). The new
 	// node inherits the segment's z (keeps the run's height); the new segment inherits object defaults.
 	function insertGraphNode(p: Pt) {
 		if (!mdl) return
-		const hitId = meInsertGraphNode(ctx, mdl, edit, p, tolMm(6), mlayers, rndSnap, mUid)
+		const hitId = meInsertGraphNode(ctx, mdl, editor.edit, p, tolMm(6), mlayers, rndSnap, mUid)
 		if (hitId) setModelSel([hitId])
 	}
 	// Elevation depth-snap (a drawn point snaps its DEPTH onto the nearest wall/conduit segment) lives in
@@ -866,7 +859,7 @@
 		// A selected model object's grip (prism corner / wall node) wins over everything (like entity grips).
 		if (pk?.kind === 'mgrip') {
 			const g = pk.grip
-			on.beginedit?.()   // one undo step for the whole reshape gesture
+			editor.edit.begin()   // one undo step for the whole reshape gesture
 			// Ctrl/⌘-press on a wall/conduit node BRANCHES: sprout a new segment + drag the new node out (a
 			// junction/tee). Plain press moves the node. origin = the grip's start (disconnect from a partner).
 			let grip = g, origin: Pt = [g.x, g.y], branch: (() => void) | undefined
@@ -881,14 +874,14 @@
 		}
 		// A corner grip of the SELECTED section resizes it (wins over everything, like a model grip).
 		if (pk?.kind === 'sgrip') {
-			on.beginedit?.()   // one undo step for the whole resize gesture (committed on release)
+			editor.edit.begin()   // one undo step for the whole resize gesture (committed on release)
 			beginPointerDrag<SecResize>(e, { ...pk.sg }, { onMove: onSecResizeMove, onUp: onSecResizeUp, onCancel: closeEdit }, reg)
 			return
 		}
 		// an alignment guide (below entities/grips, above sections/model/marquee — a thin overlay grabbed in open space).
 		if (pk?.kind === 'guide') {
-			setModelSel([pk.id]); on.select?.([])   // guide selection reuses modelSel (exclusive with entities)
-			on.beginedit?.()
+			setModelSel([pk.id]); editor.ents.select([])   // guide selection reuses modelSel (exclusive with entities)
+			editor.edit.begin()
 			beginPointerDrag<string>(e, pk.id, { onMove: onGuideDragMove, onUp: onGuideDragUp, onCancel: closeEdit }, reg)
 			return
 		}
@@ -896,8 +889,8 @@
 		if (pk?.kind === 'section') {
 			const sm = sections.find(s => s.id === pk.id)
 			if (sm) {
-				if (selSection !== pk.id) on.sectionselect?.(pk.id)
-				on.beginedit?.()   // one undo step for the whole move gesture (committed on release)
+				if (selSection !== pk.id) editor.sections.select(pk.id)
+				editor.edit.begin()   // one undo step for the whole move gesture (committed on release)
 				beginPointerDrag<SecDrag>(e, { id: pk.id, start: p, c0: { ...sm.clip } }, { onMove: onSecDragMove, onUp: onSecDragUp, onCancel: closeEdit }, reg)
 			}
 			return
@@ -906,8 +899,8 @@
 		if (pk?.kind === 'obj') {
 			const mo = mdl?.objects.find(o => o.id === pk.id)
 			if (mo) {
-				setModelSel([mo.id!]); on.select?.([])
-				on.beginedit?.()   // one undo step for the whole model-move gesture
+				setModelSel([mo.id!]); editor.ents.select([])
+				editor.edit.begin()   // one undo step for the whole model-move gesture
 				beginPointerDrag<MDrag>(e, { id: mo.id!, start: p,
 					o0: mo.type === 'prism' ? { x: mo.x, y: mo.y, z: mo.z } : undefined,
 					n0: (mo.type === 'wall' || mo.type === 'conduit') ? (mo.nodes as GN[]).map((n) => ({ id: n.id, x: n.x, y: n.y, z: n.z })) : undefined,
@@ -927,14 +920,14 @@
 		setModelSel([])   // grabbing an entity clears any model-object selection (they're exclusive)
 		// Shift-press on a body is selection-only (toggles on release) — must NOT start a move drag.
 		if (e.shiftKey && hitInfo.kind === 'move') { shiftPressId = hitInfo.id; reg.forget(e); return }
-		if (!(e.ctrlKey || e.metaKey) && !selSet.has(hitInfo.id)) on.select?.(expandGroup([hitInfo.id]))   // plain press on an unselected entity → select it (+ its group)
+		if (!(e.ctrlKey || e.metaKey) && !selSet.has(hitInfo.id)) editor.ents.select(expandGroup([hitInfo.id]))   // plain press on an unselected entity → select it (+ its group)
 		// a body move drags the whole selection when the grabbed entity is part of it, else just it (+ its group)
 		const moveIds = hitInfo.kind === 'move' ? (selSet.has(hitInfo.id) ? sel : expandGroup([hitInfo.id])) : [hitInfo.id]
 		const bases = moveIds.map(id => entities.find(x => x.id === id)).filter(Boolean) as Ent[]
 		// Ctrl/⌘-drag DUPLICATES the selection (copies created on the first move); a Ctrl-CLICK (no
 		// move) instead toggles selection via onClick.
 		drag = { id: hitInfo.id, base, bases, kind: hitInfo.kind, gi: hitInfo.gi, start: p, dup: (e.ctrlKey || e.metaKey) && hitInfo.kind === 'move', duplicated: false }
-		on.beginedit?.()   // one history step for the whole drag
+		editor.edit.begin()   // one history step for the whole drag
 		beginPointerDrag<EntDrag>(e, drag, { onMove: onDragMove, onUp: onDragUp, onCancel: onDragCancel }, reg)
 	}
 	let lastDragRaw: Pt | null = null   // last UNconstrained pointer during a move/grip drag
@@ -955,27 +948,27 @@
 		lastDragRaw = p
 		if (drag.kind === 'grip') {
 			const s = osnap ? findSnap(e.clientX, e.clientY, drag.id) : null
-			on.update?.(s ? gripsFor(drag.base)[drag.gi].apply(s) : applyDrag(p, e.shiftKey))
+			editor.ents.update(s ? gripsFor(drag.base)[drag.gi].apply(s) : applyDrag(p, e.shiftKey))
 		} else {
 			// Ctrl/⌘-drag: on the first real move, drop copies at the originals and drag the copies.
 			if (drag.dup && !drag.duplicated) {
 				const copies = drag.bases.map(b => ({ ...b, id: uid() }))
-				copies.forEach(c => on.add?.(c)); on.select?.(copies.map(c => c.id))
+				copies.forEach(c => editor.ents.add(c)); editor.ents.select(copies.map(c => c.id))
 				drag.bases = copies; drag.duplicated = true
 			}
 			let dx = p[0] - drag.start[0], dy = p[1] - drag.start[1]
 			if (e.shiftKey !== ortho) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 }   // ortho / axis-lock (Shift toggles)
 			const [gdx, gdy] = snapDelta(dx, dy, drag.bases[0])   // grid-snap the whole group by its first member (stays rigid)
-			for (const b of drag.bases) on.update?.(moveEnt(b, gdx, gdy))   // move the whole group (or the copies)
+			for (const b of drag.bases) editor.ents.update(moveEnt(b, gdx, gdy))   // move the whole group (or the copies)
 		}
 	}
 	function onDragUp(_e: PointerEvent, _s: EntDrag, moved: boolean) {
 		if (moved) suppressClick = true
-		drag = null; snapMark = null; on.endedit?.()   // close the drag's history step
+		drag = null; snapMark = null; editor.edit.end()   // close the drag's history step
 	}
 	function onDragCancel(s: EntDrag, moved: boolean) {   // 2nd finger → revert any partial move/resize
-		if (moved) for (const b of s.bases) on.update?.(b)
-		drag = null; snapMark = null; on.endedit?.()
+		if (moved) for (const b of s.bases) editor.ents.update(b)
+		drag = null; snapMark = null; editor.edit.end()
 	}
 
 	// ── press-drag draw (EOS mode): press = first point, drag (Shift-constrained) = preview,
@@ -1012,7 +1005,7 @@
 		if (x1 - x0 < 2 && y1 - y0 < 2) return   // tiny → treat as a click (let onClick clear)
 		const ids = hMarqueeSelect(ctx, entities, m.a, m.b, pickable)   // window (L→R) vs crossing (R→L), layer-gated
 		const g = expandGroup(ids)   // include whole groups the marquee touched
-		on.select?.(m.add ? [...new Set([...sel, ...g])] : g)   // Shift/Ctrl marquee unions with the current selection
+		editor.ents.select(m.add ? [...new Set([...sel, ...g])] : g)   // Shift/Ctrl marquee unions with the current selection
 		suppressClick = true   // don't let the ensuing click clear this selection
 	}
 
@@ -1115,7 +1108,7 @@
 						{#if d === s.dir || s.id === selSection}
 							{@const pick = tool === 'Select' && s.id === selSection}
 							<polygon class="section-arrow" class:inactive={d !== s.dir} class:pick points={sectionArrowFor(s.clip, d, tolMm(11))} stroke-width={1.4 / (canvasZoom || 1)}
-								onpointerdown={(e) => { if (!pick) return; e.stopPropagation(); on.sectiondropdir?.(s.id, d) }} />
+								onpointerdown={(e) => { if (!pick) return; e.stopPropagation(); editor.sections.dropDir(s.id, d) }} />
 						{/if}
 					{/each}
 					{@const pad = 1.5 * paperMm}
@@ -1211,7 +1204,7 @@
 	{#if secToolbar}
 		<div class="section-toolbar" style="left:{secToolbar.x}px; top:{Math.max(2, secToolbar.y - 30)}px"
 			onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()}>
-			<button class="st-btn" title="Drop this direction as a viewport on the sheet" onclick={() => on.sectiondropdir?.(secToolbar.id, secToolbar.dir)}><Icon name="panels" size={13} /></button>
+			<button class="st-btn" title="Drop this direction as a viewport on the sheet" onclick={() => editor.sections.dropDir(secToolbar.id, secToolbar.dir)}><Icon name="panels" size={13} /></button>
 			<select class="st-dir" title="Primary sight direction (arrow on the plan)" value={secToolbar.dir} onchange={(e) => setSectionDir(secToolbar.id, (e.currentTarget as HTMLSelectElement).value as ElevDir)}>
 				<option value="front">Front</option><option value="rear">Rear</option><option value="left">Left</option><option value="right">Right</option>
 			</select>

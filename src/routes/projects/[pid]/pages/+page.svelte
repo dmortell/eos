@@ -14,7 +14,8 @@
 	import { newId } from './ids'
 	import { type Proj, type SheetFrame, SCALES, DIR_LABEL as PROJ_LABEL } from './types'
 	import { PACKAGES, VERSIONS, REVISIONS, type PItem, PALETTE_ITEMS as paletteItems } from './mock/data'
-	import Viewport from './ui/Viewport.svelte'
+	import Viewport, { type VpOn } from './ui/Viewport.svelte'
+	import type { Editor } from './ui/editor'
 	import DrawingNavigator from './parts/DrawingNavigator.svelte'
 	import LayersPanel from './parts/LayersPanel.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
@@ -108,23 +109,26 @@
 	// The drafting/interaction flags bundle passed to a pane's viewport (one prop instead of six).
 	let guideVert = $state(false)   // the Guide tool's H/V pop-out base (touch has no Shift); Shift still flips it
 	const envFor = (pane: { id: string; activeId: string }) => ({ acad: acadMode, navContent, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, cen: toggles.CEN, guideVert, canvasZoom: canvasViewOf(pane).zoom })
-	// All the viewport event callbacks in ONE `on` object (was ~13 separate props). PaperPage also
-	// uses `frame`; the plain Viewport ignores it.
-	const vpOn = (a: Tab, pane: { id: string; tool: string }) => ({
+	// R6: the Viewport's callback bundle is split in two. `vpView` → `VpOn` (view/camera events only —
+	// still one `on` prop); `vpEditor` → `Editor` (document-mutating ops — entity array, undo-history
+	// bracket, section-marker selection). PaperPage also uses `frame`; the plain Viewport ignores it.
+	const vpView = (a: Tab, pane: { id: string; tool: string }): VpOn => ({
 		activate: () => activateVp(a.id), deactivate: () => deactivateVp(a.id),
-		add: (e: Ent) => addEnt(a.id, e), update: (e: Ent) => updateEnt(a.id, e),
-		delete: (ids: string[]) => deleteEnts(a.id, ids), select: (ids: string[]) => setSel(a.id, ids),
-		view: (v: View) => setView(pane.id, a.id, projOf(pane, a), v), status: (t: string) => (statusText = t),
-		coords: (x: number, y: number) => (worldXY = { x, y }), beginedit: beginGesture, endedit: endGesture,
-		tool: (t: string) => (pane.tool = t),
-		copy: (ids: string[]) => copyEnts(a.id, ids), cut: (ids: string[]) => cutEnts(a.id, ids), paste: () => pasteEnts(a.id),
-		group: (ids: string[]) => groupEnts(a.id, ids), ungroup: (ids: string[]) => ungroupEnts(a.id, ids),
-		reorder: (ids: string[], op: 'front' | 'back' | 'forward' | 'backward') => reorderEnts(a.id, ids, op),
-		scale: (s: string) => setScale(a.id, s),
-		modeledit: (label?: string) => modelEdit(a.id, label),
+		view: (v: View) => setView(pane.id, a.id, projOf(pane, a), v),
+		status: (t: string) => (statusText = t), coords: (x: number, y: number) => (worldXY = { x, y }),
+		tool: (t: string) => (pane.tool = t), scale: (s: string) => setScale(a.id, s),
 		orbit: (yaw: number, pitch: number) => setOrbit(pane.id, a.id, projOf(pane, a), yaw, pitch),
-		sectionselect: (id: string | null) => selectSection(id),
-		sectiondropdir: (id: string, dir: ElevDir) => dropSectionDir(id, dir),
+	})
+	const vpEditor = (a: Tab): Editor => ({
+		ents: {
+			add: (e: Ent) => addEnt(a.id, e), update: (e: Ent) => updateEnt(a.id, e),
+			delete: (ids: string[]) => deleteEnts(a.id, ids), select: (ids: string[]) => setSel(a.id, ids),
+			copy: (ids: string[]) => copyEnts(a.id, ids), cut: (ids: string[]) => cutEnts(a.id, ids), paste: () => pasteEnts(a.id),
+			group: (ids: string[]) => groupEnts(a.id, ids), ungroup: (ids: string[]) => ungroupEnts(a.id, ids),
+			reorder: (ids: string[], op: 'front' | 'back' | 'forward' | 'backward') => reorderEnts(a.id, ids, op),
+		},
+		edit: { begin: beginGesture, mark: (label?: string) => modelEdit(a.id, label), end: endGesture },
+		sections: { select: (id: string | null) => selectSection(id), dropDir: (id: string, dir: ElevDir) => dropSectionDir(id, dir) },
 	})
 	// A 3D-model edit (the Viewport mutated the shared `models` store) records a step on THIS doc's
 	// timeline, gesture-folded like an entity edit — so Ctrl+Z restores the model too.
@@ -182,10 +186,11 @@
 	let selFrame = $state<string | null>(null)   // the viewport frame selected in paper space (move/resize/props)
 	// Exactly one active viewport per sheet: activating a frame deactivates its siblings.
 	function activateFrame(tabId: string, id: string) { for (const f of framesOf(tabId)) if (f.id !== id) deactivateVp(f.id); activateVp(id) }
-	// A per-frame callback bundle: entity editing keeps the TAB id; view / activation / scale / orbit use
-	// the FRAME id, so each viewport pans, activates and re-aims independently.
-	const vpOnFrame = (a: Tab, pane: { id: string; tool: string }, frame: SheetFrame) => ({
-		...vpOn(a, pane),
+	// A per-frame VIEW bundle: entity editing keeps the TAB id (vpEditor is unchanged per frame — same
+	// document, same editor); view / activation / scale / orbit use the FRAME id, so each viewport pans,
+	// activates and re-aims independently.
+	const vpFrameView = (a: Tab, pane: { id: string; tool: string }, frame: SheetFrame): VpOn => ({
+		...vpView(a, pane),
 		view: (v: View) => setView(pane.id, frame.id, frame.proj, v),
 		activate: () => activateFrame(a.id, frame.id),
 		deactivate: () => deactivateVp(frame.id),
@@ -965,7 +970,7 @@
 										selSection={selSection}
 										frames={framesOf(a.id)} selFrame={selFrame} frameKind={(pr) => projKind(pr as Proj)}
 										isFrameActive={(id) => isVpActive(id)} frameView={(id, proj) => viewOf(p.id, id, proj as Proj)} frameEnv={envFor(p)}
-										frameOrbit={(id, proj) => orbitOf(p.id, id, proj as Proj)} makeFrameOn={(f) => vpOnFrame(a, p, f as SheetFrame)}
+										frameOrbit={(id, proj) => orbitOf(p.id, id, proj as Proj)} makeFrameOn={(f) => vpFrameView(a, p, f as SheetFrame)} makeFrameEditor={() => vpEditor(a)}
 										onseed={(x, y, w, h) => seedFrame(a.id, x, y, w, h)}
 										onaddframe={(x, y, w, h) => addFrame(a.id, x, y, w, h)}
 										onframegeom={(id, g) => updateFrame(a.id, id, g)}
@@ -975,7 +980,7 @@
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => deactivateVp(a.id)}>
-										<Viewport kind={projKind(projOf(p, a))} label={a.title} tool={p.tool} scale={scaleOf(a.id)} env={envFor(p)} on={vpOn(a, p)} modelId={a.modelId ?? FLOOR_MODEL_ID}
+										<Viewport kind={projKind(projOf(p, a))} label={a.title} tool={p.tool} scale={scaleOf(a.id)} env={envFor(p)} on={vpView(a, p)} editor={vpEditor(a)} modelId={a.modelId ?? FLOOR_MODEL_ID}
 											entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(p.id, a.id, projOf(p, a))} active={isVpActive(a.id)} focused={focused === pi} clip={null} yaw={orbitOf(p.id, a.id, projOf(p, a)).yaw} pitch={orbitOf(p.id, a.id, projOf(p, a)).pitch}
 											selSection={selSection} />
 									</div>

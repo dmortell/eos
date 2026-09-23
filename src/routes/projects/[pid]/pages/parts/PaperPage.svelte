@@ -8,6 +8,7 @@
 	//  · Model space (activated): interact with the drawing inside; double-click on the
 	//    paper outside the frame (or Esc / Exit) returns to paper space.
 	import Viewport, { type Env, type VpOn } from '../ui/Viewport.svelte'
+	import { noopEditor, type Editor } from '../ui/editor'
 	import type { Ent, View } from '../ui/geometry'
 	import Handle from './Handle.svelte'
 	import { beginPointerDrag, DragRegistry } from '../ui/gestures'
@@ -20,11 +21,11 @@
 	let { title = 'Sheet', drawingNo = '001', scale = '1:100', focused = true, tool = 'Select', env = {}, pw = PAPER_W, ph = PAPER_H, sizeLabel = 'A3', rev = '', revDate = '',
 		entities = [], sel = [], selSection = null, entsForModel = undefined, tabModelId = undefined,
 		frames = [], selFrame = null, frameKind = (p: string) => p as VKind, isFrameActive = () => false, frameView = () => ({ zoom: 1, x: 0, y: 0 }), frameEnv = {},
-		frameOrbit = () => ({ yaw: 0, pitch: 0 }), makeFrameOn = () => ({}), onseed, onaddframe, onframegeom, onframecommit, onselectframe, ondeactivate }:
+		frameOrbit = () => ({ yaw: 0, pitch: 0 }), makeFrameOn = () => ({}), makeFrameEditor = () => noopEditor, onseed, onaddframe, onframegeom, onframecommit, onselectframe, ondeactivate }:
 		{ title?: string; drawingNo?: string; scale?: string; focused?: boolean; tool?: string; env?: Env; pw?: number; ph?: number; sizeLabel?: string; rev?: string; revDate?: string;
 			entities?: Ent[]; sel?: string[]; selSection?: string | null; entsForModel?: (mid?: number) => Ent[]; tabModelId?: number;
 			frames?: SheetFrame[]; selFrame?: string | null; frameKind?: (p: string) => VKind; isFrameActive?: (id: string) => boolean; frameView?: (id: string, proj: string) => View; frameEnv?: Env;
-			frameOrbit?: (id: string, proj: string) => { yaw: number; pitch: number }; makeFrameOn?: (f: SheetFrame) => VpOn; onseed?: (x: number, y: number, w: number, h: number) => void; onaddframe?: (x: number, y: number, w: number, h: number) => void;
+			frameOrbit?: (id: string, proj: string) => { yaw: number; pitch: number }; makeFrameOn?: (f: SheetFrame) => VpOn; makeFrameEditor?: (f: SheetFrame) => Editor; onseed?: (x: number, y: number, w: number, h: number) => void; onaddframe?: (x: number, y: number, w: number, h: number) => void;
 			onframegeom?: (id: string, g: { x: number; y: number; w: number; h: number }) => void; onframecommit?: () => void; onselectframe?: (id: string | null) => void; ondeactivate?: () => void } = $props()
 	const canvasZoom = $derived(env.canvasZoom ?? 1)
 
@@ -136,10 +137,11 @@
 			     over an existing one. Frame[0] is the seeded default; there is no special "primary". -->
 			{#each frames as f (f.id)}
 				{@const fon = makeFrameOn(f)}
+				{@const feditor = makeFrameEditor(f)}
 				{@const fa = isFrameActive(f.id)}
 				<div class="vp-frame" class:selected={selFrame === f.id && !fa} class:active={fa}
 					style="left:{f.x}px; top:{f.y}px; width:{f.w}px; height:{f.h}px">
-					<Viewport kind={frameKind(f.proj)} label={f.label} scale={f.scale} active={fa} {focused} {tool} env={frameEnv} on={fon} border={f.border} frameId={f.id} modelId={f.modelId ?? tabModelId}
+					<Viewport kind={frameKind(f.proj)} label={f.label} scale={f.scale} active={fa} {focused} {tool} env={frameEnv} on={fon} editor={feditor} border={f.border} frameId={f.id} modelId={f.modelId ?? tabModelId}
 						entities={entsForModel ? entsForModel(f.modelId ?? tabModelId) : entities} {sel} view={frameView(f.id, f.proj)} clip={f.clip} yaw={frameOrbit(f.id, f.proj).yaw} pitch={frameOrbit(f.id, f.proj).pitch}
 						{selSection} boxW={f.w} boxH={f.h} />
 					{#if !fa}
