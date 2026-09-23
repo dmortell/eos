@@ -82,7 +82,7 @@
 	const GRIP_IDX = [0, 3, 1, 2]   // PaperPage gi -> grips.ts rect-grip array index
 	const LEFT_GI = new Set([0, 3]), TOP_GI = new Set([0, 1])
 
-	// Frame snap (R8-lite, refactor-plan.md's R8-lite §1), ported from sheets/Viewport.svelte's own
+	// Frame snap (R8-lite), ported from sheets/Viewport.svelte's own
 	// frame-snap/Alt convention per Dave's ask to match it: paper edges + a 5mm grid, Alt disables.
 	// `PAPER_SNAP_STEP` (snap.ts) is real paper mm — GRID_STEP_PX converts it ONCE to paper px (frame
 	// geometry's actual unit, see BAND_PX above). `SNAP_TOL_PX` is SCREEN px (matches Sheets' SNAP_TOL),
@@ -108,7 +108,7 @@
 			drag.set({ w: b.w, h: b.h, x, y }); return
 		}
 		// Corner resize (opposite corner fixed) + Shift-square constrain reuse grips.ts's rect grip
-		// (R8-lite, refactor-plan.md's R8-lite §0/§2) via a throwaway fake rect `Ent` built from `drag.base`
+		// (R8-lite) via a throwaway fake rect `Ent` built from `drag.base`
 		// — storage stays `Frame`/`SheetFrame`, only the resize MATH is shared.
 		const baseEnt: Ent = { id: 'frame', type: 'rect', a: [b.x, b.y], b: [b.x + b.w, b.y + b.h] }
 		const opts = { gripMm: 0, shift: () => e.shiftKey, imgCropId: null }
@@ -125,7 +125,7 @@
 		drag.set({ x: Math.min(ex0, ex1), y: Math.min(ey0, ey1), w: Math.abs(ex1 - ex0), h: Math.abs(ey1 - ey0) })   // may extend beyond the sheet
 	}
 
-	// Frame pick + marquee (R8-lite, refactor-plan.md's R8-lite §0/§2): border-band pick and marquee
+	// Frame pick + marquee (R8-lite): border-band pick and marquee
 	// selection reuse `hit.ts`'s `inBox`/`marqueeSelect` instead of hand-rolled DOM/geometry, so there's one
 	// implementation of each. `PAPER_CTX` is a throwaway `ViewCtx` — the rect-fallback paths of `bbox`/`inBox`
 	// these calls exercise read no `ctx` field (paper space isn't a real model view; none of `ViewCtx`'s
@@ -210,7 +210,7 @@
 		}
 		if (bx1 - bx0 < 3 && by1 - by0 < 3) return   // tiny → just a click (already deselected)
 		// marqueeSelect (window vs crossing by drag direction — a BEHAVIOUR CHANGE from the old
-		// always-crossing `touches()`, flagged in refactor-plan.md's R8-lite §0/§3 — matches every other
+		// always-crossing `touches()`, flagged in R8-lite — matches every other
 		// marquee in the app now, including the entity marquee); take the LAST match = topmost frame,
 		// since `frames` and the built `Ent[]` share index order and 'frame' selection is single-select.
 		const ids = marqueeSelect(PAPER_CTX, frames.map(frameEnt), [m.x0, m.y0], [m.x1, m.y1], () => true)

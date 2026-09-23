@@ -203,7 +203,7 @@ export function graphNodeApply(ctx: ViewCtx, n: GN, p: Pt, opts: { snapNode: (p:
 	return q === p ? null : { p: q, type: 'end' }
 }
 
-// ── paper-space frame snap (R8-lite, refactor-plan.md §"R8-lite"/§1) ──
+// ── paper-space frame snap (R8-lite) ──
 // A sheet's viewport FRAMES (PaperPage.svelte) snap in PAPER mm, a different space/unit than
 // everything above (model mm). Ported from sheets/Viewport.svelte's existing frame-snap
 // (paper edges / margins / title-block / 5mm grid, Alt disables) per Dave's ask to match that
@@ -213,7 +213,7 @@ export const PAPER_SNAP_STEP = 5   // grid spacing, PAPER mm (distinct unit from
 
 /** Candidate snap lines for a paper of size w×h (paper mm). v1: the 4 paper edges only — margin/
  *  title-block lines are a later param once those have real geometry for Pages' sheets (see
- *  refactor-plan.md's R8-lite §0/§1). */
+ *  R8-lite). */
 export function paperSnapLines(w: number, h: number, margin = 0): { x: number[]; y: number[] } {
 	// XP7: the paper MARGIN lines too (inset `margin`, same unit as w/h), when there is a margin.
 	return margin > 0 ? { x: [0, margin, w - margin, w], y: [0, margin, h - margin, h] } : { x: [0, w], y: [0, h] }

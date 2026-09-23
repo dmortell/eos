@@ -23,7 +23,7 @@ non-critical follow-ups (B12's a11y leftovers, the "smaller items" from review d
 `todo.md` → "New todos", not here.
 
 **Refactor / performance**
-- [x] **R1 remainder** — done 2026-09-23: `Viewport.svelte` 1448 → 90 lines (shell); see `refactor-plan.md` §12.
+- [x] **R1 remainder** — done 2026-09-23: `Viewport.svelte` 1448 → 90 lines (shell); see `CHANGELOG.md`.
 - [ ] **R8 (full)** — sheet = a Viewport with `space: 'paper'`. Only R8-lite shipped; parked. Needed only if the paper gets its own annotations (see R5 below).
 - [ ] **P3 (long term)** — command/inverse-op history (`$lib/history/HistoryStore`) instead of full snapshots (short-term fix shipped).
 
@@ -510,7 +510,7 @@ AND a paper-kind Viewport's own view), and Viewport growing past its own line-co
 hand-written hit-test/corner-resize/marquee code is replaced by calls into `hit.ts`/`grips.ts`/
 `snap.ts`. Storage stays `SheetFrame[]` in `PageDoc.frames` — no `Ent` role, no page model; a
 frame becomes a throwaway fake rect `Ent` only at the point a shared function needs one. Plan in
-`refactor-plan.md`'s "R8-lite" section.
+`refactor-plan.md`'s "R8-lite" section (deleted 2026-09-24 — see git history / `CHANGELOG.md`)
 **Closed (eos-18, 2026-09-23; eos-07 diff-reviews only, no live-gate per Dave's process change).**
 4 commits: `cb1c8f8` (`snap.ts` gains `PAPER_SNAP_STEP`/`paperSnapLines`/`frameSnapDelta`, ported
 from `sheets/Viewport.svelte`'s existing snap/Alt convention, +7 unit tests); `3c004ce`
@@ -535,7 +535,7 @@ this is its first appearance in Pages, no prior version to regress against. **De
 deferred, not silently dropped**: a snap-mark indicator (Dave: "if that's cheap") — PaperPage has
 no existing SVG-overlay infrastructure to hang one on, and getting a new visual element's position
 right without live testing felt like the wrong place to take that risk.
-**Still owed**: live-testing everything above — see `refactor-plan.md`'s R8-lite §3 for the full
+**Still owed**: live-testing everything above — see the R8-lite §3 risk list in `refactor-plan.md` (deleted 2026-09-24 — see git history / `CHANGELOG.md`) for the full
 list (frame select/move/resize, interior click vs dblclick-activate, the Viewport-tool active-frame
 guard, section→viewport drop, undo/redo, Properties round-trip, Ctrl+P print, plus the two
 behaviour changes and the new snap).

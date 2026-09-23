@@ -9,7 +9,10 @@ is in-memory (Svelte 5 runes), no Firestore yet (§12 in `todo.md`).
 | File | Role |
 |---|---|
 | `+page.svelte` | The shell + orchestration: tabs, split panes, the drawing navigator, the global undo timeline, document vs view vs session state, the tool strip, printing, and all the callback wiring to the panels. |
-| `ui/Viewport.svelte` | The canvas editor for ONE viewport: pointer/keyboard dispatch, hit-testing, grips, snapping, placement, the SVG render. The big file R1 is splitting (see `refactor-plan.md`). |
+| `ui/Viewport.svelte` | The canvas editor for ONE viewport — a 90-line shell: props, DOM event wiring, SVG skeleton. |
+| `ui/vpView.svelte.ts` · `ui/vpInteraction.svelte.ts` | The Viewport's view model (mapping, pan/zoom, ctx, layers, selection, picking, grips) and its pointer/key state machine (drafting, drags, marquee, text edit, image calibration). |
+| `ui/hit.ts` · `grips.ts` · `snap.ts` · `place.ts` · `mapper.ts` · `gestures.ts` · `annotations.ts` · `modelEdit.ts` · `selection.ts` · `editor.ts` | Pure, unit-tested editing logic the Viewport and PaperPage share (all take an explicit `ViewCtx`, `view.ts`). |
+| `ui/render/` | `EntRender` (one entity), `VpMarks` / `VpOverlays` / `VpWidgets` (guides + sections, grips/snap/marquee, HTML widgets), `UnderlayImage` (floorplan PDF). |
 | `ui/geometry.ts` | Pure 2D helpers + the `Ent` (annotation) type: dist/segDist, textBox, box elevation/iso faces, elevation projection (`elevU`), style + unit constants. Unit-tested (`geometry.test.ts`). |
 | `ui/panzoom.ts` | The pan/zoom Svelte action (pointer events, 2-finger-only navigation — the tool's touch model). |
 | `parts/PaperPage.svelte` | A sheet in paper space: lays out the viewport frames, each mounting a `Viewport`; frame select/drag/resize. |
@@ -37,5 +40,4 @@ is in-memory (Svelte 5 runes), no Firestore yet (§12 in `todo.md`).
 - `todo.md` — open work + decisions (and a large historical done-log).
 - `CHANGELOG.md` — a curated, readable history of the major milestones.
 - `review.md` — the standing code review (`§0a` tracks which items are done); maintained by the review session.
-- `refactor-plan.md` — the step-by-step plan for splitting `ui/Viewport.svelte` (R1).
 - `model-plan.md` — how the 3D engine was ported in.

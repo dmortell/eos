@@ -1,4 +1,4 @@
-// ONE selection model (review.md §R3; refactor-plan.md's editor seam). Replaces the five separate
+// ONE selection model (review.md §R3; the editor seam). Replaces the five separate
 // selection states spread over Viewport.svelte/+page.svelte (`docSel[tab]` entities, the global 3dview
 // `modelSel` objects+guides, `selSection`, `selFrame`, `nodeSel`) with one array of typed items, plus the
 // EXCLUSIVITY rules as pure, independently-testable functions. The wiring (where a Selection lives per

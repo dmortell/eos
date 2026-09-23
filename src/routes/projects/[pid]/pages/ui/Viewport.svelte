@@ -4,7 +4,7 @@
 	// as a frame on a sheet's paper (PaperPage) and as a standalone model-space pane (Pane, `modelSpace`). The
 	// parent owns the document (entities, selection via `editor`) and the camera (`view`, `yaw`/`pitch`).
 	//
-	// R1 (review.md §R1, refactor-plan.md): this component is the SHELL — props, the DOM event wiring and the
+	// R1 (review.md §R1): this component is the SHELL — props, the DOM event wiring and the
 	// SVG skeleton. The view model (mapping, pan/zoom, ctx, layers, picking, grips) is ./vpView.svelte.ts; the
 	// pointer/key state machine is ./vpInteraction.svelte.ts; the overlays are render/VpMarks (under the
 	// entities), render/VpOverlays (above) and render/VpWidgets (HTML). Pure logic stays in hit/grips/snap/

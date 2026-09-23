@@ -1,5 +1,5 @@
 // The Viewport's EDITOR — every callback that MUTATES the document/model, split out of the old `VpOn`
-// bundle (review.md §R6; refactor-plan.md §6). `VpOn` (still in Viewport.svelte) keeps only the 8 VIEW
+// bundle (review.md §R6). `VpOn` (ui/vpTypes.ts) keeps only the 8 VIEW
 // events (activate/deactivate/view/orbit/scale/status/coords/tool) — things that happen to the CAMERA/UI,
 // not the document. `ents` groups the entity-array operations (was `on.add/update/delete/…`); `edit` is
 // commit 1's EditScope (was `on.beginedit/modeledit/endedit`); `sections.dropDir` is the one section

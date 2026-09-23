@@ -1,4 +1,4 @@
-// Model store mutations extracted from ui/Viewport.svelte (review.md §R6; refactor-plan.md §6/§11 region 7).
+// Model store mutations extracted from ui/Viewport.svelte (review.md §R6).
 // Every function here MUTATES `mdl` in place (walls/prisms/guides/sections are $state-proxied, like the
 // grip-drag code) and brackets the edit with `edit.begin/mark/end` so it rides the model undo history —
 // exactly what `on.beginedit?.()/on.modeledit?.(label)/on.endedit?.(ms)` did inline in Viewport. Behaviour
