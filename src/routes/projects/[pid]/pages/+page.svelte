@@ -603,14 +603,14 @@
 		// Mirror the current pane into the split: same active tab + layout, so it opens as a
 		// duplicate view you then diverge (change projection/tab in one side).
 		const src = session.panes[0]
-		// The split pane's id names its SIDE of the split (`p1` / `p2`, whichever is free), so view state keyed
-		// by pane id stays with that side across splits instead of a fresh random id each time.
-		session.panes = [...session.panes, { id: src.id === 'p1' ? 'p2' : 'p1', activeId: src.activeId, tool: 'Select', layout: src.layout }]
+		// Pane ids name the SIDE of the split: the left pane is always `p1` (it can't be closed) and the split
+		// is always `p2`, so view state keyed by pane id stays with its side across re-splits.
+		session.panes = [...session.panes, { id: 'p2', activeId: src.activeId, tool: 'Select', layout: src.layout }]
 		session.focused = 1; splitFrac = 0.5
 		tick().then(() => { fitPane(0); fitPane(1) })   // both panes narrowed → refit their sheets
 	}
 	function closePane(idx: number) {
-		if (session.panes.length < 2) return
+		if (session.panes.length < 2 || idx === 0) return   // the left pane (p1) always remains; only the split closes
 		session.panes = session.panes.filter((_, i) => i !== idx)
 		session.focused = 0
 		tick().then(() => fitPane(0))
