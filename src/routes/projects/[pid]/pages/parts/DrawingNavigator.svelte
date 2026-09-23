@@ -91,7 +91,7 @@
 	<button class="dn-project" class:active={activeNode === PROJ.id} onclick={() => onselectnode?.(PROJ)}
 		title="Project properties">
 		<Icon name="folderOpen" size={13} />
-		<span class="dn-name">{PROJ.label}</span>
+		<span class="dn-name" title={PROJ.label}>{PROJ.label}</span>
 	</button>
 	{#if status}<div class="dn-status">{status}</div>{/if}
 	{#if naming}
@@ -120,7 +120,7 @@
 				ondblclick={() => onopen?.({ title: n.label, kind: n.drawing!, preview: false, floor, docId: n.docId ?? n.id })}>
 				<span class="dn-chev spacer"></span>
 				<Icon name={drawingIcon[n.drawing]} size={13} />
-				<span class="dn-name">{n.label}</span>
+				<span class="dn-name" title={n.label}>{n.label}</span>
 			</button>
 		{:else}
 			<!-- location folder: chevron toggles expand; the row selects it (props in right panel). A FLOOR row
@@ -137,7 +137,7 @@
 					<span class="dn-chev spacer"></span>
 				{/if}
 				<Icon name={folderIcon[n.folder ?? ''] ?? 'folder'} size={13} />
-				<span class="dn-name">{n.label}</span>
+				<span class="dn-name" title={n.meta ? `${n.label} · ${n.meta}` : n.label}>{n.label}</span>
 				{#if n.meta}<span class="dn-meta">{n.meta}</span>{/if}
 			</div>
 			{#if isOpen && n.children}
