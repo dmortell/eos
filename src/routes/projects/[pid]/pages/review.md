@@ -466,6 +466,28 @@ Extract `parts/Pane.svelte` (tab bar + canvas + tool strip + active-viewport bar
 `:872-1044`), `parts/ToolStrip.svelte` (`TOOLS/STRIP/groupTool/openGroup` + fly-outs,
 `:661-703, 924-955`), `printing.ts` (`:761-803`), and the tab-strip menu. With R2 the page is
 ~300 lines of wiring.
+**Closed (eos-18, 2026-09-23; eos-07 diff-reviews only).** Line refs above were stale by the time
+this started — every block was re-found fresh. Six commits: `1707f6e` (`parts/Pane.svelte`, the
+per-pane block verbatim, ~50 threaded props); `4f0c6bd` (`parts/ToolStrip.svelte` + eos-07's three
+review points on commit 1 — prop-mutation ownership violations fixed with callbacks, `Kind`/`Tab`/
+`Pane`/`View`/`StripItem` moved to `types.ts` with `Pane` renamed `WorkPane` to avoid the type/
+component name clash, `Workspace` object flagged for next); `4d7f8e3` (the `Workspace` object —
+Pane's ~35 props → 10 + one `ws` prop; the per-pane action closures became named `Workspace`
+functions taking `pane`/`pi` explicitly); `3ae2ecb` (fix: `workspace` was `$derived.by`, rebuilding
+on every `statusText` change and handing Viewport/PaperPage fresh `editor`/`env`/`on` object
+identities on every pointer move — eos-07 caught it; now a plain `const` with getters for the
+reassigned value members); `e20b584` (`printing.ts`, parameterized instead of closing over
+`session`, independently unit-tested for the first time — `printing.test.ts`); `f3424fe`
+(`parts/TabMenu.svelte`, the "All pages" dropdown). +page.svelte 1367 → 1117 lines; `Pane.svelte`
+251 lines. **Not the B17 fix** — the module-level singletons (`models`/`layers`/`layerUI`/`imgEdit`/
+`docs`/`viewState`/`selStore`) still leak across a project→project client-side navigation; only the
+prop-explosion half is fixed. Whether to pursue the rest of B17 is Dave's call (eos-07 asked him
+separately, not started). Full suite 345/345, svelte-check baseline unchanged (10/130) on every
+commit, all by diff review (not live-gated, per Dave's process change) — **batched smoke-test still
+owed**: tab open/close/promote/reorder-menu, every tool-strip button + fly-outs, split editor (both
+panes independently focusable/zoomable), a sheet tab vs a model-layout tab, the active-viewport bar
+after entering a viewport, Fit/zoom, ViewGizmos in an iso view, and Ctrl+P (paper prints at true
+size, no UI/selection visible).
 
 ### R10. Move mock data out of components  **[design]**
 `DrawingNavigator.TREE`, `paletteItems`, `PACKAGES/VERSIONS/REVISIONS`, `NODE_FIELDS`
@@ -912,7 +934,9 @@ B4 per-tab history vs per-model data · B5 sections not undoable/global · B6 ta
 page · B7 hit vs paint order · B8 Edit menu no-ops · B9 tolerance units · B10 tilted prism
 pick/grips · B11 dead FrameSel path · B12 dead code/CSS/a11y · B13 id generators · B14 gesture
 baseline in unfocused pane · B15 duplicate types · B16 two layer systems · B17 module
-singletons · B18 tab dedup by title · B19 review-1 carry-overs · B20 trimToClip z-span (engine) ·
+singletons — PARTIAL (R9, eos-18): the prop-explosion half is fixed (Workspace object, `4d7f8e3`);
+the module-singleton leak itself (models/layers/layerUI/imgEdit/docs/viewState/selStore still shared
+across a project→project client-side nav) is untouched, Dave deciding whether/when · B18 tab dedup by title · B19 review-1 carry-overs · B20 trimToClip z-span (engine) ·
 B21 odd-edge boxFootprint (engine) · B22 phantom elevation snap points (snap) · B23 walls pickable only
 at their base in an elevation (hit) · B24 elevation-native entities can't move vertically — FIXED 18ade46 · B25 Shift-press+move toggles nothing when released off the entity — FIXED 07a0195 · B26 first section/guide pushed into a model without that array is lost (`??=` returns the raw array, not the proxy) — FIXED c4b364c; B5 closed · B27 persisted sheet canvas view was dead weight — FIXED 57d2653 (keyed by drawing id, mount fit skipped, pruned on close) · B28 status-bar zoom/Fit ignore "Pan content" on a sheet frame (minor) — FIXED c101442 (activeViewportId routes by the active frame id, not the tab id; also fixed activeProj ignoring a sheet frame's own proj), follow-up regression (Fit reset a frame's pan/zoom on automatic refits / with Pan content off) — FIXED 136580b (`explicit` opt, only navFit passes it) · B29 (R3 2b) node-grip click overwritten by the following click's object pick — FIXED 713422f · B30 fitPane's orbit-reset keys by the tab id even with a sheet frame active, writing under (tab id, frame's proj) instead of the frame's own orbit key — harmless, not fixed.
 R1 split Viewport (gestures/mapper/hit/grips/snap/place/render) · R2 document vs view vs
