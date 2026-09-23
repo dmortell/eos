@@ -16,6 +16,36 @@ Numbering: every finding/action has a stable id you can paste into `todo.md`:
 `B` bugs · `R` refactor/manageability · `P` performance & tests · `X` cross-tool parity ·
 `K` Kestrel parity (Phase 2). Items marked ◧ need Dave's decision.
 
+## Pending — what's still open (updated 2026-09-23)
+
+The live list. Everything not here is closed — see §0a (verification log) for how each landed. Small,
+non-critical follow-ups (B12's a11y leftovers, the "smaller items" from review day 2026-09-23) live in
+`todo.md` → "New todos", not here.
+
+**Refactor / performance**
+- [ ] **R1 remainder** — `Viewport.svelte` is 1415 lines vs the ≤ 600 target; `refactor-plan.md` §11 lists what's left (event handlers, ctx wrappers, section/guide/image/orbit UI).
+- [ ] **R8 (full)** — sheet = a Viewport with `space: 'paper'`. Only R8-lite shipped; parked. Needed only if the paper gets its own annotations (see R5 below).
+- [ ] **P3 (long term)** — command/inverse-op history (`$lib/history/HistoryStore`) instead of full snapshots (short-term fix shipped).
+
+**Cross-tool (X)**
+- [ ] **X1** — Pages becomes the best paper/viewport tool AND the canonical 3D engine (Dave, 2026-09-23). Pick lists in §X1: **XP1–XP49** (Sheets / Drawings → Pages) and **XE1–XE42** (model3d / edit3d / Kestrel → Pages).
+- [ ] **X2** — reuse from Sheets (TransformBox, Prop* inputs, symbols, DXF import) — overlaps the X1 picks.
+- [ ] **X3** — one shared pan/zoom (`$lib`).
+- [ ] **X4** — persistence (AutoSave + HistoryStore pattern); **carries B17** (module singletons leak across projects).
+- [ ] **X5** — print through the package print route.
+- [ ] **X6** — versioning (PACKAGE / VERSION / REVISION) on the existing schema.
+- [ ] **X7** — underlays via `files/{id}` + `PdfState` (replaces the session `imageStore`).
+- [ ] **X8 / X9 / X10** — trunks mapping, racks renderer, risers embed (§11).
+- [ ] X11–X15 — notes (touch reference, hotkeys, cross-tool tests, dead siblings, z-order); no action unless picked.
+
+**Kestrel parity (K)** — priority order from §7.3
+- [ ] P1: **K2** command catalogue → **K1** command line + coordinate entry · **K5** rest (intersection / perpendicular / nearest, polar tracking, dynamic input) · **K4** array / mirror / offset / numeric move-rotate-scale · **K3** blocks + attributes · **K8** linear H/V dims + dimstyle · **K11** F-keys, POLAR, Space-repeat.
+- [ ] P2: K3 arc / hatch / table · K4 trim / extend / fillet / join / explode / match properties · K6 select-similar / by-layer / cycling · K7 edge grips · K8 radius / diameter dims, fields · K9 rest (linetype + mm weights, saved views, model-as-block; per-frame freeze DONE) · K10 visual style per frame, orbit button · K11 context menus · K12 DXF import, SVG export.
+- [ ] P3 / skip: angular / ordinate dims, find-replace, bottom / back / perspective views, help.
+
+**Decision pending**
+- [ ] **Paper annotations?** R5 is closed on the basis that the paper holds only viewports + the titleblock (annotations live in a model, or scoped to one viewport via `space: 'view:<frameId>'`). `todo.md`'s multi-viewport item still lists "(a) page model … titleblock + **page annotations**" — if free annotations on the paper are wanted, that item + R8 (full) + a small page-layer list (R5's deferred half) come back as one piece of work.
+
 ---
 
 ## 0a. Verification log (fixes by the other session, checked here)
@@ -91,6 +121,7 @@ Numbering: every finding/action has a stable id you can paste into `todo.md`:
 | **P6 — grips / paint order** | (this commit; eos-07) | **Done.** `selGrips` (`$derived` Map, selected entity id → grips) is shared by the grip render and `pick` (was rebuilt per render AND per pick); `mGrips` likewise for the selected model object (render + `pickModelGrip`), keyed by node id; `paintEnts` skips the sort + copy when entities are already in paint order (an O(n) check — an entity drag rewrites `entities` every move). A drag still uses `gripsFor(drag.base)` (the pre-drag grips). |
 | **P5 — rest (paper-scale test + gate)** | (this commit; eos-07) | **Done.** `paper-scale.test.ts` (3): geometry prints at 1000/N paper mm; 8 pt text is 2.82 paper mm and a 3.5 mm arrowhead is 3.5 paper mm at every scale (B3, through `textBox` / `arrowPts` as the Viewport sizes them). **Gate:** `pnpm check:pages` (`scripts/check-pages.mjs`) = the pages/ unit tests + svelte-check failing ONLY on errors under pages/ (the repo's baseline errors in other tools don't block); `.githooks/pre-commit` runs it when a commit touches pages/ (~20 s), enabled per clone with `git config core.hooksPath .githooks` (set on this clone). Probed: a planted type error under pages/ fails the gate. |
 | **Batched live review** (R4, R9, R8-lite, B31, R5, R7, P2/P3/P4/P6, rack 1:10 + grid step, rotate rule, B18, B30 + view-state keys, split, VP Freeze) | (this commit; eos-07, Dave asked eos-07 to review instead of eos-f8) | **PASS, one bug found + fixed.** Live on :5173 (1912 px, rAF stubbed for the hidden automation tab), zero console errors throughout. **Sheet / R8-lite:** border-band pick, interior click deselects (no marquee), a click 4 px OUTSIDE the frame doesn't pick (28f9d5f holds), move snaps to the 5 mm grid, Alt-move is exact, corner resize snaps, Shift squares about the fixed corner, window marquee selects only when enclosing, crossing (R→L) selects on touch, dblclick activates → Exit / Pan content bar, Exit works. **BUG (fixed here):** the FIRST frame move/resize of a session could not be undone — `updateFrame` streamed the drag's geometry before any baseline existed (`ensureHist` ran only in `pushStep` at drag end), so "Start" already held the moved frame; `updateFrame` now calls `ensureHist` first; re-verified: move → undo restores → redo re-applies. **VP Freeze:** snowflake column only while a frame is active (21 layers; none in model tabs), freeze Walls hides the 4 wall segments in that frame only (the model tab still draws them), survives tab switches, undo thaws. **B18 / view state:** a tree drawing opened, zoomed, closed and re-opened comes back at the same zoom; the tree highlights the open drawing by id. **Rotate rule:** a desk's rotate handle snaps to 90° with Shift at ~97° and is free (113°) without. **R4:** Properties names a desk "Box"; the Line tool (ACAD multi-click + Enter) makes a 2-point `polyline` on Annotations. **R9:** split → the close button is on the RIGHT pane only (p1 stays), All pages menu lists the tabs, the right pane's ViewCube → 3D leaves the left pane in plan, close split, preview tab → dblclick promotes. **Print:** `applyPrint` targets the sheet `.paper` with `@page size: 420mm 297mm`, `removePrint` clears it. Earlier today (same session): B31 dark model space, R5 panel / walls hide, R7 picks in plan/elevation/3D, P2 hover, P3 fold/undo + image key, P4 3D pick, rack 1:10 + 1U drag. **Notes (not bugs):** a marquee can't START on the titleblock strip (press there does nothing); not exercised live: section → viewport drop, touch, the real print dialog, B30's frame-orbit reset (logic only). |
+| **B17 — CLOSED (tracked in X4)** + **R5 remainder — CLOSED** + **B12 rest → todo.md** | (docs only; eos-07, Dave 2026-09-23) | **B17:** closed as a standalone item — its only remainder (module-level `$state` stores leaking across a project→project navigation) is carried by **X4** (the per-project store lifecycle that persistence settles); see §X4. **R5:** the deferred half (paper-space layers for a sheet) is closed: the paper holds only viewports + the titleblock, and annotations live in a model (model layers) or scoped to one viewport (`space: 'view:<frameId>'`). Reopen only with free paper annotations — see Pending → "Paper annotations?". Per-viewport overrides shipped as VP Freeze (a239539). **B12:** the ~10 a11y warnings moved to `todo.md` → New todos (not critical). |
 | R2 commit 2 — `doc.svelte.ts` (`PageDoc`) + **B27 fix** | 57d2653 (eos-18; eos-07 diff-reviews only) | **Done — PASS; B27 FIXED.** `docs` store: `PageDoc { id, title, kind, paper, scale, frames, revisions?, modelId?, dir? }` keyed by DRAWING id (today the tab title — B18's fragility noted in the file), replacing `docFrames/docPaper/docScale`; `allFrames()/restoreFrames()` keep the history snapshot shape (frames only; full replace, so undoing past a frame's creation removes it — pre-existing); `dropDoc` never touches `docs` (B6). B27: the canvas seed is keyed by drawing id, `hasCanvas()` lets the mount-time `refitAll({ skipIfPersisted })` skip a drawing with a persisted view (an explicit Fit still refits), `drop(ids, drawingId)` prunes the seed on close. Latent bug fixed in passing: `paperOf/scaleOf` fell through wrongly for an empty id (`&&`/`??` mix) — now explicit ternaries. +page 1235; svelte-check 0 errors under `pages/`; server tests 270/270 (`doc.svelte.test.ts` + extended `viewState` tests) [verified by diff]. **Live 2026-09-23 on 5173:** sheet panned + Ctrl-wheeled to 81 % → the entry is stored under `"3303 Outlets"` (drawing id) → reload → **81 %, frame at the same offset (10, 10, width 616)** — the mount fit is skipped; the status-bar Fit still refits to 97 %; a paper-size change (A3 → A4 via the status-bar select) survives switching to another tab and back; a section arrow drops a second frame, Ctrl+Z removes it (2 → 1 frames), Ctrl+Y restores it; closing the sheet's tab removes its `localStorage` entry; a newly opened sheet ("33F — High Level Outlets") fits to paper at 100 % with no stored entry to skip. Zero errors. **Not live-covered:** reopening the SAME closed drawing (the mock's "3303 Outlets" isn't in the Ctrl+K search catalogue, so I could not reopen it) — B6's "frames/paper/scale survive close + reopen" rests on the diff (`dropDoc` drops `viewState` only, `docs` untouched) + the doc store tests. Note: pre-B27 `localStorage` entries keyed by old tab ids (e.g. `t2`) are never pruned — harmless, one-off manual clear or a version bump on the key. |
 | R2 commit 3 — one `session` object (**R2 closed**) | fa8d38e (eos-18; scripted rename + hand-fixed collateral; eos-07 diff-reviews only) | **Done — PASS.** `+page` only: `tabs/panes/focused/previewId/activeVps/selFrame/selSection/treeNode` become one `session` `$state` object (~210 call sites); `docSel` deliberately left for R3. Reviewed the rename's risk points: no bare references to the old names remain in the script (only prose comments), no `session` collateral in `<style>` or `class="…"` strings, `activeVps` is still a `Set` that is REASSIGNED on activate/deactivate (so it stays reactive inside the proxy), and the preview-reuse / `dropDoc` / `closeTab` hunks read as pure renames. +page 1252; svelte-check 0 errors under `pages/` (warnings back to the 130 baseline per eos-18); server tests 270/270 [verified by diff]. **Live 2026-09-23 on 5173, fresh load, zero errors:** activate (dbl-click) / deactivate (Esc); draw a rect → `Add rect`; **New page** → "Untitled 5" opens and focuses; back to the sheet the rect is still there; Ctrl+Z removes it, Ctrl+Y restores it (global history intact); **Split editor right** → 2 panes sharing the 5 tabs, the right pane's viewport activates independently; **Close this split** → 1 pane, rect intact; the **All pages** overflow menu lists every tab + New page and picks one; closing "Untitled 5" leaves the sheet's rect and its `1:25` scale intact (only session + view state freed); **preview-tab reuse (B6):** a single click on a navigator leaf opens an italic preview tab, a single click on another leaf REPLACES it (tab count stays +1), the first reopens by title, closing the preview returns to 4 tabs. Not covered: `treeNode` → Properties (no tree row selectable in the mock DOM I could find) — pure rename, low risk. **R2 (three commits) closed**; R3 next. |
 | R3 commit 1 — `ui/selection.ts` (pure helpers, unwired) | 67f3368 (eos-18) | **Reviewed by diff + tests — OK, additive.** `SelItem = { kind: 'ent' \| 'obj' \| 'guide' \| 'section' \| 'node' \| 'frame'; id; sub? }`, `Selection = SelItem[]`; `selOnly` (replace), `selToggle` (additive ONLY for `'ent'` — group toggle all-in → remove, any-out → add; any other kind replaces; empty items = no-op), `selClear`, `idsOfKind`, `singleOfKind`, `groupByKind` (the per-kind `delete()` dispatch shape). 15 tests; server tests 285/285; nothing imports it yet. Exclusivity rules were derived from the current code and match it: `'ent'` is the only multi/additive kind; obj/guide/section/frame/node are single and mutually exclusive; `'node'` (`id` = parent object, `sub` = node id) replaces a plain `'obj'` of the same object. **Notes for the wiring (commit 2):** (1) the derived read-only `modelSel` for Model3d must include a `'node'` item's PARENT id (`id`) so the object keeps its highlight and grips while a node is selected — today `nodeSel` rides on top of `modelSel`; (2) per Dave's amendment the stored `Selection` is per viewport (frame id / tab id), retained across activation switches and shared by two panes on the same viewport; (3) `selToggle` with a current non-`'ent'` selection and `'ent'` items drops the non-ent item — that is the intended exclusivity, pin it once in the wiring tests too. |
@@ -625,6 +656,144 @@ days. Pages is the declared direction (ux-plan), so:
 of Sheets' `ViewportSource` kinds (X9/X10) and Drawings' publish/pin (X6) into Pages. Don't grow
 all three.
 
+**Direction (Dave, 2026-09-23):** Pages is to have the BEST implementation of paper / viewports AND the 3D
+engine — it absorbs Sheets + Drawings (paper) and model3d / edit3d (3D). The two lists below are what to port;
+Dave picks ids (XP# / XE#) to implement.
+
+#### X1-A. Paper / viewports / annotations — what Sheets & Drawings have that Pages lacks (pick list)
+
+Researched 2026-09-23 (read-only survey of `sheets/`, `drawings/`, `$lib/pages/publish.ts`, eos2). Size: S ≈ hours,
+M ≈ a day, L ≈ several days. Tags point at existing review/todo items. **Pages already equal or better (not listed):**
+A4/A3/A2 paper, multiple frames with per-frame view/scale/border/model, VP Freeze, frame snap (edges + 5 mm grid),
+z-order, rotate handles, image import with origin/scale/crop, callout / cloud / arrowheads / aligned dims, model vs
+viewport scope, undo timeline + revision snapshots, touch, in-session cut/copy/paste. eos2 has nothing newer.
+
+**Paper & sheet setup**
+- [ ] **XP1** Title block reads real project data (per-sheet override → project default: project, client, site, drawn/checked/approved, date, drawing no., rev, scale, paper) — Sheets `parts/TitleBlock.svelte`; Pages' block is hard-coded — M
+- [ ] **XP2** Company block + client logo, resizable — Sheets `TitleBlock.svelte` — M
+- [ ] **XP3** Show / hide individual title-block sections — Sheets `TitleBlockProjectDefaults.sections` — S
+- [ ] **XP4** Title-block templates (standard / compact / vertical) — Drawings `parts/TitleBlock.svelte` — M
+- [ ] **XP5** Move the title block, or hide it per sheet — Sheets (drag, `positionMm`, null = hidden), Drawings Title tab — S
+- [ ] **XP6** Sheet properties panel (title, drawing no., paper, orientation, default scale, margins, dim unit, title-block fields) — Sheets `parts/SheetPropertiesWindow.svelte`; Pages' PAGE section is mock — M
+- [ ] **XP7** Paper margins (drawn guide; frames snap to them) — Sheets `PrintSettings.margins` — S
+- [ ] **XP8** Revisions table in the title block + per-sheet revision list (code / date / note / current, auto next code) — Sheets `revisions/RevisionsPanel.svelte` — M (todo §10, X6)
+- [ ] **XP9** Sheet list with drawing numbers: bulk renumber, drag reorder, duplicate sheet — Sheets `parts/SheetList.svelte`, `data.ts planRenumber` — M
+- [ ] **XP10** "File" sheets that open another tool (package placeholders) — Sheets `SheetDoc.link` / `createFileSheet` — S
+- [ ] **XP11** Project-wide annotation defaults + dimension units (mm / m / km / none, per-sheet override) — Sheets `DrawingDefaultsDialog.svelte` — S (K8)
+
+**Viewports**
+- [ ] **XP12** Viewports onto OTHER tools' documents (rack elevation / plan, frame detail, floorplan PDF, outlets / trunks, patching, risers, photo survey, fill rate) — Drawings `parts/viewports/*`, Sheets `ViewportSource` — L (X9 / X10, todo §11)
+- [ ] **XP13** Text and image viewport kinds (general-notes box) — Sheets `TextViewport.svelte`, Drawings text / image — S
+- [ ] **XP14** Guided "Add viewport" flow (pick type → bind source with floor / room / face / file pickers) — Drawings `parts/AddViewportDialog.svelte` — M
+- [ ] **XP15** Viewport list panel (select, dbl-click opens source, pin badge) — Drawings sidebar — S
+- [ ] **XP16** "Open source" jump to the owning tool — Drawings `handleOpenSource` — S
+- [ ] **XP17** Editable viewport label + font size, PRINTED on the sheet — Drawings `label`/`labelFontPt`, Sheets 8 pt label — S
+- [ ] **XP18** Viewport numbering for cross-references (auto reading order + manual override) — Sheets `numberViewports` — S
+- [ ] **XP19** Custom scale (1:N) and Fit scale — Sheets scale dialog, Drawings "Scale 1:" — S
+- [ ] **XP20** Viewport pan offset stored in the DOCUMENT, with numeric offset — Sheets `contentOffsetMm`, Drawings Off X/Y — M (todo §5, decision open)
+- [ ] **XP21** Viewport rotation 0 / 90 / 180 / 270 — Drawings `ViewportFrame.svelte rotationDeg` — M
+- [ ] **XP22** Lock a viewport (no move / resize) — Drawings lock toggle — S
+- [ ] **XP23** Per-viewport layer LOCK (VP Freeze only hides) — Sheets `layerOverrides[id].locked`, `layerBlockReason` — S
+- [ ] **XP24** Per-viewport render flags: hidden lines, monochrome (b/w), sub-layer toggles — Sheets model3d `hiddenLines` / `bw`, Drawings outlets / risers — M (K10)
+- [ ] **XP25** Frame snap to margins + title-block edges — Sheets `Viewport.svelte xLines/yLines` — S (needs XP7)
+- [ ] **XP26** Frame X / Y / W / H in paper mm (Pages shows paper px, 60 px minimum) — Sheets / Drawings — S
+
+**Annotations & symbols**
+- [ ] **XP27** Symbol library: section marker, elevation / section tag (4 arms + drawing-no. centre), detail marker, photo marker, north arrow, outlet (ports / mount / usage / cable), faceplate, door — Sheets `annotations/symbols/registry.ts` — L (todo §2a, X2, K3)
+- [ ] **XP28** Links on symbols (to a sheet / drawing ref or survey photo; stored + edited, no navigation yet) — Sheets `AnnotationLink` — S
+- [ ] **XP29** Shape library (built-in + custom shapes in Firestore `library`, drag to place, "save selection as shape") — Sheets `annotations/shapes/library.ts`, `ShapeLibrary.svelte` — M (todo §2a)
+- [ ] **XP30** Legend annotation (auto-lists layers + swatches, exclude list, optional counts) — Sheets `kind:'legend'` — M
+- [ ] **XP31** Floor-grid annotation (tile size aligned to the building origin) — Sheets `kind:'grid'` — S
+- [ ] **XP32** Line dash styles (solid / dashed / dotted / dash-dot) on lines, rects, ellipses, dims; honour layer linetype — Sheets `dashArray`/`dashCap` — S (K9)
+- [ ] **XP33** More arrowheads (arrow / dot / tick), set per end, on lines and dims — Sheets `ArrowHead` — S
+- [ ] **XP34** Callout styles (none / underline / box) + press-at-tip, drag-to-box placement — Sheets callout `border` — S
+- [ ] **XP35** Line labels (text at start / mid / end) — Sheets line `text` + `labelPos` — S
+- [ ] **XP36** Stroke width in drawing mm (Pages' weight is a unitless screen weight) — Sheets `strokeWidth` — S (K9, B3)
+- [ ] **XP37** Numeric length for lines / dims ("Length (mm)") — Sheets `setSelLength` — S
+- [ ] **XP38** Renumber labels (start / step, `###`, overwrite / prefix / suffix, order by index / value / x-y / y-x) — Sheets `AnnotationEditor.renumber`, `RenumberDialog.svelte` — M
+- [ ] **XP39** Annotations on the PAPER itself (text, arrow, dim, cloud, north / level datum / detail bubble) — Drawings page-level `annotations` — M (= the "Paper annotations?" decision in Pending; would reopen R5's paper layers + R8)
+
+**Editing UX**
+- [ ] **XP40** 8-handle transform box + rotate / scale box for multi-selections — Sheets `edit/TransformBox.svelte`, `transform.ts`, `rotateSelection`/`scaleSelection`, model3d `GroupTransformBox.svelte` — M (X2, K7)
+- [ ] **XP41** Single-letter tool hotkeys (shown in tooltips) + F2 to edit text — Sheets `edit/hotkeys.ts` — S (X12, K11)
+- [ ] **XP42** Viewport frames: multi-select, duplicate (Ctrl-D), copy / paste across sheets + projects (clipboard carries the model), arrow-key nudge (Shift = 10 mm) — Sheets `viewports.svelte.ts`, Drawings — M
+
+**Output**
+- [ ] **XP43** Multi-sheet packages + package print (named sets, ordering, mixed paper sizes, page breaks) — Sheets `parts/PackageManager.svelte`, `packages/[pkgId]/print` — L (X5)
+- [ ] **XP44** Publish / pin / versions (source revisions, per-viewport `sourcePin`, stale badges, restore) — Drawings `$lib/pages/publish.ts`, `ViewportFrame` — L (X6)
+- [ ] **XP45** DXF export (active viewport; outlets / racks / risers / model3d writers) — Sheets `dxf/*`, `model3d/dxfExport.ts` — M (X2, K12)
+- [ ] **XP46** Monochrome print — Sheets `bw` — S (with XP24)
+
+**Import**
+- [ ] **XP47** PDF underlays (fileId, page, opacity, flip, reset position via `PdfState`; `Model.underlays` exists in Pages but is unused) — Sheets model3d `Underlay`, `Model3dUnderlayImage.svelte`, Drawings floorplan — M (X7)
+- [ ] **XP48** Place an image by URL / from `files/{id}` (Pages: local file picker only) — Drawings / Sheets — S (X7)
+- [ ] **XP49** DXF import — no EOS tool has it; port KestrelCad2 `exchange.js` — L (K12)
+
+Not found in any tool (nothing to port): align / distribute, context menus.
+
+#### X1-B. 3D engine — what model3d / edit3d / KestrelCad2 have that Pages lacks (pick list)
+
+Researched 2026-09-23. Pages' own engine has already outgrown Sheets model3d in geometry and rendering (tilt, bend
+radius, door / window openings, shading, `viewMap`, true `trimToClip` section cut, guides, depth snap, model OSNAP,
+multi-model registry, iso pick, per-frame freeze); the gaps are mostly model3d's EDITOR and Kestrel's
+rendering / solid modelling. There is no three.js / WebGL / WebGPU code anywhere in the repo; the rack renderer
+(`$lib/rack` → `racks/parts/RackElevationRenderer.svelte`) is 2D; edit3d adds nothing beyond a wireframe /
+hidden-line toggle (XE24). Paths: S = `sheets/tools/model3d/`, K = `M:\dev\KestrelCad2\`.
+
+**Object kinds**
+- [ ] **XE1** Slabs / floors / ceilings as any closed-outline extrusion (L-shaped slab, raised floor, ceiling band) — K `geometry.js extrude(points, height)`; a Pages prism is an n-gon in a w×d box — M (todo "Structural slabs / floors / ceilings")
+- [ ] **XE2** Level datum lines in elevations (dashed SLAB / FFL / CL / SOFFIT with z labels from `model.levels`) — S `Model3dRender.svelte`; Pages stores Levels but never draws them — S
+- [ ] **XE3** Openings attached to their wall (move / reshape the wall and the door follows) — no tool has it — M
+- [ ] **XE4** Openings as real holes in 3D (Pages iso draws the frame over an opaque wall) — K `csg.js`; todo SHADED plans a wall-segment split instead — M (split) / L (CSG)
+- [ ] **XE5** Round primitives (cylinder, cone, sphere, torus) + revolve (pipe fittings, cable drums) — K `geometry.js` — S–M
+- [ ] **XE6** Racks and devices as real objects (U slots, device data) — `$lib/rack`, Drawings `RackElevationViewport.svelte` — M read-only / L parametric (X9)
+- [ ] **XE7** Cable trays / trunks from a catalogue (spec, fill, ladder / tray types) — Outlets `outlets/trunks/types.ts` — M (X8)
+- [ ] **XE8** Blocks / instances / symbol library in the model — K BLOCK / INSERT (incl. meshes) — M–L (K3, K9)
+- [ ] **XE9** Parametric families: stairs, columns, doors (no tool has them; listed for completeness) — M each
+
+**Geometry & modelling ops**
+- [ ] **XE10** Booleans (union / subtract / intersect) — K `csg.js`, `booleanOperation` — L (review K13 says don't copy)
+- [ ] **XE11** Topological join / merge of walls or conduits (drop a node on a node → a junction, or two graphs merge and mitre) — S `model3d-editor.svelte.ts joinOnDrop`; Pages `snapNode` only makes coordinates coincide — M
+- [ ] **XE12** Split a junction apart (each incident segment gets its own node) — S `disconnectNode` — S
+- [ ] **XE13** Segment-level selection and editing (select / highlight one segment, delete a segment, batch edit, reset overrides) — S `ssel`, `selectSegment`, `setSegAll`, `deleteSegment(s)` — S–M
+- [ ] **XE14** Per-segment cross-section shape (edges 3..24 per segment / object) — S — S
+- [ ] **XE15** Rotate / scale walls and conduits (graph objects) about a pivot — S `rotateSelection` / `scaleSelection` — S–M
+- [ ] **XE16** Numeric 3D transform (rotate X / Y / Z about the selection centre + translate) — K `transform3dDialog` — S
+- [ ] **XE17** Mirror, array, offset for model objects (graphs mirror nodes; doors flip) — K dialogs — M (K4 covers entities)
+- [ ] **XE18** Group model objects (`Obj.groupId` exists, unused; Ctrl+G) — S `selectGroup` / `setGroup` — S
+- [ ] **XE19** Clash / clearance checks (conduit vs structure → penetrations) — K `NATIVE-ANALYSIS.md` INTERFERE / CLEARANCE; a segment-vs-box check would feed todo's penetration deliverable — M
+- [ ] **XE20** Measure + quantities (distance, area, volume, conduit run length) — K `measureArea`, `G.volume` — S–M
+
+**Rendering & camera**
+- [ ] **XE21** GPU renderer with a depth buffer (WebGL / three.js) — K `renderer.js` (WebGPU) — L (todo "SHADED = three.js")
+- [ ] **XE22** True hidden-surface removal (Pages sorts whole faces by mean depth → long walls vs small prisms can overlap wrongly) — K software z-buffer fallback — M
+- [ ] **XE23** Hidden lines in elevations / sections (every outline is drawn stacked today) — K ortho through the depth renderer — M
+- [ ] **XE24** Visual styles: wireframe / hidden-line / shaded / x-ray / b&w (Pages iso is always shaded; `project(o, 'iso')` already gives wireframe) — K, S `hiddenLines` / `bw`, edit3d toggle — S (K10, todo 3D/WIRE/SHADED pop-out; Dave: racks may go wireframe)
+- [ ] **XE25** Feature edges only (no facet lines on 16-sided pipes) — K `featureEdges` — S–M
+- [ ] **XE26** Perspective camera — K `camera.perspective` — M (K10 marked skip)
+- [ ] **XE27** Richer lighting + transparency (per layer / object opacity) — K key + fill + specular, x-ray — S
+- [ ] **XE28** Walk / fly camera — no tool — M (only if wanted)
+
+**Editing in 3D**
+- [ ] **XE29** Multi-select, marquee and group move for model objects (`'obj'` is single-select today; marquee / Ctrl-A are entity-only) — S `marqueeCollect`, `applyGroupTranslate`, `selectAllVisible` — M
+- [ ] **XE30** Group transform box (8 scale handles + rotate) for model objects — S `GroupTransformBox.svelte`, `scaleSelection` — M
+- [ ] **XE31** Copy / paste / duplicate / Ctrl-drag copy / arrow nudge + Ctrl-arrow resize for model objects (Pages: entities only) — S `copySel`, `paste`, `duplicateSel`, `driveCtrlDrag`, `nudgeSelection` — S
+- [ ] **XE32** Edit shared properties of several objects at once (height, base z, layer, "mixed") — S `common()`, `setMulti*` — S (after XE29)
+- [ ] **XE33** Place prisms in elevations (depth centred) + a wall-top grip for height in elevation — S `startPlacing('prism')`, `p0` grip — S
+- [ ] **XE34** Edit in the 3D view (grips, move, gizmo) + 3D snapping to mesh vertices (Pages iso is select-only; `objSnaps` empty in iso) — K `geometry.js` 3D snap — M–L
+
+**Sections, levels & underlays**
+- [ ] **XE35** Section cut-height (z) editing (Bottom / Top Z, fit to slabs) + a PLAN cut plane clipping the plan to a z band; iso trims under a clip (today box-cull) — S `togglePlanClip`, `setPlanClipZ`, `slabZRange` — S–M
+- [ ] **XE36** Floating elevation preview of the plan selection (auto-fit front / rear / left / right / iso, ±600 mm depth band, editable) — S `Model3dElevationPreview.svelte` — S–M
+- [ ] **XE37** Per-view PDF / image underlays (`Model.underlays` unused; images are base64 entities that bleed into elevations / 3D) + stacking several storeys at true z (riser / building view) — S `Model3dUnderlayImage.svelte`, `startUnderlay*` — M each (X7, X10 / K9)
+
+**Data & interop**
+- [ ] **XE38** DXF export of the projected model (per direction, layers → ACI colours) — S `dxfExport.ts modelToDxf` — S (X2)
+- [ ] **XE39** DXF 3D import / export (3DFACE, polyface mesh) — K `exchange.js` — M (K12 plans 2D import only)
+- [ ] **XE40** OBJ / glTF / STL / IFC (glTF / OBJ export from `faces3d` is cheap; IFC is big) — none / K via OCC bridge — M / L
+- [ ] **XE41** Per-viewport layer LOCK (VP Freeze only hides) — S `layerOverrides {hidden, locked}` — S (= XP23)
+- [ ] **XE42** Save the model (Firestore, debounced, seed / migrate) — S `models.svelte.ts modelStore` — M (X4)
+
 ### X2. Reuse from Sheets now (low-risk, concrete)  **[design]**
 - `sheets/edit/history.svelte.ts` `History` (`register/touch/commit/undo/redo`, snapshot-based,
   selection captured with the frame, no-op steps skipped) replaces `beginGesture/endGesture/
@@ -986,7 +1155,7 @@ B4 per-tab history vs per-model data · B5 sections not undoable/global · B6 ta
 page · B7 hit vs paint order · B8 Edit menu no-ops · B9 tolerance units · B10 tilted prism
 pick/grips · B11 dead FrameSel path · B12 dead code/CSS/a11y · B13 id generators · B14 gesture
 baseline in unfocused pane · B15 duplicate types · B16 two layer systems · B17 module
-singletons — PARTIAL, rest DEFERRED TO X4 (Dave, 2026-09-23, §0a): the prop-explosion half is
+singletons (CLOSED → X4) — PARTIAL, rest DEFERRED TO X4 (Dave, 2026-09-23, §0a): the prop-explosion half is
 fixed (R9's Workspace object, `4d7f8e3`); the module-singleton leak itself (models/layers/layerUI/
 imgEdit/docs/viewState/selStore still shared across a project→project client-side nav) is not
 being chased standalone — it waits for X4's persistence pattern · B18 tab dedup by title · B19 review-1 carry-overs · B20 trimToClip z-span (engine) ·
