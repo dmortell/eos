@@ -10,10 +10,11 @@
 	import Viewport, { type Env, type VpOn } from '../ui/Viewport.svelte'
 	import { noopEditor, type Editor } from '../ui/editor'
 	import { singleOfKind } from '../ui/selection'
-	import type { Ent, View } from '../ui/geometry'
+	import type { Ent, Pt, View } from '../ui/geometry'
 	import Handle from './Handle.svelte'
 	import { beginPointerDrag, DragRegistry } from '../ui/gestures'
 	import { inBox, marqueeSelect } from '../ui/hit'
+	import { gripsLocal, constrainGrip } from '../ui/grips'
 	import type { ViewCtx } from '../ui/view'
 	import { HANDLE_PX, PAPER_W, PAPER_H } from '../constants'
 	import type { ElevDir } from '../ui/geometry'
@@ -71,20 +72,34 @@
 		beginPointerDrag<FrameDrag>(e, { mode, gi, sx: e.clientX, sy: e.clientY, base: { ...base }, s: scaleOf(), set, commit },
 			{ onMove: onDrag, onUp: (_e, d, moved) => { if (d.commit && moved) onframecommit?.() } }, reg, { thresholdPx: 4 })   // one history step per extra-frame move/resize
 	}
+	// PaperPage's own corner order (CORNERS below: TL,TR,BR,BL = gi 0-3) doesn't match grips.ts's rect-branch
+	// output order (TL,BR,BL,TR = index 0-3, grips.ts's rect branch) — GRIP_IDX reindexes one to the other.
+	// LEFT_GI/TOP_GI say which corners clamp x/y against the MIN size (matches the old hand-rolled clamp:
+	// only a corner ON that edge repositions when the drag would shrink the frame below MIN).
+	const GRIP_IDX = [0, 3, 1, 2]   // PaperPage gi -> grips.ts rect-grip array index
+	const LEFT_GI = new Set([0, 3]), TOP_GI = new Set([0, 1])
+
 	// Viewports move freely on an infinite canvas — no position clamp; pan to follow one that
 	// has been dragged off the paper.
 	function onDrag(e: PointerEvent, drag: FrameDrag) {
 		const dx = (e.clientX - drag.sx) / drag.s, dy = (e.clientY - drag.sy) / drag.s
 		const b = drag.base
 		if (drag.mode === 'move') { drag.set({ w: b.w, h: b.h, x: b.x + dx, y: b.y + dy }); return }
-		let { x, y, w, h } = b
-		if (drag.gi === 0) { x = b.x + dx; y = b.y + dy; w = b.w - dx; h = b.h - dy }       // TL
-		else if (drag.gi === 1) { y = b.y + dy; w = b.w + dx; h = b.h - dy }                 // TR
-		else if (drag.gi === 2) { w = b.w + dx; h = b.h + dy }                               // BR
-		else if (drag.gi === 3) { x = b.x + dx; w = b.w - dx; h = b.h + dy }                 // BL
-		if (w < MIN) { if (drag.gi === 0 || drag.gi === 3) x = b.x + b.w - MIN; w = MIN }
-		if (h < MIN) { if (drag.gi === 0 || drag.gi === 1) y = b.y + b.h - MIN; h = MIN }
-		drag.set({ x, y, w, h })   // may extend beyond the sheet
+		// Corner resize (opposite corner fixed) + Shift-square constrain reuse grips.ts's rect grip
+		// (R8-lite, refactor-plan.md's R8-lite §0/§2) via a throwaway fake rect `Ent` built from `drag.base`
+		// — storage stays `Frame`/`SheetFrame`, only the resize MATH is shared.
+		const baseEnt: Ent = { id: 'frame', type: 'rect', a: [b.x, b.y], b: [b.x + b.w, b.y + b.h] }
+		const opts = { gripMm: 0, shift: () => e.shiftKey, imgCropId: null }
+		const gi = GRIP_IDX[drag.gi]
+		const grip = gripsLocal(PAPER_CTX, baseEnt, opts)[gi]
+		let p: Pt = [toSheet(e.clientX, e.clientY).x, toSheet(e.clientX, e.clientY).y]
+		p = constrainGrip(PAPER_CTX, baseEnt, gi, p, e.shiftKey, opts)
+		const anchor = grip.anchor!   // the opposite corner, held fixed
+		const px = LEFT_GI.has(drag.gi) ? Math.min(p[0], anchor[0] - MIN) : Math.max(p[0], anchor[0] + MIN)
+		const py = TOP_GI.has(drag.gi) ? Math.min(p[1], anchor[1] - MIN) : Math.max(p[1], anchor[1] + MIN)
+		const edited = grip.apply([px, py])
+		const [ex0, ey0] = edited.a!, [ex1, ey1] = edited.b!
+		drag.set({ x: Math.min(ex0, ex1), y: Math.min(ey0, ey1), w: Math.abs(ex1 - ex0), h: Math.abs(ey1 - ey0) })   // may extend beyond the sheet
 	}
 
 	// Frame pick + marquee (R8-lite, refactor-plan.md's R8-lite §0/§2): border-band pick and marquee
