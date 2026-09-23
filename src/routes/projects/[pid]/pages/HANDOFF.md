@@ -4,20 +4,18 @@ Working notes for the next session (or a fresh context) picking up the Pages ref
 `refactor-plan.md` (the R1 Viewport split plan) and `review.md` (the standing review, maintained by the
 eos-f8 reviewer session). Delete this file once the queue below is drained.
 
-> **RESUME HERE (fresh session):** R1 is CLOSED (steps 3–9 + mop-ups, review.md §0a; close-out with the
-> measured line breakdown in refactor-plan.md §11). Landed + gated since: B24 `18ade46`, B25 `07a0195`, K5
-> `9be21a6` (model corners/nodes as OSNAP targets), B5 Viewport side `5db346f` (sections are model edits made
-> in the Viewport; `sections` prop + 3 callbacks gone) + B26 `c4b364c` (the `(x.y ??= []).push()` $state-proxy
-> trap — first section/guide was lost). In eos-f8's gate pass now (all on main, HEAD `7cc3a50`): B23 `2b91b3d`
-> (walls pick across their elevation face), B19 part 2 `7cc3a50` (frame-drag 4 px threshold, Properties
-> remount on selection change, 5-paper-mm duplicate/paste offsets, text editor align/valign/rot), B20
-> `41d12f8` + B21 `b31ec37` (engine, eos-18). Push to origin after that PASS. Then the bug index is EMPTY
-> except: B12's ~10 a11y warnings (deliberate), B16 (two layer systems = R5), B17 (module singletons = R9),
-> B18 (stable per-drawing id). Next structural work is R6 (editor class; the 318-line event dispatch in
-> Viewport, see §11) — Viewport is 1380 lines. Verify in-browser: the :5173 dev server serves the WORKING
-> TREE (HMR), so keep the tree clean while eos-f8 gates; activate a viewport by double-clicking EMPTY space.
-> Test filter: `pnpm vitest run --project=server pages/`. Peers: eos-f8 (VS Code, reviewer/gate), eos-18
-> (Zed, Sonnet 5, takes spec'd tasks in files I'm not editing) — crossSessionInbound=accept, no holds.
+> **RESUME HERE (fresh session):** R1 AND R6 are CLOSED and reviewer-gated (review.md §0a). R6 (eos-18,
+> Sonnet 5): `2937573` `ui/modelEdit.ts` (store mutations + section/guide edits take `(mdl, edit: EditScope
+> {begin, mark, end})`), `dd4a67c` `ui/editor.ts` (`editor: Editor = { ents.*, edit.*, sections.* }` prop,
+> `noopEditor` default — a mis-wired editor THROWS rather than no-ops; `VpOn` = the 8 view events only;
+> +page `vpView`/`vpEditor`, PaperPage `makeFrameEditor`). Bug index: every numbered B-item is fixed except
+> the deliberate deferrals B12 (a11y), B16 (=R5), B17 (=R9), B18 (stable drawing id). Viewport 1336 lines,
+> +page 1244. Open design items in review.md: R2 (document vs view vs session state), R3 (one selection
+> model), R5 (one layer model), R7 (one projection path — B23's face test in hit.ts is a first step), R8
+> (PaperPage into Viewport), R9 (split +page), plus X4/X5 (persistence, print). Known non-memoised:
+> +page's vpView/vpEditor are rebuilt per render (as vpOn was). Working pattern that kept Fable usage low:
+> eos-34 specs + diff-reviews, eos-18 implements, eos-f8 gates live; keep the tree quiet during gates
+> (the :5173 dev server serves the working tree). Test filter: `pnpm vitest run --project=server pages/`.
 
 ## Where things stand (all on `main` unless noted)
 
