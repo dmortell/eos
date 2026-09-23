@@ -7,7 +7,6 @@
 	import { translate, textBox, STYLE_DEFAULTS, type Ent, type Pt, type TextAlign, type VAlign } from '../ui/geometry'
 	import { PT_MM } from '../constants'
 	import { COLORS } from '../palette'
-	import { layers } from '../layers.svelte'
 	import { imgEdit, setImgMode } from '../imageEdit.svelte'
 	import type { Obj, Layer as MLayer } from '../3dview/types'
 	import { type SheetFrame, type Proj, PROJ_OPTS, SCALES } from '../types'
@@ -337,10 +336,11 @@
 			<button class="pp-reset" onclick={() => setAll({ crop: undefined })}>Reset crop</button>
 		{/if}
 		<div class="prop-sec">STYLE</div>
+		<!-- R5: entities pick from the model's one layer list, the same list as model objects -->
 		<div class="prop"><span>Layer</span>
 			<select class="navf" value={(cc('layer') as string | undefined) ?? ''} onkeydown={fnav} onchange={(e) => setLayer(strVal(e))}>
 				<option value="">— none —</option>
-				{#each layers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+				{#each modelLayers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
 			</select>
 		</div>
 		{#if activeFrameId}

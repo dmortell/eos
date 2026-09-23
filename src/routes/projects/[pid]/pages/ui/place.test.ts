@@ -25,6 +25,10 @@ describe('drawPlane / resolveLayer', () => {
 		expect(resolveLayer(mdl(), 'openings')).toBe('openings')
 		expect(resolveLayer(mdl(), 'nope')).toBe('walls')
 		expect(resolveLayer(mdl({ layers: [] }), 'walls')).toBeUndefined()
+		// R5: the list also holds grouped (Background / annotation) layers — an unknown object layer falls
+		// back to the first OBJECT layer (no group), never onto a background layer.
+		const grouped = { layers: [{ id: 'bg', name: 'bg', color: '#000', visible: true, locked: false, group: 'Background' }, { id: 'desks', name: 'desks', color: '#000', visible: true, locked: false }] }
+		expect(resolveLayer(mdl(grouped), 'nope')).toBe('desks')
 		expect(resolveLayer(undefined, 'walls')).toBeUndefined()
 	})
 })

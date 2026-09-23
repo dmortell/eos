@@ -33,7 +33,7 @@ function migrateObj(o: any): Obj {
 
 // The reserved layer that PDF/image underlays sit on, so they can be hidden /
 // locked per viewport from the Layers window like any other layer.
-export const BACKGROUND_LAYER = { id: 'background', name: 'Background', color: '#9ca3af', visible: true, locked: false }
+export const BACKGROUND_LAYER = { id: 'background', name: 'Background', color: '#9ca3af', visible: true, locked: false, group: 'Background' }
 
 // R4 (review.md §R4): a legacy `'line'` entity → a 2-point `'polyline'` (the type is retired; a straight
 // entity is now just a polyline with exactly 2 points). Keeps every other field (color/weight/layer/arrow/

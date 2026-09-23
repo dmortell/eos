@@ -1,47 +1,43 @@
 <script lang="ts">
-	// Right-sidebar LAYERS panel — now backed by the shared reactive layer store (layers.svelte.ts),
-	// so eye/lock toggles, colours and the active layer really drive the canvas. Grouped tree with a
-	// View-Preset picker + search (cosmetic), per-layer eye/lock/colour and a settings dialog.
+	// Right-sidebar LAYERS panel — R5: ONE grouped list, the focused model's own `layers` (its object
+	// layers under "Model" plus its Background / annotation / outlet / trunk layers), so eye/lock/colour/
+	// order/active drive both the model objects and the entities on the canvas. View-Preset picker +
+	// search, per-layer eye/lock/colour and a settings dialog. Mutations go straight onto the model's
+	// reactive list (layers.svelte.ts helpers).
 	import { Icon, ColorPicker, DragReorder } from '$lib'
 	import { COLORS } from '../palette'
-	import { layers, layerUI, layerGroups, addLayer, removeLayer, moveLayer,
+	import { type Layer, layerUI, layerGroup, layerGroups, addLayer, removeLayer, moveLayer,
 		presets, presetUI, applyPreset, savePreset, updatePreset, renamePreset, deletePreset, presetMatches } from '../layers.svelte'
-	import type { Layer as MLayer } from '../3dview/types'
 	import { tick } from 'svelte'
 	function focusEdit(node: HTMLInputElement) { tick().then(() => { node.focus(); node.select() }) }
-	// The ACTIVE model's object layers (walls / furniture / trunks / openings) — a SEPARATE layer system
-	// from the page layers above (B16). Surfaced here so the model objects can be hidden/locked from the
-	// panel (they couldn't before); toggling mutates the model layer directly, which the canvas reads via
-	// `modelLayerVisible`/`modelLayerLocked`. (Full unification of the two systems is R5.)
-	let { modelLayers = [] }: { modelLayers?: MLayer[] } = $props()
-	let modelOpen = $state(true)
-	const modelAllOn = $derived(modelLayers.length > 0 && modelLayers.every((l) => l.visible))
+	let { layers = [] }: { layers?: Layer[] } = $props()
+	const swatchOf = (l: Layer) => l.swatch ?? 'color'
 
 	let search = $state('')
 	// View-preset manage menu + inline rename.
 	let presetMenu = $state(false)
 	let renamingPreset = $state<string | null>(null)
 	const activePreset = $derived(presets.find((p) => p.id === presetUI.active))
-	const modified = $derived(!!presetUI.active && !presetMatches(presetUI.active))
+	const modified = $derived(!!presetUI.active && !presetMatches(layers, presetUI.active))
 	const matches = (s: string) => !search || s.toLowerCase().includes(search.toLowerCase())
 
 	// Per-group collapse state (default open). Group visibility = all its layers visible.
 	let openGroups = $state<Record<string, boolean>>({})
 	const isOpen = (g: string) => openGroups[g] !== false
-	const groupOn = (g: string) => layers.filter((l) => l.group === g).every((l) => l.visible)
-	function setGroup(g: string, on: boolean) { for (const l of layers) if (l.group === g) l.visible = on }
+	const groupOn = (g: string) => layers.filter((l) => layerGroup(l) === g).every((l) => l.visible)
+	function setGroup(g: string, on: boolean) { for (const l of layers) if (layerGroup(l) === g) l.visible = on }
 
 	let editing = $state<string | null>(null)   // layer id being renamed
 	function commit(e: KeyboardEvent) { if (e.key === 'Enter' || e.key === 'Escape') editing = null }
 
 	// DRAG to reorder layers = change draw z-order (array position). Reusable $lib helper handles the DnD
 	// state + direction-aware drop; `moveLayer` applies it.
-	const dr = new DragReorder(moveLayer, (id) => layers.findIndex((l) => l.id === id))
+	const dr = new DragReorder((id, t, after) => moveLayer(layers, id, t, after), (id) => layers.findIndex((l) => l.id === id))
 
 	// Layer-settings dialog (opened from a layer's swatch button).
 	let dlgId = $state<string | null>(null)
 	let dlg = $derived(dlgId ? layers.find((l) => l.id === dlgId) : null)
-	function del() { if (dlgId) { removeLayer(dlgId); dlgId = null } }
+	function del() { if (dlgId) { removeLayer(layers, dlgId); dlgId = null } }
 </script>
 
 <div class="lp">
@@ -54,7 +50,7 @@
 					onchange={(e) => renamePreset(renamingPreset!, (e.currentTarget as HTMLInputElement).value)}
 					onkeydown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') { renamePreset(renamingPreset!, (e.currentTarget as HTMLInputElement).value); renamingPreset = null } }} />
 			{:else}
-				<select value={presetUI.active} onchange={(e) => applyPreset((e.currentTarget as HTMLSelectElement).value)}>
+				<select value={presetUI.active} onchange={(e) => applyPreset(layers, (e.currentTarget as HTMLSelectElement).value)}>
 					{#each presets as p (p.id)}<option value={p.id}>{p.name}</option>{/each}
 				</select>
 			{/if}
@@ -64,9 +60,9 @@
 					<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 					<div class="lp-menu-back" onclick={() => (presetMenu = false)}></div>
 					<div class="lp-menu">
-						<button onclick={() => { applyPreset(presetUI.active); presetMenu = false }}>Re-apply</button>
-						<button disabled={!modified} onclick={() => { updatePreset(presetUI.active); presetMenu = false }}>Update ‹{activePreset?.name ?? '—'}›</button>
-						<button onclick={() => { const p = savePreset('New view'); presetMenu = false; renamingPreset = p.id }}>Save current as new…</button>
+						<button onclick={() => { applyPreset(layers, presetUI.active); presetMenu = false }}>Re-apply</button>
+						<button disabled={!modified} onclick={() => { updatePreset(layers, presetUI.active); presetMenu = false }}>Update ‹{activePreset?.name ?? '—'}›</button>
+						<button onclick={() => { const p = savePreset(layers, 'New view'); presetMenu = false; renamingPreset = p.id }}>Save current as new…</button>
 						<button onclick={() => { renamingPreset = presetUI.active; presetMenu = false }}>Rename…</button>
 						<button class="danger" disabled={presets.length < 2} onclick={() => { deletePreset(presetUI.active); presetMenu = false }}>Delete</button>
 					</div>
@@ -80,41 +76,15 @@
 	</div>
 
 	<div class="lp-tree">
-		{#if modelLayers.length}
-			<!-- MODEL object layers (walls/furniture/trunks/openings) — the model's own layer list (B16). -->
-			<div class="lg-row">
-				<button class="lg-chev" aria-label={modelOpen ? 'Collapse' : 'Expand'} onclick={() => (modelOpen = !modelOpen)}>
-					<Icon name={modelOpen ? 'chevronDown' : 'chevronRight'} size={12} />
-				</button>
-				<span class="lg-name" title="The active model's object layers">Model</span>
-				<button class="lp-check" class:on={modelAllOn} aria-label="Toggle model layers" onclick={() => { const on = !modelAllOn; for (const l of modelLayers) l.visible = on }}></button>
-			</div>
-			{#if modelOpen}
-				{#each modelLayers as l (l.id)}
-					{#if matches(l.name)}
-						<div class="ly-row" class:off={!l.visible}>
-							<button class="ly-eye" aria-label="Show/hide {l.name}" onclick={() => (l.visible = !l.visible)}>
-								<Icon name={l.visible ? 'eye' : 'eyeSlash'} size={13} />
-							</button>
-							<button class="ly-lock-btn" class:on={l.locked} aria-label="{l.locked ? 'Unlock' : 'Lock'} {l.name}" title="{l.locked ? 'Unlock' : 'Lock'} layer" onclick={() => (l.locked = !l.locked)}>
-								<Icon name={l.locked ? 'lock' : 'lockOpen'} size={12} />
-							</button>
-							<span class="ly-name" title={l.name}>{l.name}</span>
-							<span class="sw-btn" style:background={l.color} title="Layer colour"></span>
-						</div>
-					{/if}
-				{/each}
-			{/if}
-		{/if}
-		{#each layerGroups() as g (g)}
-			{@const kids = layers.filter((l) => l.group === g)}
+		{#each layerGroups(layers) as g (g)}
+			{@const kids = layers.filter((l) => layerGroup(l) === g)}
 			{#if matches(g) || kids.some((k) => matches(k.name))}
 				<div class="lg-row">
 					<button class="lg-chev" aria-label={isOpen(g) ? 'Collapse' : 'Expand'} onclick={() => (openGroups = { ...openGroups, [g]: !isOpen(g) })}>
 						<Icon name={isOpen(g) ? 'chevronDown' : 'chevronRight'} size={12} />
 					</button>
 					<span class="lg-name">{g}</span>
-					<button class="lp-mini" title="Add layer to {g}" aria-label="Add layer" onclick={() => { const l = addLayer(g); openGroups = { ...openGroups, [g]: true }; editing = l.id }}><Icon name="plus" size={12} /></button>
+					<button class="lp-mini" title="Add layer to {g}" aria-label="Add layer" onclick={() => { const l = addLayer(layers, g); openGroups = { ...openGroups, [g]: true }; editing = l.id }}><Icon name="plus" size={12} /></button>
 					<button class="lp-check" class:on={groupOn(g)} aria-label="Toggle {g}" onclick={() => setGroup(g, !groupOn(g))}></button>
 				</div>
 				{#if isOpen(g)}
@@ -139,8 +109,8 @@
 								{#if l.id === layerUI.active}<span class="ly-active" title="Active layer">●</span>{/if}
 								<!-- a coloured button (with a line inside for line layers) → opens the settings dialog -->
 								<button class="sw-btn" title="Layer settings" aria-label="Edit {l.name}" onclick={(e) => { e.stopPropagation(); dlgId = l.id }}
-									style:background={l.swatch === 'color' ? l.color : 'var(--input)'}>
-									{#if l.swatch === 'line'}<span class="sw-btn-line" style:border-bottom-color={l.color} style:border-bottom-style={l.dash} style:border-bottom-width="{Math.min(4, Math.max(1, l.weight ?? 1))}px"></span>{/if}
+									style:background={swatchOf(l) === 'color' ? l.color : 'var(--input)'}>
+									{#if swatchOf(l) === 'line'}<span class="sw-btn-line" style:border-bottom-color={l.color} style:border-bottom-style={l.dash} style:border-bottom-width="{Math.min(4, Math.max(1, l.weight ?? 1))}px"></span>{/if}
 								</button>
 							</div>
 						{/if}
@@ -150,7 +120,7 @@
 		{/each}
 	</div>
 
-	<button class="lp-new" onclick={() => { const l = addLayer(); editing = l.id }}><Icon name="plus" size={13} /> New Layer</button>
+	<button class="lp-new" onclick={() => { const l = addLayer(layers); editing = l.id }}><Icon name="plus" size={13} /> New Layer</button>
 </div>
 
 {#if dlg}
@@ -162,9 +132,9 @@
 			<label class="lp-f"><span>Name</span><input bind:value={dlg.name} /></label>
 			<div class="lp-f"><span>Colour</span><ColorPicker value={dlg.color} colors={COLORS} onchange={(v) => { if (dlg && v) dlg.color = v }} /></div>
 			<label class="lp-f"><span>Draw as</span>
-				<select bind:value={dlg.swatch}><option value="color">Fill / symbol</option><option value="line">Line</option></select>
+				<select value={swatchOf(dlg)} onchange={(e) => { if (dlg) dlg.swatch = (e.currentTarget as HTMLSelectElement).value as 'color' | 'line' }}><option value="color">Fill / symbol</option><option value="line">Line</option></select>
 			</label>
-			{#if dlg.swatch === 'line'}
+			{#if swatchOf(dlg) === 'line'}
 				<label class="lp-f"><span>Line type</span>
 					<select bind:value={dlg.dash}><option value="solid">Solid</option><option value="dashed">Dashed</option><option value="dotted">Dotted</option></select>
 				</label>

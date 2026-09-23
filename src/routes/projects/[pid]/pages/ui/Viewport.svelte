@@ -27,7 +27,7 @@
 	import { pickSectionGrip as gPickSectionGrip, modelGrips as gModelGrips, pickModelGrip as gPickModelGrip, gripsFor as gGripsFor, constrainGrip, type MGrip, type Grip, type GripOpts } from './grips'
 	import { SNAP_STEP, snapToGrid, rndTo, snapDelta as sSnapDelta, findSnap as sFindSnap, drawPoint as sDrawPoint, snapNode as sSnapNode, graphNodeApply as sGraphNodeApply, elevDepthSnap as sElevDepthSnap } from './snap'
 	import { rotatePt, inThisView as hInThisView, groundInIso, rotCenter, bbox as hBbox, hitEnt as hHitEnt, pickable as hPickable, prismTilted, graphNodeDraw as hGraphNodeDraw, hitModel as hHitModel, hitModelIso, sectionCorners, hitSection as hHitSection, hitGuide as hHitGuide, marqueeSelect as hMarqueeSelect, type GN } from './hit'
-	import { isLayerHidden, isLayerLocked, layerColor, layerOrder } from '../layers.svelte'
+	import { isLayerHidden as lsHidden, isLayerLocked as lsLocked, layerColor as lsColor, layerOrder as lsOrder } from '../layers.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
 	import { MODEL_SPACE_INK, onDark } from './modelSpace'
 	import { models, modelById } from '../3dview/models.svelte'
@@ -110,6 +110,13 @@
 	// Guide lines belong to a drawable VIEW space (plan or an elevation); iso has none.
 	const viewSpace = $derived(kind === 'plan' ? 'plan' : isElev ? elevDir : null)
 	const mdl = $derived(modelById(modelId) ?? models[0])   // the model this viewport renders/edits (§5 registry)
+	// R5: ONE layer list per model files both its objects and its entities — hide / lock / colour / draw
+	// order all resolve against the model this viewport shows (was a global page-layer store, B16).
+	const mls = $derived(mdl?.layers ?? [])
+	const isLayerHidden = (id?: string) => lsHidden(mls, id)
+	const isLayerLocked = (id?: string) => lsLocked(mls, id)
+	const layerColor = (id?: string) => lsColor(mls, id)
+	const layerOrder = (id?: string) => lsOrder(mls, id)
 	const viewGuides = $derived(viewSpace ? (mdl?.guides ?? []).filter((g) => g.plane === viewSpace) : [])
 	const GUIDE_SPAN = 1e7   // guides render as full-view lines (spanning far past the viewport)
 	// Polyline-style tools (click points, Enter/dbl-click to finish). Line makes an entity; Wall/Trunk/Pipe
@@ -477,8 +484,8 @@
 	// undo are the next slices — see model-plan.md P2.)
 	const isPlan = $derived(kind === 'plan')
 	const modelEditable = $derived(isPlan || isElev)   // iso (oblique) editing deferred to the 3D camera
-	const modelLayerVisible = (o: Obj) => { const l = mdl?.layers?.find(x => x.id === o.layer); return !l || l.visible }
-	const modelLayerLocked = (o: Obj) => !!mdl?.layers?.find(x => x.id === o.layer)?.locked   // locked → not pickable (B16)
+	const modelLayerVisible = (o: Obj) => !isLayerHidden(o.layer)
+	const modelLayerLocked = (o: Obj) => isLayerLocked(o.layer)   // locked → not pickable (B16)
 	// Model-object hit-testing lives in ui/hit.ts (R1 step 3), taking ctx + the model-layer preds; the thin
 	// wrappers below inject them (prismTilted/prismOutline/convexHull/inPoly/graphHit are now hit.ts-internal).
 	const mlayers = { visible: modelLayerVisible, locked: modelLayerLocked }

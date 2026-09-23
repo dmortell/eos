@@ -15,10 +15,11 @@ import { isFlatElev } from './hit'
  *  the ElevDir when drawn natively in an elevation. (Was Viewport's `drawPlane()`; iso draws nothing.) */
 export const drawPlane = (ctx: ViewCtx): ElevDir | undefined => (ctx.isElev ? ctx.elevDir : undefined)
 
-/** The model's layer id to file a new object under: `id` if the model has that layer, else its first layer
- *  (Viewport's `layerId`). Undefined when the model has no layers. */
+/** The model's layer id to file a new object under: `id` if the model has that layer, else its first OBJECT
+ *  layer (no `group` — R5: the model's list also holds Background / annotation layers, which a wall or a
+ *  desk must not fall onto), else its first layer. Undefined when the model has no layers. */
 export const resolveLayer = (mdl: Model | undefined, id: string): string | undefined =>
-	mdl?.layers?.find((l) => l.id === id)?.id ?? mdl?.layers?.[0]?.id
+	mdl?.layers?.find((l) => l.id === id)?.id ?? mdl?.layers?.find((l) => !l.group)?.id ?? mdl?.layers?.[0]?.id
 
 /** The two-point DRAW tools that make a 2D entity. Rect / ellipse honour CEN (centre-out: the first point is
  *  the centre). Returns null for every other tool: 'Furniture' / 'Opening' are model prisms (see

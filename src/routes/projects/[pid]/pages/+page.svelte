@@ -22,7 +22,7 @@
 	import DrawingNavigator from './parts/DrawingNavigator.svelte'
 	import LayersPanel from './parts/LayersPanel.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
-	import { layerUI, layerById, layers } from './layers.svelte'
+	import { activeLayerIn } from './layers.svelte'
 	import HistoryPanel from './parts/HistoryPanel.svelte'
 	import StatusBar from './parts/StatusBar.svelte'
 	import ViewGizmos from './parts/ViewGizmos.svelte'
@@ -385,7 +385,8 @@
 		if (gestureActive) { if (!gesturePushed) { pushStep(id, label); gesturePushed = true } else updateStep(id) }
 		else pushStep(id, label)
 	}
-	function addEnt(id: string, e: Ent) { ensureHist(id); const mid = modelIdOf(id); const en = e.layer ? e : { ...e, layer: layerUI.active }; setMdlEntsOf(mid, [...mdlEntsOf(mid), en]); recordEdit(id, 'Add ' + en.type) }
+	// R5: a new entity lands on the active layer if this model has it (else Annotations — activeLayerIn).
+	function addEnt(id: string, e: Ent) { ensureHist(id); const mid = modelIdOf(id); const en = e.layer ? e : { ...e, layer: activeLayerIn(modelById(mid)?.layers ?? [])?.id }; setMdlEntsOf(mid, [...mdlEntsOf(mid), en]); recordEdit(id, 'Add ' + en.type) }
 	function updateEnt(id: string, e: Ent) { ensureHist(id); const mid = modelIdOf(id); setMdlEntsOf(mid, mdlEntsOf(mid).map(x => x.id === e.id ? e : x)); recordEdit(id, 'Edit ' + e.type) }
 	// Pure entity CRUD — no selection side effects (R3 2a moved those to the callers below, which know the
 	// VIEWPORT id `deleteEnts`/`cutEnts` don't take).
@@ -657,7 +658,7 @@
 			const cx = 14000, cy = 8750, w = 9000, h = w * aspect
 			addEnt(id, { id: newId(), type: 'image', a: [Math.round(cx - w / 2), Math.round(cy - h / 2)], b: [Math.round(cx + w / 2), Math.round(cy + h / 2)], src, plane: 'plan', lockAspect: true })
 			const mn = modelById(modelIdOf(id))?.name ?? 'the model'
-			toast(`Image added to ${mn} on layer “${layerById(layerUI.active)?.name ?? '—'}”. Set its scale/crop in Properties.`)
+			toast(`Image added to ${mn} on layer “${activeLayerIn(modelById(modelIdOf(id))?.layers ?? [])?.name ?? '—'}”. Set its scale/crop in Properties.`)
 		}
 		img.onload = () => place((img.naturalHeight || 700) / (img.naturalWidth || 1000))
 		img.onerror = () => place(0.7)
@@ -742,7 +743,7 @@
 		window.addEventListener('keydown', onGlobalKey, true)
 		return () => window.removeEventListener('keydown', onGlobalKey, true)
 	})
-	let activeLayer = $derived(layerById(layerUI.active)?.name ?? '')   // the active layer's name (from the shared store)
+	let activeLayer = $derived(activeLayerIn(modelById(activeMid())?.layers ?? [])?.name ?? '')   // the layer new entities land on (R5: in the focused model)
 
 	// Canvas · tools + pointer + zoom
 	const TOOLS = [
@@ -1019,7 +1020,7 @@
 					</div>
 				</div>
 				{#if rightTab === 'layers'}
-					<LayersPanel modelLayers={modelById(activeMid())?.layers ?? []} />
+					<LayersPanel layers={modelById(activeMid())?.layers ?? []} />
 				{:else if rightTab === 'props'}
 					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (active) updateEnt(active.id, e) }}
 						onarrange={(op) => { if (active) reorderEnts(active.id, activeEntIds(), op) }}

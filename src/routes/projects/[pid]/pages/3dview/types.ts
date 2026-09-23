@@ -55,7 +55,13 @@ export type Conduit = {
 }
 
 // A drawing layer (model-scoped): controls object color, visibility and locking.
-export type Layer = { id: string; name: string; color: string; visible: boolean; locked: boolean; weight?: number; opening?: boolean }   // weight = non-scaling lineweight (screen px); opening = objects on this layer CUT the wall (masked hole + frame)
+// R5 (review.md §R5): the ONE layer type. A model's `layers` list files BOTH its 3D objects and its 2D
+// entities (annotations, outlets, trunks, background images); array order = draw order for entities.
+// weight = non-scaling lineweight (screen px); opening = objects on this layer CUT the wall (masked hole +
+// frame); group = the Layers-panel heading (undefined = 'Model', the object layers); swatch/dash = how the
+// panel draws the layer's chip (a colour fill, or a line of that dash).
+export type Layer = { id: string; name: string; color: string; visible: boolean; locked: boolean; weight?: number; opening?: boolean;
+	group?: string; swatch?: 'color' | 'line'; dash?: 'solid' | 'dashed' | 'dotted' }
 
 // Every object may belong to a layer (by id); unassigned objects fall back to
 // the model's first layer.

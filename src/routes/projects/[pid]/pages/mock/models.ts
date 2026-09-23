@@ -4,6 +4,7 @@
 // which now just wraps `demoModels()` and owns the mutators/undo). All coords are real mm near the plan
 // centre (PLAN_CX/CY = 14000/8750).
 import type { Model, Obj, Layer } from '../3dview/types'
+import { layerStack } from './layers'
 
 const LAYERS: Layer[] = [
 	{ id: 'walls', name: 'Walls', color: '#8a7f72', visible: true, locked: false, weight: 1.6 },
@@ -28,7 +29,7 @@ function demoFloor(): Model {
 	const t0 = gn(10500, 5300, 2600), t1 = gn(17500, 5300, 2600)   // a rectangular trunk run near the ceiling
 	const trunk: Obj = { type: 'conduit', w: 300, h: 150, edges: 4, layer: 'trunks', id: 'trunk1', nodes: [t0, t1], segments: [gs(t0.id, t1.id)] }
 	return {
-		id: 1, name: '33F', layers: LAYERS,
+		id: 1, name: '33F', layers: layerStack(LAYERS),
 		levels: { floorSlab: 0, raisedFloor: 150, ceilingTile: 2700, ceilingSlab: 3200 },
 		objects: [wall, desk(11500, 6200), desk(11500, 8000), desk(15000, 6200), desk(15000, 8000), trunk],
 		// A seeded background image on the 'bg-1' Background layer, for exercising the image import /
@@ -49,7 +50,7 @@ function demoRack(): Model {
 	const cabinet: Obj = { type: 'prism', x, y, z: 0, w, d, h: 2000, edges: 4, layer: 'cabinet', id: 'cab1' }
 	const dev = (i: number): Obj => ({ type: 'prism', x: x + 30, y: y + 40, z: 150 + i * 320, w: w - 60, d: d - 80, h: 180, edges: 4, layer: 'devices', id: 'dev' + i })
 	return {
-		id: 2, name: 'Rack A', layers: RACK_LAYERS,
+		id: 2, name: 'Rack A', layers: layerStack(RACK_LAYERS),
 		levels: { floorSlab: 0, ceilingSlab: 2100 },
 		objects: [cabinet, dev(0), dev(1), dev(2), dev(3), dev(4)],
 	}
@@ -58,7 +59,7 @@ function demoRack(): Model {
 // An empty floor model — one per floor in the navigator tree (mock/data.ts NAV_TREE) that has no demo
 // content, so clicking the floor opens ITS model rather than 33F's.
 const emptyFloor = (id: number, name: string): Model => ({
-	id, name, layers: LAYERS.map((l) => ({ ...l })), objects: [],
+	id, name, layers: layerStack(LAYERS), objects: [],
 	levels: { floorSlab: 0, raisedFloor: 150, ceilingTile: 2700, ceilingSlab: 3200 },
 })
 
