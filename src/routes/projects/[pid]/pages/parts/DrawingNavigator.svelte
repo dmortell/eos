@@ -5,11 +5,12 @@
 	import { Icon } from '$lib'
 	import { type NavKind as Kind, type NavNode as Node, NAV_TREE as TREE, NAV_PROJECT as PROJECT } from '../mock/data'
 
-	let { onopen, onopenfloor, oncollapse, onselectnode, activeTitle = '', activeNode = '' }:
-		{ onopen?: (d: { title: string; kind: Kind; preview: boolean; floor?: string }) => void; oncollapse?: () => void;
+	let { onopen, onopenfloor, oncollapse, onselectnode, activeDoc = '', activeNode = '' }:
+		{ onopen?: (d: { title: string; kind: Kind; preview: boolean; floor?: string; docId?: string }) => void; oncollapse?: () => void;
 			/** A FLOOR row was clicked (preview) or double-clicked (kept): open that floor's model tab. */
 			onopenfloor?: (floor: string, preview: boolean) => void;
-			onselectnode?: (n: { id: string; label: string; kind: string }) => void; activeTitle?: string; activeNode?: string } = $props()
+			onselectnode?: (n: { id: string; label: string; kind: string }) => void;
+			/** B18: the active tab's drawing id — a drawing row is highlighted by id, not by label */ activeDoc?: string; activeNode?: string } = $props()
 
 	// Location hierarchy Project › Building › Floor › Zone › Room › Row, with drawing/view
 	// leaves hung at the level they belong to. Folders expand; drawing leaves open a tab.
@@ -57,9 +58,9 @@
 		{#if n.drawing}
 			<!-- drawing leaf: opens a tab -->
 			<!-- single-click = preview tab (italic, reused); double-click promotes it to a kept tab -->
-			<button class="dn-row leaf" class:active={activeTitle === n.label} style:padding-left="{depth * 12 + 8}px"
-				onclick={() => onopen?.({ title: n.label, kind: n.drawing!, preview: true, floor })}
-				ondblclick={() => onopen?.({ title: n.label, kind: n.drawing!, preview: false, floor })}>
+			<button class="dn-row leaf" class:active={activeDoc === n.id} style:padding-left="{depth * 12 + 8}px"
+				onclick={() => onopen?.({ title: n.label, kind: n.drawing!, preview: true, floor, docId: n.id })}
+				ondblclick={() => onopen?.({ title: n.label, kind: n.drawing!, preview: false, floor, docId: n.id })}>
 				<span class="dn-chev spacer"></span>
 				<Icon name={drawingIcon[n.drawing]} size={13} />
 				<span class="dn-name">{n.label}</span>

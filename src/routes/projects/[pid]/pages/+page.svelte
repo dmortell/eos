@@ -16,7 +16,7 @@
 	import { viewState } from './viewState.svelte'
 	import { docs } from './doc.svelte'
 	import { type Proj, type SheetFrame, type Kind, type Tab, type WorkPane, type View, type StripItem, type Workspace, SCALES, DIR_LABEL as PROJ_LABEL } from './types'
-	import { PACKAGES, VERSIONS, REVISIONS, type PItem, PALETTE_ITEMS as paletteItems } from './mock/data'
+	import { PACKAGES, VERSIONS, REVISIONS, type PItem, PALETTE_ITEMS as paletteItems, navDrawingId } from './mock/data'
 	import Viewport, { type VpOn } from './ui/Viewport.svelte'
 	import type { Editor } from './ui/editor'
 	import DrawingNavigator from './parts/DrawingNavigator.svelte'
@@ -75,10 +75,10 @@
 	}
 	let session = $state<Session>({
 		tabs: [
-			{ id: 't1', title: '3303 Floorplan', kind: 'plan', dirty: false, modelId: 1 },
-			{ id: 't2', title: '3303 Outlets', kind: 'sheet', dirty: true, modelId: 1 },
-			{ id: 't3', title: 'Rack A · Elevation', kind: 'elevation', dirty: false, modelId: 2 },
-			{ id: 't4', title: 'Rack A · 3D Model', kind: 'model', dirty: false, modelId: 2 },
+			{ id: 't1', docId: 'demo-3303-plan', title: '3303 Floorplan', kind: 'plan', dirty: false, modelId: 1 },
+			{ id: 't2', docId: 'demo-3303-outlets', title: '3303 Outlets', kind: 'sheet', dirty: true, modelId: 1 },
+			{ id: 't3', docId: 'demo-racka-elev', title: 'Rack A · Elevation', kind: 'elevation', dirty: false, modelId: 2 },
+			{ id: 't4', docId: 'demo-racka-3d', title: 'Rack A · 3D Model', kind: 'model', dirty: false, modelId: 2 },
 		],
 		panes: [{ id: 'p1', activeId: 't2', tool: 'Select', layout: 'sheet' }],
 		focused: 0, previewId: null, activeVps: new Set<string>(),
@@ -121,17 +121,17 @@
 	// tab's TITLE — not the ephemeral tab id, so closing a tab (or reusing the preview slot) never destroys
 	// the page, and reopening the same drawing restores it (B6). Titles are unique (named drawings + the
 	// `Untitled N` counter) and openDrawing already dedups by title. Session/VIEW state stays tab/pane-keyed.
-	const didOf = (tabId?: string) => session.tabs.find((t) => t.id === tabId)?.title ?? tabId ?? ''
+	const didOf = (tabId?: string) => session.tabs.find((t) => t.id === tabId)?.docId ?? tabId ?? ''   // B18: by id, not title
 	// Paper / scale / frames now live in the `docs` PageDoc store (doc.svelte.ts, R2 commit 2), keyed by
 	// DRAWING id — thin accessors here resolve the tab id → drawing id first.
-	docs.seed('3303 Outlets', { scale: '1:25' })   // 3303 Outlets sheet defaults bigger (1:25)
-	docs.seed('Rack A · Elevation', { scale: '1:10' })   // a 2 m rack reads at 1:10, not 1:100
-	docs.seed('Rack A · 3D Model', { scale: '1:10' })
+	docs.seed('demo-3303-outlets', { scale: '1:25' })   // 3303 Outlets sheet defaults bigger (1:25)
+	docs.seed('demo-racka-elev', { scale: '1:10' })     // a 2 m rack reads at 1:10, not 1:100
+	docs.seed('demo-racka-3d', { scale: '1:10' })
 	const paperOf = (id?: string) => docs.paperOf(didOf(id))
 	const paperDimsOf = (id?: string) => { const p = paperOf(id); return paperDims(p.size, p.landscape) }
 	function setPaper(id: string | undefined, patch: Partial<{ size: PaperSize; landscape: boolean }>) { docs.setPaper(id ? didOf(id) : undefined, patch) }
 	// Per-drawing SCALE (mock — shown in the viewport tag + titleblock; chosen in the active-viewport bar,
-	// like the Sheets tool's viewport scale). Keyed by drawing id (title) so it survives close/reopen.
+	// like the Sheets tool's viewport scale). Keyed by drawing id (`Tab.docId`, B18) so it survives close/reopen.
 	const scaleOf = (id?: string) => docs.scaleOf(didOf(id))   // model space is real mm; 1:100 fits the ~28 m demo plan
 	const setScale = (id: string | undefined, s: string) => { if (id) docs.setScale(didOf(id), s) }
 	// The drafting/interaction flags bundle passed to a pane's viewport (one prop instead of six).
@@ -263,7 +263,7 @@
 	// the FRAME id (reusing viewState/activeVps), while entity editing targets the tab's shared
 	// entities. Frames live per tab (surviving tab switches) and are undone/persisted with the page.
 	// (Later the page model also carries the titleblock + page annotations.) A section can be dropped in.
-	// Viewport frames = a sheet's page model → DOCUMENT state, keyed by drawing id (title) so they survive
+	// Viewport frames = a sheet's page model → DOCUMENT state, keyed by drawing id (`Tab.docId`, B18) so they survive
 	// closing/reopening the tab (B6). snapAllFrames/applyPtr operate on the whole map, so history is unaffected.
 	const framesOf = (tabId: string) => docs.framesOf(didOf(tabId))
 	function setFrames(tabId: string, frames: SheetFrame[]) { docs.setFrames(didOf(tabId), frames) }
@@ -575,9 +575,9 @@
 		const p = session.panes[pane]; if (!p) return
 		p.activeId = id; session.focused = pane   // selection now lives per doc, so it's preserved
 	}
-	function addTab(kind: Kind = 'plan', title?: string, modelId?: number) {
+	function addTab(kind: Kind = 'plan', title?: string, modelId?: number, docId: string = newId('d')) {
 		const id = newId('t'); ++seq   // seq only numbers 'Untitled N' now (tab ids are nanoid, B13)
-		session.tabs = [...session.tabs, { id, title: title ?? `Untitled ${seq}`, kind, dirty: false, modelId }]
+		session.tabs = [...session.tabs, { id, docId, title: title ?? `Untitled ${seq}`, kind, dirty: false, modelId }]
 		if (session.panes[session.focused]) session.panes[session.focused].activeId = id
 	}
 	function closeTab(id: string, e?: Event) {
@@ -700,27 +700,30 @@
 	}
 	// `floor` (the navigator floor the drawing sits under, or a palette item's path) picks the model the
 	// drawing views; without one it falls back to FLOOR_MODEL_ID as before.
-	function openDrawing(d: { title: string; kind: Kind; preview?: boolean; floor?: string }) {
+	// B18: a drawing is identified by `docId` (its navigator node id; a palette item looks its id up by label,
+	// else falls back to `title:<title>`), so re-opening finds the SAME drawing even if a tab was renamed.
+	function openDrawing(d: { title: string; kind: Kind; preview?: boolean; floor?: string; docId?: string }) {
 		const modelId = floorModelId(d.floor)
-		const existing = session.tabs.find(t => t.title === d.title)
+		const docId = d.docId ?? navDrawingId(d.title) ?? `title:${d.title}`
+		const existing = session.tabs.find(t => t.docId === docId)
 		if (existing) { if (!d.preview) promoteTab(existing.id); openTab(existing.id); return }
 		if (d.preview) {
 			const pv = session.tabs.find(t => t.id === session.previewId)
 			// Reuse the preview slot: free the OLD drawing's session/view state BEFORE retitling, so didOf
 			// still resolves to the old drawing (else dropDoc would free the incoming drawing's state — B6).
-			if (pv) { dropDoc(pv.id); pv.title = d.title; pv.kind = d.kind; pv.modelId = modelId; openTab(pv.id); return }
+			if (pv) { dropDoc(pv.id); pv.docId = docId; pv.title = d.title; pv.kind = d.kind; pv.modelId = modelId; openTab(pv.id); return }
 			const id = newId('t'); ++seq
-			session.tabs = [...session.tabs, { id, title: d.title, kind: d.kind, dirty: false, preview: true, modelId }]
+			session.tabs = [...session.tabs, { id, docId, title: d.title, kind: d.kind, dirty: false, preview: true, modelId }]
 			session.previewId = id
 			if (session.panes[session.focused]) session.panes[session.focused].activeId = id
 		} else {
-			addTab(d.kind, d.title, modelId)
+			addTab(d.kind, d.title, modelId, docId)
 		}
 	}
 	// A floor in the navigator → its MODEL tab (model space, opening in plan; the ViewCube switches to 3D /
 	// elevations). Single click previews, double click keeps — the same as a drawing.
 	function openFloorModel(floor: string, preview: boolean) {
-		openDrawing({ title: `${floor} · Model`, kind: 'model', preview, floor })
+		openDrawing({ title: `${floor} · Model`, kind: 'model', preview, floor, docId: `floor:${floor}` })
 		const p = session.panes[session.focused]
 		if (p && !viewState.getProj(p.id, p.activeId)) viewState.setProj(p.id, p.activeId, 'plan')
 	}
@@ -996,7 +999,7 @@
 		{#if leftOpen}
 			<aside class="side left">
 				<DrawingNavigator onopen={openDrawing} onopenfloor={openFloorModel} oncollapse={() => (leftOpen = false)} onselectnode={selectNode}
-					activeTitle={active?.title ?? ''} activeNode={session.treeNode?.id ?? ''} />
+					activeDoc={active?.docId ?? ''} activeNode={session.treeNode?.id ?? ''} />
 			</aside>
 		{:else}
 			<button class="rail left" title="Show panel" onclick={() => (leftOpen = true)}>

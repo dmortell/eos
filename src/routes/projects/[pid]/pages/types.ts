@@ -33,7 +33,10 @@ export const SCALES = ['1:1', '1:2', '1:5', '1:10', '1:15', '1:20', '1:25', '1:5
 
 /** An open document tab (shared — the same tab can show in both split panes). */
 export type Kind = 'plan' | 'sheet' | 'elevation' | 'model'
-export type Tab = { id: string; title: string; kind: Kind; dirty: boolean; preview?: boolean; modelId?: number }
+// B18: `docId` is the tab's stable DRAWING id — the navigator node id for a tree drawing, `floor:<name>` for
+// a floor's model tab, a fresh id for a New page. Every per-drawing store (docs, the persisted canvas view)
+// is keyed by it, so renaming a tab's title orphans nothing, and a drawing is found again by id, not title.
+export type Tab = { id: string; docId: string; title: string; kind: Kind; dirty: boolean; preview?: boolean; modelId?: number }
 
 /** One split-editor pane (VS Code-style): which tab it shows, its own tool, and paper-vs-full-size layout. */
 export type WorkPane = { id: string; activeId: string; tool: string; layout: 'model' | 'sheet' }
@@ -57,7 +60,7 @@ export type Workspace = {
 	rev: string; revisions: { name: string; note: string; snap: unknown; t: number }[]
 	acadMode: boolean; statusText: string
 	openTab: (id: string, pane?: number) => void; promoteTab: (id: string) => void
-	closeTab: (id: string, e?: Event) => void; addTab: (kind?: Kind, title?: string) => void
+	closeTab: (id: string, e?: Event) => void; addTab: (kind?: Kind, title?: string, modelId?: number, docId?: string) => void
 	pickFromMenu: (id: string, pane: number) => void; splitVertical: () => void; closePane: (idx: number) => void
 	setFocused: (pi: number) => void; toggleTabMenu: (pi: number) => void
 	setPaneTool: (pane: WorkPane, t: string) => void; toggleLayout: (pane: WorkPane) => void

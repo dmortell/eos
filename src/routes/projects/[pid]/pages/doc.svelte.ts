@@ -2,9 +2,8 @@
 // by DRAWING id, replacing docFrames/docPaper/docScale in +page.svelte. Closing a tab (or reusing the
 // preview slot) never touches this (B6); only Session/ViewState entries are dropped.
 //
-// `id` is the drawing id, which today IS the tab's TITLE (see `didOf` in +page.svelte) — the same
-// fragile identity B18 already flags (title dedup breaks on a rename or a duplicate title; a real
-// stable id is a separate fix). `revisions`/`dir` are declared for the shape §12/X4 wants in Firestore
+// `id` is the drawing id — the tab's stable `docId` (B18: the navigator node id, `floor:<name>`, or a
+// fresh id for a New page; see `didOf` in +page.svelte), never its title. `revisions`/`dir` are declared for the shape §12/X4 wants in Firestore
 // but are NOT wired up by this commit — revisions stay the existing global (undated) list for now;
 // `dir` has no current call site. Sections/guides/entities/objects stay in the Model (B5); `hist` stays
 // one global timeline (B4) — this module only owns paper/scale/frames.

@@ -11,6 +11,17 @@ export type NavNode = { id: string; label: string; folder?: string; drawing?: Na
 /** The project sits above the tree as a label (click → project props). */
 export const NAV_PROJECT = { id: 'project', label: 'Project Journey', kind: 'project' }
 
+/** B18: the navigator node id of a drawing, looked up by its label (the Ctrl-K palette only has titles);
+ *  undefined when the drawing isn't in the tree. */
+export function navDrawingId(label: string, nodes: NavNode[] = NAV_TREE): string | undefined {
+	for (const n of nodes) {
+		if (n.drawing && n.label === label) return n.id
+		const hit = n.children ? navDrawingId(label, n.children) : undefined
+		if (hit) return hit
+	}
+	return undefined
+}
+
 export const NAV_TREE: NavNode[] = [
 	{ id: 'b-hibiya', label: 'Hibiya Midtown', folder: 'building', children: [
 		{ id: 'f33', label: '33F', folder: 'floor', children: [
