@@ -27,6 +27,14 @@ export const modelUnitToPaperPx = (scaleN: number) => modelUnitToPaperMm(scaleN)
 export const scaleDenom = (scale: string | undefined) => parseInt((scale || '1:1').split(':')[1] || '1') || 1
 /** mm per typographic point → fontPt · PT_MM = paper mm; × scaleDenom(scale) = model mm (annotative text). */
 export const PT_MM = 0.352778
+// ── Zoom limits (one place — the wheel, the nav toolbar and zoom-to-extents all clamp here) ──
+/** Max zoom everywhere: 2000 %. */
+export const ZOOM_MAX = 20
+/** Min zoom of a viewport's content view (model space / a frame's content) and of the paper canvas. */
+export const VIEW_ZOOM_MIN = 0.05
+export const CANVAS_ZOOM_MIN = 0.1
+export const clampViewZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(VIEW_ZOOM_MIN, z))
+export const clampCanvasZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(CANVAS_ZOOM_MIN, z))
 export type PaperSize = 'A4' | 'A3' | 'A2'
 /** XP7: the paper margin (mm) a sheet starts with — drawn as a guide, frames snap to it. */
 export const DEFAULT_MARGIN_MM = 10

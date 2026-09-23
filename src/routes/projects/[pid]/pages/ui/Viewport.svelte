@@ -13,7 +13,7 @@
 	import { panzoom } from './panzoom'
 	import Handle from '../parts/Handle.svelte'
 	import EntRender from './render/EntRender.svelte'
-	import { BASE, HANDLE_PX, PAPER_PX_PER_MM, PT_MM } from '../constants'
+	import { BASE, HANDLE_PX, PAPER_PX_PER_MM, PT_MM, clampViewZoom } from '../constants'
 	import { type Pt, type Ent, type View, type ElevDir, GROUND, MMPU, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, ELEV_BASIS, dist, segDist, translate } from './geometry'
 	import { makeMapper, type Mapper } from './mapper'
 	import { beginPointerDrag, DragRegistry } from './gestures'
@@ -122,7 +122,7 @@
 			const bw = (e.x1 - e.x0) * dscale, bh = (e.y1 - e.y0) * dscale
 			if (!(bw > 0 && bh > 0) || !vbW || !vbH) return
 			// the Viewport draws P at view + zoom·(C + dscale·(P − C)); centre the extents' mid-point on C
-			const zoom = Math.min(8, Math.max(0.05, Math.min(vbW / bw, vbH / bh) * 0.92))
+			const zoom = clampViewZoom(Math.min(vbW / bw, vbH / bh) * 0.92)
 			const mx = (e.x0 + e.x1) / 2, my = (e.y0 + e.y1) / 2
 			on.view?.({ zoom, x: CX - zoom * (CX + dscale * (mx - CX)), y: CY - zoom * (CY + dscale * (my - CY)) })
 		})
@@ -258,7 +258,7 @@
 		// fold the zoom into the tab-shared drawing `scale`, which re-scaled both panes together.) The
 		// drawing scale stays an explicit property, changed only via the scale selector.
 		const v = clientToVB(cx, cy); if (!v) return   // cursor in viewBox coords
-		const nz = Math.min(8, Math.max(0.25, view.zoom * f)), r = nz / view.zoom
+		const nz = clampViewZoom(view.zoom * f), r = nz / view.zoom
 		on.view?.({ zoom: nz, x: v[0] - (v[0] - view.x) * r, y: v[1] - (v[1] - view.y) * r })
 	}
 	// panzoom passes its node as a trailing arg (unused here)

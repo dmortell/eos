@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { modelUnitToPaperMm, modelUnitToPaperPx, scaleDenom, PT_MM, PAPER_PX_PER_MM } from './constants'
+import { modelUnitToPaperMm, modelUnitToPaperPx, scaleDenom, PT_MM, PAPER_PX_PER_MM, clampViewZoom, clampCanvasZoom } from './constants'
 
 // B2: a paper viewport frame renders at TRUE 1:N scale.
 describe('drawing scale on paper (B2)', () => {
@@ -35,5 +35,13 @@ describe('scaleDenom', () => {
 	})
 	it('sizes an annotative 10 pt text in model mm at 1:100', () => {
 		expect(10 * PT_MM * scaleDenom('1:100')).toBeCloseTo(352.778, 6)
+	})
+})
+
+describe('zoom limits', () => {
+	it('allow zooming in to 2000 % in both the viewport content and the paper canvas', () => {
+		expect(clampViewZoom(50)).toBe(20); expect(clampCanvasZoom(50)).toBe(20)
+		expect(clampViewZoom(12)).toBe(12)
+		expect(clampViewZoom(0.001)).toBe(0.05); expect(clampCanvasZoom(0.001)).toBe(0.1)
 	})
 })

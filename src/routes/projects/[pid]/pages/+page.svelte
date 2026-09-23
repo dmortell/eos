@@ -33,7 +33,7 @@
 	import CommandPalette from './parts/CommandPalette.svelte'
 	import OpenProjectDialog from './parts/OpenProjectDialog.svelte'
 	import { panzoom } from './ui/panzoom'
-	import { paperDims, scaleDenom, PAPER_PX_PER_MM, DEFAULT_MARGIN_MM, type PaperSize } from './constants'
+	import { paperDims, scaleDenom, PAPER_PX_PER_MM, DEFAULT_MARGIN_MM, clampViewZoom, clampCanvasZoom, type PaperSize } from './constants'
 	import { PRINT_ID, printCss, applyPrint, removePrint } from './printing'
 	import { translate, type Ent, type ElevDir } from './ui/geometry'
 	import { models, modelById, floorModelId, ensureFloorModel, FLOOR_MODEL_ID, snapModels, setModels } from './3dview/models.svelte'
@@ -942,7 +942,7 @@
 	}
 	function canvasZoom(pane: { id: string; activeId: string }, el: HTMLElement, f: number, clientX: number, clientY: number) {
 		const r = el.getBoundingClientRect(), mx = clientX - r.left, my = clientY - r.top
-		const v = canvasViewOf(pane), nz = Math.min(20, Math.max(0.1, v.zoom * f)), ratio = nz / v.zoom   // up to 2000%
+		const v = canvasViewOf(pane), nz = clampCanvasZoom(v.zoom * f), ratio = nz / v.zoom   // up to 2000%
 		setCanvasView(pane, { x: mx - (mx - v.x) * ratio, y: my - (my - v.y) * ratio, zoom: nz })
 	}
 	// Nav toolbar / status zoom act on the active viewport if one is active, else the canvas.
@@ -975,8 +975,8 @@
 	function navZoom(f: number) {
 		const p = session.panes[session.focused]; if (!p) return
 		const av = activeViewportId(p)
-		if (zoomsContent(p) && av) { const pr = activeProj(p), v = viewOf(p.id, av, pr); setView(p.id, av, pr, { ...v, zoom: Math.min(20, Math.max(0.25, v.zoom * f)) }) }
-		else { const v = canvasViewOf(p); setCanvasView(p, { ...v, zoom: Math.min(20, Math.max(0.1, v.zoom * f)) }) }
+		if (zoomsContent(p) && av) { const pr = activeProj(p), v = viewOf(p.id, av, pr); setView(p.id, av, pr, { ...v, zoom: clampViewZoom(v.zoom * f) }) }
+		else { const v = canvasViewOf(p); setCanvasView(p, { ...v, zoom: clampCanvasZoom(v.zoom * f) }) }
 	}
 	// Fit a specific pane: frame its sheet paper (centred, with margin) or reset a model view.
 	function fitPane(idx: number, opts: { skipIfPersisted?: boolean; explicit?: boolean } = {}) {
