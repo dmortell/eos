@@ -916,6 +916,15 @@ Sheets' basic version** — see §10.
   routes, penetration & conduit requests (these are the output deliverables).
 
 ## 5. Views  (P2)
+
+- [ ] **3D button → pop-out with three render modes** (Dave, 2026-09-23). Same fly-out pattern as the tool
+  strip: **3D** = today's oblique/orbit line rendering (default); **WIRE** = wireframe (all edges, no hidden-line
+  removal, no faces); **SHADED** = a three.js rendering of the model (proposed name — CAD convention is
+  Wireframe / Hidden / Shaded / Realistic, so "Shaded" reads right next to WIRE; alternatives: RENDER, SOLID).
+  Openings in walls for the three.js path: use the simple gap-in-the-wall-segment technique we used elsewhere
+  (split the wall run at the opening and skip the segment), not CSG. Mode is per viewport (ViewState.canvas /
+  a new `render` field), persisted like proj. Keep `project()` as the single source for 3D/WIRE; SHADED gets
+  its own renderer fed by the same Model.
 - [x] **Model REGISTRY + per-viewport model reference** (2026-09-21) — `models` is now a registry of
   coherent sources (seeded: **33F** floor + **Rack A** rack). A viewport references a model by id: a
   sheet FRAME carries `modelId`, a model-layout TAB carries `modelId` (defaults to the floor). `Viewport`
@@ -1099,7 +1108,7 @@ Sheets' basic version** — see §10.
 - [ ] Implement File > Package Manager which opens a package manager that allows pages and version to be grouped and ordered into a named package that can be printed to hardcopy or pdf for distribution
 - [ ] File > Open should allow user to open & create & delete(archive) Projects
 - [ ] File > Save should work like History save revision, allowing a version/revision point to be saved
-
+- [x] fix bug where the first guide is not added after a page refresh — B26, fixed c4b364c (the `(x.y ??= []).push()` $state-proxy trap; same bug hid the first section)
 
 
 layer managers? Only Sheets has a full one (sheets/layers/LayersPanel.svelte + layers.ts, 8 default layers with visibility/colour/lock). The others are partial: model3d uses per-model layers for symbols, outlets/model3d tag objects with a layerId, and Uploads only toggles a PDF's built-in OCG layers (hiddenLayers). So Pages would be the second real layer manager in the app, closest in spirit to Sheets
