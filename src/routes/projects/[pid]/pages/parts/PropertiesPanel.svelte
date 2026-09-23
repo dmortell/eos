@@ -14,10 +14,12 @@
 
 	let { ents = [], onupdate, onarrange, pageTitle = '', pageKind = '', activeLayer = '', node = null,
 		modelObj = null, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg,
-		frameObj = null, onframeupdate, onframedelete, onframefit, modelList = [], activeFrameId = undefined, scaleN = 1 }:
+		frameObj = null, onframeupdate, onframedelete, onframefit, onnodebuilding, modelList = [], activeFrameId = undefined, scaleN = 1 }:
 		{ ents?: Ent[]; onupdate?: (e: Ent) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void;
 			pageTitle?: string; pageKind?: string; activeLayer?: string;
-			node?: { id: string; label: string; kind: string } | null;
+			node?: { id: string; label: string; kind: string; floorNumber?: number; building?: string } | null;
+			/** A REAL floor (from Firestore): set the building it's in (FloorConfig.building; '' = derive it). */
+			onnodebuilding?: (floorNumber: number, building: string) => void;
 			modelObj?: Obj | null; modelLayers?: MLayer[]; onmodelupdate?: (patch: Record<string, unknown>) => void; onmodeldelete?: () => void; onmodelseg?: (segIdx: number, patch: Record<string, unknown>) => void;
 			frameObj?: SheetFrame | null; onframeupdate?: (patch: Partial<SheetFrame>) => void; onframedelete?: () => void;
 			/** XP19: fit the frame's scale to its model */ onframefit?: () => void;
@@ -270,10 +272,20 @@
 		<!-- a tree node is selected → its place properties (mock) -->
 		<div class="prop-sec">{kindLabel[node.kind] ?? 'ITEM'}</div>
 		<div class="prop"><span>Name</span><input value={node.label} /></div>
-		{#each NODE_FIELDS[node.kind] ?? [] as [label, ph] (label)}
-			<div class="prop"><span>{label}</span><input value={ph} /></div>
-		{/each}
-		<div class="pp-hint">Editing these is mock-only for now.</div>
+		{#if node.kind === 'floor' && node.floorNumber != null}
+			<!-- a REAL floor: the building it's in is saved to the project (FloorConfig.building); empty = derived
+			     from the riser ranges (inside one → the project's building, else "Other building") -->
+			<div class="prop"><span>Building</span>
+				<input value={node.building ?? ''} placeholder="(from the risers)" title="The building this floor is in — saved to the project"
+					onchange={(e) => onnodebuilding?.(node!.floorNumber!, (e.currentTarget as HTMLInputElement).value)} />
+			</div>
+			<div class="pp-hint">Building is saved to the project in Firestore. The other fields are mock-only for now.</div>
+		{:else}
+			{#each NODE_FIELDS[node.kind] ?? [] as [label, ph] (label)}
+				<div class="prop"><span>{label}</span><input value={ph} /></div>
+			{/each}
+			<div class="pp-hint">Editing these is mock-only for now.</div>
+		{/if}
 	{:else if ents.length === 0}
 		<!-- nothing selected → page / general props (mock) -->
 		<div class="prop-sec">PAGE</div>

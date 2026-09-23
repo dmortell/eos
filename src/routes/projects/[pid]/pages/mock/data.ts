@@ -6,7 +6,16 @@
 export type NavKind = 'plan' | 'sheet' | 'elevation'
 
 /** A node in the location hierarchy (Building › Floor › Zone › Room › Row) with drawing leaves. */
-export type NavNode = { id: string; label: string; folder?: string; drawing?: NavKind; children?: NavNode[] }
+export type NavNode = { id: string; label: string; folder?: string; drawing?: NavKind; children?: NavNode[]
+	/** The floor this node belongs to, as the model / tab name ('33F') — for the real tree (projectTree.ts);
+	 *  the mock tree derives it from the floor row's label. */
+	floor?: string
+	/** A floor row: its number and its explicit building (FloorConfig.building). */
+	floorNumber?: number; building?: string
+	/** A drawing leaf: the stable drawing id to open it under (B18), e.g. `drawing:<registry id>`. */
+	docId?: string
+	/** A small trailing note (e.g. a row's rack count). */
+	meta?: string }
 
 /** The project sits above the tree as a label (click → project props). */
 export const NAV_PROJECT = { id: 'project', label: 'Project Journey', kind: 'project' }

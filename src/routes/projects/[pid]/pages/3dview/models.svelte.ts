@@ -4,13 +4,21 @@
 // just the reactive registry + mutators; the backend swap replaces `demoModels()`, not this file.
 import type { Model } from './types'
 import { migrateModels } from './migrate'
-import { demoModels } from '../mock/models'
+import { demoModels, emptyFloor } from '../mock/models'
 
 export const FLOOR_MODEL_ID = 1   // the default model a new viewport / tab points at
 export const models = $state<Model[]>(migrateModels(demoModels()))
 export const modelById = (id?: number) => (id == null ? undefined : models.find((m) => m.id === id))
 /** The model of a floor, by the floor's name in the navigator ('33F'); undefined if there is none. */
 export const floorModelId = (floor?: string) => (floor ? models.find((m) => m.name === floor)?.id : undefined)
+/** The model of a floor, creating an EMPTY one if the floor has none yet (a real project's floors — 10F,
+ *  12F… — have no demo model; without this they fell back to 33F's). Mock until X4 persists models. */
+export function ensureFloorModel(floor: string): number {
+	const have = floorModelId(floor); if (have != null) return have
+	const id = Math.max(0, ...models.map((m) => m.id)) + 1
+	models.push(emptyFloor(id, floor))
+	return id
+}
 // Replace the whole model list in place (keeps the reactive reference) — used by undo/redo to restore a
 // history snapshot. `$state.snapshot` UNWRAPS Svelte proxies to plain data (structuredClone throws on a
 // proxy — and the stored step's model IS a proxy, living inside the $state history tree), giving a deep

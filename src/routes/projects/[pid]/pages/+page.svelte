@@ -36,7 +36,10 @@
 	import { paperDims, scaleDenom, PAPER_PX_PER_MM, DEFAULT_MARGIN_MM, type PaperSize } from './constants'
 	import { PRINT_ID, printCss, applyPrint, removePrint } from './printing'
 	import { translate, type Ent, type ElevDir } from './ui/geometry'
-	import { models, modelById, floorModelId, FLOOR_MODEL_ID, snapModels, setModels } from './3dview/models.svelte'
+	import { models, modelById, floorModelId, ensureFloorModel, FLOOR_MODEL_ID, snapModels, setModels } from './3dview/models.svelte'
+	import { getContext, untrack } from 'svelte'
+	import type { Firestore } from '$lib'
+	import { ProjectSource } from './projectData.svelte'
 	import { DEFAULT_YAW, DEFAULT_PITCH } from './3dview/projection'
 	import type { Model, Section } from './3dview/types'
 	import { selStore } from './selStore.svelte'
@@ -74,7 +77,7 @@
 	// each frame's own per-frame editor which is keyed by the FRAME id.)
 	type Session = {
 		tabs: Tab[]; panes: WorkPane[]; focused: number; previewId: string | null; activeVps: Set<string>
-		treeNode: { id: string; label: string; kind: string } | null
+		treeNode: { id: string; label: string; kind: string; floorNumber?: number; building?: string } | null
 	}
 	let session = $state<Session>({
 		tabs: [
@@ -746,7 +749,7 @@
 	// B18: a drawing is identified by `docId` (its navigator node id; a palette item looks its id up by label,
 	// else falls back to `title:<title>`), so re-opening finds the SAME drawing even if a tab was renamed.
 	function openDrawing(d: { title: string; kind: Kind; preview?: boolean; floor?: string; docId?: string }) {
-		const modelId = floorModelId(d.floor)
+		const modelId = d.floor && projectSrc?.project ? ensureFloorModel(d.floor) : floorModelId(d.floor)   // a real floor gets its own (empty) model
 		const docId = d.docId ?? navDrawingId(d.title) ?? `title:${d.title}`
 		const existing = session.tabs.find(t => t.docId === docId)
 		if (existing) { if (!d.preview) promoteTab(existing.id); openTab(existing.id); return }
@@ -770,8 +773,26 @@
 		const p = session.panes[session.focused]
 		if (p && !viewState.getProj(p.id, didOf(p.activeId))) viewState.setProj(p.id, didOf(p.activeId), 'plan')
 	}
+	// The REAL project tree (projectTree.ts) from Firestore — docs/firestore-structure.md. One live source per
+	// project id (re-created when Open Project navigates to another pid); the mock tree stays for a pid that
+	// isn't in Firestore (the demo URL).
+	const fdb = getContext('db') as Firestore | undefined
+	let projectSrc = $state<ProjectSource | null>(null)
+	$effect(() => {
+		const pid = page.params.pid
+		if (!fdb || !pid) return
+		const src = new ProjectSource(fdb, pid)
+		const stop = src.start()
+		untrack(() => { projectSrc = src })
+		return () => { stop(); untrack(() => { if (projectSrc === src) projectSrc = null }) }
+	})
+	const realTree = $derived(projectSrc?.status === 'ready' ? projectSrc.tree : null)
+	const navStatus = $derived(projectSrc?.status === 'loading' ? 'Loading project…' : projectSrc?.status === 'missing' ? 'Not a Firestore project — showing the demo tree' : '')
+	function setFloorBuilding(floorNumber: number, building: string) {
+		projectSrc?.setFloorBuilding(floorNumber, building).catch((e) => toast(`Couldn't save the building: ${e?.message ?? e}`))
+	}
 	// A place/label in the tree (project, building, floor, …) → edit its props in the right panel.
-	function selectNode(n: { id: string; label: string; kind: string }) {
+	function selectNode(n: { id: string; label: string; kind: string; floorNumber?: number; building?: string }) {
 		selStore.set(activeSelViewId(), selClear())   // clear entity selection so node props show
 		session.treeNode = n; rightTab = 'props'; rightOpen = true
 	}
@@ -1045,7 +1066,11 @@
 		<!-- Left sidebar: Drawing Navigator (location tree → drawings/views) -->
 		{#if leftOpen}
 			<aside class="side left">
-				<DrawingNavigator onopen={openDrawing} onopenfloor={openFloorModel} oncollapse={() => (leftOpen = false)} onselectnode={selectNode}
+				<DrawingNavigator tree={realTree?.tree ?? null} project={realTree?.project ?? null} status={navStatus}
+					onaddbuilding={(n) => projectSrc?.addBuilding(n).catch((e) => { toast(`Couldn't add the building: ${e?.message ?? e}`); return false }) ?? Promise.resolve(false)}
+					onmovefloor={(f, b) => projectSrc?.moveFloor(f, b).catch((e) => toast(`Couldn't move the floor: ${e?.message ?? e}`))}
+					onmovebuilding={(n, t, after) => projectSrc?.moveBuilding(n, t, after).catch((e) => toast(`Couldn't reorder: ${e?.message ?? e}`))}
+					onopen={openDrawing} onopenfloor={openFloorModel} oncollapse={() => (leftOpen = false)} onselectnode={selectNode}
 					activeDoc={active?.docId ?? ''} activeNode={session.treeNode?.id ?? ''} />
 			</aside>
 		{:else}
@@ -1084,7 +1109,7 @@
 				{:else if rightTab === 'props'}
 					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (active) updateEnt(active.id, e) }}
 						onarrange={(op) => { if (active) reorderEnts(active.id, activeEntIds(), op) }}
-						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''} {activeLayer} node={session.treeNode}
+						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''} {activeLayer} node={session.treeNode} onnodebuilding={setFloorBuilding}
 						modelObj={selModelObj} modelLayers={modelById(activeMid())?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} onmodelseg={updateModelSeg}
 						frameObj={selFrameObj} onframefit={fitSelectedFrame}
 						modelList={models.map((m) => ({ id: m.id, name: m.name }))}

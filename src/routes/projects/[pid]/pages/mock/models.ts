@@ -58,7 +58,7 @@ function demoRack(): Model {
 
 // An empty floor model — one per floor in the navigator tree (mock/data.ts NAV_TREE) that has no demo
 // content, so clicking the floor opens ITS model rather than 33F's.
-const emptyFloor = (id: number, name: string): Model => ({
+export const emptyFloor = (id: number, name: string): Model => ({
 	id, name, layers: layerStack(LAYERS), objects: [],
 	levels: { floorSlab: 0, raisedFloor: 150, ceilingTile: 2700, ceilingSlab: 3200 },
 })
