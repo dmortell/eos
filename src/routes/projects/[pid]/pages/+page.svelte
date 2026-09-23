@@ -784,24 +784,45 @@
 	// Which zoom the wheel/nav actually acts on: the viewport CONTENT only when a viewport is active
 	// AND "Pan content" is on; otherwise the canvas. (Was always reading the view zoom when active,
 	// so the status bar stuck at 100% while the wheel zoomed the canvas.)
-	const zoomsContent = (id?: string) => isVpActive(id) && navContent
-	// The projection of a pane's active CONTENT view (a model-layout tab; sheets zoom the canvas, not this).
-	const activeProj = (p: { id: string; activeId: string }) => projOf(p, session.tabs.find((t) => t.id === p.activeId) ?? null)
+	// B28: the ACTIVE viewport id, keyed the same way `activeVps`/viewState use it — a sheet's active
+	// FRAME id, or a model-layout tab's own id if IT is active (null if nothing is). `zoomsContent`/
+	// `navZoom`/`dispZoom` used to test/index by `p.activeId` (the TAB id) directly, which is never in
+	// `activeVps` for a sheet (frames activate by their OWN id, never the tab's) — so the content branch
+	// was never taken on a sheet and `+`/`−`/the status readout always acted on the paper canvas, even
+	// with "Pan content" on.
+	const activeViewportId = (p: { id: string; activeId: string }) => activeVpOf(p.activeId)
+	const zoomsContent = (p: { id: string; activeId: string }) => navContent && !!activeViewportId(p)
+	// The projection of whatever's ACTIVE in this pane: a sheet's active FRAME's own `.proj` (B28 — was
+	// always `projOf` here, which only resolves a model-layout TAB's projection and silently ignored a
+	// sheet frame's actual proj, e.g. reporting 'plan' while a 'front' elevation frame was active), else
+	// (no frame active, or a model-layout tab) the tab's viewState-backed `projOf`. Mirrors `gizmoProj`'s
+	// sheet-vs-model split but falls back to `projOf` instead of the first frame when nothing is active.
+	const activeProj = (p: { id: string; activeId: string }): Proj => {
+		const t = session.tabs.find((x) => x.id === p.activeId) ?? null
+		if (t?.kind === 'sheet') { const av = activeViewportId(p); const f = av ? framesOf(p.activeId).find((x) => x.id === av) : null; if (f) return f.proj as Proj }
+		return projOf(p, t)
+	}
 	let dispZoom = $derived.by(() => {
 		const p = session.panes[session.focused]; if (!p) return 100
-		return Math.round((zoomsContent(p.activeId) ? viewOf(p.id, p.activeId, activeProj(p)).zoom : canvasViewOf(p).zoom) * 100)
+		const av = activeViewportId(p)
+		return Math.round((zoomsContent(p) && av ? viewOf(p.id, av, activeProj(p)).zoom : canvasViewOf(p).zoom) * 100)
 	})
 	function navZoom(f: number) {
 		const p = session.panes[session.focused]; if (!p) return
-		if (zoomsContent(p.activeId)) { const pr = activeProj(p), v = viewOf(p.id, p.activeId, pr); setView(p.id, p.activeId, pr, { ...v, zoom: Math.min(20, Math.max(0.25, v.zoom * f)) }) }
+		const av = activeViewportId(p)
+		if (zoomsContent(p) && av) { const pr = activeProj(p), v = viewOf(p.id, av, pr); setView(p.id, av, pr, { ...v, zoom: Math.min(20, Math.max(0.25, v.zoom * f)) }) }
 		else { const v = canvasViewOf(p); setCanvasView(p, { ...v, zoom: Math.min(20, Math.max(0.1, v.zoom * f)) }) }
 	}
 	// Fit a specific pane: frame its sheet paper (centred, with margin) or reset a model view.
 	function fitPane(idx: number, opts: { skipIfPersisted?: boolean } = {}) {
 		const p = session.panes[idx]; if (!p) return
 		const pr = activeProj(p)
+		// Orbit reset stays keyed by the TAB id (unchanged — a model-layout tab's own orbit, whether or not
+		// its viewport is active): a sheet's active-FRAME orbit is a separate, not-yet-reported gap (the
+		// same `p.activeId`-vs-`activeVpOf` mismatch as B28, but for orbit rather than zoom) — out of scope here.
 		if (p.activeId) setOrbit(p.id, p.activeId, pr, DEFAULT_YAW, DEFAULT_PITCH)   // Fit also resets the 3D orbit
-		if (isVpActive(p.activeId)) { setView(p.id, p.activeId, pr, { zoom: 1, x: 0, y: 0 }); return }
+		const av = activeViewportId(p)   // B28: was `isVpActive(p.activeId)` — see activeViewportId's comment above
+		if (av) { setView(p.id, av, pr, { zoom: 1, x: 0, y: 0 }); return }
 		// B27: the mount-time refit used to unconditionally overwrite a sheet's REMEMBERED canvas position
 		// (localStorage) with a fresh "fit to paper" — so a saved 48% zoom came back at 97% after every
 		// reload. `refitAll` (mount only) passes `skipIfPersisted`; an explicit Fit (menu/button/ViewCube)
