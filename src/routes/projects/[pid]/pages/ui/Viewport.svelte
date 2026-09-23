@@ -16,6 +16,11 @@
 	import { makeMapper, type Mapper } from './mapper'
 	import { beginPointerDrag, DragRegistry } from './gestures'
 	import { drawPlane, buildEnt, sectionObj, sectionName, PRISM_TOOL, trimTail, polylineEnt, graphObj, prismObj, guideObj, imageWithOrigin, imageScaled, moveEnt as pMoveEnt } from './place'
+	import {
+		addModelObj as meAddModelObj, deleteModelSel as meDeleteModelSel, deleteGraphNode as meDeleteGraphNode,
+		insertGraphNode as meInsertGraphNode, branchNode as meBranchNode, addGuide as meAddGuide, addSection as meAddSection,
+		setSectionDir as meSetSectionDir, deleteSection as meDeleteSection, setSectionClip as meSetSectionClip, type EditScope,
+	} from './modelEdit'
 	import type { ViewCtx } from './view'
 	import { pickSectionGrip as gPickSectionGrip, modelGrips as gModelGrips, pickModelGrip as gPickModelGrip, gripsFor as gGripsFor, constrainGrip, type MGrip, type Grip, type GripOpts } from './grips'
 	import { SNAP_STEP, snapToGrid, rndTo, snapDelta as sSnapDelta, findSnap as sFindSnap, drawPoint as sDrawPoint, snapNode as sSnapNode, graphNodeApply as sGraphNodeApply, elevDepthSnap as sElevDepthSnap } from './snap'
@@ -195,9 +200,7 @@
 		if (ps && isPlan) { addModelObj(prismObj(ctx, a, b, ps.layer, ps.h, () => mUid(ps.tag))); return }
 		if (tool === 'Section' && isPlan && mdl) {   // §4 / B5 — clip box on the plan → a section marker in the MODEL (one undo step), selected
 			const sec = sectionObj(ctx, a, b, mUid('sec'), sectionName(mdl.sections ?? [])); if (!sec) return
-			// B26: NOT `(mdl.sections ??= []).push(...)` — `??=` yields the raw [] you assigned, not the $state proxy
-			// now stored on the model, so the push would land behind the proxy (no signal, lost on the next push).
-			on.beginedit?.(); if (!mdl.sections) mdl.sections = []; mdl.sections.push(sec); on.modeledit?.('Add section'); on.endedit?.()
+			meAddSection(mdl, edit, sec)
 			on.sectionselect?.(sec.id)   // grips + toolbar; drop its elevations via the arrows
 		}
 	}
@@ -465,16 +468,13 @@
 	// Section markers live in the MODEL (B5): this plan view shows its model's list; edits mutate it in place
 	// (like guides) bracketed by beginedit/modeledit/endedit so they ride the model history.
 	const sections = $derived(isPlan ? (mdl?.sections ?? []) : [])
-	const sectionById = (id: string) => mdl?.sections?.find((s) => s.id === id)
-	const setSectionClip = (id: string, clip: Clip) => { const s = sectionById(id); if (s) s.clip = clip }   // inside a drag gesture (the caller records the step)
+	const setSectionClip = (id: string, clip: Clip) => { if (mdl) meSetSectionClip(mdl, id, clip) }   // inside a drag gesture (the caller records the step)
 	function setSectionDir(id: string, dir: ElevDir) {
-		const s = sectionById(id); if (!s || s.dir === dir) return
-		on.beginedit?.(); s.dir = dir; on.modeledit?.('Set section direction'); on.endedit?.()
+		if (mdl) meSetSectionDir(mdl, edit, id, dir)
 	}
 	function deleteSection(id: string) {
-		const list = mdl?.sections; if (!mdl || !list?.some((s) => s.id === id)) return
-		on.beginedit?.(); mdl.sections = list.filter((s) => s.id !== id); on.modeledit?.('Delete section'); on.endedit?.()
-		if (selSection === id) on.sectionselect?.(null)
+		if (!mdl) return
+		if (meDeleteSection(mdl, edit, id) && selSection === id) on.sectionselect?.(null)
 	}
 	// hitSection / sectionCorners live in ui/hit.ts (R1 step 3); the wrapper injects ctx + the section list.
 	const hitSection = (p: Pt) => hHitSection(ctx, sections, p, tolMm(6))
@@ -508,9 +508,7 @@
 	function placeGuide(p: Pt, shift: boolean) {
 		if (!mdl) return
 		const g = guideObj(ctx, p, shift, guideId()); if (!g) return   // null in iso (no drawing plane)
-		on.beginedit?.()   // capture the pre-add baseline, then fold the add into one undo step (model history)
-		if (!mdl.guides) mdl.guides = []; mdl.guides.push(g)   // B26: re-read through the $state proxy after creating the array (not `??=`)
-		on.modeledit?.('Add guide'); on.endedit?.()
+		meAddGuide(mdl, edit, g)
 	}
 	// IMAGE calibration (Uploads-tool model). ORIGIN: store the clicked point as a normalized anchor.
 	function setImageOrigin(id: string, p: Pt) {
@@ -598,12 +596,7 @@
 	// joining them, and return the new node so the caller can drag it out. graph.ts handles the junction
 	// in its sweep, so this is purely the editing gesture.
 	function branchNode(o: Extract<Obj, { type: 'wall' | 'conduit' }>, from: GN): GN {
-		const nid = mUid('n')
-		;(o.nodes as GN[]).push({ id: nid, x: from.x, y: from.y, z: from.z })
-		;(o.segments as { id: string; a: string; b: string }[]).push({ id: mUid('s'), a: from.id, b: nid })
-		// Return the STORE's node, not the pushed literal: $state deep-proxies array elements, so the
-		// drag closure must mutate the proxy (what the renderer reads) — mutating the raw literal is a no-op.
-		return (o.nodes as GN[])[(o.nodes as GN[]).length - 1]
+		return meBranchNode(o, from, mUid)
 	}
 	// beginPointerDrag-managed; state = the grip, the drag origin (for node disconnect) and the Ctrl-branch undo.
 	type MGripDrag = { grip: MGrip; origin: Pt; branch?: () => void }
@@ -664,23 +657,20 @@
 	}
 
 	// ── model PLACEMENT (P2f / §3) — create new model objects on the store, one undo step, select it ──
+	// R6: the history bracket built ONCE, passed to every ui/modelEdit.ts function below instead of each
+	// one reading `on.beginedit/modeledit/endedit` itself — see review.md §R6, modelEdit.ts's EditScope.
+	const edit: EditScope = { begin: () => on.beginedit?.(), mark: (l) => on.modeledit?.(l), end: (ms) => on.endedit?.(ms) }
 	const mUid = (p: string) => newId(p)
 	function addModelObj(o: Obj) {
 		if (!mdl) return
-		on.beginedit?.()          // captures the pre-add baseline
-		mdl.objects.push(o)
-		on.modeledit?.(); on.endedit?.()   // one undo step
-		setModelSel(o.id ? [o.id] : [])
+		const id = meAddModelObj(mdl, edit, o)
+		setModelSel(id ? [id] : [])
 	}
 	// Delete the selected model object(s) AND guide(s) from the store (one undo step). Guides share the
 	// modelSel namespace now, so a Delete over a selected guide removes it here too.
 	function deleteModelSel() {
 		if (!mdl || !modelSel.length) return
-		const rm = new Set(modelSel)
-		on.beginedit?.()
-		mdl.objects = mdl.objects.filter((o) => !o.id || !rm.has(o.id))
-		if (mdl.guides) mdl.guides = mdl.guides.filter((g) => !rm.has(g.id))
-		on.modeledit?.('Delete'); on.endedit?.()
+		meDeleteModelSel(mdl, edit, modelSel)
 		setModelSel([])
 	}
 	// Delete a single wall/conduit NODE, resolving its incident segments by DEGREE (Dave's spec):
@@ -690,49 +680,16 @@
 	// Then prune any node left with no segments (the deleted one + orphaned far ends); remove the whole
 	// object if nothing remains. One undo step.
 	function deleteGraphNode(sel: { obj: string; node: string }) {
-		const o = mdl?.objects.find((x) => x.id === sel.obj)
-		if (!mdl || !o || (o.type !== 'wall' && o.type !== 'conduit')) return
-		const segs = o.segments as { id: string; a: string; b: string }[]
-		const inc = segs.filter((s) => s.a === sel.node || s.b === sel.node)
-		const far = (s: { a: string; b: string }) => (s.a === sel.node ? s.b : s.a)
-		const keep = segs.filter((s) => s.a !== sel.node && s.b !== sel.node)   // segments not touching the node
-		if (inc.length >= 2) { const e1 = far(inc[0]), e2 = far(inc[1]); if (e1 !== e2) keep.push({ id: mUid('s'), a: e1, b: e2 }) }   // join first two
-		on.beginedit?.()
-		o.segments = keep
-		const used = new Set<string>(); for (const s of keep) { used.add(s.a); used.add(s.b) }
-		o.nodes = (o.nodes as GN[]).filter((n) => used.has(n.id))   // drop the deleted node + any orphaned far ends
-		if (!keep.length) { mdl.objects = mdl.objects.filter((x) => x.id !== o.id); setModelSel([]) }   // nothing left → remove object
-		on.modeledit?.('Delete node'); on.endedit?.()
+		if (!mdl) return
+		const { removedObject } = meDeleteGraphNode(mdl, edit, sel, mUid)
+		if (removedObject) setModelSel([])
 	}
 	// Insert a vertex into a wall/conduit at p by splitting the nearest segment (dbl-click). The new
 	// node inherits the segment's z (keeps the run's height); the new segment inherits object defaults.
 	function insertGraphNode(p: Pt) {
 		if (!mdl) return
-		const thr = tolMm(6)   // screen px → MODEL units (coords are in the ÷dscale space)
-		for (let i = mdl.objects.length - 1; i >= 0; i--) {
-			const o = mdl.objects[i]
-			if ((o.type !== 'wall' && o.type !== 'conduit') || !o.id || !modelLayerVisible(o)) continue
-			const half = ((o.type === 'wall' ? o.thickness : o.w) ?? 0) / 2
-			const nm = new Map((o.nodes as GN[]).map((n) => [n.id, n]))
-			for (const s of o.segments as { id: string; a: string; b: string }[]) {
-				const a = nm.get(s.a), b = nm.get(s.b); if (!a || !b) continue
-				if (segDist(p, graphNodeDraw(a), graphNodeDraw(b)) < thr + half) {
-					on.beginedit?.()
-					const nid = mUid('n')
-					// Seed at a's coords, then set its in-view coords from p (no snap): the plan takes x/y,
-					// an elevation takes the on-axis coord + z (keeping a's off-axis coord).
-					const nn: GN = { id: nid, x: a.x, y: a.y, z: a.z }
-					if (isElev) { const ax = ELEV_BASIS[elevDir].axis; if (ax === 0) nn.x = rndSnap(projUInv(p[0])); else nn.y = rndSnap(projUInv(p[0])); nn.z = Math.max(0, rndSnap(GROUND - p[1])) }
-					else { nn.x = rndSnap(p[0]); nn.y = rndSnap(p[1]) }
-					;(o.nodes as GN[]).push(nn)
-					const bId = s.b; s.b = nid
-					;(o.segments as { id: string; a: string; b: string }[]).push({ id: mUid('s'), a: nid, b: bId })
-					on.modeledit?.(); on.endedit?.()
-					setModelSel([o.id])
-					return
-				}
-			}
-		}
+		const hitId = meInsertGraphNode(ctx, mdl, edit, p, tolMm(6), mlayers, rndSnap, mUid)
+		if (hitId) setModelSel([hitId])
 	}
 	// Elevation depth-snap (a drawn point snaps its DEPTH onto the nearest wall/conduit segment) lives in
 	// ui/snap.ts (R1 step 5); the wrapper injects ctx, the ~12px tolerance and the layer preds.
