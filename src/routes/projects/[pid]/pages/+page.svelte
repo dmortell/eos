@@ -814,15 +814,24 @@
 		else { const v = canvasViewOf(p); setCanvasView(p, { ...v, zoom: Math.min(20, Math.max(0.1, v.zoom * f)) }) }
 	}
 	// Fit a specific pane: frame its sheet paper (centred, with margin) or reset a model view.
-	function fitPane(idx: number, opts: { skipIfPersisted?: boolean } = {}) {
+	function fitPane(idx: number, opts: { skipIfPersisted?: boolean; explicit?: boolean } = {}) {
 		const p = session.panes[idx]; if (!p) return
 		const pr = activeProj(p)
 		// Orbit reset stays keyed by the TAB id (unchanged — a model-layout tab's own orbit, whether or not
-		// its viewport is active): a sheet's active-FRAME orbit is a separate, not-yet-reported gap (the
-		// same `p.activeId`-vs-`activeVpOf` mismatch as B28, but for orbit rather than zoom) — out of scope here.
+		// its viewport is active): with a sheet frame active this now writes the tab-keyed orbit under the
+		// frame's own proj (since `activeProj` resolves it) rather than the frame's own orbit key — a
+		// separate, harmless gap (nothing reads that combination) filed as B30, not fixed here.
 		if (p.activeId) setOrbit(p.id, p.activeId, pr, DEFAULT_YAW, DEFAULT_PITCH)   // Fit also resets the 3D orbit
 		const av = activeViewportId(p)   // B28: was `isVpActive(p.activeId)` — see activeViewportId's comment above
-		if (av) { setView(p.id, av, pr, { zoom: 1, x: 0, y: 0 }); return }
+		// B28 follow-up (eos-07 caught in review): `av` is truthy whenever a sheet FRAME is active, active
+		// regardless of "Pan content" — but `fitPane` also runs from AUTOMATIC refits (mount, split/unsplit
+		// resize, the Full-size layout toggle), none of which should silently reset a sheet frame's pan/zoom
+		// the way an intentional Fit can. Reset the VIEWPORT's own content when: it's a model-layout tab
+		// (`av === p.activeId`, unconditional — matches every pre-B28 trigger exactly, that case never
+		// touched a sheet); OR it's a sheet frame AND this is an EXPLICIT Fit (button/menu — `navFit` alone
+		// passes `explicit`) AND "Pan content" is on. Every other case still fits the PAPER below, same as
+		// pre-B28 always did for a sheet.
+		if (av && (av === p.activeId || (opts.explicit && zoomsContent(p)))) { setView(p.id, av, pr, { zoom: 1, x: 0, y: 0 }); return }
 		// B27: the mount-time refit used to unconditionally overwrite a sheet's REMEMBERED canvas position
 		// (localStorage) with a fresh "fit to paper" — so a saved 48% zoom came back at 97% after every
 		// reload. `refitAll` (mount only) passes `skipIfPersisted`; an explicit Fit (menu/button/ViewCube)
@@ -838,10 +847,11 @@
 			setCanvasView(p, { zoom: 1, x: 0, y: 0 })
 		}
 	}
-	function navFit() { fitPane(session.focused) }
+	function navFit() { fitPane(session.focused, { explicit: true }) }
 	// Refit every pane after the paper size/orientation changes (each pane may show a sheet). `opts` is
 	// forwarded to `fitPane` — the mount-time caller below passes `skipIfPersisted` (B27); any FUTURE
-	// caller (e.g. after an explicit paper-size change) should NOT, so it always re-fits.
+	// caller (e.g. after an explicit paper-size change) should NOT, so it always re-fits. Neither this nor
+	// its callers pass `explicit` — an automatic refit must never reset a sheet frame's own pan/zoom.
 	function refitAll(opts: { skipIfPersisted?: boolean } = {}) { tick().then(() => session.panes.forEach((_, i) => fitPane(i, opts))) }
 
 	// ── Print — on Ctrl+P / window.print(), an @media-print stylesheet shows ONLY the focused
