@@ -18,6 +18,7 @@
 	import Viewport from '../ui/Viewport.svelte'
 	import PaperPage from './PaperPage.svelte'
 	import ToolStrip from './ToolStrip.svelte'
+	import TabMenu from './TabMenu.svelte'
 	import ViewGizmos from './ViewGizmos.svelte'
 	import { panzoom } from '../ui/panzoom'
 	import { type Proj, type WorkPane, type Workspace, SCALES } from '../types'
@@ -78,17 +79,9 @@
 				<button class="strip-btn" title="Close this split" onclick={() => ws.closePane(pi)}><Icon name="close" size={14} /></button>
 			{/if}
 			{#if tabMenuOpen}
-				<div class="tab-menu">
-					{#each ws.tabs as t (t.id)}
-						<button class="tab-menu-item" class:on={t.id === p.activeId} onclick={() => ws.pickFromMenu(t.id, pi)}>
-							<Icon name={ws.kindIcon[t.kind]} size={13} /><span class="grow txt">{t.title}</span>{#if t.dirty}<span class="dirty">•</span>{/if}
-						</button>
-					{/each}
-					<div class="tab-menu-sep"></div>
-					<button class="tab-menu-item" onclick={() => { ws.toggleTabMenu(pi); ws.setFocused(pi); ws.addTab() }}>
-						<Icon name="plus" size={13} /><span class="grow txt">New page</span>
-					</button>
-				</div>
+				<TabMenu tabs={ws.tabs} kindIcon={ws.kindIcon} activeId={p.activeId}
+					onPick={(id) => ws.pickFromMenu(id, pi)}
+					onNewPage={() => { ws.toggleTabMenu(pi); ws.setFocused(pi); ws.addTab() }} />
 			{/if}
 		</div>
 	</div>
@@ -216,14 +209,7 @@
 	.tabbar-right { position:relative; z-index:46; flex:0 0 auto; display:flex; align-items:center; gap:1px; padding:0 2px; border-left:1px solid var(--line-soft); }
 	.strip-btn { display:inline-flex; align-items:center; justify-content:center; width:26px; height:24px; border-radius:4px; color:var(--muted); background:none; border:none; }
 	.strip-btn:hover { background:var(--hover); color:var(--text); }
-	.tab-menu { position:absolute; top:100%; right:0; z-index:50; margin-top:2px; min-width:190px; max-height:60vh; overflow-y:auto;
-		background:var(--panel); border:1px solid var(--line); border-radius:6px; box-shadow:0 15px 40px #0006; padding:4px; }
-	.tab-menu-item { display:flex; align-items:center; gap:7px; width:100%; padding:5px 8px; border-radius:4px; color:var(--text); background:none; border:none; font-size:12px; text-align:left; }
-	.tab-menu-item:hover { background:var(--hover); }
-	.tab-menu-item.on { background:var(--active); }
-	.tab-menu-sep { height:1px; background:var(--line-soft); margin:4px 6px; }
-
-	.grow { flex:1; } .txt { text-align:left; background:none; border:none; color:inherit; font-size:12px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+	/* .tab-menu* now lives in TabMenu.svelte's own scoped styles — R9 commit 5. */
 
 	/* Canvas */
 	.canvas { position:relative; flex:1 1 auto; min-width:0; min-height:0; background:var(--canvas);
