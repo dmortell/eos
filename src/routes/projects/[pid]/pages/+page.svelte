@@ -40,6 +40,7 @@
 	import { getContext, untrack } from 'svelte'
 	import type { Firestore } from '$lib'
 	import { ProjectSource } from './projectData.svelte'
+	import { findNodePath } from './projectTree'
 	import { DEFAULT_YAW, DEFAULT_PITCH } from './3dview/projection'
 	import type { Model, Section } from './3dview/types'
 	import { selStore } from './selStore.svelte'
@@ -812,6 +813,46 @@
 			if (n.id.startsWith('b:') && key === 'name') session.treeNode = { ...n, id: `b:${value.trim()}`, label: value.trim() }
 		} catch (e) { toast(`Couldn't save: ${(e as Error)?.message ?? e}`) }
 	}
+	// ── the last clicked tree item, per project, in localStorage — a location node (selected + its Properties;
+	// a floor also reopens its model tab) or a drawing (reopened as a tab). Restored once, when the project's
+	// real tree first loads; its ancestors are expanded so it's visible. ──
+	const TREE_LS = 'eos.pages.treeItem'
+	type TreeItem = { node?: string; doc?: string }
+	function saveTreeItem(item: TreeItem) {
+		const pid = page.params.pid; if (!pid) return
+		try { const all = JSON.parse(localStorage.getItem(TREE_LS) || '{}'); all[pid] = item; localStorage.setItem(TREE_LS, JSON.stringify(all)) } catch { /* private mode */ }
+	}
+	let treeReveal = $state<string[]>([])
+	// The tree fills in over several snapshots (project doc first, then risers / drawings / racks rows), so the
+	// restore RETRIES on each tree update until it finds the item — and gives up once the user clicks in the
+	// tree themselves, or 15 s after the project started loading.
+	let restoredFor = '', restoreStart = 0
+	$effect(() => {
+		const t = realTree, pid = page.params.pid
+		if (!t || !pid || restoredFor === pid) return
+		untrack(() => {
+			if (!restoreStart) restoreStart = Date.now()
+			let item: TreeItem | undefined
+			try { item = JSON.parse(localStorage.getItem(TREE_LS) || '{}')[pid] } catch { /* private mode */ }
+			if (!item || Date.now() - restoreStart > 15000) { restoredFor = pid; return }
+			if (item.node === t.project.id) { restoredFor = pid; selectNode({ id: t.project.id, label: t.project.label, kind: 'project' }); return }
+			const hit = findNodePath(t.tree, item.node ? { id: item.node } : { docId: item.doc })
+			if (!hit) return   // not loaded yet — try again on the next tree update
+			restoredFor = pid
+			treeReveal = hit.ancestors.map((a) => a.id)
+			const n = hit.node
+			if (n.drawing) {
+				const floor = [...hit.ancestors].reverse().find((a) => a.floor)?.floor
+				openDrawing({ title: n.label, kind: n.drawing, preview: true, floor, docId: n.docId ?? n.id })
+			} else {
+				selectNode({ id: n.id, label: n.label, kind: n.folder ?? 'folder', floorNumber: n.floorNumber, building: n.building })
+				if (n.folder === 'floor' && n.floor) openFloorModel(n.floor, true)
+			}
+		})
+	})
+	// the navigator's clicks → remember them (drawings by their stable docId)
+	function navOpen(d: { title: string; kind: Kind; preview: boolean; floor?: string; docId?: string }) { restoredFor = page.params.pid ?? ''; if (d.docId) saveTreeItem({ doc: d.docId }); openDrawing(d) }
+	function navSelect(n: { id: string; label: string; kind: string; floorNumber?: number; building?: string }) { restoredFor = page.params.pid ?? ''; saveTreeItem({ node: n.id }); selectNode(n) }
 	// A place/label in the tree (project, building, floor, …) → edit its props in the right panel.
 	function selectNode(n: { id: string; label: string; kind: string; floorNumber?: number; building?: string }) {
 		selStore.set(activeSelViewId(), selClear())   // clear entity selection so node props show
@@ -1091,7 +1132,7 @@
 					onaddbuilding={(n) => projectSrc?.addBuilding(n).catch((e) => { toast(`Couldn't add the building: ${e?.message ?? e}`); return false }) ?? Promise.resolve(false)}
 					onmovefloor={(f, b) => projectSrc?.moveFloor(f, b).catch((e) => toast(`Couldn't move the floor: ${e?.message ?? e}`))}
 					onmovebuilding={(n, t, after) => projectSrc?.moveBuilding(n, t, after).catch((e) => toast(`Couldn't reorder: ${e?.message ?? e}`))}
-					onopen={openDrawing} onopenfloor={openFloorModel} oncollapse={() => (leftOpen = false)} onselectnode={selectNode}
+					onopen={navOpen} onopenfloor={openFloorModel} oncollapse={() => (leftOpen = false)} onselectnode={navSelect} reveal={treeReveal}
 					activeDoc={active?.docId ?? ''} activeNode={session.treeNode?.id ?? ''} />
 			</aside>
 		{:else}

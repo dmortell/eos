@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildProjectTree, drawingPlace, drawingKind, buildingOf, OTHER_BUILDING, type TreeInput } from './projectTree'
+import { buildProjectTree, drawingPlace, drawingKind, buildingOf, findNodePath, OTHER_BUILDING, type TreeInput } from './projectTree'
 import type { NavNode } from './mock/data'
 
 const P = 'pid'
@@ -72,6 +72,13 @@ describe('buildProjectTree (Hibiya-shaped)', () => {
 		expect(labels(find(t, 'b:Hibiya Fort Tower')!.children)).toEqual(['10F — L10 WeWork'])
 		expect(find(t, 'b:Annex')).toMatchObject({ children: [], meta: 'drag floors here' })
 		expect(find(t, `b:${OTHER_BUILDING}`)).toBeUndefined()
+	})
+	it('findNodePath finds a node by id, or a drawing by docId, with its ancestors', () => {
+		const r = findNodePath(tree, { id: 'row:30:B:rb' })!
+		expect(r.node.label).toBe('Row B'); expect(r.ancestors.map((n) => n.id)).toEqual(['b:Hibiya', 'f:30', 'r:30:B'])
+		const d = findNodePath(tree, { docId: 'drawing:d1' })!
+		expect(d.node.label).toBe('Front Elevation 30F Room B'); expect(d.ancestors.at(-2)!.floor).toBe('30F')
+		expect(findNodePath(tree, { id: 'nope' })).toBeNull()
 	})
 	it('project-level and orphan drawings get their own groups; archived ones are dropped', () => {
 		expect(labels(find(tree, 'g:project')!.children)).toEqual(['3303 Plan'])

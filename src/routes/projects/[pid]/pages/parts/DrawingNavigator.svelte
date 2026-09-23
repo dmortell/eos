@@ -3,10 +3,10 @@
 	// a tree organised by LOCATION (Floors / Server Rooms / Data Center / Racks) whose
 	// leaves are the drawings / views. Clicking a leaf opens it as a canvas tab. Mock data.
 	import { Icon, DragReorder } from '$lib'
-	import { tick } from 'svelte'
+	import { tick, untrack } from 'svelte'
 	import { type NavKind as Kind, type NavNode as Node, NAV_TREE as TREE, NAV_PROJECT as PROJECT } from '../mock/data'
 
-	let { onopen, onopenfloor, oncollapse, onselectnode, activeDoc = '', activeNode = '', tree = null, project = null, status = '', onaddbuilding, onmovefloor, onmovebuilding }:
+	let { onopen, onopenfloor, oncollapse, onselectnode, activeDoc = '', activeNode = '', tree = null, project = null, status = '', onaddbuilding, onmovefloor, onmovebuilding, reveal = [] }:
 		{ onopen?: (d: { title: string; kind: Kind; preview: boolean; floor?: string; docId?: string }) => void; oncollapse?: () => void;
 			/** A FLOOR row was clicked (preview) or double-clicked (kept): open that floor's model tab. */
 			onopenfloor?: (floor: string, preview: boolean) => void;
@@ -19,7 +19,9 @@
 			/** Real tree only: create a building (resolves false if the name is empty / taken), drag a floor into a
 			 *  building, drag a building to reorder. Absent → no New-building button, no dragging (the mock tree). */
 			onaddbuilding?: (name: string) => Promise<boolean>; onmovefloor?: (floorNumber: number, building: string) => void;
-			onmovebuilding?: (name: string, target: string, after: boolean) => void } = $props()
+			onmovebuilding?: (name: string, target: string, after: boolean) => void;
+			/** Node ids to open (e.g. the restored item's ancestors) — expanded once when they change. */
+			reveal?: string[] } = $props()
 	const TREE_NODES = $derived(tree ?? TREE)
 	const PROJ = $derived(project ? { ...project, kind: 'project' } : PROJECT)
 	// A floor row's model / tab name: the real tree carries it (`floor`, e.g. '33F'); the mock's label is it.
@@ -58,6 +60,14 @@
 	const drawingIcon: Record<Kind, string> = { plan: 'mapPin', sheet: 'fileText', elevation: 'box' }
 
 	let expanded = $state(new Set<string>(['b-hibiya', 'f33', 'z3303']))
+	// open the ancestors a caller asks for (buildings are open by default — un-collapse them too)
+	$effect(() => {
+		const ids = reveal; if (!ids.length) return
+		untrack(() => {
+			expanded = new Set([...expanded, ...ids.filter((i) => !i.startsWith('b:'))])
+			const c = new Set(collapsed); for (const i of ids) c.delete(i); collapsed = c
+		})
+	})
 	// Real tree: BUILDINGS start open (tracked as `collapsed` instead), so a building that appears later —
 	// e.g. once the risers load and floors regroup — is open too. Everything else starts closed.
 	let collapsed = $state(new Set<string>())

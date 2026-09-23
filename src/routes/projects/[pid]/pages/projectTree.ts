@@ -53,6 +53,19 @@ export function buildingOf(f: FloorConfig, risers: RiserDoc[], home: string): st
 const leaf = (d: DrawingDoc): NavNode => ({ id: `d:${d.id}`, label: d.title || d.drawingNumber || d.id, drawing: drawingKind(d.toolType), docId: `drawing:${d.id}` })
 const byOrder = (a: DrawingDoc, b: DrawingDoc) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || (a.title ?? '').localeCompare(b.title ?? '')
 
+/** A node by id (or a drawing leaf by its `docId`) with its ancestor chain, root first; null if absent. */
+export function findNodePath(tree: NavNode[], match: { id?: string; docId?: string }): { node: NavNode; ancestors: NavNode[] } | null {
+	const walk = (ns: NavNode[], up: NavNode[]): { node: NavNode; ancestors: NavNode[] } | null => {
+		for (const n of ns) {
+			if ((match.id && n.id === match.id) || (match.docId && n.drawing && n.docId === match.docId)) return { node: n, ancestors: up }
+			const hit = n.children ? walk(n.children, [...up, n]) : null
+			if (hit) return hit
+		}
+		return null
+	}
+	return walk(tree, [])
+}
+
 /** Build the navigator tree. Returns the project label + the top-level nodes (buildings, then project-level
  *  drawings and anything the registry points at that isn't a known floor). */
 export function buildProjectTree({ project, racks, risers, drawings }: TreeInput): { project: { id: string; label: string }; tree: NavNode[] } {
