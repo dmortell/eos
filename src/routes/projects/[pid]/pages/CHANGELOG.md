@@ -5,6 +5,9 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 open items; `review.md §0a` tracks which review findings are closed.
 
 ## Refactors — code-review 2 R-items (2026-09-22 → 09-24)
+Work was split across sessions: one spec'd and diff-reviewed, one implemented, one live-gated each
+commit in the browser (`review.md §0a` holds the gate records). The working notes were in `HANDOFF.md`,
+now deleted; it's in git history.
 - **R1 Viewport split** (`refactor-plan.md` executed, then deleted — it's in git history before this
   commit): `ui/Viewport.svelte` 2209 → 90 lines. Pure modules `annotations.ts`, `mapper.ts` (one layout
   read per event), `hit.ts` (+ `pickAt`), `grips.ts`, `snap.ts`, `place.ts`, `gestures.ts`
@@ -12,8 +15,8 @@ open items; `review.md §0a` tracks which review findings are closed.
   (view model) and `vpInteraction.svelte.ts` (pointer/key state machine). Plus `vpPrompt.ts`, `vpTypes.ts`
   and `render/VpMarks`/`VpOverlays`/`VpWidgets`.
 - **R2** `viewState.svelte.ts`, `doc.svelte.ts` (PageDoc) and one `session` object. **R3** one Selection
-  model (`selection.ts`, per-viewport `editor.sel`, including frames). **R4** `line` retired for a 2-point
-  polyline. **R5** one layer model per model. **R6** `modelEdit.ts` store mutations; `VpOn` = view events,
+  model (`selection.ts`, per-viewport `editor.sel`, including frames). **R4** the mock `'box'` Ent removed (3D
+  solids are model prisms) and `line` retired for a 2-point polyline. **R5** one layer model per model. **R6** `modelEdit.ts` store mutations; `VpOn` = view events,
   plus an `Editor` for document edits. **R7** one projection path for render and edit. **R9** `+page`
   split (`Pane`, `ToolStrip`, `TabMenu`, `printing.ts`, the `Workspace` object).
 - **R8-lite** `PaperPage` frames use the shared modules: `inBox`/`marqueeSelect` picking, `gripsLocal`
@@ -25,6 +28,7 @@ open items; `review.md §0a` tracks which review findings are closed.
 - Bugs B19–B31 fixed. Highlights:
   - drag threshold + Properties remount (B19)
   - odd-sided prisms (B21)
+  - elevation snap points sit on the drawn ground line, not in empty space (B22)
   - Shift-press toggle (B25)
   - first section/guide lost behind the `$state` proxy (B26)
   - stable drawing ids (B18)
