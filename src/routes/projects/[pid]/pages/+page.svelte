@@ -106,13 +106,17 @@
 	// (a per-user UI convenience); the viewport CONTENT view (viewState.getView) is the document-side
 	// pan/zoom. Backed by viewState.svelte.ts (R2) — same key shapes + localStorage, see that file.
 	$effect(() => viewState.loadPersisted())
-	const canvasViewOf = (pane: { id: string; activeId: string }): View => viewState.getCanvas(pane.id, pane.activeId, didOf(pane.activeId))
-	function setCanvasView(pane: { id: string; activeId: string }, v: View) { viewState.setCanvas(pane.id, pane.activeId, didOf(pane.activeId), v) }
+	// View-state KEYS (Dave, B18 follow-up): split SIDE (pane id — `p1` left, `p2` right, see splitVertical)
+	// × DRAWING (`didOf` → the tab's stable docId; a sheet frame keeps its own frame id, already stable in
+	// the drawing's doc) × view ORIENTATION (the projection, for pan/zoom/orbit). Keyed by the drawing — not
+	// the session tab id — a closed-and-reopened drawing comes back with its views as they were.
+	const canvasViewOf = (pane: { id: string; activeId: string }): View => viewState.getCanvas(pane.id, didOf(pane.activeId), didOf(pane.activeId))
+	function setCanvasView(pane: { id: string; activeId: string }, v: View) { viewState.setCanvas(pane.id, didOf(pane.activeId), didOf(pane.activeId), v) }
 	// Active PROJECTION keyed by PANE + tab, so each split pane is independent (plan in one, side in
 	// the other) yet each pane remembers a view's projection when you switch tabs within it.
 	function projOf(pane: { id: string }, a: Tab | null): Proj {
 		if (!a) return 'plan'
-		return viewState.getProj(pane.id, a.id) ?? (a.kind === 'elevation' ? 'front' : a.kind === 'model' ? 'iso' : 'plan')
+		return viewState.getProj(pane.id, didOf(a.id)) ?? (a.kind === 'elevation' ? 'front' : a.kind === 'model' ? 'iso' : 'plan')
 	}
 	// Map a projection to the Viewport render kind (same names since the 'floorplan'→'plan' rename): plan, iso → oblique 3D, the four
 	// elevations pass through as their own kind (the Viewport projects each per ELEV_BASIS).
@@ -224,8 +228,9 @@
 	// timeline, gesture-folded like an entity edit — so Ctrl+Z restores the model too.
 	function modelEdit(id: string, label = 'Edit model') { recordEdit(id, label) }
 	// Iso ORBIT (yaw/pitch), per pane+tab so split 3D views orbit independently. Drag the iso view to rotate.
-	const orbitOf = (paneId: string, viewId: string, proj: Proj) => viewState.getOrbit(paneId, viewId, proj) ?? { yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH }
-	function setOrbit(paneId: string, viewId: string, proj: Proj, yaw: number, pitch: number) { viewState.setOrbit(paneId, viewId, proj, yaw, pitch) }
+	// viewId = a tab id (→ its drawing's docId) or a sheet frame id (kept) — see the view-state KEYS note above.
+	const orbitOf = (paneId: string, viewId: string, proj: Proj) => viewState.getOrbit(paneId, didOf(viewId), proj) ?? { yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH }
+	function setOrbit(paneId: string, viewId: string, proj: Proj, yaw: number, pitch: number) { viewState.setOrbit(paneId, didOf(viewId), proj, yaw, pitch) }
 	// A SECTION is a plan marker (NOT a tab): a clip box + a primary sight direction + a name, stored in the
 	// MODEL (`Model.sections`, B5) so it is model-scoped (a cut on one model's plan doesn't show on another)
 	// and undoable (it rides `snapModels`). The Viewport creates / moves / re-aims / deletes markers as model
@@ -315,7 +320,7 @@
 	}
 	function gizmoSet(pane: { id: string }, a: Tab | null, proj: Proj) {
 		if (a?.kind === 'sheet') { const av = activeVpOf(a.id) ?? framesOf(a.id)[0]?.id; if (av) updateFrame(a.id, av, { proj, label: PROJ_LABEL[proj] }) }
-		else if (a) viewState.setProj(pane.id, a.id, proj)
+		else if (a) viewState.setProj(pane.id, didOf(a.id), proj)
 	}
 	// Scale denominator of the viewport the Properties panel edits in: an active extra sheet frame's own
 	// scale, else the tab's (the primary viewport's) — the same choice as the active-viewport bar (B19).
@@ -370,7 +375,7 @@
 	// ViewCube restores that view's pan/zoom instead of carrying one framing across all directions.
 	// Backed by viewState.svelte.ts (R2); `viewKey` re-exported there for anything that still needs the
 	// raw key string.
-	const viewOf = (paneId: string, viewId: string, proj: Proj) => viewState.getView(paneId, viewId, proj)
+	const viewOf = (paneId: string, viewId: string, proj: Proj) => viewState.getView(paneId, didOf(viewId), proj)
 	// A GESTURE (a drag or a nudge burst) should be ONE undo/history step: while a gesture is open,
 	// only the first mutation snapshots; the rest just update. Viewport signals begin/end.
 	// P3 short term: after the first mutation, a gesture only flags `gestureDirty`; its final state is folded
@@ -521,7 +526,7 @@
 		setMdlEntsOf(modelIdOf(id), $state.snapshot(snap) as Ent[])
 		recordEdit(id, 'Restore revision')
 	}
-	function setView(paneId: string, viewId: string, proj: Proj, v: View) { viewState.setView(paneId, viewId, proj, v) }
+	function setView(paneId: string, viewId: string, proj: Proj, v: View) { viewState.setView(paneId, didOf(viewId), proj, v) }
 	// R3 commits 2a+2b: the Properties panel shows whatever's selected in the ACTIVE viewport (whichever
 	// frame/tab is active in the focused pane) — `activeSel` reads it once, `selEnts`/`selModelObj` below
 	// both derive from it.
@@ -567,7 +572,8 @@
 		const frameIds = framesOf(id).map((f) => f.id)
 		const ids = new Set<string>([id, ...frameIds])            // this tab + its viewport frames
 		selStore.drop([...ids])                                    // selection (per viewport + the page-level frame selection at `id`, since R3 2b/commit 3)
-		viewState.drop([...ids], didOf(id))                        // pan/zoom, orbit, per-pane projection + the persisted canvas seed (B27: prune on close)
+		// View state is NOT dropped any more: it is keyed by the drawing (docId), so reopening the drawing
+		// restores its pan/zoom/orbit/projection/paper position (was keyed by the session tab id, freed here).
 		deactivateVp(id); for (const fid of frameIds) deactivateVp(fid)   // reopened tab starts deactivated
 	}
 
@@ -597,7 +603,9 @@
 		// Mirror the current pane into the split: same active tab + layout, so it opens as a
 		// duplicate view you then diverge (change projection/tab in one side).
 		const src = session.panes[0]
-		session.panes = [...session.panes, { id: newId('p'), activeId: src.activeId, tool: 'Select', layout: src.layout }]
+		// The split pane's id names its SIDE of the split (`p1` / `p2`, whichever is free), so view state keyed
+		// by pane id stays with that side across splits instead of a fresh random id each time.
+		session.panes = [...session.panes, { id: src.id === 'p1' ? 'p2' : 'p1', activeId: src.activeId, tool: 'Select', layout: src.layout }]
 		session.focused = 1; splitFrac = 0.5
 		tick().then(() => { fitPane(0); fitPane(1) })   // both panes narrowed → refit their sheets
 	}
@@ -725,7 +733,7 @@
 	function openFloorModel(floor: string, preview: boolean) {
 		openDrawing({ title: `${floor} · Model`, kind: 'model', preview, floor, docId: `floor:${floor}` })
 		const p = session.panes[session.focused]
-		if (p && !viewState.getProj(p.id, p.activeId)) viewState.setProj(p.id, p.activeId, 'plan')
+		if (p && !viewState.getProj(p.id, didOf(p.activeId))) viewState.setProj(p.id, didOf(p.activeId), 'plan')
 	}
 	// A place/label in the tree (project, building, floor, …) → edit its props in the right panel.
 	function selectNode(n: { id: string; label: string; kind: string }) {
@@ -851,11 +859,6 @@
 	function fitPane(idx: number, opts: { skipIfPersisted?: boolean; explicit?: boolean } = {}) {
 		const p = session.panes[idx]; if (!p) return
 		const pr = activeProj(p)
-		// Orbit reset stays keyed by the TAB id (unchanged — a model-layout tab's own orbit, whether or not
-		// its viewport is active): with a sheet frame active this now writes the tab-keyed orbit under the
-		// frame's own proj (since `activeProj` resolves it) rather than the frame's own orbit key — a
-		// separate, harmless gap (nothing reads that combination) filed as B30, not fixed here.
-		if (p.activeId) setOrbit(p.id, p.activeId, pr, DEFAULT_YAW, DEFAULT_PITCH)   // Fit also resets the 3D orbit
 		const av = activeViewportId(p)   // B28: was `isVpActive(p.activeId)` — see activeViewportId's comment above
 		// B28 follow-up (eos-07 caught in review): `av` is truthy whenever a sheet FRAME is active, active
 		// regardless of "Pan content" — but `fitPane` also runs from AUTOMATIC refits (mount, split/unsplit
@@ -865,12 +868,15 @@
 		// touched a sheet); OR it's a sheet frame AND this is an EXPLICIT Fit (button/menu — `navFit` alone
 		// passes `explicit`) AND "Pan content" is on. Every other case still fits the PAPER below, same as
 		// pre-B28 always did for a sheet.
-		if (av && (av === p.activeId || (opts.explicit && zoomsContent(p)))) { setView(p.id, av, pr, { zoom: 1, x: 0, y: 0 }); return }
+		// B30: Fit resets the 3D orbit of the SAME viewport whose content it resets — the model tab, or the
+		// active sheet FRAME (was always the TAB id, so a sheet frame's orbit never reset and a dead
+		// tab-id × frame-proj entry was written). A paper fit touches no orbit.
+		if (av && (av === p.activeId || (opts.explicit && zoomsContent(p)))) { setOrbit(p.id, av, pr, DEFAULT_YAW, DEFAULT_PITCH); setView(p.id, av, pr, { zoom: 1, x: 0, y: 0 }); return }
 		// B27: the mount-time refit used to unconditionally overwrite a sheet's REMEMBERED canvas position
 		// (localStorage) with a fresh "fit to paper" — so a saved 48% zoom came back at 97% after every
 		// reload. `refitAll` (mount only) passes `skipIfPersisted`; an explicit Fit (menu/button/ViewCube)
 		// still always re-fits.
-		if (opts.skipIfPersisted && p.activeId && viewState.hasCanvas(p.id, p.activeId, didOf(p.activeId))) return
+		if (opts.skipIfPersisted && p.activeId && viewState.hasCanvas(p.id, didOf(p.activeId), didOf(p.activeId))) return
 		const a2 = session.tabs.find(t => t.id === p.activeId)
 		const canvas = canvasEls[idx]
 		if (a2?.kind === 'sheet' && p.layout === 'sheet' && canvas && canvas.clientWidth > 50) {
