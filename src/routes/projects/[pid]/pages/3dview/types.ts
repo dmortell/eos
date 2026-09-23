@@ -80,6 +80,8 @@ export type Underlay = {
 	id: string
 	dir: Dir
 	fileId: string
+	/** Pages: the model layer it's drawn on (a Background layer — hide / lock / VP-freeze it like anything else). */
+	layer?: string
 	pageNum?: number
 	opacity?: number
 	flip?: boolean

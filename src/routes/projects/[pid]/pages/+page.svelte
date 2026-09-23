@@ -749,7 +749,7 @@
 	// B18: a drawing is identified by `docId` (its navigator node id; a palette item looks its id up by label,
 	// else falls back to `title:<title>`), so re-opening finds the SAME drawing even if a tab was renamed.
 	function openDrawing(d: { title: string; kind: Kind; preview?: boolean; floor?: string; docId?: string }) {
-		const modelId = d.floor && projectSrc?.project ? ensureFloorModel(d.floor) : floorModelId(d.floor)   // a real floor gets its own (empty) model
+		const modelId = d.floor && projectSrc?.project ? realFloorModelId(d.floor) : floorModelId(d.floor)   // a real floor gets its own model + floorplan
 		const docId = d.docId ?? navDrawingId(d.title) ?? `title:${d.title}`
 		const existing = session.tabs.find(t => t.docId === docId)
 		if (existing) { if (!d.preview) promoteTab(existing.id); openTab(existing.id); return }
@@ -788,6 +788,25 @@
 	})
 	const realTree = $derived(projectSrc?.status === 'ready' ? projectSrc.tree : null)
 	const navStatus = $derived(projectSrc?.status === 'loading' ? 'Loading project…' : projectSrc?.status === 'missing' ? 'Not a Firestore project — showing the demo tree' : '')
+	// A REAL floor's model: its own (named "33F — Hibiya", so it never picks up the demo 33F model) with the
+	// floor's calibrated floorplan as its plan underlay (ProjectSource.floorplanOf → the outlets tool's file /
+	// page). The underlay is attached once, asynchronously; the tab zooms to it on arrival (Viewport extents).
+	const FLOORPLAN_LAYER = { id: 'floorplan', name: 'Floorplan', group: 'Background', color: '#94a3b8', swatch: 'color' as const, visible: true, locked: false }
+	function realFloorModelId(floor: string): number {
+		const src = projectSrc!, id = ensureFloorModel(`${floor} — ${src.project?.name ?? src.pid}`)
+		const n = parseInt(floor, 10), m = modelById(id)
+		if (m && !m.underlays?.length && !isNaN(n)) {
+			src.floorplanOf(n).then((fp) => {
+				const mm = modelById(id)
+				if (!fp || !mm || mm.underlays?.length) return
+				// the floorplan goes on its OWN Background layer (first in the list = drawn underneath), so the
+				// Layers panel shows / hides / locks / VP-freezes it like any other layer
+				if (!mm.layers?.some((l) => l.id === FLOORPLAN_LAYER.id)) mm.layers = [{ ...FLOORPLAN_LAYER }, ...(mm.layers ?? [])]
+				mm.underlays = [{ id: newId('ul'), dir: 'plan', fileId: fp.fileId, pageNum: fp.pageNum, layer: FLOORPLAN_LAYER.id }]
+			}).catch(() => { /* no floorplan — the model stays empty */ })
+		}
+		return id
+	}
 	// The selected REAL tree node's properties (projectProps.ts) + saving an edit. A renamed building's node id
 	// changes (`b:<name>`), so the selection follows it.
 	const nodeInfo = $derived(session.treeNode && projectSrc?.status === 'ready' ? projectSrc.describe(session.treeNode.id) : null)

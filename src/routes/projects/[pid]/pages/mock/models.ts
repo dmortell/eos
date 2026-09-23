@@ -32,9 +32,6 @@ function demoFloor(): Model {
 		id: 1, name: '33F', layers: layerStack(LAYERS),
 		levels: { floorSlab: 0, raisedFloor: 150, ceilingTile: 2700, ceilingSlab: 3200 },
 		objects: [wall, desk(11500, 6200), desk(11500, 8000), desk(15000, 6200), desk(15000, 8000), trunk],
-		// A seeded background image on the 'bg-1' Background layer, for exercising the image import /
-		// crop / scale / origin / aspect-lock tooling without an upload. (static/trump-juvenile.jpg.)
-		ents: [{ id: 'bgimg', type: 'image', a: [9000, 4400], b: [19000, 11550], src: '/trump-juvenile.jpg', plane: 'plan', layer: 'bg-1', lockAspect: true }],
 	}
 }
 

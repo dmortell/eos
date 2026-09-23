@@ -56,6 +56,19 @@ export class ProjectSource {
 		}
 	}
 
+	/** The floor's FLOORPLAN — the calibrated PDF page the outlets tool shows for it: `selectedFileId` /
+	 *  `selectedPage` on `outlets/{pid}_F{NN}` (the legacy area's doc), else on any tenant-area doc. */
+	async floorplanOf(floorNumber: number): Promise<{ fileId: string; pageNum: number } | null> {
+		const f = normFloors(this.project?.floors).find((x) => x.number === floorNumber)
+		const base = `${this.pid}_F${String(floorNumber).padStart(2, '0')}`
+		const ids = [base, ...(f?.areas ?? []).filter((a) => !a.legacy).map((a) => `${base}__${a.id}`)]
+		for (const id of ids) {
+			const d = (await this.db.getOne('outlets', id)) as { selectedFileId?: string; selectedPage?: number } | null
+			if (d?.selectedFileId) return { fileId: d.selectedFileId, pageNum: d.selectedPage ?? 1 }
+		}
+		return null
+	}
+
 	/** Properties for a tree node (projectProps.ts); null until loaded / for an unknown id. */
 	describe(id: string): NodeInfo | null {
 		if (!this.project) return null

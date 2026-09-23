@@ -9,8 +9,6 @@ import type { Layer } from '../3dview/types'
 // NOTE: array ORDER = draw order (earlier = painted first = underneath; later = on top). The Background
 // group sits FIRST so imported PDF/image backgrounds render behind everything; new layers append (on top).
 export const DEFAULT_LAYERS: Layer[] = [
-	{ id: 'bg-1', name: 'Background 1', group: 'Background', color: '#64748b', swatch: 'color', visible: false, locked: false },
-	{ id: 'bg-2', name: 'Background 2', group: 'Background', color: '#94a3b8', swatch: 'color', visible: true, locked: false },
 	{ id: 'anno', name: 'Annotations', group: 'General', color: '#dc2626', swatch: 'color', visible: true, locked: false },
 	{ id: 'dims', name: 'Dimensions', group: 'General', color: '#0e7490', swatch: 'color', visible: true, locked: false },
 	{ id: 'data', name: 'Data Outlets', group: 'Outlets', color: '#2563eb', swatch: 'color', visible: true, locked: false },
@@ -42,7 +40,8 @@ export const DEFAULT_PRESETS: Preset[] = [
 	{ id: 'p-all', name: 'All Layers', visible: [...MODEL_LAYER_IDS, ...DEFAULT_LAYERS.map((l) => l.id)] },
 ]
 
-/** A model's full layer list (R5): the Background layers first (underneath), then the model's own object
+/** A model's full layer list (R5): any default Background layers first (underneath — none now; a real
+ *  floor's floorplan gets its own "Floorplan" Background layer, see +page realFloorModelId), then the model's own object
  *  layers, then the annotation / outlet / trunk / architectural layers — every entry a fresh copy, with the
  *  first preset's visibility applied (so the panel starts un-"modified"). */
 export function layerStack(objectLayers: Layer[]): Layer[] {

@@ -64,11 +64,11 @@ describe('R5 layer list helpers', () => {
 })
 
 describe('mock layerStack', () => {
-	it('puts Background first, the model object layers next, and starts un-modified under the first preset', () => {
+	it('puts the model object layers first (no mock Background layers any more), and starts un-modified under the first preset', () => {
 		const ls = layerStack([L('walls'), L('trunks')])
-		expect(ls[0].group).toBe('Background')
+		expect(ls.some((l) => l.group === 'Background')).toBe(false)   // real floors get a "Floorplan" Background layer instead
 		const walls = ls.findIndex((l) => l.id === 'walls')
-		expect(ls.slice(0, walls).every((l) => l.group === 'Background')).toBe(true)
+		expect(walls).toBe(0)
 		expect(ls.findIndex((l) => l.id === 'anno')).toBeGreaterThan(walls)
 		expect(presetMatches(ls, DEFAULT_PRESETS[0].id)).toBe(true)
 		expect(ls.find((l) => l.id === 'walls')!.visible).toBe(true)

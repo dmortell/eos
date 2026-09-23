@@ -7,7 +7,9 @@
 	// (so drawing persists per document, tool + selection per view). Fills its parent.
 	import { Icon } from '$lib'
 	import { toast } from 'svelte-sonner'
-	import { tick } from 'svelte'
+	import { tick, untrack } from 'svelte'
+	import UnderlayImage from './render/UnderlayImage.svelte'
+	import type { UnderlayRect } from '../3dview/types'
 	import { panzoom } from './panzoom'
 	import Handle from '../parts/Handle.svelte'
 	import EntRender from './render/EntRender.svelte'
@@ -96,6 +98,34 @@
 	const osnap = $derived(env.osnap ?? true)
 	const snap = $derived(env.snap ?? false)     // SNAP: round points to the grid step
 	const snapStep = $derived(env.snapStep || SNAP_STEP)   // the grid step (mm) — editable in the status bar
+	// ── plan UNDERLAYS (a floor's calibrated floorplan, render/UnderlayImage.svelte) + zoom to extents ──
+	// In MODEL SPACE the default view means "show everything": while the view is the untouched default
+	// (zoom 1, no pan — a fresh tab, or after Fit) and the plan has underlays, zoom + centre on their extents.
+	let underlayRects = $state<Record<string, UnderlayRect | null>>({})
+	function setUnderlayRect(id: string, r: UnderlayRect | null) {
+		const cur = underlayRects[id]
+		if (cur === r || (cur && r && cur.x === r.x && cur.y === r.y && cur.w === r.w && cur.h === r.h)) return
+		underlayRects = { ...underlayRects, [id]: r }
+	}
+	const underlayExtents = $derived.by(() => {
+		const ids = new Set((mdl?.underlays ?? []).filter((u) => u.dir === 'plan' && !isLayerHidden(u.layer)).map((u) => u.id))
+		const rs = Object.entries(underlayRects).filter(([id, r]) => ids.has(id) && r).map(([, r]) => r!)
+		if (!rs.length) return null
+		const x0 = Math.min(...rs.map((r) => r.x)), y0 = Math.min(...rs.map((r) => r.y))
+		return { x0, y0, x1: Math.max(...rs.map((r) => r.x + r.w)), y1: Math.max(...rs.map((r) => r.y + r.h)) }
+	})
+	$effect(() => {
+		const e = underlayExtents, v = view, measured = !!boxW || vpW > 0   // wait until the pane size is known
+		if (!modelSpace || kind !== 'plan' || !e || !measured || v.zoom !== 1 || v.x !== 0 || v.y !== 0) return
+		untrack(() => {
+			const bw = (e.x1 - e.x0) * dscale, bh = (e.y1 - e.y0) * dscale
+			if (!(bw > 0 && bh > 0) || !vbW || !vbH) return
+			// the Viewport draws P at view + zoom·(C + dscale·(P − C)); centre the extents' mid-point on C
+			const zoom = Math.min(8, Math.max(0.05, Math.min(vbW / bw, vbH / bh) * 0.92))
+			const mx = (e.x0 + e.x1) / 2, my = (e.y0 + e.y1) / 2
+			on.view?.({ zoom, x: CX - zoom * (CX + dscale * (mx - CX)), y: CY - zoom * (CY + dscale * (my - CY)) })
+		})
+	})
 	const ortho = $derived(env.ortho ?? false)   // ORTHO: constrain line-draw + move to H/V
 	const centerDraw = $derived(env.cen ?? false) // CEN: draw rect/ellipse centre-out (1st point = centre)
 	// Guide orientation: a base (set by the Guide tool's H/V pop-out, for touch) XOR the Shift key, so on a
@@ -1152,6 +1182,7 @@
 				<text x={12 * MMPU} y={GROUND + 14 * MMPU} font-size={8 * MMPU} fill="#64748b" font-weight="600">{elevDir.toUpperCase()}</text>
 			{/if}
 			<!-- P1b: real 3D model in plan + the four elevations + iso. Read-only for now (P2 = editing). -->
+			{#if mdl && kind === 'plan'}{#each (mdl.underlays ?? []).filter((u) => u.dir === 'plan' && !isLayerHidden(u.layer)) as u (u.id)}<UnderlayImage underlay={u} dark={modelSpace} onrect={(r) => setUnderlayRect(u.id, r)} />{/each}{/if}
 			{#if mdl}<Model3d model={mdl} {frozen} adapt={modelSpace ? onDark : undefined} dir={kind} cx={CX} cy={CY} ground={GROUND} selIds={modelSel} canvasZoom={canvasZoom} clip={clip} yaw={yaw} pitch={pitch} />{/if}
 			<!-- Alignment GUIDES (full-view h/v lines) for this view's space + the Guide-tool hover preview. -->
 			{#if viewSpace}
