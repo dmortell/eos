@@ -4,8 +4,9 @@
 // plan guide (constant x) fixes it for LEFT/RIGHT.
 //
 // Guides live IN THE MODEL (`Model.guides`) — shown across every view of that model, undo/redo riding the
-// model snapshot (`snapModels`) like walls/prisms, selection reusing the shared `modelSel`. This module is
-// now just PURE helpers over a passed guides array (the caller resolves which model, per the §5 registry).
+// model snapshot (`snapModels`) like walls/prisms, selection sharing the model-object namespace in the
+// per-viewport Selection (ui/selection.ts's 'guide' kind). This module is now just PURE helpers over a
+// passed guides array (the caller resolves which model, per the §5 registry).
 import type { Guide } from './3dview/types'
 import { newId } from './ids'
 export type { Guide }

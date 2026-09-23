@@ -30,14 +30,17 @@
 	import { panzoom } from './ui/panzoom'
 	import { paperDims, scaleDenom, PAPER_SIZES, PAPER_PX_PER_MM, type PaperSize } from './constants'
 	import { translate, type Ent, type ElevDir } from './ui/geometry'
-	import { models, modelById, FLOOR_MODEL_ID, modelSel, snapModels, setModels } from './3dview/models.svelte'
+	import { models, modelById, FLOOR_MODEL_ID, snapModels, setModels } from './3dview/models.svelte'
 	import { DEFAULT_YAW, DEFAULT_PITCH } from './3dview/projection'
 	import type { Model, Section } from './3dview/types'
+	import { selStore } from './selStore.svelte'
+	import { selOnly, selToggle, selClear, idsOfKind, type Selection, type SelItem } from './ui/selection'
+	import { deleteModelSel as meDeleteModelSel } from './ui/modelEdit'
 
 	// Which pane (if any) has its viewport activated — groundwork for editing/CAD
 	// tools inside a sheet's viewport. Null = no active viewport.
 	// Which TAB docs have their viewport activated (keyed by tab id, not pane) — so activation is
-	// remembered when you switch away and back to a view. Selection is already per-doc (docSel).
+	// remembered when you switch away and back to a view. Selection is per-VIEWPORT (selStore, R3 2a).
 	const isVpActive = (id?: string) => !!id && session.activeVps.has(id)
 	function activateVp(id?: string) { if (!id) return; const s = new Set(session.activeVps); s.add(id); session.activeVps = s }
 	function deactivateVp(id?: string) { if (!id || !session.activeVps.has(id)) return; const s = new Set(session.activeVps); s.delete(id); session.activeVps = s }
@@ -130,17 +133,45 @@
 		tool: (t: string) => (pane.tool = t), scale: (s: string) => setScale(a.id, s),
 		orbit: (yaw: number, pitch: number) => setOrbit(pane.id, a.id, projOf(pane, a), yaw, pitch),
 	})
-	const vpEditor = (a: Tab): Editor => ({
-		ents: {
-			add: (e: Ent) => addEnt(a.id, e), update: (e: Ent) => updateEnt(a.id, e),
-			delete: (ids: string[]) => deleteEnts(a.id, ids), select: (ids: string[]) => setSel(a.id, ids),
-			copy: (ids: string[]) => copyEnts(a.id, ids), cut: (ids: string[]) => cutEnts(a.id, ids), paste: () => pasteEnts(a.id),
-			group: (ids: string[]) => groupEnts(a.id, ids), ungroup: (ids: string[]) => ungroupEnts(a.id, ids),
-			reorder: (ids: string[], op: 'front' | 'back' | 'forward' | 'backward') => reorderEnts(a.id, ids, op),
-		},
-		edit: { begin: beginGesture, mark: (label?: string) => modelEdit(a.id, label), end: endGesture },
-		sections: { select: (id: string | null) => selectSection(id), dropDir: (id: string, dir: ElevDir) => dropSectionDir(id, dir) },
-	})
+	// R3 commit 2a (review.md §R3): `sel` is the per-VIEWPORT Selection (selStore.svelte.ts, keyed by
+	// `viewId` — a sheet FRAME id or a model-layout TAB id acting as its own viewport; NOT the document/tab
+	// id `a.id`, which stays the key for `ents`/`edit` since entity CRUD is per-DOCUMENT, shared by every
+	// frame of a sheet). `deleteSelAt` (below) is shared by `sel.delete()` here and the Edit-menu/keyboard
+	// `deleteSelection()`, so the ent+obj/guide dispatch lives in exactly one place.
+	const vpEditor = (a: Tab, viewId: string): Editor => {
+		const edit = { begin: beginGesture, mark: (label?: string) => modelEdit(a.id, label), end: endGesture }
+		return {
+			ents: {
+				add: (e: Ent) => addEnt(a.id, e), update: (e: Ent) => updateEnt(a.id, e),
+				delete: (ids: string[]) => { deleteEnts(a.id, ids); selStore.set(viewId, selClear()) },
+				copy: (ids: string[]) => copyEnts(a.id, ids),
+				cut: (ids: string[]) => { cutEnts(a.id, ids); selStore.set(viewId, selClear()) },
+				paste: () => { const copies = pasteEnts(a.id); if (copies?.length) selStore.set(viewId, selOnly(copies.map((c): SelItem => ({ kind: 'ent', id: c.id })))) },
+				group: (ids: string[]) => groupEnts(a.id, ids), ungroup: (ids: string[]) => ungroupEnts(a.id, ids),
+				reorder: (ids: string[], op: 'front' | 'back' | 'forward' | 'backward') => reorderEnts(a.id, ids, op),
+			},
+			edit,
+			sections: { select: (id: string | null) => selectSection(id), dropDir: (id: string, dir: ElevDir) => dropSectionDir(id, dir) },
+			sel: {
+				get: () => selStore.of(viewId),
+				only: (items: SelItem[]) => selStore.set(viewId, selOnly(items)),
+				toggle: (items: SelItem[]) => selStore.set(viewId, selToggle(selStore.of(viewId), items)),
+				clear: () => selStore.set(viewId, selClear()),
+				delete: () => deleteSelAt(a.id, viewId, edit),
+			},
+		}
+	}
+	// Delete the ent + obj/guide ids currently selected at `viewId` (one undo step per kind that has a
+	// selection — they're mutually exclusive today, so in practice at most one runs) and clear it
+	// afterwards. Shared by `editor.sel.delete()` (a Viewport's own Delete key) and the Edit-menu/global
+	// keyboard `deleteSelection()` below, so there is exactly one dispatch.
+	function deleteSelAt(tabId: string, viewId: string, edit: { begin(): void; mark(label?: string): void; end(debounceMs?: number): void }) {
+		const s = selStore.of(viewId)
+		const entIds = idsOfKind(s, 'ent'), objGuideIds = [...idsOfKind(s, 'obj'), ...idsOfKind(s, 'guide')]
+		if (entIds.length) deleteEnts(tabId, entIds)
+		if (objGuideIds.length) { const mdl = modelById(modelIdOf(tabId)); if (mdl) meDeleteModelSel(mdl, edit, objGuideIds) }
+		selStore.set(viewId, selClear())
+	}
 	// A 3D-model edit (the Viewport mutated the shared `models` store) records a step on THIS doc's
 	// timeline, gesture-folded like an entity edit — so Ctrl+Z restores the model too.
 	function modelEdit(id: string, label = 'Edit model') { recordEdit(id, label) }
@@ -177,7 +208,7 @@
 		session.selFrame = fid
 		recordEdit(sheet.id, 'Drop section viewport')
 	}
-	function selectSection(id: string | null) { session.selSection = id; if (id) setSel(active?.id ?? '', []) }   // section vs entity selection are exclusive
+	function selectSection(id: string | null) { session.selSection = id; if (id) selStore.set(activeSelViewId(), selClear()) }   // section vs entity selection are exclusive
 
 	// ── multi-viewport sheets (AutoCAD paper space) — a sheet's PAGE MODEL is an array of viewport FRAMES
 	// (no special "primary"; the default page seeds one full-bleed frame). Each frame is a window onto the
@@ -269,9 +300,13 @@
 	// The focused doc's active model (for selection / revisions / properties).
 	const activeMid = () => modelIdOf(session.panes[session.focused]?.activeId ?? '')
 	const mdlEnts = (): Ent[] => mdlEntsOf(activeMid())
-	let docSel = $state<Record<string, string[]>>({})
 	const entsOf = (id: string) => entsForModel(session.tabs.find((t) => t.id === id)?.modelId)   // a tab's model's ents (sheets pass per-frame)
-	const selOf = (id: string) => docSel[id] ?? []
+	// R3 commit 2a: selection now lives in `selStore` (selStore.svelte.ts), keyed per VIEWPORT — a sheet
+	// FRAME id, or a model-layout TAB id acting as its own viewport (same id `activeVpOf` resolves). A
+	// caller that only has the TAB id (a menu action, the global keyboard handler — not a specific Viewport
+	// instance) means "whichever viewport is currently active in this tab".
+	const activeSelViewId = (): string | undefined => { const a = active; return a ? (activeVpOf(a.id) ?? a.id) : undefined }
+	const activeEntIds = (): string[] => idsOfKind(selStore.of(activeSelViewId()), 'ent')
 	// View (content pan/zoom) is keyed by PANE + view + PROJECTION, so a split pans each pane independently
 	// AND each projection of a viewport (plan / front / … / 3D) remembers its own framing — flipping the
 	// ViewCube restores that view's pan/zoom instead of carrying one framing across all directions.
@@ -297,22 +332,23 @@
 	}
 	function addEnt(id: string, e: Ent) { ensureHist(id); const mid = modelIdOf(id); const en = e.layer ? e : { ...e, layer: layerUI.active }; setMdlEntsOf(mid, [...mdlEntsOf(mid), en]); recordEdit(id, 'Add ' + en.type) }
 	function updateEnt(id: string, e: Ent) { ensureHist(id); const mid = modelIdOf(id); setMdlEntsOf(mid, mdlEntsOf(mid).map(x => x.id === e.id ? e : x)); recordEdit(id, 'Edit ' + e.type) }
+	// Pure entity CRUD — no selection side effects (R3 2a moved those to the callers below, which know the
+	// VIEWPORT id `deleteEnts`/`cutEnts` don't take).
 	function deleteEnts(id: string, ids: string[]) {
 		if (!ids.length) return
 		ensureHist(id)
 		const mid = modelIdOf(id), rm = new Set(ids)
 		setMdlEntsOf(mid, mdlEntsOf(mid).filter(e => !rm.has(e.id)))
-		setSel(id, [])
 		recordEdit(id, 'Delete')
 	}
-	function deleteSelection() { const a2 = active; if (a2) deleteEnts(a2.id, selOf(a2.id)) }
+	function deleteSelection() { const a2 = active, vid = activeSelViewId(); if (a2 && vid) deleteSelAt(a2.id, vid, { begin: beginGesture, mark: (l?: string) => modelEdit(a2.id, l), end: endGesture }) }
 
 	// ── clipboard + grouping ──
 	let clipboard: Ent[] = []   // snapshots; persists across tabs
 	let pasteN = 0
 	function copyEnts(id: string, ids: string[]) { const s = new Set(ids); clipboard = mdlEntsOf(modelIdOf(id)).filter(e => s.has(e.id)).map(e => $state.snapshot(e) as Ent); pasteN = 0 }
 	function cutEnts(id: string, ids: string[]) { copyEnts(id, ids); deleteEnts(id, ids) }
-	function pasteEnts(id?: string) {
+	function pasteEnts(id?: string): Ent[] | undefined {
 		if (!clipboard.length || !id) return
 		pasteN++
 		const off = 5 * propsScaleN * pasteN, gidMap = new Map<string, string>()   // B19: 5 PAPER mm per paste (model mm = paper mm × scale N), stacking
@@ -322,7 +358,7 @@
 			return { ...translate(e, off, off), id: newId(), groupId: gid }
 		})
 		beginGesture(); copies.forEach(c => addEnt(id, c)); endGesture()
-		setSel(id, copies.map(c => c.id))
+		return copies
 	}
 	function groupEnts(id: string, ids: string[]) {
 		if (ids.length < 2) return
@@ -421,18 +457,25 @@
 		setMdlEntsOf(modelIdOf(id), $state.snapshot(snap) as Ent[])
 		recordEdit(id, 'Restore revision')
 	}
-	function setSel(id: string, ids: string[]) { docSel = { ...docSel, [id]: ids }; if (ids.length) session.treeNode = null }
 	function setView(paneId: string, viewId: string, proj: Proj, v: View) { viewState.setView(paneId, viewId, proj, v) }
-	// Selected entities of the focused document (for the Properties panel).
+	// R3 commit 2a: the Properties panel shows whatever's selected in the ACTIVE viewport (whichever
+	// frame/tab is active in the focused pane) — `activeSel` reads it once, `selEnts`/`selModelObj` below
+	// both derive from it.
+	let activeSel = $derived<Selection>(selStore.of(activeSelViewId()))
 	let selEnts = $derived.by(() => {
-		const a = session.tabs.find(t => t.id === session.panes[session.focused]?.activeId); if (!a) return []
-		const ids = new Set(docSel[a.id] ?? [])
-		return mdlEnts().filter(e => ids.has(e.id))
+		const ids = new Set(idsOfKind(activeSel, 'ent'))
+		return ids.size ? mdlEnts().filter(e => ids.has(e.id)) : []
 	})
+	// obj + guide ids share one kind-space here, matching the pre-R3 `modelSel`: a selected GUIDE also
+	// lands at length 1 below, and `.objects.find` naturally resolves to null for it (guides live in
+	// `mdl.guides`, not `.objects`) — same behaviour as before, just sourced from the new Selection.
+	let activeModelSel = $derived([...idsOfKind(activeSel, 'obj'), ...idsOfKind(activeSel, 'guide')])
 	// The single selected 3D-model object (Properties panel edits it straight on the store, with undo).
-	let selModelObj = $derived(modelSel.length === 1 ? (modelById(activeMid())?.objects.find(o => o.id === modelSel[0]) ?? null) : null)
+	let selModelObj = $derived(activeModelSel.length === 1 ? (modelById(activeMid())?.objects.find(o => o.id === activeModelSel[0]) ?? null) : null)
 	// Selecting a model object (plan / elevation / 3D pick) shows the Properties tab so its props are visible.
-	$effect(() => { if (modelSel.length) { rightTab = 'props'; rightOpen = true } })
+	$effect(() => { if (activeModelSel.length) { rightTab = 'props'; rightOpen = true } })
+	// Selecting an entity likewise drops any tree-node selection (was `setSel`'s job pre-R3).
+	$effect(() => { if (idsOfKind(activeSel, 'ent').length) session.treeNode = null })
 	// Selecting a sheet viewport frame likewise shows its Properties.
 	$effect(() => { if (session.selFrame) { rightTab = 'props'; rightOpen = true } })
 	// Exit an image calibration mode when its image is no longer the (single) selection.
@@ -444,7 +487,7 @@
 	function deleteModelObj() {
 		const o = selModelObj, id = session.panes[session.focused]?.activeId, m = modelById(activeMid()); if (!o || !m || !id) return
 		beginGesture(); m.objects = m.objects.filter(x => x.id !== o.id); modelEdit(id); endGesture()
-		modelSel.splice(0, modelSel.length)
+		selStore.set(activeSelViewId(), selClear())
 	}
 	// Per-segment override edit (wall/conduit) with undo.
 	function updateModelSeg(segIdx: number, patch: Record<string, unknown>) {
@@ -458,7 +501,7 @@
 	function dropDoc(id: string) {
 		const frameIds = framesOf(id).map((f) => f.id)
 		const ids = new Set<string>([id, ...frameIds])            // this tab + its viewport frames
-		const ds = { ...docSel }; delete ds[id]; docSel = ds       // selection (entities per tab)
+		selStore.drop([...ids])                                    // selection (per viewport)
 		viewState.drop([...ids], didOf(id))                        // pan/zoom, orbit, per-pane projection + the persisted canvas seed (B27: prune on close)
 		if (session.selSection === id) session.selSection = null
 		if (session.selFrame && ids.has(session.selFrame)) session.selFrame = null
@@ -534,10 +577,10 @@
 		else if (item === 'Print…') window.print()
 		else if (item === 'Undo') undo()
 		else if (item === 'Redo') redo()
-		// Edit-menu clipboard/delete (B8) — act on the active tab's selection (the Ctrl-key paths already work).
-		else if (item === 'Cut') { const a = active; if (a) cutEnts(a.id, selOf(a.id)) }
-		else if (item === 'Copy') { const a = active; if (a) copyEnts(a.id, selOf(a.id)) }
-		else if (item === 'Paste') { const a = active; if (a) pasteEnts(a.id) }
+		// Edit-menu clipboard/delete (B8) — act on the active VIEWPORT's selection (the Ctrl-key paths already work).
+		else if (item === 'Cut') { const a = active, vid = activeSelViewId(); if (a) { cutEnts(a.id, activeEntIds()); selStore.set(vid, selClear()) } }
+		else if (item === 'Copy') { const a = active; if (a) copyEnts(a.id, activeEntIds()) }
+		else if (item === 'Paste') { const a = active, vid = activeSelViewId(); if (a) { const copies = pasteEnts(a.id); if (copies?.length) selStore.set(vid, selOnly(copies.map((c): SelItem => ({ kind: 'ent', id: c.id })))) } }
 		else if (item === 'Delete') deleteSelection()
 		else if (item === 'Image…') importImage()
 		else if (item === 'Text') { if (active) focusTool('Text') }
@@ -609,7 +652,7 @@
 	}
 	// A place/label in the tree (project, building, floor, …) → edit its props in the right panel.
 	function selectNode(n: { id: string; label: string; kind: string }) {
-		if (active) setSel(active.id, [])   // clear entity selection so node props show
+		selStore.set(activeSelViewId(), selClear())   // clear entity selection so node props show
 		session.treeNode = n; rightTab = 'props'; rightOpen = true
 	}
 
@@ -742,7 +785,7 @@
 	// (96/25.4)/PAPER_PX_PER_MM so its px size (= mm × PAPER_PX_PER_MM) prints at true mm — content
 	// and titleblock scale together (CSS `zoom`, so text stays vector). Built at print time since
 	// paper is per-tab. (The printer's own paper must match for a physical printer.)
-	let savedSel: Record<string, string[]> | null = null
+	let savedSel: Record<string, Selection> | null = null
 	const PRINT_ID = 'pages-print-style'
 	function printCss(): string {
 		const p = paperOf(session.panes[session.focused]?.activeId), [lw, lh] = PAPER_SIZES[p.size]
@@ -760,8 +803,8 @@
 }`
 	}
 	function applyPrint() {
-		savedSel = { ...docSel }
-		docSel = {}   // selection is screen-only; clear so no highlight prints
+		savedSel = selStore.snapshotAll()
+		selStore.replaceAll({})   // selection is screen-only; clear so no highlight prints
 		const style = document.getElementById(PRINT_ID); if (style) style.textContent = printCss()   // size for the focused paper
 		const target = document.querySelector('.pane.focused .paper')
 			?? document.querySelector('.pane.focused .vp')
@@ -770,7 +813,7 @@
 	}
 	function removePrint() {
 		document.querySelectorAll('.print-target').forEach(el => el.classList.remove('print-target'))
-		if (savedSel) { docSel = savedSel; savedSel = null }
+		if (savedSel) { selStore.replaceAll(savedSel); savedSel = null }
 	}
 	$effect(() => {
 		let style = document.getElementById(PRINT_ID) as HTMLStyleElement | null
@@ -973,12 +1016,12 @@
 								{#if a?.kind === 'sheet' && p.layout === 'sheet'}
 									<PaperPage title={a.title} tool={p.tool} scale={framesOf(a.id)[0]?.scale ?? scaleOf(a.id)} env={envFor(p)} pw={paperDimsOf(a.id).w} ph={paperDimsOf(a.id).h}
 										sizeLabel="{paperOf(a.id).size} {paperOf(a.id).landscape ? 'L' : 'P'}" rev={rev} revDate={fmtDate(revisions[0]?.t)}
-										entities={entsOf(a.id)} sel={selOf(a.id)} focused={session.focused === pi}
+										entities={entsOf(a.id)} focused={session.focused === pi}
 										entsForModel={entsForModel} tabModelId={a.modelId ?? FLOOR_MODEL_ID}
 										selSection={session.selSection}
 										frames={framesOf(a.id)} selFrame={session.selFrame} frameKind={(pr) => projKind(pr as Proj)}
 										isFrameActive={(id) => isVpActive(id)} frameView={(id, proj) => viewOf(p.id, id, proj as Proj)} frameEnv={envFor(p)}
-										frameOrbit={(id, proj) => orbitOf(p.id, id, proj as Proj)} makeFrameOn={(f) => vpFrameView(a, p, f as SheetFrame)} makeFrameEditor={() => vpEditor(a)}
+										frameOrbit={(id, proj) => orbitOf(p.id, id, proj as Proj)} makeFrameOn={(f) => vpFrameView(a, p, f as SheetFrame)} makeFrameEditor={(f) => vpEditor(a, (f as SheetFrame).id)}
 										onseed={(x, y, w, h) => seedFrame(a.id, x, y, w, h)}
 										onaddframe={(x, y, w, h) => addFrame(a.id, x, y, w, h)}
 										onframegeom={(id, g) => updateFrame(a.id, id, g)}
@@ -988,8 +1031,8 @@
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 									<div class="vp-fill" ondblclick={() => deactivateVp(a.id)}>
-										<Viewport kind={projKind(projOf(p, a))} label={a.title} tool={p.tool} scale={scaleOf(a.id)} env={envFor(p)} on={vpView(a, p)} editor={vpEditor(a)} modelId={a.modelId ?? FLOOR_MODEL_ID}
-											entities={entsOf(a.id)} sel={selOf(a.id)} view={viewOf(p.id, a.id, projOf(p, a))} active={isVpActive(a.id)} focused={session.focused === pi} clip={null} yaw={orbitOf(p.id, a.id, projOf(p, a)).yaw} pitch={orbitOf(p.id, a.id, projOf(p, a)).pitch}
+										<Viewport kind={projKind(projOf(p, a))} label={a.title} tool={p.tool} scale={scaleOf(a.id)} env={envFor(p)} on={vpView(a, p)} editor={vpEditor(a, a.id)} modelId={a.modelId ?? FLOOR_MODEL_ID}
+											entities={entsOf(a.id)} view={viewOf(p.id, a.id, projOf(p, a))} active={isVpActive(a.id)} focused={session.focused === pi} clip={null} yaw={orbitOf(p.id, a.id, projOf(p, a)).yaw} pitch={orbitOf(p.id, a.id, projOf(p, a)).pitch}
 											selSection={session.selSection} />
 									</div>
 								{:else}
@@ -1051,7 +1094,7 @@
 					<LayersPanel modelLayers={modelById(activeMid())?.layers ?? []} />
 				{:else if rightTab === 'props'}
 					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (active) updateEnt(active.id, e) }}
-						onarrange={(op) => { if (active) reorderEnts(active.id, selOf(active.id), op) }}
+						onarrange={(op) => { if (active) reorderEnts(active.id, activeEntIds(), op) }}
 						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''} {activeLayer} node={session.treeNode}
 						modelObj={selModelObj} modelLayers={modelById(activeMid())?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} onmodelseg={updateModelSeg}
 						frameObj={selFrameObj}

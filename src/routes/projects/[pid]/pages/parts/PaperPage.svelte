@@ -19,11 +19,11 @@
 	// Paper size in px (default A3 landscape). Driven by the status-bar paper-size / orientation.
 	type VKind = 'plan' | 'iso' | ElevDir
 	let { title = 'Sheet', drawingNo = '001', scale = '1:100', focused = true, tool = 'Select', env = {}, pw = PAPER_W, ph = PAPER_H, sizeLabel = 'A3', rev = '', revDate = '',
-		entities = [], sel = [], selSection = null, entsForModel = undefined, tabModelId = undefined,
+		entities = [], selSection = null, entsForModel = undefined, tabModelId = undefined,
 		frames = [], selFrame = null, frameKind = (p: string) => p as VKind, isFrameActive = () => false, frameView = () => ({ zoom: 1, x: 0, y: 0 }), frameEnv = {},
 		frameOrbit = () => ({ yaw: 0, pitch: 0 }), makeFrameOn = () => ({}), makeFrameEditor = () => noopEditor, onseed, onaddframe, onframegeom, onframecommit, onselectframe, ondeactivate }:
 		{ title?: string; drawingNo?: string; scale?: string; focused?: boolean; tool?: string; env?: Env; pw?: number; ph?: number; sizeLabel?: string; rev?: string; revDate?: string;
-			entities?: Ent[]; sel?: string[]; selSection?: string | null; entsForModel?: (mid?: number) => Ent[]; tabModelId?: number;
+			entities?: Ent[]; selSection?: string | null; entsForModel?: (mid?: number) => Ent[]; tabModelId?: number;
 			frames?: SheetFrame[]; selFrame?: string | null; frameKind?: (p: string) => VKind; isFrameActive?: (id: string) => boolean; frameView?: (id: string, proj: string) => View; frameEnv?: Env;
 			frameOrbit?: (id: string, proj: string) => { yaw: number; pitch: number }; makeFrameOn?: (f: SheetFrame) => VpOn; makeFrameEditor?: (f: SheetFrame) => Editor; onseed?: (x: number, y: number, w: number, h: number) => void; onaddframe?: (x: number, y: number, w: number, h: number) => void;
 			onframegeom?: (id: string, g: { x: number; y: number; w: number; h: number }) => void; onframecommit?: () => void; onselectframe?: (id: string | null) => void; ondeactivate?: () => void } = $props()
@@ -142,7 +142,7 @@
 				<div class="vp-frame" class:selected={selFrame === f.id && !fa} class:active={fa}
 					style="left:{f.x}px; top:{f.y}px; width:{f.w}px; height:{f.h}px">
 					<Viewport kind={frameKind(f.proj)} label={f.label} scale={f.scale} active={fa} {focused} {tool} env={frameEnv} on={fon} editor={feditor} border={f.border} frameId={f.id} modelId={f.modelId ?? tabModelId}
-						entities={entsForModel ? entsForModel(f.modelId ?? tabModelId) : entities} {sel} view={frameView(f.id, f.proj)} clip={f.clip} yaw={frameOrbit(f.id, f.proj).yaw} pitch={frameOrbit(f.id, f.proj).pitch}
+						entities={entsForModel ? entsForModel(f.modelId ?? tabModelId) : entities} view={frameView(f.id, f.proj)} clip={f.clip} yaw={frameOrbit(f.id, f.proj).yaw} pitch={frameOrbit(f.id, f.proj).pitch}
 						{selSection} boxW={f.w} boxH={f.h} />
 					{#if !fa}
 						<!-- svelte-ignore a11y_no_static_element_interactions -->

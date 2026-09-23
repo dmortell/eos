@@ -17,7 +17,7 @@ export type { GN }
  *  on.modeledit?.(l), end: (ms) => on.endedit?.(ms) }`. */
 export type EditScope = { begin(): void; mark(label?: string): void; end(debounceMs?: number): void }
 
-/** Add a new model object (one undo step). Returns its id (for the caller's `setModelSel`), or undefined
+/** Add a new model object (one undo step). Returns its id (for the caller to select it), or undefined
  *  if the object has none — selection is a VIEW concern and stays with the caller. */
 export function addModelObj(mdl: Model, edit: EditScope, o: Obj): string | undefined {
 	edit.begin()          // captures the pre-add baseline
@@ -27,8 +27,8 @@ export function addModelObj(mdl: Model, edit: EditScope, o: Obj): string | undef
 }
 
 /** Delete every model object AND guide whose id is in `ids` (one undo step, labelled 'Delete'). Guides
- *  share the model-selection namespace, so a Delete over a selected guide removes it too. The caller
- *  clears selection afterwards (`setModelSel([])`) — not this function's concern. */
+ *  share the model-object Selection kind, so a Delete over a selected guide removes it too. The caller
+ *  clears the Selection afterwards — not this function's concern. */
 export function deleteModelSel(mdl: Model, edit: EditScope, ids: string[]): void {
 	if (!ids.length) return
 	const rm = new Set(ids)

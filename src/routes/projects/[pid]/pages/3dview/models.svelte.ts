@@ -16,8 +16,8 @@ export const modelById = (id?: number) => (id == null ? undefined : models.find(
 export const snapModels = (): Model[] => $state.snapshot(models) as Model[]
 export const setModels = (next: Model[]) => { models.splice(0, models.length, ...($state.snapshot(next) as Model[])) }
 
-// Selected MODEL-object ids (P2). Global to the model for now (a pick in any view highlights it in
-// all) — per-view model selection can come with the registry (§5). Mutated in place so importers
-// keep the same reactive reference.
-export const modelSel = $state<string[]>([])
-export const setModelSel = (ids: string[]) => { if (ids.length !== modelSel.length || ids.some((v, i) => v !== modelSel[i])) modelSel.splice(0, modelSel.length, ...ids) }
+// Model-object + guide selection (P2) used to live here as a GLOBAL `modelSel` store (a pick in any view
+// highlighted it in every view showing that model). R3 commit 2a (review.md §R3) replaced it with the one
+// Selection model (ui/selection.ts), stored per VIEWPORT in `../selStore.svelte.ts` — Viewport.svelte reads
+// its OWN viewport's obj/guide ids from `editor.sel.get()`; +page.svelte derives the Properties panel's
+// view from whichever viewport is ACTIVE. No replacement export needed here.
