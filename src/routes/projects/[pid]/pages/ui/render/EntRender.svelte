@@ -87,10 +87,6 @@
 		<!-- any flat (z=0, no height) object seen in elevation is an edge-on line at the ground -->
 		{@const sp = flatXSpan(ctx, e)}
 		<line x1={sp[0]} y1={ctx.ground} x2={sp[1]} y2={ctx.ground} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
-	{:else if e.type === 'line'}
-		<line x1={e.a![0]} y1={e.a![1]} x2={e.b![0]} y2={e.b![1]} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
-		{#if e.arrow === 'end' || e.arrow === 'both'}<polygon points={arrowPts(e.a!, e.b!, 3.5 * paperMm)} fill={ink} />{/if}
-		{#if e.arrow === 'start' || e.arrow === 'both'}<polygon points={arrowPts(e.b!, e.a!, 3.5 * paperMm)} fill={ink} />{/if}
 	{:else if e.type === 'image'}
 		<!-- an imported background image placed FULL in the a→b rect (origin + scale); CROP is the visible
 		     WINDOW = a normalized sub-rect of that placement (the rest is trimmed away). -->
@@ -104,6 +100,14 @@
 		{#if cropping}<rect x={rx + cr.x * rw} y={ry + cr.y * rh} width={cr.w * rw} height={cr.h * rh} fill="none" stroke={SEL} stroke-width={1 / (canvasZoom || 1)} stroke-dasharray="{5 / (canvasZoom || 1)} {3 / (canvasZoom || 1)}" vector-effect="non-scaling-stroke" />{/if}
 	{:else if e.type === 'polyline'}
 		<polyline points={(e.pts ?? []).map(p => p.join(',')).join(' ')} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" stroke-linejoin="round" />
+		<!-- R4: a straight 2-point polyline is the retired 'line' type's replacement — arrows carry over the
+		     same way, anchored on its first/last point (a 3+-point polyline never has `arrow` set via
+		     Properties, but nothing stops one at the data level, so this isn't gated on pts.length). -->
+		{#if (e.pts?.length ?? 0) >= 2}
+			{@const p0 = e.pts![0]}{@const p1 = e.pts![e.pts!.length - 1]}
+			{#if e.arrow === 'end' || e.arrow === 'both'}<polygon points={arrowPts(p0, p1, 3.5 * paperMm)} fill={ink} />{/if}
+			{#if e.arrow === 'start' || e.arrow === 'both'}<polygon points={arrowPts(p1, p0, 3.5 * paperMm)} fill={ink} />{/if}
+		{/if}
 	{:else if e.type === 'rect'}
 		{#if e.cloud}
 			<path d={cloudPath(e.a!, e.b!, 4 * paperMm)} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" stroke-linejoin="round" />

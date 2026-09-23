@@ -26,8 +26,8 @@ describe('snapDelta', () => {
 })
 
 describe('entSnaps', () => {
-	it('a line gives 2 ends + 1 mid; a rect gives 4 corners + 4 mids + centre', () => {
-		expect(entSnaps(planCtx, ent({ type: 'line', a: [0, 0], b: [10, 20] }))).toEqual([
+	it('a 2-point polyline (a migrated line) gives 2 ends + 1 mid; a rect gives 4 corners + 4 mids + centre', () => {
+		expect(entSnaps(planCtx, ent({ type: 'polyline', a: undefined, pts: [[0, 0], [10, 20]] }))).toEqual([
 			{ point: [0, 0], type: 'end' }, { point: [10, 20], type: 'end' }, { point: [5, 10], type: 'mid' },
 		])
 		const rs = entSnaps(planCtx, ent({ a: [0, 0], b: [200, 100] }))
@@ -40,7 +40,7 @@ describe('entSnaps', () => {
 const ident: Mapper = { toModel: (x, y) => [x, y], toClient: (x, y) => ({ x, y }), tolMm: (px) => px }
 
 describe('findSnap', () => {
-	const ents = [ent({ id: 'r', a: [0, 0], b: [200, 100] }), ent({ id: 'l', type: 'line', a: [500, 500], b: [600, 500] })]
+	const ents = [ent({ id: 'r', a: [0, 0], b: [200, 100] }), ent({ id: 'l', type: 'polyline', a: undefined, pts: [[500, 500], [600, 500]] })]
 	it('returns the nearest snap point within the radius (default 11px), with its kind', () => {
 		expect(findSnap(planCtx, ident, ents, 205, 4)).toEqual({ p: [200, 0], type: 'end' })
 		expect(findSnap(planCtx, ident, ents, 100, 3)).toEqual({ p: [100, 0], type: 'mid' })
@@ -55,9 +55,9 @@ describe('findSnap', () => {
 	})
 	it('skips entities not shown in this view: another plane, or another frame view scope (B22)', () => {
 		const front: ViewCtx = { ...planCtx, dir: 'front', isPlan: false, isElev: true, elevDir: 'front' }
-		expect(findSnap(front, ident, [ent({ id: 'x', type: 'line', a: [500, 500], b: [600, 500], plane: 'rear' })], 501, 501)).toBe(null)
-		expect(findSnap(front, ident, [ent({ id: 'x', type: 'line', a: [500, 500], b: [600, 500], plane: 'front' })], 501, 501)).toEqual({ p: [500, 500], type: 'end' })
-		expect(findSnap(planCtx, ident, [ent({ id: 'x', type: 'line', a: [500, 500], b: [600, 500], space: 'view:other' })], 501, 501)).toBe(null)
+		expect(findSnap(front, ident, [ent({ id: 'x', type: 'polyline', a: undefined, pts: [[500, 500], [600, 500]], plane: 'rear' })], 501, 501)).toBe(null)
+		expect(findSnap(front, ident, [ent({ id: 'x', type: 'polyline', a: undefined, pts: [[500, 500], [600, 500]], plane: 'front' })], 501, 501)).toEqual({ p: [500, 500], type: 'end' })
+		expect(findSnap(planCtx, ident, [ent({ id: 'x', type: 'polyline', a: undefined, pts: [[500, 500], [600, 500]], space: 'view:other' })], 501, 501)).toBe(null)
 	})
 })
 
@@ -72,7 +72,7 @@ describe('findSnap — K5 model objects', () => {
 		expect(findSnap(planCtx, ident, [], 1203, 1002, { objs: [prism], ml: { visible: () => false, locked: () => false } })).toBe(null)
 	})
 	it('the nearest candidate wins across entities and objects', () => {
-		const line = ent({ id: 'l', type: 'line', a: [1210, 1000], b: [1300, 1000] })   // its end at (1210,1000) is 7px away; the prism corner 3px
+		const line = ent({ id: 'l', type: 'polyline', a: undefined, pts: [[1210, 1000], [1300, 1000]] })   // its end at (1210,1000) is 7px away; the prism corner 3px
 		expect(findSnap(planCtx, ident, [line], 1203, 1000, { objs: [prism], ml: shownL })).toEqual({ p: [1200, 1000], type: 'end' })
 		expect(findSnap(planCtx, ident, [line], 1209, 1000, { objs: [prism], ml: shownL })).toEqual({ p: [1210, 1000], type: 'end' })
 	})
@@ -186,8 +186,8 @@ describe('entSnaps — shape kinds, plan vs elevation ctx', () => {
 		expect(entSnaps(planCtx, ent({ type: 'polyline', a: undefined, pts: [[5, 5]] }))).toEqual([{ point: [5, 5], type: 'end' }])
 		expect(entSnaps(planCtx, ent({ type: 'polyline', a: undefined, pts: [] }))).toEqual([])
 	})
-	it('a dim snaps like a line; a text snaps only at its anchor', () => {
-		expect(entSnaps(planCtx, ent({ type: 'dim', a: [0, 0], b: [10, 20] }))).toEqual(entSnaps(planCtx, ent({ type: 'line', a: [0, 0], b: [10, 20] })))
+	it('a dim snaps like a 2-point polyline; a text snaps only at its anchor', () => {
+		expect(entSnaps(planCtx, ent({ type: 'dim', a: [0, 0], b: [10, 20] }))).toEqual(entSnaps(planCtx, ent({ type: 'polyline', a: undefined, pts: [[0, 0], [10, 20]] })))
 		expect(entSnaps(planCtx, ent({ type: 'text', a: [7, 9], b: undefined, text: 'hi' }))).toEqual([{ point: [7, 9], type: 'end' }])
 	})
 	it('an image with a crop snaps to the VISIBLE crop window, not the full placement', () => {
@@ -199,7 +199,7 @@ describe('entSnaps — shape kinds, plan vs elevation ctx', () => {
 	it('in an elevation a flat plan line / polyline snaps on the GROUND line: ends + mid of its x-span (B22)', () => {
 		// The render + hit.bbox draw a flat plan-plane line edge-on at y = ground over flatXSpan; the snap
 		// points must sit on that drawn line, not at the raw (x, plan-y) — which would be phantom points.
-		const line = ent({ type: 'line', a: [100, 200], b: [300, 200] })
+		const line = ent({ type: 'polyline', a: undefined, pts: [[100, 200], [300, 200]] })
 		expect(entSnaps(elevCtx('front'), line)).toEqual([
 			{ point: [100, planCtx.ground], type: 'end' }, { point: [300, planCtx.ground], type: 'end' }, { point: [200, planCtx.ground], type: 'mid' },
 		])

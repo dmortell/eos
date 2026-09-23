@@ -31,8 +31,8 @@ describe('drawPlane / resolveLayer', () => {
 
 describe('buildEnt', () => {
 	const a: Pt = [100, 200], b: Pt = [300, 250]
-	it('Line and Dimension take a/b as drawn, with the view plane', () => {
-		expect(buildEnt(planCtx, 'Line', a, b, { centerDraw: false, uid: ids() })).toEqual({ id: 'e1', type: 'line', a, b, plane: undefined })
+	it('Line makes a 2-point polyline (R4: the retired line type); Dimension takes a/b as drawn — both with the view plane', () => {
+		expect(buildEnt(planCtx, 'Line', a, b, { centerDraw: false, uid: ids() })).toEqual({ id: 'e1', type: 'polyline', pts: [a, b], plane: undefined })
 		expect(buildEnt(elevCtx('front'), 'Dimension', a, b, { centerDraw: true, uid: ids() })).toEqual({ id: 'e1', type: 'dim', a, b, plane: 'front' })
 	})
 	it('Rectangle / Ellipse use the corners as drawn, or centre-out with CEN (first point = centre)', () => {
@@ -189,7 +189,7 @@ describe('moveEnt', () => {
 		// pointer in both axes, no mirroring; the same rect seen from the front is not in view at all.
 		const native = ent({ a: [0, 0], b: [200, 100], plane: 'rear' })
 		expect(moveEnt(elevCtx('rear'), native, 30, 99)).toMatchObject({ a: [30, 99], b: [230, 199] })
-		expect(moveEnt(elevCtx('rear'), ent({ type: 'line', a: [0, 0], b: [10, 10], plane: 'rear' }), 30, 99)).toMatchObject({ a: [30, 99], b: [40, 109] })
+		expect(moveEnt(elevCtx('rear'), ent({ type: 'dim', a: [0, 0], b: [10, 10], plane: 'rear' }), 30, 99)).toMatchObject({ a: [30, 99], b: [40, 109] })
 	})
 })
 

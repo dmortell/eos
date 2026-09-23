@@ -7,7 +7,7 @@ export type TextAlign = 'left' | 'center' | 'right'
 // Style props mirror the Sheets annotation model (fontPt/align/color/fill/weight) so an object can
 // match Sheets' defaults; all optional → unset falls back to the tool defaults (see STYLE_DEFAULTS).
 export type VAlign = 'top' | 'middle' | 'bottom'
-export type Ent = { id: string; type: 'line' | 'rect' | 'ellipse' | 'dim' | 'text' | 'polyline' | 'image'; a?: Pt; b?: Pt; text?: string; pts?: Pt[]; groupId?: string;
+export type Ent = { id: string; type: 'rect' | 'ellipse' | 'dim' | 'text' | 'polyline' | 'image'; a?: Pt; b?: Pt; text?: string; pts?: Pt[]; groupId?: string;
 	color?: string; fill?: string; weight?: number; fontPt?: number; align?: TextAlign; valign?: VAlign; layer?: string; rot?: number;
 	// 'image' entity (imported background): src = image URL / data-URL placed in the a→b rect (origin +
 	// scale). `crop` = the visible sub-rectangle of the SOURCE image, normalized 0..1 (x,y = top-left,
@@ -31,7 +31,8 @@ export type Ent = { id: string; type: 'line' | 'rect' | 'ellipse' | 'dim' | 'tex
 	// CALLOUT (text only): `callout` boxes the text and draws a leader to `leader` (the tip it points at,
 	// model coords). Toggled in Properties; the leader tip has its own grip. Firestore-stable names.
 	callout?: boolean; leader?: Pt;
-	// ARROW (line): arrowhead at the start, end, both, or none (default). Firestore-stable.
+	// ARROW (a 2-point polyline — R4: was the retired 'line' type): arrowhead at the start, end, both, or
+	// none (default), using pts[0]/pts[pts.length-1] as the endpoints. Firestore-stable.
 	arrow?: 'none' | 'start' | 'end' | 'both';
 	// CLOUD (rect): render the rectangle outline as a revision cloud (scalloped arcs). Firestore-stable.
 	cloud?: boolean;

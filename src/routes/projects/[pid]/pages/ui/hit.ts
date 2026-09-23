@@ -11,8 +11,9 @@ import { BASIS } from '../3dview/types'
 import { PT_MM } from '../constants'
 
 // Flat (z=0, no height) object kinds that project to an edge-on ground line in elevation. Exported so
-// place.ts (moveEnt) shares this one definition instead of keeping a private copy.
-export const FLAT = new Set(['line', 'polyline', 'dim', 'rect', 'ellipse'])
+// place.ts (moveEnt) shares this one definition instead of keeping a private copy. (R4: 'line' retired —
+// a straight entity is a 2-point 'polyline' now, already covered by the 'polyline' entry below.)
+export const FLAT = new Set(['polyline', 'dim', 'rect', 'ellipse'])
 export const isFlat = (e: Ent): boolean => FLAT.has(e.type)
 
 /** Rotate `p` about centre `c` by `deg` degrees (CW in screen/plan space, y-down). Pure. */
@@ -59,7 +60,7 @@ export const isFlatElev = (ctx: ViewCtx, e: Ent): boolean => ctx.isElev && FLAT.
 export function flatXSpan(ctx: ViewCtx, e: Ent): [number, number] { return flatSpan(e, ctx.elevDir, ctx.cx, ctx.cy) }
 
 /** An entity's UNrotated view-bbox (drawing units). Handles elevation ground-line collapse, image crop
- *  windows, polyline extents and the text box; the a/b default covers line/rect/ellipse. */
+ *  windows, polyline extents and the text box; the a/b default covers dim/rect/ellipse/image. */
 export function bbox(ctx: ViewCtx, e: Ent): [number, number, number, number] {
 	if (isFlatElev(ctx, e)) { const [x0, x1] = flatXSpan(ctx, e); return [x0, ctx.ground - 2, x1, ctx.ground + 2] }
 	if (e.type === 'polyline') { const pts = e.pts ?? []; const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] }
@@ -81,7 +82,7 @@ export function hitEnt(ctx: ViewCtx, e: Ent, p: Pt, thr: number): boolean {
 	if (e.rot) p = rotatePt(p, rotCenter(ctx, e), -e.rot)   // test in the entity's un-rotated frame
 	if (isFlatElev(ctx, e)) { const [x0, x1] = flatXSpan(ctx, e); return segDist(p, [x0, ctx.ground], [x1, ctx.ground]) < thr }
 	if (e.type === 'polyline') { const pts = e.pts ?? []; for (let i = 0; i + 1 < pts.length; i++) if (segDist(p, pts[i], pts[i + 1]) < thr) return true; return false }
-	if (e.type === 'line' || e.type === 'dim') return segDist(p, e.a!, e.b!) < thr
+	if (e.type === 'dim') return segDist(p, e.a!, e.b!) < thr
 	if (e.type === 'image') { const [x0, y0, x1, y1] = bbox(ctx, e); return inBox(p, x0, y0, x1, y1, thr, true) }   // pick anywhere inside the VISIBLE (crop-window) extent
 	if (e.type === 'rect') { const x0 = Math.min(e.a![0], e.b![0]), y0 = Math.min(e.a![1], e.b![1]), x1 = Math.max(e.a![0], e.b![0]), y1 = Math.max(e.a![1], e.b![1]); return inBox(p, x0, y0, x1, y1, thr, isFilled(e)) }
 	if (e.type === 'ellipse') {

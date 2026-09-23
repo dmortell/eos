@@ -45,8 +45,9 @@ describe('groundPts', () => {
 		const e: Ent = { id: 'r', type: 'rect', a: [0, 0], b: [10, 5] }
 		expect(groundPts(e)).toEqual({ pts: [[0, 0], [10, 0], [10, 5], [0, 5]], closed: true })
 	})
-	it('line → 2 open points; ellipse → 32 closed points', () => {
-		expect(groundPts({ id: 'l', type: 'line', a: [0, 0], b: [1, 1] })).toEqual({ pts: [[0, 0], [1, 1]], closed: false })
+	it('dim/polyline → 2(+) open points; ellipse → 32 closed points', () => {
+		expect(groundPts({ id: 'd', type: 'dim', a: [0, 0], b: [1, 1] })).toEqual({ pts: [[0, 0], [1, 1]], closed: false })
+		expect(groundPts({ id: 'p', type: 'polyline', pts: [[0, 0], [1, 1]] })).toEqual({ pts: [[0, 0], [1, 1]], closed: false })
 		const ell = groundPts({ id: 'e', type: 'ellipse', a: [0, 0], b: [10, 6] })
 		expect(ell.closed).toBe(true)
 		expect(ell.pts.length).toBe(32)

@@ -69,3 +69,29 @@ describe('migrateModels', () => {
 		expect(out[1].layers?.[0].id).toBe('background')
 	})
 })
+
+describe('migrateModels — R4 line→polyline ent migration', () => {
+	const legacyLine = { id: 'l1', type: 'line', a: [0, 0], b: [10, 10], color: '#f00', arrow: 'end' }
+
+	it('converts a legacy line ent to a 2-point polyline, keeping every other field', () => {
+		const [m] = migrateModels([{ id: 1, name: 'm', objects: [], ents: [legacyLine as never] }])
+		expect(m.ents?.[0]).toEqual({ id: 'l1', type: 'polyline', pts: [[0, 0], [10, 10]], color: '#f00', arrow: 'end' })
+	})
+	it('leaves a non-line ent (already a polyline, or another type) unchanged, by reference', () => {
+		const poly = { id: 'p1', type: 'polyline', pts: [[0, 0], [1, 1], [2, 0]] }
+		const rect = { id: 'r1', type: 'rect', a: [0, 0], b: [5, 5] }
+		const [m] = migrateModels([{ id: 1, name: 'm', objects: [], ents: [poly as never, rect as never] }])
+		expect(m.ents?.[0]).toBe(poly)
+		expect(m.ents?.[1]).toBe(rect)
+	})
+	it('is idempotent — an already-migrated ent array is returned by reference', () => {
+		const once = migrateModels([{ id: 1, name: 'm', objects: [], ents: [legacyLine as never] }])
+		const twice = migrateModels(once)
+		expect(twice).toBe(once)
+		expect(twice[0].ents).toBe(once[0].ents)
+	})
+	it('a model with no ents at all is untouched', () => {
+		const [m] = migrateModels([{ id: 1, name: 'm', objects: [] }])
+		expect(m.ents).toBeUndefined()
+	})
+})

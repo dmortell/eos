@@ -25,7 +25,7 @@ export const resolveLayer = (mdl: Model | undefined, id: string): string | undef
  *  `PRISM_TOOL` + `prismObj`), 'Section' is B5's clip box, 'Text' is placed by its own editor. */
 export function buildEnt(ctx: ViewCtx, tool: string, a: Pt, b: Pt, opts: { centerDraw: boolean; uid: () => string }): Ent | null {
 	const plane = drawPlane(ctx)
-	if (tool === 'Line') return { id: opts.uid(), type: 'line', a, b, plane }
+	if (tool === 'Line') return { id: opts.uid(), type: 'polyline', pts: [a, b], plane }   // R4: a 2-point polyline (the retired 'line' type's replacement)
 	if (tool === 'Dimension') return { id: opts.uid(), type: 'dim', a, b, plane }
 	if (tool === 'Rectangle' || tool === 'Ellipse') {
 		const [ra, rb] = opts.centerDraw ? centerCorners(a, b) : [a, b]

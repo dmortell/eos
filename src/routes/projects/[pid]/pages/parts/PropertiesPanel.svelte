@@ -300,7 +300,8 @@
 			<div class="prop-sec">RECT</div>
 			<label class="prop cb"><span>Revision cloud</span><input type="checkbox" checked={!!single.cloud} onchange={(e) => setAll({ cloud: (e.currentTarget as HTMLInputElement).checked })} /></label>
 		{/if}
-		{#if single?.type === 'line'}
+		{#if single?.type === 'polyline' && (single.pts?.length ?? 0) === 2}
+			<!-- R4: a straight 2-point polyline is the retired 'line' type's replacement — same Arrows UI. -->
 			<div class="prop-sec">LINE</div>
 			<div class="prop"><span>Arrows</span>
 				<select value={single.arrow ?? 'none'} onchange={(e) => setAll({ arrow: (e.currentTarget as HTMLSelectElement).value as Ent['arrow'] })}>

@@ -42,10 +42,10 @@ describe('prismCorners (plan)', () => {
 })
 
 describe('entity grips', () => {
-	it('gripsLocal gives a rect its 4 corner grips, a line its 2 ends, text its anchor', () => {
+	it('gripsLocal gives a rect its 4 corner grips, a 2-point polyline (a migrated line) its 2 ends, text its anchor', () => {
 		expect(gripsLocal(planCtx, ent({ a: [0, 0], b: [20, 10] }), opts).map((g) => [g.x, g.y]))
 			.toEqual([[0, 0], [20, 10], [0, 10], [20, 0]])
-		expect(gripsLocal(planCtx, ent({ type: 'line', a: [1, 2], b: [8, 9] }), opts).map((g) => [g.x, g.y]))
+		expect(gripsLocal(planCtx, ent({ type: 'polyline', pts: [[1, 2], [8, 9]] }), opts).map((g) => [g.x, g.y]))
 			.toEqual([[1, 2], [8, 9]])
 		expect(gripsLocal(planCtx, ent({ type: 'text', a: [5, 5], text: 'hi' }), opts).length).toBe(1)
 	})
@@ -53,13 +53,27 @@ describe('entity grips', () => {
 		const g = gripsLocal(planCtx, ent({ a: [0, 0], b: [20, 10] }), opts)[1]   // the (20,10) corner
 		expect(g.apply([30, 16])).toMatchObject({ a: [0, 0], b: [30, 16] })
 	})
-	it('gripsFor adds a rotate handle for a rotatable ent', () => {
+	it('a 2-point polyline endpoint grip carries anchor/resize (world-anchored, like the old line type)', () => {
+		const g = gripsLocal(planCtx, ent({ type: 'polyline', pts: [[1, 2], [8, 9]] }), opts)[0]   // the (1,2) end
+		expect(g.anchor).toEqual([8, 9])
+		expect(g.resize?.([0, 0], [8, 9])).toMatchObject({ pts: [[0, 0], [8, 9]] })
+		expect(g.apply([5, 5])).toMatchObject({ pts: [[5, 5], [8, 9]] })
+	})
+	it('a 3+ point polyline gets a plain per-vertex grip (no anchor/resize)', () => {
+		const gs = gripsLocal(planCtx, ent({ type: 'polyline', pts: [[0, 0], [10, 0], [10, 10]] }), opts)
+		expect(gs.map((g) => [g.x, g.y])).toEqual([[0, 0], [10, 0], [10, 10]])
+		expect(gs.every((g) => g.anchor === undefined && g.resize === undefined)).toBe(true)
+	})
+	it('gripsFor adds a rotate handle for a rotatable ent, and a 2-point polyline (a migrated line)', () => {
 		expect(gripsFor(planCtx, ent(), opts).some((g) => g.rotate)).toBe(true)
-		expect(gripsFor(planCtx, ent({ type: 'polyline', pts: [[0, 0], [1, 1]] }), opts).some((g) => g.rotate)).toBe(false)
+		expect(gripsFor(planCtx, ent({ type: 'polyline', pts: [[0, 0], [1, 1]] }), opts).some((g) => g.rotate)).toBe(true)
+		expect(gripsFor(planCtx, ent({ type: 'polyline', pts: [[0, 0], [1, 1], [2, 2]] }), opts).some((g) => g.rotate)).toBe(false)
 	})
 	it('canRotate gates rotatable kinds + excludes an image being cropped', () => {
 		expect(canRotate(planCtx, ent(), null)).toBe(true)
 		expect(canRotate(planCtx, ent({ type: 'dim' }), null)).toBe(false)
+		expect(canRotate(planCtx, ent({ type: 'polyline', pts: [[0, 0], [1, 1]] }), null)).toBe(true)   // 2-point = a migrated line
+		expect(canRotate(planCtx, ent({ type: 'polyline', pts: [[0, 0], [1, 1], [2, 2]] }), null)).toBe(false)   // 3+ points = a real polyline
 		expect(canRotate(planCtx, ent({ type: 'image', id: 'img' }), 'img')).toBe(false)   // mid-crop
 		expect(canRotate(planCtx, ent({ type: 'image', id: 'img' }), null)).toBe(true)
 	})
@@ -68,5 +82,15 @@ describe('entity grips', () => {
 		expect(constrainGrip(planCtx, r, 1, [26, 30], false, opts)).toEqual([26, 30])   // shift off → unchanged
 		// gi 1 = corner (20,10), opposite anchor (0,0); square about (0,0) with s=max(26,30)=30
 		expect(constrainGrip(planCtx, r, 1, [26, 30], true, opts)).toEqual([30, 30])
+	})
+	it('constrainGrip snaps a dim / 2-point-polyline endpoint to 15° about the other end', () => {
+		// gi 1 drags the far end (anchor stays at [0,0]); dragging to [10,6] (≈31°) snaps to 30° at the same
+		// distance from the anchor — [len·cos30°, len·sin30°] with len = hypot(10,6).
+		const d = ent({ type: 'dim', a: [0, 0], b: [10, 0] })
+		const rd = constrainGrip(planCtx, d, 1, [10, 6], true, opts)
+		expect(rd[0]).toBeCloseTo(10.0995, 3); expect(rd[1]).toBeCloseTo(5.8310, 3)
+		const p = ent({ type: 'polyline', pts: [[0, 0], [10, 0]] })
+		const rp = constrainGrip(planCtx, p, 1, [10, 6], true, opts)   // same math, keyed by pts
+		expect(rp[0]).toBeCloseTo(10.0995, 3); expect(rp[1]).toBeCloseTo(5.8310, 3)
 	})
 })

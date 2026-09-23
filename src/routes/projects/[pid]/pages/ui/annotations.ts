@@ -78,7 +78,7 @@ export function sectionArrowFor(c: Clip, dir: ElevDir, size: number): string {
 export function groundPts(e: Ent): { pts: Pt[]; closed: boolean } {
 	const ell = (cx: number, cy: number, rx: number, ry: number): Pt[] =>
 		Array.from({ length: 32 }, (_, i) => { const t = (i / 32) * 2 * Math.PI; return [cx + rx * Math.cos(t), cy + ry * Math.sin(t)] as Pt })
-	if (e.type === 'line' || e.type === 'dim') return { pts: [e.a!, e.b!], closed: false }
+	if (e.type === 'dim') return { pts: [e.a!, e.b!], closed: false }
 	if (e.type === 'polyline') return { pts: e.pts ?? [], closed: false }
 	if (e.type === 'rect') { const [ax, ay] = e.a!, [bx, by] = e.b!; return { pts: [[ax, ay], [bx, ay], [bx, by], [ax, by]], closed: true } }
 	if (e.type === 'ellipse') return { pts: ell((e.a![0] + e.b![0]) / 2, (e.a![1] + e.b![1]) / 2, Math.abs(e.b![0] - e.a![0]) / 2, Math.abs(e.b![1] - e.a![1]) / 2), closed: true }

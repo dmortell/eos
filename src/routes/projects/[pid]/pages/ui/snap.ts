@@ -33,7 +33,7 @@ export function snapDelta(dx: number, dy: number, base: Ent, step: number): [num
 export type EntSnap = { point: Pt; type: string }
 
 /** The object-snap points of an entity: endpoints + midpoints (+ centre / bbox corners for closed shapes,
- *  via hit.bbox). In an ELEVATION a flat plan-plane shape (line/polyline/dim/rect/ellipse) is drawn edge-on
+ *  via hit.bbox). In an ELEVATION a flat plan-plane shape (polyline/dim/rect/ellipse) is drawn edge-on
  *  as a ground line over its x-span (see the isFlatElev render branch + hit.bbox), so it offers exactly that
  *  line's ends + mid — not its raw plan coords, which would be phantom points off the drawing (B22). */
 export function entSnaps(ctx: ViewCtx, e: Ent): EntSnap[] {
@@ -43,7 +43,7 @@ export function entSnaps(ctx: ViewCtx, e: Ent): EntSnap[] {
 		return [{ point: [x0, ctx.ground], type: 'end' }, { point: [x1, ctx.ground], type: 'end' }, { point: [(x0 + x1) / 2, ctx.ground], type: 'mid' }]
 	}
 	if (e.type === 'polyline') { const pts = e.pts ?? []; const out = pts.map((p) => ({ point: p, type: 'end' })); for (let i = 0; i + 1 < pts.length; i++) out.push({ point: mid(pts[i], pts[i + 1]), type: 'mid' }); return out }
-	if (e.type === 'line' || e.type === 'dim') return [{ point: e.a!, type: 'end' }, { point: e.b!, type: 'end' }, { point: mid(e.a!, e.b!), type: 'mid' }]
+	if (e.type === 'dim') return [{ point: e.a!, type: 'end' }, { point: e.b!, type: 'end' }, { point: mid(e.a!, e.b!), type: 'mid' }]
 	if (e.type === 'rect' || e.type === 'ellipse' || e.type === 'image') {
 		const [x0, y0, x1, y1] = bbox(ctx, e)
 		const c: Pt[] = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]

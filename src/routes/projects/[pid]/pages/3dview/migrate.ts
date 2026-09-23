@@ -1,5 +1,6 @@
 // Ported verbatim from sheets/tools/model3d (the mature 3D engine) for the Pages 3D model — see model-plan.md.
 import type { Model, Obj } from './types'
+import type { Ent } from '../ui/geometry'
 import { newId, type GNode, type GSeg } from './graph'
 
 // Build a node/segment graph from an ordered polyline (the legacy wall/conduit
@@ -34,6 +35,18 @@ function migrateObj(o: any): Obj {
 // locked per viewport from the Layers window like any other layer.
 export const BACKGROUND_LAYER = { id: 'background', name: 'Background', color: '#9ca3af', visible: true, locked: false }
 
+// R4 (review.md §R4): a legacy `'line'` entity → a 2-point `'polyline'` (the type is retired; a straight
+// entity is now just a polyline with exactly 2 points). Keeps every other field (color/weight/layer/arrow/
+// groupId/plane/space/rot/…) unchanged — only `type` and the `a`/`b` → `pts` shape change. Idempotent —
+// anything that isn't a `'line'` (including an already-migrated polyline) passes through unchanged.
+function migrateEnt(e: any): Ent {
+	if (e.type === 'line') {
+		const { a, b, ...rest } = e
+		return { ...rest, type: 'polyline', pts: [a, b] }
+	}
+	return e as Ent
+}
+
 export function migrateModels(models: Model[]): Model[] {
 	let changed = false
 	const out = models.map((m) => {
@@ -45,8 +58,13 @@ export function migrateModels(models: Model[]): Model[] {
 		})
 		let layers = m.layers ?? []
 		if (!layers.some((l) => l.id === 'background')) { layers = [...layers, { ...BACKGROUND_LAYER }]; mc = true }
+		let ents = m.ents
+		if (ents) {
+			const nextEnts = ents.map((e) => migrateEnt(e))
+			if (nextEnts.some((e, i) => e !== ents![i])) { ents = nextEnts; mc = true }
+		}
 		if (mc) changed = true
-		return mc ? { ...m, objects, layers } : m
+		return mc ? { ...m, objects, layers, ents } : m
 	})
 	return changed ? out : models
 }

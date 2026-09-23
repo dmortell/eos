@@ -123,10 +123,17 @@ export function pickModelGrip(m: Mapper, grips: MGrip[], clientX: number, client
 // the shift-constrain into the shape's own frame; `rotate` marks the rotate handle.
 export type Grip = { x: number; y: number; apply: (p: Pt) => Ent; rotate?: boolean; anchor?: Pt; resize?: (d: Pt, f: Pt) => Ent; square?: boolean }
 
+// R4 (review.md §R4): `'line'` is retired — a straight 2-point entity is now a 'polyline' with `pts.length
+// === 2` (a migrated line, or a 2-click Line-tool polyline). It keeps every grip behaviour the old 'line'
+// type had (endpoint drag with a world-anchored resize, a rotate handle, Shift-15°) — a 3+-point polyline
+// (a Wall/Trunk/Pipe outline drawn via the multi-click Line tool) has no such "line" semantics: no rotate
+// handle, no anchored resize, just a plain per-vertex drag grip (unchanged from before this commit).
+const is2PtPolyline = (e: Ent): boolean => e.type === 'polyline' && (e.pts?.length ?? 0) === 2
+
 // Which entity kinds get a rotate HANDLE. Excluded: flat-elev floor projections and an image mid-CROP.
-const ROTATABLE = new Set(['rect', 'ellipse', 'image', 'line'])
+const ROTATABLE = new Set(['rect', 'ellipse', 'image'])
 export const canRotate = (ctx: ViewCtx, e: Ent, imgCropId: string | null): boolean =>
-	ROTATABLE.has(e.type) && !isFlatElev(ctx, e) && !(e.type === 'image' && imgCropId === e.id)
+	(ROTATABLE.has(e.type) || is2PtPolyline(e)) && !isFlatElev(ctx, e) && !(e.type === 'image' && imgCropId === e.id)
 
 /** The rotate handle in the entity's LOCAL (un-rotated) frame; gripsFor rotates its POSITION with the
  *  shape but leaves apply on the RAW pointer. `gripMm` = the screen-constant handle length; `shift` is a
@@ -142,27 +149,36 @@ export function rotGripLocal(ctx: ViewCtx, e: Ent, gripMm: number, shift: () => 
 }
 
 /** A flat object in elevation is a ground line; drag its min/max x-edge end (via elevU/elevUInv), keeping
- *  it flat. */
+ *  it flat. A 3+-point polyline has no simple edge (left as-is); a 2-point one uses `pts` like `a`/`b`. */
 export function setFlatX(ctx: ViewCtx, e: Ent, edge: 'min' | 'max', u: number): Ent {
-	if (e.type === 'polyline') return e   // no simple edge; leave as-is
+	if (e.type === 'polyline' && !is2PtPolyline(e)) return e
+	const [pa, pb]: [Pt, Pt] = e.type === 'polyline' ? [e.pts![0], e.pts![1]] : [e.a!, e.b!]
 	const ax = ELEV_BASIS[ctx.elevDir].axis
-	const ua = elevU(ctx.elevDir, e.a![ax], ctx.cx, ctx.cy), ub = elevU(ctx.elevDir, e.b![ax], ctx.cx, ctx.cy)
+	const ua = elevU(ctx.elevDir, pa[ax], ctx.cx, ctx.cy), ub = elevU(ctx.elevDir, pb[ax], ctx.cx, ctx.cy)
 	const aIsMin = ua <= ub, moveA = (edge === 'min') === aIsMin
 	const m = elevUInv(ctx.elevDir, u, ctx.cx, ctx.cy)
 	const setPt = (pt: Pt): Pt => ax === 0 ? [m, pt[1]] : [pt[0], m]
+	if (e.type === 'polyline') return { ...e, pts: moveA ? [setPt(pa), pb] : [pa, setPt(pb)] }
 	return moveA ? { ...e, a: setPt(e.a!) } : { ...e, b: setPt(e.b!) }
 }
 
 /** The entity's grips in its LOCAL (un-rotated) frame; gripsFor then rotates them for a rotated shape. */
 export function gripsLocal(ctx: ViewCtx, e: Ent, opts: GripOpts): Grip[] {
 	if (isFlatElev(ctx, e)) { const [x0, x1] = flatXSpan(ctx, e); return [{ x: x0, y: ctx.ground, apply: (p) => setFlatX(ctx, e, 'min', p[0]) }, { x: x1, y: ctx.ground, apply: (p) => setFlatX(ctx, e, 'max', p[0]) }] }
+	if (is2PtPolyline(e)) {   // a migrated 'line' (or a 2-click Line-tool polyline): the SAME endpoint grips 'line' used to get
+		const [p0, p1] = e.pts!
+		return [
+			{ x: p0[0], y: p0[1], anchor: p1, resize: (D, F) => ({ ...e, pts: [D, F] }), apply: (p) => ({ ...e, pts: [p, p1] }) },
+			{ x: p1[0], y: p1[1], anchor: p0, resize: (D, F) => ({ ...e, pts: [F, D] }), apply: (p) => ({ ...e, pts: [p0, p] }) },
+		]
+	}
 	if (e.type === 'polyline') return (e.pts ?? []).map((v, i) => ({ x: v[0], y: v[1], apply: (p: Pt) => ({ ...e, pts: (e.pts ?? []).map((q, j) => j === i ? p : q) }) }))
-	if (e.type === 'line' || e.type === 'dim') {
+	if (e.type === 'dim') {
 		const gs: Grip[] = [
 			{ x: e.a![0], y: e.a![1], anchor: e.b!, resize: (D, F) => ({ ...e, a: D, b: F }), apply: (p) => ({ ...e, a: p }) },
 			{ x: e.b![0], y: e.b![1], anchor: e.a!, resize: (D, F) => ({ ...e, b: D, a: F }), apply: (p) => ({ ...e, b: p }) },
 		]
-		if (e.type === 'dim') {   // a grip on the measured-text: drag it ALONG the line (dimT) + perpendicular (dimOff)
+		{   // a grip on the measured-text: drag it ALONG the line (dimT) + perpendicular (dimOff)
 			const a = e.a!, b = e.b!, len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1
 			const ux = (b[0] - a[0]) / len, uy = (b[1] - a[1]) / len, px = -uy, py = ux
 			const off = e.dimOff ?? 2.5 * ctx.paperMm, t = e.dimT ?? 0.5
@@ -254,8 +270,8 @@ export function gripsFor(ctx: ViewCtx, e: Ent, opts: GripOpts): Grip[] {
 	})
 }
 
-/** Shift-constrain a grip drag: rect/ellipse corner → square about the opposite corner; line/dim endpoint
- *  → 15° about the other end. `opts` is only needed for the rotate-handle check. */
+/** Shift-constrain a grip drag: rect/ellipse corner → square about the opposite corner; dim / 2-point
+ *  polyline endpoint → 15° about the other end. `opts` is only needed for the rotate-handle check. */
 export function constrainGrip(ctx: ViewCtx, base: Ent, gi: number, p: Pt, shift: boolean, opts: GripOpts): Pt {
 	if (!shift) return p
 	if (gripsFor(ctx, base, opts)[gi]?.rotate) return p   // rotate handle: no square/ortho constrain
@@ -266,8 +282,8 @@ export function constrainGrip(ctx: ViewCtx, base: Ent, gi: number, p: Pt, shift:
 		const s = Math.max(Math.abs(p[0] - an[0]), Math.abs(p[1] - an[1]))
 		return [an[0] + (p[0] < an[0] ? -s : s), an[1] + (p[1] < an[1] ? -s : s)]
 	}
-	if (base.type === 'line' || base.type === 'dim') {
-		const an = gi === 0 ? base.b! : base.a!
+	if (base.type === 'dim' || is2PtPolyline(base)) {
+		const an = base.type === 'dim' ? (gi === 0 ? base.b! : base.a!) : (gi === 0 ? base.pts![1] : base.pts![0])
 		const dx = p[0] - an[0], dy = p[1] - an[1], len = Math.hypot(dx, dy), step = Math.PI / 12
 		const ang = Math.round(Math.atan2(dy, dx) / step) * step
 		return [an[0] + len * Math.cos(ang), an[1] + len * Math.sin(ang)]

@@ -16,7 +16,7 @@ describe('translate', () => {
 	it('moves a/b/c and every polyline point, leaving others untouched', () => {
 		const e: Ent = { id: 'p', type: 'polyline', pts: [[0, 0], [10, 5]] }
 		expect(translate(e, 3, -2).pts).toEqual([[3, -2], [13, 3]])
-		const l: Ent = { id: 'l', type: 'line', a: [0, 0], b: [4, 4] }
+		const l: Ent = { id: 'l', type: 'dim', a: [0, 0], b: [4, 4] }
 		const t = translate(l, 1, 1)
 		expect(t.a).toEqual([1, 1]); expect(t.b).toEqual([5, 5])
 	})
@@ -45,8 +45,8 @@ describe('elevU — per-direction horizontal projection (Kestrel/Sheets BASIS)',
 })
 
 describe('flatSpan — flat objects collapse to a ground line on the view axis', () => {
-	it('a line spans its x in front and its y in right', () => {
-		const line: Ent = { id: 'l', type: 'line', a: [120, 60], b: [180, 140] }
+	it('a 2-point polyline (a migrated line) spans its x in front and its y in right', () => {
+		const line: Ent = { id: 'l', type: 'polyline', pts: [[120, 60], [180, 140]] }
 		expect(flatSpan(line, 'front')).toEqual([120, 180])          // x-extent
 		expect(flatSpan(line, 'right')).toEqual([elevU('right', 60), elevU('right', 140)])   // y-extent
 	})
