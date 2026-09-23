@@ -13,10 +13,11 @@
 	// SNAP grid steps (model mm). 44.45 = one rack unit (1U), so rack devices step U by U in an elevation.
 	const SNAP_STEPS: [number, string][] = [[1, '1'], [5, '5'], [10, '10'], [25, '25'], [44.45, '1U'], [50, '50'], [100, '100'], [250, '250'], [500, '500'], [1000, '1000']]
 	let { toggles = $bindable<Record<string, boolean>>({}), snapStep = $bindable(100), acadMode = $bindable(true),
-		paperSize = 'A3', paperLandscape = true, onpapersize, onorient,
+		paperSize = 'A3', paperLandscape = true, onpapersize, onorient, paperMargin = 10, onmargin,
 		coords = null, zoom = 100, onzoom, onfit }:
 		{ toggles?: Record<string, boolean>; snapStep?: number; acadMode?: boolean;
 			paperSize?: PaperSize; paperLandscape?: boolean; onpapersize?: (s: PaperSize) => void; onorient?: (landscape: boolean) => void;
+			/** XP7: the sheet's paper margin (mm) */ paperMargin?: number; onmargin?: (mm: number) => void;
 			coords?: { x: number; y: number } | null; zoom?: number; onzoom?: (f: number) => void; onfit?: () => void } = $props()
 </script>
 
@@ -32,6 +33,11 @@
 			<span class="orient-glyph" class:portrait={!paperLandscape}></span>
 			{paperLandscape ? 'Landscape' : 'Portrait'}
 		</button>
+		<!-- XP7: paper margin (mm) — the dashed guide on the sheet; frames snap to it -->
+		<label class="margin-sel" title="Paper margin (mm)">Margin
+			<input type="number" min="0" max="50" step="1" value={paperMargin}
+				onchange={(e) => onmargin?.(Math.max(0, Math.min(50, Number((e.currentTarget as HTMLInputElement).value) || 0)))} />
+		</label>
 	</div>
 	<div class="coords">{coords ? `${coords.x}, ${coords.y} mm` : '—'}</div>
 	<div class="toggles">
@@ -65,6 +71,8 @@
 	.paper-sel select:focus { outline:none; border-color:var(--accent); }
 	.orient { display:inline-flex; align-items:center; gap:5px; padding:2px 8px; border-radius:4px; color:var(--muted); background:none; border:none; font-size:11px; }
 	.orient:hover { background:var(--hover); color:var(--text); }
+	.margin-sel { display:inline-flex; align-items:center; gap:4px; font-size:10px; color:var(--faint); margin-left:6px; }
+	.margin-sel input { width:38px; font-size:10px; color:var(--muted); background:var(--input); border:1px solid var(--line-soft); border-radius:4px; padding:0 3px; }
 	.orient-glyph { width:14px; height:10px; border:1.4px solid currentColor; border-radius:1px; flex:0 0 auto; }
 	.orient-glyph.portrait { width:10px; height:14px; }
 	.coords { font-family:Consolas,monospace; padding:0 10px; color:var(--text); min-width:96px; }

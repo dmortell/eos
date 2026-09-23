@@ -5,7 +5,7 @@
 	// when nothing is selected. Geometry is in model units (mock).
 	import { Icon, ColorPicker } from '$lib'
 	import { translate, textBox, STYLE_DEFAULTS, type Ent, type Pt, type TextAlign, type VAlign, type Head, type Dash } from '../ui/geometry'
-	import { PT_MM } from '../constants'
+	import { PT_MM, PAPER_PX_PER_MM } from '../constants'
 	import { COLORS } from '../palette'
 	import { imgEdit, setImgMode } from '../imageEdit.svelte'
 	import type { Obj, Layer as MLayer } from '../3dview/types'
@@ -14,12 +14,13 @@
 
 	let { ents = [], onupdate, onarrange, pageTitle = '', pageKind = '', activeLayer = '', node = null,
 		modelObj = null, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg,
-		frameObj = null, onframeupdate, onframedelete, modelList = [], activeFrameId = undefined, scaleN = 1 }:
+		frameObj = null, onframeupdate, onframedelete, onframefit, modelList = [], activeFrameId = undefined, scaleN = 1 }:
 		{ ents?: Ent[]; onupdate?: (e: Ent) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void;
 			pageTitle?: string; pageKind?: string; activeLayer?: string;
 			node?: { id: string; label: string; kind: string } | null;
 			modelObj?: Obj | null; modelLayers?: MLayer[]; onmodelupdate?: (patch: Record<string, unknown>) => void; onmodeldelete?: () => void; onmodelseg?: (segIdx: number, patch: Record<string, unknown>) => void;
 			frameObj?: SheetFrame | null; onframeupdate?: (patch: Partial<SheetFrame>) => void; onframedelete?: () => void;
+			/** XP19: fit the frame's scale to its model */ onframefit?: () => void;
 			modelList?: { id: number; name: string }[]; activeFrameId?: string;
 			/** Scale denominator (the N of 1:N) of the viewport the selection is edited in — sizes the
 			 *  annotative text bbox in model mm (B19). */
@@ -85,6 +86,12 @@
 	function setRot(v: number) { const r = ((Math.round(v) % 360) + 360) % 360; setAll({ rot: r || undefined }) }
 	const num = (e: Event) => +(e.currentTarget as HTMLInputElement).value
 	const strVal = (e: Event) => (e.currentTarget as HTMLInputElement).value
+	// XP26: frames are stored in paper px; the panel shows / takes paper mm (1 decimal).
+	const mmOf = (px: number) => Math.round((px / PAPER_PX_PER_MM) * 10) / 10
+	const pxOf = (mm: number) => Math.round(mm * PAPER_PX_PER_MM)
+	const MIN_FRAME_PX = 60   // ≈ 26 mm — PaperPage's own minimum
+	// XP19: "1:137", "1 : 137" or "137" → 137 (a positive whole number), else null.
+	const parseScale = (v: string): number | null => { const m = /^\s*(?:1\s*:\s*)?(\d+)\s*$/.exec(v); const n = m ? Number(m[1]) : NaN; return n >= 1 ? n : null }
 
 	// ── style (color / fill / weight / font / align) — applies to the whole selection ──
 	const STROKE_TYPES = new Set(['polyline', 'dim', 'rect', 'ellipse'])
@@ -141,26 +148,40 @@
 				{#each PROJ_OPTS as [v, l] (v)}<option value={v}>{l}</option>{/each}
 			</select>
 		</div>
+		<!-- XP19: any 1:N (type "1:137" or "137"; the list offers the standard ones) + Fit to the model -->
 		<div class="prop"><span>Scale</span>
-			<select value={frameObj.scale} onchange={(e) => onframeupdate?.({ scale: (e.currentTarget as HTMLSelectElement).value })}>
-				{#if !SCALES.includes(frameObj.scale)}<option value={frameObj.scale}>{frameObj.scale}</option>{/if}
-				{#each SCALES as s (s)}<option value={s}>{s}</option>{/each}
-			</select>
+			<span class="pp-scale">
+				<input list="pp-scales" value={frameObj.scale} title="Any scale — 1:N or just N"
+					onchange={(e) => { const n = parseScale((e.currentTarget as HTMLInputElement).value); if (n) onframeupdate?.({ scale: `1:${n}` }); else (e.currentTarget as HTMLInputElement).value = frameObj!.scale }} />
+				<button class="pp-mini" title="Fit: the scale that shows the whole model, centred" onclick={() => onframefit?.()}>Fit</button>
+			</span>
+			<datalist id="pp-scales">{#each SCALES as s (s)}<option value={s}></option>{/each}</datalist>
 		</div>
 		<div class="prop"><span>Border</span>
 			<select value={frameObj.border} onchange={(e) => onframeupdate?.({ border: (e.currentTarget as HTMLSelectElement).value as 'dashed' | 'solid' | 'none' })}>
 				<option value="solid">Solid</option><option value="dashed">Dashed</option><option value="none">None</option>
 			</select>
 		</div>
-		<div class="prop-sec">FRAME</div>
-		<div class="vecrow">
-			{@render numcell('X', Math.round(frameObj.x), (n) => onframeupdate?.({ x: Math.round(n) }))}
-			{@render numcell('Y', Math.round(frameObj.y), (n) => onframeupdate?.({ y: Math.round(n) }))}
-		</div>
-		<div class="vecrow">
-			{@render numcell('W', Math.round(frameObj.w), (n) => onframeupdate?.({ w: Math.max(60, Math.round(n)) }))}
-			{@render numcell('H', Math.round(frameObj.h), (n) => onframeupdate?.({ h: Math.max(60, Math.round(n)) }))}
-		</div>
+		<!-- XP26: frame position / size in PAPER MM (stored as paper px); XP22: a locked frame can't move -->
+		<div class="prop-sec">FRAME · mm</div>
+		<label class="prop cb"><span>Lock</span><input type="checkbox" checked={!!frameObj.locked} onchange={(e) => onframeupdate?.({ locked: (e.currentTarget as HTMLInputElement).checked || undefined })} /></label>
+		{#if frameObj.locked}
+			<div class="vecrow">
+				<div class="pp-ro">X {mmOf(frameObj.x)}</div><div class="pp-ro">Y {mmOf(frameObj.y)}</div>
+			</div>
+			<div class="vecrow">
+				<div class="pp-ro">W {mmOf(frameObj.w)}</div><div class="pp-ro">H {mmOf(frameObj.h)}</div>
+			</div>
+		{:else}
+			<div class="vecrow">
+				{@render numcell('X', mmOf(frameObj.x), (n) => onframeupdate?.({ x: pxOf(n) }))}
+				{@render numcell('Y', mmOf(frameObj.y), (n) => onframeupdate?.({ y: pxOf(n) }))}
+			</div>
+			<div class="vecrow">
+				{@render numcell('W', mmOf(frameObj.w), (n) => onframeupdate?.({ w: Math.max(MIN_FRAME_PX, pxOf(n)) }))}
+				{@render numcell('H', mmOf(frameObj.h), (n) => onframeupdate?.({ h: Math.max(MIN_FRAME_PX, pxOf(n)) }))}
+			</div>
+		{/if}
 		<button class="pp-del" onclick={() => onframedelete?.()}>Delete viewport</button>
 		<div class="pp-hint">A viewport is a window onto the model. Double-click it to edit inside; change the view or scale here.</div>
 	{:else if modelObj}
@@ -396,6 +417,11 @@
 {/key}
 
 <style>
+	.pp-scale { display:flex; gap:4px; min-width:0; }
+	.pp-scale input { flex:1; min-width:0; }
+	.pp-mini { font-size:10px; padding:2px 7px; border-radius:4px; color:var(--text); background:var(--input); border:1px solid var(--line); cursor:pointer; }
+	.pp-mini:hover { border-color:var(--accent); }
+	.pp-ro { font-size:11px; color:var(--muted); font-family:Consolas,monospace; padding:3px 6px; }
 	.pp { flex:1; overflow-y:auto; padding:5px; min-height:0; scrollbar-width:thin; scrollbar-color:var(--line) transparent; }
 	.prop-sec { font-size:9px; text-transform:uppercase; letter-spacing:.1em; color:var(--faint); padding:8px 4px 4px; }
 	.prop { display:grid; grid-template-columns:64px 1fr; align-items:center; gap:6px; padding:2px 4px; }

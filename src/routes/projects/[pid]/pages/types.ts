@@ -23,6 +23,8 @@ export type SheetFrame = {
 	/** VP Freeze (AutoCAD): layer ids hidden in THIS frame only, on top of the model's own layer on/off.
 	 *  Document state — it rides the frames history, so a freeze is undoable. */
 	frozen?: string[]
+	/** XP22: a locked frame can't be moved or resized on the paper (still selectable, editable inside). */
+	locked?: boolean
 }
 
 /** Drawing scales offered in the scale pickers (viewport bar + Properties). */
@@ -77,7 +79,7 @@ export type Workspace = {
 	setScale: (id: string | undefined, s: string) => void
 	fitPane: (idx: number) => void
 	canvasViewOf: (pane: { id: string; activeId: string }) => View
-	paperOf: (id?: string) => { size: import('./constants').PaperSize; landscape: boolean }
+	paperOf: (id?: string) => { size: import('./constants').PaperSize; landscape: boolean; margin?: number }
 	paperDimsOf: (id?: string) => { w: number; h: number }
 	navZoom: (f: number) => void; navFit: () => void
 	projOf: (pane: { id: string }, a: Tab | null) => Proj

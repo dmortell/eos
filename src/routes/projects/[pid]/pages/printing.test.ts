@@ -3,6 +3,9 @@ import { printCss } from './printing'
 import { PAPER_PX_PER_MM } from './constants'
 
 describe('printCss', () => {
+	it('XP7: hides the margin guide on paper', () => {
+		expect(printCss({ size: 'A3', landscape: true })).toContain('.print-target .margin-guide')
+	})
 	it('sizes the @page rule from the paper in landscape (width × height, unswapped)', () => {
 		const css = printCss({ size: 'A3', landscape: true })
 		expect(css).toContain('@page { size: 420mm 297mm; margin: 0; }')

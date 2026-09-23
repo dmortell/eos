@@ -15,7 +15,8 @@ export type PageDoc = {
 	id: string
 	title: string
 	kind: 'sheet' | 'view'
-	paper: { size: PaperSize; landscape: boolean }
+	/** margin = XP7 paper margin in mm (unset = DEFAULT_MARGIN_MM). */
+	paper: { size: PaperSize; landscape: boolean; margin?: number }
 	scale: string
 	frames: SheetFrame[]
 	revisions?: { name: string; note: string; t: number }[]

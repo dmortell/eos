@@ -379,8 +379,11 @@ describe('objSnaps', () => {
 })
 
 describe('paperSnapLines', () => {
-	it('is just the 4 paper edges (v1 — no margin/titleblock yet)', () => {
+	it('is just the 4 paper edges with no margin', () => {
 		expect(paperSnapLines(420, 297)).toEqual({ x: [0, 420], y: [0, 297] })
+	})
+	it('XP7: adds the margin lines, inset on every side', () => {
+		expect(paperSnapLines(420, 297, 10)).toEqual({ x: [0, 10, 410, 420], y: [0, 10, 287, 297] })
 	})
 })
 

@@ -675,7 +675,7 @@ viewport scope, undo timeline + revision snapshots, touch, in-session cut/copy/p
 - [ ] **XP4** Title-block templates (standard / compact / vertical) — Drawings `parts/TitleBlock.svelte` — M
 - [ ] **XP5** Move the title block, or hide it per sheet — Sheets (drag, `positionMm`, null = hidden), Drawings Title tab — S
 - [ ] **XP6** Sheet properties panel (title, drawing no., paper, orientation, default scale, margins, dim unit, title-block fields) — Sheets `parts/SheetPropertiesWindow.svelte`; Pages' PAGE section is mock — M
-- [ ] **XP7** Paper margins (drawn guide; frames snap to them) — Sheets `PrintSettings.margins` — S
+- [x] **XP7** DONE 2026-09-23 — Paper margins (drawn guide; frames snap to them) — Sheets `PrintSettings.margins` — S
 - [ ] **XP8** Revisions table in the title block + per-sheet revision list (code / date / note / current, auto next code) — Sheets `revisions/RevisionsPanel.svelte` — M (todo §10, X6)
 - [ ] **XP9** Sheet list with drawing numbers: bulk renumber, drag reorder, duplicate sheet — Sheets `parts/SheetList.svelte`, `data.ts planRenumber` — M
 - [ ] **XP10** "File" sheets that open another tool (package placeholders) — Sheets `SheetDoc.link` / `createFileSheet` — S
@@ -683,20 +683,20 @@ viewport scope, undo timeline + revision snapshots, touch, in-session cut/copy/p
 
 **Viewports**
 - [ ] **XP12** Viewports onto OTHER tools' documents (rack elevation / plan, frame detail, floorplan PDF, outlets / trunks, patching, risers, photo survey, fill rate) — Drawings `parts/viewports/*`, Sheets `ViewportSource` — L (X9 / X10, todo §11)
-- [ ] **XP13** Text and image viewport kinds (general-notes box) — Sheets `TextViewport.svelte`, Drawings text / image — S
+- [-] **XP13** NOT WANTED (Dave 2026-09-23) — Text and image viewport kinds (general-notes box) — Sheets `TextViewport.svelte`, Drawings text / image — S
 - [ ] **XP14** Guided "Add viewport" flow (pick type → bind source with floor / room / face / file pickers) — Drawings `parts/AddViewportDialog.svelte` — M
 - [ ] **XP15** Viewport list panel (select, dbl-click opens source, pin badge) — Drawings sidebar — S
 - [ ] **XP16** "Open source" jump to the owning tool — Drawings `handleOpenSource` — S
-- [ ] **XP17** Editable viewport label + font size, PRINTED on the sheet — Drawings `label`/`labelFontPt`, Sheets 8 pt label — S
+- [-] **XP17** NOT WANTED (Dave 2026-09-23) — Editable viewport label + font size, PRINTED on the sheet — Drawings `label`/`labelFontPt`, Sheets 8 pt label — S
 - [ ] **XP18** Viewport numbering for cross-references (auto reading order + manual override) — Sheets `numberViewports` — S
-- [ ] **XP19** Custom scale (1:N) and Fit scale — Sheets scale dialog, Drawings "Scale 1:" — S
+- [x] **XP19** DONE 2026-09-23 — Custom scale (1:N) and Fit scale — Sheets scale dialog, Drawings "Scale 1:" — S
 - [ ] **XP20** Viewport pan offset stored in the DOCUMENT, with numeric offset — Sheets `contentOffsetMm`, Drawings Off X/Y — M (todo §5, decision open)
 - [ ] **XP21** Viewport rotation 0 / 90 / 180 / 270 — Drawings `ViewportFrame.svelte rotationDeg` — M
-- [ ] **XP22** Lock a viewport (no move / resize) — Drawings lock toggle — S
-- [ ] **XP23** Per-viewport layer LOCK (VP Freeze only hides) — Sheets `layerOverrides[id].locked`, `layerBlockReason` — S
+- [x] **XP22** DONE 2026-09-23 — Lock a viewport (no move / resize) — Drawings lock toggle — S
+- [-] **XP23** NOT WANTED (Dave 2026-09-23) — Per-viewport layer LOCK (VP Freeze only hides) — Sheets `layerOverrides[id].locked`, `layerBlockReason` — S
 - [ ] **XP24** Per-viewport render flags: hidden lines, monochrome (b/w), sub-layer toggles — Sheets model3d `hiddenLines` / `bw`, Drawings outlets / risers — M (K10)
 - [ ] **XP25** Frame snap to margins + title-block edges — Sheets `Viewport.svelte xLines/yLines` — S (needs XP7)
-- [ ] **XP26** Frame X / Y / W / H in paper mm (Pages shows paper px, 60 px minimum) — Sheets / Drawings — S
+- [x] **XP26** DONE 2026-09-23 — Frame X / Y / W / H in paper mm (Pages shows paper px, 60 px minimum) — Sheets / Drawings — S
 
 **Annotations & symbols**
 - [ ] **XP27** Symbol library: section marker, elevation / section tag (4 arms + drawing-no. centre), detail marker, photo marker, north arrow, outlet (ports / mount / usage / cable), faceplate, door — Sheets `annotations/symbols/registry.ts` — L (todo §2a, X2, K3)
@@ -704,8 +704,8 @@ viewport scope, undo timeline + revision snapshots, touch, in-session cut/copy/p
 - [ ] **XP29** Shape library (built-in + custom shapes in Firestore `library`, drag to place, "save selection as shape") — Sheets `annotations/shapes/library.ts`, `ShapeLibrary.svelte` — M (todo §2a)
 - [ ] **XP30** Legend annotation (auto-lists layers + swatches, exclude list, optional counts) — Sheets `kind:'legend'` — M
 - [ ] **XP31** Floor-grid annotation (tile size aligned to the building origin) — Sheets `kind:'grid'` — S
-- [ ] **XP32** Line dash styles (solid / dashed / dotted / dash-dot) on lines, rects, ellipses, dims; honour layer linetype — Sheets `dashArray`/`dashCap` — S (K9)
-- [ ] **XP33** More arrowheads (arrow / dot / tick), set per end, on lines and dims — Sheets `ArrowHead` — S
+- [x] **XP32** DONE 2026-09-23 — Line dash styles (solid / dashed / dotted / dash-dot) on lines, rects, ellipses, dims; honour layer linetype — Sheets `dashArray`/`dashCap` — S (K9)
+- [x] **XP33** DONE 2026-09-23 — More arrowheads (arrow / dot / tick), set per end, on lines and dims — Sheets `ArrowHead` — S
 - [ ] **XP34** Callout styles (none / underline / box) + press-at-tip, drag-to-box placement — Sheets callout `border` — S
 - [ ] **XP35** Line labels (text at start / mid / end) — Sheets line `text` + `labelPos` — S
 - [ ] **XP36** Stroke width in drawing mm (Pages' weight is a unitless screen weight) — Sheets `strokeWidth` — S (K9, B3)

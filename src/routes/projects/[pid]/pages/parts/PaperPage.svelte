@@ -23,11 +23,12 @@
 
 	// Paper size in px (default A3 landscape). Driven by the status-bar paper-size / orientation.
 	type VKind = 'plan' | 'iso' | ElevDir
-	let { title = 'Sheet', drawingNo = '001', scale = '1:100', focused = true, tool = 'Select', env = {}, pw = PAPER_W, ph = PAPER_H, sizeLabel = 'A3', rev = '', revDate = '',
+	let { title = 'Sheet', drawingNo = '001', scale = '1:100', focused = true, tool = 'Select', env = {}, pw = PAPER_W, ph = PAPER_H, sizeLabel = 'A3', rev = '', revDate = '', marginMm = 0,
 		entities = [], entsForModel = undefined, tabModelId = undefined,
 		frames = [], editor = noopEditor, frameKind = (p: string) => p as VKind, isFrameActive = () => false, frameView = () => ({ zoom: 1, x: 0, y: 0 }), frameEnv = {},
 		frameOrbit = () => ({ yaw: 0, pitch: 0 }), makeFrameOn = () => ({}), makeFrameEditor = () => noopEditor, onseed, onaddframe, onframegeom, onframecommit, ondeactivate }:
 		{ title?: string; drawingNo?: string; scale?: string; focused?: boolean; tool?: string; env?: Env; pw?: number; ph?: number; sizeLabel?: string; rev?: string; revDate?: string;
+			/** XP7: paper margin (mm) — a dashed guide (screen only) and frame snap lines. */ marginMm?: number;
 			entities?: Ent[]; entsForModel?: (mid?: number) => Ent[]; tabModelId?: number;
 			// R3 commit 3 (review.md §R3): a NEW page-level `editor` — distinct from `makeFrameEditor` (which
 			// builds one PER-FRAME editor for entity/obj/guide/section/node editing INSIDE that frame's
@@ -95,7 +96,7 @@
 	function onDrag(e: PointerEvent, drag: FrameDrag) {
 		const dx = (e.clientX - drag.sx) / drag.s, dy = (e.clientY - drag.sy) / drag.s
 		const b = drag.base
-		const lines = paperSnapLines(pw, ph)
+		const lines = paperSnapLines(pw, ph, marginMm * PAPER_PX_PER_MM)   // XP7: margins snap too
 		const tol = SNAP_TOL_PX / drag.s
 		if (drag.mode === 'move') {
 			let x = b.x + dx, y = b.y + dy
@@ -180,7 +181,8 @@
 		const p = toSheet(e.clientX, e.clientY)
 		if (tool !== 'Viewport') {
 			const border = frameBorderHit(p)
-			if (border) { selectFrame(border.id); startDrag(e, 'move', -1, border, (g) => onframegeom?.(border.id, g), true); return }
+			// XP22: a LOCKED frame selects but never drags
+			if (border) { selectFrame(border.id); if (!border.locked) startDrag(e, 'move', -1, border, (g) => onframegeom?.(border.id, g), true); return }
 			clearFrameSel()   // clicking empty paper (or a frame's interior) deselects any frame
 			if (frameHit(p)) return   // interior of an inactive frame: deselect only, no marquee (matches the old .vp-interior stopPropagation)
 		}
@@ -253,7 +255,7 @@
 						<div class="vp-band" style:pointer-events={tool === 'Viewport' ? 'none' : undefined}>
 							<div class="vp-interior"></div>
 						</div>
-						{#if selFrame === f.id}
+						{#if selFrame === f.id && !f.locked}
 							<svg class="frame-handles">
 								{#each CORNERS as [cx, cy], i (i)}
 									<Handle cx={cx * f.w} cy={cy * f.h} size={HANDLE_PX / (canvasZoom || 1)} cursor={CURSORS[i]} strokeWidth={1.2 / (canvasZoom || 1)}
@@ -264,6 +266,11 @@
 					{/if}
 				</div>
 			{/each}
+			{#if marginMm > 0}
+				<!-- XP7: the paper margin — a screen-only guide (printing.ts hides it); frames snap to it -->
+				{@const m = marginMm * PAPER_PX_PER_MM}
+				<div class="margin-guide" style="left:{m}px; top:{m}px; width:{pw - 2 * m}px; height:{ph - 2 * m}px"></div>
+			{/if}
 			{#if mq}
 				<div class="vp-marquee" style="left:{mq.x}px; top:{mq.y}px; width:{mq.w}px; height:{mq.h}px"></div>
 			{/if}
@@ -286,6 +293,8 @@
 </div>
 
 <style>
+	/* XP7: paper margin guide — dashed, under the frames, never interactive, hidden in print */
+	.margin-guide { position:absolute; border:1px dashed #94a3b866; pointer-events:none; z-index:0; }
 	/* No overflow clip here: the pane (.canvas) already clips at the real screen edge. A clip
 	   on this transformed wrapper would move/scale with the canvas and cut off viewports moved
 	   away from the paper — the canvas is meant to be infinite (pan to follow). */

@@ -214,8 +214,9 @@ export const PAPER_SNAP_STEP = 5   // grid spacing, PAPER mm (distinct unit from
 /** Candidate snap lines for a paper of size w×h (paper mm). v1: the 4 paper edges only — margin/
  *  title-block lines are a later param once those have real geometry for Pages' sheets (see
  *  refactor-plan.md's R8-lite §0/§1). */
-export function paperSnapLines(w: number, h: number): { x: number[]; y: number[] } {
-	return { x: [0, w], y: [0, h] }
+export function paperSnapLines(w: number, h: number, margin = 0): { x: number[]; y: number[] } {
+	// XP7: the paper MARGIN lines too (inset `margin`, same unit as w/h), when there is a margin.
+	return margin > 0 ? { x: [0, margin, w - margin, w], y: [0, margin, h - margin, h] } : { x: [0, w], y: [0, h] }
 }
 
 /** Smallest delta (paper mm) to add so one of `edges` lands on a line in `lines` or a `step` grid

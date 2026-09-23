@@ -25,6 +25,7 @@
 	import { selStore } from '../selStore.svelte'
 	import { selClear } from '../ui/selection'
 	import { FLOOR_MODEL_ID } from '../3dview/models.svelte'
+	import { DEFAULT_MARGIN_MM } from '../constants'
 	import { tick } from 'svelte'
 
 	let {
@@ -139,7 +140,7 @@
 			<div class="canvas-content" style:transform={modelLayout ? undefined : `translate(${cv.x}px, ${cv.y}px) scale(${cv.zoom})`}>
 				{#if a?.kind === 'sheet' && p.layout === 'sheet'}
 					<PaperPage title={a.title} tool={p.tool} scale={ws.framesOf(a.id)[0]?.scale ?? ws.scaleOf(a.id)} env={ws.envFor(p)} pw={ws.paperDimsOf(a.id).w} ph={ws.paperDimsOf(a.id).h}
-						sizeLabel="{ws.paperOf(a.id).size} {ws.paperOf(a.id).landscape ? 'L' : 'P'}" rev={ws.rev} revDate={fmtDate(ws.revisions[0]?.t)}
+						sizeLabel="{ws.paperOf(a.id).size} {ws.paperOf(a.id).landscape ? 'L' : 'P'}" marginMm={ws.paperOf(a.id).margin ?? DEFAULT_MARGIN_MM} rev={ws.rev} revDate={fmtDate(ws.revisions[0]?.t)}
 						entities={ws.entsOf(a.id)} {focused}
 						entsForModel={ws.entsForModel} tabModelId={a.modelId ?? FLOOR_MODEL_ID}
 						frames={ws.framesOf(a.id)} editor={ws.paperEditor(a)} frameKind={(pr) => projKind(pr as Proj)}

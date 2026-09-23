@@ -28,6 +28,8 @@ export const scaleDenom = (scale: string | undefined) => parseInt((scale || '1:1
 /** mm per typographic point → fontPt · PT_MM = paper mm; × scaleDenom(scale) = model mm (annotative text). */
 export const PT_MM = 0.352778
 export type PaperSize = 'A4' | 'A3' | 'A2'
+/** XP7: the paper margin (mm) a sheet starts with — drawn as a guide, frames snap to it. */
+export const DEFAULT_MARGIN_MM = 10
 /** ISO A-series paper, landscape [width, height] in mm. */
 export const PAPER_SIZES: Record<PaperSize, [number, number]> = { A4: [297, 210], A3: [420, 297], A2: [594, 420] }
 /** On-screen paper dimensions (px) for a size + orientation. */

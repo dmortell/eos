@@ -22,7 +22,8 @@
 	import DrawingNavigator from './parts/DrawingNavigator.svelte'
 	import LayersPanel from './parts/LayersPanel.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
-	import { activeLayerIn } from './layers.svelte'
+	import { activeLayerIn, isLayerHidden } from './layers.svelte'
+	import { fitFrame } from './ui/frameFit'
 	import { internImage } from './imageStore'
 	import HistoryPanel from './parts/HistoryPanel.svelte'
 	import StatusBar from './parts/StatusBar.svelte'
@@ -30,7 +31,7 @@
 	import Menubar from './parts/Menubar.svelte'
 	import CommandPalette from './parts/CommandPalette.svelte'
 	import { panzoom } from './ui/panzoom'
-	import { paperDims, scaleDenom, type PaperSize } from './constants'
+	import { paperDims, scaleDenom, PAPER_PX_PER_MM, DEFAULT_MARGIN_MM, type PaperSize } from './constants'
 	import { PRINT_ID, printCss, applyPrint, removePrint } from './printing'
 	import { translate, type Ent, type ElevDir } from './ui/geometry'
 	import { models, modelById, floorModelId, FLOOR_MODEL_ID, snapModels, setModels } from './3dview/models.svelte'
@@ -133,7 +134,7 @@
 	docs.seed('demo-racka-3d', { scale: '1:10' })
 	const paperOf = (id?: string) => docs.paperOf(didOf(id))
 	const paperDimsOf = (id?: string) => { const p = paperOf(id); return paperDims(p.size, p.landscape) }
-	function setPaper(id: string | undefined, patch: Partial<{ size: PaperSize; landscape: boolean }>) { docs.setPaper(id ? didOf(id) : undefined, patch) }
+	function setPaper(id: string | undefined, patch: Partial<{ size: PaperSize; landscape: boolean; margin: number }>) { docs.setPaper(id ? didOf(id) : undefined, patch) }
 	// Per-drawing SCALE (mock — shown in the viewport tag + titleblock; chosen in the active-viewport bar,
 	// like the Sheets tool's viewport scale). Keyed by drawing id (`Tab.docId`, B18) so it survives close/reopen.
 	const scaleOf = (id?: string) => docs.scaleOf(didOf(id))   // model space is real mm; 1:100 fits the ~28 m demo plan
@@ -321,6 +322,19 @@
 		const av = activeVpOf(t.id)
 		return av ? framesOf(t.id).find((f) => f.id === av) ?? null : null
 	})
+	// XP19 "Fit": set the selected frame's scale so its whole (visible, unfrozen, clipped) model fits, and
+	// centre it — the frame's scale is document state (undoable), its content view is the focused pane's.
+	function fitSelectedFrame() {
+		const a2 = active, p = session.panes[session.focused], f = selFrameObj; if (!a2 || !p || !f) return
+		const mdl = modelById(f.modelId ?? a2.modelId ?? FLOOR_MODEL_ID); if (!mdl) return
+		const ls = mdl.layers ?? [], frozen = new Set(f.frozen ?? [])
+		const orb = orbitOf(p.id, f.id, f.proj)
+		const fit = fitFrame(mdl.objects, f.proj, { w: f.w / PAPER_PX_PER_MM, h: f.h / PAPER_PX_PER_MM },
+			{ yaw: orb.yaw, pitch: orb.pitch, clip: f.clip, visible: (o) => !isLayerHidden(ls, o.layer) && !(o.layer && frozen.has(o.layer)) })
+		if (!fit) { statusText = 'Nothing visible to fit in this viewport'; return }
+		ensureHist(a2.id); updateFrame(a2.id, f.id, { scale: `1:${fit.n}` }); commitFrame(a2.id, 'Fit viewport scale')
+		setView(p.id, f.id, f.proj, fit.view)
+	}
 	function toggleVpFreeze(layerId: string) {
 		const p = session.panes[session.focused], f = activeFrame; if (!p || !f) return
 		ensureHist(p.activeId)
@@ -1063,7 +1077,7 @@
 						onarrange={(op) => { if (active) reorderEnts(active.id, activeEntIds(), op) }}
 						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''} {activeLayer} node={session.treeNode}
 						modelObj={selModelObj} modelLayers={modelById(activeMid())?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} onmodelseg={updateModelSeg}
-						frameObj={selFrameObj}
+						frameObj={selFrameObj} onframefit={fitSelectedFrame}
 						modelList={models.map((m) => ({ id: m.id, name: m.name }))}
 						activeFrameId={active && activeVpOf(active.id) !== active.id ? (activeVpOf(active.id) ?? undefined) : undefined} scaleN={propsScaleN}
 						onframeupdate={(patch) => { if (active && selFrameId) { ensureHist(active.id); updateFrame(active.id, selFrameId, patch as Partial<SheetFrame>); commitFrame(active.id, 'Edit viewport') } }}
@@ -1086,6 +1100,8 @@
 		paperSize={paperOf(session.panes[session.focused]?.activeId).size} paperLandscape={paperOf(session.panes[session.focused]?.activeId).landscape}
 		onpapersize={(s) => setPaper(session.panes[session.focused]?.activeId, { size: s })}
 		onorient={(l) => setPaper(session.panes[session.focused]?.activeId, { landscape: l })}
+		paperMargin={paperOf(session.panes[session.focused]?.activeId).margin ?? DEFAULT_MARGIN_MM}
+		onmargin={(mm) => setPaper(session.panes[session.focused]?.activeId, { margin: mm })}
 		coords={worldXY} zoom={dispZoom} onzoom={navZoom} onfit={navFit} />
 </div>
 
