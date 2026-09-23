@@ -10,6 +10,7 @@
 	import { imgEdit, clearImgMode } from './imageEdit.svelte'
 	import { tick } from 'svelte'
 	import { page } from '$app/state'
+	import { goto } from '$app/navigation'
 	import PaperPage from './parts/PaperPage.svelte'
 	import Pane from './parts/Pane.svelte'
 	import { newId } from './ids'
@@ -30,6 +31,7 @@
 	import ViewGizmos from './parts/ViewGizmos.svelte'
 	import Menubar from './parts/Menubar.svelte'
 	import CommandPalette from './parts/CommandPalette.svelte'
+	import OpenProjectDialog from './parts/OpenProjectDialog.svelte'
 	import { panzoom } from './ui/panzoom'
 	import { paperDims, scaleDenom, PAPER_PX_PER_MM, DEFAULT_MARGIN_MM, type PaperSize } from './constants'
 	import { PRINT_ID, printCss, applyPrint, removePrint } from './printing'
@@ -689,7 +691,8 @@
 		else if (item === 'Text') { if (active) focusTool('Text') }
 		else if (item === 'Dimension') { if (active) focusTool('Dimension') }
 		// Not-yet-implemented File items: tell the user instead of silently doing nothing (B8).
-		else if (item === 'Open…' || item === 'Save' || item === 'Export…') statusText = `${item.replace('…', '')} isn't wired up yet (mock)`
+		else if (item === 'Open Project…') openProjectOpen = true
+		else if (item === 'Save' || item === 'Export…') statusText = `${item.replace('…', '')} isn't wired up yet (mock)`
 		// everything else is a mock no-op
 	}
 	function focusTool(t: string) { const p = session.panes[session.focused]; if (p) p.tool = t }
@@ -776,6 +779,10 @@
 	// ── top-bar drawing-set selectors + Ctrl-K command palette (mock data → mock/data.ts, R10) ──
 	let pkg = $state('Detailed Design'), ver = $state('v3'), rev = $state('B')
 	let paletteOpen = $state(false)
+	// File › Open Project… (Ctrl+O): the Firestore project picker. Opening one navigates to its Pages tool.
+	// (B17 / X4: the module-level stores are not yet per project — the mock tree/models are shared.)
+	let openProjectOpen = $state(false)
+	function openProject(id: string) { if (id && id !== page.params.pid) goto(`/projects/${id}/pages`) }
 	// The palette path ('Hibiya · 30F · Zone …') names the floor → the drawing views that floor's model.
 	const floorOfPath = (path?: string) => path?.split(' · ').find((seg) => /^\d+F$/.test(seg))
 	function pickPalette(i: PItem) { if (i.kind !== 'place') openDrawing({ title: i.title, kind: i.kind, preview: false, floor: floorOfPath(i.path) }) }
@@ -787,7 +794,8 @@
 			// Capture phase + stopImmediatePropagation so the app-wide Ctrl-K palette doesn't
 			// also open on this page (it left a faded backdrop behind ours).
 			e.preventDefault(); e.stopImmediatePropagation(); paletteOpen = true
-		} else if (mod && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo() }
+		} else if (mod && !e.shiftKey && (e.key === 'o' || e.key === 'O')) { e.preventDefault(); openProjectOpen = true }   // File › Open Project…
+		else if (mod && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo() }
 		else if (mod && ((e.shiftKey && (e.key === 'z' || e.key === 'Z')) || e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo() }
 		else if ((e.key === 'Delete' || e.key === 'Backspace') && selFrameId && active && !activeVpOf(active.id)) { e.preventDefault(); deleteSelAt(active.id, active.id, { begin: beginGesture, mark: (l?: string) => modelEdit(active!.id, l), end: endGesture }) }   // delete the selected viewport frame (paper space)
 	}
@@ -1001,6 +1009,7 @@
 <div class="shell" data-mock-theme={mockTheme}>
 	<!-- inside .shell so the palette's CSS tokens (var(--panel)/--text/…) resolve -->
 	{#if paletteOpen}<CommandPalette items={paletteItems} onpick={pickPalette} onclose={() => (paletteOpen = false)} />{/if}
+	{#if openProjectOpen}<OpenProjectDialog currentId={page.params.pid} onpick={openProject} onclose={() => (openProjectOpen = false)} />{/if}
 	{#if tabMenuPane !== null}<button class="menu-backdrop" aria-label="Close menu" onclick={() => (tabMenuPane = null)}></button>{/if}
 
 	<!-- Titlebar -->
