@@ -15,7 +15,7 @@
 	import { newId } from './ids'
 	import { viewState } from './viewState.svelte'
 	import { docs } from './doc.svelte'
-	import { type Proj, type SheetFrame, type Kind, type Tab, type WorkPane, type View, type StripItem, SCALES, DIR_LABEL as PROJ_LABEL } from './types'
+	import { type Proj, type SheetFrame, type Kind, type Tab, type WorkPane, type View, type StripItem, type Workspace, SCALES, DIR_LABEL as PROJ_LABEL } from './types'
 	import { PACKAGES, VERSIONS, REVISIONS, type PItem, PALETTE_ITEMS as paletteItems } from './mock/data'
 	import Viewport, { type VpOn } from './ui/Viewport.svelte'
 	import type { Editor } from './ui/editor'
@@ -915,6 +915,35 @@
 
 	// Mock theme (scoped to .shell — demos both Kestrel looks, app untouched)
 	let mockTheme = $state<'dark' | 'light'>('dark')
+
+	// R9 workspace object (review.md §R9, eos-07's review of commit 1, point 3): small per-pane ACTIONS that
+	// used to be built as one-off closures at each `<Pane>` call site (`onFocus={() => (session.focused =
+	// pi)}` etc.) — now plain functions taking the pane/index explicitly, since Pane.svelte already has
+	// `pane`/`pi` as its own props and can just call `ws.setFocused(pi)` itself.
+	function setFocused(pi: number) { session.focused = pi }
+	function toggleTabMenu(pi: number) { tabMenuPane = tabMenuPane === pi ? null : pi }
+	function setPaneTool(pane: WorkPane, t: string) { pane.tool = t }
+	function toggleLayout(pane: WorkPane) { pane.layout = pane.layout === 'model' ? 'sheet' : 'model' }
+	function setCanvasEl(pi: number, el: HTMLElement | undefined) { canvasEls[pi] = el }
+	// Bundles +page.svelte's ~30 doc/view accessor FUNCTIONS + the pane actions above into ONE prop every
+	// pane-level component takes, instead of each being its own prop (an R6-callback-bundle problem one
+	// level down, per eos-07's review). `$derived.by` (not a plain object literal built once) because some
+	// members are VALUES, not functions (`tabs`, `statusText`, `rev`, `revisions`, `acadMode`) — several of
+	// which get REASSIGNED (not mutated) elsewhere (`session.tabs = […]` in addTab, `statusText = …` from a
+	// Viewport's status callback), so a plain object would silently go stale; re-deriving on every dependency
+	// change keeps them live. The FUNCTION members don't need this (they read current state when CALLED,
+	// not when the bundle is built) but cost nothing extra to include here too.
+	// NOT the full B17 fix — the module-level singletons (models/layers/imgEdit/docs/viewState/selStore)
+	// still leak across a project→project client-side navigation; this only fixes the prop-explosion half.
+	let workspace = $derived.by((): Workspace => ({
+		tabs: session.tabs, kindIcon, STRIP, iconOf, rev, revisions, acadMode, statusText,
+		openTab, promoteTab, closeTab, addTab, pickFromMenu, splitVertical, closePane,
+		setFocused, toggleTabMenu, setPaneTool, toggleLayout, setCanvasEl,
+		activeVpOf, isVpActive, deactivateVp, onCanvasMove, canvasPan, canvasZoomFn: canvasZoom,
+		framesOf, scaleOf, updateFrame, setScale, fitPane, canvasViewOf, entsOf, entsForModel, paperEditor,
+		viewOf, envFor, orbitOf, vpFrameView, vpEditor, seedFrame, addFrame, commitFrame, paperOf, paperDimsOf,
+		vpView, projOf, gizmoProj, gizmoSet, navZoom, navFit,
+	}))
 </script>
 
 <!-- Title = the active drawing's name so Save-as-PDF gets a clean filename (no app name / hyphen). -->
@@ -970,17 +999,10 @@
 		<!-- Editor area: one pane, or two split vertically -->
 		<div class="editor-area" class:split={session.panes.length === 2}>
 			{#each session.panes as p, pi (p.id)}
-				<Pane pane={p} {pi} focused={session.focused === pi} {splitFrac} panesCount={session.panes.length} tabs={session.tabs} {kindIcon}
-					tabMenuOpen={tabMenuPane === pi} {statusText} {acadMode}
+				<Pane pane={p} {pi} focused={session.focused === pi} {splitFrac} panesCount={session.panes.length}
+					tabMenuOpen={tabMenuPane === pi}
 					bind:navContent bind:guideVert bind:openGroup bind:groupTool
-					{STRIP} {iconOf}
-					onFocus={() => (session.focused = pi)} onOpenTab={openTab} onPromoteTab={promoteTab} onCloseTab={closeTab} onAddTab={addTab}
-					onToggleTabMenu={() => (tabMenuPane = tabMenuPane === pi ? null : pi)} onPickFromMenu={pickFromMenu} onSplitRight={splitVertical} onClosePane={closePane}
-					onTool={(t) => (p.tool = t)} onToggleLayout={() => (p.layout = p.layout === 'model' ? 'sheet' : 'model')} onCanvasEl={(el) => (canvasEls[pi] = el)}
-					{activeVpOf} {isVpActive} {deactivateVp} {onCanvasMove} {canvasPan} canvasZoomFn={canvasZoom}
-					{framesOf} {scaleOf} {updateFrame} {setScale} {fitPane} {canvasViewOf} {entsOf} {entsForModel} {paperEditor}
-					{viewOf} {envFor} {orbitOf} {vpFrameView} {vpEditor} {seedFrame} {addFrame} {commitFrame} {paperOf} {paperDimsOf}
-					{rev} {revisions} {vpView} {projOf} {gizmoProj} {gizmoSet} {navZoom} {navFit} />
+					ws={workspace} />
 				{#if session.panes.length === 2 && pi === 0}
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<div class="vsplitter" title="Drag to resize" onpointerdown={startSplitDrag}></div>

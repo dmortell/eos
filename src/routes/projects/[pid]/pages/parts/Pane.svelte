@@ -2,127 +2,90 @@
 	// ONE editor pane (R9, review.md §R9) — split out of +page.svelte's `{#each session.panes}` loop
 	// verbatim: tab strip + floating tool strip + active-viewport bar + canvas (PaperPage or Viewport) +
 	// nav tools + view gizmos + the pane-local status chip. +page.svelte still OWNS every piece of state
-	// this reads/writes (session, groupTool, openGroup, guideVert, navContent, …) and every doc/view
-	// accessor (framesOf, viewOf, vpEditor, …) — this component is a pure RENDER of one pane, not a new
-	// state owner, so behaviour is unchanged; every external reference below is a prop, 1:1 with what the
-	// inline block used to close over directly.
+	// this reads/writes (session, groupTool, openGroup, guideVert, navContent, …) — this component is a
+	// pure RENDER of one pane, not a new state owner, so behaviour is unchanged.
+	//
+	// Every doc/view accessor (framesOf, viewOf, vpEditor, …) + the small per-pane actions (setFocused,
+	// setPaneTool, …) arrive bundled in ONE `ws: Workspace` prop (types.ts) instead of ~30 separate props —
+	// eos-07's review of the first cut of this file flagged the flat prop list as an R6-callback-bundle
+	// problem one level down. `pane`/`canvasEl` writes go through `ws`'s action functions rather than
+	// mutating the `pane` prop or a `canvasEls[pi]` prop directly: Svelte 5 flags mutating a plain
+	// (non-bindable) prop from outside the component that owns it as an ownership violation at runtime,
+	// even though it "works" via the shared $state proxy — the actual mutation must happen in the
+	// component that owns the state (+page.svelte), triggered by a call up through `ws`, not reached into
+	// directly from here.
 	import { Icon } from '$lib'
-	import { tick } from 'svelte'
-	import Viewport, { type Env, type VpOn } from '../ui/Viewport.svelte'
+	import Viewport from '../ui/Viewport.svelte'
 	import PaperPage from './PaperPage.svelte'
 	import ToolStrip from './ToolStrip.svelte'
 	import ViewGizmos from './ViewGizmos.svelte'
 	import { panzoom } from '../ui/panzoom'
-	import type { Editor } from '../ui/editor'
-	import { type Proj, type SheetFrame, type Kind, type Tab, type WorkPane, type View, type StripItem, SCALES } from '../types'
-	import type { PaperSize } from '../constants'
-	import type { Ent } from '../ui/geometry'
+	import { type Proj, type WorkPane, type Workspace, SCALES } from '../types'
 	import { selStore } from '../selStore.svelte'
 	import { selClear } from '../ui/selection'
 	import { FLOOR_MODEL_ID } from '../3dview/models.svelte'
+	import { tick } from 'svelte'
 
 	let {
-		pane, pi, focused, splitFrac, panesCount, tabs, kindIcon, tabMenuOpen, statusText, acadMode,
+		pane, pi, focused, splitFrac, panesCount, tabMenuOpen,
 		navContent = $bindable(), guideVert = $bindable(), openGroup = $bindable(), groupTool = $bindable(),
-		STRIP, iconOf,
-		onFocus, onOpenTab, onPromoteTab, onCloseTab, onAddTab, onToggleTabMenu, onPickFromMenu, onSplitRight, onClosePane,
-		onTool, onToggleLayout, onCanvasEl,
-		activeVpOf, isVpActive, deactivateVp, onCanvasMove, canvasPan, canvasZoomFn,
-		framesOf, scaleOf, updateFrame, setScale, fitPane, canvasViewOf, entsOf, entsForModel, paperEditor,
-		viewOf, envFor, orbitOf, vpFrameView, vpEditor, seedFrame, addFrame, commitFrame, paperOf, paperDimsOf,
-		rev, revisions, vpView, projOf, gizmoProj, gizmoSet, navZoom, navFit,
+		ws,
 	}: {
-		pane: WorkPane; pi: number; focused: boolean; splitFrac: number; panesCount: number; tabs: Tab[]
-		kindIcon: Record<Kind, string>; tabMenuOpen: boolean; statusText: string; acadMode: boolean
+		pane: WorkPane; pi: number; focused: boolean; splitFrac: number; panesCount: number; tabMenuOpen: boolean
 		navContent: boolean; guideVert: boolean; openGroup: string | null; groupTool: Record<string, string>
-		STRIP: StripItem[]; iconOf: (tool: string) => string
-		onFocus: () => void; onOpenTab: (id: string, pane: number) => void; onPromoteTab: (id: string) => void
-		onCloseTab: (id: string, e?: Event) => void; onAddTab: () => void; onToggleTabMenu: () => void
-		onPickFromMenu: (id: string, pane: number) => void; onSplitRight: () => void; onClosePane: (idx: number) => void
-		// R9 follow-up (eos-07 review of commit 1): `pane` is a plain (non-bindable) prop — Pane.svelte must
-		// never write through it directly (`pane.tool = …` etc. is an ownership violation Svelte 5 flags at
-		// runtime, even though it "works" via the shared $state proxy). Every write goes back up through a
-		// callback instead, so +page.svelte (the actual owner of `session.panes`) does its own mutation.
-		onTool: (t: string) => void; onToggleLayout: () => void; onCanvasEl: (el: HTMLElement | undefined) => void
-		activeVpOf: (tabId: string) => string | null; isVpActive: (id?: string) => boolean; deactivateVp: (id?: string) => void
-		onCanvasMove: () => void
-		canvasPan: (pane: { id: string; activeId: string }, dx: number, dy: number) => void
-		canvasZoomFn: (pane: { id: string; activeId: string }, el: HTMLElement, f: number, clientX: number, clientY: number) => void
-		framesOf: (tabId: string) => SheetFrame[]; scaleOf: (id?: string) => string
-		updateFrame: (tabId: string, id: string, patch: Partial<SheetFrame>) => void
-		setScale: (id: string | undefined, s: string) => void
-		fitPane: (idx: number) => void
-		canvasViewOf: (pane: { id: string; activeId: string }) => View
-		entsOf: (id: string) => Ent[]; entsForModel: (mid?: number) => Ent[]
-		paperEditor: (a: Tab) => Editor
-		viewOf: (paneId: string, viewId: string, proj: Proj) => View
-		envFor: (pane: { id: string; activeId: string }) => Env
-		orbitOf: (paneId: string, viewId: string, proj: Proj) => { yaw: number; pitch: number }
-		vpFrameView: (a: Tab, pane: { id: string; tool: string }, frame: SheetFrame) => VpOn
-		vpEditor: (a: Tab, viewId: string) => Editor
-		seedFrame: (tabId: string, x: number, y: number, w: number, h: number) => void
-		addFrame: (tabId: string, x: number, y: number, w: number, h: number) => void
-		commitFrame: (tabId: string, label: string) => void
-		paperOf: (id?: string) => { size: PaperSize; landscape: boolean }
-		paperDimsOf: (id?: string) => { w: number; h: number }
-		rev: string; revisions: { name: string; note: string; snap: unknown; t: number }[]
-		vpView: (a: Tab, pane: { id: string; tool: string }) => VpOn
-		projOf: (pane: { id: string }, a: Tab | null) => Proj
-		gizmoProj: (pane: { id: string }, a: Tab | null) => Proj
-		gizmoSet: (pane: { id: string }, a: Tab | null, proj: Proj) => void
-		navZoom: (f: number) => void; navFit: () => void
+		ws: Workspace
 	} = $props()
-	// A local mirror of the canvas element — `bind:this` on a PLAIN prop array index (`canvasEls[pi]`) is
-	// the same ownership violation as `pane.tool = …`; mirror it locally and report it up via a callback
-	// instead, so +page.svelte's own `canvasEls` array is the only thing that actually gets written.
+	// A local mirror of the canvas element, reported up via `ws.setCanvasEl` (see the file-header note on
+	// why this isn't a `canvasEls[pi]` prop mutated directly). Cleaned up on unmount too, matching
+	// `bind:this`'s own destroy behaviour (eos-07 caught the first cut missing this).
 	let canvasEl: HTMLElement | undefined = $state()
-	$effect(() => { onCanvasEl(canvasEl) })
+	$effect(() => { ws.setCanvasEl(pi, canvasEl); return () => ws.setCanvasEl(pi, undefined) })
 
-	// Pure, no closure — cheaper to redefine here than to thread through as two more props.
+	// Pure, no closure — cheaper to redefine here than to thread through `ws` as two more members.
 	const projKind = (p: Proj) => p as 'plan' | 'iso' | 'front' | 'rear' | 'left' | 'right'
 	const fmtDate = (t?: number) => new Date(t ?? Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 
 	const p = $derived(pane)   // local alias — matches the inline block's `p` from `{#each session.panes as p, pi}`
-	const a = $derived(tabs.find((t) => t.id === p.activeId) ?? null)
+	const a = $derived(ws.tabs.find((t) => t.id === p.activeId) ?? null)
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <section class="pane" class:focused
 	style:flex={panesCount === 1 ? '1 1 0' : `${pi === 0 ? splitFrac : 1 - splitFrac} 1 0`}
-	onpointerdown={onFocus}>
+	onpointerdown={() => ws.setFocused(pi)}>
 
 	<!-- this pane's tab strip -->
 	<div class="tabbar">
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="tabs" onwheel={(e) => { if (e.deltaY) { e.currentTarget.scrollLeft += e.deltaY; e.preventDefault() } }}>
-			{#each tabs as t (t.id)}
-				<div class="tab" class:active={t.id === p.activeId} class:preview={t.preview} onclick={() => onOpenTab(t.id, pi)}
-					ondblclick={() => onPromoteTab(t.id)}
-					role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter') onOpenTab(t.id, pi) }}>
-					<Icon name={kindIcon[t.kind]} size={12} />
+			{#each ws.tabs as t (t.id)}
+				<div class="tab" class:active={t.id === p.activeId} class:preview={t.preview} onclick={() => ws.openTab(t.id, pi)}
+					ondblclick={() => ws.promoteTab(t.id)}
+					role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter') ws.openTab(t.id, pi) }}>
+					<Icon name={ws.kindIcon[t.kind]} size={12} />
 					<span class="tab-name">{t.title}</span>
 					{#if t.dirty}<span class="dirty">•</span>{/if}
-					<button class="tab-x" title="Close" onclick={(e) => onCloseTab(t.id, e)}><Icon name="close" size={11} /></button>
+					<button class="tab-x" title="Close" onclick={(e) => ws.closeTab(t.id, e)}><Icon name="close" size={11} /></button>
 				</div>
 			{/each}
 		</div>
 		<div class="tabbar-right">
-			<button class="strip-btn" title="New page" onclick={() => { onFocus(); onAddTab() }}><Icon name="plus" size={14} /></button>
-			<button class="strip-btn" title="All pages" onclick={(e) => { e.stopPropagation(); onFocus(); onToggleTabMenu() }}><Icon name="chevronDown" size={14} /></button>
+			<button class="strip-btn" title="New page" onclick={() => { ws.setFocused(pi); ws.addTab() }}><Icon name="plus" size={14} /></button>
+			<button class="strip-btn" title="All pages" onclick={(e) => { e.stopPropagation(); ws.setFocused(pi); ws.toggleTabMenu(pi) }}><Icon name="chevronDown" size={14} /></button>
 			{#if panesCount === 1}
-				<button class="strip-btn" title="Split editor right" onclick={onSplitRight}><Icon name="panels" size={14} /></button>
+				<button class="strip-btn" title="Split editor right" onclick={ws.splitVertical}><Icon name="panels" size={14} /></button>
 			{:else}
-				<button class="strip-btn" title="Close this split" onclick={() => onClosePane(pi)}><Icon name="close" size={14} /></button>
+				<button class="strip-btn" title="Close this split" onclick={() => ws.closePane(pi)}><Icon name="close" size={14} /></button>
 			{/if}
 			{#if tabMenuOpen}
 				<div class="tab-menu">
-					{#each tabs as t (t.id)}
-						<button class="tab-menu-item" class:on={t.id === p.activeId} onclick={() => onPickFromMenu(t.id, pi)}>
-							<Icon name={kindIcon[t.kind]} size={13} /><span class="grow txt">{t.title}</span>{#if t.dirty}<span class="dirty">•</span>{/if}
+					{#each ws.tabs as t (t.id)}
+						<button class="tab-menu-item" class:on={t.id === p.activeId} onclick={() => ws.pickFromMenu(t.id, pi)}>
+							<Icon name={ws.kindIcon[t.kind]} size={13} /><span class="grow txt">{t.title}</span>{#if t.dirty}<span class="dirty">•</span>{/if}
 						</button>
 					{/each}
 					<div class="tab-menu-sep"></div>
-					<button class="tab-menu-item" onclick={() => { onToggleTabMenu(); onFocus(); onAddTab() }}>
+					<button class="tab-menu-item" onclick={() => { ws.toggleTabMenu(pi); ws.setFocused(pi); ws.addTab() }}>
 						<Icon name="plus" size={13} /><span class="grow txt">New page</span>
 					</button>
 				</div>
@@ -133,18 +96,18 @@
 	<!-- this pane's canvas -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<main class="canvas" bind:this={canvasEl} onpointermove={onCanvasMove}
-		ondblclick={(e) => { if (a && !(e.target as Element).closest?.('.paper, button, .glass-bar, .vp-active-bar, .navtools, .floattools')) { const av = activeVpOf(a.id); if (av) deactivateVp(av); selStore.set(a.id, selClear()) } }}
-		use:panzoom={{ enabled: () => !!a, wheelZoom: () => acadMode, onpan: (dx, dy) => canvasPan(p, dx, dy), onzoom: (f, x, y, node) => canvasZoomFn(p, node, f, x, y) }}>
-		<ToolStrip tool={p.tool} {onTool} dim={!!(a && !isVpActive(a.id))} {STRIP} {iconOf} bind:guideVert bind:openGroup bind:groupTool />
+	<main class="canvas" bind:this={canvasEl} onpointermove={ws.onCanvasMove}
+		ondblclick={(e) => { if (a && !(e.target as Element).closest?.('.paper, button, .glass-bar, .vp-active-bar, .navtools, .floattools')) { const av = ws.activeVpOf(a.id); if (av) ws.deactivateVp(av); selStore.set(a.id, selClear()) } }}
+		use:panzoom={{ enabled: () => !!a, wheelZoom: () => ws.acadMode, onpan: (dx, dy) => ws.canvasPan(p, dx, dy), onzoom: (f, x, y, node) => ws.canvasZoomFn(p, node, f, x, y) }}>
+		<ToolStrip tool={p.tool} onTool={(t) => ws.setPaneTool(pane, t)} dim={!!(a && !ws.isVpActive(a.id))} STRIP={ws.STRIP} iconOf={ws.iconOf} bind:guideVert bind:openGroup bind:groupTool />
 		<!-- Pane-level exit: fixed on screen (outside the zoomed content), so a viewport
 		     can always be left even when zoomed right in and its own corner is off-screen. -->
-		{#if a && activeVpOf(a.id)}
-			{@const avId = activeVpOf(a.id)!}
-			{@const avFrame = avId === a.id ? null : framesOf(a.id).find((f) => f.id === avId)}
-			{@const avScale = avFrame ? avFrame.scale : scaleOf(a.id)}
+		{#if a && ws.activeVpOf(a.id)}
+			{@const avId = ws.activeVpOf(a.id)!}
+			{@const avFrame = avId === a.id ? null : ws.framesOf(a.id).find((f) => f.id === avId)}
+			{@const avScale = avFrame ? avFrame.scale : ws.scaleOf(a.id)}
 			<div class="vp-active-bar glass-bar">
-				<button class="vab-btn" onclick={() => deactivateVp(avId)} title="Exit viewport (Esc)">
+				<button class="vab-btn" onclick={() => ws.deactivateVp(avId)} title="Exit viewport (Esc)">
 					<Icon name="chevronLeft" size={14} /> Exit
 				</button>
 				<button class="vab-btn" class:on={navContent} onclick={() => (navContent = !navContent)}
@@ -153,14 +116,14 @@
 				</button>
 				<!-- viewport scale (like the Sheets tool's per-view scale) — the primary's tab scale, or the active extra frame's own scale -->
 				<label class="vab-scale" title="Drawing scale">
-					<select value={avScale} onchange={(e) => { const s = (e.currentTarget as HTMLSelectElement).value; if (avFrame) updateFrame(a.id, avId, { scale: s }); else setScale(a.id, s); }}>
+					<select value={avScale} onchange={(e) => { const s = (e.currentTarget as HTMLSelectElement).value; if (avFrame) ws.updateFrame(a.id, avId, { scale: s }); else ws.setScale(a.id, s); }}>
 						{#if !SCALES.includes(avScale)}<option value={avScale}>{avScale}</option>{/if}
 						{#each SCALES as s (s)}<option value={s}>{s}</option>{/each}
 					</select>
 				</label>
 				<!-- full-size: only the primary viewport fills the pane (an extra frame is a fixed window) -->
 				{#if !avFrame}
-					<button class="vab-btn" class:on={p.layout === 'model'} onclick={() => { onToggleLayout(); tick().then(() => fitPane(pi)) }}
+					<button class="vab-btn" class:on={p.layout === 'model'} onclick={() => { ws.toggleLayout(pane); tick().then(() => ws.fitPane(pi)) }}
 						title="Full-size: fill the pane with the drawing (off = the paper sheet)">
 						<Icon name={p.layout === 'model' ? 'panels' : 'expand'} size={14} /> Full-size
 					</button>
@@ -168,33 +131,33 @@
 			</div>
 		{/if}
 		{#key p.activeId}
-			{@const cv = canvasViewOf(p)}
+			{@const cv = ws.canvasViewOf(p)}
 			<div class="canvas-content" style:transform="translate({cv.x}px, {cv.y}px) scale({cv.zoom})">
 				{#if a?.kind === 'sheet' && p.layout === 'sheet'}
-					<PaperPage title={a.title} tool={p.tool} scale={framesOf(a.id)[0]?.scale ?? scaleOf(a.id)} env={envFor(p)} pw={paperDimsOf(a.id).w} ph={paperDimsOf(a.id).h}
-						sizeLabel="{paperOf(a.id).size} {paperOf(a.id).landscape ? 'L' : 'P'}" {rev} revDate={fmtDate(revisions[0]?.t)}
-						entities={entsOf(a.id)} {focused}
-						{entsForModel} tabModelId={a.modelId ?? FLOOR_MODEL_ID}
-						frames={framesOf(a.id)} editor={paperEditor(a)} frameKind={(pr) => projKind(pr as Proj)}
-						isFrameActive={(id) => isVpActive(id)} frameView={(id, proj) => viewOf(p.id, id, proj as Proj)} frameEnv={envFor(p)}
-						frameOrbit={(id, proj) => orbitOf(p.id, id, proj as Proj)} makeFrameOn={(f) => vpFrameView(a, p, f as SheetFrame)} makeFrameEditor={(f) => vpEditor(a, (f as SheetFrame).id)}
-						onseed={(x, y, w, h) => seedFrame(a.id, x, y, w, h)}
-						onaddframe={(x, y, w, h) => addFrame(a.id, x, y, w, h)}
-						onframegeom={(id, g) => updateFrame(a.id, id, g)}
-						onframecommit={() => commitFrame(a.id, 'Move viewport')}
-						ondeactivate={() => { const av = activeVpOf(a.id); if (av) deactivateVp(av) }} />
+					<PaperPage title={a.title} tool={p.tool} scale={ws.framesOf(a.id)[0]?.scale ?? ws.scaleOf(a.id)} env={ws.envFor(p)} pw={ws.paperDimsOf(a.id).w} ph={ws.paperDimsOf(a.id).h}
+						sizeLabel="{ws.paperOf(a.id).size} {ws.paperOf(a.id).landscape ? 'L' : 'P'}" rev={ws.rev} revDate={fmtDate(ws.revisions[0]?.t)}
+						entities={ws.entsOf(a.id)} {focused}
+						entsForModel={ws.entsForModel} tabModelId={a.modelId ?? FLOOR_MODEL_ID}
+						frames={ws.framesOf(a.id)} editor={ws.paperEditor(a)} frameKind={(pr) => projKind(pr as Proj)}
+						isFrameActive={(id) => ws.isVpActive(id)} frameView={(id, proj) => ws.viewOf(p.id, id, proj as Proj)} frameEnv={ws.envFor(p)}
+						frameOrbit={(id, proj) => ws.orbitOf(p.id, id, proj as Proj)} makeFrameOn={(f) => ws.vpFrameView(a, p, f)} makeFrameEditor={(f) => ws.vpEditor(a, f.id)}
+						onseed={(x, y, w, h) => ws.seedFrame(a.id, x, y, w, h)}
+						onaddframe={(x, y, w, h) => ws.addFrame(a.id, x, y, w, h)}
+						onframegeom={(id, g) => ws.updateFrame(a.id, id, g)}
+						onframecommit={() => ws.commitFrame(a.id, 'Move viewport')}
+						ondeactivate={() => { const av = ws.activeVpOf(a.id); if (av) ws.deactivateVp(av) }} />
 				{:else if a}
 					<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-					<div class="vp-fill" ondblclick={() => deactivateVp(a.id)}>
-						<Viewport kind={projKind(projOf(p, a))} label={a.title} tool={p.tool} scale={scaleOf(a.id)} env={envFor(p)} on={vpView(a, p)} editor={vpEditor(a, a.id)} modelId={a.modelId ?? FLOOR_MODEL_ID}
-							entities={entsOf(a.id)} view={viewOf(p.id, a.id, projOf(p, a))} active={isVpActive(a.id)} {focused} clip={null} yaw={orbitOf(p.id, a.id, projOf(p, a)).yaw} pitch={orbitOf(p.id, a.id, projOf(p, a)).pitch} />
+					<div class="vp-fill" ondblclick={() => ws.deactivateVp(a.id)}>
+						<Viewport kind={projKind(ws.projOf(p, a))} label={a.title} tool={p.tool} scale={ws.scaleOf(a.id)} env={ws.envFor(p)} on={ws.vpView(a, p)} editor={ws.vpEditor(a, a.id)} modelId={a.modelId ?? FLOOR_MODEL_ID}
+							entities={ws.entsOf(a.id)} view={ws.viewOf(p.id, a.id, ws.projOf(p, a))} active={ws.isVpActive(a.id)} {focused} clip={null} yaw={ws.orbitOf(p.id, a.id, ws.projOf(p, a)).yaw} pitch={ws.orbitOf(p.id, a.id, ws.projOf(p, a)).pitch} />
 					</div>
 				{:else}
 					<div class="canvas-center">
 						<Icon name="fileText" size={22} />
 						<div class="cc-title">No page open</div>
 						<div class="cc-sub">Pick a drawing from the sidebar, or</div>
-						<button class="cc-new" onpointerdown={(e) => e.stopPropagation()} onclick={() => { onFocus(); onAddTab() }}><Icon name="plus" size={13} /> New page</button>
+						<button class="cc-new" onpointerdown={(e) => e.stopPropagation()} onclick={() => { ws.setFocused(pi); ws.addTab() }}><Icon name="plus" size={13} /> New page</button>
 					</div>
 				{/if}
 			</div>
@@ -205,11 +168,11 @@
 			<div class="model-name">{a.title}</div>
 		{/if}
 		<div class="navtools glass-bar">
-			<button class="tool" title="Zoom in" onclick={() => navZoom(1.25)}><Icon name="zoomin" size={16} /></button>
-			<button class="tool" title="Zoom out" onclick={() => navZoom(0.8)}><Icon name="zoomout" size={16} /></button>
-			<button class="tool" title="Fit" onclick={() => navFit()}><Icon name="fit" size={16} /></button>
+			<button class="tool" title="Zoom in" onclick={() => ws.navZoom(1.25)}><Icon name="zoomin" size={16} /></button>
+			<button class="tool" title="Zoom out" onclick={() => ws.navZoom(0.8)}><Icon name="zoomout" size={16} /></button>
+			<button class="tool" title="Fit" onclick={() => ws.navFit()}><Icon name="fit" size={16} /></button>
 			<button class="tool" title="Pan (right-drag)"><Icon name="pan" size={16} /></button>
-			{#if a && gizmoProj(p, a) === 'iso'}
+			{#if a && ws.gizmoProj(p, a) === 'iso'}
 				<button class="tool" title="Orbit — drag in the 3D view (Shift = 15° snap)"><Icon name="rotate3d" size={16} /></button>
 			{/if}
 		</div>
@@ -217,13 +180,13 @@
 			<!-- fixed-size view gizmos (ViewCube + WCS axes), screen space so they don't zoom -->
 			<!-- ViewCube re-orients the view's content in place (the sheet's paper viewport too) — it
 			     no longer flips a sheet to fullscreen. Use the Full-size button for that. -->
-			{@const gvp = activeVpOf(a.id) ?? a.id}
-			{@const gorb = orbitOf(p.id, gvp, gizmoProj(p, a))}
-			<ViewGizmos projection={gizmoProj(p, a)} yaw={gorb.yaw} pitch={gorb.pitch}
-				onset={(proj) => gizmoSet(p, a, proj)} />
+			{@const gvp = ws.activeVpOf(a.id) ?? a.id}
+			{@const gorb = ws.orbitOf(p.id, gvp, ws.gizmoProj(p, a))}
+			<ViewGizmos projection={ws.gizmoProj(p, a)} yaw={gorb.yaw} pitch={gorb.pitch}
+				onset={(proj) => ws.gizmoSet(p, a, proj)} />
 		{/if}
 		<!-- tool prompt / inline-edit help, pinned to the pane bottom-centre (screen space) -->
-		{#if focused && statusText}<div class="pane-status">{statusText}</div>{/if}
+		{#if focused && ws.statusText}<div class="pane-status">{ws.statusText}</div>{/if}
 	</main>
 </section>
 

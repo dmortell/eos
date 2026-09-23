@@ -44,3 +44,49 @@ export type View = { zoom: number; x: number; y: number }
 /** One entry in the floating tool strip: a single tool, or a grouped fly-out of variants (Guide is a
  *  special case with no `members` — its fly-out picks H/V orientation instead of a tool). */
 export type StripItem = { tool: string } | { group: string; label: string; members: string[] }
+
+// R9's workspace-object step (eos-07's review of commit 1, point 3): +page.svelte's ~30 doc/view accessor
+// FUNCTIONS (framesOf, viewOf, vpEditor, …) were each their own prop on Pane.svelte — an R6-callback-bundle
+// problem one level down. `Workspace` bundles all of them (plus the handful of small per-pane ACTIONS that
+// used to be built as one-off closures per pane — `setFocused`/`setPaneTool`/etc. take the pane/index
+// explicitly instead, since Pane already has `pane`/`pi`) into ONE prop every pane-level component takes.
+// It is NOT the full B17 fix (the module-level singletons — models/layers/imgEdit/docs/viewState/selStore —
+// still leak across a project→project client-side navigation); it only addresses the prop-explosion half.
+export type Workspace = {
+	tabs: Tab[]; kindIcon: Record<Kind, string>; STRIP: StripItem[]; iconOf: (tool: string) => string
+	rev: string; revisions: { name: string; note: string; snap: unknown; t: number }[]
+	acadMode: boolean; statusText: string
+	openTab: (id: string, pane?: number) => void; promoteTab: (id: string) => void
+	closeTab: (id: string, e?: Event) => void; addTab: (kind?: Kind, title?: string) => void
+	pickFromMenu: (id: string, pane: number) => void; splitVertical: () => void; closePane: (idx: number) => void
+	setFocused: (pi: number) => void; toggleTabMenu: (pi: number) => void
+	setPaneTool: (pane: WorkPane, t: string) => void; toggleLayout: (pane: WorkPane) => void
+	setCanvasEl: (pi: number, el: HTMLElement | undefined) => void
+	activeVpOf: (tabId: string) => string | null; isVpActive: (id?: string) => boolean; deactivateVp: (id?: string) => void
+	onCanvasMove: () => void
+	canvasPan: (pane: { id: string; activeId: string }, dx: number, dy: number) => void
+	canvasZoomFn: (pane: { id: string; activeId: string }, el: HTMLElement, f: number, clientX: number, clientY: number) => void
+	framesOf: (tabId: string) => SheetFrame[]; scaleOf: (id?: string) => string
+	updateFrame: (tabId: string, id: string, patch: Partial<SheetFrame>) => void
+	setScale: (id: string | undefined, s: string) => void
+	fitPane: (idx: number) => void
+	canvasViewOf: (pane: { id: string; activeId: string }) => View
+	paperOf: (id?: string) => { size: import('./constants').PaperSize; landscape: boolean }
+	paperDimsOf: (id?: string) => { w: number; h: number }
+	navZoom: (f: number) => void; navFit: () => void
+	projOf: (pane: { id: string }, a: Tab | null) => Proj
+	gizmoProj: (pane: { id: string }, a: Tab | null) => Proj
+	gizmoSet: (pane: { id: string }, a: Tab | null, proj: Proj) => void
+	orbitOf: (paneId: string, viewId: string, proj: Proj) => { yaw: number; pitch: number }
+	viewOf: (paneId: string, viewId: string, proj: Proj) => View
+	entsOf: (id: string) => import('./ui/geometry').Ent[]
+	entsForModel: (mid?: number) => import('./ui/geometry').Ent[]
+	paperEditor: (a: Tab) => import('./ui/editor').Editor
+	vpFrameView: (a: Tab, pane: { id: string; tool: string }, frame: SheetFrame) => import('./ui/Viewport.svelte').VpOn
+	vpEditor: (a: Tab, viewId: string) => import('./ui/editor').Editor
+	vpView: (a: Tab, pane: { id: string; tool: string }) => import('./ui/Viewport.svelte').VpOn
+	seedFrame: (tabId: string, x: number, y: number, w: number, h: number) => void
+	addFrame: (tabId: string, x: number, y: number, w: number, h: number) => void
+	commitFrame: (tabId: string, label: string) => void
+	envFor: (pane: { id: string; activeId: string }) => import('./ui/Viewport.svelte').Env
+}
