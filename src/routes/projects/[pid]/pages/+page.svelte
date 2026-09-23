@@ -80,17 +80,14 @@
 		treeNode: { id: string; label: string; kind: string; floorNumber?: number; building?: string } | null
 	}
 	let session = $state<Session>({
-		tabs: [
-			{ id: 't1', docId: 'demo-3303-plan', title: '3303 Floorplan', kind: 'plan', dirty: false, modelId: 1 },
-			{ id: 't2', docId: 'demo-3303-outlets', title: '3303 Outlets', kind: 'sheet', dirty: true, modelId: 1 },
-			{ id: 't3', docId: 'demo-racka-elev', title: 'Rack A · Elevation', kind: 'elevation', dirty: false, modelId: 2 },
-			{ id: 't4', docId: 'demo-racka-3d', title: 'Rack A · 3D Model', kind: 'model', dirty: false, modelId: 2 },
-		],
-		panes: [{ id: 'p1', activeId: 't2', tool: 'Select', layout: 'sheet' }],
+		// No tabs at start (Dave, 2026-09-23: the four mock demo tabs are gone) — open drawings / floors from the
+		// project tree; an empty pane shows "No page open".
+		tabs: [],
+		panes: [{ id: 'p1', activeId: '', tool: 'Select', layout: 'sheet' }],
 		focused: 0, previewId: null, activeVps: new Set<string>(),
 		treeNode: null,
 	})
-	let seq = 4
+	let seq = 0
 	// B31: a pane shows MODEL space when its tab isn't a sheet, or is a sheet in Full-size layout. Model
 	// space is always active (no double-click to enter, no Exit) and has no canvas transform — pan/zoom
 	// act on the Viewport's own view. Only the paper layout keeps canvas pan/zoom + activation.
@@ -134,9 +131,6 @@
 	const didOf = (tabId?: string) => session.tabs.find((t) => t.id === tabId)?.docId ?? tabId ?? ''   // B18: by id, not title
 	// Paper / scale / frames now live in the `docs` PageDoc store (doc.svelte.ts, R2 commit 2), keyed by
 	// DRAWING id — thin accessors here resolve the tab id → drawing id first.
-	docs.seed('demo-3303-outlets', { scale: '1:25' })   // 3303 Outlets sheet defaults bigger (1:25)
-	docs.seed('demo-racka-elev', { scale: '1:10' })     // a 2 m rack reads at 1:10, not 1:100
-	docs.seed('demo-racka-3d', { scale: '1:10' })
 	const paperOf = (id?: string) => docs.paperOf(didOf(id))
 	const paperDimsOf = (id?: string) => { const p = paperOf(id); return paperDims(p.size, p.landscape) }
 	function setPaper(id: string | undefined, patch: Partial<{ size: PaperSize; landscape: boolean; margin: number }>) { docs.setPaper(id ? didOf(id) : undefined, patch) }

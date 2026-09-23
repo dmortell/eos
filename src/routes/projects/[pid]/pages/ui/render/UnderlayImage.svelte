@@ -33,7 +33,9 @@
 	})
 	const calib = $derived.by(() => {
 		const p = fileDoc?.pages?.[pageNum]
-		return p?.origin && p?.scale?.scale ? { origin: p.origin, sf: p.scale.scale } : null
+		// the scale is required (mm per PDF px); a page scaled but never given an origin (e.g. Hibiya 12F / 10F)
+		// is placed with its top-left corner at (0,0) — the outlets tool needs both, display only needs the scale
+		return p?.scale?.scale ? { origin: p.origin ?? { x: 0, y: 0 }, sf: Number(p.scale.scale) } : null
 	})
 
 	// rasterise the page once per file / page (object URL, revoked on change)
