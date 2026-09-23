@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { SNAP_STEP, snapToGrid, rndTo, snapDelta, entSnaps, findSnap, drawPoint, snapNode, graphNodeApply, elevDepthSnap, objSnaps } from './snap'
+import { SNAP_STEP, snapToGrid, rndTo, snapDelta, entSnaps, findSnap, drawPoint, snapNode, graphNodeApply, elevDepthSnap, objSnaps, PAPER_SNAP_STEP, paperSnapLines, frameSnapDelta } from './snap'
 import { rotatePt, type GN } from './hit'
 import type { Model, Obj } from '../3dview/types'
 import type { Mapper } from './mapper'
@@ -369,5 +369,39 @@ describe('objSnaps', () => {
 	it('a locked (but visible) object still offers snap points, like a locked entity today', () => {
 		const p = prism()
 		expect(objSnaps(withObjs(planCtx, [p]), p, { visible: () => true, locked: () => true }).length).toBe(9)
+	})
+})
+
+describe('paperSnapLines', () => {
+	it('is just the 4 paper edges (v1 — no margin/titleblock yet)', () => {
+		expect(paperSnapLines(420, 297)).toEqual({ x: [0, 420], y: [0, 297] })
+	})
+})
+
+describe('frameSnapDelta', () => {
+	it('snaps an edge within tolerance onto a paper-edge line', () => {
+		expect(frameSnapDelta([2], [0, 420], PAPER_SNAP_STEP, 6)).toBe(-2)   // 2 -> 0
+		expect(frameSnapDelta([418], [0, 420], PAPER_SNAP_STEP, 6)).toBe(2)   // 418 -> 420
+	})
+	it('falls back to the grid when no line is within tolerance', () => {
+		expect(frameSnapDelta([203], [0, 420], PAPER_SNAP_STEP, 6)).toBe(2)   // 203 -> 205 (5mm grid), neither line is close
+	})
+	it('with the grid disabled (step 0), nothing within tolerance returns 0', () => {
+		expect(frameSnapDelta([200], [0, 420], 0, 6)).toBe(0)
+		expect(frameSnapDelta([203], [0, 420], 0, 6)).toBe(0)   // same edge as the grid-fallback case above, but no grid to catch it
+	})
+	it('a tie between a line and a grid multiple favours the line (checked first)', () => {
+		// 197 is a paper-edge line NOT on the 5mm grid; 196 sits exactly 1mm from both the line (197) and
+		// the nearest grid multiple (195) — the line's earlier position in the scan wins the tie.
+		expect(frameSnapDelta([196], [0, 197], PAPER_SNAP_STEP, 6)).toBe(1)
+	})
+	it('checks every edge and returns the single best delta across all of them', () => {
+		// edges = [x, x+w] (a move-drag snaps both edges of an axis together): only the first edge (2) is
+		// close to anything; that's the delta both edges receive.
+		expect(frameSnapDelta([2, 13], [0, 420], PAPER_SNAP_STEP, 6)).toBe(-2)
+	})
+	it('with the grid disabled, a larger tolerance reaches farther lines', () => {
+		expect(frameSnapDelta([190], [0, 200], 0, 15)).toBe(10)   // 190 -> 200, within a 15mm tolerance
+		expect(frameSnapDelta([190], [0, 200], 0, 5)).toBe(0)   // same case, tolerance too small to reach the line
 	})
 })

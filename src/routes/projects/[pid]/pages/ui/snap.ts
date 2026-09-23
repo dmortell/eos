@@ -202,6 +202,34 @@ export function graphNodeApply(ctx: ViewCtx, n: GN, p: Pt, opts: { snapNode: (p:
 	return q === p ? null : { p: q, type: 'end' }
 }
 
+// ── paper-space frame snap (R8-lite, refactor-plan.md §"R8-lite"/§1) ──
+// A sheet's viewport FRAMES (PaperPage.svelte) snap in PAPER mm, a different space/unit than
+// everything above (model mm). Ported from sheets/Viewport.svelte's existing frame-snap
+// (paper edges / margins / title-block / 5mm grid, Alt disables) per Dave's ask to match that
+// tool's convention rather than invent a new one — v1 here covers paper edges + grid only.
+
+export const PAPER_SNAP_STEP = 5   // grid spacing, PAPER mm (distinct unit from SNAP_STEP=100, model mm)
+
+/** Candidate snap lines for a paper of size w×h (paper mm). v1: the 4 paper edges only — margin/
+ *  title-block lines are a later param once those have real geometry for Pages' sheets (see
+ *  refactor-plan.md's R8-lite §0/§1). */
+export function paperSnapLines(w: number, h: number): { x: number[]; y: number[] } {
+	return { x: [0, w], y: [0, h] }
+}
+
+/** Smallest delta (paper mm) to add so one of `edges` lands on a line in `lines` or a `step` grid
+ *  multiple, within `tolMm`; 0 if nothing is close enough. Same algorithm as
+ *  sheets/Viewport.svelte's `snapDelta` (renamed here to avoid colliding with this module's own
+ *  `snapDelta`, a different function for entity-move grid snap in model mm). */
+export function frameSnapDelta(edges: number[], lines: number[], step: number, tolMm: number): number {
+	let best = 0, bestAbs = tolMm
+	for (const e of edges) {
+		for (const ln of lines) { const d = ln - e; if (Math.abs(d) < bestAbs) { bestAbs = Math.abs(d); best = d } }
+		if (step > 0) { const d = Math.round(e / step) * step - e; if (Math.abs(d) < bestAbs) { bestAbs = Math.abs(d); best = d } }
+	}
+	return best
+}
+
 // ── elevation depth snap ──
 
 /** A depth-snap hit: the off-axis (DEPTH) coord to use + the matched segment's projected endpoints (for
