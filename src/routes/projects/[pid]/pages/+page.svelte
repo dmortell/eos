@@ -927,23 +927,27 @@
 	function setCanvasEl(pi: number, el: HTMLElement | undefined) { canvasEls[pi] = el }
 	// Bundles +page.svelte's ~30 doc/view accessor FUNCTIONS + the pane actions above into ONE prop every
 	// pane-level component takes, instead of each being its own prop (an R6-callback-bundle problem one
-	// level down, per eos-07's review). `$derived.by` (not a plain object literal built once) because some
-	// members are VALUES, not functions (`tabs`, `statusText`, `rev`, `revisions`, `acadMode`) — several of
-	// which get REASSIGNED (not mutated) elsewhere (`session.tabs = […]` in addTab, `statusText = …` from a
-	// Viewport's status callback), so a plain object would silently go stale; re-deriving on every dependency
-	// change keeps them live. The FUNCTION members don't need this (they read current state when CALLED,
-	// not when the bundle is built) but cost nothing extra to include here too.
-	// NOT the full B17 fix — the module-level singletons (models/layers/imgEdit/docs/viewState/selStore)
-	// still leak across a project→project client-side navigation; this only fixes the prop-explosion half.
-	let workspace = $derived.by((): Workspace => ({
-		tabs: session.tabs, kindIcon, STRIP, iconOf, rev, revisions, acadMode, statusText,
+	// level down, per eos-07's review). Built ONCE as a plain `const` — NOT `$derived.by`, which eos-07
+	// caught rebuilding the whole object (a new `ws` identity) on every `statusText` change (fires on every
+	// tool prompt / hover, from the Viewport's `status` callback), invalidating every `ws.x` read in BOTH
+	// panes: `ws.vpEditor(a, …)`/`ws.envFor(p)`/`ws.vpView(…)` etc. return NEW objects each rebuild, handing
+	// Viewport/PaperPage fresh `editor`/`env`/`on` props on every pointer move for no reason — wasted work at
+	// best, a re-fired effect/reset gesture at worst. The reassigned VALUE members (`tabs`, `statusText`,
+	// `rev`, `revisions`, `acadMode`) are GETTERS instead, so reading `ws.statusText` tracks only
+	// `statusText` — `ws` itself never changes identity, and every other `ws.x` read stays as narrow as
+	// before this bundling. NOT the full B17 fix — the module-level singletons (models/layers/imgEdit/docs/
+	// viewState/selStore) still leak across a project→project client-side navigation; that's Dave's call,
+	// not started here.
+	const workspace: Workspace = {
+		get tabs() { return session.tabs }, kindIcon, STRIP, iconOf,
+		get rev() { return rev }, get revisions() { return revisions }, get acadMode() { return acadMode }, get statusText() { return statusText },
 		openTab, promoteTab, closeTab, addTab, pickFromMenu, splitVertical, closePane,
 		setFocused, toggleTabMenu, setPaneTool, toggleLayout, setCanvasEl,
 		activeVpOf, isVpActive, deactivateVp, onCanvasMove, canvasPan, canvasZoomFn: canvasZoom,
 		framesOf, scaleOf, updateFrame, setScale, fitPane, canvasViewOf, entsOf, entsForModel, paperEditor,
 		viewOf, envFor, orbitOf, vpFrameView, vpEditor, seedFrame, addFrame, commitFrame, paperOf, paperDimsOf,
 		vpView, projOf, gizmoProj, gizmoSet, navZoom, navFit,
-	}))
+	}
 </script>
 
 <!-- Title = the active drawing's name so Save-as-PDF gets a clean filename (no app name / hyphen). -->
