@@ -13,6 +13,7 @@
 	import PaperPage from './parts/PaperPage.svelte'
 	import { newId } from './ids'
 	import { viewState } from './viewState.svelte'
+	import { docs } from './doc.svelte'
 	import { type Proj, type SheetFrame, SCALES, DIR_LABEL as PROJ_LABEL } from './types'
 	import { PACKAGES, VERSIONS, REVISIONS, type PItem, PALETTE_ITEMS as paletteItems } from './mock/data'
 	import Viewport, { type VpOn } from './ui/Viewport.svelte'
@@ -68,8 +69,8 @@
 	// (a per-user UI convenience); the viewport CONTENT view (viewState.getView) is the document-side
 	// pan/zoom. Backed by viewState.svelte.ts (R2) — same key shapes + localStorage, see that file.
 	$effect(() => viewState.loadPersisted())
-	const canvasViewOf = (pane: { id: string; activeId: string }): View => viewState.getCanvas(pane.id, pane.activeId)
-	function setCanvasView(pane: { id: string; activeId: string }, v: View) { viewState.setCanvas(pane.id, pane.activeId, v) }
+	const canvasViewOf = (pane: { id: string; activeId: string }): View => viewState.getCanvas(pane.id, pane.activeId, didOf(pane.activeId))
+	function setCanvasView(pane: { id: string; activeId: string }, v: View) { viewState.setCanvas(pane.id, pane.activeId, didOf(pane.activeId), v) }
 	// Active PROJECTION keyed by PANE + tab, so each split pane is independent (plan in one, side in
 	// the other) yet each pane remembers a view's projection when you switch tabs within it.
 	function projOf(pane: { id: string }, a: Tab | null): Proj {
@@ -84,20 +85,16 @@
 	// the page, and reopening the same drawing restores it (B6). Titles are unique (named drawings + the
 	// `Untitled N` counter) and openDrawing already dedups by title. Session/VIEW state stays tab/pane-keyed.
 	const didOf = (tabId?: string) => tabs.find((t) => t.id === tabId)?.title ?? tabId ?? ''
-	// Paper size + orientation, per DRAWING (keyed by drawing id). Each sheet keeps its own paper.
-	// Changing it just resizes the paper rect in place — no refit/jump.
-	let docPaper = $state<Record<string, { size: PaperSize; landscape: boolean }>>({})
-	const paperOf = (id?: string) => docPaper[didOf(id)] ?? { size: 'A3' as PaperSize, landscape: true }
+	// Paper / scale / frames now live in the `docs` PageDoc store (doc.svelte.ts, R2 commit 2), keyed by
+	// DRAWING id — thin accessors here resolve the tab id → drawing id first.
+	docs.seed('3303 Outlets', { scale: '1:25' })   // 3303 Outlets sheet defaults bigger (1:25)
+	const paperOf = (id?: string) => docs.paperOf(didOf(id))
 	const paperDimsOf = (id?: string) => { const p = paperOf(id); return paperDims(p.size, p.landscape) }
-	function setPaper(id: string | undefined, patch: Partial<{ size: PaperSize; landscape: boolean }>) {
-		if (!id) return
-		docPaper = { ...docPaper, [didOf(id)]: { ...paperOf(id), ...patch } }
-	}
+	function setPaper(id: string | undefined, patch: Partial<{ size: PaperSize; landscape: boolean }>) { docs.setPaper(id ? didOf(id) : undefined, patch) }
 	// Per-drawing SCALE (mock — shown in the viewport tag + titleblock; chosen in the active-viewport bar,
 	// like the Sheets tool's viewport scale). Keyed by drawing id (title) so it survives close/reopen.
-	let docScale = $state<Record<string, string>>({ '3303 Outlets': '1:25' })   // 3303 Outlets sheet defaults bigger (1:25)
-	const scaleOf = (id?: string) => docScale[didOf(id)] ?? '1:100'   // model space is real mm; 1:100 fits the ~28 m demo plan
-	const setScale = (id: string | undefined, s: string) => { if (id) docScale = { ...docScale, [didOf(id)]: s } }
+	const scaleOf = (id?: string) => docs.scaleOf(didOf(id))   // model space is real mm; 1:100 fits the ~28 m demo plan
+	const setScale = (id: string | undefined, s: string) => { if (id) docs.setScale(didOf(id), s) }
 	// The drafting/interaction flags bundle passed to a pane's viewport (one prop instead of six).
 	let guideVert = $state(false)   // the Guide tool's H/V pop-out base (touch has no Shift); Shift still flips it
 	const envFor = (pane: { id: string; activeId: string }) => ({ acad: acadMode, navContent, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, cen: toggles.CEN, guideVert, canvasZoom: canvasViewOf(pane).zoom })
@@ -169,9 +166,8 @@
 	// (Later the page model also carries the titleblock + page annotations.) A section can be dropped in.
 	// Viewport frames = a sheet's page model → DOCUMENT state, keyed by drawing id (title) so they survive
 	// closing/reopening the tab (B6). snapAllFrames/applyPtr operate on the whole map, so history is unaffected.
-	let docFrames = $state<Record<string, SheetFrame[]>>({})
-	const framesOf = (tabId: string) => docFrames[didOf(tabId)] ?? []
-	function setFrames(tabId: string, frames: SheetFrame[]) { docFrames = { ...docFrames, [didOf(tabId)]: frames } }
+	const framesOf = (tabId: string) => docs.framesOf(didOf(tabId))
+	function setFrames(tabId: string, frames: SheetFrame[]) { docs.setFrames(didOf(tabId), frames) }
 	function updateFrame(tabId: string, id: string, patch: Partial<SheetFrame>) { setFrames(tabId, framesOf(tabId).map((f) => (f.id === id ? { ...f, ...patch } : f))) }
 	const newFrameId = () => newId('vf')
 	let selFrame = $state<string | null>(null)   // the viewport frame selected in paper space (move/resize/props)
@@ -359,7 +355,7 @@
 	let hist = $state<{ steps: HStep[]; ptr: number } | null>(null)
 	let revisions = $state<{ name: string; note: string; snap: Snap; t: number }[]>([])
 	const snapEnts = (): Snap => $state.snapshot(mdlEnts()) as Snap
-	const snapAllFrames = (): Record<string, SheetFrame[]> => $state.snapshot(docFrames) as Record<string, SheetFrame[]>
+	const snapAllFrames = (): Record<string, SheetFrame[]> => $state.snapshot(docs.allFrames()) as Record<string, SheetFrame[]>
 	// Capture the baseline (pre-first-edit) state once, BEFORE anything is mutated.
 	function ensureHist(_id?: string) {
 		if (hist) return
@@ -381,7 +377,7 @@
 	function applyPtr() {
 		const h = hist; if (!h) return
 		setModels(h.steps[h.ptr].model)   // restore all models (entities + guides + sections + 3D objects)
-		docFrames = $state.snapshot(h.steps[h.ptr].frames) as Record<string, SheetFrame[]>   // restore every tab's frames
+		docs.restoreFrames($state.snapshot(h.steps[h.ptr].frames) as Record<string, SheetFrame[]>)   // restore every tab's frames
 	}
 	function undo() { const h = hist; if (!h || h.ptr <= 0) return; hist = { ...h, ptr: h.ptr - 1 }; applyPtr() }
 	function redo() { const h = hist; if (!h || h.ptr >= h.steps.length - 1) return; hist = { ...h, ptr: h.ptr + 1 }; applyPtr() }
@@ -437,14 +433,14 @@
 		if (!o?.segments?.[segIdx] || !id) return
 		beginGesture(); Object.assign(o.segments[segIdx], patch); modelEdit(id); endGesture()
 	}
-	// Free only SESSION/VIEW state for a closed or reused TAB. DOCUMENT state (docFrames/docPaper/docScale,
+	// Free only SESSION/VIEW state for a closed or reused TAB. DOCUMENT state (the `docs` PageDoc store,
 	// keyed by DRAWING id) is KEPT — so closing a tab never destroys the page and reopening it restores the
 	// frames/paper/scale (B6). Must run while the tab still exists in `tabs` (so framesOf resolves the did).
 	function dropDoc(id: string) {
 		const frameIds = framesOf(id).map((f) => f.id)
 		const ids = new Set<string>([id, ...frameIds])            // this tab + its viewport frames
 		const ds = { ...docSel }; delete ds[id]; docSel = ds       // selection (entities per tab)
-		viewState.drop([...ids])                                   // pan/zoom, orbit, per-pane projection
+		viewState.drop([...ids], didOf(id))                        // pan/zoom, orbit, per-pane projection + the persisted canvas seed (B27: prune on close)
 		if (selSection === id) selSection = null
 		if (selFrame && ids.has(selFrame)) selFrame = null
 		deactivateVp(id); for (const fid of frameIds) deactivateVp(fid)   // reopened tab starts deactivated
@@ -697,11 +693,16 @@
 		else { const v = canvasViewOf(p); setCanvasView(p, { ...v, zoom: Math.min(20, Math.max(0.1, v.zoom * f)) }) }
 	}
 	// Fit a specific pane: frame its sheet paper (centred, with margin) or reset a model view.
-	function fitPane(idx: number) {
+	function fitPane(idx: number, opts: { skipIfPersisted?: boolean } = {}) {
 		const p = panes[idx]; if (!p) return
 		const pr = activeProj(p)
 		if (p.activeId) setOrbit(p.id, p.activeId, pr, DEFAULT_YAW, DEFAULT_PITCH)   // Fit also resets the 3D orbit
 		if (isVpActive(p.activeId)) { setView(p.id, p.activeId, pr, { zoom: 1, x: 0, y: 0 }); return }
+		// B27: the mount-time refit used to unconditionally overwrite a sheet's REMEMBERED canvas position
+		// (localStorage) with a fresh "fit to paper" — so a saved 48% zoom came back at 97% after every
+		// reload. `refitAll` (mount only) passes `skipIfPersisted`; an explicit Fit (menu/button/ViewCube)
+		// still always re-fits.
+		if (opts.skipIfPersisted && p.activeId && viewState.hasCanvas(p.id, p.activeId, didOf(p.activeId))) return
 		const a2 = tabs.find(t => t.id === p.activeId)
 		const canvas = canvasEls[idx]
 		if (a2?.kind === 'sheet' && p.layout === 'sheet' && canvas && canvas.clientWidth > 50) {
@@ -713,8 +714,10 @@
 		}
 	}
 	function navFit() { fitPane(focused) }
-	// Refit every pane after the paper size/orientation changes (each pane may show a sheet).
-	function refitAll() { tick().then(() => panes.forEach((_, i) => fitPane(i))) }
+	// Refit every pane after the paper size/orientation changes (each pane may show a sheet). `opts` is
+	// forwarded to `fitPane` — the mount-time caller below passes `skipIfPersisted` (B27); any FUTURE
+	// caller (e.g. after an explicit paper-size change) should NOT, so it always re-fits.
+	function refitAll(opts: { skipIfPersisted?: boolean } = {}) { tick().then(() => panes.forEach((_, i) => fitPane(i, opts))) }
 
 	// ── Print — on Ctrl+P / window.print(), an @media-print stylesheet shows ONLY the focused
 	// sheet's paper at TRUE size: it hides all UI + the selection highlight and pins the paper to
@@ -769,7 +772,7 @@
 	// Fit each pane once on mount (layout is now per-pane; a pane refits itself when ITS layout or
 	// projection changes — see the Full-size button + ViewCube — so the other pane is undisturbed).
 	let mounted = false
-	$effect(() => { if (!mounted) { mounted = true; refitAll() } })
+	$effect(() => { if (!mounted) { mounted = true; refitAll({ skipIfPersisted: true }) } })
 	let toggles = $state<Record<string, boolean>>({ GRID: true, SNAP: true, ORTHO: false, OSNAP: true, LWT: false, CEN: false })
 	// AutoCAD mode: wheel = zoom, draw = two clicks. Off = EOS: wheel = pan, draw = press-drag.
 	let acadMode = $state(true)

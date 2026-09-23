@@ -4,7 +4,8 @@ import { viewKey, viewState } from './viewState.svelte'
 beforeEach(() => {
 	localStorage.clear()
 	// Reset the singleton's persisted cache between tests (it's a module-level instance).
-	viewState.drop(['p1', 'p2', 't1', 't2', 't3', 'f1'])
+	viewState.drop(['p1', 'p2', 't1', 't2', 't3', 'f1'], 'd-t1')
+	viewState.drop([], 'd-t2')
 })
 
 describe('viewKey', () => {
@@ -48,22 +49,42 @@ describe('getProj / setProj — coarse-grained, per pane+tab (not per projection
 	})
 })
 
-describe('getCanvas / setCanvas — coarse-grained + localStorage persistence', () => {
+describe('getCanvas / setCanvas — coarse-grained + localStorage persistence keyed by DRAWING id (B27)', () => {
 	it('defaults to zoom 1 at the origin when unset', () => {
-		expect(viewState.getCanvas('p1', 't1')).toEqual({ x: 0, y: 0, zoom: 1 })
+		expect(viewState.getCanvas('p1', 't1', 'd-t1')).toEqual({ x: 0, y: 0, zoom: 1 })
 	})
-	it('round-trips a live value and persists it to localStorage keyed by tab id alone', () => {
-		viewState.setCanvas('p1', 't1', { x: 3, y: 4, zoom: 1.1 })
-		expect(viewState.getCanvas('p1', 't1')).toEqual({ x: 3, y: 4, zoom: 1.1 })
+	it('round-trips a live value and persists it to localStorage keyed by DRAWING id, not tab id', () => {
+		viewState.setCanvas('p1', 't1', 'd-t1', { x: 3, y: 4, zoom: 1.1 })
+		expect(viewState.getCanvas('p1', 't1', 'd-t1')).toEqual({ x: 3, y: 4, zoom: 1.1 })
 		const raw = JSON.parse(localStorage.getItem('eos.pages.canvasView') || '{}')
-		expect(raw.t1).toEqual({ x: 3, y: 4, zoom: 1.1 })
+		expect(raw['d-t1']).toEqual({ x: 3, y: 4, zoom: 1.1 })
+		expect(raw.t1).toBeUndefined()
+	})
+	it('a REOPENED drawing (new random tab id, same drawing id) still finds its persisted position', () => {
+		viewState.setCanvas('p1', 't1', 'd-t1', { x: 3, y: 4, zoom: 1.1 })
+		// tab closes (t1 gone); the SAME drawing reopens as a fresh tab id, e.g. 't9' — drawing id unchanged
+		expect(viewState.getCanvas('p1', 't9', 'd-t1')).toEqual({ x: 3, y: 4, zoom: 1.1 })
 	})
 	it('loadPersisted seeds the cache from localStorage, read as a fallback under the live value', () => {
-		localStorage.setItem('eos.pages.canvasView', JSON.stringify({ t2: { x: 9, y: 9, zoom: 3 } }))
+		localStorage.setItem('eos.pages.canvasView', JSON.stringify({ 'd-t2': { x: 9, y: 9, zoom: 3 } }))
 		viewState.loadPersisted()
-		expect(viewState.getCanvas('p1', 't2')).toEqual({ x: 9, y: 9, zoom: 3 })   // no live entry yet → falls back to the cache
-		viewState.setCanvas('p1', 't2', { x: 0, y: 0, zoom: 1 })
-		expect(viewState.getCanvas('p1', 't2')).toEqual({ x: 0, y: 0, zoom: 1 })   // live entry now wins
+		expect(viewState.getCanvas('p1', 't2', 'd-t2')).toEqual({ x: 9, y: 9, zoom: 3 })   // no live entry yet → falls back to the cache
+		viewState.setCanvas('p1', 't2', 'd-t2', { x: 0, y: 0, zoom: 1 })
+		expect(viewState.getCanvas('p1', 't2', 'd-t2')).toEqual({ x: 0, y: 0, zoom: 1 })   // live entry now wins
+	})
+})
+
+describe('hasCanvas (B27) — whether a drawing already has a remembered position', () => {
+	it('false when nothing is set; true once live or persisted', () => {
+		expect(viewState.hasCanvas('p1', 't1', 'd-t1')).toBe(false)
+		viewState.setCanvas('p1', 't1', 'd-t1', { x: 1, y: 1, zoom: 1 })
+		expect(viewState.hasCanvas('p1', 't1', 'd-t1')).toBe(true)
+	})
+	it('true from the persisted cache alone, even with no live entry for this pane+tab', () => {
+		localStorage.setItem('eos.pages.canvasView', JSON.stringify({ 'd-t2': { x: 1, y: 1, zoom: 1 } }))
+		viewState.loadPersisted()
+		expect(viewState.hasCanvas('p1', 't2', 'd-t2')).toBe(true)
+		expect(viewState.hasCanvas('p1', 't3', 'd-other')).toBe(false)
 	})
 })
 
@@ -81,11 +102,18 @@ describe('drop', () => {
 		expect(viewState.getView('p1', 'f1', 'plan')).toEqual({ x: 0, y: 0, zoom: 1 })
 		expect(viewState.getView('p1', 't2', 'plan')).toEqual({ x: 5, y: 5, zoom: 1 })   // untouched
 	})
-	it('does NOT clear the canvas view or its localStorage cache (matches dropDoc today)', () => {
-		viewState.setCanvas('p1', 't1', { x: 7, y: 7, zoom: 2 })
+	it('without a drawingId, does NOT touch the persisted canvas seed', () => {
+		viewState.setCanvas('p1', 't1', 'd-t1', { x: 7, y: 7, zoom: 2 })
 		viewState.drop(['t1'])
-		expect(viewState.getCanvas('p1', 't1')).toEqual({ x: 7, y: 7, zoom: 2 })
+		expect(viewState.getCanvas('p1', 't1', 'd-t1')).toEqual({ x: 7, y: 7, zoom: 2 })
 		const raw = JSON.parse(localStorage.getItem('eos.pages.canvasView') || '{}')
-		expect(raw.t1).toEqual({ x: 7, y: 7, zoom: 2 })
+		expect(raw['d-t1']).toEqual({ x: 7, y: 7, zoom: 2 })
+	})
+	it('WITH a drawingId (B27: prune on close), removes that drawing\'s persisted canvas seed too', () => {
+		viewState.setCanvas('p1', 't1', 'd-t1', { x: 7, y: 7, zoom: 2 })
+		viewState.drop(['t1'], 'd-t1')
+		expect(viewState.getCanvas('p1', 't1', 'd-t1')).toEqual({ x: 0, y: 0, zoom: 1 })   // back to default — pruned
+		const raw = JSON.parse(localStorage.getItem('eos.pages.canvasView') || '{}')
+		expect(raw['d-t1']).toBeUndefined()
 	})
 })
