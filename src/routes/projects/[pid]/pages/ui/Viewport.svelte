@@ -101,7 +101,8 @@
 	// ── plan UNDERLAYS (a floor's calibrated floorplan, render/UnderlayImage.svelte) + zoom to extents ──
 	// In MODEL SPACE the default view means "show everything": while the view is the untouched default
 	// (zoom 1, no pan — a fresh tab, or after Fit) and the plan has underlays, zoom + centre on their extents.
-	let underlayRects = $state<Record<string, UnderlayRect | null>>({})
+	// raw: rects are replaced, never mutated — and a proxied rect would fail the `cur === r` check (state_proxy_equality_mismatch)
+	let underlayRects = $state.raw<Record<string, UnderlayRect | null>>({})
 	function setUnderlayRect(id: string, r: UnderlayRect | null) {
 		const cur = underlayRects[id]
 		if (cur === r || (cur && r && cur.x === r.x && cur.y === r.y && cur.w === r.w && cur.h === r.h)) return
