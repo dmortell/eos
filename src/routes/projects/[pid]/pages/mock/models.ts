@@ -55,5 +55,12 @@ function demoRack(): Model {
 	}
 }
 
-/** The demo model registry a fresh Pages session starts with (floor id 1 + rack id 2). */
-export function demoModels(): Model[] { return [demoFloor(), demoRack()] }
+// An empty floor model — one per floor in the navigator tree (mock/data.ts NAV_TREE) that has no demo
+// content, so clicking the floor opens ITS model rather than 33F's.
+const emptyFloor = (id: number, name: string): Model => ({
+	id, name, layers: LAYERS.map((l) => ({ ...l })), objects: [],
+	levels: { floorSlab: 0, raisedFloor: 150, ceilingTile: 2700, ceilingSlab: 3200 },
+})
+
+/** The demo model registry a fresh Pages session starts with (floor 33F id 1 + rack id 2 + empty 30F / 18F). */
+export function demoModels(): Model[] { return [demoFloor(), demoRack(), emptyFloor(3, '30F'), emptyFloor(4, '18F')] }

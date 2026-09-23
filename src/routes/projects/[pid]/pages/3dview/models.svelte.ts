@@ -9,6 +9,8 @@ import { demoModels } from '../mock/models'
 export const FLOOR_MODEL_ID = 1   // the default model a new viewport / tab points at
 export const models = $state<Model[]>(migrateModels(demoModels()))
 export const modelById = (id?: number) => (id == null ? undefined : models.find((m) => m.id === id))
+/** The model of a floor, by the floor's name in the navigator ('33F'); undefined if there is none. */
+export const floorModelId = (floor?: string) => (floor ? models.find((m) => m.name === floor)?.id : undefined)
 // Replace the whole model list in place (keeps the reactive reference) — used by undo/redo to restore a
 // history snapshot. `$state.snapshot` UNWRAPS Svelte proxies to plain data (structuredClone throws on a
 // proxy — and the stored step's model IS a proxy, living inside the $state history tree), giving a deep

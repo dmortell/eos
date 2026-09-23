@@ -5,8 +5,10 @@
 	import { Icon } from '$lib'
 	import { type NavKind as Kind, type NavNode as Node, NAV_TREE as TREE, NAV_PROJECT as PROJECT } from '../mock/data'
 
-	let { onopen, oncollapse, onselectnode, activeTitle = '', activeNode = '' }:
-		{ onopen?: (d: { title: string; kind: Kind; preview: boolean }) => void; oncollapse?: () => void;
+	let { onopen, onopenfloor, oncollapse, onselectnode, activeTitle = '', activeNode = '' }:
+		{ onopen?: (d: { title: string; kind: Kind; preview: boolean; floor?: string }) => void; oncollapse?: () => void;
+			/** A FLOOR row was clicked (preview) or double-clicked (kept): open that floor's model tab. */
+			onopenfloor?: (floor: string, preview: boolean) => void;
 			onselectnode?: (n: { id: string; label: string; kind: string }) => void; activeTitle?: string; activeNode?: string } = $props()
 
 	// Location hierarchy Project › Building › Floor › Zone › Room › Row, with drawing/view
@@ -44,27 +46,30 @@
 		<span class="dn-name">{PROJECT.label}</span>
 	</button>
 	<div class="dn-tree">
-		{#each TREE as n (n.id)}{@render row(n, 0)}{/each}
+		{#each TREE as n (n.id)}{@render row(n, 0, undefined)}{/each}
 	</div>
 </div>
 
-{#snippet row(n: Node, depth: number)}
+<!-- `floor` = the nearest floor ancestor's label: a drawing under it views that floor's model -->
+{#snippet row(n: Node, depth: number, floor: string | undefined)}
 	{#if !search || visible(n)}
 		{@const isOpen = expanded.has(n.id) || (!!search && (n.children?.length ?? 0) > 0)}
 		{#if n.drawing}
 			<!-- drawing leaf: opens a tab -->
 			<!-- single-click = preview tab (italic, reused); double-click promotes it to a kept tab -->
 			<button class="dn-row leaf" class:active={activeTitle === n.label} style:padding-left="{depth * 12 + 8}px"
-				onclick={() => onopen?.({ title: n.label, kind: n.drawing!, preview: true })}
-				ondblclick={() => onopen?.({ title: n.label, kind: n.drawing!, preview: false })}>
+				onclick={() => onopen?.({ title: n.label, kind: n.drawing!, preview: true, floor })}
+				ondblclick={() => onopen?.({ title: n.label, kind: n.drawing!, preview: false, floor })}>
 				<span class="dn-chev spacer"></span>
 				<Icon name={drawingIcon[n.drawing]} size={13} />
 				<span class="dn-name">{n.label}</span>
 			</button>
 		{:else}
-			<!-- location folder: chevron toggles expand; the row selects it (props in right panel) -->
+			<!-- location folder: chevron toggles expand; the row selects it (props in right panel). A FLOOR row
+			     also opens the floor's model tab — single click previews, double click keeps (like a drawing). -->
 			<div class="dn-row folder" class:active={activeNode === n.id} style:padding-left="{depth * 12 + 8}px"
-				onclick={() => onselectnode?.({ id: n.id, label: n.label, kind: n.folder ?? 'folder' })}
+				onclick={() => { onselectnode?.({ id: n.id, label: n.label, kind: n.folder ?? 'folder' }); if (n.folder === 'floor') onopenfloor?.(n.label, true) }}
+				ondblclick={() => { if (n.folder === 'floor') onopenfloor?.(n.label, false) }}
 				role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onselectnode?.({ id: n.id, label: n.label, kind: n.folder ?? 'folder' }) } }}>
 				{#if n.children?.length}
 					<button class="dn-chev" title="Expand/collapse" aria-label="Expand/collapse"
@@ -76,7 +81,7 @@
 				<span class="dn-name">{n.label}</span>
 			</div>
 			{#if isOpen && n.children}
-				{#each n.children as c (c.id)}{@render row(c, depth + 1)}{/each}
+				{#each n.children as c (c.id)}{@render row(c, depth + 1, n.folder === 'floor' ? n.label : floor)}{/each}
 			{/if}
 		{/if}
 	{/if}

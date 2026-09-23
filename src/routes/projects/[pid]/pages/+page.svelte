@@ -32,7 +32,7 @@
 	import { paperDims, scaleDenom, type PaperSize } from './constants'
 	import { PRINT_ID, printCss, applyPrint, removePrint } from './printing'
 	import { translate, type Ent, type ElevDir } from './ui/geometry'
-	import { models, modelById, FLOOR_MODEL_ID, snapModels, setModels } from './3dview/models.svelte'
+	import { models, modelById, floorModelId, FLOOR_MODEL_ID, snapModels, setModels } from './3dview/models.svelte'
 	import { DEFAULT_YAW, DEFAULT_PITCH } from './3dview/projection'
 	import type { Model, Section } from './3dview/types'
 	import { selStore } from './selStore.svelte'
@@ -566,9 +566,9 @@
 		const p = session.panes[pane]; if (!p) return
 		p.activeId = id; session.focused = pane   // selection now lives per doc, so it's preserved
 	}
-	function addTab(kind: Kind = 'plan', title?: string) {
+	function addTab(kind: Kind = 'plan', title?: string, modelId?: number) {
 		const id = newId('t'); ++seq   // seq only numbers 'Untitled N' now (tab ids are nanoid, B13)
-		session.tabs = [...session.tabs, { id, title: title ?? `Untitled ${seq}`, kind, dirty: false }]
+		session.tabs = [...session.tabs, { id, title: title ?? `Untitled ${seq}`, kind, dirty: false, modelId }]
 		if (session.panes[session.focused]) session.panes[session.focused].activeId = id
 	}
 	function closeTab(id: string, e?: Event) {
@@ -688,21 +688,31 @@
 		if (t?.preview) t.preview = false
 		if (session.previewId === id) session.previewId = null
 	}
-	function openDrawing(d: { title: string; kind: Kind; preview?: boolean }) {
+	// `floor` (the navigator floor the drawing sits under, or a palette item's path) picks the model the
+	// drawing views; without one it falls back to FLOOR_MODEL_ID as before.
+	function openDrawing(d: { title: string; kind: Kind; preview?: boolean; floor?: string }) {
+		const modelId = floorModelId(d.floor)
 		const existing = session.tabs.find(t => t.title === d.title)
 		if (existing) { if (!d.preview) promoteTab(existing.id); openTab(existing.id); return }
 		if (d.preview) {
 			const pv = session.tabs.find(t => t.id === session.previewId)
 			// Reuse the preview slot: free the OLD drawing's session/view state BEFORE retitling, so didOf
 			// still resolves to the old drawing (else dropDoc would free the incoming drawing's state — B6).
-			if (pv) { dropDoc(pv.id); pv.title = d.title; pv.kind = d.kind; openTab(pv.id); return }
+			if (pv) { dropDoc(pv.id); pv.title = d.title; pv.kind = d.kind; pv.modelId = modelId; openTab(pv.id); return }
 			const id = newId('t'); ++seq
-			session.tabs = [...session.tabs, { id, title: d.title, kind: d.kind, dirty: false, preview: true }]
+			session.tabs = [...session.tabs, { id, title: d.title, kind: d.kind, dirty: false, preview: true, modelId }]
 			session.previewId = id
 			if (session.panes[session.focused]) session.panes[session.focused].activeId = id
 		} else {
-			addTab(d.kind, d.title)
+			addTab(d.kind, d.title, modelId)
 		}
+	}
+	// A floor in the navigator → its MODEL tab (model space, opening in plan; the ViewCube switches to 3D /
+	// elevations). Single click previews, double click keeps — the same as a drawing.
+	function openFloorModel(floor: string, preview: boolean) {
+		openDrawing({ title: `${floor} · Model`, kind: 'model', preview, floor })
+		const p = session.panes[session.focused]
+		if (p && !viewState.getProj(p.id, p.activeId)) viewState.setProj(p.id, p.activeId, 'plan')
 	}
 	// A place/label in the tree (project, building, floor, …) → edit its props in the right panel.
 	function selectNode(n: { id: string; label: string; kind: string }) {
@@ -713,7 +723,9 @@
 	// ── top-bar drawing-set selectors + Ctrl-K command palette (mock data → mock/data.ts, R10) ──
 	let pkg = $state('Detailed Design'), ver = $state('v3'), rev = $state('B')
 	let paletteOpen = $state(false)
-	function pickPalette(i: PItem) { if (i.kind !== 'place') openDrawing({ title: i.title, kind: i.kind, preview: false }) }
+	// The palette path ('Hibiya · 30F · Zone …') names the floor → the drawing views that floor's model.
+	const floorOfPath = (path?: string) => path?.split(' · ').find((seg) => /^\d+F$/.test(seg))
+	function pickPalette(i: PItem) { if (i.kind !== 'place') openDrawing({ title: i.title, kind: i.kind, preview: false, floor: floorOfPath(i.path) }) }
 	function onGlobalKey(e: KeyboardEvent) {
 		const mod = e.ctrlKey || e.metaKey
 		const tag = (e.target as HTMLElement)?.tagName
@@ -972,7 +984,7 @@
 		<!-- Left sidebar: Drawing Navigator (location tree → drawings/views) -->
 		{#if leftOpen}
 			<aside class="side left">
-				<DrawingNavigator onopen={openDrawing} oncollapse={() => (leftOpen = false)} onselectnode={selectNode}
+				<DrawingNavigator onopen={openDrawing} onopenfloor={openFloorModel} oncollapse={() => (leftOpen = false)} onselectnode={selectNode}
 					activeTitle={active?.title ?? ''} activeNode={session.treeNode?.id ?? ''} />
 			</aside>
 		{:else}
