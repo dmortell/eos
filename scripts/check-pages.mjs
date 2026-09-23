@@ -1,5 +1,6 @@
 // Pre-commit gate for the Pages tool (src/routes/projects/[pid]/pages, review.md §P5):
-//   1. the Pages unit tests (vitest `server` project, pages/ only)
+//   1. the Pages unit tests, pages/ only, BOTH vitest projects (`server` + the browser `client` one that runs
+//      the rune-store `*.svelte.test.ts` files)
 //   2. svelte-check, failing ONLY on errors under pages/ — the rest of the repo carries a known baseline
 //      of errors in other tools (sheets, lib/dev), which must not block a Pages commit.
 // Run it with `pnpm check:pages`; `.githooks/pre-commit` runs it when a commit touches pages/.
@@ -9,7 +10,7 @@ const PAGES = 'src/routes/projects/[pid]/pages'
 const sh = (cmd, opts = {}) => spawnSync(cmd, { shell: true, encoding: 'utf8', ...opts })
 
 console.log('pages gate: unit tests…')
-const tests = sh(`npx vitest run --project server "${PAGES}"`, { stdio: 'inherit' })
+const tests = sh(`npx vitest run "${PAGES}"`, { stdio: 'inherit' })
 if (tests.status !== 0) { console.error('pages gate: unit tests FAILED'); process.exit(1) }
 
 console.log('pages gate: svelte-check (errors under pages/ only)…')
