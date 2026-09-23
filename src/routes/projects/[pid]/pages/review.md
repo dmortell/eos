@@ -384,6 +384,14 @@ Furniture tool already makes a prism. **Action:** delete `box` (and the `ISO`/`b
 if a "sketch box" annotation is wanted, it's a prism on an annotation layer. `'line'` vs
 `'polyline'` (todo §6) and `'circle'` (dead) go at the same time: Line makes a 2-point polyline;
 Ellipse+Shift is the circle.
+**Decision (Dave via eos-07, 2026-09-23) for the remaining half (R4 parts 3–4, eos-18 after R3):**
+`prism` stays the only cuboid but is CALLED "Box" in the UI and docs (code keeps `prism`);
+`'line'` is retired in favour of a 2-point `polyline` with a load-time `migrateEnt` (arrows must
+survive on 2-point polylines); `'circle'` is already gone (part 1). Two seams stay documented for
+later: command-line `LINE` → 2-point polyline, and the DXF `LINE`/`LWPOLYLINE` mapping. Gate: old
+`'line'` seeds render identically after migration (paint diff), and arrows / snaps (end, mid) /
+grips / Shift-15° on 2-point polylines, plus the Line tool, Properties and EntRender no longer
+mentioning `line`.
 
 ### R5. One layer model, per model, with page-space layers for sheets  **[design]**
 Adopt `3dview/types.ts Layer` (id/name/color/visible/locked/weight/opening) as the *only* layer
