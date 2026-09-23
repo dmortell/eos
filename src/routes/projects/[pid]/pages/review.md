@@ -409,6 +409,21 @@ later: command-line `LINE` → 2-point polyline, and the DXF `LINE`/`LWPOLYLINE`
 `'line'` seeds render identically after migration (paint diff), and arrows / snaps (end, mid) /
 grips / Shift-15° on 2-point polylines, plus the Line tool, Properties and EntRender no longer
 mentioning `line`.
+**Part 3 (`840ff65`) — gated PASS (review.md §0a `3829768`).** One leftover eos-f8 flagged for part
+4: `PropertiesPanel.svelte`'s `STROKE_TYPES` still listed `'line'`.
+**Part 4 (eos-18, 2026-09-23):** `PropertiesPanel`'s `MODEL_TYPE_LABEL` now reads `prism: 'Box'`
+(display only — `modelTypeLabel()`'s opening-layer override to "Opening" is unchanged); the
+`STROKE_TYPES` leftover fixed. No other user-visible `'Prism'`/`'prism'` text existed anywhere else
+in the UI (toolbar/prompts/Layers only ever said "furniture"/"wall"/"conduit", never "prism") — so
+this is the only label change. `'circle'` was already fully gone (the one hit, `+page.svelte`'s
+Ellipse tool icon name `'circle'`, is a Lucide icon id, not the retired entity type — left as-is).
+Both documented seams added as code comments: the CLI `LINE` seam in `ui/place.ts` (`buildEnt`,
+next to where the Line tool itself builds a 2-point polyline) and the DXF `LINE`/`LWPOLYLINE` seam
+in `ui/geometry.ts` (on the `Ent` type, next to `pts`). **Per Dave's process change (via eos-f8,
+2026-09-23): eos-f8 is not live-gating further small commits — landing on main with tests/
+svelte-check green and noting gate-relevant details in the commit message, for one batched review
+once all of R4 (and whatever follows) is complete.** Full suite 340/340, svelte-check unchanged
+(10/130) — no behaviour change, so no new tests.
 
 ### R5. One layer model, per model, with page-space layers for sheets  **[design]**
 Adopt `3dview/types.ts Layer` (id/name/color/visible/locked/weight/opening) as the *only* layer

@@ -25,7 +25,11 @@ export const resolveLayer = (mdl: Model | undefined, id: string): string | undef
  *  `PRISM_TOOL` + `prismObj`), 'Section' is B5's clip box, 'Text' is placed by its own editor. */
 export function buildEnt(ctx: ViewCtx, tool: string, a: Pt, b: Pt, opts: { centerDraw: boolean; uid: () => string }): Ent | null {
 	const plane = drawPlane(ctx)
-	if (tool === 'Line') return { id: opts.uid(), type: 'polyline', pts: [a, b], plane }   // R4: a 2-point polyline (the retired 'line' type's replacement)
+	// R4: a 2-point polyline (the retired 'line' type's replacement). SEAM for a future command-line `LINE`
+	// entry (AutoCAD-style typed command instead of a mouse click): it should build the exact same shape —
+	// `{ type: 'polyline', pts: [a, b], plane }` — through this function or a shared helper, not a bespoke
+	// 'line' path, so keyboard- and pointer-drawn lines stay identical entities.
+	if (tool === 'Line') return { id: opts.uid(), type: 'polyline', pts: [a, b], plane }
 	if (tool === 'Dimension') return { id: opts.uid(), type: 'dim', a, b, plane }
 	if (tool === 'Rectangle' || tool === 'Ellipse') {
 		const [ra, rb] = opts.centerDraw ? centerCorners(a, b) : [a, b]

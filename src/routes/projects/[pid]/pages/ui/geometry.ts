@@ -7,6 +7,10 @@ export type TextAlign = 'left' | 'center' | 'right'
 // Style props mirror the Sheets annotation model (fontPt/align/color/fill/weight) so an object can
 // match Sheets' defaults; all optional → unset falls back to the tool defaults (see STYLE_DEFAULTS).
 export type VAlign = 'top' | 'middle' | 'bottom'
+// SEAM for a future DXF import/export (R4, review.md §R4): a DXF `LINE` (2 points) should round-trip as a
+// `polyline` with `pts.length === 2`, and `LWPOLYLINE` as a `polyline` with its full vertex list — the SAME
+// mapping `migrateEnt` (3dview/migrate.ts) already applies to a legacy 'line' ent, so an importer/exporter
+// can reuse that shape directly rather than inventing its own DXF-side entity type.
 export type Ent = { id: string; type: 'rect' | 'ellipse' | 'dim' | 'text' | 'polyline' | 'image'; a?: Pt; b?: Pt; text?: string; pts?: Pt[]; groupId?: string;
 	color?: string; fill?: string; weight?: number; fontPt?: number; align?: TextAlign; valign?: VAlign; layer?: string; rot?: number;
 	// 'image' entity (imported background): src = image URL / data-URL placed in the a→b rect (origin +

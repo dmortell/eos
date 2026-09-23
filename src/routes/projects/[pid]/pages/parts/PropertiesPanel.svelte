@@ -25,7 +25,9 @@
 			/** Scale denominator (the N of 1:N) of the viewport the selection is edited in — sizes the
 			 *  annotative text bbox in model mm (B19). */
 			scaleN?: number } = $props()
-	const MODEL_TYPE_LABEL: Record<string, string> = { prism: 'Prism', wall: 'Wall', conduit: 'Conduit' }
+	// R4 (review.md §R4, Dave's decision 2026-09-23): a prism is CALLED "Box" in the UI — the data/code keep
+	// `type: 'prism'` unchanged, this is a display label only.
+	const MODEL_TYPE_LABEL: Record<string, string> = { prism: 'Box', wall: 'Wall', conduit: 'Conduit' }
 	// A prism on an "opening" layer is a door/window/hole; label it as such.
 	const modelTypeLabel = (o: Obj) => (o.type === 'prism' && modelLayers.find((l) => l.id === o.layer)?.opening ? 'Opening' : MODEL_TYPE_LABEL[o.type] ?? 'Object')
 
@@ -86,7 +88,7 @@
 	const strVal = (e: Event) => (e.currentTarget as HTMLInputElement).value
 
 	// ── style (color / fill / weight / font / align) — applies to the whole selection ──
-	const STROKE_TYPES = new Set(['line', 'polyline', 'dim', 'rect', 'ellipse'])
+	const STROKE_TYPES = new Set(['polyline', 'dim', 'rect', 'ellipse'])
 	const FILL_TYPES = new Set(['rect', 'ellipse', 'polyline'])
 	let anyText = $derived(ents.some((e) => e.type === 'text'))
 	let anyStroke = $derived(ents.some((e) => STROKE_TYPES.has(e.type)))
