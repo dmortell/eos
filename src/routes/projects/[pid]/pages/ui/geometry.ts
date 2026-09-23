@@ -7,6 +7,10 @@ export type TextAlign = 'left' | 'center' | 'right'
 // Style props mirror the Sheets annotation model (fontPt/align/color/fill/weight) so an object can
 // match Sheets' defaults; all optional → unset falls back to the tool defaults (see STYLE_DEFAULTS).
 export type VAlign = 'top' | 'middle' | 'bottom'
+/** A line-end head (XP33). */
+export type Head = 'none' | 'arrow' | 'dot' | 'tick'
+/** A line type (XP32); matches Layer.dash plus dash-dot. */
+export type Dash = 'solid' | 'dashed' | 'dotted' | 'dashdot'
 // SEAM for a future DXF import/export (R4, review.md §R4): a DXF `LINE` (2 points) should round-trip as a
 // `polyline` with `pts.length === 2`, and `LWPOLYLINE` as a `polyline` with its full vertex list — the SAME
 // mapping `migrateEnt` (3dview/migrate.ts) already applies to a legacy 'line' ent, so an importer/exporter
@@ -35,9 +39,13 @@ export type Ent = { id: string; type: 'rect' | 'ellipse' | 'dim' | 'text' | 'pol
 	// CALLOUT (text only): `callout` boxes the text and draws a leader to `leader` (the tip it points at,
 	// model coords). Toggled in Properties; the leader tip has its own grip. Firestore-stable names.
 	callout?: boolean; leader?: Pt;
-	// ARROW (a 2-point polyline — R4: was the retired 'line' type): arrowhead at the start, end, both, or
-	// none (default), using pts[0]/pts[pts.length-1] as the endpoints. Firestore-stable.
-	arrow?: 'none' | 'start' | 'end' | 'both';
+	// LINE ENDS (XP33): the head drawn at each end of a 2-point polyline (pts[0] / pts[last]) or a dimension
+	// (a / b) — 'arrow' | 'dot' | 'tick' | 'none'. Unset = none on a line, arrow on a dimension. Replaced the
+	// old `arrow: 'start' | 'end' | 'both'` (migrateEnt converts it). Firestore-stable.
+	headStart?: Head; headEnd?: Head;
+	// LINE TYPE (XP32): 'solid' | 'dashed' | 'dotted' | 'dashdot'; unset = ByLayer (the layer's `dash`, else
+	// solid) — the same field name as Layer.dash. Firestore-stable.
+	dash?: Dash;
 	// CLOUD (rect): render the rectangle outline as a revision cloud (scalloped arcs). Firestore-stable.
 	cloud?: boolean;
 	// DIMENSION text offset: signed perpendicular distance (mm) of the measured-length text from the dim

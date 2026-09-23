@@ -39,10 +39,17 @@ export const BACKGROUND_LAYER = { id: 'background', name: 'Background', color: '
 // entity is now just a polyline with exactly 2 points). Keeps every other field (color/weight/layer/arrow/
 // groupId/plane/space/rot/…) unchanged — only `type` and the `a`/`b` → `pts` shape change. Idempotent —
 // anything that isn't a `'line'` (including an already-migrated polyline) passes through unchanged.
+// XP33: the old `arrow: 'none' | 'start' | 'end' | 'both'` → per-end `headStart` / `headEnd` ('arrow').
 function migrateEnt(e: any): Ent {
 	if (e.type === 'line') {
 		const { a, b, ...rest } = e
-		return { ...rest, type: 'polyline', pts: [a, b] }
+		e = { ...rest, type: 'polyline', pts: [a, b] }
+	}
+	if ('arrow' in e) {
+		const { arrow, ...rest } = e
+		e = { ...rest }
+		if (arrow === 'start' || arrow === 'both') e.headStart = 'arrow'
+		if (arrow === 'end' || arrow === 'both') e.headEnd = 'arrow'
 	}
 	return e as Ent
 }

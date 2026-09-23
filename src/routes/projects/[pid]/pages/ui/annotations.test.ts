@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { centerCorners, orthoPt, constrainPt, arrowPts, cloudPath, groundPts, sectionArrowFor } from './annotations'
+import { centerCorners, orthoPt, constrainPt, arrowPts, cloudPath, groundPts, sectionArrowFor, headGeom, dashArray } from './annotations'
 import type { Ent } from './geometry'
 import type { Clip } from '../3dview/types'
 
@@ -102,5 +102,30 @@ describe('constrainPt', () => {
 		const q = constrainPt('Dimension', [0, 0], [10, 4], true)   // ~21.8° → 15°
 		expect(Math.atan2(q[1], q[0]) * 180 / Math.PI).toBeCloseTo(15)
 		expect(constrainPt('Polyline', [0, 0], [10, 3], true)).toEqual([10, 3])
+	})
+})
+
+// ── XP33 line-end heads + XP32 line types ──
+describe('headGeom (XP33)', () => {
+	it('none / unset draw nothing; arrow reuses arrowPts; dot sits on the end point', () => {
+		expect(headGeom(undefined, [0, 0], [10, 0], 3.5)).toBeNull()
+		expect(headGeom('none', [0, 0], [10, 0], 3.5)).toBeNull()
+		expect(headGeom('arrow', [0, 0], [10, 0], 3.5)).toEqual({ kind: 'arrow', pts: arrowPts([0, 0], [10, 0], 3.5) })
+		expect(headGeom('dot', [0, 0], [10, 0], 4)).toEqual({ kind: 'dot', c: [10, 0], r: 1.2 })
+	})
+	it('a tick is a 45° slash centred on the end point, `size` long', () => {
+		const g = headGeom('tick', [0, 0], [10, 0], 4)!
+		if (g.kind !== 'tick') throw new Error('tick')
+		expect((g.a[0] + g.b[0]) / 2).toBeCloseTo(10); expect((g.a[1] + g.b[1]) / 2).toBeCloseTo(0)
+		expect(Math.hypot(g.b[0] - g.a[0], g.b[1] - g.a[1])).toBeCloseTo(4)
+		expect(Math.abs(g.b[0] - g.a[0])).toBeCloseTo(Math.abs(g.b[1] - g.a[1]))   // 45°
+	})
+})
+describe('dashArray (XP32)', () => {
+	it('solid / unset → no dasharray; patterns are screen px ÷ canvas zoom', () => {
+		expect(dashArray(undefined)).toBeUndefined()
+		expect(dashArray('solid')).toBeUndefined()
+		expect(dashArray('dashed')).toBe('6 4')
+		expect(dashArray('dashdot', 2)).toBe('4 1.5 0.5 1.5')
 	})
 })

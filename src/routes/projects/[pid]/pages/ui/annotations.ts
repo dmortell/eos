@@ -1,7 +1,7 @@
 // Pure annotation geometry — the first module extracted from ui/Viewport.svelte (review.md §R1, step 1).
 // These take their size as an explicit argument instead of reading the component's `paperMm` closure, so
 // they are unit-testable and shared by the render snippets, PaperPage and (future) print.
-import type { Pt, Ent, ElevDir } from './geometry'
+import type { Pt, Ent, ElevDir, Head, Dash } from './geometry'
 import type { Clip } from '../3dview/types'
 
 /** Centre-out draw: given the centre `c` and the dragged corner `p`, the opposite corner is mirrored. */
@@ -40,6 +40,28 @@ export function arrowPts(from: Pt, to: Pt, size: number): string {
 /** A REVISION CLOUD outline around the a→b rect: outward semicircle bumps along each edge. Clockwise
  *  winding (TL→TR→BR→BL) with sweep-flag 1 keeps every bump OUTSIDE (matches sheets/annotations cloudPath).
  *  `bump` = target bump diameter in MODEL units (callers pass ~4·paperMm). Returns an SVG path. */
+/** The head at `to` for a line coming from `from` (XP33), sized in model mm (`size` = 3.5 paper mm ×
+ *  paperMm, like the arrows): a filled ARROW, a filled DOT, or an architectural TICK (a 45° slash through
+ *  the end point). null for 'none' / unset. */
+export type HeadGeom = { kind: 'arrow'; pts: string } | { kind: 'dot'; c: Pt; r: number } | { kind: 'tick'; a: Pt; b: Pt }
+export function headGeom(head: Head | undefined, from: Pt, to: Pt, size: number): HeadGeom | null {
+	if (!head || head === 'none') return null
+	if (head === 'arrow') return { kind: 'arrow', pts: arrowPts(from, to, size) }
+	if (head === 'dot') return { kind: 'dot', c: to, r: size * 0.3 }
+	const dx = to[0] - from[0], dy = to[1] - from[1], len = Math.hypot(dx, dy) || 1
+	const ux = dx / len, uy = dy / len, h = (size * 0.5) / Math.SQRT2   // half-length size/2 → a `size`-long slash at 45°
+	const tx = (ux - uy) * h, ty = (uy + ux) * h
+	return { kind: 'tick', a: [to[0] - tx, to[1] - ty], b: [to[0] + tx, to[1] + ty] }
+}
+
+/** SVG stroke-dasharray for a line type (XP32), in SCREEN px (strokes are non-scaling), ÷ the ancestor CSS
+ *  canvas zoom like the lineweights. undefined = solid. */
+const DASHES: Record<Exclude<Dash, 'solid'>, number[]> = { dashed: [6, 4], dotted: [1, 3], dashdot: [8, 3, 1, 3] }
+export function dashArray(dash: Dash | undefined, canvasZoom = 1): string | undefined {
+	if (!dash || dash === 'solid') return undefined
+	return DASHES[dash].map((v) => v / (canvasZoom || 1)).join(' ')
+}
+
 export function cloudPath(a: Pt, b: Pt, bump: number): string {
 	const x0 = Math.min(a[0], b[0]), y0 = Math.min(a[1], b[1]), x1 = Math.max(a[0], b[0]), y1 = Math.max(a[1], b[1])
 	const D = Math.max(bump, 1)

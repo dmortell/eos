@@ -12,6 +12,7 @@
 	// `weight`), so lineweight is a paper property independent of the drawing scale/zoom.
 	import { project, objBounds, faces3d, isoR, isoDepthR, trimToClip, doorGeom, isoBounds, viewMap, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 	import { BASIS } from './types'
+	import { dashArray } from '../ui/annotations'
 	import type { Model, Obj, Dir, Clip } from './types'
 
 	let { model, adapt, frozen = [], dir = 'plan', cx = 0, cy = 0, ground = 0, defaultWeight = 1, selIds = [], canvasZoom = 1, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH }:
@@ -29,6 +30,8 @@
 	// screen px (non-scaling-stroke cancels SVG transforms; ÷ canvasZoom cancels the ancestor CSS canvas
 	// zoom too, so the lineweight is a constant screen-px value — matching how entities render).
 	const weightOf = (o: Obj) => ((isSel(o) ? (layerOf(o)?.weight ?? defaultWeight) + 1.2 : layerOf(o)?.weight ?? defaultWeight) / (canvasZoom || 1))
+	// XP32: an object draws with its layer's line type (plan / elevation outlines; iso faces stay solid).
+	const dashOf = (o: Obj) => dashArray(layerOf(o)?.dash, canvasZoom)
 	const visible = (o: Obj) => { const l = layerOf(o); return (!l || l.visible) && !(o.layer && frozen.includes(o.layer)) }
 
 	// Iso projects the model AROUND the ground pivot with a yaw/pitch, so the projected content isn't
@@ -138,9 +141,9 @@
 			{@const lw = weightOf(o)}
 			{#each project(to, dir, yaw, pitch, cx, cy) as s, i (i)}
 				{#if s.closed}
-					<polygon points={s.pts.map((p) => `${p.u},${p.v}`).join(' ')} fill="none" stroke={col} stroke-width={lw} vector-effect="non-scaling-stroke" />
+					<polygon points={s.pts.map((p) => `${p.u},${p.v}`).join(' ')} fill="none" stroke={col} stroke-width={lw} stroke-dasharray={dashOf(o)} vector-effect="non-scaling-stroke" />
 				{:else}
-					<polyline points={s.pts.map((p) => `${p.u},${p.v}`).join(' ')} fill="none" stroke={col} stroke-width={lw} vector-effect="non-scaling-stroke" />
+					<polyline points={s.pts.map((p) => `${p.u},${p.v}`).join(' ')} fill="none" stroke={col} stroke-width={lw} stroke-dasharray={dashOf(o)} vector-effect="non-scaling-stroke" />
 				{/if}
 			{/each}
 		{/if}

@@ -75,7 +75,13 @@ describe('migrateModels — R4 line→polyline ent migration', () => {
 
 	it('converts a legacy line ent to a 2-point polyline, keeping every other field', () => {
 		const [m] = migrateModels([{ id: 1, name: 'm', objects: [], ents: [legacyLine as never] }])
-		expect(m.ents?.[0]).toEqual({ id: 'l1', type: 'polyline', pts: [[0, 0], [10, 10]], color: '#f00', arrow: 'end' })
+		// XP33: the old `arrow` also becomes per-end heads
+		expect(m.ents?.[0]).toEqual({ id: 'l1', type: 'polyline', pts: [[0, 0], [10, 10]], color: '#f00', headEnd: 'arrow' })
+	})
+	it('XP33: arrow start / both / none → headStart / headEnd; the old field is dropped', () => {
+		const ents = [{ id: 's', type: 'polyline', pts: [[0, 0], [1, 1]], arrow: 'start' }, { id: 'b', type: 'polyline', pts: [[0, 0], [1, 1]], arrow: 'both' }, { id: 'n', type: 'polyline', pts: [[0, 0], [1, 1]], arrow: 'none' }]
+		const [m] = migrateModels([{ id: 1, name: 'm', objects: [], ents: ents as never[] }])
+		expect(m.ents!.map((e) => [e.headStart, e.headEnd, 'arrow' in e])).toEqual([['arrow', undefined, false], ['arrow', 'arrow', false], [undefined, undefined, false]])
 	})
 	it('leaves a non-line ent (already a polyline, or another type) unchanged, by reference', () => {
 		const poly = { id: 'p1', type: 'polyline', pts: [[0, 0], [1, 1], [2, 0]] }

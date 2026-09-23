@@ -9,12 +9,12 @@
 	// entity → `<g transform="rotate(…)">` around `drawn`) lives here too, so the caller renders
 	// `<EntRender {e} {ctx} …/>` per entity; the loop's FILTER (inline-edited text, hidden layer, inThisView)
 	// stays with the caller. Tool UI (`preview`, `drawDot`, `crosshair` snippets) stays in the Viewport.
-	import type { Pt, Ent } from '../geometry'
+	import type { Pt, Ent, Dash } from '../geometry'
 	import type { ViewCtx } from '../view'
 	import { STYLE_DEFAULTS, textBox } from '../geometry'
 	import { PT_MM } from '../../constants'
 	import { isFlatElev, flatXSpan, rotCenter, rotatePt, groundInIso } from '../hit'
-	import { arrowPts, cloudPath, groundPts } from '../annotations'
+	import { arrowPts, cloudPath, groundPts, headGeom, dashArray, type HeadGeom } from '../annotations'
 	import { imageSrc } from '../../imageStore'
 
 	let { e, ctx, selected = false, style, isoGround = null, imgCrop = null, clipNs }: {
@@ -37,6 +37,8 @@
 			sel: string
 			/** A layer's colour by id (ByLayer resolution: object colour → layer colour → ink). */
 			layerColor: (id?: string) => string | undefined
+			/** A layer's line type by id (XP32 ByLayer dash). */
+			layerDash?: (id?: string) => Dash | undefined
 			/** B31: dark model space — maps a resolved colour to one that reads on the dark background. */
 			adapt?: (c: string) => string
 		}
@@ -54,6 +56,8 @@
 	// set (on = the default 1.2, off = a thin 0.5 display line).
 	const w = $derived((e.weight ?? (style.lwt ? STYLE_DEFAULTS.weight : 0.5)) / (style.canvasZoom || 1))
 	const fill = $derived(e.fill ?? 'none')
+	// XP32: the object's own line type, else its layer's (ByLayer) — screen-px dashes, like the weights.
+	const da = $derived(dashArray(e.dash ?? style.layerDash?.(e.layer), style.canvasZoom))
 	const paperMm = $derived(style.paperMm)
 	const canvasZoom = $derived(style.canvasZoom)
 	const SEL = $derived(style.sel)
@@ -83,13 +87,19 @@
 	{@render drawn()}
 {/if}
 
+{#snippet head(g: HeadGeom | null, col: string)}
+	{#if g?.kind === 'arrow'}<polygon points={g.pts} fill={col} />
+	{:else if g?.kind === 'dot'}<circle cx={g.c[0]} cy={g.c[1]} r={g.r} fill={col} />
+	{:else if g?.kind === 'tick'}<line x1={g.a[0]} y1={g.a[1]} x2={g.b[0]} y2={g.b[1]} stroke={col} stroke-width={w * 1.6} vector-effect="non-scaling-stroke" />{/if}
+{/snippet}
+
 {#snippet drawn()}
 	<!-- Selection is shown by the grips, NOT by recolouring/thickening the stroke — so colour and
 	     lineweight edits are visible live while the object stays selected. -->
 	{#if isFlatElev(ctx, e)}
 		<!-- any flat (z=0, no height) object seen in elevation is an edge-on line at the ground -->
 		{@const sp = flatXSpan(ctx, e)}
-		<line x1={sp[0]} y1={ctx.ground} x2={sp[1]} y2={ctx.ground} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
+		<line x1={sp[0]} y1={ctx.ground} x2={sp[1]} y2={ctx.ground} stroke={ink} stroke-width={w} stroke-dasharray={da} vector-effect="non-scaling-stroke" />
 	{:else if e.type === 'image'}
 		<!-- an imported background image placed FULL in the a→b rect (origin + scale); CROP is the visible
 		     WINDOW = a normalized sub-rect of that placement (the rest is trimmed away). -->
@@ -102,23 +112,22 @@
 		<image href={imageSrc(e.src)} x={rx} y={ry} width={rw} height={rh} opacity={e.opacity ?? 1} clip-path="url(#{clipNs}-{e.id})" preserveAspectRatio="none" />
 		{#if cropping}<rect x={rx + cr.x * rw} y={ry + cr.y * rh} width={cr.w * rw} height={cr.h * rh} fill="none" stroke={SEL} stroke-width={1 / (canvasZoom || 1)} stroke-dasharray="{5 / (canvasZoom || 1)} {3 / (canvasZoom || 1)}" vector-effect="non-scaling-stroke" />{/if}
 	{:else if e.type === 'polyline'}
-		<polyline points={(e.pts ?? []).map(p => p.join(',')).join(' ')} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" stroke-linejoin="round" />
-		<!-- R4: a straight 2-point polyline is the retired 'line' type's replacement — arrows carry over the
-		     same way, anchored on its first/last point (a 3+-point polyline never has `arrow` set via
-		     Properties, but nothing stops one at the data level, so this isn't gated on pts.length). -->
+		<polyline points={(e.pts ?? []).map(p => p.join(',')).join(' ')} fill={fill} stroke={ink} stroke-width={w} stroke-dasharray={da} vector-effect="non-scaling-stroke" stroke-linejoin="round" />
+		<!-- XP33: a head at each end (arrow / dot / tick), anchored on the first / last point. Properties only
+		     offers them on a 2-point line, but nothing stops one at the data level, so this isn't gated. -->
 		{#if (e.pts?.length ?? 0) >= 2}
 			{@const p0 = e.pts![0]}{@const p1 = e.pts![e.pts!.length - 1]}
-			{#if e.arrow === 'end' || e.arrow === 'both'}<polygon points={arrowPts(p0, p1, 3.5 * paperMm)} fill={ink} />{/if}
-			{#if e.arrow === 'start' || e.arrow === 'both'}<polygon points={arrowPts(p1, p0, 3.5 * paperMm)} fill={ink} />{/if}
+			{@render head(headGeom(e.headEnd, p0, p1, 3.5 * paperMm), ink)}
+			{@render head(headGeom(e.headStart, p1, p0, 3.5 * paperMm), ink)}
 		{/if}
 	{:else if e.type === 'rect'}
 		{#if e.cloud}
 			<path d={cloudPath(e.a!, e.b!, 4 * paperMm)} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" stroke-linejoin="round" />
 		{:else}
-			<rect x={Math.min(e.a![0], e.b![0])} y={Math.min(e.a![1], e.b![1])} width={Math.abs(e.b![0] - e.a![0])} height={Math.abs(e.b![1] - e.a![1])} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
+			<rect x={Math.min(e.a![0], e.b![0])} y={Math.min(e.a![1], e.b![1])} width={Math.abs(e.b![0] - e.a![0])} height={Math.abs(e.b![1] - e.a![1])} fill={fill} stroke={ink} stroke-width={w} stroke-dasharray={da} vector-effect="non-scaling-stroke" />
 		{/if}
 	{:else if e.type === 'ellipse'}
-		<ellipse cx={(e.a![0] + e.b![0]) / 2} cy={(e.a![1] + e.b![1]) / 2} rx={Math.abs(e.b![0] - e.a![0]) / 2} ry={Math.abs(e.b![1] - e.a![1]) / 2} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
+		<ellipse cx={(e.a![0] + e.b![0]) / 2} cy={(e.a![1] + e.b![1]) / 2} rx={Math.abs(e.b![0] - e.a![0]) / 2} ry={Math.abs(e.b![1] - e.a![1]) / 2} fill={fill} stroke={ink} stroke-width={w} stroke-dasharray={da} vector-effect="non-scaling-stroke" />
 	{:else if e.type === 'dim'}
 		<!-- a real dimension: dim line with arrowheads, perpendicular extension ticks, and the measured
 		     length (mm) set above the line, aligned to it, at a constant on-screen size. -->
@@ -134,9 +143,10 @@
 		{@const my = A[1] + uy * len * t + py * off}
 		{@const ang = Math.atan2(uy, ux) * 180 / Math.PI}
 		{@const rang = ang > 90 || ang < -90 ? ang + 180 : ang}
-		<line x1={A[0]} y1={A[1]} x2={B[0]} y2={B[1]} stroke={col} stroke-width={w} vector-effect="non-scaling-stroke" />
-		<polygon points={arrowPts(B, A, 3.5 * paperMm)} fill={col} />
-		<polygon points={arrowPts(A, B, 3.5 * paperMm)} fill={col} />
+		<line x1={A[0]} y1={A[1]} x2={B[0]} y2={B[1]} stroke={col} stroke-width={w} stroke-dasharray={da} vector-effect="non-scaling-stroke" />
+		<!-- XP33: a dimension's ends default to ARROW; each end can be arrow / dot / tick / none -->
+		{@render head(headGeom(e.headStart ?? 'arrow', B, A, 3.5 * paperMm), col)}
+		{@render head(headGeom(e.headEnd ?? 'arrow', A, B, 3.5 * paperMm), col)}
 		<line x1={A[0] - px * tk} y1={A[1] - py * tk} x2={A[0] + px * tk} y2={A[1] + py * tk} stroke={col} stroke-width={w} vector-effect="non-scaling-stroke" />
 		<line x1={B[0] - px * tk} y1={B[1] - py * tk} x2={B[0] + px * tk} y2={B[1] + py * tk} stroke={col} stroke-width={w} vector-effect="non-scaling-stroke" />
 		<text class="anno" x={mx} y={my} font-size={2.5 * paperMm} fill={col} text-anchor="middle" transform="rotate({rang} {mx} {my})">{Math.round(len)}</text>

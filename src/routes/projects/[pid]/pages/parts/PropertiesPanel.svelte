@@ -4,7 +4,7 @@
 	// common props (bbox X/Y/W/H) and edits apply to all. Falls back to page/general props
 	// when nothing is selected. Geometry is in model units (mock).
 	import { Icon, ColorPicker } from '$lib'
-	import { translate, textBox, STYLE_DEFAULTS, type Ent, type Pt, type TextAlign, type VAlign } from '../ui/geometry'
+	import { translate, textBox, STYLE_DEFAULTS, type Ent, type Pt, type TextAlign, type VAlign, type Head, type Dash } from '../ui/geometry'
 	import { PT_MM } from '../constants'
 	import { COLORS } from '../palette'
 	import { imgEdit, setImgMode } from '../imageEdit.svelte'
@@ -301,14 +301,18 @@
 			<div class="prop-sec">RECT</div>
 			<label class="prop cb"><span>Revision cloud</span><input type="checkbox" checked={!!single.cloud} onchange={(e) => setAll({ cloud: (e.currentTarget as HTMLInputElement).checked })} /></label>
 		{/if}
-		{#if single?.type === 'polyline' && (single.pts?.length ?? 0) === 2}
-			<!-- R4: a straight 2-point polyline is the retired 'line' type's replacement — same Arrows UI. -->
-			<div class="prop-sec">LINE</div>
-			<div class="prop"><span>Arrows</span>
-				<select value={single.arrow ?? 'none'} onchange={(e) => setAll({ arrow: (e.currentTarget as HTMLSelectElement).value as Ent['arrow'] })}>
-					<option value="none">None</option><option value="start">Start</option><option value="end">End</option><option value="both">Both</option>
-				</select>
-			</div>
+		{#if (single?.type === 'polyline' && (single.pts?.length ?? 0) === 2) || single?.type === 'dim'}
+			<!-- XP33: a head per end (arrow / dot / tick / none) — a 2-point line defaults to none, a dimension
+			     to arrow. (R4: a straight 2-point polyline is the retired 'line' type's replacement.) -->
+			{@const dflt = single.type === 'dim' ? 'arrow' : 'none'}
+			<div class="prop-sec">{single.type === 'dim' ? 'DIMENSION' : 'LINE'}</div>
+			{#each [['Start', 'headStart'], ['End', 'headEnd']] as const as [lbl, key] (key)}
+				<div class="prop"><span>{lbl}</span>
+					<select value={single[key] ?? dflt} onchange={(e) => setAll({ [key]: (e.currentTarget as HTMLSelectElement).value as Head })}>
+						<option value="none">None</option><option value="arrow">Arrow</option><option value="dot">Dot</option><option value="tick">Tick</option>
+					</select>
+				</div>
+			{/each}
 		{/if}
 		{#if single?.type === 'image'}
 			<!-- imported file: origin = Position, scale = Size (above); here opacity (for tracing) + CROP
@@ -356,6 +360,12 @@
 			<ColorPicker value={cc('color') as string | undefined} colors={COLORS} allowByLayer mixed={mixedColor} onchange={(v) => setAll({ color: v })} />
 		</div>
 		{#if anyStroke}
+			<!-- XP32: line type; ByLayer = the layer's own dash (unset) -->
+			<div class="prop"><span>Line type</span>
+				<select class="navf" value={(cc('dash') as string | undefined) ?? ''} onkeydown={fnav} onchange={(e) => setAll({ dash: (strVal(e) || undefined) as Dash | undefined })}>
+					<option value="">ByLayer</option><option value="solid">Solid</option><option value="dashed">Dashed</option><option value="dotted">Dotted</option><option value="dashdot">Dash-dot</option>
+				</select>
+			</div>
 			<div class="prop"><span>Weight</span><input class="navf" type="number" min="0.1" step="0.1" value={(cc('weight') as number | undefined) ?? STYLE_DEFAULTS.weight} onkeydown={fnav} onchange={(e) => setAll({ weight: Math.max(0.1, num(e)) })} /></div>
 		{/if}
 		{#if anyFillable}

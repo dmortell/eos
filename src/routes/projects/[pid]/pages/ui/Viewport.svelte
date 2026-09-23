@@ -124,6 +124,7 @@
 	const isLayerLocked = (id?: string) => lsLocked(mls, id)
 	const layerColor = (id?: string) => lsColor(mls, id)
 	const layerOrder = (id?: string) => lsOrder(mls, id)
+	const layerDash = (id?: string) => (id ? mls.find((l) => l.id === id)?.dash : undefined)   // XP32 ByLayer line type
 	const viewGuides = $derived(viewSpace ? (mdl?.guides ?? []).filter((g) => g.plane === viewSpace) : [])
 	const GUIDE_SPAN = 1e7   // guides render as full-view lines (spanning far past the viewport)
 	// Polyline-style tools (click points, Enter/dbl-click to finish). Line makes an entity; Wall/Trunk/Pipe
@@ -822,8 +823,8 @@
 	// ONCE so every entity gets the same reference (one derived, not one object per entity per paint).
 	// B31: on dark model space the ByLayer ink is light and too-dark colours are lifted (ui/modelSpace.ts).
 	const entStyle = $derived(modelSpace
-		? { lwt, canvasZoom, paperMm, gripSize, ink: MODEL_SPACE_INK, sel: SEL, layerColor, adapt: onDark }
-		: { lwt, canvasZoom, paperMm, gripSize, ink: INK, sel: SEL, layerColor })
+		? { lwt, canvasZoom, paperMm, gripSize, ink: MODEL_SPACE_INK, sel: SEL, layerColor, layerDash, adapt: onDark }
+		: { lwt, canvasZoom, paperMm, gripSize, ink: INK, sel: SEL, layerColor, layerDash })
 	// Project a plan point (x,y,0) to iso DRAWING coords, matching how the model renders (isoR + the same
 	// bounds-centring as Model3d / hitModelIso). Null off iso. Used to lay plan 2D shapes on the ground.
 	// P4: the iso pick faces, projected once per model / orbit / layer change instead of on every click.
