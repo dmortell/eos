@@ -380,6 +380,16 @@ branches (`:365-368`) and Properties has five (`PropertiesPanel.svelte:135-286`)
 the editor with `selectOnly/toggle/clear`, one `pickAt()` (R1 `hit.ts`) returning the same
 shape, and one `deleteSelection()`. Sheets' `SelectionCoordinator` is the same idea; Pages
 doesn't need the multi-editor part because one editor owns the model.
+**Close-out (eos-18, 2026-09-23):** landed as commit 1 (`67f3368`, pure model) → 2a (`e5dda75`,
+entity + obj/guide wiring, per-viewport `selStore`) → 2b (`c9d6ff0` + fix `713422f` for B29) →
+commit 3 (`ca7f2cb`, section/node/frame folded in, `deleteSelAt` is the one `deleteSelection()`).
+**Deliberate deviation from the original Action, accepted by eos-07:** `PropertiesPanel.svelte`
+keeps its five separate resolved-object props (`ents`/`modelObj`/`frameObj`/`node`) rather than
+taking `Selection` + resolvers — its existing truthy-chain already resolves to the right branch
+per kind now that the underlying data is genuinely mutually exclusive (commit 3's `paperEditor`
+fix), so reshaping the props would be a purely internal refactor with no behaviour change. Revisit
+only if a future kind (e.g. a dedicated guide/section Properties view) needs the panel to branch
+on something the resolved objects can't express.
 
 ### R4. Retire the second 3D box and the second line type  **[design]**
 `Ent.type 'box'` (mock cuboid) duplicates `Prism`: its own elevation face (`boxElev`,
