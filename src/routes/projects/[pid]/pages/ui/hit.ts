@@ -208,34 +208,51 @@ export function hitModel(ctx: ViewCtx, p: Pt, thrMm: number, ml: MLayers): strin
 	return null
 }
 
-/** 3D (iso) PICK: the frontmost object whose projected 3D face contains p — reproduces Model3d's iso
- *  projection (isoR + the centring xform) and picks the smallest camera depth AT the click point. */
-export function hitModelIso(ctx: ViewCtx, p: Pt, ml: MLayers): string | null {
+/** One pickable iso face: its object, its drawing-space polygon and the camera depth of its first three
+ *  corners (depth is affine across the face, so these three interpolate it at any point inside). */
+export type IsoPickFace = { id: string; pts: Pt[]; z: [number, number, number] }
+
+/** Every pickable (visible, unlocked) object's 3D faces, projected with Model3d's iso mapping (R7
+ *  `viewMapOf` — camera + content-box centring). P4: the Viewport computes this ONCE per model / orbit /
+ *  layer change (a `$derived`) instead of re-projecting every face of every object on each click. */
+export function isoPickFaces(ctx: ViewCtx, ml: MLayers): IsoPickFace[] {
 	const mdl = ctx.mdl
-	if (!mdl) return null
-	const b = isoBounds(mdl.objects, ctx.yaw, ctx.pitch, ctx.cx, ctx.cy, ml.visible); if (!b) return null
-	const vm = viewMapOf(ctx, b)   // R7: Model3d's iso mapping (camera + content-box centring)
-	const D = (v: { x: number; y: number; z: number }): Pt => vm.toDraw(v)
-	let best: string | null = null, bestDepth = Infinity
+	if (!mdl) return []
+	const b = isoBounds(mdl.objects, ctx.yaw, ctx.pitch, ctx.cx, ctx.cy, ml.visible); if (!b) return []
+	const vm = viewMapOf(ctx, b)
+	const depth = (v: { x: number; y: number; z: number }) => isoDepthR(v, ctx.yaw, ctx.pitch, ctx.cx, ctx.cy)
+	const out: IsoPickFace[] = []
 	for (const o of mdl.objects) {
 		if (!o.id || !ml.visible(o) || ml.locked(o)) continue
 		for (const f of faces3d(o)) {
 			if (f.pts.length < 3) continue
-			const D3 = f.pts.map(D)
-			if (!inPoly(p, D3)) continue
-			// True depth AT the click point (depth is affine in the projected plane): interpolate from the
-			// first 3 verts so a big face no longer beats a nearer small one.
-			const d0 = D3[0], d1 = D3[1], d2 = D3[2]
-			const v0x = d1[0] - d0[0], v0y = d1[1] - d0[1], v1x = d2[0] - d0[0], v1y = d2[1] - d0[1]
-			const den = v0x * v1y - v1x * v0y; if (Math.abs(den) < 1e-6) continue
-			const v2x = p[0] - d0[0], v2y = p[1] - d0[1]
-			const bb = (v2x * v1y - v1x * v2y) / den, cc = (v0x * v2y - v2x * v0y) / den
-			const z0 = isoDepthR(f.pts[0], ctx.yaw, ctx.pitch, ctx.cx, ctx.cy), z1 = isoDepthR(f.pts[1], ctx.yaw, ctx.pitch, ctx.cx, ctx.cy), z2 = isoDepthR(f.pts[2], ctx.yaw, ctx.pitch, ctx.cx, ctx.cy)
-			const depth = (1 - bb - cc) * z0 + bb * z1 + cc * z2
-			if (depth < bestDepth) { bestDepth = depth; best = o.id }
+			out.push({ id: o.id, pts: f.pts.map((v) => vm.toDraw(v)), z: [depth(f.pts[0]), depth(f.pts[1]), depth(f.pts[2])] })
 		}
 	}
+	return out
+}
+
+/** 3D (iso) PICK over precomputed faces: the frontmost object whose face contains p — the smallest camera
+ *  depth AT the click point, so a big face no longer beats a nearer small one. */
+export function hitIsoFaces(faces: IsoPickFace[], p: Pt): string | null {
+	let best: string | null = null, bestDepth = Infinity
+	for (const f of faces) {
+		if (!inPoly(p, f.pts)) continue
+		const d0 = f.pts[0], d1 = f.pts[1], d2 = f.pts[2]
+		const v0x = d1[0] - d0[0], v0y = d1[1] - d0[1], v1x = d2[0] - d0[0], v1y = d2[1] - d0[1]
+		const den = v0x * v1y - v1x * v0y; if (Math.abs(den) < 1e-6) continue
+		const v2x = p[0] - d0[0], v2y = p[1] - d0[1]
+		const bb = (v2x * v1y - v1x * v2y) / den, cc = (v0x * v2y - v2x * v0y) / den
+		const depth = (1 - bb - cc) * f.z[0] + bb * f.z[1] + cc * f.z[2]
+		if (depth < bestDepth) { bestDepth = depth; best = f.id }
+	}
 	return best
+}
+
+/** 3D (iso) PICK in one call — `isoPickFaces` + `hitIsoFaces` (tests / one-off callers; the Viewport keeps
+ *  the faces in a `$derived`). */
+export function hitModelIso(ctx: ViewCtx, p: Pt, ml: MLayers): string | null {
+	return hitIsoFaces(isoPickFaces(ctx, ml), p)
 }
 
 // ── section markers, guides, marquee ──

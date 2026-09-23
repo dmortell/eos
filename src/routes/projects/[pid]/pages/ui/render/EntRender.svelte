@@ -15,6 +15,7 @@
 	import { PT_MM } from '../../constants'
 	import { isFlatElev, flatXSpan, rotCenter, rotatePt, groundInIso } from '../hit'
 	import { arrowPts, cloudPath, groundPts } from '../annotations'
+	import { imageSrc } from '../../imageStore'
 
 	let { e, ctx, selected = false, style, isoGround = null, imgCrop = null, clipNs }: {
 		e: Ent
@@ -97,8 +98,8 @@
 		{@const cr = e.crop ?? { x: 0, y: 0, w: 1, h: 1 }}
 		{@const cropping = imgCrop === e.id}
 		<clipPath id="{clipNs}-{e.id}"><rect x={rx + cr.x * rw} y={ry + cr.y * rh} width={cr.w * rw} height={cr.h * rh} /></clipPath>
-		{#if cropping}<image href={e.src} x={rx} y={ry} width={rw} height={rh} opacity="0.35" preserveAspectRatio="none" />{/if}
-		<image href={e.src} x={rx} y={ry} width={rw} height={rh} opacity={e.opacity ?? 1} clip-path="url(#{clipNs}-{e.id})" preserveAspectRatio="none" />
+		{#if cropping}<image href={imageSrc(e.src)} x={rx} y={ry} width={rw} height={rh} opacity="0.35" preserveAspectRatio="none" />{/if}
+		<image href={imageSrc(e.src)} x={rx} y={ry} width={rw} height={rh} opacity={e.opacity ?? 1} clip-path="url(#{clipNs}-{e.id})" preserveAspectRatio="none" />
 		{#if cropping}<rect x={rx + cr.x * rw} y={ry + cr.y * rh} width={cr.w * rw} height={cr.h * rh} fill="none" stroke={SEL} stroke-width={1 / (canvasZoom || 1)} stroke-dasharray="{5 / (canvasZoom || 1)} {3 / (canvasZoom || 1)}" vector-effect="non-scaling-stroke" />{/if}
 	{:else if e.type === 'polyline'}
 		<polyline points={(e.pts ?? []).map(p => p.join(',')).join(' ')} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" stroke-linejoin="round" />

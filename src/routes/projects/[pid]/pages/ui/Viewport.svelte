@@ -26,7 +26,7 @@
 	import type { ViewCtx } from './view'
 	import { pickSectionGrip as gPickSectionGrip, modelGrips as gModelGrips, pickModelGrip as gPickModelGrip, gripsFor as gGripsFor, constrainGrip, type MGrip, type Grip, type GripOpts } from './grips'
 	import { SNAP_STEP, snapToGrid, rndTo, snapDelta as sSnapDelta, findSnap as sFindSnap, drawPoint as sDrawPoint, snapNode as sSnapNode, graphNodeApply as sGraphNodeApply, elevDepthSnap as sElevDepthSnap } from './snap'
-	import { rotatePt, inThisView as hInThisView, groundInIso, rotCenter, bbox as hBbox, hitEnt as hHitEnt, pickable as hPickable, prismTilted, graphNodeDraw as hGraphNodeDraw, hitModel as hHitModel, hitModelIso, viewMapOf as hViewMapOf, sectionCorners, hitSection as hHitSection, hitGuide as hHitGuide, marqueeSelect as hMarqueeSelect, type GN } from './hit'
+	import { rotatePt, inThisView as hInThisView, groundInIso, rotCenter, bbox as hBbox, hitEnt as hHitEnt, pickable as hPickable, prismTilted, graphNodeDraw as hGraphNodeDraw, hitModel as hHitModel, isoPickFaces, hitIsoFaces, viewMapOf as hViewMapOf, sectionCorners, hitSection as hHitSection, hitGuide as hHitGuide, marqueeSelect as hMarqueeSelect, type GN } from './hit'
 	import { isLayerHidden as lsHidden, isLayerLocked as lsLocked, layerColor as lsColor, layerOrder as lsOrder } from '../layers.svelte'
 	import Model3d from '../3dview/Model3d.svelte'
 	import { MODEL_SPACE_INK, onDark } from './modelSpace'
@@ -259,7 +259,7 @@
 		if (tool === 'Select') {
 			const p = toLocal(e); if (!p) return
 			if (kind === 'iso') {   // 3D view: click a shape to select it for the Properties panel (no in-view grips yet)
-				const mid = hitModelIso(ctx, p, mlayers); if (mid) selectObj(mid); else clearSel()
+				const mid = hitIsoFaces(isoFaces, p); if (mid) selectObj(mid); else clearSel()
 				return
 			}
 			// B25: a Shift-press toggles the entity that was PRESSED (recorded in onDown), not whatever sits under
@@ -303,12 +303,27 @@
 		if (active && draft.length) { const sp = drawPoint(e.clientX, e.clientY, draft.at(-1), e.shiftKey); if (sp) { lastRaw = toLocalXY(e.clientX, e.clientY); cur = sp; hoverPt = sp } }
 		else if (active && DRAW.has(tool) && tool !== 'Guide') hoverPt = drawPoint(e.clientX, e.clientY, undefined, e.shiftKey)   // snapped hover point before the first click (crosshair + snap marker)
 		else hoverPt = null
-		// hover feedback for the Select tool: 'move' when over a shape body (a grip shows its own cursor)
-		if (active && tool === 'Select' && !drag && !reg.active && !draft.length && !marquee) {
-			const lp = toLocalXY(e.clientX, e.clientY)
-			hoverBody = !!lp && (hit(lp).length > 0 || !!hitModel(lp) || !!hitGuide(lp))   // a guide is draggable → show 'move'
-		} else hoverBody = false
+		// hover feedback for the Select tool: 'move' when over something a press would grab
+		if (hoverIdle()) scheduleHover(e.clientX, e.clientY)
+		else hoverBody = false
 	}
+	// P2: the hover cursor asks `pickAt` — the SAME cascade a press uses (grips, entity, guide, section,
+	// model object), so hover and press always agree — at most ONCE per animation frame, on the latest
+	// pointer position (was three separate full hit passes on every pointermove).
+	const hoverIdle = () => active && tool === 'Select' && !drag && !reg.active && !draft.length && !marquee
+	let hoverRaf = 0, hoverAt: [number, number] | null = null
+	function scheduleHover(clientX: number, clientY: number) {
+		hoverAt = [clientX, clientY]
+		if (hoverRaf) return
+		hoverRaf = requestAnimationFrame(() => {
+			hoverRaf = 0
+			const q = hoverAt; hoverAt = null
+			if (!q || !hoverIdle()) { hoverBody = false; return }
+			const lp = toLocalXY(q[0], q[1])
+			hoverBody = !!lp && pickAt(q[0], q[1], lp) !== null
+		})
+	}
+	$effect(() => () => { if (hoverRaf) cancelAnimationFrame(hoverRaf) })
 	// Re-apply the constraint the instant Shift changes (don't wait for a pointer move) — for
 	// both an in-progress draw and an in-progress move/grip drag.
 	function reconstrain(shift: boolean) {
@@ -449,12 +464,18 @@
 	// PAINT ORDER = layer order first (array position in the layers store — earlier layer = underneath),
 	// then the entity's own array position within a layer. So dragging a layer in the panel restacks its
 	// objects (imported backgrounds included). No layer / unknown → paints on top (the tool default).
-	const paintEnts = $derived(
-		entities
-			.map((e, i) => { const lo = layerOrder(e.layer); return { e, i, o: lo < 0 ? 1e9 : lo } })
+	// P6: an O(n) check skips the sort + copy when the list is already in paint order (the common case —
+	// an entity drag rewrites `entities` on every move).
+	const paintEnts = $derived.by(() => {
+		const ord = (e: Ent) => { const lo = layerOrder(e.layer); return lo < 0 ? 1e9 : lo }
+		let sorted = true
+		for (let i = 1; i < entities.length && sorted; i++) if (ord(entities[i]) < ord(entities[i - 1])) sorted = false
+		if (sorted) return entities
+		return entities
+			.map((e, i) => ({ e, i, o: ord(e) }))
 			.sort((a, b) => a.o - b.o || a.i - b.i)
 			.map((x) => x.e)
-	)
+	})
 	function hit(p: Pt): string[] {
 		// ~3.5px of slack on EITHER side of a line/border (≈7px total pick width) in SCREEN px. Entity
 		// coords + `p` are in unscaled drawing space, so convert screen px → drawing units = hitTol()/dscale
@@ -624,10 +645,12 @@
 	// Model-object grips (prismCorners/applyPrismGrip/modelGrips) live in ui/grips.ts (R1 step 4); MGrip is
 	// imported. The wrapper injects ctx + the grid-snap (rndSnap) and node-apply (graphNodeApply) opts.
 	const modelGrips = (o: Obj): MGrip[] => gModelGrips(ctx, o, { rnd: rndSnap, applyNode: graphNodeApply })
+	// P6: the selected model object's grips, once per object / view change — shared by render and pick.
+	const mGrips = $derived(mSelObj ? modelGrips(mSelObj) : [])
 	// pickModelGrip builds ONE mapper for the press (P1), then tests every grip against it.
 	function pickModelGrip(clientX: number, clientY: number): MGrip | null {
 		const m = mapper(); if (!m || !mSelObj) return null
-		return gPickModelGrip(m, modelGrips(mSelObj), clientX, clientY)
+		return gPickModelGrip(m, mGrips, clientX, clientY)
 	}
 	// Sprout a NEW segment from an existing node (a junction/tee): add a coincident node + a segment
 	// joining them, and return the new node so the caller can drag it out. graph.ts handles the junction
@@ -772,6 +795,10 @@
 	// declared below — a function body defers the read, so no TDZ).
 	const gripOpts = (): GripOpts => ({ gripMm: gripSize, shift: () => shiftDown, imgCropId: imgEdit.mode === 'crop' ? imgEdit.id : null })
 	const gripsFor = (e: Ent): Grip[] => gGripsFor(ctx, e, gripOpts())
+	// P6: the SELECTED entities' grips, built once per selection / entity / view change and shared by the
+	// grip render and `pick` (was rebuilt per render AND per pick). A drag keeps using `gripsFor(drag.base)`
+	// — the grips of the entity as it was when the drag began.
+	const selGrips = $derived(new Map(sel.flatMap((id) => { const e = entities.find((x) => x.id === id); return e ? [[id, gripsFor(e)] as const] : [] })))
 	// Grips must be a CONSTANT screen size (Kestrel / Outlets), whatever the zoom. On-screen
 	// px of a model-unit length = length · view.zoom · (pxPerUnit · canvasZoom); dividing by both
 	// zooms cancels them so the grip is always HANDLE_PX px — the canvas CSS zoom included
@@ -792,6 +819,8 @@
 		: { lwt, canvasZoom, paperMm, gripSize, ink: INK, sel: SEL, layerColor })
 	// Project a plan point (x,y,0) to iso DRAWING coords, matching how the model renders (isoR + the same
 	// bounds-centring as Model3d / hitModelIso). Null off iso. Used to lay plan 2D shapes on the ground.
+	// P4: the iso pick faces, projected once per model / orbit / layer change instead of on every click.
+	const isoFaces = $derived(kind === 'iso' ? isoPickFaces(ctx, mlayers) : [])
 	const isoGround = $derived.by(() => {
 		if (kind !== 'iso' || !mdl) return null
 		const b = isoBounds(mdl.objects, yaw, pitch, CX, CY, modelLayerVisible); if (!b) return null
@@ -806,8 +835,7 @@
 	function pick(clientX: number, clientY: number): { kind: 'grip' | 'move'; id: string; gi: number } | null {
 		const m = mapper(); if (!m) return null   // ONE layout read for the whole grip pass (P1)
 		for (const id of sel) {
-			const ent = entities.find(x => x.id === id); if (!ent) continue
-			const gs = gripsFor(ent)
+			const gs = selGrips.get(id); if (!gs) continue
 			for (let i = 0; i < gs.length; i++) {
 				const sp = m.toClient(gs[i].x, gs[i].y)
 				if (Math.hypot(sp.x - clientX, sp.y - clientY) < 14) return { kind: 'grip', id, gi: i }
@@ -1194,7 +1222,7 @@
 			{#if active && tool === 'Select'}
 				{#each entities as e (e.id)}
 					{#if selSet.has(e.id) && inThisView(e) && !isLayerHidden(e.layer) && !isLayerLocked(e.layer) && !groundInIso(ctx, e)}
-						{#each gripsFor(e) as g}
+						{#each selGrips.get(e.id) ?? [] as g}
 							{#if g.rotate}
 								{@const bc = rotCenter(ctx, e)}
 								{@const tc = rotatePt([bc[0], bbox(e)[1]], bc, e.rot ?? 0)}
@@ -1209,7 +1237,7 @@
 			{/if}
 			<!-- model grips: prism resize corners, or wall/conduit node handles (of the selected object) -->
 			{#if active && tool === 'Select' && mSelObj}
-				{#each modelGrips(mSelObj) as g, i (i)}
+				{#each mGrips as g, i (g.node?.id ?? i)}
 					{#if g.node && nodeSelValid && g.node.id === nodeSelValid.node}
 						<circle cx={g.x} cy={g.y} r={gripSize * 0.95} fill={SEL} opacity="0.85" />
 					{/if}

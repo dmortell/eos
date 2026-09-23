@@ -23,6 +23,7 @@
 	import LayersPanel from './parts/LayersPanel.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
 	import { activeLayerIn } from './layers.svelte'
+	import { internImage } from './imageStore'
 	import HistoryPanel from './parts/HistoryPanel.svelte'
 	import StatusBar from './parts/StatusBar.svelte'
 	import ViewGizmos from './parts/ViewGizmos.svelte'
@@ -370,11 +371,13 @@
 	const viewOf = (paneId: string, viewId: string, proj: Proj) => viewState.getView(paneId, viewId, proj)
 	// A GESTURE (a drag or a nudge burst) should be ONE undo/history step: while a gesture is open,
 	// only the first mutation snapshots; the rest just update. Viewport signals begin/end.
-	let gestureActive = false, gesturePushed = false
+	// P3 short term: after the first mutation, a gesture only flags `gestureDirty`; its final state is folded
+	// into the step ONCE when the gesture ends (was a full snapshot of every model per pointer move).
+	let gestureActive = false, gesturePushed = false, gestureDirty = false
 	let gestureEndTimer: ReturnType<typeof setTimeout> | null = null
 	function beginGesture() { if (gestureEndTimer) { clearTimeout(gestureEndTimer); gestureEndTimer = null } gestureActive = true; ensureHist() }
 	function endGesture(debounceMs = 0) {
-		const finish = () => { gestureActive = false; gesturePushed = false; gestureEndTimer = null }
+		const finish = () => { if (gestureDirty) updateStep(); gestureActive = false; gesturePushed = false; gestureDirty = false; gestureEndTimer = null }
 		if (gestureEndTimer) { clearTimeout(gestureEndTimer); gestureEndTimer = null }
 		if (debounceMs) gestureEndTimer = setTimeout(finish, debounceMs); else finish()
 	}
@@ -382,7 +385,7 @@
 	// gesture only the first mutation adds a step; the rest fold their final state into that step.
 	function recordEdit(id: string, label: string) {
 		promoteTab(id)
-		if (gestureActive) { if (!gesturePushed) { pushStep(id, label); gesturePushed = true } else updateStep(id) }
+		if (gestureActive) { if (!gesturePushed) { pushStep(id, label); gesturePushed = true } else gestureDirty = true }
 		else pushStep(id, label)
 	}
 	// R5: a new entity lands on the active layer if this model has it (else Annotations — activeLayerIn).
@@ -463,7 +466,8 @@
 	// style). Previously history was per-tab yet each step snapshotted all models, so an undo on one tab
 	// silently reverted edits made on another. The `id` args below are kept only to mark that tab dirty.
 	type HStep = { label: string; t: number; model: Model[]; frames: Record<string, SheetFrame[]> }
-	let hist = $state<{ steps: HStep[]; ptr: number } | null>(null)
+	// $state.raw (P3): steps are immutable plain snapshots, replaced wholesale — never deep-proxied.
+	let hist = $state.raw<{ steps: HStep[]; ptr: number } | null>(null)
 	let revisions = $state<{ name: string; note: string; snap: Snap; t: number }[]>([])
 	const snapEnts = (): Snap => $state.snapshot(mdlEnts()) as Snap
 	const snapAllFrames = (): Record<string, SheetFrame[]> => $state.snapshot(docs.allFrames()) as Record<string, SheetFrame[]>
@@ -490,9 +494,11 @@
 		setModels(h.steps[h.ptr].model)   // restore all models (entities + guides + sections + 3D objects)
 		docs.restoreFrames($state.snapshot(h.steps[h.ptr].frames) as Record<string, SheetFrame[]>)   // restore every tab's frames
 	}
-	function undo() { const h = hist; if (!h || h.ptr <= 0) return; hist = { ...h, ptr: h.ptr - 1 }; applyPtr() }
-	function redo() { const h = hist; if (!h || h.ptr >= h.steps.length - 1) return; hist = { ...h, ptr: h.ptr + 1 }; applyPtr() }
-	function jumpHistory(i: number) { const h = hist; if (!h || i < 0 || i >= h.steps.length || i === h.ptr) return; hist = { ...h, ptr: i }; applyPtr() }
+	// A gesture's deferred fold (P3) must land before the pointer moves, or it would overwrite the step undo lands on.
+	function flushGesture() { if (gestureDirty) { updateStep(); gestureDirty = false } }
+	function undo() { flushGesture(); const h = hist; if (!h || h.ptr <= 0) return; hist = { ...h, ptr: h.ptr - 1 }; applyPtr() }
+	function redo() { flushGesture(); const h = hist; if (!h || h.ptr >= h.steps.length - 1) return; hist = { ...h, ptr: h.ptr + 1 }; applyPtr() }
+	function jumpHistory(i: number) { flushGesture(); const h = hist; if (!h || i < 0 || i >= h.steps.length || i === h.ptr) return; hist = { ...h, ptr: i }; applyPtr() }
 	// Workspace change log, newest first, tagged past / current / future (undone).
 	let changeLog = $derived.by(() => {
 		const h = hist
@@ -647,7 +653,8 @@
 	function focusTool(t: string) { const p = session.panes[session.focused]; if (p) p.tool = t }
 	// Import an IMAGE as a background: read it as a data-URL, size the placement rect to its aspect ratio,
 	// and add it as an 'image' entity on the ACTIVE layer (select a Background layer first to group it).
-	// Mock: the data-URL lives in the entity; a real backend would upload + store a fileId (§4).
+	// P3 short term: a data-URL is interned (imageStore.ts) and the entity stores its short key, so the
+	// bytes never enter the model / undo snapshots; a real backend would upload + store a fileId (X7).
 	// Place an image (by data-URL or URL) as a background on the active layer, sized to its aspect ratio at
 	// the plan centre; imports default to aspect-locked. Returns false if there's no drawing open.
 	function addImage(src: string): boolean {
@@ -656,7 +663,7 @@
 		const img = new Image()
 		const place = (aspect: number) => {
 			const cx = 14000, cy = 8750, w = 9000, h = w * aspect
-			addEnt(id, { id: newId(), type: 'image', a: [Math.round(cx - w / 2), Math.round(cy - h / 2)], b: [Math.round(cx + w / 2), Math.round(cy + h / 2)], src, plane: 'plan', lockAspect: true })
+			addEnt(id, { id: newId(), type: 'image', a: [Math.round(cx - w / 2), Math.round(cy - h / 2)], b: [Math.round(cx + w / 2), Math.round(cy + h / 2)], src: internImage(src), plane: 'plan', lockAspect: true })
 			const mn = modelById(modelIdOf(id))?.name ?? 'the model'
 			toast(`Image added to ${mn} on layer “${activeLayerIn(modelById(modelIdOf(id))?.layers ?? [])?.name ?? '—'}”. Set its scale/crop in Properties.`)
 		}
