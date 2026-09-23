@@ -9,6 +9,7 @@
 	//    paper outside the frame (or Esc / Exit) returns to paper space.
 	import Viewport, { type Env, type VpOn } from '../ui/Viewport.svelte'
 	import { noopEditor, type Editor } from '../ui/editor'
+	import { singleOfKind } from '../ui/selection'
 	import type { Ent, View } from '../ui/geometry'
 	import Handle from './Handle.svelte'
 	import { beginPointerDrag, DragRegistry } from '../ui/gestures'
@@ -20,14 +21,22 @@
 	type VKind = 'plan' | 'iso' | ElevDir
 	let { title = 'Sheet', drawingNo = '001', scale = '1:100', focused = true, tool = 'Select', env = {}, pw = PAPER_W, ph = PAPER_H, sizeLabel = 'A3', rev = '', revDate = '',
 		entities = [], entsForModel = undefined, tabModelId = undefined,
-		frames = [], selFrame = null, frameKind = (p: string) => p as VKind, isFrameActive = () => false, frameView = () => ({ zoom: 1, x: 0, y: 0 }), frameEnv = {},
-		frameOrbit = () => ({ yaw: 0, pitch: 0 }), makeFrameOn = () => ({}), makeFrameEditor = () => noopEditor, onseed, onaddframe, onframegeom, onframecommit, onselectframe, ondeactivate }:
+		frames = [], editor = noopEditor, frameKind = (p: string) => p as VKind, isFrameActive = () => false, frameView = () => ({ zoom: 1, x: 0, y: 0 }), frameEnv = {},
+		frameOrbit = () => ({ yaw: 0, pitch: 0 }), makeFrameOn = () => ({}), makeFrameEditor = () => noopEditor, onseed, onaddframe, onframegeom, onframecommit, ondeactivate }:
 		{ title?: string; drawingNo?: string; scale?: string; focused?: boolean; tool?: string; env?: Env; pw?: number; ph?: number; sizeLabel?: string; rev?: string; revDate?: string;
 			entities?: Ent[]; entsForModel?: (mid?: number) => Ent[]; tabModelId?: number;
-			frames?: SheetFrame[]; selFrame?: string | null; frameKind?: (p: string) => VKind; isFrameActive?: (id: string) => boolean; frameView?: (id: string, proj: string) => View; frameEnv?: Env;
+			// R3 commit 3 (review.md §R3): a NEW page-level `editor` — distinct from `makeFrameEditor` (which
+			// builds one PER-FRAME editor for entity/obj/guide/section/node editing INSIDE that frame's
+			// viewport). This one's `sel` holds the 'frame' kind only: which viewport FRAME is selected in
+			// PAPER space (border/marquee click, grips, Properties). Both share the same per-viewport
+			// selStore — the page editor is keyed by the TAB id (a slot no per-frame editor ever writes to).
+			frames?: SheetFrame[]; editor?: Editor; frameKind?: (p: string) => VKind; isFrameActive?: (id: string) => boolean; frameView?: (id: string, proj: string) => View; frameEnv?: Env;
 			frameOrbit?: (id: string, proj: string) => { yaw: number; pitch: number }; makeFrameOn?: (f: SheetFrame) => VpOn; makeFrameEditor?: (f: SheetFrame) => Editor; onseed?: (x: number, y: number, w: number, h: number) => void; onaddframe?: (x: number, y: number, w: number, h: number) => void;
-			onframegeom?: (id: string, g: { x: number; y: number; w: number; h: number }) => void; onframecommit?: () => void; onselectframe?: (id: string | null) => void; ondeactivate?: () => void } = $props()
+			onframegeom?: (id: string, g: { x: number; y: number; w: number; h: number }) => void; onframecommit?: () => void; ondeactivate?: () => void } = $props()
 	const canvasZoom = $derived(env.canvasZoom ?? 1)
+	const selFrame = $derived(singleOfKind(editor.sel.get(), 'frame')?.id ?? null)
+	const selectFrame = (id: string) => editor.sel.only([{ kind: 'frame', id }])
+	const clearFrameSel = () => editor.sel.clear()
 
 	// Frame geometry in paper (unscaled) px, within the sheet drawing area.
 	type Frame = { x: number; y: number; w: number; h: number }
@@ -88,7 +97,7 @@
 		if (e.button !== 0 || (tool !== 'Viewport' && (e.target as Element).closest?.('.vp.active'))) return
 		e.preventDefault()   // stop a native text/element drag starting after a double-click (shows a not-allowed cursor + leaves the marquee stuck)
 		try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* synthetic */ }
-		if (tool !== 'Viewport') onselectframe?.(null)   // clicking empty paper deselects any frame
+		if (tool !== 'Viewport') clearFrameSel()   // clicking empty paper deselects any frame
 		placingFrame = tool === 'Viewport'
 		const p = toSheet(e.clientX, e.clientY)
 		marquee = { x0: p.x, y0: p.y, x1: p.x, y1: p.y }
@@ -115,11 +124,11 @@
 		// marquee selects the topmost frame it touches
 		const touches = (f: { x: number; y: number; w: number; h: number }) => bx0 <= f.x + f.w && bx1 >= f.x && by0 <= f.y + f.h && by1 >= f.y
 		const ef = [...frames].reverse().find(touches)
-		if (ef) onselectframe?.(ef.id)
+		if (ef) selectFrame(ef.id)
 	}
 	// Double-click on the paper outside any frame → exit the active viewport + deselect.
 	function onWrapDblclick(e: MouseEvent) {
-		if (!(e.target as Element).closest?.('.vp-frame')) { onselectframe?.(null); ondeactivate?.() }
+		if (!(e.target as Element).closest?.('.vp-frame')) { clearFrameSel(); ondeactivate?.() }
 	}
 	const CORNERS = [[0, 0], [1, 0], [1, 1], [0, 1]] as const   // TL, TR, BR, BL
 	const CURSORS = ['nwse-resize', 'nesw-resize', 'nwse-resize', 'nesw-resize']
@@ -146,9 +155,9 @@
 						boxW={f.w} boxH={f.h} />
 					{#if !fa}
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
-						<div class="vp-band" style:pointer-events={tool === 'Viewport' ? 'none' : undefined} onpointerdown={(e) => { onselectframe?.(f.id); startDrag(e, 'move', -1, f, (g) => onframegeom?.(f.id, g), true); }} ondblclick={() => fon.activate?.()}>
+						<div class="vp-band" style:pointer-events={tool === 'Viewport' ? 'none' : undefined} onpointerdown={(e) => { selectFrame(f.id); startDrag(e, 'move', -1, f, (g) => onframegeom?.(f.id, g), true); }} ondblclick={() => fon.activate?.()}>
 							<!-- interior is inert: select via the border band, double-click to enter -->
-							<div class="vp-interior" onpointerdown={(e) => { e.stopPropagation(); onselectframe?.(null); }} ondblclick={() => fon.activate?.()}></div>
+							<div class="vp-interior" onpointerdown={(e) => { e.stopPropagation(); clearFrameSel(); }} ondblclick={() => fon.activate?.()}></div>
 						</div>
 						{#if selFrame === f.id}
 							<svg class="frame-handles">

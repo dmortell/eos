@@ -61,13 +61,14 @@
 	//  - `focused`: which pane new tabs / sidebar actions target.
 	//  - `previewId`: the single VSCode-style italic preview tab (single-click reuse; B6).
 	//  - `activeVps`: which TAB/FRAME ids have their viewport activated (editing mode, not just viewing).
-	//  - `selFrame`: the sheet viewport frame selected in paper space (move/resize/props).
 	//  - `treeNode`: a place/label picked in the left tree (project/building/floor/…), for its Properties.
-	// (R3 2b: `selSection` moved into `selStore` — a section marker is just another Selection kind now,
-	// per viewport like every other kind, not a separate session field.)
+	// (R3: `selSection` (2b) and `selFrame` (commit 3) both moved into `selStore` — a section marker or a
+	// selected sheet viewport frame are just more Selection kinds now, not separate session fields. A frame
+	// selection is keyed by the TAB id — a page-level editor (PaperPage's new `editor` prop), distinct from
+	// each frame's own per-frame editor which is keyed by the FRAME id.)
 	type Session = {
 		tabs: Tab[]; panes: Pane[]; focused: number; previewId: string | null; activeVps: Set<string>
-		selFrame: string | null; treeNode: { id: string; label: string; kind: string } | null
+		treeNode: { id: string; label: string; kind: string } | null
 	}
 	let session = $state<Session>({
 		tabs: [
@@ -78,7 +79,7 @@
 		],
 		panes: [{ id: 'p1', activeId: 't2', tool: 'Select', layout: 'sheet' }],
 		focused: 0, previewId: null, activeVps: new Set<string>(),
-		selFrame: null, treeNode: null,
+		treeNode: null,
 	})
 	let seq = 4
 	const kindIcon: Record<Kind, string> = { plan: 'mapPin', sheet: 'fileText', elevation: 'server', model: 'box' }
@@ -171,7 +172,7 @@
 	function deleteSelAt(tabId: string, viewId: string, edit: { begin(): void; mark(label?: string): void; end(debounceMs?: number): void }) {
 		const s = selStore.of(viewId)
 		const entIds = idsOfKind(s, 'ent'), objGuideIds = [...idsOfKind(s, 'obj'), ...idsOfKind(s, 'guide')]
-		const nodeItem = singleOfKind(s, 'node'), sectionItem = singleOfKind(s, 'section')
+		const nodeItem = singleOfKind(s, 'node'), sectionItem = singleOfKind(s, 'section'), frameItem = singleOfKind(s, 'frame')
 		if (entIds.length) { deleteEnts(tabId, entIds); selStore.set(viewId, selClear()); return }
 		if (objGuideIds.length) { const mdl = modelById(modelIdOf(tabId)); if (mdl) meDeleteModelSel(mdl, edit, objGuideIds); selStore.set(viewId, selClear()); return }
 		if (nodeItem) {
@@ -183,6 +184,28 @@
 			return
 		}
 		if (sectionItem) { const mdl = modelById(modelIdOf(tabId)); if (mdl) meDeleteSection(mdl, edit, sectionItem.id); selStore.set(viewId, selClear()); return }
+		// A frame (R3 commit 3) self-records its own undo step (deleteFrame → recordEdit) — no injected
+		// `edit` scope needed, unlike the model-mutation kinds above.
+		if (frameItem) { deleteFrame(tabId, frameItem.id); selStore.set(viewId, selClear()); return }
+	}
+	// PaperPage's page-level editor (R3 commit 3): `vpEditor(a, a.id)` handles the 'frame' kind exactly like
+	// every other kind (a sheet tab never uses its own `a.id` as a per-frame viewId, so this slot is free)
+	// — EXCEPT selecting a frame must also drop whatever the tab's currently ACTIVE frame has selected in
+	// its own viewport (eos-f8's gate: frame selection is exclusive with the viewport selections). Frame
+	// borders only render for INACTIVE frames, so this only ever matters when a DIFFERENT frame is active
+	// elsewhere on the same sheet; deselecting a frame (clicking empty paper) does NOT reach into the active
+	// viewport, so `clear`/`delete` are passed through unchanged.
+	function paperEditor(a: Tab): Editor {
+		const base = vpEditor(a, a.id)
+		const clearActiveFrameSel = () => { const av = activeVpOf(a.id); if (av && av !== a.id) selStore.set(av, selClear()) }
+		return {
+			...base,
+			sel: {
+				...base.sel,
+				only: (items: SelItem[]) => { clearActiveFrameSel(); base.sel.only(items) },
+				toggle: (items: SelItem[]) => { clearActiveFrameSel(); base.sel.toggle(items) },
+			},
+		}
 	}
 	// A 3D-model edit (the Viewport mutated the shared `models` store) records a step on THIS doc's
 	// timeline, gesture-folded like an entity edit — so Ctrl+Z restores the model too.
@@ -217,7 +240,7 @@
 		const n = framesOf(sheet.id).length, ox = 90 + (n % 5) * 24, oy = 90 + (n % 5) * 24
 		setFrames(sheet.id, [...framesOf(sheet.id), { id: fid, x: ox, y: oy, w: W, h: H, border: 'solid', proj: dir, scale: scaleOf(sheet.id), clip: { ...clip }, label: PROJ_LABEL[dir] ?? 'Section' }])
 		if (session.panes[session.focused]) { session.panes[session.focused].activeId = sheet.id; session.panes[session.focused].layout = 'sheet' }
-		session.selFrame = fid
+		selStore.set(sheet.id, selOnly([{ kind: 'frame', id: fid }]))
 		recordEdit(sheet.id, 'Drop section viewport')
 	}
 
@@ -233,8 +256,12 @@
 	function setFrames(tabId: string, frames: SheetFrame[]) { docs.setFrames(didOf(tabId), frames) }
 	function updateFrame(tabId: string, id: string, patch: Partial<SheetFrame>) { setFrames(tabId, framesOf(tabId).map((f) => (f.id === id ? { ...f, ...patch } : f))) }
 	const newFrameId = () => newId('vf')
-	// Exactly one active viewport per sheet: activating a frame deactivates its siblings.
-	function activateFrame(tabId: string, id: string) { for (const f of framesOf(tabId)) if (f.id !== id) deactivateVp(f.id); activateVp(id) }
+	// Exactly one active viewport per sheet: activating a frame deactivates its siblings. Entering a frame
+	// also drops its page-level (border) selection — a frame selection is NOT retained across activation
+	// (Dave's call, R3 commit 3): the border-select and "inside, editing" states are visually and
+	// interactionally distinct, so re-entering shows a clean canvas, not a stale selected-border outline
+	// underneath. Symmetric with the paper-space dblclick-exit, which already cleared it the same way.
+	function activateFrame(tabId: string, id: string) { for (const f of framesOf(tabId)) if (f.id !== id) deactivateVp(f.id); activateVp(id); selStore.set(tabId, selClear()) }
 	// A per-frame VIEW bundle: entity editing keeps the TAB id (vpEditor is unchanged per frame — same
 	// document, same editor); view / activation / scale / orbit use the FRAME id, so each viewport pans,
 	// activates and re-aims independently.
@@ -258,10 +285,12 @@
 		ensureHist(tabId)   // capture the pre-add baseline first
 		const id = newFrameId()
 		setFrames(tabId, [...framesOf(tabId), { id, x: Math.round(x), y: Math.round(y), w: Math.max(60, Math.round(w)), h: Math.max(60, Math.round(h)), border: 'solid', proj: 'plan', scale: scaleOf(tabId), clip: null, label: 'Plan' }])
-		session.selFrame = id
+		selStore.set(tabId, selOnly([{ kind: 'frame', id }]))
 		recordEdit(tabId, 'Add viewport')
 	}
-	function deleteFrame(tabId: string, id: string) { ensureHist(tabId); setFrames(tabId, framesOf(tabId).filter((f) => f.id !== id)); if (session.selFrame === id) session.selFrame = null; deactivateVp(id); recordEdit(tabId, 'Delete viewport') }
+	// Pure frame CRUD — no selection side effects (R3 commit 3: the caller clears/updates the page-level
+	// selection, same pattern as deleteEnts/cutEnts since 2a).
+	function deleteFrame(tabId: string, id: string) { ensureHist(tabId); setFrames(tabId, framesOf(tabId).filter((f) => f.id !== id)); deactivateVp(id); recordEdit(tabId, 'Delete viewport') }
 	function commitFrame(tabId: string, label: string) { recordEdit(tabId, label) }   // one history step at a drag/edit end
 	// The active viewport in a tab: the tab id if active (model-layout tabs), else whichever sheet frame is.
 	const activeVpOf = (tabId: string): string | null => (isVpActive(tabId) ? tabId : framesOf(tabId).find((f) => isVpActive(f.id))?.id ?? null)
@@ -275,7 +304,6 @@
 		if (a?.kind === 'sheet') { const av = activeVpOf(a.id) ?? framesOf(a.id)[0]?.id; if (av) updateFrame(a.id, av, { proj, label: PROJ_LABEL[proj] }) }
 		else if (a) viewState.setProj(pane.id, a.id, proj)
 	}
-	let selFrameObj = $derived.by(() => { const t = active; return t && session.selFrame ? framesOf(t.id).find((f) => f.id === session.selFrame) ?? null : null })
 	// Scale denominator of the viewport the Properties panel edits in: an active extra sheet frame's own
 	// scale, else the tab's (the primary viewport's) — the same choice as the active-viewport bar (B19).
 	let propsScaleN = $derived.by(() => {
@@ -286,6 +314,12 @@
 	let canvasEls = $state<(HTMLElement | undefined)[]>([])   // each pane's .canvas, for navFit
 	let splitFrac = $state(0.5)  // pane 0 width fraction when split
 	let active = $derived(session.tabs.find(t => t.id === session.panes[session.focused]?.activeId) ?? null)
+	// R3 commit 3: a selected sheet viewport frame lives in the page-level Selection (selStore, keyed by the
+	// TAB id). `selFrameId` is read separately from `selFrameObj` (which re-derives on every frame geometry
+	// edit too, via `framesOf(...).find(...)` returning a fresh reference) so the "show Properties" $effect
+	// below fires only on an actual SELECTION change, matching the old `session.selFrame`-keyed effect.
+	let selFrameId = $derived(active ? singleOfKind(selStore.of(active.id), 'frame')?.id ?? null : null)
+	let selFrameObj = $derived.by(() => { const t = active; return t && selFrameId ? framesOf(t.id).find((f) => f.id === selFrameId) ?? null : null })
 
 	// Per-DOCUMENT state (keyed by tab id): drawn entities, selection, and the
 	// viewport's own pan/zoom — so all three persist across tab switches and show
@@ -489,7 +523,7 @@
 	// Selecting an entity likewise drops any tree-node selection (was `setSel`'s job pre-R3).
 	$effect(() => { if (idsOfKind(activeSel, 'ent').length) session.treeNode = null })
 	// Selecting a sheet viewport frame likewise shows its Properties.
-	$effect(() => { if (session.selFrame) { rightTab = 'props'; rightOpen = true } })
+	$effect(() => { if (selFrameId) { rightTab = 'props'; rightOpen = true; session.treeNode = null } })
 	// Exit an image calibration mode when its image is no longer the (single) selection.
 	$effect(() => { if (imgEdit.id && !(selEnts.length === 1 && selEnts[0].id === imgEdit.id)) clearImgMode() })
 	function updateModelObj(patch: Record<string, unknown>) {
@@ -513,9 +547,8 @@
 	function dropDoc(id: string) {
 		const frameIds = framesOf(id).map((f) => f.id)
 		const ids = new Set<string>([id, ...frameIds])            // this tab + its viewport frames
-		selStore.drop([...ids])                                    // selection (per viewport, incl. sections/nodes since R3 2b)
+		selStore.drop([...ids])                                    // selection (per viewport + the page-level frame selection at `id`, since R3 2b/commit 3)
 		viewState.drop([...ids], didOf(id))                        // pan/zoom, orbit, per-pane projection + the persisted canvas seed (B27: prune on close)
-		if (session.selFrame && ids.has(session.selFrame)) session.selFrame = null
 		deactivateVp(id); for (const fid of frameIds) deactivateVp(fid)   // reopened tab starts deactivated
 	}
 
@@ -681,7 +714,7 @@
 			e.preventDefault(); e.stopImmediatePropagation(); paletteOpen = true
 		} else if (mod && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo() }
 		else if (mod && ((e.shiftKey && (e.key === 'z' || e.key === 'Z')) || e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo() }
-		else if ((e.key === 'Delete' || e.key === 'Backspace') && session.selFrame && active && !activeVpOf(active.id)) { e.preventDefault(); deleteFrame(active.id, session.selFrame) }   // delete the selected viewport frame (paper space)
+		else if ((e.key === 'Delete' || e.key === 'Backspace') && selFrameId && active && !activeVpOf(active.id)) { e.preventDefault(); deleteSelAt(active.id, active.id, { begin: beginGesture, mark: (l?: string) => modelEdit(active!.id, l), end: endGesture }) }   // delete the selected viewport frame (paper space)
 	}
 	$effect(() => {   // capture phase — beats the +layout command palette on the Ctrl-K shortcut
 		window.addEventListener('keydown', onGlobalKey, true)
@@ -957,7 +990,7 @@
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<main class="canvas" bind:this={canvasEls[pi]} onpointermove={onCanvasMove}
-						ondblclick={(e) => { if (a && !(e.target as Element).closest?.('.paper, button, .glass-bar, .vp-active-bar, .navtools, .floattools')) { const av = activeVpOf(a.id); if (av) deactivateVp(av); session.selFrame = null } }}
+						ondblclick={(e) => { if (a && !(e.target as Element).closest?.('.paper, button, .glass-bar, .vp-active-bar, .navtools, .floattools')) { const av = activeVpOf(a.id); if (av) deactivateVp(av); selStore.set(a.id, selClear()) } }}
 						use:panzoom={{ enabled: () => !!a, wheelZoom: () => acadMode, onpan: (dx, dy) => canvasPan(p, dx, dy), onzoom: (f, x, y, node) => canvasZoom(p, node, f, x, y) }}>
 						<div class="floattools glass-bar" class:dim={a && !isVpActive(a.id)}>
 							{#each STRIP as s (('tool' in s) ? s.tool : s.group)}
@@ -1029,14 +1062,13 @@
 										sizeLabel="{paperOf(a.id).size} {paperOf(a.id).landscape ? 'L' : 'P'}" rev={rev} revDate={fmtDate(revisions[0]?.t)}
 										entities={entsOf(a.id)} focused={session.focused === pi}
 										entsForModel={entsForModel} tabModelId={a.modelId ?? FLOOR_MODEL_ID}
-										frames={framesOf(a.id)} selFrame={session.selFrame} frameKind={(pr) => projKind(pr as Proj)}
+										frames={framesOf(a.id)} editor={paperEditor(a)} frameKind={(pr) => projKind(pr as Proj)}
 										isFrameActive={(id) => isVpActive(id)} frameView={(id, proj) => viewOf(p.id, id, proj as Proj)} frameEnv={envFor(p)}
 										frameOrbit={(id, proj) => orbitOf(p.id, id, proj as Proj)} makeFrameOn={(f) => vpFrameView(a, p, f as SheetFrame)} makeFrameEditor={(f) => vpEditor(a, (f as SheetFrame).id)}
 										onseed={(x, y, w, h) => seedFrame(a.id, x, y, w, h)}
 										onaddframe={(x, y, w, h) => addFrame(a.id, x, y, w, h)}
 										onframegeom={(id, g) => updateFrame(a.id, id, g)}
 										onframecommit={() => commitFrame(a.id, 'Move viewport')}
-										onselectframe={(id) => { session.selFrame = id; if (id) { session.treeNode = null; rightTab = 'props'; rightOpen = true } }}
 										ondeactivate={() => { const av = activeVpOf(a.id); if (av) deactivateVp(av) }} />
 								{:else if a}
 									<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
@@ -1109,8 +1141,8 @@
 						frameObj={selFrameObj}
 						modelList={models.map((m) => ({ id: m.id, name: m.name }))}
 						activeFrameId={active && activeVpOf(active.id) !== active.id ? (activeVpOf(active.id) ?? undefined) : undefined} scaleN={propsScaleN}
-						onframeupdate={(patch) => { if (active && session.selFrame) { ensureHist(active.id); updateFrame(active.id, session.selFrame, patch as Partial<SheetFrame>); commitFrame(active.id, 'Edit viewport') } }}
-						onframedelete={() => { if (active && session.selFrame) deleteFrame(active.id, session.selFrame) }} />
+						onframeupdate={(patch) => { if (active && selFrameId) { ensureHist(active.id); updateFrame(active.id, selFrameId, patch as Partial<SheetFrame>); commitFrame(active.id, 'Edit viewport') } }}
+						onframedelete={() => { if (active) deleteSelAt(active.id, active.id, { begin: beginGesture, mark: (l?: string) => modelEdit(active!.id, l), end: endGesture }) }} />
 				{:else}
 					<HistoryPanel log={changeLog} {revisions}
 						onnote={(i, note) => (revisions[i].note = note)} onjump={jumpHistory}
