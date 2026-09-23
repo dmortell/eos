@@ -8,7 +8,7 @@
 	import { Icon } from '$lib'
 	import { toast } from 'svelte-sonner'
 	import { imgEdit, clearImgMode } from './imageEdit.svelte'
-	import { flushSync, tick } from 'svelte'
+	import { tick } from 'svelte'
 	import { page } from '$app/state'
 	import PaperPage from './parts/PaperPage.svelte'
 	import Pane from './parts/Pane.svelte'
@@ -29,7 +29,8 @@
 	import Menubar from './parts/Menubar.svelte'
 	import CommandPalette from './parts/CommandPalette.svelte'
 	import { panzoom } from './ui/panzoom'
-	import { paperDims, scaleDenom, PAPER_SIZES, PAPER_PX_PER_MM, type PaperSize } from './constants'
+	import { paperDims, scaleDenom, type PaperSize } from './constants'
+	import { PRINT_ID, printCss, applyPrint, removePrint } from './printing'
 	import { translate, type Ent, type ElevDir } from './ui/geometry'
 	import { models, modelById, FLOOR_MODEL_ID, snapModels, setModels } from './3dview/models.svelte'
 	import { DEFAULT_YAW, DEFAULT_PITCH } from './3dview/projection'
@@ -852,50 +853,20 @@
 	// its callers pass `explicit` — an automatic refit must never reset a sheet frame's own pan/zoom.
 	function refitAll(opts: { skipIfPersisted?: boolean } = {}) { tick().then(() => session.panes.forEach((_, i) => fitPane(i, opts))) }
 
-	// ── Print — on Ctrl+P / window.print(), an @media-print stylesheet shows ONLY the focused
-	// sheet's paper at TRUE size: it hides all UI + the selection highlight and pins the paper to
-	// the page. @page size + orientation come from the focused tab's paper; the paper is `zoom`ed by
-	// (96/25.4)/PAPER_PX_PER_MM so its px size (= mm × PAPER_PX_PER_MM) prints at true mm — content
-	// and titleblock scale together (CSS `zoom`, so text stays vector). Built at print time since
-	// paper is per-tab. (The printer's own paper must match for a physical printer.)
-	let savedSel: Record<string, Selection> | null = null
-	const PRINT_ID = 'pages-print-style'
-	function printCss(): string {
-		const p = paperOf(session.panes[session.focused]?.activeId), [lw, lh] = PAPER_SIZES[p.size]
-		const [mw, mh] = p.landscape ? [lw, lh] : [lh, lw]
-		const zoom = (96 / 25.4) / PAPER_PX_PER_MM
-		return `@page { size: ${mw}mm ${mh}mm; margin: 0; }
-@media print {
-	html, body { margin:0 !important; padding:0 !important; background:#fff !important; }
-	.canvas-content { transform: none !important; }   /* fixed positions to the page, not a transformed ancestor */
-	body * { visibility: hidden !important; }
-	.print-target, .print-target * { visibility: visible !important; }
-	.print-target { position: fixed !important; left:0 !important; top:0 !important; zoom:${zoom}; margin:0 !important; box-shadow:none !important; background:#fff !important; }
-	.print-target .vp { border: none !important; box-shadow: none !important; }
-	.print-target .vp-tag, .print-target .vp-badge { display: none !important; }
-}`
-	}
-	function applyPrint() {
-		savedSel = selStore.snapshotAll()
-		selStore.replaceAll({})   // selection is screen-only; clear so no highlight prints
-		const style = document.getElementById(PRINT_ID); if (style) style.textContent = printCss()   // size for the focused paper
-		const target = document.querySelector('.pane.focused .paper')
-			?? document.querySelector('.pane.focused .vp')
-		target?.classList.add('print-target')
-		flushSync()   // apply the cleared selection to the DOM before the print snapshot
-	}
-	function removePrint() {
-		document.querySelectorAll('.print-target').forEach(el => el.classList.remove('print-target'))
-		if (savedSel) { selStore.replaceAll(savedSel); savedSel = null }
-	}
+	// Print mechanics live in printing.ts (R9 commit 4) — this effect just owns the FOCUSED PANE's paper
+	// (session/paperOf, per-instance state printing.ts deliberately doesn't know about) and the
+	// mount/unmount wiring. `onBeforePrint` is rebuilt each time the effect re-runs (whenever the focused
+	// paper changes) so 'beforeprint' always reads the CURRENT focused pane's paper at the moment the
+	// browser actually fires it, not whatever was focused when the listener was first registered.
 	$effect(() => {
 		let style = document.getElementById(PRINT_ID) as HTMLStyleElement | null
 		if (!style) { style = document.createElement('style'); style.id = PRINT_ID; document.head.appendChild(style) }
-		style.textContent = printCss()   // refreshed for the focused paper at print time (applyPrint)
-		window.addEventListener('beforeprint', applyPrint)
+		style.textContent = printCss(paperOf(session.panes[session.focused]?.activeId))   // refreshed for the focused paper at print time (applyPrint)
+		const onBeforePrint = () => applyPrint(paperOf(session.panes[session.focused]?.activeId))
+		window.addEventListener('beforeprint', onBeforePrint)
 		window.addEventListener('afterprint', removePrint)
 		return () => {
-			window.removeEventListener('beforeprint', applyPrint)
+			window.removeEventListener('beforeprint', onBeforePrint)
 			window.removeEventListener('afterprint', removePrint)
 			removePrint()
 			document.getElementById(PRINT_ID)?.remove()
