@@ -5,6 +5,7 @@
 import type { Firestore } from '$lib'
 import { buildProjectTree, normFloors, racksDocId, OTHER_BUILDING, type ProjectDoc, type RackDoc, type RiserDoc, type DrawingDoc } from './projectTree'
 import type { NavNode } from './mock/data'
+import { describeNode, fieldPatch, type NodeInfo, type ProjectFull } from './projectProps'
 
 type Unsub = (() => void) | undefined
 
@@ -53,6 +54,21 @@ export class ProjectSource {
 		for (const id of want) if (!this.#rackSubs.has(id)) {
 			this.#rackSubs.set(id, this.db.subscribeOne('racks', id, (doc) => { this.racks = { ...this.racks, [id]: doc as unknown as RackDoc } }))
 		}
+	}
+
+	/** Properties for a tree node (projectProps.ts); null until loaded / for an unknown id. */
+	describe(id: string): NodeInfo | null {
+		if (!this.project) return null
+		return describeNode({ project: this.project as ProjectFull, racks: this.racks, risers: this.risers, drawings: this.drawings }, id)
+	}
+	/** Save a Properties edit. Resolves false when there's nothing to save (read-only / refused, e.g. a
+	 *  building renamed to an empty or taken name). */
+	async setField(id: string, key: string, value: string): Promise<boolean> {
+		if (!this.project) return false
+		const patch = fieldPatch({ project: this.project as ProjectFull, racks: this.racks, risers: this.risers, drawings: this.drawings }, id, key, value)
+		if (!patch) return false
+		await this.db.save('projects', { id: this.pid, ...patch })
+		return true
 	}
 
 	/** The building names in their current tree order (saved `buildings` + the derived ones) — minus the

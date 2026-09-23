@@ -788,8 +788,16 @@
 	})
 	const realTree = $derived(projectSrc?.status === 'ready' ? projectSrc.tree : null)
 	const navStatus = $derived(projectSrc?.status === 'loading' ? 'Loading project…' : projectSrc?.status === 'missing' ? 'Not a Firestore project — showing the demo tree' : '')
-	function setFloorBuilding(floorNumber: number, building: string) {
-		projectSrc?.setFloorBuilding(floorNumber, building).catch((e) => toast(`Couldn't save the building: ${e?.message ?? e}`))
+	// The selected REAL tree node's properties (projectProps.ts) + saving an edit. A renamed building's node id
+	// changes (`b:<name>`), so the selection follows it.
+	const nodeInfo = $derived(session.treeNode && projectSrc?.status === 'ready' ? projectSrc.describe(session.treeNode.id) : null)
+	async function setNodeField(key: string, value: string) {
+		const n = session.treeNode, src = projectSrc; if (!n || !src) return
+		try {
+			const ok = await src.setField(n.id, key, value)
+			if (!ok) { toast(key === 'name' && n.id.startsWith('b:') ? 'That building name is empty or already used' : 'Nothing to save'); return }
+			if (n.id.startsWith('b:') && key === 'name') session.treeNode = { ...n, id: `b:${value.trim()}`, label: value.trim() }
+		} catch (e) { toast(`Couldn't save: ${(e as Error)?.message ?? e}`) }
 	}
 	// A place/label in the tree (project, building, floor, …) → edit its props in the right panel.
 	function selectNode(n: { id: string; label: string; kind: string; floorNumber?: number; building?: string }) {
@@ -1109,7 +1117,7 @@
 				{:else if rightTab === 'props'}
 					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (active) updateEnt(active.id, e) }}
 						onarrange={(op) => { if (active) reorderEnts(active.id, activeEntIds(), op) }}
-						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''} {activeLayer} node={session.treeNode} onnodebuilding={setFloorBuilding}
+						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''} {activeLayer} node={session.treeNode} {nodeInfo} onnodefield={setNodeField}
 						modelObj={selModelObj} modelLayers={modelById(activeMid())?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} onmodelseg={updateModelSeg}
 						frameObj={selFrameObj} onframefit={fitSelectedFrame}
 						modelList={models.map((m) => ({ id: m.id, name: m.name }))}

@@ -14,12 +14,12 @@
 
 	let { ents = [], onupdate, onarrange, pageTitle = '', pageKind = '', activeLayer = '', node = null,
 		modelObj = null, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg,
-		frameObj = null, onframeupdate, onframedelete, onframefit, onnodebuilding, modelList = [], activeFrameId = undefined, scaleN = 1 }:
+		frameObj = null, onframeupdate, onframedelete, onframefit, nodeInfo = null, onnodefield, modelList = [], activeFrameId = undefined, scaleN = 1 }:
 		{ ents?: Ent[]; onupdate?: (e: Ent) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void;
 			pageTitle?: string; pageKind?: string; activeLayer?: string;
 			node?: { id: string; label: string; kind: string; floorNumber?: number; building?: string } | null;
-			/** A REAL floor (from Firestore): set the building it's in (FloorConfig.building; '' = derive it). */
-			onnodebuilding?: (floorNumber: number, building: string) => void;
+			/** A REAL tree node's properties (projectProps.ts, from Firestore) + the edit callback; null → mock fields. */
+			nodeInfo?: import('../projectProps').NodeInfo | null; onnodefield?: (key: string, value: string) => void;
 			modelObj?: Obj | null; modelLayers?: MLayer[]; onmodelupdate?: (patch: Record<string, unknown>) => void; onmodeldelete?: () => void; onmodelseg?: (segIdx: number, patch: Record<string, unknown>) => void;
 			frameObj?: SheetFrame | null; onframeupdate?: (patch: Partial<SheetFrame>) => void; onframedelete?: () => void;
 			/** XP19: fit the frame's scale to its model */ onframefit?: () => void;
@@ -270,17 +270,30 @@
 		<div class="pp-hint">Editing writes straight to the 3D model. Reshape geometry by dragging its grips.</div>
 	{:else if ents.length === 0 && node}
 		<!-- a tree node is selected → its place properties (mock) -->
-		<div class="prop-sec">{kindLabel[node.kind] ?? 'ITEM'}</div>
-		<div class="prop"><span>Name</span><input value={node.label} /></div>
-		{#if node.kind === 'floor' && node.floorNumber != null}
-			<!-- a REAL floor: the building it's in is saved to the project (FloorConfig.building); empty = derived
-			     from the riser ranges (inside one → the project's building, else "Other building") -->
-			<div class="prop"><span>Building</span>
-				<input value={node.building ?? ''} placeholder="(from the risers)" title="The building this floor is in — saved to the project"
-					onchange={(e) => onnodebuilding?.(node!.floorNumber!, (e.currentTarget as HTMLInputElement).value)} />
-			</div>
-			<div class="pp-hint">Building is saved to the project in Firestore. The other fields are mock-only for now.</div>
+		{#if nodeInfo}
+			<!-- a REAL tree node (Firestore): editable fields save to the project doc on change; the rest is read-only
+			     data from the backend (racks / risers / drawings registry) — projectProps.ts -->
+			{#each nodeInfo.sections as sec (sec.label)}
+				<div class="prop-sec">{sec.label}</div>
+				{#each sec.fields as f (f.key)}
+					{#if f.edit === 'textarea'}
+						<div class="prop wide"><span>{f.label}</span>
+							<textarea class="pp-textarea" use:autoresize value={f.value} title={f.hint}
+								onchange={(e) => onnodefield?.(f.key, (e.currentTarget as HTMLTextAreaElement).value)}></textarea></div>
+					{:else if f.edit}
+						<div class="prop"><span>{f.label}</span>
+							<input value={f.value} placeholder={f.hint} title={f.hint}
+								onchange={(e) => onnodefield?.(f.key, (e.currentTarget as HTMLInputElement).value)}
+								onkeydown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur() }} /></div>
+					{:else}
+						<div class="prop"><span>{f.label}</span><div class="pp-val" title={f.value}>{f.value}</div></div>
+					{/if}
+				{/each}
+			{/each}
+			<div class="pp-hint">{nodeInfo.note ?? 'Edits save to the project in Firestore.'}</div>
 		{:else}
+			<div class="prop-sec">{kindLabel[node.kind] ?? 'ITEM'}</div>
+			<div class="prop"><span>Name</span><input value={node.label} /></div>
 			{#each NODE_FIELDS[node.kind] ?? [] as [label, ph] (label)}
 				<div class="prop"><span>{label}</span><input value={ph} /></div>
 			{/each}
@@ -429,6 +442,7 @@
 {/key}
 
 <style>
+	.pp-val { font-size:11px; color:var(--muted); font-family:Consolas,monospace; padding:3px 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
 	.pp-scale { display:flex; gap:4px; min-width:0; }
 	.pp-scale input { flex:1; min-width:0; }
 	.pp-mini { font-size:10px; padding:2px 7px; border-radius:4px; color:var(--text); background:var(--input); border:1px solid var(--line); cursor:pointer; }
