@@ -81,12 +81,12 @@ export function storeyHeights(s: Storey): FloorHeights {
 	const raised = s.raisedFloor ?? DEFAULT_HEIGHTS.raisedFloorMm, tile = s.ceilingTile ?? raised + DEFAULT_HEIGHTS.clearHeightMm
 	return { slabMm: s.slab ?? DEFAULT_HEIGHTS.slabMm, raisedFloorMm: raised, clearHeightMm: tile - raised, plenumMm: (s.ceilingSlab ?? tile + DEFAULT_HEIGHTS.plenumMm) - tile }
 }
-/** The storeys with one floor's heights changed (a building's HEIGHTS table), re-stacked. */
-export function setStoreyHeights(storeys: Storey[], id: string, patch: Partial<FloorHeights>): Storey[] {
+/** The storeys with one floor's heights changed (a building's HEIGHTS table; id '*' = every floor), re-stacked. */
+export function setStoreyHeights(storeys: Storey[], id: string | '*', patch: Partial<FloorHeights>): Storey[] {
 	const sorted = [...storeys].sort((a, b) => a.z - b.z)
 	return stack(sorted.map((s) => {
 		const { z: _z, ...rest } = s
-		if (s.id !== id) return rest
+		if (id !== '*' && s.id !== id) return rest
 		const h = { ...storeyHeights(s), ...patch }
 		return { ...rest, ...storeyOf(0, h), id: s.id, name: s.name }
 	}))

@@ -1,7 +1,7 @@
 // One-off IMPORT from the Outlets tool (drawings-plan §6): an `outlets/{docId}` doc → the place's model.
 //   outlet → an `insert` of an outlet block (mount type picks the block: wall → wall mount, floor → floorbox,
 //            anything else → rosette / box), attributes LABEL / PORTS / TYPE (usage) / NOTE (room field);
-//            colour from the usage, filled when LOW level; layer by level ("Outlets low level" / "… high level").
+//            colour from the usage, filled when LOW level; on the Data Outlets layer.
 //   trunk  → a conduit object (pipe = round, rect = rectangular), same nodes (x, y, z) and segments.
 // Positions are already real mm from the floorplan origin — the model's coordinates — so nothing is moved.
 // Ids are deterministic (`out-<id>`, `trk-<id>`): importing again UPDATES what was imported and adds new items;
@@ -15,9 +15,11 @@ import { USAGE_COLORS } from '../../outlets/parts/constants'
 
 export type OutletsDoc = { outlets?: OutletConfig[]; trunks?: TrunkConfig[]; selectedFileId?: string; selectedPage?: number }
 
+/** Imported outlets go on the default stack's Data Outlets layer (added if a model lacks it); the level shows
+ *  as filled (low) / outline (high). (Before 2026-09-25 they went on "Outlets low / high level" layers — a
+ *  re-import moves them.) */
 export const OUTLET_LAYERS: Layer[] = [
-	{ id: 'outlets-low', name: 'Outlets low level', group: 'Outlets', color: '#2563eb', visible: true, locked: false },
-	{ id: 'outlets-high', name: 'Outlets high level', group: 'Outlets', color: '#7c3aed', visible: true, locked: false },
+	{ id: 'data', name: 'Data Outlets', group: 'Outlets', color: '#2563eb', swatch: 'color', visible: true, locked: false },
 ]
 export const TRUNKS_LAYER: Layer = { id: 'trunks', name: 'Trunks', color: '#0e7490', visible: true, locked: false, weight: 1 }
 const MOUNT_BLOCK: Record<string, string> = { wall: 'outlet-wall', floor: 'outlet-floor' }
@@ -37,7 +39,7 @@ export function outletToInsert(o: OutletConfig): Ent {
 	const c = USAGE_COLORS[o.usage] ?? USAGE_COLORS.network
 	const e: Ent = {
 		id: `out-${o.id}`, type: 'insert', block: MOUNT_BLOCK[o.mountType] ?? 'outlet-box', a: [o.position.x, o.position.y],
-		layer: o.level === 'high' ? 'outlets-high' : 'outlets-low', color: c.stroke,
+		layer: 'data', color: c.stroke,
 		attrs: { LABEL: o.label ?? '', PORTS: String(o.portCount ?? 1), TYPE: o.usage ?? 'network', NOTE: o.roomNumber ?? '' },
 	}
 	if (o.level !== 'high') e.fill = c.fill

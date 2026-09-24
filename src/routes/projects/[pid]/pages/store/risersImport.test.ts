@@ -83,6 +83,7 @@ describe('Risers import', () => {
 		expect(ed.map((s) => s.z)).toEqual([0, 3850, 3850 + 4000 + 200])   // 2F: +50 slab; 3F: +400 clear on 2F
 		expect(storeyHeights(ed[1])).toMatchObject({ clearHeightMm: 3000, slabMm: 250 })
 		expect(ed[2].ceilingTile).toBe(2900)
+		expect(setStoreyHeights(st, '*', { plenumMm: 500 }).map((s) => s.z)).toEqual([0, 3600, 7200])   // every floor
 	})
 	it("a riser drawing's floors: its range minus its hidden floors", () => {
 		const st = riserStoreys(doc, riserFloors({ fromFloor: 30, toFloor: 34 }))

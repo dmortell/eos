@@ -16,10 +16,10 @@ describe('Outlets tool import', () => {
 		expect(outletsDocIdFor('P', undefined, floors)).toBeNull()
 	})
 	it('an outlet becomes an insert: block by mount type, attributes, usage colour, filled + layer by level', () => {
-		expect(outletToInsert(outlet())).toEqual({ id: 'out-o1', type: 'insert', block: 'outlet-box', a: [1200, 3400], layer: 'outlets-low', color: '#2563eb', fill: '#3b82f6',
+		expect(outletToInsert(outlet())).toEqual({ id: 'out-o1', type: 'insert', block: 'outlet-box', a: [1200, 3400], layer: 'data', color: '#2563eb', fill: '#3b82f6',
 			attrs: { LABEL: '33.3.012', PORTS: '2', TYPE: 'network', NOTE: 'Mtg Rm' } })
 		const hi = outletToInsert(outlet({ level: 'high', mountType: 'wall', rotation: 90 }))
-		expect([hi.block, hi.layer, hi.fill, hi.rot]).toEqual(['outlet-wall', 'outlets-high', undefined, 90])
+		expect([hi.block, hi.layer, hi.fill, hi.rot]).toEqual(['outlet-wall', 'data', undefined, 90])
 		expect(outletToInsert(outlet({ mountType: 'floor' })).block).toBe('outlet-floor')
 	})
 	it('a trunk becomes a conduit (rect = 4 edges at w×h, pipe = 16 at its outer diameter), same nodes + segments', () => {
@@ -31,12 +31,12 @@ describe('Outlets tool import', () => {
 		const m: Model = { id: 'm', name: '33F', objects: [], shapes: [{ id: 'mine', type: 'rect', a: [0, 0], b: [1, 1] }], layers: [] }
 		const r1 = importOutletsInto(m, { outlets: [outlet()], trunks: [trunk] })
 		expect([r1.added, r1.updated, r1.trunks]).toEqual([1, 0, 1])
-		expect(r1.model.layers!.map((l) => l.id)).toEqual(['outlets-low', 'outlets-high', 'trunks'])
+		expect(r1.model.layers!.map((l) => l.id)).toEqual(['data', 'trunks'])
 		const r2 = importOutletsInto(r1.model, { outlets: [outlet({ label: 'renamed' })], trunks: [trunk] })
 		expect([r2.added, r2.updated]).toEqual([0, 1])
 		expect(r2.model.shapes!.map((s) => s.id)).toEqual(['mine', 'out-o1'])
 		expect(r2.model.shapes![1].attrs!.LABEL).toBe('renamed')
-		expect(r2.model.objects).toHaveLength(1); expect(r2.model.layers).toHaveLength(3)
+		expect(r2.model.objects).toHaveLength(1); expect(r2.model.layers).toHaveLength(2)
 		expect(m.shapes).toHaveLength(1)   // input not mutated
 	})
 })

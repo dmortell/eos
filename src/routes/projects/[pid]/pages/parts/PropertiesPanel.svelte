@@ -14,13 +14,15 @@
 	import { type SheetFrame, type Proj, PROJ_OPTS, SCALES } from '../types'
 	import { NODE_FIELDS } from '../mock/data'
 	import TitleBlockEditor from './TitleBlockEditor.svelte'
+	import HeightsDialog from './HeightsDialog.svelte'
+	let heightsOpen = $state(false)
 	type HeightKey = 'slabMm' | 'raisedFloorMm' | 'clearHeightMm' | 'plenumMm'
 	import type { TitleBlockTemplate } from '../titleBlock'
 
 	let { ents = [], onupdate, onarrange, pageTitle = '', pageKind = '', activeLayer = '', node = null, onpagetitle,
 		modelObj = null, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg,
 		frameObj = null, onframeupdate, onframedelete, onframefit, nodeInfo = null, onnodefield, modelList = [], activeFrameId = undefined, scaleN = 1,
-		sheetInfo = null, onsheetfield, titleBlock = undefined, ontitleblock, frameStoreys = [], heights = null, onheight }:
+		sheetInfo = null, onsheetfield, titleBlock = undefined, ontitleblock, frameStoreys = [], heights = null, onheight, onheightall }:
 		{ ents?: Ent[]; onupdate?: (e: Ent) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void;
 			pageTitle?: string; pageKind?: string; activeLayer?: string; onpagetitle?: (title: string) => void;
 			node?: { id: string; label: string; kind: string; floorNumber?: number; building?: string } | null;
@@ -42,6 +44,7 @@
 			/** A selected BUILDING place's storey heights (top first) + the edit callback. */
 			heights?: { placeId: string; rows: { id: string; name: string; z: number; slabMm: number; raisedFloorMm: number; clearHeightMm: number; plenumMm: number }[] } | null
 			onheight?: (placeId: string, storeyId: string, key: HeightKey, value: number) => void
+			onheightall?: (placeId: string, key: HeightKey, value: number) => void
 			titleBlock?: TitleBlockTemplate; ontitleblock?: (t: TitleBlockTemplate) => void } = $props()
 	// R4 (review.md §R4, Dave's decision 2026-09-23): a prism is CALLED "Box" in the UI — the data/code keep
 	// `type: 'prism'` unchanged, this is a display label only.
@@ -352,24 +355,22 @@
 			{/each}
 			{#if heights?.rows.length}
 				<!-- a building's per-floor heights (its building model's storeys) — an edit re-stacks the floors above -->
-				<div class="prop-sec">HEIGHTS · mm</div>
+				<div class="prop-sec">HEIGHTS · mm<button class="pp-mini sec-btn" onclick={() => (heightsOpen = true)}>Edit heights…</button></div>
 				<div class="pp-heights">
 					<table>
-						<thead><tr><th></th><th title="Structural slab thickness">Slab</th><th title="Raised floor height">Raised</th><th title="Clear height (floor to ceiling)">Clear</th><th title="Plenum (ceiling void)">Plenum</th><th title="Level of the slab top above the lowest floor">Level</th></tr></thead>
+						<thead><tr><th></th><th title="Structural slab thickness">Slab</th><th title="Raised floor height">Raised</th><th title="Clear height (floor to ceiling)">Clear</th><th title="Plenum (ceiling void)">Plenum</th></tr></thead>
 						<tbody>
 							{#each heights.rows as r (r.id)}
-								<tr><th>{r.name}</th>
-									{#each [['slabMm', r.slabMm], ['raisedFloorMm', r.raisedFloorMm], ['clearHeightMm', r.clearHeightMm], ['plenumMm', r.plenumMm]] as [k, v] (k)}
-										<td><input type="number" min="0" step="50" value={v}
-											onchange={(e) => onheight?.(heights.placeId, r.id, k as HeightKey, Math.round(+(e.currentTarget as HTMLInputElement).value))}
-											onkeydown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur() }} /></td>
-									{/each}
-									<td class="lvl">{(r.z / 1000).toFixed(2)}</td></tr>
+								<tr title="Level {(r.z / 1000).toFixed(2)} m above the lowest floor"><th>{r.name}</th><td>{r.slabMm}</td><td>{r.raisedFloorMm}</td><td>{r.clearHeightMm}</td><td>{r.plenumMm}</td></tr>
 							{/each}
 						</tbody>
 					</table>
 				</div>
-				<div class="sec-help">Set by the risers import (or defaults). The Level column is metres above the lowest floor.</div>
+				<div class="sec-help">Set by the risers import (or defaults). Edit heights… shows each floor's level.</div>
+				{#if heightsOpen}
+					<HeightsDialog title={node?.label ?? ''} rows={heights.rows} onclose={() => (heightsOpen = false)}
+						onheight={(id, k, v) => onheight?.(heights!.placeId, id, k, v)} onall={(k, v) => onheightall?.(heights!.placeId, k, v)} />
+				{/if}
 			{/if}
 			<div class="pp-hint">{nodeInfo.note ?? 'Edits save to the project in Firestore.'}</div>
 		{:else}
@@ -577,9 +578,8 @@
 	.pp-heights table { width:100%; border-collapse:collapse; font-size:10px; }
 	.pp-heights th { font-weight:500; color:var(--muted); text-align:left; padding:1px 2px; position:sticky; top:0; background:var(--panel); }
 	.pp-heights tbody th { font-family:Consolas,monospace; color:var(--text); }
-	.pp-heights td { padding:1px; }
-	.pp-heights input { width:100%; min-width:0; background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:3px; padding:1px 3px; font-size:10px; font-family:Consolas,monospace; }
-	.pp-heights input:focus { outline:none; border-color:var(--accent); }
+	.pp-heights td { padding:1px 2px; font-family:Consolas,monospace; color:var(--text); text-align:right; }
+	.pp-heights thead th:not(:first-child) { text-align:right; }
 	.pp-heights td.lvl { color:var(--muted); font-family:Consolas,monospace; text-align:right; }
 	.pp-check { min-width:0; }
 	.pp-check summary { cursor:pointer; background:var(--input); border:1px solid var(--line); border-radius:4px; padding:3px 6px; font-size:11px; font-family:Consolas,monospace; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }

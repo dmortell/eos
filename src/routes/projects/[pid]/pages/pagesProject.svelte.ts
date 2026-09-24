@@ -289,6 +289,11 @@ export class PagesProject {
 		const m = modelForPlace(p.id)
 		return { placeId: p.id, rows: [...(m?.storeys ?? [])].sort((a, b) => b.z - a.z).map((s) => ({ id: s.id, name: s.name, z: s.z, ...storeyHeights(s) })) }
 	})
+	/** One height set for EVERY floor of a building (the heights dialog's "All floors"), one undo step. */
+	setAllStoreyHeights = (placeId: string, key: keyof FloorHeights, value: number) => {
+		const m = modelForPlace(placeId); if (!m?.storeys?.length || !(value >= 0)) return
+		this.#rebuildStoreys(placeId, m, setStoreyHeights($state.snapshot(m.storeys) as Storey[], '*', { [key]: value }), `${m.name}: all floors' heights`)
+	}
 	/** One floor's height edited in the HEIGHTS table: the floors above re-stack, riser geometry follows. */
 	setStoreyHeight = (placeId: string, storeyId: string, key: keyof FloorHeights, value: number) => {
 		const m = modelForPlace(placeId); if (!m?.storeys || !(value >= 0)) return
@@ -597,11 +602,11 @@ export class PagesProject {
 			.map((p) => modelForPlace(p.id)).filter((m): m is Model => !!m && !m.archived)
 		return cands.sort((a, b) => (b.shapes?.length ?? 0) - (a.shapes?.length ?? 0))[0] ?? null
 	}
-	/** The layer an imported annotation goes on: the same id if the model has it, else the model's Annotations
-	 *  layer (`anno` in the default stack), else its first non-background layer. */
-	#layerFor = (m: Model, id?: string) => {
+	/** The layer imported annotations / text go on: the model's Annotations layer (`anno` in the default stack),
+	 *  else its first non-background layer. (Sheets' own annotation layer ids aren't carried over.) */
+	#layerFor = (m: Model, _sheetsLayerId?: string) => {
 		const ls = m.layers ?? [], has = (x: string) => ls.some((l) => l.id === x)
-		return id && has(id) ? id : has('anno') ? 'anno' : has('annotations') ? 'annotations' : ls.find((l) => l.group !== 'Background')?.id
+		return has('anno') ? 'anno' : has('annotations') ? 'annotations' : ls.find((l) => l.group !== 'Background')?.id
 	}
 	/** The colour a Sheets annotation without its own drew in: the project's annotation default, else Sheets'
 	 *  built-in red (sheets/annotations/AnnotationLayer.svelte). */
