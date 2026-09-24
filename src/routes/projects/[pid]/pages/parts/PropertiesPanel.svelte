@@ -355,10 +355,10 @@
 			{/each}
 			{#if heights?.rows.length}
 				<!-- a building's per-floor heights (its building model's storeys) — an edit re-stacks the floors above -->
-				<div class="prop-sec">HEIGHTS · mm<button class="pp-mini sec-btn" onclick={() => (heightsOpen = true)}>Edit heights…</button></div>
+				<div class="prop-sec">HEIGHTS · mm<button class="pp-mini sec-btn edit-btn" onclick={() => (heightsOpen = true)}><Icon name="edit" size={11} /> Edit heights…</button></div>
 				<div class="pp-heights">
 					<table>
-						<thead><tr><th></th><th title="Structural slab thickness">Slab</th><th title="Raised floor height">Raised</th><th title="Clear height (floor to ceiling)">Clear</th><th title="Plenum (ceiling void)">Plenum</th><th title="Slab top above the lowest floor (m)">Level</th></tr></thead>
+						<thead><tr><th></th><th title="Structural slab thickness">Slab</th><th title="Raised floor height">Raised</th><th title="Clear height (floor to ceiling)">Clear</th><th title="Plenum (ceiling void)">Plenum</th><th title="Slab top above the lowest floor">Level (m)</th></tr></thead>
 						<tbody>
 							{#each heights.rows as r (r.id)}
 								<tr><th>{r.name}</th><td>{r.slabMm}</td><td>{r.raisedFloorMm}</td><td>{r.clearHeightMm}</td><td>{r.plenumMm}</td><td class="lvl">{(r.z / 1000).toFixed(2)}</td></tr>
@@ -366,7 +366,6 @@
 						</tbody>
 					</table>
 				</div>
-				<div class="sec-help">Set by the risers import (or defaults). Level = metres above the lowest floor.</div>
 				{#if heightsOpen}
 					<HeightsDialog title={node?.label ?? ''} rows={heights.rows} onclose={() => (heightsOpen = false)}
 						onheight={(id, k, v) => onheight?.(heights!.placeId, id, k, v)} onall={(k, v) => onheightall?.(heights!.placeId, k, v)} />
@@ -571,6 +570,8 @@
 	.cb { cursor:pointer; }
 	.cb input { width:16px; height:16px; padding:0; justify-self:start; accent-color:var(--accent); }
 	.sec-btn { float:right; text-transform:none; letter-spacing:0; }
+	.edit-btn { display:inline-flex; align-items:center; gap:4px; color:var(--accent); border-color:var(--accent); font-size:11px; padding:2px 8px; }
+	.edit-btn:hover { background:var(--active); }
 	.pp-floors { display:grid; grid-template-columns:repeat(3, 1fr); gap:1px 6px; padding:2px 8px 4px; max-height:170px; overflow-y:auto; font-size:11px; color:var(--text); }
 	.pp-floors label { display:flex; align-items:center; gap:4px; cursor:pointer; }
 	.pp-floors input { accent-color:var(--accent); }
