@@ -10,6 +10,8 @@ is in-memory (Svelte 5 runes), no Firestore yet (§12 in `todo.md`).
 |---|---|
 | `+page.svelte` | The shell + orchestration: tabs, split panes, the drawing navigator, the global undo timeline, document vs view vs session state, the tool strip, printing, and all the callback wiring to the panels. |
 | `pagesProject.svelte.ts` | The PROJECT side (`PagesProject`, built by `+page` with a `ProjectHost`): the live Firestore data (`ProjectSource` + `store/pagesStore`), the navigator tree, places, place models + floorplans, the Outlets import, stored sheets, the title block, and the drawings dialog handlers. |
+| `projectImports.svelte.ts` | Phase-8 imports (`PagesProject.imports`): a Sheets-tool sheet / a register drawing → a Pages sheet, a Risers doc → the building model. |
+| `docEdit.svelte.ts` · `history.svelte.ts` | The document edits `+page` applies (entity CRUD, clipboard, groups, draw order, model-object edits, layer delete, delete-selection) and the global undo timeline. |
 | `store/` | Firestore schema + mappers, the debounced `DocSaver`, `PagesStore`, places / tree building, the Outlets import, the drawing list (dialog data + Excel export). All pure parts unit-tested. |
 | `titleBlock.ts` · `blocks.svelte.ts` (+ `ui/blocks.ts`) | The per-project title-block template + fill; the global block library (outlet symbols) and insert helpers. |
 | `parts/DrawingsDialog.svelte` · `TitleBlockEditor.svelte` | The drawing management dialog (sheets / archived / models); the title-block template editor. |
@@ -20,7 +22,8 @@ is in-memory (Svelte 5 runes), no Firestore yet (§12 in `todo.md`).
 | `ui/geometry.ts` | Pure 2D helpers + the `Ent` (annotation) type: dist/segDist, textBox, box elevation/iso faces, elevation projection (`elevU`), style + unit constants. Unit-tested (`geometry.test.ts`). |
 | `ui/panzoom.ts` | The pan/zoom Svelte action (pointer events, 2-finger-only navigation — the tool's touch model). |
 | `parts/PaperPage.svelte` | A sheet in paper space: lays out the viewport frames, each mounting a `Viewport`; frame select/drag/resize. |
-| `parts/PropertiesPanel.svelte` · `LayersPanel` · `HistoryPanel` · `StatusBar` · `Menubar` · `DrawingNavigator` · `ViewGizmos` · `CommandPalette` · `Handle` | Sidebar / chrome components. |
+| `parts/PropertiesPanel.svelte` + `parts/props/` | The Properties panel: a dispatcher over one section per selection kind (`FrameProps`, `ModelObjProps`, `ModelObjsProps`, `PlaceProps`, `PageProps`, `EntProps`), shared `props.css` + `fields.ts`. |
+| `LayersPanel` · `HistoryPanel` · `StatusBar` · `Menubar` · `DrawingNavigator` · `ViewGizmos` · `CommandPalette` · `Handle` | Sidebar / chrome components. |
 | `types.ts` | Shared Pages types + option lists (`Proj`≡`Dir`, `SheetFrame`, `SCALES`, `PROJ_OPTS`). |
 | `constants.ts` | Viewport scale (`BASE`, `PAPER_PX_PER_MM`), handle size, paper sizes, the true-scale helpers. Unit-tested. |
 | `ids.ts` | The one id generator (`newId(prefix)`, nanoid). |

@@ -4,6 +4,39 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 `git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps the long historical done-log and the
 open items; `review.md §0a` tracks which review findings are closed.
 
+## Parity pick-list, small items (2026-09-25) — parity-review.md
+- **Nav bar Pan / Orbit** are latched tools: a left drag (or one finger) pans / orbits; Esc, a right-click or a
+  tool pick drops them.
+- **Title block**:
+  - a company block (name / address / contact);
+  - Show toggles (logo / company / fields);
+  - an optional printed margin border;
+  - a per-sheet "shown on this sheet" switch;
+  - frames snap to the drawing-area and title-block edges.
+- **Sheets**: viewport labels print and have an editable Label; Ctrl/Shift-click sheets in the tree and drag
+  them as a block; PageUp / PageDown page-pan the sheet.
+- **Annotations**:
+  - line text labels (start / middle / end);
+  - a callout frame (box / underline / none);
+  - type a dimension's length.
+
+  The Sheets import keeps all three.
+- **Editing**:
+  - repeat clicks step down through overlapping shapes;
+  - copied outlets get the next free label;
+  - model objects Ctrl/Shift-click multi-select and move together;
+  - shared layer / colour / base Z / height edits;
+  - a model object's own colour;
+  - greyscale images.
+- **Layers**: the active layer can't be deleted; a layer with items asks, then takes them with it. Nothing is
+  drawn onto a hidden or locked layer.
+- **Keys and prompts**: `+` / `-` / Home zoom keys; a point count while drawing a run.
+- **Refactor**:
+  - `PropertiesPanel` is a dispatcher over `parts/props/` (Frame, ModelObj, ModelObjs, Place, Page, Ent, with
+    shared `props.css` + `fields.ts`);
+  - `docEdit.svelte.ts` holds the document edits (out of `+page`);
+  - `projectImports.svelte.ts` holds the phase-8 imports (out of `pagesProject`).
+
 ## Drawings, models, places (2026-09-24) — drawings-plan.md phases 1–5
 - Places, stored models (`projects/{pid}/models`) and sheets (registry `toolType 'pages'`); floorplan PDFs as
   image shapes; a global **Blocks** library with `insert` shapes; **Outlets import** (outlets → block inserts,
