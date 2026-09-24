@@ -40,6 +40,7 @@
 	import { models, modelById, floorModelId, ensureFloorModel, FLOOR_MODEL_ID, snapModels, setModels, upsertModel, removeModels, modelForPlace } from './3dview/models.svelte'
 	import { emptyFloor } from './mock/models'
 	import { docToModel, sheetToPage, pageToSheet, nextFrameSeq } from './store/mappers'
+	import { floorplanPlacement, pdfSrc, PDF_SRC } from './ui/render/pdfRaster.svelte'
 	import type { PageDoc } from './doc.svelte'
 	import { getContext, untrack } from 'svelte'
 	import type { Firestore } from '$lib'
@@ -851,7 +852,7 @@
 		// stored models go into the editor's model registry from the SUBSCRIPTION callback (remote changes only)
 		const ps = new PagesStore(fdb, pid, untrack(() => auth?.user?.email ?? ''), {
 			onModels: (changed, removed) => {
-				for (const d of changed) { const isNew = !modelById(d.id); const m = docToModel(d); upsertModel(m); if (isNew) addModelToHistory(m) }
+				for (const d of changed) { const isNew = !modelById(d.id); const m = docToModel(d); upsertModel(m); if (isNew) addModelToHistory(m); if (m.underlays?.length) convertUnderlays(m.id) }
 				removeModels(removed)
 			},
 			// a stored sheet changed elsewhere: refresh its open page doc + tab titles (echoes / pending edits never arrive here)
@@ -979,26 +980,48 @@
 	// A REAL floor's model: its own (named "33F — Hibiya", so it never picks up the demo 33F model) with the
 	// floor's calibrated floorplan as its plan underlay (ProjectSource.floorplanOf → the outlets tool's file /
 	// page). The underlay is attached once, asynchronously; the tab zooms to it on arrival (Viewport extents).
-	const FLOORPLAN_LAYER = { id: 'floorplan', name: 'Floorplan', group: 'Background', color: '#94a3b8', swatch: 'color' as const, visible: true, locked: false }
+	// locked by default: clicking the plan mustn't grab it — unlock the layer to move / crop / recalibrate it
+	const FLOORPLAN_LAYER = { id: 'floorplan', name: 'Floorplan', group: 'Background', color: '#94a3b8', swatch: 'color' as const, visible: true, locked: true }
 	function realFloorModelId(floor: string): ModelId {
 		const src = projectSrc!, id = ensureFloorModel(`${floor} — ${src.project?.name ?? src.pid}`)
 		const n = parseInt(floor, 10)
 		if (!isNaN(n)) attachFloorplan(id, n)
 		return id
 	}
-	/** Give a model its floor's calibrated floorplan underlay, once (no-op when it already has an underlay). */
+	// ── a floor's FLOORPLAN is an image SHAPE (src `pdf:<fileId>#<page>`) on the model's Background "Floorplan"
+	// layer — selectable / croppable / recalibratable like any image. Its placement is computed ONCE from the
+	// Outlets / Uploads calibration of the page; later changes in Pages aren't synced back (drawings-plan). ──
+	const floorplanShapeOf = (m: Model) => m.shapes?.find((e) => e.type === 'image' && e.src?.startsWith(PDF_SRC))
+	const attaching = new Set<ModelId>()
+	/** Give a model its floor's floorplan shape, once (no-op when it already has one). */
 	function attachFloorplan(id: ModelId, n: number) {
 		const src = projectSrc, m = modelById(id)
-		if (src && m && !m.underlays?.length) {
-			src.floorplanOf(n).then((fp) => {
-				const mm = modelById(id)
-				if (!fp || !mm || mm.underlays?.length) return
-				// the floorplan goes on its OWN Background layer (first in the list = drawn underneath), so the
-				// Layers panel shows / hides / locks / VP-freezes it like any other layer
-				if (!mm.layers?.some((l) => l.id === FLOORPLAN_LAYER.id)) mm.layers = [{ ...FLOORPLAN_LAYER }, ...(mm.layers ?? [])]
-				mm.underlays = [{ id: newId('ul'), dir: 'plan', fileId: fp.fileId, pageNum: fp.pageNum, layer: FLOORPLAN_LAYER.id }]
-			}).catch(() => { /* no floorplan — the model stays empty */ })
-		}
+		if (!src || !m || floorplanShapeOf(m) || m.underlays?.length || attaching.has(id)) return
+		attaching.add(id)
+		src.floorplanOf(n).then((fp) => (fp ? addFloorplanShape(id, fp.fileId, fp.pageNum) : undefined))
+			.catch(() => { /* no floorplan — the model stays empty */ }).finally(() => attaching.delete(id))
+	}
+	async function addFloorplanShape(id: ModelId, fileId: string, page: number) {
+		const place = await floorplanPlacement(fileId, page)
+		const mm = modelById(id)
+		if (!place || !mm || floorplanShapeOf(mm)) return
+		// the floorplan goes on its OWN Background layer (first in the list = drawn underneath), so the Layers
+		// panel shows / hides / locks / VP-freezes it like any other layer
+		if (!mm.layers?.some((l) => l.id === FLOORPLAN_LAYER.id)) mm.layers = [{ ...FLOORPLAN_LAYER }, ...(mm.layers ?? [])]
+		const shape: Ent = { id: newId('e'), type: 'image', a: place.a, b: place.b, src: pdfSrc(fileId, page), layer: FLOORPLAN_LAYER.id, opacity: 0.6, lockAspect: true }
+		if (place.crop) shape.crop = place.crop
+		mm.shapes = [shape, ...(mm.shapes ?? [])]
+	}
+	/** A stored model from before floorplans were shapes: turn its plan underlays into floorplan shapes (once). */
+	function convertUnderlays(id: ModelId) {
+		const m = modelById(id), us = (m?.underlays ?? []).filter((u) => u.dir === 'plan' && u.fileId)
+		if (!m || !us.length || attaching.has(id)) return
+		attaching.add(id)
+		Promise.all(us.map((u) => addFloorplanShape(id, u.fileId, u.pageNum ?? 1))).then(() => {
+			const mm = modelById(id); if (!mm) return
+			mm.underlays = []
+			const l = mm.layers?.find((x) => x.id === FLOORPLAN_LAYER.id); if (l) l.locked = true
+		}).catch(() => {}).finally(() => attaching.delete(id))
 	}
 	// The selected REAL tree node's properties (projectProps.ts) + saving an edit. A renamed building's node id
 	// changes (`b:<name>`), so the selection follows it.

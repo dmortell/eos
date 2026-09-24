@@ -11,7 +11,6 @@
 	// place/mapper/gestures.ts.
 	import { Icon } from '$lib'
 	import { panzoom } from './panzoom'
-	import UnderlayImage from './render/UnderlayImage.svelte'
 	import EntRender from './render/EntRender.svelte'
 	import VpMarks from './render/VpMarks.svelte'
 	import VpOverlays from './render/VpOverlays.svelte'
@@ -51,12 +50,12 @@
 				<line x1={8 * MMPU} y1={GROUND} x2={392 * MMPU} y2={GROUND} stroke="#94a3b8" stroke-width="1.2" />
 				<text x={12 * MMPU} y={GROUND + 14 * MMPU} font-size={8 * MMPU} fill="#64748b" font-weight="600">{v.elevDir.toUpperCase()}</text>
 			{/if}
-			<!-- the floor's calibrated floorplan (plan only, on its Background layer), then the 3D model -->
-			{#each v.planUnderlays as u (u.id)}<UnderlayImage underlay={u} dark={v.modelSpace} onrect={(r) => v.setUnderlayRect(u.id, r)} />{/each}
+			<!-- Background-layer shapes (a floor's calibrated floorplan PDF image) under the 3D model -->
+			{#each v.backEnts as e (e.id)}{#if e.id !== x.editText?.id && !v.isLayerHidden(e.layer) && v.inThisView(e)}<EntRender {e} ctx={v.ctx} selected={v.selSet.has(e.id)} style={v.entStyle} isoGround={v.isoGround} imgCrop={imgEdit.mode === 'crop' ? imgEdit.id : null} clipNs={v.clipNs} />{/if}{/each}
 			{#if v.mdl}<Model3d model={v.mdl} frozen={v.frozen} adapt={v.modelSpace ? onDark : undefined} dir={v.kind} cx={CX} cy={CY} ground={GROUND} selIds={v.modelSel} canvasZoom={v.canvasZoom} clip={v.clip} yaw={v.yaw} pitch={v.pitch} />{/if}
 			<VpMarks {v} {x} />
 			<!-- drawn entities (hidden layers skipped; the text being edited in place is hidden too) -->
-			{#each v.paintEnts as e (e.id)}{#if e.id !== x.editText?.id && !v.isLayerHidden(e.layer) && v.inThisView(e)}<EntRender {e} ctx={v.ctx} selected={v.selSet.has(e.id)} style={v.entStyle} isoGround={v.isoGround} imgCrop={imgEdit.mode === 'crop' ? imgEdit.id : null} clipNs={v.clipNs} />{/if}{/each}
+			{#each v.frontEnts as e (e.id)}{#if e.id !== x.editText?.id && !v.isLayerHidden(e.layer) && v.inThisView(e)}<EntRender {e} ctx={v.ctx} selected={v.selSet.has(e.id)} style={v.entStyle} isoGround={v.isoGround} imgCrop={imgEdit.mode === 'crop' ? imgEdit.id : null} clipNs={v.clipNs} />{/if}{/each}
 			<VpOverlays {v} {x} />
 		</g>
 	</svg>

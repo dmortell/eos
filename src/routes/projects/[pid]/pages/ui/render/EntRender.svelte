@@ -16,6 +16,7 @@
 	import { isFlatElev, flatXSpan, rotCenter, rotatePt, groundInIso } from '../hit'
 	import { arrowPts, cloudPath, groundPts, headGeom, dashArray, type HeadGeom } from '../annotations'
 	import { imageSrc } from '../../imageStore'
+	import { pdfImageUrl, PDF_SRC } from './pdfRaster.svelte'
 
 	let { e, ctx, selected = false, style, isoGround = null, imgCrop = null, clipNs }: {
 		e: Ent
@@ -51,6 +52,10 @@
 	} = $props()
 
 	// colour resolves ByLayer: explicit object colour → its layer's colour → the tool ink.
+	// an image's href: a PDF page (floorplan shapes, `pdf:<fileId>#<page>`, rendered once per session) or an imported image
+	const href = $derived(e.type !== 'image' ? '' : e.src?.startsWith(PDF_SRC) ? pdfImageUrl(e.src) : imageSrc(e.src))
+	// in dark model space a PDF page is inverted (white paper → dark, black lines → light), like an AutoCAD xref
+	const pdfDark = $derived(!!style.adapt && !!e.src?.startsWith(PDF_SRC))
 	const ink = $derived.by(() => { const c = e.color ?? style.layerColor(e.layer) ?? style.ink; return style.adapt ? style.adapt(c) : c })
 	// An explicit per-object weight ALWAYS renders; LWT only chooses the thickness for objects with no weight
 	// set (on = the default 1.2, off = a thin 0.5 display line).
@@ -108,8 +113,8 @@
 		{@const cr = e.crop ?? { x: 0, y: 0, w: 1, h: 1 }}
 		{@const cropping = imgCrop === e.id}
 		<clipPath id="{clipNs}-{e.id}"><rect x={rx + cr.x * rw} y={ry + cr.y * rh} width={cr.w * rw} height={cr.h * rh} /></clipPath>
-		{#if cropping}<image href={imageSrc(e.src)} x={rx} y={ry} width={rw} height={rh} opacity="0.35" preserveAspectRatio="none" />{/if}
-		<image href={imageSrc(e.src)} x={rx} y={ry} width={rw} height={rh} opacity={e.opacity ?? 1} clip-path="url(#{clipNs}-{e.id})" preserveAspectRatio="none" />
+		{#if cropping}<image {href} x={rx} y={ry} width={rw} height={rh} opacity="0.35" preserveAspectRatio="none" style:filter={pdfDark ? 'invert(1) hue-rotate(180deg)' : undefined} />{/if}
+		<image {href} x={rx} y={ry} width={rw} height={rh} opacity={e.opacity ?? 1} clip-path="url(#{clipNs}-{e.id})" preserveAspectRatio="none" style:filter={pdfDark ? 'invert(1) hue-rotate(180deg)' : undefined} />
 		{#if cropping}<rect x={rx + cr.x * rw} y={ry + cr.y * rh} width={cr.w * rw} height={cr.h * rh} fill="none" stroke={SEL} stroke-width={1 / (canvasZoom || 1)} stroke-dasharray="{5 / (canvasZoom || 1)} {3 / (canvasZoom || 1)}" vector-effect="non-scaling-stroke" />{/if}
 	{:else if e.type === 'polyline'}
 		<polyline points={(e.pts ?? []).map(p => p.join(',')).join(' ')} fill={fill} stroke={ink} stroke-width={w} stroke-dasharray={da} vector-effect="non-scaling-stroke" stroke-linejoin="round" />

@@ -22,7 +22,7 @@ import { models, modelById } from '../3dview/models.svelte'
 import { setSectionDir, deleteSection, setSectionClip } from './modelEdit'
 import { imgEdit } from '../imageEdit.svelte'
 import { DEFAULT_YAW, DEFAULT_PITCH, isoBounds } from '../3dview/projection'
-import type { Obj, Clip, UnderlayRect } from '../3dview/types'
+import type { Obj, Clip } from '../3dview/types'
 
 export const INK = '#475569', SEL = '#0e7490'
 const ELEV = new Set<string>(['front', 'rear', 'left', 'right'])
@@ -48,9 +48,9 @@ export class VpView {
 	constructor(p: VpProps) {
 		this.p = p
 		// MODEL SPACE zoom-to-extents: while the view is the untouched default (zoom 1, no pan — a fresh tab,
-		// or after Fit) and the plan has underlays, zoom + centre on their extents.
+		// or after Fit) and the plan has background images (the floorplan), zoom + centre on their extents.
 		$effect(() => {
-			const e = this.underlayExtents, v = this.view, measured = !!this.boxW || this.vpW > 0   // wait until the pane size is known
+			const e = this.backExtents, v = this.view, measured = !!this.boxW || this.vpW > 0   // wait until the pane size is known
 			if (!this.modelSpace || this.kind !== 'plan' || !e || !measured || v.zoom !== 1 || v.x !== 0 || v.y !== 0) return
 			untrack(() => {
 				const ds = this.dscale, bw = (e.x1 - e.x0) * ds, bh = (e.y1 - e.y0) * ds
@@ -198,18 +198,19 @@ export class VpView {
 		this.on.view?.({ zoom: nz, x: vx - (vx - v.x) * r, y: vy - (vy - v.y) * r })
 	}
 
-	// ── plan UNDERLAYS (a floor's calibrated floorplan, render/UnderlayImage.svelte) → the extents box ──
-	// raw: rects are replaced, never mutated — and a proxied rect would fail the `cur === r` check
-	underlayRects = $state.raw<Record<string, UnderlayRect | null>>({})
-	setUnderlayRect(id: string, r: UnderlayRect | null) {
-		const cur = this.underlayRects[id]
-		if (cur === r || (cur && r && cur.x === r.x && cur.y === r.y && cur.w === r.w && cur.h === r.h)) return
-		this.underlayRects = { ...this.underlayRects, [id]: r }
-	}
-	planUnderlays = $derived(this.mdl && this.kind === 'plan' ? (this.mdl.underlays ?? []).filter((u) => u.dir === 'plan' && !this.isLayerHidden(u.layer)) : [])
-	underlayExtents = $derived.by(() => {
-		const ids = new Set(this.planUnderlays.map((u) => u.id))
-		const rs = Object.entries(this.underlayRects).filter(([id, r]) => ids.has(id) && r).map(([, r]) => r!)
+	// ── BACKGROUND shapes: shapes on a layer in the 'Background' group (a floor's calibrated floorplan PDF is an
+	// image shape there) paint UNDER the 3D model, like an xref; everything else paints over it. Their visible
+	// rect (crop window) is the model-space zoom-to-extents box. ──
+	isBackLayer = (id?: string) => !!id && this.mls.find((l) => l.id === id)?.group === 'Background'
+	backEnts = $derived.by(() => this.paintEnts.filter((e) => this.isBackLayer(e.layer)))
+	frontEnts = $derived.by(() => this.paintEnts.filter((e) => !this.isBackLayer(e.layer)))
+	backExtents = $derived.by(() => {
+		if (this.kind !== 'plan') return null
+		const rs = this.backEnts.filter((e) => e.type === 'image' && e.a && e.b && !this.isLayerHidden(e.layer) && this.inThisView(e)).map((e) => {
+			const x = Math.min(e.a![0], e.b![0]), y = Math.min(e.a![1], e.b![1]), w = Math.abs(e.b![0] - e.a![0]), h = Math.abs(e.b![1] - e.a![1])
+			const c = e.crop ?? { x: 0, y: 0, w: 1, h: 1 }
+			return { x: x + c.x * w, y: y + c.y * h, w: c.w * w, h: c.h * h }
+		})
 		if (!rs.length) return null
 		const x0 = Math.min(...rs.map((r) => r.x)), y0 = Math.min(...rs.map((r) => r.y))
 		return { x0, y0, x1: Math.max(...rs.map((r) => r.x + r.w)), y1: Math.max(...rs.map((r) => r.y + r.h)) }
