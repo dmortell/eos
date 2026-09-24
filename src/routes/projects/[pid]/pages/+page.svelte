@@ -976,7 +976,7 @@
 	<!-- inside .shell so the palette's CSS tokens (var(--panel)/--text/…) resolve -->
 	{#if paletteOpen}<CommandPalette items={paletteItems} onpick={pickPalette} onclose={() => (paletteOpen = false)} />{/if}
 	{#if proj.drawingsOpen && proj.store}
-		<DrawingsDialog sheets={proj.store.sheets} places={proj.store.places} models={proj.storedModelInfo} projectName={proj.src?.project?.name ?? ''}
+		<DrawingsDialog sheets={proj.store.sheets} places={proj.store.places} models={proj.storedModelInfo} projectName={proj.src?.project?.name ?? ''} packagesHref="/projects/{page.params.pid}/packages"
 			onupdate={proj.updateSheets} onarchive={proj.archiveSheets} onrestore={proj.restoreSheets} ondelete={proj.deleteSheet}
 			onopen={proj.openSheetById} onmodelarchive={proj.setModelArchived} onopenmodel={proj.openModelById} onpackage={proj.saveAsPackage}
 			onclose={() => (proj.drawingsOpen = false)} />

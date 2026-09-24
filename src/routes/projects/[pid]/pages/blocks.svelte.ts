@@ -1,7 +1,8 @@
 // The GLOBAL block library (Firestore `blocks/{id}`, shared by every project — ui/blocks.ts has the model).
 // The default outlet blocks are available immediately (even offline / before the first snapshot); the
 // stored docs override them by id. `startBlocks` subscribes once per session and seeds any MISSING default
-// under its fixed id (idempotent — two sessions seeding at once write the same doc).
+// under its fixed id — or one stored at an older `rev` than the built-in (idempotent — two sessions seeding
+// at once write the same doc).
 import type { Firestore } from '$lib'
 import { DEFAULT_BLOCKS, setBlockResolver, type BlockDef } from './ui/blocks'
 import { encodeShapes, decodeShapes } from './store/mappers'
@@ -21,8 +22,15 @@ export function startBlocks(db: Firestore) {
 		for (const d of docs) { const b = d as unknown as BlockDef; byId[d.id] = { ...b, shapes: decodeShapes(b.shapes) ?? [] } }
 		if (seeded) return
 		seeded = true
-		const have = new Set(docs.map((d) => d.id))
+		const revOf = new Map(docs.map((d) => [d.id, (d as unknown as BlockDef).rev ?? 0]))
+		// a missing default, or a stored one older than the built-in (`rev`), is (re)written from the default;
 		// shapes' points as {x,y} (Firestore can't store nested arrays)
-		for (const b of DEFAULT_BLOCKS) if (!have.has(b.id)) void db.save('blocks', { ...b, shapes: encodeShapes(b.shapes), updatedAt: new Date().toISOString() })
+		for (const b of DEFAULT_BLOCKS) {
+			const stored = revOf.get(b.id)
+			if (stored === undefined || stored < (b.rev ?? 0)) {
+				byId[b.id] = b
+				void db.save('blocks', { ...b, shapes: encodeShapes(b.shapes), updatedAt: new Date().toISOString() })
+			}
+		}
 	})
 }

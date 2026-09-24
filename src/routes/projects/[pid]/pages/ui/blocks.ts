@@ -33,6 +33,9 @@ export type BlockDef = {
 	shapes: Ent[]
 	attributes: AttrDef[]
 	updatedAt?: string
+	/** DEFAULT blocks only: bumped when the built-in geometry changes — a stored copy with a lower `rev` is
+	 *  replaced by the new default on the next start (blocks.svelte.ts). */
+	rev?: number
 }
 
 // ── the resolver (the live library, or a test's) ──
@@ -79,11 +82,14 @@ export function attrColor(ins: Ent, a: AttrDef): string | undefined {
 // mount = triangle, floorbox = square + triangle; 200 mm "radius"). Attributes: LABEL above, PORTS inside,
 // NOTE below (the Outlets tool's room field), TYPE stored only. ──
 const R = 200
-/** The Outlets tool's equilateral triangle (circumradius r, bbox-centred on the insertion point). */
-function triangle(r: number): Pt[] {
-	const dy = -r * 0.25, pts: Pt[] = [90, 210, 330].map((deg) => [r * Math.cos((deg * Math.PI) / 180), r * Math.sin((deg * Math.PI) / 180) + dy])
+/** The Outlets tool's equilateral triangle (circumradius r, bbox-centred on the insertion point), moved DOWN
+ *  (+y is down the page) by `down` × its height (1.5 r). `CENTRED` (1/6) puts its circumcentre on the insertion
+ *  point — in the rosette its corners then touch the circle (rev 3; the wall mount matches). */
+function triangle(r: number, down = 0): Pt[] {
+	const dy = -r * 0.25 + down * 1.5 * r, pts: Pt[] = [90, 210, 330].map((deg) => [r * Math.cos((deg * Math.PI) / 180), r * Math.sin((deg * Math.PI) / 180) + dy])
 	return [...pts, pts[0]]
 }
+const CENTRED = 1 / 6
 const round = (p: Pt): Pt => [Math.round(p[0] * 10) / 10, Math.round(p[1] * 10) / 10]
 export const OUTLET_ATTRS: AttrDef[] = [
 	{ tag: 'LABEL', label: 'Label', pos: [0, -R * 0.85], height: 120, color: undefined },
@@ -94,15 +100,15 @@ export const OUTLET_ATTRS: AttrDef[] = [
 const shape = (id: string, s: Omit<Ent, 'id'>): Ent => ({ id, ...s })
 export const DEFAULT_BLOCKS: BlockDef[] = [
 	{
-		id: 'outlet-box', name: 'Outlet — rosette / box', category: 'outlet', attributes: OUTLET_ATTRS,
+		id: 'outlet-box', name: 'Outlet — rosette / box', category: 'outlet', attributes: OUTLET_ATTRS, rev: 3,
 		shapes: [
 			shape('c', { type: 'ellipse', a: [-R * 0.75, -R * 0.75], b: [R * 0.75, R * 0.75], color: BYBLOCK, fill: BYBLOCK }),
-			shape('t', { type: 'polyline', pts: triangle(R * 0.75).map(round), color: BYBLOCK }),
+			shape('t', { type: 'polyline', pts: triangle(R * 0.75, CENTRED).map(round), color: BYBLOCK }),
 		],
 	},
 	{
-		id: 'outlet-wall', name: 'Outlet — wall mount', category: 'outlet', attributes: OUTLET_ATTRS,
-		shapes: [shape('t', { type: 'polyline', pts: triangle(R * 0.9).map(round), color: BYBLOCK, fill: BYBLOCK })],
+		id: 'outlet-wall', name: 'Outlet — wall mount', category: 'outlet', attributes: OUTLET_ATTRS, rev: 3,
+		shapes: [shape('t', { type: 'polyline', pts: triangle(R * 0.9, CENTRED).map(round), color: BYBLOCK, fill: BYBLOCK })],
 	},
 	{
 		id: 'outlet-floor', name: 'Outlet — floorbox', category: 'outlet', attributes: OUTLET_ATTRS,

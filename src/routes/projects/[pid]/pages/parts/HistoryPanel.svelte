@@ -56,7 +56,7 @@
 		<div class="hp-status" class:warn={model.state === 'edited' || model.state === 'unversioned'}>
 			{#if model.version}<b>{model.version}</b>{' · '}{/if}{model.state === 'edited' ? 'edited since this version' : stateText[model.state]}
 		</div>
-		<input class="hp-note" placeholder="What changed (saved with the version)…" bind:value={note} />
+		<textarea class="hp-note" rows="3" placeholder="What changed (saved with the version)…" bind:value={note}></textarea>
 		<div class="hp-acts">
 			{#if !model.version}
 				<button class="primary" onclick={() => save(true)}>Save version 1.0</button>
@@ -104,7 +104,7 @@
 				{/each}
 			</div>
 		{/if}
-		<input class="hp-note" placeholder="Revision description…" bind:value={note} />
+		<textarea class="hp-note" rows="3" placeholder="Revision description…" bind:value={note}></textarea>
 		<div class="hp-acts">
 			<button class="primary" disabled={problems.length > 0} onclick={() => issue(false)}>Issue rev {nextRevisionCode(sheet.code)}</button>
 			{#if sheet.code}<button disabled={problems.length > 0} onclick={() => issue(true)} title="Replace revision {sheet.code} with the sheet as it is now">Overwrite rev {sheet.code}</button>{/if}
@@ -154,7 +154,7 @@
 	.hp-status { font-size:11px; color:var(--muted); padding:2px 5px 5px; }
 	.hp-status.warn { color:#f59e0b; }
 	.hp-status b { color:var(--text); font-family:Consolas,monospace; }
-	.hp-note { width:100%; background:var(--input); color:var(--text); border:1px solid var(--line-soft); border-radius:4px; padding:4px 6px; font-size:11px; }
+	.hp-note { width:100%; min-height:44px; resize:vertical; background:var(--input); color:var(--text); border:1px solid var(--line-soft); border-radius:4px; padding:4px 6px; font-size:11px; font-family:inherit; line-height:1.35; display:block; }
 	.hp-note:focus { outline:none; border-color:var(--accent); }
 	.hp-acts { display:flex; gap:5px; padding:5px 0 4px; }
 	.hp-acts button { flex:1; font-size:11px; padding:5px 6px; border-radius:5px; color:var(--text); background:var(--panel2); border:1px solid var(--line); cursor:pointer; }

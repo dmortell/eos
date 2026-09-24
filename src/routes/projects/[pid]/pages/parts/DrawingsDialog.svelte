@@ -18,8 +18,10 @@
 	import { exportDrawingRows } from '../store/drawingListExport'
 
 	type Patch = { id: string; patch: Partial<PagesSheetDoc> }
-	let { sheets, places, models, projectName = '', onupdate, onarchive, onrestore, ondelete, onopen, onmodelarchive, onopenmodel, onpackage, onclose }: {
+	let { sheets, places, models, projectName = '', packagesHref = '', onupdate, onarchive, onrestore, ondelete, onopen, onmodelarchive, onopenmodel, onpackage, onclose }: {
 		sheets: PagesSheetDoc[]; places: Place[]; models: ModelInfo[]; projectName?: string
+		/** The app's Packages page for this project (created packages are managed + published there). */
+		packagesHref?: string
 		onupdate: (p: Patch[]) => void; onarchive: (ids: string[]) => void; onrestore: (ids: string[]) => void
 		ondelete: (id: string) => void; onopen: (sheetId: string) => void
 		onmodelarchive: (id: string, archived: boolean) => void; onopenmodel: (id: string) => void; onclose: () => void
@@ -109,6 +111,7 @@
 				<button class:on={tab === 'archived'} onclick={() => (tab = 'archived')}>Archived <em>{archived.length}</em></button>
 				<button class:on={tab === 'models'} onclick={() => (tab = 'models')}>Models <em>{models.length}</em>{#if missing.length}<b title="Frames showing a Missing model">!</b>{/if}</button>
 			</div>
+			{#if packagesHref}<a class="dd-link" href={packagesHref} target="_blank" rel="noopener" title="The project's packages (opens in a new tab)"><Icon name="package" size={13} /> Packages</a>{/if}
 			<button class="dd-x" title="Close (Esc)" onclick={onclose}><Icon name="x" size={15} /></button>
 		</div>
 
@@ -247,6 +250,8 @@
 	.dd-tabs button.on { background:var(--active); color:var(--text); }
 	.dd-tabs em { font-style:normal; font-size:10px; color:var(--faint); }
 	.dd-tabs b { color:#f59e0b; font-size:11px; }
+	.dd-link { display:inline-flex; align-items:center; gap:4px; font-size:11px; color:var(--accent); text-decoration:none; padding:3px 8px; border:1px solid var(--line); border-radius:4px; }
+	.dd-link:hover { background:var(--hover); }
 	.dd-x { background:none; border:none; color:var(--muted); cursor:pointer; display:grid; place-items:center; }
 	.dd-x:hover { color:var(--text); }
 	.dd-bar, .dd-bulk { display:flex; align-items:center; gap:6px; padding:7px 12px; flex-wrap:wrap; }

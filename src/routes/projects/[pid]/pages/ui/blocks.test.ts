@@ -15,6 +15,10 @@ describe('blocks (global library model)', () => {
 		for (const b of DEFAULT_BLOCKS) expect(b.attributes.map((a) => a.tag)).toEqual(['LABEL', 'PORTS', 'NOTE', 'TYPE'])
 		expect(OUTLET_ATTRS.find((a) => a.tag === 'TYPE')!.visible).toBe(false)
 	})
+	it("the rosette's triangle is centred in its circle (every corner on the circle)", () => {
+		const t = lib['outlet-box'].shapes.find((s) => s.type === 'polyline')!
+		for (const [x, y] of t.pts!) expect(Math.hypot(x, y)).toBeCloseTo(150, 0)
+	})
 	it('an insert covers its block extent, scaled, at the insertion point; a missing block is a 200 mm box', () => {
 		expect(blockExtent(lib['outlet-box'])).toEqual([-150, -150, 150, 150])
 		expect(insertBounds(ins({ scale: 2 }))).toEqual([700, 1700, 1300, 2300])
