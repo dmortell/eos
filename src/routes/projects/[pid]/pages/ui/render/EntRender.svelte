@@ -18,6 +18,7 @@
 	import { imageSrc } from '../../imageStore'
 	import { pdfImageUrl, PDF_SRC } from './pdfRaster.svelte'
 	import { blockDef, byBlock, attrValue, attrColor, insertScale } from '../blocks'
+	import { isLegend, legendRows, legendSize, LEGEND } from '../legend'
 	import EntRender from './EntRender.svelte'   // a block's shapes are drawn by this same component
 
 	let { e, ctx, selected = false, style, isoGround = null, imgCrop = null, clipNs }: {
@@ -169,6 +170,24 @@
 		     texts, at the insertion point, scaled (rotation is the shared wrapper above) -->
 		{@const def = blockDef(e.block)}
 		{@const k = insertScale(e, paperMm)}
+		{#if isLegend(e)}
+			<!-- D1: a LEGEND — its rows from the model's layers (ui/legend.ts), in paper mm from its top-left corner -->
+			{@const rows = legendRows(ctx.mdl, e.attrs)}
+			{@const [lw, lh] = legendSize(rows.length)}
+			{@const counts = (e.attrs?.COUNTS ?? 'yes').toLowerCase() !== 'no'}
+			<g transform="translate({e.a![0]} {e.a![1]}) scale({k})">
+				<rect x="0" y="0" width={lw} height={lh} fill={style.adapt ? 'none' : '#ffffff'} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
+				<text class="anno" x={LEGEND.pad} y={LEGEND.title - 1.6} font-size="3" font-weight="700" fill={ink}>{e.attrs?.TITLE || 'LEGEND'}</text>
+				{#each rows as r, i (r.id)}
+					{@const y = LEGEND.title + i * LEGEND.row + LEGEND.row / 2}
+					{@const c = style.adapt ? style.adapt(r.color) : r.color}
+					{#if r.line}<line x1={LEGEND.pad} y1={y} x2={LEGEND.pad + 9} y2={y} stroke={c} stroke-width={w * 1.4} stroke-dasharray={dashArray(r.dash as Dash | undefined, style.canvasZoom)} vector-effect="non-scaling-stroke" />
+					{:else}<rect x={LEGEND.pad} y={y - 1.5} width="9" height="3" fill={c} />{/if}
+					<text class="anno" x={LEGEND.pad + 12} y={y + 0.9} font-size="2.4" fill={ink}>{r.name}</text>
+					{#if counts}<text class="anno" x={lw - LEGEND.pad} y={y + 0.9} font-size="2.4" text-anchor="end" fill={ink}>{r.count}</text>{/if}
+				{/each}
+			</g>
+		{:else}
 		<!-- D3: a mirrored insert flips its geometry left↔right; its attribute texts stay readable (only moved) -->
 		<g transform="translate({e.a![0]} {e.a![1]}) scale({e.mirror ? -k : k} {k})">
 			{#if def}{#each def.shapes as bs (bs.id)}<EntRender e={byBlock(bs, e)} {ctx} {style} clipNs="{clipNs}-{e.id}" />{/each}{/if}
@@ -188,6 +207,7 @@
 				<line x1="-100" y1="-100" x2="100" y2="100" stroke={ink} stroke-width={w} /><line x1="-100" y1="100" x2="100" y2="-100" stroke={ink} stroke-width={w} />
 			{/if}
 		</g>
+		{/if}
 	{:else if e.type === 'text'}
 		{@const fs = (e.fontPt ?? STYLE_DEFAULTS.fontPt) * PT_MM * paperMm}
 		{@const anchor = e.align === 'center' ? 'middle' : e.align === 'right' ? 'end' : 'start'}

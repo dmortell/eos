@@ -8,6 +8,8 @@
 // Shapes inside a block may use the colour / fill 'byblock' — resolved from the insert (so one symbol serves
 // every outlet usage colour, and low- vs high-level outlets as filled vs outline).
 import type { Ent, Pt } from './geometry'
+import type { Model } from '../3dview/types'
+import { isLegend, legendRows, legendSize } from './legend'
 
 export const BYBLOCK = 'byblock'
 
@@ -60,8 +62,9 @@ export function blockExtent(def: BlockDef): [number, number, number, number] {
 export const insertScale = (e: Ent, paperMm = 1) => (e.scale ?? 1) * (blockDef(e.block)?.annotative ? paperMm : 1)
 /** An insert's un-rotated box in model coords (its block's extent, scaled, at the insertion point). A
  *  missing block → a 200 mm box, so it can still be picked and fixed. `paperMm` sizes an annotative block. */
-export function insertBounds(e: Ent, paperMm = 1): [number, number, number, number] {
+export function insertBounds(e: Ent, paperMm = 1, mdl?: Model): [number, number, number, number] {
 	const def = blockDef(e.block), s = insertScale(e, paperMm), [ax, ay] = e.a ?? [0, 0]
+	if (isLegend(e)) { const [w, h] = legendSize(legendRows(mdl, e.attrs).length); return [ax, ay, ax + w * s, ay + h * s] }   // D1: from its rows
 	const [x0, y0, x1, y1] = def ? blockExtent(def) : [-100, -100, 100, 100]
 	return e.mirror ? [ax - x1 * s, ay + y0 * s, ax - x0 * s, ay + y1 * s] : [ax + x0 * s, ay + y0 * s, ax + x1 * s, ay + y1 * s]
 }
@@ -159,6 +162,13 @@ export const SYMBOL_BLOCKS: BlockDef[] = [
 	...[1, 2, 3, 4].map(elevTag),
 	{ id: 'faceplate', name: 'Faceplate (2 ports)', category: 'faceplate', rev: 2, attributes: [{ tag: 'LABEL', label: 'Label', pos: [0, -64], height: 11 }],   // real size, 70 × 115 mm
 		shapes: [shape('f', { type: 'rect', a: [-35, -57.5], b: [35, 57.5], color: BYBLOCK }), shape('p1', { type: 'rect', a: [-16, -33], b: [16, -4], color: BYBLOCK }), shape('p2', { type: 'rect', a: [-16, 4], b: [16, 33], color: BYBLOCK })] },
+	// D1: a LEGEND — no fixed geometry: its rows come from the model's layers (ui/legend.ts), drawn by EntRender
+	{ id: 'legend', name: 'Legend (layers)', category: 'legend', rev: 1, annotative: true, shapes: [],
+		attributes: [
+			{ tag: 'TITLE', label: 'Title', default: 'LEGEND', pos: [0, 0], height: 1, visible: false },
+			{ tag: 'COUNTS', label: 'Counts (yes/no)', default: 'yes', pos: [0, 0], height: 1, visible: false },
+			{ tag: 'EXCLUDE', label: 'Leave out (layers, comma-separated)', default: '', pos: [0, 0], height: 1, visible: false },
+		] },
 	{ id: 'door', name: 'Door (swing)', category: 'door', rev: 1, attributes: [],
 		shapes: [shape('leaf', { type: 'polyline', pts: [[0, 0], [0, -900]], color: BYBLOCK }),
 			shape('arc', { type: 'polyline', pts: Array.from({ length: 13 }, (_, i) => { const t = (i / 12) * (Math.PI / 2); return round([Math.sin(t) * 900, -Math.cos(t) * 900]) }), color: BYBLOCK, dash: 'dashed' })] },

@@ -66,7 +66,7 @@ export function bbox(ctx: ViewCtx, e: Ent): [number, number, number, number] {
 	if (isFlatElev(ctx, e)) { const [x0, x1] = flatXSpan(ctx, e); return [x0, ctx.ground - 2, x1, ctx.ground + 2] }
 	if (e.type === 'polyline') { const pts = e.pts ?? []; const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] }
 	if (e.type === 'text') return textBox(e, PT_MM * ctx.paperMm)
-	if (e.type === 'insert') return insertBounds(e, ctx.paperMm)   // its block's extent, scaled (an annotative one × N), at the insertion point
+	if (e.type === 'insert') return insertBounds(e, ctx.paperMm, ctx.mdl)   // its block's extent, scaled (an annotative one × N), at the insertion point
 	if (e.type === 'image' && e.crop) {   // the VISIBLE extent is the crop window, not the full placement
 		const rx = Math.min(e.a![0], e.b![0]), ry = Math.min(e.a![1], e.b![1]), rw = Math.abs(e.b![0] - e.a![0]), rh = Math.abs(e.b![1] - e.a![1])
 		return [rx + e.crop.x * rw, ry + e.crop.y * rh, rx + (e.crop.x + e.crop.w) * rw, ry + (e.crop.y + e.crop.h) * rh]

@@ -17,6 +17,7 @@ import { GROUND, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, textBox, type Ent, type Pt, t
 import { inThisView, rotCenter, rotatePt } from './ui/hit'
 import { lineLabelAt, groundPts, tileLines } from './ui/annotations'
 import { blockDef, byBlock, attrValue, insertScale } from './ui/blocks'
+import { isLegend, legendRows, legendSize, LEGEND } from './ui/legend'
 import { PT_MM } from './constants'
 import type { ViewCtx } from './ui/view'
 
@@ -159,6 +160,19 @@ function entToDxf(doc: DxfDoc, e: Ent, ctx: ViewCtx, P: (p: Pt) => [number, numb
 			const def = blockDef(e.block), k = insertScale(e, N), a = e.a!, mx = e.mirror ? -1 : 1
 			const at = (p: Pt): Pt => [a[0] + mx * p[0] * k, a[1] + p[1] * k]
 			const inner = (p: Pt): Pt => xf(c ? rotatePt(at(p), c, e.rot!) : at(p))
+			if (isLegend(e)) {   // D1: the legend's frame, title and rows (swatches as short lines)
+				const rows = legendRows(ctx.mdl, e.attrs), [lw, lh] = legendSize(rows.length), counts = (e.attrs?.COUNTS ?? 'yes').toLowerCase() !== 'no'
+				const q = (x: number, y: number) => P(inner([x, y]))
+				doc.poly([q(0, 0), q(lw, 0), q(lw, lh), q(0, lh)], { closed: true, layer })
+				text(doc, q(LEGEND.pad, LEGEND.title - 1.6), 3 * k, e.attrs?.TITLE || 'LEGEND', layer, 'left', tRot)
+				rows.forEach((r, i) => {
+					const y = LEGEND.title + i * LEGEND.row + LEGEND.row / 2, rl = doc.layer(r.name, r.color)
+					doc.poly([q(LEGEND.pad, y), q(LEGEND.pad + 9, y)], { layer: rl })
+					text(doc, q(LEGEND.pad + 12, y + 0.9), 2.4 * k, r.name, layer, 'left', tRot)
+					if (counts) text(doc, q(lw - LEGEND.pad, y + 0.9), 2.4 * k, String(r.count), layer, 'right', tRot)
+				})
+				return
+			}
 			if (!def) { doc.poly([[-100, -100], [100, -100], [100, 100], [-100, 100]].map((p) => P(inner(p as Pt))), { closed: true, layer }); return }
 			for (const bs of def.shapes) entToDxf(doc, { ...byBlock(bs, e), rot: undefined }, ctx, P, layer, N, inner)
 			for (const ad of def.attributes) {
