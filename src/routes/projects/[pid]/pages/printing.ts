@@ -27,7 +27,10 @@ export function printCss(paper: { size: PaperSize; landscape: boolean }): string
 	.print-target, .print-target * { visibility: visible !important; }
 	.print-target { position: fixed !important; left:0 !important; top:0 !important; zoom:${zoom}; margin:0 !important; box-shadow:none !important; background:#fff !important; }
 	.print-target .vp { border: none !important; box-shadow: none !important; }
-	.print-target .vp-tag, .print-target .vp-badge, .print-target .margin-guide:not(.printed) { display: none !important; }
+	.print-target .vp-badge, .print-target .margin-guide:not(.printed) { display: none !important; }
+	/* B3: the viewport's label + scale print as plain 8pt text (no chip, no icon) */
+	.print-target .vp-tag { background:none !important; border:none !important; font-size:8pt !important; color:#1f2937 !important; padding:0 !important; }
+	.print-target .vp-tag svg { display:none !important; }
 }`
 }
 

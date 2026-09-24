@@ -771,6 +771,14 @@
 		} else if (mod && !e.shiftKey && (e.key === 'o' || e.key === 'O')) { e.preventDefault(); openProjectOpen = true }   // File › Open Project…
 		else if (mod && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo() }
 		else if (mod && ((e.shiftKey && (e.key === 'z' || e.key === 'Z')) || e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo() }
+		else if ((e.key === 'PageUp' || e.key === 'PageDown') && !mod) {   // B10: page-pan the sheet (Shift = sideways), like the Sheets tool
+			const p = session.panes[session.focused], el = canvasEls[session.focused]
+			if (p && el && !isModelLayout(p)) {
+				e.preventDefault()
+				const d = (e.key === 'PageUp' ? 1 : -1) * 0.8 * (e.shiftKey ? el.clientWidth : el.clientHeight)
+				canvasPan(p, e.shiftKey ? d : 0, e.shiftKey ? 0 : d)
+			}
+		}
 		else if ((e.key === 'Delete' || e.key === 'Backspace') && selFrameId && active && !activeVpOf(active.id)) { e.preventDefault(); deleteSelAt(active.id, active.id, { begin: beginGesture, mark: (l?: string) => modelEdit(active!.id, l), end: endGesture }) }   // delete the selected viewport frame (paper space)
 	}
 	$effect(() => {   // capture phase — beats the +layout command palette on the Ctrl-K shortcut

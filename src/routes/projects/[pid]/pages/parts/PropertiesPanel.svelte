@@ -166,6 +166,10 @@
 	{#if frameObj}
 		<!-- a sheet VIEWPORT FRAME is selected → edit its source model + view (projection / scale / border) -->
 		<div class="prop-sec">VIEWPORT</div>
+		<!-- the frame's printed tag (its number by default — type e.g. "A" or "1 · Plan" to override) -->
+		<div class="prop"><span>Label</span><input value={frameObj.label} placeholder={frameObj.seq != null ? String(frameObj.seq) : ''} title="Printed above the viewport; empty = its number"
+			onchange={(e) => onframeupdate?.({ label: (e.currentTarget as HTMLInputElement).value.trim() || (frameObj!.seq != null ? String(frameObj!.seq) : '') })}
+			onkeydown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur() }} /></div>
 		{#if modelList.length > 1}
 			<div class="prop"><span>Source</span>
 				<select value={frameObj.modelId ?? modelList[0]?.id} onchange={(e) => onframeupdate?.({ modelId: (e.currentTarget as HTMLSelectElement).value })}>
@@ -174,7 +178,7 @@
 			</div>
 		{/if}
 		<div class="prop"><span>View</span>
-			<select value={frameObj.proj} onchange={(e) => { const v = (e.currentTarget as HTMLSelectElement).value as Proj; onframeupdate?.({ proj: v, label: PROJ_OPTS.find(([pv]) => pv === v)?.[1] }) }}>
+			<select value={frameObj.proj} onchange={(e) => { const v = (e.currentTarget as HTMLSelectElement).value as Proj; onframeupdate?.(frameObj!.seq != null ? { proj: v } : { proj: v, label: PROJ_OPTS.find(([pv]) => pv === v)?.[1] }) }}>
 				{#each PROJ_OPTS as [v, l] (v)}<option value={v}>{l}</option>{/each}
 			</select>
 		</div>

@@ -69,7 +69,29 @@
 		if (a.folder === 'floor' && a.floorNumber != null) { const b = buildingOfNode(t); if (b && b !== buildingOfNode(a)) onmovefloor?.(a.floorNumber, b) }
 		else if (a.folder === 'building' && t.folder === 'building') onmovebuilding?.(a.label, t.label, after)
 	}, (id) => flat.findIndex((n) => n.id === id))
-	const td = new TreeDrag((id, target, zone) => onplacemove?.(id, target, zone))
+	// B8: Ctrl/⌘-click toggles a sheet into a multi-selection, Shift-click selects the range from the last one;
+	// dragging any selected sheet moves the whole block, keeping its order.
+	let selSheets = $state<string[]>([]), selAnchor: string | null = null
+	const sheetIds = $derived(flat.filter((n) => n.sheet && n.drawing).map((n) => n.id))
+	function sheetClick(e: MouseEvent, n: Node): boolean {
+		if (e.shiftKey && selAnchor) {
+			const a = sheetIds.indexOf(selAnchor), b = sheetIds.indexOf(n.id); if (a < 0 || b < 0) return false
+			selSheets = sheetIds.slice(Math.min(a, b), Math.max(a, b) + 1); return true
+		}
+		if (e.ctrlKey || e.metaKey) {
+			const open = flat.find((x) => x.sheet && x.drawing && (x.docId ?? x.id) === activeDoc)?.id   // the open sheet joins the selection
+			const cur = selSheets.length ? selSheets : open ? [open] : []
+			selSheets = cur.includes(n.id) ? cur.filter((x) => x !== n.id) : [...cur, n.id]; selAnchor = n.id; return true
+		}
+		selSheets = []; selAnchor = n.id; return false
+	}
+	function moveRows(id: string, target: string, zone: DropZone) {
+		const block = selSheets.includes(id) && selSheets.length > 1 ? sheetIds.filter((x) => selSheets.includes(x)) : [id]
+		if (block.includes(target)) return
+		// 'after' a row: move the LAST first so each lands right after the target, ahead of the ones already moved
+		for (const x of zone === 'after' ? [...block].reverse() : block) onplacemove?.(x, target, zone)
+	}
+	const td = new TreeDrag(moveRows)
 	const dragProps = (n: Node) => placesMode ? ((n.place || n.sheet) && onplacemove ? td.row(n.id) : {})
 		: (canDrag && (n.folder === 'building' || (n.folder === 'floor' && n.floorNumber != null)) ? dr.row(n.id) : {})
 	// the drop target highlights as a whole row (a floor goes INTO a building, not between rows; a place INTO a place)
@@ -262,9 +284,10 @@
 		{@const isOpen = openOf(n) || (!!search && (n.children?.length ?? 0) > 0)}
 		{#if n.drawing && n.sheet && placesMode}
 			<!-- a stored Pages SHEET: opens a tab like any drawing; draggable between places, renamable, archivable -->
-			<div class="dn-row leaf" class:active={activeDoc === (n.docId ?? n.id)} style:padding-left="{depth * 12 + 8}px" role="button" tabindex="0"
+			<div class="dn-row leaf" class:active={activeDoc === (n.docId ?? n.id)} class:multi={selSheets.includes(n.id)} style:padding-left="{depth * 12 + 8}px" role="button" tabindex="0"
 				{...dragProps(n)} class:drag-before={dropBefore(n)} class:drag-after={dropAfter(n) || dropInto(n)}
-				onclick={() => onopen?.({ title: n.label, kind: n.drawing!, preview: true, floor, docId: n.docId ?? n.id })}
+				title={selSheets.length > 1 && selSheets.includes(n.id) ? `${selSheets.length} sheets selected — drag to move them together` : undefined}
+				onclick={(e) => { if (!sheetClick(e, n)) onopen?.({ title: n.label, kind: n.drawing!, preview: true, floor, docId: n.docId ?? n.id }) }}
 				ondblclick={() => onopen?.({ title: n.label, kind: n.drawing!, preview: false, floor, docId: n.docId ?? n.id })}
 				onkeydown={(e) => { if (e.key === 'Enter') onopen?.({ title: n.label, kind: n.drawing!, preview: false, floor, docId: n.docId ?? n.id }) }}>
 				<span class="dn-chev spacer"></span>
@@ -334,6 +357,7 @@
 	.dn-newb input:focus { outline:none; }
 	/* drag a floor INTO a building (whole-row highlight) / a building before / after another (a line) */
 	.dn-row.drop-into { background:var(--active); outline:1px dashed var(--accent); outline-offset:-1px; }
+	.dn-row.multi { background:color-mix(in srgb, var(--accent) 14%, transparent); }
 	.dn-row.drag-before { box-shadow:inset 0 2px 0 var(--accent); }
 	.dn-row.drag-after { box-shadow:inset 0 -2px 0 var(--accent); }
 	.dn-seed { margin:2px 6px 6px; padding:6px 8px; border:1px dashed var(--accent); border-radius:6px; font-size:11px; color:var(--muted); display:flex; flex-direction:column; gap:6px; }
