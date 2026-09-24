@@ -52,7 +52,8 @@
 	import type { Session as AuthSession } from '$lib'
 	import { PagesStore } from './store/pagesStore.svelte'
 	import { buildPlaceTree } from './store/placeTree'
-	import { addPlace, updatePlace, movePlace, removePlace } from './store/places'
+	import { addPlace, updatePlace, movePlace, removePlace, ancestorsOf } from './store/places'
+	import { fillTitleBlock, initialsOf, DEFAULT_TITLE_BLOCK, type TbCell, type TitleBlockTemplate } from './titleBlock'
 	import { describePlace } from './store/placeProps'
 	import type { DropZone } from './parts/treeDrag.svelte'
 	import { DEFAULT_YAW, DEFAULT_PITCH } from './3dview/projection'
@@ -931,9 +932,41 @@
 		const ps = pagesStore; if (!ps || ps.status !== 'ready') return
 		const sh = ps.createSheet({ title: 'New sheet', placeId })
 		loadSheet(sh.id)
+		session.treeNode = null   // Properties → the new sheet's PAGE (title, number, title block)
 		openDrawing({ title: sh.title, kind: 'sheet', preview: false, docId: SHEET + sh.id })
 		return `s:${sh.id}`
 	}
+	// ── phase 5: the TITLE BLOCK — the project's one template (pages.titleBlock), filled per sheet from the
+	// project + the sheet's registry entry (a tab that isn't a stored sheet fills what it can) ──
+	const drawnDefault = (sh: import('./store/schema').PagesSheetDoc) =>
+		initialsOf(sh.createdBy && sh.createdBy === auth?.user?.email ? auth?.user?.displayName || sh.createdBy : sh.createdBy)
+	function titleBlockOf(tabId: string): { logo?: string; cells: TbCell[] } {
+		const ps = pagesStore, sh = storedSheetOfTab(tabId), tpl = ps?.project?.titleBlock, pap = paperOf(tabId)
+		const pl = sh?.placeId && ps ? ps.places.find((p) => p.id === sh.placeId) : undefined
+		return {
+			logo: tpl ? tpl.logo : DEFAULT_TITLE_BLOCK.logo,
+			cells: fillTitleBlock(tpl, {
+				project: projectSrc?.project?.name ?? '',
+				title: sh?.title ?? session.tabs.find((t) => t.id === tabId)?.title ?? '',
+				place: pl && ps ? [...ancestorsOf(ps.places, pl.id), pl].map((p) => p.name).join(' › ') : '',
+				number: sh?.drawingNumber ?? '',
+				rev: sh ? sh.latestRevisionCode ?? '' : rev,
+				date: fmtDate(revisions[0]?.t),
+				scale: framesOf(tabId)[0]?.scale ?? scaleOf(tabId),
+				size: `${pap.size} ${pap.landscape ? 'L' : 'P'}`,
+				drawn: sh ? sh.drawnBy || drawnDefault(sh) : '',
+			}),
+		}
+	}
+	/** The active tab's stored sheet: set its Drawing № / Drawn (Properties › PAGE). */
+	function setSheetField(key: 'drawingNumber' | 'drawnBy', value: string) {
+		const sh = active ? storedSheetOfTab(active.id) : null; if (!sh || !pagesStore || sh[key] === value) return
+		pagesStore.saveSheet({ ...sh, [key]: value })
+	}
+	const activeSheetInfo = $derived.by(() => {
+		const sh = active ? storedSheetOfTab(active.id) : null
+		return sh ? { number: sh.drawingNumber ?? '', drawnBy: sh.drawnBy ?? '', drawnDefault: drawnDefault(sh) } : null
+	})
 	function renameSheet(id: string, title: string) {
 		const ps = pagesStore, sh = ps?.sheets.find((x) => x.id === id); if (!ps || !sh || !title.trim()) return
 		ps.saveSheet({ ...sh, title: title.trim() })
@@ -1113,7 +1146,8 @@
 		})
 	})
 	// the navigator's clicks → remember them (drawings by their stable docId)
-	function navOpen(d: { title: string; kind: Kind; preview: boolean; floor?: string; docId?: string }) { restoredFor = page.params.pid ?? ''; if (d.docId) saveTreeItem({ doc: d.docId }); openDrawing(d) }
+	// opening a DRAWING from the tree drops any place selection, so Properties shows the drawing's page
+	function navOpen(d: { title: string; kind: Kind; preview: boolean; floor?: string; docId?: string }) { restoredFor = page.params.pid ?? ''; if (d.docId) saveTreeItem({ doc: d.docId }); session.treeNode = null; openDrawing(d) }
 	function navSelect(n: { id: string; label: string; kind: string; floorNumber?: number; building?: string }) { restoredFor = page.params.pid ?? ''; saveTreeItem({ node: n.id }); selectNode(n) }
 	// A place/label in the tree (project, building, floor, …) → edit its props in the right panel.
 	function selectNode(n: { id: string; label: string; kind: string; floorNumber?: number; building?: string }) {
@@ -1346,7 +1380,7 @@
 		activeVpOf, isVpActive, deactivateVp, onCanvasMove, canvasPan, canvasZoomFn: canvasZoom,
 		framesOf, scaleOf, updateFrame, setScale, fitPane, canvasViewOf, entsOf, entsForModel, paperEditor,
 		viewOf, envFor, orbitOf, vpFrameView, vpEditor, seedFrame, addFrame, commitFrame, paperOf, paperDimsOf,
-		vpView, projOf, gizmoProj, gizmoSet, navZoom, navFit,
+		vpView, projOf, gizmoProj, gizmoSet, navZoom, navFit, titleBlockOf,
 	}
 </script>
 
@@ -1443,6 +1477,8 @@
 						onpagetitle={(t) => { if (!active || !t.trim()) return; const sid = sheetIdOf(active.docId); if (sid) renameSheet(sid, t); else active.title = t.trim() }} {activeLayer} node={session.treeNode} {nodeInfo} onnodefield={setNodeField}
 						modelObj={selModelObj} modelLayers={modelById(activeMid())?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} onmodelseg={updateModelSeg}
 						frameObj={selFrameObj} onframefit={fitSelectedFrame}
+						sheetInfo={activeSheetInfo} onsheetfield={setSheetField}
+						titleBlock={pagesStore?.project?.titleBlock} ontitleblock={pagesStore && hasPlaces ? (t: TitleBlockTemplate) => pagesStore!.saveTitleBlock(t) : undefined}
 						modelList={models.map((m) => ({ id: m.id, name: m.name }))}
 						activeFrameId={active && activeVpOf(active.id) !== active.id ? (activeVpOf(active.id) ?? undefined) : undefined} scaleN={propsScaleN}
 						onframeupdate={(patch) => { if (active && selFrameId) { ensureHist(active.id); updateFrame(active.id, selFrameId, patch as Partial<SheetFrame>); commitFrame(active.id, 'Edit viewport') } }}

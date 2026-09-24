@@ -12,7 +12,7 @@ import { seedPlaces as buildSeed, childrenOf } from './places'
 import { newSheetDoc, normSheet, modelToDoc } from './mappers'
 import type { TreeInput } from '../projectTree'
 import type { Model, ModelKind } from '../3dview/types'
-import type { ModelDoc, PagesProject, PagesSheetDoc, Place } from './schema'
+import type { ModelDoc, PagesProject, PagesSheetDoc, Place, TitleBlockTemplate } from './schema'
 
 /** The slice of `$lib/db.svelte` Firestore the store uses (a fake implements it in tests). */
 export type StoreDb = {
@@ -102,6 +102,8 @@ export class PagesStore {
 	// ── project / places ──
 	saveProject(p: PagesProject) { this.project = p; this.#projectSaver.queue(PROJECT_KEY, p) }
 	savePlaces(places: Place[]) { this.saveProject({ ...(this.project ?? emptyProject()), places }) }
+	/** The project's title-block template (drawings-plan §2.1, phase 5). */
+	saveTitleBlock(titleBlock: TitleBlockTemplate) { this.saveProject({ ...(this.project ?? emptyProject()), titleBlock }) }
 	/** Seed the places ONCE from the old tools' data (drawings-plan §2.1). Returns false (and changes nothing)
 	 *  when the project already has places. The caller must have the user's OK for a real project. */
 	seedPlaces(input: TreeInput): boolean {

@@ -65,6 +65,8 @@ export type StripItem = { tool: string } | { group: string; label: string; membe
 export type Workspace = {
 	tabs: Tab[]; kindIcon: Record<Kind, string>; STRIP: StripItem[]; iconOf: (tool: string) => string
 	rev: string; revisions: { name: string; note: string; snap: unknown; t: number }[]
+	/** The tab's filled title block (phase 5, titleBlock.ts). */
+	titleBlockOf: (tabId: string) => { logo?: string; cells: import('./titleBlock').TbCell[] }
 	acadMode: boolean; statusText: string
 	openTab: (id: string, pane?: number) => void; promoteTab: (id: string) => void
 	closeTab: (id: string, e?: Event) => void; addTab: (kind?: Kind, title?: string, modelId?: ModelId, docId?: string) => void

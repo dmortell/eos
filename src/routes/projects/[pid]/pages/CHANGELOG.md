@@ -4,6 +4,13 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 `git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps the long historical done-log and the
 open items; `review.md §0a` tracks which review findings are closed.
 
+## Drawings, models, places (2026-09-24) — drawings-plan.md phases 1–5
+- Places, stored models (`projects/{pid}/models`) and sheets (registry `toolType 'pages'`); floorplan PDFs as
+  image shapes; a global **Blocks** library with `insert` shapes; **Outlets import** (outlets → block inserts,
+  trunks → conduits) per place; model views restored on reload; a click opens any place with a model.
+- **Title block** (phase 5): one template per project (`pages.titleBlock`), auto-filled per sheet (project,
+  title, location, Dwg №, rev, date, scale, size, drawn); edited in a sheet's page Properties.
+
 ## Refactors — code-review 2 R-items (2026-09-22 → 09-24)
 Work was split across sessions: one spec'd and diff-reviewed, one implemented, one live-gated each
 commit in the browser (`review.md §0a` holds the gate records). The working notes were in `HANDOFF.md`,

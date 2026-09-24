@@ -13,10 +13,13 @@
 	import type { Obj, Layer as MLayer } from '../3dview/types'
 	import { type SheetFrame, type Proj, PROJ_OPTS, SCALES } from '../types'
 	import { NODE_FIELDS } from '../mock/data'
+	import TitleBlockEditor from './TitleBlockEditor.svelte'
+	import type { TitleBlockTemplate } from '../titleBlock'
 
 	let { ents = [], onupdate, onarrange, pageTitle = '', pageKind = '', activeLayer = '', node = null, onpagetitle,
 		modelObj = null, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg,
-		frameObj = null, onframeupdate, onframedelete, onframefit, nodeInfo = null, onnodefield, modelList = [], activeFrameId = undefined, scaleN = 1 }:
+		frameObj = null, onframeupdate, onframedelete, onframefit, nodeInfo = null, onnodefield, modelList = [], activeFrameId = undefined, scaleN = 1,
+		sheetInfo = null, onsheetfield, titleBlock = undefined, ontitleblock }:
 		{ ents?: Ent[]; onupdate?: (e: Ent) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void;
 			pageTitle?: string; pageKind?: string; activeLayer?: string; onpagetitle?: (title: string) => void;
 			node?: { id: string; label: string; kind: string; floorNumber?: number; building?: string } | null;
@@ -28,7 +31,12 @@
 			modelList?: { id: string; name: string }[]; activeFrameId?: string;
 			/** Scale denominator (the N of 1:N) of the viewport the selection is edited in — sizes the
 			 *  annotative text bbox in model mm (B19). */
-			scaleN?: number } = $props()
+			scaleN?: number
+			/** A STORED Pages sheet's title-block fields (Drawing №, Drawn — `drawnDefault` = the creator's initials). */
+			sheetInfo?: { number: string; drawnBy: string; drawnDefault: string } | null; onsheetfield?: (key: 'drawingNumber' | 'drawnBy', value: string) => void
+			/** The PROJECT's title-block template (edited on a sheet page; undefined = the default). The editor shows
+			 *  only with `ontitleblock` (a project with Pages data). */
+			titleBlock?: TitleBlockTemplate; ontitleblock?: (t: TitleBlockTemplate) => void } = $props()
 	// R4 (review.md §R4, Dave's decision 2026-09-23): a prism is CALLED "Box" in the UI — the data/code keep
 	// `type: 'prism'` unchanged, this is a display label only.
 	const MODEL_TYPE_LABEL: Record<string, string> = { prism: 'Box', wall: 'Wall', conduit: 'Conduit' }
@@ -308,8 +316,18 @@
 		<div class="prop"><span>Name</span><input value={pageTitle} onchange={(e) => onpagetitle?.((e.currentTarget as HTMLInputElement).value)}
 			onkeydown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur() }} /></div>
 		<div class="prop"><span>Type</span><input value={pageKind} readonly /></div>
+		{#if sheetInfo}
+			<div class="prop"><span>Dwg №</span><input value={sheetInfo.number} placeholder="(none)" onchange={(e) => onsheetfield?.('drawingNumber', (e.currentTarget as HTMLInputElement).value.trim())}
+				onkeydown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur() }} /></div>
+			<div class="prop"><span>Drawn</span><input value={sheetInfo.drawnBy} placeholder={sheetInfo.drawnDefault || '(none)'} onchange={(e) => onsheetfield?.('drawnBy', (e.currentTarget as HTMLInputElement).value.trim())}
+				onkeydown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur() }} /></div>
+		{/if}
 		<div class="prop"><span>Layer</span><input value={activeLayer} readonly /></div>
-		<div class="pp-hint">Select an object to edit its properties, or a place in the tree.</div>
+		{#if pageKind === 'sheet' && ontitleblock}
+			<TitleBlockEditor template={titleBlock} onchange={ontitleblock} />
+		{:else}
+			<div class="pp-hint">Select an object to edit its properties, or a place in the tree.</div>
+		{/if}
 	{:else}
 		<div class="prop-sec">{ents.length === 1 ? 'OBJECT' : `${ents.length} OBJECTS`}</div>
 		<div class="prop"><span>Type</span><input value={typeLabel} readonly /></div>

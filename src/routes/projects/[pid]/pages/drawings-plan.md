@@ -143,8 +143,9 @@ The old tools keep running on their own collections. Pages imports once and neve
   - The original Sheets docs are left untouched.
 - **Risers → building model:** import levels and riser geometry from the risers docs for the one or two
   projects that need it (Hibiya, LR).
-- **Outlets → floor model:** later. The open question is how zone docs merge into their floor model (e.g.
-  `outlets/{pid}_F33__3303` and `__3307` into the 33F model).
+- **Outlets → place models** (DONE 2026-09-24, `store/outletsImport.ts`): a place's Import button brings its
+  outlets doc in as block inserts + trunk conduits (re-import updates). A zone gets its own model and plan;
+  33F holds the 3303 items (a full-floor 33F with just the trunks is a todo).
 - **Places:** seeded once (§2.1).
 
 ## 7. Suggested phases
@@ -161,7 +162,8 @@ Each phase ships on its own and gets live-checked in the browser.
    "Missing model" placeholder; the in-memory mock models go.
 4. **Sheets persisted** (DONE 2026-09-24: sheets under places in the tree, stored content, numbered frames on the place model): new sheet from a place; sheet content saved on the registry entry; drag between
    places; manual order; archive. Numbered, printable frame labels; new frames default to the place's model.
-5. **Title block template** per project, auto-filled.
+5. **Title block template** per project, auto-filled (DONE 2026-09-24: `titleBlock.ts`, `parts/TitleBlockEditor.svelte`;
+   template edited from a sheet's page Properties; Dwg № + Drawn per sheet).
 6. **Drawing management dialog:** table, grouping and filters, tags, bulk actions, Excel export, packages,
    archived list + hard delete.
 7. **History:** model versions (major copy / minor notes), sheet revisions, and the issue flow with the
@@ -170,7 +172,6 @@ Each phase ships on its own and gets live-checked in the browser.
 
 ## 8. Deferred / to think about
 
-- Importing outlets for zones (3303, 3307) into their floor model (33F).
 - How much detail a floor model should hold vs separate zone/room models (rack and desktop devices).
 - Rack elevations and patching drawings as Pages sheets; patch frames and patching in their own collection,
   linked to outlet ids.

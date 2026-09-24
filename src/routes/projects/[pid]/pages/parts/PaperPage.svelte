@@ -21,14 +21,16 @@
 	import { HANDLE_PX, PAPER_W, PAPER_H, PAPER_PX_PER_MM } from '../constants'
 	import type { ElevDir } from '../ui/geometry'
 	import type { SheetFrame } from '../types'
+	import { fillTitleBlock, DEFAULT_TITLE_BLOCK, type TbCell } from '../titleBlock'
 
 	// Paper size in px (default A3 landscape). Driven by the status-bar paper-size / orientation.
 	type VKind = 'plan' | 'iso' | ElevDir
-	let { title = 'Sheet', drawingNo = '001', scale = '1:100', focused = true, tool = 'Select', env = {}, pw = PAPER_W, ph = PAPER_H, sizeLabel = 'A3', rev = '', revDate = '', marginMm = 0,
+	let { title = 'Sheet', drawingNo = '001', scale = '1:100', focused = true, tool = 'Select', env = {}, pw = PAPER_W, ph = PAPER_H, sizeLabel = 'A3', rev = '', revDate = '', marginMm = 0, tb = undefined,
 		entities = [], entsForModel = undefined, tabModelId = undefined,
 		frames = [], editor = noopEditor, frameKind = (p: string) => p as VKind, isFrameActive = () => false, frameView = () => ({ zoom: 1, x: 0, y: 0 }), frameEnv = {},
 		frameOrbit = () => ({ yaw: 0, pitch: 0 }), makeFrameOn = () => ({}), makeFrameEditor = () => noopEditor, onseed, onaddframe, onframegeom, onframecommit, ondeactivate }:
 		{ title?: string; drawingNo?: string; scale?: string; focused?: boolean; tool?: string; env?: Env; pw?: number; ph?: number; sizeLabel?: string; rev?: string; revDate?: string;
+			/** The filled title block (titleBlock.ts); absent → the default template from the props above. */ tb?: { logo?: string; cells: TbCell[] };
 			/** XP7: paper margin (mm) — a dashed guide (screen only) and frame snap lines. */ marginMm?: number;
 			entities?: Ent[]; entsForModel?: (mid?: string) => Ent[]; tabModelId?: string;
 			// R3 commit 3 (review.md §R3): a NEW page-level `editor` — distinct from `makeFrameEditor` (which
@@ -40,6 +42,7 @@
 			frameOrbit?: (id: string, proj: string) => { yaw: number; pitch: number }; makeFrameOn?: (f: SheetFrame) => VpOn; makeFrameEditor?: (f: SheetFrame) => Editor; onseed?: (x: number, y: number, w: number, h: number) => void; onaddframe?: (x: number, y: number, w: number, h: number) => void;
 			onframegeom?: (id: string, g: { x: number; y: number; w: number; h: number }) => void; onframecommit?: () => void; ondeactivate?: () => void } = $props()
 	const canvasZoom = $derived(env.canvasZoom ?? 1)
+	const tbShown = $derived(tb ?? { logo: DEFAULT_TITLE_BLOCK.logo, cells: fillTitleBlock(undefined, { title, scale, size: sizeLabel, rev, date: revDate, number: drawingNo }) })
 	const selFrame = $derived(singleOfKind(editor.sel.get(), 'frame')?.id ?? null)
 	const selectFrame = (id: string) => editor.sel.only([{ kind: 'frame', id }])
 	const clearFrameSel = () => editor.sel.clear()
@@ -277,17 +280,16 @@
 			{/if}
 		</div>
 		<!-- titleblock (right vertical strip, like EOS) -->
+		<!-- the project's template (titleBlock.ts): full-width rows at the top, half-width cells in the grid below -->
 		<div class="tb">
-			<div class="tb-logo">J</div>
-			<div class="tb-cell"><span>PROJECT</span><b>Hibiya Midtown</b></div>
-			<div class="tb-cell"><span>TITLE</span><b>{title}</b></div>
+			{#if tbShown.logo}<div class="tb-logo">{tbShown.logo}</div>{/if}
+			{#each tbShown.cells.filter((c) => c.wide) as c, i (i)}
+				<div class="tb-cell"><span>{c.label.toUpperCase()}</span><b>{c.value}</b></div>
+			{/each}
 			<div class="tb-grid">
-				<div class="tb-cell"><span>SCALE</span>{scale}</div>
-				<div class="tb-cell"><span>SIZE</span>{sizeLabel}</div>
-				<div class="tb-cell"><span>REV</span>{rev || '—'}</div>
-				<div class="tb-cell"><span>DATE</span>{revDate || '—'}</div>
-				<div class="tb-cell"><span>DRAWN</span>DM</div>
-				<div class="tb-cell"><span>DWG №</span>{drawingNo}</div>
+				{#each tbShown.cells.filter((c) => !c.wide) as c, i (i)}
+					<div class="tb-cell"><span>{c.label.toUpperCase()}</span>{c.value}</div>
+				{/each}
 			</div>
 		</div>
 	</div>

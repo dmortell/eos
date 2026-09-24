@@ -31,9 +31,9 @@ export type Place = {
 
 export type PagesSettings = { paperSize?: PaperSize; landscape?: boolean; scale?: string; marginMm?: number; tags?: string[] }
 
-/** The per-project title block (drawings-plan §2.1): which fields show, in order; values are filled from the
- *  project + the sheet's registry entry at render time. */
-export type TitleBlockTemplate = { fields: { key: string; label: string }[] }
+/** The per-project title block (drawings-plan §2.1) — defined in ../titleBlock.ts. */
+export type { TitleBlockTemplate } from '../titleBlock'
+import type { TitleBlockTemplate } from '../titleBlock'
 
 /** `projects/{pid}.pages` */
 export type PagesProject = {
@@ -90,6 +90,8 @@ export type PagesSheetDoc = {
 	sheetSize?: string
 	scale?: string
 	latestRevisionCode?: string
+	/** "Drawn" in the title block (initials); empty → the creator's initials. */
+	drawnBy?: string
 	currentVersionNumber: number
 	/** Registry compatibility: the versioning code expects both. A Pages sheet points at itself. */
 	sourceDocId: string
