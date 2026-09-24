@@ -73,10 +73,13 @@ export function migrateModels(models: Model[]): Model[] {
 			const next = shapes.map((e) => migrateEnt(e))
 			if (next.some((e, i) => e !== shapes![i])) { shapes = next; mc = true }
 		}
+		// floorplans are image SHAPES now (2026-09-24): an emptied `underlays` field is dropped (a non-empty one is
+		// converted by the page once its PDF placement is known, then emptied)
+		if ('underlays' in m && !m.underlays?.length) mc = true
 		if (mc) changed = true
 		if (!mc) return m
-		const { ents: _drop, ...rest } = m as Model & { ents?: unknown }
-		return { ...rest, objects, layers, shapes }
+		const { ents: _drop, underlays, ...rest } = m as Model & { ents?: unknown }
+		return underlays?.length ? { ...rest, underlays, objects, layers, shapes } : { ...rest, objects, layers, shapes }
 	})
 	return changed ? out : models
 }

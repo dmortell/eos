@@ -101,6 +101,13 @@ describe('migrateModels — R4 line→polyline shape migration', () => {
 		const [m] = migrateModels([{ id: 'm1', name: 'm', objects: [] }])
 		expect(m.shapes).toBeUndefined()
 	})
+	it('drops an emptied `underlays` field, keeps a non-empty one (converted to a floorplan shape by the page)', () => {
+		const [a] = migrateModels([{ id: 'm1', name: 'm', objects: [], underlays: [] }])
+		expect('underlays' in a).toBe(false)
+		const u = [{ id: 'u', dir: 'plan' as const, fileId: 'f' }]
+		const [b] = migrateModels([{ id: 'm2', name: 'm', objects: [], underlays: u }])
+		expect(b.underlays).toEqual(u)
+	})
 	it("renames a stored model's legacy `ents` field to `shapes` (migrating its entries too)", () => {
 		const [m] = migrateModels([{ id: 'm1', name: 'm', objects: [], ents: [legacyLine] } as never])
 		expect('ents' in m).toBe(false)
