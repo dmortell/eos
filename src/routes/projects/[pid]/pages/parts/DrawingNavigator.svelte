@@ -77,7 +77,7 @@
 
 	// ── places: add / rename (inline) / delete (two-step) / seed (two-step) ──
 	let renamingId = $state<string | null>(null), renameText = $state('')
-	let confirmDel = $state<string | null>(null), delErr = $state<{ id: string; msg: string } | null>(null)
+	let delErr = $state<{ id: string; msg: string } | null>(null)
 	let confirmSeed = $state(false)
 	function addPlace(parentId: string | null) {
 		const id = onplaceadd?.(parentId); if (!id) return
@@ -97,21 +97,38 @@
 		if (nodeById(id)?.sheet) { renamingId = null; if (renameText.trim()) onsheetrename?.(id, renameText.trim()) }
 		else commitRename()
 	}
-	let confirmImport = $state<string | null>(null)
-	function importPlace(id: string) {
-		if (confirmImport !== id) { confirmImport = id; setTimeout(() => { if (confirmImport === id) confirmImport = null }, 3000); return }
-		confirmImport = null; onplaceimport?.(id)
+	// ── the row ACTIONS menu (⋮, shown on hover / when the row is selected): a place's or a sheet's actions.
+	// Items with `confirm` need a second click (the label changes); the menu is position:fixed so the tree's
+	// scroll box can't clip it. ──
+	type MenuItem = { key: string; label: string; icon: string; danger?: boolean; confirm?: string; run: () => void }
+	let menu = $state<{ id: string; x: number; y: number } | null>(null)
+	let menuConfirm = $state<string | null>(null)
+	function menuItems(n: Node): MenuItem[] {
+		const out: MenuItem[] = []
+		if (n.sheet) {
+			if (onsheetrename) out.push({ key: 'rename', label: 'Rename', icon: 'edit', run: () => startRename(n) })
+			if (onsheetarchive) out.push({ key: 'archive', label: 'Archive', icon: 'archive', danger: true, confirm: 'Click again to archive', run: () => onsheetarchive?.(n.id) })
+			return out
+		}
+		if (onplaceimport && n.outletsDoc) out.push({ key: 'import', label: 'Import from Outlets tool', icon: 'download', confirm: 'Click again to import outlets + trunks', run: () => onplaceimport?.(n.id) })
+		if (onsheetadd) out.push({ key: 'sheet', label: 'New sheet here', icon: 'fileText', run: () => addSheet(n.id) })
+		if (onplaceadd) out.push({ key: 'place', label: 'New place inside', icon: 'plus', run: () => addPlace(n.id) })
+		if (onplacerename) out.push({ key: 'rename', label: 'Rename', icon: 'edit', run: () => startRename(n) })
+		if (onplacedelete) out.push({ key: 'delete', label: 'Delete', icon: 'trash', danger: true, confirm: 'Click again to delete', run: () => {
+			const err = onplacedelete?.(n.id) ?? null
+			delErr = err ? { id: n.id, msg: err } : null
+		} })
+		return out
 	}
-	let confirmArchive = $state<string | null>(null)
-	function archiveSheet(id: string) {
-		if (confirmArchive !== id) { confirmArchive = id; setTimeout(() => { if (confirmArchive === id) confirmArchive = null }, 3000); return }
-		confirmArchive = null; onsheetarchive?.(id)
+	function openMenu(n: Node, btn: HTMLElement) {
+		if (menu?.id === n.id) { menu = null; return }
+		const r = btn.getBoundingClientRect(), h = menuItems(n).length * 27 + 8, w = 200
+		menu = { id: n.id, x: Math.max(4, r.right - w), y: r.bottom + h + 4 > innerHeight ? Math.max(4, r.top - h - 2) : r.bottom + 2 }
+		menuConfirm = null; delErr = null
 	}
-	function deletePlace(id: string) {
-		if (confirmDel !== id) { confirmDel = id; delErr = null; setTimeout(() => { if (confirmDel === id) confirmDel = null }, 3000); return }
-		confirmDel = null
-		const err = onplacedelete?.(id) ?? null
-		delErr = err ? { id, msg: err } : null
+	function pick(it: MenuItem) {
+		if (it.confirm && menuConfirm !== it.key) { menuConfirm = it.key; return }
+		menu = null; menuConfirm = null; it.run()
 	}
 
 	let naming = $state(false), newName = $state(''), nameErr = $state('')
@@ -206,7 +223,28 @@
 	<div class="dn-tree">
 		{#each TREE_NODES as n (n.id)}{@render row(n, 0, undefined)}{/each}
 	</div>
+	{#if menu}
+		{@const mn = nodeById(menu.id)}
+		<!-- the backdrop is a real (unfocusable) close button behind the menu -->
+		<button class="dn-menu-back" aria-label="Close menu" tabindex="-1" onclick={() => (menu = null)}></button>
+		<div class="dn-menu" role="menu" tabindex="-1" style:left="{menu.x}px" style:top="{menu.y}px"
+			onkeydown={(e) => { if (e.key === 'Escape') menu = null }}>
+			{#each mn ? menuItems(mn) : [] as it (it.key)}
+				<button role="menuitem" class:danger={it.danger} class:confirm={menuConfirm === it.key} onclick={() => pick(it)}>
+					<Icon name={it.icon} size={13} /><span>{menuConfirm === it.key ? it.confirm : it.label}</span>
+				</button>
+			{/each}
+		</div>
+	{/if}
 </div>
+
+<!-- a row's ⋮ actions button (visible on hover, when the row is selected, or while its menu is open) -->
+{#snippet more(n: Node)}
+	{#if menuItems(n).length}
+		<button class="dn-more" class:open={menu?.id === n.id} title="Actions" aria-label="Actions" aria-haspopup="menu"
+			onclick={(e) => { e.stopPropagation(); openMenu(n, e.currentTarget) }} ondblclick={(e) => e.stopPropagation()}><Icon name="ellipsisVertical" size={13} /></button>
+	{/if}
+{/snippet}
 
 <!-- `floor` = the nearest floor ancestor's label: a drawing under it views that floor's model -->
 {#snippet row(n: Node, depth: number, floor: string | undefined)}
@@ -227,11 +265,7 @@
 						onblur={commitAnyRename} />
 				{:else}
 					<span class="dn-name" title={n.label}>{n.label}</span>
-					<span class="dn-acts-row">
-						{#if onsheetrename}<button title="Rename" aria-label="Rename" onclick={(e) => { e.stopPropagation(); startRename(n) }}><Icon name="edit" size={12} /></button>{/if}
-						{#if onsheetarchive}<button class:confirm={confirmArchive === n.id} title={confirmArchive === n.id ? 'Click again to archive' : 'Archive'} aria-label="Archive"
-							onclick={(e) => { e.stopPropagation(); archiveSheet(n.id) }}><Icon name="trash" size={12} />{#if confirmArchive === n.id}<span>Archive?</span>{/if}</button>{/if}
-					</span>
+					{@render more(n)}
 				{/if}
 			</div>
 		{:else if n.drawing}
@@ -267,17 +301,7 @@
 				{:else}
 					<span class="dn-name" title={n.meta ? `${n.label} · ${n.meta}` : n.label}>{n.label}</span>
 					{#if n.meta}<span class="dn-meta">{n.meta}</span>{/if}
-					{#if placesMode && n.place}
-						<span class="dn-acts-row">
-							{#if onplaceimport && n.outletsDoc}<button class:confirm={confirmImport === n.id} title={confirmImport === n.id ? 'Click again to import outlets + trunks from the Outlets tool' : 'Import outlets + trunks from the Outlets tool'} aria-label="Import from Outlets tool"
-								onclick={(e) => { e.stopPropagation(); importPlace(n.id) }}><Icon name="download" size={12} />{#if confirmImport === n.id}<span>Import?</span>{/if}</button>{/if}
-							{#if onsheetadd}<button title="New sheet here" aria-label="New sheet" onclick={(e) => { e.stopPropagation(); addSheet(n.id) }}><Icon name="fileText" size={12} /></button>{/if}
-							{#if onplaceadd}<button title="New place inside" aria-label="New place inside" onclick={(e) => { e.stopPropagation(); addPlace(n.id) }}><Icon name="plus" size={12} /></button>{/if}
-							{#if onplacerename}<button title="Rename" aria-label="Rename" onclick={(e) => { e.stopPropagation(); startRename(n) }}><Icon name="edit" size={12} /></button>{/if}
-							{#if onplacedelete}<button class:confirm={confirmDel === n.id} title={confirmDel === n.id ? 'Click again to delete' : 'Delete'} aria-label="Delete"
-								onclick={(e) => { e.stopPropagation(); deletePlace(n.id) }}><Icon name="trash" size={12} />{#if confirmDel === n.id}<span>Delete?</span>{/if}</button>{/if}
-						</span>
-					{/if}
+					{#if placesMode && n.place}{@render more(n)}{/if}
 				{/if}
 			</div>
 			{#if delErr?.id === n.id}<div class="dn-status err" style:padding-left="{depth * 12 + 28}px">{delErr.msg}</div>{/if}
@@ -306,11 +330,20 @@
 	.dn-rename { flex:1; min-width:0; font-size:12px; font-weight:600; background:var(--input); color:var(--text); border:1px solid var(--accent); border-radius:3px; padding:0 4px; }
 	.dn-rename:focus { outline:none; }
 	/* per-row place actions: shown on hover (and while a delete waits for its confirm click) */
-	.dn-acts-row { display:none; margin-left:auto; gap:1px; }
-	.dn-row:hover .dn-acts-row, .dn-acts-row:has(.confirm) { display:inline-flex; }
-	.dn-acts-row button { display:inline-flex; align-items:center; gap:3px; height:18px; min-width:18px; justify-content:center; padding:0 2px; border-radius:3px; border:none; background:none; color:var(--muted); cursor:pointer; font-size:10px; }
-	.dn-acts-row button:hover { background:var(--line); color:var(--text); }
-	.dn-acts-row button.confirm { color:#fff; background:#dc2626; padding:0 5px; }
+	/* the ⋮ actions button: hidden until the row is hovered / selected / its menu is open */
+	.dn-more { visibility:hidden; margin-left:auto; flex:none; display:inline-grid; place-items:center; width:18px; height:18px; border-radius:3px; border:none; background:none; color:var(--muted); cursor:pointer; }
+	.dn-row:hover .dn-more, .dn-row.active .dn-more, .dn-more.open { visibility:visible; }
+	.dn-more:hover, .dn-more.open { background:var(--line); color:var(--text); }
+	.dn-menu-back { position:fixed; inset:0; z-index:150; background:none; border:none; cursor:default; }
+	.dn-menu { position:fixed; z-index:151; width:200px; padding:4px; display:flex; flex-direction:column; background:var(--panel); border:1px solid var(--line); border-radius:7px; box-shadow:0 10px 30px #0008; }
+	.dn-menu button { display:flex; align-items:center; gap:8px; width:100%; padding:5px 8px; border-radius:4px; border:none; background:none; color:var(--text); font-size:12px; text-align:left; cursor:pointer; }
+	.dn-menu button:hover { background:var(--hover); }
+	.dn-menu button :global(svg) { color:var(--muted); flex:none; }
+	.dn-menu button.danger { color:#f87171; }
+	.dn-menu button.danger :global(svg) { color:#f87171; }
+	.dn-menu button.confirm { color:#fff; background:#dc2626; }
+	.dn-menu button.confirm :global(svg) { color:#fff; }
+	.dn-menu button:not(.danger).confirm { background:var(--accent); }
 	.dn-meta { margin-left:auto; padding-left:6px; font-size:10px; color:var(--faint); white-space:nowrap; }
 	.dn-head { display:flex; align-items:center; justify-content:space-between; height:30px; padding:0 6px; border-bottom:1px solid var(--line-soft); }
 	.dn-title { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:600; }
