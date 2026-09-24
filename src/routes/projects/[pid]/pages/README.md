@@ -41,3 +41,4 @@ is in-memory (Svelte 5 runes), no Firestore yet (§12 in `todo.md`).
 - `CHANGELOG.md` — a curated, readable history of the major milestones.
 - `review.md` — the standing code review (`§0a` tracks which items are done); maintained by the review session.
 - `model-plan.md` — how the 3D engine was ported in.
+- `drawings-plan.md` — how sheets, models and places are stored, versioned and managed (the tree + the drawing management dialog).
