@@ -27,6 +27,9 @@ export type Place = {
 	/** Where a SEEDED node came from in the old tools' data, so imports (outlets, racks, risers) can find
 	 *  their place. Never used for display or tree logic. */
 	legacy?: { floor?: number; area?: string; room?: string; row?: string }
+	/** A BUILDING's floor stack (basement → roof, like the project's `buildingFloors`): every floor from `bottom`
+	 *  to `top` exists except `skipped` (no 4F / 13F …) and 0. Drives its building model's storeys. */
+	floors?: { bottom: number; top: number; skipped?: number[] }
 }
 
 export type PagesSettings = { paperSize?: PaperSize; landscape?: boolean; scale?: string; marginMm?: number; tags?: string[] }

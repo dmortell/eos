@@ -72,13 +72,14 @@ export function addPlace(places: Place[], a: { name: string; kind?: string; pare
 	return [...places, p]
 }
 
-/** Patch a place's name / kind (empty name ignored). */
-export function updatePlace(places: Place[], id: string, patch: { name?: string; kind?: string }): Place[] {
+/** Patch a place's name / kind (empty name ignored) / a building's floor stack. */
+export function updatePlace(places: Place[], id: string, patch: { name?: string; kind?: string; floors?: Place['floors'] }): Place[] {
 	return places.map((p) => {
 		if (p.id !== id) return p
 		const next = { ...p }
 		if (patch.name != null && patch.name.trim()) next.name = patch.name.trim()
 		if (patch.kind != null) { const k = patch.kind.trim(); if (k) next.kind = k; else delete next.kind }
+		if (patch.floors) next.floors = patch.floors
 		return next
 	})
 }

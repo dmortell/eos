@@ -29,7 +29,9 @@ import { ProjectSource } from './projectData.svelte'
 import { PagesStore, type SheetRevisionDoc } from './store/pagesStore.svelte'
 import { issueProblems, sheetModels, type ModelVersionDoc } from './store/versions'
 import { importSheetDoc, type SheetImportResult } from './store/sheetsImport'
-import { risersToBuilding, mergeRisers, riserFloors, storeyLevels, floorLabel, type RisersDocIn } from './store/risersImport'
+import { risersToBuilding, mergeRisers, riserFloors, storeyLevels, floorLabel, stackFloors, restack, type RisersDocIn } from './store/risersImport'
+import { parseFloor } from './store/placeProps'
+import type { Storey } from './3dview/types'
 import type { SheetDoc, SheetViewport } from '../sheets/types'
 import { PAPER_SIZES } from './constants'
 import type { PagesSheetDoc } from './store/schema'
@@ -217,11 +219,12 @@ export class PagesProject {
 	#isPlaceNode = $derived.by(() => { const n = this.#h.session.treeNode; return !!n && this.hasPlaces && !!this.store?.places.some((p) => p.id === n.id) })
 	nodeInfo = $derived.by(() => {
 		const n = this.#h.session.treeNode; if (!n) return null
-		if (this.#isPlaceNode) return describePlace(this.store!.places, n.id, this.realTree ? findNodePath(this.realTree.tree, { id: n.id })?.node : undefined)
+		if (this.#isPlaceNode) return describePlace(this.store!.places, n.id, this.realTree ? findNodePath(this.realTree.tree, { id: n.id })?.node : undefined, this.#projectStack())
 		return this.src?.status === 'ready' ? this.src.describe(n.id) : null
 	})
 	setNodeField = async (key: string, value: string) => {
 		const s = this.#h.session, n = s.treeNode, src = this.src; if (!n || !src) return
+		if (this.#isPlaceNode && this.store && key.startsWith('floors')) { this.#setFloorStack(n.id, key, value); return }
 		if (this.#isPlaceNode && this.store) {   // a Pages place: name / icon kind
 			if (key !== 'name' && key !== 'kind') return
 			if (key === 'name' && !value.trim()) { this.#h.toast('A place needs a name'); return }
@@ -234,6 +237,53 @@ export class PagesProject {
 			if (!ok) { this.#h.toast(key === 'name' && n.id.startsWith('b:') ? 'That building name is empty or already used' : 'Nothing to save'); return }
 			if (n.id.startsWith('b:') && key === 'name') s.treeNode = { ...n, id: `b:${value.trim()}`, label: value.trim() }
 		} catch (e) { this.#h.toast(`Couldn't save: ${(e as Error)?.message ?? e}`) }
+	}
+
+	// ── a BUILDING's floor stack (place `floors`) → its building model's storeys ──
+	/** The project's building extent (the Risers tool's From/To + skipped floors) — a building place's default. */
+	#projectStack = (): { bottom: number; top: number; skipped?: number[] } | null => {
+		const p = this.src?.project as { buildingFloors?: { bottom: number; top: number }; skippedFloors?: number[]; floors?: unknown } | null
+		if (p?.buildingFloors) return { ...p.buildingFloors, skipped: p.skippedFloors }
+		const ns = normFloors(this.src?.project?.floors).map((f) => f.number)
+		return ns.length ? { bottom: Math.min(...ns), top: Math.max(...ns), skipped: p?.skippedFloors } : null
+	}
+	/** The stack a building place uses: its own, else the project's. */
+	stackOf = (placeId: string) => this.store?.places.find((p) => p.id === placeId)?.floors ?? this.#projectStack()
+	#setFloorStack(placeId: string, key: string, value: string) {
+		const ps = this.store!, cur = this.stackOf(placeId)
+		const next = { bottom: cur?.bottom ?? 1, top: cur?.top ?? 1, skipped: [...(cur?.skipped ?? [])] }
+		if (key === 'floorsSkipped') {
+			const parts = value.split(/[,\s]+/).filter(Boolean), nums = parts.map(parseFloor)
+			if (nums.some((x) => x == null)) { this.#h.toast(`Couldn't read "${value}" — use floors like 4F, 13F, B1F`); return }
+			next.skipped = [...new Set(nums as number[])].sort((a, b) => a - b)
+		} else {
+			const n = parseFloor(value); if (n == null) { this.#h.toast(`Couldn't read "${value}" as a floor — e.g. 33F or B2F`); return }
+			if (key === 'floorsBottom') next.bottom = n; else next.top = n
+		}
+		if (next.bottom > next.top) [next.bottom, next.top] = [next.top, next.bottom]
+		ps.savePlaces(updatePlace(ps.places, placeId, { floors: next }))
+		this.#syncStoreys(placeId, stackFloors(next))
+	}
+	/** Re-stack the building model's storeys (created if needed) for `floors`, and point the floor models inside
+	 *  the building at their storeys. One undo step. */
+	#syncStoreys(placeId: string, floors: number[]) {
+		const mid = this.ensurePlaceModel(placeId), m = mid ? modelById(mid) : undefined; if (!m) return
+		this.#h.ensureHist()
+		m.kind = 'building'; m.storeys = restack(floors, $state.snapshot(m.storeys ?? []) as Storey[])
+		this.#linkFloorModels(m)
+		this.#h.pushStep(this.#h.activeTabId() ?? '', `Floors of ${m.name}`)
+	}
+	/** Every floor place inside the building model's place → levelRef + a cached copy of its storey's levels. */
+	#linkFloorModels(b: Model): number {
+		const ps = this.store; if (!ps || !b.placeId) return 0
+		let n = 0
+		for (const fp of ps.places) {
+			const l = fp.legacy
+			if (l?.floor == null || l.area != null || l.room != null || l.row != null || !ancestorsOf(ps.places, fp.id).some((a) => a.id === b.placeId)) continue
+			const fm = modelForPlace(fp.id), s = b.storeys?.find((x) => x.name === floorLabel(l.floor!)); if (!fm || !s) continue
+			fm.levelRef = { modelId: b.id, storeyId: s.id }; fm.levels = storeyLevels(s); n++
+		}
+		return n
 	}
 
 	// ── models ──
@@ -589,16 +639,15 @@ export class PagesProject {
 		if (!home) return ['No place holds these floors — set up places first (the building model needs one)']
 		const mid = this.ensurePlaceModel(home.id), m = mid ? modelById(mid) : undefined
 		if (!m) return ["Couldn't create the building model"]
-		const r = risersToBuilding(d)
+		// storeys for the building's WHOLE stack (its floors, else the project's) — plus the riser's own if outside it
+		const st = this.stackOf(home.id)
+		const all = [...new Set([...(st ? stackFloors(st) : []), ...floors])].sort((a, b) => a - b)
+		const r = risersToBuilding(d, all)
 		this.#h.ensureHist()
 		const merged = mergeRisers($state.snapshot(m) as Model, r)
 		m.objects = merged.objects; m.storeys = merged.storeys; m.layers = merged.layers; m.kind = 'building'
 		// the floor models take their levels from the building (drawings-plan: building = source of truth)
-		let linked = 0
-		for (const fp of floorPlaces) {
-			const fm = modelForPlace(fp.id), s = r.storeys.find((x) => x.name === floorLabel(fp.legacy!.floor!)); if (!fm || !s) continue
-			fm.levelRef = { modelId: m.id, storeyId: s.id }; fm.levels = storeyLevels(s); linked++
-		}
+		const linked = this.#linkFloorModels(m)
 		this.#h.pushStep(this.#h.activeTabId() ?? '', `Import risers into ${m.name}`)
 		this.openPlaceModel(home.id, false)
 		const s = this.#h.session, p = s.panes[s.focused]

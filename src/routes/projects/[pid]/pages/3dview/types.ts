@@ -124,7 +124,7 @@ export type Model = { id: ModelId; name: string; objects: Obj[]; shapes?: Ent[];
 	levelRef?: { modelId: ModelId; storeyId: string } }
 export type ModelKind = 'floor' | 'zone' | 'room' | 'building'
 /** A building storey: `z` = its floor-slab datum from the building's ground (mm); the rest are heights above it. */
-export type Storey = { id: string; name: string; z: number } & Levels
+export type Storey = { id: string; name: string; z: number; /** the structural slab's thickness below the datum (mm) */ slab?: number } & Levels
 
 // Projection direction: five orthographic + an isometric 3D view.
 export type Dir = 'plan' | 'front' | 'rear' | 'left' | 'right' | 'iso'

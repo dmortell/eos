@@ -42,24 +42,36 @@ export function riserFloors(d: Pick<RisersDocIn, 'fromFloor' | 'toFloor'>): numb
 	return Array.from({ length: hi - lo + 1 }, (_, i) => lo + i).filter((n) => n !== 0)
 }
 
-/** Storeys bottom-up: each datum (top of its slab) = the one below + its raised floor + clear height + plenum +
- *  this floor's slab. Levels are heights above the datum (a floor model's `levels`). */
+/** A building's floors from its stack: `bottom`…`top` without the skipped ones and 0 (B1F → 1F). */
+export function stackFloors(s: { bottom: number; top: number; skipped?: number[] }): number[] {
+	const lo = Math.min(s.bottom, s.top), hi = Math.max(s.bottom, s.top), skip = new Set(s.skipped ?? [])
+	return Array.from({ length: hi - lo + 1 }, (_, i) => lo + i).filter((n) => n !== 0 && !skip.has(n))
+}
+const storeyOf = (n: number, h: FloorHeights): Omit<Storey, 'z'> => ({ id: storeyId(n), name: floorLabel(n), slab: h.slabMm, floorSlab: 0,
+	raisedFloor: h.raisedFloorMm, ceilingTile: h.raisedFloorMm + h.clearHeightMm, ceilingSlab: h.raisedFloorMm + h.clearHeightMm + h.plenumMm })
+/** Stack storeys bottom-up: each datum (top of its slab) = the one below + its soffit height (`ceilingSlab`) +
+ *  this floor's slab. The lowest datum is z 0. */
+function stack(list: Omit<Storey, 'z'>[]): Storey[] {
+	let z = 0
+	return list.map((s, i) => { if (i > 0) z += (list[i - 1].ceilingSlab ?? 3600) + (s.slab ?? DEFAULT_HEIGHTS.slabMm); return { ...s, z } })
+}
+/** Storeys for `floors` from the riser's heights (per floor, else its defaults). Levels are heights above the
+ *  datum (a floor model's `levels`). */
 export function riserStoreys(d: RisersDocIn, floors: number[]): Storey[] {
 	const hts = (n: number): FloorHeights => ({ ...DEFAULT_HEIGHTS, ...d.settings?.defaultFloorHeights, ...d.floorHeights?.[n] })
-	const out: Storey[] = []
-	let z = 0
-	floors.forEach((n, i) => {
-		const h = hts(n)
-		if (i > 0) { const b = hts(floors[i - 1]); z += b.raisedFloorMm + b.clearHeightMm + b.plenumMm + h.slabMm }
-		out.push({ id: storeyId(n), name: floorLabel(n), z, floorSlab: 0, raisedFloor: h.raisedFloorMm, ceilingTile: h.raisedFloorMm + h.clearHeightMm, ceilingSlab: h.raisedFloorMm + h.clearHeightMm + h.plenumMm })
-	})
-	return out
+	return stack(floors.map((n) => storeyOf(n, hts(n))))
+}
+/** A building's storeys after its floor stack changed: an existing storey keeps its heights, a new floor gets
+ *  the default ones, and the datums re-stack. */
+export function restack(floors: number[], existing: Storey[] = []): Storey[] {
+	return stack(floors.map((n) => { const e = existing.find((s) => s.id === storeyId(n)); if (!e) return storeyOf(n, DEFAULT_HEIGHTS); const { z: _z, ...rest } = e; return rest }))
 }
 /** A storey's levels (for a floor model's cached `levels`). */
 export const storeyLevels = (s: Storey): Levels => ({ floorSlab: s.floorSlab, raisedFloor: s.raisedFloor, ceilingTile: s.ceilingTile, ceilingSlab: s.ceilingSlab })
 
-export function risersToBuilding(d: RisersDocIn): { storeys: Storey[]; objects: Obj[]; notes: string[] } {
-	const floors = riserFloors(d), storeys = riserStoreys(d, floors), notes: string[] = []
+/** `floors` = the building's whole stack (its place's `floors`), else the riser's own range. */
+export function risersToBuilding(d: RisersDocIn, floors: number[] = riserFloors(d)): { storeys: Storey[]; objects: Obj[]; notes: string[] } {
+	const storeys = riserStoreys(d, floors), notes: string[] = []
 	const st = (n: number) => storeys.find((s) => s.id === storeyId(n))
 	const objects: Obj[] = []
 	const rooms = new Map((d.rooms ?? []).map((r) => [r.id, r]))

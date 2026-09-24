@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { riserFloors, riserStoreys, risersToBuilding, mergeRisers, storeyLevels, type RisersDocIn } from './risersImport'
+import { riserFloors, riserStoreys, risersToBuilding, mergeRisers, storeyLevels, stackFloors, restack, type RisersDocIn } from './risersImport'
 import type { Model } from '../3dview/types'
 
 const doc: RisersDocIn = {
@@ -20,6 +20,13 @@ describe('Risers import', () => {
 		expect(riserFloors({ fromFloor: 2, toFloor: 4 })).toEqual([2, 3, 4])
 		expect(riserFloors({ fromFloor: 1, toFloor: -2 })).toEqual([-2, -1, 1])
 		expect(riserFloors(doc)).toHaveLength(22)
+	})
+	it("a building's stack: bottom…top without skipped floors or 0; re-stacking keeps a storey's heights", () => {
+		expect(stackFloors({ bottom: -2, top: 5, skipped: [4] })).toEqual([-2, -1, 1, 2, 3, 5])
+		const tall = riserStoreys(doc, [32, 33])   // 33F has a 3000 clear height
+		const re = restack([31, 32, 33], tall)
+		expect(re.map((s) => [s.name, s.z])).toEqual([['31F', 0], ['32F', 3800], ['33F', 7600]])
+		expect(re[2].ceilingTile).toBe(3300)   // kept from the riser
 	})
 	it('stacks storeys from the per-floor heights; levels are heights above each datum', () => {
 		const s = riserStoreys(doc, [12, 30, 33])
