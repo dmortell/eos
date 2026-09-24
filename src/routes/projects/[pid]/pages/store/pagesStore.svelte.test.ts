@@ -41,6 +41,18 @@ describe('PagesStore', () => {
 		f.pushOne(`projects/${P}`, { id: P, pages: { places: [{ order: 0, parentId: null, name: 'Bldg', id: 'a' }] } })
 		expect(s.project).toBe(before)   // the echo does not replace local state
 	})
+	it('overwriting a revision made current again rewrites ITS version, never a newer one (B6)', async () => {
+		const { f, s } = boot()
+		const sh = s.createSheet({ title: 'A', placeId: 'p1' })
+		expect(await s.issueSheet(sh.id, { note: '', overwrite: false, models: [], code: 'P1' })).toBe('P1')
+		expect(await s.issueSheet(sh.id, { note: '', overwrite: false, models: [], code: 'P2' })).toBe('P2')
+		s.setCurrentRevision(sh.id, 'P1', '2026-01-01')
+		f.writes.length = 0
+		expect(await s.issueSheet(sh.id, { note: 'fix', overwrite: true, models: [] })).toBe('P1')
+		const vers = f.writes.filter((w) => w.path.endsWith('/versions')).map((w) => w.data.id), revs = f.writes.filter((w) => w.path.endsWith('/revisions')).map((w) => [w.data.id, w.data.fromVersionId])
+		expect(vers).toEqual(['v1']); expect(revs).toEqual([['rP1', 'v1']])
+		expect(s.sheets.find((x) => x.id === sh.id)?.currentVersionNumber).toBe(2)   // the next NEW issue is v3
+	})
 	it('seeds places once, never over existing ones', () => {
 		const { s } = boot()
 		const input = { project: { id: P, floors: [{ number: 3 }] }, racks: {}, risers: [], drawings: [] }

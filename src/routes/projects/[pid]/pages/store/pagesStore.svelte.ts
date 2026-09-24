@@ -197,18 +197,22 @@ export class PagesStore {
 	 *  debounced sheet saver can't write an older copy over them). Returns the revision code. */
 	async issueSheet(sheetId: string, a: { note: string; overwrite: boolean; models: SheetSnapshot['models']; code?: string }): Promise<string | null> {
 		const sh = this.sheets.find((x) => x.id === sheetId); if (!sh) return null
-		const over = a.overwrite && !!sh.latestRevisionCode && !!sh.currentVersionNumber
-		const n = over ? sh.currentVersionNumber : (sh.currentVersionNumber ?? 0) + 1
+		// Overwrite = re-issue the CURRENT revision (its code) over ITS OWN version — the one its log entry records.
+		// (The current revision can be an older one — "set current" — so the newest version is not necessarily its;
+		// an old entry with no recorded version gets a fresh one instead.) New versions number from the highest.
+		const sameCode = a.overwrite && !!sh.latestRevisionCode
+		const own = sameCode ? (sh.revLog ?? []).find((r) => r.code === sh.latestRevisionCode)?.v : undefined
+		const top = sh.currentVersionNumber ?? 0, n = own ?? top + 1
 		// B6: a free-form code (P1, C1 …) when given; else the next in sequence
-		const code = over ? sh.latestRevisionCode! : a.code?.trim() || nextRevisionCode(sh.latestRevisionCode)
+		const code = sameCode ? sh.latestRevisionCode! : a.code?.trim() || nextRevisionCode(sh.latestRevisionCode)
 		const at = now(), vid = `v${n}`, rid = `r${code}`
 		const snapshot: SheetSnapshot = { paper: sh.paper, frames: sh.frames, models: a.models }
 		await this.#db.replace(this.#sheetVersionsPath(sh.id), { id: vid, drawingId: sh.id, number: n, snapshot, notes: a.note, createdAt: at, createdBy: this.#user } as unknown as DocWithId)
 		await this.#db.replace(this.#revisionsPath(sh.id), { id: rid, drawingId: sh.id, code, fromVersionId: vid, title: sh.title, description: a.note, issuedAt: at, issuedBy: this.#user, locked: true } as unknown as DocWithId)
 		// stamp the NEWEST copy (an edit may have landed while the writes were in flight — then it counts as edited)
 		const cur = this.sheets.find((x) => x.id === sh.id) ?? sh
-		const revLog = [...(cur.revLog ?? []).filter((r) => r.code !== code), { code, date: at, ...(a.note ? { note: a.note } : {}) }]
-		this.saveSheet({ ...cur, currentVersionNumber: n, latestRevisionCode: code, latestIssuedAt: at, issuedHash: sheetHash(sh), revLog })
+		const revLog = [...(cur.revLog ?? []).filter((r) => r.code !== code), { code, date: at, v: n, ...(a.note ? { note: a.note } : {}) }]
+		this.saveSheet({ ...cur, currentVersionNumber: Math.max(top, n), latestRevisionCode: code, latestIssuedAt: at, issuedHash: sheetHash(sh), revLog })
 		return code
 	}
 	/** B6: edit an issued revision's description / date (the revision doc and the sheet's revision log). */

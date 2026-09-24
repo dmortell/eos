@@ -124,7 +124,7 @@ export type PagesSheetDoc = {
 	link?: SheetLink
 	/** A4 / B6: the sheet's revisions, oldest first, as the title block's revision table shows them (kept in step
 	 *  with the `revisions` sub-collection when issuing / editing / deleting). */
-	revLog?: { code: string; date: string; note?: string }[]
+	revLog?: { code: string; date: string; note?: string; /** the registry version (`v<n>`) it froze — overwrite rewrites this one */ v?: number }[]
 	/** This sheet shows no title block (the drawing area takes the full paper). */
 	hideTitleBlock?: boolean
 	currentVersionNumber: number
