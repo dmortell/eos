@@ -516,10 +516,10 @@ export class PagesProject {
 		const u = this.#h.auth?.user
 		return initialsOf(sh.createdBy && sh.createdBy === u?.email ? u?.displayName || sh.createdBy : sh.createdBy)
 	}
-	/** The tab's title block as shown, or null when its sheet hides it (Properties › PAGE › Title block). */
-	titleBlockOf = (tabId: string): TbShown | null => {
+	/** The tab's title block as shown (`hidden` when its sheet hides it — Properties › PAGE › Title block). */
+	titleBlockOf = (tabId: string): TbShown => {
 		const ps = this.store, sh = this.storedSheetOfTab(tabId), tpl = ps?.project?.titleBlock, pap = this.#h.paperOf(tabId)
-		if (sh?.hideTitleBlock) return null
+		if (sh?.hideTitleBlock) return { cells: [], border: !!tpl?.border, hidden: true }
 		const pl = sh?.placeId && ps ? ps.places.find((p) => p.id === sh.placeId) : undefined
 		return shownTitleBlock(tpl, fillTitleBlock(tpl, {
 				project: this.src?.project?.name ?? '',

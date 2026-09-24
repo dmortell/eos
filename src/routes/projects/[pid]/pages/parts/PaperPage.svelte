@@ -30,7 +30,7 @@
 		frames = [], editor = noopEditor, frameKind = (p: string) => p as VKind, isFrameActive = () => false, frameView = () => ({ zoom: 1, x: 0, y: 0 }), frameEnv = {},
 		frameOrbit = () => ({ yaw: 0, pitch: 0 }), makeFrameOn = () => ({}), makeFrameEditor = () => noopEditor, onseed, onaddframe, onframegeom, onframecommit, ondeactivate }:
 		{ title?: string; drawingNo?: string; scale?: string; focused?: boolean; tool?: string; env?: Env; pw?: number; ph?: number; sizeLabel?: string; rev?: string; revDate?: string;
-			/** The filled title block (titleBlock.ts); absent → the default template from the props above; null → none. */ tb?: TbShown | null;
+			/** The filled title block (titleBlock.ts); absent → the default template from the props above. */ tb?: TbShown;
 			/** XP7: paper margin (mm) — a dashed guide (screen only) and frame snap lines. */ marginMm?: number;
 			entities?: Ent[]; entsForModel?: (mid?: string) => Ent[]; tabModelId?: string;
 			// R3 commit 3 (review.md §R3): a NEW page-level `editor` — distinct from `makeFrameEditor` (which
@@ -232,7 +232,7 @@
 	// frame it exits the active viewport + deselects. A dblclick inside the ACTIVE viewport's own content
 	// (`.vp.active`) is that viewport's own business (e.g. text-edit) — handled there, not here.
 	function onWrapDblclick(e: MouseEvent) {
-		if ((e.target as Element).closest?.('.vp.active')) return
+		if (env.navMode === 'pan' || (e.target as Element).closest?.('.vp.active')) return   // latched Pan: no enter / exit
 		const p = toSheet(e.clientX, e.clientY)
 		const hit = frameHit(p)
 		if (hit) { makeFrameOn(hit).activate?.(); return }
@@ -287,11 +287,11 @@
 			<!-- XP7: the paper margin, in PAPER coords — a screen-only guide (printing.ts hides it), or a printed
 			     hairline border when the project's title block asks for one (A9); frames snap to it -->
 			{@const m = marginMm * PAPER_PX_PER_MM}
-			<div class="margin-guide" class:printed={tbShown?.border} style="left:{m}px; top:{m}px; width:{pw - 2 * m}px; height:{ph - 2 * m}px"></div>
+			<div class="margin-guide" class:printed={tbShown.border} style="left:{m}px; top:{m}px; width:{pw - 2 * m}px; height:{ph - 2 * m}px"></div>
 		{/if}
 		<!-- titleblock (right vertical strip, like EOS) — the project's template (titleBlock.ts): logo, the
 		     company block, full-width rows, then half-width cells in the grid below. A sheet can hide it. -->
-		{#if tbShown}
+		{#if !tbShown.hidden}
 			<div class="tb" bind:this={tbEl}>
 				{#if tbShown.logo}<div class="tb-logo">{tbShown.logo}</div>{/if}
 				{#if tbShown.company}

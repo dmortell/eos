@@ -434,10 +434,12 @@
 		record: recordEdit, undo, redo, jump: jumpHistory } = timeline
 	// R5: a new entity lands on the active layer if this model has it (else Annotations — activeLayerIn).
 	// J5: a NEW shape never lands on a hidden or locked active layer (it would vanish / be uneditable) — refused with a note.
-	function addEnt(id: string, e: Ent) {
+	// Returns whether the shape was added.
+	function addEnt(id: string, e: Ent): boolean {
 		const mid = modelIdOf(id), al = e.layer ? null : activeLayerIn(modelById(mid)?.layers ?? [])
-		if (al && (!al.visible || al.locked)) { toast.warning(`The active layer “${al.name}” is ${al.locked ? 'locked' : 'hidden'} — pick another layer (or ${al.locked ? 'unlock' : 'show'} it) to draw`); return }
+		if (al && (!al.visible || al.locked)) { toast.warning(`The active layer “${al.name}” is ${al.locked ? 'locked' : 'hidden'} — pick another layer (or ${al.locked ? 'unlock' : 'show'} it) to draw`, { id: 'layer-refused' }); return false }
 		ensureHist(id); const en = e.layer ? e : { ...e, layer: al?.id }; setMdlEntsOf(mid, [...mdlEntsOf(mid), en]); recordEdit(id, 'Add ' + en.type)
+		return true
 	}
 	// J2: delete a layer of the focused model together with everything on it — one undo step.
 	function layerItemCount(layerId: string) { const mid = activeMid(); return (modelById(mid)?.objects.filter((o) => o.layer === layerId).length ?? 0) + mdlEntsOf(mid).filter((e) => e.layer === layerId).length }
@@ -468,8 +470,8 @@
 	function pasteEnts(id?: string): Ent[] | undefined {
 		if (clipboard.empty || !id) return
 		const copies = relabelCopies(clipboard.paste(5 * propsScaleN, () => newId()), entsOf(id))   // B19: 5 PAPER mm per paste (model mm = paper mm × scale N), stacking; E12: free labels
-		beginGesture(); copies.forEach(c => addEnt(id, c)); endGesture()
-		return copies
+		beginGesture(); const added = copies.filter(c => addEnt(id, c)); endGesture()
+		return added
 	}
 	function groupEnts(id: string, ids: string[]) {
 		if (ids.length < 2) return
@@ -647,7 +649,7 @@
 		const img = new Image()
 		const place = (aspect: number) => {
 			const cx = 14000, cy = 8750, w = 9000, h = w * aspect
-			addEnt(id, { id: newId(), type: 'image', a: [Math.round(cx - w / 2), Math.round(cy - h / 2)], b: [Math.round(cx + w / 2), Math.round(cy + h / 2)], src: internImage(src), plane: 'plan', lockAspect: true })
+			if (!addEnt(id, { id: newId(), type: 'image', a: [Math.round(cx - w / 2), Math.round(cy - h / 2)], b: [Math.round(cx + w / 2), Math.round(cy + h / 2)], src: internImage(src), plane: 'plan', lockAspect: true })) return
 			const mn = modelById(modelIdOf(id))?.name ?? 'the model'
 			toast(`Image added to ${mn} on layer “${activeLayerIn(modelById(modelIdOf(id))?.layers ?? [])?.name ?? '—'}”. Set its scale/crop in Properties.`)
 		}
@@ -787,7 +789,13 @@
 		const mod = e.ctrlKey || e.metaKey
 		const tag = (e.target as HTMLElement)?.tagName
 		if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return   // don't hijack field editing
-		if (e.key === 'Escape' && navMode) { e.preventDefault(); e.stopPropagation(); navMode = null; return }   // Esc first drops a latched Pan / Orbit
+		// Esc first drops a latched Pan (or an Orbit that's live in a 3D view) — unless a dialog is open; a latched
+		// Orbit in a flat view does nothing, so it doesn't swallow the viewport's Esc ladder (cancel a draft first)
+		const fp = session.panes[session.focused]
+		const onCanvas = e.target === document.body || !!(e.target as Element)?.closest?.('.canvas')
+		if (e.key === 'Escape' && (navMode === 'pan' || (navMode === 'orbit' && fp && activeProj(fp) === 'iso')) && !document.querySelector('[role="dialog"]')) {
+			e.preventDefault(); e.stopPropagation(); navMode = null; return
+		}
 		if (mod && (e.key === 'k' || e.key === 'K')) {
 			// Capture phase + stopImmediatePropagation so the app-wide Ctrl-K palette doesn't
 			// also open on this page (it left a faded backdrop behind ours).
@@ -795,6 +803,7 @@
 		} else if (mod && !e.shiftKey && (e.key === 'o' || e.key === 'O')) { e.preventDefault(); openProjectOpen = true }   // File › Open Project…
 		else if (mod && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo() }
 		else if (mod && ((e.shiftKey && (e.key === 'z' || e.key === 'Z')) || e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo() }
+		else if (!onCanvas) return   // the canvas keys below leave a focused sidebar / tree its own paging + keys
 		else if (!mod && !e.altKey && (e.key === '+' || e.key === '=' || e.key === '-' || e.key === 'Home')) {   // K2: zoom in / out / fit
 			e.preventDefault()
 			if (e.key === 'Home') navFit(); else navZoom(e.key === '-' ? 0.8 : 1.25)

@@ -37,7 +37,7 @@ const uid = () => newId('e')
 /** Entity move/grip drag. `bases` = what a body-move drags (the whole selection when the grabbed entity is in
  *  it); `base`/`gi` drive a grip drag. Kept on the instance too: Shift/ORTHO re-apply + hover read it. */
 type EntDrag = { id: string; base: Ent; bases: Ent[]; kind: 'grip' | 'move'; gi: number; start: Pt; dup?: boolean; duplicated?: boolean }
-type MDrag = { id: string; start: Pt; o0?: { x: number; y: number; z: number }; n0?: GN[] }
+type MDrag = { start: Pt; items: { id: string; o0?: { x: number; y: number; z: number }; n0?: GN[] }[] }
 type MGripDrag = { grip: MGrip; origin: Pt; branch?: () => void }
 type SecDrag = { id: string; start: Pt; c0: Clip }
 type SecResize = { id: string; apply: (p: Pt) => Clip }
@@ -245,7 +245,9 @@ export class VpInteraction {
 
 	// ── click-cycle: what's under a plain Select click, top-most first — each entity (with its group), then the
 	// model object. `lastClick.k` = which one the previous click at that spot picked. ──
-	private lastClick: { x: number; y: number; k: number } | null = null
+	private lastClick: { x: number; y: number; k: number; sel: string } | null = null
+	private selKey = () => [...this.v.sel, ...this.v.modelSel].join('|')
+	private selAtPress = ''   // the selection just before the latest press (onDown)
 	private clickCandidates(p: Pt): { ids?: string[]; obj?: string }[] {
 		const v = this.v, out: { ids?: string[]; obj?: string }[] = [], seen = new Set<string>()
 		for (const id of v.hitAll(p)) { if (seen.has(id)) continue; const g = v.expandGroup([id]); g.forEach((x) => seen.add(x)); out.push({ ids: g }) }
@@ -259,6 +261,7 @@ export class VpInteraction {
 		e.stopPropagation()
 		if ((e.target as Element)?.closest?.('.section-arrow.pick')) return   // handled by the arrow's pointerdown
 		if (this.suppressClick) { this.suppressClick = false; return }   // this click just ended a drag
+		if (v.navMode === 'pan') return   // latched Pan: the release of a pan drag is not a pick / draw click
 		if (!v.active) return   // paper space: enter with a double-click
 		// IMAGE calibration modes (Properties › Set scale / Set origin) intercept clicks.
 		if (imgEdit.mode === 'origin' && imgEdit.id) { const p = v.toModel(e.clientX, e.clientY); if (p) this.setImageOrigin(imgEdit.id, p); return }
@@ -283,11 +286,15 @@ export class VpInteraction {
 			// model object), so a shape hidden under another can be reached.
 			const cands = this.clickCandidates(p)
 			if (cands.length > 1) {
-				const again = this.lastClick && Math.hypot(e.clientX - this.lastClick.x, e.clientY - this.lastClick.y) <= 4
-				const k = again ? (this.lastClick!.k + 1) % cands.length : 0
-				this.lastClick = { x: e.clientX, y: e.clientY, k }
+				if (e.detail >= 2) return   // the 2nd click of a double-click keeps what the 1st picked (dblclick acts on it)
+				// cycle on only while the selection is still what the last click here picked (else start at the top)
+				const lc = this.lastClick
+				const again = lc && Math.hypot(e.clientX - lc.x, e.clientY - lc.y) <= 4 && lc.sel === this.selAtPress   // the press may already have re-picked the top one
+				const k = again ? (lc!.k + 1) % cands.length : 0
 				const c = cands[k]
-				return c.obj ? v.selectObj(c.obj) : v.selectEnts(c.ids!)
+				if (c.obj) v.selectObj(c.obj); else v.selectEnts(c.ids!)
+				this.lastClick = { x: e.clientX, y: e.clientY, k, sel: this.selKey() }
+				return
 			}
 			this.lastClick = null
 			if (g.length) return v.selectEnts(g)
@@ -328,6 +335,7 @@ export class VpInteraction {
 	onDblclick = (e: MouseEvent) => {
 		const v = this.v
 		e.stopPropagation()
+		if (v.navMode === 'pan') return
 		if (!v.active) { v.on.activate?.(); return }
 		if (POLY.has(v.tool) && this.draft.length) { this.finishPolyline(); return }
 		const p = v.toModel(e.clientX, e.clientY); if (!p) return
@@ -420,6 +428,7 @@ export class VpInteraction {
 		if ((e.target as Element)?.closest?.('.section-arrow.pick')) return   // a section-arrow click drops a direction
 		this.suppressClick = false   // clear any stale flag from a drag that never got its click
 		this.shiftPressId = null
+		this.selAtPress = this.selKey()
 		v.demoteNodeToObj()          // a fresh press resets the node selection (re-set on a no-move node-grip click)
 		if (reg.noteDown(e)) { this.cancelPointerDrag(); return }   // 2nd finger → hand off to pan/zoom
 		// calibrating scale: a press near a placed endpoint drags it
@@ -468,12 +477,15 @@ export class VpInteraction {
 		} else if (pk?.kind === 'obj') {   // a MODEL object → select + move
 			const mo = v.mdl?.objects.find((o) => o.id === pk.id); if (!mo) return
 			if (e.shiftKey || e.ctrlKey || e.metaKey) return   // I4: a modifier press only toggles it (onClick)
-			v.selectObj(mo.id!)
+			// pressing one of several selected objects keeps the selection and drags them all
+			const multi = v.modelSel.length > 1 && v.modelSel.includes(mo.id!)
+			if (!multi) v.selectObj(mo.id!)
+			const objs = multi ? v.mdl!.objects.filter((o) => v.modelSel.includes(o.id!)) : [mo]
 			ed.begin()
-			beginPointerDrag<MDrag>(e, { id: mo.id!, start: p,
-				o0: mo.type === 'prism' ? { x: mo.x, y: mo.y, z: mo.z } : undefined,
-				n0: (mo.type === 'wall' || mo.type === 'conduit') ? (mo.nodes as GN[]).map((n) => ({ id: n.id, x: n.x, y: n.y, z: n.z })) : undefined,
-			}, { onMove: this.onModelDragMove, onUp: this.onModelDragUp, onCancel: this.closeEdit }, reg)
+			beginPointerDrag<MDrag>(e, { start: p, items: objs.map((o) => ({ id: o.id!,
+				o0: o.type === 'prism' ? { x: o.x, y: o.y, z: o.z } : undefined,
+				n0: (o.type === 'wall' || o.type === 'conduit') ? (o.nodes as GN[]).map((n) => ({ id: n.id, x: n.x, y: n.y, z: n.z })) : undefined,
+			})) }, { onMove: this.onModelDragMove, onUp: this.onModelDragUp, onCancel: this.closeEdit }, reg)
 		} else if (!pk) {   // empty space → a Kestrel-style selection box (window / crossing); Shift/Ctrl = additive
 			this.marquee = { a: p, b: p, add: e.shiftKey || e.ctrlKey || e.metaKey }
 			beginPointerDrag(e, null, { onMove: this.onMarqueeMove, onUp: this.onMarqueeUp, onCancel: () => { this.marquee = null } }, reg)
@@ -576,15 +588,17 @@ export class VpInteraction {
 	private onModelDragMove = (e: PointerEvent, s: MDrag) => {
 		const v = this.v; if (!v.mdl) return
 		const p = v.toModel(e.clientX, e.clientY); if (!p) return
-		const o = v.mdl.objects.find((x) => x.id === s.id); if (!o) return
 		const dx = p[0] - s.start[0], dy = p[1] - s.start[1], rnd = v.rndSnap
 		const elev = v.isElev ? ELEV_BASIS[v.elevDir] : null
 		const shift = (t: { x: number; y: number; z: number }, f: { x: number; y: number; z: number }) => {
 			if (elev) { if (elev.axis === 0) t.x = rnd(f.x + elev.sign * dx); else t.y = rnd(f.y + elev.sign * dx); t.z = Math.max(0, rnd(f.z - dy)) }
 			else { t.x = rnd(f.x + dx); t.y = rnd(f.y + dy) }
 		}
-		if (o.type === 'prism' && s.o0) shift(o, s.o0)
-		else if ((o.type === 'wall' || o.type === 'conduit') && s.n0) for (const g of s.n0) { const n = (o.nodes as GN[]).find((x) => x.id === g.id); if (n) shift(n, g) }
+		for (const it of s.items) {
+			const o = v.mdl.objects.find((x) => x.id === it.id); if (!o) continue
+			if (o.type === 'prism' && it.o0) shift(o, it.o0)
+			else if ((o.type === 'wall' || o.type === 'conduit') && it.n0) for (const g of it.n0) { const n = (o.nodes as GN[]).find((x) => x.id === g.id); if (n) shift(n, g) }
+		}
 		v.editor.edit.mark()   // fold this move into the open undo step
 	}
 	private onModelDragUp = (_e: PointerEvent, _s: MDrag, moved: boolean) => {

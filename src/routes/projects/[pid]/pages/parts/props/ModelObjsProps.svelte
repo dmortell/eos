@@ -4,7 +4,7 @@
 	// shows "— mixed —" / empty; setting it applies to every object that has it, as ONE undo step (onpatch).
 	import { ColorPicker } from '$lib'
 	import { COLORS } from '../../palette'
-	import { num, blurOnEnter } from './fields'
+	import { num, strVal, blurOnEnter } from './fields'
 	import type { Obj, Layer as MLayer } from '../../3dview/types'
 
 	let { objs, layers, onpatch }: {
@@ -38,8 +38,8 @@
 </div>
 {#if boxes.length}
 	<div class="prop"><span>Base Z</span><input type="number" value={baseZ ?? ''} placeholder="— mixed —" title="Boxes only: the underside's height above the floor (mm)"
-		onchange={(e) => { const v = Math.max(0, num(e)); onpatch((o) => (o.type === 'prism' ? { z: v } : null)) }} onkeydown={blurOnEnter} /></div>
+		onchange={(e) => { if (!strVal(e).trim()) return; const v = Math.max(0, num(e)); onpatch((o) => (o.type === 'prism' ? { z: v } : null)) }} onkeydown={blurOnEnter} /></div>
 {/if}
 <div class="prop"><span>Height</span><input type="number" min="1" value={height ?? ''} placeholder="— mixed —" title="A box's height, a wall's or a conduit's default height (mm)"
-	onchange={(e) => { const v = Math.max(1, num(e)); onpatch((o) => ('h' in o ? { h: v } : null)) }} onkeydown={blurOnEnter} /></div>
+	onchange={(e) => { if (!strVal(e).trim()) return; const v = Math.max(1, num(e)); onpatch((o) => ('h' in o ? { h: v } : null)) }} onkeydown={blurOnEnter} /></div>
 <div class="pp-hint">Ctrl/Shift-click adds or removes objects. Edits apply to every selected object that has the field.</div>

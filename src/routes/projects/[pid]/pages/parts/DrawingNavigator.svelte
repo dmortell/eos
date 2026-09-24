@@ -88,8 +88,10 @@
 	function moveRows(id: string, target: string, zone: DropZone) {
 		const block = selSheets.includes(id) && selSheets.length > 1 ? sheetIds.filter((x) => selSheets.includes(x)) : [id]
 		if (block.includes(target)) return
-		// 'after' a row: move the LAST first so each lands right after the target, ahead of the ones already moved
-		for (const x of zone === 'after' ? [...block].reverse() : block) onplacemove?.(x, target, zone)
+		// after a row (a drop on a SHEET row's middle also lands after it): move the LAST first so each lands right
+		// after the target, ahead of the ones already moved; 'into' a place appends, so it keeps the order as is
+		const after = zone === 'after' || (zone === 'into' && !!nodeById(target)?.sheet)
+		for (const x of after ? [...block].reverse() : block) onplacemove?.(x, target, zone)
 	}
 	const td = new TreeDrag(moveRows)
 	const dragProps = (n: Node) => placesMode ? ((n.place || n.sheet) && onplacemove ? td.row(n.id) : {})

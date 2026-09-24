@@ -23,8 +23,9 @@ export type TitleBlockTemplate = {
 	/** Print a hairline border along the paper margin (else the margin is a screen-only guide). */
 	border?: boolean
 }
-/** The title block as one sheet shows it (null = the sheet hides its title block). */
-export type TbShown = { logo?: string; company?: string[]; cells: TbCell[]; border?: boolean }
+/** The title block as one sheet shows it. `hidden` = this sheet hides the block (the project's `border`
+ *  still applies). */
+export type TbShown = { logo?: string; company?: string[]; cells: TbCell[]; border?: boolean; hidden?: boolean }
 
 /** A sheet's shown block: sections the template hides are dropped; empty company lines are skipped. */
 export function shownTitleBlock(t: TitleBlockTemplate | undefined, cells: TbCell[]): TbShown {
