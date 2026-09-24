@@ -17,6 +17,7 @@ describe('versions', () => {
 		expect(nextVersion('1.2', true)).toBe('2.0')
 		expect([isMajor('2.0'), isMajor('2.1'), isMajor(undefined)]).toEqual([true, false, false])
 		expect([nextRevisionCode(), nextRevisionCode('A'), nextRevisionCode('Z'), nextRevisionCode('AZ'), nextRevisionCode('ZZ')]).toEqual(['A', 'B', 'AA', 'BA', 'AAA'])
+		expect([nextRevisionCode('P1'), nextRevisionCode('C09'), nextRevisionCode('3')]).toEqual(['P2', 'C10', '4'])
 	})
 	it('the content hash ignores management stamps + save time, and sees content edits', () => {
 		expect(hash32('a')).toMatch(/^[0-9a-f]{8}$/)

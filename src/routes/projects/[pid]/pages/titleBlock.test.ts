@@ -19,6 +19,10 @@ describe('title block', () => {
 		expect(tb).toEqual({ logo: 'ACME', company: ['Acme Ltd', '03-1234'], cells, border: true })
 		expect(shownTitleBlock({ fields: [], logo: 'A', company: { name: 'X' }, hidden: ['logo', 'company', 'fields'] }, cells)).toEqual({ logo: undefined, company: undefined, cells: [], border: false })
 		expect(shownTitleBlock(undefined, cells).logo).toBe(DEFAULT_TITLE_BLOCK.logo)
+		// A4: the last 5 revisions; none when the template hides the table
+		const revs = ['A', 'B', 'C', 'D', 'E', 'F'].map((code) => ({ code, date: '2026-09-25' }))
+		expect(shownTitleBlock(undefined, cells, revs).revisions?.map((r) => r.code)).toEqual(['B', 'C', 'D', 'E', 'F'])
+		expect(shownTitleBlock({ fields: [], hidden: ['revisions'] }, cells, revs).revisions).toBeUndefined()
 	})
 	it('initials from a name or an email', () => {
 		expect(initialsOf('David Mortell')).toBe('DM')

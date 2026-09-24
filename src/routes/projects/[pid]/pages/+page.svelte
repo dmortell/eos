@@ -1098,7 +1098,7 @@
 						onrestoreversion={(v) => { if (hm) void proj.restoreModelVersion(hm.id, v) }}
 						sheet={hs ? { title: hs.title, code: hs.latestRevisionCode, issuedAt: hs.latestIssuedAt, edited: sheetEditedSinceIssue(hs) } : null}
 						problems={proj.issueProblems} revisions={proj.sheetRevisions}
-						onissue={(a) => void proj.issueSheet(a)} onopenmodel={(id) => { proj.openModelHistory(id); rightTab = 'history' }}
+						onissue={(a) => void proj.issueSheet(a)} onrevedit={proj.editRevision} onrevdelete={proj.deleteRevision} onrevcurrent={proj.setCurrentRevision} onopenmodel={(id) => { proj.openModelHistory(id); rightTab = 'history' }}
 						onoverwritemodel={(id) => void proj.saveModelVersion(id, { major: true, note: '', overwrite: true })} />
 				{/if}
 			</aside>

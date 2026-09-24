@@ -572,7 +572,8 @@ export class PagesProject {
 				scale: this.#h.framesOf(tabId)[0]?.scale ?? this.#h.scaleOf(tabId),
 				size: `${pap.size} ${pap.landscape ? 'L' : 'P'}`,
 				drawn: sh ? sh.drawnBy || this.#drawnDefault(sh) : '',
-			}))
+			}), (sh?.revLog?.length ? sh.revLog : sh?.latestRevisionCode ? [{ code: sh.latestRevisionCode, date: sh.latestIssuedAt ?? '' }] : [])
+				.map((r) => ({ ...r, date: r.date ? fmtDate(r.date) : '' })))
 	}
 	/** The active tab's stored sheet: set its Drawing № / Drawn / title-block hide (Properties › PAGE). */
 	setSheetField = <K extends 'drawingNumber' | 'drawnBy' | 'hideTitleBlock'>(key: K, value: PagesSheetDoc[K]) => {
@@ -621,7 +622,11 @@ export class PagesProject {
 	/** Why the active sheet can't be issued (every model it shows must be at an unedited major version). */
 	issueProblems = $derived.by(() => (this.historySheet ? issueProblems(this.historySheet, models) : []))
 	/** Issue the active sheet: the next revision, or `overwrite` the latest. */
-	issueSheet = async (a: { note: string; overwrite: boolean }) => {
+	/** B6: edit / delete / make-current a revision of the History sheet. */
+	editRevision = (code: string, patch: { description?: string; issuedAt?: string }) => { const ps = this.store, sh = this.historySheet; if (ps && sh) void ps.updateRevision(sh.id, code, patch) }
+	deleteRevision = (code: string) => { const ps = this.store, sh = this.historySheet; if (ps && sh) void ps.deleteRevision(sh.id, code).then(() => this.#h.toast(`Revision ${code} deleted`)) }
+	setCurrentRevision = (code: string, issuedAt: string) => { const ps = this.store, sh = this.historySheet; if (ps && sh) ps.setCurrentRevision(sh.id, code, issuedAt) }
+	issueSheet = async (a: { note: string; overwrite: boolean; code?: string }) => {
 		const ps = this.store, sh = this.historySheet; if (!ps || !sh) return
 		if (this.issueProblems.length) { this.#h.toast('Save a major version of each model first'); return }
 		try {

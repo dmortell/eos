@@ -10,7 +10,7 @@
 	const t = $derived(template?.fields?.length ? template : DEFAULT_TITLE_BLOCK)
 	const set = (patch: Partial<TitleBlockTemplate>) => onchange({ ...t, logo: t.logo ?? '', fields: t.fields.map((f) => ({ ...f })), ...patch })
 	const setCompany = (patch: Partial<TbCompany>) => set({ company: { ...t.company, ...patch } })
-	const SECTIONS: [TbSection, string][] = [['logo', 'Logo'], ['company', 'Company'], ['fields', 'Fields']]
+	const SECTIONS: [TbSection, string][] = [['logo', 'Logo'], ['company', 'Company'], ['fields', 'Fields'], ['revisions', 'Revisions']]
 	const shows = (s: TbSection) => !t.hidden?.includes(s)
 	const toggle = (s: TbSection) => set({ hidden: shows(s) ? [...(t.hidden ?? []), s] : (t.hidden ?? []).filter((x) => x !== s) })
 	const setField = (i: number, patch: Partial<TbField>) => set({ fields: t.fields.map((f, j) => (j === i ? { ...f, ...patch } : f)) })

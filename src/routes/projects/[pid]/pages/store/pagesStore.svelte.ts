@@ -192,19 +192,41 @@ export class PagesStore {
 	/** Issue a sheet: a registry VERSION (`v<n>`: paper + frames + the model versions) and a REVISION (`r<code>`)
 	 *  pointing at it — the next ones, or `overwrite` the latest. The sheet's own stamps go through saveSheet (so the
 	 *  debounced sheet saver can't write an older copy over them). Returns the revision code. */
-	async issueSheet(sheetId: string, a: { note: string; overwrite: boolean; models: SheetSnapshot['models'] }): Promise<string | null> {
+	async issueSheet(sheetId: string, a: { note: string; overwrite: boolean; models: SheetSnapshot['models']; code?: string }): Promise<string | null> {
 		const sh = this.sheets.find((x) => x.id === sheetId); if (!sh) return null
 		const over = a.overwrite && !!sh.latestRevisionCode && !!sh.currentVersionNumber
 		const n = over ? sh.currentVersionNumber : (sh.currentVersionNumber ?? 0) + 1
-		const code = over ? sh.latestRevisionCode! : nextRevisionCode(sh.latestRevisionCode)
+		// B6: a free-form code (P1, C1 …) when given; else the next in sequence
+		const code = over ? sh.latestRevisionCode! : a.code?.trim() || nextRevisionCode(sh.latestRevisionCode)
 		const at = now(), vid = `v${n}`, rid = `r${code}`
 		const snapshot: SheetSnapshot = { paper: sh.paper, frames: sh.frames, models: a.models }
 		await this.#db.replace(this.#sheetVersionsPath(sh.id), { id: vid, drawingId: sh.id, number: n, snapshot, notes: a.note, createdAt: at, createdBy: this.#user } as unknown as DocWithId)
 		await this.#db.replace(this.#revisionsPath(sh.id), { id: rid, drawingId: sh.id, code, fromVersionId: vid, title: sh.title, description: a.note, issuedAt: at, issuedBy: this.#user, locked: true } as unknown as DocWithId)
 		// stamp the NEWEST copy (an edit may have landed while the writes were in flight — then it counts as edited)
 		const cur = this.sheets.find((x) => x.id === sh.id) ?? sh
-		this.saveSheet({ ...cur, currentVersionNumber: n, latestRevisionCode: code, latestIssuedAt: at, issuedHash: sheetHash(sh) })
+		const revLog = [...(cur.revLog ?? []).filter((r) => r.code !== code), { code, date: at, ...(a.note ? { note: a.note } : {}) }]
+		this.saveSheet({ ...cur, currentVersionNumber: n, latestRevisionCode: code, latestIssuedAt: at, issuedHash: sheetHash(sh), revLog })
 		return code
+	}
+	/** B6: edit an issued revision's description / date (the revision doc and the sheet's revision log). */
+	async updateRevision(sheetId: string, code: string, patch: { description?: string; issuedAt?: string }) {
+		await this.#db.saveFields(this.#revisionsPath(sheetId), { id: `r${code}`, ...patch } as unknown as DocWithId)
+		const cur = this.sheets.find((x) => x.id === sheetId); if (!cur) return
+		const revLog = (cur.revLog ?? []).map((r) => (r.code !== code ? r : { ...r, ...(patch.issuedAt ? { date: patch.issuedAt } : {}), ...(patch.description != null ? { note: patch.description } : {}) }))
+		this.saveSheet({ ...cur, revLog, ...(cur.latestRevisionCode === code && patch.issuedAt ? { latestIssuedAt: patch.issuedAt } : {}) })
+	}
+	/** B6: delete a revision; when it was the current one, the latest remaining becomes current (none → not issued). */
+	async deleteRevision(sheetId: string, code: string) {
+		await this.#db.delete(this.#revisionsPath(sheetId), `r${code}`)
+		const cur = this.sheets.find((x) => x.id === sheetId); if (!cur) return
+		const revLog = (cur.revLog ?? []).filter((r) => r.code !== code)
+		const last = revLog[revLog.length - 1]
+		// '' (not undefined): sheets save with a MERGE, which never deletes a field
+		this.saveSheet(cur.latestRevisionCode !== code ? { ...cur, revLog } : { ...cur, revLog, latestRevisionCode: last?.code ?? '', latestIssuedAt: last?.date ?? '', issuedHash: last ? cur.issuedHash : '' })
+	}
+	/** B6: make an issued revision the sheet's CURRENT one (the title block's Rev / Date). */
+	setCurrentRevision(sheetId: string, code: string, issuedAt: string) {
+		const cur = this.sheets.find((x) => x.id === sheetId); if (cur) this.saveSheet({ ...cur, latestRevisionCode: code, latestIssuedAt: issuedAt })
 	}
 	/** A sheet's revisions, newest first (live). */
 	subscribeRevisions(sid: string, cb: (r: SheetRevisionDoc[]) => void): () => void {

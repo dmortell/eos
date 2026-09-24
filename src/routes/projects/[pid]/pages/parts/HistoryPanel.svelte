@@ -16,12 +16,15 @@
 	type SheetInfo = { title: string; code?: string; issuedAt?: string; edited: boolean }
 	let { log = [], onjump, onundo, onredo,
 		model = null, versions = [], onsaveversion, onrestoreversion,
-		sheet = null, problems = [], revisions = [], onissue, onopenmodel, onoverwritemodel }: {
+		sheet = null, problems = [], revisions = [], onissue, onopenmodel, onoverwritemodel, onrevedit, onrevdelete, onrevcurrent }: {
 		log?: ChangeLogRow[]; onjump?: (i: number) => void; onundo?: () => void; onredo?: () => void
 		model?: ModelInfo | null; versions?: ModelVersionDoc[]
 		onsaveversion?: (a: { major: boolean; note: string }) => void; onrestoreversion?: (version: string) => void
 		sheet?: SheetInfo | null; problems?: IssueProblem[]; revisions?: RevisionDoc[]
-		onissue?: (a: { note: string; overwrite: boolean }) => void; onopenmodel?: (id: string) => void
+		onissue?: (a: { note: string; overwrite: boolean; code?: string }) => void; onopenmodel?: (id: string) => void
+		/** B6: edit a revision's description / date, delete it, make it the current one. */
+		onrevedit?: (code: string, patch: { description?: string; issuedAt?: string }) => void
+		onrevdelete?: (code: string) => void; onrevcurrent?: (code: string, issuedAt: string) => void
 		/** Re-save a model's current MAJOR version (it was edited since). */ onoverwritemodel?: (id: string) => void
 	} = $props()
 
@@ -37,7 +40,16 @@
 		unversioned: 'not versioned yet', edited: 'edited since', minor: 'at a minor version', ready: 'saved', missing: 'missing (archived or deleted)',
 	}
 	function save(major: boolean) { onsaveversion?.({ major, note: note.trim() }); note = '' }
-	function issue(overwrite: boolean) { onissue?.({ note: note.trim(), overwrite }); note = '' }
+	function issue(overwrite: boolean) { onissue?.({ note: note.trim(), overwrite, code: overwrite ? undefined : issueCode.trim() }); note = ''; codeEdit = null }
+	// B6: the code to issue (editable), whether it's taken, and the revision rows' edit / delete
+	let codeEdit = $state<string | null>(null)
+	const issueCode = $derived(codeEdit ?? nextRevisionCode(sheet?.code))
+	const codeTaken = $derived(revisions.some((r) => r.code === issueCode.trim()))
+	let editing = $state<string | null>(null), confirmDel = $state<string | null>(null)
+	function delRev(code: string) {
+		if (confirmDel !== code) { confirmDel = code; setTimeout(() => { if (confirmDel === code) confirmDel = null }, 3000); return }
+		confirmDel = null; onrevdelete?.(code)
+	}
 	let confirmRestore = $state<string | null>(null)
 	function restore(v: string) {
 		if (confirmRestore !== v) { confirmRestore = v; setTimeout(() => { if (confirmRestore === v) confirmRestore = null }, 3000); return }
@@ -106,17 +118,28 @@
 		{/if}
 		<textarea class="hp-note" rows="3" placeholder="Revision description…" bind:value={note}></textarea>
 		<div class="hp-acts">
-			<button class="primary" disabled={problems.length > 0} onclick={() => issue(false)}>Issue rev {nextRevisionCode(sheet.code)}</button>
-			{#if sheet.code}<button disabled={problems.length > 0} onclick={() => issue(true)} title="Replace revision {sheet.code} with the sheet as it is now">Overwrite rev {sheet.code}</button>{/if}
+			<!-- B6: any code (P1, C1 …) — prefilled with the next in sequence -->
+			<input class="hp-code" value={issueCode} title="Revision code — any text (A, B … / P1, P2 … / C1 …)" oninput={(e) => (codeEdit = (e.currentTarget as HTMLInputElement).value)} />
+			<button class="primary" disabled={problems.length > 0 || !issueCode.trim() || codeTaken} title={codeTaken ? `Revision ${issueCode} exists — Overwrite it, or pick another code` : ''} onclick={() => issue(false)}>Issue rev {issueCode}</button>
+			{#if sheet.code}<button disabled={problems.length > 0} onclick={() => issue(true)} title="Replace revision {sheet.code} with the sheet as it is now">Overwrite {sheet.code}</button>{/if}
 		</div>
 		{#if revisions.length}
 			<div class="hp-list">
 				{#each revisions as r (r.id)}
 					<div class="hp-rev major">
 						<div class="hp-rev-head">
+							<input type="radio" name="hp-cur" checked={sheet.code === r.code} title="The CURRENT revision (the title block's Rev + Date)" onchange={() => onrevcurrent?.(r.code, r.issuedAt)} />
 							<span class="hp-ver">{r.code}</span>
-							<span class="hp-name" title={r.description}>{r.description || 'Issued'}</span>
-							<span class="hp-when" title={r.issuedBy}>{fmtDate(r.issuedAt)}</span>
+							{#if editing === r.code}
+								<input class="hp-edit" value={r.description ?? ''} placeholder="Description" onchange={(e) => onrevedit?.(r.code, { description: (e.currentTarget as HTMLInputElement).value.trim() })} />
+								<input class="hp-date" type="date" value={r.issuedAt?.slice(0, 10)} onchange={(e) => { const v = (e.currentTarget as HTMLInputElement).value; if (v) onrevedit?.(r.code, { issuedAt: new Date(v + 'T12:00:00').toISOString() }) }} />
+								<button class="hp-restore" onclick={() => (editing = null)}>Done</button>
+							{:else}
+								<span class="hp-name" title={r.description}>{r.description || 'Issued'}</span>
+								<span class="hp-when" title={r.issuedBy}>{fmtDate(r.issuedAt)}</span>
+								<button class="hp-mini" title="Edit description / date" onclick={() => (editing = r.code)}><Icon name="edit" size={11} /></button>
+								<button class="hp-mini" class:confirm={confirmDel === r.code} title="Delete this revision" onclick={() => delRev(r.code)}>{confirmDel === r.code ? 'Delete?' : '×'}</button>
+							{/if}
 						</div>
 					</div>
 				{/each}
@@ -182,6 +205,13 @@
 	.hp-rev-head { display:flex; align-items:center; gap:7px; }
 	.hp-ver { flex:0 0 auto; min-width:26px; font-size:11px; font-family:Consolas,monospace; color:var(--muted); }
 	.hp-rev.major .hp-ver { color:var(--text); font-weight:700; }
+	.hp-code { width:52px; flex:none; background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:3px 5px; font-size:11px; font-family:Consolas,monospace; }
+	.hp-edit { flex:1; min-width:0; background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:2px 4px; font-size:11px; }
+	.hp-date { width:118px; flex:none; background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:1px 3px; font-size:10px; }
+	.hp-mini { flex:0 0 auto; font-size:10px; color:var(--muted); background:none; border:1px solid transparent; border-radius:4px; padding:1px 4px; cursor:pointer; }
+	.hp-rev:hover .hp-mini { border-color:var(--line); }
+	.hp-mini.confirm { color:#fff; background:#dc2626; border-color:#dc2626; }
+	.hp-rev-head input[type=radio] { accent-color:var(--accent); margin:0; }
 	.hp-restore { flex:0 0 auto; font-size:10px; color:var(--accent); background:none; border:1px solid var(--line); border-radius:4px; padding:1px 7px; cursor:pointer; }
 	.hp-restore:hover { background:var(--active); }
 	.hp-restore.confirm { color:#fff; background:#d97706; border-color:#d97706; }

@@ -312,6 +312,13 @@
 				{#each tbShown.cells.filter((c) => c.wide) as c, i (i)}
 					<div class="tb-cell"><span>{c.label.toUpperCase()}</span><b>{c.value}</b></div>
 				{/each}
+				{#if tbShown.revisions}
+					<!-- A4: the revision table (the last few, newest at the bottom) -->
+					<table class="tb-revs">
+						<thead><tr><th>REV</th><th>DATE</th><th>DESCRIPTION</th></tr></thead>
+						<tbody>{#each tbShown.revisions as r (r.code)}<tr><td>{r.code}</td><td>{r.date}</td><td>{r.note ?? ''}</td></tr>{/each}</tbody>
+					</table>
+				{/if}
 				<div class="tb-grid">
 					{#each tbShown.cells.filter((c) => !c.wide) as c, i (i)}
 						<div class="tb-cell"><span>{c.label.toUpperCase()}</span>{c.value}</div>
@@ -363,6 +370,11 @@
 		height:34px; display:flex; align-items:center; justify-content:center;
 		font-family:Georgia, serif; font-size:18px; font-weight:700; color:#1f2937; border-bottom:1px solid #94a3b8;
 	}
+	.tb-revs { width:100%; border-collapse:collapse; margin-top:auto; font-size:7px; color:#1f2937; table-layout:fixed; }
+	.tb-revs th { font-size:6px; letter-spacing:.06em; color:#94a3b8; font-weight:500; text-align:left; padding:2px 3px; border-bottom:1px solid #cbd5e1; }
+	.tb-revs th:nth-child(1) { width:20%; } .tb-revs th:nth-child(2) { width:34%; }
+	.tb-revs td { padding:1px 3px; border-bottom:1px solid #e2e8f0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+	.tb-revs + .tb-grid { margin-top:0; }
 	.tb-company { border-bottom:1px solid #94a3b8; padding:4px 5px; font-size:7px; line-height:1.35; color:#475569; }
 	.tb-company .name { font-size:9px; font-weight:700; color:#1f2937; }
 	.tb-cell { border-bottom:1px solid #cbd5e1; padding:3px 5px; font-size:9px; color:#1f2937; min-width:0; overflow:hidden; }

@@ -107,6 +107,9 @@ export type PagesSheetDoc = {
 	importedFrom?: string
 	/** "Drawn" in the title block (initials); empty → the creator's initials. */
 	drawnBy?: string
+	/** A4 / B6: the sheet's revisions, oldest first, as the title block's revision table shows them (kept in step
+	 *  with the `revisions` sub-collection when issuing / editing / deleting). */
+	revLog?: { code: string; date: string; note?: string }[]
 	/** This sheet shows no title block (the drawing area takes the full paper). */
 	hideTitleBlock?: boolean
 	currentVersionNumber: number

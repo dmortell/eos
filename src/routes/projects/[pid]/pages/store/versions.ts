@@ -74,6 +74,8 @@ export function sheetModels(sheet: Pick<PagesSheetDoc, 'frames'>, models: Model[
  *  module stays free of the Firebase-initialising $lib import). */
 export function nextRevisionCode(cur?: string): string {
 	if (!cur) return 'A'
+	const num = /^(.*?)(\d+)$/.exec(cur)   // B6: a numbered code counts on — P1 → P2, C09 → C10
+	if (num) return num[1] + String(Number(num[2]) + 1).padStart(num[2].length, '0')
 	const c = cur.split('')
 	for (let i = c.length - 1; i >= 0; i--) {
 		if (c[i] !== 'Z') { c[i] = String.fromCharCode(c[i].charCodeAt(0) + 1); return c.join('') }

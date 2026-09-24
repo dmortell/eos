@@ -12,7 +12,9 @@ export const TB_AUTO = {
 export type TbAutoKey = keyof typeof TB_AUTO
 export type TbField = { key: TbAutoKey | 'custom'; label: string; /** custom only: the fixed text */ value?: string; /** a full-width row (else a half-width cell) */ wide?: boolean }
 /** The block's optional sections — each can be switched off project-wide (`hidden`). */
-export type TbSection = 'logo' | 'company' | 'fields'
+export type TbSection = 'logo' | 'company' | 'fields' | 'revisions'
+/** A4: one row of the revision table. */
+export type TbRev = { code: string; date: string; note?: string }
 export type TbCompany = { name?: string; address?: string; contact?: string }
 export type TitleBlockTemplate = {
 	logo?: string; fields: TbField[]
@@ -25,10 +27,12 @@ export type TitleBlockTemplate = {
 }
 /** The title block as one sheet shows it. `hidden` = this sheet hides the block (the project's `border`
  *  still applies). */
-export type TbShown = { logo?: string; company?: string[]; cells: TbCell[]; border?: boolean; hidden?: boolean }
+export type TbShown = { logo?: string; company?: string[]; cells: TbCell[]; border?: boolean; hidden?: boolean
+	/** A4: the revision table, newest LAST (at most the last 5); absent when hidden or the sheet was never issued. */
+	revisions?: TbRev[] }
 
 /** A sheet's shown block: sections the template hides are dropped; empty company lines are skipped. */
-export function shownTitleBlock(t: TitleBlockTemplate | undefined, cells: TbCell[]): TbShown {
+export function shownTitleBlock(t: TitleBlockTemplate | undefined, cells: TbCell[], revs: TbRev[] = []): TbShown {
 	const off = new Set(t?.hidden ?? []), c = t?.company
 	const company = [c?.name, c?.address, c?.contact].map((s) => s?.trim() ?? '').filter(Boolean)
 	return {
@@ -36,6 +40,7 @@ export function shownTitleBlock(t: TitleBlockTemplate | undefined, cells: TbCell
 		company: off.has('company') || !company.length ? undefined : company,
 		cells: off.has('fields') ? [] : cells,
 		border: !!t?.border,
+		...(off.has('revisions') || !revs.length ? {} : { revisions: revs.slice(-5) }),
 	}
 }
 
