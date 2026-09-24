@@ -17,7 +17,7 @@ describe('Viewport prompt / status line', () => {
 		expect(toolPrompt({ ...base, tool: 'Guide', guideSpace: false })).toBe('Guides are placed on a plan or elevation view')
 	})
 	it('graph tools: elevation depth hint, iso refusal', () => {
-		expect(toolPrompt({ ...base, tool: 'Wall', isPlan: false, isElev: true, n: 2, depthGuide: true })).toBe('Specify next wall point (Enter / double-click to finish) — depth from the selected plan guide')
+		expect(toolPrompt({ ...base, tool: 'Wall', isPlan: false, isElev: true, n: 2, depthGuide: true })).toBe('2 points · specify next wall point (Enter / double-click / right-click to finish · Shift = 15° · Esc = cancel) — depth from the selected plan guide')
 		expect(toolPrompt({ ...base, tool: 'Pipe', isPlan: false, isElev: true })).toMatch(/^Specify pipe start — no depth guide/)
 		expect(toolPrompt({ ...base, tool: 'Trunk', isPlan: false })).toBe('Switch to a plan or elevation view to draw trunks')
 	})

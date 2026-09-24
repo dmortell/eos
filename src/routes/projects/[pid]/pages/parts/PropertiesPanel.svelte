@@ -521,6 +521,7 @@
 			{@const cr = single.crop ?? { x: 0, y: 0, w: 1, h: 1 }}
 			<div class="prop-sec">IMAGE</div>
 			<div class="prop"><span>Opacity %</span><input class="navf" type="number" min="10" max="100" step="5" value={Math.round((single.opacity ?? 1) * 100)} onkeydown={fnav} onchange={(e) => setAll({ opacity: Math.max(0.05, Math.min(1, num(e) / 100)) })} /></div>
+			<label class="prop cb"><span>Greyscale</span><input type="checkbox" checked={!!single.grey} onchange={(e) => setAll({ grey: (e.currentTarget as HTMLInputElement).checked || undefined })} /></label>
 			<!-- calibration modes (Uploads-tool model): each toggles a Viewport interaction on the image. -->
 			<div class="prop"><span>Calibrate</span>
 				<span class="pp-seg wide">

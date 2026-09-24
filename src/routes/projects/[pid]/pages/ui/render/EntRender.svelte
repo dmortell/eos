@@ -58,6 +58,8 @@
 	const href = $derived(e.type !== 'image' ? '' : e.src?.startsWith(PDF_SRC) ? pdfImageUrl(e.src) : imageSrc(e.src))
 	// in dark model space a PDF page is inverted (white paper → dark, black lines → light), like an AutoCAD xref
 	const pdfDark = $derived(!!style.adapt && !!e.src?.startsWith(PDF_SRC))
+	// the image's CSS filter: dark-space inversion for a PDF page, greyscale when asked (I7)
+	const imgFilter = $derived([pdfDark ? 'invert(1) hue-rotate(180deg)' : '', e.grey ? 'grayscale(1)' : ''].filter(Boolean).join(' ') || undefined)
 	const ink = $derived.by(() => { const c = e.color ?? style.layerColor(e.layer) ?? style.ink; return style.adapt ? style.adapt(c) : c })
 	// An explicit per-object weight ALWAYS renders; LWT only chooses the thickness for objects with no weight
 	// set (on = the default 1.2, off = a thin 0.5 display line).
@@ -115,8 +117,8 @@
 		{@const cr = e.crop ?? { x: 0, y: 0, w: 1, h: 1 }}
 		{@const cropping = imgCrop === e.id}
 		<clipPath id="{clipNs}-{e.id}"><rect x={rx + cr.x * rw} y={ry + cr.y * rh} width={cr.w * rw} height={cr.h * rh} /></clipPath>
-		{#if cropping}<image {href} x={rx} y={ry} width={rw} height={rh} opacity="0.35" preserveAspectRatio="none" style:filter={pdfDark ? 'invert(1) hue-rotate(180deg)' : undefined} />{/if}
-		<image {href} x={rx} y={ry} width={rw} height={rh} opacity={e.opacity ?? 1} clip-path="url(#{clipNs}-{e.id})" preserveAspectRatio="none" style:filter={pdfDark ? 'invert(1) hue-rotate(180deg)' : undefined} />
+		{#if cropping}<image {href} x={rx} y={ry} width={rw} height={rh} opacity="0.35" preserveAspectRatio="none" style:filter={imgFilter} />{/if}
+		<image {href} x={rx} y={ry} width={rw} height={rh} opacity={e.opacity ?? 1} clip-path="url(#{clipNs}-{e.id})" preserveAspectRatio="none" style:filter={imgFilter} />
 		{#if cropping}<rect x={rx + cr.x * rw} y={ry + cr.y * rh} width={cr.w * rw} height={cr.h * rh} fill="none" stroke={SEL} stroke-width={1 / (canvasZoom || 1)} stroke-dasharray="{5 / (canvasZoom || 1)} {3 / (canvasZoom || 1)}" vector-effect="non-scaling-stroke" />{/if}
 	{:else if e.type === 'polyline'}
 		<polyline points={(e.pts ?? []).map(p => p.join(',')).join(' ')} fill={fill} stroke={ink} stroke-width={w} stroke-dasharray={da} vector-effect="non-scaling-stroke" stroke-linejoin="round" />

@@ -34,7 +34,8 @@ export function toolPrompt(a: PromptArgs): string {
 			const t = tool.toLowerCase()
 			if (!isPlan && !isElev) return `Switch to a plan or elevation view to draw ${t}s`
 			const depthHint = isElev ? (a.depthGuide ? ' — depth from the selected plan guide' : ' — no depth guide (uses model centre); select a plan guide') : ''
-			return n ? `Specify next ${t} point (Enter / double-click to finish)${depthHint}` : `Specify ${t} start${depthHint}`
+			// K4: a running point count + the finishing / constraint keys while a run is being drawn
+			return n ? `${n} point${n === 1 ? '' : 's'} · specify next ${t} point (Enter / double-click / right-click to finish · Shift = 15° · Esc = cancel)${depthHint}` : `Specify ${t} start${depthHint}`
 		}
 		case 'Furniture': return isPlan ? (n ? 'Specify opposite corner' : 'Specify furniture footprint corner') : 'Switch to the plan view to place furniture'
 		case 'Section': return isPlan ? (n ? 'Specify opposite corner (→ front elevation)' : 'Specify section box corner') : 'Switch to the plan view to cut a section'

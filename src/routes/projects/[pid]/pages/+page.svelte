@@ -25,7 +25,7 @@
 	import DrawingNavigator from './parts/DrawingNavigator.svelte'
 	import LayersPanel from './parts/LayersPanel.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
-	import { activeLayerIn, isLayerHidden } from './layers.svelte'
+	import { activeLayerIn, isLayerHidden, removeLayer } from './layers.svelte'
 	import { fitFrame } from './ui/frameFit'
 	import { internImage } from './imageStore'
 	import HistoryPanel from './parts/HistoryPanel.svelte'
@@ -433,7 +433,22 @@
 	const { ensure: ensureHist, addDoc: addDocToHistory, addModel: addModelToHistory, push: pushStep, beginGesture, endGesture,
 		record: recordEdit, undo, redo, jump: jumpHistory } = timeline
 	// R5: a new entity lands on the active layer if this model has it (else Annotations — activeLayerIn).
-	function addEnt(id: string, e: Ent) { ensureHist(id); const mid = modelIdOf(id); const en = e.layer ? e : { ...e, layer: activeLayerIn(modelById(mid)?.layers ?? [])?.id }; setMdlEntsOf(mid, [...mdlEntsOf(mid), en]); recordEdit(id, 'Add ' + en.type) }
+	// J5: a NEW shape never lands on a hidden or locked active layer (it would vanish / be uneditable) — refused with a note.
+	function addEnt(id: string, e: Ent) {
+		const mid = modelIdOf(id), al = e.layer ? null : activeLayerIn(modelById(mid)?.layers ?? [])
+		if (al && (!al.visible || al.locked)) { toast.warning(`The active layer “${al.name}” is ${al.locked ? 'locked' : 'hidden'} — pick another layer (or ${al.locked ? 'unlock' : 'show'} it) to draw`); return }
+		ensureHist(id); const en = e.layer ? e : { ...e, layer: al?.id }; setMdlEntsOf(mid, [...mdlEntsOf(mid), en]); recordEdit(id, 'Add ' + en.type)
+	}
+	// J2: delete a layer of the focused model together with everything on it — one undo step.
+	function layerItemCount(layerId: string) { const mid = activeMid(); return (modelById(mid)?.objects.filter((o) => o.layer === layerId).length ?? 0) + mdlEntsOf(mid).filter((e) => e.layer === layerId).length }
+	function deleteLayerWithItems(layerId: string) {
+		const tab = session.panes[session.focused]?.activeId, mid = activeMid(), m = modelById(mid); if (!tab || !m) return
+		beginGesture()
+		m.objects = m.objects.filter((o) => o.layer !== layerId)
+		setMdlEntsOf(mid, mdlEntsOf(mid).filter((e) => e.layer !== layerId))
+		if (m.layers) removeLayer(m.layers, layerId)
+		modelEdit(tab, 'Delete layer'); endGesture()
+	}
 	function updateEnt(id: string, e: Ent) { ensureHist(id); const mid = modelIdOf(id); setMdlEntsOf(mid, mdlEntsOf(mid).map(x => x.id === e.id ? e : x)); recordEdit(id, 'Edit ' + e.type) }
 	// Pure entity CRUD — no selection side effects (R3 2a moved those to the callers below, which know the
 	// VIEWPORT id `deleteEnts`/`cutEnts` don't take).
@@ -780,6 +795,10 @@
 		} else if (mod && !e.shiftKey && (e.key === 'o' || e.key === 'O')) { e.preventDefault(); openProjectOpen = true }   // File › Open Project…
 		else if (mod && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo() }
 		else if (mod && ((e.shiftKey && (e.key === 'z' || e.key === 'Z')) || e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo() }
+		else if (!mod && !e.altKey && (e.key === '+' || e.key === '=' || e.key === '-' || e.key === 'Home')) {   // K2: zoom in / out / fit
+			e.preventDefault()
+			if (e.key === 'Home') navFit(); else navZoom(e.key === '-' ? 0.8 : 1.25)
+		}
 		else if ((e.key === 'PageUp' || e.key === 'PageDown') && !mod) {   // B10: page-pan the sheet (Shift = sideways), like the Sheets tool
 			const p = session.panes[session.focused], el = canvasEls[session.focused]
 			if (p && el && !isModelLayout(p)) {
@@ -1096,7 +1115,7 @@
 					</div>
 				</div>
 				{#if rightTab === 'layers'}
-					<LayersPanel layers={modelById(activeMid())?.layers ?? []} frozen={activeFrame?.frozen ?? (activeFrame ? [] : null)} onfreeze={toggleVpFreeze} />
+					<LayersPanel layers={modelById(activeMid())?.layers ?? []} frozen={activeFrame?.frozen ?? (activeFrame ? [] : null)} onfreeze={toggleVpFreeze} countOf={layerItemCount} ondelete={deleteLayerWithItems} />
 				{:else if rightTab === 'props'}
 					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (active) updateEnt(active.id, e) }}
 						onarrange={(op) => { if (active) reorderEnts(active.id, activeEntIds(), op) }}

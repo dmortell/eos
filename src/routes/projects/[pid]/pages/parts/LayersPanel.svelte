@@ -12,7 +12,9 @@
 	function focusEdit(node: HTMLInputElement) { tick().then(() => { node.focus(); node.select() }) }
 	// VP Freeze (AutoCAD): `frozen` is the ACTIVE sheet frame's frozen layer ids — null when no frame is active
 	// (model space / paper), which hides the column. `onfreeze` toggles one layer in that frame only.
-	let { layers = [], frozen = null, onfreeze }: { layers?: Layer[]; frozen?: string[] | null; onfreeze?: (id: string) => void } = $props()
+	let { layers = [], frozen = null, onfreeze, countOf, ondelete }: { layers?: Layer[]; frozen?: string[] | null; onfreeze?: (id: string) => void
+		/** J2: how many shapes / model objects sit on a layer, and delete a layer WITH its items (one undo step). */
+		countOf?: (id: string) => number; ondelete?: (id: string) => void } = $props()
 	const swatchOf = (l: Layer) => l.swatch ?? 'color'
 
 	let search = $state('')
@@ -39,7 +41,17 @@
 	// Layer-settings dialog (opened from a layer's swatch button).
 	let dlgId = $state<string | null>(null)
 	let dlg = $derived(dlgId ? layers.find((l) => l.id === dlgId) : null)
-	function del() { if (dlgId) { removeLayer(layers, dlgId); dlgId = null } }
+	// J2: the active layer can't be deleted (new shapes land on it); a layer with items asks once more — then the
+	// items go with it.
+	let delConfirm = $state(false)
+	const delCount = $derived(dlgId && countOf ? countOf(dlgId) : 0)
+	$effect(() => { void dlgId; delConfirm = false })
+	function del() {
+		if (!dlgId || dlgId === layerUI.active) return
+		if (delCount && !delConfirm) { delConfirm = true; return }
+		if (ondelete) ondelete(dlgId); else removeLayer(layers, dlgId)
+		dlgId = null
+	}
 </script>
 
 <div class="lp">
@@ -150,7 +162,9 @@
 			{/if}
 			<label class="lp-f"><span>Locked</span><input type="checkbox" bind:checked={dlg.locked} /></label>
 			<div class="lp-dlg-btns">
-				<button class="lp-del" onclick={del}><Icon name="close" size={12} /> Delete layer</button>
+				<button class="lp-del" onclick={del} disabled={dlgId === layerUI.active}
+					title={dlgId === layerUI.active ? 'This is the active layer — make another layer active first' : delCount ? `${delCount} item${delCount === 1 ? '' : 's'} on this layer are deleted with it` : 'Delete this empty layer'}>
+					<Icon name="close" size={12} /> {delConfirm ? `Delete layer + ${delCount} item${delCount === 1 ? '' : 's'}?` : delCount ? `Delete layer (${delCount} items)` : 'Delete layer'}</button>
 				<button class="lp-done" onclick={() => (dlgId = null)}>Done</button>
 			</div>
 		</div>
@@ -234,7 +248,8 @@
 	.lp-f em { font-style:normal; color:var(--faint); font-size:11px; }
 	.lp-dlg-btns { display:flex; justify-content:space-between; margin-top:12px; }
 	.lp-del { display:inline-flex; align-items:center; gap:5px; font-size:12px; color:var(--danger); background:none; border:1px solid var(--line); border-radius:6px; padding:6px 11px; }
-	.lp-del:hover { background:var(--hover); }
+	.lp-del:hover:not(:disabled) { background:var(--hover); }
+	.lp-del:disabled { opacity:.45; cursor:not-allowed; }
 	.lp-done { font-size:12px; font-weight:600; color:#06232a; background:var(--accent); border:none; border-radius:6px; padding:6px 16px; }
 
 	.lp-new { flex:0 0 auto; display:flex; align-items:center; justify-content:center; gap:6px; margin:6px; padding:7px;
