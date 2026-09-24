@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { DEFAULT_BLOCKS, setBlockResolver, blockExtent, insertBounds, byBlock, attrValue, attrColor, OUTLET_ATTRS, BYBLOCK } from './blocks'
+import { DEFAULT_BLOCKS, setBlockResolver, blockExtent, insertBounds, byBlock, attrValue, attrColor, OUTLET_ATTRS, BYBLOCK, insertLink } from './blocks'
 import { hitEnt, bbox, inThisView } from './hit'
 import type { Ent } from './geometry'
 import type { ViewCtx } from './view'
@@ -11,9 +11,17 @@ const ins = (over: Partial<Ent> = {}): Ent => ({ id: 'i', type: 'insert', block:
 
 describe('blocks (global library model)', () => {
 	it('the three outlet blocks share the LABEL / PORTS / NOTE / TYPE attributes; TYPE is not drawn', () => {
-		expect(DEFAULT_BLOCKS.map((b) => b.id)).toEqual(['outlet-box', 'outlet-wall', 'outlet-floor'])
-		for (const b of DEFAULT_BLOCKS) expect(b.attributes.map((a) => a.tag)).toEqual(['LABEL', 'PORTS', 'NOTE', 'TYPE'])
+		const outlets = DEFAULT_BLOCKS.filter((b) => b.category === 'outlet')
+		expect(outlets.map((b) => b.id)).toEqual(['outlet-box', 'outlet-wall', 'outlet-floor'])
+		for (const b of outlets) expect(b.attributes.map((a) => a.tag)).toEqual(['LABEL', 'PORTS', 'NOTE', 'TYPE'])
 		expect(OUTLET_ATTRS.find((a) => a.tag === 'TYPE')!.visible).toBe(false)
+	})
+	it('D3 symbols: markers / elevation tags carry a hidden LINK; tags come with 1-4 arms, one ref each; a mirrored insert flips its box', () => {
+		for (const id of ['section-mark', 'detail-mark', 'photo-mark', 'eltag-1', 'eltag-4']) expect(lib[id].attributes.find((a) => a.tag === 'LINK')?.visible).toBe(false)
+		expect([1, 2, 3, 4].map((n) => lib[`eltag-${n}`].attributes.filter((a) => /^R\d$/.test(a.tag)).length)).toEqual([1, 2, 3, 4])
+		const door = ins({ block: 'door', attrs: {} }), [x0, , x1] = insertBounds(door), [m0, , m1] = insertBounds({ ...door, mirror: true })
+		expect([m0, m1]).toEqual([2000 - x1, 2000 - x0])
+		expect(insertLink(ins({ block: 'section-mark', attrs: { LINK: ' sh1 ' } }))).toBe('sh1')
 	})
 	it("the rosette's triangle is centred in its circle (every corner on the circle)", () => {
 		const t = lib['outlet-box'].shapes.find((s) => s.type === 'polyline')!

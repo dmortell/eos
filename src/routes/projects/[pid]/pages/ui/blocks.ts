@@ -58,8 +58,10 @@ export function blockExtent(def: BlockDef): [number, number, number, number] {
 export function insertBounds(e: Ent): [number, number, number, number] {
 	const def = blockDef(e.block), s = e.scale ?? 1, [ax, ay] = e.a ?? [0, 0]
 	const [x0, y0, x1, y1] = def ? blockExtent(def) : [-100, -100, 100, 100]
-	return [ax + x0 * s, ay + y0 * s, ax + x1 * s, ay + y1 * s]
+	return e.mirror ? [ax - x1 * s, ay + y0 * s, ax - x0 * s, ay + y1 * s] : [ax + x0 * s, ay + y0 * s, ax + x1 * s, ay + y1 * s]
 }
+/** D4: an insert's link target (its LINK attribute: a sheet id, or a URL), if any. */
+export const insertLink = (e: Ent) => (e.type === 'insert' && e.attrs?.LINK?.trim()) || ''
 
 /** A block's shape as drawn for this insert: 'byblock' colour / fill replaced by the insert's. */
 export function byBlock(s: Ent, ins: Ent): Ent {
@@ -98,6 +100,51 @@ export const OUTLET_ATTRS: AttrDef[] = [
 	{ tag: 'TYPE', label: 'Type', default: 'network', pos: [0, 0], height: 100, visible: false },
 ]
 const shape = (id: string, s: Omit<Ent, 'id'>): Ent => ({ id, ...s })
+
+// ── D3 the SYMBOL blocks (model mm at 1:1; scale an insert for another drawing scale) — section / detail / photo
+// markers and elevation tags carry a hidden LINK attribute (D4: a sheet id or a URL; double-click opens it) ──
+const S = 350   // marker radius
+const circle = (id: string, r: number, o: Partial<Ent> = {}): Ent => shape(id, { type: 'ellipse', a: [-r, -r], b: [r, r], ...o })
+const tri = (id: string, pts: Pt[], o: Partial<Ent> = {}): Ent => shape(id, { type: 'polyline', pts: [...pts, pts[0]], color: BYBLOCK, fill: '#1f2937', ...o })
+const LINK: AttrDef = { tag: 'LINK', label: 'Links to', pos: [0, 0], height: 100, visible: false }
+const MARKER_ATTRS: AttrDef[] = [
+	{ tag: 'REF', label: 'Ref', default: 'A', pos: [0, -S * 0.2], height: 190 },
+	{ tag: 'SHEET', label: 'Sheet', default: '—', pos: [0, S * 0.62], height: 150 },
+	LINK,
+]
+/** An elevation tag's arm pointing along `deg` (0 = east / right, 90 = south / down). */
+function arm(deg: number): Pt[] {
+	const r = (d: number) => (d * Math.PI) / 180, a = r(deg)
+	return ([[Math.cos(a) * S * 1.55, Math.sin(a) * S * 1.55], [Math.cos(a + r(40)) * S, Math.sin(a + r(40)) * S], [Math.cos(a - r(40)) * S, Math.sin(a - r(40)) * S]] as Pt[]).map(round)
+}
+const ARM_DEG = [270, 0, 90, 180]   // N, E, S, W
+const elevTag = (n: number): BlockDef => ({
+	id: `eltag-${n}`, name: `Elevation tag — ${n} arm${n > 1 ? 's' : ''}`, category: 'eltag', rev: 1,
+	shapes: [circle('c', S, { color: BYBLOCK }), ...ARM_DEG.slice(0, n).map((d, i) => tri(`a${i}`, arm(d)))],
+	attributes: [
+		{ tag: 'REF', label: 'Ref', default: '1', pos: [0, S * 0.22], height: 210 },
+		...ARM_DEG.slice(0, n).map((d, i): AttrDef => ({ tag: `R${i + 1}`, label: `Arm ${'NESW'[i]}`, default: '', pos: round([Math.cos((d * Math.PI) / 180) * S * 1.95, Math.sin((d * Math.PI) / 180) * S * 1.95 + 60]), height: 140 })),
+		LINK,
+	],
+})
+export const SYMBOL_BLOCKS: BlockDef[] = [
+	{ id: 'north-arrow', name: 'North arrow', category: 'north', rev: 1, attributes: [{ tag: 'N', label: 'Letter', default: 'N', pos: [0, -S * 1.25], height: 220 }],
+		shapes: [circle('c', S, { color: BYBLOCK }), tri('a', [[0, -S * 0.95], [S * 0.45, S * 0.6], [0, S * 0.3]]), shape('b', { type: 'polyline', pts: ([[0, -S * 0.95], [-S * 0.45, S * 0.6], [0, S * 0.3]] as Pt[]).map(round), color: BYBLOCK })] },
+	{ id: 'section-mark', name: 'Section marker', category: 'marker', rev: 1, attributes: MARKER_ATTRS,
+		shapes: [circle('c', S, { color: BYBLOCK }), shape('l', { type: 'polyline', pts: [[-S, 0], [S, 0]], color: BYBLOCK }), tri('a', [[S * 1.6, 0], [S, -S * 0.45], [S, S * 0.45]])] },
+	{ id: 'detail-mark', name: 'Detail marker', category: 'marker', rev: 1, attributes: MARKER_ATTRS,
+		shapes: [circle('c', S, { color: BYBLOCK }), shape('l', { type: 'polyline', pts: [[-S, 0], [S, 0]], color: BYBLOCK })] },
+	{ id: 'photo-mark', name: 'Photo marker', category: 'marker', rev: 1,
+		attributes: [{ tag: 'REF', label: 'Photo №', default: '1', pos: [0, S * 0.18], height: 170, color: 'contrast' }, LINK],
+		shapes: [tri('v', [[S * 0.4, -S * 0.2], [S * 1.5, -S * 0.75], [S * 1.5, S * 0.75]], { fill: 'none' }), circle('c', S * 0.6, { color: BYBLOCK, fill: '#1f2937' })] },
+	...[1, 2, 3, 4].map(elevTag),
+	{ id: 'faceplate', name: 'Faceplate (2 ports)', category: 'faceplate', rev: 1, attributes: [{ tag: 'LABEL', label: 'Label', pos: [0, -640], height: 110 }],
+		shapes: [shape('f', { type: 'rect', a: [-350, -575], b: [350, 575], color: BYBLOCK }), shape('p1', { type: 'rect', a: [-160, -330], b: [160, -40], color: BYBLOCK }), shape('p2', { type: 'rect', a: [-160, 40], b: [160, 330], color: BYBLOCK })] },
+	{ id: 'door', name: 'Door (swing)', category: 'door', rev: 1, attributes: [],
+		shapes: [shape('leaf', { type: 'polyline', pts: [[0, 0], [0, -900]], color: BYBLOCK }),
+			shape('arc', { type: 'polyline', pts: Array.from({ length: 13 }, (_, i) => { const t = (i / 12) * (Math.PI / 2); return round([Math.sin(t) * 900, -Math.cos(t) * 900]) }), color: BYBLOCK, dash: 'dashed' })] },
+]
+/** The built-in blocks: the outlet symbols, then the D3 symbols (SYMBOL_BLOCKS, appended below). */
 export const DEFAULT_BLOCKS: BlockDef[] = [
 	{
 		id: 'outlet-box', name: 'Outlet — rosette / box', category: 'outlet', attributes: OUTLET_ATTRS, rev: 3,
@@ -117,4 +164,5 @@ export const DEFAULT_BLOCKS: BlockDef[] = [
 			shape('t', { type: 'polyline', pts: triangle(R * 0.8).map(round), color: BYBLOCK }),
 		],
 	},
+	...SYMBOL_BLOCKS,
 ]

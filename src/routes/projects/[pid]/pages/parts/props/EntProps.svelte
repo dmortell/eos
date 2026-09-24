@@ -13,8 +13,10 @@
 	import { imgEdit, setImgMode } from '../../imageEdit.svelte'
 	import type { Layer as MLayer } from '../../3dview/types'
 
-	let { ents, onupdate, onarrange, layers = [], activeFrameId = undefined, scaleN = 1 }: {
+	let { ents, onupdate, onarrange, layers = [], activeFrameId = undefined, scaleN = 1, sheets = [], onopenlink }: {
 		ents: Ent[]; onupdate?: (e: Ent) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void
+		/** D4: the project's sheets (a symbol's LINK picker) + open a link (a sheet id or a URL). */
+		sheets?: { id: string; title: string; number?: string }[]; onopenlink?: (link: string) => void
 		/** The model's one layer list (R5: shapes and model objects share it). */
 		layers?: MLayer[]
 		/** The active sheet frame, if any — offers the "this viewport only" scope. */
@@ -85,6 +87,13 @@
 	const mixedFill = $derived(new Set(ents.map((e) => e.fill)).size > 1)
 	function setAll(patch: Partial<Ent>) { const snap = [...ents]; for (const e of snap) onupdate?.({ ...e, ...patch }) }
 	const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
+	// D4: link a symbol to a sheet (its drawing number fills an empty SHEET) or to a URL
+	function setLink(ins: Ent, v: string) {
+		const attrs: Record<string, string> = { ...(ins.attrs ?? {}), LINK: v }
+		const sh = sheets.find((s) => s.id === v)
+		if (sh?.number && blockDef(ins.block)?.attributes.some((a) => a.tag === 'SHEET') && (!attrs.SHEET || attrs.SHEET === '—')) attrs.SHEET = sh.number
+		onupdate?.({ ...ins, attrs })
+	}
 </script>
 
 <div class="prop-sec">{ents.length === 1 ? 'OBJECT' : `${ents.length} OBJECTS`}</div>
@@ -181,9 +190,27 @@
 			{#if !def}<option value={ins.block ?? ''}>{ins.block} (missing)</option>{/if}
 		</select></div>
 	{#each def?.attributes ?? [] as ad (ad.tag)}
-		<div class="prop"><span>{ad.label}</span><input value={ins.attrs?.[ad.tag] ?? ad.default ?? ''}
-			onchange={(e) => onupdate?.({ ...ins, attrs: { ...(ins.attrs ?? {}), [ad.tag]: strVal(e) } })} onkeydown={blurOnEnter} /></div>
+		{#if ad.tag === 'LINK'}
+			<!-- D4: what the symbol points at — a sheet (its number fills SHEET), or a URL; Open / double-click goes there -->
+			{@const cur = ins.attrs?.LINK ?? ''}
+			<div class="prop"><span>{ad.label}</span>
+				<span class="pp-scale">
+					<select value={sheets.some((s) => s.id === cur) ? cur : cur ? '~url' : ''} onchange={(e) => setLink(ins, (e.currentTarget as HTMLSelectElement).value)}>
+						<option value="">(nothing)</option>
+						{#each sheets as s (s.id)}<option value={s.id}>{s.number ? `${s.number} · ` : ''}{s.title}</option>{/each}
+						<option value="~url">A web address…</option>
+					</select>
+					{#if cur}<button class="pp-mini" title="Open what it links to" onclick={() => onopenlink?.(cur)}>Open</button>{/if}
+				</span></div>
+			{#if cur && !sheets.some((s) => s.id === cur)}
+				<div class="prop"><span></span><input value={cur === '~url' ? '' : cur} placeholder="https://…" onchange={(e) => onupdate?.({ ...ins, attrs: { ...(ins.attrs ?? {}), LINK: strVal(e).trim() } })} onkeydown={blurOnEnter} /></div>
+			{/if}
+		{:else}
+			<div class="prop"><span>{ad.label}</span><input value={ins.attrs?.[ad.tag] ?? ad.default ?? ''}
+				onchange={(e) => onupdate?.({ ...ins, attrs: { ...(ins.attrs ?? {}), [ad.tag]: strVal(e) } })} onkeydown={blurOnEnter} /></div>
+		{/if}
 	{/each}
+	<label class="prop cb"><span>Mirror</span><input type="checkbox" checked={!!ins.mirror} title="Flip left ↔ right (e.g. a door's hinge side)" onchange={(e) => onupdate?.({ ...ins, mirror: (e.currentTarget as HTMLInputElement).checked || undefined })} /></label>
 {/if}
 {#if single?.type === 'image'}
 	<!-- imported file: origin = Position, scale = Size (above); here opacity (for tracing), greyscale + CROP

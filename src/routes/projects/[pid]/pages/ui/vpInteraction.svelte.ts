@@ -22,6 +22,7 @@ import { newId } from '../ids'
 import { constrainPt } from './annotations'
 import { pasteCopies, relabelCopies } from './clipboard'
 import { zToU, uToZ } from '../store/racksImport'
+import { insertLink } from './blocks'
 import { guideId, selectedPlanGuide } from '../guides.svelte'
 import { imgEdit, clearImgMode } from '../imageEdit.svelte'
 import { toolPrompt, imgModeText, statusLine } from './vpPrompt'
@@ -342,6 +343,7 @@ export class VpInteraction {
 		const p = v.toModel(e.clientX, e.clientY); if (!p) return
 		const ent = v.entities.find((x) => x.id === v.hit(p)[0])
 		if (ent?.type === 'text') { this.startTextEdit(ent); return }
+		if (ent && insertLink(ent) && insertLink(ent) !== '~url') { v.on.openLink?.(insertLink(ent)); return }   // D4: a linked symbol opens its target
 		if (v.tool === 'Select' && v.modelEditable) this.insertGraphNode(p)
 	}
 

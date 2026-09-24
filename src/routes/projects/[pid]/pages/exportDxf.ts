@@ -156,8 +156,9 @@ function entToDxf(doc: DxfDoc, e: Ent, ctx: ViewCtx, P: (p: Pt) => [number, numb
 			return
 		}
 		case 'insert': {   // a block, exploded: its shapes and attribute texts at the insertion point, scaled
-			const def = blockDef(e.block), k = e.scale ?? 1, a = e.a!
-			const inner = (p: Pt): Pt => xf(c ? rotatePt([a[0] + p[0] * k, a[1] + p[1] * k], c, e.rot!) : [a[0] + p[0] * k, a[1] + p[1] * k])
+			const def = blockDef(e.block), k = e.scale ?? 1, a = e.a!, mx = e.mirror ? -1 : 1
+			const at = (p: Pt): Pt => [a[0] + mx * p[0] * k, a[1] + p[1] * k]
+			const inner = (p: Pt): Pt => xf(c ? rotatePt(at(p), c, e.rot!) : at(p))
 			if (!def) { doc.poly([[-100, -100], [100, -100], [100, 100], [-100, 100]].map((p) => P(inner(p as Pt))), { closed: true, layer }); return }
 			for (const bs of def.shapes) entToDxf(doc, { ...byBlock(bs, e), rot: undefined }, ctx, P, layer, N, inner)
 			for (const ad of def.attributes) {

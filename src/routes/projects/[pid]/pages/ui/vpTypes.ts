@@ -23,6 +23,8 @@ export type NavMode = 'pan' | 'orbit' | null
 export type VpOn = {
 	activate?: () => void; deactivate?: () => void; view?: (v: View) => void; orbit?: (yaw: number, pitch: number) => void
 	scale?: (s: string) => void; status?: (text: string) => void; coords?: (x: number, y: number) => void; tool?: (name: string) => void
+	/** D4: a double-clicked symbol's link (a sheet id, or a URL). */
+	openLink?: (link: string) => void
 }
 
 export type VpKind = 'plan' | 'iso' | ElevDir

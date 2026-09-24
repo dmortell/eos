@@ -169,13 +169,16 @@
 		     texts, at the insertion point, scaled (rotation is the shared wrapper above) -->
 		{@const def = blockDef(e.block)}
 		{@const k = e.scale ?? 1}
+		<!-- D3: a mirrored insert flips its geometry left↔right; its attribute texts stay readable (only moved) -->
+		<g transform="translate({e.a![0]} {e.a![1]}) scale({e.mirror ? -k : k} {k})">
+			{#if def}{#each def.shapes as bs (bs.id)}<EntRender e={byBlock(bs, e)} {ctx} {style} clipNs="{clipNs}-{e.id}" />{/each}{/if}
+		</g>
 		<g transform="translate({e.a![0]} {e.a![1]}) scale({k})">
 			{#if def}
-				{#each def.shapes as bs (bs.id)}<EntRender e={byBlock(bs, e)} {ctx} {style} clipNs="{clipNs}-{e.id}" />{/each}
 				{#each def.attributes as ad (ad.tag)}
 					{#if ad.visible !== false && attrValue(e, ad)}
 						{@const c = attrColor(e, ad)}
-						<text class="anno" x={ad.pos[0]} y={ad.pos[1]} font-size={ad.height} text-anchor="middle"
+						<text class="anno" x={e.mirror ? -ad.pos[0] : ad.pos[0]} y={ad.pos[1]} font-size={ad.height} text-anchor="middle"
 							fill={c ? (style.adapt && c !== '#ffffff' ? style.adapt(c) : c) : ink}>{attrValue(e, ad)}</text>
 					{/if}
 				{/each}
