@@ -44,6 +44,8 @@ export function newOutletFields(existing: Ent[], layers: string[]): Pick<Ent, 'a
 	if (LABEL) { s.lastLabel = LABEL; save() }
 	return { attrs: { ...(LABEL ? { LABEL } : {}), PORTS: s.ports, TYPE: s.type }, layer: s.layer && layers.includes(s.layer) ? s.layer : undefined }
 }
+/** A placement was refused after `newOutletFields` issued a label: give the label back. */
+export function restoreLastLabel(prev: string) { if (outletSticky.lastLabel !== prev) { outletSticky.lastLabel = prev; save() } }
 /** An outlet was edited (Properties) — its block / ports / type / layer / label become the sticky defaults. */
 export function rememberOutlet(e: Ent) {
 	if (e.type !== 'insert' || !isOutletBlock(e.block)) return

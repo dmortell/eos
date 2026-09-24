@@ -16,8 +16,11 @@ import type { Selection, SelItem } from './selection'
 
 export type Editor = {
 	ents: {
-		add(e: Ent): void
+		/** false = refused (a hidden / locked active layer — J5); void / true = added. */
+		add(e: Ent): boolean | void
 		update(e: Ent): void
+		/** Several shapes in ONE array pass + one record (a group move / transform per pointer move). */
+		updateMany(es: Ent[]): void
 		delete(ids: string[]): void
 		copy(ids: string[]): void
 		cut(ids: string[]): void
@@ -45,7 +48,7 @@ const noop = () => {}
  *  directly, with no `?.`, even when no editor is wired up (e.g. a read-only / preview Viewport).
  *  `sel.get()` returns `[]` (an empty Selection), consistent with every other no-op read. */
 export const noopEditor: Editor = {
-	ents: { add: noop, update: noop, delete: noop, copy: noop, cut: noop, paste: noop, group: noop, ungroup: noop, reorder: noop },
+	ents: { add: noop, update: noop, updateMany: noop, delete: noop, copy: noop, cut: noop, paste: noop, group: noop, ungroup: noop, reorder: noop },
 	edit: { begin: noop, mark: noop, end: noop },
 	sections: { dropDir: noop },
 	sel: { get: () => [], only: noop, toggle: noop, clear: noop, delete: noop },

@@ -192,7 +192,7 @@
 		const edit = { begin: beginGesture, mark: (label?: string) => modelEdit(a.id, label), end: endGesture }
 		return {
 			ents: {
-				add: (e: Ent) => addEnt(a.id, e), update: (e: Ent) => updateEnt(a.id, e),
+				add: (e: Ent) => addEnt(a.id, e), update: (e: Ent) => updateEnt(a.id, e), updateMany: (es: Ent[]) => updateEnts(a.id, es),
 				delete: (ids: string[]) => { deleteEnts(a.id, ids); selStore.set(viewId, selClear()) },
 				copy: (ids: string[]) => copyEnts(a.id, ids),
 				cut: (ids: string[]) => { cutEnts(a.id, ids); selStore.set(viewId, selClear()) },

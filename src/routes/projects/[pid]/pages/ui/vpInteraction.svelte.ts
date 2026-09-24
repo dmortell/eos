@@ -26,7 +26,7 @@ import { constrainPt } from './annotations'
 import { pasteCopies, relabelCopies } from './clipboard'
 import { zToU, uToZ } from '../store/racksImport'
 import { insertLink } from './blocks'
-import { isOutletBlock, newOutletFields, incLabel, walk } from './outletPlace.svelte'
+import { isOutletBlock, newOutletFields, incLabel, walk, outletSticky, restoreLastLabel } from './outletPlace.svelte'
 import { isOutletEnt } from '../store/allocate'
 import { guideId, selectedPlanGuide } from '../guides.svelte'
 import { imgEdit, clearImgMode } from '../imageEdit.svelte'
@@ -278,10 +278,12 @@ export class VpInteraction {
 	private placeBlock(id: string, p: Pt) {
 		const v = this.v
 		// E1/E2: an outlet takes the sticky ports / type / layer and the next label
+		const prevLabel = outletSticky.lastLabel
 		const extra = isOutletBlock(id) ? newOutletFields(v.mdl?.shapes ?? v.entities, (v.mdl?.layers ?? []).map((l) => l.id)) : { attrs: {} }
 		const e: Ent = { id: uid(), type: 'insert', block: id, a: p, plane: drawPlane(v.ctx), ...extra }
 		if (!e.layer) delete e.layer
-		v.editor.ents.add(e); v.selectEnts([e.id])
+		if (v.editor.ents.add(e) === false) { restoreLastLabel(prevLabel); return }   // refused: the label wasn't used
+		v.selectEnts([e.id])
 	}
 	// ── E3: walk renumber — each clicked outlet takes the label after the previous one ──
 	private walkClick(p: Pt) {
@@ -411,7 +413,7 @@ export class VpInteraction {
 			else {
 				let dx = this.lastDragRaw[0] - drag.start[0], dy = this.lastDragRaw[1] - drag.start[1]
 				if (shift !== v.ortho) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 }
-				for (const b of drag.bases) v.editor.ents.update(moveEnt(v.ctx, b, dx, dy))
+				v.editor.ents.updateMany(drag.bases.map((b) => moveEnt(v.ctx, b, dx, dy)))
 			}
 		} else if (v.active && this.draft.length && this.lastRaw) this.cur = constrainPt(v.tool, this.draft.at(-1)!, this.lastRaw, shift)   // Shift: square / 15°
 	}
@@ -447,7 +449,7 @@ export class VpInteraction {
 			const s = e.shiftKey ? 10 : 1
 			const dx = e.key === 'ArrowLeft' ? -s : e.key === 'ArrowRight' ? s : 0, dy = e.key === 'ArrowUp' ? -s : e.key === 'ArrowDown' ? s : 0
 			v.editor.edit.begin()   // coalesce a nudge burst into one history step (closes 600ms after the last)
-			for (const id of sel) { const en = v.entities.find((x) => x.id === id); if (en) ents.update(moveEnt(v.ctx, en, dx, dy)) }
+			ents.updateMany(sel.flatMap((id) => { const en = v.entities.find((x) => x.id === id); return en ? [moveEnt(v.ctx, en, dx, dy)] : [] }))
 			v.editor.edit.end(600)
 			return
 		}
@@ -519,7 +521,7 @@ export class VpInteraction {
 				: { bases, pivot: gx.corners[pk.corner!].opp, corner: gx.corners[pk.corner!].c }
 			ed.begin()
 			beginPointerDrag<GroupDrag>(e, g, { onMove: this.onGroupMove, onUp: (_e, _s, moved) => { if (moved) this.suppressClick = true; this.closeEdit() },
-				onCancel: (s) => { for (const b of s.bases) v.editor.ents.update(b); this.closeEdit() } }, reg)
+				onCancel: (s) => { v.editor.ents.updateMany(s.bases); this.closeEdit() } }, reg)
 		} else if (pk?.kind === 'sgrip') {   // a corner grip of the SELECTED section resizes it
 			ed.begin()
 			beginPointerDrag<SecResize>(e, { ...pk.sg }, { onMove: this.onSecResizeMove, onUp: this.onSecResizeUp, onCancel: this.closeEdit }, reg)
@@ -555,10 +557,10 @@ export class VpInteraction {
 		const v = this.v, p = v.toModel(e.clientX, e.clientY); if (!p) return
 		if (s.corner) {
 			const k = cornerScale(s.pivot, s.corner, p), f = e.shiftKey ? Math.round(k * 10) / 10 || 0.1 : k   // Shift → 0.1 steps
-			for (const b of s.bases) v.editor.ents.update(scaleAbout(b, s.pivot, f))
+			v.editor.ents.updateMany(s.bases.map((b) => scaleAbout(b, s.pivot, f)))
 		} else {
 			const deg = snapAngle(Math.round(((Math.atan2(p[1] - s.pivot[1], p[0] - s.pivot[0]) - s.a0!) * 180) / Math.PI), e.shiftKey)   // Shift → 15° steps
-			for (const b of s.bases) v.editor.ents.update(rotateAbout(b, s.pivot, deg, rotCenter(v.ctx, b)))
+			v.editor.ents.updateMany(s.bases.map((b) => rotateAbout(b, s.pivot, deg, rotCenter(v.ctx, b))))
 		}
 	}
 
@@ -600,14 +602,14 @@ export class VpInteraction {
 		let dx = p[0] - drag.start[0], dy = p[1] - drag.start[1]
 		if (e.shiftKey !== v.ortho) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 }   // ortho / axis-lock (Shift toggles)
 		const [gdx, gdy] = snapDelta(dx, dy, drag.bases[0], v.snap ? v.snapStep : 0)   // grid-snap the group by its first member (stays rigid)
-		for (const b of drag.bases) v.editor.ents.update(moveEnt(v.ctx, b, gdx, gdy))   // F6: DocEdit brings attached conduit ends along
+		v.editor.ents.updateMany(drag.bases.map((b) => moveEnt(v.ctx, b, gdx, gdy)))   // one array pass per move; DocEdit brings attached conduit ends along (F6)
 	}
 	private onDragUp = (_e: PointerEvent, _s: EntDrag, moved: boolean) => {
 		if (moved) this.suppressClick = true
 		this.drag = null; this.v.snapMark = null; this.v.editor.edit.end()
 	}
 	private onDragCancel = (s: EntDrag, moved: boolean) => {   // 2nd finger → revert any partial move/resize
-		if (moved) for (const b of s.bases) this.v.editor.ents.update(b)
+		if (moved) this.v.editor.ents.updateMany(s.bases)
 		this.drag = null; this.v.snapMark = null; this.v.editor.edit.end()
 	}
 

@@ -24,7 +24,11 @@
 
 	function setRackU(u: number) {
 		if (obj.type !== 'prism' || !obj.rack || !(u >= 1)) return
-		onupdate?.({ rack: { ...obj.rack, u }, h: rackHeightMm(u) })
+		// never shorter than its highest mounted device (it would hang above the rack)
+		const top = Math.max(0, ...(model?.objects ?? []).filter((o) => o.device?.rackId === obj.id).map((o) => o.device!.u + o.device!.hU - 1))
+		if (u < top) toast(`A device reaches U${top} — the rack stays ${top}U`)
+		const nu = Math.max(u, top)
+		onupdate?.({ rack: { ...obj.rack, u: nu }, h: rackHeightMm(nu) })
 	}
 	function addDevice() {
 		if (obj.type !== 'prism' || !obj.rack || !obj.id || !model) return
@@ -36,6 +40,8 @@
 	function setDevice(patch: Partial<NonNullable<Obj['device']>>) {
 		if (obj.type !== 'prism' || !obj.device) return
 		const dv = { ...obj.device, ...patch }, r = rackOf
+		// fewer ports: allocations on the ports that no longer exist are dropped (E8)
+		if ('ports' in patch && dv.alloc) { const n = patch.ports ?? 0; dv.alloc = Object.fromEntries(Object.entries(dv.alloc).filter(([k]) => Number(k) <= n)) }
 		const out: Record<string, unknown> = { device: dv }
 		if (r?.type === 'prism') {
 			if (patch.u != null || patch.hU != null) { dv.u = Math.max(1, Math.min(maxU - dv.hU + 1, dv.u)); out.z = uToZ(r.z, dv.u); out.h = dv.hU * RU_MM }

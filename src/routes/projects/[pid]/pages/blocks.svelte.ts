@@ -32,6 +32,9 @@ export function startBlocks(db: Firestore) {
 	let seeded = false
 	db.subscribeMany('blocks', (docs) => {
 		for (const d of docs) { const b = d as unknown as BlockDef; byId[d.id] = { ...b, shapes: decodeShapes(b.shapes) ?? [] } }
+		// a custom block deleted elsewhere (another session) goes here too; the built-in defaults always stay
+		const live = new Set(docs.map((d) => d.id))
+		for (const id of Object.keys(byId)) if (!live.has(id) && !isDefaultBlock(id)) delete byId[id]
 		if (seeded) return
 		seeded = true
 		const revOf = new Map(docs.map((d) => [d.id, (d as unknown as BlockDef).rev ?? 0]))

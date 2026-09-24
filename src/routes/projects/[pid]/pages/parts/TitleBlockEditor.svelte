@@ -24,19 +24,25 @@
 		const f: TbField = key === 'custom' ? { key: 'custom', label: 'Note', value: '' } : { key: key as TbAutoKey, label: TB_AUTO[key as TbAutoKey] }
 		set({ fields: [...t.fields, f] })
 	}
-	// A1: a logo image — downscaled here (≤ 600 × 240 px PNG) so the data URL stays small inside the project doc
+	// A1: a logo image — downscaled here (≤ 600 × 240 px) and capped at ~150 KB (PNG, else WebP, else smaller) so two
+	// logos stay well inside the project doc's 1 MiB Firestore limit (the doc also holds the places).
 	// removed = an empty src (the project doc saves with a MERGE, which never deletes a key)
+	const LOGO_MAX = 150_000
 	const setLogo = (k: 'company' | 'client', lg: TbLogo | undefined) => set({ logos: { ...t.logos, [k]: lg ?? { src: '' } } })
+	function logoDataUrl(img: HTMLImageElement): string {
+		let s = Math.min(1, 600 / img.naturalWidth, 240 / img.naturalHeight), out = ''
+		for (let i = 0; i < 6; i++, s *= 0.7) {
+			const c = document.createElement('canvas')
+			c.width = Math.max(1, Math.round(img.naturalWidth * s)); c.height = Math.max(1, Math.round(img.naturalHeight * s))
+			c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height)
+			for (const [type, q] of [['image/png', 1], ['image/webp', 0.85], ['image/webp', 0.7]] as const) { out = c.toDataURL(type, q); if (out.length <= LOGO_MAX) return out }
+		}
+		return out
+	}
 	function pickLogo(k: 'company' | 'client', e: Event) {
 		const f = (e.currentTarget as HTMLInputElement).files?.[0]; if (!f) return
 		const img = new Image(), url = URL.createObjectURL(f)
-		img.onload = () => {
-			const s = Math.min(1, 600 / img.naturalWidth, 240 / img.naturalHeight), c = document.createElement('canvas')
-			c.width = Math.max(1, Math.round(img.naturalWidth * s)); c.height = Math.max(1, Math.round(img.naturalHeight * s))
-			c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height)
-			URL.revokeObjectURL(url)
-			setLogo(k, { src: c.toDataURL('image/png'), h: 10 })
-		}
+		img.onload = () => { URL.revokeObjectURL(url); setLogo(k, { src: logoDataUrl(img), h: 10 }) }
 		img.src = url
 	}
 	const val = (e: Event) => (e.currentTarget as HTMLInputElement).value

@@ -526,7 +526,7 @@ export class PagesProject {
 		const fid = new Map(src.frames.map((f) => [f.id, newId('vf')]))
 		const d = ps.createSheet({ title: `${src.title} (copy)`, placeId: src.placeId })
 		ps.saveSheet({ ...d, paper: src.paper, sheetSize: src.sheetSize, scale: src.scale, kind: src.kind, discipline: src.discipline, tags: [...(src.tags ?? [])], hideTitleBlock: src.hideTitleBlock,
-			frames: src.frames.map((f) => ({ ...f, id: fid.get(f.id)! })) })
+			frames: src.frames.map((f) => ({ ...f, id: fid.get(f.id)! })), ...(src.link ? { link: { ...src.link } } : {}) })   // a link sheet stays a link
 		// view-scoped shapes (`space: 'view:<frame>'`) follow their frame onto the copy
 		let copied = 0
 		for (const m of models) {
