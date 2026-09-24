@@ -1024,6 +1024,7 @@
 					onopenplace={proj.hasPlaces ? (id, preview) => { restoredFor = page.params.pid ?? ''; proj.openPlaceModel(id, preview) } : undefined}
 					ondrawings={proj.hasPlaces ? () => (proj.drawingsOpen = true) : undefined}
 					onimportdrawing={proj.hasPlaces ? (id) => void proj.importRegisterDrawing(id).then((notes) => { if (notes.length) toast(notes.join('\n')) }) : undefined}
+					onimportriser={proj.hasPlaces ? (id) => void proj.importRisers(id).then((notes) => { if (notes.length) toast(notes.join('\n')) }) : undefined}
 					onsheetadd={proj.hasPlaces ? proj.onSheetAdd : undefined} onplaceimport={proj.hasPlaces ? (id) => void proj.importPlaceOutlets(id) : undefined}
 					onsheetrename={(rowId, t) => proj.renameSheet(rowId.slice(2), t)} onsheetarchive={(rowId) => proj.archiveSheet(rowId.slice(2))}
 					onaddbuilding={(n) => proj.src?.addBuilding(n).catch((e) => { toast(`Couldn't add the building: ${e?.message ?? e}`); return false }) ?? Promise.resolve(false)}

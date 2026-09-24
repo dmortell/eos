@@ -72,7 +72,7 @@ export function buildPlaceTree({ pid, places, drawings, risers, floors, sheets =
 
 /** The deepest place that contains every given place (their common ancestor, never one of them); null if
  *  they share none (or the list is empty). */
-function commonAncestor(places: Place[], of: Place[]): Place | null {
+export function commonAncestor(places: Place[], of: Place[]): Place | null {
 	if (!of.length) return null
 	const chains = of.map((p) => ancestorsOf(places, p.id))
 	let common: Place | null = null

@@ -29,10 +29,11 @@ import { ProjectSource } from './projectData.svelte'
 import { PagesStore, type SheetRevisionDoc } from './store/pagesStore.svelte'
 import { issueProblems, sheetModels, type ModelVersionDoc } from './store/versions'
 import { importSheetDoc, type SheetImportResult } from './store/sheetsImport'
+import { risersToBuilding, mergeRisers, riserFloors, storeyLevels, floorLabel, type RisersDocIn } from './store/risersImport'
 import type { SheetDoc, SheetViewport } from '../sheets/types'
 import { PAPER_SIZES } from './constants'
 import type { PagesSheetDoc } from './store/schema'
-import { buildPlaceTree } from './store/placeTree'
+import { buildPlaceTree, commonAncestor } from './store/placeTree'
 import { addPlace, updatePlace, movePlace, removePlace, ancestorsOf } from './store/places'
 import { describePlace } from './store/placeProps'
 import { fillTitleBlock, initialsOf, DEFAULT_TITLE_BLOCK, type TbCell } from './titleBlock'
@@ -522,6 +523,10 @@ export class PagesProject {
 	/** The colour a Sheets annotation without its own drew in: the project's annotation default, else Sheets'
 	 *  built-in red (sheets/annotations/AnnotationLayer.svelte). */
 	#annColor = () => (this.src?.project as { annotationDefaults?: { color?: string } } | null)?.annotationDefaults?.color ?? '#dc2626'
+	/** The building model holding an imported riser (its `rsr-` objects), or null. */
+	#modelForRisers = (_docId: string): Model | null =>
+		models.find((m) => !m.archived && m.kind === 'building' && m.objects.some((o) => o.id?.startsWith('rsr-')) && this.store?.models.some((x) => x.id === m.id)) ?? null
+	#importCtx = () => ({ newId, modelForOutlets: this.#modelForOutlets, modelForRisers: this.#modelForRisers, layerFor: this.#layerFor, defaultColor: this.#annColor() })
 	/** The Sheets tool's sheets (for the dialog's Import tab), with the Pages sheet each was imported as. */
 	legacySheets = async (): Promise<LegacySheetRow[]> => {
 		const db = this.#h.db, ps = this.store; if (!db || !ps) return []
@@ -547,7 +552,7 @@ export class PagesProject {
 		const db = this.#h.db, ps = this.store; if (!db || !ps || ps.status !== 'ready') return ['Still loading — try again in a moment']
 		const src = (await db.getOne(`projects/${ps.pid}/sheets`, legacyId)) as unknown as SheetDoc | null
 		if (!src) return [`Sheet ${legacyId} not found`]
-		return this.#createImported(importSheetDoc(src, { newId, modelForOutlets: this.#modelForOutlets, layerFor: this.#layerFor, defaultColor: this.#annColor() }), placeId, `sheets/${legacyId}`)
+		return this.#createImported(importSheetDoc(src, this.#importCtx()), placeId, `sheets/${legacyId}`)
 	}
 	/** A register drawing of another tool (a tree leaf, `d:<id>`) → a Pages sheet in its place with ONE full-page
 	 *  frame of the place model (an outlets view), else an unmapped frame. */
@@ -563,13 +568,43 @@ export class PagesProject {
 		const doc: SheetDoc = { id: d.id, projectId: ps.pid, title: d.title ?? d.id, drawingNumber: d.drawingNumber, sortOrder: 0,
 			paper: { paperSize: size as 'A3', orientation: 'landscape', drawingOffset: { x: 0, y: 0 }, scale: 100, showPaper: false, margins: m },
 			viewports: [{ id: 'v1', x: m, y: m, w: Math.round(pw * 0.84 - 2 * m), h: ph - 2 * m, source }] }
-		const r = importSheetDoc(doc, { newId, modelForOutlets: this.#modelForOutlets, layerFor: this.#layerFor })
+		const r = importSheetDoc(doc, this.#importCtx())
 		if (source.kind === 'empty') {   // a tool Pages has no model kind for (frames, patching, …): name it
 			const what = `${d.toolType ?? 'drawing'} · ${d.sourceDocId ?? d.id}`
 			r.frames[0].source = what
 			r.notes = [`The frame shows ${what} — not mapped: no Pages model for it yet`]
 		}
 		return this.#createImported(r, placeId, `drawings/${d.id}`)
+	}
+	/** A Risers-tool doc → the BUILDING model of the place that holds its floors (created if needed): storeys +
+	 *  rooms / ladders / cables (store/risersImport.ts), one undo step; each floor place's model then references
+	 *  its storey (`levelRef` + a cached copy of its `levels`). Re-importing replaces what was imported. */
+	importRisers = async (riserId: string): Promise<string[]> => {
+		const db = this.#h.db, ps = this.store; if (!db || !ps || ps.status !== 'ready') return ['Still loading — try again in a moment']
+		const d = (await db.getOne('risers', riserId)) as unknown as (RisersDocIn & { name?: string }) | null
+		if (!d) return [`Riser ${riserId} not found`]
+		const floors = riserFloors(d)
+		const floorPlaces = ps.places.filter((p) => p.legacy?.floor != null && p.legacy.area == null && p.legacy.room == null && p.legacy.row == null && floors.includes(p.legacy.floor))
+		const home = floorPlaces.length > 1 ? commonAncestor(ps.places, floorPlaces) : floorPlaces[0]?.parentId ? ps.places.find((p) => p.id === floorPlaces[0].parentId) ?? null : null
+		if (!home) return ['No place holds these floors — set up places first (the building model needs one)']
+		const mid = this.ensurePlaceModel(home.id), m = mid ? modelById(mid) : undefined
+		if (!m) return ["Couldn't create the building model"]
+		const r = risersToBuilding(d)
+		this.#h.ensureHist()
+		const merged = mergeRisers($state.snapshot(m) as Model, r)
+		m.objects = merged.objects; m.storeys = merged.storeys; m.layers = merged.layers; m.kind = 'building'
+		// the floor models take their levels from the building (drawings-plan: building = source of truth)
+		let linked = 0
+		for (const fp of floorPlaces) {
+			const fm = modelForPlace(fp.id), s = r.storeys.find((x) => x.name === floorLabel(fp.legacy!.floor!)); if (!fm || !s) continue
+			fm.levelRef = { modelId: m.id, storeyId: s.id }; fm.levels = storeyLevels(s); linked++
+		}
+		this.#h.pushStep(this.#h.activeTabId() ?? '', `Import risers into ${m.name}`)
+		this.openPlaceModel(home.id, false)
+		const s = this.#h.session, p = s.panes[s.focused]
+		if (p) viewState.setProj(p.id, this.#h.didOf(p.activeId), 'front')   // a riser reads as an elevation
+		this.#h.toast(`Risers → ${m.name}: ${r.storeys.length} storeys, ${r.objects.length} objects${linked ? `; ${linked} floor model${linked === 1 ? '' : 's'} now take their levels from it` : ''}`)
+		return r.notes
 	}
 	#createImported(r: SheetImportResult, placeId: string | null, from: string): string[] {
 		const ps = this.store!

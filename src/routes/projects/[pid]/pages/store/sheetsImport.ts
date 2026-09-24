@@ -6,7 +6,8 @@
 //     outlets  → the place model for its outlets doc: plan, the same scale and the same model point at the
 //                frame centre (Sheets' viewBox = contentOffsetMm + (w, h) × N, or the content bounds on Fit);
 //                its ANNOTATIONS become shapes in that model scoped to the frame (`space: 'view:<frameId>'`)
-//     anything else (racks, risers, fill-rate, the old 3D models, text) — and an outlets doc with no Pages
+//     risers   → the building model it was imported into (risersImport.ts), front elevation, fitted
+//     anything else (racks, fill-rate, the old 3D models, text) — and an outlets / risers doc with no Pages
 //                model yet — is NOT guessed: the frame keeps `source` (shown "Not mapped yet") + a note
 // Outlets data and Sheets outlet annotations share one coordinate space with the Pages model (real mm from the
 // floorplan origin, y down), so coordinates copy straight across.
@@ -16,7 +17,7 @@ import type { Model } from '../3dview/types'
 import type { Ent, Pt, Head, Dash } from '../ui/geometry'
 import { PLAN_CX, PLAN_CY } from '../ui/geometry'
 import { insertBounds } from '../ui/blocks'
-import { niceScale } from '../ui/frameFit'
+import { niceScale, fitFrame } from '../ui/frameFit'
 import { PT_MM, type PaperSize } from '../constants'
 import { USAGE_COLORS } from '../../outlets/parts/constants'
 
@@ -28,6 +29,8 @@ export type ImportCtx = {
 	layerFor?: (model: Model, sheetsLayerId?: string) => string | undefined
 	/** The Sheets project's default annotation colour (what an annotation without its own colour drew in). */
 	defaultColor?: string
+	/** The BUILDING model a Risers-tool doc was imported into (risersImport.ts), or null. */
+	modelForRisers?: (risersDocId: string) => Model | null
 }
 export type SheetImportResult = {
 	title: string; drawingNumber: string; paper: SheetPaper
@@ -164,7 +167,13 @@ export function importSheetDoc(src: SheetDoc, ctx: ImportCtx): SheetImportResult
 		const where = `Viewport ${seq}${vp.label ? ` “${vp.label}”` : ''}`
 		const s = vp.source
 		const m = s.kind === 'outlets' ? ctx.modelForOutlets(s.outletsDocId) : null
-		if (m) {
+		const bm = s.kind === 'risers' ? ctx.modelForRisers?.(s.risersDocId) ?? null : null
+		if (bm) {   // a riser elevation → the building model's front elevation, fitted to it
+			const fit = fitFrame(bm.objects, 'front', { w: vp.w, h: vp.h })
+			f.modelId = bm.id; f.direction = 'front'
+			if (fit) { f.scale = `1:${fit.n}`; f.view = fit.view }
+			if (vp.annotations?.length) notes.push(`${where}: its ${vp.annotations.length} annotation${vp.annotations.length === 1 ? '' : 's'} were not imported (elevation annotations aren't mapped yet)`)
+		} else if (m) {
 			const { n: raw, centre } = outletsView(vp, planBounds(m)), n = Math.max(1, Math.round(raw))   // the frame renders at the rounded 1:N
 			f.modelId = m.id; f.scale = `1:${n}`; f.view = viewCentredOn(centre, n)
 			const skipped: Record<string, number> = {}

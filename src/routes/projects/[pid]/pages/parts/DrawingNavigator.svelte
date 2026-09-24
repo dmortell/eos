@@ -8,7 +8,7 @@
 	import { type NavKind as Kind, type NavNode as Node, NAV_TREE as TREE, NAV_PROJECT as PROJECT } from '../mock/data'
 
 	let { onopen, onopenfloor, oncollapse, onselectnode, activeDoc = '', activeNode = '', tree = null, project = null, status = '', onaddbuilding, onmovefloor, onmovebuilding, reveal = [],
-		placesMode = false, onseedplaces, onplaceadd, onplacerename, onplacemove, onplacedelete, onopenplace, onsheetadd, onsheetrename, onsheetarchive, onplaceimport, ondrawings, onimportdrawing }:
+		placesMode = false, onseedplaces, onplaceadd, onplacerename, onplacemove, onplacedelete, onopenplace, onsheetadd, onsheetrename, onsheetarchive, onplaceimport, ondrawings, onimportdrawing, onimportriser }:
 		{ onopen?: (d: { title: string; kind: Kind; preview: boolean; floor?: string; docId?: string }) => void; oncollapse?: () => void;
 			/** A FLOOR row was clicked (preview) or double-clicked (kept): open that floor's model tab. */
 			onopenfloor?: (floor: string, preview: boolean) => void;
@@ -48,7 +48,9 @@
 			/** Open the drawing management dialog (drawings-plan phase 6). */
 			ondrawings?: () => void
 			/** Phase 8: make a Pages sheet from another tool's register drawing (a `d:<id>` leaf). */
-			onimportdrawing?: (leafId: string) => void } = $props()
+			onimportdrawing?: (leafId: string) => void
+			/** Phase 8: import a Risers-tool doc into the building model (a `riser:<id>` leaf). */
+			onimportriser?: (riserId: string) => void } = $props()
 	const TREE_NODES = $derived(tree ?? TREE)
 	const PROJ = $derived(project ? { ...project, kind: 'project' } : PROJECT)
 	// A floor row's model / tab name: the real tree carries it (`floor`, e.g. '33F'); the mock's label is it.
@@ -109,6 +111,8 @@
 		const out: MenuItem[] = []
 		if (n.drawing && !n.sheet) {   // another tool's register drawing (`d:<id>`)
 			if (onimportdrawing && n.id.startsWith('d:')) out.push({ key: 'import', label: 'Import into Pages', icon: 'download', run: () => onimportdrawing?.(n.id) })
+			if (onimportriser && n.id.startsWith('riser:')) out.push({ key: 'riser', label: 'Import into the building model', icon: 'download',
+				confirm: 'Click again to import storeys, rooms, ladders + cables', run: () => onimportriser?.(n.id.slice('riser:'.length)) })
 			return out
 		}
 		if (n.sheet) {

@@ -38,6 +38,17 @@
 	// symmetric about (0,0) — centring the pivot leaves the room off to one side. Instead centre the
 	// iso content's OWN bounding box on the viewBox centre (cx,cy).
 	const isoBox = $derived.by(() => (dir !== 'iso' ? null : isoBounds(model.objects, yaw, pitch, cx, cy, visible)))
+	// BUILDING STOREYS (a building model is the source of truth for levels — drawings-plan): in an elevation each
+	// storey's floor datum is a dashed line across the model's horizontal extent (+ a margin), named at its left.
+	const STOREY_COL = '#94a3b8'
+	const storeyLines = $derived.by(() => {
+		if (dir === 'plan' || dir === 'iso' || !model.storeys?.length) return []
+		const b = BASIS[dir]
+		let u0 = Infinity, u1 = -Infinity
+		for (const o of model.objects) { const bb = objBounds(o); for (const c of b.h === 'x' ? [bb.x0, bb.x1] : [bb.y0, bb.y1]) { u0 = Math.min(u0, b.hs * c); u1 = Math.max(u1, b.hs * c) } }
+		if (!isFinite(u0)) { u0 = 0; u1 = 10000 }
+		return model.storeys.map((s) => ({ id: s.id, name: s.name, v: b.vs * s.z, u0: u0 - 1500, u1: u1 + 500 }))
+	})
 	// Iso SOLID / hidden-line render: every visible object's 3D faces, projected and sorted back-to-front
 	// (painter's algorithm) so nearer faces paint over farther ones — a filled white face occludes what's
 	// behind it. Replaces the old wireframe iso. Openings are skipped (a true 3D boolean hole is future
@@ -132,6 +143,12 @@
 		{/if}
 	{/each}
 	{:else}
+	{#each storeyLines as s (s.id)}
+		{@const col = adapt ? adapt(STOREY_COL) : STOREY_COL}
+		<line x1={s.u0} y1={s.v} x2={s.u1} y2={s.v} stroke={col} stroke-width={1 / (canvasZoom || 1)} stroke-dasharray={dashArray('dashed', canvasZoom)} vector-effect="non-scaling-stroke" />
+		<!-- the group is y-flipped (v up): flip the name back upright, just above the line -->
+		<text transform="translate({s.u0} {s.v + 120}) scale(1 -1)" font-size="400" fill={col} class="storey-name">{s.name}</text>
+	{/each}
 	<!-- Pass 1: everything except openings. Under a section clip each object is TRIMMED to the box (a
 	     true cut — walls/conduits keep only the segments inside), not just AABB-culled. -->
 	{#each model.objects as o (o.id)}
@@ -169,6 +186,7 @@
 
 <style>
 	.m3d :global(polygon), .m3d :global(polyline) { stroke-linejoin: round; }
+	.storey-name { font-family: Consolas, monospace; pointer-events: none; }
 	/* opening = a real hole: fill with the drawing (paper) colour — white — to erase the wall behind it,
 	   then the frame stroke outlines the door/window. `--vp-paper` = white on a sheet, dark in model space (B31). */
 	.m3d :global(polygon.hole) { fill: var(--vp-paper, #fff); }
