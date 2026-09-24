@@ -65,7 +65,12 @@
 	const storeyLines = $derived.by(() => {
 		if (!uSpan || !model.storeys?.length) return []
 		const b = BASIS[dir as keyof typeof BASIS], shown = sm ? sm.shown : model.storeys
-		return shown.map((s) => ({ id: s.id, name: s.name, v: b.vs * (sm ? sm.map(s.z) : s.z), ...uSpan }))
+		const lines = shown.map((s) => ({ id: s.id, name: s.name, v: b.vs * (sm ? sm.map(s.z) : s.z), ...uSpan }))
+		// the ROOF: above the top floor's soffit by a slab (its own slab thickness)
+		const top = [...model.storeys].sort((a, c) => c.z - a.z)[0]
+		const zr = top.z + (top.ceilingSlab ?? 3600) + (top.slab ?? 200)
+		lines.push({ id: 'roof', name: 'RF', v: b.vs * (sm ? sm.map(zr) : zr), ...uSpan })
+		return lines
 	})
 	// A LABELLED BOX (e.g. an imported riser room "IDF01-A") is its true-size rect with the name centred in it —
 	// one object, so they move / hide / collapse together. Other labelled objects are named at their top.
