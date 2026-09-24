@@ -17,7 +17,7 @@ import { drawPlane, buildEnt, sectionObj, sectionName, PRISM_TOOL, trimTail, pol
 import { addModelObj, insertGraphNode, branchNode, addGuide, addSection } from './modelEdit'
 import { constrainGrip, snapAngle, type MGrip } from './grips'
 import { rotateAbout, scaleAbout, cornerScale } from './groupXf'
-import { joinNewConduit, joinGraph, mergeNodes, compatible } from '../3dview/graphJoin'
+import { joinNewConduit, joinGraph, mergeNodes, compatible, coincidentNodes } from '../3dview/graphJoin'
 import { connPoints, attachNode, followConnections } from '../3dview/connect'
 import { snapToGrid, snapDelta, findSnap, drawPoint } from './snap'
 import { rotCenter, hitIsoFaces, marqueeSelect, type GN } from './hit'
@@ -45,7 +45,7 @@ const uid = () => newId('e')
  *  it); `base`/`gi` drive a grip drag. Kept on the instance too: Shift/ORTHO re-apply + hover read it. */
 type EntDrag = { id: string; base: Ent; bases: Ent[]; kind: 'grip' | 'move'; gi: number; start: Pt; dup?: boolean; duplicated?: boolean }
 type MDrag = { start: Pt; items: { id: string; o0?: { x: number; y: number; z: number }; n0?: GN[] }[] }
-type MGripDrag = { grip: MGrip; origin: Pt; branch?: () => void }
+type MGripDrag = { grip: MGrip; origin: Pt; branch?: () => void; /** F5: other objects' nodes riding along */ peers?: GN[] }
 /** D13: a group-box drag — scale about `pivot` (the opposite corner) toward `corner`, or rotate about `pivot`
  *  (the barycentre) from the press angle `a0` (radians). */
 type GroupDrag = { bases: Ent[]; pivot: Pt; corner?: Pt; a0?: number }
@@ -508,7 +508,10 @@ export class VpInteraction {
 				grip = { x: d[0], y: d[1], node: nn, obj, apply: (q: Pt, o?: Pt) => v.graphNodeApply(nn, q, o) }
 				branch = () => { obj.nodes = (obj.nodes as GN[]).filter((x) => x.id !== nn.id); obj.segments = (obj.segments as { id: string; a: string; b: string }[]).filter((s) => s.b !== nn.id && s.a !== nn.id) }
 			}
-			beginPointerDrag<MGripDrag>(e, { grip, origin, branch }, { onMove: this.onModelGripMove, onUp: this.onModelGripUp, onCancel: this.onModelGripCancel }, reg)
+			// F5: nodes of OTHER walls / conduits sitting on the dragged node move with it (a pipe meeting a trunk stays
+			// joined); Alt-drag detaches it from them
+			const peers = !branch && !e.altKey && g.node && g.obj ? coincidentNodes(v.mdl?.objects ?? [], g.obj, g.node) : []
+			beginPointerDrag<MGripDrag>(e, { grip, origin, branch, peers }, { onMove: this.onModelGripMove, onUp: this.onModelGripUp, onCancel: this.onModelGripCancel }, reg)
 		} else if (pk?.kind === 'ggrip') {   // D13: the multi-selection's transform box — rotate / scale them all
 			const gx = v.groupXf; if (!gx) return
 			const bases = v.groupSel.map((x) => $state.snapshot(x) as Ent)
@@ -707,6 +710,8 @@ export class VpInteraction {
 	private onModelGripMove = (e: PointerEvent, s: MGripDrag) => {
 		const p = this.v.toModel(e.clientX, e.clientY); if (!p) return
 		s.grip.apply(p, s.origin)
+		const go = s.grip.obj, n = s.grip.node && go && (go.type === 'wall' || go.type === 'conduit') ? (go.nodes as GN[]).find((x) => x.id === s.grip.node!.id) : undefined
+		if (n && s.peers?.length) for (const q of s.peers) { q.x = n.x; q.y = n.y; q.z = n.z }   // F5
 		const o = s.grip.obj ?? this.v.mSelObj
 		if (o?.type === 'prism' && o.id && this.v.mdl) followConnections(this.v.mdl, new Set([o.id]))   // F6: a resized / rotated box's points move
 		this.v.editor.edit.mark()

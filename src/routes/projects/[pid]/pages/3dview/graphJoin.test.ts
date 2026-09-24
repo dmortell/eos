@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { joinGraph, mergeNodes, joinNewConduit, compatible } from './graphJoin'
+import { joinGraph, mergeNodes, joinNewConduit, compatible, coincidentNodes } from './graphJoin'
 import type { Obj } from './types'
 
 let k = 0
@@ -39,5 +39,13 @@ describe('conduit join (F3)', () => {
 		mergeNodes(a, 'a1', 'a3')
 		expect(a.nodes.map((x) => x.id)).toEqual(['a1', 'a2'])
 		expect(a.segments.map((s) => `${s.a}-${s.b}`)).toEqual(['a1-a2'])   // a2-a1 duplicates a1-a2
+	})
+})
+
+describe('coincident nodes (F5)', () => {
+	it('finds other objects\' nodes on the same point (not its own)', () => {
+		const A = cond('A', [['a1', 0, 0], ['a2', 1000, 0]]), P = cond('P', [['p1', 1000, 0], ['p2', 1000, 500]], { w: 25 }), F = cond('F', [['f1', 3000, 0], ['f2', 4000, 0]])
+		expect(coincidentNodes([A, P, F], A, A.nodes[1]).map((x) => x.id)).toEqual(['p1'])
+		expect(coincidentNodes([A, P, F], A, A.nodes[0])).toEqual([])
 	})
 })

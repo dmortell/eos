@@ -78,6 +78,17 @@ export function mergeNodes(g: G, keep: string, drop: string): void {
 	g.nodes = g.nodes.filter((n) => n.id !== drop)
 }
 
+/** F5: the nodes of OTHER walls / conduits at the same point as `node` of `obj` (within `tol` mm, 3D) — they move
+ *  with it when it is dragged. Returns the store's own node objects (mutating them moves them). */
+export function coincidentNodes(objects: Obj[], obj: Obj, node: { x: number; y: number; z: number }, tol = 1): GNode[] {
+	const out: GNode[] = []
+	for (const o of objects) {
+		if (o === obj || (o.type !== 'wall' && o.type !== 'conduit')) continue
+		for (const m of o.nodes as GNode[]) if (d3(m, node) <= tol) out.push(m)
+	}
+	return out
+}
+
 /** A new conduit `o` joins the compatible conduits it touches (all of them become one). Returns the object the
  *  run ended up in — an existing one it joined, else `o` itself (the caller then adds `o`). `objects` is mutated:
  *  conduits absorbed into the first one are removed. */
