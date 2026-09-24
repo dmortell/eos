@@ -63,7 +63,8 @@
 	thead em { font-style:normal; font-weight:400; margin-left:3px; }
 	tbody th { text-align:left; font-weight:500; font-family:Consolas,monospace; padding:2px 6px 2px 2px; white-space:nowrap; }
 	td { padding:2px 3px; }
-	input { width:90px; background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:3px 6px; font-size:12px; font-family:Consolas,monospace; }
+	input { width:90px; background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:3px 6px; font-size:12px; font-family:Consolas,monospace; text-align:right; }
+	thead th:not(:first-child) { text-align:right; padding-right:8px; }
 	input:focus { outline:none; border-color:var(--accent); }
 	tr.all th, tr.all input::placeholder { color:var(--muted); }
 	tr.all td, tr.all th { padding-bottom:6px; border-bottom:1px solid var(--line-soft); }

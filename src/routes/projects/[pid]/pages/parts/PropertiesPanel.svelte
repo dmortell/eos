@@ -358,15 +358,15 @@
 				<div class="prop-sec">HEIGHTS · mm<button class="pp-mini sec-btn" onclick={() => (heightsOpen = true)}>Edit heights…</button></div>
 				<div class="pp-heights">
 					<table>
-						<thead><tr><th></th><th title="Structural slab thickness">Slab</th><th title="Raised floor height">Raised</th><th title="Clear height (floor to ceiling)">Clear</th><th title="Plenum (ceiling void)">Plenum</th></tr></thead>
+						<thead><tr><th></th><th title="Structural slab thickness">Slab</th><th title="Raised floor height">Raised</th><th title="Clear height (floor to ceiling)">Clear</th><th title="Plenum (ceiling void)">Plenum</th><th title="Slab top above the lowest floor (m)">Level</th></tr></thead>
 						<tbody>
 							{#each heights.rows as r (r.id)}
-								<tr title="Level {(r.z / 1000).toFixed(2)} m above the lowest floor"><th>{r.name}</th><td>{r.slabMm}</td><td>{r.raisedFloorMm}</td><td>{r.clearHeightMm}</td><td>{r.plenumMm}</td></tr>
+								<tr><th>{r.name}</th><td>{r.slabMm}</td><td>{r.raisedFloorMm}</td><td>{r.clearHeightMm}</td><td>{r.plenumMm}</td><td class="lvl">{(r.z / 1000).toFixed(2)}</td></tr>
 							{/each}
 						</tbody>
 					</table>
 				</div>
-				<div class="sec-help">Set by the risers import (or defaults). Edit heights… shows each floor's level.</div>
+				<div class="sec-help">Set by the risers import (or defaults). Level = metres above the lowest floor.</div>
 				{#if heightsOpen}
 					<HeightsDialog title={node?.label ?? ''} rows={heights.rows} onclose={() => (heightsOpen = false)}
 						onheight={(id, k, v) => onheight?.(heights!.placeId, id, k, v)} onall={(k, v) => onheightall?.(heights!.placeId, k, v)} />
@@ -574,9 +574,9 @@
 	.pp-floors { display:grid; grid-template-columns:repeat(3, 1fr); gap:1px 6px; padding:2px 8px 4px; max-height:170px; overflow-y:auto; font-size:11px; color:var(--text); }
 	.pp-floors label { display:flex; align-items:center; gap:4px; cursor:pointer; }
 	.pp-floors input { accent-color:var(--accent); }
-	.pp-heights { max-height:260px; overflow-y:auto; padding:0 4px; }
+	.pp-heights { padding:0 4px; }
 	.pp-heights table { width:100%; border-collapse:collapse; font-size:10px; }
-	.pp-heights th { font-weight:500; color:var(--muted); text-align:left; padding:1px 2px; position:sticky; top:0; background:var(--panel); }
+	.pp-heights th { font-weight:500; color:var(--muted); text-align:left; padding:1px 2px; }
 	.pp-heights tbody th { font-family:Consolas,monospace; color:var(--text); }
 	.pp-heights td { padding:1px 2px; font-family:Consolas,monospace; color:var(--text); text-align:right; }
 	.pp-heights thead th:not(:first-child) { text-align:right; }
