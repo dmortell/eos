@@ -49,10 +49,10 @@
 	import { BASIS } from './3dview/types'
 	import { objBounds } from './3dview/projection'
 	import { modelVersionState, sheetEditedSinceIssue } from './store/versions'
-	import { Clipboard, arrange, setGroup, type ArrangeOp } from './ui/clipboard'
+	import { Clipboard, arrange, setGroup, relabelCopies, type ArrangeOp } from './ui/clipboard'
 	import type { TitleBlockTemplate } from './titleBlock'
 	import { DEFAULT_YAW, DEFAULT_PITCH } from './3dview/projection'
-	import type { Model, ModelId, Section } from './3dview/types'
+	import type { Model, ModelId, Obj, Section } from './3dview/types'
 	import { selStore } from './selStore.svelte'
 	import { selOnly, selToggle, selClear, idsOfKind, singleOfKind, type Selection, type SelItem } from './ui/selection'
 	import { deleteModelSel as meDeleteModelSel, deleteGraphNode as meDeleteGraphNode, deleteSection as meDeleteSection } from './ui/modelEdit'
@@ -452,7 +452,7 @@
 	function cutEnts(id: string, ids: string[]) { copyEnts(id, ids); deleteEnts(id, ids) }
 	function pasteEnts(id?: string): Ent[] | undefined {
 		if (clipboard.empty || !id) return
-		const copies = clipboard.paste(5 * propsScaleN, () => newId())   // B19: 5 PAPER mm per paste (model mm = paper mm × scale N), stacking
+		const copies = relabelCopies(clipboard.paste(5 * propsScaleN, () => newId()), entsOf(id))   // B19: 5 PAPER mm per paste (model mm = paper mm × scale N), stacking; E12: free labels
 		beginGesture(); copies.forEach(c => addEnt(id, c)); endGesture()
 		return copies
 	}
@@ -501,6 +501,15 @@
 	function updateModelObj(patch: Record<string, unknown>) {
 		const o = selModelObj, id = session.panes[session.focused]?.activeId; if (!o || !id) return
 		beginGesture(); Object.assign(o, patch); modelEdit(id); endGesture()   // one undo step (baseline pre-change)
+	}
+	// I4 / F8: several model objects selected (Ctrl/Shift-click) — one patch, per object, as ONE undo step.
+	let selModelObjs = $derived.by(() => {
+		const ids = new Set(idsOfKind(activeSel, 'obj')); if (ids.size < 2) return []
+		return modelById(activeMid())?.objects.filter((o) => ids.has(o.id!)) ?? []
+	})
+	function updateModelObjs(patchOf: (o: Obj) => Record<string, unknown> | null) {
+		const id = session.panes[session.focused]?.activeId; if (!id || !selModelObjs.length) return
+		beginGesture(); for (const o of selModelObjs) { const p = patchOf(o); if (p) Object.assign(o, p) } modelEdit(id); endGesture()
 	}
 	function deleteModelObj() {
 		const o = selModelObj, id = session.panes[session.focused]?.activeId, m = modelById(activeMid()); if (!o || !m || !id) return
@@ -1093,7 +1102,7 @@
 						onarrange={(op) => { if (active) reorderEnts(active.id, activeEntIds(), op) }}
 						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''}
 						onpagetitle={(t) => { if (!active || !t.trim()) return; const sid = sheetIdOf(active.docId); if (sid) proj.renameSheet(sid, t); else active.title = t.trim() }} {activeLayer} node={session.treeNode} nodeInfo={proj.nodeInfo} onnodefield={proj.setNodeField}
-						modelObj={selModelObj} modelLayers={modelById(activeMid())?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} onmodelseg={updateModelSeg}
+						modelObj={selModelObj} modelObjs={selModelObjs} onmodelsupdate={updateModelObjs} modelLayers={modelById(activeMid())?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} onmodelseg={updateModelSeg}
 						frameObj={selFrameObj} onframefit={fitSelectedFrame}
 						heights={proj.buildingHeights} onheight={proj.setStoreyHeight} onheightall={proj.setAllStoreyHeights}
 						frameStoreys={(selFrameObj ? modelById(selFrameObj.modelId ?? (active ? modelIdOf(active.id) : undefined))?.storeys ?? [] : []).map((s) => ({ id: s.id, name: s.name }))}

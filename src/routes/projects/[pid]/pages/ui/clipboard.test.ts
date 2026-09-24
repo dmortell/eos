@@ -1,5 +1,19 @@
 import { describe, it, expect } from 'vitest'
-import { Clipboard, pasteCopies, arrange, setGroup } from './clipboard'
+import { Clipboard, pasteCopies, arrange, setGroup, nextFreeLabel, relabelCopies } from './clipboard'
+
+describe('copy labels (E12)', () => {
+	it('counts a trailing number on (padding kept), else appends -copy', () => {
+		expect(nextFreeLabel('4A013', new Set(['4A013', '4A014']))).toBe('4A015')
+		expect(nextFreeLabel('R-09', new Set(['R-09']))).toBe('R-10')
+		expect(nextFreeLabel('Desk', new Set(['Desk', 'Desk-copy']))).toBe('Desk-copy2')
+		expect(nextFreeLabel('Free', new Set(['Other']))).toBe('Free')
+	})
+	it('renames labelled copies so none repeats an existing label (or each other)', () => {
+		const o = (id: string, LABEL?: string) => ({ id, type: 'insert', a: [0, 0], attrs: LABEL ? { LABEL } : undefined }) as Ent
+		const out = relabelCopies([o('c1', '4A001'), o('c2', '4A001'), o('c3')], [o('a', '4A001'), o('b', '4A002')])
+		expect(out.map((e) => e.attrs?.LABEL)).toEqual(['4A003', '4A004', undefined])
+	})
+})
 import type { Ent } from './geometry'
 
 const r = (id: string, groupId?: string): Ent => ({ id, type: 'rect', a: [0, 0], b: [10, 10], groupId })

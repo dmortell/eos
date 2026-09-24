@@ -11,7 +11,7 @@
 import { tick } from 'svelte'
 import { toast } from 'svelte-sonner'
 import { PT_MM } from '../constants'
-import { type Pt, type Ent, STYLE_DEFAULTS, ELEV_BASIS, dist, translate } from './geometry'
+import { type Pt, type Ent, STYLE_DEFAULTS, ELEV_BASIS, dist } from './geometry'
 import { beginPointerDrag, DragRegistry } from './gestures'
 import { drawPlane, buildEnt, sectionObj, sectionName, PRISM_TOOL, trimTail, polylineEnt, graphObj, prismObj, guideObj, imageWithOrigin, imageScaled, moveEnt } from './place'
 import { addModelObj, insertGraphNode, branchNode, addGuide, addSection } from './modelEdit'
@@ -20,6 +20,7 @@ import { snapToGrid, snapDelta, findSnap, drawPoint } from './snap'
 import { rotCenter, hitIsoFaces, marqueeSelect, type GN } from './hit'
 import { newId } from '../ids'
 import { constrainPt } from './annotations'
+import { pasteCopies, relabelCopies } from './clipboard'
 import { guideId, selectedPlanGuide } from '../guides.svelte'
 import { imgEdit, clearImgMode } from '../imageEdit.svelte'
 import { toolPrompt, imgModeText, statusLine } from './vpPrompt'
@@ -242,6 +243,16 @@ export class VpInteraction {
 	})
 	statusText = $derived.by(() => statusLine({ editingText: !!this.editText, active: this.v.active, imgText: imgModeText(imgEdit.mode, this.scaleReal !== null, this.scalePts.length), sectionSelected: !!this.v.selSectionObj, tool: this.v.tool, prompt: this.prompt }))
 
+	// ── click-cycle: what's under a plain Select click, top-most first — each entity (with its group), then the
+	// model object. `lastClick.k` = which one the previous click at that spot picked. ──
+	private lastClick: { x: number; y: number; k: number } | null = null
+	private clickCandidates(p: Pt): { ids?: string[]; obj?: string }[] {
+		const v = this.v, out: { ids?: string[]; obj?: string }[] = [], seen = new Set<string>()
+		for (const id of v.hitAll(p)) { if (seen.has(id)) continue; const g = v.expandGroup([id]); g.forEach((x) => seen.add(x)); out.push({ ids: g }) }
+		const mid = v.hitModel(p); if (mid) out.push({ obj: mid })
+		return out
+	}
+
 	// ══ pointer events ══
 	onClick = (e: MouseEvent) => {
 		const v = this.v, tool = v.tool
@@ -263,8 +274,22 @@ export class VpInteraction {
 			// B25: a Shift-press toggles the entity that was PRESSED, not whatever sits under the release point.
 			const g = v.expandGroup(this.shiftPressId ? [this.shiftPressId] : v.hit(p))   // + any group it belongs to
 			this.shiftPressId = null
-			if (e.shiftKey || e.ctrlKey || e.metaKey) { if (g.length) v.toggleEnts(g); return }   // additive: toggle the whole group
-			// entity wins; else a model object; else a section marker border; else a guide; else clear
+			if (e.shiftKey || e.ctrlKey || e.metaKey) {   // additive: toggle the whole group, else a model object (I4)
+				if (g.length) v.toggleEnts(g); else { const mid = v.hitModel(p); if (mid) v.toggleObj(mid) }
+				return
+			}
+			// entity wins; else a model object; else a section marker border; else a guide; else clear.
+			// Clicking again on the same spot steps DOWN through everything under it (entities top-first, then the
+			// model object), so a shape hidden under another can be reached.
+			const cands = this.clickCandidates(p)
+			if (cands.length > 1) {
+				const again = this.lastClick && Math.hypot(e.clientX - this.lastClick.x, e.clientY - this.lastClick.y) <= 4
+				const k = again ? (this.lastClick!.k + 1) % cands.length : 0
+				this.lastClick = { x: e.clientX, y: e.clientY, k }
+				const c = cands[k]
+				return c.obj ? v.selectObj(c.obj) : v.selectEnts(c.ids!)
+			}
+			this.lastClick = null
 			if (g.length) return v.selectEnts(g)
 			const mid = v.hitModel(p); if (mid) return v.selectObj(mid)
 			const sid = v.hitSection(p); if (sid) return v.selectSection(sid)
@@ -348,7 +373,7 @@ export class VpInteraction {
 		if (mod && k === 'a') { e.preventDefault(); v.selectEnts(v.entities.map((x) => x.id)); return }
 		if (mod && k === 'd' && sel.length) {   // duplicate, offset 5 PAPER mm (B19: visible at any scale)
 			e.preventDefault()
-			const off = 5 * v.paperMm, copies = sel.map((id) => v.entities.find((x) => x.id === id)).filter(Boolean).map((en) => ({ ...translate(en!, off, off), id: uid() }))
+			const off = 5 * v.paperMm, copies = relabelCopies(pasteCopies(sel.map((id) => v.entities.find((x) => x.id === id)).filter(Boolean) as Ent[], off, uid), v.entities)
 			copies.forEach((c) => ents.add(c)); v.selectEnts(copies.map((c) => c.id))
 			return
 		}
@@ -442,6 +467,7 @@ export class VpInteraction {
 			beginPointerDrag<SecDrag>(e, { id: pk.id, start: p, c0: { ...sm.clip } }, { onMove: this.onSecDragMove, onUp: this.onSecDragUp, onCancel: this.closeEdit }, reg)
 		} else if (pk?.kind === 'obj') {   // a MODEL object → select + move
 			const mo = v.mdl?.objects.find((o) => o.id === pk.id); if (!mo) return
+			if (e.shiftKey || e.ctrlKey || e.metaKey) return   // I4: a modifier press only toggles it (onClick)
 			v.selectObj(mo.id!)
 			ed.begin()
 			beginPointerDrag<MDrag>(e, { id: mo.id!, start: p,
@@ -485,7 +511,7 @@ export class VpInteraction {
 			return
 		}
 		if (drag.dup && !drag.duplicated) {   // Ctrl-drag: on the first real move, drop copies and drag them
-			const copies = drag.bases.map((b) => ({ ...b, id: uid() }))
+			const copies = relabelCopies(pasteCopies(drag.bases, 0, uid), v.entities)   // own ids + group ids; outlets get the next free label (E12)
 			copies.forEach((c) => v.editor.ents.add(c)); v.selectEnts(copies.map((c) => c.id))
 			drag.bases = copies; drag.duplicated = true
 		}

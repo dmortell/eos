@@ -31,6 +31,25 @@ export function pasteCopies(items: Ent[], off: number, newId: () => string): Ent
 	})
 }
 
+/** E12: the first label not in `taken` — a trailing number counts on (4A013 → 4A014, padding kept), anything
+ *  else gets "-copy" (then "-copy2", …). A label nobody has is returned as is. */
+export function nextFreeLabel(label: string, taken: Set<string>): string {
+	if (!taken.has(label)) return label
+	const m = /^(.*?)(\d+)(\D*)$/.exec(label)
+	if (m) for (let n = Number(m[2]) + 1; ; n++) { const s = m[1] + String(n).padStart(m[2].length, '0') + m[3]; if (!taken.has(s)) return s }
+	for (let i = 1; ; i++) { const s = `${label}-copy${i > 1 ? i : ''}`; if (!taken.has(s)) return s }
+}
+/** Copies of labelled blocks (an outlet's LABEL attribute) renamed so no two shapes share a label with
+ *  `existing` (the shapes already in the model, originals included). Unlabelled copies pass through. */
+export function relabelCopies(copies: Ent[], existing: Ent[]): Ent[] {
+	const taken = new Set(existing.map((e) => e.attrs?.LABEL).filter((l): l is string => !!l))
+	return copies.map((c) => {
+		const l = c.attrs?.LABEL; if (!l) return c
+		const n = nextFreeLabel(l, taken); taken.add(n)
+		return n === l ? c : { ...c, attrs: { ...c.attrs, LABEL: n } }
+	})
+}
+
 export type ArrangeOp = 'front' | 'back' | 'forward' | 'backward'
 /** The shapes reordered for `op` on the selection `ids`; null when nothing selected is in the list. */
 export function arrange(arr: Ent[], ids: string[], op: ArrangeOp): Ent[] | null {

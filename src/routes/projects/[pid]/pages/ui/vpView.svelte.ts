@@ -143,6 +143,7 @@ export class VpView {
 	selectEnts = (ids: string[]) => this.editor.sel.only(ids.map((id): SelItem => ({ kind: 'ent', id })))
 	toggleEnts = (ids: string[]) => this.editor.sel.toggle(ids.map((id): SelItem => ({ kind: 'ent', id })))
 	selectObj = (id: string) => this.editor.sel.only([{ kind: 'obj', id }])
+	toggleObj = (id: string) => this.editor.sel.toggle([{ kind: 'obj', id }])   // I4: Ctrl/Shift-click adds a model object
 	selectGuide = (id: string) => this.editor.sel.only([{ kind: 'guide', id }])
 	selectSection = (id: string) => this.editor.sel.only([{ kind: 'section', id }])
 	selectNode = (objId: string, nodeId: string) => this.editor.sel.only([{ kind: 'node', id: objId, sub: nodeId }])
@@ -269,6 +270,12 @@ export class VpView {
 		const thr = this.tolMm(3.5), pe = this.paintEnts
 		for (let i = pe.length - 1; i >= 0; i--) if (this.pickable(pe[i]) && hitEnt(this.ctx, pe[i], p, thr)) return [pe[i].id]
 		return []
+	}
+	/** EVERY pickable entity at p, top-most first (the click-cycle's candidates). */
+	hitAll(p: Pt): string[] {
+		const thr = this.tolMm(3.5), pe = this.paintEnts, out: string[] = []
+		for (let i = pe.length - 1; i >= 0; i--) if (this.pickable(pe[i]) && hitEnt(this.ctx, pe[i], p, thr)) out.push(pe[i].id)
+		return out
 	}
 	/** Expand ids to every member of any group they touch (a group selects as one). */
 	expandGroup(ids: string[]): string[] {

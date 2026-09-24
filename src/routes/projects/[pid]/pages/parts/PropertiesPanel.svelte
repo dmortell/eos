@@ -15,12 +15,13 @@
 	import { NODE_FIELDS } from '../mock/data'
 	import TitleBlockEditor from './TitleBlockEditor.svelte'
 	import HeightsDialog from './HeightsDialog.svelte'
+	import ModelObjsProps from './ModelObjsProps.svelte'
 	let heightsOpen = $state(false)
 	type HeightKey = 'slabMm' | 'raisedFloorMm' | 'clearHeightMm' | 'plenumMm'
 	import type { TitleBlockTemplate } from '../titleBlock'
 
 	let { ents = [], onupdate, onarrange, pageTitle = '', pageKind = '', activeLayer = '', node = null, onpagetitle,
-		modelObj = null, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg,
+		modelObj = null, modelObjs = [], onmodelsupdate, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg,
 		frameObj = null, onframeupdate, onframedelete, onframefit, nodeInfo = null, onnodefield, modelList = [], activeFrameId = undefined, scaleN = 1,
 		sheetInfo = null, onsheetfield, titleBlock = undefined, ontitleblock, frameStoreys = [], heights = null, onheight, onheightall }:
 		{ ents?: Ent[]; onupdate?: (e: Ent) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void;
@@ -28,7 +29,9 @@
 			node?: { id: string; label: string; kind: string; floorNumber?: number; building?: string } | null;
 			/** A REAL tree node's properties (projectProps.ts, from Firestore) + the edit callback; null → mock fields. */
 			nodeInfo?: import('../projectProps').NodeInfo | null; onnodefield?: (key: string, value: string) => void;
-			modelObj?: Obj | null; modelLayers?: MLayer[]; onmodelupdate?: (patch: Record<string, unknown>) => void; onmodeldelete?: () => void; onmodelseg?: (segIdx: number, patch: Record<string, unknown>) => void;
+			modelObj?: Obj | null; modelLayers?: MLayer[];
+			/** I4: two or more model objects selected, and the per-object patch callback (one undo step). */
+			modelObjs?: Obj[]; onmodelsupdate?: (patchOf: (o: Obj) => Record<string, unknown> | null) => void; onmodelupdate?: (patch: Record<string, unknown>) => void; onmodeldelete?: () => void; onmodelseg?: (segIdx: number, patch: Record<string, unknown>) => void;
 			frameObj?: SheetFrame | null; onframeupdate?: (patch: Partial<SheetFrame>) => void; onframedelete?: () => void;
 			/** XP19: fit the frame's scale to its model */ onframefit?: () => void;
 			modelList?: { id: string; name: string }[]; activeFrameId?: string;
@@ -240,6 +243,8 @@
 		{/if}
 		<button class="pp-del" onclick={() => onframedelete?.()}>Delete viewport</button>
 		<div class="pp-hint">A viewport is a window onto the model. Double-click it to edit inside; change the view or scale here.</div>
+	{:else if modelObjs.length > 1 && onmodelsupdate}
+		<ModelObjsProps objs={modelObjs} layers={modelLayers} onpatch={onmodelsupdate} />
 	{:else if modelObj}
 		<!-- a 3D MODEL object is selected → edit its geometry + layer straight on the store -->
 		<div class="prop-sec">{modelTypeLabel(modelObj)}</div>
@@ -251,6 +256,10 @@
 			<select value={modelObj.layer ?? ''} onchange={(e) => onmodelupdate?.({ layer: (e.currentTarget as HTMLSelectElement).value || undefined })}>
 				{#each modelLayers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
 			</select>
+		</div>
+		<!-- F8: the object's own colour over its layer's (ByLayer = none) -->
+		<div class="prop"><span>Colour</span>
+			<ColorPicker value={modelObj.color} colors={COLORS} allowByLayer onchange={(v) => onmodelupdate?.({ color: v })} />
 		</div>
 		{#if modelObj.type === 'prism'}
 			<div class="prop-sec">POSITION</div>

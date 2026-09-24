@@ -29,7 +29,7 @@ describe('exclusivity: entity vs model vs section vs frame vs guide vs node', ()
 	})
 	it('picking a model object, section, guide, or frame each replace whatever was selected before, of any kind', () => {
 		expect(selOnly([obj('o1')])).toEqual([obj('o1')])
-		expect(selToggle([ent('e1'), ent('e2')], [obj('o1')])).toEqual([obj('o1')])   // even via toggle (non-'ent' item)
+		expect(selToggle([ent('e1'), ent('e2')], [obj('o1')])).toEqual([obj('o1')])   // even via toggle (a different kind)
 		expect(selToggle([obj('o1')], [section('s1')])).toEqual([section('s1')])
 		expect(selToggle([section('s1')], [guide('g1')])).toEqual([guide('g1')])
 		expect(selToggle([guide('g1')], [frame('f1')])).toEqual([frame('f1')])
@@ -60,8 +60,12 @@ describe('additive (Shift/Ctrl) toggle is ONLY for entities', () => {
 		expect(selToggle([section('s1')], [ent('e1')])).toEqual([ent('e1')])
 		expect(selToggle([frame('f1')], [ent('e1'), ent('e2')])).toEqual([ent('e1'), ent('e2')])
 	})
-	it('toggling with an existing NON-entity selection still just replaces it (no additive gesture for obj/guide/section/frame/node)', () => {
-		expect(selToggle([obj('o1')], [obj('o2')])).toEqual([obj('o2')])
+	it('model objects are additive too (I4), but never mixed with entities', () => {
+		expect(selToggle([obj('o1')], [obj('o2')])).toEqual([obj('o1'), obj('o2')])
+		expect(selToggle([obj('o1'), obj('o2')], [obj('o1')])).toEqual([obj('o2')])
+		expect(selToggle([ent('e1')], [obj('o1')])).toEqual([obj('o1')])
+	})
+	it('toggling with an existing single-kind selection still just replaces it (no additive gesture for guide/section/frame/node)', () => {
 		expect(selToggle([section('s1')], [section('s1')])).toEqual([section('s1')])   // "re-toggling" the same single item still just re-selects it (no such gesture exists today)
 	})
 	it('toggling with empty items is a no-op (nothing under the cursor to toggle)', () => {
