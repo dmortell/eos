@@ -21,8 +21,7 @@ import { models, modelById, ensureFloorModel, upsertModel, removeModels, modelFo
 import type { Model, ModelId, ModelKind } from './3dview/types'
 import { emptyFloor } from './mock/models'
 import { docToModel, sheetToPage, pageToSheet } from './store/mappers'
-import { floorplanPlacement, pdfSrc, PDF_SRC, parsePdfSrc, renderPdfPage, placementFromCalib, type PageCalib } from './ui/render/pdfRaster.svelte'
-import { liveFileIds, followCalib } from './ui/floorplanLink'
+import { Floorplans } from './floorplans.svelte'
 import { startBlocks } from './blocks.svelte'
 import { importOutletsInto, outletsDocIdFor, type OutletsDoc } from './store/outletsImport'
 import { normFloors, findNodePath } from './projectTree'
@@ -74,12 +73,6 @@ export const SHEET = 'sheet:'
 export const sheetIdOf = (docId?: string) => (docId?.startsWith(SHEET) ? docId.slice(SHEET.length) : null)
 // drawings-plan phase 3: the kinds of place that get a model of that kind (anything else → a zone model)
 const MODEL_KINDS: ModelKind[] = ['floor', 'zone', 'room', 'building']
-// A floor's FLOORPLAN is an image SHAPE (src `pdf:<fileId>#<page>`) on the model's Background "Floorplan" layer
-// — selectable / croppable / recalibratable like any image. Its placement is computed ONCE from the Outlets /
-// Uploads calibration of the page; later changes in Pages aren't synced back (drawings-plan). Locked by
-// default: clicking the plan mustn't grab it — unlock the layer to move / crop / recalibrate it.
-const FLOORPLAN_LAYER = { id: 'floorplan', name: 'Floorplan', group: 'Background', color: '#94a3b8', swatch: 'color' as const, visible: true, locked: true }
-const floorplanShapeOf = (m: Model) => m.shapes?.find((e) => e.type === 'image' && e.src?.startsWith(PDF_SRC))
 const fmtDate = (iso?: string) => (iso ? new Date(iso) : new Date()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 
 export class PagesProject {
@@ -91,7 +84,8 @@ export class PagesProject {
 	/** An open asked for before the store has loaded its models (the tree-item restore, a quick click) WAITS
 	 *  for them — otherwise modelForPlace finds nothing yet and a duplicate model would be created and stored. */
 	#pendingPlaceOpen = $state<{ placeId: string; preview: boolean } | null>(null)
-	#attaching = new Set<ModelId>()
+	/** Place models' floorplans: attach once, live calibration (floorplans.svelte.ts). */
+	readonly floorplans: Floorplans
 	/** The drawing management dialog is open (phase 6). */
 	drawingsOpen = $state(false)
 	/** Phase 8 imports (Sheets sheets, register drawings, risers). */
@@ -102,14 +96,7 @@ export class PagesProject {
 		this.imports = new ProjectImports(this, host)
 		// the GLOBAL block library (blocks/{id}): subscribed once per session; missing default blocks are seeded
 		$effect(() => { const db = this.#h.db; if (db) untrack(() => startBlocks(db)) })
-		// I6: live floorplans follow their file's Uploads calibration — one subscription per followed file. Only
-		// shapes flagged `live` are touched, and only when the calibration actually moved them (idempotent).
-		$effect(() => {
-			const key = this.#liveFiles, db = this.#h.db
-			if (!db || !key) return
-			const stops = key.split('|').map((fid) => db.subscribeOne('files', fid, (d) => untrack(() => void this.#syncCalib(fid, d as { pages?: Record<string, PageCalib> }))))
-			return () => stops.forEach((s) => s())
-		})
+		this.floorplans = new Floorplans({ db: () => this.#h.db, src: () => this.src, amendModelHistory: this.#h.amendModelHistory })
 		// One live ProjectSource + PagesStore per project id (re-created when Open Project navigates to another pid)
 		$effect(() => {
 			const pid = this.#h.pid(), db = this.#h.db
@@ -121,7 +108,7 @@ export class PagesProject {
 				onModels: (changed, removed) => {
 					for (const d of changed) {
 						const isNew = !modelById(d.id), m = docToModel(d)
-						upsertModel(m); if (isNew) this.#h.addModelToHistory(m); if (m.underlays?.length) this.#convertUnderlays(m.id)
+						upsertModel(m); if (isNew) this.#h.addModelToHistory(m); if (m.underlays?.length) this.floorplans.convertUnderlays(m.id)
 					}
 					removeModels(removed)
 				},
@@ -346,8 +333,8 @@ export class PagesProject {
 		}
 		if (!m) return
 		const l = place.legacy
-		if (l?.floor != null && l.area == null && l.room == null && l.row == null) this.#attachFloorplan(m.id, l.floor)
-		else if (l?.area) { const od = outletsDocIdFor(ps.pid, l, normFloors(this.src?.project?.floors)); if (od) this.#attachFloorplanFromDoc(m.id, od) }   // a zone: ITS plan
+		if (l?.floor != null && l.area == null && l.room == null && l.row == null) this.floorplans.attach(m.id, l.floor)
+		else if (l?.area) { const od = outletsDocIdFor(ps.pid, l, normFloors(this.src?.project?.floors)); if (od) this.floorplans.attachFromDoc(m.id, od) }   // a zone: ITS plan
 		return m.id
 	}
 	/** A place's model tab (drawings-plan phase 3); waits for the store when it isn't loaded yet. */
@@ -385,7 +372,7 @@ export class PagesProject {
 	realFloorModelId = (floor: string): ModelId => {
 		const src = this.src!, id = ensureFloorModel(`${floor} — ${src.project?.name ?? src.pid}`)
 		const n = parseInt(floor, 10)
-		if (!isNaN(n)) this.#attachFloorplan(id, n)
+		if (!isNaN(n)) this.floorplans.attach(id, n)
 		return id
 	}
 	/** Archive / restore a stored model: flag it in the registry (the save effect stores it); frames showing it
@@ -429,70 +416,8 @@ export class PagesProject {
 		this.#h.toast(`Imported into ${place.name}: ${r.added} new outlet${r.added === 1 ? '' : 's'}${r.updated ? `, ${r.updated} updated` : ''}, ${r.trunks} trunk${r.trunks === 1 ? '' : 's'}`)
 	}
 
-	// ── floorplans ──
-	/** Give a model its floor's floorplan shape, once (no-op when it already has one). */
-	#attachFloorplan(id: ModelId, n: number) {
-		const src = this.src, m = modelById(id)
-		if (!src || !m || floorplanShapeOf(m) || m.underlays?.length || this.#attaching.has(id)) return
-		this.#attaching.add(id)
-		src.floorplanOf(n).then((fp) => (fp ? this.#addFloorplanShape(id, fp.fileId, fp.pageNum) : undefined))
-			.catch(() => { /* no floorplan — the model stays empty */ }).finally(() => this.#attaching.delete(id))
-	}
-	/** A zone model's floorplan: the file its own Outlets-tool doc shows. */
-	#attachFloorplanFromDoc(id: ModelId, docId: string) {
-		const m = modelById(id), db = this.#h.db; if (!db || !m || floorplanShapeOf(m) || this.#attaching.has(id)) return
-		this.#attaching.add(id)
-		db.getOne('outlets', docId).then((d) => { const od = d as OutletsDoc | null; return od?.selectedFileId ? this.#addFloorplanShape(id, od.selectedFileId, od.selectedPage ?? 1) : undefined })
-			.catch(() => {}).finally(() => this.#attaching.delete(id))
-	}
-	#liveFiles = $derived(liveFileIds(models).join('|'))
-	/** The last `files/{id}` doc seen per followed file — a shape switched to live snaps at once (no new callback). */
-	#calibDocs = new Map<string, { pages?: Record<string, PageCalib> } | null>()
-	async #syncCalib(fileId: string, d: { pages?: Record<string, PageCalib> } | null) {
-		this.#calibDocs.set(fileId, d)
-		const targets = models.flatMap((m) => (m.shapes ?? []).flatMap((e) => { const ps = e.live && e.src ? parsePdfSrc(e.src) : null; return ps?.fileId === fileId ? [{ mid: m.id, id: e.id, page: ps.page }] : [] }))
-		for (const t of targets) {
-			const r = await renderPdfPage(fileId, t.page).catch(() => null); if (!r) continue
-			const pl = placementFromCalib(d?.pages?.[t.page], r.w, r.h)
-			// re-read AFTER the render: an edit meanwhile (a move that unlinked it) wins
-			const m = modelById(t.mid), cur = m?.shapes?.find((x) => x.id === t.id); if (!m || !cur?.live) continue
-			const next = followCalib(cur, pl); if (!next) continue
-			m.shapes = (m.shapes ?? []).map((x) => (x.id === t.id ? next : x))
-			// …and in every undo step where it is still live, so an undo never puts back the old placement
-			this.#h.amendModelHistory(t.mid, (sm) => { const s = sm.shapes?.find((x) => x.id === t.id); const n = s?.live ? followCalib(s, pl) : null; return n ? { ...sm, shapes: sm.shapes!.map((x) => (x.id === t.id ? n : x)) } : sm })
-		}
-	}
-	/** A floorplan just switched to live (Properties): snap it to the calibration already seen. */
-	resyncCalib = (src?: string) => {
-		const ps = src ? parsePdfSrc(src) : null; if (!ps || !this.#calibDocs.has(ps.fileId)) return
-		void this.#syncCalib(ps.fileId, this.#calibDocs.get(ps.fileId) ?? null)
-	}
-	async #addFloorplanShape(id: ModelId, fileId: string, page: number) {
-		const place = await floorplanPlacement(fileId, page)
-		const mm = modelById(id)
-		if (!place || !mm || floorplanShapeOf(mm)) return
-		// the floorplan goes on its OWN Background layer (first in the list = drawn underneath), so the Layers
-		// panel shows / hides / locks / VP-freezes it like any other layer
-		const shape: Ent = { id: newId('e'), type: 'image', a: place.a, b: place.b, src: pdfSrc(fileId, page), layer: FLOORPLAN_LAYER.id, opacity: 0.6, lockAspect: true, live: true }
-		if (place.crop) shape.crop = place.crop
-		const attach = (m: Model): Model => (floorplanShapeOf(m) ? m : {
-			...m, shapes: [shape, ...(m.shapes ?? [])],
-			layers: m.layers?.some((l) => l.id === FLOORPLAN_LAYER.id) ? m.layers : [{ ...FLOORPLAN_LAYER }, ...(m.layers ?? [])],
-		})
-		const next = attach(mm); mm.layers = next.layers; mm.shapes = next.shapes
-		this.#h.amendModelHistory(id, attach)   // attached asynchronously: every undo step gets it too, so undo can't drop it
-	}
-	/** A stored model from before floorplans were shapes: turn its plan underlays into floorplan shapes (once). */
-	#convertUnderlays(id: ModelId) {
-		const m = modelById(id), us = (m?.underlays ?? []).filter((u) => u.dir === 'plan' && u.fileId)
-		if (!m || !us.length || this.#attaching.has(id)) return
-		this.#attaching.add(id)
-		Promise.all(us.map((u) => this.#addFloorplanShape(id, u.fileId, u.pageNum ?? 1))).then(() => {
-			const mm = modelById(id); if (!mm) return
-			mm.underlays = []
-			const l = mm.layers?.find((x) => x.id === FLOORPLAN_LAYER.id); if (l) l.locked = true
-		}).catch(() => {}).finally(() => this.#attaching.delete(id))
-	}
+	/** I6: a floorplan just switched to live (Properties) snaps to its calibration. */
+	resyncCalib = (src?: string) => this.floorplans.resync(src)
 
 	// ── sheets (drawings-plan phase 4): a stored sheet opens as drawing id `sheet:<id>`; its paper / scale /
 	// frames load into the PageDoc store once, and every change there is folded back into the stored doc ──
