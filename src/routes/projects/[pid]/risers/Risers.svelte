@@ -884,7 +884,7 @@
 			const hi = Math.max(d.startFloor, d.currentFloor)
 			const newLadder: LadderType = {
 				id: nextId('ladder'),
-				label: `RISER-${ladders.length + 1}`,
+				label: `EPS-${ladders.length + 1}`,   // a riser ladder is named after its EPS by default
 				xMm: Math.max(50, Math.min(buildingWidthMm - 50, d.startMmX)),
 				fromFloor: lo,
 				toFloor: hi,
@@ -914,7 +914,7 @@
 		if (kind === 'server') {
 			const existing = rooms.filter((r) => r.kind === 'server' && r.floor === floor).length
 			const tag = ['A', 'B', 'C', 'D'][existing] ?? `${existing + 1}`
-			return `SER${fl}-${tag}`
+			return `IDF${fl}-${tag}`   // server rooms are IDFs by default
 		}
 		const existing = rooms.filter((r) => r.kind === 'eps' && r.floor === floor).length
 		const tag = ['A', 'B', 'C', 'D'][existing] ?? `${existing + 1}`

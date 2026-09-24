@@ -274,7 +274,7 @@ export class PagesProject {
 		this.#h.ensureHist()
 		// imported riser geometry sits at its storeys' heights: re-apply the riser against the new stack
 		const risers = this.#risersOf(m)
-		if (risers.length) for (const d of risers) this.#applyRisers(d, m, placeId)
+		if (risers.length) for (const d of risers) this.#applyRisers(d, m, placeId, true)   // keeps Pages-renamed labels
 		else { m.kind = 'building'; m.storeys = restack(floors, $state.snapshot(m.storeys ?? []) as Storey[]) }
 		this.#linkFloorModels(m)
 		this.#h.pushStep(this.#h.activeTabId() ?? '', `Floors of ${m.name}`)
@@ -673,12 +673,12 @@ export class PagesProject {
 	}
 	/** Merge a riser doc into building model `m` with storeys for the building's WHOLE stack (its place's floors,
 	 *  else the project's) plus the riser's own floors if outside it. No history step (the caller's). */
-	#applyRisers(d: RisersDocIn & { id: string }, m: Model, homeId: string) {
+	#applyRisers(d: RisersDocIn & { id: string }, m: Model, homeId: string, keepLabels = false) {
 		const st = this.stackOf(homeId), skip = new Set(st?.skipped ?? [])
 		const own = riserFloors(d, [...skip])
 		const all = [...new Set([...(st ? stackFloors(st) : []), ...own])].sort((a, b) => a - b)
 		const r = risersToBuilding(d, all, { riserId: d.id, layerIds: (m.layers ?? []).map((l) => l.id) })
-		const merged = mergeRisers($state.snapshot(m) as Model, r, d.id)
+		const merged = mergeRisers($state.snapshot(m) as Model, r, d.id, { keepLabels })
 		m.objects = merged.objects; m.storeys = merged.storeys; m.layers = merged.layers; m.kind = 'building'
 		return r
 	}

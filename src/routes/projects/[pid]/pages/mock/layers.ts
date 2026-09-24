@@ -14,7 +14,7 @@ export const DEFAULT_LAYERS: Layer[] = [
 	{ id: 'data', name: 'Data Outlets', group: 'Outlets', color: '#2563eb', swatch: 'color', visible: true, locked: false },
 	{ id: 'power', name: 'Power Outlets', group: 'Outlets', color: '#16a34a', swatch: 'color', visible: true, locked: false },
 	{ id: 'wireless', name: 'Wireless', group: 'Outlets', color: '#9333ea', swatch: 'color', visible: true, locked: false },
-	{ id: 'copper', name: 'Copper Trunks', group: 'Trunks', color: '#2563eb', swatch: 'line', dash: 'dashed', weight: 1.5, visible: true, locked: false },
+	{ id: 'copper', name: 'Copper Trunks', group: 'Trunks', color: '#2563eb', swatch: 'line', dash: 'solid', weight: 1.5, visible: true, locked: false },
 	{ id: 'fiber', name: 'Fiber Trunks', group: 'Trunks', color: '#0e7490', swatch: 'line', dash: 'solid', weight: 2, visible: true, locked: false },
 	// Kestrel-style architectural (subdued) — off by default
 	{ id: 'a-wall', name: 'A-WALL', group: 'Architectural', color: '#8a7f72', swatch: 'line', dash: 'solid', weight: 2.5, visible: false, locked: false },

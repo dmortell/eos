@@ -36,7 +36,7 @@ export const riserPrefix = (riserId: string) => `rsr-${riserId}-`
 const LEGACY = /^rsr-(room|lad|cab)-/   // before per-riser ids
 
 export const RISER_LAYERS: Layer[] = [
-	{ id: 'riser-rooms', name: 'Server rooms', group: 'Risers', color: '#2563eb', visible: true, locked: false },
+	{ id: 'riser-rooms', name: 'IDF rooms', group: 'Risers', color: '#2563eb', visible: true, locked: false },
 	{ id: 'riser-eps', name: 'EPS rooms', group: 'Risers', color: '#d97706', visible: true, locked: false },
 	{ id: 'riser-ladders', name: 'Riser ladders', group: 'Risers', color: '#6b7280', visible: true, locked: false },
 	{ id: 'riser-cables', name: 'Riser cables', group: 'Risers', color: '#059669', visible: true, locked: false },
@@ -134,9 +134,14 @@ export function risersToBuilding(d: RisersDocIn, floors: number[] = riserFloors(
 /** The building model with ONE riser merged in: that riser's imported objects replaced (and any from before
  *  per-riser ids), its storeys replaced, the layers the objects use added once / made visible (the Trunks layers
  *  start hidden). A NEW model object (the input isn't mutated). */
-export function mergeRisers(m: Model, r: { storeys: Storey[]; objects: Obj[] }, riserId?: string): Model {
+export function mergeRisers(m: Model, r: { storeys: Storey[]; objects: Obj[] }, riserId?: string, opts: { keepLabels?: boolean } = {}): Model {
 	const mine = (id?: string) => !!id && (riserId ? id.startsWith(riserPrefix(riserId)) || LEGACY.test(id) : id.startsWith('rsr-'))
 	const keep = m.objects.filter((o) => !mine(o.id))
+	// a re-stack (not a re-import) keeps labels renamed in Pages
+	if (opts.keepLabels) {
+		const old = new Map(m.objects.filter((o) => mine(o.id)).map((o) => [o.id, o.label]))
+		r = { ...r, objects: r.objects.map((o) => (old.has(o.id) ? { ...o, label: old.get(o.id) } : o)) }
+	}
 	const used = new Set(r.objects.map((o) => o.layer).filter((x): x is string => !!x))
 	const layers = (m.layers ?? []).map((l) => (used.has(l.id) && !l.visible ? { ...l, visible: true } : l))
 	for (const l of RISER_LAYERS) if (used.has(l.id) && !layers.some((x) => x.id === l.id)) layers.push({ ...l })

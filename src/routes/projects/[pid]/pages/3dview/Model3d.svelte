@@ -58,30 +58,27 @@
 		for (const o of model.objects) { const bb = objBounds(o); for (const c of b.h === 'x' ? [bb.x0, bb.x1] : [bb.y0, bb.y1]) { u0 = Math.min(u0, b.hs * c); u1 = Math.max(u1, b.hs * c) } }
 		return isFinite(u0) ? { u0: u0 - 1500, u1: u1 + 500 } : { u0: -1500, u1: 10500 }
 	})
-	// labels are ANNOTATIVE: a fixed size on paper (model mm = paper mm × paperMm), so a skyscraper's floor names
-	// stay legible zoomed out; a name that would overlap the one below is dropped (every Nth floor is named)
+	// labels are ANNOTATIVE: a fixed size on paper (model mm = paper mm × paperMm); in model space never below
+	// ~12 screen px so a skyscraper's floor names stay legible zoomed out
 	const LABEL_PAPER_MM = 2.2
 	const labelH = $derived(Math.max(LABEL_PAPER_MM * (paperMm || 1), 12 * (pxMm || 0)))
 	const storeyLines = $derived.by(() => {
 		if (!uSpan || !model.storeys?.length) return []
-		const b = BASIS[dir as keyof typeof BASIS], shown = [...(sm ? sm.shown : model.storeys)].sort((a, c) => a.z - c.z)
-		let lastNamed = -Infinity
-		return shown.map((s) => {
-			const z = sm ? sm.map(s.z) : s.z, named = z - lastNamed >= labelH * 1.3
-			if (named) lastNamed = z
-			return { id: s.id, name: named ? s.name : '', v: b.vs * z, ...uSpan }
-		})
+		const b = BASIS[dir as keyof typeof BASIS], shown = sm ? sm.shown : model.storeys
+		return shown.map((s) => ({ id: s.id, name: s.name, v: b.vs * (sm ? sm.map(s.z) : s.z), ...uSpan }))
 	})
-	// object names (e.g. an imported riser room): inside a box's top-left; at the top of anything else
+	// A LABELLED BOX (e.g. an imported riser room "IDF01-A") is its true-size rect with the name centred in it —
+	// one object, so they move / hide / collapse together. Other labelled objects are named at their top.
 	const objLabels = $derived.by(() => {
 		if (dir === 'iso') return []
-		const out: { id: string; text: string; u: number; v: number }[] = []
+		const out: { id: string; text: string; u: number; v: number; mid?: boolean }[] = []
 		for (const o of model.objects) {
 			if (!o.label || !visible(o) || inHiddenFloors(o)) continue
 			const pts = project(o, dir, yaw, pitch, cx, cy).flatMap((s) => mv(s.pts))
 			if (!pts.length) continue
-			const u0 = Math.min(...pts.map((p) => p.u)), vTop = Math.max(...pts.map((p) => p.v))
-			out.push({ id: o.id ?? '', text: o.label, u: u0 + labelH * 0.3, v: o.type === 'prism' ? vTop - labelH * 1.2 : vTop + labelH * 0.4 })
+			const us = pts.map((p) => p.u), vs = pts.map((p) => p.v)
+			if (o.type === 'prism') out.push({ id: o.id ?? '', text: o.label, u: (Math.min(...us) + Math.max(...us)) / 2, v: (Math.min(...vs) + Math.max(...vs)) / 2 - labelH * 0.35, mid: true })
+			else out.push({ id: o.id ?? '', text: o.label, u: Math.min(...us) + labelH * 0.3, v: Math.max(...vs) + labelH * 0.4 })
 		}
 		return out
 	})
@@ -195,7 +192,9 @@
 		{#if s.name}<text transform="translate({s.u0} {s.v + labelH * 0.3}) scale(1 -1)" font-size={labelH} fill={col} class="storey-name">{s.name}</text>{/if}
 	{/each}
 	{#each objLabels as l (l.id)}
-		<text transform="translate({l.u} {l.v}) scale(1 -1)" font-size={labelH} fill={adapt ? adapt('#475569') : '#475569'} class="storey-name">{l.text}</text>
+		{@const o = model.objects.find((x) => x.id === l.id)}
+		<text transform="translate({l.u} {l.v}) scale(1 -1)" font-size={labelH} text-anchor={l.mid ? 'middle' : 'start'}
+			fill={l.mid && o ? colorOf(o) : adapt ? adapt('#475569') : '#475569'} class="storey-name">{l.text}</text>
 	{/each}
 	{#each breakMarks as pts, i (i)}
 		<polyline points={pts} fill="none" stroke={adapt ? adapt(STOREY_COL) : STOREY_COL} stroke-width={1 / (canvasZoom || 1)} vector-effect="non-scaling-stroke" />

@@ -722,6 +722,7 @@
 			let item: TreeItem | undefined
 			try { item = JSON.parse(localStorage.getItem(TREE_LS) || '{}')[pid] } catch { /* private mode */ }
 			if (!item || Date.now() - restoreStart > 15000) { restoredFor = pid; return }
+			if (proj.store && proj.store.status !== 'ready') return   // wait for the stored models (a place's "has a model")
 			if (item.node === t.project.id) { restoredFor = pid; selectNode({ id: t.project.id, label: t.project.label, kind: 'project' }); return }
 			const hit = findNodePath(t.tree, item.node ? { id: item.node } : { docId: item.doc })
 			if (!hit) return   // not loaded yet — try again on the next tree update

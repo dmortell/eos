@@ -223,6 +223,10 @@
 	{:else if modelObj}
 		<!-- a 3D MODEL object is selected → edit its geometry + layer straight on the store -->
 		<div class="prop-sec">{modelTypeLabel(modelObj)}</div>
+		<!-- a name drawn with the object in plan / elevations (e.g. an imported riser room "IDF01-A") -->
+		<div class="prop"><span>Label</span><input value={modelObj.label ?? ''} placeholder="(none)"
+			onchange={(e) => onmodelupdate?.({ label: (e.currentTarget as HTMLInputElement).value.trim() || undefined })}
+			onkeydown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur() }} /></div>
 		<div class="prop"><span>Layer</span>
 			<select value={modelObj.layer ?? ''} onchange={(e) => onmodelupdate?.({ layer: (e.currentTarget as HTMLSelectElement).value || undefined })}>
 				{#each modelLayers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}

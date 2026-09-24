@@ -49,7 +49,7 @@
 	)
 	const fill = $derived(hexToRgba(baseColor, 0.06))
 	const stroke = $derived(baseColor)
-	const badge = $derived(room.kind === 'server' ? 'SER' : 'EPS')
+	const badge = $derived(room.kind === 'server' ? 'IDF' : 'EPS')
 </script>
 
 <g
