@@ -63,7 +63,7 @@
 	{#if !v.modelSpace}<div class="vp-tag"><Icon name={tagIcon[v.kind]} size={10} /> {v.label}{#if v.scale}<span class="vp-scale">{v.scale}</span>{/if}</div>{/if}   <!-- B31: model space names itself in the pane's bar -->
 	<VpWidgets {v} {x} />
 	{#if v.missing}
-		<div class="vp-missing"><b>Missing model</b>{#if v.missing.name}<span>“{v.missing.name}” is archived — unarchive it to show it here.</span>{:else}<span>The model this view points at doesn't exist.</span>{/if}</div>
+		<div class="vp-missing">{#if v.missing.unmapped}<b>Not mapped yet</b><span>Imported from Sheets: {v.missing.unmapped} — no Pages model for it yet.</span>{:else}<b>Missing model</b>{#if v.missing.name}<span>“{v.missing.name}” is archived — unarchive it to show it here.</span>{:else}<span>The model this view points at doesn't exist.</span>{/if}{/if}</div>
 	{/if}
 </div>
 

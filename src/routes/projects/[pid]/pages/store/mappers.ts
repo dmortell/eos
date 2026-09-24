@@ -25,6 +25,7 @@ export function frameToDoc(f: SheetFrame, seq: number, vs: FrameViewState = {}):
 	if (f.modelId != null) d.modelId = f.modelId
 	if (f.frozen?.length) d.frozen = [...f.frozen]
 	if (f.locked) d.locked = true
+	if (f.source) d.source = f.source
 	if (vs.view) d.view = { ...vs.view }
 	if (vs.yaw != null) d.yaw = vs.yaw
 	if (vs.pitch != null) d.pitch = vs.pitch
@@ -40,6 +41,7 @@ export function docToFrame(d: SheetFrameDoc): { frame: SheetFrame; view: FrameVi
 	if (d.modelId != null) frame.modelId = d.modelId
 	if (d.frozen?.length) frame.frozen = [...d.frozen]
 	if (d.locked) frame.locked = true
+	if (d.source) frame.source = d.source
 	return { frame, view: { view: d.view, yaw: d.yaw, pitch: d.pitch } }
 }
 
@@ -59,7 +61,8 @@ export function pageToSheet(s: PagesSheetDoc, d: Pick<PageDoc, 'paper' | 'scale'
 	return {
 		...s, scale: d.scale, sheetSize: d.paper.size,
 		paper: { size: d.paper.size, landscape: d.paper.landscape, marginMm: d.paper.margin ?? DEFAULT_MARGIN_MM },
-		frames: d.frames.map((f, i) => frameToDoc(f, f.seq ?? i + 1)),
+		// a frame's STORED view (an import's centring; later the live pan) is kept — the editor doesn't carry it
+		frames: d.frames.map((f, i) => { const old = s.frames.find((x) => x.id === f.id); return frameToDoc(f, f.seq ?? i + 1, old ? { view: old.view, yaw: old.yaw, pitch: old.pitch } : {}) }),
 	}
 }
 

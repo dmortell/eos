@@ -27,6 +27,9 @@ export type SheetFrame = {
 	frozen?: string[]
 	/** XP22: a locked frame can't be moved or resized on the paper (still selectable, editable inside). */
 	locked?: boolean
+	/** Imported from the Sheets tool (drawings-plan phase 8) with NO Pages model to show yet: what it showed there
+	 *  (e.g. "racks · …_F33_RA"). The frame renders a "Not mapped yet" placeholder, never the place model. */
+	source?: string
 }
 
 /** Drawing scales offered in the scale pickers (viewport bar + Properties). */

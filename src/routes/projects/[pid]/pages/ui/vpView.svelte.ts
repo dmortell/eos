@@ -106,10 +106,11 @@ export class VpView {
 	viewSpace = $derived(this.kind === 'plan' ? 'plan' : this.isElev ? this.elevDir : null)
 	/** The model the `modelId` prop asks for is ARCHIVED or unknown (drawings-plan §2.3): the viewport shows a
 	 *  "Missing model" placeholder instead of quietly falling back to another model. */
-	missing = $derived.by(() => {
+	missing = $derived.by((): { name: string | null; unmapped?: string } | null => {
+		if (this.p.unmapped) return { name: null, unmapped: this.p.unmapped }   // an imported frame with no Pages model yet
 		const id = this.modelId; if (id == null) return null
 		const m = modelById(id)
-		return !m ? { name: null as string | null } : m.archived ? { name: m.name } : null
+		return !m ? { name: null } : m.archived ? { name: m.name } : null
 	})
 	mdl = $derived(this.missing ? undefined : (modelById(this.modelId) ?? models[0]))   // the model this viewport renders/edits (§5 registry)
 

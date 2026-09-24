@@ -65,6 +65,8 @@ export type SheetFrameDoc = {
 	frozen?: string[]
 	locked?: boolean
 	border: 'dashed' | 'solid' | 'none'
+	/** An imported frame's unmapped Sheets source (types.ts SheetFrame.source). */
+	source?: string
 }
 
 export type SheetKind = 'plan' | 'elevation' | 'schematic' | 'detail' | 'schedule'
@@ -94,6 +96,8 @@ export type PagesSheetDoc = {
 	 *  (store/versions.ts sheetHash) — differs → "edited since the last issue". */
 	latestIssuedAt?: string
 	issuedHash?: string
+	/** Phase 8: imported from — `sheets/<id>` (a Sheets-tool sheet) or `drawings/<id>` (another tool's view). */
+	importedFrom?: string
 	/** "Drawn" in the title block (initials); empty → the creator's initials. */
 	drawnBy?: string
 	currentVersionNumber: number

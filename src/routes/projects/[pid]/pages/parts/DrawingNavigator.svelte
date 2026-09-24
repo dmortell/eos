@@ -8,7 +8,7 @@
 	import { type NavKind as Kind, type NavNode as Node, NAV_TREE as TREE, NAV_PROJECT as PROJECT } from '../mock/data'
 
 	let { onopen, onopenfloor, oncollapse, onselectnode, activeDoc = '', activeNode = '', tree = null, project = null, status = '', onaddbuilding, onmovefloor, onmovebuilding, reveal = [],
-		placesMode = false, onseedplaces, onplaceadd, onplacerename, onplacemove, onplacedelete, onopenplace, onsheetadd, onsheetrename, onsheetarchive, onplaceimport, ondrawings }:
+		placesMode = false, onseedplaces, onplaceadd, onplacerename, onplacemove, onplacedelete, onopenplace, onsheetadd, onsheetrename, onsheetarchive, onplaceimport, ondrawings, onimportdrawing }:
 		{ onopen?: (d: { title: string; kind: Kind; preview: boolean; floor?: string; docId?: string }) => void; oncollapse?: () => void;
 			/** A FLOOR row was clicked (preview) or double-clicked (kept): open that floor's model tab. */
 			onopenfloor?: (floor: string, preview: boolean) => void;
@@ -46,7 +46,9 @@
 			/** Import the place's outlets + trunks from the Outlets tool into its model (places with `outletsDoc`). */
 			onplaceimport?: (placeId: string) => void
 			/** Open the drawing management dialog (drawings-plan phase 6). */
-			ondrawings?: () => void } = $props()
+			ondrawings?: () => void
+			/** Phase 8: make a Pages sheet from another tool's register drawing (a `d:<id>` leaf). */
+			onimportdrawing?: (leafId: string) => void } = $props()
 	const TREE_NODES = $derived(tree ?? TREE)
 	const PROJ = $derived(project ? { ...project, kind: 'project' } : PROJECT)
 	// A floor row's model / tab name: the real tree carries it (`floor`, e.g. '33F'); the mock's label is it.
@@ -105,6 +107,10 @@
 	let menuConfirm = $state<string | null>(null)
 	function menuItems(n: Node): MenuItem[] {
 		const out: MenuItem[] = []
+		if (n.drawing && !n.sheet) {   // another tool's register drawing (`d:<id>`)
+			if (onimportdrawing && n.id.startsWith('d:')) out.push({ key: 'import', label: 'Import into Pages', icon: 'download', run: () => onimportdrawing?.(n.id) })
+			return out
+		}
 		if (n.sheet) {
 			if (onsheetrename) out.push({ key: 'rename', label: 'Rename', icon: 'edit', run: () => startRename(n) })
 			if (onsheetarchive) out.push({ key: 'archive', label: 'Archive', icon: 'archive', danger: true, confirm: 'Click again to archive', run: () => onsheetarchive?.(n.id) })
@@ -271,13 +277,16 @@
 		{:else if n.drawing}
 			<!-- drawing leaf: opens a tab -->
 			<!-- single-click = preview tab (italic, reused); double-click promotes it to a kept tab -->
-			<button class="dn-row leaf" class:active={activeDoc === (n.docId ?? n.id)} style:padding-left="{depth * 12 + 8}px"
+			<!-- (a div, not a button, so it can hold the ⋮ actions button — e.g. "Import into Pages" for another tool's view) -->
+			<div class="dn-row leaf" class:active={activeDoc === (n.docId ?? n.id)} style:padding-left="{depth * 12 + 8}px" role="button" tabindex="0"
 				onclick={() => onopen?.({ title: n.label, kind: n.drawing!, preview: true, floor, docId: n.docId ?? n.id })}
-				ondblclick={() => onopen?.({ title: n.label, kind: n.drawing!, preview: false, floor, docId: n.docId ?? n.id })}>
+				ondblclick={() => onopen?.({ title: n.label, kind: n.drawing!, preview: false, floor, docId: n.docId ?? n.id })}
+				onkeydown={(e) => { if (e.key === 'Enter') onopen?.({ title: n.label, kind: n.drawing!, preview: false, floor, docId: n.docId ?? n.id }) }}>
 				<span class="dn-chev spacer"></span>
 				<Icon name={drawingIcon[n.drawing]} size={13} />
 				<span class="dn-name" title={n.label}>{n.label}</span>
-			</button>
+				{#if placesMode}{@render more(n)}{/if}
+			</div>
 		{:else}
 			<!-- location folder: chevron toggles expand; the row selects it (props in right panel). A FLOOR row
 			     also opens the floor's model tab — single click previews, double click keeps (like a drawing). -->

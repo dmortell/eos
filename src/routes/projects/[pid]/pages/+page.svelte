@@ -979,6 +979,7 @@
 		<DrawingsDialog sheets={proj.store.sheets} places={proj.store.places} models={proj.storedModelInfo} projectName={proj.src?.project?.name ?? ''} packagesHref="/projects/{page.params.pid}/packages"
 			onupdate={proj.updateSheets} onarchive={proj.archiveSheets} onrestore={proj.restoreSheets} ondelete={proj.deleteSheet}
 			onopen={proj.openSheetById} onmodelarchive={proj.setModelArchived} onopenmodel={proj.openModelById} onpackage={proj.saveAsPackage}
+			onlistlegacy={proj.legacySheets} onimportlegacy={proj.importLegacySheet}
 			onclose={() => (proj.drawingsOpen = false)} />
 	{/if}
 	{#if openProjectOpen}<OpenProjectDialog currentId={page.params.pid} onpick={openProject} onclose={() => (openProjectOpen = false)} />{/if}
@@ -1022,6 +1023,7 @@
 					onplaceadd={proj.onPlaceAdd} onplacerename={proj.onPlaceRename} onplacemove={proj.onPlaceMove} onplacedelete={proj.onPlaceDelete}
 					onopenplace={proj.hasPlaces ? (id, preview) => { restoredFor = page.params.pid ?? ''; proj.openPlaceModel(id, preview) } : undefined}
 					ondrawings={proj.hasPlaces ? () => (proj.drawingsOpen = true) : undefined}
+					onimportdrawing={proj.hasPlaces ? (id) => void proj.importRegisterDrawing(id).then((notes) => { if (notes.length) toast(notes.join('\n')) }) : undefined}
 					onsheetadd={proj.hasPlaces ? proj.onSheetAdd : undefined} onplaceimport={proj.hasPlaces ? (id) => void proj.importPlaceOutlets(id) : undefined}
 					onsheetrename={(rowId, t) => proj.renameSheet(rowId.slice(2), t)} onsheetarchive={(rowId) => proj.archiveSheet(rowId.slice(2))}
 					onaddbuilding={(n) => proj.src?.addBuilding(n).catch((e) => { toast(`Couldn't add the building: ${e?.message ?? e}`); return false }) ?? Promise.resolve(false)}

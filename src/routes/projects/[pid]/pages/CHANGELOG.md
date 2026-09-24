@@ -17,6 +17,11 @@ open items; `review.md §0a` tracks which review findings are closed.
   "edited since" by content hash), sheet revisions (Issue rev N / Overwrite rev N, blocked until every model is at
   an unedited major — with Overwrite / Open per model), title block rev + date from the latest issue, draft
   packages of issued sheets. The mock revisions are gone.
+- **Sheets import** (phase 8): a Sheets-tool sheet → a Pages sheet in a chosen place (drawings dialog › Import
+  from Sheets), or another tool's register drawing → a one-frame Pages sheet (tree ⋮). Outlets viewports keep
+  their scale + framing on the place model, with their annotations (text, lines, dims, rects / clouds, ellipses,
+  callouts, images, outlet symbols as block inserts) scoped to the frame; unmappable viewports show "Not mapped
+  yet"; a note lists everything that didn't map.
 - `+page.svelte` split: `pagesProject.svelte.ts` (project side), `history.svelte.ts` (undo timeline),
   `ui/clipboard.ts` — 1640 → ~1200 lines.
 

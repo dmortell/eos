@@ -28,6 +28,9 @@ import { normFloors, findNodePath } from './projectTree'
 import { ProjectSource } from './projectData.svelte'
 import { PagesStore, type SheetRevisionDoc } from './store/pagesStore.svelte'
 import { issueProblems, sheetModels, type ModelVersionDoc } from './store/versions'
+import { importSheetDoc, type SheetImportResult } from './store/sheetsImport'
+import type { SheetDoc, SheetViewport } from '../sheets/types'
+import { PAPER_SIZES } from './constants'
 import type { PagesSheetDoc } from './store/schema'
 import { buildPlaceTree } from './store/placeTree'
 import { addPlace, updatePlace, movePlace, removePlace, ancestorsOf } from './store/places'
@@ -36,6 +39,8 @@ import { fillTitleBlock, initialsOf, DEFAULT_TITLE_BLOCK, type TbCell } from './
 import type { DropZone } from './parts/treeDrag.svelte'
 
 type TreeNodeSel = { id: string; label: string; kind: string; floorNumber?: number; building?: string }
+/** A Sheets-tool sheet as the drawings dialog's Import tab lists it. */
+export type LegacySheetRow = { id: string; title: string; number: string; viewports: string[]; importedAs?: string; placeId: string | null }
 /** The workspace state + actions this class needs from +page.svelte. */
 export type ProjectHost = {
 	db?: Firestore
@@ -356,6 +361,9 @@ export class PagesProject {
 		if (!sh || docs.has(did)) return
 		docs.seed(did, sheetToPage(sh))
 		this.#h.addDocToHistory(did)
+		// a frame's STORED view (e.g. an import's centring) seeds each pane's view of it, unless one is remembered
+		for (const f of sh.frames) if (f.view) for (const p of this.#h.session.panes)
+			if (!viewState.hasView(p.id, f.id, f.direction)) viewState.setView(p.id, f.id, f.direction, f.view)
 	}
 	/** The model a NEW frame on this tab's sheet shows: the sheet's place model (created if needed). */
 	newFrameModel = (tabId: string): ModelId | undefined => { const sh = this.storedSheetOfTab(tabId); return sh?.placeId ? this.ensurePlaceModel(sh.placeId) : undefined }
@@ -494,6 +502,91 @@ export class PagesProject {
 	}
 	/** Open a model's tab with History showing (from a sheet's issue check). */
 	openModelHistory = (mid: string) => { this.openModelById(mid) }
+
+	// ── phase 8: IMPORTS (store/sheetsImport.ts) ──
+	/** The Pages model showing an Outlets-tool doc: the model of a place whose outlets doc it is (the fullest one
+	 *  when several places share it, e.g. a floor and its legacy zone); null = none yet. */
+	#modelForOutlets = (docId: string): Model | null => {
+		const ps = this.store; if (!ps) return null
+		const floors = normFloors(this.src?.project?.floors)
+		const cands = ps.places.filter((p) => outletsDocIdFor(ps.pid, p.legacy, floors) === docId)
+			.map((p) => modelForPlace(p.id)).filter((m): m is Model => !!m && !m.archived)
+		return cands.sort((a, b) => (b.shapes?.length ?? 0) - (a.shapes?.length ?? 0))[0] ?? null
+	}
+	/** The layer an imported annotation goes on: the same id if the model has it, else the model's Annotations
+	 *  layer (`anno` in the default stack), else its first non-background layer. */
+	#layerFor = (m: Model, id?: string) => {
+		const ls = m.layers ?? [], has = (x: string) => ls.some((l) => l.id === x)
+		return id && has(id) ? id : has('anno') ? 'anno' : has('annotations') ? 'annotations' : ls.find((l) => l.group !== 'Background')?.id
+	}
+	/** The colour a Sheets annotation without its own drew in: the project's annotation default, else Sheets'
+	 *  built-in red (sheets/annotations/AnnotationLayer.svelte). */
+	#annColor = () => (this.src?.project as { annotationDefaults?: { color?: string } } | null)?.annotationDefaults?.color ?? '#dc2626'
+	/** The Sheets tool's sheets (for the dialog's Import tab), with the Pages sheet each was imported as. */
+	legacySheets = async (): Promise<LegacySheetRow[]> => {
+		const db = this.#h.db, ps = this.store; if (!db || !ps) return []
+		const docs = (await db.getMany(`projects/${ps.pid}/sheets`)) as unknown as SheetDoc[]
+		const floors = normFloors(this.src?.project?.floors)
+		// the place a sheet most likely belongs to: the one whose outlets doc its first outlets viewport shows
+		const guess = (s: SheetDoc) => {
+			const v = s.viewports?.find((x) => x.source.kind === 'outlets'), doc = v?.source.kind === 'outlets' ? v.source.outletsDocId : null
+			const m = doc ? this.#modelForOutlets(doc) : null
+			return m?.placeId ?? (doc ? ps.places.find((p) => outletsDocIdFor(ps.pid, p.legacy, floors) === doc)?.id : undefined) ?? null
+		}
+		return docs.filter((s) => !s.link).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)).map((s) => ({
+			id: s.id, title: s.title, number: s.drawingNumber ?? '',
+			viewports: (s.viewports ?? []).map((v) => v.source.kind),
+			importedAs: ps.sheets.find((x) => x.importedFrom === `sheets/${s.id}` && x.status !== 'archived')?.title,
+			placeId: guess(s),
+		}))
+	}
+	/** Import one Sheets-tool sheet into a new Pages sheet filed under `placeId` (drawings-plan §6): frames on the
+	 *  place models of their outlets docs, annotations as frame-scoped shapes (one undo step), the rest unmapped.
+	 *  Returns the notes about what didn't map (empty = everything did). */
+	importLegacySheet = async (legacyId: string, placeId: string | null): Promise<string[]> => {
+		const db = this.#h.db, ps = this.store; if (!db || !ps || ps.status !== 'ready') return ['Still loading — try again in a moment']
+		const src = (await db.getOne(`projects/${ps.pid}/sheets`, legacyId)) as unknown as SheetDoc | null
+		if (!src) return [`Sheet ${legacyId} not found`]
+		return this.#createImported(importSheetDoc(src, { newId, modelForOutlets: this.#modelForOutlets, layerFor: this.#layerFor, defaultColor: this.#annColor() }), placeId, `sheets/${legacyId}`)
+	}
+	/** A register drawing of another tool (a tree leaf, `d:<id>`) → a Pages sheet in its place with ONE full-page
+	 *  frame of the place model (an outlets view), else an unmapped frame. */
+	importRegisterDrawing = async (leafId: string): Promise<string[]> => {
+		const ps = this.store, d = this.src?.drawings.find((x) => `d:${x.id}` === leafId); if (!ps || !d) return ['Drawing not found']
+		const hit = this.realTree ? findNodePath(this.realTree.tree, { id: leafId }) : null
+		const placeId = [...(hit?.ancestors ?? [])].reverse().find((a) => a.place)?.id ?? null
+		const size = ps.project?.settings?.paperSize ?? 'A3', [pw, ph] = PAPER_SIZES[size], m = 10
+		const source: SheetViewport['source'] = d.toolType === 'outlets' ? { kind: 'outlets', outletsDocId: d.sourceDocId ?? '' }
+			: d.toolType === 'racks' ? { kind: 'racks', racksDocId: d.sourceDocId ?? '', face: 'front' }
+			: d.toolType === 'risers' ? { kind: 'risers', risersDocId: d.sourceDocId ?? '' } : { kind: 'empty' }
+		// one Fit viewport filling the paper left of the title-block strip (16 % of the width)
+		const doc: SheetDoc = { id: d.id, projectId: ps.pid, title: d.title ?? d.id, drawingNumber: d.drawingNumber, sortOrder: 0,
+			paper: { paperSize: size as 'A3', orientation: 'landscape', drawingOffset: { x: 0, y: 0 }, scale: 100, showPaper: false, margins: m },
+			viewports: [{ id: 'v1', x: m, y: m, w: Math.round(pw * 0.84 - 2 * m), h: ph - 2 * m, source }] }
+		const r = importSheetDoc(doc, { newId, modelForOutlets: this.#modelForOutlets, layerFor: this.#layerFor })
+		if (source.kind === 'empty') {   // a tool Pages has no model kind for (frames, patching, …): name it
+			const what = `${d.toolType ?? 'drawing'} · ${d.sourceDocId ?? d.id}`
+			r.frames[0].source = what
+			r.notes = [`The frame shows ${what} — not mapped: no Pages model for it yet`]
+		}
+		return this.#createImported(r, placeId, `drawings/${d.id}`)
+	}
+	#createImported(r: SheetImportResult, placeId: string | null, from: string): string[] {
+		const ps = this.store!
+		const shapeCount = Object.values(r.shapes).reduce((n, a) => n + a.length, 0)
+		if (shapeCount) {
+			this.#h.ensureHist()
+			for (const [mid, ents] of Object.entries(r.shapes)) { const m = modelById(mid); if (m) m.shapes = [...(m.shapes ?? []), ...ents] }
+			this.#h.pushStep(this.#h.activeTabId() ?? '', `Import “${r.title}”`)
+		}
+		const d = ps.createSheet({ title: r.title, placeId })
+		ps.saveSheet({ ...d, drawingNumber: r.drawingNumber, paper: r.paper, sheetSize: r.paper.size, frames: r.frames, importedFrom: from })
+		// open it behind the dialog (which stays open to show the notes)
+		this.loadSheet(d.id); this.#h.session.treeNode = null
+		this.#h.openDrawing({ title: r.title, kind: 'sheet', preview: false, docId: SHEET + d.id })
+		this.#h.toast(`Imported “${r.title}”: ${r.frames.length} frame${r.frames.length === 1 ? '' : 's'}, ${shapeCount} annotation${shapeCount === 1 ? '' : 's'}${r.notes.length ? ` — ${r.notes.length} note${r.notes.length === 1 ? '' : 's'}` : ''}`)
+		return r.notes
+	}
 
 	/** Drawings dialog: a DRAFT package of the selected sheets at their latest revisions (sheets never issued
 	 *  are left out). Returns a message for the dialog. */

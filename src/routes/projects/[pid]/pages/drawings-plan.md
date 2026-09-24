@@ -174,6 +174,10 @@ Each phase ships on its own and gets live-checked in the browser.
    **History:** model versions (major copy / minor notes), sheet revisions, and the issue flow with the
    overwrite-or-bump prompt.
 8. **Imports:** Sheets sheet → Pages sheet (one at a time); risers → building model (Hibiya, LR).
+   (Sheets import DONE 2026-09-24: `store/sheetsImport.ts`; the drawings dialog's "Import from Sheets" tab, and
+   ⋮ › "Import into Pages" on another tool's register drawing in the tree. Outlets viewports map to the place
+   model of their outlets doc at the same scale + centre, annotations → frame-scoped shapes; other viewports keep
+   `source` and show "Not mapped yet". Risers → building model still to do.)
 
 ## 8. Deferred / to think about
 

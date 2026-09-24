@@ -16,9 +16,10 @@
 	import { sheetRows, filterRows, sortRows, groupRows, renumber, modelUsage, missingModelFrames, placePath,
 		type SortKey, type GroupBy, type ModelInfo } from '../store/drawingList'
 	import { exportDrawingRows } from '../store/drawingListExport'
+	import type { LegacySheetRow } from '../pagesProject.svelte'
 
 	type Patch = { id: string; patch: Partial<PagesSheetDoc> }
-	let { sheets, places, models, projectName = '', packagesHref = '', onupdate, onarchive, onrestore, ondelete, onopen, onmodelarchive, onopenmodel, onpackage, onclose }: {
+	let { sheets, places, models, projectName = '', packagesHref = '', onupdate, onarchive, onrestore, ondelete, onopen, onmodelarchive, onopenmodel, onpackage, onlistlegacy, onimportlegacy, onclose }: {
 		sheets: PagesSheetDoc[]; places: Place[]; models: ModelInfo[]; projectName?: string
 		/** The app's Packages page for this project (created packages are managed + published there). */
 		packagesHref?: string
@@ -27,6 +28,9 @@
 		onmodelarchive: (id: string, archived: boolean) => void; onopenmodel: (id: string) => void; onclose: () => void
 		/** Create a draft package from sheet ids + a name; resolves to a message to show. */
 		onpackage?: (ids: string[], name: string) => Promise<string>
+		/** Phase 8: list the Sheets tool's sheets / import one into a place (resolves to notes on what didn't map). */
+		onlistlegacy?: () => Promise<LegacySheetRow[]>
+		onimportlegacy?: (id: string, placeId: string | null) => Promise<string[]>
 	} = $props()
 
 	const KINDS: SheetKind[] = ['plan', 'elevation', 'schematic', 'detail', 'schedule']
@@ -35,7 +39,28 @@
 		{ key: 'discipline', label: 'Discipline' }, { key: 'rev', label: 'Rev' }, { key: 'size', label: 'Size' }, { key: 'scale', label: 'Scale' }, { key: 'updatedAt', label: 'Updated' },
 	]
 
-	let tab = $state<'sheets' | 'archived' | 'models'>('sheets')
+	let tab = $state<'sheets' | 'archived' | 'models' | 'import'>('sheets')
+	// ── Import (phase 8): the Sheets tool's sheets, one at a time into a place ──
+	let legacy = $state<LegacySheetRow[] | null>(null), legacyPlace = $state<Record<string, string>>({})
+	let importing = $state<string | null>(null), importNotes = $state<{ title: string; notes: string[] } | null>(null)
+	async function openImport() {
+		tab = 'import'
+		if (!onlistlegacy) return
+		legacy = null
+		const rows = await onlistlegacy()
+		legacyPlace = Object.fromEntries(rows.map((r) => [r.id, r.placeId ?? '']))
+		legacy = rows
+	}
+	async function runImport(r: LegacySheetRow) {
+		if (!onimportlegacy || importing) return
+		importing = r.id
+		try {
+			importNotes = { title: r.title, notes: await onimportlegacy(r.id, legacyPlace[r.id] || null) }
+			if (onlistlegacy) legacy = await onlistlegacy()
+		} finally { importing = null }
+	}
+	const placeOptions = $derived(places.map((p) => ({ id: p.id, path: placePath(places, p.id) })).sort((a, b) => a.path.localeCompare(b.path, undefined, { numeric: true })))
+	const kindCount = (ks: string[]) => Object.entries(ks.reduce<Record<string, number>>((m, k) => ((m[k] = (m[k] ?? 0) + 1), m), {})).map(([k, n]) => (n > 1 ? `${k} ×${n}` : k)).join(', ')
 	let q = $state(''), fKind = $state(''), fDisc = $state(''), fTag = $state('')
 	let groupBy = $state<GroupBy>('place')
 	let sortKey = $state<SortKey>('number'), sortDir = $state<1 | -1>(1)
@@ -110,6 +135,7 @@
 				<button class:on={tab === 'sheets'} onclick={() => (tab = 'sheets')}>Sheets <em>{live.length}</em></button>
 				<button class:on={tab === 'archived'} onclick={() => (tab = 'archived')}>Archived <em>{archived.length}</em></button>
 				<button class:on={tab === 'models'} onclick={() => (tab = 'models')}>Models <em>{models.length}</em>{#if missing.length}<b title="Frames showing a Missing model">!</b>{/if}</button>
+				{#if onlistlegacy}<button class:on={tab === 'import'} onclick={openImport} title="Import sheets from the Sheets tool">Import from Sheets</button>{/if}
 			</div>
 			{#if packagesHref}<a class="dd-link" href={packagesHref} target="_blank" rel="noopener" title="The project's packages (opens in a new tab)"><Icon name="package" size={13} /> Packages</a>{/if}
 			<button class="dd-x" title="Close (Esc)" onclick={onclose}><Icon name="x" size={15} /></button>
@@ -182,6 +208,42 @@
 					{/each}
 				</table>
 				{#if !shown.length}<div class="dd-empty">{live.length ? 'No sheets match' : 'No sheets yet — add one from a place in the tree'}</div>{/if}
+			</div>
+
+		{:else if tab === 'import'}
+			<div class="dd-help">One sheet at a time into a new Pages sheet, filed under the place you pick. Outlets viewports show that
+				place's model (import its outlets first) with their annotations; other viewports come in as “Not mapped yet”.
+				The Sheets tool's own sheets are left untouched.</div>
+			{#if importNotes}
+				<div class="dd-notes">
+					<div class="dd-notes-head"><b>Imported “{importNotes.title}”</b>{importNotes.notes.length ? ' — not everything mapped:' : ' — everything mapped.'}
+						<button class="dd-btn ghost" onclick={() => (importNotes = null)}><Icon name="x" size={12} /></button></div>
+					{#each importNotes.notes as n, i (i)}<div class="dd-note">{n}</div>{/each}
+				</div>
+			{/if}
+			<div class="dd-table">
+				{#if !legacy}<div class="dd-empty">Loading the Sheets tool's sheets…</div>
+				{:else if !legacy.length}<div class="dd-empty">This project has no Sheets-tool sheets</div>
+				{:else}
+					<table>
+						<thead><tr><th>Dwg №</th><th>Title</th><th>Viewports</th><th>Into place</th><th>Status</th><th></th></tr></thead>
+						<tbody>
+							{#each legacy as r (r.id)}
+								<tr>
+									<td class="muted">{r.number || '—'}</td><td>{r.title}</td>
+									<td class="muted">{kindCount(r.viewports) || '—'}</td>
+									<td><select class="cell" bind:value={legacyPlace[r.id]}>
+										<option value="">(project level)</option>
+										{#each placeOptions as p (p.id)}<option value={p.id}>{p.path}</option>{/each}
+									</select></td>
+									<td class="muted">{r.importedAs ? `imported as “${r.importedAs}”` : ''}</td>
+									<td class="act wide"><button class="dd-btn" disabled={!!importing} onclick={() => void runImport(r)}
+										title={r.importedAs ? 'Import again (makes another Pages sheet)' : 'Import into a new Pages sheet'}>{importing === r.id ? 'Importing…' : r.importedAs ? 'Import again' : 'Import'}</button></td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				{/if}
 			</div>
 
 		{:else if tab === 'archived'}
@@ -291,6 +353,11 @@
 	td.act > button:not(.dd-btn) { background:none; border:none; color:var(--muted); cursor:pointer; display:inline-grid; place-items:center; }
 	td.act > button:not(.dd-btn):hover { color:var(--accent); }
 	em.tag { font-style:normal; font-size:10px; color:var(--faint); border:1px solid var(--line); border-radius:3px; padding:0 4px; }
+	.dd-help { padding:8px 12px; font-size:11px; color:var(--muted); line-height:1.45; border-bottom:1px solid var(--line-soft); }
+	.dd-notes { margin:8px 12px 0; padding:6px 10px; border:1px solid #f59e0b55; border-radius:6px; background:#f59e0b10; font-size:11px; color:var(--text); max-height:30vh; overflow:auto; }
+	.dd-notes-head { display:flex; align-items:center; justify-content:space-between; gap:8px; padding-bottom:3px; }
+	.dd-note { color:var(--muted); padding:1px 0 1px 10px; text-indent:-8px; }
+	.dd-note::before { content:'• '; }
 	.dd-notice { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:5px 12px; font-size:11px; color:var(--text); background:#0e749022; border-bottom:1px solid var(--line-soft); }
 	.dd-empty { padding:24px; text-align:center; font-size:12px; color:var(--faint); }
 	.dd-sec { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:#f59e0b; padding:14px 12px 4px; }
