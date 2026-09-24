@@ -7,6 +7,7 @@ import { drawingLeaf, drawingPlace, floorName, normFloors, type DrawingDoc, type
 import type { NavKind, NavNode } from '../mock/data'
 import { ancestorsOf, childrenOf } from './places'
 import type { PagesSheetDoc, Place } from './schema'
+import { outletsDocIdFor } from './outletsImport'
 
 export type PlaceTreeInput = { pid: string; places: Place[]; drawings: DrawingDoc[]; risers: RiserDoc[]; floors?: FloorConfig[] | number[]; sheets?: PagesSheetDoc[] }
 
@@ -57,6 +58,7 @@ export function buildPlaceTree({ pid, places, drawings, risers, floors, sheets =
 			modelFloor: isFloorPlace(p) ? floorName(p.legacy!.floor!) : null }
 		if (p.legacy?.floor != null) n.floor = floorName(p.legacy.floor)   // drawings under it view that floor's model
 		if (isFloorPlace(p)) n.floorNumber = p.legacy!.floor
+		const od = outletsDocIdFor(pid, p.legacy, normFloors(floors)); if (od) n.outletsDoc = od
 		return n
 	}
 	const tree = childrenOf(places, null).map(node)

@@ -5,7 +5,7 @@ import { migrateModels } from '../3dview/migrate'
 import type { Model } from '../3dview/types'
 import type { SheetFrame } from '../types'
 import type { PageDoc } from '../doc.svelte'
-import type { View } from '../ui/geometry'
+import type { View, Ent } from '../ui/geometry'
 import type { ModelDoc, PagesSheetDoc, SheetFrameDoc, SheetPaper } from './schema'
 
 /** Paper px → paper mm, rounded to 0.1 mm (the editor lays frames out in paper px). */
@@ -85,10 +85,20 @@ export function normSheet(d: Partial<PagesSheetDoc> & { id: string }): PagesShee
 	} as PagesSheetDoc
 }
 
+// Firestore can't store NESTED arrays: a shape's `pts` ([[x, y], …]) is stored as [{ x, y }, …] and decoded on
+// load (a doc written before this, or by hand, with plain [x, y] pairs still reads).
+type StoredPt = { x: number; y: number }
+export const encodeShapes = (ss: Ent[] | undefined): Ent[] | undefined =>
+	ss?.map((s) => (s.pts ? ({ ...s, pts: s.pts.map(([x, y]) => ({ x, y })) } as unknown as Ent) : s))
+export const decodeShapes = (ss: Ent[] | undefined): Ent[] | undefined =>
+	ss?.map((s) => (s.pts ? { ...s, pts: (s.pts as unknown as (StoredPt | [number, number])[]).map((p) => (Array.isArray(p) ? p : [p.x, p.y]) as [number, number]) } : s))
+
 /** An in-memory model → its stored doc. Pass PLAIN data (`$state.snapshot` first): Firestore can't store
  *  the proxies, and undefined fields are stripped by the db layer. */
 export function modelToDoc(m: Model, now: string): ModelDoc {
-	return { ...m, updatedAt: now }
+	const d: ModelDoc = { ...m, updatedAt: now }
+	if (m.shapes) d.shapes = encodeShapes(m.shapes)
+	return d
 }
 
 /** A stored model doc → an in-memory model: defaults filled, migrations applied (legacy `ents` → `shapes`,
@@ -96,5 +106,6 @@ export function modelToDoc(m: Model, now: string): ModelDoc {
 export function docToModel(d: Partial<ModelDoc> & { id: string }): Model {
 	const { updatedAt: _u, ...rest } = d
 	const m: Model = { ...rest, id: d.id, name: d.name ?? d.id, objects: d.objects ?? [] }
+	if (d.shapes) m.shapes = decodeShapes(d.shapes)
 	return migrateModels([m])[0]
 }

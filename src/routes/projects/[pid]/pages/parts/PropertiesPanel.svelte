@@ -4,7 +4,7 @@
 	// common props (bbox X/Y/W/H) and edits apply to all. Falls back to page/general props
 	// when nothing is selected. Geometry is in model units (mock).
 	import { Icon, ColorPicker } from '$lib'
-	import { blockDef } from '../ui/blocks'
+	import { blockDef, insertBounds } from '../ui/blocks'
 	import { blockList } from '../blocks.svelte'
 	import { translate, textBox, STYLE_DEFAULTS, type Ent, type Pt, type TextAlign, type VAlign, type Head, type Dash } from '../ui/geometry'
 	import { PT_MM, PAPER_PX_PER_MM } from '../constants'
@@ -44,6 +44,7 @@
 	function bbox(e: Ent): [number, number, number, number] {
 		if (e.type === 'polyline') { const pts = e.pts ?? []; const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] }
 		if (e.type === 'text') return textBox(e, PT_MM * scaleN)
+		if (e.type === 'insert') return insertBounds(e)   // no `b`: the block's extent at the insertion point
 		const xs = [e.a![0], e.b![0]], ys = [e.a![1], e.b![1]]
 		return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
 	}

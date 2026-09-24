@@ -110,7 +110,7 @@ export function flatSpan(e: Ent, dir: ElevDir, cx = PLAN_CX, cy = PLAN_CY): [num
 	const ax = ELEV_BASIS[dir].axis
 	let lo: number, hi: number
 	if (e.type === 'polyline') { const cs = (e.pts ?? []).map(p => p[ax]); lo = Math.min(...cs); hi = Math.max(...cs) }
-	else { lo = Math.min(e.a![ax], e.b![ax]); hi = Math.max(e.a![ax], e.b![ax]) }
+	else { const b = e.b ?? e.a!; lo = Math.min(e.a![ax], b[ax]); hi = Math.max(e.a![ax], b[ax]) }   // a point (insert / text) → its a
 	const u0 = elevU(dir, lo, cx, cy), u1 = elevU(dir, hi, cx, cy)
 	return [Math.min(u0, u1), Math.max(u0, u1)]
 }

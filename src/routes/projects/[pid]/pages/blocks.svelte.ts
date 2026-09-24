@@ -4,6 +4,7 @@
 // under its fixed id (idempotent — two sessions seeding at once write the same doc).
 import type { Firestore } from '$lib'
 import { DEFAULT_BLOCKS, setBlockResolver, type BlockDef } from './ui/blocks'
+import { encodeShapes, decodeShapes } from './store/mappers'
 
 const byId = $state<Record<string, BlockDef>>(Object.fromEntries(DEFAULT_BLOCKS.map((b) => [b.id, b])))
 setBlockResolver((id) => (id ? byId[id] : undefined))
@@ -17,10 +18,11 @@ export function startBlocks(db: Firestore) {
 	started = true
 	let seeded = false
 	db.subscribeMany('blocks', (docs) => {
-		for (const d of docs) byId[d.id] = d as unknown as BlockDef
+		for (const d of docs) { const b = d as unknown as BlockDef; byId[d.id] = { ...b, shapes: decodeShapes(b.shapes) ?? [] } }
 		if (seeded) return
 		seeded = true
 		const have = new Set(docs.map((d) => d.id))
-		for (const b of DEFAULT_BLOCKS) if (!have.has(b.id)) void db.save('blocks', { ...b, updatedAt: new Date().toISOString() })
+		// shapes' points as {x,y} (Firestore can't store nested arrays)
+		for (const b of DEFAULT_BLOCKS) if (!have.has(b.id)) void db.save('blocks', { ...b, shapes: encodeShapes(b.shapes), updatedAt: new Date().toISOString() })
 	})
 }

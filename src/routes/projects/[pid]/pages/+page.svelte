@@ -42,6 +42,8 @@
 	import { docToModel, sheetToPage, pageToSheet, nextFrameSeq } from './store/mappers'
 	import { floorplanPlacement, pdfSrc, PDF_SRC } from './ui/render/pdfRaster.svelte'
 	import { startBlocks } from './blocks.svelte'
+	import { importOutletsInto, outletsDocIdFor, type OutletsDoc } from './store/outletsImport'
+	import { normFloors } from './projectTree'
 	import type { PageDoc } from './doc.svelte'
 	import { getContext, untrack } from 'svelte'
 	import type { Firestore } from '$lib'
@@ -825,7 +827,31 @@
 		if (!m) return
 		const l = place.legacy
 		if (l?.floor != null && l.area == null && l.room == null && l.row == null) attachFloorplan(m.id, l.floor)
+		else if (l?.area) { const od = outletsDocIdFor(ps.pid, l, normFloors(projectSrc?.project?.floors)); if (od) attachFloorplanFromDoc(m.id, od) }   // a zone: ITS plan
 		return m.id
+	}
+	/** A zone model's floorplan: the file its own Outlets-tool doc shows. */
+	function attachFloorplanFromDoc(id: ModelId, docId: string) {
+		const m = modelById(id); if (!fdb || !m || floorplanShapeOf(m) || attaching.has(id)) return
+		attaching.add(id)
+		fdb.getOne('outlets', docId).then((d) => { const od = d as OutletsDoc | null; return od?.selectedFileId ? addFloorplanShape(id, od.selectedFileId, od.selectedPage ?? 1) : undefined })
+			.catch(() => {}).finally(() => attaching.delete(id))
+	}
+	/** Import a place's outlets (block inserts) + trunks (conduits) from the Outlets tool into its model — one
+	 *  undo step; importing again updates what was imported (drawings-plan §6). */
+	async function importPlaceOutlets(placeId: string) {
+		const ps = pagesStore, place = ps?.places.find((p) => p.id === placeId); if (!ps || !place || !fdb) return
+		if (ps.status !== 'ready') { toast('Still loading — try again in a moment'); return }
+		const docId = outletsDocIdFor(ps.pid, place.legacy, normFloors(projectSrc?.project?.floors)); if (!docId) return
+		const doc = (await fdb.getOne('outlets', docId)) as OutletsDoc | null
+		if (!doc || (!doc.outlets?.length && !doc.trunks?.length)) { toast(`Nothing to import from outlets/${docId}`); return }
+		const mid = ensurePlaceModel(placeId); const m = mid ? modelById(mid) : undefined; if (!m) return
+		ensureHist()
+		const r = importOutletsInto($state.snapshot(m) as Model, doc)
+		m.shapes = r.model.shapes; m.objects = r.model.objects; m.layers = r.model.layers
+		pushStep(session.panes[session.focused]?.activeId ?? '', 'Import from Outlets tool')
+		openPlaceModel(placeId, false)
+		toast(`Imported into ${place.name}: ${r.added} new outlet${r.added === 1 ? '' : 's'}${r.updated ? `, ${r.updated} updated` : ''}, ${r.trunks} trunk${r.trunks === 1 ? '' : 's'}`)
 	}
 	function openPlaceModel(placeId: string, preview: boolean) {
 		const ps = pagesStore, place = ps?.places.find((p) => p.id === placeId); if (!ps || !place) return
@@ -1367,7 +1393,7 @@
 					placesMode={hasPlaces} onseedplaces={canSeedPlaces ? seedPlaces : undefined}
 					onplaceadd={onPlaceAdd} onplacerename={onPlaceRename} onplacemove={onPlaceMove} onplacedelete={onPlaceDelete}
 					onopenplace={hasPlaces ? (id, preview) => { restoredFor = page.params.pid ?? ''; openPlaceModel(id, preview) } : undefined}
-					onsheetadd={hasPlaces ? onSheetAdd : undefined} onsheetrename={(rowId, t) => renameSheet(rowId.slice(2), t)} onsheetarchive={(rowId) => archiveSheet(rowId.slice(2))}
+					onsheetadd={hasPlaces ? onSheetAdd : undefined} onplaceimport={hasPlaces ? (id) => void importPlaceOutlets(id) : undefined} onsheetrename={(rowId, t) => renameSheet(rowId.slice(2), t)} onsheetarchive={(rowId) => archiveSheet(rowId.slice(2))}
 					onaddbuilding={(n) => projectSrc?.addBuilding(n).catch((e) => { toast(`Couldn't add the building: ${e?.message ?? e}`); return false }) ?? Promise.resolve(false)}
 					onmovefloor={(f, b) => projectSrc?.moveFloor(f, b).catch((e) => toast(`Couldn't move the floor: ${e?.message ?? e}`))}
 					onmovebuilding={(n, t, after) => projectSrc?.moveBuilding(n, t, after).catch((e) => toast(`Couldn't reorder: ${e?.message ?? e}`))}

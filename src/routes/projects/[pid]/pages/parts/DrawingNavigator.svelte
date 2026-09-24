@@ -8,7 +8,7 @@
 	import { type NavKind as Kind, type NavNode as Node, NAV_TREE as TREE, NAV_PROJECT as PROJECT } from '../mock/data'
 
 	let { onopen, onopenfloor, oncollapse, onselectnode, activeDoc = '', activeNode = '', tree = null, project = null, status = '', onaddbuilding, onmovefloor, onmovebuilding, reveal = [],
-		placesMode = false, onseedplaces, onplaceadd, onplacerename, onplacemove, onplacedelete, onopenplace, onsheetadd, onsheetrename, onsheetarchive }:
+		placesMode = false, onseedplaces, onplaceadd, onplacerename, onplacemove, onplacedelete, onopenplace, onsheetadd, onsheetrename, onsheetarchive, onplaceimport }:
 		{ onopen?: (d: { title: string; kind: Kind; preview: boolean; floor?: string; docId?: string }) => void; oncollapse?: () => void;
 			/** A FLOOR row was clicked (preview) or double-clicked (kept): open that floor's model tab. */
 			onopenfloor?: (floor: string, preview: boolean) => void;
@@ -42,7 +42,9 @@
 			 *  so it opens for renaming; rename / archive a sheet leaf. Sheets drag like places (`onplacemove`). */
 			onsheetadd?: (placeId: string) => string | undefined
 			onsheetrename?: (rowId: string, title: string) => void
-			onsheetarchive?: (rowId: string) => void } = $props()
+			onsheetarchive?: (rowId: string) => void
+			/** Import the place's outlets + trunks from the Outlets tool into its model (places with `outletsDoc`). */
+			onplaceimport?: (placeId: string) => void } = $props()
 	const TREE_NODES = $derived(tree ?? TREE)
 	const PROJ = $derived(project ? { ...project, kind: 'project' } : PROJECT)
 	// A floor row's model / tab name: the real tree carries it (`floor`, e.g. '33F'); the mock's label is it.
@@ -92,6 +94,11 @@
 		const id = renamingId; if (!id) return
 		if (nodeById(id)?.sheet) { renamingId = null; if (renameText.trim()) onsheetrename?.(id, renameText.trim()) }
 		else commitRename()
+	}
+	let confirmImport = $state<string | null>(null)
+	function importPlace(id: string) {
+		if (confirmImport !== id) { confirmImport = id; setTimeout(() => { if (confirmImport === id) confirmImport = null }, 3000); return }
+		confirmImport = null; onplaceimport?.(id)
 	}
 	let confirmArchive = $state<string | null>(null)
 	function archiveSheet(id: string) {
@@ -256,6 +263,8 @@
 					{#if n.meta}<span class="dn-meta">{n.meta}</span>{/if}
 					{#if placesMode && n.place}
 						<span class="dn-acts-row">
+							{#if onplaceimport && n.outletsDoc}<button class:confirm={confirmImport === n.id} title={confirmImport === n.id ? 'Click again to import outlets + trunks from the Outlets tool' : 'Import outlets + trunks from the Outlets tool'} aria-label="Import from Outlets tool"
+								onclick={(e) => { e.stopPropagation(); importPlace(n.id) }}><Icon name="download" size={12} />{#if confirmImport === n.id}<span>Import?</span>{/if}</button>{/if}
 							{#if onsheetadd}<button title="New sheet here" aria-label="New sheet" onclick={(e) => { e.stopPropagation(); addSheet(n.id) }}><Icon name="fileText" size={12} /></button>{/if}
 							{#if onplaceadd}<button title="New place inside" aria-label="New place inside" onclick={(e) => { e.stopPropagation(); addPlace(n.id) }}><Icon name="plus" size={12} /></button>{/if}
 							{#if onplacerename}<button title="Rename" aria-label="Rename" onclick={(e) => { e.stopPropagation(); startRename(n) }}><Icon name="edit" size={12} /></button>{/if}

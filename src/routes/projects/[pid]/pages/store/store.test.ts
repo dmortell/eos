@@ -72,6 +72,13 @@ describe('sheet + model docs', () => {
 		const d = normSheet({ id: 's9', title: 'X' })
 		expect(d.frames).toEqual([]); expect(d.tags).toEqual([]); expect(d.placeId).toBeNull(); expect(d.paper.size).toBe('A3')
 	})
+	it("stores a polyline's points as {x,y} (Firestore has no nested arrays) and reads both forms back", () => {
+		const m = { id: 'm1', name: 'm', objects: [], shapes: [{ id: 'p', type: 'polyline' as const, pts: [[1, 2], [3, 4]] as [number, number][] }] }
+		const d = modelToDoc(m, 't')
+		expect(d.shapes![0].pts).toEqual([{ x: 1, y: 2 }, { x: 3, y: 4 }])
+		expect(docToModel(d).shapes![0].pts).toEqual([[1, 2], [3, 4]])
+		expect(docToModel({ ...d, shapes: m.shapes }).shapes![0].pts).toEqual([[1, 2], [3, 4]])   // an older plain-array doc
+	})
 	it('docToModel takes the doc id, fills defaults and migrates the legacy `ents` field', () => {
 		const m = docToModel({ id: 'm7', ents: [{ id: 'l', type: 'line', a: [0, 0], b: [1, 1] }], updatedAt: 't' } as never)
 		expect(m.id).toBe('m7'); expect(m.name).toBe('m7'); expect(m.objects).toEqual([])
