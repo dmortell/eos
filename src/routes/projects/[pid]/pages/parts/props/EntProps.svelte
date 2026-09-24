@@ -13,13 +13,17 @@
 	import { imgEdit, setImgMode } from '../../imageEdit.svelte'
 	import type { Layer as MLayer } from '../../3dview/types'
 	import { autoNumber, numberable, type NumberOrder } from '../../ui/autoNumber'
+	import { incLabel } from '../../ui/outletPlace.svelte'
+	import { isOutletEnt } from '../../store/allocate'
 
-	let { ents, onupdate, onarrange, layers = [], activeFrameId = undefined, scaleN = 1, sheets = [], onopenlink, onsaveblock }: {
+	let { ents, onupdate, onarrange, layers = [], activeFrameId = undefined, scaleN = 1, sheets = [], onopenlink, onsaveblock, onwalk }: {
 		ents: Ent[]; /** One shape, or several as ONE undo step. */ onupdate?: (e: Ent | Ent[]) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void
 		/** D4: the project's sheets (a symbol's LINK picker) + open a link (a sheet id or a URL). */
 		sheets?: { id: string; title: string; number?: string }[]; onopenlink?: (link: string) => void
 		/** D5: save the selection as a library block. */
 		onsaveblock?: (name: string) => void
+		/** E3: start a walk renumber seeded from this outlet's label. */
+		onwalk?: (label: string) => void
 		/** The model's one layer list (R5: shapes and model objects share it). */
 		layers?: MLayer[]
 		/** The active sheet frame, if any — offers the "this viewport only" scope. */
@@ -229,6 +233,12 @@
 				onchange={(e) => onupdate?.({ ...ins, attrs: { ...(ins.attrs ?? {}), [ad.tag]: strVal(e) } })} onkeydown={blurOnEnter} /></div>
 		{/if}
 	{/each}
+	{#if onwalk && isOutletEnt(ins)}
+		<!-- E3: click the other outlets in order; each takes the next label after this one -->
+		{@const nx = incLabel(ins.attrs?.LABEL ?? '')}
+		<button class="pp-reset" disabled={!nx} title={nx ? `The next one clicked becomes ${nx}` : 'Give this outlet a label ending in a number first'}
+			onclick={() => onwalk(ins.attrs?.LABEL ?? '')}>Renumber by clicking from here…</button>
+	{/if}
 	<label class="prop cb"><span>Mirror</span><input type="checkbox" checked={!!ins.mirror} title="Flip left ↔ right (e.g. a door's hinge side)" onchange={(e) => onupdate?.({ ...ins, mirror: (e.currentTarget as HTMLInputElement).checked || undefined })} /></label>
 {/if}
 {#if single?.type === 'image'}

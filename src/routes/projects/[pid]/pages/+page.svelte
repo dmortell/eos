@@ -35,6 +35,7 @@
 	import CommandPalette from './parts/CommandPalette.svelte'
 	import OpenProjectDialog from './parts/OpenProjectDialog.svelte'
 	import DrawingDefaultsDialog from './parts/DrawingDefaultsDialog.svelte'
+	import { outletSticky, rememberOutlet, walk, incLabel } from './ui/outletPlace.svelte'
 	import { panzoom } from './ui/panzoom'
 	import { paperDims, scaleDenom, PAPER_PX_PER_MM, DEFAULT_MARGIN_MM, clampViewZoom, clampCanvasZoom, type PaperSize } from './constants'
 	import { PRINT_ID, printCss, applyPrint, removePrint } from './printing'
@@ -558,6 +559,13 @@
 		const p = session.panes[session.focused]; if (p) p.tool = id ? 'Block' : 'Select'
 	}
 	$effect(() => { if (placeBlock && session.panes.every((p) => p.tool !== 'Block')) untrack(() => (placeBlock = null)) })   // a tool pick / Esc disarms
+	// E3: a WALK renumber from the selected outlet's label — the focused pane's tool becomes 'Renumber'; the whole
+	// walk is one undo step (a gesture), closed when the tool changes (a tool pick / Esc)
+	function startWalk(label: string) {
+		const p = session.panes[session.focused]; if (!p || !incLabel(label)) return
+		walk.label = label; navMode = null; beginGesture(); p.tool = 'Renumber'
+	}
+	$effect(() => { if (walk.label !== null && session.panes.every((p) => p.tool !== 'Renumber')) untrack(() => { walk.label = null; endGesture() }) })
 	/** D5: the selected shapes → a custom block in the global library. */
 	function saveSelAsBlock(name: string) {
 		if (!selEnts.length) return
@@ -586,6 +594,7 @@
 		else if (item === 'Delete') deleteSelection()
 		else if (item === 'Image…') importImage()
 		else if (item === 'Text') { if (active) focusTool('Text') }
+		else if (item === 'Outlet') { if (active) armBlock(outletSticky.block) }   // E1: the last-used outlet block, sticky ports / type / layer, next label
 		else if (item === 'Dimension') { if (active) focusTool('Dimension') }
 		// Not-yet-implemented File items: tell the user instead of silently doing nothing (B8).
 		else if (item === 'Open Project…') openProjectOpen = true
@@ -1124,7 +1133,7 @@
 				{:else if rightTab === 'layers'}
 					<LayersPanel layers={modelById(activeMid())?.layers ?? []} frozen={activeFrame?.frozen ?? (activeFrame ? [] : null)} onfreeze={toggleVpFreeze} countOf={layerItemCount} ondelete={deleteLayerWithItems} />
 				{:else if rightTab === 'props'}
-					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (active) updateEnts(active.id, [e].flat()) }}
+					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (!active) return; const es = [e].flat(); updateEnts(active.id, es); if (es.length === 1) rememberOutlet(es[0]) }} onwalk={startWalk}
 						onarrange={(op) => { if (active) reorderEnts(active.id, activeEntIds(), op) }}
 						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''}
 						onpagetitle={(t) => { if (!active || !t.trim()) return; const sid = sheetIdOf(active.docId); if (sid) proj.renameSheet(sid, t); else active.title = t.trim() }} {activeLayer} node={session.treeNode} nodeInfo={proj.nodeInfo} onnodefield={proj.setNodeField}

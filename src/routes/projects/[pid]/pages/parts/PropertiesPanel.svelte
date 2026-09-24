@@ -21,7 +21,7 @@
 	type HeightKey = 'slabMm' | 'raisedFloorMm' | 'clearHeightMm' | 'plenumMm'
 
 	let { ents = [], onupdate, onarrange, pageTitle = '', pageKind = '', activeLayer = '', node = null, onpagetitle,
-		modelObj = null, modelObjs = [], model = null, onmodeladd, outletsFor, allocated, sheets = [], onopenlink, onsaveblock, onmodelsupdate, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg,
+		modelObj = null, modelObjs = [], model = null, onmodeladd, outletsFor, allocated, sheets = [], onopenlink, onsaveblock, onwalk, onmodelsupdate, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg,
 		frameObj = null, onframeupdate, onframedelete, onframefit, nodeInfo = null, onnodefield, modelList = [], activeFrameId = undefined, scaleN = 1,
 		sheetInfo = null, onsheetfield, titleBlock = undefined, ontitleblock, frameStoreys = [], frameConduits = [], heights = null, onheight, onheightall }:
 		{ ents?: Ent[]; onupdate?: (e: Ent | Ent[]) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void;
@@ -37,6 +37,7 @@
 			/** D4: the project's sheets (a symbol's LINK) + open a link (a sheet id or a URL). */
 			sheets?: { id: string; title: string; number?: string }[]; onopenlink?: (link: string) => void;
 			/** D5: save the selected shapes as a library block. */ onsaveblock?: (name: string) => void;
+			/** E3: start a walk renumber from this outlet label. */ onwalk?: (label: string) => void;
 			/** I4: two or more model objects selected, and the per-object patch callback (one undo step). */
 			modelObjs?: Obj[]; onmodelsupdate?: (patchOf: (o: Obj) => Record<string, unknown> | null) => void;
 			onmodelupdate?: (patch: Record<string, unknown>) => void; onmodeldelete?: () => void; onmodelseg?: (segIdx: number, patch: Record<string, unknown>) => void;
@@ -80,7 +81,7 @@
 	{:else if ents.length === 0}
 		<PageProps title={pageTitle} kind={pageKind} {activeLayer} ontitle={onpagetitle} {sheetInfo} {onsheetfield} {titleBlock} {ontitleblock} />
 	{:else}
-		<EntProps {ents} {onupdate} {onarrange} layers={modelLayers} {activeFrameId} {scaleN} {sheets} {onopenlink} {onsaveblock} />
+		<EntProps {ents} {onupdate} {onarrange} layers={modelLayers} {activeFrameId} {scaleN} {sheets} {onopenlink} {onsaveblock} {onwalk} />
 	{/if}
 </div>
 {/key}

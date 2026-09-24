@@ -24,6 +24,8 @@ import { constrainPt } from './annotations'
 import { pasteCopies, relabelCopies } from './clipboard'
 import { zToU, uToZ } from '../store/racksImport'
 import { insertLink } from './blocks'
+import { isOutletBlock, newOutletFields, incLabel, walk } from './outletPlace.svelte'
+import { isOutletEnt } from '../store/allocate'
 import { guideId, selectedPlanGuide } from '../guides.svelte'
 import { imgEdit, clearImgMode } from '../imageEdit.svelte'
 import { toolPrompt, imgModeText, statusLine } from './vpPrompt'
@@ -263,8 +265,21 @@ export class VpInteraction {
 
 	// ── D5: place a library block (the 'Block' tool's click, or a block dragged in from the Blocks panel) ──
 	private placeBlock(id: string, p: Pt) {
-		const v = this.v, e: Ent = { id: uid(), type: 'insert', block: id, a: p, plane: drawPlane(v.ctx), attrs: {} }
+		const v = this.v
+		// E1/E2: an outlet takes the sticky ports / type / layer and the next label
+		const extra = isOutletBlock(id) ? newOutletFields(v.mdl?.shapes ?? v.entities, (v.mdl?.layers ?? []).map((l) => l.id)) : { attrs: {} }
+		const e: Ent = { id: uid(), type: 'insert', block: id, a: p, plane: drawPlane(v.ctx), ...extra }
+		if (!e.layer) delete e.layer
 		v.editor.ents.add(e); v.selectEnts([e.id])
+	}
+	// ── E3: walk renumber — each clicked outlet takes the label after the previous one ──
+	private walkClick(p: Pt) {
+		const v = this.v, last = walk.label; if (last === null) return
+		const hit = v.hitAll(p).map((id) => v.entities.find((x) => x.id === id)).find((x) => x && isOutletEnt(x))
+		if (!hit) { toast('Click an outlet — Esc stops renumbering', { id: 'walk' }); return }
+		const next = incLabel(last); if (!next) return
+		v.editor.ents.update({ ...hit, attrs: { ...(hit.attrs ?? {}), LABEL: next } })
+		walk.label = next; v.selectEnts([hit.id])
 	}
 	onDragOver = (e: DragEvent) => { if (this.v.active && e.dataTransfer?.types.includes('application/x-pages-block')) e.preventDefault() }
 	onDrop = (e: DragEvent) => {
@@ -323,6 +338,7 @@ export class VpInteraction {
 		}
 		if (tool === 'Text') { const p = this.drawPoint(e.clientX, e.clientY); if (p) v.editor.ents.add({ id: uid(), type: 'text', a: p, text: 'TEXT', plane: drawPlane(v.ctx) }); v.snapMark = null; return }
 		if (tool === 'Block') { const p = this.drawPoint(e.clientX, e.clientY); if (p && v.blockId) this.placeBlock(v.blockId, p); v.snapMark = null; return }   // D5
+		if (tool === 'Renumber') { const p = v.toModel(e.clientX, e.clientY); if (p) this.walkClick(p); return }   // E3
 		if (tool === 'Guide') { const p = v.toModel(e.clientX, e.clientY); if (p) this.placeGuide(p, v.guideIsVert(e.shiftKey)); return }
 		// Model objects are placed in the plan — EXCEPT wall/trunk/pipe graphs, which can also be drawn in an elevation.
 		if (MODEL_TOOL.has(tool) && !v.isPlan && !(MODEL_GRAPH.has(tool) && v.isElev)) return
@@ -462,7 +478,7 @@ export class VpInteraction {
 			return
 		}
 		if (v.tool !== 'Select') {   // EOS mode: a shape is one press-drag-release
-			if (v.acad || v.tool === 'Text' || v.tool === 'Guide' || v.tool === 'Block') return   // AutoCAD two-click / text, guide, block single-click via onClick
+			if (v.acad || v.tool === 'Text' || v.tool === 'Guide' || v.tool === 'Block' || v.tool === 'Renumber') return   // AutoCAD two-click / text, guide, block, renumber single-click via onClick
 			const dp = this.drawPoint(e.clientX, e.clientY); if (!dp) return
 			this.draft = [dp]; this.cur = dp
 			beginPointerDrag(e, null, { onMove: this.onDrawMove, onUp: this.onDrawUp, onCancel: () => this.endDraft() }, reg)

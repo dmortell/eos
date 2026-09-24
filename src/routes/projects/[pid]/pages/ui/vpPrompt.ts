@@ -44,6 +44,8 @@ export function toolPrompt(a: PromptArgs): string {
 		case 'Ellipse': return n ? 'Specify opposite corner (Shift = circle)' : 'Specify first corner'
 		case 'Dimension': return n ? 'Specify second point' : 'Specify first point'
 		case 'Text': return 'Click to place text'
+		case 'Block': return 'Click to place the block (outlets take the next label) · Esc = done'
+		case 'Renumber': return 'Click each outlet in order — it takes the next label · Esc = done (Ctrl+Z undoes the whole walk)'
 		default: return tool + ' tool'
 	}
 }
