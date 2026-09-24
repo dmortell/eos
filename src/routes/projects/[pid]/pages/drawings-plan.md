@@ -168,7 +168,10 @@ Each phase ships on its own and gets live-checked in the browser.
    archived list + hard delete. (DONE 2026-09-24: `parts/DrawingsDialog.svelte`, `store/drawingList.ts`,
    `store/drawingListExport.ts`; File › Drawings… / the navigator's list button. **Packages deferred to
    phase 7** — package items reference issued revisions, which Pages sheets don't have yet.)
-7. **History:** model versions (major copy / minor notes), sheet revisions, and the issue flow with the
+7. (DONE 2026-09-24: `store/versions.ts`, PagesStore version/revision writes, `parts/HistoryPanel.svelte`; model
+   versions in `models/{id}/versions/{v}`, sheet issues as registry `versions/v<n>` + `revisions/r<code>`; version
+   stamps survive undo; packages from the drawings dialog.)
+   **History:** model versions (major copy / minor notes), sheet revisions, and the issue flow with the
    overwrite-or-bump prompt.
 8. **Imports:** Sheets sheet → Pages sheet (one at a time); risers → building model (Hibiya, LR).
 

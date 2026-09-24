@@ -13,6 +13,12 @@ open items; `review.md §0a` tracks which review findings are closed.
 - **Drawings dialog** (phase 6): sheets register (search, filters, grouping, sort, inline + bulk edit, renumber
   patterns, tags, archive, Excel export), archived list with restore / hard delete, and a Models tab (usage,
   archive / restore, frames showing a Missing model).
+- **History** (phase 7): model versions (1.0 first; majors keep a full copy you can restore, minors are notes;
+  "edited since" by content hash), sheet revisions (Issue rev N / Overwrite rev N, blocked until every model is at
+  an unedited major — with Overwrite / Open per model), title block rev + date from the latest issue, draft
+  packages of issued sheets. The mock revisions are gone.
+- `+page.svelte` split: `pagesProject.svelte.ts` (project side), `history.svelte.ts` (undo timeline),
+  `ui/clipboard.ts` — 1640 → ~1200 lines.
 
 ## Refactors — code-review 2 R-items (2026-09-22 → 09-24)
 Work was split across sessions: one spec'd and diff-reviewed, one implemented, one live-gated each

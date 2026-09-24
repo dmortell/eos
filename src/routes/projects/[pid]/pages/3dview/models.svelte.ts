@@ -42,7 +42,15 @@ export const snapModels = (): Model[] => $state.snapshot(models) as Model[]
 // (Replacing the whole array removed such a model on undo: its tab went "Missing model" and its save stopped.)
 export const setModels = (next: Model[]) => {
 	const snap = $state.snapshot(next) as Model[], byId = new Map(snap.map((m) => [m.id, m]))
-	for (let i = 0; i < models.length; i++) { const m = byId.get(models[i].id); if (m) models[i] = m }
+	for (let i = 0; i < models.length; i++) { const m = byId.get(models[i].id); if (m) models[i] = keepMeta(m, models[i]) }
+}
+/** Management stamps (drawings-plan phases 6–7) record saves / archiving, not drawing edits — an undo restores
+ *  a model's CONTENT but keeps its current version stamp and archived flag. */
+const META_KEYS = ['version', 'versionHash', 'archived'] as const
+function keepMeta(restored: Model, cur: Model): Model {
+	const out = { ...restored }
+	for (const k of META_KEYS) { if (cur[k] === undefined) delete out[k]; else (out as Record<string, unknown>)[k] = cur[k] }
+	return out
 }
 
 // Model-object + guide selection (P2) used to live here as a GLOBAL `modelSel` store (a pick in any view

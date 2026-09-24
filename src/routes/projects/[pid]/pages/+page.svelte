@@ -45,6 +45,7 @@
 	import { findNodePath } from './projectTree'
 	import { PagesProject, sheetIdOf, SHEET } from './pagesProject.svelte'
 	import { WorkspaceHistory } from './history.svelte'
+	import { modelVersionState, sheetEditedSinceIssue } from './store/versions'
 	import { Clipboard, arrange, setGroup, type ArrangeOp } from './ui/clipboard'
 	import type { TitleBlockTemplate } from './titleBlock'
 	import { DEFAULT_YAW, DEFAULT_PITCH } from './3dview/projection'
@@ -466,24 +467,6 @@
 		recordEdit(id, 'Reorder')
 	}
 
-	// ── mock revisions (replaced by real model versions + sheet revisions in drawings-plan phase 7) ──
-	type Snap = Ent[]   // a revision snapshots the model's entities (shared across all views)
-	let revisions = $state<{ name: string; note: string; snap: Snap; t: number }[]>([])
-	const snapEnts = (): Snap => $state.snapshot(mdlEnts()) as Snap
-	// Absolute date for the titleblock — the latest revision's date, else today (mock).
-	const fmtDate = (t?: number) => new Date(t ?? Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-	let revSeq = 0
-	function makeRevision() {
-		revisions = [{ name: 'Rev ' + String.fromCharCode(67 + revSeq++), note: '', snap: snapEnts(), t: Date.now() }, ...revisions]
-	}
-	// Restore only the CURRENT tab's doc from the revision (not every doc). $state.snapshot unwraps
-	// the proxy (the snap lives inside the $state revisions array); structuredClone would throw on it.
-	function restoreRevision(snap: Snap) {
-		const id = session.panes[session.focused]?.activeId; if (!id) return
-		ensureHist(id)
-		setMdlEntsOf(modelIdOf(id), $state.snapshot(snap) as Ent[])
-		recordEdit(id, 'Restore revision')
-	}
 	function setView(paneId: string, viewId: string, proj: Proj, v: View) { viewState.setView(paneId, didOf(viewId), proj, v) }
 	// R3 commits 2a+2b: the Properties panel shows whatever's selected in the ACTIVE viewport (whichever
 	// frame/tab is active in the focused pane) — `activeSel` reads it once, `selEnts`/`selModelObj` below
@@ -706,7 +689,6 @@
 		auth: getContext('session') as AuthSession | undefined,
 		pid: () => page.params.pid,
 		session, openDrawing, closeTab, toast: (m) => toast(m), didOf, paperOf, framesOf, scaleOf,
-		revInfo: () => ({ rev, date: fmtDate(revisions[0]?.t) }),
 		activeTabId: () => active?.id,
 		ensureHist: () => ensureHist(), pushStep, addModelToHistory, addDocToHistory,
 	})
@@ -970,14 +952,14 @@
 	// panes: `ws.vpEditor(a, …)`/`ws.envFor(p)`/`ws.vpView(…)` etc. return NEW objects each rebuild, handing
 	// Viewport/PaperPage fresh `editor`/`env`/`on` props on every pointer move for no reason — wasted work at
 	// best, a re-fired effect/reset gesture at worst. The reassigned VALUE members (`tabs`, `statusText`,
-	// `rev`, `revisions`, `acadMode`) are GETTERS instead, so reading `ws.statusText` tracks only
+	// `acadMode`) are GETTERS instead, so reading `ws.statusText` tracks only
 	// `statusText` — `ws` itself never changes identity, and every other `ws.x` read stays as narrow as
 	// before this bundling. NOT the full B17 fix — the module-level singletons (models/layers/imgEdit/docs/
 	// viewState/selStore) still leak across a project→project client-side navigation; that's Dave's call,
 	// not started here.
 	const workspace: Workspace = {
 		get tabs() { return session.tabs }, kindIcon, STRIP, iconOf,
-		get rev() { return rev }, get revisions() { return revisions }, get acadMode() { return acadMode }, get statusText() { return statusText },
+		get acadMode() { return acadMode }, get statusText() { return statusText },
 		openTab, promoteTab, closeTab, addTab, pickFromMenu, splitVertical, closePane,
 		setFocused, toggleTabMenu, setPaneTool, toggleLayout, setCanvasEl,
 		activeVpOf, isVpActive, deactivateVp, onCanvasMove, canvasPan, canvasZoomFn: canvasZoom,
@@ -996,7 +978,8 @@
 	{#if proj.drawingsOpen && proj.store}
 		<DrawingsDialog sheets={proj.store.sheets} places={proj.store.places} models={proj.storedModelInfo} projectName={proj.src?.project?.name ?? ''}
 			onupdate={proj.updateSheets} onarchive={proj.archiveSheets} onrestore={proj.restoreSheets} ondelete={proj.deleteSheet}
-			onopen={proj.openSheetById} onmodelarchive={proj.setModelArchived} onopenmodel={proj.openModelById} onclose={() => (proj.drawingsOpen = false)} />
+			onopen={proj.openSheetById} onmodelarchive={proj.setModelArchived} onopenmodel={proj.openModelById} onpackage={proj.saveAsPackage}
+			onclose={() => (proj.drawingsOpen = false)} />
 	{/if}
 	{#if openProjectOpen}<OpenProjectDialog currentId={page.params.pid} onpick={openProject} onclose={() => (openProjectOpen = false)} />{/if}
 	{#if tabMenuPane !== null}<button class="menu-backdrop" aria-label="Close menu" onclick={() => (tabMenuPane = null)}></button>{/if}
@@ -1094,9 +1077,16 @@
 						onframeupdate={(patch) => { if (active && selFrameId) { ensureHist(active.id); updateFrame(active.id, selFrameId, patch as Partial<SheetFrame>); commitFrame(active.id, 'Edit viewport') } }}
 						onframedelete={() => { if (active) deleteSelAt(active.id, active.id, { begin: beginGesture, mark: (l?: string) => modelEdit(active!.id, l), end: endGesture }) }} />
 				{:else}
-					<HistoryPanel log={timeline.changeLog} {revisions}
-						onnote={(i, note) => (revisions[i].note = note)} onjump={jumpHistory}
-						onundo={undo} onredo={redo} onnewrevision={makeRevision} onrestore={(s) => restoreRevision(s as Snap)} />
+					{@const hm = proj.historyModel}
+					{@const hs = proj.historySheet}
+					<HistoryPanel log={timeline.changeLog} onjump={jumpHistory} onundo={undo} onredo={redo}
+						model={hm ? { id: hm.id, name: hm.name, version: hm.version, state: modelVersionState(hm) } : null} versions={proj.modelVersions}
+						onsaveversion={(a) => { if (hm) void proj.saveModelVersion(hm.id, a) }}
+						onrestoreversion={(v) => { if (hm) void proj.restoreModelVersion(hm.id, v) }}
+						sheet={hs ? { title: hs.title, code: hs.latestRevisionCode, issuedAt: hs.latestIssuedAt, edited: sheetEditedSinceIssue(hs) } : null}
+						problems={proj.issueProblems} revisions={proj.sheetRevisions}
+						onissue={(a) => void proj.issueSheet(a)} onopenmodel={(id) => { proj.openModelHistory(id); rightTab = 'history' }}
+						onoverwritemodel={(id) => void proj.saveModelVersion(id, { major: true, note: '', overwrite: true })} />
 				{/if}
 			</aside>
 		{:else}

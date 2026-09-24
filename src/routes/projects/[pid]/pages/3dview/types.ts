@@ -116,6 +116,8 @@ export type ModelId = string
 export type Model = { id: ModelId; name: string; objects: Obj[]; shapes?: Ent[]; guides?: Guide[]; sections?: Section[]; layers?: Layer[]; underlays?: Underlay[]; levels?: Levels
 	/** Persistence + management (drawings-plan.md §2.3); optional so in-memory / test models needn't set them. */
 	placeId?: string; kind?: ModelKind; version?: string; archived?: boolean
+	/** The content hash when `version` was saved (store/versions.ts) — differs → "edited since version". */
+	versionHash?: string
 	/** Building models: one storey per floor level (the source of truth for heights). */
 	storeys?: Storey[]
 	/** Floor (etc.) models: the building model's storey this model sits on. `levels` above is its cached copy. */

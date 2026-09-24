@@ -1,23 +1,48 @@
 <script lang="ts">
-	// Right-sidebar HISTORY panel (Pages mockup): undo/redo, a change log, and named
-	// revision snapshots you can restore (basis for clouding diffs later). Data + actions
-	// come from the parent (+page owns the undo/redo stacks and the doc entities).
+	// Right-sidebar HISTORY panel: undo / redo + the change log, and (drawings-plan §3, phase 7) for the active tab —
+	//   a stored MODEL: its versions (the first save is 1.0; a major keeps a full copy you can restore, a minor is
+	//     a dated note) and "Save minor / major";
+	//   a stored SHEET: its revisions and "Issue". Issuing needs every model the sheet shows at an unedited MAJOR
+	//     version — each one that isn't is listed with what to do (a model edited since its major can overwrite
+	//     that version here; otherwise open the model and save one). A sheet already issued offers "Issue rev N+1"
+	//     or "Overwrite rev N".
+	// Data + actions come from the parent (+page → pagesProject.svelte.ts).
 	import { Icon } from '$lib'
-	type Snap = unknown   // opaque here — the panel only passes it back to onrestore (host owns the shape)
-	type LogRow = { label: string; t: number; i: number; kind: 'past' | 'current' | 'future' }
-	let { log = [], revisions = [], onnote, onjump, onundo, onredo, onnewrevision, onrestore }:
-		{ log?: LogRow[]; revisions?: { name: string; note: string; snap: Snap; t: number }[];
-			onnote?: (i: number, note: string) => void; onjump?: (i: number) => void;
-			onundo?: () => void; onredo?: () => void; onnewrevision?: () => void; onrestore?: (s: Snap) => void } = $props()
+	import { nextVersion, isMajor, nextRevisionCode, type ModelVersionState, type ModelVersionDoc, type IssueProblem } from '../store/versions'
+	import type { ChangeLogRow } from '../history.svelte'
+	import type { RevisionDoc } from '$lib/types/versioning'
 
+	type ModelInfo = { id: string; name: string; version?: string; state: ModelVersionState }
+	type SheetInfo = { title: string; code?: string; issuedAt?: string; edited: boolean }
+	let { log = [], onjump, onundo, onredo,
+		model = null, versions = [], onsaveversion, onrestoreversion,
+		sheet = null, problems = [], revisions = [], onissue, onopenmodel, onoverwritemodel }: {
+		log?: ChangeLogRow[]; onjump?: (i: number) => void; onundo?: () => void; onredo?: () => void
+		model?: ModelInfo | null; versions?: ModelVersionDoc[]
+		onsaveversion?: (a: { major: boolean; note: string }) => void; onrestoreversion?: (version: string) => void
+		sheet?: SheetInfo | null; problems?: IssueProblem[]; revisions?: RevisionDoc[]
+		onissue?: (a: { note: string; overwrite: boolean }) => void; onopenmodel?: (id: string) => void
+		/** Re-save a model's current MAJOR version (it was edited since). */ onoverwritemodel?: (id: string) => void
+	} = $props()
+
+	let note = $state('')
 	function ago(t: number) {
 		const s = Math.round((Date.now() - t) / 1000)
 		if (s < 60) return s + 's ago'
 		if (s < 3600) return Math.round(s / 60) + 'm ago'
 		return Math.round(s / 3600) + 'h ago'
 	}
-	// Absolute issue date (shown in the row; also feeds the titleblock revision listing).
-	const fmtDate = (t: number) => new Date(t).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+	const fmtDate = (iso?: string) => (iso ? new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '')
+	const stateText: Record<ModelVersionState | 'missing', string> = {
+		unversioned: 'not versioned yet', edited: 'edited since', minor: 'at a minor version', ready: 'saved', missing: 'missing (archived or deleted)',
+	}
+	function save(major: boolean) { onsaveversion?.({ major, note: note.trim() }); note = '' }
+	function issue(overwrite: boolean) { onissue?.({ note: note.trim(), overwrite }); note = '' }
+	let confirmRestore = $state<string | null>(null)
+	function restore(v: string) {
+		if (confirmRestore !== v) { confirmRestore = v; setTimeout(() => { if (confirmRestore === v) confirmRestore = null }, 3000); return }
+		confirmRestore = null; onrestoreversion?.(v)
+	}
 </script>
 
 <div class="hp">
@@ -26,26 +51,77 @@
 		<button onclick={() => onredo?.()} title="Redo (Ctrl+Y)">Redo <Icon name="chevronRight" size={14} /></button>
 	</div>
 
-	<div class="hp-sec">
-		<span>REVISIONS</span>
-		<button class="hp-add" onclick={() => onnewrevision?.()} title="Snapshot the drawing as a new revision"><Icon name="plus" size={12} /> New</button>
-	</div>
-	{#if revisions.length}
-		<div class="hp-list">
-			{#each revisions as r, i (r.name + r.t)}
-				<div class="hp-rev">
-					<div class="hp-rev-head">
-						<Icon name="fileText" size={13} />
-						<span class="hp-name">{r.name}</span>
-						<span class="hp-when" title={ago(r.t)}>{fmtDate(r.t)}</span>
-						<button class="hp-restore" onclick={() => onrestore?.(r.snap)} title="Restore this revision">Restore</button>
-					</div>
-					<input class="hp-note" placeholder="Add a description note…" value={r.note} oninput={(e) => onnote?.(i, (e.currentTarget as HTMLInputElement).value)} />
-				</div>
-			{/each}
+	{#if model}
+		<div class="hp-sec"><span>MODEL VERSIONS · {model.name}</span></div>
+		<div class="hp-status" class:warn={model.state === 'edited' || model.state === 'unversioned'}>
+			{#if model.version}<b>{model.version}</b>{' · '}{/if}{model.state === 'edited' ? 'edited since this version' : stateText[model.state]}
 		</div>
-	{:else}
-		<div class="hp-empty">No revisions yet — “New” snapshots the current drawing.</div>
+		<input class="hp-note" placeholder="What changed (saved with the version)…" bind:value={note} />
+		<div class="hp-acts">
+			{#if !model.version}
+				<button class="primary" onclick={() => save(true)}>Save version 1.0</button>
+			{:else}
+				<button onclick={() => save(false)} title="A dated note (no copy)">Save minor {nextVersion(model.version, false)}</button>
+				<button class="primary" onclick={() => save(true)} title="Keeps a full copy — needed to issue sheets">Save major {nextVersion(model.version, true)}</button>
+			{/if}
+		</div>
+		{#if versions.length}
+			<div class="hp-list">
+				{#each versions as v (v.id)}
+					<div class="hp-rev" class:major={v.major}>
+						<div class="hp-rev-head">
+							<span class="hp-ver">{v.version}</span>
+							<span class="hp-name" title={v.note}>{v.note || (v.major ? 'Major version' : 'Minor version')}</span>
+							<span class="hp-when" title={v.createdBy}>{fmtDate(v.createdAt)}</span>
+							{#if v.major && v.snapshot}
+								<button class="hp-restore" class:confirm={confirmRestore === v.version} onclick={() => restore(v.version)}
+									title="Put this version's content back (one undo step)">{confirmRestore === v.version ? 'Restore?' : 'Restore'}</button>
+							{/if}
+						</div>
+					</div>
+				{/each}
+			</div>
+		{/if}
+	{/if}
+
+	{#if sheet}
+		<div class="hp-sec"><span>SHEET REVISIONS · {sheet.title}</span></div>
+		<div class="hp-status" class:warn={sheet.edited}>
+			{#if sheet.code}Rev <b>{sheet.code}</b>{` · issued ${fmtDate(sheet.issuedAt)}${sheet.edited ? ' · edited since' : ''}`}{:else}Not issued yet{/if}
+		</div>
+		{#if problems.length}
+			<div class="hp-probs">
+				<div class="hp-probs-head">Issuing needs each model at a saved MAJOR version:</div>
+				{#each problems as p (p.modelId)}
+					<div class="hp-prob">
+						<span class="hp-name">{p.name}</span>
+						<em>{p.state === 'edited' ? `edited since ${p.version}` : p.state === 'minor' ? `at ${p.version}` : stateText[p.state]}</em>
+						{#if p.state === 'edited' && isMajor(p.version)}
+							<button onclick={() => onoverwritemodel?.(p.modelId)} title="Re-save {p.version} with the model as it is now">Overwrite {p.version}</button>
+						{/if}
+						{#if p.state !== 'missing'}<button onclick={() => onopenmodel?.(p.modelId)} title="Open the model to save a new version">Open</button>{/if}
+					</div>
+				{/each}
+			</div>
+		{/if}
+		<input class="hp-note" placeholder="Revision description…" bind:value={note} />
+		<div class="hp-acts">
+			<button class="primary" disabled={problems.length > 0} onclick={() => issue(false)}>Issue rev {nextRevisionCode(sheet.code)}</button>
+			{#if sheet.code}<button disabled={problems.length > 0} onclick={() => issue(true)} title="Replace revision {sheet.code} with the sheet as it is now">Overwrite rev {sheet.code}</button>{/if}
+		</div>
+		{#if revisions.length}
+			<div class="hp-list">
+				{#each revisions as r (r.id)}
+					<div class="hp-rev major">
+						<div class="hp-rev-head">
+							<span class="hp-ver">{r.code}</span>
+							<span class="hp-name" title={r.description}>{r.description || 'Issued'}</span>
+							<span class="hp-when" title={r.issuedBy}>{fmtDate(r.issuedAt)}</span>
+						</div>
+					</div>
+				{/each}
+			</div>
+		{/if}
 	{/if}
 
 	<div class="hp-sec"><span>CHANGE LOG</span><span class="hp-hint">click a step to jump</span></div>
@@ -72,10 +148,25 @@
 	.hp-tools button { flex:1; display:inline-flex; align-items:center; justify-content:center; gap:4px; padding:6px; font-size:11px;
 		border-radius:5px; color:var(--text); background:var(--panel2); border:1px solid var(--line); }
 	.hp-tools button:hover { background:var(--hover); }
-	.hp-sec { display:flex; align-items:center; justify-content:space-between; font-size:9px; text-transform:uppercase;
-		letter-spacing:.1em; color:var(--faint); padding:8px 4px 4px; }
-	.hp-add { display:inline-flex; align-items:center; gap:3px; font-size:10px; color:var(--accent); background:none; border:none; text-transform:none; letter-spacing:0; }
-	.hp-add:hover { color:var(--text); }
+	.hp-sec { display:flex; align-items:center; justify-content:space-between; gap:6px; font-size:9px; text-transform:uppercase;
+		letter-spacing:.1em; color:var(--faint); padding:10px 4px 4px; }
+	.hp-sec span:first-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+	.hp-status { font-size:11px; color:var(--muted); padding:2px 5px 5px; }
+	.hp-status.warn { color:#f59e0b; }
+	.hp-status b { color:var(--text); font-family:Consolas,monospace; }
+	.hp-note { width:100%; background:var(--input); color:var(--text); border:1px solid var(--line-soft); border-radius:4px; padding:4px 6px; font-size:11px; }
+	.hp-note:focus { outline:none; border-color:var(--accent); }
+	.hp-acts { display:flex; gap:5px; padding:5px 0 4px; }
+	.hp-acts button { flex:1; font-size:11px; padding:5px 6px; border-radius:5px; color:var(--text); background:var(--panel2); border:1px solid var(--line); cursor:pointer; }
+	.hp-acts button.primary { border-color:var(--accent); color:var(--accent); }
+	.hp-acts button:hover:not(:disabled) { background:var(--hover); }
+	.hp-acts button:disabled { opacity:.4; cursor:default; }
+	.hp-probs { margin:2px 0 5px; padding:5px 6px; border:1px solid #f59e0b55; border-radius:5px; background:#f59e0b12; }
+	.hp-probs-head { font-size:10px; color:#f59e0b; padding-bottom:3px; }
+	.hp-prob { display:flex; align-items:center; gap:5px; font-size:11px; padding:2px 0; }
+	.hp-prob em { font-style:normal; font-size:10px; color:var(--muted); flex:0 0 auto; }
+	.hp-prob button { flex:0 0 auto; font-size:10px; padding:1px 6px; border-radius:4px; color:var(--accent); background:none; border:1px solid var(--line); cursor:pointer; }
+	.hp-prob button:hover { background:var(--active); }
 	.hp-list { display:flex; flex-direction:column; gap:1px; }
 	.hp-row { display:flex; align-items:center; gap:7px; width:100%; padding:5px 6px; border-radius:5px; color:var(--text); background:none; border:none; text-align:left; }
 	.hp-row.log { cursor:pointer; }
@@ -85,16 +176,15 @@
 	.hp-row.log.current .hp-dot { background:var(--accent); }
 	.hp-row.log.future { opacity:.45; }              /* undone steps you can redo to */
 	.hp-row.log.future .hp-name { text-decoration:line-through; }
-	.hp-row :global(svg) { color:var(--muted); flex:0 0 auto; }
 	.hp-hint { font-size:9px; color:var(--faint); text-transform:none; letter-spacing:0; }
-	.hp-rev { padding:5px 6px; border-radius:5px; }
+	.hp-rev { padding:4px 6px; border-radius:5px; }
 	.hp-rev:hover { background:var(--hover); }
 	.hp-rev-head { display:flex; align-items:center; gap:7px; }
-	.hp-rev-head :global(svg) { color:var(--muted); flex:0 0 auto; }
-	.hp-restore { flex:0 0 auto; font-size:10px; color:var(--accent); background:none; border:1px solid var(--line); border-radius:4px; padding:1px 7px; }
+	.hp-ver { flex:0 0 auto; min-width:26px; font-size:11px; font-family:Consolas,monospace; color:var(--muted); }
+	.hp-rev.major .hp-ver { color:var(--text); font-weight:700; }
+	.hp-restore { flex:0 0 auto; font-size:10px; color:var(--accent); background:none; border:1px solid var(--line); border-radius:4px; padding:1px 7px; cursor:pointer; }
 	.hp-restore:hover { background:var(--active); }
-	.hp-note { width:100%; margin-top:4px; background:var(--input); color:var(--text); border:1px solid var(--line-soft); border-radius:4px; padding:3px 6px; font-size:11px; }
-	.hp-note:focus { outline:none; border-color:var(--accent); }
+	.hp-restore.confirm { color:#fff; background:#d97706; border-color:#d97706; }
 	.hp-name { flex:1; min-width:0; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 	.hp-when { font-size:10px; color:var(--faint); flex:0 0 auto; }
 	.hp-dot { width:6px; height:6px; border-radius:50%; background:var(--line); flex:0 0 auto; margin:0 3px; }

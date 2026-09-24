@@ -7,7 +7,8 @@
 	//   Archived — restore, or HARD delete (the only place a sheet is deleted for good; click twice).
 	//   Models   — every model, the sheets + frames using it, archive / restore, and frames on live sheets that
 	//              show a Missing model.
-	// "Save as package" needs issued revisions (phase 7) — shown, disabled.
+	// "Package" makes a draft package of the selected sheets at their latest revisions (phase 7; never-issued sheets
+	// are left out).
 	// All writes go through the callbacks (the store saves them); the lists are derived from the props.
 	import { tick } from 'svelte'
 	import { Icon } from '$lib'
@@ -17,11 +18,13 @@
 	import { exportDrawingRows } from '../store/drawingListExport'
 
 	type Patch = { id: string; patch: Partial<PagesSheetDoc> }
-	let { sheets, places, models, projectName = '', onupdate, onarchive, onrestore, ondelete, onopen, onmodelarchive, onopenmodel, onclose }: {
+	let { sheets, places, models, projectName = '', onupdate, onarchive, onrestore, ondelete, onopen, onmodelarchive, onopenmodel, onpackage, onclose }: {
 		sheets: PagesSheetDoc[]; places: Place[]; models: ModelInfo[]; projectName?: string
 		onupdate: (p: Patch[]) => void; onarchive: (ids: string[]) => void; onrestore: (ids: string[]) => void
 		ondelete: (id: string) => void; onopen: (sheetId: string) => void
 		onmodelarchive: (id: string, archived: boolean) => void; onopenmodel: (id: string) => void; onclose: () => void
+		/** Create a draft package from sheet ids + a name; resolves to a message to show. */
+		onpackage?: (ids: string[], name: string) => Promise<string>
 	} = $props()
 
 	const KINDS: SheetKind[] = ['plan', 'elevation', 'schematic', 'detail', 'schedule']
@@ -74,6 +77,14 @@
 		if (confirmDel !== id) { confirmDel = id; setTimeout(() => { if (confirmDel === id) confirmDel = null }, 3000); return }
 		confirmDel = null; ondelete(id)
 	}
+	// Package (phase 7): the selected sheets at their latest revisions, as a draft package
+	let pkgName = $state<string | null>(null), busy = $state(false)
+	async function makePackage() {
+		if (!onpackage || busy) return
+		busy = true
+		try { const msg = await onpackage(selIds, pkgName ?? ''); pkgName = null; notice = msg } finally { busy = false }
+	}
+	let notice = $state('')
 	let exporting = $state(false)
 	async function exportXlsx() {
 		exporting = true
@@ -128,10 +139,16 @@
 						<input class="num" type="number" bind:value={rnStart} /><input class="pat" bind:value={rnPattern} />
 						<button class="dd-btn" onclick={applyRenumber}>Renumber</button><em>{rnPreview}</em></span>
 					<button class="dd-btn warn" onclick={() => { onarchive(selIds); sel = new Set() }}><Icon name="archive" size={13} /> Archive</button>
-					<button class="dd-btn" disabled title="Packages hold issued revisions — available with History (phase 7)"><Icon name="package" size={13} /> Package</button>
+					{#if pkgName === null}
+					<button class="dd-btn" title="A draft package of the selected sheets at their latest revisions" onclick={() => (pkgName = '')}><Icon name="package" size={13} /> Package</button>
+				{:else}
+					<span class="grp"><input placeholder="Package name" bind:value={pkgName} onkeydown={(e) => { if (e.key === 'Enter') void makePackage(); if (e.key === 'Escape') { e.stopPropagation(); pkgName = null } }} />
+						<button class="dd-btn" disabled={busy} onclick={() => void makePackage()}>Create</button><button class="dd-btn ghost" onclick={() => (pkgName = null)}>Cancel</button></span>
+				{/if}
 					<button class="dd-btn ghost" onclick={() => (sel = new Set())}>Clear</button>
 				</div>
 			{/if}
+			{#if notice}<div class="dd-notice">{notice}<button class="dd-btn ghost" onclick={() => (notice = '')}><Icon name="x" size={12} /></button></div>{/if}
 			<datalist id="dd-discs">{#each disciplines as d (d)}<option value={d}></option>{/each}</datalist>
 			<datalist id="dd-tags">{#each tags as t (t)}<option value={t}></option>{/each}</datalist>
 			<div class="dd-table">
@@ -269,6 +286,7 @@
 	td.act > button:not(.dd-btn) { background:none; border:none; color:var(--muted); cursor:pointer; display:inline-grid; place-items:center; }
 	td.act > button:not(.dd-btn):hover { color:var(--accent); }
 	em.tag { font-style:normal; font-size:10px; color:var(--faint); border:1px solid var(--line); border-radius:3px; padding:0 4px; }
+	.dd-notice { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:5px 12px; font-size:11px; color:var(--text); background:#0e749022; border-bottom:1px solid var(--line-soft); }
 	.dd-empty { padding:24px; text-align:center; font-size:12px; color:var(--faint); }
 	.dd-sec { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:#f59e0b; padding:14px 12px 4px; }
 	.dd-missing { margin:0; padding:0 12px 12px 28px; font-size:12px; color:var(--muted); }

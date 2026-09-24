@@ -90,6 +90,10 @@ export type PagesSheetDoc = {
 	sheetSize?: string
 	scale?: string
 	latestRevisionCode?: string
+	/** Phase 7: when the latest revision was issued (the title block's date) and the sheet's content hash then
+	 *  (store/versions.ts sheetHash) — differs → "edited since the last issue". */
+	latestIssuedAt?: string
+	issuedHash?: string
 	/** "Drawn" in the title block (initials); empty → the creator's initials. */
 	drawnBy?: string
 	currentVersionNumber: number

@@ -64,7 +64,6 @@ export type StripItem = { tool: string } | { group: string; label: string; membe
 // still leak across a project→project client-side navigation); it only addresses the prop-explosion half.
 export type Workspace = {
 	tabs: Tab[]; kindIcon: Record<Kind, string>; STRIP: StripItem[]; iconOf: (tool: string) => string
-	rev: string; revisions: { name: string; note: string; snap: unknown; t: number }[]
 	/** The tab's filled title block (phase 5, titleBlock.ts). */
 	titleBlockOf: (tabId: string) => { logo?: string; cells: import('./titleBlock').TbCell[] }
 	acadMode: boolean; statusText: string

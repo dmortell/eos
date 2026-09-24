@@ -9,7 +9,11 @@ import type { DocWithId } from '$lib/db.svelte'
 import { newId } from '../ids'
 import { DocSaver } from './saver'
 import { seedPlaces as buildSeed, childrenOf } from './places'
-import { newSheetDoc, normSheet, modelToDoc } from './mappers'
+import { newSheetDoc, normSheet, modelToDoc, docToModel } from './mappers'
+import { nextVersion, isMajor, modelHash, sheetHash, nextRevisionCode, type ModelVersionDoc, type SheetSnapshot } from './versions'
+import type { RevisionDoc } from '$lib/types/versioning'
+/** A registry revision (`projects/{pid}/drawings/{id}/revisions/r<code>`) as Pages writes it. */
+export type SheetRevisionDoc = RevisionDoc
 import type { TreeInput } from '../projectTree'
 import type { Model, ModelKind } from '../3dview/types'
 import type { ModelDoc, PagesProject, PagesSheetDoc, Place, TitleBlockTemplate } from './schema'
@@ -23,6 +27,8 @@ export type StoreDb = {
 	/** Overwrite the whole doc (no merge) — models: a field the model no longer has must be removed. */
 	replace(path: string, data: DocWithId): Promise<void>
 	delete(path: string, id: string): Promise<void>
+	/** Phase 7 reads (a model version's copy); optional so a test fake needn't have it. */
+	getOne?(path: string, id: string): Promise<DocWithId | null>
 }
 
 const PROJECT_KEY = 'pages'
@@ -158,6 +164,52 @@ export class PagesStore {
 		return d
 	}
 	setModelArchived(id: string, archived: boolean) { const m = this.models.find((x) => x.id === id); if (m && !!m.archived !== archived) this.saveModel({ ...m, archived }) }
+
+	// ── versions + revisions (drawings-plan §3, phase 7; store/versions.ts) ──
+	#modelVersionsPath = (mid: string) => `${this.#modelsPath}/${mid}/versions`
+	#sheetVersionsPath = (sid: string) => `${this.#sheetsPath}/${sid}/versions`
+	#revisionsPath = (sid: string) => `${this.#sheetsPath}/${sid}/revisions`
+	/** Store a model VERSION doc — the next version (a major keeps a full copy), or `overwrite` = re-save the current
+	 *  one. Returns the version + content hash; the CALLER stamps the model (`version` / `versionHash`) in the
+	 *  editor registry, which saves it (the registry is the model's source of truth). Pass PLAIN model data. */
+	async saveModelVersion(m: Model, a: { major: boolean; note: string; overwrite?: boolean }): Promise<{ version: string; hash: string }> {
+		const version = a.overwrite && m.version ? m.version : nextVersion(m.version, a.major)
+		const major = isMajor(version), hash = modelHash(m), at = now()
+		const d: ModelVersionDoc = { id: version, version, major, note: a.note, createdAt: at, createdBy: this.#user, hash }
+		if (major) d.snapshot = modelToDoc({ ...m, version, versionHash: hash }, at)
+		await this.#db.replace(this.#modelVersionsPath(m.id), d as unknown as DocWithId)
+		return { version, hash }
+	}
+	/** A model's versions, newest first (live). */
+	subscribeModelVersions(mid: string, cb: (v: ModelVersionDoc[]) => void): () => void {
+		return this.#db.subscribeMany(this.#modelVersionsPath(mid), (docs) => cb((docs as unknown as ModelVersionDoc[]).sort((a, b) => b.createdAt.localeCompare(a.createdAt))))
+	}
+	/** A stored major version's model copy (decoded), or null. */
+	async modelVersionCopy(mid: string, version: string): Promise<Model | null> {
+		const d = (await this.#db.getOne?.(this.#modelVersionsPath(mid), version)) as unknown as ModelVersionDoc | null
+		return d?.snapshot ? docToModel(d.snapshot as ModelDoc) : null
+	}
+	/** Issue a sheet: a registry VERSION (`v<n>`: paper + frames + the model versions) and a REVISION (`r<code>`)
+	 *  pointing at it — the next ones, or `overwrite` the latest. The sheet's own stamps go through saveSheet (so the
+	 *  debounced sheet saver can't write an older copy over them). Returns the revision code. */
+	async issueSheet(sheetId: string, a: { note: string; overwrite: boolean; models: SheetSnapshot['models'] }): Promise<string | null> {
+		const sh = this.sheets.find((x) => x.id === sheetId); if (!sh) return null
+		const over = a.overwrite && !!sh.latestRevisionCode && !!sh.currentVersionNumber
+		const n = over ? sh.currentVersionNumber : (sh.currentVersionNumber ?? 0) + 1
+		const code = over ? sh.latestRevisionCode! : nextRevisionCode(sh.latestRevisionCode)
+		const at = now(), vid = `v${n}`, rid = `r${code}`
+		const snapshot: SheetSnapshot = { paper: sh.paper, frames: sh.frames, models: a.models }
+		await this.#db.replace(this.#sheetVersionsPath(sh.id), { id: vid, drawingId: sh.id, number: n, snapshot, notes: a.note, createdAt: at, createdBy: this.#user } as unknown as DocWithId)
+		await this.#db.replace(this.#revisionsPath(sh.id), { id: rid, drawingId: sh.id, code, fromVersionId: vid, title: sh.title, description: a.note, issuedAt: at, issuedBy: this.#user, locked: true } as unknown as DocWithId)
+		// stamp the NEWEST copy (an edit may have landed while the writes were in flight — then it counts as edited)
+		const cur = this.sheets.find((x) => x.id === sh.id) ?? sh
+		this.saveSheet({ ...cur, currentVersionNumber: n, latestRevisionCode: code, latestIssuedAt: at, issuedHash: sheetHash(sh) })
+		return code
+	}
+	/** A sheet's revisions, newest first (live). */
+	subscribeRevisions(sid: string, cb: (r: SheetRevisionDoc[]) => void): () => void {
+		return this.#db.subscribeMany(this.#revisionsPath(sid), (docs) => cb((docs as unknown as SheetRevisionDoc[]).sort((a, b) => b.issuedAt.localeCompare(a.issuedAt))))
+	}
 
 	/** Sheets filed under a place, in their manual order (archived ones only when asked). */
 	sheetsIn(placeId: string | null, withArchived = false) {

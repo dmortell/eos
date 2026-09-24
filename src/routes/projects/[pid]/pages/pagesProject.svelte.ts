@@ -26,7 +26,8 @@ import { startBlocks } from './blocks.svelte'
 import { importOutletsInto, outletsDocIdFor, type OutletsDoc } from './store/outletsImport'
 import { normFloors, findNodePath } from './projectTree'
 import { ProjectSource } from './projectData.svelte'
-import { PagesStore } from './store/pagesStore.svelte'
+import { PagesStore, type SheetRevisionDoc } from './store/pagesStore.svelte'
+import { issueProblems, sheetModels, type ModelVersionDoc } from './store/versions'
 import type { PagesSheetDoc } from './store/schema'
 import { buildPlaceTree } from './store/placeTree'
 import { addPlace, updatePlace, movePlace, removePlace, ancestorsOf } from './store/places'
@@ -51,8 +52,6 @@ export type ProjectHost = {
 	paperOf: (tabId?: string) => { size: PaperSize; landscape: boolean }
 	framesOf: (tabId: string) => SheetFrame[]
 	scaleOf: (tabId?: string) => string
-	/** The mock revision code + date shown on a sheet that isn't stored yet (phase 7 replaces it). */
-	revInfo: () => { rev: string; date: string }
 	activeTabId: () => string | undefined
 	// history (undo) hooks
 	ensureHist: () => void
@@ -71,6 +70,7 @@ const MODEL_KINDS: ModelKind[] = ['floor', 'zone', 'room', 'building']
 // default: clicking the plan mustn't grab it — unlock the layer to move / crop / recalibrate it.
 const FLOORPLAN_LAYER = { id: 'floorplan', name: 'Floorplan', group: 'Background', color: '#94a3b8', swatch: 'color' as const, visible: true, locked: true }
 const floorplanShapeOf = (m: Model) => m.shapes?.find((e) => e.type === 'image' && e.src?.startsWith(PDF_SRC))
+const fmtDate = (iso?: string) => (iso ? new Date(iso) : new Date()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 
 export class PagesProject {
 	#h: ProjectHost
@@ -137,6 +137,17 @@ export class PagesProject {
 				const snap = $state.snapshot(d) as PageDoc
 				untrack(() => { const cur = ps.sheets.find((x) => x.id === sh.id); if (cur) ps.saveSheet(pageToSheet(cur, snap)) })
 			}
+		})
+		// History (phase 7): the active model's versions and the active sheet's revisions, live
+		$effect(() => {
+			const ps = this.store, mid = this.historyModel?.id
+			untrack(() => (this.modelVersions = []))
+			if (ps && mid) return ps.subscribeModelVersions(mid, (v) => (this.modelVersions = v))
+		})
+		$effect(() => {
+			const ps = this.store, sid = this.historySheet?.id
+			untrack(() => (this.sheetRevisions = []))
+			if (ps && sid) return ps.subscribeRevisions(sid, (r) => (this.sheetRevisions = r))
 		})
 		// Save every STORED model when it changes (edits, undo/redo, floorplan attach). The saver debounces and skips
 		// content it already has, so re-queueing unchanged models (or a remote change just applied) writes nothing.
@@ -411,7 +422,6 @@ export class PagesProject {
 	titleBlockOf = (tabId: string): { logo?: string; cells: TbCell[] } => {
 		const ps = this.store, sh = this.storedSheetOfTab(tabId), tpl = ps?.project?.titleBlock, pap = this.#h.paperOf(tabId)
 		const pl = sh?.placeId && ps ? ps.places.find((p) => p.id === sh.placeId) : undefined
-		const mock = this.#h.revInfo()
 		return {
 			logo: tpl ? tpl.logo : DEFAULT_TITLE_BLOCK.logo,
 			cells: fillTitleBlock(tpl, {
@@ -419,8 +429,8 @@ export class PagesProject {
 				title: sh?.title ?? this.#h.session.tabs.find((t) => t.id === tabId)?.title ?? '',
 				place: pl && ps ? [...ancestorsOf(ps.places, pl.id), pl].map((p) => p.name).join(' › ') : '',
 				number: sh?.drawingNumber ?? '',
-				rev: sh ? sh.latestRevisionCode ?? '' : mock.rev,
-				date: mock.date,
+				rev: sh?.latestRevisionCode ?? '',
+				date: fmtDate(sh?.latestIssuedAt),   // the latest revision's issue date, else today
 				scale: this.#h.framesOf(tabId)[0]?.scale ?? this.#h.scaleOf(tabId),
 				size: `${pap.size} ${pap.landscape ? 'L' : 'P'}`,
 				drawn: sh ? sh.drawnBy || this.#drawnDefault(sh) : '',
@@ -436,4 +446,68 @@ export class PagesProject {
 		const id = this.#h.activeTabId(), sh = id ? this.storedSheetOfTab(id) : null
 		return sh ? { number: sh.drawingNumber ?? '', drawnBy: sh.drawnBy ?? '', drawnDefault: this.#drawnDefault(sh) } : null
 	})
+
+	// ── phase 7: HISTORY — model versions + sheet revisions for the ACTIVE tab (store/versions.ts) ──
+	/** The stored model the active tab edits (a model tab), else null. */
+	historyModel = $derived.by(() => {
+		const tab = this.#h.session.tabs.find((t) => t.id === this.#h.activeTabId())
+		if (tab?.kind !== 'model' || !tab.modelId || !this.store?.models.some((m) => m.id === tab.modelId)) return null
+		return modelById(tab.modelId) ?? null
+	})
+	/** The stored sheet the active tab shows, else null. */
+	historySheet = $derived.by(() => { const id = this.#h.activeTabId(); return id ? this.storedSheetOfTab(id) : null })
+	/** Live lists for the History panel (re-subscribed by the constructor's effects when the active model / sheet
+	 *  changes). */
+	modelVersions = $state.raw<ModelVersionDoc[]>([])
+	sheetRevisions = $state.raw<SheetRevisionDoc[]>([])
+	/** Save the next version of a model (1.0 first; a major keeps a full copy), or `overwrite` its current one;
+	 *  the version stamp goes on the registry model (undo keeps it — models.svelte.ts keepMeta). */
+	saveModelVersion = async (mid: string, a: { major: boolean; note: string; overwrite?: boolean }) => {
+		const m = modelById(mid), ps = this.store; if (!m || !ps) return
+		try {
+			const r = await ps.saveModelVersion($state.snapshot(m) as Model, a)
+			const mm = modelById(mid); if (mm) { mm.version = r.version; mm.versionHash = r.hash }
+			this.#h.toast(a.overwrite ? `${m.name}: version ${r.version} overwritten` : `${m.name}: saved version ${r.version}`)
+		} catch (e) { this.#h.toast(`Couldn't save the version: ${(e as Error)?.message ?? e}`) }
+	}
+	/** Put a stored MAJOR version's content back into the model — one undo step; the model then counts as edited
+	 *  unless it matches its current version. */
+	restoreModelVersion = async (mid: string, version: string) => {
+		const ps = this.store; if (!ps) return
+		const copy = await ps.modelVersionCopy(mid, version), m = modelById(mid)
+		if (!copy || !m) { this.#h.toast(`Version ${version} has no stored copy`); return }
+		this.#h.ensureHist()
+		for (const k of RESTORED_KEYS) { const v = (copy as Record<string, unknown>)[k]; if (v === undefined) delete (m as Record<string, unknown>)[k]; else (m as Record<string, unknown>)[k] = v }
+		this.#h.pushStep(this.#h.activeTabId() ?? '', `Restore version ${version}`)
+		this.#h.toast(`${m.name}: restored version ${version}`)
+	}
+	/** Why the active sheet can't be issued (every model it shows must be at an unedited major version). */
+	issueProblems = $derived.by(() => (this.historySheet ? issueProblems(this.historySheet, models) : []))
+	/** Issue the active sheet: the next revision, or `overwrite` the latest. */
+	issueSheet = async (a: { note: string; overwrite: boolean }) => {
+		const ps = this.store, sh = this.historySheet; if (!ps || !sh) return
+		if (this.issueProblems.length) { this.#h.toast('Save a major version of each model first'); return }
+		try {
+			const code = await ps.issueSheet(sh.id, { ...a, models: sheetModels(sh, models) })
+			if (code) this.#h.toast(a.overwrite ? `${sh.title}: revision ${code} overwritten` : `${sh.title}: issued revision ${code}`)
+		} catch (e) { this.#h.toast(`Couldn't issue: ${(e as Error)?.message ?? e}`) }
+	}
+	/** Open a model's tab with History showing (from a sheet's issue check). */
+	openModelHistory = (mid: string) => { this.openModelById(mid) }
+
+	/** Drawings dialog: a DRAFT package of the selected sheets at their latest revisions (sheets never issued
+	 *  are left out). Returns a message for the dialog. */
+	saveAsPackage = async (ids: string[], name: string): Promise<string> => {
+		const db = this.#h.db, ps = this.store, uid = this.#h.auth?.user?.uid; if (!db || !ps || !uid) return 'Not signed in'
+		const picked = ids.map((id) => ps.sheets.find((s) => s.id === id)).filter((s): s is PagesSheetDoc => !!s)
+		const issued = picked.filter((s) => s.latestRevisionCode)
+		if (!issued.length) return 'None of the selected sheets has been issued yet'
+		const { createPackage, updatePackageItems } = await import('$lib/versioning/service')
+		const { packageId } = await createPackage(db, { projectId: ps.pid, name: name.trim() || 'Package', type: 'custom', uid })
+		await updatePackageItems(db, ps.pid, packageId, issued.map((s, i) => ({ drawingId: s.id, revisionId: `r${s.latestRevisionCode}`, sheetOrder: i, include: true })))
+		const skipped = picked.length - issued.length
+		return `Package "${name.trim() || 'Package'}" created with ${issued.length} sheet${issued.length === 1 ? '' : 's'}${skipped ? ` (${skipped} not issued yet, left out)` : ''}`
+	}
 }
+/** What a version restore puts back: the model's content (its id, name, place and stamps stay). */
+const RESTORED_KEYS = ['objects', 'shapes', 'guides', 'sections', 'layers', 'underlays', 'levels', 'storeys', 'levelRef'] as const
