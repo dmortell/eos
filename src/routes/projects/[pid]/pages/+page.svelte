@@ -561,13 +561,15 @@
 		const p = session.panes[session.focused]; if (p) p.tool = id ? 'Block' : 'Select'
 	}
 	$effect(() => { if (placeBlock && session.panes.every((p) => p.tool !== 'Block')) untrack(() => (placeBlock = null)) })   // a tool pick / Esc disarms
-	// E3: a WALK renumber from the selected outlet's label — the focused pane's tool becomes 'Renumber'; the whole
-	// walk is one undo step (a gesture), closed when the tool changes (a tool pick / Esc)
+	// E3: a WALK renumber from the selected outlet's label — the focused pane's tool becomes 'Renumber' until a tool
+	// pick / Esc. Each click records its own step; when the walk ends they fold into one "Renumber" step
+	// (history.squashSince) — unless an undo came in between, then they stay separate (never a corrupted step).
+	let walkMark = 0
 	function startWalk(label: string) {
 		const p = session.panes[session.focused]; if (!p || !incLabel(label)) return
-		walk.label = label; navMode = null; beginGesture(); p.tool = 'Renumber'
+		walk.label = label; navMode = null; walkMark = timeline.mark(); p.tool = 'Renumber'
 	}
-	$effect(() => { if (walk.label !== null && session.panes.every((p) => p.tool !== 'Renumber')) untrack(() => { walk.label = null; endGesture() }) })
+	$effect(() => { if (walk.label !== null && session.panes.every((p) => p.tool !== 'Renumber')) untrack(() => { walk.label = null; timeline.squashSince(walkMark, 'Renumber') }) })
 	/** D5: the selected shapes → a custom block in the global library. */
 	function saveSelAsBlock(name: string) {
 		if (!selEnts.length) return

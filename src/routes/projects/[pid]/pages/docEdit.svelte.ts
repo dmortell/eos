@@ -13,6 +13,7 @@ import { Clipboard, arrange, setGroup, relabelCopies, type ArrangeOp } from './u
 import type { Ent } from './ui/geometry'
 import { withDefaults, type DrawingDefaults } from './ui/drawingDefaults'
 import { unlinkIfMoved } from './ui/floorplanLink'
+import { followConnections } from './3dview/connect'
 import type { ModelId, Obj } from './3dview/types'
 import type { WorkspaceHistory } from './history.svelte'
 
@@ -59,15 +60,19 @@ export class DocEdit {
 		t.ensure(tabId); const en = e.layer ? e : { ...e, layer: al?.id }; this.#setEnts(mid, [...this.#ents(mid), en]); t.record(tabId, 'Add ' + en.type)
 		return true
 	}
+	/** F6: conduit ends attached to these shapes / objects move onto their points — BEFORE the step is recorded, so
+	 *  every way of moving them (drag, nudge, Properties, group transform) carries its conduits in the same step. */
+	#follow = (mid: ModelId, ids: string[]) => { const m = modelById(mid); if (m) followConnections(m, new Set(ids)) }
 	updateEnt = (tabId: string, e: Ent) => {
 		const t = this.#h.timeline, mid = this.#h.modelIdOf(tabId)
-		t.ensure(tabId); this.#setEnts(mid, this.#ents(mid).map((x) => (x.id === e.id ? unlinkIfMoved(x, e) : x))); t.record(tabId, 'Edit ' + e.type)
+		t.ensure(tabId); this.#setEnts(mid, this.#ents(mid).map((x) => (x.id === e.id ? unlinkIfMoved(x, e) : x))); this.#follow(mid, [e.id]); t.record(tabId, 'Edit ' + e.type)
 	}
 	/** Several shapes edited together (a multi-selection's style / move / auto-number) — ONE undo step. */
 	updateEnts = (tabId: string, es: Ent[]) => {
 		if (!es.length) return
 		const t = this.#h.timeline, mid = this.#h.modelIdOf(tabId), by = new Map(es.map((e) => [e.id, e]))
-		t.ensure(tabId); this.#setEnts(mid, this.#ents(mid).map((x) => { const n = by.get(x.id); return n ? unlinkIfMoved(x, n) : x })); t.record(tabId, es.length > 1 ? `Edit ${es.length} shapes` : 'Edit ' + es[0].type)
+		t.ensure(tabId); this.#setEnts(mid, this.#ents(mid).map((x) => { const n = by.get(x.id); return n ? unlinkIfMoved(x, n) : x })); this.#follow(mid, es.map((e) => e.id))
+		t.record(tabId, es.length > 1 ? `Edit ${es.length} shapes` : 'Edit ' + es[0].type)
 	}
 	/** Pure CRUD — no selection side effects (the callers know the VIEWPORT id). */
 	deleteEnts = (tabId: string, ids: string[]) => {
@@ -103,12 +108,13 @@ export class DocEdit {
 	// ── the Properties panel's model object(s) — edited straight on the store, one undo step each ──
 	updateModelObj = (patch: Record<string, unknown>) => {
 		const o = this.#h.selModelObj(), id = this.#h.focusedTabId(), t = this.#h.timeline; if (!o || !id) return
-		t.beginGesture(); Object.assign(o, patch); this.modelEdit(id); t.endGesture()
+		t.beginGesture(); Object.assign(o, patch); if (o.id) this.#follow(this.#h.activeMid(), [o.id]); this.modelEdit(id); t.endGesture()
 	}
 	/** I4 / F8: several model objects — the patch per object (null = leave it), as ONE undo step. */
 	updateModelObjs = (patchOf: (o: Obj) => Record<string, unknown> | null) => {
 		const objs = this.#h.selModelObjs(), id = this.#h.focusedTabId(), t = this.#h.timeline; if (!id || !objs.length) return
-		t.beginGesture(); for (const o of objs) { const p = patchOf(o); if (p) Object.assign(o, p) } this.modelEdit(id); t.endGesture()
+		t.beginGesture(); for (const o of objs) { const p = patchOf(o); if (p) Object.assign(o, p) }
+		this.#follow(this.#h.activeMid(), objs.flatMap((o) => (o.id ? [o.id] : []))); this.modelEdit(id); t.endGesture()
 	}
 	/** Add a model object to the focused model (e.g. a rack's "+ Device") — one undo step. */
 	addModelObj = (o: Obj) => {

@@ -600,8 +600,7 @@ export class VpInteraction {
 		let dx = p[0] - drag.start[0], dy = p[1] - drag.start[1]
 		if (e.shiftKey !== v.ortho) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 }   // ortho / axis-lock (Shift toggles)
 		const [gdx, gdy] = snapDelta(dx, dy, drag.bases[0], v.snap ? v.snapStep : 0)   // grid-snap the group by its first member (stays rigid)
-		for (const b of drag.bases) v.editor.ents.update(moveEnt(v.ctx, b, gdx, gdy))
-		if (v.mdl && v.isPlan) followConnections(v.mdl, new Set(drag.bases.map((b) => b.id)))   // F6: conduit ends on a moved outlet follow it
+		for (const b of drag.bases) v.editor.ents.update(moveEnt(v.ctx, b, gdx, gdy))   // F6: DocEdit brings attached conduit ends along
 	}
 	private onDragUp = (_e: PointerEvent, _s: EntDrag, moved: boolean) => {
 		if (moved) this.suppressClick = true

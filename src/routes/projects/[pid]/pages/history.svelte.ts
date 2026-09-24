@@ -93,7 +93,19 @@ export class WorkspaceHistory {
 		else this.push(tabId, label)
 	}
 	// A gesture's deferred fold (P3) must land before the pointer moves, or it would overwrite the step undo lands on.
-	#flushGesture() { if (this.#gestureDirty) { this.#update(); this.#gestureDirty = false } }
+	// The open gesture's step is then CLOSED: a later mutation in it pushes a new step instead of folding into the
+	// step undo just landed on.
+	#flushGesture() { if (this.#gestureDirty) { this.#update(); this.#gestureDirty = false } this.#gesturePushed = false }
+
+	/** The timeline length now — pass it to `squashSince` to fold everything recorded after it into one step. */
+	mark = (): number => { this.ensure(); return this.#hist!.steps.length }
+	/** Fold the steps recorded since `mark()` into ONE (the last state, `label`) — e.g. a walk renumber. Only when
+	 *  they are still the contiguous tail and the pointer is at the end (an undo in between leaves them as they are). */
+	squashSince = (since: number, label: string) => {
+		const h = this.#hist; if (!h || h.ptr !== h.steps.length - 1 || h.steps.length <= since + 1) return
+		const last = h.steps[h.steps.length - 1]
+		this.#hist = { steps: [...h.steps.slice(0, since), { ...last, label }], ptr: since }
+	}
 
 	// ── moving the pointer ──
 	#apply() {

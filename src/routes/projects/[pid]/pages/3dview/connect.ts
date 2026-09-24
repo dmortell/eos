@@ -63,18 +63,17 @@ export function attachNode(n: GNode, pts: ConnPt[], tol: number): boolean {
 /** Move every attached conduit node onto its point's CURRENT position (after boxes / outlets moved). Nodes whose
  *  point is gone are detached. Only nodes attached to `changed` (object or shape ids) are touched, if given. */
 export function followConnections(m: Pick<Model, 'objects'> & { shapes?: Ent[] }, changed?: Set<string>): number {
+	// the attached nodes first — usually none, so an edit / drag pays nothing for the (whole-model) point list
+	const nodes: GNode[] = []
+	for (const o of m.objects) if (o.type === 'conduit') for (const n of o.nodes) { const c = n.conn; if (c && (!changed || changed.has(c.obj ?? c.ent ?? ''))) nodes.push(n) }
+	if (!nodes.length) return 0
 	const pts = connPoints(m)
 	let moved = 0
-	for (const o of m.objects) {
-		if (o.type !== 'conduit') continue
-		for (const n of o.nodes) {
-			const c = n.conn; if (!c) continue
-			if (changed && !changed.has(c.obj ?? c.ent ?? '')) continue
-			const p = connPos(pts, c)
-			if (!p) { delete n.conn; continue }
-			const x = Math.round(p.x), y = Math.round(p.y)
-			if (x !== n.x || y !== n.y) { n.x = x; n.y = y; moved++ }
-		}
+	for (const n of nodes) {
+		const p = connPos(pts, n.conn!)
+		if (!p) { delete n.conn; continue }
+		const x = Math.round(p.x), y = Math.round(p.y)
+		if (x !== n.x || y !== n.y) { n.x = x; n.y = y; moved++ }
 	}
 	return moved
 }

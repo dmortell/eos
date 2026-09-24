@@ -13,7 +13,9 @@ export function clipOf(frames: SheetFrame[], shapesOf: (mid: string) => Ent[], d
 	const ids = new Set(frames.map((f) => f.id)), shapes: FrameClip['shapes'] = []
 	for (const mid of new Set(frames.map((f) => f.modelId ?? defaultModel)))
 		for (const e of shapesOf(mid)) if (e.space?.startsWith('view:') && ids.has(e.space.slice(5))) shapes.push({ modelId: mid, ent: e })
-	return { frames, shapes }
+	// each frame carries the model it shows EXPLICITLY — pasted onto a sheet whose default model differs, it must
+	// keep showing the model its annotations went into
+	return { frames: frames.map((f) => (f.modelId ? f : { ...f, modelId: defaultModel })), shapes }
 }
 /** The clip's copies for a sheet: new frame ids, numbered on from `nextSeq`, offset by `off` paper px; each
  *  annotation re-scoped to its frame's copy with a new id (groups kept together under new group ids). */

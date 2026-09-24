@@ -16,6 +16,10 @@ describe('frame clipboard (B2)', () => {
 		const c = clipOf([frame('f1', 1)], () => shapes, 'm0')
 		expect(c.shapes.map((s) => s.ent.id)).toEqual(['s1', 's2'])
 	})
+	it('a frame showing the sheet default model keeps that model explicitly (pasted elsewhere it must not switch)', () => {
+		const c = clipOf([{ ...frame('f1', 1), modelId: undefined }], () => shapes, 'm0')
+		expect(c.frames[0].modelId).toBe('m0'); expect(c.shapes[0].modelId).toBe('m0')
+	})
 	it('pastes with new ids, renumbered, offset, unlocked; annotations re-scoped with shared new group ids', () => {
 		let n = 0; const id = (p = 'x') => `${p}${++n}`
 		const c = pasteClip(clipOf([frame('f1', 1), frame('f2', 2, 'Plan')], () => shapes, 'm0'), id, 5, 20)
