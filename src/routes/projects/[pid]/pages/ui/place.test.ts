@@ -10,7 +10,7 @@ import type { Model, Wall, Conduit, Prism } from '../3dview/types'
 const planCtx: ViewCtx = { dir: 'plan', isPlan: true, isElev: false, isIso: false, elevDir: 'front', cx: 14000, cy: 8750, ground: 10250, frameId: 'f', paperMm: 1, mdl: undefined, yaw: 0, pitch: 0 }
 const elevCtx = (elevDir: ViewCtx['elevDir'], over: Partial<ViewCtx> = {}): ViewCtx => ({ ...planCtx, dir: elevDir, isPlan: false, isElev: true, elevDir, ...over })
 const isoCtx: ViewCtx = { ...planCtx, dir: 'iso', isPlan: false, isIso: true }
-const mdl = (over: Partial<Model> = {}): Model => ({ id: 1, name: 'm', objects: [], layers: [{ id: 'walls', name: 'Walls', color: '#000', visible: true, locked: false }, { id: 'openings', name: 'Openings', color: '#000', visible: true, locked: false, opening: true }], ...over })
+const mdl = (over: Partial<Model> = {}): Model => ({ id: 'm1', name: 'm', objects: [], layers: [{ id: 'walls', name: 'Walls', color: '#000', visible: true, locked: false }, { id: 'openings', name: 'Openings', color: '#000', visible: true, locked: false, opening: true }], ...over })
 // Deterministic ids: a counter per prefix so tests can assert exact values.
 const ids = () => { let n = 0; return (prefix = 'e') => `${prefix}${++n}` }
 const ent = (over: Partial<Ent> = {}): Ent => ({ id: 'e', type: 'rect', a: [0, 0], b: [200, 100], ...over } as Ent)
@@ -199,7 +199,7 @@ describe('moveEnt', () => {
 
 describe('sectionObj / sectionName (B5)', () => {
 	it('a plan drag → a normalised whole-mm clip from the floor to the ceiling slab, sighted front', () => {
-		const withLevels: ViewCtx = { ...planCtx, mdl: { id: 1, name: 'm', layers: [], levels: { ceilingSlab: 2900 }, objects: [] } as unknown as ViewCtx['mdl'] }
+		const withLevels: ViewCtx = { ...planCtx, mdl: { id: 'm1', name: 'm', layers: [], levels: { ceilingSlab: 2900 }, objects: [] } as unknown as ViewCtx['mdl'] }
 		expect(sectionObj(withLevels, [300.4, 200.6], [100, 400], 'sec1', 'Section A')).toEqual({ id: 'sec1', dir: 'front', name: 'Section A', clip: { x0: 100, y0: 201, z0: 0, x1: 300, y1: 400, z1: 2900 } })
 		expect(sectionObj(planCtx, [0, 0], [10, 10], 's', 'n')?.clip.z1).toBe(3200)   // no levels → default slab
 		expect(sectionObj(elevCtx('front'), [0, 0], [10, 10], 's', 'n')).toBe(null)

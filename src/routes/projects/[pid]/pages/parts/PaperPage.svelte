@@ -30,7 +30,7 @@
 		frameOrbit = () => ({ yaw: 0, pitch: 0 }), makeFrameOn = () => ({}), makeFrameEditor = () => noopEditor, onseed, onaddframe, onframegeom, onframecommit, ondeactivate }:
 		{ title?: string; drawingNo?: string; scale?: string; focused?: boolean; tool?: string; env?: Env; pw?: number; ph?: number; sizeLabel?: string; rev?: string; revDate?: string;
 			/** XP7: paper margin (mm) — a dashed guide (screen only) and frame snap lines. */ marginMm?: number;
-			entities?: Ent[]; entsForModel?: (mid?: number) => Ent[]; tabModelId?: number;
+			entities?: Ent[]; entsForModel?: (mid?: string) => Ent[]; tabModelId?: string;
 			// R3 commit 3 (review.md §R3): a NEW page-level `editor` — distinct from `makeFrameEditor` (which
 			// builds one PER-FRAME editor for entity/obj/guide/section/node editing INSIDE that frame's
 			// viewport). This one's `sel` holds the 'frame' kind only: which viewport FRAME is selected in

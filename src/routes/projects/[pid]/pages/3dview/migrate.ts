@@ -65,13 +65,18 @@ export function migrateModels(models: Model[]): Model[] {
 		})
 		let layers = m.layers ?? []
 		if (!layers.some((l) => l.id === 'background')) { layers = [...layers, { ...BACKGROUND_LAYER }]; mc = true }
-		let ents = m.ents
-		if (ents) {
-			const nextEnts = ents.map((e) => migrateEnt(e))
-			if (nextEnts.some((e, i) => e !== ents![i])) { ents = nextEnts; mc = true }
+		// `ents` → `shapes` (2026-09-24 rename; a stored model may still carry the old field)
+		const legacy = (m as { ents?: Model['shapes'] }).ents
+		let shapes = m.shapes ?? legacy
+		if (legacy) mc = true
+		if (shapes) {
+			const next = shapes.map((e) => migrateEnt(e))
+			if (next.some((e, i) => e !== shapes![i])) { shapes = next; mc = true }
 		}
 		if (mc) changed = true
-		return mc ? { ...m, objects, layers, ents } : m
+		if (!mc) return m
+		const { ents: _drop, ...rest } = m as Model & { ents?: unknown }
+		return { ...rest, objects, layers, shapes }
 	})
 	return changed ? out : models
 }

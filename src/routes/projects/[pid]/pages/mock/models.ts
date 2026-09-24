@@ -29,7 +29,7 @@ function demoFloor(): Model {
 	const t0 = gn(10500, 5300, 2600), t1 = gn(17500, 5300, 2600)   // a rectangular trunk run near the ceiling
 	const trunk: Obj = { type: 'conduit', w: 300, h: 150, edges: 4, layer: 'trunks', id: 'trunk1', nodes: [t0, t1], segments: [gs(t0.id, t1.id)] }
 	return {
-		id: 1, name: '33F', layers: layerStack(LAYERS),
+		id: 'm1', name: '33F', layers: layerStack(LAYERS),
 		levels: { floorSlab: 0, raisedFloor: 150, ceilingTile: 2700, ceilingSlab: 3200 },
 		objects: [wall, desk(11500, 6200), desk(11500, 8000), desk(15000, 6200), desk(15000, 8000), trunk],
 	}
@@ -47,7 +47,7 @@ function demoRack(): Model {
 	const cabinet: Obj = { type: 'prism', x, y, z: 0, w, d, h: 2000, edges: 4, layer: 'cabinet', id: 'cab1' }
 	const dev = (i: number): Obj => ({ type: 'prism', x: x + 30, y: y + 40, z: 150 + i * 320, w: w - 60, d: d - 80, h: 180, edges: 4, layer: 'devices', id: 'dev' + i })
 	return {
-		id: 2, name: 'Rack A', layers: layerStack(RACK_LAYERS),
+		id: 'm2', name: 'Rack A', layers: layerStack(RACK_LAYERS),
 		levels: { floorSlab: 0, ceilingSlab: 2100 },
 		objects: [cabinet, dev(0), dev(1), dev(2), dev(3), dev(4)],
 	}
@@ -55,10 +55,10 @@ function demoRack(): Model {
 
 // An empty floor model — one per floor in the navigator tree (mock/data.ts NAV_TREE) that has no demo
 // content, so clicking the floor opens ITS model rather than 33F's.
-export const emptyFloor = (id: number, name: string): Model => ({
+export const emptyFloor = (id: string, name: string): Model => ({
 	id, name, layers: layerStack(LAYERS), objects: [],
 	levels: { floorSlab: 0, raisedFloor: 150, ceilingTile: 2700, ceilingSlab: 3200 },
 })
 
 /** The demo model registry a fresh Pages session starts with (floor 33F id 1 + rack id 2 + empty 30F / 18F). */
-export function demoModels(): Model[] { return [demoFloor(), demoRack(), emptyFloor(3, '30F'), emptyFloor(4, '18F')] }
+export function demoModels(): Model[] { return [demoFloor(), demoRack(), emptyFloor('m3', '30F'), emptyFloor('m4', '18F')] }

@@ -20,7 +20,7 @@ export type PageDoc = {
 	scale: string
 	frames: SheetFrame[]
 	revisions?: { name: string; note: string; t: number }[]
-	modelId?: number
+	modelId?: import('./3dview/types').ModelId
 	dir?: ElevDir
 }
 

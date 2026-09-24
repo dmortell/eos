@@ -100,7 +100,7 @@ describe('inThisView / pickable', () => {
 
 describe('hitModel (plan prism)', () => {
 	const prism: Obj = { type: 'prism', id: 'p1', x: 100, y: 100, w: 200, d: 100, h: 500, z: 0, edges: 4, layer: 'furniture' } as Obj
-	const modelCtx = (objects: Obj[]): ViewCtx => ({ ...planCtx, mdl: { id: 1, name: 'm', layers: [], levels: {}, objects } as Model })
+	const modelCtx = (objects: Obj[]): ViewCtx => ({ ...planCtx, mdl: { id: 'm1', name: 'm', layers: [], levels: {}, objects } as Model })
 	const shown = { visible: () => true, locked: () => false }
 	it('picks a prism whose footprint contains p, misses outside', () => {
 		expect(hitModel(modelCtx([prism]), [150, 130], 5, shown)).toBe('p1')   // inside 100..300 × 100..200
@@ -148,7 +148,7 @@ describe('marqueeSelect', () => {
 describe('hitModel — wall face in an elevation (B23)', () => {
 	const frontCtx: ViewCtx = { ...planCtx, dir: 'front', isPlan: false, isElev: true, elevDir: 'front', ground: 10250 }
 	const wall = { type: 'wall', id: 'w1', h: 2800, thickness: 100, layer: 'walls', nodes: [{ id: 'a', x: 1000, y: 5000, z: 0 }, { id: 'b', x: 3000, y: 5000, z: 0 }], segments: [{ a: 'a', b: 'b' }] } as Obj
-	const ctx: ViewCtx = { ...frontCtx, mdl: { id: 1, name: 'm', layers: [], levels: {}, objects: [wall] } as Model }
+	const ctx: ViewCtx = { ...frontCtx, mdl: { id: 'm1', name: 'm', layers: [], levels: {}, objects: [wall] } as Model }
 	const shown = { visible: () => true, locked: () => false }
 	it('picks anywhere on the drawn face (x-span × ground−h..ground), not just near the base line', () => {
 		expect(hitModel(ctx, [2000, 10250 - 1500], 5, shown)).toBe('w1')   // mid-face, 1.5 m up

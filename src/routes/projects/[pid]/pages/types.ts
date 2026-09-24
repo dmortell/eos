@@ -3,9 +3,9 @@
 // (`SheetFrame`, previously duplicated in +page, PaperPage and PropertiesPanel), and the scale /
 // projection option lists (`SCALES` was two slightly different arrays; the projection labels were
 // `PROJ_LABEL` vs `DIR_LABEL` vs `PROJ_OPTS`). All derive from the engine's `Dir`/`DIR_LABEL`.
-import type { Dir, Clip } from './3dview/types'
+import type { Dir, Clip, ModelId } from './3dview/types'
 import { DIR_LABEL } from './3dview/types'
-export type { Dir, Clip }
+export type { Dir, Clip, ModelId }
 export { DIR_LABEL }
 
 /** Pages historically names a projection direction `Proj` — identical to the model engine's `Dir`. */
@@ -19,7 +19,7 @@ export const PROJ_OPTS = Object.entries(DIR_LABEL) as [Proj, string][]
 export type SheetFrame = {
 	id: string; x: number; y: number; w: number; h: number
 	border: 'dashed' | 'solid' | 'none'
-	proj: Proj; scale: string; clip: Clip | null; label: string; modelId?: number
+	proj: Proj; scale: string; clip: Clip | null; label: string; modelId?: ModelId
 	/** VP Freeze (AutoCAD): layer ids hidden in THIS frame only, on top of the model's own layer on/off.
 	 *  Document state — it rides the frames history, so a freeze is undoable. */
 	frozen?: string[]
@@ -41,7 +41,7 @@ export type Kind = 'plan' | 'sheet' | 'elevation' | 'model'
 // B18: `docId` is the tab's stable DRAWING id — the navigator node id for a tree drawing, `floor:<name>` for
 // a floor's model tab, a fresh id for a New page. Every per-drawing store (docs, the persisted canvas view)
 // is keyed by it, so renaming a tab's title orphans nothing, and a drawing is found again by id, not title.
-export type Tab = { id: string; docId: string; title: string; kind: Kind; dirty: boolean; preview?: boolean; modelId?: number }
+export type Tab = { id: string; docId: string; title: string; kind: Kind; dirty: boolean; preview?: boolean; modelId?: ModelId }
 
 /** One split-editor pane (VS Code-style): which tab it shows, its own tool, and paper-vs-full-size layout. */
 export type WorkPane = { id: string; activeId: string; tool: string; layout: 'model' | 'sheet' }
@@ -65,7 +65,7 @@ export type Workspace = {
 	rev: string; revisions: { name: string; note: string; snap: unknown; t: number }[]
 	acadMode: boolean; statusText: string
 	openTab: (id: string, pane?: number) => void; promoteTab: (id: string) => void
-	closeTab: (id: string, e?: Event) => void; addTab: (kind?: Kind, title?: string, modelId?: number, docId?: string) => void
+	closeTab: (id: string, e?: Event) => void; addTab: (kind?: Kind, title?: string, modelId?: ModelId, docId?: string) => void
 	pickFromMenu: (id: string, pane: number) => void; splitVertical: () => void; closePane: (idx: number) => void
 	setFocused: (pi: number) => void; toggleTabMenu: (pi: number) => void
 	setPaneTool: (pane: WorkPane, t: string) => void; toggleLayout: (pane: WorkPane) => void
@@ -88,7 +88,7 @@ export type Workspace = {
 	orbitOf: (paneId: string, viewId: string, proj: Proj) => { yaw: number; pitch: number }
 	viewOf: (paneId: string, viewId: string, proj: Proj) => View
 	entsOf: (id: string) => import('./ui/geometry').Ent[]
-	entsForModel: (mid?: number) => import('./ui/geometry').Ent[]
+	entsForModel: (mid?: ModelId) => import('./ui/geometry').Ent[]
 	paperEditor: (a: Tab) => import('./ui/editor').Editor
 	vpFrameView: (a: Tab, pane: { id: string; tool: string }, frame: SheetFrame) => import('./ui/vpTypes').VpOn
 	vpEditor: (a: Tab, viewId: string) => import('./ui/editor').Editor

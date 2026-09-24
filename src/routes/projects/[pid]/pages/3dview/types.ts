@@ -107,11 +107,22 @@ export type Guide = { id: string; plane: string; orient: 'h' | 'v'; pos: number 
 // viewport frames; the marker itself just lives here. (B5 — moved out of the +page per-tab maps.)
 export type Section = { id: string; clip: Clip; dir: ElevDir; name?: string }
 
-// `objects` = 3D geometry (walls/prisms/conduits). `ents` = 2D annotations/shapes/text/dims (the drawn
-// `Ent`s from ui/geometry.ts), each tagged with a `plane` + `space` scope. Both belong to the model and
+// `objects` = 3D geometry (walls/prisms/conduits). `shapes` = 2D annotations/shapes/text/dims (the drawn
+// `Ent`s from ui/geometry.ts; the stored field was `ents` before 2026-09-24 — migrate.ts renames it), each tagged with a `plane` + `space` scope. Both belong to the model and
 // are shown across its views (layer- and scope-gated). Guides likewise. `Ent` imports cleanly (geometry.ts
 // imports nothing from 3dview, so no cycle). Field names Firestore-stable — see the schema memory.
-export type Model = { id: number; name: string; objects: Obj[]; ents?: Ent[]; guides?: Guide[]; sections?: Section[]; layers?: Layer[]; underlays?: Underlay[]; levels?: Levels }
+/** A model's id = its Firestore doc id (`projects/{pid}/models/{id}`, drawings-plan.md §2.3). */
+export type ModelId = string
+export type Model = { id: ModelId; name: string; objects: Obj[]; shapes?: Ent[]; guides?: Guide[]; sections?: Section[]; layers?: Layer[]; underlays?: Underlay[]; levels?: Levels
+	/** Persistence + management (drawings-plan.md §2.3); optional so in-memory / test models needn't set them. */
+	placeId?: string; kind?: ModelKind; version?: string; archived?: boolean
+	/** Building models: one storey per floor level (the source of truth for heights). */
+	storeys?: Storey[]
+	/** Floor (etc.) models: the building model's storey this model sits on. `levels` above is its cached copy. */
+	levelRef?: { modelId: ModelId; storeyId: string } }
+export type ModelKind = 'floor' | 'zone' | 'room' | 'building'
+/** A building storey: `z` = its floor-slab datum from the building's ground (mm); the rest are heights above it. */
+export type Storey = { id: string; name: string; z: number } & Levels
 
 // Projection direction: five orthographic + an isometric 3D view.
 export type Dir = 'plan' | 'front' | 'rear' | 'left' | 'right' | 'iso'

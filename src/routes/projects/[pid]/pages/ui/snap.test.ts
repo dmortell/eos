@@ -222,7 +222,7 @@ describe('entSnaps — shape kinds, plan vs elevation ctx', () => {
 const frontCtx: ViewCtx = { ...planCtx, dir: 'front', isPlan: false, isElev: true, elevDir: 'front' }
 const shown = { visible: () => true, locked: () => false }
 const wall = (id: string, nodes: GN[]): Obj => ({ type: 'wall', id, h: 2800, thickness: 100, layer: 'walls', nodes, segments: nodes.slice(1).map((n, i) => ({ a: nodes[i].id, b: n.id })) } as Obj)
-const withObjs = (ctx: ViewCtx, objects: Obj[]): ViewCtx => ({ ...ctx, mdl: { id: 1, name: 'm', layers: [], levels: {}, objects } as Model })
+const withObjs = (ctx: ViewCtx, objects: Obj[]): ViewCtx => ({ ...ctx, mdl: { id: 'm1', name: 'm', layers: [], levels: {}, objects } as Model })
 
 describe('rndTo', () => {
 	it('rounds to the step; step 0 = passthrough', () => {

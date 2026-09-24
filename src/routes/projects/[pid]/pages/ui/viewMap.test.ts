@@ -50,7 +50,7 @@ describe('viewMap', () => {
 
 const planCtx: ViewCtx = { dir: 'plan', isPlan: true, isElev: false, isIso: false, elevDir: 'front', cx: CX, cy: CY, ground: GROUND, frameId: 'f', paperMm: 1, mdl: undefined, yaw: 0, pitch: 0 }
 const frontCtx: ViewCtx = { ...planCtx, dir: 'front', isPlan: false, isElev: true }
-const withObjs = (ctx: ViewCtx, objects: Obj[]): ViewCtx => ({ ...ctx, mdl: { id: 1, name: 'm', layers: [], levels: {}, objects } as unknown as Model })
+const withObjs = (ctx: ViewCtx, objects: Obj[]): ViewCtx => ({ ...ctx, mdl: { id: 'm1', name: 'm', layers: [], levels: {}, objects } as unknown as Model })
 const shown = { visible: () => true, locked: () => false }
 
 describe('hitModel follows the drawn outline (R7)', () => {

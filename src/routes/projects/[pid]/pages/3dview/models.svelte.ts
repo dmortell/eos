@@ -2,20 +2,21 @@
 // A MODEL is a floor's 3D (walls / prisms / conduits, real mm). A page's viewport references a model by
 // id + view config. The demo seed models (floor + rack) live in `mock/models.ts` (R10) so this store is
 // just the reactive registry + mutators; the backend swap replaces `demoModels()`, not this file.
-import type { Model } from './types'
+import type { Model, ModelId } from './types'
 import { migrateModels } from './migrate'
 import { demoModels, emptyFloor } from '../mock/models'
+import { newId } from '../ids'
 
-export const FLOOR_MODEL_ID = 1   // the default model a new viewport / tab points at
+export const FLOOR_MODEL_ID: ModelId = 'm1'   // the default model a new viewport / tab points at
 export const models = $state<Model[]>(migrateModels(demoModels()))
-export const modelById = (id?: number) => (id == null ? undefined : models.find((m) => m.id === id))
+export const modelById = (id?: ModelId) => (id == null ? undefined : models.find((m) => m.id === id))
 /** The model of a floor, by the floor's name in the navigator ('33F'); undefined if there is none. */
 export const floorModelId = (floor?: string) => (floor ? models.find((m) => m.name === floor)?.id : undefined)
 /** The model of a floor, creating an EMPTY one if the floor has none yet (a real project's floors — 10F,
  *  12F… — have no demo model; without this they fell back to 33F's). Mock until X4 persists models. */
-export function ensureFloorModel(floor: string): number {
+export function ensureFloorModel(floor: string): ModelId {
 	const have = floorModelId(floor); if (have != null) return have
-	const id = Math.max(0, ...models.map((m) => m.id)) + 1
+	const id = newId('m')
 	models.push(emptyFloor(id, floor))
 	return id
 }

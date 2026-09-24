@@ -32,7 +32,7 @@ export type VpProps = {
 	/** VP Freeze: layer ids hidden in THIS viewport only (a sheet frame's `frozen`). */
 	frozen?: string[]
 	tool?: string; boxW?: number; boxH?: number; border?: 'dashed' | 'solid' | 'none'; env?: Env; on?: VpOn; editor?: Editor
-	frameId?: string; modelId?: number
+	frameId?: string; modelId?: import('../3dview/types').ModelId
 	/** In split view only the focused pane's instance handles keys and drives the shared status line. */
 	focused?: boolean
 	entities?: Ent[]; view?: View; clip?: Clip | null; yaw?: number; pitch?: number

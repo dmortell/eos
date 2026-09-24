@@ -43,7 +43,7 @@
 	import { ProjectSource } from './projectData.svelte'
 	import { findNodePath } from './projectTree'
 	import { DEFAULT_YAW, DEFAULT_PITCH } from './3dview/projection'
-	import type { Model, Section } from './3dview/types'
+	import type { Model, ModelId, Section } from './3dview/types'
 	import { selStore } from './selStore.svelte'
 	import { selOnly, selToggle, selClear, idsOfKind, singleOfKind, type Selection, type SelItem } from './ui/selection'
 	import { deleteModelSel as meDeleteModelSel, deleteGraphNode as meDeleteGraphNode, deleteSection as meDeleteSection } from './ui/modelEdit'
@@ -240,7 +240,7 @@
 	// action: each of the 4 arrows drops that direction's elevation as a viewport FRAME on the current sheet
 	// (Dave, 2026-09-22). The 'sec' id prefix keeps them distinct from tab ids.
 	// Locate a section (across models) by id → its model id + the section object. Ids are globally unique.
-	function findSection(id: string): { mid: number; sec: Section } | null {
+	function findSection(id: string): { mid: ModelId; sec: Section } | null {
 		for (const m of models) { const sec = (m.sections ?? []).find((s) => s.id === id); if (sec) return { mid: m.id, sec } }
 		return null
 	}
@@ -382,17 +382,17 @@
 	// REGISTRY (§5) a viewport points at a model by id: a sheet FRAME carries `modelId`, a model-layout TAB
 	// carries `modelId`, defaulting to the floor. Editing targets the ACTIVE viewport's model — so the CRUD
 	// takes a tab id (the history key) and resolves the model from whatever viewport is active in it.
-	const entsForModel = (mid?: number): Ent[] => (modelById(mid ?? FLOOR_MODEL_ID)?.ents ?? modelById(FLOOR_MODEL_ID)?.ents ?? [])
+	const entsForModel = (mid?: ModelId): Ent[] => (modelById(mid ?? FLOOR_MODEL_ID)?.shapes ?? modelById(FLOOR_MODEL_ID)?.shapes ?? [])
 	// The model a tab's ACTIVE viewport edits: the active sheet frame's model; else (no active frame, e.g.
 	// an image imported without entering a viewport) the FIRST frame's model; else the tab's own model; else
 	// the floor. Drawing needs an active viewport, so the fallbacks only bite for viewport-less actions.
-	function modelIdOf(tabId: string): number {
+	function modelIdOf(tabId: string): ModelId {
 		const av = activeVpOf(tabId)
 		if (av && av !== tabId) { const f = framesOf(tabId).find((x) => x.id === av); if (f?.modelId != null) return f.modelId }
 		return framesOf(tabId)[0]?.modelId ?? session.tabs.find((t) => t.id === tabId)?.modelId ?? FLOOR_MODEL_ID
 	}
-	const mdlEntsOf = (mid: number): Ent[] => modelById(mid)?.ents ?? []
-	const setMdlEntsOf = (mid: number, next: Ent[]) => { const m = modelById(mid); if (m) m.ents = next }
+	const mdlEntsOf = (mid: ModelId): Ent[] => modelById(mid)?.shapes ?? []
+	const setMdlEntsOf = (mid: ModelId, next: Ent[]) => { const m = modelById(mid); if (m) m.shapes = next }
 	// The focused doc's active model (for selection / revisions / properties).
 	const activeMid = () => modelIdOf(session.panes[session.focused]?.activeId ?? '')
 	const mdlEnts = (): Ent[] => mdlEntsOf(activeMid())
@@ -614,7 +614,7 @@
 		const p = session.panes[pane]; if (!p) return
 		p.activeId = id; session.focused = pane   // selection now lives per doc, so it's preserved
 	}
-	function addTab(kind: Kind = 'plan', title?: string, modelId?: number, docId: string = newId('d')) {
+	function addTab(kind: Kind = 'plan', title?: string, modelId?: ModelId, docId: string = newId('d')) {
 		const id = newId('t'); ++seq   // seq only numbers 'Untitled N' now (tab ids are nanoid, B13)
 		session.tabs = [...session.tabs, { id, docId, title: title ?? `Untitled ${seq}`, kind, dirty: false, modelId }]
 		if (session.panes[session.focused]) session.panes[session.focused].activeId = id
@@ -788,7 +788,7 @@
 	// floor's calibrated floorplan as its plan underlay (ProjectSource.floorplanOf → the outlets tool's file /
 	// page). The underlay is attached once, asynchronously; the tab zooms to it on arrival (Viewport extents).
 	const FLOORPLAN_LAYER = { id: 'floorplan', name: 'Floorplan', group: 'Background', color: '#94a3b8', swatch: 'color' as const, visible: true, locked: false }
-	function realFloorModelId(floor: string): number {
+	function realFloorModelId(floor: string): ModelId {
 		const src = projectSrc!, id = ensureFloorModel(`${floor} — ${src.project?.name ?? src.pid}`)
 		const n = parseInt(floor, 10), m = modelById(id)
 		if (m && !m.underlays?.length && !isNaN(n)) {

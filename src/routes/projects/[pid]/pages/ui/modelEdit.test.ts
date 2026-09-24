@@ -13,7 +13,7 @@ function recEdit(): EditScope & { log: string[] } {
 	return { log, begin: () => log.push('begin'), mark: (l) => log.push('mark:' + (l ?? '')), end: () => log.push('end') }
 }
 const ids = () => { let n = 0; return (prefix = 'x') => `${prefix}${++n}` }
-const mdl = (over: Partial<Model> = {}): Model => ({ id: 1, name: 'm', objects: [], ...over })
+const mdl = (over: Partial<Model> = {}): Model => ({ id: 'm1', name: 'm', objects: [], ...over })
 const prism = (over: Partial<Prism> & { id?: string } = {}): Obj => ({ type: 'prism', id: 'p1', x: 0, y: 0, z: 0, w: 100, d: 100, h: 100, edges: 4, ...over } as Obj)
 const planCtx: ViewCtx = { dir: 'plan', isPlan: true, isElev: false, isIso: false, elevDir: 'front', cx: 14000, cy: 8750, ground: 10250, frameId: 'f', paperMm: 1, mdl: undefined, yaw: 0, pitch: 0 }
 const shown: MLayers = { visible: () => true, locked: () => false }

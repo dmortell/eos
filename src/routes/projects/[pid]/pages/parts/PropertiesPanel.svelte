@@ -23,7 +23,7 @@
 			modelObj?: Obj | null; modelLayers?: MLayer[]; onmodelupdate?: (patch: Record<string, unknown>) => void; onmodeldelete?: () => void; onmodelseg?: (segIdx: number, patch: Record<string, unknown>) => void;
 			frameObj?: SheetFrame | null; onframeupdate?: (patch: Partial<SheetFrame>) => void; onframedelete?: () => void;
 			/** XP19: fit the frame's scale to its model */ onframefit?: () => void;
-			modelList?: { id: number; name: string }[]; activeFrameId?: string;
+			modelList?: { id: string; name: string }[]; activeFrameId?: string;
 			/** Scale denominator (the N of 1:N) of the viewport the selection is edited in — sizes the
 			 *  annotative text bbox in model mm (B19). */
 			scaleN?: number } = $props()
@@ -140,7 +140,7 @@
 		<div class="prop-sec">VIEWPORT</div>
 		{#if modelList.length > 1}
 			<div class="prop"><span>Source</span>
-				<select value={frameObj.modelId ?? modelList[0]?.id} onchange={(e) => onframeupdate?.({ modelId: Number((e.currentTarget as HTMLSelectElement).value) })}>
+				<select value={frameObj.modelId ?? modelList[0]?.id} onchange={(e) => onframeupdate?.({ modelId: (e.currentTarget as HTMLSelectElement).value })}>
 					{#each modelList as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
 				</select>
 			</div>
