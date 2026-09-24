@@ -15,7 +15,7 @@ export type Dash = 'solid' | 'dashed' | 'dotted' | 'dashdot'
 // `polyline` with `pts.length === 2`, and `LWPOLYLINE` as a `polyline` with its full vertex list — the SAME
 // mapping `migrateEnt` (3dview/migrate.ts) already applies to a legacy 'line' ent, so an importer/exporter
 // can reuse that shape directly rather than inventing its own DXF-side entity type.
-export type Ent = { id: string; type: 'rect' | 'ellipse' | 'dim' | 'text' | 'polyline' | 'image'; a?: Pt; b?: Pt; text?: string; pts?: Pt[]; groupId?: string;
+export type Ent = { id: string; type: 'rect' | 'ellipse' | 'dim' | 'text' | 'polyline' | 'image' | 'insert'; a?: Pt; b?: Pt; text?: string; pts?: Pt[]; groupId?: string;
 	color?: string; fill?: string; weight?: number; fontPt?: number; align?: TextAlign; valign?: VAlign; layer?: string; rot?: number;
 	// 'image' entity (imported background): src = image URL / data-URL placed in the a→b rect (origin +
 	// scale). `crop` = the visible sub-rectangle of the SOURCE image, normalized 0..1 (x,y = top-left,
@@ -53,7 +53,12 @@ export type Ent = { id: string; type: 'rect' | 'ellipse' | 'dim' | 'text' | 'pol
 	dimOff?: number;
 	// DIMENSION text position ALONG the line: 0..1 fraction from start (a) to end (b); undefined = 0.5
 	// (centred). Draggable via the same text grip. Firestore-stable.
-	dimT?: number }
+	dimT?: number
+	// BLOCK INSERT (type 'insert', ui/blocks.ts): `block` = the global block definition id, placed with its
+	// insertion point at `a`, rotated `rot`, scaled `scale` (default 1); `attrs` = attribute values by tag
+	// (LABEL / PORTS / NOTE / TYPE for outlets). `color` / `fill` feed the block's 'byblock' shapes.
+	// Swapping `block` keeps `attrs`. Firestore-stable.
+	block?: string; attrs?: Record<string, string>; scale?: number }
 export type View = { zoom: number; x: number; y: number }
 
 // Default object style — matched to the Sheets tool (annotations.svelte.ts: text fontPt 8 / align

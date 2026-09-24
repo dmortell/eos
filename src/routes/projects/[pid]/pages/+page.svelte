@@ -41,6 +41,7 @@
 	import { emptyFloor } from './mock/models'
 	import { docToModel, sheetToPage, pageToSheet, nextFrameSeq } from './store/mappers'
 	import { floorplanPlacement, pdfSrc, PDF_SRC } from './ui/render/pdfRaster.svelte'
+	import { startBlocks } from './blocks.svelte'
 	import type { PageDoc } from './doc.svelte'
 	import { getContext, untrack } from 'svelte'
 	import type { Firestore } from '$lib'
@@ -843,6 +844,8 @@
 	// drawings-plan phase 2: the project's PAGES data (places now; sheets + models in phases 3–4), one store per
 	// project id alongside the read-only ProjectSource.
 	const auth = getContext('session') as AuthSession | undefined
+	// the GLOBAL block library (blocks/{id}): subscribed once per session; missing default blocks are seeded
+	$effect(() => { if (fdb) untrack(() => startBlocks(fdb)) })
 	let pagesStore = $state<PagesStore | null>(null)
 	$effect(() => {
 		const pid = page.params.pid

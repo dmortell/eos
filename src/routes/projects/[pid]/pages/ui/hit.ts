@@ -3,6 +3,7 @@
 // take a ViewCtx as their first argument instead of reading the component's closures, so everything here
 // is unit-testable and shared by hit-testing, grips and the render snippets.
 import type { Pt, Ent } from './geometry'
+import { insertBounds } from './blocks'
 import type { ViewCtx, MLayers } from './view'
 import type { Obj, Clip, Guide } from '../3dview/types'
 import { flatSpan, segDist, textBox } from './geometry'
@@ -47,6 +48,7 @@ export const inScope = (ctx: ViewCtx, e: Ent): boolean => !e.space || e.space ==
 /** In-view = the object's DRAWING PLANE matches this view (plan projects into every elevation as a ground
  *  line; an elevation-native object shows only in that elevation) AND its scope includes this frame. */
 export const inThisView = (ctx: ViewCtx, e: Ent): boolean => inScope(ctx, e) && (onPlanPlane(e) || e.plane === ctx.dir)
+	&& !(e.type === 'insert' && ctx.isElev && onPlanPlane(e))   // plan block symbols (outlets) aren't drawn in elevations
 
 /** A plan-plane 2D shape shown in the 3D ISO view is PROJECTED onto the ground plane (z=0); it renders
  *  (foreshortened) but isn't interactive there (edit it in plan/elevation). */
@@ -64,6 +66,7 @@ export function bbox(ctx: ViewCtx, e: Ent): [number, number, number, number] {
 	if (isFlatElev(ctx, e)) { const [x0, x1] = flatXSpan(ctx, e); return [x0, ctx.ground - 2, x1, ctx.ground + 2] }
 	if (e.type === 'polyline') { const pts = e.pts ?? []; const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] }
 	if (e.type === 'text') return textBox(e, PT_MM * ctx.paperMm)
+	if (e.type === 'insert') return insertBounds(e)   // its block's extent, scaled, at the insertion point
 	if (e.type === 'image' && e.crop) {   // the VISIBLE extent is the crop window, not the full placement
 		const rx = Math.min(e.a![0], e.b![0]), ry = Math.min(e.a![1], e.b![1]), rw = Math.abs(e.b![0] - e.a![0]), rh = Math.abs(e.b![1] - e.a![1])
 		return [rx + e.crop.x * rw, ry + e.crop.y * rh, rx + (e.crop.x + e.crop.w) * rw, ry + (e.crop.y + e.crop.h) * rh]
@@ -94,6 +97,7 @@ export function hitEnt(ctx: ViewCtx, e: Ent, p: Pt, thr: number): boolean {
 		return !inner   // ring band around the outline only
 	}
 	if (e.type === 'text') { const [x0, y0, x1, y1] = bbox(ctx, e); return p[0] >= x0 - thr && p[0] <= x1 + thr && p[1] >= y0 - thr && p[1] <= y1 + thr }
+	if (e.type === 'insert') { const [x0, y0, x1, y1] = bbox(ctx, e); return inBox(p, x0, y0, x1, y1, thr, true) }   // pick anywhere on the symbol
 	return false
 }
 

@@ -147,7 +147,7 @@ export type Grip = { x: number; y: number; apply: (p: Pt) => Ent; rotate?: boole
 const is2PtPolyline = (e: Ent): boolean => e.type === 'polyline' && (e.pts?.length ?? 0) === 2
 
 // Which entity kinds get a rotate HANDLE. Excluded: flat-elev floor projections and an image mid-CROP.
-const ROTATABLE = new Set(['rect', 'ellipse', 'image'])
+const ROTATABLE = new Set(['rect', 'ellipse', 'image', 'insert'])
 export const canRotate = (ctx: ViewCtx, e: Ent, imgCropId: string | null): boolean =>
 	(ROTATABLE.has(e.type) || is2PtPolyline(e)) && !isFlatElev(ctx, e) && !(e.type === 'image' && imgCropId === e.id)
 

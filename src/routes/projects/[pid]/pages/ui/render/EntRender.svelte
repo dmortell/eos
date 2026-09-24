@@ -17,6 +17,8 @@
 	import { arrowPts, cloudPath, groundPts, headGeom, dashArray, type HeadGeom } from '../annotations'
 	import { imageSrc } from '../../imageStore'
 	import { pdfImageUrl, PDF_SRC } from './pdfRaster.svelte'
+	import { blockDef, byBlock, attrValue, attrColor } from '../blocks'
+	import EntRender from './EntRender.svelte'   // a block's shapes are drawn by this same component
 
 	let { e, ctx, selected = false, style, isoGround = null, imgCrop = null, clipNs }: {
 		e: Ent
@@ -155,6 +157,27 @@
 		<line x1={A[0] - px * tk} y1={A[1] - py * tk} x2={A[0] + px * tk} y2={A[1] + py * tk} stroke={col} stroke-width={w} vector-effect="non-scaling-stroke" />
 		<line x1={B[0] - px * tk} y1={B[1] - py * tk} x2={B[0] + px * tk} y2={B[1] + py * tk} stroke={col} stroke-width={w} vector-effect="non-scaling-stroke" />
 		<text class="anno" x={mx} y={my} font-size={2.5 * paperMm} fill={col} text-anchor="middle" transform="rotate({rang} {mx} {my})">{Math.round(len)}</text>
+	{:else if e.type === 'insert'}
+		<!-- a BLOCK insert: the definition's shapes ('byblock' colour / fill from this insert) + its attribute
+		     texts, at the insertion point, scaled (rotation is the shared wrapper above) -->
+		{@const def = blockDef(e.block)}
+		{@const k = e.scale ?? 1}
+		<g transform="translate({e.a![0]} {e.a![1]}) scale({k})">
+			{#if def}
+				{#each def.shapes as bs (bs.id)}<EntRender e={byBlock(bs, e)} {ctx} {style} clipNs="{clipNs}-{e.id}" />{/each}
+				{#each def.attributes as ad (ad.tag)}
+					{#if ad.visible !== false && attrValue(e, ad)}
+						{@const c = attrColor(e, ad)}
+						<text class="anno" x={ad.pos[0]} y={ad.pos[1]} font-size={ad.height} text-anchor="middle"
+							fill={c ? (style.adapt && c !== '#ffffff' ? style.adapt(c) : c) : ink}>{attrValue(e, ad)}</text>
+					{/if}
+				{/each}
+			{:else}
+				<!-- the block is missing from the library: a crossed box, still pickable -->
+				<rect x="-100" y="-100" width="200" height="200" fill="none" stroke={ink} stroke-width={w} />
+				<line x1="-100" y1="-100" x2="100" y2="100" stroke={ink} stroke-width={w} /><line x1="-100" y1="100" x2="100" y2="-100" stroke={ink} stroke-width={w} />
+			{/if}
+		</g>
 	{:else if e.type === 'text'}
 		{@const fs = (e.fontPt ?? STYLE_DEFAULTS.fontPt) * PT_MM * paperMm}
 		{@const anchor = e.align === 'center' ? 'middle' : e.align === 'right' ? 'end' : 'start'}

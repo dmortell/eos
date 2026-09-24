@@ -53,6 +53,7 @@ export function entSnaps(ctx: ViewCtx, e: Ent): EntSnap[] {
 			{ point: [(x0 + x1) / 2, (y0 + y1) / 2] as Pt, type: 'center' }]
 	}
 	if (e.type === 'text') return [{ point: e.a!, type: 'end' }]
+	if (e.type === 'insert') return [{ point: e.a!, type: 'center' }]   // a block's insertion point
 	return []
 }
 

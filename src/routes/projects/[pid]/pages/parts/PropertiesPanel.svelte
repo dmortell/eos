@@ -4,6 +4,8 @@
 	// common props (bbox X/Y/W/H) and edits apply to all. Falls back to page/general props
 	// when nothing is selected. Geometry is in model units (mock).
 	import { Icon, ColorPicker } from '$lib'
+	import { blockDef } from '../ui/blocks'
+	import { blockList } from '../blocks.svelte'
 	import { translate, textBox, STYLE_DEFAULTS, type Ent, type Pt, type TextAlign, type VAlign, type Head, type Dash } from '../ui/geometry'
 	import { PT_MM, PAPER_PX_PER_MM } from '../constants'
 	import { COLORS } from '../palette'
@@ -359,6 +361,23 @@
 						<option value="none">None</option><option value="arrow">Arrow</option><option value="dot">Dot</option><option value="tick">Tick</option>
 					</select>
 				</div>
+			{/each}
+		{/if}
+		{#if single?.type === 'insert'}
+			<!-- a BLOCK insert: swap its block (same category — e.g. rosette / wall mount / floorbox) keeping its
+			     attributes, and edit the attribute values -->
+			{@const def = blockDef(single.block)}
+			{@const ins = single}
+			<div class="prop-sec">BLOCK</div>
+			<div class="prop"><span>Block</span>
+				<select value={ins.block ?? ''} onchange={(e) => onupdate?.({ ...ins, block: (e.currentTarget as HTMLSelectElement).value })}>
+					{#each blockList().filter((b) => !def?.category || b.category === def.category) as b (b.id)}<option value={b.id}>{b.name}</option>{/each}
+					{#if !def}<option value={ins.block ?? ''}>{ins.block} (missing)</option>{/if}
+				</select></div>
+			{#each def?.attributes ?? [] as ad (ad.tag)}
+				<div class="prop"><span>{ad.label}</span><input value={ins.attrs?.[ad.tag] ?? ad.default ?? ''}
+					onchange={(e) => onupdate?.({ ...ins, attrs: { ...(ins.attrs ?? {}), [ad.tag]: (e.currentTarget as HTMLInputElement).value } })}
+					onkeydown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur() }} /></div>
 			{/each}
 		{/if}
 		{#if single?.type === 'image'}
