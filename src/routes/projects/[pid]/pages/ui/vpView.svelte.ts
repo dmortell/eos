@@ -101,7 +101,9 @@ export class VpView {
 	isElev = $derived(ELEV.has(this.kind))
 	elevDir = $derived((this.isElev ? this.kind : 'front') as ElevDir)
 	isPlan = $derived(this.kind === 'plan')
-	modelEditable = $derived(this.isPlan || this.isElev)   // iso (oblique) editing deferred to the 3D camera
+	// iso (oblique) editing deferred to the 3D camera; a riser frame with collapsed floors (`storeys`) is view-only
+	// — its picking / grips would sit at the uncollapsed heights (edit in the model tab)
+	modelEditable = $derived.by(() => (this.isPlan || this.isElev) && !this.p.storeys)
 	/** Guide lines belong to a drawable VIEW space (plan or an elevation); iso has none. */
 	viewSpace = $derived(this.kind === 'plan' ? 'plan' : this.isElev ? this.elevDir : null)
 	/** The model the `modelId` prop asks for is ARCHIVED or unknown (drawings-plan §2.3): the viewport shows a

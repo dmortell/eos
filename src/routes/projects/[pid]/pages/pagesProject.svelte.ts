@@ -29,7 +29,7 @@ import { ProjectSource } from './projectData.svelte'
 import { PagesStore, type SheetRevisionDoc } from './store/pagesStore.svelte'
 import { issueProblems, sheetModels, type ModelVersionDoc } from './store/versions'
 import { importSheetDoc, type SheetImportResult } from './store/sheetsImport'
-import { risersToBuilding, mergeRisers, riserFloors, storeyLevels, floorLabel, stackFloors, restack, type RisersDocIn } from './store/risersImport'
+import { risersToBuilding, mergeRisers, riserFloors, storeyLevels, floorLabel, stackFloors, restack, riserPrefix, type RisersDocIn } from './store/risersImport'
 import { parseFloor } from './store/placeProps'
 import type { Storey } from './3dview/types'
 import type { SheetDoc, SheetViewport } from '../sheets/types'
@@ -240,16 +240,15 @@ export class PagesProject {
 	}
 
 	// ── a BUILDING's floor stack (place `floors`) → its building model's storeys ──
-	/** The project's building extent (the Risers tool's From/To + skipped floors) — a building place's default. */
+	/** The project's building extent (the Risers tool's From/To + nonexistent floors) — a building place's default.
+	 *  Without the project's own list, GF (0) is nonexistent by default (B1F → 1F, the usual case here). */
 	#projectStack = (): { bottom: number; top: number; skipped?: number[] } | null => {
 		const p = this.src?.project as { buildingFloors?: { bottom: number; top: number }; skippedFloors?: number[]; floors?: unknown } | null
-		if (p?.buildingFloors) return { ...p.buildingFloors, skipped: p.skippedFloors }
+		const skipped = p?.skippedFloors ?? [0]
+		if (p?.buildingFloors) return { ...p.buildingFloors, skipped }
 		const ns = normFloors(this.src?.project?.floors).map((f) => f.number)
 		if (!ns.length) return null
-		const bottom = Math.min(...ns), top = Math.max(...ns)
-		// no explicit extent: a range crossing ground level without a listed 0 has no GF (B1F → 1F)
-		const skipped = p?.skippedFloors ?? (bottom < 0 && top > 0 && !ns.includes(0) ? [0] : undefined)
-		return { bottom, top, skipped }
+		return { bottom: Math.min(...ns), top: Math.max(...ns), skipped }
 	}
 	/** The stack a building place uses: its own, else the project's. */
 	stackOf = (placeId: string) => this.store?.places.find((p) => p.id === placeId)?.floors ?? this.#projectStack()
@@ -274,8 +273,8 @@ export class PagesProject {
 		const mid = this.ensurePlaceModel(placeId), m = mid ? modelById(mid) : undefined; if (!m) return
 		this.#h.ensureHist()
 		// imported riser geometry sits at its storeys' heights: re-apply the riser against the new stack
-		const riser = this.#riserOf(m)
-		if (riser) this.#applyRisers(riser, m, placeId)
+		const risers = this.#risersOf(m)
+		if (risers.length) for (const d of risers) this.#applyRisers(d, m, placeId)
 		else { m.kind = 'building'; m.storeys = restack(floors, $state.snapshot(m.storeys ?? []) as Storey[]) }
 		this.#linkFloorModels(m)
 		this.#h.pushStep(this.#h.activeTabId() ?? '', `Floors of ${m.name}`)
@@ -327,7 +326,7 @@ export class PagesProject {
 	openRiser = (docId: string | undefined, preview: boolean): boolean => {
 		if (!docId?.startsWith('riser:') || !this.hasPlaces) return false
 		const b = this.#modelForRisers(docId.slice('riser:'.length))
-		if (!b) { this.#h.toast('Not imported yet — ⋮ › “Import into the building model” on this row'); return true }
+		if (!b) { this.#h.toast('Not imported yet — open this row\'s action menu (⋮) and choose “Import into the building model”'); return true }
 		this.#h.openDrawing({ title: `${b.name} · Model`, kind: 'model', preview, modelId: b.id, docId: `model:${b.id}` })
 		const s = this.#h.session, p = s.panes[s.focused]
 		if (p) viewState.setProj(p.id, this.#h.didOf(p.activeId), 'front')
@@ -591,10 +590,14 @@ export class PagesProject {
 	/** The colour a Sheets annotation without its own drew in: the project's annotation default, else Sheets'
 	 *  built-in red (sheets/annotations/AnnotationLayer.svelte). */
 	#annColor = () => (this.src?.project as { annotationDefaults?: { color?: string } } | null)?.annotationDefaults?.color ?? '#dc2626'
-	/** The building model holding an imported riser (its `rsr-` objects), or null. */
-	#modelForRisers = (_docId: string): Model | null =>
-		models.find((m) => !m.archived && m.kind === 'building' && m.objects.some((o) => o.id?.startsWith('rsr-')) && this.store?.models.some((x) => x.id === m.id)) ?? null
-	#importCtx = () => ({ newId, modelForOutlets: this.#modelForOutlets, modelForRisers: this.#modelForRisers, layerFor: this.#layerFor, defaultColor: this.#annColor() })
+	/** The building model holding this riser's imported geometry (its `rsr-<id>-` objects; or, imported before
+	 *  per-riser ids, any `rsr-` objects), or null. */
+	#modelForRisers = (docId: string): Model | null => {
+		const stored = (m: Model) => !m.archived && m.kind === 'building' && !!this.store?.models.some((x) => x.id === m.id)
+		return models.find((m) => stored(m) && m.objects.some((o) => o.id?.startsWith(riserPrefix(docId))))
+			?? models.find((m) => stored(m) && m.objects.some((o) => /^rsr-(room|lad|cab)-/.test(o.id ?? ''))) ?? null
+	}
+	#importCtx = () => ({ newId, modelForOutlets: this.#modelForOutlets, modelForRisers: this.#modelForRisers, riserDoc: this.#riserDoc, layerFor: this.#layerFor, defaultColor: this.#annColor() })
 	/** The Sheets tool's sheets (for the dialog's Import tab), with the Pages sheet each was imported as. */
 	legacySheets = async (): Promise<LegacySheetRow[]> => {
 		const db = this.#h.db, ps = this.store; if (!db || !ps) return []
@@ -649,7 +652,7 @@ export class PagesProject {
 	 *  its storey (`levelRef` + a cached copy of its `levels`). Re-importing replaces what was imported. */
 	importRisers = async (riserId: string): Promise<string[]> => {
 		const db = this.#h.db, ps = this.store; if (!db || !ps || ps.status !== 'ready') return ['Still loading — try again in a moment']
-		const d = (await db.getOne('risers', riserId)) as unknown as (RisersDocIn & { name?: string }) | null
+		const d = (await db.getOne('risers', riserId)) as unknown as (RisersDocIn & { id: string; name?: string }) | null
 		if (!d) return [`Riser ${riserId} not found`]
 		const floors = riserFloors(d, this.#projectStack()?.skipped ?? [])
 		const floorPlaces = ps.places.filter((p) => p.legacy?.floor != null && p.legacy.area == null && p.legacy.room == null && p.legacy.row == null && floors.includes(p.legacy.floor))
@@ -670,23 +673,27 @@ export class PagesProject {
 	}
 	/** Merge a riser doc into building model `m` with storeys for the building's WHOLE stack (its place's floors,
 	 *  else the project's) plus the riser's own floors if outside it. No history step (the caller's). */
-	#applyRisers(d: RisersDocIn, m: Model, homeId: string) {
+	#applyRisers(d: RisersDocIn & { id: string }, m: Model, homeId: string) {
 		const st = this.stackOf(homeId), skip = new Set(st?.skipped ?? [])
 		const own = riserFloors(d, [...skip])
 		const all = [...new Set([...(st ? stackFloors(st) : []), ...own])].sort((a, b) => a - b)
-		const r = risersToBuilding(d, all)
-		const merged = mergeRisers($state.snapshot(m) as Model, r)
+		const r = risersToBuilding(d, all, { riserId: d.id, layerIds: (m.layers ?? []).map((l) => l.id) })
+		const merged = mergeRisers($state.snapshot(m) as Model, r, d.id)
 		m.objects = merged.objects; m.storeys = merged.storeys; m.layers = merged.layers; m.kind = 'building'
 		return r
 	}
-	/** The loaded riser doc (ProjectSource keeps the whole docs) whose imported geometry a building holds: the
-	 *  first with content overlapping the building's storeys. */
-	#riserOf(m: Model): RisersDocIn | null {
-		if (!m.objects.some((o) => o.id?.startsWith('rsr-'))) return null
+	/** The loaded riser docs (ProjectSource keeps the whole docs) whose geometry a building holds — by the
+	 *  per-riser id prefix, or (imported before that) any riser with content overlapping its storeys. */
+	#risersOf(m: Model): (RisersDocIn & { id: string })[] {
+		const docs = (this.src?.risers ?? []) as unknown as (RisersDocIn & { id: string })[]
+		const ids = m.objects.map((o) => o.id ?? '')
+		const keyed = docs.filter((d) => ids.some((i) => i.startsWith(riserPrefix(d.id))))
+		if (keyed.length || !ids.some((i) => /^rsr-(room|lad|cab)-/.test(i))) return keyed
 		const names = new Set((m.storeys ?? []).map((s) => s.name))
-		const docs = (this.src?.risers ?? []) as unknown as RisersDocIn[]
-		return docs.find((d) => (d.rooms?.length || d.ladders?.length) && riserFloors(d).some((n) => names.has(floorLabel(n)))) ?? null
+		return docs.filter((d) => (d.rooms?.length || d.ladders?.length) && riserFloors(d).some((n) => names.has(floorLabel(n)))).slice(0, 1)
 	}
+	/** A riser doc as loaded (for its hidden floors / range), or null. */
+	#riserDoc = (id: string) => ((this.src?.risers ?? []) as unknown as (RisersDocIn & { id: string })[]).find((d) => d.id === id) ?? null
 	#createImported(r: SheetImportResult, placeId: string | null, from: string): string[] {
 		const ps = this.store!
 		const shapeCount = Object.values(r.shapes).reduce((n, a) => n + a.length, 0)

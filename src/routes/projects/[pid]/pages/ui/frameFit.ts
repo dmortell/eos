@@ -17,7 +17,9 @@ export function niceScale(n: number): number {
  *  with a 10 % margin, `view` = the content offset (at zoom 1) that centres the objects' drawn bounds in
  *  the frame. A section `clip` trims objects first, like the render. null when nothing is visible. */
 export function fitFrame(objects: Obj[], dir: Dir, frameMm: { w: number; h: number },
-	opts: { yaw?: number; pitch?: number; visible?: (o: Obj) => boolean; clip?: Clip | null } = {}): { n: number; view: { zoom: number; x: number; y: number } } | null {
+	opts: { yaw?: number; pitch?: number; visible?: (o: Obj) => boolean; clip?: Clip | null
+		/** Remap a projected height (engine v) — a riser drawing's collapsed floors (3dview/storeyMap.ts). */
+		mapV?: (v: number) => number } = {}): { n: number; view: { zoom: number; x: number; y: number } } | null {
 	const vis = objects.filter((o) => (opts.visible ? opts.visible(o) : true))
 	const shown = opts.clip ? vis.map((o) => trimToClip(o, opts.clip!)).filter((o): o is Obj => !!o) : vis
 	if (!shown.length || frameMm.w <= 0 || frameMm.h <= 0) return null
@@ -26,7 +28,7 @@ export function fitFrame(objects: Obj[], dir: Dir, frameMm: { w: number; h: numb
 	const vm = viewMap(dir, PLAN_CX, PLAN_CY, GROUND, yaw, pitch, isoBox)
 	let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
 	for (const o of shown) for (const sh of project(o, dir, yaw, pitch, PLAN_CX, PLAN_CY)) for (const q of sh.pts) {
-		const [x, y] = vm.uvToDraw(q)
+		const [x, y] = vm.uvToDraw(opts.mapV ? { u: q.u, v: opts.mapV(q.v) } : q)
 		if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y
 	}
 	if (!isFinite(x0)) return null

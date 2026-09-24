@@ -45,6 +45,9 @@
 	import { findNodePath } from './projectTree'
 	import { PagesProject, sheetIdOf, SHEET } from './pagesProject.svelte'
 	import { WorkspaceHistory } from './history.svelte'
+	import { storeyMap } from './3dview/storeyMap'
+	import { BASIS } from './3dview/types'
+	import { objBounds } from './3dview/projection'
 	import { modelVersionState, sheetEditedSinceIssue } from './store/versions'
 	import { Clipboard, arrange, setGroup, type ArrangeOp } from './ui/clipboard'
 	import type { TitleBlockTemplate } from './titleBlock'
@@ -337,8 +340,12 @@
 		const mdl = modelById(f.modelId ?? a2.modelId ?? FLOOR_MODEL_ID); if (!mdl) return
 		const ls = mdl.layers ?? [], frozen = new Set(f.frozen ?? [])
 		const orb = orbitOf(p.id, f.id, f.proj)
+		// a riser drawing with hidden floors fits its COLLAPSED extent (as drawn)
+		const elev = f.proj !== 'plan' && f.proj !== 'iso'
+		const sm = elev && f.storeys && mdl.storeys?.length ? storeyMap(mdl.storeys, f.storeys) : null, vs = elev ? BASIS[f.proj as ElevDir].vs : 1
 		const fit = fitFrame(mdl.objects, f.proj, { w: f.w / PAPER_PX_PER_MM, h: f.h / PAPER_PX_PER_MM },
-			{ yaw: orb.yaw, pitch: orb.pitch, clip: f.clip, visible: (o) => !isLayerHidden(ls, o.layer) && !(o.layer && frozen.has(o.layer)) })
+			{ yaw: orb.yaw, pitch: orb.pitch, clip: f.clip, mapV: sm ? (v) => vs * sm.map(vs * v) : undefined,
+				visible: (o) => !isLayerHidden(ls, o.layer) && !(o.layer && frozen.has(o.layer)) && !(sm && (() => { const b = objBounds(o); return sm.hidden(b.z0, b.z1) })()) })
 		if (!fit) { statusText = 'Nothing visible to fit in this viewport'; return }
 		ensureHist(a2.id); updateFrame(a2.id, f.id, { scale: `1:${fit.n}` }); commitFrame(a2.id, 'Fit viewport scale')
 		setView(p.id, f.id, f.proj, fit.view)

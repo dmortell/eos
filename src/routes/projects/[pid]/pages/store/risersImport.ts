@@ -21,9 +21,19 @@ export type RisersDocIn = {
 	settings?: { defaultFloorHeights?: Partial<FloorHeights> }
 	rooms?: { id: string; kind: 'server' | 'eps'; floor: number; xMm: number; widthMm: number; label: string }[]
 	ladders?: { id: string; label: string; xMm: number; fromFloor: number; toFloor: number; widthMm?: number }[]
-	cables?: { id: string; label?: string; segments: { roomId: string; level?: 'high' | 'low'; entryLevel?: 'high' | 'low'; ladderId?: string }[] }[]
+	cables?: { id: string; label?: string; media?: 'copper' | 'fiber'; segments: { roomId: string; level?: 'high' | 'low'; entryLevel?: 'high' | 'low'; ladderId?: string }[] }[]
 	labels?: unknown[]
+	/** The floors the Risers tool's elevation hides ("Visible") — a riser drawing's hidden floors. */
+	hiddenFloors?: number[]
 }
+/** The storey ids a riser DRAWING shows: its from…to range minus its hidden floors (existing storeys only). */
+export function riserVisibleStoreys(d: Pick<RisersDocIn, 'fromFloor' | 'toFloor' | 'hiddenFloors'>, storeys: Storey[]): string[] {
+	const want = new Set(riserFloors(d, d.hiddenFloors ?? []).map(storeyId))
+	return storeys.filter((s) => want.has(s.id)).map((s) => s.id)
+}
+/** The object-id prefix of one riser's imported geometry (so several risers can share a building). */
+export const riserPrefix = (riserId: string) => `rsr-${riserId}-`
+const LEGACY = /^rsr-(room|lad|cab)-/   // before per-riser ids
 
 export const RISER_LAYERS: Layer[] = [
 	{ id: 'riser-rooms', name: 'Server rooms', group: 'Risers', color: '#2563eb', visible: true, locked: false },
@@ -70,22 +80,27 @@ export function restack(floors: number[], existing: Storey[] = []): Storey[] {
 /** A storey's levels (for a floor model's cached `levels`). */
 export const storeyLevels = (s: Storey): Levels => ({ floorSlab: s.floorSlab, raisedFloor: s.raisedFloor, ceilingTile: s.ceilingTile, ceilingSlab: s.ceilingSlab })
 
-/** `floors` = the building's whole stack (its place's `floors`), else the riser's own range. */
-export function risersToBuilding(d: RisersDocIn, floors: number[] = riserFloors(d)): { storeys: Storey[]; objects: Obj[]; notes: string[] } {
+/** `floors` = the building's whole stack (its place's `floors`), else the riser's own range. `riserId` keys the
+ *  object ids (several risers per building); `layerIds` = the model's layers — ladders go on its Trunks layer and
+ *  cables on Copper / Fiber Trunks by media when it has them (else the import's own Risers layers). */
+export function risersToBuilding(d: RisersDocIn, floors: number[] = riserFloors(d), opts: { riserId?: string; layerIds?: string[] } = {}): { storeys: Storey[]; objects: Obj[]; notes: string[] } {
 	const storeys = riserStoreys(d, floors), notes: string[] = []
+	const pre = opts.riserId ? riserPrefix(opts.riserId) : 'rsr-', has = new Set(opts.layerIds ?? [])
+	const ladderLayer = has.has('trunks') ? 'trunks' : 'riser-ladders'
+	const cableLayer = (media?: string) => (media === 'fiber' ? (has.has('fiber') ? 'fiber' : 'riser-cables') : has.has('copper') ? 'copper' : 'riser-cables')
 	const st = (n: number) => storeys.find((s) => s.id === storeyId(n))
 	const objects: Obj[] = []
 	const rooms = new Map((d.rooms ?? []).map((r) => [r.id, r]))
 	for (const r of d.rooms ?? []) {
 		const s = st(r.floor); if (!s) { notes.push(`Room “${r.label}” is on ${floorLabel(r.floor)}, outside the riser's floors`); continue }
-		objects.push({ type: 'prism', id: `rsr-room-${r.id}`, layer: r.kind === 'eps' ? 'riser-eps' : 'riser-rooms', edges: 4,
+		objects.push({ type: 'prism', id: `${pre}room-${r.id}`, layer: r.kind === 'eps' ? 'riser-eps' : 'riser-rooms', edges: 4, label: r.label,
 			x: r.xMm - r.widthMm / 2, y: -ROOM_DEPTH / 2, z: s.z + (s.raisedFloor ?? 0), w: r.widthMm, d: ROOM_DEPTH, h: (s.ceilingTile ?? 2900) - (s.raisedFloor ?? 0) })
 	}
 	for (const l of d.ladders ?? []) {
 		const a = st(Math.min(l.fromFloor, l.toFloor)), b = st(Math.max(l.fromFloor, l.toFloor))
 		if (!a || !b) { notes.push(`Ladder “${l.label}” runs outside the riser's floors`); continue }
 		const z0 = a.z, z1 = b.z + (b.ceilingSlab ?? 3500)
-		objects.push({ type: 'conduit', id: `rsr-lad-${l.id}`, layer: 'riser-ladders', w: l.widthMm ?? 300, h: 100, edges: 4,
+		objects.push({ type: 'conduit', id: `${pre}lad-${l.id}`, layer: ladderLayer, label: l.label, w: l.widthMm ?? 300, h: 100, edges: 4,
 			nodes: [{ id: 'a', x: l.xMm, y: 0, z: z0 }, { id: 'b', x: l.xMm, y: 0, z: z1 }], segments: [{ id: 's', a: 'a', b: 'b' }] } as Obj)
 	}
 	const ladders = new Map((d.ladders ?? []).map((l) => [l.id, l]))
@@ -109,18 +124,21 @@ export function risersToBuilding(d: RisersDocIn, floors: number[] = riserFloors(
 			if (lad) { add(lad.xMm, levelZ(r.floor, sg.level)); add(lad.xMm, nzEntry) }   // along to the ladder, up / down it
 		})
 		if (!ok || pts.length < 2) { notes.push(`Cable “${c.label ?? c.id}” has a route through a room outside the riser — not imported`); continue }
-		objects.push({ type: 'conduit', id: `rsr-cab-${c.id}`, layer: 'riser-cables', w: 40, h: 40, edges: 16,
+		objects.push({ type: 'conduit', id: `${pre}cab-${c.id}`, layer: cableLayer(c.media), label: c.label, w: 40, h: 40, edges: 16,
 			nodes: pts.map((p, i) => ({ id: `n${i}`, x: p.x, y: 0, z: p.z })), segments: pts.slice(1).map((_, i) => ({ id: `s${i}`, a: `n${i}`, b: `n${i + 1}` })) } as Obj)
 	}
 	if (d.labels?.length) notes.push(`${d.labels.length} text label${d.labels.length === 1 ? '' : 's'} not imported (no elevation text yet)`)
 	return { storeys, objects, notes }
 }
 
-/** The building model with the riser merged in: its imported objects replaced (by id), its storeys replaced,
- *  the riser layers added once. A NEW model object (the input isn't mutated). */
-export function mergeRisers(m: Model, r: { storeys: Storey[]; objects: Obj[] }): Model {
-	const keep = m.objects.filter((o) => !o.id?.startsWith('rsr-'))
-	const layers = [...(m.layers ?? [])]
-	for (const l of RISER_LAYERS) if (!layers.some((x) => x.id === l.id)) layers.push({ ...l })
+/** The building model with ONE riser merged in: that riser's imported objects replaced (and any from before
+ *  per-riser ids), its storeys replaced, the layers the objects use added once / made visible (the Trunks layers
+ *  start hidden). A NEW model object (the input isn't mutated). */
+export function mergeRisers(m: Model, r: { storeys: Storey[]; objects: Obj[] }, riserId?: string): Model {
+	const mine = (id?: string) => !!id && (riserId ? id.startsWith(riserPrefix(riserId)) || LEGACY.test(id) : id.startsWith('rsr-'))
+	const keep = m.objects.filter((o) => !mine(o.id))
+	const used = new Set(r.objects.map((o) => o.layer).filter((x): x is string => !!x))
+	const layers = (m.layers ?? []).map((l) => (used.has(l.id) && !l.visible ? { ...l, visible: true } : l))
+	for (const l of RISER_LAYERS) if (used.has(l.id) && !layers.some((x) => x.id === l.id)) layers.push({ ...l })
 	return { ...m, objects: [...keep, ...r.objects], storeys: r.storeys, layers }
 }

@@ -18,6 +18,7 @@ import type { Ent, Pt, Head, Dash } from '../ui/geometry'
 import { PLAN_CX, PLAN_CY } from '../ui/geometry'
 import { insertBounds } from '../ui/blocks'
 import { niceScale, fitFrame } from '../ui/frameFit'
+import { riserVisibleStoreys, type RisersDocIn } from './risersImport'
 import { PT_MM, type PaperSize } from '../constants'
 import { USAGE_COLORS } from '../../outlets/parts/constants'
 
@@ -31,6 +32,8 @@ export type ImportCtx = {
 	defaultColor?: string
 	/** The BUILDING model a Risers-tool doc was imported into (risersImport.ts), or null. */
 	modelForRisers?: (risersDocId: string) => Model | null
+	/** The Risers-tool doc itself (its range + hidden floors → a riser frame's visible floors), or null. */
+	riserDoc?: (risersDocId: string) => Pick<RisersDocIn, 'fromFloor' | 'toFloor' | 'hiddenFloors'> | null
 }
 export type SheetImportResult = {
 	title: string; drawingNumber: string; paper: SheetPaper
@@ -172,11 +175,14 @@ export function importSheetDoc(src: SheetDoc, ctx: ImportCtx): SheetImportResult
 			const fit = fitFrame(bm.objects, 'front', { w: vp.w, h: vp.h })
 			f.modelId = bm.id; f.direction = 'front'
 			if (fit) { f.scale = `1:${fit.n}`; f.view = fit.view }
-			// the viewport's floor range → the frame's visible storeys (ids `st-F<n>`, risersImport.ts)
-			if (s.kind === 'risers' && s.fromFloor != null && s.toFloor != null && bm.storeys?.length) {
-				const lo = Math.min(s.fromFloor, s.toFloor), hi = Math.max(s.fromFloor, s.toFloor)
-				const vis = bm.storeys.filter((st) => { const n = parseInt(st.id.replace('st-F', ''), 10); return n >= lo && n <= hi }).map((st) => st.id)
-				if (vis.length && vis.length < bm.storeys.length) f.storeys = vis
+			// the floors this riser drawing shows: the viewport's range (else the riser's) minus the riser's hidden floors
+			if (s.kind === 'risers' && bm.storeys?.length) {
+				const rd = ctx.riserDoc?.(s.risersDocId)
+				const from = s.fromFloor ?? rd?.fromFloor, to = s.toFloor ?? rd?.toFloor
+				if (from != null && to != null) {
+					const vis = riserVisibleStoreys({ fromFloor: from, toFloor: to, hiddenFloors: rd?.hiddenFloors }, bm.storeys)
+					if (vis.length && vis.length < bm.storeys.length) f.storeys = vis
+				}
 			}
 			if (vp.annotations?.length) notes.push(`${where}: its ${vp.annotations.length} annotation${vp.annotations.length === 1 ? '' : 's'} were not imported (elevation annotations aren't mapped yet)`)
 		} else if (m) {

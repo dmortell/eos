@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { riserFloors, riserStoreys, risersToBuilding, mergeRisers, storeyLevels, stackFloors, restack, type RisersDocIn } from './risersImport'
+import { riserFloors, riserStoreys, risersToBuilding, mergeRisers, storeyLevels, stackFloors, restack, riserVisibleStoreys, type RisersDocIn } from './risersImport'
 import type { Model } from '../3dview/types'
 
 const doc: RisersDocIn = {
@@ -56,7 +56,25 @@ describe('Risers import', () => {
 		const twice = mergeRisers(once, risersToBuilding({ ...small, rooms: doc.rooms!.filter((r) => r.floor === 33) }))
 		expect(twice.objects.length).toBe(once.objects.length)
 		expect(twice.objects[0].id).toBe('mine')
-		expect(twice.layers!.map((l) => l.id)).toEqual(['riser-rooms', 'riser-eps', 'riser-ladders', 'riser-cables'])
+		expect(twice.layers!.map((l) => l.id)).toEqual(['riser-eps'])   // only the layers it uses
 		expect(twice.storeys!.map((s) => s.name)).toEqual(['32F', '33F'])
+	})
+	it('several risers share a building: each replaces only its own objects; items land on the model\'s layers', () => {
+		const m: Model = { id: 'b', name: 'B', objects: [], layers: [{ id: 'trunks', name: 'Trunks', color: '#000', visible: true, locked: false }, { id: 'fiber', name: 'Fiber', color: '#000', visible: false, locked: false }] }
+		const d2 = { ...doc, cables: [{ ...doc.cables![0], media: 'fiber' as const }] }
+		const a = risersToBuilding(d2, riserFloors(d2), { riserId: 'A', layerIds: ['trunks', 'fiber'] })
+		expect(a.objects.find((o) => o.id === 'rsr-A-lad-L1')!.layer).toBe('trunks')
+		expect(a.objects.find((o) => o.id === 'rsr-A-cab-c1')!.layer).toBe('fiber')
+		expect(a.objects.find((o) => o.id === 'rsr-A-room-r12')!.label).toBe('MDF')
+		const withA = mergeRisers(m, a, 'A')
+		expect(withA.layers!.find((l) => l.id === 'fiber')!.visible).toBe(true)   // made visible for its cables
+		const withB = mergeRisers(withA, risersToBuilding({ ...doc, cables: [] }, riserFloors(doc), { riserId: 'B' }), 'B')
+		expect(withB.objects.filter((o) => o.id!.startsWith('rsr-A-')).length).toBe(a.objects.length)   // A kept
+		const againA = mergeRisers(withB, a, 'A')
+		expect(againA.objects.length).toBe(withB.objects.length)
+	})
+	it("a riser drawing's floors: its range minus its hidden floors", () => {
+		const st = riserStoreys(doc, riserFloors({ fromFloor: 30, toFloor: 34 }))
+		expect(riserVisibleStoreys({ fromFloor: 31, toFloor: 33, hiddenFloors: [32] }, st)).toEqual(['st-F31', 'st-F33'])
 	})
 })
