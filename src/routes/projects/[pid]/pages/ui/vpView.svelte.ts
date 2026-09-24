@@ -104,6 +104,7 @@ export class VpView {
 	get ortho() { return this.p.env?.ortho ?? false }                // ORTHO: constrain line-draw + move to H/V
 	get centerDraw() { return this.p.env?.cen ?? false }             // CEN: draw rect/ellipse centre-out
 	get canvasZoom() { return this.p.env?.canvasZoom ?? 1 }
+	get mono() { return !!this.p.mono }                               // I2: a black-and-white viewport
 	/** Guide orientation: the Guide tool's H/V pop-out (for touch) XOR Shift (mouse). true = vertical. */
 	guideIsVert = (shift: boolean) => (this.p.env?.guideVert ?? false) !== shift
 
@@ -245,8 +246,8 @@ export class VpView {
 	/** Everything EntRender reads, built ONCE so every entity gets the same reference. B31: on dark model
 	 *  space the ByLayer ink is light and too-dark colours are lifted (ui/modelSpace.ts). */
 	entStyle = $derived(this.modelSpace
-		? { lwt: this.lwt, canvasZoom: this.canvasZoom, paperMm: this.paperMm, gripSize: this.gripSize, ink: MODEL_SPACE_INK, sel: SEL, layerColor: this.layerColor, layerDash: this.layerDash, adapt: onDark }
-		: { lwt: this.lwt, canvasZoom: this.canvasZoom, paperMm: this.paperMm, gripSize: this.gripSize, ink: INK, sel: SEL, layerColor: this.layerColor, layerDash: this.layerDash })
+		? { lwt: this.lwt, canvasZoom: this.canvasZoom, paperMm: this.paperMm, gripSize: this.gripSize, ink: MODEL_SPACE_INK, sel: SEL, layerColor: this.layerColor, layerDash: this.layerDash, adapt: onDark, mono: this.mono }
+		: { lwt: this.lwt, canvasZoom: this.canvasZoom, paperMm: this.paperMm, gripSize: this.gripSize, ink: INK, sel: SEL, layerColor: this.layerColor, layerDash: this.layerDash, mono: this.mono })
 
 	/** PAINT ORDER = layer order first (earlier layer = underneath), then array position within a layer; no
 	 *  layer / unknown → on top. P6: an O(n) check skips the sort when already in order (the common case). */

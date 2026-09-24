@@ -77,6 +77,8 @@ export type SheetFrameDoc = {
 	storeys?: string[]
 	/** A fill-rate frame: the conduit whose cross-section it shows (types.ts SheetFrame.fillOf). */
 	fillOf?: string
+	/** Hidden-line removal / black-and-white / a plan's cut band (types.ts SheetFrame). */
+	hideHidden?: boolean; mono?: boolean; zBand?: { z0: number; z1: number }
 }
 
 /** B5: where a link sheet goes — `/projects/{pid}/{tool}?floor=…&room=…`. */

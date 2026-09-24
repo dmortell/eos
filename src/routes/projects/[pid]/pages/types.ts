@@ -35,6 +35,10 @@ export type SheetFrame = {
 	storeys?: string[]
 	/** F12: the frame shows this conduit's CROSS-SECTION (its cables packed in, fill %) instead of a model view. */
 	fillOf?: string
+	/** I2: plan / elevation with hidden lines removed; everything in black (B/W). */
+	hideHidden?: boolean; mono?: boolean
+	/** I1: a plan's cut band — only objects reaching into z0..z1 (model mm) show; unset = all heights. */
+	zBand?: { z0: number; z1: number }
 }
 
 /** Drawing scales offered in the scale pickers (viewport bar + Properties). */

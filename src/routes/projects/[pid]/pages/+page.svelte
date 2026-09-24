@@ -1146,7 +1146,7 @@
 						sheets={(proj.store?.sheets ?? []).filter((s) => s.status !== 'archived' && !s.link).map((s) => ({ id: s.id, title: s.title, number: s.drawingNumber }))} onopenlink={openLink} onsaveblock={saveSelAsBlock} onmodelsupdate={updateModelObjs} modelLayers={modelById(activeMid())?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} onmodelseg={updateModelSeg}
 						frameObj={selFrameObj} onframefit={fitSelectedFrame}
 						heights={proj.buildingHeights} onheight={proj.setStoreyHeight} onheightall={proj.setAllStoreyHeights}
-						frameStoreys={(selFrameObj ? modelById(selFrameObj.modelId ?? (active ? modelIdOf(active.id) : undefined))?.storeys ?? [] : []).map((s) => ({ id: s.id, name: s.name }))}
+						frameStoreys={(selFrameObj ? modelById(selFrameObj.modelId ?? (active ? modelIdOf(active.id) : undefined))?.storeys ?? [] : []).map((s) => ({ id: s.id, name: s.name, z: s.z }))}
 						frameConduits={(selFrameObj ? modelById(selFrameObj.modelId ?? (active ? modelIdOf(active.id) : undefined))?.objects ?? [] : []).filter((o) => o.type === 'conduit' && o.id).map((o, i) => ({ id: o.id!, name: o.label || `Conduit ${i + 1}` }))}
 						sheetInfo={proj.activeSheetInfo} onsheetfield={proj.setSheetField}
 						titleBlock={proj.store?.project?.titleBlock} ontitleblock={proj.store && proj.hasPlaces ? (t: TitleBlockTemplate) => proj.store!.saveTitleBlock(t) : undefined}

@@ -52,7 +52,7 @@
 			sheetInfo?: { number: string; drawnBy: string; drawnDefault: string; hideTitleBlock: boolean } | null
 			onsheetfield?: ((key: 'drawingNumber' | 'drawnBy', value: string) => void) & ((key: 'hideTitleBlock', value: boolean) => void)
 			/** The selected frame's model storeys (a building) — its FLOORS checklist in an elevation. */
-			frameStoreys?: { id: string; name: string }[]
+			frameStoreys?: { id: string; name: string; z?: number }[]
 			/** The selected frame's model conduits (F12 fill-rate frame). */
 			frameConduits?: { id: string; name: string }[]
 			/** A selected BUILDING place's storey heights (top first) + the edit callback. */

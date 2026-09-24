@@ -54,7 +54,7 @@
 			{/if}
 			<!-- Background-layer shapes (a floor's calibrated floorplan PDF image) under the 3D model -->
 			{#each v.backEnts as e (e.id)}{#if e.id !== x.editText?.id && !v.isLayerHidden(e.layer) && v.inThisView(e)}<EntRender {e} ctx={v.ctx} selected={v.selSet.has(e.id)} style={v.entStyle} isoGround={v.isoGround} imgCrop={imgEdit.mode === 'crop' ? imgEdit.id : null} clipNs={v.clipNs} />{/if}{/each}
-			{#if v.mdl}<Model3d model={v.mdl} frozen={v.frozen} adapt={v.modelSpace ? onDark : undefined} dir={v.kind} cx={CX} cy={CY} ground={GROUND} selIds={v.modelSel} canvasZoom={v.canvasZoom} clip={v.clip} yaw={v.yaw} pitch={v.pitch} showStoreys={v.p.storeys} paperMm={v.paperMm} pxMm={v.modelSpace ? v.gripSize / HANDLE_PX : 0} />{/if}
+			{#if v.mdl}<Model3d model={v.mdl} frozen={v.frozen} adapt={v.modelSpace ? onDark : undefined} dir={v.kind} cx={CX} cy={CY} ground={GROUND} selIds={v.modelSel} canvasZoom={v.canvasZoom} clip={v.clip} yaw={v.yaw} pitch={v.pitch} showStoreys={v.p.storeys} hideHidden={v.p.hideHidden} mono={v.p.mono} zBand={v.p.zBand} paperMm={v.paperMm} pxMm={v.modelSpace ? v.gripSize / HANDLE_PX : 0} />{/if}
 			<VpMarks {v} {x} />
 			<!-- drawn entities (hidden layers skipped; the text being edited in place is hidden too) -->
 			{#each v.frontEnts as e (e.id)}{#if e.id !== x.editText?.id && !v.isLayerHidden(e.layer) && v.inThisView(e)}<EntRender {e} ctx={v.ctx} selected={v.selSet.has(e.id)} style={v.entStyle} isoGround={v.isoGround} imgCrop={imgEdit.mode === 'crop' ? imgEdit.id : null} clipNs={v.clipNs} />{/if}{/each}

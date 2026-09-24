@@ -44,6 +44,8 @@ export type VpProps = {
 	unmapped?: string
 	/** A building elevation's visible storeys (SheetFrame.storeys); undefined = all. */
 	storeys?: string[]
+	/** I2 / I1 (SheetFrame): hidden-line removal, black-and-white, a plan's cut band. */
+	hideHidden?: boolean; mono?: boolean; zBand?: { z0: number; z1: number }
 	/** In split view only the focused pane's instance handles keys and drives the shared status line. */
 	focused?: boolean
 	entities?: Ent[]; view?: View; clip?: Clip | null; yaw?: number; pitch?: number

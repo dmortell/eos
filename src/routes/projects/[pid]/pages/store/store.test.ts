@@ -57,6 +57,12 @@ describe('frame mappers', () => {
 		expect(docToFrame(frameToDoc(f, 2)).frame.label).toBe('2')
 		expect(view).toEqual({ view: undefined, yaw: undefined, pitch: undefined })
 	})
+	it('keeps a frame\'s display settings (I1 / I2) and leaves them out when off', () => {
+		const on = docToFrame(frameToDoc({ ...f, hideHidden: true, mono: true, zBand: { z0: 0, z1: 3500 } }, 1)).frame
+		expect([on.hideHidden, on.mono, on.zBand]).toEqual([true, true, { z0: 0, z1: 3500 }])
+		const d = frameToDoc(f, 1)
+		expect('hideHidden' in d || 'mono' in d || 'zBand' in d).toBe(false)
+	})
 	it('nextFrameSeq continues after the highest', () => {
 		expect(nextFrameSeq([])).toBe(1); expect(nextFrameSeq([{ seq: 1 }, { seq: 4 }])).toBe(5)
 	})

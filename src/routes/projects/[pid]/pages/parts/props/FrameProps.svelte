@@ -11,7 +11,7 @@
 		/** F12: the frame's model's conduits — a frame can show one's cross-section (fill) instead of a view. */
 		conduits?: { id: string; name: string }[]
 		/** The frame's model storeys (a building) — its FLOORS checklist in an elevation. */
-		storeys?: { id: string; name: string }[]
+		storeys?: { id: string; name: string; z?: number }[]
 		onupdate?: (patch: Partial<SheetFrame>) => void; ondelete?: () => void
 		/** XP19: fit the frame's scale to its model */ onfit?: () => void
 	} = $props()
@@ -65,6 +65,36 @@
 		<option value="solid">Solid</option><option value="dashed">Dashed</option><option value="none">None</option>
 	</select>
 </div>
+<!-- I2: hidden-line removal (plan / elevations) + black-and-white; I1: a plan's cut band (one floor, slab to slab) -->
+{#if frame.proj !== 'iso'}
+	<div class="prop"><span>Hidden lines</span>
+		<span class="pp-seg">
+			<button class:on={!frame.hideHidden} title="Every edge, as a wireframe" onclick={() => onupdate?.({ hideHidden: undefined })}>Show</button>
+			<button class:on={!!frame.hideHidden} title="Nearer faces hide what's behind them" onclick={() => onupdate?.({ hideHidden: true })}>Hide</button>
+		</span></div>
+{/if}
+<div class="prop"><span>Colour</span>
+	<span class="pp-seg">
+		<button class:on={!frame.mono} onclick={() => onupdate?.({ mono: undefined })}>Colour</button>
+		<button class:on={!!frame.mono} title="Everything in black — for monochrome prints" onclick={() => onupdate?.({ mono: true })}>B/W</button>
+	</span></div>
+{#if frame.proj === 'plan'}
+	{@const lv = [...storeys].filter((s) => s.z != null).sort((a, b) => a.z! - b.z!)}
+	<div class="prop-sec">PLAN CUT · mm<span class="sec-hint">{frame.zBand ? 'objects in this height band' : 'all heights'}</span>
+		{#if frame.zBand}<button class="pp-mini sec-btn" onclick={() => onupdate?.({ zBand: undefined })}>All</button>{/if}</div>
+	<div class="vecrow">
+		<NumCell k="Z↓" v={frame.zBand?.z0 ?? 0} set={(n) => onupdate?.({ zBand: { z0: Math.round(n), z1: Math.max(Math.round(n) + 1, frame.zBand?.z1 ?? 3000) } })} />
+		<NumCell k="Z↑" v={frame.zBand?.z1 ?? 0} set={(n) => onupdate?.({ zBand: { z0: Math.min(frame.zBand?.z0 ?? 0, Math.round(n) - 1), z1: Math.round(n) } })} />
+	</div>
+	{#if lv.length}
+		<!-- fit to a floor: from its datum up to the next floor's -->
+		<div class="prop"><span>Fit to floor</span>
+			<select value="" onchange={(e) => { const i = lv.findIndex((s) => s.id === strVal(e)); if (i >= 0) onupdate?.({ zBand: { z0: lv[i].z!, z1: lv[i + 1]?.z ?? lv[i].z! + 4000 } }); (e.currentTarget as HTMLSelectElement).value = '' }}>
+				<option value="">Pick a floor…</option>
+				{#each [...lv].reverse() as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
+			</select></div>
+	{/if}
+{/if}
 <!-- a riser drawing: which floors this building elevation shows (the rest collapse to a break) -->
 {#if storeys.length && frame.proj !== 'plan' && frame.proj !== 'iso'}
 	{@const shown = new Set(frame.storeys ?? storeys.map((s) => s.id))}

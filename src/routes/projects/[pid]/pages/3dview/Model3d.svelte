@@ -17,11 +17,13 @@
 	import { dashArray } from '../ui/annotations'
 	import type { Model, Obj, Dir, Clip } from './types'
 
-	let { model, adapt, frozen = [], dir = 'plan', cx = 0, cy = 0, ground = 0, defaultWeight = 1, selIds = [], canvasZoom = 1, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, showStoreys = undefined, paperMm = 1, pxMm = 0 }:
+	let { model, adapt, frozen = [], dir = 'plan', cx = 0, cy = 0, ground = 0, defaultWeight = 1, selIds = [], canvasZoom = 1, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, showStoreys = undefined, paperMm = 1, pxMm = 0, hideHidden = false, mono = false, zBand = null }:
 		{ model: Model; /** B31: dark model space colour mapping (ui/modelSpace.ts `onDark`) */ adapt?: (c: string) => string; /** VP Freeze: layer ids hidden in this viewport only */ frozen?: string[]; dir?: Dir; cx?: number; cy?: number; ground?: number; defaultWeight?: number; selIds?: string[]; canvasZoom?: number; clip?: Clip | null; yaw?: number; pitch?: number
 			/** A building elevation showing only these storeys (a riser drawing's floors); undefined = all. */ showStoreys?: string[]
 			/** Model mm per paper mm (the viewport's `paperMm`) — labels are sized on PAPER so they stay readable. */ paperMm?: number
-			/** Model mm per SCREEN px (model-space tabs; 0 on a sheet): labels never shrink below ~12 px when zoomed out. */ pxMm?: number } = $props()
+			/** Model mm per SCREEN px (model-space tabs; 0 on a sheet): labels never shrink below ~12 px when zoomed out. */ pxMm?: number
+			/** I2: plan / elevation hidden-line removal (nearer faces hide what's behind), and black-and-white. */ hideHidden?: boolean; mono?: boolean
+			/** I1: a plan's CUT band — only objects reaching into z0..z1 show (e.g. one floor, slab to slab). */ zBand?: { z0: number; z1: number } | null } = $props()
 	// Plan/elevation use a true section cut (`trimToClip`, applied per object in the render passes below):
 	// walls/conduits keep only the segments inside the box, prisms pass through whole. This AABB-overlap
 	// test is kept only for the iso pass (a quick cull; iso normally has no clip).
@@ -31,7 +33,7 @@
 	const layerOf = (o: Obj) => model.layers?.find((l) => l.id === o.layer)
 	const isOpening = (o: Obj) => !!layerOf(o)?.opening   // objects on an "opening" layer cut the wall
 	const isSel = (o: Obj) => !!o.id && selIds.includes(o.id)
-	const colorOf = (o: Obj) => { const c = isSel(o) ? SEL : o.color ?? layerOf(o)?.color ?? '#475569'; return adapt ? adapt(c) : c }
+	const colorOf = (o: Obj) => { const c = isSel(o) ? SEL : mono ? '#000000' : o.color ?? layerOf(o)?.color ?? '#475569'; return adapt ? adapt(c) : c }
 	// screen px (non-scaling-stroke cancels SVG transforms; ÷ canvasZoom cancels the ancestor CSS canvas
 	// zoom too, so the lineweight is a constant screen-px value — matching how entities render).
 	const weightOf = (o: Obj) => ((isSel(o) ? (layerOf(o)?.weight ?? defaultWeight) + 1.2 : layerOf(o)?.weight ?? defaultWeight) / (canvasZoom || 1))
@@ -39,7 +41,9 @@
 	const dashOf = (o: Obj) => dashArray(layerOf(o)?.dash, canvasZoom)
 	// G4: a rack device mounted on ONE face only shows in that face's elevation (front / rear)
 	const onFace = (o: Obj) => { const m = o.device?.mount; return !m || m === 'both' || !(dir === 'front' || dir === 'rear') || m === dir }
-	const visible = (o: Obj) => { const l = layerOf(o); return (!l || l.visible) && !(o.layer && frozen.includes(o.layer)) && onFace(o) }
+	// I1: in plan, an object entirely above / below the cut band is not drawn
+	const inBand = (o: Obj) => { if (!zBand || dir !== 'plan') return true; const b = objBounds(o); return b.z1 > zBand.z0 && b.z0 < zBand.z1 }
+	const visible = (o: Obj) => { const l = layerOf(o); return (!l || l.visible) && !(o.layer && frozen.includes(o.layer)) && onFace(o) && inBand(o) }
 	// G4: a rack's RU numbers down its left rail in the front / rear elevation (1 at the bottom, like the Racks tool)
 	const RU = 45, RAIL = 40
 	const ruMarks = $derived.by(() => {
@@ -196,6 +200,25 @@
 		for (let i = 0; i <= 12; i++) arc.push(at(swing * (1 - i / 12)))
 		return [leaf, arc]
 	}
+	// I2: plan / elevation HIDDEN-LINE removal — every face projected orthographically, painted farthest first in the
+	// paper colour, so a nearer face hides the lines behind it (the iso solid render's painter's algorithm, flat).
+	// `far` = distance away from the viewer: plan looks down (−z), front along +y, rear −y, right −x, left +x.
+	const far = (p: { x: number; y: number; z: number }) => dir === 'plan' ? -p.z : dir === 'front' ? p.y : dir === 'rear' ? -p.y : dir === 'right' ? -p.x : p.x
+	const hlFaces = $derived.by(() => {
+		if (!hideHidden || dir === 'iso') return []
+		const out: { pts: { u: number; v: number }[]; depth: number; col: string; lw: number }[] = []
+		for (const o of model.objects) {
+			if (!visible(o) || isOpening(o) || inHiddenFloors(o)) continue
+			const to = clip ? trimToClip(o, clip) : o; if (!to) continue
+			const col = colorOf(o), lw = weightOf(o)
+			for (const f of faces3d(to)) {
+				if (f.pts.length < 3) continue
+				let d = 0; for (const p of f.pts) d += far(p)
+				out.push({ pts: mv(f.pts.map((p) => projPt(dir, p))), depth: d / f.pts.length, col, lw })
+			}
+		}
+		return out.sort((a, b) => b.depth - a.depth)
+	})
 	// R7: the engine → drawing mapping is `viewMap` (projection.ts) — the SAME one hit/grips/snap pick with.
 	const xform = $derived(viewMap(dir, cx, cy, ground, yaw, pitch, isoBox).xform)
 </script>
@@ -243,7 +266,12 @@
 	{/each}
 	<!-- Pass 1: everything except openings. Under a section clip each object is TRIMMED to the box (a
 	     true cut — walls/conduits keep only the segments inside), not just AABB-culled. -->
-	{#each model.objects as o (o.id)}
+	{#if hideHidden}
+		{#each hlFaces as f, i (i)}
+			<polygon points={f.pts.map((p) => `${p.u},${p.v}`).join(' ')} class="hl" style="fill: var(--vp-paper, #fff)" stroke={f.col} stroke-width={f.lw} vector-effect="non-scaling-stroke" />
+		{/each}
+	{/if}
+	{#each hideHidden ? [] : model.objects as o (o.id)}
 		{@const to = clip ? trimToClip(o, clip) : o}
 		{#if to && visible(o) && !isOpening(o) && !inHiddenFloors(o)}
 			{@const col = colorOf(o)}

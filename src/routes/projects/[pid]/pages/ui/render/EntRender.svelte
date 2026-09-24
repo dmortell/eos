@@ -46,6 +46,8 @@
 			layerDash?: (id?: string) => Dash | undefined
 			/** B31: dark model space — maps a resolved colour to one that reads on the dark background. */
 			adapt?: (c: string) => string
+			/** I2: a black-and-white viewport — every colour is the ink. */
+			mono?: boolean
 		}
 		/** Iso view only: projects a plan point onto the ground plane (drawing coords). Null elsewhere. */
 		isoGround?: ((x: number, y: number) => Pt) | null
@@ -61,12 +63,14 @@
 	// in dark model space a PDF page is inverted (white paper → dark, black lines → light), like an AutoCAD xref
 	const pdfDark = $derived(!!style.adapt && !!e.src?.startsWith(PDF_SRC))
 	// the image's CSS filter: dark-space inversion for a PDF page, greyscale when asked (I7)
-	const imgFilter = $derived([pdfDark ? 'invert(1) hue-rotate(180deg)' : '', e.grey ? 'grayscale(1)' : ''].filter(Boolean).join(' ') || undefined)
-	const ink = $derived.by(() => { const c = e.color ?? style.layerColor(e.layer) ?? style.ink; return style.adapt ? style.adapt(c) : c })
+	const imgFilter = $derived([pdfDark ? 'invert(1) hue-rotate(180deg)' : '', e.grey || style.mono ? 'grayscale(1)' : ''].filter(Boolean).join(' ') || undefined)
+	// I2: a black-and-white viewport draws every shape in the tool ink (fills too, so a filled symbol stays solid)
+	const tone = (c: string) => (style.mono ? style.ink : style.adapt ? style.adapt(c) : c)
+	const ink = $derived(tone(e.color ?? style.layerColor(e.layer) ?? style.ink))
 	// An explicit per-object weight ALWAYS renders; LWT only chooses the thickness for objects with no weight
 	// set (on = the default 1.2, off = a thin 0.5 display line).
 	const w = $derived((e.weight ?? (style.lwt ? STYLE_DEFAULTS.weight : 0.5)) / (style.canvasZoom || 1))
-	const fill = $derived(e.fill ?? 'none')
+	const fill = $derived(style.mono && e.fill && e.fill !== 'none' && e.fill.toLowerCase() !== '#ffffff' ? style.ink : e.fill ?? 'none')
 	// XP32: the object's own line type, else its layer's (ByLayer) — screen-px dashes, like the weights.
 	const da = $derived(dashArray(e.dash ?? style.layerDash?.(e.layer), style.canvasZoom))
 	const paperMm = $derived(style.paperMm)
@@ -86,7 +90,7 @@
 			{@const c = e.rot ? rotCenter(ctx, e) : null}
 			{@const pr = g.pts.map((p) => { const q = e.rot && c ? rotatePt(p, c, e.rot) : p; return isoGround!(q[0], q[1]) })}
 			{#if pr.length >= 2}
-				{#if g.closed}<polygon points={pr.map((p) => p.join(',')).join(' ')} fill={e.fill ?? 'none'} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
+				{#if g.closed}<polygon points={pr.map((p) => p.join(',')).join(' ')} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
 				{:else}<polyline points={pr.map((p) => p.join(',')).join(' ')} fill="none" stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />{/if}
 			{/if}
 		{/if}
@@ -181,7 +185,7 @@
 				<text class="anno" x={LEGEND.pad} y={LEGEND.title - 1.6} font-size="3" font-weight="700" fill={ink}>{e.attrs?.TITLE || 'LEGEND'}</text>
 				{#each rows as r, i (r.id)}
 					{@const y = LEGEND.title + i * LEGEND.row + LEGEND.row / 2}
-					{@const c = style.adapt ? style.adapt(r.color) : r.color}
+					{@const c = tone(r.color)}
 					{#if r.line}<line x1={LEGEND.pad} y1={y} x2={LEGEND.pad + 9} y2={y} stroke={c} stroke-width={w * 1.4} stroke-dasharray={dashArray(r.dash as Dash | undefined, style.canvasZoom)} vector-effect="non-scaling-stroke" />
 					{:else}<rect x={LEGEND.pad} y={y - 1.5} width="9" height="3" fill={c} />{/if}
 					<text class="anno" x={LEGEND.pad + 12} y={y + 0.9} font-size="2.4" fill={ink}>{r.name}</text>
@@ -199,7 +203,7 @@
 					{#if ad.visible !== false && attrValue(e, ad)}
 						{@const c = attrColor(e, ad)}
 						<text class="anno" x={e.mirror ? -ad.pos[0] : ad.pos[0]} y={ad.pos[1]} font-size={ad.height} text-anchor="middle"
-							fill={c ? (style.adapt && c !== '#ffffff' ? style.adapt(c) : c) : ink}>{attrValue(e, ad)}</text>
+							fill={c ? (c !== '#ffffff' ? tone(c) : c) : ink}>{attrValue(e, ad)}</text>
 					{/if}
 				{/each}
 			{:else}
