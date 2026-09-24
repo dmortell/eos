@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { DEFAULT_BLOCKS, setBlockResolver, blockExtent, insertBounds, byBlock, attrValue, attrColor, OUTLET_ATTRS, BYBLOCK, insertLink } from './blocks'
+import { DEFAULT_BLOCKS, setBlockResolver, blockExtent, insertBounds, byBlock, attrValue, attrColor, OUTLET_ATTRS, BYBLOCK, insertLink, blockFromShapes } from './blocks'
 import { hitEnt, bbox, inThisView } from './hit'
 import type { Ent } from './geometry'
 import type { ViewCtx } from './view'
@@ -22,6 +22,13 @@ describe('blocks (global library model)', () => {
 		const door = ins({ block: 'door', attrs: {} }), [x0, , x1] = insertBounds(door), [m0, , m1] = insertBounds({ ...door, mirror: true })
 		expect([m0, m1]).toEqual([2000 - x1, 2000 - x0])
 		expect(insertLink(ins({ block: 'section-mark', attrs: { LINK: ' sh1 ' } }))).toBe('sh1')
+	})
+	it('D5: shapes become a block around their centre, without their own layer / group / scope', () => {
+		const r = blockFromShapes([{ id: 'a', type: 'rect', a: [100, 100], b: [300, 200], layer: 'L', groupId: 'g', space: 'view:f' }, { id: 'b', type: 'text', a: [100, 300], text: 'X' }], 'blk', 'Mine')
+		expect(r.at).toEqual([200, 200])
+		expect(r.def.shapes[0]).toEqual({ id: 's1', type: 'rect', a: [-100, -100], b: [100, 0] })
+		expect(r.def.shapes[1]).toMatchObject({ id: 's2', a: [-100, 100], text: 'X' })
+		expect(r.def.category).toBe('custom')
 	})
 	it("the rosette's triangle is centred in its circle (every corner on the circle)", () => {
 		const t = lib['outlet-box'].shapes.find((s) => s.type === 'polyline')!

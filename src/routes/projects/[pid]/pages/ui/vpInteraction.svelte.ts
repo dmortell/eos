@@ -29,7 +29,7 @@ import { toolPrompt, imgModeText, statusLine } from './vpPrompt'
 import type { VpView } from './vpView.svelte'
 import type { Obj, Clip } from '../3dview/types'
 
-export const DRAW = new Set(['Line', 'Rectangle', 'Ellipse', 'Dimension', 'Text', 'Wall', 'Furniture', 'Trunk', 'Pipe', 'Section', 'Opening', 'Guide'])
+export const DRAW = new Set(['Line', 'Rectangle', 'Ellipse', 'Dimension', 'Text', 'Wall', 'Furniture', 'Trunk', 'Pipe', 'Section', 'Opening', 'Guide', 'Block'])
 /** Polyline-style tools (click points, Enter / dbl-click / right-click to finish). */
 export const POLY = new Set(['Line', 'Wall', 'Trunk', 'Pipe'])
 const MODEL_GRAPH = new Set(['Wall', 'Trunk', 'Pipe'])   // build a wall/conduit graph (plan or elevation)
@@ -257,6 +257,18 @@ export class VpInteraction {
 		return out
 	}
 
+	// ── D5: place a library block (the 'Block' tool's click, or a block dragged in from the Blocks panel) ──
+	private placeBlock(id: string, p: Pt) {
+		const v = this.v, e: Ent = { id: uid(), type: 'insert', block: id, a: p, plane: drawPlane(v.ctx), attrs: {} }
+		v.editor.ents.add(e); v.selectEnts([e.id])
+	}
+	onDragOver = (e: DragEvent) => { if (this.v.active && e.dataTransfer?.types.includes('application/x-pages-block')) e.preventDefault() }
+	onDrop = (e: DragEvent) => {
+		const id = e.dataTransfer?.getData('application/x-pages-block'); if (!id || !this.v.active) return
+		e.preventDefault()
+		const p = this.drawPoint(e.clientX, e.clientY); if (p) this.placeBlock(id, p)
+	}
+
 	// ══ pointer events ══
 	onClick = (e: MouseEvent) => {
 		const v = this.v, tool = v.tool
@@ -306,6 +318,7 @@ export class VpInteraction {
 			return v.clearSel()
 		}
 		if (tool === 'Text') { const p = this.drawPoint(e.clientX, e.clientY); if (p) v.editor.ents.add({ id: uid(), type: 'text', a: p, text: 'TEXT', plane: drawPlane(v.ctx) }); v.snapMark = null; return }
+		if (tool === 'Block') { const p = this.drawPoint(e.clientX, e.clientY); if (p && v.blockId) this.placeBlock(v.blockId, p); v.snapMark = null; return }   // D5
 		if (tool === 'Guide') { const p = v.toModel(e.clientX, e.clientY); if (p) this.placeGuide(p, v.guideIsVert(e.shiftKey)); return }
 		// Model objects are placed in the plan — EXCEPT wall/trunk/pipe graphs, which can also be drawn in an elevation.
 		if (MODEL_TOOL.has(tool) && !v.isPlan && !(MODEL_GRAPH.has(tool) && v.isElev)) return
@@ -445,7 +458,7 @@ export class VpInteraction {
 			return
 		}
 		if (v.tool !== 'Select') {   // EOS mode: a shape is one press-drag-release
-			if (v.acad || v.tool === 'Text' || v.tool === 'Guide') return   // AutoCAD two-click / text + guide single-click via onClick
+			if (v.acad || v.tool === 'Text' || v.tool === 'Guide' || v.tool === 'Block') return   // AutoCAD two-click / text, guide, block single-click via onClick
 			const dp = this.drawPoint(e.clientX, e.clientY); if (!dp) return
 			this.draft = [dp]; this.cur = dp
 			beginPointerDrag(e, null, { onMove: this.onDrawMove, onUp: this.onDrawUp, onCancel: () => this.endDraft() }, reg)

@@ -41,6 +41,7 @@
 	style:border-color={v.border === 'none' && !v.active ? '#94a3b866' : undefined}
 	use:panzoom={{ enabled: () => v.active && (v.navContent || v.modelSpace), wheelZoom: () => v.acad, leftPans: () => v.navMode === 'pan', onpan: v.onPan, onzoom: v.onZoom }}
 	onpointerdowncapture={x.noteRightDown}
+	ondragover={x.onDragOver} ondrop={x.onDrop}
 	onclick={x.onClick} ondblclick={x.onDblclick} oncontextmenu={x.onContext} onpointerdown={x.onDown} onpointermove={x.onMove} onpointerleave={x.onLeave}
 	onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); v.on.activate?.() } }}>
 

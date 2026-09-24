@@ -49,6 +49,9 @@
 	import { viewToDxf } from './exportDxf'
 	import { clipOf, pasteClip, saveClip, loadClip } from './ui/frameClip'
 	import PrintBook, { type BookApi } from './parts/PrintBook.svelte'
+	import BlocksPanel from './parts/BlocksPanel.svelte'
+	import { blockFromShapes } from './ui/blocks'
+	import { saveBlock } from './blocks.svelte'
 	import { sheetLinkUrl } from './store/schema'
 	import { modelForPlace } from './3dview/models.svelte'
 	import { downloadDxf } from '../sheets/dxf/dxf'
@@ -156,7 +159,7 @@
 	const setScale = (id: string | undefined, s: string) => { if (id) docs.setScale(didOf(id), s) }
 	// The drafting/interaction flags bundle passed to a pane's viewport (one prop instead of six).
 	let guideVert = $state(false)   // the Guide tool's H/V pop-out base (touch has no Shift); Shift still flips it
-	const envFor = (pane: { id: string; activeId: string }) => ({ acad: acadMode, navContent, navMode, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, cen: toggles.CEN, snapStep, guideVert, canvasZoom: isModelLayout(pane) ? 1 : canvasViewOf(pane).zoom })   // B31: model space has no canvas zoom
+	const envFor = (pane: { id: string; activeId: string }) => ({ acad: acadMode, navContent, navMode, blockId: placeBlock ?? undefined, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, cen: toggles.CEN, snapStep, guideVert, canvasZoom: isModelLayout(pane) ? 1 : canvasViewOf(pane).zoom })   // B31: model space has no canvas zoom
 	// R6: the Viewport's callback bundle is split in two. `vpView` → `VpOn` (view/camera events only —
 	// still one `on` prop); `vpEditor` → `Editor` (document-mutating ops — entity array, undo-history
 	// bracket, section-marker selection). PaperPage also uses `frame`; the plain Viewport ignores it.
@@ -545,7 +548,21 @@
 	// Sidebars
 	let leftOpen = $state(true)
 	let rightOpen = $state(true)
-	let rightTab = $state<'layers' | 'props' | 'history'>('layers')   // right sidebar tabs
+	let rightTab = $state<'layers' | 'props' | 'history' | 'blocks'>('layers')   // right sidebar tabs
+	// D5: the block armed for placement (the Blocks panel); the focused pane's tool becomes 'Block' while armed
+	let placeBlock = $state<string | null>(null)
+	function armBlock(id: string | null) {
+		placeBlock = id; navMode = null
+		const p = session.panes[session.focused]; if (p) p.tool = id ? 'Block' : 'Select'
+	}
+	$effect(() => { if (placeBlock && session.panes.every((p) => p.tool !== 'Block')) untrack(() => (placeBlock = null)) })   // a tool pick / Esc disarms
+	/** D5: the selected shapes → a custom block in the global library. */
+	function saveSelAsBlock(name: string) {
+		if (!selEnts.length) return
+		const { def } = blockFromShapes($state.snapshot(selEnts) as Ent[], newId('blk'), name)
+		saveBlock(def)
+		toast(`Saved block “${name}” — it's in the Blocks panel (Custom), for every project`)
+	}
 
 	// Menubar action (the menu lives in parts/Menubar.svelte)
 	function menuAction(item: string) {
@@ -1094,9 +1111,12 @@
 						<button class:on={rightTab === 'layers'} onclick={() => (rightTab = 'layers')}>Layers</button>
 						<button class:on={rightTab === 'props'} onclick={() => (rightTab = 'props')}>Props</button>
 						<button class:on={rightTab === 'history'} onclick={() => (rightTab = 'history')}>History</button>
+						<button class:on={rightTab === 'blocks'} onclick={() => (rightTab = 'blocks')}>Blocks</button>
 					</div>
 				</div>
-				{#if rightTab === 'layers'}
+				{#if rightTab === 'blocks'}
+					<BlocksPanel armed={placeBlock} onarm={armBlock} />
+				{:else if rightTab === 'layers'}
 					<LayersPanel layers={modelById(activeMid())?.layers ?? []} frozen={activeFrame?.frozen ?? (activeFrame ? [] : null)} onfreeze={toggleVpFreeze} countOf={layerItemCount} ondelete={deleteLayerWithItems} />
 				{:else if rightTab === 'props'}
 					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (active) updateEnt(active.id, e) }}
@@ -1104,7 +1124,7 @@
 						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''}
 						onpagetitle={(t) => { if (!active || !t.trim()) return; const sid = sheetIdOf(active.docId); if (sid) proj.renameSheet(sid, t); else active.title = t.trim() }} {activeLayer} node={session.treeNode} nodeInfo={proj.nodeInfo} onnodefield={proj.setNodeField}
 						modelObj={selModelObj} modelObjs={selModelObjs} model={modelById(activeMid()) ?? null} onmodeladd={addModelObj} outletsFor={proj.outletsForRack} allocated={proj.allocatedOutlets}
-						sheets={(proj.store?.sheets ?? []).filter((s) => s.status !== 'archived' && !s.link).map((s) => ({ id: s.id, title: s.title, number: s.drawingNumber }))} onopenlink={openLink} onmodelsupdate={updateModelObjs} modelLayers={modelById(activeMid())?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} onmodelseg={updateModelSeg}
+						sheets={(proj.store?.sheets ?? []).filter((s) => s.status !== 'archived' && !s.link).map((s) => ({ id: s.id, title: s.title, number: s.drawingNumber }))} onopenlink={openLink} onsaveblock={saveSelAsBlock} onmodelsupdate={updateModelObjs} modelLayers={modelById(activeMid())?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} onmodelseg={updateModelSeg}
 						frameObj={selFrameObj} onframefit={fitSelectedFrame}
 						heights={proj.buildingHeights} onheight={proj.setStoreyHeight} onheightall={proj.setAllStoreyHeights}
 						frameStoreys={(selFrameObj ? modelById(selFrameObj.modelId ?? (active ? modelIdOf(active.id) : undefined))?.storeys ?? [] : []).map((s) => ({ id: s.id, name: s.name }))}

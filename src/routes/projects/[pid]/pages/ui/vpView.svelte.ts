@@ -89,6 +89,7 @@ export class VpView {
 	get acad() { return this.p.env?.acad ?? true }
 	get navContent() { return this.p.env?.navContent ?? false }
 	get navMode() { return this.p.env?.navMode ?? null }               // the nav bar's latched Pan / Orbit
+	get blockId() { return this.p.env?.blockId }                       // D5: the block the 'Block' tool places
 	get lwt() { return this.p.env?.lwt ?? true }
 	get osnap() { return this.p.env?.osnap ?? true }
 	get snap() { return this.p.env?.snap ?? false }                  // SNAP: round points to the grid step

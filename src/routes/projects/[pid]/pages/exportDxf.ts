@@ -16,7 +16,7 @@ import { storeyMap } from './3dview/storeyMap'
 import { GROUND, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, textBox, type Ent, type Pt, type ElevDir } from './ui/geometry'
 import { inThisView, rotCenter, rotatePt } from './ui/hit'
 import { lineLabelAt, groundPts, tileLines } from './ui/annotations'
-import { blockDef, byBlock, attrValue } from './ui/blocks'
+import { blockDef, byBlock, attrValue, insertScale } from './ui/blocks'
 import { PT_MM } from './constants'
 import type { ViewCtx } from './ui/view'
 
@@ -156,7 +156,7 @@ function entToDxf(doc: DxfDoc, e: Ent, ctx: ViewCtx, P: (p: Pt) => [number, numb
 			return
 		}
 		case 'insert': {   // a block, exploded: its shapes and attribute texts at the insertion point, scaled
-			const def = blockDef(e.block), k = e.scale ?? 1, a = e.a!, mx = e.mirror ? -1 : 1
+			const def = blockDef(e.block), k = insertScale(e, N), a = e.a!, mx = e.mirror ? -1 : 1
 			const at = (p: Pt): Pt => [a[0] + mx * p[0] * k, a[1] + p[1] * k]
 			const inner = (p: Pt): Pt => xf(c ? rotatePt(at(p), c, e.rot!) : at(p))
 			if (!def) { doc.poly([[-100, -100], [100, -100], [100, 100], [-100, 100]].map((p) => P(inner(p as Pt))), { closed: true, layer }); return }

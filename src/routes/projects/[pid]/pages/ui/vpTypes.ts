@@ -17,6 +17,8 @@ export type Env = {
 	snapStep?: number
 	/** The nav bar's latched Pan / Orbit tool: a left drag pans / orbits (iso) instead of using `tool`. */
 	navMode?: NavMode
+	/** D5: the block the 'Block' tool places (the Blocks panel's armed block). */
+	blockId?: string
 }
 export type NavMode = 'pan' | 'orbit' | null
 

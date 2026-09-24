@@ -13,10 +13,22 @@ setBlockResolver((id) => (id ? byId[id] : undefined))
 /** Every block (for pickers), by name. */
 export const blockList = (): BlockDef[] => Object.values(byId).sort((a, b) => a.name.localeCompare(b.name))
 
-let started = false
+let started = false, dbRef: Firestore | null = null
+/** D5: save a block to the global library (a new custom block, or an edit) — shared by every project. */
+export function saveBlock(def: BlockDef) {
+	byId[def.id] = def
+	if (dbRef) void dbRef.save('blocks', { ...def, shapes: encodeShapes(def.shapes), updatedAt: new Date().toISOString() })
+}
+/** D5: delete a CUSTOM block from the global library (the built-in defaults can't be). */
+export function deleteBlock(id: string) {
+	if (DEFAULT_BLOCKS.some((b) => b.id === id)) return
+	delete byId[id]
+	if (dbRef) void dbRef.delete('blocks', id)
+}
+export const isDefaultBlock = (id: string) => DEFAULT_BLOCKS.some((b) => b.id === id)
 export function startBlocks(db: Firestore) {
 	if (started) return
-	started = true
+	started = true; dbRef = db
 	let seeded = false
 	db.subscribeMany('blocks', (docs) => {
 		for (const d of docs) { const b = d as unknown as BlockDef; byId[d.id] = { ...b, shapes: decodeShapes(b.shapes) ?? [] } }

@@ -36,6 +36,9 @@ export type BlockDef = {
 	/** DEFAULT blocks only: bumped when the built-in geometry changes — a stored copy with a lower `rev` is
 	 *  replaced by the new default on the next start (blocks.svelte.ts). */
 	rev?: number
+	/** ANNOTATIVE: its geometry is in PAPER mm — drawn × the viewport's scale N, so a marker / north arrow is the
+	 *  same size on every sheet (like text). Otherwise model mm (an outlet, a door). */
+	annotative?: boolean
 }
 
 // ── the resolver (the live library, or a test's) ──
@@ -53,12 +56,27 @@ export function blockExtent(def: BlockDef): [number, number, number, number] {
 	return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
 }
 
+/** An insert's drawn scale: its own `scale`, × the viewport's paper→model factor for an annotative block. */
+export const insertScale = (e: Ent, paperMm = 1) => (e.scale ?? 1) * (blockDef(e.block)?.annotative ? paperMm : 1)
 /** An insert's un-rotated box in model coords (its block's extent, scaled, at the insertion point). A
- *  missing block → a 200 mm box, so it can still be picked and fixed. */
-export function insertBounds(e: Ent): [number, number, number, number] {
-	const def = blockDef(e.block), s = e.scale ?? 1, [ax, ay] = e.a ?? [0, 0]
+ *  missing block → a 200 mm box, so it can still be picked and fixed. `paperMm` sizes an annotative block. */
+export function insertBounds(e: Ent, paperMm = 1): [number, number, number, number] {
+	const def = blockDef(e.block), s = insertScale(e, paperMm), [ax, ay] = e.a ?? [0, 0]
 	const [x0, y0, x1, y1] = def ? blockExtent(def) : [-100, -100, 100, 100]
 	return e.mirror ? [ax - x1 * s, ay + y0 * s, ax - x0 * s, ay + y1 * s] : [ax + x0 * s, ay + y0 * s, ax + x1 * s, ay + y1 * s]
+}
+/** D5: shapes → a new block around their extent's centre (the insertion point) — ids renumbered, their own
+ *  layer / group / scope / plane dropped (an insert brings its own). Returns the block and that centre. */
+export function blockFromShapes(ents: Ent[], id: string, name: string): { def: BlockDef; at: Pt } {
+	const xs: number[] = [], ys: number[] = []
+	for (const e of ents) for (const p of [e.a, e.b, e.leader, ...(e.pts ?? [])]) if (p) { xs.push(p[0]); ys.push(p[1]) }
+	const at: Pt = xs.length ? [Math.round((Math.min(...xs) + Math.max(...xs)) / 2), Math.round((Math.min(...ys) + Math.max(...ys)) / 2)] : [0, 0]
+	const mv = (p?: Pt): Pt | undefined => (p ? [p[0] - at[0], p[1] - at[1]] : undefined)
+	const shapes = ents.map((e, i) => {
+		const { layer: _l, groupId: _g, space: _s, plane: _p, ...rest } = e
+		return { ...rest, id: `s${i + 1}`, a: mv(e.a), b: mv(e.b), leader: mv(e.leader), pts: e.pts?.map((p) => mv(p)!) } as Ent
+	})
+	return { def: { id, name, category: 'custom', shapes, attributes: [] }, at }
 }
 /** D4: an insert's link target (its LINK attribute: a sheet id, or a URL), if any. */
 export const insertLink = (e: Ent) => (e.type === 'insert' && e.attrs?.LINK?.trim()) || ''
@@ -101,15 +119,16 @@ export const OUTLET_ATTRS: AttrDef[] = [
 ]
 const shape = (id: string, s: Omit<Ent, 'id'>): Ent => ({ id, ...s })
 
-// ── D3 the SYMBOL blocks (model mm at 1:1; scale an insert for another drawing scale) — section / detail / photo
-// markers and elevation tags carry a hidden LINK attribute (D4: a sheet id or a URL; double-click opens it) ──
-const S = 350   // marker radius
+// ── D3 the SYMBOL blocks. Markers, elevation tags and the north arrow are ANNOTATIVE (paper mm — the same size on
+// every sheet); the door and faceplate are real-size (model mm). Section / detail / photo markers and elevation
+// tags carry a hidden LINK attribute (D4: a sheet id or a URL; double-click opens it) ──
+const S = 4   // marker radius, paper mm
 const circle = (id: string, r: number, o: Partial<Ent> = {}): Ent => shape(id, { type: 'ellipse', a: [-r, -r], b: [r, r], ...o })
 const tri = (id: string, pts: Pt[], o: Partial<Ent> = {}): Ent => shape(id, { type: 'polyline', pts: [...pts, pts[0]], color: BYBLOCK, fill: '#1f2937', ...o })
-const LINK: AttrDef = { tag: 'LINK', label: 'Links to', pos: [0, 0], height: 100, visible: false }
+const LINK: AttrDef = { tag: 'LINK', label: 'Links to', pos: [0, 0], height: 1, visible: false }
 const MARKER_ATTRS: AttrDef[] = [
-	{ tag: 'REF', label: 'Ref', default: 'A', pos: [0, -S * 0.2], height: 190 },
-	{ tag: 'SHEET', label: 'Sheet', default: '—', pos: [0, S * 0.62], height: 150 },
+	{ tag: 'REF', label: 'Ref', default: 'A', pos: [0, -S * 0.2], height: 2.2 },
+	{ tag: 'SHEET', label: 'Sheet', default: '—', pos: [0, S * 0.62], height: 1.7 },
 	LINK,
 ]
 /** An elevation tag's arm pointing along `deg` (0 = east / right, 90 = south / down). */
@@ -119,27 +138,27 @@ function arm(deg: number): Pt[] {
 }
 const ARM_DEG = [270, 0, 90, 180]   // N, E, S, W
 const elevTag = (n: number): BlockDef => ({
-	id: `eltag-${n}`, name: `Elevation tag — ${n} arm${n > 1 ? 's' : ''}`, category: 'eltag', rev: 1,
+	id: `eltag-${n}`, name: `Elevation tag — ${n} arm${n > 1 ? 's' : ''}`, category: 'eltag', rev: 2, annotative: true,
 	shapes: [circle('c', S, { color: BYBLOCK }), ...ARM_DEG.slice(0, n).map((d, i) => tri(`a${i}`, arm(d)))],
 	attributes: [
-		{ tag: 'REF', label: 'Ref', default: '1', pos: [0, S * 0.22], height: 210 },
-		...ARM_DEG.slice(0, n).map((d, i): AttrDef => ({ tag: `R${i + 1}`, label: `Arm ${'NESW'[i]}`, default: '', pos: round([Math.cos((d * Math.PI) / 180) * S * 1.95, Math.sin((d * Math.PI) / 180) * S * 1.95 + 60]), height: 140 })),
+		{ tag: 'REF', label: 'Ref', default: '1', pos: [0, S * 0.22], height: 2.4 },
+		...ARM_DEG.slice(0, n).map((d, i): AttrDef => ({ tag: `R${i + 1}`, label: `Arm ${'NESW'[i]}`, default: '', pos: round([Math.cos((d * Math.PI) / 180) * S * 1.95, Math.sin((d * Math.PI) / 180) * S * 1.95 + 0.7]), height: 1.6 })),
 		LINK,
 	],
 })
 export const SYMBOL_BLOCKS: BlockDef[] = [
-	{ id: 'north-arrow', name: 'North arrow', category: 'north', rev: 1, attributes: [{ tag: 'N', label: 'Letter', default: 'N', pos: [0, -S * 1.25], height: 220 }],
+	{ id: 'north-arrow', name: 'North arrow', category: 'north', rev: 2, annotative: true, attributes: [{ tag: 'N', label: 'Letter', default: 'N', pos: [0, -S * 1.25], height: 2.5 }],
 		shapes: [circle('c', S, { color: BYBLOCK }), tri('a', [[0, -S * 0.95], [S * 0.45, S * 0.6], [0, S * 0.3]]), shape('b', { type: 'polyline', pts: ([[0, -S * 0.95], [-S * 0.45, S * 0.6], [0, S * 0.3]] as Pt[]).map(round), color: BYBLOCK })] },
-	{ id: 'section-mark', name: 'Section marker', category: 'marker', rev: 1, attributes: MARKER_ATTRS,
+	{ id: 'section-mark', name: 'Section marker', category: 'marker', rev: 2, annotative: true, attributes: MARKER_ATTRS,
 		shapes: [circle('c', S, { color: BYBLOCK }), shape('l', { type: 'polyline', pts: [[-S, 0], [S, 0]], color: BYBLOCK }), tri('a', [[S * 1.6, 0], [S, -S * 0.45], [S, S * 0.45]])] },
-	{ id: 'detail-mark', name: 'Detail marker', category: 'marker', rev: 1, attributes: MARKER_ATTRS,
+	{ id: 'detail-mark', name: 'Detail marker', category: 'marker', rev: 2, annotative: true, attributes: MARKER_ATTRS,
 		shapes: [circle('c', S, { color: BYBLOCK }), shape('l', { type: 'polyline', pts: [[-S, 0], [S, 0]], color: BYBLOCK })] },
-	{ id: 'photo-mark', name: 'Photo marker', category: 'marker', rev: 1,
-		attributes: [{ tag: 'REF', label: 'Photo №', default: '1', pos: [0, S * 0.18], height: 170, color: 'contrast' }, LINK],
+	{ id: 'photo-mark', name: 'Photo marker', category: 'marker', rev: 2, annotative: true,
+		attributes: [{ tag: 'REF', label: 'Photo №', default: '1', pos: [0, S * 0.18], height: 1.9, color: 'contrast' }, LINK],
 		shapes: [tri('v', [[S * 0.4, -S * 0.2], [S * 1.5, -S * 0.75], [S * 1.5, S * 0.75]], { fill: 'none' }), circle('c', S * 0.6, { color: BYBLOCK, fill: '#1f2937' })] },
 	...[1, 2, 3, 4].map(elevTag),
-	{ id: 'faceplate', name: 'Faceplate (2 ports)', category: 'faceplate', rev: 1, attributes: [{ tag: 'LABEL', label: 'Label', pos: [0, -640], height: 110 }],
-		shapes: [shape('f', { type: 'rect', a: [-350, -575], b: [350, 575], color: BYBLOCK }), shape('p1', { type: 'rect', a: [-160, -330], b: [160, -40], color: BYBLOCK }), shape('p2', { type: 'rect', a: [-160, 40], b: [160, 330], color: BYBLOCK })] },
+	{ id: 'faceplate', name: 'Faceplate (2 ports)', category: 'faceplate', rev: 2, attributes: [{ tag: 'LABEL', label: 'Label', pos: [0, -64], height: 11 }],   // real size, 70 × 115 mm
+		shapes: [shape('f', { type: 'rect', a: [-35, -57.5], b: [35, 57.5], color: BYBLOCK }), shape('p1', { type: 'rect', a: [-16, -33], b: [16, -4], color: BYBLOCK }), shape('p2', { type: 'rect', a: [-16, 4], b: [16, 33], color: BYBLOCK })] },
 	{ id: 'door', name: 'Door (swing)', category: 'door', rev: 1, attributes: [],
 		shapes: [shape('leaf', { type: 'polyline', pts: [[0, 0], [0, -900]], color: BYBLOCK }),
 			shape('arc', { type: 'polyline', pts: Array.from({ length: 13 }, (_, i) => { const t = (i / 12) * (Math.PI / 2); return round([Math.sin(t) * 900, -Math.cos(t) * 900]) }), color: BYBLOCK, dash: 'dashed' })] },

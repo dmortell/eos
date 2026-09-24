@@ -13,10 +13,12 @@
 	import { imgEdit, setImgMode } from '../../imageEdit.svelte'
 	import type { Layer as MLayer } from '../../3dview/types'
 
-	let { ents, onupdate, onarrange, layers = [], activeFrameId = undefined, scaleN = 1, sheets = [], onopenlink }: {
+	let { ents, onupdate, onarrange, layers = [], activeFrameId = undefined, scaleN = 1, sheets = [], onopenlink, onsaveblock }: {
 		ents: Ent[]; onupdate?: (e: Ent) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void
 		/** D4: the project's sheets (a symbol's LINK picker) + open a link (a sheet id or a URL). */
 		sheets?: { id: string; title: string; number?: string }[]; onopenlink?: (link: string) => void
+		/** D5: save the selection as a library block. */
+		onsaveblock?: (name: string) => void
 		/** The model's one layer list (R5: shapes and model objects share it). */
 		layers?: MLayer[]
 		/** The active sheet frame, if any — offers the "this viewport only" scope. */
@@ -31,7 +33,7 @@
 	function bbox(e: Ent): [number, number, number, number] {
 		if (e.type === 'polyline') { const pts = e.pts ?? []; const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] }
 		if (e.type === 'text') return textBox(e, PT_MM * scaleN)
-		if (e.type === 'insert') return insertBounds(e)   // no `b`: the block's extent at the insertion point
+		if (e.type === 'insert') return insertBounds(e, scaleN)   // no `b`: the block's extent at the insertion point
 		const xs = [e.a![0], e.b![0]], ys = [e.a![1], e.b![1]]
 		return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
 	}
@@ -87,6 +89,7 @@
 	const mixedFill = $derived(new Set(ents.map((e) => e.fill)).size > 1)
 	function setAll(patch: Partial<Ent>) { const snap = [...ents]; for (const e of snap) onupdate?.({ ...e, ...patch }) }
 	const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
+	let blockName = $state<string | null>(null)
 	// D4: link a symbol to a sheet (its drawing number fills an empty SHEET) or to a URL
 	function setLink(ins: Ent, v: string) {
 		const attrs: Record<string, string> = { ...(ins.attrs ?? {}), LINK: v }
@@ -288,5 +291,15 @@
 			{/each}
 		</span>
 	</div>
+{/if}
+{#if onsaveblock}
+	<!-- D5: the selection → a block in the global library (placed from the Blocks panel) -->
+	{#if blockName === null}
+		<button class="pp-reset" onclick={() => (blockName = '')}>Save as block…</button>
+	{:else}
+		<div class="prop"><span>Block name</span><span class="pp-scale"><input value={blockName} placeholder="e.g. Desk pod" oninput={(e) => (blockName = strVal(e))}
+			onkeydown={(e) => { if (e.key === 'Enter' && blockName?.trim()) { onsaveblock(blockName.trim()); blockName = null } if (e.key === 'Escape') blockName = null }} />
+			<button class="pp-mini" disabled={!blockName.trim()} onclick={() => { onsaveblock(blockName!.trim()); blockName = null }}>Save</button></span></div>
+	{/if}
 {/if}
 <div class="pp-hint">{ents.length > 1 ? 'Style + position apply to the whole selection.' : 'Editing writes straight to the object.'} New objects use Sheets’ defaults ({STYLE_DEFAULTS.fontPt}pt, left).</div>

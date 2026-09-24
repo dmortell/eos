@@ -17,7 +17,7 @@
 	import { arrowPts, cloudPath, groundPts, headGeom, dashArray, lineLabelAt, tileLines, type HeadGeom } from '../annotations'
 	import { imageSrc } from '../../imageStore'
 	import { pdfImageUrl, PDF_SRC } from './pdfRaster.svelte'
-	import { blockDef, byBlock, attrValue, attrColor } from '../blocks'
+	import { blockDef, byBlock, attrValue, attrColor, insertScale } from '../blocks'
 	import EntRender from './EntRender.svelte'   // a block's shapes are drawn by this same component
 
 	let { e, ctx, selected = false, style, isoGround = null, imgCrop = null, clipNs }: {
@@ -168,7 +168,7 @@
 		<!-- a BLOCK insert: the definition's shapes ('byblock' colour / fill from this insert) + its attribute
 		     texts, at the insertion point, scaled (rotation is the shared wrapper above) -->
 		{@const def = blockDef(e.block)}
-		{@const k = e.scale ?? 1}
+		{@const k = insertScale(e, paperMm)}
 		<!-- D3: a mirrored insert flips its geometry left↔right; its attribute texts stay readable (only moved) -->
 		<g transform="translate({e.a![0]} {e.a![1]}) scale({e.mirror ? -k : k} {k})">
 			{#if def}{#each def.shapes as bs (bs.id)}<EntRender e={byBlock(bs, e)} {ctx} {style} clipNs="{clipNs}-{e.id}" />{/each}{/if}
