@@ -21,15 +21,16 @@
 	type HeightKey = 'slabMm' | 'raisedFloorMm' | 'clearHeightMm' | 'plenumMm'
 
 	let { ents = [], onupdate, onarrange, pageTitle = '', pageKind = '', activeLayer = '', node = null, onpagetitle,
-		modelObj = null, modelObjs = [], onmodelsupdate, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg,
+		modelObj = null, modelObjs = [], model = null, onmodelsupdate, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg,
 		frameObj = null, onframeupdate, onframedelete, onframefit, nodeInfo = null, onnodefield, modelList = [], activeFrameId = undefined, scaleN = 1,
-		sheetInfo = null, onsheetfield, titleBlock = undefined, ontitleblock, frameStoreys = [], heights = null, onheight, onheightall }:
+		sheetInfo = null, onsheetfield, titleBlock = undefined, ontitleblock, frameStoreys = [], frameConduits = [], heights = null, onheight, onheightall }:
 		{ ents?: Ent[]; onupdate?: (e: Ent) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void;
 			pageTitle?: string; pageKind?: string; activeLayer?: string; onpagetitle?: (title: string) => void;
 			node?: { id: string; label: string; kind: string; floorNumber?: number; building?: string } | null;
 			/** A REAL tree node's properties (projectProps.ts, from Firestore) + the edit callback; null → mock fields. */
 			nodeInfo?: import('../projectProps').NodeInfo | null; onnodefield?: (key: string, value: string) => void;
 			modelObj?: Obj | null; modelLayers?: MLayer[];
+			/** The focused model (a conduit's "Count from outlets"). */ model?: import('../3dview/types').Model | null;
 			/** I4: two or more model objects selected, and the per-object patch callback (one undo step). */
 			modelObjs?: Obj[]; onmodelsupdate?: (patchOf: (o: Obj) => Record<string, unknown> | null) => void;
 			onmodelupdate?: (patch: Record<string, unknown>) => void; onmodeldelete?: () => void; onmodelseg?: (segIdx: number, patch: Record<string, unknown>) => void;
@@ -44,6 +45,8 @@
 			onsheetfield?: ((key: 'drawingNumber' | 'drawnBy', value: string) => void) & ((key: 'hideTitleBlock', value: boolean) => void)
 			/** The selected frame's model storeys (a building) — its FLOORS checklist in an elevation. */
 			frameStoreys?: { id: string; name: string }[]
+			/** The selected frame's model conduits (F12 fill-rate frame). */
+			frameConduits?: { id: string; name: string }[]
 			/** A selected BUILDING place's storey heights (top first) + the edit callback. */
 			heights?: { placeId: string; rows: { id: string; name: string; z: number; slabMm: number; raisedFloorMm: number; clearHeightMm: number; plenumMm: number }[] } | null
 			onheight?: (placeId: string, storeyId: string, key: HeightKey, value: number) => void
@@ -61,11 +64,11 @@
 {#key selKey}
 <div class="pp">
 	{#if frameObj}
-		<FrameProps frame={frameObj} {modelList} storeys={frameStoreys} onupdate={onframeupdate} ondelete={onframedelete} onfit={onframefit} />
+		<FrameProps frame={frameObj} {modelList} storeys={frameStoreys} conduits={frameConduits} onupdate={onframeupdate} ondelete={onframedelete} onfit={onframefit} />
 	{:else if modelObjs.length > 1 && onmodelsupdate}
 		<ModelObjsProps objs={modelObjs} layers={modelLayers} onpatch={onmodelsupdate} />
 	{:else if modelObj}
-		<ModelObjProps obj={modelObj} layers={modelLayers} onupdate={onmodelupdate} ondelete={onmodeldelete} onseg={onmodelseg} />
+		<ModelObjProps obj={modelObj} layers={modelLayers} {model} onupdate={onmodelupdate} ondelete={onmodeldelete} onseg={onmodelseg} />
 	{:else if ents.length === 0 && node}
 		<PlaceProps {node} info={nodeInfo} onfield={onnodefield} {heights} {onheight} {onheightall} />
 	{:else if ents.length === 0}

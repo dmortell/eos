@@ -52,7 +52,11 @@ export type Conduit = {
 	bend?: number // default corner fillet radius (mm); a node's own `bend` overrides it
 	nodes: GNode[]
 	segments: CondSeg[]
+	/** F10: the cables it carries (type × quantity) — its fill % (3dview/fill.ts). */
+	cables?: CableRun[]
 }
+/** A group of identical cables in a conduit: a catalogue type (3dview/fill.ts CABLE_TYPES) or 'custom' with a diameter. */
+export type CableRun = { type: string; qty: number; d?: number }
 
 // A drawing layer (model-scoped): controls object color, visibility and locking.
 // R5 (review.md §R5): the ONE layer type. A model's `layers` list files BOTH its 3D objects and its 2D

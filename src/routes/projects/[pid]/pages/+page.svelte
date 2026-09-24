@@ -381,6 +381,8 @@
 		return framesOf(tabId)[0]?.modelId ?? session.tabs.find((t) => t.id === tabId)?.modelId ?? FLOOR_MODEL_ID
 	}
 	const mdlEntsOf = (mid: ModelId): Ent[] => modelById(mid)?.shapes ?? []
+	/** F12: a conduit of a model by id (a fill-rate frame's content). */
+	const conduitOf = (mid: ModelId | undefined, id: string) => { const o = modelById(mid ?? FLOOR_MODEL_ID)?.objects.find((x) => x.id === id); return o?.type === 'conduit' ? o : null }
 	// The focused doc's active model (for selection / revisions / properties).
 	const activeMid = () => modelIdOf(session.panes[session.focused]?.activeId ?? '')
 	const mdlEnts = (): Ent[] => mdlEntsOf(activeMid())
@@ -941,7 +943,7 @@
 	// not started here.
 	const workspace: Workspace = {
 		get tabs() { return session.tabs }, kindIcon, STRIP, iconOf,
-		get acadMode() { return acadMode }, get statusText() { return statusText }, get navMode() { return navMode }, setNavMode,
+		get acadMode() { return acadMode }, get statusText() { return statusText }, get navMode() { return navMode }, setNavMode, conduitOf,
 		openTab, promoteTab, closeTab, addTab, pickFromMenu, splitVertical, closePane,
 		setFocused, toggleTabMenu, setPaneTool, toggleLayout, setCanvasEl,
 		activeVpOf, isVpActive, deactivateVp, onCanvasMove, canvasPan, canvasZoomFn: canvasZoom,
@@ -1053,10 +1055,11 @@
 						onarrange={(op) => { if (active) reorderEnts(active.id, activeEntIds(), op) }}
 						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''}
 						onpagetitle={(t) => { if (!active || !t.trim()) return; const sid = sheetIdOf(active.docId); if (sid) proj.renameSheet(sid, t); else active.title = t.trim() }} {activeLayer} node={session.treeNode} nodeInfo={proj.nodeInfo} onnodefield={proj.setNodeField}
-						modelObj={selModelObj} modelObjs={selModelObjs} onmodelsupdate={updateModelObjs} modelLayers={modelById(activeMid())?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} onmodelseg={updateModelSeg}
+						modelObj={selModelObj} modelObjs={selModelObjs} model={modelById(activeMid()) ?? null} onmodelsupdate={updateModelObjs} modelLayers={modelById(activeMid())?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} onmodelseg={updateModelSeg}
 						frameObj={selFrameObj} onframefit={fitSelectedFrame}
 						heights={proj.buildingHeights} onheight={proj.setStoreyHeight} onheightall={proj.setAllStoreyHeights}
 						frameStoreys={(selFrameObj ? modelById(selFrameObj.modelId ?? (active ? modelIdOf(active.id) : undefined))?.storeys ?? [] : []).map((s) => ({ id: s.id, name: s.name }))}
+						frameConduits={(selFrameObj ? modelById(selFrameObj.modelId ?? (active ? modelIdOf(active.id) : undefined))?.objects ?? [] : []).filter((o) => o.type === 'conduit' && o.id).map((o, i) => ({ id: o.id!, name: o.label || `Conduit ${i + 1}` }))}
 						sheetInfo={proj.activeSheetInfo} onsheetfield={proj.setSheetField}
 						titleBlock={proj.store?.project?.titleBlock} ontitleblock={proj.store && proj.hasPlaces ? (t: TitleBlockTemplate) => proj.store!.saveTitleBlock(t) : undefined}
 						modelList={models.map((m) => ({ id: m.id, name: m.name }))}

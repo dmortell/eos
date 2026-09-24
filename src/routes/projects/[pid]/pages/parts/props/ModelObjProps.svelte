@@ -6,10 +6,15 @@
 	import { COLORS } from '../../palette'
 	import NumCell from './NumCell.svelte'
 	import { num, blurOnEnter, fmtLen } from './fields'
-	import type { Obj, Layer as MLayer } from '../../3dview/types'
+	import type { Obj, Layer as MLayer, Model, CableRun } from '../../3dview/types'
+	import FillSection from '../FillSection.svelte'
+	import { CABLE_TYPES, DEFAULT_CABLE, conduitFill, fillTone, portsNearest } from '../../3dview/fill'
+	import { toast } from 'svelte-sonner'
 
-	let { obj, layers = [], onupdate, ondelete, onseg }: {
+	let { obj, layers = [], model = null, onupdate, ondelete, onseg }: {
 		obj: Obj; layers?: MLayer[]
+		/** The model it's in (a conduit's "Count from outlets" reads its outlets + other conduits). */
+		model?: Model | null
 		onupdate?: (patch: Record<string, unknown>) => void; ondelete?: () => void
 		/** A wall / conduit segment's own override (index into `segments`). */
 		onseg?: (segIdx: number, patch: Record<string, unknown>) => void
@@ -20,6 +25,16 @@
 	// A prism on an "opening" layer is a door/window/hole; label it as such.
 	const isOpening = $derived(obj.type === 'prism' && !!layers.find((l) => l.id === obj.layer)?.opening)
 	const typeLabel = $derived(isOpening ? 'Opening' : TYPE_LABEL[obj.type] ?? 'Object')
+	const setCables = (c: CableRun[]) => onupdate?.({ cables: c.length ? c : undefined })
+	// F10 "advanced": the cables this conduit would carry if every outlet runs to its nearest conduit
+	function countFromOutlets() {
+		if (!model || !obj.id) return
+		const r = portsNearest(obj.id, model.objects, model.shapes ?? [])
+		if (!r.ports) { toast('No outlets have this as their nearest conduit'); return }
+		const rest = (obj.type === 'conduit' ? obj.cables ?? [] : []).filter((c) => c.type !== DEFAULT_CABLE)
+		setCables([{ type: DEFAULT_CABLE, qty: r.ports }, ...rest])
+		toast(`${r.outlets} outlet${r.outlets === 1 ? '' : 's'} → ${r.ports} ${CABLE_TYPES[DEFAULT_CABLE].label} cables`)
+	}
 	/** A wall / conduit segment's true 3D length (model mm) between its two nodes. */
 	function segLen(o: Obj, s: { a: string; b: string }): number {
 		if (o.type !== 'conduit' && o.type !== 'wall') return 0
@@ -115,6 +130,28 @@
 			<span class="seg-len" title="Length (3D)">L {fmtLen(segLen(obj, s))}</span>
 		</div>
 	{/each}
+	<!-- F10: the cables it carries → fill % (the tightest segment governs) + the packed cross-section -->
+	{@const cables = obj.cables ?? []}
+	{@const pct = conduitFill(obj)}
+	<div class="prop-sec">CABLES<span class="sec-hint" style:color={cables.length ? fillTone(pct) : undefined}>{cables.length ? `${Math.round(pct)}% fill` : 'none'}</span></div>
+	{#each cables as c, ci (ci)}
+		<div class="seg-row">
+			<select value={c.type} onchange={(e) => setCables(cables.map((x, j) => (j === ci ? { ...x, type: (e.currentTarget as HTMLSelectElement).value } : x)))}>
+				{#each Object.entries(CABLE_TYPES) as [k, t] (k)}<option value={k}>{t.label} · Ø{t.d}</option>{/each}
+				<option value="custom">Custom Ø</option>
+			</select>
+			{#if c.type === 'custom'}<label>Ø<input type="number" min="1" value={c.d ?? 7} onchange={(e) => setCables(cables.map((x, j) => (j === ci ? { ...x, d: Math.max(1, num(e)) } : x)))} /></label>{/if}
+			<label>×<input type="number" min="0" value={c.qty} onchange={(e) => setCables(cables.map((x, j) => (j === ci ? { ...x, qty: Math.max(0, Math.round(num(e))) } : x)))} /></label>
+			<button class="pp-mini" title="Remove" onclick={() => setCables(cables.filter((_, j) => j !== ci))}>×</button>
+		</div>
+	{/each}
+	<div class="prop"><span></span>
+		<span class="pp-seg">
+			<button onclick={() => setCables([...cables, { type: DEFAULT_CABLE, qty: 1 }])}>+ Cables</button>
+			{#if model && obj.id}<button title="Every outlet whose nearest conduit is this one: its PORTS as {CABLE_TYPES[DEFAULT_CABLE].label}" onclick={countFromOutlets}>Count from outlets</button>{/if}
+		</span>
+	</div>
+	{#if cables.some((c) => c.qty > 0)}<div class="fill-prev"><FillSection conduit={obj} name={obj.label} /></div>{/if}
 {/if}
 <button class="pp-del" onclick={() => ondelete?.()}>Delete object</button>
 <div class="pp-hint">Editing writes straight to the 3D model. Reshape geometry by dragging its grips.</div>

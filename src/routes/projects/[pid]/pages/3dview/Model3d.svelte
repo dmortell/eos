@@ -13,6 +13,7 @@
 	import { project, objBounds, faces3d, isoR, isoDepthR, trimToClip, doorGeom, isoBounds, viewMap, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 	import { BASIS } from './types'
 	import { storeyMap } from './storeyMap'
+	import { fillLabel, fillTone, conduitFill } from './fill'
 	import { dashArray } from '../ui/annotations'
 	import type { Model, Obj, Dir, Clip } from './types'
 
@@ -71,6 +72,20 @@
 		const zr = top.z + (top.ceilingSlab ?? 3600) + (top.slab ?? 200)
 		lines.push({ id: 'roof', name: 'RF', v: b.vs * (sm ? sm.map(zr) : zr), ...uSpan })
 		return lines
+	})
+	// F10: a conduit carrying cables is labelled in PLAN with its fill ("12 C6A · 37%") at its longest segment's
+	// middle, coloured green / amber / red
+	const fillLabels = $derived.by(() => {
+		if (dir !== 'plan') return []
+		const out: { id: string; text: string; x: number; y: number; col: string }[] = []
+		for (const o of model.objects) {
+			if (o.type !== 'conduit' || !visible(o) || !o.cables?.length) continue
+			const text = fillLabel(o); if (!text) continue
+			const at = new Map(o.nodes.map((n) => [n.id, n])); let best: [number, number] | null = null, bl = -1
+			for (const s of o.segments) { const a = at.get(s.a), b = at.get(s.b); if (!a || !b) continue; const l = Math.hypot(b.x - a.x, b.y - a.y); if (l > bl) { bl = l; best = [(a.x + b.x) / 2, (a.y + b.y) / 2] } }
+			if (best) out.push({ id: o.id ?? '', text, x: best[0], y: best[1] - labelH * 0.6, col: fillTone(conduitFill(o)) })
+		}
+		return out
 	})
 	// A LABELLED BOX (e.g. an imported riser room "IDF01-A") is its true-size rect with the name centred in it —
 	// one object, so they move / hide / collapse together. Other labelled objects are named at their top.
@@ -202,6 +217,9 @@
 		{@const o = model.objects.find((x) => x.id === l.id)}
 		<text transform="translate({l.u} {l.v}) scale(1 {dir === 'plan' ? 1 : -1})" font-size={labelH} text-anchor={l.mid ? 'middle' : 'start'}
 			fill={l.mid && o ? colorOf(o) : adapt ? adapt('#475569') : '#475569'} class="storey-name">{l.text}</text>
+	{/each}
+	{#each fillLabels as l (l.id)}
+		<text x={l.x} y={l.y} font-size={labelH} text-anchor="middle" fill={l.col} font-weight="600" class="storey-name">{l.text}</text>
 	{/each}
 	{#each breakMarks as pts, i (i)}
 		<polyline points={pts} fill="none" stroke={adapt ? adapt(STOREY_COL) : STOREY_COL} stroke-width={1 / (canvasZoom || 1)} vector-effect="non-scaling-stroke" />

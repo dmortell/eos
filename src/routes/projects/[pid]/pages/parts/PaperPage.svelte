@@ -22,17 +22,20 @@
 	import type { ElevDir } from '../ui/geometry'
 	import type { SheetFrame } from '../types'
 	import { fillTitleBlock, shownTitleBlock, type TbShown } from '../titleBlock'
+	import FillSection from './FillSection.svelte'
+	import type { Conduit } from '../3dview/types'
 
 	// Paper size in px (default A3 landscape). Driven by the status-bar paper-size / orientation.
 	type VKind = 'plan' | 'iso' | ElevDir
 	let { title = 'Sheet', drawingNo = '001', scale = '1:100', focused = true, tool = 'Select', env = {}, pw = PAPER_W, ph = PAPER_H, sizeLabel = 'A3', rev = '', revDate = '', marginMm = 0, tb = undefined,
-		entities = [], entsForModel = undefined, tabModelId = undefined,
+		entities = [], entsForModel = undefined, tabModelId = undefined, conduitOf = () => null,
 		frames = [], editor = noopEditor, frameKind = (p: string) => p as VKind, isFrameActive = () => false, frameView = () => ({ zoom: 1, x: 0, y: 0 }), frameEnv = {},
 		frameOrbit = () => ({ yaw: 0, pitch: 0 }), makeFrameOn = () => ({}), makeFrameEditor = () => noopEditor, onseed, onaddframe, onframegeom, onframecommit, ondeactivate }:
 		{ title?: string; drawingNo?: string; scale?: string; focused?: boolean; tool?: string; env?: Env; pw?: number; ph?: number; sizeLabel?: string; rev?: string; revDate?: string;
 			/** The filled title block (titleBlock.ts); absent → the default template from the props above. */ tb?: TbShown;
 			/** XP7: paper margin (mm) — a dashed guide (screen only) and frame snap lines. */ marginMm?: number;
 			entities?: Ent[]; entsForModel?: (mid?: string) => Ent[]; tabModelId?: string;
+			/** F12: a conduit (with its label) by model + id, for a fill-rate frame. */ conduitOf?: (mid: string | undefined, id: string) => (Conduit & { label?: string }) | null;
 			// R3 commit 3 (review.md §R3): a NEW page-level `editor` — distinct from `makeFrameEditor` (which
 			// builds one PER-FRAME editor for entity/obj/guide/section/node editing INSIDE that frame's
 			// viewport). This one's `sel` holds the 'frame' kind only: which viewport FRAME is selected in
@@ -258,9 +261,18 @@
 				{@const fa = isFrameActive(f.id)}
 				<div class="vp-frame" class:selected={selFrame === f.id && !fa} class:active={fa}
 					style="left:{f.x}px; top:{f.y}px; width:{f.w}px; height:{f.h}px">
+					{#if f.fillOf}
+						{@const cd = conduitOf(f.modelId ?? tabModelId, f.fillOf)}
+						<!-- F12: a fill-rate frame — the conduit's cross-section (picked by its border like any frame) -->
+						<div class="fill-frame" style:border-style={f.border === 'none' ? 'none' : f.border}>
+							{#if cd}<FillSection conduit={cd} name={cd.label} />{:else}<div class="fill-missing">Conduit not found</div>{/if}
+							<div class="vp-tag">{f.label}{#if cd} · fill{/if}</div>
+						</div>
+					{:else}
 					<Viewport kind={frameKind(f.proj)} label={f.label} scale={f.scale} active={fa} {focused} {tool} env={frameEnv} on={fon} editor={feditor} border={f.border} frameId={f.id} frozen={f.frozen} modelId={f.modelId ?? tabModelId} unmapped={f.source} storeys={f.storeys}
 						entities={f.source ? [] : entsForModel ? entsForModel(f.modelId ?? tabModelId) : entities} view={frameView(f.id, f.proj)} clip={f.clip} yaw={frameOrbit(f.id, f.proj).yaw} pitch={frameOrbit(f.id, f.proj).pitch}
 						boxW={f.w} boxH={f.h} />
+					{/if}
 					{#if !fa}
 						<!-- Purely visual now (R8-lite): cursor/outline only, no handlers of their own — picking
 						     (border band vs interior vs corner grip) is centralized in onSheetDown/onWrapDblclick
@@ -339,6 +351,10 @@
 	.vp-interior { position:absolute; inset:0; cursor:default; touch-action:none; }
 	/* Corner-grip overlay: fills the frame, only the handles catch pointer events. */
 	.frame-handles { position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; z-index:2; }
+	/* F12: a fill-rate frame (a conduit's cross-section) */
+	.fill-frame { position:absolute; inset:0; border:1.5px solid #94a3b8; background:#fff; }
+	.fill-frame .vp-tag { position:absolute; top:6px; left:6px; font-size:9px; color:#475569; background:#ffffffcc; border:1px solid #e2e8f0; border-radius:3px; padding:2px 6px; }
+	.fill-missing { display:grid; place-items:center; height:100%; font-size:12px; color:#f59e0b; }
 	/* Paper-space selection box. */
 	.vp-marquee { position:absolute; background:#3b82f61f; border:1px solid #3b82f6; pointer-events:none; }
 	/* Titleblock */

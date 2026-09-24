@@ -33,6 +33,8 @@ export type SheetFrame = {
 	/** A building elevation showing only these storeys (a riser drawing's floors — the Risers tool's "Visible");
 	 *  unset = every floor. Hidden floors collapse to a break (3dview/storeyMap.ts). */
 	storeys?: string[]
+	/** F12: the frame shows this conduit's CROSS-SECTION (its cables packed in, fill %) instead of a model view. */
+	fillOf?: string
 }
 
 /** Drawing scales offered in the scale pickers (viewport bar + Properties). */
@@ -92,6 +94,8 @@ export type Workspace = {
 	paperDimsOf: (id?: string) => { w: number; h: number }
 	navZoom: (f: number) => void; navFit: () => void
 	/** The nav bar's latched Pan / Orbit tool (null = off; a left drag uses the pane tool). */
+	/** F12: a conduit by model + id (a fill-rate frame's content). */
+	conduitOf: (mid: string | undefined, id: string) => (import('./3dview/types').Conduit & { label?: string }) | null
 	navMode: import('./ui/vpTypes').NavMode; setNavMode: (m: import('./ui/vpTypes').NavMode) => void
 	projOf: (pane: { id: string }, a: Tab | null) => Proj
 	gizmoProj: (pane: { id: string }, a: Tab | null) => Proj

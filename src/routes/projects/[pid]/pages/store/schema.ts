@@ -72,6 +72,8 @@ export type SheetFrameDoc = {
 	source?: string
 	/** The storeys a building elevation shows (types.ts SheetFrame.storeys). */
 	storeys?: string[]
+	/** A fill-rate frame: the conduit whose cross-section it shows (types.ts SheetFrame.fillOf). */
+	fillOf?: string
 }
 
 export type SheetKind = 'plan' | 'elevation' | 'schematic' | 'detail' | 'schedule'

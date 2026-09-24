@@ -6,8 +6,10 @@
 	import { PAPER_PX_PER_MM } from '../../constants'
 	import { type SheetFrame, type Proj, PROJ_OPTS, SCALES } from '../../types'
 
-	let { frame, modelList = [], storeys = [], onupdate, ondelete, onfit }: {
+	let { frame, modelList = [], storeys = [], conduits = [], onupdate, ondelete, onfit }: {
 		frame: SheetFrame; modelList?: { id: string; name: string }[]
+		/** F12: the frame's model's conduits — a frame can show one's cross-section (fill) instead of a view. */
+		conduits?: { id: string; name: string }[]
 		/** The frame's model storeys (a building) — its FLOORS checklist in an elevation. */
 		storeys?: { id: string; name: string }[]
 		onupdate?: (patch: Partial<SheetFrame>) => void; ondelete?: () => void
@@ -31,6 +33,15 @@
 	<div class="prop"><span>Source</span>
 		<select value={frame.modelId ?? modelList[0]?.id} onchange={(e) => onupdate?.({ modelId: (e.currentTarget as HTMLSelectElement).value })}>
 			{#each modelList as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
+		</select>
+	</div>
+{/if}
+{#if conduits.length || frame.fillOf}
+	<div class="prop"><span>Shows</span>
+		<select value={frame.fillOf ?? ''} onchange={(e) => onupdate?.({ fillOf: (e.currentTarget as HTMLSelectElement).value || undefined })}>
+			<option value="">The model view</option>
+			{#each conduits as c (c.id)}<option value={c.id}>Fill · {c.name}</option>{/each}
+			{#if frame.fillOf && !conduits.some((c) => c.id === frame.fillOf)}<option value={frame.fillOf}>Fill · (missing conduit)</option>{/if}
 		</select>
 	</div>
 {/if}
