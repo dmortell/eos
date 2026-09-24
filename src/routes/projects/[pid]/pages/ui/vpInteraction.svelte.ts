@@ -17,6 +17,7 @@ import { drawPlane, buildEnt, sectionObj, sectionName, PRISM_TOOL, trimTail, pol
 import { addModelObj, insertGraphNode, branchNode, addGuide, addSection } from './modelEdit'
 import { constrainGrip, snapAngle, type MGrip } from './grips'
 import { rotateAbout, scaleAbout, cornerScale } from './groupXf'
+import { joinNewConduit, joinGraph, mergeNodes, compatible } from '../3dview/graphJoin'
 import { snapToGrid, snapDelta, findSnap, drawPoint } from './snap'
 import { rotCenter, hitIsoFaces, marqueeSelect, type GN } from './hit'
 import { newId } from '../ids'
@@ -171,7 +172,14 @@ export class VpInteraction {
 		const guide = v.isElev ? selectedPlanGuide(v.mdl.guides ?? [], v.modelSel, ax === 0 ? 'h' : 'v') : null
 		if (v.isElev && !guide) toast('No depth guide — points snap onto nearby walls where possible, else the model centre. Tip: select a plan guide to fix the depth.', { duration: 5000 })
 		const o = graphObj(v.ctx, v.tool, pts, { guide, depthSnap: (p) => v.elevDepthSnap(p)?.off ?? null, uid: newId })
-		if (o) this.addModelObj(o)
+		if (!o) return
+		if (o.type !== 'conduit') return this.addModelObj(o)
+		// F3: a run touching compatible conduits joins them (one undo step); otherwise it's a new object
+		const ed = v.editor.edit; ed.begin()
+		const into = joinNewConduit(v.mdl.objects, o, v.tolMm(8), newId)
+		if (into === o) v.mdl.objects.push(o)
+		ed.mark(); ed.end()
+		if (into.id) v.selectObj(into.id)
 	}
 	/** Dbl-click a wall/conduit segment → split it with a new vertex (inherits the segment's z). */
 	private insertGraphNode(p: Pt) {
@@ -671,6 +679,19 @@ export class VpInteraction {
 		this.v.editor.edit.end()
 	}
 
+	/** F3: a conduit node dropped onto another node merges them — in the same conduit (closing a loop / removing a
+	 *  kink), or into a compatible conduit (the two become one object). Runs inside the grip's undo step. */
+	private dropNodeJoin(g: MGrip) {
+		const v = this.v, o = g.obj, mdl = v.mdl
+		if (!mdl || !g.node || o?.type !== 'conduit') return
+		const n = o.nodes.find((x) => x.id === g.node!.id); if (!n) return
+		const tol = v.tolMm(8), near = (m: { x: number; y: number; z: number }) => Math.hypot(m.x - n.x, m.y - n.y, m.z - n.z) <= tol
+		const same = o.nodes.find((m) => m.id !== n.id && near(m))
+		if (same) { mergeNodes(o, same.id, n.id); v.selectObj(o.id!); return }
+		const other = mdl.objects.find((c) => c !== o && compatible(c, o) && c.type === 'conduit' && c.nodes.some(near))
+		if (other && joinGraph(other as Extract<Obj, { type: 'conduit' }>, o, tol, newId)) { mdl.objects.splice(mdl.objects.indexOf(o), 1); v.selectObj(other.id!) }
+	}
+
 	// ── model grips: prism corner resize, or a wall/conduit node reshape (re-mitred joins) ──
 	private onModelGripMove = (e: PointerEvent, s: MGripDrag) => {
 		const p = this.v.toModel(e.clientX, e.clientY); if (!p) return
@@ -679,7 +700,7 @@ export class VpInteraction {
 	}
 	private onModelGripUp = (_e: PointerEvent, s: MGripDrag, moved: boolean) => {
 		const g = s.grip
-		if (moved) { this.suppressClick = true; this.v.editor.edit.mark() }
+		if (moved) { this.suppressClick = true; this.dropNodeJoin(g); this.v.editor.edit.mark() }
 		else if (s.branch) s.branch()   // a Ctrl-branch press with no drag: drop the stray zero-length segment
 		else if (g.node && g.obj && (g.obj.type === 'wall' || g.obj.type === 'conduit')) {
 			// B29: swallow the trailing click, else onClick re-selects the object's BODY and replaces the node pick
