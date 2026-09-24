@@ -15,7 +15,8 @@ import { type Pt, type Ent, STYLE_DEFAULTS, ELEV_BASIS, dist } from './geometry'
 import { beginPointerDrag, DragRegistry } from './gestures'
 import { drawPlane, buildEnt, sectionObj, sectionName, PRISM_TOOL, trimTail, polylineEnt, graphObj, prismObj, guideObj, imageWithOrigin, imageScaled, moveEnt } from './place'
 import { addModelObj, insertGraphNode, branchNode, addGuide, addSection } from './modelEdit'
-import { constrainGrip, type MGrip } from './grips'
+import { constrainGrip, snapAngle, type MGrip } from './grips'
+import { rotateAbout, scaleAbout, cornerScale } from './groupXf'
 import { snapToGrid, snapDelta, findSnap, drawPoint } from './snap'
 import { rotCenter, hitIsoFaces, marqueeSelect, type GN } from './hit'
 import { newId } from '../ids'
@@ -41,6 +42,9 @@ const uid = () => newId('e')
 type EntDrag = { id: string; base: Ent; bases: Ent[]; kind: 'grip' | 'move'; gi: number; start: Pt; dup?: boolean; duplicated?: boolean }
 type MDrag = { start: Pt; items: { id: string; o0?: { x: number; y: number; z: number }; n0?: GN[] }[] }
 type MGripDrag = { grip: MGrip; origin: Pt; branch?: () => void }
+/** D13: a group-box drag — scale about `pivot` (the opposite corner) toward `corner`, or rotate about `pivot`
+ *  (the barycentre) from the press angle `a0` (radians). */
+type GroupDrag = { bases: Ent[]; pivot: Pt; corner?: Pt; a0?: number }
 type SecDrag = { id: string; start: Pt; c0: Clip }
 type SecResize = { id: string; apply: (p: Pt) => Clip }
 type OrbitDrag = { sx: number; sy: number; yaw0: number; pitch0: number }
@@ -478,6 +482,14 @@ export class VpInteraction {
 				branch = () => { obj.nodes = (obj.nodes as GN[]).filter((x) => x.id !== nn.id); obj.segments = (obj.segments as { id: string; a: string; b: string }[]).filter((s) => s.b !== nn.id && s.a !== nn.id) }
 			}
 			beginPointerDrag<MGripDrag>(e, { grip, origin, branch }, { onMove: this.onModelGripMove, onUp: this.onModelGripUp, onCancel: this.onModelGripCancel }, reg)
+		} else if (pk?.kind === 'ggrip') {   // D13: the multi-selection's transform box — rotate / scale them all
+			const gx = v.groupXf; if (!gx) return
+			const bases = v.groupSel.map((x) => $state.snapshot(x) as Ent)
+			const g: GroupDrag = pk.rot ? { bases, pivot: gx.pivot, a0: Math.atan2(p[1] - gx.pivot[1], p[0] - gx.pivot[0]) }
+				: { bases, pivot: gx.corners[pk.corner!].opp, corner: gx.corners[pk.corner!].c }
+			ed.begin()
+			beginPointerDrag<GroupDrag>(e, g, { onMove: this.onGroupMove, onUp: (_e, _s, moved) => { if (moved) this.suppressClick = true; this.closeEdit() },
+				onCancel: (s) => { for (const b of s.bases) v.editor.ents.update(b); this.closeEdit() } }, reg)
 		} else if (pk?.kind === 'sgrip') {   // a corner grip of the SELECTED section resizes it
 			ed.begin()
 			beginPointerDrag<SecResize>(e, { ...pk.sg }, { onMove: this.onSecResizeMove, onUp: this.onSecResizeUp, onCancel: this.closeEdit }, reg)
@@ -506,6 +518,18 @@ export class VpInteraction {
 			this.marquee = { a: p, b: p, add: e.shiftKey || e.ctrlKey || e.metaKey }
 			beginPointerDrag(e, null, { onMove: this.onMarqueeMove, onUp: this.onMarqueeUp, onCancel: () => { this.marquee = null } }, reg)
 		} else this.startEntDrag(e, p, pk.kind === 'grip' ? 'grip' : 'move', pk.id, pk.kind === 'grip' ? pk.gi : -1)
+	}
+
+	// ── D13 group transform: every move re-applies to the press-time snapshots (no drift) ──
+	private onGroupMove = (e: PointerEvent, s: GroupDrag) => {
+		const v = this.v, p = v.toModel(e.clientX, e.clientY); if (!p) return
+		if (s.corner) {
+			const k = cornerScale(s.pivot, s.corner, p), f = e.shiftKey ? Math.round(k * 10) / 10 || 0.1 : k   // Shift → 0.1 steps
+			for (const b of s.bases) v.editor.ents.update(scaleAbout(b, s.pivot, f))
+		} else {
+			const deg = snapAngle(Math.round(((Math.atan2(p[1] - s.pivot[1], p[0] - s.pivot[0]) - s.a0!) * 180) / Math.PI), e.shiftKey)   // Shift → 15° steps
+			for (const b of s.bases) v.editor.ents.update(rotateAbout(b, s.pivot, deg, rotCenter(v.ctx, b)))
+		}
 	}
 
 	// ── entity move / grip / Ctrl-duplicate drag ──

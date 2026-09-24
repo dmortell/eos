@@ -62,6 +62,18 @@
 			{/each}
 		{/if}
 	{/each}
+	<!-- D13: the multi-selection's transform box — corners scale (about the opposite corner), the top handle
+	     rotates about the barycentre (the small cross) -->
+	{#if v.groupXf}
+		{@const g = v.groupXf}
+		{@const [x0, y0, x1, y1] = g.box}
+		<rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} fill="none" stroke={SEL} stroke-width={sw} stroke-dasharray="{4 * sw} {3 * sw}" opacity="0.8" />
+		<line x1={(x0 + x1) / 2} y1={y0} x2={g.rot[0]} y2={g.rot[1]} stroke={SEL} stroke-width={sw} opacity="0.6" />
+		<circle cx={g.rot[0]} cy={g.rot[1]} r={gs * 0.85} fill="white" stroke={SEL} stroke-width={1.2 * sw} style="cursor:grab" />
+		<line x1={g.pivot[0] - gs} y1={g.pivot[1]} x2={g.pivot[0] + gs} y2={g.pivot[1]} stroke={SEL} stroke-width={sw} />
+		<line x1={g.pivot[0]} y1={g.pivot[1] - gs} x2={g.pivot[0]} y2={g.pivot[1] + gs} stroke={SEL} stroke-width={sw} />
+		{#each g.corners as c, i (i)}<Handle cx={c.c[0]} cy={c.c[1]} size={gs} cursor={i % 2 ? 'nesw-resize' : 'nwse-resize'} strokeWidth={1.2 * sw} />{/each}
+	{/if}
 	<!-- model grips: prism resize corners, or wall/conduit node handles (of the selected object) -->
 	{#if v.mSelObj}
 		{#each v.mGrips as g, i (g.node?.id ?? i)}

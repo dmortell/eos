@@ -15,7 +15,8 @@ import type { ViewCtx, MLayers } from './view'
 import type { VpProps, VpKind } from './vpTypes'
 import { pickSectionGrip, modelGrips, pickModelGrip, gripsFor, type MGrip, type Grip, type GripOpts } from './grips'
 import { SNAP_STEP, rndTo, snapNode, graphNodeApply, elevDepthSnap } from './snap'
-import { inThisView, bbox, hitEnt, pickable, graphNodeDraw, hitModel, isoPickFaces, viewMapOf, hitSection, hitGuide, type GN } from './hit'
+import { barycentre, groupBox } from './groupXf'
+import { inThisView, bbox, hitEnt, pickable, rotCenter, isFlatElev, graphNodeDraw, hitModel, isoPickFaces, viewMapOf, hitSection, hitGuide, type GN } from './hit'
 import { isLayerHidden, isLayerLocked, layerColor, layerOrder } from '../layers.svelte'
 import { MODEL_SPACE_INK, onDark } from './modelSpace'
 import { models, modelById } from '../3dview/models.svelte'
@@ -36,12 +37,17 @@ const CX = PLAN_CX, CY = PLAN_CY   // plan centre in mm (viewBox centre + scale 
 export type Pick =
 	| { kind: 'mgrip'; grip: MGrip }
 	| { kind: 'sgrip'; sg: { id: string; apply: (p: Pt) => Clip } }
+	| { kind: 'ggrip'; rot?: boolean; corner?: number }
 	| { kind: 'grip'; id: string; gi: number }
 	| { kind: 'ent'; id: string }
 	| { kind: 'guide'; id: string }
 	| { kind: 'section'; id: string }
 	| { kind: 'obj'; id: string }
 	| null
+
+/** D13: the multi-selection's transform box (drawing units): its bbox, the barycentre pivot, the rotate
+ *  handle and the four corners (each with the corner opposite it — the scale pivot). */
+export type GroupXf = { box: [number, number, number, number]; pivot: Pt; rot: Pt; corners: { c: Pt; opp: Pt }[] }
 
 export class VpView {
 	/** The component's live $props() object (read lazily — every use below is inside a getter / $derived). */
@@ -342,8 +348,22 @@ export class VpView {
 	mGrips = $derived(this.mSelObj ? modelGrips(this.ctx, this.mSelObj, { rnd: this.rndSnap, applyNode: this.graphNodeApply, shift: () => this.shiftDown }) : [])
 	gripOpts = (): GripOpts => ({ gripMm: this.gripSize, shift: () => this.shiftDown, imgCropId: imgEdit.mode === 'crop' ? imgEdit.id : null })
 	gripsFor = (e: Ent): Grip[] => gripsFor(this.ctx, e, this.gripOpts())
-	/** P6: the SELECTED entities' grips, shared by the grip render and `pickAt`. */
-	selGrips = $derived(new Map(this.sel.flatMap((id) => { const e = this.entities.find((x) => x.id === id); return e ? [[id, this.gripsFor(e)] as const] : [] })))
+	/** D13: two or more editable shapes selected (Select tool) → ONE group transform box replaces their own grips:
+	 *  corner handles scale all about the opposite corner, the top handle rotates all about the barycentre. */
+	groupSel = $derived.by((): Ent[] => {
+		if (!this.active || this.tool !== 'Select' || this.sel.length < 2 || this.ctx.isIso) return []
+		const es = this.entities.filter((e) => this.selSet.has(e.id))
+		return es.length >= 2 && es.every((e) => this.inThisView(e) && !this.isLayerHidden(e.layer) && !this.isLayerLocked(e.layer) && !isFlatElev(this.ctx, e)) ? es : []
+	})
+	groupXf = $derived.by((): GroupXf | null => {
+		const es = this.groupSel; if (!es.length) return null
+		const box = groupBox(es, this.bbox), [x0, y0, x1, y1] = box
+		const corners: Pt[] = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
+		return { box, pivot: barycentre(es, (e) => rotCenter(this.ctx, e)), rot: [(x0 + x1) / 2, y0 - this.gripSize * 6],
+			corners: corners.map((c, i) => ({ c, opp: corners[(i + 2) % 4] })) }
+	})
+	/** P6: the SELECTED entities' grips, shared by the grip render and `pickAt` (none while the group box shows). */
+	selGrips = $derived(this.groupXf ? new Map<string, Grip[]>() : new Map(this.sel.flatMap((id) => { const e = this.entities.find((x) => x.id === id); return e ? [[id, this.gripsFor(e)] as const] : [] })))
 
 	/** What a press at these client coords grabs (`p` = the same point in model coords), in priority order.
 	 *  One mapper (one layout read) serves every grip test (P1). Hover asks the same question (P2). */
@@ -351,6 +371,12 @@ export class VpView {
 		const m = this.mapper(); if (!m) return null
 		if (this.mSelObj) { const g = pickModelGrip(m, this.mGrips, clientX, clientY); if (g) return { kind: 'mgrip', grip: g } }
 		if (this.selSectionObj) { const sg = pickSectionGrip(m, this.selSectionObj, clientX, clientY); if (sg) return { kind: 'sgrip', sg } }
+		const gx = this.groupXf
+		if (gx) {
+			const near = (q: Pt) => { const sp = m.toClient(q[0], q[1]); return Math.hypot(sp.x - clientX, sp.y - clientY) < 14 }
+			if (near(gx.rot)) return { kind: 'ggrip', rot: true }
+			const k = gx.corners.findIndex((c) => near(c.c)); if (k >= 0) return { kind: 'ggrip', corner: k }
+		}
 		for (const id of this.sel) {
 			const gs = this.selGrips.get(id) ?? []
 			for (let i = 0; i < gs.length; i++) { const sp = m.toClient(gs[i].x, gs[i].y); if (Math.hypot(sp.x - clientX, sp.y - clientY) < 14) return { kind: 'grip', id, gi: i } }
