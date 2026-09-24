@@ -34,10 +34,12 @@ export function describePlace(places: Place[], id: string, node?: NavNode, proje
 			// a BUILDING's floor stack (drives its building model's storeys); unset = the project's
 			...(p.kind === 'building' ? [(() => {
 				const s = p.floors ?? projectStack, from = p.floors ? '' : ' (from the project)'
-				return { label: 'FLOORS', hint: 'Above ground: 1F, 2F … (or 1, 2). Basements: B1F, B2F (or -1, -2). Ground floor: GF (or 0) — skip it if the building has none (B1F → 1F).', fields: [
+				return { label: 'FLOORS', hint: 'Above ground: 1F, 2F … (or 1, 2). Basements: B1F, B2F (or -1, -2). Ground floor: GF (or 0) — tick it under Nonexistent if the building has none (B1F → 1F).', fields: [
 					{ key: 'floorsBottom', label: 'Bottom', value: s ? fl(s.bottom) : '', edit: 'text' as const, hint: `Lowest floor, e.g. B3F${from}` },
 					{ key: 'floorsTop', label: 'Top', value: s ? fl(s.top) : '', edit: 'text' as const, hint: `Highest floor, e.g. 33F${from}` },
-					{ key: 'floorsSkipped', label: 'Skipped', value: (s?.skipped ?? []).map(fl).join(', '), edit: 'text' as const, hint: 'Floors that don\'t exist (e.g. 4F, 13F), comma-separated' },
+					{ key: 'floorsSkipped', label: 'Nonexistent', value: (s?.skipped ?? []).map(fl).join(', '), edit: 'checklist' as const,
+						hint: 'Floor numbers the building doesn\'t have (no 4F / 13F, or no GF)',
+						options: s ? Array.from({ length: Math.abs(s.top - s.bottom) + 1 }, (_, i) => fl(Math.min(s.bottom, s.top) + i)) : [] },
 				] }
 			})()] : []),
 			{ label: 'CONTENTS', fields: [

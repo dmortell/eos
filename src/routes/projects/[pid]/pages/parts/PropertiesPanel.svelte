@@ -45,6 +45,13 @@
 	// A prism on an "opening" layer is a door/window/hole; label it as such.
 	const modelTypeLabel = (o: Obj) => (o.type === 'prism' && modelLayers.find((l) => l.id === o.layer)?.opening ? 'Opening' : MODEL_TYPE_LABEL[o.type] ?? 'Object')
 
+	/** A wall / conduit segment's true 3D length (model mm) between its two nodes. */
+	function segLen(o: Obj, s: { a: string; b: string }): number {
+		if (o.type !== 'conduit' && o.type !== 'wall') return 0
+		const a = o.nodes.find((n) => n.id === s.a), b = o.nodes.find((n) => n.id === s.b)
+		return a && b ? Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0)) : 0
+	}
+	const fmtLen = (mm: number) => `${(mm / 1000).toFixed(2)} m`   // cable-length friendly
 	const kindLabel: Record<string, string> = {
 		project: 'PROJECT', building: 'BUILDING', floor: 'FLOOR', zone: 'ZONE', room: 'ROOM', row: 'ROW',
 	}
@@ -268,11 +275,12 @@
 			<div class="prop-sec">DEFAULTS</div>
 			<div class="prop"><span>Height</span><input type="number" value={modelObj.h} onchange={(e) => onmodelupdate?.({ h: Math.max(1, num(e)) })} /></div>
 			<div class="prop"><span>Thickness</span><input type="number" value={modelObj.thickness} onchange={(e) => onmodelupdate?.({ thickness: Math.max(1, num(e)) })} /></div>
-			<div class="prop-sec">SEGMENTS ({modelObj.segments.length})</div>
+			<div class="prop-sec">SEGMENTS ({modelObj.segments.length})<span class="sec-hint" title="Total wall length">L {fmtLen(modelObj.segments.reduce((t, s) => t + segLen(modelObj!, s), 0))}</span></div>
 			{#each modelObj.segments as s, si (s.id)}
 				<div class="seg-row"><em>{si + 1}</em>
 					<label>t<input type="number" value={s.thickness ?? modelObj.thickness} placeholder={String(modelObj.thickness)} onchange={(e) => onmodelseg?.(si, { thickness: Math.max(1, num(e)) })} /></label>
 					<label>h<input type="number" value={s.h ?? modelObj.h} placeholder={String(modelObj.h)} onchange={(e) => onmodelseg?.(si, { h: Math.max(1, num(e)) })} /></label>
+					<span class="seg-len" title="Length">L {fmtLen(segLen(modelObj, s))}</span>
 				</div>
 			{/each}
 		{:else if modelObj.type === 'conduit'}
@@ -285,11 +293,13 @@
 				</select>
 			</div>
 			<div class="prop"><span>Bend r</span><input type="number" min="0" value={modelObj.bend ?? 0} title="Corner fillet radius (mm) — rounds all corners" onchange={(e) => onmodelupdate?.({ bend: Math.max(0, num(e)) })} /></div>
-			<div class="prop-sec">SEGMENTS ({modelObj.segments.length})</div>
+			<!-- L = the segment's TRUE 3D length (model mm) — floors hidden in a riser drawing don't shorten it -->
+			<div class="prop-sec">SEGMENTS ({modelObj.segments.length})<span class="sec-hint" title="Total run length">L {fmtLen(modelObj.segments.reduce((t, s) => t + segLen(modelObj!, s), 0))}</span></div>
 			{#each modelObj.segments as s, si (s.id)}
 				<div class="seg-row"><em>{si + 1}</em>
 					<label>w<input type="number" value={s.w ?? modelObj.w} placeholder={String(modelObj.w)} onchange={(e) => onmodelseg?.(si, { w: Math.max(1, num(e)) })} /></label>
 					<label>h<input type="number" value={s.h ?? modelObj.h} placeholder={String(modelObj.h)} onchange={(e) => onmodelseg?.(si, { h: Math.max(1, num(e)) })} /></label>
+					<span class="seg-len" title="Length (3D)">L {fmtLen(segLen(modelObj, s))}</span>
 				</div>
 			{/each}
 		{/if}
@@ -303,7 +313,21 @@
 			{#each nodeInfo.sections as sec (sec.label)}
 				<div class="prop-sec">{sec.label}</div>
 				{#each sec.fields as f (f.key)}
-					{#if f.edit === 'textarea'}
+					{#if f.edit === 'checklist'}
+						{@const ticked = new Set(f.value.split(',').map((x) => x.trim()).filter(Boolean))}
+						<div class="prop"><span>{f.label}</span>
+							<details class="pp-check" title={f.hint}>
+								<summary>{f.value || 'none'}</summary>
+								<div class="pp-check-grid">
+									{#each [...(f.options ?? [])].reverse() as o (o)}
+										<label><input type="checkbox" checked={ticked.has(o)} onchange={(e) => {
+											const on = (e.currentTarget as HTMLInputElement).checked
+											onnodefield?.(f.key, (f.options ?? []).filter((x) => (x === o ? on : ticked.has(x))).join(', '))
+										}} />{o}</label>
+									{/each}
+								</div>
+							</details></div>
+					{:else if f.edit === 'textarea'}
 						<div class="prop wide"><span>{f.label}</span>
 							<textarea class="pp-textarea" use:autoresize value={f.value} title={f.hint}
 								onchange={(e) => onnodefield?.(f.key, (e.currentTarget as HTMLTextAreaElement).value)}></textarea></div>
@@ -520,6 +544,12 @@
 	.pp-floors { display:grid; grid-template-columns:repeat(3, 1fr); gap:1px 6px; padding:2px 8px 4px; max-height:170px; overflow-y:auto; font-size:11px; color:var(--text); }
 	.pp-floors label { display:flex; align-items:center; gap:4px; cursor:pointer; }
 	.pp-floors input { accent-color:var(--accent); }
+	.pp-check { min-width:0; }
+	.pp-check summary { cursor:pointer; background:var(--input); border:1px solid var(--line); border-radius:4px; padding:3px 6px; font-size:11px; font-family:Consolas,monospace; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+	.pp-check[open] summary { border-color:var(--accent); }
+	.pp-check-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:1px 6px; padding:4px 2px; max-height:180px; overflow-y:auto; font-size:11px; color:var(--text); }
+	.pp-check-grid label { display:flex; align-items:center; gap:4px; cursor:pointer; }
+	.pp-check-grid input { accent-color:var(--accent); }
 	.sec-help { font-size:10px; color:var(--faint); line-height:1.4; padding:2px 6px 4px 74px; }
 	.sec-hint { margin-left:6px; text-transform:none; letter-spacing:0; font-size:10px; color:var(--muted); }
 	.pp-hint { font-size:10px; color:var(--faint); padding:10px 6px; line-height:1.4; }
@@ -527,6 +557,7 @@
 	.seg-row em { width:14px; font-style:normal; color:var(--faint); font-size:10px; text-align:right; }
 	.seg-row label { display:flex; align-items:center; gap:3px; flex:1; font-size:10px; color:var(--faint); }
 	.seg-row input { width:100%; min-width:0; }
+	.seg-len { flex:0 0 58px; font-size:10px; color:var(--muted); font-family:Consolas,monospace; text-align:right; white-space:nowrap; }
 	.pp-del { margin:10px 6px 4px; width:calc(100% - 12px); padding:6px; background:#7f1d1d33; color:#ef4444; border:1px solid #ef444455; border-radius:5px; cursor:pointer; font-size:12px; }
 	.pp-del:hover { background:#7f1d1d55; }
 	.pp-reset { margin:6px 6px 4px; width:calc(100% - 12px); padding:5px; background:var(--panel2); color:var(--muted); border:1px solid var(--line); border-radius:5px; cursor:pointer; font-size:11px; }

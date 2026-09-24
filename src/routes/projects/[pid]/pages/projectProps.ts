@@ -5,7 +5,8 @@
 // everything owned by another tool's doc are shown read-only. See docs/firestore-structure.md.
 import { buildingOf, buildProjectTree, normFloors, racksDocId, floorName, OTHER_BUILDING, type FloorConfig, type TreeInput, type ProjectDoc } from './projectTree'
 
-export type NodeField = { key: string; label: string; value: string; edit?: 'text' | 'textarea'; hint?: string }
+/** `checklist`: `value` = the ticked `options`, comma-separated (a dropdown of checkboxes). */
+export type NodeField = { key: string; label: string; value: string; edit?: 'text' | 'textarea' | 'checklist'; hint?: string; options?: string[] }
 export type NodeInfo = { kind: 'project' | 'building' | 'floor' | 'zone' | 'room' | 'row' | 'place'; title: string
 	/** `hint` = help text shown under the section's fields. */
 	sections: { label: string; hint?: string; fields: NodeField[] }[]; note?: string }

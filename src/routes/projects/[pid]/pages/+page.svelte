@@ -654,6 +654,7 @@
 	// B18: a drawing is identified by `docId` (its navigator node id; a palette item looks its id up by label,
 	// else falls back to `title:<title>`), so re-opening finds the SAME drawing even if a tab was renamed.
 	function openDrawing(d: { title: string; kind: Kind; preview?: boolean; floor?: string; docId?: string; modelId?: ModelId }) {
+		if (proj.openRiser(d.docId, !!d.preview)) return   // a riser row → its imported building model (never the mock riser tab)
 		const sid = sheetIdOf(d.docId); if (sid) proj.loadSheet(sid)   // a stored Pages sheet: its paper + frames first
 		// a stored sheet's tab (frames without their own model fall back to it) = its PLACE's model, never the
 		// unsaved per-floor-name model of the old tree; a real floor of the old tree gets its own model + floorplan
