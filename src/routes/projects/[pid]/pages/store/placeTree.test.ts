@@ -83,5 +83,11 @@ describe('buildPlaceTree', () => {
 		expect([z.modelFloor, z.floor]).toEqual([null, '33F'])
 		expect(b.modelFloor).toBeNull()
 		expect(find(tree, 'g:project')!.place).toBeUndefined()
+		expect(z.hasModel).toBeUndefined()
+	})
+	it('a place with a model is marked hasModel (a click opens it, e.g. a zone)', () => {
+		const zid = id('Zone 3307')
+		const t2 = buildPlaceTree({ pid: P, places, drawings, risers: input.risers, floors: input.project.floors, modelPlaces: new Set([zid]) })
+		expect(find(t2, zid)!.hasModel).toBe(true)
 	})
 })

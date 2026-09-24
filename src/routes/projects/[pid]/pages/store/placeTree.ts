@@ -9,12 +9,14 @@ import { ancestorsOf, childrenOf } from './places'
 import type { PagesSheetDoc, Place } from './schema'
 import { outletsDocIdFor } from './outletsImport'
 
-export type PlaceTreeInput = { pid: string; places: Place[]; drawings: DrawingDoc[]; risers: RiserDoc[]; floors?: FloorConfig[] | number[]; sheets?: PagesSheetDoc[] }
+export type PlaceTreeInput = { pid: string; places: Place[]; drawings: DrawingDoc[]; risers: RiserDoc[]; floors?: FloorConfig[] | number[]; sheets?: PagesSheetDoc[]
+	/** Places that already have a (live) model — their row opens it on a click, like a floor's. */
+	modelPlaces?: Set<string> }
 
 /** A Pages sheet's navigator leaf (opens as drawing id `sheet:<id>`). */
 export const sheetLeaf = (s: PagesSheetDoc): NavNode => ({ id: `s:${s.id}`, label: s.title || 'Untitled sheet', drawing: 'sheet' as NavKind, docId: `sheet:${s.id}`, sheet: true })
 
-export function buildPlaceTree({ pid, places, drawings, risers, floors, sheets = [] }: PlaceTreeInput): NavNode[] {
+export function buildPlaceTree({ pid, places, drawings, risers, floors, sheets = [], modelPlaces }: PlaceTreeInput): NavNode[] {
 	const hung = new Map<string, NavNode[]>()   // place id → drawing leaves on it
 	const hang = (placeId: string, n: NavNode) => hung.set(placeId, [...(hung.get(placeId) ?? []), n])
 	const projectLevel: NavNode[] = [], orphan: NavNode[] = []
@@ -58,6 +60,7 @@ export function buildPlaceTree({ pid, places, drawings, risers, floors, sheets =
 			modelFloor: isFloorPlace(p) ? floorName(p.legacy!.floor!) : null }
 		if (p.legacy?.floor != null) n.floor = floorName(p.legacy.floor)   // drawings under it view that floor's model
 		if (isFloorPlace(p)) n.floorNumber = p.legacy!.floor
+		if (modelPlaces?.has(p.id)) n.hasModel = true
 		const od = outletsDocIdFor(pid, p.legacy, normFloors(floors)); if (od) n.outletsDoc = od
 		return n
 	}

@@ -970,7 +970,8 @@
 		const src = projectSrc; if (src?.status !== 'ready') return null
 		const t = src.tree; if (!t) return null
 		if (!hasPlaces) return t
-		return { project: t.project, tree: buildPlaceTree({ pid: src.pid, places: pagesStore!.places, drawings: src.drawings, risers: src.risers, floors: src.project?.floors, sheets: pagesStore!.sheets }) }
+		return { project: t.project, tree: buildPlaceTree({ pid: src.pid, places: pagesStore!.places, drawings: src.drawings, risers: src.risers, floors: src.project?.floors, sheets: pagesStore!.sheets,
+			modelPlaces: new Set(models.filter((m) => m.placeId && !m.archived).map((m) => m.placeId!)) }) }
 	})
 	const canSeedPlaces = $derived(pagesStore?.status === 'ready' && !hasPlaces && projectSrc?.status === 'ready')
 	function seedPlaces() {
@@ -1106,7 +1107,7 @@
 				openDrawing({ title: n.label, kind: n.drawing, preview: true, floor, docId: n.docId ?? n.id })
 			} else {
 				selectNode({ id: n.id, label: n.label, kind: n.place ? 'place' : n.folder ?? 'folder', floorNumber: n.floorNumber, building: n.building })
-				if (n.place) { if (n.modelFloor) openPlaceModel(n.id, true) }
+				if (n.place) { if (n.modelFloor || n.hasModel) openPlaceModel(n.id, true) }
 				else if (n.folder === 'floor' && n.floor) openFloorModel(n.floor, true)
 			}
 		})

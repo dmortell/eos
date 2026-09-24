@@ -244,7 +244,7 @@
 			<div class="dn-row folder" class:active={activeNode === n.id} style:padding-left="{depth * 12 + 8}px"
 				{...dragProps(n)} class:drop-into={dropInto(n)} class:drag-before={dropBefore(n)} class:drag-after={dropAfter(n)}
 				onclick={() => { onselectnode?.({ id: n.id, label: n.label, kind: n.place ? 'place' : n.folder ?? 'folder', floorNumber: n.floorNumber, building: n.building })
-					if (n.place && onopenplace) { if (n.modelFloor) onopenplace(n.id, true) } else { const mf = modelFloorOf(n); if (mf) onopenfloor?.(mf, true) } }}
+					if (n.place && onopenplace) { if (n.modelFloor || n.hasModel) onopenplace(n.id, true) } else { const mf = modelFloorOf(n); if (mf) onopenfloor?.(mf, true) } }}
 				ondblclick={() => { if (n.place && onopenplace) onopenplace(n.id, false); else { const mf = modelFloorOf(n); if (mf) onopenfloor?.(mf, false) } }}
 				role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onselectnode?.({ id: n.id, label: n.label, kind: n.folder ?? 'folder' }) } }}>
 				{#if n.children?.length}

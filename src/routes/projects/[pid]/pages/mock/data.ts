@@ -19,6 +19,8 @@ export type NavNode = { id: string; label: string; folder?: string; drawing?: Na
 	/** Pages places: the floor whose model this row opens ('33F'), or null = it opens none. Absent = the old
 	 *  rule (a 'floor' folder opens its floor). */
 	modelFloor?: string | null
+	/** Pages places: this place already has a model (a click opens it, like a floor's). */
+	hasModel?: boolean
 	/** Pages places: this row is a PLACE (editable / draggable in the navigator). */
 	place?: boolean
 	/** Pages sheets: this leaf is a stored Pages SHEET (renamable / draggable / archivable). */
