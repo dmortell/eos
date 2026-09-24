@@ -47,6 +47,7 @@
 	import { WorkspaceHistory } from './history.svelte'
 	import { DocEdit } from './docEdit.svelte'
 	import { viewToDxf } from './exportDxf'
+	import { clipOf, pasteClip, saveClip, loadClip } from './ui/frameClip'
 	import { downloadDxf } from '../sheets/dxf/dxf'
 	import { storeyMap } from './3dview/storeyMap'
 	import { BASIS } from './3dview/types'
@@ -323,6 +324,25 @@
 		if (!fit) { statusText = 'Nothing visible to fit in this viewport'; return }
 		ensureHist(a2.id); updateFrame(a2.id, f.id, { scale: `1:${fit.n}` }); commitFrame(a2.id, 'Fit viewport scale')
 		setView(p.id, f.id, f.proj, fit.view)
+	}
+	// B2: copy / cut / paste / duplicate the selected viewport FRAME on paper (ui/frameClip.ts; the clipboard is in
+	// localStorage, so it survives a reload and crosses sheets). Returns whether the key did anything.
+	function frameClipKey(tabId: string, k: 'c' | 'x' | 'v' | 'd'): boolean {
+		const f = selFrameObj, defModel = modelIdOf(tabId)
+		const clip = () => clipOf(f ? [$state.snapshot(f) as SheetFrame] : [], (mid) => $state.snapshot(entsForModel(mid)) as Ent[], defModel)
+		if ((k === 'c' || k === 'x' || k === 'd') && !f) return false
+		if (k === 'c' || k === 'x') { saveClip(clip()); toast(k === 'x' ? 'Viewport cut' : 'Viewport copied'); if (k === 'x') { deleteFrame(tabId, f!.id); selStore.set(tabId, selClear()) } return true }
+		const src = k === 'd' ? clip() : loadClip(); if (!src) return false
+		const pasted = pasteClip(src, (p) => newId(p), nextFrameSeq(framesOf(tabId)), Math.round(10 * PAPER_PX_PER_MM))
+		ensureHist(tabId)
+		setFrames(tabId, [...framesOf(tabId), ...pasted.frames])
+		let lost = 0
+		for (const s of pasted.shapes) { const m = modelById(s.modelId); if (m) m.shapes = [...(m.shapes ?? []), s.ent]; else lost++ }
+		for (const fr of pasted.frames) if (fr.modelId && !modelById(fr.modelId)) lost++
+		recordEdit(tabId, k === 'd' ? 'Duplicate viewport' : 'Paste viewport')
+		selStore.set(tabId, selOnly(pasted.frames.map((fr): SelItem => ({ kind: 'frame', id: fr.id })).slice(0, 1)))
+		if (lost) toast('Pasted — its model isn’t in this project, so the frame shows “Missing model”')
+		return true
 	}
 	function toggleVpFreeze(layerId: string) {
 		const p = session.panes[session.focused], f = activeFrame; if (!p || !f) return
@@ -740,6 +760,9 @@
 				const d = (e.key === 'PageUp' ? 1 : -1) * 0.8 * (e.shiftKey ? el.clientWidth : el.clientHeight)
 				canvasPan(p, e.shiftKey ? d : 0, e.shiftKey ? 0 : d)
 			}
+		}
+		else if (mod && !e.shiftKey && active?.kind === 'sheet' && !activeVpOf(active.id) && ['c', 'x', 'v', 'd'].includes(e.key.toLowerCase())) {   // B2: frames on paper
+			if (frameClipKey(active.id, e.key.toLowerCase() as 'c' | 'x' | 'v' | 'd')) e.preventDefault()
 		}
 		else if ((e.key === 'Delete' || e.key === 'Backspace') && selFrameId && active && !activeVpOf(active.id)) { e.preventDefault(); deleteSelAt(active.id, active.id, { begin: beginGesture, mark: (l?: string) => modelEdit(active!.id, l), end: endGesture }) }   // delete the selected viewport frame (paper space)
 	}
