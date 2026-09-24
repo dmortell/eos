@@ -11,6 +11,7 @@
 	import RackProps from './RackProps.svelte'
 	import { CABLE_TYPES, DEFAULT_CABLE, conduitFill, fillTone, portsNearest } from '../../3dview/fill'
 	import { toast } from 'svelte-sonner'
+	import { newId } from '../../ids'
 
 	let { obj, layers = [], model = null, onupdate, ondelete, onseg, onadd, outletsFor, allocated, nodeId }: {
 		obj: Obj; layers?: MLayer[]
@@ -108,6 +109,21 @@
 				</span>
 			</div>
 		{/if}
+	{:else if !obj.device}
+		<!-- F6: where trunk / pipe ends attach (× in plan) — the default five, or the box's own (offsets from its centre) -->
+		{@const cps = obj.cpts ?? []}
+		<div class="prop-sec">CONNECTION POINTS<span class="sec-hint">{cps.length ? `${cps.length} own` : 'centre + edges'}</span></div>
+		{#each cps as c, i (c.id)}
+			<div class="vecrow">
+				<NumCell k="dX" v={c.dx} set={(n) => onupdate?.({ cpts: cps.map((q, j) => (j === i ? { ...q, dx: Math.round(n) } : q)) })} />
+				<NumCell k="dY" v={c.dy} set={(n) => onupdate?.({ cpts: cps.map((q, j) => (j === i ? { ...q, dy: Math.round(n) } : q)) })} />
+				<button class="pp-mini" title="Remove this point" onclick={() => onupdate?.({ cpts: cps.length > 1 ? cps.filter((_, j) => j !== i) : undefined })}>×</button>
+			</div>
+		{/each}
+		<div class="prop"><span></span><span class="pp-seg">
+			<button title="Add a point at the centre, then set its offset" onclick={() => onupdate?.({ cpts: [...cps, { id: newId('cp'), dx: 0, dy: 0 }] })}>+ Point</button>
+			{#if cps.length}<button title="Back to centre + edge midpoints" onclick={() => onupdate?.({ cpts: undefined })}>Default</button>{/if}
+		</span></div>
 	{/if}
 {:else if obj.type === 'wall'}
 	<div class="prop-sec">DEFAULTS</div>

@@ -78,6 +78,7 @@
 	{#if v.mSelObj}
 		{#each v.mGrips as g, i (g.node?.id ?? i)}
 			{#if g.node && v.nodeSelValid && g.node.id === v.nodeSelValid.node}<circle cx={g.x} cy={g.y} r={gs * 0.95} fill={SEL} opacity="0.85" />{/if}
+			{#if g.node?.conn}<circle cx={g.x} cy={g.y} r={gs * 1.5} fill="none" stroke="#22c55e" stroke-width={2 * sw}><title>Connected — follows its box / outlet</title></circle>{/if}
 			{#if g.bend}
 				<!-- F9: a corner's bend handle (drag along the bisector = its radius) -->
 				<polygon points="{g.x},{g.y - gs * 0.8} {g.x + gs * 0.8},{g.y} {g.x},{g.y + gs * 0.8} {g.x - gs * 0.8},{g.y}" fill="white" stroke={SEL} stroke-width={1.2 * sw} style="cursor:move"><title>Bend radius — drag</title></polygon>
@@ -87,6 +88,10 @@
 		{/each}
 	{/if}
 {/if}
+<!-- F6: connection points (Visio-style ×) — where a trunk / pipe end attaches -->
+{#each v.connMarks as c, i (i)}
+	<g stroke="#22c55e" stroke-width={1.4 * sw} opacity="0.9"><line x1={c.x - gs * 0.7} y1={c.y - gs * 0.7} x2={c.x + gs * 0.7} y2={c.y + gs * 0.7} /><line x1={c.x - gs * 0.7} y1={c.y + gs * 0.7} x2={c.x + gs * 0.7} y2={c.y - gs * 0.7} /></g>
+{/each}
 <!-- object-snap marker (constant screen size): □ endpoint · △ midpoint · ○ centre · ◇ quadrant -->
 {#if v.active && v.snapMark}
 	{@const s = gs * 1.5}

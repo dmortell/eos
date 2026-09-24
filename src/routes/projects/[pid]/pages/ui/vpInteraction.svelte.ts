@@ -18,6 +18,7 @@ import { addModelObj, insertGraphNode, branchNode, addGuide, addSection } from '
 import { constrainGrip, snapAngle, type MGrip } from './grips'
 import { rotateAbout, scaleAbout, cornerScale } from './groupXf'
 import { joinNewConduit, joinGraph, mergeNodes, compatible } from '../3dview/graphJoin'
+import { connPoints, attachNode, followConnections } from '../3dview/connect'
 import { snapToGrid, snapDelta, findSnap, drawPoint } from './snap'
 import { rotCenter, hitIsoFaces, marqueeSelect, type GN } from './hit'
 import { newId } from '../ids'
@@ -174,6 +175,8 @@ export class VpInteraction {
 		const o = graphObj(v.ctx, v.tool, pts, { guide, depthSnap: (p) => v.elevDepthSnap(p)?.off ?? null, uid: newId })
 		if (!o) return
 		if (o.type !== 'conduit') return this.addModelObj(o)
+		// F6: in plan, run nodes drawn on a box's / outlet's connection point attach to it
+		if (v.isPlan) { const cp = connPoints(v.mdl), tol = v.tolMm(8); for (const n of o.nodes) attachNode(n, cp, tol) }
 		// F3: a run touching compatible conduits joins them (one undo step); otherwise it's a new object
 		const ed = v.editor.edit; ed.begin()
 		const into = joinNewConduit(v.mdl.objects, o, v.tolMm(8), newId)
@@ -595,6 +598,7 @@ export class VpInteraction {
 		if (e.shiftKey !== v.ortho) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0 }   // ortho / axis-lock (Shift toggles)
 		const [gdx, gdy] = snapDelta(dx, dy, drag.bases[0], v.snap ? v.snapStep : 0)   // grid-snap the group by its first member (stays rigid)
 		for (const b of drag.bases) v.editor.ents.update(moveEnt(v.ctx, b, gdx, gdy))
+		if (v.mdl && v.isPlan) followConnections(v.mdl, new Set(drag.bases.map((b) => b.id)))   // F6: conduit ends on a moved outlet follow it
 	}
 	private onDragUp = (_e: PointerEvent, _s: EntDrag, moved: boolean) => {
 		if (moved) this.suppressClick = true
@@ -672,11 +676,17 @@ export class VpInteraction {
 			}
 			else if ((o.type === 'wall' || o.type === 'conduit') && it.n0) for (const g of it.n0) { const n = (o.nodes as GN[]).find((x) => x.id === g.id); if (n) shift(n, g) }
 		}
+		followConnections(v.mdl, new Set(s.items.map((it) => it.id)))   // F6: conduit ends attached to a moved box come along
 		v.editor.edit.mark()   // fold this move into the open undo step
 	}
-	private onModelDragUp = (_e: PointerEvent, _s: MDrag, moved: boolean) => {
-		if (moved) this.suppressClick = true
-		this.v.editor.edit.end()
+	private onModelDragUp = (_e: PointerEvent, s: MDrag, moved: boolean) => {
+		const v = this.v
+		if (moved) {
+			this.suppressClick = true
+			// F6: a conduit moved bodily keeps only the attachments its nodes still sit on
+			if (v.mdl && v.isPlan) { const cp = connPoints(v.mdl), tol = v.tolMm(8); for (const it of s.items) { const o = v.mdl.objects.find((x) => x.id === it.id); if (o?.type === 'conduit') for (const n of o.nodes) if (n.conn) attachNode(n, cp, tol) } }
+		}
+		v.editor.edit.end()
 	}
 
 	/** F3: a conduit node dropped onto another node merges them — in the same conduit (closing a loop / removing a
@@ -689,13 +699,16 @@ export class VpInteraction {
 		const same = o.nodes.find((m) => m.id !== n.id && near(m))
 		if (same) { mergeNodes(o, same.id, n.id); v.selectObj(o.id!); return }
 		const other = mdl.objects.find((c) => c !== o && compatible(c, o) && c.type === 'conduit' && c.nodes.some(near))
-		if (other && joinGraph(other as Extract<Obj, { type: 'conduit' }>, o, tol, newId)) { mdl.objects.splice(mdl.objects.indexOf(o), 1); v.selectObj(other.id!) }
+		if (other && joinGraph(other as Extract<Obj, { type: 'conduit' }>, o, tol, newId)) { mdl.objects.splice(mdl.objects.indexOf(o), 1); v.selectObj(other.id!); return }
+		if (v.isPlan) attachNode(n, connPoints(mdl), tol)   // F6: dropped on a connection point → attach; off one → detach
 	}
 
 	// ── model grips: prism corner resize, or a wall/conduit node reshape (re-mitred joins) ──
 	private onModelGripMove = (e: PointerEvent, s: MGripDrag) => {
 		const p = this.v.toModel(e.clientX, e.clientY); if (!p) return
 		s.grip.apply(p, s.origin)
+		const o = s.grip.obj ?? this.v.mSelObj
+		if (o?.type === 'prism' && o.id && this.v.mdl) followConnections(this.v.mdl, new Set([o.id]))   // F6: a resized / rotated box's points move
 		this.v.editor.edit.mark()
 	}
 	private onModelGripUp = (_e: PointerEvent, s: MGripDrag, moved: boolean) => {

@@ -3,7 +3,9 @@
 // the geometry sweep is a maximal chain through degree-2 nodes of equal profile;
 // junctions (degree ≥3) and profile changes break runs (butt joints there). This
 // unifies wall/conduit/(eventually outlets-trunk) — see merge-analysis.md §8.
-export type GNode = { id: string; x: number; y: number; z: number; bend?: number }   // bend = corner fillet radius (mm) for conduits
+export type GNode = { id: string; x: number; y: number; z: number; bend?: number   // bend = corner fillet radius (mm) for conduits
+	/** F6: attached to a box's connection point / an outlet (3dview/connect.ts) — follows it in plan. */
+	conn?: { obj?: string; ent?: string; pt?: string } }
 export type GSeg = { id: string; a: string; b: string }
 
 // Node/segment ids come from the one shared generator (B13); `prefix` defaults to 'n' (node) here.

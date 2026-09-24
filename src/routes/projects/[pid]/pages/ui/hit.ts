@@ -117,7 +117,7 @@ export const viewMapOf = (ctx: ViewCtx, isoBox: { icx: number; icy: number } | n
 	viewMap(ctx.dir, ctx.cx, ctx.cy, ctx.ground, ctx.yaw, ctx.pitch, isoBox)
 
 /** A wall/conduit vertex in model space. */
-export type GN = { id: string; x: number; y: number; z: number; bend?: number }
+export type GN = { id: string; x: number; y: number; z: number; bend?: number; conn?: { obj?: string; ent?: string; pt?: string } }
 
 /** A prism's drawing-space AABB in the CURRENT view — the box its EDIT grips sit on (unrotated: the
  *  x/y/w/d/z/h it edits): plan = footprint [x..x+w]×[y..y+d]; elevation = its on-axis extent standing
