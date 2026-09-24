@@ -3,8 +3,9 @@
 	// colour (ByLayer = none), base Z (boxes) and height (boxes / walls / conduits). A field whose values differ
 	// shows "— mixed —" / empty; setting it applies to every object that has it, as ONE undo step (onpatch).
 	import { ColorPicker } from '$lib'
-	import { COLORS } from '../palette'
-	import type { Obj, Layer as MLayer } from '../3dview/types'
+	import { COLORS } from '../../palette'
+	import { num, blurOnEnter } from './fields'
+	import type { Obj, Layer as MLayer } from '../../3dview/types'
 
 	let { objs, layers, onpatch }: {
 		objs: Obj[]; layers: MLayer[]
@@ -23,8 +24,6 @@
 	const boxes = $derived(objs.filter((o) => o.type === 'prism'))
 	const baseZ = $derived(boxes.length ? common((o) => (o.type === 'prism' ? Math.round(o.z) : undefined)) : undefined)
 	const height = $derived(common((o) => ('h' in o ? Math.round(o.h as number) : undefined)))
-	const num = (e: Event) => +(e.currentTarget as HTMLInputElement).value
-	const blurOnEnter = (e: KeyboardEvent) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur() }
 </script>
 
 <div class="prop-sec">{title}</div>
@@ -44,11 +43,3 @@
 <div class="prop"><span>Height</span><input type="number" min="1" value={height ?? ''} placeholder="— mixed —" title="A box's height, a wall's or a conduit's default height (mm)"
 	onchange={(e) => { const v = Math.max(1, num(e)); onpatch((o) => ('h' in o ? { h: v } : null)) }} onkeydown={blurOnEnter} /></div>
 <div class="pp-hint">Ctrl/Shift-click adds or removes objects. Edits apply to every selected object that has the field.</div>
-
-<style>
-	.prop { display:grid; grid-template-columns:64px 1fr; align-items:center; gap:6px; padding:2px 4px; }
-	.prop span { color:var(--muted); font-size:11px; }
-	.prop input, .prop select { background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:3px 6px; font-size:11px; font-family:Consolas,monospace; min-width:0; }
-	.prop-sec { font-size:9px; text-transform:uppercase; letter-spacing:.1em; color:var(--faint); padding:8px 4px 4px; }
-	.pp-hint { font-size:10px; color:var(--faint); padding:6px 6px 10px; line-height:1.4; }
-</style>
