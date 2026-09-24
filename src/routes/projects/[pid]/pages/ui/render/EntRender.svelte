@@ -14,7 +14,7 @@
 	import { STYLE_DEFAULTS, textBox } from '../geometry'
 	import { PT_MM } from '../../constants'
 	import { isFlatElev, flatXSpan, rotCenter, rotatePt, groundInIso } from '../hit'
-	import { arrowPts, cloudPath, groundPts, headGeom, dashArray, type HeadGeom } from '../annotations'
+	import { arrowPts, cloudPath, groundPts, headGeom, dashArray, lineLabelAt, type HeadGeom } from '../annotations'
 	import { imageSrc } from '../../imageStore'
 	import { pdfImageUrl, PDF_SRC } from './pdfRaster.svelte'
 	import { blockDef, byBlock, attrValue, attrColor } from '../blocks'
@@ -124,8 +124,11 @@
 		     offers them on a 2-point line, but nothing stops one at the data level, so this isn't gated. -->
 		{#if (e.pts?.length ?? 0) >= 2}
 			{@const p0 = e.pts![0]}{@const p1 = e.pts![e.pts!.length - 1]}
+			{@const lb = e.text ? lineLabelAt(e.pts!, e.textPos, 1.2 * paperMm) : null}
 			{@render head(headGeom(e.headEnd, p0, p1, 3.5 * paperMm), ink)}
 			{@render head(headGeom(e.headStart, p1, p0, 3.5 * paperMm), ink)}
+			<!-- D7: the line's text label, along it at the start / middle / end, upright, like a dimension figure -->
+			{#if lb}<text class="anno" x={lb.p[0]} y={lb.p[1]} font-size={2.5 * paperMm} fill={ink} text-anchor={lb.anchor} transform="rotate({lb.rot} {lb.p[0]} {lb.p[1]})">{e.text}</text>{/if}
 		{/if}
 	{:else if e.type === 'rect'}
 		{#if e.cloud}
@@ -194,9 +197,12 @@
 			{@const bx1 = bb[2] + pad}
 			{@const by1 = bb[3] + pad}
 			{@const lp = e.leader ?? [bb[0] - fs * 3, bb[3] + fs * 3]}
+			{@const cb = e.calloutBorder ?? 'box'}
 			{@const nx = lp[0] < (bx0 + bx1) / 2 ? bx0 : bx1}
-			{@const ny = lp[1] < (by0 + by1) / 2 ? by0 : by1}
-			<rect x={bx0} y={by0} width={bx1 - bx0} height={by1 - by0} rx={fs * 0.3} fill="none" stroke={ink} stroke-width={1.2 / (canvasZoom || 1)} vector-effect="non-scaling-stroke" />
+			{@const ny = cb === 'underline' ? by1 : lp[1] < (by0 + by1) / 2 ? by0 : by1}
+			<!-- D9: the frame — a box, an underline (the leader leaves from its nearer end), or none -->
+			{#if cb === 'box'}<rect x={bx0} y={by0} width={bx1 - bx0} height={by1 - by0} rx={fs * 0.3} fill="none" stroke={ink} stroke-width={1.2 / (canvasZoom || 1)} vector-effect="non-scaling-stroke" />
+			{:else if cb === 'underline'}<line x1={bx0} y1={by1} x2={bx1} y2={by1} stroke={ink} stroke-width={1.2 / (canvasZoom || 1)} vector-effect="non-scaling-stroke" />{/if}
 			<line x1={nx} y1={ny} x2={lp[0]} y2={lp[1]} stroke={ink} stroke-width={1.2 / (canvasZoom || 1)} vector-effect="non-scaling-stroke" />
 			<polygon points={arrowPts([nx, ny] as Pt, lp as Pt, 3.5 * paperMm)} fill={ink} />
 		{/if}

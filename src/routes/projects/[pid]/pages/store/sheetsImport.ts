@@ -109,12 +109,12 @@ export function annotationToEnt(a: Annotation, frameId: string, n: number, id: s
 		case 'text':
 			return { ...base, type: 'text', a: baseline(), text: a.text ?? '', fontPt, align: a.align } as Ent
 		case 'callout':
-			return { ...base, type: 'text', a: baseline(), text: a.text ?? '', fontPt, align: a.align, callout: true, ...(a.x2 != null ? { leader: [a.x2, a.y2 ?? a.y] as Pt } : {}) } as Ent
+			return { ...base, type: 'text', a: baseline(), text: a.text ?? '', fontPt, align: a.align, callout: true, ...(a.x2 != null ? { leader: [a.x2, a.y2 ?? a.y] as Pt } : {}), ...((a.border ?? 'none') !== 'box' ? { calloutBorder: a.border ?? 'none' } : {}) } as Ent   // Sheets' callout default is no frame
 		case 'line': case 'arrow': {
 			const e: Ent = { ...base, type: 'polyline', pts: [[a.x, a.y], [a.x2 ?? a.x, a.y2 ?? a.y]] } as Ent
 			const hs = head(a.start), he = head(a.end) ?? (a.kind === 'arrow' ? 'arrow' : undefined)
 			if (hs) e.headStart = hs; if (he) e.headEnd = he
-			if (a.text) { /* a line label has no Pages equivalent yet — dropped (noted by the caller's kind count) */ }
+			if (a.text) { e.text = a.text; if (a.labelPos && a.labelPos !== 'mid') e.textPos = a.labelPos }   // D7 line label
 			return e
 		}
 		case 'dimension': {

@@ -54,6 +54,31 @@ export function headGeom(head: Head | undefined, from: Pt, to: Pt, size: number)
 	return { kind: 'tick', a: [to[0] - tx, to[1] - ty], b: [to[0] + tx, to[1] + ty] }
 }
 
+/** D7: where a line's text label sits — at the start, the middle (by length) or the end of the polyline —
+ *  as an anchor point lifted `gap` off the line, the text-anchor, and an UPRIGHT rotation (deg) along the
+ *  segment it sits on. null for fewer than 2 points. */
+export type LabelPos = 'start' | 'mid' | 'end'
+export function lineLabelAt(pts: Pt[], pos: LabelPos | undefined, gap: number): { p: Pt; anchor: 'start' | 'middle' | 'end'; rot: number } | null {
+	if (pts.length < 2) return null
+	let a: Pt, b: Pt, at: Pt, anchor: 'start' | 'middle' | 'end'
+	if (pos === 'start') { a = pts[0]; b = pts[1]; at = pts[0]; anchor = 'start' }
+	else if (pos === 'end') { a = pts[pts.length - 2]; b = pts[pts.length - 1]; at = b; anchor = 'end' }
+	else {   // the middle of the whole run, on the segment that contains it
+		const lens = pts.slice(1).map((q, i) => Math.hypot(q[0] - pts[i][0], q[1] - pts[i][1]))
+		let half = lens.reduce((s, l) => s + l, 0) / 2, i = 0
+		while (i < lens.length - 1 && half > lens[i]) { half -= lens[i]; i++ }
+		a = pts[i]; b = pts[i + 1]; const t = lens[i] ? half / lens[i] : 0
+		at = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]; anchor = 'middle'
+	}
+	const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1
+	let rot = (Math.atan2(dy, dx) * 180) / Math.PI
+	const flip = rot > 90 || rot < -90
+	if (flip) { rot += rot > 0 ? -180 : 180; if (anchor !== 'middle') anchor = anchor === 'start' ? 'end' : 'start' }
+	// lift perpendicular, to the reading side (screen "up" once upright): the normal (dy, -dx) flips with the text
+	const nx = (dy / len) * (flip ? -1 : 1), ny = (-dx / len) * (flip ? -1 : 1)
+	return { p: [at[0] + nx * gap, at[1] + ny * gap], anchor, rot }
+}
+
 /** SVG stroke-dasharray for a line type (XP32), in SCREEN px (strokes are non-scaling), ÷ the ancestor CSS
  *  canvas zoom like the lineweights. undefined = solid. */
 const DASHES: Record<Exclude<Dash, 'solid'>, number[]> = { dashed: [6, 4], dotted: [1, 3], dashdot: [8, 3, 1, 3] }

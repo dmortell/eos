@@ -39,6 +39,11 @@ export type Ent = { id: string; type: 'rect' | 'ellipse' | 'dim' | 'text' | 'pol
 	// CALLOUT (text only): `callout` boxes the text and draws a leader to `leader` (the tip it points at,
 	// model coords). Toggled in Properties; the leader tip has its own grip. Firestore-stable names.
 	callout?: boolean; leader?: Pt;
+	// D9: the callout's frame — 'box' (default) / 'underline' (a line under the text, the leader from its end) / 'none'.
+	calloutBorder?: 'box' | 'underline' | 'none';
+	// D7 LINE LABEL (polyline only): `text` is drawn along the line at `textPos` ('mid' default; ui/annotations
+	// lineLabelAt), annotative like a dimension's figure. Firestore-stable.
+	textPos?: 'start' | 'mid' | 'end';
 	// LINE ENDS (XP33): the head drawn at each end of a 2-point polyline (pts[0] / pts[last]) or a dimension
 	// (a / b) — 'arrow' | 'dot' | 'tick' | 'none'. Unset = none on a line, arrow on a dimension. Replaced the
 	// old `arrow: 'start' | 'end' | 'both'` (migrateEnt converts it). Firestore-stable.

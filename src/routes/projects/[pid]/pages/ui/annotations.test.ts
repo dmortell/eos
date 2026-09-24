@@ -1,5 +1,18 @@
 import { describe, it, expect } from 'vitest'
-import { centerCorners, orthoPt, constrainPt, arrowPts, cloudPath, groundPts, sectionArrowFor, headGeom, dashArray } from './annotations'
+import { centerCorners, orthoPt, constrainPt, arrowPts, cloudPath, groundPts, sectionArrowFor, headGeom, dashArray, lineLabelAt } from './annotations'
+
+describe('lineLabelAt', () => {
+	it('sits above the line at the start / middle (by length) / end, reading upright', () => {
+		const pts: [number, number][] = [[0, 0], [100, 0], [100, 100]]
+		expect(lineLabelAt(pts, 'start', 5)).toEqual({ p: [0, -5], anchor: 'start', rot: 0 })
+		expect(lineLabelAt(pts, 'mid', 5)).toEqual({ p: [100, -5], anchor: 'middle', rot: 0 })   // 100 of 200 → the corner
+		expect(lineLabelAt(pts, 'end', 5)).toEqual({ p: [105, 100], anchor: 'end', rot: 90 })
+		// a right-to-left line is flipped to read left-to-right; its start label anchors at its end side
+		const r = lineLabelAt([[100, 0], [0, 0]], 'start', 5)!
+		expect(r.anchor).toBe('end'); expect(Math.abs(r.rot)).toBe(0); expect(r.p[0]).toBe(100); expect(r.p[1]).toBeCloseTo(-5)
+		expect(lineLabelAt([[0, 0]], 'mid', 5)).toBeNull()
+	})
+})
 import type { Ent } from './geometry'
 import type { Clip } from '../3dview/types'
 

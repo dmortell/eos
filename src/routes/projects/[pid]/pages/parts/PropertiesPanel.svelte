@@ -113,6 +113,14 @@
 		if (on) onupdate?.({ ...e, callout: true })   // leave `leader` undefined → the Viewport places its paperMm-based default (B3)
 		else onupdate?.({ ...e, callout: false })
 	}
+	// D8: a dimension's (or a 2-point line's) length; typing one moves the END along the same direction.
+	const ends = (e: Ent): [Pt, Pt] | null => e.type === 'dim' ? [e.a!, e.b!] : e.type === 'polyline' && e.pts?.length === 2 ? [e.pts[0], e.pts[1]] : null
+	const lineLen = (e: Ent) => { const q = ends(e); return q ? Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]) : 0 }
+	function setLineLen(v: number) {
+		const e = single, q = e && ends(e), L = e ? lineLen(e) : 0; if (!e || !q || !(v > 0) || !L) return
+		const b: Pt = [q[0][0] + ((q[1][0] - q[0][0]) * v) / L, q[0][1] + ((q[1][1] - q[0][1]) * v) / L]
+		onupdate?.(e.type === 'dim' ? { ...e, b } : { ...e, pts: [q[0], b] })
+	}
 	function setRot(v: number) { const r = ((Math.round(v) % 360) + 360) % 360; setAll({ rot: r || undefined }) }
 	const num = (e: Event) => +(e.currentTarget as HTMLInputElement).value
 	const strVal = (e: Event) => (e.currentTarget as HTMLInputElement).value
@@ -441,6 +449,26 @@
 			<div class="prop-sec">TEXT</div>
 			<div class="prop wide"><textarea class="pp-textarea" use:autoresize value={single.text ?? ''} onchange={(e) => setText((e.currentTarget as HTMLTextAreaElement).value)}></textarea></div>
 			<label class="prop cb"><span>Callout</span><input type="checkbox" checked={!!single.callout} onchange={(e) => setCallout((e.currentTarget as HTMLInputElement).checked)} /></label>
+			{#if single.callout}
+				<div class="prop"><span>Frame</span>
+					<select value={single.calloutBorder ?? 'box'} onchange={(e) => setAll({ calloutBorder: (e.currentTarget as HTMLSelectElement).value as 'box' | 'underline' | 'none' })}>
+						<option value="box">Box</option><option value="underline">Underline</option><option value="none">None</option>
+					</select></div>
+			{/if}
+		{/if}
+		{#if single?.type === 'polyline'}
+			<!-- D7: a text label drawn along the line -->
+			<div class="prop-sec">LABEL</div>
+			<div class="prop"><span>Text</span><input value={single.text ?? ''} placeholder="(none)" onchange={(e) => setAll({ text: strVal(e).trim() || undefined })}
+				onkeydown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur() }} /></div>
+			{#if single.text}
+				<div class="prop"><span>At</span>
+					<span class="pp-seg wide">
+						{#each [['start', 'Start'], ['mid', 'Middle'], ['end', 'End']] as const as [v, l] (v)}
+							<button class:on={(single.textPos ?? 'mid') === v} onclick={() => setAll({ textPos: v === 'mid' ? undefined : v })}>{l}</button>
+						{/each}
+					</span></div>
+			{/if}
 		{/if}
 		{#if single?.type === 'rect'}
 			<div class="prop-sec">RECT</div>
@@ -451,6 +479,8 @@
 			     to arrow. (R4: a straight 2-point polyline is the retired 'line' type's replacement.) -->
 			{@const dflt = single.type === 'dim' ? 'arrow' : 'none'}
 			<div class="prop-sec">{single.type === 'dim' ? 'DIMENSION' : 'LINE'}</div>
+			<!-- D8: type a length — the end point moves along the line, the angle stays -->
+			<div class="prop"><span>Length</span><input class="navf" type="number" min="1" value={Math.round(lineLen(single))} onkeydown={fnav} onchange={(e) => setLineLen(num(e))} /></div>
 			{#each [['Start', 'headStart'], ['End', 'headEnd']] as const as [lbl, key] (key)}
 				<div class="prop"><span>{lbl}</span>
 					<select value={single[key] ?? dflt} onchange={(e) => setAll({ [key]: (e.currentTarget as HTMLSelectElement).value as Head })}>
