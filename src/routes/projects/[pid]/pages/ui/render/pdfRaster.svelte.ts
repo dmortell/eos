@@ -16,7 +16,7 @@ export function parsePdfSrc(src: string): { fileId: string; page: number } | nul
 	return fileId ? { fileId, page: Number(page) || 1 } : null
 }
 
-type PageCalib = { origin?: { x: number; y: number }; scale?: { scale?: number }; crop?: { x: number; y: number; width: number; height: number } }
+export type PageCalib = { origin?: { x: number; y: number }; scale?: { scale?: number }; crop?: { x: number; y: number; width: number; height: number } }
 type FileDoc = { url?: string; pageCount?: number; hiddenLayers?: string[]; hideMarkups?: boolean; pages?: Record<string, PageCalib> }
 export type Raster = { url: string; w: number; h: number }
 

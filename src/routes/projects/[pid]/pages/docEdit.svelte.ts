@@ -12,6 +12,7 @@ import { deleteModelSel, deleteGraphNode, deleteSection } from './ui/modelEdit'
 import { Clipboard, arrange, setGroup, relabelCopies, type ArrangeOp } from './ui/clipboard'
 import type { Ent } from './ui/geometry'
 import { withDefaults, type DrawingDefaults } from './ui/drawingDefaults'
+import { unlinkIfMoved } from './ui/floorplanLink'
 import type { ModelId, Obj } from './3dview/types'
 import type { WorkspaceHistory } from './history.svelte'
 
@@ -60,13 +61,13 @@ export class DocEdit {
 	}
 	updateEnt = (tabId: string, e: Ent) => {
 		const t = this.#h.timeline, mid = this.#h.modelIdOf(tabId)
-		t.ensure(tabId); this.#setEnts(mid, this.#ents(mid).map((x) => (x.id === e.id ? e : x))); t.record(tabId, 'Edit ' + e.type)
+		t.ensure(tabId); this.#setEnts(mid, this.#ents(mid).map((x) => (x.id === e.id ? unlinkIfMoved(x, e) : x))); t.record(tabId, 'Edit ' + e.type)
 	}
 	/** Several shapes edited together (a multi-selection's style / move / auto-number) — ONE undo step. */
 	updateEnts = (tabId: string, es: Ent[]) => {
 		if (!es.length) return
 		const t = this.#h.timeline, mid = this.#h.modelIdOf(tabId), by = new Map(es.map((e) => [e.id, e]))
-		t.ensure(tabId); this.#setEnts(mid, this.#ents(mid).map((x) => by.get(x.id) ?? x)); t.record(tabId, es.length > 1 ? `Edit ${es.length} shapes` : 'Edit ' + es[0].type)
+		t.ensure(tabId); this.#setEnts(mid, this.#ents(mid).map((x) => { const n = by.get(x.id); return n ? unlinkIfMoved(x, n) : x })); t.record(tabId, es.length > 1 ? `Edit ${es.length} shapes` : 'Edit ' + es[0].type)
 	}
 	/** Pure CRUD — no selection side effects (the callers know the VIEWPORT id). */
 	deleteEnts = (tabId: string, ids: string[]) => {

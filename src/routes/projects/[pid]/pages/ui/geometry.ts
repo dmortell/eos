@@ -30,6 +30,9 @@ export type Ent = { id: string; type: 'rect' | 'ellipse' | 'dim' | 'text' | 'pol
 	lockAspect?: boolean;
 	// I7 (images): draw the image in greyscale (a floorplan behind coloured markup). Firestore-stable.
 	grey?: boolean;
+	// I6 (a floorplan PDF page): placement follows the Uploads calibration live (ui/floorplanLink.ts); a move /
+	// scale / crop in Pages clears it. Firestore-stable.
+	live?: boolean;
 	// DRAWING PLANE — which projection plane the object's coordinates live in: undefined/'plan' = the
 	// model/plan plane (projected into every elevation as a ground line, layer-gated); an ElevDir = drawn
 	// natively in that elevation plane (a wall/rack label, a leader, a 2D shape/image on an elevation).

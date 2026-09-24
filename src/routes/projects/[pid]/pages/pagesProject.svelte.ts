@@ -21,7 +21,8 @@ import { models, modelById, ensureFloorModel, upsertModel, removeModels, modelFo
 import type { Model, ModelId, ModelKind } from './3dview/types'
 import { emptyFloor } from './mock/models'
 import { docToModel, sheetToPage, pageToSheet } from './store/mappers'
-import { floorplanPlacement, pdfSrc, PDF_SRC } from './ui/render/pdfRaster.svelte'
+import { floorplanPlacement, pdfSrc, PDF_SRC, parsePdfSrc, renderPdfPage, placementFromCalib, type PageCalib } from './ui/render/pdfRaster.svelte'
+import { liveFileIds, followCalib } from './ui/floorplanLink'
 import { startBlocks } from './blocks.svelte'
 import { importOutletsInto, outletsDocIdFor, type OutletsDoc } from './store/outletsImport'
 import { normFloors, findNodePath } from './projectTree'
@@ -99,6 +100,14 @@ export class PagesProject {
 		this.imports = new ProjectImports(this, host)
 		// the GLOBAL block library (blocks/{id}): subscribed once per session; missing default blocks are seeded
 		$effect(() => { const db = this.#h.db; if (db) untrack(() => startBlocks(db)) })
+		// I6: live floorplans follow their file's Uploads calibration — one subscription per followed file. Only
+		// shapes flagged `live` are touched, and only when the calibration actually moved them (idempotent).
+		$effect(() => {
+			const key = this.#liveFiles, db = this.#h.db
+			if (!db || !key) return
+			const stops = key.split('|').map((fid) => db.subscribeOne('files', fid, (d) => untrack(() => void this.#syncCalib(fid, d as { pages?: Record<string, PageCalib> }))))
+			return () => stops.forEach((s) => s())
+		})
 		// One live ProjectSource + PagesStore per project id (re-created when Open Project navigates to another pid)
 		$effect(() => {
 			const pid = this.#h.pid(), db = this.#h.db
@@ -432,6 +441,17 @@ export class PagesProject {
 		db.getOne('outlets', docId).then((d) => { const od = d as OutletsDoc | null; return od?.selectedFileId ? this.#addFloorplanShape(id, od.selectedFileId, od.selectedPage ?? 1) : undefined })
 			.catch(() => {}).finally(() => this.#attaching.delete(id))
 	}
+	#liveFiles = $derived(liveFileIds(models).join('|'))
+	async #syncCalib(fileId: string, d: { pages?: Record<string, PageCalib> } | null) {
+		for (const m of models) {
+			for (const e of m.shapes ?? []) {
+				const ps = e.live && e.src ? parsePdfSrc(e.src) : null; if (!ps || ps.fileId !== fileId) continue
+				const r = await renderPdfPage(fileId, ps.page).catch(() => null); if (!r) continue
+				const next = followCalib(e, placementFromCalib(d?.pages?.[ps.page], r.w, r.h))
+				if (next) m.shapes = (m.shapes ?? []).map((x) => (x.id === e.id ? next : x))
+			}
+		}
+	}
 	async #addFloorplanShape(id: ModelId, fileId: string, page: number) {
 		const place = await floorplanPlacement(fileId, page)
 		const mm = modelById(id)
@@ -439,7 +459,7 @@ export class PagesProject {
 		// the floorplan goes on its OWN Background layer (first in the list = drawn underneath), so the Layers
 		// panel shows / hides / locks / VP-freezes it like any other layer
 		if (!mm.layers?.some((l) => l.id === FLOORPLAN_LAYER.id)) mm.layers = [{ ...FLOORPLAN_LAYER }, ...(mm.layers ?? [])]
-		const shape: Ent = { id: newId('e'), type: 'image', a: place.a, b: place.b, src: pdfSrc(fileId, page), layer: FLOORPLAN_LAYER.id, opacity: 0.6, lockAspect: true }
+		const shape: Ent = { id: newId('e'), type: 'image', a: place.a, b: place.b, src: pdfSrc(fileId, page), layer: FLOORPLAN_LAYER.id, opacity: 0.6, lockAspect: true, live: true }
 		if (place.crop) shape.crop = place.crop
 		mm.shapes = [shape, ...(mm.shapes ?? [])]
 	}

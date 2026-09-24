@@ -88,6 +88,13 @@
 		{/each}
 	{/if}
 {/if}
+<!-- I6: the model ORIGIN (0,0) — where a floorplan's Uploads calibration origin lands — in a plan model tab -->
+{#if v.modelSpace && v.isPlan}
+	<g class="origin-mark" stroke="#f43f5e" stroke-width={1.2 * sw} opacity="0.75" fill="none">
+		<line x1={-gs * 3} y1="0" x2={gs * 3} y2="0" /><line x1="0" y1={-gs * 3} x2="0" y2={gs * 3} /><circle cx="0" cy="0" r={gs} />
+		<title>Model origin (0, 0) — the floorplan's calibration origin</title>
+	</g>
+{/if}
 <!-- F6: connection points (Visio-style ×) — where a trunk / pipe end attaches -->
 {#each v.connMarks as c, i (i)}
 	<g stroke="#22c55e" stroke-width={1.4 * sw} opacity="0.9"><line x1={c.x - gs * 0.7} y1={c.y - gs * 0.7} x2={c.x + gs * 0.7} y2={c.y + gs * 0.7} /><line x1={c.x - gs * 0.7} y1={c.y + gs * 0.7} x2={c.x + gs * 0.7} y2={c.y - gs * 0.7} /></g>
