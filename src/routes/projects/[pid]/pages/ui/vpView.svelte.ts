@@ -22,7 +22,8 @@ import { models, modelById } from '../3dview/models.svelte'
 import { setSectionDir, deleteSection, setSectionClip } from './modelEdit'
 import { imgEdit } from '../imageEdit.svelte'
 import { DEFAULT_YAW, DEFAULT_PITCH, isoBounds } from '../3dview/projection'
-import type { Obj, Clip } from '../3dview/types'
+import { BASIS, type Obj, type Clip } from '../3dview/types'
+import { storeyMap } from '../3dview/storeyMap'
 
 export const INK = '#475569', SEL = '#0e7490'
 const ELEV = new Set<string>(['front', 'rear', 'left', 'right'])
@@ -227,7 +228,8 @@ export class VpView {
 	inThisView = (e: Ent) => inThisView(this.ctx, e)
 	bbox = (e: Ent) => bbox(this.ctx, e)
 	/** A hidden or locked layer's entities can't be picked; nor can entities that don't belong to this view. */
-	pickable = (e: Ent) => pickable(this.ctx, e, this.layerPreds)
+	// a riser frame with collapsed floors is view-only: its shapes are drawn at REMAPPED heights (paintEnts)
+	pickable = (e: Ent) => !this.collapse && pickable(this.ctx, e, this.layerPreds)
 	/** Grips are a CONSTANT screen size (HANDLE_PX) whatever the view/canvas zoom or drawing scale. */
 	gripSize = $derived(HANDLE_PX / this.pxPerUnit / this.view.zoom / (this.canvasZoom || 1) / (this.dscale || 1))
 	/** Everything EntRender reads, built ONCE so every entity gets the same reference. B31: on dark model
@@ -239,13 +241,27 @@ export class VpView {
 	/** PAINT ORDER = layer order first (earlier layer = underneath), then array position within a layer; no
 	 *  layer / unknown → on top. P6: an O(n) check skips the sort when already in order (the common case). */
 	paintEnts = $derived.by(() => {
-		const ents = this.entities
+		const ents = this.#collapsed(this.entities)
 		const ord = (e: Ent) => { const lo = layerOrder(this.mls, e.layer); return lo < 0 ? 1e9 : lo }
 		let sorted = true
 		for (let i = 1; i < ents.length && sorted; i++) if (ord(ents[i]) < ord(ents[i - 1])) sorted = false
 		if (sorted) return ents
 		return ents.map((e, i) => ({ e, i, o: ord(e) })).sort((a, b) => a.o - b.o || a.i - b.i).map((x) => x.e)
 	})
+	/** A riser drawing (a building elevation showing only some floors — the frame's `storeys`): the storey collapse
+	 *  (3dview/storeyMap.ts) Model3d applies to objects, here for shapes drawn in THIS elevation (drawing y =
+	 *  GROUND − z): their heights are remapped. null = no collapse. */
+	collapse = $derived.by(() => {
+		const st = this.mdl?.storeys
+		return this.isElev && this.p.storeys && st?.length ? storeyMap(st, this.p.storeys) : null
+	})
+	#collapsed(ents: Ent[]): Ent[] {
+		const sm = this.collapse; if (!sm) return ents
+		const vs = BASIS[this.elevDir].vs
+		const y = (v: number) => GROUND - vs * sm.map(vs * (GROUND - v))
+		const pt = (p: Pt): Pt => [p[0], y(p[1])]
+		return ents.map((e) => (e.plane !== this.kind ? e : { ...e, a: e.a && pt(e.a), b: e.b && pt(e.b), pts: e.pts?.map(pt), leader: e.leader && pt(e.leader) }))
+	}
 	/** The top-most pickable entity at p (≈3.5 screen px of slack either side of a line), scanning in PAINT
 	 *  order (B7) so what's drawn on top wins. */
 	hit(p: Pt): string[] {
