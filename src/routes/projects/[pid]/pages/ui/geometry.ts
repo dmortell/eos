@@ -65,7 +65,9 @@ export type Ent = { id: string; type: 'rect' | 'ellipse' | 'dim' | 'text' | 'pol
 	dimOff?: number;
 	// DIMENSION text position ALONG the line: 0..1 fraction from start (a) to end (b); undefined = 0.5
 	// (centred). Draggable via the same text grip. Firestore-stable.
-	dimT?: number
+	dimT?: number;
+	// D10 DIMENSION unit: the figure in mm (unset) / cm / m (ui/drawingDefaults dimLabel). Firestore-stable.
+	unit?: 'mm' | 'cm' | 'm'
 	// BLOCK INSERT (type 'insert', ui/blocks.ts): `block` = the global block definition id, placed with its
 	// insertion point at `a`, rotated `rot`, scaled `scale` (default 1); `attrs` = attribute values by tag
 	// (LABEL / PORTS / NOTE / TYPE for outlets). `color` / `fill` feed the block's 'byblock' shapes.

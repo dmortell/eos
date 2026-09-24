@@ -18,6 +18,7 @@ import { inThisView, rotCenter, rotatePt } from './ui/hit'
 import { lineLabelAt, groundPts, tileLines } from './ui/annotations'
 import { blockDef, byBlock, attrValue, insertScale } from './ui/blocks'
 import { isLegend, legendRows, legendSize, LEGEND } from './ui/legend'
+import { dimLabel } from './ui/drawingDefaults'
 import { PT_MM } from './constants'
 import type { ViewCtx } from './ui/view'
 
@@ -137,7 +138,7 @@ function entToDxf(doc: DxfDoc, e: Ent, ctx: ViewCtx, P: (p: Pt) => [number, numb
 			const off = e.dimOff ?? 2.5 * N, t = e.dimT ?? 0.5
 			const m: Pt = [A[0] + ux * len * t + px * off, A[1] + uy * len * t + py * off]
 			let ang = (Math.atan2(uy, ux) * 180) / Math.PI; if (ang > 90 || ang < -90) ang += 180
-			text(doc, T(m), 2.5 * N, String(Math.round(len)), layer, 'center', -ang + tRot)
+			text(doc, T(m), 2.5 * N, dimLabel(len, e.unit), layer, 'center', -ang + tRot)
 			return
 		}
 		case 'text': {

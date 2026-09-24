@@ -183,6 +183,12 @@
 	<div class="prop-sec">{single.type === 'dim' ? 'DIMENSION' : 'LINE'}</div>
 	<!-- D8: type a length — the end point moves along the line, the angle stays -->
 	<div class="prop"><span>Length</span><input class="navf" type="number" min="1" value={Math.round(lineLen(single))} onkeydown={fnav} onchange={(e) => setLineLen(num(e))} /></div>
+	{#if single.type === 'dim'}
+		<div class="prop"><span>Unit</span>
+			<select value={single.unit ?? 'mm'} onchange={(e) => setAll({ unit: strVal(e) === 'mm' ? undefined : (strVal(e) as 'cm' | 'm') })}>
+				<option value="mm">mm</option><option value="cm">cm</option><option value="m">m</option>
+			</select></div>
+	{/if}
 	{#each [['Start', 'headStart'], ['End', 'headEnd']] as const as [lbl, key] (key)}
 		<div class="prop"><span>{lbl}</span>
 			<select value={single[key] ?? dflt} onchange={(e) => setAll({ [key]: (e.currentTarget as HTMLSelectElement).value as Head })}>

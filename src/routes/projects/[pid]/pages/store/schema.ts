@@ -37,12 +37,15 @@ export type PagesSettings = { paperSize?: PaperSize; landscape?: boolean; scale?
 /** The per-project title block (drawings-plan §2.1) — defined in ../titleBlock.ts. */
 export type { TitleBlockTemplate } from '../titleBlock'
 import type { TitleBlockTemplate } from '../titleBlock'
+import type { DrawingDefaults } from '../ui/drawingDefaults'
 
 /** `projects/{pid}.pages` */
 export type PagesProject = {
 	places: Place[]
 	titleBlock?: TitleBlockTemplate
 	settings?: PagesSettings
+	/** D10: the style new shapes start with (ui/drawingDefaults.ts; unset fields are '' / 0 — merge-saved). */
+	drawingDefaults?: DrawingDefaults
 	/** ISO time the places were seeded from the old tools' data (absent = never seeded). */
 	seededAt?: string
 }

@@ -19,6 +19,7 @@
 	import { pdfImageUrl, PDF_SRC } from './pdfRaster.svelte'
 	import { blockDef, byBlock, attrValue, attrColor, insertScale } from '../blocks'
 	import { isLegend, legendRows, legendSize, LEGEND } from '../legend'
+	import { dimLabel } from '../drawingDefaults'
 	import EntRender from './EntRender.svelte'   // a block's shapes are drawn by this same component
 
 	let { e, ctx, selected = false, style, isoGround = null, imgCrop = null, clipNs }: {
@@ -164,7 +165,7 @@
 		{@render head(headGeom(e.headEnd ?? 'arrow', A, B, 3.5 * paperMm), col)}
 		<line x1={A[0] - px * tk} y1={A[1] - py * tk} x2={A[0] + px * tk} y2={A[1] + py * tk} stroke={col} stroke-width={w} vector-effect="non-scaling-stroke" />
 		<line x1={B[0] - px * tk} y1={B[1] - py * tk} x2={B[0] + px * tk} y2={B[1] + py * tk} stroke={col} stroke-width={w} vector-effect="non-scaling-stroke" />
-		<text class="anno" x={mx} y={my} font-size={2.5 * paperMm} fill={col} text-anchor="middle" transform="rotate({rang} {mx} {my})">{Math.round(len)}</text>
+		<text class="anno" x={mx} y={my} font-size={2.5 * paperMm} fill={col} text-anchor="middle" transform="rotate({rang} {mx} {my})">{dimLabel(len, e.unit)}</text>
 	{:else if e.type === 'insert'}
 		<!-- a BLOCK insert: the definition's shapes ('byblock' colour / fill from this insert) + its attribute
 		     texts, at the insertion point, scaled (rotation is the shared wrapper above) -->

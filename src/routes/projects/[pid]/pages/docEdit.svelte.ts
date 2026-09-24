@@ -11,6 +11,7 @@ import { selOnly, selClear, idsOfKind, singleOfKind } from './ui/selection'
 import { deleteModelSel, deleteGraphNode, deleteSection } from './ui/modelEdit'
 import { Clipboard, arrange, setGroup, relabelCopies, type ArrangeOp } from './ui/clipboard'
 import type { Ent } from './ui/geometry'
+import { withDefaults, type DrawingDefaults } from './ui/drawingDefaults'
 import type { ModelId, Obj } from './3dview/types'
 import type { WorkspaceHistory } from './history.svelte'
 
@@ -33,6 +34,8 @@ export type DocEditHost = {
 	selModelObjs: () => Obj[]
 	/** A sheet frame's own delete (records its own step). */
 	deleteFrame: (tabId: string, frameId: string) => void
+	/** D10: the project's drawing defaults (a freshly drawn shape starts with them). */
+	drawingDefaults: () => DrawingDefaults | undefined
 }
 
 export class DocEdit {
@@ -47,10 +50,11 @@ export class DocEdit {
 
 	// ── entities (R5: a new one lands on the active layer if this model has it — activeLayerIn) ──
 	/** J5: a NEW shape never lands on a hidden or locked active layer (it would vanish / be uneditable) — refused
-	 *  with a note. Returns whether it was added. */
-	addEnt = (tabId: string, e: Ent): boolean => {
+	 *  with a note. Returns whether it was added. `fresh` (a NEW drawing, not a paste) → D10 drawing defaults fill its unset style. */
+	addEnt = (tabId: string, e: Ent, fresh = true): boolean => {
 		const t = this.#h.timeline, mid = this.#h.modelIdOf(tabId), al = e.layer ? null : activeLayerIn(modelById(mid)?.layers ?? [])
 		if (al && (!al.visible || al.locked)) { toast.warning(`The active layer “${al.name}” is ${al.locked ? 'locked' : 'hidden'} — pick another layer (or ${al.locked ? 'unlock' : 'show'} it) to draw`, { id: 'layer-refused' }); return false }
+		if (fresh) e = withDefaults(e, this.#h.drawingDefaults())
 		t.ensure(tabId); const en = e.layer ? e : { ...e, layer: al?.id }; this.#setEnts(mid, [...this.#ents(mid), en]); t.record(tabId, 'Add ' + en.type)
 		return true
 	}
@@ -78,7 +82,7 @@ export class DocEdit {
 	pasteEnts = (tabId?: string): Ent[] | undefined => {
 		if (this.clipboard.empty || !tabId) return
 		const t = this.#h.timeline, copies = relabelCopies(this.clipboard.paste(5 * this.#h.scaleN(), () => newId()), this.#h.entsOf(tabId))
-		t.beginGesture(); const added = copies.filter((c) => this.addEnt(tabId, c)); t.endGesture()
+		t.beginGesture(); const added = copies.filter((c) => this.addEnt(tabId, c, false)); t.endGesture()
 		return added
 	}
 	groupEnts = (tabId: string, ids: string[]) => {

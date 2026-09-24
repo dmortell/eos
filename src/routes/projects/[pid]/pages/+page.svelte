@@ -34,6 +34,7 @@
 	import Menubar from './parts/Menubar.svelte'
 	import CommandPalette from './parts/CommandPalette.svelte'
 	import OpenProjectDialog from './parts/OpenProjectDialog.svelte'
+	import DrawingDefaultsDialog from './parts/DrawingDefaultsDialog.svelte'
 	import { panzoom } from './ui/panzoom'
 	import { paperDims, scaleDenom, PAPER_PX_PER_MM, DEFAULT_MARGIN_MM, clampViewZoom, clampCanvasZoom, type PaperSize } from './constants'
 	import { PRINT_ID, printCss, applyPrint, removePrint } from './printing'
@@ -446,6 +447,7 @@
 		timeline, modelIdOf, activeMid, activeSelViewId, entsOf, deleteFrame: (t, f) => deleteFrame(t, f),
 		focusedTabId: () => session.panes[session.focused]?.activeId,
 		scaleN: () => propsScaleN, selModelObj: () => selModelObj, selModelObjs: () => selModelObjs,
+		drawingDefaults: () => proj.store?.project?.drawingDefaults,
 	})
 	const { addEnt, updateEnt, updateEnts, deleteEnts, copyEnts, cutEnts, pasteEnts, groupEnts, ungroupEnts, reorderEnts, modelEdit,
 		updateModelObj, updateModelObjs, deleteModelObj, addModelObj, updateModelSeg, layerItemCount, deleteLayerWithItems, deleteSelAt } = docEdit
@@ -587,6 +589,7 @@
 		else if (item === 'Dimension') { if (active) focusTool('Dimension') }
 		// Not-yet-implemented File items: tell the user instead of silently doing nothing (B8).
 		else if (item === 'Open Project…') openProjectOpen = true
+		else if (item === 'Drawing Defaults…') { if (proj.store) defaultsOpen = true; else toast('Drawing defaults are saved with the project — open a project first') }
 		else if (item === 'Drawings…') { if (proj.hasPlaces) proj.drawingsOpen = true; else toast('Set up places first — drawings are managed per place') }
 		else if (item === 'Export…') exportActiveDxf()
 		else if (item === 'Save') statusText = `Save isn't needed — edits save to the project as you go`
@@ -767,6 +770,7 @@
 	// File › Open Project… (Ctrl+O): the Firestore project picker. Opening one navigates to its Pages tool.
 	// (B17 / X4: the module-level stores are not yet per project — the mock tree/models are shared.)
 	let openProjectOpen = $state(false)
+	let defaultsOpen = $state(false)   // D10: Format › Drawing Defaults…
 	function openProject(id: string) { if (id && id !== page.params.pid) goto(`/projects/${id}/pages`) }
 	// The palette path ('Hibiya · 30F · Zone …') names the floor → the drawing views that floor's model.
 	const floorOfPath = (path?: string) => path?.split(' · ').find((seg) => /^\d+F$/.test(seg))
@@ -1032,6 +1036,7 @@
 	{/if}
 	{#if bookIds}<PrintBook ids={bookIds} api={bookApi} onclose={() => (bookIds = null)} />{/if}
 	{#if openProjectOpen}<OpenProjectDialog currentId={page.params.pid} onpick={openProject} onclose={() => (openProjectOpen = false)} />{/if}
+	{#if defaultsOpen && proj.store}<DrawingDefaultsDialog value={proj.store.project?.drawingDefaults} onchange={(d) => proj.store?.saveDrawingDefaults(d)} onclose={() => (defaultsOpen = false)} />{/if}
 	{#if tabMenuPane !== null}<button class="menu-backdrop" aria-label="Close menu" onclick={() => (tabMenuPane = null)}></button>{/if}
 
 	<!-- Titlebar -->

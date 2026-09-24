@@ -7,6 +7,7 @@
 		Edit: ['Undo', 'Redo', '—', 'Cut', 'Copy', 'Paste', '—', 'Delete'],
 		View: ['Zoom In', 'Zoom Out', 'Fit', '—', 'Split Editor', 'Unsplit', '—', 'Toggle Left Panel', 'Toggle Right Panel'],
 		Insert: ['Image…', '—', 'Outlet', 'Trunk', 'Rack', '—', 'Text', 'Dimension'],
+		Format: ['Drawing Defaults…'],
 	}
 	let openMenu = $state<string | null>(null)
 	function pick(item: string) { openMenu = null; onaction?.(item) }
