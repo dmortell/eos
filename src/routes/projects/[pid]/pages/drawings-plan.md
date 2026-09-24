@@ -9,7 +9,7 @@ replace the Sheets tool, and over time the other tools' drawings, by rebuilding 
 | Term | What it is | Where it lives |
 |---|---|---|
 | **Place** | A node of the building fabric: building › floor › zone › room › row. Pages owns its own copy; it's seeded once from project data and edited only in Pages. | `pages.places` on `projects/{pid}` (§2.1) |
-| **Model** | 3D geometry: walls, openings, furniture, outlets, trunks, conduits, plus its annotations. Models are **independent**: no model references another. One per floor. Zones or rooms may get their own model when a floor model would get too detailed (rack and desktop devices). A **building model** holds riser geometry and is the source of truth for levels. | `projects/{pid}/models/{modelId}` (§2.3) |
+| **Model** | 3D geometry: walls, openings, furniture, outlets, trunks, conduits, plus its annotations. Models keep two lists, objects (3D) and shapes (2D). Models are **independent**: no model references another. One per floor. Zones or rooms may get their own model when a floor model would get too detailed (rack and desktop devices). A **building model** holds riser geometry and is the source of truth for levels. | `projects/{pid}/models/{modelId}` (§2.3) |
 | **Sheet** | An issued drawing: paper + title block + viewport frames. It has exactly **one place**; that's filing only. | a `projects/{pid}/drawings/{id}` entry with its content stored on it (§2.2) |
 | **Frame (view)** | A rectangle on a sheet showing one model: direction, scale, clip, pan/zoom, orbit, frozen layers. A frame isn't a drawing and has no registry entry. | inside its sheet |
 | **Shape** (annotation) | 2D markup: lines, rects, text, dims, clouds, images. It lives **in the model**, tagged with the view it belongs to, and only ever appears through a frame. Nothing is drawn directly on the paper. | model `shapes` (was `ents`; the TS type is still `Ent` for now) |
@@ -65,11 +65,11 @@ Arrays (`places`) are replaced whole on save; that's fine because Pages owns the
   sections, layers, underlays, levels?, version: '1.2', updatedAt }`. This is today's `Model` shape
   (`3dview/types.ts`) plus `placeId`/`kind`/`version`. One doc per model means the 1 MiB limit applies per
   model, not per project, unlike the old single `models3d/{pid}` idea.
-- The building model is the source of truth for levels: `levels: [{ id, name, z, floorSlab?, raisedFloor?,
+- The building model is the source of truth for levels: `storeys: [{ id, name, z, floorSlab?, raisedFloor?,
   ceilingTile?, ceilingSlab? }]`, one per storey (heights in mm).
-- A floor model stores `levelRef: { modelId, levelId }` pointing at its building model's level. It uses ids,
+- A floor model stores `levelRef: { modelId, storeyId }` pointing at its building model's storey. It uses ids,
   not names, because names are editable. Heights are read live from the building model. The floor model
-  keeps a cached copy of its level so it still works when the building model is missing or archived.
+  keeps a cached copy in its own `levels` field so it still works when the building model is missing or archived.
 - Model ids are strings (the Firestore doc id), replacing today's numeric in-memory ids.
 - Model objects keep **stable ids**. Outlets use them; outlet labels are editable, and patch-frame ports
   (their own collection, later) link to outlet ids.
@@ -151,7 +151,8 @@ The old tools keep running on their own collections. Pages imports once and neve
 
 Each phase ships on its own and gets live-checked in the browser.
 
-1. **Schema + stores:** shared types (`Place`, `SheetDoc` content, `Frame`, the `Model` additions); Firestore
+1. **Schema + stores** (DONE 2026-09-24: `store/schema.ts`, `mappers.ts`, `places.ts`, `saver.ts`,
+   `pagesStore.svelte.ts`; string model ids; `ents` → `shapes`): shared types (`Place`, `SheetDoc` content, `Frame`, the `Model` additions); Firestore
    services for the `pages` field on the project doc, sheets (registry `toolType: 'pages'`) and models, with debounced
    saving. Unit tests for the mappers.
 2. **Places:** seed from project data (writing to a real project needs Dave's OK per project; start on Test
