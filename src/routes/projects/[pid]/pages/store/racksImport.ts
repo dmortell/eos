@@ -60,7 +60,10 @@ export function mergeRackRow(m: Model, objs: Obj[]): Pick<Model, 'objects' | 'la
 	const keep = m.objects.filter((o) => !/^(rk|dv)-/.test(o.id ?? ''))
 	const layers = [...(m.layers ?? [])]
 	for (const l of RACK_LAYERS) if (!layers.some((x) => x.id === l.id)) layers.push({ ...l })
-	return { objects: [...keep, ...objs], layers }
+	// a panel's port ALLOCATION (E8) is Pages data — it survives a re-import of the same device
+	const allocOf = new Map(m.objects.filter((o) => o.device?.alloc).map((o) => [o.id, o.device!.alloc!]))
+	const merged = objs.map((o) => (o.device && allocOf.has(o.id) ? { ...o, device: { ...o.device, alloc: allocOf.get(o.id) } } : o))
+	return { objects: [...keep, ...merged], layers }
 }
 
 /** The first free U (from the bottom) in a rack for a device `hU` high, or null when it doesn't fit. */

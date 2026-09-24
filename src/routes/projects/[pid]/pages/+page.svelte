@@ -1055,7 +1055,7 @@
 						onarrange={(op) => { if (active) reorderEnts(active.id, activeEntIds(), op) }}
 						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''}
 						onpagetitle={(t) => { if (!active || !t.trim()) return; const sid = sheetIdOf(active.docId); if (sid) proj.renameSheet(sid, t); else active.title = t.trim() }} {activeLayer} node={session.treeNode} nodeInfo={proj.nodeInfo} onnodefield={proj.setNodeField}
-						modelObj={selModelObj} modelObjs={selModelObjs} model={modelById(activeMid()) ?? null} onmodeladd={addModelObj} onmodelsupdate={updateModelObjs} modelLayers={modelById(activeMid())?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} onmodelseg={updateModelSeg}
+						modelObj={selModelObj} modelObjs={selModelObjs} model={modelById(activeMid()) ?? null} onmodeladd={addModelObj} outletsFor={proj.outletsForRack} allocated={proj.allocatedOutlets} onmodelsupdate={updateModelObjs} modelLayers={modelById(activeMid())?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} onmodelseg={updateModelSeg}
 						frameObj={selFrameObj} onframefit={fitSelectedFrame}
 						heights={proj.buildingHeights} onheight={proj.setStoreyHeight} onheightall={proj.setAllStoreyHeights}
 						frameStoreys={(selFrameObj ? modelById(selFrameObj.modelId ?? (active ? modelIdOf(active.id) : undefined))?.storeys ?? [] : []).map((s) => ({ id: s.id, name: s.name }))}

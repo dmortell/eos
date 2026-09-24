@@ -81,7 +81,9 @@ export type Obj = (Prism | Wall | Conduit) & { layer?: string; id?: string; grou
 	/** G4: a DEVICE mounted in a rack: its U position / height, which face it's on, ports, type. */
 	device?: DeviceMeta }
 export type RackMeta = { u: number; src?: string }
-export type DeviceMeta = { rackId: string; u: number; hU: number; mount?: 'front' | 'rear' | 'both'; ports?: number; kind?: string; src?: string }
+export type DeviceMeta = { rackId: string; u: number; hU: number; mount?: 'front' | 'rear' | 'both'; ports?: number; kind?: string; src?: string
+	/** E8: a patch panel's port allocation — panel port (1-based, as a string key) → the outlet port it serves. */
+	alloc?: Record<string, { outlet: string; model: string; port: number; label: string }> }
 
 // A PDF/image underlay placed in one projection plane (e.g. a floorplan under
 // the plan view). A model can hold several per direction; array order is the

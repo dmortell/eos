@@ -7,12 +7,18 @@
 	import { toast } from 'svelte-sonner'
 	import { RU_MM, rackHeightMm, uToZ, freeU, DEVICE_W, DEVICE_COLORS } from '../../store/racksImport'
 	import type { Obj, Model } from '../../3dview/types'
+	import type { OutletRef } from '../../store/allocate'
+	import AllocateDialog from '../AllocateDialog.svelte'
 
-	let { obj, model = null, onupdate, onadd }: {
+	let { obj, model = null, onupdate, onadd, outletsFor, allocated = new Map() }: {
 		obj: Obj; model?: Model | null
 		onupdate?: (patch: Record<string, unknown>) => void
 		onadd?: (o: Obj) => void
+		/** E8: the outlets a rack row's panels can serve, and every allocated outlet → where. */
+		outletsFor?: (rackModelId: string) => (OutletRef & { modelName: string })[]
+		allocated?: Map<string, string>
 	} = $props()
+	let allocOpen = $state(false)
 	const rackOf = $derived(obj.device ? model?.objects.find((o) => o.id === obj.device!.rackId) ?? null : null)
 	const maxU = $derived(rackOf?.rack?.u ?? 99)
 
@@ -59,4 +65,13 @@
 			{#each Object.keys(DEVICE_COLORS) as k (k)}<option value={k}>{k}</option>{/each}
 		</select></div>
 	<div class="prop"><span>Ports</span><input type="number" min="0" value={obj.device.ports ?? 0} onchange={(e) => setDevice({ ports: Math.max(0, Math.round(num(e))) || undefined })} /></div>
+	{#if obj.device.ports && outletsFor && model}
+		<!-- E8: outlets → this panel's ports -->
+		{@const n = Object.keys(obj.device.alloc ?? {}).length}
+		<div class="prop"><span>Allocated</span><span class="pp-scale"><input value="{n} / {obj.device.ports}" readonly /><button class="pp-mini" onclick={() => (allocOpen = true)}>Allocate outlets…</button></span></div>
+		{#if allocOpen}
+			<AllocateDialog panel={obj.label ?? 'Panel'} ports={obj.device.ports} alloc={obj.device.alloc ?? {}} outlets={outletsFor(model.id)} {allocated}
+				onapply={(a) => setDevice({ alloc: Object.keys(a).length ? a : undefined })} onclose={() => (allocOpen = false)} />
+		{/if}
+	{/if}
 {/if}

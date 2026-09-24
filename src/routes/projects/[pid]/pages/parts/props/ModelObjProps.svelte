@@ -12,8 +12,11 @@
 	import { CABLE_TYPES, DEFAULT_CABLE, conduitFill, fillTone, portsNearest } from '../../3dview/fill'
 	import { toast } from 'svelte-sonner'
 
-	let { obj, layers = [], model = null, onupdate, ondelete, onseg, onadd }: {
+	let { obj, layers = [], model = null, onupdate, ondelete, onseg, onadd, outletsFor, allocated }: {
 		obj: Obj; layers?: MLayer[]
+		/** E8 (a panel device): the outlets its row can serve + every allocated outlet → where. */
+		outletsFor?: (rackModelId: string) => (import('../../store/allocate').OutletRef & { modelName: string })[]
+		allocated?: Map<string, string>
 		/** Add an object to the model (a rack's "+ Device"). */
 		onadd?: (o: Obj) => void
 		/** The model it's in (a conduit's "Count from outlets" reads its outlets + other conduits). */
@@ -60,7 +63,7 @@
 	<ColorPicker value={obj.color} colors={COLORS} allowByLayer onchange={(v) => onupdate?.({ color: v })} />
 </div>
 {#if obj.type === 'prism'}
-	{#if obj.rack || obj.device}<RackProps {obj} {model} {onupdate} {onadd} />{/if}
+	{#if obj.rack || obj.device}<RackProps {obj} {model} {onupdate} {onadd} {outletsFor} {allocated} />{/if}
 	<div class="prop-sec">POSITION</div>
 	<div class="vecrow">
 		<NumCell k="X" v={Math.round(obj.x)} set={(n) => onupdate?.({ x: n })} />

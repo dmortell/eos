@@ -38,6 +38,7 @@ import { describePlace } from './store/placeProps'
 import { fillTitleBlock, initialsOf, shownTitleBlock, type TbShown } from './titleBlock'
 import type { DropZone } from './parts/treeDrag.svelte'
 import { ProjectImports } from './projectImports.svelte'
+import { isOutletEnt, outletRef, allocatedOutlets as allocatedIn, type OutletRef } from './store/allocate'
 
 type TreeNodeSel = { id: string; label: string; kind: string; floorNumber?: number; building?: string }
 /** A Sheets-tool sheet as the drawings dialog's Import tab lists it. */
@@ -386,6 +387,17 @@ export class PagesProject {
 		const ids = new Set(this.store?.models.map((m) => m.id) ?? [])
 		return models.filter((m) => ids.has(m.id)).map((m) => ({ id: m.id, name: m.name, placeId: m.placeId, kind: m.kind, version: m.version, archived: m.archived }))
 	})
+	/** E8: the outlets a rack row's panels can serve — the outlet shapes of the STORED models on the same floor as the
+	 *  row (floor + zone places), or of every stored model when the row has no floor. */
+	outletsForRack = (rackModelId: string): (OutletRef & { modelName: string })[] => {
+		const ps = this.store; if (!ps) return []
+		const floorOf = new Map(ps.places.map((p) => [p.id, p.legacy?.floor])), stored = new Set(ps.models.map((m) => m.id))
+		const floor = floorOf.get(modelById(rackModelId)?.placeId ?? '')
+		return models.filter((m) => stored.has(m.id) && !m.archived && m.kind !== 'rack' && (floor == null || floorOf.get(m.placeId ?? '') === floor))
+			.flatMap((m) => (m.shapes ?? []).filter(isOutletEnt).map((e) => ({ ...outletRef(e, m.id), modelName: m.name })))
+	}
+	/** E9: every allocated outlet → where it's allocated ("R01 · PP-01 : 3-4"), across the stored rack rows. */
+	allocatedOutlets = $derived.by(() => { const ids = new Set(this.store?.models.map((m) => m.id) ?? []); return allocatedIn(models.filter((m) => ids.has(m.id) && m.kind === 'rack')) })
 	/** Import a place's outlets (block inserts) + trunks (conduits) from the Outlets tool into its model — one
 	 *  undo step; importing again updates what was imported (drawings-plan §6). */
 	importPlaceOutlets = async (placeId: string) => {

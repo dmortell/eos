@@ -37,5 +37,9 @@ describe('racks → a rack-row model (G4)', () => {
 		expect(r.objects.filter((x) => x.id === 'mine')).toHaveLength(1)
 		expect(r.objects).toHaveLength(5)
 		expect(r.layers?.map((l) => l.id)).toEqual(['racks', 'devices'])
+		// a panel's allocation survives the re-import
+		const alloc = { 1: { outlet: 'o', model: 'f', port: 1, label: 'X' } }
+		const withAlloc = { ...m, objects: m.objects.map((x) => (x.id === 'dv-d1' ? { ...x, device: { ...x.device!, alloc } } : x)) }
+		expect(mergeRackRow(withAlloc, rowToObjects(doc, 'r1')).objects.find((x) => x.id === 'dv-d1')?.device?.alloc).toEqual(alloc)
 	})
 })
