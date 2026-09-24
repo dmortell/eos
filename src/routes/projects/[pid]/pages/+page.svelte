@@ -46,6 +46,8 @@
 	import { PagesProject, sheetIdOf, SHEET } from './pagesProject.svelte'
 	import { WorkspaceHistory } from './history.svelte'
 	import { DocEdit } from './docEdit.svelte'
+	import { viewToDxf } from './exportDxf'
+	import { downloadDxf } from '../sheets/dxf/dxf'
 	import { storeyMap } from './3dview/storeyMap'
 	import { BASIS } from './3dview/types'
 	import { objBounds } from './3dview/projection'
@@ -537,10 +539,27 @@
 		// Not-yet-implemented File items: tell the user instead of silently doing nothing (B8).
 		else if (item === 'Open Project…') openProjectOpen = true
 		else if (item === 'Drawings…') { if (proj.hasPlaces) proj.drawingsOpen = true; else toast('Set up places first — drawings are managed per place') }
-		else if (item === 'Save' || item === 'Export…') statusText = `${item.replace('…', '')} isn't wired up yet (mock)`
+		else if (item === 'Export…') exportActiveDxf()
+		else if (item === 'Save') statusText = `Save isn't needed — edits save to the project as you go`
 		// everything else is a mock no-op
 	}
 	function focusTool(t: string) { const p = session.panes[session.focused]; if (p) p.tool = t }
+	// C1: File › Export… — the focused pane's ACTIVE viewport (a sheet's active frame, else its first; a model tab's
+	// own view) as a DXF in real mm (exportDxf.ts), named after the drawing and the view.
+	function exportActiveDxf() {
+		const p = session.panes[session.focused], a = active; if (!p || !a) { toast('Open a drawing first'); return }
+		let mid: ModelId, dir: Proj, viewId: string, clip = null as SheetFrame['clip'], frozen: string[] | undefined, storeys: string[] | undefined, scale: string, frameId: string | undefined
+		if (a.kind === 'sheet') {
+			const av = activeVpOf(a.id), f = framesOf(a.id).find((x) => x.id === av) ?? framesOf(a.id)[0]
+			if (!f) { toast('This sheet has no viewport to export'); return }
+			mid = f.modelId ?? modelIdOf(a.id); dir = f.proj; viewId = f.id; clip = f.clip; frozen = f.frozen; storeys = f.storeys; scale = f.scale; frameId = f.id
+		} else { mid = a.modelId ?? FLOOR_MODEL_ID; dir = projOf(p, a); viewId = a.id; scale = scaleOf(a.id) }
+		const m = modelById(mid); if (!m) { toast('The model this view shows is missing'); return }
+		const orb = orbitOf(p.id, viewId, dir)
+		const r = viewToDxf({ model: m, ents: entsForModel(mid), dir, clip, yaw: orb.yaw, pitch: orb.pitch, frozen, storeys, scaleN: scaleDenom(scale), frameId })
+		downloadDxf(r.text, `${a.title} - ${PROJ_LABEL[dir]}`)
+		toast(`Exported ${a.title} (${PROJ_LABEL[dir]}): ${r.objects} object${r.objects === 1 ? '' : 's'}, ${r.shapes} shape${r.shapes === 1 ? '' : 's'}${r.skipped ? ` — ${r.skipped} image${r.skipped === 1 ? '' : 's'} left out` : ''}`)
+	}
 	// Import an IMAGE as a background: read it as a data-URL, size the placement rect to its aspect ratio,
 	// and add it as an 'image' entity on the ACTIVE layer (select a Background layer first to group it).
 	// P3 short term: a data-URL is interned (imageStore.ts) and the entity stores its short key, so the
