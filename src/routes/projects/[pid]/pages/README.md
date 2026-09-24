@@ -9,6 +9,10 @@ is in-memory (Svelte 5 runes), no Firestore yet (§12 in `todo.md`).
 | File | Role |
 |---|---|
 | `+page.svelte` | The shell + orchestration: tabs, split panes, the drawing navigator, the global undo timeline, document vs view vs session state, the tool strip, printing, and all the callback wiring to the panels. |
+| `pagesProject.svelte.ts` | The PROJECT side (`PagesProject`, built by `+page` with a `ProjectHost`): the live Firestore data (`ProjectSource` + `store/pagesStore`), the navigator tree, places, place models + floorplans, the Outlets import, stored sheets, the title block, and the drawings dialog handlers. |
+| `store/` | Firestore schema + mappers, the debounced `DocSaver`, `PagesStore`, places / tree building, the Outlets import, the drawing list (dialog data + Excel export). All pure parts unit-tested. |
+| `titleBlock.ts` · `blocks.svelte.ts` (+ `ui/blocks.ts`) | The per-project title-block template + fill; the global block library (outlet symbols) and insert helpers. |
+| `parts/DrawingsDialog.svelte` · `TitleBlockEditor.svelte` | The drawing management dialog (sheets / archived / models); the title-block template editor. |
 | `ui/Viewport.svelte` | The canvas editor for ONE viewport — a 90-line shell: props, DOM event wiring, SVG skeleton. |
 | `ui/vpView.svelte.ts` · `ui/vpInteraction.svelte.ts` | The Viewport's view model (mapping, pan/zoom, ctx, layers, selection, picking, grips) and its pointer/key state machine (drafting, drags, marquee, text edit, image calibration). |
 | `ui/hit.ts` · `grips.ts` · `snap.ts` · `place.ts` · `mapper.ts` · `gestures.ts` · `annotations.ts` · `modelEdit.ts` · `selection.ts` · `editor.ts` | Pure, unit-tested editing logic the Viewport and PaperPage share (all take an explicit `ViewCtx`, `view.ts`). |

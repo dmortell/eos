@@ -38,27 +38,15 @@
 	import { paperDims, scaleDenom, PAPER_PX_PER_MM, DEFAULT_MARGIN_MM, clampViewZoom, clampCanvasZoom, type PaperSize } from './constants'
 	import { PRINT_ID, printCss, applyPrint, removePrint } from './printing'
 	import { translate, type Ent, type ElevDir } from './ui/geometry'
-	import { models, modelById, floorModelId, ensureFloorModel, FLOOR_MODEL_ID, snapModels, setModels, upsertModel, removeModels, modelForPlace } from './3dview/models.svelte'
-	import { emptyFloor } from './mock/models'
-	import { docToModel, sheetToPage, pageToSheet, nextFrameSeq } from './store/mappers'
-	import { floorplanPlacement, pdfSrc, PDF_SRC } from './ui/render/pdfRaster.svelte'
-	import { startBlocks } from './blocks.svelte'
-	import { importOutletsInto, outletsDocIdFor, type OutletsDoc } from './store/outletsImport'
-	import { normFloors } from './projectTree'
-	import type { PageDoc } from './doc.svelte'
+	import { models, modelById, floorModelId, FLOOR_MODEL_ID, snapModels, setModels } from './3dview/models.svelte'
+	import { nextFrameSeq } from './store/mappers'
 	import { getContext, untrack } from 'svelte'
-	import type { Firestore } from '$lib'
-	import { ProjectSource } from './projectData.svelte'
+	import type { Firestore, Session as AuthSession } from '$lib'
 	import { findNodePath } from './projectTree'
-	import type { Session as AuthSession } from '$lib'
-	import { PagesStore } from './store/pagesStore.svelte'
-	import { buildPlaceTree } from './store/placeTree'
-	import { addPlace, updatePlace, movePlace, removePlace, ancestorsOf } from './store/places'
-	import { fillTitleBlock, initialsOf, DEFAULT_TITLE_BLOCK, type TbCell, type TitleBlockTemplate } from './titleBlock'
-	import { describePlace } from './store/placeProps'
-	import type { DropZone } from './parts/treeDrag.svelte'
+	import { PagesProject, sheetIdOf, SHEET } from './pagesProject.svelte'
+	import type { TitleBlockTemplate } from './titleBlock'
 	import { DEFAULT_YAW, DEFAULT_PITCH } from './3dview/projection'
-	import type { Model, ModelId, ModelKind, Section } from './3dview/types'
+	import type { Model, ModelId, Section } from './3dview/types'
 	import { selStore } from './selStore.svelte'
 	import { selOnly, selToggle, selClear, idsOfKind, singleOfKind, type Selection, type SelItem } from './ui/selection'
 	import { deleteModelSel as meDeleteModelSel, deleteGraphNode as meDeleteGraphNode, deleteSection as meDeleteSection } from './ui/modelEdit'
@@ -316,14 +304,14 @@
 	// this is the page's baseline, so it's not a recorded edit.
 	function seedFrame(tabId: string, x: number, y: number, w: number, h: number) {
 		if (framesOf(tabId).length) return
-		setFrames(tabId, [{ id: newFrameId(), x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h), border: 'dashed', proj: 'plan', scale: scaleOf(tabId), clip: null, label: '1', seq: 1, modelId: newFrameModel(tabId) }])
+		setFrames(tabId, [{ id: newFrameId(), x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h), border: 'dashed', proj: 'plan', scale: scaleOf(tabId), clip: null, label: '1', seq: 1, modelId: proj.newFrameModel(tabId) }])
 	}
 	// A new viewport frame dragged on the paper (the Viewport tool): defaults to a plan view. Frame edits
 	// (add / move / resize / delete / re-source) record on the page's per-doc history so Ctrl-Z works.
 	function addFrame(tabId: string, x: number, y: number, w: number, h: number) {
 		ensureHist(tabId)   // capture the pre-add baseline first
 		const id = newFrameId(), seq = nextFrameSeq(framesOf(tabId))
-		setFrames(tabId, [...framesOf(tabId), { id, x: Math.round(x), y: Math.round(y), w: Math.max(60, Math.round(w)), h: Math.max(60, Math.round(h)), border: 'solid', proj: 'plan', scale: scaleOf(tabId), clip: null, label: String(seq), seq, modelId: newFrameModel(tabId) }])
+		setFrames(tabId, [...framesOf(tabId), { id, x: Math.round(x), y: Math.round(y), w: Math.max(60, Math.round(w)), h: Math.max(60, Math.round(h)), border: 'solid', proj: 'plan', scale: scaleOf(tabId), clip: null, label: String(seq), seq, modelId: proj.newFrameModel(tabId) }])
 		selStore.set(tabId, selOnly([{ kind: 'frame', id }]))
 		recordEdit(tabId, 'Add viewport')
 	}
@@ -720,7 +708,7 @@
 		else if (item === 'Dimension') { if (active) focusTool('Dimension') }
 		// Not-yet-implemented File items: tell the user instead of silently doing nothing (B8).
 		else if (item === 'Open Project…') openProjectOpen = true
-		else if (item === 'Drawings…') { if (pagesStore && hasPlaces) drawingsOpen = true; else toast('Set up places first — drawings are managed per place') }
+		else if (item === 'Drawings…') { if (proj.hasPlaces) proj.drawingsOpen = true; else toast('Set up places first — drawings are managed per place') }
 		else if (item === 'Save' || item === 'Export…') statusText = `${item.replace('…', '')} isn't wired up yet (mock)`
 		// everything else is a mock no-op
 	}
@@ -775,11 +763,11 @@
 	// B18: a drawing is identified by `docId` (its navigator node id; a palette item looks its id up by label,
 	// else falls back to `title:<title>`), so re-opening finds the SAME drawing even if a tab was renamed.
 	function openDrawing(d: { title: string; kind: Kind; preview?: boolean; floor?: string; docId?: string; modelId?: ModelId }) {
-		const sid = sheetIdOf(d.docId); if (sid) loadSheet(sid)   // a stored Pages sheet: its paper + frames first
+		const sid = sheetIdOf(d.docId); if (sid) proj.loadSheet(sid)   // a stored Pages sheet: its paper + frames first
 		// a stored sheet's tab (frames without their own model fall back to it) = its PLACE's model, never the
-		// unsaved per-floor-name model of the old tree
-		const sheetPlace = sid ? pagesStore?.sheets.find((x) => x.id === sid)?.placeId : null
-		const modelId = d.modelId ?? (sheetPlace ? ensurePlaceModel(sheetPlace) : d.floor && projectSrc?.project ? realFloorModelId(d.floor) : floorModelId(d.floor))   // a real floor gets its own model + floorplan
+		// unsaved per-floor-name model of the old tree; a real floor of the old tree gets its own model + floorplan
+		const sheetPlace = sid ? proj.store?.sheets.find((x) => x.id === sid)?.placeId : null
+		const modelId = d.modelId ?? (sheetPlace ? proj.ensurePlaceModel(sheetPlace) : d.floor && proj.src?.project ? proj.realFloorModelId(d.floor) : floorModelId(d.floor))
 		const docId = d.docId ?? navDrawingId(d.title) ?? `title:${d.title}`
 		const existing = session.tabs.find(t => t.docId === docId)
 		if (existing) { if (!d.preview) promoteTab(existing.id); openTab(existing.id); return }
@@ -803,349 +791,17 @@
 		const p = session.panes[session.focused]
 		if (p && !viewState.getProj(p.id, didOf(p.activeId))) viewState.setProj(p.id, didOf(p.activeId), 'plan')
 	}
-	// drawings-plan phase 3: a PLACE's model tab — its stored model (projects/{pid}/models, filed by placeId),
-	// created and stored the first time it's opened. A floor place seeded from the old data also gets that
-	// floor's calibrated floorplan as its underlay (once). An archived model opens as "Missing model".
-	const MODEL_KINDS: ModelKind[] = ['floor', 'zone', 'room', 'building']
-	// An open asked for before the store has loaded its models (the tree-item restore, a quick click) WAITS for
-	// them — otherwise modelForPlace finds nothing yet and a duplicate model would be created and stored.
-	let pendingPlaceOpen = $state<{ placeId: string; preview: boolean } | null>(null)
-	$effect(() => {
-		const want = pendingPlaceOpen; if (!want || pagesStore?.status !== 'ready') return
-		untrack(() => { pendingPlaceOpen = null; openPlaceModel(want.placeId, want.preview) })
+	// The PROJECT side — Firestore data, places, stored models + sheets, title block, drawings dialog — lives in
+	// pagesProject.svelte.ts; it reaches the workspace through this host.
+	const proj = new PagesProject({
+		db: getContext('db') as Firestore | undefined,
+		auth: getContext('session') as AuthSession | undefined,
+		pid: () => page.params.pid,
+		session, openDrawing, closeTab, toast: (m) => toast(m), didOf, paperOf, framesOf, scaleOf,
+		revInfo: () => ({ rev, date: fmtDate(revisions[0]?.t) }),
+		activeTabId: () => active?.id,
+		ensureHist: () => ensureHist(), pushStep, addModelToHistory, addDocToHistory,
 	})
-	/** The model of a place: its stored one, else a new one created + stored now (callers check the store is
-	 *  ready first). A floor place seeded from the old data also gets its floorplan underlay (once). */
-	function ensurePlaceModel(placeId: string): ModelId | undefined {
-		const ps = pagesStore, place = ps?.places.find((p) => p.id === placeId); if (!ps || !place || ps.status !== 'ready') return
-		let m = modelForPlace(placeId)
-		if (!m) {
-			const kind = (MODEL_KINDS as string[]).includes(place.kind ?? '') ? (place.kind as ModelKind) : 'zone'
-			const fresh: Model = { ...emptyFloor(newId('m'), place.name), placeId, kind }   // default layers (mock template until a project layer template exists)
-			ps.saveModel(fresh)
-			upsertModel(docToModel(fresh))
-			addModelToHistory(fresh)
-			m = modelById(fresh.id)
-		}
-		if (!m) return
-		const l = place.legacy
-		if (l?.floor != null && l.area == null && l.room == null && l.row == null) attachFloorplan(m.id, l.floor)
-		else if (l?.area) { const od = outletsDocIdFor(ps.pid, l, normFloors(projectSrc?.project?.floors)); if (od) attachFloorplanFromDoc(m.id, od) }   // a zone: ITS plan
-		return m.id
-	}
-	/** A zone model's floorplan: the file its own Outlets-tool doc shows. */
-	function attachFloorplanFromDoc(id: ModelId, docId: string) {
-		const m = modelById(id); if (!fdb || !m || floorplanShapeOf(m) || attaching.has(id)) return
-		attaching.add(id)
-		fdb.getOne('outlets', docId).then((d) => { const od = d as OutletsDoc | null; return od?.selectedFileId ? addFloorplanShape(id, od.selectedFileId, od.selectedPage ?? 1) : undefined })
-			.catch(() => {}).finally(() => attaching.delete(id))
-	}
-	/** Import a place's outlets (block inserts) + trunks (conduits) from the Outlets tool into its model — one
-	 *  undo step; importing again updates what was imported (drawings-plan §6). */
-	async function importPlaceOutlets(placeId: string) {
-		const ps = pagesStore, place = ps?.places.find((p) => p.id === placeId); if (!ps || !place || !fdb) return
-		if (ps.status !== 'ready') { toast('Still loading — try again in a moment'); return }
-		const docId = outletsDocIdFor(ps.pid, place.legacy, normFloors(projectSrc?.project?.floors)); if (!docId) return
-		const doc = (await fdb.getOne('outlets', docId)) as OutletsDoc | null
-		if (!doc || (!doc.outlets?.length && !doc.trunks?.length)) { toast(`Nothing to import from outlets/${docId}`); return }
-		const mid = ensurePlaceModel(placeId); const m = mid ? modelById(mid) : undefined; if (!m) return
-		ensureHist()
-		const r = importOutletsInto($state.snapshot(m) as Model, doc)
-		m.shapes = r.model.shapes; m.objects = r.model.objects; m.layers = r.model.layers
-		pushStep(session.panes[session.focused]?.activeId ?? '', 'Import from Outlets tool')
-		openPlaceModel(placeId, false)
-		toast(`Imported into ${place.name}: ${r.added} new outlet${r.added === 1 ? '' : 's'}${r.updated ? `, ${r.updated} updated` : ''}, ${r.trunks} trunk${r.trunks === 1 ? '' : 's'}`)
-	}
-	function openPlaceModel(placeId: string, preview: boolean) {
-		const ps = pagesStore, place = ps?.places.find((p) => p.id === placeId); if (!ps || !place) return
-		if (ps.status !== 'ready') { pendingPlaceOpen = { placeId, preview }; return }
-		const mid = ensurePlaceModel(placeId); if (!mid) return
-		const m = modelById(mid); if (!m) return
-		openDrawing({ title: `${place.name} · Model`, kind: 'model', preview, modelId: m.id, docId: `model:${m.id}` })
-		const p = session.panes[session.focused]
-		if (p && !viewState.getProj(p.id, didOf(p.activeId))) viewState.setProj(p.id, didOf(p.activeId), 'plan')
-	}
-	// The REAL project tree (projectTree.ts) from Firestore — docs/firestore-structure.md. One live source per
-	// project id (re-created when Open Project navigates to another pid); the mock tree stays for a pid that
-	// isn't in Firestore (the demo URL).
-	const fdb = getContext('db') as Firestore | undefined
-	let projectSrc = $state<ProjectSource | null>(null)
-	// drawings-plan phase 2: the project's PAGES data (places now; sheets + models in phases 3–4), one store per
-	// project id alongside the read-only ProjectSource.
-	const auth = getContext('session') as AuthSession | undefined
-	// the GLOBAL block library (blocks/{id}): subscribed once per session; missing default blocks are seeded
-	$effect(() => { if (fdb) untrack(() => startBlocks(fdb)) })
-	let pagesStore = $state<PagesStore | null>(null)
-	$effect(() => {
-		const pid = page.params.pid
-		if (!fdb || !pid) return
-		const src = new ProjectSource(fdb, pid)
-		const stop = src.start()
-		// stored models go into the editor's model registry from the SUBSCRIPTION callback (remote changes only)
-		const ps = new PagesStore(fdb, pid, untrack(() => auth?.user?.email ?? ''), {
-			onModels: (changed, removed) => {
-				for (const d of changed) { const isNew = !modelById(d.id); const m = docToModel(d); upsertModel(m); if (isNew) addModelToHistory(m); if (m.underlays?.length) convertUnderlays(m.id) }
-				removeModels(removed)
-			},
-			// a stored sheet changed elsewhere: refresh its open page doc + tab titles (echoes / pending edits never arrive here)
-			onSheets: (changed) => {
-				for (const sh of changed) {
-					const did = `sheet:${sh.id}`
-					if (docs.has(did)) docs.seed(did, sheetToPage(sh))
-					for (const t of session.tabs) if (t.docId === did && t.title !== sh.title) t.title = sh.title
-				}
-			},
-		})
-		ps.start()
-		untrack(() => { projectSrc = src; pagesStore = ps })
-		return () => {
-			stop()
-			const ids = ps.models.map((m) => m.id)
-			void ps.stop().then(() => removeModels(ids))   // save pending edits, then drop this project's models
-			untrack(() => { if (projectSrc === src) projectSrc = null; if (pagesStore === ps) pagesStore = null })
-		}
-	})
-	// ── Pages SHEETS (drawings-plan phase 4): a stored sheet opens as drawing id `sheet:<id>`; its paper / scale /
-	// frames load into the PageDoc store once, and every change there is folded back into the stored doc. ──
-	const SHEET = 'sheet:'
-	const sheetIdOf = (docId?: string) => (docId?.startsWith(SHEET) ? docId.slice(SHEET.length) : null)
-	const storedSheetOfTab = (tabId: string) => { const id = sheetIdOf(didOf(tabId)); return id ? pagesStore?.sheets.find((x) => x.id === id) ?? null : null }
-	function loadSheet(id: string) {
-		const sh = pagesStore?.sheets.find((x) => x.id === id), did = SHEET + id
-		if (!sh || docs.has(did)) return
-		docs.seed(did, sheetToPage(sh))
-		addDocToHistory(did)
-	}
-	/** The model a NEW frame on this tab's sheet shows: the sheet's place model (created if needed). */
-	const newFrameModel = (tabId: string): ModelId | undefined => { const sh = storedSheetOfTab(tabId); return sh?.placeId ? ensurePlaceModel(sh.placeId) : undefined }
-	$effect(() => {
-		const ps = pagesStore; if (!ps) return
-		// depend on the WHOLE doc map (a sheet loaded later must re-run this); the store's sheet list is read
-		// untracked — saveSheet replaces it, which would re-run this forever
-		const all = docs.all()
-		const list = untrack(() => ps.sheets)
-		for (const sh of list) {
-			const d = all[SHEET + sh.id]; if (!d) continue
-			const snap = $state.snapshot(d) as PageDoc
-			untrack(() => { const cur = ps.sheets.find((x) => x.id === sh.id); if (cur) ps.saveSheet(pageToSheet(cur, snap)) })
-		}
-	})
-	function onSheetAdd(placeId: string): string | undefined {
-		const ps = pagesStore; if (!ps || ps.status !== 'ready') return
-		const sh = ps.createSheet({ title: 'New sheet', placeId })
-		loadSheet(sh.id)
-		session.treeNode = null   // Properties → the new sheet's PAGE (title, number, title block)
-		openDrawing({ title: sh.title, kind: 'sheet', preview: false, docId: SHEET + sh.id })
-		return `s:${sh.id}`
-	}
-	// ── phase 5: the TITLE BLOCK — the project's one template (pages.titleBlock), filled per sheet from the
-	// project + the sheet's registry entry (a tab that isn't a stored sheet fills what it can) ──
-	const drawnDefault = (sh: import('./store/schema').PagesSheetDoc) =>
-		initialsOf(sh.createdBy && sh.createdBy === auth?.user?.email ? auth?.user?.displayName || sh.createdBy : sh.createdBy)
-	function titleBlockOf(tabId: string): { logo?: string; cells: TbCell[] } {
-		const ps = pagesStore, sh = storedSheetOfTab(tabId), tpl = ps?.project?.titleBlock, pap = paperOf(tabId)
-		const pl = sh?.placeId && ps ? ps.places.find((p) => p.id === sh.placeId) : undefined
-		return {
-			logo: tpl ? tpl.logo : DEFAULT_TITLE_BLOCK.logo,
-			cells: fillTitleBlock(tpl, {
-				project: projectSrc?.project?.name ?? '',
-				title: sh?.title ?? session.tabs.find((t) => t.id === tabId)?.title ?? '',
-				place: pl && ps ? [...ancestorsOf(ps.places, pl.id), pl].map((p) => p.name).join(' › ') : '',
-				number: sh?.drawingNumber ?? '',
-				rev: sh ? sh.latestRevisionCode ?? '' : rev,
-				date: fmtDate(revisions[0]?.t),
-				scale: framesOf(tabId)[0]?.scale ?? scaleOf(tabId),
-				size: `${pap.size} ${pap.landscape ? 'L' : 'P'}`,
-				drawn: sh ? sh.drawnBy || drawnDefault(sh) : '',
-			}),
-		}
-	}
-	/** The active tab's stored sheet: set its Drawing № / Drawn (Properties › PAGE). */
-	function setSheetField(key: 'drawingNumber' | 'drawnBy', value: string) {
-		const sh = active ? storedSheetOfTab(active.id) : null; if (!sh || !pagesStore || sh[key] === value) return
-		pagesStore.saveSheet({ ...sh, [key]: value })
-	}
-	const activeSheetInfo = $derived.by(() => {
-		const sh = active ? storedSheetOfTab(active.id) : null
-		return sh ? { number: sh.drawingNumber ?? '', drawnBy: sh.drawnBy ?? '', drawnDefault: drawnDefault(sh) } : null
-	})
-	function renameSheet(id: string, title: string) {
-		const ps = pagesStore, sh = ps?.sheets.find((x) => x.id === id); if (!ps || !sh || !title.trim()) return
-		ps.saveSheet({ ...sh, title: title.trim() })
-		for (const t of session.tabs) if (t.docId === SHEET + id) t.title = title.trim()
-	}
-	// ── phase 6: the drawing management dialog (parts/DrawingsDialog.svelte) ──
-	let drawingsOpen = $state(false)
-	// the models it lists: the STORED ones, read from the editor registry (the source of truth the save effect writes)
-	const storedModelInfo = $derived.by(() => {
-		const ids = new Set(pagesStore?.models.map((m) => m.id) ?? [])
-		return models.filter((m) => ids.has(m.id)).map((m) => ({ id: m.id, name: m.name, placeId: m.placeId, kind: m.kind, version: m.version, archived: m.archived }))
-	})
-	function updateSheets(patches: { id: string; patch: Partial<import('./store/schema').PagesSheetDoc> }[]) {
-		const ps = pagesStore; if (!ps) return
-		for (const { id, patch } of patches) {
-			const sh = ps.sheets.find((x) => x.id === id); if (!sh) continue
-			ps.saveSheet({ ...sh, ...patch })
-			if (patch.title) for (const t of session.tabs) if (t.docId === SHEET + id) t.title = patch.title
-		}
-	}
-	function archiveSheets(ids: string[]) {
-		const ps = pagesStore; if (!ps) return
-		for (const id of ids) { ps.setSheetStatus(id, 'archived'); for (const t of [...session.tabs]) if (t.docId === SHEET + id) closeTab(t.id) }
-		toast(`${ids.length} sheet${ids.length === 1 ? '' : 's'} archived`)
-	}
-	function openSheetById(id: string) {
-		const sh = pagesStore?.sheets.find((x) => x.id === id); if (!sh) return
-		loadSheet(id); session.treeNode = null; drawingsOpen = false
-		openDrawing({ title: sh.title, kind: 'sheet', preview: false, docId: SHEET + id })
-	}
-	function openModelById(id: string) {
-		const m = modelById(id); if (!m) return
-		drawingsOpen = false
-		openDrawing({ title: `${m.name} · Model`, kind: 'model', preview: false, modelId: m.id, docId: `model:${m.id}` })
-	}
-	/** Archive / restore a stored model: flag it in the registry (the save effect stores it); frames showing it
-	 *  then show "Missing model" until it's restored. */
-	function setModelArchived(id: string, archived: boolean) {
-		const m = modelById(id); if (!m) return
-		if (archived) m.archived = true; else delete m.archived
-		toast(archived ? `Model ${m.name} archived` : `Model ${m.name} restored`)
-	}
-	function archiveSheet(id: string) {
-		const ps = pagesStore; if (!ps) return
-		ps.setSheetStatus(id, 'archived')
-		for (const t of [...session.tabs]) if (t.docId === SHEET + id) closeTab(t.id)
-		toast('Sheet archived — it will be in the drawing manager\'s archived list')
-	}
-	/** A sheet dropped on the tree: onto a place = into it (last); before / after another sheet = beside it. */
-	function moveSheetRow(sheetId: string, targetId: string, zone: DropZone) {
-		const ps = pagesStore; if (!ps) return
-		if (targetId.startsWith('s:')) {
-			const target = ps.sheets.find((x) => x.id === targetId.slice(2)); if (!target) return
-			const order = ps.sheetsIn(target.placeId).filter((x) => x.id !== sheetId)
-			const i = order.findIndex((x) => x.id === target.id)
-			ps.moveSheet(sheetId, target.placeId, zone === 'before' ? i : i + 1)
-		} else if (ps.places.some((p) => p.id === targetId)) ps.moveSheet(sheetId, targetId, ps.sheetsIn(targetId).length)
-	}
-	// Save every STORED model when it changes (edits, undo/redo, floorplan attach). The saver debounces and skips
-	// content it already has, so re-queueing unchanged models (or a remote change just applied) writes nothing.
-	// The stored-id set is read untracked: saveModel updates the store's list, which must not re-run this.
-	$effect(() => {
-		const ps = pagesStore; if (!ps) return
-		const stored = untrack(() => new Set(ps.models.map((m) => m.id)))
-		for (const m of models) if (stored.has(m.id)) { const snap = $state.snapshot(m) as Model; untrack(() => ps.saveModel(snap)) }
-	})
-	// Once the project HAS Pages places, the navigator shows them (with the old tools' drawings hung on them by
-	// their legacy links); until then it shows the tree derived from the other tools' data, plus "Set up places".
-	const hasPlaces = $derived(!!pagesStore && pagesStore.places.length > 0)
-	const realTree = $derived.by(() => {
-		const src = projectSrc; if (src?.status !== 'ready') return null
-		const t = src.tree; if (!t) return null
-		if (!hasPlaces) return t
-		return { project: t.project, tree: buildPlaceTree({ pid: src.pid, places: pagesStore!.places, drawings: src.drawings, risers: src.risers, floors: src.project?.floors, sheets: pagesStore!.sheets,
-			modelPlaces: new Set(models.filter((m) => m.placeId && !m.archived).map((m) => m.placeId!)) }) }
-	})
-	const canSeedPlaces = $derived(pagesStore?.status === 'ready' && !hasPlaces && projectSrc?.status === 'ready')
-	function seedPlaces() {
-		const src = projectSrc, ps = pagesStore; if (!src?.project || !ps) return
-		if (ps.seedPlaces({ project: src.project, racks: src.racks, risers: src.risers, drawings: [] })) toast(`Places created (${ps.places.length}). The tree now shows them.`)
-	}
-	function onPlaceAdd(parentId: string | null): string | undefined {
-		const ps = pagesStore; if (!ps) return
-		const id = newId('pl')
-		ps.savePlaces(addPlace(ps.places, { id, name: 'New place', parentId }))
-		return id
-	}
-	function onPlaceRename(id: string, name: string) { const ps = pagesStore; if (ps) ps.savePlaces(updatePlace(ps.places, id, { name })) }
-	function onPlaceMove(id: string, targetId: string, zone: DropZone) {
-		const ps = pagesStore; if (!ps) return
-		if (id.startsWith('s:')) { moveSheetRow(id.slice(2), targetId, zone); return }
-		if (targetId.startsWith('s:')) return   // a place can't go under a sheet
-		const next = movePlace(ps.places, id, targetId, zone)
-		if (next) ps.savePlaces(next); else toast("A place can't move into itself")
-	}
-	// Delete only an EMPTY place (drawings-plan §4): no child places, sheets, models or hung drawings.
-	function onPlaceDelete(id: string): string | null {
-		const ps = pagesStore; if (!ps) return null
-		const node = realTree ? findNodePath(realTree.tree, { id })?.node : undefined
-		const drawings = (node?.children ?? []).filter((c) => c.drawing).length
-		if (ps.sheetsIn(id, true).length) return 'It has sheets — move or archive them first'
-		if (ps.models.some((m) => m.placeId === id)) return 'It has a model — move or archive it first'
-		if (drawings) return `It holds ${drawings} drawing${drawings === 1 ? '' : 's'} from the other tools`
-		const next = removePlace(ps.places, id)
-		if (!next) return 'It has places inside — move or delete them first'
-		ps.savePlaces(next)
-		if (session.treeNode?.id === id) session.treeNode = null
-		return null
-	}
-	const navStatus = $derived(projectSrc?.status === 'loading' ? 'Loading project…' : projectSrc?.status === 'missing' ? 'Not a Firestore project — showing the demo tree' : '')
-	// A REAL floor's model: its own (named "33F — Hibiya", so it never picks up the demo 33F model) with the
-	// floor's calibrated floorplan as its plan underlay (ProjectSource.floorplanOf → the outlets tool's file /
-	// page). The underlay is attached once, asynchronously; the tab zooms to it on arrival (Viewport extents).
-	// locked by default: clicking the plan mustn't grab it — unlock the layer to move / crop / recalibrate it
-	const FLOORPLAN_LAYER = { id: 'floorplan', name: 'Floorplan', group: 'Background', color: '#94a3b8', swatch: 'color' as const, visible: true, locked: true }
-	function realFloorModelId(floor: string): ModelId {
-		const src = projectSrc!, id = ensureFloorModel(`${floor} — ${src.project?.name ?? src.pid}`)
-		const n = parseInt(floor, 10)
-		if (!isNaN(n)) attachFloorplan(id, n)
-		return id
-	}
-	// ── a floor's FLOORPLAN is an image SHAPE (src `pdf:<fileId>#<page>`) on the model's Background "Floorplan"
-	// layer — selectable / croppable / recalibratable like any image. Its placement is computed ONCE from the
-	// Outlets / Uploads calibration of the page; later changes in Pages aren't synced back (drawings-plan). ──
-	const floorplanShapeOf = (m: Model) => m.shapes?.find((e) => e.type === 'image' && e.src?.startsWith(PDF_SRC))
-	const attaching = new Set<ModelId>()
-	/** Give a model its floor's floorplan shape, once (no-op when it already has one). */
-	function attachFloorplan(id: ModelId, n: number) {
-		const src = projectSrc, m = modelById(id)
-		if (!src || !m || floorplanShapeOf(m) || m.underlays?.length || attaching.has(id)) return
-		attaching.add(id)
-		src.floorplanOf(n).then((fp) => (fp ? addFloorplanShape(id, fp.fileId, fp.pageNum) : undefined))
-			.catch(() => { /* no floorplan — the model stays empty */ }).finally(() => attaching.delete(id))
-	}
-	async function addFloorplanShape(id: ModelId, fileId: string, page: number) {
-		const place = await floorplanPlacement(fileId, page)
-		const mm = modelById(id)
-		if (!place || !mm || floorplanShapeOf(mm)) return
-		// the floorplan goes on its OWN Background layer (first in the list = drawn underneath), so the Layers
-		// panel shows / hides / locks / VP-freezes it like any other layer
-		if (!mm.layers?.some((l) => l.id === FLOORPLAN_LAYER.id)) mm.layers = [{ ...FLOORPLAN_LAYER }, ...(mm.layers ?? [])]
-		const shape: Ent = { id: newId('e'), type: 'image', a: place.a, b: place.b, src: pdfSrc(fileId, page), layer: FLOORPLAN_LAYER.id, opacity: 0.6, lockAspect: true }
-		if (place.crop) shape.crop = place.crop
-		mm.shapes = [shape, ...(mm.shapes ?? [])]
-	}
-	/** A stored model from before floorplans were shapes: turn its plan underlays into floorplan shapes (once). */
-	function convertUnderlays(id: ModelId) {
-		const m = modelById(id), us = (m?.underlays ?? []).filter((u) => u.dir === 'plan' && u.fileId)
-		if (!m || !us.length || attaching.has(id)) return
-		attaching.add(id)
-		Promise.all(us.map((u) => addFloorplanShape(id, u.fileId, u.pageNum ?? 1))).then(() => {
-			const mm = modelById(id); if (!mm) return
-			mm.underlays = []
-			const l = mm.layers?.find((x) => x.id === FLOORPLAN_LAYER.id); if (l) l.locked = true
-		}).catch(() => {}).finally(() => attaching.delete(id))
-	}
-	// The selected REAL tree node's properties (projectProps.ts) + saving an edit. A renamed building's node id
-	// changes (`b:<name>`), so the selection follows it.
-	const isPlaceNode = $derived(!!session.treeNode && hasPlaces && !!pagesStore?.places.some((p) => p.id === session.treeNode!.id))
-	const nodeInfo = $derived(!session.treeNode ? null
-		: isPlaceNode ? describePlace(pagesStore!.places, session.treeNode.id, realTree ? findNodePath(realTree.tree, { id: session.treeNode.id })?.node : undefined)
-		: projectSrc?.status === 'ready' ? projectSrc.describe(session.treeNode.id) : null)
-	async function setNodeField(key: string, value: string) {
-		const n = session.treeNode, src = projectSrc; if (!n || !src) return
-		if (isPlaceNode && pagesStore) {   // a Pages place: name / icon kind
-			if (key !== 'name' && key !== 'kind') return
-			if (key === 'name' && !value.trim()) { toast('A place needs a name'); return }
-			pagesStore.savePlaces(updatePlace(pagesStore.places, n.id, { [key]: value }))
-			if (key === 'name') session.treeNode = { ...n, label: value.trim() }
-			return
-		}
-		try {
-			const ok = await src.setField(n.id, key, value)
-			if (!ok) { toast(key === 'name' && n.id.startsWith('b:') ? 'That building name is empty or already used' : 'Nothing to save'); return }
-			if (n.id.startsWith('b:') && key === 'name') session.treeNode = { ...n, id: `b:${value.trim()}`, label: value.trim() }
-		} catch (e) { toast(`Couldn't save: ${(e as Error)?.message ?? e}`) }
-	}
 	// ── the last clicked tree item, per project, in localStorage — a location node (selected + its Properties;
 	// a floor also reopens its model tab) or a drawing (reopened as a tab). Restored once, when the project's
 	// real tree first loads; its ancestors are expanded so it's visible. ──
@@ -1161,7 +817,7 @@
 	// tree themselves, or 15 s after the project started loading.
 	let restoredFor = '', restoreStart = 0
 	$effect(() => {
-		const t = realTree, pid = page.params.pid
+		const t = proj.realTree, pid = page.params.pid
 		if (!t || !pid || restoredFor === pid) return
 		untrack(() => {
 			if (!restoreStart) restoreStart = Date.now()
@@ -1179,7 +835,7 @@
 				openDrawing({ title: n.label, kind: n.drawing, preview: true, floor, docId: n.docId ?? n.id })
 			} else {
 				selectNode({ id: n.id, label: n.label, kind: n.place ? 'place' : n.folder ?? 'folder', floorNumber: n.floorNumber, building: n.building })
-				if (n.place) { if (n.modelFloor || n.hasModel) openPlaceModel(n.id, true) }
+				if (n.place) { if (n.modelFloor || n.hasModel) proj.openPlaceModel(n.id, true) }
 				else if (n.folder === 'floor' && n.floor) openFloorModel(n.floor, true)
 			}
 		})
@@ -1419,7 +1075,7 @@
 		activeVpOf, isVpActive, deactivateVp, onCanvasMove, canvasPan, canvasZoomFn: canvasZoom,
 		framesOf, scaleOf, updateFrame, setScale, fitPane, canvasViewOf, entsOf, entsForModel, paperEditor,
 		viewOf, envFor, orbitOf, vpFrameView, vpEditor, seedFrame, addFrame, commitFrame, paperOf, paperDimsOf,
-		vpView, projOf, gizmoProj, gizmoSet, navZoom, navFit, titleBlockOf,
+		vpView, projOf, gizmoProj, gizmoSet, navZoom, navFit, titleBlockOf: proj.titleBlockOf,
 	}
 </script>
 
@@ -1429,11 +1085,10 @@
 <div class="shell" data-mock-theme={mockTheme}>
 	<!-- inside .shell so the palette's CSS tokens (var(--panel)/--text/…) resolve -->
 	{#if paletteOpen}<CommandPalette items={paletteItems} onpick={pickPalette} onclose={() => (paletteOpen = false)} />{/if}
-	{#if drawingsOpen && pagesStore}
-		<DrawingsDialog sheets={pagesStore.sheets} places={pagesStore.places} models={storedModelInfo} projectName={projectSrc?.project?.name ?? ''}
-			onupdate={updateSheets} onarchive={archiveSheets} onrestore={(ids) => ids.forEach((id) => pagesStore!.setSheetStatus(id, 'active'))}
-			ondelete={(id) => void pagesStore!.hardDeleteSheet(id).then((ok) => { if (ok) toast('Sheet deleted') })}
-			onopen={openSheetById} onmodelarchive={setModelArchived} onopenmodel={openModelById} onclose={() => (drawingsOpen = false)} />
+	{#if proj.drawingsOpen && proj.store}
+		<DrawingsDialog sheets={proj.store.sheets} places={proj.store.places} models={proj.storedModelInfo} projectName={proj.src?.project?.name ?? ''}
+			onupdate={proj.updateSheets} onarchive={proj.archiveSheets} onrestore={proj.restoreSheets} ondelete={proj.deleteSheet}
+			onopen={proj.openSheetById} onmodelarchive={proj.setModelArchived} onopenmodel={proj.openModelById} onclose={() => (proj.drawingsOpen = false)} />
 	{/if}
 	{#if openProjectOpen}<OpenProjectDialog currentId={page.params.pid} onpick={openProject} onclose={() => (openProjectOpen = false)} />{/if}
 	{#if tabMenuPane !== null}<button class="menu-backdrop" aria-label="Close menu" onclick={() => (tabMenuPane = null)}></button>{/if}
@@ -1471,15 +1126,16 @@
 		<!-- Left sidebar: Drawing Navigator (location tree → drawings/views) -->
 		{#if leftOpen}
 			<aside class="side left">
-				<DrawingNavigator tree={realTree?.tree ?? null} project={realTree?.project ?? null} status={navStatus}
-					placesMode={hasPlaces} onseedplaces={canSeedPlaces ? seedPlaces : undefined}
-					onplaceadd={onPlaceAdd} onplacerename={onPlaceRename} onplacemove={onPlaceMove} onplacedelete={onPlaceDelete}
-					onopenplace={hasPlaces ? (id, preview) => { restoredFor = page.params.pid ?? ''; openPlaceModel(id, preview) } : undefined}
-					ondrawings={hasPlaces ? () => (drawingsOpen = true) : undefined}
-					onsheetadd={hasPlaces ? onSheetAdd : undefined} onplaceimport={hasPlaces ? (id) => void importPlaceOutlets(id) : undefined} onsheetrename={(rowId, t) => renameSheet(rowId.slice(2), t)} onsheetarchive={(rowId) => archiveSheet(rowId.slice(2))}
-					onaddbuilding={(n) => projectSrc?.addBuilding(n).catch((e) => { toast(`Couldn't add the building: ${e?.message ?? e}`); return false }) ?? Promise.resolve(false)}
-					onmovefloor={(f, b) => projectSrc?.moveFloor(f, b).catch((e) => toast(`Couldn't move the floor: ${e?.message ?? e}`))}
-					onmovebuilding={(n, t, after) => projectSrc?.moveBuilding(n, t, after).catch((e) => toast(`Couldn't reorder: ${e?.message ?? e}`))}
+				<DrawingNavigator tree={proj.realTree?.tree ?? null} project={proj.realTree?.project ?? null} status={proj.navStatus}
+					placesMode={proj.hasPlaces} onseedplaces={proj.canSeedPlaces ? proj.seedPlaces : undefined}
+					onplaceadd={proj.onPlaceAdd} onplacerename={proj.onPlaceRename} onplacemove={proj.onPlaceMove} onplacedelete={proj.onPlaceDelete}
+					onopenplace={proj.hasPlaces ? (id, preview) => { restoredFor = page.params.pid ?? ''; proj.openPlaceModel(id, preview) } : undefined}
+					ondrawings={proj.hasPlaces ? () => (proj.drawingsOpen = true) : undefined}
+					onsheetadd={proj.hasPlaces ? proj.onSheetAdd : undefined} onplaceimport={proj.hasPlaces ? (id) => void proj.importPlaceOutlets(id) : undefined}
+					onsheetrename={(rowId, t) => proj.renameSheet(rowId.slice(2), t)} onsheetarchive={(rowId) => proj.archiveSheet(rowId.slice(2))}
+					onaddbuilding={(n) => proj.src?.addBuilding(n).catch((e) => { toast(`Couldn't add the building: ${e?.message ?? e}`); return false }) ?? Promise.resolve(false)}
+					onmovefloor={(f, b) => proj.src?.moveFloor(f, b).catch((e) => toast(`Couldn't move the floor: ${e?.message ?? e}`))}
+					onmovebuilding={(n, t, after) => proj.src?.moveBuilding(n, t, after).catch((e) => toast(`Couldn't reorder: ${e?.message ?? e}`))}
 					onopen={navOpen} onopenfloor={openFloorModel} oncollapse={() => (leftOpen = false)} onselectnode={navSelect} reveal={treeReveal}
 					activeDoc={active?.docId ?? ''} activeNode={session.treeNode?.id ?? ''} />
 			</aside>
@@ -1520,11 +1176,11 @@
 					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (active) updateEnt(active.id, e) }}
 						onarrange={(op) => { if (active) reorderEnts(active.id, activeEntIds(), op) }}
 						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''}
-						onpagetitle={(t) => { if (!active || !t.trim()) return; const sid = sheetIdOf(active.docId); if (sid) renameSheet(sid, t); else active.title = t.trim() }} {activeLayer} node={session.treeNode} {nodeInfo} onnodefield={setNodeField}
+						onpagetitle={(t) => { if (!active || !t.trim()) return; const sid = sheetIdOf(active.docId); if (sid) proj.renameSheet(sid, t); else active.title = t.trim() }} {activeLayer} node={session.treeNode} nodeInfo={proj.nodeInfo} onnodefield={proj.setNodeField}
 						modelObj={selModelObj} modelLayers={modelById(activeMid())?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} onmodelseg={updateModelSeg}
 						frameObj={selFrameObj} onframefit={fitSelectedFrame}
-						sheetInfo={activeSheetInfo} onsheetfield={setSheetField}
-						titleBlock={pagesStore?.project?.titleBlock} ontitleblock={pagesStore && hasPlaces ? (t: TitleBlockTemplate) => pagesStore!.saveTitleBlock(t) : undefined}
+						sheetInfo={proj.activeSheetInfo} onsheetfield={proj.setSheetField}
+						titleBlock={proj.store?.project?.titleBlock} ontitleblock={proj.store && proj.hasPlaces ? (t: TitleBlockTemplate) => proj.store!.saveTitleBlock(t) : undefined}
 						modelList={models.map((m) => ({ id: m.id, name: m.name }))}
 						activeFrameId={active && activeVpOf(active.id) !== active.id ? (activeVpOf(active.id) ?? undefined) : undefined} scaleN={propsScaleN}
 						onframeupdate={(patch) => { if (active && selFrameId) { ensureHist(active.id); updateFrame(active.id, selFrameId, patch as Partial<SheetFrame>); commitFrame(active.id, 'Edit viewport') } }}
