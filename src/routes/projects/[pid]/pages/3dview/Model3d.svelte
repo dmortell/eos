@@ -12,11 +12,13 @@
 	// `weight`), so lineweight is a paper property independent of the drawing scale/zoom.
 	import { project, objBounds, faces3d, isoR, isoDepthR, trimToClip, doorGeom, isoBounds, viewMap, DEFAULT_YAW, DEFAULT_PITCH } from './projection'
 	import { BASIS } from './types'
+	import { storeyMap } from './storeyMap'
 	import { dashArray } from '../ui/annotations'
 	import type { Model, Obj, Dir, Clip } from './types'
 
-	let { model, adapt, frozen = [], dir = 'plan', cx = 0, cy = 0, ground = 0, defaultWeight = 1, selIds = [], canvasZoom = 1, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH }:
-		{ model: Model; /** B31: dark model space colour mapping (ui/modelSpace.ts `onDark`) */ adapt?: (c: string) => string; /** VP Freeze: layer ids hidden in this viewport only */ frozen?: string[]; dir?: Dir; cx?: number; cy?: number; ground?: number; defaultWeight?: number; selIds?: string[]; canvasZoom?: number; clip?: Clip | null; yaw?: number; pitch?: number } = $props()
+	let { model, adapt, frozen = [], dir = 'plan', cx = 0, cy = 0, ground = 0, defaultWeight = 1, selIds = [], canvasZoom = 1, clip = null, yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, showStoreys = undefined }:
+		{ model: Model; /** B31: dark model space colour mapping (ui/modelSpace.ts `onDark`) */ adapt?: (c: string) => string; /** VP Freeze: layer ids hidden in this viewport only */ frozen?: string[]; dir?: Dir; cx?: number; cy?: number; ground?: number; defaultWeight?: number; selIds?: string[]; canvasZoom?: number; clip?: Clip | null; yaw?: number; pitch?: number
+			/** A building elevation showing only these storeys (a riser drawing's floors); undefined = all. */ showStoreys?: string[] } = $props()
 	// Plan/elevation use a true section cut (`trimToClip`, applied per object in the render passes below):
 	// walls/conduits keep only the segments inside the box, prisms pass through whole. This AABB-overlap
 	// test is kept only for the iso pass (a quick cull; iso normally has no clip).
@@ -41,13 +43,32 @@
 	// BUILDING STOREYS (a building model is the source of truth for levels — drawings-plan): in an elevation each
 	// storey's floor datum is a dashed line across the model's horizontal extent (+ a margin), named at its left.
 	const STOREY_COL = '#94a3b8'
-	const storeyLines = $derived.by(() => {
-		if (dir === 'plan' || dir === 'iso' || !model.storeys?.length) return []
+	// A riser drawing shows only SOME floors: hidden storeys collapse to a break gap (storeyMap.ts). `sm` maps a
+	// model z to the drawn one; `mv` applies it to a projected elevation height (v = vs·z).
+	const sm = $derived(dir !== 'plan' && dir !== 'iso' && model.storeys?.length && showStoreys ? storeyMap(model.storeys, showStoreys) : null)
+	const vsOf = $derived(dir !== 'plan' && dir !== 'iso' ? BASIS[dir].vs : 1)
+	const mv = (pts: { u: number; v: number }[]) => (sm ? pts.map((p) => ({ u: p.u, v: vsOf * sm!.map(vsOf * p.v) })) : pts)
+	const inHiddenFloors = (o: Obj) => { if (!sm) return false; const b = objBounds(o); return sm.hidden(b.z0, b.z1) }
+	const uSpan = $derived.by(() => {
+		if (dir === 'plan' || dir === 'iso') return null
 		const b = BASIS[dir]
 		let u0 = Infinity, u1 = -Infinity
 		for (const o of model.objects) { const bb = objBounds(o); for (const c of b.h === 'x' ? [bb.x0, bb.x1] : [bb.y0, bb.y1]) { u0 = Math.min(u0, b.hs * c); u1 = Math.max(u1, b.hs * c) } }
-		if (!isFinite(u0)) { u0 = 0; u1 = 10000 }
-		return model.storeys.map((s) => ({ id: s.id, name: s.name, v: b.vs * s.z, u0: u0 - 1500, u1: u1 + 500 }))
+		return isFinite(u0) ? { u0: u0 - 1500, u1: u1 + 500 } : { u0: -1500, u1: 10500 }
+	})
+	const storeyLines = $derived.by(() => {
+		if (!uSpan || !model.storeys?.length) return []
+		const b = BASIS[dir as keyof typeof BASIS], shown = sm ? sm.shown : model.storeys
+		return shown.map((s) => ({ id: s.id, name: s.name, v: b.vs * (sm ? sm.map(s.z) : s.z), ...uSpan }))
+	})
+	// a zigzag across each collapsed run of floors (the Risers tool's compression break)
+	const breakMarks = $derived.by(() => {
+		if (!sm || !uSpan) return []
+		return sm.gaps.map((g) => {
+			const pts: string[] = [], mid = (g.z0 + g.z1) / 2, amp = (g.z1 - g.z0) / 4
+			for (let u = uSpan.u0, i = 0; u <= uSpan.u1; u += 400, i++) pts.push(`${u},${vsOf * (mid + (i % 2 ? amp : -amp))}`)
+			return pts.join(' ')
+		})
 	})
 	// Iso SOLID / hidden-line render: every visible object's 3D faces, projected and sorted back-to-front
 	// (painter's algorithm) so nearer faces paint over farther ones — a filled white face occludes what's
@@ -149,18 +170,21 @@
 		<!-- the group is y-flipped (v up): flip the name back upright, just above the line -->
 		<text transform="translate({s.u0} {s.v + 120}) scale(1 -1)" font-size="400" fill={col} class="storey-name">{s.name}</text>
 	{/each}
+	{#each breakMarks as pts, i (i)}
+		<polyline points={pts} fill="none" stroke={adapt ? adapt(STOREY_COL) : STOREY_COL} stroke-width={1 / (canvasZoom || 1)} vector-effect="non-scaling-stroke" />
+	{/each}
 	<!-- Pass 1: everything except openings. Under a section clip each object is TRIMMED to the box (a
 	     true cut — walls/conduits keep only the segments inside), not just AABB-culled. -->
 	{#each model.objects as o (o.id)}
 		{@const to = clip ? trimToClip(o, clip) : o}
-		{#if to && visible(o) && !isOpening(o)}
+		{#if to && visible(o) && !isOpening(o) && !inHiddenFloors(o)}
 			{@const col = colorOf(o)}
 			{@const lw = weightOf(o)}
 			{#each project(to, dir, yaw, pitch, cx, cy) as s, i (i)}
 				{#if s.closed}
-					<polygon points={s.pts.map((p) => `${p.u},${p.v}`).join(' ')} fill="none" stroke={col} stroke-width={lw} stroke-dasharray={dashOf(o)} vector-effect="non-scaling-stroke" />
+					<polygon points={mv(s.pts).map((p) => `${p.u},${p.v}`).join(' ')} fill="none" stroke={col} stroke-width={lw} stroke-dasharray={dashOf(o)} vector-effect="non-scaling-stroke" />
 				{:else}
-					<polyline points={s.pts.map((p) => `${p.u},${p.v}`).join(' ')} fill="none" stroke={col} stroke-width={lw} stroke-dasharray={dashOf(o)} vector-effect="non-scaling-stroke" />
+					<polyline points={mv(s.pts).map((p) => `${p.u},${p.v}`).join(' ')} fill="none" stroke={col} stroke-width={lw} stroke-dasharray={dashOf(o)} vector-effect="non-scaling-stroke" />
 				{/if}
 			{/each}
 		{/if}
@@ -169,11 +193,11 @@
 	     solid frame outlines the door/window. Painted after pass 1 so it cuts through the wall lines. -->
 	{#each model.objects as o (o.id)}
 		{@const to = clip ? trimToClip(o, clip) : o}
-		{#if to && visible(o) && isOpening(o)}
+		{#if to && visible(o) && isOpening(o) && !inHiddenFloors(o)}
 			{@const col = colorOf(o)}
 			{@const lw = weightOf(o)}
 			{#each project(to, dir, yaw, pitch, cx, cy) as s, i (i)}
-				<polygon points={s.pts.map((p) => `${p.u},${p.v}`).join(' ')} class="hole" stroke={col} stroke-width={lw} vector-effect="non-scaling-stroke" />
+				<polygon points={mv(s.pts).map((p) => `${p.u},${p.v}`).join(' ')} class="hole" stroke={col} stroke-width={lw} vector-effect="non-scaling-stroke" />
 			{/each}
 			<!-- Pass 3: door swing / window glazing on top of the gap (plan only; elevation shows the gap). -->
 			{#each openingExtras(to, dir) as pl, i (`x${i}`)}

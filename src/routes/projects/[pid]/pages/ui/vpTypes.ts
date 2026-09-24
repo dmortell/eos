@@ -35,6 +35,8 @@ export type VpProps = {
 	frameId?: string; modelId?: import('../3dview/types').ModelId
 	/** An imported frame's unmapped Sheets source (SheetFrame.source) — shown instead of any model. */
 	unmapped?: string
+	/** A building elevation's visible storeys (SheetFrame.storeys); undefined = all. */
+	storeys?: string[]
 	/** In split view only the focused pane's instance handles keys and drives the shared status line. */
 	focused?: boolean
 	entities?: Ent[]; view?: View; clip?: Clip | null; yaw?: number; pitch?: number

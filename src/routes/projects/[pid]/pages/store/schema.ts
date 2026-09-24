@@ -70,6 +70,8 @@ export type SheetFrameDoc = {
 	border: 'dashed' | 'solid' | 'none'
 	/** An imported frame's unmapped Sheets source (types.ts SheetFrame.source). */
 	source?: string
+	/** The storeys a building elevation shows (types.ts SheetFrame.storeys). */
+	storeys?: string[]
 }
 
 export type SheetKind = 'plan' | 'elevation' | 'schematic' | 'detail' | 'schedule'

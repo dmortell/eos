@@ -245,7 +245,11 @@ export class PagesProject {
 		const p = this.src?.project as { buildingFloors?: { bottom: number; top: number }; skippedFloors?: number[]; floors?: unknown } | null
 		if (p?.buildingFloors) return { ...p.buildingFloors, skipped: p.skippedFloors }
 		const ns = normFloors(this.src?.project?.floors).map((f) => f.number)
-		return ns.length ? { bottom: Math.min(...ns), top: Math.max(...ns), skipped: p?.skippedFloors } : null
+		if (!ns.length) return null
+		const bottom = Math.min(...ns), top = Math.max(...ns)
+		// no explicit extent: a range crossing ground level without a listed 0 has no GF (B1F → 1F)
+		const skipped = p?.skippedFloors ?? (bottom < 0 && top > 0 && !ns.includes(0) ? [0] : undefined)
+		return { bottom, top, skipped }
 	}
 	/** The stack a building place uses: its own, else the project's. */
 	stackOf = (placeId: string) => this.store?.places.find((p) => p.id === placeId)?.floors ?? this.#projectStack()
@@ -633,7 +637,7 @@ export class PagesProject {
 		const db = this.#h.db, ps = this.store; if (!db || !ps || ps.status !== 'ready') return ['Still loading — try again in a moment']
 		const d = (await db.getOne('risers', riserId)) as unknown as (RisersDocIn & { name?: string }) | null
 		if (!d) return [`Riser ${riserId} not found`]
-		const floors = riserFloors(d)
+		const floors = riserFloors(d, this.#projectStack()?.skipped ?? [])
 		const floorPlaces = ps.places.filter((p) => p.legacy?.floor != null && p.legacy.area == null && p.legacy.room == null && p.legacy.row == null && floors.includes(p.legacy.floor))
 		const home = floorPlaces.length > 1 ? commonAncestor(ps.places, floorPlaces) : floorPlaces[0]?.parentId ? ps.places.find((p) => p.id === floorPlaces[0].parentId) ?? null : null
 		if (!home) return ['No place holds these floors — set up places first (the building model needs one)']
@@ -641,7 +645,8 @@ export class PagesProject {
 		if (!m) return ["Couldn't create the building model"]
 		// storeys for the building's WHOLE stack (its floors, else the project's) — plus the riser's own if outside it
 		const st = this.stackOf(home.id)
-		const all = [...new Set([...(st ? stackFloors(st) : []), ...floors])].sort((a, b) => a - b)
+		const skip = new Set(st?.skipped ?? [])
+		const all = [...new Set([...(st ? stackFloors(st) : []), ...floors.filter((n) => !skip.has(n))])].sort((a, b) => a - b)
 		const r = risersToBuilding(d, all)
 		this.#h.ensureHist()
 		const merged = mergeRisers($state.snapshot(m) as Model, r)

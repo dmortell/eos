@@ -30,6 +30,9 @@ export type SheetFrame = {
 	/** Imported from the Sheets tool (drawings-plan phase 8) with NO Pages model to show yet: what it showed there
 	 *  (e.g. "racks · …_F33_RA"). The frame renders a "Not mapped yet" placeholder, never the place model. */
 	source?: string
+	/** A building elevation showing only these storeys (a riser drawing's floors — the Risers tool's "Visible");
+	 *  unset = every floor. Hidden floors collapse to a break (3dview/storeyMap.ts). */
+	storeys?: string[]
 }
 
 /** Drawing scales offered in the scale pickers (viewport bar + Properties). */

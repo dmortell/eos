@@ -172,6 +172,12 @@ export function importSheetDoc(src: SheetDoc, ctx: ImportCtx): SheetImportResult
 			const fit = fitFrame(bm.objects, 'front', { w: vp.w, h: vp.h })
 			f.modelId = bm.id; f.direction = 'front'
 			if (fit) { f.scale = `1:${fit.n}`; f.view = fit.view }
+			// the viewport's floor range → the frame's visible storeys (ids `st-F<n>`, risersImport.ts)
+			if (s.kind === 'risers' && s.fromFloor != null && s.toFloor != null && bm.storeys?.length) {
+				const lo = Math.min(s.fromFloor, s.toFloor), hi = Math.max(s.fromFloor, s.toFloor)
+				const vis = bm.storeys.filter((st) => { const n = parseInt(st.id.replace('st-F', ''), 10); return n >= lo && n <= hi }).map((st) => st.id)
+				if (vis.length && vis.length < bm.storeys.length) f.storeys = vis
+			}
 			if (vp.annotations?.length) notes.push(`${where}: its ${vp.annotations.length} annotation${vp.annotations.length === 1 ? '' : 's'} were not imported (elevation annotations aren't mapped yet)`)
 		} else if (m) {
 			const { n: raw, centre } = outletsView(vp, planBounds(m)), n = Math.max(1, Math.round(raw))   // the frame renders at the rounded 1:N

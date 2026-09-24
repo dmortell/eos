@@ -26,6 +26,7 @@ export function frameToDoc(f: SheetFrame, seq: number, vs: FrameViewState = {}):
 	if (f.frozen?.length) d.frozen = [...f.frozen]
 	if (f.locked) d.locked = true
 	if (f.source) d.source = f.source
+	if (f.storeys) d.storeys = [...f.storeys]
 	if (vs.view) d.view = { ...vs.view }
 	if (vs.yaw != null) d.yaw = vs.yaw
 	if (vs.pitch != null) d.pitch = vs.pitch
@@ -42,6 +43,7 @@ export function docToFrame(d: SheetFrameDoc): { frame: SheetFrame; view: FrameVi
 	if (d.frozen?.length) frame.frozen = [...d.frozen]
 	if (d.locked) frame.locked = true
 	if (d.source) frame.source = d.source
+	if (d.storeys) frame.storeys = [...d.storeys]
 	return { frame, view: { view: d.view, yaw: d.yaw, pitch: d.pitch } }
 }
 

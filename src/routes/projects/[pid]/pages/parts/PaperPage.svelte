@@ -249,7 +249,7 @@
 				{@const fa = isFrameActive(f.id)}
 				<div class="vp-frame" class:selected={selFrame === f.id && !fa} class:active={fa}
 					style="left:{f.x}px; top:{f.y}px; width:{f.w}px; height:{f.h}px">
-					<Viewport kind={frameKind(f.proj)} label={f.label} scale={f.scale} active={fa} {focused} {tool} env={frameEnv} on={fon} editor={feditor} border={f.border} frameId={f.id} frozen={f.frozen} modelId={f.modelId ?? tabModelId} unmapped={f.source}
+					<Viewport kind={frameKind(f.proj)} label={f.label} scale={f.scale} active={fa} {focused} {tool} env={frameEnv} on={fon} editor={feditor} border={f.border} frameId={f.id} frozen={f.frozen} modelId={f.modelId ?? tabModelId} unmapped={f.source} storeys={f.storeys}
 						entities={f.source ? [] : entsForModel ? entsForModel(f.modelId ?? tabModelId) : entities} view={frameView(f.id, f.proj)} clip={f.clip} yaw={frameOrbit(f.id, f.proj).yaw} pitch={frameOrbit(f.id, f.proj).pitch}
 						boxW={f.w} boxH={f.h} />
 					{#if !fa}

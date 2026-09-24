@@ -16,13 +16,15 @@ const doc: RisersDocIn = {
 }
 
 describe('Risers import', () => {
-	it("covers every floor in the riser's range (no floor 0)", () => {
+	it("covers every floor in the riser's range; 0 (GF) only when not skipped", () => {
 		expect(riserFloors({ fromFloor: 2, toFloor: 4 })).toEqual([2, 3, 4])
-		expect(riserFloors({ fromFloor: 1, toFloor: -2 })).toEqual([-2, -1, 1])
+		expect(riserFloors({ fromFloor: 1, toFloor: -2 })).toEqual([-2, -1, 0, 1])
+		expect(riserFloors({ fromFloor: 1, toFloor: -2 }, [0])).toEqual([-2, -1, 1])
 		expect(riserFloors(doc)).toHaveLength(22)
 	})
-	it("a building's stack: bottom…top without skipped floors or 0; re-stacking keeps a storey's heights", () => {
-		expect(stackFloors({ bottom: -2, top: 5, skipped: [4] })).toEqual([-2, -1, 1, 2, 3, 5])
+	it("a building's stack: bottom…top without skipped floors; re-stacking keeps a storey's heights", () => {
+		expect(stackFloors({ bottom: -2, top: 5, skipped: [0, 4] })).toEqual([-2, -1, 1, 2, 3, 5])
+		expect(stackFloors({ bottom: -1, top: 1 })).toEqual([-1, 0, 1])   // a GF
 		const tall = riserStoreys(doc, [32, 33])   // 33F has a 3000 clear height
 		const re = restack([31, 32, 33], tall)
 		expect(re.map((s) => [s.name, s.z])).toEqual([['31F', 0], ['32F', 3800], ['33F', 7600]])

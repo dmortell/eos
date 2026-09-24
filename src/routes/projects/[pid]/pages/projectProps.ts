@@ -6,7 +6,9 @@
 import { buildingOf, buildProjectTree, normFloors, racksDocId, floorName, OTHER_BUILDING, type FloorConfig, type TreeInput, type ProjectDoc } from './projectTree'
 
 export type NodeField = { key: string; label: string; value: string; edit?: 'text' | 'textarea'; hint?: string }
-export type NodeInfo = { kind: 'project' | 'building' | 'floor' | 'zone' | 'room' | 'row' | 'place'; title: string; sections: { label: string; fields: NodeField[] }[]; note?: string }
+export type NodeInfo = { kind: 'project' | 'building' | 'floor' | 'zone' | 'room' | 'row' | 'place'; title: string
+	/** `hint` = help text shown under the section's fields. */
+	sections: { label: string; hint?: string; fields: NodeField[] }[]; note?: string }
 /** The extra project fields the Properties panel shows (lib/types/project.ts). */
 export type ProjectFull = ProjectDoc & { description?: string; clientCode?: string; projectCode?: string; author?: string; members?: string[]; createdAt?: unknown; updatedAt?: unknown }
 

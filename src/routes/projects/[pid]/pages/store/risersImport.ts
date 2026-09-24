@@ -33,19 +33,20 @@ export const RISER_LAYERS: Layer[] = [
 ]
 const ROOM_DEPTH = 2000   // the elevation has no depth: rooms get a nominal one
 const storeyId = (n: number) => `st-F${n}`
-export const floorLabel = (n: number) => (n < 0 ? `B${-n}F` : `${n}F`)
+/** 0 = the ground floor ("GF"); a building without one lists 0 as skipped (the Risers tool's convention). */
+export const floorLabel = (n: number) => (n < 0 ? `B${-n}F` : n === 0 ? 'GF' : `${n}F`)
 
 /** The floors a riser covers: EVERY floor in its range — a building's floors are contiguous even where the
- *  project lists only some (the storey heights must stack through the unlisted ones). No floor 0 (B1F → 1F). */
-export function riserFloors(d: Pick<RisersDocIn, 'fromFloor' | 'toFloor'>): number[] {
-	const lo = Math.min(d.fromFloor, d.toFloor), hi = Math.max(d.fromFloor, d.toFloor)
-	return Array.from({ length: hi - lo + 1 }, (_, i) => lo + i).filter((n) => n !== 0)
+ *  project lists only some (the storey heights must stack through the unlisted ones) — minus `skipped`. */
+export function riserFloors(d: Pick<RisersDocIn, 'fromFloor' | 'toFloor'>, skipped: number[] = []): number[] {
+	return stackFloors({ bottom: d.fromFloor, top: d.toFloor, skipped })
 }
 
-/** A building's floors from its stack: `bottom`…`top` without the skipped ones and 0 (B1F → 1F). */
+/** A building's floors from its stack: `bottom`…`top` without the skipped ones. 0 is the ground floor (GF) —
+ *  a building with none (B1F → 1F, usual in Japan) lists 0 as skipped, like the Risers tool. */
 export function stackFloors(s: { bottom: number; top: number; skipped?: number[] }): number[] {
 	const lo = Math.min(s.bottom, s.top), hi = Math.max(s.bottom, s.top), skip = new Set(s.skipped ?? [])
-	return Array.from({ length: hi - lo + 1 }, (_, i) => lo + i).filter((n) => n !== 0 && !skip.has(n))
+	return Array.from({ length: hi - lo + 1 }, (_, i) => lo + i).filter((n) => !skip.has(n))
 }
 const storeyOf = (n: number, h: FloorHeights): Omit<Storey, 'z'> => ({ id: storeyId(n), name: floorLabel(n), slab: h.slabMm, floorSlab: 0,
 	raisedFloor: h.raisedFloorMm, ceilingTile: h.raisedFloorMm + h.clearHeightMm, ceilingSlab: h.raisedFloorMm + h.clearHeightMm + h.plenumMm })

@@ -19,7 +19,7 @@
 	let { ents = [], onupdate, onarrange, pageTitle = '', pageKind = '', activeLayer = '', node = null, onpagetitle,
 		modelObj = null, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg,
 		frameObj = null, onframeupdate, onframedelete, onframefit, nodeInfo = null, onnodefield, modelList = [], activeFrameId = undefined, scaleN = 1,
-		sheetInfo = null, onsheetfield, titleBlock = undefined, ontitleblock }:
+		sheetInfo = null, onsheetfield, titleBlock = undefined, ontitleblock, frameStoreys = [] }:
 		{ ents?: Ent[]; onupdate?: (e: Ent) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void;
 			pageTitle?: string; pageKind?: string; activeLayer?: string; onpagetitle?: (title: string) => void;
 			node?: { id: string; label: string; kind: string; floorNumber?: number; building?: string } | null;
@@ -36,6 +36,8 @@
 			sheetInfo?: { number: string; drawnBy: string; drawnDefault: string } | null; onsheetfield?: (key: 'drawingNumber' | 'drawnBy', value: string) => void
 			/** The PROJECT's title-block template (edited on a sheet page; undefined = the default). The editor shows
 			 *  only with `ontitleblock` (a project with Pages data). */
+			/** The selected frame's model storeys (a building) — its FLOORS checklist in an elevation. */
+			frameStoreys?: { id: string; name: string }[]
 			titleBlock?: TitleBlockTemplate; ontitleblock?: (t: TitleBlockTemplate) => void } = $props()
 	// R4 (review.md §R4, Dave's decision 2026-09-23): a prism is CALLED "Box" in the UI — the data/code keep
 	// `type: 'prism'` unchanged, this is a display label only.
@@ -175,6 +177,20 @@
 				<option value="solid">Solid</option><option value="dashed">Dashed</option><option value="none">None</option>
 			</select>
 		</div>
+		<!-- a riser drawing: which floors this building elevation shows (the rest collapse to a break) -->
+		{#if frameStoreys.length && frameObj.proj !== 'plan' && frameObj.proj !== 'iso'}
+			{@const shown = new Set(frameObj.storeys ?? frameStoreys.map((s) => s.id))}
+			<div class="prop-sec">FLOORS<span class="sec-hint">hidden floors collapse to a break</span>
+				<button class="pp-mini sec-btn" onclick={() => onframeupdate?.({ storeys: undefined })}>All</button></div>
+			<div class="pp-floors">
+				{#each [...frameStoreys].reverse() as s (s.id)}
+					<label><input type="checkbox" checked={shown.has(s.id)} onchange={(e) => {
+						const on = (e.currentTarget as HTMLInputElement).checked, next = frameStoreys.map((x) => x.id).filter((id) => (id === s.id ? on : shown.has(id)))
+						onframeupdate?.({ storeys: next.length === frameStoreys.length ? undefined : next })
+					}} />{s.name}</label>
+				{/each}
+			</div>
+		{/if}
 		<!-- XP26: frame position / size in PAPER MM (stored as paper px); XP22: a locked frame can't move -->
 		<div class="prop-sec">FRAME · mm</div>
 		<label class="prop cb"><span>Lock</span><input type="checkbox" checked={!!frameObj.locked} onchange={(e) => onframeupdate?.({ locked: (e.currentTarget as HTMLInputElement).checked || undefined })} /></label>
@@ -300,6 +316,7 @@
 						<div class="prop"><span>{f.label}</span><div class="pp-val" title={f.value}>{f.value}</div></div>
 					{/if}
 				{/each}
+				{#if sec.hint}<div class="sec-help">{sec.hint}</div>{/if}
 			{/each}
 			<div class="pp-hint">{nodeInfo.note ?? 'Edits save to the project in Firestore.'}</div>
 		{:else}
@@ -499,6 +516,12 @@
 	.prop input:focus, .prop select:focus { outline:none; border-color:var(--accent); }
 	.cb { cursor:pointer; }
 	.cb input { width:16px; height:16px; padding:0; justify-self:start; accent-color:var(--accent); }
+	.sec-btn { float:right; text-transform:none; letter-spacing:0; }
+	.pp-floors { display:grid; grid-template-columns:repeat(3, 1fr); gap:1px 6px; padding:2px 8px 4px; max-height:170px; overflow-y:auto; font-size:11px; color:var(--text); }
+	.pp-floors label { display:flex; align-items:center; gap:4px; cursor:pointer; }
+	.pp-floors input { accent-color:var(--accent); }
+	.sec-help { font-size:10px; color:var(--faint); line-height:1.4; padding:2px 6px 4px 74px; }
+	.sec-hint { margin-left:6px; text-transform:none; letter-spacing:0; font-size:10px; color:var(--muted); }
 	.pp-hint { font-size:10px; color:var(--faint); padding:10px 6px; line-height:1.4; }
 	.seg-row { display:flex; align-items:center; gap:5px; padding:1px 6px; }
 	.seg-row em { width:14px; font-style:normal; color:var(--faint); font-size:10px; text-align:right; }
