@@ -37,13 +37,15 @@
 	import { panzoom } from './ui/panzoom'
 	import { paperDims, scaleDenom, PAPER_PX_PER_MM, DEFAULT_MARGIN_MM, clampViewZoom, clampCanvasZoom, type PaperSize } from './constants'
 	import { PRINT_ID, printCss, applyPrint, removePrint } from './printing'
-	import { translate, type Ent, type ElevDir } from './ui/geometry'
-	import { models, modelById, floorModelId, FLOOR_MODEL_ID, snapModels, setModels } from './3dview/models.svelte'
+	import type { Ent, ElevDir } from './ui/geometry'
+	import { models, modelById, floorModelId, FLOOR_MODEL_ID } from './3dview/models.svelte'
 	import { nextFrameSeq } from './store/mappers'
 	import { getContext, untrack } from 'svelte'
 	import type { Firestore, Session as AuthSession } from '$lib'
 	import { findNodePath } from './projectTree'
 	import { PagesProject, sheetIdOf, SHEET } from './pagesProject.svelte'
+	import { WorkspaceHistory } from './history.svelte'
+	import { Clipboard, arrange, setGroup, type ArrangeOp } from './ui/clipboard'
 	import type { TitleBlockTemplate } from './titleBlock'
 	import { DEFAULT_YAW, DEFAULT_PITCH } from './3dview/projection'
 	import type { Model, ModelId, Section } from './3dview/types'
@@ -414,25 +416,14 @@
 	// Backed by viewState.svelte.ts (R2); `viewKey` re-exported there for anything that still needs the
 	// raw key string.
 	const viewOf = (paneId: string, viewId: string, proj: Proj) => viewState.getView(paneId, didOf(viewId), proj)
-	// A GESTURE (a drag or a nudge burst) should be ONE undo/history step: while a gesture is open,
-	// only the first mutation snapshots; the rest just update. Viewport signals begin/end.
-	// P3 short term: after the first mutation, a gesture only flags `gestureDirty`; its final state is folded
-	// into the step ONCE when the gesture ends (was a full snapshot of every model per pointer move).
-	let gestureActive = false, gesturePushed = false, gestureDirty = false
-	let gestureEndTimer: ReturnType<typeof setTimeout> | null = null
-	function beginGesture() { if (gestureEndTimer) { clearTimeout(gestureEndTimer); gestureEndTimer = null } gestureActive = true; ensureHist() }
-	function endGesture(debounceMs = 0) {
-		const finish = () => { if (gestureDirty) updateStep(); gestureActive = false; gesturePushed = false; gestureDirty = false; gestureEndTimer = null }
-		if (gestureEndTimer) { clearTimeout(gestureEndTimer); gestureEndTimer = null }
-		if (debounceMs) gestureEndTimer = setTimeout(finish, debounceMs); else finish()
-	}
-	// recordEdit runs AFTER the mutation and snapshots the new state onto the doc's timeline. During a
-	// gesture only the first mutation adds a step; the rest fold their final state into that step.
-	function recordEdit(id: string, label: string) {
-		promoteTab(id)
-		if (gestureActive) { if (!gesturePushed) { pushStep(id, label); gesturePushed = true } else gestureDirty = true }
-		else pushStep(id, label)
-	}
+	// The global UNDO timeline + gesture folding (a drag / nudge burst = one step) — history.svelte.ts. The
+	// aliases keep the call sites short: ensureHist before a mutation, recordEdit after it.
+	const timeline = new WorkspaceHistory({
+		markDirty: (id) => { const t = session.tabs.find((x) => x.id === id); if (t && !t.dirty) t.dirty = true },
+		promoteTab: (id) => promoteTab(id),
+	})
+	const { ensure: ensureHist, addDoc: addDocToHistory, addModel: addModelToHistory, push: pushStep, beginGesture, endGesture,
+		record: recordEdit, undo, redo, jump: jumpHistory } = timeline
 	// R5: a new entity lands on the active layer if this model has it (else Annotations — activeLayerIn).
 	function addEnt(id: string, e: Ent) { ensureHist(id); const mid = modelIdOf(id); const en = e.layer ? e : { ...e, layer: activeLayerIn(modelById(mid)?.layers ?? [])?.id }; setMdlEntsOf(mid, [...mdlEntsOf(mid), en]); recordEdit(id, 'Add ' + en.type) }
 	function updateEnt(id: string, e: Ent) { ensureHist(id); const mid = modelIdOf(id); setMdlEntsOf(mid, mdlEntsOf(mid).map(x => x.id === e.id ? e : x)); recordEdit(id, 'Edit ' + e.type) }
@@ -447,121 +438,38 @@
 	}
 	function deleteSelection() { const a2 = active, vid = activeSelViewId(); if (a2 && vid) deleteSelAt(a2.id, vid, { begin: beginGesture, mark: (l?: string) => modelEdit(a2.id, l), end: endGesture }) }
 
-	// ── clipboard + grouping ──
-	let clipboard: Ent[] = []   // snapshots; persists across tabs
-	let pasteN = 0
-	function copyEnts(id: string, ids: string[]) { const s = new Set(ids); clipboard = mdlEntsOf(modelIdOf(id)).filter(e => s.has(e.id)).map(e => $state.snapshot(e) as Ent); pasteN = 0 }
+	// ── clipboard, groups, draw order (the logic is ui/clipboard.ts; these apply it to a tab's model) ──
+	const clipboard = new Clipboard()   // plain snapshots; persists across tabs
+	function copyEnts(id: string, ids: string[]) { const s = new Set(ids); clipboard.copy(mdlEntsOf(modelIdOf(id)).filter(e => s.has(e.id)).map(e => $state.snapshot(e) as Ent)) }
 	function cutEnts(id: string, ids: string[]) { copyEnts(id, ids); deleteEnts(id, ids) }
 	function pasteEnts(id?: string): Ent[] | undefined {
-		if (!clipboard.length || !id) return
-		pasteN++
-		const off = 5 * propsScaleN * pasteN, gidMap = new Map<string, string>()   // B19: 5 PAPER mm per paste (model mm = paper mm × scale N), stacking
-		const copies = clipboard.map(e => {
-			let gid = e.groupId
-			if (gid) { if (!gidMap.has(gid)) gidMap.set(gid, newId()); gid = gidMap.get(gid) }
-			return { ...translate(e, off, off), id: newId(), groupId: gid }
-		})
+		if (clipboard.empty || !id) return
+		const copies = clipboard.paste(5 * propsScaleN, () => newId())   // B19: 5 PAPER mm per paste (model mm = paper mm × scale N), stacking
 		beginGesture(); copies.forEach(c => addEnt(id, c)); endGesture()
 		return copies
 	}
 	function groupEnts(id: string, ids: string[]) {
 		if (ids.length < 2) return
-		ensureHist(id); const mid = modelIdOf(id), gid = newId(), s = new Set(ids)
-		setMdlEntsOf(mid, mdlEntsOf(mid).map(e => s.has(e.id) ? { ...e, groupId: gid } : e))
+		ensureHist(id); const mid = modelIdOf(id)
+		setMdlEntsOf(mid, setGroup(mdlEntsOf(mid), ids, newId()))
 		recordEdit(id, 'Group')
 	}
 	function ungroupEnts(id: string, ids: string[]) {
-		ensureHist(id); const mid = modelIdOf(id), s = new Set(ids)
-		setMdlEntsOf(mid, mdlEntsOf(mid).map(e => s.has(e.id) ? { ...e, groupId: undefined } : e))
+		ensureHist(id); const mid = modelIdOf(id)
+		setMdlEntsOf(mid, setGroup(mdlEntsOf(mid), ids, undefined))
 		recordEdit(id, 'Ungroup')
 	}
-	// Draw order = array position (later = painted on top). Reorder the selection within the doc's
-	// array; front/back jump to the ends, forward/backward step past one non-selected neighbour.
-	function reorderEnts(id: string, ids: string[], op: 'front' | 'back' | 'forward' | 'backward') {
-		const mid = modelIdOf(id), arr = mdlEntsOf(mid), s = new Set(ids)
-		if (!ids.length || !arr.some(e => s.has(e.id))) return
+	function reorderEnts(id: string, ids: string[], op: ArrangeOp) {
+		const mid = modelIdOf(id), next = arrange(mdlEntsOf(mid), ids, op); if (!next) return
 		ensureHist(id)
-		let next: Ent[]
-		if (op === 'front' || op === 'back') {
-			const moved = arr.filter(e => s.has(e.id)), rest = arr.filter(e => !s.has(e.id))
-			next = op === 'front' ? [...rest, ...moved] : [...moved, ...rest]
-		} else {
-			next = [...arr]
-			if (op === 'forward') { for (let i = next.length - 2; i >= 0; i--) if (s.has(next[i].id) && !s.has(next[i + 1].id)) [next[i], next[i + 1]] = [next[i + 1], next[i]] }
-			else { for (let i = 1; i < next.length; i++) if (s.has(next[i].id) && !s.has(next[i - 1].id)) [next[i], next[i - 1]] = [next[i - 1], next[i]] }
-		}
 		setMdlEntsOf(mid, next)
 		recordEdit(id, 'Reorder')
 	}
 
-	// ── undo / redo / history / revisions ──
-	// Per-doc LINEAR timeline with a pointer (not two stacks) so the change log can show future
-	// (undone) steps and jump to any point. steps[0] is the baseline; each step snapshots the doc's
-	// entities AFTER that edit; ptr = the current step. Memory ≈ entities × up to 100 steps (mock; a
-	// real tool should be command/inverse-op based).
+	// ── mock revisions (replaced by real model versions + sheet revisions in drawings-plan phase 7) ──
 	type Snap = Ent[]   // a revision snapshots the model's entities (shared across all views)
-	// Each step also carries a snapshot of the shared 3D MODEL, so undo/redo restores model edits
-	// (move/resize prisms) alongside entity edits on the same timeline. The model is global (shared
-	// across docs), so it's captured on every step in whatever doc is active — a model edit made in
-	// another tab isn't on this doc's timeline (a known mock limitation; a global model history is the
-	// real fix). Entity-only edits capture the unchanged model, keeping ents + model consistent.
-	// Entities + guides now live in the MODEL, so `model` (snapModels) captures them — no separate `snap`.
-	// ONE global workspace timeline (B4). Entities/objects/guides/sections live in the shared models and
-	// every step snapshots ALL models + ALL tabs' frames, so undo is a single linear stack (AutoCAD/Kestrel
-	// style). Previously history was per-tab yet each step snapshotted all models, so an undo on one tab
-	// silently reverted edits made on another. The `id` args below are kept only to mark that tab dirty.
-	type HStep = { label: string; t: number; model: Model[]; frames: Record<string, SheetFrame[]> }
-	// $state.raw (P3): steps are immutable plain snapshots, replaced wholesale — never deep-proxied.
-	let hist = $state.raw<{ steps: HStep[]; ptr: number } | null>(null)
 	let revisions = $state<{ name: string; note: string; snap: Snap; t: number }[]>([])
 	const snapEnts = (): Snap => $state.snapshot(mdlEnts()) as Snap
-	const snapAllFrames = (): Record<string, SheetFrame[]> => $state.snapshot(docs.allFrames()) as Record<string, SheetFrame[]>
-	// Capture the baseline (pre-first-edit) state once, BEFORE anything is mutated.
-	function ensureHist(_id?: string) {
-		if (hist) return
-		hist = { steps: [{ label: 'Start', t: Date.now(), model: snapModels(), frames: snapAllFrames() }], ptr: 0 }
-	}
-	// A model that enters the registry AFTER history began (created, or loaded from Firestore) joins every existing
-	// step in its initial state, so undoing past its first edit returns it to that state (setModels restores by id).
-	function addDocToHistory(did: string) {
-		const h = hist; if (!h) return
-		const frames = $state.snapshot(docs.framesOf(did)) as SheetFrame[]
-		hist = { ...h, steps: h.steps.map((st) => (did in st.frames ? st : { ...st, frames: { ...st.frames, [did]: frames } })) }
-	}
-	function addModelToHistory(m: Model) {
-		const h = hist; if (!h) return
-		const snap = $state.snapshot(m) as Model
-		hist = { ...h, steps: h.steps.map((s) => (s.model.some((x) => x.id === m.id) ? s : { ...s, model: [...s.model, snap] })) }
-	}
-	function pushStep(id: string, label: string) {
-		const t = session.tabs.find(x => x.id === id); if (t && !t.dirty) t.dirty = true   // any edit marks its tab dirty
-		ensureHist(); const h = hist!
-		const steps = h.steps.slice(0, h.ptr + 1)   // drop the redo tail (a new edit forks the future)
-		steps.push({ label, t: Date.now(), model: snapModels(), frames: snapAllFrames() })
-		while (steps.length > 100) steps.shift()
-		hist = { steps, ptr: steps.length - 1 }
-	}
-	function updateStep(_id?: string) {   // fold a gesture's latest state into its already-open step
-		const h = hist; if (!h) return
-		const steps = h.steps.slice(); steps[h.ptr] = { ...steps[h.ptr], model: snapModels(), frames: snapAllFrames(), t: Date.now() }
-		hist = { ...h, steps }
-	}
-	function applyPtr() {
-		const h = hist; if (!h) return
-		setModels(h.steps[h.ptr].model)   // restore all models (entities + guides + sections + 3D objects)
-		docs.restoreFrames($state.snapshot(h.steps[h.ptr].frames) as Record<string, SheetFrame[]>)   // restore every tab's frames
-	}
-	// A gesture's deferred fold (P3) must land before the pointer moves, or it would overwrite the step undo lands on.
-	function flushGesture() { if (gestureDirty) { updateStep(); gestureDirty = false } }
-	function undo() { flushGesture(); const h = hist; if (!h || h.ptr <= 0) return; hist = { ...h, ptr: h.ptr - 1 }; applyPtr() }
-	function redo() { flushGesture(); const h = hist; if (!h || h.ptr >= h.steps.length - 1) return; hist = { ...h, ptr: h.ptr + 1 }; applyPtr() }
-	function jumpHistory(i: number) { flushGesture(); const h = hist; if (!h || i < 0 || i >= h.steps.length || i === h.ptr) return; hist = { ...h, ptr: i }; applyPtr() }
-	// Workspace change log, newest first, tagged past / current / future (undone).
-	let changeLog = $derived.by(() => {
-		const h = hist
-		if (!h) return [] as { label: string; t: number; i: number; kind: 'past' | 'current' | 'future' }[]
-		return h.steps.map((s, i) => ({ label: s.label, t: s.t, i, kind: (i === h.ptr ? 'current' : i > h.ptr ? 'future' : 'past') as 'past' | 'current' | 'future' })).reverse()
-	})
 	// Absolute date for the titleblock — the latest revision's date, else today (mock).
 	const fmtDate = (t?: number) => new Date(t ?? Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 	let revSeq = 0
@@ -1186,7 +1094,7 @@
 						onframeupdate={(patch) => { if (active && selFrameId) { ensureHist(active.id); updateFrame(active.id, selFrameId, patch as Partial<SheetFrame>); commitFrame(active.id, 'Edit viewport') } }}
 						onframedelete={() => { if (active) deleteSelAt(active.id, active.id, { begin: beginGesture, mark: (l?: string) => modelEdit(active!.id, l), end: endGesture }) }} />
 				{:else}
-					<HistoryPanel log={changeLog} {revisions}
+					<HistoryPanel log={timeline.changeLog} {revisions}
 						onnote={(i, note) => (revisions[i].note = note)} onjump={jumpHistory}
 						onundo={undo} onredo={redo} onnewrevision={makeRevision} onrestore={(s) => restoreRevision(s as Snap)} />
 				{/if}

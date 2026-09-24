@@ -159,11 +159,6 @@
 	<div class="dn-head">
 		<span class="dn-title">DRAWINGS</span>
 		<div class="dn-acts">
-			{#if placesMode && onplaceadd}
-				<button title="New top-level place" aria-label="New place" onclick={() => addPlace(null)}><Icon name="home" size={14} /></button>
-			{:else if onaddbuilding && tree}
-				<button title="New building" aria-label="New building" onclick={() => { naming = true; newName = ''; nameErr = '' }}><Icon name="home" size={14} /></button>
-			{/if}
 			{#if ondrawings}<button title="Manage drawings (File › Drawings…)" aria-label="Manage drawings" onclick={() => ondrawings?.()}><Icon name="list" size={14} /></button>{/if}
 			<button title="New drawing" aria-label="New drawing"><Icon name="plus" size={14} /></button>
 			<button title="Filter" aria-label="Filter"><Icon name="settings" size={14} /></button>
@@ -174,11 +169,19 @@
 		<Icon name="search" size={12} />
 		<input placeholder="Search drawings…" bind:value={search} />
 	</div>
-	<button class="dn-project" class:active={activeNode === PROJ.id} onclick={() => onselectnode?.(PROJ)}
-		title="Project properties">
-		<Icon name="folderOpen" size={13} />
-		<span class="dn-name" title={PROJ.label}>{PROJ.label}</span>
-	</button>
+	<div class="dn-project-row">
+		<button class="dn-project" class:active={activeNode === PROJ.id} onclick={() => onselectnode?.(PROJ)}
+			title="Project properties">
+			<Icon name="folderOpen" size={13} />
+			<span class="dn-name" title={PROJ.label}>{PROJ.label}</span>
+		</button>
+		<!-- + beside the project: a new top-level place (places mode) / a new building (the old tree) -->
+		{#if placesMode && onplaceadd}
+			<button class="dn-proj-add" title="New top-level place" aria-label="New place" onclick={() => addPlace(null)}><Icon name="plus" size={13} /></button>
+		{:else if onaddbuilding && tree}
+			<button class="dn-proj-add" title="New building" aria-label="New building" onclick={() => { naming = true; newName = ''; nameErr = '' }}><Icon name="plus" size={13} /></button>
+		{/if}
+	</div>
 	{#if status}<div class="dn-status">{status}</div>{/if}
 	{#if onseedplaces && !placesMode}
 		<div class="dn-seed">
@@ -319,7 +322,11 @@
 	.dn-search input { flex:1; min-width:0; background:none; border:none; color:var(--text); font-size:12px; padding:5px 0; }
 	.dn-search input:focus { outline:none; }
 
-	.dn-project { display:flex; align-items:center; gap:6px; width:auto; margin:0 6px 2px; padding:6px 8px; border-radius:5px;
+	/* the project row: its button + the "+" (new top-level place / building) beside it */
+	.dn-project-row { display:flex; align-items:center; gap:2px; margin:0 6px 2px; }
+	.dn-proj-add { flex:none; display:grid; place-items:center; width:26px; align-self:stretch; border-radius:5px; border:1px solid var(--line); background:var(--panel2); color:var(--muted); cursor:pointer; }
+	.dn-proj-add:hover { background:var(--hover); color:var(--accent); }
+	.dn-project { flex:1; min-width:0; display:flex; align-items:center; gap:6px; padding:6px 8px; border-radius:5px;
 		color:var(--text); background:var(--panel2); border:1px solid var(--line); text-align:left; cursor:pointer; }
 	.dn-project:hover { background:var(--hover); }
 	.dn-project.active { background:var(--active); box-shadow:inset 2px 0 0 var(--accent); }
