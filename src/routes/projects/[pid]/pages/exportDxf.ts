@@ -15,7 +15,7 @@ import { project, viewMap, isoBounds, trimToClip, objBounds } from './3dview/pro
 import { storeyMap } from './3dview/storeyMap'
 import { GROUND, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, textBox, type Ent, type Pt, type ElevDir } from './ui/geometry'
 import { inThisView, rotCenter, rotatePt } from './ui/hit'
-import { lineLabelAt, groundPts } from './ui/annotations'
+import { lineLabelAt, groundPts, tileLines } from './ui/annotations'
 import { blockDef, byBlock, attrValue } from './ui/blocks'
 import { PT_MM } from './constants'
 import type { ViewCtx } from './ui/view'
@@ -124,6 +124,7 @@ function entToDxf(doc: DxfDoc, e: Ent, ctx: ViewCtx, P: (p: Pt) => [number, numb
 		case 'rect': case 'ellipse': {
 			const g = groundPts(e)   // the outline points (a rect's 4 corners / an ellipse's 32)
 			doc.poly(g.pts.map(T), { closed: true, layer })
+			if (e.type === 'rect' && e.tile) for (const [p, q] of tileLines(e.a!, e.b!, e.tile, e.tileOff)) doc.poly([T(p), T(q)], { layer })   // D2
 			return
 		}
 		case 'dim': {

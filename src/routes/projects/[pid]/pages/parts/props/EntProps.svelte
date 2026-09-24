@@ -145,6 +145,14 @@
 {#if single?.type === 'rect'}
 	<div class="prop-sec">RECT</div>
 	<label class="prop cb"><span>Revision cloud</span><input type="checkbox" checked={!!single.cloud} onchange={(e) => setAll({ cloud: (e.currentTarget as HTMLInputElement).checked })} /></label>
+	<!-- D2: a floor-tile grid inside the rect, aligned to the model origin (+ an offset) -->
+	<div class="prop"><span>Tile grid</span><input type="number" min="0" step="50" value={single.tile ?? 0} placeholder="off" title="Tile size (mm); 0 = no grid" onchange={(e) => setAll({ tile: num(e) > 0 ? num(e) : undefined })} /></div>
+	{#if single.tile}
+		<div class="vecrow">
+			<NumCell k="dX" v={single.tileOff?.[0] ?? 0} set={(n) => setAll({ tileOff: [n, single!.tileOff?.[1] ?? 0] })} />
+			<NumCell k="dY" v={single.tileOff?.[1] ?? 0} set={(n) => setAll({ tileOff: [single!.tileOff?.[0] ?? 0, n] })} />
+		</div>
+	{/if}
 {/if}
 {#if (single?.type === 'polyline' && (single.pts?.length ?? 0) === 2) || single?.type === 'dim'}
 	<!-- XP33: a head per end (arrow / dot / tick / none) — a 2-point line defaults to none, a dimension

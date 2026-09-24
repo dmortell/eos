@@ -1,5 +1,15 @@
 import { describe, it, expect } from 'vitest'
-import { centerCorners, orthoPt, constrainPt, arrowPts, cloudPath, groundPts, sectionArrowFor, headGeom, dashArray, lineLabelAt } from './annotations'
+import { centerCorners, orthoPt, constrainPt, arrowPts, cloudPath, groundPts, sectionArrowFor, headGeom, dashArray, lineLabelAt, tileLines } from './annotations'
+
+describe('tileLines (D2)', () => {
+	it('lines every tile from the shifted origin, inside the rect only; none for silly sizes', () => {
+		const l = tileLines([0, 0], [1300, 700], 600, [100, 0])
+		expect(l.filter((s) => s[0][0] === s[1][0]).map((s) => s[0][0])).toEqual([100, 700])
+		expect(l.filter((s) => s[0][1] === s[1][1]).map((s) => s[0][1])).toEqual([600])
+		expect(tileLines([0, 0], [1e6, 10], 1)).toEqual([])
+		expect(tileLines([0, 0], [10, 10], 0)).toEqual([])
+	})
+})
 
 describe('lineLabelAt', () => {
 	it('sits above the line at the start / middle (by length) / end, reading upright', () => {

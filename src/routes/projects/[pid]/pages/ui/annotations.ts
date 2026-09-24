@@ -79,6 +79,18 @@ export function lineLabelAt(pts: Pt[], pos: LabelPos | undefined, gap: number): 
 	return { p: [at[0] + nx * gap, at[1] + ny * gap], anchor, rot }
 }
 
+/** D2: a floor-tile grid's lines inside the a→b rect — every `tile` mm from the origin shifted by `off`, capped
+ *  at 400 lines a direction (a tiny tile on a huge rect draws nothing rather than freezing). */
+export function tileLines(a: Pt, b: Pt, tile: number, off: Pt = [0, 0]): [Pt, Pt][] {
+	if (!(tile > 0)) return []
+	const x0 = Math.min(a[0], b[0]), x1 = Math.max(a[0], b[0]), y0 = Math.min(a[1], b[1]), y1 = Math.max(a[1], b[1])
+	if ((x1 - x0) / tile > 400 || (y1 - y0) / tile > 400) return []
+	const out: [Pt, Pt][] = []
+	for (let x = Math.ceil((x0 - off[0]) / tile) * tile + off[0]; x < x1; x += tile) if (x > x0) out.push([[x, y0], [x, y1]])
+	for (let y = Math.ceil((y0 - off[1]) / tile) * tile + off[1]; y < y1; y += tile) if (y > y0) out.push([[x0, y], [x1, y]])
+	return out
+}
+
 /** SVG stroke-dasharray for a line type (XP32), in SCREEN px (strokes are non-scaling), ÷ the ancestor CSS
  *  canvas zoom like the lineweights. undefined = solid. */
 const DASHES: Record<Exclude<Dash, 'solid'>, number[]> = { dashed: [6, 4], dotted: [1, 3], dashdot: [8, 3, 1, 3] }

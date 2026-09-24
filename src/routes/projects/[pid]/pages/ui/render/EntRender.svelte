@@ -14,7 +14,7 @@
 	import { STYLE_DEFAULTS, textBox } from '../geometry'
 	import { PT_MM } from '../../constants'
 	import { isFlatElev, flatXSpan, rotCenter, rotatePt, groundInIso } from '../hit'
-	import { arrowPts, cloudPath, groundPts, headGeom, dashArray, lineLabelAt, type HeadGeom } from '../annotations'
+	import { arrowPts, cloudPath, groundPts, headGeom, dashArray, lineLabelAt, tileLines, type HeadGeom } from '../annotations'
 	import { imageSrc } from '../../imageStore'
 	import { pdfImageUrl, PDF_SRC } from './pdfRaster.svelte'
 	import { blockDef, byBlock, attrValue, attrColor } from '../blocks'
@@ -138,6 +138,8 @@
 		{:else}
 			<rect x={Math.min(e.a![0], e.b![0])} y={Math.min(e.a![1], e.b![1])} width={Math.abs(e.b![0] - e.a![0])} height={Math.abs(e.b![1] - e.a![1])} fill={fill} stroke={ink} stroke-width={w} stroke-dasharray={da} vector-effect="non-scaling-stroke" />
 		{/if}
+		<!-- D2: a floor-tile grid inside the rect -->
+		{#if e.tile}{#each tileLines(e.a!, e.b!, e.tile, e.tileOff) as [p, q], i (i)}<line x1={p[0]} y1={p[1]} x2={q[0]} y2={q[1]} stroke={ink} stroke-opacity="0.55" stroke-width={w * 0.6} vector-effect="non-scaling-stroke" />{/each}{/if}
 	{:else if e.type === 'ellipse'}
 		<ellipse cx={(e.a![0] + e.b![0]) / 2} cy={(e.a![1] + e.b![1]) / 2} rx={Math.abs(e.b![0] - e.a![0]) / 2} ry={Math.abs(e.b![1] - e.a![1]) / 2} fill={fill} stroke={ink} stroke-width={w} stroke-dasharray={da} vector-effect="non-scaling-stroke" />
 	{:else if e.type === 'dim'}

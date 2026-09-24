@@ -55,6 +55,11 @@ export type Ent = { id: string; type: 'rect' | 'ellipse' | 'dim' | 'text' | 'pol
 	dash?: Dash;
 	// CLOUD (rect): render the rectangle outline as a revision cloud (scalloped arcs). Firestore-stable.
 	cloud?: boolean;
+	// D2 FLOOR-TILE GRID (rect): grid lines every `tile` mm inside the rect, aligned to the model origin shifted by
+	// `tileOff` (so tiles line up with the building's real grid wherever the rect is). Firestore-stable.
+	tile?: number; tileOff?: Pt;
+	// D3 (insert): drawn mirrored left↔right (a door's hinge side). Firestore-stable.
+	mirror?: boolean;
 	// DIMENSION text offset: signed perpendicular distance (mm) of the measured-length text from the dim
 	// line; undefined = a small auto offset. Draggable via a grip. Firestore-stable.
 	dimOff?: number;
