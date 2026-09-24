@@ -12,8 +12,10 @@ is in-memory (Svelte 5 runes), no Firestore yet (§12 in `todo.md`).
 | `pagesProject.svelte.ts` | The PROJECT side (`PagesProject`, built by `+page` with a `ProjectHost`): the live Firestore data (`ProjectSource` + `store/pagesStore`), the navigator tree, places, place models + floorplans, the Outlets import, stored sheets, the title block, and the drawings dialog handlers. |
 | `projectImports.svelte.ts` | Phase-8 imports (`PagesProject.imports`): a Sheets-tool sheet / a register drawing → a Pages sheet, a Risers doc → the building model. |
 | `docEdit.svelte.ts` · `history.svelte.ts` | The document edits `+page` applies (entity CRUD, clipboard, groups, draw order, model-object edits, layer delete, delete-selection) and the global undo timeline. |
-| `store/` | Firestore schema + mappers, the debounced `DocSaver`, `PagesStore`, places / tree building, the Outlets import, the drawing list (dialog data + Excel export). All pure parts unit-tested. |
-| `titleBlock.ts` · `blocks.svelte.ts` (+ `ui/blocks.ts`) | The per-project title-block template + fill; the global block library (outlet symbols) and insert helpers. |
+| `store/` | Firestore schema + mappers, the debounced `DocSaver`, `PagesStore`, places / tree building, the Outlets / Racks imports, outlet → patch-panel allocation (`allocate.ts`), the drawing list + outlet schedule Excel exports. All pure parts unit-tested. |
+| `exportDxf.ts` | The active view → DXF (plan / elevations, frozen layers, clip, blocks exploded). |
+| `titleBlock.ts` · `blocks.svelte.ts` (+ `ui/blocks.ts`, `ui/legend.ts`) | The per-project title-block template + fill; the global block library (outlet + symbol blocks, the layer legend) and insert helpers. |
+| `ui/outletPlace.svelte.ts` · `ui/autoNumber.ts` · `ui/drawingDefaults.ts` · `ui/groupXf.ts` · `ui/floorplanLink.ts` · `ui/frameClip.ts` | Outlet placing (sticky defaults, next label, walk renumber); auto-numbering; project drawing defaults; the multi-selection transform box; the floorplan's live Uploads calibration; the frame clipboard. |
 | `parts/DrawingsDialog.svelte` · `TitleBlockEditor.svelte` | The drawing management dialog (sheets / archived / models); the title-block template editor. |
 | `ui/Viewport.svelte` | The canvas editor for ONE viewport — a 90-line shell: props, DOM event wiring, SVG skeleton. |
 | `ui/vpView.svelte.ts` · `ui/vpInteraction.svelte.ts` | The Viewport's view model (mapping, pan/zoom, ctx, layers, selection, picking, grips) and its pointer/key state machine (drafting, drags, marquee, text edit, image calibration). |
@@ -31,7 +33,7 @@ is in-memory (Svelte 5 runes), no Firestore yet (§12 in `todo.md`).
 | `guides.svelte.ts` | Alignment-guide helpers over a model's `guides` array. |
 | `imageEdit.svelte.ts` | Image-underlay calibration mode (origin / scale / crop). |
 | `palette.ts` | Colour swatches for the pickers. |
-| `3dview/` | The ported model engine: `types.ts` (Model/Obj/Prism/Wall/Conduit/Section/Guide/Dir), `projection.ts` (plan/elevation/iso projection + `prismRings`), `graph.ts` (node/segment graph), `models.svelte.ts` (the model registry store), `migrate.ts`, `Model3d.svelte` (renders the model in a viewport). |
+| `3dview/` | The ported model engine: `types.ts` (Model/Obj/Prism/Wall/Conduit/Section/Guide/Dir), `projection.ts` (plan/elevation/iso projection + `prismRings`), `graph.ts` (node/segment graph), `graphJoin.ts` (conduit merge / join), `connect.ts` (connection points conduit ends follow), `fill.ts` (cable fill), `models.svelte.ts` (the model registry store), `migrate.ts`, `Model3d.svelte` (renders the model in a viewport). |
 
 ## Coordinate systems (quick reference)
 

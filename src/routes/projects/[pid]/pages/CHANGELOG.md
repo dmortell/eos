@@ -4,6 +4,43 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 `git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps the long historical done-log and the
 open items; `review.md §0a` tracks which review findings are closed.
 
+## Parity pick-list, large + medium items (2026-09-25) — parity-review.md
+- **Export**: File › Export… writes the active view as DXF (`exportDxf.ts`); File › Outlet Schedule… writes
+  the model's outlets to Excel (`store/outletSchedule.ts`).
+- **Sheets**:
+  - duplicate a sheet;
+  - copy / cut / paste / duplicate a viewport frame across sheets (`ui/frameClip.ts`);
+  - a revision list (edit / delete / set current, P1 → P2 codes) and a revision table in the title block;
+  - link sheets that open another tool;
+  - print a set of sheets as one job, each at its own paper size (`parts/PrintBook.svelte`).
+- **Title block**: our + the client's logos; strip / band / corner-box layouts.
+- **Blocks** (intelligent blocks):
+  - symbols (north arrow, section / detail / photo markers, elevation tags, faceplate, door), and a marker's
+    LINK to a sheet or a URL;
+  - a Blocks panel to place / drag in / save the selection as a block;
+  - a legend built from the model's layers.
+- **Annotations**:
+  - floor-tile grids on a rectangle;
+  - auto-number a selection;
+  - project drawing defaults (Format menu), including a dimension unit;
+  - a group transform box that rotates about the barycentre / scales from a corner. Multi-shape edits are
+    one undo step.
+- **Outlets**:
+  - Insert › Outlet with sticky ports / type / layer;
+  - the next label on placing;
+  - walk renumber;
+  - allocate outlets to a patch panel (`store/allocate.ts`).
+- **Conduits**:
+  - cable fill and a fill-rate viewport (`3dview/fill.ts`);
+  - per-corner bend handles;
+  - merge / join runs (`3dview/graphJoin.ts`);
+  - connection points on boxes and outlets that conduit ends follow (`3dview/connect.ts`).
+- **Racks**: a rack row becomes a 'rack' model with devices on U (`store/racksImport.ts`).
+- **Views**:
+  - per viewport, hidden-line removal, B/W and a plan cut band;
+  - images inserted in an elevation stand on that elevation;
+  - floorplans follow the Uploads calibration live, with an origin crosshair (`ui/floorplanLink.ts`).
+
 ## Parity pick-list, small items (2026-09-25) — parity-review.md
 - **Nav bar Pan / Orbit** are latched tools: a left drag (or one finger) pans / orbits; Esc, a right-click or a
   tool pick drops them.

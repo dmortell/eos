@@ -35,10 +35,11 @@
 	import CommandPalette from './parts/CommandPalette.svelte'
 	import OpenProjectDialog from './parts/OpenProjectDialog.svelte'
 	import DrawingDefaultsDialog from './parts/DrawingDefaultsDialog.svelte'
+	import { CanvasNav } from './canvasNav.svelte'
 	import { outletSticky, rememberOutlet, walk, incLabel } from './ui/outletPlace.svelte'
 	import { outletRows, exportOutletSchedule } from './store/outletSchedule'
 	import { panzoom } from './ui/panzoom'
-	import { paperDims, scaleDenom, PAPER_PX_PER_MM, DEFAULT_MARGIN_MM, clampViewZoom, clampCanvasZoom, type PaperSize } from './constants'
+	import { paperDims, scaleDenom, PAPER_PX_PER_MM, DEFAULT_MARGIN_MM, type PaperSize } from './constants'
 	import { PRINT_ID, printCss, applyPrint, removePrint } from './printing'
 	import { GROUND, type Ent, type ElevDir } from './ui/geometry'
 	import { models, modelById, floorModelId, FLOOR_MODEL_ID } from './3dview/models.svelte'
@@ -886,88 +887,15 @@
 	let statusText = $state('')
 	function onCanvasMove() { /* coords now come from the viewport via oncoords */ }
 
-	// ── canvas (paper-space) pan/zoom — this pane+tab's canvas view, CSS transform ──
-	function canvasPan(pane: { id: string; activeId: string }, dx: number, dy: number) {
-		const v = canvasViewOf(pane); setCanvasView(pane, { ...v, x: v.x + dx, y: v.y + dy })
-	}
-	function canvasZoom(pane: { id: string; activeId: string }, el: HTMLElement, f: number, clientX: number, clientY: number) {
-		const r = el.getBoundingClientRect(), mx = clientX - r.left, my = clientY - r.top
-		const v = canvasViewOf(pane), nz = clampCanvasZoom(v.zoom * f), ratio = nz / v.zoom   // up to 2000%
-		setCanvasView(pane, { x: mx - (mx - v.x) * ratio, y: my - (my - v.y) * ratio, zoom: nz })
-	}
-	// Nav toolbar / status zoom act on the active viewport if one is active, else the canvas.
-	// Which zoom the wheel/nav actually acts on: the viewport CONTENT only when a viewport is active
-	// AND "Pan content" is on; otherwise the canvas. (Was always reading the view zoom when active,
-	// so the status bar stuck at 100% while the wheel zoomed the canvas.)
-	// B28: the ACTIVE viewport id, keyed the same way `activeVps`/viewState use it — a sheet's active
-	// FRAME id, or a model-layout tab's own id if IT is active (null if nothing is). `zoomsContent`/
-	// `navZoom`/`dispZoom` used to test/index by `p.activeId` (the TAB id) directly, which is never in
-	// `activeVps` for a sheet (frames activate by their OWN id, never the tab's) — so the content branch
-	// was never taken on a sheet and `+`/`−`/the status readout always acted on the paper canvas, even
-	// with "Pan content" on.
-	const activeViewportId = (p: { id: string; activeId: string }) => activeVpOf(p.activeId)
-	const zoomsContent = (p: { id: string; activeId: string }) => (navContent || isModelLayout(p)) && !!activeViewportId(p)   // B31: model space always zooms its content
-	// The projection of whatever's ACTIVE in this pane: a sheet's active FRAME's own `.proj` (B28 — was
-	// always `projOf` here, which only resolves a model-layout TAB's projection and silently ignored a
-	// sheet frame's actual proj, e.g. reporting 'plan' while a 'front' elevation frame was active), else
-	// (no frame active, or a model-layout tab) the tab's viewState-backed `projOf`. Mirrors `gizmoProj`'s
-	// sheet-vs-model split but falls back to `projOf` instead of the first frame when nothing is active.
-	const activeProj = (p: { id: string; activeId: string }): Proj => {
-		const t = session.tabs.find((x) => x.id === p.activeId) ?? null
-		if (t?.kind === 'sheet') { const av = activeViewportId(p); const f = av ? framesOf(p.activeId).find((x) => x.id === av) : null; if (f) return f.proj as Proj }
-		return projOf(p, t)
-	}
-	let dispZoom = $derived.by(() => {
-		const p = session.panes[session.focused]; if (!p) return 100
-		const av = activeViewportId(p)
-		return Math.round((zoomsContent(p) && av ? viewOf(p.id, av, activeProj(p)).zoom : canvasViewOf(p).zoom) * 100)
+	// ── canvas (paper-space) pan/zoom + Fit — canvasNav.svelte.ts ──
+	const canvasNav = new CanvasNav({
+		panes: () => session.panes, focused: () => session.focused, tabs: () => session.tabs, navContent: () => navContent,
+		isModelLayout, activeVpOf, framesOf, projOf, canvasViewOf, setCanvasView, viewOf, setView, setOrbit,
+		hasView: (paneId, viewId, pr) => viewState.hasView(paneId, didOf(viewId), pr),
+		hasCanvas: (paneId, tabId) => viewState.hasCanvas(paneId, didOf(tabId), didOf(tabId)),
+		paperDims: paperDimsOf, canvasEl: (i) => canvasEls[i],
 	})
-	function navZoom(f: number) {
-		const p = session.panes[session.focused]; if (!p) return
-		const av = activeViewportId(p)
-		if (zoomsContent(p) && av) { const pr = activeProj(p), v = viewOf(p.id, av, pr); setView(p.id, av, pr, { ...v, zoom: clampViewZoom(v.zoom * f) }) }
-		else { const v = canvasViewOf(p); setCanvasView(p, { ...v, zoom: clampCanvasZoom(v.zoom * f) }) }
-	}
-	// Fit a specific pane: frame its sheet paper (centred, with margin) or reset a model view.
-	function fitPane(idx: number, opts: { skipIfPersisted?: boolean; explicit?: boolean } = {}) {
-		const p = session.panes[idx]; if (!p) return
-		const pr = activeProj(p)
-		const av = activeViewportId(p)   // B28: was `isVpActive(p.activeId)` — see activeViewportId's comment above
-		// B28 follow-up (eos-07 caught in review): `av` is truthy whenever a sheet FRAME is active, active
-		// regardless of "Pan content" — but `fitPane` also runs from AUTOMATIC refits (mount, split/unsplit
-		// resize, the Full-size layout toggle), none of which should silently reset a sheet frame's pan/zoom
-		// the way an intentional Fit can. Reset the VIEWPORT's own content when: it's a model-layout tab
-		// (`av === p.activeId`, unconditional — matches every pre-B28 trigger exactly, that case never
-		// touched a sheet); OR it's a sheet frame AND this is an EXPLICIT Fit (button/menu — `navFit` alone
-		// passes `explicit`) AND "Pan content" is on. Every other case still fits the PAPER below, same as
-		// pre-B28 always did for a sheet.
-		// B30: Fit resets the 3D orbit of the SAME viewport whose content it resets — the model tab, or the
-		// active sheet FRAME (was always the TAB id, so a sheet frame's orbit never reset and a dead
-		// tab-id × frame-proj entry was written). A paper fit touches no orbit.
-		// …and a reload's mount refit leaves a model tab's REMEMBERED view alone (viewState persists it).
-		if (av && av === p.activeId && opts.skipIfPersisted && viewState.hasView(p.id, didOf(av), pr)) return
-		if (av && (av === p.activeId || (opts.explicit && zoomsContent(p)))) { setOrbit(p.id, av, pr, DEFAULT_YAW, DEFAULT_PITCH); setView(p.id, av, pr, { zoom: 1, x: 0, y: 0 }); return }
-		// B27: the mount-time refit used to unconditionally overwrite a sheet's REMEMBERED canvas position
-		// (localStorage) with a fresh "fit to paper" — so a saved 48% zoom came back at 97% after every
-		// reload. `refitAll` (mount only) passes `skipIfPersisted`; an explicit Fit (menu/button/ViewCube)
-		// still always re-fits.
-		if (opts.skipIfPersisted && p.activeId && viewState.hasCanvas(p.id, didOf(p.activeId), didOf(p.activeId))) return
-		const a2 = session.tabs.find(t => t.id === p.activeId)
-		const canvas = canvasEls[idx]
-		if (a2?.kind === 'sheet' && p.layout === 'sheet' && canvas && canvas.clientWidth > 50) {
-			const r = canvas.getBoundingClientRect(), pd = paperDimsOf(p.activeId)
-			const z = Math.min(r.width / pd.w, r.height / pd.h) * 0.9
-			setCanvasView(p, { zoom: z, x: (r.width - pd.w * z) / 2, y: (r.height - pd.h * z) / 2 })
-		} else {
-			setCanvasView(p, { zoom: 1, x: 0, y: 0 })
-		}
-	}
-	function navFit() { fitPane(session.focused, { explicit: true }) }
-	// Refit every pane after the paper size/orientation changes (each pane may show a sheet). `opts` is
-	// forwarded to `fitPane` — the mount-time caller below passes `skipIfPersisted` (B27); any FUTURE
-	// caller (e.g. after an explicit paper-size change) should NOT, so it always re-fits. Neither this nor
-	// its callers pass `explicit` — an automatic refit must never reset a sheet frame's own pan/zoom.
-	function refitAll(opts: { skipIfPersisted?: boolean } = {}) { tick().then(() => session.panes.forEach((_, i) => fitPane(i, opts))) }
+	const { canvasPan, canvasZoom, activeProj, navZoom, fitPane, navFit, refitAll } = canvasNav
 
 	// Print mechanics live in printing.ts (R9 commit 4) — this effect just owns the FOCUSED PANE's paper
 	// (session/paperOf, per-instance state printing.ts deliberately doesn't know about) and the
@@ -1188,7 +1116,7 @@
 		onorient={(l) => setPaper(session.panes[session.focused]?.activeId, { landscape: l })}
 		paperMargin={paperOf(session.panes[session.focused]?.activeId).margin ?? DEFAULT_MARGIN_MM}
 		onmargin={(mm) => setPaper(session.panes[session.focused]?.activeId, { margin: mm })}
-		coords={worldXY} zoom={dispZoom} onzoom={navZoom} onfit={navFit} />
+		coords={worldXY} zoom={canvasNav.dispZoom} onzoom={navZoom} onfit={navFit} />
 </div>
 
 <style>
