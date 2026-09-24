@@ -23,6 +23,11 @@ describe('title block', () => {
 		const revs = ['A', 'B', 'C', 'D', 'E', 'F'].map((code) => ({ code, date: '2026-09-25' }))
 		expect(shownTitleBlock(undefined, cells, revs).revisions?.map((r) => r.code)).toEqual(['B', 'C', 'D', 'E', 'F'])
 		expect(shownTitleBlock({ fields: [], hidden: ['revisions'] }, cells, revs).revisions).toBeUndefined()
+		// A1 / A6: logo images (company first), hidden with the logo section; the layout when not the default
+		const lg = { company: { src: 'data:c' }, client: { src: 'data:k', h: 12 } }
+		expect(shownTitleBlock({ fields: [], logos: lg, layout: 'horizontal' }, cells)).toMatchObject({ logos: [{ src: 'data:c' }, { src: 'data:k', h: 12 }], layout: 'horizontal' })
+		expect(shownTitleBlock({ fields: [], logos: lg, hidden: ['logo'], layout: 'vertical' }, cells)).not.toHaveProperty('logos')
+		expect(shownTitleBlock({ fields: [], layout: 'vertical' }, cells)).not.toHaveProperty('layout')
 	})
 	it('initials from a name or an email', () => {
 		expect(initialsOf('David Mortell')).toBe('DM')

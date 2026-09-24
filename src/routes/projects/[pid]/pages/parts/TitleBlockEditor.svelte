@@ -4,7 +4,7 @@
 	// auto-filled field or a custom one with fixed text. Every change calls `onchange` with the whole template
 	// (the store saves `projects/{pid}.pages.titleBlock`; every sheet of the project re-renders from it).
 	import { Icon } from '$lib'
-	import { TB_AUTO, DEFAULT_TITLE_BLOCK, type TitleBlockTemplate, type TbField, type TbAutoKey, type TbCompany, type TbSection } from '../titleBlock'
+	import { TB_AUTO, DEFAULT_TITLE_BLOCK, type TitleBlockTemplate, type TbField, type TbAutoKey, type TbCompany, type TbSection, type TbLogo, type TbLayout } from '../titleBlock'
 
 	let { template, onchange }: { template: TitleBlockTemplate | undefined; onchange: (t: TitleBlockTemplate) => void } = $props()
 	const t = $derived(template?.fields?.length ? template : DEFAULT_TITLE_BLOCK)
@@ -24,6 +24,21 @@
 		const f: TbField = key === 'custom' ? { key: 'custom', label: 'Note', value: '' } : { key: key as TbAutoKey, label: TB_AUTO[key as TbAutoKey] }
 		set({ fields: [...t.fields, f] })
 	}
+	// A1: a logo image — downscaled here (≤ 600 × 240 px PNG) so the data URL stays small inside the project doc
+	// removed = an empty src (the project doc saves with a MERGE, which never deletes a key)
+	const setLogo = (k: 'company' | 'client', lg: TbLogo | undefined) => set({ logos: { ...t.logos, [k]: lg ?? { src: '' } } })
+	function pickLogo(k: 'company' | 'client', e: Event) {
+		const f = (e.currentTarget as HTMLInputElement).files?.[0]; if (!f) return
+		const img = new Image(), url = URL.createObjectURL(f)
+		img.onload = () => {
+			const s = Math.min(1, 600 / img.naturalWidth, 240 / img.naturalHeight), c = document.createElement('canvas')
+			c.width = Math.max(1, Math.round(img.naturalWidth * s)); c.height = Math.max(1, Math.round(img.naturalHeight * s))
+			c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height)
+			URL.revokeObjectURL(url)
+			setLogo(k, { src: c.toDataURL('image/png'), h: 10 })
+		}
+		img.src = url
+	}
 	const val = (e: Event) => (e.currentTarget as HTMLInputElement).value
 	const blurOnEnter = (e: KeyboardEvent) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur() }
 </script>
@@ -35,7 +50,20 @@
 		<button class:on={t.border} title="Print a hairline border along the paper margin (off = a screen-only guide)" onclick={() => set({ border: !t.border })}>Border</button>
 	</div>
 </div>
-<div class="prop"><span>Logo</span><input value={t.logo ?? ''} placeholder="(none)" onchange={(e) => set({ logo: val(e) })} onkeydown={blurOnEnter} /></div>
+<div class="prop"><span>Layout</span>
+	<select value={t.layout ?? 'vertical'} onchange={(e) => set({ layout: val(e) as TbLayout })}>
+		<option value="vertical">Strip down the right</option><option value="horizontal">Band along the bottom</option><option value="compact">Compact box, bottom right</option>
+	</select></div>
+<div class="prop"><span>Logo text</span><input value={t.logo ?? ''} placeholder="(none)" onchange={(e) => set({ logo: val(e) })} onkeydown={blurOnEnter} /></div>
+{#each [['company', 'Our logo'], ['client', 'Client logo']] as const as [k, label] (k)}
+	{@const lg = t.logos?.[k]}
+	<div class="prop"><span>{label}</span>
+		<span class="logo-row">
+			{#if lg?.src}<img src={lg.src} alt={label} /><input type="number" min="3" max="60" value={lg.h ?? 10} title="Height on paper (mm)" onchange={(e) => setLogo(k, { ...lg, h: Math.max(3, Math.min(60, +val(e))) })} /><em>mm</em>
+				<button title="Remove" onclick={() => setLogo(k, undefined)}><Icon name="x" size={11} /></button>
+			{:else}<label class="logo-up">Choose image…<input type="file" accept="image/*" onchange={(e) => pickLogo(k, e)} /></label>{/if}
+		</span></div>
+{/each}
 <div class="prop"><span>Company</span><input value={t.company?.name ?? ''} placeholder="Name" onchange={(e) => setCompany({ name: val(e) })} onkeydown={blurOnEnter} /></div>
 <div class="prop"><span></span><input value={t.company?.address ?? ''} placeholder="Address" onchange={(e) => setCompany({ address: val(e) })} onkeydown={blurOnEnter} /></div>
 <div class="prop"><span></span><input value={t.company?.contact ?? ''} placeholder="Tel / email" onchange={(e) => setCompany({ contact: val(e) })} onkeydown={blurOnEnter} /></div>
@@ -77,6 +105,13 @@
 	.prop { display:grid; grid-template-columns:64px 1fr; align-items:center; gap:6px; padding:2px 4px; }
 	.prop span { color:var(--muted); font-size:11px; }
 	.prop input, .prop select { background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:3px 6px; font-size:11px; font-family:Consolas,monospace; min-width:0; }
+	.logo-row { display:flex; align-items:center; gap:4px; min-width:0; }
+	.logo-row img { height:22px; max-width:90px; object-fit:contain; background:#fff; border-radius:2px; }
+	.logo-row input { width:44px; }
+	.logo-row em { font-style:normal; font-size:10px; color:var(--faint); }
+	.logo-row button { background:none; border:none; color:var(--muted); cursor:pointer; display:grid; place-items:center; }
+	.logo-up { font-size:10px; color:var(--accent); cursor:pointer; }
+	.logo-up input { display:none; }
 	.chips { display:flex; flex-wrap:wrap; gap:3px; }
 	.chips button { padding:1px 6px; font-size:10px; border:1px solid var(--line); border-radius:9px; background:none; color:var(--faint); cursor:pointer; }
 	.chips button.on { color:var(--accent); border-color:var(--accent-dim); background:var(--active); }

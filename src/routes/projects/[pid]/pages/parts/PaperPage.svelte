@@ -248,7 +248,7 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 <div class="paper-wrap" ondblclick={onWrapDblclick}>
-	<div class="paper" style:width="{pw}px" style:height="{ph}px">
+	<div class="paper" class:tb-h={tbShown.layout === 'horizontal' && !tbShown.hidden} class:tb-c={tbShown.layout === 'compact' && !tbShown.hidden} style:width="{pw}px" style:height="{ph}px">
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="sheet-area" bind:this={sheetEl} onpointerdown={onSheetDown}>
 			<!-- The sheet's viewport frames (the page model). Each is a window onto the model at its own
@@ -305,7 +305,12 @@
 		     company block, full-width rows, then half-width cells in the grid below. A sheet can hide it. -->
 		{#if !tbShown.hidden}
 			<div class="tb" bind:this={tbEl}>
-				{#if tbShown.logo}<div class="tb-logo">{tbShown.logo}</div>{/if}
+				{#if tbShown.logos || tbShown.logo}
+					<div class="tb-logo">
+						{#each tbShown.logos ?? [] as lg, i (i)}<img src={lg.src} alt="logo" style:height="{(lg.h ?? 10) * PAPER_PX_PER_MM}px" />{/each}
+						{#if tbShown.logo}<span>{tbShown.logo}</span>{/if}
+					</div>
+				{/if}
 				{#if tbShown.company}
 					<div class="tb-company">{#each tbShown.company as line, i (i)}<div class:name={i === 0}>{line}</div>{/each}</div>
 				{/if}
@@ -367,9 +372,21 @@
 	/* Titleblock */
 	.tb { width:16%; min-width:78px; display:flex; flex-direction:column; border:1px solid #64748b; }
 	.tb-logo {
-		height:34px; display:flex; align-items:center; justify-content:center;
+		min-height:34px; padding:3px 4px; gap:6px; display:flex; align-items:center; justify-content:center;
 		font-family:Georgia, serif; font-size:18px; font-weight:700; color:#1f2937; border-bottom:1px solid #94a3b8;
 	}
+	.tb { position:relative; z-index:3; background:#fff; }   /* above a frame that strays over it */
+	.tb-logo img { max-width:45%; object-fit:contain; }
+	.tb-logo span { padding:0 4px; }
+	/* A6: a band along the BOTTOM — the sections side by side */
+	.paper.tb-h { flex-direction:column; }
+	.paper.tb-h .tb { width:auto; min-width:0; flex-direction:row; align-items:stretch; min-height:58px; }
+	.paper.tb-h .tb > * { border-bottom:none; border-right:1px solid #cbd5e1; flex:1 1 0; min-width:0; }
+	.paper.tb-h .tb-logo { flex:0 0 auto; height:auto; padding:0 8px; }
+	.paper.tb-h .tb-grid { margin-top:0; grid-template-columns:repeat(4, 1fr); flex:2 1 0; border-right:none; }
+	.paper.tb-h .tb-revs { margin-top:0; }
+	/* A6: a COMPACT box in the bottom-right corner, over the drawing area */
+	.paper.tb-c .tb { position:absolute; right:10px; bottom:10px; width:34%; background:#fff; z-index:3; }
 	.tb-revs { width:100%; border-collapse:collapse; margin-top:auto; font-size:7px; color:#1f2937; table-layout:fixed; }
 	.tb-revs th { font-size:6px; letter-spacing:.06em; color:#94a3b8; font-weight:500; text-align:left; padding:2px 3px; border-bottom:1px solid #cbd5e1; }
 	.tb-revs th:nth-child(1) { width:20%; } .tb-revs th:nth-child(2) { width:34%; }

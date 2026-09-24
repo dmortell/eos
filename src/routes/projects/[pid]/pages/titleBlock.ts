@@ -24,12 +24,22 @@ export type TitleBlockTemplate = {
 	hidden?: TbSection[]
 	/** Print a hairline border along the paper margin (else the margin is a screen-only guide). */
 	border?: boolean
+	/** A1: logo IMAGES (small data URLs, downscaled on upload) — the drawing office's and the client's — each drawn
+	 *  `h` paper mm high (resizable in the editor). Shown in the logo section, instead of / beside the logo text. */
+	logos?: { company?: TbLogo; client?: TbLogo }
+	/** A6: where the block sits — a strip down the right (default), a band along the bottom, or a compact box in
+	 *  the bottom-right corner over the drawing area. */
+	layout?: TbLayout
 }
+export type TbLogo = { src: string; h?: number }
+export type TbLayout = 'vertical' | 'horizontal' | 'compact'
 /** The title block as one sheet shows it. `hidden` = this sheet hides the block (the project's `border`
  *  still applies). */
 export type TbShown = { logo?: string; company?: string[]; cells: TbCell[]; border?: boolean; hidden?: boolean
 	/** A4: the revision table, newest LAST (at most the last 5); absent when hidden or the sheet was never issued. */
-	revisions?: TbRev[] }
+	revisions?: TbRev[]
+	/** A1: the logo images (in the logo section). */ logos?: TbLogo[]
+	/** A6 */ layout?: TbLayout }
 
 /** A sheet's shown block: sections the template hides are dropped; empty company lines are skipped. */
 export function shownTitleBlock(t: TitleBlockTemplate | undefined, cells: TbCell[], revs: TbRev[] = []): TbShown {
@@ -41,6 +51,8 @@ export function shownTitleBlock(t: TitleBlockTemplate | undefined, cells: TbCell
 		cells: off.has('fields') ? [] : cells,
 		border: !!t?.border,
 		...(off.has('revisions') || !revs.length ? {} : { revisions: revs.slice(-5) }),
+		...(off.has('logo') ? {} : (() => { const l = [t?.logos?.company, t?.logos?.client].filter((x): x is TbLogo => !!x?.src); return l.length ? { logos: l } : {} })()),
+		...(t?.layout && t.layout !== 'vertical' ? { layout: t.layout } : {}),
 	}
 }
 
