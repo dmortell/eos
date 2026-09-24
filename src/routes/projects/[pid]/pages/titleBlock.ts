@@ -11,7 +11,32 @@ export const TB_AUTO = {
 } as const
 export type TbAutoKey = keyof typeof TB_AUTO
 export type TbField = { key: TbAutoKey | 'custom'; label: string; /** custom only: the fixed text */ value?: string; /** a full-width row (else a half-width cell) */ wide?: boolean }
-export type TitleBlockTemplate = { logo?: string; fields: TbField[] }
+/** The block's optional sections — each can be switched off project-wide (`hidden`). */
+export type TbSection = 'logo' | 'company' | 'fields'
+export type TbCompany = { name?: string; address?: string; contact?: string }
+export type TitleBlockTemplate = {
+	logo?: string; fields: TbField[]
+	/** The drawing office's block under the logo: name (bold), address, contact — one line each. */
+	company?: TbCompany
+	/** Sections switched off for every sheet of the project. */
+	hidden?: TbSection[]
+	/** Print a hairline border along the paper margin (else the margin is a screen-only guide). */
+	border?: boolean
+}
+/** The title block as one sheet shows it (null = the sheet hides its title block). */
+export type TbShown = { logo?: string; company?: string[]; cells: TbCell[]; border?: boolean }
+
+/** A sheet's shown block: sections the template hides are dropped; empty company lines are skipped. */
+export function shownTitleBlock(t: TitleBlockTemplate | undefined, cells: TbCell[]): TbShown {
+	const off = new Set(t?.hidden ?? []), c = t?.company
+	const company = [c?.name, c?.address, c?.contact].map((s) => s?.trim() ?? '').filter(Boolean)
+	return {
+		logo: off.has('logo') ? undefined : t ? t.logo : DEFAULT_TITLE_BLOCK.logo,
+		company: off.has('company') || !company.length ? undefined : company,
+		cells: off.has('fields') ? [] : cells,
+		border: !!t?.border,
+	}
+}
 
 export const DEFAULT_TITLE_BLOCK: TitleBlockTemplate = {
 	logo: 'J',

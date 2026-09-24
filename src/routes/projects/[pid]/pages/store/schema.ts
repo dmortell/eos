@@ -105,6 +105,8 @@ export type PagesSheetDoc = {
 	importedFrom?: string
 	/** "Drawn" in the title block (initials); empty → the creator's initials. */
 	drawnBy?: string
+	/** This sheet shows no title block (the drawing area takes the full paper). */
+	hideTitleBlock?: boolean
 	currentVersionNumber: number
 	/** Registry compatibility: the versioning code expects both. A Pages sheet points at itself. */
 	sourceDocId: string

@@ -38,7 +38,7 @@ import type { PagesSheetDoc } from './store/schema'
 import { buildPlaceTree, commonAncestor } from './store/placeTree'
 import { addPlace, updatePlace, movePlace, removePlace, ancestorsOf } from './store/places'
 import { describePlace } from './store/placeProps'
-import { fillTitleBlock, initialsOf, DEFAULT_TITLE_BLOCK, type TbCell } from './titleBlock'
+import { fillTitleBlock, initialsOf, shownTitleBlock, type TbShown } from './titleBlock'
 import type { DropZone } from './parts/treeDrag.svelte'
 
 type TreeNodeSel = { id: string; label: string; kind: string; floorNumber?: number; building?: string }
@@ -516,12 +516,12 @@ export class PagesProject {
 		const u = this.#h.auth?.user
 		return initialsOf(sh.createdBy && sh.createdBy === u?.email ? u?.displayName || sh.createdBy : sh.createdBy)
 	}
-	titleBlockOf = (tabId: string): { logo?: string; cells: TbCell[] } => {
+	/** The tab's title block as shown, or null when its sheet hides it (Properties › PAGE › Title block). */
+	titleBlockOf = (tabId: string): TbShown | null => {
 		const ps = this.store, sh = this.storedSheetOfTab(tabId), tpl = ps?.project?.titleBlock, pap = this.#h.paperOf(tabId)
+		if (sh?.hideTitleBlock) return null
 		const pl = sh?.placeId && ps ? ps.places.find((p) => p.id === sh.placeId) : undefined
-		return {
-			logo: tpl ? tpl.logo : DEFAULT_TITLE_BLOCK.logo,
-			cells: fillTitleBlock(tpl, {
+		return shownTitleBlock(tpl, fillTitleBlock(tpl, {
 				project: this.src?.project?.name ?? '',
 				title: sh?.title ?? this.#h.session.tabs.find((t) => t.id === tabId)?.title ?? '',
 				place: pl && ps ? [...ancestorsOf(ps.places, pl.id), pl].map((p) => p.name).join(' › ') : '',
@@ -531,17 +531,16 @@ export class PagesProject {
 				scale: this.#h.framesOf(tabId)[0]?.scale ?? this.#h.scaleOf(tabId),
 				size: `${pap.size} ${pap.landscape ? 'L' : 'P'}`,
 				drawn: sh ? sh.drawnBy || this.#drawnDefault(sh) : '',
-			}),
-		}
+			}))
 	}
-	/** The active tab's stored sheet: set its Drawing № / Drawn (Properties › PAGE). */
-	setSheetField = (key: 'drawingNumber' | 'drawnBy', value: string) => {
+	/** The active tab's stored sheet: set its Drawing № / Drawn / title-block hide (Properties › PAGE). */
+	setSheetField = <K extends 'drawingNumber' | 'drawnBy' | 'hideTitleBlock'>(key: K, value: PagesSheetDoc[K]) => {
 		const id = this.#h.activeTabId(), sh = id ? this.storedSheetOfTab(id) : null; if (!sh || !this.store || sh[key] === value) return
 		this.store.saveSheet({ ...sh, [key]: value })
 	}
 	activeSheetInfo = $derived.by(() => {
 		const id = this.#h.activeTabId(), sh = id ? this.storedSheetOfTab(id) : null
-		return sh ? { number: sh.drawingNumber ?? '', drawnBy: sh.drawnBy ?? '', drawnDefault: this.#drawnDefault(sh) } : null
+		return sh ? { number: sh.drawingNumber ?? '', drawnBy: sh.drawnBy ?? '', drawnDefault: this.#drawnDefault(sh), hideTitleBlock: !!sh.hideTitleBlock } : null
 	})
 
 	// ── phase 7: HISTORY — model versions + sheet revisions for the ACTIVE tab (store/versions.ts) ──

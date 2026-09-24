@@ -36,7 +36,8 @@
 			 *  annotative text bbox in model mm (B19). */
 			scaleN?: number
 			/** A STORED Pages sheet's title-block fields (Drawing №, Drawn — `drawnDefault` = the creator's initials). */
-			sheetInfo?: { number: string; drawnBy: string; drawnDefault: string } | null; onsheetfield?: (key: 'drawingNumber' | 'drawnBy', value: string) => void
+			sheetInfo?: { number: string; drawnBy: string; drawnDefault: string; hideTitleBlock: boolean } | null
+			onsheetfield?: ((key: 'drawingNumber' | 'drawnBy', value: string) => void) & ((key: 'hideTitleBlock', value: boolean) => void)
 			/** The PROJECT's title-block template (edited on a sheet page; undefined = the default). The editor shows
 			 *  only with `ontitleblock` (a project with Pages data). */
 			/** The selected frame's model storeys (a building) — its FLOORS checklist in an elevation. */
@@ -391,6 +392,8 @@
 				onkeydown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur() }} /></div>
 			<div class="prop"><span>Drawn</span><input value={sheetInfo.drawnBy} placeholder={sheetInfo.drawnDefault || '(none)'} onchange={(e) => onsheetfield?.('drawnBy', (e.currentTarget as HTMLInputElement).value.trim())}
 				onkeydown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur() }} /></div>
+			<label class="prop" title="Hide the title block on this sheet only (the drawing area takes the full paper)"><span>Title block</span>
+				<span class="chk"><input type="checkbox" checked={!sheetInfo.hideTitleBlock} onchange={(e) => onsheetfield?.('hideTitleBlock', !(e.currentTarget as HTMLInputElement).checked)} /> shown on this sheet</span></label>
 		{/if}
 		<div class="prop"><span>Layer</span><input value={activeLayer} readonly /></div>
 		{#if pageKind === 'sheet' && ontitleblock}
@@ -562,6 +565,7 @@
 	.prop { display:grid; grid-template-columns:64px 1fr; align-items:center; gap:6px; padding:2px 4px; }
 	.prop.wide { grid-template-columns:1fr; }
 	.prop span { color:var(--muted); font-size:11px; }
+	.prop .chk { display:flex; align-items:center; gap:5px; cursor:pointer; }
 	.prop input, .prop select { background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:3px 6px; font-size:11px; font-family:Consolas,monospace; min-width:0; }
 	.prop input:read-only { color:var(--muted); }
 	.pp-textarea { width:100%; min-height:32px; resize:vertical; overflow:hidden; background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:4px 6px; font-size:11px; font-family:'Consolas','SF Mono',ui-monospace,monospace; }

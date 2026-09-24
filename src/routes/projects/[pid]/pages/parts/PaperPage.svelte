@@ -21,7 +21,7 @@
 	import { HANDLE_PX, PAPER_W, PAPER_H, PAPER_PX_PER_MM } from '../constants'
 	import type { ElevDir } from '../ui/geometry'
 	import type { SheetFrame } from '../types'
-	import { fillTitleBlock, DEFAULT_TITLE_BLOCK, type TbCell } from '../titleBlock'
+	import { fillTitleBlock, shownTitleBlock, type TbShown } from '../titleBlock'
 
 	// Paper size in px (default A3 landscape). Driven by the status-bar paper-size / orientation.
 	type VKind = 'plan' | 'iso' | ElevDir
@@ -30,7 +30,7 @@
 		frames = [], editor = noopEditor, frameKind = (p: string) => p as VKind, isFrameActive = () => false, frameView = () => ({ zoom: 1, x: 0, y: 0 }), frameEnv = {},
 		frameOrbit = () => ({ yaw: 0, pitch: 0 }), makeFrameOn = () => ({}), makeFrameEditor = () => noopEditor, onseed, onaddframe, onframegeom, onframecommit, ondeactivate }:
 		{ title?: string; drawingNo?: string; scale?: string; focused?: boolean; tool?: string; env?: Env; pw?: number; ph?: number; sizeLabel?: string; rev?: string; revDate?: string;
-			/** The filled title block (titleBlock.ts); absent → the default template from the props above. */ tb?: { logo?: string; cells: TbCell[] };
+			/** The filled title block (titleBlock.ts); absent → the default template from the props above; null → none. */ tb?: TbShown | null;
 			/** XP7: paper margin (mm) — a dashed guide (screen only) and frame snap lines. */ marginMm?: number;
 			entities?: Ent[]; entsForModel?: (mid?: string) => Ent[]; tabModelId?: string;
 			// R3 commit 3 (review.md §R3): a NEW page-level `editor` — distinct from `makeFrameEditor` (which
@@ -42,7 +42,7 @@
 			frameOrbit?: (id: string, proj: string) => { yaw: number; pitch: number }; makeFrameOn?: (f: SheetFrame) => VpOn; makeFrameEditor?: (f: SheetFrame) => Editor; onseed?: (x: number, y: number, w: number, h: number) => void; onaddframe?: (x: number, y: number, w: number, h: number) => void;
 			onframegeom?: (id: string, g: { x: number; y: number; w: number; h: number }) => void; onframecommit?: () => void; ondeactivate?: () => void } = $props()
 	const canvasZoom = $derived(env.canvasZoom ?? 1)
-	const tbShown = $derived(tb ?? { logo: DEFAULT_TITLE_BLOCK.logo, cells: fillTitleBlock(undefined, { title, scale, size: sizeLabel, rev, date: revDate, number: drawingNo }) })
+	const tbShown = $derived(tb === undefined ? shownTitleBlock(undefined, fillTitleBlock(undefined, { title, scale, size: sizeLabel, rev, date: revDate, number: drawingNo })) : tb)
 	const selFrame = $derived(singleOfKind(editor.sel.get(), 'frame')?.id ?? null)
 	const selectFrame = (id: string) => editor.sel.only([{ kind: 'frame', id }])
 	const clearFrameSel = () => editor.sel.clear()
@@ -90,17 +90,26 @@
 	// `PAPER_SNAP_STEP` (snap.ts) is real paper mm — GRID_STEP_PX converts it ONCE to paper px (frame
 	// geometry's actual unit, see BAND_PX above). `SNAP_TOL_PX` is SCREEN px (matches Sheets' SNAP_TOL),
 	// converted to paper px per-drag via `drag.s`, same pattern as Sheets' `SNAP_TOL / drag.scale`.
-	// Margin/titleblock snap lines are a later addition (v1 is paper edges only, snap.ts's paperSnapLines).
 	const GRID_STEP_PX = PAPER_SNAP_STEP * PAPER_PX_PER_MM
 	const SNAP_TOL_PX = 6
 	const snapEdge = (v: number, lines: number[], tolPaperPx: number): number => v + frameSnapDelta([v], lines, GRID_STEP_PX, tolPaperPx)
+	// Frame snap lines in SHEET-AREA coords (frame geometry's frame of reference, inset PAD from the paper's
+	// corner): the paper edges + margin (XP7), the drawing area's own edges and the title block's edges (A8).
+	const PAD = 10   // .paper's padding
+	let tbEl: HTMLDivElement | undefined = $state()
+	function snapLines(): { x: number[]; y: number[] } {
+		const pl = paperSnapLines(pw, ph, marginMm * PAPER_PX_PER_MM), x = pl.x.map((v) => v - PAD), y = pl.y.map((v) => v - PAD)
+		if (sheetEl) { x.push(0, sheetEl.offsetWidth); y.push(0, sheetEl.offsetHeight) }
+		if (tbEl) { x.push(tbEl.offsetLeft - PAD, tbEl.offsetLeft - PAD + tbEl.offsetWidth); y.push(tbEl.offsetTop - PAD, tbEl.offsetTop - PAD + tbEl.offsetHeight) }
+		return { x, y }
+	}
 
 	// Viewports move freely on an infinite canvas — no position clamp; pan to follow one that
 	// has been dragged off the paper.
 	function onDrag(e: PointerEvent, drag: FrameDrag) {
 		const dx = (e.clientX - drag.sx) / drag.s, dy = (e.clientY - drag.sy) / drag.s
 		const b = drag.base
-		const lines = paperSnapLines(pw, ph, marginMm * PAPER_PX_PER_MM)   // XP7: margins snap too
+		const lines = snapLines()
 		const tol = SNAP_TOL_PX / drag.s
 		if (drag.mode === 'move') {
 			let x = b.x + dx, y = b.y + dy
@@ -270,34 +279,41 @@
 					{/if}
 				</div>
 			{/each}
-			{#if marginMm > 0}
-				<!-- XP7: the paper margin — a screen-only guide (printing.ts hides it); frames snap to it -->
-				{@const m = marginMm * PAPER_PX_PER_MM}
-				<div class="margin-guide" style="left:{m}px; top:{m}px; width:{pw - 2 * m}px; height:{ph - 2 * m}px"></div>
-			{/if}
 			{#if mq}
 				<div class="vp-marquee" style="left:{mq.x}px; top:{mq.y}px; width:{mq.w}px; height:{mq.h}px"></div>
 			{/if}
 		</div>
-		<!-- titleblock (right vertical strip, like EOS) -->
-		<!-- the project's template (titleBlock.ts): full-width rows at the top, half-width cells in the grid below -->
-		<div class="tb">
-			{#if tbShown.logo}<div class="tb-logo">{tbShown.logo}</div>{/if}
-			{#each tbShown.cells.filter((c) => c.wide) as c, i (i)}
-				<div class="tb-cell"><span>{c.label.toUpperCase()}</span><b>{c.value}</b></div>
-			{/each}
-			<div class="tb-grid">
-				{#each tbShown.cells.filter((c) => !c.wide) as c, i (i)}
-					<div class="tb-cell"><span>{c.label.toUpperCase()}</span>{c.value}</div>
+		{#if marginMm > 0}
+			<!-- XP7: the paper margin, in PAPER coords — a screen-only guide (printing.ts hides it), or a printed
+			     hairline border when the project's title block asks for one (A9); frames snap to it -->
+			{@const m = marginMm * PAPER_PX_PER_MM}
+			<div class="margin-guide" class:printed={tbShown?.border} style="left:{m}px; top:{m}px; width:{pw - 2 * m}px; height:{ph - 2 * m}px"></div>
+		{/if}
+		<!-- titleblock (right vertical strip, like EOS) — the project's template (titleBlock.ts): logo, the
+		     company block, full-width rows, then half-width cells in the grid below. A sheet can hide it. -->
+		{#if tbShown}
+			<div class="tb" bind:this={tbEl}>
+				{#if tbShown.logo}<div class="tb-logo">{tbShown.logo}</div>{/if}
+				{#if tbShown.company}
+					<div class="tb-company">{#each tbShown.company as line, i (i)}<div class:name={i === 0}>{line}</div>{/each}</div>
+				{/if}
+				{#each tbShown.cells.filter((c) => c.wide) as c, i (i)}
+					<div class="tb-cell"><span>{c.label.toUpperCase()}</span><b>{c.value}</b></div>
 				{/each}
+				<div class="tb-grid">
+					{#each tbShown.cells.filter((c) => !c.wide) as c, i (i)}
+						<div class="tb-cell"><span>{c.label.toUpperCase()}</span>{c.value}</div>
+					{/each}
+				</div>
 			</div>
-		</div>
+		{/if}
 	</div>
 </div>
 
 <style>
 	/* XP7: paper margin guide — dashed, under the frames, never interactive, hidden in print */
 	.margin-guide { position:absolute; border:1px dashed #94a3b866; pointer-events:none; z-index:0; }
+	.margin-guide.printed { border:0.5px solid #334155; }   /* A9: printed hairline border (printing.ts keeps it) */
 	/* No overflow clip here: the pane (.canvas) already clips at the real screen edge. A clip
 	   on this transformed wrapper would move/scale with the canvas and cut off viewports moved
 	   away from the paper — the canvas is meant to be infinite (pan to follow). */
@@ -331,6 +347,8 @@
 		height:34px; display:flex; align-items:center; justify-content:center;
 		font-family:Georgia, serif; font-size:18px; font-weight:700; color:#1f2937; border-bottom:1px solid #94a3b8;
 	}
+	.tb-company { border-bottom:1px solid #94a3b8; padding:4px 5px; font-size:7px; line-height:1.35; color:#475569; }
+	.tb-company .name { font-size:9px; font-weight:700; color:#1f2937; }
 	.tb-cell { border-bottom:1px solid #cbd5e1; padding:3px 5px; font-size:9px; color:#1f2937; min-width:0; overflow:hidden; }
 	.tb-cell span { display:block; font-size:6px; letter-spacing:.08em; color:#94a3b8; }
 	.tb-cell b { font-weight:600; }
