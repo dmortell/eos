@@ -24,7 +24,7 @@
 		modelObj = null, modelObjs = [], model = null, onmodeladd, outletsFor, allocated, sheets = [], onopenlink, onsaveblock, onmodelsupdate, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg,
 		frameObj = null, onframeupdate, onframedelete, onframefit, nodeInfo = null, onnodefield, modelList = [], activeFrameId = undefined, scaleN = 1,
 		sheetInfo = null, onsheetfield, titleBlock = undefined, ontitleblock, frameStoreys = [], frameConduits = [], heights = null, onheight, onheightall }:
-		{ ents?: Ent[]; onupdate?: (e: Ent) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void;
+		{ ents?: Ent[]; onupdate?: (e: Ent | Ent[]) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void;
 			pageTitle?: string; pageKind?: string; activeLayer?: string; onpagetitle?: (title: string) => void;
 			node?: { id: string; label: string; kind: string; floorNumber?: number; building?: string } | null;
 			/** A REAL tree node's properties (projectProps.ts, from Firestore) + the edit callback; null → mock fields. */

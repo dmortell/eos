@@ -12,9 +12,10 @@
 	import { PT_MM } from '../../constants'
 	import { imgEdit, setImgMode } from '../../imageEdit.svelte'
 	import type { Layer as MLayer } from '../../3dview/types'
+	import { autoNumber, numberable, type NumberOrder } from '../../ui/autoNumber'
 
 	let { ents, onupdate, onarrange, layers = [], activeFrameId = undefined, scaleN = 1, sheets = [], onopenlink, onsaveblock }: {
-		ents: Ent[]; onupdate?: (e: Ent) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void
+		ents: Ent[]; /** One shape, or several as ONE undo step. */ onupdate?: (e: Ent | Ent[]) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void
 		/** D4: the project's sheets (a symbol's LINK picker) + open a link (a sheet id or a URL). */
 		sheets?: { id: string; title: string; number?: string }[]; onopenlink?: (link: string) => void
 		/** D5: save the selection as a library block. */
@@ -47,10 +48,9 @@
 	const typeLabel = $derived(new Set(ents.map(e => e.type)).size === 1 ? ents[0].type : `Mixed (${ents.length})`)
 	const r1 = (n: number) => Math.round(n * 10) / 10
 
-	// Move the whole selection so the group bbox's corner reaches v. Capture the delta and a
-	// snapshot up front — each onupdate re-derives gb/ents, so reading them mid-loop drifts.
-	function setX(v: number) { const dx = v - gb.x, snap = [...ents]; for (const e of snap) onupdate?.(translate(e, dx, 0)) }
-	function setY(v: number) { const dy = v - gb.y, snap = [...ents]; for (const e of snap) onupdate?.(translate(e, 0, dy)) }
+	// Move the whole selection so the group bbox corner reaches v — all shapes in ONE update (one undo step).
+	function setX(v: number) { const dx = v - gb.x; onupdate?.(ents.map((e) => translate(e, dx, 0))) }
+	function setY(v: number) { const dy = v - gb.y; onupdate?.(ents.map((e) => translate(e, 0, dy))) }
 	// Single-entity size edits (anchored at the top-left).
 	const boxKind = (e?: Ent | null) => e?.type === 'rect' || e?.type === 'ellipse'
 	function setW(v: number) {
@@ -87,7 +87,7 @@
 	function cc<K extends keyof Ent>(k: K): Ent[K] | undefined { const v = new Set(ents.map((e) => e[k])); return v.size === 1 ? ents[0][k] : undefined }
 	const mixedColor = $derived(new Set(ents.map((e) => e.color)).size > 1)
 	const mixedFill = $derived(new Set(ents.map((e) => e.fill)).size > 1)
-	function setAll(patch: Partial<Ent>) { const snap = [...ents]; for (const e of snap) onupdate?.({ ...e, ...patch }) }
+	function setAll(patch: Partial<Ent>) { onupdate?.(ents.map((e) => ({ ...e, ...patch }))) }
 	const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
 	let blockName = $state<string | null>(null)
 	// D4: link a symbol to a sheet (its drawing number fills an empty SHEET) or to a URL
@@ -96,6 +96,16 @@
 		const sh = sheets.find((s) => s.id === v)
 		if (sh?.number && blockDef(ins.block)?.attributes.some((a) => a.tag === 'SHEET') && (!attrs.SHEET || attrs.SHEET === '—')) attrs.SHEET = sh.number
 		onupdate?.({ ...ins, attrs })
+	}
+	// D6: auto-number the selection (texts, line labels, one attribute of the block inserts)
+	let an = $state({ template: '#', start: 1, step: 1, order: 'rows' as NumberOrder, tag: '' })
+	const anTags = $derived([...new Set(ents.filter((e) => e.type === 'insert').flatMap((e) => blockDef(e.block)?.attributes.map((a) => a.tag) ?? []))].filter((t) => t !== 'LINK'))
+	const anCount = $derived(ents.filter((e) => numberable(e, an.tag || anTags[0])).length)
+	function runAutoNumber() {
+		// rows are "the same" within a third of the median shape height (at least 1 mm)
+		const hs = ents.map((e) => { const b = bbox(e); return an.order === 'rows' ? b[3] - b[1] : b[2] - b[0] }).sort((a, b) => a - b)
+		const tol = Math.max(1, (hs[hs.length >> 1] ?? 0) / 3)
+		onupdate?.(autoNumber([...ents], { ...an, tag: an.tag || anTags[0], tol }))
 	}
 </script>
 
@@ -291,6 +301,27 @@
 			{/each}
 		</span>
 	</div>
+{/if}
+{#if ents.length > 1 && anCount}
+	<!-- D6: number the selection in reading order — `#` run = the zero-padded number -->
+	<div class="prop-sec">AUTO-NUMBER</div>
+	<div class="prop"><span>Template</span><input value={an.template} placeholder="e.g. R-###" title="The run of # is the number, zero-padded to its length" oninput={(e) => (an.template = strVal(e))} onkeydown={blurOnEnter} /></div>
+	<div class="vecrow">
+		<NumCell k="From" v={an.start} set={(n) => (an.start = Math.round(n))} />
+		<NumCell k="Step" v={an.step} set={(n) => (an.step = Math.round(n) || 1)} />
+	</div>
+	{#if anTags.length}
+		<div class="prop"><span>Attribute</span>
+			<select value={an.tag || anTags[0]} onchange={(e) => (an.tag = strVal(e))}>
+				{#each anTags as t (t)}<option value={t}>{t}</option>{/each}
+			</select></div>
+	{/if}
+	<div class="prop"><span>Order</span>
+		<span class="pp-seg">
+			<button class:on={an.order === 'rows'} title="Across each row, then down" onclick={() => (an.order = 'rows')}>Rows</button>
+			<button class:on={an.order === 'cols'} title="Down each column, then across" onclick={() => (an.order = 'cols')}>Columns</button>
+		</span></div>
+	<button class="pp-reset" onclick={runAutoNumber}>Number {anCount} shapes</button>
 {/if}
 {#if onsaveblock}
 	<!-- D5: the selection → a block in the global library (placed from the Blocks panel) -->

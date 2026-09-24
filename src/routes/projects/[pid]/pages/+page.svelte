@@ -447,7 +447,7 @@
 		focusedTabId: () => session.panes[session.focused]?.activeId,
 		scaleN: () => propsScaleN, selModelObj: () => selModelObj, selModelObjs: () => selModelObjs,
 	})
-	const { addEnt, updateEnt, deleteEnts, copyEnts, cutEnts, pasteEnts, groupEnts, ungroupEnts, reorderEnts, modelEdit,
+	const { addEnt, updateEnt, updateEnts, deleteEnts, copyEnts, cutEnts, pasteEnts, groupEnts, ungroupEnts, reorderEnts, modelEdit,
 		updateModelObj, updateModelObjs, deleteModelObj, addModelObj, updateModelSeg, layerItemCount, deleteLayerWithItems, deleteSelAt } = docEdit
 	function deleteSelection() { const a2 = active, vid = activeSelViewId(); if (a2 && vid) deleteSelAt(a2.id, vid, { begin: beginGesture, mark: (l?: string) => modelEdit(a2.id, l), end: endGesture }) }
 
@@ -1119,7 +1119,7 @@
 				{:else if rightTab === 'layers'}
 					<LayersPanel layers={modelById(activeMid())?.layers ?? []} frozen={activeFrame?.frozen ?? (activeFrame ? [] : null)} onfreeze={toggleVpFreeze} countOf={layerItemCount} ondelete={deleteLayerWithItems} />
 				{:else if rightTab === 'props'}
-					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (active) updateEnt(active.id, e) }}
+					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (active) updateEnts(active.id, [e].flat()) }}
 						onarrange={(op) => { if (active) reorderEnts(active.id, activeEntIds(), op) }}
 						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''}
 						onpagetitle={(t) => { if (!active || !t.trim()) return; const sid = sheetIdOf(active.docId); if (sid) proj.renameSheet(sid, t); else active.title = t.trim() }} {activeLayer} node={session.treeNode} nodeInfo={proj.nodeInfo} onnodefield={proj.setNodeField}

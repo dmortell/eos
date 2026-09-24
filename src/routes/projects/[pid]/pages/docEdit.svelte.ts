@@ -58,6 +58,12 @@ export class DocEdit {
 		const t = this.#h.timeline, mid = this.#h.modelIdOf(tabId)
 		t.ensure(tabId); this.#setEnts(mid, this.#ents(mid).map((x) => (x.id === e.id ? e : x))); t.record(tabId, 'Edit ' + e.type)
 	}
+	/** Several shapes edited together (a multi-selection's style / move / auto-number) — ONE undo step. */
+	updateEnts = (tabId: string, es: Ent[]) => {
+		if (!es.length) return
+		const t = this.#h.timeline, mid = this.#h.modelIdOf(tabId), by = new Map(es.map((e) => [e.id, e]))
+		t.ensure(tabId); this.#setEnts(mid, this.#ents(mid).map((x) => by.get(x.id) ?? x)); t.record(tabId, es.length > 1 ? `Edit ${es.length} shapes` : 'Edit ' + es[0].type)
+	}
 	/** Pure CRUD — no selection side effects (the callers know the VIEWPORT id). */
 	deleteEnts = (tabId: string, ids: string[]) => {
 		if (!ids.length) return
