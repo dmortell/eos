@@ -14,7 +14,7 @@ export type PlaceTreeInput = { pid: string; places: Place[]; drawings: DrawingDo
 	modelPlaces?: Set<string> }
 
 /** A Pages sheet's navigator leaf (opens as drawing id `sheet:<id>`). */
-export const sheetLeaf = (s: PagesSheetDoc): NavNode => ({ id: `s:${s.id}`, label: s.title || 'Untitled sheet', drawing: 'sheet' as NavKind, docId: `sheet:${s.id}`, sheet: true })
+export const sheetLeaf = (s: PagesSheetDoc): NavNode => ({ id: `s:${s.id}`, label: s.title || 'Untitled sheet', drawing: 'sheet' as NavKind, docId: `sheet:${s.id}`, sheet: true, ...(s.link ? { link: true } : {}) })
 
 export function buildPlaceTree({ pid, places, drawings, risers, floors, sheets = [], modelPlaces }: PlaceTreeInput): NavNode[] {
 	const hung = new Map<string, NavNode[]>()   // place id → drawing leaves on it

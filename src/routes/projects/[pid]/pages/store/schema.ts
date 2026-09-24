@@ -76,6 +76,13 @@ export type SheetFrameDoc = {
 	fillOf?: string
 }
 
+/** B5: where a link sheet goes — `/projects/{pid}/{tool}?floor=…&room=…`. */
+export type SheetLink = { tool: 'elevations' | 'patching' | 'outlets' | 'risers'; floor?: number; room?: string }
+export const LINK_TOOLS: Record<SheetLink['tool'], string> = { elevations: 'Elevations', patching: 'Patching', outlets: 'Outlets', risers: 'Risers' }
+export function sheetLinkUrl(pid: string, l: SheetLink): string {
+	const q = new URLSearchParams(); if (l.floor != null) q.set('floor', String(l.floor)); if (l.room) q.set('room', l.room)
+	return `/projects/${pid}/${l.tool}${q.size ? `?${q}` : ''}`
+}
 export type SheetKind = 'plan' | 'elevation' | 'schematic' | 'detail' | 'schedule'
 
 /** A Pages sheet: a `projects/{pid}/drawings/{id}` registry entry (`toolType: 'pages'`) with its content on
@@ -107,6 +114,9 @@ export type PagesSheetDoc = {
 	importedFrom?: string
 	/** "Drawn" in the title block (initials); empty → the creator's initials. */
 	drawnBy?: string
+	/** B5: a LINK sheet — a register row that opens another tool (Elevations / Patching / Outlets / Risers) at a
+	 *  floor / room instead of a Pages page; printed as a placeholder page. */
+	link?: SheetLink
 	/** A4 / B6: the sheet's revisions, oldest first, as the title block's revision table shows them (kept in step
 	 *  with the `revisions` sub-collection when issuing / editing / deleting). */
 	revLog?: { code: string; date: string; note?: string }[]

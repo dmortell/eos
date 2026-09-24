@@ -31,7 +31,7 @@ import { issueProblems, sheetModels, type ModelVersionDoc } from './store/versio
 import { storeyLevels, floorLabel, stackFloors, restack, storeyHeights, setStoreyHeights, type FloorHeights } from './store/risersImport'
 import { parseFloor } from './store/placeProps'
 import type { Storey } from './3dview/types'
-import type { PagesSheetDoc } from './store/schema'
+import { LINK_TOOLS, sheetLinkUrl, type PagesSheetDoc, type SheetLink } from './store/schema'
 import { buildPlaceTree } from './store/placeTree'
 import { addPlace, updatePlace, movePlace, removePlace, ancestorsOf } from './store/places'
 import { describePlace } from './store/placeProps'
@@ -505,7 +505,23 @@ export class PagesProject {
 		this.openSheetById(d.id)
 		this.#h.toast(`Duplicated “${src.title}”${copied ? ` with ${copied} annotation${copied === 1 ? '' : 's'}` : ''}`)
 	}
+	/** B5: a link sheet under `placeId` → another tool at the place's floor / room. */
+	addLinkSheet = (placeId: string, tool: SheetLink['tool']) => {
+		const ps = this.store, pl = ps?.places.find((p) => p.id === placeId); if (!ps || !pl || ps.status !== 'ready') return
+		const link: SheetLink = { tool, ...(pl.legacy?.floor != null ? { floor: pl.legacy.floor } : {}), ...(pl.legacy?.room ? { room: pl.legacy.room } : {}) }
+		const d = ps.createSheet({ title: `${LINK_TOOLS[tool]} · ${pl.name}`, placeId })
+		ps.saveSheet({ ...d, link, frames: [] })
+		this.#h.toast(`Link sheet “${d.title}” — opens ${LINK_TOOLS[tool]}${link.floor != null ? ` at floor ${link.floor}` : ''}`)
+	}
+	/** B5: a link sheet's drawing id → open its tool in a new browser tab (true); anything else → false. */
+	openLinkSheet = (docId?: string): boolean => {
+		const sid = sheetIdOf(docId), sh = sid ? this.store?.sheets.find((x) => x.id === sid) : null
+		if (!sh?.link || !this.store) return false
+		window.open(sheetLinkUrl(this.store.pid, sh.link), '_blank', 'noopener')
+		return true
+	}
 	openSheetById = (id: string) => {
+		if (this.openLinkSheet(SHEET + id)) return
 		const sh = this.store?.sheets.find((x) => x.id === id); if (!sh) return
 		this.loadSheet(id); this.#h.session.treeNode = null; this.drawingsOpen = false
 		this.#h.openDrawing({ title: sh.title, kind: 'sheet', preview: false, docId: SHEET + id })

@@ -4,11 +4,12 @@
 	// leaves are the drawings / views. Clicking a leaf opens it as a canvas tab. Mock data.
 	import { Icon, DragReorder } from '$lib'
 	import { TreeDrag, type DropZone } from './treeDrag.svelte'
+	import { LINK_TOOLS, type SheetLink } from '../store/schema'
 	import { tick, untrack } from 'svelte'
 	import { type NavKind as Kind, type NavNode as Node, NAV_TREE as TREE, NAV_PROJECT as PROJECT } from '../mock/data'
 
 	let { onopen, onopenfloor, oncollapse, onselectnode, activeDoc = '', activeNode = '', tree = null, project = null, status = '', onaddbuilding, onmovefloor, onmovebuilding, reveal = [],
-		placesMode = false, onseedplaces, onplaceadd, onplacerename, onplacemove, onplacedelete, onopenplace, onsheetadd, onsheetrename, onsheetarchive, onsheetduplicate, onplaceimport, onplaceracks, ondrawings, onimportdrawing, onimportriser }:
+		placesMode = false, onseedplaces, onplaceadd, onplacerename, onplacemove, onplacedelete, onopenplace, onsheetadd, onsheetrename, onsheetarchive, onsheetduplicate, onlinksheet, onplaceimport, onplaceracks, ondrawings, onimportdrawing, onimportriser }:
 		{ onopen?: (d: { title: string; kind: Kind; preview: boolean; floor?: string; docId?: string }) => void; oncollapse?: () => void;
 			/** A FLOOR row was clicked (preview) or double-clicked (kept): open that floor's model tab. */
 			onopenfloor?: (floor: string, preview: boolean) => void;
@@ -43,6 +44,8 @@
 			onsheetadd?: (placeId: string) => string | undefined
 			onsheetrename?: (rowId: string, title: string) => void
 			onsheetarchive?: (rowId: string) => void
+			/** B5: a link sheet under a place, opening another tool at its floor / room. */
+			onlinksheet?: (placeId: string, tool: SheetLink['tool']) => void
 			/** B1: duplicate a sheet leaf (right after it). */
 			onsheetduplicate?: (rowId: string) => void
 			/** Import the place's outlets + trunks from the Outlets tool into its model (places with `outletsDoc`). */
@@ -152,6 +155,8 @@
 		if (onplaceimport && n.outletsDoc) out.push({ key: 'import', label: 'Import from Outlets tool', icon: 'download', confirm: 'Click again to import outlets + trunks', run: () => onplaceimport?.(n.id) })
 		if (onplaceracks && n.racksRow) out.push({ key: 'racks', label: 'Import racks from the Racks tool', icon: 'download', confirm: 'Click again to rebuild its racks + devices', run: () => onplaceracks?.(n.id) })
 		if (onsheetadd) out.push({ key: 'sheet', label: 'New sheet here', icon: 'fileText', run: () => addSheet(n.id) })
+		if (onlinksheet) for (const [tool, name] of Object.entries(LINK_TOOLS) as [SheetLink['tool'], string][])
+			out.push({ key: `link-${tool}`, label: `New link to ${name}`, icon: 'link', run: () => onlinksheet?.(n.id, tool) })
 		if (onplaceadd) out.push({ key: 'place', label: 'New place inside', icon: 'plus', run: () => addPlace(n.id) })
 		if (onplacerename) out.push({ key: 'rename', label: 'Rename', icon: 'edit', run: () => startRename(n) })
 		if (onplacedelete) out.push({ key: 'delete', label: 'Delete', icon: 'trash', danger: true, confirm: 'Click again to delete', run: () => {
@@ -299,7 +304,7 @@
 				ondblclick={() => onopen?.({ title: n.label, kind: n.drawing!, preview: false, floor, docId: n.docId ?? n.id })}
 				onkeydown={(e) => { if (e.key === 'Enter') onopen?.({ title: n.label, kind: n.drawing!, preview: false, floor, docId: n.docId ?? n.id }) }}>
 				<span class="dn-chev spacer"></span>
-				<Icon name={drawingIcon[n.drawing]} size={13} />
+				<Icon name={n.link ? 'link' : drawingIcon[n.drawing]} size={13} />
 				{#if renamingId === n.id}
 					<input class="dn-rename" bind:value={renameText} use:focusSel onclick={(e) => e.stopPropagation()} ondblclick={(e) => e.stopPropagation()}
 						onkeydown={(e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); commitAnyRename() } else if (e.key === 'Escape') renamingId = null }}

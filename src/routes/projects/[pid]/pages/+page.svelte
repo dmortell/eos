@@ -633,6 +633,7 @@
 	// else falls back to `title:<title>`), so re-opening finds the SAME drawing even if a tab was renamed.
 	function openDrawing(d: { title: string; kind: Kind; preview?: boolean; floor?: string; docId?: string; modelId?: ModelId }) {
 		if (proj.openRiser(d.docId, !!d.preview)) return   // a riser row → its imported building model (never the mock riser tab)
+		if (proj.openLinkSheet(d.docId)) return   // B5: a link sheet opens its tool (a new browser tab)
 		const sid = sheetIdOf(d.docId); if (sid) proj.loadSheet(sid)   // a stored Pages sheet: its paper + frames first
 		// a stored sheet's tab (frames without their own model fall back to it) = its PLACE's model, never the
 		// unsaved per-floor-name model of the old tree; a real floor of the old tree gets its own model + floorplan
@@ -1033,7 +1034,7 @@
 					onimportdrawing={proj.hasPlaces ? (id) => void proj.importRegisterDrawing(id).then((notes) => { if (notes.length) toast(notes.join('\n')) }) : undefined}
 					onimportriser={proj.hasPlaces ? (id) => void proj.importRisers(id).then((notes) => { if (notes.length) toast(notes.join('\n')) }) : undefined}
 					onsheetadd={proj.hasPlaces ? proj.onSheetAdd : undefined} onplaceimport={proj.hasPlaces ? (id) => void proj.importPlaceOutlets(id) : undefined} onplaceracks={proj.hasPlaces ? proj.imports.importPlaceRacks : undefined}
-					onsheetrename={(rowId, t) => proj.renameSheet(rowId.slice(2), t)} onsheetarchive={(rowId) => proj.archiveSheet(rowId.slice(2))} onsheetduplicate={(rowId) => proj.duplicateSheet(rowId.slice(2))}
+					onsheetrename={(rowId, t) => proj.renameSheet(rowId.slice(2), t)} onsheetarchive={(rowId) => proj.archiveSheet(rowId.slice(2))} onsheetduplicate={(rowId) => proj.duplicateSheet(rowId.slice(2))} onlinksheet={proj.hasPlaces ? proj.addLinkSheet : undefined}
 					onaddbuilding={(n) => proj.src?.addBuilding(n).catch((e) => { toast(`Couldn't add the building: ${e?.message ?? e}`); return false }) ?? Promise.resolve(false)}
 					onmovefloor={(f, b) => proj.src?.moveFloor(f, b).catch((e) => toast(`Couldn't move the floor: ${e?.message ?? e}`))}
 					onmovebuilding={(n, t, after) => proj.src?.moveBuilding(n, t, after).catch((e) => toast(`Couldn't reorder: ${e?.message ?? e}`))}
