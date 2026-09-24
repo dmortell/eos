@@ -4,6 +4,7 @@ import { PAPER_PX_PER_MM, DEFAULT_MARGIN_MM, type PaperSize } from '../constants
 import { migrateModels } from '../3dview/migrate'
 import type { Model } from '../3dview/types'
 import type { SheetFrame } from '../types'
+import type { PageDoc } from '../doc.svelte'
 import type { View } from '../ui/geometry'
 import type { ModelDoc, PagesSheetDoc, SheetFrameDoc, SheetPaper } from './schema'
 
@@ -34,7 +35,7 @@ export function frameToDoc(f: SheetFrame, seq: number, vs: FrameViewState = {}):
 export function docToFrame(d: SheetFrameDoc): { frame: SheetFrame; view: FrameViewState } {
 	const frame: SheetFrame = {
 		id: d.id, x: toPx(d.x), y: toPx(d.y), w: toPx(d.w), h: toPx(d.h), border: d.border ?? 'dashed',
-		proj: d.direction, scale: d.scale, clip: d.clip ?? null, label: d.label || String(d.seq),
+		proj: d.direction, scale: d.scale, clip: d.clip ?? null, label: d.label || String(d.seq), seq: d.seq,
 	}
 	if (d.modelId != null) frame.modelId = d.modelId
 	if (d.frozen?.length) frame.frozen = [...d.frozen]
@@ -43,7 +44,24 @@ export function docToFrame(d: SheetFrameDoc): { frame: SheetFrame; view: FrameVi
 }
 
 /** The next free frame sequence number on a sheet. */
-export const nextFrameSeq = (frames: { seq: number }[]) => frames.reduce((m, f) => Math.max(m, f.seq), 0) + 1
+export const nextFrameSeq = (frames: { seq?: number }[]) => frames.reduce((m, f) => Math.max(m, f.seq ?? 0), 0) + 1
+
+/** A stored sheet → the editor's page doc (paper, sheet scale, frames in paper px). */
+export function sheetToPage(s: PagesSheetDoc): Omit<PageDoc, 'id'> {
+	return {
+		title: s.title, kind: 'sheet', scale: s.scale || '1:100',
+		paper: { size: s.paper.size, landscape: s.paper.landscape, margin: s.paper.marginMm },
+		frames: s.frames.map((f) => docToFrame(f).frame),
+	}
+}
+/** The editor's page doc folded back into its stored sheet (registry fields kept from `s`). */
+export function pageToSheet(s: PagesSheetDoc, d: Pick<PageDoc, 'paper' | 'scale' | 'frames'>): PagesSheetDoc {
+	return {
+		...s, scale: d.scale, sheetSize: d.paper.size,
+		paper: { size: d.paper.size, landscape: d.paper.landscape, marginMm: d.paper.margin ?? DEFAULT_MARGIN_MM },
+		frames: d.frames.map((f, i) => frameToDoc(f, f.seq ?? i + 1)),
+	}
+}
 
 /** A brand-new Pages sheet registry entry. Its number starts empty (drawings-plan §2.2). */
 export function newSheetDoc(a: { pid: string; id: string; title: string; placeId: string | null; sortOrder: number; user: string; now: string

@@ -6,11 +6,14 @@
 import { drawingLeaf, drawingPlace, floorName, normFloors, type DrawingDoc, type FloorConfig, type RiserDoc } from '../projectTree'
 import type { NavKind, NavNode } from '../mock/data'
 import { ancestorsOf, childrenOf } from './places'
-import type { Place } from './schema'
+import type { PagesSheetDoc, Place } from './schema'
 
-export type PlaceTreeInput = { pid: string; places: Place[]; drawings: DrawingDoc[]; risers: RiserDoc[]; floors?: FloorConfig[] | number[] }
+export type PlaceTreeInput = { pid: string; places: Place[]; drawings: DrawingDoc[]; risers: RiserDoc[]; floors?: FloorConfig[] | number[]; sheets?: PagesSheetDoc[] }
 
-export function buildPlaceTree({ pid, places, drawings, risers, floors }: PlaceTreeInput): NavNode[] {
+/** A Pages sheet's navigator leaf (opens as drawing id `sheet:<id>`). */
+export const sheetLeaf = (s: PagesSheetDoc): NavNode => ({ id: `s:${s.id}`, label: s.title || 'Untitled sheet', drawing: 'sheet' as NavKind, docId: `sheet:${s.id}`, sheet: true })
+
+export function buildPlaceTree({ pid, places, drawings, risers, floors, sheets = [] }: PlaceTreeInput): NavNode[] {
 	const hung = new Map<string, NavNode[]>()   // place id → drawing leaves on it
 	const hang = (placeId: string, n: NavNode) => hung.set(placeId, [...(hung.get(placeId) ?? []), n])
 	const projectLevel: NavNode[] = [], orphan: NavNode[] = []
@@ -41,16 +44,23 @@ export function buildPlaceTree({ pid, places, drawings, risers, floors }: PlaceT
 		if (home) hang(home.id, leaf); else projectLevel.push(leaf)
 	}
 
+	// Pages sheets: filed by placeId in manual order (archived ones hidden); an unknown / no place → project level
+	const ids = new Set(places.map((p) => p.id))
+	const live = sheets.filter((s) => s.status !== 'archived').sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title))
+	const sheetsOf = new Map<string, NavNode[]>()
+	const projectSheets: NavNode[] = []
+	for (const s of live) { if (s.placeId && ids.has(s.placeId)) sheetsOf.set(s.placeId, [...(sheetsOf.get(s.placeId) ?? []), sheetLeaf(s)]); else projectSheets.push(sheetLeaf(s)) }
+
 	const node = (p: Place): NavNode => {
 		const kids = childrenOf(places, p.id)
-		const n: NavNode = { id: p.id, label: p.name, folder: p.kind || 'place', place: true, children: [...(hung.get(p.id) ?? []), ...kids.map(node)],
+		const n: NavNode = { id: p.id, label: p.name, folder: p.kind || 'place', place: true, children: [...(sheetsOf.get(p.id) ?? []), ...(hung.get(p.id) ?? []), ...kids.map(node)],
 			modelFloor: isFloorPlace(p) ? floorName(p.legacy!.floor!) : null }
 		if (p.legacy?.floor != null) n.floor = floorName(p.legacy.floor)   // drawings under it view that floor's model
 		if (isFloorPlace(p)) n.floorNumber = p.legacy!.floor
 		return n
 	}
 	const tree = childrenOf(places, null).map(node)
-	if (projectLevel.length) tree.push({ id: 'g:project', label: 'Project drawings', folder: 'group', children: projectLevel })
+	if (projectSheets.length || projectLevel.length) tree.push({ id: 'g:project', label: 'Project drawings', folder: 'group', children: [...projectSheets, ...projectLevel] })
 	if (orphan.length) tree.push({ id: 'g:orphan', label: 'Other floors (not in the places)', folder: 'group', children: orphan })
 	return tree
 }

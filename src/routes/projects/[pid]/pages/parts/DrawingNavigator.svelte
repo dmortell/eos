@@ -8,7 +8,7 @@
 	import { type NavKind as Kind, type NavNode as Node, NAV_TREE as TREE, NAV_PROJECT as PROJECT } from '../mock/data'
 
 	let { onopen, onopenfloor, oncollapse, onselectnode, activeDoc = '', activeNode = '', tree = null, project = null, status = '', onaddbuilding, onmovefloor, onmovebuilding, reveal = [],
-		placesMode = false, onseedplaces, onplaceadd, onplacerename, onplacemove, onplacedelete, onopenplace }:
+		placesMode = false, onseedplaces, onplaceadd, onplacerename, onplacemove, onplacedelete, onopenplace, onsheetadd, onsheetrename, onsheetarchive }:
 		{ onopen?: (d: { title: string; kind: Kind; preview: boolean; floor?: string; docId?: string }) => void; oncollapse?: () => void;
 			/** A FLOOR row was clicked (preview) or double-clicked (kept): open that floor's model tab. */
 			onopenfloor?: (floor: string, preview: boolean) => void;
@@ -37,7 +37,12 @@
 			onplacedelete?: (id: string) => string | null
 			/** Places mode: open a place's MODEL tab (creating the model if it has none) — a floor place previews it
 			 *  on click, any place opens it (kept) on double-click (drawings-plan phase 3). */
-			onopenplace?: (id: string, preview: boolean) => void } = $props()
+			onopenplace?: (id: string, preview: boolean) => void
+			/** Places mode (drawings-plan phase 4): a new Pages sheet filed under a place — returns its tree row id
+			 *  so it opens for renaming; rename / archive a sheet leaf. Sheets drag like places (`onplacemove`). */
+			onsheetadd?: (placeId: string) => string | undefined
+			onsheetrename?: (rowId: string, title: string) => void
+			onsheetarchive?: (rowId: string) => void } = $props()
 	const TREE_NODES = $derived(tree ?? TREE)
 	const PROJ = $derived(project ? { ...project, kind: 'project' } : PROJECT)
 	// A floor row's model / tab name: the real tree carries it (`floor`, e.g. '33F'); the mock's label is it.
@@ -57,7 +62,7 @@
 		else if (a.folder === 'building' && t.folder === 'building') onmovebuilding?.(a.label, t.label, after)
 	}, (id) => flat.findIndex((n) => n.id === id))
 	const td = new TreeDrag((id, target, zone) => onplacemove?.(id, target, zone))
-	const dragProps = (n: Node) => placesMode ? (n.place && onplacemove ? td.row(n.id) : {})
+	const dragProps = (n: Node) => placesMode ? ((n.place || n.sheet) && onplacemove ? td.row(n.id) : {})
 		: (canDrag && (n.folder === 'building' || (n.folder === 'floor' && n.floorNumber != null)) ? dr.row(n.id) : {})
 	// the drop target highlights as a whole row (a floor goes INTO a building, not between rows; a place INTO a place)
 	const dropInto = (n: Node) => placesMode ? td.zoneOf(n.id) === 'into' : dr.dragId != null && (dr.isBefore(n.id) || dr.isAfter(n.id)) && nodeById(dr.dragId)?.folder === 'floor'
@@ -77,6 +82,22 @@
 	}
 	function startRename(n: Node) { renamingId = n.id; renameText = n.label }
 	function commitRename() { const id = renamingId; renamingId = null; if (id && renameText.trim()) onplacerename?.(id, renameText.trim()) }
+	function addSheet(placeId: string) {
+		const id = onsheetadd?.(placeId); if (!id) return
+		const s2 = new Set(expanded); s2.add(placeId); expanded = s2; const c = new Set(collapsed); c.delete(placeId); collapsed = c
+		renamingId = id; renameText = 'New sheet'
+	}
+	// the inline rename box serves places and sheet leaves; commit routes by row kind
+	function commitAnyRename() {
+		const id = renamingId; if (!id) return
+		if (nodeById(id)?.sheet) { renamingId = null; if (renameText.trim()) onsheetrename?.(id, renameText.trim()) }
+		else commitRename()
+	}
+	let confirmArchive = $state<string | null>(null)
+	function archiveSheet(id: string) {
+		if (confirmArchive !== id) { confirmArchive = id; setTimeout(() => { if (confirmArchive === id) confirmArchive = null }, 3000); return }
+		confirmArchive = null; onsheetarchive?.(id)
+	}
 	function deletePlace(id: string) {
 		if (confirmDel !== id) { confirmDel = id; delErr = null; setTimeout(() => { if (confirmDel === id) confirmDel = null }, 3000); return }
 		confirmDel = null
@@ -178,7 +199,29 @@
 {#snippet row(n: Node, depth: number, floor: string | undefined)}
 	{#if !search || visible(n)}
 		{@const isOpen = openOf(n) || (!!search && (n.children?.length ?? 0) > 0)}
-		{#if n.drawing}
+		{#if n.drawing && n.sheet && placesMode}
+			<!-- a stored Pages SHEET: opens a tab like any drawing; draggable between places, renamable, archivable -->
+			<div class="dn-row leaf" class:active={activeDoc === (n.docId ?? n.id)} style:padding-left="{depth * 12 + 8}px" role="button" tabindex="0"
+				{...dragProps(n)} class:drag-before={dropBefore(n)} class:drag-after={dropAfter(n) || dropInto(n)}
+				onclick={() => onopen?.({ title: n.label, kind: n.drawing!, preview: true, floor, docId: n.docId ?? n.id })}
+				ondblclick={() => onopen?.({ title: n.label, kind: n.drawing!, preview: false, floor, docId: n.docId ?? n.id })}
+				onkeydown={(e) => { if (e.key === 'Enter') onopen?.({ title: n.label, kind: n.drawing!, preview: false, floor, docId: n.docId ?? n.id }) }}>
+				<span class="dn-chev spacer"></span>
+				<Icon name={drawingIcon[n.drawing]} size={13} />
+				{#if renamingId === n.id}
+					<input class="dn-rename" bind:value={renameText} use:focusSel onclick={(e) => e.stopPropagation()} ondblclick={(e) => e.stopPropagation()}
+						onkeydown={(e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); commitAnyRename() } else if (e.key === 'Escape') renamingId = null }}
+						onblur={commitAnyRename} />
+				{:else}
+					<span class="dn-name" title={n.label}>{n.label}</span>
+					<span class="dn-acts-row">
+						{#if onsheetrename}<button title="Rename" aria-label="Rename" onclick={(e) => { e.stopPropagation(); startRename(n) }}><Icon name="edit" size={12} /></button>{/if}
+						{#if onsheetarchive}<button class:confirm={confirmArchive === n.id} title={confirmArchive === n.id ? 'Click again to archive' : 'Archive'} aria-label="Archive"
+							onclick={(e) => { e.stopPropagation(); archiveSheet(n.id) }}><Icon name="trash" size={12} />{#if confirmArchive === n.id}<span>Archive?</span>{/if}</button>{/if}
+					</span>
+				{/if}
+			</div>
+		{:else if n.drawing}
 			<!-- drawing leaf: opens a tab -->
 			<!-- single-click = preview tab (italic, reused); double-click promotes it to a kept tab -->
 			<button class="dn-row leaf" class:active={activeDoc === (n.docId ?? n.id)} style:padding-left="{depth * 12 + 8}px"
@@ -206,13 +249,14 @@
 				<Icon name={folderIcon[n.folder ?? ''] ?? 'folder'} size={13} />
 				{#if renamingId === n.id}
 					<input class="dn-rename" bind:value={renameText} use:focusSel onclick={(e) => e.stopPropagation()} ondblclick={(e) => e.stopPropagation()}
-						onkeydown={(e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); commitRename() } else if (e.key === 'Escape') renamingId = null }}
-						onblur={commitRename} />
+						onkeydown={(e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); commitAnyRename() } else if (e.key === 'Escape') renamingId = null }}
+						onblur={commitAnyRename} />
 				{:else}
 					<span class="dn-name" title={n.meta ? `${n.label} · ${n.meta}` : n.label}>{n.label}</span>
 					{#if n.meta}<span class="dn-meta">{n.meta}</span>{/if}
 					{#if placesMode && n.place}
 						<span class="dn-acts-row">
+							{#if onsheetadd}<button title="New sheet here" aria-label="New sheet" onclick={(e) => { e.stopPropagation(); addSheet(n.id) }}><Icon name="fileText" size={12} /></button>{/if}
 							{#if onplaceadd}<button title="New place inside" aria-label="New place inside" onclick={(e) => { e.stopPropagation(); addPlace(n.id) }}><Icon name="plus" size={12} /></button>{/if}
 							{#if onplacerename}<button title="Rename" aria-label="Rename" onclick={(e) => { e.stopPropagation(); startRename(n) }}><Icon name="edit" size={12} /></button>{/if}
 							{#if onplacedelete}<button class:confirm={confirmDel === n.id} title={confirmDel === n.id ? 'Click again to delete' : 'Delete'} aria-label="Delete"

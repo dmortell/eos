@@ -20,6 +20,8 @@ export type SheetFrame = {
 	id: string; x: number; y: number; w: number; h: number
 	border: 'dashed' | 'solid' | 'none'
 	proj: Proj; scale: string; clip: Clip | null; label: string; modelId?: ModelId
+	/** Pages sheets (drawings-plan §2.2): the frame's sequence number on its sheet — its default, printable label. */
+	seq?: number
 	/** VP Freeze (AutoCAD): layer ids hidden in THIS frame only, on top of the model's own layer on/off.
 	 *  Document state — it rides the frames history, so a freeze is undoable. */
 	frozen?: string[]

@@ -52,9 +52,11 @@ export class PagesStore {
 	 *  docs with a pending local edit) and the ids deleted remotely — the page applies them to the editor's model
 	 *  registry there, in the callback (never a $effect). */
 	#onModels?: (changed: ModelDoc[], removed: string[]) => void
+	/** The same for sheets: remote content changes the page applies to open sheet docs. */
+	#onSheets?: (changed: PagesSheetDoc[], removed: string[]) => void
 
-	constructor(db: StoreDb, pid: string, user = '', opts: { delayMs?: number; onModels?: (changed: ModelDoc[], removed: string[]) => void } = {}) {
-		this.#db = db; this.pid = pid; this.#user = user; this.#onModels = opts.onModels
+	constructor(db: StoreDb, pid: string, user = '', opts: { delayMs?: number; onModels?: (changed: ModelDoc[], removed: string[]) => void; onSheets?: (changed: PagesSheetDoc[], removed: string[]) => void } = {}) {
+		this.#db = db; this.pid = pid; this.#user = user; this.#onModels = opts.onModels; this.#onSheets = opts.onSheets
 		const o = { delayMs: opts.delayMs, onError: this.#onError }
 		this.#projectSaver = new DocSaver((_k, p) => db.saveFields('projects', { id: pid, pages: p }), o)
 		this.#sheetSaver = new DocSaver((_k, d) => db.saveFields(this.#sheetsPath, d), o)
@@ -74,7 +76,9 @@ export class PagesStore {
 			this.#mark('project')
 		}))
 		this.#subs.push(this.#db.subscribeWhere(this.#sheetsPath, 'toolType', 'pages', (docs) => {
-			this.sheets = this.#merge(this.sheets, docs.map((d) => normSheet(d as PagesSheetDoc)), this.#sheetSaver).list
+			const r = this.#merge(this.sheets, docs.map((d) => normSheet(d as PagesSheetDoc)), this.#sheetSaver)
+			this.sheets = r.list
+			if (r.applied.length || r.removed.length) this.#onSheets?.(r.applied, r.removed)
 			this.#mark('sheets')
 		}))
 		this.#subs.push(this.#db.subscribeMany(this.#modelsPath, (docs) => {
@@ -119,6 +123,14 @@ export class PagesStore {
 		const next = { ...d, updatedAt: now() }
 		this.sheets = upsert(this.sheets, next)
 		this.#sheetSaver.queue(d.id, next)
+	}
+	/** Move a sheet to a place (null = project level) at a position among that place's live sheets; renumbers
+	 *  the sortOrder of every sheet in the place (manual drag order, drawings-plan §4). */
+	moveSheet(id: string, placeId: string | null, index: number) {
+		const me = this.sheets.find((s) => s.id === id); if (!me) return
+		const rest = this.sheetsIn(placeId).filter((s) => s.id !== id)
+		rest.splice(Math.max(0, Math.min(index, rest.length)), 0, { ...me, placeId })
+		rest.forEach((s, i) => { if (s.id === id || s.sortOrder !== i) this.saveSheet({ ...s, placeId, sortOrder: i }) })
 	}
 	setSheetStatus(id: string, status: PagesSheetDoc['status']) { const s = this.sheets.find((x) => x.id === id); if (s && s.status !== status) this.saveSheet({ ...s, status }) }
 	/** Hard delete — only an ARCHIVED sheet (drawings-plan §5). */

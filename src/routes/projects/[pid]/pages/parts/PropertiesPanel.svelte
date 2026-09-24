@@ -12,11 +12,11 @@
 	import { type SheetFrame, type Proj, PROJ_OPTS, SCALES } from '../types'
 	import { NODE_FIELDS } from '../mock/data'
 
-	let { ents = [], onupdate, onarrange, pageTitle = '', pageKind = '', activeLayer = '', node = null,
+	let { ents = [], onupdate, onarrange, pageTitle = '', pageKind = '', activeLayer = '', node = null, onpagetitle,
 		modelObj = null, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg,
 		frameObj = null, onframeupdate, onframedelete, onframefit, nodeInfo = null, onnodefield, modelList = [], activeFrameId = undefined, scaleN = 1 }:
 		{ ents?: Ent[]; onupdate?: (e: Ent) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void;
-			pageTitle?: string; pageKind?: string; activeLayer?: string;
+			pageTitle?: string; pageKind?: string; activeLayer?: string; onpagetitle?: (title: string) => void;
 			node?: { id: string; label: string; kind: string; floorNumber?: number; building?: string } | null;
 			/** A REAL tree node's properties (projectProps.ts, from Firestore) + the edit callback; null → mock fields. */
 			nodeInfo?: import('../projectProps').NodeInfo | null; onnodefield?: (key: string, value: string) => void;
@@ -302,7 +302,8 @@
 	{:else if ents.length === 0}
 		<!-- nothing selected → page / general props (mock) -->
 		<div class="prop-sec">PAGE</div>
-		<div class="prop"><span>Name</span><input value={pageTitle} /></div>
+		<div class="prop"><span>Name</span><input value={pageTitle} onchange={(e) => onpagetitle?.((e.currentTarget as HTMLInputElement).value)}
+			onkeydown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur() }} /></div>
 		<div class="prop"><span>Type</span><input value={pageKind} readonly /></div>
 		<div class="prop"><span>Layer</span><input value={activeLayer} readonly /></div>
 		<div class="pp-hint">Select an object to edit its properties, or a place in the tree.</div>

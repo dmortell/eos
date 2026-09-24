@@ -54,6 +54,11 @@ class DocsStore {
 		this.#docs = { ...this.#docs, [id]: { ...cur, scale: s } }
 	}
 
+	/** Every loaded doc, by drawing id (reactive: reading it depends on any doc changing). */
+	all(): Readonly<Record<string, PageDoc>> { return this.#docs }
+	/** The whole doc (undefined when this drawing hasn't been loaded / edited). */
+	get(id: string): PageDoc | undefined { return this.#docs[id] }
+	has(id: string): boolean { return id in this.#docs }
 	framesOf(id: string): SheetFrame[] { return this.#docs[id]?.frames ?? [] }
 	setFrames(id: string, frames: SheetFrame[]) {
 		const cur = this.#docs[id] ?? emptyDoc(id)

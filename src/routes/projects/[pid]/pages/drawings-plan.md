@@ -159,7 +159,7 @@ Each phase ships on its own and gets live-checked in the browser.
    Project). The tree reads Pages places; add / rename / move / delete places.
 3. **Models persisted** (DONE 2026-09-24: registry <-> `projects/{pid}/models`, place models, Missing model, undo by id): floor and building models load and save; a floor node opens its stored model;
    "Missing model" placeholder; the in-memory mock models go.
-4. **Sheets persisted:** new sheet from a place; sheet content saved on the registry entry; drag between
+4. **Sheets persisted** (DONE 2026-09-24: sheets under places in the tree, stored content, numbered frames on the place model): new sheet from a place; sheet content saved on the registry entry; drag between
    places; manual order; archive. Numbered, printable frame labels; new frames default to the place's model.
 5. **Title block template** per project, auto-filled.
 6. **Drawing management dialog:** table, grouping and filters, tags, bulk actions, Excel export, packages,
