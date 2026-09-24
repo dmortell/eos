@@ -10,6 +10,9 @@ open items; `review.md §0a` tracks which review findings are closed.
   trunks → conduits) per place; model views restored on reload; a click opens any place with a model.
 - **Title block** (phase 5): one template per project (`pages.titleBlock`), auto-filled per sheet (project,
   title, location, Dwg №, rev, date, scale, size, drawn); edited in a sheet's page Properties.
+- **Drawings dialog** (phase 6): sheets register (search, filters, grouping, sort, inline + bulk edit, renumber
+  patterns, tags, archive, Excel export), archived list with restore / hard delete, and a Models tab (usage,
+  archive / restore, frames showing a Missing model).
 
 ## Refactors — code-review 2 R-items (2026-09-22 → 09-24)
 Work was split across sessions: one spec'd and diff-reviewed, one implemented, one live-gated each

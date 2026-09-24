@@ -165,7 +165,9 @@ Each phase ships on its own and gets live-checked in the browser.
 5. **Title block template** per project, auto-filled (DONE 2026-09-24: `titleBlock.ts`, `parts/TitleBlockEditor.svelte`;
    template edited from a sheet's page Properties; Dwg № + Drawn per sheet).
 6. **Drawing management dialog:** table, grouping and filters, tags, bulk actions, Excel export, packages,
-   archived list + hard delete.
+   archived list + hard delete. (DONE 2026-09-24: `parts/DrawingsDialog.svelte`, `store/drawingList.ts`,
+   `store/drawingListExport.ts`; File › Drawings… / the navigator's list button. **Packages deferred to
+   phase 7** — package items reference issued revisions, which Pages sheets don't have yet.)
 7. **History:** model versions (major copy / minor notes), sheet revisions, and the issue flow with the
    overwrite-or-bump prompt.
 8. **Imports:** Sheets sheet → Pages sheet (one at a time); risers → building model (Hibiya, LR).

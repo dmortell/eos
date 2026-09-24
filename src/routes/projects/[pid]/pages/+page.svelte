@@ -12,6 +12,7 @@
 	import { page } from '$app/state'
 	import { goto } from '$app/navigation'
 	import PaperPage from './parts/PaperPage.svelte'
+	import DrawingsDialog from './parts/DrawingsDialog.svelte'
 	import Pane from './parts/Pane.svelte'
 	import { newId } from './ids'
 	import { viewState } from './viewState.svelte'
@@ -719,6 +720,7 @@
 		else if (item === 'Dimension') { if (active) focusTool('Dimension') }
 		// Not-yet-implemented File items: tell the user instead of silently doing nothing (B8).
 		else if (item === 'Open Project…') openProjectOpen = true
+		else if (item === 'Drawings…') { if (pagesStore && hasPlaces) drawingsOpen = true; else toast('Set up places first — drawings are managed per place') }
 		else if (item === 'Save' || item === 'Export…') statusText = `${item.replace('…', '')} isn't wired up yet (mock)`
 		// everything else is a mock no-op
 	}
@@ -971,6 +973,43 @@
 		const ps = pagesStore, sh = ps?.sheets.find((x) => x.id === id); if (!ps || !sh || !title.trim()) return
 		ps.saveSheet({ ...sh, title: title.trim() })
 		for (const t of session.tabs) if (t.docId === SHEET + id) t.title = title.trim()
+	}
+	// ── phase 6: the drawing management dialog (parts/DrawingsDialog.svelte) ──
+	let drawingsOpen = $state(false)
+	// the models it lists: the STORED ones, read from the editor registry (the source of truth the save effect writes)
+	const storedModelInfo = $derived.by(() => {
+		const ids = new Set(pagesStore?.models.map((m) => m.id) ?? [])
+		return models.filter((m) => ids.has(m.id)).map((m) => ({ id: m.id, name: m.name, placeId: m.placeId, kind: m.kind, version: m.version, archived: m.archived }))
+	})
+	function updateSheets(patches: { id: string; patch: Partial<import('./store/schema').PagesSheetDoc> }[]) {
+		const ps = pagesStore; if (!ps) return
+		for (const { id, patch } of patches) {
+			const sh = ps.sheets.find((x) => x.id === id); if (!sh) continue
+			ps.saveSheet({ ...sh, ...patch })
+			if (patch.title) for (const t of session.tabs) if (t.docId === SHEET + id) t.title = patch.title
+		}
+	}
+	function archiveSheets(ids: string[]) {
+		const ps = pagesStore; if (!ps) return
+		for (const id of ids) { ps.setSheetStatus(id, 'archived'); for (const t of [...session.tabs]) if (t.docId === SHEET + id) closeTab(t.id) }
+		toast(`${ids.length} sheet${ids.length === 1 ? '' : 's'} archived`)
+	}
+	function openSheetById(id: string) {
+		const sh = pagesStore?.sheets.find((x) => x.id === id); if (!sh) return
+		loadSheet(id); session.treeNode = null; drawingsOpen = false
+		openDrawing({ title: sh.title, kind: 'sheet', preview: false, docId: SHEET + id })
+	}
+	function openModelById(id: string) {
+		const m = modelById(id); if (!m) return
+		drawingsOpen = false
+		openDrawing({ title: `${m.name} · Model`, kind: 'model', preview: false, modelId: m.id, docId: `model:${m.id}` })
+	}
+	/** Archive / restore a stored model: flag it in the registry (the save effect stores it); frames showing it
+	 *  then show "Missing model" until it's restored. */
+	function setModelArchived(id: string, archived: boolean) {
+		const m = modelById(id); if (!m) return
+		if (archived) m.archived = true; else delete m.archived
+		toast(archived ? `Model ${m.name} archived` : `Model ${m.name} restored`)
 	}
 	function archiveSheet(id: string) {
 		const ps = pagesStore; if (!ps) return
@@ -1390,6 +1429,12 @@
 <div class="shell" data-mock-theme={mockTheme}>
 	<!-- inside .shell so the palette's CSS tokens (var(--panel)/--text/…) resolve -->
 	{#if paletteOpen}<CommandPalette items={paletteItems} onpick={pickPalette} onclose={() => (paletteOpen = false)} />{/if}
+	{#if drawingsOpen && pagesStore}
+		<DrawingsDialog sheets={pagesStore.sheets} places={pagesStore.places} models={storedModelInfo} projectName={projectSrc?.project?.name ?? ''}
+			onupdate={updateSheets} onarchive={archiveSheets} onrestore={(ids) => ids.forEach((id) => pagesStore!.setSheetStatus(id, 'active'))}
+			ondelete={(id) => void pagesStore!.hardDeleteSheet(id).then((ok) => { if (ok) toast('Sheet deleted') })}
+			onopen={openSheetById} onmodelarchive={setModelArchived} onopenmodel={openModelById} onclose={() => (drawingsOpen = false)} />
+	{/if}
 	{#if openProjectOpen}<OpenProjectDialog currentId={page.params.pid} onpick={openProject} onclose={() => (openProjectOpen = false)} />{/if}
 	{#if tabMenuPane !== null}<button class="menu-backdrop" aria-label="Close menu" onclick={() => (tabMenuPane = null)}></button>{/if}
 
@@ -1430,6 +1475,7 @@
 					placesMode={hasPlaces} onseedplaces={canSeedPlaces ? seedPlaces : undefined}
 					onplaceadd={onPlaceAdd} onplacerename={onPlaceRename} onplacemove={onPlaceMove} onplacedelete={onPlaceDelete}
 					onopenplace={hasPlaces ? (id, preview) => { restoredFor = page.params.pid ?? ''; openPlaceModel(id, preview) } : undefined}
+					ondrawings={hasPlaces ? () => (drawingsOpen = true) : undefined}
 					onsheetadd={hasPlaces ? onSheetAdd : undefined} onplaceimport={hasPlaces ? (id) => void importPlaceOutlets(id) : undefined} onsheetrename={(rowId, t) => renameSheet(rowId.slice(2), t)} onsheetarchive={(rowId) => archiveSheet(rowId.slice(2))}
 					onaddbuilding={(n) => projectSrc?.addBuilding(n).catch((e) => { toast(`Couldn't add the building: ${e?.message ?? e}`); return false }) ?? Promise.resolve(false)}
 					onmovefloor={(f, b) => projectSrc?.moveFloor(f, b).catch((e) => toast(`Couldn't move the floor: ${e?.message ?? e}`))}

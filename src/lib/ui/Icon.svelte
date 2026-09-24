@@ -1,7 +1,7 @@
 <script module lang="ts">
 import {
 	AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart,
-	ArrowLeft, Box, Cable, Camera, Check, Crosshair, Crop,
+	Archive, ArrowLeft, Box, Cable, Camera, Check, Crosshair, Crop,
 	ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Copy, Circle, CirclePile,
 	Ellipsis, EllipsisVertical, ExternalLink, Expand, Eye, EyeOff,
 	FileDown, FileText, FileUp, FileImage, Folder, FolderOpen,
@@ -9,7 +9,7 @@ import {
 	History, House, Image, Highlighter,
 	Layers, List, Link, LoaderCircle, Lock, LockKeyholeOpen,
 	Magnet, MapPin, Mic, MicOff, MousePointer2, Move, MoveHorizontal, MoveVertical, Moon, Monitor,
-	PanelsTopLeft, PcCase,
+	Package, PanelsTopLeft, PcCase,
 	Plus, PanelRight, Pen, Power, Printer,
 	RefreshCw, RefreshCcw,
 	RotateCcw, RotateCw, Rotate3d, Redo, RectangleHorizontal, RectangleVertical, RouteOff, Route, Ruler,
@@ -19,7 +19,7 @@ import {
 } from '@lucide/svelte';
 
 let lucide: Record<string, any> = {
-	arrowLeft: ArrowLeft,
+	archive: Archive, arrowLeft: ArrowLeft,
 	center: TextAlignCenter, alignCenter: TextAlignCenter,
 	alignTop: AlignVerticalJustifyStart, alignBottom: AlignVerticalJustifyEnd,
 	alignMiddle: AlignVerticalJustifyCenter,
@@ -34,7 +34,7 @@ let lucide: Record<string, any> = {
 	history: History, home: House, highlighter: Highlighter, image: Image, layers: Layers, line: Slash, link: ExternalLink,
 	list: List, lock: Lock, lockOpen: LockKeyholeOpen,
 	magnet: Magnet, mapPin: MapPin, mic: Mic, micOff: MicOff, move: Move, moveHorizontal: MoveHorizontal, moveVertical: MoveVertical, moon: Moon, monitor: Monitor, panels: PanelsTopLeft,
-	pen: Pen, pile:CirclePile, plus: Plus, power: Power, print: Printer, pcCase: PcCase,
+	package: Package, pen: Pen, pile:CirclePile, plus: Plus, power: Power, print: Printer, pcCase: PcCase,
 	rect: RectangleHorizontal, rectVertical: RectangleVertical,
 	refresh: RefreshCw, refreshCcw: RefreshCcw,
 	redo: Redo, rotate3d: Rotate3d, rotateLeft: RotateCcw, rotateRight: RotateCw,

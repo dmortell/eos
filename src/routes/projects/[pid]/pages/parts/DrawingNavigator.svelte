@@ -8,7 +8,7 @@
 	import { type NavKind as Kind, type NavNode as Node, NAV_TREE as TREE, NAV_PROJECT as PROJECT } from '../mock/data'
 
 	let { onopen, onopenfloor, oncollapse, onselectnode, activeDoc = '', activeNode = '', tree = null, project = null, status = '', onaddbuilding, onmovefloor, onmovebuilding, reveal = [],
-		placesMode = false, onseedplaces, onplaceadd, onplacerename, onplacemove, onplacedelete, onopenplace, onsheetadd, onsheetrename, onsheetarchive, onplaceimport }:
+		placesMode = false, onseedplaces, onplaceadd, onplacerename, onplacemove, onplacedelete, onopenplace, onsheetadd, onsheetrename, onsheetarchive, onplaceimport, ondrawings }:
 		{ onopen?: (d: { title: string; kind: Kind; preview: boolean; floor?: string; docId?: string }) => void; oncollapse?: () => void;
 			/** A FLOOR row was clicked (preview) or double-clicked (kept): open that floor's model tab. */
 			onopenfloor?: (floor: string, preview: boolean) => void;
@@ -44,7 +44,9 @@
 			onsheetrename?: (rowId: string, title: string) => void
 			onsheetarchive?: (rowId: string) => void
 			/** Import the place's outlets + trunks from the Outlets tool into its model (places with `outletsDoc`). */
-			onplaceimport?: (placeId: string) => void } = $props()
+			onplaceimport?: (placeId: string) => void
+			/** Open the drawing management dialog (drawings-plan phase 6). */
+			ondrawings?: () => void } = $props()
 	const TREE_NODES = $derived(tree ?? TREE)
 	const PROJ = $derived(project ? { ...project, kind: 'project' } : PROJECT)
 	// A floor row's model / tab name: the real tree carries it (`floor`, e.g. '33F'); the mock's label is it.
@@ -162,6 +164,7 @@
 			{:else if onaddbuilding && tree}
 				<button title="New building" aria-label="New building" onclick={() => { naming = true; newName = ''; nameErr = '' }}><Icon name="home" size={14} /></button>
 			{/if}
+			{#if ondrawings}<button title="Manage drawings (File › Drawings…)" aria-label="Manage drawings" onclick={() => ondrawings?.()}><Icon name="list" size={14} /></button>{/if}
 			<button title="New drawing" aria-label="New drawing"><Icon name="plus" size={14} /></button>
 			<button title="Filter" aria-label="Filter"><Icon name="settings" size={14} /></button>
 			<button title="Collapse" aria-label="Collapse panel" onclick={() => oncollapse?.()}><Icon name="chevronLeft" size={14} /></button>
