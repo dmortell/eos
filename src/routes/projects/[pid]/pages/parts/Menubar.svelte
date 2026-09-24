@@ -3,7 +3,7 @@
 	// (the parent does the work). Most items are still mock no-ops.
 	let { onaction }: { onaction?: (item: string) => void } = $props()
 	const MENUS: Record<string, string[]> = {
-		File: ['New Page', 'Open Project…', 'Drawings…', '—', 'Save', 'Export…', '—', 'Print…'],
+		File: ['New Page', 'Open Project…', 'Drawings…', '—', 'Save', 'Export…', 'Outlet Schedule…', '—', 'Print…'],
 		Edit: ['Undo', 'Redo', '—', 'Cut', 'Copy', 'Paste', '—', 'Delete'],
 		View: ['Zoom In', 'Zoom Out', 'Fit', '—', 'Split Editor', 'Unsplit', '—', 'Toggle Left Panel', 'Toggle Right Panel'],
 		Insert: ['Image…', '—', 'Outlet', 'Trunk', 'Rack', '—', 'Text', 'Dimension'],

@@ -36,6 +36,7 @@
 	import OpenProjectDialog from './parts/OpenProjectDialog.svelte'
 	import DrawingDefaultsDialog from './parts/DrawingDefaultsDialog.svelte'
 	import { outletSticky, rememberOutlet, walk, incLabel } from './ui/outletPlace.svelte'
+	import { outletRows, exportOutletSchedule } from './store/outletSchedule'
 	import { panzoom } from './ui/panzoom'
 	import { paperDims, scaleDenom, PAPER_PX_PER_MM, DEFAULT_MARGIN_MM, clampViewZoom, clampCanvasZoom, type PaperSize } from './constants'
 	import { PRINT_ID, printCss, applyPrint, removePrint } from './printing'
@@ -601,6 +602,10 @@
 		else if (item === 'Drawing Defaults…') { if (proj.store) defaultsOpen = true; else toast('Drawing defaults are saved with the project — open a project first') }
 		else if (item === 'Drawings…') { if (proj.hasPlaces) proj.drawingsOpen = true; else toast('Set up places first — drawings are managed per place') }
 		else if (item === 'Export…') exportActiveDxf()
+		else if (item === 'Outlet Schedule…') {   // C2: the active model's outlets → Excel
+			const m = modelById(activeMid()), rows = m ? outletRows(m, proj.allocatedOutlets) : []
+			if (!rows.length) toast('No outlets in this model'); else exportOutletSchedule(rows, m!.name ?? 'model').then(() => toast(`Outlet schedule: ${rows.length} outlets`))
+		}
 		else if (item === 'Save') statusText = `Save isn't needed — edits save to the project as you go`
 		// everything else is a mock no-op
 	}
