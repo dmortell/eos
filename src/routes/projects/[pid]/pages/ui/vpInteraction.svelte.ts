@@ -21,6 +21,7 @@ import { rotCenter, hitIsoFaces, marqueeSelect, type GN } from './hit'
 import { newId } from '../ids'
 import { constrainPt } from './annotations'
 import { pasteCopies, relabelCopies } from './clipboard'
+import { zToU, uToZ } from '../store/racksImport'
 import { guideId, selectedPlanGuide } from '../guides.svelte'
 import { imgEdit, clearImgMode } from '../imageEdit.svelte'
 import { toolPrompt, imgModeText, statusLine } from './vpPrompt'
@@ -596,7 +597,16 @@ export class VpInteraction {
 		}
 		for (const it of s.items) {
 			const o = v.mdl.objects.find((x) => x.id === it.id); if (!o) continue
-			if (o.type === 'prism' && it.o0) shift(o, it.o0)
+			if (o.type === 'prism' && it.o0) {
+				shift(o, it.o0)
+				// G4: a rack DEVICE slides only up / down its rack, snapping to whole U
+				const rk = o.device && v.mdl.objects.find((x) => x.id === o.device!.rackId)
+				if (o.device && rk?.type === 'prism') {
+					const u = zToU(rk.z, o.z, (rk.rack?.u ?? 42) - o.device.hU + 1)
+					o.x = it.o0.x; o.y = it.o0.y; o.z = uToZ(rk.z, u)
+					if (o.device.u !== u) o.device = { ...o.device, u }
+				}
+			}
 			else if ((o.type === 'wall' || o.type === 'conduit') && it.n0) for (const g of it.n0) { const n = (o.nodes as GN[]).find((x) => x.id === g.id); if (n) shift(n, g) }
 		}
 		v.editor.edit.mark()   // fold this move into the open undo step

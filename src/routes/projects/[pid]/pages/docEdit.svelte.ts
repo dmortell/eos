@@ -99,6 +99,11 @@ export class DocEdit {
 		const objs = this.#h.selModelObjs(), id = this.#h.focusedTabId(), t = this.#h.timeline; if (!id || !objs.length) return
 		t.beginGesture(); for (const o of objs) { const p = patchOf(o); if (p) Object.assign(o, p) } this.modelEdit(id); t.endGesture()
 	}
+	/** Add a model object to the focused model (e.g. a rack's "+ Device") — one undo step. */
+	addModelObj = (o: Obj) => {
+		const m = modelById(this.#h.activeMid()), id = this.#h.focusedTabId(), t = this.#h.timeline; if (!m || !id) return
+		t.beginGesture(); m.objects = [...m.objects, o]; this.modelEdit(id, 'Add ' + (o.label ?? o.type)); t.endGesture()
+	}
 	deleteModelObj = () => {
 		const o = this.#h.selModelObj(), id = this.#h.focusedTabId(), m = modelById(this.#h.activeMid()), t = this.#h.timeline; if (!o || !m || !id) return
 		t.beginGesture(); m.objects = m.objects.filter((x) => x.id !== o.id); this.modelEdit(id); t.endGesture()

@@ -8,11 +8,14 @@
 	import { num, blurOnEnter, fmtLen } from './fields'
 	import type { Obj, Layer as MLayer, Model, CableRun } from '../../3dview/types'
 	import FillSection from '../FillSection.svelte'
+	import RackProps from './RackProps.svelte'
 	import { CABLE_TYPES, DEFAULT_CABLE, conduitFill, fillTone, portsNearest } from '../../3dview/fill'
 	import { toast } from 'svelte-sonner'
 
-	let { obj, layers = [], model = null, onupdate, ondelete, onseg }: {
+	let { obj, layers = [], model = null, onupdate, ondelete, onseg, onadd }: {
 		obj: Obj; layers?: MLayer[]
+		/** Add an object to the model (a rack's "+ Device"). */
+		onadd?: (o: Obj) => void
 		/** The model it's in (a conduit's "Count from outlets" reads its outlets + other conduits). */
 		model?: Model | null
 		onupdate?: (patch: Record<string, unknown>) => void; ondelete?: () => void
@@ -24,7 +27,7 @@
 	const TYPE_LABEL: Record<string, string> = { prism: 'Box', wall: 'Wall', conduit: 'Conduit' }
 	// A prism on an "opening" layer is a door/window/hole; label it as such.
 	const isOpening = $derived(obj.type === 'prism' && !!layers.find((l) => l.id === obj.layer)?.opening)
-	const typeLabel = $derived(isOpening ? 'Opening' : TYPE_LABEL[obj.type] ?? 'Object')
+	const typeLabel = $derived(obj.rack ? 'Rack' : obj.device ? 'Device' : isOpening ? 'Opening' : TYPE_LABEL[obj.type] ?? 'Object')
 	const setCables = (c: CableRun[]) => onupdate?.({ cables: c.length ? c : undefined })
 	// F10 "advanced": the cables this conduit would carry if every outlet runs to its nearest conduit
 	function countFromOutlets() {
@@ -57,6 +60,7 @@
 	<ColorPicker value={obj.color} colors={COLORS} allowByLayer onchange={(v) => onupdate?.({ color: v })} />
 </div>
 {#if obj.type === 'prism'}
+	{#if obj.rack || obj.device}<RackProps {obj} {model} {onupdate} {onadd} />{/if}
 	<div class="prop-sec">POSITION</div>
 	<div class="vecrow">
 		<NumCell k="X" v={Math.round(obj.x)} set={(n) => onupdate?.({ x: n })} />

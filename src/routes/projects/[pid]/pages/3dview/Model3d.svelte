@@ -37,7 +37,21 @@
 	const weightOf = (o: Obj) => ((isSel(o) ? (layerOf(o)?.weight ?? defaultWeight) + 1.2 : layerOf(o)?.weight ?? defaultWeight) / (canvasZoom || 1))
 	// XP32: an object draws with its layer's line type (plan / elevation outlines; iso faces stay solid).
 	const dashOf = (o: Obj) => dashArray(layerOf(o)?.dash, canvasZoom)
-	const visible = (o: Obj) => { const l = layerOf(o); return (!l || l.visible) && !(o.layer && frozen.includes(o.layer)) }
+	// G4: a rack device mounted on ONE face only shows in that face's elevation (front / rear)
+	const onFace = (o: Obj) => { const m = o.device?.mount; return !m || m === 'both' || !(dir === 'front' || dir === 'rear') || m === dir }
+	const visible = (o: Obj) => { const l = layerOf(o); return (!l || l.visible) && !(o.layer && frozen.includes(o.layer)) && onFace(o) }
+	// G4: a rack's RU numbers down its left rail in the front / rear elevation (1 at the bottom, like the Racks tool)
+	const RU = 45, RAIL = 40
+	const ruMarks = $derived.by(() => {
+		if (dir !== 'front' && dir !== 'rear') return []
+		const b = BASIS[dir], out: { id: string; u: number; v: number; n: number }[] = []
+		for (const o of model.objects) {
+			if (o.type !== 'prism' || !o.rack || !visible(o)) continue
+			const uL = Math.min(b.hs * o.x, b.hs * (o.x + o.w))
+			for (let n = 1; n <= o.rack.u; n++) out.push({ id: `${o.id}-${n}`, u: uL + 22, v: b.vs * (o.z + RAIL + (n - 1) * RU + 12), n })
+		}
+		return out
+	})
 
 	// Iso projects the model AROUND the ground pivot with a yaw/pitch, so the projected content isn't
 	// symmetric about (0,0) — centring the pivot leaves the room off to one side. Instead centre the
@@ -99,7 +113,7 @@
 			const us = pts.map((p) => p.u), vs = pts.map((p) => p.v)
 			// an elevation's group is v-UP (the text is flipped back upright); the plan is y-down as is
 			const up = dir !== 'plan', s = up ? -1 : 1
-			if (o.type === 'prism') out.push({ id: o.id ?? '', text: o.label, u: (Math.min(...us) + Math.max(...us)) / 2, v: (Math.min(...vs) + Math.max(...vs)) / 2 + s * labelH * 0.35, mid: true })
+			if (o.type === 'prism' && !o.rack) out.push({ id: o.id ?? '', text: o.label, u: (Math.min(...us) + Math.max(...us)) / 2, v: (Math.min(...vs) + Math.max(...vs)) / 2 + s * labelH * 0.35, mid: true })
 			else out.push({ id: o.id ?? '', text: o.label, u: Math.min(...us) + labelH * 0.3, v: up ? Math.max(...vs) + labelH * 0.4 : Math.min(...vs) - labelH * 0.4 })
 		}
 		return out
@@ -217,6 +231,9 @@
 		{@const o = model.objects.find((x) => x.id === l.id)}
 		<text transform="translate({l.u} {l.v}) scale(1 {dir === 'plan' ? 1 : -1})" font-size={labelH} text-anchor={l.mid ? 'middle' : 'start'}
 			fill={l.mid && o ? colorOf(o) : adapt ? adapt('#475569') : '#475569'} class="storey-name">{l.text}</text>
+	{/each}
+	{#each ruMarks as r (r.id)}
+		<text transform="translate({r.u} {r.v}) scale(1 -1)" font-size="22" text-anchor="middle" fill={adapt ? adapt('#94a3b8') : '#94a3b8'} class="storey-name">{r.n}</text>
 	{/each}
 	{#each fillLabels as l (l.id)}
 		<text x={l.x} y={l.y} font-size={labelH} text-anchor="middle" fill={l.col} font-weight="600" class="storey-name">{l.text}</text>

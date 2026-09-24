@@ -21,7 +21,7 @@
 	type HeightKey = 'slabMm' | 'raisedFloorMm' | 'clearHeightMm' | 'plenumMm'
 
 	let { ents = [], onupdate, onarrange, pageTitle = '', pageKind = '', activeLayer = '', node = null, onpagetitle,
-		modelObj = null, modelObjs = [], model = null, onmodelsupdate, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg,
+		modelObj = null, modelObjs = [], model = null, onmodeladd, onmodelsupdate, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg,
 		frameObj = null, onframeupdate, onframedelete, onframefit, nodeInfo = null, onnodefield, modelList = [], activeFrameId = undefined, scaleN = 1,
 		sheetInfo = null, onsheetfield, titleBlock = undefined, ontitleblock, frameStoreys = [], frameConduits = [], heights = null, onheight, onheightall }:
 		{ ents?: Ent[]; onupdate?: (e: Ent) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void;
@@ -31,6 +31,7 @@
 			nodeInfo?: import('../projectProps').NodeInfo | null; onnodefield?: (key: string, value: string) => void;
 			modelObj?: Obj | null; modelLayers?: MLayer[];
 			/** The focused model (a conduit's "Count from outlets"). */ model?: import('../3dview/types').Model | null;
+			/** Add an object to the focused model (a rack's "+ Device"), one undo step. */ onmodeladd?: (o: Obj) => void;
 			/** I4: two or more model objects selected, and the per-object patch callback (one undo step). */
 			modelObjs?: Obj[]; onmodelsupdate?: (patchOf: (o: Obj) => Record<string, unknown> | null) => void;
 			onmodelupdate?: (patch: Record<string, unknown>) => void; onmodeldelete?: () => void; onmodelseg?: (segIdx: number, patch: Record<string, unknown>) => void;
@@ -68,7 +69,7 @@
 	{:else if modelObjs.length > 1 && onmodelsupdate}
 		<ModelObjsProps objs={modelObjs} layers={modelLayers} onpatch={onmodelsupdate} />
 	{:else if modelObj}
-		<ModelObjProps obj={modelObj} layers={modelLayers} {model} onupdate={onmodelupdate} ondelete={onmodeldelete} onseg={onmodelseg} />
+		<ModelObjProps obj={modelObj} layers={modelLayers} {model} onadd={onmodeladd} onupdate={onmodelupdate} ondelete={onmodeldelete} onseg={onmodelseg} />
 	{:else if ents.length === 0 && node}
 		<PlaceProps {node} info={nodeInfo} onfield={onnodefield} {heights} {onheight} {onheightall} />
 	{:else if ents.length === 0}

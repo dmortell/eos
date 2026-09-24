@@ -8,7 +8,7 @@
 	import { type NavKind as Kind, type NavNode as Node, NAV_TREE as TREE, NAV_PROJECT as PROJECT } from '../mock/data'
 
 	let { onopen, onopenfloor, oncollapse, onselectnode, activeDoc = '', activeNode = '', tree = null, project = null, status = '', onaddbuilding, onmovefloor, onmovebuilding, reveal = [],
-		placesMode = false, onseedplaces, onplaceadd, onplacerename, onplacemove, onplacedelete, onopenplace, onsheetadd, onsheetrename, onsheetarchive, onplaceimport, ondrawings, onimportdrawing, onimportriser }:
+		placesMode = false, onseedplaces, onplaceadd, onplacerename, onplacemove, onplacedelete, onopenplace, onsheetadd, onsheetrename, onsheetarchive, onplaceimport, onplaceracks, ondrawings, onimportdrawing, onimportriser }:
 		{ onopen?: (d: { title: string; kind: Kind; preview: boolean; floor?: string; docId?: string }) => void; oncollapse?: () => void;
 			/** A FLOOR row was clicked (preview) or double-clicked (kept): open that floor's model tab. */
 			onopenfloor?: (floor: string, preview: boolean) => void;
@@ -45,6 +45,8 @@
 			onsheetarchive?: (rowId: string) => void
 			/** Import the place's outlets + trunks from the Outlets tool into its model (places with `outletsDoc`). */
 			onplaceimport?: (placeId: string) => void
+			/** G4: rebuild a rack-row place's model from the Racks tool (places with `racksRow`). */
+			onplaceracks?: (placeId: string) => void
 			/** Open the drawing management dialog (drawings-plan phase 6). */
 			ondrawings?: () => void
 			/** Phase 8: make a Pages sheet from another tool's register drawing (a `d:<id>` leaf). */
@@ -145,6 +147,7 @@
 			return out
 		}
 		if (onplaceimport && n.outletsDoc) out.push({ key: 'import', label: 'Import from Outlets tool', icon: 'download', confirm: 'Click again to import outlets + trunks', run: () => onplaceimport?.(n.id) })
+		if (onplaceracks && n.racksRow) out.push({ key: 'racks', label: 'Import racks from the Racks tool', icon: 'download', confirm: 'Click again to rebuild its racks + devices', run: () => onplaceracks?.(n.id) })
 		if (onsheetadd) out.push({ key: 'sheet', label: 'New sheet here', icon: 'fileText', run: () => addSheet(n.id) })
 		if (onplaceadd) out.push({ key: 'place', label: 'New place inside', icon: 'plus', run: () => addPlace(n.id) })
 		if (onplacerename) out.push({ key: 'rename', label: 'Rename', icon: 'edit', run: () => startRename(n) })

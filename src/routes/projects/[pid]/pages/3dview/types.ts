@@ -75,7 +75,13 @@ export type Obj = (Prism | Wall | Conduit) & { layer?: string; id?: string; grou
 	/** A name drawn with the object in plan / elevations (e.g. an imported riser room "MDF"). */
 	label?: string
 	/** Its own line colour, over its layer's (e.g. an imported riser cable's colour). */
-	color?: string }
+	color?: string
+	/** G4: a RACK (a box on a rack-row model): its height in U, and the Racks-tool rack it came from. */
+	rack?: RackMeta
+	/** G4: a DEVICE mounted in a rack: its U position / height, which face it's on, ports, type. */
+	device?: DeviceMeta }
+export type RackMeta = { u: number; src?: string }
+export type DeviceMeta = { rackId: string; u: number; hU: number; mount?: 'front' | 'rear' | 'both'; ports?: number; kind?: string; src?: string }
 
 // A PDF/image underlay placed in one projection plane (e.g. a floorplan under
 // the plan view). A model can hold several per direction; array order is the
@@ -130,7 +136,7 @@ export type Model = { id: ModelId; name: string; objects: Obj[]; shapes?: Ent[];
 	storeys?: Storey[]
 	/** Floor (etc.) models: the building model's storey this model sits on. `levels` above is its cached copy. */
 	levelRef?: { modelId: ModelId; storeyId: string } }
-export type ModelKind = 'floor' | 'zone' | 'room' | 'building'
+export type ModelKind = 'floor' | 'zone' | 'room' | 'building' | 'rack'
 /** A building storey: `z` = its floor-slab datum from the building's ground (mm); the rest are heights above it. */
 export type Storey = { id: string; name: string; z: number; /** the structural slab's thickness below the datum (mm) */ slab?: number } & Levels
 

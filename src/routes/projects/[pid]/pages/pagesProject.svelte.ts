@@ -321,12 +321,14 @@ export class PagesProject {
 		const ps = this.store, place = ps?.places.find((p) => p.id === placeId); if (!ps || !place || ps.status !== 'ready') return
 		let m = modelForPlace(placeId)
 		if (!m) {
-			const kind = (MODEL_KINDS as string[]).includes(place.kind ?? '') ? (place.kind as ModelKind) : 'zone'
+			// a rack ROW is a rack-row model (G4: its front / rear elevations are the rack elevations)
+			const kind: ModelKind = place.legacy?.row != null ? 'rack' : (MODEL_KINDS as string[]).includes(place.kind ?? '') ? (place.kind as ModelKind) : 'zone'
 			const fresh: Model = { ...emptyFloor(newId('m'), place.name), placeId, kind }   // default layers (mock template until a project layer template exists)
 			ps.saveModel(fresh)
 			upsertModel(docToModel(fresh))
 			this.#h.addModelToHistory(fresh)
 			m = modelById(fresh.id)
+			if (m && kind === 'rack') this.imports.seedRackRow(m, place)   // its racks + devices from the Racks tool, once
 		}
 		if (!m) return
 		const l = place.legacy

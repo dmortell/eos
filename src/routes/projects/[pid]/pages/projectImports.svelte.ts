@@ -15,6 +15,9 @@ import type { SheetDoc, SheetViewport } from '../sheets/types'
 import { PAPER_SIZES } from './constants'
 import { commonAncestor } from './store/placeTree'
 import type { PagesProject, ProjectHost, LegacySheetRow } from './pagesProject.svelte'
+import { rowToObjects, mergeRackRow, type RacksDocIn } from './store/racksImport'
+import { racksDocId } from './projectTree'
+import type { Place } from './store/schema'
 
 export type RiserDoc = RisersDocIn & { id: string }
 /** The legacy (pre per-riser-id) riser object ids. */
@@ -119,6 +122,37 @@ export class ProjectImports {
 		this.#h.openDrawing({ title: r.title, kind: 'sheet', preview: false, docId: 'sheet:' + d.id })
 		this.#h.toast(`Imported “${r.title}”: ${r.frames.length} frame${r.frames.length === 1 ? '' : 's'}, ${shapeCount} annotation${shapeCount === 1 ? '' : 's'}${r.notes.length ? ` — ${r.notes.length} note${r.notes.length === 1 ? '' : 's'}` : ''}`)
 		return r.notes
+	}
+
+	// ── G4: a Racks-tool row → the row place's rack-row model ──
+	/** The Racks-tool doc a row place's racks are in (loaded by ProjectSource), or null. */
+	#racksDocOf(place: Place): RacksDocIn | null {
+		const l = place.legacy, ps = this.#p.store; if (!ps || l?.floor == null || !l.room || l.row == null) return null
+		return (this.#p.src?.racks[racksDocId(ps.pid, l.floor, l.room)] as RacksDocIn | undefined) ?? null
+	}
+	/** A NEW rack-row model gets its row's racks + devices (no history step: the model was just created). */
+	seedRackRow(m: Model, place: Place) {
+		const doc = this.#racksDocOf(place); if (!doc || place.legacy?.row == null) return
+		const r = mergeRackRow($state.snapshot(m) as Model, rowToObjects(doc, String(place.legacy.row)))
+		m.objects = r.objects; m.layers = r.layers
+	}
+	/** Re-import a row place's racks + devices from the Racks tool (tree ⋮) — one undo step; what was imported
+	 *  before is replaced, anything drawn in Pages stays. Opens the row in front elevation. */
+	importPlaceRacks = (placeId: string) => {
+		const ps = this.#p.store, place = ps?.places.find((p) => p.id === placeId); if (!ps || !place) return
+		if (ps.status !== 'ready') { this.#h.toast('Still loading — try again in a moment'); return }
+		const doc = this.#racksDocOf(place); if (!doc) { this.#h.toast('The Racks tool has no data for this row'); return }
+		const mid = this.#p.ensurePlaceModel(placeId), m = mid ? modelById(mid) : undefined; if (!m) return
+		this.#h.ensureHist()
+		const objs = rowToObjects(doc, String(place.legacy!.row))
+		const r = mergeRackRow($state.snapshot(m) as Model, objs)
+		m.objects = r.objects; m.layers = r.layers; m.kind = 'rack'
+		this.#h.pushStep(this.#h.activeTabId() ?? '', `Import racks into ${m.name}`)
+		this.#p.openPlaceModel(placeId, false)
+		const s = this.#h.session, p = s.panes[s.focused]
+		if (p) viewState.setProj(p.id, this.#h.didOf(p.activeId), 'front')   // a rack row reads as an elevation
+		const racks = objs.filter((o) => o.rack).length
+		this.#h.toast(`Racks → ${m.name}: ${racks} rack${racks === 1 ? '' : 's'}, ${objs.length - racks} device${objs.length - racks === 1 ? '' : 's'}`)
 	}
 
 	// ── Risers-tool docs → the building model ──

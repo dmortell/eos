@@ -62,6 +62,7 @@ export function buildPlaceTree({ pid, places, drawings, risers, floors, sheets =
 		if (isFloorPlace(p)) n.floorNumber = p.legacy!.floor
 		if (modelPlaces?.has(p.id)) n.hasModel = true
 		const od = outletsDocIdFor(pid, p.legacy, normFloors(floors)); if (od) n.outletsDoc = od
+		if (p.legacy?.row != null && p.legacy.room) n.racksRow = true   // G4: a rack row (its racks from the Racks tool)
 		return n
 	}
 	const tree = childrenOf(places, null).map(node)

@@ -415,7 +415,7 @@
 		scaleN: () => propsScaleN, selModelObj: () => selModelObj, selModelObjs: () => selModelObjs,
 	})
 	const { addEnt, updateEnt, deleteEnts, copyEnts, cutEnts, pasteEnts, groupEnts, ungroupEnts, reorderEnts, modelEdit,
-		updateModelObj, updateModelObjs, deleteModelObj, updateModelSeg, layerItemCount, deleteLayerWithItems, deleteSelAt } = docEdit
+		updateModelObj, updateModelObjs, deleteModelObj, addModelObj, updateModelSeg, layerItemCount, deleteLayerWithItems, deleteSelAt } = docEdit
 	function deleteSelection() { const a2 = active, vid = activeSelViewId(); if (a2 && vid) deleteSelAt(a2.id, vid, { begin: beginGesture, mark: (l?: string) => modelEdit(a2.id, l), end: endGesture }) }
 
 	function setView(paneId: string, viewId: string, proj: Proj, v: View) { viewState.setView(paneId, didOf(viewId), proj, v) }
@@ -1009,7 +1009,7 @@
 					ondrawings={proj.hasPlaces ? () => (proj.drawingsOpen = true) : undefined}
 					onimportdrawing={proj.hasPlaces ? (id) => void proj.importRegisterDrawing(id).then((notes) => { if (notes.length) toast(notes.join('\n')) }) : undefined}
 					onimportriser={proj.hasPlaces ? (id) => void proj.importRisers(id).then((notes) => { if (notes.length) toast(notes.join('\n')) }) : undefined}
-					onsheetadd={proj.hasPlaces ? proj.onSheetAdd : undefined} onplaceimport={proj.hasPlaces ? (id) => void proj.importPlaceOutlets(id) : undefined}
+					onsheetadd={proj.hasPlaces ? proj.onSheetAdd : undefined} onplaceimport={proj.hasPlaces ? (id) => void proj.importPlaceOutlets(id) : undefined} onplaceracks={proj.hasPlaces ? proj.imports.importPlaceRacks : undefined}
 					onsheetrename={(rowId, t) => proj.renameSheet(rowId.slice(2), t)} onsheetarchive={(rowId) => proj.archiveSheet(rowId.slice(2))}
 					onaddbuilding={(n) => proj.src?.addBuilding(n).catch((e) => { toast(`Couldn't add the building: ${e?.message ?? e}`); return false }) ?? Promise.resolve(false)}
 					onmovefloor={(f, b) => proj.src?.moveFloor(f, b).catch((e) => toast(`Couldn't move the floor: ${e?.message ?? e}`))}
@@ -1055,7 +1055,7 @@
 						onarrange={(op) => { if (active) reorderEnts(active.id, activeEntIds(), op) }}
 						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''}
 						onpagetitle={(t) => { if (!active || !t.trim()) return; const sid = sheetIdOf(active.docId); if (sid) proj.renameSheet(sid, t); else active.title = t.trim() }} {activeLayer} node={session.treeNode} nodeInfo={proj.nodeInfo} onnodefield={proj.setNodeField}
-						modelObj={selModelObj} modelObjs={selModelObjs} model={modelById(activeMid()) ?? null} onmodelsupdate={updateModelObjs} modelLayers={modelById(activeMid())?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} onmodelseg={updateModelSeg}
+						modelObj={selModelObj} modelObjs={selModelObjs} model={modelById(activeMid()) ?? null} onmodeladd={addModelObj} onmodelsupdate={updateModelObjs} modelLayers={modelById(activeMid())?.layers ?? []} onmodelupdate={updateModelObj} onmodeldelete={deleteModelObj} onmodelseg={updateModelSeg}
 						frameObj={selFrameObj} onframefit={fitSelectedFrame}
 						heights={proj.buildingHeights} onheight={proj.setStoreyHeight} onheightall={proj.setAllStoreyHeights}
 						frameStoreys={(selFrameObj ? modelById(selFrameObj.modelId ?? (active ? modelIdOf(active.id) : undefined))?.storeys ?? [] : []).map((s) => ({ id: s.id, name: s.name }))}

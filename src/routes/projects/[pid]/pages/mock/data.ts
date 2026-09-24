@@ -26,7 +26,9 @@ export type NavNode = { id: string; label: string; folder?: string; drawing?: Na
 	/** Pages sheets: this leaf is a stored Pages SHEET (renamable / draggable / archivable). */
 	sheet?: boolean
 	/** Pages places: the Outlets-tool doc this place can import outlets + trunks from (`outlets/{id}`). */
-	outletsDoc?: string }
+	outletsDoc?: string
+	/** Pages places: a rack ROW — its model can (re)import the row's racks + devices from the Racks tool. */
+	racksRow?: boolean }
 
 /** The project sits above the tree as a label (click → project props). */
 export const NAV_PROJECT = { id: 'project', label: 'Project Journey', kind: 'project' }
