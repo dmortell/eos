@@ -78,7 +78,12 @@
 	{#if v.mSelObj}
 		{#each v.mGrips as g, i (g.node?.id ?? i)}
 			{#if g.node && v.nodeSelValid && g.node.id === v.nodeSelValid.node}<circle cx={g.x} cy={g.y} r={gs * 0.95} fill={SEL} opacity="0.85" />{/if}
-			<Handle cx={g.x} cy={g.y} size={gs} cursor="crosshair" strokeWidth={1.2 * sw} />
+			{#if g.bend}
+				<!-- F9: a corner's bend handle (drag along the bisector = its radius) -->
+				<polygon points="{g.x},{g.y - gs * 0.8} {g.x + gs * 0.8},{g.y} {g.x},{g.y + gs * 0.8} {g.x - gs * 0.8},{g.y}" fill="white" stroke={SEL} stroke-width={1.2 * sw} style="cursor:move"><title>Bend radius — drag</title></polygon>
+			{:else}
+				<Handle cx={g.x} cy={g.y} size={gs} cursor="crosshair" strokeWidth={1.2 * sw} />
+			{/if}
 		{/each}
 	{/if}
 {/if}

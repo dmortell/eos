@@ -5,15 +5,17 @@
 	import { ColorPicker } from '$lib'
 	import { COLORS } from '../../palette'
 	import NumCell from './NumCell.svelte'
-	import { num, blurOnEnter, fmtLen } from './fields'
+	import { num, strVal, blurOnEnter, fmtLen } from './fields'
 	import type { Obj, Layer as MLayer, Model, CableRun } from '../../3dview/types'
 	import FillSection from '../FillSection.svelte'
 	import RackProps from './RackProps.svelte'
 	import { CABLE_TYPES, DEFAULT_CABLE, conduitFill, fillTone, portsNearest } from '../../3dview/fill'
 	import { toast } from 'svelte-sonner'
 
-	let { obj, layers = [], model = null, onupdate, ondelete, onseg, onadd, outletsFor, allocated }: {
+	let { obj, layers = [], model = null, onupdate, ondelete, onseg, onadd, outletsFor, allocated, nodeId }: {
 		obj: Obj; layers?: MLayer[]
+		/** F9: the selected node of this wall / conduit (its own bend radius). */
+		nodeId?: string
 		/** E8 (a panel device): the outlets its row can serve + every allocated outlet → where. */
 		outletsFor?: (rackModelId: string) => (import('../../store/allocate').OutletRef & { modelName: string })[]
 		allocated?: Map<string, string>
@@ -31,6 +33,7 @@
 	// A prism on an "opening" layer is a door/window/hole; label it as such.
 	const isOpening = $derived(obj.type === 'prism' && !!layers.find((l) => l.id === obj.layer)?.opening)
 	const typeLabel = $derived(obj.rack ? 'Rack' : obj.device ? 'Device' : isOpening ? 'Opening' : TYPE_LABEL[obj.type] ?? 'Object')
+	const selNode = $derived(nodeId && obj.type === 'conduit' ? obj.nodes.find((n) => n.id === nodeId) ?? null : null)
 	const setCables = (c: CableRun[]) => onupdate?.({ cables: c.length ? c : undefined })
 	// F10 "advanced": the cables this conduit would carry if every outlet runs to its nearest conduit
 	function countFromOutlets() {
@@ -127,7 +130,12 @@
 			<option value="4">Rectangular</option><option value="16">Round</option>
 		</select>
 	</div>
-	<div class="prop"><span>Bend r</span><input type="number" min="0" value={obj.bend ?? 0} title="Corner fillet radius (mm) — rounds all corners" onchange={(e) => onupdate?.({ bend: Math.max(0, num(e)) })} /></div>
+	<div class="prop"><span>Bend r</span><input type="number" min="0" value={obj.bend ?? 0} title="Corner fillet radius (mm) — rounds every corner without its own" onchange={(e) => onupdate?.({ bend: Math.max(0, num(e)) })} /></div>
+	{#if selNode}
+		<!-- F9: the selected corner's own radius (blank = the default above); also its ◇ handle in plan -->
+		<div class="prop"><span>Node bend r</span><input type="number" min="0" value={selNode.bend ?? ''} placeholder={String(obj.bend ?? 0)} title="This corner's fillet radius (mm); empty = the default"
+			onchange={(e) => { const v = strVal(e).trim(), id = selNode!.id; onupdate?.({ nodes: obj.nodes.map((n) => (n.id === id ? { ...n, bend: v === '' ? undefined : Math.max(0, Math.round(+v)) } : n)) }) }} /></div>
+	{/if}
 	<!-- L = the segment's TRUE 3D length (model mm) — floors hidden in a riser drawing don't shorten it -->
 	<div class="prop-sec">SEGMENTS ({obj.segments.length})<span class="sec-hint" title="Total run length">L {fmtLen(obj.segments.reduce((t, s) => t + segLen(obj, s), 0))}</span></div>
 	{#each obj.segments as s, si (s.id)}

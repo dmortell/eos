@@ -55,7 +55,7 @@ export function handleAngle(c: Pt, p: Pt, shift: boolean, signed = false): numbe
 
 /** A model-object grip. `apply(p, origin)` mutates the store object; `node`/`obj` ride wall/conduit node
  *  grips so an Alt-press can branch a new segment. */
-export type MGrip = { x: number; y: number; apply: (p: Pt, origin?: Pt) => void; node?: GN; obj?: Obj }
+export type MGrip = { x: number; y: number; apply: (p: Pt, origin?: Pt) => void; node?: GN; obj?: Obj; /** F9: a conduit corner's bend handle */ bend?: boolean }
 
 /** The prism's 4 corner grips in drawing coords, order tl,tr,br,bl (matches prismRect's face/footprint;
  *  in a rotated plan view they follow the rotation). */
@@ -89,7 +89,7 @@ export function applyPrismGrip(ctx: ViewCtx, o: Extract<Obj, { type: 'prism' }>,
  *  reshape via `opts.applyNode`, i.e. the caller's graphNodeApply). `opts.rnd` grid-snaps prism edits;
  *  `opts.shift` is the live Shift getter — every angle handle snaps to 15° with it (`handleAngle`), the
  *  same rule as an entity's rotate handle. */
-export function modelGrips(ctx: ViewCtx, o: Obj, opts: { rnd: (v: number) => number; applyNode: (n: GN, p: Pt, origin?: Pt) => void; shift?: () => boolean }): MGrip[] {
+export function modelGrips(ctx: ViewCtx, o: Obj, opts: { rnd: (v: number) => number; applyNode: (n: GN, p: Pt, origin?: Pt) => void; shift?: () => boolean; gripMm?: number }): MGrip[] {
 	const shift = () => !!opts.shift?.()
 	if (o.type === 'prism') {
 		const cs = prismTilted(o) ? [] : prismCorners(ctx, o)   // a tilted prism drops its axis-aligned corners (B10)
@@ -121,9 +121,30 @@ export function modelGrips(ctx: ViewCtx, o: Obj, opts: { rnd: (v: number) => num
 		return grips
 	}
 	if (o.type === 'wall' || o.type === 'conduit') {
-		return (o.nodes as GN[]).map((n) => { const d = graphNodeDraw(ctx, n); return { x: d[0], y: d[1], node: n, obj: o, apply: (p: Pt, origin?: Pt) => opts.applyNode(n, p, origin) } })
+		const grips: MGrip[] = (o.nodes as GN[]).map((n) => { const d = graphNodeDraw(ctx, n); return { x: d[0], y: d[1], node: n, obj: o, apply: (p: Pt, origin?: Pt) => opts.applyNode(n, p, origin) } })
+		if (o.type === 'conduit' && ctx.isPlan) grips.push(...bendGrips(ctx, o, opts.gripMm ?? 200))
+		return grips
 	}
 	return []
+}
+
+/** F9: a conduit corner's BEND handle (plan) — on the corner's inner bisector, `off` + its radius out from the
+ *  node; dragging it along the bisector sets that node's own `bend` (0 = sharp; the Properties "Bend r" is the
+ *  object default a node without its own falls back to). Only 2-way corners that actually turn get one. */
+export function bendGrips(ctx: ViewCtx, o: Extract<Obj, { type: 'conduit' }>, gripMm: number): MGrip[] {
+	const nodes = o.nodes as GN[], byId = new Map(nodes.map((n) => [n.id, n])), off = gripMm * 3, out: MGrip[] = []
+	for (const n of nodes) {
+		const nb = o.segments.filter((s) => s.a === n.id || s.b === n.id).map((s) => byId.get(s.a === n.id ? s.b : s.a)).filter(Boolean) as GN[]
+		if (nb.length !== 2) continue
+		const c = graphNodeDraw(ctx, n), u = nb.map((m) => { const d = graphNodeDraw(ctx, m), L = Math.hypot(d[0] - c[0], d[1] - c[1]) || 1; return [(d[0] - c[0]) / L, (d[1] - c[1]) / L] })
+		const bx = u[0][0] + u[1][0], by = u[0][1] + u[1][1], bl = Math.hypot(bx, by)
+		if (bl < 0.05) continue   // (nearly) straight through — nothing to round
+		const ux = bx / bl, uy = by / bl, r = n.bend ?? o.bend ?? 0
+		out.push({ x: c[0] + ux * (off + r), y: c[1] + uy * (off + r), bend: true, apply: (p: Pt) => {
+			n.bend = Math.max(0, Math.round((p[0] - c[0]) * ux + (p[1] - c[1]) * uy - off))
+		} })
+	}
+	return out
 }
 
 /** Which grip of the selected object a press grabs (14px screen tol). One layout read for the whole pass

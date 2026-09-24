@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { resizeSectionClip, pickSectionGrip, prismCorners, gripsLocal, gripsFor, constrainGrip, canRotate, handleAngle, modelGrips, type GripOpts } from './grips'
+import { resizeSectionClip, pickSectionGrip, prismCorners, gripsLocal, gripsFor, constrainGrip, canRotate, handleAngle, modelGrips, bendGrips, type GripOpts } from './grips'
+import { graphNodeDraw } from './hit'
 import { doorGeom } from '../3dview/projection'
 import type { Mapper } from './mapper'
 import type { Clip, Obj } from '../3dview/types'
@@ -139,5 +140,21 @@ describe('handleAngle / every rotate handle snaps to 15° with Shift', () => {
 		const e = ent({ a: [0, 0], b: [20, 10] })
 		const rot = gripsFor(planCtx, e, { ...opts, shift: () => true }).find((g) => g.rotate)!
 		expect(rot.apply([10 + Math.cos((7 * Math.PI) / 180) * 50, 5 + Math.sin((7 * Math.PI) / 180) * 50]).rot).toBe(90)
+	})
+})
+
+describe('bendGrips (F9)', () => {
+	it('puts a handle on the inner bisector of each turning corner; dragging along it sets that node\'s bend', () => {
+		const o = { type: 'conduit', w: 100, h: 100, edges: 4, nodes: [{ id: 'a', x: 0, y: 0, z: 0 }, { id: 'b', x: 1000, y: 0, z: 0 }, { id: 'c', x: 1000, y: 1000, z: 0 }, { id: 'd', x: 1000, y: 2000, z: 0 }],
+			segments: [{ id: 's1', a: 'a', b: 'b' }, { id: 's2', a: 'b', b: 'c' }, { id: 's3', a: 'c', b: 'd' }] } as Extract<Obj, { type: 'conduit' }>
+		const gs = bendGrips(planCtx, o, 10)
+		expect(gs).toHaveLength(1)   // b turns; c runs straight through; a / d are ends
+		const b = graphNodeDraw(planCtx, o.nodes[1]), g = gs[0]
+		expect(Math.hypot(g.x - b[0], g.y - b[1])).toBeCloseTo(30)   // off = 3 grips, radius 0
+		const ux = (g.x - b[0]) / 30, uy = (g.y - b[1]) / 30
+		g.apply([g.x + ux * 100, g.y + uy * 100])
+		expect(o.nodes[1].bend).toBe(100)
+		g.apply([b[0] - ux * 50, b[1] - uy * 50])   // dragged past the corner → sharp
+		expect(o.nodes[1].bend).toBe(0)
 	})
 })

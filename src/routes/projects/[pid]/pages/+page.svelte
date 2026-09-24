@@ -1138,7 +1138,7 @@
 				{:else if rightTab === 'layers'}
 					<LayersPanel layers={modelById(activeMid())?.layers ?? []} frozen={activeFrame?.frozen ?? (activeFrame ? [] : null)} onfreeze={toggleVpFreeze} countOf={layerItemCount} ondelete={deleteLayerWithItems} />
 				{:else if rightTab === 'props'}
-					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (!active) return; const es = [e].flat(); updateEnts(active.id, es); if (es.length === 1) rememberOutlet(es[0]) }} onwalk={startWalk}
+					<PropertiesPanel ents={selEnts} onupdate={(e) => { if (!active) return; const es = [e].flat(); updateEnts(active.id, es); if (es.length === 1) rememberOutlet(es[0]) }} onwalk={startWalk} modelNode={singleOfKind(activeSel, 'node')?.sub}
 						onarrange={(op) => { if (active) reorderEnts(active.id, activeEntIds(), op) }}
 						pageTitle={active?.title ?? ''} pageKind={active?.kind ?? ''}
 						onpagetitle={(t) => { if (!active || !t.trim()) return; const sid = sheetIdOf(active.docId); if (sid) proj.renameSheet(sid, t); else active.title = t.trim() }} {activeLayer} node={session.treeNode} nodeInfo={proj.nodeInfo} onnodefield={proj.setNodeField}

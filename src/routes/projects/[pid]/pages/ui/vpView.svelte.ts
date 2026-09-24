@@ -345,7 +345,7 @@ export class VpView {
 		return it && o?.id === it.id && o.nodes?.some((n) => n.id === it.sub) ? { obj: it.id, node: it.sub! } : null
 	})
 	/** P6: the selected model object's grips, once per object / view change — shared by render and pick. */
-	mGrips = $derived(this.mSelObj ? modelGrips(this.ctx, this.mSelObj, { rnd: this.rndSnap, applyNode: this.graphNodeApply, shift: () => this.shiftDown }) : [])
+	mGrips = $derived(this.mSelObj ? modelGrips(this.ctx, this.mSelObj, { rnd: this.rndSnap, applyNode: this.graphNodeApply, shift: () => this.shiftDown, gripMm: this.gripSize }) : [])
 	gripOpts = (): GripOpts => ({ gripMm: this.gripSize, shift: () => this.shiftDown, imgCropId: imgEdit.mode === 'crop' ? imgEdit.id : null })
 	gripsFor = (e: Ent): Grip[] => gripsFor(this.ctx, e, this.gripOpts())
 	/** D13: two or more editable shapes selected (Select tool) → ONE group transform box replaces their own grips:
