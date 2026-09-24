@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { riserFloors, riserStoreys, risersToBuilding, mergeRisers, storeyLevels, stackFloors, restack, riserVisibleStoreys, type RisersDocIn } from './risersImport'
+import { riserFloors, riserStoreys, risersToBuilding, mergeRisers, storeyLevels, stackFloors, restack, riserVisibleStoreys, storeyHeights, setStoreyHeights, type RisersDocIn } from './risersImport'
 import type { Model } from '../3dview/types'
 
 const doc: RisersDocIn = {
@@ -72,6 +72,14 @@ describe('Risers import', () => {
 		expect(withB.objects.filter((o) => o.id!.startsWith('rsr-A-')).length).toBe(a.objects.length)   // A kept
 		const againA = mergeRisers(withB, a, 'A')
 		expect(againA.objects.length).toBe(withB.objects.length)
+	})
+	it('editing one floor\'s heights re-stacks the floors above; the rest keep theirs', () => {
+		const st = riserStoreys(doc, [1, 2, 3])
+		expect(storeyHeights(st[1])).toEqual({ slabMm: 200, raisedFloorMm: 300, clearHeightMm: 2600, plenumMm: 700 })
+		const ed = setStoreyHeights(st, 'st-F2', { clearHeightMm: 3000, slabMm: 250 })
+		expect(ed.map((s) => s.z)).toEqual([0, 3850, 3850 + 4000 + 200])   // 2F: +50 slab; 3F: +400 clear on 2F
+		expect(storeyHeights(ed[1])).toMatchObject({ clearHeightMm: 3000, slabMm: 250 })
+		expect(ed[2].ceilingTile).toBe(2900)
 	})
 	it("a riser drawing's floors: its range minus its hidden floors", () => {
 		const st = riserStoreys(doc, riserFloors({ fromFloor: 30, toFloor: 34 }))

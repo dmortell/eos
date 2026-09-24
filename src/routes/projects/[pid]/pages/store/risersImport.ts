@@ -72,6 +72,21 @@ export function riserStoreys(d: RisersDocIn, floors: number[]): Storey[] {
 	const hts = (n: number): FloorHeights => ({ ...DEFAULT_HEIGHTS, ...d.settings?.defaultFloorHeights, ...d.floorHeights?.[n] })
 	return stack(floors.map((n) => storeyOf(n, hts(n))))
 }
+/** A storey's heights as the Risers tool names them (slab, raised floor, clear height, plenum). */
+export function storeyHeights(s: Storey): FloorHeights {
+	const raised = s.raisedFloor ?? DEFAULT_HEIGHTS.raisedFloorMm, tile = s.ceilingTile ?? raised + DEFAULT_HEIGHTS.clearHeightMm
+	return { slabMm: s.slab ?? DEFAULT_HEIGHTS.slabMm, raisedFloorMm: raised, clearHeightMm: tile - raised, plenumMm: (s.ceilingSlab ?? tile + DEFAULT_HEIGHTS.plenumMm) - tile }
+}
+/** The storeys with one floor's heights changed (a building's HEIGHTS table), re-stacked. */
+export function setStoreyHeights(storeys: Storey[], id: string, patch: Partial<FloorHeights>): Storey[] {
+	const sorted = [...storeys].sort((a, b) => a.z - b.z)
+	return stack(sorted.map((s) => {
+		const { z: _z, ...rest } = s
+		if (s.id !== id) return rest
+		const h = { ...storeyHeights(s), ...patch }
+		return { ...rest, ...storeyOf(0, h), id: s.id, name: s.name }
+	}))
+}
 /** A building's storeys after its floor stack changed: an existing storey keeps its heights, a new floor gets
  *  the default ones, and the datums re-stack. */
 export function restack(floors: number[], existing: Storey[] = []): Storey[] {
@@ -83,8 +98,9 @@ export const storeyLevels = (s: Storey): Levels => ({ floorSlab: s.floorSlab, ra
 /** `floors` = the building's whole stack (its place's `floors`), else the riser's own range. `riserId` keys the
  *  object ids (several risers per building); `layerIds` = the model's layers — ladders go on its Trunks layer and
  *  cables on Copper / Fiber Trunks by media when it has them (else the import's own Risers layers). */
-export function risersToBuilding(d: RisersDocIn, floors: number[] = riserFloors(d), opts: { riserId?: string; layerIds?: string[] } = {}): { storeys: Storey[]; objects: Obj[]; notes: string[] } {
-	const storeys = riserStoreys(d, floors), notes: string[] = []
+export function risersToBuilding(d: RisersDocIn, floors: number[] = riserFloors(d), opts: { riserId?: string; layerIds?: string[]; storeys?: Storey[] } = {}): { storeys: Storey[]; objects: Obj[]; notes: string[] } {
+	// `opts.storeys` = the building's own (edited) storeys to build on; else the riser's heights
+	const storeys = opts.storeys ?? riserStoreys(d, floors), notes: string[] = []
 	const pre = opts.riserId ? riserPrefix(opts.riserId) : 'rsr-', has = new Set(opts.layerIds ?? [])
 	const ladderLayer = has.has('trunks') ? 'trunks' : 'riser-ladders'
 	const cableLayer = (media?: string) => (media === 'fiber' ? (has.has('fiber') ? 'fiber' : 'riser-cables') : has.has('copper') ? 'copper' : 'riser-cables')

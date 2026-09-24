@@ -29,7 +29,7 @@ import { ProjectSource } from './projectData.svelte'
 import { PagesStore, type SheetRevisionDoc } from './store/pagesStore.svelte'
 import { issueProblems, sheetModels, type ModelVersionDoc } from './store/versions'
 import { importSheetDoc, type SheetImportResult } from './store/sheetsImport'
-import { risersToBuilding, mergeRisers, riserFloors, storeyLevels, floorLabel, stackFloors, restack, riserPrefix, type RisersDocIn } from './store/risersImport'
+import { risersToBuilding, mergeRisers, riserFloors, storeyLevels, floorLabel, stackFloors, restack, riserPrefix, storeyHeights, setStoreyHeights, type RisersDocIn, type FloorHeights } from './store/risersImport'
 import { parseFloor } from './store/placeProps'
 import type { Storey } from './3dview/types'
 import type { SheetDoc, SheetViewport } from '../sheets/types'
@@ -271,13 +271,29 @@ export class PagesProject {
 	 *  the building at their storeys. One undo step. */
 	#syncStoreys(placeId: string, floors: number[]) {
 		const mid = this.ensurePlaceModel(placeId), m = mid ? modelById(mid) : undefined; if (!m) return
+		this.#rebuildStoreys(placeId, m, restack(floors, $state.snapshot(m.storeys ?? []) as Storey[]), `Floors of ${m.name}`)
+	}
+	/** Give building `m` these storeys (one undo step): its imported riser geometry is re-applied ON them (so it
+	 *  follows the heights; Pages-renamed labels kept) and its floor models re-linked. */
+	#rebuildStoreys(placeId: string, m: Model, storeys: Storey[], label: string) {
 		this.#h.ensureHist()
-		// imported riser geometry sits at its storeys' heights: re-apply the riser against the new stack
-		const risers = this.#risersOf(m)
-		if (risers.length) for (const d of risers) this.#applyRisers(d, m, placeId, true)   // keeps Pages-renamed labels
-		else { m.kind = 'building'; m.storeys = restack(floors, $state.snapshot(m.storeys ?? []) as Storey[]) }
+		m.kind = 'building'; m.storeys = storeys
+		for (const d of this.#risersOf(m)) this.#applyRisers(d, m, placeId, true, storeys)
 		this.#linkFloorModels(m)
-		this.#h.pushStep(this.#h.activeTabId() ?? '', `Floors of ${m.name}`)
+		this.#h.pushStep(this.#h.activeTabId() ?? '', label)
+	}
+	/** The selected BUILDING place's storeys with their heights, top floor first (Properties › HEIGHTS). */
+	buildingHeights = $derived.by(() => {
+		const n = this.#h.session.treeNode, p = n ? this.store?.places.find((x) => x.id === n.id) : undefined
+		if (!p || p.kind !== 'building') return null
+		const m = modelForPlace(p.id)
+		return { placeId: p.id, rows: [...(m?.storeys ?? [])].sort((a, b) => b.z - a.z).map((s) => ({ id: s.id, name: s.name, z: s.z, ...storeyHeights(s) })) }
+	})
+	/** One floor's height edited in the HEIGHTS table: the floors above re-stack, riser geometry follows. */
+	setStoreyHeight = (placeId: string, storeyId: string, key: keyof FloorHeights, value: number) => {
+		const m = modelForPlace(placeId); if (!m?.storeys || !(value >= 0)) return
+		const cur = m.storeys.find((s) => s.id === storeyId); if (!cur || storeyHeights(cur)[key] === value) return
+		this.#rebuildStoreys(placeId, m, setStoreyHeights($state.snapshot(m.storeys) as Storey[], storeyId, { [key]: value }), `${cur.name} heights`)
 	}
 	/** Every floor place inside the building model's place → levelRef + a cached copy of its storey's levels. */
 	#linkFloorModels(b: Model): number {
@@ -673,11 +689,12 @@ export class PagesProject {
 	}
 	/** Merge a riser doc into building model `m` with storeys for the building's WHOLE stack (its place's floors,
 	 *  else the project's) plus the riser's own floors if outside it. No history step (the caller's). */
-	#applyRisers(d: RisersDocIn & { id: string }, m: Model, homeId: string, keepLabels = false) {
+	#applyRisers(d: RisersDocIn & { id: string }, m: Model, homeId: string, keepLabels = false, storeys?: Storey[]) {
 		const st = this.stackOf(homeId), skip = new Set(st?.skipped ?? [])
 		const own = riserFloors(d, [...skip])
 		const all = [...new Set([...(st ? stackFloors(st) : []), ...own])].sort((a, b) => a - b)
-		const r = risersToBuilding(d, all, { riserId: d.id, layerIds: (m.layers ?? []).map((l) => l.id) })
+		// `storeys` = build on the building's own (edited) heights; none = the riser's heights (an explicit import)
+		const r = risersToBuilding(d, all, { riserId: d.id, layerIds: (m.layers ?? []).map((l) => l.id), storeys })
 		const merged = mergeRisers($state.snapshot(m) as Model, r, d.id, { keepLabels })
 		m.objects = merged.objects; m.storeys = merged.storeys; m.layers = merged.layers; m.kind = 'building'
 		return r
