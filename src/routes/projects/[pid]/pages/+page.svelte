@@ -20,7 +20,7 @@
 	import { type Proj, type SheetFrame, type Kind, type Tab, type WorkPane, type View, type StripItem, type Workspace, SCALES, DIR_LABEL as PROJ_LABEL } from './types'
 	import { PACKAGES, VERSIONS, REVISIONS, type PItem, PALETTE_ITEMS as paletteItems, navDrawingId } from './mock/data'
 	import Viewport from './ui/Viewport.svelte'
-	import type { VpOn } from './ui/vpTypes'
+	import type { VpOn, NavMode } from './ui/vpTypes'
 	import type { Editor } from './ui/editor'
 	import DrawingNavigator from './parts/DrawingNavigator.svelte'
 	import LayersPanel from './parts/LayersPanel.svelte'
@@ -151,7 +151,7 @@
 	const setScale = (id: string | undefined, s: string) => { if (id) docs.setScale(didOf(id), s) }
 	// The drafting/interaction flags bundle passed to a pane's viewport (one prop instead of six).
 	let guideVert = $state(false)   // the Guide tool's H/V pop-out base (touch has no Shift); Shift still flips it
-	const envFor = (pane: { id: string; activeId: string }) => ({ acad: acadMode, navContent, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, cen: toggles.CEN, snapStep, guideVert, canvasZoom: isModelLayout(pane) ? 1 : canvasViewOf(pane).zoom })   // B31: model space has no canvas zoom
+	const envFor = (pane: { id: string; activeId: string }) => ({ acad: acadMode, navContent, navMode, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, cen: toggles.CEN, snapStep, guideVert, canvasZoom: isModelLayout(pane) ? 1 : canvasViewOf(pane).zoom })   // B31: model space has no canvas zoom
 	// R6: the Viewport's callback bundle is split in two. `vpView` → `VpOn` (view/camera events only —
 	// still one `on` prop); `vpEditor` → `Editor` (document-mutating ops — entity array, undo-history
 	// bracket, section-marker selection). PaperPage also uses `frame`; the plain Viewport ignores it.
@@ -763,6 +763,7 @@
 		const mod = e.ctrlKey || e.metaKey
 		const tag = (e.target as HTMLElement)?.tagName
 		if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return   // don't hijack field editing
+		if (e.key === 'Escape' && navMode) { e.preventDefault(); e.stopPropagation(); navMode = null; return }   // Esc first drops a latched Pan / Orbit
 		if (mod && (e.key === 'k' || e.key === 'K')) {
 			// Capture phase + stopImmediatePropagation so the app-wide Ctrl-K palette doesn't
 			// also open on this page (it left a faded backdrop behind ours).
@@ -940,6 +941,10 @@
 	// Active-viewport content pan/zoom (Sheets-style): OFF by default, so wheel/drag over an
 	// active viewport pans/zooms the CANVAS; toggle on to pan/zoom the model inside it.
 	let navContent = $state(false)
+	// The nav bar's latched Pan / Orbit tool: a left drag (or one finger) pans / orbits until Esc, a
+	// right-click, picking a tool, or clicking the button again.
+	let navMode = $state<NavMode>(null)
+	function setNavMode(m: NavMode) { navMode = m }
 
 	// Mock theme (scoped to .shell — demos both Kestrel looks, app untouched)
 	let mockTheme = $state<'dark' | 'light'>('dark')
@@ -950,7 +955,7 @@
 	// `pane`/`pi` as its own props and can just call `ws.setFocused(pi)` itself.
 	function setFocused(pi: number) { session.focused = pi }
 	function toggleTabMenu(pi: number) { tabMenuPane = tabMenuPane === pi ? null : pi }
-	function setPaneTool(pane: WorkPane, t: string) { pane.tool = t }
+	function setPaneTool(pane: WorkPane, t: string) { pane.tool = t; navMode = null }
 	function toggleLayout(pane: WorkPane) { pane.layout = pane.layout === 'model' ? 'sheet' : 'model' }
 	function setCanvasEl(pi: number, el: HTMLElement | undefined) { canvasEls[pi] = el }
 	// Bundles +page.svelte's ~30 doc/view accessor FUNCTIONS + the pane actions above into ONE prop every
@@ -968,7 +973,7 @@
 	// not started here.
 	const workspace: Workspace = {
 		get tabs() { return session.tabs }, kindIcon, STRIP, iconOf,
-		get acadMode() { return acadMode }, get statusText() { return statusText },
+		get acadMode() { return acadMode }, get statusText() { return statusText }, get navMode() { return navMode }, setNavMode,
 		openTab, promoteTab, closeTab, addTab, pickFromMenu, splitVertical, closePane,
 		setFocused, toggleTabMenu, setPaneTool, toggleLayout, setCanvasEl,
 		activeVpOf, isVpActive, deactivateVp, onCanvasMove, canvasPan, canvasZoomFn: canvasZoom,

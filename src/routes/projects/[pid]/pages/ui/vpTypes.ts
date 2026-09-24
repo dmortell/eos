@@ -15,7 +15,10 @@ export type Env = {
 	acad?: boolean; navContent?: boolean; grid?: boolean; lwt?: boolean; osnap?: boolean; snap?: boolean; ortho?: boolean; cen?: boolean; guideVert?: boolean; canvasZoom?: number
 	/** SNAP grid spacing, model mm (status bar); defaults to SNAP_STEP. */
 	snapStep?: number
+	/** The nav bar's latched Pan / Orbit tool: a left drag pans / orbits (iso) instead of using `tool`. */
+	navMode?: NavMode
 }
+export type NavMode = 'pan' | 'orbit' | null
 
 export type VpOn = {
 	activate?: () => void; deactivate?: () => void; view?: (v: View) => void; orbit?: (yaw: number, pitch: number) => void

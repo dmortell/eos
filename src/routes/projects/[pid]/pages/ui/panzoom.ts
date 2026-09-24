@@ -12,6 +12,8 @@ export type PanZoomOpts = {
 	// True → the wheel ZOOMS (AutoCAD-style, the default). False → the wheel PANS (EOS/Sheets
 	// style) and only a modifier key zooms. Evaluated per-event.
 	wheelZoom?: () => boolean
+	// True → a LEFT press (mouse, pen or one finger) pans too — the nav bar's latched Pan tool.
+	leftPans?: () => boolean
 	onpan: (dx: number, dy: number, node: HTMLElement) => void            // screen-px delta
 	onzoom: (factor: number, clientX: number, clientY: number, node: HTMLElement) => void
 }
@@ -41,7 +43,8 @@ export function panzoom(node: HTMLElement, initial: PanZoomOpts) {
 	// right/middle-button drag → pan (window move/up so it survives leaving the node)
 	let panning = false, lastX = 0, lastY = 0
 	function down(e: PointerEvent) {
-		if (!on() || (e.button !== 2 && e.button !== 1)) return
+		if (!on() || (e.button !== 2 && e.button !== 1 && !(e.button === 0 && opts.leftPans?.()))) return
+		if ((e.target as Element)?.closest?.('button, .glass-bar, .floattools')) return   // the on-canvas toolbars stay clickable
 		panning = true; lastX = e.clientX; lastY = e.clientY
 		e.preventDefault()
 		e.stopPropagation()   // pan this element, not an enabled panzoom ancestor

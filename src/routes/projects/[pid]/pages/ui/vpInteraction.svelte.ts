@@ -81,7 +81,7 @@ export class VpInteraction {
 	// ── hover cursor: 'move' over something a press would grab (P2: the same pickAt cascade as a press, at
 	// most once per animation frame) ──
 	hoverBody = $state(false)
-	cursorStyle = $derived.by(() => (!this.v.active ? 'pointer' : DRAW.has(this.v.tool) ? 'crosshair' : this.hoverBody ? 'move' : 'default'))
+	cursorStyle = $derived.by(() => (!this.v.active ? 'pointer' : this.v.navMode === 'pan' ? 'grab' : this.v.navMode === 'orbit' && this.v.kind === 'iso' ? 'move' : DRAW.has(this.v.tool) ? 'crosshair' : this.hoverBody ? 'move' : 'default'))
 	private hoverRaf = 0
 	private hoverAt: [number, number] | null = null
 	private hoverIdle = () => this.v.active && this.v.tool === 'Select' && !this.drag && !this.reg.active && !this.draft.length && !this.marquee
@@ -402,15 +402,16 @@ export class VpInteraction {
 			for (let i = 0; i < 2; i++) { const sp = v.toClient(this.scalePts[i][0], this.scalePts[i][1]); if (sp && Math.hypot(sp.x - e.clientX, sp.y - e.clientY) < 14) { beginPointerDrag<number>(e, i, { onMove: this.onScaleDragMove }, reg); return } }
 		}
 		if (imgEdit.mode === 'scale' || imgEdit.mode === 'origin') return   // pick modes: onClick places the point
+		if (v.navMode === 'pan') return   // latched Pan: panzoom owns the drag (it only gets here when the pan target is disabled)
+		if (v.kind === 'iso' && (v.tool === 'Select' || v.navMode === 'orbit')) {   // 3D: a plain drag (or any drag with Orbit latched) orbits
+			beginPointerDrag<OrbitDrag>(e, { sx: e.clientX, sy: e.clientY, yaw0: v.yaw, pitch0: v.pitch }, { onMove: this.onOrbitMove, onUp: (_e, _s, moved) => { if (moved) this.suppressClick = true } }, reg)
+			return
+		}
 		if (v.tool !== 'Select') {   // EOS mode: a shape is one press-drag-release
 			if (v.acad || v.tool === 'Text' || v.tool === 'Guide') return   // AutoCAD two-click / text + guide single-click via onClick
 			const dp = this.drawPoint(e.clientX, e.clientY); if (!dp) return
 			this.draft = [dp]; this.cur = dp
 			beginPointerDrag(e, null, { onMove: this.onDrawMove, onUp: this.onDrawUp, onCancel: () => this.endDraft() }, reg)
-			return
-		}
-		if (v.kind === 'iso') {   // 3D: a plain drag orbits the camera
-			beginPointerDrag<OrbitDrag>(e, { sx: e.clientX, sy: e.clientY, yaw0: v.yaw, pitch0: v.pitch }, { onMove: this.onOrbitMove, onUp: (_e, _s, moved) => { if (moved) this.suppressClick = true } }, reg)
 			return
 		}
 		const p = v.toModel(e.clientX, e.clientY); if (!p) return

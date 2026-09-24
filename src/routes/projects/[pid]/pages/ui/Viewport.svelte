@@ -39,7 +39,7 @@
 <div class="vp print:!border-transparent" class:active={v.active} class:model-space={v.modelSpace} bind:clientWidth={v.vpW} bind:clientHeight={v.vpH} role="button" tabindex="0" style:cursor={x.cursorStyle}
 	style:border-style={v.active ? 'solid' : v.border === 'none' ? 'dotted' : v.border}
 	style:border-color={v.border === 'none' && !v.active ? '#94a3b866' : undefined}
-	use:panzoom={{ enabled: () => v.active && (v.navContent || v.modelSpace), wheelZoom: () => v.acad, onpan: v.onPan, onzoom: v.onZoom }}
+	use:panzoom={{ enabled: () => v.active && (v.navContent || v.modelSpace), wheelZoom: () => v.acad, leftPans: () => v.navMode === 'pan', onpan: v.onPan, onzoom: v.onZoom }}
 	onpointerdowncapture={x.noteRightDown}
 	onclick={x.onClick} ondblclick={x.onDblclick} oncontextmenu={x.onContext} onpointerdown={x.onDown} onpointermove={x.onMove} onpointerleave={x.onLeave}
 	onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); v.on.activate?.() } }}>

@@ -52,6 +52,7 @@
 	// no canvas transform — pan/zoom act on the Viewport's own view — and dark, like AutoCAD. Only the
 	// paper layout keeps the canvas pan/zoom + activation. Same test as +page's `isModelLayout`.
 	const modelLayout = $derived(!!a && !(a.kind === 'sheet' && p.layout === 'sheet'))
+	let rDown: { x: number; y: number } | null = null   // a right-CLICK (not a right-drag pan) drops a latched Pan / Orbit
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -94,9 +95,11 @@
 	<!-- this pane's canvas -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<main class="canvas" bind:this={canvasEl} onpointermove={ws.onCanvasMove}
+	<main class="canvas" class:nav-pan={ws.navMode === 'pan'} bind:this={canvasEl} onpointermove={ws.onCanvasMove}
+		onpointerdowncapture={(e) => { if (e.button === 2) rDown = { x: e.clientX, y: e.clientY } }}
+		oncontextmenucapture={(e) => { if (ws.navMode && rDown && Math.hypot(e.clientX - rDown.x, e.clientY - rDown.y) <= 5) ws.setNavMode(null); rDown = null }}
 		ondblclick={(e) => { if (a && !modelLayout && !(e.target as Element).closest?.('.paper, button, .glass-bar, .vp-active-bar, .navtools, .floattools')) { const av = ws.activeVpOf(a.id); if (av) ws.deactivateVp(av); selStore.set(a.id, selClear()) } }}
-		use:panzoom={{ enabled: () => !!a && !modelLayout, wheelZoom: () => ws.acadMode, onpan: (dx, dy) => ws.canvasPan(p, dx, dy), onzoom: (f, x, y, node) => ws.canvasZoomFn(p, node, f, x, y) }}>
+		use:panzoom={{ enabled: () => !!a && !modelLayout, wheelZoom: () => ws.acadMode, leftPans: () => ws.navMode === 'pan', onpan: (dx, dy) => ws.canvasPan(p, dx, dy), onzoom: (f, x, y, node) => ws.canvasZoomFn(p, node, f, x, y) }}>
 		<ToolStrip tool={p.tool} onTool={(t) => ws.setPaneTool(pane, t)} dim={!!(a && !ws.isVpActive(a.id))} STRIP={ws.STRIP} iconOf={ws.iconOf} bind:guideVert bind:openGroup bind:groupTool />
 		<!-- Pane-level exit: fixed on screen (outside the zoomed content), so a viewport
 		     can always be left even when zoomed right in and its own corner is off-screen. -->
@@ -169,9 +172,11 @@
 			<button class="tool" title="Zoom in" onclick={() => ws.navZoom(1.25)}><Icon name="zoomin" size={16} /></button>
 			<button class="tool" title="Zoom out" onclick={() => ws.navZoom(0.8)}><Icon name="zoomout" size={16} /></button>
 			<button class="tool" title="Fit" onclick={() => ws.navFit()}><Icon name="fit" size={16} /></button>
-			<button class="tool" title="Pan (right-drag)"><Icon name="pan" size={16} /></button>
-			{#if a && ws.gizmoProj(p, a) === 'iso'}
-				<button class="tool" title="Orbit — drag in the 3D view (Shift = 15° snap)"><Icon name="rotate3d" size={16} /></button>
+			<button class="tool" class:on={ws.navMode === 'pan'} title="Pan — left-drag / one finger pans (Esc or right-click to stop; right-drag always pans)"
+				onclick={() => ws.setNavMode(ws.navMode === 'pan' ? null : 'pan')}><Icon name="pan" size={16} /></button>
+			{#if (a && ws.gizmoProj(p, a) === 'iso') || ws.navMode === 'orbit'}
+				<button class="tool" class:on={ws.navMode === 'orbit'} title="Orbit — any left-drag in a 3D view orbits, even with a drawing tool (Shift = 15° snap; Esc to stop)"
+					onclick={() => ws.setNavMode(ws.navMode === 'orbit' ? null : 'orbit')}><Icon name="rotate3d" size={16} /></button>
 			{/if}
 		</div>
 		{#if a}
@@ -252,4 +257,7 @@
 	.vab-scale select:focus { outline:none; border-color:var(--accent); }
 	.tool { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; color:var(--muted); background:none; border:none; }
 	.tool:hover { background:var(--hover); color:var(--text); }
+	.tool.on { background:var(--active); color:var(--accent); }
+	/* latched Pan: a grab hand everywhere on the canvas (beats the viewport's inline tool cursor) */
+	.canvas.nav-pan, .canvas.nav-pan :global(.vp), .canvas.nav-pan :global(.paper) { cursor:grab !important; touch-action:none; }
 </style>

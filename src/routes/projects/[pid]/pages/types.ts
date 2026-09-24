@@ -91,6 +91,8 @@ export type Workspace = {
 	paperOf: (id?: string) => { size: import('./constants').PaperSize; landscape: boolean; margin?: number }
 	paperDimsOf: (id?: string) => { w: number; h: number }
 	navZoom: (f: number) => void; navFit: () => void
+	/** The nav bar's latched Pan / Orbit tool (null = off; a left drag uses the pane tool). */
+	navMode: import('./ui/vpTypes').NavMode; setNavMode: (m: import('./ui/vpTypes').NavMode) => void
 	projOf: (pane: { id: string }, a: Tab | null) => Proj
 	gizmoProj: (pane: { id: string }, a: Tab | null) => Proj
 	gizmoSet: (pane: { id: string }, a: Tab | null, proj: Proj) => void
