@@ -21,8 +21,15 @@ export type ViewState = { pan?: Pt2; zoom?: number; orbit?: { yaw: number; pitch
 export const viewKey = (paneId: string, viewId: string, proj: string): string => `${paneId}:${viewId}:${proj}`
 /** Today's `cvKey`/`projKey`: one entry per pane × tab, independent of projection. */
 const paneTabKey = (paneId: string, tabId: string): string => `${paneId}:${tabId}`
+/** Is key `k` (either shape) one of view / drawing `id`'s? Ids may contain ':' (`model:<id>`), so match the
+ *  text after the pane segment rather than splitting. */
+const ofView = (k: string, id: string): boolean => { const rest = k.slice(k.indexOf(':') + 1); return rest === id || rest.startsWith(`${id}:`) }
 
 const CV_LS = 'eos.pages.canvasView'
+/** The per-view pan/zoom/orbit + per-tab projection, persisted so a reload restores a model tab's view.
+ *  Same keys as the live map (pane × DRAWING id / frame id × proj — all stable across reloads). */
+const VIEW_LS = 'eos.pages.views'
+const VIEW_LS_MAX = 400
 const DEFAULT_VIEW = { x: 0, y: 0, zoom: 1 }
 
 class ViewStateStore {
@@ -33,35 +40,52 @@ class ViewStateStore {
 	// never actually be found again — rekeyed by the stable DRAWING id.
 	#canvasCache = $state<Record<string, Pt2 & { zoom: number }>>({})
 
-	/** Load the persisted canvas-view cache. Call once, client-side (today's `+page` `$effect`). */
+	// The persisted view / orbit / projection SEED (live entries win) — like the canvas seed, it outlives a
+	// tab close (only `drop(…, drawingId)` prunes it), so reopening a drawing restores its view too.
+	#viewCache = $state<Record<string, ViewState>>({})
+	#saveTimer: ReturnType<typeof setTimeout> | undefined
+
+	/** Load the persisted canvas-view + view caches. Call once, client-side (today's `+page` `$effect`). */
 	loadPersisted() {
 		try { this.#canvasCache = JSON.parse(localStorage.getItem(CV_LS) || '{}') } catch { /* private mode */ }
+		try { this.#viewCache = JSON.parse(localStorage.getItem(VIEW_LS) || '{}') } catch { /* private mode */ }
+	}
+	#at(k: string): ViewState | undefined { return this.#map[k] ?? this.#viewCache[k] }
+	/** Merge `patch` into key `k` (live map + persisted seed); the seed is written debounced (pan/zoom
+	 *  fire per pointer move), newest last and capped at VIEW_LS_MAX entries. */
+	#put(k: string, patch: ViewState) {
+		this.#map = { ...this.#map, [k]: { ...this.#at(k), ...patch } }
+		const { [k]: old, ...rest } = this.#viewCache
+		const next = { ...rest, [k]: { ...old, ...patch } }, keys = Object.keys(next)
+		for (const x of keys.slice(0, Math.max(0, keys.length - VIEW_LS_MAX))) delete next[x]
+		this.#viewCache = next
+		clearTimeout(this.#saveTimer)
+		this.#saveTimer = setTimeout(() => { try { localStorage.setItem(VIEW_LS, JSON.stringify(this.#viewCache)) } catch { /* private mode */ } }, 300)
 	}
 
 	// ── fine-grained: pan/zoom + orbit, per pane+view+proj ──
 	getView(paneId: string, viewId: string, proj: string): Pt2 & { zoom: number } {
-		const v = this.#map[viewKey(paneId, viewId, proj)]
+		const v = this.#at(viewKey(paneId, viewId, proj))
 		return v?.pan && v.zoom != null ? { ...v.pan, zoom: v.zoom } : DEFAULT_VIEW
 	}
 	setView(paneId: string, viewId: string, proj: string, v: Pt2 & { zoom: number }) {
-		const k = viewKey(paneId, viewId, proj)
-		this.#map = { ...this.#map, [k]: { ...this.#map[k], pan: { x: v.x, y: v.y }, zoom: v.zoom } }
+		this.#put(viewKey(paneId, viewId, proj), { pan: { x: v.x, y: v.y }, zoom: v.zoom })
 	}
+	/** Has this view a remembered (live or persisted) pan/zoom? — a mount-time fit skips it (B27 for models). */
+	hasView(paneId: string, viewId: string, proj: string): boolean { return this.#at(viewKey(paneId, viewId, proj))?.zoom != null }
 	getOrbit(paneId: string, viewId: string, proj: string): { yaw: number; pitch: number } | undefined {
-		return this.#map[viewKey(paneId, viewId, proj)]?.orbit
+		return this.#at(viewKey(paneId, viewId, proj))?.orbit
 	}
 	setOrbit(paneId: string, viewId: string, proj: string, yaw: number, pitch: number) {
-		const k = viewKey(paneId, viewId, proj)
-		this.#map = { ...this.#map, [k]: { ...this.#map[k], orbit: { yaw, pitch } } }
+		this.#put(viewKey(paneId, viewId, proj), { orbit: { yaw, pitch } })
 	}
 
 	// ── coarse-grained: projection choice + canvas position, per pane+tab ──
 	getProj(paneId: string, tabId: string): Proj | undefined {
-		return this.#map[paneTabKey(paneId, tabId)]?.proj
+		return this.#at(paneTabKey(paneId, tabId))?.proj
 	}
 	setProj(paneId: string, tabId: string, proj: Proj) {
-		const k = paneTabKey(paneId, tabId)
-		this.#map = { ...this.#map, [k]: { ...this.#map[k], proj } }
+		this.#put(paneTabKey(paneId, tabId), { proj })
 	}
 	/** `drawingId` (B27) — the persisted SEED is keyed by the stable DRAWING id, not the tab id: tab ids
 	 *  are random (B13), so a reopened drawing's tab never matched its old localStorage entry and the
@@ -88,10 +112,16 @@ class ViewStateStore {
 	 *  seed too — omit it to leave the seed alone (matches the pre-B27 behaviour of never clearing it). */
 	drop(ids: string[], drawingId?: string) {
 		const idSet = new Set(ids)
-		const mine = (k: string) => idSet.has(k) || idSet.has(k.split(':')[1])   // bare-key check kept for parity with dropDoc's `k === id` (never actually matches: every key here has a ':')
+		const mine = (k: string) => [...idSet].some((id) => ofView(k, id))
 		const next: Record<string, ViewState> = {}
 		for (const k of Object.keys(this.#map)) if (!mine(k)) next[k] = this.#map[k]
 		this.#map = next
+		if (drawingId != null) {
+			const vc: Record<string, ViewState> = {}
+			for (const k of Object.keys(this.#viewCache)) if (!ofView(k, drawingId)) vc[k] = this.#viewCache[k]
+			this.#viewCache = vc
+			try { localStorage.setItem(VIEW_LS, JSON.stringify(vc)) } catch { /* private mode */ }
+		}
 		if (drawingId != null && drawingId in this.#canvasCache) {
 			const cache = { ...this.#canvasCache }; delete cache[drawingId]; this.#canvasCache = cache
 			try { localStorage.setItem(CV_LS, JSON.stringify(this.#canvasCache)) } catch { /* private mode */ }

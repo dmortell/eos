@@ -1255,6 +1255,8 @@
 		// B30: Fit resets the 3D orbit of the SAME viewport whose content it resets — the model tab, or the
 		// active sheet FRAME (was always the TAB id, so a sheet frame's orbit never reset and a dead
 		// tab-id × frame-proj entry was written). A paper fit touches no orbit.
+		// …and a reload's mount refit leaves a model tab's REMEMBERED view alone (viewState persists it).
+		if (av && av === p.activeId && opts.skipIfPersisted && viewState.hasView(p.id, didOf(av), pr)) return
 		if (av && (av === p.activeId || (opts.explicit && zoomsContent(p)))) { setOrbit(p.id, av, pr, DEFAULT_YAW, DEFAULT_PITCH); setView(p.id, av, pr, { zoom: 1, x: 0, y: 0 }); return }
 		// B27: the mount-time refit used to unconditionally overwrite a sheet's REMEMBERED canvas position
 		// (localStorage) with a fresh "fit to paper" — so a saved 48% zoom came back at 97% after every
