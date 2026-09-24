@@ -17,14 +17,13 @@ import { drawPlane, buildEnt, sectionObj, sectionName, PRISM_TOOL, trimTail, pol
 import { addModelObj, insertGraphNode, branchNode, addGuide, addSection } from './modelEdit'
 import { constrainGrip, snapAngle, type MGrip } from './grips'
 import { rotateAbout, scaleAbout, cornerScale } from './groupXf'
-import { joinNewConduit, joinGraph, mergeNodes, compatible, coincidentNodes } from '../3dview/graphJoin'
-import { connPoints, attachNode, followConnections } from '../3dview/connect'
+import { coincidentNodes } from '../3dview/graphJoin'
+import { commitConduit, moveModelItems, endModelMove, moveModelGrip, dropNodeJoin, type MDrag, type MGripDrag } from './vpModelEdit'
 import { snapToGrid, snapDelta, findSnap, drawPoint } from './snap'
 import { rotCenter, hitIsoFaces, marqueeSelect, type GN } from './hit'
 import { newId } from '../ids'
 import { constrainPt } from './annotations'
 import { pasteCopies, relabelCopies } from './clipboard'
-import { zToU, uToZ } from '../store/racksImport'
 import { insertLink } from './blocks'
 import { isOutletBlock, newOutletFields, incLabel, walk, outletSticky, restoreLastLabel } from './outletPlace.svelte'
 import { isOutletEnt } from '../store/allocate'
@@ -44,8 +43,6 @@ const uid = () => newId('e')
 /** Entity move/grip drag. `bases` = what a body-move drags (the whole selection when the grabbed entity is in
  *  it); `base`/`gi` drive a grip drag. Kept on the instance too: Shift/ORTHO re-apply + hover read it. */
 type EntDrag = { id: string; base: Ent; bases: Ent[]; kind: 'grip' | 'move'; gi: number; start: Pt; dup?: boolean; duplicated?: boolean }
-type MDrag = { start: Pt; items: { id: string; o0?: { x: number; y: number; z: number }; n0?: GN[] }[] }
-type MGripDrag = { grip: MGrip; origin: Pt; branch?: () => void; /** F5: other objects' nodes riding along */ peers?: GN[] }
 /** D13: a group-box drag — scale about `pivot` (the opposite corner) toward `corner`, or rotate about `pivot`
  *  (the barycentre) from the press angle `a0` (radians). */
 type GroupDrag = { bases: Ent[]; pivot: Pt; corner?: Pt; a0?: number }
@@ -175,14 +172,8 @@ export class VpInteraction {
 		const o = graphObj(v.ctx, v.tool, pts, { guide, depthSnap: (p) => v.elevDepthSnap(p)?.off ?? null, uid: newId })
 		if (!o) return
 		if (o.type !== 'conduit') return this.addModelObj(o)
-		// F6: in plan, run nodes drawn on a box's / outlet's connection point attach to it
-		if (v.isPlan) { const cp = connPoints(v.mdl), tol = v.tolMm(8); for (const n of o.nodes) attachNode(n, cp, tol) }
-		// F3: a run touching compatible conduits joins them (one undo step); otherwise it's a new object
-		const ed = v.editor.edit; ed.begin()
-		const into = joinNewConduit(v.mdl.objects, o, v.tolMm(8), newId)
-		if (into === o) v.mdl.objects.push(o)
-		ed.mark(); ed.end()
-		if (into.id) v.selectObj(into.id)
+		const into = commitConduit(v, o)   // F6 attach + F3 join (ui/vpModelEdit.ts)
+		if (into?.id) v.selectObj(into.id)
 	}
 	/** Dbl-click a wall/conduit segment → split it with a new vertex (inherits the segment's z). */
 	private insertGraphNode(p: Pt) {
@@ -654,72 +645,25 @@ export class VpInteraction {
 		this.v.editor.edit.end()
 	}
 
-	// ── model body move: absolute from the gesture start. A prism moves its position; a wall/conduit translates
-	// ALL its nodes (rigid). In elevation the horizontal drag maps to the view's on-axis coord (× ELEV_BASIS
-	// sign) and the vertical drag changes z (clamped ≥ 0). ──
+	// ── model body move (absolute from the press) + model grips — the edits are ui/vpModelEdit.ts; here the undo
+	// step (opened at press, marked per move, closed at release) and the trailing click ──
 	private onModelDragMove = (e: PointerEvent, s: MDrag) => {
-		const v = this.v; if (!v.mdl) return
-		const p = v.toModel(e.clientX, e.clientY); if (!p) return
-		const dx = p[0] - s.start[0], dy = p[1] - s.start[1], rnd = v.rndSnap
-		const elev = v.isElev ? ELEV_BASIS[v.elevDir] : null
-		const shift = (t: { x: number; y: number; z: number }, f: { x: number; y: number; z: number }) => {
-			if (elev) { if (elev.axis === 0) t.x = rnd(f.x + elev.sign * dx); else t.y = rnd(f.y + elev.sign * dx); t.z = Math.max(0, rnd(f.z - dy)) }
-			else { t.x = rnd(f.x + dx); t.y = rnd(f.y + dy) }
-		}
-		for (const it of s.items) {
-			const o = v.mdl.objects.find((x) => x.id === it.id); if (!o) continue
-			if (o.type === 'prism' && it.o0) {
-				shift(o, it.o0)
-				// G4: a rack DEVICE slides only up / down its rack, snapping to whole U
-				const rk = o.device && v.mdl.objects.find((x) => x.id === o.device!.rackId)
-				if (o.device && rk?.type === 'prism') {
-					const u = zToU(rk.z, o.z, (rk.rack?.u ?? 42) - o.device.hU + 1)
-					o.x = it.o0.x; o.y = it.o0.y; o.z = uToZ(rk.z, u)
-					if (o.device.u !== u) o.device = { ...o.device, u }
-				}
-			}
-			else if ((o.type === 'wall' || o.type === 'conduit') && it.n0) for (const g of it.n0) { const n = (o.nodes as GN[]).find((x) => x.id === g.id); if (n) shift(n, g) }
-		}
-		followConnections(v.mdl, new Set(s.items.map((it) => it.id)))   // F6: conduit ends attached to a moved box come along
-		v.editor.edit.mark()   // fold this move into the open undo step
+		const p = this.v.toModel(e.clientX, e.clientY); if (!p) return
+		moveModelItems(this.v, s, p)
+		this.v.editor.edit.mark()   // fold this move into the open undo step
 	}
 	private onModelDragUp = (_e: PointerEvent, s: MDrag, moved: boolean) => {
-		const v = this.v
-		if (moved) {
-			this.suppressClick = true
-			// F6: a conduit moved bodily keeps only the attachments its nodes still sit on
-			if (v.mdl && v.isPlan) { const cp = connPoints(v.mdl), tol = v.tolMm(8); for (const it of s.items) { const o = v.mdl.objects.find((x) => x.id === it.id); if (o?.type === 'conduit') for (const n of o.nodes) if (n.conn) attachNode(n, cp, tol) } }
-		}
-		v.editor.edit.end()
+		if (moved) { this.suppressClick = true; endModelMove(this.v, s) }
+		this.v.editor.edit.end()
 	}
-
-	/** F3: a conduit node dropped onto another node merges them — in the same conduit (closing a loop / removing a
-	 *  kink), or into a compatible conduit (the two become one object). Runs inside the grip's undo step. */
-	private dropNodeJoin(g: MGrip) {
-		const v = this.v, o = g.obj, mdl = v.mdl
-		if (!mdl || !g.node || o?.type !== 'conduit') return
-		const n = o.nodes.find((x) => x.id === g.node!.id); if (!n) return
-		const tol = v.tolMm(8), near = (m: { x: number; y: number; z: number }) => Math.hypot(m.x - n.x, m.y - n.y, m.z - n.z) <= tol
-		const same = o.nodes.find((m) => m.id !== n.id && near(m))
-		if (same) { mergeNodes(o, same.id, n.id); v.selectObj(o.id!); return }
-		const other = mdl.objects.find((c) => c !== o && compatible(c, o) && c.type === 'conduit' && c.nodes.some(near))
-		if (other && joinGraph(other as Extract<Obj, { type: 'conduit' }>, o, tol, newId)) { mdl.objects.splice(mdl.objects.indexOf(o), 1); v.selectObj(other.id!); return }
-		if (v.isPlan) attachNode(n, connPoints(mdl), tol)   // F6: dropped on a connection point → attach; off one → detach
-	}
-
-	// ── model grips: prism corner resize, or a wall/conduit node reshape (re-mitred joins) ──
 	private onModelGripMove = (e: PointerEvent, s: MGripDrag) => {
 		const p = this.v.toModel(e.clientX, e.clientY); if (!p) return
-		s.grip.apply(p, s.origin)
-		const go = s.grip.obj, n = s.grip.node && go && (go.type === 'wall' || go.type === 'conduit') ? (go.nodes as GN[]).find((x) => x.id === s.grip.node!.id) : undefined
-		if (n && s.peers?.length) for (const q of s.peers) { q.x = n.x; q.y = n.y; q.z = n.z }   // F5
-		const o = s.grip.obj ?? this.v.mSelObj
-		if (o?.type === 'prism' && o.id && this.v.mdl) followConnections(this.v.mdl, new Set([o.id]))   // F6: a resized / rotated box's points move
+		moveModelGrip(this.v, s, p)
 		this.v.editor.edit.mark()
 	}
 	private onModelGripUp = (_e: PointerEvent, s: MGripDrag, moved: boolean) => {
 		const g = s.grip
-		if (moved) { this.suppressClick = true; this.dropNodeJoin(g); this.v.editor.edit.mark() }
+		if (moved) { this.suppressClick = true; dropNodeJoin(this.v, g); this.v.editor.edit.mark() }
 		else if (s.branch) s.branch()   // a Ctrl-branch press with no drag: drop the stray zero-length segment
 		else if (g.node && g.obj && (g.obj.type === 'wall' || g.obj.type === 'conduit')) {
 			// B29: swallow the trailing click, else onClick re-selects the object's BODY and replaces the node pick
