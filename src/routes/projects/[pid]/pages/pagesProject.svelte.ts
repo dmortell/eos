@@ -694,9 +694,9 @@ export class PagesProject {
 		const own = riserFloors(d, [...skip])
 		const all = [...new Set([...(st ? stackFloors(st) : []), ...own])].sort((a, b) => a - b)
 		// `storeys` = build on the building's own (edited) heights; none = the riser's heights (an explicit import)
-		const r = risersToBuilding(d, all, { riserId: d.id, layerIds: (m.layers ?? []).map((l) => l.id), storeys })
+		const r = risersToBuilding(d, all, { riserId: d.id, layerIds: (m.layers ?? []).map((l) => l.id), storeys, textLayer: this.#layerFor(m) })
 		const merged = mergeRisers($state.snapshot(m) as Model, r, d.id, { keepLabels })
-		m.objects = merged.objects; m.storeys = merged.storeys; m.layers = merged.layers; m.kind = 'building'
+		m.objects = merged.objects; m.shapes = merged.shapes; m.storeys = merged.storeys; m.layers = merged.layers; m.kind = 'building'
 		return r
 	}
 	/** The loaded riser docs (ProjectSource keeps the whole docs) whose geometry a building holds — by the

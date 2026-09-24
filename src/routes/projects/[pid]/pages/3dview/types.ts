@@ -69,7 +69,9 @@ export type Layer = { id: string; name: string; color: string; visible: boolean;
 // Selection is keyed by id, not array index, so it survives reordering/insert/delete.
 export type Obj = (Prism | Wall | Conduit) & { layer?: string; id?: string; groupId?: string
 	/** A name drawn with the object in plan / elevations (e.g. an imported riser room "MDF"). */
-	label?: string }
+	label?: string
+	/** Its own line colour, over its layer's (e.g. an imported riser cable's colour). */
+	color?: string }
 
 // A PDF/image underlay placed in one projection plane (e.g. a floorplan under
 // the plan view). A model can hold several per direction; array order is the

@@ -30,7 +30,7 @@
 	const layerOf = (o: Obj) => model.layers?.find((l) => l.id === o.layer)
 	const isOpening = (o: Obj) => !!layerOf(o)?.opening   // objects on an "opening" layer cut the wall
 	const isSel = (o: Obj) => !!o.id && selIds.includes(o.id)
-	const colorOf = (o: Obj) => { const c = isSel(o) ? SEL : layerOf(o)?.color ?? '#475569'; return adapt ? adapt(c) : c }
+	const colorOf = (o: Obj) => { const c = isSel(o) ? SEL : o.color ?? layerOf(o)?.color ?? '#475569'; return adapt ? adapt(c) : c }
 	// screen px (non-scaling-stroke cancels SVG transforms; ÷ canvasZoom cancels the ancestor CSS canvas
 	// zoom too, so the lineweight is a constant screen-px value — matching how entities render).
 	const weightOf = (o: Obj) => ((isSel(o) ? (layerOf(o)?.weight ?? defaultWeight) + 1.2 : layerOf(o)?.weight ?? defaultWeight) / (canvasZoom || 1))

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { riserFloors, riserStoreys, risersToBuilding, mergeRisers, storeyLevels, stackFloors, restack, riserVisibleStoreys, storeyHeights, setStoreyHeights, type RisersDocIn } from './risersImport'
 import type { Model } from '../3dview/types'
+import { GROUND } from '../ui/geometry'
 
 const doc: RisersDocIn = {
 	fromFloor: 12, toFloor: 33,
@@ -12,7 +13,7 @@ const doc: RisersDocIn = {
 	],
 	ladders: [{ id: 'L1', label: 'Riser 1', xMm: 8000, fromFloor: 12, toFloor: 33 }],
 	cables: [{ id: 'c1', label: 'OM4', segments: [{ roomId: 'r12', level: 'high', ladderId: 'L1' }, { roomId: 'r33' }] }],
-	labels: [{}],
+	labels: [{ id: 'L1', xMm: 1000, yMm: -500, text: 'To roof', fontSizeMm: 240 }],
 }
 
 describe('Risers import', () => {
@@ -47,7 +48,9 @@ describe('Risers import', () => {
 		const cab = r.objects.find((o) => o.id === 'rsr-cab-c1')!
 		// leaves MDF in its plenum, along to the ladder, up it, then along to EPS33 in its plenum
 		expect(cab.type === 'conduit' && cab.nodes.map((n) => [n.x, n.z])).toEqual([[5000, 3250], [8000, 3250], [8000, z33 + 3650], [9000, z33 + 3650]])
-		expect(r.notes).toEqual(['1 text label not imported (no elevation text yet)'])
+		expect(r.notes).toEqual([])
+		// the free label → front-elevation text; y is measured DOWN from the lowest floor's slab top (so −500 = above it)
+		expect(r.shapes[0]).toMatchObject({ type: 'text', plane: 'front', text: 'To roof', a: [1000, GROUND - (500 - 240 * 0.8)], fontPt: 7 })
 	})
 	it('importing again replaces what was imported and keeps what was drawn in Pages', () => {
 		const m: Model = { id: 'b', name: 'Hibiya', objects: [{ type: 'prism', id: 'mine', x: 0, y: 0, z: 0, w: 1, h: 1, d: 1, edges: 4 }], layers: [] }

@@ -7,10 +7,14 @@
 //            rooms → boxes on the raised floor, ladders → vertical trunks from the lowest floor's slab to the
 //            top floor's soffit, cables → thin conduits room → ladder → room at their high (plenum) / low
 //            (raised-floor void) levels
-//   labels   not imported yet (listed in the notes)
-// Ids are deterministic (`rsr-room-<id>`, `rsr-lad-<id>`, `rsr-cab-<id>`) so importing again REPLACES what was
-// imported and keeps anything drawn in Pages.
+//   labels   free text labels → text shapes drawn in the FRONT elevation (drawing coords [x, GROUND − z]; the
+//            Risers tool measures them down from the top of its lowest floor's slab); cable colours kept
+// Ids are deterministic (`rsr-<riserId>-room-<id>`, `…-lad-`, `…-cab-`, `…-lbl-`) so importing again REPLACES
+// what was imported and keeps anything drawn in Pages.
 import type { Model, Obj, Layer, Storey, Levels } from '../3dview/types'
+import type { Ent } from '../ui/geometry'
+import { GROUND } from '../ui/geometry'
+import { PT_MM } from '../constants'
 
 export type FloorHeights = { slabMm: number; raisedFloorMm: number; clearHeightMm: number; plenumMm: number }
 export const DEFAULT_HEIGHTS: FloorHeights = { slabMm: 200, raisedFloorMm: 300, clearHeightMm: 2600, plenumMm: 700 }
@@ -21,8 +25,8 @@ export type RisersDocIn = {
 	settings?: { defaultFloorHeights?: Partial<FloorHeights> }
 	rooms?: { id: string; kind: 'server' | 'eps'; floor: number; xMm: number; widthMm: number; label: string }[]
 	ladders?: { id: string; label: string; xMm: number; fromFloor: number; toFloor: number; widthMm?: number }[]
-	cables?: { id: string; label?: string; media?: 'copper' | 'fiber'; segments: { roomId: string; level?: 'high' | 'low'; entryLevel?: 'high' | 'low'; ladderId?: string }[] }[]
-	labels?: unknown[]
+	cables?: { id: string; label?: string; media?: 'copper' | 'fiber'; color?: string; segments: { roomId: string; level?: 'high' | 'low'; entryLevel?: 'high' | 'low'; ladderId?: string }[] }[]
+	labels?: { id: string; xMm: number; yMm: number; text: string; fontSizeMm?: number; color?: string }[]
 	/** The floors the Risers tool's elevation hides ("Visible") — a riser drawing's hidden floors. */
 	hiddenFloors?: number[]
 }
@@ -98,7 +102,7 @@ export const storeyLevels = (s: Storey): Levels => ({ floorSlab: s.floorSlab, ra
 /** `floors` = the building's whole stack (its place's `floors`), else the riser's own range. `riserId` keys the
  *  object ids (several risers per building); `layerIds` = the model's layers — ladders go on its Trunks layer and
  *  cables on Copper / Fiber Trunks by media when it has them (else the import's own Risers layers). */
-export function risersToBuilding(d: RisersDocIn, floors: number[] = riserFloors(d), opts: { riserId?: string; layerIds?: string[]; storeys?: Storey[] } = {}): { storeys: Storey[]; objects: Obj[]; notes: string[] } {
+export function risersToBuilding(d: RisersDocIn, floors: number[] = riserFloors(d), opts: { riserId?: string; layerIds?: string[]; storeys?: Storey[]; textLayer?: string } = {}): { storeys: Storey[]; objects: Obj[]; shapes: Ent[]; notes: string[] } {
 	// `opts.storeys` = the building's own (edited) storeys to build on; else the riser's heights
 	const storeys = opts.storeys ?? riserStoreys(d, floors), notes: string[] = []
 	const pre = opts.riserId ? riserPrefix(opts.riserId) : 'rsr-', has = new Set(opts.layerIds ?? [])
@@ -140,19 +144,32 @@ export function risersToBuilding(d: RisersDocIn, floors: number[] = riserFloors(
 			if (lad) { add(lad.xMm, levelZ(r.floor, sg.level)); add(lad.xMm, nzEntry) }   // along to the ladder, up / down it
 		})
 		if (!ok || pts.length < 2) { notes.push(`Cable “${c.label ?? c.id}” has a route through a room outside the riser — not imported`); continue }
-		objects.push({ type: 'conduit', id: `${pre}cab-${c.id}`, layer: cableLayer(c.media), label: c.label, w: 40, h: 40, edges: 16,
+		objects.push({ type: 'conduit', id: `${pre}cab-${c.id}`, layer: cableLayer(c.media), label: c.label, ...(c.color ? { color: c.color } : {}), w: 40, h: 40, edges: 16,
 			nodes: pts.map((p, i) => ({ id: `n${i}`, x: p.x, y: 0, z: p.z })), segments: pts.slice(1).map((_, i) => ({ id: `s${i}`, a: `n${i}`, b: `n${i + 1}` })) } as Obj)
 	}
-	if (d.labels?.length) notes.push(`${d.labels.length} text label${d.labels.length === 1 ? '' : 's'} not imported (no elevation text yet)`)
-	return { storeys, objects, notes }
+	// free text labels → front-elevation text (Pages text is sized on paper: the Risers tool's mm → pt at 1:100)
+	const shapes: Ent[] = []
+	const base = st(Math.min(d.fromFloor, d.toFloor)) ?? storeys[0]
+	for (const l of d.labels ?? []) {
+		if (!base) break
+		const fs = l.fontSizeMm ?? 240, zBaseline = base.z - l.yMm - fs * 0.8
+		const e: Ent = { id: `${pre}lbl-${l.id}`, type: 'text', plane: 'front', a: [l.xMm, GROUND - zBaseline], text: l.text, fontPt: Math.max(4, Math.round(fs / 100 / PT_MM)) }
+		if (opts.textLayer) e.layer = opts.textLayer
+		if (l.color) e.color = l.color
+		shapes.push(e)
+	}
+	return { storeys, objects, shapes, notes }
 }
 
 /** The building model with ONE riser merged in: that riser's imported objects replaced (and any from before
  *  per-riser ids), its storeys replaced, the layers the objects use added once / made visible (the Trunks layers
  *  start hidden). A NEW model object (the input isn't mutated). */
-export function mergeRisers(m: Model, r: { storeys: Storey[]; objects: Obj[] }, riserId?: string, opts: { keepLabels?: boolean } = {}): Model {
+export function mergeRisers(m: Model, r: { storeys: Storey[]; objects: Obj[]; shapes?: Ent[] }, riserId?: string, opts: { keepLabels?: boolean } = {}): Model {
 	const mine = (id?: string) => !!id && (riserId ? id.startsWith(riserPrefix(riserId)) || LEGACY.test(id) : id.startsWith('rsr-'))
 	const keep = m.objects.filter((o) => !mine(o.id))
+	// its text labels: replaced like the objects (a re-stack keeps text edited in Pages, at the new height)
+	const oldShapes = new Map((m.shapes ?? []).filter((e) => mine(e.id)).map((e) => [e.id, e]))
+	const shapes = [...(m.shapes ?? []).filter((e) => !mine(e.id)), ...(r.shapes ?? []).map((e) => (opts.keepLabels && oldShapes.has(e.id) ? { ...oldShapes.get(e.id)!, a: e.a } : e))]
 	// a re-stack (not a re-import) keeps labels renamed in Pages
 	if (opts.keepLabels) {
 		const old = new Map(m.objects.filter((o) => mine(o.id)).map((o) => [o.id, o.label]))
@@ -161,5 +178,5 @@ export function mergeRisers(m: Model, r: { storeys: Storey[]; objects: Obj[] }, 
 	const used = new Set(r.objects.map((o) => o.layer).filter((x): x is string => !!x))
 	const layers = (m.layers ?? []).map((l) => (used.has(l.id) && !l.visible ? { ...l, visible: true } : l))
 	for (const l of RISER_LAYERS) if (used.has(l.id) && !layers.some((x) => x.id === l.id)) layers.push({ ...l })
-	return { ...m, objects: [...keep, ...r.objects], storeys: r.storeys, layers }
+	return { ...m, objects: [...keep, ...r.objects], shapes, storeys: r.storeys, layers }
 }
