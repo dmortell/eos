@@ -25,7 +25,7 @@
 	import DrawingNavigator from './parts/DrawingNavigator.svelte'
 	import LayersPanel from './parts/LayersPanel.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
-	import { activeLayerIn, isLayerHidden, removeLayer } from './layers.svelte'
+	import { activeLayerIn, isLayerHidden } from './layers.svelte'
 	import { fitFrame } from './ui/frameFit'
 	import { internImage } from './imageStore'
 	import HistoryPanel from './parts/HistoryPanel.svelte'
@@ -45,17 +45,16 @@
 	import { findNodePath } from './projectTree'
 	import { PagesProject, sheetIdOf, SHEET } from './pagesProject.svelte'
 	import { WorkspaceHistory } from './history.svelte'
+	import { DocEdit } from './docEdit.svelte'
 	import { storeyMap } from './3dview/storeyMap'
 	import { BASIS } from './3dview/types'
 	import { objBounds } from './3dview/projection'
 	import { modelVersionState, sheetEditedSinceIssue } from './store/versions'
-	import { Clipboard, arrange, setGroup, relabelCopies, type ArrangeOp } from './ui/clipboard'
 	import type { TitleBlockTemplate } from './titleBlock'
 	import { DEFAULT_YAW, DEFAULT_PITCH } from './3dview/projection'
-	import type { Model, ModelId, Obj, Section } from './3dview/types'
+	import type { Model, ModelId, Section } from './3dview/types'
 	import { selStore } from './selStore.svelte'
 	import { selOnly, selToggle, selClear, idsOfKind, singleOfKind, type Selection, type SelItem } from './ui/selection'
-	import { deleteModelSel as meDeleteModelSel, deleteGraphNode as meDeleteGraphNode, deleteSection as meDeleteSection } from './ui/modelEdit'
 
 	// Which pane (if any) has its viewport activated — groundwork for editing/CAD
 	// tools inside a sheet's viewport. Null = no active viewport.
@@ -192,30 +191,6 @@
 			},
 		}
 	}
-	// Delete whatever's selected at `viewId` — ent, obj/guide, a wall/conduit node (degree-based join/
-	// prune), or a section marker (they're mutually exclusive today, so in practice exactly one branch
-	// runs) — each recording its own label ('Delete' / 'Delete node' / 'Delete section'). Shared by
-	// `editor.sel.delete()` (a Viewport's own Delete key) and the Edit-menu/global keyboard
-	// `deleteSelection()` below, so there is exactly one dispatch for every kind.
-	function deleteSelAt(tabId: string, viewId: string, edit: { begin(): void; mark(label?: string): void; end(debounceMs?: number): void }) {
-		const s = selStore.of(viewId)
-		const entIds = idsOfKind(s, 'ent'), objGuideIds = [...idsOfKind(s, 'obj'), ...idsOfKind(s, 'guide')]
-		const nodeItem = singleOfKind(s, 'node'), sectionItem = singleOfKind(s, 'section'), frameItem = singleOfKind(s, 'frame')
-		if (entIds.length) { deleteEnts(tabId, entIds); selStore.set(viewId, selClear()); return }
-		if (objGuideIds.length) { const mdl = modelById(modelIdOf(tabId)); if (mdl) meDeleteModelSel(mdl, edit, objGuideIds); selStore.set(viewId, selClear()); return }
-		if (nodeItem) {
-			const mdl = modelById(modelIdOf(tabId))
-			const removedObject = mdl ? meDeleteGraphNode(mdl, edit, { obj: nodeItem.id, node: nodeItem.sub! }, newId).removedObject : true
-			// pre-R3 behaviour: a node delete that only joins/prunes segments (object survives) leaves the
-			// PARENT OBJECT selected (grips shown) — only a fully-removed object clears the selection.
-			selStore.set(viewId, removedObject ? selClear() : selOnly([{ kind: 'obj', id: nodeItem.id }]))
-			return
-		}
-		if (sectionItem) { const mdl = modelById(modelIdOf(tabId)); if (mdl) meDeleteSection(mdl, edit, sectionItem.id); selStore.set(viewId, selClear()); return }
-		// A frame (R3 commit 3) self-records its own undo step (deleteFrame → recordEdit) — no injected
-		// `edit` scope needed, unlike the model-mutation kinds above.
-		if (frameItem) { deleteFrame(tabId, frameItem.id); selStore.set(viewId, selClear()); return }
-	}
 	// PaperPage's page-level editor (R3 commit 3): `vpEditor(a, a.id)` handles the 'frame' kind exactly like
 	// every other kind (a sheet tab never uses its own `a.id` as a per-frame viewId, so this slot is free)
 	// — EXCEPT selecting a frame must also drop whatever the tab's currently ACTIVE frame has selected in
@@ -235,9 +210,6 @@
 			},
 		}
 	}
-	// A 3D-model edit (the Viewport mutated the shared `models` store) records a step on THIS doc's
-	// timeline, gesture-folded like an entity edit — so Ctrl+Z restores the model too.
-	function modelEdit(id: string, label = 'Edit model') { recordEdit(id, label) }
 	// Iso ORBIT (yaw/pitch), per pane+tab so split 3D views orbit independently. Drag the iso view to rotate.
 	// viewId = a tab id (→ its drawing's docId) or a sheet frame id (kept) — see the view-state KEYS note above.
 	const orbitOf = (paneId: string, viewId: string, proj: Proj) => viewState.getOrbit(paneId, didOf(viewId), proj) ?? { yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH }
@@ -407,7 +379,6 @@
 		return framesOf(tabId)[0]?.modelId ?? session.tabs.find((t) => t.id === tabId)?.modelId ?? FLOOR_MODEL_ID
 	}
 	const mdlEntsOf = (mid: ModelId): Ent[] => modelById(mid)?.shapes ?? []
-	const setMdlEntsOf = (mid: ModelId, next: Ent[]) => { const m = modelById(mid); if (m) m.shapes = next }
 	// The focused doc's active model (for selection / revisions / properties).
 	const activeMid = () => modelIdOf(session.panes[session.focused]?.activeId ?? '')
 	const mdlEnts = (): Ent[] => mdlEntsOf(activeMid())
@@ -432,64 +403,16 @@
 	})
 	const { ensure: ensureHist, addDoc: addDocToHistory, addModel: addModelToHistory, push: pushStep, beginGesture, endGesture,
 		record: recordEdit, undo, redo, jump: jumpHistory } = timeline
-	// R5: a new entity lands on the active layer if this model has it (else Annotations — activeLayerIn).
-	// J5: a NEW shape never lands on a hidden or locked active layer (it would vanish / be uneditable) — refused with a note.
-	// Returns whether the shape was added.
-	function addEnt(id: string, e: Ent): boolean {
-		const mid = modelIdOf(id), al = e.layer ? null : activeLayerIn(modelById(mid)?.layers ?? [])
-		if (al && (!al.visible || al.locked)) { toast.warning(`The active layer “${al.name}” is ${al.locked ? 'locked' : 'hidden'} — pick another layer (or ${al.locked ? 'unlock' : 'show'} it) to draw`, { id: 'layer-refused' }); return false }
-		ensureHist(id); const en = e.layer ? e : { ...e, layer: al?.id }; setMdlEntsOf(mid, [...mdlEntsOf(mid), en]); recordEdit(id, 'Add ' + en.type)
-		return true
-	}
-	// J2: delete a layer of the focused model together with everything on it — one undo step.
-	function layerItemCount(layerId: string) { const mid = activeMid(); return (modelById(mid)?.objects.filter((o) => o.layer === layerId).length ?? 0) + mdlEntsOf(mid).filter((e) => e.layer === layerId).length }
-	function deleteLayerWithItems(layerId: string) {
-		const tab = session.panes[session.focused]?.activeId, mid = activeMid(), m = modelById(mid); if (!tab || !m) return
-		beginGesture()
-		m.objects = m.objects.filter((o) => o.layer !== layerId)
-		setMdlEntsOf(mid, mdlEntsOf(mid).filter((e) => e.layer !== layerId))
-		if (m.layers) removeLayer(m.layers, layerId)
-		modelEdit(tab, 'Delete layer'); endGesture()
-	}
-	function updateEnt(id: string, e: Ent) { ensureHist(id); const mid = modelIdOf(id); setMdlEntsOf(mid, mdlEntsOf(mid).map(x => x.id === e.id ? e : x)); recordEdit(id, 'Edit ' + e.type) }
-	// Pure entity CRUD — no selection side effects (R3 2a moved those to the callers below, which know the
-	// VIEWPORT id `deleteEnts`/`cutEnts` don't take).
-	function deleteEnts(id: string, ids: string[]) {
-		if (!ids.length) return
-		ensureHist(id)
-		const mid = modelIdOf(id), rm = new Set(ids)
-		setMdlEntsOf(mid, mdlEntsOf(mid).filter(e => !rm.has(e.id)))
-		recordEdit(id, 'Delete')
-	}
+	// The document-mutating operations (entities, clipboard, groups, draw order, model-object edits, layer delete,
+	// delete-selection) live in docEdit.svelte.ts; destructured so the call sites stay short.
+	const docEdit = new DocEdit({
+		timeline, modelIdOf, activeMid, activeSelViewId, entsOf, deleteFrame: (t, f) => deleteFrame(t, f),
+		focusedTabId: () => session.panes[session.focused]?.activeId,
+		scaleN: () => propsScaleN, selModelObj: () => selModelObj, selModelObjs: () => selModelObjs,
+	})
+	const { addEnt, updateEnt, deleteEnts, copyEnts, cutEnts, pasteEnts, groupEnts, ungroupEnts, reorderEnts, modelEdit,
+		updateModelObj, updateModelObjs, deleteModelObj, updateModelSeg, layerItemCount, deleteLayerWithItems, deleteSelAt } = docEdit
 	function deleteSelection() { const a2 = active, vid = activeSelViewId(); if (a2 && vid) deleteSelAt(a2.id, vid, { begin: beginGesture, mark: (l?: string) => modelEdit(a2.id, l), end: endGesture }) }
-
-	// ── clipboard, groups, draw order (the logic is ui/clipboard.ts; these apply it to a tab's model) ──
-	const clipboard = new Clipboard()   // plain snapshots; persists across tabs
-	function copyEnts(id: string, ids: string[]) { const s = new Set(ids); clipboard.copy(mdlEntsOf(modelIdOf(id)).filter(e => s.has(e.id)).map(e => $state.snapshot(e) as Ent)) }
-	function cutEnts(id: string, ids: string[]) { copyEnts(id, ids); deleteEnts(id, ids) }
-	function pasteEnts(id?: string): Ent[] | undefined {
-		if (clipboard.empty || !id) return
-		const copies = relabelCopies(clipboard.paste(5 * propsScaleN, () => newId()), entsOf(id))   // B19: 5 PAPER mm per paste (model mm = paper mm × scale N), stacking; E12: free labels
-		beginGesture(); const added = copies.filter(c => addEnt(id, c)); endGesture()
-		return added
-	}
-	function groupEnts(id: string, ids: string[]) {
-		if (ids.length < 2) return
-		ensureHist(id); const mid = modelIdOf(id)
-		setMdlEntsOf(mid, setGroup(mdlEntsOf(mid), ids, newId()))
-		recordEdit(id, 'Group')
-	}
-	function ungroupEnts(id: string, ids: string[]) {
-		ensureHist(id); const mid = modelIdOf(id)
-		setMdlEntsOf(mid, setGroup(mdlEntsOf(mid), ids, undefined))
-		recordEdit(id, 'Ungroup')
-	}
-	function reorderEnts(id: string, ids: string[], op: ArrangeOp) {
-		const mid = modelIdOf(id), next = arrange(mdlEntsOf(mid), ids, op); if (!next) return
-		ensureHist(id)
-		setMdlEntsOf(mid, next)
-		recordEdit(id, 'Reorder')
-	}
 
 	function setView(paneId: string, viewId: string, proj: Proj, v: View) { viewState.setView(paneId, didOf(viewId), proj, v) }
 	// R3 commits 2a+2b: the Properties panel shows whatever's selected in the ACTIVE viewport (whichever
@@ -515,30 +438,11 @@
 	$effect(() => { if (selFrameId) { rightTab = 'props'; rightOpen = true; session.treeNode = null } })
 	// Exit an image calibration mode when its image is no longer the (single) selection.
 	$effect(() => { if (imgEdit.id && !(selEnts.length === 1 && selEnts[0].id === imgEdit.id)) clearImgMode() })
-	function updateModelObj(patch: Record<string, unknown>) {
-		const o = selModelObj, id = session.panes[session.focused]?.activeId; if (!o || !id) return
-		beginGesture(); Object.assign(o, patch); modelEdit(id); endGesture()   // one undo step (baseline pre-change)
-	}
-	// I4 / F8: several model objects selected (Ctrl/Shift-click) — one patch, per object, as ONE undo step.
+	// I4 / F8: several model objects selected (Ctrl/Shift-click) — edited together (docEdit.updateModelObjs).
 	let selModelObjs = $derived.by(() => {
 		const ids = new Set(idsOfKind(activeSel, 'obj')); if (ids.size < 2) return []
 		return modelById(activeMid())?.objects.filter((o) => ids.has(o.id!)) ?? []
 	})
-	function updateModelObjs(patchOf: (o: Obj) => Record<string, unknown> | null) {
-		const id = session.panes[session.focused]?.activeId; if (!id || !selModelObjs.length) return
-		beginGesture(); for (const o of selModelObjs) { const p = patchOf(o); if (p) Object.assign(o, p) } modelEdit(id); endGesture()
-	}
-	function deleteModelObj() {
-		const o = selModelObj, id = session.panes[session.focused]?.activeId, m = modelById(activeMid()); if (!o || !m || !id) return
-		beginGesture(); m.objects = m.objects.filter(x => x.id !== o.id); modelEdit(id); endGesture()
-		selStore.set(activeSelViewId(), selClear())
-	}
-	// Per-segment override edit (wall/conduit) with undo.
-	function updateModelSeg(segIdx: number, patch: Record<string, unknown>) {
-		const o = selModelObj as { segments?: Record<string, unknown>[] } | null, id = session.panes[session.focused]?.activeId
-		if (!o?.segments?.[segIdx] || !id) return
-		beginGesture(); Object.assign(o.segments[segIdx], patch); modelEdit(id); endGesture()
-	}
 	// Free only SESSION/VIEW state for a closed or reused TAB. DOCUMENT state (the `docs` PageDoc store,
 	// keyed by DRAWING id) is KEPT — so closing a tab never destroys the page and reopening it restores the
 	// frames/paper/scale (B6). Must run while the tab still exists in `tabs` (so framesOf resolves the did).
