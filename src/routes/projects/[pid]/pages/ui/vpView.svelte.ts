@@ -104,7 +104,14 @@ export class VpView {
 	modelEditable = $derived(this.isPlan || this.isElev)   // iso (oblique) editing deferred to the 3D camera
 	/** Guide lines belong to a drawable VIEW space (plan or an elevation); iso has none. */
 	viewSpace = $derived(this.kind === 'plan' ? 'plan' : this.isElev ? this.elevDir : null)
-	mdl = $derived(modelById(this.modelId) ?? models[0])   // the model this viewport renders/edits (§5 registry)
+	/** The model the `modelId` prop asks for is ARCHIVED or unknown (drawings-plan §2.3): the viewport shows a
+	 *  "Missing model" placeholder instead of quietly falling back to another model. */
+	missing = $derived.by(() => {
+		const id = this.modelId; if (id == null) return null
+		const m = modelById(id)
+		return !m ? { name: null as string | null } : m.archived ? { name: m.name } : null
+	})
+	mdl = $derived(this.missing ? undefined : (modelById(this.modelId) ?? models[0]))   // the model this viewport renders/edits (§5 registry)
 
 	// ── layers: ONE list per model files both its objects and its entities (R5). Hidden = the model's layer
 	// is off, OR it is frozen in this viewport (VP Freeze) — everything that hides (paint, grips, picking,

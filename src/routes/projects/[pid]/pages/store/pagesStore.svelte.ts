@@ -20,6 +20,8 @@ export type StoreDb = {
 	subscribeWhere(path: string, field: string, value: unknown, cb: (d: DocWithId[]) => void): () => void
 	subscribeMany(path: string, cb: (d: DocWithId[]) => void): () => void
 	saveFields(path: string, data: DocWithId): Promise<void>
+	/** Overwrite the whole doc (no merge) — models: a field the model no longer has must be removed. */
+	replace(path: string, data: DocWithId): Promise<void>
 	delete(path: string, id: string): Promise<void>
 }
 
@@ -46,12 +48,17 @@ export class PagesStore {
 	readonly #sheetSaver: DocSaver<PagesSheetDoc>
 	readonly #modelSaver: DocSaver<ModelDoc>
 
-	constructor(db: StoreDb, pid: string, user = '', opts: { delayMs?: number } = {}) {
-		this.#db = db; this.pid = pid; this.#user = user
+	/** Called from the models subscription with the stored docs that CHANGED remotely (not our own echoes, not
+	 *  docs with a pending local edit) and the ids deleted remotely — the page applies them to the editor's model
+	 *  registry there, in the callback (never a $effect). */
+	#onModels?: (changed: ModelDoc[], removed: string[]) => void
+
+	constructor(db: StoreDb, pid: string, user = '', opts: { delayMs?: number; onModels?: (changed: ModelDoc[], removed: string[]) => void } = {}) {
+		this.#db = db; this.pid = pid; this.#user = user; this.#onModels = opts.onModels
 		const o = { delayMs: opts.delayMs, onError: this.#onError }
 		this.#projectSaver = new DocSaver((_k, p) => db.saveFields('projects', { id: pid, pages: p }), o)
 		this.#sheetSaver = new DocSaver((_k, d) => db.saveFields(this.#sheetsPath, d), o)
-		this.#modelSaver = new DocSaver((_k, d) => db.saveFields(this.#modelsPath, d), o)
+		this.#modelSaver = new DocSaver((_k, d) => db.replace(this.#modelsPath, d), o)   // whole-doc: Pages owns model docs
 	}
 
 	get #sheetsPath() { return `projects/${this.pid}/drawings` }
@@ -67,11 +74,13 @@ export class PagesStore {
 			this.#mark('project')
 		}))
 		this.#subs.push(this.#db.subscribeWhere(this.#sheetsPath, 'toolType', 'pages', (docs) => {
-			this.sheets = this.#merge(this.sheets, docs.map((d) => normSheet(d as PagesSheetDoc)), this.#sheetSaver)
+			this.sheets = this.#merge(this.sheets, docs.map((d) => normSheet(d as PagesSheetDoc)), this.#sheetSaver).list
 			this.#mark('sheets')
 		}))
 		this.#subs.push(this.#db.subscribeMany(this.#modelsPath, (docs) => {
-			this.models = this.#merge(this.models, docs as ModelDoc[], this.#modelSaver)
+			const r = this.#merge(this.models, docs as ModelDoc[], this.#modelSaver)
+			this.models = r.list
+			if (r.applied.length || r.removed.length) this.#onModels?.(r.applied, r.removed)
 			this.#mark('models')
 		}))
 	}
@@ -149,13 +158,13 @@ export class PagesStore {
 
 	/** Apply a collection snapshot: take each remote doc the saver says to apply, keep the local copy of any
 	 *  doc with a pending edit (or an unchanged echo), and drop docs deleted remotely unless one is pending. */
-	#merge<T extends { id: string }>(local: T[], remote: T[], saver: DocSaver<T>): T[] {
+	#merge<T extends { id: string }>(local: T[], remote: T[], saver: DocSaver<T>): { list: T[]; applied: T[]; removed: string[] } {
 		const byId = new Map(local.map((d) => [d.id, d]))
-		const out: T[] = []
-		for (const r of remote) out.push(saver.remote(r.id, r) ? r : (byId.get(r.id) ?? r))
+		const list: T[] = [], applied: T[] = [], removed: string[] = []
+		for (const r of remote) { if (saver.remote(r.id, r)) { list.push(r); applied.push(r) } else list.push(byId.get(r.id) ?? r) }
 		const seen = new Set(remote.map((r) => r.id))
-		for (const l of local) if (!seen.has(l.id) && saver.isPending(l.id)) out.push(l)
-		return out
+		for (const l of local) if (!seen.has(l.id)) { if (saver.isPending(l.id)) list.push(l); else { removed.push(l.id); saver.cancel(l.id) } }
+		return { list, applied, removed }
 	}
 }
 

@@ -63,6 +63,9 @@
 
 	{#if !v.modelSpace}<div class="vp-tag"><Icon name={tagIcon[v.kind]} size={10} /> {v.label}{#if v.scale}<span class="vp-scale">{v.scale}</span>{/if}</div>{/if}   <!-- B31: model space names itself in the pane's bar -->
 	<VpWidgets {v} {x} />
+	{#if v.missing}
+		<div class="vp-missing"><b>Missing model</b>{#if v.missing.name}<span>“{v.missing.name}” is archived — unarchive it to show it here.</span>{:else}<span>The model this view points at doesn't exist.</span>{/if}</div>
+	{/if}
 </div>
 
 <style>
@@ -87,4 +90,7 @@
 	}
 	.vp-tag :global(svg) { color:#94a3b8; }
 	.vp-scale { color:#94a3b8; font-family:Consolas,monospace; }
+	.vp-missing { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+		font-size:12px; color:#94a3b8; pointer-events:none; text-align:center; padding:12px; }
+	.vp-missing b { color:#f59e0b; font-size:13px; }
 </style>

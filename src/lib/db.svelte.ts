@@ -173,6 +173,14 @@ export class Firestore {
         const clean = sanitizeFirestoreData(data);
         await setDoc(doc(firestore, path, clean.id as string), clean, { mergeFields: Object.keys(clean) });
     }
+    /**
+     * Overwrite the whole doc (no merge): fields absent from `data` are DELETED. For docs one owner writes
+     * entirely (Pages models) — with merge a removed field (e.g. an emptied optional list) silently survives.
+     */
+    replace = async (path: string, data: DocWithId): Promise<void> => {
+        const clean = sanitizeFirestoreData(data);
+        await setDoc(doc(firestore, path, clean.id as string), clean);
+    }
     async saveBatch(path: string, docs: DocWithId[], callback?: (docs: DocWithId[]) => void): Promise<void> {
         const batch = writeBatch(firestore);
         for (const d of docs) {

@@ -37,7 +37,9 @@
 	import { paperDims, scaleDenom, PAPER_PX_PER_MM, DEFAULT_MARGIN_MM, clampViewZoom, clampCanvasZoom, type PaperSize } from './constants'
 	import { PRINT_ID, printCss, applyPrint, removePrint } from './printing'
 	import { translate, type Ent, type ElevDir } from './ui/geometry'
-	import { models, modelById, floorModelId, ensureFloorModel, FLOOR_MODEL_ID, snapModels, setModels } from './3dview/models.svelte'
+	import { models, modelById, floorModelId, ensureFloorModel, FLOOR_MODEL_ID, snapModels, setModels, upsertModel, removeModels, modelForPlace } from './3dview/models.svelte'
+	import { emptyFloor } from './mock/models'
+	import { docToModel } from './store/mappers'
 	import { getContext, untrack } from 'svelte'
 	import type { Firestore } from '$lib'
 	import { ProjectSource } from './projectData.svelte'
@@ -49,7 +51,7 @@
 	import { describePlace } from './store/placeProps'
 	import type { DropZone } from './parts/treeDrag.svelte'
 	import { DEFAULT_YAW, DEFAULT_PITCH } from './3dview/projection'
-	import type { Model, ModelId, Section } from './3dview/types'
+	import type { Model, ModelId, ModelKind, Section } from './3dview/types'
 	import { selStore } from './selStore.svelte'
 	import { selOnly, selToggle, selClear, idsOfKind, singleOfKind, type Selection, type SelItem } from './ui/selection'
 	import { deleteModelSel as meDeleteModelSel, deleteGraphNode as meDeleteGraphNode, deleteSection as meDeleteSection } from './ui/modelEdit'
@@ -388,7 +390,8 @@
 	// REGISTRY (§5) a viewport points at a model by id: a sheet FRAME carries `modelId`, a model-layout TAB
 	// carries `modelId`, defaulting to the floor. Editing targets the ACTIVE viewport's model — so the CRUD
 	// takes a tab id (the history key) and resolves the model from whatever viewport is active in it.
-	const entsForModel = (mid?: ModelId): Ent[] => (modelById(mid ?? FLOOR_MODEL_ID)?.shapes ?? modelById(FLOOR_MODEL_ID)?.shapes ?? [])
+	// a view of a model that's missing (archived / unknown) shows no shapes — never another model's
+	const entsForModel = (mid?: ModelId): Ent[] => (mid != null ? (modelById(mid)?.archived ? [] : modelById(mid)?.shapes ?? []) : modelById(FLOOR_MODEL_ID)?.shapes ?? [])
 	// The model a tab's ACTIVE viewport edits: the active sheet frame's model; else (no active frame, e.g.
 	// an image imported without entering a viewport) the FIRST frame's model; else the tab's own model; else
 	// the floor. Drawing needs an active viewport, so the fallbacks only bite for viewport-less actions.
@@ -521,6 +524,13 @@
 	function ensureHist(_id?: string) {
 		if (hist) return
 		hist = { steps: [{ label: 'Start', t: Date.now(), model: snapModels(), frames: snapAllFrames() }], ptr: 0 }
+	}
+	// A model that enters the registry AFTER history began (created, or loaded from Firestore) joins every existing
+	// step in its initial state, so undoing past its first edit returns it to that state (setModels restores by id).
+	function addModelToHistory(m: Model) {
+		const h = hist; if (!h) return
+		const snap = $state.snapshot(m) as Model
+		hist = { ...h, steps: h.steps.map((s) => (s.model.some((x) => x.id === m.id) ? s : { ...s, model: [...s.model, snap] })) }
 	}
 	function pushStep(id: string, label: string) {
 		const t = session.tabs.find(x => x.id === id); if (t && !t.dirty) t.dirty = true   // any edit marks its tab dirty
@@ -750,8 +760,8 @@
 	// drawing views; without one it falls back to FLOOR_MODEL_ID as before.
 	// B18: a drawing is identified by `docId` (its navigator node id; a palette item looks its id up by label,
 	// else falls back to `title:<title>`), so re-opening finds the SAME drawing even if a tab was renamed.
-	function openDrawing(d: { title: string; kind: Kind; preview?: boolean; floor?: string; docId?: string }) {
-		const modelId = d.floor && projectSrc?.project ? realFloorModelId(d.floor) : floorModelId(d.floor)   // a real floor gets its own model + floorplan
+	function openDrawing(d: { title: string; kind: Kind; preview?: boolean; floor?: string; docId?: string; modelId?: ModelId }) {
+		const modelId = d.modelId ?? (d.floor && projectSrc?.project ? realFloorModelId(d.floor) : floorModelId(d.floor))   // a real floor gets its own model + floorplan
 		const docId = d.docId ?? navDrawingId(d.title) ?? `title:${d.title}`
 		const existing = session.tabs.find(t => t.docId === docId)
 		if (existing) { if (!d.preview) promoteTab(existing.id); openTab(existing.id); return }
@@ -775,6 +785,36 @@
 		const p = session.panes[session.focused]
 		if (p && !viewState.getProj(p.id, didOf(p.activeId))) viewState.setProj(p.id, didOf(p.activeId), 'plan')
 	}
+	// drawings-plan phase 3: a PLACE's model tab — its stored model (projects/{pid}/models, filed by placeId),
+	// created and stored the first time it's opened. A floor place seeded from the old data also gets that
+	// floor's calibrated floorplan as its underlay (once). An archived model opens as "Missing model".
+	const MODEL_KINDS: ModelKind[] = ['floor', 'zone', 'room', 'building']
+	// An open asked for before the store has loaded its models (the tree-item restore, a quick click) WAITS for
+	// them — otherwise modelForPlace finds nothing yet and a duplicate model would be created and stored.
+	let pendingPlaceOpen = $state<{ placeId: string; preview: boolean } | null>(null)
+	$effect(() => {
+		const want = pendingPlaceOpen; if (!want || pagesStore?.status !== 'ready') return
+		untrack(() => { pendingPlaceOpen = null; openPlaceModel(want.placeId, want.preview) })
+	})
+	function openPlaceModel(placeId: string, preview: boolean) {
+		const ps = pagesStore, place = ps?.places.find((p) => p.id === placeId); if (!ps || !place) return
+		if (ps.status !== 'ready') { pendingPlaceOpen = { placeId, preview }; return }
+		let m = modelForPlace(placeId)
+		if (!m) {
+			const kind = (MODEL_KINDS as string[]).includes(place.kind ?? '') ? (place.kind as ModelKind) : 'zone'
+			const fresh: Model = { ...emptyFloor(newId('m'), place.name), placeId, kind }   // default layers (mock template until a project layer template exists)
+			ps.saveModel(fresh)
+			upsertModel(docToModel(fresh))
+			addModelToHistory(fresh)
+			m = modelById(fresh.id)
+		}
+		if (!m) return
+		const l = place.legacy
+		if (l?.floor != null && l.area == null && l.room == null && l.row == null) attachFloorplan(m.id, l.floor)
+		openDrawing({ title: `${place.name} · Model`, kind: 'model', preview, modelId: m.id, docId: `model:${m.id}` })
+		const p = session.panes[session.focused]
+		if (p && !viewState.getProj(p.id, didOf(p.activeId))) viewState.setProj(p.id, didOf(p.activeId), 'plan')
+	}
 	// The REAL project tree (projectTree.ts) from Firestore — docs/firestore-structure.md. One live source per
 	// project id (re-created when Open Project navigates to another pid); the mock tree stays for a pid that
 	// isn't in Firestore (the demo URL).
@@ -789,10 +829,29 @@
 		if (!fdb || !pid) return
 		const src = new ProjectSource(fdb, pid)
 		const stop = src.start()
-		const ps = new PagesStore(fdb, pid, untrack(() => auth?.user?.email ?? ''))
+		// stored models go into the editor's model registry from the SUBSCRIPTION callback (remote changes only)
+		const ps = new PagesStore(fdb, pid, untrack(() => auth?.user?.email ?? ''), {
+			onModels: (changed, removed) => {
+				for (const d of changed) { const isNew = !modelById(d.id); const m = docToModel(d); upsertModel(m); if (isNew) addModelToHistory(m) }
+				removeModels(removed)
+			},
+		})
 		ps.start()
 		untrack(() => { projectSrc = src; pagesStore = ps })
-		return () => { stop(); void ps.stop(); untrack(() => { if (projectSrc === src) projectSrc = null; if (pagesStore === ps) pagesStore = null }) }
+		return () => {
+			stop()
+			const ids = ps.models.map((m) => m.id)
+			void ps.stop().then(() => removeModels(ids))   // save pending edits, then drop this project's models
+			untrack(() => { if (projectSrc === src) projectSrc = null; if (pagesStore === ps) pagesStore = null })
+		}
+	})
+	// Save every STORED model when it changes (edits, undo/redo, floorplan attach). The saver debounces and skips
+	// content it already has, so re-queueing unchanged models (or a remote change just applied) writes nothing.
+	// The stored-id set is read untracked: saveModel updates the store's list, which must not re-run this.
+	$effect(() => {
+		const ps = pagesStore; if (!ps) return
+		const stored = untrack(() => new Set(ps.models.map((m) => m.id)))
+		for (const m of models) if (stored.has(m.id)) { const snap = $state.snapshot(m) as Model; untrack(() => ps.saveModel(snap)) }
 	})
 	// Once the project HAS Pages places, the navigator shows them (with the old tools' drawings hung on them by
 	// their legacy links); until then it shows the tree derived from the other tools' data, plus "Set up places".
@@ -841,8 +900,14 @@
 	const FLOORPLAN_LAYER = { id: 'floorplan', name: 'Floorplan', group: 'Background', color: '#94a3b8', swatch: 'color' as const, visible: true, locked: false }
 	function realFloorModelId(floor: string): ModelId {
 		const src = projectSrc!, id = ensureFloorModel(`${floor} — ${src.project?.name ?? src.pid}`)
-		const n = parseInt(floor, 10), m = modelById(id)
-		if (m && !m.underlays?.length && !isNaN(n)) {
+		const n = parseInt(floor, 10)
+		if (!isNaN(n)) attachFloorplan(id, n)
+		return id
+	}
+	/** Give a model its floor's calibrated floorplan underlay, once (no-op when it already has an underlay). */
+	function attachFloorplan(id: ModelId, n: number) {
+		const src = projectSrc, m = modelById(id)
+		if (src && m && !m.underlays?.length) {
 			src.floorplanOf(n).then((fp) => {
 				const mm = modelById(id)
 				if (!fp || !mm || mm.underlays?.length) return
@@ -852,7 +917,6 @@
 				mm.underlays = [{ id: newId('ul'), dir: 'plan', fileId: fp.fileId, pageNum: fp.pageNum, layer: FLOORPLAN_LAYER.id }]
 			}).catch(() => { /* no floorplan — the model stays empty */ })
 		}
-		return id
 	}
 	// The selected REAL tree node's properties (projectProps.ts) + saving an edit. A renamed building's node id
 	// changes (`b:<name>`), so the selection follows it.
@@ -907,8 +971,9 @@
 				const floor = [...hit.ancestors].reverse().find((a) => a.floor)?.floor
 				openDrawing({ title: n.label, kind: n.drawing, preview: true, floor, docId: n.docId ?? n.id })
 			} else {
-				selectNode({ id: n.id, label: n.label, kind: n.folder ?? 'folder', floorNumber: n.floorNumber, building: n.building })
-				if (n.folder === 'floor' && n.floor) openFloorModel(n.floor, true)
+				selectNode({ id: n.id, label: n.label, kind: n.place ? 'place' : n.folder ?? 'folder', floorNumber: n.floorNumber, building: n.building })
+				if (n.place) { if (n.modelFloor) openPlaceModel(n.id, true) }
+				else if (n.folder === 'floor' && n.floor) openFloorModel(n.floor, true)
 			}
 		})
 	})
@@ -1193,6 +1258,7 @@
 				<DrawingNavigator tree={realTree?.tree ?? null} project={realTree?.project ?? null} status={navStatus}
 					placesMode={hasPlaces} onseedplaces={canSeedPlaces ? seedPlaces : undefined}
 					onplaceadd={onPlaceAdd} onplacerename={onPlaceRename} onplacemove={onPlaceMove} onplacedelete={onPlaceDelete}
+					onopenplace={hasPlaces ? (id, preview) => { restoredFor = page.params.pid ?? ''; openPlaceModel(id, preview) } : undefined}
 					onaddbuilding={(n) => projectSrc?.addBuilding(n).catch((e) => { toast(`Couldn't add the building: ${e?.message ?? e}`); return false }) ?? Promise.resolve(false)}
 					onmovefloor={(f, b) => projectSrc?.moveFloor(f, b).catch((e) => toast(`Couldn't move the floor: ${e?.message ?? e}`))}
 					onmovebuilding={(n, t, after) => projectSrc?.moveBuilding(n, t, after).catch((e) => toast(`Couldn't reorder: ${e?.message ?? e}`))}

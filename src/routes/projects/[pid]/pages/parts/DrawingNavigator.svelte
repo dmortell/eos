@@ -8,7 +8,7 @@
 	import { type NavKind as Kind, type NavNode as Node, NAV_TREE as TREE, NAV_PROJECT as PROJECT } from '../mock/data'
 
 	let { onopen, onopenfloor, oncollapse, onselectnode, activeDoc = '', activeNode = '', tree = null, project = null, status = '', onaddbuilding, onmovefloor, onmovebuilding, reveal = [],
-		placesMode = false, onseedplaces, onplaceadd, onplacerename, onplacemove, onplacedelete }:
+		placesMode = false, onseedplaces, onplaceadd, onplacerename, onplacemove, onplacedelete, onopenplace }:
 		{ onopen?: (d: { title: string; kind: Kind; preview: boolean; floor?: string; docId?: string }) => void; oncollapse?: () => void;
 			/** A FLOOR row was clicked (preview) or double-clicked (kept): open that floor's model tab. */
 			onopenfloor?: (floor: string, preview: boolean) => void;
@@ -34,7 +34,10 @@
 			onplacerename?: (id: string, name: string) => void
 			onplacemove?: (id: string, targetId: string, zone: DropZone) => void
 			/** Delete a place; returns an error message when it can't be deleted (it holds things). */
-			onplacedelete?: (id: string) => string | null } = $props()
+			onplacedelete?: (id: string) => string | null
+			/** Places mode: open a place's MODEL tab (creating the model if it has none) — a floor place previews it
+			 *  on click, any place opens it (kept) on double-click (drawings-plan phase 3). */
+			onopenplace?: (id: string, preview: boolean) => void } = $props()
 	const TREE_NODES = $derived(tree ?? TREE)
 	const PROJ = $derived(project ? { ...project, kind: 'project' } : PROJECT)
 	// A floor row's model / tab name: the real tree carries it (`floor`, e.g. '33F'); the mock's label is it.
@@ -190,8 +193,9 @@
 			     also opens the floor's model tab — single click previews, double click keeps (like a drawing). -->
 			<div class="dn-row folder" class:active={activeNode === n.id} style:padding-left="{depth * 12 + 8}px"
 				{...dragProps(n)} class:drop-into={dropInto(n)} class:drag-before={dropBefore(n)} class:drag-after={dropAfter(n)}
-				onclick={() => { onselectnode?.({ id: n.id, label: n.label, kind: n.place ? 'place' : n.folder ?? 'folder', floorNumber: n.floorNumber, building: n.building }); const mf = modelFloorOf(n); if (mf) onopenfloor?.(mf, true) }}
-				ondblclick={() => { const mf = modelFloorOf(n); if (mf) onopenfloor?.(mf, false) }}
+				onclick={() => { onselectnode?.({ id: n.id, label: n.label, kind: n.place ? 'place' : n.folder ?? 'folder', floorNumber: n.floorNumber, building: n.building })
+					if (n.place && onopenplace) { if (n.modelFloor) onopenplace(n.id, true) } else { const mf = modelFloorOf(n); if (mf) onopenfloor?.(mf, true) } }}
+				ondblclick={() => { if (n.place && onopenplace) onopenplace(n.id, false); else { const mf = modelFloorOf(n); if (mf) onopenfloor?.(mf, false) } }}
 				role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onselectnode?.({ id: n.id, label: n.label, kind: n.folder ?? 'folder' }) } }}>
 				{#if n.children?.length}
 					<button class="dn-chev" title="Expand/collapse" aria-label="Expand/collapse"

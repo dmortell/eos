@@ -11,6 +11,7 @@ function fakeDb() {
 		subscribeWhere: (p, _f, _v, cb) => { many[p] = cb; return () => { delete many[p] } },
 		subscribeMany: (p, cb) => { many[p] = cb; return () => { delete many[p] } },
 		saveFields: async (path, data) => { writes.push({ path, data: JSON.parse(JSON.stringify(data)) }) },
+		replace: async (path, data) => { writes.push({ path, data: JSON.parse(JSON.stringify(data)), replace: true } as never) },
 		delete: async (path, id) => { deletes.push(`${path}/${id}`) },
 	}
 	return { db, writes, deletes, pushOne: (k: string, d: DocWithId) => one[k]?.(d), pushMany: (p: string, d: DocWithId[]) => many[p]?.(d) }
@@ -78,6 +79,20 @@ describe('PagesStore', () => {
 		expect(await s.hardDeleteSheet(a.id)).toBe(true)
 		expect(f.deletes).toEqual([`projects/${P}/drawings/${a.id}`]); expect(s.sheets).toEqual([])
 	})
+	it('reports REMOTE model changes and deletions to onModels — never the echo of its own save', async () => {
+		const f = fakeDb(), calls: [string[], string[]][] = []
+		const s = new PagesStore(f.db, P, 'dave', { delayMs: 1, onModels: (c, r) => calls.push([c.map((d) => d.id), r]) })
+		s.start()
+		const path = `projects/${P}/models`
+		f.pushMany(path, [{ id: 'a', name: 'A', objects: [] }])
+		expect(calls).toEqual([[['a'], []]])
+		s.saveModel({ id: 'b', name: 'B', objects: [] })
+		await tick()
+		f.pushMany(path, [{ id: 'a', name: 'A', objects: [] }, { id: 'b', name: 'B', objects: [] }])   // b = our own echo, a unchanged
+		expect(calls).toHaveLength(1)
+		f.pushMany(path, [{ id: 'b', name: 'B renamed elsewhere', objects: [] }])                    // a deleted remotely, b changed
+		expect(calls[1]).toEqual([['b'], ['a']])
+	})
 	it('saves models one doc each under projects/{pid}/models', async () => {
 		const { f, s } = boot()
 		const m = s.createModel({ name: '33F', placeId: 'p1', kind: 'floor' })
@@ -85,6 +100,7 @@ describe('PagesStore', () => {
 		await tick()
 		const w = f.writes.filter((x) => x.path === `projects/${P}/models`)
 		expect(w).toHaveLength(1)
+		expect((w[0] as { replace?: boolean }).replace).toBe(true)   // models are overwritten whole, never merged
 		expect(w[0].data).toMatchObject({ id: m.id, name: '33F', placeId: 'p1', kind: 'floor', archived: true, objects: [] })
 	})
 })

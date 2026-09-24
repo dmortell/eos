@@ -157,7 +157,7 @@ Each phase ships on its own and gets live-checked in the browser.
    saving. Unit tests for the mappers.
 2. **Places** (DONE 2026-09-24: `store/placeTree.ts`, `placeProps.ts`, place helpers in `places.ts`, `parts/treeDrag.svelte.ts`, navigator places mode): seed from project data (writing to a real project needs Dave's OK per project; start on Test
    Project). The tree reads Pages places; add / rename / move / delete places.
-3. **Models persisted:** floor and building models load and save; a floor node opens its stored model;
+3. **Models persisted** (DONE 2026-09-24: registry <-> `projects/{pid}/models`, place models, Missing model, undo by id): floor and building models load and save; a floor node opens its stored model;
    "Missing model" placeholder; the in-memory mock models go.
 4. **Sheets persisted:** new sheet from a place; sheet content saved on the registry entry; drag between
    places; manual order; archive. Numbered, printable frame labels; new frames default to the place's model.
