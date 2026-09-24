@@ -40,6 +40,21 @@ open items; `review.md §0a` tracks which review findings are closed.
   - per viewport, hidden-line removal, B/W and a plan cut band;
   - images inserted in an elevation stand on that elevation;
   - floorplans follow the Uploads calibration live, with an origin crosshair (`ui/floorplanLink.ts`).
+- **Review round 2 fixes**:
+  - Undo:
+    - a new rack row is seeded before it enters the undo history;
+    - async floorplan attaches and live calibration moves go into every undo step (`timeline.amendModel`);
+    - a walk renumber folds into one step without a long-open gesture (`timeline.squashSince`);
+    - moving the undo pointer closes an open gesture.
+  - Overwriting a revision rewrites that revision's own version.
+  - A copied frame carries its model.
+  - Attached conduit ends follow every move (via DocEdit).
+  - Logos are size-capped.
+  - Group drags do one array pass per move.
+- **Refactor**:
+  - `canvasNav.svelte.ts` and `pageActions.ts` (out of `+page`);
+  - `floorplans.svelte.ts` (out of `pagesProject`);
+  - `ui/vpModelEdit.ts` (out of `vpInteraction`).
 
 ## Parity pick-list, small items (2026-09-25) — parity-review.md
 - **Nav bar Pan / Orbit** are latched tools: a left drag (or one finger) pans / orbits; Esc, a right-click or a
