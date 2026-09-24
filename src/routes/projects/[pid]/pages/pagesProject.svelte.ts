@@ -28,18 +28,16 @@ import { normFloors, findNodePath } from './projectTree'
 import { ProjectSource } from './projectData.svelte'
 import { PagesStore, type SheetRevisionDoc } from './store/pagesStore.svelte'
 import { issueProblems, sheetModels, type ModelVersionDoc } from './store/versions'
-import { importSheetDoc, type SheetImportResult } from './store/sheetsImport'
-import { risersToBuilding, mergeRisers, riserFloors, storeyLevels, floorLabel, stackFloors, restack, riserPrefix, storeyHeights, setStoreyHeights, type RisersDocIn, type FloorHeights } from './store/risersImport'
+import { storeyLevels, floorLabel, stackFloors, restack, storeyHeights, setStoreyHeights, type FloorHeights } from './store/risersImport'
 import { parseFloor } from './store/placeProps'
 import type { Storey } from './3dview/types'
-import type { SheetDoc, SheetViewport } from '../sheets/types'
-import { PAPER_SIZES } from './constants'
 import type { PagesSheetDoc } from './store/schema'
-import { buildPlaceTree, commonAncestor } from './store/placeTree'
+import { buildPlaceTree } from './store/placeTree'
 import { addPlace, updatePlace, movePlace, removePlace, ancestorsOf } from './store/places'
 import { describePlace } from './store/placeProps'
 import { fillTitleBlock, initialsOf, shownTitleBlock, type TbShown } from './titleBlock'
 import type { DropZone } from './parts/treeDrag.svelte'
+import { ProjectImports } from './projectImports.svelte'
 
 type TreeNodeSel = { id: string; label: string; kind: string; floorNumber?: number; building?: string }
 /** A Sheets-tool sheet as the drawings dialog's Import tab lists it. */
@@ -92,9 +90,12 @@ export class PagesProject {
 	#attaching = new Set<ModelId>()
 	/** The drawing management dialog is open (phase 6). */
 	drawingsOpen = $state(false)
+	/** Phase 8 imports (Sheets sheets, register drawings, risers). */
+	readonly imports: ProjectImports
 
 	constructor(host: ProjectHost) {
 		this.#h = host
+		this.imports = new ProjectImports(this, host)
 		// the GLOBAL block library (blocks/{id}): subscribed once per session; missing default blocks are seeded
 		$effect(() => { const db = this.#h.db; if (db) untrack(() => startBlocks(db)) })
 		// One live ProjectSource + PagesStore per project id (re-created when Open Project navigates to another pid)
@@ -219,7 +220,7 @@ export class PagesProject {
 	#isPlaceNode = $derived.by(() => { const n = this.#h.session.treeNode; return !!n && this.hasPlaces && !!this.store?.places.some((p) => p.id === n.id) })
 	nodeInfo = $derived.by(() => {
 		const n = this.#h.session.treeNode; if (!n) return null
-		if (this.#isPlaceNode) return describePlace(this.store!.places, n.id, this.realTree ? findNodePath(this.realTree.tree, { id: n.id })?.node : undefined, this.#projectStack())
+		if (this.#isPlaceNode) return describePlace(this.store!.places, n.id, this.realTree ? findNodePath(this.realTree.tree, { id: n.id })?.node : undefined, this.projectStack())
 		return this.src?.status === 'ready' ? this.src.describe(n.id) : null
 	})
 	setNodeField = async (key: string, value: string) => {
@@ -242,7 +243,7 @@ export class PagesProject {
 	// ── a BUILDING's floor stack (place `floors`) → its building model's storeys ──
 	/** The project's building extent (the Risers tool's From/To + nonexistent floors) — a building place's default.
 	 *  Without the project's own list, GF (0) is nonexistent by default (B1F → 1F, the usual case here). */
-	#projectStack = (): { bottom: number; top: number; skipped?: number[] } | null => {
+	projectStack = (): { bottom: number; top: number; skipped?: number[] } | null => {
 		const p = this.src?.project as { buildingFloors?: { bottom: number; top: number }; skippedFloors?: number[]; floors?: unknown } | null
 		const skipped = p?.skippedFloors ?? [0]
 		if (p?.buildingFloors) return { ...p.buildingFloors, skipped }
@@ -251,7 +252,7 @@ export class PagesProject {
 		return { bottom: Math.min(...ns), top: Math.max(...ns), skipped }
 	}
 	/** The stack a building place uses: its own, else the project's. */
-	stackOf = (placeId: string) => this.store?.places.find((p) => p.id === placeId)?.floors ?? this.#projectStack()
+	stackOf = (placeId: string) => this.store?.places.find((p) => p.id === placeId)?.floors ?? this.projectStack()
 	#setFloorStack(placeId: string, key: string, value: string) {
 		const ps = this.store!, cur = this.stackOf(placeId)
 		const next = { bottom: cur?.bottom ?? 1, top: cur?.top ?? 1, skipped: [...(cur?.skipped ?? [])] }
@@ -278,8 +279,8 @@ export class PagesProject {
 	#rebuildStoreys(placeId: string, m: Model, storeys: Storey[], label: string) {
 		this.#h.ensureHist()
 		m.kind = 'building'; m.storeys = storeys
-		for (const d of this.#risersOf(m)) this.#applyRisers(d, m, placeId, true, storeys)
-		this.#linkFloorModels(m)
+		for (const d of this.imports.risersOf(m)) this.imports.applyRisers(d, m, placeId, true, storeys)
+		this.linkFloorModels(m)
 		this.#h.pushStep(this.#h.activeTabId() ?? '', label)
 	}
 	/** The selected BUILDING place's storeys with their heights, top floor first (Properties › HEIGHTS). */
@@ -301,7 +302,7 @@ export class PagesProject {
 		this.#rebuildStoreys(placeId, m, setStoreyHeights($state.snapshot(m.storeys) as Storey[], storeyId, { [key]: value }), `${cur.name} heights`)
 	}
 	/** Every floor place inside the building model's place → levelRef + a cached copy of its storey's levels. */
-	#linkFloorModels(b: Model): number {
+	linkFloorModels(b: Model): number {
 		const ps = this.store; if (!ps || !b.placeId) return 0
 		let n = 0
 		for (const fp of ps.places) {
@@ -346,7 +347,7 @@ export class PagesProject {
 	 *  imported yet → a hint, and nothing opens (true — never the old mock riser tab). false = not a riser. */
 	openRiser = (docId: string | undefined, preview: boolean): boolean => {
 		if (!docId?.startsWith('riser:') || !this.hasPlaces) return false
-		const b = this.#modelForRisers(docId.slice('riser:'.length))
+		const b = this.imports.modelForRisers(docId.slice('riser:'.length))
 		if (!b) { this.#h.toast('Not imported yet — open this row\'s action menu (⋮) and choose “Import into the building model”'); return true }
 		this.#h.openDrawing({ title: `${b.name} · Model`, kind: 'model', preview, modelId: b.id, docId: `model:${b.id}` })
 		const s = this.#h.session, p = s.panes[s.focused]
@@ -591,146 +592,11 @@ export class PagesProject {
 	/** Open a model's tab with History showing (from a sheet's issue check). */
 	openModelHistory = (mid: string) => { this.openModelById(mid) }
 
-	// ── phase 8: IMPORTS (store/sheetsImport.ts) ──
-	/** The Pages model showing an Outlets-tool doc: the model of a place whose outlets doc it is (the fullest one
-	 *  when several places share it, e.g. a floor and its legacy zone); null = none yet. */
-	#modelForOutlets = (docId: string): Model | null => {
-		const ps = this.store; if (!ps) return null
-		const floors = normFloors(this.src?.project?.floors)
-		const cands = ps.places.filter((p) => outletsDocIdFor(ps.pid, p.legacy, floors) === docId)
-			.map((p) => modelForPlace(p.id)).filter((m): m is Model => !!m && !m.archived)
-		return cands.sort((a, b) => (b.shapes?.length ?? 0) - (a.shapes?.length ?? 0))[0] ?? null
-	}
-	/** The layer imported annotations / text go on: the model's Annotations layer (`anno` in the default stack),
-	 *  else its first non-background layer. (Sheets' own annotation layer ids aren't carried over.) */
-	#layerFor = (m: Model, _sheetsLayerId?: string) => {
-		const ls = m.layers ?? [], has = (x: string) => ls.some((l) => l.id === x)
-		return has('anno') ? 'anno' : has('annotations') ? 'annotations' : ls.find((l) => l.group !== 'Background')?.id
-	}
-	/** The colour a Sheets annotation without its own drew in: the project's annotation default, else Sheets'
-	 *  built-in red (sheets/annotations/AnnotationLayer.svelte). */
-	#annColor = () => (this.src?.project as { annotationDefaults?: { color?: string } } | null)?.annotationDefaults?.color ?? '#dc2626'
-	/** The building model holding this riser's imported geometry (its `rsr-<id>-` objects; or, imported before
-	 *  per-riser ids, any `rsr-` objects), or null. */
-	#modelForRisers = (docId: string): Model | null => {
-		const stored = (m: Model) => !m.archived && m.kind === 'building' && !!this.store?.models.some((x) => x.id === m.id)
-		return models.find((m) => stored(m) && m.objects.some((o) => o.id?.startsWith(riserPrefix(docId))))
-			?? models.find((m) => stored(m) && m.objects.some((o) => /^rsr-(room|lad|cab)-/.test(o.id ?? ''))) ?? null
-	}
-	#importCtx = () => ({ newId, modelForOutlets: this.#modelForOutlets, modelForRisers: this.#modelForRisers, riserDoc: this.#riserDoc, layerFor: this.#layerFor, defaultColor: this.#annColor() })
-	/** The Sheets tool's sheets (for the dialog's Import tab), with the Pages sheet each was imported as. */
-	legacySheets = async (): Promise<LegacySheetRow[]> => {
-		const db = this.#h.db, ps = this.store; if (!db || !ps) return []
-		const docs = (await db.getMany(`projects/${ps.pid}/sheets`)) as unknown as SheetDoc[]
-		const floors = normFloors(this.src?.project?.floors)
-		// the place a sheet most likely belongs to: the one whose outlets doc its first outlets viewport shows
-		const guess = (s: SheetDoc) => {
-			const v = s.viewports?.find((x) => x.source.kind === 'outlets'), doc = v?.source.kind === 'outlets' ? v.source.outletsDocId : null
-			const m = doc ? this.#modelForOutlets(doc) : null
-			return m?.placeId ?? (doc ? ps.places.find((p) => outletsDocIdFor(ps.pid, p.legacy, floors) === doc)?.id : undefined) ?? null
-		}
-		return docs.filter((s) => !s.link).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)).map((s) => ({
-			id: s.id, title: s.title, number: s.drawingNumber ?? '',
-			viewports: (s.viewports ?? []).map((v) => v.source.kind),
-			importedAs: ps.sheets.find((x) => x.importedFrom === `sheets/${s.id}` && x.status !== 'archived')?.title,
-			placeId: guess(s),
-		}))
-	}
-	/** Import one Sheets-tool sheet into a new Pages sheet filed under `placeId` (drawings-plan §6): frames on the
-	 *  place models of their outlets docs, annotations as frame-scoped shapes (one undo step), the rest unmapped.
-	 *  Returns the notes about what didn't map (empty = everything did). */
-	importLegacySheet = async (legacyId: string, placeId: string | null): Promise<string[]> => {
-		const db = this.#h.db, ps = this.store; if (!db || !ps || ps.status !== 'ready') return ['Still loading — try again in a moment']
-		const src = (await db.getOne(`projects/${ps.pid}/sheets`, legacyId)) as unknown as SheetDoc | null
-		if (!src) return [`Sheet ${legacyId} not found`]
-		return this.#createImported(importSheetDoc(src, this.#importCtx()), placeId, `sheets/${legacyId}`)
-	}
-	/** A register drawing of another tool (a tree leaf, `d:<id>`) → a Pages sheet in its place with ONE full-page
-	 *  frame of the place model (an outlets view), else an unmapped frame. */
-	importRegisterDrawing = async (leafId: string): Promise<string[]> => {
-		const ps = this.store, d = this.src?.drawings.find((x) => `d:${x.id}` === leafId); if (!ps || !d) return ['Drawing not found']
-		const hit = this.realTree ? findNodePath(this.realTree.tree, { id: leafId }) : null
-		const placeId = [...(hit?.ancestors ?? [])].reverse().find((a) => a.place)?.id ?? null
-		const size = ps.project?.settings?.paperSize ?? 'A3', [pw, ph] = PAPER_SIZES[size], m = 10
-		const source: SheetViewport['source'] = d.toolType === 'outlets' ? { kind: 'outlets', outletsDocId: d.sourceDocId ?? '' }
-			: d.toolType === 'racks' ? { kind: 'racks', racksDocId: d.sourceDocId ?? '', face: 'front' }
-			: d.toolType === 'risers' ? { kind: 'risers', risersDocId: d.sourceDocId ?? '' } : { kind: 'empty' }
-		// one Fit viewport filling the paper left of the title-block strip (16 % of the width)
-		const doc: SheetDoc = { id: d.id, projectId: ps.pid, title: d.title ?? d.id, drawingNumber: d.drawingNumber, sortOrder: 0,
-			paper: { paperSize: size as 'A3', orientation: 'landscape', drawingOffset: { x: 0, y: 0 }, scale: 100, showPaper: false, margins: m },
-			viewports: [{ id: 'v1', x: m, y: m, w: Math.round(pw * 0.84 - 2 * m), h: ph - 2 * m, source }] }
-		const r = importSheetDoc(doc, this.#importCtx())
-		if (source.kind === 'empty') {   // a tool Pages has no model kind for (frames, patching, …): name it
-			const what = `${d.toolType ?? 'drawing'} · ${d.sourceDocId ?? d.id}`
-			r.frames[0].source = what
-			r.notes = [`The frame shows ${what} — not mapped: no Pages model for it yet`]
-		}
-		return this.#createImported(r, placeId, `drawings/${d.id}`)
-	}
-	/** A Risers-tool doc → the BUILDING model of the place that holds its floors (created if needed): storeys +
-	 *  rooms / ladders / cables (store/risersImport.ts), one undo step; each floor place's model then references
-	 *  its storey (`levelRef` + a cached copy of its `levels`). Re-importing replaces what was imported. */
-	importRisers = async (riserId: string): Promise<string[]> => {
-		const db = this.#h.db, ps = this.store; if (!db || !ps || ps.status !== 'ready') return ['Still loading — try again in a moment']
-		const d = (await db.getOne('risers', riserId)) as unknown as (RisersDocIn & { id: string; name?: string }) | null
-		if (!d) return [`Riser ${riserId} not found`]
-		const floors = riserFloors(d, this.#projectStack()?.skipped ?? [])
-		const floorPlaces = ps.places.filter((p) => p.legacy?.floor != null && p.legacy.area == null && p.legacy.room == null && p.legacy.row == null && floors.includes(p.legacy.floor))
-		const home = floorPlaces.length > 1 ? commonAncestor(ps.places, floorPlaces) : floorPlaces[0]?.parentId ? ps.places.find((p) => p.id === floorPlaces[0].parentId) ?? null : null
-		if (!home) return ['No place holds these floors — set up places first (the building model needs one)']
-		const mid = this.ensurePlaceModel(home.id), m = mid ? modelById(mid) : undefined
-		if (!m) return ["Couldn't create the building model"]
-		this.#h.ensureHist()
-		const r = this.#applyRisers(d, m, home.id)
-		// the floor models take their levels from the building (drawings-plan: building = source of truth)
-		const linked = this.#linkFloorModels(m)
-		this.#h.pushStep(this.#h.activeTabId() ?? '', `Import risers into ${m.name}`)
-		this.openPlaceModel(home.id, false)
-		const s = this.#h.session, p = s.panes[s.focused]
-		if (p) viewState.setProj(p.id, this.#h.didOf(p.activeId), 'front')   // a riser reads as an elevation
-		this.#h.toast(`Risers → ${m.name}: ${r.storeys.length} storeys, ${r.objects.length} objects${linked ? `; ${linked} floor model${linked === 1 ? '' : 's'} now take their levels from it` : ''}`)
-		return r.notes
-	}
-	/** Merge a riser doc into building model `m` with storeys for the building's WHOLE stack (its place's floors,
-	 *  else the project's) plus the riser's own floors if outside it. No history step (the caller's). */
-	#applyRisers(d: RisersDocIn & { id: string }, m: Model, homeId: string, keepLabels = false, storeys?: Storey[]) {
-		const st = this.stackOf(homeId), skip = new Set(st?.skipped ?? [])
-		const own = riserFloors(d, [...skip])
-		const all = [...new Set([...(st ? stackFloors(st) : []), ...own])].sort((a, b) => a - b)
-		// `storeys` = build on the building's own (edited) heights; none = the riser's heights (an explicit import)
-		const r = risersToBuilding(d, all, { riserId: d.id, layerIds: (m.layers ?? []).map((l) => l.id), storeys, textLayer: this.#layerFor(m) })
-		const merged = mergeRisers($state.snapshot(m) as Model, r, d.id, { keepLabels })
-		m.objects = merged.objects; m.shapes = merged.shapes; m.storeys = merged.storeys; m.layers = merged.layers; m.kind = 'building'
-		return r
-	}
-	/** The loaded riser docs (ProjectSource keeps the whole docs) whose geometry a building holds — by the
-	 *  per-riser id prefix, or (imported before that) any riser with content overlapping its storeys. */
-	#risersOf(m: Model): (RisersDocIn & { id: string })[] {
-		const docs = (this.src?.risers ?? []) as unknown as (RisersDocIn & { id: string })[]
-		const ids = m.objects.map((o) => o.id ?? '')
-		const keyed = docs.filter((d) => ids.some((i) => i.startsWith(riserPrefix(d.id))))
-		if (keyed.length || !ids.some((i) => /^rsr-(room|lad|cab)-/.test(i))) return keyed
-		const names = new Set((m.storeys ?? []).map((s) => s.name))
-		return docs.filter((d) => (d.rooms?.length || d.ladders?.length) && riserFloors(d).some((n) => names.has(floorLabel(n)))).slice(0, 1)
-	}
-	/** A riser doc as loaded (for its hidden floors / range), or null. */
-	#riserDoc = (id: string) => ((this.src?.risers ?? []) as unknown as (RisersDocIn & { id: string })[]).find((d) => d.id === id) ?? null
-	#createImported(r: SheetImportResult, placeId: string | null, from: string): string[] {
-		const ps = this.store!
-		const shapeCount = Object.values(r.shapes).reduce((n, a) => n + a.length, 0)
-		if (shapeCount) {
-			this.#h.ensureHist()
-			for (const [mid, ents] of Object.entries(r.shapes)) { const m = modelById(mid); if (m) m.shapes = [...(m.shapes ?? []), ...ents] }
-			this.#h.pushStep(this.#h.activeTabId() ?? '', `Import “${r.title}”`)
-		}
-		const d = ps.createSheet({ title: r.title, placeId })
-		ps.saveSheet({ ...d, drawingNumber: r.drawingNumber, paper: r.paper, sheetSize: r.paper.size, frames: r.frames, importedFrom: from })
-		// open it behind the dialog (which stays open to show the notes)
-		this.loadSheet(d.id); this.#h.session.treeNode = null
-		this.#h.openDrawing({ title: r.title, kind: 'sheet', preview: false, docId: SHEET + d.id })
-		this.#h.toast(`Imported “${r.title}”: ${r.frames.length} frame${r.frames.length === 1 ? '' : 's'}, ${shapeCount} annotation${shapeCount === 1 ? '' : 's'}${r.notes.length ? ` — ${r.notes.length} note${r.notes.length === 1 ? '' : 's'}` : ''}`)
-		return r.notes
-	}
+	// ── phase 8: IMPORTS — Sheets sheets, register drawings and risers (projectImports.svelte.ts) ──
+	legacySheets = (): Promise<LegacySheetRow[]> => this.imports.legacySheets()
+	importLegacySheet = (legacyId: string, placeId: string | null) => this.imports.importLegacySheet(legacyId, placeId)
+	importRegisterDrawing = (leafId: string) => this.imports.importRegisterDrawing(leafId)
+	importRisers = (riserId: string) => this.imports.importRisers(riserId)
 
 	/** Drawings dialog: a DRAFT package of the selected sheets at their latest revisions (sheets never issued
 	 *  are left out). Returns a message for the dialog. */
