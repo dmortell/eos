@@ -21,6 +21,7 @@ const meta: Record<ToolType, ToolMeta> = {
   survey:   { label: 'Photo Surveys',      scope: 'project',    presets: [{ name: 'Survey Album', layers: { default: true } }] },
   risers:   { label: 'Risers',             scope: 'project',    presets: [{ name: 'Riser Diagram', layers: { default: true } }] },
   page:     { label: 'Drawing Page',       scope: 'project',    presets: [{ name: 'Page', layers: { default: true } }] },
+  pages:    { label: 'Pages Sheet',        scope: 'project',    presets: [{ name: 'Sheet', layers: {} }] },
 }
 
 export function getToolMeta(toolType: ToolType): ToolMeta {
@@ -51,6 +52,7 @@ export function buildSourceDocId(pid: string, toolType: ToolType, floor?: number
     case 'survey':
     case 'risers':
     case 'page':
+    case 'pages':   // Pages sheets set their own `${pid}_${sheetId}`; never built here
       return pid
   }
 }
@@ -81,7 +83,10 @@ export function drawingToolHref(pid: string, toolType: ToolType, sourceDocId: st
     return pageId ? `${base}/drawings/pages/${pageId}` : `${base}/drawings`
   }
 
-  const toolPath: Record<Exclude<ToolType, 'page'>, string> = {
+  // Pages-tool sheets open in the Pages tool (created there, never via findOrCreateDrawing).
+  if (toolType === 'pages') return `${base}/pages`
+
+  const toolPath: Record<Exclude<ToolType, 'page' | 'pages'>, string> = {
     racks: 'racks', frames: 'frames', outlets: 'outlets',
     patching: 'patching', fillrate: 'fillrate', survey: '', risers: 'risers',
   }

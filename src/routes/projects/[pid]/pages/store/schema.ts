@@ -10,6 +10,7 @@
 import type { Model, ModelId, Clip, Dir } from '../3dview/types'
 import type { View } from '../ui/geometry'
 import type { PaperSize } from '../constants'
+import type { ToolType } from '$lib/types/versioning'
 
 // ── places (drawings-plan §2.1) ──────────────────────────────────────────────────────────────────────
 /** A node of the place tree. GENERIC: every node is the same object apart from its name — `kind` only picks
@@ -74,7 +75,7 @@ export type SheetKind = 'plan' | 'elevation' | 'schematic' | 'detail' | 'schedul
 export type PagesSheetDoc = {
 	id: string
 	projectId: string
-	toolType: 'pages'
+	toolType: Extract<ToolType, 'pages'>
 	title: string
 	/** Editable, starts empty, NOT a key; duplicates are allowed. */
 	drawingNumber: string

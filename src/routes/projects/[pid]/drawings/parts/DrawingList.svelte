@@ -10,7 +10,7 @@
 
 	const toolMeta = allToolMeta()
 	// Pages are added via the dedicated "New Page" button, not the generic Add Drawing form.
-	const TOOL_TYPES = (Object.keys(toolMeta) as ToolType[]).filter(t => t !== 'page')
+	const TOOL_TYPES = (Object.keys(toolMeta) as ToolType[]).filter(t => t !== 'page' && t !== 'pages')   // both page kinds are created by their own editors
 
 	let {
 		drawings,
