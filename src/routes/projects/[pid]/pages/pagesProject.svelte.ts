@@ -65,6 +65,8 @@ export type ProjectHost = {
 	ensureHist: () => void
 	pushStep: (tabId: string, label: string) => void
 	addModelToHistory: (m: Model) => void
+	/** An out-of-band model change (attached floorplan, live calibration) applied to every undo step too. */
+	amendModelHistory: (id: string, fn: (m: Model) => Model) => void
 	addDocToHistory: (did: string) => void
 }
 
@@ -334,11 +336,13 @@ export class PagesProject {
 			// a rack ROW is a rack-row model (G4: its front / rear elevations are the rack elevations)
 			const kind: ModelKind = place.legacy?.row != null ? 'rack' : (MODEL_KINDS as string[]).includes(place.kind ?? '') ? (place.kind as ModelKind) : 'zone'
 			const fresh: Model = { ...emptyFloor(newId('m'), place.name), placeId, kind }   // default layers (mock template until a project layer template exists)
+			// a rack row gets its racks + devices from the Racks tool, once — BEFORE it is stored and put into the undo
+			// history, so no step holds it empty (an undo would wipe the racks and save that)
+			if (kind === 'rack') this.imports.seedRackRow(fresh, place)
 			ps.saveModel(fresh)
 			upsertModel(docToModel(fresh))
 			this.#h.addModelToHistory(fresh)
 			m = modelById(fresh.id)
-			if (m && kind === 'rack') this.imports.seedRackRow(m, place)   // its racks + devices from the Racks tool, once
 		}
 		if (!m) return
 		const l = place.legacy
@@ -442,15 +446,26 @@ export class PagesProject {
 			.catch(() => {}).finally(() => this.#attaching.delete(id))
 	}
 	#liveFiles = $derived(liveFileIds(models).join('|'))
+	/** The last `files/{id}` doc seen per followed file — a shape switched to live snaps at once (no new callback). */
+	#calibDocs = new Map<string, { pages?: Record<string, PageCalib> } | null>()
 	async #syncCalib(fileId: string, d: { pages?: Record<string, PageCalib> } | null) {
-		for (const m of models) {
-			for (const e of m.shapes ?? []) {
-				const ps = e.live && e.src ? parsePdfSrc(e.src) : null; if (!ps || ps.fileId !== fileId) continue
-				const r = await renderPdfPage(fileId, ps.page).catch(() => null); if (!r) continue
-				const next = followCalib(e, placementFromCalib(d?.pages?.[ps.page], r.w, r.h))
-				if (next) m.shapes = (m.shapes ?? []).map((x) => (x.id === e.id ? next : x))
-			}
+		this.#calibDocs.set(fileId, d)
+		const targets = models.flatMap((m) => (m.shapes ?? []).flatMap((e) => { const ps = e.live && e.src ? parsePdfSrc(e.src) : null; return ps?.fileId === fileId ? [{ mid: m.id, id: e.id, page: ps.page }] : [] }))
+		for (const t of targets) {
+			const r = await renderPdfPage(fileId, t.page).catch(() => null); if (!r) continue
+			const pl = placementFromCalib(d?.pages?.[t.page], r.w, r.h)
+			// re-read AFTER the render: an edit meanwhile (a move that unlinked it) wins
+			const m = modelById(t.mid), cur = m?.shapes?.find((x) => x.id === t.id); if (!m || !cur?.live) continue
+			const next = followCalib(cur, pl); if (!next) continue
+			m.shapes = (m.shapes ?? []).map((x) => (x.id === t.id ? next : x))
+			// …and in every undo step where it is still live, so an undo never puts back the old placement
+			this.#h.amendModelHistory(t.mid, (sm) => { const s = sm.shapes?.find((x) => x.id === t.id); const n = s?.live ? followCalib(s, pl) : null; return n ? { ...sm, shapes: sm.shapes!.map((x) => (x.id === t.id ? n : x)) } : sm })
 		}
+	}
+	/** A floorplan just switched to live (Properties): snap it to the calibration already seen. */
+	resyncCalib = (src?: string) => {
+		const ps = src ? parsePdfSrc(src) : null; if (!ps || !this.#calibDocs.has(ps.fileId)) return
+		void this.#syncCalib(ps.fileId, this.#calibDocs.get(ps.fileId) ?? null)
 	}
 	async #addFloorplanShape(id: ModelId, fileId: string, page: number) {
 		const place = await floorplanPlacement(fileId, page)
@@ -458,10 +473,14 @@ export class PagesProject {
 		if (!place || !mm || floorplanShapeOf(mm)) return
 		// the floorplan goes on its OWN Background layer (first in the list = drawn underneath), so the Layers
 		// panel shows / hides / locks / VP-freezes it like any other layer
-		if (!mm.layers?.some((l) => l.id === FLOORPLAN_LAYER.id)) mm.layers = [{ ...FLOORPLAN_LAYER }, ...(mm.layers ?? [])]
 		const shape: Ent = { id: newId('e'), type: 'image', a: place.a, b: place.b, src: pdfSrc(fileId, page), layer: FLOORPLAN_LAYER.id, opacity: 0.6, lockAspect: true, live: true }
 		if (place.crop) shape.crop = place.crop
-		mm.shapes = [shape, ...(mm.shapes ?? [])]
+		const attach = (m: Model): Model => (floorplanShapeOf(m) ? m : {
+			...m, shapes: [shape, ...(m.shapes ?? [])],
+			layers: m.layers?.some((l) => l.id === FLOORPLAN_LAYER.id) ? m.layers : [{ ...FLOORPLAN_LAYER }, ...(m.layers ?? [])],
+		})
+		const next = attach(mm); mm.layers = next.layers; mm.shapes = next.shapes
+		this.#h.amendModelHistory(id, attach)   // attached asynchronously: every undo step gets it too, so undo can't drop it
 	}
 	/** A stored model from before floorplans were shapes: turn its plan underlays into floorplan shapes (once). */
 	#convertUnderlays(id: ModelId) {

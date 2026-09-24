@@ -52,6 +52,13 @@ export class WorkspaceHistory {
 		const snap = $state.snapshot(m) as Model
 		this.#hist = { ...h, steps: h.steps.map((s) => (s.model.some((x) => x.id === m.id) ? s : { ...s, model: [...s.model, snap] })) }
 	}
+	/** An OUT-OF-BAND change to model `id` (derived / remote, not a user edit — an attached floorplan, a live
+	 *  calibration move) applied to EVERY step's snapshot too, so undo / redo never revert it. `fn` must not
+	 *  mutate its argument (return a changed copy, or the same object for "no change"). */
+	amendModel = (id: string, fn: (m: Model) => Model) => {
+		const h = this.#hist; if (!h) return
+		this.#hist = { ...h, steps: h.steps.map((s) => (s.model.some((x) => x.id === id) ? { ...s, model: s.model.map((x) => (x.id === id ? fn(x) : x)) } : s)) }
+	}
 	/** A new step after an edit on `tabId` (drops the redo tail — a new edit forks the future). */
 	push = (tabId: string, label: string) => {
 		this.#host.markDirty(tabId)
