@@ -479,6 +479,32 @@ export class PagesProject {
 		this.#h.openDrawing({ title: sh.title, kind: 'sheet', preview: false, docId: SHEET + sh.id })
 		return `s:${sh.id}`
 	}
+	/** B1: a copy of a sheet, right after it — its paper, frames (new ids) and the shapes scoped to its frames
+	 *  (copied onto the new frames, one undo step); "(copy)" title, no number, never issued. Opens it. */
+	duplicateSheet = (id: string) => {
+		const ps = this.store, cur = ps?.sheets.find((x) => x.id === id); if (!ps || !cur || ps.status !== 'ready') return
+		const src = $state.snapshot(cur) as PagesSheetDoc
+		const fid = new Map(src.frames.map((f) => [f.id, newId('vf')]))
+		const d = ps.createSheet({ title: `${src.title} (copy)`, placeId: src.placeId })
+		ps.saveSheet({ ...d, paper: src.paper, sheetSize: src.sheetSize, scale: src.scale, kind: src.kind, discipline: src.discipline, tags: [...(src.tags ?? [])], hideTitleBlock: src.hideTitleBlock,
+			frames: src.frames.map((f) => ({ ...f, id: fid.get(f.id)! })) })
+		// view-scoped shapes (`space: 'view:<frame>'`) follow their frame onto the copy
+		let copied = 0
+		for (const m of models) {
+			const extra = (m.shapes ?? []).filter((e) => e.space?.startsWith('view:') && fid.has(e.space.slice(5)))
+			if (!extra.length) continue
+			if (!copied) this.#h.ensureHist()
+			const gids = new Map<string, string>()
+			m.shapes = [...(m.shapes ?? []), ...extra.map((e) => ({ ...($state.snapshot(e) as Ent), id: newId(), space: `view:${fid.get(e.space!.slice(5))}`,
+				groupId: e.groupId ? (gids.get(e.groupId) ?? (gids.set(e.groupId, newId()), gids.get(e.groupId))) : undefined }))]
+			copied += extra.length
+		}
+		if (copied) this.#h.pushStep(this.#h.activeTabId() ?? '', `Duplicate “${src.title}”`)
+		const order = ps.sheetsIn(src.placeId).filter((x) => x.id !== d.id)
+		ps.moveSheet(d.id, src.placeId, order.findIndex((x) => x.id === src.id) + 1)
+		this.openSheetById(d.id)
+		this.#h.toast(`Duplicated “${src.title}”${copied ? ` with ${copied} annotation${copied === 1 ? '' : 's'}` : ''}`)
+	}
 	openSheetById = (id: string) => {
 		const sh = this.store?.sheets.find((x) => x.id === id); if (!sh) return
 		this.loadSheet(id); this.#h.session.treeNode = null; this.drawingsOpen = false
