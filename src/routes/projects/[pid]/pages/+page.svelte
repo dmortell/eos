@@ -42,6 +42,12 @@
 	import type { Firestore } from '$lib'
 	import { ProjectSource } from './projectData.svelte'
 	import { findNodePath } from './projectTree'
+	import type { Session as AuthSession } from '$lib'
+	import { PagesStore } from './store/pagesStore.svelte'
+	import { buildPlaceTree } from './store/placeTree'
+	import { addPlace, updatePlace, movePlace, removePlace } from './store/places'
+	import { describePlace } from './store/placeProps'
+	import type { DropZone } from './parts/treeDrag.svelte'
 	import { DEFAULT_YAW, DEFAULT_PITCH } from './3dview/projection'
 	import type { Model, ModelId, Section } from './3dview/types'
 	import { selStore } from './selStore.svelte'
@@ -774,15 +780,60 @@
 	// isn't in Firestore (the demo URL).
 	const fdb = getContext('db') as Firestore | undefined
 	let projectSrc = $state<ProjectSource | null>(null)
+	// drawings-plan phase 2: the project's PAGES data (places now; sheets + models in phases 3–4), one store per
+	// project id alongside the read-only ProjectSource.
+	const auth = getContext('session') as AuthSession | undefined
+	let pagesStore = $state<PagesStore | null>(null)
 	$effect(() => {
 		const pid = page.params.pid
 		if (!fdb || !pid) return
 		const src = new ProjectSource(fdb, pid)
 		const stop = src.start()
-		untrack(() => { projectSrc = src })
-		return () => { stop(); untrack(() => { if (projectSrc === src) projectSrc = null }) }
+		const ps = new PagesStore(fdb, pid, untrack(() => auth?.user?.email ?? ''))
+		ps.start()
+		untrack(() => { projectSrc = src; pagesStore = ps })
+		return () => { stop(); void ps.stop(); untrack(() => { if (projectSrc === src) projectSrc = null; if (pagesStore === ps) pagesStore = null }) }
 	})
-	const realTree = $derived(projectSrc?.status === 'ready' ? projectSrc.tree : null)
+	// Once the project HAS Pages places, the navigator shows them (with the old tools' drawings hung on them by
+	// their legacy links); until then it shows the tree derived from the other tools' data, plus "Set up places".
+	const hasPlaces = $derived(!!pagesStore && pagesStore.places.length > 0)
+	const realTree = $derived.by(() => {
+		const src = projectSrc; if (src?.status !== 'ready') return null
+		const t = src.tree; if (!t) return null
+		if (!hasPlaces) return t
+		return { project: t.project, tree: buildPlaceTree({ pid: src.pid, places: pagesStore!.places, drawings: src.drawings, risers: src.risers, floors: src.project?.floors }) }
+	})
+	const canSeedPlaces = $derived(pagesStore?.status === 'ready' && !hasPlaces && projectSrc?.status === 'ready')
+	function seedPlaces() {
+		const src = projectSrc, ps = pagesStore; if (!src?.project || !ps) return
+		if (ps.seedPlaces({ project: src.project, racks: src.racks, risers: src.risers, drawings: [] })) toast(`Places created (${ps.places.length}). The tree now shows them.`)
+	}
+	function onPlaceAdd(parentId: string | null): string | undefined {
+		const ps = pagesStore; if (!ps) return
+		const id = newId('pl')
+		ps.savePlaces(addPlace(ps.places, { id, name: 'New place', parentId }))
+		return id
+	}
+	function onPlaceRename(id: string, name: string) { const ps = pagesStore; if (ps) ps.savePlaces(updatePlace(ps.places, id, { name })) }
+	function onPlaceMove(id: string, targetId: string, zone: DropZone) {
+		const ps = pagesStore; if (!ps) return
+		const next = movePlace(ps.places, id, targetId, zone)
+		if (next) ps.savePlaces(next); else toast("A place can't move into itself")
+	}
+	// Delete only an EMPTY place (drawings-plan §4): no child places, sheets, models or hung drawings.
+	function onPlaceDelete(id: string): string | null {
+		const ps = pagesStore; if (!ps) return null
+		const node = realTree ? findNodePath(realTree.tree, { id })?.node : undefined
+		const drawings = (node?.children ?? []).filter((c) => c.drawing).length
+		if (ps.sheetsIn(id, true).length) return 'It has sheets — move or archive them first'
+		if (ps.models.some((m) => m.placeId === id)) return 'It has a model — move or archive it first'
+		if (drawings) return `It holds ${drawings} drawing${drawings === 1 ? '' : 's'} from the other tools`
+		const next = removePlace(ps.places, id)
+		if (!next) return 'It has places inside — move or delete them first'
+		ps.savePlaces(next)
+		if (session.treeNode?.id === id) session.treeNode = null
+		return null
+	}
 	const navStatus = $derived(projectSrc?.status === 'loading' ? 'Loading project…' : projectSrc?.status === 'missing' ? 'Not a Firestore project — showing the demo tree' : '')
 	// A REAL floor's model: its own (named "33F — Hibiya", so it never picks up the demo 33F model) with the
 	// floor's calibrated floorplan as its plan underlay (ProjectSource.floorplanOf → the outlets tool's file /
@@ -805,9 +856,19 @@
 	}
 	// The selected REAL tree node's properties (projectProps.ts) + saving an edit. A renamed building's node id
 	// changes (`b:<name>`), so the selection follows it.
-	const nodeInfo = $derived(session.treeNode && projectSrc?.status === 'ready' ? projectSrc.describe(session.treeNode.id) : null)
+	const isPlaceNode = $derived(!!session.treeNode && hasPlaces && !!pagesStore?.places.some((p) => p.id === session.treeNode!.id))
+	const nodeInfo = $derived(!session.treeNode ? null
+		: isPlaceNode ? describePlace(pagesStore!.places, session.treeNode.id, realTree ? findNodePath(realTree.tree, { id: session.treeNode.id })?.node : undefined)
+		: projectSrc?.status === 'ready' ? projectSrc.describe(session.treeNode.id) : null)
 	async function setNodeField(key: string, value: string) {
 		const n = session.treeNode, src = projectSrc; if (!n || !src) return
+		if (isPlaceNode && pagesStore) {   // a Pages place: name / icon kind
+			if (key !== 'name' && key !== 'kind') return
+			if (key === 'name' && !value.trim()) { toast('A place needs a name'); return }
+			pagesStore.savePlaces(updatePlace(pagesStore.places, n.id, { [key]: value }))
+			if (key === 'name') session.treeNode = { ...n, label: value.trim() }
+			return
+		}
 		try {
 			const ok = await src.setField(n.id, key, value)
 			if (!ok) { toast(key === 'name' && n.id.startsWith('b:') ? 'That building name is empty or already used' : 'Nothing to save'); return }
@@ -1130,6 +1191,8 @@
 		{#if leftOpen}
 			<aside class="side left">
 				<DrawingNavigator tree={realTree?.tree ?? null} project={realTree?.project ?? null} status={navStatus}
+					placesMode={hasPlaces} onseedplaces={canSeedPlaces ? seedPlaces : undefined}
+					onplaceadd={onPlaceAdd} onplacerename={onPlaceRename} onplacemove={onPlaceMove} onplacedelete={onPlaceDelete}
 					onaddbuilding={(n) => projectSrc?.addBuilding(n).catch((e) => { toast(`Couldn't add the building: ${e?.message ?? e}`); return false }) ?? Promise.resolve(false)}
 					onmovefloor={(f, b) => projectSrc?.moveFloor(f, b).catch((e) => toast(`Couldn't move the floor: ${e?.message ?? e}`))}
 					onmovebuilding={(n, t, after) => projectSrc?.moveBuilding(n, t, after).catch((e) => toast(`Couldn't reorder: ${e?.message ?? e}`))}

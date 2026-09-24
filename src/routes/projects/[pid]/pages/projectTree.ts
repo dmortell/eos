@@ -50,7 +50,7 @@ export function buildingOf(f: FloorConfig, risers: RiserDoc[], home: string): st
 	return risers.some((r) => r.fromFloor != null && r.toFloor != null && f.number >= Math.min(r.fromFloor, r.toFloor) && f.number <= Math.max(r.fromFloor, r.toFloor)) ? home : OTHER_BUILDING
 }
 
-const leaf = (d: DrawingDoc): NavNode => ({ id: `d:${d.id}`, label: d.title || d.drawingNumber || d.id, drawing: drawingKind(d.toolType), docId: `drawing:${d.id}` })
+export const drawingLeaf = (d: DrawingDoc): NavNode => ({ id: `d:${d.id}`, label: d.title || d.drawingNumber || d.id, drawing: drawingKind(d.toolType), docId: `drawing:${d.id}` })
 const byOrder = (a: DrawingDoc, b: DrawingDoc) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || (a.title ?? '').localeCompare(b.title ?? '')
 
 /** A node by id (or a drawing leaf by its `docId`) with its ancestor chain, root first; null if absent. */
@@ -84,7 +84,7 @@ export function buildProjectTree({ project, racks, risers, drawings }: TreeInput
 		const inArea = (a: FloorArea) => here.filter((x) => x.p.area === a.id || (!x.p.area && !x.p.room && a === legacy && x.d.toolType === 'outlets'))
 		const areaNodes: NavNode[] = areas.map((a) => ({
 			id: `a:${f.number}:${a.id}`, label: `Zone ${a.label}`, folder: 'zone', floor: floorName(f.number),
-			children: inArea(a).map((x) => leaf(x.d)),
+			children: inArea(a).map((x) => drawingLeaf(x.d)),
 		}))
 		const roomNodes: NavNode[] = ROOMS.slice(0, Math.max(1, Math.min(4, f.serverRoomCount ?? 1))).map((r) => {
 			const doc = racks[racksDocId(pid, f.number, r)]
@@ -92,10 +92,10 @@ export function buildProjectTree({ project, racks, risers, drawings }: TreeInput
 				const n = (doc?.racks ?? []).filter((k) => k.rowId === row.id).length
 				return { id: `row:${f.number}:${r}:${row.id}`, label: row.label || 'Row', folder: 'row', meta: n ? `${n} rack${n === 1 ? '' : 's'}` : undefined }
 			})
-			const roomDrawings = here.filter((x) => x.p.room === r).map((x) => leaf(x.d))
+			const roomDrawings = here.filter((x) => x.p.room === r).map((x) => drawingLeaf(x.d))
 			return { id: `r:${f.number}:${r}`, label: f.roomNames?.[r] || `Room ${r}`, folder: 'room', floor: floorName(f.number), children: [...roomDrawings, ...rows] }
 		})
-		const floorDrawings = here.filter((x) => !x.p.room && !x.p.area && !(legacy && x.d.toolType === 'outlets')).map((x) => leaf(x.d))
+		const floorDrawings = here.filter((x) => !x.p.room && !x.p.area && !(legacy && x.d.toolType === 'outlets')).map((x) => drawingLeaf(x.d))
 		return {
 			id: `f:${f.number}`, label: f.label ? `${floorName(f.number)} — ${f.label}` : floorName(f.number), folder: 'floor',
 			floor: floorName(f.number), floorNumber: f.number, building: f.building,
@@ -120,9 +120,9 @@ export function buildProjectTree({ project, racks, risers, drawings }: TreeInput
 		return { id: `b:${b}`, label: b, folder: 'building', building: b, meta: fs.length ? undefined : 'drag floors here', children: [...riserLeaves, ...fs.map(floorNode)] }
 	})
 
-	const projectLevel = placed.filter((x) => x.p.floor === null).map((x) => leaf(x.d))
+	const projectLevel = placed.filter((x) => x.p.floor === null).map((x) => drawingLeaf(x.d))
 	if (projectLevel.length) tree.push({ id: 'g:project', label: 'Project drawings', folder: 'group', children: projectLevel })
 	const orphan = placed.filter((x) => x.p.floor !== null && !known.has(x.p.floor))
-	if (orphan.length) tree.push({ id: 'g:orphan', label: 'Other floors (not in the project)', folder: 'group', children: orphan.map((x) => ({ ...leaf(x.d), label: `${leaf(x.d).label}` })) })
+	if (orphan.length) tree.push({ id: 'g:orphan', label: 'Other floors (not in the project)', folder: 'group', children: orphan.map((x) => ({ ...drawingLeaf(x.d), label: `${drawingLeaf(x.d).label}` })) })
 	return { project: { id: pid, label: project.name || pid }, tree }
 }

@@ -155,7 +155,7 @@ Each phase ships on its own and gets live-checked in the browser.
    `pagesStore.svelte.ts`; string model ids; `ents` → `shapes`): shared types (`Place`, `SheetDoc` content, `Frame`, the `Model` additions); Firestore
    services for the `pages` field on the project doc, sheets (registry `toolType: 'pages'`) and models, with debounced
    saving. Unit tests for the mappers.
-2. **Places:** seed from project data (writing to a real project needs Dave's OK per project; start on Test
+2. **Places** (DONE 2026-09-24: `store/placeTree.ts`, `placeProps.ts`, place helpers in `places.ts`, `parts/treeDrag.svelte.ts`, navigator places mode): seed from project data (writing to a real project needs Dave's OK per project; start on Test
    Project). The tree reads Pages places; add / rename / move / delete places.
 3. **Models persisted:** floor and building models load and save; a floor node opens its stored model;
    "Missing model" placeholder; the in-memory mock models go.

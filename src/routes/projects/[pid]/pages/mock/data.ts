@@ -15,7 +15,12 @@ export type NavNode = { id: string; label: string; folder?: string; drawing?: Na
 	/** A drawing leaf: the stable drawing id to open it under (B18), e.g. `drawing:<registry id>`. */
 	docId?: string
 	/** A small trailing note (e.g. a row's rack count). */
-	meta?: string }
+	meta?: string
+	/** Pages places: the floor whose model this row opens ('33F'), or null = it opens none. Absent = the old
+	 *  rule (a 'floor' folder opens its floor). */
+	modelFloor?: string | null
+	/** Pages places: this row is a PLACE (editable / draggable in the navigator). */
+	place?: boolean }
 
 /** The project sits above the tree as a label (click → project props). */
 export const NAV_PROJECT = { id: 'project', label: 'Project Journey', kind: 'project' }
