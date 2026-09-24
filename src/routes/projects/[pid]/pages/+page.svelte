@@ -40,7 +40,7 @@
 	import { panzoom } from './ui/panzoom'
 	import { paperDims, scaleDenom, PAPER_PX_PER_MM, DEFAULT_MARGIN_MM, clampViewZoom, clampCanvasZoom, type PaperSize } from './constants'
 	import { PRINT_ID, printCss, applyPrint, removePrint } from './printing'
-	import type { Ent, ElevDir } from './ui/geometry'
+	import { GROUND, type Ent, type ElevDir } from './ui/geometry'
 	import { models, modelById, floorModelId, FLOOR_MODEL_ID } from './3dview/models.svelte'
 	import { nextFrameSeq } from './store/mappers'
 	import { getContext, untrack } from 'svelte'
@@ -648,10 +648,17 @@
 	function addImage(src: string): boolean {
 		const id = session.panes[session.focused]?.activeId
 		if (!id) { toast('Open a drawing first, then Insert › Image…'); return false }
+		// I5: inserted in an ELEVATION (a wall-mount / AV layout backdrop) the image lives on that elevation's plane,
+		// standing on the ground line; otherwise on the plan, centred
+		const p = session.panes[session.focused], a = active
+		let dir: string = 'plan'
+		if (a?.kind === 'sheet') { const av = activeVpOf(a.id), f = framesOf(a.id).find((x) => x.id === av); if (f) dir = f.proj }
+		else if (p && a) dir = projOf(p, a)
+		const elev = dir === 'front' || dir === 'rear' || dir === 'left' || dir === 'right'
 		const img = new Image()
 		const place = (aspect: number) => {
-			const cx = 14000, cy = 8750, w = 9000, h = w * aspect
-			if (!addEnt(id, { id: newId(), type: 'image', a: [Math.round(cx - w / 2), Math.round(cy - h / 2)], b: [Math.round(cx + w / 2), Math.round(cy + h / 2)], src: internImage(src), plane: 'plan', lockAspect: true })) return
+			const w = elev ? 4000 : 9000, h = w * aspect, cx = 14000, cy = elev ? GROUND - h / 2 : 8750
+			if (!addEnt(id, { id: newId(), type: 'image', a: [Math.round(cx - w / 2), Math.round(cy - h / 2)], b: [Math.round(cx + w / 2), Math.round(cy + h / 2)], src: internImage(src), plane: elev ? (dir as ElevDir) : 'plan', lockAspect: true })) return
 			const mn = modelById(modelIdOf(id))?.name ?? 'the model'
 			toast(`Image added to ${mn} on layer “${activeLayerIn(modelById(modelIdOf(id))?.layers ?? [])?.name ?? '—'}”. Set its scale/crop in Properties.`)
 		}
