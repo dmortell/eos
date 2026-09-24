@@ -27,7 +27,6 @@
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
 	import { activeLayerIn, isLayerHidden } from './layers.svelte'
 	import { fitFrame } from './ui/frameFit'
-	import { internImage } from './imageStore'
 	import HistoryPanel from './parts/HistoryPanel.svelte'
 	import StatusBar from './parts/StatusBar.svelte'
 	import ViewGizmos from './parts/ViewGizmos.svelte'
@@ -36,12 +35,13 @@
 	import OpenProjectDialog from './parts/OpenProjectDialog.svelte'
 	import DrawingDefaultsDialog from './parts/DrawingDefaultsDialog.svelte'
 	import { CanvasNav } from './canvasNav.svelte'
+	import { PageActions, type ActiveView } from './pageActions'
 	import { outletSticky, rememberOutlet, walk, incLabel } from './ui/outletPlace.svelte'
 	import { outletRows, exportOutletSchedule } from './store/outletSchedule'
 	import { panzoom } from './ui/panzoom'
 	import { paperDims, scaleDenom, PAPER_PX_PER_MM, DEFAULT_MARGIN_MM, type PaperSize } from './constants'
 	import { PRINT_ID, printCss, applyPrint, removePrint } from './printing'
-	import { GROUND, type Ent, type ElevDir } from './ui/geometry'
+	import type { Ent, ElevDir } from './ui/geometry'
 	import { models, modelById, floorModelId, FLOOR_MODEL_ID } from './3dview/models.svelte'
 	import { nextFrameSeq } from './store/mappers'
 	import { getContext, untrack } from 'svelte'
@@ -50,7 +50,6 @@
 	import { PagesProject, sheetIdOf, SHEET } from './pagesProject.svelte'
 	import { WorkspaceHistory } from './history.svelte'
 	import { DocEdit } from './docEdit.svelte'
-	import { viewToDxf } from './exportDxf'
 	import { clipOf, pasteClip, saveClip, loadClip } from './ui/frameClip'
 	import PrintBook, { type BookApi } from './parts/PrintBook.svelte'
 	import BlocksPanel from './parts/BlocksPanel.svelte'
@@ -58,7 +57,6 @@
 	import { saveBlock } from './blocks.svelte'
 	import { sheetLinkUrl } from './store/schema'
 	import { modelForPlace } from './3dview/models.svelte'
-	import { downloadDxf } from '../sheets/dxf/dxf'
 	import { storeyMap } from './3dview/storeyMap'
 	import { BASIS } from './3dview/types'
 	import { objBounds } from './3dview/projection'
@@ -626,62 +624,21 @@
 		entsForModel, conduitOf, view: (fid, pr) => viewState.getView('p1', fid, pr), orbit: (fid, pr) => orbitOf('p1', fid, pr),
 	}
 	function focusTool(t: string) { const p = session.panes[session.focused]; if (p) p.tool = t }
-	// C1: File › Export… — the focused pane's ACTIVE viewport (a sheet's active frame, else its first; a model tab's
-	// own view) as a DXF in real mm (exportDxf.ts), named after the drawing and the view.
-	function exportActiveDxf() {
-		const p = session.panes[session.focused], a = active; if (!p || !a) { toast('Open a drawing first'); return }
-		let mid: ModelId, dir: Proj, viewId: string, clip = null as SheetFrame['clip'], frozen: string[] | undefined, storeys: string[] | undefined, scale: string, frameId: string | undefined
+	// The focused pane's ACTIVE VIEW: a sheet's active frame (else its first), or a model tab's own view.
+	function activeView(): ActiveView | null | 'no-frame' {
+		const p = session.panes[session.focused], a = active; if (!p || !a) return null
 		if (a.kind === 'sheet') {
 			const av = activeVpOf(a.id), f = framesOf(a.id).find((x) => x.id === av) ?? framesOf(a.id)[0]
-			if (!f) { toast('This sheet has no viewport to export'); return }
-			mid = f.modelId ?? modelIdOf(a.id); dir = f.proj; viewId = f.id; clip = f.clip; frozen = f.frozen; storeys = f.storeys; scale = f.scale; frameId = f.id
-		} else { mid = a.modelId ?? FLOOR_MODEL_ID; dir = projOf(p, a); viewId = a.id; scale = scaleOf(a.id) }
-		const m = modelById(mid); if (!m) { toast('The model this view shows is missing'); return }
-		const orb = orbitOf(p.id, viewId, dir)
-		const r = viewToDxf({ model: m, ents: entsForModel(mid), dir, clip, yaw: orb.yaw, pitch: orb.pitch, frozen, storeys, scaleN: scaleDenom(scale), frameId })
-		downloadDxf(r.text, `${a.title} - ${PROJ_LABEL[dir]}`)
-		toast(`Exported ${a.title} (${PROJ_LABEL[dir]}): ${r.objects} object${r.objects === 1 ? '' : 's'}, ${r.shapes} shape${r.shapes === 1 ? '' : 's'}${r.skipped ? ` — ${r.skipped} image${r.skipped === 1 ? '' : 's'} left out` : ''}`)
-	}
-	// Import an IMAGE as a background: read it as a data-URL, size the placement rect to its aspect ratio,
-	// and add it as an 'image' entity on the ACTIVE layer (select a Background layer first to group it).
-	// P3 short term: a data-URL is interned (imageStore.ts) and the entity stores its short key, so the
-	// bytes never enter the model / undo snapshots; a real backend would upload + store a fileId (X7).
-	// Place an image (by data-URL or URL) as a background on the active layer, sized to its aspect ratio at
-	// the plan centre; imports default to aspect-locked. Returns false if there's no drawing open.
-	function addImage(src: string): boolean {
-		const id = session.panes[session.focused]?.activeId
-		if (!id) { toast('Open a drawing first, then Insert › Image…'); return false }
-		// I5: inserted in an ELEVATION (a wall-mount / AV layout backdrop) the image lives on that elevation's plane,
-		// standing on the ground line; otherwise on the plan, centred
-		const p = session.panes[session.focused], a = active
-		let dir: string = 'plan'
-		if (a?.kind === 'sheet') { const av = activeVpOf(a.id), f = framesOf(a.id).find((x) => x.id === av); if (f) dir = f.proj }
-		else if (p && a) dir = projOf(p, a)
-		const elev = dir === 'front' || dir === 'rear' || dir === 'left' || dir === 'right'
-		const img = new Image()
-		const place = (aspect: number) => {
-			const w = elev ? 4000 : 9000, h = w * aspect, cx = 14000, cy = elev ? GROUND - h / 2 : 8750
-			if (!addEnt(id, { id: newId(), type: 'image', a: [Math.round(cx - w / 2), Math.round(cy - h / 2)], b: [Math.round(cx + w / 2), Math.round(cy + h / 2)], src: internImage(src), plane: elev ? (dir as ElevDir) : 'plan', lockAspect: true })) return
-			const mn = modelById(modelIdOf(id))?.name ?? 'the model'
-			toast(`Image added to ${mn} on layer “${activeLayerIn(modelById(modelIdOf(id))?.layers ?? [])?.name ?? '—'}”. Set its scale/crop in Properties.`)
+			if (!f) return 'no-frame'
+			return { tabId: a.id, title: a.title, paneId: p.id, viewId: f.id, mid: f.modelId ?? modelIdOf(a.id), dir: f.proj, scale: f.scale, clip: f.clip, frozen: f.frozen, storeys: f.storeys, frameId: f.id }
 		}
-		img.onload = () => place((img.naturalHeight || 700) / (img.naturalWidth || 1000))
-		img.onerror = () => place(0.7)
-		img.src = src
-		return true
+		return { tabId: a.id, title: a.title, paneId: p.id, viewId: a.id, mid: a.modelId ?? FLOOR_MODEL_ID, dir: projOf(p, a), scale: scaleOf(a.id), clip: null }
 	}
-	function importImage() {
-		if (!session.panes[session.focused]?.activeId) { toast('Open a drawing first, then Insert › Image…'); return }
-		const input = document.createElement('input')
-		input.type = 'file'; input.accept = 'image/*'
-		input.onchange = () => {
-			const file = input.files?.[0]; if (!file) return
-			const reader = new FileReader()
-			reader.onload = () => addImage(String(reader.result))
-			reader.readAsDataURL(file)
-		}
-		input.click()
-	}
+	// File › Export… (DXF) and Insert › Image… — pageActions.ts
+	const { exportActiveDxf, addImage, importImage } = new PageActions({
+		activeView, orbitOf, entsForModel, addEnt: (t, e) => addEnt(t, e),
+		activeLayerName: (mid) => activeLayerIn(modelById(mid)?.layers ?? [])?.name ?? '—',
+	})
 	// DEV-only test hook: `window.__pagesAddImage('/trump-juvenile.jpg')` injects a real image into the
 	// running app's model (the native file picker can't be automation-driven). Harmless; dev builds only.
 	if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as { __pagesAddImage?: (u: string) => void }).__pagesAddImage = (u: string) => addImage(u)
