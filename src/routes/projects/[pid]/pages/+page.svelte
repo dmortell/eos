@@ -48,6 +48,9 @@
 	import { DocEdit } from './docEdit.svelte'
 	import { viewToDxf } from './exportDxf'
 	import { clipOf, pasteClip, saveClip, loadClip } from './ui/frameClip'
+	import PrintBook, { type BookApi } from './parts/PrintBook.svelte'
+	import { sheetLinkUrl } from './store/schema'
+	import { modelForPlace } from './3dview/models.svelte'
 	import { downloadDxf } from '../sheets/dxf/dxf'
 	import { storeyMap } from './3dview/storeyMap'
 	import { BASIS } from './3dview/types'
@@ -565,6 +568,19 @@
 		else if (item === 'Save') statusText = `Save isn't needed — edits save to the project as you go`
 		// everything else is a mock no-op
 	}
+	// B7: a BOOK of sheets to print (the drawings dialog's selection), rendered by PrintBook
+	let bookIds = $state<string[] | null>(null)
+	const bookApi: BookApi = {
+		page: (id) => {
+			const ps = proj.store, sh = ps?.sheets.find((x) => x.id === id); if (!ps || !sh) return null
+			const did = SHEET + id   // loaded before the book opens (openBook) — a $derived mustn't write state
+			const p = docs.paperOf(did), dm = paperDims(p.size, p.landscape)
+			return { id, did, title: sh.title, number: sh.drawingNumber, paper: p, w: dm.w, h: dm.h, link: sh.link ? sheetLinkUrl(ps.pid, sh.link) : undefined,
+				modelId: sh.placeId ? modelForPlace(sh.placeId)?.id : undefined }
+		},
+		frames: (did) => docs.framesOf(did), scale: (did) => docs.scaleOf(did), tb: (did) => proj.titleBlockOf(did),
+		entsForModel, conduitOf, view: (fid, pr) => viewState.getView('p1', fid, pr), orbit: (fid, pr) => orbitOf('p1', fid, pr),
+	}
 	function focusTool(t: string) { const p = session.panes[session.focused]; if (p) p.tool = t }
 	// C1: File › Export… — the focused pane's ACTIVE viewport (a sheet's active frame, else its first; a model tab's
 	// own view) as a DXF in real mm (exportDxf.ts), named after the drawing and the view.
@@ -913,7 +929,7 @@
 		let style = document.getElementById(PRINT_ID) as HTMLStyleElement | null
 		if (!style) { style = document.createElement('style'); style.id = PRINT_ID; document.head.appendChild(style) }
 		style.textContent = printCss(paperOf(session.panes[session.focused]?.activeId))   // refreshed for the focused paper at print time (applyPrint)
-		const onBeforePrint = () => applyPrint(paperOf(session.panes[session.focused]?.activeId))
+		const onBeforePrint = () => { if (!bookIds) applyPrint(paperOf(session.panes[session.focused]?.activeId)) }   // B7: a book prints itself
 		window.addEventListener('beforeprint', onBeforePrint)
 		window.addEventListener('afterprint', removePrint)
 		return () => {
@@ -987,9 +1003,10 @@
 		<DrawingsDialog sheets={proj.store.sheets} places={proj.store.places} models={proj.storedModelInfo} projectName={proj.src?.project?.name ?? ''} packagesHref="/projects/{page.params.pid}/packages"
 			onupdate={proj.updateSheets} onarchive={proj.archiveSheets} onrestore={proj.restoreSheets} ondelete={proj.deleteSheet}
 			onopen={proj.openSheetById} onmodelarchive={proj.setModelArchived} onopenmodel={proj.openModelById} onpackage={proj.saveAsPackage}
-			onlistlegacy={proj.legacySheets} onimportlegacy={proj.importLegacySheet}
+			onlistlegacy={proj.legacySheets} onimportlegacy={proj.importLegacySheet} onprint={(ids) => { for (const id of ids) proj.loadSheet(id); bookIds = ids; proj.drawingsOpen = false }}
 			onclose={() => (proj.drawingsOpen = false)} />
 	{/if}
+	{#if bookIds}<PrintBook ids={bookIds} api={bookApi} onclose={() => (bookIds = null)} />{/if}
 	{#if openProjectOpen}<OpenProjectDialog currentId={page.params.pid} onpick={openProject} onclose={() => (openProjectOpen = false)} />{/if}
 	{#if tabMenuPane !== null}<button class="menu-backdrop" aria-label="Close menu" onclick={() => (tabMenuPane = null)}></button>{/if}
 

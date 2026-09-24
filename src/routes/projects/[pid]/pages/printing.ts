@@ -34,6 +34,32 @@ export function printCss(paper: { size: PaperSize; landscape: boolean }): string
 }`
 }
 
+/** B7: a BOOK's named page for a paper (size + orientation). */
+export const bookPageName = (p: { size: PaperSize; landscape: boolean }) => `pg_${p.size}_${p.landscape ? 'L' : 'P'}`
+/** B7: print a BOOK of sheets — every `.book-page` on its own printed page at its own paper size (named @page),
+ *  at true mm like a single sheet; the rest of the app hidden. */
+export function bookCss(papers: { size: PaperSize; landscape: boolean }[]): string {
+	const zoom = (96 / 25.4) / PAPER_PX_PER_MM
+	const seen = new Map<string, string>()
+	for (const p of papers) {
+		const [lw, lh] = PAPER_SIZES[p.size], [w, h] = p.landscape ? [lw, lh] : [lh, lw]
+		seen.set(bookPageName(p), `@page ${bookPageName(p)} { size: ${w}mm ${h}mm; margin: 0; }`)
+	}
+	return `${[...seen.values()].join('\n')}
+@media print {
+	html, body { margin:0 !important; padding:0 !important; background:#fff !important; height:auto !important; overflow:visible !important; }
+	body * { visibility: hidden !important; }
+	.print-book, .print-book * { visibility: visible !important; }
+	.print-book { position:absolute !important; left:0 !important; top:0 !important; }
+	.book-page { break-after: page; zoom:${zoom}; }
+	${[...seen.keys()].map((n) => `.book-page.${n} { page: ${n}; }`).join('\n\t')}
+	.print-book .vp { border: none !important; box-shadow: none !important; }
+	.print-book .vp-badge, .print-book .margin-guide:not(.printed) { display: none !important; }
+	.print-book .vp-tag { background:none !important; border:none !important; font-size:8pt !important; color:#1f2937 !important; padding:0 !important; }
+	.print-book .vp-tag svg { display:none !important; }
+}`
+}
+
 let savedSel: Record<string, Selection> | null = null
 
 export function applyPrint(paper: { size: PaperSize; landscape: boolean }): void {

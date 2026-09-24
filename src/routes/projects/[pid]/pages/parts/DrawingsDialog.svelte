@@ -19,7 +19,7 @@
 	import type { LegacySheetRow } from '../pagesProject.svelte'
 
 	type Patch = { id: string; patch: Partial<PagesSheetDoc> }
-	let { sheets, places, models, projectName = '', packagesHref = '', onupdate, onarchive, onrestore, ondelete, onopen, onmodelarchive, onopenmodel, onpackage, onlistlegacy, onimportlegacy, onclose }: {
+	let { sheets, places, models, projectName = '', packagesHref = '', onupdate, onarchive, onrestore, ondelete, onopen, onmodelarchive, onopenmodel, onpackage, onprint, onlistlegacy, onimportlegacy, onclose }: {
 		sheets: PagesSheetDoc[]; places: Place[]; models: ModelInfo[]; projectName?: string
 		/** The app's Packages page for this project (created packages are managed + published there). */
 		packagesHref?: string
@@ -28,6 +28,8 @@
 		onmodelarchive: (id: string, archived: boolean) => void; onopenmodel: (id: string) => void; onclose: () => void
 		/** Create a draft package from sheet ids + a name; resolves to a message to show. */
 		onpackage?: (ids: string[], name: string) => Promise<string>
+		/** B7: print these sheets (in this order) as one book. */
+		onprint?: (ids: string[]) => void
 		/** Phase 8: list the Sheets tool's sheets / import one into a place (resolves to notes on what didn't map). */
 		onlistlegacy?: () => Promise<LegacySheetRow[]>
 		onimportlegacy?: (id: string, placeId: string | null) => Promise<string[]>
@@ -168,6 +170,7 @@
 						<input class="num" type="number" bind:value={rnStart} /><input class="pat" bind:value={rnPattern} />
 						<button class="dd-btn" onclick={applyRenumber}>Renumber</button><em>{rnPreview}</em></span>
 					<button class="dd-btn warn" onclick={() => { onarchive(selIds); sel = new Set() }}><Icon name="archive" size={13} /> Archive</button>
+					{#if onprint}<button class="dd-btn" title="Print the selected sheets as one job, one per page, each at its own paper size (reorder first)" onclick={() => onprint?.(selIds)}><Icon name="print" size={13} /> Print</button>{/if}
 					{#if pkgName === null}
 					<button class="dd-btn" title="A draft package of the selected sheets at their latest revisions" onclick={() => (pkgName = '')}><Icon name="package" size={13} /> Package</button>
 				{:else}
