@@ -4,6 +4,22 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 `git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps the long historical done-log and the
 open items; `review.md §0a` tracks which review findings are closed.
 
+## Round 5 (2026-09-25) — clouds, dimensions, stretch, quick select, blocks audit, system clipboard
+- **Draw tools prompt in the command line** ("Line: specify next point" [Close/Undo] — clickable).
+- **REVCLOUD**: two corners, Polygonal (points; Enter closes) or Object (a rect / closed polyline). Clouds now
+  work on closed polylines too, bulging outward whichever way the outline winds (`cloudPathPts`).
+- **DIMCONTINUE / DIMBASELINE** (from the selected or picked dimension; baseline stacks 8 paper mm apart),
+  **DIMRADIUS / DIMDIAMETER** on arcs and circles. A dimension's Text is a template: `<>` = the length (R<>, Ø<>).
+- **STRETCH**: a crossing window. What's wholly inside moves; points / edges inside a crossing shape move
+  (`modify.stretchEnt`).
+- **QSELECT / FILTER**: every shape here of a type, layer, colour or block.
+- **PURGE** (unused custom blocks — it asks, and warns that the library is shared by every project) and **AUDIT**
+  (block inserts whose block is missing; the ones in view get selected).
+- **System clipboard**: Ctrl+C writes the shapes as marked JSON text as well, so Ctrl+V pastes them in another
+  browser tab or project (the paste event reads it with no permission prompt). Ctrl+V with an image on the
+  clipboard (a screenshot) inserts it as an image shape.
+- A right + wheel zoom (or a right-drag pan) no longer counts as a right-click, so it doesn't cancel a draw.
+
 ## Round 4 (2026-09-25) — more drafting commands, riser editing, POLAR
 - **JOIN**: lines that meet end to end → one polyline. **EXPLODE**: a block → its shapes + attribute texts; a
   polyline → its segments; a rectangle → 4 lines; a group → ungrouped (`ui/explode.ts`).
