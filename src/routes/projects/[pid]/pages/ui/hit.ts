@@ -7,6 +7,7 @@ import { insertBounds } from './blocks'
 import type { ViewCtx, MLayers } from './view'
 import type { Obj, Clip, Guide } from '../3dview/types'
 import { flatSpan, segDist, textBox, arcPts } from './geometry'
+import { layoutNote, type NoteLayout } from './noteLayout'
 import { isoBounds, faces3d, isoDepthR, project, viewMap, type ViewMap } from '../3dview/projection'
 import { PT_MM } from '../constants'
 
@@ -66,6 +67,7 @@ export function bbox(ctx: ViewCtx, e: Ent): [number, number, number, number] {
 	if (isFlatElev(ctx, e)) { const [x0, x1] = flatXSpan(ctx, e); return [x0, ctx.ground - 2, x1, ctx.ground + 2] }
 	if (e.type === 'polyline' || e.type === 'arc') { const pts = e.type === 'arc' ? arcPts(e) : e.pts ?? []; const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] }
 	if (e.type === 'text') return textBox(e, PT_MM * ctx.paperMm)
+	if (e.type === 'note') { const n = noteGeom(e, ctx.paperMm); return [e.a![0], e.a![1], e.a![0] + n.w, e.a![1] + n.h] }
 	if (e.type === 'insert') return insertBounds(e, ctx.paperMm, ctx.mdl)   // its block's extent, scaled (an annotative one × N), at the insertion point
 	if (e.type === 'image' && e.crop) {   // the VISIBLE extent is the crop window, not the full placement
 		const rx = Math.min(e.a![0], e.b![0]), ry = Math.min(e.a![1], e.b![1]), rw = Math.abs(e.b![0] - e.a![0]), rh = Math.abs(e.b![1] - e.a![1])
@@ -73,6 +75,12 @@ export function bbox(ctx: ViewCtx, e: Ent): [number, number, number, number] {
 	}
 	const xs = [e.a![0], e.b![0]], ys = [e.a![1], e.b![1]]
 	return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
+}
+
+/** A NOTE's layout in DRAWING units: the paper-mm layout × `paperMm` (annotative), its body text at the note's font. */
+export function noteGeom(e: Ent, paperMm: number): { layout: NoteLayout; k: number; w: number; h: number } {
+	const layout = layoutNote(e.text ?? '', e.noteW ?? 90, (e.fontPt ?? 8) * PT_MM)
+	return { layout, k: paperMm, w: (e.noteW ?? 90) * paperMm, h: layout.h * paperMm }
 }
 
 /** Rotation pivot = the UNrotated bbox centre (render, hit and grips all rotate about it). */
@@ -97,7 +105,7 @@ export function hitEnt(ctx: ViewCtx, e: Ent, p: Pt, thr: number): boolean {
 		return !inner   // ring band around the outline only
 	}
 	if (e.type === 'text') { const [x0, y0, x1, y1] = bbox(ctx, e); return p[0] >= x0 - thr && p[0] <= x1 + thr && p[1] >= y0 - thr && p[1] <= y1 + thr }
-	if (e.type === 'insert') { const [x0, y0, x1, y1] = bbox(ctx, e); return inBox(p, x0, y0, x1, y1, thr, true) }   // pick anywhere on the symbol
+	if (e.type === 'insert' || e.type === 'note') { const [x0, y0, x1, y1] = bbox(ctx, e); return inBox(p, x0, y0, x1, y1, thr, true) }   // pick anywhere on the symbol / note
 	return false
 }
 

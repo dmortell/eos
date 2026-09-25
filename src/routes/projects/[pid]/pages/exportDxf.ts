@@ -14,7 +14,7 @@ import { BASIS } from './3dview/types'
 import { project, viewMap, isoBounds, trimToClip, objBounds } from './3dview/projection'
 import { storeyMap } from './3dview/storeyMap'
 import { GROUND, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, textBox, arcPts, type Ent, type Pt, type ElevDir } from './ui/geometry'
-import { inThisView, rotCenter, rotatePt } from './ui/hit'
+import { inThisView, rotCenter, rotatePt, noteGeom } from './ui/hit'
 import { lineLabelAt, groundPts, tileLines } from './ui/annotations'
 import { blockDef, byBlock, attrValue, insertScale } from './ui/blocks'
 import { isLegend, legendRows, legendSize, LEGEND } from './ui/legend'
@@ -140,6 +140,15 @@ function entToDxf(doc: DxfDoc, e: Ent, ctx: ViewCtx, P: (p: Pt) => [number, numb
 			const m: Pt = [A[0] + ux * len * t + px * off, A[1] + uy * len * t + py * off]
 			let ang = (Math.atan2(uy, ux) * 180) / Math.PI; if (ang > 90 || ang < -90) ang += 180
 			text(doc, T(m), 2.5 * N, dimLabel(len, e.unit, e.text), layer, 'center', -ang + tRot)
+			return
+		}
+		case 'note': {   // K3: each laid-out line as TEXT, a table's grid as lines (N = model mm per paper mm)
+			const lay = noteGeom(e, N).layout, a = e.a!, at = (x: number, y: number): Pt => [a[0] + x * N, a[1] + y * N]
+			for (const it of lay.items) {
+				if (it.kind === 'text') text(doc, T(at(it.x, it.y)), it.size * N, it.text, layer, 'left', tRot)
+				else doc.poly([T(at(it.a[0], it.a[1])), T(at(it.b[0], it.b[1]))], { layer })
+			}
+			if (e.noteBox) doc.poly([T(at(0, 0)), T(at(e.noteW ?? 90, 0)), T(at(e.noteW ?? 90, lay.h)), T(at(0, lay.h))], { closed: true, layer })
 			return
 		}
 		case 'text': {

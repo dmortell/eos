@@ -13,7 +13,7 @@
 	import type { ViewCtx } from '../view'
 	import { STYLE_DEFAULTS, textBox, arcPath } from '../geometry'
 	import { PT_MM } from '../../constants'
-	import { isFlatElev, flatXSpan, rotCenter, rotatePt, groundInIso } from '../hit'
+	import { isFlatElev, flatXSpan, rotCenter, rotatePt, groundInIso, noteGeom } from '../hit'
 	import { arrowPts, cloudPath, cloudPathPts, groundPts, headGeom, dashArray, lineLabelAt, tileLines, type HeadGeom } from '../annotations'
 	import { imageSrc } from '../../imageStore'
 	import { pdfImageUrl, PDF_SRC } from './pdfRaster.svelte'
@@ -141,6 +141,17 @@
 			<!-- D7: the line's text label, along it at the start / middle / end, upright, like a dimension figure -->
 			{#if lb}<text class="anno" x={lb.p[0]} y={lb.p[1]} font-size={2.5 * paperMm} fill={ink} text-anchor={lb.anchor} transform="rotate({lb.rot} {lb.p[0]} {lb.p[1]})">{e.text}</text>{/if}
 		{/if}
+	{:else if e.type === 'note'}
+		<!-- K3 NOTE: the markdown laid out in paper mm (ui/noteLayout.ts), scaled by paperMm (annotative) -->
+		{@const n = noteGeom(e, paperMm)}
+		<g transform="translate({e.a![0]} {e.a![1]}) scale({n.k})">
+			{#if e.noteBox}<rect x="0" y="0" width={e.noteW ?? 90} height={n.layout.h} fill={fill === 'none' ? 'none' : fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
+			{:else if fill !== 'none'}<rect x="0" y="0" width={e.noteW ?? 90} height={n.layout.h} fill={fill} />{/if}
+			{#each n.layout.items as it, i (i)}
+				{#if it.kind === 'text'}<text class="anno" x={it.x} y={it.y} font-size={it.size} font-weight={it.bold ? 700 : 400} fill={ink}>{it.text}</text>
+				{:else}<line x1={it.a[0]} y1={it.a[1]} x2={it.b[0]} y2={it.b[1]} stroke={ink} stroke-width={w * 0.8} vector-effect="non-scaling-stroke" />{/if}
+			{/each}
+		</g>
 	{:else if e.type === 'arc'}
 		<path d={arcPath(e)} fill="none" stroke={ink} stroke-width={w} stroke-dasharray={da} vector-effect="non-scaling-stroke" />
 	{:else if e.type === 'rect'}

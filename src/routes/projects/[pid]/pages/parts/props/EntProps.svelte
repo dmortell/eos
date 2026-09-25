@@ -14,6 +14,7 @@
 	import type { Layer as MLayer } from '../../3dview/types'
 	import { autoNumber, numberable, type NumberOrder } from '../../ui/autoNumber'
 	import { arrange, type AlignOp } from '../../ui/arrange'
+	import { noteGeom } from '../../ui/hit'
 	import { incLabel } from '../../ui/outletPlace.svelte'
 	import { isOutletEnt } from '../../store/allocate'
 
@@ -39,6 +40,7 @@
 	function bbox(e: Ent): [number, number, number, number] {
 		if (e.type === 'polyline' || e.type === 'arc') { const pts = e.type === 'arc' ? arcPts(e) : e.pts ?? []; const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] }
 		if (e.type === 'text') return textBox(e, PT_MM * scaleN)
+		if (e.type === 'note') { const n = noteGeom(e, scaleN); return [e.a![0], e.a![1], e.a![0] + n.w, e.a![1] + n.h] }
 		if (e.type === 'insert') return insertBounds(e, scaleN)   // no `b`: the block's extent at the insertion point
 		const xs = [e.a![0], e.b![0]], ys = [e.a![1], e.b![1]]
 		return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
@@ -199,6 +201,13 @@
 				{/each}
 			</span></div>
 	{/if}
+{/if}
+{#if single?.type === 'note'}
+	<!-- K3: the note's markdown (# headings, - bullets, 1. lists, | tables |, **bold**), its width on paper + frame -->
+	<div class="prop-sec">NOTE</div>
+	<div class="prop wide"><textarea class="pp-textarea" use:autoresize value={single.text ?? ''} title="# heading · - bullet · 1. list · | a | b | table (|---| under the header row) · **bold**" onchange={(e) => setAll({ text: (e.currentTarget as HTMLTextAreaElement).value })}></textarea></div>
+	<div class="prop"><span>Width (mm)</span><input class="navf" type="number" min="15" value={single.noteW ?? 90} onkeydown={fnav} onchange={(e) => { const n = Math.round(num(e)); if (n >= 15) setAll({ noteW: n }) }} /></div>
+	<label class="prop cb"><span>Frame</span><input type="checkbox" checked={!!single.noteBox} onchange={(e) => setAll({ noteBox: (e.currentTarget as HTMLInputElement).checked || undefined })} /></label>
 {/if}
 {#if single?.type === 'rect'}
 	<div class="prop-sec">RECT</div>

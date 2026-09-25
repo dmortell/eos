@@ -502,6 +502,13 @@ export const SCRIPTS: Record<string, Script> = {
 		const here = new Set(u.missing.map((m) => m.id)), inView = c.t.pickableEnts().filter((e) => here.has(e.id)).map((e) => e.id)
 		if (inView.length) { c.t.select(inView); c.out(`${inView.length} of them selected here (Delete removes them, or swap their block in Properties)`) }
 	},
+	note: async (c) => {   // K3: a notes block (markdown) from its top-left corner — edit its text in Properties
+		c.host.tool('Select')
+		const p = await point(c, 'Specify the top-left corner of the note')
+		const e = c.t.newEnt({ type: 'note', a: D(c, p), text: '# Notes\n1. First note\n2. Second note\n\n| Item | Qty |\n|---|---|\n| Outlets | 24 |', noteW: 90, noteBox: true })
+		add(c, e); c.t.select([e.id])
+		c.out('Note placed — edit its text (markdown) in Properties › NOTE; drag the right-edge grip to resize')
+	},
 	rack: async (c) => {   // a RACK model object (real W × D × H + rack data) — sizes remembered for the next one
 		c.host.tool('Select')
 		const pick = await c.ask({ prompt: `Rack type (Enter = ${rackDef.w}×${rackDef.d} ${rackDef.u}U)`, options: Object.keys(RACK_PRESETS), enter: true })

@@ -7,7 +7,7 @@ import type { Pt, Ent } from './geometry'
 import type { Clip, Obj } from '../3dview/types'
 import type { Mapper } from './mapper'
 import type { ViewCtx } from './view'
-import { sectionCorners, prismRect, prismTilted, graphNodeDraw, rotatePt, bbox, rotCenter, isFlatElev, flatXSpan, type GN } from './hit'
+import { sectionCorners, prismRect, prismTilted, graphNodeDraw, rotatePt, bbox, rotCenter, isFlatElev, flatXSpan, noteGeom, type GN } from './hit'
 import { ELEV_BASIS, elevU, elevUInv, textBox, STYLE_DEFAULTS } from './geometry'
 import { doorGeom } from '../3dview/projection'
 import { insertBounds } from './blocks'
@@ -276,6 +276,11 @@ export function gripsLocal(ctx: ViewCtx, e: Ent, opts: GripOpts): Grip[] {
 			return { ...e, scale: Math.abs(s - 1) < 1e-9 ? undefined : Math.round(s * 1000) / 1000 }
 		} }]
 		return []
+	}
+	if (e.type === 'note') {   // the top-left corner moves it; the right-edge grip sets its width (paper mm)
+		const n = noteGeom(e, ctx.paperMm), a = e.a!
+		return [{ x: a[0], y: a[1], apply: (p) => ({ ...e, a: p }) },
+			{ x: a[0] + n.w, y: a[1] + n.h / 2, apply: (p) => ({ ...e, noteW: Math.max(15, Math.round((p[0] - a[0]) / ctx.paperMm)) }) }]
 	}
 	if (e.type === 'text') {
 		const gs: Grip[] = [{ x: e.a![0], y: e.a![1], apply: (p) => ({ ...e, a: p }) }]
