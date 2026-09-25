@@ -83,7 +83,8 @@
 
 	// ── style (color / fill / weight / font / align) — applies to the whole selection ──
 	const STROKE_TYPES = new Set(['polyline', 'dim', 'rect', 'ellipse'])
-	const FILL_TYPES = new Set(['rect', 'ellipse', 'polyline'])
+	// a block insert's Fill feeds its 'byblock' filled shapes (an outlet: filled = low level, none = outline)
+	const FILL_TYPES = new Set(['rect', 'ellipse', 'polyline', 'insert'])
 	const anyText = $derived(ents.some((e) => e.type === 'text'))
 	const anyStroke = $derived(ents.some((e) => STROKE_TYPES.has(e.type)))
 	const anyFillable = $derived(ents.some((e) => FILL_TYPES.has(e.type)))
@@ -138,10 +139,11 @@
 <div class="prop-sec">ARRANGE</div>
 <div class="prop"><span>Draw order</span>
 	<span class="pp-seg">
-		<button title="Send to back (Ctrl+Shift+[)" onclick={() => onarrange?.('back')}>⤓</button>
-		<button title="Send backward (Ctrl+[)" onclick={() => onarrange?.('backward')}>▽</button>
-		<button title="Bring forward (Ctrl+])" onclick={() => onarrange?.('forward')}>△</button>
-		<button title="Bring to front (Ctrl+Shift+])" onclick={() => onarrange?.('front')}>⤒</button>
+		<!-- the same triangle each time: down = back, up = forward; a bar = all the way (to the back / front) -->
+		<button title="Send to back (Ctrl+Shift+[)" onclick={() => onarrange?.('back')}>{@render arrow(true, true)}</button>
+		<button title="Send backward (Ctrl+[)" onclick={() => onarrange?.('backward')}>{@render arrow(true, false)}</button>
+		<button title="Bring forward (Ctrl+])" onclick={() => onarrange?.('forward')}>{@render arrow(false, false)}</button>
+		<button title="Bring to front (Ctrl+Shift+])" onclick={() => onarrange?.('front')}>{@render arrow(false, true)}</button>
 	</span>
 </div>
 {#if single?.type === 'text'}
@@ -239,6 +241,9 @@
 		<button class="pp-reset" disabled={!nx} title={nx ? `The next one clicked becomes ${nx}` : 'Give this outlet a label ending in a number first'}
 			onclick={() => onwalk(ins.attrs?.LABEL ?? '')}>Renumber by clicking from here…</button>
 	{/if}
+	<!-- a block's size: × its drawn size (a 900 door at 0.8 = 720); an annotative block is sized on paper instead -->
+	<div class="prop"><span>Scale</span><input class="navf" type="number" min="0.05" step="0.05" value={ins.scale ?? 1} title="Size × the block's own size"
+		onkeydown={fnav} onchange={(e) => { const s = Math.round(num(e) * 1000) / 1000; if (s > 0) onupdate?.({ ...ins, scale: s === 1 ? undefined : s }) }} /></div>
 	<label class="prop cb"><span>Mirror</span><input type="checkbox" checked={!!ins.mirror} title="Flip left ↔ right (e.g. a door's hinge side)" onchange={(e) => onupdate?.({ ...ins, mirror: (e.currentTarget as HTMLInputElement).checked || undefined })} /></label>
 {/if}
 {#if single?.type === 'image'}
@@ -358,3 +363,11 @@
 	{/if}
 {/if}
 <div class="pp-hint">{ents.length > 1 ? 'Style + position apply to the whole selection.' : 'Editing writes straight to the object.'} New objects use Sheets’ defaults ({STYLE_DEFAULTS.fontPt}pt, left).</div>
+
+{#snippet arrow(down: boolean, bar: boolean)}
+	<!-- a draw-order icon: a triangle (down = backward, up = forward) + a bar on the far side for "all the way" -->
+	<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
+		{#if down}<polygon points="1.5,3.5 10.5,3.5 6,9" />{#if bar}<rect x="1.5" y="10" width="9" height="1.6" />{/if}
+		{:else}<polygon points="1.5,8.5 10.5,8.5 6,3" />{#if bar}<rect x="1.5" y="0.4" width="9" height="1.6" />{/if}{/if}
+	</svg>
+{/snippet}

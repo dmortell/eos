@@ -119,6 +119,7 @@
 		<textarea class="hp-note" rows="3" placeholder="Revision description…" bind:value={note}></textarea>
 		<div class="hp-acts">
 			<!-- B6: any code (P1, C1 …) — prefilled with the next in sequence -->
+			<label class="hp-code-l">Code</label>
 			<input class="hp-code" value={issueCode} title="Revision code — any text (A, B … / P1, P2 … / C1 …)" oninput={(e) => (codeEdit = (e.currentTarget as HTMLInputElement).value)} />
 			<button class="primary" disabled={problems.length > 0 || !issueCode.trim() || codeTaken} title={codeTaken ? `Revision ${issueCode} exists — Overwrite it, or pick another code` : ''} onclick={() => issue(false)}>Issue rev {issueCode}</button>
 			{#if sheet.code}<button disabled={problems.length > 0} onclick={() => issue(true)} title="Replace revision {sheet.code} with the sheet as it is now">Overwrite {sheet.code}</button>{/if}
@@ -126,21 +127,26 @@
 		{#if revisions.length}
 			<div class="hp-list">
 				{#each revisions as r (r.id)}
-					<div class="hp-rev major">
+					<div class="hp-rev major" class:editing={editing === r.code}>
 						<div class="hp-rev-head">
-							<input type="radio" name="hp-cur" checked={sheet.code === r.code} title="The CURRENT revision (the title block's Rev + Date)" onchange={() => onrevcurrent?.(r.code, r.issuedAt)} />
+							<input type="radio" name="hp-cur" checked={sheet.code === r.code} title="Make this the CURRENT revision (the title block's Rev + Date)" onchange={() => onrevcurrent?.(r.code, r.issuedAt)} />
 							<span class="hp-ver">{r.code}</span>
-							{#if editing === r.code}
-								<input class="hp-edit" value={r.description ?? ''} placeholder="Description" onchange={(e) => onrevedit?.(r.code, { description: (e.currentTarget as HTMLInputElement).value.trim() })} />
-								<input class="hp-date" type="date" value={r.issuedAt?.slice(0, 10)} onchange={(e) => { const v = (e.currentTarget as HTMLInputElement).value; if (v) onrevedit?.(r.code, { issuedAt: new Date(v + 'T12:00:00').toISOString() }) }} />
-								<button class="hp-restore" onclick={() => (editing = null)}>Done</button>
-							{:else}
-								<span class="hp-name" title={r.description}>{r.description || 'Issued'}</span>
-								<span class="hp-when" title={r.issuedBy}>{fmtDate(r.issuedAt)}</span>
-								<button class="hp-mini" title="Edit description / date" onclick={() => (editing = r.code)}><Icon name="edit" size={11} /></button>
-								<button class="hp-mini" class:confirm={confirmDel === r.code} title="Delete this revision" onclick={() => delRev(r.code)}>{confirmDel === r.code ? 'Delete?' : '×'}</button>
-							{/if}
+							<span class="hp-name" title={r.description}>{r.description || 'Issued'}</span>
+							<span class="hp-when" title={r.issuedBy}>{fmtDate(r.issuedAt)}</span>
+							<button class="hp-ico" class:on={editing === r.code} title="Edit description / date" onclick={() => (editing = editing === r.code ? null : r.code)}><Icon name="edit" size={12} /></button>
+							<button class="hp-ico del" class:confirm={confirmDel === r.code} title={confirmDel === r.code ? 'Click again to delete' : 'Delete this revision'} onclick={() => delRev(r.code)}><Icon name="trash" size={12} /></button>
 						</div>
+						{#if editing === r.code}
+							<!-- the editor opens BELOW the row, full width (no squeezing inputs into one line) -->
+							<div class="hp-rev-edit">
+								<input class="hp-edit" value={r.description ?? ''} placeholder="Description" onchange={(e) => onrevedit?.(r.code, { description: (e.currentTarget as HTMLInputElement).value.trim() })} />
+								<div class="hp-rev-edit-row">
+									<input class="hp-date" type="date" value={r.issuedAt?.slice(0, 10)} onchange={(e) => { const v = (e.currentTarget as HTMLInputElement).value; if (v) onrevedit?.(r.code, { issuedAt: new Date(v + 'T12:00:00').toISOString() }) }} />
+									<button class="hp-done" onclick={() => (editing = null)}>Done</button>
+								</div>
+							</div>
+						{/if}
+						{#if confirmDel === r.code}<div class="hp-del-note">Delete revision {r.code}? Click the bin again.</div>{/if}
 					</div>
 				{/each}
 			</div>
@@ -166,7 +172,7 @@
 </div>
 
 <style>
-	.hp { flex:1; overflow-y:auto; min-height:0; padding:6px; scrollbar-width:thin; scrollbar-color:var(--line) transparent; }
+	.hp { flex:1; overflow-y:auto; overflow-x:hidden; min-height:0; padding:6px; scrollbar-width:thin; scrollbar-color:var(--line) transparent; }
 	.hp-tools { display:flex; gap:5px; padding:2px 2px 6px; }
 	.hp-tools button { flex:1; display:inline-flex; align-items:center; justify-content:center; gap:4px; padding:6px; font-size:11px;
 		border-radius:5px; color:var(--text); background:var(--panel2); border:1px solid var(--line); }
@@ -179,8 +185,9 @@
 	.hp-status b { color:var(--text); font-family:Consolas,monospace; }
 	.hp-note { width:100%; min-height:44px; resize:vertical; background:var(--input); color:var(--text); border:1px solid var(--line-soft); border-radius:4px; padding:4px 6px; font-size:11px; font-family:inherit; line-height:1.35; display:block; }
 	.hp-note:focus { outline:none; border-color:var(--accent); }
-	.hp-acts { display:flex; gap:5px; padding:5px 0 4px; }
-	.hp-acts button { flex:1; font-size:11px; padding:5px 6px; border-radius:5px; color:var(--text); background:var(--panel2); border:1px solid var(--line); cursor:pointer; }
+	.hp-acts { display:flex; flex-wrap:wrap; align-items:center; gap:5px; padding:5px 0 4px; }
+	.hp-code-l { font-size:10px; color:var(--faint); }
+	.hp-acts button { flex:1 1 90px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; padding:5px 6px; border-radius:5px; color:var(--text); background:var(--panel2); border:1px solid var(--line); cursor:pointer; }
 	.hp-acts button.primary { border-color:var(--accent); color:var(--accent); }
 	.hp-acts button:hover:not(:disabled) { background:var(--hover); }
 	.hp-acts button:disabled { opacity:.4; cursor:default; }
@@ -206,8 +213,18 @@
 	.hp-ver { flex:0 0 auto; min-width:26px; font-size:11px; font-family:Consolas,monospace; color:var(--muted); }
 	.hp-rev.major .hp-ver { color:var(--text); font-weight:700; }
 	.hp-code { width:52px; flex:none; background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:3px 5px; font-size:11px; font-family:Consolas,monospace; }
-	.hp-edit { flex:1; min-width:0; background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:2px 4px; font-size:11px; }
-	.hp-date { width:118px; flex:none; background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:1px 3px; font-size:10px; }
+	.hp-rev.editing { background:var(--hover); }
+	.hp-rev-edit { display:flex; flex-direction:column; gap:5px; padding:6px 0 2px 20px; }
+	.hp-rev-edit-row { display:flex; align-items:center; gap:6px; }
+	.hp-edit { width:100%; box-sizing:border-box; background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:4px 6px; font-size:12px; }
+	.hp-date { flex:1; min-width:0; background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:3px 5px; font-size:11px; color-scheme:dark; }
+	.hp-edit:focus, .hp-date:focus { outline:none; border-color:var(--accent); }
+	.hp-done { flex:none; font-size:11px; font-weight:600; padding:4px 14px; border-radius:4px; border:none; background:var(--accent); color:#fff; color:contrast-color(var(--accent)); cursor:pointer; }
+	.hp-ico { flex:none; width:22px; height:22px; display:grid; place-items:center; padding:0; border:1px solid var(--line); border-radius:4px; background:none; color:var(--muted); cursor:pointer; }
+	.hp-ico:hover, .hp-ico.on { color:var(--text); background:var(--active); }
+	.hp-ico.del:hover { color:#f87171; }
+	.hp-ico.confirm { color:#fff; background:#dc2626; border-color:#dc2626; }
+	.hp-del-note { font-size:10px; color:#f87171; padding:3px 0 0 20px; }
 	.hp-mini { flex:0 0 auto; font-size:10px; color:var(--muted); background:none; border:1px solid transparent; border-radius:4px; padding:1px 4px; cursor:pointer; }
 	.hp-rev:hover .hp-mini { border-color:var(--line); }
 	.hp-mini.confirm { color:#fff; background:#dc2626; border-color:#dc2626; }

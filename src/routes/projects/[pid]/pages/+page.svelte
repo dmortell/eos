@@ -937,7 +937,7 @@
 	{#if paletteOpen}<CommandPalette items={paletteItems} onpick={pickPalette} onclose={() => (paletteOpen = false)} />{/if}
 	{#if proj.drawingsOpen && proj.store}
 		<DrawingsDialog sheets={proj.store.sheets} places={proj.store.places} models={proj.storedModelInfo} projectName={proj.src?.project?.name ?? ''} packagesHref="/projects/{page.params.pid}/packages"
-			onupdate={proj.updateSheets} onarchive={proj.archiveSheets} onrestore={proj.restoreSheets} ondelete={proj.deleteSheet}
+			onupdate={proj.updateSheets} onarchive={(ids) => void proj.removeSheets(ids)} onrestore={proj.restoreSheets} ondelete={proj.deleteSheet}
 			onopen={proj.openSheetById} onmodelarchive={proj.setModelArchived} onopenmodel={proj.openModelById} onpackage={proj.saveAsPackage}
 			onlistlegacy={proj.legacySheets} onimportlegacy={proj.importLegacySheet} onprint={(ids) => { for (const id of ids) proj.loadSheet(id); bookIds = ids; proj.drawingsOpen = false }}
 			onclose={() => (proj.drawingsOpen = false)} />
@@ -988,7 +988,7 @@
 					onimportdrawing={proj.hasPlaces ? (id) => void proj.importRegisterDrawing(id).then((notes) => { if (notes.length) toast(notes.join('\n')) }) : undefined}
 					onimportriser={proj.hasPlaces ? (id) => void proj.importRisers(id).then((notes) => { if (notes.length) toast(notes.join('\n')) }) : undefined}
 					onsheetadd={proj.hasPlaces ? proj.onSheetAdd : undefined} onplaceimport={proj.hasPlaces ? (id) => void proj.importPlaceOutlets(id) : undefined} onplaceracks={proj.hasPlaces ? proj.imports.importPlaceRacks : undefined}
-					onsheetrename={(rowId, t) => proj.renameSheet(rowId.slice(2), t)} onsheetarchive={(rowId) => proj.archiveSheet(rowId.slice(2))} onsheetduplicate={(rowId) => proj.duplicateSheet(rowId.slice(2))} onlinksheet={proj.hasPlaces ? proj.addLinkSheet : undefined}
+					onsheetrename={(rowId, t) => proj.renameSheet(rowId.slice(2), t)} onsheetdelete={(rowId) => proj.removeSheets([rowId.slice(2)])} onsheetduplicate={(rowId) => proj.duplicateSheet(rowId.slice(2))} onlinksheet={proj.hasPlaces ? proj.addLinkSheet : undefined}
 					onaddbuilding={(n) => proj.src?.addBuilding(n).catch((e) => { toast(`Couldn't add the building: ${e?.message ?? e}`); return false }) ?? Promise.resolve(false)}
 					onmovefloor={(f, b) => proj.src?.moveFloor(f, b).catch((e) => toast(`Couldn't move the floor: ${e?.message ?? e}`))}
 					onmovebuilding={(n, t, after) => proj.src?.moveBuilding(n, t, after).catch((e) => toast(`Couldn't reorder: ${e?.message ?? e}`))}

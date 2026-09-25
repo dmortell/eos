@@ -120,8 +120,13 @@
 				<button class="pp-mini" title="Remove this point" onclick={() => onupdate?.({ cpts: cps.length > 1 ? cps.filter((_, j) => j !== i) : undefined })}>×</button>
 			</div>
 		{/each}
+		{#if cps.length}<div class="pp-hint">dX / dY = mm from the box's centre (+X right, +Y down the plan); the × marks show while a conduit is selected or being drawn.</div>{/if}
 		<div class="prop"><span></span><span class="pp-seg">
-			<button title="Add a point at the centre, then set its offset" onclick={() => onupdate?.({ cpts: [...cps, { id: newId('cp'), dx: 0, dy: 0 }] })}>+ Point</button>
+			<!-- the first "+ Point" keeps the five defaults as editable rows, then adds one (at the centre — set its offset) -->
+			<button title="Add a point (at the centre — then set its dX / dY)" onclick={() => {
+				const base = cps.length ? cps : [{ id: 'c', dx: 0, dy: 0 }, { id: 'n', dx: 0, dy: -Math.round(obj.d / 2) }, { id: 'e', dx: Math.round(obj.w / 2), dy: 0 }, { id: 's', dx: 0, dy: Math.round(obj.d / 2) }, { id: 'w', dx: -Math.round(obj.w / 2), dy: 0 }]
+				onupdate?.({ cpts: [...base, { id: newId('cp'), dx: 0, dy: 0 }] })
+			}}>+ Point</button>
 			{#if cps.length}<button title="Back to centre + edge midpoints" onclick={() => onupdate?.({ cpts: undefined })}>Default</button>{/if}
 		</span></div>
 	{/if}

@@ -10,6 +10,7 @@
 // The workspace itself (tabs, panes, history, paper) stays in +page.svelte and reaches this class through
 // `ProjectHost`. Construct it during component init: the constructor registers $effects.
 import { untrack } from 'svelte'
+import { toast } from 'svelte-sonner'
 import type { Firestore, Session as AuthSession } from '$lib'
 import { newId } from './ids'
 import { viewState } from './viewState.svelte'
@@ -512,6 +513,32 @@ export class PagesProject {
 		if (!this.store) return
 		ids.forEach((id) => this.#archive(id))
 		this.#h.toast(`${ids.length} sheet${ids.length === 1 ? '' : 's'} archived`)
+	}
+	/** Delete sheets straight away (tree ⋮ / drawings dialog, after a confirm), with an UNDO on the toast: the sheet
+	 *  docs come back under the same ids (their revisions / versions never left) with their viewport-only notes. */
+	removeSheets = async (ids: string[]) => {
+		const ps = this.store; if (!ps || !ids.length) return
+		const docs: PagesSheetDoc[] = [], notes: { mid: string; ents: Ent[] }[] = []
+		for (const id of ids) {
+			const sh = ps.sheets.find((x) => x.id === id); if (!sh) continue
+			const snap = $state.snapshot(sh) as PagesSheetDoc
+			// its frames' view-scoped annotations go too (they'd be orphans), kept for the undo
+			const fids = new Set(snap.frames.map((f) => `view:${f.id}`))
+			for (const m of models) {
+				const mine = (m.shapes ?? []).filter((e) => e.space && fids.has(e.space)); if (!mine.length) continue
+				notes.push({ mid: m.id, ents: mine.map((e) => $state.snapshot(e) as Ent) })
+				m.shapes = (m.shapes ?? []).filter((e) => !(e.space && fids.has(e.space)))
+			}
+			for (const t of [...this.#h.session.tabs]) if (t.docId === SHEET + id) this.#h.closeTab(t.id)
+			const d = await ps.deleteSheetNow(id); if (d) docs.push(snap)
+		}
+		if (!docs.length) return
+		const what = docs.length === 1 ? `“${docs[0].title}”` : `${docs.length} sheets`
+		toast(`Deleted ${what}`, { duration: 10000, action: { label: 'Undo', onClick: () => {
+			for (const d of docs) ps.restoreSheet(d)
+			for (const n of notes) { const m = modelById(n.mid); if (m) m.shapes = [...(m.shapes ?? []), ...n.ents] }
+			this.#h.toast(`Restored ${what}`)
+		} } })
 	}
 	restoreSheets = (ids: string[]) => { for (const id of ids) this.store?.setSheetStatus(id, 'active') }
 	deleteSheet = (id: string) => { void this.store?.hardDeleteSheet(id).then((ok) => { if (ok) this.#h.toast('Sheet deleted') }) }

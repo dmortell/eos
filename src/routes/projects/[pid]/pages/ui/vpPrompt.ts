@@ -22,7 +22,7 @@ export type PromptArgs = {
 export function toolPrompt(a: PromptArgs): string {
 	const { tool, n, isPlan, isElev } = a
 	switch (tool) {
-		case 'Select': return a.graphSelected ? 'Drag a node to reshape · Ctrl-drag a node to branch · double-click a segment to add a node' : 'Click an element'
+		case 'Select': return a.graphSelected ? 'Drag a node to reshape (a node shared with another run brings it along — Alt-drag pulls it off) · Ctrl-drag a node to branch · double-click a segment to add a node' : 'Click an element'
 		case 'Line': return n ? 'Specify next point (Enter / double-click to finish)' : 'Specify first point'
 		case 'Guide': {
 			if (!a.guideSpace) return 'Guides are placed on a plan or elevation view'

@@ -3,7 +3,7 @@
 	// Properties: logo text, then the fields in order — relabel, full-width or half, move, remove, add an
 	// auto-filled field or a custom one with fixed text. Every change calls `onchange` with the whole template
 	// (the store saves `projects/{pid}.pages.titleBlock`; every sheet of the project re-renders from it).
-	import { Icon } from '$lib'
+	import { Icon, DragReorder } from '$lib'
 	import { TB_AUTO, DEFAULT_TITLE_BLOCK, type TitleBlockTemplate, type TbField, type TbAutoKey, type TbCompany, type TbSection, type TbLogo, type TbLayout } from '../titleBlock'
 
 	let { template, onchange }: { template: TitleBlockTemplate | undefined; onchange: (t: TitleBlockTemplate) => void } = $props()
@@ -14,10 +14,13 @@
 	const shows = (s: TbSection) => !t.hidden?.includes(s)
 	const toggle = (s: TbSection) => set({ hidden: shows(s) ? [...(t.hidden ?? []), s] : (t.hidden ?? []).filter((x) => x !== s) })
 	const setField = (i: number, patch: Partial<TbField>) => set({ fields: t.fields.map((f, j) => (j === i ? { ...f, ...patch } : f)) })
-	function move(i: number, d: -1 | 1) {
-		const fs = [...t.fields], j = i + d; if (j < 0 || j >= fs.length) return
-		;[fs[i], fs[j]] = [fs[j], fs[i]]; set({ fields: fs })
-	}
+	// fields reorder by dragging their ⋮⋮ grip ($lib DragReorder; ids = the row index, `f<i>`)
+	const idx = (id: string) => Number(id.slice(1))
+	const dr = new DragReorder((id, targetId, after) => {
+		const fs = [...t.fields], [f] = fs.splice(idx(id), 1)
+		let to = idx(targetId); if (idx(id) < to) to--   // the target shifted up when the dragged one left
+		fs.splice(after ? to + 1 : to, 0, f); set({ fields: fs })
+	}, idx)
 	const remove = (i: number) => set({ fields: t.fields.filter((_, j) => j !== i) })
 	function add(key: string) {
 		if (!key) return
@@ -74,7 +77,11 @@
 <div class="prop"><span></span><input value={t.company?.address ?? ''} placeholder="Address" onchange={(e) => setCompany({ address: val(e) })} onkeydown={blurOnEnter} /></div>
 <div class="prop"><span></span><input value={t.company?.contact ?? ''} placeholder="Tel / email" onchange={(e) => setCompany({ contact: val(e) })} onkeydown={blurOnEnter} /></div>
 {#each t.fields as f, i (i)}
-	<div class="tbf">
+	{@const r = dr.row(`f${i}`)}
+	<!-- the row is the drop target; only the grip starts a drag (so the inputs stay selectable) -->
+	<div class="tbf" class:drag-before={dr.isBefore(`f${i}`)} class:drag-after={dr.isAfter(`f${i}`)} class:dragging={dr.dragId === `f${i}`}
+		ondragover={r.ondragover} ondragleave={r.ondragleave} ondrop={r.ondrop} role="listitem">
+		<span class="grip" draggable="true" ondragstart={r.ondragstart} ondragend={r.ondragend} title="Drag to reorder" role="button" tabindex="-1">⋮⋮</span>
 		<input class="lbl" value={f.label} title={f.key === 'custom' ? 'Label (custom text)' : `Label — filled with the sheet's ${TB_AUTO[f.key].toLowerCase()}`}
 			onchange={(e) => setField(i, { label: val(e) })} onkeydown={blurOnEnter} />
 		{#if f.key === 'custom'}
@@ -83,8 +90,6 @@
 			<em title="Filled automatically">{TB_AUTO[f.key]}</em>
 		{/if}
 		<button class:on={f.wide} title={f.wide ? 'Full width (click for half)' : 'Half width (click for full)'} onclick={() => setField(i, { wide: !f.wide })}>{f.wide ? '▭' : '◫'}</button>
-		<button title="Move up" disabled={i === 0} onclick={() => move(i, -1)}><Icon name="chevronUp" size={11} /></button>
-		<button title="Move down" disabled={i === t.fields.length - 1} onclick={() => move(i, 1)}><Icon name="chevronDown" size={11} /></button>
 		<button title="Remove" onclick={() => remove(i)}><Icon name="x" size={11} /></button>
 	</div>
 {/each}
@@ -99,6 +104,11 @@
 
 <style>
 	.tbf { display:flex; align-items:center; gap:3px; padding:2px 4px; }
+	.tbf.drag-before { box-shadow:inset 0 2px 0 var(--accent); }
+	.tbf.drag-after { box-shadow:inset 0 -2px 0 var(--accent); }
+	.tbf.dragging { opacity:.45; }
+	.grip { flex:none; width:12px; color:var(--faint); cursor:grab; font-size:10px; letter-spacing:-2px; user-select:none; text-align:center; }
+	.grip:hover { color:var(--text); }
 	.tbf input { background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:3px 5px; font-size:11px; font-family:Consolas,monospace; min-width:0; }
 	.tbf input:focus { outline:none; border-color:var(--accent); }
 	.tbf .lbl { width:64px; flex:none; }

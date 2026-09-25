@@ -9,7 +9,7 @@
 	import { type NavKind as Kind, type NavNode as Node, NAV_TREE as TREE, NAV_PROJECT as PROJECT } from '../mock/data'
 
 	let { onopen, onopenfloor, oncollapse, onselectnode, activeDoc = '', activeNode = '', tree = null, project = null, status = '', onaddbuilding, onmovefloor, onmovebuilding, reveal = [],
-		placesMode = false, onseedplaces, onplaceadd, onplacerename, onplacemove, onplacedelete, onopenplace, onsheetadd, onsheetrename, onsheetarchive, onsheetduplicate, onlinksheet, onplaceimport, onplaceracks, ondrawings, onimportdrawing, onimportriser }:
+		placesMode = false, onseedplaces, onplaceadd, onplacerename, onplacemove, onplacedelete, onopenplace, onsheetadd, onsheetrename, onsheetdelete, onsheetduplicate, onlinksheet, onplaceimport, onplaceracks, ondrawings, onimportdrawing, onimportriser }:
 		{ onopen?: (d: { title: string; kind: Kind; preview: boolean; floor?: string; docId?: string }) => void; oncollapse?: () => void;
 			/** A FLOOR row was clicked (preview) or double-clicked (kept): open that floor's model tab. */
 			onopenfloor?: (floor: string, preview: boolean) => void;
@@ -43,7 +43,8 @@
 			 *  so it opens for renaming; rename / archive a sheet leaf. Sheets drag like places (`onplacemove`). */
 			onsheetadd?: (placeId: string) => string | undefined
 			onsheetrename?: (rowId: string, title: string) => void
-			onsheetarchive?: (rowId: string) => void
+			/** Delete a sheet (after the menu's click-again confirm; the toast offers Undo). */
+			onsheetdelete?: (rowId: string) => void
 			/** B5: a link sheet under a place, opening another tool at its floor / room. */
 			onlinksheet?: (placeId: string, tool: SheetLink['tool']) => void
 			/** B1: duplicate a sheet leaf (right after it). */
@@ -149,7 +150,7 @@
 		if (n.sheet) {
 			if (onsheetrename) out.push({ key: 'rename', label: 'Rename', icon: 'edit', run: () => startRename(n) })
 			if (onsheetduplicate) out.push({ key: 'dup', label: 'Duplicate', icon: 'copy', run: () => onsheetduplicate?.(n.id) })
-			if (onsheetarchive) out.push({ key: 'archive', label: 'Archive', icon: 'archive', danger: true, confirm: 'Click again to archive', run: () => onsheetarchive?.(n.id) })
+			if (onsheetdelete) out.push({ key: 'delete', label: 'Delete', icon: 'trash', danger: true, confirm: 'Click again to delete (Undo on the message)', run: () => onsheetdelete?.(n.id) })
 			return out
 		}
 		if (onplaceimport && n.outletsDoc) out.push({ key: 'import', label: 'Import from Outlets tool', icon: 'download', confirm: 'Click again to import outlets + trunks', run: () => onplaceimport?.(n.id) })

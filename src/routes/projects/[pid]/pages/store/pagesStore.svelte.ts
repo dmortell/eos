@@ -144,6 +144,17 @@ export class PagesStore {
 		rest.forEach((s, i) => { if (s.id === id || s.sortOrder !== i) this.saveSheet({ ...s, placeId, sortOrder: i }) })
 	}
 	setSheetStatus(id: string, status: PagesSheetDoc['status']) { const s = this.sheets.find((x) => x.id === id); if (s && s.status !== status) this.saveSheet({ ...s, status }) }
+	/** Delete a sheet now (any status) — paper sheets are cheap to recreate, so no archive step. Its versions /
+	 *  revisions sub-collections stay, so `restoreSheet` (same id) brings the sheet back whole. Returns the doc. */
+	async deleteSheetNow(id: string): Promise<PagesSheetDoc | null> {
+		const s = this.sheets.find((x) => x.id === id); if (!s) return null
+		this.#sheetSaver.cancel(id)
+		this.sheets = this.sheets.filter((x) => x.id !== id)
+		await this.#db.delete(this.#sheetsPath, id)
+		return s
+	}
+	/** Undo a delete: the same doc, same id. */
+	restoreSheet(d: PagesSheetDoc) { this.saveSheet(d) }
 	/** Hard delete — only an ARCHIVED sheet (drawings-plan §5). */
 	async hardDeleteSheet(id: string): Promise<boolean> {
 		const s = this.sheets.find((x) => x.id === id)

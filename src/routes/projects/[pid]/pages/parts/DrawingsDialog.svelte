@@ -23,7 +23,7 @@
 		sheets: PagesSheetDoc[]; places: Place[]; models: ModelInfo[]; projectName?: string
 		/** The app's Packages page for this project (created packages are managed + published there). */
 		packagesHref?: string
-		onupdate: (p: Patch[]) => void; onarchive: (ids: string[]) => void; onrestore: (ids: string[]) => void
+		onupdate: (p: Patch[]) => void; /** delete the selected sheets (the caller's toast offers Undo) */ onarchive: (ids: string[]) => void; onrestore: (ids: string[]) => void
 		ondelete: (id: string) => void; onopen: (sheetId: string) => void
 		onmodelarchive: (id: string, archived: boolean) => void; onopenmodel: (id: string) => void; onclose: () => void
 		/** Create a draft package from sheet ids + a name; resolves to a message to show. */
@@ -108,6 +108,7 @@
 	}
 	// Package (phase 7): the selected sheets at their latest revisions, as a draft package
 	let pkgName = $state<string | null>(null), busy = $state(false)
+	let delArm = $state(false)   // the Delete button's click-again confirm
 	async function makePackage() {
 		if (!onpackage || busy) return
 		busy = true
@@ -169,7 +170,9 @@
 					<span class="grp" title="Renumber the selection in the order shown. {'{n}'} = number, {'{n:3}'} = zero-padded">
 						<input class="num" type="number" bind:value={rnStart} /><input class="pat" bind:value={rnPattern} />
 						<button class="dd-btn" onclick={applyRenumber}>Renumber</button><em>{rnPreview}</em></span>
-					<button class="dd-btn warn" onclick={() => { onarchive(selIds); sel = new Set() }}><Icon name="archive" size={13} /> Archive</button>
+					<!-- paper sheets are cheap to recreate: Delete (click twice to confirm; the message offers Undo) -->
+					<button class="dd-btn warn" onclick={() => { if (!delArm) { delArm = true; return } onarchive(selIds); sel = new Set(); delArm = false }} onblur={() => (delArm = false)}>
+						<Icon name="trash" size={13} /> {delArm ? `Delete ${selIds.length}? Click again` : 'Delete'}</button>
 					{#if onprint}<button class="dd-btn" title="Print the selected sheets as one job, one per page, each at its own paper size (reorder first)" onclick={() => onprint?.(selIds)}><Icon name="print" size={13} /> Print</button>{/if}
 					{#if pkgName === null}
 					<button class="dd-btn" title="A draft package of the selected sheets at their latest revisions" onclick={() => (pkgName = '')}><Icon name="package" size={13} /> Package</button>

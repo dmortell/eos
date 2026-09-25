@@ -250,7 +250,9 @@
 	.lp-del { display:inline-flex; align-items:center; gap:5px; font-size:12px; color:var(--danger); background:none; border:1px solid var(--line); border-radius:6px; padding:6px 11px; }
 	.lp-del:hover:not(:disabled) { background:var(--hover); }
 	.lp-del:disabled { opacity:.45; cursor:not-allowed; }
-	.lp-done { font-size:12px; font-weight:600; color:#06232a; background:var(--accent); border:none; border-radius:6px; padding:6px 16px; }
+	/* the browser picks black / white against the accent where contrast-color() is supported; white otherwise */
+	.lp-done { font-size:12px; font-weight:700; color:#fff; color:contrast-color(var(--accent)); background:var(--accent); border:none; border-radius:6px; padding:6px 16px; cursor:pointer; }
+	.lp-done:hover { filter:brightness(1.1); }
 
 	.lp-new { flex:0 0 auto; display:flex; align-items:center; justify-content:center; gap:6px; margin:6px; padding:7px;
 		font-size:11px; border-radius:5px; color:var(--text); background:var(--panel2); border:1px dashed var(--line); }

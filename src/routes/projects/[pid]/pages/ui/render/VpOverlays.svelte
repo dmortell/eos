@@ -88,10 +88,11 @@
 		{/each}
 	{/if}
 {/if}
-<!-- I6: the model ORIGIN (0,0) — where a floorplan's Uploads calibration origin lands — in a plan model tab -->
-{#if v.modelSpace && v.isPlan}
-	<g class="origin-mark" stroke="#f43f5e" stroke-width={1.2 * sw} opacity="0.75" fill="none">
-		<line x1={-gs * 3} y1="0" x2={gs * 3} y2="0" /><line x1="0" y1={-gs * 3} x2="0" y2={gs * 3} /><circle cx="0" cy="0" r={gs} />
+<!-- I6: the model ORIGIN (0,0) — where a floorplan's Uploads calibration origin lands — a red cross on every
+     plan view (model tabs and sheet viewports); screen only, never printed -->
+{#if v.isPlan}
+	<g class="origin-mark print:hidden" stroke="#ef4444" stroke-width={1.6 * sw} fill="none" pointer-events="none">
+		<line x1={-gs * 2.5} y1="0" x2={gs * 2.5} y2="0" /><line x1="0" y1={-gs * 2.5} x2="0" y2={gs * 2.5} />
 		<title>Model origin (0, 0) — the floorplan's calibration origin</title>
 	</g>
 {/if}

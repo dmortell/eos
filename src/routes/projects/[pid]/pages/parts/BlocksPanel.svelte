@@ -8,7 +8,7 @@
 
 	let { armed = null, onarm }: { armed?: string | null; onarm: (id: string | null) => void } = $props()
 	let q = $state('')
-	const CAT: Record<string, string> = { outlet: 'Outlets', marker: 'Markers', eltag: 'Elevation tags', north: 'North arrows', faceplate: 'Faceplates', door: 'Doors', custom: 'Custom' }
+	const CAT: Record<string, string> = { outlet: 'Outlets', marker: 'Markers', eltag: 'Elevation tags', north: 'North arrows', faceplate: 'Faceplates', door: 'Doors', legend: 'Legends', custom: 'Custom' }
 	const groups = $derived.by(() => {
 		const by = new Map<string, BlockDef[]>()
 		for (const b of blockList()) if (!q || b.name.toLowerCase().includes(q.toLowerCase())) by.set(b.category ?? 'custom', [...(by.get(b.category ?? 'custom') ?? []), b])
@@ -22,7 +22,8 @@
 
 <div class="bp">
 	<div class="bp-search"><Icon name="search" size={12} /><input placeholder="Search blocks…" bind:value={q} /></div>
-	{#if armed}<div class="bp-armed">Click in a viewport to place · Esc stops</div>{/if}
+	<!-- one status line, always there (the list never jumps when a block is armed) -->
+	<div class="bp-armed" class:on={!!armed}>{armed ? 'Click in a viewport to place · Esc stops' : 'Click a block to place it, or drag it in'}</div>
 	{#each groups as [cat, list] (cat)}
 		<div class="bp-sec">{CAT[cat] ?? cat}</div>
 		<div class="bp-grid">
@@ -52,7 +53,8 @@
 	.bp-search { display:flex; align-items:center; gap:6px; padding:4px 6px; margin:2px; border:1px solid var(--line); border-radius:5px; color:var(--faint); }
 	.bp-search input { flex:1; min-width:0; background:none; border:none; color:var(--text); font-size:12px; }
 	.bp-search input:focus { outline:none; }
-	.bp-armed { font-size:10px; color:var(--accent); padding:4px 6px; }
+	.bp-armed { font-size:10px; line-height:14px; height:14px; color:var(--faint); padding:4px 6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+	.bp-armed.on { color:var(--accent); font-weight:600; }
 	.bp-sec { font-size:9px; text-transform:uppercase; letter-spacing:.1em; color:var(--faint); padding:10px 4px 4px; }
 	.bp-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:4px; }
 	.bp-item { position:relative; display:flex; flex-direction:column; align-items:center; gap:2px; padding:5px 3px; border:1px solid var(--line-soft); border-radius:5px; cursor:grab; color:var(--text); background:var(--panel2); }
