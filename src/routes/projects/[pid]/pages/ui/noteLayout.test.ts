@@ -21,3 +21,10 @@ describe('K3 notes layout', () => {
 		expect(texts.find((i) => i.text === 'A')!.bold).toBe(true); expect(texts.find((i) => i.text === '1')!.bold).toBeFalsy()
 	})
 })
+
+describe('K3 table cells', () => {
+	it('a header that fits its column exactly is not cut', () => {
+		const L = layoutNote('| Item | Quantity |\n|---|---|\n| Outlets | 24 |', 120, 3)
+		expect((L.items.filter((i) => i.kind === 'text') as { text: string }[]).map((t) => t.text)).toContain('Quantity')
+	})
+})

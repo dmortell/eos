@@ -2,7 +2,8 @@
 	// Properties › the selected 2D SHAPES (entities) of the active document. One shape: its own fields (text,
 	// callout, line label / length / heads, block + attributes, image calibration + crop). Several: the group's
 	// bbox X/Y (moves all) and the style fields they share ("mixed" when they differ) — edits apply to all.
-	import { ColorPicker } from '$lib'
+	import { ColorPicker, Icon } from '$lib'
+	import NoteDialog from '../NoteDialog.svelte'
 	import { COLORS } from '../../palette'
 	import NumCell from './NumCell.svelte'
 	import { num, strVal, fnav, blurOnEnter, autoresize } from './fields'
@@ -98,6 +99,7 @@
 	function setAll(patch: Partial<Ent>) { onupdate?.(ents.map((e) => ({ ...e, ...patch }))) }
 	const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
 	let blockName = $state<string | null>(null)
+	let noteEdit = $state(false)   // K3: the large NOTE editor (NoteDialog)
 	// D4: link a symbol to a sheet (its drawing number fills an empty SHEET) or to a URL
 	function setLink(ins: Ent, v: string) {
 		const attrs: Record<string, string> = { ...(ins.attrs ?? {}), LINK: v }
@@ -204,7 +206,11 @@
 {/if}
 {#if single?.type === 'note'}
 	<!-- K3: the note's markdown (# headings, - bullets, 1. lists, | tables |, **bold**), its width on paper + frame -->
-	<div class="prop-sec">NOTE</div>
+	<div class="prop-sec">NOTE<button class="pp-mini sec-btn" title="Edit in a large editor (with a preview)" aria-label="Edit note" onclick={() => (noteEdit = true)}><Icon name="edit" size={12} /></button></div>
+	{#if noteEdit}
+		{@const n = single}
+		<NoteDialog text={n.text ?? ''} width={n.noteW ?? 90} fontPt={n.fontPt ?? 8} onclose={() => (noteEdit = false)} onapply={(t) => { onupdate?.({ ...n, text: t }); noteEdit = false }} />
+	{/if}
 	<div class="prop wide"><textarea class="pp-textarea" use:autoresize value={single.text ?? ''} title="# heading · - bullet · 1. list · | a | b | table (|---| under the header row) · **bold**" onchange={(e) => setAll({ text: (e.currentTarget as HTMLTextAreaElement).value })}></textarea></div>
 	<div class="prop"><span>Width (mm)</span><input class="navf" type="number" min="15" value={single.noteW ?? 90} onkeydown={fnav} onchange={(e) => { const n = Math.round(num(e)); if (n >= 15) setAll({ noteW: n }) }} /></div>
 	<label class="prop cb"><span>Frame</span><input type="checkbox" checked={!!single.noteBox} onchange={(e) => setAll({ noteBox: (e.currentTarget as HTMLInputElement).checked || undefined })} /></label>

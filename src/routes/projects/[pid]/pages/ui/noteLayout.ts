@@ -58,13 +58,15 @@ export function layoutNote(md: string, width: number, size: number): NoteLayout 
 			}
 			i--
 			const cols = Math.max(...rows.map((r) => r.length)), cp = size * 0.5
-			let ws = Array.from({ length: cols }, (_, c) => Math.max(...rows.map((r) => (r[c] ?? '').length), 1) * CW * size + 2 * cp)
+			// a column fits its longest cell (a bold header's letters are ~12% wider)
+			const cw = (ri: number) => CW * size * (header && ri === 0 ? 1.12 : 1)
+			let ws = Array.from({ length: cols }, (_, c) => Math.max(...rows.map((r, ri) => (r[c] ?? '').length * cw(ri)), CW * size) + 2 * cp)
 			const tot = ws.reduce((a, b2) => a + b2, 0); if (tot > inner) ws = ws.map((w) => (w * inner) / tot)
 			const rh = size * LH + cp, x0 = PAD, y0 = y + size * 0.3
 			rows.forEach((r, ri) => {
 				let x = x0
 				r.forEach((cell, c) => {
-					const maxc = Math.max(1, Math.floor((ws[c] - 2 * cp) / (CW * size)))
+					const maxc = Math.max(1, Math.floor((ws[c] - 2 * cp) / cw(ri) + 1e-6))   // (+ε: an exact fit isn't cut)
 					items.push({ kind: 'text', x: x + cp, y: y0 + ri * rh + cp + size, text: cell.length > maxc ? cell.slice(0, Math.max(1, maxc - 1)) + '…' : cell, size, bold: header && ri === 0 })
 					x += ws[c]
 				})
