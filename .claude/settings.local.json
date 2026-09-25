@@ -24,7 +24,25 @@
       "mcp__playwright__browser_click",
       "mcp__playwright__browser_take_screenshot",
       "mcp__playwright__browser_evaluate",
-      "mcp__playwright__browser_snapshot"
-    ]
-  }
+      "mcp__playwright__browser_snapshot",
+      "Bash(cd /m/dev/eos-b19 && grep -A12 '\"scripts\"' package.json && ls vite.config.* vitest.config.* 2>/dev/null)",
+      "Bash(npx vitest *)",
+      "Bash(npx svelte-kit *)",
+      "Bash(NODE_OPTIONS=--max-old-space-size=8192 npx svelte-check --tsconfig ./tsconfig.json --output human)",
+      "Bash(NODE_OPTIONS=--max-old-space-size=8192 npx svelte-check --tsconfig ./tsconfig.json --output machine)",
+      "Skill(update-config)",
+      "Bash(cd /m/dev/eos-b19*)",
+      "Bash(cd M:/dev/eos-b19*)",
+      "Bash(git -C /m/dev/eos-b19 *)",
+      "Bash(git -C M:/dev/eos-b19 *)",
+      "Bash(node -e \"const s=require\\('M:/dev/eos/.claude/settings.local.json'\\); console.log\\(s.permissions.allow.filter\\(r=>r.includes\\('eos-b19'\\)\\).join\\('\\\\n'\\)\\)\")",
+      "Bash(git -C M:/dev/eos status --short -- 'src/routes/projects/[pid]/pages/+page.svelte' 'src/routes/projects/[pid]/pages/parts/PropertiesPanel.svelte' 'src/routes/projects/[pid]/pages/constants.ts' 'src/routes/projects/[pid]/pages/constants.test.ts')",
+      "Bash(NODE_OPTIONS=--max-old-space-size=8192 npx svelte-check --workspace M:/dev/eos-b19 --tsconfig M:/dev/eos-b19/tsconfig.json --output machine)",
+      "Bash(cd M:/dev/eos-b19 && npx vitest run 2>&1 | grep -vE '^\\\\s*$' | grep -E 'RUN|FAIL|×|Test Files|Tests |AssertionError' | head -30)"
+    ],
+    "crossSessionInbound": "accept",
+    "defaultMode": "bypassPermissions"
+  },
+  "crossSessionInbound": "accept",
+  "skipDangerousModePermissionPrompt": true
 }

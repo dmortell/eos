@@ -5,7 +5,7 @@ Working notes for the Kestrel-style **Pages** workspace mockup
 state, no Firestore). This file tracks what's left to reach a real tool.
 
 > **Doc map (R11):** `README.md` = the file map + coordinate reference · `review.md` = the standing code
-> review (§0a = done tracker) · `refactor-plan.md` = the Viewport split plan (R1) · `model-plan.md` = the
+> review (§0a = done tracker) · `CHANGELOG.md` = curated milestones · `model-plan.md` = the
 > 3D-engine port. This file keeps **open** items + decisions; the long done-log below is historical — the
 > real changelog is `git log`.
 
@@ -17,6 +17,160 @@ Kestrel code is in M:\dev\KestrelCad2
 ---
 
 ## 0. Bugs / quick wins  (P1)
+### Command line — commands NOT yet built (pick list, 2026-09-25)
+Built so far: see CHANGELOG.md "Command line" and "Command line, round 2" (the ticked items moved there).
+Tick the ones you want. Size: S = under half a day, M = one to two days, L = multi-day. [K] = in Kestrel's list.
+**Interaction upgrades to what exists**
+- [ ] **POLAR tracking / F10** — snap the rubber band to 15° / 30° / 45° increments with a tracking line. [K] (M)
+- [ ] **Command-line prompts per step** — "Specify next point or [Close / Undo]:" in the command line (today the
+  viewport's status line shows the prompt). (S)
+- [ ] **Command options as clickable [brackets]** in the prompt. [K] (S)
+- [ ] **Keypad coordinate entry** — accept `100..200` as `100,200`, since the number pad has no comma, so points
+  can be typed on the keypad alone. Parse `..` as the X/Y separator in `parseCoord` (ui/commands.ts); a single `.`
+  is still a decimal point (`100.5..200` = 100.5,200). Also allow the keypad `+` / `-` without zooming while the
+  command line has text. Consider a keypad-friendly prefix for relative input in place of `@` (e.g. a leading `*`
+  or `/`). (S)
+**Draw**
+- [ ] **SPLINE** — a new entity. [K] (M)
+- [ ] **POINT** — a point marker. [K] (S)
+- [ ] **HATCH** — fill a closed boundary with a pattern (a pattern library, and DXF HATCH). [K] (L)
+- [ ] **DIMANGULAR / DIMRADIUS / DIMDIAMETER / DIMCONTINUE / DIMBASELINE** — more dimension types. (M each)
+- [ ] **TABLE** — a grid of text cells on a sheet. (L)
+- [ ] **REVCLOUD** — a revision cloud around a region. (S–M)
+**Modify**
+- [ ] **MIRROR** — about a two-point line, keeping or deleting the source. [K] (S–M)
+- [ ] **FILLET / CHAMFER** — two lines to a corner / radius / bevel (radius 0 = a clean corner). [K] (M)
+- [ ] **ARRAY** — rectangular (rows × cols × spacing) and polar (count about a centre); useful for outlets and
+  desks. [K] (M)
+- [ ] **JOIN** — end-to-end lines → one polyline. [K] (S–M)
+- [ ] **EXPLODE** — a block insert / polyline / group → its parts. [K] (S–M)
+- [ ] **STRETCH** — move the vertices inside a crossing window. (M)
+- [ ] **MATCHPROP** — copy the style / layer from one shape to others. [K] (S)
+- [ ] **ALIGN / DISTRIBUTE** — also reported by Dave; see "Reported 2026-09-25". (S–M)
+- [ ] **TRIM / EXTEND / BREAK on arcs, rects and ellipses** — today these (and TRIM's cutting target) work on lines /
+  polylines only; OFFSET and LENGTHEN already handle arcs. (M)
+**Inquiry**
+- [ ] **AREA** — the area and perimeter of picked points or a closed shape. [K] (S)
+- [ ] **ID** — the coordinates of a point. (S)
+- [ ] **LIST** — the properties of the selection as text. (S)
+**Layers / selection**
+- [ ] **LAYON / LAYOFF / LAYFRZ / LAYISO / LAYUNISO** — layer actions by picking a shape. [K] (S each)
+- [ ] **PURGE** — delete unused layers and blocks. [K] (S–M)
+- [ ] **FILTER / QSELECT** — select by type / layer / colour / property. [K] (M)
+- [ ] **SELECTSIMILAR** — the same type and layer as the selection. (S)
+**View / display**
+- [ ] **WIREFRAME / SHADED / SHADEDGES / XRAY** — visual styles for the 3D viewport. [K] (M)
+- [ ] **PERSPECTIVE** — a perspective 3D camera. [K] (M)
+- [ ] **REGEN**, and **THEME** (light / dark). [K] (S)
+- [ ] **NAMED VIEWS** (VIEW). (M)
+**3D (Kestrel solids — only if Pages needs them)**
+- [ ] **BOX / CYLINDER / SPHERE / CONE / TORUS / EXTRUDE / REVOLVE / UNION / SUBTRACT / INTERSECT / TRANSFORM3D**
+  — generic solids. Pages has typed model objects (walls, boxes, conduits) instead; probably skip. [K] (L)
+**File / project**
+- [ ] **SVGOUT / PNGOUT of a whole SHEET** (paper + title block + every viewport). Today they export the active
+  viewport; a sheet goes to PDF through print. Images that aren't data: URLs come out blank in the PNG. (M)
+- [ ] **DWGOUT** — Kestrel has a DWG codec. [K] (L)
+- [ ] **UNITS** — display units (mm / m) and precision. [K] (S–M)
+- [ ] **AUDIT** — check the model for broken references (dangling block ids, graph nodes, layer ids). [K] (M)
+- [ ] **XREF / ATTACH** — attach another model or DXF as an underlay. (L)
+
+### Parity pick-list — every item NOT yet built (from parity-review.md, 2026-09-25)
+Size: S = under half a day, M = one to two days, L = multi-day. Dave's notes in quotes.
+- [ ] **A3** Checked / Approved / Client per-sheet fields in the title block (S).
+- [ ] **B4** Viewport numbering in reading order (rows, then left → right), renumbered on move; Pages numbers by
+  creation order (S).
+- [ ] **B9** A Tools menu linking to the other project tools (S).
+- [ ] **D11** Single-key tool hotkeys (T text, L line, R rect …) (S). "no — conflicts with the command line; maybe
+  Alt+key." → covered by command-line aliases (below).
+- [ ] **D12** Right-click context menu (group, ungroup, duplicate, copy, paste, delete, auto-number, conduit items)
+  (M). "low priority".
+- [ ] **E4** Real outlet fields (M):
+  - level (low / high);
+  - cable type;
+  - usage as a choice list that recolours the symbol;
+  - the import keeps them.
+- [ ] **E6** Single-key property shortcuts (1–9 ports, l / h level, c / s / m cable, w / f / b mount) (S). "only if no conflict with the command line".
+- [ ] **E7** Per-port labels (.A / .B), derived or edited, plus baked labels from Frames (M). "only really need
+  this for a new Frames tool".
+- [ ] **E10** Object list in the sidebar (outlets / conduits): sort, select, per-item show / hide, counts (M). "low
+  priority".
+- [ ] **F1** Trunk spec at draw time (M):
+  - a catalogue (PF22 / PF28 / E51, MK0–5, ladder, tray …);
+  - location (under floor / ceiling plenum / tray / wall);
+  - size, Z.
+- [ ] **F2** Pipe inner vs outer diameter (M).
+- [ ] **F4 follow-ups** (segment select itself is done — CHANGELOG):
+  - split at node;
+  - disconnect node;
+  - these via the context menu (D12).
+- [ ] **F7** Trunk rooms restriction (A–D) (S). "I don't understand this" — from the Outlets tool: a trunk tagged
+  with the rooms (server rooms A–D) it may carry cables to; a routing filter.
+- [ ] **F11** Automatic secondary routes (outlet → nearest same-level trunk, coloured by server room) (L). "low
+  priority — for checking outlets reach the right trunk / rack, and cable-length estimates for the BOM".
+- [ ] **G1** Import rackPlacements onto floor models as linked rack objects (M). "let me rethink this".
+- [ ] **G2** Rack palette: unplaced racks by room, drag onto the plan, "New rack here", adopt the row layout
+  (M–L). "rethink this".
+- [ ] **G3** Rack properties write back to the racks doc (U, W × D, type, maker, model, rotation) (M). "maybe".
+- [ ] **H1** Edit risers in Pages: rooms (kind, floor, width), ladders (from / to), cables as hops with media (L).
+  "low priority".
+- [ ] **H2** Automatic cable-lane layout (M). "already implemented?" — the Risers import lays cables out in lanes;
+  check whether an editable re-layout in Pages is still wanted.
+- [ ] **I3** Floating elevation preview of the plan selection (M). "don't need now that we have split tabs".
+- [ ] **J3** Outlet / trunk low vs high layers on import (S). "low priority".
+- [ ] **J4** A project-wide layer list shared across models (L, a big model change).
+- [ ] **K1** Status-bar counts (outlets / conduits / racks) (S).
+- [ ] **K3** A text / notes block (markdown subset: headings, lists, tables) for notes / schedules on sheets (M).
+  "implement as shapes, not a viewport".
+
+### Reported 2026-09-25 (Dave) — after the L / M parity batch
+- [ ] **Title-block annotations per sheet.** The template is shared by every sheet, but some sheets need extra
+  text (a note, a stamp, a "preliminary" line).
+  - Options:
+    - (a) per-sheet extra fields on the sheet doc, rendered after the template's;
+    - (b) free annotations placed anywhere on the paper (paper-space text / shapes);
+    - (c) the title block as a viewport-like frame of its own.
+  - (c) could simplify things: the block becomes paper-space content, and one sheet can add shapes on top.
+  - It costs a paper-space entity layer (which we don't have yet) plus print / DXF support.
+  - Lean: (b) paper-space annotations, which also cover stamps and revision clouds on the paper.
+- [ ] **Align / distribute** the selected shapes: to the top-most / left-most one, centres, and even spacing
+  horizontally / vertically. This belongs in the shape Properties ARRANGE section or a toolbar.
+- [ ] **Mitering at nodes with 3+ segments** (T / cross junctions of walls / conduits): review how the swept
+  profiles join. Today each pair is mitred, which can leave overlaps / gaps at a branch.
+- [ ] **Conduit selection: single click = the segment, double-click = the whole run?**
+  - For: per-segment edits (profile override, cables, delete one segment) without opening the segment list.
+  - Against: double-click on a segment already INSERTS A NODE; moving a whole run would need a double-click first.
+  - Against: a single click that picks less than the visible object is surprising.
+  - Alternative: click = the run (as now); Alt-click or a second click on the selected run = its segment.
+- [ ] **Help.** A ? button, a searchable help panel of the tools and features, and "how do I…" entries for:
+  - hidden lines / B&W / plan cut (Properties of a SHEET's viewport frame);
+  - connection points;
+  - tile grids (a rectangle's property);
+  - walk renumber;
+  - auto-number;
+  - Alt-detach of joined nodes;
+  - joining conduits;
+  - …
+- [ ] **Connection points:**
+  - offsets as a RATIO of W / D (0.5 = halfway), so they survive resizing;
+  - clicking on the plan to place a point, instead of typing offsets;
+  - points on other shapes (walls, conduit ends, blocks such as racks / faceplates).
+- [ ] **Logos out of the project doc.** Today they're data URLs inside `projects/{pid}.pages.titleBlock` (capped
+  at ~150 KB each).
+  - Move them to file storage (UploadThing, like Uploads) and store the URL + key.
+  - That lifts the size cap and keeps the project doc small.
+- [ ] **Test rack rows live** (G4 / E8): import a rack row, edit devices, allocate outlets to a panel. Test Project
+  has no rack rows; use a copy of a real project.
+- [ ] **Image / PDF crop across views:** check whether cropping an image or PDF in one viewport changes every other
+  view of it. Today crop is on the shape, so yes. Decide whether a per-viewport crop is needed (like VP freeze).
+- [ ] **Look at the IFC format for drawings** (Dave 2026-09-25). Candidate uses:
+  - import / export of the building model (storeys, walls, openings, rooms, cable trays / conduits, racks as IfcFurnishing);
+  - an exchange path to Revit / ArchiCAD alongside DXF (C1).
+  - Check first: web-ifc (WASM) for parsing / writing in the browser; IFC4 entities for storeys (IfcBuildingStorey), cable carriers (IfcCableCarrierSegment) and outlets (IfcOutlet); what our Model / Obj shapes would need to round-trip.
+- [x] **Zoom-tools floating bar: enable the Pan and Orbit icons** (done 2026-09-25, a6340a6 + review fixes 1f7c681) (`parts/Pane.svelte:172-175`). They are placeholders with no `onclick`; today pan is right/middle-drag and orbit is a drag in the 3D view.
+  - Make each a latched tool mode: Pan = left-drag pans; Orbit = left-drag orbits (iso only).
+  - Show it as `.on` while active; Esc / right-click returns to Select.
+  - Handy on touch and trackpads.
+
 ### Code review follow-ups (see `review.md`, 2026-09-20)
 Fixed from the review:
 
@@ -80,6 +234,39 @@ Suggested order in review.md §7.
   content" on, wheel-zoom now folds into the DRAWING SCALE (like a CAD viewport) instead of a free
   zoom: the scale label/dropdown update live (e.g. 1:100 → 1:84 → 1:70 zooming in) and the cursor's
   model point stays fixed. `on.scale` callback + the dropdown tolerates computed 1:N values.
+
+### Reported 2026-09-24 (Dave) — parity reviews  ◧ decide
+- [ ] **Title block comparison:** compare the Pages title block (phase 5: `titleBlock.ts`, per-project
+  template) with the title blocks in the other tools (Sheets, and any others that print one). List every
+  difference (fields, layout, logo, revision table, auto-filled values, editing), then Dave picks which to
+  implement.
+- [ ] **Sheets + Outlets functionality scan:** a detailed scan of what the Sheets tool and the Outlets tool
+  can do, listing every feature Pages lacks or does differently, then Dave picks which to implement.
+  (Supersedes the partial Sheets lists in §1a / §2a once done.)
+
+### Building model / riser drawings — follow-ups (2026-09-24)
+- [x] **Fit on a riser frame with hidden floors** — fits the collapsed extent (2026-09-24).
+- [x] **Editing in a collapsed frame** — such frames are view-only for model editing (edit in the model tab).
+- [x] **Per-storey heights** — Properties › HEIGHTS on a building place (2026-09-25).
+- [x] **Riser text labels + cable colours** — free labels → front-elevation text; cables keep their colour.
+  Elevation text / shapes now follow a riser drawing's collapsed floors too (such frames are view-only).
+- [x] The riser doc's own **hiddenFloors** → an imported riser frame's floors.
+- [~] **Tall buildings (skyscrapers)**: labels are paper-sized on sheets, ≥ ~12 screen px in model space, and a
+  floor name that would overlap is skipped. Still to try on a real 33-floor building (Hibiya).
+- [~] **Riser rooms as labelled boxes**: the room name is drawn inside the box; a text-with-border style is open.
+- [~] **Imported items on the relevant layers**: riser ladders → Trunks, cables → Copper / Fiber Trunks (made
+  visible). Still open: outlets (Data / Power / Wireless by usage?) and Sheets annotations beyond Annotations.
+- [ ] **Building canvas** ◧ decide — what the canvas shows when a BUILDING place is selected (ideas, 2026-09-24):
+  - **Location map**: OpenStreetMap tiles (free, no key) + Nominatim geocoding of the project address; a
+    draggable pin to fix the GPS point; optional north arrow + sun path.
+  - **3D massing / iso** of the building model, with each floor model (walls, trunks) stacked at its storey
+    height — builds on the iso engine; later the orbit camera.
+  - **Stacking plan**: one bar per floor, coloured by zone / tenant, with server rooms, outlet / port counts
+    and drawings per floor; click a floor to open it.
+  - **Riser summary**: cable runs with lengths (segment L), ladders, fill.
+  - **Dashboard tiles**: floors, outlets, racks, open issues, the latest issued revision.
+  - (Suggested first: stacking plan + a small location map.)
+- [x] Several risers per building — object ids are keyed by riser (`rsr-<riserId>-…`).
 
 ### Reported 2026-09-22 (Dave)
 Open:
@@ -1075,7 +1262,8 @@ Sheets' basic version** — see §10.
 - [ ] Minor: a couple of stray committed files inflate the tree — `static/3PAGE.pdf` - ok to leave this
   (~2.6 MiB test PDF) and `src/routes/ui/ChatGPT Image ….png` (~700 KiB, oddly sitting in
   a **routes** dir). Remove/gitignore if they're not needed. Leave this sample UI
-- [ ] **`pnpm check` OOMs** — this is a **Node-heap** issue: svelte-check type-checks
+- [x] **`pnpm check` OOMs** — answered by `pnpm check:pages` (also the pre-commit gate): it runs svelte-check
+  with an 8 GB heap and fails only on errors under `pages/`. Original notes: this is a **Node-heap** issue: svelte-check type-checks
   ~5.7k files and runs out of the default heap, made worse when the dev server is also up.
   Try:
   - `NODE_OPTIONS=--max-old-space-size=6144 pnpm check` (raise the heap).
@@ -1084,10 +1272,18 @@ Sheets' basic version** — see §10.
     to ship) and consider `svelte-check --threshold`/incremental in CI only.
 - [ ] **VSCode slowness** — likely the TS language server over a big project; check the TS
   server memory setting and `files.watcherExclude` for `.svelte-kit`, `node_modules`.
-- [~] **Split `+page.svelte`** — done for the shell: DrawingNavigator, LayersPanel,
+- [x] **Split `+page.svelte`** — finished by R9 (`Pane`, `ToolStrip`, `TabMenu`, `printing.ts`, the `Workspace`
+  object). Earlier state: done for the shell: DrawingNavigator, LayersPanel,
   PropertiesPanel, HistoryPanel, CommandPalette, StatusBar, Menubar are now components;
   `+page` is ~660 lines (was ~860). The editor-area (panes/tabs/canvas) stays inline as the
   tightly-coupled core — extract a `Pane`/`Canvas` component when it next grows.
+
+- **Dev notes** (from the retired `HANDOFF.md`):
+  - IDE/LSP diagnostics lag badly after multi-edit sequences. Trust `pnpm check:pages` / `pnpm test`, not the squiggles.
+  - Tests for Pages only: `npx vitest run "src/routes/projects/[pid]/pages"` (quote the brackets in bash).
+  - Live checks on a sheet: double-click an EMPTY area of a frame to activate it. Double-clicking on an
+    entity is flaky. Model tabs are always active.
+  - The :5173 dev server serves the working tree, so keep the tree quiet while someone live-gates.
 
 ---
 
@@ -1107,8 +1303,48 @@ Sheets' basic version** — see §10.
 ### New todos
 - [ ] Implement File > Package Manager which opens a package manager that allows pages and version to be grouped and ordered into a named package that can be printed to hardcopy or pdf for distribution
 - [ ] File > Open should allow user to open & create & delete(archive) Projects
+  - [x] OPEN done (eos-07, 2026-09-23): File › Open Project… / Ctrl+O → `parts/OpenProjectDialog.svelte` lists Firestore `projects` (trashed hidden, search, My projects, newest first, current marked) and navigates to `/projects/<id>/pages`. Still to do: create + archive (delete) from the dialog; per-project stores (B17 → X4) so the mock tree / models don't carry over.
 - [ ] File > Save should work like History save revision, allowing a version/revision point to be saved
 - [x] fix bug where the first guide is not added after a page refresh — B26, fixed c4b364c (the `(x.y ??= []).push()` $state-proxy trap; same bug hid the first section)
+- [x] **Shift doesn't constrain model-object rotate handles** (Dave 2026-09-23) — FIXED (eos-07): one `grips.handleAngle` / `snapAngle` rule for all four handles: furniture in the 33F model
+  and the devices in the Rack A elevation rotate freely with Shift held. Audit (eos-07): only ENTITIES
+  snap — `grips.rotGripLocal` rounds to 15° when `shift()`. The three MODEL handles in `grips.modelGrips`
+  each compute their own angle and never see Shift, because `MGrip.apply(p, origin?)` has no shift
+  argument: the plan prism rotate handle (`o.rot`), the elevation tilt handle (`rotX` / `rotY`) and the
+  door SWING handle (`o.swing`, 0–180°). Other rotations: iso orbit already snaps (Shift = 15°); the
+  Properties angle fields are typed numbers (no handle). **Fix:** one shared rotate-handle helper
+  (angle from centre + pointer, `+90°` handle-above convention, optional range clamp, Shift → 15°) used by
+  `rotGripLocal` and all three model handles, with `shift` passed into `MGrip.apply` like `GripOpts.shift`
+  — so every rotate handle uses the same code and constraints. Add grips tests for each.
+- [ ] **VP Freeze: "New VP Freeze" layer option** (review 2026-09-23; not critical) — AutoCAD thaws a new layer
+  in every existing viewport by default (Pages does the same: a frame stores only what you froze). Add
+  AutoCAD's per-layer "New VP Freeze" (frozen in viewports created later) / VPLAYER-Newfrz style option.
+- [ ] **Grid snap base point** (not critical) — the SNAP grid counts from 0; let a picked point be the grid
+  origin (AutoCAD SNAPBASE), e.g. a rack's first U so the 1U step lands on U boundaries. Also: the SNAP step
+  is one session value — consider per drawing.
+- [ ] **33F as a full-floor model** (Dave, 2026-09-24) — trunks will run between zones 3303 and 3307, so later the
+  33F model should be the WHOLE floor (from a clean full-floor PDF, when one is found) holding just the trunks,
+  while the Zone 3303 and Zone 3307 models hold the detail (outlets etc.). Until then 33F = the 3303 items and
+  3307 stays a zone detail. Don't offset-merge the two zone plans into one model: each PDF is calibrated from
+  its own corner, so they overlap; a merge needs a real placement transform onto the building grid instead.
+- [ ] **Faster PDF rendering + tiling** (Dave, 2026-09-24) — floorplan PDFs take seconds to rasterise
+  (`ui/render/pdfRaster.svelte.ts` renders each page ONCE per session, whole page at scale 2, on the main
+  thread). Look at: caching the raster across sessions (IndexedDB / an uploaded preview image), rendering
+  in a worker (OffscreenCanvas), and TILING — render the visible area at the current zoom in tiles (like a
+  map) so zooming in stays sharp instead of one fixed-resolution bitmap going blurry.
+- [ ] **DXF export** (not critical) — export a model / sheet to DXF. The Sheets 3D tool already has a DXF
+  exporter (`sheets/tools/model3d/`) to port from. `review.md` K12 only tracks DXF *import* + SVG export.
+- [ ] **Rooms / racks in the tree open their model** (not critical) — IDF1 / Row A → Rack A's model tab, the
+  same way a floor opens `<floor> · Model`.
+- [ ] **"+" New page picks a model** (not critical) — a New page is a blank plan tab on 33F (FLOOR_MODEL_ID);
+  ask for / infer the model (the focused tab's, or a picker).
+- [ ] **Marquee can't start on the titleblock strip** (not critical) — a press on the paper's titleblock does
+  nothing; let a paper marquee start there too.
+- [ ] **Not yet exercised live** (review 2026-09-23): section → viewport drop after the R8-lite / B18 changes,
+  touch on sheets, the real print dialog (the print setup itself is verified), B30's frame-orbit reset.
+- [ ] **a11y warnings (B12 rest, moved from review.md)** (not critical) — ~10 svelte-check a11y warnings
+  (click handlers on non-interactive elements, e.g. the navigator folder rows, dialog backdrops); the agreed
+  fix is real keyboard handlers / proper roles, not `svelte-ignore`.
 
 
 layer managers? Only Sheets has a full one (sheets/layers/LayersPanel.svelte + layers.ts, 8 default layers with visibility/colour/lock). The others are partial: model3d uses per-model layers for symbols, outlets/model3d tag objects with a layerId, and Uploads only toggles a PDF's built-in OCG layers (hiddenLayers). So Pages would be the second real layer manager in the app, closest in spirit to Sheets
@@ -1121,3 +1357,119 @@ These are the ones where I think your input matters more than my guessing:
 - §4.1 full DocEditor class — the geometry is extracted; the full headless-editor refactor of Viewport/+page is large and best reviewed.
 - §4.3 reuse Sheets layers.ts — a real integration (the Pages layer panel is still a mock); ties into the layer-wiring work.
 - §2.3 full per-doc frame state — I did the important partial (no dead Properties handle on unmount); moving frame geometry/border into per-doc state is a moderate PaperPage refactor I'd rather you sign off on.
+
+
+What's next? The candidates are:
+1. B18: key each drawing by its navigator node id, not the tab title. Today, renaming a drawing loses its content.
+2. B28: on a sheet, the status-bar zoom buttons ignore "Pan content". Quick fix.
+3. R5: one layer model per model, plus layers for the sheet page itself.
+4. R7: one projection path shared by drawing and editing, with P2 (fewer hover hit-tests) and P4 (reuse iso faces).
+5. R8 / R9: merge PaperPage into Viewport, and split +page.svelte. R9 also fixes B17.
+6. P3: undo history copies every image in full on every step.
+7. K2 → K1: a command catalogue, then a command line.
+8. X1 ◧: needs your decision on which sheet tool and which 3D engine to keep.
+
+For your batched live review, eos-18 asked that these be clicked through:
+- open, close and promote tabs
+- every tool-strip button and fly-out
+- split editor
+- a sheet tab and a model-layout tab
+- the active-viewport bar
+- Fit and zoom
+- the ViewCube
+
+
+
+X1 pick lists (in §X1; pick by id)
+XP1–XP49: paper and viewports, from Sheets and Drawings. S = hours, M = a day, L = several days.
+- Titleblock and sheet setup:
+  - XP1: titleblock filled from real project data (M)
+  - XP4: titleblock templates (M)
+  - XP6: sheet properties panel (M)
+  - XP8: revisions table (M)
+  - XP9: sheet list with renumbering (M)
+- Viewports:
+  - XP12: viewports showing other tools' documents: racks, outlets, risers, PDF floorplans (L)
+  - XP21: rotation (M)
+  - XP26: frame size in mm (S)
+- Annotations:
+  - XP27: symbol library: section and elevation tags, north arrow, outlets, doors (L)
+  - XP29: shape library (M)
+  - XP30: legend (M)
+  - XP38: renumber labels (M)
+  - XP39: annotations on the paper (M)
+- Editing:
+  - XP40: 8-handle transform box (M)
+  - XP41: single-letter hotkeys (S)
+  - XP42: frame multi-select, duplicate and copy (M)
+- Output and import:
+  - XP43: packages and multi-sheet print (L)
+  - XP44: publish and pin (L)
+  - XP45: DXF export (M)
+  - XP47: PDF underlays (M)
+
+XE1–XE42: the 3D engine, from Sheets' 3D tool, the frozen edit3d tool and KestrelCad2. Pages' engine is already ahead in geometry and rendering. The gaps are mostly Sheets' 3D editing features and Kestrel's rendering.
+- Object kinds:
+  - XE1: slabs and floors from any closed outline (M)
+  - XE2: level datum lines in elevations (S)
+  - XE3: openings attached to their wall (M)
+  - XE4: openings as real holes in 3D (M)
+- Editing (mostly Sheets' 3D tool):
+  - XE11: join and merge walls and conduits into one mitred junction (M)
+  - XE13: select and edit single segments (S–M)
+  - XE29: multi-select, marquee and group move for model objects (M)
+  - XE30: group transform box (M)
+  - XE31: copy, paste, duplicate and nudge for model objects (S)
+  - XE33: place boxes in elevations (S)
+  - XE35: section cut heights and a plan cut plane (S–M)
+  - XE36: floating elevation preview of the selection (S–M)
+- Rendering:
+  - XE21: GPU renderer, WebGL or three.js (L); there's none anywhere in the repo yet
+  - XE22: correct hidden surfaces (M)
+  - XE23: hidden lines in elevations (M)
+  - XE24: wireframe, hidden-line, shaded and x-ray styles (S); this covers your "racks as wireframe"
+- Other:
+  - XE19: clash and clearance checks (M)
+  - XE20: measure and quantities (S–M)
+  - XE38: DXF export (S)
+  - XE40: glTF, OBJ or IFC export (M / L)
+  - XE42: save to Firestore (M)
+
+
+
+Built
+- Pan / Orbit buttons: each is now a tool you switch on. A left-drag or one finger pans or orbits. Esc, a right-click or picking a drawing tool switches it off.
+- Title block:
+  - a company block (name, address, contact);
+  - Show toggles for logo, company and fields;
+  - an optional printed hairline border along the margin;
+  - a per-sheet "shown on this sheet" checkbox;
+  - frames snap to the drawing-area and title-block edges.
+- Sheets:
+  - Viewport labels now print, and there's a Label field in Properties.
+  - Ctrl/Shift-click sheets in the tree, then drag them as a block.
+  - PageUp/PageDown page-pan the sheet; Shift pans sideways.
+- Annotations:
+  - Lines can carry a text label at the start, middle or end.
+  - A callout's frame can be a box, an underline or none.
+  - You can type a dimension's length.
+  - The Sheets import now brings across line labels and callout frames instead of dropping them.
+- Editing:
+  - Clicking again on the same spot selects the next shape underneath.
+  - Copied outlets get the next free label (4A013 → 4A014, else "-copy").
+  - Model objects can be Ctrl/Shift-clicked into a multi-selection and dragged together, with shared Layer / Colour / Base Z / Height fields.
+  - A single model object now has its own Colour.
+- Other small items:
+  - A greyscale switch on images.
+  - The active layer can't be deleted. Deleting a layer that has items asks once, then removes the items with it.
+  - Drawing onto a hidden or locked layer is refused with a message.
+  - + / - / Home zoom.
+  - A point count while drawing a run.
+Review
+An independent review found 8 bugs, all fixed in 1f7c681. The main ones:
+- a pan drag also triggered clicks or drawing;
+- dropping a block of sheets onto the middle of a sheet row reversed their order;
+- hiding a sheet's title block also stopped the margin border printing;
+- clicking one of several selected model objects dropped the rest of the selection.
+
+One other point it raised was wrong: layer delete doesn't need to catch items that have no layer, because they don't belong to any layer.
