@@ -78,6 +78,9 @@ export type VpCommandTarget = {
 	/** RACK: place a rack (a Box with rack data) centred at `at` (user coords), w × d mm, `u` units, rotated `rot`° —
 	 *  plan only; returns its label, or an error. */
 	addRack(o: { u: number; w: number; d: number; at: Pt; rot: number }): { label: string } | { err: string }
+	/** Pasted text from another app: a text shape or a NOTE at the last cursor position here (else the view centre),
+	 *  selected; returns an error to show, or null. */
+	placeText(kind: 'text' | 'note', text: string): string | null
 	/** Named views: this viewport's zoom / pan + drawing scale, and putting one back. */
 	viewState(): { view: { zoom: number; x: number; y: number }; scale: string }
 	restoreView(s: { view: { zoom: number; x: number; y: number }; scale: string }): void

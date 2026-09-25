@@ -9,7 +9,7 @@ import { activeLayerIn, removeLayer } from './layers.svelte'
 import { selStore } from './selStore.svelte'
 import { selOnly, selClear, idsOfKind, singleOfKind } from './ui/selection'
 import { deleteModelSel, deleteGraphNode, deleteGraphSeg, deleteSection } from './ui/modelEdit'
-import { Clipboard, arrange, setGroup, relabelCopies, clipText, type ArrangeOp } from './ui/clipboard'
+import { Clipboard, arrange, setGroup, relabelCopies, clipText, clipHtml, readable, type ArrangeOp } from './ui/clipboard'
 import type { Ent } from './ui/geometry'
 import { withDefaults, type DrawingDefaults } from './ui/drawingDefaults'
 import { unlinkIfMoved } from './ui/floorplanLink'
@@ -86,7 +86,14 @@ export class DocEdit {
 		const s = new Set(ids), items = this.#ents(this.#h.modelIdOf(tabId)).filter((e) => s.has(e.id)).map((e) => $state.snapshot(e) as Ent)
 		this.clipboard.copy(items)
 		// …and to the SYSTEM clipboard, so another tab / project can paste them (writing needs no permission)
-		if (items.length) navigator.clipboard?.writeText(clipText(items)).catch(() => {})
+		// as readable text + HTML (Word / Notepad / Excel get the words / cells), our shapes hidden in the HTML
+		if (items.length) {
+			const r = readable(items), plain = r.plain || clipText(items)
+			const write = typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write
+				? navigator.clipboard.write([new ClipboardItem({ 'text/plain': new Blob([plain], { type: 'text/plain' }), 'text/html': new Blob([clipHtml(items)], { type: 'text/html' }) })])
+				: navigator.clipboard?.writeText(clipText(items))
+			write?.catch(() => navigator.clipboard?.writeText(clipText(items)).catch(() => {}))
+		}
 	}
 	cutEnts = (tabId: string, ids: string[]) => { this.copyEnts(tabId, ids); this.deleteEnts(tabId, ids) }
 	/** The copies actually added (B19: 5 PAPER mm per paste, stacking; E12: copied outlets get free labels). */

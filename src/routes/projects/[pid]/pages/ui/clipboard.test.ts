@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Clipboard, pasteCopies, arrange, setGroup, nextFreeLabel, relabelCopies, clipText, fromClipText } from './clipboard'
+import { Clipboard, pasteCopies, arrange, setGroup, nextFreeLabel, relabelCopies, clipText, fromClipText, readable, clipHtml, fromClipHtml, textToShape } from './clipboard'
 
 describe('copy labels (E12)', () => {
 	it('counts a trailing number on (padding kept), else appends -copy', () => {
@@ -63,5 +63,21 @@ describe('system clipboard text', () => {
 		cb.paste(5, id); cb.load(JSON.parse(JSON.stringify(ents)))
 		expect(cb.paste(5, id)[0].a).toEqual([10, 10])   // 2nd paste: still stacking
 		cb.load([{ ...ents[0], id: 'b' }]); expect(cb.paste(5, id)[0].a).toEqual([5, 5])   // new content: restarts
+	})
+})
+
+describe('office clipboard', () => {
+	it('shapes out: readable text + a table for Excel; our data round-trips through the HTML', () => {
+		const ents: Ent[] = [{ id: 't', type: 'text', a: [0, 0], text: 'Hello' }, { id: 'n', type: 'note', a: [0, 0], text: '# Title\n| A | B |\n|---|---|\n| 1 | 2 |' }]
+		const r = readable(ents)
+		expect(r.plain).toBe('Hello\nTitle\nA\tB\n1\t2'); expect(r.html).toContain('<table border="1"><tr><td>A</td>')
+		expect(fromClipHtml(clipHtml(ents))).toEqual(ents)
+		expect(fromClipHtml('<p>x</p>')).toBeNull()
+	})
+	it('text in: one line → text, lines → a note, tab-separated → a markdown table', () => {
+		expect(textToShape('Hi\r\n')).toEqual({ kind: 'text', text: 'Hi' })
+		expect(textToShape('a\nb')).toEqual({ kind: 'note', text: 'a\nb' })
+		expect(textToShape('Item\tQty\nOutlet\t24\n')!.text).toBe('| Item | Qty |\n| --- | --- |\n| Outlet | 24 |')
+		expect(textToShape('  \n')).toBeNull()
 	})
 })

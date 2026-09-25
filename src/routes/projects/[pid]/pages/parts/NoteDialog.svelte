@@ -4,6 +4,8 @@
 	import { tick } from 'svelte'
 	import { Icon } from '$lib'
 	import { layoutNote } from '../ui/noteLayout'
+	import { htmlToMarkdown } from '../ui/htmlToMd'
+	import { textToShape } from '../ui/clipboard'
 	import { PT_MM } from '../constants'
 
 	let { text, width = 90, fontPt = 8, onapply, onclose }: { text: string; width?: number; fontPt?: number; onapply: (t: string) => void; onclose: () => void } = $props()
@@ -15,6 +17,18 @@
 		else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); onapply(draft) }
 	}
 	function focusText(node: HTMLElement) { tick().then(() => node.querySelector('textarea')?.focus()) }
+	/** Paste from Word / Google Docs / a web page keeps its headings, bold, lists and tables (as markdown); Excel's
+	 *  tab-separated cells become a table. Plain text pastes as-is. */
+	function onPaste(e: ClipboardEvent) {
+		const dt = e.clipboardData, html = dt?.getData('text/html') ?? '', plain = dt?.getData('text/plain') ?? ''
+		let md = html ? htmlToMarkdown(new DOMParser().parseFromString(html, 'text/html')) : ''
+		if (!md && plain.includes('\t')) md = textToShape(plain)?.text ?? ''
+		if (!md) return
+		e.preventDefault()
+		const ta = e.currentTarget as HTMLTextAreaElement
+		ta.setRangeText(md, ta.selectionStart, ta.selectionEnd, 'end')
+		draft = ta.value
+	}
 </script>
 
 <div class="nd-back">
@@ -23,7 +37,7 @@
 		<div class="nd-head"><span>Edit note</span><span class="hint"># heading · - bullet · 1. list · | a | b | table (|---| under the header) · **bold** · Ctrl+Enter applies</span>
 			<button class="nd-x" title="Close (Esc)" onclick={onclose}><Icon name="x" size={15} /></button></div>
 		<div class="nd-body">
-			<textarea bind:value={draft} spellcheck="false"></textarea>
+			<textarea bind:value={draft} spellcheck="false" onpaste={onPaste}></textarea>
 			<div class="prev" title="Preview (as it prints)">
 				<svg viewBox="0 0 {width} {lay.h}" width="100%">
 					<rect x="0" y="0" width={width} height={lay.h} fill="#fff" stroke="#cbd5e1" stroke-width="0.3" />

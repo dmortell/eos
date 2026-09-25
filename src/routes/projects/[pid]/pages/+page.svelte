@@ -32,7 +32,9 @@
 	import CommandLine from './parts/CommandLine.svelte'
 	import HelpDialog from './parts/HelpDialog.svelte'
 	import { readingOrder } from './ui/frameNumber'
-	import { fromClipText } from './ui/clipboard'
+	import { fromClipText, fromClipHtml, textToShape } from './ui/clipboard'
+	import { htmlToMarkdown } from './ui/htmlToMd'
+	import { cmdBus } from './ui/cmdBus.svelte'
 	import { createUploadThing } from '../uploads/uploader'
 	import { commandById, primaryName } from './ui/commands'
 	import { CommandRunner } from './ui/commandRunner.svelte'
@@ -478,11 +480,16 @@
 			if (frameClipKey(a.id, 'v')) e.preventDefault()
 			return
 		}
-		const dt = e.clipboardData, ents = fromClipText(dt?.getData('text/plain') ?? '')
+		const dt = e.clipboardData, plain = dt?.getData('text/plain') ?? '', html = dt?.getData('text/html') ?? ''
+		const ents = fromClipText(plain) ?? (html ? fromClipHtml(html) : null)
 		const img = ents ? null : [...(dt?.files ?? [])].find((f) => f.type.startsWith('image/'))
 		e.preventDefault()
 		if (img) { void pasteImage(img); return }
-		if (ents?.length) docEdit.clipboard.load(ents)
+		if (ents?.length) { docEdit.clipboard.load(ents); menuAction('Paste'); return }
+		// text from another app (Word / Excel / Notepad …): a text shape, or a NOTE keeping headings / bold / lists / tables
+		const md = html ? htmlToMarkdown(new DOMParser().parseFromString(html, 'text/html')) : ''
+		const shape = md && md.includes('\n') ? { kind: 'note' as const, text: md } : textToShape(md || plain)
+		if (shape && cmdBus.target) { const err = cmdBus.target.placeText(shape.kind, shape.text); if (err) toast(err); return }
 		menuAction('Paste')
 	}
 	$effect(() => { window.addEventListener('paste', onPaste); return () => window.removeEventListener('paste', onPaste) })

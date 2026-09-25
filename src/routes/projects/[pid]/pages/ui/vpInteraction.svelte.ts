@@ -200,6 +200,7 @@ export class VpInteraction {
 
 	// ── the COMMAND LINE's target (ui/cmdBus.svelte.ts): typed points / distances feed the tool like clicks ──
 	private lastUser: Pt | null = null
+	private lastPtr: Pt | null = null   // the pointer's last drawing position over this view (pasted text lands there)
 	// ZOOM P: the views this viewport settled on (a wheel / pan burst counts once); `restoring` skips the jump back
 	private viewHist: View[] = []
 	private restoring = false
@@ -326,6 +327,15 @@ export class VpInteraction {
 			const o = prismObj(v.ctx, [c[0] - w / 2, c[1] - d / 2], [c[0] + w / 2, c[1] + d / 2], 'racks', rackHeightMm(u), () => newId('rk'), { rack: { u }, label, ...(rot ? { rot } : {}) })
 			this.addModelObj(o)
 			return { label }
+		},
+		placeText: (kind, text) => {
+			const v = this.v; if (v.kind === 'iso') return 'Paste text in a plan or elevation view'
+			let at = this.lastPtr
+			if (!at && v.svg) { const r = v.svg.getBoundingClientRect(); at = v.toModel(r.left + r.width / 2, r.top + r.height / 2) }
+			if (!at) return 'No view to paste into'
+			const e: Ent = kind === 'note' ? { id: uid(), type: 'note', a: at, text, noteW: 110, noteBox: true, plane: drawPlane(v.ctx) } : { id: uid(), type: 'text', a: at, text, plane: drawPlane(v.ctx) }
+			if (v.editor.ents.add(e) === false) return null
+			v.selectEnts([e.id]); return null
 		},
 		viewState: () => ({ view: { ...this.v.view }, scale: this.v.scale }),
 		restoreView: (s) => { if (s.scale !== this.v.scale) this.v.on.scale?.(s.scale); this.v.on.view?.({ ...s.view }) },
@@ -565,6 +575,7 @@ export class VpInteraction {
 	onMove = (e: PointerEvent) => {
 		const v = this.v, tool = v.tool
 		if (v.on.coords) { const wp = v.toModel(e.clientX, e.clientY); if (wp) v.on.coords(Math.round(wp[0]), Math.round(wp[1])) }   // status-bar coords
+		if (v.active) this.lastPtr = v.toModel(e.clientX, e.clientY)   // where pasted text lands
 		if (v.active && this.myPick) { const d = this.pickPoint(e); this.pickCur = d; cmdBus.hover = d && this.toUser(d); this.hoverBody = false; return }
 		if (v.active && tool === 'Guide' && v.viewSpace) {
 			const gp = v.toModel(e.clientX, e.clientY); this.lastGuidePt = gp

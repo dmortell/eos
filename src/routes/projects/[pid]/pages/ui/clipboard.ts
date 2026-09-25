@@ -36,6 +36,55 @@ export function fromClipText(text: string): Ent[] | null {
 	try { const o = JSON.parse(text); return o?.[CLIP_MARK] && Array.isArray(o.ents) ? (o.ents as Ent[]).filter((e) => e && typeof e.id === 'string' && typeof e.type === 'string') : null } catch { return null }
 }
 
+// ── office apps (Word / Excel / Notepad): copied shapes also go out as readable text + HTML (a note's table as a real
+// <table>, so Excel gets cells); our own shape data rides inside the HTML as a comment. Text from other apps pastes
+// in as a text shape (one line) or a NOTE (several lines; tab-separated cells → a markdown table). ──
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+/** The readable content of shapes: texts, notes (markdown), dimension figures (their text / nothing), block labels. */
+export function readable(ents: readonly Ent[]): { plain: string; html: string } {
+	const plain: string[] = [], html: string[] = []
+	for (const e of ents) {
+		const t = e.type === 'text' || e.type === 'note' ? e.text ?? '' : e.type === 'insert' ? e.attrs?.LABEL ?? '' : e.type === 'dim' && e.text ? e.text : ''
+		if (!t.trim()) continue
+		if (e.type === 'note') {   // markdown → TSV lines for plain, <table>/<p> for HTML
+			const rows: string[][] = []
+			const flush = () => { if (!rows.length) return; html.push('<table border="1">' + rows.map((r) => '<tr>' + r.map((c) => `<td>${esc(c)}</td>`).join('') + '</tr>').join('') + '</table>'); rows.length = 0 }
+			for (const ln of t.split('\n')) {
+				const s = ln.trim()
+				if (s.startsWith('|')) { const cells = s.replace(/^\||\|$/g, '').split('|').map((c) => c.trim()); if (!cells.every((c) => /^:?-{2,}:?$/.test(c))) { rows.push(cells); plain.push(cells.join('\t')) } continue }
+				flush(); const txt = s.replace(/^#{1,3}\s+/, '').replace(/\*\*(.+?)\*\*/g, '$1'); plain.push(txt); if (txt) html.push(/^#/.test(s) ? `<p><b>${esc(txt)}</b></p>` : `<p>${esc(txt)}</p>`)
+			}
+			flush()
+		} else { plain.push(t); html.push(`<p>${esc(t).replace(/\n/g, '<br>')}</p>`) }
+	}
+	return { plain: plain.join('\n'), html: html.join('') }
+}
+const HTML_MARK = 'eos-pages-shapes:'
+/** UTF-8 safe base64 (btoa is Latin-1 only). */
+function toB64(s: string): string { const u = new TextEncoder().encode(s); let b = ''; for (let i = 0; i < u.length; i += 0x8000) b += String.fromCharCode(...u.subarray(i, i + 0x8000)); return btoa(b) }
+const fromB64 = (b: string) => new TextDecoder().decode(Uint8Array.from(atob(b), (c) => c.charCodeAt(0)))
+/** Shapes → clipboard HTML: the readable part + our data hidden in a comment (base64 JSON). */
+export function clipHtml(ents: readonly Ent[]): string {
+	const b64 = toB64(clipText(ents))
+	return `<!--${HTML_MARK}${b64}-->` + readable(ents).html
+}
+/** Clipboard HTML → our shapes, or null. */
+export function fromClipHtml(html: string): Ent[] | null {
+	const m = new RegExp(`<!--${HTML_MARK}([A-Za-z0-9+/=]+)-->`).exec(html); if (!m) return null
+	try { return fromClipText(fromB64(m[1])) } catch { return null }
+}
+/** Text from another app → a text shape's text (one line) or a NOTE's markdown (tab-separated cells → a table). */
+export function textToShape(text: string): { kind: 'text' | 'note'; text: string } | null {
+	const lines = text.replace(/\r/g, '').split('\n'); while (lines.length && !lines[lines.length - 1].trim()) lines.pop()
+	if (!lines.some((l) => l.trim())) return null
+	if (lines.some((l) => l.includes('\t'))) {   // Excel / a table: the first row is the header
+		const rows = lines.map((l) => l.split('\t').map((c) => c.trim().replace(/\|/g, '/')))
+		const n = Math.max(...rows.map((r) => r.length)), row = (r: string[]) => '| ' + Array.from({ length: n }, (_, i) => r[i] ?? '').join(' | ') + ' |'
+		return { kind: 'note', text: [row(rows[0]), '|' + ' --- |'.repeat(n), ...rows.slice(1).map(row)].join('\n') }
+	}
+	return lines.length === 1 ? { kind: 'text', text: lines[0].trim() } : { kind: 'note', text: lines.join('\n') }
+}
+
 /** Copies moved by `off` (x and y) with fresh ids; members of one copied group share one NEW group id. */
 export function pasteCopies(items: Ent[], off: number, newId: () => string): Ent[] {
 	const gids = new Map<string, string>()
