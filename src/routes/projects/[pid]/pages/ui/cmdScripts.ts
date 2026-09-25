@@ -6,7 +6,7 @@ import { dist, arc3, type Pt, type Ent } from './geometry'
 import type { VpCommandTarget } from './cmdBus.svelte'
 import { svgMarkup, svgToPng, download } from './svgExport'
 import { arrange } from './arrange'
-import { offsetEnt, outline, crossings, trim, extend, breakAt, setLength, polyLength, project, arcLength, setArcLength, joinChains, corner, stretchEnt } from './modify'
+import { offsetEnt, outline, crossings, trim, extend, breakAt, setLength, polyLength, project, arcLength, setArcLength, joinChains, corner, stretchEnt, cornerInPolyline } from './modify'
 
 export type CmdHost = {
 	/** Arm a tool in the focused pane ('Line', 'Rectangle', … or 'Select'). */
@@ -26,6 +26,9 @@ export type CmdHost = {
 	blockUsage(): { used: Set<string>; missing: { model: string; id: string; block?: string }[]; models: number }
 	/** Delete custom blocks from the (shared) library. */
 	deleteBlocks(ids: string[]): void
+	/** Named views of the active drawing (VIEW): read / write the stored set. */
+	namedViews(): Record<string, NamedView>
+	saveNamedViews(v: Record<string, NamedView>): void
 	/** A file name for an export of the active view ('3F Plan - Front'). */
 	exportName(): string
 }
@@ -54,6 +57,7 @@ export class CmdError extends Error {}
 /** What a script gets: ask for input, the viewport, the page, and the log. */
 export type CmdCtx = { ask(w: Want): Promise<Answer>; t: VpCommandTarget; host: CmdHost; out(msg: string): void }
 export type Script = (c: CmdCtx) => Promise<void>
+export type NamedView = { view: { zoom: number; x: number; y: number }; scale: string }
 
 export const fmt = (n: number) => String(Math.round(n * 100) / 100)
 const sub = (a: Pt, b: Pt): Pt => [a[0] - b[0], a[1] - b[1]]
@@ -127,6 +131,13 @@ async function layerPicks(c: CmdCtx, op: 'off' | 'frz', prompt: string) {
 const isLine = (e: Ent) => e.type === 'polyline' && (e.pts?.length ?? 0) >= 2 && !e.rot
 let lastOffset: number | undefined
 let filletR = 0, chamferD: [number, number] = [0, 0]
+/** Where two lines (as infinite lines) meet, or null when parallel. */
+function lineIntersect(l1: [Pt, Pt], l2: [Pt, Pt]): Pt | null {
+	const [a, b] = l1, [c2, d] = l2, r: Pt = [b[0] - a[0], b[1] - a[1]], q: Pt = [d[0] - c2[0], d[1] - c2[1]], den = r[0] * q[1] - r[1] * q[0]
+	if (Math.abs(den) < 1e-12) return null
+	const t = ((c2[0] - a[0]) * q[1] - (c2[1] - a[1]) * q[0]) / den
+	return [a[0] + r[0] * t, a[1] + r[1] * t]
+}
 /** The dimension to chain from: the selected one, else pick one. */
 async function sourceDim(c: CmdCtx): Promise<Ent> {
 	const sel = c.t.ents(c.t.selected()).filter((e) => e.type === 'dim')
@@ -189,10 +200,19 @@ async function cornerCmd(c: CmdCtx, bevel: boolean) {
 			continue
 		}
 		if (a.kind !== 'ent') return
-		const e = c.t.ents([a.id])[0]; if (!e || !isLine(e) || e.pts!.length !== 2) { c.out('Pick a straight line (a 2-point line)'); continue }
+		const e = c.t.ents([a.id])[0]; if (!e || !isLine(e)) { c.out('Pick a line or polyline'); continue }
 		first = { e, p: D(c, a.p) }; break
 	}
-	const b = await pickEnt(c, 'Select second line'); if (!b) return
+	const b = await pickEnt(c, first.e.pts!.length > 2 ? 'Select the other segment of the corner (same polyline)' : 'Select second line'); if (!b) return
+	if (first.e.pts!.length > 2) {   // a POLYLINE corner: the two picks are adjacent segments of it
+		if (b.e.id !== first.e.id) throw new CmdError('Pick the other segment of the same polyline')
+		const ps = first.e.pts!, segAt = (p: Pt) => { let best = 0, bd = Infinity; for (let i = 0; i + 1 < ps.length; i++) { const d = project([ps[i], ps[i + 1]], p).d; if (d < bd) { bd = d; best = i } } return best }
+		const s1 = segAt(first.p), s2 = segAt(b.p)
+		if (Math.abs(s1 - s2) !== 1) throw new CmdError('Pick two segments that meet at a corner')
+		const pts = cornerInPolyline(ps, Math.max(s1, s2), bevel ? { chamfer: chamferD } : { r: filletR })
+		if (!pts) throw new CmdError('Too short for that radius / distance')
+		return c.t.apply({ update: [{ ...first.e, pts }] })
+	}
 	if (!isLine(b.e) || b.e.pts!.length !== 2 || b.e.id === first.e.id) throw new CmdError('Pick a second, different straight line')
 	const r = corner(first.e.pts as [Pt, Pt], first.p, b.e.pts as [Pt, Pt], b.p, bevel ? { chamfer: chamferD } : { r: filletR })
 	if (!r) throw new CmdError('They are parallel, or too short for that radius / distance')
@@ -475,6 +495,57 @@ export const SCRIPTS: Record<string, Script> = {
 		c.out(`${u.missing.length} insert${u.missing.length > 1 ? 's' : ''} of a missing block: ${[...byModel].map(([m, n]) => `${m} ${n}`).join(', ')} — drawn as a crossed box`)
 		const here = new Set(u.missing.map((m) => m.id)), inView = c.t.pickableEnts().filter((e) => here.has(e.id)).map((e) => e.id)
 		if (inView.length) { c.t.select(inView); c.out(`${inView.length} of them selected here (Delete removes them, or swap their block in Properties)`) }
+	},
+	view: async (c) => {   // NAMED VIEWS: Save / Restore / Delete this drawing's zoom + pan + scale
+		const vs = c.host.namedViews(), names = Object.keys(vs)
+		const a = await c.ask({ prompt: `Views${names.length ? ` (${names.join(', ')})` : ' (none saved)'}`, options: ['Save', 'Restore', 'Delete'], def: names.length ? 'R' : 'S' })
+		if (a.kind !== 'option') return
+		if (a.key === 'Save') {
+			const n = await c.ask({ prompt: 'Enter a name for this view', text: true }); if (n.kind !== 'text' || !n.s.trim()) return
+			c.host.saveNamedViews({ ...vs, [n.s.trim()]: c.t.viewState() }); return c.out(`View “${n.s.trim()}” saved`)
+		}
+		if (!names.length) throw new CmdError('No views saved for this drawing yet — VIEW › Save')
+		const n = await c.ask({ prompt: `Which view (${names.join(', ')})`, text: true, options: names.length <= 8 ? names : undefined })
+		const key = n.kind === 'text' || n.kind === 'option' ? (n.kind === 'text' ? n.s : n.key).trim().toLowerCase() : ''
+		const name = names.find((x) => x.toLowerCase() === key) ?? names.find((x) => x.toLowerCase().startsWith(key))
+		if (!name) throw new CmdError(`No view “${key}”`)
+		if (a.key === 'Delete') { const { [name]: _gone, ...rest } = vs; c.host.saveNamedViews(rest); return c.out(`View “${name}” deleted`) }
+		c.t.restoreView(vs[name]); c.out(`View “${name}”`)
+	},
+	dimangular: async (c) => {   // two lines, then where the arc goes (it picks which of the four angles): an arc + its figure, grouped
+		c.host.tool('Select')
+		const a = await pickEnt(c, 'Select first line'); if (!a) return
+		const b = await pickEnt(c, 'Select second line'); if (!b) return
+		const seg = (pk: { e: Ent; p: Pt }): [Pt, Pt] | null => {
+			const ps = pk.e.type === 'polyline' ? pk.e.pts ?? [] : pk.e.type === 'dim' ? [pk.e.a!, pk.e.b!] : []
+			if (ps.length < 2) return null
+			let best: [Pt, Pt] = [ps[0], ps[1]], bd = Infinity
+			for (let i = 0; i + 1 < ps.length; i++) { const d = project([ps[i], ps[i + 1]], pk.p).d; if (d < bd) { bd = d; best = [ps[i], ps[i + 1]] } }
+			return best
+		}
+		const l1 = seg(a), l2 = seg(b); if (!l1 || !l2) throw new CmdError('Pick two lines')
+		const X = lineIntersect(l1, l2); if (!X) throw new CmdError('The lines are parallel')
+		const unit = (l: [Pt, Pt]): Pt => { const dx = l[1][0] - l[0][0], dy = l[1][1] - l[0][1], L = Math.hypot(dx, dy) || 1; return [dx / L, dy / L] }
+		const u1 = unit(l1), u2 = unit(l2), pm = c.t.paperMm()
+		const build = (P: Pt): Ent[] => {
+			const pd = [P[0] - X[0], P[1] - X[1]] as Pt, r = Math.hypot(...pd) || 1, pu: Pt = [pd[0] / r, pd[1] / r]
+			// the two rays (±u1, ±u2) that enclose the pick direction: each within the other's angle of it
+			let d1: Pt = u1, d2: Pt = u2, best = -Infinity
+			for (const s1 of [1, -1]) for (const s2 of [1, -1]) {
+				const q1: Pt = [u1[0] * s1, u1[1] * s1], q2: Pt = [u2[0] * s2, u2[1] * s2]
+				const bis: Pt = [q1[0] + q2[0], q1[1] + q2[1]], bl = Math.hypot(...bis) || 1, sc = (bis[0] * pu[0] + bis[1] * pu[1]) / bl
+				if (sc > best) { best = sc; d1 = q1; d2 = q2 }
+			}
+			const bis: Pt = [d1[0] + d2[0], d1[1] + d2[1]], bl = Math.hypot(...bis) || 1, bu: Pt = [bis[0] / bl, bis[1] / bl]
+			const at = (u: Pt, k: number): Pt => [X[0] + u[0] * k, X[1] + u[1] * k]
+			const deg = (Math.acos(Math.max(-1, Math.min(1, d1[0] * d2[0] + d1[1] * d2[1]))) * 180) / Math.PI
+			const label = (Math.round(deg * 10) / 10).toString().replace(/\.0$/, '') + '°'
+			const arc = c.t.newEnt({ type: 'arc', pts: [at(d1, r), at(bu, r), at(d2, r)] }), txt = c.t.newEnt({ type: 'text', a: at(bu, r + 4 * pm), text: label, align: 'center', valign: 'middle' })
+			return [arc, txt]
+		}
+		const p = await point(c, 'Specify dimension arc location', undefined, { ghost: (u) => build(D(c, u)) })
+		const [arc, txt] = build(D(c, p)), gid = 'g' + arc.id
+		c.t.apply({ add: [{ ...arc, groupId: gid }, { ...txt, groupId: gid }] })
 	},
 	dimcontinue: (c) => dimChain(c, false),
 	dimbaseline: (c) => dimChain(c, true),

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { Ent, Pt } from './geometry'
-import { crossings, trim, extend, breakAt, setLength, polyLength, offsetPolyline, offsetEnt, outline, project, setArcLength, arcLength, joinChains, corner, stretchEnt } from './modify'
+import { crossings, trim, extend, breakAt, setLength, polyLength, offsetPolyline, offsetEnt, outline, project, setArcLength, arcLength, joinChains, corner, stretchEnt, cornerInPolyline } from './modify'
 
 const L: Pt[] = [[0, 0], [100, 0]]
 const X = (x: number): Pt[] => [[x, -50], [x, 50]]   // a vertical cutting line at x
@@ -82,5 +82,15 @@ describe('STRETCH', () => {
 		expect(stretchEnt({ id: 'r', type: 'rect', a: [60, -5], b: [100, 5] }, box, 20, 0)).toMatchObject({ a: [80, -5], b: [120, 5] })   // wholly inside: moves
 		expect(stretchEnt({ id: 'x', type: 'polyline', pts: [[0, 50], [10, 50]] }, box, 20, 0)).toBeNull()
 		expect(stretchEnt({ id: 't', type: 'text', a: [100, 0], text: 'A' }, box, 0, 5)!.a).toEqual([100, 5])
+	})
+})
+
+describe('FILLET / CHAMFER a polyline corner', () => {
+	it('replaces the vertex with the trim points (+ the arc, sampled)', () => {
+		const P: Pt[] = [[0, 0], [100, 0], [100, 100]]
+		expect(cornerInPolyline(P, 1, { chamfer: [10, 10] })).toEqual([[0, 0], [90, 0], [100, 10], [100, 100]])
+		const f = cornerInPolyline(P, 1, { r: 20 })!
+		expect(f[1][0]).toBeCloseTo(80); expect(f[f.length - 2][1]).toBeCloseTo(20); expect(f.length).toBe(2 + 9)
+		expect(cornerInPolyline(P, 0, { r: 5 })).toBeNull()
 	})
 })

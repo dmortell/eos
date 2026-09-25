@@ -352,7 +352,7 @@
 		const f = selFrameObj, defModel = modelIdOf(tabId)
 		const clip = () => clipOf(f ? [$state.snapshot(f) as SheetFrame] : [], (mid) => $state.snapshot(entsForModel(mid)) as Ent[], defModel)
 		if ((k === 'c' || k === 'x' || k === 'd') && !f) return false
-		if (k === 'c' || k === 'x') { saveClip(clip()); toast(k === 'x' ? 'Viewport cut' : 'Viewport copied'); if (k === 'x') { deleteFrame(tabId, f!.id); selStore.set(tabId, selClear()) } return true }
+		if (k === 'c' || k === 'x') { const cl = clip(); saveClip(cl); navigator.clipboard?.writeText(JSON.stringify({ 'eos-pages-frames': 1, clip: cl })).catch(() => {}); toast(k === 'x' ? 'Viewport cut' : 'Viewport copied'); if (k === 'x') { deleteFrame(tabId, f!.id); selStore.set(tabId, selClear()) } return true }
 		const src = k === 'd' ? clip() : loadClip(); if (!src) return false
 		const pasted = pasteClip(src, (p) => newId(p), nextFrameSeq(framesOf(tabId)), Math.round(10 * PAPER_PX_PER_MM))
 		ensureHist(tabId)
@@ -470,7 +470,13 @@
 	 *  another tab / project paste here; a pasted image (a screenshot) becomes an image shape; else our own copy. */
 	function onPaste(e: ClipboardEvent) {
 		if ((e.target as HTMLElement)?.closest?.('input, textarea, select, [contenteditable="true"]')) return
-		const a = active; if (!a || (a.kind === 'sheet' && !activeVpOf(a.id))) return   // paper: frames paste by key (frameClipKey)
+		const a = active; if (!a) return
+		if (a.kind === 'sheet' && !activeVpOf(a.id)) {   // PAPER: viewport frames — from the system clipboard (another tab / browser), else ours
+			const txt = e.clipboardData?.getData('text/plain') ?? ''
+			if (txt.includes('eos-pages-frames')) { try { const o = JSON.parse(txt); if (o?.clip?.frames?.length) saveClip(o.clip) } catch { /* not ours */ } }
+			if (frameClipKey(a.id, 'v')) e.preventDefault()
+			return
+		}
 		const dt = e.clipboardData, ents = fromClipText(dt?.getData('text/plain') ?? '')
 		const img = ents ? null : [...(dt?.files ?? [])].find((f) => f.type.startsWith('image/'))
 		e.preventDefault()
@@ -655,6 +661,7 @@
 	// active viewport (ui/cmdBus); everything else lands here.
 	let cmdLine: CommandLine | undefined = $state()
 	let helpOpen = $state(false)   // the ? button / F1 / HELP (parts/HelpDialog)
+	const namedViewKey = () => `eos.pages.views:${page.params.pid}:${active ? didOf(active.id) : ''}:${active ? (activeVpOf(active.id) ?? '') : ''}`
 	let layIsoSaved: [string, boolean][] | null = null   // LAYISO → LAYUNISO: the visibility before isolating
 	const cmdRunner = new CommandRunner({
 		tool: (t) => { if (!active) return; if (placeBlock) armBlock(null); navMode = null; focusTool(t) },
@@ -728,6 +735,9 @@
 			return { used, missing, models: ms.length }
 		},
 		deleteBlocks: (ids) => ids.forEach(deleteBlock),
+		// VIEW: named views per project + drawing (+ the active viewport on a sheet), kept in this browser
+		namedViews: () => { try { return JSON.parse(localStorage.getItem(namedViewKey()) ?? '{}') } catch { return {} } },
+		saveNamedViews: (v) => { try { localStorage.setItem(namedViewKey(), JSON.stringify(v)) } catch { /* private mode */ } },
 		exportName: () => { const av = activeView(); return av && av !== 'no-frame' ? `${av.title} - ${PROJ_LABEL[av.dir]}` : (active?.title ?? 'drawing') },
 		setCurrentLayer: (id) => {
 			const l = modelById(activeMid())?.layers?.find((x) => x.id === id); if (!l) return 'That layer is not in this model'
@@ -904,7 +914,7 @@
 				canvasPan(p, e.shiftKey ? d : 0, e.shiftKey ? 0 : d)
 			}
 		}
-		else if (mod && !e.shiftKey && active?.kind === 'sheet' && !activeVpOf(active.id) && ['c', 'x', 'v', 'd'].includes(e.key.toLowerCase())) {   // B2: frames on paper
+		else if (mod && !e.shiftKey && active?.kind === 'sheet' && !activeVpOf(active.id) && ['c', 'x', 'd'].includes(e.key.toLowerCase())) {   // B2: frames on paper (Ctrl+V = the paste event, onPaste)
 			if (frameClipKey(active.id, e.key.toLowerCase() as 'c' | 'x' | 'v' | 'd')) e.preventDefault()
 		}
 		else if ((e.key === 'Delete' || e.key === 'Backspace') && selFrameId && active && !activeVpOf(active.id)) { e.preventDefault(); deleteSelAt(active.id, active.id, { begin: beginGesture, mark: (l?: string) => modelEdit(active!.id, l), end: endGesture }) }   // delete the selected viewport frame (paper space)

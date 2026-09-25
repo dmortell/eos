@@ -75,6 +75,9 @@ export type VpCommandTarget = {
 	zoomPrev(): string | null
 	/** The armed draw tool's prompt for the command line ("Specify next point" [Close/Undo]), or null (Select). */
 	drawPrompt(): { prompt: string; options?: string[] } | null
+	/** Named views: this viewport's zoom / pan + drawing scale, and putting one back. */
+	viewState(): { view: { zoom: number; x: number; y: number }; scale: string }
+	restoreView(s: { view: { zoom: number; x: number; y: number }; scale: string }): void
 	/** The viewport's <svg> (SVGOUT / PNGOUT). */
 	svg(): SVGSVGElement | undefined
 	/** Pick the shape at a user point (top-most pickable), or null. */

@@ -318,6 +318,8 @@ export class VpInteraction {
 		reorder: (ids, op) => this.v.editor.ents.reorder(ids, op),
 		zoomWindow: (a, b) => { const p = this.toDraw(a), q = this.toDraw(b); if (p && q) this.v.zoomToBox(Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.max(p[0], q[0]), Math.max(p[1], q[1])) },
 		zoomPrev: () => { const pv = this.viewHist.pop(); if (!pv) return 'No previous view'; this.restoring = true; this.v.on.view?.(pv); return null },
+		viewState: () => ({ view: { ...this.v.view }, scale: this.v.scale }),
+		restoreView: (s) => { if (s.scale !== this.v.scale) this.v.on.scale?.(s.scale); this.v.on.view?.({ ...s.view }) },
 		svg: () => this.v.svg,
 		drawPrompt: () => {
 			const t = this.v.tool, n = this.draft.length

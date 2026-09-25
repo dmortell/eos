@@ -7,7 +7,7 @@
 // injects the view (`ctx`, tolerances, layer predicates) into them.
 import { untrack } from 'svelte'
 import { BASE, HANDLE_PX, PAPER_PX_PER_MM, clampViewZoom } from '../constants'
-import { type Pt, type Ent, type View, type ElevDir, GROUND, PLAN_CX, PLAN_CY } from './geometry'
+import { type Pt, type Ent, type View, type ElevDir, GROUND, PLAN_CX, PLAN_CY, ELEV_BASIS, elevU } from './geometry'
 import { makeMapper, type Mapper } from './mapper'
 import { noopEditor, type Editor } from './editor'
 import { idsOfKind, singleOfKind, type SelItem } from './selection'
@@ -354,6 +354,32 @@ export class VpView {
 
 	// ── section markers (B5: they live in the MODEL; edits mutate it in place, bracketed on its history) ──
 	sections = $derived(this.isPlan ? (this.mdl?.sections ?? []) : [])
+	/** The building STRUCTURE in an elevation, from the storeys: each floor's slab (a band) + raised floor (a line) on
+	 *  layer A-FLOR, its ceiling (a line) on A-CLNG — only while those layers are on. Spans the model's footprint
+	 *  along this view's axis; a riser frame's collapsed floors are skipped / remapped like everything else. */
+	structure = $derived.by(() => {
+		const m = this.mdl, st = m?.storeys
+		if (!m || !this.isElev || !st?.length) return null
+		const has = (id: string) => this.mls.some((l) => l.id === id) && !this.isLayerHidden(id)
+		const showF = has('a-flor'), showC = has('a-clng'); if (!showF && !showC) return null
+		const ax = ELEV_BASIS[this.elevDir].axis, cs: number[] = []
+		for (const o of m.objects) {
+			if (o.type === 'prism') { const lo = ax === 0 ? o.x : o.y; cs.push(lo, lo + (ax === 0 ? o.w : o.d)) }
+			else if (o.type === 'wall' || o.type === 'conduit') for (const n of o.nodes as GN[]) cs.push(ax === 0 ? n.x : n.y)
+		}
+		if (!cs.length) return null
+		const ua = elevU(this.elevDir, Math.min(...cs), CX, CY), ub = elevU(this.elevDir, Math.max(...cs), CX, CY)
+		const x0 = Math.min(ua, ub) - 500, x1 = Math.max(ua, ub) + 500
+		const sm = this.collapse, vs = BASIS[this.elevDir].vs, y = (z: number) => GROUND - vs * (sm ? sm.map(z) : z)
+		const slabs: { y0: number; y1: number }[] = [], floors: number[] = [], ceilings: number[] = []
+		for (const s of st) {
+			if (sm?.hidden(s.z, s.z + (s.ceilingSlab ?? 3000))) continue
+			if (showF && s.slab) { const a = y(s.z - s.slab), b = y(s.z); slabs.push({ y0: Math.min(a, b), y1: Math.max(a, b) }) }
+			if (showF && s.raisedFloor) floors.push(y(s.z + s.raisedFloor))
+			if (showC && s.ceilingTile) ceilings.push(y(s.z + s.ceilingTile))
+		}
+		return { x0, x1, slabs, floors, ceilings, floorColor: this.layerColor('a-flor'), ceilColor: this.layerColor('a-clng') }
+	})
 	selSectionObj = $derived(this.isPlan && this.selSection ? this.sections.find((s) => s.id === this.selSection) ?? null : null)
 	setSectionClip = (id: string, clip: Clip) => { if (this.mdl) setSectionClip(this.mdl, id, clip) }   // inside a drag gesture (the caller records the step)
 	setSectionDir = (id: string, dir: ElevDir) => { if (this.mdl) setSectionDir(this.mdl, this.editor.edit, id, dir) }

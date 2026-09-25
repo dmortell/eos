@@ -213,6 +213,15 @@ export function corner(l1: [Pt, Pt], p1: Pt, l2: [Pt, Pt], p2: Pt, o: { r?: numb
 	return { a: [k1, t1], b: [k2, t2], arc: [t1, M, t2] }
 }
 
+/** FILLET / CHAMFER ONE CORNER of a polyline (vertex `i`, not an end): the vertex becomes the two trim points, with
+ *  the fillet arc sampled in between (so it stays one polyline); null when it doesn't fit. */
+export function cornerInPolyline(pts: Pt[], i: number, o: { r?: number; chamfer?: [number, number] }): Pt[] | null {
+	if (i < 1 || i > pts.length - 2) return null
+	const r = corner([pts[i - 1], pts[i]], pts[i - 1], [pts[i], pts[i + 1]], pts[i + 1], o); if (!r) return null
+	const mid: Pt[] = r.arc ? arcPts({ id: '', type: 'arc', pts: r.arc }, 8) : [r.a[1], r.b[1]]
+	return [...pts.slice(0, i), ...mid, ...pts.slice(i + 1)]
+}
+
 /** OFFSET a polyline by `d` (positive = the left of its direction, in drawing coords): each segment shifts along
  *  its normal; neighbours meet at their intersection (mitred). A closed one (first = last) wraps. */
 export function offsetPolyline(pts: Pt[], d: number): Pt[] {

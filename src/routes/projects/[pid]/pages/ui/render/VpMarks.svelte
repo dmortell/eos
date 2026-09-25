@@ -18,6 +18,15 @@
 	const sw = $derived(1 / (v.canvasZoom || 1))
 </script>
 
+<!-- the building STRUCTURE in an elevation (layers A-FLOR / A-CLNG): slabs, raised floors, ceilings -->
+{#if v.structure}
+	{@const s = v.structure}
+	<g pointer-events="none">
+		{#each s.slabs as b, i (i)}<rect x={s.x0} y={b.y0} width={s.x1 - s.x0} height={b.y1 - b.y0} fill={s.floorColor} fill-opacity="0.35" stroke={s.floorColor} stroke-width={sw} />{/each}
+		{#each s.floors as y, i (i)}<line x1={s.x0} y1={y} x2={s.x1} y2={y} stroke={s.floorColor} stroke-width={sw} />{/each}
+		{#each s.ceilings as y, i (i)}<line x1={s.x0} y1={y} x2={s.x1} y2={y} stroke={s.ceilColor} stroke-width={sw} stroke-dasharray="{6 * sw} {3 * sw}" />{/each}
+	</g>
+{/if}
 {#if v.viewSpace}
 	{#each v.viewGuides as gd (gd.id)}
 		{@render guide(gd.orient, gd.pos, v.modelSel.includes(gd.id) ? 'sel' : '')}
