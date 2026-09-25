@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-	addModelObj, deleteModelSel, deleteGraphNode, deleteGraphSeg, insertGraphNode, branchNode,
+	addModelObj, deleteModelSel, deleteGraphNode, deleteGraphSeg, insertGraphNode, branchNode, splitNode,
 	addGuide, addSection, setSectionDir, deleteSection, setSectionClip, type EditScope, type GN,
 } from './modelEdit'
 import type { ViewCtx, MLayers } from './view'
@@ -139,6 +139,20 @@ describe('branchNode — pure, no edit bracket', () => {
 		expect(w.nodes).toHaveLength(2)
 		expect(nn).toBe((w.nodes as GN[])[1])   // the store's own element, not a fresh object
 		expect(w.segments).toEqual([{ id: 's2', a: 'a', b: 'n1' }])   // uid('s') → 2nd call
+	})
+})
+
+describe('splitNode — Alt-drag within one run', () => {
+	const run = () => ({ type: 'conduit', id: 'c', w: 100, h: 50, edges: 4, nodes: [{ id: 'l', x: -100, y: 0, z: 0 }, { id: 'm', x: 0, y: 0, z: 0 }, { id: 'r', x: 100, y: 0, z: 0 }],
+		segments: [{ id: 's1', a: 'l', b: 'm' }, { id: 's2', a: 'm', b: 'r' }] }) as Extract<Obj, { type: 'wall' | 'conduit' }>
+	const at = (n: GN): [number, number] => [n.x, n.y]
+	it('the selected segment takes a copy of the node; else the one pointing along the drag', () => {
+		const a = run(), m = (a.nodes as GN[])[1]
+		const nn = splitNode(a, m, ids(), { segId: 's1' })!
+		expect(a.segments).toEqual([{ id: 's1', a: 'l', b: nn.id }, { id: 's2', a: 'm', b: 'r' }])
+		const b = run(), nb = splitNode(b, (b.nodes as GN[])[1], ids(), { dir: [1, 0.2], at })!
+		expect(b.segments).toEqual([{ id: 's1', a: 'l', b: 'm' }, { id: 's2', a: nb.id, b: 'r' }])
+		const c = run(); expect(splitNode(c, (c.nodes as GN[])[0], ids(), {})).toBeNull()   // an end node: nothing to split
 	})
 })
 

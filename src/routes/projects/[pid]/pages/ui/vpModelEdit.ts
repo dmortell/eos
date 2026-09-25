@@ -10,6 +10,7 @@ import type { MGrip } from './grips'
 import type { VpView } from './vpView.svelte'
 import type { Obj } from '../3dview/types'
 import { newId } from '../ids'
+import { splitNode } from './modelEdit'
 import { zToU, uToZ } from '../store/racksImport'
 import { joinNewConduit, joinGraph, mergeNodes, compatible } from '../3dview/graphJoin'
 import { connPoints, attachNode, followConnections } from '../3dview/connect'
@@ -17,7 +18,9 @@ import { connPoints, attachNode, followConnections } from '../3dview/connect'
 /** A model body move: the press point + each object's start position (a box) or node positions (a graph). */
 export type MDrag = { start: Pt; items: { id: string; o0?: { x: number; y: number; z: number }; n0?: GN[] }[] }
 /** A model grip drag; `branch` undoes a Ctrl-branch that never moved; F5: other objects' nodes riding along. */
-export type MGripDrag = { grip: MGrip; origin: Pt; branch?: () => void; peers?: GN[] }
+/** `split`: an Alt-drag on a node joining 2+ segments of ONE run — on the first move the node splits (ui/modelEdit
+ *  splitNode) and the drag carries the copy (the selected segment's end, else the one along the drag). */
+export type MGripDrag = { grip: MGrip; origin: Pt; branch?: () => void; peers?: GN[]; split?: { segId?: string } }
 type Conduit = Extract<Obj, { type: 'conduit' }>
 const TOL_PX = 8
 
@@ -70,6 +73,16 @@ export function endModelMove(v: VpView, s: MDrag) {
 /** A model grip drag step: the grip applies; F5 riders take the dragged node's position; a resized / rotated box
  *  brings its attached conduit ends (F6). */
 export function moveModelGrip(v: VpView, s: MGripDrag, p: Pt) {
+	if (s.split) {   // the first move of an Alt-drag inside one run: split the node, then drag the copy
+		const g = s.grip, o = g.obj, dir: [number, number] = [p[0] - s.origin[0], p[1] - s.origin[1]]
+		if (Math.hypot(...dir) < 1e-6) return
+		const segId = s.split.segId; s.split = undefined
+		if (g.node && o && (o.type === 'wall' || o.type === 'conduit')) {
+			const node = (o.nodes as GN[]).find((x) => x.id === g.node!.id)
+			const nn = node && splitNode(o, node, newId, { segId, dir, at: (n) => v.graphNodeDraw(n) as [number, number] })
+			if (nn) s.grip = { ...g, node: nn, apply: (q: Pt, org?: Pt) => v.graphNodeApply(nn, q, org) }
+		}
+	}
 	s.grip.apply(p, s.origin)
 	const go = s.grip.obj, n = s.grip.node && go && (go.type === 'wall' || go.type === 'conduit') ? (go.nodes as GN[]).find((x) => x.id === s.grip.node!.id) : undefined
 	if (n && s.peers?.length) for (const q of s.peers) { q.x = n.x; q.y = n.y; q.z = n.z }

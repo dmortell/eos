@@ -16,7 +16,7 @@
 		['Zoom at the cursor', 'Wheel (ACAD on)'], ['Keep square / 15° / H-V', 'Shift while drawing'],
 		['Finish a line / run', 'Enter · double-click · right-click'], ['Cancel · back to Select · deselect', 'Esc (repeat)'],
 		['Edit text in place', 'Double-click it'], ['Add a node to a wall / conduit', 'Double-click a segment'],
-		['Branch from a node', 'Ctrl-drag the node'], ['Pull a node off a joined run', 'Alt-drag the node'],
+		['Branch from a node', 'Ctrl-drag the node'], ['Pull a node off a joined run / split a run there', 'Alt-drag the node'],
 		['Select a run, then one segment', 'Click it, click again'], ['Enter a viewport on a sheet', 'Double-click it'],
 		['Type a command', 'Just type (over the drawing)'],
 	]
@@ -31,6 +31,7 @@
 		{ q: 'Solid vs outline outlets', a: 'An outlet’s Fill: filled = low level, None = an outline (high level). Properties › STYLE › Fill.' },
 		{ q: 'Resize a block (a door swing, a symbol)', a: 'Select it and drag the scale handle at its far corner (Shift = steps of 0.25), or type Properties › BLOCK › Scale.' },
 		{ q: 'Join conduits / attach a trunk to a box', a: 'Draw the new run starting or ending on the other run’s node (or on a box’s × connection point) — it joins / attaches, and follows when that moves. Alt-drag a node to pull it off again.' },
+		{ q: 'Split a wall / trunk at a node (disconnect it)', a: 'Alt-drag the node: it comes apart. To choose which side comes away, select that segment first (click the run, click again on the segment), then Alt-drag its end node; otherwise the segment pointing the way you drag comes away. Alt-drag also pulls a node off another run it is joined to.' },
 		{ q: 'Line up or space shapes evenly', a: 'Select 2+ shapes → Properties › ARRANGE › Align (left / centre / right / top / middle / bottom — to the extreme one) or Distribute (equal gaps, 3+). Or the ALIGN command.' },
 		{ q: 'Copies in a grid or round a centre', a: 'Select the shape(s) and type AR: Rectangular (columns, rows, spacing) or Polar (centre, count, angle).' },
 		{ q: 'Draw with exact sizes', a: 'Type into the command line: L, then 0,0 (absolute) · @1200,0 (relative) · @900<90 (distance < angle) · or just 1200 = that far toward the cursor. Enter finishes, C closes, U undoes a point.' },

@@ -701,7 +701,12 @@ export class VpInteraction {
 			// F5: nodes of OTHER walls / conduits sitting on the dragged node move with it (a pipe meeting a trunk stays
 			// joined); Alt-drag detaches it from them
 			const peers = !branch && !e.altKey && g.node && g.obj ? coincidentNodes(v.mdl?.objects ?? [], g.obj, g.node) : []
-			beginPointerDrag<MGripDrag>(e, { grip, origin, branch, peers }, { onMove: this.onModelGripMove, onUp: this.onModelGripUp, onCancel: this.onModelGripCancel }, reg)
+			// …and INSIDE one run: Alt-drag on a node joining 2+ of its segments splits it (on the first move) — the
+			// selected segment's end comes away, else the segment along the drag
+			const ss = v.segSel, split = !branch && e.altKey && g.node && g.obj && (g.obj.type === 'wall' || g.obj.type === 'conduit')
+				&& (g.obj.segments as { a: string; b: string }[]).filter((s) => s.a === g.node!.id || s.b === g.node!.id).length > 1
+				? { segId: ss && ss.obj === g.obj.id ? ss.seg : undefined } : undefined
+			beginPointerDrag<MGripDrag>(e, { grip, origin, branch, peers, split }, { onMove: this.onModelGripMove, onUp: this.onModelGripUp, onCancel: this.onModelGripCancel }, reg)
 		} else if (pk?.kind === 'ggrip') {   // D13: the multi-selection's transform box — rotate / scale them all
 			const gx = v.groupXf; if (!gx) return
 			const bases = v.groupSel.map((x) => $state.snapshot(x) as Ent)

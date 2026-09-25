@@ -129,6 +129,27 @@ export function branchNode(o: Extract<Obj, { type: 'wall' | 'conduit' }>, from: 
 	return (o.nodes as GN[])[(o.nodes as GN[]).length - 1]
 }
 
+/** SPLIT a wall / conduit node (Alt-drag within one run): the node is duplicated and ONE segment's end moves to the
+ *  copy — `segId` when given (the selected segment), else the segment whose far end points most along `dir` (the drag
+ *  direction; `at` = a node's position in the same space as `dir`). The copy is returned (the store's proxy); null
+ *  when the node joins fewer than two segments (nothing to split). */
+export function splitNode(o: Extract<Obj, { type: 'wall' | 'conduit' }>, node: GN, uid: (prefix: string) => string,
+	pick: { segId?: string; dir?: [number, number]; at?: (n: GN) => [number, number] }): GN | null {
+	const segs = (o.segments as { id: string; a: string; b: string }[]).filter((s) => s.a === node.id || s.b === node.id)
+	if (segs.length < 2) return null
+	let s = pick.segId ? segs.find((x) => x.id === pick.segId) : undefined
+	if (!s && pick.dir && pick.at) {
+		const nm = new Map((o.nodes as GN[]).map((n) => [n.id, n])), c = pick.at(node), dl = Math.hypot(...pick.dir) || 1
+		const score = (x: { a: string; b: string }) => { const f = nm.get(x.a === node.id ? x.b : x.a); if (!f) return -2; const q = pick.at!(f), dx = q[0] - c[0], dy = q[1] - c[1], l = Math.hypot(dx, dy) || 1; return (dx * pick.dir![0] + dy * pick.dir![1]) / (l * dl) }
+		s = segs.reduce((b, x) => (score(x) > score(b) ? x : b))
+	}
+	if (!s) s = segs[0]
+	const nid = uid('n')
+	;(o.nodes as GN[]).push({ id: nid, x: node.x, y: node.y, z: node.z })
+	if (s.a === node.id) s.a = nid; else s.b = nid
+	return (o.nodes as GN[])[(o.nodes as GN[]).length - 1]
+}
+
 /** Add a guide (one undo step, labelled 'Add guide'). B26: NOT `(mdl.guides ??= []).push(...)` — `??=`
  *  yields the raw `[]` you assigned, not the `$state` proxy now stored on the model, so the push would
  *  land behind the proxy (no signal, lost on the next push); create the array, then re-read it through
