@@ -74,6 +74,11 @@
 		<line x1={g.pivot[0]} y1={g.pivot[1] - gs} x2={g.pivot[0]} y2={g.pivot[1] + gs} stroke={SEL} stroke-width={sw} />
 		{#each g.corners as c, i (i)}<Handle cx={c.c[0]} cy={c.c[1]} size={gs} cursor={i % 2 ? 'nesw-resize' : 'nwse-resize'} strokeWidth={1.2 * sw} />{/each}
 	{/if}
+	<!-- the selected SEGMENT of a run (a second click on the selected run) -->
+	{#if v.segSel}
+		{@const s = v.segSel}
+		<line x1={s.a[0]} y1={s.a[1]} x2={s.b[0]} y2={s.b[1]} stroke={SEL} stroke-width={5 * sw} stroke-linecap="round" opacity="0.55" />
+	{/if}
 	<!-- model grips: prism resize corners, or wall/conduit node handles (of the selected object) -->
 	{#if v.mSelObj}
 		{#each v.mGrips as g, i (g.node?.id ?? i)}

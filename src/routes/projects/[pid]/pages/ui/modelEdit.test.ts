@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import {
-	addModelObj, deleteModelSel, deleteGraphNode, insertGraphNode, branchNode,
+	addModelObj, deleteModelSel, deleteGraphNode, deleteGraphSeg, insertGraphNode, branchNode,
 	addGuide, addSection, setSectionDir, deleteSection, setSectionClip, type EditScope, type GN,
 } from './modelEdit'
 import type { ViewCtx, MLayers } from './view'
+import { graphSegAt } from './hit'
 import type { Model, Obj, Prism, Wall, Guide, Section } from '../3dview/types'
 
 // A recording EditScope: logs 'begin' / 'mark:<label>' / 'end' in call order, so a test can assert both
@@ -209,5 +210,24 @@ describe('setSectionClip — no edit bracket (the caller\'s drag gesture records
 		expect(m.sections![0].clip).toEqual(newClip)
 		setSectionClip(m, 'nope', newClip)   // no throw, no change elsewhere
 		expect(m.sections).toHaveLength(1)
+	})
+})
+
+describe('segment select + delete', () => {
+	const run = (): Wall => ({ type: 'wall', id: 'w1', h: 2800, thickness: 100,
+		nodes: [{ id: 'a', x: 0, y: 0, z: 0 }, { id: 'b', x: 1000, y: 0, z: 0 }, { id: 'c', x: 1000, y: 1000, z: 0 }],
+		segments: [{ id: 's1', a: 'a', b: 'b' }, { id: 's2', a: 'b', b: 'c' }] } as Wall)
+	it('the segment nearest the click is picked', () => {
+		expect(graphSegAt(planCtx, run(), [500, 30])).toBe('s1')
+		expect(graphSegAt(planCtx, run(), [980, 700])).toBe('s2')
+	})
+	it('deleting one segment keeps the rest (orphan node pruned); the last one removes the object', () => {
+		const m = mdl({ objects: [run()] }), edit = recEdit()
+		expect(deleteGraphSeg(m, edit, { obj: 'w1', seg: 's1' })).toEqual({ removedObject: false })
+		const w = m.objects[0] as Wall
+		expect(w.segments.map((s) => s.id)).toEqual(['s2']); expect(w.nodes.map((n) => n.id)).toEqual(['b', 'c'])
+		expect(edit.log).toEqual(['begin', 'mark:Delete segment', 'end'])
+		expect(deleteGraphSeg(m, recEdit(), { obj: 'w1', seg: 's2' })).toEqual({ removedObject: true })
+		expect(m.objects).toEqual([])
 	})
 })

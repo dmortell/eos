@@ -8,7 +8,7 @@ import { modelById } from './3dview/models.svelte'
 import { activeLayerIn, removeLayer } from './layers.svelte'
 import { selStore } from './selStore.svelte'
 import { selOnly, selClear, idsOfKind, singleOfKind } from './ui/selection'
-import { deleteModelSel, deleteGraphNode, deleteSection } from './ui/modelEdit'
+import { deleteModelSel, deleteGraphNode, deleteGraphSeg, deleteSection } from './ui/modelEdit'
 import { Clipboard, arrange, setGroup, relabelCopies, type ArrangeOp } from './ui/clipboard'
 import type { Ent } from './ui/geometry'
 import { withDefaults, type DrawingDefaults } from './ui/drawingDefaults'
@@ -162,6 +162,12 @@ export class DocEdit {
 			const removedObject = m ? deleteGraphNode(m, edit, { obj: nodeItem.id, node: nodeItem.sub! }, newId).removedObject : true
 			// a node delete that only joins / prunes segments (the object survives) leaves the PARENT selected
 			selStore.set(viewId, removedObject ? selClear() : selOnly([{ kind: 'obj', id: nodeItem.id }]))
+			return
+		}
+		const segItem = singleOfKind(s, 'seg')
+		if (segItem) {   // one segment of a run; the rest of the run stays selected
+			const m = mdl(), removedObject = m ? deleteGraphSeg(m, edit, { obj: segItem.id, seg: segItem.sub! }).removedObject : true
+			selStore.set(viewId, removedObject ? selClear() : selOnly([{ kind: 'obj', id: segItem.id }]))
 			return
 		}
 		if (sectionItem) { const m = mdl(); if (m) deleteSection(m, edit, sectionItem.id); selStore.set(viewId, selClear()); return }

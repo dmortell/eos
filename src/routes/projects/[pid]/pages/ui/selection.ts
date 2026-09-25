@@ -14,7 +14,9 @@
 // pick are already mutually exclusive in the current code; 'node' joins that same family here — a node is
 // only ever pickable through its already-selected parent object, so selecting a node REPLACES a plain
 // 'obj' selection of the same object with the more specific 'node' one, rather than the two coexisting).
-export type SelKind = 'ent' | 'obj' | 'guide' | 'section' | 'node' | 'frame'
+// 'seg' = one SEGMENT of a wall / conduit (`id` = the parent object, `sub` = the segment id) — like 'node', only
+// reachable through its already-selected parent (click the run, then click a segment of it).
+export type SelKind = 'ent' | 'obj' | 'guide' | 'section' | 'node' | 'seg' | 'frame'
 export type SelItem = { kind: SelKind; id: string; sub?: string }
 export type Selection = SelItem[]
 

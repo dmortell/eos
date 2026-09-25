@@ -13,10 +13,12 @@
 	import { toast } from 'svelte-sonner'
 	import { newId } from '../../ids'
 
-	let { obj, layers = [], model = null, onupdate, ondelete, onseg, onadd, outletsFor, allocated, nodeId }: {
+	let { obj, layers = [], model = null, onupdate, ondelete, onseg, onadd, outletsFor, allocated, nodeId, segId }: {
 		obj: Obj; layers?: MLayer[]
 		/** F9: the selected node of this wall / conduit (its own bend radius). */
 		nodeId?: string
+		/** The selected SEGMENT of this wall / conduit (its row is marked + scrolled into view). */
+		segId?: string
 		/** E8 (a panel device): the outlets its row can serve + every allocated outlet → where. */
 		outletsFor?: (rackModelId: string) => (import('../../store/allocate').OutletRef & { modelName: string })[]
 		allocated?: Map<string, string>
@@ -44,6 +46,11 @@
 		const rest = (obj.type === 'conduit' ? obj.cables ?? [] : []).filter((c) => c.type !== DEFAULT_CABLE)
 		setCables([{ type: DEFAULT_CABLE, qty: r.ports }, ...rest])
 		toast(`${r.outlets} outlet${r.outlets === 1 ? '' : 's'} → ${r.ports} ${CABLE_TYPES[DEFAULT_CABLE].label} cables`)
+	}
+	/** Scroll the selected segment's row into view. */
+	function reveal(el: HTMLElement, on: boolean) {
+		const go = (v: boolean) => { if (v) el.scrollIntoView({ block: 'nearest' }) }
+		go(on); return { update: go }
 	}
 	/** A wall / conduit segment's true 3D length (model mm) between its two nodes. */
 	function segLen(o: Obj, s: { a: string; b: string }): number {
@@ -136,7 +143,7 @@
 	<div class="prop"><span>Thickness</span><input type="number" value={obj.thickness} onchange={(e) => onupdate?.({ thickness: Math.max(1, num(e)) })} /></div>
 	<div class="prop-sec">SEGMENTS ({obj.segments.length})<span class="sec-hint" title="Total wall length">L {fmtLen(obj.segments.reduce((t, s) => t + segLen(obj, s), 0))}</span></div>
 	{#each obj.segments as s, si (s.id)}
-		<div class="seg-row"><em>{si + 1}</em>
+		<div class="seg-row" class:sel={s.id === segId} use:reveal={s.id === segId}><em>{si + 1}</em>
 			<label>t<input type="number" value={s.thickness ?? obj.thickness} placeholder={String(obj.thickness)} onchange={(e) => onseg?.(si, { thickness: Math.max(1, num(e)) })} /></label>
 			<label>h<input type="number" value={s.h ?? obj.h} placeholder={String(obj.h)} onchange={(e) => onseg?.(si, { h: Math.max(1, num(e)) })} /></label>
 			<span class="seg-len" title="Length">L {fmtLen(segLen(obj, s))}</span>
@@ -160,7 +167,7 @@
 	<!-- L = the segment's TRUE 3D length (model mm) — floors hidden in a riser drawing don't shorten it -->
 	<div class="prop-sec">SEGMENTS ({obj.segments.length})<span class="sec-hint" title="Total run length">L {fmtLen(obj.segments.reduce((t, s) => t + segLen(obj, s), 0))}</span></div>
 	{#each obj.segments as s, si (s.id)}
-		<div class="seg-row"><em>{si + 1}</em>
+		<div class="seg-row" class:sel={s.id === segId} use:reveal={s.id === segId}><em>{si + 1}</em>
 			<label>w<input type="number" value={s.w ?? obj.w} placeholder={String(obj.w)} onchange={(e) => onseg?.(si, { w: Math.max(1, num(e)) })} /></label>
 			<label>h<input type="number" value={s.h ?? obj.h} placeholder={String(obj.h)} onchange={(e) => onseg?.(si, { h: Math.max(1, num(e)) })} /></label>
 			<span class="seg-len" title="Length (3D)">L {fmtLen(segLen(obj, s))}</span>

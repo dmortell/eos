@@ -158,3 +158,14 @@ describe('bendGrips (F9)', () => {
 		expect(o.nodes[1].bend).toBe(0)
 	})
 })
+
+describe('block scale handle', () => {
+	it('dragging the far corner along the diagonal scales the insert; Shift snaps to 0.25', () => {
+		const ins = { id: 'i', type: 'insert', block: 'missing', a: [0, 0] } as Ent   // a missing block = a 200 mm box
+		const g = gripsLocal(planCtx, ins, opts)[0]
+		expect([g.x, g.y]).toEqual([100, 100])
+		expect(g.apply([200, 200]).scale).toBe(2)
+		expect(g.apply([100, 100]).scale).toBeUndefined()   // back to 1
+		expect(gripsLocal(planCtx, ins, { ...opts, shift: () => true })[0].apply([160, 160]).scale).toBe(1.5)
+	})
+})

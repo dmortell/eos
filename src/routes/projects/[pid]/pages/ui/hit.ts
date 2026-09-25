@@ -195,6 +195,18 @@ export function graphHit(ctx: ViewCtx, o: Extract<Obj, { type: 'wall' | 'conduit
 	return false
 }
 
+/** The wall / conduit SEGMENT nearest p (drawing coords) by its drawn centreline — the one a click on the run
+ *  meant. null when the graph has no segments. */
+export function graphSegAt(ctx: ViewCtx, o: Extract<Obj, { type: 'wall' | 'conduit' }>, p: Pt): string | null {
+	const nm = new Map((o.nodes as GN[]).map((n) => [n.id, n]))
+	let best: string | null = null, bd = Infinity
+	for (const s of o.segments as { id: string; a: string; b: string }[]) {
+		const a = nm.get(s.a), b = nm.get(s.b); if (!a || !b) continue
+		const d = segDist(p, graphNodeDraw(ctx, a), graphNodeDraw(ctx, b)); if (d < bd) { bd = d; best = s.id }
+	}
+	return best
+}
+
 /** Topmost model object under p (drawing coords): a prism whose DRAWN outline (`prismOutline` — the
  *  `project()` shape Model3d paints, so rotation, tilt and odd edge counts come for free, R7) contains p
  *  or lies within `thrMm` of it, or a wall/conduit graph. `thrMm` = pick tolerance in unscaled model mm. */

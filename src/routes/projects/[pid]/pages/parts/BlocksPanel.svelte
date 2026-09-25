@@ -53,7 +53,7 @@
 	.bp-search { display:flex; align-items:center; gap:6px; padding:4px 6px; margin:2px; border:1px solid var(--line); border-radius:5px; color:var(--faint); }
 	.bp-search input { flex:1; min-width:0; background:none; border:none; color:var(--text); font-size:12px; }
 	.bp-search input:focus { outline:none; }
-	.bp-armed { font-size:10px; line-height:14px; height:14px; color:var(--faint); padding:4px 6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+	.bp-armed { font-size:10px; line-height:16px; min-height:16px; box-sizing:content-box; color:var(--faint); padding:4px 6px; white-space:nowrap; overflow-x:hidden; overflow-y:visible; text-overflow:ellipsis; }
 	.bp-armed.on { color:var(--accent); font-weight:600; }
 	.bp-sec { font-size:9px; text-transform:uppercase; letter-spacing:.1em; color:var(--faint); padding:10px 4px 4px; }
 	.bp-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:4px; }

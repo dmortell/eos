@@ -147,7 +147,7 @@ export class VpView {
 	selection = $derived(this.editor.sel.get())
 	sel = $derived(idsOfKind(this.selection, 'ent'))
 	selSet = $derived(new Set(this.sel))
-	modelSel = $derived([...idsOfKind(this.selection, 'obj'), ...idsOfKind(this.selection, 'guide'), ...idsOfKind(this.selection, 'node')])
+	modelSel = $derived([...idsOfKind(this.selection, 'obj'), ...idsOfKind(this.selection, 'guide'), ...idsOfKind(this.selection, 'node'), ...idsOfKind(this.selection, 'seg')])
 	selSection = $derived(singleOfKind(this.selection, 'section')?.id ?? null)
 	selectEnts = (ids: string[]) => this.editor.sel.only(ids.map((id): SelItem => ({ kind: 'ent', id })))
 	toggleEnts = (ids: string[]) => this.editor.sel.toggle(ids.map((id): SelItem => ({ kind: 'ent', id })))
@@ -156,6 +156,16 @@ export class VpView {
 	selectGuide = (id: string) => this.editor.sel.only([{ kind: 'guide', id }])
 	selectSection = (id: string) => this.editor.sel.only([{ kind: 'section', id }])
 	selectNode = (objId: string, nodeId: string) => this.editor.sel.only([{ kind: 'node', id: objId, sub: nodeId }])
+	/** One segment of a wall / conduit (its parent is already selected — the second click on the run). */
+	selectSeg = (objId: string, segId: string) => this.editor.sel.only([{ kind: 'seg', id: objId, sub: segId }])
+	/** The selected segment, drawn highlighted: its two ends in drawing coords. */
+	segSel = $derived.by((): { obj: string; seg: string; a: Pt; b: Pt } | null => {
+		const it = singleOfKind(this.selection, 'seg'), o = it && this.mdl?.objects.find((x) => x.id === it.id)
+		if (!it || !o || (o.type !== 'wall' && o.type !== 'conduit')) return null
+		const s = (o.segments as { id: string; a: string; b: string }[]).find((x) => x.id === it.sub), nm = new Map((o.nodes as GN[]).map((n) => [n.id, n]))
+		const a = s && nm.get(s.a), b = s && nm.get(s.b); if (!a || !b) return null
+		return { obj: it.id, seg: it.sub!, a: graphNodeDraw(this.ctx, a), b: graphNodeDraw(this.ctx, b) }
+	})
 	clearSel = () => this.editor.sel.clear()
 	/** A fresh press "forgets" a specific NODE pick, falling back to the (still selected) object it belongs to. */
 	demoteNodeToObj = () => { const n = singleOfKind(this.selection, 'node'); if (n) this.selectObj(n.id) }

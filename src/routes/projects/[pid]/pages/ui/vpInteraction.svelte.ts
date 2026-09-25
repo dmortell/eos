@@ -20,7 +20,7 @@ import { rotateAbout, scaleAbout, cornerScale } from './groupXf'
 import { coincidentNodes } from '../3dview/graphJoin'
 import { commitConduit, moveModelItems, endModelMove, moveModelGrip, dropNodeJoin, type MDrag, type MGripDrag } from './vpModelEdit'
 import { snapToGrid, snapDelta, findSnap, drawPoint } from './snap'
-import { rotCenter, hitIsoFaces, marqueeSelect, type GN } from './hit'
+import { rotCenter, hitIsoFaces, marqueeSelect, graphSegAt, type GN } from './hit'
 import { newId } from '../ids'
 import { constrainPt } from './annotations'
 import { pasteCopies, relabelCopies } from './clipboard'
@@ -257,6 +257,13 @@ export class VpInteraction {
 	// model object. `lastClick.k` = which one the previous click at that spot picked. ──
 	private lastClick: { x: number; y: number; k: number; sel: string } | null = null
 	private selKey = () => [...this.v.sel, ...this.v.modelSel].join('|')
+	/** A click selecting model object `id`: a wall / conduit that was ALREADY the selection (the run, or one of
+	 *  its segments / nodes) → the segment under the click instead; otherwise the whole object. */
+	private pickObj(id: string, p: Pt) {
+		const v = this.v, o = v.mdl?.objects.find((x) => x.id === id)
+		if (this.selAtPress === id && (o?.type === 'wall' || o?.type === 'conduit')) { const s = graphSegAt(v.ctx, o, p); if (s) return v.selectSeg(id, s) }
+		v.selectObj(id)
+	}
 	private selAtPress = ''   // the selection just before the latest press (onDown)
 	private clickCandidates(p: Pt): { ids?: string[]; obj?: string }[] {
 		const v = this.v, out: { ids?: string[]; obj?: string }[] = [], seen = new Set<string>()
@@ -329,13 +336,13 @@ export class VpInteraction {
 				const again = lc && Math.hypot(e.clientX - lc.x, e.clientY - lc.y) <= 4 && lc.sel === this.selAtPress   // the press may already have re-picked the top one
 				const k = again ? (lc!.k + 1) % cands.length : 0
 				const c = cands[k]
-				if (c.obj) v.selectObj(c.obj); else v.selectEnts(c.ids!)
+				if (c.obj) this.pickObj(c.obj, p); else v.selectEnts(c.ids!)
 				this.lastClick = { x: e.clientX, y: e.clientY, k, sel: this.selKey() }
 				return
 			}
 			this.lastClick = null
 			if (g.length) return v.selectEnts(g)
-			const mid = v.hitModel(p); if (mid) return v.selectObj(mid)
+			const mid = v.hitModel(p); if (mid) return this.pickObj(mid, p)
 			const sid = v.hitSection(p); if (sid) return v.selectSection(sid)
 			const gid = v.hitGuide(p); if (gid) return v.selectGuide(gid)
 			return v.clearSel()
@@ -536,7 +543,7 @@ export class VpInteraction {
 			beginPointerDrag<MDrag>(e, { start: p, items: objs.map((o) => ({ id: o.id!,
 				o0: o.type === 'prism' ? { x: o.x, y: o.y, z: o.z } : undefined,
 				n0: (o.type === 'wall' || o.type === 'conduit') ? (o.nodes as GN[]).map((n) => ({ id: n.id, x: n.x, y: n.y, z: n.z })) : undefined,
-			})) }, { onMove: this.onModelDragMove, onUp: this.onModelDragUp, onCancel: this.closeEdit }, reg)
+			})) }, { onMove: this.onModelDragMove, onUp: this.onModelDragUp, onCancel: this.closeEdit }, reg, { thresholdPx: 3 })   // a click is not a move (no phantom undo step)
 		} else if (!pk) {   // empty space → a Kestrel-style selection box (window / crossing); Shift/Ctrl = additive
 			this.marquee = { a: p, b: p, add: e.shiftKey || e.ctrlKey || e.metaKey }
 			beginPointerDrag(e, null, { onMove: this.onMarqueeMove, onUp: this.onMarqueeUp, onCancel: () => { this.marquee = null } }, reg)
@@ -566,7 +573,7 @@ export class VpInteraction {
 		// Ctrl/⌘-drag DUPLICATES (copies created on the first move); a Ctrl-CLICK toggles via onClick
 		this.drag = { id, base, bases, kind, gi, start: p, dup: (e.ctrlKey || e.metaKey) && kind === 'move', duplicated: false }
 		v.editor.edit.begin()   // one history step for the whole drag
-		beginPointerDrag<EntDrag>(e, this.drag, { onMove: this.onDragMove, onUp: this.onDragUp, onCancel: this.onDragCancel }, this.reg)
+		beginPointerDrag<EntDrag>(e, this.drag, { onMove: this.onDragMove, onUp: this.onDragUp, onCancel: this.onDragCancel }, this.reg, kind === 'move' ? { thresholdPx: 3 } : {})
 	}
 	private applyDrag(drag: EntDrag, p: Pt, shift: boolean): Ent {
 		const v = this.v

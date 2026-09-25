@@ -63,6 +63,22 @@ export function deleteGraphNode(mdl: Model, edit: EditScope, sel: { obj: string;
 	return { removedObject }
 }
 
+/** Delete ONE segment of a wall / conduit (a selected 'seg'): nodes left with no segment go too; the object goes
+ *  when nothing remains (a run cut in the middle stays ONE object in two pieces). One undo step 'Delete segment'. */
+export function deleteGraphSeg(mdl: Model, edit: EditScope, sel: { obj: string; seg: string }): { removedObject: boolean } {
+	const o = mdl.objects.find((x) => x.id === sel.obj)
+	if (!o || (o.type !== 'wall' && o.type !== 'conduit')) return { removedObject: false }
+	const keep = (o.segments as { id: string; a: string; b: string }[]).filter((s) => s.id !== sel.seg)
+	edit.begin()
+	o.segments = keep as typeof o.segments
+	const used = new Set<string>(); for (const s of keep) { used.add(s.a); used.add(s.b) }
+	o.nodes = (o.nodes as GN[]).filter((n) => used.has(n.id))
+	let removedObject = false
+	if (!keep.length) { mdl.objects = mdl.objects.filter((x) => x.id !== o.id); removedObject = true }
+	edit.mark('Delete segment'); edit.end()
+	return { removedObject }
+}
+
 /** Insert a vertex into the nearest wall/conduit segment within `thrMm` of `p` (dbl-click), splitting it
  *  in two. The new node inherits the segment's z (keeps the run's height, in plan) or the on-axis coord +
  *  z (in an elevation, keeping the segment's off-axis coord); the new segment inherits object defaults.

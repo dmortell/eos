@@ -21,7 +21,7 @@
 	type HeightKey = 'slabMm' | 'raisedFloorMm' | 'clearHeightMm' | 'plenumMm'
 
 	let { ents = [], onupdate, onarrange, pageTitle = '', pageKind = '', activeLayer = '', node = null, onpagetitle,
-		modelObj = null, modelObjs = [], model = null, onmodeladd, outletsFor, allocated, sheets = [], onopenlink, onsaveblock, onwalk, modelNode, onmodelsupdate, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg,
+		modelObj = null, modelObjs = [], model = null, onmodeladd, outletsFor, allocated, sheets = [], onopenlink, onsaveblock, onwalk, modelNode, modelSeg, onmodelsupdate, modelLayers = [], onmodelupdate, onmodeldelete, onmodelseg,
 		frameObj = null, onframeupdate, onframedelete, onframefit, nodeInfo = null, onnodefield, modelList = [], activeFrameId = undefined, scaleN = 1,
 		sheetInfo = null, onsheetfield, titleBlock = undefined, ontitleblock, frameStoreys = [], frameConduits = [], heights = null, onheight, onheightall }:
 		{ ents?: Ent[]; onupdate?: (e: Ent | Ent[]) => void; onarrange?: (op: 'front' | 'back' | 'forward' | 'backward') => void;
@@ -38,7 +38,7 @@
 			sheets?: { id: string; title: string; number?: string }[]; onopenlink?: (link: string) => void;
 			/** D5: save the selected shapes as a library block. */ onsaveblock?: (name: string) => void;
 			/** E3: start a walk renumber from this outlet label. */ onwalk?: (label: string) => void;
-			/** F9: the selected wall / conduit node (its id), if any. */ modelNode?: string;
+			/** F9: the selected wall / conduit node (its id), if any. */ modelNode?: string; /** its selected segment */ modelSeg?: string;
 			/** I4: two or more model objects selected, and the per-object patch callback (one undo step). */
 			modelObjs?: Obj[]; onmodelsupdate?: (patchOf: (o: Obj) => Record<string, unknown> | null) => void;
 			onmodelupdate?: (patch: Record<string, unknown>) => void; onmodeldelete?: () => void; onmodelseg?: (segIdx: number, patch: Record<string, unknown>) => void;
@@ -76,7 +76,7 @@
 	{:else if modelObjs.length > 1 && onmodelsupdate}
 		<ModelObjsProps objs={modelObjs} layers={modelLayers} onpatch={onmodelsupdate} />
 	{:else if modelObj}
-		<ModelObjProps obj={modelObj} layers={modelLayers} {model} onadd={onmodeladd} {outletsFor} {allocated} onupdate={onmodelupdate} ondelete={onmodeldelete} onseg={onmodelseg} nodeId={modelNode} />
+		<ModelObjProps obj={modelObj} layers={modelLayers} {model} onadd={onmodeladd} {outletsFor} {allocated} onupdate={onmodelupdate} ondelete={onmodeldelete} onseg={onmodelseg} nodeId={modelNode} segId={modelSeg} />
 	{:else if ents.length === 0 && node}
 		<PlaceProps {node} info={nodeInfo} onfield={onnodefield} {heights} {onheight} {onheightall} />
 	{:else if ents.length === 0}

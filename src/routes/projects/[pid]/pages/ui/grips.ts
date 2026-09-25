@@ -10,6 +10,7 @@ import type { ViewCtx } from './view'
 import { sectionCorners, prismRect, prismTilted, graphNodeDraw, rotatePt, bbox, rotCenter, isFlatElev, flatXSpan, type GN } from './hit'
 import { ELEV_BASIS, elevU, elevUInv, textBox, STYLE_DEFAULTS } from './geometry'
 import { doorGeom } from '../3dview/projection'
+import { insertBounds } from './blocks'
 
 const PT_MM = 0.352778   // mm per typographic point (matches hit.ts/geometry; shared constants.PT_MM later)
 
@@ -263,6 +264,18 @@ export function gripsLocal(ctx: ViewCtx, e: Ent, opts: GripOpts): Grip[] {
 			{ x: ax, y: by, anchor: [bx, ay], square: true, resize: box, apply: (p) => ({ ...e, a: [p[0], e.a![1]] as Pt, b: [e.b![0], p[1]] as Pt }) },
 			{ x: bx, y: ay, anchor: [ax, by], square: true, resize: box, apply: (p) => ({ ...e, a: [e.a![0], p[1]] as Pt, b: [p[0], e.b![1]] as Pt }) },
 		]
+	}
+	if (e.type === 'insert' && e.a) {
+		// a SCALE handle at the block's far corner: dragging it along the diagonal from the insertion point sets
+		// `scale` (0.01 steps; Shift = 0.25 steps) — e.g. a door's swing size
+		const [, , x1, y1] = insertBounds(e, ctx.paperMm, ctx.mdl), a = e.a, s0 = e.scale ?? 1
+		const vx = x1 - a[0], vy = y1 - a[1], L2 = vx * vx + vy * vy
+		if (L2 > 0) return [{ x: x1, y: y1, apply: (p: Pt) => {
+			const k = ((p[0] - a[0]) * vx + (p[1] - a[1]) * vy) / L2, step = opts.shift() ? 0.25 : 0.01
+			const s = Math.max(step, Math.round((s0 * k) / step) * step)
+			return { ...e, scale: Math.abs(s - 1) < 1e-9 ? undefined : Math.round(s * 1000) / 1000 }
+		} }]
+		return []
 	}
 	if (e.type === 'text') {
 		const gs: Grip[] = [{ x: e.a![0], y: e.a![1], apply: (p) => ({ ...e, a: p }) }]

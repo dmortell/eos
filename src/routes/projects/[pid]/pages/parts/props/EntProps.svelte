@@ -366,7 +366,7 @@
 
 {#snippet arrow(down: boolean, bar: boolean)}
 	<!-- a draw-order icon: a triangle (down = backward, up = forward) + a bar on the far side for "all the way" -->
-	<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
+	<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true" style="display:block; margin:auto">
 		{#if down}<polygon points="1.5,3.5 10.5,3.5 6,9" />{#if bar}<rect x="1.5" y="10" width="9" height="1.6" />{/if}
 		{:else}<polygon points="1.5,8.5 10.5,8.5 6,3" />{#if bar}<rect x="1.5" y="0.4" width="9" height="1.6" />{/if}{/if}
 	</svg>
