@@ -26,8 +26,9 @@ export type Prism = {
 	open?: 'door' | 'window' | 'hole'
 	swing?: number
 	flip?: boolean
-	/** F6: user connection points (offsets from the footprint centre); unset = centre + edge midpoints. */
-	cpts?: { id: string; dx: number; dy: number }[]
+	/** F6: user connection points — u / v = fractions of w / d from the left / top edge (legacy: dx / dy mm from the
+	 *  centre); unset = centre + edge midpoints (3dview/connect.ts). */
+	cpts?: { id: string; u?: number; v?: number; dx?: number; dy?: number }[]
 }
 
 // Wall + Conduit are swept primitives over a node/segment graph (see graph.ts).

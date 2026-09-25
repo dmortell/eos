@@ -12,6 +12,8 @@
 	import { CABLE_TYPES, DEFAULT_CABLE, conduitFill, fillTone, portsNearest } from '../../3dview/fill'
 	import { toast } from 'svelte-sonner'
 	import { newId } from '../../ids'
+	import { cptUV, DEFAULT_CPTS, type CPt } from '../../3dview/connect'
+	import { cptPick } from '../../ui/cptPick.svelte'
 
 	let { obj, layers = [], model = null, onupdate, ondelete, onseg, onadd, outletsFor, allocated, nodeId, segId }: {
 		obj: Obj; layers?: MLayer[]
@@ -31,6 +33,9 @@
 		onseg?: (segIdx: number, patch: Record<string, unknown>) => void
 	} = $props()
 
+	// F6 Place…: armed for THIS box (ui/cptPick); another selection ends it
+	const placing = $derived(!!obj.id && cptPick.obj === obj.id)
+	$effect(() => { const id = obj.id; return () => { if (cptPick.obj === id) cptPick.obj = null } })
 	// R4 (Dave's decision 2026-09-23): a prism is CALLED "Box" in the UI — the data/code keep `type: 'prism'`.
 	const TYPE_LABEL: Record<string, string> = { prism: 'Box', wall: 'Wall', conduit: 'Conduit' }
 	// A prism on an "opening" layer is a door/window/hole; label it as such.
@@ -117,23 +122,25 @@
 			</div>
 		{/if}
 	{:else if !obj.device}
-		<!-- F6: where trunk / pipe ends attach (× in plan) — the default five, or the box's own (offsets from its centre) -->
+		<!-- F6: where trunk / pipe ends attach (× in plan) — the default five, or the box's own. A point is a RATIO of
+		     the footprint (U across the width from the left edge, V down the depth from the top; 0.5 = the middle), so
+		     it stays put when the box is resized. Place… = click on the plan to add points there. -->
 		{@const cps = obj.cpts ?? []}
+		{@const uv = (c: CPt) => cptUV(c, obj.w, obj.d)}
+		{@const setUV = (i: number, k: 0 | 1, n: number) => onupdate?.({ cpts: cps.map((q, j) => { if (j !== i) return q; const [u, v] = uv(q); const t = Math.max(0, Math.min(1, Math.round(n * 1000) / 1000)); return { id: q.id, u: k === 0 ? t : u, v: k === 1 ? t : v } }) })}
 		<div class="prop-sec">CONNECTION POINTS<span class="sec-hint">{cps.length ? `${cps.length} own` : 'centre + edges'}</span></div>
 		{#each cps as c, i (c.id)}
 			<div class="vecrow">
-				<NumCell k="dX" v={c.dx} set={(n) => onupdate?.({ cpts: cps.map((q, j) => (j === i ? { ...q, dx: Math.round(n) } : q)) })} />
-				<NumCell k="dY" v={c.dy} set={(n) => onupdate?.({ cpts: cps.map((q, j) => (j === i ? { ...q, dy: Math.round(n) } : q)) })} />
+				<NumCell k="U" v={uv(c)[0]} step={0.05} set={(n) => setUV(i, 0, n)} />
+				<NumCell k="V" v={uv(c)[1]} step={0.05} set={(n) => setUV(i, 1, n)} />
 				<button class="pp-mini" title="Remove this point" onclick={() => onupdate?.({ cpts: cps.length > 1 ? cps.filter((_, j) => j !== i) : undefined })}>×</button>
 			</div>
 		{/each}
-		{#if cps.length}<div class="pp-hint">dX / dY = mm from the box's centre (+X right, +Y down the plan); the × marks show while a conduit is selected or being drawn.</div>{/if}
+		{#if cps.length || placing}<div class="pp-hint">{placing ? 'Click on the plan to add a point there (it snaps to corners / edges) — Esc or Done ends.' : 'U / V = the fraction of the width / depth from the left / top edge (0.5 = the middle) — points keep their place when the box is resized. The × marks show on the plan while the box or a conduit is selected.'}</div>{/if}
 		<div class="prop"><span></span><span class="pp-seg">
-			<!-- the first "+ Point" keeps the five defaults as editable rows, then adds one (at the centre — set its offset) -->
-			<button title="Add a point (at the centre — then set its dX / dY)" onclick={() => {
-				const base = cps.length ? cps : [{ id: 'c', dx: 0, dy: 0 }, { id: 'n', dx: 0, dy: -Math.round(obj.d / 2) }, { id: 'e', dx: Math.round(obj.w / 2), dy: 0 }, { id: 's', dx: 0, dy: Math.round(obj.d / 2) }, { id: 'w', dx: -Math.round(obj.w / 2), dy: 0 }]
-				onupdate?.({ cpts: [...base, { id: newId('cp'), dx: 0, dy: 0 }] })
-			}}>+ Point</button>
+			<button class:on={placing} title="Click on the plan to add connection points (Esc ends)" onclick={() => (cptPick.obj = placing ? null : (obj.id ?? null))}>{placing ? 'Done' : 'Place…'}</button>
+			<!-- the first "+ Point" keeps the five defaults as editable rows, then adds one at the centre -->
+			<button title="Add a point at the centre — then set its U / V" onclick={() => onupdate?.({ cpts: [...(cps.length ? cps : DEFAULT_CPTS), { id: newId('cp'), u: 0.5, v: 0.5 }] })}>+ Point</button>
 			{#if cps.length}<button title="Back to centre + edge midpoints" onclick={() => onupdate?.({ cpts: undefined })}>Default</button>{/if}
 		</span></div>
 	{/if}

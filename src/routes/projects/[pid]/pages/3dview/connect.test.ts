@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { boxPoints, connPoints, attachNode, followConnections } from './connect'
+import { boxPoints, connPoints, attachNode, followConnections, cptUV, uvAt } from './connect'
 import type { Obj } from './types'
 
 const box = (extra: Partial<Obj> = {}) => ({ type: 'prism', id: 'rk', x: 0, y: 0, z: 0, w: 600, d: 1000, h: 2000, edges: 4, ...extra }) as Obj
@@ -10,6 +10,16 @@ describe('connection points (F6)', () => {
 		expect(boxPoints(box()).map((p) => [p.conn.pt, p.x, p.y])).toEqual([['c', 300, 500], ['n', 300, 0], ['e', 600, 500], ['s', 300, 1000], ['w', 0, 500]])
 		expect(boxPoints(box({ cpts: [{ id: 'top', dx: 100, dy: 0 }], rot: 90 })).map((p) => [Math.round(p.x), Math.round(p.y)])).toEqual([[300, 600]])
 		expect(boxPoints(box({ open: 'door' }))).toEqual([])
+	})
+	it('points are ratios of the footprint (they survive a resize); a click maps back to a ratio', () => {
+		expect(boxPoints(box({ cpts: [{ id: 'q', u: 0.25, v: 1 }] })).map((p) => [p.x, p.y])).toEqual([[150, 1000]])
+		expect(boxPoints(box({ w: 1200, cpts: [{ id: 'q', u: 0.25, v: 1 }] })).map((p) => [p.x, p.y])).toEqual([[300, 1000]])
+		expect(cptUV({ id: 'old', dx: 150, dy: -500 }, 600, 1000)).toEqual([0.75, 0])
+		const pb = (extra: Partial<Obj> = {}) => box(extra) as Extract<Obj, { type: 'prism' }>
+		expect(uvAt(pb(), 450, 250)).toEqual([0.75, 0.25])
+		expect(uvAt(pb(), 9999, -50)).toEqual([1, 0])   // clamped onto the box
+		const [u, v] = uvAt(pb({ rot: 90 }), 300 + 250, 500 + 150)   // rotation undone
+		expect([u, v]).toEqual([0.75, 0.25])
 	})
 	it('a node snaps onto a nearby point (keeping its height) and follows the box when it moves', () => {
 		const b = box(), c = run(), m = { objects: [b, c] as Obj[], shapes: [] }

@@ -18,6 +18,8 @@ import { addModelObj, insertGraphNode, branchNode, addGuide, addSection } from '
 import { constrainGrip, snapAngle } from './grips'
 import { rotateAbout, scaleAbout, cornerScale, barycentre, mirrorAbout } from './groupXf'
 import { cmdBus, type VpCommandTarget, type Xf } from './cmdBus.svelte'
+import { cptPick } from './cptPick.svelte'
+import { uvAt, DEFAULT_CPTS } from '../3dview/connect'
 import { coincidentNodes } from '../3dview/graphJoin'
 import { commitConduit, moveModelItems, endModelMove, moveModelGrip, dropNodeJoin, type MDrag, type MGripDrag } from './vpModelEdit'
 import { snapToGrid, snapDelta, findSnap, drawPoint } from './snap'
@@ -93,7 +95,7 @@ export class VpInteraction {
 	// ── hover cursor: 'move' over something a press would grab (P2: the same pickAt cascade as a press, at
 	// most once per animation frame) ──
 	hoverBody = $state(false)
-	cursorStyle = $derived.by(() => (!this.v.active ? 'pointer' : this.v.navMode === 'pan' ? 'grab' : this.v.navMode === 'orbit' && this.v.kind === 'iso' ? 'move' : this.myPick ? (this.myPick.kind === 'ent' ? 'pointer' : 'crosshair') : DRAW.has(this.v.tool) ? 'crosshair' : this.hoverBody ? 'move' : 'default'))
+	cursorStyle = $derived.by(() => (!this.v.active ? 'pointer' : this.v.navMode === 'pan' ? 'grab' : this.v.navMode === 'orbit' && this.v.kind === 'iso' ? 'move' : this.myPick ? (this.myPick.kind === 'ent' ? 'pointer' : 'crosshair') : cptPick.obj && this.v.isPlan ? 'crosshair' : DRAW.has(this.v.tool) ? 'crosshair' : this.hoverBody ? 'move' : 'default'))
 	private hoverRaf = 0
 	private hoverAt: [number, number] | null = null
 	private hoverIdle = () => this.v.active && this.v.tool === 'Select' && !this.drag && !this.reg.active && !this.draft.length && !this.marquee
@@ -460,6 +462,14 @@ export class VpInteraction {
 			pk.resolve({ p: u, ent: pk.kind === 'ent' ? v.hit(d)[0] : undefined })
 			return
 		}
+		// F6 Place… (Properties › CONNECTION POINTS): a click on the plan adds a point to that box
+		if (cptPick.obj && v.isPlan) {
+			const o = v.mdl?.objects.find((x) => x.id === cptPick.obj), p = this.drawPoint(e.clientX, e.clientY); v.snapMark = null
+			if (!o || o.type !== 'prism' || !p) { cptPick.obj = null; return }
+			const [u, vv] = uvAt(o, p[0], p[1]), base = o.cpts?.length ? o.cpts : DEFAULT_CPTS
+			v.editor.edit.begin(); o.cpts = [...base, { id: newId('cp'), u, v: vv }]; v.editor.edit.mark('Add connection point'); v.editor.edit.end()
+			return
+		}
 		// IMAGE calibration modes (Properties › Set scale / Set origin) intercept clicks.
 		if (imgEdit.mode === 'origin' && imgEdit.id) { const p = v.toModel(e.clientX, e.clientY); if (p) this.setImageOrigin(imgEdit.id, p); return }
 		if (imgEdit.mode === 'scale' && imgEdit.id && this.scaleReal === null) {
@@ -613,7 +623,8 @@ export class VpInteraction {
 			return
 		}
 		if (e.key !== 'Escape') return
-		if (imgEdit.mode) { clearImgMode(); this.scalePts = []; this.scaleReal = null }
+		if (cptPick.obj) cptPick.obj = null
+		else if (imgEdit.mode) { clearImgMode(); this.scalePts = []; this.scaleReal = null }
 		else if (this.draft.length) this.endDraft()
 		else if (v.tool !== 'Select') v.on.tool?.('Select')
 		else if (v.selSection || sel.length || v.modelSel.length) v.clearSel()
@@ -645,6 +656,7 @@ export class VpInteraction {
 			for (let i = 0; i < 2; i++) { const sp = v.toClient(this.scalePts[i][0], this.scalePts[i][1]); if (sp && Math.hypot(sp.x - e.clientX, sp.y - e.clientY) < 14) { beginPointerDrag<number>(e, i, { onMove: this.onScaleDragMove }, reg); return } }
 		}
 		if (imgEdit.mode === 'scale' || imgEdit.mode === 'origin') return   // pick modes: onClick places the point
+		if (cptPick.obj && v.isPlan) return   // placing connection points: onClick adds one (no drag of the box)
 		if (v.navMode === 'pan') return   // latched Pan: panzoom owns the drag (it only gets here when the pan target is disabled)
 		if (v.kind === 'iso' && (v.tool === 'Select' || v.navMode === 'orbit')) {   // 3D: a plain drag (or any drag with Orbit latched) orbits
 			beginPointerDrag<OrbitDrag>(e, { sx: e.clientX, sy: e.clientY, yaw0: v.yaw, pitch0: v.pitch }, { onMove: this.onOrbitMove, onUp: (_e, _s, moved) => { if (moved) this.suppressClick = true } }, reg)

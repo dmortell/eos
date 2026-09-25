@@ -10,8 +10,22 @@ import { isOutletEnt } from '../store/allocate'
 
 /** A node's attachment: a model object's point (`obj` + `pt`), or an outlet shape (`ent`). */
 export type Conn = { obj?: string; ent?: string; pt?: string }
-/** A box's user connection point: an offset (mm) from its footprint centre, in its unrotated frame. */
-export type CPt = { id: string; dx: number; dy: number }
+/** A box's user connection point, in its unrotated footprint: `u` / `v` = the fraction of its width / depth from the
+ *  left / top edge (0.5 = the middle), so the point stays put when the box is resized. Legacy points are mm offsets
+ *  from the centre (`dx` / `dy`) — still read. */
+export type CPt = { id: string; u?: number; v?: number; dx?: number; dy?: number }
+/** The default points: the centre + the four edge midpoints. */
+export const DEFAULT_CPTS: CPt[] = [{ id: 'c', u: 0.5, v: 0.5 }, { id: 'n', u: 0.5, v: 0 }, { id: 'e', u: 1, v: 0.5 }, { id: 's', u: 0.5, v: 1 }, { id: 'w', u: 0, v: 0.5 }]
+/** A point's (u, v) on a w × d box (a legacy mm offset converted). */
+export function cptUV(p: CPt, w: number, d: number): [number, number] {
+	return p.u != null ? [p.u, p.v ?? 0.5] : [0.5 + (p.dx ?? 0) / (w || 1), 0.5 + (p.dy ?? 0) / (d || 1)]
+}
+/** The (u, v) of a plan point on a box (rotation undone), clamped onto the footprint and rounded to 0.001. */
+export function uvAt(o: { x: number; y: number; w: number; d: number; rot?: number }, x: number, y: number): [number, number] {
+	const cx = o.x + o.w / 2, cy = o.y + o.d / 2, [lx, ly] = rot(x - cx, y - cy, -(o.rot ?? 0))
+	const r = (t: number) => Math.round(Math.max(0, Math.min(1, t)) * 1000) / 1000
+	return [r(0.5 + lx / (o.w || 1)), r(0.5 + ly / (o.d || 1))]
+}
 /** `z0`/`z1` = the box's height range (stacked boxes — a riser room per floor — share plan points; a node attaches
  *  to the one at its own height). */
 export type ConnPt = { x: number; y: number; conn: Conn; z0?: number; z1?: number }
@@ -25,8 +39,11 @@ const rot = (dx: number, dy: number, deg = 0): [number, number] => {
 export function boxPoints(o: Obj): ConnPt[] {
 	if (o.type !== 'prism' || o.open || o.rotX || o.rotY || !o.id) return []
 	const cx = o.x + o.w / 2, cy = o.y + o.d / 2
-	const pts: CPt[] = o.cpts?.length ? o.cpts : [{ id: 'c', dx: 0, dy: 0 }, { id: 'n', dx: 0, dy: -o.d / 2 }, { id: 'e', dx: o.w / 2, dy: 0 }, { id: 's', dx: 0, dy: o.d / 2 }, { id: 'w', dx: -o.w / 2, dy: 0 }]
-	return pts.map((p) => { const [x, y] = rot(p.dx, p.dy, o.rot); return { x: cx + x, y: cy + y, conn: { obj: o.id, pt: p.id }, z0: o.z, z1: o.z + o.h } })
+	const pts: CPt[] = o.cpts?.length ? o.cpts : DEFAULT_CPTS
+	return pts.map((p) => {
+		const [u, v] = cptUV(p, o.w, o.d), [x, y] = rot((u - 0.5) * o.w, (v - 0.5) * o.d, o.rot)
+		return { x: cx + x, y: cy + y, conn: { obj: o.id, pt: p.id }, z0: o.z, z1: o.z + o.h }
+	})
 }
 /** Every connection point in the model: boxes (not the conduits themselves) + outlets. */
 export function connPoints(m: Pick<Model, 'objects'> & { shapes?: Ent[] }): ConnPt[] {
