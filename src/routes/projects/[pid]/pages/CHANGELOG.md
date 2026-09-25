@@ -8,6 +8,13 @@ open items; `review.md §0a` tracks which review findings are closed.
 - **NOTE** (K3): a notes block shape — markdown (# headings, - bullets, 1. lists, | tables | with a |---| header row,
   **bold**) laid out in paper mm and wrapped to its width (`ui/noteLayout.ts`); annotative, optional frame. Grips
   move it / set the width. Properties › NOTE edits the text; DXF as TEXT + lines.
+- **NOTE editor** (the pencil beside Properties › NOTE): markdown on the left, a live preview on the right. Pasting
+  from Word / Google Docs / a web page keeps headings, bold (inline too), lists and tables (`ui/htmlToMd.ts`); Excel
+  cells become a table.
+- **Text with office apps**:
+  - copied shapes also go out as readable text + HTML (Word / Notepad get the words; Excel gets a note's table as
+    cells), with our shapes hidden in the HTML;
+  - text pasted from another app into a view becomes a text shape or a NOTE at the cursor.
 - **RACK presets** (Server / Network / Deep / Wall / Custom) + a Rack button in the tool strip's Boxes group.
 - **A pasted image** goes to file storage (UploadThing); the image shape points at its URL on the active layer.
 - **Typing** reaches the command line from anywhere but a text field (after a tree click it stayed with the tree).
