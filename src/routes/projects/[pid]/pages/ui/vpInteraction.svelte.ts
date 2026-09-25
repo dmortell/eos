@@ -262,6 +262,7 @@ export class VpInteraction {
 		undoPoint: () => { this.draft = this.draft.slice(0, -1); this.cur = this.draft.at(-1) ?? null },
 		selected: () => [...this.v.sel],
 		ents: (ids) => ids.map((id) => this.v.entities.find((x) => x.id === id)).filter(Boolean).map((e) => $state.snapshot(e) as Ent),
+		visibleEnts: () => this.v.entities.filter((e) => this.v.inThisView(e) && !this.v.isLayerHidden(e.layer)).map((e) => $state.snapshot(e) as Ent),
 		toDraw: (u) => this.toDraw(u),
 		toUser: (d) => this.toUser(d),
 		move: (dx, dy) => this.transformSel({ move: [dx, dy] }),

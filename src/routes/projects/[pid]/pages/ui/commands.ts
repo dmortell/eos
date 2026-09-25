@@ -39,7 +39,12 @@ export const COMMANDS: CmdDef[] = [
 	C('copy', 'Copy', 'COPY · CO · CP', 'Copy the selection from a base point to one or more points', 'Modify'),
 	C('group', 'Group', 'GROUP · G', 'Group the selected shapes', 'Modify'),
 	C('ungroup', 'Ungroup', 'UNGROUP · UG', 'Ungroup the selected shapes', 'Modify'),
-	C('draworder', 'Draw order', 'DRAWORDER · DR', 'Bring the selection to the front / back, or one step above / under', 'Modify'),
+	C('offset', 'Offset', 'OFFSET · O', 'A parallel copy at a distance (lines, polylines, rectangles, ellipses, arcs)', 'Modify'),
+	C('trim', 'Trim', 'TRIM · TR', 'Cut a line back to the shapes crossing it (click the part to remove)', 'Modify'),
+	C('extend', 'Extend', 'EXTEND · EX', 'Grow a line end to the nearest shape beyond it', 'Modify'),
+	C('break', 'Break', 'BREAK · BR', 'Remove a line between two points (or split it at one)', 'Modify'),
+	C('lengthen', 'Lengthen', 'LENGTHEN · LEN', 'Change a line / arc length: DElta, Percent or Total', 'Modify'),
+	C('draworder','Draw order', 'DRAWORDER · DR', 'Bring the selection to the front / back, or one step above / under', 'Modify'),
 	C('selectall','Select all', 'SELECTALL · AI_SELALL', 'Select every shape in the active viewport', 'Modify'),
 	C('deselect', 'Deselect', 'DESELECT', 'Clear the selection', 'Modify'),
 	// inquiry
@@ -136,9 +141,11 @@ export function readToken(token: string, drawing: boolean): Token {
 	return id ? { kind: 'cmd', id } : { kind: 'error', message: `Unknown command “${token}” — type HELP for the list, or X,Y / @DX,DY / @D<A for a point` }
 }
 
-/** A line of input → its tokens, in order (parts split by ';', tokens by whitespace). */
+/** A line of input → its tokens, in order (parts split by ';', tokens by whitespace). An EMPTY part between two
+ *  ';' is an Enter (like a blank line in an AutoCAD script); a trailing ';' just ends the line. */
 export function tokenize(line: string): string[] {
-	return line.split(';').flatMap((part) => part.trim().split(/\s+/).filter(Boolean))
+	const parts = line.split(';'); if (parts.length > 1 && !parts[parts.length - 1].trim()) parts.pop()
+	return parts.flatMap((part) => (part.trim() ? part.trim().split(/\s+/) : ['ENTER']))
 }
 
 /** A user coordinate → the absolute point, given the previous one (for @relative); Y up. */

@@ -2,8 +2,9 @@
 // "Specify base point:" — and then edits through the viewport's command target. Answers come from typed tokens or
 // viewport clicks (ui/commandRunner.svelte.ts routes them). Coordinates are USER coords (model mm, Y up); angles
 // are degrees CCW from +X.
-import type { Pt, Ent } from './geometry'
+import { dist, type Pt, type Ent } from './geometry'
 import type { VpCommandTarget } from './cmdBus.svelte'
+import { offsetEnt, outline, crossings, trim, extend, breakAt, setLength, polyLength, project, arcLength, setArcLength } from './modify'
 
 export type CmdHost = {
 	/** Arm a tool in the focused pane ('Line', 'Rectangle', … or 'Select'). */
@@ -82,6 +83,23 @@ export function polygonPts(ctr: Pt, n: number, r: number, a0: number, inscribed:
 	const R = inscribed ? r : r / Math.cos(Math.PI / n), s = inscribed ? 0 : Math.PI / n
 	return Array.from({ length: n }, (_, i) => { const t = a0 + s + (i * 2 * Math.PI) / n; return [ctr[0] + R * Math.cos(t), ctr[1] + R * Math.sin(t)] as Pt })
 }
+
+/** Ask for a shape (a click on it, or a typed point on it); Enter → null when `enter`. */
+async function pickEnt(c: CmdCtx, prompt: string, enter = false): Promise<{ e: Ent; p: Pt } | null> {
+	const a = await c.ask({ prompt, ent: true, enter })
+	if (a.kind !== 'ent') return null
+	const e = c.t.ents([a.id])[0]; if (!e) throw new CmdError('That shape is gone')
+	return { e, p: D(c, a.p) }
+}
+/** A line's pieces after TRIM / BREAK: the first replaces it, the rest are new shapes like it; none = deleted. */
+function replaceWith(c: CmdCtx, e: Ent, parts: Pt[][]) {
+	const [first, ...rest] = parts.filter((p) => p.length >= 2)
+	if (!first) return c.t.apply({ remove: [e.id] })
+	const { id: _id, groupId: _g, ...base } = e
+	c.t.apply({ update: [{ ...e, pts: first }], add: rest.map((pts) => c.t.newEnt({ ...base, pts })) })
+}
+const isLine = (e: Ent) => e.type === 'polyline' && (e.pts?.length ?? 0) >= 2 && !e.rot
+let lastOffset: number | undefined
 
 async function zoomWindow(c: CmdCtx, first?: Pt) {
 	const p = first ?? (await point(c, 'Specify first corner', undefined))
@@ -170,6 +188,69 @@ export const SCRIPTS: Record<string, Script> = {
 		const a = await c.ask({ prompt: 'Enter the text', text: true, def: 'NOTE' })
 		const s = a.kind === 'text' ? a.s : 'NOTE'
 		add(c, c.t.newEnt({ type: 'text', a: D(c, at), text: s, callout: true, calloutBorder: 'underline', leader: D(c, tip) }))
+	},
+	offset: async (c) => {
+		c.host.tool('Select')
+		const d = await number(c, 'Specify offset distance', lastOffset)
+		if (!(d > 0)) throw new CmdError('The distance must be positive')
+		lastOffset = d
+		for (;;) {
+			const pk = await pickEnt(c, 'Select object to offset or <exit>', true); if (!pk) return
+			const e = pk.e
+			const s = await c.ask({ prompt: 'Specify point on side to offset', point: { ghost: (u) => { const o = offsetEnt(e, d, D(c, u)); return o ? [o] : [] } } })
+			if (s.kind !== 'point') return
+			const o = offsetEnt(e, d, D(c, s.p))
+			if (!o) { c.out(e.type === 'polyline' || e.type === 'rect' || e.type === 'ellipse' || e.type === 'arc' ? 'It would collapse — pick the other side or a smaller distance' : 'OFFSET works on lines, polylines, rectangles, ellipses and arcs'); continue }
+			const { id: _id, groupId: _g, ...base } = o
+			add(c, c.t.newEnt(base))
+		}
+	},
+	trim: async (c) => {   // quick mode: every other shape is a cutting edge
+		c.host.tool('Select')
+		for (;;) {
+			const pk = await pickEnt(c, 'Select the part of a line to trim or <exit>', true); if (!pk) return
+			const e = pk.e; if (!isLine(e)) { c.out('TRIM works on lines / polylines'); continue }
+			const edges = c.t.visibleEnts().filter((x) => x.id !== e.id).flatMap(outline)
+			const parts = trim(e.pts!, project(e.pts!, pk.p).s, crossings(e.pts!, edges))
+			if (!parts) { c.out('Nothing crosses it there'); continue }
+			replaceWith(c, e, parts)
+		}
+	},
+	extend: async (c) => {   // the end nearer the click grows to the nearest shape beyond it
+		c.host.tool('Select')
+		for (;;) {
+			const pk = await pickEnt(c, 'Select the end of a line to extend or <exit>', true); if (!pk) return
+			const e = pk.e; if (!isLine(e)) { c.out('EXTEND works on lines / polylines'); continue }
+			const edges = c.t.visibleEnts().filter((x) => x.id !== e.id).flatMap(outline)
+			const pts = extend(e.pts!, project(e.pts!, pk.p).s < polyLength(e.pts!) / 2, edges)
+			if (!pts) { c.out('No boundary beyond that end'); continue }
+			c.t.apply({ update: [{ ...e, pts }] })
+		}
+	},
+	break: async (c) => {
+		c.host.tool('Select')
+		const pk = await pickEnt(c, 'Select a line (the click is the first break point)'); if (!pk) return
+		const e = pk.e; if (!isLine(e)) throw new CmdError('BREAK works on lines / polylines')
+		const s1 = project(e.pts!, pk.p).s
+		const b = await c.ask({ prompt: 'Specify second break point <the same point: split it>', point: {}, enter: true })
+		replaceWith(c, e, breakAt(e.pts!, s1, b.kind === 'point' ? project(e.pts!, D(c, b.p)).s : s1))
+	},
+	lengthen: async (c) => {
+		c.host.tool('Select')
+		const o = await c.ask({ prompt: 'Enter an option', options: ['DElta', 'Percent', 'Total'], def: 'DE' })
+		const mode = o.kind === 'option' ? o.key : 'DElta'
+		const v = await number(c, mode === 'DElta' ? 'Enter delta length (negative shortens)' : mode === 'Percent' ? 'Enter percentage length' : 'Specify total length')
+		for (;;) {
+			const pk = await pickEnt(c, 'Select the end of a line / arc to change or <exit>', true); if (!pk) return
+			const e = pk.e
+			if (!isLine(e) && e.type !== 'arc') { c.out('LENGTHEN works on lines, polylines and arcs'); continue }
+			const L = e.type === 'arc' ? arcLength(e) : polyLength(e.pts!)
+			const len = mode === 'DElta' ? L + v : mode === 'Percent' ? (L * v) / 100 : v
+			const atStart = e.type === 'arc' ? dist(pk.p, e.pts![0]) < dist(pk.p, e.pts![2]) : project(e.pts!, pk.p).s < L / 2
+			const next = e.type === 'arc' ? setArcLength(e, atStart, len) : ((pts) => (pts ? { ...e, pts } : null))(setLength(e.pts!, atStart, len))
+			if (!next) { c.out('The length must stay positive'); continue }
+			c.t.apply({ update: [next] })
+		}
 	},
 	draworder: async (c) => {
 		const ids = await selection(c)

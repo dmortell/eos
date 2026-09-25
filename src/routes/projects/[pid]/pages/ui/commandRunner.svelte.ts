@@ -126,6 +126,10 @@ export class CommandRunner {
 			a = { kind: 'text', s: token }
 		} else if (w.options?.length && /^[A-Z]+$/.test(up) && w.options.some((o) => o.toUpperCase().startsWith(up))) {
 			a = { kind: 'option', key: w.options.find((o) => o.toUpperCase().startsWith(up))! }
+		} else if (w.ent && !w.point && parseCoord(token)) {   // a typed point ON a shape picks it
+			const u = resolvePoint(parseCoord(token)!, this.lastPt), id = cmdBus.target?.entAt(u)
+			if (!id) return bad('No shape at that point')
+			a = { kind: 'ent', id, p: u }
 		} else if (w.point && parseCoord(token)) {
 			a = { kind: 'point', p: resolvePoint(parseCoord(token)!, w.point.base ?? this.lastPt) }
 		} else if (isNumber(token)) {

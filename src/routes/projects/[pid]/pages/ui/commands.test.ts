@@ -27,5 +27,7 @@ describe('command line (Kestrel port)', () => {
 		expect(readToken('2500', true)).toEqual({ kind: 'number', n: 2500 })
 		expect(readToken('nope', false).kind).toBe('error')
 		expect(tokenize('LINE 0,0 1000,0;  @0,500 ENTER')).toEqual(['LINE', '0,0', '1000,0', '@0,500', 'ENTER'])
+		expect(tokenize('L;0,0;10,0;;')).toEqual(['L', '0,0', '10,0', 'ENTER'])   // ';;' = Enter, the last ';' ends
+		expect(tokenize('M 1,1;')).toEqual(['M', '1,1'])
 	})
 })

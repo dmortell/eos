@@ -37,6 +37,8 @@ export type VpCommandTarget = {
 	/** The selected shapes (ids), and shapes by id (plain snapshots, drawing coords). */
 	selected(): string[]
 	ents(ids: string[]): Ent[]
+	/** Every shape shown in this view (drawing coords) — cutting / boundary edges for TRIM / EXTEND. */
+	visibleEnts(): Ent[]
 	/** User ↔ this view's drawing coords (null in 3D). */
 	toDraw(u: Pt): Pt | null
 	toUser(d: Pt): Pt | null
