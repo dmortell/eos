@@ -4,6 +4,20 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 `git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps the long historical done-log and the
 open items; `review.md §0a` tracks which review findings are closed.
 
+## Round 6 (2026-09-25) — angles, named views, polyline corners, viewport clipboard, structure
+- **DIMANGULAR**: two lines, then where the arc goes (which of the four angles). The result is an arc plus its
+  figure, grouped.
+- **VIEW** (named views): save / restore / delete a drawing's zoom + pan + scale. Stored per project + drawing +
+  viewport, in this browser.
+- **FILLET / CHAMFER on a polyline corner**: pick its two segments; the arc is sampled into the polyline
+  (`modify.cornerInPolyline`).
+- **Viewport frames on the system clipboard**: copying a frame on paper also writes it out, so Ctrl+V on paper can
+  take frames from another tab or browser.
+- **Building structure in elevations**, from the storeys: slab bands + raised-floor lines on layer A-FLOR, ceiling
+  lines on A-CLNG — shown while those layers are on (`vpView.structure`).
+- A Properties field being edited commits before a press on the drawing re-selects (it used to save onto the newly
+  clicked shape).
+
 ## Round 5 (2026-09-25) — clouds, dimensions, stretch, quick select, blocks audit, system clipboard
 - **Draw tools prompt in the command line** ("Line: specify next point" [Close/Undo] — clickable).
 - **REVCLOUD**: two corners, Polygonal (points; Enter closes) or Object (a rect / closed polyline). Clouds now
