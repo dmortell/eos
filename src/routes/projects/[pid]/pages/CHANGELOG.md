@@ -4,6 +4,19 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 `git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps the long historical done-log and the
 open items; `review.md §0a` tracks which review findings are closed.
 
+## Round 7 (2026-09-25) — racks, pages between projects, fixes
+- **RACK**: U / width / depth (remembered), then click centres. Each is a real rack object (Box + rack data, R01,
+  R02 …) with devices in Properties; plan only.
+- **Pages between projects**: tree › a sheet › Copy page, then tree › a place › Paste page here (another project /
+  tab / browser). Copies the sheet, its frames and their annotations; a frame whose model isn't there shows Missing
+  model.
+- **Viewport resize** keeps the drawing still on the paper.
+- **Number inputs**: small right padding, and an empty field types from the left (the caret hid against Chrome's
+  spin arrows).
+- **Structure lines** in elevations are 1 px screen-constant, in darker tones (they had shrunk to hairlines in 1:100
+  viewports).
+- **Draw tools** show their step in the command line; a Properties field commits before a press re-selects.
+
 ## Round 6 (2026-09-25) — angles, named views, polyline corners, viewport clipboard, structure
 - **DIMANGULAR**: two lines, then where the arc goes (which of the four angles). The result is an arc plus its
   figure, grouped.
