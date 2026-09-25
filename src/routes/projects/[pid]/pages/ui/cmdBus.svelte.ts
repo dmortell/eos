@@ -52,6 +52,8 @@ export type VpCommandTarget = {
 	copyMany(ops: Xf[]): string | null
 	/** Apply a transform to the selection (MIRROR without keeping the source). */
 	transform(op: Xf): string | null
+	/** EXPLODE these shapes (one undo step): a group → ungrouped; a polyline / rect / block → its parts. */
+	explode(ids: string[]): { done: number; skipped: number }
 	/** A shape's unrotated box in this view (drawing coords). */
 	bboxOf(e: Ent): [number, number, number, number]
 	/** The selection with `op` applied, uncommitted (drawing coords) — a command's ghost. */

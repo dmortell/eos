@@ -124,6 +124,67 @@ export function setArcLength(e: Ent, atStart: boolean, len: number): Ent | null 
 	return { ...e, pts: [at(a0), at((a0 + a1) / 2), at(a1)] }
 }
 
+/** JOIN: chains of polylines meeting end to end (within `tol`, either direction) → each chain as one point list
+ *  (the indices it used, in order). Singletons are left out. A chain that closes repeats its first point. */
+export function joinChains(lines: Pt[][], tol = 1): { idx: number[]; pts: Pt[] }[] {
+	const used = new Set<number>(), out: { idx: number[]; pts: Pt[] }[] = []
+	const near = (a: Pt, b: Pt) => dist(a, b) <= tol
+	for (let i = 0; i < lines.length; i++) {
+		if (used.has(i)) continue
+		used.add(i); let pts = [...lines[i]]; const idx = [i]
+		for (let grew = true; grew; ) {
+			grew = false
+			for (let j = 0; j < lines.length; j++) {
+				if (used.has(j)) continue
+				const l = lines[j], s = pts[0], e = pts[pts.length - 1]
+				if (near(e, l[0])) pts = [...pts, ...l.slice(1)]
+				else if (near(e, l[l.length - 1])) pts = [...pts, ...[...l].reverse().slice(1)]
+				else if (near(s, l[l.length - 1])) pts = [...l.slice(0, -1), ...pts]
+				else if (near(s, l[0])) pts = [...[...l].reverse().slice(0, -1), ...pts]
+				else continue
+				used.add(j); idx.push(j); grew = true
+			}
+		}
+		if (idx.length > 1) { if (near(pts[0], pts[pts.length - 1])) pts[pts.length - 1] = pts[0]; out.push({ idx, pts }) }
+	}
+	return out
+}
+
+/** FILLET / CHAMFER two lines (a→b each), picked at `p1` / `p2` (the kept side). radius 0 = a clean corner; `r` > 0 =
+ *  a tangent arc (its 3 points); `chamfer` [d1, d2] = a bevel line. The trimmed / extended lines, or null (parallel /
+ *  too short). */
+export function corner(l1: [Pt, Pt], p1: Pt, l2: [Pt, Pt], p2: Pt, o: { r?: number; chamfer?: [number, number] }):
+	{ a: [Pt, Pt]; b: [Pt, Pt]; arc?: [Pt, Pt, Pt]; bevel?: [Pt, Pt] } | null {
+	const x = lineX(l1[0], l1[1], l2[0], l2[1]); if (!x) return null
+	const X = lerp(l1[0], l1[1], x.t)
+	// each line keeps the end on the picked side of the corner
+	const keep = (l: [Pt, Pt], p: Pt): Pt => {
+		const d = sub(l[1], l[0]), s = (p[0] - X[0]) * d[0] + (p[1] - X[1]) * d[1]
+		const e0 = (l[0][0] - X[0]) * d[0] + (l[0][1] - X[1]) * d[1], e1 = (l[1][0] - X[0]) * d[0] + (l[1][1] - X[1]) * d[1]
+		// the end farthest from the corner on the picked side (both ends may lie on it when the lines don't meet)
+		const score = (e: number) => (Math.sign(e) === Math.sign(s) ? Math.abs(e) : -Math.abs(e))
+		return score(e1) >= score(e0) ? l[1] : l[0]
+	}
+	const k1 = keep(l1, p1), k2 = keep(l2, p2), L1 = dist(k1, X), L2 = dist(k2, X)
+	if (!L1 || !L2) return null
+	const u1: Pt = [(k1[0] - X[0]) / L1, (k1[1] - X[1]) / L1], u2: Pt = [(k2[0] - X[0]) / L2, (k2[1] - X[1]) / L2]
+	const at = (u: Pt, t: number): Pt => [X[0] + u[0] * t, X[1] + u[1] * t]
+	if (o.chamfer) {
+		const [d1, d2] = o.chamfer; if (d1 > L1 || d2 > L2) return null
+		const t1 = at(u1, d1), t2 = at(u2, d2)
+		return { a: [k1, t1], b: [k2, t2], bevel: d1 || d2 ? [t1, t2] : undefined }
+	}
+	const r = o.r ?? 0
+	if (!r) return { a: [k1, X], b: [k2, X] }
+	const th = Math.acos(Math.max(-1, Math.min(1, u1[0] * u2[0] + u1[1] * u2[1])))   // the angle between the kept legs
+	if (th < 1e-6 || Math.PI - th < 1e-6) return null
+	const t = r / Math.tan(th / 2); if (t > L1 || t > L2) return null
+	const t1 = at(u1, t), t2 = at(u2, t)
+	const bis: Pt = [u1[0] + u2[0], u1[1] + u2[1]], bl = Math.hypot(bis[0], bis[1]), h = r / Math.sin(th / 2)
+	const C: Pt = [X[0] + (bis[0] / bl) * h, X[1] + (bis[1] / bl) * h], M: Pt = [C[0] - (bis[0] / bl) * r, C[1] - (bis[1] / bl) * r]
+	return { a: [k1, t1], b: [k2, t2], arc: [t1, M, t2] }
+}
+
 /** OFFSET a polyline by `d` (positive = the left of its direction, in drawing coords): each segment shifts along
  *  its normal; neighbours meet at their intersection (mitred). A closed one (first = last) wraps. */
 export function offsetPolyline(pts: Pt[], d: number): Pt[] {

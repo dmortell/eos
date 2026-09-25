@@ -13,7 +13,8 @@
 	let logEl: HTMLDivElement | undefined = $state()
 	// suggestions only for the command word being typed (the first token, before any space)
 	let sugg = $derived(open && text && !/\s/.test(text.trim()) ? matchCommands(text) : [])
-	let recent = $derived(open ? runner.log.slice(-6) : runner.log.slice(-2))
+	let expanded = $state(false)   // the ▴ button: the whole history (the runner keeps the last 80 lines)
+	let recent = $derived(expanded ? runner.log : open ? runner.log.slice(-6) : runner.log.slice(-2))
 
 	/** Keys typed over the canvas start / continue a command here. */
 	export function type(ch: string) { text += ch; pick = 0; histIdx = -1; input?.focus() }
@@ -43,15 +44,20 @@
 	}
 </script>
 
-<div class="cmdline" class:open>
+<div class="cmdline" class:open class:expanded>
+	<button class="exp" title={expanded ? 'Show fewer lines' : 'Show the whole command history'} onmousedown={(e) => e.preventDefault()} onclick={() => (expanded = !expanded)}>{expanded ? '▾' : '▴'}</button>
 	<div class="log" bind:this={logEl}>
 		{#each recent as l, i (runner.log.length - recent.length + i)}<div class="ln {l.kind}">{l.text}</div>{/each}
 	</div>
-	<label class="row">
-		<span class="prompt">{runner.prompt}</span>
+	<div class="row">
+		<!-- the prompt; a running command's [options] are buttons (a click answers with that option) -->
+		{#if runner.want}
+			{@const w = runner.want}
+			<span class="prompt">{w.prompt}{#if w.options?.length}&nbsp;[{#each w.options as o, i (o)}{#if i}/{/if}<button class="opt" title="Choose {o}" onmousedown={(e) => e.preventDefault()} onclick={() => runner.run(o.split(' ')[0])}>{o}</button>{/each}]{/if}{#if w.def}&nbsp;&lt;{w.def}&gt;{/if}:</span>
+		{:else}<span class="prompt">{runner.prompt}</span>{/if}
 		<input bind:this={input} bind:value={text} spellcheck="false" autocomplete="off" placeholder={runner.want ? 'A point X,Y / @DX,DY, a number, an option — or click in the view' : 'Type a command (L, REC, M, CO, Z …) — HELP lists them'}
 			onfocus={() => (open = true)} onblur={() => (open = false)} oninput={() => { pick = 0; histIdx = -1 }} {onkeydown} />
-	</label>
+	</div>
 	{#if sugg.length}
 		<ul class="sugg">
 			{#each sugg as s, i (s.id)}
@@ -68,6 +74,11 @@
 	.cmdline { position: relative; background: var(--panel); border-top: 1px solid var(--line); font: 12px ui-monospace, Consolas, monospace; color: var(--text); flex: none; }
 	.log { max-height: 34px; overflow: hidden; padding: 2px 8px 0; }
 	.open .log { max-height: 96px; overflow-y: auto; }
+	.expanded .log { max-height: 40vh; overflow-y: auto; }
+	.exp { position: absolute; right: 6px; top: 1px; z-index: 1; background: none; border: none; color: var(--faint); cursor: pointer; font-size: 11px; padding: 0 4px; }
+	.exp:hover { color: var(--text); }
+	.opt { background: none; border: none; padding: 0 1px; font: inherit; color: var(--accent); text-decoration: underline dotted; cursor: pointer; }
+	.opt:hover { color: var(--text); text-decoration: underline; }
 	.ln { white-space: pre-wrap; line-height: 16px; color: var(--muted); }
 	.ln.in { color: var(--faint); }
 	.ln.err { color: var(--danger); }

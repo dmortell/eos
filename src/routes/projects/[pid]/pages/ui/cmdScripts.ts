@@ -6,7 +6,7 @@ import { dist, type Pt, type Ent } from './geometry'
 import type { VpCommandTarget } from './cmdBus.svelte'
 import { svgMarkup, svgToPng, download } from './svgExport'
 import { arrange } from './arrange'
-import { offsetEnt, outline, crossings, trim, extend, breakAt, setLength, polyLength, project, arcLength, setArcLength } from './modify'
+import { offsetEnt, outline, crossings, trim, extend, breakAt, setLength, polyLength, project, arcLength, setArcLength, joinChains, corner } from './modify'
 
 export type CmdHost = {
 	/** Arm a tool in the focused pane ('Line', 'Rectangle', … or 'Select'). */
@@ -16,6 +16,8 @@ export type CmdHost = {
 	 *  the layer's name, or an error. */
 	newLayer(name: string): { name: string } | string
 	setCurrentLayer(id: string): { name: string } | string
+	/** LAYOFF / LAYFRZ / LAYISO / LAYUNISO / LAYON on the focused model's layers: a message, or `{ err }`. */
+	layerOp(op: 'off' | 'frz' | 'iso' | 'uniso' | 'on', ids: string[]): string | { err: string }
 	/** A file name for an export of the active view ('3F Plan - Front'). */
 	exportName(): string
 }
@@ -104,8 +106,43 @@ function replaceWith(c: CmdCtx, e: Ent, parts: Pt[][]) {
 	const { id: _id, groupId: _g, ...base } = e
 	c.t.apply({ update: [{ ...e, pts: first }], add: rest.map((pts) => c.t.newEnt({ ...base, pts })) })
 }
+function layerMsg(c: CmdCtx, r: string | { err: string }) { if (typeof r !== 'string') throw new CmdError(r.err); c.out(r) }
+/** LAYOFF / LAYFRZ: each picked shape's layer, until Enter. */
+async function layerPicks(c: CmdCtx, op: 'off' | 'frz', prompt: string) {
+	c.host.tool('Select')
+	for (;;) {
+		const pk = await pickEnt(c, prompt, true); if (!pk) return
+		if (!pk.e.layer) { c.out('That shape has no layer'); continue }
+		layerMsg(c, c.host.layerOp(op, [pk.e.layer]))
+	}
+}
 const isLine = (e: Ent) => e.type === 'polyline' && (e.pts?.length ?? 0) >= 2 && !e.rot
 let lastOffset: number | undefined
+let filletR = 0, chamferD: [number, number] = [0, 0]
+/** FILLET / CHAMFER: two lines (picked on the side to keep) → a corner, a tangent arc (Radius) or a bevel (Distance). */
+async function cornerCmd(c: CmdCtx, bevel: boolean) {
+	c.host.tool('Select')
+	c.out(bevel ? `Chamfer distances ${fmt(chamferD[0])}, ${fmt(chamferD[1])}` : `Fillet radius ${fmt(filletR)}`)
+	let first: { e: Ent; p: Pt } | null = null
+	for (;;) {
+		const a = await c.ask({ prompt: 'Select first line', ent: true, options: [bevel ? 'Distance' : 'Radius'] })
+		if (a.kind === 'option') {
+			if (bevel) { const d1 = await number(c, 'Specify first chamfer distance', chamferD[0]); chamferD = [d1, await number(c, 'Specify second chamfer distance', d1)] }
+			else filletR = await number(c, 'Specify fillet radius', filletR)
+			continue
+		}
+		if (a.kind !== 'ent') return
+		const e = c.t.ents([a.id])[0]; if (!e || !isLine(e) || e.pts!.length !== 2) { c.out('Pick a straight line (a 2-point line)'); continue }
+		first = { e, p: D(c, a.p) }; break
+	}
+	const b = await pickEnt(c, 'Select second line'); if (!b) return
+	if (!isLine(b.e) || b.e.pts!.length !== 2 || b.e.id === first.e.id) throw new CmdError('Pick a second, different straight line')
+	const r = corner(first.e.pts as [Pt, Pt], first.p, b.e.pts as [Pt, Pt], b.p, bevel ? { chamfer: chamferD } : { r: filletR })
+	if (!r) throw new CmdError('They are parallel, or too short for that radius / distance')
+	const { id: _id, groupId: _g, ...style } = first.e
+	c.t.apply({ update: [{ ...first.e, pts: r.a }, { ...b.e, pts: r.b }],
+		add: r.arc ? [c.t.newEnt({ ...style, type: 'arc', pts: r.arc })] : r.bevel ? [c.t.newEnt({ ...style, type: 'polyline', pts: r.bevel })] : [] })
+}
 
 async function zoomWindow(c: CmdCtx, first?: Pt) {
 	const p = first ?? (await point(c, 'Specify first corner', undefined))
@@ -316,6 +353,34 @@ export const SCRIPTS: Record<string, Script> = {
 		c.t.selectAll((e) => keys.has(`${e.type}|${e.layer ?? ''}|${e.type === 'insert' ? e.block : ''}`))
 		c.out(`${c.t.selected().length} selected`)
 	},
+	layoff: (c) => layerPicks(c, 'off', 'Select a shape on the layer to turn off or <exit>'),
+	layfrz: (c) => layerPicks(c, 'frz', 'Select a shape on the layer to freeze (in the active viewport, else everywhere) or <exit>'),
+	layiso: async (c) => {   // the selection's layers (else a picked shape's) stay; every other layer goes off
+		let ids = c.t.selected()
+		if (!ids.length) { const pk = await pickEnt(c, 'Select a shape on the layer to isolate'); if (!pk) return; ids = [pk.e.id] }
+		const ls = [...new Set(c.t.ents(ids).map((e) => e.layer).filter((x): x is string => !!x))]
+		if (!ls.length) throw new CmdError('Those shapes have no layer')
+		layerMsg(c, c.host.layerOp('iso', ls))
+	},
+	layuniso: async (c) => layerMsg(c, c.host.layerOp('uniso', [])),
+	layon: async (c) => layerMsg(c, c.host.layerOp('on', [])),
+	join: async (c) => {   // end-to-end lines → one polyline per chain (the first line keeps its style + id)
+		const ids = await selection(c)
+		const lines = c.t.ents(ids).filter(isLine)
+		const chains = joinChains(lines.map((e) => e.pts!), 1)
+		if (!chains.length) throw new CmdError('No lines meet end to end (JOIN works on lines / polylines)')
+		c.t.apply({ update: chains.map((ch) => ({ ...lines[ch.idx[0]], pts: ch.pts })), remove: chains.flatMap((ch) => ch.idx.slice(1).map((i) => lines[i].id)) })
+		c.t.select(chains.map((ch) => lines[ch.idx[0]].id))
+		c.out(`${chains.reduce((t, ch) => t + ch.idx.length, 0)} lines joined into ${chains.length} polyline${chains.length > 1 ? 's' : ''}`)
+	},
+	explode: async (c) => {
+		const ids = await selection(c)
+		const r = c.t.explode(ids)
+		if (!r.done) throw new CmdError('Nothing to explode — polylines, rectangles, blocks and groups explode')
+		c.out(`Exploded ${r.done}${r.skipped ? ` (${r.skipped} can't be exploded)` : ''}`)
+	},
+	fillet: (c) => cornerCmd(c, false),
+	chamfer: (c) => cornerCmd(c, true),
 	draworder: async (c) => {
 		const ids = await selection(c)
 		const a = await c.ask({ prompt: 'Enter object ordering option', options: ['Front', 'Back', 'Above', 'Under'], def: 'Front' })

@@ -19,6 +19,7 @@ import { constrainGrip, snapAngle } from './grips'
 import { rotateAbout, scaleAbout, cornerScale, barycentre, mirrorAbout } from './groupXf'
 import { cmdBus, type VpCommandTarget, type Xf } from './cmdBus.svelte'
 import { cptPick } from './cptPick.svelte'
+import { explodeEnt } from './explode'
 import { uvAt, DEFAULT_CPTS } from '../3dview/connect'
 import { coincidentNodes } from '../3dview/graphJoin'
 import { commitConduit, moveModelItems, endModelMove, moveModelGrip, dropNodeJoin, type MDrag, type MGripDrag } from './vpModelEdit'
@@ -285,6 +286,18 @@ export class VpInteraction {
 			return null
 		},
 		transform: (op) => this.transformSel(op),
+		explode: (ids) => {
+			const v = this.v, es = this.cmdTarget.ents(ids), ed = v.editor
+			const grouped = es.filter((e) => e.groupId), loose = es.filter((e) => !e.groupId)
+			const parts = loose.map((e) => [e, explodeEnt(e, { centreOf: (x) => rotCenter(v.ctx, x), paperMm: v.paperMm, uid })] as const)
+			const done = parts.filter(([, p]) => p?.length)
+			ed.edit.begin()
+			if (grouped.length) ed.ents.ungroup(grouped.map((e) => e.id))
+			for (const [, p] of done) p!.forEach((x) => ed.ents.add(x))
+			if (done.length) ed.ents.delete(done.map(([e]) => e.id))
+			ed.edit.end()
+			return { done: done.length + (grouped.length ? 1 : 0), skipped: loose.length - done.length }
+		},
 		bboxOf: (e) => bbox(this.v.ctx, e),
 		apply: ({ update, add, remove }) => {
 			const ed = this.v.editor; ed.edit.begin()

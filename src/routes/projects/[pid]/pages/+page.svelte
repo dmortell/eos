@@ -640,13 +640,19 @@
 	// active viewport (ui/cmdBus); everything else lands here.
 	let cmdLine: CommandLine | undefined = $state()
 	let helpOpen = $state(false)   // the ? button / F1 / HELP (parts/HelpDialog)
+	let layIsoSaved: [string, boolean][] | null = null   // LAYISO → LAYUNISO: the visibility before isolating
 	const cmdRunner = new CommandRunner({
 		tool: (t) => { if (!active) return; if (placeBlock) armBlock(null); navMode = null; focusTool(t) },
 		run: (id) => {
 			const p = session.panes[session.focused]
 			const toggle = (k: string) => { toggles[k] = !toggles[k]; statusText = `${k} ${toggles[k] ? 'on' : 'off'}` }
 			const views: Record<string, Proj> = { plan: 'plan', front: 'front', rear: 'rear', left: 'left', right: 'right', iso: 'iso' }
-			if (views[id]) { if (!p || !active) return 'Open a drawing first'; gizmoSet(p, active, views[id]); return }
+			if (views[id]) {
+				if (!p || !active) return 'Open a drawing first'
+				// on a sheet only the ACTIVE viewport changes (never the first frame by default — that silently re-aims a drawing)
+				if (active.kind === 'sheet' && !activeVpOf(active.id)) return 'Double-click a viewport on the sheet first (views change the active viewport)'
+				gizmoSet(p, active, views[id]); return
+			}
 			const panel = { layers: 'layers', props: 'props', history: 'history', blockspanel: 'blocks', blocks: 'blocks' } as const
 			if (id in panel) { rightTab = panel[id as keyof typeof panel]; rightOpen = true; return }
 			const toggleKey: Record<string, string> = { grid: 'GRID', snap: 'SNAP', ortho: 'ORTHO', osnap: 'OSNAP', lwt: 'LWT' }
@@ -679,6 +685,21 @@
 			const ls = modelById(activeMid())?.layers; if (!ls) return 'No model is open'
 			const l = addLayer(ls); l.name = name.trim() || l.name
 			return { name: l.name }
+		},
+		layerOp: (op, ids) => {
+			const ls = modelById(activeMid())?.layers; if (!ls) return { err: 'No model is open' }
+			const named = ids.map((id) => ls.find((l) => l.id === id)).filter((l): l is NonNullable<typeof l> => !!l)
+			const names = named.map((l) => `“${l.name}”`).join(', ')
+			const bg = (l: { group?: string }) => l.group === 'Background'
+			switch (op) {
+				case 'off': named.forEach((l) => (l.visible = false)); return `Layer ${names} is off${named.some((l) => l.id === layerUI.active) ? ' (it is the current layer)' : ''}`
+				case 'frz':
+					if (activeFrame) { for (const l of named) if (!(activeFrame.frozen ?? []).includes(l.id)) toggleVpFreeze(l.id); return `Layer ${names} frozen in this viewport` }
+					named.forEach((l) => (l.visible = false)); return `Layer ${names} is off (no viewport is active — VP Freeze needs one)`
+				case 'iso': layIsoSaved = ls.map((l) => [l.id, l.visible] as [string, boolean]); for (const l of ls) if (!bg(l)) l.visible = ids.includes(l.id); return `Isolated ${names} — LAYUNISO brings the others back`
+				case 'uniso': { const s = layIsoSaved; if (!s) return { err: 'Nothing is isolated' }; for (const [id, v] of s) { const l = ls.find((x) => x.id === id); if (l) l.visible = v }; layIsoSaved = null; return 'Layers restored' }
+				case 'on': ls.forEach((l) => (l.visible = true)); return 'Every layer is on'
+			}
 		},
 		exportName: () => { const av = activeView(); return av && av !== 'no-frame' ? `${av.title} - ${PROJ_LABEL[av.dir]}` : (active?.title ?? 'drawing') },
 		setCurrentLayer: (id) => {

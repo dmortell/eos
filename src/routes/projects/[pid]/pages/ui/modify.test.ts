@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { Ent, Pt } from './geometry'
-import { crossings, trim, extend, breakAt, setLength, polyLength, offsetPolyline, offsetEnt, outline, project, setArcLength, arcLength } from './modify'
+import { crossings, trim, extend, breakAt, setLength, polyLength, offsetPolyline, offsetEnt, outline, project, setArcLength, arcLength, joinChains, corner } from './modify'
 
 const L: Pt[] = [[0, 0], [100, 0]]
 const X = (x: number): Pt[] => [[x, -50], [x, 50]]   // a vertical cutting line at x
@@ -53,5 +53,23 @@ describe('OFFSET', () => {
 		const arc: Ent = { id: 'a', type: 'arc', pts: [[10, 0], [7.0710678, 7.0710678], [0, 10]] }
 		expect(arcLength(arc)).toBeCloseTo((Math.PI / 2) * 10)
 		expect(arcLength(setArcLength(arc, false, Math.PI * 10)!)).toBeCloseTo(Math.PI * 10)
+	})
+})
+
+describe('JOIN / FILLET / CHAMFER', () => {
+	it('joins end-to-end lines in either direction; a closing chain closes', () => {
+		const r = joinChains([[[0, 0], [10, 0]], [[20, 0], [10, 0]], [[50, 50], [60, 50]]])
+		expect(r).toEqual([{ idx: [0, 1], pts: [[0, 0], [10, 0], [20, 0]] }])
+		const sq = joinChains([[[0, 0], [10, 0]], [[10, 0], [10, 10]], [[10, 10], [0, 0]]])
+		expect(sq[0].pts).toHaveLength(4); expect(sq[0].pts[3]).toEqual(sq[0].pts[0])
+	})
+	it('fillet 0 meets at the corner; a radius makes a tangent arc; chamfer bevels', () => {
+		const h: [Pt, Pt] = [[0, 0], [8, 0]], v: [Pt, Pt] = [[10, 2], [10, 20]]   // they don't quite reach
+		expect(corner(h, [2, 0], v, [10, 15], {})).toEqual({ a: [[0, 0], [10, 0]], b: [[10, 20], [10, 0]] })
+		const f = corner([[0, 0], [20, 0]], [2, 0], [[10, -5], [10, 20]], [10, 15], { r: 4 })!
+		expect(f.a[1][0]).toBeCloseTo(6); expect(f.b[1][1]).toBeCloseTo(4)
+		expect(Math.hypot(f.arc![1][0] - 6, f.arc![1][1] - 4)).toBeCloseTo(4)   // on the r = 4 circle round (6, 4)
+		const c = corner([[0, 0], [20, 0]], [2, 0], [[10, -5], [10, 20]], [10, 15], { chamfer: [3, 3] })!
+		expect(c.bevel).toEqual([[7, 0], [10, 3]])
 	})
 })
