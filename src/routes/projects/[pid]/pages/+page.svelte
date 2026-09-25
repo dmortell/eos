@@ -29,6 +29,8 @@
 	import { fitFrame } from './ui/frameFit'
 	import HistoryPanel from './parts/HistoryPanel.svelte'
 	import StatusBar from './parts/StatusBar.svelte'
+	import CommandLine from './parts/CommandLine.svelte'
+	import { CommandRunner } from './ui/commandRunner.svelte'
 	import ViewGizmos from './parts/ViewGizmos.svelte'
 	import Menubar from './parts/Menubar.svelte'
 	import CommandPalette from './parts/CommandPalette.svelte'
@@ -632,6 +634,41 @@
 		entsForModel, conduitOf, view: (fid, pr) => viewState.getView('p1', fid, pr), orbit: (fid, pr) => orbitOf('p1', fid, pr),
 	}
 	function focusTool(t: string) { const p = session.panes[session.focused]; if (p) p.tool = t }
+	// The COMMAND LINE (Kestrel's): draw commands arm the focused pane's tool; points / selection edits go to its
+	// active viewport (ui/cmdBus); everything else lands here.
+	let cmdLine: CommandLine | undefined = $state()
+	const cmdRunner = new CommandRunner({
+		tool: (t) => { if (!active) return; if (placeBlock) armBlock(null); navMode = null; focusTool(t) },
+		run: (id) => {
+			const p = session.panes[session.focused]
+			const toggle = (k: string) => { toggles[k] = !toggles[k]; statusText = `${k} ${toggles[k] ? 'on' : 'off'}` }
+			const views: Record<string, Proj> = { plan: 'plan', front: 'front', rear: 'rear', left: 'left', right: 'right', iso: 'iso' }
+			if (views[id]) { if (!p || !active) return 'Open a drawing first'; gizmoSet(p, active, views[id]); return }
+			const panel = { layers: 'layers', props: 'props', history: 'history', blockspanel: 'blocks', blocks: 'blocks' } as const
+			if (id in panel) { rightTab = panel[id as keyof typeof panel]; rightOpen = true; return }
+			const toggleKey: Record<string, string> = { grid: 'GRID', snap: 'SNAP', ortho: 'ORTHO', osnap: 'OSNAP', lwt: 'LWT' }
+			if (toggleKey[id]) return toggle(toggleKey[id])
+			switch (id) {
+				case 'outlet': return menuAction('Outlet')
+				case 'image': return menuAction('Image…')
+				case 'fit': return navFit()
+				case 'zoomin': return navZoom(1.25)
+				case 'zoomout': return navZoom(0.8)
+				case 'pan': navMode = 'pan'; return
+				case 'orbit': navMode = 'orbit'; return
+				case 'split': return splitVertical()
+				case 'unsplit': return closePane(1)
+				case 'undo': return undo()
+				case 'redo': return redo()
+				case 'dxfout': return menuAction('Export…')
+				case 'plot': return menuAction('Print…')
+				case 'schedule': return menuAction('Outlet Schedule…')
+				case 'drawings': return menuAction('Drawings…')
+				case 'defaults': return menuAction('Drawing Defaults…')
+			}
+			return `${id}: not available yet`
+		},
+	})
 	// The focused pane's ACTIVE VIEW: a sheet's active frame (else its first), or a model tab's own view.
 	function activeView(): ActiveView | null | 'no-frame' {
 		const p = session.panes[session.focused], a = active; if (!p || !a) return null
@@ -783,6 +820,9 @@
 		else if (mod && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo() }
 		else if (mod && ((e.shiftKey && (e.key === 'z' || e.key === 'Z')) || e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo() }
 		else if (!onCanvas) return   // the canvas keys below leave a focused sidebar / tree its own paging + keys
+		else if (!mod && !e.altKey && e.key.length === 1 && /[A-Za-z0-9@,.<?_]/.test(e.key) && cmdLine && !document.querySelector('[role="dialog"]')) {   // typing → the command line
+			e.preventDefault(); e.stopPropagation(); cmdLine.type(e.key)
+		}
 		else if (!mod && !e.altKey && (e.key === '+' || e.key === '=' || e.key === '-' || e.key === 'Home')) {   // K2: zoom in / out / fit
 			e.preventDefault()
 			if (e.key === 'Home') navFit(); else navZoom(e.key === '-' ? 0.8 : 1.25)
@@ -1076,6 +1116,7 @@
 		{/if}
 	</div>
 
+	<CommandLine bind:this={cmdLine} runner={cmdRunner} />
 	<!-- Status bar -->
 	<StatusBar bind:toggles bind:snapStep bind:acadMode
 		paperSize={paperOf(session.panes[session.focused]?.activeId).size} paperLandscape={paperOf(session.panes[session.focused]?.activeId).landscape}

@@ -11,12 +11,13 @@
 import { tick } from 'svelte'
 import { toast } from 'svelte-sonner'
 import { PT_MM } from '../constants'
-import { type Pt, type Ent, STYLE_DEFAULTS, ELEV_BASIS, dist } from './geometry'
+import { type Pt, type Ent, STYLE_DEFAULTS, ELEV_BASIS, dist, elevU, elevUInv } from './geometry'
 import { beginPointerDrag, DragRegistry } from './gestures'
 import { drawPlane, buildEnt, sectionObj, sectionName, PRISM_TOOL, trimTail, polylineEnt, graphObj, prismObj, guideObj, imageWithOrigin, imageScaled, moveEnt } from './place'
 import { addModelObj, insertGraphNode, branchNode, addGuide, addSection } from './modelEdit'
 import { constrainGrip, snapAngle } from './grips'
-import { rotateAbout, scaleAbout, cornerScale } from './groupXf'
+import { rotateAbout, scaleAbout, cornerScale, barycentre } from './groupXf'
+import type { VpCommandTarget } from './cmdBus.svelte'
 import { coincidentNodes } from '../3dview/graphJoin'
 import { commitConduit, moveModelItems, endModelMove, moveModelGrip, dropNodeJoin, type MDrag, type MGripDrag } from './vpModelEdit'
 import { snapToGrid, snapDelta, findSnap, drawPoint } from './snap'
@@ -185,6 +186,75 @@ export class VpInteraction {
 		const v = this.v; if (!v.mdl) return
 		const g = guideObj(v.ctx, p, vert, guideId()); if (!g) return   // null in iso (no drawing plane)
 		addGuide(v.mdl, v.editor.edit, g)
+	}
+
+	// ── the COMMAND LINE's target (ui/cmdBus.svelte.ts): typed points / distances feed the tool like clicks ──
+	private lastUser: Pt | null = null
+	/** User coords (model mm, Y up) ↔ this view's drawing coords; null in 3D. */
+	private toDraw(u: Pt): Pt | null {
+		const v = this.v
+		if (v.isPlan) return [u[0], -u[1]]
+		if (v.isElev) return [elevU(v.elevDir, u[0], v.ctx.cx, v.ctx.cy), v.ctx.ground - u[1]]
+		return null
+	}
+	private toUser(d: Pt): Pt | null {
+		const v = this.v
+		if (v.isPlan) return [d[0], -d[1]]
+		if (v.isElev) return [elevUInv(v.elevDir, d[0], v.ctx.cx, v.ctx.cy), v.ctx.ground - d[1]]
+		return null
+	}
+	private acceptDraw(d: Pt): string | null {
+		const v = this.v, tool = v.tool
+		if (tool === 'Select') return 'Pick a drawing command first (e.g. L for a line, REC for a rectangle)'
+		if (MODEL_TOOL.has(tool) && !v.isPlan && !(MODEL_GRAPH.has(tool) && v.isElev)) return `${tool}: switch to the plan view`
+		if (tool === 'Text') { v.editor.ents.add({ id: uid(), type: 'text', a: d, text: 'TEXT', plane: drawPlane(v.ctx) }); return null }
+		if (tool === 'Block') { if (v.blockId) this.placeBlock(v.blockId, d); return null }
+		if (tool === 'Guide') { this.placeGuide(d, v.guideIsVert(false)); return null }
+		if (tool === 'Renumber') { this.walkClick(d); return null }
+		if (POLY.has(tool)) { this.draft = [...this.draft, d]; this.cur = d; return null }
+		if (!this.draft.length) { this.draft = [d]; this.cur = d; return null }
+		this.place(this.draft[0], d); this.endDraft(); return null
+	}
+	readonly cmdTarget: VpCommandTarget = {
+		drawing: () => this.v.tool !== 'Select',
+		lastPoint: () => { const d = this.draft.at(-1); return d ? this.toUser(d) : this.lastUser },
+		acceptPoint: (u) => {
+			const d = this.toDraw(u); if (!d) return 'Type points in a plan or elevation view (not 3D)'
+			const err = this.acceptDraw(d); if (!err) this.lastUser = u
+			return err
+		},
+		distance: (n) => {
+			const last = this.draft.at(-1); if (!last) return 'Type or click the first point, then a distance'
+			const aim = this.cur && dist(this.cur, last) > 1e-6 ? this.cur : this.hoverPt && dist(this.hoverPt, last) > 1e-6 ? this.hoverPt : [last[0] + 1, last[1]] as Pt
+			const L = dist(aim, last), d: Pt = [last[0] + ((aim[0] - last[0]) / L) * n, last[1] + ((aim[1] - last[1]) / L) * n]
+			const err = this.acceptDraw(d); if (!err) this.lastUser = this.toUser(d)
+			return err
+		},
+		finish: () => { if (POLY.has(this.v.tool) && this.draft.length >= 2) this.finishPolyline(); else this.endDraft() },
+		cancel: () => this.endDraft(),
+		close: () => { if (POLY.has(this.v.tool) && this.draft.length >= 3) { this.draft = [...this.draft, this.draft[0]]; this.finishPolyline() } },
+		undoPoint: () => { this.draft = this.draft.slice(0, -1); this.cur = this.draft.at(-1) ?? null },
+		move: (dx, dy) => this.transformSel((b) => moveEnt(this.v.ctx, b, dx, -dy)),   // user Y up → drawing Y down
+		rotate: (deg) => this.transformSel((b, c) => rotateAbout(b, c, -deg, rotCenter(this.v.ctx, b))),   // CCW (CAD) → drawing CW
+		scale: (k) => (k > 0 ? this.transformSel((b, c) => scaleAbout(b, c, k)) : 'The scale factor must be positive'),
+		selectAll: () => this.v.selectEnts(this.v.entities.filter((e) => this.v.pickable(e)).map((e) => e.id)),
+		deselect: () => this.v.clearSel(),
+		erase: () => this.v.editor.sel.delete(),
+		duplicate: () => {
+			const v = this.v, sel = v.sel; if (!sel.length) return 'Select shapes first'
+			const copies = relabelCopies(pasteCopies(sel.map((id) => v.entities.find((x) => x.id === id)).filter(Boolean) as Ent[], 5 * v.paperMm, uid), v.entities)
+			copies.forEach((c) => v.editor.ents.add(c)); v.selectEnts(copies.map((c) => c.id)); return null
+		},
+		group: () => { const s = this.v.sel; if (s.length < 2) return 'Select two or more shapes'; this.v.editor.ents.group(s); return null },
+		ungroup: () => { const s = this.v.sel; if (!s.length) return 'Select a group'; this.v.editor.ents.ungroup(s); return null },
+	}
+	/** The selected shapes transformed together about their barycentre — one undo step. */
+	private transformSel(fn: (b: Ent, pivot: Pt) => Ent): string | null {
+		const v = this.v, bases = v.sel.map((id) => v.entities.find((x) => x.id === id)).filter(Boolean) as Ent[]
+		if (!bases.length) return 'Select shapes first'
+		const pivot = barycentre(bases, (e) => rotCenter(v.ctx, e))
+		v.editor.ents.updateMany(bases.map((b) => fn($state.snapshot(b) as Ent, pivot)))
+		return null
 	}
 
 	// ── IMAGE calibration (Uploads-tool model): ORIGIN = a clicked normalized anchor; SCALE = a 2-point line +

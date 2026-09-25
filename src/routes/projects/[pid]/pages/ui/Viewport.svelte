@@ -23,6 +23,7 @@
 	import { VpView } from './vpView.svelte'
 	import { VpInteraction } from './vpInteraction.svelte'
 	import type { VpProps } from './vpTypes'
+	import { cmdBus } from './cmdBus.svelte'
 
 	const props: VpProps = $props()
 	// the props PROXY itself is handed over (never destructured), so VpView's getters read every prop live
@@ -31,6 +32,12 @@
 	const x = new VpInteraction(v)
 	const tagIcon: Record<string, string> = { plan: 'mapPin', iso: 'box', front: 'server', rear: 'server', left: 'server', right: 'server' }
 	const CX = v.cx, CY = v.cy
+	// the command line drives the focused pane's ACTIVE viewport (ui/cmdBus)
+	$effect(() => {
+		if (!v.active || !v.focused) return
+		cmdBus.target = x.cmdTarget
+		return () => { if (cmdBus.target === x.cmdTarget) cmdBus.target = null }
+	})
 </script>
 
 <svelte:window onkeydown={x.onKey} onkeyup={x.onKeyUp} />

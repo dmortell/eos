@@ -4,6 +4,14 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 `git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps the long historical done-log and the
 open items; `review.md §0a` tracks which review findings are closed.
 
+## Command line (2026-09-25) — Kestrel's, ported
+- A command line above the status bar (`parts/CommandLine.svelte`): typing over the canvas lands there; Tab
+  completes, ↑/↓ walk the suggestions / history, Enter runs (an empty Enter finishes a draw, else repeats).
+- Vocabulary + parsing in `ui/commands.ts` (draw tools, MOVE / ROTATE / SCALE / ERASE / COPY / GROUP, views,
+  toggles, panels, files; points `X,Y` · `@DX,DY` · `D<A` · a bare number = distance toward the cursor; `C` / `U`
+  while drawing). `ui/commandRunner.svelte.ts` runs a line; points / selection edits go to the focused pane's active
+  viewport through `ui/cmdBus.svelte.ts` (`VpInteraction.cmdTarget`, user coords Y-up).
+
 ## Parity pick-list, large + medium items (2026-09-25) — parity-review.md
 - **Export**: File › Export… writes the active view as DXF (`exportDxf.ts`); File › Outlet Schedule… writes
   the model's outlets to Excel (`store/outletSchedule.ts`).
