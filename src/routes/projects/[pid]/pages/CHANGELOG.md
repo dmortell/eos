@@ -4,6 +4,38 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 `git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps the long historical done-log and the
 open items; `review.md §0a` tracks which review findings are closed.
 
+## Command line, round 2 (2026-09-25) — AutoCAD-style commands (from the todo.md pick-list)
+- **Scripted commands** (`ui/cmdScripts.ts`): async scripts that ask "Specify base point:" etc.; an ask is answered
+  by typed input (a point, a number, an option letter, text, Enter) or a click in the view, which is snapped, shows a
+  rubber band from the base point and a ghost preview (`cmdBus.pick`). Right-click / Enter / Esc in the view answer
+  or cancel. A typed point on a shape picks it; `;;` in a typed line is an Enter (AutoCAD script style).
+- **Base-point MOVE / COPY / ROTATE / SCALE**: pick a base point, then a second point / angle / factor. COPY places
+  copies until Enter (multiple).
+- **Space = Enter** in ACAD mode (not while typing a name).
+- **Draw**:
+  - ARC: a new `arc` shape, stored as three points on it. It is drawn, picked, snapped (ends / middle / centre),
+    gripped, moved / rotated / scaled and exported to DXF.
+  - CIRCLE: centre + radius, or Diameter.
+  - POLYGON: sides, centre, inscribed / circumscribed, radius.
+  - LEADER: arrowhead, landing, text.
+- **Modify** (geometry in `ui/modify.ts`):
+  - OFFSET: lines / polylines (mitred), rectangles / ellipses (grow / shrink), arcs (radius).
+  - TRIM: quick mode; click the part of a line to remove.
+  - EXTEND: the nearer end grows to the next shape.
+  - BREAK: between two points, or a split at one.
+  - LENGTHEN: DElta / Percent / Total, for lines and arcs.
+  - DRAWORDER.
+- **Inquiry / view**: DIST; ZOOM (window / Extents / Previous), ZW, ZP.
+- **Layers**: NEWLAYER (named, made current) and LAYMCUR.
+- **File**:
+  - SVGOUT / PNGOUT: the active view without the screen-only UI (the Viewport's `.vp-screen` group); PNG at 2×.
+  - PDF: print, then Save as PDF.
+  - SAVE / NEW / OPEN.
+- **E5**: several outlets / block inserts are edited together in Properties (block, shared attributes, scale,
+  mirror). A field they disagree on shows “— mixed —”.
+- **F4**: select a segment vs the full trunk. A click selects the run; a second click selects the segment (Delete
+  removes just it).
+
 ## Command line (2026-09-25) — Kestrel's, ported
 - A command line above the status bar (`parts/CommandLine.svelte`): typing over the canvas lands there; Tab
   completes, ↑/↓ walk the suggestions / history, Enter runs (an empty Enter finishes a draw, else repeats).
