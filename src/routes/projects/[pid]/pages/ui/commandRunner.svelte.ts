@@ -7,7 +7,7 @@
 // number, an option letter, Enter) OR by a click in the viewport (cmdBus.pick). Esc cancels. An empty Enter with
 // nothing running finishes a draw tool, else repeats the last command.
 import { cmdBus, type VpCommandTarget } from './cmdBus.svelte'
-import { COMMANDS, commandById, primaryName, readToken, resolvePoint, tokenize, parseCoord, isNumber } from './commands'
+import { commandById, readToken, resolvePoint, tokenize, parseCoord, isNumber } from './commands'
 import { SCRIPTS, Cancel, CmdError, fmt, type CmdCtx, type CmdHost, type Want, type Answer } from './cmdScripts'
 import type { Pt } from './geometry'
 
@@ -173,12 +173,6 @@ export class CommandRunner {
 			case 'ungroup': return t ? t.ungroup() ?? undefined : 'No active viewport'
 			case 'selectall': return t ? void t.selectAll() : 'No active viewport'
 			case 'deselect': return void t?.deselect()
-			case 'help': {
-				const groups = [...new Set(COMMANDS.map((x) => x.group))]
-				for (const g of groups) this.out(`${g}: ${COMMANDS.filter((x) => x.group === g).map(primaryName).join(', ')}`)
-				this.out('Points: X,Y · @DX,DY · D<ANGLE · @D<ANGLE · a bare number = distance toward the cursor · C closes · U undoes a point · Enter finishes / repeats · Esc cancels')
-				return
-			}
 		}
 		return this.host.run(id) || undefined
 	}

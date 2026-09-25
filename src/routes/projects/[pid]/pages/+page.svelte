@@ -30,6 +30,8 @@
 	import HistoryPanel from './parts/HistoryPanel.svelte'
 	import StatusBar from './parts/StatusBar.svelte'
 	import CommandLine from './parts/CommandLine.svelte'
+	import HelpDialog from './parts/HelpDialog.svelte'
+	import { commandById, primaryName } from './ui/commands'
 	import { CommandRunner } from './ui/commandRunner.svelte'
 	import ViewGizmos from './parts/ViewGizmos.svelte'
 	import Menubar from './parts/Menubar.svelte'
@@ -637,6 +639,7 @@
 	// The COMMAND LINE (Kestrel's): draw commands arm the focused pane's tool; points / selection edits go to its
 	// active viewport (ui/cmdBus); everything else lands here.
 	let cmdLine: CommandLine | undefined = $state()
+	let helpOpen = $state(false)   // the ? button / F1 / HELP (parts/HelpDialog)
 	const cmdRunner = new CommandRunner({
 		tool: (t) => { if (!active) return; if (placeBlock) armBlock(null); navMode = null; focusTool(t) },
 		run: (id) => {
@@ -668,6 +671,7 @@
 				case 'save': statusText = `Save isn't needed — edits save to the project as you go`; return
 				case 'new': return addTab()
 				case 'open': openProjectOpen = true; return
+				case 'help': helpOpen = true; return
 			}
 			return `${id}: not available yet`
 		},
@@ -831,6 +835,7 @@
 			// also open on this page (it left a faded backdrop behind ours).
 			e.preventDefault(); e.stopImmediatePropagation(); paletteOpen = true
 		} else if (mod && !e.shiftKey && (e.key === 'o' || e.key === 'O')) { e.preventDefault(); openProjectOpen = true }   // File › Open Project…
+		else if (e.key === 'F1') { e.preventDefault(); helpOpen = true }
 		else if (mod && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo() }
 		else if (mod && ((e.shiftKey && (e.key === 'z' || e.key === 'Z')) || e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo() }
 		else if (!onCanvas) return   // the canvas keys below leave a focused sidebar / tree its own paging + keys
@@ -1007,6 +1012,7 @@
 	{/if}
 	{#if bookIds}<PrintBook ids={bookIds} api={bookApi} onclose={() => (bookIds = null)} />{/if}
 	{#if openProjectOpen}<OpenProjectDialog currentId={page.params.pid} onpick={openProject} onclose={() => (openProjectOpen = false)} />{/if}
+	{#if helpOpen}<HelpDialog onclose={() => (helpOpen = false)} onrun={(id) => { const c = commandById(id); if (c) cmdRunner.run(primaryName(c)) }} />{/if}
 	{#if defaultsOpen && proj.store}<DrawingDefaultsDialog value={proj.store.project?.drawingDefaults} onchange={(d) => proj.store?.saveDrawingDefaults(d)} onclose={() => (defaultsOpen = false)} />{/if}
 	{#if tabMenuPane !== null}<button class="menu-backdrop" aria-label="Close menu" onclick={() => (tabMenuPane = null)}></button>{/if}
 
@@ -1028,6 +1034,7 @@
 			<button class="tb-search" title="Search drawings (Ctrl+K)" onclick={() => (paletteOpen = true)}>
 				<Icon name="search" size={14} /> <span>Search…</span> <span class="tb-kbd">⌃K</span>
 			</button>
+			<button class="tb-icon" title="Help — shortcuts, how do I…, commands (F1)" onclick={() => (helpOpen = true)}><Icon name="help" size={15} /></button>
 			<button class="tb-icon" title="Toggle light / dark" onclick={(e) => { e.stopPropagation(); mockTheme = mockTheme === 'dark' ? 'light' : 'dark' }}>
 				<Icon name={mockTheme === 'dark' ? 'moon' : 'sun'} size={15} />
 			</button>
