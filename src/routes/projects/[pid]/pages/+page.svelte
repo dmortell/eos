@@ -32,6 +32,7 @@
 	import CommandLine from './parts/CommandLine.svelte'
 	import HelpDialog from './parts/HelpDialog.svelte'
 	import { readingOrder } from './ui/frameNumber'
+	import { fromClipText } from './ui/clipboard'
 	import { commandById, primaryName } from './ui/commands'
 	import { CommandRunner } from './ui/commandRunner.svelte'
 	import ViewGizmos from './parts/ViewGizmos.svelte'
@@ -59,7 +60,7 @@
 	import PrintBook, { type BookApi } from './parts/PrintBook.svelte'
 	import BlocksPanel from './parts/BlocksPanel.svelte'
 	import { blockFromShapes } from './ui/blocks'
-	import { saveBlock } from './blocks.svelte'
+	import { saveBlock, blockList, isDefaultBlock, deleteBlock } from './blocks.svelte'
 	import { sheetLinkUrl } from './store/schema'
 	import { modelForPlace } from './3dview/models.svelte'
 	import { storeyMap } from './3dview/storeyMap'
@@ -465,6 +466,19 @@
 	})
 	const { addEnt, updateEnt, updateEnts, deleteEnts, copyEnts, cutEnts, pasteEnts, groupEnts, ungroupEnts, reorderEnts, modelEdit,
 		updateModelObj, updateModelObjs, deleteModelObj, addModelObj, updateModelSeg, layerItemCount, deleteLayerWithItems, deleteSelAt } = docEdit
+	/** Ctrl+V (the browser's paste event — it reads the SYSTEM clipboard without a permission prompt): shapes copied in
+	 *  another tab / project paste here; a pasted image (a screenshot) becomes an image shape; else our own copy. */
+	function onPaste(e: ClipboardEvent) {
+		if ((e.target as HTMLElement)?.closest?.('input, textarea, select, [contenteditable="true"]')) return
+		const a = active; if (!a || (a.kind === 'sheet' && !activeVpOf(a.id))) return   // paper: frames paste by key (frameClipKey)
+		const dt = e.clipboardData, ents = fromClipText(dt?.getData('text/plain') ?? '')
+		const img = ents ? null : [...(dt?.files ?? [])].find((f) => f.type.startsWith('image/'))
+		e.preventDefault()
+		if (img) { const r = new FileReader(); r.onload = () => addImage(String(r.result)); r.readAsDataURL(img); return }
+		if (ents?.length) docEdit.clipboard.load(ents)
+		menuAction('Paste')
+	}
+	$effect(() => { window.addEventListener('paste', onPaste); return () => window.removeEventListener('paste', onPaste) })
 	function deleteSelection() { const a2 = active, vid = activeSelViewId(); if (a2 && vid) deleteSelAt(a2.id, vid, { begin: beginGesture, mark: (l?: string) => modelEdit(a2.id, l), end: endGesture }) }
 
 	function setView(paneId: string, viewId: string, proj: Proj, v: View) { viewState.setView(paneId, didOf(viewId), proj, v) }
@@ -702,6 +716,18 @@
 				case 'on': ls.forEach((l) => (l.visible = true)); return 'Every layer is on'
 			}
 		},
+		layers: () => (modelById(activeMid())?.layers ?? []).map((l) => ({ id: l.id, name: l.name })),
+		blocks: () => blockList().map((b) => ({ id: b.id, name: b.name, custom: !isDefaultBlock(b.id) })),
+		blockUsage: () => {
+			const used = new Set<string>(), missing: { model: string; id: string; block?: string }[] = []
+			const ms = models.filter((m) => !m.archived)
+			for (const m of ms) for (const e of m.shapes ?? []) if (e.type === 'insert') {
+				if (e.block) used.add(e.block)
+				if (!blockList().some((b) => b.id === e.block)) missing.push({ model: m.name ?? m.id, id: e.id, block: e.block })
+			}
+			return { used, missing, models: ms.length }
+		},
+		deleteBlocks: (ids) => ids.forEach(deleteBlock),
 		exportName: () => { const av = activeView(); return av && av !== 'no-frame' ? `${av.title} - ${PROJ_LABEL[av.dir]}` : (active?.title ?? 'drawing') },
 		setCurrentLayer: (id) => {
 			const l = modelById(activeMid())?.layers?.find((x) => x.id === id); if (!l) return 'That layer is not in this model'

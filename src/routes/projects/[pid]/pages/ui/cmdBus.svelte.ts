@@ -39,6 +39,10 @@ export type VpCommandTarget = {
 	ents(ids: string[]): Ent[]
 	/** Every shape shown in this view (drawing coords) — cutting / boundary edges for TRIM / EXTEND. */
 	visibleEnts(): Ent[]
+	/** The shapes that can be picked / edited here (shown, unlocked, in this view) — STRETCH / QSELECT. */
+	pickableEnts(): Ent[]
+	/** Model mm per paper mm in this view (annotative sizes). */
+	paperMm(): number
 	/** User ↔ this view's drawing coords (null in 3D). */
 	toDraw(u: Pt): Pt | null
 	toUser(d: Pt): Pt | null
@@ -69,6 +73,8 @@ export type VpCommandTarget = {
 	/** Zoom to a window (user coords) / back to the previous view. */
 	zoomWindow(a: Pt, b: Pt): void
 	zoomPrev(): string | null
+	/** The armed draw tool's prompt for the command line ("Specify next point" [Close/Undo]), or null (Select). */
+	drawPrompt(): { prompt: string; options?: string[] } | null
 	/** The viewport's <svg> (SVGOUT / PNGOUT). */
 	svg(): SVGSVGElement | undefined
 	/** Pick the shape at a user point (top-most pickable), or null. */

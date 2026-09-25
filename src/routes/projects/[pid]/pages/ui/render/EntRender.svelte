@@ -14,7 +14,7 @@
 	import { STYLE_DEFAULTS, textBox, arcPath } from '../geometry'
 	import { PT_MM } from '../../constants'
 	import { isFlatElev, flatXSpan, rotCenter, rotatePt, groundInIso } from '../hit'
-	import { arrowPts, cloudPath, groundPts, headGeom, dashArray, lineLabelAt, tileLines, type HeadGeom } from '../annotations'
+	import { arrowPts, cloudPath, cloudPathPts, groundPts, headGeom, dashArray, lineLabelAt, tileLines, type HeadGeom } from '../annotations'
 	import { imageSrc } from '../../imageStore'
 	import { pdfImageUrl, PDF_SRC } from './pdfRaster.svelte'
 	import { blockDef, byBlock, attrValue, attrColor, insertScale } from '../blocks'
@@ -126,6 +126,9 @@
 		{#if cropping}<image {href} x={rx} y={ry} width={rw} height={rh} opacity="0.35" preserveAspectRatio="none" style:filter={imgFilter} />{/if}
 		<image {href} x={rx} y={ry} width={rw} height={rh} opacity={e.opacity ?? 1} clip-path="url(#{clipNs}-{e.id})" preserveAspectRatio="none" style:filter={imgFilter} />
 		{#if cropping}<rect x={rx + cr.x * rw} y={ry + cr.y * rh} width={cr.w * rw} height={cr.h * rh} fill="none" stroke={SEL} stroke-width={1 / (canvasZoom || 1)} stroke-dasharray="{5 / (canvasZoom || 1)} {3 / (canvasZoom || 1)}" vector-effect="non-scaling-stroke" />{/if}
+	{:else if e.type === 'polyline' && e.cloud}
+		<!-- REVCLOUD: a cloud round the closed outline -->
+		<path d={cloudPathPts(e.pts ?? [], 4 * paperMm)} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" stroke-linejoin="round" />
 	{:else if e.type === 'polyline'}
 		<polyline points={(e.pts ?? []).map(p => p.join(',')).join(' ')} fill={fill} stroke={ink} stroke-width={w} stroke-dasharray={da} vector-effect="non-scaling-stroke" stroke-linejoin="round" />
 		<!-- XP33: a head at each end (arrow / dot / tick), anchored on the first / last point. Properties only
@@ -171,7 +174,7 @@
 		{@render head(headGeom(e.headEnd ?? 'arrow', A, B, 3.5 * paperMm), col)}
 		<line x1={A[0] - px * tk} y1={A[1] - py * tk} x2={A[0] + px * tk} y2={A[1] + py * tk} stroke={col} stroke-width={w} vector-effect="non-scaling-stroke" />
 		<line x1={B[0] - px * tk} y1={B[1] - py * tk} x2={B[0] + px * tk} y2={B[1] + py * tk} stroke={col} stroke-width={w} vector-effect="non-scaling-stroke" />
-		<text class="anno" x={mx} y={my} font-size={2.5 * paperMm} fill={col} text-anchor="middle" transform="rotate({rang} {mx} {my})">{dimLabel(len, e.unit)}</text>
+		<text class="anno" x={mx} y={my} font-size={2.5 * paperMm} fill={col} text-anchor="middle" transform="rotate({rang} {mx} {my})">{dimLabel(len, e.unit, e.text)}</text>
 	{:else if e.type === 'insert'}
 		<!-- a BLOCK insert: the definition's shapes ('byblock' colour / fill from this insert) + its attribute
 		     texts, at the insertion point, scaled (rotation is the shared wrapper above) -->

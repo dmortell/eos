@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { Ent, Pt } from './geometry'
-import { crossings, trim, extend, breakAt, setLength, polyLength, offsetPolyline, offsetEnt, outline, project, setArcLength, arcLength, joinChains, corner } from './modify'
+import { crossings, trim, extend, breakAt, setLength, polyLength, offsetPolyline, offsetEnt, outline, project, setArcLength, arcLength, joinChains, corner, stretchEnt } from './modify'
 
 const L: Pt[] = [[0, 0], [100, 0]]
 const X = (x: number): Pt[] => [[x, -50], [x, 50]]   // a vertical cutting line at x
@@ -71,5 +71,16 @@ describe('JOIN / FILLET / CHAMFER', () => {
 		expect(Math.hypot(f.arc![1][0] - 6, f.arc![1][1] - 4)).toBeCloseTo(4)   // on the r = 4 circle round (6, 4)
 		const c = corner([[0, 0], [20, 0]], [2, 0], [[10, -5], [10, 20]], [10, 15], { chamfer: [3, 3] })!
 		expect(c.bevel).toEqual([[7, 0], [10, 3]])
+	})
+})
+
+describe('STRETCH', () => {
+	const box: [number, number, number, number] = [50, -10, 150, 10]
+	it('moves only the points / edges inside the crossing window', () => {
+		expect(stretchEnt({ id: 'l', type: 'polyline', pts: [[0, 0], [100, 0]] }, box, 20, 0)!.pts).toEqual([[0, 0], [120, 0]])
+		expect(stretchEnt({ id: 'r', type: 'rect', a: [0, -5], b: [100, 5] }, box, 20, 0)).toMatchObject({ a: [0, -5], b: [120, 5] })
+		expect(stretchEnt({ id: 'r', type: 'rect', a: [60, -5], b: [100, 5] }, box, 20, 0)).toMatchObject({ a: [80, -5], b: [120, 5] })   // wholly inside: moves
+		expect(stretchEnt({ id: 'x', type: 'polyline', pts: [[0, 50], [10, 50]] }, box, 20, 0)).toBeNull()
+		expect(stretchEnt({ id: 't', type: 'text', a: [100, 0], text: 'A' }, box, 0, 5)!.a).toEqual([100, 5])
 	})
 })

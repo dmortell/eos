@@ -124,6 +124,34 @@ export function setArcLength(e: Ent, atStart: boolean, len: number): Ent | null 
 	return { ...e, pts: [at(a0), at((a0 + a1) / 2), at(a1)] }
 }
 
+/** STRETCH: `e` with the parts inside the crossing window `box` [x0, y0, x1, y1] moved by (dx, dy); null = untouched.
+ *  Points (polyline / arc / dimension) inside move; a rect / ellipse moves each edge with a corner inside (all four
+ *  = the whole shape moves); a text / block / image moves when its anchor is inside; a rotated rect / ellipse only
+ *  when wholly inside. */
+export function stretchEnt(e: Ent, box: [number, number, number, number], dx: number, dy: number): Ent | null {
+	const [x0, y0, x1, y1] = box, inside = (p?: Pt) => !!p && p[0] >= x0 && p[0] <= x1 && p[1] >= y0 && p[1] <= y1
+	const mv = (p: Pt): Pt => [p[0] + dx, p[1] + dy]
+	if (e.pts) {
+		if (!e.pts.some(inside)) return null
+		return { ...e, pts: e.pts.map((p) => (inside(p) ? mv(p) : p)) }
+	}
+	if (e.type === 'dim') {
+		const ia = inside(e.a), ib = inside(e.b); if (!ia && !ib) return null
+		return { ...e, a: ia ? mv(e.a!) : e.a, b: ib ? mv(e.b!) : e.b }
+	}
+	if ((e.type === 'rect' || e.type === 'ellipse') && e.a && e.b) {
+		const lx = Math.min(e.a[0], e.b[0]), hx = Math.max(e.a[0], e.b[0]), ly = Math.min(e.a[1], e.b[1]), hy = Math.max(e.a[1], e.b[1])
+		const cs: Pt[] = [[lx, ly], [hx, ly], [hx, hy], [lx, hy]], inn = cs.map((p) => inside(p))
+		if (!inn.some(Boolean)) return null
+		if (e.rot && !inn.every(Boolean)) return null
+		const L = inn[0] || inn[3], R = inn[1] || inn[2], T = inn[0] || inn[1], B = inn[2] || inn[3]
+		return { ...e, a: [lx + (L ? dx : 0), ly + (T ? dy : 0)], b: [hx + (R ? dx : 0), hy + (B ? dy : 0)], ...(e.leader ? { leader: inside(e.leader) ? mv(e.leader) : e.leader } : {}) }
+	}
+	if (e.a && inside(e.a)) return { ...e, a: mv(e.a), ...(e.b ? { b: mv(e.b) } : {}), ...(e.leader && inside(e.leader) ? { leader: mv(e.leader) } : {}) }
+	if (e.type === 'text' && e.leader && inside(e.leader)) return { ...e, leader: mv(e.leader) }   // just the leader tip
+	return null
+}
+
 /** JOIN: chains of polylines meeting end to end (within `tol`, either direction) → each chain as one point list
  *  (the indices it used, in order). Singletons are left out. A chain that closes repeats its first point. */
 export function joinChains(lines: Pt[][], tol = 1): { idx: number[]; pts: Pt[] }[] {

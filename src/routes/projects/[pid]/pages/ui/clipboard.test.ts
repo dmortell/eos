@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Clipboard, pasteCopies, arrange, setGroup, nextFreeLabel, relabelCopies } from './clipboard'
+import { Clipboard, pasteCopies, arrange, setGroup, nextFreeLabel, relabelCopies, clipText, fromClipText } from './clipboard'
 
 describe('copy labels (E12)', () => {
 	it('counts a trailing number on (padding kept), else appends -copy', () => {
@@ -50,5 +50,18 @@ describe('arrange + groups', () => {
 		const g = setGroup(arr, ['a', 'c'], 'G')
 		expect(g.map((e) => e.groupId)).toEqual(['G', undefined, 'G', undefined])
 		expect(setGroup(g, ['a'], undefined)[0].groupId).toBeUndefined()
+	})
+})
+
+describe('system clipboard text', () => {
+	it('round-trips shapes; ignores foreign text; load keeps stacking for the same content', () => {
+		const ents: Ent[] = [{ id: 'a', type: 'rect', a: [0, 0], b: [10, 10] }]
+		expect(fromClipText(clipText(ents))).toEqual(ents)
+		expect(fromClipText('hello')).toBeNull(); expect(fromClipText('{"eos-pages-shapes":1,"ents":5}')).toBeNull()
+		const cb = new Clipboard(); cb.copy(ents)
+		let n = 0; const id = () => 'n' + ++n
+		cb.paste(5, id); cb.load(JSON.parse(JSON.stringify(ents)))
+		expect(cb.paste(5, id)[0].a).toEqual([10, 10])   // 2nd paste: still stacking
+		cb.load([{ ...ents[0], id: 'b' }]); expect(cb.paste(5, id)[0].a).toEqual([5, 5])   // new content: restarts
 	})
 })

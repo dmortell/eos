@@ -102,13 +102,22 @@ export function dashArray(dash: Dash | undefined, canvasZoom = 1): string | unde
 
 export function cloudPath(a: Pt, b: Pt, bump: number): string {
 	const x0 = Math.min(a[0], b[0]), y0 = Math.min(a[1], b[1]), x1 = Math.max(a[0], b[0]), y1 = Math.max(a[1], b[1])
-	const D = Math.max(bump, 1)
-	const edges: [Pt, Pt][] = [[[x0, y0], [x1, y0]], [[x1, y0], [x1, y1]], [[x1, y1], [x0, y1]], [[x0, y1], [x0, y0]]]
-	let d = `M ${x0} ${y0}`
-	for (const [p, q] of edges) {
+	return cloudPathPts([[x0, y0], [x1, y0], [x1, y1], [x0, y1]], bump)
+}
+/** A revision cloud round a closed outline (REVCLOUD polygonal / a cloud polyline): scalloped arcs about `bump` long
+ *  along each edge, bulging OUTWARD whichever way the outline winds. */
+export function cloudPathPts(pts: Pt[], bump: number): string {
+	const ps = pts.length > 2 && pts[0][0] === pts[pts.length - 1][0] && pts[0][1] === pts[pts.length - 1][1] ? pts.slice(0, -1) : pts
+	if (ps.length < 2) return ''
+	let area = 0
+	for (let i = 0; i < ps.length; i++) { const p = ps[i], q = ps[(i + 1) % ps.length]; area += p[0] * q[1] - q[0] * p[1] }
+	const sweep = area >= 0 ? 1 : 0, D = Math.max(bump, 1)
+	let d = `M ${ps[0][0]} ${ps[0][1]}`
+	for (let k = 0; k < ps.length; k++) {
+		const p = ps[k], q = ps[(k + 1) % ps.length]
 		const len = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1, n = Math.max(1, Math.round(len / D)), step = len / n
 		const ux = (q[0] - p[0]) / len, uy = (q[1] - p[1]) / len, r = step / 2
-		for (let i = 1; i <= n; i++) { const ex = p[0] + ux * step * i, ey = p[1] + uy * step * i; d += ` A ${r} ${r} 0 0 1 ${ex} ${ey}` }
+		for (let i = 1; i <= n; i++) { const ex = p[0] + ux * step * i, ey = p[1] + uy * step * i; d += ` A ${r} ${r} 0 0 ${sweep} ${ex} ${ey}` }
 	}
 	return d + ' Z'
 }

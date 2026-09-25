@@ -2,11 +2,11 @@
 // "Specify base point:" — and then edits through the viewport's command target. Answers come from typed tokens or
 // viewport clicks (ui/commandRunner.svelte.ts routes them). Coordinates are USER coords (model mm, Y up); angles
 // are degrees CCW from +X.
-import { dist, type Pt, type Ent } from './geometry'
+import { dist, arc3, type Pt, type Ent } from './geometry'
 import type { VpCommandTarget } from './cmdBus.svelte'
 import { svgMarkup, svgToPng, download } from './svgExport'
 import { arrange } from './arrange'
-import { offsetEnt, outline, crossings, trim, extend, breakAt, setLength, polyLength, project, arcLength, setArcLength, joinChains, corner } from './modify'
+import { offsetEnt, outline, crossings, trim, extend, breakAt, setLength, polyLength, project, arcLength, setArcLength, joinChains, corner, stretchEnt } from './modify'
 
 export type CmdHost = {
 	/** Arm a tool in the focused pane ('Line', 'Rectangle', … or 'Select'). */
@@ -18,6 +18,14 @@ export type CmdHost = {
 	setCurrentLayer(id: string): { name: string } | string
 	/** LAYOFF / LAYFRZ / LAYISO / LAYUNISO / LAYON on the focused model's layers: a message, or `{ err }`. */
 	layerOp(op: 'off' | 'frz' | 'iso' | 'uniso' | 'on', ids: string[]): string | { err: string }
+	/** The focused model's layers (QSELECT). */
+	layers(): { id: string; name: string }[]
+	/** The block library (PURGE / AUDIT / QSELECT): id, name, built-in or custom. */
+	blocks(): { id: string; name: string; custom: boolean }[]
+	/** Block inserts across this project's LOADED models: the block ids in use, and inserts whose block is missing. */
+	blockUsage(): { used: Set<string>; missing: { model: string; id: string; block?: string }[]; models: number }
+	/** Delete custom blocks from the (shared) library. */
+	deleteBlocks(ids: string[]): void
 	/** A file name for an export of the active view ('3F Plan - Front'). */
 	exportName(): string
 }
@@ -119,6 +127,55 @@ async function layerPicks(c: CmdCtx, op: 'off' | 'frz', prompt: string) {
 const isLine = (e: Ent) => e.type === 'polyline' && (e.pts?.length ?? 0) >= 2 && !e.rot
 let lastOffset: number | undefined
 let filletR = 0, chamferD: [number, number] = [0, 0]
+/** The dimension to chain from: the selected one, else pick one. */
+async function sourceDim(c: CmdCtx): Promise<Ent> {
+	const sel = c.t.ents(c.t.selected()).filter((e) => e.type === 'dim')
+	if (sel.length === 1) return sel[0]
+	const pk = await pickEnt(c, 'Select the dimension to continue from'); if (!pk) throw new Cancel()
+	if (pk.e.type !== 'dim') throw new CmdError('That is not a dimension')
+	return pk.e
+}
+/** DIMCONTINUE: each new dimension starts where the last one ended. DIMBASELINE: each measures from the first
+ *  one's start, stacked a step further out (8 paper mm) so they don't overlap. Enter ends. */
+async function dimChain(c: CmdCtx, baseline: boolean) {
+	c.host.tool('Select')
+	const src = await sourceDim(c), A = src.a!, B = src.b!
+	const L = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1, nx = -(B[1] - A[1]) / L, ny = (B[0] - A[0]) / L
+	const step = 8 * c.t.paperMm() * (src.dimOff != null && src.dimOff < 0 ? -1 : 1)
+	let from = B, k = 0
+	const make = (to: Pt, kk: number): Ent => {
+		const o = baseline ? step * kk : 0, a: Pt = baseline ? [A[0] + nx * o, A[1] + ny * o] : from
+		// the new point is projected onto the chain's line (continue) / measured along it (baseline), like AutoCAD
+		const t = (to[0] - A[0]) * (B[0] - A[0]) / L / L + (to[1] - A[1]) * (B[1] - A[1]) / L / L
+		const b: Pt = [A[0] + (B[0] - A[0]) * t + nx * o, A[1] + (B[1] - A[1]) * t + ny * o]
+		const { id: _id, groupId: _g, text: _t, ...style } = src
+		return c.t.newEnt({ ...style, type: 'dim', a, b })
+	}
+	for (;;) {
+		const kk = k + 1
+		const q = await c.ask({ prompt: 'Specify next point or <Enter ends>', point: { base: c.t.toUser(from) ?? undefined, ghost: (u) => [make(D(c, u), kk)] }, enter: true })
+		if (q.kind !== 'point') return
+		const e = make(D(c, q.p), kk); add(c, e); k = kk
+		if (!baseline) from = e.b!
+	}
+}
+/** DIMRADIUS / DIMDIAMETER on an arc or a circle: from the centre toward the pick (radius, 'R<>') or right across it
+ *  through the centre (diameter, 'Ø<>'). */
+async function dimCircle(c: CmdCtx, diameter: boolean) {
+	c.host.tool('Select')
+	const pk = await pickEnt(c, 'Select an arc or a circle'); if (!pk) return
+	const e = pk.e
+	let ctr: Pt, r: number
+	if (e.type === 'arc' && e.pts?.length === 3) { const g = arc3(e.pts[0], e.pts[1], e.pts[2]); if (!g) throw new CmdError('That arc is straight'); ctr = g.c; r = g.r }
+	else if (e.type === 'ellipse') {
+		const rx = Math.abs(e.b![0] - e.a![0]) / 2, ry = Math.abs(e.b![1] - e.a![1]) / 2
+		if (Math.abs(rx - ry) > 0.01 * Math.max(rx, ry)) throw new CmdError('That is an ellipse, not a circle')
+		ctr = [(e.a![0] + e.b![0]) / 2, (e.a![1] + e.b![1]) / 2]; r = rx
+	} else throw new CmdError('Select an arc or a circle')
+	const dx = pk.p[0] - ctr[0], dy = pk.p[1] - ctr[1], l = Math.hypot(dx, dy) || 1, u: Pt = [dx / l, dy / l]
+	const b: Pt = [ctr[0] + u[0] * r, ctr[1] + u[1] * r], a: Pt = diameter ? [ctr[0] - u[0] * r, ctr[1] - u[1] * r] : ctr
+	add(c, c.t.newEnt({ type: 'dim', a, b, text: diameter ? 'Ø<>' : 'R<>', ...(diameter ? {} : { headStart: 'none' as const }) }))
+}
 /** FILLET / CHAMFER: two lines (picked on the side to keep) → a corner, a tangent arc (Radius) or a bevel (Distance). */
 async function cornerCmd(c: CmdCtx, bevel: boolean) {
 	c.host.tool('Select')
@@ -364,6 +421,88 @@ export const SCRIPTS: Record<string, Script> = {
 	},
 	layuniso: async (c) => layerMsg(c, c.host.layerOp('uniso', [])),
 	layon: async (c) => layerMsg(c, c.host.layerOp('on', [])),
+	stretch: async (c) => {   // a crossing window: what's inside moves, what crosses it stretches
+		c.host.tool('Select')
+		const w1 = await point(c, 'Select what to stretch by a crossing window: first corner')
+		const w2 = await point(c, 'Specify opposite corner', w1, { box: true })
+		const a = D(c, w1), b = D(c, w2), box: [number, number, number, number] = [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1])]
+		const src = c.t.pickableEnts().filter((e) => stretchEnt(e, box, 0, 0))
+		if (!src.length) throw new CmdError('Nothing in that window')
+		c.out(`${src.length} shape${src.length > 1 ? 's' : ''}`)
+		const base = await point(c, 'Specify base point')
+		const delta = (u: Pt): [number, number] => { const p = D(c, base), q = D(c, u); return [q[0] - p[0], q[1] - p[1]] }
+		const run = (u: Pt) => src.map((e) => stretchEnt(e, box, ...delta(u))!).filter(Boolean)
+		const q = await point(c, 'Specify second point', base, { ghost: run })
+		c.t.apply({ update: run(q) })
+	},
+	qselect: async (c) => {   // select every shape here matching a type / layer / colour / block
+		c.host.tool('Select')
+		const all = c.t.pickableEnts()
+		const k = await c.ask({ prompt: 'Select by', options: ['Type', 'Layer', 'Colour', 'Block'], def: 'T' })
+		if (k.kind !== 'option') return
+		const TYPES: Record<string, Ent['type']> = { Rectangle: 'rect', Ellipse: 'ellipse', Line: 'polyline', Arc: 'arc', Dimension: 'dim', Text: 'text', Image: 'image', Block: 'insert' }
+		let keep: (e: Ent) => boolean
+		if (k.key === 'Type') {
+			const present = Object.entries(TYPES).filter(([, t]) => all.some((e) => e.type === t)).map(([n]) => n)
+			const a = await c.ask({ prompt: 'Which type', options: present })
+			if (a.kind !== 'option') return
+			keep = (e) => e.type === TYPES[a.key]
+		} else {
+			const names = k.key === 'Layer' ? c.host.layers().filter((l) => all.some((e) => e.layer === l.id))
+				: k.key === 'Block' ? c.host.blocks().filter((b) => all.some((e) => e.block === b.id))
+				: [...new Set(all.map((e) => e.color ?? 'ByLayer'))].map((x) => ({ id: x, name: x }))
+			const a = await c.ask({ prompt: `Which ${k.key.toLowerCase()} (${names.map((n) => n.name).join(', ') || 'none here'})`, text: true })
+			if (a.kind !== 'text') return
+			const hit = names.find((n) => n.name.toLowerCase() === a.s.trim().toLowerCase()) ?? names.find((n) => n.name.toLowerCase().startsWith(a.s.trim().toLowerCase()))
+			if (!hit) throw new CmdError(`No ${k.key.toLowerCase()} “${a.s}” here`)
+			keep = k.key === 'Layer' ? (e) => e.layer === hit.id : k.key === 'Block' ? (e) => e.block === hit.id : (e) => (e.color ?? 'ByLayer') === hit.id
+		}
+		c.t.selectAll(keep)
+		c.out(`${c.t.selected().length} selected`)
+	},
+	purge: async (c) => {   // unused CUSTOM blocks (layers: a later todo)
+		const u = c.host.blockUsage(), unused = c.host.blocks().filter((b) => b.custom && !u.used.has(b.id))
+		if (!unused.length) return c.out(`No unused custom blocks (checked ${u.models} loaded model${u.models === 1 ? '' : 's'})`)
+		c.out(`Unused custom blocks: ${unused.map((b) => b.name).join(', ')}`)
+		c.out(`The block library is SHARED by every project, and only this project's ${u.models} loaded model${u.models === 1 ? ' was' : 's were'} checked — another project may use them.`)
+		const a = await c.ask({ prompt: `Delete these ${unused.length} from the library?`, options: ['Yes', 'No'], def: 'N' })
+		if (a.kind === 'option' && a.key === 'Yes') { c.host.deleteBlocks(unused.map((b) => b.id)); c.out(`Deleted ${unused.length} block${unused.length > 1 ? 's' : ''}`) }
+	},
+	audit: async (c) => {   // block inserts whose block is gone from the library
+		const u = c.host.blockUsage()
+		if (!u.missing.length) return c.out(`Blocks OK — every block insert has its block (${u.models} loaded model${u.models === 1 ? '' : 's'})`)
+		const byModel = new Map<string, number>(); for (const m of u.missing) byModel.set(m.model, (byModel.get(m.model) ?? 0) + 1)
+		c.out(`${u.missing.length} insert${u.missing.length > 1 ? 's' : ''} of a missing block: ${[...byModel].map(([m, n]) => `${m} ${n}`).join(', ')} — drawn as a crossed box`)
+		const here = new Set(u.missing.map((m) => m.id)), inView = c.t.pickableEnts().filter((e) => here.has(e.id)).map((e) => e.id)
+		if (inView.length) { c.t.select(inView); c.out(`${inView.length} of them selected here (Delete removes them, or swap their block in Properties)`) }
+	},
+	dimcontinue: (c) => dimChain(c, false),
+	dimbaseline: (c) => dimChain(c, true),
+	dimradius: (c) => dimCircle(c, false),
+	dimdiameter: (c) => dimCircle(c, true),
+	revcloud: async (c) => {   // Rectangular (two corners), Polygonal (points, Enter closes) or Object (a rect / closed polyline)
+		c.host.tool('Select')
+		const a = await c.ask({ prompt: 'Specify first corner, or', options: ['Polygonal', 'Object'], point: {} })
+		if (a.kind === 'point') {
+			const q = await point(c, 'Specify opposite corner', a.p, { box: true, ghost: (u) => [c.t.newEnt({ type: 'rect', a: D(c, a.p), b: D(c, u), cloud: true })] })
+			return add(c, c.t.newEnt({ type: 'rect', a: D(c, a.p), b: D(c, q), cloud: true }))
+		}
+		if (a.kind !== 'option') return
+		if (a.key === 'Object') {
+			const pk = await pickEnt(c, 'Select a rectangle or a closed polyline'); if (!pk) return
+			const e = pk.e, closed = e.type === 'polyline' && (e.pts?.length ?? 0) > 3 && dist(e.pts![0], e.pts![e.pts!.length - 1]) < 1e-6
+			if (e.type !== 'rect' && !closed) throw new CmdError('REVCLOUD Object needs a rectangle or a closed polyline')
+			return c.t.apply({ update: [{ ...e, cloud: true }] })
+		}
+		const us: Pt[] = [await point(c, 'Specify first point')]
+		for (;;) {
+			const b = await c.ask({ prompt: us.length < 3 ? 'Specify next point' : 'Specify next point or <Enter closes>', point: { base: us[us.length - 1], ghost: (u) => [c.t.newEnt({ type: 'polyline', pts: [...us, u, us[0]].map((x) => D(c, x)), cloud: us.length >= 2 })] }, enter: us.length >= 3 })
+			if (b.kind !== 'point') break
+			us.push(b.p)
+		}
+		const ps = us.map((x) => D(c, x))
+		add(c, c.t.newEnt({ type: 'polyline', pts: [...ps, ps[0]], cloud: true }))
+	},
 	join: async (c) => {   // end-to-end lines → one polyline per chain (the first line keeps its style + id)
 		const ids = await selection(c)
 		const lines = c.t.ents(ids).filter(isLine)

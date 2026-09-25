@@ -37,6 +37,7 @@
 		{ q: 'Draw with exact sizes', a: 'Type into the command line: L, then 0,0 (absolute) · @1200,0 (relative) · @900<90 (distance < angle) · or just 1200 = that far toward the cursor. Enter finishes, C closes, U undoes a point.' },
 		{ q: 'Freeze or lock a layer in one viewport only', a: 'Activate the viewport (double-click it), then in the Layers panel use VP Freeze (hide it there) or 🔒VP (visible but not pickable there).' },
 		{ q: 'Delete a sheet (and get it back)', a: 'Tree › the sheet’s menu › Delete (click again to confirm), or the Drawings dialog. The message offers Undo.' },
+		{ q: 'Copy shapes to another tab / project, or paste a screenshot', a: 'Ctrl+C copies the selection to the system clipboard too, so Ctrl+V pastes it in another browser tab or project. Ctrl+V with an image on the clipboard (a screenshot, a copied picture) inserts it as an image shape — set its scale / crop in Properties.' },
 		{ q: 'Export', a: 'File › Export… (DXF), File › Outlet Schedule… (Excel), SVGOUT / PNGOUT (the view as on screen), PDF / Print (choose “Save as PDF”).' },
 		{ q: 'Section views / elevations from the plan', a: 'Draw a Section (SEC) box on the plan, select it and click one of its arrows — that elevation drops onto the current sheet as a viewport.' },
 	]

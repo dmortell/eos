@@ -10,8 +10,12 @@ export class Clipboard {
 	#items: Ent[] = []
 	#pastes = 0
 	get empty() { return !this.#items.length }
+	get items(): readonly Ent[] { return this.#items }
 	/** Copy (pass PLAIN snapshots — `$state.snapshot` them first). */
 	copy(ents: Ent[]) { this.#items = ents; this.#pastes = 0 }
+	/** Shapes from the SYSTEM clipboard (another tab / project): taken over unless they're what's already held (then
+	 *  the paste stacking continues). */
+	load(ents: Ent[]) { if (clipText(ents) !== clipText(this.#items)) this.copy(ents) }
 	/** The shapes for the next paste, `stepMm` further along each time (the caller sizes it: 5 paper mm × the
 	 *  viewport's scale N). */
 	paste(stepMm: number, newId: () => string): Ent[] {
@@ -19,6 +23,17 @@ export class Clipboard {
 		this.#pastes++
 		return pasteCopies(this.#items, stepMm * this.#pastes, newId)
 	}
+}
+
+// ── the SYSTEM clipboard: copied shapes also go out as marked JSON text, so another browser tab / project can
+// paste them (its paste event reads them back) ──
+const CLIP_MARK = 'eos-pages-shapes'
+/** Shapes → clipboard text. */
+export const clipText = (ents: readonly Ent[]) => JSON.stringify({ [CLIP_MARK]: 1, ents })
+/** Clipboard text → shapes, or null when it isn't ours. */
+export function fromClipText(text: string): Ent[] | null {
+	if (!text.includes(CLIP_MARK)) return null
+	try { const o = JSON.parse(text); return o?.[CLIP_MARK] && Array.isArray(o.ents) ? (o.ents as Ent[]).filter((e) => e && typeof e.id === 'string' && typeof e.type === 'string') : null } catch { return null }
 }
 
 /** Copies moved by `off` (x and y) with fresh ids; members of one copied group share one NEW group id. */

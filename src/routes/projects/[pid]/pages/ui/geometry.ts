@@ -56,7 +56,7 @@ export type Ent = { id: string; type: 'rect' | 'ellipse' | 'dim' | 'text' | 'pol
 	// LINE TYPE (XP32): 'solid' | 'dashed' | 'dotted' | 'dashdot'; unset = ByLayer (the layer's `dash`, else
 	// solid) — the same field name as Layer.dash. Firestore-stable.
 	dash?: Dash;
-	// CLOUD (rect): render the rectangle outline as a revision cloud (scalloped arcs). Firestore-stable.
+	// CLOUD (rect, or a closed polyline — REVCLOUD): render the outline as a revision cloud (scalloped arcs). Firestore-stable.
 	cloud?: boolean;
 	// D2 FLOOR-TILE GRID (rect): grid lines every `tile` mm inside the rect, aligned to the model origin shifted by
 	// `tileOff` (so tiles line up with the building's real grid wherever the rect is). Firestore-stable.

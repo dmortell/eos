@@ -220,6 +220,7 @@
 	<!-- D8: type a length — the end point moves along the line, the angle stays -->
 	<div class="prop"><span>Length</span><input class="navf" type="number" min="1" value={Math.round(lineLen(single))} onkeydown={fnav} onchange={(e) => setLineLen(num(e))} /></div>
 	{#if single.type === 'dim'}
+		<div class="prop"><span>Text</span><input value={single.text ?? ''} placeholder="(the length)" title="Your own text; <> = the measured length (e.g. R<>, Ø<>, <> typ.)" onchange={(e) => setAll({ text: strVal(e).trim() || undefined })} onkeydown={blurOnEnter} /></div>
 		<div class="prop"><span>Unit</span>
 			<select value={single.unit ?? 'mm'} onchange={(e) => setAll({ unit: strVal(e) === 'mm' ? undefined : (strVal(e) as 'cm' | 'm') })}>
 				<option value="mm">mm</option><option value="cm">cm</option><option value="m">m</option>

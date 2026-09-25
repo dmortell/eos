@@ -4,6 +4,7 @@
 	// ↑/↓ walk the suggestions (or the input history when there are none), Enter runs, Esc clears / cancels.
 	import { matchCommands, primaryName, readToken } from '../ui/commands'
 	import type { CommandRunner } from '../ui/commandRunner.svelte'
+	import { cmdBus } from '../ui/cmdBus.svelte'
 
 	// spaceIsEnter (the status bar's ACAD mode): Space submits like Enter, as in AutoCAD — except while a command asks
 	// for free text (a layer name). Several points on one line still work separated by ';'.
@@ -13,6 +14,8 @@
 	let logEl: HTMLDivElement | undefined = $state()
 	// suggestions only for the command word being typed (the first token, before any space)
 	let sugg = $derived(open && text && !/\s/.test(text.trim()) ? matchCommands(text) : [])
+	// with no command running, the armed draw tool's step ("Specify next point" [Close/Undo]) — its options answer it
+	let drawWant = $derived<{ prompt: string; options?: string[]; def?: string } | null>(runner.want ? null : (cmdBus.target?.drawPrompt() ?? null))
 	let expanded = $state(false)   // the ▴ button: the whole history (the runner keeps the last 80 lines)
 	let recent = $derived(expanded ? runner.log : open ? runner.log.slice(-6) : runner.log.slice(-2))
 
@@ -51,11 +54,11 @@
 	</div>
 	<div class="row">
 		<!-- the prompt; a running command's [options] are buttons (a click answers with that option) -->
-		{#if runner.want}
-			{@const w = runner.want}
-			<span class="prompt">{w.prompt}{#if w.options?.length}&nbsp;[{#each w.options as o, i (o)}{#if i}/{/if}<button class="opt" title="Choose {o}" onmousedown={(e) => e.preventDefault()} onclick={() => runner.run(o.split(' ')[0])}>{o}</button>{/each}]{/if}{#if w.def}&nbsp;&lt;{w.def}&gt;{/if}:</span>
+		{#if runner.want || drawWant}
+			{@const w = (runner.want ?? drawWant)!}
+			<span class="prompt">{w.prompt}{#if w.options?.length}&nbsp;[{#each w.options as o, i (o)}{#if i}/{/if}<button class="opt" title="Choose {o}" onmousedown={(e) => e.preventDefault()} onclick={() => runner.run('text' in w && w.text ? o : o.split(' ')[0])}>{o}</button>{/each}]{/if}{#if w.def}&nbsp;&lt;{w.def}&gt;{/if}:</span>
 		{:else}<span class="prompt">{runner.prompt}</span>{/if}
-		<input bind:this={input} bind:value={text} spellcheck="false" autocomplete="off" placeholder={runner.want ? 'A point X,Y / @DX,DY, a number, an option — or click in the view' : 'Type a command (L, REC, M, CO, Z …) — HELP lists them'}
+		<input bind:this={input} bind:value={text} spellcheck="false" autocomplete="off" placeholder={runner.want || drawWant ? 'A point X,Y / @DX,DY, a number, an option — or click in the view' : 'Type a command (L, REC, M, CO, Z …) — HELP lists them'}
 			onfocus={() => (open = true)} onblur={() => (open = false)} oninput={() => { pick = 0; histIdx = -1 }} {onkeydown} />
 	</div>
 	{#if sugg.length}

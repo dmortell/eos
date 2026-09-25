@@ -269,6 +269,8 @@ export class VpInteraction {
 		selected: () => [...this.v.sel],
 		ents: (ids) => ids.map((id) => this.v.entities.find((x) => x.id === id)).filter(Boolean).map((e) => $state.snapshot(e) as Ent),
 		visibleEnts: () => this.v.entities.filter((e) => this.v.inThisView(e) && !this.v.isLayerHidden(e.layer)).map((e) => $state.snapshot(e) as Ent),
+		pickableEnts: () => this.v.entities.filter((e) => this.v.pickable(e)).map((e) => $state.snapshot(e) as Ent),
+		paperMm: () => this.v.paperMm,
 		toDraw: (u) => this.toDraw(u),
 		toUser: (d) => this.toUser(d),
 		move: (dx, dy) => this.transformSel({ move: [dx, dy] }),
@@ -317,6 +319,14 @@ export class VpInteraction {
 		zoomWindow: (a, b) => { const p = this.toDraw(a), q = this.toDraw(b); if (p && q) this.v.zoomToBox(Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.max(p[0], q[0]), Math.max(p[1], q[1])) },
 		zoomPrev: () => { const pv = this.viewHist.pop(); if (!pv) return 'No previous view'; this.restoring = true; this.v.on.view?.(pv); return null },
 		svg: () => this.v.svg,
+		drawPrompt: () => {
+			const t = this.v.tool, n = this.draft.length
+			if (t === 'Select' || t === 'Renumber') return null
+			if (t === 'Text' || t === 'Block' || t === 'Guide') return { prompt: `${t === 'Block' ? 'Insert' : t}: specify the insertion point` }
+			if (POLY.has(t)) return n ? { prompt: `${t}: specify next point  <Enter / right-click finishes>`, options: n >= 2 && t === 'Line' ? ['Close', 'Undo'] : ['Undo'] } : { prompt: `${t}: specify first point` }
+			const corner = t === 'Rectangle' || t === 'Ellipse' || t === 'Furniture' || t === 'Section'
+			return n ? { prompt: `${t}: specify ${corner ? 'opposite corner' : 'second point'}`, options: ['Undo'] } : { prompt: `${t}: specify ${corner ? 'first corner' : 'first point'}` }
+		},
 		entAt: (u) => { const d = this.toDraw(u); return d ? (this.v.hit(d)[0] ?? null) : null },
 		erase: () => this.v.editor.sel.delete(),
 		duplicate: () => {
@@ -628,7 +638,7 @@ export class VpInteraction {
 			if ((e.key === '[' || e.key === '{') && sel.length) { e.preventDefault(); ents.reorder(sel, e.shiftKey ? 'back' : 'backward'); return }
 			if (k === 'c' && sel.length) { e.preventDefault(); ents.copy(sel); return }
 			if (k === 'x' && sel.length) { e.preventDefault(); ents.cut(sel); return }
-			if (k === 'v') { e.preventDefault(); ents.paste(); return }
+			if (k === 'v') return   // the PASTE EVENT does it (+page onPaste — it can read the system clipboard)
 			if (k === 'g' && sel.length) { e.preventDefault(); if (e.shiftKey) ents.ungroup(sel); else ents.group(sel); return }
 		}
 		// every selection kind deletes through ONE call (kinds are mutually exclusive in the Selection)

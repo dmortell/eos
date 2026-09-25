@@ -40,8 +40,8 @@ export function withDefaults(e: Ent, d?: DrawingDefaults | null): Ent {
 }
 
 /** A dimension's figure: a length in model mm shown in its unit (m to 2 dp, cm to 1 dp, mm whole). */
-export function dimLabel(lenMm: number, unit?: DimUnit): string {
-	if (unit === 'm') return (lenMm / 1000).toFixed(2)
-	if (unit === 'cm') return String(Math.round(lenMm) / 10)
-	return String(Math.round(lenMm))
+export function dimLabel(lenMm: number, unit?: DimUnit, text?: string): string {
+	const v = unit === 'm' ? (lenMm / 1000).toFixed(2) : unit === 'cm' ? String(Math.round(lenMm) / 10) : String(Math.round(lenMm))
+	// a dimension's own text is a template: `<>` = the measured value (AutoCAD's convention) — DIMRADIUS writes 'R<>'
+	return text ? (text.includes('<>') ? text.replace('<>', v) : text) : v
 }
