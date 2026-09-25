@@ -31,7 +31,9 @@ export type TitleBlockTemplate = {
 	 *  the bottom-right corner over the drawing area. */
 	layout?: TbLayout
 }
-export type TbLogo = { src: string; h?: number }
+/** A title-block logo: `src` = its file-storage URL (UploadThing, like Uploads; `key` = the stored file's key), or —
+ *  legacy / offline — an inline data URL; `h` = its printed height (mm). */
+export type TbLogo = { src: string; h?: number; key?: string }
 export type TbLayout = 'vertical' | 'horizontal' | 'compact'
 /** The title block as one sheet shows it. `hidden` = this sheet hides the block (the project's `border`
  *  still applies). */

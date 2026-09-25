@@ -4,6 +4,8 @@
 	// auto-filled field or a custom one with fixed text. Every change calls `onchange` with the whole template
 	// (the store saves `projects/{pid}.pages.titleBlock`; every sheet of the project re-renders from it).
 	import { Icon, DragReorder } from '$lib'
+	import { toast } from 'svelte-sonner'
+	import { createUploadThing } from '../../uploads/uploader'
 	import { TB_AUTO, DEFAULT_TITLE_BLOCK, type TitleBlockTemplate, type TbField, type TbAutoKey, type TbCompany, type TbSection, type TbLogo, type TbLayout } from '../titleBlock'
 
 	let { template, onchange }: { template: TitleBlockTemplate | undefined; onchange: (t: TitleBlockTemplate) => void } = $props()
@@ -27,11 +29,40 @@
 		const f: TbField = key === 'custom' ? { key: 'custom', label: 'Note', value: '' } : { key: key as TbAutoKey, label: TB_AUTO[key as TbAutoKey] }
 		set({ fields: [...t.fields, f] })
 	}
-	// A1: a logo image — downscaled here (≤ 600 × 240 px) and capped at ~150 KB (PNG, else WebP, else smaller) so two
-	// logos stay well inside the project doc's 1 MiB Firestore limit (the doc also holds the places).
-	// removed = an empty src (the project doc saves with a MERGE, which never deletes a key)
+	// A1: a logo image goes to FILE STORAGE (UploadThing's image route, like Uploads / the project logo) and the project
+	// doc keeps only its URL + key. A raster is downscaled first (≤ 1200 × 480 px, plenty for a ~10 mm print); an SVG
+	// goes as it is. If the upload fails (offline), the old inline data URL (≤ ~150 KB) is kept so it still works —
+	// "Move to storage" uploads such a logo later. Removed = an empty src (the project doc saves with a MERGE).
 	const LOGO_MAX = 150_000
 	const setLogo = (k: 'company' | 'client', lg: TbLogo | undefined) => set({ logos: { ...t.logos, [k]: lg ?? { src: '' } } })
+	let uploading = $state<'company' | 'client' | null>(null)
+	let pending: { k: 'company' | 'client'; h: number; fallback: string } | null = null
+	const { startUpload } = createUploadThing('imageUploader', {
+		onClientUploadComplete: (res) => {
+			const f = Array.isArray(res) ? res[0] : null, p = pending; pending = null; uploading = null
+			if (p && f?.ufsUrl) setLogo(p.k, { src: f.ufsUrl, key: f.key, h: p.h })
+		},
+		onUploadError: (e) => {
+			const p = pending; pending = null; uploading = null
+			if (p?.fallback) setLogo(p.k, { src: p.fallback, h: p.h })
+			toast.error(`Logo upload failed${p?.fallback ? ' — kept inside the project for now (Move to storage later)' : ''}: ${e.message ?? 'unknown error'}`)
+		},
+	})
+	async function upload(k: 'company' | 'client', file: File, h: number, fallback: string) {
+		pending = { k, h, fallback }; uploading = k
+		try { await startUpload([file]) } catch (e) { onFail(e) }
+	}
+	function onFail(e: unknown) {
+		const p = pending; pending = null; uploading = null
+		if (p?.fallback) setLogo(p.k, { src: p.fallback, h: p.h })
+		toast.error(`Logo upload failed: ${e instanceof Error ? e.message : String(e)}`)
+	}
+	/** An image scaled to fit w × h px, as a PNG blob. */
+	const scaled = (img: HTMLImageElement, w: number, h: number) => new Promise<Blob | null>((res) => {
+		const s = Math.min(1, w / img.naturalWidth, h / img.naturalHeight), c = document.createElement('canvas')
+		c.width = Math.max(1, Math.round(img.naturalWidth * s)); c.height = Math.max(1, Math.round(img.naturalHeight * s))
+		c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height); c.toBlob(res, 'image/png')
+	})
 	function logoDataUrl(img: HTMLImageElement): string {
 		let s = Math.min(1, 600 / img.naturalWidth, 240 / img.naturalHeight), out = ''
 		for (let i = 0; i < 6; i++, s *= 0.7) {
@@ -43,10 +74,21 @@
 		return out
 	}
 	function pickLogo(k: 'company' | 'client', e: Event) {
-		const f = (e.currentTarget as HTMLInputElement).files?.[0]; if (!f) return
-		const img = new Image(), url = URL.createObjectURL(f)
-		img.onload = () => { URL.revokeObjectURL(url); setLogo(k, { src: logoDataUrl(img), h: 10 }) }
+		const input = e.currentTarget as HTMLInputElement, f = input.files?.[0]; input.value = ''; if (!f) return
+		const img = new Image(), url = URL.createObjectURL(f), h = t.logos?.[k]?.h ?? 10
+		img.onload = async () => {
+			URL.revokeObjectURL(url)
+			const fallback = logoDataUrl(img)
+			if (f.type === 'image/svg+xml') return upload(k, f, h, fallback)   // vector: as it is
+			const b = await scaled(img, 1200, 480)
+			upload(k, b ? new File([b], f.name.replace(/\.\w+$/, '') + '.png', { type: 'image/png' }) : f, h, fallback)
+		}
 		img.src = url
+	}
+	/** A logo still stored inline (a data URL) → file storage. */
+	async function moveToStorage(k: 'company' | 'client', lg: TbLogo) {
+		const b = await (await fetch(lg.src)).blob(), ext = b.type.split('/')[1]?.replace('svg+xml', 'svg') || 'png'
+		upload(k, new File([b], `${k}-logo.${ext}`, { type: b.type }), lg.h ?? 10, lg.src)
 	}
 	const val = (e: Event) => (e.currentTarget as HTMLInputElement).value
 	const blurOnEnter = (e: KeyboardEvent) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur() }
@@ -70,6 +112,9 @@
 		<span class="logo-row">
 			{#if lg?.src}<img src={lg.src} alt={label} /><input type="number" min="3" max="60" value={lg.h ?? 10} title="Height on paper (mm)" onchange={(e) => setLogo(k, { ...lg, h: Math.max(3, Math.min(60, +val(e))) })} /><em>mm</em>
 				<button title="Remove" onclick={() => setLogo(k, undefined)}><Icon name="x" size={11} /></button>
+				{#if uploading === k}<em>uploading…</em>
+				{:else if lg.src.startsWith('data:')}<button class="logo-up" title="This logo is stored inside the project document — upload it to file storage" onclick={() => moveToStorage(k, lg)}>Move to storage</button>{/if}
+			{:else if uploading === k}<em>uploading…</em>
 			{:else}<label class="logo-up">Choose image…<input type="file" accept="image/*" onchange={(e) => pickLogo(k, e)} /></label>{/if}
 		</span></div>
 {/each}
