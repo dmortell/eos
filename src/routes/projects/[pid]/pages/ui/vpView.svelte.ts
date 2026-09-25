@@ -9,7 +9,7 @@ import { untrack } from 'svelte'
 import { BASE, HANDLE_PX, PAPER_PX_PER_MM, clampViewZoom } from '../constants'
 import { type Pt, type Ent, type View, type ElevDir, GROUND, PLAN_CX, PLAN_CY } from './geometry'
 import { makeMapper, type Mapper } from './mapper'
-import { noopEditor } from './editor'
+import { noopEditor, type Editor } from './editor'
 import { idsOfKind, singleOfKind, type SelItem } from './selection'
 import type { ViewCtx, MLayers } from './view'
 import type { VpProps, VpKind } from './vpTypes'
@@ -85,8 +85,15 @@ export class VpView {
 	get tool() { return this.p.tool ?? 'Select' }
 	get border() { return this.p.border ?? 'dashed' }
 	get on() { return this.p.on ?? {} }
-	get editor() { return this.p.editor ?? noopEditor }
-	get entities(): Ent[] { return this.p.entities ?? NONE }
+	/** The document editor — in a collapsed riser frame, shapes written back go through `#uncollapse` (real heights). */
+	get editor(): Editor {
+		const ed = this.p.editor ?? noopEditor; if (!this.collapse) return ed
+		const un = (e: Ent) => this.#uncollapse(e)
+		return { ...ed, ents: { ...ed.ents, add: (e) => ed.ents.add(un(e)), update: (e) => ed.ents.update(un(e)), updateMany: (es) => ed.ents.updateMany(es.map(un)) } }
+	}
+	/** The shapes as this view DRAWS them: in a riser frame with collapsed floors their heights are remapped
+	 *  (`#collapsed`), so picking / grips / drags all work in drawn space — and `editor` maps writes back. */
+	entities = $derived.by((): Ent[] => this.#collapsed(this.p.entities ?? NONE))
 	get view(): View { return this.p.view ?? DEFAULT_VIEW }
 	get clip() { return this.p.clip ?? null }
 	get yaw() { return this.p.yaw ?? DEFAULT_YAW }
@@ -254,8 +261,8 @@ export class VpView {
 	inThisView = (e: Ent) => inThisView(this.ctx, e)
 	bbox = (e: Ent) => bbox(this.ctx, e)
 	/** A hidden or locked layer's entities can't be picked; nor can entities that don't belong to this view. */
-	// a riser frame with collapsed floors is view-only: its shapes are drawn at REMAPPED heights (paintEnts)
-	pickable = (e: Ent) => !this.collapse && pickable(this.ctx, e, this.layerPreds)
+	// (a riser frame with collapsed floors: shapes are picked in drawn space — `entities` — and written back unmapped)
+	pickable = (e: Ent) => pickable(this.ctx, e, this.layerPreds)
 	/** Grips are a CONSTANT screen size (HANDLE_PX) whatever the view/canvas zoom or drawing scale. */
 	gripSize = $derived(HANDLE_PX / this.pxPerUnit / this.view.zoom / (this.canvasZoom || 1) / (this.dscale || 1))
 	/** Everything EntRender reads, built ONCE so every entity gets the same reference. B31: on dark model
@@ -267,7 +274,7 @@ export class VpView {
 	/** PAINT ORDER = layer order first (earlier layer = underneath), then array position within a layer; no
 	 *  layer / unknown → on top. P6: an O(n) check skips the sort when already in order (the common case). */
 	paintEnts = $derived.by(() => {
-		const ents = this.#collapsed(this.entities)
+		const ents = this.entities   // already collapsed (a riser frame)
 		const ord = (e: Ent) => { const lo = layerOrder(this.mls, e.layer); return lo < 0 ? 1e9 : lo }
 		let sorted = true
 		for (let i = 1; i < ents.length && sorted; i++) if (ord(ents[i]) < ord(ents[i - 1])) sorted = false
@@ -287,6 +294,15 @@ export class VpView {
 		const y = (v: number) => GROUND - vs * sm.map(vs * (GROUND - v))
 		const pt = (p: Pt): Pt => [p[0], y(p[1])]
 		return ents.map((e) => (e.plane !== this.kind ? e : { ...e, a: e.a && pt(e.a), b: e.b && pt(e.b), pts: e.pts?.map(pt), leader: e.leader && pt(e.leader) }))
+	}
+	/** The inverse of `#collapsed` for one shape (drawn heights → real ones). */
+	#uncollapse(e: Ent): Ent {
+		const sm = this.collapse; if (!sm || e.plane !== this.kind) return e
+		const vs = BASIS[this.elevDir].vs
+		const pt = (p: Pt): Pt => [p[0], GROUND - vs * sm.unmap(vs * (GROUND - p[1]))]
+		const out: Ent = { ...e, a: e.a && pt(e.a), b: e.b && pt(e.b), pts: e.pts?.map(pt), leader: e.leader && pt(e.leader) }
+		for (const k of ['a', 'b', 'pts', 'leader'] as const) if (out[k] === undefined) delete out[k]
+		return out
 	}
 	/** The top-most pickable entity at p (≈3.5 screen px of slack either side of a line), scanning in PAINT
 	 *  order (B7) so what's drawn on top wins. */

@@ -9,6 +9,8 @@ export const BREAK_GAP = 800
 export type StoreyMap = {
 	/** Model z → drawn z. */
 	map: (z: number) => number
+	/** Drawn z → model z (the exact inverse of `map`: an edit in a collapsed riser frame writes real heights). */
+	unmap: (d: number) => number
 	/** True when [z0, z1] lies entirely inside hidden floors (the object isn't drawn). */
 	hidden: (z0: number, z1: number) => boolean
 	/** The drawn gaps (for break marks), as drawn [z0, z1]. */
@@ -27,7 +29,7 @@ function bands(storeys: Storey[]) {
 export function storeyMap(storeys: Storey[], visible?: string[]): StoreyMap {
 	const all = bands(storeys)
 	if (!visible || all.every((b) => visible.includes(b.st.id))) {
-		return { map: (z) => z, hidden: () => false, gaps: [], shown: all.map((b) => b.st) }
+		return { map: (z) => z, unmap: (d) => d, hidden: () => false, gaps: [], shown: all.map((b) => b.st) }
 	}
 	// runs: merge consecutive bands with the same visibility
 	type Run = { z0: number; z1: number; show: boolean }
@@ -51,7 +53,17 @@ export function storeyMap(storeys: Storey[], visible?: string[]): StoreyMap {
 		const l = drawn[drawn.length - 1]
 		return z - l.z1 + l.d0 + (l.show ? l.z1 - l.z0 : BREAK_GAP)   // above the top: shifted like the top
 	}
+	const unmap = (d: number) => {
+		if (!drawn.length) return d
+		if (d <= drawn[0].d0) return d - drawn[0].d0 + drawn[0].z0
+		for (const r of drawn) {
+			const dh = r.show ? r.z1 - r.z0 : BREAK_GAP
+			if (d <= r.d0 + dh) return r.z0 + (r.show ? d - r.d0 : ((d - r.d0) / BREAK_GAP) * (r.z1 - r.z0))
+		}
+		const l = drawn[drawn.length - 1]
+		return d - (l.d0 + (l.show ? l.z1 - l.z0 : BREAK_GAP)) + l.z1
+	}
 	const hidden = (z0: number, z1: number) => drawn.some((r) => !r.show && z0 >= r.z0 - 1 && z1 <= r.z1 + 1)
 	const gaps = drawn.filter((r) => !r.show).map((r) => ({ z0: r.d0, z1: r.d0 + BREAK_GAP }))
-	return { map, hidden, gaps, shown: all.filter((b) => visible.includes(b.st.id)).map((b) => b.st) }
+	return { map, unmap, hidden, gaps, shown: all.filter((b) => visible.includes(b.st.id)).map((b) => b.st) }
 }

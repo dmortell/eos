@@ -24,4 +24,8 @@ describe('storey map (a riser drawing showing some floors)', () => {
 		expect(m.hidden(3800 + 300, 3800 + 2900)).toBe(true)   // a room on 2F
 		expect(m.hidden(0, 5 * 3800)).toBe(false)              // a ladder through every floor
 	})
+	it('unmap is the exact inverse (an edit in a collapsed riser frame lands at the real height)', () => {
+		const m = storeyMap(st, ['F1', 'F5'])
+		for (const z of [-500, 0, 1000, 3800, 5000, 3 * 3800, 4 * 3800 + 200, 5 * 3800, 30000]) expect(m.unmap(m.map(z))).toBeCloseTo(z)
+	})
 })
