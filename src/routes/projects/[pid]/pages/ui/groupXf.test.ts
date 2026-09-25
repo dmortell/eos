@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { barycentre, groupBox, rotateAbout, scaleAbout, cornerScale } from './groupXf'
+import { barycentre, groupBox, rotateAbout, scaleAbout, cornerScale, mirrorAbout, reflectPt } from './groupXf'
 import type { Ent, Pt } from './geometry'
 
 const box = (e: Ent): [number, number, number, number] => {
@@ -30,5 +30,14 @@ describe('group transform (D13)', () => {
 		expect(scaleAbout({ id: 'i', type: 'insert', block: 'x', a: [10, 0] }, [0, 0], 0.5)).toMatchObject({ a: [5, 0], scale: 0.5 })
 		expect(cornerScale([0, 0], [10, 10], [20, 20])).toBe(2)
 		expect(cornerScale([0, 0], [10, 10], [-5, -5])).toBe(0.02)
+	})
+	it('MIRROR: points reflect; a rect lands on its reflected centre with a mirrored rotation; a block flips', () => {
+		const V: [Pt, Pt] = [[50, 0], [50, 10]]   // the vertical line x = 50
+		expect(mirrorAbout(line, ...V, ctr).pts).toEqual([[0, 0], [-20, 0]])
+		const m = mirrorAbout({ ...rect, rot: 30 }, ...V, ctr)
+		expect(ctr(m)).toEqual([90, 5]); expect(m.rot).toBe(150)   // 2·90 − 30
+		const b = mirrorAbout({ id: 'i', type: 'insert', block: 'x', a: [10, 0] }, ...V, ctr)
+		expect(b.mirror).toBe(true); expect(r(b.a)).toEqual([90, 0]); expect(b.rot).toBeUndefined()   // 2·90 − 0 + 180 = 360 → 0
+		expect(reflectPt([0, 5], [0, 0], [10, 10])).toEqual([5, 0])
 	})
 })

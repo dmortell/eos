@@ -55,6 +55,40 @@ export function scaleAbout(e: Ent, c: Pt, s: number): Ent {
 	return out
 }
 
+/** Reflect `p` across the line through a and b. */
+export function reflectPt(p: Pt, a: Pt, b: Pt): Pt {
+	const dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy || 1
+	const t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L2, fx = a[0] + t * dx, fy = a[1] + t * dy
+	return [2 * fx - p[0], 2 * fy - p[1]]
+}
+
+/** MIRROR: `e` reflected across the line a→b (drawing coords). Point shapes (polyline / arc / dimension) reflect
+ *  their points (a rotated one is baked first); a rect / ellipse keeps its shape and mirrors its rotation; a block
+ *  toggles `mirror` and mirrors its rotation; text only moves, staying readable (AutoCAD MIRRTEXT 0), and so does an
+ *  image (it can't be flipped). Each
+ *  lands centred on its reflected centre (`centreOf` = rotCenter in the view). */
+export function mirrorAbout(e: Ent, a: Pt, b: Pt, centreOf: (e: Ent) => Pt): Ent {
+	const F = (p: Pt) => reflectPt(p, a, b)
+	if (e.type === 'polyline' || e.type === 'arc' || e.type === 'dim') {
+		const c = centreOf(e), W = (p: Pt) => (e.rot ? rotatePt(p, c, e.rot) : p)
+		const out: Ent = e.type === 'dim' ? { ...e, a: F(W(e.a!)), b: F(W(e.b!)) } : { ...e, pts: e.pts?.map((p) => F(W(p))) }
+		if (e.type === 'dim' && e.dimOff !== undefined) out.dimOff = -e.dimOff   // the text stays on the mirrored side
+		delete out.rot
+		return out
+	}
+	const th = (Math.atan2(b[1] - a[1], b[0] - a[0]) * 180) / Math.PI
+	let out: Ent = { ...e }
+	if (e.type === 'insert') { out.mirror = !e.mirror || undefined; out.rot = normDeg(2 * th - (e.rot ?? 0) + 180) }
+	else if (e.type === 'rect' || e.type === 'ellipse') out.rot = normDeg(2 * th - (e.rot ?? 0))   // symmetric: a reflection is a rotation
+	if (e.leader) out.leader = F(e.leader)
+	const c0 = centreOf(e), c1 = F(c0), cNow = centreOf(out), dx = c1[0] - cNow[0], dy = c1[1] - cNow[1]
+	const t = (p?: Pt): Pt | undefined => (p ? [p[0] + dx, p[1] + dy] : p)
+	out = { ...out, a: t(out.a), b: t(out.b) }
+	if (!out.rot) delete out.rot
+	if (!out.mirror) delete out.mirror
+	return out
+}
+
 /** The uniform factor a corner drag gives: the pointer projected on the pivot→corner diagonal. */
 export function cornerScale(pivot: Pt, corner: Pt, p: Pt): number {
 	const dx = corner[0] - pivot[0], dy = corner[1] - pivot[1], L2 = dx * dx + dy * dy

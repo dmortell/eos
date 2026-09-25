@@ -22,7 +22,7 @@ export type PickReq = {
 
 /** A selection transform, user coords: move by a vector / rotate CCW degrees / scale — about `base` (default: the
  *  selection's centre). */
-export type Xf = { move: Pt } | { rotate: number; base?: Pt } | { scale: number; base?: Pt }
+export type Xf = { move: Pt } | { rotate: number; base?: Pt } | { scale: number; base?: Pt } | { mirror: [Pt, Pt] }
 
 export type VpCommandTarget = {
 	/** A draw tool is waiting for points (a draft is open, or a draw tool is armed). */
@@ -48,13 +48,20 @@ export type VpCommandTarget = {
 	rotate(deg: number, base?: Pt): string | null
 	scale(k: number, base?: Pt): string | null
 	copyBy(dx: number, dy: number): string | null
+	/** A copy of the selection per transform (ARRAY / MIRROR), all in ONE undo step. */
+	copyMany(ops: Xf[]): string | null
+	/** Apply a transform to the selection (MIRROR without keeping the source). */
+	transform(op: Xf): string | null
+	/** A shape's unrotated box in this view (drawing coords). */
+	bboxOf(e: Ent): [number, number, number, number]
 	/** The selection with `op` applied, uncommitted (drawing coords) — a command's ghost. */
 	preview(op: Xf): Ent[]
 	/** Replace / add / delete shapes (drawing coords) as ONE undo step. */
 	apply(ch: { update?: Ent[]; add?: Ent[]; remove?: string[] }): void
 	/** New shapes go on the current layer + this view's plane. */
 	newEnt(e: Omit<Ent, 'id'>): Ent
-	selectAll(): void; deselect(): void; select(ids: string[]): void
+	/** Select every pickable shape in the view (that `keep` accepts). */
+	selectAll(keep?: (e: Ent) => boolean): void; deselect(): void; select(ids: string[]): void
 	reorder(ids: string[], op: 'front' | 'back' | 'forward' | 'backward'): void
 	erase(): void; duplicate(): string | null; group(): string | null; ungroup(): string | null
 	/** Zoom to a window (user coords) / back to the previous view. */

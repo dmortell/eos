@@ -13,6 +13,7 @@
 	import { imgEdit, setImgMode } from '../../imageEdit.svelte'
 	import type { Layer as MLayer } from '../../3dview/types'
 	import { autoNumber, numberable, type NumberOrder } from '../../ui/autoNumber'
+	import { arrange, type AlignOp } from '../../ui/arrange'
 	import { incLabel } from '../../ui/outletPlace.svelte'
 	import { isOutletEnt } from '../../store/allocate'
 
@@ -102,6 +103,11 @@
 		if (sh?.number && blockDef(ins.block)?.attributes.some((a) => a.tag === 'SHEET') && (!attrs.SHEET || attrs.SHEET === '—')) attrs.SHEET = sh.number
 		onupdate?.({ ...ins, attrs })
 	}
+	// ALIGN / DISTRIBUTE (ui/arrange.ts) — one undo step
+	const ALIGN_BTNS: [AlignOp, string][] = [['left', 'Align left edges (to the left-most)'], ['hcenter', 'Align centres (vertical line)'], ['right', 'Align right edges'],
+		['top', 'Align top edges (to the top-most)'], ['vcenter', 'Align middles (horizontal line)'], ['bottom', 'Align bottom edges'],
+		['hspace', 'Distribute horizontally — equal gaps (needs 3+)'], ['vspace', 'Distribute vertically — equal gaps (needs 3+)']]
+	function doAlign(op: AlignOp) { const out = arrange(ents, op, bbox); if (out.length) onupdate?.(out) }
 	// E5: several block inserts edited together — their shared category (null = mixed → no swap), the attributes
 	// every one of them has (not LABEL / LINK), and a value common to all (undefined = mixed)
 	const multiIns = $derived(ents.filter((e) => e.type === 'insert'))
@@ -157,6 +163,19 @@
 		<button title="Bring to front (Ctrl+Shift+])" onclick={() => onarrange?.('front')}>{@render arrow(false, true)}</button>
 	</span>
 </div>
+{#if ents.length > 1}
+	<!-- align to the left-most / top-most … shape or the centre line; distribute = equal gaps (a group moves as one) -->
+	<div class="prop"><span>Align</span>
+		<span class="pp-seg">
+			{#each ALIGN_BTNS.slice(0, 6) as [op, t] (op)}<button title={t} onclick={() => doAlign(op)}>{@render alignIcon(op)}</button>{/each}
+		</span>
+	</div>
+	<div class="prop"><span>Distribute</span>
+		<span class="pp-seg">
+			{#each ALIGN_BTNS.slice(6) as [op, t] (op)}<button title={t} onclick={() => doAlign(op)}>{@render alignIcon(op)}</button>{/each}
+		</span>
+	</div>
+{/if}
 {#if single?.type === 'text'}
 	<div class="prop-sec">TEXT</div>
 	<div class="prop wide"><textarea class="pp-textarea" use:autoresize value={single.text ?? ''} onchange={(e) => setText((e.currentTarget as HTMLTextAreaElement).value)}></textarea></div>
@@ -397,6 +416,20 @@
 	{/if}
 {/if}
 <div class="pp-hint">{ents.length > 1 ? 'Style + position apply to the whole selection.' : 'Editing writes straight to the object.'} New objects use Sheets’ defaults ({STYLE_DEFAULTS.fontPt}pt, left).</div>
+
+{#snippet alignIcon(op: AlignOp)}
+	<!-- a guide line (the edge / centre they line up on) + two bars; distribute = bars between two end lines -->
+	<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true" style="display:block; margin:auto">
+		{#if op === 'left'}<rect x="0.5" y="0.5" width="1.2" height="11" /><rect x="2.5" y="2" width="8" height="2.6" /><rect x="2.5" y="7" width="5" height="2.6" />
+		{:else if op === 'hcenter'}<rect x="5.4" y="0.5" width="1.2" height="11" /><rect x="1.5" y="2" width="9" height="2.6" /><rect x="3" y="7" width="6" height="2.6" />
+		{:else if op === 'right'}<rect x="10.3" y="0.5" width="1.2" height="11" /><rect x="1.5" y="2" width="8" height="2.6" /><rect x="4.5" y="7" width="5" height="2.6" />
+		{:else if op === 'top'}<rect x="0.5" y="0.5" width="11" height="1.2" /><rect x="2" y="2.5" width="2.6" height="8" /><rect x="7" y="2.5" width="2.6" height="5" />
+		{:else if op === 'vcenter'}<rect x="0.5" y="5.4" width="11" height="1.2" /><rect x="2" y="1.5" width="2.6" height="9" /><rect x="7" y="3" width="2.6" height="6" />
+		{:else if op === 'bottom'}<rect x="0.5" y="10.3" width="11" height="1.2" /><rect x="2" y="1.5" width="2.6" height="8" /><rect x="7" y="4.5" width="2.6" height="5" />
+		{:else if op === 'hspace'}<rect x="0.5" y="0.5" width="1" height="11" /><rect x="10.5" y="0.5" width="1" height="11" /><rect x="4.7" y="2.5" width="2.6" height="7" />
+		{:else}<rect x="0.5" y="0.5" width="11" height="1" /><rect x="0.5" y="10.5" width="11" height="1" /><rect x="2.5" y="4.7" width="7" height="2.6" />{/if}
+	</svg>
+{/snippet}
 
 {#snippet arrow(down: boolean, bar: boolean)}
 	<!-- a draw-order icon: a triangle (down = backward, up = forward) + a bar on the far side for "all the way" -->

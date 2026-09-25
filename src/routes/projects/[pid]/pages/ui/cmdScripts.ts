@@ -5,6 +5,7 @@
 import { dist, type Pt, type Ent } from './geometry'
 import type { VpCommandTarget } from './cmdBus.svelte'
 import { svgMarkup, svgToPng, download } from './svgExport'
+import { arrange } from './arrange'
 import { offsetEnt, outline, crossings, trim, extend, breakAt, setLength, polyLength, project, arcLength, setArcLength } from './modify'
 
 export type CmdHost = {
@@ -25,6 +26,8 @@ export type Want = {
 	 *  rubber band as a rectangle (a window) */
 	point?: { base?: Pt; ghost?: (u: Pt) => Ent[]; box?: boolean }
 	ent?: boolean
+	/** "Select shapes": clicks select as usual; a typed point adds the shape there to the selection */
+	select?: boolean
 	number?: boolean
 	/** free text: the REST of the typed line (a name with spaces) */
 	text?: boolean
@@ -66,7 +69,7 @@ export async function selection(c: CmdCtx): Promise<string[]> {
 	let s = c.t.selected()
 	if (s.length) return s
 	for (;;) {
-		const a = await c.ask({ prompt: 'Select shapes (click; Shift adds), then Enter', enter: true })
+		const a = await c.ask({ prompt: 'Select shapes (click; Shift adds), then Enter', enter: true, select: true })
 		s = c.t.selected()
 		if (a.kind === 'enter') break
 	}
@@ -254,6 +257,64 @@ export const SCRIPTS: Record<string, Script> = {
 			if (!next) { c.out('The length must stay positive'); continue }
 			c.t.apply({ update: [next] })
 		}
+	},
+	align: async (c) => {   // ALIGN / DISTRIBUTE the selection (Properties › ARRANGE has the same as buttons)
+		const ids = await selection(c)
+		const a = await c.ask({ prompt: 'Align', options: ['Left', 'Center', 'Right', 'Top', 'Middle', 'Bottom', 'Horizontal spacing', 'Vertical spacing'], def: 'L' })
+		if (a.kind !== 'option') return
+		const op = ({ Left: 'left', Center: 'hcenter', Right: 'right', Top: 'top', Middle: 'vcenter', Bottom: 'bottom', 'Horizontal spacing': 'hspace', 'Vertical spacing': 'vspace' } as const)[a.key as 'Left']
+		const out = arrange(c.t.ents(ids), op, (e) => c.t.bboxOf(e))
+		if (!out.length) throw new CmdError(op.endsWith('space') ? 'Distribute needs 3 or more shapes (a group counts once)' : 'Nothing to move — they are already aligned')
+		c.t.apply({ update: out })
+	},
+	array: async (c) => {
+		await selection(c)
+		const t = await c.ask({ prompt: 'Enter array type', options: ['Rectangular', 'Polar'], def: 'R' })
+		if (t.kind === 'option' && t.key === 'Polar') {
+			const ctr = await point(c, 'Specify center point of array')
+			const n = Math.round(await number(c, 'Enter number of items (including the original)', 6))
+			if (n < 2 || n > 1000) throw new CmdError('2 to 1000 items')
+			const fill = await number(c, 'Specify the angle to fill (+ = counter-clockwise)', 360)
+			const step = Math.abs(fill) >= 360 ? fill / n : fill / (n - 1)
+			chk(c.t.copyMany(Array.from({ length: n - 1 }, (_, k) => ({ rotate: step * (k + 1), base: ctr }))))
+			return
+		}
+		const cols = Math.round(await number(c, 'Enter the number of columns', 4))
+		const rows = Math.round(await number(c, 'Enter the number of rows', 1))
+		if (cols < 1 || rows < 1 || cols * rows > 2500) throw new CmdError('1 × 1 to 2500 items')
+		if (cols * rows === 1) return
+		const dx = cols > 1 ? await number(c, 'Specify the distance between columns (− = to the left)') : 0
+		const dy = rows > 1 ? await number(c, 'Specify the distance between rows (− = downward)') : 0
+		const ops = []
+		for (let r = 0; r < rows; r++) for (let k = 0; k < cols; k++) if (r || k) ops.push({ move: [k * dx, r * dy] as Pt })
+		chk(c.t.copyMany(ops))
+		c.out(`${ops.length} cop${ops.length === 1 ? 'y' : 'ies'} placed`)
+	},
+	mirror: async (c) => {
+		await selection(c)
+		const p1 = await point(c, 'Specify first point of mirror line')
+		const p2 = await point(c, 'Specify second point of mirror line', p1, { ghost: (u) => (Math.hypot(u[0] - p1[0], u[1] - p1[1]) > 1e-6 ? c.t.preview({ mirror: [p1, u] }) : []) })
+		if (Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) < 1e-6) throw new CmdError('The two points must differ')
+		const e = await c.ask({ prompt: 'Erase source objects?', options: ['Yes', 'No'], def: 'N' })
+		chk(e.kind === 'option' && e.key === 'Yes' ? c.t.transform({ mirror: [p1, p2] }) : c.t.copyMany([{ mirror: [p1, p2] }]))
+	},
+	matchprop: async (c) => {   // the source's layer + style onto each shape clicked after it
+		c.host.tool('Select')
+		const src = await pickEnt(c, 'Select source object'); if (!src) return
+		const s = src.e, KEYS = ['layer', 'color', 'fill', 'weight', 'dash'] as const, TEXT = ['fontPt', 'align', 'valign'] as const
+		for (;;) {
+			const d = await pickEnt(c, 'Select destination object(s) or <exit>', true); if (!d) return
+			const out: Ent = { ...d.e }
+			for (const k of KEYS) { if (s[k] === undefined) delete out[k]; else (out as Record<string, unknown>)[k] = s[k] }
+			if (s.type === 'text' && d.e.type === 'text') for (const k of TEXT) { if (s[k] === undefined) delete out[k]; else (out as Record<string, unknown>)[k] = s[k] }
+			c.t.apply({ update: [out] })
+		}
+	},
+	selectsimilar: async (c) => {   // the same type + layer (a block insert: the same block) as anything selected
+		const ids = c.t.selected(); if (!ids.length) throw new CmdError('Select a shape first')
+		const keys = new Set(c.t.ents(ids).map((e) => `${e.type}|${e.layer ?? ''}|${e.type === 'insert' ? e.block : ''}`))
+		c.t.selectAll((e) => keys.has(`${e.type}|${e.layer ?? ''}|${e.type === 'insert' ? e.block : ''}`))
+		c.out(`${c.t.selected().length} selected`)
 	},
 	draworder: async (c) => {
 		const ids = await selection(c)

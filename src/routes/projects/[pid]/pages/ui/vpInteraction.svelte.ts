@@ -16,12 +16,12 @@ import { beginPointerDrag, DragRegistry } from './gestures'
 import { drawPlane, buildEnt, sectionObj, sectionName, PRISM_TOOL, trimTail, polylineEnt, graphObj, prismObj, guideObj, imageWithOrigin, imageScaled, moveEnt } from './place'
 import { addModelObj, insertGraphNode, branchNode, addGuide, addSection } from './modelEdit'
 import { constrainGrip, snapAngle } from './grips'
-import { rotateAbout, scaleAbout, cornerScale, barycentre } from './groupXf'
+import { rotateAbout, scaleAbout, cornerScale, barycentre, mirrorAbout } from './groupXf'
 import { cmdBus, type VpCommandTarget, type Xf } from './cmdBus.svelte'
 import { coincidentNodes } from '../3dview/graphJoin'
 import { commitConduit, moveModelItems, endModelMove, moveModelGrip, dropNodeJoin, type MDrag, type MGripDrag } from './vpModelEdit'
 import { snapToGrid, snapDelta, findSnap, drawPoint } from './snap'
-import { rotCenter, hitIsoFaces, marqueeSelect, graphSegAt, type GN } from './hit'
+import { rotCenter, bbox, hitIsoFaces, marqueeSelect, graphSegAt, type GN } from './hit'
 import { newId } from '../ids'
 import { constrainPt } from './annotations'
 import { pasteCopies, relabelCopies } from './clipboard'
@@ -269,12 +269,21 @@ export class VpInteraction {
 		rotate: (deg, base) => this.transformSel({ rotate: deg, base }),
 		scale: (k, base) => (k > 0 ? this.transformSel({ scale: k, base }) : 'The scale factor must be positive'),
 		preview: (op) => this.xfEnts(op) ?? [],
-		copyBy: (dx, dy) => {
+		copyBy: (dx, dy) => this.cmdTarget.copyMany([{ move: [dx, dy] }]),
+		copyMany: (ops) => {
 			const v = this.v, sel = v.sel; if (!sel.length) return 'Select shapes first'
-			const copies = relabelCopies(pasteCopies(this.cmdTarget.ents(sel), 0, uid), v.entities).map((c) => moveEnt(v.ctx, c, dx, -dy))
-			v.editor.edit.begin(); copies.forEach((c) => v.editor.ents.add(c)); v.editor.edit.end()
+			const src = this.cmdTarget.ents(sel), all = [...v.entities]
+			v.editor.edit.begin()
+			for (const op of ops) {
+				// each copy gets its own ids / group ids and the next free outlet labels (E12)
+				const copies = relabelCopies(pasteCopies(this.xfOf(src, op), 0, uid), all)
+				copies.forEach((c) => { v.editor.ents.add(c); all.push(c) })
+			}
+			v.editor.edit.end()
 			return null
 		},
+		transform: (op) => this.transformSel(op),
+		bboxOf: (e) => bbox(this.v.ctx, e),
 		apply: ({ update, add, remove }) => {
 			const ed = this.v.editor; ed.edit.begin()
 			if (update?.length) ed.ents.updateMany(update)
@@ -283,7 +292,7 @@ export class VpInteraction {
 			ed.edit.end()
 		},
 		newEnt: (e) => ({ plane: drawPlane(this.v.ctx), ...e, id: uid() }) as Ent,
-		selectAll: () => this.v.selectEnts(this.v.entities.filter((e) => this.v.pickable(e)).map((e) => e.id)),
+		selectAll: (keep) => this.v.selectEnts(this.v.entities.filter((e) => this.v.pickable(e) && (!keep || keep($state.snapshot(e) as Ent))).map((e) => e.id)),
 		deselect: () => this.v.clearSel(),
 		select: (ids) => this.v.selectEnts(ids),
 		reorder: (ids, op) => this.v.editor.ents.reorder(ids, op),
@@ -309,7 +318,15 @@ export class VpInteraction {
 	/** The selected shapes with `op` applied (user coords / CCW degrees → drawing coords), not committed; null = none. */
 	private xfEnts(op: Xf): Ent[] | null {
 		const v = this.v, bases = v.sel.map((id) => v.entities.find((x) => x.id === id)).filter(Boolean).map((e) => $state.snapshot(e) as Ent)
-		if (!bases.length) return null
+		return bases.length ? this.xfOf(bases, op) : null
+	}
+	/** `op` applied to these shapes (plain snapshots), user coords → drawing coords. */
+	private xfOf(bases: Ent[], op: Xf): Ent[] {
+		const v = this.v
+		if ('mirror' in op) {
+			const a = this.toDraw(op.mirror[0]), b = this.toDraw(op.mirror[1]); if (!a || !b) return bases
+			return bases.map((e) => mirrorAbout(e, a, b, (x) => rotCenter(v.ctx, x)))
+		}
 		if ('move' in op) return bases.map((b) => moveEnt(v.ctx, b, op.move[0], -op.move[1]))   // user Y up → drawing Y down
 		const pivot = (op.base && this.toDraw(op.base)) || barycentre(bases, (e) => rotCenter(v.ctx, e))
 		if ('rotate' in op) return bases.map((b) => rotateAbout(b, pivot, -op.rotate, rotCenter(v.ctx, b)))   // CCW (CAD) → drawing CW

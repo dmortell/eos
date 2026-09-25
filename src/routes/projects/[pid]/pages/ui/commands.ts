@@ -44,7 +44,12 @@ export const COMMANDS: CmdDef[] = [
 	C('extend', 'Extend', 'EXTEND · EX', 'Grow a line end to the nearest shape beyond it', 'Modify'),
 	C('break', 'Break', 'BREAK · BR', 'Remove a line between two points (or split it at one)', 'Modify'),
 	C('lengthen', 'Lengthen', 'LENGTHEN · LEN', 'Change a line / arc length: DElta, Percent or Total', 'Modify'),
-	C('draworder','Draw order', 'DRAWORDER · DR', 'Bring the selection to the front / back, or one step above / under', 'Modify'),
+	C('mirror', 'Mirror', 'MIRROR · MI', 'Mirror the selection about a two-point line (keep or erase the source)', 'Modify'),
+	C('array', 'Array', 'ARRAY · AR', 'Copies in rows × columns (Rectangular) or round a centre (Polar)', 'Modify'),
+	C('align', 'Align / distribute', 'ALIGN · AL · DISTRIBUTE', 'Line the selection up (Left / Center / Right / Top / Middle / Bottom) or space it evenly', 'Modify'),
+	C('matchprop', 'Match properties', 'MATCHPROP · MA · PAINTER', "Copy one shape's layer + style onto others", 'Modify'),
+	C('selectsimilar', 'Select similar', 'SELECTSIMILAR · SSIM', 'Select every shape of the same type + layer as the selection', 'Modify'),
+	C('draworder', 'Draw order', 'DRAWORDER · DR', 'Bring the selection to the front / back, or one step above / under', 'Modify'),
 	C('selectall','Select all', 'SELECTALL · AI_SELALL', 'Select every shape in the active viewport', 'Modify'),
 	C('deselect', 'Deselect', 'DESELECT', 'Clear the selection', 'Modify'),
 	// inquiry
