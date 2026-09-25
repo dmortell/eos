@@ -230,10 +230,7 @@
 			if (bx1 - bx0 > 20 && by1 - by0 > 20) onaddframe?.(bx0, by0, bx1 - bx0, by1 - by0)
 			return
 		}
-		if (bx1 - bx0 < 3 && by1 - by0 < 3) {   // a click: inside an (inactive) viewport selects it — then Ctrl+C / X / D work
-			const hit = frameHit({ x: bx0, y: by0 }); if (hit) selectFrame(hit.id)
-			return
-		}
+		if (bx1 - bx0 < 3 && by1 - by0 < 3) return   // tiny → just a click (already deselected); a frame selects by its border band or a marquee (Dave: not by a plain click inside)
 		// marqueeSelect (window vs crossing by drag direction — a BEHAVIOUR CHANGE from the old
 		// always-crossing `touches()`, flagged in R8-lite — matches every other
 		// marquee in the app now, including the entity marquee); take the LAST match = topmost frame,
