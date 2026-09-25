@@ -573,20 +573,24 @@ export class VpInteraction {
 
 	/** Right-click (CAD-style): ends a multi-point draft (= Enter); with a drawing tool and no draft it reverts
 	 *  to Select (like Esc). A right-DRAG is a pan, so only a genuine click (≤ 5 px since right-down) reverts. */
-	noteRightDown = (e: PointerEvent) => { if (e.button === 2) this.rDownPt = { x: e.clientX, y: e.clientY } }
+	noteRightDown = (e: PointerEvent) => { if (e.button === 2) { this.rDownPt = { x: e.clientX, y: e.clientY }; this.rWheel = false } }
+	/** A wheel turned while the right button is held (right + wheel = zoom): that release is a gesture, not a click. */
+	noteWheel = (e: WheelEvent) => { if (e.buttons & 2) this.rWheel = true }
+	private rWheel = false
 	onContext = (e: MouseEvent) => {
 		const v = this.v
 		if (!v.active) return
-		if (cmdBus.busy && cmdBus.target === this.cmdTarget) {   // right-click = Enter for a running command (a right-DRAG still pans)
-			const moved = this.rDownPt ? Math.hypot(e.clientX - this.rDownPt.x, e.clientY - this.rDownPt.y) > 5 : false
-			this.rDownPt = null; e.preventDefault(); e.stopPropagation()
-			if (!moved) cmdBus.signal?.('enter')
+		// a right-DRAG (pan) or right + wheel (zoom) is a gesture: it never finishes / cancels a draw or a command
+		const gesture = this.rWheel || (this.rDownPt ? Math.hypot(e.clientX - this.rDownPt.x, e.clientY - this.rDownPt.y) > 5 : false)
+		this.rDownPt = null; this.rWheel = false
+		if (cmdBus.busy && cmdBus.target === this.cmdTarget) {   // right-click = Enter for a running command
+			e.preventDefault(); e.stopPropagation()
+			if (!gesture) cmdBus.signal?.('enter')
 			return
 		}
+		if (gesture) { if (v.tool !== 'Select' || this.draft.length) { e.preventDefault(); e.stopPropagation() } return }
 		if (POLY.has(v.tool) && this.draft.length) { e.preventDefault(); e.stopPropagation(); this.finishPolyline(); return }
-		const moved = this.rDownPt ? Math.hypot(e.clientX - this.rDownPt.x, e.clientY - this.rDownPt.y) > 5 : false
-		this.rDownPt = null
-		if (!moved && v.tool !== 'Select') { e.preventDefault(); e.stopPropagation(); this.endDraft(); v.on.tool?.('Select') }
+		if (v.tool !== 'Select') { e.preventDefault(); e.stopPropagation(); this.endDraft(); v.on.tool?.('Select') }
 	}
 
 	/** Re-apply the Shift constraint the instant Shift changes — for a draw and for a move/grip drag. */
