@@ -60,15 +60,17 @@ export class VpView {
 		$effect(() => {
 			const e = this.backExtents, v = this.view, measured = !!this.boxW || this.vpW > 0   // wait until the pane size is known
 			if (!this.modelSpace || this.kind !== 'plan' || !e || !measured || v.zoom !== 1 || v.x !== 0 || v.y !== 0) return
-			untrack(() => {
-				const ds = this.dscale, bw = (e.x1 - e.x0) * ds, bh = (e.y1 - e.y0) * ds
-				if (!(bw > 0 && bh > 0) || !this.vbW || !this.vbH) return
-				// the Viewport draws P at view + zoom·(C + dscale·(P − C)); centre the extents' mid-point on C
-				const zoom = clampViewZoom(Math.min(this.vbW / bw, this.vbH / bh) * 0.92)
-				const mx = (e.x0 + e.x1) / 2, my = (e.y0 + e.y1) / 2
-				this.on.view?.({ zoom, x: CX - zoom * (CX + ds * (mx - CX)), y: CY - zoom * (CY + ds * (my - CY)) })
-			})
+			untrack(() => this.zoomToBox(e.x0, e.y0, e.x1, e.y1, 0.92))
 		})
+	}
+	/** Zoom + centre the content view on a drawing-coords box (ZOOM W, extents). */
+	zoomToBox(x0: number, y0: number, x1: number, y1: number, margin = 1) {
+		const ds = this.dscale, bw = (x1 - x0) * ds, bh = (y1 - y0) * ds
+		if (!(bw > 0 && bh > 0) || !this.vbW || !this.vbH) return
+		// the Viewport draws P at view + zoom·(C + dscale·(P − C)); centre the box's mid-point on C
+		const zoom = clampViewZoom(Math.min(this.vbW / bw, this.vbH / bh) * margin)
+		const mx = (x0 + x1) / 2, my = (y0 + y1) / 2
+		this.on.view?.({ zoom, x: CX - zoom * (CX + ds * (mx - CX)), y: CY - zoom * (CY + ds * (my - CY)) })
 	}
 
 	// ── props (with their defaults) ──

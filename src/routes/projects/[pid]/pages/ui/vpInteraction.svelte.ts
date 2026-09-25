@@ -8,16 +8,16 @@
 // Svelte delegation gotchas kept from the Viewport: (a) `onDown`/`onClick` bail on `.section-arrow.pick`
 // (delegated handlers ignore the arrow's own stopPropagation); (b) right-button presses never reach the
 // delegated onpointerdown because panzoom stops them — hence the capture-phase `noteRightDown`.
-import { tick } from 'svelte'
+import { tick, untrack } from 'svelte'
 import { toast } from 'svelte-sonner'
 import { PT_MM } from '../constants'
-import { type Pt, type Ent, STYLE_DEFAULTS, ELEV_BASIS, dist, elevU, elevUInv } from './geometry'
+import { type Pt, type Ent, type View, STYLE_DEFAULTS, ELEV_BASIS, dist, elevU, elevUInv } from './geometry'
 import { beginPointerDrag, DragRegistry } from './gestures'
 import { drawPlane, buildEnt, sectionObj, sectionName, PRISM_TOOL, trimTail, polylineEnt, graphObj, prismObj, guideObj, imageWithOrigin, imageScaled, moveEnt } from './place'
 import { addModelObj, insertGraphNode, branchNode, addGuide, addSection } from './modelEdit'
 import { constrainGrip, snapAngle } from './grips'
 import { rotateAbout, scaleAbout, cornerScale, barycentre } from './groupXf'
-import type { VpCommandTarget } from './cmdBus.svelte'
+import { cmdBus, type VpCommandTarget, type Xf } from './cmdBus.svelte'
 import { coincidentNodes } from '../3dview/graphJoin'
 import { commitConduit, moveModelItems, endModelMove, moveModelGrip, dropNodeJoin, type MDrag, type MGripDrag } from './vpModelEdit'
 import { snapToGrid, snapDelta, findSnap, drawPoint } from './snap'
@@ -67,6 +67,9 @@ export class VpInteraction {
 		})
 		$effect(() => () => { if (this.hoverRaf) cancelAnimationFrame(this.hoverRaf) })
 		$effect(() => { if (this.v.focused) this.v.on.status?.(this.statusText) })   // only the focused pane drives the shared status
+		$effect(() => { const cur = this.v.view; untrack(() => this.noteView(cur)) })   // ZOOM P history
+		$effect(() => () => clearTimeout(this.viewTimer))
+		$effect(() => { if (!this.myPick) this.pickCur = null })
 	}
 
 	// ── drafting ──
@@ -90,7 +93,7 @@ export class VpInteraction {
 	// ── hover cursor: 'move' over something a press would grab (P2: the same pickAt cascade as a press, at
 	// most once per animation frame) ──
 	hoverBody = $state(false)
-	cursorStyle = $derived.by(() => (!this.v.active ? 'pointer' : this.v.navMode === 'pan' ? 'grab' : this.v.navMode === 'orbit' && this.v.kind === 'iso' ? 'move' : DRAW.has(this.v.tool) ? 'crosshair' : this.hoverBody ? 'move' : 'default'))
+	cursorStyle = $derived.by(() => (!this.v.active ? 'pointer' : this.v.navMode === 'pan' ? 'grab' : this.v.navMode === 'orbit' && this.v.kind === 'iso' ? 'move' : this.myPick ? (this.myPick.kind === 'ent' ? 'pointer' : 'crosshair') : DRAW.has(this.v.tool) ? 'crosshair' : this.hoverBody ? 'move' : 'default'))
 	private hoverRaf = 0
 	private hoverAt: [number, number] | null = null
 	private hoverIdle = () => this.v.active && this.v.tool === 'Select' && !this.drag && !this.reg.active && !this.draft.length && !this.marquee
@@ -190,6 +193,29 @@ export class VpInteraction {
 
 	// ── the COMMAND LINE's target (ui/cmdBus.svelte.ts): typed points / distances feed the tool like clicks ──
 	private lastUser: Pt | null = null
+	// ZOOM P: the views this viewport settled on (a wheel / pan burst counts once); `restoring` skips the jump back
+	private viewHist: View[] = []
+	private restoring = false
+	private viewSettled: View | null = null
+	private viewTimer: ReturnType<typeof setTimeout> | undefined
+	private noteView(cur: View) {
+		clearTimeout(this.viewTimer)
+		this.viewTimer = setTimeout(() => {
+			const prev = this.viewSettled; this.viewSettled = cur
+			if (this.restoring) { this.restoring = false; return }
+			if (prev && (prev.zoom !== cur.zoom || prev.x !== cur.x || prev.y !== cur.y)) { this.viewHist.push(prev); if (this.viewHist.length > 30) this.viewHist.shift() }
+		}, 350)
+	}
+	// ── a command's PICK (cmdBus.pick): this viewport's clicks go to it; the cursor point drives the rubber band ──
+	pickCur = $state<Pt | null>(null)   // drawing coords
+	private get myPick() { return cmdBus.target === this.cmdTarget ? cmdBus.pick : null }
+	pickBase = $derived.by(() => { const b = this.myPick?.base; return b ? this.toDraw(b) : null })
+	pickBox = $derived(!!this.myPick?.box)
+	ghosts = $derived.by(() => { const pk = this.myPick, c = this.pickCur; if (!pk?.ghost || !c) return []; const u = this.toUser(c); return u ? pk.ghost(u) : [] })
+	private pickPoint(e: MouseEvent): Pt | null {
+		const pk = this.myPick; if (!pk) return null
+		return pk.kind === 'ent' ? this.v.toModel(e.clientX, e.clientY) : this.drawPoint(e.clientX, e.clientY, this.pickBase ?? undefined, e.shiftKey)
+	}
 	/** User coords (model mm, Y up) ↔ this view's drawing coords; null in 3D. */
 	private toDraw(u: Pt): Pt | null {
 		const v = this.v
@@ -234,11 +260,34 @@ export class VpInteraction {
 		cancel: () => this.endDraft(),
 		close: () => { if (POLY.has(this.v.tool) && this.draft.length >= 3) { this.draft = [...this.draft, this.draft[0]]; this.finishPolyline() } },
 		undoPoint: () => { this.draft = this.draft.slice(0, -1); this.cur = this.draft.at(-1) ?? null },
-		move: (dx, dy) => this.transformSel((b) => moveEnt(this.v.ctx, b, dx, -dy)),   // user Y up → drawing Y down
-		rotate: (deg) => this.transformSel((b, c) => rotateAbout(b, c, -deg, rotCenter(this.v.ctx, b))),   // CCW (CAD) → drawing CW
-		scale: (k) => (k > 0 ? this.transformSel((b, c) => scaleAbout(b, c, k)) : 'The scale factor must be positive'),
+		selected: () => [...this.v.sel],
+		ents: (ids) => ids.map((id) => this.v.entities.find((x) => x.id === id)).filter(Boolean).map((e) => $state.snapshot(e) as Ent),
+		toDraw: (u) => this.toDraw(u),
+		toUser: (d) => this.toUser(d),
+		move: (dx, dy) => this.transformSel({ move: [dx, dy] }),
+		rotate: (deg, base) => this.transformSel({ rotate: deg, base }),
+		scale: (k, base) => (k > 0 ? this.transformSel({ scale: k, base }) : 'The scale factor must be positive'),
+		preview: (op) => this.xfEnts(op) ?? [],
+		copyBy: (dx, dy) => {
+			const v = this.v, sel = v.sel; if (!sel.length) return 'Select shapes first'
+			const copies = relabelCopies(pasteCopies(this.cmdTarget.ents(sel), 0, uid), v.entities).map((c) => moveEnt(v.ctx, c, dx, -dy))
+			v.editor.edit.begin(); copies.forEach((c) => v.editor.ents.add(c)); v.editor.edit.end()
+			return null
+		},
+		apply: ({ update, add, remove }) => {
+			const ed = this.v.editor; ed.edit.begin()
+			if (update?.length) ed.ents.updateMany(update)
+			add?.forEach((e) => ed.ents.add(e))
+			if (remove?.length) ed.ents.delete(remove)
+			ed.edit.end()
+		},
+		newEnt: (e) => ({ plane: drawPlane(this.v.ctx), ...e, id: uid() }) as Ent,
 		selectAll: () => this.v.selectEnts(this.v.entities.filter((e) => this.v.pickable(e)).map((e) => e.id)),
 		deselect: () => this.v.clearSel(),
+		select: (ids) => this.v.selectEnts(ids),
+		zoomWindow: (a, b) => { const p = this.toDraw(a), q = this.toDraw(b); if (p && q) this.v.zoomToBox(Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.max(p[0], q[0]), Math.max(p[1], q[1])) },
+		zoomPrev: () => { const pv = this.viewHist.pop(); if (!pv) return 'No previous view'; this.restoring = true; this.v.on.view?.(pv); return null },
+		entAt: (u) => { const d = this.toDraw(u); return d ? (this.v.hit(d)[0] ?? null) : null },
 		erase: () => this.v.editor.sel.delete(),
 		duplicate: () => {
 			const v = this.v, sel = v.sel; if (!sel.length) return 'Select shapes first'
@@ -249,12 +298,19 @@ export class VpInteraction {
 		ungroup: () => { const s = this.v.sel; if (!s.length) return 'Select a group'; this.v.editor.ents.ungroup(s); return null },
 	}
 	/** The selected shapes transformed together about their barycentre — one undo step. */
-	private transformSel(fn: (b: Ent, pivot: Pt) => Ent): string | null {
-		const v = this.v, bases = v.sel.map((id) => v.entities.find((x) => x.id === id)).filter(Boolean) as Ent[]
-		if (!bases.length) return 'Select shapes first'
-		const pivot = barycentre(bases, (e) => rotCenter(v.ctx, e))
-		v.editor.ents.updateMany(bases.map((b) => fn($state.snapshot(b) as Ent, pivot)))
+	private transformSel(op: Xf): string | null {
+		const out = this.xfEnts(op); if (!out) return 'Select shapes first'
+		this.v.editor.ents.updateMany(out)
 		return null
+	}
+	/** The selected shapes with `op` applied (user coords / CCW degrees → drawing coords), not committed; null = none. */
+	private xfEnts(op: Xf): Ent[] | null {
+		const v = this.v, bases = v.sel.map((id) => v.entities.find((x) => x.id === id)).filter(Boolean).map((e) => $state.snapshot(e) as Ent)
+		if (!bases.length) return null
+		if ('move' in op) return bases.map((b) => moveEnt(v.ctx, b, op.move[0], -op.move[1]))   // user Y up → drawing Y down
+		const pivot = (op.base && this.toDraw(op.base)) || barycentre(bases, (e) => rotCenter(v.ctx, e))
+		if ('rotate' in op) return bases.map((b) => rotateAbout(b, pivot, -op.rotate, rotCenter(v.ctx, b)))   // CCW (CAD) → drawing CW
+		return bases.map((b) => scaleAbout(b, pivot, op.scale))
 	}
 
 	// ── IMAGE calibration (Uploads-tool model): ORIGIN = a clicked normalized anchor; SCALE = a 2-point line +
@@ -377,6 +433,13 @@ export class VpInteraction {
 		if (this.suppressClick) { this.suppressClick = false; return }   // this click just ended a drag
 		if (v.navMode === 'pan') return   // latched Pan: the release of a pan drag is not a pick / draw click
 		if (!v.active) return   // paper space: enter with a double-click
+		const pk = this.myPick
+		if (pk) {   // a running command wants a point / a shape
+			const d = this.pickPoint(e); v.snapMark = null
+			const u = d && this.toUser(d); if (!d || !u) return
+			pk.resolve({ p: u, ent: pk.kind === 'ent' ? v.hit(d)[0] : undefined })
+			return
+		}
 		// IMAGE calibration modes (Properties › Set scale / Set origin) intercept clicks.
 		if (imgEdit.mode === 'origin' && imgEdit.id) { const p = v.toModel(e.clientX, e.clientY); if (p) this.setImageOrigin(imgEdit.id, p); return }
 		if (imgEdit.mode === 'scale' && imgEdit.id && this.scaleReal === null) {
@@ -435,6 +498,7 @@ export class VpInteraction {
 	onMove = (e: PointerEvent) => {
 		const v = this.v, tool = v.tool
 		if (v.on.coords) { const wp = v.toModel(e.clientX, e.clientY); if (wp) v.on.coords(Math.round(wp[0]), Math.round(wp[1])) }   // status-bar coords
+		if (v.active && this.myPick) { const d = this.pickPoint(e); this.pickCur = d; cmdBus.hover = d && this.toUser(d); this.hoverBody = false; return }
 		if (v.active && tool === 'Guide' && v.viewSpace) {
 			const gp = v.toModel(e.clientX, e.clientY); this.lastGuidePt = gp
 			const vert = v.guideIsVert(e.shiftKey); this.guideCur = gp ? { orient: vert ? 'v' : 'h', pos: vert ? gp[0] : gp[1] } : null
@@ -467,6 +531,12 @@ export class VpInteraction {
 	onContext = (e: MouseEvent) => {
 		const v = this.v
 		if (!v.active) return
+		if (cmdBus.busy && cmdBus.target === this.cmdTarget) {   // right-click = Enter for a running command (a right-DRAG still pans)
+			const moved = this.rDownPt ? Math.hypot(e.clientX - this.rDownPt.x, e.clientY - this.rDownPt.y) > 5 : false
+			this.rDownPt = null; e.preventDefault(); e.stopPropagation()
+			if (!moved) cmdBus.signal?.('enter')
+			return
+		}
 		if (POLY.has(v.tool) && this.draft.length) { e.preventDefault(); e.stopPropagation(); this.finishPolyline(); return }
 		const moved = this.rDownPt ? Math.hypot(e.clientX - this.rDownPt.x, e.clientY - this.rDownPt.y) > 5 : false
 		this.rDownPt = null
@@ -493,6 +563,7 @@ export class VpInteraction {
 		if (!v.active || !v.focused || this.editText) return   // in split view only the focused pane handles keys
 		if (isTypingTarget(e.target) || isTypingTarget(document.activeElement)) return   // typing in a field → let it through
 		if (e.key === 'Shift') { v.shiftDown = true; this.reconstrain(true); this.updateGuidePreview(true); return }
+		if (cmdBus.busy && (e.key === 'Enter' || e.key === 'Escape')) { e.preventDefault(); cmdBus.signal?.(e.key === 'Escape' ? 'cancel' : 'enter'); return }
 		if (e.key === 'Enter' && POLY.has(v.tool) && this.draft.length) { e.preventDefault(); this.finishPolyline(); return }
 		const mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase()
 		if (mod && k === 'a') { e.preventDefault(); v.selectEnts(v.entities.map((x) => x.id)); return }
@@ -542,6 +613,7 @@ export class VpInteraction {
 	onDown = (e: PointerEvent) => {
 		const v = this.v, ed = v.editor.edit, reg = this.reg
 		if (this.editText || !v.active || e.button !== 0) return
+		if (this.myPick) return   // a command pick: the click (onClick) delivers the point — no drags
 		if ((e.target as Element)?.closest?.('.section-arrow.pick')) return   // a section-arrow click drops a direction
 		this.suppressClick = false   // clear any stale flag from a drag that never got its click
 		this.shiftPressId = null

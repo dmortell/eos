@@ -5,7 +5,7 @@
 // argument), or ENTER / ESC / C (close) / U (undo the last point). Pure — the page runs the commands.
 import type { Pt } from './geometry'
 
-export type CmdGroup = 'Draw' | 'Modify' | 'View' | 'Settings' | 'Edit' | 'File' | 'Panels' | 'Help'
+export type CmdGroup = 'Draw' | 'Modify' | 'Inquiry' | 'View' | 'Settings' | 'Edit' | 'File' | 'Panels' | 'Help'
 export type CmdDef = { id: string; label: string; names: string; description: string; group: CmdGroup; /** takes an argument (a number / a vector) */ arg?: string }
 
 const C = (id: string, label: string, names: string, description: string, group: CmdGroup, arg?: string): CmdDef => ({ id, label, names, description, group, arg })
@@ -29,16 +29,21 @@ export const COMMANDS: CmdDef[] = [
 	C('select', 'Select', 'SELECT · SE', 'The Select tool', 'Draw'),
 	// modify — act on the selected shapes in the active viewport
 	C('erase', 'Erase', 'ERASE · E · DELETE · DEL', 'Delete the selection', 'Modify'),
-	C('move', 'Move', 'MOVE · M', 'Move the selected shapes by DX,DY (e.g. M 500,0)', 'Modify', 'DX,DY'),
-	C('rotate', 'Rotate', 'ROTATE · RO', 'Rotate the selected shapes about their centre (e.g. RO 90)', 'Modify', 'degrees'),
-	C('scale', 'Scale', 'SCALE · SC', 'Scale the selected shapes about their centre (e.g. SC 2)', 'Modify', 'factor'),
-	C('copy', 'Duplicate', 'COPY · CO · CP', 'Duplicate the selection (offset)', 'Modify'),
+	C('move', 'Move', 'MOVE · M', 'Move the selection from a base point to a second point', 'Modify'),
+	C('rotate', 'Rotate', 'ROTATE · RO', 'Rotate the selection about a base point (an angle, or a point)', 'Modify'),
+	C('scale', 'Scale', 'SCALE · SC', 'Scale the selection about a base point by a factor', 'Modify'),
+	C('copy', 'Copy', 'COPY · CO · CP', 'Copy the selection from a base point to one or more points', 'Modify'),
 	C('group', 'Group', 'GROUP · G', 'Group the selected shapes', 'Modify'),
 	C('ungroup', 'Ungroup', 'UNGROUP · UG', 'Ungroup the selected shapes', 'Modify'),
 	C('selectall', 'Select all', 'SELECTALL · AI_SELALL', 'Select every shape in the active viewport', 'Modify'),
 	C('deselect', 'Deselect', 'DESELECT', 'Clear the selection', 'Modify'),
+	// inquiry
+	C('dist', 'Distance', 'DIST · DI', 'The distance + angle between two points', 'Inquiry'),
 	// view
-	C('fit', 'Zoom extents', 'ZOOM · Z · ZE', 'Fit the view', 'View'),
+	C('zoom', 'Zoom', 'ZOOM · Z', 'A window (two corners), or Extents / Previous', 'View'),
+	C('fit', 'Zoom extents', 'ZOOMEXTENTS · ZE · ZA', 'Fit the view', 'View'),
+	C('zoomwin', 'Zoom window', 'ZOOMWINDOW · ZW', 'Zoom to a window (two corners)', 'View'),
+	C('zoomprev', 'Zoom previous', 'ZOOMPREVIOUS · ZP', 'Back to the previous view', 'View'),
 	C('zoomin', 'Zoom in', 'ZOOMIN · ZI', 'Zoom in', 'View'),
 	C('zoomout', 'Zoom out', 'ZOOMOUT · ZO', 'Zoom out', 'View'),
 	C('pan', 'Pan', 'PAN · P', 'Latch Pan (drag pans; Esc ends)', 'View'),
@@ -95,6 +100,7 @@ export type Token =
 	| { kind: 'error'; message: string }
 
 const NUM = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?$/i
+export const isNumber = (t: string) => NUM.test(t)
 /** A coordinate: `x,y`, `@dx,dy`, `d<a`, `@d<a` (angle in degrees, CCW from +X; Y up like CAD). */
 export function parseCoord(token: string): { p: Pt; rel: boolean; polar: boolean } | null {
 	let t = token.trim(); const rel = t.startsWith('@'); if (rel) t = t.slice(1)

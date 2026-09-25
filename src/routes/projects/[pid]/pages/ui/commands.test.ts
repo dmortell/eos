@@ -7,7 +7,7 @@ describe('command line (Kestrel port)', () => {
 		for (const c of COMMANDS) for (const n of c.names.split('·').map((x) => x.trim().toUpperCase())) {
 			expect(seen.get(n) ?? c.id, `${n} is used twice`).toBe(c.id); seen.set(n, c.id)
 		}
-		expect(ALIASES.get('L')).toBe('line'); expect(ALIASES.get('REC')).toBe('rect'); expect(ALIASES.get('Z')).toBe('fit')
+		expect(ALIASES.get('L')).toBe('line'); expect(ALIASES.get('REC')).toBe('rect'); expect(ALIASES.get('Z')).toBe('zoom'); expect(ALIASES.get('ZE')).toBe('fit')
 	})
 	it('suggests the exact alias first, then prefixes', () => {
 		expect(matchCommands('re')[0].id).toBe('rect')

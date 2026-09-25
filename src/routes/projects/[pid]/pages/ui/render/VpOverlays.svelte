@@ -29,6 +29,15 @@
 {:else if v.active && x.draft.length && x.cur}
 	{@render preview(x.draft[0], x.cur)}
 {/if}
+<!-- a running command's pick: the rubber band from its base point + the crosshair -->
+{#if x.pickCur}
+	{#if x.pickBase && x.pickBox}
+		{@const [bx, by] = x.pickBase}
+		{@const [cx, cy] = x.pickCur}
+		<rect x={Math.min(bx, cx)} y={Math.min(by, cy)} width={Math.abs(cx - bx)} height={Math.abs(cy - by)} fill="none" stroke={SEL} stroke-width={sw} stroke-dasharray="{5 * sw} {3 * sw}" />
+	{:else if x.pickBase}<line x1={x.pickBase[0]} y1={x.pickBase[1]} x2={x.pickCur[0]} y2={x.pickCur[1]} stroke={SEL} stroke-width={sw} stroke-dasharray="{5 * sw} {3 * sw}" />{/if}
+	{@render crosshair(x.pickCur)}
+{/if}
 <!-- cursor crosshair: precise endpoint placement for any draw tool, before + during a draft -->
 {#if v.active && DRAW.has(v.tool) && v.tool !== 'Guide'}
 	{@const cp = x.cur ?? x.hoverPt}
