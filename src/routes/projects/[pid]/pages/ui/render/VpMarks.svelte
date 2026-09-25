@@ -23,9 +23,9 @@
 	{@const s = v.structure}
 	<g pointer-events="none">
 		{#each s.slabs as b, i (i)}<rect x={s.x0} y={b.y0} width={s.x1 - s.x0} height={b.y1 - b.y0} fill={s.floorColor} fill-opacity="0.35" stroke={s.floorColor} stroke-width="1" vector-effect="non-scaling-stroke" />{/each}
-		<!-- raised floor + ceiling: 2 px, full strength (Dave: were too faint) -->
-		{#each s.floors as y, i (i)}<line x1={s.x0} y1={y} x2={s.x1} y2={y} stroke="#6b6152" stroke-width="2" vector-effect="non-scaling-stroke" />{/each}
-		{#each s.ceilings as y, i (i)}<line x1={s.x0} y1={y} x2={s.x1} y2={y} stroke="#7d5f74" stroke-width="2" stroke-dasharray="8 4" vector-effect="non-scaling-stroke" />{/each}
+		<!-- raised floor + ceiling: 1 px, darker tones (Dave: were too faint) -->
+		{#each s.floors as y, i (i)}<line x1={s.x0} y1={y} x2={s.x1} y2={y} stroke="#6b6152" stroke-width="1" vector-effect="non-scaling-stroke" />{/each}
+		{#each s.ceilings as y, i (i)}<line x1={s.x0} y1={y} x2={s.x1} y2={y} stroke="#7d5f74" stroke-width="1" stroke-dasharray="6 3" vector-effect="non-scaling-stroke" />{/each}
 	</g>
 {/if}
 {#if v.viewSpace}
