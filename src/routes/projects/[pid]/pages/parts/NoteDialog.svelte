@@ -3,7 +3,7 @@
 	// on the right (the same ui/noteLayout the drawing uses). Apply (Ctrl+Enter) saves; Esc / Cancel drops the edits.
 	import { tick } from 'svelte'
 	import { Icon } from '$lib'
-	import { layoutNote } from '../ui/noteLayout'
+	import { layoutNote, noteRuns } from '../ui/noteLayout'
 	import { htmlToMarkdown } from '../ui/htmlToMd'
 	import { textToShape } from '../ui/clipboard'
 	import { PT_MM } from '../constants'
@@ -42,7 +42,7 @@
 				<svg viewBox="0 0 {width} {lay.h}" width="100%">
 					<rect x="0" y="0" width={width} height={lay.h} fill="#fff" stroke="#cbd5e1" stroke-width="0.3" />
 					{#each lay.items as it, i (i)}
-						{#if it.kind === 'text'}<text x={it.x} y={it.y} font-size={it.size} font-weight={it.bold ? 700 : 400} fill="#111" font-family="Consolas, monospace">{it.text}</text>
+						{#if it.kind === 'text'}<text x={it.x} y={it.y} font-size={it.size} font-weight={it.bold ? 700 : 400} fill="#111" font-family="Consolas, monospace">{#each noteRuns(it.text) as [t, b], j (j)}<tspan font-weight={b ? 700 : undefined}>{t}</tspan>{/each}</text>
 						{:else}<line x1={it.a[0]} y1={it.a[1]} x2={it.b[0]} y2={it.b[1]} stroke="#111" stroke-width="0.2" />{/if}
 					{/each}
 				</svg>

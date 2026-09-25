@@ -12,6 +12,11 @@ const CW = 0.6, LH = 1.35, PAD = 1.5   // char width / line height (× size); in
 const strip = (s: string) => s.replace(/\*\*(.+?)\*\*/g, '$1')
 const isBold = (s: string) => /^\*\*.+\*\*$/.test(s.trim())
 
+/** A laid-out line's inline **bold** runs: [text, bold][] (the markers removed). */
+export function noteRuns(text: string): [string, boolean][] {
+	return text.split('**').map((t, i) => [t, i % 2 === 1] as [string, boolean]).filter(([t]) => t)
+}
+
 /** Words → lines no longer than `max` chars (a long word is cut). */
 export function wrap(text: string, max: number): string[] {
 	const m = Math.max(1, Math.floor(max)), out: string[] = []
@@ -31,7 +36,8 @@ export function layoutNote(md: string, width: number, size: number): NoteLayout 
 	const items: NoteItem[] = [], inner = Math.max(5, width - 2 * PAD)
 	let y = PAD
 	const para = (raw: string, s: number, indent: number, bold?: boolean, bullet?: string) => {
-		const lines = wrap(strip(raw), (inner - indent) / (CW * s))
+		// a whole-line **bold** becomes the bold flag; inline **runs** stay marked (renderers split them — noteRuns)
+		const lines = wrap(bold ? strip(raw) : raw, (inner - indent) / (CW * s))
 		lines.forEach((ln, i) => {
 			y += s * (i ? LH : 1.05)
 			if (i === 0 && bullet) items.push({ kind: 'text', x: PAD + indent - s * 1.3, y, text: bullet, size: s, bold })

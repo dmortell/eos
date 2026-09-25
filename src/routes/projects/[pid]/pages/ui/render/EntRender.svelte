@@ -14,6 +14,7 @@
 	import { STYLE_DEFAULTS, textBox, arcPath } from '../geometry'
 	import { PT_MM } from '../../constants'
 	import { isFlatElev, flatXSpan, rotCenter, rotatePt, groundInIso, noteGeom } from '../hit'
+	import { noteRuns } from '../noteLayout'
 	import { arrowPts, cloudPath, cloudPathPts, groundPts, headGeom, dashArray, lineLabelAt, tileLines, type HeadGeom } from '../annotations'
 	import { imageSrc } from '../../imageStore'
 	import { pdfImageUrl, PDF_SRC } from './pdfRaster.svelte'
@@ -148,7 +149,7 @@
 			{#if e.noteBox}<rect x="0" y="0" width={e.noteW ?? 90} height={n.layout.h} fill={fill === 'none' ? 'none' : fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" />
 			{:else if fill !== 'none'}<rect x="0" y="0" width={e.noteW ?? 90} height={n.layout.h} fill={fill} />{/if}
 			{#each n.layout.items as it, i (i)}
-				{#if it.kind === 'text'}<text class="anno" x={it.x} y={it.y} font-size={it.size} font-weight={it.bold ? 700 : 400} fill={ink}>{it.text}</text>
+				{#if it.kind === 'text'}<text class="anno" x={it.x} y={it.y} font-size={it.size} font-weight={it.bold ? 700 : 400} fill={ink}>{#each noteRuns(it.text) as [t, b], j (j)}<tspan font-weight={b ? 700 : undefined}>{t}</tspan>{/each}</text>
 				{:else}<line x1={it.a[0]} y1={it.a[1]} x2={it.b[0]} y2={it.b[1]} stroke={ink} stroke-width={w * 0.8} vector-effect="non-scaling-stroke" />{/if}
 			{/each}
 		</g>
