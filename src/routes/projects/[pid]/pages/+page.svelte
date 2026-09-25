@@ -33,6 +33,7 @@
 	import HelpDialog from './parts/HelpDialog.svelte'
 	import { readingOrder } from './ui/frameNumber'
 	import { fromClipText } from './ui/clipboard'
+	import { createUploadThing } from '../uploads/uploader'
 	import { commandById, primaryName } from './ui/commands'
 	import { CommandRunner } from './ui/commandRunner.svelte'
 	import ViewGizmos from './parts/ViewGizmos.svelte'
@@ -480,11 +481,26 @@
 		const dt = e.clipboardData, ents = fromClipText(dt?.getData('text/plain') ?? '')
 		const img = ents ? null : [...(dt?.files ?? [])].find((f) => f.type.startsWith('image/'))
 		e.preventDefault()
-		if (img) { const r = new FileReader(); r.onload = () => addImage(String(r.result)); r.readAsDataURL(img); return }
+		if (img) { void pasteImage(img); return }
 		if (ents?.length) docEdit.clipboard.load(ents)
 		menuAction('Paste')
 	}
 	$effect(() => { window.addEventListener('paste', onPaste); return () => window.removeEventListener('paste', onPaste) })
+	// A PASTED image (a screenshot …) goes to FILE STORAGE (UploadThing's image route, like Uploads / logos) and the
+	// image shape points at its URL — on the active layer (addImage). Offline / a failed upload: the in-page copy.
+	const { startUpload: uploadImage } = createUploadThing('imageUploader', {})
+	async function pasteImage(file: File) {
+		const name = file.name && file.name !== 'image.png' ? file.name : `pasted-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.png`
+		toast('Uploading the pasted image…', { id: 'paste-img' })
+		try {
+			const res = await uploadImage([new File([file], name, { type: file.type })])
+			const url = res?.[0]?.ufsUrl; if (!url) throw new Error('no URL')
+			toast.dismiss('paste-img'); addImage(url)
+		} catch (err) {
+			toast.warning(`Couldn't upload the image (${err instanceof Error ? err.message : 'error'}) — kept in this page only`, { id: 'paste-img' })
+			const r = new FileReader(); r.onload = () => addImage(String(r.result)); r.readAsDataURL(file)
+		}
+	}
 	function deleteSelection() { const a2 = active, vid = activeSelViewId(); if (a2 && vid) deleteSelAt(a2.id, vid, { begin: beginGesture, mark: (l?: string) => modelEdit(a2.id, l), end: endGesture }) }
 
 	function setView(paneId: string, viewId: string, proj: Proj, v: View) { viewState.setView(paneId, didOf(viewId), proj, v) }
@@ -897,10 +913,12 @@
 		else if (e.key === 'F10') { e.preventDefault(); toggles.POLAR = !toggles.POLAR; statusText = `POLAR ${toggles.POLAR ? 'on' : 'off'}` }
 		else if (mod && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo() }
 		else if (mod && ((e.shiftKey && (e.key === 'z' || e.key === 'Z')) || e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo() }
-		else if (!onCanvas) return   // the canvas keys below leave a focused sidebar / tree its own paging + keys
-		else if (!mod && !e.altKey && e.key.length === 1 && /[A-Za-z0-9@,.<?_]/.test(e.key) && cmdLine && !document.querySelector('[role="dialog"]')) {   // typing → the command line
+		// typing → the command line, wherever focus is (the tree / a button after a click) — text fields returned above
+		else if (!mod && !e.altKey && e.key.length === 1 && /[A-Za-z0-9@,.<?_]/.test(e.key) && cmdLine && !document.querySelector('[role="dialog"]')
+			&& !(e.target as HTMLElement)?.isContentEditable) {
 			e.preventDefault(); e.stopPropagation(); cmdLine.type(e.key)
 		}
+		else if (!onCanvas) return   // the canvas keys below leave a focused sidebar / tree its own paging + keys
 		else if (e.key === ' ' && !mod && !e.altKey && acadMode) { e.preventDefault(); e.stopPropagation(); cmdRunner.run('') }   // ACAD: Space = Enter (finish / repeat the last command)
 		else if (!mod && !e.altKey && (e.key === '+' || e.key === '=' || e.key === '-' || e.key === 'Home')) {   // K2: zoom in / out / fit
 			e.preventDefault()
@@ -933,6 +951,7 @@
 		{ icon: 'circle', name: 'Ellipse' },
 		{ icon: 'waypoints', name: 'Wall' },
 		{ icon: 'square', name: 'Furniture' },
+		{ icon: 'server', name: 'Rack' },       // runs the RACK command (a pseudo-tool: setPaneTool routes it)
 		{ icon: 'route', name: 'Trunk' },
 		{ icon: 'rows', name: 'Pipe' },
 		{ icon: 'rect', name: 'Opening' },
@@ -950,7 +969,7 @@
 		{ tool: 'Line' },
 		{ group: 'shapes', label: 'Shapes', members: ['Rectangle', 'Ellipse'] },   // 2D/footprint draws
 		{ group: 'conduits', label: 'Conduits', members: ['Wall', 'Trunk', 'Pipe'] },      // node/segment graph tools
-		{ tool: 'Furniture' },
+		{ group: 'boxes', label: 'Boxes', members: ['Furniture', 'Rack'] },   // a Box, or a Rack (the RACK command)
 		{ tool: 'Opening' },
 		{ tool: 'Section' },
 		{ tool: 'Dimension' },
@@ -1028,7 +1047,7 @@
 	// `pane`/`pi` as its own props and can just call `ws.setFocused(pi)` itself.
 	function setFocused(pi: number) { session.focused = pi }
 	function toggleTabMenu(pi: number) { tabMenuPane = tabMenuPane === pi ? null : pi }
-	function setPaneTool(pane: WorkPane, t: string) { pane.tool = t; navMode = null }
+	function setPaneTool(pane: WorkPane, t: string) { if (t === 'Rack') { cmdRunner.run('RACK'); return } pane.tool = t; navMode = null }   // Rack = the RACK command
 	function toggleLayout(pane: WorkPane) { pane.layout = pane.layout === 'model' ? 'sheet' : 'model' }
 	function setCanvasEl(pi: number, el: HTMLElement | undefined) { canvasEls[pi] = el }
 	// Bundles +page.svelte's ~30 doc/view accessor FUNCTIONS + the pane actions above into ONE prop every

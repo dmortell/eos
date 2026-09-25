@@ -132,6 +132,11 @@ const isLine = (e: Ent) => e.type === 'polyline' && (e.pts?.length ?? 0) >= 2 &&
 let lastOffset: number | undefined
 let filletR = 0, chamferD: [number, number] = [0, 0]
 const rackDef = { u: 42, w: 600, d: 1000 }
+/** RACK presets (the option's first word is what a click / typed letter picks). */
+const RACK_PRESETS: Record<string, { u: number; w: number; d: number }> = {
+	'Server 600×1000 42U': { u: 42, w: 600, d: 1000 }, 'Network 800×1000 42U': { u: 42, w: 800, d: 1000 },
+	'Deep 800×1200 47U': { u: 47, w: 800, d: 1200 }, 'Wall 600×450 12U': { u: 12, w: 600, d: 450 }, Custom: { u: 42, w: 600, d: 1000 },
+}
 /** Where two lines (as infinite lines) meet, or null when parallel. */
 function lineIntersect(l1: [Pt, Pt], l2: [Pt, Pt]): Pt | null {
 	const [a, b] = l1, [c2, d] = l2, r: Pt = [b[0] - a[0], b[1] - a[1]], q: Pt = [d[0] - c2[0], d[1] - c2[1]], den = r[0] * q[1] - r[1] * q[0]
@@ -499,9 +504,13 @@ export const SCRIPTS: Record<string, Script> = {
 	},
 	rack: async (c) => {   // a RACK model object (real W × D × H + rack data) — sizes remembered for the next one
 		c.host.tool('Select')
-		rackDef.u = Math.round(await number(c, 'Rack height (U)', rackDef.u))
-		rackDef.w = Math.round(await number(c, 'Width (mm)', rackDef.w))
-		rackDef.d = Math.round(await number(c, 'Depth (mm)', rackDef.d))
+		const pick = await c.ask({ prompt: `Rack type (Enter = ${rackDef.w}×${rackDef.d} ${rackDef.u}U)`, options: Object.keys(RACK_PRESETS), enter: true })
+		if (pick.kind === 'option' && pick.key !== 'Custom') Object.assign(rackDef, RACK_PRESETS[pick.key])
+		else if (pick.kind === 'option') {
+			rackDef.u = Math.round(await number(c, 'Rack height (U)', rackDef.u))
+			rackDef.w = Math.round(await number(c, 'Width (mm)', rackDef.w))
+			rackDef.d = Math.round(await number(c, 'Depth (mm)', rackDef.d))
+		}
 		if (!(rackDef.u > 0 && rackDef.w > 0 && rackDef.d > 0)) throw new CmdError('Sizes must be positive')
 		for (;;) {   // several racks: keep clicking centres (Enter ends)
 			const foot = (u: Pt) => { const p = D(c, u); return [c.t.newEnt({ type: 'rect', a: [p[0] - rackDef.w / 2, p[1] - rackDef.d / 2], b: [p[0] + rackDef.w / 2, p[1] + rackDef.d / 2] })] }
