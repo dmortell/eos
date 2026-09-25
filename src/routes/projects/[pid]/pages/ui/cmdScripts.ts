@@ -131,6 +131,7 @@ async function layerPicks(c: CmdCtx, op: 'off' | 'frz', prompt: string) {
 const isLine = (e: Ent) => e.type === 'polyline' && (e.pts?.length ?? 0) >= 2 && !e.rot
 let lastOffset: number | undefined
 let filletR = 0, chamferD: [number, number] = [0, 0]
+const rackDef = { u: 42, w: 600, d: 1000 }
 /** Where two lines (as infinite lines) meet, or null when parallel. */
 function lineIntersect(l1: [Pt, Pt], l2: [Pt, Pt]): Pt | null {
 	const [a, b] = l1, [c2, d] = l2, r: Pt = [b[0] - a[0], b[1] - a[1]], q: Pt = [d[0] - c2[0], d[1] - c2[1]], den = r[0] * q[1] - r[1] * q[0]
@@ -495,6 +496,21 @@ export const SCRIPTS: Record<string, Script> = {
 		c.out(`${u.missing.length} insert${u.missing.length > 1 ? 's' : ''} of a missing block: ${[...byModel].map(([m, n]) => `${m} ${n}`).join(', ')} — drawn as a crossed box`)
 		const here = new Set(u.missing.map((m) => m.id)), inView = c.t.pickableEnts().filter((e) => here.has(e.id)).map((e) => e.id)
 		if (inView.length) { c.t.select(inView); c.out(`${inView.length} of them selected here (Delete removes them, or swap their block in Properties)`) }
+	},
+	rack: async (c) => {   // a RACK model object (real W × D × H + rack data) — sizes remembered for the next one
+		c.host.tool('Select')
+		rackDef.u = Math.round(await number(c, 'Rack height (U)', rackDef.u))
+		rackDef.w = Math.round(await number(c, 'Width (mm)', rackDef.w))
+		rackDef.d = Math.round(await number(c, 'Depth (mm)', rackDef.d))
+		if (!(rackDef.u > 0 && rackDef.w > 0 && rackDef.d > 0)) throw new CmdError('Sizes must be positive')
+		for (;;) {   // several racks: keep clicking centres (Enter ends)
+			const foot = (u: Pt) => { const p = D(c, u); return [c.t.newEnt({ type: 'rect', a: [p[0] - rackDef.w / 2, p[1] - rackDef.d / 2], b: [p[0] + rackDef.w / 2, p[1] + rackDef.d / 2] })] }
+			const a = await c.ask({ prompt: `Rack ${rackDef.w}×${rackDef.d} ${rackDef.u}U — specify its centre or <Enter ends>`, point: { ghost: foot }, enter: true })
+			if (a.kind !== 'point') return
+			const r = c.t.addRack({ ...rackDef, at: a.p, rot: 0 })
+			if ('err' in r) throw new CmdError(r.err)
+			c.out(`Rack ${r.label} placed (rotate / label / devices in Properties)`)
+		}
 	},
 	view: async (c) => {   // NAMED VIEWS: Save / Restore / Delete this drawing's zoom + pan + scale
 		const vs = c.host.namedViews(), names = Object.keys(vs)

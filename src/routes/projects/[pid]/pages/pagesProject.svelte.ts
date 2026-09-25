@@ -71,6 +71,8 @@ export type ProjectHost = {
 }
 
 export const SHEET = 'sheet:'
+/** Copy page / Paste page: the clipboard + storage marker (and the localStorage key). */
+const SHEET_CLIP = 'eos-pages-sheet'
 export const sheetIdOf = (docId?: string) => (docId?.startsWith(SHEET) ? docId.slice(SHEET.length) : null)
 // drawings-plan phase 3: the kinds of place that get a model of that kind (anything else → a zone model)
 const MODEL_KINDS: ModelKind[] = ['floor', 'zone', 'room', 'building']
@@ -469,6 +471,46 @@ export class PagesProject {
 		ps.moveSheet(d.id, src.placeId, order.findIndex((x) => x.id === src.id) + 1)
 		this.openSheetById(d.id)
 		this.#h.toast(`Duplicated “${src.title}”${copied ? ` with ${copied} annotation${copied === 1 ? '' : 's'}` : ''}`)
+	}
+	/** Copy a whole PAGE (tree › Copy page): the sheet + the shapes scoped to its frames, as marked JSON — to the system
+	 *  clipboard (another tab / browser) and this browser's storage — so another project can Paste page. */
+	copySheet = (id: string) => {
+		const cur = this.store?.sheets.find((x) => x.id === id); if (!cur) return
+		const sheet = $state.snapshot(cur) as PagesSheetDoc, fids = new Set(sheet.frames.map((f) => f.id)), shapes: { modelId: string; ent: Ent }[] = []
+		for (const m of models) for (const e of m.shapes ?? []) if (e.space?.startsWith('view:') && fids.has(e.space.slice(5))) shapes.push({ modelId: m.id, ent: $state.snapshot(e) as Ent })
+		const text = JSON.stringify({ [SHEET_CLIP]: 1, sheet, shapes })
+		try { localStorage.setItem(SHEET_CLIP, text) } catch { /* private mode / full */ }
+		navigator.clipboard?.writeText(text).catch(() => {})
+		this.#h.toast(`Copied page “${sheet.title}” — in another project: tree › a place › Paste page here`)
+	}
+	/** Paste a copied page under `placeId`: a new sheet with its paper, frames (new ids) + their annotations. A frame
+	 *  whose model isn't in this project shows "Missing model" (re-point it in its Properties). */
+	pasteSheet = async (placeId: string) => {
+		const ps = this.store; if (!ps || ps.status !== 'ready') return
+		let text = ''
+		try { text = (await navigator.clipboard?.readText()) ?? '' } catch { /* no permission — use this browser's copy */ }
+		if (!text.includes(SHEET_CLIP)) { try { text = localStorage.getItem(SHEET_CLIP) ?? '' } catch { text = '' } }
+		let clip: { sheet: PagesSheetDoc; shapes: { modelId: string; ent: Ent }[] } | null = null
+		try { const o = JSON.parse(text); if (o?.[SHEET_CLIP] && o.sheet?.frames) clip = o } catch { /* not ours */ }
+		if (!clip) { this.#h.toast('No copied page — tree › a sheet › Copy page first'); return }
+		const src = clip.sheet, fid = new Map(src.frames.map((f) => [f.id, newId('vf')]))
+		const d = ps.createSheet({ title: src.title, placeId })
+		ps.saveSheet({ ...d, paper: src.paper, sheetSize: src.sheetSize, scale: src.scale, kind: src.kind, discipline: src.discipline, tags: [...(src.tags ?? [])], hideTitleBlock: src.hideTitleBlock,
+			frames: src.frames.map((f) => ({ ...f, id: fid.get(f.id)! })), ...(src.link ? { link: { ...src.link } } : {}) })
+		let added = 0, lost = 0
+		const gids = new Map<string, string>()
+		for (const s of clip.shapes) {
+			const m = modelById(s.modelId), sp = s.ent.space?.slice(5)
+			if (!m || !sp || !fid.has(sp)) { lost++; continue }
+			if (!added) this.#h.ensureHist()
+			const g = s.ent.groupId ? (gids.get(s.ent.groupId) ?? (gids.set(s.ent.groupId, newId()), gids.get(s.ent.groupId))) : undefined
+			m.shapes = [...(m.shapes ?? []), { ...s.ent, id: newId(), space: `view:${fid.get(sp)}`, groupId: g }]
+			added++
+		}
+		if (added) this.#h.pushStep(this.#h.activeTabId() ?? '', `Paste page “${src.title}”`)
+		const missing = src.frames.filter((f) => f.modelId && !modelById(f.modelId)).length
+		this.openSheetById(d.id)
+		this.#h.toast(`Pasted “${src.title}”${added ? ` with ${added} annotation${added === 1 ? '' : 's'}` : ''}${missing ? ` — ${missing} viewport${missing === 1 ? ' shows' : 's show'} a model this project doesn't have (re-point it in Properties)` : ''}${lost ? `; ${lost} annotation${lost === 1 ? '' : 's'} left out` : ''}`)
 	}
 	/** B5: a link sheet under `placeId` → another tool at the place's floor / room. */
 	addLinkSheet = (placeId: string, tool: SheetLink['tool']) => {

@@ -378,7 +378,9 @@ export class VpView {
 			if (showF && s.raisedFloor) floors.push(y(s.z + s.raisedFloor))
 			if (showC && s.ceilingTile) ceilings.push(y(s.z + s.ceilingTile))
 		}
-		return { x0, x1, slabs, floors, ceilings, floorColor: this.layerColor('a-flor'), ceilColor: this.layerColor('a-clng') }
+		// the layer colours are pale greys (made for fills); lines use a deeper tone of them so they read on paper
+		const deepen = (hex: string, k = 0.55) => { const n = parseInt(hex.replace('#', ''), 16); if (!(n >= 0)) return hex; const ch = (s: number) => Math.round(((n >> s) & 255) * k); return `rgb(${ch(16)},${ch(8)},${ch(0)})` }
+		return { x0, x1, slabs, floors, ceilings, floorColor: this.layerColor('a-flor'), lineColor: deepen(this.layerColor('a-flor') ?? '#999999'), ceilColor: deepen(this.layerColor('a-clng') ?? '#999999') }
 	})
 	selSectionObj = $derived(this.isPlan && this.selSection ? this.sections.find((s) => s.id === this.selSection) ?? null : null)
 	setSectionClip = (id: string, clip: Clip) => { if (this.mdl) setSectionClip(this.mdl, id, clip) }   // inside a drag gesture (the caller records the step)

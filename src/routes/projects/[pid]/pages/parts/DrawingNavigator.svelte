@@ -9,7 +9,7 @@
 	import { type NavKind as Kind, type NavNode as Node, NAV_TREE as TREE, NAV_PROJECT as PROJECT } from '../mock/data'
 
 	let { onopen, onopenfloor, oncollapse, onselectnode, activeDoc = '', activeNode = '', tree = null, project = null, status = '', onaddbuilding, onmovefloor, onmovebuilding, reveal = [],
-		placesMode = false, onseedplaces, onplaceadd, onplacerename, onplacemove, onplacedelete, onopenplace, onsheetadd, onsheetrename, onsheetdelete, onsheetduplicate, onlinksheet, onplaceimport, onplaceracks, ondrawings, onimportdrawing, onimportriser }:
+		placesMode = false, onseedplaces, onplaceadd, onplacerename, onplacemove, onplacedelete, onopenplace, onsheetadd, onsheetrename, onsheetdelete, onsheetduplicate, onsheetcopy, onsheetpaste, onlinksheet, onplaceimport, onplaceracks, ondrawings, onimportdrawing, onimportriser }:
 		{ onopen?: (d: { title: string; kind: Kind; preview: boolean; floor?: string; docId?: string }) => void; oncollapse?: () => void;
 			/** A FLOOR row was clicked (preview) or double-clicked (kept): open that floor's model tab. */
 			onopenfloor?: (floor: string, preview: boolean) => void;
@@ -49,6 +49,8 @@
 			onlinksheet?: (placeId: string, tool: SheetLink['tool']) => void
 			/** B1: duplicate a sheet leaf (right after it). */
 			onsheetduplicate?: (rowId: string) => void
+			/** Copy a whole page (sheet row) to the clipboard / paste one into a place (place row). */
+			onsheetcopy?: (rowId: string) => void; onsheetpaste?: (placeRowId: string) => void
 			/** Import the place's outlets + trunks from the Outlets tool into its model (places with `outletsDoc`). */
 			onplaceimport?: (placeId: string) => void
 			/** G4: rebuild a rack-row place's model from the Racks tool (places with `racksRow`). */
@@ -150,12 +152,14 @@
 		if (n.sheet) {
 			if (onsheetrename) out.push({ key: 'rename', label: 'Rename', icon: 'edit', run: () => startRename(n) })
 			if (onsheetduplicate) out.push({ key: 'dup', label: 'Duplicate', icon: 'copy', run: () => onsheetduplicate?.(n.id) })
+			if (onsheetcopy) out.push({ key: 'copy', label: 'Copy page (to paste in another project)', icon: 'copy', run: () => onsheetcopy?.(n.id) })
 			if (onsheetdelete) out.push({ key: 'delete', label: 'Delete', icon: 'trash', danger: true, confirm: 'Click again to delete (Undo on the message)', run: () => onsheetdelete?.(n.id) })
 			return out
 		}
 		if (onplaceimport && n.outletsDoc) out.push({ key: 'import', label: 'Import from Outlets tool', icon: 'download', confirm: 'Click again to import outlets + trunks', run: () => onplaceimport?.(n.id) })
 		if (onplaceracks && n.racksRow) out.push({ key: 'racks', label: 'Import racks from the Racks tool', icon: 'download', confirm: 'Click again to rebuild its racks + devices', run: () => onplaceracks?.(n.id) })
 		if (onsheetadd) out.push({ key: 'sheet', label: 'New sheet here', icon: 'fileText', run: () => addSheet(n.id) })
+		if (onsheetpaste) out.push({ key: 'paste', label: 'Paste page here', icon: 'copy', run: () => onsheetpaste?.(n.id) })
 		if (onlinksheet) for (const [tool, name] of Object.entries(LINK_TOOLS) as [SheetLink['tool'], string][])
 			out.push({ key: `link-${tool}`, label: `New link to ${name}`, icon: 'link', run: () => onlinksheet?.(n.id, tool) })
 		if (onplaceadd) out.push({ key: 'place', label: 'New place inside', icon: 'plus', run: () => addPlace(n.id) })

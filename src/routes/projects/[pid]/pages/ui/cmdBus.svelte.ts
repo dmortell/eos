@@ -75,6 +75,9 @@ export type VpCommandTarget = {
 	zoomPrev(): string | null
 	/** The armed draw tool's prompt for the command line ("Specify next point" [Close/Undo]), or null (Select). */
 	drawPrompt(): { prompt: string; options?: string[] } | null
+	/** RACK: place a rack (a Box with rack data) centred at `at` (user coords), w × d mm, `u` units, rotated `rot`° —
+	 *  plan only; returns its label, or an error. */
+	addRack(o: { u: number; w: number; d: number; at: Pt; rot: number }): { label: string } | { err: string }
 	/** Named views: this viewport's zoom / pan + drawing scale, and putting one back. */
 	viewState(): { view: { zoom: number; x: number; y: number }; scale: string }
 	restoreView(s: { view: { zoom: number; x: number; y: number }; scale: string }): void

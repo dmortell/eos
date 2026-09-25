@@ -20,6 +20,7 @@ import { rotateAbout, scaleAbout, cornerScale, barycentre, mirrorAbout } from '.
 import { cmdBus, type VpCommandTarget, type Xf } from './cmdBus.svelte'
 import { cptPick } from './cptPick.svelte'
 import { explodeEnt } from './explode'
+import { rackHeightMm } from '../store/racksImport'
 import { uvAt, DEFAULT_CPTS } from '../3dview/connect'
 import { coincidentNodes } from '../3dview/graphJoin'
 import { commitConduit, moveModelItems, endModelMove, moveModelGrip, dropNodeJoin, type MDrag, type MGripDrag } from './vpModelEdit'
@@ -318,6 +319,14 @@ export class VpInteraction {
 		reorder: (ids, op) => this.v.editor.ents.reorder(ids, op),
 		zoomWindow: (a, b) => { const p = this.toDraw(a), q = this.toDraw(b); if (p && q) this.v.zoomToBox(Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.max(p[0], q[0]), Math.max(p[1], q[1])) },
 		zoomPrev: () => { const pv = this.viewHist.pop(); if (!pv) return 'No previous view'; this.restoring = true; this.v.on.view?.(pv); return null },
+		addRack: ({ u, w, d, at, rot }) => {
+			const v = this.v; if (!v.isPlan || !v.mdl) return { err: 'Place racks in the plan view' }
+			const c = this.toDraw(at)!, n = v.mdl.objects.filter((o) => o.type === 'prism' && o.rack).length
+			let label = ''; for (let k = n + 1; ; k++) { label = 'R' + String(k).padStart(2, '0'); if (!v.mdl.objects.some((o) => o.label === label)) break }
+			const o = prismObj(v.ctx, [c[0] - w / 2, c[1] - d / 2], [c[0] + w / 2, c[1] + d / 2], 'racks', rackHeightMm(u), () => newId('rk'), { rack: { u }, label, ...(rot ? { rot } : {}) })
+			this.addModelObj(o)
+			return { label }
+		},
 		viewState: () => ({ view: { ...this.v.view }, scale: this.v.scale }),
 		restoreView: (s) => { if (s.scale !== this.v.scale) this.v.on.scale?.(s.scale); this.v.on.view?.({ ...s.view }) },
 		svg: () => this.v.svg,
