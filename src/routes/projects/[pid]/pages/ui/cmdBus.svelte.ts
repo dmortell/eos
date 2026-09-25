@@ -53,6 +53,7 @@ export type VpCommandTarget = {
 	/** New shapes go on the current layer + this view's plane. */
 	newEnt(e: Omit<Ent, 'id'>): Ent
 	selectAll(): void; deselect(): void; select(ids: string[]): void
+	reorder(ids: string[], op: 'front' | 'back' | 'forward' | 'backward'): void
 	erase(): void; duplicate(): string | null; group(): string | null; ungroup(): string | null
 	/** Zoom to a window (user coords) / back to the previous view. */
 	zoomWindow(a: Pt, b: Pt): void

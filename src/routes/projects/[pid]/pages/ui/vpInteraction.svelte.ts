@@ -285,6 +285,7 @@ export class VpInteraction {
 		selectAll: () => this.v.selectEnts(this.v.entities.filter((e) => this.v.pickable(e)).map((e) => e.id)),
 		deselect: () => this.v.clearSel(),
 		select: (ids) => this.v.selectEnts(ids),
+		reorder: (ids, op) => this.v.editor.ents.reorder(ids, op),
 		zoomWindow: (a, b) => { const p = this.toDraw(a), q = this.toDraw(b); if (p && q) this.v.zoomToBox(Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.max(p[0], q[0]), Math.max(p[1], q[1])) },
 		zoomPrev: () => { const pv = this.viewHist.pop(); if (!pv) return 'No previous view'; this.restoring = true; this.v.on.view?.(pv); return null },
 		entAt: (u) => { const d = this.toDraw(u); return d ? (this.v.hit(d)[0] ?? null) : null },

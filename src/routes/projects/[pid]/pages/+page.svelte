@@ -25,7 +25,7 @@
 	import DrawingNavigator from './parts/DrawingNavigator.svelte'
 	import LayersPanel from './parts/LayersPanel.svelte'
 	import PropertiesPanel from './parts/PropertiesPanel.svelte'
-	import { activeLayerIn, isLayerHidden } from './layers.svelte'
+	import { activeLayerIn, isLayerHidden, addLayer, layerUI } from './layers.svelte'
 	import { fitFrame } from './ui/frameFit'
 	import HistoryPanel from './parts/HistoryPanel.svelte'
 	import StatusBar from './parts/StatusBar.svelte'
@@ -665,8 +665,21 @@
 				case 'schedule': return menuAction('Outlet Schedule…')
 				case 'drawings': return menuAction('Drawings…')
 				case 'defaults': return menuAction('Drawing Defaults…')
+				case 'save': statusText = `Save isn't needed — edits save to the project as you go`; return
+				case 'new': return addTab()
+				case 'open': openProjectOpen = true; return
 			}
 			return `${id}: not available yet`
+		},
+		newLayer: (name) => {
+			const ls = modelById(activeMid())?.layers; if (!ls) return 'No model is open'
+			const l = addLayer(ls); l.name = name.trim() || l.name
+			return { name: l.name }
+		},
+		setCurrentLayer: (id) => {
+			const l = modelById(activeMid())?.layers?.find((x) => x.id === id); if (!l) return 'That layer is not in this model'
+			layerUI.active = id
+			return { name: l.name }
 		},
 	})
 	// The focused pane's ACTIVE VIEW: a sheet's active frame (else its first), or a model tab's own view.
@@ -823,6 +836,7 @@
 		else if (!mod && !e.altKey && e.key.length === 1 && /[A-Za-z0-9@,.<?_]/.test(e.key) && cmdLine && !document.querySelector('[role="dialog"]')) {   // typing → the command line
 			e.preventDefault(); e.stopPropagation(); cmdLine.type(e.key)
 		}
+		else if (e.key === ' ' && !mod && !e.altKey && acadMode) { e.preventDefault(); e.stopPropagation(); cmdRunner.run('') }   // ACAD: Space = Enter (finish / repeat the last command)
 		else if (!mod && !e.altKey && (e.key === '+' || e.key === '=' || e.key === '-' || e.key === 'Home')) {   // K2: zoom in / out / fit
 			e.preventDefault()
 			if (e.key === 'Home') navFit(); else navZoom(e.key === '-' ? 0.8 : 1.25)
@@ -1116,7 +1130,7 @@
 		{/if}
 	</div>
 
-	<CommandLine bind:this={cmdLine} runner={cmdRunner} />
+	<CommandLine bind:this={cmdLine} runner={cmdRunner} spaceIsEnter={acadMode} />
 	<!-- Status bar -->
 	<StatusBar bind:toggles bind:snapStep bind:acadMode
 		paperSize={paperOf(session.panes[session.focused]?.activeId).size} paperLandscape={paperOf(session.panes[session.focused]?.activeId).landscape}

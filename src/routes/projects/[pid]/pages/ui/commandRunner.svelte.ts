@@ -59,7 +59,11 @@ export class CommandRunner {
 			if (this.last) await this.exec(this.last)
 			return
 		}
-		for (const tok of tokenize(text)) if (!(await this.step(tok))) break
+		const toks = tokenize(text)
+		for (let i = 0; i < toks.length; i++) {
+			if (this.want?.text) { await this.step(toks.slice(i).join(' ')); break }   // free text = the rest of the line
+			if (!(await this.step(toks[i]))) break
+		}
 	}
 
 	/** One token; false stops the rest of the line (an error). */
@@ -118,6 +122,8 @@ export class CommandRunner {
 			if (w.def) return this.feed(w.def)
 			if (!w.enter) return bad('A value is needed (Esc cancels)')
 			a = { kind: 'enter' }
+		} else if (w.text) {
+			a = { kind: 'text', s: token }
 		} else if (w.options?.length && /^[A-Z]+$/.test(up) && w.options.some((o) => o.toUpperCase().startsWith(up))) {
 			a = { kind: 'option', key: w.options.find((o) => o.toUpperCase().startsWith(up))! }
 		} else if (w.point && parseCoord(token)) {

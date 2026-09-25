@@ -5,7 +5,9 @@
 	import { matchCommands, primaryName, readToken } from '../ui/commands'
 	import type { CommandRunner } from '../ui/commandRunner.svelte'
 
-	let { runner }: { runner: CommandRunner } = $props()
+	// spaceIsEnter (the status bar's ACAD mode): Space submits like Enter, as in AutoCAD — except while a command asks
+	// for free text (a layer name). Several points on one line still work separated by ';'.
+	let { runner, spaceIsEnter = false }: { runner: CommandRunner; spaceIsEnter?: boolean } = $props()
 	let text = $state(''), pick = $state(0), histIdx = $state(-1), open = $state(false)
 	let input: HTMLInputElement | undefined = $state()
 	let logEl: HTMLDivElement | undefined = $state()
@@ -22,7 +24,7 @@
 	function complete() { const s = sugg[pick]; if (s) { text = primaryName(s) + ' '; pick = 0 } }
 	function onkeydown(e: KeyboardEvent) {
 		e.stopPropagation()   // the viewport / page keys stay out of the typing
-		if (e.key === 'Enter') {   // an unknown word with a suggestion showing → run the highlighted suggestion
+		if (e.key === 'Enter' || (e.key === ' ' && spaceIsEnter && !runner.want?.text)) {   // an unknown word with a suggestion showing → run the highlighted suggestion
 			e.preventDefault(); const s = sugg[pick]
 			submit(s && readToken(text.trim(), false).kind === 'error' ? primaryName(s) : text)
 		}
@@ -47,7 +49,7 @@
 	</div>
 	<label class="row">
 		<span class="prompt">{runner.prompt}</span>
-		<input bind:this={input} bind:value={text} spellcheck="false" autocomplete="off" placeholder="Type a command (L, REC, M 500,0 …) — HELP lists them"
+		<input bind:this={input} bind:value={text} spellcheck="false" autocomplete="off" placeholder={runner.want ? 'A point X,Y / @DX,DY, a number, an option — or click in the view' : 'Type a command (L, REC, M, CO, Z …) — HELP lists them'}
 			onfocus={() => (open = true)} onblur={() => (open = false)} oninput={() => { pick = 0; histIdx = -1 }} {onkeydown} />
 	</label>
 	{#if sugg.length}

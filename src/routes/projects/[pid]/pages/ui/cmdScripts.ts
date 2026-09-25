@@ -9,6 +9,10 @@ export type CmdHost = {
 	/** Arm a tool in the focused pane ('Line', 'Rectangle', … or 'Select'). */
 	tool(name: string): void
 	run(id: string): string | void   // every other command (views, toggles, panels, files) — may return an error
+	/** NEWLAYER: add a layer to the focused model and make it current; LAYMCUR: make a layer current. Both return
+	 *  the layer's name, or an error. */
+	newLayer(name: string): { name: string } | string
+	setCurrentLayer(id: string): { name: string } | string
 }
 /** What a command asks for. Any combination; `options` are matched by their leading letters. */
 export type Want = {
@@ -18,12 +22,14 @@ export type Want = {
 	point?: { base?: Pt; ghost?: (u: Pt) => Ent[]; box?: boolean }
 	ent?: boolean
 	number?: boolean
+	/** free text: the REST of the typed line (a name with spaces) */
+	text?: boolean
 	enter?: boolean
 	options?: string[]
 	/** used for an empty Enter (shown as <default>) */
 	def?: string
 }
-export type Answer = { kind: 'point'; p: Pt } | { kind: 'number'; n: number } | { kind: 'ent'; id: string; p: Pt } | { kind: 'enter' } | { kind: 'option'; key: string }
+export type Answer = { kind: 'point'; p: Pt } | { kind: 'number'; n: number } | { kind: 'ent'; id: string; p: Pt } | { kind: 'enter' } | { kind: 'option'; key: string } | { kind: 'text'; s: string }
 /** Esc. */
 export class Cancel extends Error {}
 /** An expected failure a script reports (shown in red, not logged as a bug). */
@@ -112,6 +118,25 @@ export const SCRIPTS: Record<string, Script> = {
 		if (a.key === 'Window') return zoomWindow(c)
 		if (a.key === 'Previous') return chk(c.t.zoomPrev())
 		chk(c.host.run('fit'))
+	},
+	draworder: async (c) => {
+		const ids = await selection(c)
+		const a = await c.ask({ prompt: 'Enter object ordering option', options: ['Front', 'Back', 'Above', 'Under'], def: 'Front' })
+		if (a.kind !== 'option') return
+		c.t.reorder(ids, a.key === 'Front' ? 'front' : a.key === 'Back' ? 'back' : a.key === 'Above' ? 'forward' : 'backward')
+	},
+	newlayer: async (c) => {
+		const a = await c.ask({ prompt: 'Enter name for new layer', text: true })
+		if (a.kind !== 'text') return
+		const r = c.host.newLayer(a.s); if (typeof r === 'string') throw new CmdError(r)
+		c.out(`Layer “${r.name}” created — it is now the current layer`)
+	},
+	laymcur: async (c) => {   // the layer of a shape becomes current (the selected one, else pick one)
+		const sel = c.t.selected()
+		const id = sel.length === 1 ? sel[0] : ((await c.ask({ prompt: 'Select a shape whose layer will become current', ent: true })) as { id: string }).id
+		const e = c.t.ents([id])[0]; if (!e?.layer) throw new CmdError('That shape has no layer')
+		const r = c.host.setCurrentLayer(e.layer); if (typeof r === 'string') throw new CmdError(r)
+		c.out(`“${r.name}” is now the current layer`)
 	},
 	zoomwin: (c) => zoomWindow(c),
 	zoomprev: async (c) => chk(c.t.zoomPrev()),
