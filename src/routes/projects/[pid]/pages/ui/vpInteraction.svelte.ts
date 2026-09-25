@@ -583,7 +583,13 @@ export class VpInteraction {
 
 	/** Right-click (CAD-style): ends a multi-point draft (= Enter); with a drawing tool and no draft it reverts
 	 *  to Select (like Esc). A right-DRAG is a pan, so only a genuine click (≤ 5 px since right-down) reverts. */
-	noteRightDown = (e: PointerEvent) => { if (e.button === 2) { this.rDownPt = { x: e.clientX, y: e.clientY }; this.rWheel = false } }
+	noteRightDown = (e: PointerEvent) => {
+		// a field being edited elsewhere (a Properties input) commits NOW — its change event runs while the OLD shape is
+		// still selected; left to the browser, the blur comes after this press re-selects and saves onto the new shape
+		const f = document.activeElement as HTMLElement | null
+		if (f && f !== document.body && !f.closest('.vp') && /^(INPUT|TEXTAREA|SELECT)$/.test(f.tagName) && !f.closest('.cmdline')) f.blur()
+		if (e.button === 2) { this.rDownPt = { x: e.clientX, y: e.clientY }; this.rWheel = false }
+	}
 	/** A wheel turned while the right button is held (right + wheel = zoom): that release is a gesture, not a click. */
 	noteWheel = (e: WheelEvent) => { if (e.buttons & 2) this.rWheel = true }
 	private rWheel = false
