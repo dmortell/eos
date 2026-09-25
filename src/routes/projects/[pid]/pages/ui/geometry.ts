@@ -15,7 +15,7 @@ export type Dash = 'solid' | 'dashed' | 'dotted' | 'dashdot'
 // `polyline` with `pts.length === 2`, and `LWPOLYLINE` as a `polyline` with its full vertex list — the SAME
 // mapping `migrateEnt` (3dview/migrate.ts) already applies to a legacy 'line' ent, so an importer/exporter
 // can reuse that shape directly rather than inventing its own DXF-side entity type.
-export type Ent = { id: string; type: 'rect' | 'ellipse' | 'dim' | 'text' | 'polyline' | 'image' | 'insert'; a?: Pt; b?: Pt; text?: string; pts?: Pt[]; groupId?: string;
+export type Ent = { id: string; type: 'rect' | 'ellipse' | 'dim' | 'text' | 'polyline' | 'arc' | 'image' | 'insert'; a?: Pt; b?: Pt; text?: string; pts?: Pt[]; groupId?: string;
 	color?: string; fill?: string; weight?: number; fontPt?: number; align?: TextAlign; valign?: VAlign; layer?: string; rot?: number;
 	// 'image' entity (imported background): src = image URL / data-URL placed in the a→b rect (origin +
 	// scale). `crop` = the visible sub-rectangle of the SOURCE image, normalized 0..1 (x,y = top-left,
@@ -126,13 +126,41 @@ export const elevH = (dir: ElevDir, p: Pt, cx = PLAN_CX, cy = PLAN_CY): number =
 export function flatSpan(e: Ent, dir: ElevDir, cx = PLAN_CX, cy = PLAN_CY): [number, number] {
 	const ax = ELEV_BASIS[dir].axis
 	let lo: number, hi: number
-	if (e.type === 'polyline') { const cs = (e.pts ?? []).map(p => p[ax]); lo = Math.min(...cs); hi = Math.max(...cs) }
+	if (e.type === 'polyline' || e.type === 'arc') { const cs = (e.type === 'arc' ? arcPts(e) : e.pts ?? []).map(p => p[ax]); lo = Math.min(...cs); hi = Math.max(...cs) }
 	else { const b = e.b ?? e.a!; lo = Math.min(e.a![ax], b[ax]); hi = Math.max(e.a![ax], b[ax]) }   // a point (insert / text) → its a
 	const u0 = elevU(dir, lo, cx, cy), u1 = elevU(dir, hi, cx, cy)
 	return [Math.min(u0, u1), Math.max(u0, u1)]
 }
 
 export const dist = (a: Pt, b: Pt) => Math.hypot(a[0] - b[0], a[1] - b[1])
+
+// ── ARC (type 'arc'): stored as THREE points on it — start, any point between, end — so move / rotate / scale /
+// grips treat it like a 3-point polyline; the circle is derived. ──
+/** The circle through three points + the signed sweep from p0 to p2 passing p1 (radians, drawing coords);
+ *  null when they're collinear (a straight "arc"). */
+export function arc3(p0: Pt, p1: Pt, p2: Pt): { c: Pt; r: number; a0: number; sweep: number } | null {
+	const [ax, ay] = p0, [bx, by] = p1, [cx, cy] = p2
+	const d = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by))
+	const span = Math.max(dist(p0, p1), dist(p1, p2), dist(p0, p2))
+	if (Math.abs(d) < 1e-9 * span * span || !span) return null
+	const a2 = ax * ax + ay * ay, b2 = bx * bx + by * by, c2 = cx * cx + cy * cy
+	const c: Pt = [(a2 * (by - cy) + b2 * (cy - ay) + c2 * (ay - by)) / d, (a2 * (cx - bx) + b2 * (ax - cx) + c2 * (bx - ax)) / d]
+	const ang = (p: Pt) => Math.atan2(p[1] - c[1], p[0] - c[0]), TAU = Math.PI * 2, norm = (x: number) => ((x % TAU) + TAU) % TAU
+	const a0 = ang(p0), s = norm(ang(p2) - a0)
+	return { c, r: dist(c, p0), a0, sweep: norm(ang(p1) - a0) <= s ? s : s - TAU }
+}
+/** An arc entity as a polyline (`n` segments) — for hit-testing, bounds, snaps, elevation spans and DXF. */
+export function arcPts(e: Ent, n = 48): Pt[] {
+	const p = e.pts ?? []; if (p.length < 3) return p
+	const g = arc3(p[0], p[1], p[2]); if (!g) return [p[0], p[2]]
+	return Array.from({ length: n + 1 }, (_, i) => { const t = g.a0 + (g.sweep * i) / n; return [g.c[0] + g.r * Math.cos(t), g.c[1] + g.r * Math.sin(t)] as Pt })
+}
+/** SVG path for an arc entity. */
+export function arcPath(e: Ent): string {
+	const p = e.pts ?? []; if (p.length < 3) return ''
+	const g = arc3(p[0], p[1], p[2]); if (!g) return `M${p[0][0]},${p[0][1]} L${p[2][0]},${p[2][1]}`
+	return `M${p[0][0]},${p[0][1]} A${g.r},${g.r} 0 ${Math.abs(g.sweep) > Math.PI ? 1 : 0} ${g.sweep > 0 ? 1 : 0} ${p[2][0]},${p[2][1]}`
+}
 
 // Distance from point p to segment a–b.
 export function segDist(p: Pt, a: Pt, b: Pt): number {

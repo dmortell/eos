@@ -11,7 +11,7 @@
 	// stays with the caller. Tool UI (`preview`, `drawDot`, `crosshair` snippets) stays in the Viewport.
 	import type { Pt, Ent, Dash } from '../geometry'
 	import type { ViewCtx } from '../view'
-	import { STYLE_DEFAULTS, textBox } from '../geometry'
+	import { STYLE_DEFAULTS, textBox, arcPath } from '../geometry'
 	import { PT_MM } from '../../constants'
 	import { isFlatElev, flatXSpan, rotCenter, rotatePt, groundInIso } from '../hit'
 	import { arrowPts, cloudPath, groundPts, headGeom, dashArray, lineLabelAt, tileLines, type HeadGeom } from '../annotations'
@@ -138,6 +138,8 @@
 			<!-- D7: the line's text label, along it at the start / middle / end, upright, like a dimension figure -->
 			{#if lb}<text class="anno" x={lb.p[0]} y={lb.p[1]} font-size={2.5 * paperMm} fill={ink} text-anchor={lb.anchor} transform="rotate({lb.rot} {lb.p[0]} {lb.p[1]})">{e.text}</text>{/if}
 		{/if}
+	{:else if e.type === 'arc'}
+		<path d={arcPath(e)} fill="none" stroke={ink} stroke-width={w} stroke-dasharray={da} vector-effect="non-scaling-stroke" />
 	{:else if e.type === 'rect'}
 		{#if e.cloud}
 			<path d={cloudPath(e.a!, e.b!, 4 * paperMm)} fill={fill} stroke={ink} stroke-width={w} vector-effect="non-scaling-stroke" stroke-linejoin="round" />

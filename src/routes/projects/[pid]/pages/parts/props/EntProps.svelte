@@ -8,7 +8,7 @@
 	import { num, strVal, fnav, blurOnEnter, autoresize } from './fields'
 	import { blockDef, insertBounds } from '../../ui/blocks'
 	import { blockList } from '../../blocks.svelte'
-	import { translate, textBox, STYLE_DEFAULTS, type Ent, type Pt, type TextAlign, type VAlign, type Head, type Dash } from '../../ui/geometry'
+	import { translate, textBox, arcPts, STYLE_DEFAULTS, type Ent, type Pt, type TextAlign, type VAlign, type Head, type Dash } from '../../ui/geometry'
 	import { PT_MM } from '../../constants'
 	import { imgEdit, setImgMode } from '../../imageEdit.svelte'
 	import type { Layer as MLayer } from '../../3dview/types'
@@ -36,7 +36,7 @@
 	// View-agnostic unrotated bbox (unlike ui/hit.ts bbox, no elevation collapse / crop window: the panel
 	// shows the PLACEMENT). Text is annotative, so its box is the same one the Viewport draws and hits.
 	function bbox(e: Ent): [number, number, number, number] {
-		if (e.type === 'polyline') { const pts = e.pts ?? []; const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] }
+		if (e.type === 'polyline' || e.type === 'arc') { const pts = e.type === 'arc' ? arcPts(e) : e.pts ?? []; const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] }
 		if (e.type === 'text') return textBox(e, PT_MM * scaleN)
 		if (e.type === 'insert') return insertBounds(e, scaleN)   // no `b`: the block's extent at the insertion point
 		const xs = [e.a![0], e.b![0]], ys = [e.a![1], e.b![1]]
@@ -82,7 +82,7 @@
 	function setRot(v: number) { const r = ((Math.round(v) % 360) + 360) % 360; setAll({ rot: r || undefined }) }
 
 	// ── style (color / fill / weight / font / align) — applies to the whole selection ──
-	const STROKE_TYPES = new Set(['polyline', 'dim', 'rect', 'ellipse'])
+	const STROKE_TYPES = new Set(['polyline', 'arc', 'dim', 'rect', 'ellipse'])
 	// a block insert's Fill feeds its 'byblock' filled shapes (an outlet: filled = low level, none = outline)
 	const FILL_TYPES = new Set(['rect', 'ellipse', 'polyline', 'insert'])
 	const anyText = $derived(ents.some((e) => e.type === 'text'))

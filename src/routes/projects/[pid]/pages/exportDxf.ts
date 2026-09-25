@@ -13,7 +13,7 @@ import type { Model, Obj, Clip, Dir } from './3dview/types'
 import { BASIS } from './3dview/types'
 import { project, viewMap, isoBounds, trimToClip, objBounds } from './3dview/projection'
 import { storeyMap } from './3dview/storeyMap'
-import { GROUND, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, textBox, type Ent, type Pt, type ElevDir } from './ui/geometry'
+import { GROUND, PLAN_CX, PLAN_CY, STYLE_DEFAULTS, textBox, arcPts, type Ent, type Pt, type ElevDir } from './ui/geometry'
 import { inThisView, rotCenter, rotatePt } from './ui/hit'
 import { lineLabelAt, groundPts, tileLines } from './ui/annotations'
 import { blockDef, byBlock, attrValue, insertScale } from './ui/blocks'
@@ -123,6 +123,7 @@ function entToDxf(doc: DxfDoc, e: Ent, ctx: ViewCtx, P: (p: Pt) => [number, numb
 			if (lb) text(doc, T(lb.p), 2.5 * N, e.text!, layer, lb.anchor === 'middle' ? 'center' : lb.anchor === 'end' ? 'right' : 'left', -lb.rot + tRot)
 			return
 		}
+		case 'arc': doc.poly(arcPts(e).map(T), { layer }); return
 		case 'rect': case 'ellipse': {
 			const g = groundPts(e)   // the outline points (a rect's 4 corners / an ellipse's 32)
 			doc.poly(g.pts.map(T), { closed: true, layer })

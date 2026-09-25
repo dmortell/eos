@@ -206,7 +206,7 @@ export function gripsLocal(ctx: ViewCtx, e: Ent, opts: GripOpts): Grip[] {
 			{ x: p1[0], y: p1[1], anchor: p0, resize: (D, F) => ({ ...e, pts: [F, D] }), apply: (p) => ({ ...e, pts: [p0, p] }) },
 		]
 	}
-	if (e.type === 'polyline') return (e.pts ?? []).map((v, i) => ({ x: v[0], y: v[1], apply: (p: Pt) => ({ ...e, pts: (e.pts ?? []).map((q, j) => j === i ? p : q) }) }))
+	if (e.type === 'polyline' || e.type === 'arc') return (e.pts ?? []).map((v, i) => ({ x: v[0], y: v[1], apply: (p: Pt) => ({ ...e, pts: (e.pts ?? []).map((q, j) => j === i ? p : q) }) }))
 	if (e.type === 'dim') {
 		const gs: Grip[] = [
 			{ x: e.a![0], y: e.a![1], anchor: e.b!, resize: (D, F) => ({ ...e, a: D, b: F }), apply: (p) => ({ ...e, a: p }) },

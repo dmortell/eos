@@ -34,8 +34,8 @@ const normDeg = (d: number) => { const r = ((Math.round(d * 100) / 100) % 360 + 
 export function rotateAbout(e: Ent, c: Pt, deg: number, centre: Pt): Ent {
 	if (!deg) return e
 	const R = (p: Pt) => rotatePt(p, c, deg)
-	if ((e.type === 'polyline' || e.type === 'dim') && !e.rot) {
-		return e.type === 'polyline' ? { ...e, pts: e.pts?.map(R) } : { ...e, a: R(e.a!), b: R(e.b!) }
+	if ((e.type === 'polyline' || e.type === 'arc' || e.type === 'dim') && !e.rot) {
+		return e.type === 'dim' ? { ...e, a: R(e.a!), b: R(e.b!) } : { ...e, pts: e.pts?.map(R) }
 	}
 	const nc = R(centre), dx = nc[0] - centre[0], dy = nc[1] - centre[1]
 	const t = (p?: Pt): Pt | undefined => (p ? [p[0] + dx, p[1] + dy] : p)

@@ -7,7 +7,7 @@ import type { Pt, Ent } from './geometry'
 import type { ViewCtx, MLayers } from './view'
 import type { Mapper } from './mapper'
 import type { Obj } from '../3dview/types'
-import { ELEV_BASIS, elevUInv } from './geometry'
+import { ELEV_BASIS, elevUInv, arcPts, arc3 } from './geometry'
 import { bbox, graphNodeDraw, isFlatElev, flatXSpan, inThisView, prismRect, prismTilted, prismOutline, rotatePt, type GN } from './hit'
 import { orthoPt, constrainPt } from './annotations'
 
@@ -44,6 +44,13 @@ export function entSnaps(ctx: ViewCtx, e: Ent): EntSnap[] {
 		return [{ point: [x0, ctx.ground], type: 'end' }, { point: [x1, ctx.ground], type: 'end' }, { point: [(x0 + x1) / 2, ctx.ground], type: 'mid' }]
 	}
 	if (e.type === 'polyline') { const pts = e.pts ?? []; const out = pts.map((p) => ({ point: p, type: 'end' })); for (let i = 0; i + 1 < pts.length; i++) out.push({ point: mid(pts[i], pts[i + 1]), type: 'mid' }); return out }
+	if (e.type === 'arc') {   // its ends, the middle of the curve and the centre
+		const s = arcPts(e, 2), g = e.pts?.length === 3 ? arc3(e.pts[0], e.pts[1], e.pts[2]) : null
+		const out: EntSnap[] = [{ point: s[0], type: 'end' }, { point: s[s.length - 1], type: 'end' }]
+		if (s.length === 3) out.push({ point: s[1], type: 'mid' })
+		if (g) out.push({ point: g.c, type: 'center' })
+		return out
+	}
 	if (e.type === 'dim') return [{ point: e.a!, type: 'end' }, { point: e.b!, type: 'end' }, { point: mid(e.a!, e.b!), type: 'mid' }]
 	if (e.type === 'rect' || e.type === 'ellipse' || e.type === 'image') {
 		const [x0, y0, x1, y1] = bbox(ctx, e)

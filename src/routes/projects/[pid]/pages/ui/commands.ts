@@ -13,7 +13,11 @@ export const COMMANDS: CmdDef[] = [
 	// draw — each arms a tool; coordinates typed next are its points
 	C('line', 'Line', 'LINE · L · PLINE · PL', 'Draw a line / polyline (Enter finishes, C closes)', 'Draw'),
 	C('rect', 'Rectangle', 'RECTANG · REC · RECT', 'Draw a rectangle from two corners', 'Draw'),
-	C('ellipse', 'Ellipse / circle', 'ELLIPSE · EL · CIRCLE · C', 'Draw an ellipse (Shift = a circle) from two corners', 'Draw'),
+	C('ellipse', 'Ellipse', 'ELLIPSE · EL', 'Draw an ellipse (Shift = a circle) from two corners', 'Draw'),
+	C('circle', 'Circle', 'CIRCLE · C · CI', 'A circle from its centre + radius (or Diameter)', 'Draw'),
+	C('arc', 'Arc', 'ARC · A', 'A 3-point arc: start, a point on it, end', 'Draw'),
+	C('polygon', 'Polygon', 'POLYGON · POL', 'A regular polygon: sides, centre, inscribed / circumscribed, radius', 'Draw'),
+	C('leader', 'Leader', 'LEADER · LE · MLEADER · MLD', 'An arrow to a note: arrowhead, landing, text', 'Draw'),
 	C('dim', 'Dimension', 'DIMLINEAR · DIM · DLI · DAL', 'Dimension between two points', 'Draw'),
 	C('text', 'Text', 'TEXT · T · DT · MTEXT', 'Place text', 'Draw'),
 	C('wall', 'Wall', 'WALL · WA', 'Draw a wall run', 'Draw'),

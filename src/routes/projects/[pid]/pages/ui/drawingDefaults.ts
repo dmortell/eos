@@ -18,8 +18,8 @@ export type DrawingDefaults = {
 	dimUnit?: DimUnit
 }
 
-const STROKED = new Set<Ent['type']>(['polyline', 'dim', 'rect', 'ellipse'])
-const DRAWN = new Set<Ent['type']>(['polyline', 'dim', 'rect', 'ellipse', 'text'])
+const STROKED = new Set<Ent['type']>(['polyline', 'arc', 'dim', 'rect', 'ellipse'])
+const DRAWN = new Set<Ent['type']>(['polyline', 'arc', 'dim', 'rect', 'ellipse', 'text'])
 
 /** A new shape with the defaults filled into the fields it leaves unset (blocks / images are untouched). */
 export function withDefaults(e: Ent, d?: DrawingDefaults | null): Ent {

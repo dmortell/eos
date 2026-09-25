@@ -71,6 +71,18 @@ export async function selection(c: CmdCtx): Promise<string[]> {
 	return s
 }
 
+/** User coords → this view's drawing coords (3D has none). */
+const D = (c: CmdCtx, u: Pt): Pt => { const d = c.t.toDraw(u); if (!d) throw new CmdError('Draw in a plan or elevation view (not 3D)'); return d }
+const add = (c: CmdCtx, e: Ent) => c.t.apply({ add: [e] })
+const arcEnt = (c: CmdCtx, us: Pt[]) => c.t.newEnt({ type: 'arc', pts: us.map((u) => D(c, u)) })
+const circleEnt = (c: CmdCtx, ctr: Pt, r: number) => { const d = D(c, ctr); return c.t.newEnt({ type: 'ellipse', a: [d[0] - r, d[1] - r], b: [d[0] + r, d[1] + r] }) }
+/** A regular polygon's vertices (user coords): `n` sides about `ctr`, the first vertex toward angle `a0` at radius
+ *  `r` (inscribed = vertices on the circle; circumscribed = edge midpoints on it). */
+export function polygonPts(ctr: Pt, n: number, r: number, a0: number, inscribed: boolean): Pt[] {
+	const R = inscribed ? r : r / Math.cos(Math.PI / n), s = inscribed ? 0 : Math.PI / n
+	return Array.from({ length: n }, (_, i) => { const t = a0 + s + (i * 2 * Math.PI) / n; return [ctr[0] + R * Math.cos(t), ctr[1] + R * Math.sin(t)] as Pt })
+}
+
 async function zoomWindow(c: CmdCtx, first?: Pt) {
 	const p = first ?? (await point(c, 'Specify first corner', undefined))
 	const q = await point(c, 'Specify opposite corner', p, { box: true })
@@ -118,6 +130,46 @@ export const SCRIPTS: Record<string, Script> = {
 		if (a.key === 'Window') return zoomWindow(c)
 		if (a.key === 'Previous') return chk(c.t.zoomPrev())
 		chk(c.host.run('fit'))
+	},
+	arc: async (c) => {   // 3-point
+		c.host.tool('Select')
+		const p0 = await point(c, 'Specify start point of arc')
+		const p1 = await point(c, 'Specify second point of arc', p0)
+		const p2 = await point(c, 'Specify end point of arc', p1, { ghost: (u) => [arcEnt(c, [p0, p1, u])] })
+		add(c, arcEnt(c, [p0, p1, p2]))
+	},
+	circle: async (c) => {   // centre + radius (or Diameter)
+		c.host.tool('Select')
+		const ctr = await point(c, 'Specify center point for circle')
+		const ghost = (k: number) => (u: Pt) => [circleEnt(c, ctr, Math.hypot(u[0] - ctr[0], u[1] - ctr[1]) * k)]
+		let a = await c.ask({ prompt: 'Specify radius of circle', number: true, point: { base: ctr, ghost: ghost(1) }, options: ['Diameter'] })
+		let k = 1
+		if (a.kind === 'option') { k = 0.5; a = await c.ask({ prompt: 'Specify diameter of circle', number: true, point: { base: ctr, ghost: ghost(0.5) } }) }
+		const r = (a.kind === 'number' ? a.n : a.kind === 'point' ? Math.hypot(a.p[0] - ctr[0], a.p[1] - ctr[1]) : 0) * k
+		if (!(r > 0)) throw new CmdError('The radius must be positive')
+		add(c, circleEnt(c, ctr, r))
+	},
+	polygon: async (c) => {
+		c.host.tool('Select')
+		const n = Math.round(await number(c, 'Enter number of sides', 4))
+		if (n < 3 || n > 1024) throw new CmdError('3 to 1024 sides')
+		const ctr = await point(c, 'Specify center of polygon')
+		const o = await c.ask({ prompt: 'Enter an option', options: ['Inscribed in circle', 'Circumscribed about circle'], def: 'I' })
+		const ins = o.kind !== 'option' || o.key.startsWith('I')
+		const ent = (r: number, a0: number) => { const ps = polygonPts(ctr, n, r, a0, ins).map((u) => D(c, u)); return c.t.newEnt({ type: 'polyline', pts: [...ps, ps[0]] }) }
+		const a = await c.ask({ prompt: 'Specify radius of circle', number: true, point: { base: ctr, ghost: (u) => [ent(Math.hypot(u[0] - ctr[0], u[1] - ctr[1]), Math.atan2(u[1] - ctr[1], u[0] - ctr[0]))] } })
+		const r = a.kind === 'number' ? a.n : a.kind === 'point' ? Math.hypot(a.p[0] - ctr[0], a.p[1] - ctr[1]) : 0
+		if (!(r > 0)) throw new CmdError('The radius must be positive')
+		// a typed radius puts the first vertex (inscribed) / flat edge (circumscribed) straight down, like AutoCAD
+		add(c, ent(r, a.kind === 'point' ? Math.atan2(a.p[1] - ctr[1], a.p[0] - ctr[0]) : -Math.PI / 2))
+	},
+	leader: async (c) => {   // an arrow to a note: a callout text with its leader tip
+		c.host.tool('Select')
+		const tip = await point(c, 'Specify leader arrowhead location')
+		const at = await point(c, 'Specify leader landing location', tip)
+		const a = await c.ask({ prompt: 'Enter the text', text: true, def: 'NOTE' })
+		const s = a.kind === 'text' ? a.s : 'NOTE'
+		add(c, c.t.newEnt({ type: 'text', a: D(c, at), text: s, callout: true, calloutBorder: 'underline', leader: D(c, tip) }))
 	},
 	draworder: async (c) => {
 		const ids = await selection(c)

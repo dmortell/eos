@@ -23,7 +23,7 @@ describe('command line (Kestrel port)', () => {
 	})
 	it('reads tokens in context; splits parts by ; and spaces', () => {
 		expect(readToken('C', true)).toEqual({ kind: 'close' })
-		expect(readToken('C', false)).toEqual({ kind: 'cmd', id: 'ellipse' })
+		expect(readToken('C', false)).toEqual({ kind: 'cmd', id: 'circle' })
 		expect(readToken('2500', true)).toEqual({ kind: 'number', n: 2500 })
 		expect(readToken('nope', false).kind).toBe('error')
 		expect(tokenize('LINE 0,0 1000,0;  @0,500 ENTER')).toEqual(['LINE', '0,0', '1000,0', '@0,500', 'ENTER'])
