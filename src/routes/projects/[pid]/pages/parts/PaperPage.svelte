@@ -74,11 +74,13 @@
 	// reports the new geometry up (onframegeom); `commit` records one history step at the end.
 	// beginPointerDrag-managed (ui/gestures.ts) with a 4 px move threshold (B19): a jittery click on a frame
 	// border no longer records a 'Move viewport' step — same threshold the Sheets tool uses.
-	type FrameDrag = { mode: 'move' | 'grip'; gi: number; sx: number; sy: number; base: Frame; s: number; set: (f: Frame) => void; commit?: boolean }
+	/** `view`: a frame RESIZE also re-aims the frame's content view so the drawing stays put on the paper (the viewBox is
+	 *  centred on the frame, so without this a resize from the left / top — or any size change — slides the content). */
+	type FrameDrag = { mode: 'move' | 'grip'; gi: number; sx: number; sy: number; base: Frame; s: number; set: (f: Frame) => void; commit?: boolean; view?: { v0: View; set: (v: View) => void } }
 	const reg = new DragRegistry()
-	function startDrag(e: PointerEvent, mode: 'move' | 'grip', gi: number, base: Frame, set: (f: Frame) => void, commit = false) {
+	function startDrag(e: PointerEvent, mode: 'move' | 'grip', gi: number, base: Frame, set: (f: Frame) => void, commit = false, view?: FrameDrag['view']) {
 		e.stopPropagation()
-		beginPointerDrag<FrameDrag>(e, { mode, gi, sx: e.clientX, sy: e.clientY, base: { ...base }, s: scaleOf(), set, commit },
+		beginPointerDrag<FrameDrag>(e, { mode, gi, sx: e.clientX, sy: e.clientY, base: { ...base }, s: scaleOf(), set, commit, view },
 			{ onMove: onDrag, onUp: (_e, d, moved) => { if (d.commit && moved) onframecommit?.() } }, reg, { thresholdPx: 4 })   // one history step per extra-frame move/resize
 	}
 	// PaperPage's own corner order (CORNERS below: TL,TR,BR,BL = gi 0-3) doesn't match grips.ts's rect-branch
@@ -137,7 +139,12 @@
 		const py = TOP_GI.has(drag.gi) ? Math.min(p[1], anchor[1] - MIN) : Math.max(p[1], anchor[1] + MIN)
 		const edited = grip.apply([px, py])
 		const [ex0, ey0] = edited.a!, [ex1, ey1] = edited.b!
-		drag.set({ x: Math.min(ex0, ex1), y: Math.min(ey0, ey1), w: Math.abs(ex1 - ex0), h: Math.abs(ey1 - ey0) })   // may extend beyond the sheet
+		const nf = { x: Math.min(ex0, ex1), y: Math.min(ey0, ey1), w: Math.abs(ex1 - ex0), h: Math.abs(ey1 - ey0) }
+		drag.set(nf)   // may extend beyond the sheet
+		if (drag.view) {   // content at frameX + (c − minX)·ppu stays put: shift the view by −ΔL/ppu − ΔW/(2·ppu) (same for y)
+			const u = PAPER_PX_PER_MM, v0 = drag.view.v0
+			drag.view.set({ zoom: v0.zoom, x: v0.x - (nf.x - b.x) / u - (nf.w - b.w) / (2 * u), y: v0.y - (nf.y - b.y) / u - (nf.h - b.h) / (2 * u) })
+		}
 	}
 
 	// Frame pick + marquee (R8-lite): border-band pick and marquee
@@ -223,7 +230,10 @@
 			if (bx1 - bx0 > 20 && by1 - by0 > 20) onaddframe?.(bx0, by0, bx1 - bx0, by1 - by0)
 			return
 		}
-		if (bx1 - bx0 < 3 && by1 - by0 < 3) return   // tiny → just a click (already deselected)
+		if (bx1 - bx0 < 3 && by1 - by0 < 3) {   // a click: inside an (inactive) viewport selects it — then Ctrl+C / X / D work
+			const hit = frameHit({ x: bx0, y: by0 }); if (hit) selectFrame(hit.id)
+			return
+		}
 		// marqueeSelect (window vs crossing by drag direction — a BEHAVIOUR CHANGE from the old
 		// always-crossing `touches()`, flagged in R8-lite — matches every other
 		// marquee in the app now, including the entity marquee); take the LAST match = topmost frame,
@@ -284,7 +294,7 @@
 							<svg class="frame-handles">
 								{#each CORNERS as [cx, cy], i (i)}
 									<Handle cx={cx * f.w} cy={cy * f.h} size={HANDLE_PX / (canvasZoom || 1)} cursor={CURSORS[i]} strokeWidth={1.2 / (canvasZoom || 1)}
-										onpointerdown={(e) => startDrag(e, 'grip', i, f, (g) => onframegeom?.(f.id, g), true)} />
+										onpointerdown={(e) => startDrag(e, 'grip', i, f, (g) => onframegeom?.(f.id, g), true, { v0: { ...frameView(f.id, f.proj) }, set: (v) => fon.view?.(v) })} />
 								{/each}
 							</svg>
 						{/if}

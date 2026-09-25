@@ -1209,6 +1209,10 @@
 </div>
 
 <style>
+	/* Number inputs: Chrome's spin arrows sit at the right, so the caret of an EMPTY right-aligned field hid against
+	   them — a little right padding, and an empty field (placeholder showing) types from the left. */
+	.shell :global(input[type='number']) { padding-right: 4px; }
+	.shell :global(input[type='number']:placeholder-shown) { text-align: left; }
 	/* Kestrel design tokens (scoped) — dark default, light override. */
 	.shell {
 		--bg:#18212d; --title:#131b26; --panel:#1b2532; --panel2:#202c3a; --tabbar:#212c3a;
