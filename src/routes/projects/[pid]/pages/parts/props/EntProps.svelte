@@ -102,6 +102,17 @@
 		if (sh?.number && blockDef(ins.block)?.attributes.some((a) => a.tag === 'SHEET') && (!attrs.SHEET || attrs.SHEET === '—')) attrs.SHEET = sh.number
 		onupdate?.({ ...ins, attrs })
 	}
+	// E5: several block inserts edited together — their shared category (null = mixed → no swap), the attributes
+	// every one of them has (not LABEL / LINK), and a value common to all (undefined = mixed)
+	const multiIns = $derived(ents.filter((e) => e.type === 'insert'))
+	const multiCat = $derived.by(() => { const cs = new Set(multiIns.map((e) => blockDef(e.block)?.category ?? '')); return cs.size === 1 ? [...cs][0] : null })
+	const multiTags = $derived.by(() => {
+		const defs = multiIns.map((e) => blockDef(e.block)?.attributes ?? [])
+		return (defs[0] ?? []).filter((a) => a.tag !== 'LABEL' && a.tag !== 'LINK' && defs.every((d) => d.some((x) => x.tag === a.tag)))
+	})
+	function multiCommon<T>(f: (e: Ent) => T): T | undefined { const vs = new Set(multiIns.map(f)); return vs.size === 1 ? [...vs][0] : undefined }
+	/** Patch every selected insert (one undo step). */
+	function setIns(patch: (e: Ent) => Partial<Ent>) { onupdate?.(multiIns.map((e) => ({ ...e, ...patch(e) }))) }
 	// D6: auto-number the selection (texts, line labels, one attribute of the block inserts)
 	let an = $state({ template: '#', start: 1, step: 1, order: 'rows' as NumberOrder, tag: '' })
 	const anTags = $derived([...new Set(ents.filter((e) => e.type === 'insert').flatMap((e) => blockDef(e.block)?.attributes.map((a) => a.tag) ?? []))].filter((t) => t !== 'LINK'))
@@ -245,6 +256,29 @@
 	<div class="prop"><span>Scale</span><input class="navf" type="number" min="0.05" step="0.05" value={ins.scale ?? 1} title="Size × the block's own size"
 		onkeydown={fnav} onchange={(e) => { const s = Math.round(num(e) * 1000) / 1000; if (s > 0) onupdate?.({ ...ins, scale: s === 1 ? undefined : s }) }} /></div>
 	<label class="prop cb"><span>Mirror</span><input type="checkbox" checked={!!ins.mirror} title="Flip left ↔ right (e.g. a door's hinge side)" onchange={(e) => onupdate?.({ ...ins, mirror: (e.currentTarget as HTMLInputElement).checked || undefined })} /></label>
+{/if}
+{#if !single && multiIns.length > 1}
+	<!-- E5: several block inserts (outlets) edited together — a field they share shows its value, or "— mixed —"
+	     when they differ; a change sets it on all of them. LABEL stays per-outlet (Auto-number / walk renumber). -->
+	{@const sc = multiCommon((e) => e.scale ?? 1)}
+	{@const mir = multiCommon((e) => !!e.mirror)}
+	<div class="prop-sec">BLOCKS · {multiIns.length}</div>
+	{#if multiCat !== null}
+		<div class="prop"><span>Block</span>
+			<select value={multiCommon((e) => e.block) ?? ''} onchange={(e) => { const b = strVal(e); if (b) setIns(() => ({ block: b })) }}>
+				{#if multiCommon((e) => e.block) === undefined}<option value="" disabled>— mixed —</option>{/if}
+				{#each blockList().filter((b) => !multiCat || b.category === multiCat) as b (b.id)}<option value={b.id}>{b.name}</option>{/each}
+			</select></div>
+	{/if}
+	{#each multiTags as ad (ad.tag)}
+		{@const v = multiCommon((e) => e.attrs?.[ad.tag] ?? ad.default ?? '')}
+		<div class="prop"><span>{ad.label}</span><input value={v ?? ''} placeholder={v === undefined ? '— mixed —' : ''}
+			onchange={(e) => { const s = strVal(e); setIns((x) => ({ attrs: { ...(x.attrs ?? {}), [ad.tag]: s } })) }} onkeydown={blurOnEnter} /></div>
+	{/each}
+	<div class="prop"><span>Scale</span><input class="navf" type="number" min="0.05" step="0.05" value={sc ?? ''} placeholder={sc === undefined ? '— mixed —' : ''} title="Size × the block's own size"
+		onkeydown={fnav} onchange={(e) => { const s = Math.round(num(e) * 1000) / 1000; if (s > 0) setIns(() => ({ scale: s === 1 ? undefined : s })) }} /></div>
+	<label class="prop cb"><span>Mirror</span><input type="checkbox" checked={!!mir} indeterminate={mir === undefined} title="Flip left ↔ right"
+		onchange={(e) => { const on = (e.currentTarget as HTMLInputElement).checked; setIns(() => ({ mirror: on || undefined })) }} /></label>
 {/if}
 {#if single?.type === 'image'}
 	<!-- imported file: origin = Position, scale = Size (above); here opacity (for tracing), greyscale + CROP
