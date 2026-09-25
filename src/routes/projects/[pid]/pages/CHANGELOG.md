@@ -4,6 +4,27 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 `git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps the long historical done-log and the
 open items; `review.md §0a` tracks which review findings are closed.
 
+## Round 3 (2026-09-25) — layout tools, help, connection points, logo storage
+- **Align / distribute** (`ui/arrange.ts`): Properties › ARRANGE › Align (left / centre / right / top / middle /
+  bottom — to the extreme shape or the centre line) and Distribute (equal gaps, 3+). Also the ALIGN command. A group
+  moves as one.
+- **ARRAY**: Rectangular (columns × rows × spacing) or Polar (centre, count, angle to fill), in one undo step.
+  Outlet copies get the next free labels.
+- **MIRROR**: about a two-point line, keeping or erasing the source (`groupXf.mirrorAbout`). Blocks flip; text and
+  images move but stay unmirrored.
+- **MATCHPROP** (the layer + style of one shape onto others) and **SELECTSIMILAR** (the same type + layer / block).
+  The "Select shapes" prompt also takes a typed point.
+- **Help** (`parts/HelpDialog.svelte`, modelled on Kestrel's; the title bar ?, F1 or HELP):
+  - "How do I…" answers;
+  - keys & mouse;
+  - the command line, with examples;
+  - every command (click to run it);
+  - one search box filters all of it.
+- **Connection points** (F6) are ratios of the box: U / V of the width / depth, so they survive a resize; legacy mm
+  offsets are still read. Properties › Place… then click on the plan to add points (they snap).
+- **Title-block logos in file storage** (UploadThing's image route, like Uploads). The project doc keeps only the URL
+  + key. An upload failure keeps an inline copy; "Move to storage" uploads a logo still stored inline.
+
 ## Command line, round 2 (2026-09-25) — AutoCAD-style commands (from the todo.md pick-list)
 - **Scripted commands** (`ui/cmdScripts.ts`): async scripts that ask "Specify base point:" etc.; an ask is answered
   by typed input (a point, a number, an option letter, text, Enter) or a click in the view, which is snapped, shows a
