@@ -4,6 +4,14 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 `git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps the long historical done-log and the
 open items; `review.md §0a` tracks which review findings are closed.
 
+## Round 8 (2026-09-26) — notes blocks, rack presets, pasted images to storage
+- **NOTE** (K3): a notes block shape — markdown (# headings, - bullets, 1. lists, | tables | with a |---| header row,
+  **bold**) laid out in paper mm and wrapped to its width (`ui/noteLayout.ts`); annotative, optional frame. Grips
+  move it / set the width. Properties › NOTE edits the text; DXF as TEXT + lines.
+- **RACK presets** (Server / Network / Deep / Wall / Custom) + a Rack button in the tool strip's Boxes group.
+- **A pasted image** goes to file storage (UploadThing); the image shape points at its URL on the active layer.
+- **Typing** reaches the command line from anywhere but a text field (after a tree click it stayed with the tree).
+
 ## Round 7 (2026-09-25) — racks, pages between projects, fixes
 - **RACK**: U / width / depth (remembered), then click centres. Each is a real rack object (Box + rack data, R01,
   R02 …) with devices in Properties; plan only.
