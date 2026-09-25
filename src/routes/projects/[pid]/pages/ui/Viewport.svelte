@@ -65,9 +65,12 @@
 			<VpMarks {v} {x} />
 			<!-- drawn entities (hidden layers skipped; the text being edited in place is hidden too) -->
 			{#each v.frontEnts as e (e.id)}{#if e.id !== x.editText?.id && !v.isLayerHidden(e.layer) && v.inThisView(e)}<EntRender {e} ctx={v.ctx} selected={v.selSet.has(e.id)} style={v.entStyle} isoGround={v.isoGround} imgCrop={imgEdit.mode === 'crop' ? imgEdit.id : null} clipNs={v.clipNs} />{/if}{/each}
-			<!-- a running command's live preview (MOVE / COPY / ROTATE … follow the cursor) -->
-			{#each x.ghosts as e, i (i)}<g opacity="0.45" style="pointer-events:none"><EntRender {e} ctx={v.ctx} selected={false} style={v.entStyle} isoGround={v.isoGround} imgCrop={null} clipNs={v.clipNs + 'g'} /></g>{/each}
-			<VpOverlays {v} {x} />
+			<!-- screen-only tool UI (SVGOUT / PNGOUT strip `.vp-screen`): a running command's live preview (MOVE / COPY /
+			     ROTATE … follow the cursor), grips, crosshair, snap marker, the origin cross -->
+			<g class="vp-screen">
+				{#each x.ghosts as e, i (i)}<g opacity="0.45" style="pointer-events:none"><EntRender {e} ctx={v.ctx} selected={false} style={v.entStyle} isoGround={v.isoGround} imgCrop={null} clipNs={v.clipNs + 'g'} /></g>{/each}
+				<VpOverlays {v} {x} />
+			</g>
 		</g>
 	</svg>
 

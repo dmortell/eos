@@ -4,6 +4,7 @@
 // are degrees CCW from +X.
 import { dist, type Pt, type Ent } from './geometry'
 import type { VpCommandTarget } from './cmdBus.svelte'
+import { svgMarkup, svgToPng, download } from './svgExport'
 import { offsetEnt, outline, crossings, trim, extend, breakAt, setLength, polyLength, project, arcLength, setArcLength } from './modify'
 
 export type CmdHost = {
@@ -14,6 +15,8 @@ export type CmdHost = {
 	 *  the layer's name, or an error. */
 	newLayer(name: string): { name: string } | string
 	setCurrentLayer(id: string): { name: string } | string
+	/** A file name for an export of the active view ('3F Plan - Front'). */
+	exportName(): string
 }
 /** What a command asks for. Any combination; `options` are matched by their leading letters. */
 export type Want = {
@@ -270,6 +273,22 @@ export const SCRIPTS: Record<string, Script> = {
 		const e = c.t.ents([id])[0]; if (!e?.layer) throw new CmdError('That shape has no layer')
 		const r = c.host.setCurrentLayer(e.layer); if (typeof r === 'string') throw new CmdError(r)
 		c.out(`“${r.name}” is now the current layer`)
+	},
+	svgout: async (c) => {
+		const s = c.t.svg(); if (!s) throw new CmdError('No view to export')
+		const name = c.host.exportName() + '.svg'
+		download(new Blob([svgMarkup(s)], { type: 'image/svg+xml' }), name)
+		c.out(`Saved ${name} — the view as it is on screen`)
+	},
+	pngout: async (c) => {
+		const s = c.t.svg(); if (!s) throw new CmdError('No view to export')
+		const name = c.host.exportName() + '.png'
+		download(await svgToPng(svgMarkup(s), s.clientWidth || 800, s.clientHeight || 600), name)
+		c.out(`Saved ${name} (2× the on-screen size)`)
+	},
+	pdf: async (c) => {
+		chk(c.host.run('plot'))
+		c.out('Print → choose “Save as PDF” as the printer (a sheet prints at its true paper size)')
 	},
 	zoomwin: (c) => zoomWindow(c),
 	zoomprev: async (c) => chk(c.t.zoomPrev()),

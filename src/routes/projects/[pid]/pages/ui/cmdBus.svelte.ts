@@ -60,6 +60,8 @@ export type VpCommandTarget = {
 	/** Zoom to a window (user coords) / back to the previous view. */
 	zoomWindow(a: Pt, b: Pt): void
 	zoomPrev(): string | null
+	/** The viewport's <svg> (SVGOUT / PNGOUT). */
+	svg(): SVGSVGElement | undefined
 	/** Pick the shape at a user point (top-most pickable), or null. */
 	entAt(u: Pt): string | null
 }

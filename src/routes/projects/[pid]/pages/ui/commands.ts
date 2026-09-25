@@ -84,6 +84,9 @@ export const COMMANDS: CmdDef[] = [
 	C('open', 'Open project', 'OPEN', 'Pick another project', 'File'),
 	C('dxfout','Export DXF', 'DXFOUT · EXPORT', 'The active view as DXF', 'File'),
 	C('plot', 'Print', 'PLOT · PRINT', 'Print the sheet', 'File'),
+	C('pdf', 'PDF', 'PDF · EXPORTPDF', 'Print to PDF (the browser’s Save as PDF)', 'File'),
+	C('svgout', 'Export SVG', 'SVGOUT · SVG', 'The active view as an SVG (vector) file', 'File'),
+	C('pngout', 'Export PNG', 'PNGOUT · PNG', 'The active view as a PNG image', 'File'),
 	C('schedule', 'Outlet schedule', 'SCHEDULE · OUTLETS', 'The outlets to Excel', 'File'),
 	C('drawings', 'Drawings', 'DRAWINGS · SHEETSET · SSM', 'The drawing management dialog', 'File'),
 	// panels

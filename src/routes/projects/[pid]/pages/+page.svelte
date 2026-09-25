@@ -676,6 +676,7 @@
 			const l = addLayer(ls); l.name = name.trim() || l.name
 			return { name: l.name }
 		},
+		exportName: () => { const av = activeView(); return av && av !== 'no-frame' ? `${av.title} - ${PROJ_LABEL[av.dir]}` : (active?.title ?? 'drawing') },
 		setCurrentLayer: (id) => {
 			const l = modelById(activeMid())?.layers?.find((x) => x.id === id); if (!l) return 'That layer is not in this model'
 			layerUI.active = id
