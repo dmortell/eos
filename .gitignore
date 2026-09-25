@@ -42,3 +42,6 @@ src-sample/
 .playwright-mcp/
 sample-pdf-viewer/
 svelte-pdf-master.zip
+
+# local Claude Code settings (per machine)
+.claude/settings.local.json
