@@ -31,6 +31,7 @@
 	import StatusBar from './parts/StatusBar.svelte'
 	import CommandLine from './parts/CommandLine.svelte'
 	import HelpDialog from './parts/HelpDialog.svelte'
+	import { readingOrder } from './ui/frameNumber'
 	import { commandById, primaryName } from './ui/commands'
 	import { CommandRunner } from './ui/commandRunner.svelte'
 	import ViewGizmos from './parts/ViewGizmos.svelte'
@@ -165,7 +166,7 @@
 	const setScale = (id: string | undefined, s: string) => { if (id) docs.setScale(didOf(id), s) }
 	// The drafting/interaction flags bundle passed to a pane's viewport (one prop instead of six).
 	let guideVert = $state(false)   // the Guide tool's H/V pop-out base (touch has no Shift); Shift still flips it
-	const envFor = (pane: { id: string; activeId: string }) => ({ acad: acadMode, navContent, navMode, blockId: placeBlock ?? undefined, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, cen: toggles.CEN, snapStep, guideVert, canvasZoom: isModelLayout(pane) ? 1 : canvasViewOf(pane).zoom })   // B31: model space has no canvas zoom
+	const envFor = (pane: { id: string; activeId: string }) => ({ acad: acadMode, navContent, navMode, blockId: placeBlock ?? undefined, grid: toggles.GRID, lwt: toggles.LWT, osnap: toggles.OSNAP, snap: toggles.SNAP, ortho: toggles.ORTHO, polar: toggles.POLAR, cen: toggles.CEN, snapStep, guideVert, canvasZoom: isModelLayout(pane) ? 1 : canvasViewOf(pane).zoom })   // B31: model space has no canvas zoom
 	// R6: the Viewport's callback bundle is split in two. `vpView` → `VpOn` (view/camera events only —
 	// still one `on` prop); `vpEditor` → `Editor` (document-mutating ops — entity array, undo-history
 	// bracket, section-marker selection). PaperPage also uses `frame`; the plain Viewport ignores it.
@@ -277,7 +278,7 @@
 	// Viewport frames = a sheet's page model → DOCUMENT state, keyed by drawing id (`Tab.docId`, B18) so they survive
 	// closing/reopening the tab (B6). snapAllFrames/applyPtr operate on the whole map, so history is unaffected.
 	const framesOf = (tabId: string) => docs.framesOf(didOf(tabId))
-	function setFrames(tabId: string, frames: SheetFrame[]) { docs.setFrames(didOf(tabId), frames) }
+	function setFrames(tabId: string, frames: SheetFrame[]) { docs.setFrames(didOf(tabId), readingOrder(frames)) }   // B4: numbered in reading order
 	// ensureHist FIRST (review 2026-09-23): a frame drag streams geometry through here and only records its
 	// step at the end, so without it the session's baseline ("Start") was captured AFTER the first move and
 	// the first frame move / resize could never be undone.
@@ -655,7 +656,7 @@
 			}
 			const panel = { layers: 'layers', props: 'props', history: 'history', blockspanel: 'blocks', blocks: 'blocks' } as const
 			if (id in panel) { rightTab = panel[id as keyof typeof panel]; rightOpen = true; return }
-			const toggleKey: Record<string, string> = { grid: 'GRID', snap: 'SNAP', ortho: 'ORTHO', osnap: 'OSNAP', lwt: 'LWT' }
+			const toggleKey: Record<string, string> = { grid: 'GRID', snap: 'SNAP', ortho: 'ORTHO', polar: 'POLAR', osnap: 'OSNAP', lwt: 'LWT' }
 			if (toggleKey[id]) return toggle(toggleKey[id])
 			switch (id) {
 				case 'outlet': return menuAction('Outlet')
@@ -857,6 +858,7 @@
 			e.preventDefault(); e.stopImmediatePropagation(); paletteOpen = true
 		} else if (mod && !e.shiftKey && (e.key === 'o' || e.key === 'O')) { e.preventDefault(); openProjectOpen = true }   // File › Open Project…
 		else if (e.key === 'F1') { e.preventDefault(); helpOpen = true }
+		else if (e.key === 'F10') { e.preventDefault(); toggles.POLAR = !toggles.POLAR; statusText = `POLAR ${toggles.POLAR ? 'on' : 'off'}` }
 		else if (mod && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo() }
 		else if (mod && ((e.shiftKey && (e.key === 'z' || e.key === 'Z')) || e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo() }
 		else if (!onCanvas) return   // the canvas keys below leave a focused sidebar / tree its own paging + keys
@@ -969,7 +971,7 @@
 	// projection changes — see the Full-size button + ViewCube — so the other pane is undisturbed).
 	let mounted = false
 	$effect(() => { if (!mounted) { mounted = true; refitAll({ skipIfPersisted: true }) } })
-	let toggles = $state<Record<string, boolean>>({ GRID: true, SNAP: true, ORTHO: false, OSNAP: true, LWT: false, CEN: false })
+	let toggles = $state<Record<string, boolean>>({ GRID: true, SNAP: true, ORTHO: false, POLAR: false, OSNAP: true, LWT: false, CEN: false })
 	let snapStep = $state(100)   // SNAP grid spacing, model mm (status bar; was the fixed SNAP_STEP)
 	// AutoCAD mode: wheel = zoom, draw = two clicks. Off = EOS: wheel = pan, draw = press-drag.
 	let acadMode = $state(true)

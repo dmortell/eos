@@ -129,11 +129,14 @@ export class VpInteraction {
 		v.snapMark = hit
 		return hit ? hit.p : null
 	}
-	/** The point a draw/place uses: object snap wins; else the Shift/ORTHO-constrained, grid-snapped pointer. */
+	/** POLAR tracking: the 15° ray the last draw point slid onto (drawn dashed), else null. */
+	polarTrack = $state<[Pt, Pt] | null>(null)
+	/** The point a draw/place uses: object snap wins; else the Shift/ORTHO/POLAR-constrained, grid-snapped pointer. */
 	private drawPoint(clientX: number, clientY: number, base?: Pt, shift = false): Pt | null {
 		const v = this.v, m = v.mapper(); if (!m) { v.snapMark = null; return null }
-		const r = drawPoint(v.ctx, m, { osnap: v.osnap, snap: v.snap, step: v.snapStep, ortho: v.ortho, tool: v.tool, ents: v.entities, editingId: this.editText?.id, objs: v.mdl?.objects, ml: v.mlayers }, clientX, clientY, base, shift)
+		const r = drawPoint(v.ctx, m, { osnap: v.osnap, snap: v.snap, step: v.snapStep, ortho: v.ortho, polar: v.polar, tool: v.tool, ents: v.entities, editingId: this.editText?.id, objs: v.mdl?.objects, ml: v.mlayers }, clientX, clientY, base, shift)
 		v.snapMark = r.mark
+		this.polarTrack = r.track ?? null
 		return r.p
 	}
 	/** While drawing a Wall/Trunk/Pipe in an elevation: the segment the NEXT point snaps its depth onto. */

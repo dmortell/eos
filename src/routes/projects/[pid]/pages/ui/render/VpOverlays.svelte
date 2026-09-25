@@ -29,6 +29,10 @@
 {:else if v.active && x.draft.length && x.cur}
 	{@render preview(x.draft[0], x.cur)}
 {/if}
+<!-- POLAR tracking: the 15° ray the point is sliding along -->
+{#if x.polarTrack && v.active && (x.draft.length || x.pickCur)}
+	<line x1={x.polarTrack[0][0]} y1={x.polarTrack[0][1]} x2={x.polarTrack[1][0]} y2={x.polarTrack[1][1]} stroke="#22c55e" stroke-width={sw} stroke-dasharray="{2 * sw} {4 * sw}" opacity="0.8" pointer-events="none" />
+{/if}
 <!-- a running command's pick: the rubber band from its base point + the crosshair -->
 {#if x.pickCur}
 	{#if x.pickBase && x.pickBox}

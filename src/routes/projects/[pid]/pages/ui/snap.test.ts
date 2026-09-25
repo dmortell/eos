@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { SNAP_STEP, snapToGrid, rndTo, snapDelta, entSnaps, findSnap, drawPoint, snapNode, graphNodeApply, elevDepthSnap, objSnaps, PAPER_SNAP_STEP, paperSnapLines, frameSnapDelta } from './snap'
+import { SNAP_STEP, snapToGrid, rndTo, snapDelta, entSnaps, findSnap, drawPoint, snapNode, graphNodeApply, elevDepthSnap, objSnaps, PAPER_SNAP_STEP, paperSnapLines, frameSnapDelta, polarPt } from './snap'
 import { rotatePt, type GN } from './hit'
 import type { Model, Obj } from '../3dview/types'
 import type { Mapper } from './mapper'
@@ -412,5 +412,15 @@ describe('frameSnapDelta', () => {
 	it('with the grid disabled, a larger tolerance reaches farther lines', () => {
 		expect(frameSnapDelta([190], [0, 200], 0, 15)).toBe(10)   // 190 -> 200, within a 15mm tolerance
 		expect(frameSnapDelta([190], [0, 200], 0, 5)).toBe(0)   // same case, tolerance too small to reach the line
+	})
+})
+
+describe('POLAR tracking', () => {
+	it('slides onto the nearest 15° ray within 4°, else leaves the point alone', () => {
+		const r = polarPt([0, 0], [100, 3])!   // ~1.7° off horizontal
+		expect(r.p[0]).toBeCloseTo(100); expect(r.p[1]).toBeCloseTo(0)
+		const d = polarPt([0, 0], [70, 72])!   // ~45.8°
+		expect(Math.atan2(d.p[1], d.p[0]) * 180 / Math.PI).toBeCloseTo(45)
+		expect(polarPt([0, 0], [100, 14])).toBeNull()   // ~8°: between rays
 	})
 })

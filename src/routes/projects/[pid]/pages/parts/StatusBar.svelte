@@ -7,7 +7,7 @@
 	import type { PaperSize } from '../constants'
 	// Tooltips for the terse toggle codes.
 	const TOGGLE_TITLES: Record<string, string> = {
-		GRID: 'Show the reference grid', SNAP: 'Snap points to the grid (step: the box beside it)', ORTHO: 'Constrain draw/move to horizontal/vertical',
+		GRID: 'Show the reference grid', SNAP: 'Snap points to the grid (step: the box beside it)', ORTHO: 'Constrain draw/move to horizontal/vertical', POLAR: 'Polar tracking (F10): the rubber band snaps to 15° angles',
 		OSNAP: 'Snap to object points (ends, midpoints, centres)', LWT: 'Show lineweights', CEN: 'Draw rectangles/ellipses centre-out (first click = centre)',
 	}
 	// SNAP grid steps (model mm). 44.45 = one rack unit (1U), so rack devices step U by U in an elevation.

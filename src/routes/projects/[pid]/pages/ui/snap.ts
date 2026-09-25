@@ -158,21 +158,32 @@ export function findSnap(ctx: ViewCtx, m: Mapper, ents: Ent[], clientX: number, 
 
 /** What drawPoint reads: the OSNAP / SNAP / ORTHO toggles, the active tool, the entities to snap to, and
  *  the inline-edited text id (skipped). */
-export type DrawInputs = { osnap: boolean; snap: boolean; /** grid step, mm (default SNAP_STEP) */ step?: number; ortho: boolean; tool: string; ents: Ent[]; editingId?: string; objs?: Obj[]; ml?: MLayers }
+export type DrawInputs = { osnap: boolean; snap: boolean; /** grid step, mm (default SNAP_STEP) */ step?: number; ortho: boolean; /** POLAR tracking (15° rays) */ polar?: boolean; tool: string; ents: Ent[]; editingId?: string; objs?: Obj[]; ml?: MLayers }
 
 /** The point a draw/place should use, plus the snap mark to show. Object snap wins outright; otherwise
  *  the pointer point, Shift-constrained (square / 15°, per tool) or ORTHO-locked (H/V, Line + Dimension
  *  only) relative to `base`, then grid-snapped when SNAP is on. `mark` is null unless an object snap hit. */
-export function drawPoint(ctx: ViewCtx, m: Mapper, inp: DrawInputs, clientX: number, clientY: number, base?: Pt, shift = false): { p: Pt; mark: SnapHit | null } {
+export function drawPoint(ctx: ViewCtx, m: Mapper, inp: DrawInputs, clientX: number, clientY: number, base?: Pt, shift = false): { p: Pt; mark: SnapHit | null; track?: [Pt, Pt] } {
 	const hit = inp.osnap ? findSnap(ctx, m, inp.ents, clientX, clientY, { editingId: inp.editingId, objs: inp.objs, ml: inp.ml }) : null
 	if (hit) return { p: hit.p, mark: hit }   // object snap wins over grid snap
 	let p = m.toModel(clientX, clientY)
 	if (base) {
 		if (shift) p = constrainPt(inp.tool, base, p, true)                                       // Shift: 15° / square
 		else if (inp.ortho && (inp.tool === 'Line' || inp.tool === 'Dimension')) p = orthoPt(base, p)   // ORTHO: H/V
+		else if (inp.polar) { const r = polarPt(base, p); if (r) return { p: r.p, mark: null, track: r.track } }   // POLAR: on a 15° ray
 	}
 	if (inp.snap) p = snapToGrid(p, inp.step || SNAP_STEP)   // grid snap
 	return { p, mark: null }
+}
+
+/** POLAR tracking: within `tolDeg` of a multiple of `stepDeg` from `base`, the point slides onto that ray (keeping its
+ *  distance along it); `track` = a long line along the ray to draw. null = not near one. */
+export function polarPt(base: Pt, p: Pt, stepDeg = 15, tolDeg = 4): { p: Pt; track: [Pt, Pt] } | null {
+	const dx = p[0] - base[0], dy = p[1] - base[1], L = Math.hypot(dx, dy); if (L < 1e-9) return null
+	const a = (Math.atan2(dy, dx) * 180) / Math.PI, k = Math.round(a / stepDeg) * stepDeg
+	if (Math.abs(a - k) > tolDeg) return null
+	const r = (k * Math.PI) / 180, u: Pt = [Math.cos(r), Math.sin(r)], d = dx * u[0] + dy * u[1]
+	return { p: [base[0] + u[0] * d, base[1] + u[1] * d], track: [base, [base[0] + u[0] * Math.max(d, 1) * 1000, base[1] + u[1] * Math.max(d, 1) * 1000]] }
 }
 
 // ── graph-node snapping (wall / conduit vertices) ──
