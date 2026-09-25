@@ -4,6 +4,24 @@ A readable, curated history of the major milestones (R11). For the exact, per-co
 `git log -- 'src/routes/projects/[pid]/pages/'`; `todo.md` keeps the long historical done-log and the
 open items; `review.md §0a` tracks which review findings are closed.
 
+## Round 4 (2026-09-25) — more drafting commands, riser editing, POLAR
+- **JOIN**: lines that meet end to end → one polyline. **EXPLODE**: a block → its shapes + attribute texts; a
+  polyline → its segments; a rectangle → 4 lines; a group → ungrouped (`ui/explode.ts`).
+- **FILLET** (Radius; 0 = a clean corner, else a tangent arc) and **CHAMFER** (two distances). Both take two
+  2-point lines, picked on the side to keep (`modify.corner`).
+- **LAYOFF / LAYFRZ / LAYISO / LAYUNISO / LAYON**. LAYFRZ is VP Freeze in the active viewport, else off.
+- **POLAR tracking** (status bar POLAR, F10, the POLAR command): the rubber band slides onto the nearest 15° ray
+  (within 4°), with a dashed tracking line.
+- **Command line**:
+  - a prompt's [options] are clickable;
+  - ▴ expands the whole history;
+  - PLAN / FRONT / … on a sheet need an active viewport (they no longer re-aim the first one).
+- **B4**: a sheet's viewports are numbered in reading order and renumbered as they move (`ui/frameNumber.ts`).
+- **F4**: Alt-drag a node inside a run splits it there. The selected segment's end comes away; otherwise the segment
+  pointing the way you drag (`modelEdit.splitNode`).
+- **Riser frames with hidden floors**: shapes are selectable and editable again (click / marquee / grips). The view
+  works on the drawn heights and writes the real ones back (`storeyMap.unmap`).
+
 ## Round 3 (2026-09-25) — layout tools, help, connection points, logo storage
 - **Align / distribute** (`ui/arrange.ts`): Properties › ARRANGE › Align (left / centre / right / top / middle /
   bottom — to the extreme shape or the centre line) and Distribute (equal gaps, 3+). Also the ALIGN command. A group
